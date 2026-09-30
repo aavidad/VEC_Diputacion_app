@@ -33,14 +33,16 @@ type lecturaPreparacionV2 struct {
 	detalle     ct.DetalleExpedienteRRHH
 	preparacion ct.PreparacionIncorporacionAplicacionV2
 	recibo      *ct.ReciboIncorporacionAplicacionV2
-	publicacion dom.PublicacionDefinicionSeguimiento
-	posterior   dom.EstadoPersistidoSeguimiento
-	ultimo      time.Time
+	// Acreditado por el lector propietario con permiso y auditoría vigentes.
+	personalOriginal *ct.RegistroPersonalEjercicio
+	publicacion      dom.PublicacionDefinicionSeguimiento
+	posterior        dom.EstadoPersistidoSeguimiento
+	ultimo           time.Time
 }
 
 // leer siempre empieza por consulta nominal ACTUAL. Ni CT81 ni el restaurador
 // histórico conceden acceso vigente; no hay caché de órdenes o recibos.
-func (p *PreparadorDurableV2) leer(ctx context.Context, exp string, version uint64) (lecturaPreparacionV2, error) {
+func (p *PreparadorDurableV2) leer(ctx context.Context, exp string, versionHistorica uint64) (lecturaPreparacionV2, error) {
 	var z lecturaPreparacionV2
 	if ctx == nil || p == nil {
 		return z, ct.ErrComposicionIncorporacionAplicacion
@@ -48,7 +50,10 @@ func (p *PreparadorDurableV2) leer(ctx context.Context, exp string, version uint
 	if err := ctx.Err(); err != nil {
 		return z, err
 	}
-	s, err := ct.NuevaSolicitudDetalleRRHH(exp, version)
+	// La consulta autoriza frente al expediente ACTUAL. La versión de una
+	// intención ya confirmada se coteja después con su historia restaurada;
+	// usarla aquí ocultaría el detalle si el expediente avanzó desde entonces.
+	s, err := ct.NuevaSolicitudDetalleRRHH(exp, 0)
 	if err != nil {
 		return z, ct.ErrIntencionIncorporacionAplicacion
 	}
@@ -103,6 +108,9 @@ func (p *PreparadorDurableV2) leer(ctx context.Context, exp string, version uint
 		if err != nil {
 			return lecturaPreparacionV2{}, err
 		}
+		if versionHistorica != 0 && z.preparacion.VersionActualExpediente != versionHistorica {
+			return lecturaPreparacionV2{}, ct.ErrConflictoIncorporacionAplicacion
+		}
 		// La historia ya fue validada al restaurar el recibo original. Se
 		// conserva su evidencia para la consulta de seguimiento sin releerla.
 		z.publicacion, _, z.posterior = h.Historia.EvidenciaSeguimiento()
@@ -148,6 +156,8 @@ func (p *PreparadorDurableV2) leer(ctx context.Context, exp string, version uint
 		if !dom.InstanteUTCCanonico(ahora) || ahora.Before(t) || !originalPersonalDelPlan(original, local.Selector, plan, ahora) {
 			return lecturaPreparacionV2{}, ct.ErrComposicionIncorporacionAplicacion
 		}
+		registro := cloneRegistro(original.Registro)
+		z.personalOriginal = &registro
 		z.ultimo = ahora
 		registradoPersonal = original.Registro.RegistradoEn
 	} else if local.Solicitud != (ct.SolicitudAltaPersonalRPT{}) || local.Selector.SolicitudRef != "" {
@@ -256,49 +266,60 @@ func (p *PreparadorDurableV2) Consultar(ctx context.Context, exp string) (ct.Pro
 }
 
 func (p *PreparadorDurableV2) Preparar(ctx context.Context, i ct.IntencionIncorporacionAplicacionV2) (ct.PreparacionIncorporacionAplicacionV2, error) {
+	x, _, _, err := p.prepararConOriginal(ctx, i)
+	return x, err
+}
+
+// prepararConOriginal conserva el registro Personal leído y el recibo CT
+// restaurado en la misma preparación; un cambio de perfil no reemite el alta.
+func (p *PreparadorDurableV2) prepararConOriginal(ctx context.Context, i ct.IntencionIncorporacionAplicacionV2) (ct.PreparacionIncorporacionAplicacionV2, *ct.RegistroPersonalEjercicio, *ct.ReciboIncorporacionAplicacionV2, error) {
 	var z ct.PreparacionIncorporacionAplicacionV2
 	if ctx == nil {
-		return z, ct.ErrComposicionIncorporacionAplicacion
+		return z, nil, nil, ct.ErrComposicionIncorporacionAplicacion
 	}
 	if ctx.Err() != nil {
-		return z, ctx.Err()
+		return z, nil, nil, ctx.Err()
 	}
 	if i.Validar() != nil {
-		return z, ct.ErrIntencionIncorporacionAplicacion
+		return z, nil, nil, ct.ErrIntencionIncorporacionAplicacion
 	}
 	i = i.Copia()
 	l, err := p.leer(ctx, i.ExpedienteRef, i.VersionActualExpedienteObservada)
 	if err != nil {
-		return z, err
+		return z, nil, nil, err
 	}
 	x := l.preparacion
 	// Nunca actualizar la intención original para ocultar un conflicto.
 	if x.SolicitudPersonal.SolicitudRef != i.SolicitudPersonalRef || x.VersionActualExpediente != i.VersionActualExpedienteObservada || x.MotivoClave != i.MotivoClave || !documentosIntencionExactos(x.Documentos, i.DocumentosRefs) {
-		return z, ct.ErrConflictoIncorporacionAplicacion
+		return z, nil, nil, ct.ErrConflictoIncorporacionAplicacion
 	}
 	x.Preparacion = p.c.Autoridad.PreparacionAutoridadCT()
 	x.SolicitudContexto = p.c.Autoridad.solicitudContexto()
 	x.Contexto, err = p.c.Autoridad.ContextoAutoridad()
 	if err != nil {
-		return z, errorAutoridadPreparacion(ctx, err)
+		return z, nil, nil, errorAutoridadPreparacion(ctx, err)
 	}
 	// Sólo la correlación de autorización es fresca. Solicitud/idempotencia y
 	// datos de transición permanecen inmutables y salen del plan/original.
 	x.CorrelacionV3, err = core.GenerarReferenciaCorrelacionAutorizacionV2(ctx, p.c.Autoridad.correlador)
 	if ctx.Err() != nil {
-		return z, ctx.Err()
+		return z, nil, nil, ctx.Err()
 	}
 	if err != nil {
-		return z, fallo(ctx, err)
+		return z, nil, nil, fallo(ctx, err)
 	}
 	t, err := p.finalizar(ctx, l.ultimo)
 	if err != nil {
-		return z, err
+		return z, nil, nil, err
 	}
 	if err = validarPreparacion(x, i, t); err != nil {
-		return z, err
+		return z, nil, nil, err
 	}
-	return clonarPreparacion(x)
+	x, err = clonarPreparacion(x)
+	if err != nil {
+		return z, nil, nil, err
+	}
+	return x, l.personalOriginal, l.recibo, nil
 }
 
 func errorAutoridadPreparacion(ctx context.Context, err error) error {
@@ -308,7 +329,23 @@ func errorAutoridadPreparacion(ctx context.Context, err error) error {
 	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 		return err
 	}
-	return ct.ErrDenegadaIncorporacionAplicacion
+	// El revalidador puede envolver una revocación central con su centinela
+	// genérico de indisponibilidad. La causa explícita de revocación prevalece.
+	if errors.Is(err, core.ErrAutenticacionRevalidadaInvalida) || errors.Is(err, core.ErrAutorizacionDenegada) {
+		return ct.ErrDenegadaIncorporacionAplicacion
+	}
+	// Una dependencia caída puede llegar unida a un centinela de denegación
+	// desde la sesión. La indisponibilidad tiene prioridad para no responder
+	// que el actor carece de permiso cuando ni siquiera se pudo comprobarlo.
+	if errors.Is(err, ct.ErrConsultaRRHHNoDisponible) || errors.Is(err, ct.ErrComposicionIncorporacionAplicacion) {
+		return ct.ErrComposicionIncorporacionAplicacion
+	}
+	if errors.Is(err, ct.ErrDenegadaIncorporacionAplicacion) || errors.Is(err, ct.ErrAutorizacionDenegada) ||
+		errors.Is(err, core.ErrContextoActorNoResuelto) || errors.Is(err, core.ErrContextoActorInvalido) ||
+		errors.Is(err, core.ErrInstantaneaContextoActorInvalida) || errors.Is(err, ErrAutoridadAplicacion) {
+		return ct.ErrDenegadaIncorporacionAplicacion
+	}
+	return ct.ErrComposicionIncorporacionAplicacion
 }
 
 var _ ct.ProveedorPreparacionIncorporacionAplicacionV2 = (*PreparadorDurableV2)(nil)

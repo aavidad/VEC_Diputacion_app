@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	bolsapersonal "vec-diputacion-granada/internal/modules/bolsa/adapters/httppersonal"
+	ct "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
@@ -277,7 +278,13 @@ func (s *seguridadComunDesarrollo) ResolverContexto(
 		cache = &cacheSeguridadComunDesarrollo{}
 	}
 	cache.unaVez.Do(func() { cache.contexto, cache.err = s.sesion.ResolverContexto(ctx) })
-	if cache.err != nil || cache.contexto.Resultado.Validar() != nil ||
+	if cache.err != nil {
+		if errors.Is(cache.err, ct.ErrConsultaRRHHNoDisponible) {
+			return contextoSeguridadComunDesarrollo{}, ct.ErrConsultaRRHHNoDisponible
+		}
+		return contextoSeguridadComunDesarrollo{}, ErrSeguridadComunDesarrolloDenegada
+	}
+	if cache.contexto.Resultado.Validar() != nil ||
 		cache.contexto.Vinculo.ValidarPara(cache.contexto.Resultado) != nil ||
 		!cache.contexto.Vinculo.VigenteEn(s.reloj.Ahora(), cache.contexto.Resultado) ||
 		!frontera.descriptor.admitePerfil(cache.contexto.Resultado.Contexto.PerfilActivoRef) {

@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	ct "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	httpseguridad "vec-diputacion-granada/internal/vec/adapters/httpseguridad"
+	core "vec-diputacion-granada/internal/vec/domain"
 )
 
 func configuracionServidorV2Prueba(t *testing.T, c *casoPreparacionV2) ConfiguracionServidorV2PostgreSQL {
@@ -114,6 +115,36 @@ func TestIncorporacionV2EnsamblajeConfiguracionCerrada(t *testing.T) {
 	cancel()
 	if p, err := s.NuevaPeticion(ctx); p != nil || !errors.Is(err, context.Canceled) {
 		t.Fatal("cancelación perdida")
+	}
+}
+
+func TestNuevaPeticionIncorporacionDistingueDependenciaDeDenegacion(t *testing.T) {
+	for _, caso := range []struct {
+		nombre string
+		fallo  error
+		espera error
+	}{
+		{"base_caida", ct.ErrConsultaRRHHNoDisponible, ct.ErrComposicionIncorporacionAplicacion},
+		{"caida_con_denegacion", errors.Join(ct.ErrDenegadaIncorporacionAplicacion, ct.ErrConsultaRRHHNoDisponible), ct.ErrComposicionIncorporacionAplicacion},
+		{"revocacion_envuelta_en_caida", errors.Join(ct.ErrConsultaRRHHNoDisponible, ct.ErrAutorizacionDenegada, core.ErrAutenticacionRevalidadaInvalida), ct.ErrDenegadaIncorporacionAplicacion},
+		{"denegacion_central_envuelta", errors.Join(ct.ErrConsultaRRHHNoDisponible, core.ErrAutorizacionDenegada), ct.ErrDenegadaIncorporacionAplicacion},
+		{"perfil_revocado", ct.ErrDenegadaIncorporacionAplicacion, ct.ErrDenegadaIncorporacionAplicacion},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			c := nuevoCasoPreparacionV2(t)
+			cfg := configuracionServidorV2Prueba(t, c)
+			cfg.FuenteAutoridad = autoridadFuenteDoble{fallo: caso.fallo}
+			s, err := NuevoServidorV2PostgreSQL(cfg)
+			registroV2Exigir(t, err)
+			p, err := s.NuevaPeticion(context.Background())
+			otraCategoria := ct.ErrDenegadaIncorporacionAplicacion
+			if caso.espera == otraCategoria {
+				otraCategoria = ct.ErrComposicionIncorporacionAplicacion
+			}
+			if p != nil || !errors.Is(err, caso.espera) || errors.Is(err, otraCategoria) || c.a.store.registros != 0 {
+				t.Fatalf("petición no cerró con categoría esperada: %v", err)
+			}
+		})
 	}
 }
 

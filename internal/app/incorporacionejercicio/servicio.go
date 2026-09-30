@@ -76,7 +76,17 @@ func (s *Servicio) Confirmar(ctx context.Context, i ct.IntencionIncorporacionApl
 	if t.IsZero() {
 		return cero, ct.ErrComposicionIncorporacionAplicacion
 	}
-	p, e := s.c.Preparador.Preparar(ctx, i.Copia())
+	var p ct.PreparacionIncorporacionAplicacionV2
+	var original *ct.RegistroPersonalEjercicio
+	var reciboAnterior *ct.ReciboIncorporacionAplicacionV2
+	var e error
+	if preparador, ok := s.c.Preparador.(interface {
+		prepararConOriginal(context.Context, ct.IntencionIncorporacionAplicacionV2) (ct.PreparacionIncorporacionAplicacionV2, *ct.RegistroPersonalEjercicio, *ct.ReciboIncorporacionAplicacionV2, error)
+	}); ok {
+		p, original, reciboAnterior, e = preparador.prepararConOriginal(ctx, i.Copia())
+	} else {
+		p, e = s.c.Preparador.Preparar(ctx, i.Copia())
+	}
 	if e != nil {
 		return cero, fallo(ctx, e)
 	}
@@ -94,50 +104,64 @@ func (s *Servicio) Confirmar(ctx context.Context, i ct.IntencionIncorporacionApl
 	if e = validarPreparacion(p, i, t); e != nil {
 		return cero, e
 	}
-	captura := &capturaAlta{delegado: s.c.TransaccionAlta, reloj: reloj}
-	consumidor, e := personal.NuevoConsumidor(s.c.FuentePersonal, s.c.TernaPersonal, proveedorAltaLigado{s.c.ProveedorAlta, p}, captura, reloj)
-	if e != nil {
-		return cero, fallo(ctx, e)
+	if reciboAnterior != nil {
+		if original != nil || !reciboVisibleValido(*reciboAnterior, i.ExpedienteRef, t) {
+			return cero, ct.ErrComposicionIncorporacionAplicacion
+		}
+		return *reciboAnterior, nil
 	}
-	reducido, e := consumidor.SolicitarAlta(ctx, p.SolicitudPersonal)
-	if e != nil {
-		return cero, fallo(ctx, e)
+	var r ct.RegistroPersonalEjercicio
+	if original != nil {
+		r = cloneRegistro(*original)
+		if r.ValidarEstructuraPara(p.SolicitudPersonal, t) != nil {
+			return cero, ct.ErrComposicionIncorporacionAplicacion
+		}
+	} else {
+		captura := &capturaAlta{delegado: s.c.TransaccionAlta, reloj: reloj}
+		consumidor, err := personal.NuevoConsumidor(s.c.FuentePersonal, s.c.TernaPersonal, proveedorAltaLigado{s.c.ProveedorAlta, p}, captura, reloj)
+		if err != nil {
+			return cero, fallo(ctx, err)
+		}
+		reducido, err := consumidor.SolicitarAlta(ctx, p.SolicitudPersonal)
+		if err != nil {
+			return cero, fallo(ctx, err)
+		}
+		o, alta, err := captura.tomar(ctx)
+		if err != nil {
+			return cero, err
+		}
+		if reducido != alta.Recibo.Resultado || o.Material().Preparacion.Solicitud != p.SolicitudPersonal {
+			return cero, ct.ErrComposicionIncorporacionAplicacion
+		}
+		h, err := alta.Recibo.Material.HuellaSHA256()
+		if err != nil {
+			return cero, ct.ErrComposicionIncorporacionAplicacion
+		}
+		sel := lector.Selector{OrganizacionRef: p.Preparacion.OrganizacionRef, SolicitudRef: p.SolicitudPersonal.SolicitudRef, ExpedienteRef: p.SolicitudPersonal.ExpedienteRef,
+			VersionExpediente: p.SolicitudPersonal.VersionExpediente, ResultadoRef: reducido.ResultadoRef, ReciboRef: reducido.ReciboRef, RelacionRef: reducido.RelacionRef, OcupacionRef: reducido.OcupacionRef, MaterialSHA256: h}
+		t = reloj.Ahora()
+		if e = ctx.Err(); e != nil {
+			return cero, e
+		}
+		if validarPreparacion(p, i, t) != nil {
+			return cero, ct.ErrComposicionIncorporacionAplicacion
+		}
+		leido, err := s.c.LectorPersonal.Leer(ctx, sel, p.Preparacion.UnidadRef, p.Contexto)
+		if err != nil {
+			return cero, fallo(ctx, err)
+		}
+		if e = ctx.Err(); e != nil {
+			return cero, e
+		}
+		t = reloj.Ahora()
+		if e = ctx.Err(); e != nil {
+			return cero, e
+		}
+		if validarPreparacion(p, i, t) != nil || !mismoOriginal(leido.Registro, alta.Recibo, t) {
+			return cero, ct.ErrComposicionIncorporacionAplicacion
+		}
+		r = cloneRegistro(leido.Registro)
 	}
-	o, alta, e := captura.tomar(ctx)
-	if e != nil {
-		return cero, e
-	}
-	if reducido != alta.Recibo.Resultado || o.Material().Preparacion.Solicitud != p.SolicitudPersonal {
-		return cero, ct.ErrComposicionIncorporacionAplicacion
-	}
-	h, e := alta.Recibo.Material.HuellaSHA256()
-	if e != nil {
-		return cero, ct.ErrComposicionIncorporacionAplicacion
-	}
-	sel := lector.Selector{OrganizacionRef: p.Preparacion.OrganizacionRef, SolicitudRef: p.SolicitudPersonal.SolicitudRef, ExpedienteRef: p.SolicitudPersonal.ExpedienteRef,
-		VersionExpediente: p.SolicitudPersonal.VersionExpediente, ResultadoRef: reducido.ResultadoRef, ReciboRef: reducido.ReciboRef, RelacionRef: reducido.RelacionRef, OcupacionRef: reducido.OcupacionRef, MaterialSHA256: h}
-	t = reloj.Ahora()
-	if e = ctx.Err(); e != nil {
-		return cero, e
-	}
-	if validarPreparacion(p, i, t) != nil {
-		return cero, ct.ErrComposicionIncorporacionAplicacion
-	}
-	leido, e := s.c.LectorPersonal.Leer(ctx, sel, p.Preparacion.UnidadRef, p.Contexto)
-	if e != nil {
-		return cero, fallo(ctx, e)
-	}
-	if e = ctx.Err(); e != nil {
-		return cero, e
-	}
-	t = reloj.Ahora()
-	if e = ctx.Err(); e != nil {
-		return cero, e
-	}
-	if validarPreparacion(p, i, t) != nil || !mismoOriginal(leido.Registro, alta.Recibo, t) {
-		return cero, ct.ErrComposicionIncorporacionAplicacion
-	}
-	r := cloneRegistro(leido.Registro)
 	m, e := ct.NuevoMaterialConfirmacionIncorporacionV2(ct.DatosMaterialConfirmacionIncorporacionV2{
 		Confirmacion: ct.DatosConfirmacionIncorporacion{SolicitudPersonal: p.SolicitudPersonal, ResultadoPersonal: r.Resultado, VersionSeguimientoEsperada: p.VersionSeguimientoEsperada,
 			PeriodoIncorporacion: p.Periodo, MotivoClave: p.MotivoClave, Documentos: p.Documentos},

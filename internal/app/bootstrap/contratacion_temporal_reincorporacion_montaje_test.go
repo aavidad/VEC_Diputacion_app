@@ -101,6 +101,17 @@ func TestReincorporacionExigeLecturaYEscrituraV3Distintas(t *testing.T) {
 				contextoEsperadoRegistrado: contextoReincorporacion.Resultado,
 				sesionOperativa:            proveedorSesionOperativaCTPrueba{contexto: contextoReincorporacion},
 			}
+			fijo, err := perfilFijoReincorporacionTitular(soporte)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := soporte.registrarPerfilFijoCTDesarrollo(fijo); err != nil {
+				t.Fatal(err)
+			}
+			central := soporte.autoridadAsignaciones.(*autoridadAsignacionesContratacionTemporalDesarrolloPrueba)
+			central.asignaciones = map[string]instantaneaPublicadaDesarrollo{fijo.perfilRef(): {
+				instantanea: instantanea, actoAsignacion: actoAsignacionPerfilFijoCTDesarrollo,
+				actoControl: actoControlRolReincorporacionTitularDesarrollo}}
 			servicio, err := aplicacionvec.NuevoServicioAutorizacionSolicitudLigadaV3(soporte, soporte, soporte, soporte,
 				soporte.reloj, seguridadvec.GeneradorReferenciasCriptograficas{}, aplicacionvec.ConfiguracionServicioAutorizacion{VigenciaDecision: 90 * time.Second})
 			if err != nil {
@@ -114,10 +125,7 @@ func TestReincorporacionExigeLecturaYEscrituraV3Distintas(t *testing.T) {
 			if (err == nil) != caso.lectura {
 				t.Fatalf("lectura=%v error=%v", caso.lectura, err)
 			}
-			recurso := vecdomain.RecursoAutorizable{Referencia: "expediente:1", ModuloID: ctports.ModuloContratacion,
-				Tipo: ctports.TipoRecursoReincorporacionTitular,
-				Ambitos: map[string]string{"organizacion_ref": organizacionAltaContratacionTemporalDesarrollo,
-					"expediente_ref": "expediente:1", "fase_previa": string(ctdomain.FaseNombramiento), "estado_previo": string(ctdomain.EstadoEnCurso)}}
+			recurso := recursoReincorporacionPerfilFijoPrueba("expediente:1")
 			solicitud, _, _, _, err := autoridad.exigir(ctx, string(ctdomain.AccionRegistrarReincorporacionTitular),
 				ctports.FinalidadRegistrarReincorporacionTitular, recurso)
 			if (err == nil) != caso.escritura {
@@ -131,7 +139,7 @@ func TestReincorporacionExigeLecturaYEscrituraV3Distintas(t *testing.T) {
 			}
 			antecedente := vecdomain.RecursoAutorizable{Referencia: "expediente:1", ModuloID: ctports.ModuloContratacion,
 				Tipo:    ctports.TipoRecursoLecturaReincorporacionTitular,
-				Ambitos: map[string]string{"organizacion_ref": organizacionAltaContratacionTemporalDesarrollo, "expediente_ref": "expediente:1"},
+				Ambitos: map[string]string{"organizacion_ref": organizacionAltaContratacionTemporalDesarrollo},
 				Atributos: map[string]string{"version_expediente": "1", "relacion_ref": "relacion:1", "fecha_efectiva": "2026-09-20",
 					"documento_ref": "documento:1", "documento_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}
 			_, _, _, _, err = autoridad.exigirLecturaAntecedenteReincorporacion(ctx, ctports.SolicitudAutorizarOperacionSeguimiento{
@@ -144,6 +152,9 @@ func TestReincorporacionExigeLecturaYEscrituraV3Distintas(t *testing.T) {
 			ajena := contextoRutaCoberturaDesarrolloPrueba(soporte, principal, cthttp.RutaCesesNombramiento)
 			if err := autoridad.AutorizarLecturaSeguimiento(ajena, organizacionAltaContratacionTemporalDesarrollo, "expediente:1"); err == nil {
 				t.Fatal("capacidad de ruta ajena admitida para retorno")
+			}
+			if central.preparadas != 0 || central.publicadas != 0 {
+				t.Fatal("el perfil fijo publicó permisos durante una petición")
 			}
 		})
 	}
