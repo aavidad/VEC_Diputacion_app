@@ -100,8 +100,6 @@ type PreimagenProvisionCandidatoExterno struct {
 	VersionContexto    int64  `json:"version_contexto"`
 	HuellaContexto     string `json:"huella_contexto"`
 	SecuenciaMotivos   int64  `json:"secuencia_motivos"`
-	VersionBolsa       int64  `json:"version_bolsa,omitempty"`
-	HuellaBolsa        string `json:"huella_bolsa,omitempty"`
 }
 
 func (p PreimagenProvisionCandidatoExterno) validar() bool {
@@ -113,7 +111,7 @@ func (p PreimagenProvisionCandidatoExterno) validar() bool {
 			return false
 		}
 	}
-	return p.SecuenciaMotivos >= 0 && p.SecuenciaMotivos < 1<<62 && preimagenParticipacionBolsaValida(p.VersionBolsa, p.HuellaBolsa)
+	return p.SecuenciaMotivos >= 0 && p.SecuenciaMotivos < 1<<62
 }
 
 type FuenteProvisionCandidatoExterno struct {
@@ -121,7 +119,6 @@ type FuenteProvisionCandidatoExterno struct {
 	Snapshot  SnapshotContextoExterno             `json:"snapshot"`
 	Preimagen PreimagenProvisionCandidatoExterno  `json:"preimagen"`
 	Identidad *IdentidadProvisionCandidatoExterno `json:"identidad,omitempty"`
-	Bolsa     *ContextoParticipacionBolsaExterna  `json:"bolsa,omitempty"`
 }
 
 func (FuenteProvisionCandidatoExterno) String() string   { return "[FUENTE EXTERNA PRIVADA]" }
@@ -181,8 +178,6 @@ type PlanProvisionCandidatoExterno struct {
 	motivos        []core.ReferenciaEntradaCatalogo
 	desde          time.Time
 	identidad      *IdentidadProvisionCandidatoExterno
-	bolsa          *ContextoParticipacionBolsaExterna
-	huellaBolsa    string
 }
 
 func (PlanProvisionCandidatoExterno) String() string                              { return "[PLAN EXTERNO PRIVADO]" }
@@ -200,7 +195,7 @@ func PrepararProvisionCandidatoExterno(cfg config.Config, f FuenteProvisionCandi
 	var p PlanProvisionCandidatoExterno
 	if !procesoInternoProvisionExterna(cfg) || f.Version != 1 || !f.Snapshot.validar() ||
 		(f.Snapshot.Poblacion != "candidato" && !(fase == "identidad" && f.Snapshot.Poblacion == "usuarios")) ||
-		!f.Preimagen.validar() || f.Snapshot.Estado != "activo" || (fase != "contexto" && fase != "autorizacion" && fase != "motivos" && fase != "identidad" && fase != "bolsa") {
+		!f.Preimagen.validar() || f.Snapshot.Estado != "activo" || (fase != "contexto" && fase != "autorizacion" && fase != "motivos" && fase != "identidad") {
 		return p, ErrProvisionCandidatoExterno
 	}
 	s := f.Snapshot
@@ -250,13 +245,6 @@ func PrepararProvisionCandidatoExterno(cfg config.Config, f FuenteProvisionCandi
 		p.identidad = &copia
 		p.resumen.PreimagenSHA256 = huellaAusenciaIdentidadExterna(copia.CuentaRef)
 	}
-	if fase == "bolsa" {
-		if f.Bolsa == nil || !f.Bolsa.validaPara(s) {
-			return PlanProvisionCandidatoExterno{}, ErrProvisionCandidatoExterno
-		}
-		copia := *f.Bolsa
-		p.bolsa = &copia
-	}
 	p.actualizarHuella()
 	return p, nil
 }
@@ -281,7 +269,5 @@ func (p *PlanProvisionCandidatoExterno) actualizarHuella() {
 		Motivos                  []core.ReferenciaEntradaCatalogo
 		Desde                    time.Time
 		Identidad                *IdentidadProvisionCandidatoExterno
-		Bolsa                    *ContextoParticipacionBolsaExterna `json:"Bolsa,omitempty"`
-		HuellaBolsa              string                             `json:"HuellaBolsa,omitempty"`
-	}{"provision_candidato_externo_v1", p.resumen.Fase, p.preimagen, p.snapshot, p.huellaContexto, p.rol.RolDocumento, p.rol.ControlDocumento, p.asignacion.Documento, p.motivos, p.desde, p.identidad, p.bolsa, p.huellaBolsa})
+	}{"provision_candidato_externo_v1", p.resumen.Fase, p.preimagen, p.snapshot, p.huellaContexto, p.rol.RolDocumento, p.rol.ControlDocumento, p.asignacion.Documento, p.motivos, p.desde, p.identidad})
 }

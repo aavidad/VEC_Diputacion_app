@@ -27,25 +27,13 @@ var _ puertosbolsa.RegistroPortalCandidato = (*RegistroPortalCandidatoPostgreSQL
 // RegistroPortalCandidatoPostgreSQL escribe las acciones propias del
 // candidato (Bolsa 000030). Cada llamada consume su decisión AD3-84 en la
 // misma transacción que la fila y su auditoría.
-type RegistroPortalCandidatoPostgreSQL struct {
-	pool      iniciadorTransacciones
-	funciones funcionesPortalBolsa
-}
+type RegistroPortalCandidatoPostgreSQL struct{ pool iniciadorTransacciones }
 
 func NuevoRegistroPortalCandidatoPostgreSQL(pool *pgxpool.Pool) (*RegistroPortalCandidatoPostgreSQL, error) {
 	if valorNulo(pool) {
 		return nil, puertosbolsa.ErrPortalCandidatoNoDisponible
 	}
-	return &RegistroPortalCandidatoPostgreSQL{pool: pool, funciones: funcionesPortalBolsaInternas()}, nil
-}
-
-// NuevoRegistroPortalCandidatoExternoPostgreSQL conserva las transacciones
-// y recibos existentes y fija las fachadas de escritura y lectura B63.
-func NuevoRegistroPortalCandidatoExternoPostgreSQL(pool *pgxpool.Pool) (*RegistroPortalCandidatoPostgreSQL, error) {
-	if valorNulo(pool) {
-		return nil, puertosbolsa.ErrPortalCandidatoNoDisponible
-	}
-	return &RegistroPortalCandidatoPostgreSQL{pool: pool, funciones: funcionesPortalBolsaExternas()}, nil
+	return &RegistroPortalCandidatoPostgreSQL{pool: pool}, nil
 }
 
 func (r *RegistroPortalCandidatoPostgreSQL) SolicitarPortal(ctx context.Context, s puertosbolsa.SolicitudPortalCandidato) (puertosbolsa.ReciboSolicitudPortal, error) {
@@ -60,9 +48,9 @@ func (r *RegistroPortalCandidatoPostgreSQL) SolicitarPortal(ctx context.Context,
 	defer revertir(tx)
 	m := s.Material
 	var recibo puertosbolsa.ReciboSolicitudPortal
-	err = tx.QueryRow(ctx, `SELECT reutilizada, solicitud_ref, recibo_ref, registrada_en FROM `+r.funciones.solicitar+`($1::text,$2::text,$3::text,$4::text,$5::text,$6::timestamptz,$7::timestamptz,$8::text[],$9::text,$10::text,$11::timestamptz,$12::bytea,$13::bytea,$14::bytea,$15::bytea,$16::numeric,$17::numeric,$18::bytea,$19::bytea,$20::bytea,$21::bytea)`,
+	err = tx.QueryRow(ctx, `SELECT reutilizada, solicitud_ref, recibo_ref, registrada_en FROM `+funcionSolicitarPortalV1+`($1::text,$2::text,$3::text,$4::text,$5::text,$6::timestamptz,$7::timestamptz,$8::text[],$9::text,$10::text,$11::timestamptz,$12::bytea,$13::bytea,$14::bytea,$15::bytea,$16::numeric,$17::numeric,$18::bytea,$19::bytea,$20::bytea,$21::bytea)`,
 		s.SolicitudRef, s.ReciboRef, s.CandidatoRef, s.Bolsa, s.Tipo, utcOpcional(s.PausaHasta), utcOpcional(s.PausaMaxima), s.SituacionesAdmitidas, s.ReglaRef, s.Clave, s.RegistradaEn.UTC(),
-		m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), versionMaterialPortalBolsa(m.PersonaVersion()), versionMaterialPortalBolsa(m.PerfilVersion()), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI(),
+		m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), int64(m.PersonaVersion()), int64(m.PerfilVersion()), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI(),
 	).Scan(&recibo.Reutilizada, &recibo.SolicitudRef, &recibo.ReciboRef, &recibo.RegistradaEn)
 	if err != nil {
 		return vacio, errorPortalCandidato(ctx, err)
@@ -87,13 +75,13 @@ func (r *RegistroPortalCandidatoPostgreSQL) ResponderPortal(ctx context.Context,
 	m := s.Material
 	// Primero se consume la decisión propia: sin ella la base no deja leer el
 	// portal. La respuesta usa después esa misma decisión, no otra.
-	if _, err := tx.Exec(ctx, `SELECT `+r.funciones.prepararRespuesta+`($1::text,$2::text,$3::bytea,$4::bytea,$5::bytea,$6::bytea,$7::numeric,$8::numeric,$9::bytea,$10::bytea,$11::bytea,$12::bytea)`,
-		s.CandidatoRef, s.Bolsa, m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), versionMaterialPortalBolsa(m.PersonaVersion()), versionMaterialPortalBolsa(m.PerfilVersion()), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI()); err != nil {
+	if _, err := tx.Exec(ctx, `SELECT `+funcionPrepararRespuestaV1+`($1::text,$2::text,$3::bytea,$4::bytea,$5::bytea,$6::bytea,$7::numeric,$8::numeric,$9::bytea,$10::bytea,$11::bytea,$12::bytea)`,
+		s.CandidatoRef, s.Bolsa, m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), int64(m.PersonaVersion()), int64(m.PerfilVersion()), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI()); err != nil {
 		return vacio, errorPortalCandidato(ctx, err)
 	}
 	// El contacto vigente se lee en la misma transacción serializable que la
 	// escritura; SQL vuelve a exigir que sea ese y que la hora sea anterior.
-	estados, err := leerPortalCandidato(ctx, tx, r.funciones, s.CandidatoRef, s.RespondidaEn, s.ResultadosEfectivos)
+	estados, err := leerPortalCandidato(ctx, tx, s.CandidatoRef, s.RespondidaEn, s.ResultadosEfectivos)
 	if err != nil {
 		return vacio, err
 	}
@@ -118,10 +106,10 @@ func (r *RegistroPortalCandidatoPostgreSQL) ResponderPortal(ctx context.Context,
 	if contacto != nil {
 		recibo.ContactoEn, recibo.VenceAntesDe = *contacto, *vence
 	}
-	err = tx.QueryRow(ctx, `SELECT reutilizada, respuesta_ref, recibo_ref, respondida_en, modo FROM `+r.funciones.responder+`($1::text,$2::text,$3::text,$4::text,$5::text,$6::text,$7::text,$8::text,$9::text,$10::timestamptz,$11::timestamptz,$12::text[],$13::text,$14::text,$15::timestamptz,$16::bytea,$17::bytea,$18::bytea,$19::bytea,$20::numeric,$21::numeric,$22::bytea,$23::bytea,$24::bytea,$25::bytea)`,
+	err = tx.QueryRow(ctx, `SELECT reutilizada, respuesta_ref, recibo_ref, respondida_en, modo FROM `+funcionResponderPortalV1+`($1::text,$2::text,$3::text,$4::text,$5::text,$6::text,$7::text,$8::text,$9::text,$10::timestamptz,$11::timestamptz,$12::text[],$13::text,$14::text,$15::timestamptz,$16::bytea,$17::bytea,$18::bytea,$19::bytea,$20::numeric,$21::numeric,$22::bytea,$23::bytea,$24::bytea,$25::bytea)`,
 		s.RespuestaRef, s.ReciboRef, s.CandidatoRef, s.Bolsa, s.Respuesta, textoOpcional(s.Causa), textoOpcional(s.JustificanteRef), textoOpcional(s.JustificanteSHA256), s.Modo,
 		contacto, vence, s.ResultadosEfectivos, s.ReglaRef, s.Clave, s.RespondidaEn.UTC(),
-		m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), versionMaterialPortalBolsa(m.PersonaVersion()), versionMaterialPortalBolsa(m.PerfilVersion()), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI(),
+		m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), int64(m.PersonaVersion()), int64(m.PerfilVersion()), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI(),
 	).Scan(&recibo.Reutilizada, &recibo.RespuestaRef, &recibo.ReciboRef, &recibo.RespondidaEn, &recibo.Modo)
 	if err != nil {
 		return vacio, errorPortalCandidato(ctx, err)
@@ -134,9 +122,6 @@ func (r *RegistroPortalCandidatoPostgreSQL) ResponderPortal(ctx context.Context,
 }
 
 func (r *RegistroPortalCandidatoPostgreSQL) abrir(ctx context.Context) (pgx.Tx, error) {
-	if ctx == nil || r == nil || valorNulo(r.pool) || !r.funciones.validas() {
-		return nil, puertosbolsa.ErrPortalCandidatoNoDisponible
-	}
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -176,12 +161,9 @@ type estadoPortalPostgreSQL struct {
 
 // leerPortalCandidato solo se usa dentro de una transacción que consume una
 // decisión propia del candidato (consulta o acción).
-func leerPortalCandidato(ctx context.Context, tx consultorPortal, funciones funcionesPortalBolsa, candidato string, corte time.Time, efectivos []string) ([]puertosbolsa.EstadoPortalCandidato, error) {
-	if !funciones.validas() {
-		return nil, puertosbolsa.ErrPortalCandidatoNoDisponible
-	}
+func leerPortalCandidato(ctx context.Context, tx consultorPortal, candidato string, corte time.Time, efectivos []string) ([]puertosbolsa.EstadoPortalCandidato, error) {
 	var contenido []byte
-	if err := tx.QueryRow(ctx, `SELECT `+funciones.leerPortal+`($1::text,$2::timestamptz,$3::text[])`, candidato, corte.UTC(), efectivos).Scan(&contenido); err != nil {
+	if err := tx.QueryRow(ctx, `SELECT `+funcionLeerPortalCandidatoV1+`($1::text,$2::timestamptz,$3::text[])`, candidato, corte.UTC(), efectivos).Scan(&contenido); err != nil {
 		return nil, errorPortalCandidato(ctx, err)
 	}
 	var filas []estadoPortalPostgreSQL

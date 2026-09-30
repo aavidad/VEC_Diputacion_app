@@ -35,16 +35,6 @@ func NuevoRegistroDisposicionOfertaPostgreSQL(pool *pgxpool.Pool) (*RegistroDisp
 	return &RegistroDisposicionOfertaPostgreSQL{portal: portal}, nil
 }
 
-// NuevoRegistroDisposicionOfertaExternoPostgreSQL también conserva la
-// variante exterior del repositorio que abre la transacción.
-func NuevoRegistroDisposicionOfertaExternoPostgreSQL(pool *pgxpool.Pool) (*RegistroDisposicionOfertaPostgreSQL, error) {
-	portal, err := NuevoRegistroPortalCandidatoExternoPostgreSQL(pool)
-	if err != nil {
-		return nil, err
-	}
-	return &RegistroDisposicionOfertaPostgreSQL{portal: portal}, nil
-}
-
 func (r *RegistroDisposicionOfertaPostgreSQL) ManifestarDisposicion(ctx context.Context, s puertosbolsa.DisposicionPortalCandidato) (puertosbolsa.ReciboDisposicionPortal, error) {
 	var vacio puertosbolsa.ReciboDisposicionPortal
 	if ctx == nil || r == nil || r.portal == nil || s.OfertaRef == "" || s.CandidatoRef == "" || s.ReciboRef == "" || s.ManifestadaEn.IsZero() || s.Material.ValidarEstructura() != nil {
@@ -57,9 +47,9 @@ func (r *RegistroDisposicionOfertaPostgreSQL) ManifestarDisposicion(ctx context.
 	defer revertir(tx)
 	m := s.Material
 	var recibo puertosbolsa.ReciboDisposicionPortal
-	err = tx.QueryRow(ctx, `SELECT reutilizada, recibo_ref, oferta_ref, manifestada_en FROM `+r.portal.funciones.disposicion+`($1::text,$2::text,$3::text,$4::text,$5::timestamptz,$6::bytea,$7::bytea,$8::bytea,$9::bytea,$10::numeric,$11::numeric,$12::bytea,$13::bytea,$14::bytea,$15::bytea)`,
+	err = tx.QueryRow(ctx, `SELECT reutilizada, recibo_ref, oferta_ref, manifestada_en FROM `+funcionManifestarDisposicionV1+`($1::text,$2::text,$3::text,$4::text,$5::timestamptz,$6::bytea,$7::bytea,$8::bytea,$9::bytea,$10::numeric,$11::numeric,$12::bytea,$13::bytea,$14::bytea,$15::bytea)`,
 		s.OfertaRef, s.ReciboRef, s.CandidatoRef, s.Clave, s.ManifestadaEn.UTC(),
-		m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), versionMaterialPortalBolsa(m.PersonaVersion()), versionMaterialPortalBolsa(m.PerfilVersion()), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI(),
+		m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), int64(m.PersonaVersion()), int64(m.PerfilVersion()), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI(),
 	).Scan(&recibo.Reutilizada, &recibo.ReciboRef, &recibo.OfertaRef, &recibo.ManifestadaEn)
 	if err != nil {
 		return vacio, errorDisposicionOferta(ctx, err)
@@ -99,12 +89,9 @@ type ofertaCandidatoPostgreSQL struct {
 
 // leerOfertasCandidato solo se usa dentro de la transacción que ya consumió
 // la consulta propia del mismo candidato.
-func leerOfertasCandidato(ctx context.Context, tx consultorPortal, funciones funcionesPortalBolsa, candidato string, corte time.Time) ([]puertosbolsa.OfertaPortalCandidato, error) {
-	if !funciones.validas() {
-		return nil, puertosbolsa.ErrPortalCandidatoNoDisponible
-	}
+func leerOfertasCandidato(ctx context.Context, tx consultorPortal, candidato string, corte time.Time) ([]puertosbolsa.OfertaPortalCandidato, error) {
 	var contenido []byte
-	if err := tx.QueryRow(ctx, `SELECT `+funciones.ofertas+`($1::text,$2::timestamptz)`, candidato, corte.UTC()).Scan(&contenido); err != nil {
+	if err := tx.QueryRow(ctx, `SELECT `+funcionListarOfertasCandidato+`($1::text,$2::timestamptz)`, candidato, corte.UTC()).Scan(&contenido); err != nil {
 		return nil, errorPortalCandidato(ctx, err)
 	}
 	var filas []ofertaCandidatoPostgreSQL

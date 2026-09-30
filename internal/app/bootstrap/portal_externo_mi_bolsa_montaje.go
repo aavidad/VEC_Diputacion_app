@@ -152,7 +152,7 @@ func nuevaMiBolsaPortalExterno(ctx context.Context, cfg config.Config,
 	d := dependenciasMiBolsaPortalExterno{preparador: &preparadorMiBolsaPortalExterno{preferencias: sesion, identidad: identidad.candidatoBolsa},
 		autorizador: autorizador, bolsa: bolsa, proveedores: proveedores, reloj: relojContratacionTemporalDesarrollo{}}
 	if portal {
-		if comprobarMigracionesPortalCandidatoExterno(ctx, bolsa) != nil {
+		if comprobarMigracionesPortalCandidatoDesarrollo(ctx, bolsa) != nil {
 			return nil, nada, errMiBolsaNoDisponible
 		}
 		dsnCalendarios, err := cfg.ExternoCalendariosPostgreSQL.DSN()

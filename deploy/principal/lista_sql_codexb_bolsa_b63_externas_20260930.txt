@@ -1,1 +1,0 @@
-deploy/postgresql/bolsa_llamamientos/migraciones/000063_actuaciones_portal_externo.up.sql

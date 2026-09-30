@@ -72,7 +72,7 @@ func CompletarPlanProvisionCandidatoExterno(ctx context.Context, cfg config.Conf
 	if !procesoInternoProvisionExterna(cfg) || ctx == nil || ctx.Err() != nil || p.resumen.HuellaSHA256 == "" {
 		return PlanProvisionCandidatoExterno{}, ErrProvisionCandidatoExterno
 	}
-	if p.resumen.Fase != "contexto" && p.resumen.Fase != "bolsa" {
+	if p.resumen.Fase != "contexto" {
 		return p, nil
 	}
 	pool, err := abrirPoolProvisionCandidatoExterno(ctx, dsn)
@@ -89,16 +89,8 @@ func CompletarPlanProvisionCandidatoExterno(ctx context.Context, cfg config.Conf
 			resultado, fallo = PlanProvisionCandidatoExterno{}, ErrProvisionCandidatoExterno
 		}
 	}()
-	if prepararCanalProvisionExterna(ctx, tx, p.resumen.Fase) != nil {
+	if prepararCanalProvisionExterna(ctx, tx, "contexto") != nil {
 		return PlanProvisionCandidatoExterno{}, ErrProvisionCandidatoExterno
-	}
-	if p.resumen.Fase == "bolsa" {
-		p.huellaBolsa, err = huellaParticipacionBolsaExterna(ctx, tx, p)
-		if err != nil {
-			return PlanProvisionCandidatoExterno{}, ErrProvisionCandidatoExterno
-		}
-		p.actualizarHuella()
-		return p, nil
 	}
 	var s SnapshotContextoExterno
 	if json.Unmarshal(p.snapshot, &s) != nil {
@@ -119,8 +111,7 @@ func EjecutarProvisionCandidatoExterno(ctx context.Context, cfg config.Config, d
 	var vacio ResumenProvisionCandidatoExterno
 	if ctx == nil || ctx.Err() != nil || !procesoInternoProvisionExterna(cfg) || !huellaPreimagenMiBolsaPortalExterno.MatchString(aprobar) ||
 		aprobar != p.resumen.HuellaSHA256 || preimagen != p.resumen.PreimagenSHA256 ||
-		(p.resumen.Fase == "contexto" && !huellaPreimagenMiBolsaPortalExterno.MatchString(p.huellaContexto)) ||
-		(p.resumen.Fase == "bolsa" && !huellaPreimagenMiBolsaPortalExterno.MatchString(p.huellaBolsa)) {
+		(p.resumen.Fase == "contexto" && !huellaPreimagenMiBolsaPortalExterno.MatchString(p.huellaContexto)) {
 		return vacio, ErrProvisionCandidatoExterno
 	}
 	pool, err := abrirPoolProvisionCandidatoExterno(ctx, dsn)
@@ -153,8 +144,6 @@ func EjecutarProvisionCandidatoExterno(ctx context.Context, cfg config.Config, d
 		err = publicarMotivosCandidatoExterno(ctx, tx, p)
 	case "identidad":
 		err = publicarIdentidadCandidatoExterno(ctx, tx, p)
-	case "bolsa":
-		err = publicarParticipacionBolsaExterna(ctx, tx, p)
 	default:
 		err = ErrProvisionCandidatoExterno
 	}
@@ -206,8 +195,6 @@ func prepararCanalProvisionExterna(ctx context.Context, tx pgx.Tx, fase string) 
 		rol, set = "vec_identidad_sesiones_v1_propietario", true
 	case "contexto":
 		rol, set = "vec_contexto_actor_v1_propietario", true
-	case "bolsa":
-		rol, set = "vec_bolsa_llamamientos_propietario", true
 	case "autorizacion":
 		rol = "vec_autorizacion_publicador_candidato_externo"
 	case "motivos":

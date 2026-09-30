@@ -25,7 +25,6 @@ distinto, con una única membresía directa y sin atributos privilegiados.
 | `contexto` | `vec_contexto_actor_v1_propietario` | TRUE | TRUE | FALSE |
 | `autorizacion` | `vec_autorizacion_publicador_candidato_externo` | TRUE | FALSE | FALSE |
 | `motivos` | `vec_autorizacion_motivos_proyector` | TRUE | TRUE | FALSE |
-| `bolsa` | `vec_bolsa_llamamientos_propietario` | TRUE | TRUE | FALSE |
 
 Esta tabla describe las cuentas de gobierno. Las cuentas
 que atienden el portal usan sus grupos runtime propios, siempre con
@@ -48,9 +47,10 @@ Mantenga el HBA limitado al origen y los LOGIN que usa cada proceso.
 
 La fuente tiene `version`, `snapshot` y `preimagen`. El snapshot usa el contrato
 CTX15 de la población candidata; las preimágenes fijan las versiones y huellas
-de ContextoActor, asignación, control de rol y motivos. La clasificación de
-Bolsa añade `bolsa`, con los doce campos gobernados de la participación, y
-`version_bolsa`/`huella_bolsa` dentro de `preimagen`.
+de ContextoActor, asignación, control de rol y motivos. La correspondencia
+entre persona y referencia candidata permanece en el almacén externo.
+Bolsa conserva las actuaciones del procedimiento con referencias opacas;
+la herramienta no copia persona, perfil ni contexto a sus tablas.
 
 Orden del ejercicio:
 
@@ -64,10 +64,6 @@ Orden del ejercicio:
 5. Publique `motivos` si no existen ya los tres catálogos exactos. Si existen,
    compruebe las referencias vigentes con el lector nominal y consérvelas; no
    cambie la secuencia para forzar otra publicación.
-6. Publique `bolsa` para cada participación externa desde su fuente aprobada.
-   La población no se deduce de la persona, del empleo ni del perfil. Un origen
-   desconocido o ambiguo impide las actuaciones; revocar un permiso no cambia
-   el origen histórico de la participación.
 
 Para preparar una fase:
 

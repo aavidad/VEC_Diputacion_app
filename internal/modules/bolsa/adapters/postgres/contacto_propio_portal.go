@@ -33,16 +33,6 @@ func NuevoRegistroConfirmacionContactoPostgreSQL(pool *pgxpool.Pool) (*RegistroC
 	return &RegistroConfirmacionContactoPostgreSQL{portal: portal}, nil
 }
 
-// NuevoRegistroConfirmacionContactoExternoPostgreSQL fija las fachadas B63
-// también en el repositorio que abre su transacción serializable.
-func NuevoRegistroConfirmacionContactoExternoPostgreSQL(pool *pgxpool.Pool) (*RegistroConfirmacionContactoPostgreSQL, error) {
-	portal, err := NuevoRegistroPortalCandidatoExternoPostgreSQL(pool)
-	if err != nil {
-		return nil, err
-	}
-	return &RegistroConfirmacionContactoPostgreSQL{portal: portal}, nil
-}
-
 func (r *RegistroConfirmacionContactoPostgreSQL) ConfirmarContacto(ctx context.Context, s puertosbolsa.ConfirmacionContactoPortal) (puertosbolsa.ReciboConfirmacionContacto, error) {
 	var vacio puertosbolsa.ReciboConfirmacionContacto
 	if ctx == nil || r == nil || r.portal == nil || s.CandidatoRef == "" || s.Bolsa == "" || s.Version < 1 || s.ReciboRef == "" || s.ConfirmadaEn.IsZero() || s.Material.ValidarEstructura() != nil {
@@ -55,9 +45,9 @@ func (r *RegistroConfirmacionContactoPostgreSQL) ConfirmarContacto(ctx context.C
 	defer revertir(tx)
 	m := s.Material
 	var recibo puertosbolsa.ReciboConfirmacionContacto
-	err = tx.QueryRow(ctx, `SELECT reutilizada, recibo_ref, version, confirmada_en FROM `+r.portal.funciones.confirmarContacto+`($1::text,$2::text,$3::bigint,$4::text,$5::text,$6::timestamptz,$7::bytea,$8::bytea,$9::bytea,$10::bytea,$11::numeric,$12::numeric,$13::bytea,$14::bytea,$15::bytea,$16::bytea)`,
+	err = tx.QueryRow(ctx, `SELECT reutilizada, recibo_ref, version, confirmada_en FROM `+funcionConfirmarContactoPropioV1+`($1::text,$2::text,$3::bigint,$4::text,$5::text,$6::timestamptz,$7::bytea,$8::bytea,$9::bytea,$10::bytea,$11::numeric,$12::numeric,$13::bytea,$14::bytea,$15::bytea,$16::bytea)`,
 		s.CandidatoRef, s.Bolsa, s.Version, s.Clave, s.ReciboRef, s.ConfirmadaEn.UTC(),
-		m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), versionMaterialPortalBolsa(m.PersonaVersion()), versionMaterialPortalBolsa(m.PerfilVersion()), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI(),
+		m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), int64(m.PersonaVersion()), int64(m.PerfilVersion()), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI(),
 	).Scan(&recibo.Reutilizada, &recibo.ReciboRef, &recibo.Version, &recibo.ConfirmadaEn)
 	if err != nil {
 		return vacio, errorConfirmacionContacto(ctx, err)
@@ -99,12 +89,9 @@ type contactoCandidatoPostgreSQL struct {
 
 // leerContactosCandidato solo se usa dentro de la transacción que ya consumió
 // la consulta propia del mismo candidato.
-func leerContactosCandidato(ctx context.Context, tx consultorPortal, funciones funcionesPortalBolsa, candidato string, corte time.Time) ([]puertosbolsa.ContactoPortalCandidato, error) {
-	if !funciones.validas() {
-		return nil, puertosbolsa.ErrPortalCandidatoNoDisponible
-	}
+func leerContactosCandidato(ctx context.Context, tx consultorPortal, candidato string, corte time.Time) ([]puertosbolsa.ContactoPortalCandidato, error) {
 	var contenido []byte
-	if err := tx.QueryRow(ctx, `SELECT `+funciones.contactos+`($1::text,$2::timestamptz)`, candidato, corte.UTC()).Scan(&contenido); err != nil {
+	if err := tx.QueryRow(ctx, `SELECT `+funcionLeerContactoCandidatoV1+`($1::text,$2::timestamptz)`, candidato, corte.UTC()).Scan(&contenido); err != nil {
 		return nil, errorPortalCandidato(ctx, err)
 	}
 	var filas []contactoCandidatoPostgreSQL
