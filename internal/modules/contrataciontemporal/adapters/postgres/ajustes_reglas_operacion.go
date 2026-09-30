@@ -265,6 +265,11 @@ func normalizarErrorOperacionAjustesCT(ctx context.Context, err error) error {
 	if ctx != nil && ctx.Err() != nil {
 		return ctx.Err()
 	}
+	// El servicio V3 envuelve la caída del registro junto con la denegación.
+	// La causa de infraestructura prevalece para no presentarla como un 403.
+	if errors.Is(err, vecports.ErrRegistroConcesionAutorizacionLigadaV3NoDisponible) {
+		return ErrOperacionAjustesReglasNoDisponible
+	}
 	if errors.Is(err, vecdomain.ErrAutorizacionDenegada) {
 		return ErrOperacionAjustesReglasDenegada
 	}
