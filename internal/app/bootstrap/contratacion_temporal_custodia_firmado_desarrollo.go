@@ -228,7 +228,7 @@ func (f *firmaDocumentoCTDesarrollo) solicitarCustodiaV3(ctx context.Context, re
 	}
 	s := f.alta.soporte
 	capacidad, valida := s.capacidadValida(ctx)
-	if !valida || capacidad.ruta != httpinterno.RutaFirmaDocumento {
+	if !valida || capacidad.ruta != httpinterno.RutaFirmaDocumento || s.perfilFijoParaContexto(ctx, capacidad.ruta) == nil {
 		return vacia, errCustodiaFirmadoCTDenegada
 	}
 	correlacion, err := dominiovec.GenerarReferenciaCorrelacionAutorizacionV2(ctx, seguridad.GeneradorReferenciasCriptograficas{})
@@ -324,10 +324,17 @@ func (e emisorConcesionCustodiaCTDesarrollo) EmitirConcesionAlmacenV3(ctx contex
 // componerCustodia enlaza la firma de CT con Documentos cuando ambos están
 // compuestos y el material de Documentos declara qué documentos se custodian.
 func (f *firmaDocumentoCTDesarrollo) componerCustodia(d *autoridadDocumentosDesarrollo) error {
-	if f == nil || d == nil || d.custodia == nil {
+	if f == nil {
 		return nil
 	}
-	if f.servicio == nil {
+	if d == nil || d.custodia == nil {
+		if f.alta != nil && f.alta.soporte != nil && len(f.alta.soporte.custodiaFirmaDocumentos) != 0 {
+			return errFirmaDocumentoCTDesarrolloNoDisponible
+		}
+		return nil
+	}
+	if f.servicio == nil || f.alta == nil || f.alta.soporte == nil ||
+		!maps.Equal(f.alta.soporte.custodiaFirmaDocumentos, d.custodia.documentos) || len(f.alta.soporte.custodiaFirmaDocumentos) == 0 {
 		return errFirmaDocumentoCTDesarrolloNoDisponible
 	}
 	custodia, err := nuevaCustodiaFirmadoCTDesarrollo(f, d.custodia, d.reloj)
@@ -337,7 +344,7 @@ func (f *firmaDocumentoCTDesarrollo) componerCustodia(d *autoridadDocumentosDesa
 	if err := f.servicio.ComponerCustodia(custodia, d.custodia.documentos); err != nil {
 		return errFirmaDocumentoCTDesarrolloNoDisponible
 	}
-	return f.habilitarCustodia()
+	return nil
 }
 
 // nuevaCustodiaFirmadoCTDesarrollo une el PDP de CT con el servicio de

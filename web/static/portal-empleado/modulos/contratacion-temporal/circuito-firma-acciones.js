@@ -8,7 +8,7 @@
 import { escaparHTML, solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js";
 import { crearClienteHTTPBorradorRRHH, PERFILES_BORRADOR_RRHH } from "./cliente-http-informe-definitivo.js";
 import { crearClienteAutoFirma } from "./firma-autofirma.js";
-import { crearClienteFirmaDocumento } from "./firma-documento-cliente.js";
+import { crearClienteFirmaDocumento } from "./firma-documento-cliente.js?v=20260930-custodia-506-e3-v2";
 
 const CLAVE_ERROR = Object.freeze({
   verificacion_no_disponible: "circuito_firma_error_verificacion",

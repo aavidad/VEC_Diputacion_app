@@ -1,7 +1,6 @@
 package bootstrap
 
 import (
-	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
@@ -562,19 +561,9 @@ func nuevosDocumentosDesarrollo(cfg config.Config, resolvedor vechttp.DemoIdenti
 	if !ok || identidad == nil || derivador == nil || !derivador.valido() || material == nil {
 		return nil, errDocumentosEn()
 	}
-	contenido, err := leerFicheroMaterialSeguro(filepath.Join(cfg.DevelopmentMaterialDir, "identidad", ficheroMaterialDocumentos), 256<<10)
-	if err != nil || validarClavesJSONUnicas(contenido) != nil {
-		return nil, errDocumentosEn()
-	}
-	defer borrarBytes(contenido)
-	var c configuracionDocumentosDesarrollo
-	dec := json.NewDecoder(bytes.NewReader(contenido))
-	dec.DisallowUnknownFields()
-	var extra any
-	if dec.Decode(&c) != nil || !errors.Is(dec.Decode(&extra), io.EOF) || c.Version != 1 || c.Autoridad != AutoridadNoAutoritativa ||
-		len(c.Cuentas) == 0 || len(c.Cuentas) > 64 || c.Motivos.Listar.Validar() != nil ||
-		!c.RegistroExterno.valido(c.Motivos.Listar.CatalogoID) {
-		return nil, errDocumentosEn()
+	c, err := cargarConfiguracionDocumentosDesarrollo(cfg)
+	if err != nil {
+		return nil, err
 	}
 	cuentas := map[string]cuentaRutasDietasDesarrollo{}
 	for _, cuenta := range c.Cuentas {

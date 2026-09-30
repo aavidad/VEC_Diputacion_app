@@ -9,10 +9,11 @@ import {
 import { crearAccionesFirma, fusionarEstadoFirmas } from "./circuito-firma-acciones.js";
 import { crearTraductorCircuitoFirma, MENSAJES_CIRCUITO_FIRMA_ES, MENSAJES_CIRCUITO_FIRMA_EN } from "./i18n-circuito-firma.js";
 import { cargarTextos } from "../../../comun/textos.js";
+import { IDIOMA_POR_DEFECTO } from "../../../comun/idioma.js";
 
 // Los textos de la fase de firma se leen una vez; el gestor los recibe ya
 // cargados para que el montaje no dependa de la lectura del fichero.
-const textosFasePrueba = await cargarTextos("contratacion-temporal-firma");
+const textosFasePrueba = await cargarTextos("contratacion-temporal-firma", { idioma: IDIOMA_POR_DEFECTO });
 const cargarTextosPrueba = async () => textosFasePrueba;
 
 function paso(orden, total, extra = {}) {

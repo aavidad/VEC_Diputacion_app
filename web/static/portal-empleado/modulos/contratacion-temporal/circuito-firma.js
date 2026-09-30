@@ -8,9 +8,9 @@
  */
 
 import { escaparHTML, solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js";
-import { crearAccionesFirma, fusionarEstadoFirmas, renderizarAccionesPaso } from "./circuito-firma-acciones.js";
-import { crearClienteFirmaDocumento } from "./firma-documento-cliente.js";
-import { cargarTextosFaseFirma, renderizarFaseFirma } from "./fase-firma.js";
+import { crearAccionesFirma, fusionarEstadoFirmas, renderizarAccionesPaso } from "./circuito-firma-acciones.js?v=20260930-custodia-506-e3-v2";
+import { crearClienteFirmaDocumento } from "./firma-documento-cliente.js?v=20260930-custodia-506-e3-v2";
+import { cargarTextosFaseFirma, renderizarFaseFirma } from "./fase-firma.js?v=20260930-custodia-506-e3-v2";
 import { crearTraductorCircuitoFirma, traducirValorCircuitoFirma } from "./i18n-circuito-firma.js";
 import { crearFuenteDocumentosHTTP } from "../documentos/cliente-http.js?v=20260926-integracion-bolsa-ct-v1";
 
