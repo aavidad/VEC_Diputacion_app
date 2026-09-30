@@ -22,21 +22,30 @@ DROP FUNCTION vec_autorizacion_atestada_v3.consumir_vinculo_categoria_rpt_ct_v3_
 DO $nucleo$
 DECLARE
  f oid:='vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure;
- original text; nuevo text; inicio integer; fin integer; trecho text;
- principio text:=E'           OR (\n p_perfil_mutacion IS NOT DISTINCT FROM ''vinculo_categoria_rpt_ct''';
- marca text:=E'       )\n       OR c ->> ''suite'' <> ''VEC-AD-3-COSE-EDDSA-1''';
+ original text; nuevo text;
+ extension text:=$x$           OR (
+ p_perfil_mutacion IS NOT DISTINCT FROM 'vinculo_categoria_rpt_ct'
+ AND c->>'operacion' = ANY (ARRAY['contratacion_temporal.categoria_rpt.vinculo.consultar','contratacion_temporal.categoria_rpt.vinculo.registrar'])
+ AND ((c->>'operacion'='contratacion_temporal.categoria_rpt.vinculo.consultar'
+       AND c->>'audiencia_consumo'='vec_contratacion_temporal.categoria_rpt.vinculo.consultar.v1'
+       AND d->'campos_permitidos'='["analisis","vinculo"]'::jsonb)
+   OR (c->>'operacion'='contratacion_temporal.categoria_rpt.vinculo.registrar'
+       AND c->>'audiencia_consumo'='vec_contratacion_temporal.categoria_rpt.vinculo.registrar.v1'
+       AND d->'campos_permitidos'='["recibo"]'::jsonb))
+ AND d->>'accion' IS NOT DISTINCT FROM c->>'operacion'
+ AND d->>'modulo_id' IS NOT DISTINCT FROM 'contratacion_temporal'
+ AND d->>'tipo_recurso' IS NOT DISTINCT FROM 'vinculo_categoria_rpt_ct'
+ AND d->>'finalidad' IS NOT DISTINCT FROM 'gestionar_vinculo_categoria_rpt_ct'
+ AND d->>'recurso_ref' IS NOT NULL AND d->>'recurso_ref' LIKE 'expediente:%'
+ AND c->>'efecto_ref' IS NOT DISTINCT FROM d->>'recurso_ref'
+ AND d->>'contexto_recurso_huella_sha256' IS NOT DISTINCT FROM c->>'huella_efecto_sha256'
+ AND d->'obligaciones' IS NOT DISTINCT FROM '[]'::jsonb)
+$x$;
 BEGIN
  SELECT pg_get_functiondef(f) INTO STRICT original FROM pg_proc WHERE oid=f;
- inicio:=strpos(original,principio);
- fin:=strpos(original,marca);
- IF inicio=0 OR fin<=inicio OR length(original)-length(replace(original,principio,''))<>length(principio)
+ IF length(original)-length(replace(original,extension,''))<>length(extension)
  THEN RAISE EXCEPTION 'AD3-127: núcleo no reversible' USING ERRCODE='55000'; END IF;
- trecho:=substr(original,inicio,fin-inicio);
- IF strpos(trecho,'vec_contratacion_temporal.categoria_rpt.vinculo.consultar.v1')=0
-    OR strpos(trecho,'vec_contratacion_temporal.categoria_rpt.vinculo.registrar.v1')=0
-    OR strpos(trecho,'gestionar_vinculo_categoria_rpt_ct')=0
- THEN RAISE EXCEPTION 'AD3-127: extensión divergente' USING ERRCODE='55000'; END IF;
- nuevo:=left(original,inicio-1)||substr(original,fin);
+ nuevo:=replace(original,extension,'');
  EXECUTE nuevo;
  IF (SELECT pg_get_functiondef(f) FROM pg_proc WHERE oid=f) IS DISTINCT FROM nuevo
  THEN RAISE EXCEPTION 'AD3-127: restauración divergente' USING ERRCODE='55000'; END IF;

@@ -282,6 +282,7 @@ BEGIN
  IF d->>'principal_id' IS NULL OR d->>'perfil_activo_ref' IS NULL
     OR rd->>'perfil_activo_ref' IS NULL
     OR d->>'principal_id' IS DISTINCT FROM rd->>'principal_id'
+    OR d->>'perfil_activo_ref' IS NOT DISTINCT FROM rd->>'perfil_activo_ref'
  THEN RAISE EXCEPTION 'CT-154: identidades divergentes' USING ERRCODE='42501'; END IF;
  material_h:=encode(sha256(convert_to(p_material,'UTF8')),'hex');
  rpt_material:=jsonb_build_object('catalogo_id',s->>'catalogo_id','modulo_id',s->>'modulo_id',
