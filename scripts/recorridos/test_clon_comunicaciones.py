@@ -1,6 +1,7 @@
 """Focused checks for clone ownership, isolation and TLS configuration."""
 import copy
 import importlib.util
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -521,6 +522,45 @@ class CloneCommunicationTests(unittest.TestCase):
                 result = c.status(state / "repo", "vec-test-generic", Path(state.name), Path(state.name) / "material", 55532, "docker")
             self.assertFalse(result["blockers"])
             self.assertEqual(result["lifecycle"]["target"]["state"], str(state))
+
+    def test_provision_files_fit_material_allowlist_and_keep_exact_target_proof(self):
+        with tempfile.TemporaryDirectory(dir=Path.home()) as scratch:
+            state = Path(scratch)
+            material = state / "material"
+            tls = material / "comunicaciones"
+            c._directory(state / "comunicaciones")
+            c._directory(material)
+            c._directory(tls)
+            c._write_new(tls / "servidor.crt", b"synthetic certificate")
+            c._write_new(tls / "servidor.key", b"synthetic key")
+            target = c._build_target(state, "vec-test-generic", 55532, 12025, 12026)
+            target_path = state / "comunicaciones/target.json"
+            c._write_new(target_path, (json.dumps(target, indent=2) + "\n").encode())
+            prepared = c._result(source="b" * 40, image=True, target=target)
+            sink = resource()
+            sink["Config"]["Labels"] = c._labels(state)
+            sink["HostConfig"]["NetworkMode"] = target["network"]
+            sink["HostConfig"]["PortBindings"] = {"1025/tcp": [{"HostIp": "127.0.0.1", "HostPort": "12025"}],
+                                                 "8025/tcp": [{"HostIp": "127.0.0.1", "HostPort": "12026"}]}
+            sink["Mounts"][0]["Source"] = str(tls)
+            sink["Mounts"][1]["Source"] = str(state / "comunicaciones/buzon")
+            def inspect(engine, kind, name):
+                if kind == "image": return {"Id": "image:local"}
+                if kind == "container": return sink
+                return {"Internal": True, "Labels": c._labels(state)}
+            with patch.object(c, "_certificate", return_value=tls), patch.object(c, "_inspect", side_effect=inspect), \
+                    patch.object(c, "_ensure_proxies", return_value=[]), \
+                    patch.object(c, "_smtp_probe", return_value={"starttls_verified": True}), \
+                    patch.object(c, "_run") as run:
+                result = c._provision_prepared(prepared, state, material, "docker")
+            run.assert_not_called()
+            self.assertFalse(result["blockers"])
+            self.assertTrue(result["files"])
+            self.assertTrue(all(Path(path).is_relative_to(material) for path in result["files"]))
+            self.assertNotIn(str(target_path), result["files"])
+            proof = result["profiles"]["usuarios_comunicaciones"]
+            self.assertEqual(proof["target_sha256"], hashlib.sha256(c._private(target_path)).hexdigest())
+            self.assertTrue(proof["smtp_ready"])
 
 
 if __name__ == "__main__":

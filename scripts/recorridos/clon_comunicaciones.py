@@ -614,7 +614,10 @@ def _provision_prepared(result: dict, state, material, engine) -> dict:
         result["profiles"]["usuarios_comunicaciones"]["proxy_records"] = proxies
         result["profiles"]["usuarios_comunicaciones"]["image_id"] = image["Id"]
         result["profiles"]["usuarios_comunicaciones"]["target_sha256"] = hashlib.sha256(_private(state / "comunicaciones/target.json")).hexdigest()
-        result["files"] = [str(state / "comunicaciones/target.json")] + [str(path) for path in sorted(tls.iterdir()) if path.is_file()]
+        # The material driver only admits files under its material root.
+        # target.json belongs to the CLI pre-stage; its exact bytes remain
+        # bound through target_sha256 in the sealed profile.
+        result["files"] = [str(path) for path in sorted(tls.iterdir()) if path.is_file()]
         return result
     except (PreparationError, OSError, ValueError, smtplib.SMTPException) as error:
         return _result(source=source, image=True, target=target,
