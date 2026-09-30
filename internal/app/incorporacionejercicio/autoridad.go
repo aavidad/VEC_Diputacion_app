@@ -29,6 +29,19 @@ type PeticionAutoridad struct {
 	Contexto                  core.SolicitudContextoActor
 	PreparacionCT             ct.PreparacionSeguimientoConfirmacionIncorporacion
 	MotivoAlta, MotivoLectura core.ReferenciaEntradaCatalogo
+	// Opcional sólo para preservar la composición histórica. La composición
+	// nueva captura dos sesiones nominales distintas desde la misma cuenta.
+	AltaNominal       *PeticionAutoridadAlta
+	PerfilesNominales PerfilesAutoridadAplicacion
+}
+
+type PeticionAutoridadAlta struct {
+	Autenticacion core.SolicitudRevalidacionAutenticacionActorV1
+	Contexto      core.SolicitudContextoActor
+}
+
+type PerfilesAutoridadAplicacion struct {
+	AltaRef, ConsultaConfirmacionRef string
 }
 type FuentePeticionAutoridad interface {
 	PeticionVerificada(context.Context) (PeticionAutoridad, error)
@@ -48,6 +61,13 @@ type AutoridadAplicacion struct {
 	reloj            ct.Reloj
 	creadaEn         time.Time
 	politicaConsulta *PoliticaConsultaDesarrollo
+	altaNominal      *AutoridadAplicacion
+}
+
+type fuentePeticionAltaNominal struct{ peticion PeticionAutoridad }
+
+func (f fuentePeticionAltaNominal) PeticionVerificada(context.Context) (PeticionAutoridad, error) {
+	return f.peticion, nil
 }
 
 // PoliticaConsultaDesarrollo liga la excepción de lectura al dictamen exacto
@@ -161,6 +181,29 @@ func nuevaAutoridadAplicacion(ctx context.Context, fuente FuentePeticionAutorida
 	if e != nil {
 		return nil, ErrAutoridadAplicacion
 	}
+	if p.AltaNominal != nil || p.PerfilesNominales != (PerfilesAutoridadAplicacion{}) {
+		perfiles := p.PerfilesNominales
+		if p.AltaNominal == nil || politica != nil || perfiles.AltaRef == "" || perfiles.ConsultaConfirmacionRef == "" ||
+			perfiles.AltaRef == perfiles.ConsultaConfirmacionRef || perfiles.ConsultaConfirmacionRef != p.Contexto.PerfilActivoRef ||
+			perfiles.AltaRef != p.AltaNominal.Contexto.PerfilActivoRef || p.AltaNominal.Autenticacion.SesionRef == p.Autenticacion.SesionRef {
+			return nil, ErrAutoridadAplicacion
+		}
+		captura := *p.AltaNominal
+		a.peticion.AltaNominal = &captura
+		alta := p
+		alta.Autenticacion, alta.Contexto = captura.Autenticacion, captura.Contexto
+		alta.AltaNominal, alta.PerfilesNominales = nil, PerfilesAutoridadAplicacion{}
+		a.altaNominal, e = nuevaAutoridadAplicacion(ctx, fuentePeticionAltaNominal{alta}, revalidador, resolutor, cadena, correlador, reloj, nil)
+		if e != nil {
+			return nil, e
+		}
+		vAlta, err := a.altaNominal.contexto.Vinculo.Datos()
+		if err != nil || !a.admiteEfectos() || vAlta.CuentaRef != datosVinculo.CuentaRef ||
+			vAlta.CuentaOrdinariaRef != datosVinculo.CuentaOrdinariaRef || vAlta.PrincipalID != datosVinculo.PrincipalID ||
+			a.altaNominal.peticion.PreparacionCT.OrganizacionRef != p.PreparacionCT.OrganizacionRef {
+			return nil, ErrAutoridadAplicacion
+		}
+	}
 	if e = autoridadContextoError(ctx); e != nil {
 		return nil, e
 	}
@@ -241,6 +284,9 @@ func (a *AutoridadAplicacion) ResolverAutoridad(ctx context.Context, p pa.Prepar
 	if _, e := a.revalidar(ctx, time.Time{}); e != nil {
 		return pa.AutoridadAlta{}, e
 	}
+	if a.altaNominal != nil {
+		return a.altaNominal.ResolverAutoridad(ctx, p)
+	}
 	v, _ := a.contexto.Vinculo.Datos()
 	m := pa.MaterialAlta{Preparacion: p, OrganizacionRef: a.peticion.PreparacionCT.OrganizacionRef, ActorRef: v.PrincipalID, PerfilRef: v.PerfilActivoRef}
 	if m.Validar() != nil {
@@ -259,6 +305,12 @@ func (a *AutoridadAplicacion) AutorizarAlta(ctx context.Context, m pa.MaterialAl
 	var cero pa.AutorizacionAlta
 	if !a.admiteEfectos() {
 		return cero, ErrAutoridadAplicacion
+	}
+	if a.altaNominal != nil {
+		if _, err := a.revalidar(ctx, time.Time{}); err != nil {
+			return cero, err
+		}
+		return a.altaNominal.AutorizarAlta(ctx, m)
 	}
 	inicio, errInicio := a.comprobar(ctx, time.Time{})
 	if errInicio != nil {
@@ -345,6 +397,18 @@ func (a *AutoridadAplicacion) admiteEfectos() bool {
 }
 func (a *AutoridadAplicacion) contextoExacto(c ct.ContextoAutorizacionAltaV3) bool {
 	return c.Resultado.Validar() == nil && c.Vinculo.CoincideExactamenteCon(a.contexto.Vinculo) && reflect.DeepEqual(c.Resultado, a.contexto.Resultado)
+}
+
+// Sólo la autoridad compuesta que capturó ambos contextos puede admitir su
+// diferencia. No basta compartir persona, ni un perfil presentado por el alta.
+func (a *AutoridadAplicacion) vinculoAltaNominalExacto(ctActual, altaActual ct.ContextoAutorizacionAltaV3) bool {
+	if a == nil || !a.contextoExacto(ctActual) {
+		return false
+	}
+	if a.altaNominal == nil {
+		return a.contextoExacto(altaActual)
+	}
+	return a.altaNominal.contextoExacto(altaActual)
 }
 func autoridadContextoError(ctx context.Context) error {
 	if ctx == nil {

@@ -283,37 +283,11 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaSeguimientoCese(r
 func (s *soporteAltaContratacionTemporalDesarrollo) ambitosSeguimientoCese(ruta string, d vecdomain.DatosSolicitudAutorizacionLigadaV3) ([]vecdomain.AmbitoPerfil, bool) {
 	o, ok := operacionSeguimientoCesePorRuta(ruta)
 	r := d.Recurso
-	if s != nil && (ruta == httpinterno.RutaReincorporacionesTitular || ruta == httpinterno.RutaCapacidadReincorporacionTitular) &&
-		d.ReferenciaMotivo == motivoSeguimientoCeseDesarrollo(ruta) && r.ModuloID == ports.ModuloContratacion &&
-		r.Ambitos["organizacion_ref"] == organizacionAltaContratacionTemporalDesarrollo &&
-		r.Ambitos["expediente_ref"] == r.Referencia && domain.ReferenciaOpacaValida(r.Referencia) {
-		if ruta == httpinterno.RutaReincorporacionesTitular &&
-			d.Accion == string(ports.AccionConsultarAntecedenteReincorporacionTitular) &&
-			d.Finalidad == ports.FinalidadLecturaReincorporacionTitular && r.Tipo == ports.TipoRecursoLecturaReincorporacionTitular &&
-			len(r.Ambitos) == 2 && len(r.Atributos) == 5 &&
-			r.Atributos["version_expediente"] != "" && r.Atributos["relacion_ref"] != "" &&
-			r.Atributos["fecha_efectiva"] != "" && r.Atributos["documento_ref"] != "" && r.Atributos["documento_sha256"] != "" {
-			return []vecdomain.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}},
-				{Clave: "expediente_ref", Valores: []string{r.Referencia}}}, true
+	if s != nil && rutaReincorporacionTitularDesarrollo(ruta) {
+		if s.perfilFijoParaRuta(ruta) == nil || !solicitudAutorizacionReincorporacionTitularValida(ruta, d) {
+			return nil, false
 		}
-		if ruta == httpinterno.RutaReincorporacionesTitular && d.Accion == accionConsultarSeguimientoCeseDesarrollo &&
-			d.Finalidad == "gestionar_contratacion_temporal" && r.Tipo == "seguimiento_contratacion_temporal" &&
-			len(r.Ambitos) == 2 && len(r.Atributos) == 1 && r.Atributos["lectura"] == "reincorporacion_titular" {
-			return []vecdomain.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}},
-				{Clave: "expediente_ref", Valores: []string{r.Referencia}}}, true
-		}
-		if ruta == httpinterno.RutaCapacidadReincorporacionTitular &&
-			d.Accion == string(domain.AccionRegistrarReincorporacionTitular) &&
-			d.Finalidad == ports.FinalidadRegistrarReincorporacionTitular && r.Tipo == ports.TipoRecursoReincorporacionTitular &&
-			len(r.Ambitos) == 4 && r.Ambitos["fase_previa"] == string(domain.FaseNombramiento) &&
-			r.Ambitos["estado_previo"] == string(domain.EstadoEnCurso) && len(r.Atributos) == 1 {
-			if version, err := strconv.ParseUint(r.Atributos["version_expediente"], 10, 64); err == nil && version > 0 {
-				return []vecdomain.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}},
-					{Clave: "expediente_ref", Valores: []string{r.Referencia}},
-					{Clave: "fase_previa", Valores: []string{r.Ambitos["fase_previa"]}},
-					{Clave: "estado_previo", Valores: []string{r.Ambitos["estado_previo"]}}}, true
-			}
-		}
+		return []vecdomain.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}}}, true
 	}
 	if s == nil || !ok || d.Accion != o.accion || d.Finalidad != o.finalidad || d.ReferenciaMotivo != motivoSeguimientoCeseDesarrollo(ruta) ||
 		r.ModuloID != ports.ModuloContratacion || r.Tipo != o.tipo || r.Ambitos["organizacion_ref"] != organizacionAltaContratacionTemporalDesarrollo ||
@@ -521,15 +495,15 @@ func (a *autoridadSeguimientoCeseDesarrollo) exigirLecturaAntecedenteReincorpora
 	var r vecdomain.ResultadoContextoActorRegistradoV2
 	if a == nil || a.alta == nil || a.alta.soporte == nil || a.lecturaReincorporacion == nil || ctx == nil ||
 		sol.Finalidad != ports.FinalidadLecturaReincorporacionTitular || sol.Audiencia != ports.AudienciaLecturaReincorporacionTitularV1 ||
-		sol.Motivo != motivoSeguimientoCeseDesarrollo(httpinterno.RutaReincorporacionesTitular) {
+		sol.Motivo != motivoSeguimientoCeseDesarrollo(httpinterno.RutaReincorporacionesTitular) ||
+		a.alta.soporte.perfilFijoParaRuta(httpinterno.RutaReincorporacionesTitular) == nil {
 		return s, d, c, r, ports.ErrAutorizacionDenegada
 	}
 	capacidad, valida := a.alta.soporte.capacidadValida(ctx)
 	res := sol.Recurso
 	if !valida || capacidad.ruta != httpinterno.RutaReincorporacionesTitular || res.ModuloID != ports.ModuloContratacion ||
 		res.Tipo != ports.TipoRecursoLecturaReincorporacionTitular || !domain.ReferenciaOpacaValida(res.Referencia) ||
-		len(res.Ambitos) != 2 || res.Ambitos["organizacion_ref"] != organizacionAltaContratacionTemporalDesarrollo ||
-		res.Ambitos["expediente_ref"] != res.Referencia || len(res.Atributos) != 5 ||
+		len(res.Ambitos) != 1 || res.Ambitos["organizacion_ref"] != organizacionAltaContratacionTemporalDesarrollo || len(res.Atributos) != 5 ||
 		res.Atributos["version_expediente"] == "" || res.Atributos["relacion_ref"] == "" ||
 		res.Atributos["fecha_efectiva"] == "" || res.Atributos["documento_ref"] == "" || res.Atributos["documento_sha256"] == "" {
 		return s, d, c, r, ports.ErrAutorizacionDenegada
@@ -566,7 +540,7 @@ func (a *autoridadSeguimientoCeseDesarrollo) AutorizarLecturaSeguimiento(ctx con
 	if !valida {
 		return ports.ErrAutorizacionDenegada
 	}
-	if capacidad.ruta == httpinterno.RutaReincorporacionesTitular {
+	if rutaReincorporacionTitularDesarrollo(capacidad.ruta) {
 		return a.autorizarLecturaReincorporacion(ctx, organizacionRef, expedienteRef)
 	}
 	_, _, _, _, err := a.exigir(ctx, accionConsultarSeguimientoCeseDesarrollo, "gestionar_contratacion_temporal", vecdomain.RecursoAutorizable{
@@ -577,7 +551,7 @@ func (a *autoridadSeguimientoCeseDesarrollo) AutorizarLecturaSeguimiento(ctx con
 }
 
 func (a *autoridadSeguimientoCeseDesarrollo) autorizarLecturaReincorporacion(ctx context.Context, organizacionRef, expedienteRef string) error {
-	if a.lecturaReincorporacion == nil {
+	if a.lecturaReincorporacion == nil || a.alta.soporte.perfilFijoParaRuta(httpinterno.RutaReincorporacionesTitular) == nil {
 		return ports.ErrAutorizacionDenegada
 	}
 	operativo, err := a.alta.soporte.contextoOperativoDesarrollo(ctx)
@@ -594,7 +568,7 @@ func (a *autoridadSeguimientoCeseDesarrollo) autorizarLecturaReincorporacion(ctx
 		Accion:                    accionConsultarSeguimientoCeseDesarrollo,
 		Recurso: vecdomain.RecursoAutorizable{Referencia: expedienteRef, ModuloID: ports.ModuloContratacion,
 			Tipo: "seguimiento_contratacion_temporal", Ambitos: map[string]string{
-				"organizacion_ref": organizacionRef, "expediente_ref": expedienteRef},
+				"organizacion_ref": organizacionRef},
 			Atributos: map[string]string{"lectura": "reincorporacion_titular"}},
 		Finalidad: "gestionar_contratacion_temporal", Correlacion: correlacion}
 	solicitud, err := vecdomain.NuevaSolicitudAutorizacionLigadaV3(datos)
@@ -642,10 +616,10 @@ func (c *comprobadorCapacidadReincorporacionTitularDesarrollo) ComprobarCapacida
 		return false, err
 	}
 	recurso := vecdomain.RecursoAutorizable{Referencia: expedienteRef, ModuloID: ports.ModuloContratacion,
-		Tipo: ports.TipoRecursoReincorporacionTitular,
-		Ambitos: map[string]string{"organizacion_ref": canal.OrganizacionRef, "expediente_ref": expedienteRef,
-			"fase_previa": string(domain.FaseNombramiento), "estado_previo": string(domain.EstadoEnCurso)},
-		Atributos: map[string]string{"version_expediente": strconv.FormatUint(version, 10)}}
+		Tipo:    ports.TipoRecursoReincorporacionTitular,
+		Ambitos: map[string]string{"organizacion_ref": canal.OrganizacionRef},
+		Atributos: map[string]string{"version_expediente": strconv.FormatUint(version, 10),
+			"fase_previa": string(domain.FaseNombramiento), "estado_previo": string(domain.EstadoEnCurso)}}
 	datos := vecdomain.DatosSolicitudAutorizacionLigadaV3{
 		VinculoAutenticacionActor: operativo.Vinculo, ReferenciaMotivo: motivoSeguimientoCeseDesarrollo(httpinterno.RutaReincorporacionesTitular),
 		Accion: string(domain.AccionRegistrarReincorporacionTitular), Recurso: recurso,
@@ -854,6 +828,7 @@ func nuevasRutasSeguimientoCeseDesarrollo(dependencias *DependenciasCT, alta *de
 		}
 		var instalada bool
 		if err := alta.postgresql.ejecucion.QueryRow(ctx, `SELECT
+			to_regprocedure('vec_contratacion_temporal.perfil_reincorporacion_ct153_v1()') IS NOT NULL AND
 			to_regclass('vec_contratacion_temporal.reincorporacion_titular_v1') IS NOT NULL AND
 			to_regprocedure('vec_contratacion_temporal.preparar_reincorporacion_titular_v1(jsonb)') IS NOT NULL AND
 			to_regprocedure('vec_contratacion_temporal.confirmar_reincorporacion_titular_v1(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL AND
@@ -861,10 +836,20 @@ func nuevasRutasSeguimientoCeseDesarrollo(dependencias *DependenciasCT, alta *de
 			to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_lectura_reincorporacion_titular_ct_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL`).Scan(&instalada); err != nil || !instalada {
 			return fallar("migracion_reincorporacion", errSeguimientoCeseDesarrolloNoDisponible)
 		}
+		if err := alta.postgresql.ejecucion.QueryRow(ctx,
+			`SELECT vec_contratacion_temporal.perfil_reincorporacion_ct153_v1() = 'organizacion_ref'`).Scan(&instalada); err != nil || !instalada {
+			return fallar("perfil_reincorporacion_ct153", errSeguimientoCeseDesarrolloNoDisponible)
+		}
 	}
 	acreditada := incorporacionAcreditadaSolicitada(cfg)
 	if err := configurarSoporteSeguimientoCeseDesarrollo(ctx, alta, reloj, acreditada, reincorporacion); err != nil {
 		return fallar("instantanea", err)
+	}
+	if reincorporacion {
+		if err := componerPerfilFijoReincorporacionTitular(ctx, alta.postgresql.gobierno, alta.soporte,
+			aprobacionProvisionPerfilesRRHHDesdeConfig(cfg)); err != nil {
+			return fallar("perfil_fijo_reincorporacion", err)
+		}
 	}
 	material, err := nuevoMaterialAtestacionContratacionTemporalDesarrollo(derivador, reloj.Ahora())
 	if err != nil {
@@ -964,25 +949,16 @@ func nuevasRutasSeguimientoCeseDesarrollo(dependencias *DependenciasCT, alta *de
 		if err != nil {
 			return fallar("lector_reincorporacion", err)
 		}
-		servicioRetorno, err := application.NuevoServicioReincorporacionTitular(application.DependenciasReincorporacionTitular{
+		rutasRetorno, err := ComponerRutasReincorporacionTitular(autoridad, application.DependenciasReincorporacionTitular{
 			Contextos: alta.soporte, Sellos: sellosRetorno, Repositorio: repositorioRetorno,
 			Reglas:      fuenteReglasReincorporacionTitularDesarrollo{FuenteReglasSeguimiento: fuente},
 			Autorizador: autoridad, Lector: lectorRetorno, PoliticaLectura: fuente,
-			Referencias: seguridadct.NuevoGeneradorReferenciasAltaCriptografico(), Reloj: reloj})
-		if err != nil {
-			return fallar("servicio_reincorporacion", err)
-		}
-		post, err := httpinterno.NuevoManejadorReincorporacionTitular(autoridad, servicioRetorno)
-		if err != nil {
-			return fallar("http_reincorporacion", err)
-		}
-		get, err := httpinterno.NuevoManejadorCapacidadReincorporacionTitular(autoridad,
+			Referencias: seguridadct.NuevoGeneradorReferenciasAltaCriptografico(), Reloj: reloj},
 			&comprobadorCapacidadReincorporacionTitularDesarrollo{autoridad: autoridad, lector: repositorio, preparador: preparador})
 		if err != nil {
-			return fallar("http_capacidad_reincorporacion", err)
+			return fallar("composicion_reincorporacion", err)
 		}
-		rutas = append(rutas, vechttp.RutaExacta{Ruta: httpinterno.RutaReincorporacionesTitular, Manejador: post},
-			vechttp.RutaExacta{Ruta: httpinterno.RutaCapacidadReincorporacionTitular, Manejador: get})
+		rutas = append(rutas, rutasRetorno...)
 	}
 	return rutas, nil
 }

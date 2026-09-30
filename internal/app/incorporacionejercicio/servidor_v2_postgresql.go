@@ -61,7 +61,7 @@ func NuevoServidorV2PostgreSQL(c ConfiguracionServidorV2PostgreSQL) (*ServidorV2
 		p := *c.PoliticaConsultaDesarrollo
 		c.PoliticaConsultaDesarrollo = &p
 	}
-	if _, err := NuevaFuentePlanesPreparacionV2(x.Planes, x.TernaPlanes); err != nil {
+	if _, err := fuentePlanesPreparacionV2PostgreSQL(x); err != nil {
 		return nil, f
 	}
 	ps := x.Pools

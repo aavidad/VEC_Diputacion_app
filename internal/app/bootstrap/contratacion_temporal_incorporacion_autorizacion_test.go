@@ -35,9 +35,11 @@ func (p planesPermisoIncorporacionPrueba) ResolverPlan(_ context.Context, org, e
 }
 
 type publicadorPermisoIncorporacionPrueba struct {
-	orden  []string
-	ultima core.InstantaneaAutorizacion
-	falla  string
+	orden        []string
+	ultima       core.InstantaneaAutorizacion
+	falla        string
+	publicadas   map[string]instantaneaPublicadaDesarrollo
+	errorLectura error
 }
 
 func (p *publicadorPermisoIncorporacionPrueba) PrepararInstantanea(_ context.Context, i core.InstantaneaAutorizacion) (core.InstantaneaAutorizacion, error) {
@@ -55,6 +57,11 @@ func (p *publicadorPermisoIncorporacionPrueba) PublicarInstantanea(_ context.Con
 		return ct.ErrAutorizacionDenegada
 	}
 	return nil
+}
+
+func (p *publicadorPermisoIncorporacionPrueba) leerAsignacionPublicada(_ context.Context, perfil string) (instantaneaPublicadaDesarrollo, bool, error) {
+	publicada, existe := p.publicadas[perfil]
+	return publicada, existe, p.errorLectura
 }
 
 type pdpPermisoIncorporacionPrueba struct {
@@ -116,7 +123,12 @@ func datosOperacionPermisoIncorporacionPrueba(t *testing.T, a *autoridadOperacio
 		if err != nil {
 			t.Fatal(err)
 		}
-		d.Recurso, err = personal.RecursoAltaEjercicio(personal.MaterialAlta{Preparacion: personal.PreparacionAlta{Solicitud: p.SolicitudPersonal, Fuente: p.FuentePersonal, Vinculo: v}, OrganizacionRef: a.referencias.OrganizacionRef, ActorRef: a.referencias.PrincipalV3Ref, PerfilRef: a.referencias.PerfilV3Ref})
+		d.Recurso, err = personal.RecursoAltaEjercicio(personal.MaterialAlta{Preparacion: personal.PreparacionAlta{Solicitud: p.SolicitudPersonal, Fuente: p.FuentePersonal, Vinculo: v}, OrganizacionRef: a.referencias.OrganizacionRef, ActorRef: a.referencias.PrincipalV3Ref, PerfilRef: func() string {
+			if a.nominales != nil {
+				return a.nominales.alta.perfilRef()
+			}
+			return a.referencias.PerfilV3Ref
+		}()})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -132,7 +144,7 @@ func datosOperacionPermisoIncorporacionPrueba(t *testing.T, a *autoridadOperacio
 	return d
 }
 
-func TestIncorporacionV2PermisosNominalesPublicanAntesDelPDP(t *testing.T) {
+func TestIncorporacionV2PermisosNominalesConsumenSinPublicar(t *testing.T) {
 	for _, operacion := range []string{"detalle", "alta", "lectura", "ct"} {
 		t.Run(operacion, func(t *testing.T) {
 			a, ctx, d, p := escenarioPermisoIncorporacionPrueba(t)
@@ -143,18 +155,11 @@ func TestIncorporacionV2PermisosNominalesPublicanAntesDelPDP(t *testing.T) {
 			}
 			resultado := a.soporte.contexto.Resultado
 			_, _, err = a.ExigirSolicitudLigadaV3(ctx, solicitud, resultado)
-			if !errors.Is(err, errPDPIncorporacionPrueba) || !reflect.DeepEqual(p.orden, []string{"preparar", "publicar", "pdp"}) {
+			if !errors.Is(err, errPDPIncorporacionPrueba) || !reflect.DeepEqual(p.orden, []string{"pdp"}) {
 				t.Fatalf("delegación fuera de orden: %v %v", p.orden, err)
 			}
-			cantidad, indice := 1, 0
-			if operacion == "lectura" || operacion == "ct" {
-				cantidad = 2
-			}
-			if operacion == "ct" {
-				indice = 1
-			}
-			if p.ultima.Validar() != nil || p.ultima.AsignacionPerfil.Version != 2 || !p.ultima.AsignacionPerfil.Cubre(d.Recurso) || len(p.ultima.VersionRol.Concesiones) != cantidad || p.ultima.VersionRol.Concesiones[indice].Accion != d.Accion {
-				t.Fatal("no publicó el único permiso acotado preparado")
+			if !reflect.DeepEqual(p.ultima, core.InstantaneaAutorizacion{}) {
+				t.Fatal("la petición publicó una asignación")
 			}
 			delegado := a.delegado.(*pdpPermisoIncorporacionPrueba)
 			recibida, _ := delegado.solicitud.Datos()
@@ -174,11 +179,11 @@ func TestIncorporacionV2PermisosNominalesDetalleNoExigePlanPeroEfectosSi(t *test
 			t.Fatal(err)
 		}
 		_, _, err = a.ExigirSolicitudLigadaV3(ctx, solicitud, a.soporte.contexto.Resultado)
-		if !errors.Is(err, errPDPIncorporacionPrueba) || !reflect.DeepEqual(publicador.orden, []string{"preparar", "publicar", "pdp"}) {
+		if !errors.Is(err, errPDPIncorporacionPrueba) || !reflect.DeepEqual(publicador.orden, []string{"pdp"}) {
 			t.Fatalf("el detalle nominal quedó ligado al plan: %v %v", publicador.orden, err)
 		}
-		if publicador.ultima.Validar() != nil || !publicador.ultima.AsignacionPerfil.Cubre(d.Recurso) || len(publicador.ultima.VersionRol.Concesiones) != 1 || publicador.ultima.VersionRol.Concesiones[0].Accion != ct.AccionConsultarDetalleRRHH {
-			t.Fatal("el detalle sin plan no publicó su contrato exacto")
+		if !reflect.DeepEqual(publicador.ultima, core.InstantaneaAutorizacion{}) {
+			t.Fatal("el detalle publicó una asignación")
 		}
 	})
 
@@ -247,33 +252,17 @@ func TestIncorporacionV2PermisosNominalesRechazanCrucesSinPublicar(t *testing.T)
 	}
 }
 
-func TestIncorporacionV2PermisosNominalesFalloPublicadorYCancelacion(t *testing.T) {
-	for _, caso := range []string{"preparar", "publicar", "cancelada"} {
-		t.Run(caso, func(t *testing.T) {
-			a, ctx, d, p := escenarioPermisoIncorporacionPrueba(t)
-			p.falla = caso
-			if caso == "cancelada" {
-				var cancelar context.CancelFunc
-				ctx, cancelar = context.WithCancel(ctx)
-				cancelar()
-			}
-			solicitud, err := core.NuevaSolicitudAutorizacionLigadaV3(d)
-			if err != nil {
-				t.Fatal(err)
-			}
-			_, _, err = a.ExigirSolicitudLigadaV3(ctx, solicitud, a.soporte.contexto.Resultado)
-			if err == nil {
-				t.Fatal("aceptó fallo")
-			}
-			for _, paso := range p.orden {
-				if paso == "pdp" {
-					t.Fatal("delegó tras fallo")
-				}
-			}
-			if caso == "cancelada" && (!errors.Is(err, context.Canceled) || len(p.orden) != 0) {
-				t.Fatal("perdió cancelación")
-			}
-		})
+func TestIncorporacionV2PermisosNominalesCancelacion(t *testing.T) {
+	a, ctx, d, p := escenarioPermisoIncorporacionPrueba(t)
+	ctx, cancelar := context.WithCancel(ctx)
+	cancelar()
+	solicitud, err := core.NuevaSolicitudAutorizacionLigadaV3(d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _, err = a.ExigirSolicitudLigadaV3(ctx, solicitud, a.soporte.contexto.Resultado)
+	if !errors.Is(err, context.Canceled) || len(p.orden) != 0 {
+		t.Fatal("perdió cancelación o alcanzó una autoridad")
 	}
 }
 
@@ -327,7 +316,7 @@ func TestIncorporacionV2PermisosNominalesSegundaCapturaMismaSesion(t *testing.T)
 				t.Fatal(err)
 			}
 			_, _, err = a.ExigirSolicitudLigadaV3(ctx, solicitud, propio.Resultado)
-			if !errors.Is(err, errPDPIncorporacionPrueba) || !reflect.DeepEqual(p.orden, []string{"preparar", "publicar", "pdp"}) {
+			if !errors.Is(err, errPDPIncorporacionPrueba) || !reflect.DeepEqual(p.orden, []string{"pdp"}) {
 				t.Fatalf("rechazó captura legítima: %v %v", p.orden, err)
 			}
 			if !reflect.DeepEqual(a.delegado.(*pdpPermisoIncorporacionPrueba).resultado, propio.Resultado) {
@@ -348,10 +337,9 @@ func TestIncorporacionV2PermisosNominalesSegundaCapturaMismaSesion(t *testing.T)
 	}
 }
 
-func TestIncorporacionV2PermisosNominalesConservanCTDuranteLecturas(t *testing.T) {
+func TestIncorporacionV2PermisosNominalesIntercaladosNoCambianAsignacion(t *testing.T) {
 	a, ctx, base, p := escenarioPermisoIncorporacionPrueba(t)
-	var anterior core.InstantaneaAutorizacion
-	for i, operacion := range []string{"lectura", "ct", "lectura", "lectura"} {
+	for _, operacion := range []string{"lectura", "ct", "alta", "detalle", "lectura", "ct"} {
 		d := datosOperacionPermisoIncorporacionPrueba(t, a, base, operacion)
 		solicitud, err := core.NuevaSolicitudAutorizacionLigadaV3(d)
 		if err != nil {
@@ -361,20 +349,8 @@ func TestIncorporacionV2PermisosNominalesConservanCTDuranteLecturas(t *testing.T
 		if !errors.Is(err, errPDPIncorporacionPrueba) {
 			t.Fatal(err)
 		}
-		if i > 0 && !reflect.DeepEqual(anterior, p.ultima) {
-			t.Fatal("la lectura cambió la asignación que sostiene el permiso CT pendiente")
-		}
-		anterior = p.ultima
 	}
-	permisos := anterior.VersionRol.Concesiones
-	if len(permisos) != 2 || permisos[0].Accion != lectura.Accion || permisos[0].TipoRecurso != lectura.TipoRecursoV2 || permisos[1].Accion != ct.AccionConfirmarIncorporacion || permisos[1].TipoRecurso != ct.TipoRecursoConfirmacionIncorporacionV2 {
-		t.Fatal("el par no conserva sus dos contratos cerrados")
-	}
-	// Alta y detalle conservan otras dimensiones y no pueden reutilizar este rol.
-	for _, operacion := range []string{"alta", "detalle"} {
-		d := datosOperacionPermisoIncorporacionPrueba(t, a, base, operacion)
-		if anterior.AsignacionPerfil.Cubre(d.Recurso) {
-			t.Fatal("el rol conjunto cubre ámbitos de alta/detalle")
-		}
+	if !reflect.DeepEqual(p.orden, []string{"pdp", "pdp", "pdp", "pdp", "pdp", "pdp"}) || !reflect.DeepEqual(p.ultima, core.InstantaneaAutorizacion{}) {
+		t.Fatal("la petición alteró el gobierno entre operaciones")
 	}
 }
