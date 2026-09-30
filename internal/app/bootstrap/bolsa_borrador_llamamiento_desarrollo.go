@@ -718,6 +718,10 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
+	// B59: correo activo de «Mis correos» en los avisos; su cierre se encadena.
+	if detenerReincorporaciones, err = componerAvisosMisCorreosBolsaDesarrollo(ctx, cfg, servicioEmision, repositorioEmision, pdp, alta.postgresql.materialUsuariosCorreos.avisos, dependenciasCT.kms, detenerReincorporaciones); err != nil {
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
+	}
 	handlerEmision, err := bolsahttp.NuevoHandlerEmisionLlamamiento(preparador, servicioEmision)
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()

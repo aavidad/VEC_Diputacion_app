@@ -86,6 +86,7 @@ func TestPortalCombinadoNoCambiaNada(t *testing.T) {
 		t.Fatal(err)
 	}
 	escribir(t, material, "ca/ca.key", "clave ca")
+	escribir(t, material, "idempotencia/cliente.pem", "material sintetico")
 	if err := ComprobarMaterial(PortalCombinado, material); err != nil {
 		t.Fatalf("el portal combinado no debe comprobar el material historico: %v", err)
 	}
@@ -183,6 +184,32 @@ func TestMaterialPropioDeCadaPortalSeAdmite(t *testing.T) {
 	for _, p := range []Portal{PortalInterno, PortalExterno} {
 		if err := ComprobarMaterial(p, materialSintetico(t, p)); err != nil {
 			t.Fatalf("%s: material propio rechazado: %v", p, err)
+		}
+	}
+}
+
+func TestProcesoSeparadoSoloAdmiteMaterialNominalTLSKMSYTSA(t *testing.T) {
+	for _, p := range []Portal{PortalInterno, PortalExterno} {
+		material := materialSintetico(t, p)
+		for _, relativa := range []string{
+			"kms/atestacion-ed25519.key", "kms/atestacion-ed25519.pub",
+			"kms/revalidacion-ed25519.key", "kms/revalidacion-ed25519.pub",
+		} {
+			escribir(t, material, relativa, "material sintetico")
+		}
+		if err := ComprobarMaterial(p, material); err != nil {
+			t.Fatalf("%s: material nominal rechazado: %v", p, err)
+		}
+		for _, relativa := range []string{
+			"tls/cliente.key", "tls/intervencion.key", "tls/cliente.pem", "tls/otro.crt",
+			"kms/cliente.key", "kms/cliente.pem", "tsa/cliente.pem",
+			"idempotencia/cliente.pem", "externo/cliente.pem",
+		} {
+			material := materialSintetico(t, p)
+			escribir(t, material, relativa, "material sintetico")
+			if got := motivo(t, ComprobarMaterial(p, material)); got != relativa {
+				t.Fatalf("%s: se esperaba rechazar %s, llego %s", p, relativa, got)
+			}
 		}
 	}
 }

@@ -69,7 +69,6 @@ export const LEGADO_CON_DICCIONARIO = new Set([
   "portal-empleado/portal-borrador-llamamiento-ui.js",
   "portal-empleado/portal-huella-archivo.js",
   "portal-empleado/portal-modulos-coordinador.js",
-  "portal-empleado/reglas/i18n.js",
   "portal-empleado/vendor/leaflet-1.9.4/leaflet.js",
   "verificar/i18n.js",
 ]);

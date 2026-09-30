@@ -77,6 +77,10 @@ func (a AutorizacionV3) ValidarPara(accion string, ahora time.Time) error {
 		if a.Finalidad != "registrar_documento_externo" {
 			return ErrSolicitudInvalida
 		}
+	case AccionCustodiarFirmado:
+		if a.Finalidad != FinalidadCustodiarFirmado {
+			return ErrSolicitudInvalida
+		}
 	default:
 		return ErrSolicitudInvalida
 	}
@@ -188,8 +192,12 @@ type ConsultaDocumento struct {
 }
 
 // FabricaContextoLectura recibe el objeto solo tras la consulta SQL V3.
-// Debe resolver una decision de almacen positiva propia para ese objeto y
-// usar NuevoContextoLeerDocumentoGeneradoAlmacen; no admite objeto generico.
+// Debe resolver una decision de almacen positiva propia para ese objeto; la
+// composicion usa la variante V3 (NuevoContextoLeerDocumentoGeneradoAlmacenV3,
+// adapters/autorizacion/lectura_original_v3.go). No admite objeto generico.
+// Solo Servicio.DescargarOriginal la invoca, despues de que Repositorio.Obtener
+// haya consumido en SQL la autorizacion de descarga: la concesion de almacen
+// no se consume por si misma y no debe pedirse fuera de ese orden.
 type FabricaContextoLectura interface {
 	ContextoLecturaOriginal(context.Context, domain.Documento, AutorizacionV3) (vecports.ContextoOperacionAlmacen, error)
 }

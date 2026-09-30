@@ -115,9 +115,11 @@ func (s *ServicioOperacionAnalisis) nuevaSolicitudAutorizacion(
 				Referencia: preparacion.ExpedienteRef,
 				ModuloID:   ports.ModuloContratacion,
 				Tipo:       ports.TipoRecursoAnalisis,
+				// El expediente va en la referencia del recurso, no en los
+				// ámbitos: el permiso cubre la organización y la fase y el
+				// estado previos, no un expediente concreto (perfil fijo).
 				Ambitos: map[string]string{
 					"organizacion_ref": preparacion.OrganizacionRef,
-					"expediente_ref":   preparacion.ExpedienteRef,
 					"fase_previa":      string(politica.FasePrevia),
 					"estado_previo":    string(politica.EstadoPrevio),
 				},

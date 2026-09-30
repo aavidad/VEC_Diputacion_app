@@ -363,9 +363,11 @@ func (s *ServicioAsignacion) nuevaSolicitudAutorizacionAsignacion(
 				Referencia: material.ExpedienteRef,
 				ModuloID:   ports.ModuloContratacion,
 				Tipo:       ports.TipoRecursoAsignacion,
+				// El expediente va en la referencia del recurso, no en los
+				// ámbitos: el permiso fijo cubre la organización, la fase y
+				// el estado previos y la unidad, no un expediente concreto.
 				Ambitos: map[string]string{
 					"organizacion_ref":   material.OrganizacionRef,
-					"expediente_ref":     material.ExpedienteRef,
 					"fase_previa":        string(vista.FaseActual),
 					"estado_previo":      string(vista.EstadoActual),
 					"unidad_destino_ref": material.UnidadRef,
@@ -445,6 +447,11 @@ func clasificarFalloAsignacion(ctx context.Context, seguro error) error {
 	}
 	if errors.Is(seguro, ports.ErrClaveIdempotenciaUsada) {
 		return ports.ErrClaveIdempotenciaUsada
+	}
+	// El expediente ya no está en la versión esperada: conflicto sin
+	// efectos, no indisponibilidad.
+	if errors.Is(seguro, domain.ErrVersionEnConflicto) {
+		return domain.ErrVersionEnConflicto
 	}
 	if errors.Is(seguro, ErrAsignacionDenegada) {
 		return ErrAsignacionDenegada

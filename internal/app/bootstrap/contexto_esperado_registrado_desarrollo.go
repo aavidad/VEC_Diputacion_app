@@ -174,6 +174,9 @@ func (s *soporteAltaContratacionTemporalDesarrollo) contextoOperativoDesarrollo(
 		esperado = s.reincorporacionTitular.contextoEsperadoRegistrado
 		sesion = s.reincorporacionTitular.sesionOperativa
 	}
+	if fijo := s.perfilFijoParaRutaBloqueado(capacidad.ruta); fijo != nil && !fijo.propioDelSoporte {
+		esperado, sesion = fijo.contextoEsperadoRegistrado, fijo.sesionOperativa
+	}
 	s.mu.Unlock()
 	if esperado.Validar() != nil || sesion == nil {
 		if rutaConsultaRespuestaCTDesarrollo(capacidad.ruta) {

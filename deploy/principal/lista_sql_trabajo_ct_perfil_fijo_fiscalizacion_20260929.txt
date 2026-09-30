@@ -1,0 +1,5 @@
+# Perfiles fijos de fiscalización (Intervención) y subsanación de reparos
+# (corte 3): el contexto canónico de sus cuatro confirmaciones sin
+# «expediente_ref» en los ámbitos. Preimagen: CT52, CT93, CT120 y CT92
+# instaladas; requiere antes CT-000144 y CT-000146.
+deploy/postgresql/contratacion_temporal/migraciones/000147_fiscalizacion_subsanacion_sin_expediente_en_ambitos.up.sql

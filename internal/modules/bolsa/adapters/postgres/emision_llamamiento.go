@@ -12,13 +12,18 @@ import (
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 )
 
-type RepositorioEmisionLlamamientoPostgreSQL struct{ pool *pgxpool.Pool }
+type RepositorioEmisionLlamamientoPostgreSQL struct {
+	pool *pgxpool.Pool
+	// fuentes indica que B59 está instalado y activo: la respuesta y la
+	// recuperación incluyen la fuente del correo de cada aviso.
+	fuentes bool
+}
 
 func NuevoRepositorioEmisionLlamamientoPostgreSQL(pool *pgxpool.Pool) (*RepositorioEmisionLlamamientoPostgreSQL, error) {
 	if pool == nil {
 		return nil, ports.ErrEmisionLlamamientoNoDisponible
 	}
-	return &RepositorioEmisionLlamamientoPostgreSQL{pool}, nil
+	return &RepositorioEmisionLlamamientoPostgreSQL{pool: pool}, nil
 }
 
 func (r *RepositorioEmisionLlamamientoPostgreSQL) Reservar(ctx context.Context, c ports.ComandoEmitirLlamamiento) (ports.EmisionLlamamiento, error) {
@@ -43,6 +48,9 @@ func (r *RepositorioEmisionLlamamientoPostgreSQL) Reservar(ctx context.Context, 
 		return ports.EmisionLlamamiento{}, ports.ErrEmisionLlamamientoNoDisponible
 	}
 	out.Reutilizada = reutilizada
+	if reutilizada {
+		return r.conFuentesCorreo(ctx, out, c.BolsaRef, c.ClaveIdempotencia)
+	}
 	return out, nil
 }
 
@@ -50,16 +58,32 @@ func (r *RepositorioEmisionLlamamientoPostgreSQL) RegistrarContactos(ctx context
 	if r == nil || r.pool == nil || ctx == nil || bolsa == "" || clave == "" || actor == "" || len(token) != 32 || len(contactos) == 0 {
 		return ports.EmisionLlamamiento{}, ports.ErrEmisionLlamamientoNoDisponible
 	}
+	conFuente := 0
+	for _, c := range contactos {
+		if c.FuenteCorreo != nil {
+			if !r.fuentes || !c.FuenteCorreo.Valida() {
+				return ports.EmisionLlamamiento{}, ports.ErrEmisionLlamamientoInvalida
+			}
+			conFuente++
+		}
+	}
+	if conFuente != 0 && conFuente != len(contactos) {
+		return ports.EmisionLlamamiento{}, ports.ErrEmisionLlamamientoInvalida
+	}
 	rawContactos, _ := json.Marshal(contactos)
+	sql := `SELECT vec_bolsa_llamamientos.registrar_contactos_llamamiento_v1($1,$2,$3,$4,$5::jsonb)`
+	if conFuente != 0 {
+		sql = `SELECT vec_bolsa_llamamientos.registrar_contactos_llamamiento_v2($1,$2,$3,$4,$5::jsonb)`
+	}
 	var salidaJSON []byte
-	if err := r.pool.QueryRow(ctx, `SELECT vec_bolsa_llamamientos.registrar_contactos_llamamiento_v1($1,$2,$3,$4,$5::jsonb)`, bolsa, clave, actor, token, rawContactos).Scan(&salidaJSON); err != nil {
+	if err := r.pool.QueryRow(ctx, sql, bolsa, clave, actor, token, rawContactos).Scan(&salidaJSON); err != nil {
 		return ports.EmisionLlamamiento{}, errorEmision(err)
 	}
-	var out ports.EmisionLlamamiento
+	var out emisionConFuentesSQL
 	if json.Unmarshal(salidaJSON, &out) != nil {
-		return out, ports.ErrEmisionLlamamientoNoDisponible
+		return ports.EmisionLlamamiento{}, ports.ErrEmisionLlamamientoNoDisponible
 	}
-	return out, nil
+	return aplicarFuentesCorreo(out.EmisionLlamamiento, out.FuentesCorreo), nil
 }
 
 func (r *RepositorioEmisionLlamamientoPostgreSQL) Recuperar(ctx context.Context, bolsa, clave string) (ports.EmisionLlamamiento, error) {
@@ -75,7 +99,7 @@ func (r *RepositorioEmisionLlamamientoPostgreSQL) Recuperar(ctx context.Context,
 		return out, ports.ErrEmisionLlamamientoNoDisponible
 	}
 	out.Reutilizada = true
-	return out, nil
+	return r.conFuentesCorreo(ctx, out, bolsa, clave)
 }
 
 func (r *RepositorioEmisionLlamamientoPostgreSQL) ContarEnCurso(ctx context.Context, bolsa string) (int, error) {
@@ -102,4 +126,79 @@ func errorEmision(err error) error {
 		}
 	}
 	return ports.ErrEmisionLlamamientoNoDisponible
+}
+
+// emisionConFuentesSQL es la salida de registrar_contactos_llamamiento_v2:
+// la emisión de siempre más las fuentes por recibo de contacto (B59).
+type emisionConFuentesSQL struct {
+	ports.EmisionLlamamiento
+	FuentesCorreo map[string]ports.FuenteCorreoContacto `json:"fuentes_correo"`
+}
+
+// aplicarFuentesCorreo copia en cada contacto su fuente registrada. Una
+// fuente que no cumple el contrato se descarta: no se muestra algo dudoso.
+func aplicarFuentesCorreo(e ports.EmisionLlamamiento, fuentes map[string]ports.FuenteCorreoContacto) ports.EmisionLlamamiento {
+	if len(fuentes) == 0 {
+		return e
+	}
+	contactos := make([]ports.ResultadoContactoEmision, len(e.Contactos))
+	for i, c := range e.Contactos {
+		if f, ok := fuentes[c.ReciboRef]; ok && f.Valida() {
+			copia := f
+			c.FuenteCorreo = &copia
+		}
+		contactos[i] = c
+	}
+	e.Contactos = contactos
+	return e
+}
+
+// ActivarFuentesCorreo comprueba que B59 está instalado y accesible al
+// ejecutor. Sin esta llamada el repositorio se comporta como antes de B59.
+func (r *RepositorioEmisionLlamamientoPostgreSQL) ActivarFuentesCorreo(ctx context.Context) error {
+	if r == nil || r.pool == nil || ctx == nil {
+		return ports.ErrEmisionLlamamientoNoDisponible
+	}
+	var ok bool
+	if err := r.pool.QueryRow(ctx, `SELECT pg_catalog.to_regclass('vec_bolsa_llamamientos.contacto_fuente_correo') IS NOT NULL
+ AND pg_catalog.has_function_privilege(session_user,'vec_bolsa_llamamientos.registrar_contactos_llamamiento_v2(text,text,text,bytea,jsonb)','EXECUTE')
+ AND pg_catalog.has_function_privilege(session_user,'vec_bolsa_llamamientos.fuentes_correo_llamamiento_v1(text,text)','EXECUTE')
+ AND pg_catalog.has_function_privilege(session_user,'vec_bolsa_llamamientos.candidato_participacion_avisos_v1(text,text,text)','EXECUTE')`).Scan(&ok); err != nil || !ok {
+		return ports.ErrEmisionLlamamientoNoDisponible
+	}
+	r.fuentes = true
+	return nil
+}
+
+// conFuentesCorreo añade a una emisión recuperada las fuentes registradas.
+func (r *RepositorioEmisionLlamamientoPostgreSQL) conFuentesCorreo(ctx context.Context, e ports.EmisionLlamamiento, bolsa, clave string) (ports.EmisionLlamamiento, error) {
+	if !r.fuentes || len(e.Contactos) == 0 {
+		return e, nil
+	}
+	var raw []byte
+	if err := r.pool.QueryRow(ctx, `SELECT vec_bolsa_llamamientos.fuentes_correo_llamamiento_v1($1,$2)`, bolsa, clave).Scan(&raw); err != nil {
+		return ports.EmisionLlamamiento{}, errorEmision(err)
+	}
+	var fuentes map[string]ports.FuenteCorreoContacto
+	if json.Unmarshal(raw, &fuentes) != nil {
+		return ports.EmisionLlamamiento{}, ports.ErrEmisionLlamamientoNoDisponible
+	}
+	return aplicarFuentesCorreo(e, fuentes), nil
+}
+
+// CandidatoParticipacionAvisos devuelve la referencia de candidato de una
+// participación de un llamamiento reservado de la bolsa, o "" si no hay
+// vínculo (B59).
+func (r *RepositorioEmisionLlamamientoPostgreSQL) CandidatoParticipacionAvisos(ctx context.Context, bolsa, llamamiento, participacion string) (string, error) {
+	if r == nil || r.pool == nil || ctx == nil || !r.fuentes || bolsa == "" || llamamiento == "" || participacion == "" || len(participacion) > 512 {
+		return "", ports.ErrEmisionLlamamientoNoDisponible
+	}
+	var candidato *string
+	if err := r.pool.QueryRow(ctx, `SELECT vec_bolsa_llamamientos.candidato_participacion_avisos_v1($1,$2,$3)`, bolsa, llamamiento, participacion).Scan(&candidato); err != nil {
+		return "", errorEmision(err)
+	}
+	if candidato == nil {
+		return "", nil
+	}
+	return *candidato, nil
 }

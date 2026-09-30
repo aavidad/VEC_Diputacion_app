@@ -11,6 +11,7 @@ import (
 	"io"
 	"math"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -24,19 +25,26 @@ import (
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
+const maxRespuestaCorreos = 64 << 10
+
+// Las fachadas de «Mis correos» viven en un esquema por población (Usuarios
+// 000010): el personal en vec_usuarios_correos_interno y el Área personal en
+// vec_usuarios_correos_externo. @ESQ@ se sustituye por el esquema de la
+// superficie del registro, tomado de una tabla cerrada y nunca de la petición.
 const (
-	consultarCorreosSQL     = `SELECT vec_usuarios.consultar_correos_propios_v1($1::text,$2::bytea,$3::bytea,$4::bytea,$5::bytea,$6::numeric,$7::numeric,$8::bytea,$9::bytea,$10::bytea,$11::bytea)`
-	recuperarCorreosSQL     = `SELECT vec_usuarios.recuperar_correos_operacion_v1($1::text,$2::bytea,$3::bytea,$4::bytea,$5::bytea,$6::numeric,$7::numeric,$8::bytea,$9::bytea,$10::bytea,$11::bytea)`
-	aplicarCorreosSQL       = `SELECT vec_usuarios.aplicar_correos_propios_v1($1::text,$2::jsonb,$3::jsonb,$4::bytea,$5::bytea,$6::bytea,$7::bytea,$8::numeric,$9::numeric,$10::bytea,$11::bytea,$12::bytea,$13::bytea)`
-	prepararVerificacionSQL = `SELECT vec_usuarios.preparar_verificacion_correo_v1($1::text,$2::bytea,$3::bytea,$4::bytea,$5::bytea,$6::numeric,$7::numeric,$8::bytea,$9::bytea,$10::bytea,$11::bytea)`
-	cerrarVerificacionSQL   = `SELECT vec_usuarios.cerrar_verificacion_correo_v1($1::text,$2::text,$3::boolean)`
-	confirmarEnvioSQL       = `SELECT vec_usuarios.confirmar_envio_correo_v1($1::text,$2::text,$3::text,$4::boolean)`
-	maxRespuestaCorreos     = 64 << 10
+	plantillaConsultarCorreosSQL     = `SELECT @ESQ@.consultar_correos_propios_v1($1::text,$2::bytea,$3::bytea,$4::bytea,$5::bytea,$6::numeric,$7::numeric,$8::bytea,$9::bytea,$10::bytea,$11::bytea)`
+	plantillaRecuperarCorreosSQL     = `SELECT @ESQ@.recuperar_correos_operacion_v1($1::text,$2::bytea,$3::bytea,$4::bytea,$5::bytea,$6::numeric,$7::numeric,$8::bytea,$9::bytea,$10::bytea,$11::bytea)`
+	plantillaAplicarCorreosSQL       = `SELECT @ESQ@.aplicar_correos_propios_v1($1::text,$2::jsonb,$3::jsonb,$4::bytea,$5::bytea,$6::bytea,$7::bytea,$8::numeric,$9::numeric,$10::bytea,$11::bytea,$12::bytea,$13::bytea)`
+	plantillaPrepararVerificacionSQL = `SELECT @ESQ@.preparar_verificacion_correo_v1($1::text,$2::bytea,$3::bytea,$4::bytea,$5::bytea,$6::numeric,$7::numeric,$8::bytea,$9::bytea,$10::bytea,$11::bytea)`
+	plantillaCerrarVerificacionSQL   = `SELECT @ESQ@.cerrar_verificacion_correo_v1($1::text,$2::text,$3::boolean)`
+	plantillaConfirmarEnvioSQL       = `SELECT @ESQ@.confirmar_envio_correo_v1($1::text,$2::text,$3::text,$4::boolean)`
 )
 
 // No basta con un pool al mismo servidor: este login sólo puede heredar el
-// ejecutor de su superficie y ejecutar las funciones personales, sin SET ROLE.
-const acreditarEjecutorCorreosSQL = `SELECT session_user=current_user
+// ejecutor de su superficie y ejecutar las funciones personales de su
+// esquema, sin SET ROLE, sin tablas y sin acceso al esquema de la otra
+// población (@OTRO@).
+const plantillaAcreditarEjecutorCorreosSQL = `SELECT session_user=current_user
  AND l.rolcanlogin AND l.rolinherit AND NOT l.rolsuper AND NOT l.rolcreatedb
  AND NOT l.rolcreaterole AND NOT l.rolreplication AND NOT l.rolbypassrls
  AND g.rolname=$1::text AND NOT g.rolcanlogin
@@ -46,15 +54,42 @@ const acreditarEjecutorCorreosSQL = `SELECT session_user=current_user
    AND NOT m.admin_option AND m.inherit_option AND NOT m.set_option)
  AND (SELECT count(*) FROM pg_catalog.pg_auth_members m WHERE m.member=l.oid)=1
  AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_auth_members m WHERE m.member=g.oid)
- AND pg_catalog.has_function_privilege(session_user,'vec_usuarios.consultar_correos_propios_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
- AND pg_catalog.has_function_privilege(session_user,'vec_usuarios.recuperar_correos_operacion_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
- AND pg_catalog.has_function_privilege(session_user,'vec_usuarios.aplicar_correos_propios_v1(text,jsonb,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
- AND pg_catalog.has_function_privilege(session_user,'vec_usuarios.preparar_verificacion_correo_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
- AND pg_catalog.has_function_privilege(session_user,'vec_usuarios.cerrar_verificacion_correo_v1(text,text,boolean)','EXECUTE')
- AND pg_catalog.has_function_privilege(session_user,'vec_usuarios.confirmar_envio_correo_v1(text,text,text,boolean)','EXECUTE')
- AND NOT pg_catalog.has_table_privilege(session_user,'vec_usuarios.correos_direccion','SELECT')
+ AND pg_catalog.has_function_privilege(session_user,'@ESQ@.consultar_correos_propios_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
+ AND pg_catalog.has_function_privilege(session_user,'@ESQ@.recuperar_correos_operacion_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
+ AND pg_catalog.has_function_privilege(session_user,'@ESQ@.aplicar_correos_propios_v1(text,jsonb,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
+ AND pg_catalog.has_function_privilege(session_user,'@ESQ@.preparar_verificacion_correo_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
+ AND pg_catalog.has_function_privilege(session_user,'@ESQ@.cerrar_verificacion_correo_v1(text,text,boolean)','EXECUTE')
+ AND pg_catalog.has_function_privilege(session_user,'@ESQ@.confirmar_envio_correo_v1(text,text,text,boolean)','EXECUTE')
+ AND NOT pg_catalog.has_table_privilege(session_user,'@ESQ@.correos_direccion','SELECT')
+ AND NOT pg_catalog.has_schema_privilege(session_user,'@OTRO@','USAGE')
  FROM pg_catalog.pg_roles l JOIN pg_catalog.pg_roles g ON g.rolname=$1::text
  WHERE l.rolname=session_user`
+
+// sentenciasCorreos son las llamadas SQL ya resueltas para una población.
+type sentenciasCorreos struct {
+	consultar, recuperar, aplicar, preparar, cerrar, confirmar, acreditar string
+}
+
+// sentenciasCorreosSuperficie devuelve las sentencias del esquema de la
+// superficie y false para cualquier otra.
+func sentenciasCorreosSuperficie(superficie vecdomain.SuperficieAutenticacionActorV1) (sentenciasCorreos, bool) {
+	var esquema, otro string
+	switch superficie {
+	case vecdomain.SuperficieAutenticacionInternaCorporativaV1:
+		esquema, otro = "vec_usuarios_correos_interno", "vec_usuarios_correos_externo"
+	case vecdomain.SuperficieAutenticacionExternaPersonalV1:
+		esquema, otro = "vec_usuarios_correos_externo", "vec_usuarios_correos_interno"
+	default:
+		return sentenciasCorreos{}, false
+	}
+	r := strings.NewReplacer("@ESQ@", esquema, "@OTRO@", otro)
+	return sentenciasCorreos{
+		consultar: r.Replace(plantillaConsultarCorreosSQL), recuperar: r.Replace(plantillaRecuperarCorreosSQL),
+		aplicar: r.Replace(plantillaAplicarCorreosSQL), preparar: r.Replace(plantillaPrepararVerificacionSQL),
+		cerrar: r.Replace(plantillaCerrarVerificacionSQL), confirmar: r.Replace(plantillaConfirmarEnvioSQL),
+		acreditar: r.Replace(plantillaAcreditarEjecutorCorreosSQL),
+	}, true
+}
 
 var (
 	patronEnvioRef   = regexp.MustCompile(`^correo_envio:[0-9a-f]{32}$`)
@@ -88,6 +123,7 @@ type RegistroCorreosPostgreSQL struct {
 	iniciar     func(context.Context) (transaccionCorreos, error)
 	descifrador DescifradorDireccionCorreo
 	superficie  vecdomain.SuperficieAutenticacionActorV1
+	sql         sentenciasCorreos
 }
 
 var _ ports.RegistroCorreos = (*RegistroCorreosPostgreSQL)(nil)
@@ -95,10 +131,11 @@ var _ ports.RegistroCorreos = (*RegistroCorreosPostgreSQL)(nil)
 // NuevoRegistroCorreosPostgreSQL no posee ni cierra el pool. Su sonda usa el
 // mismo camino SERIALIZABLE que las operaciones.
 func NuevoRegistroCorreosPostgreSQL(ctx context.Context, pool *pgxpool.Pool, descifrador DescifradorDireccionCorreo, superficie vecdomain.SuperficieAutenticacionActorV1) (*RegistroCorreosPostgreSQL, error) {
-	if ctx == nil || pool == nil || descifrador == nil || ctx.Err() != nil || rolEjecutorPreferencias(superficie) == "" {
+	sentencias, ok := sentenciasCorreosSuperficie(superficie)
+	if ctx == nil || pool == nil || descifrador == nil || ctx.Err() != nil || rolEjecutorPreferencias(superficie) == "" || !ok {
 		return nil, ports.ErrCorreosNoDisponible
 	}
-	r := &RegistroCorreosPostgreSQL{descifrador: descifrador, superficie: superficie, iniciar: func(ctx context.Context) (transaccionCorreos, error) {
+	r := &RegistroCorreosPostgreSQL{descifrador: descifrador, superficie: superficie, sql: sentencias, iniciar: func(ctx context.Context) (transaccionCorreos, error) {
 		tx, err := pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite})
 		if err != nil {
 			return nil, err
@@ -117,7 +154,7 @@ func NuevoRegistroCorreosPostgreSQL(ctx context.Context, pool *pgxpool.Pool, des
 }
 
 func (r *RegistroCorreosPostgreSQL) abrir(ctx context.Context) (transaccionCorreos, error) {
-	if ctx == nil || r == nil || r.iniciar == nil || r.descifrador == nil || rolEjecutorPreferencias(r.superficie) == "" {
+	if ctx == nil || r == nil || r.iniciar == nil || r.descifrador == nil || rolEjecutorPreferencias(r.superficie) == "" || r.sql.acreditar == "" {
 		return nil, ports.ErrCorreosNoDisponible
 	}
 	if err := ctx.Err(); err != nil {
@@ -147,7 +184,7 @@ func (r *RegistroCorreosPostgreSQL) abrir(ctx context.Context) (transaccionCorre
 		}
 	}
 	var valido bool
-	if err := tx.QueryRow(ctx, acreditarEjecutorCorreosSQL, rolEjecutorPreferencias(r.superficie)).Scan(&valido); err != nil {
+	if err := tx.QueryRow(ctx, r.sql.acreditar, rolEjecutorPreferencias(r.superficie)).Scan(&valido); err != nil {
 		return fallar(err)
 	}
 	if !valido {
@@ -375,7 +412,7 @@ func (r *RegistroCorreosPostgreSQL) ConsultarPropios(ctx context.Context, orden 
 	}
 	defer tx.Rollback(context.Background())
 	var bruto []byte
-	if err := tx.QueryRow(ctx, consultarCorreosSQL, argumentosCorreosV3(material, v3)...).Scan(&bruto); err != nil {
+	if err := tx.QueryRow(ctx, r.sql.consultar, argumentosCorreosV3(material, v3)...).Scan(&bruto); err != nil {
 		return vacio, errorCorreosSeguro(ctx, err)
 	}
 	var sql struct {
@@ -466,7 +503,7 @@ func (r *RegistroCorreosPostgreSQL) RecuperarOperacion(ctx context.Context, orde
 	}
 	defer tx.Rollback(context.Background())
 	var bruto []byte
-	if err := tx.QueryRow(ctx, recuperarCorreosSQL, argumentosCorreosV3(material, v3)...).Scan(&bruto); err != nil {
+	if err := tx.QueryRow(ctx, r.sql.recuperar, argumentosCorreosV3(material, v3)...).Scan(&bruto); err != nil {
 		return vacio, false, errorCorreosSeguro(ctx, err)
 	}
 	recibo, existe, errReplay := replayCorreos(bruto, m)
@@ -556,7 +593,7 @@ func (r *RegistroCorreosPostgreSQL) Aplicar(ctx context.Context, orden ports.Ord
 	args = append(args, base[0], sb, rb)
 	args = append(args, base[1:]...)
 	var bruto []byte
-	if err := tx.QueryRow(ctx, aplicarCorreosSQL, args...).Scan(&bruto); err != nil {
+	if err := tx.QueryRow(ctx, r.sql.aplicar, args...).Scan(&bruto); err != nil {
 		_ = tx.Rollback(context.Background())
 		if serializacionCorreos(err) {
 			return r.recuperarTrasSerializacion(ctx, orden, m)
@@ -594,7 +631,7 @@ func (r *RegistroCorreosPostgreSQL) verificar(ctx context.Context, orden ports.O
 		return vacio, errorCorreosSeguro(ctx, err)
 	}
 	var bruto []byte
-	if err := tx.QueryRow(ctx, prepararVerificacionSQL, argumentosCorreosV3(material, v3)...).Scan(&bruto); err != nil {
+	if err := tx.QueryRow(ctx, r.sql.preparar, argumentosCorreosV3(material, v3)...).Scan(&bruto); err != nil {
 		return fallo(err)
 	}
 	var campos map[string]json.RawMessage
@@ -640,7 +677,7 @@ func (r *RegistroCorreosPostgreSQL) verificar(ctx context.Context, orden ports.O
 	if err != nil {
 		return vacio, ports.ErrCorreosNoDisponible
 	}
-	if err := tx.QueryRow(ctx, cerrarVerificacionSQL, m.PersonaRef, m.ClaveOperacion, valido).Scan(&bruto); err != nil {
+	if err := tx.QueryRow(ctx, r.sql.cerrar, m.PersonaRef, m.ClaveOperacion, valido).Scan(&bruto); err != nil {
 		return fallo(err)
 	}
 	if !valido {
@@ -682,7 +719,7 @@ func (r *RegistroCorreosPostgreSQL) ConfirmarEnvio(ctx context.Context, orden po
 	}
 	defer tx.Rollback(context.Background())
 	var anotado bool
-	if err := tx.QueryRow(ctx, confirmarEnvioSQL, actor.PersonaRef, envio.EnvioRef, envio.ReservaRef, aceptado).Scan(&anotado); err != nil {
+	if err := tx.QueryRow(ctx, r.sql.confirmar, actor.PersonaRef, envio.EnvioRef, envio.ReservaRef, aceptado).Scan(&anotado); err != nil {
 		return errorCorreosSeguro(ctx, err)
 	}
 	if !anotado {

@@ -40,6 +40,11 @@ const (
 	AccionNegocioCustodiarDocumentoFirmado     = "bolsa.decision.firma.documento.custodiar"
 	AccionNegocioRetenerDocumentoFirmado       = "bolsa.decision.firma.documento.retener"
 	AccionNegocioLeerOriginalDocumentoGenerado = "documentos.original.descargar"
+	// AccionNegocioCustodiarDocumentoFirmadoExpediente escribe en el almacén
+	// de Documentos el documento firmado de un expediente de otro módulo
+	// (p. ej. la resolución firmada de Contratación temporal) tras verificar
+	// su firma. Solo escribe: no retiene, no lee ni elimina.
+	AccionNegocioCustodiarDocumentoFirmadoExpediente = "documentos.firmado.custodiar"
 
 	// Atributos que deben formar parte del RecursoAutorizable evaluado por el
 	// PDP. Asi una decision no puede emplearse para acuñar capacidades sobre
@@ -129,7 +134,10 @@ type datosContextoOperacionAlmacen struct {
 	verificadaEn           time.Time
 	validaHasta            time.Time
 	evidencia              EvidenciaUsoDecisionAutorizacion
-	pasos                  []pasoPlanOperacionAlmacen
+	// decisionV3 solo existe en contextos derivados de una decisión V3
+	// registrada (autorizacion_almacen_v3.go); entonces evidencia es cero.
+	decisionV3 *evidenciaAlmacenV3
+	pasos      []pasoPlanOperacionAlmacen
 }
 
 // ContextoOperacionAlmacen es una capacidad opaca e inmutable. Su valor cero
@@ -201,6 +209,20 @@ func NuevoContextoCustodiarDocumentoFirmadoAlmacen(
 ) (ContextoOperacionAlmacen, error) {
 	return nuevoContextoOperacionAlmacen(decision, recurso, vinculos, verificadaEn,
 		especificacionCustodiarDocumentoFirmado())
+}
+
+// NuevoContextoCustodiarDocumentoFirmadoExpedienteAlmacen deriva solo la
+// escritura del documento firmado de un expediente, con la decisión del PDP
+// para esa acción exacta. Una decisión de custodia de Bolsa no sirve aquí ni
+// al revés, y el contexto no habilita lectura, retención ni eliminación.
+func NuevoContextoCustodiarDocumentoFirmadoExpedienteAlmacen(
+	decision domain.DecisionAutorizacion,
+	recurso domain.RecursoAutorizable,
+	vinculos VinculosOperacionAlmacen,
+	verificadaEn time.Time,
+) (ContextoOperacionAlmacen, error) {
+	return nuevoContextoOperacionAlmacen(decision, recurso, vinculos, verificadaEn,
+		especificacionCustodiarDocumentoFirmadoExpediente())
 }
 
 func NuevoContextoRetenerDocumentoFirmadoAlmacen(
@@ -375,6 +397,16 @@ func especificacionCustodiarDocumentoFirmado() especificacionAutorizacionAlmacen
 	}
 }
 
+func especificacionCustodiarDocumentoFirmadoExpediente() especificacionAutorizacionAlmacen {
+	return especificacionAutorizacionAlmacen{
+		accionNegocio: AccionNegocioCustodiarDocumentoFirmadoExpediente,
+		camposExactos: []string{"documento_firmado.custodia", "evidencia_custodia"},
+		pasos: []pasoPlanOperacionAlmacen{{
+			referencia: PasoAlmacenCustodiarFirmado, accion: AccionAlmacenEscribir,
+		}},
+	}
+}
+
 func especificacionRetenerDocumentoFirmado() especificacionAutorizacionAlmacen {
 	return especificacionAutorizacionAlmacen{
 		accionNegocio: AccionNegocioRetenerDocumentoFirmado,
@@ -502,15 +534,25 @@ func (c ContextoOperacionAlmacen) Proyeccion() (ProyeccionContextoOperacionAlmac
 // adaptador duradero debe revalidar y consumir de forma unica en la misma
 // transaccion que DecisionRef -> (EfectoRef, HuellaPlanEfectoSHA256).
 func (c ContextoOperacionAlmacen) EvidenciaAutorizacion() (EvidenciaUsoDecisionAutorizacion, error) {
-	if c.validarEstructura() != nil {
+	// Un contexto V3 no tiene evidencia V1 (ver autorizacion_almacen_v3.go:
+	// su consumo durable exige un consumidor SQL propio de la operación).
+	if c.validarEstructura() != nil || c.datos.decisionV3 != nil {
 		return EvidenciaUsoDecisionAutorizacion{}, errorAutorizacionAlmacen()
 	}
 	return c.datos.evidencia, nil
 }
 
 func (c ContextoOperacionAlmacen) ValidarEn(instante time.Time) error {
-	if c.validarEstructura() != nil || instante.IsZero() || c.datos.evidencia.ValidarEn(instante) != nil ||
-		!instante.UTC().Before(c.datos.validaHasta) {
+	if c.validarEstructura() != nil || instante.IsZero() || !instante.UTC().Before(c.datos.validaHasta) {
+		return errorAutorizacionAlmacen()
+	}
+	if c.datos.decisionV3 != nil {
+		if !c.datos.decisionV3.confirmacion.DentroDeVentanaEn(instante.UTC().Truncate(time.Microsecond)) {
+			return errorAutorizacionAlmacen()
+		}
+		return nil
+	}
+	if c.datos.evidencia.ValidarEn(instante) != nil {
 		return errorAutorizacionAlmacen()
 	}
 	return nil
@@ -610,7 +652,16 @@ func (c ContextoOperacionAlmacen) validarEstructura() error {
 			pasoValido = true
 		}
 	}
-	if !pasoValido || d.evidencia.ValidarEn(d.verificadaEn) != nil {
+	if !pasoValido {
+		return ErrAutorizacionAlmacenInvalida
+	}
+	if d.decisionV3 != nil {
+		if d.evidencia != (EvidenciaUsoDecisionAutorizacion{}) {
+			return ErrAutorizacionAlmacenInvalida
+		}
+		return d.validarEstructuraV3()
+	}
+	if d.evidencia.ValidarEn(d.verificadaEn) != nil {
 		return ErrAutorizacionAlmacenInvalida
 	}
 	datosEvidencia, err := d.evidencia.Datos()
@@ -696,13 +747,27 @@ func huellaPlanOperacionAlmacen(
 	v VinculosOperacionAlmacen,
 	e especificacionAutorizacionAlmacen,
 ) string {
-	valores := []string{
-		EsquemaContextoOperacionAlmacenV1, decision.DecisionRef, huellaDecision,
-		decision.Accion, decision.RecursoRef, huellaRecurso, decision.Finalidad,
-		decision.CorrelacionRef, v.OperacionRef, v.CargaRef, v.Clasificacion,
+	return huellaPlanOperacionAlmacenCampos("", decision.DecisionRef, huellaDecision, decision.Accion,
+		decision.RecursoRef, huellaRecurso, decision.Finalidad, decision.CorrelacionRef, v, e)
+}
+
+// huellaPlanOperacionAlmacenCampos es la huella del plan. marca vacía
+// conserva exactamente la huella V1; los contextos V3 añaden la suya.
+func huellaPlanOperacionAlmacenCampos(
+	marca, decisionRef, huellaDecision, accion, recursoRef, huellaRecurso, finalidad, correlacionRef string,
+	v VinculosOperacionAlmacen,
+	e especificacionAutorizacionAlmacen,
+) string {
+	valores := []string{EsquemaContextoOperacionAlmacenV1}
+	if marca != "" {
+		valores = append(valores, marca)
+	}
+	valores = append(valores, decisionRef, huellaDecision,
+		accion, recursoRef, huellaRecurso, finalidad,
+		correlacionRef, v.OperacionRef, v.CargaRef, v.Clasificacion,
 		v.SujetoSeudonimoHMAC, v.HuellaSolicitudHMAC, v.EfectoRef,
 		v.ObjetoVinculado.Referencia, v.ObjetoVinculado.Version,
-	}
+	)
 	if e.huellaManifiestoSHA256 != "" {
 		valores = append(valores, e.huellaManifiestoSHA256)
 	}

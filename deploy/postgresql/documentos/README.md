@@ -107,6 +107,46 @@ identificador no puede nombrar a la vez un original y una referencia externa
 (`identificador_documental`). La lista v2 devuelve ambos tipos con el campo
 `custodia` (`vec` o `externa`), con el mismo cursor.
 
+## Custodia de documentos firmados (5.06)
+
+Contratación temporal entrega a Documentos el PDF ya firmado y verificado de
+una resolución; Documentos lo guarda con custodia VEC. Se instala
+`../autorizacion_atestada_v3/migraciones/000113_custodia_documento_firmado.up.sql`
+y después `migraciones/000009_custodia_documento_firmado.up.sql`; con
+custodias registradas, ninguna de las dos admite `DOWN`.
+
+- Acción propia `documentos.firmado.custodiar`, finalidad
+  `custodiar_documento_firmado`. `custodiar_firmado_v1` consume la V3 en la
+  misma transacción que documento, fila de firmado, auditoría y outbox.
+- El tipo documental debe estar reservado a esta ruta (`"custodia":
+  "firmado"` en el catálogo de conservación). El alta genérica y el registro
+  externo rechazan los tipos reservados, en Go y en SQL.
+- El módulo que custodia no aporta la autorización: Documentos resuelve la
+  política, construye la preimagen (que incluye la fecha de conservación de
+  ese instante) y solo entonces pide la V3 al autorizador que le pasa el
+  llamante, ligada a esa preimagen exacta.
+- La escritura en el almacén usa una concesión V3 propia ligada a la decisión
+  que consumirá SQL (su referencia y su huella van en los atributos).
+- Recuperación: si se pierde la respuesta, el reintento pide otra decisión
+  V3. La clave del almacén se deriva de la clave del documento y de esa
+  decisión, así que el reintento escribe otro objeto y SQL devuelve el
+  documento original sin duplicarlo. Repetir con la misma decisión no sirve:
+  el almacén lo rechaza antes de escribir, porque cada intento obtiene una
+  concesión de almacén nueva.
+
+**Objetos huérfanos.** Quedan en el almacén, sin documento que los nombre, el
+objeto de un reintento cuyo documento ya existía y el de un intento cuya
+confirmación SQL falló. También el de alguien con permiso del PDP para esta
+acción que presente una V3 que SQL rechaza después (no registrada o ya
+consumida): Go solo comprueba la forma de la V3, y la firma y el registro los
+comprueba SQL. Ninguno se anuncia ni se puede descargar, porque la descarga
+parte siempre de la fila `documento`. Pero cada uno es un PDF firmado con
+datos personales que queda fuera de la política de conservación: es un
+problema de minimización de datos, no solo de espacio. Falta la tarea de
+conciliación, que debe listar los objetos del conector sin referencia en
+`vec_documentos.documento` y retirarlos tras un plazo de gracia corto; tiene
+prioridad antes de usar datos reales.
+
 ## Política de conservación provisional
 
 El catálogo local de conservación (`internal/vec/adapters/conservacion`) es
@@ -258,9 +298,19 @@ documento se deriva de expediente y clave, de modo que un reintento no
 duplica. La respuesta no devuelve la referencia ni el custodio. Anotar no
 acredita firma, registro ni entrega. Sin `registro_externo` la ruta no existe;
 sin concesión V3 responde 403.
-La descarga de originales no se publica todavía: leer el original exige una
-decisión de almacén propia (`NuevoContextoLeerDocumentoGeneradoAlmacen`) que
-la raíz no puede obtener del PDP V3; la lista marca `descargable:false`.
+Descarga de originales (5.06): se publica `POST /api/vec/documentos/originales/descargas`
+cuando la composición tiene la autoridad de lectura del almacén (seudónimos con
+clave propia derivada del KMS de desarrollo y concesión V3 registrada). Cada
+descarga pide dos decisiones V3 del mismo perfil, ambas de
+`documentos.original.descargar` (tipo `documento_original`, finalidad
+`descargar_documento_original`, campos `["contenido","documento"]`, ámbito
+`organizacion_ref`, motivo `motivos.listar`): la de la consulta SQL, que se
+consume en su transacción, y la de lectura del almacén, ligada al objeto y
+versión exactos y a la decisión consumida. Solo se ofrecen para descargar los
+originales con custodia VEC; los de custodia externa no. Sin esa concesión en
+los datos de autorización la ruta responde 403 y audita la denegación. Al
+desplegar no hay que configurar nada nuevo; la concesión solo hace falta
+cuando existan originales custodiados por VEC.
 
 ## Documentos-7: foto de la persona (Usuarios 5.08c)
 

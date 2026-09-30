@@ -69,6 +69,8 @@ type ResultadoContactoEmision struct {
 	ParticipacionRef string `json:"participacion_ref"`
 	Resultado        string `json:"resultado"`
 	ReciboRef        string `json:"recibo_ref"`
+	// FuenteCorreo sólo existe cuando la emisión consulta «Mis correos» (B59).
+	FuenteCorreo *FuenteCorreoContacto `json:"fuente_correo,omitempty"`
 }
 
 type EmisionLlamamiento struct {
