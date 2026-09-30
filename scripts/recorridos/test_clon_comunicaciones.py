@@ -109,32 +109,36 @@ class CloneCommunicationTests(unittest.TestCase):
         self.assertTrue(all("show" in argv for argv in calls[1:]))
 
     def test_preflight_checks_ports_without_writing_or_running_mailpit(self):
-        parameters = dict(repo=Path("/source"), container=c.PG_CONTAINER, state=c.STATE,
-                          material=c.STATE / "material", pg_port=55531, engine="docker")
-        proof = b'{"roles_version":2,"assignments_version":2,"surfaces":2,"grants_per_role":10,"commit":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}'
-        def inspect(engine, kind, name):
-            return {"Id": "image:local"} if kind == "image" else None
-        with patch.object(c, "_scope", return_value=(Path("/source"), c.STATE, c.STATE / "material")), \
-                patch.object(c, "_source_contract", return_value="a" * 40), \
-                patch.object(c, "_private", return_value=proof), \
-                patch.object(c, "_inspect", side_effect=inspect), \
-                patch.object(c, "_free_ports", side_effect=c.PreparationError("mailpit_loopback_port_busy")), \
-                patch.object(c, "_certificate") as certificate:
-            result = c.provision(**parameters)
+        with tempfile.TemporaryDirectory(dir=Path.home()) as scratch:
+            state = Path(scratch)
+            parameters = dict(repo=Path("/source"), container=c.PG_CONTAINER, state=state,
+                              material=state / "material", pg_port=55531, engine="docker")
+            proof = b'{"roles_version":2,"assignments_version":2,"surfaces":2,"grants_per_role":10,"commit":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}'
+            def inspect(engine, kind, name):
+                return {"Id": "image:local"} if kind == "image" else None
+            with patch.object(c, "_scope", return_value=(Path("/source"), state, state / "material")), \
+                    patch.object(c, "_source_contract", return_value="a" * 40), \
+                    patch.object(c, "_private", return_value=proof), \
+                    patch.object(c, "_inspect", side_effect=inspect), \
+                    patch.object(c, "_free_ports", side_effect=c.PreparationError("mailpit_loopback_port_busy")), \
+                    patch.object(c, "_certificate") as certificate:
+                result = c.provision(**parameters)
         certificate.assert_not_called()
         self.assertEqual(result["blockers"][0]["detail"], "mailpit_loopback_port_busy")
         self.assertEqual(result["env"]["VEC_USUARIOS_IMAGEN_ENABLED"], "true")
 
     def test_noninternal_network_blocks_before_effects(self):
-        proof = b'{"roles_version":2,"assignments_version":2,"surfaces":2,"grants_per_role":10,"commit":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}'
-        def inspect(engine, kind, name):
-            if kind == "image": return {"Id": "image:local"}
-            if kind == "network": return {"Internal": False, "Labels": c._labels(c.STATE)}
-            return None
-        with patch.object(c, "_scope", return_value=(Path("/source"), c.STATE, c.STATE / "material")), \
-                patch.object(c, "_source_contract", return_value="a" * 40), \
-                patch.object(c, "_private", return_value=proof), patch.object(c, "_inspect", side_effect=inspect):
-            result = c.preflight(None, c.PG_CONTAINER, None, None, 55531, "docker")
+        with tempfile.TemporaryDirectory(dir=Path.home()) as scratch:
+            state = Path(scratch)
+            proof = b'{"roles_version":2,"assignments_version":2,"surfaces":2,"grants_per_role":10,"commit":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}'
+            def inspect(engine, kind, name):
+                if kind == "image": return {"Id": "image:local"}
+                if kind == "network": return {"Internal": False, "Labels": c._labels(state)}
+                return None
+            with patch.object(c, "_scope", return_value=(Path("/source"), state, state / "material")), \
+                    patch.object(c, "_source_contract", return_value="a" * 40), \
+                    patch.object(c, "_private", return_value=proof), patch.object(c, "_inspect", side_effect=inspect):
+                result = c.preflight(None, c.PG_CONTAINER, None, None, 55531, "docker")
         self.assertEqual(result["blockers"][0]["detail"], "mailpit_network_not_isolated")
 
     def test_probe_verifies_tls_and_rejects_external_rcpt_without_data(self):
