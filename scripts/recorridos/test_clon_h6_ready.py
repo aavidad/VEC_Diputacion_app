@@ -48,6 +48,7 @@ class ReadyTests(unittest.TestCase):
         self.approval = {"repo": self.state / "repo-aprobado", "source_commit": source,
             "container": "vec-prueba", "pg_container_id": "a" * 64,
             "pg_image_id": "sha256:" + "b" * 64,
+            "pg_image_family": "postgres:18.4",
             "pg_volume": {"source": "/dev/shm/vec-recorridos-prueba", "dev": 1, "ino": 2},
             "pg_port": 55441, "app_port": 8445, "identidad_clon": "c" * 64,
             "h6_package": self.state / "package.tar.gz", "h6_lock": self.state / "release.lock",
@@ -366,7 +367,7 @@ class ReadyTests(unittest.TestCase):
         volume = self.state.stat()
         self.approval["pg_volume"].update(dev=volume.st_dev, ino=volume.st_ino)
         return {"Id": "a" * 64, "Image": self.approval["pg_image_id"],
-            "Name": "/vec-prueba", "Config": {"Image": "postgres:18.4", "Labels": {
+            "Name": "/vec-prueba", "Config": {"Image": self.approval["pg_image_id"], "Labels": {
                 "vec.recorridos.owner": "Codex-M", "vec.recorridos.state": str(self.state)}},
             "HostConfig": {"NetworkMode": "none"},
             "State": {"Running": True}, "NetworkSettings": {"Ports": {"5432/tcp": [
@@ -403,6 +404,30 @@ class ReadyTests(unittest.TestCase):
             fixture["NetworkSettings"]["Ports"]["5432/tcp"][0]["HostIp"] = "0.0.0.0"
             with self.assertRaisesRegex(ready.Refused, "ports_mismatch"):
                 self.live_original(self.state, self.approval)
+
+    def test_live_container_requires_digest_on_both_image_fields(self):
+        fixture = self.container_fixture()
+        original_directory = ready.directory
+        with patch.object(ready, "docker_record", return_value=fixture), patch.object(
+                ready, "directory", side_effect=lambda _: original_directory(self.state)):
+            self.live_original(self.state, self.approval)
+            for field in (fixture, fixture["Config"]):
+                for image in ("postgres:18.4", "sha256:" + "f" * 64):
+                    before = field["Image"]
+                    field["Image"] = image
+                    with self.subTest(image=image), self.assertRaisesRegex(ready.Refused, "container_mismatch"):
+                        self.live_original(self.state, self.approval)
+                    field["Image"] = before
+
+    def test_logical_image_family_requires_external_exact_declaration(self):
+        for family in ("postgres:18.5", "postgres:latest", None):
+            approval = dict(self.approval, pg_image_family=family)
+            with self.subTest(family=family), self.assertRaisesRegex(ready.Refused, "invalid_image_family"):
+                ready.validate_approval(approval)
+        approval = dict(self.approval)
+        approval.pop("pg_image_family")
+        with self.assertRaisesRegex(ready.Refused, "external_approval_missing"):
+            ready.validate_approval(approval)
 
     def test_pre_ad132_requires_network_none_even_without_published_ports(self):
         fixture = self.container_fixture()

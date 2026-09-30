@@ -43,7 +43,7 @@ PINS = {"approved_package_sha256", "approved_lock_sha256", "estado_h1_sha",
         "binary_sha256", "material_manifest_sha256", "runtime_config_sha256",
         "projection_manifest_sha256", "projection_config_sha256"}
 APPROVAL_FIELDS = PATHS | PINS | {"source_commit", "container", "pg_image_id",
-    "pg_volume", "pg_port", "app_port", "ad132_request", "canary_image_id"}
+    "pg_image_family", "pg_volume", "pg_port", "app_port", "ad132_request", "canary_image_id"}
 CANARY_FIELDS = {"ad132_request", "canary_plan", "canary_plan_receipt",
     "approved_canary_plan_sha256", "approved_canary_receipt_sha256", "canary_image_id",
     "arranque_sha256"}
@@ -155,6 +155,7 @@ def validate_approval(approval, *, pre_ad132=False):
     for key in ("pg_image_id", "canary_image_id"):
         require(key not in approval or isinstance(approval[key], str) and IMAGE.fullmatch(approval[key]),
                 "h6_invalid_image_pin")
+    require(approval["pg_image_family"] == "postgres:18.4", "h6_invalid_image_family")
     require(isinstance(approval["container"], str) and
             re.fullmatch(r"vec-[a-z0-9_-]+", approval["container"]), "h6_invalid_container")
     for key in ("pg_port", "app_port"):
@@ -338,7 +339,7 @@ def live_container(state, approval):
     require(value.get("Id") == approval["pg_container_id"] and
             value.get("Image") == approval["pg_image_id"] and
             value.get("Name") == "/" + approval["container"] and
-            value.get("Config", {}).get("Image") == "postgres:18.4" and
+            value.get("Config", {}).get("Image") == approval["pg_image_id"] and
             value.get("State", {}).get("Running") is True and
             value.get("HostConfig", {}).get("NetworkMode") == "none" and
             labels.get("vec.recorridos.owner") == "Codex-M" and
@@ -442,6 +443,7 @@ def validated(state, approval, phases, live, *, final):
     ready = {"version": 2, "kind": "h6_db_ready", **clone, **{k: plan[k] for k in PLAN_FIELDS},
         "sql_instaladas": 62, "run_id": journal["run_id"], "identidad_clon": approval["identidad_clon"],
         "pg_container_id": approval["pg_container_id"], "pg_image_id": approval["pg_image_id"],
+        "pg_image_family": approval["pg_image_family"],
         "pg_volume": approval["pg_volume"], "sql_journal_sha256": journal_sha, **materials, **evidence}
     return state, approval, ready, journal
 
