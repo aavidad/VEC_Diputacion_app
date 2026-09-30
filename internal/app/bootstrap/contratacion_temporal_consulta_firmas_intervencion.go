@@ -64,28 +64,9 @@ func nuevoLectorFirmasIntervencionCTDesarrollo(
 		dependenciaEsNulaContratacionTemporalDesarrollo(canal.reloj) {
 		return nil, fallo
 	}
-	actor := canal.contexto.Resultado.Contexto
-	vinculo, err := canal.contexto.Vinculo.Datos()
-	if actor.Principal.ID != canal.principalID ||
-		actor.Principal.Attributes["certificate_sha256"] != canal.certificadoSHA256 ||
-		!principalIntervencionContratacionTemporalDesarrolloValido(actor.Principal) ||
-		err != nil ||
-		canal.contexto.ValidarPara(ports.SolicitudResolverContextoAutorizacionAltaV3{
-			AutenticacionRef: vinculo.AutenticacionRef,
-			SesionRef:        vinculo.SesionRef,
-			PerfilRef:        actor.PerfilActivoRef,
-		}, canal.reloj.Ahora()) != nil {
-		log.Print("contratacion temporal: consulta de firmas de Intervencion no disponible; causa=contexto_lectura_invalido")
-		return nil, fallo
-	}
-	perfil, err := nuevoPerfilFijoCTDesarrollo(actor.Principal, canal.contexto, canal.reloj.Ahora(),
-		clavePerfilFijoLectorFirmasIntervencionCT, []string{httpinterno.RutaResultadosFiscalizacion},
-		func(principalID, perfilRef string) (dominiovec.InstantaneaAutorizacion, error) {
-			return nuevaInstantaneaLectorFirmasIntervencionCTDesarrollo(principalID, perfilRef, canal.reloj.Ahora())
-		})
-	if err != nil || perfil == nil || perfil.perfilRef() == canal.fijo.perfilRef() {
-		log.Print("contratacion temporal: consulta de firmas de Intervencion no disponible; causa=perfil_lector_invalido")
-		return nil, fallo
+	perfil, err := prepararPerfilLectorFirmasIntervencionCTDesarrollo(canal)
+	if err != nil {
+		return nil, err
 	}
 	perfil.metodo = http.MethodPost
 	perfil.propioDelSoporte = true
@@ -123,6 +104,40 @@ func nuevoLectorFirmasIntervencionCTDesarrollo(
 	return lector, nil
 }
 
+// La semilla del lector procede del canal ya validado. El contexto V3
+// permanece canónico y no recibe roles ni atributos del principal original.
+func prepararPerfilLectorFirmasIntervencionCTDesarrollo(canal *soporteFiscalizacionContratacionTemporalDesarrollo) (*perfilFijoCTDesarrollo, error) {
+	fallo := ports.ErrRegistroFirmaDocumentoNoDisponible
+	if canal == nil || canal.fijo == nil || dependenciaEsNulaContratacionTemporalDesarrollo(canal.reloj) {
+		return nil, fallo
+	}
+	principal := clonarPrincipalDesarrollo(canal.principalOriginal)
+	actor := canal.contexto.Resultado.Contexto
+	vinculo, err := canal.contexto.Vinculo.Datos()
+	if principal.ID != canal.principalID ||
+		principal.Attributes["certificate_sha256"] != canal.certificadoSHA256 ||
+		!principalIntervencionContratacionTemporalDesarrolloValido(principal) ||
+		err != nil ||
+		canal.contexto.ValidarPara(ports.SolicitudResolverContextoAutorizacionAltaV3{
+			AutenticacionRef: vinculo.AutenticacionRef,
+			SesionRef:        vinculo.SesionRef,
+			PerfilRef:        actor.PerfilActivoRef,
+		}, canal.reloj.Ahora()) != nil {
+		log.Print("contratacion temporal: consulta de firmas de Intervencion no disponible; causa=contexto_lectura_invalido")
+		return nil, fallo
+	}
+	perfil, err := nuevoPerfilFijoCTDesarrollo(principal, canal.contexto, canal.reloj.Ahora(),
+		clavePerfilFijoLectorFirmasIntervencionCT, []string{httpinterno.RutaResultadosFiscalizacion},
+		func(principalID, perfilRef string) (dominiovec.InstantaneaAutorizacion, error) {
+			return nuevaInstantaneaLectorFirmasIntervencionCTDesarrollo(principalID, perfilRef, canal.reloj.Ahora())
+		})
+	if err != nil || perfil == nil || perfil.perfilRef() == canal.fijo.perfilRef() {
+		log.Print("contratacion temporal: consulta de firmas de Intervencion no disponible; causa=perfil_lector_invalido")
+		return nil, fallo
+	}
+	return perfil, nil
+}
+
 func (l *lectorFirmasIntervencionCTDesarrollo) capacidadValida(ctx context.Context) bool {
 	if l == nil || l.canal == nil || !l.canal.capacidadValida(ctx) || ctx == nil || ctx.Err() != nil {
 		return false
@@ -151,7 +166,7 @@ func (l *lectorFirmasIntervencionCTDesarrollo) contextoOperativo(ctx context.Con
 	if actual.Vinculo.ValidarPara(actual.Resultado) != nil ||
 		!mismoContextoEsperadoRegistradoDesarrollo(l.esperado, actual.Resultado) ||
 		actual.Resultado.Contexto.PerfilActivoRef != l.perfil.perfilRef() ||
-		actual.Resultado.Contexto.Principal.ID != l.canal.principalID ||
+		actual.Resultado.Contexto.Principal.ID != l.canal.contexto.Resultado.Contexto.Principal.ID ||
 		actual.Resultado.Contexto.Instantanea.CuentaRef != l.canal.contexto.Resultado.Contexto.Instantanea.CuentaRef ||
 		actual.Resultado.Contexto.PersonaRef != l.canal.contexto.Resultado.Contexto.PersonaRef {
 		return ports.ContextoAutorizacionAltaV3{}, ports.ErrAutorizacionDenegada
@@ -246,7 +261,7 @@ func (l *lectorFirmasIntervencionCTDesarrollo) ObtenerInstantaneaAutorizacion(
 	ctx context.Context, principalID, perfilRef string,
 ) (dominiovec.InstantaneaAutorizacion, error) {
 	if !l.capacidadValida(ctx) || l.perfil == nil || l.puente == nil ||
-		principalID != l.canal.principalID || perfilRef != l.perfil.perfilRef() ||
+		principalID != l.canal.contexto.Resultado.Contexto.Principal.ID || perfilRef != l.perfil.perfilRef() ||
 		!l.solicitudValida(ctx) {
 		return dominiovec.InstantaneaAutorizacion{}, dominiovec.ErrAutorizacionDenegada
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -16,6 +17,115 @@ import (
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
+
+func escenarioLectorFirmasContextoCanonicoPrueba(t *testing.T) (*lectorFirmasIntervencionCTDesarrollo, context.Context) {
+	t.Helper()
+	original := dominiovec.Principal{ID: "desarrollo:intervencion-lector-firmas", Roles: []string{rolIntervencionContratacionTemporalDesarrollo},
+		AuthMethod: dominiovec.AuthMethodCertificate, AuthAssurance: dominiovec.AuthAssuranceHigh,
+		Attributes: map[string]string{"autoridad": AutoridadNoAutoritativa, "perfil_ejecucion": config.ExecutionProfileDevelopment, "certificate_sha256": strings.Repeat("a", 64)}}
+	reloj := relojContratacionTemporalDesarrollo{}
+	base, err := nuevoContextoSinteticoContratacionTemporalDesarrollo(original, reloj.Ahora())
+	if err != nil {
+		t.Fatal(err)
+	}
+	canonico := base.Resultado.Contexto.Principal
+	if canonico.ID != base.Resultado.Contexto.PersonaRef || canonico.ID == original.ID || len(canonico.Roles) != 0 || len(canonico.Attributes) != 0 {
+		t.Fatal("la prueba no usa el normalizador real de ContextoActor")
+	}
+	sello := &selloConsultasContratacionTemporalDesarrollo{}
+	canal := &soporteFiscalizacionContratacionTemporalDesarrollo{sello: sello, principalID: original.ID, principalOriginal: clonarPrincipalDesarrollo(original),
+		certificadoSHA256: original.Attributes["certificate_sha256"], contexto: base, reloj: reloj,
+		fijo: &perfilFijoCTDesarrollo{contexto: base, plantilla: dominiovec.InstantaneaAutorizacion{AsignacionPerfil: dominiovec.AsignacionPerfil{PerfilActivoRef: base.Resultado.Contexto.PerfilActivoRef}}}}
+	// Mutar el objeto entregado por la identidad no altera la copia privada.
+	original.Roles[0], original.Attributes["certificate_sha256"] = "rol:ajeno", strings.Repeat("b", 64)
+	perfil, err := prepararPerfilLectorFirmasIntervencionCTDesarrollo(canal)
+	if err != nil {
+		t.Fatal(err)
+	}
+	autoridad := &autoridadAsignacionesContratacionTemporalDesarrolloPrueba{asignaciones: map[string]instantaneaPublicadaDesarrollo{perfil.perfilRef(): {
+		instantanea: clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(perfil.plantilla), actoAsignacion: actoAsignacionPerfilFijoCTDesarrollo}}}
+	lector := &lectorFirmasIntervencionCTDesarrollo{canal: canal, perfil: perfil, esperado: perfil.contexto.Resultado,
+		sesion: proveedorSesionOperativaCTPrueba{contexto: perfil.contexto}, puente: &soporteAltaContratacionTemporalDesarrollo{reloj: reloj, autoridadAsignaciones: autoridad}}
+	ctx := context.WithValue(context.Background(), claveCapacidadConsultasContratacionTemporalDesarrollo{}, capacidadConsultaContratacionTemporalDesarrollo{
+		sello: sello, ruta: httpinterno.RutaResultadosFiscalizacion, metodo: http.MethodPost, principal: clonarPrincipalDesarrollo(canal.principalOriginal)})
+	m := ports.MaterialConsultaFirmasDocumento{OrganizacionRef: organizacionAltaContratacionTemporalDesarrollo, ExpedienteRef: "expediente:prueba"}
+	r, err := consultafirmas.RecursoConsultaFirmasDocumento(m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx = context.WithValue(ctx, claveConsultaFirmasDocumentoCTDesarrollo{}, m)
+	ctx = context.WithValue(ctx, claveSolicitudAutorizacionContratacionTemporalDesarrollo{}, dominiovec.DatosSolicitudAutorizacionLigadaV3{
+		Accion: ports.AccionConsultarFirmasDocumento, Recurso: r, Finalidad: ports.FinalidadFirmaDocumento, ReferenciaMotivo: motivoConsultaFirmasDocumentoCTDesarrollo()})
+	return lector, ctx
+}
+
+func TestLectorFirmasIntervencionConContextoV3CanonicoReal(t *testing.T) {
+	l, ctx := escenarioLectorFirmasContextoCanonicoPrueba(t)
+	antes, err := l.canal.contexto.Resultado.Clonar()
+	if err != nil {
+		t.Fatal(err)
+	}
+	operativo, err := l.contextoOperativo(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if operativo.Resultado.Contexto.Principal.ID != antes.Contexto.Principal.ID || len(operativo.Resultado.Contexto.Principal.Roles) != 0 ||
+		len(operativo.Resultado.Contexto.Principal.Attributes) != 0 || !reflect.DeepEqual(antes, l.canal.contexto.Resultado) {
+		t.Fatal("se alteró el principal canónico o el contexto fiscalizador")
+	}
+	if _, err := l.ObtenerInstantaneaAutorizacion(ctx, operativo.Resultado.Contexto.Principal.ID, l.perfil.perfilRef()); err != nil {
+		t.Fatal(err)
+	}
+	vOrigen, _ := l.canal.contexto.Vinculo.Datos()
+	vLectura, _ := operativo.Vinculo.Datos()
+	if vOrigen.SesionRef == vLectura.SesionRef || vOrigen.PerfilActivoRef == vLectura.PerfilActivoRef ||
+		operativo.Resultado.Contexto.PersonaRef != antes.Contexto.PersonaRef || operativo.Resultado.Contexto.Instantanea.CuentaRef != antes.Contexto.Instantanea.CuentaRef {
+		t.Fatal("el lector perdió la persona/cuenta o compartió sesión/perfil de fiscalización")
+	}
+	if _, err := l.ObtenerInstantaneaAutorizacion(ctx, l.canal.principalID, l.perfil.perfilRef()); !errors.Is(err, dominiovec.ErrAutorizacionDenegada) {
+		t.Fatal("se aceptó el identificador HTTP como actor canónico")
+	}
+}
+
+func TestLectorFirmasIntervencionDeniegaSemillaOContextoCruzados(t *testing.T) {
+	for _, caso := range []struct {
+		nombre   string
+		alterar  func(*lectorFirmasIntervencionCTDesarrollo)
+		preparar bool
+	}{
+		{"actor_original", func(l *lectorFirmasIntervencionCTDesarrollo) { l.canal.principalOriginal.ID = "desarrollo:otro-actor" }, true},
+		{"certificado_original", func(l *lectorFirmasIntervencionCTDesarrollo) {
+			l.canal.principalOriginal.Attributes["certificate_sha256"] = strings.Repeat("f", 64)
+		}, true},
+		{"rol_original", func(l *lectorFirmasIntervencionCTDesarrollo) {
+			l.canal.principalOriginal.Roles = []string{rolTecnicoRRHHContratacionTemporalDesarrollo}
+		}, true},
+		{"cuenta", func(l *lectorFirmasIntervencionCTDesarrollo) {
+			l.canal.contexto.Resultado.Contexto.Instantanea.CuentaRef = "cuenta:otra"
+		}, false},
+		{"persona", func(l *lectorFirmasIntervencionCTDesarrollo) {
+			l.canal.contexto.Resultado.Contexto.PersonaRef = "persona:otra"
+		}, false},
+		{"actor_canonico", func(l *lectorFirmasIntervencionCTDesarrollo) {
+			l.canal.contexto.Resultado.Contexto.Principal.ID = "persona:otra"
+		}, false},
+		{"perfil", func(l *lectorFirmasIntervencionCTDesarrollo) {
+			l.perfil.plantilla.AsignacionPerfil.PerfilActivoRef = l.canal.contexto.Resultado.Contexto.PerfilActivoRef
+		}, false},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			l, ctx := escenarioLectorFirmasContextoCanonicoPrueba(t)
+			caso.alterar(l)
+			if caso.preparar {
+				if _, err := prepararPerfilLectorFirmasIntervencionCTDesarrollo(l.canal); err == nil {
+					t.Fatal("semilla ajena admitida")
+				}
+			} else if _, err := l.contextoOperativo(ctx); !errors.Is(err, ports.ErrAutorizacionDenegada) {
+				t.Fatalf("cruce no denegado: %v", err)
+			}
+		})
+	}
+}
 
 type lectorAsignacionFirmasIntervencionPrueba struct{ err error }
 
@@ -127,7 +237,7 @@ func TestLectorFirmasIntervencionDistingueRevocacionDeCaida(t *testing.T) {
 	}
 	sello := &selloConsultasContratacionTemporalDesarrollo{}
 	canal := &soporteFiscalizacionContratacionTemporalDesarrollo{sello: sello,
-		principalID: p.ID, certificadoSHA256: p.Attributes["certificate_sha256"]}
+		principalID: p.ID, principalOriginal: clonarPrincipalDesarrollo(p), certificadoSHA256: p.Attributes["certificate_sha256"], contexto: base}
 	lector := &lectorFirmasIntervencionCTDesarrollo{canal: canal, perfil: perfil,
 		puente: &soporteAltaContratacionTemporalDesarrollo{
 			autoridadAsignaciones: lectorAsignacionFirmasIntervencionPrueba{},
@@ -146,11 +256,11 @@ func TestLectorFirmasIntervencionDistingueRevocacionDeCaida(t *testing.T) {
 			metodo: http.MethodPost, principal: p})
 	ctx = context.WithValue(ctx, claveConsultaFirmasDocumentoCTDesarrollo{}, m)
 	ctx = context.WithValue(ctx, claveSolicitudAutorizacionContratacionTemporalDesarrollo{}, datos)
-	if _, err := lector.ObtenerInstantaneaAutorizacion(ctx, p.ID, perfil.perfilRef()); !errors.Is(err, dominiovec.ErrAutorizacionDenegada) {
+	if _, err := lector.ObtenerInstantaneaAutorizacion(ctx, base.Resultado.Contexto.Principal.ID, perfil.perfilRef()); !errors.Is(err, dominiovec.ErrAutorizacionDenegada) {
 		t.Fatalf("asignación retirada debe denegar, recibió %v", err)
 	}
 	lector.puente.autoridadAsignaciones = lectorAsignacionFirmasIntervencionPrueba{err: errors.New("fuente caída")}
-	if _, err := lector.ObtenerInstantaneaAutorizacion(ctx, p.ID, perfil.perfilRef()); !errors.Is(err, puertosvec.ErrFuenteAutorizacionNoDisponible) {
+	if _, err := lector.ObtenerInstantaneaAutorizacion(ctx, base.Resultado.Contexto.Principal.ID, perfil.perfilRef()); !errors.Is(err, puertosvec.ErrFuenteAutorizacionNoDisponible) {
 		t.Fatalf("fuente caída debe ser indisponibilidad, recibió %v", err)
 	}
 }
