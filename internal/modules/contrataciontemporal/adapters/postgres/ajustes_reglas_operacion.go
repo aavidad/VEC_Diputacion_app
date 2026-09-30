@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -20,12 +21,12 @@ import (
 )
 
 const (
-	operacionAjustesReglasCTSQL       = `SELECT vec_contratacion_temporal.operar_ajustes_reglas_v1($1::jsonb,$2,$3,$4,$5,$6::numeric,$7::numeric,$8,$9,$10,$11)`
-	huellaMaterialAjustesCTSQL        = `SELECT encode(sha256(convert_to($1::jsonb::text,'UTF8')),'hex')`
-	audienciaAjustesReglasCT          = "vec_contratacion_temporal.ajustes_reglas.v1"
-	recursoAjustesReglasCT            = "vec.contratacion_temporal.reglas"
-	organizacionAjustesReglasCT       = "organizacion:desarrollo:dipgra"
-	maximoMaterialOperacionAjustesCT  = 65536
+	operacionAjustesReglasCTSQL      = `SELECT vec_contratacion_temporal.operar_ajustes_reglas_v1($1::jsonb,$2,$3,$4,$5,$6::numeric,$7::numeric,$8,$9,$10,$11)`
+	huellaMaterialAjustesCTSQL       = `SELECT encode(sha256(convert_to($1::jsonb::text,'UTF8')),'hex')`
+	audienciaAjustesReglasCT         = "vec_contratacion_temporal.ajustes_reglas.v1"
+	recursoAjustesReglasCT           = "vec.contratacion_temporal.reglas"
+	organizacionAjustesReglasCT      = "organizacion:desarrollo:dipgra"
+	maximoMaterialOperacionAjustesCT = 65536
 	// La consulta puede devolver 50 versiones; cada una procede de un
 	// material de hasta 64 KiB en CT-148.
 	maximoRespuestaOperacionAjustesCT = 4 << 20
@@ -94,10 +95,12 @@ func (r *RepositorioAjustesReglasCT) Consultar(ctx context.Context, actor vecdom
 	}
 	var sql struct {
 		Vigente *struct {
-			Version      int                          `json:"version"`
-			HuellaSHA256 string                       `json:"huella_sha256"`
-			Ajustes      map[string]map[string]string `json:"ajustes"`
-			VigenteDesde time.Time                    `json:"vigente_desde"`
+			Version          int                          `json:"version"`
+			HuellaSHA256     string                       `json:"huella_sha256"`
+			Ajustes          map[string]map[string]string `json:"ajustes"`
+			VigenteDesde     time.Time                    `json:"vigente_desde"`
+			BaseVersion      int                          `json:"base_version"`
+			BaseHuellaSHA256 string                       `json:"base_huella_sha256"`
 		} `json:"vigente"`
 		Historial []app.CambioHistorico `json:"historial"`
 		HayMas    bool                  `json:"hay_mas"`
@@ -108,11 +111,14 @@ func (r *RepositorioAjustesReglasCT) Consultar(ctx context.Context, actor vecdom
 	lectura := app.Lectura{Historial: sql.Historial, HayMas: sql.HayMas}
 	if sql.Vigente != nil {
 		if sql.Vigente.Version < 1 || sql.Vigente.Version > maximoVersionAjustesCT || sql.Vigente.VigenteDesde.IsZero() ||
+			sql.Vigente.BaseVersion < 1 || sql.Vigente.BaseVersion > maximoVersionAjustesCT || !huellaSHA256CTValida(sql.Vigente.BaseHuellaSHA256) ||
 			!huellaAjustesCTValida(sql.Vigente.Ajustes, sql.Vigente.HuellaSHA256) {
 			return app.Lectura{}, app.ErrNoDisponible
 		}
 		lectura.Vigente = &reglas.VersionAjustes{CatalogoID: catalogoAjustesCT, Version: sql.Vigente.Version, HuellaSHA256: sql.Vigente.HuellaSHA256,
 			Ajustes: sql.Vigente.Ajustes, VigenteDesde: sql.Vigente.VigenteDesde}
+		lectura.VigenteBaseVersion = sql.Vigente.BaseVersion
+		lectura.VigenteBaseHuella = sql.Vigente.BaseHuellaSHA256
 	}
 	for _, h := range lectura.Historial {
 		if h.Version < 1 || h.Version > maximoVersionAjustesCT || h.VigenteDesde.IsZero() || h.ReciboRef == "" || len(h.Cambios) == 0 {
@@ -152,7 +158,7 @@ func (r *RepositorioAjustesReglasCT) Operar(ctx context.Context, actor vecdomain
 }
 
 func huellaAjustesCTValida(ajustes map[string]map[string]string, esperada string) bool {
-	if len(esperada) != 64 || ajustes == nil {
+	if !huellaSHA256CTValida(esperada) || ajustes == nil {
 		return false
 	}
 	canonico, err := reglas.CanonicoAjustes(ajustes)
@@ -161,6 +167,14 @@ func huellaAjustesCTValida(ajustes map[string]map[string]string, esperada string
 	}
 	suma := sha256.Sum256(canonico)
 	return hex.EncodeToString(suma[:]) == esperada
+}
+
+func huellaSHA256CTValida(valor string) bool {
+	if len(valor) != 64 || strings.ToLower(valor) != valor {
+		return false
+	}
+	_, err := hex.DecodeString(valor)
+	return err == nil
 }
 
 func errorAjustesCTAplicacion(err error) error {

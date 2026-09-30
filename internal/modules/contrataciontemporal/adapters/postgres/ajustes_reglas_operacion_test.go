@@ -113,6 +113,9 @@ func TestOperacionAjustesCTHuellaYConsultaSinRepositorio(t *testing.T) {
 	if !huellaAjustesCTValida(ajustes, hex.EncodeToString(suma[:])) || huellaAjustesCTValida(ajustes, "otra") {
 		t.Fatal("huella de respuesta no validada")
 	}
+	if !huellaSHA256CTValida(hex.EncodeToString(suma[:])) || huellaSHA256CTValida("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF") {
+		t.Fatal("huella de base inválida aceptada")
+	}
 	var r *RepositorioAjustesReglasCT
 	if _, err := r.Consultar(t.Context(), actorAjustesCTPrueba(t), 50, nil); !errors.Is(err, app.ErrNoDisponible) {
 		t.Fatalf("consulta nula: %v", err)
