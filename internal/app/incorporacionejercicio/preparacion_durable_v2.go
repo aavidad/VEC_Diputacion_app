@@ -33,9 +33,11 @@ type lecturaPreparacionV2 struct {
 	detalle     ct.DetalleExpedienteRRHH
 	preparacion ct.PreparacionIncorporacionAplicacionV2
 	recibo      *ct.ReciboIncorporacionAplicacionV2
-	publicacion dom.PublicacionDefinicionSeguimiento
-	posterior   dom.EstadoPersistidoSeguimiento
-	ultimo      time.Time
+	// Acreditado por el lector propietario con permiso y auditoría vigentes.
+	personalOriginal *ct.RegistroPersonalEjercicio
+	publicacion      dom.PublicacionDefinicionSeguimiento
+	posterior        dom.EstadoPersistidoSeguimiento
+	ultimo           time.Time
 }
 
 // leer siempre empieza por consulta nominal ACTUAL. Ni CT81 ni el restaurador
@@ -148,6 +150,8 @@ func (p *PreparadorDurableV2) leer(ctx context.Context, exp string, version uint
 		if !dom.InstanteUTCCanonico(ahora) || ahora.Before(t) || !originalPersonalDelPlan(original, local.Selector, plan, ahora) {
 			return lecturaPreparacionV2{}, ct.ErrComposicionIncorporacionAplicacion
 		}
+		registro := cloneRegistro(original.Registro)
+		z.personalOriginal = &registro
 		z.ultimo = ahora
 		registradoPersonal = original.Registro.RegistradoEn
 	} else if local.Solicitud != (ct.SolicitudAltaPersonalRPT{}) || local.Selector.SolicitudRef != "" {
@@ -256,49 +260,60 @@ func (p *PreparadorDurableV2) Consultar(ctx context.Context, exp string) (ct.Pro
 }
 
 func (p *PreparadorDurableV2) Preparar(ctx context.Context, i ct.IntencionIncorporacionAplicacionV2) (ct.PreparacionIncorporacionAplicacionV2, error) {
+	x, _, _, err := p.prepararConOriginal(ctx, i)
+	return x, err
+}
+
+// prepararConOriginal conserva el registro Personal leído y el recibo CT
+// restaurado en la misma preparación; un cambio de perfil no reemite el alta.
+func (p *PreparadorDurableV2) prepararConOriginal(ctx context.Context, i ct.IntencionIncorporacionAplicacionV2) (ct.PreparacionIncorporacionAplicacionV2, *ct.RegistroPersonalEjercicio, *ct.ReciboIncorporacionAplicacionV2, error) {
 	var z ct.PreparacionIncorporacionAplicacionV2
 	if ctx == nil {
-		return z, ct.ErrComposicionIncorporacionAplicacion
+		return z, nil, nil, ct.ErrComposicionIncorporacionAplicacion
 	}
 	if ctx.Err() != nil {
-		return z, ctx.Err()
+		return z, nil, nil, ctx.Err()
 	}
 	if i.Validar() != nil {
-		return z, ct.ErrIntencionIncorporacionAplicacion
+		return z, nil, nil, ct.ErrIntencionIncorporacionAplicacion
 	}
 	i = i.Copia()
 	l, err := p.leer(ctx, i.ExpedienteRef, i.VersionActualExpedienteObservada)
 	if err != nil {
-		return z, err
+		return z, nil, nil, err
 	}
 	x := l.preparacion
 	// Nunca actualizar la intención original para ocultar un conflicto.
 	if x.SolicitudPersonal.SolicitudRef != i.SolicitudPersonalRef || x.VersionActualExpediente != i.VersionActualExpedienteObservada || x.MotivoClave != i.MotivoClave || !documentosIntencionExactos(x.Documentos, i.DocumentosRefs) {
-		return z, ct.ErrConflictoIncorporacionAplicacion
+		return z, nil, nil, ct.ErrConflictoIncorporacionAplicacion
 	}
 	x.Preparacion = p.c.Autoridad.PreparacionAutoridadCT()
 	x.SolicitudContexto = p.c.Autoridad.solicitudContexto()
 	x.Contexto, err = p.c.Autoridad.ContextoAutoridad()
 	if err != nil {
-		return z, errorAutoridadPreparacion(ctx, err)
+		return z, nil, nil, errorAutoridadPreparacion(ctx, err)
 	}
 	// Sólo la correlación de autorización es fresca. Solicitud/idempotencia y
 	// datos de transición permanecen inmutables y salen del plan/original.
 	x.CorrelacionV3, err = core.GenerarReferenciaCorrelacionAutorizacionV2(ctx, p.c.Autoridad.correlador)
 	if ctx.Err() != nil {
-		return z, ctx.Err()
+		return z, nil, nil, ctx.Err()
 	}
 	if err != nil {
-		return z, fallo(ctx, err)
+		return z, nil, nil, fallo(ctx, err)
 	}
 	t, err := p.finalizar(ctx, l.ultimo)
 	if err != nil {
-		return z, err
+		return z, nil, nil, err
 	}
 	if err = validarPreparacion(x, i, t); err != nil {
-		return z, err
+		return z, nil, nil, err
 	}
-	return clonarPreparacion(x)
+	x, err = clonarPreparacion(x)
+	if err != nil {
+		return z, nil, nil, err
+	}
+	return x, l.personalOriginal, l.recibo, nil
 }
 
 func errorAutoridadPreparacion(ctx context.Context, err error) error {
