@@ -173,6 +173,10 @@ class RestoreTests(unittest.TestCase):
         self.assertTrue((self.state / 'h1-restore-pending.json').exists())
         self.assertTrue((self.state / 'h1-restore-evidence.json').exists())
         create_args = FakeDocker.instance.create_args
+        self.assertIn('listen_addresses=127.0.0.1', create_args)
+        self.assertIn('port=5432', create_args)
+        self.assertNotIn('listen_addresses=', create_args)
+        self.assertEqual(create_args[create_args.index('--network') + 1], 'none')
         self.assertIn('vec.recorridos.owner=' + restore.OWNER, create_args)
         self.assertIn('vec.recorridos.state=' + str(self.state), create_args)
         self.assertFalse(any(a.startswith(('vec.clon.owner=', 'vec.clon.state=')) for a in create_args))
@@ -199,6 +203,27 @@ class RestoreTests(unittest.TestCase):
             self.execute()
         self.assertFalse((self.state / restore.RECEIPT).exists())
         self.assertFalse(any(args[0] == 'exec' for args, _ in FakeDocker.instance.calls))
+
+    def test_tcp_listener_and_port_cannot_expand_boundary(self):
+        original = FakeDocker.run
+        for variant in ('external-listener', 'wrong-port'):
+            self.state = self.root / ('state-' + variant)
+            self.state.mkdir(mode=0o700)
+            def compromised(fake, *args, **kwargs):
+                output = original(fake, *args, **kwargs)
+                if args[:2] == ('container', 'inspect'):
+                    value = json.loads(output)
+                    command = value[0]['Config']['Cmd']
+                    if variant == 'external-listener':
+                        command[command.index('listen_addresses=127.0.0.1')] = 'listen_addresses=0.0.0.0'
+                    else:
+                        command[command.index('port=5432')] = 'port=5433'
+                    return json.dumps(value)
+                return output
+            with self.subTest(variant=variant), patch.object(FakeDocker, 'run', compromised), self.assertRaises(restore.RestoreError):
+                self.execute()
+            self.assertFalse((self.state / restore.RECEIPT).exists())
+            self.assertFalse(any(args[0] == 'exec' for args, _ in FakeDocker.instance.calls))
 
     def test_common_authority_labels_cannot_be_replaced(self):
         original = FakeDocker.run

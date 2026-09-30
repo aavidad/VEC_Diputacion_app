@@ -31,7 +31,8 @@ ROOT = '18/docker'
 VOLUME_PARENT = Path('/dev/shm')
 RECEIPT = 'h1-restore.json'
 PG_COMMAND = ['-D', '/var/lib/postgresql/18/docker',
-              '-c', 'listen_addresses=', '-c', 'unix_socket_directories=/var/run/postgresql',
+              '-c', 'listen_addresses=127.0.0.1', '-c', 'port=5432',
+              '-c', 'unix_socket_directories=/var/run/postgresql',
               '-c', 'logging_collector=off', '-c', 'log_statement=none',
               '-c', 'archive_mode=off', '-c', 'shared_preload_libraries=']
 BLOCKED_KEYS = {'include', 'include_dir', 'include_if_exists', 'archive_command',
