@@ -33,7 +33,7 @@ export async function cargarMensajesPortal(idioma = IDIOMA_ACTUAL) {
     ...bolsa.seccion("politica_cese"),
     ...mensajesTramitePortal(idioma),
     ...portal.seccion("general"),
-    ...avisos.mensajes,
+    ...avisos.seccion("portal"),
     ...aplanar(preferencias.seccion("portal")),
   });
 }

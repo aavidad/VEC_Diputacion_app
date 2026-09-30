@@ -1,6 +1,21 @@
 {
-  "usuarios.avisos_externos.asunto": "Call-up notice in VEC",
-  "usuarios.avisos_externos.cuerpo": "You have a call-up notice. Visit your personal area to review the information and the next steps: {portal}\n\nThis email is a notice. It does not provide evidence of delivery of an administrative notification.",
-  "areaPersonal.miBolsa.llamamiento.aviso_pendiente": "Notice prepared; sending unconfirmed",
-  "areaPersonal.miBolsa.historial.aviso_pendiente": "Notice prepared; sending unconfirmed"
+  "usuarios": {
+    "avisos_externos": {
+      "asunto": "Call-up notice in VEC",
+      "cuerpo": "You have a call-up notice. Visit your personal area to review the information and the next steps: {portal}\n\nThis email is a notice. It does not provide evidence of delivery of an administrative notification."
+    }
+  },
+  "areaPersonal": {
+    "miBolsa": {
+      "llamamiento": {
+        "aviso_pendiente": "Notice prepared; sending unconfirmed"
+      },
+      "historial": {
+        "aviso_pendiente": "Notice prepared; sending unconfirmed"
+      }
+    }
+  },
+  "portal": {
+    "panel_aviso_pendiente": "Notice prepared; sending unconfirmed"
+  }
 }

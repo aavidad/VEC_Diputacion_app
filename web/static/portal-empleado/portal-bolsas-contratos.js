@@ -1,4 +1,4 @@
-import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20260930-avisos-interfaz-v1";
+import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20260930-avisos-interfaz-v2";
 /**
  * B13 · Histórico de contratos de la participación (Petición RRHH p. 2).
  * Solo lectura: los contratos proceden de Contratación temporal por evento

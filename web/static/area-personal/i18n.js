@@ -33,7 +33,7 @@ async function cargarCatalogo(idioma, opciones = {}) {
   return Object.freeze({
     idioma: propios.idioma,
     entradas: Object.freeze({ ...aplanar(preferencias.seccion(PREFIJO), PREFIJO), ...aplanar(propios.mensajes, PREFIJO),
-      ...Object.fromEntries(Object.entries(avisos.mensajes).filter(([clave]) => clave.startsWith(`${PREFIJO}.`))), }),
+      ...aplanar(avisos.seccion(PREFIJO), PREFIJO), }),
   });
 }
 

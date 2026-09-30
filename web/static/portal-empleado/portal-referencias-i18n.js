@@ -5,7 +5,7 @@
  * los textos del justificante son los comunes del panel.
  */
 import { cargarTextos } from "../comun/textos.js";
-import { traducirPortal } from "./portal-i18n.js?v=20260930-avisos-interfaz-v1";
+import { traducirPortal } from "./portal-i18n.js?v=20260930-avisos-interfaz-v2";
 
 export const MENSAJES_REFERENCIAS = (await cargarTextos("portal")).seccion("referencias");
 

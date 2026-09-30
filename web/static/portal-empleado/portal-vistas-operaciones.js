@@ -1,5 +1,5 @@
 /** Consulta de relaciones autorizadas y pasos pendientes de formalización. */
-import { traducirContratos } from "./portal-i18n-contratos.js?v=20260930-avisos-interfaz-v1";
+import { traducirContratos } from "./portal-i18n-contratos.js?v=20260930-avisos-interfaz-v2";
 
 export function crearVistasOperaciones({ escaparHTML: e, fecha, chip, tabla, encabezadoVista }) {
   function renderizarContratos(datos) {

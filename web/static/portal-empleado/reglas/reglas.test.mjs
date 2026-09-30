@@ -52,7 +52,7 @@ test("el catálogo renovado usa una URL única en la pantalla y en sus consumido
   assert.equal(exigirRenovado(formulario, "etiquetas-vias-cobertura.js", "20260930-reglas-detalle-v2"), version);
   // El enlace del portal no cambia en esta revisión: conserva su URL.
   const render = leer("../modulos/contratacion-temporal/vista-expedientes-render.js");
-  assert.equal(exigirRenovado(render, "enlace.js", "20260930-reglas-detalle-v1"), "20260930-avisos-interfaz-v1");
+  assert.equal(exigirRenovado(render, "enlace.js", "20260930-reglas-detalle-v1"), "20260930-avisos-interfaz-v2");
 });
 
 test("las versiones en caché se renuevan juntas y la pantalla está en el manifiesto interno", () => {
