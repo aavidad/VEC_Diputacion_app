@@ -479,12 +479,18 @@ BEGIN
  END IF;
  IF op<>'seleccionar' THEN est:=vec_personal.estado_plan_ct_interno(p); END IF;
  IF op='ejecutar' AND est->>'estado' IN ('preparado','relacion_registrada') THEN
-  seleccion:=vec_personal.seleccion_plan_ct_interna(org,jsonb_build_object(
-   'plaza_ref',p.datos->>'plaza_ref','puesto_ref',p.datos->>'puesto_ref','desde',p.datos->>'desde'));
+  BEGIN
+   seleccion:=vec_personal.seleccion_plan_ct_interna(org,jsonb_build_object(
+    'plaza_ref',p.datos->>'plaza_ref','puesto_ref',p.datos->>'puesto_ref','desde',p.datos->>'desde'));
+  -- El helper no consume permisos: estos errores describen cambios de la
+  -- estructura reservada. La autorización actual ya se consumió antes.
+  EXCEPTION WHEN SQLSTATE 'P7404' OR SQLSTATE '42501' THEN
+   RAISE EXCEPTION 'Personal23: estructura reservada cambió' USING ERRCODE='23505';
+  END;
   FOREACH k IN ARRAY ARRAY['version_plantilla_ref','version_rpt_ref','revision_plaza','revision_puesto',
       'fuente_organizacion_ref','fuente_organizacion_huella_sha256','unidad_ref'] LOOP
    IF seleccion->>k IS DISTINCT FROM p.datos->>k THEN
-    RAISE EXCEPTION 'Personal23: estructura cambió antes de ejecutar' USING ERRCODE='42501'; END IF;
+    RAISE EXCEPTION 'Personal23: estructura cambió antes de ejecutar' USING ERRCODE='23505'; END IF;
   END LOOP;
  END IF;
  IF op='confirmar' AND est->>'estado'<>'ejecutado' THEN
@@ -561,12 +567,18 @@ BEGIN
  esperado:=CASE WHEN clave=p.clave_alta_relacion THEN estado->'recibo_alta_relacion' ELSE estado->'recibo_ocupacion' END;
  IF esperado IS NULL OR esperado='null'::jsonb OR resultado->'recibo' IS DISTINCT FROM esperado THEN
   RAISE EXCEPTION 'Personal23: recibo de acto divergente' USING ERRCODE='23505'; END IF;
- seleccion:=vec_personal.seleccion_plan_ct_interna(p.organismo_ref,jsonb_build_object(
-  'plaza_ref',p.datos->>'plaza_ref','puesto_ref',p.datos->>'puesto_ref','desde',p.datos->>'desde'));
+ BEGIN
+  seleccion:=vec_personal.seleccion_plan_ct_interna(p.organismo_ref,jsonb_build_object(
+   'plaza_ref',p.datos->>'plaza_ref','puesto_ref',p.datos->>'puesto_ref','desde',p.datos->>'desde'));
+ -- Solo se convierten los errores estructurales del helper. Los rechazos de
+ -- ContextoActor, V3 o caducidad del acto original conservan su código.
+ EXCEPTION WHEN SQLSTATE 'P7404' OR SQLSTATE '42501' THEN
+  RAISE EXCEPTION 'Personal23: fuente reservada cambió' USING ERRCODE='23505';
+ END;
  FOREACH k IN ARRAY ARRAY['version_plantilla_ref','version_rpt_ref','revision_plaza','revision_puesto',
      'fuente_organizacion_ref','fuente_organizacion_huella_sha256','unidad_ref'] LOOP
   IF seleccion->>k IS DISTINCT FROM p.datos->>k THEN
-   RAISE EXCEPTION 'Personal23: fuente de acto divergente' USING ERRCODE='42501'; END IF;
+   RAISE EXCEPTION 'Personal23: fuente de acto divergente' USING ERRCODE='23505'; END IF;
  END LOOP;
  IF clock_timestamp()>=(convert_from(p_capacidad,'UTF8')::jsonb->>'expira_en')::timestamptz
     OR clock_timestamp()>=(convert_from(p_decision,'UTF8')::jsonb->>'valida_hasta')::timestamptz THEN
