@@ -76,10 +76,10 @@ func TestContratoEntregaPeticionCentroMaterialBandejaYConfirmacionValidos(t *tes
 	if err := (MaterialEntregaPeticionCentro{Modo: "bandeja", ActorRef: "actor:rrhh", PerfilRef: "perfil:rrhh"}).Validar(); err != nil {
 		t.Fatal(err)
 	}
-	if err := (MaterialEntregaPeticionCentro{Modo: "preparar", ActorRef: "actor:rrhh", PerfilRef: "perfil:rrhh", PeticionRef: peticion.Referencia, VersionEsperada: 2, ClaveAltaCandidata: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", AmbitoAltaHMAC: selloEntregaPeticionCentroPrueba}).Validar(); err != nil {
+	if err := (MaterialEntregaPeticionCentro{Modo: "preparar", ActorRef: "actor:rrhh", PerfilRef: "perfil:rrhh", PeticionRef: peticion.Referencia, CentroRef: peticion.Solicitud.CentroRef, CategoriaRef: peticion.Solicitud.CategoriaRef, VersionEsperada: 2, ClaveAltaCandidata: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", AmbitoAltaHMAC: selloEntregaPeticionCentroPrueba}).Validar(); err != nil {
 		t.Fatal(err)
 	}
-	if err := (MaterialEntregaPeticionCentro{Modo: "confirmar", ActorRef: "actor:rrhh", PerfilRef: "perfil:rrhh", PeticionRef: peticion.Referencia, VersionEsperada: 2, ReciboAlta: func() *ReciboAlta { r := reciboAltaPeticionCentroPrueba(); return &r }(), AmbitoAltaHMAC: selloEntregaPeticionCentroPrueba}).Validar(); err != nil {
+	if err := (MaterialEntregaPeticionCentro{Modo: "confirmar", ActorRef: "actor:rrhh", PerfilRef: "perfil:rrhh", PeticionRef: peticion.Referencia, CentroRef: peticion.Solicitud.CentroRef, CategoriaRef: peticion.Solicitud.CategoriaRef, VersionEsperada: 2, ReciboAlta: func() *ReciboAlta { r := reciboAltaPeticionCentroPrueba(); return &r }(), AmbitoAltaHMAC: selloEntregaPeticionCentroPrueba}).Validar(); err != nil {
 		t.Fatal(err)
 	}
 }

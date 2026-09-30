@@ -1,5 +1,24 @@
 # Estado y plan de ataque del proyecto
 
+## Consulta de firmas con autorización nominal — 30 de septiembre de 2026 (candidata)
+
+La consulta de firmas de Contratación temporal usa una concesión fija de lectura,
+un contexto de sesión vigente y el consumidor V3 AD3-125/CT152. Las fronteras
+POST de consulta y registro están declaradas en el autorizador común. RRHH e
+Intervención conservan perfiles propios; una petición no publica permisos.
+
+En el clon local, Chrome obtuvo 200 con atestación, consumo y auditoría reales.
+La consulta conservó el mismo estado tras reiniciar aplicación y PostgreSQL;
+las tablas de negocio no cambiaron y no se creó ninguna firma. PostgreSQL
+detenido devolvió 503; el método GET, 405; un expediente inexistente, 404; y
+la consulta RRHH desde el canal de Intervención, 403. La prueba acredita la
+API desde Chrome, no un recorrido completo de la pantalla de firma.
+
+Sigue pendiente acreditar la lectura interna de Intervención durante la
+fiscalización y montar la custodia del documento firmado con su perfil fijo.
+Esta candidata no cambia el cómputo de pasos, no está desplegada y no acredita
+firma legal. Las instrucciones del ensayo están en GUIA_RECORRIDO_ALBERTO.md.
+
 ## Petición de cuatro fotografías de RRHH — 27 de septiembre de 2026 (rama candidata)
 
 `PIDEN_RRHH_CHECKLIST.md` contrasta 60 requisitos sobre `origin/main@7247682c`:

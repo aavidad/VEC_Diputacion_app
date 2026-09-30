@@ -1,0 +1,2 @@
+# Versión ensayada con Browser Fetch global y CDPSession.close.
+playwright==1.60.0

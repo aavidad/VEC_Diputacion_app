@@ -1,4 +1,4 @@
-import { IDIOMA_DATOS_REGLAS, IDIOMA_REGLAS, MENSAJES_REGLAS, crearTraductorReglas, existeClaveReglas, formatearNumero, minusculas } from "./i18n.js?v=20260930-reglas-detalle-v3";
+import { IDIOMA_DATOS_REGLAS, IDIOMA_REGLAS, MENSAJES_REGLAS, crearTraductorReglas, existeClaveReglas, formatearNumero, minusculas, textoPresentacionRegla } from "./i18n.js?v=20260930-reglas-recuperacion-v2";
 import { icono } from "../../comun/iconos-vec.js?v=20260925-aspecto-v1";
 
 export const API_REGLAS = "/api/vec/reglas/vigentes";
@@ -100,7 +100,8 @@ export function filtrar(catalogos, { modulo = "", origen = "", texto: consulta =
   return catalogos.filter((c) => !modulo || c.modulo === modulo).map((c) => ({
     ...c,
     reglas: c.reglas.filter((r) => (!origen || r.origen === origen)
-      && (!q || [r.etiqueta, r.descripcion, r.clave, r.duda, r.norma].some((v) => minusculas(v).includes(q)))),
+      && (!q || [r.etiqueta, r.clave, r.norma, ...["descripcion", "duda", "ejemplo_parcial"]
+        .map((campo) => textoPresentacionRegla(c.modulo, r, campo).texto)].some((v) => minusculas(v).includes(q)))),
   }));
 }
 
@@ -121,14 +122,18 @@ export const idRegla = (modulo, clave) => `rg-regla-${idSeguro(`${modulo}\0${cla
 
 /** Los textos de cada regla llegan del catálogo en su idioma: se marcan si la interfaz usa otro. */
 const LANG_DATOS = IDIOMA_REGLAS === IDIOMA_DATOS_REGLAS ? "" : ` lang="${esc(IDIOMA_DATOS_REGLAS)}"`;
-const datos = (texto) => `<span${LANG_DATOS}>${esc(texto)}</span>`;
-const parteEjemplo = (valor) => {
+const datos = (texto, idioma = IDIOMA_DATOS_REGLAS) => `<span${idioma === IDIOMA_REGLAS ? "" : ` lang="${esc(idioma)}"`}>${esc(texto)}</span>`;
+const textoRegla = (modulo, regla, campo) => {
+  const { texto, idioma } = textoPresentacionRegla(modulo, regla, campo);
+  return datos(texto, idioma);
+};
+const parteEjemplo = (r, modulo) => {
   const [antes, despues] = MENSAJES_REGLAS.parteEjemplo.split("{texto}");
-  return `${esc(antes)}${datos(valor)}${esc(despues)}`;
+  return `${esc(antes)}${textoRegla(modulo, r, "ejemplo_parcial")}${esc(despues)}`;
 };
 
 function filaRegla(r, modulo, abiertas) {
-  const parcial = r.ejemplo_parcial ? `<br><small>${parteEjemplo(r.ejemplo_parcial)}</small>` : "";
+  const parcial = r.ejemplo_parcial ? `<br><small>${parteEjemplo(r, modulo)}</small>` : "";
   const computo = r.computo && existeClaveReglas(`computo_${r.computo}`) ? `<br><small>${esc(t(`computo_${r.computo}`))}</small>` : "";
   const pastilla = r.origen === "reglamento" ? "rg-pastilla--reglamento" : "rg-pastilla--ejemplo";
   const id = idRegla(modulo, r.clave);
@@ -138,20 +143,20 @@ function filaRegla(r, modulo, abiertas) {
     <td class="rg-numero">${r.valor ? datos(valorRegla(r)) : esc(valorRegla(r))}</td>
     <td>${esc(etiquetaUnidad(r.unidad))}${computo}</td>
     <td><span class="rg-pastilla ${pastilla}">${esc(origenRegla(r))}</span>${parcial}</td>
-    <td>${datos(r.duda)}</td>
+    <td>${textoRegla(modulo, r, "duda")}</td>
     <td class="rg-numero">${esc(formatearNumero(r.version))}</td>
   </tr>
-  <tr class="rg-detalle rg-fila--${esc(r.origen)}" id="${id}"${abierta ? "" : " hidden"}><td colspan="6">${detalleRegla(r)}</td></tr>`;
+  <tr class="rg-detalle rg-fila--${esc(r.origen)}" id="${id}"${abierta ? "" : " hidden"}><td colspan="6">${detalleRegla(r, modulo)}</td></tr>`;
 }
 
 /** Texto completo de la regla, sin códigos internos: lo que la fila no deja leer entero. */
-export function detalleRegla(r) {
+export function detalleRegla(r, modulo = "") {
   const bloque = (clave, contenido) => `<div class="rg-detalle-bloque"><dt>${esc(t(clave))}</dt><dd>${contenido}</dd></div>`;
   const partes = [
-    bloque("detalleQue", r.descripcion ? datos(r.descripcion) : esc(t("detalleSinDescripcion"))),
-    bloque("detalleOrigen", esc(origenRegla(r)) + (r.ejemplo_parcial ? `<br>${parteEjemplo(r.ejemplo_parcial)}` : "")),
+    bloque("detalleQue", r.descripcion ? textoRegla(modulo, r, "descripcion") : esc(t("detalleSinDescripcion"))),
+    bloque("detalleOrigen", esc(origenRegla(r)) + (r.ejemplo_parcial ? `<br>${parteEjemplo(r, modulo)}` : "")),
     bloque("detalleNorma", datos(r.norma)),
-    bloque("detalleDuda", datos(r.duda)),
+    bloque("detalleDuda", textoRegla(modulo, r, "duda")),
   ];
   return `<div class="rg-detalle-cuerpo"><dl>${partes.join("")}</dl></div>`;
 }
@@ -225,64 +230,72 @@ export async function iniciar(doc, cliente) {
     el.classList.toggle("rg-aviso--error", error);
     el.hidden = mensaje === "";
   };
-  avisar(t("cargando"));
-  let datos;
-  try {
-    datos = await cliente.reglas();
-  } catch (error) {
-    avisar(mensajeError(error), true);
-    // Qué hacer ahora: el mismo botón que el aviso sin catálogo de textos.
-    const reintentar = doc.createElement?.("button");
-    if (reintentar) {
-      reintentar.type = "button";
-      reintentar.className = "rg-secundario";
-      reintentar.textContent = t("reintentar");
-      reintentar.addEventListener("click", () => doc.defaultView?.location?.reload());
-      $("rg-estado").append(" ", reintentar);
+  const cargar = async (disparador) => {
+    const aviso = $("rg-estado");
+    const conservarFoco = disparador && doc.activeElement === disparador;
+    avisar(t("cargando"));
+    if (conservarFoco) aviso.focus({ preventScroll: true });
+    let datos;
+    try {
+      datos = await cliente.reglas();
+    } catch (error) {
+      avisar(mensajeError(error), true);
+      const reintentar = doc.createElement?.("button");
+      if (reintentar) {
+        reintentar.type = "button";
+        reintentar.className = "rg-secundario";
+        reintentar.textContent = t("reintentar");
+        reintentar.addEventListener("click", () => cargar(reintentar));
+        aviso.append(" ", reintentar);
+        if (conservarFoco && doc.activeElement === aviso) reintentar.focus({ preventScroll: true });
+      }
+      return;
     }
-    return;
-  }
-  const modulos = [...new Set(datos.catalogos.map((c) => c.modulo))];
-  $("rg-modulo").innerHTML = `<option value="">${esc(t("todos"))}</option>` + modulos.map((m) => `<option value="${esc(m)}">${esc(etiquetaModulo(m))}</option>`).join("");
-  $("rg-origen").innerHTML = `<option value="">${esc(t("todos"))}</option>` + [...ORIGENES].map((o) => `<option value="${o}">${esc(t(`origen_${o}`))}</option>`).join("");
-  // Reglas abiertas: sobreviven al filtrar y, la última, a recargar (ancla).
-  const abiertas = new Set();
-  let ancla = "";
-  try { ancla = decodeURIComponent(String(doc.defaultView?.location?.hash ?? "").slice(1)); }
-  catch { /* Un ancla inválida no debe impedir mostrar las reglas. */ }
-  if (/^rg-regla-[a-z0-9-]+$/u.test(ancla)) abiertas.add(ancla);
-  const pintar = () => {
-    const visibles = filtrar(datos.catalogos, { modulo: $("rg-modulo").value, origen: $("rg-origen").value, texto: $("rg-texto").value });
-    $("rg-kpis").innerHTML = renderizarResumen(visibles);
-    $("rg-catalogos").innerHTML = visibles.map((c) => renderizarCatalogo(c, abiertas)).join("");
+    const modulos = [...new Set(datos.catalogos.map((c) => c.modulo))];
+    $("rg-modulo").innerHTML = `<option value="">${esc(t("todos"))}</option>` + modulos.map((m) => `<option value="${esc(m)}">${esc(etiquetaModulo(m))}</option>`).join("");
+    $("rg-origen").innerHTML = `<option value="">${esc(t("todos"))}</option>` + [...ORIGENES].map((o) => `<option value="${o}">${esc(t(`origen_${o}`))}</option>`).join("");
+    // Reglas abiertas: sobreviven al filtrar y, la última, a recargar (ancla).
+    const abiertas = new Set();
+    let ancla = "";
+    try { ancla = decodeURIComponent(String(doc.defaultView?.location?.hash ?? "").slice(1)); }
+    catch { /* Un ancla inválida no debe impedir mostrar las reglas. */ }
+    if (/^rg-regla-[a-z0-9-]+$/u.test(ancla)) abiertas.add(ancla);
+    const pintar = () => {
+      const visibles = filtrar(datos.catalogos, { modulo: $("rg-modulo").value, origen: $("rg-origen").value, texto: $("rg-texto").value });
+      $("rg-kpis").innerHTML = renderizarResumen(visibles);
+      $("rg-catalogos").innerHTML = visibles.map((c) => renderizarCatalogo(c, abiertas)).join("");
+    };
+    const alternar = (fila) => {
+      const id = fila.dataset.regla;
+      const abrir = !abiertas.has(id);
+      if (abrir) abiertas.add(id); else abiertas.delete(id);
+      fila.classList.toggle("rg-fila--abierta", abrir);
+      fila.querySelector(".rg-regla-abrir")?.setAttribute("aria-expanded", String(abrir));
+      const detalle = doc.getElementById(id);
+      if (detalle) detalle.hidden = !abrir;
+      const vista = doc.defaultView;
+      // El ancla guarda la última regla abierta que sigue abierta, para recargar sin perderla.
+      const ultima = abrir ? id : [...abiertas].at(-1);
+      try { vista?.history?.replaceState(null, "", ultima ? `#${ultima}` : `${vista.location.pathname}${vista.location.search}`); } catch { /* sin historial */ }
+    };
+    // Se abre con el botón del nombre o pulsando en cualquier punto de la fila.
+    $("rg-catalogos").addEventListener("click", (evento) => {
+      const fila = evento.target.closest?.("tr.rg-fila");
+      if (!fila || (evento.target.closest("a") && !evento.target.closest(".rg-regla-abrir"))) return;
+      if (!evento.target.closest(".rg-regla-abrir") && doc.getSelection?.()?.toString()) return;
+      alternar(fila);
+    });
+    $("rg-filtros").addEventListener("submit", (evento) => evento.preventDefault());
+    for (const id of ["rg-modulo", "rg-origen"]) $(id).addEventListener("change", pintar);
+    $("rg-texto").addEventListener("input", pintar);
+    pintar();
+    const devolverFoco = conservarFoco && doc.activeElement === aviso;
+    avisar("");
+    $("rg-resultado").hidden = false;
+    if (devolverFoco) $("rg-modulo").focus({ preventScroll: true });
+    if (abiertas.size) doc.getElementById([...abiertas][0])?.previousElementSibling?.scrollIntoView?.({ block: "center" });
   };
-  const alternar = (fila) => {
-    const id = fila.dataset.regla;
-    const abrir = !abiertas.has(id);
-    if (abrir) abiertas.add(id); else abiertas.delete(id);
-    fila.classList.toggle("rg-fila--abierta", abrir);
-    fila.querySelector(".rg-regla-abrir")?.setAttribute("aria-expanded", String(abrir));
-    const detalle = doc.getElementById(id);
-    if (detalle) detalle.hidden = !abrir;
-    const vista = doc.defaultView;
-    // El ancla guarda la última regla abierta que sigue abierta, para recargar sin perderla.
-    const ultima = abrir ? id : [...abiertas].at(-1);
-    try { vista?.history?.replaceState(null, "", ultima ? `#${ultima}` : `${vista.location.pathname}${vista.location.search}`); } catch { /* sin historial */ }
-  };
-  // Se abre con el botón del nombre o pulsando en cualquier punto de la fila.
-  $("rg-catalogos").addEventListener("click", (evento) => {
-    const fila = evento.target.closest?.("tr.rg-fila");
-    if (!fila || (evento.target.closest("a") && !evento.target.closest(".rg-regla-abrir"))) return;
-    if (!evento.target.closest(".rg-regla-abrir") && doc.getSelection?.()?.toString()) return;
-    alternar(fila);
-  });
-  $("rg-filtros").addEventListener("submit", (evento) => evento.preventDefault());
-  for (const id of ["rg-modulo", "rg-origen"]) $(id).addEventListener("change", pintar);
-  $("rg-texto").addEventListener("input", pintar);
-  pintar();
-  avisar("");
-  $("rg-resultado").hidden = false;
-  if (abiertas.size) doc.getElementById([...abiertas][0])?.previousElementSibling?.scrollIntoView?.({ block: "center" });
+  await cargar();
 }
 
 if (typeof document !== "undefined" && document.getElementById("reglas")) {

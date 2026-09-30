@@ -65,3 +65,6 @@ ae261786c62ace805dc5aaf80c0c91a92b157962:web/static/portal-empleado/modulos/cont
 2c8396b365e18e6e9abd21abed2d3e1e8e6b87c5:deploy/postgresql/usuarios_vec/reclaveado/pruebas.sql:vep-clave-castellana-asignada:106
 2c8396b365e18e6e9abd21abed2d3e1e8e6b87c5:deploy/postgresql/usuarios_vec/reclaveado/pruebas.sql:vep-clave-castellana-asignada:115
 2c8396b365e18e6e9abd21abed2d3e1e8e6b87c5:deploy/postgresql/usuarios_vec/reclaveado/pruebas.sql:vep-clave-castellana-asignada:117
+
+# Reglas: la variable clave contiene un identificador de regla del catálogo en una prueba; no es una credencial.
+f18d0c0d3e59e9e622819764889ad356cb438f93:web/static/portal-empleado/reglas/texto-presentacion.test.mjs:vep-clave-castellana-asignada:37

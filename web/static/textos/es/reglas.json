@@ -65,5 +65,185 @@
     "detalleDuda": "Duda de RRHH",
     "detalleSinDescripcion": "El catálogo no describe esta regla.",
     "reintentar": "Reintentar"
+  },
+  "presentacion": {
+    "bolsa": {
+      "b24": {
+        "consecuencias": {
+          "descripcion": {
+            "original": "Las consecuencias posibles son las entradas «b24.sancion.*» de este catálogo; las de efecto «excluir» son también las causas de baja definitiva (art. 11) que RRHH elige al dar de baja. Contra la resolución cabe recurso de reposición en un mes desde su notificación.",
+            "texto": "Las consecuencias previstas se recogen en las reglas de sanciones de esta lista. Solo las que excluyen a la persona de la bolsa son causas de baja definitiva, según el artículo 11; RRHH elige la que corresponda. Contra la resolución cabe recurso de reposición durante un mes desde su notificación."
+          }
+        }
+      },
+      "b26": {
+        "agotamiento": {
+          "ejemplo_parcial": {
+            "original": "Que VEC proponga la bolsa como «agotada provisionalmente» cuando las personas disponibles no superan umbral_disponibles, y que RRHH lo confirme, es un circuito de ejemplo; el umbral 0 corresponde a «no quedan integrantes disponibles» y el agotamiento exige resolución expresa.",
+            "texto": "En este ejemplo, VEC propone el agotamiento provisional cuando las personas disponibles no superan el umbral configurado. RRHH lo confirma mediante resolución expresa."
+          }
+        }
+      },
+      "b28": {
+        "transiciones": {
+          "disponible": {
+            "duda": {
+              "original": "Duda 62. Bolsa publica esta lista en la base de datos al arrancar (migración 000032); la base aplica la política publicada.",
+              "texto": "Duda 62. VEC publica al arrancar los cambios de situación permitidos y aplica la lista publicada."
+            }
+          },
+          "renuncia": {
+            "duda": {
+              "original": "Duda 62. Bolsa publica esta lista en la base de datos al arrancar (migración 000032); la base aplica la política publicada.",
+              "texto": "Duda 62. VEC publica al arrancar los cambios permitidos tras una renuncia y aplica la lista publicada."
+            }
+          }
+        }
+      },
+      "b30": {
+        "plazas_llamada": {
+          "descripcion": {
+            "original": "Al terminar el plazo para ofrecerse, se llama a la vez a tantas personas como plazas libres, por orden de la bolsa entre quienes se ofrecieron. Valores posibles: «simultanea» o «sucesiva» (de una en una).",
+            "texto": "Al terminar el plazo para ofrecerse, se llama a la vez a tantas personas como plazas libres, por orden de la bolsa entre quienes se ofrecieron. También puede configurarse el llamamiento de una en una."
+          }
+        },
+        "plazas_tras_renuncia": {
+          "descripcion": {
+            "original": "Se llama a la siguiente persona que se ofreció para esa misma plaza; si no queda nadie, la plaza pasa a llamamiento directo. Valores posibles: «siguiente_en_orden» o «llamamiento_directo».",
+            "texto": "Se llama a la siguiente persona que se ofreció para esa misma plaza. También puede configurarse el llamamiento directo; si no queda nadie en el primer caso, la plaza pasa a llamamiento directo."
+          }
+        }
+      }
+    },
+    "contratacion_temporal": {
+      "c02": {
+        "plazo_informes": {
+          "duda": {
+            "original": "Su aplicación a este procedimiento, y a qué fases del expediente (atributo fases), la confirma RRHH.",
+            "texto": "RRHH debe confirmar si este plazo se aplica al procedimiento y en qué fases del expediente."
+          }
+        }
+      },
+      "c05": {
+        "motivos_rectificacion": {
+          "descripcion": {
+            "original": "Los motivos admitidos están en el catálogo motivos_rectificacion_analisis.",
+            "texto": "Los motivos admitidos para rectificar el análisis se recogen en una lista específica."
+          }
+        }
+      },
+      "c08": {
+        "acumulacion_tareas": {
+          "duda": {
+            "original": "Pendiente de RRHH; si se avisa o se impide seguir al superar el máximo (atributo al_superar), duda 7.",
+            "texto": "RRHH debe decidir si, al superar el máximo, se muestra un aviso o se impide continuar (duda 7)."
+          }
+        },
+        "programas_temporales": {
+          "duda": {
+            "original": "Pendiente de RRHH; si se avisa o se impide seguir al superar el máximo (atributo al_superar), duda 7.",
+            "texto": "RRHH debe decidir si, al superar el máximo, se muestra un aviso o se impide continuar (duda 7)."
+          }
+        },
+        "vacante": {
+          "duda": {
+            "original": "Pendiente de RRHH; si se avisa o se impide seguir al superar el máximo (atributo al_superar), duda 7.",
+            "texto": "RRHH debe decidir si, al superar el máximo, se muestra un aviso o se impide continuar (duda 7)."
+          }
+        },
+        "circunstancias_produccion": {
+          "duda": {
+            "original": "Pendiente de RRHH; si se avisa o se impide seguir al superar el máximo (atributo al_superar), duda 7.",
+            "texto": "RRHH debe decidir si, al superar el máximo, se muestra un aviso o se impide continuar (duda 7)."
+          }
+        }
+      },
+      "c10": {
+        "cierre_expediente": {
+          "descripcion": {
+            "original": "El expediente se cierra cuando consta el cese registrado y la ficha de GINPIX confirmada con su número de alta. El número del cierre es el de la confirmación de GINPIX registrada; no se teclea en el cierre. El cierre administrativo sin cese solo se ofrece si cierre_sin_cese vale «admitido».",
+            "texto": "Para cerrar el expediente deben constar el cese y la ficha de GINPIX confirmada con su número de alta. El cierre usa el número de esa confirmación; nadie lo introduce de nuevo. El cierre sin cese solo se ofrece si la regla lo permite."
+          }
+        }
+      },
+      "c11": {
+        "causas_cese": {
+          "descripcion": {
+            "original": "Las causas admitidas y su justificante están en el catálogo causas_cese_contratacion_temporal.",
+            "texto": "Las causas admitidas para el cese y sus justificantes se recogen en una lista específica."
+          }
+        }
+      },
+      "c12": {
+        "modalidad": {
+          "sustitucion": {
+            "descripcion": {
+              "original": "Modalidad que RRHH puede elegir al analizar la solicitud. Su duración máxima es la regla c08.sustitucion.",
+              "texto": "RRHH puede elegir esta modalidad al analizar la solicitud. Su duración se rige por la regla «Duración: sustitución»."
+            }
+          },
+          "vacante": {
+            "descripcion": {
+              "original": "Modalidad que RRHH puede elegir al analizar la solicitud. Su duración máxima es la regla c08.vacante.",
+              "texto": "RRHH puede elegir esta modalidad al analizar la solicitud. Su duración máxima se fija en la regla «Duración máxima: vacante»."
+            }
+          },
+          "acumulacion_tareas": {
+            "descripcion": {
+              "original": "Modalidad que RRHH puede elegir al analizar la solicitud. Su duración máxima es la regla c08.acumulacion_tareas.",
+              "texto": "RRHH puede elegir esta modalidad al analizar la solicitud. Su duración máxima se fija en la regla «Duración máxima: acumulación de tareas»."
+            }
+          },
+          "programa": {
+            "descripcion": {
+              "original": "Modalidad que RRHH puede elegir al analizar la solicitud. Su duración máxima es la regla c08.programas_temporales.",
+              "texto": "RRHH puede elegir esta modalidad al analizar la solicitud. Su duración máxima se fija en la regla «Duración máxima: programas temporales»."
+            }
+          }
+        }
+      },
+      "c15": {
+        "urgencia": {
+          "descripcion": {
+            "original": "RRHH puede declarar urgente el expediente al analizarlo, con su motivo. Los plazos con cantidad urgente (c03) usan esa cantidad; la urgencia declarada se mantiene.",
+            "texto": "RRHH puede declarar urgente el expediente al analizarlo y debe indicar el motivo. Los plazos que prevén urgencia aplican su cantidad correspondiente. La declaración permanece."
+          }
+        }
+      },
+      "c19": {
+        "fiscalizacion_resultados": {
+          "descripcion": {
+            "original": "Resultados que Intervención puede registrar y qué ocurre con el expediente: «continua» sigue la tramitación y «vuelve_unidad_gestora» lo devuelve a la unidad gestora para subsanar y fiscalizar de nuevo. «informe_nuevo_tras_subsanacion» (si/no) decide si tras subsanar hace falta un informe jurídico nuevo, y «documento_firma_informe_nuevo» qué documento del circuito de firma se vuelve a firmar por ello.",
+            "texto": "La regla indica si cada resultado de Intervención permite continuar o devuelve el expediente a la unidad gestora para subsanar y fiscalizar de nuevo. También fija si la subsanación exige otro informe jurídico y qué documento se firma de nuevo."
+          }
+        }
+      },
+      "c20": {
+        "cancelacion_expediente": {
+          "descripcion": {
+            "original": "El centro solicitante o RRHH pueden cancelar el expediente, con un motivo del catálogo motivos_cancelacion_contratacion_temporal, mientras esté en una de estas fases. Tras la fiscalización nunca se cancela. «roles_centro» fija qué perfiles del centro cancelan (sin él, el centro no cancela).",
+            "texto": "El centro solicitante o RRHH pueden cancelar el expediente por un motivo admitido, en las fases que permite esta regla. Tras la fiscalización ya no se cancela. El centro necesita uno de los perfiles designados en la regla; sin ellos no puede cancelar."
+          }
+        }
+      },
+      "c22": {
+        "no_incorporacion": {
+          "descripcion": {
+            "original": "Motivos por los que la persona seleccionada no se incorpora, con la consecuencia que se aplica en la bolsa (una entrada b24.sancion.* del catálogo de Bolsa) y el llamamiento al siguiente candidato. La resolución la firma una segunda persona si segunda_persona vale «si».",
+            "texto": "Si la persona seleccionada no se incorpora, se registra el motivo, se aplica la consecuencia prevista en la bolsa y se llama a la siguiente persona. Una segunda persona firma la resolución cuando la regla lo exige."
+          }
+        }
+      },
+      "c23": {
+        "fase_operacion": {
+          "analisis": {
+            "descripcion": {
+              "original": "RRHH registra o rectifica el análisis de una solicitud mientras el expediente está en alguna de estas fases y en el estado indicado. Es lo que cubre el permiso de análisis de RRHH para toda la organización, sin atarlo a un expediente concreto.",
+              "texto": "RRHH puede registrar o rectificar el análisis en las fases y el estado que permite esta regla. El permiso abarca toda la organización sin vincularse a un expediente concreto."
+            }
+          }
+        }
+      }
+    }
   }
 }

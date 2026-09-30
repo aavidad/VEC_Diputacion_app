@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
@@ -17,12 +18,19 @@ import (
 
 type ProveedorEntregaPeticionCentro interface {
 	ActorEntregaPeticionCentro(context.Context) (string, string, error)
+	ComprobarPerfilEntregaPeticionCentro(context.Context) error
+	RegistrarDenegacionEntregaPreV3(context.Context) error
 	NuevaClaveAltaDePeticion(context.Context) (string, string, error)
 	AutorizarEntregaPeticionCentro(context.Context, ports.MaterialEntregaPeticionCentro) (vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error)
 }
 
+type lectorAmbitosEntregaPeticionCentro interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}
+
 type RepositorioEntregasPeticionCentroPostgreSQL struct {
 	pool      iniciadorTransacciones
+	lector    lectorAmbitosEntregaPeticionCentro
 	proveedor ProveedorEntregaPeticionCentro
 }
 
@@ -30,15 +38,50 @@ func NuevoRepositorioEntregasPeticionCentroPostgreSQL(pool *pgxpool.Pool, p Prov
 	if pool == nil || dependenciaNula(p) {
 		return nil, ports.ErrPeticionCentroNoDisponible
 	}
-	return &RepositorioEntregasPeticionCentroPostgreSQL{pool, p}, nil
+	return &RepositorioEntregasPeticionCentroPostgreSQL{pool: pool, lector: pool, proveedor: p}, nil
 }
 
 func (r *RepositorioEntregasPeticionCentroPostgreSQL) material(ctx context.Context, modo string, c ports.ComandoEntregarPeticionCentro) (ports.MaterialEntregaPeticionCentro, error) {
-	if ctx == nil || r == nil || r.pool == nil || dependenciaNula(r.proveedor) {
+	if ctx == nil || r == nil || r.pool == nil || r.lector == nil || dependenciaNula(r.proveedor) {
 		return ports.MaterialEntregaPeticionCentro{}, ports.ErrPeticionCentroNoDisponible
 	}
 	a, p, err := r.proveedor.ActorEntregaPeticionCentro(ctx)
-	return ports.MaterialEntregaPeticionCentro{Modo: modo, ActorRef: a, PerfilRef: p, PeticionRef: c.PeticionRef, VersionEsperada: c.VersionEsperada}, err
+	if err != nil {
+		return ports.MaterialEntregaPeticionCentro{}, err
+	}
+	m := ports.MaterialEntregaPeticionCentro{Modo: modo, ActorRef: a, PerfilRef: p, PeticionRef: c.PeticionRef, VersionEsperada: c.VersionEsperada}
+	if modo != "bandeja" {
+		if c.Validar() != nil {
+			return ports.MaterialEntregaPeticionCentro{}, domain.ErrPeticionCentroInvalida
+		}
+		// Antes de proyectar centro/categoría de una referencia, exigir la
+		// asignación publicada del perfil de POST. La existencia de la petición
+		// no se consulta para un perfil revocado o ausente.
+		if err := r.proveedor.ComprobarPerfilEntregaPeticionCentro(ctx); err != nil {
+			if errors.Is(err, ports.ErrPeticionCentroNoDisponible) {
+				return ports.MaterialEntregaPeticionCentro{}, ports.ErrPeticionCentroNoDisponible
+			}
+			return ports.MaterialEntregaPeticionCentro{}, ports.ErrAutorizacionDenegada
+		}
+		// La función gobernada entrega exclusivamente los ámbitos de la revisión
+		// ratificada. La transacción del efecto los vuelve a cotejar antes del
+		// consumo V3: esta lectura nunca concede por sí sola el permiso.
+		if err := r.lector.QueryRow(ctx,
+			"SELECT centro_ref,categoria_ref FROM vec_contratacion_temporal.ambitos_entrega_peticion_centro_v1($1)",
+			c.PeticionRef).Scan(&m.CentroRef, &m.CategoriaRef); err != nil {
+			var pg *pgconn.PgError
+			if errors.As(err, &pg) && pg.Code == "P0681" {
+				if r.proveedor.RegistrarDenegacionEntregaPreV3(ctx) != nil {
+					return ports.MaterialEntregaPeticionCentro{}, ports.ErrPeticionCentroNoDisponible
+				}
+				// La proyección no revela si una referencia existe. Solo el efecto
+				// autorizado puede producir el 409 de estado/versionado.
+				return ports.MaterialEntregaPeticionCentro{}, ports.ErrAutorizacionDenegada
+			}
+			return ports.MaterialEntregaPeticionCentro{}, errorEntregaPeticionSQL(ctx, err)
+		}
+	}
+	return m, nil
 }
 
 func (r *RepositorioEntregasPeticionCentroPostgreSQL) ListarPeticionesRRHH(ctx context.Context) ([]ports.EntregaPeticionCentro, error) {
@@ -87,10 +130,47 @@ func (r *RepositorioEntregasPeticionCentroPostgreSQL) ConfirmarEntrega(ctx conte
 	return r.entrega(ctx, m)
 }
 
+// Las dos señales proceden de la transacción SQL que decide cada inserción.
+// Su ausencia no se interpreta como un replay: impide servir código antiguo
+// junto a una migración incompleta o una respuesta no confiable.
+type resultadoEntregaPeticionCentroSQL struct {
+	ports.EntregaPeticionCentro
+	ReservaCreadaAhora      *bool `json:"reserva_creada_ahora"`
+	ConfirmacionCreadaAhora *bool `json:"confirmacion_creada_ahora"`
+}
+
+func (s resultadoEntregaPeticionCentroSQL) entregaPara(modo string) (ports.EntregaPeticionCentro, error) {
+	if s.ReservaCreadaAhora == nil || s.ConfirmacionCreadaAhora == nil ||
+		(*s.ReservaCreadaAhora && *s.ConfirmacionCreadaAhora) ||
+		(*s.ReservaCreadaAhora && (modo != "preparar" || s.EstadoEntrega != "preparada")) ||
+		(*s.ConfirmacionCreadaAhora && s.EstadoEntrega != "confirmada") ||
+		(modo == "confirmar" && s.EstadoEntrega != "confirmada") {
+		return ports.EntregaPeticionCentro{}, ports.ErrReciboPeticionCentroNoConfiable
+	}
+	e := s.EntregaPeticionCentro
+	e.ReservaCreadaAhora = *s.ReservaCreadaAhora
+	e.ConfirmadaAhora = *s.ConfirmacionCreadaAhora
+	return e, nil
+}
+
 func (r *RepositorioEntregasPeticionCentroPostgreSQL) entrega(ctx context.Context, m ports.MaterialEntregaPeticionCentro) (ports.EntregaPeticionCentro, error) {
 	var e ports.EntregaPeticionCentro
 	err := r.ejecutar(ctx, m, func(b []byte) error {
-		if decodificarJSONEstricto(b, &e) != nil || e.ValidarReserva() != nil || e.Peticion.Referencia != m.PeticionRef || e.ActorRef != m.ActorRef || e.PerfilRef != m.PerfilRef {
+		var resultado resultadoEntregaPeticionCentroSQL
+		if decodificarJSONEstricto(b, &resultado) != nil {
+			return ports.ErrReciboPeticionCentroNoConfiable
+		}
+		var err error
+		e, err = resultado.entregaPara(m.Modo)
+		if err != nil {
+			return err
+		}
+		// CT150 puede devolver una confirmación histórica cuyo perfil reservado
+		// precede al perfil fijo. Solo preparar admite ese replay: la función SQL
+		// ya ha cotejado la reserva, el alta durable y la decisión vigente.
+		perfilHistoricoConfirmado := m.Modo == "preparar" && e.EstadoEntrega == "confirmada"
+		if e.ValidarReserva() != nil || e.Peticion.Referencia != m.PeticionRef || e.ActorRef != m.ActorRef ||
+			(e.PerfilRef != m.PerfilRef && !perfilHistoricoConfirmado) {
 			return ports.ErrReciboPeticionCentroNoConfiable
 		}
 		return nil
@@ -121,8 +201,12 @@ func RecursoEntregaPeticionCentro(m ports.MaterialEntregaPeticionCentro) (vecdom
 	if m.Modo == "bandeja" {
 		ref = "peticiones:centro:rrhh"
 	}
+	ambitos := map[string]string{"organizacion_ref": "organizacion:desarrollo:dipgra"}
+	if m.Modo != "bandeja" {
+		ambitos["centro_ref"], ambitos["categoria_ref"] = m.CentroRef, m.CategoriaRef
+	}
 	return vecdomain.RecursoAutorizable{Referencia: ref, ModuloID: ports.ModuloContratacion, Tipo: ports.TipoRecursoEntregaPeticionCentro,
-		Ambitos: map[string]string{"organizacion_ref": "organizacion:desarrollo:dipgra"}, Atributos: map[string]string{"material_sha256": hex.EncodeToString(h[:])}}, nil
+		Ambitos: ambitos, Atributos: map[string]string{"material_sha256": hex.EncodeToString(h[:])}}, nil
 }
 
 func (r *RepositorioEntregasPeticionCentroPostgreSQL) ejecutar(ctx context.Context, m ports.MaterialEntregaPeticionCentro, validar func([]byte) error) error {

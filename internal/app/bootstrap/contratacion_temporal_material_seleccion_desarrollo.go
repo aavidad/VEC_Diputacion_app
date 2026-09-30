@@ -170,7 +170,7 @@ func descriptoresMaterialSeleccionadosCTDesarrollo(s seleccionMaterialCTDesarrol
 		d = append(d, descriptorMaterialFichaPropiaPersonalDesarrollo())
 	}
 	if s.firmaDocumento {
-		d = append(d, descriptorMaterialFirmaDocumentoCTDesarrollo())
+		d = append(d, descriptorMaterialFirmaDocumentoCTDesarrollo(), descriptorMaterialConsultaFirmasDocumentoCTDesarrollo())
 	}
 	if s.seguimientoCese {
 		d = append(d, descriptoresMaterialSeguimientoCeseDesarrollo()...)
