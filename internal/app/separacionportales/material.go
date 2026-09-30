@@ -48,15 +48,21 @@ var ficherosExternos = map[string]struct{}{
 }
 
 var ficherosComunes = map[string]struct{}{
-	FicheroMarcaPortal: {},
-	"manifiesto.json":  {},
-	"desarrollo.env":   {},
-	"ca/ca.crt":        {},
-	"tls/servidor.crt": {},
-	"tls/servidor.key": {},
+	FicheroMarcaPortal:             {},
+	"manifiesto.json":              {},
+	"desarrollo.env":               {},
+	"ca/ca.crt":                    {},
+	"tls/servidor.crt":             {},
+	"tls/servidor.key":             {},
+	"kms/clave-maestra.bin":        {},
+	"kms/atestacion-ed25519.key":   {},
+	"kms/atestacion-ed25519.pub":   {},
+	"kms/revalidacion-ed25519.key": {},
+	"kms/revalidacion-ed25519.pub": {},
+	"tsa/clave-hmac.bin":           {},
 }
 
-var directoriosComunes = []string{"kms/", "tsa/", "idempotencia/"}
+var directoriosComunes = []string{"idempotencia/"}
 
 // clasificar asigna una ruta relativa (con barras) a su portal. Lo que no está
 // en ninguna lista es interno: el portal externo trabaja con lista positiva.
@@ -64,8 +70,10 @@ func clasificar(relativa string) pertenencia {
 	switch {
 	case strings.HasPrefix(relativa, "ca/") && relativa != "ca/ca.crt":
 		return pertenenciaProhibida
-	case strings.HasPrefix(relativa, "tls/") && relativa != "tls/servidor.crt" && relativa != "tls/servidor.key":
-		return pertenenciaProhibida
+	case strings.HasPrefix(relativa, "tls/") || strings.HasPrefix(relativa, "kms/") || strings.HasPrefix(relativa, "tsa/"):
+		if _, comun := ficherosComunes[relativa]; !comun {
+			return pertenenciaProhibida
+		}
 	case strings.HasSuffix(relativa, ".p12") || strings.HasSuffix(relativa, ".password"):
 		return pertenenciaProhibida
 	case strings.HasSuffix(relativa, ".key") && !strings.HasPrefix(relativa, "tls/") && !strings.HasPrefix(relativa, "kms/"):

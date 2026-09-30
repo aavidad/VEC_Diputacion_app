@@ -187,9 +187,22 @@ func TestMaterialPropioDeCadaPortalSeAdmite(t *testing.T) {
 	}
 }
 
-func TestProcesoSeparadoSoloAdmiteTLSDelServidor(t *testing.T) {
+func TestProcesoSeparadoSoloAdmiteMaterialNominalTLSKMSYTSA(t *testing.T) {
 	for _, p := range []Portal{PortalInterno, PortalExterno} {
-		for _, relativa := range []string{"tls/cliente.key", "tls/intervencion.key", "tls/cliente.pem", "tls/otro.crt"} {
+		material := materialSintetico(t, p)
+		for _, relativa := range []string{
+			"kms/atestacion-ed25519.key", "kms/atestacion-ed25519.pub",
+			"kms/revalidacion-ed25519.key", "kms/revalidacion-ed25519.pub",
+		} {
+			escribir(t, material, relativa, "material sintetico")
+		}
+		if err := ComprobarMaterial(p, material); err != nil {
+			t.Fatalf("%s: material nominal rechazado: %v", p, err)
+		}
+		for _, relativa := range []string{
+			"tls/cliente.key", "tls/intervencion.key", "tls/cliente.pem", "tls/otro.crt",
+			"kms/cliente.key", "kms/cliente.pem", "tsa/cliente.pem",
+		} {
 			material := materialSintetico(t, p)
 			escribir(t, material, relativa, "material sintetico")
 			if got := motivo(t, ComprobarMaterial(p, material)); got != relativa {
