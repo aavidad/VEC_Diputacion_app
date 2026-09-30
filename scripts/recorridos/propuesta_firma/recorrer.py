@@ -4,8 +4,10 @@
 from __future__ import annotations
 
 import argparse
+from asyncio import CancelledError
 import errno
 import hashlib
+from importlib import import_module, metadata
 import json
 import os
 import re
@@ -39,6 +41,37 @@ class Corte(RuntimeError):
         super().__init__(motivo)
         self.paso = paso
         self.motivo = motivo
+
+
+def comprobar_sdk_playwright():
+    """Lee el pin local y verifica el SDK antes de exponer el lector importado."""
+    try:
+        lineas = [linea.strip() for linea in Path(__file__).with_name("requirements.txt")
+                  .read_text(encoding="utf-8").splitlines()
+                  if linea.strip() and not linea.lstrip().startswith("#")]
+        pin = re.fullmatch(r"playwright==([0-9]+\.[0-9]+\.[0-9]+)", lineas[0]) if len(lineas) == 1 else None
+        if not pin:
+            raise ValueError
+        requerida = pin.group(1)
+    except (OSError, ValueError):
+        raise Corte("precondiciones", "falta un catálogo válido de la dependencia Playwright") from None
+    try:
+        distribucion = metadata.distribution("playwright")
+        if distribucion.version != requerida:
+            raise Corte("precondiciones", "Playwright debe coincidir con la versión exacta del catálogo")
+        # La metadata puede proceder de otra instalación presente en sys.path.
+        # Contrastar también los módulos realmente importados, sin abrir Chrome.
+        for nombre, relativo in (("playwright", "playwright/__init__.py"),
+                                 ("playwright.sync_api", "playwright/sync_api/__init__.py"),
+                                 ("playwright._impl._cdp_session", "playwright/_impl/_cdp_session.py")):
+            modulo = import_module(nombre)
+            actual = Path(modulo.__file__).resolve(strict=True)
+            declarado = Path(distribucion.locate_file(relativo)).resolve(strict=True)
+            if actual != declarado:
+                raise Corte("precondiciones", "el SDK importado no corresponde a la dependencia verificada")
+    except (metadata.PackageNotFoundError, ImportError, OSError, TypeError):
+        raise Corte("precondiciones", "no se pudo verificar la dependencia Playwright instalada") from None
+    return requerida
 
 
 def argumentos(argv=None):
@@ -220,23 +253,80 @@ def comparar_recuperacion(informe, ruta):
     return True
 
 
-def limitar_origen(route, origen):
-    """Atiende una petición HTTPS local sin seguir redirecciones, ni siquiera a otro puerto."""
+def limitar_peticion_cdp(cdp, evento, origen):
+    """Mantiene Chrome nativo y corta otros orígenes y respuestas 3xx."""
+    if evento.get("responseErrorReason"):
+        raise Corte("guardia_red", "la guardia recibió un fallo de transporte")
+    identificador = evento["requestId"]
     esperado = urlsplit(origen)
-    solicitado = urlsplit(route.request.url)
-    if (solicitado.scheme, solicitado.hostname, solicitado.port) != (esperado.scheme, esperado.hostname, esperado.port):
-        route.abort()
-        return
-    try:
-        respuesta = route.fetch(max_redirects=0, timeout=30_000)
-        final = urlsplit(respuesta.url)
-        if 300 <= respuesta.status < 400 or (final.scheme, final.hostname, final.port) != \
-                (esperado.scheme, esperado.hostname, esperado.port):
-            route.abort()
+    solicitado = urlsplit(evento["request"]["url"])
+    if solicitado.username or solicitado.password or \
+            (solicitado.scheme, solicitado.hostname, solicitado.port) != \
+            (esperado.scheme, esperado.hostname, esperado.port) \
+            or 300 <= evento.get("responseStatusCode", 0) < 400:
+        cdp.send("Fetch.failRequest", {"requestId": identificador, "errorReason": "BlockedByClient"})
+    else:
+        # route.fetch añade Connection: keep-alive con otro cliente HTTP.
+        # CDP conserva la petición y el transporte originales del navegador.
+        cdp.send("Fetch.continueRequest", {"requestId": identificador})
+
+
+class GuardiaNavegador:
+    """Instala una única guardia global antes de crear contextos o páginas."""
+
+    def __init__(self, browser, origen):
+        self.browser = browser
+        self.errores = []
+        self.cerrando = False
+        try:
+            # Canal de cierre independiente: no instala ningún interceptor.
+            self.control = browser.new_browser_cdp_session()
+            self.cdp = browser.new_browser_cdp_session()
+            self.cdp.on("Fetch.requestPaused", self.interceptar)
+            self.cdp.on("close", self.sesion_perdida)
+            browser.on("disconnected", self.desconectado)
+            self.origen = origen
+            self.cdp.send("Fetch.enable", {"patterns": [
+                {"urlPattern": "*", "requestStage": "Request"},
+                {"urlPattern": "*", "requestStage": "Response"},
+            ]})
+        except Exception:
+            self.cerrar()
+            raise Corte("guardia_red", "no se pudo instalar la guardia global del navegador") from None
+
+    def interceptar(self, evento):
+        if self.cerrando:
             return
-        route.fulfill(response=respuesta)
-    except Exception:
-        route.abort()
+        try:
+            limitar_peticion_cdp(self.cdp, evento, self.origen)
+        except Exception as e:
+            if not self.cerrando:
+                self.solicitar_cierre(type(e).__name__)
+
+    def desconectado(self):
+        if not self.cerrando:
+            self.errores.append("navegador_desconectado")
+            self.cerrando = True
+
+    def sesion_perdida(self, *_):
+        if not self.cerrando:
+            self.solicitar_cierre("sesion_guardia_desconectada")
+
+    def solicitar_cierre(self, motivo):
+        self.errores.append(motivo)
+        self.cerrando = True
+        # Browser.close por CDP no reentra en el cierre síncrono de Playwright;
+        # el canal de control conserva esta orden si se pierde la sesión Fetch.
+        try:
+            self.control.send("Browser.close")
+        except (Exception, CancelledError):
+            # El finally vuelve a cerrar el proceso propio y confirma el cierre.
+            pass
+
+    def cerrar(self):
+        # Mantener Fetch activo hasta cerrar todo Chrome, incluidos sus targets.
+        self.cerrando = True
+        self.browser.close()
 
 
 def limitar_websocket(route, permitir_autofirma):
@@ -357,6 +447,7 @@ def comprobar_movil(page, a, pdf_escritorio):
 
 
 def recorrer(a, chrome, entorno):
+    comprobar_sdk_playwright()
     try:
         from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeout
     except ImportError:
@@ -365,6 +456,7 @@ def recorrer(a, chrome, entorno):
                "expediente_ref": a.expediente_ref, "pdf": {}, "firma": None, "http": []}
     with sync_playwright() as pw:
         browser = pw.chromium.launch(executable_path=chrome, headless=not a.firmar)
+        guardia = GuardiaNavegador(browser, a.origen)
         context = browser.new_context(
             client_certificates=[{"origin": a.origen, "certPath": str(a.certificado), "keyPath": str(a.clave)}],
             ignore_https_errors=False, service_workers="block", accept_downloads=True,
@@ -384,7 +476,6 @@ def recorrer(a, chrome, entorno):
                 if urlsplit(r.url).path in rutas_observadas else None)
         try:
             # Nunca se navega al servicio GrxFirma desde el navegador: VEC lo invoca en servidor.
-            context.route("**/*", lambda route: limitar_origen(route, a.origen))
             context.route_web_socket("**/*", lambda route: limitar_websocket(route, a.firmar))
             pagina = page.goto(a.origen + "/portal-empleado/#contratacion-temporal", wait_until="domcontentloaded", timeout=30_000)
             if not pagina or pagina.status != 200:
@@ -509,19 +600,26 @@ def recorrer(a, chrome, entorno):
         finally:
             capturar_corte(page, a, informe)
             informe["sin_errores_js"] = not errores_js
-            informe["sin_cookies_http"] = not cookies_http and not context.cookies()
+            informe["sin_errores_intercepcion"] = not guardia.errores
+            try:
+                informe["sin_cookies_http"] = not cookies_http and not context.cookies()
+            except Exception:
+                informe["sin_cookies_http"] = False
             try:
                 informe["sin_almacenamiento_web"] = page.evaluate("""async () =>
                   localStorage.length === 0 && sessionStorage.length === 0 &&
                   (await indexedDB.databases()).length === 0 && (await caches.keys()).length === 0""")
             except Exception:
                 informe["sin_almacenamiento_web"] = False
-            if not all(informe[k] for k in ("sin_errores_js", "sin_cookies_http", "sin_almacenamiento_web")):
+            if not all(informe[k] for k in ("sin_errores_js", "sin_errores_intercepcion",
+                                           "sin_cookies_http", "sin_almacenamiento_web")):
                 informe["estado"] = "CORTE"
                 informe["corte"] = "controles_navegador"
-                informe["motivo"] = "errores JavaScript, cookies o almacenamiento web detectados"
-            context.close()
-            browser.close()
+                informe["motivo"] = "fallo de la guardia de red, errores JavaScript, cookies o almacenamiento web detectados"
+            if guardia.errores:
+                informe["corte"] = "guardia_red"
+                informe["motivo"] = "la guardia global falló; se cerró el navegador"
+            guardia.cerrar()
     return informe
 
 
@@ -549,6 +647,16 @@ def main(argv=None):
     print(salida)
     return 0 if informe["estado"] == "COMPLETO" else 2
 
+
+# Se aplica también a quienes importan únicamente GuardiaNavegador: el módulo
+# no se entrega al llamador con un SDK que carezca del evento close verificado.
+try:
+    comprobar_sdk_playwright()
+except Corte as e:
+    if __name__ != "__main__":
+        raise
+    print(json.dumps({"estado": "NO EJECUTADO", "corte": e.paso, "motivo": e.motivo}, ensure_ascii=False))
+    sys.exit(2)
 
 if __name__ == "__main__":
     sys.exit(main())
