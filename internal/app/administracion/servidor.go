@@ -5,7 +5,9 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
+	"fmt"
 	"io"
+	"log"
 	"net"
 	"net/http"
 	"net/netip"
@@ -18,7 +20,15 @@ import (
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 )
 
-var ErrConfiguracion = errors.New("administracion: configuracion no valida")
+var (
+	ErrConfiguracion       = errors.New("administracion: configuracion no valida")
+	errAccesoDenegado      = errors.New("administracion: acceso denegado")
+	errParRemotoInvalido   = errors.New("administracion: par remoto invalido")
+	errCadenaNoAdmitida    = errors.New("administracion: cadena cliente no admitida")
+	errCRLNoDisponible     = errors.New("administracion: CRL no disponible")
+	errCRLInvalida         = errors.New("administracion: CRL invalida")
+	errCertificadoRevocado = errors.New("administracion: certificado revocado")
+)
 
 type Configuracion struct {
 	Entorno             string
@@ -68,47 +78,57 @@ func NuevoServidor(cfg Configuracion) (*http.Server, error) {
 		CertificadoClienteDirecto:           true,
 	}
 	if err := superficie.Validar(); err != nil {
-		return nil, ErrConfiguracion
+		return nil, fmt.Errorf("%w: %w", ErrConfiguracion, err)
 	}
 	red, err := httpseguridad.NuevaPoliticaRed(superficie)
 	if err != nil {
-		return nil, ErrConfiguracion
+		return nil, fmt.Errorf("%w: %w", ErrConfiguracion, err)
 	}
 	cert, err := tls.LoadX509KeyPair(cfg.CertificadoServidor, cfg.ClaveServidor)
 	if err != nil {
-		return nil, ErrConfiguracion
+		return nil, fmt.Errorf("%w: certificado servidor: %w", ErrConfiguracion, err)
 	}
 	ca, err := cargarCA(cfg.CAAdministracion)
 	if err != nil {
-		return nil, ErrConfiguracion
+		return nil, fmt.Errorf("%w: CA ADMIN: %w", ErrConfiguracion, err)
 	}
 	raices := x509.NewCertPool()
 	raices.AddCert(ca)
-	verificar := func(r *http.Request) bool {
+	verificar := func(r *http.Request) error {
 		ahora := time.Now()
 		if !ahora.Before(cfg.RetiradaEn) || r.Host != cfg.Host ||
 			r.TLS == nil || len(r.TLS.VerifiedChains) == 0 {
-			return false
+			return errAccesoDenegado
 		}
 		direccion, _, err := net.SplitHostPort(r.RemoteAddr)
 		if err != nil {
-			return false
+			return fmt.Errorf("%w: %w", errParRemotoInvalido, err)
 		}
 		ip, err := netip.ParseAddr(direccion)
-		if err != nil || red.Autorizar(ip) != nil {
-			return false
+		if err != nil {
+			return fmt.Errorf("%w: %w", errParRemotoInvalido, err)
+		}
+		if err := red.Autorizar(ip); err != nil {
+			return fmt.Errorf("%w: %w", errAccesoDenegado, err)
 		}
 		for _, cadena := range r.TLS.VerifiedChains {
-			if cadenaDirectaVigente(cadena, ca, ahora) &&
-				certificadoVigente(cadena[0], ca, cfg.CRLAdministracion) {
-				return true
+			if cadenaDirectaVigente(cadena, ca, ahora) {
+				return comprobarCertificadoVigente(cadena[0], ca, cfg.CRLAdministracion, ahora)
 			}
 		}
-		return false
+		return errCadenaNoAdmitida
 	}
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
-		if !verificar(r) {
+		if err := verificar(r); err != nil {
+			switch {
+			case errors.Is(err, errCRLNoDisponible):
+				log.Print(errCRLNoDisponible)
+			case errors.Is(err, errCRLInvalida):
+				log.Print(errCRLInvalida)
+			case errors.Is(err, errParRemotoInvalido):
+				log.Print(errParRemotoInvalido)
+			}
 			http.Error(w, "", http.StatusForbidden)
 			return
 		}
@@ -147,26 +167,31 @@ func cadenaDirectaVigente(cadena []*x509.Certificate, ca *x509.Certificate, ahor
 	return true
 }
 
-func certificadoVigente(hoja, ca *x509.Certificate, rutaCRL string) bool {
+func comprobarCertificadoVigente(hoja, ca *x509.Certificate, rutaCRL string, ahora time.Time) error {
 	datos, err := leerMaterial(rutaCRL)
 	if err != nil {
-		return false
+		return fmt.Errorf("%w: %w", errCRLNoDisponible, err)
 	}
 	bloque, resto := pem.Decode(datos)
 	if bloque == nil || bloque.Type != "X509 CRL" || strings.TrimSpace(string(resto)) != "" {
-		return false
+		return errCRLInvalida
 	}
 	crl, err := x509.ParseRevocationList(bloque.Bytes)
-	if err != nil || crl.CheckSignatureFrom(ca) != nil ||
-		time.Now().Before(crl.ThisUpdate) || !time.Now().Before(crl.NextUpdate) {
-		return false
+	if err != nil {
+		return fmt.Errorf("%w: %w", errCRLInvalida, err)
+	}
+	if err := crl.CheckSignatureFrom(ca); err != nil {
+		return fmt.Errorf("%w: firma: %w", errCRLInvalida, err)
+	}
+	if ahora.Before(crl.ThisUpdate) || !ahora.Before(crl.NextUpdate) {
+		return errCRLInvalida
 	}
 	for _, revocado := range crl.RevokedCertificateEntries {
 		if hoja.SerialNumber.Cmp(revocado.SerialNumber) == 0 {
-			return false
+			return errCertificadoRevocado
 		}
 	}
-	return true
+	return nil
 }
 
 func usoCliente(cert *x509.Certificate) bool {
