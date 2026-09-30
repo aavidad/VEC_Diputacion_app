@@ -68,7 +68,7 @@ export function montarIncorporacionPersonalB2({ raiz, cliente, expedienteRef, ve
       ${fila("motivo", traducirDato(`motivo.${s.motivo_clave}`))}${fila("documento", traducirDato(documento.etiqueta_clave_i18n))}</dl>`;
   }
   function select(campo, clave, lista, rotulo, seleccionExpresa = false) {
-    if (lista.length === 1 && !seleccionExpresa) return `<label class="ct-campo"><span>${e(t(clave))}</span><input type="text" value="${e(rotulo(lista[0]))}" readonly></label>`;
+    if (lista.length === 1 && !seleccionExpresa) return `<div class="ct-campo"><span>${e(t(clave))}</span><span class="ct-b2-valor-solo-lectura">${e(rotulo(lista[0]))}</span></div>`;
     return `<label class="ct-campo" for="ct-b2-${campo}"><span>${e(t(clave))}</span>
       <select id="ct-b2-${campo}" name="${campo}" required${errores[campo] ? ' aria-invalid="true"' : ""}
         aria-describedby="ct-b2-error-${campo}"><option value="">${e(t("seleccionar"))}</option>

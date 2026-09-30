@@ -122,6 +122,16 @@ test("UI: falta un requisito, vacantes o documento; no se ofrece una incorporaci
   }
 });
 
+test("la opción única de documento conserva su texto completo y escapado sin campo recortable", async () => {
+  const c = inicial();
+  c.opciones.documentos[0].etiqueta_clave_i18n = "documento.resolucion";
+  const x = await montar(clienteBase({ consultar: async () => c }), { resolverEtiqueta: (k) =>
+    k === "documento.resolucion" ? "Documento de formalización extenso <sin recorte>" : etiquetas[k] });
+  assert.match(x.r.innerHTML, /class="ct-b2-valor-solo-lectura">Documento de formalización extenso &lt;sin recorte&gt;<\/span>/u);
+  assert.doesNotMatch(x.r.innerHTML, /<input[^>]+value="Documento de formalización/u);
+  x.desmontar();
+});
+
 test("UI: fechas validadas y periodo conocido conservado; ningún POST si cambia", async () => {
   const x = await montar(clienteBase({ preparar: () => assert.fail() }));
   for (const v of [{ desde: "2026-10-02", hasta: "" }, { desde: "2026-10-01", hasta: "2026-09-30" }]) {
