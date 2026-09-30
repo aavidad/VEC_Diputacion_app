@@ -123,3 +123,26 @@ func (r *RepositorioRegistroEmpleadoB2PostgreSQL) ResolverSeleccion(ctx context.
 	}
 	return resultado, nil
 }
+
+func (r *RepositorioRegistroEmpleadoB2PostgreSQL) ConsultarClasesOcupacion(ctx context.Context, o ports.OrdenPlanIncorporacionCT) (ports.ResultadoClasesOcupacionCT, error) {
+	var vacio ports.ResultadoClasesOcupacionCT
+	m, a := o.Material, o.Autorizacion
+	x := a.ResumenCapacidad()
+	actor := m.Actor()
+	h, e := m.HuellaSHA256()
+	if r == nil || m.Operacion() != "clases_ocupacion" || e != nil || a.ValidarEstructura() != nil || a.PersonaVersion() != actor.Instantanea.PersonaVersion || a.PerfilVersion() != actor.Instantanea.PerfilVersion || x.Operacion() != m.Accion() || x.AudienciaConsumo() != domain.AudienciaPlanIncorporacionCT || x.EfectoRef() != m.Recurso().Referencia || x.EfectoHuellaSHA256() != h {
+		return vacio, domain.ErrRegistroEmpleadoB2Invalido
+	}
+	resultado, e := ejecutarRegistroEmpleadoB2(ctx, r.pool, planIncorporacionCTSQL, m.Canonico(), a, 16<<10, func(b []byte) (ports.ResultadoClasesOcupacionCT, error) {
+		var s ports.ResultadoClasesOcupacionCT
+		var forma map[string]json.RawMessage
+		if verificarJSONOrganizacionHistorica(b) != nil || json.Unmarshal(b, &forma) != nil || !clavesRegistroB2(forma, []string{"catalogo", "evidencia"}, nil) || decodificarJSONRegistroB2(b, &s) != nil || s.Catalogo.Validar() != nil || !evidenciaRegistroB2Valida(s.Evidencia, a) {
+			return vacio, errRegistroEmpleadoB2NoDisponible
+		}
+		return s, nil
+	})
+	if e != nil {
+		return vacio, errorDominioRegistroEmpleadoB2(e)
+	}
+	return resultado, nil
+}

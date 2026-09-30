@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"regexp"
+	"strconv"
 	"strings"
 	core "vec-diputacion-granada/internal/vec/domain"
 )
@@ -76,26 +77,29 @@ func (d DatosPlanIncorporacionCT) HuellaSHA256() string {
 }
 
 type PlanIncorporacionCT struct {
-	PlanRef              string                   `json:"plan_ref"`
-	ReciboRef            string                   `json:"recibo_ref"`
-	Version              int64                    `json:"version"`
-	HuellaSHA256         string                   `json:"huella_sha256"`
-	Datos                DatosPlanIncorporacionCT `json:"datos"`
-	Modo                 string                   `json:"modo"`
-	EmpleadoExistenteRef string                   `json:"empleado_existente_ref"`
-	ClaveAltaRelacion    string                   `json:"clave_alta_relacion"`
-	ClaveOcupacion       string                   `json:"clave_ocupacion"`
-	UsoRPTRef            string                   `json:"uso_rpt_ref"`
-	ReservaRPTRef        string                   `json:"reserva_rpt_ref"`
-	ConfirmacionRPTRef   string                   `json:"confirmacion_rpt_ref"`
+	ClasesOcupacionCatalogoRef          string                   `json:"clases_ocupacion_catalogo_ref"`
+	ClasesOcupacionCatalogoVersion      int64                    `json:"clases_ocupacion_catalogo_version"`
+	ClasesOcupacionCatalogoHuellaSHA256 string                   `json:"clases_ocupacion_catalogo_huella_sha256"`
+	PlanRef                             string                   `json:"plan_ref"`
+	ReciboRef                           string                   `json:"recibo_ref"`
+	Version                             int64                    `json:"version"`
+	HuellaSHA256                        string                   `json:"huella_sha256"`
+	Datos                               DatosPlanIncorporacionCT `json:"datos"`
+	Modo                                string                   `json:"modo"`
+	EmpleadoExistenteRef                string                   `json:"empleado_existente_ref"`
+	ClaveAltaRelacion                   string                   `json:"clave_alta_relacion"`
+	ClaveOcupacion                      string                   `json:"clave_ocupacion"`
+	UsoRPTRef                           string                   `json:"uso_rpt_ref"`
+	ReservaRPTRef                       string                   `json:"reserva_rpt_ref"`
+	ConfirmacionRPTRef                  string                   `json:"confirmacion_rpt_ref"`
 }
 
 func (p PlanIncorporacionCT) CalcularHuellaSHA256() string {
-	h := sha256.Sum256([]byte(strings.Join([]string{p.Datos.HuellaSHA256(), p.PlanRef, p.ReciboRef, p.Modo, p.EmpleadoExistenteRef, p.ClaveAltaRelacion, p.ClaveOcupacion, p.UsoRPTRef, p.ReservaRPTRef, p.ConfirmacionRPTRef}, "|")))
+	h := sha256.Sum256([]byte(strings.Join([]string{p.Datos.HuellaSHA256(), p.PlanRef, p.ReciboRef, p.Modo, p.EmpleadoExistenteRef, p.ClaveAltaRelacion, p.ClaveOcupacion, p.UsoRPTRef, p.ReservaRPTRef, p.ConfirmacionRPTRef, p.ClasesOcupacionCatalogoRef, strconv.FormatInt(p.ClasesOcupacionCatalogoVersion, 10), p.ClasesOcupacionCatalogoHuellaSHA256}, "|")))
 	return hex.EncodeToString(h[:])
 }
 func (p PlanIncorporacionCT) Validar() error {
-	if p.Datos.Validar() != nil || !patronReferenciaB2.MatchString(p.PlanRef) || !patronReferenciaB2.MatchString(p.ReciboRef) || p.Version != 1 || !patronUUIDRegistroB2.MatchString(p.ClaveAltaRelacion) || !patronUUIDRegistroB2.MatchString(p.ClaveOcupacion) || p.ClaveAltaRelacion == p.ClaveOcupacion || !patronReferenciaB2.MatchString(p.UsoRPTRef) || !patronReferenciaB2.MatchString(p.ReservaRPTRef) || !patronReferenciaB2.MatchString(p.ConfirmacionRPTRef) || (p.Modo != "alta_empleado" && p.Modo != "nueva_relacion") || (p.Modo == "alta_empleado" && p.EmpleadoExistenteRef != "") || (p.Modo == "nueva_relacion" && !ReferenciaEmpleadoValida(p.EmpleadoExistenteRef)) || p.HuellaSHA256 != p.CalcularHuellaSHA256() {
+	if !patronReferenciaB2.MatchString(p.ClasesOcupacionCatalogoRef) || p.ClasesOcupacionCatalogoVersion < 1 || !huellaRegistroDominioB2Valida(p.ClasesOcupacionCatalogoHuellaSHA256) || p.Datos.Validar() != nil || !patronReferenciaB2.MatchString(p.PlanRef) || !patronReferenciaB2.MatchString(p.ReciboRef) || p.Version != 1 || !patronUUIDRegistroB2.MatchString(p.ClaveAltaRelacion) || !patronUUIDRegistroB2.MatchString(p.ClaveOcupacion) || p.ClaveAltaRelacion == p.ClaveOcupacion || !patronReferenciaB2.MatchString(p.UsoRPTRef) || !patronReferenciaB2.MatchString(p.ReservaRPTRef) || !patronReferenciaB2.MatchString(p.ConfirmacionRPTRef) || (p.Modo != "alta_empleado" && p.Modo != "nueva_relacion") || (p.Modo == "alta_empleado" && p.EmpleadoExistenteRef != "") || (p.Modo == "nueva_relacion" && !ReferenciaEmpleadoValida(p.EmpleadoExistenteRef)) || p.HuellaSHA256 != p.CalcularHuellaSHA256() {
 		return ErrRegistroEmpleadoB2Invalido
 	}
 	return nil
@@ -195,6 +199,8 @@ type SolicitudSeleccionPlanIncorporacionCT struct {
 	Actor        core.ContextoActor
 }
 type SeleccionOrganizacionPlanCT struct {
+	PlantillaFuenteRef             string     `json:"plantilla_fuente_ref"`
+	RPTFuenteRef                   string     `json:"rpt_fuente_ref"`
 	RevisionPlantilla              int64      `json:"revision_plantilla"`
 	RevisionRPT                    int64      `json:"revision_rpt"`
 	UnidadRef                      string     `json:"unidad_ref"`
@@ -243,8 +249,45 @@ func NuevoMaterialSeleccionPlanIncorporacionCT(s SolicitudSeleccionPlanIncorpora
 func (m MaterialPlanIncorporacionCT) Seleccion() SelectorOrganizacionPlanCT { return m.seleccion }
 func (s SeleccionOrganizacionPlanCT) ValidarPara(m MaterialPlanIncorporacionCT) error {
 	q := m.Seleccion()
-	if !patronReferenciaB2.MatchString(s.UnidadRef) || m.Operacion() != "seleccionar" || s.OrganismoRef != m.OrganismoRef() || s.PlazaRef != q.PlazaRef || s.PuestoRef != q.PuestoRef || s.Desde != q.Desde || s.RevisionPlaza < 1 || s.RevisionPuesto < 1 || s.RevisionPlantilla < 1 || s.RevisionRPT < 1 || !patronReferenciaB2.MatchString(s.VersionPlantillaRef) || !patronReferenciaB2.MatchString(s.VersionRPTRef) || !patronReferenciaB2.MatchString(s.FuenteOrganizacionRef) || !huellaRegistroDominioB2Valida(s.PlantillaHuellaSHA256) || !huellaRegistroDominioB2Valida(s.RPTHuellaSHA256) || !huellaRegistroDominioB2Valida(s.FuenteOrganizacionHuellaSHA256) {
+	if !patronReferenciaB2.MatchString(s.PlantillaFuenteRef) || !patronReferenciaB2.MatchString(s.RPTFuenteRef) || !patronReferenciaB2.MatchString(s.UnidadRef) || m.Operacion() != "seleccionar" || s.OrganismoRef != m.OrganismoRef() || s.PlazaRef != q.PlazaRef || s.PuestoRef != q.PuestoRef || s.Desde != q.Desde || s.RevisionPlaza < 1 || s.RevisionPuesto < 1 || s.RevisionPlantilla < 1 || s.RevisionRPT < 1 || !patronReferenciaB2.MatchString(s.VersionPlantillaRef) || !patronReferenciaB2.MatchString(s.VersionRPTRef) || !patronReferenciaB2.MatchString(s.FuenteOrganizacionRef) || !huellaRegistroDominioB2Valida(s.PlantillaHuellaSHA256) || !huellaRegistroDominioB2Valida(s.RPTHuellaSHA256) || !huellaRegistroDominioB2Valida(s.FuenteOrganizacionHuellaSHA256) {
 		return ErrRegistroEmpleadoB2Invalido
 	}
 	return nil
+}
+
+type ConsultaClasesOcupacionCT struct {
+	OrganismoRef string
+	Actor        core.ContextoActor
+}
+type OpcionClaseOcupacionCT struct {
+	Valor      string `json:"valor"`
+	TextoClave string `json:"texto_clave"`
+}
+type CatalogoClasesOcupacionCT struct {
+	Ref          string                   `json:"ref"`
+	Version      int64                    `json:"version"`
+	HuellaSHA256 string                   `json:"huella_sha256"`
+	Opciones     []OpcionClaseOcupacionCT `json:"opciones"`
+}
+
+func (c CatalogoClasesOcupacionCT) Validar() error {
+	if !patronReferenciaB2.MatchString(c.Ref) || c.Version < 1 || len(c.Opciones) < 1 || len(c.Opciones) > 3 || !huellaRegistroDominioB2Valida(c.HuellaSHA256) {
+		return ErrRegistroEmpleadoB2Invalido
+	}
+	claves := map[string]bool{}
+	for _, o := range c.Opciones {
+		if (o.Valor != "titular" && o.Valor != "provisional" && o.Valor != "temporal") || claves[o.Valor] || !regexp.MustCompile(`^[a-z][a-z0-9_.]{2,159}$`).MatchString(o.TextoClave) {
+			return ErrRegistroEmpleadoB2Invalido
+		}
+		claves[o.Valor] = true
+	}
+	// La huella identifica la configuración completa, incluidas sus etiquetas.
+	// El lector ofrece únicamente los valores y claves que necesita la pantalla.
+	return nil
+}
+func NuevoMaterialClasesOcupacionCT(q ConsultaClasesOcupacionCT) (MaterialPlanIncorporacionCT, error) {
+	if !patronReferenciaB2.MatchString(q.OrganismoRef) {
+		return MaterialPlanIncorporacionCT{}, ErrRegistroEmpleadoB2Invalido
+	}
+	return nuevoMaterialPlanCT("clases_ocupacion", q.OrganismoRef, q.OrganismoRef, DatosPlanIncorporacionCT{}, q.Actor)
 }

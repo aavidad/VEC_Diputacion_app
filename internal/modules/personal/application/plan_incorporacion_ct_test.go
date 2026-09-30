@@ -20,7 +20,7 @@ func datosPlanCTPrueba() ports.DatosPlanIncorporacionCT {
 	return ports.DatosPlanIncorporacionCT{IdempotenciaRef: "10000000-0000-4000-8000-000000000001", OrigenCTRef: "ct:plan", OrigenCTReciboRef: "ct:recibo", OrigenCTHuellaSHA256: strings.Repeat("a", 64), ExpedienteRef: "exp:uno", ExpedienteVersion: 7, OrganismoRef: "org:uno", UnidadRef: "uni:uno", PersonaRef: "per_" + strings.Repeat("p", 24), PersonaVersion: 1, FuenteBolsaRef: "bolsa:persona", FuenteBolsaVersion: 2, FuenteBolsaReciboRef: "bolsa:recibo", FuenteBolsaHuellaSHA256: strings.Repeat("b", 64), Regimen: domain.EntradaCatalogoEmpleadoB2{Ref: "reg:uno", Version: 1}, Modalidad: domain.EntradaCatalogoEmpleadoB2{Ref: "mod:uno", Version: 2}, Desde: domain.FechaCivil("2026-10-01"), PlazaRef: "plaza:10000000-0000-4000-8000-000000000002", PuestoRef: "puesto:10000000-0000-4000-8000-000000000003", ClaseOcupacion: "temporal", VersionPlantillaRef: "plantilla:uno", VersionRPTRef: "rpt:uno", RevisionPlaza: 1, RevisionPuesto: 2, FuenteOrganizacionRef: "organizacion:uno", FuenteOrganizacionHuellaSHA256: strings.Repeat("c", 64), CatalogoRPTID: "rpt:catalogo", CatalogoRPTModulo: "contrataciontemporal", CatalogoRPTCategoria: "categoria:uno", CatalogoRPTVersion: 1, CatalogoRPTHuellaSHA256: strings.Repeat("d", 64), VinculoCTReciboRef: "vinculo:recibo", Procedencia: domain.ProcedenciaActoEmpleadoB2{ActoRef: "acto:incorporacion", FuenteRef: "fuente:ct", FuenteVersion: 7, FuenteHuellaSHA256: strings.Repeat("e", 64), IdempotenciaRef: "10000000-0000-4000-8000-000000000004"}}
 }
 func planCTPrueba(modo string) ports.PlanIncorporacionCT {
-	p := ports.PlanIncorporacionCT{PlanRef: "perplan_" + strings.Repeat("a", 32), ReciboRef: "perplanrec_" + strings.Repeat("b", 32), Version: 1, Datos: datosPlanCTPrueba(), Modo: modo, ClaveAltaRelacion: "10000000-0000-4000-8000-000000000005", ClaveOcupacion: "10000000-0000-4000-8000-000000000006", UsoRPTRef: "uso:uno", ReservaRPTRef: "reserva:uno", ConfirmacionRPTRef: "confirmacion:uno"}
+	p := ports.PlanIncorporacionCT{ClasesOcupacionCatalogoRef: "personal:clases_ocupacion_ct", ClasesOcupacionCatalogoVersion: 1, ClasesOcupacionCatalogoHuellaSHA256: strings.Repeat("f", 64), PlanRef: "perplan_" + strings.Repeat("a", 32), ReciboRef: "perplanrec_" + strings.Repeat("b", 32), Version: 1, Datos: datosPlanCTPrueba(), Modo: modo, ClaveAltaRelacion: "10000000-0000-4000-8000-000000000005", ClaveOcupacion: "10000000-0000-4000-8000-000000000006", UsoRPTRef: "uso:uno", ReservaRPTRef: "reserva:uno", ConfirmacionRPTRef: "confirmacion:uno"}
 	if modo == "nueva_relacion" {
 		p.EmpleadoExistenteRef = "emp_" + strings.Repeat("q", 24)
 	}
@@ -56,6 +56,7 @@ func (a *autorizadorPlanCTPrueba) AutorizarPlanIncorporacionCT(_ context.Context
 }
 
 type repoPlanCTPrueba struct {
+	catalogo  *domain.CatalogoClasesOcupacionCT
 	seleccion *domain.SeleccionOrganizacionPlanCT
 	estado    ports.EstadoPlanIncorporacionCT
 	n         int
@@ -240,7 +241,7 @@ func (r *repoPlanCTPrueba) ResolverSeleccion(_ context.Context, o ports.OrdenPla
 func TestPlanCTSeleccionPropietariaNoHaceEfectos(t *testing.T) {
 	d := datosPlanCTPrueba()
 	q := ports.SeleccionPlanIncorporacionCT{SelectorOrganizacionPlanCT: ports.SelectorOrganizacionPlanCT{PlazaRef: d.PlazaRef, PuestoRef: d.PuestoRef, Desde: d.Desde}, OrganismoRef: d.OrganismoRef, Actor: solicitudP(t).Actor}
-	snapshot := domain.SeleccionOrganizacionPlanCT{RevisionPlantilla: 1, RevisionRPT: 2, UnidadRef: d.UnidadRef, OrganismoRef: d.OrganismoRef, PlazaRef: d.PlazaRef, PuestoRef: d.PuestoRef, Desde: d.Desde, RevisionPlaza: 1, RevisionPuesto: 2, VersionPlantillaRef: d.VersionPlantillaRef, VersionRPTRef: d.VersionRPTRef, PlantillaHuellaSHA256: strings.Repeat("a", 64), RPTHuellaSHA256: strings.Repeat("b", 64), FuenteOrganizacionRef: d.FuenteOrganizacionRef, FuenteOrganizacionHuellaSHA256: d.FuenteOrganizacionHuellaSHA256}
+	snapshot := domain.SeleccionOrganizacionPlanCT{PlantillaFuenteRef: "fuente:plantilla", RPTFuenteRef: "fuente:rpt", RevisionPlantilla: 1, RevisionRPT: 2, UnidadRef: d.UnidadRef, OrganismoRef: d.OrganismoRef, PlazaRef: d.PlazaRef, PuestoRef: d.PuestoRef, Desde: d.Desde, RevisionPlaza: 1, RevisionPuesto: 2, VersionPlantillaRef: d.VersionPlantillaRef, VersionRPTRef: d.VersionRPTRef, PlantillaHuellaSHA256: strings.Repeat("a", 64), RPTHuellaSHA256: strings.Repeat("b", 64), FuenteOrganizacionRef: d.FuenteOrganizacionRef, FuenteOrganizacionHuellaSHA256: d.FuenteOrganizacionHuellaSHA256}
 	repo := &repoPlanCTPrueba{seleccion: &snapshot}
 	actos := &actosPlanCTPrueba{r: repo}
 	s, _ := NuevoServicioPlanIncorporacionCT(&autorizadorPlanCTPrueba{t: t}, repo, actos, &fuenteReservaPlanCTPrueba{err: domain.ErrRegistroEmpleadoB2NoDisponible})
@@ -251,5 +252,27 @@ func TestPlanCTSeleccionPropietariaNoHaceEfectos(t *testing.T) {
 	snapshot.PlazaRef = "plaza:10000000-0000-4000-8000-000000000008"
 	if _, e := s.ResolverSeleccion(context.Background(), q); !errors.Is(e, domain.ErrRegistroEmpleadoB2NoDisponible) {
 		t.Fatal("selección ajena", e)
+	}
+}
+
+func (r *repoPlanCTPrueba) ConsultarClasesOcupacion(_ context.Context, o ports.OrdenPlanIncorporacionCT) (ports.ResultadoClasesOcupacionCT, error) {
+	if r.catalogo == nil {
+		return ports.ResultadoClasesOcupacionCT{}, domain.ErrRegistroEmpleadoB2NoDisponible
+	}
+	ev, _ := r.salida(o)
+	return ports.ResultadoClasesOcupacionCT{Catalogo: *r.catalogo, Evidencia: ev.Evidencia}, nil
+}
+
+func TestPlanCTClasesProcedenDeLaColeccionVersionada(t *testing.T) {
+	c := domain.CatalogoClasesOcupacionCT{Ref: "personal:clases:publicacion", Version: 2, HuellaSHA256: strings.Repeat("e", 64), Opciones: []domain.OpcionClaseOcupacionCT{{Valor: "provisional", TextoClave: "personal.clases.provisional"}}}
+	repo := &repoPlanCTPrueba{catalogo: &c}
+	s, _ := NuevoServicioPlanIncorporacionCT(&autorizadorPlanCTPrueba{t: t}, repo, &actosPlanCTPrueba{r: repo}, &fuenteReservaPlanCTPrueba{err: domain.ErrRegistroEmpleadoB2NoDisponible})
+	r, e := s.ConsultarClasesOcupacion(context.Background(), ports.ConsultaClasesOcupacionCT{OrganismoRef: "org:uno", Actor: solicitudP(t).Actor})
+	if e != nil || r.Catalogo.Version != 2 || len(r.Catalogo.Opciones) != 1 || r.Catalogo.Opciones[0].Valor != "provisional" {
+		t.Fatal("colección no procede del propietario", e)
+	}
+	c.Opciones[0].Valor = "desconocida"
+	if _, e := s.ConsultarClasesOcupacion(context.Background(), ports.ConsultaClasesOcupacionCT{OrganismoRef: "org:uno", Actor: solicitudP(t).Actor}); !errors.Is(e, domain.ErrRegistroEmpleadoB2NoDisponible) {
+		t.Fatal("clase fuera de soporte técnico", e)
 	}
 }

@@ -268,3 +268,40 @@ func (s *ServicioPlanIncorporacionCT) ResolverSeleccion(ctx context.Context, q p
 	}
 	return r, nil
 }
+
+var _ ports.ServicioClasesOcupacionCT = (*ServicioPlanIncorporacionCT)(nil)
+
+func (s *ServicioPlanIncorporacionCT) ConsultarClasesOcupacion(ctx context.Context, q ports.ConsultaClasesOcupacionCT) (ports.ResultadoClasesOcupacionCT, error) {
+	var vacio ports.ResultadoClasesOcupacionCT
+	if s == nil || ctx == nil || nulo(s.autorizador) || nulo(s.repositorio) {
+		return vacio, domain.ErrRegistroEmpleadoB2NoDisponible
+	}
+	if e := ctx.Err(); e != nil {
+		return vacio, e
+	}
+	m, e := domain.NuevoMaterialClasesOcupacionCT(q)
+	if e != nil {
+		return vacio, e
+	}
+	a, e := s.autorizador.AutorizarPlanIncorporacionCT(ctx, m)
+	if e != nil {
+		return vacio, errorRegistroB2Opaco(ctx, e)
+	}
+	if !autorizacionPlanCTValida(m, a) {
+		return vacio, domain.ErrRegistroEmpleadoB2Denegado
+	}
+	r, e := s.repositorio.ConsultarClasesOcupacion(ctx, ports.OrdenPlanIncorporacionCT{Material: m, Autorizacion: a})
+	if e != nil {
+		return vacio, errorRegistroB2Opaco(ctx, e)
+	}
+	if e = ctx.Err(); e != nil {
+		return vacio, e
+	}
+	x := a.ResumenCapacidad()
+	ev := r.Evidencia
+	_, off := ev.ConsultadaEn.Zone()
+	if r.Catalogo.Validar() != nil || !refEstadoPlanCT.MatchString(ev.ReciboRef) || ev.DecisionRef != x.DecisionRef() || ev.EfectoRef != m.Recurso().Referencia || !huellaRegistroB2.MatchString(ev.ConsumoHuellaSHA256) || ev.AuditoriaRef == "" || ev.ConsultadaEn.IsZero() || off != 0 || ev.ConsultadaEn.Nanosecond()%1000 != 0 || ev.ConsultadaEn.Before(x.EmitidaEn()) || !ev.ConsultadaEn.Before(x.ExpiraEn()) {
+		return vacio, domain.ErrRegistroEmpleadoB2NoDisponible
+	}
+	return r, nil
+}

@@ -55,7 +55,7 @@ func TestPlanCTMaterialLigaActorActualPeroNegocioEsEstable(t *testing.T) {
 	}
 }
 func TestPlanCTModoYClavesSonParteDeLaIntencion(t *testing.T) {
-	p := PlanIncorporacionCT{PlanRef: "perplan:uno", ReciboRef: "perplanrec:uno", Version: 1, Datos: datosDominioPlanCTPrueba(), Modo: "alta_empleado", ClaveAltaRelacion: "10000000-0000-4000-8000-000000000005", ClaveOcupacion: "10000000-0000-4000-8000-000000000006", UsoRPTRef: "uso:uno", ReservaRPTRef: "reserva:uno", ConfirmacionRPTRef: "confirmacion:uno"}
+	p := PlanIncorporacionCT{ClasesOcupacionCatalogoRef: "personal:clases_ocupacion_ct", ClasesOcupacionCatalogoVersion: 1, ClasesOcupacionCatalogoHuellaSHA256: strings.Repeat("f", 64), PlanRef: "perplan:uno", ReciboRef: "perplanrec:uno", Version: 1, Datos: datosDominioPlanCTPrueba(), Modo: "alta_empleado", ClaveAltaRelacion: "10000000-0000-4000-8000-000000000005", ClaveOcupacion: "10000000-0000-4000-8000-000000000006", UsoRPTRef: "uso:uno", ReservaRPTRef: "reserva:uno", ConfirmacionRPTRef: "confirmacion:uno"}
 	p.HuellaSHA256 = p.CalcularHuellaSHA256()
 	if e := p.Validar(); e != nil {
 		t.Fatal(e)
@@ -82,7 +82,7 @@ func TestPlanCTSeleccionLigaRevisionesFuenteYActor(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	s := SeleccionOrganizacionPlanCT{RevisionPlantilla: 1, RevisionRPT: 2, UnidadRef: "uni:uno", OrganismoRef: q.OrganismoRef, PlazaRef: q.PlazaRef, PuestoRef: q.PuestoRef, Desde: q.Desde, RevisionPlaza: 1, RevisionPuesto: 2, VersionPlantillaRef: "plantilla:uno", VersionRPTRef: "rpt:uno", PlantillaHuellaSHA256: strings.Repeat("a", 64), RPTHuellaSHA256: strings.Repeat("b", 64), FuenteOrganizacionRef: "fuente:org", FuenteOrganizacionHuellaSHA256: strings.Repeat("c", 64)}
+	s := SeleccionOrganizacionPlanCT{PlantillaFuenteRef: "fuente:plantilla", RPTFuenteRef: "fuente:rpt", RevisionPlantilla: 1, RevisionRPT: 2, UnidadRef: "uni:uno", OrganismoRef: q.OrganismoRef, PlazaRef: q.PlazaRef, PuestoRef: q.PuestoRef, Desde: q.Desde, RevisionPlaza: 1, RevisionPuesto: 2, VersionPlantillaRef: "plantilla:uno", VersionRPTRef: "rpt:uno", PlantillaHuellaSHA256: strings.Repeat("a", 64), RPTHuellaSHA256: strings.Repeat("b", 64), FuenteOrganizacionRef: "fuente:org", FuenteOrganizacionHuellaSHA256: strings.Repeat("c", 64)}
 	if e := s.ValidarPara(m); e != nil {
 		t.Fatal(e)
 	}
@@ -96,5 +96,21 @@ func TestPlanCTSeleccionLigaRevisionesFuenteYActor(t *testing.T) {
 	q.PlazaRef = "10000000-0000-4000-8000-000000000002"
 	if _, e := NuevoMaterialSeleccionPlanIncorporacionCT(q); e == nil {
 		t.Fatal("referencia fuente no canónica")
+	}
+}
+
+func TestPlanCTClasesSinVersionODuplicadasNoSonCatalogo(t *testing.T) {
+	c := CatalogoClasesOcupacionCT{Ref: "personal:clases:publicacion", Version: 1, HuellaSHA256: strings.Repeat("e", 64), Opciones: []OpcionClaseOcupacionCT{{Valor: "temporal", TextoClave: "personal.clases.temporal"}}}
+	if e := c.Validar(); e != nil {
+		t.Fatal(e)
+	}
+	c.Version = 0
+	if c.Validar() == nil {
+		t.Fatal("fuente sin versión")
+	}
+	c.Version = 1
+	c.Opciones = append(c.Opciones, c.Opciones[0])
+	if c.Validar() == nil {
+		t.Fatal("opciones duplicadas")
 	}
 }

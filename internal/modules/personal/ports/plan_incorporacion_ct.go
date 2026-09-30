@@ -14,6 +14,15 @@ type ResultadoSeleccionPlanIncorporacionCT struct {
 	Evidencia EvidenciaRegistroEmpleadoB2        `json:"evidencia"`
 }
 
+type ConsultaClasesOcupacionCT = domain.ConsultaClasesOcupacionCT
+type ResultadoClasesOcupacionCT struct {
+	Catalogo  domain.CatalogoClasesOcupacionCT `json:"catalogo"`
+	Evidencia EvidenciaRegistroEmpleadoB2      `json:"evidencia"`
+}
+type ServicioClasesOcupacionCT interface {
+	ConsultarClasesOcupacion(context.Context, ConsultaClasesOcupacionCT) (ResultadoClasesOcupacionCT, error)
+}
+
 type DatosPlanIncorporacionCT = domain.DatosPlanIncorporacionCT
 type SolicitudPlanIncorporacionCT = domain.SolicitudPlanIncorporacionCT
 type ConsultaPlanIncorporacionCT = domain.ConsultaPlanIncorporacionCT
@@ -42,6 +51,7 @@ type OrdenPlanIncorporacionCT struct {
 	Autorizacion vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3
 }
 type RepositorioPlanIncorporacionCT interface {
+	ConsultarClasesOcupacion(context.Context, OrdenPlanIncorporacionCT) (ResultadoClasesOcupacionCT, error)
 	ResolverSeleccion(context.Context, OrdenPlanIncorporacionCT) (ResultadoSeleccionPlanIncorporacionCT, error)
 	PrepararPlan(context.Context, OrdenPlanIncorporacionCT) (EstadoPlanIncorporacionCT, error)
 	ConsultarPlan(context.Context, OrdenPlanIncorporacionCT) (EstadoPlanIncorporacionCT, error)
