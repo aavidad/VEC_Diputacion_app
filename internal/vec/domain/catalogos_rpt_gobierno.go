@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/hex"
@@ -78,7 +79,7 @@ func (c ContenidoGobiernoCategoriaRPT) ValidarParaEditor(editor string) error {
 		!identificadorGobiernoRPT.MatchString(c.ModuloID) ||
 		c.Version < 1 || c.Version > 1<<31-1 ||
 		!huellaGobiernoRPTValida(c.PreimagenesHuellaSHA256) ||
-		len(c.PreimagenesControl) > maximoEntradasCatalogo ||
+		c.PreimagenesControl == nil || len(c.PreimagenesControl) > maximoEntradasCatalogo ||
 		len(c.FuenteRef) < 3 || len(c.FuenteRef) > 320 ||
 		len(c.MotivoRef) < 3 || len(c.MotivoRef) > 320 ||
 		strings.TrimSpace(c.FuenteRef) != c.FuenteRef ||
@@ -112,6 +113,10 @@ func (c ContenidoGobiernoCategoriaRPT) ValidarParaEditor(editor string) error {
 			catalogo.Version != c.Version || catalogo.FuenteRef != c.FuenteRef ||
 			catalogo.CreadoPor != editor || catalogo.PublicadoPor == editor ||
 			(catalogo.UltimaModificacionPor != "" && catalogo.UltimaModificacionPor != editor) {
+			return ErrGobiernoCategoriaRPTInvalido
+		}
+		bytesCanonicos, err := json.Marshal(catalogo)
+		if err != nil || !bytes.Equal(bytesCanonicos, []byte(*c.DocumentoCanonico)) {
 			return ErrGobiernoCategoriaRPTInvalido
 		}
 	case AccionGobiernoCategoriaRPTDeshabilitar:
