@@ -1,0 +1,84 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { readFileSync } from "node:fs";
+import { API_AJUSTES, ErrorAjustes, crearClienteAjustes, renderizarAjustes, validarLecturaAjustes, validarReciboAjustes } from "./ajustes.js";
+
+const lectura = () => ({ data: { esquema: "vec.contratacion_temporal.reglas.ajustes.v1",
+  catalogo_id: "vec.contratacion_temporal.reglas.ajustes", version_esperada: 2, puede_ajustar: true,
+  motivos: [{ clave: "respuesta_rrhh_duda", texto_clave: "ajustesMotivo_respuesta_rrhh_duda" }],
+  reglas: [{ clave: "c03.plazo_fiscalizacion", etiqueta: "Plazo de fiscalización", unidad: "dias_habiles", cantidad: 10,
+    valores: { cantidad: "10", cantidad_urgente: "5", unidad: "dias_habiles" },
+    edicion: { campos: ["cantidad", "cantidad_urgente"], opciones_unidad: ["dias_habiles"], opciones_computo: [],
+      cantidad_minima: 1, cantidad_maxima: 30 }, ajuste_no_aplicable: false }],
+  historial: [{ version: 2, vigente_desde: "2026-09-30T12:00:00Z", motivo_clave: "respuesta_rrhh_duda",
+    referencia: "Duda 63", nota: "Revisado", recibo_ref: "recibo:ejemplo",
+    cambios: [{ regla_clave: "c03.plazo_fiscalizacion", campo: "cantidad", anterior: "12", nuevo: "10" }] }], hay_mas: false } });
+
+const recibo = () => ({ data: { esquema: "vec.contratacion_temporal.reglas.ajustes.v1", recibo: { recibo_ref: "recibo:syntetico", version: 3, vigente_desde: "2026-09-30T13:00:00Z",
+  clave_idempotencia: "c3102148-38bb-4bbc-9b9b-b60b34521ec2", huella_sha256: "a".repeat(64),
+  consumo_huella_sha256: "b".repeat(64), decision_ref: "decision:syntetica",
+  auditoria_ref: "auditoria:syntetica" }, replay: false } });
+
+test("la lectura valida versión, campos, motivos catalogados y evita valores ambiguos", () => {
+  assert.equal(validarLecturaAjustes(lectura()).reglas[0].valores.cantidad_urgente, "5");
+  const sinMotivo = lectura(); sinMotivo.data.motivos[0].texto_clave = "desconocida";
+  assert.throws(() => validarLecturaAjustes(sinMotivo), ErrorAjustes);
+  const sinUrgente = lectura(); delete sinUrgente.data.reglas[0].valores.cantidad_urgente;
+  assert.throws(() => validarLecturaAjustes(sinUrgente), ErrorAjustes);
+  const otraVersion = lectura(); otraVersion.data.version_esperada = -1;
+  assert.throws(() => validarLecturaAjustes(otraVersion), ErrorAjustes);
+});
+
+test("el cliente GET y POST conserva origen, clave y señal; distingue conflicto y dependencia", async () => {
+  const pedidos = [];
+  const cliente = crearClienteAjustes(async (url, opciones) => {
+    pedidos.push({ url, opciones });
+    return new Response(JSON.stringify(opciones.method === "GET" ? lectura() : recibo()), { status: opciones.method === "GET" ? 200 : 201 });
+  });
+  await cliente.leer({ antesDeVersion: 2 });
+  assert.equal(pedidos[0].url, `${API_AJUSTES}?limite=20&antes_de_version=2`);
+  assert.equal(pedidos[0].opciones.credentials, "same-origin");
+  assert.equal(pedidos[0].opciones.cache, "no-store");
+  const comando = { clave_idempotencia: "c3102148-38bb-4bbc-9b9b-b60b34521ec2", version_esperada: 2,
+    cambios: [{ regla_clave: "c03.plazo_fiscalizacion", campo: "cantidad", nuevo: "7" }], motivo_clave: "respuesta_rrhh_duda" };
+  assert.equal((await cliente.guardar(comando)).recibo.version, 3);
+  const respuestaAjena = crearClienteAjustes(async () => new Response(JSON.stringify({ data: { ...recibo().data,
+    recibo: { ...recibo().data.recibo, clave_idempotencia: "otra" } } }), { status: 201 }));
+  await assert.rejects(respuestaAjena.guardar(comando), ErrorAjustes);
+  assert.deepEqual(Object.keys(pedidos[1].opciones.headers), ["Accept", "Content-Type"]);
+  assert.deepEqual(JSON.parse(pedidos[1].opciones.body), comando);
+  for (const [estado, codigo] of [[409, "ajustesConflicto"], [422, "ajustesValorInvalido"], [403, "ajustesSinPermiso"], [503, "ajustesNoDisponible"]]) {
+    const fallido = crearClienteAjustes(async () => new Response("{}", { status: estado }));
+    await assert.rejects(fallido.guardar(comando), (error) => error.codigo === codigo);
+  }
+  assert.equal(validarReciboAjustes(recibo()).recibo.recibo_ref, "recibo:syntetico");
+});
+
+test("la pantalla muestra resumen, historia y recibo, escapa datos; desactiva cambios sin motivos", () => {
+  const datos = validarLecturaAjustes(lectura());
+  const html = renderizarAjustes(datos, { reglaActiva: "c03.plazo_fiscalizacion", fase: "revision",
+    borrador: { cantidad: "7", cantidad_urgente: "4", motivo_clave: "respuesta_rrhh_duda" }, recibo: recibo().data.recibo });
+  assert.match(html, /Plazo de fiscalización/u);
+  assert.match(html, /10 Días hábiles/u);
+  assert.match(html, /10 Días hábiles → 7 Días hábiles/u);
+  assert.match(html, /Duda 63/u);
+  assert.match(html, /Persona de RRHH/u);
+  assert.match(html, /Auditoría:/u);
+  const sinMotivos = { ...datos, motivos: [] };
+  assert.match(renderizarAjustes(sinMotivos), /data-ajustes-editar="c03.plazo_fiscalizacion" disabled/u);
+  assert.match(renderizarAjustes(datos, { bloqueado: true, error: true, aviso: "Conflicto" }), /data-ajustes-reintentar/u);
+  const revision = { ...datos, reglas: [{ ...datos.reglas[0], ajuste_no_aplicable: true, valores: { cantidad: "0", cantidad_urgente: "0", unidad: "dias_habiles" } }] };
+  assert.doesNotMatch(renderizarAjustes(revision), /0 Días hábiles/u);
+  assert.match(renderizarAjustes(revision), /RRHH debe revisarlo/u);
+  const malicioso = { ...datos, reglas: [{ ...datos.reglas[0], etiqueta: "<img src=x>" }] };
+  assert.ok(!renderizarAjustes(malicioso).includes("<img src=x>"));
+  assert.match(renderizarAjustes(malicioso), /&lt;img src=x&gt;/u);
+});
+
+test("los textos de ajuste existen en ambos idiomas y el módulo no incluye frases visibles", () => {
+  const ficheros = ["es", "en"].map((idioma) => JSON.parse(readFileSync(new URL(`../../textos/${idioma}/reglas.json`, import.meta.url), "utf8")).general);
+  assert.deepEqual(Object.keys(ficheros[0]).sort(), Object.keys(ficheros[1]).sort());
+  for (const texto of ["ajustesMotivo_respuesta_rrhh_duda", "ajustesConflicto", "ajustesEfecto", "ajustesAuditoria"]) {
+    assert.ok(ficheros.every((fichero) => fichero[texto]), texto);
+  }
+});

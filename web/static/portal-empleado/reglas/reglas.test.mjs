@@ -43,8 +43,11 @@ test("el catálogo i18n está completo y toda clave de la página existe", () =>
 test("el catálogo renovado usa una URL única en la pantalla y en sus consumidores de Bolsa y CT", () => {
   const html = leer("./index.html");
   const reglas = leer("./reglas.js");
+  const ajustes = leer("./ajustes.js");
   const version = exigirRenovado([html, reglas], "i18n.js", "20260930-reglas-detalle-v3");
-  assert.equal(version, "20260930-reglas-recuperacion-v2");
+  assert.equal(version, "20260930-plazos-config-ui-v1");
+  assert.equal(exigirRenovado([reglas], "ajustes.js", "20260930-reglas-detalle-v3"), version);
+  assert.equal(exigirRenovado([ajustes], "i18n.js", "20260930-reglas-detalle-v3"), version);
   const bolsa = leer("../modulos/bolsa/rrhh-plazos-api.js");
   const etiquetas = leer("../modulos/contratacion-temporal/etiquetas-vias-cobertura.js");
   const politica = leer("../modulos/bolsa/rrhh-plazos-ui.js");
@@ -101,6 +104,21 @@ test("pinta valor, unidad, origen, duda y versión, escapando el contenido", () 
   const resumen = renderizarResumen(d.catalogos);
   assert.match(resumen, /Reglas vigentes<\/span><strong>2</u);
   assert.match(resumen, /Del Reglamento<\/span><strong>1</u);
+});
+
+test("un ajuste fuera de uso no presenta el valor base como vigente", () => {
+  const catalogos = respuesta();
+  catalogos.data.catalogos[0].reglas[0].ajuste_no_aplicable = true;
+  delete catalogos.data.catalogos[0].reglas[0].cantidad;
+  const r = validarReglas(catalogos).catalogos[0];
+  assert.equal(valorRegla(r.reglas[0]), MENSAJES_REGLAS.ajusteRevision);
+  const html = renderizarCatalogo(r);
+  assert.match(html, /rg-fila--revision/u);
+  assert.match(html, /RRHH debe revisarlo/u);
+  assert.match(html, /<td class="rg-numero">Ajuste pendiente de revisión<\/td>/u);
+  assert.equal(filtrar([r], { texto: "pendiente de revisión" })[0].reglas.length, 1);
+  catalogos.data.catalogos[0].reglas[0].cantidad = 5;
+  assert.throws(() => validarReglas(catalogos), ErrorReglas);
 });
 
 test("filtra por módulo, origen y texto", () => {
