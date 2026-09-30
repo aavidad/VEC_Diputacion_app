@@ -27,9 +27,8 @@ SOURCE = "7f1ecea2fd9f8912d255a80e74da84c69e46b978"
 # increment may advance the clone's current source; a changed contract needs
 # a fresh review rather than silent acceptance.
 CONTRACT_HASHES = {
-    # Preserved approved baseline. D's changed publisher remains closed until
-    # root supplies its final source approval and reviewed replacement digest.
-    "internal/app/bootstrap/bolsa_borrador_contexto_postgresql_desarrollo.go": "76613f3fba276b2f20eb0ac9057e6c1d112ed875640816ee73f719a8c4998fab",
+    # Root confirmed both reviews of #197 (f0e74627e); other pins remain fixed.
+    "internal/app/bootstrap/bolsa_borrador_contexto_postgresql_desarrollo.go": "3d541ce90fac13a788d94577d921ad7c663ecf53fd5eadf3ce6b7d576db09550",
     "internal/app/bootstrap/bolsa_borrador_identidad_desarrollo.go": "451d9d56f108480cea5a92164f0f1b8cfc04a168267a36b9e79de16f71e9762e",
     "internal/app/bootstrap/bolsa_borrador_llamamiento_desarrollo.go": "a9a4cc7e268e2d7cca3825102001003c338cd72ad37d21d03580c4ad056bbc05",
     "internal/app/bootstrap/bolsa_ofertas_desarrollo.go": "9727a2d8e4b0f00112e42377b5674e0cf0ca339225d543f35f97b0deeef82bec",
