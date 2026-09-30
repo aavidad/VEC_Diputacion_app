@@ -86,7 +86,7 @@
     "bolsa_turno_regla_provisional": "Provisional rule · version {version}",
     "bolsa_turno_regla_versionada": "Order rule · version {version}",
     "bolsa_turno_vacio": "There are no applicants in this pool.",
-    "bolsa_turno_sin_contacto": "No calls have been communicated yet.",
+    "bolsa_turno_sin_contacto": "No call attempts have been recorded yet.",
     "bolsa_turno_sin_disponibles": "No one is available in this pool.",
     "bolsa_turno_aviso": "Selection for a position requires checking the conditions of the call.",
     "bolsa_turno_resultado_numero_erroneo": "Wrong number",

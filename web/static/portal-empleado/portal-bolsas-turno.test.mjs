@@ -64,7 +64,7 @@ test("distingue bolsa vacía, ausencia de llamadas y ausencia de disponibles", (
   const sinDisponibles = { ...turno, ultimo_llamado: null, siguiente: null, estado_siguiente: "sin_disponibles" };
   const sinContacto = validarRespuestaCandidatosBolsa(respuesta(sinDisponibles));
   const html = presentar(sinContacto);
-  assert.match(html, /Aún no hay llamamientos comunicados/);
+  assert.match(html, /Aún no hay intentos de llamamiento registrados/);
   assert.match(html, /No hay personas disponibles en esta bolsa/);
   const bolsaVacia = { ...bolsa, total: 0, por_estado: { ...bolsa.por_estado, disponible: 0, no_disponible: 0 } };
   const vacia = validarRespuestaCandidatosBolsa(respuesta(sinDisponibles, bolsaVacia));
