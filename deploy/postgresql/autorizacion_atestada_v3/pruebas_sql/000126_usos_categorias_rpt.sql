@@ -39,6 +39,20 @@ BEGIN
     END;
     BEGIN
         PERFORM vec_autorizacion_atestada_v3.reservar_uso_categoria_rpt_v3_atestada(
+            '{"catalogo_id":"rpt-demo","modulo_id":"personal","consumidor":"personal","uso_ref":"uso:á","categoria_id":"cat-uno","version":1,"huella_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","reserva_recibo_ref":"recibo:uno"}'::jsonb,
+            NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+        RAISE EXCEPTION 'uso_ref fuera del recurso V3 nativo admitido';
+    EXCEPTION WHEN SQLSTATE '22023' THEN NULL;
+    END;
+    BEGIN
+        PERFORM vec_autorizacion_atestada_v3.reservar_uso_categoria_rpt_v3_atestada(
+            '{"catalogo_id":"rpt-demo","modulo_id":"personal","consumidor":"personal","uso_ref":"uso*uno","categoria_id":"cat-uno","version":1,"huella_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","reserva_recibo_ref":"recibo:uno"}'::jsonb,
+            NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+        RAISE EXCEPTION 'asterisco de recurso admitido';
+    EXCEPTION WHEN SQLSTATE '22023' THEN NULL;
+    END;
+    BEGIN
+        PERFORM vec_autorizacion_atestada_v3.reservar_uso_categoria_rpt_v3_atestada(
             '{"catalogo_id":"rpt-demo","modulo_id":"personal","consumidor":true,"uso_ref":"uso:uno","categoria_id":"cat-uno","version":1,"huella_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","reserva_recibo_ref":"recibo:uno"}'::jsonb,
             NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
         RAISE EXCEPTION 'consumidor boolean admitido';

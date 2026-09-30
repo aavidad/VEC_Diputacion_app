@@ -29,6 +29,10 @@ La reserva acepta un objeto JSONB con exactamente estas ocho claves:
 `terminal_recibo_ref`, `evidencia_ref` y `evidencia_sha256`. El estado terminal
 lo determina la función invocada; no procede del material. La evidencia es
 una referencia y una huella opacas de la operación del módulo propietario.
+El `uso_ref` público admite de 3 a 160 bytes ASCII visibles (0x21–0x7e),
+excepto `*`, sin recortar ni normalizar. Es el límite del recurso V3 nativo;
+las funciones core antiguas conservan su contrato privado. Los recibos y la
+referencia de evidencia mantienen su límite UTF-8 de 3 a 160 bytes.
 Ese módulo debe comprobar el efecto, o la ausencia de efecto para cancelar,
 antes de pedir la decisión V3. Este SQL no inspecciona sus tablas ni interpreta
 la evidencia como prueba legal.

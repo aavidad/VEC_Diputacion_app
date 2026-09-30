@@ -161,6 +161,8 @@ BEGIN
        OR p_material->>'consumidor' !~ '^[a-z][a-z0-9_.:-]{2,127}$'
        OR pg_catalog.jsonb_typeof(p_material->'uso_ref') IS DISTINCT FROM 'string'
        OR pg_catalog.octet_length(p_material->>'uso_ref') NOT BETWEEN 3 AND 160
+       OR ((p_material->>'uso_ref') COLLATE "C") !~ '^[!-~]{3,160}$'
+       OR pg_catalog.strpos(p_material->>'uso_ref','*')>0
        OR pg_catalog.jsonb_typeof(p_material->'categoria_id') IS DISTINCT FROM 'string'
        OR p_material->>'categoria_id' !~ '^[a-z][a-z0-9_.:-]{2,127}$'
        OR pg_catalog.jsonb_typeof(p_material->'version') IS DISTINCT FROM 'number'
