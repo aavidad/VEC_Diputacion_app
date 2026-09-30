@@ -138,29 +138,31 @@ func leerOCrearRaizPropiaPortalExterno(destino, preimagen string, desde, hasta t
 			clear(estado.Semilla)
 			return vacio, ErrPreparacionPortalExternoInvalida
 		}
+		inv, errInventario := leerInventarioV3PortalExterno(destino)
+		coincide := false
+		if errInventario == nil {
+			var errRaiz error
+			coincide, errRaiz = raizPreparadaCoincidePortalExterno(estado, inv.Raiz.SPKISHA256)
+			if errRaiz != nil {
+				clear(estado.Semilla)
+				return vacio, errRaiz
+			}
+		}
 		if preimagen == "" {
-			if inv, err := leerInventarioV3PortalExterno(destino); err == nil && !raizPreparadaCoincidePortalExterno(estado, inv.Raiz.SPKISHA256) {
+			if (errInventario == nil && !coincide) || (estado.PreimagenRotacion != "" && errInventario != nil) {
 				clear(estado.Semilla)
 				return vacio, ErrPreparacionPortalExternoInvalida
 			}
-			if estado.PreimagenRotacion != "" {
-				inv, err := leerInventarioV3PortalExterno(destino)
-				if err != nil || !raizPreparadaCoincidePortalExterno(estado, inv.Raiz.SPKISHA256) {
-					clear(estado.Semilla)
-					return vacio, ErrPreparacionPortalExternoInvalida
-				}
-			}
 			return estado, nil
 		}
-		inv, err := leerInventarioV3PortalExterno(destino)
-		if err != nil || (inv.Raiz.SPKISHA256 != preimagen && !raizPreparadaCoincidePortalExterno(estado, inv.Raiz.SPKISHA256)) {
+		if errInventario != nil || (inv.Raiz.SPKISHA256 != preimagen && !coincide) {
 			clear(estado.Semilla)
 			return vacio, ErrPreparacionPortalExternoInvalida
 		}
 		if estado.PreimagenRotacion == preimagen {
 			return estado, nil
 		}
-		if inv.Raiz.SPKISHA256 != preimagen || !raizPreparadaCoincidePortalExterno(estado, preimagen) {
+		if inv.Raiz.SPKISHA256 != preimagen || !coincide {
 			clear(estado.Semilla)
 			return vacio, ErrPreparacionPortalExternoInvalida
 		}
@@ -213,13 +215,13 @@ func debeDecodificarHuellaPortalExterno(s string) []byte {
 	return b
 }
 
-func raizPreparadaCoincidePortalExterno(estado estadoRaizPropiaPortalExterno, huella string) bool {
+func raizPreparadaCoincidePortalExterno(estado estadoRaizPropiaPortalExterno, huella string) (bool, error) {
 	privada := ed25519.NewKeyFromSeed(estado.Semilla)
 	defer clear(privada)
 	spki, err := x509.MarshalPKIXPublicKey(privada.Public().(ed25519.PublicKey))
 	if err != nil {
-		return false
+		return false, err
 	}
 	suma := sha256.Sum256(spki)
-	return huellaHexIgual(huella, suma[:])
+	return huellaHexIgual(huella, suma[:]), nil
 }
