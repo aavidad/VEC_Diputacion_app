@@ -30,7 +30,7 @@ function claveNueva() {
 /** Propuesta del catálogo de Bolsa; sin regla no se propone una cifra. */
 export async function cargarPlazoCatalogo({ cliente } = {}) {
   try {
-    const lector = cliente ?? (await import("../../reglas/reglas.js?v=20260930-reglas-detalle-v3")).crearCliente();
+    const lector = cliente ?? (await import("../../reglas/reglas.js?v=20260930-reglas-recuperacion-v1")).crearCliente();
     const datos = await lector.reglas();
     const reglas = datos.catalogos.filter((catalogo) => catalogo.modulo === "bolsa" && catalogo.estado === "disponible")
       .flatMap((catalogo) => catalogo.reglas).filter((regla) => regla.clave === CLAVE_PLAZO_CATALOGO);
