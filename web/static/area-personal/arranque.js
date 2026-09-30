@@ -1,4 +1,4 @@
-import { exigirParametrosConocidos, iniciarAreaPersonal } from "./aplicacion.js?v=20260930-candidato-convocatorias-v2";
+import { exigirParametrosConocidos, iniciarAreaPersonal } from "./aplicacion.js?v=20261001-temas-convocatorias-v3";
 import { iniciarI18nAreaPersonal, traducir } from "./i18n.js";
 import { cargarPreferenciasIniciales, crearClientePreferencias } from "./cliente-http.js?v=20260930-temas-v2-historico-v1";
 import * as temaComun from "../comun/tema-vec.js?v=20260930-codexf-temas-v2";
