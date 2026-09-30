@@ -28,11 +28,12 @@ function aplanar(seccion, prefijo, salida = {}) {
 }
 
 async function cargarCatalogo(idioma, opciones = {}) {
-  const [propios, preferencias] = await Promise.all(["area-personal", "preferencias"]
+  const [propios, preferencias, avisos] = await Promise.all(["area-personal", "preferencias", "avisos-externos"]
     .map((modulo) => cargarTextos(modulo, { ...opciones, idioma })));
   return Object.freeze({
     idioma: propios.idioma,
-    entradas: Object.freeze({ ...aplanar(preferencias.seccion(PREFIJO), PREFIJO), ...aplanar(propios.mensajes, PREFIJO) }),
+    entradas: Object.freeze({ ...aplanar(preferencias.seccion(PREFIJO), PREFIJO), ...aplanar(propios.mensajes, PREFIJO),
+      ...Object.fromEntries(Object.entries(avisos.mensajes).filter(([clave]) => clave.startsWith(`${PREFIJO}.`))), }),
   });
 }
 

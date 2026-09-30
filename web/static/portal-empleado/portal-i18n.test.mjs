@@ -51,16 +51,16 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   const raiz = new URL("./", import.meta.url);
   const anteriores = ["20260928-ppt-503-v6", "20260928-auditoria-expediente-en-v1", "20260928-auditoria-expediente-en-v2", "20260929-pref-508a-v2", "20260929-firma-506-v1", "20260929-firma-506-v2", "20260929-auditoria-legible-v1", "20260929-sondeo-opcional-507", "20260929-plazas-306-v1", "20260929-i18n-shell-v1"];
   // El shell pasó sus textos a `textos/<idioma>/portal*.json` (integrado con 5.06, 5.07, 3.06 y 4.11): todo su grafo renueva URL.
-  const vigente = "20260930-portales-i18n-integracion-v1";
+  const vigente = "20260930-avisos-interfaz-v1";
   const versionesEspeciales = new Map([
     // 5.06, segundo corte: el circuito de firma trae el estado de Firmadoc.
     // Reglas vigentes: el detalle de cada regla y sus textos en catálogos renuevan el enlace del panel.
-    ["portal.js", "20260930-portales-i18n-integracion-v1"],
-    ["portal-panel-interno.js", "20260930-portales-i18n-integracion-v1"],
-    ["reglas/enlace.js", "20260930-portales-i18n-integracion-v1"],
-    ["portal-modulos-coordinador.js", "20260930-portales-i18n-integracion-v1"],
-    ["modulos/contratacion-temporal/vista-expedientes.js", "20260930-portales-i18n-integracion-v1"],
-    ["modulos/contratacion-temporal/circuito-firma.js", "20260930-portales-i18n-integracion-v1"],
+    ["portal.js", "20260930-avisos-interfaz-v1"],
+    ["portal-panel-interno.js", "20260930-avisos-interfaz-v1"],
+    ["reglas/enlace.js", "20260930-avisos-interfaz-v1"],
+    ["portal-modulos-coordinador.js", "20260930-avisos-interfaz-v1"],
+    ["modulos/contratacion-temporal/vista-expedientes.js", "20260930-avisos-interfaz-v1"],
+    ["modulos/contratacion-temporal/circuito-firma.js", "20260930-avisos-interfaz-v1"],
   ]);
   const archivos = ["index.html"];
   const pendientes = [""];

@@ -47,5 +47,7 @@ export async function catalogoPlano(idioma) {
   const preferencias = JSON.parse(await readFile(new URL(`${idioma}/preferencias.json`, raiz), "utf8"));
   aplanar(preferencias.areaPersonal, "areaPersonal");
   aplanar(JSON.parse(await readFile(new URL(`${idioma}/area-personal.json`, raiz), "utf8")), "areaPersonal");
+  const avisos = JSON.parse(await readFile(new URL(`${idioma}/avisos-externos.json`, raiz), "utf8"));
+  Object.assign(salida, Object.fromEntries(Object.entries(avisos).filter(([clave]) => clave.startsWith("areaPersonal."))));
   return salida;
 }

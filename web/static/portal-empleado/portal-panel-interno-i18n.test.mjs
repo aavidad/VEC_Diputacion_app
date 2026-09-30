@@ -24,6 +24,15 @@ test("B7 traduce los cuatro pasos y distingue registro, recibo y entrega", () =>
     obtenerEstadoCandidatos: () => ({ nuevo_llamamiento: flujo }),
   });
   const renderizar = () => presentador.renderizarVista("bolsa-candidatos");
+  flujo.paso = 4;
+  flujo.recibo = "recibo:sintetico";
+  flujo.contactos_emision = [{ resultado: "aviso_pendiente" }];
+  assert.match(renderizar(), /Aviso preparado; envío sin confirmar/u);
+  assert.doesNotMatch(renderizar(), /Correo enviado|Entregado/u);
+  flujo.paso = 1;
+  flujo.recibo = "";
+  flujo.contactos_emision = [];
+
 
   assert.equal(traducirPortal("panel_b7_ayuda_limite_aria"), "Ayuda sobre el límite de selección");
   assert.match(renderizar(), /1\. Seleccionar bolsa/);
