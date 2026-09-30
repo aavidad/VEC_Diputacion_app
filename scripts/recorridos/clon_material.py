@@ -29,11 +29,6 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 OWNER = "Codex-M"
 GUARD = "ACEPTO_CREDENCIALES_NO_AUTORITATIVAS_SOLO_DESARROLLO"
-REVIEWED_SQL_COUNTS = {
-    "7f1ecea2fd9f8912d255a80e74da84c69e46b978": 33,
-    "ff6493cfccb2da4e83c94fa7c59be24c025cb7c9": 34,
-    "e78687528d5725efd74e95c858d389f4437099ca": 36,
-}
 BASE = Path.home() / ".local/state/vec-clon/material-hito1"
 DSN_KEYS = (
     "VEC_CT_DATABASE_URL", "VEC_CT_GOBIERNO_DATABASE_URL",
@@ -134,6 +129,58 @@ def replace_private(path: Path, value: object, *, plain: bool = False) -> None:
             os.unlink(temp)
 
 
+def load_source_validator():
+    path = Path(__file__).with_name("clon_sql.py")
+    if not path.is_file() or path.is_symlink():
+        fail("missing central SQL source validator")
+    spec = importlib.util.spec_from_file_location("clon_sql_material_validator", path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    if not callable(getattr(module, "approved_source_plan", None)) or not callable(getattr(module, "validate_receipts", None)):
+        fail("central SQL source validator contract unavailable")
+    return module
+
+
+def source_context(args: argparse.Namespace, output: Path, source: str) -> dict:
+    archive = canonical(getattr(args, "source_archive", None) or output / ("source-" + source))
+    if not archive.is_relative_to(output) or not archive.is_dir() or archive.stat().st_uid != os.getuid() or archive.stat().st_mode & 0o077:
+        fail("source archive must be owned private material within clone state")
+    return {"source_repo": archive, "git_repo": canonical(args.repo), "source_ref": source}
+
+
+def approved_material_plan(args: argparse.Namespace, output: Path, source: str) -> dict:
+    context = source_context(args, output, source)
+    validator = load_source_validator()
+    try:
+        plan = validator.approved_source_plan(context["source_repo"], source, git_repo=context["git_repo"])
+    except (RuntimeError, OSError, ValueError, KeyError) as error:
+        log_module_failure(output, "clon_sql_source_approval", error)
+        raise ModuleProvisionError("clon_sql_source_approval", error) from None
+    if not isinstance(plan, dict) or plan.get("source_ref") != source or type(plan.get("file_count")) is not int or plan["file_count"] <= 0:
+        fail("invalid central SQL approved plan")
+    args._source_context = context
+    return plan
+
+
+def validate_source_receipts(args: argparse.Namespace, output: Path, source: str) -> tuple[dict, bytes]:
+    plan = approved_material_plan(args, output, source)
+    ready = json.loads(private_read(output / "DB_READY.json"))
+    journal_bytes = private_read(output / "sql-journal.json")
+    journal = json.loads(journal_bytes)
+    expected_journal = {"current_source_ref": source, "verified_source_ref": source,
+                        "approved_sql_ref": plan["approved_sql_ref"], "current_plan_sha": plan["plan_sha"],
+                        "inventory_sha": plan["inventory_sha"]}
+    if ready.get("commit") != source or ready.get("sql_instaladas") != plan["file_count"] or any(journal.get(k) != v for k, v in expected_journal.items()):
+        fail("source readiness and journal do not match the approved SQL plan")
+    try:
+        load_source_validator().validate_receipts(journal.get("installed", []), plan, complete=True)
+    except (RuntimeError, OSError, ValueError, KeyError) as error:
+        log_module_failure(output, "clon_sql_receipts", error)
+        raise ModuleProvisionError("clon_sql_receipts", error) from None
+    return plan, journal_bytes
+
+
 def load_profile_module(name: str):
     path = Path(__file__).with_name(name + ".py")
     if not path.is_file() or path.is_symlink():
@@ -203,8 +250,16 @@ def complete_profiles(args: argparse.Namespace, output: Path, manifest: dict) ->
     blockers = [b for b in manifest["blockers"] if b["code"] != "lector_adicional_pendiente"]
     for name, module, owned_codes in loaded:
         try:
+            options = {}
+            if name == "clon_bolsa_material" and getattr(args, "_source_context", None):
+                options["source_context"] = args._source_context
+            if name == "clon_comunicaciones":
+                for key, argument in (("smtp_port", "smtp_port"), ("http_port", "mailpit_http_port")):
+                    value = getattr(args, argument, None)
+                    if value is not None:
+                        options[key] = value
             result = module.provision(repo=args.repo, container=args.container, state=output,
-                                      material=output / "material", pg_port=args.pg_port, engine=args.engine)
+                                      material=output / "material", pg_port=args.pg_port, engine=args.engine, **options)
         except (RuntimeError, OSError, ValueError, KeyError, subprocess.TimeoutExpired) as error:
             log_module_failure(output, name, error)
             raise ModuleProvisionError(name, error) from None
@@ -507,8 +562,7 @@ def nominal_connect_snapshot_sql(logins: list[str]) -> str:
 
 
 def repair_nominal_connect(args: argparse.Namespace, output: Path, source: str) -> None:
-    if source != "e78687528d5725efd74e95c858d389f4437099ca":
-        fail("nominal CONNECT migration requires the reviewed e786 source")
+    approved_material_plan(args, output, source)
     try:
         with socket.create_connection(("127.0.0.1", args.port), timeout=0.2):
             fail("application must be stopped before nominal CONNECT migration")
@@ -664,8 +718,7 @@ def coverage_snapshot_sql(login: str) -> str:
 
 
 def repair_coverage_connect(args: argparse.Namespace, output: Path, source: str) -> None:
-    if source not in REVIEWED_SQL_COUNTS:
-        fail("coverage repair source is not reviewed")
+    approved_material_plan(args, output, source)
     try:
         with socket.create_connection(("127.0.0.1", args.port), timeout=0.2):
             fail("application must be stopped before coverage repair")
@@ -738,29 +791,25 @@ def update_source(args: argparse.Namespace, output: Path, identity: dict) -> dic
                 fail("application must be stopped before source upgrade")
         except OSError:
             pass
-        ready = json.loads(private_read(output / "DB_READY.json"))
-        journal_bytes = private_read(output / "sql-journal.json")
-        journal = json.loads(journal_bytes)
-        installed = journal.get("installed", [])
-        count = REVIEWED_SQL_COUNTS.get(identity["source_commit"])
-        if count is None or ready.get("commit") != identity["source_commit"] or ready.get("sql_instaladas") != count or journal.get("current_source_ref", journal.get("source_ref")) != identity["source_commit"] or len(installed) != count:
-            fail("source upgrade requires the exact reviewed SQL receipt plan")
-        seen = set()
-        for position, receipt in enumerate(installed, 1):
-            path = receipt.get("path", "")
-            if receipt.get("position") != position or not isinstance(path, str) or not path.startswith("deploy/postgresql/") or not path.endswith(".sql") or ".." in Path(path).parts:
-                fail("invalid source SQL receipt")
-            if path in seen:
-                fail("repeated source SQL receipt")
-            seen.add(path)
-            sql = run(["git", "-C", str(args.repo), "show", identity["source_commit"] + ":" + path])
-            if hashlib.sha256(sql).hexdigest() != receipt.get("sha256"):
-                fail("source SQL receipt does not match the reviewed revision")
+        plan, journal_bytes = validate_source_receipts(args, output, identity["source_commit"])
         probe_pg_tls(args.pg_port, output / "material/pg/ca.crt")
         manifest["source_sql_receipts_sha256"] = hashlib.sha256(journal_bytes).hexdigest()
+        manifest["source_sql_approval"] = {k: plan[k] for k in ("approved_sql_ref", "plan_sha", "inventory_sha", "file_count")}
         manifest["source_updated_from"] = old["source_commit"]
         manifest["target"] = identity
         replace_private(output / "material-manifest.json", manifest)
+    return manifest
+
+
+def finish_preparation(args: argparse.Namespace, output: Path, source: str, manifest: dict) -> dict:
+    if getattr(args, "complete_profiles", False):
+        manifest = complete_profiles(args, output, manifest)
+    # A fresh H1 lacks coverage CONNECT: establish it before nominal migration
+    # demands the complete coverage postimage and removes PUBLIC CONNECT.
+    if getattr(args, "repair_coverage_connect", False):
+        repair_coverage_connect(args, output, source)
+    if getattr(args, "repair_nominal_connect", False):
+        repair_nominal_connect(args, output, source)
     return manifest
 
 
@@ -784,6 +833,7 @@ def prepare(args: argparse.Namespace) -> dict:
         fail("source commit must be a full SHA")
     head = run(["git", "-C", str(repo), "rev-parse", requested + "^{commit}"]).decode().strip()
     run(["git", "-C", str(repo), "merge-base", "--is-ancestor", head, "origin/main"])
+    plan, journal_bytes = validate_source_receipts(args, output, head)
     ready = json.loads(private_read(output / "DB_READY.json"))
     expected = {"commit": head, "contenedor": args.container, "propietario": OWNER,
                 "puerto_pg": args.pg_port, "puerto_web": args.port}
@@ -797,13 +847,7 @@ def prepare(args: argparse.Namespace) -> dict:
     if (output / "material-manifest.json").exists():
         manifest = update_source(args, output, identity) if getattr(args, "update_source", False) else verify_existing(output, identity)
         probe_pg_tls(args.pg_port, output / "material/pg/ca.crt")
-        if getattr(args, "complete_profiles", False):
-            manifest = complete_profiles(args, output, manifest)
-        if getattr(args, "repair_nominal_connect", False):
-            repair_nominal_connect(args, output, head)
-        if getattr(args, "repair_coverage_connect", False):
-            repair_coverage_connect(args, output, head)
-        return manifest
+        return finish_preparation(args, output, head, manifest)
     output.mkdir(mode=0o700, parents=True, exist_ok=True)
     if output.stat().st_uid != os.getuid() or output.stat().st_mode & 0o077:
         fail("output must be owned and private")
@@ -910,21 +954,19 @@ def prepare(args: argparse.Namespace) -> dict:
     for name in ("perfiles.json", "runtime.env", "runtime-config.json"):
         files[name] = hashlib.sha256(private_read(output / name)).hexdigest()
     manifest = {"version": 1, "owner": OWNER, "target": identity, "status": "partial_blocked",
-                "files": files, "blockers": blockers, "application_started": False, "sql_applied": False, "pg_tls_configured": True}
+                "files": files, "blockers": blockers, "application_started": False, "sql_applied": False, "pg_tls_configured": True,
+                "source_sql_approval": {k: plan[k] for k in ("approved_sql_ref", "plan_sha", "inventory_sha", "file_count")}}
     json_write(output / "material-manifest.json", manifest)
-    if getattr(args, "complete_profiles", False):
-        manifest = complete_profiles(args, output, manifest)
-    if getattr(args, "repair_nominal_connect", False):
-        repair_nominal_connect(args, output, head)
-    if getattr(args, "repair_coverage_connect", False):
-        repair_coverage_connect(args, output, head)
-    return manifest
+    return finish_preparation(args, output, head, manifest)
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--repo", type=Path, required=True)
     parser.add_argument("--commit", help="pinned main SHA; defaults to source HEAD")
+    parser.add_argument("--source-archive", type=Path, help="sealed private archive of the source commit; defaults to output/source-commit")
+    parser.add_argument("--smtp-port", type=int)
+    parser.add_argument("--mailpit-http-port", type=int)
     parser.add_argument("--container", required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--port", type=int, required=True)
@@ -939,6 +981,9 @@ def main() -> int:
     args = parser.parse_args()
     if not (1024 <= args.port <= 65535 and 1024 <= args.pg_port <= 65535) or args.port == args.pg_port:
         parser.error("distinct unprivileged ports are required")
+    optional_ports = [v for v in (args.smtp_port, args.mailpit_http_port) if v is not None]
+    if any(not 1024 <= v <= 65535 for v in optional_ports) or len(set(optional_ports + [args.port, args.pg_port])) != len(optional_ports) + 2:
+        parser.error("distinct unprivileged SMTP and Mailpit ports are required")
     try:
         manifest = prepare(args)
         print(json.dumps({"status": manifest["status"], "blockers": [b["code"] for b in manifest["blockers"]]}))

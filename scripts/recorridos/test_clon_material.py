@@ -100,37 +100,53 @@ class MaterialTests(unittest.TestCase):
             with self.assertRaises(material.MaterialError):
                 material.verify_existing(root, identity)
 
-    def test_reviewed_source_receipts_require_exact_count_unique_paths_and_all_hashes(self):
+    def test_material_delegates_closed_receipts_to_central_approval_without_reading_wip(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            old_source = "ff6493cfccb2da4e83c94fa7c59be24c025cb7c9"
-            source = "e78687528d5725efd74e95c858d389f4437099ca"
-            old = {"source_commit": old_source, "container_id": "clone", "pg_port": 55531, "app_port": 18531}
-            target = dict(old, source_commit=source)
-            manifest = {"target": old, "files": {}, "blockers": []}
-            material.json_write(root / "material-manifest.json", manifest)
-            material.json_write(root / "DB_READY.json", {"commit": source, "sql_instaladas": 36})
-            journal = {"current_source_ref": source, "installed": [{"position": n, "path": f"deploy/postgresql/fixture/{n}.sql",
-                        "sha256": hashlib.sha256(b"SQL").hexdigest()} for n in range(1, 37)]}
-            material.json_write(root / "sql-journal.json", journal)
-            args = SimpleNamespace(repo=root, pg_port=55531)
-            with patch.object(material, "run", return_value=b"SQL") as command, patch.object(material, "probe_pg_tls"), patch.object(material.socket, "create_connection", side_effect=OSError):
-                upgraded = material.update_source(args, root, target)
-            self.assertEqual(upgraded["target"], target)
-            self.assertEqual(sum("show" in call.args[0] for call in command.call_args_list), 36)
-            for invalid in ("count", "hash", "duplicate", "position", "source"):
-                material.replace_private(root / "material-manifest.json", manifest)
-                ready = {"commit": source, "sql_instaladas": 36}
-                changed = json.loads(json.dumps(journal))
-                if invalid == "count": ready["sql_instaladas"] = 35
-                if invalid == "hash": changed["installed"][0]["sha256"] = "f" * 64
-                if invalid == "duplicate": changed["installed"][1]["path"] = changed["installed"][0]["path"]
-                if invalid == "position": changed["installed"][1]["position"] = 9
-                if invalid == "source": changed["current_source_ref"] = old_source
-                material.replace_private(root / "DB_READY.json", ready)
-                material.replace_private(root / "sql-journal.json", changed)
-                with self.subTest(invalid=invalid), patch.object(material, "run", return_value=b"SQL"), patch.object(material, "probe_pg_tls"), patch.object(material.socket, "create_connection", side_effect=OSError), self.assertRaises(material.MaterialError):
-                    material.update_source(args, root, target)
+            git = root / "git"
+            git.mkdir()
+            state = root / "state"
+            state.mkdir(mode=0o700)
+            source = "b" * 40
+            archive = state / ("source-" + source)
+            archive.mkdir(mode=0o700)
+            args = SimpleNamespace(repo=git)
+            material.json_write(state / "DB_READY.json", {"commit": source, "sql_instaladas": 38})
+            installed = [{"position": n} for n in range(1, 39)]
+            material.json_write(state / "sql-journal.json", {"current_source_ref": source, "verified_source_ref": source,
+                "approved_sql_ref": "a" * 40, "current_plan_sha": "c" * 64, "inventory_sha": "d" * 64, "installed": installed})
+            plan = {"source_ref": source, "approved_sql_ref": "a" * 40, "file_count": 38,
+                    "plan_sha": "c" * 64, "inventory_sha": "d" * 64, "entries": []}
+            central = SimpleNamespace(approved_source_plan=unittest.mock.Mock(return_value=plan), validate_receipts=unittest.mock.Mock())
+            with patch.object(material, "load_source_validator", return_value=central):
+                validated, _ = material.validate_source_receipts(args, state, source)
+            self.assertEqual(validated, plan)
+            central.approved_source_plan.assert_called_once_with(archive, source, git_repo=git)
+            central.validate_receipts.assert_called_once_with(installed, plan, complete=True)
+            self.assertEqual(args._source_context, {"source_repo": archive, "git_repo": git, "source_ref": source})
+            saved = json.loads(material.private_read(state / "sql-journal.json"))
+            material.replace_private(state / "sql-journal.json", dict(saved, verified_source_ref="e" * 40))
+            with patch.object(material, "load_source_validator", return_value=central), self.assertRaises(material.MaterialError):
+                material.validate_source_receipts(args, state, source)
+            material.replace_private(state / "sql-journal.json", saved)
+            central.validate_receipts.side_effect = RuntimeError("unreviewed SQL inventory")
+            with patch.object(material, "load_source_validator", return_value=central), self.assertRaises(material.ModuleProvisionError):
+                material.validate_source_receipts(args, state, source)
+            material.replace_private(state / "DB_READY.json", {"commit": source, "sql_instaladas": 39})
+            with patch.object(material, "load_source_validator", return_value=central), self.assertRaises(material.MaterialError):
+                material.validate_source_receipts(args, state, source)
+
+    def test_fresh_and_repeat_flags_order_complete_coverage_nominal_before_app(self):
+        args = SimpleNamespace(complete_profiles=True, repair_coverage_connect=True, repair_nominal_connect=True)
+        events = []
+        original, completed = {"status": "base"}, {"status": "completed"}
+        with patch.object(material, "complete_profiles", side_effect=lambda *a: events.append("complete") or completed), \
+             patch.object(material, "repair_coverage_connect", side_effect=lambda *a: events.append("coverage")), \
+             patch.object(material, "repair_nominal_connect", side_effect=lambda *a: events.append("nominal")):
+            for branch in ("fresh", "repeat"):
+                events.clear()
+                self.assertEqual(material.finish_preparation(args, Path("/private"), "b" * 40, original), completed)
+                self.assertEqual(events, ["complete", "coverage", "nominal"])
 
     def test_nominal_connect_matrix_is_closed_and_motives_postimage_is_strict(self):
         self.assertEqual(len(material.NOMINAL_CONNECT_GROUPS), 8)
@@ -170,7 +186,7 @@ class MaterialTests(unittest.TestCase):
             material.json_write(root / "sql-journal.json", {"source_ref": "b" * 40, "installed": [
                 {"position": n, "path": "deploy/postgresql/fixture/" + str(n) + ".sql", "sha256": hashlib.sha256(b"").hexdigest()}
                 for n in range(1, 35)]})
-            with patch.object(material, "run", return_value=b""), patch.object(material, "probe_pg_tls"), patch.object(material.socket, "create_connection", side_effect=OSError), patch.object(material, "REVIEWED_SQL_COUNTS", {"b" * 40: 34}):
+            with patch.object(material, "run", return_value=b""), patch.object(material, "probe_pg_tls"), patch.object(material.socket, "create_connection", side_effect=OSError), patch.object(material, "validate_source_receipts", return_value=({"approved_sql_ref": "b" * 40, "plan_sha": "c" * 64, "inventory_sha": "d" * 64, "file_count": 38}, b"receipt")):
                 with self.assertRaises(material.MaterialError):
                     material.update_source(args, root, dict(changed, container_id="different"))
                 upgraded = material.update_source(args, root, changed)
@@ -229,13 +245,19 @@ class MaterialTests(unittest.TestCase):
                 self.assertEqual(json.loads(material.private_read(root / "perfiles.json"))["users"]["interna"][0]["cuenta_ref"], "cta_new_interna")
                 called.append("h4")
                 return {"env": {"VEC_USUARIOS_PREFERENCIAS_ENABLED": "true"}, "blockers": []}
+            args.smtp_port = 11125
+            args.mailpit_http_port = 18542
+            args._source_context = {"source_repo": root / "source", "git_repo": root, "source_ref": "b" * 40}
             def comunicaciones(**kwargs):
+                self.assertEqual(kwargs["smtp_port"], args.smtp_port)
+                self.assertEqual(kwargs["http_port"], args.mailpit_http_port)
                 called.append("comunicaciones")
                 certificate = root / "material/comunicaciones/servidor.crt"
                 material.private_write(certificate, "synthetic certificate")
                 return {"env": {"VEC_USUARIOS_CORREOS_ENABLED": "true", "VEC_USUARIOS_IMAGEN_ENABLED": "true"},
                         "files": [str(certificate)], "blockers": []}
             def bolsa(**kwargs):
+                self.assertEqual(kwargs["source_context"], args._source_context)
                 called.append("bolsa")
                 return {"blockers": []}
             def candidato(**kwargs):
@@ -293,7 +315,7 @@ class MaterialTests(unittest.TestCase):
                         "positions": [{"ref": "puesto-fixture-solicitante", "center": "centro-fixture"},
                                       {"ref": "puesto-fixture-ratificador", "center": "centro-fixture"}]}).encode()
                 return real_run(argv, text)
-            with patch.object(material, "run", side_effect=mocked_run), patch.object(material, "probe_pg_tls") as probe:
+            with patch.object(material, "run", side_effect=mocked_run), patch.object(material, "probe_pg_tls") as probe, patch.object(material, "validate_source_receipts", return_value=({"approved_sql_ref": "a" * 40, "plan_sha": "c" * 64, "inventory_sha": "d" * 64, "file_count": 38}, b"receipt")):
                 manifest = material.prepare(args)
                 second = material.prepare(args)
             self.assertEqual(manifest, second)
