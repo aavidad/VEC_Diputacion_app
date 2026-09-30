@@ -53,3 +53,6 @@ ae261786c62ace805dc5aaf80c0c91a92b157962:web/static/portal-empleado/modulos/cont
 2c1b781a06b586a8cf4afe75f6c25ecbc687717b:web/static/portal-empleado/modulos/contratacion-temporal/vias-preparacion-presentacion.test.mjs:vep-clave-castellana-asignada:87
 2c1b781a06b586a8cf4afe75f6c25ecbc687717b:web/static/portal-empleado/modulos/contratacion-temporal/vias-preparacion-presentacion.test.mjs:vep-clave-castellana-asignada:90
 2c1b781a06b586a8cf4afe75f6c25ecbc687717b:web/static/portal-empleado/modulos/contratacion-temporal/vias-preparacion-presentacion.test.mjs:vep-clave-castellana-asignada:115
+
+# Comparación de campos Go del selector de aceptación; s.AperturaRegistroSHA256 no es un token Vault.
+d268891a2e492eca02908d93a55fb5ae0ccd3c82:internal/modules/bolsa/application/persona_aceptada_incorporacion.go:vault-service-token:140
