@@ -47,7 +47,8 @@ test("el catálogo renovado usa una URL única en la pantalla y en sus consumido
   assert.equal(version, "20260930-reglas-recuperacion-v2");
   const bolsa = leer("../modulos/bolsa/rrhh-plazos-api.js");
   const etiquetas = leer("../modulos/contratacion-temporal/etiquetas-vias-cobertura.js");
-  assert.equal(exigirRenovado([html, bolsa, etiquetas], "reglas.js", "20260930-reglas-detalle-v3"), version);
+  const politica = leer("../modulos/bolsa/rrhh-plazos-ui.js");
+  assert.equal(exigirRenovado([html, bolsa, etiquetas, politica], "reglas.js", "20260930-reglas-detalle-v3"), version);
   const formulario = leer("../modulos/contratacion-temporal/formulario-cobertura.js");
   assert.equal(exigirRenovado(formulario, "etiquetas-vias-cobertura.js", "20260930-reglas-detalle-v3"), version);
   // El enlace del portal no cambia en esta revisión: conserva su URL.

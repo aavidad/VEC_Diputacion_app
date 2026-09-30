@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { IDIOMA_DATOS_REGLAS, textoPresentacionRegla } from "./i18n.js";
+import { cargarTextos } from "../../comun/textos.js";
 
 const catalogo = async (idioma) => JSON.parse(await readFile(
   new URL(`../../textos/${idioma}/reglas.json`, import.meta.url), "utf8",
@@ -80,4 +81,30 @@ test("los segmentos reservados y heredados no sustituyen la fuente", () => {
   assert.deepEqual(textoPresentacionRegla("contratacion_temporal",
     { clave: "c20.cancelacion_expediente", descripcion }, "descripcion", { presentacion }),
   { texto: descripcion, idioma: IDIOMA_DATOS_REGLAS });
+});
+
+test("el idioma efectivo y las hojas de respaldo proceden del cargador común", async () => {
+  const es = JSON.parse(await readFile(new URL("../../textos/es/reglas.json", import.meta.url), "utf8"));
+  const en = JSON.parse(await readFile(new URL("../../textos/en/reglas.json", import.meta.url), "utf8"));
+  const descripcion = es.presentacion.contratacion_temporal.c20.cancelacion_expediente.descripcion;
+  const regla = { clave: "c20.cancelacion_expediente", descripcion: descripcion.original };
+  for (const escenario of ["no_disponible", "hoja_ausente", "traducido"]) {
+    const propio = structuredClone(en);
+    if (escenario === "hoja_ausente") delete propio.presentacion.contratacion_temporal.c20.cancelacion_expediente.descripcion.texto;
+    const textos = await cargarTextos("reglas", { idioma: "en", porDefecto: "es", avisar: () => {},
+      leer: async (url) => {
+        if (url.pathname.endsWith("/es/reglas.json")) return es;
+        if (escenario === "no_disponible") throw new Error("404");
+        return propio;
+      },
+    });
+    const presentado = textoPresentacionRegla("contratacion_temporal", regla, "descripcion", {
+      presentacion: textos.mensajes.presentacion, idioma: textos.idioma, faltantes: textos.faltantes,
+    });
+    assert.deepEqual(presentado, escenario === "traducido"
+      ? { texto: en.presentacion.contratacion_temporal.c20.cancelacion_expediente.descripcion.texto, idioma: "en" }
+      : escenario === "hoja_ausente"
+        ? { texto: descripcion.original, idioma: "es" }
+        : { texto: descripcion.texto, idioma: "es" });
+  }
 });

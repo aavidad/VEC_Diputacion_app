@@ -65,7 +65,8 @@ export const minusculas = (texto) => String(texto ?? "").toLocaleLowerCase(LOCAL
 /** Traduce una explicación solo cuando coincide con la fuente catalogada. */
 export function textoPresentacionRegla(modulo, regla, campo, {
   presentacion = TEXTOS_REGLAS?.mensajes.presentacion,
-  idioma = IDIOMA_REGLAS,
+  idioma = TEXTOS_REGLAS?.idioma ?? IDIOMA_DATOS_REGLAS,
+  faltantes = TEXTOS_REGLAS?.faltantes ?? [],
 } = {}) {
   const original = regla?.[campo];
   const reglas = Object.hasOwn(presentacion ?? {}, modulo) ? presentacion[modulo] : null;
@@ -78,6 +79,8 @@ export function textoPresentacionRegla(modulo, regla, campo, {
     campos = campos[parte];
   }
   const entrada = Object.hasOwn(campos ?? {}, campo) ? campos[campo] : null;
+  const rutaTexto = `presentacion.${modulo}.${regla?.clave}.${campo}.texto`;
+  if (faltantes.includes(rutaTexto)) return { texto: original, idioma: IDIOMA_DATOS_REGLAS };
   if (typeof original === "string" && entrada?.original === original
     && typeof entrada.texto === "string" && entrada.texto !== "") {
     return { texto: entrada.texto, idioma };
