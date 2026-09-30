@@ -1,6 +1,14 @@
 """Prueba local: un 302 no debe llegar al segundo puerto loopback."""
 
 import asyncio
+import json
+import os
+import shutil
+import signal
+import subprocess
+import sys
+import tempfile
+import time
 import threading
 import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -10,6 +18,79 @@ import recorrer
 
 
 CHROME = Path("/usr/bin/google-chrome")
+PLAZO_CASO = 15
+PLAZO_RECOGIDA = 2
+
+
+def _inicio_proceso(pid):
+    # El PID del hijo queda reservado hasta wait(): no puede reutilizarse.
+    return Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()[19]
+
+
+def _ejecutar_aislado(caso, plazo=PLAZO_CASO, observar=None):
+    """Acota el caso entero, incluidos cierres async y shutdown síncrono."""
+    import playwright
+
+    bwrap = shutil.which("bwrap")
+    if bwrap is None:
+        raise RuntimeError("Falta bwrap para aislar y recoger la prueba local.")
+    carpeta = Path(__file__).resolve().parent
+    paquetes = Path(playwright.__file__).resolve().parent.parent
+    with tempfile.TemporaryDirectory(prefix="vec-interceptor-") as temporal:
+        scratch = Path(temporal)
+        marca = scratch / "recursos.json"
+        comando = [bwrap, "--unshare-net", "--unshare-pid", "--die-with-parent"]
+        # Solo código y herramientas de lectura; no se monta el HOME del operador.
+        for ruta in ("/usr", "/bin", "/lib", "/lib64", "/opt/google/chrome",
+                     "/etc/alternatives", "/etc/fonts", "/etc/passwd", "/etc/group",
+                     str(paquetes), str(carpeta)):
+            if Path(ruta).exists():
+                comando += ["--ro-bind", ruta, ruta]
+        comando += ["--proc", "/proc", "--dev", "/dev", "--tmpfs", "/tmp",
+                    "--bind", str(scratch), str(scratch), "--chdir", str(carpeta),
+                    sys.executable, str(Path(__file__).resolve()), "--caso-aislado", caso, str(marca)]
+        entorno = {"PATH": "/usr/bin:/bin", "LANG": "C.UTF-8", "HOME": str(scratch),
+                   "TMPDIR": str(scratch), "XDG_CONFIG_HOME": str(scratch),
+                   "XDG_CACHE_HOME": str(scratch), "PYTHONPATH": str(paquetes),
+                   "PYTHONDONTWRITEBYTECODE": "1"}
+        hijo = subprocess.Popen(comando, env=entorno, start_new_session=True,
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        inicio = _inicio_proceso(hijo.pid)
+        recursos = None
+        try:
+            salida, errores = hijo.communicate(timeout=plazo)
+            if hijo.returncode:
+                raise AssertionError(errores.decode(errors="replace") or salida.decode(errors="replace"))
+        except subprocess.TimeoutExpired as exc:
+            if marca.is_file():
+                recursos = json.loads(marca.read_text())
+                recursos["red_visible_antes"] = _namespace_sigue_vivo(recursos["red"])
+            raise TimeoutError(f"La prueba {caso} superó el límite global de {plazo} s, incluido el cierre.") from exc
+        finally:
+            # El hijo no se ha recogido si returncode sigue a None. Validamos
+            # además generación, sesión y grupo antes de señalar el grupo propio.
+            if hijo.returncode is None:
+                if (_inicio_proceso(hijo.pid) != inicio or os.getpgid(hijo.pid) != hijo.pid
+                        or os.getsid(hijo.pid) != hijo.pid):
+                    raise RuntimeError("No se ha podido acreditar el grupo propio de la prueba.")
+                os.killpg(hijo.pid, signal.SIGKILL)
+                try:
+                    hijo.communicate(timeout=PLAZO_RECOGIDA)
+                except subprocess.TimeoutExpired as exc:
+                    raise RuntimeError("No se recogió la prueba después de terminar su grupo propio.") from exc
+            if observar is not None and marca.is_file():
+                observar(recursos if recursos is not None else json.loads(marca.read_text()))
+
+
+def _namespace_sigue_vivo(referencia):
+    for proceso in Path("/proc").iterdir():
+        if proceso.name.isdigit():
+            try:
+                if os.readlink(proceso / "ns/net") == referencia:
+                    return True
+            except (FileNotFoundError, PermissionError, ProcessLookupError):
+                pass
+    return False
 
 
 class Servidor:
@@ -29,7 +110,20 @@ class Servidor:
 
 class InterceptorTest(unittest.TestCase):
     def test_302_hacia_otro_puerto_no_contacta_destino(self):
-        asyncio.run(self._probar_302())
+        _ejecutar_aislado("302")
+
+    def test_cierre_bloqueado_vence_y_recoge_chrome_servidor_y_socket(self):
+        recursos = []
+        inicio = time.monotonic()
+        with self.assertRaisesRegex(TimeoutError, "límite global de 3 s, incluido el cierre"):
+            _ejecutar_aislado("cierre_bloqueado", plazo=3, observar=recursos.append)
+        self.assertLess(time.monotonic() - inicio, 3 + PLAZO_RECOGIDA + 1)
+        self.assertEqual(len(recursos), 1, "El caso debe alcanzar el cierre de Chrome.")
+        self.assertTrue(recursos[0]["chrome_abierto"])
+        self.assertTrue(recursos[0]["servidor_abierto"])
+        self.assertTrue(recursos[0]["red_visible_antes"], "La comprobación debe observar el namespace vivo.")
+        # Desaparece el namespace entero: todos sus procesos y sockets son propios.
+        self.assertFalse(_namespace_sigue_vivo(recursos[0]["red"]))
 
     async def _probar_302(self):
         from playwright.async_api import Error, async_playwright
@@ -84,7 +178,7 @@ class InterceptorTest(unittest.TestCase):
                         await navegador.close()
 
     def test_websocket_hacia_otro_puerto_no_abre_conexion(self):
-        asyncio.run(self._probar_websocket())
+        _ejecutar_aislado("websocket")
 
     async def _probar_websocket(self):
         from playwright.async_api import async_playwright
@@ -142,5 +236,44 @@ class InterceptorTest(unittest.TestCase):
                     await navegador.close()
 
 
+async def _probar_cierre_bloqueado(marca):
+    from playwright.async_api import async_playwright
+
+    class Origen(BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b"<!doctype html><title>Local</title>")
+
+        def log_message(self, *_args):
+            pass
+
+    with Servidor(Origen) as origen:
+        async with async_playwright() as pw:
+            navegador = await pw.chromium.launch(executable_path=str(CHROME), headless=True)
+            contexto = await navegador.new_context()
+            pagina = await contexto.new_page()
+            assert (await pagina.goto(origen, timeout=5000)).status == 200
+            await contexto.close()
+            # Un cierre síncrono bloquea también la cancelación de asyncio.
+            async def cierre_bloqueado():
+                marca.write_text(json.dumps({"chrome_abierto": navegador.is_connected(), "servidor_abierto": True,
+                                              "red": os.readlink("/proc/self/ns/net")}))
+                threading.Event().wait()
+            navegador.close = cierre_bloqueado
+            await navegador.close()
+
+
 if __name__ == "__main__":
-    unittest.main()
+    if len(sys.argv) == 4 and sys.argv[1] == "--caso-aislado":
+        caso = sys.argv[2]
+        if caso == "cierre_bloqueado":
+            asyncio.run(_probar_cierre_bloqueado(Path(sys.argv[3])))
+        elif caso == "302":
+            asyncio.run(InterceptorTest()._probar_302())
+        elif caso == "websocket":
+            asyncio.run(InterceptorTest()._probar_websocket())
+        else:
+            raise ValueError("Caso local desconocido.")
+    else:
+        unittest.main()
