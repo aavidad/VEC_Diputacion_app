@@ -1,0 +1,2 @@
+# Requiere AD3-113 y Documentos9 instaladas; aplicar una sola vez.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000136_custodia_firmado_nucleo.up.sql
