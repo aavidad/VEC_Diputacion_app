@@ -74,6 +74,8 @@ func TestIncorporacionV2CargaArchivoPrivado(t *testing.T) {
 	}
 	c := archivoIncorporacionV2{Esquema: "vec.contratacion-temporal.incorporacion-servidor.v2",
 		Referencias: ReferenciasCTIncorporacionDesarrollo{PrincipalV3Ref: "principal:prueba", PerfilV3Ref: "perfil:prueba", OrganizacionRef: "ref:" + strings.Repeat("a", 64), UnidadRef: "ref:" + strings.Repeat("b", 64), ActorRef: "ref:" + strings.Repeat("c", 64)}, Pools: map[string]string{}}
+	c.Planes = "planes.json"
+	c.Personal = "personal.json"
 	c.MotivoAlta = core.ReferenciaEntradaCatalogo{CatalogoID: "motivos_autorizacion", CatalogoVersion: 1, CatalogoHuellaSHA256: strings.Repeat("a", 64), EntradaClave: "motivo_11111111111111111111111111111111"}
 	c.MotivoLectura = c.MotivoAlta
 	c.CentrosAlta = []string{"centro:prueba:0001"}
