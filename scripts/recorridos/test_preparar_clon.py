@@ -83,6 +83,24 @@ if ! publicar_ready; then exit 17; fi
         self.assertNotEqual(status, 0)
         self.assertIsNone(ready)
 
+    def test_plan_sin_etapas_no_intenta_archivar_una_referencia_vacia(self):
+        source = Path(__file__).with_name('preparar_clon.sh').read_text()
+        loop = source[source.index('while IFS= read -r paso_sql; do'):source.index('# La última llamada verifica')]
+        with tempfile.TemporaryDirectory() as directory:
+            marker = Path(directory) / 'git-invocado'
+            script = '''set -eu
+etapas_sql='[]'
+repo='fixture'
+estado="$VEC_TEST_STATE"
+guiones='fixture'
+git() { touch "$VEC_TEST_MARKER"; return 9; }
+''' + loop
+            process = subprocess.run(['bash', '-c', script], capture_output=True, timeout=5,
+                env={'PATH': '/usr/bin:/bin', 'VEC_TEST_STATE': directory, 'VEC_TEST_MARKER': str(marker)})
+            self.assertEqual(process.returncode, 0)
+            self.assertFalse(marker.exists())
+            self.assertFalse((Path(directory) / 'fuente-sql-').exists())
+
 
 if __name__ == '__main__':
     unittest.main()

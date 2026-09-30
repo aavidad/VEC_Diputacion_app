@@ -291,6 +291,7 @@ if [[ ! -e "$fuente" ]]; then
 fi
 etapas_sql=$(python3 "$guiones/clon_sql.py" --repo "$fuente" --git-repo "$repo" --source-ref "$commit" --container "$nombre" --state-dir "$estado" --steps)
 while IFS= read -r paso_sql; do
+  [[ -n "$paso_sql" ]] || continue
   fuente_sql="$estado/fuente-sql-$paso_sql"
   if [[ ! -e "$fuente_sql" ]]; then
     mkdir -m 700 "$fuente_sql"
