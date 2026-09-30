@@ -1085,6 +1085,75 @@ class PreimageProbeTests(unittest.TestCase):
                 with self.assertRaises(SQL.Refused):
                     SQL.DockerDB("vec-fixture", Path("/wrong-state")).system_identity()
 
+    def test_immutable_image_launch_requires_external_pin_and_returns_logical_family(self):
+        for configured_image in ("postgres:18.4", "sha256:" + "d" * 64):
+            metadata = self.metadata()
+            metadata["Config"]["Image"] = configured_image
+            identity = {"system_identifier": "7533565316322819991", "database_name": "postgres", "database_oid": 5}
+            with self.subTest(image=configured_image), patch.object(SQL, "_probe_command", side_effect=[
+                    json.dumps(metadata).encode(), json.dumps(identity).encode()]):
+                result = SQL.DockerDB("vec-fixture", expected_image_id="sha256:" + "d" * 64).system_identity()
+                self.assertEqual(result["pg_image"], "postgres:18.4")
+                self.assertEqual(result["pg_image_id"], "sha256:" + "d" * 64)
+
+    def test_image_pin_rejects_missing_foreign_and_invalid_approval_before_query(self):
+        for configured_image, expected in (("sha256:" + "d" * 64, None),
+                ("sha256:" + "d" * 64, "sha256:" + "e" * 64),
+                ("postgres:18.4", "sha256:" + "e" * 64),
+                ("postgres:other", "sha256:" + "d" * 64),
+                (None, None), ("sha256:" + "e" * 64, "sha256:" + "d" * 64)):
+            metadata = self.metadata()
+            metadata["Config"]["Image"] = configured_image
+            with self.subTest(image=configured_image, pin=expected), \
+                    patch.object(SQL, "_probe_command", return_value=json.dumps(metadata).encode()) as runner:
+                with self.assertRaises(SQL.Refused):
+                    SQL.DockerDB("vec-fixture", expected_image_id=expected).system_identity()
+                self.assertEqual(runner.call_count, 1)
+        for expected in ("", "postgres:18.4", "SHA256:" + "d" * 64, True, []):
+            with self.subTest(pin=expected), patch.object(SQL, "_probe_command") as runner:
+                with self.assertRaises(SQL.Refused):
+                    SQL.DockerDB("vec-fixture", expected_image_id=expected)
+                runner.assert_not_called()
+
+    def test_additional_mounts_cannot_replace_probed_data_or_socket(self):
+        destinations = ("/var/run/postgresql", "/var/lib/postgresql/18/docker",
+                        "/var/lib/postgresql", "/var/lib", "/", "/extra")
+        with self.normalizer() as (path, digest, _):
+            for kind in ("bind", "volume", "tmpfs"):
+                for destination in destinations:
+                    extra = {"Type": kind, "Destination": destination, "Source": "/dev/shm/other"}
+                    for first in (False, True):
+                        metadata = self.metadata()
+                        metadata["Mounts"].insert(0 if first else 1, extra)
+                        for method, args in (("system_identity", ()), ("database_acl_digest", ()),
+                                             ("schema_digest", (path, digest)), ("roles_digest", (path, digest))):
+                            with self.subTest(kind=kind, destination=destination, first=first, method=method), \
+                                    patch.object(SQL, "_probe_command", return_value=json.dumps(metadata).encode()) as runner:
+                                with self.assertRaises(SQL.Refused):
+                                    getattr(SQL.DockerDB("vec-fixture"), method)(*args)
+                                self.assertEqual(runner.call_count, 1)
+
+    def test_only_exact_postgresql_bind_destination_is_accepted(self):
+        for destination in ("/var/lib/postgresql/18/docker", "/var/lib", "/var/run/postgresql",
+                            "/var/lib/postgresql/", "/var/lib/./postgresql", "/"):
+            metadata = self.metadata()
+            metadata["Mounts"][0]["Destination"] = destination
+            with self.subTest(destination=destination), \
+                    patch.object(SQL, "_probe_command", return_value=json.dumps(metadata).encode()) as runner:
+                with self.assertRaises(SQL.Refused):
+                    SQL.DockerDB("vec-fixture").system_identity()
+                self.assertEqual(runner.call_count, 1)
+
+    def test_mount_collection_must_be_one_complete_bind_record(self):
+        for mounts in (None, {}, "mount", [], [None], [{}],
+                       [{"Destination": "/var/lib/postgresql", "Type": "bind"}]):
+            metadata = {**self.metadata(), "Mounts": mounts}
+            with self.subTest(mounts=mounts), \
+                    patch.object(SQL, "_probe_command", return_value=json.dumps(metadata).encode()) as runner:
+                with self.assertRaises(SQL.Refused):
+                    SQL.DockerDB("vec-fixture").system_identity()
+                self.assertEqual(runner.call_count, 1)
+
     def test_malformed_sql_output_is_refused(self):
         identity = {"system_identifier": "7533565316322819991", "database_name": "postgres", "database_oid": 5}
         invalid = [b"not-json", b"[]", b"null", json.dumps({**identity, "database_name": "other"}).encode(),

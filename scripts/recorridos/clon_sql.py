@@ -780,11 +780,15 @@ def _probe_command(command, data=None, limit=PROBE_DUMP_LIMIT, timeout=PROBE_TIM
 
 
 class DockerDB:
-    def __init__(self, container, state=None):
+    def __init__(self, container, state=None, expected_image_id=None):
         if not re.fullmatch(r"vec-[a-z0-9-]+", container):
             raise Refused("el nombre debe identificar un clon vec- propio")
         self.container = container
         self.state = state
+        if expected_image_id is not None and (not isinstance(expected_image_id, str)
+                or not re.fullmatch(r"sha256:[a-f0-9]{64}", expected_image_id)):
+            raise Refused("huella aprobada de imagen incompatible")
+        self.expected_image_id = expected_image_id
 
     def _probe_metadata(self):
         raw = _probe_command(["docker", "inspect", "--format", PROBE_INSPECT_FORMAT,
@@ -792,19 +796,22 @@ class DockerDB:
         try:
             obj = json.loads(raw)
             labels = obj["Config"].get("Labels") or {}
-            mounts = [m for m in obj["Mounts"] if m["Destination"] == "/var/lib/postgresql"]
+            mounts = obj["Mounts"]
             if (labels.get(OWNER_LABEL) != OWNER or obj["Running"] is not True
-                    or obj["Config"]["Image"] != "postgres:18.4"
+                    or (obj["Config"]["Image"] != "postgres:18.4"
+                        and (self.expected_image_id is None or obj["Config"]["Image"] != self.expected_image_id))
                     or not re.fullmatch(r"[a-f0-9]{64}", obj["Id"])
                     or not re.fullmatch(r"sha256:[a-f0-9]{64}", obj["Image"])
+                    or (self.expected_image_id is not None and obj["Image"] != self.expected_image_id)
                     or obj["NetworkMode"] != "none"
-                    or len(mounts) != 1 or mounts[0]["Type"] != "bind"
+                    or not isinstance(mounts, list) or len(mounts) != 1
+                    or mounts[0]["Type"] != "bind" or mounts[0]["Destination"] != "/var/lib/postgresql"
                     or not mounts[0]["Source"].startswith("/dev/shm/")
                     or any(p in ("", ".", "..") for p in mounts[0]["Source"].split("/")[1:])
                     or (self.state is not None and labels.get("vec.recorridos.state") != str(self.state))
                     or any(bindings for bindings in (obj["Ports"] or {}).values())):
                 raise Refused("identidad o propiedad del clon incompatible")
-            return {"pg_container_id": obj["Id"], "pg_image": obj["Config"]["Image"], "pg_image_id": obj["Image"],
+            return {"pg_container_id": obj["Id"], "pg_image": "postgres:18.4", "pg_image_id": obj["Image"],
                     "pg_volume": mounts[0]["Source"]}
         except (KeyError, TypeError, ValueError, AttributeError):
             raise Refused("metadatos de clon incompatibles") from None
