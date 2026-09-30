@@ -35,16 +35,16 @@ BEGIN
   RAISE EXCEPTION 'recuperacion de confirmacion revision 4 ausente';
  END IF;
  IF pg_catalog.to_regprocedure(
-   'vec_autorizacion_atestada_v3.revalidar_aprobacion_gobierno_categoria_rpt_v3_interna(jsonb,text,text,text)') IS NOT NULL
+   'vec_autorizacion_atestada_v3.revalidar_aprobacion_gobierno_categoria_rpt_v3_interna(jsonb,text,text)') IS NOT NULL
     OR pg_catalog.strpos(pg_catalog.pg_get_functiondef(
-   'vec_autorizacion_atestada_v3.revalidar_aprobacion_gobierno_categoria_rpt_v3_interna(jsonb,text,text)'::regprocedure),
+   'vec_autorizacion_atestada_v3.acreditar_aprobacion_historica_gobierno_categoria_rpt_v3_interna(jsonb,text,text,text,text)'::regprocedure),
    'p_editor')<>0 THEN
   RAISE EXCEPTION 'aprobacion del editor bloqueada en fachada';
  END IF;
  IF pg_catalog.has_function_privilege('vec_catalogos_configurables_gobierno_ejecutor',
    'vec_autorizacion_atestada_v3.autorizar_gobierno_categoria_rpt_v3_interna(jsonb,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
     OR pg_catalog.has_function_privilege('vec_catalogos_configurables_gobierno_ejecutor',
-   'vec_autorizacion_atestada_v3.revalidar_aprobacion_gobierno_categoria_rpt_v3_interna(jsonb,text,text)','EXECUTE')
+   'vec_autorizacion_atestada_v3.acreditar_aprobacion_historica_gobierno_categoria_rpt_v3_interna(jsonb,text,text,text,text)','EXECUTE')
     OR pg_catalog.has_function_privilege('vec_catalogos_configurables_gobierno_ejecutor',
    'vec_catalogos_configurables.confirmar_propuesta_gobierno(text,text,bigint,text,text,text,text,text)','EXECUTE') THEN
   RAISE EXCEPTION 'helper o core expuesto';

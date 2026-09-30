@@ -86,7 +86,7 @@ CREATE FUNCTION vec_catalogos_configurables.registrar_propuesta_gobierno(
  p_ref text,p_contenido jsonb,p_huella text,p_actor text,p_decision text,p_recibo text,p_motivo text
 ) RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path=pg_catalog SET lock_timeout='2s' AS $f$
-DECLARE previo vec_catalogos_configurables.propuesta_gobierno%ROWTYPE; doc jsonb; item jsonb;
+DECLARE previo vec_catalogos_configurables.propuesta_gobierno%ROWTYPE; doc jsonb; item jsonb; modulo_real text;
 BEGIN
  IF p_ref IS NULL OR p_ref !~ '^[a-z][a-z0-9_.:-]{2,127}$'
  OR p_contenido IS NULL OR pg_catalog.jsonb_typeof(p_contenido) IS DISTINCT FROM 'object'
@@ -143,6 +143,13 @@ BEGIN
   OR item IS DISTINCT FROM pg_catalog.jsonb_build_object('version',(p_contenido->>'version')::integer,'huella_sha256',item->>'huella_sha256','revision',(p_contenido->>'revision_esperada')::bigint,'estado','habilitada')
   OR item->>'huella_sha256' IS NULL OR item->>'huella_sha256' !~ '^[0-9a-f]{64}$' THEN
    RAISE EXCEPTION 'Cat4: preimagen incompatible' USING ERRCODE='22023';
+  END IF;
+  SELECT (documento_canonico::jsonb)->>'modulo_id' INTO modulo_real
+   FROM vec_catalogos_configurables.publicacion
+   WHERE catalogo_id=p_contenido->>'catalogo_id' AND version=(p_contenido->>'version')::integer
+    AND huella_sha256=item->>'huella_sha256';
+  IF modulo_real IS DISTINCT FROM p_contenido->>'modulo_id' THEN
+   RAISE EXCEPTION 'Cat4: modulo ajeno a publicacion' USING ERRCODE='42501';
   END IF;
  END IF;
  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('vec_catalogos_configurables:gobierno:'||p_ref,0));
@@ -203,7 +210,7 @@ CREATE FUNCTION vec_catalogos_configurables.confirmar_propuesta_gobierno(
  p_ref text,p_huella text,p_revision bigint,p_actor text,p_decision text,p_auditoria text,p_recibo text,p_motivo text
 ) RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET lock_timeout='2s' AS $f$
 DECLARE p vec_catalogos_configurables.propuesta_gobierno%ROWTYPE; c vec_catalogos_configurables.control_gobierno%ROWTYPE;
- previo vec_catalogos_configurables.confirmacion_gobierno%ROWTYPE; a text; b text; d jsonb; control vec_catalogos_configurables.categoria_control%ROWTYPE; revision_final bigint; resultado jsonb;
+ previo vec_catalogos_configurables.confirmacion_gobierno%ROWTYPE; a text; b text; d jsonb; control vec_catalogos_configurables.categoria_control%ROWTYPE; revision_final bigint; resultado jsonb; modulo_real text;
 BEGIN
  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('vec_catalogos_configurables:gobierno:'||p_ref,0));
  SELECT * INTO p FROM vec_catalogos_configurables.propuesta_gobierno WHERE propuesta_ref=p_ref;
@@ -241,6 +248,12 @@ BEGIN
   IF NOT FOUND OR control.catalogo_id IS DISTINCT FROM d->>'catalogo_id'
   OR d->'preimagenes_control'->(d->>'categoria_id') IS DISTINCT FROM pg_catalog.jsonb_build_object('version',control.version,'huella_sha256',control.huella_sha256,'revision',control.revision,'estado',control.estado) THEN
    RAISE EXCEPTION 'Cat4: preimagen de categoria obsoleta' USING ERRCODE='40001';
+  END IF;
+  SELECT (documento_canonico::jsonb)->>'modulo_id' INTO modulo_real
+   FROM vec_catalogos_configurables.publicacion
+   WHERE catalogo_id=control.catalogo_id AND version=control.version AND huella_sha256=control.huella_sha256;
+  IF modulo_real IS DISTINCT FROM d->>'modulo_id' THEN
+   RAISE EXCEPTION 'Cat4: modulo ajeno a publicacion' USING ERRCODE='42501';
   END IF;
   revision_final:=vec_catalogos_configurables.cambiar_proyeccion(d->>'categoria_id',(d->>'revision_esperada')::bigint,'deshabilitar',NULL,NULL,p_actor,p_decision,p_recibo,p_motivo);
  END IF;

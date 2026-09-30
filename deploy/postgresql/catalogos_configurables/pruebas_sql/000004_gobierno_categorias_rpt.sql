@@ -10,7 +10,7 @@ DO $prueba$
 DECLARE
  motivo text:='motivos_rpt:1:prueba_gobierno';
  documento text:='{"id":"rpt-gobierno-demo","modulo_id":"personal","version":1,"estado":"publicado","fuente_ref":"fuente:rpt:sintetica","creado_por":"actor:editor","publicado_por":"actor:a","entradas":[{"clave":"cat-gobierno-demo","etiqueta":"Categoria sintetica"}]}';
- contenido jsonb; huella text; doc_h text; vacias_h text; r jsonb; anterior jsonb; des jsonb; des_h text; pre jsonb;
+ contenido jsonb; huella text; doc_h text; vacias_h text; r jsonb; anterior jsonb; des jsonb; des_h text; pre jsonb; ajeno jsonb; ajeno_h text;
 BEGIN
  IF pg_catalog.has_table_privilege('vec_autorizacion_atestada_v3_propietario','vec_catalogos_configurables.propuesta_gobierno','SELECT') THEN
   RAISE EXCEPTION 'AD3 tiene lectura directa del gobierno';
@@ -62,6 +62,12 @@ BEGIN
  PERFORM vec_catalogos_configurables.reservar('personal','uso:gobierno:anterior','cat-gobierno-demo','rpt-gobierno-demo',1,doc_h,'actor:a','decision:reserva','recibo:reserva',motivo);
  pre:=pg_catalog.jsonb_build_object('cat-gobierno-demo',pg_catalog.jsonb_build_object('version',1,'huella_sha256',doc_h,'revision',1,'estado','habilitada'));
  des:=pg_catalog.jsonb_build_object('accion','deshabilitar','catalogo_id','rpt-gobierno-demo','modulo_id','personal','version',1,'documento_canonico',NULL,'documento_huella_sha256',NULL,'preimagenes_control',pre,'preimagenes_huella_sha256',pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(pre::text,'UTF8')),'hex'),'categoria_id','cat-gobierno-demo','revision_esperada',1,'motivo_ref',motivo,'fuente_ref','fuente:rpt:sintetica');
+ ajeno:=des||'{"modulo_id":"bolsa"}'::jsonb;
+ ajeno_h:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(ajeno::text,'UTF8')),'hex');
+ BEGIN
+  PERFORM vec_catalogos_configurables.registrar_propuesta_gobierno('propuesta:gobierno:ajena',ajeno,ajeno_h,'actor:editor','decision:ajena','recibo:ajena',motivo);
+  RAISE EXCEPTION 'modulo ajeno a publicacion admitido';
+ EXCEPTION WHEN SQLSTATE '42501' THEN NULL; END;
  des_h:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(des::text,'UTF8')),'hex');
  PERFORM vec_catalogos_configurables.registrar_propuesta_gobierno('propuesta:gobierno:des',des,des_h,'actor:editor','decision:des-prop','recibo:des-prop',motivo);
  PERFORM vec_catalogos_configurables.aprobar_propuesta_gobierno('propuesta:gobierno:des',des_h,1,'actor:a','decision:des-a','audit:des-a',repeat('4',64),'recibo:des-a',motivo);

@@ -278,27 +278,27 @@ BEGIN
         x.consumida_en,d->>'principal_id',motivo_canonico;
 END $f$;
 
--- La aprobación se revalida con su atestación original; su consumo pasado
--- no concede vigencia. El bloqueo del checkpoint serializa las revocaciones.
-CREATE FUNCTION vec_autorizacion_atestada_v3.revalidar_aprobacion_gobierno_categoria_rpt_v3_interna(
-    p_aprobacion jsonb,p_propuesta_ref text,p_huella text
+-- Una aprobación consumida es evidencia histórica. La decisión actual de
+-- confirmación se consume aparte con vigencia positiva; no se recicla la anterior.
+CREATE FUNCTION vec_autorizacion_atestada_v3.acreditar_aprobacion_historica_gobierno_categoria_rpt_v3_interna(
+    p_aprobacion jsonb,p_propuesta_ref text,p_huella text,p_catalogo_id text,p_modulo_id text
 ) RETURNS void LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path=pg_catalog SET lock_timeout='2s' AS $f$
-DECLARE t record; c jsonb; d jsonb; x jsonb; k record; pk record; cfg record; raiz record;
-    ahora timestamptz(6); viva timestamptz(6);
+DECLARE t record; c jsonb; d jsonb; material jsonb; material_h text; ambitos text; contexto_h text;
 BEGIN
     IF pg_catalog.jsonb_typeof(p_aprobacion) IS DISTINCT FROM 'object'
        OR p_aprobacion->>'propuesta_ref' IS DISTINCT FROM p_propuesta_ref
        OR p_aprobacion->>'huella_sha256' IS DISTINCT FROM p_huella
        OR pg_catalog.jsonb_typeof(p_aprobacion->'decision_ref') IS DISTINCT FROM 'string'
        OR pg_catalog.jsonb_typeof(p_aprobacion->'actor_ref') IS DISTINCT FROM 'string'
-       OR p_aprobacion->>'consumo_huella_sha256' !~ '^[0-9a-f]{64}$' THEN
-        RAISE EXCEPTION 'AD3-134: aprobacion incompatible' USING ERRCODE='42501';
+       OR pg_catalog.jsonb_typeof(p_aprobacion->'recibo_ref') IS DISTINCT FROM 'string'
+       OR pg_catalog.jsonb_typeof(p_aprobacion->'ordinal') IS DISTINCT FROM 'number'
+       OR p_aprobacion->>'ordinal' NOT IN ('1','2')
+       OR p_aprobacion->>'consumo_huella_sha256' !~ '^[0-9a-f]{64}$'
+       OR pg_catalog.jsonb_typeof(p_aprobacion->'auditoria_ref') IS DISTINCT FROM 'string' THEN
+        RAISE EXCEPTION 'AD3-134: aprobacion historica incompatible' USING ERRCODE='42501';
     END IF;
-    PERFORM 1 FROM vec_autorizacion_atestada_v3.checkpoint_gobierno WHERE control_id FOR UPDATE;
-    IF NOT FOUND THEN RAISE EXCEPTION 'AD3-134: gobierno no disponible' USING ERRCODE='55000'; END IF;
-    SELECT a.capacidad_canonica,a.decision_canonica,a.motivo_canonico,a.contexto_actor_canonico,
-           a.raiz_publica_spki,u.consumo_huella_sha256,v.auditoria_ref
+    SELECT a.capacidad_canonica,a.decision_canonica,u.consumo_huella_sha256,v.auditoria_ref
       INTO STRICT t FROM vec_autorizacion_atestada_v3.atestacion_decision_v3 a
       JOIN vec_autorizacion_atestada_v3.consumo_decision_v3 u USING(decision_ref)
       JOIN vec_autorizacion_atestada_v3.auditoria_consumo_v3 v USING(decision_ref)
@@ -306,10 +306,17 @@ BEGIN
     BEGIN
         c:=pg_catalog.convert_from(t.capacidad_canonica,'UTF8')::jsonb;
         d:=pg_catalog.convert_from(t.decision_canonica,'UTF8')::jsonb;
-        x:=pg_catalog.convert_from(t.contexto_actor_canonico,'UTF8')::jsonb;
     EXCEPTION WHEN others THEN
-        RAISE EXCEPTION 'AD3-134: aprobacion ilegible' USING ERRCODE='42501';
+        RAISE EXCEPTION 'AD3-134: aprobacion historica ilegible' USING ERRCODE='42501';
     END;
+    material:=pg_catalog.jsonb_build_object('propuesta_ref',p_propuesta_ref,
+        'huella_sha256',p_huella,'recibo_ref',p_aprobacion->>'recibo_ref',
+        'revision_esperada',(p_aprobacion->>'ordinal')::bigint,
+        'catalogo_id',p_catalogo_id,'modulo_id',p_modulo_id);
+    material_h:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(material::text,'UTF8')),'hex');
+    ambitos:='{"ambitos":{"catalogo_id":"'||p_catalogo_id||'","modulo_id":"'||p_modulo_id||
+        '"},"atributos":{"material_sha256":"'||material_h||'"}}';
+    contexto_h:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(ambitos,'UTF8')),'hex');
     IF t.consumo_huella_sha256 IS DISTINCT FROM p_aprobacion->>'consumo_huella_sha256'
        OR t.auditoria_ref IS DISTINCT FROM p_aprobacion->>'auditoria_ref'
        OR c->>'audiencia_consumo' IS DISTINCT FROM 'vec_catalogos_configurables.gobierno_categorias.v1'
@@ -318,60 +325,15 @@ BEGIN
        OR d->>'accion' IS DISTINCT FROM c->>'operacion'
        OR d->>'recurso_ref' IS DISTINCT FROM p_propuesta_ref
        OR d->>'principal_id' IS DISTINCT FROM p_aprobacion->>'actor_ref'
+       OR d->>'modulo_id' IS DISTINCT FROM p_modulo_id
        OR d->>'tipo_recurso' IS DISTINCT FROM 'propuesta_categoria'
        OR d->>'finalidad' IS DISTINCT FROM 'gobernar_categorias_rpt'
+       OR d->>'contexto_recurso_huella_sha256' IS DISTINCT FROM contexto_h
+       OR c->>'huella_efecto_sha256' IS DISTINCT FROM contexto_h
        OR d->'campos_permitidos' IS DISTINCT FROM '["gobierno","recibo"]'::jsonb
-       OR d->'obligaciones' IS DISTINCT FROM '[]'::jsonb
-       OR x->>'persona_version' !~ '^[1-9][0-9]{0,15}$'
-       OR x->>'perfil_version' !~ '^[1-9][0-9]{0,15}$' THEN
-        RAISE EXCEPTION 'AD3-134: aprobacion sin atestacion exacta' USING ERRCODE='42501';
+       OR d->'obligaciones' IS DISTINCT FROM '[]'::jsonb THEN
+        RAISE EXCEPTION 'AD3-134: aprobacion historica sin evidencia exacta' USING ERRCODE='42501';
     END IF;
-    ahora:=pg_catalog.date_trunc('microseconds',pg_catalog.clock_timestamp());
-    SELECT * INTO k FROM vec_autorizacion_atestada_v3.clave_capacidad_version
-     WHERE clave_id=c->>'clave_id' AND version=(c->>'clave_version')::numeric FOR SHARE;
-    SELECT * INTO pk FROM vec_autorizacion_atestada_v3.puntero_clave_emision
-     WHERE establecida_en<=ahora ORDER BY orden DESC LIMIT 1 FOR SHARE;
-    SELECT cf.*,cp.configuracion_secuencia_minima,cp.raiz_version_minima INTO cfg
-      FROM vec_autorizacion_atestada_v3.puntero_configuracion_actual p
-      JOIN vec_autorizacion_atestada_v3.configuracion_confianza_version cf ON cf.revision=p.configuracion_revision
-      CROSS JOIN vec_autorizacion_atestada_v3.checkpoint_gobierno cp
-     WHERE p.establecida_en<=ahora ORDER BY p.orden DESC LIMIT 1 FOR SHARE OF p,cf;
-    SELECT r.* INTO raiz FROM vec_autorizacion_atestada_v3.configuracion_raiz cr
-      JOIN vec_autorizacion_atestada_v3.raiz_confianza_version r
-        ON r.clave_id=cr.raiz_clave_id AND r.version=cr.raiz_version
-     WHERE cr.configuracion_revision=cfg.revision AND r.clave_id=c->>'raiz_clave_id'
-       AND r.version=(c->>'raiz_version')::numeric FOR SHARE OF r;
-    IF k.clave_id IS NULL OR pk.clave_id IS NULL OR cfg.revision IS NULL OR raiz.clave_id IS NULL
-       OR k.clave_id IS DISTINCT FROM pk.clave_id OR k.version IS DISTINCT FROM pk.version
-       OR k.revision_gobierno IS DISTINCT FROM (c->>'revision_gobierno')::numeric
-       OR k.huella_gobierno_sha256 IS DISTINCT FROM c->>'huella_gobierno_sha256'
-       OR k.audiencia_consumo IS DISTINCT FROM 'vec_catalogos_configurables.gobierno_categorias.v1'
-       OR k.emisor_id IS DISTINCT FROM c->>'emisor_id'
-       OR ahora<k.valida_desde OR ahora>=k.valida_hasta
-       OR cfg.revision IS DISTINCT FROM c->>'revision_confianza'
-       OR cfg.secuencia IS DISTINCT FROM (c->>'configuracion_secuencia')::numeric
-       OR cfg.secuencia<cfg.configuracion_secuencia_minima
-       OR cfg.huella_configuracion_sha256 IS DISTINCT FROM c->>'huella_configuracion_sha256'
-       OR cfg.expira_en<=ahora
-       OR raiz.version<cfg.raiz_version_minima
-       OR raiz.huella_spki_sha256 IS DISTINCT FROM c->>'huella_raiz_spki_sha256'
-       OR raiz.clave_publica_spki IS DISTINCT FROM t.raiz_publica_spki
-       OR raiz.suite IS DISTINCT FROM c->>'suite'
-       OR raiz.audiencia_despliegue IS DISTINCT FROM c->>'audiencia_despliegue'
-       OR ahora<raiz.valida_desde OR ahora>=raiz.valida_hasta
-       OR ahora>=(c->>'expira_en')::timestamptz
-       OR ahora>=(c->>'decision_valida_hasta')::timestamptz
-       OR EXISTS(SELECT 1 FROM vec_autorizacion_atestada_v3.revocacion_clave_capacidad r
-            WHERE r.clave_id=k.clave_id AND r.version=k.version AND r.revocada_en<=ahora)
-       OR EXISTS(SELECT 1 FROM vec_autorizacion_atestada_v3.revocacion_configuracion r
-            WHERE r.configuracion_revision=cfg.revision AND r.revocada_en<=ahora)
-       OR EXISTS(SELECT 1 FROM vec_autorizacion_atestada_v3.revocacion_raiz r
-            WHERE r.raiz_clave_id=raiz.clave_id AND r.raiz_version=raiz.version AND r.revocada_en<=ahora) THEN
-        RAISE EXCEPTION 'AD3-134: aprobacion sin vigencia' USING ERRCODE='42501';
-    END IF;
-    viva:=vec_autorizacion.revalidar_decision_contexto_actor_v3_viva(
-        t.decision_canonica,t.motivo_canonico,(x->>'persona_version')::numeric,(x->>'perfil_version')::numeric);
-    IF viva IS NULL THEN RAISE EXCEPTION 'AD3-134: aprobacion retirada' USING ERRCODE='42501'; END IF;
 END $f$;
 
 CREATE FUNCTION vec_autorizacion_atestada_v3.ejecutar_gobierno_categoria_rpt_v3_interna(
@@ -425,8 +387,9 @@ BEGIN
                 RAISE EXCEPTION 'AD3-134: primera aprobacion ausente' USING ERRCODE='42501';
             END IF;
             actor_a:=aprobacion->>'actor_ref';
-            PERFORM vec_autorizacion_atestada_v3.revalidar_aprobacion_gobierno_categoria_rpt_v3_interna(
-                aprobacion,p_material->>'propuesta_ref',p_material->>'huella_sha256');
+            PERFORM vec_autorizacion_atestada_v3.acreditar_aprobacion_historica_gobierno_categoria_rpt_v3_interna(
+                aprobacion,p_material->>'propuesta_ref',p_material->>'huella_sha256',
+                p_material->>'catalogo_id',p_material->>'modulo_id');
             aprobacion:=aprobaciones->1;
             IF aprobacion->>'ordinal' IS DISTINCT FROM '2' THEN
                 RAISE EXCEPTION 'AD3-134: segunda aprobacion ausente' USING ERRCODE='42501';
@@ -435,8 +398,9 @@ BEGIN
             IF actor_a IS NOT DISTINCT FROM actor_b THEN
                 RAISE EXCEPTION 'AD3-134: aprobadores coinciden' USING ERRCODE='42501';
             END IF;
-            PERFORM vec_autorizacion_atestada_v3.revalidar_aprobacion_gobierno_categoria_rpt_v3_interna(
-                aprobacion,p_material->>'propuesta_ref',p_material->>'huella_sha256');
+            PERFORM vec_autorizacion_atestada_v3.acreditar_aprobacion_historica_gobierno_categoria_rpt_v3_interna(
+                aprobacion,p_material->>'propuesta_ref',p_material->>'huella_sha256',
+                p_material->>'catalogo_id',p_material->>'modulo_id');
             r:=vec_catalogos_configurables.confirmar_propuesta_gobierno(
                 p_material->>'propuesta_ref',p_material->>'huella_sha256',revision,
                 a.actor_ref,a.decision_ref,a.auditoria_ref,esperado,a.motivo_ref);
@@ -493,7 +457,7 @@ END $f$;
 
 REVOKE ALL ON FUNCTION vec_autorizacion_atestada_v3.autorizar_gobierno_categoria_rpt_v3_interna(
     jsonb,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea),
-    vec_autorizacion_atestada_v3.revalidar_aprobacion_gobierno_categoria_rpt_v3_interna(jsonb,text,text),
+    vec_autorizacion_atestada_v3.acreditar_aprobacion_historica_gobierno_categoria_rpt_v3_interna(jsonb,text,text,text,text),
     vec_autorizacion_atestada_v3.ejecutar_gobierno_categoria_rpt_v3_interna(
     text,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea),
     vec_autorizacion_atestada_v3.proponer_gobierno_categoria_rpt_v3_atestada(
@@ -515,7 +479,7 @@ DECLARE f regprocedure;
 BEGIN
  FOREACH f IN ARRAY ARRAY[
   'vec_autorizacion_atestada_v3.autorizar_gobierno_categoria_rpt_v3_interna(jsonb,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure,
-  'vec_autorizacion_atestada_v3.revalidar_aprobacion_gobierno_categoria_rpt_v3_interna(jsonb,text,text)'::regprocedure,
+  'vec_autorizacion_atestada_v3.acreditar_aprobacion_historica_gobierno_categoria_rpt_v3_interna(jsonb,text,text,text,text)'::regprocedure,
   'vec_autorizacion_atestada_v3.ejecutar_gobierno_categoria_rpt_v3_interna(text,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure,
   'vec_autorizacion_atestada_v3.proponer_gobierno_categoria_rpt_v3_atestada(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure,
   'vec_autorizacion_atestada_v3.aprobar_gobierno_categoria_rpt_v3_atestada(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure,

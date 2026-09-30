@@ -25,7 +25,7 @@ DROP FUNCTION vec_autorizacion_atestada_v3.proponer_gobierno_categoria_rpt_v3_at
  vec_autorizacion_atestada_v3.aprobar_gobierno_categoria_rpt_v3_atestada(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea),
  vec_autorizacion_atestada_v3.confirmar_gobierno_categoria_rpt_v3_atestada(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea);
 DROP FUNCTION vec_autorizacion_atestada_v3.ejecutar_gobierno_categoria_rpt_v3_interna(text,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea);
-DROP FUNCTION vec_autorizacion_atestada_v3.revalidar_aprobacion_gobierno_categoria_rpt_v3_interna(jsonb,text,text);
+DROP FUNCTION vec_autorizacion_atestada_v3.acreditar_aprobacion_historica_gobierno_categoria_rpt_v3_interna(jsonb,text,text,text,text);
 DROP FUNCTION vec_autorizacion_atestada_v3.autorizar_gobierno_categoria_rpt_v3_interna(jsonb,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea);
 REVOKE USAGE ON SCHEMA vec_autorizacion_atestada_v3 FROM vec_catalogos_configurables_gobierno_ejecutor;
 
