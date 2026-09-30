@@ -352,11 +352,13 @@ def registrar_subsanacion(pagina, datos: dict, fiscal: dict,
 
 
 def repetir(contexto_actor, datos: dict, ruta: str, registro: dict, estado_ejecucion: dict):
+    estado_esperado = {RUTA_FISCAL: 201, RUTA_SUBSANACION: 201}.get(ruta)
+    if estado_esperado is None:
+        raise FalloRecorrido("ruta de recuperación no prevista")
     estado_ejecucion["post_posible"] = True
     respuesta = contexto_actor.request.post(datos["origen"] + ruta,
                                             data=registro["solicitud"], timeout=30_000,
                                             max_redirects=0)
-    estado_esperado = 201 if ruta == RUTA_FISCAL else 200
     recibido = envoltorio(respuesta, ruta, (estado_esperado,))
     operacion = ("subsanacion" if ruta == RUTA_SUBSANACION else
                  "favorable" if registro["solicitud"]["resultado"] == "favorable" else "reparo")

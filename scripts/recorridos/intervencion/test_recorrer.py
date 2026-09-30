@@ -65,7 +65,53 @@ class RecorridoSinteticoTest(unittest.TestCase):
         respuesta.status = 201
         respuesta.url = origen + recorrer.RUTA_SUBSANACION
         with self.assertRaisesRegex(FalloRecorrido, "estado HTTP inesperado"):
+            recorrer.repetir(contexto, {"origen": origen}, recorrer.RUTA_FISCAL, registro, estado)
+
+    def test_replay_subsanacion_201_conserva_peticion_y_recibo(self):
+        origen = "https://127.0.0.1:18531"
+        solicitud = {"expediente_ref": "expediente:sintetico:b", "version_esperada": 6,
+                     "observaciones": "Subsanación sintética original.",
+                     "clave_idempotencia": "clave:subsanacion:original"}
+        recibo = {"expediente_ref": solicitud["expediente_ref"], "version_resultante": 7,
+                  "fase_resultante": "subsanacion_unidad", "estado_resultante": "incidencia",
+                  "recibo_ref": "recibo:subsanacion:original",
+                  "registrada_en": "2026-09-29T00:01:00Z",
+                  "auditoria_ref": "auditoria:subsanacion:original",
+                  "evento_ref": "evento:subsanacion:original", "actor_ref": "actor:rrhh:sintetico"}
+        registro = {"solicitud": solicitud.copy(), "recibo": recibo.copy()}
+        respuesta = SimpleNamespace(status=201, url=origen + recorrer.RUTA_SUBSANACION,
+                                    headers={}, json=lambda: {"data": recibo.copy()})
+        peticiones = []
+
+        def post(url, **opciones):
+            peticiones.append({"url": url, **opciones})
+            return respuesta
+
+        contexto = SimpleNamespace(request=SimpleNamespace(post=post))
+        estado = {"post_posible": False}
+        self.assertEqual(recorrer.repetir(contexto, {"origen": origen}, recorrer.RUTA_SUBSANACION,
+                                         registro, estado), 201)
+        self.assertEqual(peticiones, [{"url": origen + recorrer.RUTA_SUBSANACION,
+                                      "data": solicitud, "timeout": 30_000, "max_redirects": 0}])
+        self.assertTrue(estado["post_posible"])
+        for campo in ("recibo_ref", "registrada_en", "auditoria_ref", "evento_ref", "actor_ref"):
+            with self.subTest(campo=campo):
+                respuesta.json = lambda campo=campo: {"data": {**recibo, campo: "cambiado"}}
+                with self.assertRaisesRegex(FalloRecorrido, "el replay cambió"):
+                    recorrer.repetir(contexto, {"origen": origen}, recorrer.RUTA_SUBSANACION,
+                                     registro, estado)
+        respuesta.json = lambda: {"data": recibo.copy()}
+        respuesta.status = 200
+        with self.assertRaisesRegex(FalloRecorrido, "estado HTTP inesperado"):
             recorrer.repetir(contexto, {"origen": origen}, recorrer.RUTA_SUBSANACION, registro, estado)
+        self.assertEqual(registro, {"solicitud": solicitud, "recibo": recibo})
+
+        cantidad = len(peticiones)
+        estado = {"post_posible": False}
+        with self.assertRaisesRegex(FalloRecorrido, "ruta de recuperación no prevista"):
+            recorrer.repetir(contexto, {"origen": origen}, "/api/otro", registro, estado)
+        self.assertEqual(len(peticiones), cantidad)
+        self.assertFalse(estado["post_posible"])
 
     def test_http_excluye_query_cabeceras_y_respuesta(self):
         respuesta = SimpleNamespace(
