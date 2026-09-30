@@ -1,2 +1,9 @@
-# Requiere AD3-113 y Documentos9 instaladas; aplicar una sola vez.
+# NO INSTALAR: AD3-136 UP conserva cuatro huellas NULL y falla cerrada.
+# Fuente de etapa 0: origin/main f63c393befbd7508aa5cded7efabd97460359713.
+# Entrada causal pendiente: prefijo externo y seis RPT de #222 en el orden
+# que resuelva Dirección, seguidos de AD3-133 y AD3-135 definitivas de B.
+# No repetir migraciones ya instaladas en el linaje de partida.
+# También exige AD3-113 y Documentos9; sus definiciones/ACL se miden post-B.
+# Sólo la lista causal definitiva, el clon PG18 y dos GO del hash final
+# habilitarán solicitar ensayo sobre el clon de la principal a Dirección.
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000136_custodia_firmado_nucleo.up.sql
