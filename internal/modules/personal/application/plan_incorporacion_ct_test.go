@@ -240,7 +240,7 @@ func (r *repoPlanCTPrueba) ResolverSeleccion(_ context.Context, o ports.OrdenPla
 func TestPlanCTSeleccionPropietariaNoHaceEfectos(t *testing.T) {
 	d := datosPlanCTPrueba()
 	q := ports.SeleccionPlanIncorporacionCT{SelectorOrganizacionPlanCT: ports.SelectorOrganizacionPlanCT{PlazaRef: d.PlazaRef, PuestoRef: d.PuestoRef, Desde: d.Desde}, OrganismoRef: d.OrganismoRef, Actor: solicitudP(t).Actor}
-	snapshot := domain.SeleccionOrganizacionPlanCT{UnidadRef: d.UnidadRef, OrganismoRef: d.OrganismoRef, PlazaRef: d.PlazaRef, PuestoRef: d.PuestoRef, Desde: d.Desde, RevisionPlaza: 1, RevisionPuesto: 2, VersionPlantillaRef: d.VersionPlantillaRef, VersionRPTRef: d.VersionRPTRef, PlantillaHuellaSHA256: strings.Repeat("a", 64), RPTHuellaSHA256: strings.Repeat("b", 64), FuenteOrganizacionRef: d.FuenteOrganizacionRef, FuenteOrganizacionHuellaSHA256: d.FuenteOrganizacionHuellaSHA256}
+	snapshot := domain.SeleccionOrganizacionPlanCT{RevisionPlantilla: 1, RevisionRPT: 2, UnidadRef: d.UnidadRef, OrganismoRef: d.OrganismoRef, PlazaRef: d.PlazaRef, PuestoRef: d.PuestoRef, Desde: d.Desde, RevisionPlaza: 1, RevisionPuesto: 2, VersionPlantillaRef: d.VersionPlantillaRef, VersionRPTRef: d.VersionRPTRef, PlantillaHuellaSHA256: strings.Repeat("a", 64), RPTHuellaSHA256: strings.Repeat("b", 64), FuenteOrganizacionRef: d.FuenteOrganizacionRef, FuenteOrganizacionHuellaSHA256: d.FuenteOrganizacionHuellaSHA256}
 	repo := &repoPlanCTPrueba{seleccion: &snapshot}
 	actos := &actosPlanCTPrueba{r: repo}
 	s, _ := NuevoServicioPlanIncorporacionCT(&autorizadorPlanCTPrueba{t: t}, repo, actos, &fuenteReservaPlanCTPrueba{err: domain.ErrRegistroEmpleadoB2NoDisponible})

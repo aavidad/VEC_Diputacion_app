@@ -82,7 +82,7 @@ func TestPlanCTSeleccionLigaRevisionesFuenteYActor(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	s := SeleccionOrganizacionPlanCT{UnidadRef: "uni:uno", OrganismoRef: q.OrganismoRef, PlazaRef: q.PlazaRef, PuestoRef: q.PuestoRef, Desde: q.Desde, RevisionPlaza: 1, RevisionPuesto: 2, VersionPlantillaRef: "plantilla:uno", VersionRPTRef: "rpt:uno", PlantillaHuellaSHA256: strings.Repeat("a", 64), RPTHuellaSHA256: strings.Repeat("b", 64), FuenteOrganizacionRef: "fuente:org", FuenteOrganizacionHuellaSHA256: strings.Repeat("c", 64)}
+	s := SeleccionOrganizacionPlanCT{RevisionPlantilla: 1, RevisionRPT: 2, UnidadRef: "uni:uno", OrganismoRef: q.OrganismoRef, PlazaRef: q.PlazaRef, PuestoRef: q.PuestoRef, Desde: q.Desde, RevisionPlaza: 1, RevisionPuesto: 2, VersionPlantillaRef: "plantilla:uno", VersionRPTRef: "rpt:uno", PlantillaHuellaSHA256: strings.Repeat("a", 64), RPTHuellaSHA256: strings.Repeat("b", 64), FuenteOrganizacionRef: "fuente:org", FuenteOrganizacionHuellaSHA256: strings.Repeat("c", 64)}
 	if e := s.ValidarPara(m); e != nil {
 		t.Fatal(e)
 	}

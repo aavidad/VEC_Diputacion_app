@@ -195,6 +195,8 @@ type SolicitudSeleccionPlanIncorporacionCT struct {
 	Actor        core.ContextoActor
 }
 type SeleccionOrganizacionPlanCT struct {
+	RevisionPlantilla              int64      `json:"revision_plantilla"`
+	RevisionRPT                    int64      `json:"revision_rpt"`
 	UnidadRef                      string     `json:"unidad_ref"`
 	OrganismoRef                   string     `json:"organismo_ref"`
 	PlazaRef                       string     `json:"plaza_ref"`
@@ -241,7 +243,7 @@ func NuevoMaterialSeleccionPlanIncorporacionCT(s SolicitudSeleccionPlanIncorpora
 func (m MaterialPlanIncorporacionCT) Seleccion() SelectorOrganizacionPlanCT { return m.seleccion }
 func (s SeleccionOrganizacionPlanCT) ValidarPara(m MaterialPlanIncorporacionCT) error {
 	q := m.Seleccion()
-	if !patronReferenciaB2.MatchString(s.UnidadRef) || m.Operacion() != "seleccionar" || s.OrganismoRef != m.OrganismoRef() || s.PlazaRef != q.PlazaRef || s.PuestoRef != q.PuestoRef || s.Desde != q.Desde || s.RevisionPlaza < 1 || s.RevisionPuesto < 1 || !patronReferenciaB2.MatchString(s.VersionPlantillaRef) || !patronReferenciaB2.MatchString(s.VersionRPTRef) || !patronReferenciaB2.MatchString(s.FuenteOrganizacionRef) || !huellaRegistroDominioB2Valida(s.PlantillaHuellaSHA256) || !huellaRegistroDominioB2Valida(s.RPTHuellaSHA256) || !huellaRegistroDominioB2Valida(s.FuenteOrganizacionHuellaSHA256) {
+	if !patronReferenciaB2.MatchString(s.UnidadRef) || m.Operacion() != "seleccionar" || s.OrganismoRef != m.OrganismoRef() || s.PlazaRef != q.PlazaRef || s.PuestoRef != q.PuestoRef || s.Desde != q.Desde || s.RevisionPlaza < 1 || s.RevisionPuesto < 1 || s.RevisionPlantilla < 1 || s.RevisionRPT < 1 || !patronReferenciaB2.MatchString(s.VersionPlantillaRef) || !patronReferenciaB2.MatchString(s.VersionRPTRef) || !patronReferenciaB2.MatchString(s.FuenteOrganizacionRef) || !huellaRegistroDominioB2Valida(s.PlantillaHuellaSHA256) || !huellaRegistroDominioB2Valida(s.RPTHuellaSHA256) || !huellaRegistroDominioB2Valida(s.FuenteOrganizacionHuellaSHA256) {
 		return ErrRegistroEmpleadoB2Invalido
 	}
 	return nil
