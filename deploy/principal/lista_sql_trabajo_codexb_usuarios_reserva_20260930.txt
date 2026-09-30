@@ -1,0 +1,2 @@
+# Correctiva U16 posterior a U14 y U15 instaladas; no reaplicar ni ejecutar DOWN.
+deploy/postgresql/usuarios_vec/migraciones/000016_reserva_aviso_externo_estado.up.sql

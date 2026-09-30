@@ -1,5 +1,20 @@
 # Usuarios 5.08a: preferencias propias
 
+## Correctiva U16 de la reserva de avisos externos
+
+Con un correo externo activo y verificado, U14 llegaba a una consulta en la
+que `estado` podía significar la columna del correo o una variable de la
+función. PostgreSQL devolvía `42702` y revertía la reserva. U16 califica las
+tres columnas de esa consulta con el alias de `correos_direccion`; no cambia
+el resto del caso de uso. Exige la huella exacta del cuerpo previo y comprueba
+que la función conserva firma, OID, propietario, ACL y configuración. Se aplica
+una sola vez después de U14/U15, sin repetirlas ni revertir su historia.
+
+`pruebas_sql/u16_reserva_correo_verificado.sql` requiere un clon sintético con
+un aviso ya aceptado y una persona candidata externa con correo propio activo
+y verificado. En `ROLLBACK` comprueba reserva, sobre acotado, auditoría y replay
+sin otro token ni dirección. La prueba no envía correo ni acredita entrega.
+
 ## Orden causal
 
 1. Núcleo de autorización V3 hasta AD3-105, incluyendo AD3-101, y ContextoActor certificado. AD3-102/103 y AD3-104/105 siguen su propio orden de instalación; su presencia en Git no acredita instalación en ninguna base.
