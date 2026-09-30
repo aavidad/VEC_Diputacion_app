@@ -29,14 +29,18 @@ class HelperTests(unittest.TestCase):
         self.assertEqual(SQL.plan_hash(rows), SQL.REF_PLAN_SHA[SQL.H6_FIRMA_REF])
         self.assertEqual(len(SQL.H6_FIRMA_WITHHELD), 23)
         self.assertTrue(SQL.H6_FIRMA_WITHHELD.keys().isdisjoint({r["path"] for r in rows}))
-        inventory, _ = SQL.GitSource(REPO).inventory(SQL.H6_FIRMA_REF)
-        up_paths = {item["path"] for item in inventory
-                    if item["path"].endswith((".up.sql", "_up.sql"))}
-        self.assertEqual(up_paths, {r["path"] for r in rows} | SQL.H6_FIRMA_WITHHELD.keys())
+        source = SQL.GitSource(REPO)
+        inventory_before, _ = source.inventory(SQL.H6_REF)
+        inventory_after, _ = source.inventory(SQL.H6_FIRMA_REF)
+        up_paths = lambda entries: {item["path"] for item in entries
+                                    if item["path"].endswith((".up.sql", "_up.sql"))}
+        self.assertEqual(up_paths(inventory_after) - up_paths(inventory_before),
+                         {r["path"] for r in rows[41:]} |
+                         (SQL.H6_FIRMA_WITHHELD.keys() - SQL.H6_WITHHELD.keys()))
         self.assertEqual(SQL.plan_path(SQL.H6_FIRMA_REF)[-2:], (SQL.H6_REF, SQL.H6_FIRMA_REF))
         plan = SQL.validate_git_source(SQL.H6_FIRMA_REF, REPO)
-        self.assertEqual((plan["file_count"], plan["plan_family"], plan["execution_manifest"]),
-                         (44, "h6_44", "sql_main_h6_firma.txt"))
+        self.assertEqual((plan["file_count"], plan["plan_family"], plan["execution_manifest"], plan["status"]),
+                         (44, "h6_44", "sql_main_h6_firma.txt", "proposed"))
         for relative in SQL.H6_FIRMA_WITHHELD:
             with self.subTest(relative=relative):
                 contents = {r["path"]: r["sql"].encode() for r in rows}
@@ -402,11 +406,11 @@ class HelperTests(unittest.TestCase):
         plan = {"source_ref": target, "approved_sql_ref": target,
                 "file_count": target_count, "entries": target_rows,
                 "plan_family": SQL.plan_family(target),
-                "execution_manifest": (SQL.H6_MANIFEST if target == SQL.H6_REF else SQL.MANIFEST).name}
+                "execution_manifest": SQL.execution_manifest(target).name}
         current = {"source_ref": approved, "approved_sql_ref": approved,
                    "file_count": count, "entries": rows[:count], "inventory_sha": "c" * 64,
                    "plan_family": SQL.plan_family(approved),
-                   "execution_manifest": (SQL.H6_MANIFEST if approved == SQL.H6_REF else SQL.MANIFEST).name}
+                   "execution_manifest": SQL.execution_manifest(approved).name}
         refs = SQL.plan_path(approved)[1:]
         record = {"run_id": "580a6b83-822d-4137-87d5-22d3b8c590e7", "source_ref": SQL.BASE_REF,
                   "plan_sha": SQL.REF_PLAN_SHA[SQL.BASE_REF], "current_source_ref": approved,
@@ -441,12 +445,11 @@ class HelperTests(unittest.TestCase):
                 self.assertEqual(journal.read_bytes(), original)
 
     def test_steps_refuses_foreign_malformed_incomplete_or_gapped_journal(self):
-        for invalid in ("ref", "hash", "gap", "incomplete", "date", "uuid", "source"):
+        for invalid in ("ref", "hash", "gap", "date", "uuid", "source"):
             plan, current, record = self.planner_fixture()
             if invalid == "ref": record["source_ref"] = "a" * 40
             elif invalid == "hash": record["plan_sha"] = "a" * 64
             elif invalid == "gap": record["revisions"][0]["revision"] = 4
-            elif invalid == "incomplete": record["installed"].pop()
             elif invalid == "date": record["installed"][0]["installed_at"] = "fecha inválida"
             elif invalid == "uuid": record["run_id"] = "otro clon"
             else: current["approved_sql_ref"] = SQL.THIRD_REF
@@ -505,10 +508,71 @@ class HelperTests(unittest.TestCase):
         plan, current, record43 = self.planner_fixture(SQL.MAIN_REF, SQL.H6_FIRMA_REF)
         with tempfile.TemporaryDirectory() as scratch:
             (Path(scratch) / "sql-journal.json").write_text(json.dumps(record43))
-            with patch.object(SQL, "approved_source_plan", return_value=plan), \
+            with patch.object(SQL, "PROPOSED_REFS", set()), \
+                    patch.object(SQL, "approved_source_plan", return_value=plan), \
                     patch.object(SQL, "validate_git_source", return_value=current):
                 with self.assertRaisesRegex(SQL.Refused, "familia"):
                     SQL.etapas_requeridas(REPO, REPO, SQL.H6_FIRMA_REF, Path(scratch))
+
+    def test_steps_reanuda_revision_44_con_41_recibos_tras_caida(self):
+        plan, current, record = self.planner_fixture(SQL.H6_FIRMA_REF, SQL.H6_FIRMA_REF)
+        record["installed"] = record["installed"][:41]
+        with tempfile.TemporaryDirectory() as scratch:
+            state = Path(scratch)
+            (state / "sql-journal.json").write_text(json.dumps(record))
+            with patch.object(SQL, "PROPOSED_REFS", set()), \
+                    patch.object(SQL, "approved_source_plan", return_value=plan), \
+                    patch.object(SQL, "validate_git_source", return_value=current):
+                self.assertEqual(SQL.etapas_requeridas(REPO, REPO, SQL.H6_FIRMA_REF, state),
+                                 [SQL.H6_FIRMA_REF])
+
+    def test_plan_44_propuesto_no_llega_a_postgresql(self):
+        rows = SQL.load_plan(REPO, source_ref=SQL.H6_FIRMA_REF)
+        plan = SQL.validate_git_source(SQL.H6_FIRMA_REF, REPO)
+        with patch.object(SQL.DockerDB, "check_owner") as check_owner:
+            with self.assertRaisesRegex(SQL.Refused, "propuesto"):
+                SQL.apply(SQL.DockerDB("vec-test"), rows, Path("/irrelevant"),
+                          SQL.H6_FIRMA_REF, plan)
+        check_owner.assert_not_called()
+        with self.assertRaisesRegex(SQL.Refused, "propuesto"):
+            SQL.require_installable(SQL.H6_FIRMA_REF)
+
+    def test_ready_exige_recibos_vivos_y_acl_actual(self):
+        rows = SQL.load_plan(REPO, source_ref=SQL.H6_REF)
+        plan = {"approved_sql_ref": SQL.H6_REF, "plan_sha": SQL.REF_PLAN_SHA[SQL.H6_REF],
+                "inventory_sha": "inventario", "file_count": len(rows), "entries": rows}
+        installed = [{"position": i, "path": row["path"], "sha256": row["sha256"]}
+                     for i, row in enumerate(rows, 1)]
+        record = {"source_ref": SQL.BASE_REF, "plan_sha": SQL.REF_PLAN_SHA[SQL.BASE_REF],
+                  "approved_sql_ref": SQL.H6_REF, "current_source_ref": SQL.H6_REF,
+                  "current_plan_sha": plan["plan_sha"], "inventory_sha": "inventario",
+                  "installed": installed}
+        actual = {"base_ref": record["source_ref"], "base_sha": record["plan_sha"],
+                  "last_ref": SQL.H6_REF, "last_sha": plan["plan_sha"]}
+
+        class Database:
+            def __init__(self, acl):
+                self.acl = acl
+                self.queries = 0
+            def check_owner(self):
+                return None
+            def query(self, _):
+                self.queries += 1
+                return json.dumps(actual) if self.queries == 1 else self.acl
+
+        with tempfile.TemporaryDirectory() as scratch:
+            state = Path(scratch)
+            (state / "sql-journal.json").write_text(json.dumps(record))
+            with patch.object(SQL, "approved_source_plan", return_value=plan), \
+                    patch.object(SQL, "load_plan", return_value=rows), \
+                    patch.object(SQL, "receipts", return_value=installed):
+                SQL.verify_live(Database("t"), REPO, REPO, SQL.H6_REF, state)
+                with self.assertRaisesRegex(SQL.Refused, "ACL"):
+                    SQL.verify_live(Database("f"), REPO, REPO, SQL.H6_REF, state)
+                record["installed"] = installed[:-1]
+                (state / "sql-journal.json").write_text(json.dumps(record))
+                with self.assertRaisesRegex(SQL.Refused, "divergen"):
+                    SQL.verify_live(Database("t"), REPO, REPO, SQL.H6_REF, state)
 
     def test_h6_steps_fresh_38_39_and_complete_41(self):
         plan, _, _ = self.planner_fixture(target=SQL.H6_REF)

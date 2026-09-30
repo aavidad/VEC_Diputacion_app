@@ -10,8 +10,10 @@ class PublicacionReadyTests(unittest.TestCase):
     def test_inventario_sql_se_valida_antes_de_restaurar_h1(self):
         source = Path(__file__).with_name('preparar_clon.sh').read_text()
         preflight = source.index('"$guiones/clon_sql.py" --repo "$repo" --git-repo "$repo" --source-ref "$commit" --plan')
+        installable = source.index('"$guiones/clon_sql.py" --repo "$repo" --git-repo "$repo" --source-ref "$commit" --installable')
         restore = source.index('docker run --rm --network none -v "$pgdata:/datos"', preflight)
         self.assertLess(preflight, restore)
+        self.assertLess(installable, restore)
 
     def comprobar_publicacion(self, resultado):
         source = Path(__file__).with_name('preparar_clon.sh').read_text()

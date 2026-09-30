@@ -80,6 +80,16 @@ trap limpiar_restauracion_incompleta EXIT
 
 publicar_ready() {
 runtime verify || return $?
+local fuente_actual
+fuente_actual=$(python3 - "$marcador" <<'PY'
+import json,re,sys
+commit=json.load(open(sys.argv[1]))['commit']
+assert re.fullmatch('[0-9a-f]{40}',commit)
+print(commit)
+PY
+)
+python3 "$guiones/clon_sql.py" --repo "$estado/fuente-$fuente_actual" --git-repo "$repo" \
+  --source-ref "$fuente_actual" --container "$nombre" --state-dir "$estado" --verify-live || return $?
 python3 - "$estado" <<'PY'
 import hashlib,json,pathlib,subprocess,sys
 s=pathlib.Path(sys.argv[1]); original=json.loads((s/'material-manifest.json').read_text()); r=json.loads((s/'runtime-process.json').read_text()); j=json.loads((s/'sql-journal.json').read_text())
@@ -231,6 +241,7 @@ if [[ "$accion" == plan ]]; then
   python3 "$guiones/clon_sql.py" --repo "$repo" --git-repo "$repo" --source-ref "$commit" --container "$nombre" --state-dir "$estado" --plan
   exit
 fi
+python3 "$guiones/clon_sql.py" --repo "$repo" --git-repo "$repo" --source-ref "$commit" --installable
 if [[ -e "$marcador" ]]; then
   registro_propio
   anterior=$(python3 - "$marcador" <<'PY'

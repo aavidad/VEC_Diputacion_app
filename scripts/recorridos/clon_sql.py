@@ -54,6 +54,7 @@ REF_PARENT = {BASE_REF: None, PREVIOUS_REF: BASE_REF, THIRD_REF: PREVIOUS_REF,
               FOURTH_REF: THIRD_REF, FIFTH_REF: FOURTH_REF,
               MAIN_REF: FIFTH_REF, H6_REF: FIFTH_REF, H6_FIRMA_REF: H6_REF}
 RECOVERY_ONLY_REFS = {MAIN_REF}
+PROPOSED_REFS = {H6_FIRMA_REF}
 REF_PLAN_SHA = {
     BASE_REF: "70795c1580e550e2ccc8927bf50cf7130f73ca282d6069f74ba7e697f79e6be0",
     PREVIOUS_REF: "00d8dbaacd881a6945a33dd188e94e136b054f4e96a8ac29bdcb039637fc891c",
@@ -133,6 +134,11 @@ def plan_path(source_ref):
 
 def plan_family(source_ref):
     return {H6_REF: "h6_41", H6_FIRMA_REF: "h6_44", MAIN_REF: "retained_43"}.get(source_ref, "common_prefix")
+
+
+def require_installable(approved_ref):
+    if approved_ref in PROPOSED_REFS:
+        raise Refused("plan SQL propuesto: falta revisión y ensayo antes de instalar")
 
 
 def validate_history(original, revisions):
@@ -306,7 +312,8 @@ def validate_git_source(source_ref, git_repo=None):
         raise Refused("SQL distinto del plan aprobado; requiere revisión de un plan nuevo")
     rows = load_plan(None, source_ref=approved, contents=contents)
     return {"source_ref": source_ref, "approved_sql_ref": approved,
-            "status": "recovery_only" if approved in RECOVERY_ONLY_REFS else "installable",
+            "status": ("proposed" if approved in PROPOSED_REFS else
+                       "recovery_only" if approved in RECOVERY_ONLY_REFS else "installable"),
             "plan_family": plan_family(approved),
             "execution_manifest": execution_manifest(approved).name,
             "plan_sha": plan_hash(rows), "inventory_sha": sha(json.dumps(actual, sort_keys=True).encode()),
@@ -368,6 +375,50 @@ def validate_receipts(installed, plan, complete=True):
             raise Refused("recibos incompatibles o incompletos; no reaplicar")
 
 
+def verify_live(db, repo, git_repo, source_ref, state):
+    """Acredita recibos y ACL actuales con consultas de solo lectura antes de READY."""
+    plan = approved_source_plan(repo, source_ref, git_repo)
+    require_installable(plan["approved_sql_ref"])
+    rows = load_plan(repo, source_ref=plan["approved_sql_ref"])
+    db.check_owner()
+    installed = receipts(db, rows)
+    validate_receipts(installed, plan)
+    journal = state / "sql-journal.json"
+    if journal.is_symlink() or not journal.is_file() or journal.stat().st_size > 2 * 1024 * 1024:
+        raise Refused("journal SQL ausente o inválido para READY")
+    record = json.loads(journal.read_text())
+    if not isinstance(record, dict):
+        raise Refused("journal SQL inválido para READY")
+    if (record.get("installed") != installed or record.get("current_source_ref") != source_ref
+            or record.get("approved_sql_ref") != plan["approved_sql_ref"]
+            or record.get("current_plan_sha") != plan["plan_sha"]
+            or record.get("inventory_sha") != plan["inventory_sha"]):
+        raise Refused("journal y base divergen; no publicar READY")
+    actual = json.loads(db.query(f"""SELECT json_build_object(
+      'base_ref',p.source_ref,'base_sha',p.plan_sha,
+      'last_ref',coalesce((SELECT r.source_ref FROM {SCHEMA}.plan_revisions r ORDER BY r.revision DESC LIMIT 1),p.source_ref),
+      'last_sha',coalesce((SELECT r.plan_sha FROM {SCHEMA}.plan_revisions r ORDER BY r.revision DESC LIMIT 1),p.plan_sha)
+      ) FROM {SCHEMA}.plan p WHERE p.singleton;"""))
+    if (actual.get("base_ref") != record.get("source_ref")
+            or actual.get("base_sha") != record.get("plan_sha")
+            or actual.get("last_ref") != plan["approved_sql_ref"]
+            or actual.get("last_sha") != plan["plan_sha"]):
+        raise Refused("plan SQL vivo distinto del journal; no publicar READY")
+    acl_safe = db.query("""SELECT NOT EXISTS (
+      SELECT 1 FROM pg_catalog.pg_database d
+      CROSS JOIN LATERAL pg_catalog.aclexplode(
+        coalesce(d.datacl,pg_catalog.acldefault('d',d.datdba))) a
+      WHERE d.datname=current_database() AND a.grantee=0
+    ) AND NOT EXISTS (
+      SELECT 1 FROM pg_catalog.pg_roles r WHERE r.rolcanlogin
+        AND left(r.rolname,4)='vec_'
+        AND (pg_catalog.has_database_privilege(r.oid,current_database(),'TEMP')
+             OR pg_catalog.has_database_privilege(r.oid,current_database(),'CREATE'))
+    );""")
+    if acl_safe != "t":
+        raise Refused("ACL de la base cambió; no publicar READY")
+
+
 def etapas_requeridas(repo, git_repo, source_ref, state):
     """Consejo RO para el orquestador; nunca sustituye las comprobaciones de BD.
 
@@ -376,6 +427,7 @@ def etapas_requeridas(repo, git_repo, source_ref, state):
     coteja su run_id y sus recibos con PostgreSQL antes de cada UP.
     """
     target = approved_source_plan(repo, source_ref, git_repo)
+    require_installable(target["approved_sql_ref"])
     target_path = plan_path(target["approved_sql_ref"])
     journal = Path(state) / "sql-journal.json"
     if not journal.exists() and not journal.is_symlink():
@@ -410,7 +462,9 @@ def etapas_requeridas(repo, git_repo, source_ref, state):
                 raise Refused("la familia o manifiesto del journal no coincide con Git")
         if "file_count" in record and record["file_count"] != current_plan["file_count"]:
             raise Refused("el número físico de SQL del journal no coincide con su plan")
-        validate_receipts(record["installed"], current_plan)
+        # Una caída puede ocurrir tras reconocer la revisión y antes de su
+        # última UP. El instalador coteja además estos recibos con PostgreSQL.
+        validate_receipts(record["installed"], current_plan, complete=False)
         if any(datetime.fromisoformat(r["installed_at"]).tzinfo is None
                for r in record["installed"]):
             raise Refused("el journal conserva recibos sin fecha válida")
@@ -419,6 +473,8 @@ def etapas_requeridas(repo, git_repo, source_ref, state):
         completed = target_path.index(recognized)
         if target["approved_sql_ref"] in RECOVERY_ONLY_REFS and recognized != target["approved_sql_ref"]:
             raise Refused("plan 43 retirado para nuevas instalaciones; requiere una fuente corregida aprobada")
+        if len(record["installed"]) < current_plan["file_count"]:
+            return list(target_path[completed:])
         return list(target_path[completed + 1:])
     except (KeyError, TypeError, ValueError, AttributeError) as error:
         raise Refused("el journal tiene metadatos inválidos o incompletos") from error
@@ -635,8 +691,9 @@ def apply(db, rows, state, source_ref=MAIN_REF, source_plan=None):
     if source_plan and (source_plan["source_ref"] != source_ref
                         or source_plan["plan_sha"] != plan_hash(rows)):
         raise Refused("la procedencia y el plan SQL no coinciden")
-    db.check_owner()
     approved_ref = source_plan["approved_sql_ref"] if source_plan else source_ref
+    require_installable(approved_ref)
+    db.check_owner()
     if len(rows) != REF_COUNTS.get(approved_ref) or plan_hash(rows) != REF_PLAN_SHA.get(approved_ref):
         raise Refused("el plan SQL no corresponde a su referencia aprobada")
     if approved_ref in RECOVERY_ONLY_REFS:
@@ -682,8 +739,19 @@ def main(argv=None):
     parser.add_argument("--container")
     parser.add_argument("--state-dir", type=Path)
     parser.add_argument("--plan", action="store_true")
+    parser.add_argument("--installable", action="store_true", help="rechaza un plan aún propuesto sin tocar el clon")
+    parser.add_argument("--verify-live", action="store_true", help="coteja recibos y ACL reales antes de READY")
     parser.add_argument("--steps", action="store_true", help="etapas pendientes, consejo JSON sin Docker/BD")
     args = parser.parse_args(argv)
+    if args.installable:
+        require_installable(validate_git_source(args.source_ref, args.git_repo)["approved_sql_ref"])
+        return
+    if args.verify_live:
+        if not args.container or not args.state_dir:
+            raise Refused("la verificación viva exige clon y estado")
+        verify_live(DockerDB(args.container, args.state_dir.resolve()), args.repo,
+                    args.git_repo, args.source_ref, args.state_dir.resolve())
+        return
     if args.steps:
         if not args.state_dir:
             raise Refused("--steps exige --state-dir")
