@@ -13,9 +13,9 @@ import (
 	"vec-diputacion-granada/config"
 )
 
-func TestCatalogoAreaPersonalSoloEnSuperficieIntegrada(t *testing.T) {
-	const rutaFuente = "static/area-personal/locales/es.json"
-	const rutaHTTP = "/area-personal/locales/es.json"
+func TestCatalogoAreaPersonalComunConservaBytesEnSuperficies(t *testing.T) {
+	const rutaFuente = "static/textos/es/area-personal.json"
+	const rutaHTTP = "/textos/es/area-personal.json"
 	contenido, err := os.ReadFile("../../../web/" + rutaFuente)
 	if err != nil {
 		t.Fatal(err)
@@ -75,8 +75,8 @@ func TestCatalogoAreaPersonalSoloEnSuperficieIntegrada(t *testing.T) {
 					handler http.Handler
 					estado  int
 				}{
-					{"publica", publica, http.StatusNotFound},
-					{"interna", interna, http.StatusNotFound},
+					{"publica", publica, http.StatusOK},
+					{"interna", interna, http.StatusOK},
 				} {
 					respuesta := httptest.NewRecorder()
 					superficie.handler.ServeHTTP(respuesta, peticionServidorPrueba(metodo, ruta, nil))
@@ -86,8 +86,14 @@ func TestCatalogoAreaPersonalSoloEnSuperficieIntegrada(t *testing.T) {
 					if superficie.nombre == "publica" && respuesta.Header().Get("Location") != "" {
 						t.Fatalf("redirección pública = %q; esperado vacío", respuesta.Header().Get("Location"))
 					}
-					if bytes.Equal(respuesta.Body.Bytes(), contenido) {
-						t.Fatalf("%s sirvió los bytes del catálogo", superficie.nombre)
+					if superficie.estado == http.StatusOK && metodo == http.MethodGet && !bytes.Equal(respuesta.Body.Bytes(), contenido) {
+						t.Fatalf("%s no conserva los bytes del catálogo común", superficie.nombre)
+					}
+					if metodo == http.MethodHead && respuesta.Body.Len() != 0 {
+						t.Fatalf("%s HEAD devolvió cuerpo", superficie.nombre)
+					}
+					if respuesta.Header().Get("Cache-Control") != "no-store" {
+						t.Fatalf("%s no conserva no-store", superficie.nombre)
 					}
 				}
 			})
@@ -95,7 +101,7 @@ func TestCatalogoAreaPersonalSoloEnSuperficieIntegrada(t *testing.T) {
 	}
 
 	respuesta := httptest.NewRecorder()
-	integrada.ServeHTTP(respuesta, peticionServidorPrueba(http.MethodGet, "/area-personal/locales/otro.json", nil))
+	integrada.ServeHTTP(respuesta, peticionServidorPrueba(http.MethodGet, "/textos/es/catalogo-inexistente.json", nil))
 	if respuesta.Code != http.StatusNotFound {
 		t.Fatalf("otro catálogo = %d; esperado 404", respuesta.Code)
 	}

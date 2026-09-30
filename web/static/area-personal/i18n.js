@@ -1,112 +1,75 @@
-import * as idiomaComun from "../comun/idioma.js?v=20260929-pref-508a-v1";
+/**
+ * Textos del área personal.
+ *
+ * Viven en `textos/<idioma>/area-personal.json` y, para «Mis preferencias», en
+ * la sección `areaPersonal` de `textos/<idioma>/preferencias.json`; se leen con
+ * el lector común (`comun/textos.js`). Las pantallas usan claves planas
+ * `areaPersonal.<sección>.<clave>`: este módulo aplana el catálogo anidado. En
+ * una sección, la clave `_` es el mensaje de la propia sección cuando esta
+ * también tiene mensajes hijos (`…explicacion` y `…explicacion.disponible`).
+ *
+ * El idioma sigue a la URL (`?lang=`), después a la preferencia guardada de la
+ * persona y por último al navegador (`comun/idioma.js`). Mientras no se cargue
+ * el catálogo elegido se usa el del idioma por defecto.
+ */
+import { IDIOMA_POR_DEFECTO, localizacionDe, resolverIdiomaNavegacion } from "../comun/idioma.js";
+import { cargarTextos, esMensajePlural } from "../comun/textos.js";
 
-const RUTAS_CATALOGO = Object.freeze({
-  es: "/area-personal/locales/es.json",
-  en: "/area-personal/locales/en.json",
-});
+const PREFIJO = "areaPersonal";
+const PATRON_VARIABLE = /\{([A-Za-z_][A-Za-z0-9_]*)\}/gu;
 
-function idiomaURL(ubicacion) {
-  try { return new URL(ubicacion?.href).searchParams.get("lang") ?? ""; }
-  catch { return ""; }
+function aplanar(seccion, prefijo, salida = {}) {
+  for (const [clave, valor] of Object.entries(seccion)) {
+    const ruta = clave === "_" ? prefijo : `${prefijo}.${clave}`;
+    if (typeof valor === "string" || esMensajePlural(valor)) salida[ruta] = valor;
+    else aplanar(valor, ruta, salida);
+  }
+  return salida;
 }
-const respaldo = Object.freeze({
-  "areaPersonal.rutas.inicio": "Inicio y plazos", "areaPersonal.rutas.convocatorias": "Convocatorias", "areaPersonal.rutas.oportunidades": "Oportunidades para ti", "areaPersonal.rutas.convocatoria": "Detalle de convocatoria", "areaPersonal.rutas.perfil": "Perfil y contacto", "areaPersonal.rutas.meritos": "Méritos y documentos", "areaPersonal.rutas.solicitud": "Nueva solicitud", "areaPersonal.rutas.autobaremacion": "Autobaremación", "areaPersonal.rutas.seguimiento": "Mis expedientes", "areaPersonal.rutas.llamamientos": "Disponibilidad y llamamientos", "areaPersonal.rutas.subsanaciones": "Subsanaciones", "areaPersonal.rutas.alegaciones": "Alegaciones", "areaPersonal.rutas.mensajes": "Mensajes y noticias", "areaPersonal.rutas.certificados": "Certificados y descargas", "areaPersonal.rutas.ayuda": "Ayuda y accesibilidad",
-  "areaPersonal.tabla.sinResultados": "Sin resultados", "areaPersonal.tabla.sinRegistros": "No hay registros para mostrar.",
-  "areaPersonal.estado.error.titulo": "No se pudo cargar el área personal", "areaPersonal.estado.error.detalle": "Servicio no disponible.", "areaPersonal.estado.error.garantia": "No se muestran datos aparentes y no se ha realizado ninguna operación.", "areaPersonal.estado.error.reintentar": "Reintentar conexión segura",
-  "areaPersonal.estado.error.autenticacion.titulo": "Identifíquese para consultar su bolsa",
-  "areaPersonal.estado.error.autenticacion.detalle": "Use su DNIe o certificado para continuar.",
-  "areaPersonal.estado.error.acceso.titulo": "No tiene acceso a esta área personal",
-  "areaPersonal.estado.error.acceso.detalle": "El servicio no ha autorizado esta consulta para su identidad.",
-  "areaPersonal.estado.error.acceso.garantia": "No se muestran datos de otra persona.",
-  "areaPersonal.estado.error.recurso.titulo": "No se pudo acceder a la información solicitada",
-  "areaPersonal.estado.error.recurso.detalle": "No hay una consulta disponible para esta identidad y ámbito.",
-  "areaPersonal.estado.error.servicio.detalle": "El servicio no está disponible temporalmente. Vuelva a intentarlo más tarde.",
-  "areaPersonal.estado.error.red.detalle": "No se pudo establecer una conexión segura con el servicio.",
-  "areaPersonal.estado.error.carga.garantia": "No se muestran datos ni se confirma el resultado de operaciones anteriores.",
-  "areaPersonal.capacidad.noHabilitada": "{operacion} no está habilitada para la identidad y el expediente actuales.", "areaPersonal.capacidad.accionNoReconocida": "La acción no está reconocida por esta superficie.", "areaPersonal.capacidad.operacionNoDisponible": "Operación no disponible.", "areaPersonal.documento.noDisponible": "El documento solicitado no está disponible en el ámbito actual.",
-  "areaPersonal.miBolsa.situacion.titulo": "Última situación registrada de mi participación",
-  "areaPersonal.miBolsa.ordenInicial": "Mi número de orden inicial", "areaPersonal.miBolsa.vigenciaBolsa": "Vigencia de la bolsa",
-  "areaPersonal.miBolsa.identidad.noFacilitada": "Identidad no facilitada", "areaPersonal.miBolsa.identidad.metodoNoFacilitado": "Método no facilitado", "areaPersonal.miBolsa.identidad.valorNoFacilitado": "No facilitado",
-  "areaPersonal.sesion.titulo": "Identidad y contexto de sesión", "areaPersonal.sesion.persona": "Persona", "areaPersonal.sesion.referencia": "Referencia", "areaPersonal.sesion.metodo": "Método", "areaPersonal.sesion.origen": "Origen", "areaPersonal.sesion.origenSintetico": "Identidad sintética. No existe autenticación, certificado ni persona real.", "areaPersonal.sesion.autoridadServidor": "La autoridad efectiva se comprueba en el servidor para cada operación.",
-  "areaPersonal.ayuda.descripcion": "Guías, preguntas frecuentes y opciones de lectura.", "areaPersonal.ayuda.guia.titulo": "Guía de uso", "areaPersonal.ayuda.guia.subtitulo": "Texto completo de la ayuda", "areaPersonal.ayuda.guia.encabezado": "Leer esta ayuda", "areaPersonal.ayuda.guia.texto": "Esta guía explica el área personal de Bolsa. En Inicio aparecen plazos y acciones pendientes. En Convocatorias puede revisar bases y comenzar una solicitud. El inventario de Méritos permite reutilizar títulos, experiencia y documentos. La Autobaremación es provisional y será revisada por Recursos Humanos. Las acciones de pago, firma, registro, llamamiento, subsanación y alegación necesitan confirmación y recibo.", "areaPersonal.ayuda.guia.limiteServicio": "Cada operación real depende de la confirmación del servicio autorizado.",
-  "areaPersonal.miBolsa.situacion.sinDato": "La situación actual de esta participación aún no está disponible en Mi bolsa.",
-  "areaPersonal.miBolsa.situacion.estado": "Estado", "areaPersonal.miBolsa.situacion.desde": "Desde", "areaPersonal.miBolsa.situacion.hasta": "Hasta",
-  "areaPersonal.miBolsa.situacion.sinFin": "Sin fecha de fin registrada", "areaPersonal.miBolsa.situacion.fechaDisponible": "Fecha de disponibilidad indicada",
-  "areaPersonal.miBolsa.situacion.explicacion": "Qué significa",
-  "areaPersonal.miBolsa.situacion.disponible": "Disponible", "areaPersonal.miBolsa.situacion.no_disponible": "No disponible",
-  "areaPersonal.miBolsa.situacion.trabajando": "Trabajando", "areaPersonal.miBolsa.situacion.pendiente_incorporacion": "Pendiente de incorporación",
-  "areaPersonal.miBolsa.situacion.renuncia": "Renuncia", "areaPersonal.miBolsa.situacion.excluido": "Excluido",
-  "areaPersonal.miBolsa.situacion.disponible_desde": "Disponible desde fecha",
-  "areaPersonal.miBolsa.situacion.explicacion.disponible": "Consta disponible en Bolsa; un llamamiento depende del orden y las reglas aplicables.",
-  "areaPersonal.miBolsa.situacion.explicacion.no_disponible": "Consta temporalmente no disponible en Bolsa.",
-  "areaPersonal.miBolsa.situacion.explicacion.trabajando": "Consta una situación de trabajo comunicada a Bolsa.",
-  "areaPersonal.miBolsa.situacion.explicacion.pendiente_incorporacion": "Consta una incorporación pendiente; todavía no acredita una relación de servicio.",
-  "areaPersonal.miBolsa.situacion.explicacion.renuncia": "Consta una renuncia registrada para esta participación.",
-  "areaPersonal.miBolsa.situacion.explicacion.excluido": "Consta una exclusión registrada para esta participación.",
-  "areaPersonal.miBolsa.situacion.explicacion.disponible_desde": "Consta una fecha indicada para recuperar disponibilidad; no acredita un llamamiento ni determina por sí sola los efectos legales.",
-  "areaPersonal.miBolsa.disponibilidad.titulo": "Disponibilidad", "areaPersonal.miBolsa.disponibilidad.subtitulo": "Situación por participación",
-  "areaPersonal.miBolsa.disponibilidad.detalle": "Pausar o reactivar su disponibilidad todavía no se puede solicitar aquí.",
-  "areaPersonal.miBolsa.llamamiento.titulo": "Último resultado de correo", "areaPersonal.miBolsa.llamamiento.subtitulo": "De mis llamamientos en Bolsa",
-  "areaPersonal.miBolsa.llamamiento.bolsa": "Bolsa", "areaPersonal.miBolsa.llamamiento.categoria": "Categoría", "areaPersonal.miBolsa.llamamiento.fecha": "Emisión registrada", "areaPersonal.miBolsa.llamamiento.canal": "Canal", "areaPersonal.miBolsa.llamamiento.correo": "Correo",
-  "areaPersonal.miBolsa.llamamiento.resultado": "Resultado", "areaPersonal.miBolsa.llamamiento.enviado": "Enviado", "areaPersonal.miBolsa.llamamiento.no_enviado": "No enviado",
-  "areaPersonal.miBolsa.llamamiento.limite": "El resultado de envío no acredita recepción, respuesta ni plazo aprobado.",
-  "areaPersonal.miBolsa.contratos.sinDato": "Sin información de contratos.",
-  "areaPersonal.miBolsa.llamamiento.sinDato": "No constan llamamientos por correo para estas participaciones.",
-  "areaPersonal.contacto.titulo": "Datos de contacto",
-  "areaPersonal.contacto.subtitulo": "Prepare y confirme el correo de forma independiente",
-  "areaPersonal.contacto.tituloOtrosDatos": "Teléfono y domicilio",
-  "areaPersonal.contacto.subtituloOtrosDatos": "Otros datos de contacto, con su propio guardado",
-  "areaPersonal.contacto.ayuda": "Primero prepare el cambio y después confírmelo. Si recarga, consulte la operación y vuelva a introducir el correo: la dirección no aparece en el historial. No guarda teléfono ni domicilio.",
-  "areaPersonal.contacto.ayudaTitulo": "Ayuda sobre el cambio de correo",
-  "areaPersonal.contacto.etiquetaCorreo": "Correo de contacto",
-  "areaPersonal.contacto.guardar": "Guardar correo",
-  "areaPersonal.contacto.reintentoExacto": "Reintentar el mismo correo",
-  "areaPersonal.contacto.guardarTelefonoDomicilio": "Revisar y guardar teléfono y domicilio",
-  "areaPersonal.contacto.preparando": "Guardando correo…",
-  "areaPersonal.contacto.sinAutorizacion": "El correo no se puede actualizar porque el servicio no ha aportado permiso expreso y versión vigente.",
-  "areaPersonal.contacto.noConfigurado": "Contacto propio no configurado: el servicio no ha aportado permiso expreso y versión vigente. No se consultará el historial ni se enviarán cambios.",
-  "areaPersonal.contacto.correcto": "Correo de contacto guardado. Referencia de recibo: {recibo}.",
-  "areaPersonal.contacto.correctoAnterior": "Recibo de un guardado anterior: {recibo}. No acredita el resultado de otro intento.",
-  "areaPersonal.contacto.errorEntrada": "Revise el correo de contacto antes de enviarlo.",
-  "areaPersonal.contacto.errorPermiso": "No dispone de permiso para actualizar el correo de contacto.",
-  "areaPersonal.contacto.errorServicio": "No se pudo determinar el resultado del cambio. Consulte las operaciones antes de volver a actuar; no se ha repetido la petición.",
-  "areaPersonal.contacto.consultarRecibo": "Consultar recibo",
-  "areaPersonal.contacto.consultando": "Consultando recibo…",
-  "areaPersonal.contacto.consultaNoDisponible": "La consulta del recibo no está disponible para este intento.",
-  "areaPersonal.contacto.consultaSinConfirmacion": "No se ha podido recuperar el recibo. El guardado anterior podría haberse completado; esta consulta no lo confirma ni lo descarta.",
-  "areaPersonal.contacto.reciboConsultado": "Recibo de la versión {version}: {recibo}. Esta consulta no confirma que el correo del último intento coincida con el guardado. El formulario no se ha actualizado.",
-  "areaPersonal.contacto.preparar": "Preparar cambio",
-  "areaPersonal.contacto.confirmar": "Confirmar cambio",
-  "areaPersonal.contacto.cancelar": "Cancelar preparación",
-  "areaPersonal.contacto.confirmarCancelacion": "¿Cancelar esta preparación? Podrá iniciar otra después.",
-  "areaPersonal.contacto.historialTitulo": "Operaciones de correo propias",
-  "areaPersonal.contacto.situacionTitulo": "Situación vigente del correo",
-  "areaPersonal.contacto.situacionVersion": "Versión vigente {version}",
-  "areaPersonal.contacto.situacionSubtitulo": "Para comprobar un cambio concreto, selecciónelo en el historial.",
-  "areaPersonal.contacto.verReciboVigente": "Ver recibo de la situación vigente",
-  "areaPersonal.contacto.reciboVigente": "Recibo de la versión vigente: {recibo}. No identifica una operación pendiente.",
-  "areaPersonal.contacto.actualizarHistorial": "Actualizar operaciones",
-  "areaPersonal.contacto.masOperaciones": "Ver operaciones anteriores",
-  "areaPersonal.contacto.historialVacio": "Aún no hay operaciones de correo registradas.",
-  "areaPersonal.contacto.seleccionExplicita": "Seleccione una operación para consultar su estado y recibo. El recibo vigente no identifica por sí solo un intento anterior.",
-  "areaPersonal.contacto.seleccionarOperacion": "Consultar operación {numero}: {estado}, referencia {referencia}",
-  "areaPersonal.contacto.operacionResumen": "Operación {numero} · {referencia} · Versión de partida {version}",
-  "areaPersonal.contacto.versionOperacion": "Versión de partida {version}",
-  "areaPersonal.contacto.estado.preparada": "Preparada",
-  "areaPersonal.contacto.estado.confirmada": "Confirmada",
-  "areaPersonal.contacto.estado.cancelada": "Cancelada",
-  "areaPersonal.contacto.preparadaRevisar": "Cambio preparado. Revise el correo y confirme expresamente. Si recarga, vuelva a introducirlo.",
-  "areaPersonal.contacto.preparadaSeleccionada": "Operación terminada en {referencia} preparada. Introduzca de nuevo el mismo correo para confirmarla o cancele la preparación.",
-  "areaPersonal.contacto.preparadaPendiente": "Ya hay una operación preparada. Selecciónela o cancélela antes de iniciar otra.",
-  "areaPersonal.contacto.canceladaSeleccionada": "Operación terminada en {referencia} cancelada. Puede iniciar un cambio nuevo.",
-  "areaPersonal.contacto.reciboSeleccionado": "Operación confirmada. Recibo original: {recibo}.",
-  "areaPersonal.contacto.conflictoPreparada": "Otra pestaña preparó un cambio. Actualice las operaciones y seleccione la preparación pendiente.",
-  "areaPersonal.contacto.conflicto": "La versión o el estado cambió. Actualice las operaciones y recargue la página antes de continuar.",
-  "areaPersonal.contacto.confirmacionIncierta": "La confirmación no tiene respuesta definitiva. Se consulta esta operación exacta; no se enviará otra confirmación automáticamente.",
-  "areaPersonal.contacto.resultadoNoConfirmado": "La operación sigue preparada. Consulte su estado antes de decidir cómo continuar.",
-});
-let catalogo = respaldo;
-export function traducir(clave, variables = {}) { const mensaje = catalogo[clave] ?? respaldo[clave] ?? clave; return mensaje.replace(/\{([a-z_]+)\}/giu, (_, nombre) => String(variables[nombre] ?? "")); }
+
+async function cargarCatalogo(idioma, opciones = {}) {
+  const [propios, preferencias] = await Promise.all(["area-personal", "preferencias"]
+    .map((modulo) => cargarTextos(modulo, { ...opciones, idioma })));
+  return Object.freeze({
+    idioma: propios.idioma,
+    entradas: Object.freeze({ ...aplanar(preferencias.seccion(PREFIJO), PREFIJO), ...aplanar(propios.mensajes, PREFIJO) }),
+  });
+}
+
+const RESPALDO = await cargarCatalogo(IDIOMA_POR_DEFECTO);
+let activo = RESPALDO;
+
+function interpolar(plantilla, variables) {
+  return plantilla.replace(PATRON_VARIABLE, (_coincidencia, nombre) => String(variables?.[nombre] ?? ""));
+}
+
+/** Idioma de los textos mostrados. */
+export function idiomaActivoAreaPersonal() {
+  return activo.idioma;
+}
+
+/** Localización Intl del idioma de los textos mostrados (fechas, cifras). */
+export function localizacionAreaPersonal() {
+  return localizacionDe(activo.idioma);
+}
+
+/**
+ * Mensaje `areaPersonal.…` con sus variables `{nombre}`. Un mensaje plural se
+ * elige con `variables.cuenta`, que se muestra con la localización activa.
+ * Una clave desconocida se devuelve tal cual.
+ */
+export function traducir(clave, variables = {}) {
+  const mensaje = activo.entradas[clave] ?? RESPALDO.entradas[clave];
+  if (typeof mensaje === "string") return interpolar(mensaje, variables);
+  if (esMensajePlural(mensaje)) {
+    const localizacion = localizacionAreaPersonal();
+    const cantidad = Number(variables.cuenta);
+    const plantilla = mensaje[new Intl.PluralRules(localizacion).select(cantidad)] ?? mensaje.other;
+    return interpolar(plantilla, { ...variables, cuenta: new Intl.NumberFormat(localizacion).format(cantidad) });
+  }
+  return clave;
+}
+
 const CLAVES_ERROR_CARGA = Object.freeze({
   autenticacion_requerida: Object.freeze({ titulo: "autenticacion.titulo", detalle: "autenticacion.detalle" }),
   acceso_denegado: Object.freeze({ titulo: "acceso.titulo", detalle: "acceso.detalle", garantia: "acceso.garantia", reintentar: false }),
@@ -123,27 +86,61 @@ export function textosErrorCargaAreaPersonal(error) {
     reintentar: claves.reintentar === false ? "" : traducir(`${base}reintentar`),
   });
 }
+
+/** Idioma de la interfaz: URL, preferencia guardada (`idiomaPreferido`) y navegador, por ese orden. */
 export function idiomaAreaPersonal(preferidos = globalThis.navigator?.languages ?? [], ubicacion = globalThis.location, idiomaPreferido = "navegador") {
-  return typeof idiomaComun.resolverIdiomaNavegacion === "function"
-    ? idiomaComun.resolverIdiomaNavegacion({ ubicacion, idiomaPreferido, navegador: { languages: preferidos } })
-    : idiomaComun.seleccionarIdioma(idiomaURL(ubicacion),
-      idiomaPreferido === "es" || idiomaPreferido === "en" ? [idiomaPreferido] : preferidos);
+  return resolverIdiomaNavegacion({ ubicacion, idiomaPreferido, navegador: { languages: preferidos } });
 }
-export function rutaCatalogoAreaPersonal(preferidos = globalThis.navigator?.languages ?? [], ubicacion = globalThis.location, idiomaPreferido = "navegador") {
-  return RUTAS_CATALOGO[idiomaAreaPersonal(preferidos, ubicacion, idiomaPreferido)];
+
+/**
+ * Sustituye el texto propio de un elemento sin tocar sus hijos (iconos o
+ * marcas decorativas): el primer nodo de texto no vacío o, si no tiene hijos
+ * elemento, todo su contenido.
+ */
+function ponerTexto(elemento, texto) {
+  const nodos = elemento.childNodes ? [...elemento.childNodes] : [];
+  if (!nodos.some((nodo) => nodo.nodeType === 1)) {
+    elemento.textContent = texto;
+    return;
+  }
+  const propio = nodos.find((nodo) => nodo.nodeType === 3 && nodo.data.trim() !== "");
+  if (propio) propio.data = texto;
 }
-export function aplicarCatalogoAreaPersonal(documento, entradas) { if (!documento?.querySelectorAll || !entradas || typeof entradas !== "object" || Array.isArray(entradas)) return; documento.querySelectorAll("[data-i18n]").forEach((elemento) => { const clave = elemento.getAttribute("data-i18n"); if (typeof entradas[clave] === "string") elemento.textContent = entradas[clave]; }); documento.querySelectorAll("[data-i18n-aria-label]").forEach((elemento) => { const clave = elemento.getAttribute("data-i18n-aria-label"); if (typeof entradas[clave] === "string") elemento.setAttribute("aria-label", entradas[clave]); }); }
-export async function iniciarI18nAreaPersonal(documento = document, fetcher = fetch, preferidos = globalThis.navigator?.languages ?? [], ubicacion = globalThis.location, idiomaPreferido = "navegador") {
+
+const ATRIBUTOS_TRADUCIBLES = Object.freeze([
+  ["data-i18n-aria-label", "aria-label"], ["data-i18n-placeholder", "placeholder"], ["data-i18n-alt", "alt"],
+]);
+
+/** Aplica un catálogo plano a los `data-i18n*` del documento. */
+export function aplicarCatalogoAreaPersonal(documento, entradas) {
+  if (!documento?.querySelectorAll || !entradas || typeof entradas !== "object" || Array.isArray(entradas)) return;
+  documento.querySelectorAll("[data-i18n]").forEach((elemento) => {
+    const texto = entradas[elemento.getAttribute("data-i18n")];
+    if (typeof texto === "string") ponerTexto(elemento, texto);
+  });
+  for (const [marca, atributo] of ATRIBUTOS_TRADUCIBLES) {
+    documento.querySelectorAll(`[${marca}]`).forEach((elemento) => {
+      const texto = entradas[elemento.getAttribute(marca)];
+      if (typeof texto === "string") elemento.setAttribute(atributo, texto);
+    });
+  }
+}
+
+/**
+ * Carga el catálogo del idioma elegido, lo aplica al documento y devuelve el
+ * idioma efectivo. Si el catálogo no puede leerse se conserva el del idioma
+ * por defecto. `leer` sustituye al lector de ficheros (pruebas).
+ */
+export async function iniciarI18nAreaPersonal(documento = globalThis.document, {
+  preferidos = globalThis.navigator?.languages ?? [], ubicacion = globalThis.location, idiomaPreferido = "navegador", leer,
+} = {}) {
   const idioma = idiomaAreaPersonal(preferidos, ubicacion, idiomaPreferido);
   try {
-    const respuesta = await fetcher(rutaCatalogoAreaPersonal(preferidos, ubicacion, idiomaPreferido), { credentials: "same-origin", cache: "no-store" });
-    if (!respuesta?.ok) return "es";
-    const cargado = await respuesta.json();
-    if (!cargado || typeof cargado !== "object" || Array.isArray(cargado)) return "es";
-    catalogo = Object.freeze({ ...respaldo, ...cargado });
-    aplicarCatalogoAreaPersonal(documento, catalogo);
-    if (documento?.documentElement) documento.documentElement.lang = idioma;
-    return idioma;
-  } catch { /* El HTML y las rutas incluyen castellano de respaldo sin persistir preferencias. */ }
-  return "es";
+    activo = await cargarCatalogo(idioma, leer ? { leer, avisar: () => {} } : {});
+  } catch {
+    activo = RESPALDO;
+  }
+  aplicarCatalogoAreaPersonal(documento, activo.entradas);
+  if (documento?.documentElement) documento.documentElement.lang = activo.idioma;
+  return activo.idioma;
 }

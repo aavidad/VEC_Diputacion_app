@@ -7,11 +7,11 @@ import { crearUtilidadesVista } from "./portal-vistas-utilidades.js";
 
 test("la vista carga el catálogo i18n con URL nueva y el módulo resuelve", async () => {
   const codigo = readFileSync(new URL("./portal-vistas-baremacion.js", import.meta.url), "utf8");
-  const actual = new URL("./portal-i18n-baremacion.js?v=20260929-i18n-shell-v2", import.meta.url);
+  const actual = new URL("./portal-i18n-baremacion.js?v=20260930-portales-i18n-integracion-v1", import.meta.url);
   const anterior = new URL("./portal-i18n-baremacion.js?v=20260924-f2-web2", import.meta.url);
   assert.notEqual(actual.href, anterior.href);
   assert.notEqual(actual.href, new URL("./portal-i18n-baremacion.js", import.meta.url).href);
-  assert.match(codigo, /from "\.\/portal-i18n-baremacion\.js\?v=20260929-i18n-shell-v2"/);
+  assert.match(codigo, /from "\.\/portal-i18n-baremacion\.js\?v=20260930-portales-i18n-integracion-v1"/);
   const modulo = await import(actual.href);
   assert.equal(modulo.traducirBaremacion("ayuda"), "Ayuda");
 });

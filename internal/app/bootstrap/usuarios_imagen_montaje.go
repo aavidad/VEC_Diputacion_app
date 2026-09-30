@@ -144,7 +144,7 @@ const sondaFronteraImagenSQL = `SELECT count(*)=1 FROM pg_catalog.pg_constraint
 func preflightSQLImagenUsuariosDesarrollo(cfg config.Config) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
-	for _, superficie := range []core.SuperficieAutenticacionActorV1{core.SuperficieAutenticacionInternaCorporativaV1, core.SuperficieAutenticacionExternaPersonalV1} {
+	for _, superficie := range superficiesUsuariosEnProceso(cfg) {
 		c, err := leerConfiguracionUsuariosPreferenciasDesarrollo(cfg, superficie)
 		if err != nil {
 			return errComposicionUsuariosImagen

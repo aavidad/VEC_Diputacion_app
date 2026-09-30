@@ -532,6 +532,23 @@ func TestPrepararCambioConVersionPreviaConservaOtrosCampos(t *testing.T) {
 	if _, err := PrepararCambioAjustes(base, instante, 1, previa, true, nil); !errors.Is(err, ErrAjusteInvalido) {
 		t.Fatalf("petición vacía admitida: %v", err)
 	}
+	for nombre, caso := range map[string]struct {
+		version int
+		previa  VersionAjustes
+		con     bool
+		nuevo   string
+	}{
+		"igual a la base":        {version: 0, nuevo: "10"},
+		"igual al ajuste previo": {version: 1, previa: previa, con: true, nuevo: "7"},
+	} {
+		t.Run(nombre, func(t *testing.T) {
+			_, err := PrepararCambioAjustes(base, instante, caso.version, caso.previa, caso.con,
+				[]SolicitudCambioAjuste{{ReglaClave: CTPlazoFiscalizacion, Campo: CampoCantidad, Nuevo: caso.nuevo}})
+			if !errors.Is(err, ErrAjusteInvalido) {
+				t.Fatalf("valor nuevo igual al anterior admitido: %v", err)
+			}
+		})
+	}
 	corrupta := previa
 	corrupta.HuellaSHA256 = strings.Repeat("0", 64)
 	if _, err := PrepararCambioAjustes(base, instante, 1, corrupta, true,
