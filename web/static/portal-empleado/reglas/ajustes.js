@@ -16,6 +16,16 @@ export class ErrorAjustes extends Error {
 const exigir = (condicion) => { if (!condicion) throw new ErrorAjustes("ajustesRespuestaInvalida"); };
 const cadena = (valor, maximo = 400) => typeof valor === "string" && valor.length <= maximo;
 const version = (valor) => Number.isSafeInteger(valor) && valor >= 0;
+const validarEdicion = (edicion) => {
+  exigir(edicion && Array.isArray(edicion.campos) && edicion.campos.length > 0
+    && edicion.campos.every((campo) => CAMPOS.has(campo))
+    && Array.isArray(edicion.opciones_unidad) && edicion.opciones_unidad.length <= 16
+    && Array.isArray(edicion.opciones_computo) && edicion.opciones_computo.length <= 16
+    && Number.isSafeInteger(edicion.cantidad_minima) && Number.isSafeInteger(edicion.cantidad_maxima)
+    && edicion.cantidad_minima > 0 && edicion.cantidad_maxima >= edicion.cantidad_minima);
+  for (const opcion of edicion.opciones_unidad) exigir(CLAVE.test(opcion) && existeClaveReglas(`unidad_${opcion}`));
+  for (const opcion of edicion.opciones_computo) exigir(CLAVE.test(opcion) && existeClaveReglas(`computo_${opcion}`));
+};
 
 /** La edición solo se habilita con metadatos recibidos completos y comprobables. */
 export function validarLecturaAjustes(respuesta) {
@@ -28,17 +38,17 @@ export function validarLecturaAjustes(respuesta) {
     && d.motivos.every((m) => CLAVE.test(m?.clave) && cadena(m.texto_clave, 100) && existeClaveReglas(m.texto_clave))));
   for (const r of d.reglas) {
     exigir(CLAVE.test(r?.clave) && cadena(r.etiqueta) && r.etiqueta.length > 0
-      && (r.ajuste_no_aplicable === undefined || typeof r.ajuste_no_aplicable === "boolean") && r.edicion && Array.isArray(r.edicion.campos)
-      && r.edicion.campos.length > 0 && r.edicion.campos.every((campo) => CAMPOS.has(campo))
-      && r.valores && typeof r.valores === "object" && existeClaveReglas(`unidad_${r.valores.unidad ?? r.unidad}`)
-      && Array.isArray(r.edicion.opciones_unidad) && r.edicion.opciones_unidad.length <= 16
-      && Array.isArray(r.edicion.opciones_computo) && r.edicion.opciones_computo.length <= 16);
+      && (r.ajuste_no_aplicable === undefined || typeof r.ajuste_no_aplicable === "boolean"));
+    if (r.ajuste_no_aplicable) {
+      exigir(["valores", "cantidad", "cantidad_urgente", "unidad", "computo"].every((campo) => !Object.hasOwn(r, campo)));
+      if (r.edicion != null) validarEdicion(r.edicion);
+      continue;
+    }
+    validarEdicion(r.edicion);
+    exigir(r.valores && typeof r.valores === "object" && !Array.isArray(r.valores)
+      && existeClaveReglas(`unidad_${r.valores.unidad ?? r.unidad}`));
     for (const campo of r.edicion.campos) exigir(cadena(r.valores[campo], 80)
       && (!["unidad", "computo"].includes(campo) || existeClaveReglas(`${campo}_${r.valores[campo]}`)));
-    for (const opcion of r.edicion.opciones_unidad) exigir(CLAVE.test(opcion) && existeClaveReglas(`unidad_${opcion}`));
-    for (const opcion of r.edicion.opciones_computo) exigir(CLAVE.test(opcion) && existeClaveReglas(`computo_${opcion}`));
-    exigir(Number.isSafeInteger(r.edicion.cantidad_minima) && Number.isSafeInteger(r.edicion.cantidad_maxima)
-      && r.edicion.cantidad_minima > 0 && r.edicion.cantidad_maxima >= r.edicion.cantidad_minima);
   }
   for (const h of d.historial) {
     exigir(version(h?.version) && h.version > 0 && cadena(h.vigente_desde, 64)
@@ -146,7 +156,7 @@ export function renderizarAjustes(modelo, { reglaActiva = "", borrador = null, f
     const revision = r.ajuste_no_aplicable ? `<p class="rg-aviso rg-aviso--error">${esc(t("ajusteRevisionDetalle"))}</p>` : "";
     return `<article class="rg-ajuste-regla" aria-labelledby="rg-ajuste-${esc(r.clave)}"><div class="rg-ajuste-cabecera"><h3 id="rg-ajuste-${esc(r.clave)}"${IDIOMA_REGLAS === IDIOMA_DATOS_REGLAS ? "" : ` lang="${esc(IDIOMA_DATOS_REGLAS)}"`}>${esc(r.etiqueta)}</h3>${accion}</div>
       ${valores ? `<dl class="rg-ajuste-valores">${valores}</dl>` : ""}${revision}${motivoDesactivado}
-      ${activa && editable ? renderizarFormulario(r, motivos, borrador, fase) : ""}
+      ${activa && editable && !r.ajuste_no_aplicable ? renderizarFormulario(r, motivos, borrador, fase) : ""}
       <details class="rg-ajuste-historial"><summary>${esc(t("ajustesHistorial"))}</summary><ol>${listaHistorial}</ol></details></article>`;
   }).join("");
   return `<section class="rg-panel rg-ajustes" aria-labelledby="rg-ajustes-titulo"><div class="rg-panel-cabecera"><div><h2 id="rg-ajustes-titulo" tabindex="-1">${esc(t("ajustesTitulo"))}</h2><p class="rg-meta">${esc(t("ajustesVersion", { version: formatearNumero(modelo.version_esperada) }))}</p></div></div>
