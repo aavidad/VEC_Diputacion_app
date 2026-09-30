@@ -469,6 +469,8 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaPerfilFijoParaCon
 			valida = solicitudAutorizacionDecisionCoberturaDesarrolloValida(ruta, datos)
 		case ruta == rutaCambiosOrganizacionContratacionTemporalDesarrollo:
 			valida = solicitudAutorizacionOrganizacionDesarrolloValida(ctx, datos)
+		case rutaConsultaAjustesReglasCT(ruta):
+			valida = solicitudConsultaAjustesCTValida(datos)
 		case ruta == httpinterno.RutaResultadoCobertura:
 			valida = true
 		case rutaAnalisisContratacionTemporalDesarrollo(ruta):

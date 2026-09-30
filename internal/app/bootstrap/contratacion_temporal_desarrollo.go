@@ -339,6 +339,17 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		return nil, nil, nil, err
 	}
 	alta.soporte.reglasPlazo = reglasPlazoLlamamientoDesarrollo{resolutor: reglasLlamamiento}
+	var perfilConsultaAjustes *perfilFijoCTDesarrollo
+	if alta.postgresql.consultaAjustesReglasActiva {
+		ctxAjustes, cancelarAjustes := context.WithTimeout(context.Background(), plazoConsultaAjustesContexto())
+		perfilConsultaAjustes, err = componerPerfilConsultaAjustesCT(ctxAjustes, alta.postgresql.gobierno,
+			alta.soporte, alta.postgresql.motivoConsultaAjustesReglas, aprobacionProvisionPerfilesRRHHDesdeConfig(cfg))
+		cancelarAjustes()
+		if err != nil {
+			alta.cerrar()
+			return nil, nil, nil, err
+		}
+	}
 	cerrarAlta := true
 	defer func() {
 		if cerrarAlta {
@@ -565,6 +576,9 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	if perfilConsultaAjustes != nil {
+		declaracionesFrontera = append(declaracionesFrontera, descriptorFronteraConsultaAjustesCT(perfilConsultaAjustes.perfilRef()))
+	}
 	if cfg.IncorporacionV2File != "" {
 		declaracionesFrontera, err = asignarPerfilesNominalesIncorporacionEnFronteras(alta.soporte, declaracionesFrontera)
 		if err != nil {
@@ -745,6 +759,14 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		return nil, nil, nil, err
 	}
 	rutas = append(rutas, rutaCatalogosAlta, rutaConfiguracionAnalisis)
+	if perfilConsultaAjustes != nil {
+		rutaAjustes, err := nuevaRutaConsultaAjustesCT(&alta, perfilConsultaAjustes,
+			reglasEjemplo.contratacionTemporal, reloj)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		rutas = append(rutas, rutaAjustes)
+	}
 	if incorporacionV2 != nil {
 		mapeo, err := nuevoMapeoFichaGINPIXDesarrollo()
 		if err != nil {

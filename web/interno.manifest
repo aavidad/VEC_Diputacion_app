@@ -34,6 +34,7 @@ static/textos/es/reglas.json
 static/textos/en/reglas.json
 static/portal-empleado/reglas/index.html
 static/portal-empleado/reglas/reglas.js
+static/portal-empleado/reglas/ajustes.js
 static/portal-empleado/reglas/reglas.css
 static/portal-empleado/reglas/i18n.js
 static/portal-empleado/reglas/enlace.js

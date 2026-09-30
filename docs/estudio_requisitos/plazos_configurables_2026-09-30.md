@@ -399,10 +399,11 @@ La ayuda va en el botón «?» de la pantalla, no en el texto.
 - Lectura común: `GET /api/vec/reglas/vigentes` sigue en
   `vec.reglas.vigentes.v1`. Una regla ajustada sale con su valor ajustado, su
   origen normativo y la versión de la base; no rompe la pantalla de la PR #162.
-- Edición: `GET /api/contratacion-temporal/rrhh/reglas/ajustes` devuelve las
+- Edición: `GET /api/vec/contratacion-temporal/reglas/ajustes` devuelve las
   reglas ajustables con sus opciones, el ajuste vigente, si quien consulta
   puede ajustar y el historial (paginado, 50 por página).
-- Guardar: `POST /api/contratacion-temporal/rrhh/reglas/ajustes` con
+  La ruta conserva el prefijo interno de VEC; cada método exige autorización positiva.
+- Guardar: `POST /api/vec/contratacion-temporal/reglas/ajustes` con
   `version_esperada`, `clave_idempotencia`, motivo, referencia, nota y la lista
   de cambios. Respuestas: 201 (versión nueva), 200 (repetición idéntica), 409
   (versión desfasada o clave reutilizada con otro contenido), 422 (valor fuera

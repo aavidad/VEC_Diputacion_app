@@ -257,6 +257,9 @@ transportes_mtls_revisados=(
 	static/portal-empleado/portal-bolsas-reglas-situacion.js
 	static/portal-empleado/portal-bolsas-sanciones.js
 	static/portal-empleado/reglas/reglas.js
+	# Ajustes CT: GET de ruta fija con mTLS; el POST sigue fuera del inventario.
+	# Transporte same-origin, no-store, redirect:error y no-referrer.
+	static/portal-empleado/reglas/ajustes.js
 	# Peticiones RRHH (28/09): plazos y política de cese de Bolsa, Auditoría
 	# común, plantillas y borradores publicados de Contratación. Rutas internas
 	# fijas, same-origin, no-store, redirect error y no-referrer.
