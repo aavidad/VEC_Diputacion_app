@@ -150,7 +150,7 @@ func (a *AlmacenAutorizacionUsuariosExterno) registrarConReintento(ctx context.C
 func (a *AlmacenAutorizacionUsuariosExterno) registrar(ctx context.Context, datos ports.DatosOrdenRegistroAutorizacionLigadaV3, concedidaEsperada bool, noDisponible error) (time.Time, error) {
 	decision, motivo, huella, emitida, vence, codigo, err := serializarDecisionContextoActorV3PostgreSQL(datos, concedidaEsperada)
 	if err != nil {
-		return time.Time{}, noDisponible
+		return time.Time{}, errorRegistroAutorizacionLigadaV3(ctx, err, noDisponible)
 	}
 	defer borrarBytesAutorizacionPostgreSQL(decision, motivo)
 	tx, err := a.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite})
@@ -184,8 +184,14 @@ func (a *AlmacenAutorizacionUsuariosExterno) registrar(ctx context.Context, dato
 		}
 		return time.Time{}, ports.ErrInstantaneaAutorizacionObsoleta
 	}
-	if err = filas.Scan(&concedida, &codigoReal, &huellaReal, &registrada); err != nil || filas.Next() || filas.Err() != nil {
+	if err = filas.Scan(&concedida, &codigoReal, &huellaReal, &registrada); err != nil {
+		return time.Time{}, errorRegistroAutorizacionLigadaV3(ctx, err, noDisponible)
+	}
+	if filas.Next() {
 		return time.Time{}, noDisponible
+	}
+	if err = filas.Err(); err != nil {
+		return time.Time{}, errorRegistroAutorizacionLigadaV3(ctx, err, noDisponible)
 	}
 	registrada = registrada.UTC()
 	if concedida != concedidaEsperada || codigoReal != codigo || huellaReal != huella ||
