@@ -13,7 +13,15 @@ var (
 	ErrLecturaRPTDenegada     = errors.New("vec: consulta de categorias RPT denegada")
 	ErrLecturaRPTNoDisponible = errors.New("vec: consulta de categorias RPT no disponible")
 	ErrLecturaRPTNoConfiable  = errors.New("vec: respuesta de categorias RPT no confiable")
+	ErrLecturaRPTPresupuesto  = errors.New("vec: pagina de categorias RPT supera el presupuesto")
 )
+
+// DescriptorCatalogoRPT llega de la composición confiable. Acota el catálogo
+// y su módulo propietario; no crea una concesión ni se deduce de una petición.
+type DescriptorCatalogoRPT struct {
+	CatalogoID string
+	ModuloID   string
+}
 
 // EvidenciaLecturaRPT conserva el recibo de cada consumo AD3. Cada lectura
 // requiere una decision vigente y deja su propia auditoria, incluso si no hay
@@ -71,12 +79,13 @@ type OrdenCategoriasHabilitadasRPT struct {
 }
 
 type ResultadoCategoriasHabilitadasRPT struct {
-	Encontrado      bool
-	Categorias      []CategoriaHabilitadaRPT
-	Publicaciones   []PublicacionRPT
-	HayMas          bool
-	SiguienteCursor *string
-	Evidencia       EvidenciaLecturaRPT
+	Encontrado         bool
+	Categorias         []CategoriaHabilitadaRPT
+	AnclajePublicacion *PublicacionRPT
+	Publicaciones      []PublicacionRPT
+	HayMas             bool
+	SiguienteCursor    *string
+	Evidencia          EvidenciaLecturaRPT
 }
 
 type ConsultaPublicacionCategoriaRPT struct {
