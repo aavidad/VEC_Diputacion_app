@@ -32,6 +32,7 @@ CREATE TABLE vec_identidad_sesiones_v1.politica_certificado_admin_v1 (
  huella_aprobacion_sha256 text NOT NULL CHECK (huella_aprobacion_sha256 ~ '^[0-9a-f]{64}$'),
  maxima_edad_revocacion interval NOT NULL CHECK (maxima_edad_revocacion > interval '0 seconds'),
  vigente_hasta timestamptz(6) NOT NULL CHECK (pg_catalog.isfinite(vigente_hasta)),
+ registrada_por text NOT NULL DEFAULT session_user,
  registrada_en timestamptz(6) NOT NULL DEFAULT pg_catalog.clock_timestamp(),
  activa boolean NOT NULL DEFAULT true,
  CHECK (pg_catalog.isfinite(registrada_en) AND vigente_hasta>registrada_en)
@@ -42,12 +43,17 @@ SET search_path=pg_catalog,pg_temp AS $funcion$
 BEGIN
  IF TG_OP='UPDATE' AND OLD.activa AND NOT NEW.activa
     AND (NEW.singleton,NEW.politica_ref,NEW.entorno,NEW.host_admin,NEW.ca_sha256,
-         NEW.huella_aprobacion_sha256,NEW.maxima_edad_revocacion,NEW.vigente_hasta,NEW.registrada_en)
+         NEW.huella_aprobacion_sha256,NEW.maxima_edad_revocacion,NEW.vigente_hasta,
+         NEW.registrada_por,NEW.registrada_en)
         IS NOT DISTINCT FROM
         (OLD.singleton,OLD.politica_ref,OLD.entorno,OLD.host_admin,OLD.ca_sha256,
-         OLD.huella_aprobacion_sha256,OLD.maxima_edad_revocacion,OLD.vigente_hasta,OLD.registrada_en)
+         OLD.huella_aprobacion_sha256,OLD.maxima_edad_revocacion,OLD.vigente_hasta,
+         OLD.registrada_por,OLD.registrada_en)
  THEN
-  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('vec:admin:continuidad:v1',0));
+  IF pg_catalog.current_setting('transaction_isolation')='repeatable read' THEN
+   RAISE EXCEPTION 'IS9: aislamiento sin revalidación actual' USING ERRCODE='25000'; END IF;
+  -- UPDATE ya retiene el cerrojo de esta fila. Alta y revalidación la leen
+  -- FOR SHARE hasta terminar su transacción, sin invertir el orden de locks.
   IF EXISTS (
    SELECT 1 FROM vec_identidad_sesiones_v1.vinculo_certificado_admin_actual_v1 a
    JOIN vec_identidad_sesiones_v1.vinculo_certificado_admin_v1 v USING(vinculo_ref,version)
@@ -72,7 +78,7 @@ CREATE TABLE vec_identidad_sesiones_v1.vinculo_certificado_admin_v1 (
  cuenta_privilegiada_ref text NOT NULL REFERENCES vec_identidad_sesiones_v1.cuenta(cuenta_ref),
  certificado_sha256 text NOT NULL CHECK (certificado_sha256 ~ '^[0-9a-f]{64}$' AND certificado_sha256<>pg_catalog.repeat('0',64)),
  ca_sha256 text NOT NULL CHECK (ca_sha256 ~ '^[0-9a-f]{64}$' AND ca_sha256<>pg_catalog.repeat('0',64)),
- politica_ref text NOT NULL,
+ politica_ref text NOT NULL REFERENCES vec_identidad_sesiones_v1.politica_certificado_admin_v1(politica_ref),
  estado text NOT NULL CHECK (estado IN ('activo','revocado')),
  vigente_desde timestamptz(6) NOT NULL,
  vigente_hasta timestamptz(6) NOT NULL,
@@ -230,6 +236,7 @@ SET search_path=pg_catalog,pg_temp SET row_security=on AS $funcion$
 DECLARE pol record; vinculo record; cuenta record; ahora timestamptz;
 BEGIN
  IF pg_catalog.current_setting('transaction_read_only')<>'off'
+    OR pg_catalog.current_setting('transaction_isolation')='repeatable read'
     OR p_tls_verificado IS DISTINCT FROM true
     OR p_entorno IS NULL OR p_entorno NOT IN ('desarrollo','cidonia','produccion')
     OR p_host IS NULL
@@ -283,7 +290,11 @@ RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
 SET search_path=pg_catalog,pg_temp AS $funcion$
 BEGIN
  IF NEW.estado='inactiva' THEN
-  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('vec:admin:continuidad:v1',0));
+  IF pg_catalog.current_setting('transaction_isolation')='repeatable read' THEN
+   RAISE EXCEPTION 'IS9: aislamiento sin revalidación actual' USING ERRCODE='25000'; END IF;
+  -- El cambio histórico ya retiene FOR UPDATE del puntero de cuenta;
+  -- crear/revalidar retienen FOR SHARE del mismo puntero. Otro advisory
+  -- aquí invertiría el orden y causaría un interbloqueo.
   IF EXISTS (
    SELECT 1 FROM vec_identidad_sesiones_v1.vinculo_certificado_admin_actual_v1 a
    JOIN vec_identidad_sesiones_v1.vinculo_certificado_admin_v1 v USING(vinculo_ref,version)
