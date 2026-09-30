@@ -34,6 +34,8 @@ HELPERS = {"inspector": "h6_canario_bin.sh", "connections": "h6_conexiones.py",
            "promoter": "h6_promover_plan.py", "receipt_helper": "h6_recibo_plan.py"}
 FLAGS_DIR = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
 FLAGS_FILE = os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC
+PENDING = "canario-publicacion-pendiente.json"
+DOCKER_HOST = "unix:///var/run/docker.sock"
 
 
 class Refused(RuntimeError):
@@ -65,16 +67,26 @@ def canonical(data):
     return (json.dumps(data, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n").encode()
 
 
+def trusted_directory(info, path, *, temporary=False):
+    require(stat.S_ISDIR(info.st_mode) and info.st_uid in (0, os.getuid(), UID), "directory_owner")
+    sticky_tmp = temporary and path == Path("/tmp") and info.st_uid == 0 and stat.S_IMODE(info.st_mode) == 0o1777
+    require(not info.st_mode & 0o022 or sticky_tmp, "directory_writable")
+
+
 @contextmanager
-def directory(path):
+def directory(path, *, temporary=False):
     path = Path(path)
     require(path.is_absolute() and ".." not in path.parts and path != Path("/"), "unsafe_path")
     fd = os.open("/", FLAGS_DIR)
     try:
+        current = Path("/")
+        trusted_directory(os.fstat(fd), current, temporary=temporary)
         for part in path.parts[1:]:
             child = os.open(part, FLAGS_DIR, dir_fd=fd)
             os.close(fd)
             fd = child
+            current /= part
+            trusted_directory(os.fstat(fd), current, temporary=temporary)
         yield fd
     finally:
         os.close(fd)
@@ -85,12 +97,31 @@ def identity(info):
             info.st_mode, info.st_nlink, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
 
 
+def ancestors(path):
+    result = []
+    for parent in (*reversed(path.parents), path):
+        if parent == Path("/"):
+            fd = os.open("/", FLAGS_DIR)
+            try:
+                info = os.fstat(fd)
+                trusted_directory(info, parent)
+                result.append((str(parent), info.st_dev, info.st_ino, info.st_uid, info.st_gid, info.st_mode))
+            finally:
+                os.close(fd)
+            continue
+        with directory(parent) as fd:
+            info = os.fstat(fd)
+            result.append((str(parent), info.st_dev, info.st_ino, info.st_uid, info.st_gid, info.st_mode))
+    return result
+
+
 def read_at(fd, name, limit=1048576, *, owner=None, modes=None):
     leaf = os.open(name, FLAGS_FILE, dir_fd=fd)
     try:
         before = os.fstat(leaf)
         require(stat.S_ISREG(before.st_mode) and before.st_nlink == 1 and
                 0 < before.st_size <= limit, "unsafe_file")
+        require(before.st_uid in (0, os.getuid(), UID) and not before.st_mode & 0o022, "untrusted_file_writer")
         if owner is not None:
             require(before.st_uid == owner, "file_owner")
         if modes is not None:
@@ -130,6 +161,7 @@ def tree(path):
             key = prefix + name
             require(not info.st_mode & 0o022, "writable_input")
             if stat.S_ISDIR(info.st_mode):
+                trusted_directory(info, Path(key))
                 child = os.open(name, FLAGS_DIR, dir_fd=fd)
                 try:
                     require(identity(info) == identity(os.fstat(child)), "tree_changed")
@@ -172,6 +204,8 @@ def snapshot(config):
         contents[name] = data
     for name in TREES:
         result[name] = tree(config.paths[name])
+    result["ancestors"] = {name: ancestors(config.paths[name].parent if name in FILES else config.paths[name])
+                           for name in FILES + TREES}
     release = {}
     for line in contents["lock"].decode("ascii").splitlines():
         pair = line.split()
@@ -243,8 +277,22 @@ def limits():
 
 def run(argv):
     # Raw diagnostics can contain secrets; they never leave the subprocess.
+    if argv and argv[0] == "docker":
+        base = Path(tempfile.gettempdir())
+        with directory(base, temporary=True):
+            # A fresh 0700 config cannot inherit another Docker context or TLS setup.
+            with tempfile.TemporaryDirectory(prefix=".h6-docker-client-", dir=base) as config:
+                with directory(Path(config), temporary=True) as fd:
+                    require(os.fstat(fd).st_uid == os.getuid() and stat.S_IMODE(os.fstat(fd).st_mode) == 0o700 and
+                            not os.listdir(fd), "docker_private_config")
+                command = ["docker", "--config=" + config, "--host=" + DOCKER_HOST] + argv[1:]
+                return _execute(command, silent=argv[:2] == ["docker", "start"])
+    return _execute(argv)
+
+
+def _execute(argv, *, silent=False):
     result = subprocess.run(argv, env={"PATH": "/usr/bin:/bin", "HOME": "/tmp", "LANG": "C.UTF-8"},
-                            stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL if argv[:2] == ["docker", "start"] else subprocess.PIPE,
+                            stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL if silent else subprocess.PIPE,
                             stderr=subprocess.DEVNULL, timeout=65, check=False, preexec_fn=limits)
     require(result.returncode == 0, "command_failed")
     require(result.stdout is None or len(result.stdout) <= 1048576, "command_output_limit")
@@ -341,12 +389,30 @@ def write(path, data):
         os.fsync(stream.fileno())
 
 
+def publish_pair(state_fd, plan, receipt):
+    # The durable pending receipt precedes either flat file. After a crash this
+    # state is never resumed or overwritten: the caller must prepare a new state.
+    pending = canonical({"version": 1, "status": "pending", "requires_new_state": True,
+                         "plan_sha256": sha(plan), "receipt_sha256": sha(receipt), "receipt": decode(receipt)})
+    for name, data in ((PENDING, pending), ("plan-conexiones.json", plan), ("plan-canonico-clon.json", receipt)):
+        fd = os.open(name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600, dir_fd=state_fd)
+        with os.fdopen(fd, "wb") as stream:
+            stream.write(data)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.fsync(state_fd)
+    # Both complete files and their directory entries are durable before commit.
+    os.unlink(PENDING, dir_fd=state_fd)
+    os.fsync(state_fd)
+
+
 def canary(config, runner=run):
     with directory(config.state) as state_fd:
         info = os.fstat(state_fd)
         require(info.st_uid == os.getuid() and stat.S_IMODE(info.st_mode) == 0o700, "state_private")
         require(not any((Path(parent) / ".git").exists() for parent in (config.state, *config.state.parents)), "state_in_git")
         fcntl.flock(state_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        require(PENDING not in os.listdir(state_fd), "publication_interrupted_new_state_required")
         require(not {"plan-conexiones.json", "plan-canonico-clon.json"} & set(os.listdir(state_fd)), "existing_plan")
         before, contents = snapshot(config)
         validate_runtime_inputs(before)
@@ -405,20 +471,7 @@ def canary(config, runner=run):
                 require(final_plan == plan and final_sha == output_sha and final_metadata == metadata, "output_changed")
                 os.unlink("plan.json", dir_fd=output_fd)
             os.rmdir(config.output.name, dir_fd=state_fd)
-            created = []
-            try:
-                for name, data in (("plan-conexiones.json", plan), ("plan-canonico-clon.json", receipt)):
-                    fd = os.open(name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600, dir_fd=state_fd)
-                    created.append(name)
-                    with os.fdopen(fd, "wb") as stream:
-                        stream.write(data)
-                        stream.flush()
-                        os.fsync(stream.fileno())
-                os.fsync(state_fd)
-            except Exception:
-                for name in created:
-                    os.unlink(name, dir_fd=state_fd)
-                raise
+            publish_pair(state_fd, plan, receipt)
         return {"kind": "clon", "canary_exit_code": 0, "plan_sha256": output_sha, "receipt_sha256": receipt_sha,
                 "pg_container_id": config.pgid, "canary_image_id": config.image}
 

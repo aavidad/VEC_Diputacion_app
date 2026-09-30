@@ -9,6 +9,7 @@ import shutil
 import sys
 import tarfile
 import tempfile
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
@@ -320,6 +321,109 @@ class CanaryTests(unittest.TestCase):
             self.run_canary()
         self.assertFalse((self.f.state / "plan-conexiones.json").exists())
         self.assertFalse((self.f.state / "plan-canonico-clon.json").exists())
+
+    def test_docker_client_ignores_ambient_context_and_uses_private_config(self):
+        commands = []
+        def subprocess_double(argv, **kwargs):
+            commands.append(argv)
+            self.assertEqual(argv[2], "--host=unix:///var/run/docker.sock")
+            config = Path(argv[1].removeprefix("--config="))
+            self.assertEqual(config.stat().st_mode & 0o777, 0o700)
+            self.assertEqual(list(config.iterdir()), [])
+            self.assertEqual(kwargs["env"], {"PATH": "/usr/bin:/bin", "HOME": "/tmp", "LANG": "C.UTF-8"})
+            return SimpleNamespace(returncode=0, stdout=b"ok")
+        with patch.dict(os.environ, {"DOCKER_CONTEXT": "foreign", "DOCKER_HOST": "tcp://foreign.invalid:2376",
+                                    "DOCKER_CONFIG": str(self.root / "foreign"), "HOME": str(self.root / "foreign")}), \
+             patch.object(canary.subprocess, "run", side_effect=subprocess_double):
+            self.assertEqual(canary.run(["docker", "inspect", self.f.config.pgid]), b"ok")
+            self.assertEqual(canary.run(["docker", "image", "inspect", self.f.config.image]), b"ok")
+        self.assertNotEqual(commands[0][1], commands[1][1])
+        self.assertFalse(Path(commands[0][1].removeprefix("--config=")).exists())
+
+    def test_ancestor_group_write_and_foreign_file_owner_are_refused(self):
+        self.root.chmod(0o770)
+        self.assert_rejected()
+        self.root.chmod(0o700)
+        self.f.paths["reference"].chmod(0o620)
+        self.assert_rejected()
+        self.f.paths["reference"].chmod(0o600)
+        info = self.f.paths["reference"].stat()
+        foreign = SimpleNamespace(st_mode=info.st_mode, st_uid=999999, st_nlink=1, st_size=info.st_size)
+        with canary.directory(self.root) as fd, patch.object(canary.os, "fstat", return_value=foreign), self.assertRaises(canary.Refused):
+            canary.read_at(fd, "reference")
+        foreign_directory = SimpleNamespace(st_mode=0o040700, st_uid=999999)
+        with self.assertRaises(canary.Refused):
+            canary.trusted_directory(foreign_directory, self.root)
+
+    def test_same_file_bytes_under_replaced_ancestor_do_not_promote(self):
+        source_parent = self.root / "source-parent"
+        source_parent.mkdir(mode=0o700)
+        copied = source_parent / "arr"
+        copied.write_bytes(self.f.paths["arr"].read_bytes())
+        copied.chmod(0o600)
+        self.f.paths["arr"] = copied
+        def change():
+            source_parent.rename(self.root / "source-parent-old")
+            shutil.copytree(self.root / "source-parent-old", source_parent)
+        self.f.runner.after_start = change
+        self.assert_rejected()
+
+    def test_publication_success_removes_pending_after_both_files(self):
+        plan, receipt = b"plan\n", canary.canonical({"kind": "clon", "fixture": True})
+        with canary.directory(self.f.state) as fd:
+            canary.publish_pair(fd, plan, receipt)
+        self.assertEqual((self.f.state / "plan-conexiones.json").read_bytes(), plan)
+        self.assertEqual((self.f.state / "plan-canonico-clon.json").read_bytes(), receipt)
+        self.assertFalse((self.f.state / canary.PENDING).exists())
+
+    def test_publication_write_failure_preserves_pending_and_forces_new_state(self):
+        plan, receipt = b"plan\n", canary.canonical({"kind": "clon", "fixture": True})
+        original_open = canary.os.open
+        def fault(name, flags, *args, **kwargs):
+            if name == "plan-canonico-clon.json" and flags & os.O_CREAT:
+                raise OSError("synthetic_write_failure")
+            return original_open(name, flags, *args, **kwargs)
+        with canary.directory(self.f.state) as fd, patch.object(canary.os, "open", side_effect=fault), self.assertRaises(OSError):
+            canary.publish_pair(fd, plan, receipt)
+        pending = canary.decode((self.f.state / canary.PENDING).read_bytes())
+        self.assertEqual(pending["receipt"], canary.decode(receipt))
+        self.assertEqual(pending["receipt_sha256"], canary.sha(receipt))
+        self.assertTrue(pending["requires_new_state"])
+        self.assertEqual((self.f.state / "plan-conexiones.json").read_bytes(), plan)
+        with self.assertRaisesRegex(canary.Refused, "new_state_required"):
+            self.run_canary()
+        self.assertEqual(self.f.runner.calls, [])
+
+    def test_publication_interruption_after_plan_preserves_full_pending_receipt(self):
+        original_open = canary.os.open
+        def interrupt(name, flags, *args, **kwargs):
+            if name == "plan-canonico-clon.json" and flags & os.O_CREAT:
+                raise KeyboardInterrupt()
+            return original_open(name, flags, *args, **kwargs)
+        receipt = canary.canonical({"kind": "clon", "fixture": True})
+        with canary.directory(self.f.state) as fd, patch.object(canary.os, "open", side_effect=interrupt), self.assertRaises(KeyboardInterrupt):
+            canary.publish_pair(fd, b"plan\n", receipt)
+        self.assertEqual(canary.decode((self.f.state / canary.PENDING).read_bytes())["receipt"], canary.decode(receipt))
+        with self.assertRaisesRegex(canary.Refused, "new_state_required"):
+            self.run_canary()
+        self.assertEqual(self.f.runner.calls, [])
+
+    def test_pending_directory_fsync_failure_prevents_any_flat_publication(self):
+        receipt = canary.canonical({"kind": "clon", "fixture": True})
+        original_sync = canary.os.fsync
+        with canary.directory(self.f.state) as state_fd:
+            def fault(fd):
+                if fd == state_fd:
+                    raise OSError("synthetic_directory_fsync_failure")
+                original_sync(fd)
+            with patch.object(canary.os, "fsync", side_effect=fault), self.assertRaises(OSError):
+                canary.publish_pair(state_fd, b"plan\n", receipt)
+        self.assertEqual(canary.decode((self.f.state / canary.PENDING).read_bytes())["receipt"], canary.decode(receipt))
+        self.assertFalse((self.f.state / "plan-conexiones.json").exists())
+        self.assertFalse((self.f.state / "plan-canonico-clon.json").exists())
+        with self.assertRaisesRegex(canary.Refused, "new_state_required"):
+            self.run_canary()
+        self.assertEqual(self.f.runner.calls, [])
 
 
 if __name__ == "__main__":
