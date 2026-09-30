@@ -288,12 +288,50 @@ def phase_files(directory, request, state, plan, restore_sha):
     return req, receipt, context, sql.sha(raw), h1_records_sha
 
 
+def reserve_phase_state(state):
+    """Create one private directory under retained trusted parents, never adopt."""
+    _, installer, _, _ = phase_apis()
+    state = installer.canonical_path(state)
+    descriptors = []
+    created = None
+    try:
+        descriptors.append(os.open('/', installer.DIR_FLAGS))
+        for component in (*state.parts[1:-1], None):
+            directory = descriptors[-1]
+            info = os.fstat(directory)
+            installer.require(stat.S_ISDIR(info.st_mode) and info.st_uid in (0, os.getuid())
+                              and not info.st_mode & 0o022, 'phase_state_ancestor')
+            installer.require(not installer.present(directory, '.git'), 'phase_state_inside_git')
+            if component is not None:
+                descriptors.append(os.open(component, installer.DIR_FLAGS, dir_fd=directory))
+        try:
+            os.mkdir(state.name, mode=0o700, dir_fd=directory)
+        except FileExistsError:
+            raise installer.Refused('phase_state_exists_new_state_required') from None
+        created = os.open(state.name, installer.DIR_FLAGS, dir_fd=directory)
+        info = os.fstat(created)
+        installer.require(stat.S_ISDIR(info.st_mode) and info.st_uid == os.getuid()
+                          and stat.S_IMODE(info.st_mode) == 0o700, 'phase_state_owner_mode')
+        os.fsync(created)
+        os.fsync(directory)
+        return info.st_dev, info.st_ino
+    finally:
+        # Never delete an uncertain reservation or retry a failed mkdir/fsync.
+        if created is not None:
+            os.close(created)
+        for descriptor in reversed(descriptors):
+            os.close(descriptor)
+
+
 def preparar_sql(request, state, source_ref=SOURCE):
     """One-shot fresh H1 -> SQL62 -> observed postimage; preserve every failure."""
     h1, installer, kit, sql = phase_apis()
     plan, _ = phase_preflight(request, source_ref)
     state = installer.canonical_path(state)
+    reserved = reserve_phase_state(state)
     with installer.private_state(state) as (directory, retained):
+        info = os.fstat(directory)
+        installer.require((info.st_dev, info.st_ino) == reserved, 'phase_state_replaced')
         installer.require(not os.listdir(directory), 'phase_state_exists_new_state_required')
         attempt = {'version': 1, 'kind': 'sql62_phase_reserved', 'source_ref': SOURCE,
                    'state': str(state), 'plan_sha256': plan['plan_sha'], 'pins': phase_pins(request)}

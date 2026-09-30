@@ -136,7 +136,6 @@ class SQLPhaseTests(unittest.TestCase):
         self.addCleanup(self.tmp.cleanup)
         self.root = Path(self.tmp.name)
         self.state = self.root / 'state'
-        self.state.mkdir(mode=0o700)
         self.h1, self.installer, self.kit, self.sql = module.phase_apis()
         self.calls = []
         normalizer = self.root / 'h6_normalizar_pg_dump.py'
@@ -239,10 +238,14 @@ class SQLPhaseTests(unittest.TestCase):
         return module.preparar_sql(self.request, self.state)
 
     def snapshot(self):
+        if not self.state.exists():
+            return {}
         return {p.name: (p.read_bytes(), p.stat().st_mtime_ns, p.stat().st_mode) for p in self.state.iterdir()}
 
     def test_prepare_once_observes_real_contracts_and_verify_is_read_only(self):
+        self.assertFalse(self.state.exists())
         result = self.prepare()
+        self.assertEqual(stat.S_IMODE(self.state.stat().st_mode), 0o700)
         self.assertEqual((result['phase'], result['sql_count'], result['ready']), ('awaiting_ad132', 62, False))
         self.assertLess(self.calls.index('restore'), self.calls.index('install'))
         self.assertEqual(result['acta_sha256'], self.sql.sha((self.state/module.PHASE_RECEIPT).read_bytes()))
@@ -261,6 +264,7 @@ class SQLPhaseTests(unittest.TestCase):
         self.assertEqual(self.restore.call_count, 1)
 
     def test_every_previous_file_even_dangling_pending_refuses_restore(self):
+        self.state.mkdir(mode=0o700)
         for name in ('h1-restore-pending.json', 'h1-restore.json', 'sql62-intento.json',
                      'sql-journal.json', '.sql-confirming', module.PHASE_ATTEMPT, 'unknown'):
             with self.subTest(name=name):
@@ -268,6 +272,62 @@ class SQLPhaseTests(unittest.TestCase):
                 path.symlink_to(self.root/'missing')
                 with self.assertRaises(self.installer.Refused): self.prepare()
                 path.unlink()
+        self.restore.assert_not_called(); self.install.assert_not_called()
+
+    def test_existing_empty_foreign_and_symlink_states_never_adopted(self):
+        self.state.mkdir(mode=0o700)
+        with self.assertRaisesRegex(self.installer.Refused, 'phase_state_exists'):
+            self.prepare()
+        self.assertEqual(self.snapshot(), {})
+        self.state.chmod(0o755)
+        with self.assertRaisesRegex(self.installer.Refused, 'phase_state_exists'):
+            self.prepare()
+        self.assertEqual(stat.S_IMODE(self.state.stat().st_mode), 0o755)
+        self.state.rmdir()
+        for target in (self.root / 'absent', self.root):
+            self.state.symlink_to(target, target_is_directory=True)
+            with self.assertRaisesRegex(self.installer.Refused, 'phase_state_exists'):
+                self.prepare()
+            self.assertTrue(self.state.is_symlink())
+            self.state.unlink()
+        self.restore.assert_not_called(); self.install.assert_not_called()
+
+    def test_git_untrusted_and_symlink_ancestors_do_not_create_state(self):
+        (self.root / '.git').mkdir()
+        with self.assertRaisesRegex(self.installer.Refused, 'phase_state_inside_git'):
+            self.prepare()
+        self.assertFalse(self.state.exists())
+        (self.root / '.git').rmdir()
+        self.root.chmod(0o777)
+        try:
+            with self.assertRaisesRegex(self.installer.Refused, 'phase_state_ancestor'):
+                self.prepare()
+            self.assertFalse(self.state.exists())
+        finally:
+            self.root.chmod(0o700)
+        alias = self.root / 'alias'
+        alias.symlink_to(self.root, target_is_directory=True)
+        with self.assertRaises(OSError):
+            module.preparar_sql(self.request, alias / 'state')
+        self.assertFalse(self.state.exists())
+        self.restore.assert_not_called(); self.install.assert_not_called()
+
+    def test_creation_or_parent_fsync_failure_has_no_restore_and_preserves_state(self):
+        original_fsync = os.fsync
+        def parent_fsync(fd):
+            if os.fstat(fd).st_ino == self.root.stat().st_ino:
+                raise OSError('dummy parent fsync failure')
+            return original_fsync(fd)
+        with patch.object(module.os, 'fsync', side_effect=parent_fsync), self.assertRaises(OSError):
+            self.prepare()
+        self.assertTrue(self.state.is_dir())
+        self.assertEqual(self.snapshot(), {})
+        with self.assertRaisesRegex(self.installer.Refused, 'phase_state_exists'):
+            self.prepare()
+        self.state.rmdir()
+        with patch.object(module.os, 'mkdir', side_effect=PermissionError('dummy')), self.assertRaises(PermissionError):
+            self.prepare()
+        self.assertFalse(self.state.exists())
         self.restore.assert_not_called(); self.install.assert_not_called()
 
     def test_restore_failure_preserves_reservation_and_prevents_retry(self):
