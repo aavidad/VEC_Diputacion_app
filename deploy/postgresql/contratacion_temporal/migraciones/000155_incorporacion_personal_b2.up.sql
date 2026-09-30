@@ -182,7 +182,7 @@ BEGIN
  OR jsonb_typeof(p->'ejercicio_sintetico') IS DISTINCT FROM 'boolean'
  OR p->>'motivo_clave'!~'^[a-z][a-z0-9_.-]{1,79}$'
  OR jsonb_typeof(p->'clase_ocupacion') IS DISTINCT FROM 'string'
- OR p->>'clase_ocupacion' !~ '^[a-z][a-z0-9_.-]{1,79}$'
+ OR p->>'clase_ocupacion' !~ '^[a-z][a-z0-9_]{0,63}$'
  OR p->>'desde'!~'^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
  OR (p->>'hasta'<>'' AND p->>'hasta'!~'^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
  THEN RAISE EXCEPTION 'CT155: intención inválida' USING ERRCODE='22023'; END IF;
@@ -190,7 +190,7 @@ BEGIN
  EXCEPTION WHEN data_exception THEN RAISE EXCEPTION 'CT155: fecha inválida' USING ERRCODE='22023'; END;
  IF NOT isfinite(desde) OR to_char(desde,'YYYY-MM-DD')<>p->>'desde' OR (hasta IS NOT NULL AND (NOT isfinite(hasta) OR hasta<=desde OR to_char(hasta,'YYYY-MM-DD')<>p->>'hasta'))
  OR (p->>'analisis_version')::numeric>(p->>'version_expediente')::numeric
- OR (SELECT jsonb_object_agg(k,p->k) FROM unnest(ARRAY['organizacion_ref','expediente_ref','version_expediente','puesto_ref','plaza_ref','regimen','modalidad','clase_ocupacion','desde','hasta','motivo_clave','documento_ref','documento_sha256']) k)
+ OR (SELECT jsonb_object_agg(x.clave,p->x.clave) FROM unnest(ARRAY['organizacion_ref','expediente_ref','version_expediente','puesto_ref','plaza_ref','regimen','modalidad','clase_ocupacion','desde','hasta','motivo_clave','documento_ref','documento_sha256']) AS x(clave))
  IS DISTINCT FROM s-ARRAY['clave_idempotencia','version_plantilla_ref','version_rpt_ref']
  OR p#>>'{fuente_plantilla,ref}' IS DISTINCT FROM s->>'version_plantilla_ref' OR p#>>'{fuente_rpt,ref}' IS DISTINCT FROM s->>'version_rpt_ref'
  THEN RAISE EXCEPTION 'CT155: selección divergente' USING ERRCODE='22023'; END IF;

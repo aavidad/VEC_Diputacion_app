@@ -23,6 +23,43 @@ BEGIN
  IF vec_contratacion_temporal.canon_plan_personal_ct155('{"z":9007199254740991,"a":{"z":"<&>","a":"fecha"}}'::jsonb) IS DISTINCT FROM '{"a":{"a":"fecha","z":"\u003c\u0026\u003e"},"z":9007199254740991}' THEN RAISE EXCEPTION 'CT155: codec Go/SQL divergente';END IF;
  BEGIN PERFORM vec_contratacion_temporal.canon_plan_personal_ct155('{"z":9007199254740992}'::jsonb);RAISE EXCEPTION 'CT155: entero fuera de rango admitido';EXCEPTION WHEN invalid_parameter_value THEN NULL;END;
 END $prueba$;
+-- Sintaxis Personal23/Go: este bloque solo llama al validador CT real.
+-- Los ejemplos no acreditan pertenencia al catálogo propietario Personal.
+DO $gramatica$
+DECLARE p jsonb:='{}';s jsonb;k text;clase text;valor jsonb;
+BEGIN
+ FOREACH k IN ARRAY ARRAY['organizacion_ref','unidad_ct_ref','expediente_ref','analisis_recibo_ref','propuesta_recibo_ref','aceptacion_ref','aceptacion_recibo_ref','persona_ref','persona_recibo_bolsa_ref','organismo_ref','unidad_ref','version_plaza_ref','version_puesto_ref','puesto_ref','plaza_ref','catalogo_rpt_id','catalogo_rpt_modulo','categoria_ref','vinculo_recibo_ref','documento_ref'] LOOP
+ p:=p||jsonb_build_object(k,'ref:gramatica');
+ END LOOP;
+ FOREACH k IN ARRAY ARRAY['version_expediente','analisis_version','persona_version','revision_plaza','revision_puesto','catalogo_rpt_version','vinculo_revision'] LOOP
+ p:=p||jsonb_build_object(k,1);
+ END LOOP;
+ FOREACH k IN ARRAY ARRAY['analisis_sha256','catalogo_rpt_sha256','documento_sha256'] LOOP
+ p:=p||jsonb_build_object(k,repeat('1',64));
+ END LOOP;
+ p:=p||jsonb_build_object(
+ 'persona_fuente',jsonb_build_object('ref','ref:gramatica','version',1,'sha256',repeat('1',64)),
+ 'fuente_organizacion',jsonb_build_object('ref','ref:gramatica','sha256',repeat('1',64)),
+ 'fuente_plantilla',jsonb_build_object('ref','11111111-1111-4111-8111-111111111111','revision',1,'fuente_ref','ref:gramatica','fuente_sha256',repeat('1',64)),
+ 'fuente_rpt',jsonb_build_object('ref','22222222-2222-4222-8222-222222222222','revision',1,'fuente_ref','ref:gramatica','fuente_sha256',repeat('1',64)),
+ 'regimen',jsonb_build_object('ref','catalogo:gramatica','version',1),
+ 'modalidad',jsonb_build_object('ref','catalogo:gramatica','version',1),
+ 'bolsa',jsonb_build_object('unidad_ref','ref:gramatica','categoria_ref','ref:gramatica','necesidad_ref','ref:gramatica','aceptacion_operacion_ref','ref:gramatica','aceptacion_registro_sha256',repeat('1',64),'apertura_operacion_ref','ref:gramatica','apertura_registro_sha256',repeat('1',64),'llamamiento_ref','ref:gramatica','propuesta_ref','ref:gramatica'),
+ 'desde','2026-09-01','hasta','2026-12-31','motivo_clave','motivo_prueba','ejercicio_sintetico',true);
+ SELECT jsonb_object_agg(c,p->c) INTO s FROM unnest(ARRAY['organizacion_ref','expediente_ref','version_expediente','puesto_ref','plaza_ref','regimen','modalidad','desde','hasta','motivo_clave','documento_ref','documento_sha256']) c;
+ s:=s||jsonb_build_object('clave_idempotencia','33333333-3333-4333-8333-333333333333','version_plantilla_ref',p#>>'{fuente_plantilla,ref}','version_rpt_ref',p#>>'{fuente_rpt,ref}');
+ -- Límites y caracteres expresados como casos, sin repetir el regex.
+ FOREACH clase IN ARRAY ARRAY['a','a0_','reserva',repeat('a',64)] LOOP
+ PERFORM vec_contratacion_temporal.validar_plan_personal_ct155(p||jsonb_build_object('clase_ocupacion',clase),s||jsonb_build_object('clase_ocupacion',clase));
+ END LOOP;
+ FOR valor IN SELECT value FROM jsonb_array_elements(jsonb_build_array('','A','1a','a-b','a.b',repeat('a',65),7,true,NULL)) LOOP
+ BEGIN
+ PERFORM vec_contratacion_temporal.validar_plan_personal_ct155(p||jsonb_build_object('clase_ocupacion',valor),s||jsonb_build_object('clase_ocupacion',valor));
+ RAISE EXCEPTION 'CT155: clase sintácticamente inválida admitida: %',valor;
+ EXCEPTION WHEN invalid_parameter_value THEN NULL;
+ END;
+ END LOOP;
+END $gramatica$;
 -- CT155 positiva: plan y origen usan operaciones distintas aunque ambos
 -- eventos conservan el mismo plan_ref. Ejercita el helper y la restricción
 -- UNIQUE real del outbox, con rollback; no simula autorización Personal.
