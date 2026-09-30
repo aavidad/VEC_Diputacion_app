@@ -17,6 +17,11 @@ const consultaResolverMotivoAutorizacionV2Historico = `
 		$1::text, $2::integer, $3::text, $4::text, $5::timestamptz
 	)`
 
+const consultaResolverMotivoCandidatoExternoV2 = `
+	SELECT vec_autorizacion.resolver_motivo_candidato_externo_v1(
+		$1::text, $2::integer, $3::text, $4::text, $5::timestamptz
+	)`
+
 // ValidadorReferenciaMotivoPostgreSQLV2 comprueba una referencia contra la
 // proyeccion historica publicada. Es de solo consulta: no proyecta catalogos,
 // no resuelve la vigencia actual y no conserva ni administra conexiones.
@@ -27,6 +32,7 @@ const consultaResolverMotivoAutorizacionV2Historico = `
 type ValidadorReferenciaMotivoPostgreSQLV2 struct {
 	consulta   consultorFilaMotivoAutorizacionV2
 	catalogoID string
+	externo    bool
 }
 
 type consultorFilaMotivoAutorizacionV2 interface {
@@ -40,6 +46,19 @@ func NuevoValidadorReferenciaMotivoPostgreSQLV2(
 	catalogoID string,
 ) (*ValidadorReferenciaMotivoPostgreSQLV2, error) {
 	return nuevoValidadorReferenciaMotivoPostgreSQLV2(pool, catalogoID)
+}
+
+// NuevoValidadorReferenciaMotivoPostgreSQLV2Externo limita la consulta a la
+// fachada de motivos del candidato y exige el login nominal externo.
+func NuevoValidadorReferenciaMotivoPostgreSQLV2Externo(
+	pool *pgxpool.Pool, catalogoID string,
+) (*ValidadorReferenciaMotivoPostgreSQLV2, error) {
+	v, err := nuevoValidadorReferenciaMotivoPostgreSQLV2(pool, catalogoID)
+	if err != nil {
+		return nil, err
+	}
+	v.externo = true
+	return v, nil
 }
 
 func nuevoValidadorReferenciaMotivoPostgreSQLV2(
@@ -79,9 +98,13 @@ func (v *ValidadorReferenciaMotivoPostgreSQLV2) ValidarReferenciaMotivoAutorizac
 	}
 
 	var resuelta bool
+	consulta := consultaResolverMotivoAutorizacionV2Historico
+	if v.externo {
+		consulta = consultaResolverMotivoCandidatoExternoV2
+	}
 	err := v.consulta.QueryRow(
 		ctx,
-		consultaResolverMotivoAutorizacionV2Historico,
+		consulta,
 		referencia.CatalogoID,
 		referencia.CatalogoVersion,
 		referencia.CatalogoHuellaSHA256,

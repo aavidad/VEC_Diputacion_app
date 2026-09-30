@@ -1,0 +1,1 @@
+deploy/postgresql/contexto_actor_v1/migraciones/000015_contexto_externo_segregado.up.sql

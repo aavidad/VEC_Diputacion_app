@@ -1,0 +1,4 @@
+# Rol exterior de Bolsa antes de ampliar su guarda AD3.
+# El portal solo se enciende tras instalar también AUT/CTX/ID externos y AD3-116.
+deploy/postgresql/bolsa_llamamientos/migraciones/000060_portal_externo_candidato.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000115_consumidor_bolsa_portal_externo.up.sql

@@ -1,0 +1,5 @@
+# Requiere Identidad externa 000007/000008, ContextoActor 000012/000013,
+# Bolsa 000059 de correo, Bolsa 000060 exterior y AD3-115 instalados antes.
+deploy/postgresql/autorizacion/migraciones/000015_candidato_externo.up.sql
+deploy/postgresql/autorizacion/migraciones/000016_asignacion_perfil_candidato_externo.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000116_consumo_candidato_externo.up.sql

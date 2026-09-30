@@ -1,4 +1,4 @@
-import { IDIOMA_DATOS_REGLAS, IDIOMA_REGLAS, MENSAJES_REGLAS, crearTraductorReglas, existeClaveReglas, formatearNumero, minusculas } from "./i18n.js?v=20260930-reglas-detalle-v3";
+import { IDIOMA_DATOS_REGLAS, IDIOMA_REGLAS, MENSAJES_REGLAS, crearTraductorReglas, existeClaveReglas, formatearNumero, minusculas } from "./i18n.js?v=20260930-reglas-recuperacion-v1";
 import { icono } from "../../comun/iconos-vec.js?v=20260925-aspecto-v1";
 
 export const API_REGLAS = "/api/vec/reglas/vigentes";
@@ -225,64 +225,72 @@ export async function iniciar(doc, cliente) {
     el.classList.toggle("rg-aviso--error", error);
     el.hidden = mensaje === "";
   };
-  avisar(t("cargando"));
-  let datos;
-  try {
-    datos = await cliente.reglas();
-  } catch (error) {
-    avisar(mensajeError(error), true);
-    // Qué hacer ahora: el mismo botón que el aviso sin catálogo de textos.
-    const reintentar = doc.createElement?.("button");
-    if (reintentar) {
-      reintentar.type = "button";
-      reintentar.className = "rg-secundario";
-      reintentar.textContent = t("reintentar");
-      reintentar.addEventListener("click", () => doc.defaultView?.location?.reload());
-      $("rg-estado").append(" ", reintentar);
+  const cargar = async (disparador) => {
+    const aviso = $("rg-estado");
+    const conservarFoco = disparador && doc.activeElement === disparador;
+    avisar(t("cargando"));
+    if (conservarFoco) aviso.focus({ preventScroll: true });
+    let datos;
+    try {
+      datos = await cliente.reglas();
+    } catch (error) {
+      avisar(mensajeError(error), true);
+      const reintentar = doc.createElement?.("button");
+      if (reintentar) {
+        reintentar.type = "button";
+        reintentar.className = "rg-secundario";
+        reintentar.textContent = t("reintentar");
+        reintentar.addEventListener("click", () => cargar(reintentar));
+        aviso.append(" ", reintentar);
+        if (conservarFoco && doc.activeElement === aviso) reintentar.focus({ preventScroll: true });
+      }
+      return;
     }
-    return;
-  }
-  const modulos = [...new Set(datos.catalogos.map((c) => c.modulo))];
-  $("rg-modulo").innerHTML = `<option value="">${esc(t("todos"))}</option>` + modulos.map((m) => `<option value="${esc(m)}">${esc(etiquetaModulo(m))}</option>`).join("");
-  $("rg-origen").innerHTML = `<option value="">${esc(t("todos"))}</option>` + [...ORIGENES].map((o) => `<option value="${o}">${esc(t(`origen_${o}`))}</option>`).join("");
-  // Reglas abiertas: sobreviven al filtrar y, la última, a recargar (ancla).
-  const abiertas = new Set();
-  let ancla = "";
-  try { ancla = decodeURIComponent(String(doc.defaultView?.location?.hash ?? "").slice(1)); }
-  catch { /* Un ancla inválida no debe impedir mostrar las reglas. */ }
-  if (/^rg-regla-[a-z0-9-]+$/u.test(ancla)) abiertas.add(ancla);
-  const pintar = () => {
-    const visibles = filtrar(datos.catalogos, { modulo: $("rg-modulo").value, origen: $("rg-origen").value, texto: $("rg-texto").value });
-    $("rg-kpis").innerHTML = renderizarResumen(visibles);
-    $("rg-catalogos").innerHTML = visibles.map((c) => renderizarCatalogo(c, abiertas)).join("");
+    const modulos = [...new Set(datos.catalogos.map((c) => c.modulo))];
+    $("rg-modulo").innerHTML = `<option value="">${esc(t("todos"))}</option>` + modulos.map((m) => `<option value="${esc(m)}">${esc(etiquetaModulo(m))}</option>`).join("");
+    $("rg-origen").innerHTML = `<option value="">${esc(t("todos"))}</option>` + [...ORIGENES].map((o) => `<option value="${o}">${esc(t(`origen_${o}`))}</option>`).join("");
+    // Reglas abiertas: sobreviven al filtrar y, la última, a recargar (ancla).
+    const abiertas = new Set();
+    let ancla = "";
+    try { ancla = decodeURIComponent(String(doc.defaultView?.location?.hash ?? "").slice(1)); }
+    catch { /* Un ancla inválida no debe impedir mostrar las reglas. */ }
+    if (/^rg-regla-[a-z0-9-]+$/u.test(ancla)) abiertas.add(ancla);
+    const pintar = () => {
+      const visibles = filtrar(datos.catalogos, { modulo: $("rg-modulo").value, origen: $("rg-origen").value, texto: $("rg-texto").value });
+      $("rg-kpis").innerHTML = renderizarResumen(visibles);
+      $("rg-catalogos").innerHTML = visibles.map((c) => renderizarCatalogo(c, abiertas)).join("");
+    };
+    const alternar = (fila) => {
+      const id = fila.dataset.regla;
+      const abrir = !abiertas.has(id);
+      if (abrir) abiertas.add(id); else abiertas.delete(id);
+      fila.classList.toggle("rg-fila--abierta", abrir);
+      fila.querySelector(".rg-regla-abrir")?.setAttribute("aria-expanded", String(abrir));
+      const detalle = doc.getElementById(id);
+      if (detalle) detalle.hidden = !abrir;
+      const vista = doc.defaultView;
+      // El ancla guarda la última regla abierta que sigue abierta, para recargar sin perderla.
+      const ultima = abrir ? id : [...abiertas].at(-1);
+      try { vista?.history?.replaceState(null, "", ultima ? `#${ultima}` : `${vista.location.pathname}${vista.location.search}`); } catch { /* sin historial */ }
+    };
+    // Se abre con el botón del nombre o pulsando en cualquier punto de la fila.
+    $("rg-catalogos").addEventListener("click", (evento) => {
+      const fila = evento.target.closest?.("tr.rg-fila");
+      if (!fila || (evento.target.closest("a") && !evento.target.closest(".rg-regla-abrir"))) return;
+      if (!evento.target.closest(".rg-regla-abrir") && doc.getSelection?.()?.toString()) return;
+      alternar(fila);
+    });
+    $("rg-filtros").addEventListener("submit", (evento) => evento.preventDefault());
+    for (const id of ["rg-modulo", "rg-origen"]) $(id).addEventListener("change", pintar);
+    $("rg-texto").addEventListener("input", pintar);
+    pintar();
+    const devolverFoco = conservarFoco && doc.activeElement === aviso;
+    avisar("");
+    $("rg-resultado").hidden = false;
+    if (devolverFoco) $("rg-modulo").focus({ preventScroll: true });
+    if (abiertas.size) doc.getElementById([...abiertas][0])?.previousElementSibling?.scrollIntoView?.({ block: "center" });
   };
-  const alternar = (fila) => {
-    const id = fila.dataset.regla;
-    const abrir = !abiertas.has(id);
-    if (abrir) abiertas.add(id); else abiertas.delete(id);
-    fila.classList.toggle("rg-fila--abierta", abrir);
-    fila.querySelector(".rg-regla-abrir")?.setAttribute("aria-expanded", String(abrir));
-    const detalle = doc.getElementById(id);
-    if (detalle) detalle.hidden = !abrir;
-    const vista = doc.defaultView;
-    // El ancla guarda la última regla abierta que sigue abierta, para recargar sin perderla.
-    const ultima = abrir ? id : [...abiertas].at(-1);
-    try { vista?.history?.replaceState(null, "", ultima ? `#${ultima}` : `${vista.location.pathname}${vista.location.search}`); } catch { /* sin historial */ }
-  };
-  // Se abre con el botón del nombre o pulsando en cualquier punto de la fila.
-  $("rg-catalogos").addEventListener("click", (evento) => {
-    const fila = evento.target.closest?.("tr.rg-fila");
-    if (!fila || (evento.target.closest("a") && !evento.target.closest(".rg-regla-abrir"))) return;
-    if (!evento.target.closest(".rg-regla-abrir") && doc.getSelection?.()?.toString()) return;
-    alternar(fila);
-  });
-  $("rg-filtros").addEventListener("submit", (evento) => evento.preventDefault());
-  for (const id of ["rg-modulo", "rg-origen"]) $(id).addEventListener("change", pintar);
-  $("rg-texto").addEventListener("input", pintar);
-  pintar();
-  avisar("");
-  $("rg-resultado").hidden = false;
-  if (abiertas.size) doc.getElementById([...abiertas][0])?.previousElementSibling?.scrollIntoView?.({ block: "center" });
+  await cargar();
 }
 
 if (typeof document !== "undefined" && document.getElementById("reglas")) {

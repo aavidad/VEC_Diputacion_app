@@ -20,6 +20,7 @@ import (
 	"vec-diputacion-granada/config"
 	publicatransitoria "vec-diputacion-granada/internal/app/composicion/publicatransitoria"
 	"vec-diputacion-granada/internal/app/server"
+	bolsahttp "vec-diputacion-granada/internal/modules/bolsa/adapters/httppersonal"
 	bolsapublicahttp "vec-diputacion-granada/internal/modules/bolsa/publico/httpapi"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
@@ -167,9 +168,8 @@ func validarManifiestoPortalExterno(ruta string, ca, servidor *x509.Certificate)
 
 // nuevoServidorPortalExternoDesarrollo compone el proceso del portal externo:
 // mTLS con la identidad de la persona candidata, consulta pública y los
-// ficheros del Área personal. No abre ninguna conexión de RRHH ni carga
-// material interno; las capacidades personales (Mi bolsa, preferencias,
-// correos, imagen) se añaden en sus propias minitareas.
+// ficheros del Área personal. Las capacidades personales usan conexiones
+// nominales externas; no abre conexiones de RRHH ni carga material interno.
 func nuevoServidorPortalExternoDesarrollo(cfg config.Config, registro io.Writer, emisor vecports.EmisorIncidenciasTecnicas) (*http.Server, error) {
 	cfg = cfg.Normalize()
 	if registro == nil {
@@ -228,9 +228,9 @@ func nuevoServidorPortalExternoDesarrollo(cfg config.Config, registro io.Writer,
 }
 
 // nuevasCapacidadesPersonalesPortalExterno compone las capacidades del Área
-// personal que el proceso externo tenga encendidas. Hoy: «Mis preferencias».
-// Correos e imagen aún no se componen aquí: encenderlos en el externo impide
-// arrancar en lugar de ignorarse.
+// personal que el proceso externo tenga encendidas: preferencias, consulta de
+// Mi bolsa y, con el selector, acciones del candidato. Una capacidad activa
+// sin infraestructura completa impide arrancar.
 func nuevasCapacidadesPersonalesPortalExterno(cfg config.Config, identidad *resolvedorIdentidadDesarrollo, emisor vecports.EmisorIncidenciasTecnicas) (http.Handler, func(), error) {
 	nada := func() {}
 	for _, selector := range []string{envUsuariosCorreosDesarrollo, envUsuariosImagenDesarrollo} {
@@ -242,7 +242,16 @@ func nuevasCapacidadesPersonalesPortalExterno(cfg config.Config, identidad *reso
 	if err != nil {
 		return nil, nada, err
 	}
-	if !preferencias {
+	portalCandidato, err := cfg.BolsaPortalCandidatoDesarrolloActivo()
+	if err != nil {
+		return nil, nada, err
+	}
+	_, sinBolsa := cfg.ExternoBolsaPostgreSQL.DSN()
+	miBolsa := sinBolsa == nil
+	if portalCandidato && !miBolsa {
+		return nil, nada, errMiBolsaNoDisponible
+	}
+	if !preferencias && !miBolsa {
 		return nil, nada, nil
 	}
 	if emisor == nil {
@@ -268,18 +277,44 @@ func nuevasCapacidadesPersonalesPortalExterno(cfg config.Config, identidad *reso
 		return nil, nada, ErrUsuariosPortalExternoNoDisponible
 	}
 	cerrar := func() { preflight.Close(); derivador.borrar() }
-	autoridad, err := nuevasPreferenciasPortalExterno(ctx, cfg, identidad, derivador, emisor, preflight)
+	var personal http.Handler
+	cerrarPreferencias := nada
+	if preferencias {
+		autoridad, err := nuevasPreferenciasPortalExterno(ctx, cfg, identidad, derivador, emisor, preflight)
+		if err != nil {
+			cerrar()
+			return nil, nada, err
+		}
+		cerrarPreferencias = autoridad.cerrar
+		cerrarTodo := func() { cerrarPreferencias(); cerrar() }
+		manejador, err := nuevaAPIPersonalPortalExterno(identidad, emisor, autoridad)
+		if err != nil {
+			cerrarTodo()
+			return nil, nada, err
+		}
+		personal = manejador
+	}
+	bolsa, cerrarBolsa, err := nuevaMiBolsaPortalExterno(ctx, cfg, identidad, derivador, preflight, emisor)
 	if err != nil {
+		cerrarPreferencias()
 		cerrar()
 		return nil, nada, err
 	}
-	cerrarTodo := func() { autoridad.cerrar(); cerrar() }
-	manejador, err := nuevaAPIPersonalPortalExterno(identidad, emisor, autoridad)
-	if err != nil {
-		cerrarTodo()
-		return nil, nada, err
+	cerrarTodo := func() { cerrarBolsa(); cerrarPreferencias(); cerrar() }
+	if bolsa == nil {
+		return personal, cerrarTodo, nil
 	}
-	return manejador, cerrarTodo, nil
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r != nil && r.URL != nil && bolsahttp.EsRutaPortal(r.URL.Path) {
+			bolsa.ServeHTTP(w, r)
+			return
+		}
+		if personal != nil {
+			personal.ServeHTTP(w, r)
+			return
+		}
+		http.NotFound(w, r)
+	}), cerrarTodo, nil
 }
 
 // avisarArranquePortalExterno deja constancia ruidosa, como el resto de la
