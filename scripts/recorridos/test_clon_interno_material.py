@@ -228,3 +228,17 @@ class InternalProjectionTests(unittest.TestCase):
         with self.assertRaises(projection.ProjectionError): self.provision(refresh=True)
         self.assertEqual((root / "material-manifest.json").read_bytes(), before)
         self.assertEqual(list(self.state.glob("runtime-interno-proof-refresh-*.json")), [])
+
+    def test_importacion_existing_nominal_dsn_is_projected_with_original_kms_and_owned_custody(self):
+        env = json.loads((self.state / "runtime-config.json").read_bytes())
+        original_dsn = self.dsn().replace("nominal:", "vec_bolsa_importacion_convoca_desarrollo:")
+        env["VEC_BOLSA_IMPORTACION_CONVOCA_DATABASE_URL"] = original_dsn
+        self.put(self.state / "runtime-config.json", projection.json_bytes(env))
+        self.seal()
+        descriptor = self.provision()
+        current = json.loads((self.state / descriptor["config"]).read_bytes())
+        from urllib.parse import urlsplit
+        self.assertEqual(urlsplit(current["VEC_BOLSA_IMPORTACION_CONVOCA_DATABASE_URL"]).netloc, urlsplit(original_dsn).netloc)
+        self.assertIn("sslmode=verify-full", current["VEC_BOLSA_IMPORTACION_CONVOCA_DATABASE_URL"])
+        self.assertEqual(current["VEC_BOLSA_IMPORTACION_CONVOCA_CUSTODIA_DIR"], str(self.state / "runtime-interno/rw/data/importaciones"))
+        self.assertEqual((self.state / "runtime-interno/material/kms/clave-maestra.bin").read_bytes(), (self.material / "kms/clave-maestra.bin").read_bytes())

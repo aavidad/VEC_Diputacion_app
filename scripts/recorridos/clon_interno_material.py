@@ -36,6 +36,7 @@ DATABASE_KEYS = (
     "VEC_CT_REVALIDACION_IDENTIDAD_DATABASE_URL", "VEC_CT_CONTEXTO_ACTOR_DATABASE_URL", "VEC_CT_AUDITORIA_FRONTERA_DATABASE_URL",
     "VEC_AUTORIZACION_FUENTE_DATABASE_URL", "VEC_AUTORIZACION_MOTIVOS_EVALUADOR_DATABASE_URL",
     "VEC_BOLSA_AUDITORIA_FRONTERA_DATABASE_URL", "VEC_BOLSA_POLITICA_OFERTAS_CALCULADOR_DATABASE_URL",
+    "VEC_BOLSA_IMPORTACION_CONVOCA_DATABASE_URL",
 )
 ENV_KEYS = set(DATABASE_KEYS) | {
     "VEC_EXECUTION_PROFILE", "VEC_AUTH_MODE", "VEC_DEVELOPMENT_GUARD", "VEC_HTTP_ADDR", "VEC_HTTP_IDLE_TIMEOUT",
@@ -52,6 +53,8 @@ SOURCE_PATHS = (
     "config/portal_proceso.go", "internal/app/separacionportales/material.go",
     "internal/app/bootstrap/material_desarrollo.go", "internal/app/bootstrap/usuarios_preferencias_config_identidad.go",
     "internal/app/bootstrap/documentos_montaje.go", "internal/app/bootstrap/usuarios_imagen_montaje.go",
+    "config/postgresql_importacion_convoca.go", "internal/app/bootstrap/bolsa_importacion_convoca_pool.go",
+    "internal/app/bootstrap/bolsa_importacion_convoca_custodia.go",
 )
 # Reviewed portal/material contracts at main 8fc0b534; SQL lineage alone
 # cannot approve changes to these Go loaders or their classification.
@@ -62,6 +65,9 @@ APPROVED_CONTRACTS = dict(zip(SOURCE_PATHS, (
     "6fb7e6f198f30613040210088f0e285bfbff11db8e0161936888b7bcbf8c0e32",
     "3ee0ac2917e03b1093b528781b2af25238600b7400d4d30f78c836d26355665a",
     "dcfb4d6c6eb4f438993de0ab6c027b21b429826a601519fafdeec3ef2ed68bf8",
+    "b30ac7f1c8f92d95a251704f0c128315070eafc2a0c743a08c627b72e7e39ece",
+    "5707fbbe5c78c4b7b48267b8bb39f0095e224eddbd3b16c071d216daad1b72be",
+    "8b3c2909bc3278c9937f45935f54774edd141230e8824022657742a159549d04",
 )))
 
 

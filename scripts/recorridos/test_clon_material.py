@@ -162,6 +162,21 @@ class MaterialTests(unittest.TestCase):
             self.assertEqual((root / "material-manifest.json").read_bytes(), before)
             self.assertIn("private fixture failure", (root / "material-provision-private.log").read_text())
 
+    def test_importacion_connect_precedes_public_revoke_and_rechecks_only_bolsa(self):
+        args = SimpleNamespace(complete_profiles=True, repair_coverage_connect=True,
+                               repair_importacion_connect=True, repair_nominal_connect=True)
+        events = []
+        def complete(*args, only_bolsa=False):
+            events.append("bolsa" if only_bolsa else "complete")
+            return {"status": "prepared"}
+        with patch.object(material, "complete_profiles", side_effect=complete), \
+             patch.object(material, "repair_coverage_connect", side_effect=lambda *a: events.append("coverage")), \
+             patch.object(material, "repair_importacion_connect", side_effect=lambda *a: events.append("importacion")), \
+             patch.object(material, "repair_nominal_connect", side_effect=lambda *a: events.append("nominal")), \
+             patch.object(material, "seal_internal_projection", side_effect=lambda *a: events.append("projection") or a[-1]):
+            material.finish_preparation(args, Path("/private"), "b" * 40, {})
+        self.assertEqual(events, ["complete", "coverage", "importacion", "bolsa", "nominal", "projection"])
+
     def test_nominal_connect_matrix_is_closed_and_motives_postimage_is_strict(self):
         self.assertEqual(len(material.NOMINAL_CONNECT_GROUPS), 8)
         self.assertEqual(set(material.NOMINAL_CONNECT_GROUPS), set(material.NOMINAL_CONNECT_SOURCES))
@@ -174,6 +189,79 @@ class MaterialTests(unittest.TestCase):
         self.assertFalse(material.motives_metadata_valid(dict(value, f4=value["f3"]), "nominal_login"))
         self.assertFalse(material.motives_metadata_valid(dict(value, f1="postgres"), "nominal_login"))
 
+    def importacion_image(self):
+        names = (material.IMPORTACION_LOGIN, material.IMPORTACION_GROUP, material.IMPORTACION_RECUPERADOR)
+        roles = [{"rolname": name, "oid": 20 + n, "rolcanlogin": n == 0, "rolinherit": True,
+                  "rolsuper": False, "rolcreatedb": False, "rolcreaterole": False,
+                  "rolreplication": False, "rolbypassrls": False,
+                  "rolconfig": None if n == 0 else ["TimeZone=UTC"]} for n, name in enumerate(names)]
+        return {"database_acl": "owner only", "acl_rows": [], "roles": roles,
+                "memberships": [{"member": 20, "roleid": oid, "inherit_option": True,
+                                 "admin_option": False, "set_option": True} for oid in (21, 22)],
+                "non_database_acl_sha256": "a" * 64, "login_dependencies": 0, "login_settings": 0,
+                "groups_owned_objects": 0,
+                "pool_connect": {material.IMPORTACION_LOGIN: {"connect": False, "create": False, "temp": False}}}
+
+    def test_importacion_only_preserved_login_and_two_exact_historical_memberships(self):
+        image = self.importacion_image()
+        self.assertEqual(material.importacion_preimage(image, material.IMPORTACION_LOGIN), (21, False))
+        with self.assertRaises(material.MaterialError): material.importacion_preimage(image, "foreign_login")
+        for invalid in ("missing", "extra_membership", "admin", "set", "inherit", "login_config", "owned_dependency", "direct_acl", "group_create"):
+            bad = json.loads(json.dumps(image))
+            if invalid == "missing": bad["roles"].pop()
+            if invalid == "extra_membership": bad["memberships"].append(dict(bad["memberships"][0], roleid=99))
+            if invalid == "admin": bad["memberships"][0]["admin_option"] = True
+            if invalid == "set": bad["memberships"][0]["set_option"] = False
+            if invalid == "inherit": bad["memberships"][0]["inherit_option"] = False
+            if invalid == "login_config": bad["roles"][0]["rolconfig"] = ["search_path=unsafe"]
+            if invalid == "owned_dependency": bad["login_dependencies"] = 1
+            if invalid == "direct_acl": bad["acl_rows"].append({"grantee": 20, "privilege": "CONNECT", "grantable": False})
+            if invalid == "group_create": bad["acl_rows"].append({"grantee": 21, "privilege": "CREATE", "grantable": False})
+            with self.subTest(invalid=invalid), self.assertRaises(material.MaterialError):
+                material.importacion_preimage(bad, material.IMPORTACION_LOGIN)
+
+    def test_importacion_repair_rehearses_rollback_and_only_grants_group_connect(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            args = SimpleNamespace(repo=root, container="vec-fixture", pg_port=55531, port=18531, engine="docker")
+            source = "a" * 40
+            material.json_write(root / "material-manifest.json", {"target": {"container_id": "container-own", "source_commit": source}})
+            from urllib.parse import urlencode
+            url = "postgresql://" + material.IMPORTACION_LOGIN + "@127.0.0.1:55531/postgres?" + urlencode({"sslmode": "verify-full", "sslrootcert": str(root / "material/pg/ca.crt")})
+            material.json_write(root / "runtime-config.json", {material.IMPORTACION_KEY: url})
+            container = {"Id": "container-own", "Config": {"Labels": {"vec.recorridos.owner": material.OWNER, "vec.recorridos.state": str(root)}},
+                         "State": {"Running": True}, "NetworkSettings": {"Ports": {"5432/tcp": [{"HostIp": "127.0.0.1", "HostPort": "55531"}]}}}
+            source_bytes = (Path(__file__).resolve().parents[2] / material.IMPORTACION_SOURCE).read_bytes()
+            before = self.importacion_image()
+            after = json.loads(json.dumps(before))
+            after["acl_rows"] = [{"grantor": "10", "grantee": 21, "privilege": "CONNECT", "grantable": False}]
+            after["pool_connect"][material.IMPORTACION_LOGIN]["connect"] = True
+            after["database_acl"] = "owner and importacion group CONNECT only"
+            snapshots = iter((before, before, after))
+            statements = []
+            def query(args, sql):
+                statements.append(sql)
+                if sql == "SHOW ssl_ca_file;": return b"/var/lib/postgresql/18/docker/vec-recorridos-ca.crt"
+                if sql.startswith("BEGIN;"): return b""
+                return json.dumps(next(snapshots)).encode()
+            physical = {"session": material.IMPORTACION_LOGIN, "current": material.IMPORTACION_LOGIN, "tls": True, "member": True, "database": "postgres"}
+            with patch.object(material, "approved_material_plan"), patch.object(material.socket, "create_connection", side_effect=OSError), \
+                 patch.object(material, "run", side_effect=[json.dumps([container]).encode(), source_bytes]), \
+                 patch.object(material, "query", side_effect=query), patch.object(material, "physical_pool_query", return_value=physical) as probe:
+                material.repair_importacion_connect(args, root, source)
+            transactions = [sql for sql in statements if sql.startswith("BEGIN;")]
+            self.assertEqual(len(transactions), 2)
+            self.assertTrue(transactions[0].endswith("ROLLBACK;"))
+            self.assertTrue(transactions[1].endswith("COMMIT;"))
+            for sql in transactions:
+                self.assertEqual(sql.count("GRANT CONNECT ON DATABASE postgres TO " + material.IMPORTACION_GROUP + ";"), 1)
+                self.assertNotIn("CREATE ROLE", sql)
+                self.assertNotIn("REVOKE", sql)
+                self.assertNotIn("ALTER ROLE", sql)
+            probe.assert_called_once()
+            receipt = json.loads(material.private_read(root / "importacion-connect-receipt.json"))
+            self.assertTrue(receipt["rollback_preimage_verified"])
+            self.assertTrue(receipt["physical_TLS_after_commit"])
     def test_coverage_accreditation_denies_any_extra_failure_and_does_not_infer_socket_tls(self):
         value = {"f" + str(n): True for n in range(4, 21)}
         value.update(f1="17852", f2="vec_ct_o207_lector", f3="vec_ct_o207_lector")

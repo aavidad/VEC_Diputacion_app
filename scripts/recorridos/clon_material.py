@@ -235,7 +235,7 @@ def current_users(material: Path) -> dict:
     return users
 
 
-def complete_profiles(args: argparse.Namespace, output: Path, manifest: dict) -> dict:
+def complete_profiles(args: argparse.Namespace, output: Path, manifest: dict, *, only_bolsa: bool = False) -> dict:
     env = json.loads(private_read(output / "runtime-config.json"))
     profiles = json.loads(private_read(output / "perfiles.json"))
     modules = (
@@ -245,9 +245,11 @@ def complete_profiles(args: argparse.Namespace, output: Path, manifest: dict) ->
         ("clon_bolsa_material", {"bback_politica_ofertas_pendiente"}),
         ("clon_candidato_material", {"cuenta_contexto_candidato_pendiente", "contexto_externo_provision_autoridad_ausente_main"}),
     )
+    if only_bolsa:
+        modules = tuple(item for item in modules if item[0] == "clon_bolsa_material")
     # Preflight every dependency before permitting any side effect.
     loaded = [(name, load_profile_module(name), codes) for name, codes in modules]
-    blockers = [b for b in manifest["blockers"] if b["code"] != "lector_adicional_pendiente"]
+    blockers = [b for b in manifest["blockers"] if only_bolsa or b["code"] != "lector_adicional_pendiente"]
     for name, module, owned_codes in loaded:
         try:
             options = {}
@@ -564,6 +566,123 @@ def nominal_connect_snapshot_sql(logins: list[str]) -> str:
  'pool_connect',(SELECT jsonb_object_agg(rolname,jsonb_build_object('connect',has_database_privilege(oid,'postgres','CONNECT'),'create',has_database_privilege(oid,'postgres','CREATE'),'temp',has_database_privilege(oid,'postgres','TEMP'))) FROM pg_roles WHERE rolname IN(""" + names + ")) )"
 
 
+IMPORTACION_KEY = "VEC_BOLSA_IMPORTACION_CONVOCA_DATABASE_URL"
+IMPORTACION_LOGIN = "vec_bolsa_importacion_convoca_desarrollo"
+IMPORTACION_GROUP = "vec_bolsa_importacion_convoca_ejecutor"
+IMPORTACION_RECUPERADOR = "vec_bolsa_importacion_convoca_recuperador"
+IMPORTACION_SOURCE = "internal/app/bootstrap/bolsa_importacion_convoca_pool.go"
+IMPORTACION_SOURCE_SHA = "5707fbbe5c78c4b7b48267b8bb39f0095e224eddbd3b16c071d216daad1b72be"
+
+
+def importacion_snapshot_sql() -> str:
+    base = nominal_connect_snapshot_sql([IMPORTACION_LOGIN])
+    return "SELECT snapshot.value || jsonb_build_object('login_dependencies',(SELECT count(*) FROM pg_shdepend WHERE refclassid='pg_authid'::regclass AND refobjid=(SELECT oid FROM pg_roles WHERE rolname='" + IMPORTACION_LOGIN + "')),'login_settings',(SELECT count(*) FROM pg_db_role_setting WHERE setrole=(SELECT oid FROM pg_roles WHERE rolname='" + IMPORTACION_LOGIN + "')),'groups_owned_objects',(SELECT count(*) FROM pg_shdepend WHERE refclassid='pg_authid'::regclass AND deptype='o' AND refobjid IN(SELECT oid FROM pg_roles WHERE rolname IN('" + IMPORTACION_GROUP + "','" + IMPORTACION_RECUPERADOR + "')))) FROM (" + base + ") snapshot(value)"
+
+
+def importacion_preimage(image: dict, login: str) -> tuple[int, bool]:
+    if login != IMPORTACION_LOGIN:
+        fail("importacion LOGIN is not the preserved H1 account")
+    roles = {r["rolname"]: r for r in image["roles"]}
+    names = (login, IMPORTACION_GROUP, IMPORTACION_RECUPERADOR)
+    if any(name not in roles for name in names):
+        fail("importacion existing role missing")
+    for name in names:
+        role = roles[name]
+        if role["rolcanlogin"] is not (name == login) or any(role[field] for field in ("rolsuper", "rolcreatedb", "rolcreaterole", "rolreplication", "rolbypassrls")):
+            fail("importacion existing role authority changed")
+    if roles[login]["rolinherit"] is not True or roles[login].get("rolconfig") is not None or image["login_dependencies"] != 0 or image["login_settings"] != 0 or image["groups_owned_objects"] != 0:
+        fail("importacion LOGIN or ownership preimage changed")
+    members = [m for m in image["memberships"] if m["member"] == roles[login]["oid"]]
+    expected = {roles[name]["oid"] for name in names[1:]}
+    if len(members) != 2 or {m["roleid"] for m in members} != expected or any(m["inherit_option"] is not True or m["admin_option"] is not False or m["set_option"] is not True for m in members):
+        fail("importacion historical memberships changed")
+    oid = roles[IMPORTACION_GROUP]["oid"]
+    if not re.fullmatch(r"[1-9][0-9]*", str(oid)):
+        fail("importacion invalid group OID")
+    public = [a for a in image["acl_rows"] if str(a["grantee"]) == "0"]
+    if any(a["privilege"] != "CONNECT" or a["grantable"] is not False for a in public) or len(public) > 1:
+        fail("importacion PUBLIC preimage is not CONNECT-only or absent")
+    own = [a for a in image["acl_rows"] if a["grantee"] == oid]
+    if any(a["privilege"] != "CONNECT" or a["grantable"] is not False for a in own) or len(own) > 1:
+        fail("importacion group database authority changed")
+    if any(a["grantee"] == roles[login]["oid"] for a in image["acl_rows"]):
+        fail("importacion LOGIN has direct database authority")
+    effective = image["pool_connect"].get(login)
+    if not effective or effective["create"] is not False or effective["temp"] is not False or effective["connect"] is not bool(public or own):
+        fail("importacion effective CONNECT preimage changed")
+    return oid, bool(own)
+
+
+def repair_importacion_connect(args: argparse.Namespace, output: Path, source: str) -> None:
+    approved_material_plan(args, output, source)
+    try:
+        with socket.create_connection(("127.0.0.1", args.port), timeout=0.2):
+            fail("application must be stopped before importacion CONNECT repair")
+    except OSError:
+        pass
+    info, = json.loads(run([args.engine, "inspect", args.container]))
+    validate_container(info, args.pg_port, output)
+    manifest = json.loads(private_read(output / "material-manifest.json"))
+    if manifest["target"]["container_id"] != info["Id"] or manifest["target"]["source_commit"] != source:
+        fail("importacion clone container or source changed")
+    data = run(["git", "-C", str(args.repo), "show", source + ":" + IMPORTACION_SOURCE])
+    if hashlib.sha256(data).hexdigest() != IMPORTACION_SOURCE_SHA:
+        fail("importacion source contract changed")
+    env = json.loads(private_read(output / "runtime-config.json"))
+    login = pool_login(env[IMPORTACION_KEY], args, output)
+    if login != IMPORTACION_LOGIN:
+        fail("importacion LOGIN is not the preserved H1 account")
+    snapshot = importacion_snapshot_sql()
+    fd = os.open(output / "sql.lock", os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+    try:
+        meta = os.fstat(fd)
+        if not stat.S_ISREG(meta.st_mode) or meta.st_nlink != 1 or meta.st_uid != os.getuid() or meta.st_mode & 0o077:
+            fail("unsafe importacion CONNECT SQL lock")
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        image = json.loads(query(args, snapshot + ";"))
+        oid, complete = importacion_preimage(image, login)
+        ca = query(args, "SHOW ssl_ca_file;").decode().strip()
+        if not re.fullmatch(r"/var/lib/postgresql/(?:data|18/docker)/vec-recorridos-ca.crt", ca):
+            fail("importacion CONNECT TLS CA changed")
+        probe = "SELECT jsonb_build_object('session',session_user,'current',current_user,'tls',(SELECT ssl AND version='TLSv1.3' FROM pg_stat_ssl WHERE pid=pg_backend_pid()),'member',pg_has_role(session_user,'" + IMPORTACION_GROUP + "','MEMBER'),'database',current_database())"
+        def physical():
+            if physical_pool_query(args, login, ca, probe) != {"session": login, "current": login, "tls": True, "member": True, "database": "postgres"}:
+                fail("importacion LOGIN physical TLS accreditation failed")
+        if complete:
+            physical()
+            return
+        path = output / "importacion-connect-receipt.json"
+        if path.exists():
+            fail("importacion CONNECT existing receipt requires reconciliation")
+        after = json.loads(json.dumps(image))
+        after["acl_rows"].append({"grantor": "10", "grantee": oid, "privilege": "CONNECT", "grantable": False})
+        after["acl_rows"].sort(key=lambda row: (int(row["grantor"]), int(row["grantee"]), row["privilege"]))
+        after["pool_connect"][login]["connect"] = True
+        before_literal = "'" + json.dumps(image, sort_keys=True).replace("'", "''") + "'::jsonb"
+        after_literal = "'" + json.dumps(after, sort_keys=True).replace("'", "''") + "'::jsonb"
+        body = "SET LOCAL search_path=pg_catalog;SET LOCAL lock_timeout='3s';SET LOCAL statement_timeout='8s';SELECT pg_advisory_xact_lock(hashtextextended('Codex-M:importacion-connect:v1',0));SELECT datacl FROM pg_database WHERE datname='postgres' FOR UPDATE;"
+        body += "DO $importacion$ DECLARE actual jsonb;BEGIN " + snapshot + " INTO actual;IF actual<>" + before_literal + " THEN RAISE EXCEPTION 'importacion CONNECT preimage changed';END IF;END $importacion$;GRANT CONNECT ON DATABASE postgres TO " + IMPORTACION_GROUP + ";"
+        body += "DO $importacion$ DECLARE actual jsonb;BEGIN " + snapshot + " INTO actual;IF (actual-'database_acl')<>(" + after_literal + "-'database_acl') THEN RAISE EXCEPTION 'importacion CONNECT changed another authority';END IF;END $importacion$;"
+        query(args, "BEGIN;" + body + "ROLLBACK;")
+        if json.loads(query(args, snapshot + ";")) != image:
+            fail("importacion CONNECT rollback changed the preimage")
+        # A denied LOGIN cannot open an independent session before this GRANT
+        # commits. Metadata inside the transaction is not a TLS session claim.
+        query(args, "BEGIN;" + body + "COMMIT;")
+        postimage = json.loads(query(args, snapshot + ";"))
+        if not importacion_preimage(postimage, login)[1]:
+            fail("importacion CONNECT postimage incomplete")
+        physical()
+        receipt = {"version": 1, "source_commit": source, "group": IMPORTACION_GROUP, "login": login,
+                   "only_change": "existing_group_database_CONNECT", "rollback_preimage_verified": True,
+                   "physical_TLS_after_commit": True, "metadata_is_not_a_physical_precommit_LOGIN": True,
+                   "preimage_sha256": hashlib.sha256(json.dumps(image, sort_keys=True).encode()).hexdigest(),
+                   "postimage_sha256": hashlib.sha256(json.dumps(postimage, sort_keys=True).encode()).hexdigest()}
+        json_write(path, receipt)
+    finally:
+        os.close(fd)
+
+
 def repair_nominal_connect(args: argparse.Namespace, output: Path, source: str) -> None:
     approved_material_plan(args, output, source)
     try:
@@ -574,6 +693,8 @@ def repair_nominal_connect(args: argparse.Namespace, output: Path, source: str) 
     bindings = nominal_source_bindings(args.repo, source)
     env = json.loads(private_read(output / "runtime-config.json"))
     expected = set(DSN_KEYS) | {"VEC_BOLSA_AUDITORIA_FRONTERA_DATABASE_URL", "VEC_BOLSA_POLITICA_OFERTAS_CALCULADOR_DATABASE_URL"}
+    if IMPORTACION_KEY in env:
+        expected.add(IMPORTACION_KEY)
     if {k for k in env if k.endswith("_DATABASE_URL")} != expected:
         fail("nominal CONNECT runtime inventory changed")
     pools = {key: pool_login(env[key], args, output) for key in expected}
@@ -653,7 +774,7 @@ def repair_nominal_connect(args: argparse.Namespace, output: Path, source: str) 
         physical_motives=motives_accreditation_sql(args.repo,source,pools["VEC_CT_MOTIVOS_RRHH_DATABASE_URL"],physical=True)
         if not motives_metadata_valid(physical_pool_query(args,pools["VEC_CT_MOTIVOS_RRHH_DATABASE_URL"],ca,physical_motives),pools["VEC_CT_MOTIVOS_RRHH_DATABASE_URL"]):fail("physical motives postimage failed")
         if not coverage_metadata_valid(physical_pool_query(args,pools["VEC_CT_LECTOR_RESULTADO_DATABASE_URL"],ca,coverage),physical_login=pools["VEC_CT_LECTOR_RESULTADO_DATABASE_URL"]):fail("physical coverage postimage failed")
-        result={"source_commit":source,"only_change":"eight_nominal_group_CONNECT_and_PUBLIC_CONNECT_removed","runtime_pools":16,"users_pools":16,"groups":list(NOMINAL_CONNECT_GROUPS.values()),"source_bindings":bindings,"preserved_effective_privilege":"CONNECT only", "transaction_metadata_is_not_a_physical_LOGIN_TLS_assertion":True,"rollback_preimage_verified":True,"physical_TLS_probes_before_commit_and_after":len(all_logins),"new_connect_proved_in_transaction":True,"motives_full15":True,"coverage_full20":True,"preimage_sha256":hashlib.sha256(json.dumps(image,sort_keys=True).encode()).hexdigest(),"postimage_sha256":hashlib.sha256(query(args,snapshot+";")).hexdigest()}
+        result={"source_commit":source,"only_change":"eight_nominal_group_CONNECT_and_PUBLIC_CONNECT_removed","runtime_pools":len(pools),"users_pools":16,"groups":list(NOMINAL_CONNECT_GROUPS.values()),"source_bindings":bindings,"preserved_effective_privilege":"CONNECT only", "transaction_metadata_is_not_a_physical_LOGIN_TLS_assertion":True,"rollback_preimage_verified":True,"physical_TLS_probes_before_commit_and_after":len(all_logins),"new_connect_proved_in_transaction":True,"motives_full15":True,"coverage_full20":True,"preimage_sha256":hashlib.sha256(json.dumps(image,sort_keys=True).encode()).hexdigest(),"postimage_sha256":hashlib.sha256(query(args,snapshot+";")).hexdigest()}
         path=output/"nominal-connect-receipt.json"
         if not path.exists():json_write(path,result)
         else:
@@ -811,6 +932,11 @@ def finish_preparation(args: argparse.Namespace, output: Path, source: str, mani
     # demands the complete coverage postimage and removes PUBLIC CONNECT.
     if getattr(args, "repair_coverage_connect", False):
         repair_coverage_connect(args, output, source)
+    if getattr(args, "repair_importacion_connect", False):
+        repair_importacion_connect(args, output, source)
+        # CONNECT changes no application config or actor; refresh only Bolsa's
+        # previously pending pool accreditation after the verified repair.
+        manifest = complete_profiles(args, output, manifest, only_bolsa=True)
     if getattr(args, "repair_nominal_connect", False):
         repair_nominal_connect(args, output, source)
     if getattr(args, "complete_profiles", False) or getattr(args, "project_internal", False) or getattr(args, "refresh_internal_proof", False):
@@ -1042,6 +1168,7 @@ def main() -> int:
     parser.add_argument("--source-env", type=Path)
     parser.add_argument("--repair-nominal-connect", action="store_true", help="migrate only reviewed runtime group CONNECT from PUBLIC on the owned clone")
     parser.add_argument("--repair-coverage-connect", action="store_true", help="accredit and grant only the missing coverage reader group CONNECT on the owned clone")
+    parser.add_argument("--repair-importacion-connect", action="store_true", help="restore only CONNECT for the existing H1 importacion group and LOGIN")
     parser.add_argument("--upgrade-source", "--update-source", dest="update_source", action="store_true", help="bind preserved material to a descendant main revision after matching DB_READY")
     parser.add_argument("--complete-profiles", action="store_true", help="run reviewed Users/Bolsa/candidate provisioning modules on existing material")
     parser.add_argument("--project-internal", action="store_true", help="seal only the internal runtime projection; complete-profiles also seals it")
