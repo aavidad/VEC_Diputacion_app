@@ -11,6 +11,7 @@ contenedor=$2
 [[ $contenedor =~ ^vec-rpt-testigo-v3-[a-z0-9-]+$ ]]
 [[ ${base##*/} == "$contenedor" ]]
 archivo=/home/alberto/.local/state/vec-clon/estado-cidonia-20260929-hito1.tgz
+huella_h1=d1c2e38a85f872e83b6ba9eca6b660b7a5d2ff5d39d4aca612a81ec30a496e5b
 fuente_h6=742127f5
 toolchain=/home/alberto/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64
 
@@ -22,6 +23,7 @@ for ruta in deploy/postgresql/catalogos_configurables/migraciones/000001_autorid
   [[ $(git rev-parse "HEAD:$ruta") == $(git rev-parse "90ec895b8c007ae392d34c83456900412f9dbaa4:$ruta") ]]
 done
 [[ ! -e $base && -f $archivo && -d $toolchain ]]
+printf '%s  %s\n' "$huella_h1" "$archivo" | sha256sum -c --status
 if docker container inspect "$contenedor" >/dev/null 2>&1; then
   echo 'RPT-V3-FALLO: contenedor propio ya existente' >&2
   exit 1
@@ -29,7 +31,7 @@ fi
 mkdir -p "$base/build"
 sha256sum "$archivo" > "$base/build/h1_sha256.txt"
 tar -xzf "$archivo" -C "$base"
-docker run -d --name "$contenedor" --network none --memory 4g --cpus 2 \
+docker run -d --pull never --name "$contenedor" --network none --memory 4g --cpus 2 \
   --pids-limit 128 --shm-size 256m \
   --mount "type=bind,src=$base,dst=/var/lib/postgresql" \
   --tmpfs /tmp:rw,nosuid,nodev,size=32m \
@@ -109,7 +111,7 @@ umask 077
 cat > "$base/build/dsn.json" <<'JSON'
 {"admin":"host=/var/run/postgresql dbname=postgres user=postgres sslmode=disable","contexto":"host=/var/run/postgresql dbname=postgres user=vec_rpt_testigo_contexto sslmode=disable","runtime":"host=/var/run/postgresql dbname=postgres user=vec_rpt_testigo_ct_ejecutor sslmode=disable","revalidacion":"host=/var/run/postgresql dbname=postgres user=vec_rpt_testigo_revalidador sslmode=disable"}
 JSON
-docker run --rm --network none --read-only --cpus 2 --memory 4g --pids-limit 128 \
+docker run --rm --pull never --network none --read-only --cpus 2 --memory 4g --pids-limit 128 \
   --mount "type=bind,src=$toolchain,dst=/toolchain,readonly" \
   --mount "type=bind,src=$raiz_repo,dst=/src,readonly" \
   --mount type=bind,src=/home/alberto/go/pkg/mod,dst=/go/pkg/mod,readonly \
