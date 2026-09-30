@@ -91,3 +91,14 @@ nuevo requiere su fuente en el almacén externo: no se publica correo ni
 teléfono en `datos_contacto_participacion` para completar este recorrido.
 La confirmación queda denegada mientras falte una versión válida de esa fuente.
 La pregunta 97 de `dudas.md` recoge la conservación pendiente de criterio del DPD.
+
+La instalación del candidato termina con AUT20, AD3-121 y Bolsa65, en ese
+orden. Cierran la resolución de tipos en las funciones exteriores y sus
+auxiliares, conservando permisos, recibos e historia. AD3-121 mantiene las
+marcas que necesita la instalación posterior de Usuarios. Ese corte termina
+con AUT21 y AD3-122 antes de activar correos o imagen.
+
+El ensayo `cierre_externo_tipos_000020_000121_000065_pg18.sh` usa un clon
+PostgreSQL 18 desechable y revierte todos sus casos. Comprueba la corrección,
+la conservación del canon y las filas, y el rechazo de preimágenes modificadas.
+No se ejecuta sobre la principal ni instala las migraciones.

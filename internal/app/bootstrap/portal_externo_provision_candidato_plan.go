@@ -200,7 +200,7 @@ func PrepararProvisionCandidatoExterno(cfg config.Config, f FuenteProvisionCandi
 	}
 	s := f.Snapshot
 	if s.Poblacion == "usuarios" {
-		if f.Identidad == nil || !f.Identidad.validaPara(s.Cuenta.Referencia) {
+		if f.Identidad == nil || f.Identidad.validarPara(s.Cuenta.Referencia) != nil {
 			return p, ErrProvisionCandidatoExterno
 		}
 		var err error
@@ -212,7 +212,9 @@ func PrepararProvisionCandidatoExterno(cfg config.Config, f FuenteProvisionCandi
 		copia := *f.Identidad
 		p.identidad = &copia
 		p.resumen = ResumenProvisionCandidatoExterno{Fase: fase, Estado: "preparado", PreimagenSHA256: huellaAusenciaIdentidadExterna(copia.CuentaRef)}
-		p.actualizarHuella()
+		if err := p.actualizarHuella(); err != nil {
+			return PlanProvisionCandidatoExterno{}, err
+		}
 		return p, nil
 	}
 	identidad := &identidadCandidatoBolsaDesarrollo{cuentaRef: s.Cuenta.Referencia, personaRef: s.Persona.Referencia, perfilRef: s.Perfil.Referencia, candidatoRef: s.VinculoCandidato.CandidatoRef}
@@ -236,30 +238,35 @@ func PrepararProvisionCandidatoExterno(cfg config.Config, f FuenteProvisionCandi
 	p.motivos = []core.ReferenciaEntradaCatalogo{motivoMiBolsaDesarrollo(), motivoHistorialMiBolsaDesarrollo(), motivoPortalMiBolsaDesarrollo()}
 	p.resumen.Fase = fase
 	p.resumen.Estado = "preparado"
-	p.resumen.PreimagenSHA256 = huellaJSONProvisionExterna(f.Preimagen)
+	p.resumen.PreimagenSHA256, err = huellaJSONProvisionExterna(f.Preimagen)
+	if err != nil {
+		return PlanProvisionCandidatoExterno{}, err
+	}
 	if fase == "identidad" {
-		if f.Identidad == nil || !f.Identidad.validaPara(s.Cuenta.Referencia) {
+		if f.Identidad == nil || f.Identidad.validarPara(s.Cuenta.Referencia) != nil {
 			return PlanProvisionCandidatoExterno{}, ErrProvisionCandidatoExterno
 		}
 		copia := *f.Identidad
 		p.identidad = &copia
 		p.resumen.PreimagenSHA256 = huellaAusenciaIdentidadExterna(copia.CuentaRef)
 	}
-	p.actualizarHuella()
+	if err := p.actualizarHuella(); err != nil {
+		return PlanProvisionCandidatoExterno{}, err
+	}
 	return p, nil
 }
 
-func huellaJSONProvisionExterna(v any) string {
+func huellaJSONProvisionExterna(v any) (string, error) {
 	b, err := json.Marshal(v)
 	if err != nil {
-		return ""
+		return "", errors.Join(ErrProvisionCandidatoExterno, err)
 	}
 	h := sha256.Sum256(b)
-	return hex.EncodeToString(h[:])
+	return hex.EncodeToString(h[:]), nil
 }
 
-func (p *PlanProvisionCandidatoExterno) actualizarHuella() {
-	p.resumen.HuellaSHA256 = huellaJSONProvisionExterna(struct {
+func (p *PlanProvisionCandidatoExterno) actualizarHuella() error {
+	huella, err := huellaJSONProvisionExterna(struct {
 		Contrato                 string
 		Fase                     string
 		Preimagen                PreimagenProvisionCandidatoExterno
@@ -270,4 +277,10 @@ func (p *PlanProvisionCandidatoExterno) actualizarHuella() {
 		Desde                    time.Time
 		Identidad                *IdentidadProvisionCandidatoExterno
 	}{"provision_candidato_externo_v1", p.resumen.Fase, p.preimagen, p.snapshot, p.huellaContexto, p.rol.RolDocumento, p.rol.ControlDocumento, p.asignacion.Documento, p.motivos, p.desde, p.identidad})
+	if err != nil {
+		p.resumen.HuellaSHA256 = ""
+		return err
+	}
+	p.resumen.HuellaSHA256 = huella
+	return nil
 }
