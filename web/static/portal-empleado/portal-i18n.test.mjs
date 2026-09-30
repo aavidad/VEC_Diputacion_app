@@ -51,21 +51,7 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   const raiz = new URL("./", import.meta.url);
   const anteriores = ["20260928-ppt-503-v6", "20260928-auditoria-expediente-en-v1", "20260928-auditoria-expediente-en-v2", "20260929-pref-508a-v2", "20260929-firma-506-v1", "20260929-firma-506-v2", "20260929-auditoria-legible-v1", "20260929-sondeo-opcional-507", "20260929-plazas-306-v1", "20260929-i18n-shell-v1"];
   // El shell pasó sus textos a `textos/<idioma>/portal*.json` (integrado con 5.06, 5.07, 3.06 y 4.11): todo su grafo renueva URL.
-  const vigente = "20260930-avisos-interfaz-v2";
-  const versionesEspeciales = new Map([
-    ["modulos/bolsa/rrhh-plazos-ui.js", "20260930-ofertas-reglas-integradas-v4"],
-    ["portal-inicio.js", "20260930-ct-lista-recuperada-v2"],
-    // 5.06, segundo corte: el circuito de firma trae el estado de Firmadoc.
-    // Reglas vigentes: el detalle de cada regla y sus textos en catálogos renuevan el enlace del panel.
-    // La lista CT y el resumen del llamamiento mantienen sus URL específicas.
-    ["portal.js", "20260930-bolsa-resumen-llamamiento-v1"],
-    ["portal-borrador-llamamiento-ui.js", "20260930-bolsa-resumen-llamamiento-v1"],
-    ["portal-panel-interno.js", "20260930-avisos-interfaz-v2"],
-    ["reglas/enlace.js", "20260930-avisos-interfaz-v2"],
-    ["portal-modulos-coordinador.js", "20260930-ct-lista-recuperada-v2"],
-    ["modulos/contratacion-temporal/vista-expedientes.js", "20260930-ct-lista-recuperada-v2"],
-    ["modulos/contratacion-temporal/circuito-firma.js", "20260930-avisos-interfaz-v2"],
-  ]);
+  const vigente = "20260930-avisos-main-v3";
   const archivos = ["index.html"];
   const pendientes = [""];
   while (pendientes.length) {
@@ -108,7 +94,7 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   assert.ok(ancestros.has("modulos/contratacion-temporal/vista-expedientes.js"));
   for (const { archivo, destino, version } of aristas) {
     if (!alcanzables.has(archivo) || !ancestros.has(destino)) continue;
-    assert.equal(version, versionesEspeciales.get(destino) ?? vigente,
+    assert.equal(version, vigente,
       `${archivo} → ${destino}: URL immutable renovada`);
     const urls = versiones.get(destino) ?? new Set();
     urls.add(version);
