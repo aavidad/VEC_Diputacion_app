@@ -127,23 +127,21 @@ BEGIN
         RAISE EXCEPTION 'AD3-117: uso_ref numerico admitido';
     EXCEPTION WHEN SQLSTATE '22023' THEN NULL;
     END;
-    -- pg_temp se antepone a pg_catalog para relaciones sin cualificar. Un
-    -- ejecutor no puede falsear las filas de membresia de la rama nueva.
-    CREATE TEMP TABLE pg_auth_members(member oid,roleid oid,admin_option boolean,
-        inherit_option boolean,set_option boolean) ON COMMIT DROP;
-    CREATE TEMP TABLE pg_roles(oid oid,rolname name) ON COMMIT DROP;
-    INSERT INTO pg_temp.pg_auth_members VALUES
-        (session_user::pg_catalog.regrole,'vec_contratacion_temporal_ejecutor'::pg_catalog.regrole,false,true,false);
-    INSERT INTO pg_temp.pg_roles VALUES
-        ('vec_contratacion_temporal_ejecutor'::pg_catalog.regrole,'vec_contratacion_temporal_ejecutor');
+    -- La principal revoca TEMP: esta prueba no puede crear tablas sombra.
+    -- La suplantacion dinamica pertenece a un fixture PostgreSQL aislado con
+    -- TEMP. Aqui se comprueba la ACL y la denegacion real del nucleo sin V3.
+    IF pg_catalog.has_database_privilege(current_user,current_database(),'TEMP') THEN
+        RAISE EXCEPTION 'AD3-117: TEMP disponible al propietario en la principal';
+    END IF;
+    PERFORM pg_catalog.set_config('search_path','pg_temp,pg_catalog',true);
     BEGIN
         PERFORM vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(
             'lectura_categorias',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
-        RAISE EXCEPTION 'AD3-117: pg_temp falsifico membresia';
+        RAISE EXCEPTION 'AD3-117: consumo sin decision admitido';
     EXCEPTION WHEN SQLSTATE '42501' THEN
         GET STACKED DIAGNOSTICS mensaje=MESSAGE_TEXT;
         IF mensaje<>'consumo VEC-AD-3 rechazado' THEN
-            RAISE EXCEPTION 'AD3-117: rechazo posterior no prueba aislamiento de pg_temp';
+            RAISE EXCEPTION 'AD3-117: rechazo posterior no prueba el cierre del nucleo';
         END IF;
     END;
 END $prueba$;

@@ -471,7 +471,10 @@ test("los importadores locales de la vista y el circuito evitan las URLs immutab
     readFile(new URL("./vista-expedientes.js", import.meta.url), "utf8"),
     readFile(new URL("./formulario-llamamiento-pruebas.js", import.meta.url), "utf8"),
   ]);
-  const version = "20260930-custodia-506-e3-v3";
+  const versiones = new Map([
+    ["circuito-firma.js", "20260930-custodia-506-e3-v3"],
+    ["vista-expedientes.js", "20261001-e3-b2-v1"],
+  ]);
   const anterior = "20260929-custodia-506-v1";
   const importadores = [
     [vista, "circuito-firma.js"],
@@ -480,7 +483,7 @@ test("los importadores locales de la vista y el circuito evitan las URLs immutab
   for (const [codigo, modulo] of importadores) {
     const rutas = [...codigo.matchAll(new RegExp(`\\./${modulo.replace(".", "\\.")}\\?v=([^"']+)`, "gu"))];
     assert.equal(rutas.length, 1, modulo);
-    assert.equal(rutas[0][1], version, modulo);
+    assert.equal(rutas[0][1], versiones.get(modulo), modulo);
     assert.notEqual(`${modulo}?v=${rutas[0][1]}`, `${modulo}?v=${anterior}`);
   }
 });

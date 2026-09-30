@@ -415,6 +415,7 @@
       }
     }
   }
-  raiz.VECBolsaI18n = Object.freeze({ t, numero, plural, aplicarHTML, mensajes, mensajesES, mensajesEN, idioma });
+  raiz.VECBolsaI18n = Object.freeze({ t, numero, plural, aplicarHTML, mensajes, mensajesES, mensajesEN, idioma,
+    localizacion: formateadorNumero.resolvedOptions().locale });
   aplicarHTML();
 }(globalThis));

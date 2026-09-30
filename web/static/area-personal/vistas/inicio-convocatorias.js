@@ -1,13 +1,19 @@
 import {
   botonOperacion, chip, cifraResumen, encabezadoVista, enlaceRuta, escaparAtributo, escaparHTML,
-  formatoPuntos, listaDatos, panel, tabla,
+  estadoVacio, formatoPuntos, listaDatos, panel, tabla,
 } from "./comunes.js";
 import { traducir } from "../i18n.js";
 
 const t = (clave, variables) => traducir(`areaPersonal.vista.inicio.${clave}`, variables);
 const c = (clave, variables) => traducir(`areaPersonal.vista.convocatorias.${clave}`, variables);
+const soloMiBolsa = (datos) => datos.meta?.origen === "GET /api/vec/bolsa/mi-bolsa";
 
 export function renderizarInicio(datos) {
+  if (soloMiBolsa(datos)) {
+    return `${encabezadoVista(traducir("areaPersonal.rutas.inicio"), t("consultaBolsa.descripcion"))}
+      ${panel(t("consultaBolsa.titulo"), t("consultaBolsa.subtitulo"),
+        `<p>${escaparHTML(t("consultaBolsa.detalle"))}</p>${enlaceRuta("llamamientos", t("consultaBolsa.abrir"), "boton-primario")}`)}`;
+  }
   const cifras = [
     [datos.resumen.acciones_pendientes, t("cifras.pendientes"), t("cifras.pendientesAyuda"), "aviso", "pendiente"],
     [datos.resumen.convocatorias_abiertas, t("cifras.convocatorias"), t("cifras.convocatoriasAyuda"), "", "documento"],
@@ -28,15 +34,24 @@ export function renderizarInicio(datos) {
   return `${encabezadoVista(t("titulo"), t("descripcion"), enlaceRuta("convocatorias", t("verConvocatorias"), "boton-primario"))}
     <section class="resumen-cifras" aria-label="${escaparAtributo(t("resumen"))}">${cifras}</section>
     <div class="rejilla-principal"><div>
-      ${panel(t("plazos.titulo"), t("plazos.subtitulo"), `<ul class="lista-plazos">${plazos}</ul>`, { estado: t("plazos.cuenta", { cuenta: datos.plazos.length }) })}
+      ${panel(t("plazos.titulo"), t("plazos.subtitulo"), plazos
+        ? `<ul class="lista-plazos">${plazos}</ul>`
+        : estadoVacio(t("plazos.vacioTitulo"), t("plazos.vacioDetalle")), { estado: t("plazos.cuenta", { cuenta: datos.plazos.length }) })}
       ${panel(t("solicitudes.titulo"), t("solicitudes.subtitulo"), tabla({ descripcion: t("solicitudes.tabla"), columnas: [t("columnas.proceso"), t("columnas.estado"), t("columnas.puntuacion"), t("columnas.accion")], filas: solicitudes }))}
     </div><aside>
       ${panel(t("atencion.titulo"), t("atencion.subtitulo"), acciones ? `<ul class="lista-mensajes">${acciones}</ul>` : `<p>${escaparHTML(t("atencion.vacio"))}</p>`, { estado: t("atencion.cuenta", { cuenta: datos.resumen.acciones_pendientes }) })}
-      ${panel(t("actividad.titulo"), t("actividad.subtitulo"), `<ul class="lista-actividad">${actividad}</ul>`)}
+      ${panel(t("actividad.titulo"), t("actividad.subtitulo"), actividad
+        ? `<ul class="lista-actividad">${actividad}</ul>`
+        : estadoVacio(t("actividad.vacioTitulo"), t("actividad.vacioDetalle")))}
     </aside></div>`;
 }
 
 export function renderizarConvocatorias(datos, estado) {
+  if (soloMiBolsa(datos)) {
+    return `${encabezadoVista(c("titulo"), c("consultaBolsa.descripcion"))}
+      ${panel(c("consultaBolsa.titulo"), c("consultaBolsa.subtitulo"),
+        `<p>${escaparHTML(c("consultaBolsa.detalle"))}</p>${enlaceRuta("llamamientos", c("consultaBolsa.abrir"), "boton-primario")}`)}`;
+  }
   // «Todas» es a la vez la opción visible y el valor del filtro: se toma del catálogo.
   const todas = c("todas");
   const termino = estado.filtros?.termino?.toLowerCase() || "";
@@ -54,11 +69,19 @@ export function renderizarConvocatorias(datos, estado) {
   }).join("");
 
   return `${encabezadoVista(c("titulo"), c("descripcion"))}
-    <section class="panel"><form class="filtros" id="filtros-convocatorias" data-accion="filtrar-convocatorias"><div class="campo"><label for="filtro-texto">${escaparHTML(c("filtros.buscar"))}</label><input id="filtro-texto" name="termino" type="search" value="${escaparAtributo(estado.filtros?.termino || "")}" placeholder="${escaparAtributo(c("filtros.buscarEjemplo"))}"></div><div class="campo"><label for="filtro-estado">${escaparHTML(c("filtros.estado"))}</label><select id="filtro-estado" name="estado">${[todas, ...new Set(datos.convocatorias.map((item) => item.estado))].map((valor) => `<option${valor === filtroEstado ? " selected" : ""}>${escaparHTML(valor)}</option>`).join("")}</select></div><div class="campo"><label for="filtro-categoria">${escaparHTML(c("filtros.categoria"))}</label><select id="filtro-categoria" name="categoria">${[todas, ...categorias].map((valor) => `<option${valor === filtroCategoria ? " selected" : ""}>${escaparHTML(valor)}</option>`).join("")}</select></div><button type="submit" class="boton-primario">${escaparHTML(c("filtros.aplicar"))}</button></form><div class="panel-contenido">${tarjetas || `<div class="estado-vacio"><strong>${escaparHTML(c("sinResultados"))}</strong>${escaparHTML(c("sinResultadosDetalle"))}</div>`}</div></section>`;
+    <section class="panel"><form class="filtros" id="filtros-convocatorias" data-accion="filtrar-convocatorias"><div class="campo"><label for="filtro-texto">${escaparHTML(c("filtros.buscar"))}</label><input id="filtro-texto" name="termino" type="search" value="${escaparAtributo(estado.filtros?.termino || "")}" placeholder="${escaparAtributo(c("filtros.buscarEjemplo"))}"></div><div class="campo"><label for="filtro-estado">${escaparHTML(c("filtros.estado"))}</label><select id="filtro-estado" name="estado">${[todas, ...new Set(datos.convocatorias.map((item) => item.estado))].map((valor) => `<option${valor === filtroEstado ? " selected" : ""}>${escaparHTML(valor)}</option>`).join("")}</select></div><div class="campo"><label for="filtro-categoria">${escaparHTML(c("filtros.categoria"))}</label><select id="filtro-categoria" name="categoria">${[todas, ...categorias].map((valor) => `<option${valor === filtroCategoria ? " selected" : ""}>${escaparHTML(valor)}</option>`).join("")}</select></div><button type="submit" class="boton-primario">${escaparHTML(c("filtros.aplicar"))}</button></form><div class="panel-contenido">${tarjetas || estadoVacio(datos.convocatorias.length ? c("sinResultados") : c("sinConvocatorias"), datos.convocatorias.length ? c("sinResultadosDetalle") : c("sinConvocatoriasDetalle"))}</div></section>`;
 }
 
 export function renderizarDetalleConvocatoria(datos, estado) {
-  const convocatoria = datos.convocatorias.find((item) => item.id === estado.convocatoriaSeleccionada) || datos.convocatorias[0];
+  const convocatoria = datos.convocatorias.find((item) => item.id === estado.convocatoriaSeleccionada);
+  if (!convocatoria) {
+    const consultaBolsa = soloMiBolsa(datos);
+    return `${encabezadoVista(c("detalle.noEncontradaTitulo"), c("detalle.noEncontradaDetalle"))}
+      ${panel(c("detalle.noEncontradaTitulo"), "", estadoVacio(c("detalle.noEncontradaEstado"),
+        c(consultaBolsa ? "detalle.noEncontradaAyudaBolsa" : "detalle.noEncontradaAyuda"),
+        enlaceRuta(consultaBolsa ? "llamamientos" : "convocatorias",
+          c(consultaBolsa ? "consultaBolsa.abrir" : "detalle.volver"), "boton-secundario")))}`;
+  }
   const requisitos = convocatoria.requisitos.map((requisito) => `<li>${escaparHTML(requisito)}</li>`).join("");
   const documentos = convocatoria.documentos.map((documento, indice) => {
     const descriptor = typeof documento === "object" && documento !== null

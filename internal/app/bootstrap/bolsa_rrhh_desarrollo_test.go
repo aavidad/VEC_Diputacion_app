@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -141,11 +142,71 @@ func TestBolsasRRHHDesarrolloExponeContratoCerradoYPaginaCandidatos(t *testing.T
 			Cursor *string `json:"cursor_siguiente"`
 		} `json:"data"`
 	}
-	if err := json.Unmarshal(candidatos.Body.Bytes(), &pagina); err != nil || pagina.Data.Esquema != "vec.bolsa.rrhh.candidatos.v1" || len(pagina.Data.Candidatos) != 1 || pagina.Data.Candidatos[0].Estado != "disponible" || !strings.HasPrefix(pagina.Data.Candidatos[0].Documento, "***") || !pagina.Data.HayMas || pagina.Data.Cursor == nil {
+	if err := json.Unmarshal(candidatos.Body.Bytes(), &pagina); err != nil || pagina.Data.Esquema != "vec.bolsa.rrhh.candidatos.v2" || len(pagina.Data.Candidatos) != 1 || pagina.Data.Candidatos[0].Estado != "disponible" || !strings.HasPrefix(pagina.Data.Candidatos[0].Documento, "***") || !pagina.Data.HayMas || pagina.Data.Cursor == nil {
 		t.Fatalf("contrato candidatos: %#v err=%v", pagina, err)
 	}
 	if !esRutaContratacionTemporalDesarrollo(httptest.NewRequest(http.MethodGet, rutaBolsasRRHHDesarrollo+"/bolsa:constituida:administrativo/candidatos", nil)) {
 		t.Fatal("la colección C20 no pasa por el guardián mTLS")
+	}
+}
+
+type lectorContactosTurnoPrueba struct {
+	primera, segunda []bolsadominio.ContactoParticipacion
+}
+
+func (l lectorContactosTurnoPrueba) ListarContactosBolsa(_ context.Context, _ string, cursor string, _ int) (ports.PaginaContactosParticipacion, error) {
+	if cursor == "" {
+		return ports.PaginaContactosParticipacion{Contactos: l.primera, CursorSiguiente: "pagina-2"}, nil
+	}
+	if cursor == "pagina-2" {
+		return ports.PaginaContactosParticipacion{Contactos: l.segunda}, nil
+	}
+	return ports.PaginaContactosParticipacion{}, errors.New("cursor inesperado")
+}
+
+func TestBolsasRRHHTurnoGlobalYUltimoLlamamientoDurableConReintento(t *testing.T) {
+	datos := datosBolsasRRHHPrueba()
+	fecha := time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)
+	primera := make([]bolsadominio.ContactoParticipacion, 100)
+	for i := range primera {
+		primera[i] = bolsadominio.ContactoParticipacion{ContactoRef: fmt.Sprintf("contacto:%03d", i), BolsaRef: datos.Bolsas[0].Referencia, ParticipacionRef: "participacion:001", LlamamientoRef: "llamamiento:1", Canal: "correo", Resultado: bolsadominio.ResultadoContactoNoEnviado, Instante: fecha.Add(time.Duration(i) * time.Minute)}
+	}
+	contactoReal := bolsadominio.ContactoParticipacion{ContactoRef: "contacto:real", BolsaRef: datos.Bolsas[0].Referencia, ParticipacionRef: "participacion:002", LlamamientoRef: "llamamiento:2", Canal: "telefono", Resultado: bolsadominio.ResultadoContactoContactado, Instante: fecha}
+	manejador := nuevoManejadorBolsasRRHHDesarrollo(func(context.Context) (datasetBolsasRRHHDesarrollo, error) { return datos, nil })
+	manejador.contactos = lectorContactosTurnoPrueba{primera: primera, segunda: []bolsadominio.ContactoParticipacion{contactoReal}}
+	rutaBase := rutaBolsasRRHHDesarrollo + "/" + datos.Bolsas[0].Referencia + "/candidatos"
+	for intento, consulta := range []string{"?texto=Dos&limite=1", "?cursor=participacion:001&limite=1"} {
+		rec := httptest.NewRecorder()
+		manejador.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, rutaBase+consulta, nil))
+		if rec.Code != http.StatusOK {
+			t.Fatalf("intento %d: status=%d body=%s", intento, rec.Code, rec.Body.String())
+		}
+		var respuesta struct {
+			Data struct {
+				Esquema string `json:"esquema"`
+				Turno   struct {
+					PoliticaRef     string `json:"politica_ref"`
+					PoliticaVersion uint64 `json:"politica_version"`
+					Provisional     bool   `json:"provisional"`
+					EstadoSiguiente string `json:"estado_siguiente"`
+					Siguiente       struct {
+						ParticipacionRef string `json:"participacion_ref"`
+					} `json:"siguiente"`
+					Ultimo struct {
+						ParticipacionRef string `json:"participacion_ref"`
+						Resultado        string `json:"resultado"`
+					} `json:"ultimo_llamado"`
+				} `json:"turno"`
+				Candidatos []struct {
+					Ultimo struct {
+						LlamamientoRef string `json:"llamamiento_ref"`
+					} `json:"ultimo_llamamiento"`
+				} `json:"candidatos"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal(rec.Body.Bytes(), &respuesta); err != nil || respuesta.Data.Esquema != "vec.bolsa.rrhh.candidatos.v2" || respuesta.Data.Turno.PoliticaRef != "politica:orden:1" || respuesta.Data.Turno.PoliticaVersion != 1 || !respuesta.Data.Turno.Provisional || respuesta.Data.Turno.EstadoSiguiente != "primero_disponible" || respuesta.Data.Turno.Siguiente.ParticipacionRef != "participacion:001" || respuesta.Data.Turno.Ultimo.ParticipacionRef != "participacion:002" || respuesta.Data.Turno.Ultimo.Resultado != bolsadominio.ResultadoContactoContactado || len(respuesta.Data.Candidatos) != 1 || respuesta.Data.Candidatos[0].Ultimo.LlamamientoRef != "llamamiento:2" {
+			t.Fatalf("intento %d: contrato=%#v err=%v", intento, respuesta, err)
+		}
 	}
 }
 
