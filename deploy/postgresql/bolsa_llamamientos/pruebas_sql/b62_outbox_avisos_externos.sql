@@ -212,6 +212,80 @@ DO $preparar_negativos$ DECLARE f record; v_estado text; letra text; l text; e j
   INSERT INTO pg_temp.b62_negativos VALUES(v_estado,e,encode(sha256(convert_to(canon,'UTF8')),'hex'),'aviso_recibo:'||repeat(letra,32),l,'b62:negativo:'||v_estado);
  END LOOP;
 END $preparar_negativos$;
+-- Cursor privado: los comprobadores del ensayo conservan al DBA. Las llamadas
+-- funcionales siguen usando el LOGIN nominal y su ACL real, sin acceso a tablas.
+CREATE FUNCTION pg_temp.b62_cursor() RETURNS jsonb LANGUAGE sql SECURITY DEFINER SET search_path=pg_catalog AS $f$
+ SELECT jsonb_build_object('version',version,'productor_ref',ultimo_productor_ref,'evento_ref',ultimo_evento_ref) FROM vec_bolsa_llamamientos.aviso_externo_extraccion_control WHERE singleton
+$f$;
+CREATE TEMP TABLE b62_cursor_fixture AS
+ SELECT pg_temp.b62_cursor() AS cursor_inicial,
+  (SELECT o.evento FROM vec_bolsa_llamamientos.aviso_externo_outbox o JOIN pg_temp.b62_negativos n ON n.evento->>'evento_ref'=o.evento_ref ORDER BY o.registrada_en,o.productor_ref,o.evento_ref LIMIT 1) AS evento_a,
+  (SELECT o.evento FROM vec_bolsa_llamamientos.aviso_externo_outbox o JOIN pg_temp.b62_negativos n ON n.evento->>'evento_ref'=o.evento_ref ORDER BY o.registrada_en,o.productor_ref,o.evento_ref OFFSET 1 LIMIT 1) AS evento_b;
+GRANT SELECT ON pg_temp.b62_cursor_fixture TO vec_externo_avisos_bolsa;
+SAVEPOINT b62_fairness;
+SET SESSION AUTHORIZATION vec_externo_avisos_bolsa;
+DO $circular$ DECLARE f record; e record; r record; a record; b record; vuelta record; v_cursor jsonb; BEGIN
+ SELECT * INTO STRICT f FROM pg_temp.b62_cursor_fixture;
+ FOR e IN SELECT * FROM pg_temp.b62_negativos LOOP
+  SELECT * INTO STRICT r FROM vec_bolsa_llamamientos.registrar_resultado_aviso_externo_v1(e.evento->>'productor_ref',e.evento->>'evento_ref',e.huella,e.recibo,'reservado_incierto');
+  IF NOT r.registrada OR r.error_codigo IS NOT NULL THEN RAISE EXCEPTION 'B62: incierto circular rechazado'; END IF;
+  -- El ACK del inbox no retira un resultado todavía incierto de Bolsa.
+  SELECT * INTO STRICT r FROM vec_bolsa_llamamientos.confirmar_aceptacion_aviso_externo_v1(e.evento->>'productor_ref',e.evento->>'evento_ref',e.huella,e.recibo);
+  IF NOT r.aceptada OR r.error_codigo IS NOT NULL THEN RAISE EXCEPTION 'B62: ACK circular rechazado'; END IF;
+ END LOOP;
+ SELECT * INTO STRICT a FROM vec_bolsa_llamamientos.tirar_avisos_externos_v1(1);
+ SELECT * INTO STRICT b FROM vec_bolsa_llamamientos.tirar_avisos_externos_v1(1);
+ SELECT * INTO STRICT vuelta FROM vec_bolsa_llamamientos.tirar_avisos_externos_v1(1);
+ v_cursor:=pg_temp.b62_cursor();
+ IF a.evento IS DISTINCT FROM f.evento_a OR b.evento IS DISTINCT FROM f.evento_b OR vuelta.evento IS DISTINCT FROM f.evento_a
+ OR a.error_codigo IS NOT NULL OR b.error_codigo IS NOT NULL OR vuelta.error_codigo IS NOT NULL
+ OR v_cursor->>'evento_ref' IS DISTINCT FROM f.evento_a->>'evento_ref'
+ OR v_cursor->>'productor_ref' IS DISTINCT FROM f.evento_a->>'productor_ref'
+ OR (v_cursor->>'version')::bigint IS DISTINCT FROM (f.cursor_inicial->>'version')::bigint+3
+ THEN RAISE EXCEPTION 'B62: incierto monopoliza extracción o cursor no durable'; END IF;
+ BEGIN PERFORM 1 FROM vec_bolsa_llamamientos.aviso_externo_extraccion_control; RAISE EXCEPTION 'B62: control privado visible al consumidor';
+ EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+END $circular$;
+RESET SESSION AUTHORIZATION;
+CREATE TEMP TABLE b62_cursor_fallo AS SELECT pg_temp.b62_cursor() AS estado_cursor,
+ (SELECT count(*) FROM vec_autorizacion_atestada_v3.auditoria_tecnica_outbox_interna WHERE actor_tecnico='vec_externo_avisos_bolsa') AS auditorias;
+GRANT SELECT ON pg_temp.b62_cursor_fallo TO vec_externo_avisos_bolsa;
+REVOKE EXECUTE ON FUNCTION vec_autorizacion_atestada_v3.registrar_auditoria_outbox_interno_v1(text,text,text,text,text,text,text,bigint,text) FROM vec_bolsa_llamamientos_propietario;
+SET SESSION AUTHORIZATION vec_externo_avisos_bolsa;
+DO $cursor_fallo_auditoria$ DECLARE denegada boolean:=false; BEGIN
+ BEGIN PERFORM vec_bolsa_llamamientos.tirar_avisos_externos_v1(1); EXCEPTION WHEN insufficient_privilege THEN denegada:=true; END;
+ IF NOT denegada THEN RAISE EXCEPTION 'B62: extracción avanzó sin auditoría'; END IF;
+END $cursor_fallo_auditoria$;
+RESET SESSION AUTHORIZATION;
+DO $cursor_no_avanza$ BEGIN
+ IF pg_temp.b62_cursor() IS DISTINCT FROM (SELECT estado_cursor FROM pg_temp.b62_cursor_fallo)
+ OR (SELECT count(*) FROM vec_autorizacion_atestada_v3.auditoria_tecnica_outbox_interna WHERE actor_tecnico='vec_externo_avisos_bolsa') IS DISTINCT FROM (SELECT auditorias FROM pg_temp.b62_cursor_fallo)
+ THEN RAISE EXCEPTION 'B62: fallo auditoría dejó avance o auditoría parcial'; END IF;
+END $cursor_no_avanza$;
+GRANT EXECUTE ON FUNCTION vec_autorizacion_atestada_v3.registrar_auditoria_outbox_interno_v1(text,text,text,text,text,text,text,bigint,text) TO vec_bolsa_llamamientos_propietario;
+SET SESSION AUTHORIZATION vec_externo_avisos_bolsa;
+DO $cursor_recuperado$ DECLARE r record; f record; previo record; BEGIN
+ SELECT * INTO STRICT f FROM pg_temp.b62_cursor_fixture;
+ SELECT * INTO STRICT previo FROM pg_temp.b62_cursor_fallo;
+ SELECT * INTO STRICT r FROM vec_bolsa_llamamientos.tirar_avisos_externos_v1(1);
+ IF r.evento IS DISTINCT FROM f.evento_b OR r.error_codigo IS NOT NULL
+ OR (pg_temp.b62_cursor()->>'version')::bigint IS DISTINCT FROM (previo.estado_cursor->>'version')::bigint+1
+ THEN RAISE EXCEPTION 'B62: recuperación no continuó desde el cursor conservado'; END IF;
+END $cursor_recuperado$;
+DO $circular_sin_duplicados$ DECLARE total bigint; unicos bigint; BEGIN
+ SELECT count(*),count(DISTINCT evento->>'evento_ref') INTO total,unicos FROM vec_bolsa_llamamientos.tirar_avisos_externos_v1(100);
+ IF total<>2 OR unicos<>2 THEN RAISE EXCEPTION 'B62: vuelta circular duplicó eventos dentro del lote'; END IF;
+END $circular_sin_duplicados$;
+RESET SESSION AUTHORIZATION;
+-- El ROLLBACK del ensayo verifica recuperación transaccional, no un reinicio
+-- real de aplicación o PostgreSQL. No deja incertidumbres en los casos negativos.
+ROLLBACK TO SAVEPOINT b62_fairness;
+RELEASE SAVEPOINT b62_fairness;
+DO $cursor_rollback$ BEGIN
+ IF pg_temp.b62_cursor() IS DISTINCT FROM (SELECT cursor_inicial FROM pg_temp.b62_cursor_fixture)
+ THEN RAISE EXCEPTION 'B62: rollback no restauró cursor'; END IF;
+END $cursor_rollback$;
+
 -- Un contacto preexistente con el mismo identificador y resultado distinto
 -- provoca rechazo; el terminal no queda persistido. El SAVEPOINT restaura
 -- también este contacto sintético, sin UPDATE/DELETE sobre historia.
@@ -237,7 +311,7 @@ END $sin_terminal_divergente$;
 ROLLBACK TO SAVEPOINT b62_contacto_divergente;
 RELEASE SAVEPOINT b62_contacto_divergente;
 SET SESSION AUTHORIZATION vec_externo_avisos_bolsa;
-DO $negativos$ DECLARE e record; r record; BEGIN
+DO $negativos$ DECLARE e record; r record; cursor_antes jsonb; BEGIN
  FOR e IN SELECT * FROM pg_temp.b62_negativos LOOP
   SELECT * INTO STRICT r FROM vec_bolsa_llamamientos.registrar_resultado_aviso_externo_v1(e.evento->>'productor_ref',e.evento->>'evento_ref',e.huella,e.recibo,e.estado);
   IF NOT r.registrada OR r.error_codigo IS NOT NULL THEN RAISE EXCEPTION 'B62: terminal negativo rechazado'; END IF;
@@ -246,8 +320,10 @@ DO $negativos$ DECLARE e record; r record; BEGIN
   SELECT * INTO STRICT r FROM vec_bolsa_llamamientos.registrar_resultado_aviso_externo_v1(e.evento->>'productor_ref',e.evento->>'evento_ref',e.huella,e.recibo,e.estado);
   IF NOT r.registrada OR r.error_codigo IS NOT NULL THEN RAISE EXCEPTION 'B62: replay negativo rechazado'; END IF;
  END LOOP;
+ cursor_antes:=pg_temp.b62_cursor();
  SELECT * INTO STRICT r FROM vec_bolsa_llamamientos.tirar_avisos_externos_v1(100);
  IF r.evento IS NOT NULL OR r.error_codigo IS NOT NULL THEN RAISE EXCEPTION 'B62: terminal sin ACK volvió a extraerse'; END IF;
+ IF pg_temp.b62_cursor() IS DISTINCT FROM cursor_antes THEN RAISE EXCEPTION 'B62: lote vacío alteró cursor'; END IF;
 END $negativos$;
 RESET SESSION AUTHORIZATION;
 DO $contactos_negativos$ DECLARE e record; c record; f record; h text; BEGIN
@@ -278,13 +354,17 @@ DO $inmutabilidad$ DECLARE n integer:=0; BEGIN
  BEGIN UPDATE vec_bolsa_llamamientos.aviso_externo_outbox SET canon='otro'; EXCEPTION WHEN OTHERS THEN n:=n+1; END;
  BEGIN DELETE FROM vec_bolsa_llamamientos.aviso_externo_aceptacion; EXCEPTION WHEN OTHERS THEN n:=n+1; END;
  BEGIN TRUNCATE vec_bolsa_llamamientos.aviso_externo_aceptacion; EXCEPTION WHEN OTHERS THEN n:=n+1; END;
- IF n<>3 OR (SELECT count(*) FROM vec_bolsa_llamamientos.aviso_externo_outbox)<>3 OR (SELECT count(*) FROM vec_bolsa_llamamientos.aviso_externo_aceptacion)<>1
+ BEGIN DELETE FROM vec_bolsa_llamamientos.aviso_externo_extraccion_control; EXCEPTION WHEN OTHERS THEN n:=n+1; END;
+ BEGIN TRUNCATE vec_bolsa_llamamientos.aviso_externo_extraccion_control; EXCEPTION WHEN OTHERS THEN n:=n+1; END;
+ IF n<>5 OR (SELECT count(*) FROM vec_bolsa_llamamientos.aviso_externo_outbox)<>3 OR (SELECT count(*) FROM vec_bolsa_llamamientos.aviso_externo_aceptacion)<>1
  OR (SELECT count(*) FROM vec_bolsa_llamamientos.contacto_participacion) IS DISTINCT FROM (SELECT contactos_previo+3 FROM pg_temp.b62_fixture) OR (SELECT count(*) FROM vec_bolsa_llamamientos.aviso_externo_resultado)<>4 OR (SELECT count(*) FROM vec_autorizacion_atestada_v3.auditoria_tecnica_outbox_interna WHERE actor_tecnico='vec_externo_avisos_bolsa' AND resultado='denegado')<3
  THEN RAISE EXCEPTION 'B62: historia o proyección terminal divergente'; END IF;
  IF has_function_privilege('vec_externo_avisos_bolsa','vec_bolsa_llamamientos.proyectar_contacto_aviso_externo_v1(text,text)','EXECUTE')
  OR has_function_privilege('vec_bolsa_llamamientos_ejecutor','vec_bolsa_llamamientos.proyectar_contacto_aviso_externo_v1(text,text)','EXECUTE')
  OR has_function_privilege('vec_bolsa_llamamientos_portal_externo','vec_bolsa_llamamientos.tirar_avisos_externos_v1(integer)','EXECUTE')
  OR has_type_privilege('public','vec_bolsa_llamamientos.aviso_externo_outbox','USAGE')
+ OR has_type_privilege('public','vec_bolsa_llamamientos.aviso_externo_extraccion_control','USAGE')
+ OR has_table_privilege('vec_externo_avisos_bolsa','vec_bolsa_llamamientos.aviso_externo_extraccion_control','SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER,MAINTAIN')
  THEN RAISE EXCEPTION 'B62: concesion excesiva'; END IF;
 END $inmutabilidad$;
 ROLLBACK;

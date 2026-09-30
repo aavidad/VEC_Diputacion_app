@@ -70,6 +70,27 @@ DO $tablas$ DECLARE t text; BEGIN
  END LOOP;
 END $tablas$;
 
+-- Metadato privado y mutable del recorrido circular de extracción. No es
+-- historia funcional: únicamente este singleton avanza tras un lote auditado.
+CREATE TABLE vec_bolsa_llamamientos.aviso_externo_extraccion_control(
+ singleton boolean PRIMARY KEY DEFAULT true CHECK(singleton),
+ version bigint NOT NULL CHECK(version BETWEEN 0 AND 9007199254740991),
+ ultimo_productor_ref text,
+ ultimo_evento_ref text,
+ CHECK((version=0 AND ultimo_productor_ref IS NULL AND ultimo_evento_ref IS NULL)
+    OR (version>0 AND ultimo_productor_ref IS NOT NULL AND ultimo_evento_ref IS NOT NULL)),
+ FOREIGN KEY(ultimo_productor_ref,ultimo_evento_ref) REFERENCES vec_bolsa_llamamientos.aviso_externo_outbox(productor_ref,evento_ref)
+);
+ALTER TABLE vec_bolsa_llamamientos.aviso_externo_extraccion_control ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_bolsa_llamamientos.aviso_externo_extraccion_control FORCE ROW LEVEL SECURITY;
+CREATE POLICY solo_propietario ON vec_bolsa_llamamientos.aviso_externo_extraccion_control TO vec_bolsa_llamamientos_propietario
+ USING(current_user='vec_bolsa_llamamientos_propietario') WITH CHECK(current_user='vec_bolsa_llamamientos_propietario');
+REVOKE ALL ON TABLE vec_bolsa_llamamientos.aviso_externo_extraccion_control FROM PUBLIC,vec_bolsa_avisos_externos_consumidor,vec_bolsa_llamamientos_ejecutor,vec_bolsa_llamamientos_portal_externo;
+REVOKE ALL ON TYPE vec_bolsa_llamamientos.aviso_externo_extraccion_control FROM PUBLIC,vec_bolsa_avisos_externos_consumidor,vec_bolsa_llamamientos_ejecutor,vec_bolsa_llamamientos_portal_externo;
+CREATE TRIGGER no_borrar BEFORE DELETE ON vec_bolsa_llamamientos.aviso_externo_extraccion_control FOR EACH ROW EXECUTE FUNCTION vec_bolsa_llamamientos.constitucion_rechazar_mutacion();
+CREATE TRIGGER no_truncar BEFORE TRUNCATE ON vec_bolsa_llamamientos.aviso_externo_extraccion_control FOR EACH STATEMENT EXECUTE FUNCTION vec_bolsa_llamamientos.constitucion_rechazar_mutacion();
+INSERT INTO vec_bolsa_llamamientos.aviso_externo_extraccion_control(singleton,version) VALUES(true,0);
+
 -- Las cadenas canónicas admiten sólo ASCII opaco: ninguna necesita escape JSON.
 -- El orden coincide exactamente con json.Marshal del DTO neutral (recurso siempre presente).
 CREATE FUNCTION vec_bolsa_llamamientos.canon_aviso_externo_v1(p_evento jsonb)
@@ -225,22 +246,32 @@ END $f$;
 CREATE FUNCTION vec_bolsa_llamamientos.tirar_avisos_externos_v1(p_limite integer)
 RETURNS TABLE(evento jsonb,huella text,auditoria_ref text,error_codigo text) LANGUAGE plpgsql VOLATILE SECURITY DEFINER
  SET search_path=pg_catalog,pg_temp SET row_security=on SET lock_timeout='2s' SET statement_timeout='15s' AS $f$
-DECLARE fila record; ref text; n integer:=0;
+DECLARE fila record; control record; cursor_instante timestamptz; ref text; n integer:=0; v_version bigint; ultimo_productor text; ultimo_evento text;
 BEGIN
  PERFORM vec_bolsa_llamamientos.exigir_consumidor_avisos_externos_v1();
  IF p_limite IS NULL OR p_limite NOT BETWEEN 1 AND 100 THEN
   ref:=vec_bolsa_llamamientos.auditar_operacion_aviso_externo_v1('extraer',NULL,NULL,NULL,NULL,0,'denegado',NULL);
   RETURN QUERY SELECT NULL::jsonb,NULL::text,ref,'22023'::text; RETURN;
  END IF;
+ SELECT * INTO STRICT control FROM vec_bolsa_llamamientos.aviso_externo_extraccion_control c WHERE c.singleton FOR UPDATE;
+ IF control.ultimo_evento_ref IS NOT NULL THEN
+  SELECT o.registrada_en INTO STRICT cursor_instante FROM vec_bolsa_llamamientos.aviso_externo_outbox o WHERE o.productor_ref=control.ultimo_productor_ref AND o.evento_ref=control.ultimo_evento_ref;
+ END IF;
+ -- Primero lo posterior al cursor; después el inicio del mismo conjunto.
+ -- Un único orden y LIMIT evitan duplicar filas en la vuelta circular.
  FOR fila IN SELECT o.evento,o.huella_sha256,o.productor_ref,o.evento_ref FROM vec_bolsa_llamamientos.aviso_externo_outbox o
   WHERE NOT EXISTS(SELECT 1 FROM vec_bolsa_llamamientos.aviso_externo_resultado r WHERE r.productor_ref=o.productor_ref AND r.evento_ref=o.evento_ref AND r.estado IN('aceptado','no_aceptado','sin_destino'))
-  ORDER BY o.registrada_en,o.productor_ref,o.evento_ref LIMIT p_limite LOOP
+  ORDER BY CASE WHEN control.ultimo_evento_ref IS NULL OR ROW(o.registrada_en,o.productor_ref,o.evento_ref)>ROW(cursor_instante,control.ultimo_productor_ref,control.ultimo_evento_ref) THEN 0 ELSE 1 END,o.registrada_en,o.productor_ref,o.evento_ref LIMIT p_limite LOOP
   ref:=vec_bolsa_llamamientos.auditar_operacion_aviso_externo_v1('extraer',fila.productor_ref,fila.evento_ref,NULL,fila.huella_sha256,1,'extraido',fila.evento->>'correlacion_ref');
-  n:=n+1; RETURN QUERY SELECT fila.evento,fila.huella_sha256,ref,NULL::text;
+  n:=n+1; ultimo_productor:=fila.productor_ref; ultimo_evento:=fila.evento_ref;
+  RETURN QUERY SELECT fila.evento,fila.huella_sha256,ref,NULL::text;
  END LOOP;
  IF n=0 THEN
   ref:=vec_bolsa_llamamientos.auditar_operacion_aviso_externo_v1('extraer',NULL,NULL,NULL,NULL,0,'sin_registro',NULL);
   RETURN QUERY SELECT NULL::jsonb,NULL::text,ref,NULL::text;
+ ELSE
+  UPDATE vec_bolsa_llamamientos.aviso_externo_extraccion_control c SET version=c.version+1,ultimo_productor_ref=ultimo_productor,ultimo_evento_ref=ultimo_evento
+   WHERE c.singleton AND c.version=control.version RETURNING c.version INTO STRICT v_version;
  END IF;
 END $f$;
 CREATE FUNCTION vec_bolsa_llamamientos.confirmar_aceptacion_aviso_externo_v1(p_productor text,p_evento text,p_huella text,p_recibo text)
