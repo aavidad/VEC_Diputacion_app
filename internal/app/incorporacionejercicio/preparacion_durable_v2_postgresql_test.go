@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	hist "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/historiaincorporacion"
 	pgct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
 	appct "vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	dom "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
@@ -72,6 +73,73 @@ func TestPreparadorDurableV2PostgreSQLFabricaSinIO(t *testing.T) {
 			p, err := NuevoPreparadorDurableV2PostgreSQL(x)
 			if p != nil || err != ct.ErrComposicionIncorporacionAplicacion {
 				t.Fatal("composición inválida aceptada", err)
+			}
+		})
+	}
+}
+
+func TestPreparadorDurableV2PostgreSQLFuenteNominalExclusivaSinIO(t *testing.T) {
+	c := nuevoCasoPreparacionV2(t)
+	config := configuracionPGPreparacionPrueba(t, c.plan)
+	config.Planes, config.TernaPlanes = nil, ct.ReferenciaVersionadaPersonalRPT{}
+	llamadas := 0
+	config.PlanesNominales = planPreparacionDoble(func(ctx context.Context, org, exp string) (PlanPreparacionDurableV2, error) {
+		llamadas++
+		if org != c.plan.OrganizacionRef || exp != c.plan.SolicitudPersonal.ExpedienteRef {
+			return PlanPreparacionDurableV2{}, ct.ErrPreparacionIncorporacionPendiente
+		}
+		return c.plan.Copia(), nil
+	})
+	p, err := NuevoPreparadorDurableV2PostgreSQL(config)
+	registroV2Exigir(t, err)
+	if llamadas != 0 {
+		t.Fatal("el ensamblaje consultó la fuente nominal")
+	}
+	plan, err := p.c.Planes.ResolverPlan(context.Background(), c.plan.OrganizacionRef, c.plan.SolicitudPersonal.ExpedienteRef)
+	registroV2Exigir(t, err)
+	if llamadas != 1 || !reflect.DeepEqual(plan, c.plan) {
+		t.Fatal("el ensamblaje no conservó la fuente nominal")
+	}
+	for _, caso := range []string{"documento", "terna", "nulo_tipado"} {
+		t.Run(caso, func(t *testing.T) {
+			x := config
+			switch caso {
+			case "documento":
+				x.Planes = []byte("{}")
+			case "terna":
+				x.TernaPlanes = ct.ReferenciaVersionadaPersonalRPT{Referencia: "planes:conflicto"}
+			case "nulo_tipado":
+				var nulo planPreparacionDoble
+				x.PlanesNominales = nulo
+			}
+			if p, err := NuevoPreparadorDurableV2PostgreSQL(x); p != nil || !errors.Is(err, ct.ErrComposicionIncorporacionAplicacion) {
+				t.Fatalf("fuentes ambiguas aceptadas: %v", err)
+			}
+		})
+	}
+}
+
+func TestPreparadorDurableV2PlanNominalNoUsaAlternativas(t *testing.T) {
+	for _, esperado := range []error{ct.ErrPreparacionIncorporacionPendiente, ct.ErrDenegadaIncorporacionAplicacion, errors.New("dependencia no disponible")} {
+		t.Run(esperado.Error(), func(t *testing.T) {
+			c := nuevoCasoPreparacionV2(t)
+			x := configuracionPGPreparacionPrueba(t, c.plan)
+			x.Planes, x.TernaPlanes = nil, ct.ReferenciaVersionadaPersonalRPT{}
+			x.Autoridad, x.Reloj = c.a.a, c.a.reloj
+			x.FuentePersonal, x.TernaPersonal = c.app.s.c.FuentePersonal, c.plan.FuentePersonal
+			x.PlanesNominales = planPreparacionDoble(func(context.Context, string, string) (PlanPreparacionDurableV2, error) {
+				return PlanPreparacionDurableV2{}, esperado
+			})
+			p, err := NuevoPreparadorDurableV2PostgreSQL(x)
+			registroV2Exigir(t, err)
+			p.c.Detalle = c.p.c.Detalle
+			p.c.LocalizadorCT = localizadorCTPreparacionDoble(func(context.Context, string, string, string) (hist.Selector, bool, error) {
+				t.Fatal("consultó historia después de fallar la fuente nominal")
+				return hist.Selector{}, false, nil
+			})
+			_, err = p.Consultar(context.Background(), c.plan.SolicitudPersonal.ExpedienteRef)
+			if !errors.Is(err, esperado) || c.app.alta.n != 0 || c.app.ctTX.llamadas != 0 {
+				t.Fatalf("fallo nominal sustituido o consulta con efectos: %v", err)
 			}
 		})
 	}

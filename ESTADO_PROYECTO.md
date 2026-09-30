@@ -1,5 +1,25 @@
 # Estado y plan de ataque del proyecto
 
+## Recuperación de incorporación con perfiles nominales — 30 de septiembre de 2026 (candidata)
+
+La incorporación de ejercicio prepara sus perfiles antes de fijar las rutas.
+Una alta Personal ya confirmada se recupera mediante lectura autorizada actual,
+sin volver a solicitarla. La consulta del detalle usa la versión actual; después
+se coteja la intención histórica y se conserva su recibo, aunque el expediente
+haya avanzado de v8 a v9. Denegación y revocación devuelven 403; una dependencia
+caída devuelve 503.
+
+En el clon sintético, el binario de `6c86ee563` devolvió GET y POST de replay 200.
+Tras reiniciar PostgreSQL y aplicación, mantuvo el recibo y los 18 campos
+comprobados: una incorporación CT, una alta Personal y ningún duplicado. El
+código y CT153 tienen dos revisiones favorables; no se ha recorrido el retorno
+del titular porque faltaba un cese acreditado.
+
+El ensayo cubre un expediente original de ejercicio. B2, un segundo expediente
+y el montaje del plan general siguen pendientes. Las fachadas Persona de Bolsa
+y ContextoActor están preparadas en ramas separadas, sin consumidor montado.
+No se acredita incorporación genérica, firma legal ni eficacia administrativa.
+
 ## Consulta de firmas con autorización nominal — 30 de septiembre de 2026 (candidata)
 
 La consulta de firmas de Contratación temporal usa una concesión fija de lectura,

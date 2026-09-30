@@ -2,7 +2,6 @@ package bootstrap
 
 import (
 	"log"
-	"strconv"
 	"time"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
@@ -25,9 +24,8 @@ func solicitudAutorizacionReincorporacionTitularValida(ruta string, d vecdomain.
 		return d.Finalidad == "gestionar_contratacion_temporal" && r.Tipo == "seguimiento_contratacion_temporal" &&
 			len(r.Atributos) == 1 && r.Atributos["lectura"] == "reincorporacion_titular"
 	}
-	version, err := strconv.ParseUint(r.Atributos["version_expediente"], 10, 64)
-	if err != nil || !ports.VersionOperacionAnalisisConIncrementoValida(version) ||
-		r.Atributos["version_expediente"] != strconv.FormatUint(version, 10) {
+	version, valida := enteroDecimalCanonicoReincorporacion(r.Atributos["version_expediente"])
+	if !valida || !ports.VersionOperacionAnalisisConIncrementoValida(version) {
 		log.Print("contratacion temporal: reincorporacion denegada; causa=version_expediente_invalida")
 		return false
 	}
@@ -49,9 +47,8 @@ func solicitudAutorizacionReincorporacionTitularValida(ruta string, d vecdomain.
 		!domain.ReferenciaOpacaValida(r.Atributos["politica_ref"]) || !huellaSHA256ValidaContratacionTemporalDesarrollo(r.Atributos["politica_huella_sha256"]) {
 		return false
 	}
-	politicaVersion, err := strconv.ParseUint(r.Atributos["politica_version"], 10, 64)
-	if err != nil || !ports.VersionOperacionAnalisisValida(politicaVersion) ||
-		r.Atributos["politica_version"] != strconv.FormatUint(politicaVersion, 10) {
+	politicaVersion, valida := enteroDecimalCanonicoReincorporacion(r.Atributos["politica_version"])
+	if !valida || !ports.VersionOperacionAnalisisValida(politicaVersion) {
 		log.Print("contratacion temporal: reincorporacion denegada; causa=version_politica_invalida")
 		return false
 	}
@@ -59,6 +56,24 @@ func solicitudAutorizacionReincorporacionTitularValida(ruta string, d vecdomain.
 	huellas, errHuellas := ports.NuevaColeccionSellosHMAC(r.Atributos["huella_peticion_hmac"], nil)
 	return errAmbitos == nil && errHuellas == nil && ports.ColeccionesHMACContienenPar(ambitos, ports.DominioAmbitoReincorporacionTitular,
 		huellas, ports.DominioHuellaReincorporacionTitular, r.Atributos["ambito_idempotencia_hmac"], r.Atributos["huella_peticion_hmac"])
+}
+
+func enteroDecimalCanonicoReincorporacion(s string) (uint64, bool) {
+	if s == "" || len(s) > 1 && s[0] == '0' {
+		return 0, false
+	}
+	var n uint64
+	for i := 0; i < len(s); i++ {
+		if s[i] < '0' || s[i] > '9' {
+			return 0, false
+		}
+		digito := uint64(s[i] - '0')
+		if n > (^uint64(0)-digito)/10 {
+			return 0, false
+		}
+		n = n*10 + digito
+	}
+	return n, true
 }
 
 func evidenciaReincorporacionTitularValida(atributos map[string]string) bool {
