@@ -66,7 +66,8 @@ func (f *fuenteClavesCorreosPortalExterno) borrar() {
 }
 
 // nuevaFuenteClavesCorreosPortalExterno es la única entrada de claves para
-// «Mis correos» del proceso externo. Usuarios 000012 acredita antes que no
+// «Mis correos» del proceso externo. Usa la semilla propia de Usuarios, sin
+// recurrir a la ruta del KMS interno. Usuarios 000012 acredita antes que no
 // quedan referencias de las claves compartidas. #145 aporta los esquemas.
 func nuevaFuenteClavesCorreosPortalExterno(ctx context.Context, cfg config.Config, preflight *pgxpool.Pool) (*fuenteClavesCorreosPortalExterno, error) {
 	if preflight == nil {
@@ -82,7 +83,7 @@ func nuevaFuenteClavesCorreosPortalExternoConConsulta(ctx context.Context, cfg c
 		acreditarPoblacionCorreosPortalExternoSinClavesAjenas(ctx, consulta) != nil {
 		return nil, ErrClavesCorreosPortalExternoNoDisponibles
 	}
-	semilla, err := leerSecreto32Desarrollo(cfg.DevelopmentPaths().KMSSecret)
+	semilla, err := leerSecreto32Desarrollo(cfg.DevelopmentPaths().SemillaCorreosExterna)
 	if err != nil || semilla == ([sha256.Size]byte{}) {
 		clear(semilla[:])
 		return nil, ErrClavesCorreosPortalExternoNoDisponibles
