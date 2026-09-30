@@ -11,6 +11,11 @@ El plan revisado de `a7d9df2b3285b0df6be6bba0bae09331463f0a3d` contiene
 AD3-113 y Documentos9. El orden sigue las dependencias, no el número de migración.
 Los recibos anteriores conservan sus posiciones y fechas.
 
+El plan de `1e443463df69dffeaac239f9b7000f48dd1b7bb7` añade una única SQL:
+Aspirantes000002, después de Aspirantes000001. Son 39 instalaciones. Al pasar
+de la copia anterior a esta fuente, solo se instala esa ampliación. Una fuente
+anterior conserva su plan de 38; no se le atribuyen instalaciones posteriores.
+
 Un commit posterior de `main` puede usar este mismo plan si conserva exactamente
 el inventario SQL revisado. El guion compara los archivos del commit con la fuente
 extraída. Una SQL nueva, modificada o ausente detiene la preparación y exige
