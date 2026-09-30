@@ -88,6 +88,7 @@ type HechosPersonalIncorporacionB2 struct {
 }
 type ConfirmacionOrigenIncorporacionB2 struct {
 	OrganizacionRef string                        `json:"organizacion_ref"`
+	UnidadCTRef     string                        `json:"unidad_ct_ref"`
 	ExpedienteRef   string                        `json:"expediente_ref"`
 	PlanRef         string                        `json:"plan_ref"`
 	PlanVersion     uint64                        `json:"plan_version"`
@@ -117,7 +118,7 @@ type RegistroPlanNominalB2 struct {
 }
 type RepositorioPlanNominalB2 interface {
 	RegistrarPlanNominalB2(context.Context, RegistroPlanNominalB2, vp.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ContratoPlanNominalB2, error)
-	LeerContratoPlanNominal(context.Context, string, string, vp.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ContratoPlanNominalB2, error)
+	LeerContratoPlanNominal(context.Context, string, string, vp.ExportacionMaterialConsumoAutorizacionAtestadaV3, ...string) (ContratoPlanNominalB2, error)
 	ConfirmarOrigenIncorporacionB2(context.Context, ConfirmacionOrigenIncorporacionB2, vp.ExportacionMaterialConsumoAutorizacionAtestadaV3) (OrigenIncorporacionPersonalB2, error)
 }
 
@@ -140,5 +141,11 @@ type AntecedentesPlanNominalB2 struct {
 	Vinculo             *EstadoVinculoCategoriaRPT `json:"vinculo"`
 }
 type LectorOrigenIncorporacionB2 interface {
-	LeerOrigenIncorporacionB2(context.Context, string, string, vp.ExportacionMaterialConsumoAutorizacionAtestadaV3) (OrigenIncorporacionPersonalB2, bool, error)
+	LeerOrigenIncorporacionB2(context.Context, string, string, vp.ExportacionMaterialConsumoAutorizacionAtestadaV3, ...string) (OrigenIncorporacionPersonalB2, bool, error)
+}
+
+// La unidad CT procede del detalle autorizado vigente, distinta de la unidad
+// de destino de Personal. No se acepta como selector del canal.
+type FuenteUnidadPlanNominalB2 interface {
+	ResolverUnidadPlanNominalB2(context.Context, string, string) (string, error)
 }

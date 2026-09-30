@@ -28,19 +28,29 @@ func (f *FuentePlanNominalB2PostgreSQL) ejecutar(ctx context.Context, accion str
 		return ports.ErrPlanNominalB2NoDisponible
 	}
 	var selector struct {
-		OrganizacionRef string                        `json:"organizacion_ref"`
-		ExpedienteRef   string                        `json:"expediente_ref"`
-		Solicitud       *ports.SolicitudPlanNominalB2 `json:"solicitud"`
+		UnidadRef       string                              `json:"unidad_ref"`
+		UnidadCTRef     string                              `json:"unidad_ct_ref"`
+		Material        *domain.PlanIncorporacionPersonalB2 `json:"material"`
+		OrganizacionRef string                              `json:"organizacion_ref"`
+		ExpedienteRef   string                              `json:"expediente_ref"`
+		Solicitud       *ports.SolicitudPlanNominalB2       `json:"solicitud"`
 	}
 	if json.Unmarshal(b, &selector) != nil {
 		return ports.ErrPlanNominalB2Invalido
 	}
 	org, exp := selector.OrganizacionRef, selector.ExpedienteRef
+	unidad := selector.UnidadRef
+	if selector.UnidadCTRef != "" {
+		unidad = selector.UnidadCTRef
+	}
+	if selector.Material != nil {
+		unidad = selector.Material.UnidadCTRef
+	}
 	if selector.Solicitud != nil {
 		org, exp = selector.Solicitud.OrganizacionRef, selector.Solicitud.ExpedienteRef
 	}
 	audiencia := map[string]string{ports.AccionRegistrarPlanNominalB2: ports.AudienciaRegistrarPlanNominalB2, ports.AccionLeerPlanNominalB2: ports.AudienciaLeerPlanNominalB2, ports.AccionConfirmarOrigenB2: ports.AudienciaConfirmarOrigenB2}[accion]
-	if audiencia == "" || !capacidadParaVinculoRPT(a, accion, audiencia, exp, "contratacion_temporal", ports.TipoRecursoPlanNominalB2, map[string]string{"organizacion_ref": org}, b) {
+	if audiencia == "" || !capacidadParaVinculoRPT(a, accion, audiencia, exp, "contratacion_temporal", ports.TipoRecursoPlanNominalB2, map[string]string{"organizacion_ref": org, "unidad_ref": unidad}, b) {
 		return ports.ErrPlanNominalB2Denegado
 	}
 	args := append([]any{string(b)}, argumentosCapacidadVinculoRPT(a)...)
@@ -138,9 +148,9 @@ func (f *FuentePlanNominalB2PostgreSQL) RegistrarPlanNominalB2(ctx context.Conte
 	}
 	return c, nil
 }
-func (f *FuentePlanNominalB2PostgreSQL) LeerContratoPlanNominal(ctx context.Context, org, exp string, a vp.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ports.ContratoPlanNominalB2, error) {
+func (f *FuentePlanNominalB2PostgreSQL) LeerContratoPlanNominal(ctx context.Context, org, exp string, a vp.ExportacionMaterialConsumoAutorizacionAtestadaV3, unidad ...string) (ports.ContratoPlanNominalB2, error) {
 	var c ports.ContratoPlanNominalB2
-	b, e := domain.CanonicoPlanPersonalB2(map[string]string{"organizacion_ref": org, "expediente_ref": exp})
+	b, e := domain.CanonicoPlanPersonalB2(map[string]string{"organizacion_ref": org, "expediente_ref": exp, "unidad_ref": unidadPlanSQLB2(unidad)})
 	if e != nil {
 		return c, e
 	}
@@ -185,9 +195,9 @@ func (f *FuentePlanNominalB2PostgreSQL) ConfirmarOrigenIncorporacionB2(ctx conte
 	return o, nil
 }
 
-func (f *FuentePlanNominalB2PostgreSQL) LeerOrigenIncorporacionB2(ctx context.Context, org, exp string, a vp.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ports.OrigenIncorporacionPersonalB2, bool, error) {
+func (f *FuentePlanNominalB2PostgreSQL) LeerOrigenIncorporacionB2(ctx context.Context, org, exp string, a vp.ExportacionMaterialConsumoAutorizacionAtestadaV3, unidad ...string) (ports.OrigenIncorporacionPersonalB2, bool, error) {
 	var o ports.OrigenIncorporacionPersonalB2
-	b, _ := domain.CanonicoPlanPersonalB2(map[string]string{"organizacion_ref": org, "expediente_ref": exp})
+	b, _ := domain.CanonicoPlanPersonalB2(map[string]string{"organizacion_ref": org, "expediente_ref": exp, "unidad_ref": unidadPlanSQLB2(unidad)})
 	e := f.ejecutar(ctx, ports.AccionLeerPlanNominalB2, b, a, func(raw []byte) error {
 		if decodificarJSONEstricto(raw, &o) != nil || o.Protocolo != ports.ProtocoloIncorporacionPersonalB2 || o.Confirmacion.OrganizacionRef != org || o.Confirmacion.ExpedienteRef != exp || o.FirmaOficial || o.EficaciaAdministrativa || !domain.InstanteUTCCanonico(o.RegistradoEn) {
 			return ports.ErrPlanNominalB2NoDisponible
@@ -202,9 +212,9 @@ func (f *FuentePlanNominalB2PostgreSQL) LeerOrigenIncorporacionB2(ctx context.Co
 	}
 	return o, true, nil
 }
-func (f *FuentePlanNominalB2PostgreSQL) LeerAntecedentesPlanB2(ctx context.Context, org, exp string, a vp.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ports.AntecedentesPlanNominalB2, error) {
+func (f *FuentePlanNominalB2PostgreSQL) LeerAntecedentesPlanB2(ctx context.Context, org, exp string, a vp.ExportacionMaterialConsumoAutorizacionAtestadaV3, unidad ...string) (ports.AntecedentesPlanNominalB2, error) {
 	var o ports.AntecedentesPlanNominalB2
-	b, _ := domain.CanonicoPlanPersonalB2(map[string]string{"organizacion_ref": org, "expediente_ref": exp})
+	b, _ := domain.CanonicoPlanPersonalB2(map[string]string{"organizacion_ref": org, "expediente_ref": exp, "unidad_ref": unidadPlanSQLB2(unidad)})
 	e := f.ejecutar(ctx, ports.AccionLeerPlanNominalB2, b, a, func(raw []byte) error {
 		if decodificarJSONEstricto(raw, &o) != nil || o.OrganizacionRef != org || o.ExpedienteRef != exp || !domain.VersionPlanPersonalB2Valida(o.VersionExpediente) || !domain.VersionPlanPersonalB2Valida(o.AnalisisVersion) || !domain.HuellaPlanPersonalB2Valida(o.AnalisisSHA256) || o.Vinculo == nil || o.Vinculo.Validar() != nil {
 			return ports.ErrPlanNominalB2NoDisponible
@@ -215,4 +225,11 @@ func (f *FuentePlanNominalB2PostgreSQL) LeerAntecedentesPlanB2(ctx context.Conte
 		return ports.AntecedentesPlanNominalB2{}, e
 	}
 	return o, nil
+}
+
+func unidadPlanSQLB2(unidades []string) string {
+	if len(unidades) != 1 {
+		return ""
+	}
+	return unidades[0]
 }
