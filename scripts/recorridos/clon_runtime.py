@@ -539,16 +539,32 @@ def relay_preflight(state, approval, approval_path, relay_binary, relay_sha256):
             if host.read_file(confined(helper, state), host.MAX_JSON, private=True) != raw_helper:
                 fail('NO-GO: la copia privada del relay cambió.')
         else:
-            descriptor = os.open(helper, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
-            with os.fdopen(descriptor, 'wb') as stream:
-                stream.write(raw_helper)
-                stream.flush()
-                os.fsync(stream.fileno())
-            descriptor = os.open(state, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+            descriptor, temporary_name = tempfile.mkstemp(prefix='.relay-host-helper-', suffix='.tmp', dir=state)
+            temporary = Path(temporary_name)
             try:
-                os.fsync(descriptor)
+                with os.fdopen(descriptor, 'wb') as stream:
+                    stream.write(raw_helper)
+                    stream.flush()
+                    os.fsync(stream.fileno())
+                directory = os.open(state, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+                try:
+                    os.fsync(directory)
+                    # link is exclusive: never replace an existing helper.
+                    os.link(temporary, helper, follow_symlinks=False)
+                finally:
+                    os.close(directory)
             finally:
-                os.close(descriptor)
+                temporary.unlink(missing_ok=True)
+                directory = os.open(state, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+                try:
+                    os.fsync(directory)
+                finally:
+                    os.close(directory)
+        directory = os.open(state, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
         capability = os.pidfd_open(os.getpid())
         os.close(capability)
     except (RuntimeError, OSError, ValueError, TypeError):
@@ -665,8 +681,8 @@ def launch_relay_host(state, record, inputs):
     while time.monotonic() < deadline:
         if process.poll() is not None:
             fail('NO-GO: el relay terminó antes de confirmar su recibo.')
+        host = relay_host_module()
         try:
-            host = relay_host_module()
             raw = host.read_file(root / host.RECEIPT, host.MAX_JSON, private=True)
             if host.read_file(root / host.READY, host.MAX_JSON, private=True) != raw:
                 fail('NO-GO: los dos recibos del relay son divergentes.')
@@ -674,6 +690,14 @@ def launch_relay_host(state, record, inputs):
             verify_relay_host(state, record)
             write_json(state / 'runtime-process.json', record)
             return
+        except host.Refused as error:
+            if str(error) != 'relay_unsafe_file':
+                fail('NO-GO: el relay rechazó su recibo privado.')
+            if process.poll() is not None or relay_process_identity(process.pid) != identity:
+                fail('NO-GO: el proceso del relay cambió durante la publicación de su recibo.')
+            # State.publish briefly links its temporary to the final name.
+            # Only retry this nominal refusal, within the original deadline.
+            time.sleep(0.1)
         except OSError:
             time.sleep(0.1)
     fail('NO-GO: el relay no confirmó disponibilidad; conserve el intento.')

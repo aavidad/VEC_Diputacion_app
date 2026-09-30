@@ -219,6 +219,108 @@ class RuntimeTests(unittest.TestCase):
             runtime.relay_preflight(self.root, approval, path, Path(record['relay_binary']), record['relay_sha256'])
         module.relay_mount.assert_not_called()
 
+    def test_helper_partial_write_leaves_no_final_copy_and_retry_publishes_complete_bytes(self):
+        record, _, _ = self.relay_fixture()
+        helper = Path(record['relay_host']['helper'])
+        helper.unlink()
+        approval_path = Path(record['relay_host']['approval_path'])
+        approval = {'app_port': 18531, 'pg_container_id': 'b' * 64, 'pg_image_id': 'sha256:' + 'd' * 64}
+        runtime.write_json(approval_path, approval)
+        module = unittest.mock.Mock()
+        real_fdopen = runtime.os.fdopen
+        class PartialWriter:
+            def __init__(self, stream): self.stream = stream
+            def __enter__(self): return self
+            def __exit__(self, *_): self.stream.close()
+            def write(self, value):
+                self.stream.write(value[:17])
+                self.stream.flush()
+                raise OSError('synthetic partial write')
+        def fdopen(fd, mode, *args, **kwargs):
+            stream = real_fdopen(fd, mode, *args, **kwargs)
+            return PartialWriter(stream) if mode == 'wb' else stream
+        with patch.object(runtime, 'load_readiness_approval', return_value=approval), \
+                patch.object(runtime, 'container_module', return_value=module):
+            with patch.object(runtime.os, 'fdopen', side_effect=fdopen), self.assertRaises(runtime.RuntimeErrorLocal):
+                runtime.relay_preflight(self.root, approval, approval_path, Path(record['relay_binary']), record['relay_sha256'])
+            self.assertFalse(helper.exists())
+            self.assertEqual(list(self.root.glob('.relay-host-helper-*.tmp')), [])
+            result = runtime.relay_preflight(self.root, approval, approval_path, Path(record['relay_binary']), record['relay_sha256'])
+        self.assertEqual(result['helper'], str(helper))
+        self.assertEqual(helper.read_bytes(), Path(runtime.__file__).with_name('clon_relay_host.py').read_bytes())
+        self.assertEqual(helper.stat().st_nlink, 1)
+        self.assertEqual(helper.stat().st_mode & 0o777, 0o600)
+        self.assertEqual(list(self.root.glob('.relay-host-helper-*.tmp')), [])
+
+    def test_helper_promotion_never_replaces_another_final_file(self):
+        record, _, _ = self.relay_fixture()
+        helper = Path(record['relay_host']['helper'])
+        helper.unlink()
+        approval_path = Path(record['relay_host']['approval_path'])
+        approval = {'app_port': 18531, 'pg_container_id': 'b' * 64, 'pg_image_id': 'sha256:' + 'd' * 64}
+        runtime.write_json(approval_path, approval)
+        def collision(*_args, **_kwargs):
+            helper.write_bytes(b'other publication')
+            helper.chmod(0o600)
+            raise FileExistsError('concurrent exclusive publication')
+        with patch.object(runtime, 'load_readiness_approval', return_value=approval), \
+                patch.object(runtime, 'container_module'), patch.object(runtime.os, 'link', side_effect=collision), \
+                self.assertRaises(runtime.RuntimeErrorLocal):
+            runtime.relay_preflight(self.root, approval, approval_path, Path(record['relay_binary']), record['relay_sha256'])
+        self.assertEqual(helper.read_bytes(), b'other publication')
+        self.assertEqual(list(self.root.glob('.relay-host-helper-*.tmp')), [])
+
+    def test_relay_publication_retries_only_unsafe_file_window_with_live_identity(self):
+        for transient, drift in [(True, False), (False, False), (True, True)]:
+            with self.subTest(transient=transient, drift=drift):
+                # Each launch has its own directory and a fake child. The actual
+                # read_file sees link count 2 until the publisher drops its temp.
+                record, _, old_root = self.relay_fixture()
+                inputs = {key: record['relay_host'][key] for key in ('helper', 'helper_sha256', 'approval_path', 'approval_sha256')}
+                inputs.update(binary=record['relay_binary'], sha256=record['relay_sha256'])
+                raw = (old_root / 'relay-host.json').read_bytes()
+                host = runtime.relay_host_module()
+                child = unittest.mock.Mock(pid=41)
+                child.poll.return_value = None
+                identities = []
+                def identity(_pid):
+                    value = {'pid': 41, 'start_ticks': '100', 'uid': os.getuid(),
+                             'exe': str(Path('/usr/bin/python3').resolve()), 'argv': record['relay_host']['argv']}
+                    if drift and identities: value['argv'] = ['reused']
+                    identities.append(value)
+                    return value
+                def spawn(*_args, **_kwargs):
+                    root = Path(record['relay_host']['state'])
+                    for name in ('relay-host.json', 'relay-host-ready.json'):
+                        (root / name).write_bytes(raw)
+                        (root / name).chmod(0o600)
+                    os.link(root / 'relay-host.json', root / 'publishing.tmp')
+                    return child
+                def yield_publisher(_seconds):
+                    self.assertNotIn('receipt_sha256', json.loads((self.root / 'runtime-process.json').read_text())['relay_host'])
+                    if transient: (Path(record['relay_host']['state']) / 'publishing.tmp').unlink()
+                clock = [0, 0, 1] if transient else [0, 0, 16]
+                with patch.object(runtime.subprocess, 'Popen', side_effect=spawn), \
+                        patch.object(runtime, 'relay_process_identity', side_effect=identity), \
+                        patch.object(runtime, 'relay_host_module', return_value=host), \
+                        patch.object(runtime.time, 'monotonic', side_effect=clock), \
+                        patch.object(runtime.time, 'sleep', side_effect=yield_publisher) as sleep:
+                    if transient and not drift:
+                        runtime.launch_relay_host(self.root, record, inputs)
+                        self.assertEqual(record['relay_host']['receipt_sha256'], hashlib.sha256(raw).hexdigest())
+                        sleep.assert_called_once_with(0.1)
+                    else:
+                        with self.assertRaises(runtime.RuntimeErrorLocal):
+                            runtime.launch_relay_host(self.root, record, inputs)
+                        self.assertNotIn('receipt_sha256', json.loads((self.root / 'runtime-process.json').read_text())['relay_host'])
+                        if drift: sleep.assert_not_called()
+                child.terminate.assert_not_called()
+                child.kill.assert_not_called()
+                # Clean only this fixture to reuse the deterministic old root.
+                shutil.rmtree(old_root)
+                Path(record['relay_binary']).unlink()
+                Path(inputs['helper']).unlink()
+
     def test_launch_relay_has_fixed_child_argv_private_approval_and_no_ambient_secrets(self):
         record, _, old_root = self.relay_fixture()
         inputs = {key: record['relay_host'][key] for key in ('helper', 'helper_sha256', 'approval_path', 'approval_sha256')}
