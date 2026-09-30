@@ -13,6 +13,7 @@ import threading
 import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from unittest.mock import patch
 
 import recorrer
 
@@ -55,9 +56,10 @@ def _ejecutar_aislado(caso, plazo=PLAZO_CASO, observar=None):
                    "PYTHONDONTWRITEBYTECODE": "1"}
         hijo = subprocess.Popen(comando, env=entorno, start_new_session=True,
                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        inicio = _inicio_proceso(hijo.pid)
+        inicio = None
         recursos = None
         try:
+            inicio = _inicio_proceso(hijo.pid)
             salida, errores = hijo.communicate(timeout=plazo)
             if hijo.returncode:
                 raise AssertionError(errores.decode(errors="replace") or salida.decode(errors="replace"))
@@ -70,14 +72,27 @@ def _ejecutar_aislado(caso, plazo=PLAZO_CASO, observar=None):
             # El hijo no se ha recogido si returncode sigue a None. Validamos
             # además generación, sesión y grupo antes de señalar el grupo propio.
             if hijo.returncode is None:
-                if (_inicio_proceso(hijo.pid) != inicio or os.getpgid(hijo.pid) != hijo.pid
-                        or os.getsid(hijo.pid) != hijo.pid):
-                    raise RuntimeError("No se ha podido acreditar el grupo propio de la prueba.")
-                os.killpg(hijo.pid, signal.SIGKILL)
+                acreditado = False
+                fallo_identidad = None
+                if inicio is not None:
+                    try:
+                        acreditado = (_inicio_proceso(hijo.pid) == inicio
+                                      and os.getpgid(hijo.pid) == hijo.pid
+                                      and os.getsid(hijo.pid) == hijo.pid)
+                    except OSError as exc:
+                        fallo_identidad = exc
+                if acreditado:
+                    os.killpg(hijo.pid, signal.SIGKILL)
+                else:
+                    # Popen conserva su hijo sin recoger: solo se termina el
+                    # wrapper propio. bwrap recoge sus namespaces al morir.
+                    hijo.kill()
                 try:
                     hijo.communicate(timeout=PLAZO_RECOGIDA)
                 except subprocess.TimeoutExpired as exc:
-                    raise RuntimeError("No se recogió la prueba después de terminar su grupo propio.") from exc
+                    raise RuntimeError("No se recogió la prueba después de terminar su wrapper propio.") from exc
+                if inicio is not None and not acreditado:
+                    raise RuntimeError("No se ha podido acreditar el grupo; se recogió solo el wrapper propio.") from fallo_identidad
             if observar is not None and marca.is_file():
                 observar(recursos if recursos is not None else json.loads(marca.read_text()))
 
@@ -111,6 +126,23 @@ class Servidor:
 class InterceptorTest(unittest.TestCase):
     def test_302_hacia_otro_puerto_no_contacta_destino(self):
         _ejecutar_aislado("302")
+
+    def test_fallo_proc_tras_popen_recoge_solo_wrapper_propio(self):
+        creados = []
+        crear = subprocess.Popen
+        def registrar(*args, **kwargs):
+            hijo = crear(*args, **kwargs)
+            creados.append(hijo)
+            return hijo
+        with patch.object(subprocess, "Popen", side_effect=registrar), \
+                patch.object(sys.modules[__name__], "_inicio_proceso", side_effect=OSError("/proc simulado")), \
+                patch.object(os, "killpg") as grupo:
+            with self.assertRaisesRegex(OSError, "/proc simulado"):
+                _ejecutar_aislado("302")
+        grupo.assert_not_called()
+        self.assertEqual(len(creados), 1)
+        self.assertIsNotNone(creados[0].returncode, "El wrapper debe quedar recogido.")
+        self.assertFalse(Path(f"/proc/{creados[0].pid}").exists())
 
     def test_cierre_bloqueado_vence_y_recoge_chrome_servidor_y_socket(self):
         recursos = []
