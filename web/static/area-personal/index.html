@@ -5,75 +5,75 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="light">
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-    <title>Mi área personal · Bolsas de trabajo</title>
-    <link rel="stylesheet" href="/comun/tema-vec.css?v=20260929-imagen-508c-v2">
+    <title data-i18n="areaPersonal.html.titulo">Mi área personal · Bolsas de trabajo</title>
+    <link rel="stylesheet" href="/comun/tema-vec.css?v=20260930-portales-i18n-integracion-v1">
     <link rel="stylesheet" href="/area-personal/area-personal.css?v=20260930-b11-aviso-movil-v1">
     <link rel="stylesheet" href="/area-personal/preferencias.css?v=20260929-demo-jefes-v1">
     <link rel="stylesheet" href="/comun/correos-propios.css?v=20260929-correos-508b-v1">
     <link rel="stylesheet" href="/comun/imagen-propia.css?v=20260929-imagen-508c-v2">
     <link rel="stylesheet" href="/comun/oportunidades/oportunidades.css?v=20260924-f2-b15-area-v1">
-    <script type="module" src="/area-personal/arranque.js?v=20260929-imagen-508c-v2"></script>
+    <script type="module" src="/area-personal/arranque.js?v=20260930-portales-i18n-integracion-v1"></script>
   </head>
   <body class="area-personal-app">
-    <a class="salto-contenido" href="#contenido-principal">Saltar al contenido principal</a>
+    <a class="salto-contenido" href="#contenido-principal" data-i18n="areaPersonal.html.saltar">Saltar al contenido principal</a>
 
     <div class="ap-shell">
-      <aside class="ap-lateral" id="navegacion-lateral" aria-label="Navegación del área personal">
-        <a class="marca-portal" id="enlace-inicio-institucional" href="?vista=inicio" data-ruta="inicio" aria-label="Ir al inicio del área personal">
-          <img src="/assets/logo-diputacion-granada.svg" width="250" height="84" alt="Diputación de Granada">
-          <span><strong>Mi área personal</strong><small>Empleo público y bolsas</small></span>
+      <aside class="ap-lateral" id="navegacion-lateral" data-i18n-aria-label="areaPersonal.html.navegacion" aria-label="Navegación del área personal">
+        <a class="marca-portal" id="enlace-inicio-institucional" href="?vista=inicio" data-ruta="inicio" data-i18n-aria-label="areaPersonal.html.irInicio" aria-label="Ir al inicio del área personal">
+          <img src="/assets/logo-diputacion-granada.svg" width="250" height="84" data-i18n-alt="areaPersonal.html.logo" alt="Diputación de Granada">
+          <span><strong data-i18n="areaPersonal.html.marca">Mi área personal</strong><small data-i18n="areaPersonal.html.marcaDetalle">Empleo público y bolsas</small></span>
         </a>
 
-        <div class="contexto-modulo"><span aria-hidden="true"></span>Bolsa de trabajo habilitada</div>
+        <div class="contexto-modulo" data-i18n="areaPersonal.html.contexto"><span aria-hidden="true"></span>Bolsa de trabajo habilitada</div>
 
-        <nav class="ap-navegacion" aria-label="Opciones del área personal">
-          <p>Resumen</p>
-          <a href="?vista=inicio" data-ruta="inicio"><svg aria-hidden="true"><use href="#icono-inicio"></use></svg><span>Inicio y plazos</span></a>
-          <a href="?vista=convocatorias" data-ruta="convocatorias"><svg aria-hidden="true"><use href="#icono-convocatoria"></use></svg><span>Convocatorias</span></a>
+        <nav class="ap-navegacion" data-i18n-aria-label="areaPersonal.html.opciones" aria-label="Opciones del área personal">
+          <p data-i18n="areaPersonal.html.grupoResumen">Resumen</p>
+          <a href="?vista=inicio" data-ruta="inicio"><svg aria-hidden="true"><use href="#icono-inicio"></use></svg><span data-i18n="areaPersonal.rutas.inicio">Inicio y plazos</span></a>
+          <a href="?vista=convocatorias" data-ruta="convocatorias"><svg aria-hidden="true"><use href="#icono-convocatoria"></use></svg><span data-i18n="areaPersonal.rutas.convocatorias">Convocatorias</span></a>
           <a href="?vista=oportunidades" data-ruta="oportunidades"><svg aria-hidden="true"><use href="#icono-convocatoria"></use></svg><span data-i18n="areaPersonal.rutas.oportunidades">Oportunidades para ti</span></a>
 
-          <p>Mi información</p>
-          <a href="?vista=perfil" data-ruta="perfil"><svg aria-hidden="true"><use href="#icono-persona"></use></svg><span>Perfil y contacto</span></a>
-          <a href="?vista=meritos" data-ruta="meritos"><svg aria-hidden="true"><use href="#icono-merito"></use></svg><span>Méritos y documentos</span></a>
+          <p data-i18n="areaPersonal.html.grupoInformacion">Mi información</p>
+          <a href="?vista=perfil" data-ruta="perfil"><svg aria-hidden="true"><use href="#icono-persona"></use></svg><span data-i18n="areaPersonal.rutas.perfil">Perfil y contacto</span></a>
+          <a href="?vista=meritos" data-ruta="meritos"><svg aria-hidden="true"><use href="#icono-merito"></use></svg><span data-i18n="areaPersonal.rutas.meritos">Méritos y documentos</span></a>
 
-          <p>Tramitación</p>
-          <a href="?vista=solicitud" data-ruta="solicitud"><svg aria-hidden="true"><use href="#icono-solicitud"></use></svg><span>Nueva solicitud</span></a>
-          <a href="?vista=autobaremacion" data-ruta="autobaremacion"><svg aria-hidden="true"><use href="#icono-baremo"></use></svg><span>Autobaremación</span></a>
-          <a href="?vista=seguimiento" data-ruta="seguimiento"><svg aria-hidden="true"><use href="#icono-seguimiento"></use></svg><span>Mis expedientes</span></a>
-          <a href="?vista=llamamientos" data-ruta="llamamientos"><svg aria-hidden="true"><use href="#icono-llamamiento"></use></svg><span>Mi bolsa</span><span class="contador-menu" id="contador-llamamientos" hidden>0</span></a>
-          <a href="?vista=subsanaciones" data-ruta="subsanaciones"><svg aria-hidden="true"><use href="#icono-subsanacion"></use></svg><span>Subsanaciones</span></a>
-          <a href="?vista=alegaciones" data-ruta="alegaciones"><svg aria-hidden="true"><use href="#icono-alegacion"></use></svg><span>Alegaciones</span></a>
+          <p data-i18n="areaPersonal.html.grupoTramitacion">Tramitación</p>
+          <a href="?vista=solicitud" data-ruta="solicitud"><svg aria-hidden="true"><use href="#icono-solicitud"></use></svg><span data-i18n="areaPersonal.rutas.solicitud">Nueva solicitud</span></a>
+          <a href="?vista=autobaremacion" data-ruta="autobaremacion"><svg aria-hidden="true"><use href="#icono-baremo"></use></svg><span data-i18n="areaPersonal.rutas.autobaremacion">Autobaremación</span></a>
+          <a href="?vista=seguimiento" data-ruta="seguimiento"><svg aria-hidden="true"><use href="#icono-seguimiento"></use></svg><span data-i18n="areaPersonal.rutas.seguimiento">Mis expedientes</span></a>
+          <a href="?vista=llamamientos" data-ruta="llamamientos"><svg aria-hidden="true"><use href="#icono-llamamiento"></use></svg><span data-i18n="areaPersonal.html.miBolsa">Mi bolsa</span><span class="contador-menu" id="contador-llamamientos" hidden>0</span></a>
+          <a href="?vista=subsanaciones" data-ruta="subsanaciones"><svg aria-hidden="true"><use href="#icono-subsanacion"></use></svg><span data-i18n="areaPersonal.rutas.subsanaciones">Subsanaciones</span></a>
+          <a href="?vista=alegaciones" data-ruta="alegaciones"><svg aria-hidden="true"><use href="#icono-alegacion"></use></svg><span data-i18n="areaPersonal.rutas.alegaciones">Alegaciones</span></a>
 
-          <p>Comunicaciones</p>
-          <a href="?vista=mensajes" data-ruta="mensajes"><svg aria-hidden="true"><use href="#icono-mensaje"></use></svg><span>Mensajes y noticias</span><span class="contador-menu" id="contador-mensajes" hidden>0</span></a>
-          <a href="?vista=certificados" data-ruta="certificados"><svg aria-hidden="true"><use href="#icono-certificado"></use></svg><span>Certificados y descargas</span></a>
-          <a href="?vista=ayuda" data-ruta="ayuda"><svg aria-hidden="true"><use href="#icono-ayuda"></use></svg><span>Ayuda y accesibilidad</span></a>
+          <p data-i18n="areaPersonal.html.grupoComunicaciones">Comunicaciones</p>
+          <a href="?vista=mensajes" data-ruta="mensajes"><svg aria-hidden="true"><use href="#icono-mensaje"></use></svg><span data-i18n="areaPersonal.rutas.mensajes">Mensajes y noticias</span><span class="contador-menu" id="contador-mensajes" hidden>0</span></a>
+          <a href="?vista=certificados" data-ruta="certificados"><svg aria-hidden="true"><use href="#icono-certificado"></use></svg><span data-i18n="areaPersonal.rutas.certificados">Certificados y descargas</span></a>
+          <a href="?vista=ayuda" data-ruta="ayuda"><svg aria-hidden="true"><use href="#icono-ayuda"></use></svg><span data-i18n="areaPersonal.rutas.ayuda">Ayuda y accesibilidad</span></a>
         </nav>
 
-        <div class="pie-lateral"><span>Portal genérico de RRHH</span><small>Fase inicial · Módulo Bolsa</small></div>
+        <div class="pie-lateral"><span data-i18n="areaPersonal.html.pieLateral">Portal genérico de RRHH</span><small data-i18n="areaPersonal.html.pieLateralDetalle">Fase inicial · Módulo Bolsa</small></div>
       </aside>
 
       <div class="ap-superficie">
         <header class="cabecera-portal">
           <button type="button" class="boton-icono boton-menu" data-accion="alternar-menu" aria-controls="navegacion-lateral" aria-expanded="false">
-            <svg aria-hidden="true"><use href="#icono-menu"></use></svg><span class="solo-lectura">Abrir navegación</span>
+            <svg aria-hidden="true"><use href="#icono-menu"></use></svg><span class="solo-lectura" data-i18n="areaPersonal.html.abrirNavegacion">Abrir navegación</span>
           </button>
           <div class="contexto-cabecera">
-            <nav class="migas" id="migas-pan" aria-label="Migas de pan">Mi área personal</nav>
-            <h1 id="titulo-vista">Cargando área personal…</h1>
+            <nav class="migas" id="migas-pan" data-i18n="areaPersonal.app.migas" data-i18n-aria-label="areaPersonal.html.migas" aria-label="Migas de pan">Mi área personal</nav>
+            <h1 id="titulo-vista" data-i18n="areaPersonal.html.cargando">Cargando área personal…</h1>
           </div>
           <form class="busqueda-global" id="busqueda-global" role="search">
-            <label class="solo-lectura" for="consulta-global">Buscar en convocatorias y ayuda</label>
-            <input id="consulta-global" name="consulta" type="search" placeholder="Buscar convocatoria o ayuda" autocomplete="off">
-            <button type="submit" class="boton-icono" aria-label="Buscar"><svg aria-hidden="true"><use href="#icono-buscar"></use></svg></button>
+            <label class="solo-lectura" for="consulta-global" data-i18n="areaPersonal.html.buscarEtiqueta">Buscar en convocatorias y ayuda</label>
+            <input id="consulta-global" name="consulta" type="search" data-i18n-placeholder="areaPersonal.html.buscarEjemplo" placeholder="Buscar convocatoria o ayuda" autocomplete="off">
+            <button type="submit" class="boton-icono" data-i18n-aria-label="areaPersonal.html.buscar" aria-label="Buscar"><svg aria-hidden="true"><use href="#icono-buscar"></use></svg></button>
           </form>
           <div class="acciones-cabecera">
-            <button type="button" class="boton-utilidad" data-accion="leer-pantalla">Escuchar</button>
+            <button type="button" class="boton-utilidad" data-accion="leer-pantalla" data-i18n="areaPersonal.html.escuchar">Escuchar</button>
             <button type="button" class="boton-utilidad" data-accion="alternar-texto" data-i18n-aria-label="areaPersonal.preferencias.atajoTexto" aria-label="Aumentar o restablecer el tamaño del texto en esta sesión" aria-pressed="false"><span class="etiqueta-amplia" data-i18n="areaPersonal.preferencias.textoCorto">Texto </span>A+</button>
             <button type="button" class="boton-utilidad" data-accion="alternar-contraste" data-i18n-aria-label="areaPersonal.preferencias.atajoContraste" aria-label="Activar o desactivar el alto contraste en esta sesión" aria-pressed="false"><span class="etiqueta-amplia" data-i18n="areaPersonal.preferencias.contrasteCorto">Contraste</span><span class="etiqueta-corta" aria-hidden="true">AC</span></button>
             <div class="identidad-cabecera"><button type="button" class="sesion-usuario" data-accion="ver-sesion" data-i18n-aria-label="areaPersonal.preferencias.menuIdentidad" aria-label="Abrir menú de identidad" aria-controls="menu-identidad" aria-expanded="false">
               <span class="avatar" id="avatar-sesion" aria-hidden="true">—</span>
-              <span><strong id="nombre-sesion">Sesión sin resolver</strong><small id="perfil-sesion">Identificación requerida</small></span>
+              <span><strong id="nombre-sesion" data-i18n="areaPersonal.html.sesionSinResolver">Sesión sin resolver</strong><small id="perfil-sesion" data-i18n="areaPersonal.html.identificacionRequerida">Identificación requerida</small></span>
             </button><div id="menu-identidad" class="menu-identidad" hidden>
               <button type="button" data-accion="abrir-preferencias" data-i18n="areaPersonal.preferencias.titulo">Mis preferencias</button>
               <button type="button" data-accion="ver-contexto-sesion" data-i18n="areaPersonal.sesion.titulo">Identidad y contexto de sesión</button>
@@ -82,13 +82,13 @@
         </header>
 
         <main id="contenido-principal" class="contenido-principal" tabindex="-1">
-          <div id="estado-carga" class="estado-carga" role="status"><span aria-hidden="true"></span>Cargando información autorizada…</div>
+          <div id="estado-carga" class="estado-carga" role="status" data-i18n="areaPersonal.html.cargandoInformacion"><span aria-hidden="true"></span>Cargando información autorizada…</div>
           <div id="espacio-trabajo"></div>
         </main>
 
         <footer class="pie-portal">
-          <span>© 2026 Diputación de Granada · Mi área personal</span>
-          <nav aria-label="Información legal"><a href="?vista=ayuda" data-ruta="ayuda">Accesibilidad</a><a href="?vista=ayuda" data-ruta="ayuda">Protección de datos</a><a href="?vista=ayuda" data-ruta="ayuda">Ayuda</a></nav>
+          <span data-i18n="areaPersonal.html.pie">© 2026 Diputación de Granada · Mi área personal</span>
+          <nav data-i18n-aria-label="areaPersonal.html.legal" aria-label="Información legal"><a href="?vista=ayuda" data-ruta="ayuda" data-i18n="areaPersonal.html.accesibilidad">Accesibilidad</a><a href="?vista=ayuda" data-ruta="ayuda" data-i18n="areaPersonal.html.proteccionDatos">Protección de datos</a><a href="?vista=ayuda" data-ruta="ayuda" data-i18n="areaPersonal.html.ayuda">Ayuda</a></nav>
         </footer>
       </div>
     </div>
@@ -99,25 +99,25 @@
 
     <dialog id="dialogo-confirmacion" class="dialogo" aria-labelledby="titulo-confirmacion">
       <form method="dialog" id="formulario-confirmacion">
-        <header><span class="marca-paso" aria-hidden="true">!</span><div><p>Confirmación necesaria</p><h2 id="titulo-confirmacion">Confirmar acción</h2></div></header>
+        <header><span class="marca-paso" aria-hidden="true">!</span><div><p data-i18n="areaPersonal.html.confirmacionNecesaria">Confirmación necesaria</p><h2 id="titulo-confirmacion" data-i18n="areaPersonal.html.confirmarAccion">Confirmar acción</h2></div></header>
         <div id="contenido-confirmacion" class="contenido-dialogo"></div>
-        <footer><button type="submit" value="cancelar" class="boton-secundario">Cancelar</button><button type="submit" value="confirmar" class="boton-primario">Confirmar operación</button></footer>
+        <footer><button type="submit" value="cancelar" class="boton-secundario" data-i18n="areaPersonal.html.cancelar">Cancelar</button><button type="submit" value="confirmar" class="boton-primario" data-i18n="areaPersonal.app.confirmar">Confirmar operación</button></footer>
       </form>
     </dialog>
 
     <dialog id="dialogo-recibo" class="dialogo" aria-labelledby="titulo-recibo">
       <form method="dialog">
-        <header><span class="marca-paso marca-exito" aria-hidden="true">✓</span><div><p>Resultado de la operación</p><h2 id="titulo-recibo">Recibo</h2></div></header>
+        <header><span class="marca-paso marca-exito" aria-hidden="true">✓</span><div><p data-i18n="areaPersonal.html.resultadoOperacion">Resultado de la operación</p><h2 id="titulo-recibo" data-i18n="areaPersonal.html.recibo">Recibo</h2></div></header>
         <div id="contenido-recibo" class="contenido-dialogo"></div>
-        <footer><button type="button" class="boton-secundario" data-accion="descargar-recibo">Descargar PDF</button><button type="submit" class="boton-primario">Cerrar</button></footer>
+        <footer><button type="button" class="boton-secundario" data-accion="descargar-recibo" data-i18n="areaPersonal.html.descargarPDF">Descargar PDF</button><button type="submit" class="boton-primario" data-i18n="areaPersonal.html.cerrar">Cerrar</button></footer>
       </form>
     </dialog>
 
     <dialog id="dialogo-detalle" class="dialogo dialogo-amplio" aria-labelledby="titulo-detalle">
       <form method="dialog">
-        <header><div><p>Información detallada</p><h2 id="titulo-detalle">Detalle</h2></div><button type="submit" class="boton-icono" aria-label="Cerrar detalle">×</button></header>
+        <header><div><p data-i18n="areaPersonal.html.informacionDetallada">Información detallada</p><h2 id="titulo-detalle" data-i18n="areaPersonal.html.detalle">Detalle</h2></div><button type="submit" class="boton-icono" data-i18n-aria-label="areaPersonal.html.cerrarDetalle" aria-label="Cerrar detalle">×</button></header>
         <div id="contenido-detalle" class="contenido-dialogo"></div>
-        <footer><button type="submit" class="boton-secundario">Cerrar</button></footer>
+        <footer><button type="submit" class="boton-secundario" data-i18n="areaPersonal.html.cerrar">Cerrar</button></footer>
       </form>
     </dialog>
 

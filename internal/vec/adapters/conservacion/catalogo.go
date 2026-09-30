@@ -34,6 +34,10 @@ var (
 	versionCatalogoLocal = uint64(1)
 )
 
+// custodiaFirmado es el valor de "custodia" que reserva un tipo a la custodia
+// de documentos firmados.
+const custodiaFirmado = "firmado"
+
 type entradaJSON struct {
 	Tipo          string `json:"tipo"`
 	Procedimiento string `json:"procedimiento"`
@@ -41,6 +45,9 @@ type entradaJSON struct {
 	BaseJuridica  string `json:"base_juridica"`
 	PlazoAnios    int    `json:"plazo_anios"`
 	Proteccion    string `json:"proteccion"`
+	// Custodia "firmado" reserva el tipo a la custodia de documentos
+	// firmados (Documentos 000009): el alta genérica no lo admite.
+	Custodia string `json:"custodia,omitempty"`
 }
 
 type catalogoJSON struct {
@@ -57,6 +64,7 @@ type entrada struct {
 	tipo, tipoRef, procedimientoRef, serieRef, baseRef, politicaRef string
 	huella                                                          [sha256.Size]byte
 	plazoAnios                                                      int
+	custodiaFirmado                                                 bool
 }
 
 // Catalogo es inmutable tras construirse; es seguro entre goroutines.
@@ -103,7 +111,8 @@ func NuevoCatalogo(raw []byte, reloj ports.Reloj) (*Catalogo, error) {
 		if !claveCatalogo.MatchString(e.Tipo) || !claveCatalogo.MatchString(e.Procedimiento) ||
 			!claveCatalogo.MatchString(e.Serie) || !claveCatalogo.MatchString(e.BaseJuridica) ||
 			e.PlazoAnios < 1 || e.PlazoAnios > maximoPlazoAnios ||
-			e.Proteccion != string(ports.ProteccionPoliticaConservacionDocumentalOrdinaria) {
+			e.Proteccion != string(ports.ProteccionPoliticaConservacionDocumentalOrdinaria) ||
+			(e.Custodia != "" && e.Custodia != custodiaFirmado) {
 			return nil, ErrCatalogoInvalido
 		}
 		if _, repetido := cat.porTipo[e.Tipo]; repetido {
@@ -123,6 +132,7 @@ func NuevoCatalogo(raw []byte, reloj ports.Reloj) (*Catalogo, error) {
 			tipo: e.Tipo, tipoRef: referencia("tipo", e.Tipo), procedimientoRef: referencia("procedimiento", e.Procedimiento),
 			serieRef: referencia("serie", e.Serie), baseRef: referencia("base_juridica", e.BaseJuridica),
 			politicaRef: referencia("politica", e.Tipo+"\x00v1"), huella: sha256.Sum256(canon), plazoAnios: e.PlazoAnios,
+			custodiaFirmado: e.Custodia == custodiaFirmado,
 		}
 		cat.porTipo[e.Tipo] = en.tipoRef
 		cat.porTipoRef[en.tipoRef] = en
@@ -148,6 +158,15 @@ func (c *Catalogo) TipoDocumentalRef(tipo string) (string, error) {
 		return "", ErrTipoNoCatalogado
 	}
 	return ref, nil
+}
+
+// CustodiaFirmadoReservada indica si el tipo está reservado a la custodia
+// de documentos firmados.
+func (c *Catalogo) CustodiaFirmadoReservada(tipoRef string) bool {
+	if c == nil {
+		return false
+	}
+	return c.porTipoRef[tipoRef].custodiaFirmado
 }
 
 // ClaveTipo devuelve la clave estable de un tipo catalogado a partir de su

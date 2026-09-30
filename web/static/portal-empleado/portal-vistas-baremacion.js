@@ -1,5 +1,5 @@
 /** Consulta S3–S7. No adopta decisiones ni usa datos de presentación. */
-import { traducirBaremacion as t } from "./portal-i18n-baremacion.js?v=20260929-i18n-shell-v2";
+import { traducirBaremacion as t } from "./portal-i18n-baremacion.js?v=20260930-portales-i18n-integracion-v1";
 
 export function crearVistasBaremacion(u) {
   const { escaparHTML: e, numero, fecha, chip, tabla, kpi, encabezadoVista, campo } = u;
