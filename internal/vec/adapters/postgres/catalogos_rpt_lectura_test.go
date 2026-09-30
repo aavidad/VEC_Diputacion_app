@@ -269,7 +269,10 @@ type transaccionLecturaRPTPrueba struct {
 }
 
 func (t *transaccionLecturaRPTPrueba) Exec(_ context.Context, consulta string, _ ...any) (pgconn.CommandTag, error) {
-	t.configurada = consulta == configurarLecturaRPT
+	t.configurada = consulta == configurarLecturaRPT &&
+		strings.Contains(consulta, "set_config('timezone','UTC',true)") &&
+		strings.Contains(consulta, "set_config('statement_timeout','15s',true)") &&
+		strings.Contains(consulta, "set_config('idle_in_transaction_session_timeout','20s',true)")
 	return pgconn.CommandTag{}, nil
 }
 
