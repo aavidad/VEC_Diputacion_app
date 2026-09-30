@@ -306,6 +306,9 @@ func (g *GestorGobiernoCategoriaRPTPostgreSQL) validarAutorizacion(s domain.Soli
 	hMotivo := sha256.Sum256(motivo)
 	ctxActor, errContexto := domain.RehidratarContextoActorVinculadoV2(a.ContextoActorCanonico())
 	hContexto, errHuellaContexto := ctxActor.HuellaSHA256VinculadaV2()
+	if err := decisionCoincideSolicitudGobiernoRPT(s, canon, r.DecisionRef()); err != nil {
+		return "", err
+	}
 	proyeccion, errProyeccion := domain.ParsearMensajeAtestacionAutorizacionV3NoAutoritativo(a.PayloadVECAD3())
 	refDecision, errRefDecision := proyeccion.DecisionRef()
 	refCorrelacion, errRefCorrelacion := proyeccion.CorrelacionRef()
@@ -314,7 +317,7 @@ func (g *GestorGobiernoCategoriaRPTPostgreSQL) validarAutorizacion(s domain.Soli
 	refContexto, errRefContexto := proyeccion.ReferenciaContextoActor()
 	hProyeccionContexto, errHProyeccionContexto := proyeccion.HuellaContextoActorSHA256()
 	if errRecurso != nil || errMotivo != nil || errVinculo != nil || errCorrelacion != nil ||
-		errContexto != nil || errHuellaContexto != nil || !decisionCoincideSolicitudGobiernoRPT(s, canon, r.DecisionRef()) ||
+		errContexto != nil || errHuellaContexto != nil ||
 		errProyeccion != nil || errRefDecision != nil || errRefCorrelacion != nil ||
 		errHProyeccionDecision != nil || errHProyeccionMotivo != nil || errRefContexto != nil || errHProyeccionContexto != nil ||
 		refDecision != r.DecisionRef() || refCorrelacion != correlacion ||
@@ -333,31 +336,27 @@ func (g *GestorGobiernoCategoriaRPTPostgreSQL) validarAutorizacion(s domain.Soli
 	return d.Recurso.Atributos["material_sha256"], nil
 }
 
-func decisionCoincideSolicitudGobiernoRPT(s domain.SolicitudAutorizacionLigadaV3, canon []byte, ref string) bool {
+func decisionCoincideSolicitudGobiernoRPT(s domain.SolicitudAutorizacionLigadaV3, canon []byte, ref string) error {
 	d, err := s.Datos()
 	if err != nil {
-		return false
+		return ports.ErrGobiernoCategoriaRPTDenegado
 	}
 	hSolicitud, err := domain.HuellaSHA256SolicitudAutorizacionV3(s)
 	hRecurso, errRecurso := d.Recurso.HuellaContextoAutorizacionSHA256()
 	hMotivo, errMotivo := domain.HuellaSHA256MotivoAutorizacionV2(d.ReferenciaMotivo)
 	v, errVinculo := d.VinculoAutenticacionActor.Datos()
 	correlacion, errCorrelacion := d.Correlacion.ValorCanonico()
-	var decision struct {
-		SolicitudHuellaSHA256       string `json:"solicitud_huella_sha256"`
-		DecisionRef                 string `json:"decision_ref"`
-		PrincipalID                 string `json:"principal_id"`
-		PerfilActivoRef             string `json:"perfil_activo_ref"`
-		CorrelacionRef              string `json:"correlacion_ref"`
-		MotivoHuellaSHA256          string `json:"motivo_huella_sha256"`
-		ContextoRecursoHuellaSHA256 string `json:"contexto_recurso_huella_sha256"`
+	decision, errDecision := leerDecisionLigaduraUsoRPT(canon)
+	if err != nil || errRecurso != nil || errMotivo != nil || errVinculo != nil ||
+		errCorrelacion != nil || errDecision != nil ||
+		decision.Esquema != domain.EsquemaHuellaDecisionAutorizacionV3 ||
+		decision.SolicitudHuellaSHA256 != hSolicitud || decision.DecisionRef != ref ||
+		decision.PrincipalID != v.PrincipalID || decision.PerfilActivoRef != v.PerfilActivoRef ||
+		decision.CorrelacionRef != correlacion || decision.MotivoHuellaSHA256 != hMotivo ||
+		decision.ContextoRecursoHuellaSHA256 != hRecurso {
+		return ports.ErrGobiernoCategoriaRPTDenegado
 	}
-	return err == nil && errRecurso == nil && errMotivo == nil && errVinculo == nil && errCorrelacion == nil &&
-		json.Unmarshal(canon, &decision) == nil && decision.SolicitudHuellaSHA256 == hSolicitud &&
-		decision.DecisionRef == ref &&
-		decision.PrincipalID == v.PrincipalID && decision.PerfilActivoRef == v.PerfilActivoRef &&
-		decision.CorrelacionRef == correlacion && decision.MotivoHuellaSHA256 == hMotivo &&
-		decision.ContextoRecursoHuellaSHA256 == hRecurso
+	return nil
 }
 
 func (g *GestorGobiernoCategoriaRPTPostgreSQL) ejecutar(ctx context.Context, s domain.SolicitudAutorizacionLigadaV3,

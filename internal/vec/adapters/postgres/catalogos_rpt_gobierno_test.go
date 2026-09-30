@@ -109,10 +109,10 @@ func TestGobiernoRPTLigaSolicitudCompletaADecisionCanonica(t *testing.T) {
 	var proyeccion struct {
 		DecisionRef string `json:"decision_ref"`
 	}
-	if json.Unmarshal(canon, &proyeccion) != nil || !decisionCoincideSolicitudGobiernoRPT(escenario.solicitud, canon, proyeccion.DecisionRef) {
+	if json.Unmarshal(canon, &proyeccion) != nil || decisionCoincideSolicitudGobiernoRPT(escenario.solicitud, canon, proyeccion.DecisionRef) != nil {
 		t.Fatal("la solicitud A no coincide con su decisión propia")
 	}
-	if decisionCoincideSolicitudGobiernoRPT(escenario.solicitud, canon, "dec_otra") {
+	if err := decisionCoincideSolicitudGobiernoRPT(escenario.solicitud, canon, "dec_otra"); !errors.Is(err, ports.ErrGobiernoCategoriaRPTDenegado) {
 		t.Fatal("decisión distinta admitida")
 	}
 	d, err := escenario.solicitud.Datos()
@@ -128,7 +128,7 @@ func TestGobiernoRPTLigaSolicitudCompletaADecisionCanonica(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if decisionCoincideSolicitudGobiernoRPT(b, canon, proyeccion.DecisionRef) {
+	if err := decisionCoincideSolicitudGobiernoRPT(b, canon, proyeccion.DecisionRef); !errors.Is(err, ports.ErrGobiernoCategoriaRPTDenegado) {
 		t.Fatal("solicitud B con correlación distinta usó exportación A")
 	}
 	d, _ = escenario.solicitud.Datos()
@@ -137,8 +137,12 @@ func TestGobiernoRPTLigaSolicitudCompletaADecisionCanonica(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if decisionCoincideSolicitudGobiernoRPT(b, canon, proyeccion.DecisionRef) {
+	if err := decisionCoincideSolicitudGobiernoRPT(b, canon, proyeccion.DecisionRef); !errors.Is(err, ports.ErrGobiernoCategoriaRPTDenegado) {
 		t.Fatal("solicitud B con motivo distinto usó exportación A")
+	}
+	duplicada := bytes.Replace(canon, []byte(`"decision_ref":"`), []byte(`"decision_ref":"`+proyeccion.DecisionRef+`","decision_ref":"`), 1)
+	if err := decisionCoincideSolicitudGobiernoRPT(escenario.solicitud, duplicada, proyeccion.DecisionRef); !errors.Is(err, ports.ErrGobiernoCategoriaRPTDenegado) {
+		t.Fatal("decisión con clave duplicada aceptada")
 	}
 }
 
