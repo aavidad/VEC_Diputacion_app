@@ -1,5 +1,5 @@
 \set ON_ERROR_STOP on
--- Sonda sobre un clon sintético post-AD118/AUT21. El guion inserta AD133.
+-- Sonda sobre un clon sintético post-AD118/AUT21/AD134/AD136. El guion inserta AD133.
 -- No confirma efectos ni instala migraciones.
 BEGIN;
 SET LOCAL search_path=pg_catalog,pg_temp;
