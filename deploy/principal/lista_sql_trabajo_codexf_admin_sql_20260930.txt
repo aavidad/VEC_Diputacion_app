@@ -1,0 +1,2 @@
+deploy/postgresql/contexto_actor_v1/migraciones/000019_perfiles_nominales_sin_revivir.up.sql
+deploy/postgresql/autorizacion/migraciones/000022_rol_administracion_perfiles_sin_revivir.up.sql
