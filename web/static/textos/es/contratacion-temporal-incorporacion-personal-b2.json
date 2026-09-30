@@ -39,6 +39,8 @@
   "actualizar": "Actualizar las opciones",
   "errores": "Revise los campos indicados",
   "error_campo": "Revise este campo.",
+  "opcion_ya_no_disponible": "La opción elegida ha cambiado. Seleccione una opción actual.",
+  "seleccion_obsoleta": "La selección ha cambiado. Compruebe esta operación antes de volver a continuar.",
   "error_periodo": "La fecha de fin debe ser posterior a la fecha de inicio.",
   "denegada": "No tiene permiso para consultar o registrar esta incorporación. Se han retirado los datos de la pantalla.",
   "conflicto": "El expediente o la selección han cambiado. Actualice las opciones antes de continuar.",

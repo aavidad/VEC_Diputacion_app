@@ -39,6 +39,8 @@
   "actualizar": "Refresh options",
   "errores": "Check the indicated fields",
   "error_campo": "Check this field.",
+  "opcion_ya_no_disponible": "Your previous choice has changed. Select a current option.",
+  "seleccion_obsoleta": "The selection has changed. Check this operation before continuing again.",
   "error_periodo": "The end date must be later than the start date.",
   "denegada": "You do not have permission to view or record this commencement of service. The screen data has been cleared.",
   "conflicto": "The case or selection has changed. Refresh the options before proceeding.",

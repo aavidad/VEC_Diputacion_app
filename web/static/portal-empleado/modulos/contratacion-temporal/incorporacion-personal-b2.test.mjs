@@ -37,6 +37,9 @@ function raiz() {
       return eventos.get("submit")({ preventDefault() {}, target: { matches: () => true,
         elements: Object.fromEntries(Object.entries(valores).map(([k, value]) => [k, { value }])) } });
     },
+    salir(campo, valor) {
+      return eventos.get("focusout")({ target: { name: campo, value: valor, setAttribute() {} } });
+    },
     async click(accion) { await eventos.get("click")({ target: { closest: () => ({ getAttribute: () => accion }) } }); },
   };
 }
@@ -137,6 +140,109 @@ test("UI: fechas validadas y periodo conocido conservado; ningún POST si cambia
   for (const v of [{ desde: "2026-10-02", hasta: "" }, { desde: "2026-10-01", hasta: "2026-09-30" }]) {
     x.r.revisar(v); assert.match(x.r.innerHTML, /data-b2-errores/u); assert.doesNotMatch(x.r.innerHTML, /data-b2-accion="registrar"/u);
   }
+  x.desmontar();
+});
+
+test("actualizar conserva selecciones por identidad y fechas editadas aunque cambie el orden", async () => {
+  const antes = inicial(); antes.opciones.periodo.fuente_ref = "";
+  antes.opciones.vacantes.push({ ...antes.opciones.vacantes[0], version_plantilla_ref: "plantilla:2",
+    version_rpt_ref: "rpt:2", plaza_etiqueta: "Plaza dos" });
+  antes.opciones.regimenes.push({ ref: "regimen:2", version: 2, denominacion: "Funcionario interino" });
+  const despues = structuredClone(antes);
+  despues.opciones.vacantes.reverse(); despues.opciones.regimenes.reverse(); despues.opciones.clases_ocupacion.reverse();
+  let lecturas = 0, preparadoCon;
+  const x = await montar(clienteBase({ consultar: async () => {
+    if (++lecturas === 2) throw Object.assign(new Error("detalle privado"), { estado: 503, envelopeValido: true });
+    return lecturas === 1 ? antes : despues;
+  },
+    preparar: async (s) => { preparadoCon = s; return { ...despues, estado: "plan_preparado", plan: { ...plan, intencion: s } }; } }));
+  x.r.salir("vacante", "1"); x.r.salir("regimen", "1"); x.r.salir("clase_ocupacion", "2"); x.r.salir("desde", "2026-11-01");
+  await x.r.click("consultar");
+  assert.doesNotMatch(x.r.innerHTML, /detalle privado|data-b2-accion="registrar"/u);
+  await x.r.click("consultar");
+  assert.equal(lecturas, 3);
+  assert.match(x.r.innerHTML, /<option value="0" selected>Puesto uno · Plaza dos/u);
+  assert.match(x.r.innerHTML, /<option value="0" selected>Funcionario interino/u);
+  x.r.revisar({ desde: "2026-11-01", hasta: "" });
+  assert.match(x.r.innerHTML, /Plaza dos|Funcionario interino/u);
+  await x.r.click("registrar");
+  assert.equal(preparadoCon.version_plantilla_ref, "plantilla:2");
+  assert.equal(preparadoCon.version_rpt_ref, "rpt:2");
+  assert.equal(preparadoCon.regimen.ref, "regimen:2");
+  assert.equal(preparadoCon.clase_ocupacion, "temporal");
+  assert.equal(preparadoCon.desde, "2026-11-01");
+  x.desmontar();
+});
+
+test("si desaparece la clase elegida, actualizar exige nueva selección incluso tras otro GET", async () => {
+  const antes = inicial(); const despues = inicial(); despues.opciones.clases_ocupacion.pop();
+  let lecturas = 0, posts = 0;
+  const x = await montar(clienteBase({ consultar: async () => ++lecturas === 1 ? antes : despues,
+    preparar: async () => { posts++; return preparado(); } }));
+  x.r.salir("clase_ocupacion", "2");
+  await x.r.click("consultar"); await x.r.click("consultar");
+  assert.match(x.r.innerHTML, /La opción elegida ha cambiado/u);
+  assert.doesNotMatch(x.r.innerHTML, /name="clase_ocupacion"[^>]*><option value="0" selected/u);
+  x.r.revisar({ desde: "2026-10-01", hasta: "" }); await x.r.click("registrar");
+  assert.equal(posts, 0);
+  x.desmontar();
+});
+
+test("una opción única nueva no se elige sola tras validar en blanco y volver a consultar", async () => {
+  const antes = inicial(); const despues = inicial();
+  despues.opciones.vacantes[0] = { ...despues.opciones.vacantes[0], plaza_ref: "plaza:2", plaza_etiqueta: "Plaza dos" };
+  let lecturas = 0, posts = 0;
+  const x = await montar(clienteBase({ consultar: async () => ++lecturas === 1 ? antes : despues,
+    preparar: async () => { posts++; return preparado(); } }));
+  await x.r.click("consultar");
+  x.r.revisar({ desde: "2026-10-01", hasta: "", clase_ocupacion: "2", vacante: "" });
+  await x.r.click("consultar");
+  assert.match(x.r.innerHTML, /name="vacante"[^>]*aria-invalid="true"/u);
+  assert.doesNotMatch(x.r.innerHTML, /class="ct-b2-valor-solo-lectura">Puesto uno · Plaza dos/u);
+  x.r.revisar({ desde: "2026-10-01", hasta: "", clase_ocupacion: "2", vacante: "" });
+  await x.r.click("registrar"); assert.equal(posts, 0);
+  x.desmontar();
+});
+
+test("cambiar el catálogo durante la revisión impide preparar una intención obsoleta", async () => {
+  const antes = inicial(); const despues = inicial();
+  despues.opciones.catalogo_clases_ocupacion.version = 2;
+  despues.opciones.catalogo_clases_ocupacion.huella_sha256 = "b".repeat(64);
+  let lecturas = 0, posts = 0;
+  const x = await montar(clienteBase({ consultar: async () => ++lecturas === 1 ? antes : despues,
+    preparar: async () => { posts++; return preparado(); } }));
+  x.r.revisar(); await x.r.click("consultar"); await x.r.click("registrar");
+  assert.equal(posts, 0);
+  assert.match(x.r.innerHTML, /La opción elegida ha cambiado/u);
+  assert.doesNotMatch(x.r.innerHTML, /data-b2-accion="registrar"/u);
+  x.desmontar();
+});
+
+test("una operación incierta con selección cambiada conserva la clave y solo permite comprobar", async () => {
+  const antes = inicial(); const despues = inicial();
+  despues.opciones.catalogo_clases_ocupacion.version = 2;
+  despues.opciones.catalogo_clases_ocupacion.huella_sha256 = "b".repeat(64);
+  let lecturas = 0; const claves = [];
+  const x = await montar(clienteBase({ consultar: async () => ++lecturas === 1 ? antes : despues,
+    preparar: async (s) => { claves.push(s.clave_idempotencia); throw Object.assign(new Error("privado"), { estado: 503 }); } }));
+  x.r.revisar(); await x.r.click("registrar");
+  assert.deepEqual(claves, [clave]);
+  assert.match(x.r.innerHTML, /data-b2-accion="consultar"/u);
+  assert.doesNotMatch(x.r.innerHTML, /data-b2-accion="retomar"|data-b2-accion="registrar"|privado/u);
+  await x.r.click("retomar"); assert.deepEqual(claves, [clave]);
+  x.desmontar();
+});
+
+test("denegación tras revisar borra el borrador antes de admitir otra consulta", async () => {
+  let lecturas = 0, posts = 0;
+  const x = await montar(clienteBase({ consultar: async () => {
+    if (++lecturas === 2) throw Object.assign(new Error("privado"), { estado: 403, envelopeValido: true });
+    return inicial();
+  }, preparar: async () => { posts++; return preparado(); } }));
+  x.r.revisar(); await x.r.click("consultar");
+  assert.doesNotMatch(x.r.innerHTML, /data-b2-accion="registrar"|privado/u);
+  await x.r.click("consultar"); await x.r.click("registrar");
+  assert.equal(posts, 0); assert.match(x.r.innerHTML, /data-b2-form/u);
   x.desmontar();
 });
 

@@ -82,8 +82,9 @@ test("un GET 503 tras revisar invalida los datos y bloquea el POST hasta recuper
     assert.equal(planes.length, 0);
     await raiz.click("consultar");
     assert.equal(lecturas, 3);
-    assert.match(raiz.innerHTML, /data-b2-accion="retomar"/u);
-    await raiz.click("retomar");
+    assert.match(raiz.innerHTML, /data-b2-accion="registrar"/u);
+    assert.doesNotMatch(raiz.innerHTML, /data-b2-accion="retomar"/u);
+    await raiz.click("registrar");
     assert.equal(planes.length, 1);
     assert.equal(planes[0].clave_idempotencia, idempotenciaFija);
     assert.equal(confirmaciones, 1);
