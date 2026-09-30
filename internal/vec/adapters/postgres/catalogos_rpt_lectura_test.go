@@ -460,3 +460,33 @@ func TestLecturasRPTHistoricaYUsoEnlazanMaterialYFuncionNominal(t *testing.T) {
 		t.Fatalf("ámbito de otro consumidor llegó a SQL: %v, llamadas=%d", err, iniciador.llamadas)
 	}
 }
+
+func TestVersionHistoricaRPTRangoEnteroPositivoSQL117(t *testing.T) {
+	p, entrada := publicacionRPTPrueba(t, 1, "categoria.uno")
+	for _, version := range []int{1, maximoVersionMaterialRPT} {
+		s, a := autorizacionYSolicitudRPTPrueba(t, accionLeerPublicacionRPT,
+			tipoCatalogoRPT, descriptorRPTPrueba.CatalogoID, "")
+		tx := &transaccionLecturaRPTPrueba{respuesta: reciboAusenciaRPTPrueba(t, a)}
+		iniciador := &iniciadorLecturaRPTPrueba{tx: tx}
+		lector, _ := nuevoLectorCategoriasRPTPostgreSQL(iniciador, descriptorRPTPrueba)
+		consulta := ports.ConsultaPublicacionCategoriaRPT{Referencia: ports.ReferenciaPublicacionRPT{
+			CatalogoID: p.CatalogoID, Version: version, HuellaSHA256: p.HuellaSHA256}, CategoriaID: entrada.Clave}
+		r, err := lector.LeerPublicacionCategoriaRPT(context.Background(), ports.OrdenPublicacionCategoriaRPT{
+			Consulta: consulta, Solicitud: s, Autorizacion: a})
+		if err != nil || r.Encontrado || !tx.confirmada || iniciador.llamadas != 1 {
+			t.Fatalf("versión %d válida no consultada: %+v %v", version, r, err)
+		}
+		var material map[string]any
+		if err := json.Unmarshal([]byte(tx.argumentos[0].(string)), &material); err != nil ||
+			material["version"] != float64(version) {
+			t.Fatalf("versión %d no viajó como JSON number: %+v %v", version, material, err)
+		}
+		for _, fuera := range []int{0, maximoVersionMaterialRPT + 1} {
+			consulta.Referencia.Version = fuera
+			if _, err := lector.LeerPublicacionCategoriaRPT(context.Background(), ports.OrdenPublicacionCategoriaRPT{
+				Consulta: consulta, Solicitud: s, Autorizacion: a}); !errors.Is(err, ports.ErrLecturaRPTInvalida) || iniciador.llamadas != 1 {
+				t.Fatalf("versión %d fuera de rango llegó a SQL: %v, llamadas=%d", fuera, err, iniciador.llamadas)
+			}
+		}
+	}
+}
