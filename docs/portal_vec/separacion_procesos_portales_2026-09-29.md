@@ -152,9 +152,10 @@ combinado cuando `VEC_PORTAL_PROCESO` está vacío:
    petición: coteja el material con su preflight nominal de solo lectura,
    mediante TLS `verify-full`.
 5. El externo puede exportar sus alias sin conexiones. En el proceso interno,
-   `preparar-portal-externo --seudonimos FICHERO --cuentas cta_…` comprueba que
-   las cuentas autorizadas ya están provisionadas en el registro externo;
-   no crea esas cuentas ni sustituye su provisión por huella y CAS. Los alias
+   `preparar-portal-externo --seudonimos FICHERO --cuentas cta_…` comprueba la
+   provisión de las cuentas autorizadas en su invocación aprobada, después de
+   publicar V3. La propuesta pendiente no acredita esos alias. La herramienta
+   no crea cuentas ni sustituye su provisión por huella y CAS. Los alias
    permanecen en el espacio `vec.identidad.desarrollo.externo`.
 6. La lista pública usa la proyección gobernada de Bolsa con un lector propio.
    La entrada sin certificado se sirve desde `cmd/vec-publico`; el Área
@@ -196,10 +197,14 @@ por sí sola envío, recepción ni entrega de una comunicación de Bolsa.
    perfiles externos por sus herramientas aprobadas, huella y CAS. El
    [procedimiento del candidato](../../cmd/vec-provisionar-candidato-externo/README.md)
    fija las fases y sus identidades técnicas.
-6. Repetir la preparación con `--seudonimos` y la lista `--cuentas` autorizada:
-   este paso coteja la provisión anterior, no la realiza en su lugar. Revisar
-   la propuesta obtenida y publicar con sus `--aprobacion-sha256` y
-   `--preimagen-sha256`. Un reintento recupera la propuesta existente.
+6. Repetir la preparación con `--seudonimos` y la lista `--cuentas` autorizada
+   para obtener la propuesta; esa respuesta pendiente no acredita la provisión
+   de los alias. Revisarla e invocar la publicación con sus
+   `--aprobacion-sha256` y `--preimagen-sha256`. Esta invocación publica V3 y
+   después coteja la provisión anterior, sin realizarla en su lugar. Si el
+   cotejo falla, V3 ya está publicado: corregir la provisión y repetir con la
+   misma aprobación y preimagen. El replay recupera la publicación existente
+   sin duplicarla y permite completar el cotejo.
 7. Ejecutar `vec-server comprobar-separacion-portales` con ambos directorios y
    guiones. Debe devolver `separacion_portales=correcta`: comprueba CA distintas,
    la huella interna declarada, secretos distintos y logins sin cruces.
