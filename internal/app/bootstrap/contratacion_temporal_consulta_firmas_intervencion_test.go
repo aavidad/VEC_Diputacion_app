@@ -14,7 +14,22 @@ import (
 	consultafirmas "vec-diputacion-granada/internal/modules/contrataciontemporal/application/consultafirmas"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
+	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
+
+type lectorAsignacionFirmasIntervencionPrueba struct{ err error }
+
+func (f lectorAsignacionFirmasIntervencionPrueba) PrepararInstantanea(
+	_ context.Context, i dominiovec.InstantaneaAutorizacion,
+) (dominiovec.InstantaneaAutorizacion, error) {
+	return i, nil
+}
+func (f lectorAsignacionFirmasIntervencionPrueba) PublicarInstantanea(context.Context, dominiovec.InstantaneaAutorizacion) error {
+	return nil
+}
+func (f lectorAsignacionFirmasIntervencionPrueba) leerAsignacionPublicada(context.Context, string) (instantaneaPublicadaDesarrollo, bool, error) {
+	return instantaneaPublicadaDesarrollo{}, false, f.err
+}
 
 func TestLectorFirmasIntervencionPerfilSoloLecturaOrganizacion(t *testing.T) {
 	principal := dominiovec.Principal{ID: "desarrollo:intervencion-lector-firmas", Roles: []string{rolIntervencionContratacionTemporalDesarrollo},
@@ -89,5 +104,53 @@ func TestLectorFirmasIntervencionNoUsaOtroCanal(t *testing.T) {
 	}
 	if _, err := lector.ConsultarFirmas(ctx, organizacionAltaContratacionTemporalDesarrollo, "expediente:prueba"); !errors.Is(err, ports.ErrRegistroFirmaDocumentoNoDisponible) {
 		t.Fatalf("dependencia ausente debe ser indisponibilidad, recibió %v", err)
+	}
+}
+
+func TestLectorFirmasIntervencionDistingueRevocacionDeCaida(t *testing.T) {
+	p := dominiovec.Principal{ID: "desarrollo:intervencion-lector-firmas", Roles: []string{rolIntervencionContratacionTemporalDesarrollo},
+		AuthMethod: dominiovec.AuthMethodCertificate, AuthAssurance: dominiovec.AuthAssuranceHigh,
+		Attributes: map[string]string{"autoridad": AutoridadNoAutoritativa,
+			"perfil_ejecucion": config.ExecutionProfileDevelopment, "certificate_sha256": strings.Repeat("a", 64)}}
+	ahora := time.Date(2026, 9, 30, 8, 0, 0, 0, time.UTC)
+	base, err := nuevoContextoSinteticoContratacionTemporalDesarrollo(p, ahora)
+	if err != nil {
+		t.Fatal(err)
+	}
+	perfil, err := nuevoPerfilFijoCTDesarrollo(p, base, ahora, clavePerfilFijoLectorFirmasIntervencionCT,
+		[]string{httpinterno.RutaResultadosFiscalizacion},
+		func(actor, ref string) (dominiovec.InstantaneaAutorizacion, error) {
+			return nuevaInstantaneaLectorFirmasIntervencionCTDesarrollo(actor, ref, ahora)
+		})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sello := &selloConsultasContratacionTemporalDesarrollo{}
+	canal := &soporteFiscalizacionContratacionTemporalDesarrollo{sello: sello,
+		principalID: p.ID, certificadoSHA256: p.Attributes["certificate_sha256"]}
+	lector := &lectorFirmasIntervencionCTDesarrollo{canal: canal, perfil: perfil,
+		puente: &soporteAltaContratacionTemporalDesarrollo{
+			autoridadAsignaciones: lectorAsignacionFirmasIntervencionPrueba{},
+		}}
+	m := ports.MaterialConsultaFirmasDocumento{OrganizacionRef: organizacionAltaContratacionTemporalDesarrollo,
+		ExpedienteRef: "expediente:prueba"}
+	recurso, err := consultafirmas.RecursoConsultaFirmasDocumento(m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	datos := dominiovec.DatosSolicitudAutorizacionLigadaV3{Accion: ports.AccionConsultarFirmasDocumento,
+		Recurso: recurso, Finalidad: ports.FinalidadFirmaDocumento,
+		ReferenciaMotivo: motivoConsultaFirmasDocumentoCTDesarrollo()}
+	ctx := context.WithValue(context.Background(), claveCapacidadConsultasContratacionTemporalDesarrollo{},
+		capacidadConsultaContratacionTemporalDesarrollo{sello: sello, ruta: httpinterno.RutaResultadosFiscalizacion,
+			metodo: http.MethodPost, principal: p})
+	ctx = context.WithValue(ctx, claveConsultaFirmasDocumentoCTDesarrollo{}, m)
+	ctx = context.WithValue(ctx, claveSolicitudAutorizacionContratacionTemporalDesarrollo{}, datos)
+	if _, err := lector.ObtenerInstantaneaAutorizacion(ctx, p.ID, perfil.perfilRef()); !errors.Is(err, dominiovec.ErrAutorizacionDenegada) {
+		t.Fatalf("asignación retirada debe denegar, recibió %v", err)
+	}
+	lector.puente.autoridadAsignaciones = lectorAsignacionFirmasIntervencionPrueba{err: errors.New("fuente caída")}
+	if _, err := lector.ObtenerInstantaneaAutorizacion(ctx, p.ID, perfil.perfilRef()); !errors.Is(err, puertosvec.ErrFuenteAutorizacionNoDisponible) {
+		t.Fatalf("fuente caída debe ser indisponibilidad, recibió %v", err)
 	}
 }
