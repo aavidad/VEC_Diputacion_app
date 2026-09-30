@@ -127,9 +127,12 @@ func nuevasDependenciasFiscalizacionContratacionTemporalDesarrollo(
 // autoridad sintetica de Intervencion. No delega en soporteAlta porque este
 // ultimo debe seguir rechazando cualquier principal que no sea tecnico_rrhh.
 type soporteFiscalizacionContratacionTemporalDesarrollo struct {
-	mu                 sync.Mutex
-	sello              *selloConsultasContratacionTemporalDesarrollo
-	principalID        string
+	mu          sync.Mutex
+	sello       *selloConsultasContratacionTemporalDesarrollo
+	principalID string
+	// principalOriginal conserva la identidad validada del canal, separada
+	// del principal canónico V3 que no transporta roles ni atributos.
+	principalOriginal  dominiovec.Principal
 	certificadoSHA256  string
 	contexto           ports.ContextoAutorizacionAltaV3
 	instantanea        dominiovec.InstantaneaAutorizacion
@@ -309,6 +312,7 @@ func nuevoSoporteFiscalizacionContratacionTemporalDesarrollo(
 	if !valida || !principalIntervencionContratacionTemporalDesarrolloValido(principal) {
 		return nil, nil, errFiscalizacionContratacionTemporalDesarrolloNoDisponible
 	}
+	principal = clonarPrincipalDesarrollo(principal)
 	ahora := reloj.Ahora()
 	contexto, err := nuevoContextoSinteticoContratacionTemporalDesarrollo(principal, ahora)
 	if err != nil {
@@ -371,6 +375,7 @@ func nuevoSoporteFiscalizacionContratacionTemporalDesarrollo(
 	soporte := &soporteFiscalizacionContratacionTemporalDesarrollo{
 		sello:              sello,
 		principalID:        principal.ID,
+		principalOriginal:  clonarPrincipalDesarrollo(principal),
 		certificadoSHA256:  principal.Attributes["certificate_sha256"],
 		contexto:           contexto,
 		instantanea:        puente.instantanea,

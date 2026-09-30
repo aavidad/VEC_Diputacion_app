@@ -41,9 +41,10 @@ func (r *registroFirmaPrueba) RegistrarFirma(_ context.Context, m ports.Material
 	r.registrado = append(r.registrado, m)
 	r.firmas = append(r.firmas, ports.FirmaRegistrada{Documento: m.Documento, Secuencia: m.Secuencia, CatalogoHuella: m.CatalogoHuella,
 		PasoOrden: m.PasoOrden, Resultado: m.Resultado, ConMotivoDevolucion: m.MotivoDevolucion != "", OriginalHuella: m.OriginalHuella, FirmadoHuella: m.FirmadoHuella,
-		ExpedienteVersion: m.VersionExpediente})
+		ExpedienteVersion: m.VersionExpediente, DocumentoCustodiaRef: m.DocumentoCustodiaRef, DocumentoCustodiaVersion: m.DocumentoCustodiaVersion})
 	return ports.ReciboFirmaDocumento{FirmaRef: "firma-ct:x", ReciboRef: "recibo-firma-ct:x", Secuencia: m.Secuencia, Resultado: m.Resultado,
-		ExpedienteVersion: m.VersionExpediente, SolicitudHuella: h, RegistradaEn: instanteFirmaPrueba}, nil
+		ExpedienteVersion: m.VersionExpediente, SolicitudHuella: h, RegistradaEn: instanteFirmaPrueba,
+		DocumentoCustodiaRef: m.DocumentoCustodiaRef, DocumentoCustodiaVersion: m.DocumentoCustodiaVersion}, nil
 }
 
 func (r *registroFirmaPrueba) ConsultarFirmas(context.Context, string, string) ([]ports.FirmaRegistrada, error) {
@@ -208,7 +209,7 @@ func TestMaterialFirmaDocumentoCanonico(t *testing.T) {
 		PasoRef: "circuito:1:p1", PasoOrden: 1, Secuencia: 1, Resultado: domain.ResultadoFirmaDevuelto, MotivoDevolucion: "Falta <fecha>",
 		ClaveIdempotencia: "clave-devolucion-00001"}
 	c, err := m.Canonico()
-	want := `{"OrganizacionRef":"organizacion:desarrollo:dipgra","ExpedienteRef":"expediente:ct:001","VersionExpediente":7,"Documento":"informe_definitivo","CatalogoRef":"vec.contratacion_temporal.circuito_firma:1","CatalogoHuella":"` + strings.Repeat("c", 64) + `","PasoRef":"circuito:1:p1","PasoOrden":1,"Secuencia":1,"Resultado":"devuelto","MotivoDevolucion":"Falta \u003cfecha\u003e","OriginalHuella":null,"FirmadoHuella":null,"CertificadoHuella":null,"FirmanteRef":null,"PoliticaVerificacion":null,"RevocacionEstado":null,"SelloTiempoEstado":null,"ClaveIdempotencia":"clave-devolucion-00001"}`
+	want := `{"OrganizacionRef":"organizacion:desarrollo:dipgra","ExpedienteRef":"expediente:ct:001","VersionExpediente":7,"Documento":"informe_definitivo","CatalogoRef":"vec.contratacion_temporal.circuito_firma:1","CatalogoHuella":"` + strings.Repeat("c", 64) + `","PasoRef":"circuito:1:p1","PasoOrden":1,"Secuencia":1,"Resultado":"devuelto","MotivoDevolucion":"Falta \u003cfecha\u003e","OriginalHuella":null,"FirmadoHuella":null,"CertificadoHuella":null,"FirmanteRef":null,"PoliticaVerificacion":null,"RevocacionEstado":null,"SelloTiempoEstado":null,"ClaveIdempotencia":"clave-devolucion-00001","DocumentoCustodiaRef":null,"DocumentoCustodiaVersion":null}`
 	if err != nil || string(c) != want {
 		t.Fatalf("canónico:\n%s\n%v", c, err)
 	}

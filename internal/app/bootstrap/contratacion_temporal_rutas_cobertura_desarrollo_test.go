@@ -7,8 +7,33 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 )
+
+func TestCoberturaRutasCTFirmaRequiereFronterasPDPActivadas(t *testing.T) {
+	const perfil = "prf_cobertura_ct"
+	rutas := []vechttp.RutaExacta{
+		rutaCoberturaCTPrueba(httpinterno.RutaFirmaDocumento),
+		rutaCoberturaCTPrueba(httpinterno.RutaConsultaFirmaDocumento),
+	}
+	for _, activa := range []bool{false, true} {
+		t.Run(fmt.Sprint(activa), func(t *testing.T) {
+			catalogo, err := nuevoCatalogoFronterasComunDesarrollo(
+				descriptoresFronterasContratacionTemporalDesarrollo(perfil, []string{perfil}, activa))
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = validarCoberturaRutasCTDesarrollo(rutas, catalogo)
+			if activa && err != nil {
+				t.Fatalf("firma activa con sus dos fronteras: %v", err)
+			}
+			if !activa && !errors.Is(err, ErrCoberturaRutasCTDesarrollo) {
+				t.Fatalf("firma registrada sin sus fronteras: %v", err)
+			}
+		})
+	}
+}
 
 func catalogoCoberturaRutasCTPrueba(t *testing.T, omitirMetodo, omitirRuta string) catalogoFronterasComunDesarrollo {
 	t.Helper()
@@ -39,7 +64,7 @@ func rutaCoberturaCTPrueba(ruta string) vechttp.RutaExacta {
 
 func TestCoberturaRutasCTInventarioCompletoYOpcionales(t *testing.T) {
 	const perfil = "prf_cobertura_ct"
-	descriptores := descriptoresFronterasContratacionTemporalDesarrollo(perfil, []string{perfil})
+	descriptores := descriptoresFronterasContratacionTemporalDesarrollo(perfil, []string{perfil}, true)
 	descriptores = append(descriptores, descriptoresFronterasReincorporacionTitularDesarrollo(perfil)...)
 	descriptores = append(descriptores, descriptoresFronterasPlantillasCTDesarrollo(perfil)...)
 	descriptores = append(descriptores, descriptoresFronterasPlantillasDocumentalCTDesarrollo(perfil)...)
