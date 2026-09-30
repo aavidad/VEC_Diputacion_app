@@ -141,7 +141,7 @@ func autorizacionUsoRPTHuellaPrueba(t *testing.T, accion, audiencia, usoRef, mat
 func TestLecturaDecisionLigaduraUsoRPTRechazaDuplicadosTiposYCola(t *testing.T) {
 	_, exportacion := autorizacionUsoRPTPrueba(t, accionReservarUsoRPT, audienciaUsosRPT, materialReservaUsoRPTPrueba().UsoRef)
 	canon := exportacion.DecisionCanonica()
-	if _, ok := leerDecisionLigaduraUsoRPT(canon); !ok {
+	if _, err := leerDecisionLigaduraUsoRPT(canon); err != nil {
 		t.Fatal("decisión de prueba íntegra rechazada")
 	}
 	for _, caso := range []struct {
@@ -153,7 +153,7 @@ func TestLecturaDecisionLigaduraUsoRPTRechazaDuplicadosTiposYCola(t *testing.T) 
 		{"cola JSON", append(append([]byte(nil), canon...), []byte(` {}`)...)},
 	} {
 		t.Run(caso.nombre, func(t *testing.T) {
-			if _, ok := leerDecisionLigaduraUsoRPT(caso.bytes); ok {
+			if _, err := leerDecisionLigaduraUsoRPT(caso.bytes); err == nil {
 				t.Fatal("decisión ambigua aceptada")
 			}
 		})

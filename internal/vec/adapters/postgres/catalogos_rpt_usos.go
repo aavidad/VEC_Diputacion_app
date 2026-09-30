@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"strconv"
 	"strings"
@@ -291,8 +292,10 @@ func (g *GestorUsosCategoriaRPTPostgreSQL) validarAutorizacion(
 	// El recurso no distingue dos solicitudes de distintos actores, motivos o
 	// correlaciones. La huella de solicitud V3 sí compromete esas piezas y debe
 	// proceder de los bytes de la decisión entregados a la fachada atestada.
-	if !ligaduraSolicitudUsoRPT(d, solicitud, autorizacion, resumen, huellaRecurso) {
-		return "", ports.ErrUsoCategoriaRPTDenegado
+	if err := ligaduraSolicitudUsoRPT(d, solicitud, autorizacion, resumen, huellaRecurso); err != nil {
+		// El tipo de fallo permite diagnosticar la frontera sin exponer su
+		// contenido (identidad, motivo o documento) al llamador.
+		return "", fmt.Errorf("%w: %T", ports.ErrUsoCategoriaRPTDenegado, err)
 	}
 	return r.Atributos["material_sha256"], nil
 }
@@ -314,94 +317,122 @@ func ligaduraSolicitudUsoRPT(
 	autorizacion ports.ExportacionMaterialConsumoAutorizacionAtestadaV3,
 	resumen ports.ResumenCapacidadAtestacionAutorizacionV3,
 	huellaRecurso string,
-) bool {
-	vinculo, errVinculo := d.VinculoAutenticacionActor.Datos()
-	correlacion, errCorrelacion := d.Correlacion.ValorCanonico()
-	huellaSolicitud, errSolicitud := domain.HuellaSHA256SolicitudAutorizacionV3(solicitud)
-	motivoCanonico, errMotivo := domain.RepresentacionCanonicaMotivoAutorizacionV2(d.ReferenciaMotivo)
-	if errVinculo != nil || errCorrelacion != nil || errSolicitud != nil || errMotivo != nil ||
-		!bytes.Equal(motivoCanonico, autorizacion.MotivoCanonico()) ||
+) error {
+	vinculo, err := d.VinculoAutenticacionActor.Datos()
+	if err != nil {
+		return err
+	}
+	correlacion, err := d.Correlacion.ValorCanonico()
+	if err != nil {
+		return err
+	}
+	huellaSolicitud, err := domain.HuellaSHA256SolicitudAutorizacionV3(solicitud)
+	if err != nil {
+		return err
+	}
+	motivoCanonico, err := domain.RepresentacionCanonicaMotivoAutorizacionV2(d.ReferenciaMotivo)
+	if err != nil {
+		return err
+	}
+	if !bytes.Equal(motivoCanonico, autorizacion.MotivoCanonico()) ||
 		huellaBytesUsoRPT(motivoCanonico) != resumen.MotivoHuellaSHA256() ||
 		vinculo.RegistroContextoRef != resumen.ContextoRef() ||
 		vinculo.ContextoActorHuellaSHA256 != resumen.ContextoHuellaSHA256() {
-		return false
+		return ports.ErrUsoCategoriaRPTDenegado
 	}
 	contextoCanonico := autorizacion.ContextoActorCanonico()
 	if huellaBytesUsoRPT(contextoCanonico) != resumen.ContextoHuellaSHA256() {
-		return false
+		return ports.ErrUsoCategoriaRPTDenegado
 	}
 	contexto, err := domain.RehidratarContextoActorVinculadoV2(contextoCanonico)
-	if err != nil || contexto.Principal.ID != vinculo.PrincipalID ||
-		contexto.PerfilActivoRef != vinculo.PerfilActivoRef ||
+	if err != nil {
+		return err
+	}
+	if contexto.Principal.ID != vinculo.PrincipalID || contexto.PerfilActivoRef != vinculo.PerfilActivoRef ||
 		contexto.Instantanea.VinculoRef != vinculo.ContextoActorRef ||
 		contexto.Instantanea.VinculoVersion != vinculo.ContextoActorVersion ||
 		contexto.Instantanea.CuentaVersion != vinculo.ContextoActorCuentaVersion {
-		return false
+		return ports.ErrUsoCategoriaRPTDenegado
 	}
 	decisionCanonica := autorizacion.DecisionCanonica()
 	if huellaBytesUsoRPT(decisionCanonica) != resumen.DecisionHuellaSHA256() {
-		return false
+		return ports.ErrUsoCategoriaRPTDenegado
 	}
-	decision, ok := leerDecisionLigaduraUsoRPT(decisionCanonica)
-	if !ok {
-		return false
+	decision, err := leerDecisionLigaduraUsoRPT(decisionCanonica)
+	if err != nil {
+		return err
 	}
-	return decision.Esquema == domain.EsquemaHuellaDecisionAutorizacionV3 &&
-		decision.DecisionRef == resumen.DecisionRef() &&
-		decision.SolicitudHuellaSHA256 == huellaSolicitud &&
-		decision.MotivoHuellaSHA256 == resumen.MotivoHuellaSHA256() &&
-		decision.ContextoRecursoHuellaSHA256 == huellaRecurso &&
-		decision.CorrelacionRef == correlacion &&
-		decision.PrincipalID == vinculo.PrincipalID &&
-		decision.PerfilActivoRef == vinculo.PerfilActivoRef
+	if decision.Esquema != domain.EsquemaHuellaDecisionAutorizacionV3 ||
+		decision.DecisionRef != resumen.DecisionRef() ||
+		decision.SolicitudHuellaSHA256 != huellaSolicitud ||
+		decision.MotivoHuellaSHA256 != resumen.MotivoHuellaSHA256() ||
+		decision.ContextoRecursoHuellaSHA256 != huellaRecurso ||
+		decision.CorrelacionRef != correlacion ||
+		decision.PrincipalID != vinculo.PrincipalID ||
+		decision.PerfilActivoRef != vinculo.PerfilActivoRef {
+		return ports.ErrUsoCategoriaRPTDenegado
+	}
+	return nil
 }
 
 // La decisión viva no tiene constructor inverso. Extraemos únicamente los
 // compromisos necesarios de sus bytes, sin normalizar claves ni aceptar
 // duplicados que pudieran dar otra lectura a Go y PostgreSQL.
-func leerDecisionLigaduraUsoRPT(contenido []byte) (decisionLigaduraUsoRPT, bool) {
+func leerDecisionLigaduraUsoRPT(contenido []byte) (decisionLigaduraUsoRPT, error) {
 	var cero decisionLigaduraUsoRPT
 	if len(contenido) == 0 || len(contenido) > ports.TamanoMaximoDecisionCanonicaV3 {
-		return cero, false
+		return cero, ports.ErrUsoCategoriaRPTDenegado
 	}
 	lector := json.NewDecoder(bytes.NewReader(contenido))
 	inicio, err := lector.Token()
-	if err != nil || inicio != json.Delim('{') {
-		return cero, false
+	if err != nil {
+		return cero, err
+	}
+	if inicio != json.Delim('{') {
+		return cero, ports.ErrUsoCategoriaRPTDenegado
 	}
 	campos := make(map[string]json.RawMessage, 40)
 	for lector.More() {
 		token, err := lector.Token()
+		if err != nil {
+			return cero, err
+		}
 		clave, correcta := token.(string)
-		if err != nil || !correcta || len(campos) >= 64 {
-			return cero, false
+		if !correcta || len(campos) >= 64 {
+			return cero, ports.ErrUsoCategoriaRPTDenegado
 		}
 		if _, repetida := campos[clave]; repetida {
-			return cero, false
+			return cero, ports.ErrUsoCategoriaRPTDenegado
 		}
 		var valor json.RawMessage
-		if lector.Decode(&valor) != nil {
-			return cero, false
+		if err := lector.Decode(&valor); err != nil {
+			return cero, err
 		}
 		campos[clave] = valor
 	}
 	fin, err := lector.Token()
-	if err != nil || fin != json.Delim('}') {
-		return cero, false
+	if err != nil {
+		return cero, err
 	}
-	if lector.Decode(new(any)) != io.EOF {
-		return cero, false
+	if fin != json.Delim('}') {
+		return cero, ports.ErrUsoCategoriaRPTDenegado
 	}
-	leerTexto := func(clave string) (string, bool) {
+	if err := lector.Decode(new(any)); err != io.EOF {
+		if err != nil {
+			return cero, err
+		}
+		return cero, ports.ErrUsoCategoriaRPTDenegado
+	}
+	leerTexto := func(clave string) (string, error) {
 		bruto, existe := campos[clave]
 		if !existe || len(bruto) == 0 || bruto[0] != '"' {
-			return "", false
+			return "", ports.ErrUsoCategoriaRPTDenegado
 		}
 		var texto string
-		if json.Unmarshal(bruto, &texto) != nil {
-			return "", false
+		if err := json.Unmarshal(bruto, &texto); err != nil {
+			return "", err
 		}
-		return texto, true
+		return texto, nil
 	}
 	camposNecesarios := []*string{&cero.Esquema, &cero.DecisionRef, &cero.SolicitudHuellaSHA256,
 		&cero.MotivoHuellaSHA256, &cero.ContextoRecursoHuellaSHA256, &cero.CorrelacionRef,
@@ -410,13 +441,16 @@ func leerDecisionLigaduraUsoRPT(contenido []byte) (decisionLigaduraUsoRPT, bool)
 		"motivo_huella_sha256", "contexto_recurso_huella_sha256", "correlacion_ref",
 		"principal_id", "perfil_activo_ref"}
 	for i, clave := range clavesNecesarias {
-		valor, ok := leerTexto(clave)
-		if !ok || valor == "" {
-			return decisionLigaduraUsoRPT{}, false
+		valor, err := leerTexto(clave)
+		if err != nil {
+			return decisionLigaduraUsoRPT{}, err
+		}
+		if valor == "" {
+			return decisionLigaduraUsoRPT{}, ports.ErrUsoCategoriaRPTDenegado
 		}
 		*camposNecesarios[i] = valor
 	}
-	return cero, true
+	return cero, nil
 }
 
 func huellaBytesUsoRPT(contenido []byte) string {
