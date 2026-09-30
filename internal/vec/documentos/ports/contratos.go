@@ -77,6 +77,10 @@ func (a AutorizacionV3) ValidarPara(accion string, ahora time.Time) error {
 		if a.Finalidad != "registrar_documento_externo" {
 			return ErrSolicitudInvalida
 		}
+	case AccionCustodiarFirmado:
+		if a.Finalidad != FinalidadCustodiarFirmado {
+			return ErrSolicitudInvalida
+		}
 	default:
 		return ErrSolicitudInvalida
 	}

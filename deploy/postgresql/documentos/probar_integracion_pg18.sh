@@ -498,6 +498,16 @@ if [ "${VEC_DOCUMENTOS_SIN_GO:-}" != 1 ]; then
  (cd "$repo_dir" && VEC_DOCUMENTOS_PG18_DSN="postgres://vec_documentos_ensayo@127.0.0.1:$puerto/postgres?sslmode=disable" \
   VEC_DOCUMENTOS_PG18_AUDITOR_DSN="postgres://vec_documentos_auditor_ensayo@127.0.0.1:$puerto/postgres?sslmode=disable" \
   go test -count=1 -v -run 'TestRepositorioPG18|TestRegistradorFronteraPG18' ./internal/vec/documentos/adapters/postgres/)
+ # 5.06: servicio, concesión de almacén V3, almacén de ficheros y custodia SQL.
+ # La repetición con otra decisión devuelve el mismo documento; otro PDF con la
+ # misma clave es conflicto sin efecto.
+ (cd "$repo_dir" && VEC_DOCUMENTOS_PG18_DSN="postgres://vec_documentos_ensayo@127.0.0.1:$puerto/postgres?sslmode=disable" \
+  go test -count=1 -v -run 'TestCustodiaFirmadoPG18' ./internal/vec/documentos/)
+ expf="ref:$(printf 'e%.0s' $(seq 64))"
+ test "$(docker exec "$container" psql -X -qAt -U postgres -c "SELECT (SELECT count(*) FROM vec_documentos.documento WHERE expediente_ref='$expf')=1
+  AND (SELECT count(*) FROM vec_documentos.outbox WHERE expediente_ref='$expf')=1
+  AND (SELECT count(*) FROM vec_documentos.documento_firmado)=3
+  AND (SELECT array_agg(resultado ORDER BY registrada_en) FROM vec_documentos.auditoria_operacion WHERE expediente_ref='$expf' AND accion='documentos.firmado.custodiar')=ARRAY['creado','repetido']")" = t
  # Documentos-6: la repetición con concesión nueva no duplica registro ni
  # outbox y queda auditada como repetida; los dos conflictos no dejan efecto.
  exp6="ref:$(printf 'c2%.0s' $(seq 32))"
