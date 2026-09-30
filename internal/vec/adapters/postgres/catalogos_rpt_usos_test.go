@@ -28,7 +28,7 @@ func materialReservaUsoRPTPrueba() ports.MaterialReservaUsoCategoriaRPT {
 	}
 }
 
-func TestReferenciaUsoRPTRespetaBytesUTF8SinRecortar(t *testing.T) {
+func TestReferenciasOpacasUsoRPTRespetanBytesUTF8SinRecortar(t *testing.T) {
 	for _, valor := range []string{"uso", " a ", "a\nb", strings.Repeat("é", 80)} {
 		if !referenciaUsoRPTValida(valor) {
 			t.Fatalf("referencia opaca válida recortada: %q", valor)
@@ -37,6 +37,36 @@ func TestReferenciaUsoRPTRespetaBytesUTF8SinRecortar(t *testing.T) {
 	for _, valor := range []string{"ab", strings.Repeat("x", 161), strings.Repeat("é", 81), "a\x00b", string([]byte{'u', 's', 0xff})} {
 		if referenciaUsoRPTValida(valor) {
 			t.Fatalf("referencia fuera de octetos/UTF-8 admitida: %q", valor)
+		}
+	}
+}
+
+func TestUsoRefRPTDebePoderSerRecursoV3SinRestringirRecibos(t *testing.T) {
+	m := materialReservaUsoRPTPrueba()
+	inicio := &iniciadorUsoRPTPrueba{tx: &transaccionLecturaRPTPrueba{}}
+	gestor, err := nuevoGestorUsosCategoriaRPTPostgreSQL(inicio, descriptorRPTPrueba, m.Consumidor)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, usoRef := range []string{" a ", "a\nb", strings.Repeat("é", 80), "uso*ct", strings.Repeat("x", 161)} {
+		malo := m
+		malo.UsoRef = usoRef
+		_, err := gestor.ReservarUsoCategoriaRPT(t.Context(), ports.OrdenReservaUsoCategoriaRPT{Material: malo})
+		if !errors.Is(err, ports.ErrUsoCategoriaRPTInvalido) || inicio.llamadas != 0 {
+			t.Fatalf("uso_ref incompatible con recurso V3 llegó a transacción: %q, %v", usoRef, err)
+		}
+	}
+	for _, recibo := range []string{" a ", "a\nb", strings.Repeat("é", 80)} {
+		opaco := m
+		opaco.ReservaReciboRef = recibo
+		if _, err := gestor.materialReserva(opaco); err != nil {
+			t.Fatalf("recibo opaco rechazado: %q, %v", recibo, err)
+		}
+		if _, err := gestor.materialTerminal(ports.MaterialTerminalUsoCategoriaRPT{
+			Reserva: opaco, TerminalReciboRef: "recibo:terminal:001", EvidenciaRef: recibo,
+			EvidenciaSHA256: strings.Repeat("a", 64),
+		}); err != nil {
+			t.Fatalf("evidencia opaca rechazada: %q, %v", recibo, err)
 		}
 	}
 }
