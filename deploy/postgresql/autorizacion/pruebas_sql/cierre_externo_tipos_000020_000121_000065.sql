@@ -8,11 +8,13 @@ CREATE ROLE prueba_portales_tipos LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE INHE
 GRANT vec_autorizacion_registro_externo TO prueba_portales_tipos WITH INHERIT TRUE, SET FALSE, ADMIN FALSE;
 DO $temp$ BEGIN EXECUTE pg_catalog.format('GRANT TEMP ON DATABASE %I TO prueba_portales_tipos',pg_catalog.current_database()); END $temp$;
 SET LOCAL SESSION AUTHORIZATION prueba_portales_tipos;
-CREATE TEMP TABLE sonda_tipos(owner_actual pg_catalog.text);
+CREATE TEMP SEQUENCE contador_tipos MINVALUE 0 START 1;
+SELECT pg_catalog.setval('pg_temp.contador_tipos'::pg_catalog.regclass,0,true);
 CREATE FUNCTION pg_temp.sonda_tipo() RETURNS pg_catalog.bool LANGUAGE plpgsql AS $sonda$
 BEGIN
  IF current_user IN('vec_autorizacion_propietario','vec_autorizacion_atestada_v3_propietario','vec_bolsa_llamamientos_propietario') THEN
-  INSERT INTO pg_temp.sonda_tipos VALUES(current_user);
+  PERFORM pg_catalog.nextval('pg_temp.contador_tipos'::pg_catalog.regclass);
+  RAISE EXCEPTION 'PORTALES-TIPOS: CHECK temporal ejecutado por propietario' USING ERRCODE='PT020';
  END IF;
  RETURN true;
 END $sonda$;
@@ -22,7 +24,7 @@ CREATE DOMAIN pg_temp.jsonb AS pg_catalog.jsonb CHECK(pg_temp.sonda_tipo());
 CREATE DOMAIN pg_temp.text AS pg_catalog.text CHECK(pg_temp.sonda_tipo());
 CREATE DOMAIN pg_temp.bytea AS pg_catalog.bytea CHECK(pg_temp.sonda_tipo());
 CREATE DOMAIN pg_temp.numeric AS pg_catalog.numeric CHECK(pg_temp.sonda_tipo());
-GRANT INSERT,SELECT ON TABLE pg_temp.sonda_tipos TO vec_autorizacion_propietario,vec_autorizacion_atestada_v3_propietario,vec_bolsa_llamamientos_propietario;
+GRANT USAGE,SELECT ON SEQUENCE pg_temp.contador_tipos TO vec_autorizacion_propietario,vec_autorizacion_atestada_v3_propietario,vec_bolsa_llamamientos_propietario;
 REVOKE ALL ON FUNCTION pg_temp.sonda_tipo() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION pg_temp.sonda_tipo() TO vec_autorizacion_propietario,vec_autorizacion_atestada_v3_propietario,vec_bolsa_llamamientos_propietario;
 RESET SESSION AUTHORIZATION;
@@ -31,12 +33,14 @@ DO $retirar_temp$ BEGIN EXECUTE pg_catalog.format('REVOKE TEMP ON DATABASE %I FR
 -- corregir la misma función. La concesión de ensayo se retira antes del ALTER.
 GRANT EXECUTE ON FUNCTION vec_autorizacion.login_candidato_externo_v1(text,text) TO prueba_portales_tipos;
 SET LOCAL SESSION AUTHORIZATION prueba_portales_tipos;
-SELECT vec_autorizacion.login_candidato_externo_v1('prueba_portales_tipos','vec_autorizacion_registro_externo');
 DO $antes$ BEGIN
- IF NOT EXISTS(SELECT 1 FROM pg_temp.sonda_tipos WHERE owner_actual='vec_autorizacion_propietario') THEN
+ BEGIN
+  PERFORM vec_autorizacion.login_candidato_externo_v1('prueba_portales_tipos','vec_autorizacion_registro_externo');
+ EXCEPTION WHEN SQLSTATE 'PT020' THEN NULL; END;
+ IF (SELECT last_value FROM pg_temp.contador_tipos)=0 THEN
   RAISE EXCEPTION 'PORTALES-TIPOS: la sonda no reprodujo la preimagen vulnerable';
  END IF;
- TRUNCATE pg_temp.sonda_tipos;
+ PERFORM pg_catalog.setval('pg_temp.contador_tipos'::pg_catalog.regclass,0,true);
 END $antes$;
 RESET SESSION AUTHORIZATION;
 REVOKE EXECUTE ON FUNCTION vec_autorizacion.login_candidato_externo_v1(text,text) FROM prueba_portales_tipos;
@@ -57,6 +61,27 @@ INSERT INTO pg_temp.canon_tipos VALUES(
  vec_autorizacion.lista_textos_v3_canonica('["A","B"]'::pg_catalog.jsonb)||
  vec_autorizacion_atestada_v3.texto_json_go('dato sintetico')||
  vec_autorizacion_atestada_v3.encuadrar_mac('dato sintetico'));
+-- Control negativo: un wrapper traduce el centinela a una denegación posterior.
+-- La secuencia conserva la prueba incluso al revertir ambos bloques de excepción.
+CREATE FUNCTION pg_temp.control_vulnerable() RETURNS pg_catalog.bool
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_temp,pg_catalog AS $control$
+BEGIN
+ BEGIN PERFORM '{}'::jsonb; EXCEPTION WHEN SQLSTATE 'PT020' THEN NULL; END;
+ RAISE EXCEPTION 'denegacion sintetica posterior' USING ERRCODE='42501';
+END $control$;
+ALTER FUNCTION pg_temp.control_vulnerable() OWNER TO vec_autorizacion_propietario;
+REVOKE ALL ON FUNCTION pg_temp.control_vulnerable() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION pg_temp.control_vulnerable() TO prueba_portales_tipos;
+SET LOCAL SESSION AUTHORIZATION prueba_portales_tipos;
+DO $control_contador$
+BEGIN
+ BEGIN PERFORM pg_temp.control_vulnerable(); EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+ IF (SELECT last_value FROM pg_temp.contador_tipos)=0 THEN
+  RAISE EXCEPTION 'PORTALES-TIPOS: el control negativo perdió la ejecución previa';
+ END IF;
+ PERFORM pg_catalog.setval('pg_temp.contador_tipos'::pg_catalog.regclass,0,true);
+END $control_contador$;
+RESET SESSION AUTHORIZATION;
 -- PORTALES-CORRECTIVOS-AQUI
 DO $conservar_historia_canon$
 DECLARE tabla record; huella pg_catalog.text; canon pg_catalog.text;
@@ -165,9 +190,13 @@ DO $despues$
 DECLARE consulta pg_catalog.text;
 BEGIN
  FOR consulta IN SELECT l.consulta FROM pg_temp.llamadas_sonda l LOOP
-  BEGIN EXECUTE consulta; EXCEPTION WHEN OTHERS THEN NULL; END;
+  BEGIN
+   EXECUTE consulta;
+  EXCEPTION WHEN SQLSTATE 'PT020' THEN RAISE;
+   WHEN OTHERS THEN NULL;
+  END;
  END LOOP;
- IF EXISTS(SELECT 1 FROM pg_temp.sonda_tipos) THEN
+ IF (SELECT last_value FROM pg_temp.contador_tipos)<>0 THEN
   RAISE EXCEPTION 'PORTALES-TIPOS: un propietario resolvió un dominio temporal';
  END IF;
 END $despues$;
