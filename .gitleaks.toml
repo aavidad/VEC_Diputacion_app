@@ -10,6 +10,7 @@ regexTarget = "secret"
 regexes = [
   '''(?i)^PRUEBA_NO_SECRETO_[A-Z0-9_.:+/-]+$''',
   '''(?i)^SINTETICO_NO_SECRETO_[A-Z0-9_.:+/-]+$''',
+  '''^s[.]AceptacionRegistroSHA256$''',
 ]
 
 [[rules]]
