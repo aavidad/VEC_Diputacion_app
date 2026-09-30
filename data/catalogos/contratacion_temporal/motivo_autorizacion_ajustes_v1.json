@@ -1,0 +1,6 @@
+{
+  "id": "vec.contratacion_temporal.reglas.motivo_autorizacion",
+  "version": 1,
+  "entrada_clave": "consultar_ajustes",
+  "rol_id": "ct_reglas_ajustes_consulta_desarrollo"
+}

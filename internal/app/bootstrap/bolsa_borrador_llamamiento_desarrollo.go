@@ -540,6 +540,15 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
 	descriptoresAutorizacion := append(descriptoresAutorizacionContratacionTemporalDesarrollo(politicaCT, reincorporacionActiva, firmaDocumentoPerfilFijoCompuesto(alta.soporte)), descriptoresBolsa...)
+	if alta.postgresql.consultaAjustesReglasActiva {
+		if alta.soporte.perfilFijoParaRutaYMetodo(rutaAjustesReglasCT, http.MethodGet) == nil {
+			return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
+		}
+		descriptoresAutorizacion = append(descriptoresAutorizacion, descriptorAutorizacionComunDesarrollo{
+			Accion: accionConsultarAjustesCT, ClavePolitica: clavePoliticaContratacionTemporalDesarrollo,
+			ClaveCapacidad: accionConsultarAjustesCT, Fronteras: []string{"ct-reglas-ajustes-consultar"}, Politica: politicaCT,
+		})
+	}
 	catalogoAutorizacion, err := nuevoCatalogoAutorizacionComunDesarrollo(catalogoFronteras, descriptoresAutorizacion)
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
