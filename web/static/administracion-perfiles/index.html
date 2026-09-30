@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title></title>
+  <link rel="stylesheet" href="/portal-empleado/portal.css?v=20260930-admin-ui-v1">
+  <link rel="stylesheet" href="/comun/tema-vec.css?v=20260930-admin-ui-v1">
+  <link rel="stylesheet" href="/portal-empleado/portal-componentes.css?v=20260930-admin-ui-v1">
+  <link rel="stylesheet" href="/administracion-perfiles/administracion-perfiles.css?v=20260930-admin-ui-v1">
+  <script type="module" src="/administracion-perfiles/administracion-perfiles.js?v=20260930-admin-ui-v1"></script>
+</head>
+<body class="portal-empleado-app admin-perfiles-app">
+  <a class="salto-contenido" href="#contenido" data-t="saltar"></a>
+  <div class="admin-marco">
+    <header class="admin-cabecera">
+      <div class="admin-identidad">
+        <span class="admin-marca" aria-hidden="true"></span>
+        <div>
+          <p class="admin-sobrelinea" data-t="organizacion"></p>
+          <h1 data-t="titulo"></h1>
+        </div>
+      </div>
+      <div class="admin-cabecera-acciones">
+        <span id="estado-conexion" class="admin-chip admin-chip--neutro" role="status" aria-live="polite"></span>
+        <button id="ayuda-boton" class="admin-ayuda-boton" type="button" aria-expanded="false" aria-controls="ayuda-contenido" data-t="ayuda_simbolo" data-t-aria="ayuda_abrir"></button>
+      </div>
+    </header>
+    <div id="ayuda-contenido" class="admin-ayuda" hidden>
+      <h2 data-t="ayuda_titulo"></h2>
+      <ol>
+        <li data-t="ayuda_buscar"></li>
+        <li data-t="ayuda_revisar"></li>
+        <li data-t="ayuda_confirmar"></li>
+      </ol>
+      <p data-t="ayuda_doble_control"></p>
+    </div>
+    <main id="contenido" class="admin-contenido">
+      <div class="admin-introduccion">
+        <div>
+          <p class="admin-miga" data-t="miga"></p>
+          <h2 data-t="vista_titulo"></h2>
+          <p data-t="vista_resumen"></p>
+        </div>
+        <div id="mensaje" class="admin-mensaje" role="status" aria-live="polite" tabindex="-1"></div>
+      </div>
+      <div class="admin-columnas">
+        <section class="panel admin-busqueda" aria-labelledby="busqueda-titulo">
+          <header class="cabecera-panel"><div><h2 id="busqueda-titulo" data-t="buscar_titulo"></h2><p data-t="buscar_descripcion"></p></div></header>
+          <div class="cuerpo-panel admin-busqueda-cuerpo">
+            <form id="busqueda-form" class="admin-form-buscar" role="search">
+              <label for="busqueda-texto" data-t="buscar_etiqueta"></label>
+              <div class="admin-form-fila">
+                <input id="busqueda-texto" name="q" type="search" autocomplete="off">
+                <button type="submit" class="admin-boton admin-boton--primario" data-t="buscar_accion"></button>
+              </div>
+            </form>
+            <div id="resultados" class="admin-resultados" aria-live="polite"></div>
+          </div>
+        </section>
+        <section class="panel admin-ficha" aria-labelledby="ficha-titulo">
+          <header class="cabecera-panel"><div><h2 id="ficha-titulo" data-t="ficha_titulo"></h2><p data-t="ficha_descripcion"></p></div></header>
+          <div id="ficha" class="cuerpo-panel admin-ficha-cuerpo" aria-live="polite"></div>
+        </section>
+        <section class="panel admin-pendientes" aria-labelledby="pendientes-titulo">
+          <header class="cabecera-panel"><div><h2 id="pendientes-titulo" data-t="pendientes_titulo"></h2><p data-t="pendientes_descripcion"></p></div><button id="pendientes-recargar" class="admin-boton admin-boton--secundario" type="button" data-t="recargar"></button></header>
+          <div id="pendientes" class="cuerpo-panel admin-pendientes-cuerpo" aria-live="polite"></div>
+        </section>
+      </div>
+    </main>
+  </div>
+  <dialog id="decision-dialogo" class="admin-dialogo" aria-labelledby="decision-titulo">
+    <form id="decision-form" method="dialog">
+      <h2 id="decision-titulo"></h2>
+      <p id="decision-descripcion"></p>
+      <dl id="decision-resumen"></dl>
+      <label for="decision-motivo" data-t="motivo_etiqueta"></label>
+      <select id="decision-motivo" required></select>
+      <div class="admin-dialogo-acciones">
+        <button id="decision-cancelar" type="button" class="admin-boton admin-boton--secundario" data-t="cancelar"></button>
+        <button id="decision-confirmar" type="submit" class="admin-boton admin-boton--primario"></button>
+      </div>
+    </form>
+  </dialog>
+</body>
+</html>
