@@ -242,6 +242,51 @@ BEGIN
   RAISE EXCEPTION 'historia personal exterior ambigua' USING ERRCODE='23505'; END IF;
 END $f$;
 
+-- Fuente mínima privada; B62 ampliará esta fuente, sin cambiar las fachadas.
+CREATE FUNCTION vec_bolsa_llamamientos.ultimo_aviso_portal_externo_v1(p_participacion_ref text,p_bolsa_ref text,p_corte timestamptz)
+RETURNS TABLE(llamamiento_ref text,emitido_en timestamptz,resultado text)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog AS $aviso$
+ SELECT l.llamamiento_ref,l.emitido_en,contacto.resultado
+     FROM vec_bolsa_llamamientos.llamamiento_emitido l
+     JOIN vec_bolsa_llamamientos.contacto_participacion contacto
+       ON contacto.llamamiento_ref=l.llamamiento_ref
+      AND contacto.bolsa_ref=l.bolsa_ref
+      AND contacto.participacion_ref=p_participacion_ref
+      AND contacto.canal='correo'
+      AND contacto.resultado IN('enviado','no_enviado')
+      AND contacto.instante<=p_corte
+    WHERE l.bolsa_ref=p_bolsa_ref
+      AND l.participaciones ? p_participacion_ref
+      AND l.emitido_en<=p_corte
+    ORDER BY l.emitido_en DESC,l.llamamiento_ref DESC,contacto.instante DESC,contacto.contacto_ref DESC
+    LIMIT 1
+$aviso$;
+REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.ultimo_aviso_portal_externo_v1(text,text,timestamptz) FROM PUBLIC,vec_bolsa_llamamientos_ejecutor,vec_bolsa_llamamientos_portal_externo;
+CREATE FUNCTION vec_bolsa_llamamientos.entradas_llamamiento_portal_externo_v1(p_candidato_ref text,p_corte timestamptz)
+RETURNS TABLE(ocurrido_en timestamptz,orden_interno text,item jsonb)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog AS $aviso$
+ WITH propias AS MATERIALIZED (
+  SELECT participacion_ref,bolsa_ref,categoria_ref FROM vec_bolsa_llamamientos.listar_participaciones_candidato_v1(p_candidato_ref)
+ )
+  SELECT l.emitido_en, 'llamamiento:'||l.llamamiento_ref||':'||ct.contacto_ref,
+   jsonb_build_object('clase','llamamiento','bolsa',p.bolsa_ref,
+    'categoria',p.categoria_ref,'ocurrido_en',to_char(l.emitido_en AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
+    'canal','correo','resultado',ct.resultado)
+   FROM propias p
+   JOIN vec_bolsa_llamamientos.llamamiento_emitido l ON l.bolsa_ref=p.bolsa_ref
+   JOIN LATERAL jsonb_array_elements_text(l.participaciones) WITH ORDINALITY lp(ref,ordinal) ON lp.ref=p.participacion_ref
+   JOIN vec_bolsa_llamamientos.contacto_participacion ct
+    ON ct.llamamiento_ref=l.llamamiento_ref AND ct.bolsa_ref=l.bolsa_ref
+    AND ct.participacion_ref=p.participacion_ref AND ct.canal='correo'
+    AND ct.resultado IN ('enviado','no_enviado')
+    AND ct.instante=l.emitido_en
+    AND ct.clave_idempotencia=l.clave_idempotencia||':correo:'||lp.ordinal
+    AND ct.recibo_ref='recibo:contacto:'||encode(sha256(convert_to(
+      l.bolsa_ref||chr(31)||l.clave_idempotencia||chr(31)||p.participacion_ref,'UTF8')),'hex')
+   WHERE l.emitido_en<=p_corte AND ct.instante<=p_corte
+$aviso$;
+REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.entradas_llamamiento_portal_externo_v1(text,timestamptz) FROM PUBLIC,vec_bolsa_llamamientos_ejecutor,vec_bolsa_llamamientos_portal_externo;
+
 DO $fuente$
 DECLARE p pg_catalog.pg_proc%ROWTYPE;
 BEGIN
@@ -281,6 +326,7 @@ BEGIN
   RAISE EXCEPTION 'confirmación de contacto denegada' USING ERRCODE='42501';
  END IF;
  v_participacion := vec_bolsa_llamamientos.participacion_contacto_candidato_v1(p_candidato_ref, p_bolsa_ref);
+ PERFORM vec_bolsa_llamamientos.exigir_contexto_participacion_externa_v1(p_candidato_ref,v_participacion,p_contexto);
  -- Como B2 y el portal (000030), la decisión viva se consume antes de
  -- resolver el replay: un reintento no devuelve el recibo sin una
  -- autorización nueva y verificada.
@@ -373,22 +419,8 @@ BEGIN
     ON co.participacion_ref=p.participacion_ref AND co.bolsa_ref=p.bolsa_ref
    WHERE co.ocurrido_en<=p_consultada_en
   UNION ALL
-  SELECT l.emitido_en, 'llamamiento:'||l.llamamiento_ref||':'||ct.contacto_ref,
-   jsonb_build_object('clase','llamamiento','bolsa',p.bolsa_ref,
-    'categoria',p.categoria_ref,'ocurrido_en',to_char(l.emitido_en AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
-    'canal','correo','resultado',ct.resultado)
-   FROM propias p
-   JOIN vec_bolsa_llamamientos.llamamiento_emitido l ON l.bolsa_ref=p.bolsa_ref
-   JOIN LATERAL jsonb_array_elements_text(l.participaciones) WITH ORDINALITY lp(ref,ordinal) ON lp.ref=p.participacion_ref
-   JOIN vec_bolsa_llamamientos.contacto_participacion ct
-    ON ct.llamamiento_ref=l.llamamiento_ref AND ct.bolsa_ref=l.bolsa_ref
-    AND ct.participacion_ref=p.participacion_ref AND ct.canal='correo'
-    AND ct.resultado IN ('enviado','no_enviado')
-    AND ct.instante=l.emitido_en
-    AND ct.clave_idempotencia=l.clave_idempotencia||':correo:'||lp.ordinal
-    AND ct.recibo_ref='recibo:contacto:'||encode(sha256(convert_to(
-      l.bolsa_ref||chr(31)||l.clave_idempotencia||chr(31)||p.participacion_ref,'UTF8')),'hex')
-   WHERE l.emitido_en<=p_consultada_en AND ct.instante<=p_consultada_en
+  SELECT h.ocurrido_en,h.orden_interno,h.item
+   FROM vec_bolsa_llamamientos.entradas_llamamiento_portal_externo_v1(p_candidato_ref,p_consultada_en) h
   UNION ALL
   SELECT r.respondida_en, 'renuncia:'||r.respuesta_ref,
    jsonb_build_object('clase','renuncia','bolsa',p.bolsa_ref,
@@ -516,22 +548,7 @@ BEGIN
    ) AS disponible_en,
    cese.disponible_desde::timestamp AT TIME ZONE 'Europe/Madrid' AS cese_disponible_en
  ) plazo ON true
- LEFT JOIN LATERAL (
-   SELECT l.llamamiento_ref,l.emitido_en,contacto.resultado
-     FROM vec_bolsa_llamamientos.llamamiento_emitido l
-     JOIN vec_bolsa_llamamientos.contacto_participacion contacto
-       ON contacto.llamamiento_ref=l.llamamiento_ref
-      AND contacto.bolsa_ref=l.bolsa_ref
-      AND contacto.participacion_ref=participacion.participacion_ref
-      AND contacto.canal='correo'
-      AND contacto.resultado IN('enviado','no_enviado')
-      AND contacto.instante<=p_consultada_en
-    WHERE l.bolsa_ref=participacion.bolsa_ref
-      AND l.participaciones ? participacion.participacion_ref
-      AND l.emitido_en<=p_consultada_en
-    ORDER BY l.emitido_en DESC,l.llamamiento_ref DESC,contacto.instante DESC,contacto.contacto_ref DESC
-    LIMIT 1
- ) ultimo ON true;
+ LEFT JOIN LATERAL vec_bolsa_llamamientos.ultimo_aviso_portal_externo_v1(participacion.participacion_ref,participacion.bolsa_ref,p_consultada_en) ultimo ON true;
  RETURN jsonb_build_object('consultada_en',to_char(p_consultada_en AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),'participaciones',x);
 END $b63$;
 
@@ -746,6 +763,7 @@ BEGIN
  SELECT * INTO o FROM vec_bolsa_llamamientos.oferta_publicada x2 WHERE x2.oferta_ref = p_oferta_ref;
  IF NOT FOUND THEN RAISE EXCEPTION 'oferta inexistente' USING ERRCODE='23503'; END IF;
  v_participacion := vec_bolsa_llamamientos.participacion_oferta_candidato_v1(p_candidato_ref, o.bolsa_ref);
+ PERFORM vec_bolsa_llamamientos.exigir_contexto_participacion_externa_v1(p_candidato_ref,v_participacion,p_contexto);
  -- Como B2 y el portal (000030), la decisión viva se consume antes de
  -- resolver el replay: un reintento no devuelve el recibo sin una
  -- autorización nueva y verificada.
@@ -964,6 +982,7 @@ BEGIN
  PERFORM vec_bolsa_llamamientos.exigir_runtime_bolsa_portal_externo_v1();
  v_participacion := vec_bolsa_llamamientos.exigir_portal_candidato_externo_v1(p_candidato_ref, p_bolsa_ref,
    'bolsa.participaciones_propias.responder_llamamiento', p_capacidad, p_decision, p_contexto);
+ PERFORM vec_bolsa_llamamientos.exigir_contexto_participacion_externa_v1(p_candidato_ref,v_participacion,p_contexto);
  -- Como B2, la decisión viva se consume antes de resolver el replay: un
  -- reintento no devuelve el recibo sin una autorización nueva y verificada.
  -- Si preparar_respuesta_portal_v1 ya la consumió en esta transacción con
@@ -1023,6 +1042,7 @@ BEGIN
                          WHEN 'reactivacion' THEN 'bolsa.participaciones_propias.solicitar_reactivacion' END;
  IF v_accion IS NULL THEN RAISE EXCEPTION 'solicitud del portal inválida' USING ERRCODE='22023'; END IF;
  v_participacion := vec_bolsa_llamamientos.exigir_portal_candidato_externo_v1(p_candidato_ref, p_bolsa_ref, v_accion, p_capacidad, p_decision, p_contexto);
+ PERFORM vec_bolsa_llamamientos.exigir_contexto_participacion_externa_v1(p_candidato_ref,v_participacion,p_contexto);
  -- Como B2, la decisión viva se consume antes de resolver el replay: un
  -- reintento no devuelve el recibo sin una autorización nueva y verificada.
  SELECT * INTO STRICT v_consumo FROM vec_autorizacion_atestada_v3.registrar_y_consumir_portal_candidato_bolsa_v3_atestada(
