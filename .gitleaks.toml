@@ -10,8 +10,15 @@ regexTarget = "secret"
 regexes = [
   '''(?i)^PRUEBA_NO_SECRETO_[A-Z0-9_.:+/-]+$''',
   '''(?i)^SINTETICO_NO_SECRETO_[A-Z0-9_.:+/-]+$''',
-  '''^s[.]AceptacionRegistroSHA256$''',
 ]
+
+# Un selector Go de huella coincide con la expresión Vault del detector.
+# Solo esa regla y ese identificador exacto quedan exceptuados.
+[[rules]]
+id = "vault-service-token"
+  [[rules.allowlists]]
+  regexTarget = "secret"
+  regexes = [ '''^s[.]AceptacionRegistroSHA256$''' ]
 
 [[rules]]
 id = "vep-contrasena-asignada"
