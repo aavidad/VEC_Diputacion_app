@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"math/big"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
@@ -23,13 +25,67 @@ const (
 
 var _ puertosbolsa.ConsultaMiBolsa = (*ConsultaMiBolsaPostgreSQL)(nil)
 
-type ConsultaMiBolsaPostgreSQL struct{ pool iniciadorTransacciones }
+// funcionesPortalBolsa solo admite los dos conjuntos nominales completos.
+// Los constructores fijan la frontera; no hay selector de petición ni
+// resolución de nombres vacíos hacia las funciones anteriores.
+type funcionesPortalBolsa struct {
+	consulta, consultaPortal, historial                 string
+	solicitar, responder, prepararRespuesta, leerPortal string
+	disposicion, ofertas, confirmarContacto, contactos  string
+}
+
+func funcionesPortalBolsaInternas() funcionesPortalBolsa {
+	return funcionesPortalBolsa{funcionConsultarMiBolsaV1, funcionConsultarMiBolsaPortalV1,
+		funcionConsultarHistorialMiBolsaV1, funcionSolicitarPortalV1, funcionResponderPortalV1,
+		funcionPrepararRespuestaV1, funcionLeerPortalCandidatoV1, funcionManifestarDisposicionV1,
+		funcionListarOfertasCandidato, funcionConfirmarContactoPropioV1, funcionLeerContactoCandidatoV1}
+}
+
+func funcionesPortalBolsaExternas() funcionesPortalBolsa {
+	return funcionesPortalBolsa{
+		"vec_bolsa_llamamientos.consultar_mi_bolsa_externo_v1",
+		"vec_bolsa_llamamientos.consultar_mi_bolsa_portal_externo_v1",
+		"vec_bolsa_llamamientos.consultar_historial_mi_bolsa_externo_v1",
+		"vec_bolsa_llamamientos.solicitar_portal_candidato_externo_v1",
+		"vec_bolsa_llamamientos.responder_llamamiento_portal_externo_v1",
+		"vec_bolsa_llamamientos.preparar_respuesta_portal_externo_v1",
+		"vec_bolsa_llamamientos.leer_portal_candidato_externo_v1",
+		"vec_bolsa_llamamientos.manifestar_disposicion_oferta_externo_v1",
+		"vec_bolsa_llamamientos.listar_ofertas_candidato_externo_v1",
+		"vec_bolsa_llamamientos.confirmar_contacto_propio_externo_v1",
+		"vec_bolsa_llamamientos.leer_contacto_candidato_externo_v1",
+	}
+}
+
+func (f funcionesPortalBolsa) validas() bool {
+	return f == funcionesPortalBolsaInternas() || f == funcionesPortalBolsaExternas()
+}
+
+// El DTO material ya limita estas versiones a 2^53−1. Se conserva su
+// valor en el codec NUMERIC de pgx sin convertir uint64 a un entero firmado.
+func versionMaterialPortalBolsa(version uint64) pgtype.Numeric {
+	return pgtype.Numeric{Int: new(big.Int).SetUint64(version), Valid: true}
+}
+
+type ConsultaMiBolsaPostgreSQL struct {
+	pool      iniciadorTransacciones
+	funciones funcionesPortalBolsa
+}
 
 func NuevaConsultaMiBolsaPostgreSQL(pool *pgxpool.Pool) (*ConsultaMiBolsaPostgreSQL, error) {
 	if valorNulo(pool) {
 		return nil, puertosbolsa.ErrMaterialMiBolsaNoDisponible
 	}
-	return &ConsultaMiBolsaPostgreSQL{pool: pool}, nil
+	return &ConsultaMiBolsaPostgreSQL{pool: pool, funciones: funcionesPortalBolsaInternas()}, nil
+}
+
+// NuevaConsultaMiBolsaExternaPostgreSQL usa exclusivamente las once
+// fachadas B63 del candidato exterior y sus almacenes propios.
+func NuevaConsultaMiBolsaExternaPostgreSQL(pool *pgxpool.Pool) (*ConsultaMiBolsaPostgreSQL, error) {
+	if valorNulo(pool) {
+		return nil, puertosbolsa.ErrMaterialMiBolsaNoDisponible
+	}
+	return &ConsultaMiBolsaPostgreSQL{pool: pool, funciones: funcionesPortalBolsaExternas()}, nil
 }
 
 func (r *ConsultaMiBolsaPostgreSQL) ConsultarMiBolsa(ctx context.Context, s puertosbolsa.SolicitudConsultaMiBolsa) (puertosbolsa.InstantaneaMiBolsa, error) {
@@ -38,6 +94,9 @@ func (r *ConsultaMiBolsaPostgreSQL) ConsultarMiBolsa(ctx context.Context, s puer
 	}
 	if err := ctx.Err(); err != nil {
 		return puertosbolsa.InstantaneaMiBolsa{}, err
+	}
+	if !r.funciones.validas() {
+		return puertosbolsa.InstantaneaMiBolsa{}, puertosbolsa.ErrMaterialMiBolsaNoDisponible
 	}
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite})
 	if err != nil {
@@ -48,13 +107,13 @@ func (r *ConsultaMiBolsaPostgreSQL) ConsultarMiBolsa(ctx context.Context, s puer
 		return puertosbolsa.InstantaneaMiBolsa{}, errorMiBolsa(ctx, err)
 	}
 	m := s.Material
-	funcion := funcionConsultarMiBolsaV1
+	funcion := r.funciones.consulta
 	if len(s.ResultadosEfectivos) != 0 || s.LeerContacto || s.LeerOfertas {
-		funcion = funcionConsultarMiBolsaPortalV1
+		funcion = r.funciones.consultaPortal
 	}
 	var contenido []byte
 	err = tx.QueryRow(ctx, `SELECT `+funcion+`($1::text,$2::timestamptz,$3::bytea,$4::bytea,$5::bytea,$6::bytea,$7::numeric,$8::numeric,$9::bytea,$10::bytea,$11::bytea,$12::bytea)`,
-		s.CandidatoRef, s.ConsultadaEn.UTC(), m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), int64(m.PersonaVersion()), int64(m.PerfilVersion()), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI()).Scan(&contenido)
+		s.CandidatoRef, s.ConsultadaEn.UTC(), m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), versionMaterialPortalBolsa(m.PersonaVersion()), versionMaterialPortalBolsa(m.PerfilVersion()), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI()).Scan(&contenido)
 	if err != nil {
 		return puertosbolsa.InstantaneaMiBolsa{}, errorMiBolsa(ctx, err)
 	}
@@ -66,17 +125,17 @@ func (r *ConsultaMiBolsaPostgreSQL) ConsultarMiBolsa(ctx context.Context, s puer
 	// El estado del portal propio se lee en la misma transacción que acaba
 	// de consumir la consulta propia y registrar su auditoría.
 	if len(s.ResultadosEfectivos) != 0 {
-		if resultado.Portal, err = leerPortalCandidato(ctx, tx, s.CandidatoRef, s.ConsultadaEn, s.ResultadosEfectivos); err != nil {
+		if resultado.Portal, err = leerPortalCandidato(ctx, tx, r.funciones, s.CandidatoRef, s.ConsultadaEn, s.ResultadosEfectivos); err != nil {
 			return puertosbolsa.InstantaneaMiBolsa{}, errors.Join(puertosbolsa.ErrMaterialMiBolsaNoDisponible, err)
 		}
 	}
 	if s.LeerContacto {
-		if resultado.Contactos, err = leerContactosCandidato(ctx, tx, s.CandidatoRef, s.ConsultadaEn); err != nil {
+		if resultado.Contactos, err = leerContactosCandidato(ctx, tx, r.funciones, s.CandidatoRef, s.ConsultadaEn); err != nil {
 			return puertosbolsa.InstantaneaMiBolsa{}, errors.Join(puertosbolsa.ErrMaterialMiBolsaNoDisponible, err)
 		}
 	}
 	if s.LeerOfertas {
-		if resultado.Ofertas, err = leerOfertasCandidato(ctx, tx, s.CandidatoRef, s.ConsultadaEn); err != nil {
+		if resultado.Ofertas, err = leerOfertasCandidato(ctx, tx, r.funciones, s.CandidatoRef, s.ConsultadaEn); err != nil {
 			return puertosbolsa.InstantaneaMiBolsa{}, errors.Join(puertosbolsa.ErrMaterialMiBolsaNoDisponible, err)
 		}
 	}

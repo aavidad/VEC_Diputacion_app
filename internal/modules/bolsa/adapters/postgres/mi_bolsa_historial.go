@@ -27,6 +27,9 @@ func (r *ConsultaMiBolsaPostgreSQL) ConsultarHistorialMiBolsa(ctx context.Contex
 	if err := ctx.Err(); err != nil {
 		return vacia, err
 	}
+	if !r.funciones.validas() {
+		return vacia, puertosbolsa.ErrHistorialMiBolsaNoDisponible
+	}
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite})
 	if err != nil {
 		return vacia, errorHistorialMiBolsa(ctx, err)
@@ -37,9 +40,9 @@ func (r *ConsultaMiBolsaPostgreSQL) ConsultarHistorialMiBolsa(ctx context.Contex
 	}
 	m := s.Material
 	var contenido []byte
-	err = tx.QueryRow(ctx, `SELECT `+funcionConsultarHistorialMiBolsaV1+`($1::text,$2::timestamptz,$3::integer,$4::bytea,$5::bytea,$6::bytea,$7::bytea,$8::numeric,$9::numeric,$10::bytea,$11::bytea,$12::bytea,$13::bytea)`,
+	err = tx.QueryRow(ctx, `SELECT `+r.funciones.historial+`($1::text,$2::timestamptz,$3::integer,$4::bytea,$5::bytea,$6::bytea,$7::bytea,$8::numeric,$9::numeric,$10::bytea,$11::bytea,$12::bytea,$13::bytea)`,
 		s.CandidatoRef, s.ConsultadaEn.UTC(), s.Pagina,
-		m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), int64(m.PersonaVersion()), int64(m.PerfilVersion()), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI()).Scan(&contenido)
+		m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), versionMaterialPortalBolsa(m.PersonaVersion()), versionMaterialPortalBolsa(m.PerfilVersion()), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI()).Scan(&contenido)
 	if err != nil {
 		return vacia, errorHistorialMiBolsa(ctx, err)
 	}
