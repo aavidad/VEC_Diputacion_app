@@ -1,0 +1,20 @@
+# Sufijo H7 tras AD118/AUT21, Cat4/AD134 y AD113/Documentos9/AD136 instaladas una vez.
+# Antes de Cat4/AD134: AD117/Cat3/AD126. AD111/114 están conservadas en ambos núcleos.
+# A copia los externos tras AD111/114; B copia antes y conserva AD111/114 tardías.
+# AD133@efd4e430 cierra las DOS matrices nuevas post134/136; AD135 exige sus 17 postimágenes.
+# AD133 sustituye AD121/122 y AD135 todos los efectos AD123: NO se ejecutan ni se registran ejecutadas.
+# AD133/135 y todas las líneas siguientes se ejecutan realmente, una vez y en este orden.
+# D10 y U11/12/13 faltan en el estado de entrada; son precondiciones reales de AD124/D11/U15.
+# U13 crea la fachada de mantenimiento; no reclavea correos históricos automáticamente.
+# B65 conserva su posición real en la cadena completa; no queda sustituida.
+# Si AD133 ya está instalada, ejecutar únicamente el sufijo desde AD135 una vez.
+# No reaplicar esta lista ni ejecutar DOWN sobre historia conservada.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000133_convergencia_linaje_externo.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000135_raiz_externa_linajes_convergentes.up.sql
+deploy/postgresql/documentos/migraciones/000010_imagen_externa_fisica.up.sql
+deploy/postgresql/usuarios_vec/migraciones/000011_imagen_externa_fisica.up.sql
+deploy/postgresql/usuarios_vec/migraciones/000012_preflight_claves_correos_externos.up.sql
+deploy/postgresql/usuarios_vec/migraciones/000013_reclaveado_correos_externos.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000124_clausura_tipos_temporales.up.sql
+deploy/postgresql/documentos/migraciones/000011_clausura_tipos_temporales.up.sql
+deploy/postgresql/usuarios_vec/migraciones/000015_clausura_tipos_temporales.up.sql
