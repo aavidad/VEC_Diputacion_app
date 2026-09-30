@@ -443,6 +443,54 @@ def projection_module():
     return module
 
 
+def readiness_module():
+    path = Path(__file__).with_name('clon_h6_ready.py')
+    if not path.is_file() or path.is_symlink():
+        fail('NO-GO: falta el validador central de disponibilidad H6.')
+    spec = importlib.util.spec_from_file_location('runtime_h6_ready', path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    if not all(callable(getattr(module, name, None)) for name in ('load_approval', 'validate_h6_ready', 'canonical')):
+        fail('NO-GO: contrato central de disponibilidad H6 incompleto.')
+    return module
+
+
+def load_readiness_approval(path):
+    if path is None:
+        fail('NO-GO: indique la aprobación externa H6 con --h6-approval.')
+    try:
+        return readiness_module().load_approval(path)
+    except (RuntimeError, OSError, ValueError, KeyError, TypeError):
+        fail('NO-GO: aprobación externa H6 ausente o inválida.')
+
+
+def validate_database_ready(state, commit, port, pg_port, approval, binary=None, binary_sha=None):
+    """Consume the central live H1/62/AD132 proof before any app effect."""
+    if (not isinstance(approval, dict) or approval.get('source_commit') != commit
+            or approval.get('app_port') != port or approval.get('pg_port') != pg_port):
+        fail('NO-GO: la aprobación H6 no corresponde a la fuente y puertos solicitados.')
+    if binary is not None:
+        if (binary_sha != approval.get('binary_sha256')
+                or digest(confined(binary, state)) != binary_sha):
+            fail('NO-GO: el binario interno no corresponde al aprobado para H6.')
+    try:
+        validator = readiness_module()
+        ready = validator.validate_h6_ready(state, approval, live=True)
+    except (RuntimeError, OSError, ValueError, KeyError, TypeError):
+        fail('NO-GO: disponibilidad H6, recibo AD132 o material divergentes.')
+    expected = {'version': 2, 'propietario': 'Codex-M', 'estado': str(state),
+                'commit': commit, 'puerto_web': port, 'puerto_pg': pg_port,
+                'plan_family': 'h6_package_62', 'sql_instaladas': 62,
+                'identidad_clon': approval.get('identidad_clon'),
+                'binary_sha256': approval.get('binary_sha256')}
+    if (not isinstance(ready, dict) or any(ready.get(k) != v for k, v in expected.items())
+            or not re.fullmatch(r'[0-9a-f]{64}', ready.get('identidad_clon', ''))
+            or not re.fullmatch(r'[0-9a-f]{64}', ready.get('binary_sha256', ''))):
+        fail('NO-GO: el validador no devolvió disponibilidad H6 vinculada al clon.')
+    return hashlib.sha256(validator.canonical(ready)).hexdigest()
+
+
 def read_runtime_descriptor(state):
     top = json.loads(confined(state / 'material-manifest.json', state).read_text())
     descriptor = top.get('runtime_interno', {})
@@ -859,7 +907,8 @@ def stop(state):
     return stopped
 
 
-def verify_running(state, commit, port, pg_port):
+def verify_running(state, commit, port, pg_port, readiness_approval=None):
+    ready_sha = validate_database_ready(state, commit, port, pg_port, readiness_approval)
     record = own_process(state)
     if record is None:
         fail('El clon no tiene un proceso interno activo.')
@@ -869,6 +918,8 @@ def verify_running(state, commit, port, pg_port):
     material_sha = validate_material(root, commit, port, pg_port)
     environment, config_sha = runtime_environment(source, state, port, pg_port, root)
     if (record.get('source_commit') != commit or record.get('port') != port or record.get('pg_port') != pg_port
+            or record.get('database_ready_sha256') != ready_sha
+            or record.get('binary_sha256') != readiness_approval.get('binary_sha256')
             or record.get('material_sha256') != material_sha or record.get('config_sha256') != config_sha
             or record.get('runtime_config_path') != descriptor['runtime_config_path']
             or record.get('runtime_manifest_path') != descriptor['manifest_path']):
@@ -897,9 +948,11 @@ def check_internal_https(state, port):
                 fail('El runtime interno no respondió HTTPS /livez 200.')
 
 
-def start(source, binary, manifest, state, port, pg_port):
+def start(source, binary, manifest, state, port, pg_port, readiness_approval=None):
     if manifest.get('runtime_mode') != 'interno' or manifest.get('cgo_enabled') is not False or elf_interpreter(binary) is not None:
         fail('El runtime interno exige su binario estático CGO0 acreditado.')
+    ready_sha = validate_database_ready(state, manifest['source_commit'], port, pg_port,
+                                        readiness_approval, binary, manifest.get('binary_sha256'))
     descriptor = read_runtime_descriptor(state)
     root = Path(descriptor['root'])
     material_sha = validate_material(root, manifest['source_commit'], port, pg_port)
@@ -916,7 +969,7 @@ def start(source, binary, manifest, state, port, pg_port):
     succeeded = False
     try:
         record = module.start(state, source, binary, environment, manifest, descriptor, port, pg_port)
-        record.update(material_sha256=material_sha, config_sha256=config_sha,
+        record.update(material_sha256=material_sha, config_sha256=config_sha, database_ready_sha256=ready_sha,
                       runtime_material_path=descriptor['material_path'], runtime_manifest_path=descriptor['manifest_path'])
         write_json(state / 'runtime-process.json', record)
         deadline = time.monotonic() + 60
@@ -953,6 +1006,7 @@ def main():
     parser.add_argument('--artifact', type=Path)
     parser.add_argument('--artifact-sha256')
     parser.add_argument('--artifact-source')
+    parser.add_argument('--h6-approval', type=Path)
     args = parser.parse_args()
     if not 1024 <= args.port <= 65535 or not 1024 <= args.pg_port <= 65535 or args.port == args.pg_port:
         fail('Puertos locales inválidos.')
@@ -982,8 +1036,15 @@ def main():
         commit = pinned_main(repo, args.commit)
         if artifact is not None:
             validate_artifact_claim(artifact, commit)
+        approval = None
+        if args.action in ('start', 'restart', 'verify'):
+            approval = load_readiness_approval(args.h6_approval)
+            if artifact is not None and artifact['sha256'] != approval.get('binary_sha256'):
+                fail('NO-GO: el artefacto solicitado no corresponde al aprobado para H6.')
+            # Check before restart stops a healthy prior runtime or build writes.
+            validate_database_ready(state, commit, args.port, args.pg_port, approval)
         if args.action == 'verify':
-            record = verify_running(state, commit, args.port, args.pg_port)
+            record = verify_running(state, commit, args.port, args.pg_port, approval)
             print(json.dumps({'verified': True, 'pid': record['pid'], 'source_commit': commit}))
             return
         if args.action == 'restart':
@@ -992,7 +1053,7 @@ def main():
         if args.action == 'build':
             print(json.dumps(manifest))
         else:
-            record = start(source, binary, manifest, state, args.port, args.pg_port)
+            record = start(source, binary, manifest, state, args.port, args.pg_port, approval)
             print(json.dumps({'running': True, 'pid': record['pid'], 'source_commit': commit,
                               'binary_sha256': manifest['binary_sha256'], 'port': args.port}))
 

@@ -48,6 +48,123 @@ class RuntimeTests(unittest.TestCase):
         self.config.write_text(json.dumps(self.values))
         self.config.chmod(0o600)
 
+    def readiness_fixture(self):
+        binary = self.root / 'approved-bin'
+        binary.write_bytes(b'approved synthetic binary')
+        approval = {'source_commit': 'a' * 40, 'app_port': 18531, 'pg_port': 55531,
+                    'identidad_clon': 'c' * 64, 'binary_sha256': runtime.digest(binary)}
+        ready = {'version': 2, 'propietario': 'Codex-M', 'estado': str(self.root),
+                 'commit': 'a' * 40, 'puerto_web': 18531, 'puerto_pg': 55531,
+                 'sql_instaladas': 62, 'plan_family': 'h6_package_62',
+                 'identidad_clon': approval['identidad_clon'], 'binary_sha256': approval['binary_sha256']}
+        module = unittest.mock.Mock()
+        module.validate_h6_ready.return_value = ready
+        module.canonical.side_effect = lambda value: (json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(',', ':')) + '\n').encode()
+        return approval, ready, binary, module
+
+    def test_readiness_consumes_central_live_proof_and_returns_exact_binding(self):
+        approval, ready, binary, module = self.readiness_fixture()
+        ready['evidence'] = 'material sintético'
+        with patch.object(runtime, 'readiness_module', return_value=module):
+            result = runtime.validate_database_ready(self.root, 'a' * 40, 18531, 55531,
+                                                     approval, binary, approval['binary_sha256'])
+        module.validate_h6_ready.assert_called_once_with(self.root, approval, live=True)
+        expected = hashlib.sha256((json.dumps(ready, ensure_ascii=False, sort_keys=True, separators=(',', ':')) + '\n').encode()).hexdigest()
+        self.assertEqual(result, expected)
+
+    def test_readiness_rejects_missing_approval_wrong_source_ports_and_binary_before_live_check(self):
+        approval, _, binary, module = self.readiness_fixture()
+        cases = [None, dict(approval, source_commit='b' * 40), dict(approval, app_port=18532),
+                 dict(approval, pg_port=55532), dict(approval, binary_sha256='d' * 64)]
+        for invalid in cases:
+            with self.subTest(approval=invalid), patch.object(runtime, 'readiness_module', return_value=module), \
+                    self.assertRaises(runtime.RuntimeErrorLocal):
+                runtime.validate_database_ready(self.root, 'a' * 40, 18531, 55531,
+                                                 invalid, binary, approval['binary_sha256'])
+        module.validate_h6_ready.assert_not_called()
+        binary.write_bytes(b'changed')
+        with patch.object(runtime, 'readiness_module', return_value=module), self.assertRaises(runtime.RuntimeErrorLocal):
+            runtime.validate_database_ready(self.root, 'a' * 40, 18531, 55531, approval, binary, approval['binary_sha256'])
+        module.validate_h6_ready.assert_not_called()
+
+    def test_pending_and_stale_central_evidence_rejects_start_without_app_effects(self):
+        approval, _, binary, module = self.readiness_fixture()
+        for reason in ['pending_ad132', 'awaiting_ad132', 'stale_h6', 'receipt_divergent', 'material_divergent']:
+            module.validate_h6_ready.side_effect = RuntimeError(reason)
+            with self.subTest(reason=reason), patch.object(runtime, 'readiness_module', return_value=module), \
+                    patch.object(runtime, 'elf_interpreter', return_value=None), \
+                    patch.object(runtime, 'read_runtime_descriptor') as descriptor, \
+                    patch.object(runtime, 'own_process') as own, patch.object(runtime, 'container_module') as container, \
+                    patch.object(runtime.socket, 'socket') as socket_probe, self.assertRaisesRegex(runtime.RuntimeErrorLocal, 'NO-GO'):
+                runtime.start(self.source, binary, {'runtime_mode': 'interno', 'cgo_enabled': False,
+                              'source_commit': 'a' * 40, 'binary_sha256': approval['binary_sha256']},
+                              self.root, 18531, 55531, approval)
+            descriptor.assert_not_called()
+            own.assert_not_called()
+            container.assert_not_called()
+            socket_probe.assert_not_called()
+
+    def test_readiness_does_not_accept_legacy_marker_or_mismatched_central_result(self):
+        approval, original, _, module = self.readiness_fixture()
+        for field, value in [('version', 1), ('plan_family', 'historical'), ('sql_instaladas', 61),
+                             ('commit', 'b' * 40), ('puerto_pg', 55532), ('puerto_web', 18532),
+                             ('estado', '/other'), ('identidad_clon', 'd' * 64), ('binary_sha256', 'd' * 64)]:
+            module.validate_h6_ready.return_value = dict(original, **{field: value})
+            with self.subTest(field=field), patch.object(runtime, 'readiness_module', return_value=module), \
+                    self.assertRaises(runtime.RuntimeErrorLocal):
+                runtime.validate_database_ready(self.root, 'a' * 40, 18531, 55531, approval)
+
+    def test_restart_rejects_readiness_before_stop_build_or_inspection(self):
+        approval, _, _, module = self.readiness_fixture()
+        module.load_approval.return_value = approval
+        module.validate_h6_ready.side_effect = RuntimeError('awaiting_ad132')
+        args = ['runtime', 'restart', '--repo', str(self.source), '--state', str(self.root),
+                '--commit', 'a' * 40, '--port', '18531', '--pg-port', '55531', '--mode', 'interno',
+                '--h6-approval', str(self.root / 'approval.json')]
+        with patch.object(runtime.sys, 'argv', args), patch.object(runtime, 'pinned_main', return_value='a' * 40), \
+                patch.object(runtime, 'readiness_module', return_value=module), \
+                patch.object(runtime, 'stop') as stop, patch.object(runtime, 'build') as build, \
+                patch.object(runtime, 'own_process') as own, self.assertRaises(runtime.RuntimeErrorLocal):
+            runtime.main()
+        module.load_approval.assert_called_once_with(self.root / 'approval.json')
+        stop.assert_not_called()
+        build.assert_not_called()
+        own.assert_not_called()
+
+    def test_verify_missing_approval_and_loader_failure_are_closed(self):
+        with patch.object(runtime, 'own_process') as own, self.assertRaises(runtime.RuntimeErrorLocal):
+            runtime.verify_running(self.root, 'a' * 40, 18531, 55531)
+        own.assert_not_called()
+        with self.assertRaises(runtime.RuntimeErrorLocal):
+            runtime.load_readiness_approval(None)
+        module = unittest.mock.Mock()
+        module.load_approval.side_effect = ValueError('private contents must never escape')
+        with patch.object(runtime, 'readiness_module', return_value=module), \
+                self.assertRaisesRegex(runtime.RuntimeErrorLocal, '^NO-GO: aprobación externa H6 ausente o inválida\\.$'):
+            runtime.load_readiness_approval(self.root / 'approval.json')
+
+    def test_missing_central_validator_is_explicit_no_go(self):
+        with patch.object(runtime, '__file__', str(self.root / 'clon_runtime.py')), \
+                self.assertRaisesRegex(runtime.RuntimeErrorLocal, 'falta el validador central'):
+            runtime.readiness_module()
+
+    def test_restart_mismatched_artifact_is_denied_before_stopping_current_runtime(self):
+        approval, _, artifact, module = self.readiness_fixture()
+        approval['binary_sha256'] = 'e' * 64
+        module.load_approval.return_value = approval
+        args = ['runtime', 'restart', '--repo', str(self.source), '--state', str(self.root),
+                '--commit', 'a' * 40, '--port', '18531', '--pg-port', '55531', '--mode', 'interno',
+                '--h6-approval', str(self.root / 'approval.json'), '--artifact', str(artifact),
+                '--artifact-sha256', runtime.digest(artifact), '--artifact-source', 'a' * 40]
+        with patch.object(runtime.sys, 'argv', args), patch.object(runtime, 'pinned_main', return_value='a' * 40), \
+                patch.object(runtime, 'validate_artifact_claim'), patch.object(runtime, 'readiness_module', return_value=module), \
+                patch.object(runtime, 'stop') as stop, patch.object(runtime, 'build') as build, \
+                self.assertRaisesRegex(runtime.RuntimeErrorLocal, 'artefacto solicitado'):
+            runtime.main()
+        module.validate_h6_ready.assert_not_called()
+        stop.assert_not_called()
+        build.assert_not_called()
+
     def test_material_rejects_remote_dsn_in_auxiliary_json(self):
         auxiliary = self.material / 'users.json'
         auxiliary.write_text(json.dumps({'nested': {'dsn': 'postgres://dummy@remote.invalid:55531/synthetic?sslmode=verify-full'}}))
@@ -184,9 +301,11 @@ class RuntimeTests(unittest.TestCase):
             self.assertTrue(json.loads(output.call_args.args[0])['running'])
             args[1] = 'verify'
             with patch.object(runtime.sys, 'argv', args), patch.object(runtime, 'pinned_main', return_value='a' * 40), \
-                    patch.object(runtime, 'verify_running', return_value={'pid': 41}) as verify, patch('builtins.print'):
+                    patch.object(runtime, 'verify_running', return_value={'pid': 41}) as verify, \
+                    patch.object(runtime, 'load_readiness_approval', return_value={'approved': True}), \
+                    patch.object(runtime, 'validate_database_ready', return_value='ready'), patch('builtins.print'):
                 runtime.main()
-            verify.assert_called_once_with(state, 'a' * 40, 18531, 55531)
+            verify.assert_called_once_with(state, 'a' * 40, 18531, 55531, {'approved': True})
             args[1] = 'stop'
             with patch.object(runtime.sys, 'argv', args), patch.object(runtime, 'stop') as stop, \
                     self.assertRaisesRegex(runtime.RuntimeErrorLocal, 'otra operación incompatible'):
@@ -673,7 +792,7 @@ class RuntimeTests(unittest.TestCase):
         module.start.return_value = record
         binary = self.root / 'fixture-bin'
         binary.write_text('ELF fixture')
-        with patch.object(runtime, 'read_runtime_descriptor', return_value=projection), patch.object(runtime, 'validate_material', return_value='material'), patch.object(runtime, 'runtime_environment', return_value=(self.values, 'config')), patch.object(runtime, 'own_process', return_value=None), patch.object(runtime, 'elf_interpreter', return_value=None), patch.object(runtime, 'container_module', return_value=module), patch.object(runtime.socket, 'socket'), patch.object(runtime, 'write_json', side_effect=OSError('publish failure')):
+        with patch.object(runtime, 'read_runtime_descriptor', return_value=projection), patch.object(runtime, 'validate_material', return_value='material'), patch.object(runtime, 'validate_database_ready', return_value='ready'), patch.object(runtime, 'runtime_environment', return_value=(self.values, 'config')), patch.object(runtime, 'own_process', return_value=None), patch.object(runtime, 'elf_interpreter', return_value=None), patch.object(runtime, 'container_module', return_value=module), patch.object(runtime.socket, 'socket'), patch.object(runtime, 'write_json', side_effect=OSError('publish failure')):
             with self.assertRaises(OSError):
                 runtime.start(self.source, binary, {'runtime_mode': 'interno', 'cgo_enabled': False, 'source_commit': 'a' * 40}, self.root, 18531, 55531)
         module.stop.assert_called_once_with(self.root)
@@ -691,7 +810,7 @@ class RuntimeTests(unittest.TestCase):
             module.start.return_value = {'container_id': 'own-id', 'container_mode': 'interno', 'pid': 41}
             clock = [0, 61] if timeout else [0, 0, 1]
             health = [ConnectionRefusedError(), None]
-            with self.subTest(timeout=timeout), patch.object(runtime, 'read_runtime_descriptor', return_value=projection), patch.object(runtime, 'validate_material', return_value='material'), patch.object(runtime, 'runtime_environment', return_value=(self.values, 'config')), patch.object(runtime, 'own_process', return_value=None), patch.object(runtime, 'elf_interpreter', return_value=None), patch.object(runtime, 'container_module', return_value=module), patch.object(runtime.socket, 'socket'), patch.object(runtime.time, 'monotonic', side_effect=clock), patch.object(runtime.time, 'sleep'), patch.object(runtime, 'check_internal_https', side_effect=health) as check:
+            with self.subTest(timeout=timeout), patch.object(runtime, 'read_runtime_descriptor', return_value=projection), patch.object(runtime, 'validate_material', return_value='material'), patch.object(runtime, 'validate_database_ready', return_value='ready'), patch.object(runtime, 'runtime_environment', return_value=(self.values, 'config')), patch.object(runtime, 'own_process', return_value=None), patch.object(runtime, 'elf_interpreter', return_value=None), patch.object(runtime, 'container_module', return_value=module), patch.object(runtime.socket, 'socket'), patch.object(runtime.time, 'monotonic', side_effect=clock), patch.object(runtime.time, 'sleep'), patch.object(runtime, 'check_internal_https', side_effect=health) as check:
                 if timeout:
                     with self.assertRaises(runtime.RuntimeErrorLocal):
                         runtime.start(self.source, binary, manifest, self.root, 18531, 55531)
@@ -699,6 +818,7 @@ class RuntimeTests(unittest.TestCase):
                     self.assertFalse((self.root / 'runtime-process.json').exists())
                 else:
                     self.assertEqual(runtime.start(self.source, binary, manifest, self.root, 18531, 55531)['container_id'], 'own-id')
+                    self.assertEqual(json.loads((self.root / 'runtime-process.json').read_text())['database_ready_sha256'], 'ready')
                     self.assertEqual(check.call_count, 2)
                     self.assertEqual(module.verify_record.call_count, 3)
                     module.stop.assert_not_called()
@@ -706,18 +826,18 @@ class RuntimeTests(unittest.TestCase):
 
     def test_verify_rejects_material_config_and_source_changes_without_signal(self):
         record = {'container_mode': 'interno', 'source_commit': 'a' * 40, 'port': 18531, 'pg_port': 55531,
-                  'material_sha256': 'material', 'config_sha256': 'config',
+                  'material_sha256': 'material', 'config_sha256': 'config', 'database_ready_sha256': 'ready', 'binary_sha256': 'b' * 64,
                   'runtime_config_path': str(self.config), 'runtime_manifest_path': str(self.root / 'material-manifest.json')}
         projection = {'root': str(self.root), 'runtime_config_path': str(self.config), 'manifest_path': str(self.root / 'material-manifest.json')}
         (self.root / ('source-' + 'a' * 40)).mkdir()
-        for failure in ['material', 'config', 'source']:
+        for failure in ['material', 'config', 'source', 'ready']:
             module = unittest.mock.Mock()
             module.ContainerError = RuntimeError
             if failure == 'source':
                 module.verify_record.side_effect = RuntimeError('source changed')
-            with self.subTest(failure=failure), patch.object(runtime, 'own_process', return_value=record), patch.object(runtime, 'read_runtime_descriptor', return_value=projection), patch.object(runtime, 'validate_material', return_value='other' if failure == 'material' else 'material'), patch.object(runtime, 'runtime_environment', return_value=({}, 'other' if failure == 'config' else 'config')), patch.object(runtime, 'container_module', return_value=module), patch.object(runtime, 'check_internal_https') as health:
+            with self.subTest(failure=failure), patch.object(runtime, 'own_process', return_value=record), patch.object(runtime, 'read_runtime_descriptor', return_value=projection), patch.object(runtime, 'validate_material', return_value='other' if failure == 'material' else 'material'), patch.object(runtime, 'validate_database_ready', return_value='other' if failure == 'ready' else 'ready'), patch.object(runtime, 'runtime_environment', return_value=({}, 'other' if failure == 'config' else 'config')), patch.object(runtime, 'container_module', return_value=module), patch.object(runtime, 'check_internal_https') as health:
                 with self.assertRaises(runtime.RuntimeErrorLocal):
-                    runtime.verify_running(self.root, 'a' * 40, 18531, 55531)
+                    runtime.verify_running(self.root, 'a' * 40, 18531, 55531, {'binary_sha256': 'b' * 64})
                 health.assert_not_called()
                 module.stop.assert_not_called()
 
