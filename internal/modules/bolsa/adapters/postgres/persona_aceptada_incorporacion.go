@@ -18,6 +18,8 @@ import (
 
 const funcionConsultaPersonaAceptacionCT = `SELECT vec_bolsa_llamamientos.consultar_persona_aceptacion_ct_v1($1::text,$2::bytea,$3::bytea,$4::bytea,$5::bytea,$6::numeric,$7::numeric,$8::bytea,$9::bytea,$10::bytea,$11::bytea)`
 
+const ajustesConsultaPersonaAceptacionCT = `SELECT set_config('search_path','pg_catalog',true), set_config('row_security','on',true), set_config('timezone','UTC',true), set_config('lock_timeout','2s',true), set_config('statement_timeout','15s',true), set_config('idle_in_transaction_session_timeout','20s',true)`
+
 type iniciadorPersonaAceptacionCT interface {
 	BeginTx(context.Context, pgx.TxOptions) (pgx.Tx, error)
 }
@@ -71,6 +73,9 @@ func (r *RepositorioConsultaPersonaAceptacionCTPostgreSQL) consultar(ctx context
 		defer cancel()
 		_ = tx.Rollback(fin)
 	}()
+	if _, err = tx.Exec(ctx, ajustesConsultaPersonaAceptacionCT); err != nil {
+		return cero, err
+	}
 	m := o.Material
 	var b []byte
 	err = tx.QueryRow(ctx, funcionConsultaPersonaAceptacionCT, string(canon), m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), m.PersonaVersion(), m.PerfilVersion(), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI()).Scan(&b)
