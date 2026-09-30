@@ -70,10 +70,10 @@ class InternalProjectionTests(unittest.TestCase):
         files["runtime-config.json"] = hashlib.sha256((self.state / "runtime-config.json").read_bytes()).hexdigest()
         self.put(self.state / "material-manifest.json", projection.json_bytes({"owner": "Codex-M", "target": self.target, "files": files}))
 
-    def provision(self):
+    def provision(self, refresh=False):
         with patch.object(projection, "source_contracts", return_value={"source.go": "f" * 64}):
             return projection.provision(self.repo, "vec-owned", self.state, self.material, 55531,
-                                        source_context={"source_ref": self.source})
+                                        source_context={"source_ref": self.source}, refresh_operator_proof=refresh)
 
     def test_positive_copy_excludes_every_external_backup_and_client_key_preserves_history(self):
         original = {str(p.relative_to(self.state)): p.read_bytes() for p in self.state.rglob("*") if p.is_file()}
@@ -183,3 +183,48 @@ class InternalProjectionTests(unittest.TestCase):
         self.assertEqual({k: v for k, v in result.items() if k != "runtime_interno"}, original)
         for name, before in original_files.items():
             self.assertEqual((self.state / name).read_bytes(), before)
+
+    def proof_refresh_parent(self, descriptor):
+        parent = json.loads((self.state / "material-manifest.json").read_text())
+        parent.update(runtime_interno=descriptor, status="prepared")
+        self.put(self.state / "material-manifest.json", projection.json_bytes(parent))
+
+    def test_explicit_operator_reference_refresh_is_cas_only_and_records_preimage(self):
+        descriptor = self.provision()
+        root = self.state / "runtime-interno"
+        before = {str(p.relative_to(root)): p.read_bytes() for p in root.rglob("*") if p.is_file()}
+        self.proof_refresh_parent(descriptor)
+        with self.assertRaises(projection.ProjectionError): self.provision()
+        self.assertEqual((root / "material-manifest.json").read_bytes(), before["material-manifest.json"])
+        new_descriptor = self.provision(refresh=True)
+        for name, data in before.items():
+            if name != "material-manifest.json": self.assertEqual((root / name).read_bytes(), data)
+        old, new = map(json.loads, (before["material-manifest.json"], (root / "material-manifest.json").read_bytes()))
+        old["source_proof"]["operator_manifest_sha256"] = new["source_proof"]["operator_manifest_sha256"]
+        self.assertEqual(old, new)
+        receipt_path, = self.state.glob("runtime-interno-proof-refresh-*.json")
+        receipt = json.loads(receipt_path.read_bytes())
+        self.assertEqual(receipt["preimage_manifest_sha256"], descriptor["manifest_sha256"])
+        self.assertEqual(receipt["postimage_manifest_sha256"], new_descriptor["manifest_sha256"])
+        self.assertEqual(receipt["effect"], "operator_manifest_reference_only")
+        self.proof_refresh_parent(new_descriptor)
+        self.assertEqual(self.provision(refresh=True), new_descriptor)
+        self.assertEqual(list(self.state.glob("runtime-interno-proof-refresh-*.json")), [receipt_path])
+
+    def test_refresh_rejects_parent_cas_or_runtime_configuration_changes(self):
+        descriptor = self.provision()
+        root = self.state / "runtime-interno"
+        before = (root / "material-manifest.json").read_bytes()
+        self.proof_refresh_parent(dict(descriptor, manifest_sha256="e" * 64))
+        with self.assertRaises(projection.ProjectionError): self.provision(refresh=True)
+        self.assertEqual((root / "material-manifest.json").read_bytes(), before)
+        self.proof_refresh_parent(descriptor)
+        env = json.loads((self.state / "runtime-config.json").read_bytes())
+        env["VEC_USUARIOS_CORREOS_ENABLED"] = "true"
+        self.put(self.state / "runtime-config.json", projection.json_bytes(env))
+        parent = json.loads((self.state / "material-manifest.json").read_bytes())
+        parent["files"]["runtime-config.json"] = projection.digest((self.state / "runtime-config.json").read_bytes())
+        self.put(self.state / "material-manifest.json", projection.json_bytes(parent))
+        with self.assertRaises(projection.ProjectionError): self.provision(refresh=True)
+        self.assertEqual((root / "material-manifest.json").read_bytes(), before)
+        self.assertEqual(list(self.state.glob("runtime-interno-proof-refresh-*.json")), [])

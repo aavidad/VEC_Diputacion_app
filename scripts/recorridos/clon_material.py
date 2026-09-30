@@ -810,7 +810,7 @@ def finish_preparation(args: argparse.Namespace, output: Path, source: str, mani
         repair_coverage_connect(args, output, source)
     if getattr(args, "repair_nominal_connect", False):
         repair_nominal_connect(args, output, source)
-    if getattr(args, "complete_profiles", False) or getattr(args, "project_internal", False):
+    if getattr(args, "complete_profiles", False) or getattr(args, "project_internal", False) or getattr(args, "refresh_internal_proof", False):
         manifest = seal_internal_projection(args, output, source, manifest)
     return manifest
 
@@ -822,7 +822,8 @@ def seal_internal_projection(args: argparse.Namespace, output: Path, source: str
     try:
         descriptor = load_profile_module(name).provision(repo=args.repo, container=args.container, state=output,
             material=output / "material", pg_port=args.pg_port, engine=args.engine,
-            source_context=getattr(args, "_source_context", None))
+            source_context=getattr(args, "_source_context", None),
+            refresh_operator_proof=getattr(args, "refresh_internal_proof", False))
         expected = {"mode": "interno", "portal": "interno", "material": "runtime-interno/material",
                     "config": "runtime-interno/runtime-config.json", "manifest": "runtime-interno/material-manifest.json",
                     "source_commit": source}
@@ -1041,6 +1042,7 @@ def main() -> int:
     parser.add_argument("--upgrade-source", "--update-source", dest="update_source", action="store_true", help="bind preserved material to a descendant main revision after matching DB_READY")
     parser.add_argument("--complete-profiles", action="store_true", help="run reviewed Users/Bolsa/candidate provisioning modules on existing material")
     parser.add_argument("--project-internal", action="store_true", help="seal only the internal runtime projection; complete-profiles also seals it")
+    parser.add_argument("--refresh-internal-proof", action="store_true", help="CAS only a changed operator-manifest reference when all internal runtime bytes remain identical")
     parser.add_argument("--engine", choices=("docker", "podman"), default="docker")
     args = parser.parse_args()
     if not (1024 <= args.port <= 65535 and 1024 <= args.pg_port <= 65535) or args.port == args.pg_port:

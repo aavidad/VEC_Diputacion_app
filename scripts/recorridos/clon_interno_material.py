@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import fcntl
 import hashlib
 import json
 import os
@@ -296,7 +297,62 @@ def check_closed_inventory(root, payload, descriptor):
             fail("projection_expected_directory_missing")
 
 
-def provision(repo, container, state, material, pg_port, engine="docker", source_context=None):
+def refresh_proof_reference(state, root, payload, descriptor):
+    """CAS only an updated operator-manifest reference, never runtime bytes."""
+    fd = os.open(state / "runtime-interno-proof.lock", os.O_WRONLY | os.O_CREAT | os.O_NOFOLLOW | os.O_NONBLOCK, 0o600)
+    try:
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or info.st_uid != os.getuid() or info.st_mode & 0o077:
+            fail("projection_unsafe_proof_lock")
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        old_bytes = read(root / "material-manifest.json")
+        old = json.loads(old_bytes)
+        new = json.loads(payload["material-manifest.json"])
+        old_operator = old["source_proof"]["operator_manifest_sha256"]
+        new_operator = new["source_proof"]["operator_manifest_sha256"]
+        if not re.fullmatch(r"[0-9a-f]{64}", old_operator):
+            fail("projection_invalid_proof_preimage")
+        old["source_proof"]["operator_manifest_sha256"] = new_operator
+        if old_operator == new_operator or json_bytes(old) != payload["material-manifest.json"]:
+            fail("projection_refresh_changes_more_than_operator_reference")
+        parent_bytes = read(state / "material-manifest.json")
+        parent = json.loads(parent_bytes)
+        previous = dict(descriptor, manifest_sha256=digest(old_bytes))
+        if parent.get("runtime_interno") != previous or operator_digest(parent) != new_operator:
+            fail("projection_refresh_parent_cas_mismatch")
+        receipt = {"version": 1, "owner": OWNER, "source_commit": descriptor["source_commit"],
+                   "effect": "operator_manifest_reference_only", "preimage_manifest_sha256": digest(old_bytes),
+                   "postimage_manifest_sha256": digest(payload["material-manifest.json"]),
+                   "preimage_operator_manifest_sha256": old_operator, "postimage_operator_manifest_sha256": new_operator}
+        receipt_path = state / ("runtime-interno-proof-refresh-" + digest(old_bytes)[:16] + "-" + digest(payload["material-manifest.json"])[:16] + ".json")
+        if receipt_path.exists():
+            if read(receipt_path) != json_bytes(receipt):
+                fail("projection_refresh_receipt_preimage_changed")
+        else:
+            write(receipt_path, json_bytes(receipt))
+        temporary_fd, name = tempfile.mkstemp(prefix=".runtime-interno-proof-", dir=state)
+        temporary = Path(name)
+        try:
+            with os.fdopen(temporary_fd, "wb") as stream:
+                stream.write(payload["material-manifest.json"])
+                stream.flush()
+                os.fsync(stream.fileno())
+            # The parent seal, old proof and immutable inventory are checked
+            # again immediately before the single-file atomic replacement.
+            check_closed_inventory(root, payload, descriptor)
+            if read(root / "material-manifest.json") != old_bytes or read(state / "material-manifest.json") != parent_bytes:
+                fail("projection_refresh_cas_preimage_changed")
+            for relative, data in payload.items():
+                if relative != "material-manifest.json" and read(root / relative) != data:
+                    fail("projection_refresh_runtime_bytes_changed")
+            os.replace(temporary, root / "material-manifest.json")
+        finally:
+            temporary.unlink(missing_ok=True)
+    finally:
+        os.close(fd)
+
+
+def provision(repo, container, state, material, pg_port, engine="docker", source_context=None, refresh_operator_proof=False):
     """Create an immutable projection; never alter original operator material."""
     if engine not in ("docker", "podman"):
         fail("projection_engine_not_supported")
@@ -305,9 +361,15 @@ def provision(repo, container, state, material, pg_port, engine="docker", source
         canonical(root)
         check_closed_inventory(root, payload, descriptor)
         for relative, data in payload.items():
+            if relative == "material-manifest.json" and refresh_operator_proof and read(root / relative) != data:
+                continue
             if read(root / relative) != data:
                 fail("projection_existing_preimage_changed")
+        if read(root / "material-manifest.json") != payload["material-manifest.json"]:
+            refresh_proof_reference(canonical(state), root, payload, descriptor)
         return descriptor
+    if refresh_operator_proof:
+        fail("projection_refresh_requires_existing_sealed_projection")
     # No writes until every source, reference, env, contract and digest passed.
     temporary = Path(tempfile.mkdtemp(prefix=".runtime-interno-", dir=state))
     try:
@@ -333,6 +395,8 @@ if __name__ == "__main__":
     parser.add_argument("--state", type=Path, required=True)
     parser.add_argument("--container", required=True)
     parser.add_argument("--pg-port", type=int, required=True)
+    parser.add_argument("--refresh-internal-proof", action="store_true")
     args = parser.parse_args()
-    result = provision(args.repo, args.container, args.state, args.state / "material", args.pg_port)
+    result = provision(args.repo, args.container, args.state, args.state / "material", args.pg_port,
+                       refresh_operator_proof=args.refresh_internal_proof)
     print(json.dumps({"material": result["material"], "portal": result["portal"], "status": "prepared"}))
