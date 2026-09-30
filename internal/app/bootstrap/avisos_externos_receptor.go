@@ -62,6 +62,31 @@ func (t *transporteAvisosExternos) EnviarAvisoExterno(ctx context.Context, m usu
 		return usuariosports.AvisoExternoIndeterminado
 	}
 }
+
+// El catálogo web común usa secciones anidadas. Las claves lógicas de las
+// plantillas permanecen usuarios.avisos_externos.asunto/cuerpo.
+func leerTextosCorreoAvisosExternos(raw []byte) (string, string, error) {
+	var raiz map[string]json.RawMessage
+	if json.Unmarshal(raw, &raiz) != nil {
+		return "", "", errAvisosExternos
+	}
+	for clave := range raiz {
+		if strings.Contains(clave, ".") {
+			return "", "", errAvisosExternos
+		}
+	}
+	var usuarios struct {
+		AvisosExternos struct {
+			Asunto string `json:"asunto"`
+			Cuerpo string `json:"cuerpo"`
+		} `json:"avisos_externos"`
+	}
+	if json.Unmarshal(raiz["usuarios"], &usuarios) != nil {
+		return "", "", errAvisosExternos
+	}
+	return usuarios.AvisosExternos.Asunto, usuarios.AvisosExternos.Cuerpo, nil
+}
+
 func nuevoTransporteAvisosExternos(cfg config.Config, c configuracionAvisosExternos) (*transporteAvisosExternos, error) {
 	u, err := url.Parse(c.URLPersonal)
 	if err != nil || u.Scheme != "https" || u.Hostname() == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
@@ -80,11 +105,10 @@ func nuevoTransporteAvisosExternos(cfg config.Config, c configuracionAvisosExter
 	if err != nil || len(raw) > 16<<10 {
 		return nil, errAvisosExternos
 	}
-	var textos map[string]string
-	if json.Unmarshal(raw, &textos) != nil {
+	asunto, cuerpo, err := leerTextosCorreoAvisosExternos(raw)
+	if err != nil {
 		return nil, errAvisosExternos
 	}
-	asunto, cuerpo := textos["usuarios.avisos_externos.asunto"], textos["usuarios.avisos_externos.cuerpo"]
 	if strings.TrimSpace(asunto) == "" || !strings.Contains(cuerpo, "{portal}") || strings.ContainsAny(asunto, "\r\n") {
 		return nil, errAvisosExternos
 	}

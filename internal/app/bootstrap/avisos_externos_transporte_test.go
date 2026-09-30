@@ -3,6 +3,8 @@ package bootstrap
 import (
 	"context"
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -13,6 +15,28 @@ import (
 	usuarioscanonico "vec-diputacion-granada/internal/modules/usuarios/canonico"
 	usuariosports "vec-diputacion-granada/internal/modules/usuarios/ports"
 )
+
+func TestTextosCorreoAvisosExternosUsanCatalogoComunAnidado(t *testing.T) {
+	for _, idioma := range []string{"es", "en"} {
+		raw, err := os.ReadFile(filepath.Join("..", "..", "..", "web", "static", "textos", idioma, "avisos-externos.json"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		asunto, cuerpo, err := leerTextosCorreoAvisosExternos(raw)
+		if err != nil || strings.TrimSpace(asunto) == "" || !strings.Contains(cuerpo, "{portal}") || strings.ContainsAny(asunto, "\r\n") {
+			t.Fatalf("catálogo de aviso inválido en %s: %v", idioma, err)
+		}
+	}
+	for _, raw := range [][]byte{
+		[]byte(`{"usuarios.avisos_externos.asunto":"A","usuarios.avisos_externos.cuerpo":"{portal}"}`),
+		[]byte(`{"usuarios":{"avisos_externos":"A"}}`),
+		[]byte(`[]`),
+	} {
+		if _, _, err := leerTextosCorreoAvisosExternos(raw); err == nil {
+			t.Fatal("catálogo ajeno admitido")
+		}
+	}
+}
 
 func TestTransporteAvisosExternosConservaEstadoSMTP(t *testing.T) {
 	for _, caso := range []struct {
