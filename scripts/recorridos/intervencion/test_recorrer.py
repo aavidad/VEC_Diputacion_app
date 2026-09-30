@@ -5,6 +5,8 @@ from __future__ import annotations
 import hashlib
 import http.server
 import io
+import json
+import os
 import tempfile
 import threading
 import unittest
@@ -20,6 +22,187 @@ from recorrer import (FalloRecorrido, NoEjecutado, responder_sin_redireccion,
 
 
 class RecorridoSinteticoTest(unittest.TestCase):
+    def datos_configuracion(self, raiz):
+        for nombre in ("chrome", "vec-server", "int.crt", "int.key", "rrhh.crt", "rrhh.key"):
+            (raiz / nombre).write_text(nombre, encoding="utf-8")
+        return {"origen": "https://127.0.0.1:18531", "chrome": str(raiz / "chrome"),
+                "binario": str(raiz / "vec-server"),
+                "binario_sha256": hashlib.sha256(b"vec-server").hexdigest(),
+                "hitos_clon": ["H3", "H4", "H5"], "uso_sintetico": True,
+                "intervencion_cert": str(raiz / "int.crt"), "intervencion_key": str(raiz / "int.key"),
+                "rrhh_cert": str(raiz / "rrhh.crt"), "rrhh_key": str(raiz / "rrhh.key"),
+                "favorable": {"expediente_ref": "expediente:sintetico:a", "version_esperada": 5},
+                "reparo": {"expediente_ref": "expediente:sintetico:b", "version_esperada": 5}}
+
+    def test_otro_git_worktree_y_bare_se_rechazan_antes_de_chrome(self):
+        with tempfile.TemporaryDirectory() as temporal:
+            raiz = Path(temporal)
+            datos = self.datos_configuracion(raiz)
+            for tipo in ("repositorio", "worktree", "bare"):
+                with self.subTest(tipo=tipo):
+                    repo = raiz / tipo
+                    repo.mkdir(mode=0o700)
+                    privada = repo / "privada"
+                    privada.mkdir(mode=0o700)
+                    if tipo == "repositorio":
+                        (repo / ".git").mkdir()
+                    elif tipo == "worktree":
+                        (repo / ".git").write_text("gitdir: /otro/repositorio", encoding="utf-8")
+                    else:
+                        (repo / "HEAD").write_text("ref: refs/heads/main", encoding="utf-8")
+                        (repo / "objects").mkdir()
+                        (repo / "config").write_text("[core]\n bare = true", encoding="utf-8")
+                    salida = privada / "evidencia.json"
+                    with patch.object(recorrer, "cargar_json", return_value=datos.copy()), \
+                         patch.object(recorrer, "ejecutar") as navegador, \
+                         patch("sys.argv", ["recorrer.py", "registrar", "--config", str(raiz / "config.json"),
+                                            "--evidencia", str(salida)]), \
+                         patch("sys.stderr", io.StringIO()):
+                        self.assertEqual(recorrer.main(), 2)
+                        navegador.assert_not_called()
+                    self.assertEqual(list(privada.iterdir()), [])
+
+    def test_padres_propios_0700_y_sin_symlinks(self):
+        with tempfile.TemporaryDirectory() as temporal:
+            raiz = Path(temporal)
+            privada = raiz / "privada"
+            privada.mkdir(mode=0o700)
+            salida = privada / "evidencia.json"
+            for modo in (0o755, 0o770):
+                privada.chmod(modo)
+                with self.assertRaises(OSError):
+                    recorrer.preparar_destinos_privados(salida, "registrar")
+                self.assertEqual(privada.stat().st_mode & 0o777, modo)
+            privada.chmod(0o700)
+            with patch.object(recorrer.os, "getuid", return_value=os.getuid() + 1):
+                with self.assertRaises(OSError):
+                    recorrer.abrir_directorio_privado(salida)
+            enlace = raiz / "enlace"
+            enlace.symlink_to(privada, target_is_directory=True)
+            with self.assertRaises(OSError):
+                recorrer.preparar_destinos_privados(enlace / salida.name, "registrar")
+            capturas = privada / "evidencia-capturas"
+            capturas.mkdir(mode=0o755)
+            with self.assertRaises(OSError):
+                recorrer.preparar_destinos_privados(salida, "registrar")
+            capturas.rmdir()
+            capturas.symlink_to(raiz, target_is_directory=True)
+            with self.assertRaises(OSError):
+                recorrer.preparar_destinos_privados(salida, "registrar")
+
+    def test_legacy_y_ultima_instantanea_completa_sin_reescribir_al_recuperar(self):
+        with tempfile.TemporaryDirectory() as temporal:
+            raiz = Path(temporal)
+            legacy = raiz / "legacy.json"
+            original = {"esquema": "vec.recorrido-intervencion.v1",
+                        "favorable": {"solicitud": {"clave_idempotencia": "clave:original"},
+                                      "recibo": {"recibo_ref": "recibo:original"}}}
+            legacy.write_text(json.dumps(original, indent=2), encoding="utf-8")
+            legacy.chmod(0o600)
+            previo = legacy.read_bytes()
+            recorrer.preparar_destinos_privados(legacy, "recuperar")
+            self.assertEqual(recorrer.cargar_evidencia(legacy), original)
+            self.assertEqual(legacy.read_bytes(), previo)
+            self.assertFalse((raiz / "legacy-capturas").exists())
+
+            salida = raiz / "registro.json"
+            recorrer.preparar_destinos_privados(salida, "registrar")
+            recorrer.persistir(salida, {"esquema": original["esquema"]}, nuevo=True)
+            primera = salida.read_bytes()
+            inode = salida.stat().st_ino
+            pendiente = {**original, "intencion_pendiente": {
+                "operacion": "subsanacion", "solicitud": {"clave_idempotencia": "clave:pendiente"}}}
+            recorrer.persistir(salida, pendiente)
+            self.assertEqual(salida.stat().st_ino, inode)
+            self.assertTrue(salida.read_bytes().startswith(primera))
+            with salida.open("ab") as archivo:
+                archivo.write(b'{"intencion_pendiente":')
+            antes = salida.read_bytes()
+            recorrer.preparar_destinos_privados(salida, "recuperar")
+            self.assertEqual(recorrer.cargar_evidencia(salida), pendiente)
+            self.assertEqual(salida.read_bytes(), antes)
+            self.assertEqual(salida.stat().st_mode & 0o777, 0o600)
+            with self.assertRaisesRegex(NoEjecutado, "identidad"):
+                recorrer.persistir(salida, {"cambio": "no añadir tras interrupción"})
+            with self.assertRaises(FileExistsError):
+                recorrer.persistir(salida, {}, nuevo=True)
+            self.assertEqual(salida.read_bytes(), antes)
+
+            utf8 = raiz / "utf8-interrumpido.jsonl"
+            utf8.write_bytes(json.dumps(pendiente).encode("utf-8") + b'\n{"observaciones":"\xc3')
+            utf8.chmod(0o600)
+            self.assertEqual(recorrer.cargar_evidencia(utf8), pendiente)
+
+    def test_lectura_recovery_rechaza_sustitucion_desde_preflight(self):
+        with tempfile.TemporaryDirectory() as temporal:
+            raiz = Path(temporal)
+            salida = raiz / "legacy.json"
+            salida.write_text('{"clave_idempotencia":"original"}', encoding="utf-8")
+            salida.chmod(0o600)
+            recorrer.preparar_destinos_privados(salida, "recuperar")
+            salida.rename(raiz / "conservada.json")
+            salida.write_text('{"clave_idempotencia":"sustituida"}', encoding="utf-8")
+            salida.chmod(0o600)
+            with self.assertRaisesRegex(NoEjecutado, "validación previa"):
+                recorrer.cargar_evidencia(salida)
+            self.assertEqual((raiz / "conservada.json").read_text(encoding="utf-8"),
+                             '{"clave_idempotencia":"original"}')
+
+    def test_reapertura_niega_symlink_hardlink_modo_y_cambio_de_inode(self):
+        with tempfile.TemporaryDirectory() as temporal:
+            raiz = Path(temporal)
+            salida = raiz / "evidencia.json"
+            recorrer.persistir(salida, {"clave_idempotencia": "original"}, nuevo=True)
+            original = salida.read_bytes()
+            enlace = raiz / "hardlink.json"
+            os.link(salida, enlace)
+            with self.assertRaises(OSError):
+                recorrer.cargar_evidencia(salida)
+            with self.assertRaises(OSError):
+                recorrer.persistir(salida, {"cambio": "rechazado"})
+            self.assertEqual(salida.read_bytes(), original)
+            enlace.unlink()
+            salida.chmod(0o644)
+            with self.assertRaises(OSError):
+                recorrer.cargar_evidencia(salida)
+            with self.assertRaises(OSError):
+                recorrer.persistir(salida, {"cambio": "rechazado"})
+            salida.chmod(0o600)
+            conservada = raiz / "original.json"
+            salida.rename(conservada)
+            salida.symlink_to(conservada)
+            with self.assertRaises(OSError):
+                recorrer.preparar_destinos_privados(salida, "recuperar")
+            with self.assertRaises(OSError):
+                recorrer.persistir(salida, {"cambio": "rechazado"})
+            salida.unlink()
+            salida.write_text("{}", encoding="utf-8")
+            salida.chmod(0o600)
+            with self.assertRaisesRegex(NoEjecutado, "identidad"):
+                recorrer.persistir(salida, {"cambio": "rechazado"})
+            self.assertEqual(salida.read_text(encoding="utf-8"), "{}")
+            self.assertEqual(conservada.read_bytes(), original)
+
+    def test_captura_existente_no_se_sobrescribe_ni_se_aceptan_enlaces_al_recuperar(self):
+        with tempfile.TemporaryDirectory() as temporal:
+            raiz = Path(temporal)
+            salida = raiz / "evidencia.json"
+            recorrer.preparar_destinos_privados(salida, "registrar")
+            captura = raiz / "evidencia-capturas" / "favorable-1440.png"
+            victima = raiz / "conservar.png"
+            recorrer.guardar_privado(victima, b"conservar")
+            captura.symlink_to(victima)
+            with self.assertRaises(NoEjecutado):
+                recorrer.preparar_destinos_privados(salida, "registrar")
+            recorrer.persistir(salida, {"clave_idempotencia": "original"}, nuevo=True)
+            with self.assertRaises(OSError):
+                recorrer.preparar_destinos_privados(salida, "recuperar")
+            captura.unlink()
+            os.link(victima, captura)
+            with self.assertRaises(OSError):
+                recorrer.preparar_destinos_privados(salida, "recuperar")
+            self.assertEqual(victima.read_bytes(), b"conservar")
+
     def test_replay_fiscalizacion_201_conserva_peticion_y_recibo(self):
         origen = "https://127.0.0.1:18531"
         solicitud = {"expediente_ref": "expediente:sintetico:a", "version_esperada": 5,
@@ -143,6 +326,7 @@ class RecorridoSinteticoTest(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as temporal:
             salida = Path(temporal) / "evidencia.json"
+            recorrer.preparar_destinos_privados(salida, "registrar")
             pagina = Pagina()
             contexto = SimpleNamespace(cookies=lambda: [])
             capturas = recorrer.capturar_pagina(contexto, pagina, salida, "corte_intervencion")

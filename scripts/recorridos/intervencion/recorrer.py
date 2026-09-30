@@ -9,12 +9,13 @@ capturadas en el navegador; nunca crea una clave nueva.
 from __future__ import annotations
 
 import argparse
+import errno
 import hashlib
 import json
 import os
 import re
+import stat
 import sys
-import uuid
 from pathlib import Path
 from urllib.parse import quote, urlsplit
 
@@ -32,6 +33,10 @@ def raiz_git_estable(repo: Path) -> Path:
 
 
 ARBOL_COMPARTIDO = raiz_git_estable(REPO)
+MAX_EVIDENCIA = 512 * 1024
+CAPTURAS = ("favorable", "reparo", "subsanacion", "corte_intervencion", "corte_rrhh")
+EVIDENCIAS_PROPIAS = {}
+EVIDENCIAS_LEIDAS = {}
 
 
 class NoEjecutado(Exception):
@@ -59,6 +64,161 @@ def exterior(ruta: Path) -> Path:
     if real == ARBOL_COMPARTIDO or ARBOL_COMPARTIDO in real.parents:
         raise NoEjecutado("certificados, claves y evidencia deben permanecer fuera de Git")
     return real
+
+
+def abrir_directorio_privado(ruta: Path) -> int:
+    """Guardia de Firma: recorre padres por dirfd, sin enlaces ni ningún Git."""
+    ruta = Path(ruta).expanduser()
+    if ".." in ruta.parts or not ruta.name:
+        raise OSError(errno.EPERM, "ruta privada no válida")
+    absoluta = ruta if ruta.is_absolute() else Path.cwd() / ruta
+    descriptor = os.open(absoluta.anchor, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        for componente in (*absoluta.parent.parts[1:], None):
+            try:
+                os.stat(".git", dir_fd=descriptor, follow_symlinks=False)
+            except FileNotFoundError:
+                pass
+            else:
+                raise OSError(errno.EPERM, "no se guardan artefactos dentro de Git")
+            try:
+                cabecera = os.stat("HEAD", dir_fd=descriptor, follow_symlinks=False)
+                objetos = os.stat("objects", dir_fd=descriptor, follow_symlinks=False)
+                configuracion = os.stat("config", dir_fd=descriptor, follow_symlinks=False)
+            except FileNotFoundError:
+                pass
+            else:
+                if (stat.S_ISREG(cabecera.st_mode) and stat.S_ISDIR(objetos.st_mode)
+                        and stat.S_ISREG(configuracion.st_mode)):
+                    raise OSError(errno.EPERM, "no se guardan artefactos dentro de Git bare")
+            if componente is not None:
+                siguiente = os.open(componente, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+                                    dir_fd=descriptor)
+                os.close(descriptor)
+                descriptor = siguiente
+        padre = os.fstat(descriptor)
+        if padre.st_uid != os.getuid() or stat.S_IMODE(padre.st_mode) != 0o700:
+            raise OSError(errno.EPERM, "el directorio de salida debe ser propio y 0700")
+        return descriptor
+    except BaseException:
+        os.close(descriptor)
+        raise
+
+
+def comprobar_archivo_privado(descriptor: int, maximo: int = MAX_EVIDENCIA):
+    archivo = os.fstat(descriptor)
+    if (not stat.S_ISREG(archivo.st_mode) or archivo.st_uid != os.getuid()
+            or archivo.st_nlink != 1 or stat.S_IMODE(archivo.st_mode) != 0o600
+            or archivo.st_size > maximo):
+        raise OSError(errno.EPERM, "la evidencia debe ser propia, regular, 0600 y sin enlaces")
+    return archivo
+
+
+def guardar_privado(ruta: Path, contenido: bytes):
+    directorio = abrir_directorio_privado(ruta)
+    try:
+        descriptor = os.open(Path(ruta).name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                             0o600, dir_fd=directorio)
+        with os.fdopen(descriptor, "wb") as archivo:
+            identidad = comprobar_archivo_privado(archivo.fileno())
+            archivo.write(contenido)
+            archivo.flush()
+            os.fsync(archivo.fileno())
+        return identidad.st_dev, identidad.st_ino
+    finally:
+        os.close(directorio)
+
+
+def cargar_evidencia(ruta: Path) -> dict:
+    clave = str(ruta.expanduser().absolute())
+    directorio = abrir_directorio_privado(ruta)
+    try:
+        descriptor = os.open(Path(ruta).name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK,
+                             dir_fd=directorio)
+        with os.fdopen(descriptor, "rb") as archivo:
+            preimagen = comprobar_archivo_privado(archivo.fileno())
+            identidad = (preimagen.st_dev, preimagen.st_ino, preimagen.st_size, preimagen.st_mtime_ns)
+            if clave in EVIDENCIAS_LEIDAS and EVIDENCIAS_LEIDAS[clave] != identidad:
+                raise NoEjecutado("la evidencia cambió desde su validación previa")
+            contenido = archivo.read(MAX_EVIDENCIA + 1)
+            posterior = comprobar_archivo_privado(archivo.fileno())
+            if ((preimagen.st_dev, preimagen.st_ino, preimagen.st_size, preimagen.st_mtime_ns)
+                    != (posterior.st_dev, posterior.st_ino, posterior.st_size, posterior.st_mtime_ns)
+                    or len(contenido) > MAX_EVIDENCIA):
+                raise NoEjecutado("la evidencia cambió durante la lectura")
+    finally:
+        os.close(directorio)
+    try:
+        try:
+            datos = json.loads(contenido)
+        except (UnicodeError, json.JSONDecodeError):
+            datos = None
+            lineas = contenido.splitlines(keepends=True)
+            for indice, linea in enumerate(lineas):
+                try:
+                    instantanea = json.loads(linea)
+                except (UnicodeError, json.JSONDecodeError):
+                    if indice == len(lineas) - 1 and not linea.endswith(b"\n") and datos is not None:
+                        break  # Una cola interrumpida no borra la última intención completa.
+                    raise
+                if not isinstance(instantanea, dict):
+                    raise ValueError("instantánea no válida")
+                datos = instantanea
+        if not isinstance(datos, dict):
+            raise ValueError("evidencia no válida")
+        EVIDENCIAS_LEIDAS[clave] = identidad
+        return datos
+    except (UnicodeError, ValueError) as error:
+        raise NoEjecutado("JSON de evidencia no válido") from error
+
+
+def preparar_destinos_privados(salida: Path, fase: str):
+    salida = salida.expanduser()
+    directorio = abrir_directorio_privado(salida)
+    try:
+        if fase == "recuperar":
+            cargar_evidencia(salida)
+        else:
+            try:
+                os.stat(salida.name, dir_fd=directorio, follow_symlinks=False)
+            except FileNotFoundError:
+                pass
+            else:
+                raise NoEjecutado("ya existe evidencia: no repetir operaciones con claves nuevas")
+        nombre = salida.stem + "-capturas"
+        if fase == "recuperar":
+            try:
+                os.stat(nombre, dir_fd=directorio, follow_symlinks=False)
+            except FileNotFoundError:
+                return  # Recuperar el JSON anterior no crea carpetas ni archivos.
+        else:
+            try:
+                os.mkdir(nombre, mode=0o700, dir_fd=directorio)
+            except FileExistsError:
+                pass
+    finally:
+        os.close(directorio)
+    carpeta = salida.parent / nombre
+    capturas = abrir_directorio_privado(carpeta / "captura.png")
+    try:
+        for nombre in CAPTURAS:
+            for ancho in (1440, 390):
+                archivo = f"{nombre}-{ancho}.png"
+                try:
+                    os.stat(archivo, dir_fd=capturas, follow_symlinks=False)
+                except FileNotFoundError:
+                    pass
+                else:
+                    if fase != "recuperar":
+                        raise NoEjecutado("ya existe una captura: no se sobrescribe")
+                    descriptor = os.open(archivo, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK,
+                                         dir_fd=capturas)
+                    try:
+                        comprobar_archivo_privado(descriptor, maximo=8 * 1024 * 1024)
+                    finally:
+                        os.close(descriptor)
+    finally:
+        os.close(capturas)
 
 
 def validar_configuracion(datos: dict, salida: Path, fase: str) -> dict:
@@ -110,13 +270,7 @@ def validar_configuracion(datos: dict, salida: Path, fase: str) -> dict:
         refs.append(caso["expediente_ref"])
     if refs[0] == refs[1]:
         raise NoEjecutado("los dos recorridos exigen expedientes distintos")
-    salida = salida.expanduser().resolve(strict=False)
-    if salida == ARBOL_COMPARTIDO or ARBOL_COMPARTIDO in salida.parents:
-        raise NoEjecutado("la evidencia debe escribirse fuera de Git")
-    if fase == "registrar" and salida.exists():
-        raise NoEjecutado("ya existe evidencia: no repetir operaciones con claves nuevas")
-    if fase == "recuperar" and not salida.is_file():
-        raise NoEjecutado("falta la evidencia del registro anterior al reinicio")
+    preparar_destinos_privados(salida, fase)
     datos["origen"] = datos["origen"].rstrip("/")
     datos["chrome"] = str(chrome)
     return datos
@@ -153,23 +307,34 @@ def validar_recibo(recibo: dict, solicitud: dict, operacion: str) -> dict:
 
 
 def persistir(salida: Path, evidencia: dict, nuevo: bool = False):
-    salida.parent.mkdir(parents=True, exist_ok=True)
-    temporal = salida.with_name(salida.name + "." + uuid.uuid4().hex + ".tmp")
-    descriptor = os.open(temporal, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    """Crea una evidencia exclusiva y añade instantáneas; nunca sustituye el archivo."""
+    salida = salida.expanduser()
+    clave = str(salida.absolute())
+    contenido = (json.dumps(evidencia, ensure_ascii=False, separators=(",", ":")) + "\n").encode("utf-8")
+    if len(contenido) > MAX_EVIDENCIA:
+        raise NoEjecutado("la evidencia supera el límite privado")
+    if nuevo:
+        EVIDENCIAS_PROPIAS[clave] = (*guardar_privado(salida, contenido), len(contenido))
+        return
+    if clave not in EVIDENCIAS_PROPIAS:
+        raise NoEjecutado("solo se añade a la evidencia creada por este proceso")
+    directorio = abrir_directorio_privado(salida)
     try:
-        with os.fdopen(descriptor, "w", encoding="utf-8") as archivo:
-            json.dump(evidencia, archivo, ensure_ascii=False, indent=2)
+        descriptor = os.open(salida.name, os.O_WRONLY | os.O_APPEND | os.O_NOFOLLOW | os.O_NONBLOCK,
+                             dir_fd=directorio)
+        with os.fdopen(descriptor, "ab") as archivo:
+            identidad = comprobar_archivo_privado(archivo.fileno())
+            if ((identidad.st_dev, identidad.st_ino, identidad.st_size) != EVIDENCIAS_PROPIAS[clave]
+                    or identidad.st_size + len(contenido) > MAX_EVIDENCIA):
+                raise NoEjecutado("la identidad o tamaño de la evidencia cambió")
+            archivo.write(contenido)
             archivo.flush()
             os.fsync(archivo.fileno())
-        if nuevo:
-            try:
-                os.link(temporal, salida, follow_symlinks=False)
-            except FileExistsError as error:
-                raise NoEjecutado("la evidencia ya existe") from error
-        else:
-            os.replace(temporal, salida)
+            EVIDENCIAS_PROPIAS[clave] = (identidad.st_dev, identidad.st_ino,
+                                        identidad.st_size + len(contenido))
+            EVIDENCIAS_LEIDAS.pop(clave, None)
     finally:
-        temporal.unlink(missing_ok=True)
+        os.close(directorio)
 
 
 def responder_sin_redireccion(interceptada, origen: str):
@@ -267,20 +432,14 @@ def capturar_pagina(contexto_actor, pagina, salida: Path, nombre: str) -> list[d
     if not re.fullmatch(r"[a-z_]+", nombre):
         raise ValueError("nombre de captura no válido")
     carpeta = salida.parent / (salida.stem + "-capturas")
-    carpeta.mkdir(mode=0o700, exist_ok=True)
-    if carpeta.is_symlink():
-        raise NoEjecutado("la carpeta de capturas no puede ser un enlace")
-    os.chmod(carpeta, 0o700)
     capturas = []
     try:
         for ancho, alto in ((1440, 900), (390, 844)):
             pagina.set_viewport_size({"width": ancho, "height": alto})
             pagina.wait_for_timeout(250)
             ruta = carpeta / f"{nombre}-{ancho}.png"
-            descriptor = os.open(ruta, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-            with os.fdopen(descriptor, "wb") as archivo:
-                imagen = pagina.screenshot(full_page=True, animations="disabled")
-                archivo.write(imagen)
+            imagen = pagina.screenshot(full_page=True, animations="disabled")
+            guardar_privado(ruta, imagen)
             estado = medir_pagina(contexto_actor, pagina)
             capturas.append({"archivo": ruta.name, "sha256": hashlib.sha256(imagen).hexdigest(),
                              "viewport": {"width": ancho, "height": alto}, "estado": estado})
@@ -459,7 +618,7 @@ def ejecutar(fase: str, datos: dict, salida: Path, estado_ejecucion: dict) -> di
                     if js or cookies_respuesta:
                         raise FalloRecorrido("errores JavaScript o Set-Cookie tras cambiar de tamaño")
                     return {"fase": fase, "estado": "REGISTRADO", "evidencia": str(salida)}
-                evidencia = cargar_json(salida)
+                evidencia = cargar_evidencia(salida)
                 if (evidencia.get("esquema") != "vec.recorrido-intervencion.v1"
                         or evidencia.get("origen") != datos["origen"]
                         or evidencia.get("binario_sha256") != datos["binario_sha256"]
