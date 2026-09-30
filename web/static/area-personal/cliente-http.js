@@ -7,6 +7,11 @@ const mensaje = (clave, variables) => traducir(`areaPersonal.cliente.${clave}`, 
 const RUTA_MI_BOLSA = "/api/vec/bolsa/mi-bolsa";
 export const RUTA_MIS_PREFERENCIAS = "/api/vec/usuarios/area-personal/mis-preferencias";
 const CAMPOS_MIS_PREFERENCIAS = Object.freeze(["idioma", "tamano_texto", "alto_contraste", "tema", "inicio", "filas", "aviso_correo_tareas", "aviso_correo_plazos"]);
+const TEMAS_PREFERENCIAS_V1 = Object.freeze(["sistema", "claro", "oscuro"]);
+const TEMAS_PREFERENCIAS = Object.freeze({
+  "usuarios-preferencias-v1": TEMAS_PREFERENCIAS_V1,
+  "usuarios-preferencias-v2": Object.freeze([...TEMAS_PREFERENCIAS_V1, "diputacion_granada", "arena", "salvia", "lavanda", "azul_sereno", "noche_suave"]),
+});
 const RUTA_CONTACTO_PROPIO = "/api/vec/usuarios/contacto-propio";
 const RUTA_RECIBO_CONTACTO_PROPIO = `${RUTA_CONTACTO_PROPIO}/recibo`;
 export const RUTAS_OPERACIONES_CONTACTO = Object.freeze(Object.fromEntries(
@@ -56,12 +61,13 @@ const CODIGOS_PREFERENCIAS = Object.freeze({
   422: "validacion", 503: "servicio",
 });
 
-function validarValoresPreferencias(valores) {
+function validarValoresPreferencias(valores, catalogoVersion) {
   return valores && typeof valores === "object" && !Array.isArray(valores)
+    && Object.hasOwn(TEMAS_PREFERENCIAS, catalogoVersion)
     && (valores.idioma === "navegador" || IDIOMAS_DISPONIBLES.some(({ codigo }) => codigo === valores.idioma))
     && ["normal", "grande", "muy_grande"].includes(valores.tamano_texto)
     && typeof valores.alto_contraste === "boolean"
-    && ["sistema", "claro", "oscuro"].includes(valores.tema)
+    && TEMAS_PREFERENCIAS[catalogoVersion].includes(valores.tema)
     && ["cuadro", "peticiones", "bolsas"].includes(valores.inicio)
     && [20, 50, 100].includes(valores.filas)
     && typeof valores.aviso_correo_tareas === "boolean"
@@ -73,20 +79,21 @@ function validarEstadoPreferencias(estado) {
   if (!estado || typeof estado !== "object" || Array.isArray(estado)
     || typeof estado.persona_ref !== "string" || !estado.persona_ref
     || !Number.isSafeInteger(estado.version) || estado.version < 0
-    || typeof estado.catalogo_version_ref !== "string" || !estado.catalogo_version_ref
-    || !validarValoresPreferencias(estado.valores)) throw new ErrorPreferencias("respuesta");
+    || !Object.hasOwn(TEMAS_PREFERENCIAS, estado.catalogo_version_ref)
+    || !validarValoresPreferencias(estado.valores, estado.catalogo_version_ref)) throw new ErrorPreferencias("respuesta");
   return estado;
 }
 
 function validarCatalogoPreferencias(catalogo) {
   if (!catalogo || typeof catalogo !== "object" || Array.isArray(catalogo)
-    || typeof catalogo.version_ref !== "string" || !catalogo.version_ref
+    || !Object.hasOwn(TEMAS_PREFERENCIAS, catalogo.version_ref)
     || !["idiomas", "tamanos_texto", "temas", "inicios"].every((campo) =>
       Array.isArray(catalogo[campo]) && catalogo[campo].length > 0
       && catalogo[campo].every((opcion) => typeof opcion?.codigo === "string"
+        && (campo !== "temas" || TEMAS_PREFERENCIAS[catalogo.version_ref].includes(opcion.codigo))
         && typeof opcion?.nombre_key === "string"))
     || !Array.isArray(catalogo.filas) || catalogo.filas.some((valor) => ![20, 50, 100].includes(valor))
-    || !validarValoresPreferencias(catalogo.predeterminados)) throw new ErrorPreferencias("respuesta");
+    || !validarValoresPreferencias(catalogo.predeterminados, catalogo.version_ref)) throw new ErrorPreferencias("respuesta");
   return catalogo;
 }
 
@@ -123,16 +130,19 @@ export function crearClientePreferencias({ fetchImpl = globalThis.fetch } = {}) 
       const { valor: dato } = await solicitar("GET", null, opciones);
       const catalogo = validarCatalogoPreferencias(dato?.catalogo);
       const estado = validarEstadoPreferencias(dato?.estado);
-      if (estado.catalogo_version_ref !== catalogo.version_ref) throw new ErrorPreferencias("respuesta", 200);
+      if (catalogo.version_ref === "usuarios-preferencias-v1" && estado.catalogo_version_ref !== catalogo.version_ref) {
+        throw new ErrorPreferencias("respuesta", 200);
+      }
+      if (!catalogo.temas.some((opcion) => opcion.codigo === estado.valores.tema)) throw new ErrorPreferencias("respuesta", 200);
       return Object.freeze({ catalogo, estado });
     },
     async guardar(cuerpo, opciones) {
       if (!cuerpo || Object.keys(cuerpo).length !== 4
         || !Object.keys(cuerpo).every((campo) => ["version_esperada", "catalogo_version_ref", "clave_operacion", "valores"].includes(campo))
         || !Number.isSafeInteger(cuerpo.version_esperada) || cuerpo.version_esperada < 0
-        || typeof cuerpo.catalogo_version_ref !== "string" || !cuerpo.catalogo_version_ref
+        || !Object.hasOwn(TEMAS_PREFERENCIAS, cuerpo.catalogo_version_ref)
         || typeof cuerpo.clave_operacion !== "string" || !/^[A-Za-z0-9_.:-]{16,128}$/u.test(cuerpo.clave_operacion)
-        || !validarValoresPreferencias(cuerpo.valores)) throw new ErrorPreferencias("validacion");
+        || !validarValoresPreferencias(cuerpo.valores, cuerpo.catalogo_version_ref)) throw new ErrorPreferencias("validacion");
       const { valor: resultado, estado } = await solicitar("PUT", cuerpo, opciones);
       validarEstadoPreferencias(resultado);
       if (resultado.version !== cuerpo.version_esperada + 1
