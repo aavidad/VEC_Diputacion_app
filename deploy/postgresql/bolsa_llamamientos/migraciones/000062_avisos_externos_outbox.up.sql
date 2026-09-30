@@ -139,7 +139,7 @@ CREATE FUNCTION vec_bolsa_llamamientos.reservar_llamamiento_avisos_externos_v1(
  p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea,p_eventos jsonb)
 RETURNS TABLE(emision jsonb,reutilizada boolean) LANGUAGE plpgsql VOLATILE SECURITY DEFINER
  SET search_path=pg_catalog,pg_temp SET row_security=on SET timezone='UTC' SET lock_timeout='2s' SET statement_timeout='15s' AS $f$
-DECLARE reservado record; previo record; consumo record; d jsonb; evento jsonb; v_canon text; huella text;
+DECLARE reservado record; previo record; consumo record; d jsonb; v_evento jsonb; v_canon text; huella text;
         participacion text; candidato text; total integer; n integer:=0; vistos text[]:=ARRAY[]::text[]; contactos jsonb; resultado jsonb;
 BEGIN
  IF octet_length(p_token_finalizacion) IS DISTINCT FROM 32 OR p_eventos IS NULL OR jsonb_typeof(p_eventos)<>'array' THEN RAISE EXCEPTION 'B62: lista de eventos invalida' USING ERRCODE='22023'; END IF;
@@ -159,30 +159,30 @@ BEGIN
  IF (SELECT count(DISTINCT value->>'productor_ref')>1 OR count(DISTINCT value->>'correlacion_ref')>1 FROM jsonb_array_elements(p_eventos))
  THEN RAISE EXCEPTION 'B62: productor o correlacion divergentes' USING ERRCODE='VBE01'; END IF;
  IF p_llamamiento IS DISTINCT FROM previo.llamamiento_ref THEN RAISE EXCEPTION 'B62: llamamiento divergente' USING ERRCODE='VBE01'; END IF;
- FOR evento IN SELECT value FROM jsonb_array_elements(p_eventos) LOOP
-  v_canon:=vec_bolsa_llamamientos.canon_aviso_externo_v1(evento);
+ FOR v_evento IN SELECT value FROM jsonb_array_elements(p_eventos) LOOP
+  v_canon:=vec_bolsa_llamamientos.canon_aviso_externo_v1(v_evento);
   huella:=encode(sha256(convert_to(v_canon,'UTF8')),'hex');
-  IF reservado.reutilizada AND NOT EXISTS(SELECT 1 FROM vec_bolsa_llamamientos.aviso_externo_outbox o WHERE o.llamamiento_ref=previo.llamamiento_ref AND o.productor_ref=evento->>'productor_ref' AND o.evento_ref=evento->>'evento_ref' AND o.huella_sha256=huella AND o.canon=v_canon)
+  IF reservado.reutilizada AND NOT EXISTS(SELECT 1 FROM vec_bolsa_llamamientos.aviso_externo_outbox o WHERE o.llamamiento_ref=previo.llamamiento_ref AND o.productor_ref=v_evento->>'productor_ref' AND o.evento_ref=v_evento->>'evento_ref' AND o.huella_sha256=huella AND o.canon=v_canon)
   THEN RAISE EXCEPTION 'B62: replay de evento divergente' USING ERRCODE='VBE01'; END IF;
   SELECT v.participacion_ref,v.candidato_ref INTO participacion,candidato
    FROM vec_bolsa_llamamientos.vinculo_candidato v
-   WHERE v.candidato_ref=evento->>'destinatario_externo_ref' AND previo.participaciones ? v.participacion_ref
-   AND evento->>'evento_ref'='evento_aviso:'||encode(sha256(convert_to(previo.llamamiento_ref||chr(31)||v.participacion_ref,'UTF8')),'hex');
+   WHERE v.candidato_ref=v_evento->>'destinatario_externo_ref' AND previo.participaciones ? v.participacion_ref
+   AND v_evento->>'evento_ref'='evento_aviso:'||encode(sha256(convert_to(previo.llamamiento_ref||chr(31)||v.participacion_ref,'UTF8')),'hex');
   IF NOT FOUND OR participacion=ANY(vistos)
-     OR evento->>'comunicacion_ref' IS DISTINCT FROM previo.llamamiento_ref
-     OR evento->>'ocurrido_en' IS DISTINCT FROM to_char(previo.emitido_en AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"')
-     OR evento->>'plantilla_ref' IS DISTINCT FROM previo.configuracion->>'plantilla_version'
-     OR evento->>'plantilla_version' IS DISTINCT FROM previo.configuracion->>'plantilla_version'
+     OR v_evento->>'comunicacion_ref' IS DISTINCT FROM previo.llamamiento_ref
+     OR v_evento->>'ocurrido_en' IS DISTINCT FROM to_char(previo.emitido_en AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"')
+     OR v_evento->>'plantilla_ref' IS DISTINCT FROM previo.configuracion->>'plantilla_version'
+     OR v_evento->>'plantilla_version' IS DISTINCT FROM previo.configuracion->>'plantilla_version'
   THEN RAISE EXCEPTION 'B62: destinatario o plantilla ajenos' USING ERRCODE='22023'; END IF;
   IF vec_contexto_actor_v1.es_candidato_externo_avisos_v1(candidato) IS NOT TRUE
   THEN RAISE EXCEPTION 'B62: candidato externo no vigente' USING ERRCODE='42501'; END IF;
   vistos:=array_append(vistos,participacion); n:=n+1;
   IF reservado.reutilizada THEN
-   IF NOT EXISTS(SELECT 1 FROM vec_bolsa_llamamientos.aviso_externo_outbox o WHERE o.llamamiento_ref=previo.llamamiento_ref AND o.participacion_ref=participacion AND o.productor_ref=evento->>'productor_ref' AND o.evento_ref=evento->>'evento_ref' AND o.huella_sha256=huella AND o.canon=v_canon)
+   IF NOT EXISTS(SELECT 1 FROM vec_bolsa_llamamientos.aviso_externo_outbox o WHERE o.llamamiento_ref=previo.llamamiento_ref AND o.participacion_ref=participacion AND o.productor_ref=v_evento->>'productor_ref' AND o.evento_ref=v_evento->>'evento_ref' AND o.huella_sha256=huella AND o.canon=v_canon)
    THEN RAISE EXCEPTION 'B62: replay de evento divergente' USING ERRCODE='VBE01'; END IF;
   ELSE
    INSERT INTO vec_bolsa_llamamientos.aviso_externo_outbox(productor_ref,evento_ref,llamamiento_ref,participacion_ref,evento,canon,huella_sha256,recibo_outbox_ref)
-    VALUES(evento->>'productor_ref',evento->>'evento_ref',previo.llamamiento_ref,participacion,evento,v_canon,huella,'recibo_outbox:'||encode(sha256(convert_to((evento->>'productor_ref')||chr(31)||(evento->>'evento_ref')||chr(31)||huella,'UTF8')),'hex'));
+    VALUES(v_evento->>'productor_ref',v_evento->>'evento_ref',previo.llamamiento_ref,participacion,v_evento,v_canon,huella,'recibo_outbox:'||encode(sha256(convert_to((v_evento->>'productor_ref')||chr(31)||(v_evento->>'evento_ref')||chr(31)||huella,'UTF8')),'hex'));
   END IF;
  END LOOP;
  IF reservado.reutilizada THEN
