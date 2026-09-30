@@ -129,6 +129,9 @@ func (h *Manejador) consultar(w http.ResponseWriter, r *http.Request, actor vecd
 		version = lectura.Vigente.Version
 	}
 	puedeAjustar := lectura.PuedeAjustar && !h.soloLectura
+	if lectura.Historial == nil {
+		lectura.Historial = []app.CambioHistorico{}
+	}
 	reglasVista := make([]reglaVista, 0, len(lectura.Reglas))
 	for _, regla := range lectura.Reglas {
 		if regla.Edicion == nil {
@@ -219,16 +222,40 @@ type reglaVista struct {
 	Cantidad          int               `json:"cantidad"`
 	Computo           string            `json:"computo"`
 	Valores           map[string]string `json:"valores"`
-	Edicion           *reglas.Edicion   `json:"edicion"`
-	Ajuste            *reglas.Ajuste    `json:"ajuste,omitempty"`
+	Edicion           edicionVista      `json:"edicion"`
+	Ajuste            *ajusteVista      `json:"ajuste,omitempty"`
 	AjusteNoAplicable bool              `json:"ajuste_no_aplicable"`
+}
+
+type edicionVista struct {
+	Campos          []string         `json:"campos"`
+	OpcionesUnidad  []reglas.Unidad  `json:"opciones_unidad"`
+	OpcionesComputo []reglas.Computo `json:"opciones_computo"`
+	CantidadMinima  int              `json:"cantidad_minima"`
+	CantidadMaxima  int              `json:"cantidad_maxima"`
+}
+
+type ajusteVista struct {
+	Version      int               `json:"version"`
+	VigenteDesde string            `json:"vigente_desde"`
+	Campos       map[string]string `json:"campos"`
 }
 
 func vistaRegla(r reglas.Regla) reglaVista {
 	v := reglaVista{Clave: r.Clave, Etiqueta: r.Etiqueta, Unidad: string(r.Unidad),
-		Cantidad: r.Cantidad, Computo: string(r.Computo), Edicion: r.Edicion,
-		Ajuste: r.Ajuste, AjusteNoAplicable: r.AjusteNoAplicable,
-		Valores: make(map[string]string, len(r.Edicion.Campos))}
+		Cantidad: r.Cantidad, Computo: string(r.Computo),
+		Edicion: edicionVista{Campos: append([]string{}, r.Edicion.Campos...),
+			OpcionesUnidad:  append([]reglas.Unidad{}, r.Edicion.OpcionesUnidad...),
+			OpcionesComputo: append([]reglas.Computo{}, r.Edicion.OpcionesComputo...),
+			CantidadMinima:  r.Edicion.CantidadMinima,
+			CantidadMaxima:  r.Edicion.CantidadMaxima},
+		AjusteNoAplicable: r.AjusteNoAplicable,
+		Valores:           make(map[string]string, len(r.Edicion.Campos))}
+	if r.Ajuste != nil {
+		v.Ajuste = &ajusteVista{Version: r.Ajuste.Version,
+			VigenteDesde: r.Ajuste.VigenteDesde.UTC().Format("2006-01-02T15:04:05.000000Z"),
+			Campos:       r.Ajuste.Campos}
+	}
 	for _, campo := range r.Edicion.Campos {
 		switch campo {
 		case reglas.CampoCantidad:
