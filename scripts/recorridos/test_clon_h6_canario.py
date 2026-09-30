@@ -355,6 +355,75 @@ class CanaryTests(unittest.TestCase):
         with self.assertRaises(canary.Refused):
             canary.trusted_directory(foreign_directory, self.root)
 
+    def inspector_ownership(self, paths):
+        original = canary.os.fstat
+        def owned(fd):
+            info = original(fd)
+            for path in paths:
+                if path.exists() and (info.st_dev, info.st_ino) == (path.stat().st_dev, path.stat().st_ino):
+                    fields = ("st_dev", "st_ino", "st_uid", "st_gid", "st_mode", "st_nlink",
+                              "st_size", "st_mtime_ns", "st_ctime_ns")
+                    result = {key: getattr(info, key) for key in fields}
+                    result.update(st_uid=10002, st_gid=10002)
+                    return SimpleNamespace(**result)
+            return info
+        return patch.object(canary.os, "fstat", side_effect=owned)
+
+    def test_inspector_owned_input_ancestor_is_refused_before_docker(self):
+        parent = self.root / "inspector-parent"
+        parent.mkdir(mode=0o755)
+        reference = parent / "reference"
+        reference.write_bytes(self.f.paths["reference"].read_bytes())
+        reference.chmod(0o600)
+        self.f.paths["reference"] = reference
+        with patch.object(canary, "UID", 10002), self.inspector_ownership([parent]):
+            self.assert_rejected()
+        self.assertEqual(self.f.runner.calls, [])
+
+    def test_inspector_owned_input_file_and_tree_are_refused(self):
+        for path in (self.f.paths["reference"], self.f.paths["material"]):
+            with self.subTest(path=path.name), patch.object(canary, "UID", 10002), self.inspector_ownership([path]):
+                self.assert_rejected()
+        self.assertEqual(self.f.runner.calls, [])
+
+    def test_inspector_output_and_leaf_are_accepted_only_with_output_role(self):
+        plan = self.f.output / "plan.json"
+        canary.write(plan, self.f.runner.plan)
+        with patch.object(canary, "UID", 10002), patch.object(canary, "GID", 10002), \
+             self.inspector_ownership([self.f.output, plan]):
+            self.assertEqual(canary.output_identity(self.f.config, empty=False)[2:4], (10002, 10002))
+            with self.assertRaisesRegex(canary.Refused, "directory_owner"), canary.directory(self.f.output):
+                pass
+            with canary.directory(self.f.output, path_role="output") as fd:
+                with self.assertRaisesRegex(canary.Refused, "untrusted_file_writer"):
+                    canary.read_at(fd, "plan.json")
+                data, _, metadata = canary.read_at(fd, "plan.json", path_role="output", owner=10002, modes=(0o600,))
+                self.assertEqual(data, self.f.runner.plan)
+                self.assertEqual(metadata[2:4], (10002, 10002))
+
+    def test_output_role_does_not_trust_inspector_owned_ancestor(self):
+        with patch.object(canary, "UID", 10002), self.inspector_ownership([self.f.state]), \
+             self.assertRaisesRegex(canary.Refused, "directory_owner"):
+            canary.output_identity(self.f.config, empty=True)
+
+    def test_output_role_requires_private_operator_parent(self):
+        self.f.state.chmod(0o755)
+        with self.assertRaisesRegex(canary.Refused, "output_parent_private"):
+            canary.output_identity(self.f.config, empty=True)
+
+    def test_full_canary_accepts_inspector_output_with_operator_owned_inputs(self):
+        # Inputs are made readable to the inspector; ownership stays with the
+        # operator. This checks output roles without emulating the archive bridge.
+        for name in ("inspector", "connections", "resolver", "arr", "reference", "ca"):
+            self.f.paths[name].chmod(0o755 if name in ("inspector", "resolver") else 0o644)
+        for name in canary.TREES:
+            self.f.paths[name].chmod(0o755)
+            (self.f.paths[name] / "fixture.json").chmod(0o644)
+        with patch.object(canary, "UID", 10002), patch.object(canary, "GID", 10002), \
+             self.inspector_ownership([self.f.output, self.f.output / "plan.json"]):
+            self.assertEqual(self.run_canary()["canary_exit_code"], 0)
+        self.assertTrue((self.f.state / "plan-canonico-clon.json").exists())
+
     def test_same_file_bytes_under_replaced_ancestor_do_not_promote(self):
         source_parent = self.root / "source-parent"
         source_parent.mkdir(mode=0o700)

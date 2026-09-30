@@ -67,15 +67,18 @@ def canonical(data):
     return (json.dumps(data, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n").encode()
 
 
-def trusted_directory(info, path, *, temporary=False):
-    require(stat.S_ISDIR(info.st_mode) and info.st_uid in (0, os.getuid(), UID), "directory_owner")
+def trusted_directory(info, path, *, path_role="input", temporary=False):
+    require(path_role in ("input", "output"), "path_role")
+    owners = (0, os.getuid(), UID) if path_role == "output" else (0, os.getuid())
+    require(stat.S_ISDIR(info.st_mode) and info.st_uid in owners, "directory_owner")
     sticky_tmp = temporary and path == Path("/tmp") and info.st_uid == 0 and stat.S_IMODE(info.st_mode) == 0o1777
     require(not info.st_mode & 0o022 or sticky_tmp, "directory_writable")
 
 
 @contextmanager
-def directory(path, *, temporary=False):
+def directory(path, *, path_role="input", temporary=False):
     path = Path(path)
+    require(path_role in ("input", "output"), "path_role")
     require(path.is_absolute() and ".." not in path.parts and path != Path("/"), "unsafe_path")
     fd = os.open("/", FLAGS_DIR)
     try:
@@ -86,7 +89,13 @@ def directory(path, *, temporary=False):
             os.close(fd)
             fd = child
             current /= part
-            trusted_directory(os.fstat(fd), current, temporary=temporary)
+            info = os.fstat(fd)
+            # Only the final output directory can belong to the inspector. Its
+            # private parent and every ancestor remain root/operator controlled.
+            role = "output" if path_role == "output" and current == path else "input"
+            trusted_directory(info, current, path_role=role, temporary=temporary)
+            if path_role == "output" and current == path.parent:
+                require(stat.S_IMODE(info.st_mode) == 0o700, "output_parent_private")
         yield fd
     finally:
         os.close(fd)
@@ -115,13 +124,15 @@ def ancestors(path):
     return result
 
 
-def read_at(fd, name, limit=1048576, *, owner=None, modes=None):
+def read_at(fd, name, limit=1048576, *, path_role="input", owner=None, modes=None):
+    require(path_role in ("input", "output"), "path_role")
     leaf = os.open(name, FLAGS_FILE, dir_fd=fd)
     try:
         before = os.fstat(leaf)
         require(stat.S_ISREG(before.st_mode) and before.st_nlink == 1 and
                 0 < before.st_size <= limit, "unsafe_file")
-        require(before.st_uid in (0, os.getuid(), UID) and not before.st_mode & 0o022, "untrusted_file_writer")
+        owners = (0, os.getuid(), UID) if path_role == "output" else (0, os.getuid())
+        require(before.st_uid in owners and not before.st_mode & 0o022, "untrusted_file_writer")
         if owner is not None:
             require(before.st_uid == owner, "file_owner")
         if modes is not None:
@@ -261,7 +272,7 @@ def validate_runtime_inputs(before):
 
 def output_identity(config, *, empty):
     require(config.output.parent == config.state and config.output.name.startswith("canario-salida-"), "output_path")
-    with directory(config.output) as fd:
+    with directory(config.output, path_role="output") as fd:
         info = os.fstat(fd)
         require(info.st_uid == UID and info.st_gid == GID and stat.S_IMODE(info.st_mode) == 0o700, "output_owner")
         require(os.listdir(fd) == ([] if empty else ["plan.json"]), "output_entries")
@@ -433,8 +444,8 @@ def canary(config, runner=run):
         require(pg_identity(config, runner) == pg_before, "pg_changed")
         image_identity(config, runner)
         require(output_identity(config, empty=False) == output_before, "output_changed")
-        with directory(config.output) as output_fd:
-            plan, output_sha, metadata = read_at(output_fd, "plan.json", 131072, owner=UID, modes=(0o600,))
+        with directory(config.output, path_role="output") as output_fd:
+            plan, output_sha, metadata = read_at(output_fd, "plan.json", 131072, path_role="output", owner=UID, modes=(0o600,))
         require(metadata[3] == GID, "output_group")
         parsed = decode(plan)
         require(isinstance(parsed, dict) and set(parsed) == {"conexiones", "huellas"} and
@@ -465,9 +476,9 @@ def canary(config, runner=run):
             require(receipt == canonical(expected), "receipt_binding")
             require(snapshot(config)[0] == before and pg_identity(config, runner) == pg_before, "identity_changed")
             image_identity(config, runner)
-            with directory(config.output) as output_fd:
+            with directory(config.output, path_role="output") as output_fd:
                 require(output_identity(config, empty=False) == output_before, "output_changed")
-                final_plan, final_sha, final_metadata = read_at(output_fd, "plan.json", 131072, owner=UID, modes=(0o600,))
+                final_plan, final_sha, final_metadata = read_at(output_fd, "plan.json", 131072, path_role="output", owner=UID, modes=(0o600,))
                 require(final_plan == plan and final_sha == output_sha and final_metadata == metadata, "output_changed")
                 os.unlink("plan.json", dir_fd=output_fd)
             os.rmdir(config.output.name, dir_fd=state_fd)
