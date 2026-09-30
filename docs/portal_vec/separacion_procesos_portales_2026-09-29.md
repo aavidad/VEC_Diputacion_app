@@ -134,7 +134,7 @@ La entrada pública y el Área personal se arrancan por separado:
 
 | Entrada | Binario y configuración | Acceso |
 | --- | --- | --- |
-| Consulta pública | `vec-publico`, `VEC_EXECUTION_PROFILE=production`, `VEC_AUTH_MODE=disabled`, `VEC_BOLSA_PUBLICA_DATABASE_URL` y las huellas de categorías y manifiesto | TLS de servidor, sin certificado del visitante |
+| Consulta pública | `vec-publico`, `VEC_EXECUTION_PROFILE=produccion`, `VEC_AUTH_MODE=disabled`, `VEC_BOLSA_PUBLICA_DATABASE_URL` y las huellas de categorías y manifiesto | TLS de servidor, sin certificado del visitante |
 | Área personal | `vec-server`, `VEC_PORTAL_PROCESO=externo` y material externo propio | mTLS obligatorio del candidato |
 | RRHH y empleado | `vec-server`, `VEC_PORTAL_PROCESO=interno` y material interno propio | Autenticación interna vigente |
 
