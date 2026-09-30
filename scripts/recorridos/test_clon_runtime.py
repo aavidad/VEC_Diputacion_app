@@ -401,6 +401,35 @@ class RuntimeTests(unittest.TestCase):
         self.assertFalse(Path(environment['VEC_PERSONAL_CATALOG_PATH']).exists())
         self.assertNotIn(str(self.material), json.dumps(descriptor))
 
+    def test_legacy_without_public_declarations_remains_valid_even_when_git_contains_catalogs(self):
+        _, _, top, _ = self.projection_fixture()
+        self.assertNotIn('public_catalogs', top)
+        original = json.loads(self.config.read_text())
+        self.assertNotIn('VEC_PERSONAL_ORGANIZACION_SOURCE_PATH', original)
+        self.assertNotIn('VEC_RPT_CATALOGO_PATH', original)
+        source = self.root / ('source-' + 'a' * 40)
+        for name in ['data/catalogos/estructura-organizativa/v1.rpt-publica.json', 'data/catalogos/rpt/v1.rpt-2026.json']:
+            path = source / name
+            path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+            path.write_bytes((Path(__file__).resolve().parents[2] / name).read_bytes())
+        self.assertEqual(runtime.read_runtime_descriptor(self.root)['mode'], 'interno')
+
+    def test_original_partial_file_or_metadata_declaration_cannot_be_erased_as_legacy(self):
+        root, _, top, sealed = self.projection_fixture()
+        for signal in ['file', 'metadata']:
+            parent = json.loads(json.dumps(top))
+            if signal == 'file':
+                parent['files']['material/catalogos/organizacion-publica.json'] = '0' * 64
+            else:
+                parent['public_catalogs'] = {}
+            normalized = {key: value for key, value in parent.items() if key != 'runtime_interno'}
+            sealed['source_proof']['operator_manifest_sha256'] = hashlib.sha256(json.dumps(normalized, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+            runtime.write_json(root / 'material-manifest.json', sealed)
+            parent['runtime_interno']['manifest_sha256'] = runtime.digest(root / 'material-manifest.json')
+            runtime.write_json(self.root / 'material-manifest.json', parent)
+            with self.subTest(signal=signal), self.assertRaisesRegex(runtime.RuntimeErrorLocal, 'fuentes públicas aprobadas completas'):
+                runtime.read_runtime_descriptor(self.root)
+
     def test_projection_rejects_extra_offline_key_even_with_resealed_manifest(self):
         root, _, top, sealed = self.projection_fixture()
         extra = root / 'material/ca/ca.key'
@@ -442,6 +471,7 @@ class RuntimeTests(unittest.TestCase):
             runtime.write_json(root / 'runtime-config.json', values)
             sealed['files']['runtime-config.json'] = runtime.digest(root / 'runtime-config.json')
             sealed['source_proof']['operator_env_sha256'] = runtime.digest(self.config)
+            top['files']['runtime-config.json'] = runtime.digest(self.config)
             parent = {key: value for key, value in top.items() if key != 'runtime_interno'}
             sealed['source_proof']['operator_manifest_sha256'] = hashlib.sha256(json.dumps(parent, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
             runtime.write_json(root / 'material-manifest.json', sealed)
@@ -451,6 +481,38 @@ class RuntimeTests(unittest.TestCase):
         seal()
         with patch.object(runtime, 'projection_module', return_value=projection):
             self.assertEqual(runtime.read_runtime_descriptor(self.root)['root'], str(root))
+            # Removing every projected signal cannot erase the original opt-in.
+            for key in selectors:
+                values.pop(key)
+            for name in public:
+                sealed['files'].pop('material/' + name)
+                sealed['source_proof']['positive_files'].pop(name)
+                (root / 'material' / name).unlink()
+            seal()
+            with self.assertRaisesRegex(runtime.RuntimeErrorLocal, 'fuentes públicas aprobadas completas'):
+                runtime.read_runtime_descriptor(self.root)
+            for key, name in selectors.items():
+                values[key] = str(root / 'material' / name)
+            for name, evidence in public.items():
+                (root / 'material' / name).write_bytes((self.material / name).read_bytes())
+                sealed['files']['material/' + name] = evidence['sha256']
+                sealed['source_proof']['positive_files'][name] = {'source_sha256': evidence['sha256'], 'projected_sha256': evidence['sha256'], 'unchanged': True}
+            for key, value in list(self.values.items()):
+                if key not in selectors:
+                    continue
+                self.values[key] = ''
+                self.save()
+                seal()
+                with self.subTest(original_empty=key), self.assertRaisesRegex(runtime.RuntimeErrorLocal, 'fuentes públicas aprobadas completas'):
+                    runtime.read_runtime_descriptor(self.root)
+                self.values[key] = str(self.material / selectors[key])
+            self.values['VEC_RPT_CATALOGO_PATH'] = str(self.material / 'identidad/identidad.json')
+            self.save()
+            seal()
+            with self.assertRaisesRegex(runtime.RuntimeErrorLocal, 'fuentes públicas aprobadas completas'):
+                runtime.read_runtime_descriptor(self.root)
+            self.values['VEC_RPT_CATALOGO_PATH'] = str(self.material / 'catalogos/rpt-publica.json')
+            self.save()
             original = values['VEC_RPT_CATALOGO_PATH']
             values['VEC_RPT_CATALOGO_PATH'] = str(root / 'material/identidad/identidad.json')
             seal()

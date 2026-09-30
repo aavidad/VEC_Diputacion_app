@@ -508,14 +508,29 @@ def read_runtime_descriptor(state):
     public_selectors = {'VEC_PERSONAL_ORGANIZACION_SOURCE_PATH': 'catalogos/organizacion-publica.json',
                         'VEC_RPT_CATALOGO_PATH': 'catalogos/rpt-publica.json'}
     projected_config = json.loads(paths['config'].read_text())
-    if present_public or any(projected_config.get(key) for key in public_selectors):
+    operator_config_path = confined(state / 'runtime-config.json', state)
+    operator_config = json.loads(operator_config_path.read_text())
+    original_public = set(top.get('files', {})) & {'material/' + name for name in public_names}
+    original_declares = (original_public or 'public_catalogs' in top
+                         or any(key in operator_config for key in public_selectors))
+    if original_declares or present_public or any(key in projected_config for key in public_selectors):
         approved_public = getattr(projection, 'APPROVED_PUBLIC_SOURCES', {})
         if (present_public != public_names or set(approved_public) != public_names
+                or original_public != {'material/' + name for name in public_names}
+                or top.get('files', {}).get('runtime-config.json') != digest(operator_config_path)
+                or any(operator_config.get(key) != str(state / 'material' / name) for key, name in public_selectors.items())
                 or any(projected_config.get(key) != str(paths['material'] / name) for key, name in public_selectors.items())):
             fail('La proyección necesita las dos fuentes públicas aprobadas completas.')
+        if 'public_catalogs' in top:
+            declaration = top['public_catalogs']
+            if (not isinstance(declaration, dict) or declaration.get('source_commit') != descriptor['source_commit']
+                    or declaration.get('files') != approved_public or declaration.get('sql_authority_changed') is not False):
+                fail('La declaración original de las fuentes públicas es incoherente.')
         for name, evidence in approved_public.items():
             expected_sha = evidence['sha256']
             if (digest(confined(source / evidence['source_path'], source)) != expected_sha
+                    or top['files'].get('material/' + name) != expected_sha
+                    or digest(confined(state / 'material' / name, state)) != expected_sha
                     or positive[name].get('source_sha256') != expected_sha
                     or positive[name].get('projected_sha256') != expected_sha
                     or positive[name].get('unchanged') is not True):
