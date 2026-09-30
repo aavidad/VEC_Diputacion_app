@@ -249,6 +249,8 @@ func (h *manejadorFirmaDocumento) responderError(w http.ResponseWriter, r *http.
 		responderErrorFirmaDocumento(w, r, http.StatusForbidden, "acceso_denegado", "")
 	case errors.Is(err, ports.ErrSolicitudFirmaDocumentoInvalida):
 		responderErrorFirmaDocumento(w, r, http.StatusUnprocessableEntity, "contenido_no_valido", "")
+	case errors.Is(err, ports.ErrExpedienteConsultaFirmasNoEncontrado):
+		responderErrorFirmaDocumento(w, r, http.StatusNotFound, "recurso_no_encontrado", "")
 	case errors.Is(err, application.ErrCircuitoFirmaNoDisponible), errors.Is(err, domain.ErrHistoriaFirmaIncoherente),
 		errors.Is(err, domain.ErrCircuitoFirmaIncoherente):
 		responderErrorFirmaDocumento(w, r, http.StatusServiceUnavailable, "circuito_no_disponible", "", err)
