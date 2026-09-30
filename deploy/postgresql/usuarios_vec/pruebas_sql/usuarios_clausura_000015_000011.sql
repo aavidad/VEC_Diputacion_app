@@ -2,6 +2,7 @@
 -- PG18, clon desechable tras dependencias: una transacción y ROLLBACK.
 -- Dominios exclusivos de pg_temp y secuencia no reversible: el contador
 -- conserva el efecto del CHECK aunque la llamada termine en una excepción.
+-- No sombrear timestamptz: sus declaraciones con precisión no aceptan un dominio.
 BEGIN;
 SET LOCAL search_path=pg_catalog,pg_temp;
 SET LOCAL statement_timeout='60s';
@@ -25,7 +26,6 @@ CREATE DOMAIN pg_temp.numeric AS pg_catalog.numeric CHECK(pg_temp.sonda_clausura
 CREATE DOMAIN pg_temp.oid AS pg_catalog.oid CHECK(pg_temp.sonda_clausura());
 CREATE DOMAIN pg_temp.regrole AS pg_catalog.regrole CHECK(pg_temp.sonda_clausura());
 CREATE DOMAIN pg_temp.regprocedure AS pg_catalog.regprocedure CHECK(pg_temp.sonda_clausura());
-CREATE DOMAIN pg_temp.timestamptz AS pg_catalog.timestamptz CHECK(pg_temp.sonda_clausura());
 CREATE DOMAIN pg_temp.bool AS pg_catalog.bool CHECK(pg_temp.sonda_clausura());
 CREATE DOMAIN pg_temp.int4 AS pg_catalog.int4 CHECK(pg_temp.sonda_clausura());
 CREATE DOMAIN pg_temp.int8 AS pg_catalog.int8 CHECK(pg_temp.sonda_clausura());
@@ -61,7 +61,7 @@ BEGIN
   BEGIN EXECUTE f.consulta;
   EXCEPTION WHEN OTHERS THEN denegada:=true; GET STACKED DIAGNOSTICS estado=RETURNED_SQLSTATE; END;
   IF NOT denegada OR estado NOT IN ('42501','22023') OR (SELECT last_value FROM pg_temp.contador_clausura)=0 THEN
-   RAISE EXCEPTION 'U15-D11: falta control vulnerable para % (%)',f.firma,estado;
+   RAISE EXCEPTION 'U15-D11: falta control vulnerable para % (SQLSTATE %, contador %)',f.firma,estado,(SELECT last_value FROM pg_temp.contador_clausura);
   END IF;
  END LOOP;
 END $vulnerable$;
@@ -91,7 +91,7 @@ BEGIN
   BEGIN EXECUTE f.consulta;
   EXCEPTION WHEN OTHERS THEN denegada:=true; GET STACKED DIAGNOSTICS estado=RETURNED_SQLSTATE; END;
   IF NOT denegada OR estado NOT IN ('42501','22023') OR (SELECT last_value FROM pg_temp.contador_clausura)<>0 THEN
-   RAISE EXCEPTION 'U15-D11: clausura incorrecta para % (%)',f.firma,estado;
+   RAISE EXCEPTION 'U15-D11: clausura incorrecta para % (SQLSTATE %, contador %)',f.firma,estado,(SELECT last_value FROM pg_temp.contador_clausura);
   END IF;
  END LOOP;
 END $cerrada$;
