@@ -22,7 +22,8 @@ import (
 )
 
 const maximoDocumentoCanonicoRPT = 16 << 20
-const maximoRespuestaLecturaRPT = 49 << 20
+const maximoRespuestaLecturaRPT = 48 << 20
+const maximoVersionMaterialRPT = 999_999_999
 
 const (
 	accionListarCategoriasRPT = "vec.catalogos.categorias.listar_habilitadas"
@@ -125,7 +126,8 @@ func (l *LectorCategoriasRPTPostgreSQL) LeerPublicacionCategoriaRPT(ctx context.
 	var cero ports.ResultadoPublicacionCategoriaRPT
 	consulta := o.Consulta
 	if l == nil || consulta.Referencia.CatalogoID != l.descriptor.CatalogoID ||
-		consulta.Referencia.Version < 1 || !huellaRPT.MatchString(consulta.Referencia.HuellaSHA256) ||
+		consulta.Referencia.Version < 1 || consulta.Referencia.Version > maximoVersionMaterialRPT ||
+		!huellaRPT.MatchString(consulta.Referencia.HuellaSHA256) ||
 		!claveRPT.MatchString(consulta.CategoriaID) {
 		return cero, ports.ErrLecturaRPTInvalida
 	}
