@@ -251,6 +251,15 @@ func nuevasCapacidadesPersonalesPortalExterno(cfg config.Config, identidad *reso
 	if err != nil {
 		return nil, nada, err
 	}
+	avisos, err := selectorCapacidadRRHHDesarrollo(cfg, envAvisosExternos)
+	if err != nil {
+		return nil, nada, err
+	}
+	// El receptor pertenece a Usuarios. Mi Bolsa no puede sustituir ni sus
+	// preferencias ni el almacén propio de correos del proceso externo.
+	if avisos && (!preferencias || !correos) {
+		return nil, nada, errAvisosExternos
+	}
 	if (correos || imagen) && !preferencias {
 		return nil, nada, ErrUsuariosPortalExternoNoDisponible
 	}
