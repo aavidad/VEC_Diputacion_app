@@ -5,6 +5,8 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -103,6 +105,26 @@ func TestOperacionAjustesCTNormalizaConflictosYNoFiltraDetalle(t *testing.T) {
 	cancelar()
 	if err := normalizarErrorOperacionAjustesCT(ctx, &pgconn.PgError{Code: "40001"}); !errors.Is(err, context.Canceled) {
 		t.Fatalf("cancelación perdió precedencia: %v", err)
+	}
+}
+
+func TestOperacionAjustesCTDistingueCaidaV3DeDenegacion(t *testing.T) {
+	caida := fmt.Errorf("detalle privado del registro: %w", errors.Join(
+		vecdomain.ErrAutorizacionDenegada,
+		vecports.ErrRegistroConcesionAutorizacionLigadaV3NoDisponible,
+	))
+	normalizada := normalizarErrorOperacionAjustesCT(t.Context(), caida)
+	if !errors.Is(normalizada, ErrOperacionAjustesReglasNoDisponible) ||
+		errors.Is(normalizada, ErrOperacionAjustesReglasDenegada) ||
+		!errors.Is(errorAjustesCTAplicacion(normalizada), app.ErrNoDisponible) ||
+		strings.Contains(normalizada.Error(), "detalle privado") {
+		t.Fatalf("caída V3 expuesta o clasificada como denegación: %v", normalizada)
+	}
+	denegada := normalizarErrorOperacionAjustesCT(t.Context(), vecdomain.ErrAutorizacionDenegada)
+	if !errors.Is(denegada, ErrOperacionAjustesReglasDenegada) ||
+		errors.Is(denegada, ErrOperacionAjustesReglasNoDisponible) ||
+		!errors.Is(errorAjustesCTAplicacion(denegada), vecdomain.ErrAutorizacionDenegada) {
+		t.Fatalf("denegación real no conservada: %v", denegada)
 	}
 }
 
