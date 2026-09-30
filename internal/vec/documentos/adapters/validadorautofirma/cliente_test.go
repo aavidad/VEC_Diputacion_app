@@ -13,6 +13,8 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"net/http"
+	"net/http/httptest"
 	"sort"
 	"strings"
 	"sync"
@@ -208,12 +210,50 @@ func TestTraduccionDeEscenarios(t *testing.T) {
 
 func TestIndisponibilidadEsIndeterminada(t *testing.T) {
 	s := arrancar(t, false)
-	s.Escenario(servidorprueba.Lento)
-	c := configuracion(s)
-	c.Timeout = 150 * time.Millisecond
+	// El servidor conserva la petición sin responder hasta que termina la
+	// comprobación. Si saliera al cancelarse r.Context(), net/http podría
+	// enviar un 200 vacío antes de que el cliente observe su propio timeout.
+	type peticionRecibida struct{ metodo, ruta, autorizacion string }
+	peticiones := make(chan peticionRecibida, 1)
+	liberar := make(chan struct{})
+	lento := httptest.NewTLSServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		peticiones <- peticionRecibida{r.Method, r.URL.Path, r.Header.Get("Authorization")}
+		<-liberar
+	}))
+	t.Cleanup(func() { close(liberar); lento.Close() })
+	c := validadorautofirma.Configuracion{
+		URL: lento.URL, CAPEM: pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: lento.Certificate().Raw}),
+		Token: []byte(tokenPrueba), Timeout: 500 * time.Millisecond,
+	}
 	v := cliente(t, c)
-	if r := verificar(t, v, solicitud([]byte{0x30})); r.Motivo != ports.MotivoValidadorNoDisponible {
-		t.Fatalf("lento: %+v", r)
+	sol := solicitud([]byte{0x30})
+	type respuesta struct {
+		resultado ports.VerificacionFirmaMotivada
+		err       error
+	}
+	terminada := make(chan respuesta, 1)
+	go func() {
+		r, err := v.VerificarMotivado(context.Background(), sol)
+		terminada <- respuesta{r, err}
+	}()
+	select {
+	case p := <-peticiones:
+		if p.metodo != http.MethodPost || p.ruta != validadorautofirma.RutaVerificacion ||
+			p.autorizacion != "Bearer "+tokenPrueba {
+			t.Fatalf("petición HTTP inesperada: %+v", p)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("el servidor TLS no recibió la petición antes del timeout del cliente")
+	}
+	// El handler no emite bytes: el cliente solo puede terminar por timeout.
+	select {
+	case r := <-terminada:
+		if r.err != nil || r.resultado.Motivo != ports.MotivoValidadorNoDisponible ||
+			r.resultado.ValidarContra(sol) != nil {
+			t.Fatalf("lento: %+v %v", r.resultado, r.err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("el cliente no respetó su timeout")
 	}
 	ctx, cancelar := context.WithCancel(context.Background())
 	cancelar()
