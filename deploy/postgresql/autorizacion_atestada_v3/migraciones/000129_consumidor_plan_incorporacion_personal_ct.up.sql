@@ -30,14 +30,14 @@ DECLARE
  extension text:=$x$           OR (
  p_perfil_mutacion IS NOT DISTINCT FROM 'registro_empleado_b2'
  AND c->>'audiencia_consumo' IS NOT DISTINCT FROM 'vec_personal.plan_incorporacion_ct.v1'
- AND c->>'operacion' IN ('personal.plan_incorporacion_ct.preparar','personal.plan_incorporacion_ct.consultar','personal.plan_incorporacion_ct.ejecutar','personal.plan_incorporacion_ct.confirmar','personal.plan_incorporacion_ct.seleccionar')
+ AND c->>'operacion' IN ('personal.plan_incorporacion_ct.preparar','personal.plan_incorporacion_ct.consultar','personal.plan_incorporacion_ct.ejecutar','personal.plan_incorporacion_ct.confirmar','personal.plan_incorporacion_ct.seleccionar','personal.plan_incorporacion_ct.clases_ocupacion')
  AND d->>'accion' IS NOT DISTINCT FROM c->>'operacion'
  AND d->>'modulo_id' IS NOT DISTINCT FROM 'personal'
  AND d->>'tipo_recurso' IS NOT DISTINCT FROM 'plan_incorporacion_ct'
  AND d->>'finalidad' IS NOT DISTINCT FROM 'gestionar_incorporacion_ct'
  AND d->>'recurso_ref' IS NOT DISTINCT FROM c->>'efecto_ref'
  AND d->>'contexto_recurso_huella_sha256' IS NOT DISTINCT FROM c->>'huella_efecto_sha256'
- AND ((c->>'operacion' IS DISTINCT FROM 'personal.plan_incorporacion_ct.seleccionar' AND d->'campos_permitidos' IS NOT DISTINCT FROM '["ejecucion_huella_sha256","ejecucion_recibo_ref","estado","evidencia","plan","recibo_alta_relacion","recibo_ocupacion"]'::jsonb) OR (c->>'operacion' IS NOT DISTINCT FROM 'personal.plan_incorporacion_ct.seleccionar' AND d->'campos_permitidos' IS NOT DISTINCT FROM '["evidencia","seleccion"]'::jsonb))
+ AND d->'campos_permitidos' IS NOT DISTINCT FROM (CASE c->>'operacion' WHEN 'personal.plan_incorporacion_ct.seleccionar' THEN '["evidencia","seleccion"]'::jsonb WHEN 'personal.plan_incorporacion_ct.clases_ocupacion' THEN '["catalogo","evidencia"]'::jsonb ELSE '["ejecucion_huella_sha256","ejecucion_recibo_ref","estado","evidencia","plan","recibo_alta_relacion","recibo_ocupacion"]'::jsonb END)
  AND d->'obligaciones' IS NOT DISTINCT FROM '[]'::jsonb)
 $x$;
 BEGIN
@@ -85,7 +85,7 @@ BEGIN
   ||left(d,length(d)-3)||', '||quote_literal(audiencia)||'::text]))';
 END $audiencias$;
 
--- Solo Personal consume estas cinco operaciones nominales.
+-- Solo Personal consume estas seis operaciones nominales.
 CREATE FUNCTION vec_autorizacion_atestada_v3.consumir_plan_incorporacion_personal_ct_v3_atestada(
  p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea)
 RETURNS TABLE(decision_ref text,efecto_ref text,huella_efecto_sha256 text,consumo_huella_sha256 text,auditoria_ref text,consumida_en timestamptz,consumo_nuevo boolean)
@@ -94,7 +94,7 @@ DECLARE c jsonb; d jsonb; x record;
 BEGIN
  BEGIN c:=convert_from(p_capacidad,'UTF8')::jsonb; d:=convert_from(p_decision,'UTF8')::jsonb;
  EXCEPTION WHEN others THEN RAISE EXCEPTION 'AD3-129: material de consulta inválido' USING ERRCODE='22023'; END;
- IF c->>'operacion' IS NULL OR c->>'operacion' NOT IN ('personal.plan_incorporacion_ct.preparar','personal.plan_incorporacion_ct.consultar','personal.plan_incorporacion_ct.ejecutar','personal.plan_incorporacion_ct.confirmar','personal.plan_incorporacion_ct.seleccionar')
+ IF c->>'operacion' IS NULL OR c->>'operacion' NOT IN ('personal.plan_incorporacion_ct.preparar','personal.plan_incorporacion_ct.consultar','personal.plan_incorporacion_ct.ejecutar','personal.plan_incorporacion_ct.confirmar','personal.plan_incorporacion_ct.seleccionar','personal.plan_incorporacion_ct.clases_ocupacion')
     OR c->>'audiencia_consumo' IS DISTINCT FROM 'vec_personal.plan_incorporacion_ct.v1'
     OR d->>'accion' IS DISTINCT FROM c->>'operacion'
     OR d->>'modulo_id' IS DISTINCT FROM 'personal'
@@ -102,7 +102,7 @@ BEGIN
     OR d->>'finalidad' IS DISTINCT FROM 'gestionar_incorporacion_ct'
     OR d->>'recurso_ref' IS DISTINCT FROM c->>'efecto_ref'
     OR d->>'contexto_recurso_huella_sha256' IS DISTINCT FROM c->>'huella_efecto_sha256'
-    OR d->'campos_permitidos' IS DISTINCT FROM (CASE WHEN c->>'operacion'='personal.plan_incorporacion_ct.seleccionar' THEN '["evidencia","seleccion"]'::jsonb ELSE '["ejecucion_huella_sha256","ejecucion_recibo_ref","estado","evidencia","plan","recibo_alta_relacion","recibo_ocupacion"]'::jsonb END)
+    OR d->'campos_permitidos' IS DISTINCT FROM (CASE WHEN c->>'operacion'='personal.plan_incorporacion_ct.seleccionar' THEN '["evidencia","seleccion"]'::jsonb WHEN c->>'operacion'='personal.plan_incorporacion_ct.clases_ocupacion' THEN '["catalogo","evidencia"]'::jsonb ELSE '["ejecucion_huella_sha256","ejecucion_recibo_ref","estado","evidencia","plan","recibo_alta_relacion","recibo_ocupacion"]'::jsonb END)
     OR d->'obligaciones' IS DISTINCT FROM '[]'::jsonb
  THEN RAISE EXCEPTION 'AD3-129: plan de incorporación denegado' USING ERRCODE='42501'; END IF;
  SELECT * INTO STRICT x FROM vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(

@@ -12,6 +12,7 @@ DO $pre$
 BEGIN
  IF current_user<>'vec_personal_propietario'
     OR to_regclass('vec_personal.plan_incorporacion_ct') IS NOT NULL
+    OR to_regclass('vec_personal.clases_ocupacion_plan_ct_catalogo') IS NOT NULL
     OR to_regclass('vec_personal.registro_empleado_b2_recibo') IS NULL
     OR to_regclass('vec_personal.relacion_servicio_historia') IS NULL
     OR to_regclass('vec_personal.ocupacion_empleado_historia') IS NULL
@@ -21,6 +22,56 @@ BEGIN
     OR NOT has_function_privilege('vec_personal_propietario','vec_autorizacion_atestada_v3.consumir_plan_incorporacion_personal_ct_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
  THEN RAISE EXCEPTION 'Personal23: preimagen incompatible' USING ERRCODE='55000'; END IF;
 END $pre$;
+
+-- Configuración técnica de presentación. Esta colección no acredita una
+-- clasificación jurídica aprobada; cada versión conserva sus datos y textos.
+CREATE TABLE vec_personal.clases_ocupacion_plan_ct_catalogo (
+ ref text NOT NULL CHECK(ref='personal:incorporacion_ct:clases_ocupacion'),
+ version bigint NOT NULL CHECK(version>0),
+ datos_canon text NOT NULL CHECK(octet_length(datos_canon) BETWEEN 1 AND 16384),
+ datos jsonb NOT NULL CHECK(jsonb_typeof(datos)='object' AND datos=datos_canon::jsonb),
+ huella_sha256 text NOT NULL CHECK(huella_sha256=encode(sha256(convert_to(datos_canon,'UTF8')),'hex')),
+ registrada_en timestamptz(6) NOT NULL CHECK(isfinite(registrada_en)),
+ PRIMARY KEY(ref,version), UNIQUE(ref,version,huella_sha256)
+);
+CREATE FUNCTION vec_personal.validar_version_clases_ocupacion_plan_ct() RETURNS trigger
+LANGUAGE plpgsql VOLATILE SECURITY INVOKER SET search_path=pg_catalog AS $f$
+DECLARE anterior bigint; opcion jsonb;
+BEGIN
+ SELECT coalesce(max(version),0) INTO anterior FROM vec_personal.clases_ocupacion_plan_ct_catalogo WHERE ref=NEW.ref;
+ IF NEW.version IS DISTINCT FROM anterior+1
+    OR ARRAY(SELECT jsonb_object_keys(NEW.datos) ORDER BY 1) IS DISTINCT FROM ARRAY['opciones']
+    OR jsonb_typeof(NEW.datos->'opciones') IS DISTINCT FROM 'array'
+    OR jsonb_array_length(NEW.datos->'opciones') NOT BETWEEN 1 AND 3
+    OR (SELECT count(DISTINCT o->>'valor') FROM jsonb_array_elements(NEW.datos->'opciones') o)
+       <>jsonb_array_length(NEW.datos->'opciones') THEN
+  RAISE EXCEPTION 'Personal23: versión de clases inválida' USING ERRCODE='22023'; END IF;
+ FOR opcion IN SELECT value FROM jsonb_array_elements(NEW.datos->'opciones') LOOP
+  IF jsonb_typeof(opcion) IS DISTINCT FROM 'object'
+     OR ARRAY(SELECT jsonb_object_keys(opcion) ORDER BY 1) IS DISTINCT FROM ARRAY['etiquetas','texto_clave','valor']
+     OR opcion->>'valor' IS NULL OR opcion->>'valor' NOT IN ('titular','provisional','temporal')
+     OR opcion->>'texto_clave' IS DISTINCT FROM 'rrhh.ct.incorporacion.b2.clase_ocupacion.opcion.'||(opcion->>'valor')
+     OR jsonb_typeof(opcion->'etiquetas') IS DISTINCT FROM 'object'
+     OR ARRAY(SELECT jsonb_object_keys(opcion->'etiquetas') ORDER BY 1) IS DISTINCT FROM ARRAY['en','es']
+     OR jsonb_typeof(opcion->'etiquetas'->'es') IS DISTINCT FROM 'string'
+     OR jsonb_typeof(opcion->'etiquetas'->'en') IS DISTINCT FROM 'string'
+     OR length(opcion->'etiquetas'->>'es') NOT BETWEEN 1 AND 80
+     OR length(opcion->'etiquetas'->>'en') NOT BETWEEN 1 AND 80 THEN
+   RAISE EXCEPTION 'Personal23: opción de clase inválida' USING ERRCODE='22023'; END IF;
+ END LOOP;
+ RETURN NEW;
+END $f$;
+REVOKE ALL ON FUNCTION vec_personal.validar_version_clases_ocupacion_plan_ct() FROM PUBLIC,vec_personal_ejecutor;
+CREATE TRIGGER version_continua BEFORE INSERT ON vec_personal.clases_ocupacion_plan_ct_catalogo
+ FOR EACH ROW EXECUTE FUNCTION vec_personal.validar_version_clases_ocupacion_plan_ct();
+DO $datos$
+DECLARE canon text:='{"opciones":[{"valor":"titular","texto_clave":"rrhh.ct.incorporacion.b2.clase_ocupacion.opcion.titular","etiquetas":{"es":"Titular","en":"Holder"}},{"valor":"provisional","texto_clave":"rrhh.ct.incorporacion.b2.clase_ocupacion.opcion.provisional","etiquetas":{"es":"Provisional","en":"Provisional"}},{"valor":"temporal","texto_clave":"rrhh.ct.incorporacion.b2.clase_ocupacion.opcion.temporal","etiquetas":{"es":"Temporal","en":"Temporary"}}]}';
+BEGIN
+ INSERT INTO vec_personal.clases_ocupacion_plan_ct_catalogo VALUES(
+  'personal:incorporacion_ct:clases_ocupacion',1,canon,canon::jsonb,
+  encode(sha256(convert_to(canon,'UTF8')),'hex'),clock_timestamp());
+END $datos$;
+
 CREATE TABLE vec_personal.plan_incorporacion_ct (
  idempotencia_ref uuid PRIMARY KEY,
  plan_ref text NOT NULL UNIQUE CHECK(plan_ref ~ '^perplan_[0-9a-f]{32}$'),
@@ -36,6 +87,11 @@ CREATE TABLE vec_personal.plan_incorporacion_ct (
  uso_rpt_ref text NOT NULL UNIQUE,
  reserva_rpt_ref text NOT NULL UNIQUE,
  confirmacion_rpt_ref text NOT NULL UNIQUE,
+ clases_ocupacion_catalogo_ref text NOT NULL,
+ clases_ocupacion_catalogo_version bigint NOT NULL,
+ clases_ocupacion_catalogo_huella_sha256 text NOT NULL,
+ FOREIGN KEY(clases_ocupacion_catalogo_ref,clases_ocupacion_catalogo_version,clases_ocupacion_catalogo_huella_sha256)
+   REFERENCES vec_personal.clases_ocupacion_plan_ct_catalogo(ref,version,huella_sha256),
  huella_sha256 text NOT NULL CHECK(huella_sha256 ~ '^[0-9a-f]{64}$'),
  decision_ref text NOT NULL,
  auditoria_ref text NOT NULL,
@@ -45,7 +101,7 @@ CREATE TABLE vec_personal.plan_incorporacion_ct (
  CHECK((modo='alta_empleado' AND empleado_existente_ref='') OR
        (modo='nueva_relacion' AND empleado_existente_ref ~ '^emp_[A-Za-z0-9_-]{22,128}$')),
  CHECK(organismo_ref=datos->>'organismo_ref' AND idempotencia_ref::text=datos->>'idempotencia_ref'),
- CHECK(huella_sha256=encode(sha256(convert_to(negocio_sha256||'|'||plan_ref||'|'||recibo_ref||'|'||modo||'|'||empleado_existente_ref||'|'||clave_alta_relacion::text||'|'||clave_ocupacion::text||'|'||uso_rpt_ref||'|'||reserva_rpt_ref||'|'||confirmacion_rpt_ref,'UTF8')),'hex'))
+ CHECK(huella_sha256=encode(sha256(convert_to(negocio_sha256||'|'||plan_ref||'|'||recibo_ref||'|'||modo||'|'||empleado_existente_ref||'|'||clave_alta_relacion::text||'|'||clave_ocupacion::text||'|'||uso_rpt_ref||'|'||reserva_rpt_ref||'|'||confirmacion_rpt_ref||'|'||clases_ocupacion_catalogo_ref||'|'||clases_ocupacion_catalogo_version::text||'|'||clases_ocupacion_catalogo_huella_sha256,'UTF8')),'hex'))
 );
 CREATE UNIQUE INDEX plan_incorporacion_ct_origen_uq ON vec_personal.plan_incorporacion_ct (organismo_ref,(datos->>'origen_ct_ref'));
 CREATE TABLE vec_personal.ejecucion_plan_incorporacion_ct (
@@ -61,7 +117,7 @@ CREATE TABLE vec_personal.ejecucion_plan_incorporacion_ct (
 );
 CREATE TABLE vec_personal.acceso_plan_incorporacion_ct (
  recibo_ref text PRIMARY KEY CHECK(recibo_ref ~ '^perplanacc_[0-9a-f]{32}$'),
- operacion text NOT NULL CHECK(operacion IN ('preparar','consultar','ejecutar','confirmar','seleccionar')),
+ operacion text NOT NULL CHECK(operacion IN ('preparar','consultar','ejecutar','confirmar','seleccionar','clases_ocupacion')),
  selector_ref text NOT NULL,
  actor_ref text NOT NULL,
  material_sha256 text NOT NULL CHECK(material_sha256 ~ '^[0-9a-f]{64}$'),
@@ -73,7 +129,7 @@ CREATE TABLE vec_personal.acceso_plan_incorporacion_ct (
 DO $tablas$
 DECLARE t text;
 BEGIN
- FOREACH t IN ARRAY ARRAY['plan_incorporacion_ct','ejecucion_plan_incorporacion_ct','acceso_plan_incorporacion_ct'] LOOP
+ FOREACH t IN ARRAY ARRAY['plan_incorporacion_ct','ejecucion_plan_incorporacion_ct','acceso_plan_incorporacion_ct','clases_ocupacion_plan_ct_catalogo'] LOOP
   EXECUTE format('ALTER TABLE vec_personal.%I ENABLE ROW LEVEL SECURITY',t);
   EXECUTE format('ALTER TABLE vec_personal.%I FORCE ROW LEVEL SECURITY',t);
   EXECUTE format('CREATE POLICY propietario_interno ON vec_personal.%I FOR ALL TO vec_personal_propietario USING(true) WITH CHECK(true)',t);
@@ -82,7 +138,7 @@ BEGIN
   EXECUTE format('REVOKE ALL ON TABLE vec_personal.%I FROM PUBLIC,vec_personal_ejecutor',t);
  END LOOP;
 END $tablas$;
-REVOKE ALL ON TYPE vec_personal.plan_incorporacion_ct,vec_personal.ejecucion_plan_incorporacion_ct,vec_personal.acceso_plan_incorporacion_ct FROM PUBLIC,vec_personal_ejecutor;
+REVOKE ALL ON TYPE vec_personal.plan_incorporacion_ct,vec_personal.ejecucion_plan_incorporacion_ct,vec_personal.acceso_plan_incorporacion_ct,vec_personal.clases_ocupacion_plan_ct_catalogo FROM PUBLIC,vec_personal_ejecutor;
 
 CREATE FUNCTION vec_personal.recibo_plan_ct_interno(p vec_personal.registro_empleado_b2_recibo)
 RETURNS jsonb LANGUAGE sql STABLE SECURITY INVOKER SET search_path=pg_catalog AS $f$
@@ -94,6 +150,18 @@ RETURNS jsonb LANGUAGE sql STABLE SECURITY INVOKER SET search_path=pg_catalog AS
  ELSE jsonb_build_object('hecho_ref',(p).hecho_ref) END;
 $f$;
 REVOKE ALL ON FUNCTION vec_personal.recibo_plan_ct_interno(vec_personal.registro_empleado_b2_recibo) FROM PUBLIC,vec_personal_ejecutor;
+
+
+CREATE FUNCTION vec_personal.validar_clase_plan_ct_interna(p vec_personal.plan_incorporacion_ct)
+RETURNS void LANGUAGE plpgsql STABLE SECURITY INVOKER SET search_path=pg_catalog AS $f$
+BEGIN
+ IF NOT EXISTS (SELECT 1 FROM vec_personal.clases_ocupacion_plan_ct_catalogo c
+   WHERE c.ref=p.clases_ocupacion_catalogo_ref AND c.version=p.clases_ocupacion_catalogo_version
+    AND c.huella_sha256=p.clases_ocupacion_catalogo_huella_sha256
+    AND EXISTS (SELECT 1 FROM jsonb_array_elements(c.datos->'opciones') o WHERE o->>'valor'=p.datos->>'clase_ocupacion')) THEN
+  RAISE EXCEPTION 'Personal23: clase ajena al catálogo original' USING ERRCODE='23505'; END IF;
+END $f$;
+REVOKE ALL ON FUNCTION vec_personal.validar_clase_plan_ct_interna(vec_personal.plan_incorporacion_ct) FROM PUBLIC,vec_personal_ejecutor;
 
 -- No reproduce material de un actor antiguo. Coteja el negocio con los hechos
 -- originales y las claves reservadas; nunca acepta un recibo solo por su ID.
@@ -107,6 +175,7 @@ DECLARE a vec_personal.registro_empleado_b2_recibo%ROWTYPE;
  da jsonb:=p.datos; proc jsonb:=p.datos->'procedencia'; ar jsonb; oc jsonb;
  estado text:='preparado'; ejec_sha text:=''; ejec_rec text:='';
 BEGIN
+ PERFORM vec_personal.validar_clase_plan_ct_interna(p);
  SELECT * INTO a FROM vec_personal.registro_empleado_b2_recibo WHERE idempotencia_ref=p.clave_alta_relacion;
  IF FOUND THEN
   SELECT * INTO r FROM vec_personal.relacion_servicio_historia WHERE relacion_ref=a.relacion_ref AND revision=a.version;
@@ -171,7 +240,10 @@ BEGIN
    'version',1,'huella_sha256',p.huella_sha256,'datos',p.datos,'modo',p.modo,
    'empleado_existente_ref',p.empleado_existente_ref,'clave_alta_relacion',p.clave_alta_relacion,
    'clave_ocupacion',p.clave_ocupacion,'uso_rpt_ref',p.uso_rpt_ref,'reserva_rpt_ref',p.reserva_rpt_ref,
-   'confirmacion_rpt_ref',p.confirmacion_rpt_ref),'estado',estado,'recibo_alta_relacion',ar,
+   'confirmacion_rpt_ref',p.confirmacion_rpt_ref,
+   'clases_ocupacion_catalogo_ref',p.clases_ocupacion_catalogo_ref,
+   'clases_ocupacion_catalogo_version',p.clases_ocupacion_catalogo_version,
+   'clases_ocupacion_catalogo_huella_sha256',p.clases_ocupacion_catalogo_huella_sha256),'estado',estado,'recibo_alta_relacion',ar,
    'recibo_ocupacion',oc,'ejecucion_recibo_ref',ejec_rec,'ejecucion_huella_sha256',ejec_sha);
 END $f$;
 REVOKE ALL ON FUNCTION vec_personal.estado_plan_ct_interno(vec_personal.plan_incorporacion_ct) FROM PUBLIC,vec_personal_ejecutor;
@@ -308,7 +380,7 @@ BEGIN
  RETURN jsonb_build_object('organismo_ref',p_org,'unidad_ref',pl.unidad_ref,'plaza_ref','plaza:'||pl.plaza_ref,
   'puesto_ref','puesto:'||pu.puesto_ref,'desde',s->>'desde','revision_plaza',pl.revision,
   'revision_puesto',pu.revision,'version_plantilla_ref','plantilla:'||vp.version_ref,
-  'version_rpt_ref','rpt:'||vr.version_ref,'revision_plantilla',vp.revision,'revision_rpt',vr.revision,'plantilla_huella_sha256',vp.huella_fuente_sha256,
+  'version_rpt_ref','rpt:'||vr.version_ref,'plantilla_fuente_ref',vp.fuente_ref,'rpt_fuente_ref',vr.fuente_ref,'revision_plantilla',vp.revision,'revision_rpt',vr.revision,'plantilla_huella_sha256',vp.huella_fuente_sha256,
   'rpt_huella_sha256',vr.huella_fuente_sha256,'fuente_organizacion_ref',pl.fuente_ref,
   'fuente_organizacion_huella_sha256',pl.huella_fuente_sha256);
 END $f$;
@@ -321,7 +393,7 @@ CREATE FUNCTION vec_personal.plan_incorporacion_ct_v1(
  SET search_path=pg_catalog SET row_security=on SET timezone='UTC' SET lock_timeout='2s' SET statement_timeout='30s' AS $f$
 DECLARE m jsonb; c jsonb; d jsonb; x jsonb; a jsonb; datos jsonb; seleccion jsonb; op text; selector text; org text;
  datos_raw text; actor_raw text; canon text; sha text; recurso text; recurso_sha text; clave uuid;
- p vec_personal.plan_incorporacion_ct%ROWTYPE; v_consumo record; est jsonb; evidencia jsonb;
+ p vec_personal.plan_incorporacion_ct%ROWTYPE; v_consumo record; catalogo vec_personal.clases_ocupacion_plan_ct_catalogo%ROWTYPE; est jsonb; evidencia jsonb;
  acceso text; k text; n bigint; emp text; modo text; planref text; reciboref text; ka uuid; ko uuid;
  uso text; reserva text; confirmacion text; ph text; dec_hasta timestamptz; cap_hasta timestamptz;
 BEGIN
@@ -344,7 +416,7 @@ BEGIN
  IF jsonb_typeof(m) IS DISTINCT FROM 'object'
     OR ARRAY(SELECT jsonb_object_keys(m) ORDER BY 1) IS DISTINCT FROM (CASE WHEN op='seleccionar' THEN ARRAY['actor','datos','esquema','negocio_sha256','operacion','organismo_ref','plan_ref','seleccion'] ELSE ARRAY['actor','datos','esquema','negocio_sha256','operacion','organismo_ref','plan_ref'] END)
     OR m->>'esquema' IS DISTINCT FROM 'vec.personal.plan-incorporacion-ct.v1'
-    OR op IS NULL OR op NOT IN ('preparar','consultar','ejecutar','confirmar','seleccionar')
+    OR op IS NULL OR op NOT IN ('preparar','consultar','ejecutar','confirmar','seleccionar','clases_ocupacion')
     OR org IS NULL OR org !~ '^[a-z][a-z0-9_:-]{2,127}$'
     OR selector IS NULL OR jsonb_typeof(a) IS DISTINCT FROM 'object'
     OR ARRAY(SELECT jsonb_object_keys(a) ORDER BY 1) IS DISTINCT FROM ARRAY['actor_ref','contexto_actor_ref','contexto_version','cuenta_ref','cuenta_version','perfil_ref','perfil_version','persona_ref','persona_version']
@@ -386,6 +458,11 @@ BEGIN
   IF datos->>'idempotencia_ref' IS DISTINCT FROM selector OR datos->>'organismo_ref' IS DISTINCT FROM org
      OR encode(sha256(convert_to(datos_raw,'UTF8')),'hex') IS DISTINCT FROM m->>'negocio_sha256' THEN
    RAISE EXCEPTION 'Personal23: negocio divergente' USING ERRCODE='22023'; END IF;
+ ELSIF op='clases_ocupacion' THEN
+  IF selector IS DISTINCT FROM org OR datos IS DISTINCT FROM 'null'::jsonb
+     OR m->>'negocio_sha256' IS DISTINCT FROM '' THEN
+   RAISE EXCEPTION 'Personal23: selector de catálogo inválido' USING ERRCODE='22023'; END IF;
+  datos_raw:='null';
  ELSIF op='seleccionar' THEN
   seleccion:=m->'seleccion';
   IF selector !~ '^plaza:[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$' OR datos IS DISTINCT FROM 'null'::jsonb
@@ -427,7 +504,7 @@ BEGIN
     OR d->>'finalidad' IS DISTINCT FROM 'gestionar_incorporacion_ct'
     OR d->>'recurso_ref' IS DISTINCT FROM selector OR d->>'contexto_recurso_huella_sha256' IS DISTINCT FROM recurso_sha
     OR d->'obligaciones' IS DISTINCT FROM '[]'::jsonb
-    OR d->'campos_permitidos' IS DISTINCT FROM (CASE WHEN op='seleccionar' THEN '["evidencia","seleccion"]'::jsonb ELSE '["ejecucion_huella_sha256","ejecucion_recibo_ref","estado","evidencia","plan","recibo_alta_relacion","recibo_ocupacion"]'::jsonb END) THEN
+    OR d->'campos_permitidos' IS DISTINCT FROM (CASE WHEN op='seleccionar' THEN '["evidencia","seleccion"]'::jsonb WHEN op='clases_ocupacion' THEN '["catalogo","evidencia"]'::jsonb ELSE '["ejecucion_huella_sha256","ejecucion_recibo_ref","estado","evidencia","plan","recibo_alta_relacion","recibo_ocupacion"]'::jsonb END) THEN
   RAISE EXCEPTION 'Personal23: permiso nominal divergente' USING ERRCODE='42501'; END IF;
  SELECT * INTO STRICT v_consumo FROM vec_autorizacion_atestada_v3.consumir_plan_incorporacion_personal_ct_v3_atestada(
   p_capacidad,p_decision,p_motivo,p_contexto,p_persona_version,p_perfil_version,p_payload,p_sobre,p_evidencia,p_raiz);
@@ -438,7 +515,15 @@ BEGIN
     OR v_consumo.consumida_en>=cap_hasta OR v_consumo.consumida_en>=dec_hasta THEN
   RAISE EXCEPTION 'Personal23: consumo divergente' USING ERRCODE='42501'; END IF;
  PERFORM pg_advisory_xact_lock(hashtextextended('vec_personal:plan-incorporacion-ct:'||selector,0));
- IF op='seleccionar' THEN
+ IF op='clases_ocupacion' THEN
+  SELECT * INTO catalogo FROM vec_personal.clases_ocupacion_plan_ct_catalogo
+  WHERE ref='personal:incorporacion_ct:clases_ocupacion' ORDER BY version DESC LIMIT 1;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Personal23: catálogo no disponible' USING ERRCODE='55000'; END IF;
+  est:=jsonb_build_object('catalogo',jsonb_build_object('ref',catalogo.ref,'version',catalogo.version,
+    'huella_sha256',catalogo.huella_sha256,'opciones',(SELECT jsonb_agg(jsonb_build_object(
+      'valor',o->>'valor','texto_clave',o->>'texto_clave') ORDER BY ord)
+     FROM jsonb_array_elements(catalogo.datos->'opciones') WITH ORDINALITY x(o,ord))));
+ ELSIF op='seleccionar' THEN
   est:=jsonb_build_object('seleccion',vec_personal.seleccion_plan_ct_interna(org,seleccion));
  ELSIF op='preparar' THEN
   clave:=selector::uuid;
@@ -455,6 +540,12 @@ BEGIN
     IF seleccion->>k IS DISTINCT FROM datos->>k THEN
      RAISE EXCEPTION 'Personal23: fuente estructural del plan divergente' USING ERRCODE='42501'; END IF;
    END LOOP;
+   SELECT * INTO catalogo FROM vec_personal.clases_ocupacion_plan_ct_catalogo
+    WHERE ref='personal:incorporacion_ct:clases_ocupacion' ORDER BY version DESC LIMIT 1;
+   IF NOT FOUND THEN RAISE EXCEPTION 'Personal23: catálogo no disponible' USING ERRCODE='55000'; END IF;
+   IF NOT EXISTS (SELECT 1 FROM jsonb_array_elements(catalogo.datos->'opciones') o
+      WHERE o->>'valor'=datos->>'clase_ocupacion') THEN
+    RAISE EXCEPTION 'Personal23: clase no publicada' USING ERRCODE='22023'; END IF;
    -- La relación histórica evita una segunda alta tras vencer una proyección.
    -- B2 conserva su control de vigencia al ejecutar la nueva relación.
    PERFORM vec_personal.bloquear_generacion_proyeccion_empleado_persona_v1(datos->>'persona_ref');
@@ -468,16 +559,16 @@ BEGIN
    ka:=gen_random_uuid(); ko:=gen_random_uuid();
    uso:='uso:'||gen_random_uuid()::text; reserva:='reserva:'||gen_random_uuid()::text;
    confirmacion:='confirmacion:'||gen_random_uuid()::text;
-   ph:=encode(sha256(convert_to((m->>'negocio_sha256')||'|'||planref||'|'||reciboref||'|'||modo||'|'||emp||'|'||ka::text||'|'||ko::text||'|'||uso||'|'||reserva||'|'||confirmacion,'UTF8')),'hex');
+   ph:=encode(sha256(convert_to((m->>'negocio_sha256')||'|'||planref||'|'||reciboref||'|'||modo||'|'||emp||'|'||ka::text||'|'||ko::text||'|'||uso||'|'||reserva||'|'||confirmacion||'|'||catalogo.ref||'|'||catalogo.version::text||'|'||catalogo.huella_sha256,'UTF8')),'hex');
    INSERT INTO vec_personal.plan_incorporacion_ct VALUES(clave,planref,reciboref,org,datos_raw,datos,
-    m->>'negocio_sha256',modo,emp,ka,ko,uso,reserva,confirmacion,ph,v_consumo.decision_ref,
+    m->>'negocio_sha256',modo,emp,ka,ko,uso,reserva,confirmacion,catalogo.ref,catalogo.version,catalogo.huella_sha256,ph,v_consumo.decision_ref,
     v_consumo.auditoria_ref,v_consumo.consumo_huella_sha256,v_consumo.consumida_en) RETURNING * INTO p;
   END IF;
  ELSE
   SELECT * INTO p FROM vec_personal.plan_incorporacion_ct WHERE plan_ref=selector AND organismo_ref=org;
   IF NOT FOUND THEN RAISE EXCEPTION 'Personal23: plan no encontrado' USING ERRCODE='P7404'; END IF;
  END IF;
- IF op<>'seleccionar' THEN est:=vec_personal.estado_plan_ct_interno(p); END IF;
+ IF op NOT IN ('seleccionar','clases_ocupacion') THEN est:=vec_personal.estado_plan_ct_interno(p); END IF;
  IF op='ejecutar' AND est->>'estado' IN ('preparado','relacion_registrada') THEN
   BEGIN
    seleccion:=vec_personal.seleccion_plan_ct_interna(org,jsonb_build_object(
@@ -643,7 +734,7 @@ DECLARE f record; a record; t record; permitido oid;
 BEGIN
  FOR f IN SELECT p.oid,p.proowner,p.proname FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
  WHERE n.nspname='vec_personal' AND p.proname IN ('recibo_plan_ct_interno','estado_plan_ct_interno',
-   'validar_datos_plan_ct_interno','seleccion_plan_ct_interna','plan_incorporacion_ct_v1','registrar_acto_plan_incorporacion_ct_v1','probar_origen_incorporacion_plan_v1') LOOP
+   'validar_datos_plan_ct_interno','validar_clase_plan_ct_interna','validar_version_clases_ocupacion_plan_ct','seleccion_plan_ct_interna','plan_incorporacion_ct_v1','registrar_acto_plan_incorporacion_ct_v1','probar_origen_incorporacion_plan_v1') LOOP
   permitido:=CASE WHEN f.proname IN ('plan_incorporacion_ct_v1','registrar_acto_plan_incorporacion_ct_v1') THEN 'vec_personal_ejecutor'::regrole::oid
     WHEN f.proname='probar_origen_incorporacion_plan_v1' THEN 'vec_contratacion_temporal_propietario'::regrole::oid ELSE f.proowner END;
   FOR a IN SELECT DISTINCT x.grantee FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) x
@@ -653,7 +744,7 @@ BEGIN
   END LOOP;
  END LOOP;
  FOR t IN SELECT c.oid,c.relowner FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
- WHERE n.nspname='vec_personal' AND c.relname IN ('plan_incorporacion_ct','ejecucion_plan_incorporacion_ct','acceso_plan_incorporacion_ct') LOOP
+ WHERE n.nspname='vec_personal' AND c.relname IN ('plan_incorporacion_ct','ejecucion_plan_incorporacion_ct','acceso_plan_incorporacion_ct','clases_ocupacion_plan_ct_catalogo') LOOP
   FOR a IN SELECT DISTINCT x.grantee FROM pg_class c CROSS JOIN LATERAL aclexplode(coalesce(c.relacl,acldefault('r',c.relowner))) x
    WHERE c.oid=t.oid AND x.grantee<>t.relowner LOOP
    EXECUTE format('REVOKE ALL ON TABLE %s FROM %s',t.oid::regclass,
