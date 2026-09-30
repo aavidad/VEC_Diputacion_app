@@ -188,12 +188,13 @@ BEGIN
   NULL::bytea,NULL::bytea,NULL::bytea,NULL::bytea,NULL::numeric,NULL::numeric,
   NULL::bytea,NULL::bytea,NULL::bytea,NULL::bytea);
  fila:=salida.instantaneas_regla[1];
- IF cardinality(salida.instantaneas_regla)<>1 OR fila->>'estado'<>'capturada'
-    OR fila->>'expediente_ref'<>current_setting('ct157.ref')
-    OR (fila->>'version_expediente')::numeric<>current_setting('ct157.version')::numeric
-    OR fila->>'fase'<>current_setting('ct157.fase')
-    OR jsonb_array_length(salida.bases_regla)<>1
-    OR jsonb_array_length(salida.ajustes_regla)<>1 THEN
+ IF cardinality(salida.instantaneas_regla) IS DISTINCT FROM 1
+    OR fila->>'estado' IS DISTINCT FROM 'capturada'
+    OR fila->>'expediente_ref' IS DISTINCT FROM current_setting('ct157.ref')
+    OR (fila->>'version_expediente')::numeric IS DISTINCT FROM current_setting('ct157.version')::numeric
+    OR fila->>'fase' IS DISTINCT FROM current_setting('ct157.fase')
+    OR jsonb_array_length(salida.bases_regla) IS DISTINCT FROM 1
+    OR jsonb_array_length(salida.ajustes_regla) IS DISTINCT FROM 1 THEN
   RAISE EXCEPTION 'CT157: vínculo nominal o diccionario divergente';
  END IF;
 END $fachada$;
