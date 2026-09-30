@@ -57,22 +57,39 @@ test("el cliente GET y POST conserva origen, clave y señal; distingue conflicto
 test("la pantalla muestra resumen, historia y recibo, escapa datos; desactiva cambios sin motivos", () => {
   const datos = validarLecturaAjustes(lectura());
   const html = renderizarAjustes(datos, { reglaActiva: "c03.plazo_fiscalizacion", fase: "revision",
-    borrador: { cantidad: "7", cantidad_urgente: "4", motivo_clave: "respuesta_rrhh_duda" }, recibo: recibo().data.recibo });
+    borrador: { cantidad: "7", cantidad_urgente: "4", motivo_clave: "respuesta_rrhh_duda",
+      referencia: "Acuerdo 12/2026", nota: "Revisión anual" }, recibo: recibo().data.recibo, aviso: "Cambio guardado" });
   assert.match(html, /Plazo de fiscalización/u);
   assert.match(html, /10 Días hábiles/u);
   assert.match(html, /10 Días hábiles → 7 Días hábiles/u);
+  assert.match(html, /data-ajustes-revision/u);
+  assert.match(html, /Respuesta de RRHH a una duda/u);
+  assert.match(html, /Acuerdo 12\/2026/u);
+  assert.match(html, /Revisión anual/u);
+  assert.match(html, /data-ajustes-recibo/u);
+  assert.match(html, /data-ajustes-estado/u);
   assert.match(html, /Duda 63/u);
   assert.match(html, /Persona de RRHH/u);
+  assert.match(html, /<summary>Ver justificante<\/summary>/u);
   assert.match(html, /Auditoría:/u);
   const sinMotivos = { ...datos, motivos: [] };
   assert.match(renderizarAjustes(sinMotivos), /data-ajustes-editar="c03.plazo_fiscalizacion" disabled/u);
   assert.match(renderizarAjustes(datos, { bloqueado: true, error: true, aviso: "Conflicto" }), /data-ajustes-reintentar/u);
+  const motivoRetirado = renderizarAjustes({ ...datos, motivos: [{ clave: "acuerdo_instruccion", texto_clave: "ajustesMotivo_acuerdo_instruccion" }] },
+    { reglaActiva: "c03.plazo_fiscalizacion", fase: "revision", borrador: { cantidad: "7", cantidad_urgente: "4", motivo_clave: "respuesta_rrhh_duda" } });
+  assert.match(motivoRetirado, /Motivo anterior no disponible/u);
+  assert.match(motivoRetirado, /data-ajustes-enviar disabled/u);
   const revision = { ...datos, reglas: [{ ...datos.reglas[0], ajuste_no_aplicable: true, valores: { cantidad: "0", cantidad_urgente: "0", unidad: "dias_habiles" } }] };
   assert.doesNotMatch(renderizarAjustes(revision), /0 Días hábiles/u);
   assert.match(renderizarAjustes(revision), /RRHH debe revisarlo/u);
   const malicioso = { ...datos, reglas: [{ ...datos.reglas[0], etiqueta: "<img src=x>" }] };
   assert.ok(!renderizarAjustes(malicioso).includes("<img src=x>"));
   assert.match(renderizarAjustes(malicioso), /&lt;img src=x&gt;/u);
+  const camposMaliciosos = renderizarAjustes(datos, { reglaActiva: "c03.plazo_fiscalizacion", fase: "revision",
+    borrador: { cantidad: "7", cantidad_urgente: "4", motivo_clave: "respuesta_rrhh_duda",
+      referencia: "<script>x</script>", nota: "<img src=x>" } });
+  assert.ok(!camposMaliciosos.includes("<script>x</script>"));
+  assert.ok(!camposMaliciosos.includes("<img src=x>"));
 });
 
 test("los textos de ajuste existen en ambos idiomas y el módulo no incluye frases visibles", () => {

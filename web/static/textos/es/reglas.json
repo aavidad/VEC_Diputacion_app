@@ -110,7 +110,10 @@
     "ajustesCorregir": "Cambiar datos",
     "ajustesSoloLectura": "Puede consultar los valores y su historial. La edición se habilitará cuando los plazos en curso conserven su valor al cambiar una regla.",
     "ajustesConflictoSinLectura": "Otra persona cambió estos plazos y no se ha podido cargar la versión nueva. Pulse Reintentar antes de guardar.",
-    "resultado": "Contenido de reglas y plazos"
+    "resultado": "Contenido de reglas y plazos",
+    "ajustesNotaHistoria": "Nota: {nota}",
+    "ajustesVerJustificante": "Ver justificante",
+    "ajustesValorHistoricoNoDisponible": "Valor no disponible"
   },
   "presentacion": {
     "bolsa": {
