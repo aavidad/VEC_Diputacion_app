@@ -7,11 +7,13 @@ import (
 	"errors"
 	"net/http"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	ctports "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	"vec-diputacion-granada/internal/vec/adapters/conservacion"
 	"vec-diputacion-granada/internal/vec/adapters/seguridad"
 	vecapp "vec-diputacion-granada/internal/vec/application"
 	docports "vec-diputacion-granada/internal/vec/documentos/ports"
@@ -194,5 +196,85 @@ func TestCustodiaPDPComunFuenteCaidaConRevocacionConfirmadaDeniega(t *testing.T)
 	})
 	if _, err := e.firma.solicitarCustodiaV3(e.ctx, e.recurso); !errors.Is(err, errCustodiaFirmadoCTDenegada) || errors.Is(err, docports.ErrCapacidadNoDisponible) {
 		t.Fatalf("revocación concurrente confirmada: %v", err)
+	}
+}
+
+// Conserva el PDP, la plantilla, el servicio de Documentos y su fábrica V3
+// reales. Solo el exportador de material es sintético: no acredita COSE/SQL.
+type pdpCustodiaInterrumpidaPrueba struct {
+	firma            *firmaDocumentoCTDesarrollo
+	t                *testing.T
+	antesAlmacen     func()
+	consultasAlmacen int
+}
+
+func (p *pdpCustodiaInterrumpidaPrueba) solicitarCustodiaV3(ctx context.Context, recurso core.RecursoAutorizable) (solicitudCustodiaCTDesarrollo, error) {
+	if len(recurso.Atributos) > 1 {
+		p.consultasAlmacen++
+		p.antesAlmacen()
+	}
+	return p.firma.solicitarCustodiaV3(ctx, recurso)
+}
+
+func (p *pdpCustodiaInterrumpidaPrueba) materialCustodiaV3(ctx context.Context, s solicitudCustodiaCTDesarrollo) (vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
+	return (&pdpE2E{t: p.t, actor: actorE2E{principal: s.actor.PrincipalID, perfilActivo: s.actor.PerfilActivoRef}}).materialCustodiaV3(ctx, s)
+}
+
+func TestCustodiaPDPComunClasificaFalloEntreV3YAlmacen(t *testing.T) {
+	for _, nombre := range []string{"revocacion", "fuente_caida", "cancelacion"} {
+		t.Run(nombre, func(t *testing.T) {
+			e := nuevoEscenarioCustodiaPDP(t, true, nil)
+			p := &pdpCustodiaInterrumpidaPrueba{firma: e.firma, t: t}
+			ctx, cancelar := context.WithCancel(e.ctx)
+			defer cancelar()
+			a := e.soporte.autoridadAsignaciones.(*autoridadAsignacionesContratacionTemporalDesarrolloPrueba)
+			p.antesAlmacen = func() {
+				if nombre == "cancelacion" {
+					cancelar()
+					return
+				}
+				if nombre == "fuente_caida" {
+					e.soporte.autoridadAsignaciones = fuentePerfilFirmaCaidaPrueba{a}
+					return
+				}
+				i := a.asignaciones[e.perfil.perfilRef()]
+				i.instantanea.AsignacionPerfil.Estado = core.EstadoAsignacionPerfilRevocada
+				i.instantanea.AsignacionPerfil.RevocadaEn = e.soporte.reloj.Ahora()
+				i.instantanea.AsignacionPerfil.RevocadaPor = "revocador:prueba"
+				i.instantanea.AsignacionPerfil.RevocacionRef = "revocacion:prueba"
+				a.asignaciones[e.perfil.perfilRef()] = i
+			}
+			catalogo, err := conservacion.NuevoCatalogoProvisional(relojE2E{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			d, err := nuevaCustodiaDocumentosDesarrollo(&custodiaFirmadoConfigDesarrollo{Documentos: map[string]string{"resolucion": "contratacion_temporal.resolucion_firmada.v1"}},
+				repositorioCustodiaNoUsado{}, almacenNoUsado{}, catalogo, relojE2E{}, nuevoSeudonimizadorAlmacenDesarrollo([32]byte{1}))
+			if err != nil {
+				t.Fatal(err)
+			}
+			c, err := nuevaCustodiaFirmadoCTDesarrollo(p, d, relojE2E{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, err = c.CustodiarFirmado(ctx, ctports.OrdenCustodiaFirmado{
+				DocumentoRef: "ref:" + strings.Repeat("d", 64), ClaveIdempotencia: "ref:" + strings.Repeat("c", 64),
+				ExpedienteRef: "ref:" + strings.Repeat("e", 64), TipoDocumental: "contratacion_temporal.resolucion_firmada.v1",
+				Version: 1, Contenido: []byte("%PDF-1.7 firmado"), HuellaOriginalSHA256: strings.Repeat("a", 64),
+				FirmaOperacionRef: "ref:" + strings.Repeat("f", 64),
+			})
+			esperado := ctports.ErrCustodiaFirmadoDenegada
+			if nombre == "fuente_caida" {
+				esperado = ctports.ErrCustodiaFirmadoNoDisponible
+			}
+			if nombre == "cancelacion" {
+				esperado = context.Canceled
+			}
+			if !errors.Is(err, esperado) || p.consultasAlmacen != 1 {
+				t.Fatalf("causa del PDP perdida: %v, consultas almacen %d", err, p.consultasAlmacen)
+			}
+			// Los dobles sin implementación de repositorio/almacén causarían
+			// pánico si se llegase a escribir tras cualquiera de estos fallos.
+		})
 	}
 }

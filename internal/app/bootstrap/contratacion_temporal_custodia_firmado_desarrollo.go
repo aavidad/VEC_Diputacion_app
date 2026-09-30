@@ -132,6 +132,9 @@ func (c *custodiaFirmadoCTDesarrollo) CustodiarFirmado(ctx context.Context, o po
 	if c == nil || c.servicio == nil || c.documentos == nil || ctx == nil {
 		return cero, ports.ErrCustodiaFirmadoNoDisponible
 	}
+	if err := ctx.Err(); err != nil {
+		return cero, err
+	}
 	tipo, err := c.documentos.politicas.TipoDocumentalRef(o.TipoDocumental)
 	if err != nil {
 		return cero, ports.ErrCustodiaFirmadoInvalida
@@ -149,6 +152,9 @@ func (c *custodiaFirmadoCTDesarrollo) CustodiarFirmado(ctx context.Context, o po
 		ExpedienteRef: o.ExpedienteRef, TipoRef: tipo, Version: o.Version, Contenido: o.Contenido,
 		HuellaOriginalSHA256: o.HuellaOriginalSHA256, FirmaOperacionRef: o.FirmaOperacionRef, SolicitudPolitica: solicitud,
 	}, c)
+	if err != nil && ctx.Err() != nil {
+		return cero, ctx.Err()
+	}
 	switch {
 	case err == nil:
 		return ports.DocumentoCustodiado{Ref: d.ID, Version: d.Version, HuellaSHA256: d.HuellaSHA256}, nil
@@ -158,7 +164,12 @@ func (c *custodiaFirmadoCTDesarrollo) CustodiarFirmado(ctx context.Context, o po
 		return cero, ports.ErrCustodiaFirmadoInvalida
 	case errors.Is(err, docports.ErrConflicto):
 		return cero, ports.ErrCustodiaFirmadoEnConflicto
-	case errors.Is(err, errCustodiaFirmadoCTDenegada), errors.Is(err, docports.ErrAccesoDenegado):
+	case errors.Is(err, docports.ErrCapacidadNoDisponible):
+		// La fábrica del almacén envuelve también los fallos de fuente en
+		// autorización inválida: conservar la indisponibilidad explícita.
+		return cero, ports.ErrCustodiaFirmadoNoDisponible
+	case errors.Is(err, errCustodiaFirmadoCTDenegada), errors.Is(err, docports.ErrAccesoDenegado),
+		errors.Is(err, puertosvec.ErrAutorizacionAlmacenInvalida):
 		return cero, ports.ErrCustodiaFirmadoDenegada
 	default:
 		return cero, ports.ErrCustodiaFirmadoNoDisponible
