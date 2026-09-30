@@ -267,6 +267,17 @@ if [[ ! -e "$fuente" ]]; then
   mkdir -m 700 "$fuente"
   git -C "$repo" archive "$commit" | tar -x -C "$fuente"
 fi
+etapas_sql=$(python3 "$guiones/clon_sql.py" --repo "$fuente" --git-repo "$repo" --source-ref "$commit" --container "$nombre" --state-dir "$estado" --steps)
+while IFS= read -r paso_sql; do
+  fuente_sql="$estado/fuente-sql-$paso_sql"
+  if [[ ! -e "$fuente_sql" ]]; then
+    mkdir -m 700 "$fuente_sql"
+    git -C "$repo" archive "$paso_sql" | tar -x -C "$fuente_sql"
+  fi
+  python3 "$guiones/clon_sql.py" --repo "$fuente_sql" --git-repo "$repo" --source-ref "$paso_sql" --container "$nombre" --state-dir "$estado"
+done < <(python3 -c 'import json,sys; print("\n".join(json.load(sys.stdin)))' <<<"$etapas_sql")
+# La última llamada verifica la fuente de la aplicación, incluso cuando todos
+# los prefijos físicos ya estaban instalados.
 python3 "$guiones/clon_sql.py" --repo "$fuente" --git-repo "$repo" --source-ref "$commit" --container "$nombre" --state-dir "$estado"
 python3 - "$marcador" "$estado" "$commit" <<'PY'
 import datetime,json,os,pathlib,sys
@@ -290,7 +301,7 @@ opciones_material=()
 if [[ -f "$estado/material-manifest.json" ]]; then opciones_material+=(--upgrade-source); fi
 if [[ "$refrescar_prueba" == true ]]; then opciones_material+=(--refresh-internal-proof); fi
 estado_material=0
-python3 "$guiones/clon_material.py" --repo "$repo" --source-archive "$estado/source-$commit" --commit "$commit" --container "$nombre" --output "$estado" --port "$puerto_web" --pg-port "$puerto_pg" --repair-coverage-connect --repair-nominal-connect --complete-profiles "${opciones_material[@]}" || estado_material=$?
+python3 "$guiones/clon_material.py" --repo "$repo" --source-archive "$estado/source-$commit" --commit "$commit" --container "$nombre" --output "$estado" --port "$puerto_web" --pg-port "$puerto_pg" --repair-coverage-connect --repair-importacion-connect --repair-nominal-connect --complete-profiles "${opciones_material[@]}" || estado_material=$?
 [[ "$estado_material" == 0 || "$estado_material" == 3 ]] || exit "$estado_material"
 finalizar_arranque
 
