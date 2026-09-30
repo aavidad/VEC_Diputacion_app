@@ -58,6 +58,89 @@ class RuntimeTests(unittest.TestCase):
         with self.assertRaises(runtime.RuntimeErrorLocal):
             runtime.validate_material(self.root, 'a' * 40, 18531, 55531)
 
+    def smtp_fixture(self):
+        ca = self.material / 'ca/ca.crt'
+        ca.chmod(0o600)
+        self.values.update({'VEC_SMTP_HOST': '127.0.0.1', 'VEC_SMTP_PORT': '11025',
+                            'VEC_SMTP_FROM': 'rrhh@example.test', 'VEC_SMTP_CA_FILE': str(ca),
+                            'VEC_SMTP_MODO_TLS': 'starttls'})
+        with (self.source / 'config/config.go').open('a') as stream:
+            stream.write('\n'.join('"' + k + '"' for k in self.values if k.startswith('VEC_SMTP_')))
+        proxy = self.root / 'comunicaciones/proxy-11025.json'
+        proxy.parent.mkdir()
+        proxy.write_text('{}')
+        proxy.chmod(0o600)
+        proof = {'smtp_ready': True, 'smtp_scope': 'synthetic_local_sink', 'corporate_delivery': False,
+                 'starttls_verified': True, 'external_recipient_rejected': True,
+                 'mailpit_container': 'vec-codexm-recorridos-mailpit-20260930',
+                 'loopback_proxies': [{'port': 11025, 'pid': 41, 'record': str(proxy)}]}
+        profiles = self.root / 'perfiles.json'
+        profiles.write_text(json.dumps({'profiles': {'usuarios_comunicaciones': proof}}))
+        profiles.chmod(0o600)
+        self.save()
+        labels = {'vec.recorridos.owner': 'Codex-M', 'vec.recorridos.state': str(self.root)}
+        network_name = 'vec-codexm-recorridos-mailpit-red-20260930'
+        sink = {'Image': 'fixture-image', 'State': {'Running': True},
+                'Config': {'Labels': labels, 'Cmd': ['--disable-version-check', '--block-remote-css-and-fonts', '--smtp-disable-rdns', '--smtp-require-starttls', '--smtp-tls-cert', '/tls/servidor.crt', '--smtp-tls-key', '/tls/servidor.key', '--smtp-allowed-recipients', r'^[A-Za-z0-9._+\-]+@example\.test$', '--smtp', '0.0.0.0:1025', '--listen', '0.0.0.0:8025', '--database', '/data/mailpit.db', '--max', '100', '--quiet']},
+                'HostConfig': {'ReadonlyRootfs': True, 'NetworkMode': network_name,
+                               'PortBindings': {'1025/tcp': [{'HostIp': '127.0.0.1', 'HostPort': '11025'}],
+                                                '8025/tcp': [{'HostIp': '127.0.0.1', 'HostPort': '18532'}]}},
+                'Mounts': [{'Destination': '/tls', 'Source': str(self.root / 'material/comunicaciones'), 'RW': False}],
+                'NetworkSettings': {'Networks': {network_name: {'IPAddress': '172.31.0.2'}}}}
+        network = {'Labels': labels, 'Internal': True}
+        return sink, network, {'Id': 'fixture-image'}
+
+    def test_owned_smtp_fixture_uses_explicit_local_tls_and_ignores_ambient(self):
+        resources = self.smtp_fixture()
+        with patch.object(runtime, 'inspect_smtp_resource', side_effect=resources), patch.object(runtime, 'smtp_proxy_identity', return_value=41), patch.dict(os.environ, {'VEC_SMTP_HOST': 'remote.invalid', 'VEC_SMTP_PASSWORD': 'dummy'}):
+            environment, _ = runtime.runtime_environment(self.source, self.root, 18531, 55531)
+        self.assertEqual(environment['VEC_SMTP_HOST'], '127.0.0.1')
+        self.assertEqual(environment['VEC_SMTP_PORT'], '11025')
+        self.assertEqual(environment['VEC_SMTP_MODO_TLS'], 'starttls')
+        self.assertNotIn('VEC_SMTP_PASSWORD', environment)
+
+    def test_smtp_rejects_remote_other_ports_cleartext_and_foreign_ca(self):
+        self.smtp_fixture()
+        for field, value in [('VEC_SMTP_HOST', 'remote.invalid'), ('VEC_SMTP_HOST', 'localhost'),
+                             ('VEC_SMTP_PORT', '25'), ('VEC_SMTP_PORT', '11026'),
+                             ('VEC_SMTP_MODO_TLS', 'none'), ('VEC_SMTP_MODO_TLS', 'tls'),
+                             ('VEC_SMTP_CA_FILE', '/outside/ca.crt'), ('VEC_SMTP_FROM', 'rrhh@external.invalid')]:
+            changed = dict(self.values, **{field: value})
+            with self.subTest(field=field, value=value), self.assertRaises(runtime.RuntimeErrorLocal):
+                runtime.validate_smtp(changed, self.root)
+
+    def test_smtp_rejects_missing_proof_external_network_and_foreign_container(self):
+        resources = self.smtp_fixture()
+        self.assertIsNone(runtime.validate_smtp({}, self.root))
+        (self.root / 'perfiles.json').unlink()
+        with self.assertRaises(runtime.RuntimeErrorLocal):
+            runtime.validate_smtp(self.values, self.root)
+        (self.root / 'perfiles.json').write_text(json.dumps({'profiles': {'usuarios_comunicaciones': {}}}))
+        (self.root / 'perfiles.json').chmod(0o600)
+        with self.assertRaises(runtime.RuntimeErrorLocal):
+            runtime.validate_smtp(self.values, self.root)
+
+    def test_smtp_rejects_extra_network_and_changed_server_command(self):
+        for failure in ['network', 'command', 'listener']:
+            with self.subTest(failure=failure):
+                resources = list(self.smtp_fixture())
+                if failure == 'network':
+                    resources[1]['Internal'] = False
+                elif failure == 'command':
+                    resources[0]['Config']['Cmd'].append('--smtp-disable-starttls')
+                else:
+                    resources[0]['HostConfig']['PortBindings']['1025/tcp'][0]['HostIp'] = '0.0.0.0'
+                with patch.object(runtime, 'inspect_smtp_resource', side_effect=resources), self.assertRaises(runtime.RuntimeErrorLocal):
+                    runtime.validate_smtp(self.values, self.root)
+                (self.root / 'comunicaciones/proxy-11025.json').unlink()
+                (self.root / 'comunicaciones').rmdir()
+
+    def test_smtp_rejects_foreign_sink_before_proxy_checks(self):
+        resources = list(self.smtp_fixture())
+        resources[0]['Config']['Labels']['vec.recorridos.owner'] = 'other'
+        with patch.object(runtime, 'inspect_smtp_resource', side_effect=resources), self.assertRaises(runtime.RuntimeErrorLocal):
+            runtime.validate_smtp(self.values, self.root)
+
     def test_private_state_cannot_be_a_repository_or_symlink(self):
         repo = self.root / 'repo'
         repo.mkdir()

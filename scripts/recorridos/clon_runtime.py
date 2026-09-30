@@ -4,6 +4,7 @@
 import argparse
 import fcntl
 import hashlib
+import ipaddress
 import json
 import os
 from pathlib import Path
@@ -193,6 +194,108 @@ def validate_material(state, commit, port, pg_port):
     return digest(path)
 
 
+def inspect_smtp_resource(kind, name):
+    result = subprocess.run(['/usr/bin/docker', kind, 'inspect', name], capture_output=True,
+                            timeout=10, env={'PATH': '/usr/bin:/bin', 'LANG': 'C'})
+    if result.returncode:
+        fail('El recurso SMTP privado no está disponible.')
+    data = json.loads(result.stdout)
+    if not isinstance(data, list) or len(data) != 1 or not isinstance(data[0], dict):
+        fail('El inventario SMTP privado es inválido.')
+    return data[0]
+
+
+def smtp_proxy_identity(record, state, address):
+    data = json.loads(confined(record, state).read_text())
+    command = ['/usr/bin/socat', '-T', '15',
+               'TCP4-LISTEN:11025,bind=127.0.0.1,reuseaddr,fork,max-children=8',
+               'TCP4:' + address + ':1025,connect-timeout=5']
+    if (data.get('owner') != 'Codex-M' or data.get('state') != str(state)
+            or data.get('command') != command or type(data.get('pid')) is not int or data['pid'] < 2):
+        fail('La reserva del proxy SMTP pertenece a otro destino.')
+    identity = process_identity(data['pid'])
+    if (identity is None or identity['uid'] != os.getuid()
+            or identity['exe'] != str(Path(command[0]).resolve())
+            or identity['start_ticks'] != data.get('start_ticks')):
+        fail('El proceso SMTP no coincide con la reserva privada.')
+    actual = (Path('/proc') / str(data['pid']) / 'cmdline').read_bytes().rstrip(b'\0').split(b'\0')
+    if actual != [item.encode() for item in command]:
+        fail('El proceso SMTP cambió de destino.')
+    return data['pid']
+
+
+def validate_smtp(values, state):
+    fields = {'VEC_SMTP_HOST', 'VEC_SMTP_PORT', 'VEC_SMTP_FROM', 'VEC_SMTP_CA_FILE', 'VEC_SMTP_MODO_TLS'}
+    if not any(values.get(field) for field in fields):
+        return
+    if (any(not values.get(field) for field in fields) or values['VEC_SMTP_HOST'] != '127.0.0.1'
+            or values['VEC_SMTP_PORT'] != '11025' or values['VEC_SMTP_FROM'] != 'rrhh@example.test'
+            or values['VEC_SMTP_MODO_TLS'] != 'starttls'):
+        fail('SMTP requiere el buzón sintético local, puerto 11025 y STARTTLS.')
+    ca = confined(values['VEC_SMTP_CA_FILE'], state)
+    if ca.stat().st_uid != os.getuid() or stat.S_IMODE(ca.stat().st_mode) & 0o077:
+        fail('La CA SMTP debe ser privada del clon.')
+    profile_file = confined(state / 'perfiles.json', state)
+    if profile_file.stat().st_uid != os.getuid() or stat.S_IMODE(profile_file.stat().st_mode) & 0o077:
+        fail('El recibo SMTP debe ser privado del clon.')
+    profiles = json.loads(profile_file.read_text())
+    proof = profiles.get('profiles', {}).get('usuarios_comunicaciones', {})
+    if (proof.get('smtp_ready') is not True or proof.get('smtp_scope') != 'synthetic_local_sink'
+            or proof.get('corporate_delivery') is not False or proof.get('starttls_verified') is not True
+            or proof.get('external_recipient_rejected') is not True
+            or proof.get('mailpit_container') != 'vec-codexm-recorridos-mailpit-20260930'):
+        fail('Falta el recibo del SMTP sintético verificado por el preparador.')
+    if ca != state / 'material/ca/ca.crt':
+        fail('La CA SMTP no coincide con el material acreditado del clon.')
+    sink = inspect_smtp_resource('container', proof['mailpit_container'])
+    network_name = 'vec-codexm-recorridos-mailpit-red-20260930'
+    network = inspect_smtp_resource('network', network_name)
+    image = inspect_smtp_resource('image', 'axllent/mailpit:v1.27.8')
+    labels = {'vec.recorridos.owner': 'Codex-M', 'vec.recorridos.state': str(state)}
+    if (any(sink.get('Config', {}).get('Labels', {}).get(k) != v for k, v in labels.items())
+            or any(network.get('Labels', {}).get(k) != v for k, v in labels.items())
+            or network.get('Internal') is not True or sink.get('State', {}).get('Running') is not True
+            or not image.get('Id') or sink.get('Image') != image.get('Id')):
+        fail('El buzón SMTP no pertenece al clon privado aislado.')
+    host = sink.get('HostConfig', {})
+    expected_ports = {'1025/tcp': [{'HostIp': '127.0.0.1', 'HostPort': '11025'}],
+                      '8025/tcp': [{'HostIp': '127.0.0.1', 'HostPort': '18532'}]}
+    command = sink.get('Config', {}).get('Cmd') or []
+    recipients = r'^[A-Za-z0-9._+\-]+@example\.test$'
+    expected_command = ['--disable-version-check', '--block-remote-css-and-fonts',
+                        '--smtp-disable-rdns', '--smtp-require-starttls', '--smtp-tls-cert', '/tls/servidor.crt',
+                        '--smtp-tls-key', '/tls/servidor.key', '--smtp-allowed-recipients', recipients,
+                        '--smtp', '0.0.0.0:1025', '--listen', '0.0.0.0:8025', '--database', '/data/mailpit.db',
+                        '--max', '100', '--quiet']
+    if (host.get('PortBindings') != expected_ports or host.get('NetworkMode') != network_name
+            or host.get('ReadonlyRootfs') is not True or command != expected_command):
+        fail('El SMTP privado perdió sus límites de red o de TLS.')
+    position = command.index('--smtp-allowed-recipients')
+    if position + 1 >= len(command) or command[position + 1] != recipients:
+        fail('El buzón SMTP admite destinos ajenos al ejercicio sintético.')
+    mounts = {entry.get('Destination'): entry for entry in sink.get('Mounts', [])}
+    if (mounts.get('/tls', {}).get('Source') != str(state / 'material/comunicaciones')
+            or mounts.get('/tls', {}).get('RW') is not False):
+        fail('El servidor SMTP no usa el certificado privado preparado.')
+    networks = sink.get('NetworkSettings', {}).get('Networks', {})
+    if set(networks) != {network_name}:
+        fail('El SMTP privado está conectado a otra red.')
+    address = networks[network_name].get('IPAddress', '')
+    try:
+        ip = ipaddress.IPv4Address(address)
+        if not ip.is_private or ip.is_loopback or ip.is_unspecified or ip.is_multicast:
+            fail('El proxy SMTP tiene un destino de red no admitido.')
+    except ValueError:
+        fail('El destino del buzón SMTP es inválido.')
+    proxies = proof.get('loopback_proxies') or []
+    matching = [item for item in proxies if item.get('port') == 11025]
+    if len(matching) != 1:
+        fail('Falta la reserva del proxy SMTP propio.')
+    pid = smtp_proxy_identity(matching[0].get('record', ''), state, address)
+    if matching[0].get('pid') != pid:
+        fail('El recibo SMTP no corresponde al proceso reservado.')
+
+
 def runtime_environment(source, state, port, pg_port):
     values, config_sha = read_environment(state)
     declared = set()
@@ -224,9 +327,12 @@ def runtime_environment(source, state, port, pg_port):
         fail('Falta configuración de desarrollo, TLS o PostgreSQL del clon.')
     if values['VEC_DEVELOPMENT_GUARD'] != 'ACEPTO_CREDENCIALES_NO_AUTORITATIVAS_SOLO_DESARROLLO':
         fail('Falta el reconocimiento explícito del material sintético.')
+    validate_smtp(values, state)
     for name, value in values.items():
         if name.endswith('_DATABASE_URL'):
             validate_dsn(value, pg_port, state)
+        elif name == 'VEC_SMTP_HOST':
+            continue  # Validated above against the owned synthetic STARTTLS sink.
         elif name == 'VEC_HTTP_ALLOWED_CIDRS':
             if value != '127.0.0.1/32':
                 fail('La aplicación del clon sólo admite el CIDR loopback exacto.')
