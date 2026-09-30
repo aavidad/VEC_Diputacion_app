@@ -116,6 +116,20 @@ class RotationTests(unittest.TestCase):
         self.assertEqual(rotation.archive(self.state, OLD, NEW)['phase'], 'archived')
         self.assertEqual(len(list((self.state / 'proyecciones').glob(OLD + '-*'))), 2)
 
+    def test_metadata_publication_failure_can_retry_without_a_partial_final_file(self):
+        self.old_data()
+        real = rotation.rename_exclusive
+        def rename(old, new):
+            if str(new).endswith('.metadata/material-manifest.json'):
+                raise OSError('fixture interrupted after partial temporary write')
+            return real(old, new)
+        with patch.object(rotation, 'rename_exclusive', side_effect=rename), self.assertRaises(OSError):
+            rotation.archive(self.state, OLD, NEW)
+        snapshots, = (self.state / 'proyecciones').glob('*.metadata')
+        self.assertFalse((snapshots / 'material-manifest.json').exists())
+        self.assertTrue(self.root.exists())
+        self.assertEqual(rotation.archive(self.state, OLD, NEW)['phase'], 'archived')
+
     def test_partial_restore_recovers_absent_or_equal_entries_only(self):
         self.begin()
         self.project(NEW)
@@ -131,6 +145,25 @@ class RotationTests(unittest.TestCase):
             rotation.restore(self.state, NEW)
         self.assertEqual(rotation.receipt(self.state)['phase'], 'restore_pending')
         self.assertEqual(rotation.restore(self.state, NEW)['phase'], 'restored')
+
+    def test_readonly_directory_modes_restore_and_recover_after_partial_copy(self):
+        self.old_data()
+        self.put(self.root / 'rw/documentos/sealed/saved.pdf', b'%PDF fixture')
+        (self.root / 'rw/documentos/sealed').chmod(0o500)
+        result = rotation.archive(self.state, OLD, NEW)
+        self.archived = self.state / result['archive']
+        self.project(NEW)
+        with patch.object(rotation, 'copy_file', side_effect=OSError('fixture interruption')), self.assertRaises(OSError):
+            rotation.restore(self.state, NEW)
+        self.assertEqual(rotation.receipt(self.state)['phase'], 'restore_pending')
+        self.assertEqual(rotation.restore(self.state, NEW)['phase'], 'restored')
+        self.assertEqual((self.root / 'rw/documentos/sealed').stat().st_mode & 0o777, 0o500)
+        self.assertEqual(rotation.inventory(self.root / 'rw/documentos/sealed'), rotation.inventory(self.archived / 'rw/documentos/sealed'))
+        self.assertEqual(rotation.restore(self.state, NEW)['phase'], 'restored')
+        # Temporary permission cannot legitimise a later application change.
+        (self.root / 'rw/documentos/sealed').chmod(0o700)
+        with self.assertRaises(rotation.RotationError):
+            rotation.restore(self.state, NEW)
 
     def test_new_writes_missing_restored_files_or_new_runtime_deny_retransfer(self):
         self.begin(); self.project(NEW); rotation.restore(self.state, NEW)

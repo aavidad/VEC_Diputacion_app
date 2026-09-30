@@ -104,6 +104,20 @@ def write_cas(path, value, previous=None):
         temporary.unlink(missing_ok=True)
 
 
+def snapshot_file(path, data, workspace):
+    """Publish a whole snapshot or leave its final name absent for recovery."""
+    fd, name = tempfile.mkstemp(prefix='.rotation-metadata-', dir=workspace)
+    temporary = Path(name)
+    try:
+        with os.fdopen(fd, 'wb') as stream:
+            stream.write(data)
+            stream.flush()
+            os.fsync(stream.fileno())
+        rename_exclusive(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
 def rename_exclusive(old, new):
     """Linux same-filesystem rename, with no replacement or hard links."""
     libc = ctypes.CDLL(None, use_errno=True)
@@ -322,9 +336,7 @@ def archive(state, expected_old_source, new_source):
                         if read(snapshots / ref) != data:
                             fail('metadata_snapshot_preimage_changed')
                         continue
-                    fd = os.open(snapshots / ref, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
-                    with os.fdopen(fd, 'wb') as stream:
-                        stream.write(data)
+                    snapshot_file(snapshots / ref, data, parent)
             value = {'version': 1, 'owner': OWNER, 'state': str(state), 'phase': 'archive_pending',
                      'old_source': old, 'new_source': new, 'archive': 'proyecciones/' + name,
                      'old_manifest_sha256': manifest_sha, 'inventory': full, 'rw': rw,
@@ -373,7 +385,7 @@ def copy_directory(new, info, work):
     temporary = Path(tempfile.mkdtemp(prefix='.rotation-dir-', dir=work))
     try:
         os.chown(temporary, info['uid'], info['gid'])
-        temporary.chmod(info['mode'])
+        temporary.chmod(info['mode'] | 0o700)
         rename_exclusive(temporary, new)
     finally:
         if temporary.exists():
@@ -392,31 +404,47 @@ def restore(state, expected_new_source):
         if rw != value['rw']:
             fail('rw_layout_changed')
         pending = []
+        directories = {}
         for relative in rw.values():
             expected = {p: entry for p, entry in value['inventory'].items() if p == relative or p.startswith(relative + '/')}
+            directories.update({p: info['mode'] for p, info in expected.items()
+                                if info['type'] == 'dir' and info['mode'] != info['mode'] | 0o700})
             current = inventory(root / relative)
             current = {relative if p == '.' else relative + '/' + p: entry for p, entry in current.items()}
-            if any(p not in expected or expected[p] != info for p, info in current.items()):
-                fail('new_runtime_data_changed')
+            for p, info in current.items():
+                compared = dict(info)
+                if value['phase'] == 'restore_pending' and p in value.get('directory_modes', {}) and info['mode'] == value['directory_modes'][p] | 0o700:
+                    compared['mode'] = value['directory_modes'][p]
+                if p not in expected or expected[p] != compared:
+                    fail('new_runtime_data_changed')
             pending += [(p, info) for p, info in expected.items() if p not in current]
+        if 'directory_modes' in value and value['directory_modes'] != directories:
+            fail('temporary_directory_modes_receipt_changed')
         if value['phase'] == 'restored':
             if pending:
                 fail('restored_data_missing_no_retransfer')
             return summary(value)
         before = read(state / RECEIPT)
         value['phase'] = 'restore_pending'
+        value['directory_modes'] = directories
         write_cas(state / RECEIPT, value, before)
         work = state / (value['archive'] + '.copy-work')
         work.mkdir(mode=0o700, exist_ok=True)
         path_check(work, directory=True)
         if work.stat().st_mode & 0o077 or work.stat().st_dev != root.stat().st_dev:
             fail('private_same_filesystem_copy_required')
+        for relative, mode in sorted(directories.items(), key=lambda item: len(Path(item[0]).parts)):
+            target = root / relative
+            if target.exists():
+                target.chmod(mode | 0o700)
         for relative, info in sorted(pending, key=lambda item: (len(Path(item[0]).parts), item[0])):
             target = root / relative
             if info['type'] == 'dir':
                 copy_directory(target, info, work)
             else:
                 copy_file(original / relative, target, info, work)
+        for relative, mode in sorted(directories.items(), key=lambda item: len(Path(item[0]).parts), reverse=True):
+            (root / relative).chmod(mode)
         for relative in rw.values():
             if inventory(root / relative) != inventory(original / relative):
                 fail('restored_inventory_mismatch')
