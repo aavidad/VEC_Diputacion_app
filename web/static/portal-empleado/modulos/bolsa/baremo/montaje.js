@@ -1,26 +1,27 @@
 import { cargarTextos } from "/comun/textos.js";
 import { crearClienteBaremo } from "../baremo-cliente.js?v=20261001-baremo-editor-v1";
-import { crearEditorBaremo, leerReglas, aMicropuntos, MAXIMO_ARCHIVO } from "../baremo-editor.js?v=20261001-baremo-editor-v1";
-import { renderizarBaremo } from "../baremo-vista.js?v=20261001-baremo-editor-v1";
+import { crearEditorBaremo, leerReglas, aMicropuntos, MAXIMO_ARCHIVO } from "../baremo-editor.js?v=20261001-baremo-concursos-v2";
+import { renderizarPanelesBaremo } from "../baremo-vista.js?v=20261001-baremo-concursos-v2";
 const textos = await cargarTextos("baremo-bolsa");
 const t = (clave) => textos.traducir(`editor.${clave}`);
 document.documentElement.lang = textos.idioma;
 document.title = t("titulo");
 const raiz = document.getElementById("baremo-contenido");
 const cliente = crearClienteBaremo();
-let ejemplos = [], ayuda = false, error = "", filtro = "";
+let ejemplos = [], ayuda = false, error = "", filtro = "", panel = "bolsa";
 let carga = null, lecturaId = 0, focoComparacion = false;
 function pintar() {
   const activo = document.activeElement;
-  const identidadFoco = raiz.contains(activo) ? { ruta: activo.dataset.ruta, accion: activo.dataset.accion, name: activo.name, submit: activo.type === "submit" } : null;
-  raiz.innerHTML = renderizarBaremo({ ...editor.estado(), ayuda, error: error || editor.estado().error }, { textos, ejemplos, filtro });
+  const identidadFoco = raiz.contains(activo) ? { ruta: activo.dataset.ruta, accion: activo.dataset.accion, name: activo.name, panel: activo.dataset.panel, submit: activo.type === "submit" } : null;
+  document.title = t(panel === "concursos" ? "concursos" : "titulo");
+  raiz.innerHTML = renderizarPanelesBaremo({ ...editor.estado(), ayuda, error: error || editor.estado().error }, { textos, ejemplos, filtro, panel });
   filtrar();
   for (const control of raiz.querySelectorAll('[aria-invalid="true"]')) control.setCustomValidity(t("puntos_invalidos"));
-  if (Object.keys(editor.estado().invalidos).length || error === "validacion") mostrarErrores();
+  if (panel === "bolsa" && (Object.keys(editor.estado().invalidos).length || error === "validacion")) mostrarErrores();
   if (!editor.estado().trabajando && focoComparacion && document.activeElement === document.body) raiz.querySelector('[type="submit"]')?.focus({ preventScroll: true });
   if (!editor.estado().trabajando) focoComparacion = false;
   if (identidadFoco) {
-    const siguiente = [...raiz.querySelectorAll("input,select,button")].find((c) => identidadFoco.ruta ? c.dataset.ruta === identidadFoco.ruta : identidadFoco.accion ? c.dataset.accion === identidadFoco.accion : identidadFoco.submit ? c.type === "submit" : c.name && c.name === identidadFoco.name);
+    const siguiente = [...raiz.querySelectorAll("input,select,button")].find((c) => identidadFoco.panel ? c.dataset.panel === identidadFoco.panel : identidadFoco.ruta ? c.dataset.ruta === identidadFoco.ruta : identidadFoco.accion ? c.dataset.accion === identidadFoco.accion : identidadFoco.submit ? c.type === "submit" : c.name && c.name === identidadFoco.name);
     siguiente?.focus({ preventScroll: true });
   }
 }
@@ -52,7 +53,7 @@ function mostrarErrores({ enfocar = false } = {}) {
   } else if (resumen?.dataset.validacion === "true") { resumen.hidden = true; delete resumen.dataset.validacion; }
   return invalidos.length === 0;
 }
-raiz.addEventListener("focusout", (evento) => { if (evento.target.dataset?.ruta) mostrarErrores(); });
+raiz.addEventListener("focusout", (evento) => { if (panel === "bolsa" && evento.target.dataset?.ruta) mostrarErrores(); });
 function descartar() { return !editor.estado().cambiado || window.confirm(t("perder_cambios")); }
 async function cargar() {
   carga?.abort(); carga = new AbortController(); error = ""; pintar();
@@ -60,6 +61,7 @@ async function cargar() {
   catch (fallo) { if (fallo.name !== "AbortError") { error = fallo.codigo ?? "simulacion_fallida"; pintar(); } }
 }
 raiz.addEventListener("input", (evento) => {
+  if (panel !== "bolsa") return;
   const control = evento.target;
   if (control.name === "filtro") { filtro = control.value; filtrar(); return; }
   if (!control.dataset.ruta) return;
@@ -75,6 +77,7 @@ raiz.addEventListener("input", (evento) => {
   } catch { editor.registrarInvalido(JSON.parse(control.dataset.ruta), control.value); raiz.querySelector(".baremo-cabecera [role='status']").textContent = t("sin_guardar"); raiz.querySelector('[data-accion="exportar"]').disabled = true; const resultado = raiz.querySelector(".baremo-resultados"); if (resultado) { resultado.textContent = t("pendiente"); resultado.setAttribute("aria-busy", "false"); } const boton = raiz.querySelector('[type="submit"]'); boton.disabled = false; boton.textContent = t("comparar"); control.setAttribute("aria-invalid", "true"); control.setCustomValidity(t("puntos_invalidos")); }
 });
 raiz.addEventListener("change", async (evento) => {
+  if (panel !== "bolsa") return;
   const control = evento.target;
   if (control.name === "ejemplo") {
     if (descartar()) { lecturaId++; error = ""; editor.cargar(ejemplos.find((e) => e.referencia === control.value)); }
@@ -94,10 +97,20 @@ raiz.addEventListener("change", async (evento) => {
 });
 raiz.addEventListener("submit", (evento) => {
   evento.preventDefault();
+  if (panel !== "bolsa") return;
   if (!mostrarErrores({ enfocar: true })) { error = "validacion"; return; }
   error = ""; focoComparacion = true; void editor.comparar();
 });
 raiz.addEventListener("click", (evento) => {
+  const destino = evento.target.closest("[data-panel]")?.dataset.panel;
+  if (["bolsa", "concursos"].includes(destino)) {
+    if (destino !== panel) {
+      editor.cancelarSimulacion(); lecturaId++; focoComparacion = false; panel = destino;
+      pintar(); raiz.querySelector(`[data-panel="${panel}"]`).focus({ preventScroll: true });
+    }
+    return;
+  }
+  if (panel !== "bolsa") return;
   const accion = evento.target.closest("[data-accion]")?.dataset.accion;
   if (accion === "ayuda") { ayuda = !ayuda; pintar(); raiz.querySelector('[data-accion="ayuda"]').focus(); }
   if (accion === "recargar") void cargar();

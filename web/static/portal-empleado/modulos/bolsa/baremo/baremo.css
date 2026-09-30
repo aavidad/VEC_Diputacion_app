@@ -55,3 +55,13 @@
  .baremo-cabecera, .baremo-controles { padding-block: 12px; }
  .baremo-acciones { padding-block: 12px; }
 }
+
+.baremo-modulos { display: flex; flex-direction: column; gap: 12px; }
+.baremo-navegacion { display: flex; gap: 8px; flex-wrap: wrap; }
+#baremo-panel-bolsa { min-width: 0; min-height: 0; }
+#baremo-panel-concursos h1 { margin: 0; font-size: 26px; font-weight: 600; }
+#baremo-panel-concursos h2 { font-size: 18px; font-weight: 600; }
+@media (min-width: 1000px) and (min-height: 700px) {
+ .baremo-modulos { height: 100%; }
+ #baremo-panel-bolsa { flex: 1; }
+}

@@ -108,3 +108,38 @@ test('presenta los desgloses canónicos de experiencia y méritos sin guiones ni
  assert.match(html, /Experiencia/u); assert.match(html, /0,101667/u); assert.match(html, /Formación/u); assert.match(html, />1,2</u);
  assert.doesNotMatch(html, />—</u);
 });
+
+test('cambiar de panel cancela la simulación y conserva borrador, inválidos y error previo', async () => {
+ const retraso = pendiente(); let signal; let llamadas = 0;
+ const editor = crearEditorBaremo({ cliente: { simular: (_s, opciones) => { llamadas++; signal = opciones.signal; return retraso.promise; } } });
+ editor.cargar(ejemplo); editor.editar(['fecha_corte_inclusiva'], '2026-09-01');
+ const trabajo = editor.comparar(); editor.cancelarSimulacion();
+ assert.equal(signal.aborted, true);
+ retraso.resolver(resultado()); await trabajo;
+ assert.equal(llamadas, 1);
+ assert.equal(editor.estado().borrador.fecha_corte_inclusiva, '2026-09-01');
+ assert.equal(editor.estado().trabajando, false); assert.equal(editor.estado().comparacion, null);
+ editor.registrarInvalido(['reglas_experiencia', 0, 'puntos_por_unidad'], '1e3');
+ const guardado = editor.estado(); editor.cancelarSimulacion();
+ assert.deepEqual(editor.estado(), guardado);
+ const conError = crearEditorBaremo({ cliente: { simular: async () => { throw Object.assign(new Error(), { codigo: 'reglas_invalidas' }); } } });
+ conError.cargar(ejemplo); await conError.comparar(); conError.cancelarSimulacion();
+ assert.equal(conError.estado().error, 'reglas_invalidas');
+});
+
+test('Concursos tiene panel vacío propio, navegación nativa traducida y Bolsa oculta', async () => {
+ const { renderizarPanelesBaremo } = await import('./baremo-vista.js');
+ for (const idioma of ['es','en']) {
+  const textos = await cargarTextos('baremo-bolsa', { idioma });
+  const editor = crearEditorBaremo({ cliente: {} }); editor.cargar(ejemplo);
+  const html = renderizarPanelesBaremo(editor.estado(), { textos, ejemplos: [ejemplo], panel: 'concursos' });
+  assert.match(html, /id="baremo-panel-bolsa" hidden/u);
+  assert.match(html, /data-panel="concursos"[^>]*aria-current="page"/u);
+  const concursos = html.slice(html.indexOf('<section id="baremo-panel-concursos"'));
+  assert.doesNotMatch(concursos, /<form|<input|data-accion="comparar"|<button/u);
+  assert.ok(concursos.includes(textos.traducir('editor.concursos_vacio')));
+  assert.ok(concursos.includes(textos.traducir('editor.concursos_limite')));
+  const bolsa = renderizarPanelesBaremo(editor.estado(), { textos, ejemplos: [ejemplo], panel: 'bolsa' });
+  assert.match(bolsa, /id="baremo-panel-concursos"[^>]* hidden/u);
+ }
+});

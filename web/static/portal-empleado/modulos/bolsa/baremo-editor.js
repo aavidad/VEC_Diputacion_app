@@ -77,6 +77,10 @@ export function crearEditorBaremo({ cliente, alCambiar = () => {} }) {
     }
   }
   return Object.freeze({ cargar, editar, comparar, invalidar,
+    cancelarSimulacion() {
+      // Cambiar de panel no equivale a descartar el borrador ni su último error.
+      generacion++; solicitud?.abort(); solicitud = null; estado.trabajando = false;
+    },
     registrarInvalido(ruta, valor) { invalidar(); estado.cambiado = true; estado.invalidos[JSON.stringify(ruta)] = valor; }, estado: () => copia(estado),
     exportar: () => { if (Object.keys(estado.invalidos).length) throw new Error("campo_invalido"); return JSON.stringify(estado.borrador); },
     desmontar() { invalidar(); estado.ejemplo = null; } });

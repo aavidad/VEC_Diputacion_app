@@ -1,4 +1,4 @@
-import { aDecimal } from "./baremo-editor.js?v=20261001-baremo-editor-v1";
+import { aDecimal } from "./baremo-editor.js?v=20261001-baremo-concursos-v2";
 export function escapar(valor) {
   return String(valor ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
 }
@@ -32,4 +32,17 @@ export function renderizarBaremo(estado, { textos, ejemplos = [], filtro = "" })
     <section class="panel baremo-topes"><div class="cabecera-panel"><h2>${t("estructura")}</h2></div><div class="cuerpo-panel">${s.maximo_total ? campo(["maximo_total"], s.maximo_total, t("tope_total")) : ""}${s.secciones.map((apartado, i) => campo(["secciones", i, Object.hasOwn(apartado, "puntos_maximos") ? "puntos_maximos" : "maximo_puntos"], apartado.puntos_maximos ?? apartado.maximo_puntos, `${seccion(apartado.clave, i + 1)} · ${t("tope")}`)).join("")}</div></section></div>
     <section class="panel"><div class="cabecera-panel"><h2>${t("resultado")}</h2></div><div class="cuerpo-panel baremo-resultados" aria-live="polite" aria-busy="${estado.trabajando}">${resultados}</div></section>
     <footer class="panel cuerpo-panel baremo-acciones"><div id="baremo-error" role="alert" ${estado.error ? "" : "hidden"}>${estado.error ? t(estado.error) : ""}</div><button type="button" class="boton-secundario" data-accion="exportar"${Object.keys(estado.invalidos ?? {}).length ? " disabled" : ""}>${t("exportar")}</button><button type="submit" class="boton-primario"${estado.trabajando ? " disabled" : ""}>${t(estado.trabajando ? "trabajando" : "comparar")}</button><button type="button" class="boton-secundario" disabled aria-describedby="baremo-activacion">${t("activar")}</button><p id="baremo-activacion">${t("activacion_pendiente")}</p></footer></form></section>`;
+}
+
+/** Concursos conserva una superficie propia; todavía no tiene bases ni cálculo. */
+export function renderizarPanelesBaremo(estado, { textos, panel = "bolsa", ...opciones }) {
+  const t = (clave) => escapar(textos.traducir(`editor.${clave}`));
+  const activo = panel === "concursos" ? "concursos" : "bolsa";
+  const boton = (clave) => `<button type="button" class="${activo === clave ? "boton-primario" : "boton-secundario"}" data-panel="${clave}" aria-controls="baremo-panel-${clave}"${activo === clave ? ' aria-current="page"' : ""}>${t(clave)}</button>`;
+  return `<div class="baremo-modulos"><nav class="baremo-navegacion" aria-label="${t("tipo_proceso")}">${boton("bolsa")}${boton("concursos")}</nav>
+    <div id="baremo-panel-bolsa"${activo === "bolsa" ? "" : " hidden"}>${renderizarBaremo(estado, { textos, ...opciones })}</div>
+    <section id="baremo-panel-concursos" class="panel" aria-labelledby="baremo-concursos-titulo"${activo === "concursos" ? "" : " hidden"}>
+      <header class="cabecera-panel"><h1 id="baremo-concursos-titulo">${t("concursos")}</h1></header>
+      <div class="cuerpo-panel"><p class="estado-modulo">${t("concursos_pendiente")}</p><h2>${t("concursos_vacio")}</h2><p>${t("concursos_siguiente")}</p><p class="baremo-limite">${t("concursos_limite")}</p></div>
+    </section></div>`;
 }

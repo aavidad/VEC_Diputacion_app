@@ -87,6 +87,13 @@
     "bloqueo_aplicabilidad_pendiente": "Falta decidir si un mérito es aplicable. Revise el caso.",
     "bloqueo_dato_pendiente": "Falta una fecha o cantidad del mérito. Complete el caso antes de puntuar.",
     "archivo_borrador": "baremo-borrador.json",
-    "fecha_invalida": "Introduzca una fecha de referencia válida."
+    "fecha_invalida": "Introduzca una fecha de referencia válida.",
+    "bolsa": "Bolsa",
+    "concursos": "Concursos",
+    "tipo_proceso": "Tipo de proceso",
+    "concursos_pendiente": "Pendiente de configuración",
+    "concursos_vacio": "No hay bases de concursos configuradas",
+    "concursos_siguiente": "Para empezar, falta configurar las bases de cada concurso. Las reglas de Bolsa no se aplican a concursos.",
+    "concursos_limite": "Esta pestaña no calcula puntuaciones ni permite guardar o firmar."
   }
 }
