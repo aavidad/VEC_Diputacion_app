@@ -187,6 +187,7 @@ def install_sql(cfg, apply):
     sql = "\\set ON_ERROR_STOP on\n"
     # Conexión de un solo uso: desactivar muestreo antes de BEGIN evita que
     # PostgreSQL marque la transacción completa para registrar sus sentencias.
+    sql += "SET debug_print_parse=off; SET debug_print_rewritten=off; SET debug_print_plan=off;\n"
     sql += "SET log_statement='none'; SET log_min_error_statement='panic'; SET log_parameter_max_length_on_error=0; SET log_min_duration_statement=-1; SET log_min_duration_sample=-1; SET log_statement_sample_rate=0; SET log_transaction_sample_rate=0;\n"
     sql += "BEGIN;\nSET LOCAL search_path=pg_catalog;\n"
     sql += "SET LOCAL lock_timeout='5s'; SET LOCAL statement_timeout='120s';\n"
@@ -203,6 +204,7 @@ def install_sql(cfg, apply):
         if any(not re.fullmatch(r"[A-Za-z0-9_-]{32,128}", p) for p in (reader, publisher)) or reader == publisher:
             raise ValueError("secret material")
         # Sólo esta instancia aprobada y vacía: jamás ACL del clúster interno.
+        sql += "SET LOCAL password_encryption='scram-sha-256';\n"
         sql += f"REVOKE ALL ON DATABASE {db},postgres,template0,template1 FROM PUBLIC;\nREVOKE CREATE ON SCHEMA public FROM PUBLIC;\n"
         sql += scripts[0] + "\nSET ROLE vec_bolsa_publica_migrador;\n" + scripts[1]
         sql += "\nSET ROLE vec_bolsa_publica_migrador;\n" + scripts[2] + "\nRESET ROLE;\n"

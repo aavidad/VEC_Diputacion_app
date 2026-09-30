@@ -80,7 +80,10 @@ deriva o contraseña diferente se rechaza. La reejecución no rota secretos ni
 reaplica migraciones. No hay procedimiento `DOWN` sobre una publicación conservada.
 
 El instalador desactiva el registro y los muestreos de sentencias en su conexión
-antes de empezar la transacción que contiene las contraseñas. Sus errores no
+antes de empezar la transacción que contiene las contraseñas, incluidos los
+árboles de depuración `debug_print_parse`, `debug_print_rewritten` y
+`debug_print_plan`. Fija `password_encryption=scram-sha-256` dentro de la
+transacción, aunque el DBA herede `md5`. Sus errores no
 imprimen SQL, DSN ni respuestas de `psql`.
 
 ## Publicar y preparar el proceso
@@ -100,12 +103,18 @@ reinicio con esa configuración, o el despliegue blue/green ya descrito en
 
 Prepare el artefacto en un directorio nuevo. El empaquetador copia el binario
 aprobado, los guiones de arranque y solo los archivos de `web/publico.manifest`; registra sus SHA256 y el
-commit de los recursos web. La procedencia del binario debe acompañar al artefacto
+commit de los recursos web y los guiones. Coteja cada recurso y guion con el blob
+del commit fijado antes de crear el destino y rechaza cualquier modificación local.
+Los bytes que copia proceden de esos blobs. La procedencia del binario debe acompañar al artefacto
 aprobado; copiarlo no demuestra que se compiló desde ese commit.
 
 ```bash
 python3 deploy/publico/empaquetar.py --binary /ruta/aprobada/vec-publico --destination /ruta/nueva/artefacto
 ```
+
+Para un corte UI separado, `--web-source /ruta/al/worktree-ui --web-commit SHA`
+selecciona un commit de recursos distinto del commit de los guiones. También
+exige que esos recursos estén limpios. Ambos hashes quedan en `artefacto.json`.
 
 El JSON privado del runtime contiene `binary` (ruta absoluta al binario),
 `binary_sha256` y `web_sha256` del artefacto, `environment` y `check`.
@@ -163,6 +172,11 @@ ensayo, usa respuestas reales y comprueba 1440 y 390 px. Un recorrido de
 convocatorias que no pueda renderizarse hace fallar esa comprobación aunque
 las consultas HTTP hayan devuelto `200`.
 
+El autor de un corte UI puede usar `VEC_PUBLICO_WEB_REPO` y
+`VEC_PUBLICO_WEB_COMMIT` juntos para ensayar sus recursos ya confirmados con
+estos guiones revisados. El runner conserva ambos commits en el artefacto y
+crea sus propios servicios y material; no necesita compartir un clon.
+
 El guion crea un contenedor y una red propios, publica PostgreSQL solo en
 loopback y elimina sus claves, datos y procesos al terminar. La red Docker del
 ensayo permite salida; esta prueba de desarrollo no acredita aislamiento de red
@@ -170,7 +184,9 @@ productivo. Los binarios se entregan ya compilados. La imagen se fija por digest
 
 Prueba rechazo de objetos previos, rollback ante un error en `000002`, instalación,
 replay, contraseña incompatible y deriva de ACL y ajustes por base. Comprueba que
-las contraseñas no aparecen en el log aun con muestreos activados. Publica material sintético por el
+las contraseñas no aparecen en el log aun con muestreos y árboles de depuración
+activados, y que los dos LOGIN usan SCRAM aunque el DBA herede `md5`.
+Publica material sintético por el
 CLI real y compara las respuestas tras reiniciar PostgreSQL y aplicación. El
 historial debe conservar exactamente una publicación. La huella de respuestas
 del escenario inicial es

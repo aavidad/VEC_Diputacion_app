@@ -6,6 +6,7 @@ import unittest
 from unittest.mock import patch
 
 import aprovisionar as install
+import empaquetar
 
 
 class InstallationTest(unittest.TestCase):
@@ -45,6 +46,39 @@ class InstallationTest(unittest.TestCase):
         self.assertNotIn("PGPASSWORD", options["env"])
 
 
+class PackageTest(unittest.TestCase):
+    def test_changed_web_or_launcher_is_rejected_before_writing_artifact(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            repository = root / "repo"
+            repository.mkdir()
+            files = {"web/publico.manifest": "static/bolsa/index.html\n",
+                     "web/static/bolsa/index.html": "<html>synthetic</html>"}
+            for name in ("runtime.py", "aprovisionar.py", "arrancar.sh", "comprobar.sh", "vec-publico.service"):
+                files["deploy/publico/" + name] = "synthetic launcher\n"
+            for name, content in files.items():
+                path = repository / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(content)
+            env = {"PATH": os.defpath, "GIT_CONFIG_NOSYSTEM": "1", "GIT_CONFIG_GLOBAL": "/dev/null"}
+            for args in (["init", "-q"], ["add", "web", "deploy"],
+                         ["-c", "user.name=aavidad", "-c", "user.email=avidad@dipgra.es", "commit", "-q", "-m", "fixture"]):
+                subprocess.run(["git", "-C", str(repository), *args], env=env, check=True)
+            binary = root / "binary"
+            binary.write_bytes(b"synthetic approved binary")
+            with patch.object(empaquetar, "ROOT", repository):
+                for name in ("web/static/bolsa/index.html", "deploy/publico/runtime.py"):
+                    path = repository / name
+                    path.write_text("uncommitted modification")
+                    target = root / "artifact"
+                    with self.assertRaisesRegex(ValueError, "source_worktree_changed"):
+                        empaquetar.package(binary, target)
+                    self.assertFalse(target.exists())
+                    path.write_text(files[name])
+                empaquetar.package(binary, root / "artifact")
+                self.assertEqual((root / "artifact/web/static/bolsa/index.html").read_text(), files["web/static/bolsa/index.html"])
+
+
 @unittest.skipUnless(os.environ.get("VEC_PUBLICO_TEST_CONFIG"), "PostgreSQL dedicado no solicitado")
 class DedicatedPostgresTest(unittest.TestCase):
     def setUp(self):
@@ -74,6 +108,7 @@ class DedicatedPostgresTest(unittest.TestCase):
     def test_02_install_replay_and_incompatible_acl_rejection(self):
         install.provision(self.cfg, True, self.psql)
         install.provision(self.cfg, True, self.psql)
+        self.execute("DO $check$ BEGIN IF (SELECT count(*) FROM pg_authid WHERE rolname IN ('vec_publico_login','vec_bolsa_publica_publicador_login') AND rolpassword LIKE 'SCRAM-SHA-256$%')<>2 THEN RAISE EXCEPTION 'password_not_scram'; END IF; END $check$;")
         with tempfile.NamedTemporaryFile(dir=Path(self.cfg["pass_file"]).parent) as changed:
             changed.write(b"synthetic-password-that-must-not-match-123456")
             changed.flush()

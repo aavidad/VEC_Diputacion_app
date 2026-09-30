@@ -9,7 +9,12 @@ fi
 publico=$(realpath "$1")
 publicador=$(realpath "$2")
 scratch=$(mktemp -d /var/tmp/vec-publico-ensayo-XXXXXXXX)
-python3 "$directorio/empaquetar.py" --binary "$publico" --destination "$scratch/artefacto"
+argumentos_web=()
+if [[ -n "${VEC_PUBLICO_WEB_REPO:-}" || -n "${VEC_PUBLICO_WEB_COMMIT:-}" ]]; then
+    [[ -n "${VEC_PUBLICO_WEB_REPO:-}" && -n "${VEC_PUBLICO_WEB_COMMIT:-}" ]]
+    argumentos_web=(--web-source "$VEC_PUBLICO_WEB_REPO" --web-commit "$VEC_PUBLICO_WEB_COMMIT")
+fi
+python3 "$directorio/empaquetar.py" --binary "$publico" --destination "$scratch/artefacto" "${argumentos_web[@]}"
 publico="$scratch/artefacto/vec-publico"
 contenedor="vec-publico-codexb-ensayo-$$"
 red="vec-publico-codexb-ensayo-$$"
@@ -87,7 +92,9 @@ chmod 700 "$scratch/psql"
 docker exec "$contenedor" psql -Xq -U postgres -d vec_bolsa_publica_ensayo \
     -c "ALTER SYSTEM SET log_statement='all'" -c "ALTER SYSTEM SET log_min_duration_statement=0" \
     -c "ALTER SYSTEM SET log_min_duration_sample=0" -c "ALTER SYSTEM SET log_statement_sample_rate=1" \
-    -c "ALTER SYSTEM SET log_transaction_sample_rate=1" -c 'SELECT pg_reload_conf()' >/dev/null
+    -c "ALTER SYSTEM SET log_transaction_sample_rate=1" -c "ALTER SYSTEM SET debug_print_parse=on" \
+    -c "ALTER SYSTEM SET debug_print_rewritten=on" -c "ALTER SYSTEM SET debug_print_plan=on" \
+    -c "ALTER SYSTEM SET password_encryption='md5'" -c 'SELECT pg_reload_conf()' >/dev/null
 python3 "$directorio/aprovisionar.py" --config "$scratch/install.json" --psql "$scratch/psql"
 VEC_PUBLICO_TEST_CONFIG="$scratch/install.json" VEC_PUBLICO_TEST_PSQL="$scratch/psql" \
     python3 -m unittest discover -s "$directorio" -p test_aprovisionar.py -v
@@ -96,7 +103,9 @@ python3 "$directorio/fixture_ensayo.py" assert_no_secrets "$scratch"
 docker exec "$contenedor" psql -Xq -U postgres -d vec_bolsa_publica_ensayo \
     -c 'ALTER SYSTEM RESET log_statement' -c 'ALTER SYSTEM RESET log_min_duration_statement' \
     -c 'ALTER SYSTEM RESET log_min_duration_sample' -c 'ALTER SYSTEM RESET log_statement_sample_rate' \
-    -c 'ALTER SYSTEM RESET log_transaction_sample_rate' -c 'SELECT pg_reload_conf()' >/dev/null
+    -c 'ALTER SYSTEM RESET log_transaction_sample_rate' -c 'ALTER SYSTEM RESET debug_print_parse' \
+    -c 'ALTER SYSTEM RESET debug_print_rewritten' -c 'ALTER SYSTEM RESET debug_print_plan' \
+    -c 'ALTER SYSTEM RESET password_encryption' -c 'SELECT pg_reload_conf()' >/dev/null
 python3 "$directorio/fixture_ensayo.py" fixture "$scratch"
 python3 "$directorio/fixture_ensayo.py" publish "$scratch" "$puerto" "$publicador"
 bash "$directorio/arrancar.sh" --config "$scratch/runtime.json" >"$scratch/process.log" 2>&1 &
