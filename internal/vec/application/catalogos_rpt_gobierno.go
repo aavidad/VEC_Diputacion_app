@@ -193,12 +193,12 @@ func (s *ServicioGobiernoCategoriaRPT) autorizar(ctx context.Context, c Credenci
 ) (domain.SolicitudAutorizacionLigadaV3, ports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
 	var solicitud domain.SolicitudAutorizacionLigadaV3
 	var cero ports.ExportacionMaterialConsumoAutorizacionAtestadaV3
-	ahora := s.reloj.Ahora().UTC().Truncate(time.Microsecond)
+	instanteInicial := s.reloj.Ahora().UTC().Truncate(time.Microsecond)
 	v, err := c.Vinculo.Datos()
 	h, errActor := c.Actor.HuellaSHA256VinculadaV2()
 	if err != nil || errActor != nil || c.Actor.Validar() != nil ||
 		c.ResultadoContexto.Validar() != nil || c.ResultadoContexto.HuellaSHA256 != h ||
-		c.Vinculo.ValidarPara(c.ResultadoContexto) != nil || !c.Vinculo.VigenteEn(ahora, c.ResultadoContexto) ||
+		c.Vinculo.ValidarPara(c.ResultadoContexto) != nil || !c.Vinculo.VigenteEn(instanteInicial, c.ResultadoContexto) ||
 		c.Actor.Principal.ID != v.PrincipalID || c.Actor.PerfilActivoRef != v.PerfilActivoRef ||
 		!c.Actor.Principal.AuthAssurance.Cumple(domain.AuthAssuranceHigh) ||
 		!domain.ReferenciaMotivoAutorizacionV2Valida(c.Motivo) || c.Correlacion.Validar() != nil ||
@@ -225,8 +225,9 @@ func (s *ServicioGobiernoCategoriaRPT) autorizar(ctx context.Context, c Credenci
 		return domain.SolicitudAutorizacionLigadaV3{}, cero, ports.ErrGobiernoCategoriaRPTDenegado
 	}
 	material, err := exportador.ExportarMaterialParaConsumidor()
+	instanteConsumo := s.reloj.Ahora().UTC().Truncate(time.Microsecond)
 	if err != nil || !concesionGobiernoCategoriaRPTValida(material, solicitud, decision,
-		confirmacion, c.ResultadoContexto, c.Actor, accion, p.Recurso, ahora) {
+		confirmacion, c.ResultadoContexto, c.Actor, accion, p.Recurso, instanteConsumo) {
 		return domain.SolicitudAutorizacionLigadaV3{}, cero, ports.ErrGobiernoCategoriaRPTDenegado
 	}
 	return solicitud, material, nil
