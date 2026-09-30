@@ -1,0 +1,4 @@
+# Plazos configurables (corte 3): ajustes de reglas de Contratación temporal.
+# AD3-114 (consumidor) antes de CT-148 (tablas y funciones). Preimagen: AD3-99 y CT-131.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000114_consumidor_ajustes_reglas_ct.up.sql
+deploy/postgresql/contratacion_temporal/migraciones/000148_ajustes_reglas.up.sql
