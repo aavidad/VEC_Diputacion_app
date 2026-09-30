@@ -92,7 +92,12 @@ BEGIN
   WHERE r.rol_id='administracion_perfiles'
     AND c->>'modulo_id'='administracion'
     AND c->>'accion'='administracion.perfiles.consultar';
-  IF numero <> 1 OR EXISTS (
+  IF numero <> 1 OR NOT EXISTS (
+    SELECT 1 FROM vec_autorizacion.version_rol r
+    WHERE r.rol_id='administracion_perfiles'
+      AND pg_catalog.jsonb_array_length(r.documento->'concesiones')=1
+      AND r.documento->>'retirada_en'='0001-01-01T00:00:00Z')
+    OR EXISTS (
     SELECT 1 FROM vec_autorizacion.asignacion_perfil a
     WHERE a.version_rol_ref='rol:administracion_perfiles:v1')
     OR EXISTS (
@@ -100,5 +105,11 @@ BEGIN
       CROSS JOIN LATERAL pg_catalog.aclexplode(p.proacl) acl
       WHERE p.oid='vec_contexto_actor_v1.listar_perfiles_cuenta_v1(text,text)'::regprocedure
         AND acl.grantee=0 AND acl.privilege_type='EXECUTE')
+    OR pg_catalog.has_function_privilege('vec_contexto_actor_v1_runtime',
+        'vec_contexto_actor_v1.listar_perfiles_cuenta_v1(text,text)','EXECUTE')
+    OR pg_catalog.has_function_privilege('vec_autorizacion_fuente',
+        'vec_contexto_actor_v1.listar_perfiles_cuenta_v1(text,text)','EXECUTE')
+    OR pg_catalog.has_table_privilege('vec_contexto_actor_v1_runtime',
+        'vec_contexto_actor_v1.perfil_actual','SELECT')
   THEN RAISE EXCEPTION 'rol, asignaciones o ACL no acotados'; END IF;
 END $comprobacion$;
