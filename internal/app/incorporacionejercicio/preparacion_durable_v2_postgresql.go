@@ -24,10 +24,14 @@ type PoolsPreparacionDurableV2 struct {
 }
 
 type ConfiguracionPreparacionDurableV2PostgreSQL struct {
-	Autoridad                  *AutoridadAplicacion
-	Detalle                    *appct.ServicioConsultaDetalleRRHH
-	Planes                     []byte
-	TernaPlanes                ct.ReferenciaVersionadaPersonalRPT
+	Autoridad   *AutoridadAplicacion
+	Detalle     *appct.ServicioConsultaDetalleRRHH
+	Planes      []byte
+	TernaPlanes ct.ReferenciaVersionadaPersonalRPT
+	// PlanesNominales pertenece a la composición confiable. Resuelve planes
+	// ya admitidos; nunca crea una preparación durante GET o POST. Es una
+	// alternativa exclusiva al documento histórico Planes/TernaPlanes.
+	PlanesNominales            FuentePlanesPreparacionV2
 	FuentePersonal             []byte
 	TernaPersonal              fuenteejercicio.TernaEsperada
 	Pools                      PoolsPreparacionDurableV2
@@ -46,7 +50,7 @@ func NuevoPreparadorDurableV2PostgreSQL(c ConfiguracionPreparacionDurableV2Postg
 	if c.Autoridad == nil || validarConfiguracionPreparacionV2PostgreSQL(c) != nil {
 		return nil, f
 	}
-	planes, err := NuevaFuentePlanesPreparacionV2(c.Planes, c.TernaPlanes)
+	planes, err := fuentePlanesPreparacionV2PostgreSQL(c)
 	if err != nil {
 		return nil, f
 	}
@@ -85,6 +89,16 @@ func NuevoPreparadorDurableV2PostgreSQL(c ConfiguracionPreparacionDurableV2Postg
 	return NuevoPreparadorDurableV2(ConfiguracionPreparacionDurableV2{Autoridad: c.Autoridad, Detalle: c.Detalle,
 		Planes: planes, FuentePersonal: c.FuentePersonal, TernaPersonal: c.TernaPersonal, Inicial: inicial,
 		LocalizadorCT: localCT, Restaurador: restaurador, LocalizadorPersonal: localPersonal, LectorPersonal: lectura, Reloj: c.Reloj})
+}
+
+func fuentePlanesPreparacionV2PostgreSQL(c ConfiguracionPreparacionDurableV2PostgreSQL) (FuentePlanesPreparacionV2, error) {
+	if c.PlanesNominales != nil {
+		if nulo(c.PlanesNominales) || len(c.Planes) != 0 || c.TernaPlanes != (ct.ReferenciaVersionadaPersonalRPT{}) {
+			return nil, ct.ErrComposicionIncorporacionAplicacion
+		}
+		return c.PlanesNominales, nil
+	}
+	return NuevaFuentePlanesPreparacionV2(c.Planes, c.TernaPlanes)
 }
 
 func validarConfiguracionPreparacionV2PostgreSQL(c ConfiguracionPreparacionDurableV2PostgreSQL) error {
