@@ -48,7 +48,8 @@ test("con plazo_fase pinta fecha y estado en texto, sin la procedencia de la reg
   const html = renderizarCuadro({
     vista: "cuadro", carga: "listo", filtros: { texto: "", estado: "", fase: "" }, cuadro,
   }, t);
-  assert.match(html, /<span class="ct-exp-chip ct-plazo-vencido">Vencido<\/span>\s*<small>29 sept 2026<\/small>/u);
+  assert.match(html, /ct-fase-en_curso ct-plazo-vencido">En trámite · plazo vencido el 29 sept 2026<\/span>/u);
+  assert.match(html, /<span class="ct-exp-chip ct-plazo-vencido">Vencido<\/span>\s*<small>Venció ayer · 29 sept 2026<\/small>/u);
   assert.doesNotMatch(html, /c03\.plazo_fiscalizacion|regla/u);
 });
 
@@ -63,6 +64,21 @@ test("un plazo no calculado se dice, sin fecha supuesta", async () => {
   }, t);
   assert.match(html, /<span class="texto-secundario">Sin calcular<\/span>/u);
   assert.doesNotMatch(html, /ct-plazo-no_calculado/u);
+});
+
+test("la lista da una etiqueta relativa civil y conserva el día exacto del servidor", async () => {
+  for (const [ultimoDia, estadoPlazo, esperado] of [
+    ["2026-09-19", "vencido", "Venció hace 11 días · 19 sept 2026"],
+    ["2026-10-05", "en_plazo", "Vence en 5 días naturales · 5 oct 2026"],
+  ]) {
+    const adaptador = crearAdaptadorHTTPExpedientesContratacionTemporal({
+      cliente: cliente([{ ...resumen, plazo_fase: { ...plazo, ultimo_dia: ultimoDia, estado: estadoPlazo } }]),
+    });
+    const cuadro = await adaptador.listar(filtros);
+    const html = renderizarCuadro({ vista: "cuadro", carga: "listo", filtros: filtros.filtros, cuadro }, t);
+    assert.ok(html.includes(esperado), esperado);
+    if (estadoPlazo === "en_plazo") assert.doesNotMatch(html, /ct-fase-en_curso ct-plazo-vencido/u);
+  }
 });
 
 test("cada estado del plazo tiene su texto", () => {

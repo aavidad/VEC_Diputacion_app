@@ -147,7 +147,15 @@ func PrepararMaterialPortalExterno(ctx context.Context, cfg config.Config, opcio
 	// Alias de las cuentas del Área personal, calculados por el propio
 	// proceso externo con su clave (ExportarSeudonimosPortalExterno).
 	if len(aliasPedidos.Cuentas) != 0 {
-		if err := registrarSeudonimosPortalExterno(ctxConexion, gobierno, aliasPedidos); err != nil {
+		var err error
+		if portal == separacionportales.PortalInterno {
+			// ID7 conserva los alias en su población propia. La herramienta de
+			// preparación coteja una provisión ya aprobada, nunca da de alta.
+			err = comprobarSeudonimosProvisionadosPortalExterno(ctxConexion, gobierno, aliasPedidos)
+		} else {
+			err = registrarSeudonimosPortalExterno(ctxConexion, gobierno, aliasPedidos)
+		}
+		if err != nil {
 			return resumen, err
 		}
 		resumen.Alias = len(aliasPedidos.Cuentas)

@@ -74,7 +74,7 @@ func validarAtestacionLecturaReincorporacion(m ports.MaterialReincorporacionTitu
 	}
 	recurso := vd.RecursoAutorizable{Referencia: m.ExpedienteRef, ModuloID: ports.ModuloContratacion,
 		Tipo:    ports.TipoRecursoLecturaReincorporacionTitular,
-		Ambitos: map[string]string{"organizacion_ref": m.OrganizacionRef, "expediente_ref": m.ExpedienteRef},
+		Ambitos: map[string]string{"organizacion_ref": m.OrganizacionRef},
 		Atributos: map[string]string{"version_expediente": strconv.FormatUint(m.VersionEsperada, 10),
 			"relacion_ref": m.RelacionRef, "fecha_efectiva": m.FechaEfectiva.Format(time.DateOnly),
 			"documento_ref": m.DocumentoRef, "documento_sha256": m.DocumentoSHA256}}

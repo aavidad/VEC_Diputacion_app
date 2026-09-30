@@ -46,6 +46,7 @@ type claveCapacidadConsultasContratacionTemporalDesarrollo struct{}
 type capacidadConsultaContratacionTemporalDesarrollo struct {
 	sello                   *selloConsultasContratacionTemporalDesarrollo
 	ruta                    string
+	metodo                  string
 	principal               vecdomain.Principal
 	consultaRRHH            *contextoConsultaRRHHPeticionDesarrollo
 	contextoOperacion       *contextoOperacionCTDesarrollo
@@ -556,13 +557,19 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		return nil, nil, nil, ErrActivacionDesarrolloInvalida
 	}
 	declaracionesFrontera, err := descriptoresFronterasContratacionTemporalConPlantillasDesarrollo(
-		perfilCTCatalogo, perfilesConsulta, false, plantillasActivas, perfilPlantillas)
+		perfilCTCatalogo, perfilesConsulta, firmaDocumento != nil, plantillasActivas, perfilPlantillas)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 	declaracionesFrontera, err = asignarPerfilesFijosEnFronterasCTDesarrollo(alta.soporte, perfilCTCatalogo, declaracionesFrontera)
 	if err != nil {
 		return nil, nil, nil, err
+	}
+	if cfg.IncorporacionV2File != "" {
+		declaracionesFrontera, err = asignarPerfilesNominalesIncorporacionEnFronteras(alta.soporte, declaracionesFrontera)
+		if err != nil {
+			return nil, nil, nil, err
+		}
 	}
 	if documentalActiva {
 		declaracionesFrontera, err = anexarFronterasPlantillasDocumentalCTDesarrollo(
@@ -656,6 +663,18 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			consultasRRHH.cerrar()
 		}
 	}()
+	if firmaDocumento != nil {
+		ctxFirma, cancelarFirma := context.WithTimeout(context.Background(), 15*time.Second)
+		err := prepararCuentaNominalFirmasIntervencionDesarrollo(ctxFirma, alta.postgresql.gobierno, fiscalizacionReal.soporte, derivador)
+		if err == nil {
+			err = firmaDocumento.configurarLecturaIntervencion(ctxFirma, fiscalizacionReal.soporte,
+				consultasRRHH.identidad, aprobacionProvisionPerfilesRRHHDesdeConfig(cfg))
+		}
+		cancelarFirma()
+		if err != nil {
+			return nil, nil, nil, err
+		}
+	}
 	var incorporacionV2 *inc.ServidorV2PostgreSQL
 	cerrarIncorporacion := func() {}
 	if cfg.IncorporacionV2File != "" {

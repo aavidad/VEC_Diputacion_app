@@ -1,0 +1,2 @@
+# ContextoActor 000013: después de roles candidato externo y 000012; antes de AUT16.
+deploy/postgresql/contexto_actor_v1/migraciones/000013_acreditacion_candidato_externo_exacto.up.sql

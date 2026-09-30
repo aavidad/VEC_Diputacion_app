@@ -335,5 +335,10 @@
     "causa_detalle": "Detalle",
     "causa_incompleta": "Elija una causa; con «Otro motivo» escriba el motivo (hasta 1000 caracteres).",
     "motivo_causa": "{causa} ({procedencia})"
+  },
+  "areaPersonal": {
+    "miBolsa": {
+      "rolPortal": "Mi bolsa y mis llamamientos"
+    }
   }
 }

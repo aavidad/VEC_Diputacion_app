@@ -2680,3 +2680,64 @@ en el clon. La aplicación inicializa ese gobierno al arrancar contra `55433`.
 - En 390 px las tablas se desplazan internamente y la página no debe desbordarse globalmente.
 - No deben aparecer cookies ni almacenamiento web, ni efectos de firma, envío, liquidación o pago.
 - Estos pasos son de presentación; el WIP durable no se instala, expone ni recupera en este corte.
+
+
+## Recuperar una incorporación de ejercicio — 30 de septiembre de 2026
+
+Ensayo en un clon sintético con el binario de `6c86ee563`. Se conservan la
+configuración original, el plan, la fuente Personal, la solicitud y las claves
+de idempotencia. Una copia de configuración liga las referencias del servidor
+al actor actual de H1, autorizado mediante perfiles nominales; no lo presenta
+como el autor histórico. El bloque opcional de continuidad queda fuera de esta
+copia y de este ensayo.
+
+1. Consulte la incorporación original con el actor actual autorizado. Debe
+   devolver 200 y el recibo conservado.
+2. Repita el POST con la intención y clave originales. Debe devolver 200 con
+   el mismo recibo, aun cuando el expediente esté en v9 y la intención sea v8.
+   Una intención nueva desfasada mantiene el conflicto; no se crea otra alta.
+3. Detenga solo PostgreSQL del clon: GET debe devolver 503. Recupere los
+   mismos datos y reinicie la aplicación; GET y POST deben mantener el recibo.
+4. Compruebe una fila de incorporación CT y una de alta Personal, sin duplicados.
+
+Los 18 campos comparados del recibo permanecieron iguales. El acta privada
+minimizada tiene SHA-256
+`e7619db4f310adbf48685241a051daf780bfc06bf5175225cbdf90a1bf65bab6`.
+CT153 se instaló una vez en el clon; no se reaplica ni revierte SQL con historia.
+
+Este ensayo cubre un expediente de ejercicio y su replay. Anotación, cierre,
+un segundo plan, incorporación B2 y retorno del titular siguen pendientes de
+sus fuentes y antecedentes. No se ejecutó reincorporación sin un cese ni se
+atribuyó firma legal o eficacia administrativa. La rama requiere la CI final
+y la integración de dirección antes de considerarse publicada en main.
+
+## Consulta nominal de firmas — 30 de septiembre de 2026
+
+Este ensayo usa un clon local, datos sintéticos y el binario de la rama
+`trabajo/codexa-firma-integracion-20260930`. Requiere el enlace de custodia
+CT145 y las migraciones nuevas AD3-125 y CT152. Dirección comprobará qué está
+instalado antes de preparar otro entorno: no se reaplica SQL ni se revierte
+una migración que ya tenga historia.
+
+Con una identidad RRHH autorizada y un expediente existente, la operación es
+POST `/api/vec/contratacion-temporal/firmas-documento/consultas`, con el cuerpo
+`{"expediente_ref":"<referencia del expediente>"}`. El perfil se escoge en la
+composición del servidor, sin campo de permisos en la petición.
+
+1. Consulte el expediente y conserve la respuesta. En el caso sintético
+   recorrido, devuelve 200, dos documentos firmables y cero firmas registradas.
+2. Repita la consulta. Cada acceso autorizado consume una capacidad V3 nueva
+   y deja auditoría; el estado del expediente y las firmas permanecen iguales.
+3. Detenga solo PostgreSQL del clon: la consulta debe devolver 503. Recupere
+   esa misma base, reinicie la aplicación y consulte otra vez: debe devolver
+   200 con el mismo estado y la historia conservada.
+4. Compruebe las negativas: GET devuelve 405; una referencia inexistente,
+   404; y el canal de Intervención contra esta ruta RRHH, 403. Una petición de
+   firma fuera del orden pendiente devuelve 409.
+
+Estos resultados se obtuvieron en Chrome con TLS mutuo y autorización real.
+El acceso a la API partió de un origen interno del servidor; la espera de
+carga de la página completa agotó su plazo, por lo que este ensayo no acredita
+el montaje completo de la interfaz. Las evidencias y los datos privados de
+preparación se conservan fuera de Git. No se creó ninguna firma ni se cerró
+la custodia E3. La fiscalización de Intervención sigue en comprobación.

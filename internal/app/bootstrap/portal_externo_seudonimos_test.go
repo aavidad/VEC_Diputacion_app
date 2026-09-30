@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -82,9 +83,53 @@ func TestLadoInternoSoloRegistraAliasDelEspacioExterno(t *testing.T) {
 	}
 }
 
+func TestAliasExternoAdmiteBolsaMasSesentaYCuatroPreferencias(t *testing.T) {
+	s := seudonimosValidosPrueba()
+	for i := 1; i < 65; i++ {
+		cuenta := s.Cuentas[0]
+		cuenta.CuentaRef = fmt.Sprintf("cta_sintetica_%032x", i)
+		cuenta.CuentaHMAC = fmt.Sprintf("%064x", i+1)
+		cuenta.SujetoHMAC = fmt.Sprintf("%064x", i+1000)
+		s.Cuentas = append(s.Cuentas, cuenta)
+	}
+	contenido, err := json.Marshal(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := leerSeudonimosPortalExterno(contenido); err != nil {
+		t.Fatalf("65 alias válidos rechazados: %v", err)
+	}
+	s.Cuentas = append(s.Cuentas, s.Cuentas[1])
+	contenido, err = json.Marshal(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := leerSeudonimosPortalExterno(contenido); !errors.Is(err, ErrSeudonimosPortalExternoInvalidos) {
+		t.Fatalf("66 alias aceptados: %v", err)
+	}
+}
+
 func TestExportarSeudonimosSoloEnElProcesoExterno(t *testing.T) {
 	vaciarConexionesDelEntorno(t)
 	m := generarMaterialPortalExternoPrueba(t)
+	materialBolsa, err := os.ReadFile(filepath.Join(m.cfg.DevelopmentMaterialDir, "identidad", "bolsa-candidato.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var bolsa struct {
+		CuentaRef string `json:"cuenta_ref"`
+	}
+	if err := json.Unmarshal(materialBolsa, &bolsa); err != nil || bolsa.CuentaRef == "" {
+		t.Fatal("identidad de Bolsa inválida")
+	}
+	soloBolsa, err := ExportarSeudonimosPortalExterno(m.cfg)
+	if err != nil {
+		t.Fatalf("exportación de Bolsa sin preferencias: %v", err)
+	}
+	aliasBolsa, err := leerSeudonimosPortalExterno(soloBolsa)
+	if err != nil || len(aliasBolsa.Cuentas) != 1 || aliasBolsa.Cuentas[0].CuentaRef != bolsa.CuentaRef {
+		t.Fatal("la cuenta candidata no recibió alias propio")
+	}
 	motivo := core.ReferenciaEntradaCatalogo{CatalogoID: "motivos_autorizacion", CatalogoVersion: 2,
 		CatalogoHuellaSHA256: strings.Repeat("d", 64), EntradaClave: "motivo_11111111111111111111111111111111"}
 	identidad, err := os.ReadFile(filepath.Join(m.cfg.DevelopmentMaterialDir, "identidad", "candidato.json"))
@@ -109,7 +154,8 @@ func TestExportarSeudonimosSoloEnElProcesoExterno(t *testing.T) {
 		t.Fatalf("exportacion en el externo: %v", err)
 	}
 	s, err := leerSeudonimosPortalExterno(contenido)
-	if err != nil || len(s.Cuentas) != 1 || s.Cuentas[0].CuentaRef != c.Cuentas[0].CuentaRef ||
+	if err != nil || len(s.Cuentas) != 2 ||
+		s.Cuentas[0].CuentaRef != bolsa.CuentaRef || s.Cuentas[1].CuentaRef != c.Cuentas[0].CuentaRef ||
 		strings.Contains(string(contenido), candidato.Subject) {
 		t.Fatalf("exportacion inesperada o con identificadores en claro: %s %v", contenido, err)
 	}
@@ -119,6 +165,12 @@ func TestExportarSeudonimosSoloEnElProcesoExterno(t *testing.T) {
 		if _, err := ExportarSeudonimosPortalExterno(cfg); err == nil {
 			t.Fatalf("exportacion aceptada fuera del externo (%q)", portal)
 		}
+	}
+	if err := os.WriteFile(filepath.Join(m.cfg.DevelopmentMaterialDir, "identidad", "usuarios-preferencias-externa.json"), []byte("{"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ExportarSeudonimosPortalExterno(m.cfg); !errors.Is(err, ErrSeudonimosPortalExternoInvalidos) {
+		t.Fatalf("preferencias externas ilegibles ignoradas: %v", err)
 	}
 }
 

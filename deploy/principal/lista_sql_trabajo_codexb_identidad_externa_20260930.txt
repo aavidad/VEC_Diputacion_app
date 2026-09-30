@@ -1,0 +1,2 @@
+deploy/postgresql/identidad_sesiones_v1/roles_externos_up.sql
+deploy/postgresql/identidad_sesiones_v1/migraciones/000007_identidad_externa_v1.up.sql

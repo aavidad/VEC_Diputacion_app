@@ -101,6 +101,7 @@ func (m *revalidadorConsultasContratacionTemporalDesarrollo) ServeHTTP(
 		capacidad := capacidadConsultaContratacionTemporalDesarrollo{
 			sello:     m.autoridad.sello,
 			ruta:      r.URL.Path,
+			metodo:    r.Method,
 			principal: clonarPrincipalDesarrollo(principal),
 		}
 		if protegidaCT || protegidaComun || rutaContinuidadNominal(capacidad.ruta) || rutaConsultaRRHHContratacionTemporalDesarrollo(capacidad.ruta) ||

@@ -53,13 +53,17 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   // El shell pasó sus textos a `textos/<idioma>/portal*.json` (integrado con 5.06, 5.07, 3.06 y 4.11): todo su grafo renueva URL.
   const vigente = "20260930-portales-i18n-integracion-v1";
   const versionesEspeciales = new Map([
+    ["modulos/bolsa/rrhh-plazos-ui.js", "20260930-ofertas-reglas-integradas-v4"],
+    ["portal-inicio.js", "20260930-ct-lista-recuperada-v2"],
     // 5.06, segundo corte: el circuito de firma trae el estado de Firmadoc.
     // Reglas vigentes: el detalle de cada regla y sus textos en catálogos renuevan el enlace del panel.
-    ["portal.js", "20260930-portales-i18n-integracion-v1"],
+    // Nuevo llamamiento: el campo «Resumen de la preparación» usa la etiqueta encima y el campo a lo ancho.
+    ["portal.js", "20260930-bolsa-resumen-llamamiento-v1"],
+    ["portal-borrador-llamamiento-ui.js", "20260930-bolsa-resumen-llamamiento-v1"],
     ["portal-panel-interno.js", "20260930-portales-i18n-integracion-v1"],
     ["reglas/enlace.js", "20260930-portales-i18n-integracion-v1"],
-    ["portal-modulos-coordinador.js", "20260930-portales-i18n-integracion-v1"],
-    ["modulos/contratacion-temporal/vista-expedientes.js", "20260930-portales-i18n-integracion-v1"],
+    ["portal-modulos-coordinador.js", "20260930-ct-lista-recuperada-v2"],
+    ["modulos/contratacion-temporal/vista-expedientes.js", "20260930-ct-lista-recuperada-v2"],
     ["modulos/contratacion-temporal/circuito-firma.js", "20260930-portales-i18n-integracion-v1"],
   ]);
   const archivos = ["index.html"];

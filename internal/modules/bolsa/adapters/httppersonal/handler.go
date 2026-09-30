@@ -130,11 +130,11 @@ type situacionActual struct {
 }
 type respuesta struct {
 	Data struct {
-		Esquema         string          `json:"esquema"`
-		AvisoDesarrollo string          `json:"aviso_desarrollo"`
-		ConsultadaEn    string          `json:"consultada_en"`
-		CamposVisibles  []string        `json:"campos_visibles"`
-		Participaciones []participacion `json:"participaciones"`
+		Esquema                  string          `json:"esquema"`
+		AvisoDesarrolloClaveI18n string          `json:"aviso_desarrollo_clave_i18n"`
+		ConsultadaEn             string          `json:"consultada_en"`
+		CamposVisibles           []string        `json:"campos_visibles"`
+		Participaciones          []participacion `json:"participaciones"`
 		// Portal y AccionesPortal solo aparecen si están compuestas las
 		// acciones propias del candidato.
 		Portal         []estadoPortal  `json:"portal,omitempty"`
@@ -149,7 +149,7 @@ type respuesta struct {
 func nuevaRespuesta(i puertosbolsa.InstantaneaMiBolsa) respuesta {
 	var r respuesta
 	r.Data.Esquema = puertosbolsa.EsquemaMiBolsaV1
-	r.Data.AvisoDesarrollo = "Acceso de desarrollo con certificado sintético. Cl@ve, certificado FNMT y DNIe dependen de la pasarela de Sistemas."
+	r.Data.AvisoDesarrolloClaveI18n = "areaPersonal.miBolsa.avisoDesarrollo"
 	r.Data.ConsultadaEn = i.ConsultadaEn.Format("2006-01-02T15:04:05.000000Z07:00")
 	r.Data.CamposVisibles = puertosbolsa.CamposPortalMiBolsaTodos()
 	r.Data.Participaciones = make([]participacion, 0, len(i.Participaciones))
