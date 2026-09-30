@@ -5,7 +5,8 @@ The integrator owns container/volume creation and removal, Docker timeouts and
 the final plan/receipt publication. A stopped staging container mounts its sole
 volume at /h6-stage: import creates input/ and output/ there, owned by 10002.
 The canary mounts input subpaths read-only and output/ at /output read-write.
-Only /output/plan.json is exported; trusted host helpers produce the receipt.
+Only plan.json is exported; the closed output_mount selects /output (default)
+or /h6-out for the approved H6 helper. Trusted host helpers produce the receipt.
 
 DockerArchive can be implemented with Docker cp stdin/stdout or the archive API.
 No Docker SDK is required here. Its inspect returns one decoded container object,
@@ -181,7 +182,8 @@ def output_archive():
     return result.getvalue()
 
 
-def validate_container(docker, owned, *, canary):
+def validate_container(docker, owned, *, canary, output_mount="/output"):
+    require(output_mount in ("/output", "/h6-out"), "output_mount")
     require(HEX.fullmatch(owned.id) and IMAGE.fullmatch(owned.image) and
             COMPONENT.fullmatch(owned.owner), "container_approval")
     expected = tuple((m.name, m.destination, m.writable) for m in owned.mounts)
@@ -228,7 +230,7 @@ def validate_container(docker, owned, *, canary):
                 type(state.get("ExitCode")) is int and state["ExitCode"] == 0 and
                 state.get("Status") == "exited" and state.get("OOMKilled") is False, "canary_exit")
         require(sum(m.writable for m in owned.mounts) == 1 and
-                any(m.destination == "/output" and m.writable and m.subpath == "output" for m in owned.mounts) and
+                any(m.destination == output_mount and m.writable and m.subpath == "output" for m in owned.mounts) and
                 all(m.subpath == "input" or m.subpath.startswith("input/") for m in owned.mounts if not m.writable),
                 "canary_mount_policy")
     else:
@@ -285,21 +287,22 @@ def plan_bytes(stream):
     return data
 
 
-def export_output(docker, canary, scratch):
+def export_output(docker, canary, scratch, *, output_mount="/output"):
     """Export only plan.json into a private host directory, atomically and fsynced.
 
     The caller must supply a fresh, host-owned 0700 scratch directory. Nothing
     in it is mounted into the canary. On failure the created file is discarded.
     The returned digest binds the bytes consumed by the trusted receipt helper.
     """
+    require(output_mount in ("/output", "/h6-out"), "output_mount")
     with directory(scratch) as fd:
         before = os.fstat(fd)
         require(before.st_uid == os.getuid() and stat.S_IMODE(before.st_mode) == 0o700 and
                 os.listdir(fd) == [], "scratch_private")
-        validate_container(docker, canary, canary=True)
-        with docker.get_archive(canary.id, OUTPUT_PATH) as stream:
+        validate_container(docker, canary, canary=True, output_mount=output_mount)
+        with docker.get_archive(canary.id, output_mount + "/plan.json") as stream:
             data = plan_bytes(stream)
-        validate_container(docker, canary, canary=True)
+        validate_container(docker, canary, canary=True, output_mount=output_mount)
         require(identity(before) == identity(os.fstat(fd)) and os.listdir(fd) == [], "scratch_changed")
         leaf = os.open("plan.json", os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC,
                        0o600, dir_fd=fd)

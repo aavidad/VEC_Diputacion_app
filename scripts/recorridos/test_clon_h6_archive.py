@@ -306,6 +306,22 @@ class ArchiveTests(unittest.TestCase):
         self.assertTrue((self.scratch / "plan.json").is_symlink())
         self.assertEqual(self.file.read_bytes(), b'{"synthetic":"private"}\n')
 
+    def test_h6_helper_mount_is_explicit_and_real_inspect_is_not_rewritten(self):
+        self.docker.canary = transport.OwnedContainer(self.docker.canary.id, self.docker.image, self.docker.canary.owner, (
+            transport.VolumeMount("fixture-volume", "/input", False, "input"),
+            transport.VolumeMount("fixture-volume", "/h6-out", True, "output")))
+        transport.export_output(self.docker, self.docker.canary, self.scratch, output_mount="/h6-out")
+        self.assertIn(("get", self.docker.canary.id, "/h6-out/plan.json"), self.docker.calls)
+        self.assertEqual(self.docker.inspect(self.docker.canary.id)["Mounts"][1]["Destination"], "/h6-out")
+
+    def test_output_mount_is_closed_and_must_match_approved_mounts(self):
+        for path in ("/h6-out", "/private", "/output/..", "/output/plan.json", "/output/"):
+            with self.subTest(path=path):
+                with self.assertRaises(transport.Refused):
+                    transport.export_output(self.docker, self.docker.canary, self.scratch, output_mount=path)
+                self.assertEqual(list(self.scratch.iterdir()), [])
+                self.assertFalse(any(c[0] == "get" for c in self.docker.calls))
+
     def test_fsync_failure_discards_partial_output(self):
         with patch.object(transport.os, "fsync", side_effect=[OSError("fixture fsync failure"), None]):
             with self.assertRaises(OSError):
