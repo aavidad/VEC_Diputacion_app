@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+from asyncio import CancelledError
 import errno
 import hashlib
 import json
@@ -246,8 +247,11 @@ class GuardiaNavegador:
         self.errores = []
         self.cerrando = False
         try:
+            # Canal de cierre independiente: no instala ningún interceptor.
+            self.control = browser.new_browser_cdp_session()
             self.cdp = browser.new_browser_cdp_session()
             self.cdp.on("Fetch.requestPaused", self.interceptar)
+            self.cdp.on("close", self.sesion_perdida)
             browser.on("disconnected", self.desconectado)
             self.origen = origen
             self.cdp.send("Fetch.enable", {"patterns": [
@@ -265,20 +269,27 @@ class GuardiaNavegador:
             limitar_peticion_cdp(self.cdp, evento, self.origen)
         except Exception as e:
             if not self.cerrando:
-                self.errores.append(type(e).__name__)
-                self.cerrando = True
-                # Cerrar Chrome por su sesión global evita la reentrancia de
-                # browser.close dentro del callback síncrono de Playwright.
-                try:
-                    self.cdp.send("Browser.close")
-                except Exception:
-                    # Fetch sigue pausando: el finally cierra el proceso propio.
-                    pass
+                self.solicitar_cierre(type(e).__name__)
 
     def desconectado(self):
         if not self.cerrando:
             self.errores.append("navegador_desconectado")
-            self.cerrar()
+            self.cerrando = True
+
+    def sesion_perdida(self, *_):
+        if not self.cerrando:
+            self.solicitar_cierre("sesion_guardia_desconectada")
+
+    def solicitar_cierre(self, motivo):
+        self.errores.append(motivo)
+        self.cerrando = True
+        # Browser.close por CDP no reentra en el cierre síncrono de Playwright;
+        # el canal de control conserva esta orden si se pierde la sesión Fetch.
+        try:
+            self.control.send("Browser.close")
+        except (Exception, CancelledError):
+            # El finally vuelve a cerrar el proceso propio y confirma el cierre.
+            pass
 
     def cerrar(self):
         # Mantener Fetch activo hasta cerrar todo Chrome, incluidos sus targets.

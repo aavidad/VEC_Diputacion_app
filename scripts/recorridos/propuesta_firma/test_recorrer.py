@@ -213,7 +213,10 @@ class RecorridoFirmaTest(unittest.TestCase):
             fallo = False
 
             def on(self, evento, callback):
-                self.callback = callback
+                if evento == "Fetch.requestPaused":
+                    self.callback = callback
+                else:
+                    self.close_callback = callback
 
             def send(self, metodo, parametros):
                 if self.fallo:
@@ -240,7 +243,7 @@ class RecorridoFirmaTest(unittest.TestCase):
             recorrer.GuardiaNavegador(browser, "https://localhost:8443")
         self.assertTrue(browser.cerrado)
 
-        for fallo in ("intercepcion", "transporte", "desconexion"):
+        for fallo in ("intercepcion", "transporte", "desconexion", "sesion"):
             browser = Browser()
             guardia = recorrer.GuardiaNavegador(browser, "https://localhost:8443")
             evento = {"requestId": "prueba", "request": {"url": "https://localhost:8443/"}}
@@ -249,8 +252,10 @@ class RecorridoFirmaTest(unittest.TestCase):
                 browser.cdp.callback(evento)
             elif fallo == "transporte":
                 browser.cdp.callback({**evento, "responseErrorReason": "ConnectionFailed"})
-            else:
+            elif fallo == "desconexion":
                 browser.desconectado()
+            else:
+                browser.cdp.close_callback(None)
             self.assertTrue(guardia.errores)
             guardia.cerrar()
             self.assertTrue(browser.cerrado)
@@ -386,6 +391,23 @@ class GuardiaChromeTest(unittest.TestCase):
                 with self.assertRaises(Error):
                     page.goto(self.origin + "/disconnect", wait_until="domcontentloaded")
                 self.assertTrue(guardia.errores)
+            finally:
+                guardia.cerrar()
+            self.assertFalse(browser.is_connected())
+
+    def test_perdida_session_real_cierra_browser(self):
+        from playwright.sync_api import sync_playwright, Error
+
+        with sync_playwright() as pw:
+            browser = pw.chromium.launch(executable_path="/usr/bin/google-chrome", headless=True)
+            guardia = recorrer.GuardiaNavegador(browser, self.origin)
+            try:
+                browser.new_context(service_workers="block").new_page()
+                try:
+                    guardia.cdp.detach()
+                except Error:
+                    pass
+                self.assertIn("sesion_guardia_desconectada", guardia.errores)
             finally:
                 guardia.cerrar()
             self.assertFalse(browser.is_connected())
