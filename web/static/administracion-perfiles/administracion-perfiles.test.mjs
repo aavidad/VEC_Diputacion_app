@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { crearClienteAdministracion, ErrorAdministracionPerfiles, nuevaOperacionRef } from "./cliente.js";
-import { estadoError, validarCapacidades, validarConfirmacion } from "./administracion-perfiles.js";
+import { cargarTextosAdministracion, estadoError, validarCapacidades, validarConfirmacion } from "./administracion-perfiles.js";
 
 const textosES = JSON.parse(await readFile(new URL("../textos/es/administracion-perfiles.json", import.meta.url), "utf8")).general;
 const textosEN = JSON.parse(await readFile(new URL("../textos/en/administracion-perfiles.json", import.meta.url), "utf8")).general;
@@ -18,6 +18,17 @@ test("catálogos de la pantalla completos y sin claves vacías", () => {
     for (const [, clave] of fuente.matchAll(/data-t(?:-aria)?="([a-z_]+)"/gu)) assert.ok(textosES[clave], clave);
     assert.doesNotMatch(fuente, /localStorage|sessionStorage|document\.cookie|cdn\./iu);
   });
+});
+
+test("si falla el catálogo principal carga otro idioma declarado y cambia lang", async () => {
+  const ingles = JSON.parse(await readFile(new URL("../textos/en/administracion-perfiles.json", import.meta.url), "utf8"));
+  const textos = await cargarTextosAdministracion({
+    cargar: async () => { throw new Error("catálogo principal ausente"); },
+    idiomas: [{ codigo: "en", localizacion: "en-GB" }],
+    leer: async () => ingles,
+  });
+  assert.equal(textos.idioma, "en");
+  assert.equal(textos.traducir("general.titulo"), ingles.general.titulo);
 });
 
 test("capacidad desconocida o sin consulta cierra las acciones", () => {

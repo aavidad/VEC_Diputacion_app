@@ -1,5 +1,5 @@
-import { IDIOMA_ACTUAL } from "../comun/idioma.js";
-import { cargarTextos } from "../comun/textos.js";
+import { IDIOMAS_DISPONIBLES, leerRecursoJSON } from "../comun/idioma.js";
+import { cargarTextos, crearTextos, urlCatalogo } from "../comun/textos.js";
 import { crearClienteAdministracion, nuevaOperacionRef, ErrorAdministracionPerfiles } from "./cliente.js?v=20260930-admin-ui-v1";
 
 const FECHA = { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Madrid" };
@@ -23,6 +23,22 @@ function motivoValido(valor) { return valor && textoValido(valor.catalogo_id) &&
   && textoValido(valor.entrada_clave) && textoValido(valor.etiqueta); }
 function motivoParaPOST(valor) { return Object.fromEntries(MOTIVO_CAMPOS.map((clave) => [clave, valor[clave]])); }
 function fechaValida(valor) { const fecha = new Date(valor); return Number.isFinite(fecha.getTime()) ? fecha : null; }
+
+export async function cargarTextosAdministracion({
+  cargar = cargarTextos, leer = leerRecursoJSON, idiomas = IDIOMAS_DISPONIBLES,
+} = {}) {
+  try { return await cargar("administracion-perfiles"); }
+  catch {
+    for (const idioma of idiomas) {
+      try {
+        const respaldo = await leer(urlCatalogo(idioma.codigo, "administracion-perfiles"));
+        return crearTextos({ modulo: "administracion-perfiles", idioma: idioma.codigo,
+          localizacion: idioma.localizacion, respaldo });
+      } catch { /* Se prueba el siguiente idioma del catálogo, sin inventar textos. */ }
+    }
+    throw new Error("catálogos de administración no disponibles");
+  }
+}
 
 export function estadoError(error) {
   if (!Number.isInteger(error?.estado)) return "error_servicio";
@@ -65,7 +81,7 @@ export function montarAdministracionPerfiles({ documento = globalThis.document, 
     cancelar: $("decision-cancelar"),
   };
   if (Object.values(elementos).some((nodo) => !nodo)) throw new TypeError("pantalla incompleta");
-  documento.documentElement.lang = IDIOMA_ACTUAL;
+  documento.documentElement.lang = textos.idioma;
   documento.title = t("titulo");
   for (const nodo of documento.querySelectorAll("[data-t]")) nodo.textContent = t(nodo.dataset.t);
   for (const nodo of documento.querySelectorAll("[data-t-aria]")) nodo.setAttribute("aria-label", t(nodo.dataset.tAria));
@@ -468,7 +484,7 @@ export function montarAdministracionPerfiles({ documento = globalThis.document, 
 }
 
 if (typeof document !== "undefined" && document.getElementById("contenido")) {
-  cargarTextos("administracion-perfiles").then((textos) => {
+  cargarTextosAdministracion().then((textos) => {
     const cliente = crearClienteAdministracion();
     const vista = montarAdministracionPerfiles({ cliente, textos });
     globalThis.addEventListener("pagehide", () => vista.destruir(), { once: true });
