@@ -8,6 +8,15 @@ repo=$(git -C "$guiones" rev-parse --show-toplevel)
 estado=${VEC_RECORRIDOS_ESTADO:-"$HOME/.local/state/vec-recorridos"}
 archivo=${VEC_RECORRIDOS_ARCHIVO:-"$HOME/.local/state/vec-clon/estado-cidonia-20260929-hito1.tgz"}
 referencia=${VEC_RECORRIDOS_REFERENCIA:-origin/main}
+artefacto=${VEC_RECORRIDOS_ARTEFACTO_APROBADO:-}
+artefacto_sha=${VEC_RECORRIDOS_ARTEFACTO_APROBADO_SHA256:-}
+artefacto_fuente=${VEC_RECORRIDOS_ARTEFACTO_APROBADO_FUENTE:-}
+if [[ -n "$artefacto" || -n "$artefacto_sha" || -n "$artefacto_fuente" ]]; then
+  [[ -n "$artefacto" && "$artefacto_sha" =~ ^[0-9a-f]{64}$ && "$artefacto_fuente" =~ ^[0-9a-f]{40}$ ]] || {
+    echo 'El artefacto aprobado necesita archivo, SHA256 y commit de fuente completos.' >&2
+    exit 2
+  }
+fi
 nombre=${VEC_RECORRIDOS_CONTENEDOR:-vec-recorridos-local}
 puerto_pg=${VEC_RECORRIDOS_PUERTO_PG:-55531}
 puerto_web=${VEC_RECORRIDOS_PUERTO_WEB:-18531}
@@ -99,12 +108,20 @@ finalizar_arranque() {
 
 runtime() {
   local operacion=$1 hash
+  local opciones_artefacto=()
   hash=$(python3 - "$marcador" <<'PY'
 import json,sys
 print(json.load(open(sys.argv[1]))['commit'])
 PY
 )
-  python3 "$guiones/clon_runtime.py" "$operacion" --mode interno --repo "$repo" --commit "$hash" --state "$estado" --port "$puerto_web" --pg-port "$puerto_pg"
+  case "$operacion" in
+    build|start|restart)
+      if [[ -n "$artefacto" ]]; then
+        opciones_artefacto=(--artifact "$artefacto" --artifact-sha256 "$artefacto_sha" --artifact-source "$artefacto_fuente")
+      fi
+      ;;
+  esac
+  python3 "$guiones/clon_runtime.py" "$operacion" --mode interno --repo "$repo" --commit "$hash" --state "$estado" --port "$puerto_web" --pg-port "$puerto_pg" "${opciones_artefacto[@]}"
 }
 
 comunicaciones() {

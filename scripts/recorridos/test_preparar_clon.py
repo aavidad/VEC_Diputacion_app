@@ -101,6 +101,42 @@ git() { touch "$VEC_TEST_MARKER"; return 9; }
             self.assertFalse(marker.exists())
             self.assertFalse((Path(directory) / 'fuente-sql-').exists())
 
+    def argumentos_runtime(self, operation):
+        source = Path(__file__).with_name('preparar_clon.sh').read_text()
+        function = source[source.index('runtime() {'):source.index('\ncomunicaciones() {')]
+        with tempfile.TemporaryDirectory() as directory:
+            arguments = Path(directory) / 'arguments'
+            script = '''set -eu
+marcador='fixture'
+repo='fixture'
+guiones='fixture'
+estado='fixture'
+puerto_web=18531
+puerto_pg=55531
+artefacto='/fixture/vec-server'
+artefacto_sha="$(printf 'a%.0s' {1..64})"
+artefacto_fuente="$(printf 'b%.0s' {1..40})"
+python3() {
+  if [[ "$1" == '-' ]]; then printf '%s\n' "$artefacto_fuente";
+  else printf '%s\n' "$@" > "$VEC_TEST_ARGUMENTS"; fi
+}
+''' + function + '\nruntime "$VEC_TEST_OPERATION"\n'
+            process = subprocess.run(['bash', '-c', script], capture_output=True, timeout=5,
+                env={'PATH': '/usr/bin:/bin', 'VEC_TEST_ARGUMENTS': str(arguments), 'VEC_TEST_OPERATION': operation})
+            self.assertEqual(process.returncode, 0)
+            return arguments.read_text().splitlines()
+
+    def test_build_transmite_artefacto_huella_y_fuente_juntos(self):
+        arguments = self.argumentos_runtime('build')
+        self.assertEqual(arguments[-6:], ['--artifact', '/fixture/vec-server', '--artifact-sha256', 'a'*64,
+                                        '--artifact-source', 'b'*40])
+
+    def test_verificacion_no_importa_artefactos(self):
+        arguments = self.argumentos_runtime('verify')
+        self.assertNotIn('--artifact', arguments)
+        self.assertNotIn('--artifact-sha256', arguments)
+        self.assertNotIn('--artifact-source', arguments)
+
 
 if __name__ == '__main__':
     unittest.main()

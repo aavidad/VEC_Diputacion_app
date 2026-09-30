@@ -1,8 +1,9 @@
 # Clon local para comprobar recorridos
 
 Este guion reconstruye una copia aislada con datos sintéticos. Usa el archivo del
-hito 1, instala únicamente las SQL posteriores del plan revisado y construye el
-binario del mismo commit de `main`. Ejecuta el portal interno de forma explícita.
+hito 1, instala únicamente las SQL posteriores del plan revisado y obtiene el
+binario del mismo commit de `main`. Puede compilarlo o copiar un artefacto
+aprobado por dirección. Ejecuta el portal interno de forma explícita.
 El hito 5 configura la política de ofertas;
 no contiene migraciones. No contacta con la principal.
 
@@ -32,6 +33,10 @@ Las cuatro entradas de RPT retenidas se cotejan como parte del inventario de
 la fuente, pero quedan fuera de este plan de ejecución. El binario congelado
 de H6 procede de `ab875bb8036af59e9b5ac624d6840b8581178ed2`: conserva
 exactamente ese inventario SQL. Ambos hashes se registran por separado.
+El artefacto fijado para H6 tiene SHA256
+`f8f6bed987f5b4de3fae5d40a06c43dbdc5b292856ec02492b26696b4eb0a41c`.
+La preparación de ese corte debe importarlo del kit aprobado, conservando
+su procedencia; no lo sustituye por otra compilación.
 
 H6 se prepara desde una copia fría nueva de H1 o continúa un prefijo de ese
 plan hasta 39. La copia que ya contiene las 43 instalaciones de RPT se
@@ -102,6 +107,19 @@ Para repetir el corte H6 congelado, sustituya la referencia por
 `ab875bb8036af59e9b5ac624d6840b8581178ed2` y elija un estado privado y un
 nombre de contenedor nuevos. El archivo H1 y su material original se
 conservan. La preparación no usa la base de 43 instalaciones como origen.
+
+Indique también el binario aprobado del kit, su huella y su fuente:
+
+```bash
+export VEC_RECORRIDOS_ARTEFACTO_APROBADO=/ruta/privada/kit-h6/vec-server
+export VEC_RECORRIDOS_ARTEFACTO_APROBADO_SHA256=f8f6bed987f5b4de3fae5d40a06c43dbdc5b292856ec02492b26696b4eb0a41c
+export VEC_RECORRIDOS_ARTEFACTO_APROBADO_FUENTE=ab875bb8036af59e9b5ac624d6840b8581178ed2
+```
+
+Las tres variables se proporcionan juntas. El runtime valida el archivo y
+su procedencia antes de copiarlo al estado propio. El kit permanece fuera
+de los montajes de la aplicación. Las comprobaciones de estado, parada y
+verificación no importan archivos.
 
 Elija otro nombre y cuatro puertos distintos si están ocupados. El guion rechaza un
 contenedor ajeno. El directorio privado tiene permisos `0700`; las claves,
