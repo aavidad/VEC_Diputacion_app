@@ -19,6 +19,10 @@ const recibo = () => ({ data: { esquema: "vec.contratacion_temporal.reglas.ajust
   consumo_huella_sha256: "b".repeat(64), decision_ref: "decision:syntetica",
   auditoria_ref: "auditoria:syntetica" }, replay: false } });
 
+const reglaNoAplicable = () => ({ clave: "c04.plazo_subsanacion", etiqueta: "Plazo de subsanación",
+  ajuste_no_aplicable: true, edicion: { campos: ["cantidad"], opciones_unidad: [], opciones_computo: [],
+    cantidad_minima: 1, cantidad_maxima: 30 } });
+
 test("la lectura valida versión, campos, motivos catalogados y evita valores ambiguos", () => {
   assert.equal(validarLecturaAjustes(lectura()).reglas[0].valores.cantidad_urgente, "5");
   const sinMotivo = lectura(); sinMotivo.data.motivos[0].texto_clave = "desconocida";
@@ -27,6 +31,29 @@ test("la lectura valida versión, campos, motivos catalogados y evita valores am
   assert.throws(() => validarLecturaAjustes(sinUrgente), ErrorAjustes);
   const otraVersion = lectura(); otraVersion.data.version_esperada = -1;
   assert.throws(() => validarLecturaAjustes(otraVersion), ErrorAjustes);
+});
+
+test("una regla con ajuste no aplicable omite valores sin ocultar las reglas válidas", async () => {
+  const mixta = lectura();
+  mixta.data.reglas.push(reglaNoAplicable());
+  const cliente = crearClienteAjustes(async () => new Response(JSON.stringify(mixta), { status: 200 }));
+  const datos = await cliente.leer();
+  assert.equal(datos.reglas.length, 2);
+  const html = renderizarAjustes(datos, { reglaActiva: "c04.plazo_subsanacion" });
+  assert.match(html, /Plazo de fiscalización/u);
+  assert.match(html, /10 Días hábiles/u);
+  assert.match(html, /Plazo de subsanación/u);
+  assert.match(html, /RRHH debe revisarlo/u);
+  assert.match(html, /data-ajustes-editar="c04.plazo_subsanacion" disabled/u);
+  assert.doesNotMatch(html, /data-ajustes-form="c04.plazo_subsanacion"/u);
+  const sinEdicion = lectura();
+  sinEdicion.data.reglas.push({ clave: "c04.plazo_subsanacion", etiqueta: "Plazo de subsanación", ajuste_no_aplicable: true });
+  assert.equal(validarLecturaAjustes(sinEdicion).reglas.length, 2);
+  for (const campo of ["valores", "cantidad", "cantidad_urgente", "unidad", "computo"]) {
+    const filtrada = lectura();
+    filtrada.data.reglas.push({ ...reglaNoAplicable(), [campo]: campo === "valores" ? { cantidad: "10" } : 10 });
+    assert.throws(() => validarLecturaAjustes(filtrada), ErrorAjustes, campo);
+  }
 });
 
 test("el cliente GET y POST conserva origen, clave y señal; distingue conflicto y dependencia", async () => {
@@ -79,7 +106,7 @@ test("la pantalla muestra resumen, historia y recibo, escapa datos; desactiva ca
     { reglaActiva: "c03.plazo_fiscalizacion", fase: "revision", borrador: { cantidad: "7", cantidad_urgente: "4", motivo_clave: "respuesta_rrhh_duda" } });
   assert.match(motivoRetirado, /Motivo anterior no disponible/u);
   assert.match(motivoRetirado, /data-ajustes-enviar disabled/u);
-  const revision = { ...datos, reglas: [{ ...datos.reglas[0], ajuste_no_aplicable: true, valores: { cantidad: "0", cantidad_urgente: "0", unidad: "dias_habiles" } }] };
+  const revision = { ...datos, reglas: [reglaNoAplicable()] };
   assert.doesNotMatch(renderizarAjustes(revision), /0 Días hábiles/u);
   assert.match(renderizarAjustes(revision), /RRHH debe revisarlo/u);
   const malicioso = { ...datos, reglas: [{ ...datos.reglas[0], etiqueta: "<img src=x>" }] };
