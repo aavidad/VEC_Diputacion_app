@@ -90,6 +90,18 @@ test("la vista distingue error de lectura y confirmación con recibo; URL preval
   assert.equal(idiomaAreaPersonal(["es-ES"], { href: "https://vec.example/area-personal/" }, "en"), "en");
 });
 
+test("la vista ofrece únicamente los nuevos temas incluidos en el catálogo v2", async () => {
+  await iniciarI18nAreaPersonal({ querySelectorAll: () => [] }, { leer: lectorCatalogos(), ubicacion: { href: "https://vec.example/area-personal/?lang=es" } });
+  const nuevos = ["diputacion_granada", "arena", "salvia", "lavanda", "azul_sereno", "noche_suave"];
+  const catalogoV2 = { ...catalogo, version_ref: "usuarios-preferencias-v2",
+    temas: [...catalogo.temas, ...nuevos.map((codigo) => ({ codigo, nombre_key: `ui.usuarios.preferencias.tema.${codigo}` }))] };
+  const html = renderizarPreferencias({ catalogo: catalogoV2, estado: { ...estado, valores: { ...valores, tema: "salvia" } } });
+  for (const codigo of nuevos) assert.match(html, new RegExp(`value="${codigo}"`, "u"));
+  assert.match(html, /value="salvia" selected>Salvia/u);
+  const reducido = renderizarPreferencias({ catalogo: { ...catalogoV2, temas: catalogoV2.temas.slice(0, -1) }, estado });
+  assert.doesNotMatch(reducido, /value="noche_suave"/u);
+});
+
 test("la lista local respeta 20, 50 o 100 filas sin cambiar el transporte remoto", async () => {
   const fuente = await readFile(new URL("./vistas/seguimiento-tramites.js", import.meta.url), "utf8");
   assert.match(fuente, /\[20, 50, 100\]\.includes\(estado\.filasPreferidas\)/u);

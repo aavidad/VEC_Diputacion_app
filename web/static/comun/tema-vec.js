@@ -119,7 +119,10 @@ export function crearControladorTema({ documento = globalThis.document } = {}) {
   });
 }
 
-const MODOS_COLOR = new Set(["sistema", "claro", "oscuro"]);
+const MODOS_COLOR = new Set([
+  "sistema", "claro", "oscuro", "diputacion_granada", "arena", "salvia",
+  "lavanda", "azul_sereno", "noche_suave",
+]);
 const TAMANOS_TEXTO = new Set(["normal", "grande", "muy_grande"]);
 
 /** Acepta exclusivamente las opciones visuales del catálogo de Usuarios. */
