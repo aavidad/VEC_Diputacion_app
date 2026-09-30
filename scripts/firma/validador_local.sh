@@ -28,10 +28,7 @@ trap cleanup EXIT HUP INT TERM
 
 mkdir -p "$scratch/src/cmd/vecfixture" "$scratch/home" "$scratch/tmp" "$scratch/cache" "$scratch/bin"
 rsync -a --exclude=.git --exclude=.worktrees --exclude='*.p12' --exclude='*.key' "$af_source/" "$scratch/src/"
-[[ "$(head -n 1 "$script_dir/fixture/main.go")" == '//go:build ignore' ]] || {
-  echo 'La fuente del fixture debe permanecer excluida del módulo VEC' >&2; exit 2;
-}
-tail -n +3 "$script_dir/fixture/main.go" > "$scratch/src/cmd/vecfixture/main.go"
+cp -- "$script_dir/fixture/main.go.tmpl" "$scratch/src/cmd/vecfixture/main.go"
 cp -- "$script_dir/validador_runtime.sh" "$scratch/runtime.sh"
 
 # El proceso ensayado solo ve el árbol temporal, herramientas y caché Go de lectura.
