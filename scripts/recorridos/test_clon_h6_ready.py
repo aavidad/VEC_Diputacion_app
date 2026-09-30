@@ -4,6 +4,8 @@ from dataclasses import asdict
 import json
 import os
 from pathlib import Path
+import signal
+import stat
 import tempfile
 import unittest
 from unittest.mock import Mock, patch
@@ -312,6 +314,50 @@ class ReadyTests(unittest.TestCase):
         self.assertEqual(path.read_bytes(), b"SELLO SINTETICO\n")
         self.assertFalse(list(self.state.glob(".h6-ready-*")))
 
+    def test_sigkill_after_atomic_promotion_leaves_single_link_and_recovers(self):
+        original_rename = ready.rename_noreplace
+        child = os.fork()
+        if child == 0:
+            def kill_after_rename(*args):
+                original_rename(*args)
+                os.kill(os.getpid(), signal.SIGKILL)
+            try:
+                with patch.object(ready, "rename_noreplace", side_effect=kill_after_rename):
+                    ready.complete_h6(self.state, self.approval)
+            except BaseException:
+                os._exit(80)
+            os._exit(81)
+        _, status = os.waitpid(child, 0)
+        self.assertTrue(os.WIFSIGNALED(status))
+        self.assertEqual(os.WTERMSIG(status), signal.SIGKILL)
+        path = self.state / "DB_READY.json"
+        self.assertEqual(path.stat().st_nlink, 1)
+        self.assertFalse(list(self.state.glob(".h6-ready-*")))
+        before = path.read_bytes()
+        recovered = ready.complete_h6(self.state, self.approval)
+        self.assertEqual(before, ready.canonical(recovered))
+        self.subprocess.assert_not_called()
+
+    def test_directory_fsync_failure_never_becomes_success_without_resync(self):
+        original_fsync = ready.os.fsync
+        path = self.state / "DB_READY.json"
+        def fault_after_promotion(descriptor):
+            if stat.S_ISDIR(os.fstat(descriptor).st_mode) and path.exists():
+                raise OSError("fallo sintético fsync de directorio")
+            return original_fsync(descriptor)
+        with patch.object(ready.os, "fsync", side_effect=fault_after_promotion):
+            with self.assertRaises(OSError):
+                ready.complete_h6(self.state, self.approval)
+            self.assertTrue(path.exists())
+            before = path.read_bytes()
+            with self.assertRaises(OSError):
+                ready.complete_h6(self.state, self.approval)
+        with patch.object(ready.os, "fsync", wraps=original_fsync) as sync:
+            recovered = ready.complete_h6(self.state, self.approval)
+            self.assertEqual(sync.call_count, 2)
+        self.assertEqual(before, ready.canonical(recovered))
+        self.subprocess.assert_not_called()
+
     def test_no_live_false_option_for_complete(self):
         with self.assertRaises(TypeError):
             ready.complete_h6(self.state, self.approval, live=False)
@@ -322,6 +368,7 @@ class ReadyTests(unittest.TestCase):
         return {"Id": "a" * 64, "Image": self.approval["pg_image_id"],
             "Name": "/vec-prueba", "Config": {"Image": "postgres:18.4", "Labels": {
                 "vec.recorridos.owner": "Codex-M", "vec.recorridos.state": str(self.state)}},
+            "HostConfig": {"NetworkMode": "none"},
             "State": {"Running": True}, "NetworkSettings": {"Ports": {"5432/tcp": [
                 {"HostIp": "127.0.0.1", "HostPort": "55441"}]}}, "Mounts": [{"Type": "bind",
                 "Destination": "/var/lib/postgresql", "Source": self.approval["pg_volume"]["source"],
@@ -356,6 +403,22 @@ class ReadyTests(unittest.TestCase):
             fixture["NetworkSettings"]["Ports"]["5432/tcp"][0]["HostIp"] = "0.0.0.0"
             with self.assertRaisesRegex(ready.Refused, "ports_mismatch"):
                 self.live_original(self.state, self.approval)
+
+    def test_pre_ad132_requires_network_none_even_without_published_ports(self):
+        fixture = self.container_fixture()
+        fixture["NetworkSettings"]["Ports"] = {}
+        original_directory = ready.directory
+        def fixture_directory(path):
+            return original_directory(self.state if str(path) ==
+                self.approval["pg_volume"]["source"] else path)
+        with patch.object(ready, "docker_record", return_value=fixture), patch.object(
+                ready, "directory", side_effect=fixture_directory), patch.object(
+                ready, "live_container", side_effect=self.live_original):
+            ready.validate_pre_ad132(self.state, self.approval, live=True)
+            for network in ("host", "bridge", None):
+                fixture["HostConfig"] = {} if network is None else {"NetworkMode": network}
+                with self.subTest(network=network), self.assertRaisesRegex(ready.Refused, "container_mismatch"):
+                    ready.validate_pre_ad132(self.state, self.approval, live=True)
 
     def test_preparation_cannot_adopt_old_application_marker(self):
         self.write("READY.json", ready.canonical({"legacy": True}))

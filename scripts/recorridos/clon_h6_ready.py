@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 from contextlib import contextmanager
+import ctypes
 import hashlib
 import json
 import os
@@ -339,6 +340,7 @@ def live_container(state, approval):
             value.get("Name") == "/" + approval["container"] and
             value.get("Config", {}).get("Image") == "postgres:18.4" and
             value.get("State", {}).get("Running") is True and
+            value.get("HostConfig", {}).get("NetworkMode") == "none" and
             labels.get("vec.recorridos.owner") == "Codex-M" and
             labels.get("vec.recorridos.state") == str(state), "h6_live_container_mismatch")
     bindings = value.get("NetworkSettings", {}).get("Ports") or {}
@@ -461,8 +463,40 @@ def validate_h6_ready(state, approval, live=True):
     return expected
 
 
+def rename_noreplace(directory_fd, source, destination):
+    """Linux: mover exclusivamente sin crear un segundo enlace al inode."""
+    libc = ctypes.CDLL(None, use_errno=True)
+    operation = getattr(libc, "renameat2", None)
+    require(operation is not None, "h6_atomic_noreplace_unavailable")
+    operation.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_int,
+                          ctypes.c_char_p, ctypes.c_uint]
+    operation.restype = ctypes.c_int
+    # RENAME_NOREPLACE=1: jamás reemplazar evidencia existente.
+    if operation(directory_fd, os.fsencode(source), directory_fd,
+                 os.fsencode(destination), 1) != 0:
+        raise OSError(ctypes.get_errno(), "h6_atomic_publication_failed")
+
+
+def sync_existing_ready(directory_fd, expected):
+    """Recuperación: la visibilidad del nombre no acredita el fsync anterior."""
+    descriptor = os.open("DB_READY.json", os.O_RDONLY | os.O_NOFOLLOW |
+                         os.O_NONBLOCK | os.O_CLOEXEC, dir_fd=directory_fd)
+    with os.fdopen(descriptor, "rb") as stream:
+        before = os.fstat(stream.fileno())
+        require(stat.S_ISREG(before.st_mode) and before.st_nlink == 1 and
+                before.st_uid == os.getuid() and not before.st_mode & 0o077 and
+                before.st_size == len(expected) <= 64_000, "h6_unsafe_ready_recovery")
+        data = stream.read(64_001)
+        require(data == expected and metadata(before) == metadata(os.fstat(stream.fileno())),
+                "h6_ready_changed_during_recovery")
+        os.fsync(stream.fileno())
+        os.fsync(directory_fd)
+        after = os.stat("DB_READY.json", dir_fd=directory_fd, follow_symlinks=False)
+        require(metadata(before) == metadata(after), "h6_ready_changed_during_recovery")
+
+
 def publish(directory_fd, data):
-    """Promoción exclusiva atómica; fsync del archivo y del directorio."""
+    """Promoción exclusiva sin enlaces; fsync del archivo y del directorio."""
     temporary = ".h6-ready-" + uuid.uuid4().hex
     descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL |
                          os.O_NOFOLLOW | os.O_CLOEXEC, 0o600, dir_fd=directory_fd)
@@ -471,9 +505,7 @@ def publish(directory_fd, data):
             stream.write(data)
             stream.flush()
             os.fsync(stream.fileno())
-        os.link(temporary, "DB_READY.json", src_dir_fd=directory_fd,
-                dst_dir_fd=directory_fd, follow_symlinks=False)
-        os.unlink(temporary, dir_fd=directory_fd)
+        rename_noreplace(directory_fd, temporary, "DB_READY.json")
         os.fsync(directory_fd)
     finally:
         try:
@@ -491,7 +523,9 @@ def complete_h6(state, approval):
         require(journal_file.load(required=True) == original, "h6_journal_changed")
         if exists(state / "DB_READY.json"):
             require(original["phase"] == "ad132_confirmed", "h6_ready_before_confirmation")
-            return validate_h6_ready(state, approval, live=True)
+            recovered = validate_h6_ready(state, approval, live=True)
+            sync_existing_ready(journal_file.directory, canonical(recovered))
+            return recovered
         require(not any(exists(state / name) for name in
             ("READY.json", "runtime-process.json", "runtime-container.json")),
             "h6_application_already_reserved")
