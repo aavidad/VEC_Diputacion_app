@@ -18,6 +18,7 @@ import (
 	ctdomain "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	seguridadvec "vec-diputacion-granada/internal/vec/adapters/seguridad"
+	docports "vec-diputacion-granada/internal/vec/documentos/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 )
 
@@ -27,6 +28,35 @@ func materialFirmaDesarrolloPrueba() ports.MaterialFirmaDocumento {
 		CatalogoHuella: strings.Repeat("c", 64), PasoRef: "vec.contratacion_temporal.circuito_firma:1:informe_definitivo.p1",
 		PasoOrden: 1, Secuencia: 1, Resultado: ctdomain.ResultadoFirmaDevuelto, MotivoDevolucion: "Falta la fecha",
 		ClaveIdempotencia: "clave-devolucion-00001"}
+}
+
+func TestPerfilFijoFirmaCustodiaDeclaradaAntesDePublicar(t *testing.T) {
+	s, _, _ := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
+	v, err := s.contexto.Vinculo.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, activa := range []bool{false, true} {
+		i, err := instantaneaPerfilFijoFirmaDocumentoCTDesarrollo(v.PrincipalID, v.PerfilActivoRef, s.reloj.Ahora(), activa)
+		if err != nil {
+			t.Fatal(err)
+		}
+		custodia := 0
+		for _, c := range i.VersionRol.Concesiones {
+			if c.Accion == docports.AccionCustodiarFirmado {
+				custodia++
+				if c.ModuloID != "documentos" || c.TipoRecurso != "documento_firmado" ||
+					!slices.Equal(c.Finalidades, []string{docports.FinalidadCustodiarFirmado}) {
+					t.Fatal("custodia con concesión divergente")
+				}
+			}
+		}
+		if activa && custodia != 1 || !activa && custodia != 0 || len(i.AsignacionPerfil.Ambitos) != 1 ||
+			i.AsignacionPerfil.Ambitos[0].Clave != "organizacion_ref" ||
+			!slices.Equal(i.AsignacionPerfil.Ambitos[0].Valores, []string{docports.OrganizacionRefV3}) {
+			t.Fatal("la custodia amplió el ámbito o se activó sin configuración")
+		}
+	}
 }
 
 type sesionFirmaErrorPrueba struct{ err error }
