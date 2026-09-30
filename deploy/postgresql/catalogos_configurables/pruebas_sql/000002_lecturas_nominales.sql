@@ -13,6 +13,8 @@ DECLARE
     h2 text;
     pre jsonb;
     hp text;
+    -- Referencia de entrada versionada, sintetica y con la forma del dominio.
+    motivo_ref text := 'motivos_rpt:1:motivo_11111111111111111111111111111111';
     vacia_h text := pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to('{}','UTF8')),'hex');
     pagina jsonb;
     segunda jsonb;
@@ -28,12 +30,12 @@ BEGIN
     h1 := pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(doc1,'UTF8')),'hex');
     h2 := pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(doc2,'UTF8')),'hex');
     PERFORM vec_catalogos_configurables.publicar('rpt-read-demo',1,h1,doc1,'{}'::jsonb,vacia_h,
-        'aprobacion:a1','aprobacion:b1','actor:uno','decision:pub1','recibo:pub1');
+        'aprobacion:a1','aprobacion:b1','actor:uno','decision:pub1','recibo:pub1',motivo_ref);
     pre := pg_catalog.jsonb_build_object('cat-beta',pg_catalog.jsonb_build_object(
         'version',1,'huella_sha256',h1,'revision',1,'estado','habilitada'));
     hp := pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(pre::text,'UTF8')),'hex');
     PERFORM vec_catalogos_configurables.publicar('rpt-read-demo',2,h2,doc2,pre,hp,
-        'aprobacion:a2','aprobacion:b2','actor:uno','decision:pub2','recibo:pub2');
+        'aprobacion:a2','aprobacion:b2','actor:uno','decision:pub2','recibo:pub2',motivo_ref);
 
     pagina := vec_catalogos_configurables.listar_habilitadas('rpt-read-demo',NULL,2);
     IF pagina->>'encontrado'<>'true'
@@ -75,7 +77,7 @@ BEGIN
         RAISE EXCEPTION 'historia exacta o control actual incorrectos';
     END IF;
     PERFORM vec_catalogos_configurables.cambiar_proyeccion('cat-alfa',1,'deshabilitar',NULL,NULL,
-        'actor:uno','decision:des-alfa','recibo:des-alfa');
+        'actor:uno','decision:des-alfa','recibo:des-alfa',motivo_ref);
     historica := vec_catalogos_configurables.leer_publicacion_categoria('rpt-read-demo',1,h1,'cat-alfa');
     IF historica#>>'{datos,control_actual,estado}'<>'deshabilitada'
        OR pg_catalog.jsonb_array_length(vec_catalogos_configurables.listar_habilitadas('rpt-read-demo',NULL,10)#>'{datos,items}')<>2 THEN
@@ -83,9 +85,9 @@ BEGIN
     END IF;
 
     PERFORM vec_catalogos_configurables.reservar('contratacion-temporal','expediente:uno',
-        'cat-beta','rpt-read-demo',2,h2,'actor:uno','decision:reserva','recibo:reserva');
+        'cat-beta','rpt-read-demo',2,h2,'actor:uno','decision:reserva','recibo:reserva',motivo_ref);
     PERFORM vec_catalogos_configurables.cambiar_proyeccion('cat-beta',2,'deshabilitar',NULL,NULL,
-        'actor:uno','decision:des-beta','recibo:des-beta');
+        'actor:uno','decision:des-beta','recibo:des-beta',motivo_ref);
     uso := vec_catalogos_configurables.consultar_uso('contratacion-temporal','expediente:uno','recibo:reserva');
     IF uso#>>'{datos,estado}'<>'reservado'
        OR uso#>>'{datos,huella_sha256}'<>h2
@@ -95,19 +97,19 @@ BEGIN
         RAISE EXCEPTION 'consulta de reserva no exacta';
     END IF;
     PERFORM vec_catalogos_configurables.terminar_uso('contratacion-temporal','expediente:uno',
-        'recibo:reserva','confirmado','actor:uno','decision:terminal','recibo:terminal');
+        'recibo:reserva','confirmado','actor:uno','decision:terminal','recibo:terminal',motivo_ref);
     uso := vec_catalogos_configurables.consultar_uso('contratacion-temporal','expediente:uno','recibo:reserva');
     IF uso#>>'{datos,estado}'<>'confirmado' OR uso#>>'{datos,terminal_recibo_ref}'<>'recibo:terminal' THEN
         RAISE EXCEPTION 'conclusion de reserva previa perdida';
     END IF;
     BEGIN
         PERFORM vec_catalogos_configurables.reservar('contratacion-temporal','expediente:dos',
-            'cat-beta','rpt-read-demo',2,h2,'actor:uno','decision:nueva','recibo:nueva');
+            'cat-beta','rpt-read-demo',2,h2,'actor:uno','decision:nueva','recibo:nueva',motivo_ref);
         RAISE EXCEPTION 'deshabilitada admitio uso nuevo';
     EXCEPTION WHEN SQLSTATE '55000' THEN NULL;
     END;
     PERFORM vec_catalogos_configurables.cambiar_proyeccion('cat-gamma',1,'deshabilitar',NULL,NULL,
-        'actor:uno','decision:des-gamma','recibo:des-gamma');
+        'actor:uno','decision:des-gamma','recibo:des-gamma',motivo_ref);
     pagina := vec_catalogos_configurables.listar_habilitadas('rpt-read-demo',NULL,10);
     IF pagina->>'encontrado'<>'true'
        OR pg_catalog.jsonb_array_length(pagina#>'{datos,items}')<>0
