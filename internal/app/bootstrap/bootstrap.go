@@ -91,6 +91,11 @@ func nuevoServidorHTTP(cfg config.Config, emisor vecports.EmisorIncidenciasTecni
 	if err := validarValoresConfiguracionConocidos(cfg); err != nil {
 		return nil, err
 	}
+	// Un proceso por portal: valor cerrado y solo en desarrollo, antes de
+	// elegir composición (la comprobación completa va en la de desarrollo).
+	if err := rechazarPortalSeparadoFueraDesarrollo(cfg); err != nil {
+		return nil, err
+	}
 	if err := rechazarSelectoresPresentacionEnComposicionNormal(cfg); err != nil {
 		return nil, err
 	}

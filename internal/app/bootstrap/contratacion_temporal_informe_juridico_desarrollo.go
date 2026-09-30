@@ -27,15 +27,20 @@ var errInformeJuridicoContratacionTemporalDesarrolloNoDisponible = errors.New(
 	"contratacion temporal: informe juridico de desarrollo no disponible",
 )
 
-type resolutorConfiguracionInformeJuridicoContratacionTemporalDesarrollo struct{}
+// resolutorConfiguracionInformeJuridicoContratacionTemporalDesarrollo admite
+// el informe en las fases y estados del catálogo (c23), los mismos que cubre
+// su perfil fijo.
+type resolutorConfiguracionInformeJuridicoContratacionTemporalDesarrollo struct {
+	fase faseOperacionCT
+}
 
-func (resolutorConfiguracionInformeJuridicoContratacionTemporalDesarrollo) ResolverConfiguracionInformeJuridico(
+func (r resolutorConfiguracionInformeJuridicoContratacionTemporalDesarrollo) ResolverConfiguracionInformeJuridico(
 	ctx context.Context,
 	solicitud ports.SolicitudResolverConfiguracionInformeJuridico,
 ) (ports.ConfiguracionInformeJuridico, error) {
 	if contextoInterfazNulo(ctx) || solicitud.Validar() != nil ||
 		solicitud.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo ||
-		!puntoEmisionInformeJuridicoDesarrollo(solicitud.VersionExpediente, string(solicitud.FaseActual), string(solicitud.EstadoActual)) ||
+		!puntoEmisionInformeJuridicoDesarrollo(r.fase, solicitud.VersionExpediente, string(solicitud.FaseActual), string(solicitud.EstadoActual)) ||
 		solicitud.UnidadAsignadaRef != unidadCoberturaContratacionTemporalDesarrollo {
 		return ports.ConfiguracionInformeJuridico{},
 			errInformeJuridicoContratacionTemporalDesarrolloNoDisponible
@@ -127,12 +132,16 @@ func nuevasDependenciasInformeJuridicoContratacionTemporalDesarrollo(
 	if err != nil {
 		return nil, errInformeJuridicoContratacionTemporalDesarrolloNoDisponible
 	}
+	faseInforme, ok := alta.soporte.opcionesCatalogo.faseOperacionVigente(operacionFaseInformeJuridicoCT)
+	if !ok {
+		return nil, errInformeJuridicoContratacionTemporalDesarrolloNoDisponible
+	}
 	servicio, err := application.NuevoServicioInformesJuridicos(
 		alta.soporte,
 		sellos,
 		sellos,
 		preparaciones,
-		resolutorConfiguracionInformeJuridicoContratacionTemporalDesarrollo{},
+		resolutorConfiguracionInformeJuridicoContratacionTemporalDesarrollo{fase: faseInforme},
 		seguridadvec.GeneradorReferenciasCriptograficas{},
 		alta.autorizador,
 		informejuridico.GeneradorDesarrollo{},
@@ -145,11 +154,18 @@ func nuevasDependenciasInformeJuridicoContratacionTemporalDesarrollo(
 	return servicio, nil
 }
 
+// nuevaInstantaneaAutorizacionInformeJuridicoContratacionTemporalDesarrollo
+// es la plantilla del perfil fijo del informe jurídico: la organización y las
+// fases y estados del catálogo (c23), sin expediente.
 func nuevaInstantaneaAutorizacionInformeJuridicoContratacionTemporalDesarrollo(
 	principalID string,
 	perfilRef string,
 	ahora time.Time,
+	fase faseOperacionCT,
 ) (dominiovec.InstantaneaAutorizacion, error) {
+	if !fase.valida() {
+		return dominiovec.InstantaneaAutorizacion{}, errAltaContratacionTemporalDesarrolloNoDisponible
+	}
 	return nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(
 		principalID,
 		perfilRef,
@@ -164,12 +180,7 @@ func nuevaInstantaneaAutorizacionInformeJuridicoContratacionTemporalDesarrollo(
 			Finalidades:    []string{finalidadInformeJuridicoContratacionTemporalDesarrollo},
 			GarantiaMinima: dominiovec.AuthAssuranceHigh,
 		}},
-		[]dominiovec.AmbitoPerfil{
-			{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}},
-			{Clave: "expediente_ref", Valores: []string{expedienteContratacionTemporalDesarrolloRef}},
-			{Clave: "fase_previa", Valores: []string{"asignacion_unidad"}},
-			{Clave: "estado_previo", Valores: []string{string(domain.EstadoEnCurso)}},
-		},
+		fase.ambitosPerfil(organizacionAltaContratacionTemporalDesarrollo),
 	)
 }
 
@@ -185,9 +196,13 @@ func referenciaMotivoAutorizacionInformeJuridicoDesarrollo() dominiovec.Referenc
 	}
 }
 
+// solicitudAutorizacionInformeJuridicoContratacionTemporalDesarrolloValida:
+// el expediente va en la referencia del recurso; los ámbitos son la
+// organización y el par fase/estado previo que admite el catálogo.
 func solicitudAutorizacionInformeJuridicoContratacionTemporalDesarrolloValida(
 	ruta string,
 	datos dominiovec.DatosSolicitudAutorizacionLigadaV3,
+	fase faseOperacionCT,
 ) bool {
 	ambitos := datos.Recurso.Ambitos
 	atributos := datos.Recurso.Atributos
@@ -196,11 +211,11 @@ func solicitudAutorizacionInformeJuridicoContratacionTemporalDesarrolloValida(
 		datos.ReferenciaMotivo == referenciaMotivoAutorizacionInformeJuridicoDesarrollo() &&
 		datos.Recurso.ModuloID == ports.ModuloContratacion &&
 		datos.Recurso.Tipo == ports.TipoRecursoInformeJuridico &&
-		datos.Recurso.Referencia == ambitos["expediente_ref"] &&
+		datos.Recurso.Referencia != "" &&
 		datos.Finalidad == finalidadInformeJuridicoContratacionTemporalDesarrollo &&
-		len(ambitos) == 4 && len(atributos) == 10 &&
+		len(ambitos) == 3 && len(atributos) == 10 &&
 		ambitos["organizacion_ref"] == organizacionAltaContratacionTemporalDesarrollo &&
-		versionInformeJuridicoDesarrolloValida(atributos["version_expediente"], ambitos["fase_previa"], ambitos["estado_previo"]) &&
+		versionInformeJuridicoDesarrolloValida(fase, atributos["version_expediente"], ambitos["fase_previa"], ambitos["estado_previo"]) &&
 		atributos["configuracion_ref"] == definicionInformeJuridicoDesarrollo &&
 		atributos["configuracion_version"] == strconv.FormatUint(1, 10) &&
 		hmac.Equal(
@@ -224,17 +239,22 @@ func solicitudAutorizacionInformeJuridicoContratacionTemporalDesarrolloValida(
 		len(atributos["borrador_huella_sha256"]) == 64
 }
 
-// puntoEmisionInformeJuridicoDesarrollo admite el informe inicial (v4, tras
-// la asignación) y el informe nuevo tras subsanar un reparo (desde v7, en la
-// subsanación). Que el informe nuevo proceda lo decide el catálogo en la
-// aplicación; aquí solo se acota la forma del expediente.
-func puntoEmisionInformeJuridicoDesarrollo(version uint64, fase, estado string) bool {
-	return (version == 4 && fase == "asignacion_unidad" && estado == string(domain.EstadoEnCurso)) ||
-		(version >= 7 && fase == string(domain.FaseSubsanacionUnidad) && estado == string(domain.EstadoIncidencia))
+// puntoEmisionInformeJuridicoDesarrollo admite el informe en las fases y
+// estados del catálogo (c23): el inicial tras la asignación y el nuevo tras
+// subsanar un reparo. Que el informe nuevo proceda lo decide el catálogo en la
+// aplicación y la base exige la versión exacta; aquí solo se acota que el
+// expediente tenga al menos la versión de la asignación.
+func puntoEmisionInformeJuridicoDesarrollo(fase faseOperacionCT, version uint64, faseActual, estado string) bool {
+	return version >= versionMinimaInformeJuridicoDesarrollo &&
+		fase.admite(domain.ClaveFase(faseActual), domain.EstadoOperativo(estado))
 }
 
-func versionInformeJuridicoDesarrolloValida(texto, fase, estado string) bool {
+// versionMinimaInformeJuridicoDesarrollo: el informe sigue a la asignación
+// (versión 4 del expediente en este flujo).
+const versionMinimaInformeJuridicoDesarrollo = 4
+
+func versionInformeJuridicoDesarrolloValida(fase faseOperacionCT, texto, faseActual, estado string) bool {
 	version, err := strconv.ParseUint(texto, 10, 64)
 	return err == nil && strconv.FormatUint(version, 10) == texto &&
-		puntoEmisionInformeJuridicoDesarrollo(version, fase, estado)
+		puntoEmisionInformeJuridicoDesarrollo(fase, version, faseActual, estado)
 }

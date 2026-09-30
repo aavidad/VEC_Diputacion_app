@@ -5,6 +5,7 @@ import { cargarPreferenciasIniciales, crearClientePreferencias, ErrorPreferencia
 import { alternarVisualSesion, crearOperacionPreferencias, renderizarPreferencias, sincronizarAtajosVisuales } from "./preferencias.js";
 import { idiomaAreaPersonal, iniciarI18nAreaPersonal } from "./i18n.js";
 import { renderizarLlamamientos } from "./vistas/seguimiento-tramites.js";
+import { catalogoPlano, lectorCatalogos } from "./textos-prueba.test-helper.mjs";
 
 const valores = Object.freeze({ idioma: "en", tamano_texto: "grande", alto_contraste: true,
   tema: "oscuro", inicio: "bolsas", filas: 50, aviso_correo_tareas: true, aviso_correo_plazos: false });
@@ -78,8 +79,7 @@ test("el replay 200 conserva el recibo y exige el indicador de repetición", asy
 });
 
 test("la vista distingue error de lectura y confirmación con recibo; URL prevalece sobre servidor", async () => {
-  const entradas = JSON.parse(await readFile(new URL("./locales/es.json", import.meta.url), "utf8"));
-  await iniciarI18nAreaPersonal({ querySelectorAll: () => [] }, async () => ({ ok: true, json: async () => entradas }));
+  await iniciarI18nAreaPersonal({ querySelectorAll: () => [] }, { leer: lectorCatalogos(), ubicacion: { href: "https://vec.example/area-personal/?lang=es" } });
   assert.match(renderizarPreferencias({ error: { codigo: "servicio" } }), /No se pudieron consultar sus preferencias/);
   assert.doesNotMatch(renderizarPreferencias({ error: { codigo: "servicio" } }), /<form/u);
   const html = renderizarPreferencias({ catalogo, estado, recibo: { recibo_ref: "recibo:propio" } });

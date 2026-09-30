@@ -13,6 +13,7 @@ import (
 
 	"vec-diputacion-granada/config"
 	publicatransitoria "vec-diputacion-granada/internal/app/composicion/publicatransitoria"
+	"vec-diputacion-granada/internal/app/separacionportales"
 	"vec-diputacion-granada/internal/app/server"
 	gobiernoconvocatorias "vec-diputacion-granada/internal/modules/bolsa/application/gobiernoconvocatorias"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/portafirmasapagado"
@@ -241,6 +242,21 @@ func nuevoServidorDesarrollo(
 	if err := validarSelectoresDespliegueBolsaCT(cfg); err != nil {
 		return nil, nil, err
 	}
+	// Antes de leer material o abrir conexiones: un proceso separado no
+	// arranca con credenciales ni claves del otro portal.
+	portal, err := comprobarSeparacionPortalConEntorno(cfg, entornoProcesoActual)
+	if err != nil {
+		return nil, nil, err
+	}
+	if portal == separacionportales.PortalExterno {
+		// El proceso externo tiene su propia composición: no pasa por la
+		// seguridad ni por las conexiones de RRHH.
+		if len(incorporacion) != 0 || strings.TrimSpace(cfg.IncorporacionV2File) != "" {
+			return nil, nil, ErrActivacionDesarrolloInvalida
+		}
+		servidor, err := nuevoServidorPortalExternoDesarrollo(cfg, registro, emisor)
+		return servidor, nil, err
+	}
 	composicion, err := NuevaComposicionSeguridadDesarrollo(cfg, registro)
 	if err != nil {
 		return nil, nil, err
@@ -412,9 +428,13 @@ func nuevoServidorDesarrollo(
 	if err != nil {
 		return nil, nil, err
 	}
+	aspirantes, err := nuevasDependenciasAspirantesDesarrollo(cfg, composicion.emisorKMS, autoridadContratacion.materialAspirantes)
+	if err != nil {
+		return nil, nil, err
+	}
 	usuariosPreferencias, err := nuevasRutasUsuariosPreferenciasDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia, autoridadContratacion.gobiernoUsuariosPreferencias, emisor,
 		autoridadContratacion.materialUsuariosPreferenciasConsultaInterna, autoridadContratacion.materialUsuariosPreferenciasActualizacionInterna,
-		autoridadContratacion.materialUsuariosPreferenciasConsultaExterna, autoridadContratacion.materialUsuariosPreferenciasActualizacionExterna, usuariosCorreos, usuariosImagen)
+		autoridadContratacion.materialUsuariosPreferenciasConsultaExterna, autoridadContratacion.materialUsuariosPreferenciasActualizacionExterna, usuariosCorreos, usuariosImagen, aspirantes)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -438,7 +458,17 @@ func nuevoServidorDesarrollo(
 	}
 	registradorFrontera := vecports.RegistradorAuditoriaFronteraRutaExacta(autoridadContratacion.registradorAuditoriaFronteraRutasExactas)
 	if usuariosPreferencias != nil {
-		registradorFrontera = registradorFronterasConUsuariosPreferencias{delegado: registradorFrontera, interna: usuariosPreferencias.interna.registrador, externa: usuariosPreferencias.externa.registrador}
+		frontera := registradorFronterasConUsuariosPreferencias{delegado: registradorFrontera, interna: usuariosPreferencias.interna.registrador}
+		if usuariosPreferencias.externa != nil {
+			frontera.externa = usuariosPreferencias.externa.registrador
+			if usuariosPreferencias.externa.aspirantes != nil {
+				frontera.aspirantes = usuariosPreferencias.externa.aspirantes.registrador
+			}
+		}
+		registradorFrontera = frontera
+	}
+	if err = validarCoberturaRutasCTDesarrollo(rutasContratacion, autoridadContratacion.fronterasSeguridadComun); err != nil {
+		return nil, nil, err
 	}
 	vecAPI, err := newVECShellAPICompuestaConIdentidadYRutas(
 		cfg, emisor, resolvedor, categoriasPersonal, rutasContratacion, autoridadExactas,

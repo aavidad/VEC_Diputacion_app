@@ -72,6 +72,35 @@ func TestCatalogoAutorizacionComunLigaAccionFronteraYPolitica(t *testing.T) {
 	}
 }
 
+func TestCatalogoAutorizacionComunDistingueMismaAccionPorFrontera(t *testing.T) {
+	get := fronteraComunPrueba("ct-consulta", "GET", "/api/vec/contratacion-temporal/peticiones-centro/rrhh", false)
+	post := fronteraComunPrueba("ct-entrega", "POST", "/api/vec/contratacion-temporal/peticiones-centro/rrhh", false)
+	post.ClaveCapacidad = "capacidad_entrega"
+	fronteras, err := nuevoCatalogoFronterasComunDesarrollo([]descriptorFronteraComunDesarrollo{get, post})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := politicaComunPrueba(t)
+	accion := "contratacion_temporal.solicitud.crear"
+	directa := descriptorAutorizacionComunDesarrollo{Accion: accion, ClavePolitica: get.ClavePolitica, ClaveCapacidad: get.ClaveCapacidad, Fronteras: []string{get.Clave}, Politica: p}
+	entrega := descriptorAutorizacionComunDesarrollo{Accion: accion, ClavePolitica: post.ClavePolitica, ClaveCapacidad: post.ClaveCapacidad, Fronteras: []string{post.Clave}, Politica: p}
+	catalogo, err := nuevoCatalogoAutorizacionComunDesarrollo(fronteras, []descriptorAutorizacionComunDesarrollo{directa, entrega})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, d := range []descriptorAutorizacionComunDesarrollo{directa, entrega} {
+		if _, ok := catalogo.politicaPara(accion, d.Fronteras[0], d.ClavePolitica, d.ClaveCapacidad); !ok {
+			t.Fatalf("acción sin vínculo en %s", d.Fronteras[0])
+		}
+	}
+	if _, ok := catalogo.politicaPara(accion, get.Clave, get.ClavePolitica, post.ClaveCapacidad); ok {
+		t.Fatal("capacidad de escritura aceptada desde GET")
+	}
+	if _, err := nuevoCatalogoAutorizacionComunDesarrollo(fronteras, []descriptorAutorizacionComunDesarrollo{directa, directa}); err == nil {
+		t.Fatal("vínculo acción/frontera duplicado")
+	}
+}
+
 func TestCatalogoAutorizacionComunRechazaCatalogoFalsoConMismasClaves(t *testing.T) {
 	d := fronteraComunPrueba("cronos-crear", "POST", "/api/vec/cronos/partes", false)
 	canonico, err := nuevoCatalogoFronterasComunDesarrollo([]descriptorFronteraComunDesarrollo{d})

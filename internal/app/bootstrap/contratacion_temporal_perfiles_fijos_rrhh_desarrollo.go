@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"net/http"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -18,20 +19,26 @@ import (
 // Perfiles fijos de RRHH (corte 2; el análisis, corte 3).
 //
 // Las rutas de RRHH cuyo permiso no depende del expediente (alta directa,
-// cobertura, cambios de organización y análisis) ya no comparten el perfil dinámico ni
+// entrega de petición, cobertura, cambios de organización, análisis, asignación e informe
+// jurídico) ya no comparten el perfil dinámico ni
 // publican su permiso en cada petición. Cada forma de ámbito tiene un perfil
 // propio de la misma persona (misma cuenta y persona; perfil, vínculo y sesión
-// distintos) que la composición elige por la ruta, nunca el cliente. Su
+// distintos) que la composición elige por la ruta y su método sellado, nunca el cliente. Su
 // asignación se publica una sola vez, al arrancar y solo si falta; después se
 // consume tal cual. Si lo publicado no es exactamente la plantilla del perfil
 // (revocado, restringido por otro acto, rol retirado o plantilla cambiada) la
 // ruta se deniega hasta una provisión aprobada por el operador (huella de la
 // asignación vigente, CAS bajo bloqueo).
 const (
-	clavePerfilFijoAltaCTDesarrollo         = "alta"
-	clavePerfilFijoCoberturaCTDesarrollo    = "cobertura"
-	clavePerfilFijoOrganizacionCTDesarrollo = "organizacion"
-	clavePerfilFijoAnalisisCTDesarrollo     = "analisis"
+	clavePerfilFijoAltaCTDesarrollo          = "alta"
+	clavePerfilFijoCoberturaCTDesarrollo     = "cobertura"
+	clavePerfilFijoOrganizacionCTDesarrollo  = "organizacion"
+	clavePerfilFijoAnalisisCTDesarrollo      = "analisis"
+	clavePerfilFijoAsignacionCTDesarrollo    = "asignacion"
+	clavePerfilFijoInformeCTDesarrollo       = "informe_juridico"
+	clavePerfilFijoSubsanacionCTDesarrollo   = "subsanacion"
+	clavePerfilFijoEntregaCTDesarrollo       = "entrega_peticion"
+	clavePerfilFijoLectorEntregaCTDesarrollo = "lector_entrega_peticion"
 	// Acto con el que este circuito publica las asignaciones de los perfiles
 	// fijos. Distinto del del perfil dinámico: una provisión solo reconoce como
 	// propia una asignación puesta por él.
@@ -44,8 +51,11 @@ var errPerfilFijoCTNoConsumible = errors.New("perfil fijo de RRHH sin asignació
 // perfilFijoCTDesarrollo es un perfil de la persona de RRHH reservado a unas
 // rutas concretas. Sus campos mutables se protegen con el mutex del soporte.
 type perfilFijoCTDesarrollo struct {
-	clave     string
-	rutas     map[string]struct{}
+	clave string
+	rutas map[string]struct{}
+	// metodo se usa solo cuando GET y POST comparten ruta con autoridades
+	// distintas. Vacío equivale a las rutas históricas de método único.
+	metodo    string
 	contexto  ports.ContextoAutorizacionAltaV3
 	plantilla dominiovec.InstantaneaAutorizacion
 	// actoSesion es el de las filas de sesión del perfil (propio en los
@@ -65,6 +75,10 @@ func (p *perfilFijoCTDesarrollo) atiende(ruta string) bool {
 	}
 	_, existe := p.rutas[ruta]
 	return existe
+}
+
+func (p *perfilFijoCTDesarrollo) atiendeMetodo(ruta, metodo string) bool {
+	return p.atiende(ruta) && (p.metodo == "" || p.metodo == metodo)
 }
 
 func (p *perfilFijoCTDesarrollo) perfilRef() string {
@@ -130,9 +144,44 @@ func (s *soporteAltaContratacionTemporalDesarrollo) perfilFijoParaRuta(ruta stri
 	return s.perfilFijoParaRutaBloqueado(ruta)
 }
 
+// La ruta de entrega sirve también GET. Solo el método POST, sellado por la
+// frontera mTLS, usa el perfil de entrega y del alta anidada. Una llamada sin
+// capacidad válida nunca puede elegir ese perfil a partir de un valor libre.
+func (s *soporteAltaContratacionTemporalDesarrollo) perfilFijoParaContexto(
+	ctx context.Context, ruta string,
+) *perfilFijoCTDesarrollo {
+	if ruta == rutaEntregaPeticionCentro {
+		capacidad, valida := s.capacidadValida(ctx)
+		if !valida || capacidad.ruta != ruta ||
+			(capacidad.metodo != http.MethodGet && capacidad.metodo != http.MethodPost) {
+			return nil
+		}
+		return s.perfilFijoParaRutaYMetodo(ruta, capacidad.metodo)
+	}
+	return s.perfilFijoParaRuta(ruta)
+}
+
+func (s *soporteAltaContratacionTemporalDesarrollo) perfilFijoParaRutaYMetodo(ruta, metodo string) *perfilFijoCTDesarrollo {
+	if s == nil {
+		return nil
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.perfilFijoParaRutaYMetodoBloqueado(ruta, metodo)
+}
+
 func (s *soporteAltaContratacionTemporalDesarrollo) perfilFijoParaRutaBloqueado(ruta string) *perfilFijoCTDesarrollo {
 	for _, p := range s.perfilesFijos {
 		if p.atiende(ruta) {
+			return p
+		}
+	}
+	return nil
+}
+
+func (s *soporteAltaContratacionTemporalDesarrollo) perfilFijoParaRutaYMetodoBloqueado(ruta, metodo string) *perfilFijoCTDesarrollo {
+	for _, p := range s.perfilesFijos {
+		if p.atiendeMetodo(ruta, metodo) {
 			return p
 		}
 	}
@@ -152,7 +201,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) registrarPerfilFijoCTDesarro
 			return errAltaContratacionTemporalDesarrolloNoDisponible
 		}
 		for ruta := range p.rutas {
-			if otro.atiende(ruta) {
+			if otro.atiende(ruta) && (otro.metodo == "" || p.metodo == "" || otro.metodo == p.metodo) {
 				return errAltaContratacionTemporalDesarrolloNoDisponible
 			}
 		}
@@ -313,6 +362,14 @@ type lectorAsignacionPublicadaCTDesarrollo interface {
 	leerAsignacionPublicada(ctx context.Context, perfilRef string) (instantaneaPublicadaDesarrollo, bool, error)
 }
 
+type estadoConsumoPerfilFijoCTDesarrollo uint8
+
+const (
+	perfilFijoConsumoVigente estadoConsumoPerfilFijoCTDesarrollo = iota + 1
+	perfilFijoConsumoDenegado
+	perfilFijoConsumoFuenteNoDisponible
+)
+
 func (a *autoridadPostgreSQLContratacionTemporalDesarrollo) leerAsignacionPublicada(
 	ctx context.Context, perfilRef string,
 ) (instantaneaPublicadaDesarrollo, bool, error) {
@@ -327,20 +384,34 @@ func (a *autoridadPostgreSQLContratacionTemporalDesarrollo) leerAsignacionPublic
 func (s *soporteAltaContratacionTemporalDesarrollo) consumirPerfilFijoCTDesarrollo(
 	ctx context.Context, p *perfilFijoCTDesarrollo,
 ) (dominiovec.InstantaneaAutorizacion, bool) {
+	instantanea, estado := s.consumirPerfilFijoCTDesarrolloConEstado(ctx, p)
+	return instantanea, estado == perfilFijoConsumoVigente
+}
+
+// El estado distingue una asignación legible pero no consumible de un fallo
+// del lector. Entrega GET/POST lo usa para responder 403 o 503 sin revelar
+// referencias ni preparar otra asignación.
+func (s *soporteAltaContratacionTemporalDesarrollo) consumirPerfilFijoCTDesarrolloConEstado(
+	ctx context.Context, p *perfilFijoCTDesarrollo,
+) (dominiovec.InstantaneaAutorizacion, estadoConsumoPerfilFijoCTDesarrollo) {
+	if s == nil {
+		return dominiovec.InstantaneaAutorizacion{}, perfilFijoConsumoFuenteNoDisponible
+	}
 	s.mu.Lock()
 	lector, ok := s.autoridadAsignaciones.(lectorAsignacionPublicadaCTDesarrollo)
 	s.mu.Unlock()
 	if !ok || dependenciaEsNulaContratacionTemporalDesarrollo(lector) || p == nil {
-		return dominiovec.InstantaneaAutorizacion{}, false
+		return dominiovec.InstantaneaAutorizacion{}, perfilFijoConsumoFuenteNoDisponible
 	}
 	publicada, encontrada, err := lector.leerAsignacionPublicada(ctx, p.perfilRef())
-	var consumida dominiovec.InstantaneaAutorizacion
-	valida := false
-	if err == nil && encontrada && publicada.actoAsignacion == actoAsignacionPerfilFijoCTDesarrollo {
-		consumida, valida = instantaneaConsumible(publicada, p.plantilla, s.reloj.Ahora())
-	}
-	if valida && consumida.Validar() == nil {
-		return consumida, true
+	estado := perfilFijoConsumoDenegado
+	if err != nil || publicada.instantanea.Validar() != nil && encontrada {
+		estado = perfilFijoConsumoFuenteNoDisponible
+	} else if encontrada && publicada.actoAsignacion == actoAsignacionPerfilFijoCTDesarrollo {
+		consumida, valida := instantaneaConsumible(publicada, p.plantilla, s.reloj.Ahora())
+		if valida && consumida.Validar() == nil {
+			return consumida, perfilFijoConsumoVigente
+		}
 	}
 	causa := "asignacion_no_consumible"
 	if err != nil {
@@ -357,7 +428,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) consumirPerfilFijoCTDesarrol
 		slog.Warn("petición de RRHH denegada: asignación publicada del perfil fijo no consumible",
 			"perfil", p.clave, "perfil_ref", p.perfilRef(), "causa", causa)
 	}
-	return dominiovec.InstantaneaAutorizacion{}, false
+	return dominiovec.InstantaneaAutorizacion{}, estado
 }
 
 // instantaneaPerfilFijoParaContexto valida la solicitud de la ruta como
@@ -374,6 +445,18 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaPerfilFijoParaCon
 		switch {
 		case ruta == httpinterno.RutaAltaSolicitudes:
 			valida = s.solicitudAutorizacionAltaContratacionTemporalDesarrolloValida(ruta, datos)
+		case ruta == rutaEntregaPeticionCentro:
+			if p.metodo == http.MethodGet {
+				valida = datos.Accion == ports.AccionConsultarPeticionesRRHH &&
+					solicitudAutorizacionEntregaPeticionValida(ctx, datos)
+			} else if p.metodo == http.MethodPost && datos.Accion == ports.AccionCrearSolicitud {
+				valida = solicitudAutorizacionAltaDePeticionValida(ctx, datos) &&
+					s.centroDeOrganizacionPeticion(datos.Recurso.Ambitos["centro_ref"]) &&
+					s.categoriaDeCatalogo(datos.Recurso.Ambitos["categoria_ref"])
+			} else {
+				valida = p.metodo == http.MethodPost && datos.Accion == ports.AccionEntregarPeticionRRHH &&
+					solicitudAutorizacionEntregaPeticionValida(ctx, datos)
+			}
 		case ruta == httpinterno.RutaPropuestaCobertura:
 			valida = solicitudAutorizacionPropuestaCoberturaDesarrolloValida(datos)
 		case ruta == httpinterno.RutaDecisionCobertura || ruta == httpinterno.RutaRectificacionCobertura:
@@ -385,6 +468,14 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaPerfilFijoParaCon
 		case rutaAnalisisContratacionTemporalDesarrollo(ruta):
 			fase, ok := s.opcionesCatalogo.faseOperacionVigente(operacionFaseAnalisisCT)
 			valida = ok && solicitudAutorizacionAnalisisContratacionTemporalDesarrolloValida(ruta, datos, fase)
+		case rutaAsignacionContratacionTemporalDesarrollo(ruta):
+			fase, ok := s.opcionesCatalogo.faseOperacionVigente(operacionFaseAsignacionCT)
+			valida = ok && solicitudAutorizacionAsignacionContratacionTemporalDesarrolloValida(ruta, datos, fase)
+		case ruta == httpinterno.RutaSubsanacionReparos:
+			valida = s.solicitudAutorizacionSubsanacionReparosValida(datos)
+		case rutaInformeJuridicoContratacionTemporalDesarrollo(ruta):
+			fase, ok := s.opcionesCatalogo.faseOperacionVigente(operacionFaseInformeJuridicoCT)
+			valida = ok && solicitudAutorizacionInformeJuridicoContratacionTemporalDesarrolloValida(ruta, datos, fase)
 		case rutaConsultaRRHHContratacionTemporalDesarrollo(ruta):
 			valida = s.lectorConsultasRRHH && s.solicitudAutorizacionConsultaRRHHDesarrolloValida(ruta, datos)
 		}
@@ -455,8 +546,9 @@ func configurarSesionesPerfilesFijosCTDesarrollo(
 // componerPerfilesFijosAltaCoberturaCTDesarrollo compone los perfiles fijos
 // del alta directa (organización, centro y categoría), de la cobertura
 // (organización y unidad ejecutora) y del análisis (organización y fase y
-// estado previos del catálogo). El alta anidada de la entrega del centro
-// sigue en el perfil dinámico: su reserva y su recibo sellan ese perfil.
+// estado previos del catálogo). La entrega usa dos perfiles: GET lector
+// con organización y POST más alta anidada con organización, centro y
+// categoría. La reserva y el recibo sellan el perfil de POST.
 func componerPerfilesFijosAltaCoberturaCTDesarrollo(
 	s *soporteAltaContratacionTemporalDesarrollo, principal dominiovec.Principal, ahora time.Time,
 	origen *origenConsultasContratacionTemporalDesarrollo,
@@ -471,6 +563,36 @@ func componerPerfilesFijosAltaCoberturaCTDesarrollo(
 		})
 	if err != nil {
 		return err
+	}
+	var entrega, lectorEntrega *perfilFijoCTDesarrollo
+	if origen != nil {
+		catalogos, errCatalogo := origen.catalogosAlta()
+		if errCatalogo != nil {
+			return errCatalogo
+		}
+		if len(catalogos.centrosOrganizacion) == 0 {
+			origen = nil
+		}
+	}
+	if origen != nil {
+		entrega, err = nuevoPerfilFijoCTDesarrollo(principal, s.contexto, ahora, clavePerfilFijoEntregaCTDesarrollo,
+			[]string{rutaEntregaPeticionCentro},
+			func(principalID, perfilRef string) (dominiovec.InstantaneaAutorizacion, error) {
+				return nuevaInstantaneaAutorizacionEntregaPeticionDesarrollo(principalID, perfilRef, ahora, origen)
+			})
+		if err != nil {
+			return err
+		}
+		entrega.metodo = http.MethodPost
+		lectorEntrega, err = nuevoPerfilFijoCTDesarrollo(principal, s.contexto, ahora, clavePerfilFijoLectorEntregaCTDesarrollo,
+			[]string{rutaEntregaPeticionCentro},
+			func(principalID, perfilRef string) (dominiovec.InstantaneaAutorizacion, error) {
+				return nuevaInstantaneaAutorizacionLectorEntregaPeticionDesarrollo(principalID, perfilRef, ahora)
+			})
+		if err != nil {
+			return err
+		}
+		lectorEntrega.metodo = http.MethodGet
 	}
 	cobertura, err := nuevoPerfilFijoCTDesarrollo(principal, s.contexto, ahora, clavePerfilFijoCoberturaCTDesarrollo,
 		[]string{httpinterno.RutaPropuestaCobertura, httpinterno.RutaDecisionCobertura,
@@ -495,7 +617,30 @@ func componerPerfilesFijosAltaCoberturaCTDesarrollo(
 	if err != nil {
 		return err
 	}
-	for _, p := range []*perfilFijoCTDesarrollo{alta, cobertura, analisis} {
+	// Asignación a unidad e informe jurídico (corte 3): cada uno con su perfil,
+	// también sin expediente en el permiso.
+	asignacion, err := nuevoPerfilFijoCTDesarrollo(principal, s.contexto, ahora, clavePerfilFijoAsignacionCTDesarrollo,
+		[]string{httpinterno.RutaAsignaciones},
+		func(principalID, perfilRef string) (dominiovec.InstantaneaAutorizacion, error) {
+			return nuevaInstantaneaAutorizacionAsignacionContratacionTemporalDesarrollo(principalID, perfilRef, ahora,
+				faseDeOperacionCTDesarrollo(s.opcionesCatalogo, operacionFaseAsignacionCT))
+		})
+	if err != nil {
+		return err
+	}
+	informe, err := nuevoPerfilFijoCTDesarrollo(principal, s.contexto, ahora, clavePerfilFijoInformeCTDesarrollo,
+		[]string{httpinterno.RutaPreparacionesInformeJuridico},
+		func(principalID, perfilRef string) (dominiovec.InstantaneaAutorizacion, error) {
+			return nuevaInstantaneaAutorizacionInformeJuridicoContratacionTemporalDesarrollo(principalID, perfilRef, ahora,
+				faseDeOperacionCTDesarrollo(s.opcionesCatalogo, operacionFaseInformeJuridicoCT))
+		})
+	if err != nil {
+		return err
+	}
+	for _, p := range []*perfilFijoCTDesarrollo{alta, entrega, lectorEntrega, cobertura, analisis, asignacion, informe} {
+		if p == nil {
+			continue
+		}
 		if err := s.registrarPerfilFijoCTDesarrollo(p); err != nil {
 			return err
 		}
@@ -511,7 +656,7 @@ func asignarPerfilesFijosEnFronterasCTDesarrollo(
 	resultado := append([]descriptorFronteraComunDesarrollo(nil), declaraciones...)
 	for i := range resultado {
 		d := &resultado[i]
-		fijo := s.perfilFijoParaRuta(d.Ruta)
+		fijo := s.perfilFijoParaRutaYMetodo(d.Ruta, d.Metodo)
 		if fijo == nil {
 			continue
 		}

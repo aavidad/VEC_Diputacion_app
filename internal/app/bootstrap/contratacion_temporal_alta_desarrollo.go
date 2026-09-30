@@ -126,7 +126,6 @@ type soporteAltaContratacionTemporalDesarrollo struct {
 	instantaneaPropuestaFormalizacion  dominiovec.InstantaneaAutorizacion
 	instantaneaResolucionFormalizacion dominiovec.InstantaneaAutorizacion
 	instantaneaOrganizacion            dominiovec.InstantaneaAutorizacion
-	instantaneaEntregaPeticion         dominiovec.InstantaneaAutorizacion
 	instantaneaCuadroRRHH              dominiovec.InstantaneaAutorizacion
 	instantaneaDetalleRRHH             dominiovec.InstantaneaAutorizacion
 	instantaneaSubsanacion             dominiovec.InstantaneaAutorizacion
@@ -255,25 +254,26 @@ func nuevasDependenciasAltaContratacionTemporalDesarrollo(
 			datosVinculo.PerfilActivoRef,
 			ahora,
 		)
-	faseAnalisis, _ := dependenciasCT.opcionesCatalogoCT.faseOperacionVigente(operacionFaseAnalisisCT)
 	instantaneaAnalisis, errAnalisis :=
 		nuevaInstantaneaAutorizacionAnalisisContratacionTemporalDesarrollo(
 			datosVinculo.PrincipalID,
 			datosVinculo.PerfilActivoRef,
 			ahora,
-			faseAnalisis,
+			faseDeOperacionCTDesarrollo(dependenciasCT.opcionesCatalogoCT, operacionFaseAnalisisCT),
 		)
 	instantaneaAsignacion, errAsignacion :=
 		nuevaInstantaneaAutorizacionAsignacionContratacionTemporalDesarrollo(
 			datosVinculo.PrincipalID,
 			datosVinculo.PerfilActivoRef,
 			ahora,
+			faseDeOperacionCTDesarrollo(dependenciasCT.opcionesCatalogoCT, operacionFaseAsignacionCT),
 		)
 	instantaneaInformeJuridico, errInformeJuridico :=
 		nuevaInstantaneaAutorizacionInformeJuridicoContratacionTemporalDesarrollo(
 			datosVinculo.PrincipalID,
 			datosVinculo.PerfilActivoRef,
 			ahora,
+			faseDeOperacionCTDesarrollo(dependenciasCT.opcionesCatalogoCT, operacionFaseInformeJuridicoCT),
 		)
 	motivoPropuesta := referenciaMotivoAutorizacionCoberturaDesarrollo("propuesta")
 	motivoDecision := referenciaMotivoAutorizacionCoberturaDesarrollo("decision")

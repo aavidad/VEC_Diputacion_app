@@ -23,7 +23,7 @@ func escenarioAnalisisPerfilFijoPrueba(t *testing.T) (
 ) {
 	t.Helper()
 	s, base, principal := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
-	if err := componerPerfilesFijosAltaCoberturaCTDesarrollo(s, principal, time.Now().UTC().Truncate(time.Microsecond), nil); err != nil {
+	if err := componerPerfilesFijosAltaCoberturaCTDesarrollo(s, principal, time.Now().UTC().Truncate(time.Microsecond), origenEntregaPerfilFijoPrueba(t)); err != nil {
 		t.Fatal(err)
 	}
 	autoridad := s.autoridadAsignaciones.(*autoridadAsignacionesContratacionTemporalDesarrolloPrueba)
@@ -215,6 +215,20 @@ func TestFasesOperacionAnalisisDesdeCatalogo(t *testing.T) {
 	}
 	if _, err := fasesOperacionDesdeReglasCT([]reglas.Regla{regla("solicitud", "en_curso"), regla("analisis", "en_curso")}); err == nil {
 		t.Fatal("dos entradas para la misma operación admitidas")
+	}
+	// Un estado propio por fase («estado_<fase>») forma pares exactos.
+	pares := reglas.Regla{Clave: reglas.CTPrefijoFaseOperacion + "informe_juridico", Unidad: reglas.UnidadLista,
+		Valor: "asignacion_unidad,subsanacion_unidad", Atributos: map[string]string{"estado": "en_curso", "estado_subsanacion_unidad": "incidencia"}}
+	conPares, err := fasesOperacionDesdeReglasCT([]reglas.Regla{pares})
+	fi := conPares[operacionFaseInformeJuridicoCT]
+	if err != nil || !fi.admite("asignacion_unidad", domain.EstadoEnCurso) || !fi.admite("subsanacion_unidad", domain.EstadoIncidencia) ||
+		fi.admite("asignacion_unidad", domain.EstadoIncidencia) || fi.admite("subsanacion_unidad", domain.EstadoEnCurso) {
+		t.Fatalf("pares del catálogo mal leídos: %+v %v", fi, err)
+	}
+	huerfano := pares
+	huerfano.Atributos = map[string]string{"estado": "en_curso", "estado_fiscalizacion": "incidencia"}
+	if _, err := fasesOperacionDesdeReglasCT([]reglas.Regla{huerfano}); err == nil {
+		t.Fatal("estado de una fase que no está en la lista admitido")
 	}
 	var nulas *opcionesAnalisisCTDesarrollo
 	if f, ok := nulas.faseOperacionVigente(operacionFaseAnalisisCT); !ok || !f.admite("solicitud", domain.EstadoEnCurso) {
