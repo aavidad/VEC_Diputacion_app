@@ -251,11 +251,9 @@ BEGIN
         RAISE EXCEPTION 'faltan barreras BEFORE TRUNCATE';
     END IF;
     BEGIN
-        TRUNCATE vec_catalogos_configurables.publicacion,
-                 vec_catalogos_configurables.entrada_publicada,
-                 vec_catalogos_configurables.categoria_control,
-                 vec_catalogos_configurables.uso,
-                 vec_catalogos_configurables.historia;
+        -- Las otras cuatro barreras se comprueban arriba en pg_trigger.
+        -- TRUNCATE conjunto puede fallar antes por FK de módulos posteriores.
+        TRUNCATE vec_catalogos_configurables.historia;
         RAISE EXCEPTION 'TRUNCATE admitido';
     EXCEPTION WHEN SQLSTATE '55000' THEN NULL;
     END;
