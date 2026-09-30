@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"context"
 	"crypto/sha256"
+	"crypto/x509"
 	"encoding/hex"
 	"encoding/json"
 	"net/http"
@@ -312,10 +313,13 @@ func (p *preparadorMiBolsaPortalExterno) PrepararMiBolsa(r *http.Request) (mibol
 		return mibolsa.Orden{}, bolsahttp.ErrAutenticacionAusente
 	}
 	vinculo, resultado, err := p.preferencias.resolverSesion(r, cuenta, ahora)
+	// La resolución registra un instante posterior al de entrada. Volver a
+	// leer el reloj mantiene las mismas guardas sobre el resultado ya resuelto.
+	ahora = p.preferencias.reloj.Ahora().UTC().Truncate(time.Microsecond)
 	if err != nil || vinculo.ValidarPara(resultado) != nil ||
 		resultado.Contexto.PersonaRef != p.identidad.personaRef ||
 		resultado.Contexto.PerfilActivoRef != p.identidad.perfilRef ||
-		!vinculo.VigenteEn(ahora, resultado) {
+		!vigenciaMiBolsaPortalExterno(certificado, p.identidad, vinculo, resultado, ahora) {
 		return mibolsa.Orden{}, errMiBolsaNoDisponible
 	}
 	candidatos := 0
@@ -341,6 +345,17 @@ func (p *preparadorMiBolsaPortalExterno) PrepararMiBolsa(r *http.Request) (mibol
 		motivo = motivoPortalMiBolsaDesarrollo()
 	}
 	return mibolsa.Orden{ResultadoContexto: resultado, Vinculo: vinculo, Motivo: motivo, Correlacion: correlacion}, nil
+}
+
+// vigenciaMiBolsaPortalExterno revalida al terminar la resolución. Si el
+// certificado, la identidad o la sesión caducaron entre medias, deniega.
+func vigenciaMiBolsaPortalExterno(certificado *x509.Certificate,
+	identidad *identidadCandidatoBolsaDesarrollo, vinculo dominiovec.VinculoAutenticacionActorV2,
+	resultado dominiovec.ResultadoContextoActorRegistradoV2, ahora time.Time,
+) bool {
+	return certificado != nil && identidad != nil && !ahora.Before(certificado.NotBefore) &&
+		ahora.Before(certificado.NotAfter) && !identidad.verificadoEn.After(ahora) &&
+		ahora.Before(identidad.validoHasta) && vinculo.VigenteEn(ahora, resultado)
 }
 
 // dependenciasMiBolsaPortalExterno son capacidades resueltas por la
