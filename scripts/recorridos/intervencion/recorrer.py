@@ -356,12 +356,13 @@ def repetir(contexto_actor, datos: dict, ruta: str, registro: dict, estado_ejecu
     respuesta = contexto_actor.request.post(datos["origen"] + ruta,
                                             data=registro["solicitud"], timeout=30_000,
                                             max_redirects=0)
-    recibido = envoltorio(respuesta, ruta, (200,))
+    estado_esperado = 201 if ruta == RUTA_FISCAL else 200
+    recibido = envoltorio(respuesta, ruta, (estado_esperado,))
     operacion = ("subsanacion" if ruta == RUTA_SUBSANACION else
                  "favorable" if registro["solicitud"]["resultado"] == "favorable" else "reparo")
     if validar_recibo(recibido, registro["solicitud"], operacion) != registro["recibo"]:
         raise FalloRecorrido("el replay cambió recibo, fecha, auditoría o evento")
-    return 200
+    return respuesta.status
 
 
 def consultar_detalle(contexto_actor, datos: dict, expediente: str, version: int,

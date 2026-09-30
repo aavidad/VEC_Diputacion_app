@@ -20,6 +20,53 @@ from recorrer import (FalloRecorrido, NoEjecutado, responder_sin_redireccion,
 
 
 class RecorridoSinteticoTest(unittest.TestCase):
+    def test_replay_fiscalizacion_201_conserva_peticion_y_recibo(self):
+        origen = "https://127.0.0.1:18531"
+        solicitud = {"expediente_ref": "expediente:sintetico:a", "version_esperada": 5,
+                     "resultado": "favorable", "observaciones": "",
+                     "clave_idempotencia": "clave:sintetica:original"}
+        recibo = {"expediente_ref": solicitud["expediente_ref"], "version_resultante": 6,
+                  "fase_resultante": "fiscalizacion", "estado_resultante": "en_curso",
+                  "recibo_ref": "recibo:sintetico:original",
+                  "registrada_en": "2026-09-29T00:00:00Z",
+                  "auditoria_ref": "auditoria:sintetica:original",
+                  "evento_ref": "evento:sintetico:original",
+                  "actor_ref": "actor:intervencion:sintetico"}
+        registro = {"solicitud": solicitud.copy(), "recibo": recibo.copy()}
+        cuerpo = {**recibo, "resultado": "favorable"}
+        respuesta = SimpleNamespace(status=201, url=origen + recorrer.RUTA_FISCAL,
+                                    headers={}, json=lambda: {"data": cuerpo})
+        peticiones = []
+
+        def post(url, **opciones):
+            peticiones.append({"url": url, **opciones})
+            return respuesta
+
+        contexto = SimpleNamespace(request=SimpleNamespace(post=post))
+        estado = {"post_posible": False}
+        self.assertEqual(recorrer.repetir(contexto, {"origen": origen}, recorrer.RUTA_FISCAL,
+                                         registro, estado), 201)
+        self.assertTrue(estado["post_posible"])
+        self.assertEqual(peticiones, [{"url": origen + recorrer.RUTA_FISCAL,
+                                      "data": solicitud, "timeout": 30_000, "max_redirects": 0}])
+        self.assertEqual(registro, {"solicitud": solicitud, "recibo": recibo})
+
+        for campo in ("recibo_ref", "registrada_en", "auditoria_ref", "evento_ref", "actor_ref"):
+            with self.subTest(campo=campo):
+                respuesta.json = lambda campo=campo: {"data": {**cuerpo, campo: "cambiado"}}
+                with self.assertRaisesRegex(FalloRecorrido, "el replay cambió"):
+                    recorrer.repetir(contexto, {"origen": origen}, recorrer.RUTA_FISCAL,
+                                     registro, estado)
+
+        respuesta.json = lambda: {"data": cuerpo}
+        respuesta.status = 200
+        with self.assertRaisesRegex(FalloRecorrido, "estado HTTP inesperado"):
+            recorrer.repetir(contexto, {"origen": origen}, recorrer.RUTA_FISCAL, registro, estado)
+        respuesta.status = 201
+        respuesta.url = origen + recorrer.RUTA_SUBSANACION
+        with self.assertRaisesRegex(FalloRecorrido, "estado HTTP inesperado"):
+            recorrer.repetir(contexto, {"origen": origen}, recorrer.RUTA_SUBSANACION, registro, estado)
+
     def test_http_excluye_query_cabeceras_y_respuesta(self):
         respuesta = SimpleNamespace(
             url="https://127.0.0.1:18531/api/vec/recurso?secreto=no_guardar",
