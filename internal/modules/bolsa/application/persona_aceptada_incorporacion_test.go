@@ -177,12 +177,13 @@ func TestPersonaAceptacionCTMaterialAjenoYNulosAntesRepositorio(t *testing.T) {
 // Este doble fabrica decisiones nominales con el dominio V3 real. El
 // almacenamiento y la atestación son dobles; no acreditan SQL ni criptografía.
 type emisorNominalPersonaAceptacionPrueba struct {
-	t                       *testing.T
-	campos, obligaciones    []string
-	err                     error
-	llamadas                int
-	ultima                  core.SolicitudAutorizacionLigadaV3
-	invalida, sinExportador bool
+	t                         *testing.T
+	campos, obligaciones      []string
+	err                       error
+	llamadas                  int
+	ultima                    core.SolicitudAutorizacionLigadaV3
+	invalida, sinExportador   bool
+	denegada, sinConfirmacion bool
 }
 
 func (e *emisorNominalPersonaAceptacionPrueba) EmitirMaterialAutorizacionAtestadaV3(_ context.Context, s core.SolicitudAutorizacionLigadaV3, c core.ResultadoContextoActorRegistradoV2) (core.DecisionAutorizacionLigadaV3, vecports.ConfirmacionRegistroConcesionAutorizacionLigadaV3, vecports.ExportadorMaterialConsumoAutorizacionAtestadaV3, error) {
@@ -201,6 +202,9 @@ func (e *emisorNominalPersonaAceptacionPrueba) EmitirMaterialAutorizacionAtestad
 	v, _ := datos.VinculoAutenticacionActor.Datos()
 	ahora := time.Date(2026, 9, 30, 11, 0, 0, 0, time.UTC)
 	rol := core.VersionRol{RolID: "tecnico_bolsa", Version: 1, Nombre: "Técnico", Estado: core.EstadoVersionRolPublicada, Concesiones: []core.ConcesionRol{{Accion: datos.Accion, ModuloID: datos.Recurso.ModuloID, TipoRecurso: datos.Recurso.Tipo, Finalidades: []string{datos.Finalidad}, GarantiaMinima: core.AuthAssuranceHigh, CamposPermitidos: e.campos, Obligaciones: e.obligaciones}}, PublicadaPor: "seguridad", PublicadaEn: ahora.Add(-time.Hour)}
+	if e.denegada {
+		rol.Concesiones[0].Accion = "bolsa.otra_operacion.consultar"
+	}
 	huella, _ := core.HuellaCatalogoPoliticasAutorizacion(nil)
 	i := core.InstantaneaAutorizacion{AsignacionPerfil: core.AsignacionPerfil{AsignacionID: "asig-bolsa", Version: 1, PerfilActivoRef: v.PerfilActivoRef, PrincipalID: v.PrincipalID, VersionRolRef: rol.Referencia(), Estado: core.EstadoAsignacionPerfilActiva, Ambitos: []core.AmbitoPerfil{{Clave: "unidad_ref", Valores: []string{datos.Recurso.Ambitos["unidad_ref"]}}}, VigenteDesde: ahora.Add(-time.Hour), VigenteHasta: ahora.Add(time.Hour), EmitidaPor: "seguridad", EmitidaEn: ahora.Add(-time.Hour)}, VersionRol: rol, ControlVigenciaVersionRol: core.ControlVigenciaVersionRol{VersionRolRef: rol.Referencia(), Revision: 1, Estado: core.EstadoControlVigenciaVersionRolHabilitada, ActualizadoPor: "seguridad", ActualizadoEn: ahora.Add(-time.Hour)}, RevisionCatalogoPoliticas: 1, CatalogoPoliticasHuellaSHA256: huella}
 	f, err := core.NuevaEvidenciaEvaluacionAutorizacionV3(s, i, "decision:prueba", ahora, ahora.Add(time.Minute))
@@ -211,6 +215,9 @@ func (e *emisorNominalPersonaAceptacionPrueba) EmitirMaterialAutorizacionAtestad
 	if err != nil {
 		e.t.Fatal(err)
 	}
+	if e.denegada {
+		return d, vecports.ConfirmacionRegistroConcesionAutorizacionLigadaV3{}, nil, nil
+	}
 	o, err := vecports.NuevaOrdenRegistroConcesionCandidataAutorizacionLigadaV3(s, d, datos.ReferenciaMotivo, c)
 	if err != nil {
 		e.t.Fatal(err)
@@ -218,6 +225,9 @@ func (e *emisorNominalPersonaAceptacionPrueba) EmitirMaterialAutorizacionAtestad
 	confirmacion, err := vecports.RegistrarConcesionCandidataAutorizacionLigadaV3SiInstantaneaVigente(context.Background(), registroConcesionBorradorPrueba{instante: ahora}, o)
 	if err != nil {
 		e.t.Fatal(err)
+	}
+	if e.sinConfirmacion {
+		return d, vecports.ConfirmacionRegistroConcesionAutorizacionLigadaV3{}, nil, nil
 	}
 	dh, _ := core.HuellaSHA256DecisionAutorizacionV3(d)
 	mh, _ := core.HuellaSHA256MotivoAutorizacionV2(datos.ReferenciaMotivo)
@@ -240,7 +250,7 @@ func (e *emisorNominalPersonaAceptacionPrueba) EmitirMaterialAutorizacionAtestad
 }
 
 func TestPersonaAceptacionCTProveedorNoConfundeDependenciaIncoherenteConDenegacion(t *testing.T) {
-	for _, caso := range []string{"decision inválida", "exportador ausente", "dependencia caída", "denegación"} {
+	for _, caso := range []string{"decision inválida", "exportador ausente", "dependencia caída", "denegación", "decisión denegada sin error", "confirmación vacía", "fuente caída y denegación", "registro caído y denegación", "denegación registrada", "cancelación sin detalle"} {
 		t.Run(caso, func(t *testing.T) {
 			e := &emisorNominalPersonaAceptacionPrueba{t: t, campos: []string{"aceptacion", "persona", "vinculo"}}
 			esperado := ports.ErrConsultaPersonaAceptacionCTNoDisponible
@@ -254,12 +264,27 @@ func TestPersonaAceptacionCTProveedorNoConfundeDependenciaIncoherenteConDenegaci
 			case "denegación":
 				e.err = core.ErrAutorizacionDenegada
 				esperado = ports.ErrConsultaPersonaAceptacionCTDenegada
+			case "decisión denegada sin error":
+				e.denegada = true
+				esperado = ports.ErrConsultaPersonaAceptacionCTDenegada
+			case "confirmación vacía":
+				e.sinConfirmacion = true
+			case "fuente caída y denegación":
+				e.err = errors.Join(core.ErrAutorizacionDenegada, vecports.ErrFuenteAutorizacionNoDisponible)
+			case "registro caído y denegación":
+				e.err = errors.Join(core.ErrAutorizacionDenegada, vecports.ErrRegistroConcesionAutorizacionLigadaV3NoDisponible)
+			case "denegación registrada":
+				e.err = vecports.ErrDenegacionExplicitaAutorizacionLigadaV3
+				esperado = ports.ErrConsultaPersonaAceptacionCTDenegada
+			case "cancelación sin detalle":
+				e.err = errors.Join(errors.New("detalle privado"), context.Canceled, core.ErrAutorizacionDenegada)
+				esperado = context.Canceled
 			}
 			p, _ := NuevoProveedorNominalConsultaPersonaAceptacionCT(e, motivoBorradorPrueba(), func(context.Context) (core.ReferenciaCorrelacionAutorizacionV2, error) {
 				return correlacionBorradorPrueba(t), nil
 			}, func() time.Time { return time.Date(2026, 9, 30, 11, 0, 0, 1000, time.UTC) })
 			q, _ := PrepararConsultaPersonaAceptacionCT(solicitudPersonaAceptacionPrueba(t))
-			if _, err := p.AutorizarConsultaPersonaAceptacionCT(context.Background(), q); !errors.Is(err, esperado) {
+			if _, err := p.AutorizarConsultaPersonaAceptacionCT(context.Background(), q); err != esperado {
 				t.Fatalf("error nominal: %v", err)
 			}
 		})

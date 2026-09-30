@@ -172,10 +172,20 @@ func ErrorConsultaPersonaAceptacionCT(ctx context.Context, err error) error {
 	if ctx != nil && ctx.Err() != nil {
 		return ctx.Err()
 	}
-	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-		return err
+	if errors.Is(err, context.Canceled) {
+		return context.Canceled
 	}
-	if errors.Is(err, ports.ErrConsultaPersonaAceptacionCTDenegada) || errors.Is(err, core.ErrAutorizacionDenegada) || errors.Is(err, core.ErrPermissionDenied) {
+	if errors.Is(err, context.DeadlineExceeded) {
+		return context.DeadlineExceeded
+	}
+	// La autoridad común puede conservar denegación y fallo de registro juntos.
+	// El fallo técnico mantiene su clasificación y nunca se expone su causa.
+	for _, dependencia := range []error{ports.ErrConsultaPersonaAceptacionCTNoDisponible, vecports.ErrFuenteAutorizacionNoDisponible, vecports.ErrRegistroDecisionNoDisponible, vecports.ErrRegistroDenegacionNoDisponible, vecports.ErrRegistroConcesionAutorizacionLigadaV3NoDisponible, vecports.ErrRegistroDenegacionAutorizacionLigadaV3NoDisponible, vecports.ErrInstantaneaAutorizacionObsoleta} {
+		if errors.Is(err, dependencia) {
+			return ports.ErrConsultaPersonaAceptacionCTNoDisponible
+		}
+	}
+	if errors.Is(err, ports.ErrConsultaPersonaAceptacionCTDenegada) || errors.Is(err, core.ErrAutorizacionDenegada) || errors.Is(err, core.ErrPermissionDenied) || errors.Is(err, vecports.ErrDenegacionExplicitaAutorizacionLigadaV3) {
 		return ports.ErrConsultaPersonaAceptacionCTDenegada
 	}
 	return ports.ErrConsultaPersonaAceptacionCTNoDisponible
@@ -225,12 +235,22 @@ func (p *ProveedorNominalConsultaPersonaAceptacionCT) AutorizarConsultaPersonaAc
 		return cero, ErrorConsultaPersonaAceptacionCT(ctx, err)
 	}
 	concedida, _, resultadoErr := d.Resultado()
-	restricciones, restriccionesErr := d.RestriccionesProyeccionPara(s)
 	ahora := p.ahora().UTC().Truncate(time.Microsecond)
-	if d.ValidarPara(s) != nil || resultadoErr != nil || restriccionesErr != nil {
+	if d.ValidarPara(s) != nil || resultadoErr != nil {
 		return cero, ports.ErrConsultaPersonaAceptacionCTNoDisponible
 	}
-	if !concedida || !reflect.DeepEqual(restricciones.CamposPermitidos, []string{"aceptacion", "persona", "vinculo"}) || len(restricciones.Obligaciones) != 0 || !confirmacion.DentroDeVentanaEn(ahora) {
+	if !concedida {
+		return cero, ports.ErrConsultaPersonaAceptacionCTDenegada
+	}
+	orden, ordenErr := vecports.NuevaOrdenRegistroConcesionCandidataAutorizacionLigadaV3(s, d, p.motivo, c)
+	if ordenErr != nil || confirmacion.ValidarPara(orden) != nil {
+		return cero, ports.ErrConsultaPersonaAceptacionCTNoDisponible
+	}
+	restricciones, restriccionesErr := d.RestriccionesProyeccionPara(s)
+	if restriccionesErr != nil {
+		return cero, ports.ErrConsultaPersonaAceptacionCTNoDisponible
+	}
+	if !reflect.DeepEqual(restricciones.CamposPermitidos, []string{"aceptacion", "persona", "vinculo"}) || len(restricciones.Obligaciones) != 0 || !confirmacion.DentroDeVentanaEn(ahora) {
 		return cero, ports.ErrConsultaPersonaAceptacionCTDenegada
 	}
 	if nuloPersonaAceptacionCT(exportador) {
