@@ -126,6 +126,19 @@ func TestReincorporacionExigeCanalYReautorizaReplay(t *testing.T) {
 		esc.autorizador.solicitudes[1].Accion != domain.AccionRegistrarReincorporacionTitular {
 		t.Fatal("efecto o decisión V3 incorrectos")
 	}
+	for _, decision := range esc.autorizador.solicitudes {
+		if decision.Recurso.Referencia != sol.ExpedienteRef || len(decision.Recurso.Ambitos) != 1 ||
+			decision.Recurso.Ambitos["organizacion_ref"] != sol.Canal.OrganizacionRef ||
+			decision.Recurso.Atributos["relacion_ref"] != sol.RelacionRef ||
+			decision.Recurso.Atributos["documento_ref"] != sol.DocumentoRef ||
+			decision.Recurso.Atributos["documento_sha256"] != sol.DocumentoSHA256 {
+			t.Fatalf("decisión no ligada al expediente/evidencia con ámbito fijo: %+v", decision)
+		}
+	}
+	if esc.autorizador.solicitudes[1].Recurso.Atributos["fase_previa"] != string(domain.FaseNombramiento) ||
+		esc.autorizador.solicitudes[1].Recurso.Atributos["estado_previo"] != string(domain.EstadoEnCurso) {
+		t.Fatal("la escritura perdió fase/estado del contexto sellado")
+	}
 	if _, err = s.RegistrarReincorporacionTitular(context.Background(), sol); err != nil {
 		t.Fatal(err)
 	}
