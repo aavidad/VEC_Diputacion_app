@@ -1,4 +1,4 @@
-# Un proceso para cada portal: diseño y primer corte
+# Separación de portales: composición y material propios
 
 Fecha: 29 de septiembre de 2026. Fase 1, paso 1 del estudio
 [datos personales de las inscripciones](../estudio_requisitos/datos_personales_inscripciones_rgpd_2026-09-29.md)
@@ -13,7 +13,7 @@ tiene que arrancar sin las contraseñas de base de datos del interno y sin sus
 claves de cifrado, y al revés. Separar solo tablas o esquemas no basta mientras
 un único proceso tenga todas las credenciales y todas las claves.
 
-## Cómo está hoy
+## Situación de partida, 29 de septiembre de 2026
 
 - En la principal corre un único `vec-server` con la composición de
   desarrollo (doble llave), escuchando en `127.0.0.1:18443` dentro del pod
@@ -79,7 +79,8 @@ la misma composición externa.
 - Material: cada proceso tiene su propio directorio con un fichero
   `portal-proceso.json` (`{"version":1,"portal":"interno"}` o `"externo"`).
   Cada uno tiene su propia idempotencia, clave TLS y autoridad certificadora.
-  El KMS y el sellado de tiempo bajo `kms/` y `tsa/` pertenecen al interno. El externo solo admite su lista positiva (identidad del candidato,
+  El KMS y el sellado de tiempo bajo `kms/` y `tsa/` pertenecen al interno.
+  El externo solo admite su lista positiva (identidad del candidato,
   `usuarios-preferencias-externa.json`, `mtls/candidato.crt`, `externo/…`,
   más TLS, idempotencia, `ca/ca.crt`, manifiesto y
   `desarrollo.env`). El interno rechaza esos ficheros del externo. Ninguno
@@ -131,96 +132,84 @@ PostgreSQL aparece en las conexiones de ambos (variables del guion y cadenas
 dentro de los JSON del material) o si alguna conexión no lleva usuario
 explícito. Solo imprime recuentos y el nombre del elemento repetido.
 
-## Qué hace este corte y qué falta
+## Código, ensayo y trabajo pendiente
 
-Hecho (sin cambiar nada si `VEC_PORTAL_PROCESO` no se configura):
+La composición separada incluye estas capacidades, sin cambiar el modo
+combinado cuando `VEC_PORTAL_PROCESO` está vacío:
 
-1. `internal/app/separacionportales`: clasificación y comprobaciones de
-   entorno, material y separación entre los dos procesos.
-2. Arranque: la comprobación va antes de leer material o abrir conexiones. En
-   modo separado ya no se exigen las claves privadas de la CA ni de clientes.
-3. Rutas: filtro por portal en la superficie integrada.
-4. `vec-server comprobar-separacion-portales`. El proceso externo no ejecuta
-   ninguna tarea (importar CONVOCA, constituir bolsa…), solo el servidor.
-5. El proceso interno ya puede arrancar solo: pasa la separación y sigue la
-   composición de siempre.
-6. El proceso externo arranca con su propia composición (primer corte): mTLS
-   con la identidad de la persona candidata como única identidad, consulta
-   pública de convocatorias y categorías, y los ficheros del Área personal.
-   No carga identidad de RRHH, clave maestra ni conexiones. Sin persona
-   candidata en su material no arranca.
-7. «Mis preferencias» del Área personal funciona en el proceso externo:
-   - el lado interno ejecuta `vec-server preparar-portal-externo`: con el rol
-     de gobierno publica (idempotente) las claves de las audiencias externas y
-     deja en el material externo solo esas claves derivadas y la raíz de
-     atestación (`externo/v3/`), nunca la clave base ni la maestra;
-   - el proceso externo coteja ese material y lee la configuración de
-     confianza vigente con su propio login de solo lectura (AD3-112,
-     `VEC_EXTERNO_PREFLIGHT_V3_DATABASE_URL`); nunca publica;
-   - usa los logins de su configuración de Usuarios
-     (`identidad/usuarios-preferencias-externa.json`) y su propia clave de
-     idempotencia, con un espacio de seudónimos propio
-     (`vec.identidad.desarrollo.externo`). Los alias de sus cuentas los calcula
-     él (`vec-server exportar-seudonimos-portal-externo`, sin conexiones) y los
-     registra el lado interno (`preparar-portal-externo --seudonimos FICHERO
-     --cuentas cta_…`) solo para las cuentas que el operador autoriza, nunca
-     para cuentas privilegiadas ni de la superficie corporativa.
-   Recorrido real en un clon propio con los dos procesos a la vez: GET 200 y
-   PUT 201 de preferencias en el externo, el interno responde 404 a esa ruta y
-   los logins externos no pueden leer ningún esquema interno.
+1. La comprobación de entorno y material precede a las lecturas y conexiones.
+   Cada proceso recibe sus credenciales, identidad, TLS e idempotencia.
+2. El interno mantiene la composición de RRHH. El externo compone el Área
+   personal, «Mis preferencias», correos, imagen, «Mi bolsa» y el portal del
+   candidato con sus conexiones y perfiles propios. Cada capacidad se activa
+   con su configuración completa; una configuración parcial impide el arranque.
+3. El externo no carga identidad de RRHH, KMS, TSA ni conexiones internas.
+   Exige una persona candidata registrada y una CA propia. Las rutas internas
+   devuelven 404 en este proceso.
+4. La preparación explícita conserva una raíz V3 externa propia y entrega
+   solo las claves de las audiencias habilitadas. La publicación requiere
+   aprobación y preimagen. El servidor externo nunca publica permisos por
+   petición: coteja el material con su preflight nominal de solo lectura,
+   mediante TLS `verify-full`.
+5. El externo puede exportar sus alias sin conexiones. En el proceso interno,
+   `preparar-portal-externo --seudonimos FICHERO --cuentas cta_…` comprueba que
+   las cuentas autorizadas ya están provisionadas en el registro externo;
+   no crea esas cuentas ni sustituye su provisión por huella y CAS. Los alias
+   permanecen en el espacio `vec.identidad.desarrollo.externo`.
+6. La lista pública usa la proyección gobernada de Bolsa con un lector propio.
+   La entrada sin certificado se sirve desde `cmd/vec-publico`; el Área
+   personal conserva el mTLS del candidato. Ambas entradas mantienen cerradas
+   las rutas internas.
 
-Pendiente, en este orden:
+El corte anterior de preferencias se recorrió con ambos procesos en un clon:
+GET 200 y PUT 201 en el externo, 404 en el interno y denegación de acceso a
+esquemas internos con los logins externos. Para P2, dirección conserva el
+ensayo PostgreSQL 18 de AD3-123 y la publicación y recuperación de una
+configuración externa con 17 claves, sin duplicados y con el gobierno interno
+intacto. Estos resultados no acreditan una instalación en la principal ni el
+recorrido completo de todas las capacidades después de reunir las ramas.
 
-1. Capacidades personales en el proceso externo que faltan, en este orden:
-   correos e imagen de la superficie externa (necesitan una subclave de
-   cifrado propia); «Mi bolsa» y el portal del candidato; y la lista pública
-   de bolsas desde la proyección pública (esquema `bolsa_publica`, aún no
-   instalado en la principal). El gobierno
-   de autorización de esas capacidades (publicar audiencias, perfil y
-   motivos) lo hace el lado interno con un paso de preparación; el proceso
-   externo solo recibe claves derivadas para sus audiencias y usuarios de
-   PostgreSQL propios, nunca el rol de gobierno ni la clave maestra.
-2. Usuarios de PostgreSQL propios del externo para lo que hoy comparte con
-   RRHH: identidad, contexto de actor y autorización del candidato, y lectura
-   de «Mi bolsa». Es SQL: revisión SQL y ensayo en el clon.
-3. Usuarios (preferencias, correos, foto): componer una sola superficie por
-   proceso. Hoy la composición exige las dos, así que el proceso interno no
-   arranca con `VEC_USUARIOS_PREFERENCIAS_ENABLED=true` sin el fichero del
-   externo. Coordinar con F1.3.
-4. Con la composición externa: que toda variable de ruta (`*_PATH`, `*_DIR`,
-   `*_FILE`) del proceso externo apunte dentro de su material o esté en una
-   lista admitida. Hoy el externo no compone nada y en cidonia irá en su
-   propio contenedor, pero la comprobación debe existir antes de encenderlo.
-5. Datos cifrados que leen los dos lados (el contacto de la participación en
-   Bolsa): con claves distintas, el proceso externo pedirá esos datos por un
-   puerto autorizado del módulo dueño. Encaja con el módulo Aspirantes (F1.5).
+Quedan la revisión del conjunto final, el recorrido completo con ambos
+procesos tras reunir #178, #179 y P2, y la preparación del despliegue aprobado.
+El circuito de avisos se entrega aparte: la composición de correos no acredita
+por sí sola envío, recepción ni entrega de una comunicación de Bolsa.
 
-## Despliegue en cidonia (cuando esté lo pendiente)
+## Preparación del despliegue
 
-1. Generar un segundo directorio de material para el externo con su propia
-   CA de servidor, clave maestra, sellado e idempotencia; mover a él la
-   identidad del candidato y `usuarios-preferencias-externa.json`. Añadir la
-   marca `portal-proceso.json` a cada directorio y retirar del interno
-   `ca/ca.key`, `ca/serie` y las claves y `.p12` de clientes (guardarlas fuera
-   del servidor).
-2. Crear los usuarios de PostgreSQL del externo con sus migraciones y
-   declarar sus conexiones como `VEC_EXTERNO_*` en un guion propio.
-3. Ejecutar `vec-server comprobar-separacion-portales` con los dos directorios
-   y los dos guiones. Debe decir `separacion_portales=correcta`.
-4. Ensayar los dos procesos en un clon (`vec-clon-*`) y hacer el recorrido en
-   Chrome de los dos portales.
-5. En la principal: poner `VEC_PORTAL_PROCESO=interno` en `arrancar_app.sh`,
-   quitar `VEC_BOLSA_PORTAL_CANDIDATO_ENABLED` y montar solo el material
-   interno. Añadir al pod un contenedor nuevo (por ejemplo
-   `vec-aplicacion-externa`) con el mismo binario, `VEC_PORTAL_PROCESO=externo`,
-   su guion, solo el material externo y otro puerto (por ejemplo
-   `127.0.0.1:18444`); el túnel lo publica aparte. Deben ser contenedores
-   distintos: dos procesos en el mismo contenedor verían los dos directorios.
-6. Contador de conexiones: el guion interno sigue contando sus 15 conexiones
-   hasta que salgan las del candidato; el externo tiene su propio contador de
-   `VEC_EXTERNO_*`. Cada conexión es un grupo de pgx que abre hasta
-   max(4, número de CPU) sesiones, así que el externo suma sesiones en el mismo
-   PostgreSQL: revisar `max_connections` antes de encenderlo.
+1. Preparar un directorio exclusivo para el externo con CA, certificado y
+   clave TLS propios, identidad del candidato, configuración de Usuarios e
+   idempotencia. La clave privada de la CA y las de los clientes quedan fuera
+   de ambos procesos. Cada directorio lleva su marca `portal-proceso.json` v1;
+   el manifiesto interno conserva v4.
+2. Para el correo externo, conservar los mismos 32 bytes de su semilla en
+   `usuarios/correos-externos-semilla.bin`, mediante el traslado controlado
+   previsto. No copiar al externo el KMS ni el sellado interno. La preparación
+   V3 no genera esta semilla ni cambia los sobres cifrados existentes.
+3. Crear los logins externos y sus concesiones mediante el lote SQL aprobado;
+   declarar las conexiones propias y el TLS `verify-full`. Instalar solo las
+   migraciones nuevas; no reaplicar SQL instalado ni revertir su historia.
+4. Ejecutar desde el lado interno `vec-server preparar-portal-externo`, sin
+   `--seudonimos`, para obtener primero la propuesta y el manifiesto externo
+   v2 con la huella pública DER de la CA interna. El paso conserva el
+   manifiesto interno y la raíz propia preparada; aún no publica el gobierno.
+5. Con ese material, exportar los alias y provisionar las cuentas, personas y
+   perfiles externos por sus herramientas aprobadas, huella y CAS. El
+   [procedimiento del candidato](../../cmd/vec-provisionar-candidato-externo/README.md)
+   fija las fases y sus identidades técnicas.
+6. Repetir la preparación con `--seudonimos` y la lista `--cuentas` autorizada:
+   este paso coteja la provisión anterior, no la realiza en su lugar. Revisar
+   la propuesta obtenida y publicar con sus `--aprobacion-sha256` y
+   `--preimagen-sha256`. Un reintento recupera la propuesta existente.
+7. Ejecutar `vec-server comprobar-separacion-portales` con ambos directorios y
+   guiones. Debe devolver `separacion_portales=correcta`: comprueba CA distintas,
+   la huella interna declarada, secretos distintos y logins sin cruces.
+8. Ensayar en el clon los dos procesos a la vez y recorrer las capacidades
+   personales en Chrome, con recuperación y antecedentes conservados.
+9. Tras la revisión de dirección, preparar procesos o contenedores separados,
+   cada uno con su material, guion y puerto aprobados. El interno usa
+   `VEC_PORTAL_PROCESO=interno`; el externo, `VEC_PORTAL_PROCESO=externo`.
+   Inventariar sus conexiones y límites de pools frente a `max_connections`.
+   Este documento no acredita que el despliegue ya se haya ejecutado.
 
 ## Riesgos y límites
 
@@ -235,12 +224,12 @@ Pendiente, en este orden:
   cargar la nueva raíz. Un proceso que conserve la anterior deniega el nuevo
   material; no adopta la raíz interna como sustituta. La instalación y el
   recorrido con los dos procesos se comprueban aparte del ensayo del código.
-- Ambos procesos usan la misma instancia de PostgreSQL. La separación por
-  esquemas por población (opción B) y, si la categorización ENS lo pide, una
-  base aparte (opción C) vienen después.
-- La clasificación de ficheros y rutas es una lista en el código. Una ruta o un
-  fichero nuevo del Área personal hay que añadirlo ahí; si se olvida, el
-  proceso externo lo rechaza (falla cerrado) y el interno lo sirve como hoy.
+- El ensayo usa una instancia PostgreSQL compartida, con identidades técnicas
+  y almacenes de población separados. Eso no acredita aislamiento de máquinas
+  ni el despliegue de una base aparte.
+- La clasificación de ficheros y rutas usa listas positivas. El material
+  externo nuevo requiere una ruta nominal admitida; si falta, el arranque
+  externo lo rechaza.
 
 ### Preflight del gobierno externo
 
