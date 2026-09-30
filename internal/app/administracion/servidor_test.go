@@ -65,6 +65,19 @@ func TestServidorAdminSoloCertificadoDeCAPropiaNoRevocado(t *testing.T) {
 	}
 	_, servidorPEM, clavePEM := crearHoja(2, x509.ExtKeyUsageServerAuth)
 	cliente, _, _ := crearHoja(3, x509.ExtKeyUsageClientAuth)
+	hoja, err := x509.ParseCertificate(cliente.Certificate[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cadenaDirectaVigente([]*x509.Certificate{hoja, ca}, ca, ahora) {
+		t.Fatal("cadena directa valida rechazada")
+	}
+	if cadenaDirectaVigente([]*x509.Certificate{hoja, ca, ca}, ca, ahora) {
+		t.Fatal("CA intermedia aceptada")
+	}
+	if cadenaDirectaVigente([]*x509.Certificate{hoja, ca}, ca, ahora.Add(2*time.Hour)) {
+		t.Fatal("conexion antigua conserva hoja caducada")
+	}
 	dir := t.TempDir()
 	escribir := func(nombre string, datos []byte) string {
 		ruta := filepath.Join(dir, nombre)
