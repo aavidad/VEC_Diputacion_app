@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log"
 	"maps"
+	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -18,6 +19,7 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	seguridadvec "vec-diputacion-granada/internal/vec/adapters/seguridad"
+	docports "vec-diputacion-granada/internal/vec/documentos/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
 	"vec-diputacion-granada/internal/vec/reglas"
@@ -62,16 +64,26 @@ func motivoConsultaFirmasDocumentoCTDesarrollo() dominiovec.ReferenciaEntradaCat
 	return motivoFirmaDocumentoCTDesarrollo()
 }
 
-func instantaneaPerfilFijoFirmaDocumentoCTDesarrollo(principalID, perfilRef string, ahora time.Time) (dominiovec.InstantaneaAutorizacion, error) {
+// custodia solo se fija desde la configuración documental validada ANTES de
+// publicar la plantilla inicial. Una ampliación posterior exige huella y CAS.
+func instantaneaPerfilFijoFirmaDocumentoCTDesarrollo(principalID, perfilRef string, ahora time.Time, custodia ...bool) (dominiovec.InstantaneaAutorizacion, error) {
+	concesiones := []dominiovec.ConcesionRol{
+		{Accion: ports.AccionFirmarDocumento, ModuloID: ports.ModuloContratacion, TipoRecurso: ports.TipoRecursoFirmaDocumento,
+			Finalidades: []string{ports.FinalidadFirmaDocumento}, GarantiaMinima: dominiovec.AuthAssuranceHigh},
+		{Accion: ports.AccionConsultarFirmasDocumento, ModuloID: ports.ModuloContratacion, TipoRecurso: ports.TipoRecursoConsultaFirmasDocumento,
+			Finalidades: []string{ports.FinalidadFirmaDocumento}, GarantiaMinima: dominiovec.AuthAssuranceHigh,
+			CamposPermitidos: consultafirmas.CamposConsultaFirmasDocumento()},
+	}
+	if len(custodia) > 1 {
+		return dominiovec.InstantaneaAutorizacion{}, errFirmaDocumentoCTDesarrolloNoDisponible
+	}
+	if len(custodia) == 1 && custodia[0] {
+		concesiones = append(concesiones, dominiovec.ConcesionRol{Accion: docports.AccionCustodiarFirmado, ModuloID: "documentos", TipoRecurso: "documento_firmado",
+			Finalidades: []string{docports.FinalidadCustodiarFirmado}, GarantiaMinima: dominiovec.AuthAssuranceHigh})
+	}
 	return nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(principalID, perfilRef, ahora,
 		"firma_documento_ct_desarrollo", "Firma de prueba de borradores CT de desarrollo", "asignacion-firma-documento-ct-desarrollo-no-autoritativa",
-		[]dominiovec.ConcesionRol{
-			{Accion: ports.AccionFirmarDocumento, ModuloID: ports.ModuloContratacion, TipoRecurso: ports.TipoRecursoFirmaDocumento,
-				Finalidades: []string{ports.FinalidadFirmaDocumento}, GarantiaMinima: dominiovec.AuthAssuranceHigh},
-			{Accion: ports.AccionConsultarFirmasDocumento, ModuloID: ports.ModuloContratacion, TipoRecurso: ports.TipoRecursoConsultaFirmasDocumento,
-				Finalidades: []string{ports.FinalidadFirmaDocumento}, GarantiaMinima: dominiovec.AuthAssuranceHigh,
-				CamposPermitidos: consultafirmas.CamposConsultaFirmasDocumento()},
-		}, []dominiovec.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}}})
+		concesiones, []dominiovec.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}}})
 }
 
 type claveConsultaFirmasDocumentoCTDesarrollo struct{}
@@ -122,10 +134,11 @@ func solicitudAutorizacionFirmaDocumentoCTDesarrolloValida(ctx context.Context, 
 // firmaDocumentoCTDesarrollo reúne autoridad de canal, autorizador V3 y
 // registro PostgreSQL; la ruta se compone cuando llega el circuito.
 type firmaDocumentoCTDesarrollo struct {
-	alta     *dependenciasAltaContratacionTemporalDesarrollo
-	registro *postgrescontratacion.RegistroFirmasDocumentoPostgreSQL
-	lector   ports.LectorFirmasDocumentoAutorizadas
-	reloj    relojContratacionTemporalDesarrollo
+	alta          *dependenciasAltaContratacionTemporalDesarrollo
+	registro      *postgrescontratacion.RegistroFirmasDocumentoPostgreSQL
+	lector        ports.LectorFirmasDocumentoAutorizadas
+	lectorInterno *lectorFirmasIntervencionCTDesarrollo
+	reloj         relojContratacionTemporalDesarrollo
 	// fiscalizacion recibe al componer las rutas la comprobación de la firma
 	// que habilita la remisión a Intervención (duda 4).
 	fiscalizacion *ctapplication.ServicioFiscalizaciones
@@ -341,12 +354,39 @@ func (r registroFirmasDocumentoNominal) ConsultarFirmas(ctx context.Context, org
 	if r.firma == nil || dependenciaEsNulaContratacionTemporalDesarrollo(r.firma.lector) {
 		return nil, ports.ErrFirmaDocumentoDenegada
 	}
+	if ctx != nil {
+		canal, ok := ctx.Value(claveCapacidadConsultasContratacionTemporalDesarrollo{}).(capacidadConsultaContratacionTemporalDesarrollo)
+		if ok && canal.ruta == httpinterno.RutaResultadosFiscalizacion && canal.metodo == http.MethodPost {
+			if r.firma.lectorInterno == nil {
+				return nil, ports.ErrRegistroFirmaDocumentoNoDisponible
+			}
+			if !r.firma.lectorInterno.capacidadValida(ctx) {
+				return nil, ports.ErrAutorizacionDenegada
+			}
+			return r.firma.lectorInterno.ConsultarFirmas(ctx, organizacion, expediente)
+		}
+	}
 	m := ports.MaterialConsultaFirmasDocumento{OrganizacionRef: organizacion, ExpedienteRef: expediente}
 	c, err := r.firma.AutorizarConsultaFirmasDocumento(ctx, m)
 	if err != nil {
 		return nil, err
 	}
 	return r.firma.lector.ConsultarFirmasAutorizadas(ctx, m, c)
+}
+
+// La composición llama este hook cuando la identidad nominal y las
+// autoridades de sesión están disponibles, antes de servir peticiones.
+func (f *firmaDocumentoCTDesarrollo) configurarLecturaIntervencion(ctx context.Context, canal *soporteFiscalizacionContratacionTemporalDesarrollo,
+	base *proveedorSesionConsultaRRHHDesarrollo, aprobacion aprobacionProvisionPerfilesRRHHDesarrollo) error {
+	if f == nil || f.lectorInterno != nil {
+		return ports.ErrRegistroFirmaDocumentoNoDisponible
+	}
+	lector, err := nuevoLectorFirmasIntervencionCTDesarrollo(ctx, f, canal, base, aprobacion)
+	if err != nil {
+		return err
+	}
+	f.lectorInterno = lector
+	return nil
 }
 
 // fuenteCircuitoFirmaReglasDesarrollo traduce el circuito del catálogo de
