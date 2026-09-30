@@ -75,7 +75,7 @@ func TestCatalogoAreaPersonalSoloEnSuperficieIntegrada(t *testing.T) {
 					handler http.Handler
 					estado  int
 				}{
-					{"publica", publica, http.StatusSeeOther},
+					{"publica", publica, http.StatusNotFound},
 					{"interna", interna, http.StatusNotFound},
 				} {
 					respuesta := httptest.NewRecorder()
@@ -83,8 +83,8 @@ func TestCatalogoAreaPersonalSoloEnSuperficieIntegrada(t *testing.T) {
 					if respuesta.Code != superficie.estado {
 						t.Fatalf("%s = %d; esperado %d", superficie.nombre, respuesta.Code, superficie.estado)
 					}
-					if superficie.nombre == "publica" && respuesta.Header().Get("Location") != "/" {
-						t.Fatalf("redirección pública = %q; esperado /", respuesta.Header().Get("Location"))
+					if superficie.nombre == "publica" && respuesta.Header().Get("Location") != "" {
+						t.Fatalf("redirección pública = %q; esperado vacío", respuesta.Header().Get("Location"))
 					}
 					if bytes.Equal(respuesta.Body.Bytes(), contenido) {
 						t.Fatalf("%s sirvió los bytes del catálogo", superficie.nombre)
