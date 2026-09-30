@@ -174,6 +174,21 @@ test("actualizar conserva selecciones por identidad y fechas editadas aunque cam
   x.desmontar();
 });
 
+test("tras revisar, actualizar y cambiar datos mantiene la vacante elegida aunque se reordene", async () => {
+  const antes = inicial(); antes.opciones.vacantes.push({ ...antes.opciones.vacantes[0],
+    version_plantilla_ref: "plantilla:2", version_rpt_ref: "rpt:2", plaza_etiqueta: "Plaza dos" });
+  const despues = structuredClone(antes); despues.opciones.vacantes.reverse();
+  let lecturas = 0, preparadoCon;
+  const x = await montar(clienteBase({ consultar: async () => ++lecturas === 1 ? antes : despues,
+    preparar: async (s) => { preparadoCon = s; return { ...despues, estado: "plan_preparado", plan: { ...plan, intencion: s } }; } }));
+  x.r.salir("vacante", "1"); x.r.revisar();
+  await x.r.click("consultar"); await x.r.click("cambiar");
+  assert.match(x.r.innerHTML, /<option value="0" selected>Puesto uno · Plaza dos/u);
+  x.r.revisar(); await x.r.click("registrar");
+  assert.equal(preparadoCon.version_plantilla_ref, "plantilla:2");
+  x.desmontar();
+});
+
 test("si desaparece la clase elegida, actualizar exige nueva selección incluso tras otro GET", async () => {
   const antes = inicial(); const despues = inicial(); despues.opciones.clases_ocupacion.pop();
   let lecturas = 0, posts = 0;

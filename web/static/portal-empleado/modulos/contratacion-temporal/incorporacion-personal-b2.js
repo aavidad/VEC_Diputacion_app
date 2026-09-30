@@ -169,7 +169,7 @@ export function montarIncorporacionPersonalB2({ raiz, cliente, expedienteRef, ve
     const seleccionAnterior = { ...valores };
     consulta = c; opcionesGuardadas = c.opciones; plan = c.plan; recibo = c.recibo;
     if (plan) { intencion = plan.intencion; fase = "revision"; errores = {}; }
-    else if (!intencion) {
+    else if (!intencion || !intencionEnviada) {
       const o = c.opciones;
       errores = {};
       valores = Object.fromEntries(Object.entries(opcionesSeleccionables(o)).map(([campo, lista]) => {
