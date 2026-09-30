@@ -454,7 +454,11 @@ func nuevoServidorDesarrollo(
 	}
 	registradorFrontera := vecports.RegistradorAuditoriaFronteraRutaExacta(autoridadContratacion.registradorAuditoriaFronteraRutasExactas)
 	if usuariosPreferencias != nil {
-		registradorFrontera = registradorFronterasConUsuariosPreferencias{delegado: registradorFrontera, interna: usuariosPreferencias.interna.registrador, externa: usuariosPreferencias.externa.registrador}
+		frontera := registradorFronterasConUsuariosPreferencias{delegado: registradorFrontera, interna: usuariosPreferencias.interna.registrador}
+		if usuariosPreferencias.externa != nil {
+			frontera.externa = usuariosPreferencias.externa.registrador
+		}
+		registradorFrontera = frontera
 	}
 	vecAPI, err := newVECShellAPICompuestaConIdentidadYRutas(
 		cfg, emisor, resolvedor, categoriasPersonal, rutasContratacion, autoridadExactas,
