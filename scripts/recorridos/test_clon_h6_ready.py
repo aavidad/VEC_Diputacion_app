@@ -381,6 +381,34 @@ class ReadyTests(unittest.TestCase):
         with self.assertRaisesRegex(ready.Refused, "external_approval_missing"):
             ready.complete_h6(self.state, pre)
 
+    def test_canary_pending_blocks_completion_with_existing_plan_and_receipt(self):
+        marker = self.write("canario-publicacion-pendiente.json", ready.canonical({"pending": True}))
+        before = (self.state / "sql-journal.json").read_bytes()
+        with self.assertRaisesRegex(ready.Refused, "canary_publication_pending"):
+            ready.complete_h6(self.state, self.approval)
+        self.assertEqual(before, (self.state / "sql-journal.json").read_bytes())
+        self.assertFalse((self.state / "DB_READY.json").exists())
+        self.revalidate.assert_not_called()
+        marker.unlink()
+        marker.symlink_to(self.state / "absent-canary-marker")
+        with self.assertRaisesRegex(ready.Refused, "canary_publication_pending"):
+            ready.complete_h6(self.state, self.approval)
+
+    def test_canary_pending_invalidates_ready_and_is_checked_after_live_validation(self):
+        ready.complete_h6(self.state, self.approval)
+        data = (self.state / "DB_READY.json").read_bytes()
+        self.write("canario-publicacion-pendiente.json", ready.canonical({"pending": True}))
+        with self.assertRaisesRegex(ready.Refused, "canary_publication_pending"):
+            ready.validate_h6_ready(self.state, self.approval, live=False)
+        (self.state / "canario-publicacion-pendiente.json").unlink()
+        def concurrent_pending(_):
+            self.write("canario-publicacion-pendiente.json", ready.canonical({"pending": True}))
+            return self.ad132
+        self.revalidate.side_effect = concurrent_pending
+        with self.assertRaisesRegex(ready.Refused, "canary_publication_pending"):
+            ready.validate_h6_ready(self.state, self.approval, live=True)
+        self.assertEqual(data, (self.state / "DB_READY.json").read_bytes())
+
 
 if __name__ == "__main__":
     unittest.main()

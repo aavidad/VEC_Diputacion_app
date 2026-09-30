@@ -418,6 +418,9 @@ def ad132_evidence(state, approval, live):
 def validated(state, approval, phases, live, *, final):
     require(type(live) is bool, "h6_invalid_live_flag")
     state, approval = state_root(state), validate_approval(approval, pre_ad132=not final)
+    if final:
+        require(not exists(state / "canario-publicacion-pendiente.json"),
+                "h6_canary_publication_pending")
     plan, journal, journal_sha = plan_and_journal(state, approval, phases)
     clone = clone_record(state, approval)
     materials = immutable_material(state, approval)
@@ -431,6 +434,9 @@ def validated(state, approval, phases, live, *, final):
     require(plan2 == plan and journal2 == journal and journal_sha2 == journal_sha and
             immutable_material(state, approval) == materials and
             clone_record(state, approval) == clone, "h6_context_changed")
+    if final:
+        require(not exists(state / "canario-publicacion-pendiente.json"),
+                "h6_canary_publication_pending")
     ready = {"version": 2, "kind": "h6_db_ready", **clone, **{k: plan[k] for k in PLAN_FIELDS},
         "sql_instaladas": 62, "run_id": journal["run_id"], "identidad_clon": approval["identidad_clon"],
         "pg_container_id": approval["pg_container_id"], "pg_image_id": approval["pg_image_id"],
