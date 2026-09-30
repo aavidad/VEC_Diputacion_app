@@ -16,7 +16,6 @@ import (
 	usuariosapp "vec-diputacion-granada/internal/modules/usuarios/application"
 	usuariosports "vec-diputacion-granada/internal/modules/usuarios/ports"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
-	identidadpg "vec-diputacion-granada/internal/vec/adapters/httpseguridad/postgres"
 	core "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
@@ -362,7 +361,7 @@ func nuevaRutaUsuariosPreferenciasConFrontera(cfg config.Config, resolvedor vech
 	correos *dependenciasCorreosUsuariosDesarrollo, imagen *dependenciasImagenUsuariosDesarrollo,
 	frontera fronteraPreferenciasUsuarios,
 ) (*autoridadPreferenciasUsuariosDesarrollo, error) {
-	if frontera.abrirPool == nil || frontera.contextos == nil || frontera.autorizador == nil {
+	if frontera.abrirPool == nil || frontera.identidad == nil || frontera.contextos == nil || frontera.autorizador == nil {
 		return nil, errComposicionUsuariosPreferencias
 	}
 	identidad, ok := resolvedor.(*resolvedorIdentidadDesarrollo)
@@ -436,12 +435,8 @@ func nuevaRutaUsuariosPreferenciasConFrontera(cfg config.Config, resolvedor vech
 	if err != nil {
 		return nil, errComposicionUsuariosPreferencias
 	}
-	registro, err := identidadpg.NuevoRegistroSesionesPostgreSQL(ctx, pools[0], pools[1], &seudonimizadorSesionDesarrollo{derivador: derivador}, espacioIdentidadSesionDesarrollo, dominioIdentidadSesionDesarrollo)
-	if err != nil {
-		return nil, errComposicionUsuariosPreferencias
-	}
-	revalidador, err := identidadpg.NuevoRevalidadorAutenticacionActorPostgreSQL(ctx, pools[1])
-	if err != nil {
+	registro, revalidador, err := frontera.identidad(ctx, pools[0], pools[1], derivador)
+	if err != nil || registro == nil || revalidador == nil {
 		return nil, errComposicionUsuariosPreferencias
 	}
 	contextos, err := frontera.contextos(ctx, pools[2])

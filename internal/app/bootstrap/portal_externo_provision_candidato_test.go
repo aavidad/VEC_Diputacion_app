@@ -20,7 +20,7 @@ import (
 func fuenteProvisionCandidatoPrueba() FuenteProvisionCandidatoExterno {
 	componente := func(prefijo string) ComponenteSnapshotContextoExterno {
 		return ComponenteSnapshotContextoExterno{
-			Referencia: prefijo + "sintetico_1234567890123456", Version: 1, ProcedenciaRef: "fue_sintetica_1234567890123456", ProcedenciaVersion: 1,
+			Referencia: prefijo + "sintetico_1234567890123456", Version: 1, ProcedenciaRef: "prc_sintetica_1234567890123456", ProcedenciaVersion: 1,
 			ProcedenciaHuellaSHA256: strings.Repeat("a", 64), ProcedenciaAutoridad: "autoridad_maestra_acreditada", Estado: "activo",
 			VigenteDesde: "2026-01-01T00:00:00.000000Z", VigenteHasta: "2027-01-01T00:00:00.000000Z"}
 	}

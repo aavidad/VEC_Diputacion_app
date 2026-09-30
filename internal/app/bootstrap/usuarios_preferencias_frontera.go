@@ -5,9 +5,12 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"time"
 	contextopg "vec-diputacion-granada/internal/vec/adapters/contextoactor/postgres"
+	"vec-diputacion-granada/internal/vec/adapters/httpseguridad"
+	identidadpg "vec-diputacion-granada/internal/vec/adapters/httpseguridad/postgres"
 	vecpg "vec-diputacion-granada/internal/vec/adapters/postgres"
 	"vec-diputacion-granada/internal/vec/adapters/seguridad"
 	vecapp "vec-diputacion-granada/internal/vec/application"
+	core "vec-diputacion-granada/internal/vec/domain"
 )
 
 // fronteraPreferenciasUsuarios mantiene nominales las autoridades de cada proceso.
@@ -15,6 +18,7 @@ import (
 type fronteraPreferenciasUsuarios struct {
 	roles       [6]string
 	abrirPool   func(context.Context, string, string) (*pgxpool.Pool, string, error)
+	identidad   func(context.Context, *pgxpool.Pool, *pgxpool.Pool, *derivadorIdentidadOperacionDesarrollo) (httpseguridad.RegistroSesiones, core.RevalidadorAutenticacionActorV1, error)
 	contextos   func(context.Context, *pgxpool.Pool) (*vecapp.AutoridadContextoActorRegistradoV2, error)
 	autorizador func(context.Context, *pgxpool.Pool, *pgxpool.Pool, *pgxpool.Pool, string) (*vecapp.ServicioAutorizacionSolicitudLigadaV3, error)
 }
@@ -23,6 +27,17 @@ func fronteraPreferenciasUsuariosCombinada() fronteraPreferenciasUsuarios {
 	return fronteraPreferenciasUsuarios{
 		roles:     [6]string{"vec_identidad_sesiones_v1_registrador", "vec_identidad_sesiones_v1_revalidador", "vec_contexto_actor_v1_runtime", "vec_autorizacion_fuente", "vec_autorizacion_registro", "vec_autorizacion_motivos_evaluador"},
 		abrirPool: abrirPoolRutasDietas,
+		identidad: func(ctx context.Context, registroPool, revalidacionPool *pgxpool.Pool, derivador *derivadorIdentidadOperacionDesarrollo) (httpseguridad.RegistroSesiones, core.RevalidadorAutenticacionActorV1, error) {
+			registro, err := identidadpg.NuevoRegistroSesionesPostgreSQL(ctx, registroPool, revalidacionPool, &seudonimizadorSesionDesarrollo{derivador: derivador}, espacioIdentidadSesionDesarrollo, dominioIdentidadSesionDesarrollo)
+			if err != nil {
+				return nil, nil, err
+			}
+			revalidador, err := identidadpg.NuevoRevalidadorAutenticacionActorPostgreSQL(ctx, revalidacionPool)
+			if err != nil {
+				return nil, nil, err
+			}
+			return registro, revalidador, nil
+		},
 		contextos: func(ctx context.Context, pool *pgxpool.Pool) (*vecapp.AutoridadContextoActorRegistradoV2, error) {
 			resolutor, err := contextopg.NuevoResolutorRegistroContextoActorPostgreSQLV2(ctx, pool)
 			if err != nil {

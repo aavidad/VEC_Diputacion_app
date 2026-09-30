@@ -108,7 +108,11 @@ pero sus conexiones de autorización usan estos LOGIN y grupos exclusivos:
 
 Cada LOGIN hereda únicamente su grupo, con `INHERIT TRUE`, `SET FALSE` y
 `ADMIN FALSE`. Todas las conexiones se cotejan con la instancia observada por
-el preflight externo. `dsn_contexto` usa el grupo
+el preflight externo. `dsn_registro_identidad` y `dsn_revalidacion_identidad`
+usan respectivamente los grupos `vec_identidad_externa_v1_registrador` y
+`vec_identidad_externa_v1_revalidador`. El montaje consume exclusivamente el
+registro y la revalidación de sesiones externas; rechaza los grupos de identidad
+compartidos. `dsn_contexto` usa el grupo
 `vec_contexto_actor_v1_usuarios_externo`, que resuelve y registra únicamente el
 perfil propio de Usuarios en el almacén externo. El perfil de Bolsa es distinto.
 
@@ -120,8 +124,9 @@ deniega la operación. Reiniciar el proceso no restablece una concesión revocad
 La lista causal de esta pieza es
 `deploy/principal/lista_sql_trabajo_codexb_usuarios_externo_20260930.txt`, después
 de la separación por superficie y las dependencias de ContextoActor del portal
-externo. ContextoActor 000014 y 000015 se instalan en esa base previa; esta
-lista no las repite. AUT-18 admite las fechas vacías exactas que conserva el
+externo. ContextoActor 000014, 000015 y 000017 se instalan en esa base previa;
+esta lista no las repite. La 000017 conserva el canon y la historia al cerrar
+el uso de tipos temporales en las fachadas externas. AUT-18 admite las fechas vacías exactas que conserva el
 documento canónico Go y rechaza fechas reales de retirada o revocación. Las
 migraciones ya instaladas no se repiten ni se revierten.
 

@@ -81,7 +81,7 @@ func componenteExternoValido(c ComponenteSnapshotContextoExterno, prefijo string
 	desde, e1 := time.Parse("2006-01-02T15:04:05.000000Z", c.VigenteDesde)
 	hasta, e2 := time.Parse("2006-01-02T15:04:05.000000Z", c.VigenteHasta)
 	return referenciaExterna(c.Referencia, prefijo) && c.Version > 0 && c.ProcedenciaVersion > 0 &&
-		referenciaProvisionExterna.MatchString(c.ProcedenciaRef) && huellaPreimagenMiBolsaPortalExterno.MatchString(c.ProcedenciaHuellaSHA256) &&
+		referenciaExterna(c.ProcedenciaRef, "prc_") && huellaPreimagenMiBolsaPortalExterno.MatchString(c.ProcedenciaHuellaSHA256) &&
 		c.ProcedenciaAutoridad == "autoridad_maestra_acreditada" && (c.Estado == "activo" || c.Estado == "revocado") &&
 		e1 == nil && e2 == nil && desde.Format("2006-01-02T15:04:05.000000Z") == c.VigenteDesde && hasta.Format("2006-01-02T15:04:05.000000Z") == c.VigenteHasta && hasta.After(desde)
 }
@@ -152,7 +152,7 @@ func CargarFuenteProvisionCandidatoExterno(ruta string) (FuenteProvisionCandidat
 	d.DisallowUnknownFields()
 	var sobra any
 	if validarClavesJSONUnicas(b) != nil || d.Decode(&f) != nil || !errors.Is(d.Decode(&sobra), io.EOF) ||
-		f.Version != 1 || !f.Snapshot.validar() || f.Snapshot.Poblacion != "candidato" || !f.Preimagen.validar() {
+		f.Version != 1 || !f.Snapshot.validar() || !f.Preimagen.validar() {
 		return FuenteProvisionCandidatoExterno{}, ErrProvisionCandidatoExterno
 	}
 	return f, nil
@@ -193,11 +193,28 @@ func procesoInternoProvisionExterna(cfg config.Config) bool {
 // Contexto se completa después con su hash canónico calculado por CTX15.
 func PrepararProvisionCandidatoExterno(cfg config.Config, f FuenteProvisionCandidatoExterno, fase string, ahora time.Time) (PlanProvisionCandidatoExterno, error) {
 	var p PlanProvisionCandidatoExterno
-	if !procesoInternoProvisionExterna(cfg) || f.Version != 1 || !f.Snapshot.validar() || f.Snapshot.Poblacion != "candidato" ||
+	if !procesoInternoProvisionExterna(cfg) || f.Version != 1 || !f.Snapshot.validar() ||
+		(f.Snapshot.Poblacion != "candidato" && !(fase == "identidad" && f.Snapshot.Poblacion == "usuarios")) ||
 		!f.Preimagen.validar() || f.Snapshot.Estado != "activo" || (fase != "contexto" && fase != "autorizacion" && fase != "motivos" && fase != "identidad") {
 		return p, ErrProvisionCandidatoExterno
 	}
 	s := f.Snapshot
+	if s.Poblacion == "usuarios" {
+		if f.Identidad == nil || !f.Identidad.validaPara(s.Cuenta.Referencia) {
+			return p, ErrProvisionCandidatoExterno
+		}
+		var err error
+		p.snapshot, err = json.Marshal(s)
+		if err != nil {
+			return p, ErrProvisionCandidatoExterno
+		}
+		p.preimagen = f.Preimagen
+		copia := *f.Identidad
+		p.identidad = &copia
+		p.resumen = ResumenProvisionCandidatoExterno{Fase: fase, Estado: "preparado", PreimagenSHA256: huellaAusenciaIdentidadExterna(copia.CuentaRef)}
+		p.actualizarHuella()
+		return p, nil
+	}
 	identidad := &identidadCandidatoBolsaDesarrollo{cuentaRef: s.Cuenta.Referencia, personaRef: s.Persona.Referencia, perfilRef: s.Perfil.Referencia, candidatoRef: s.VinculoCandidato.CandidatoRef}
 	semilla, err := semillaMiBolsaPortalExterno(identidad, ahora, "areaPersonal.miBolsa.rolPortal")
 	if err != nil {
