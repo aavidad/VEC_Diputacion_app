@@ -11,11 +11,18 @@ SET LOCAL client_min_messages=warning;
 SELECT pg_advisory_xact_lock(hashtextextended('vec_contratacion_temporal:migracion:000153',0));
 LOCK TABLE vec_contratacion_temporal.lectura_reincorporacion_titular_v1 IN SHARE ROW EXCLUSIVE MODE;
 LOCK TABLE vec_contratacion_temporal.reincorporacion_titular_v1 IN SHARE ROW EXCLUSIVE MODE;
+-- CT130 oculta sus filas al migrador bajo FORCE RLS. Esta política solo
+-- permite comprobar historia dentro de la transacción de reversión.
+CREATE POLICY ct153_down_inspeccion ON vec_contratacion_temporal.reincorporacion_titular_v1
+ FOR SELECT TO vec_contratacion_temporal_propietario USING (
+ pg_has_role(session_user,'vec_contratacion_temporal_migrador','MEMBER')
+ AND NOT pg_has_role(session_user,'vec_contratacion_temporal_ejecutor','MEMBER'));
 
 DO $pre$
 BEGIN
  IF current_user<>'vec_contratacion_temporal_propietario'
     OR NOT pg_has_role(session_user,'vec_contratacion_temporal_migrador','MEMBER')
+    OR pg_has_role(session_user,'vec_contratacion_temporal_ejecutor','MEMBER')
     OR to_regprocedure('vec_contratacion_temporal.perfil_reincorporacion_ct153_v1()') IS NULL
     OR (SELECT encode(sha256(convert_to(prosrc,'UTF8')),'hex') FROM pg_proc
         WHERE oid=to_regprocedure('vec_contratacion_temporal.perfil_reincorporacion_ct153_v1()'))
@@ -104,4 +111,5 @@ BEGIN
 END $lectura$;
 
 DROP FUNCTION vec_contratacion_temporal.perfil_reincorporacion_ct153_v1();
+DROP POLICY ct153_down_inspeccion ON vec_contratacion_temporal.reincorporacion_titular_v1;
 COMMIT;
