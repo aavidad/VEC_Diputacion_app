@@ -75,7 +75,7 @@ $x$;
  AND d->>'contexto_recurso_huella_sha256' IS NOT DISTINCT FROM c->>'huella_efecto_sha256'
  AND d->'campos_permitidos' IS NOT DISTINCT FROM CASE c->>'operacion'
        WHEN 'vec.catalogos.categorias.listar_habilitadas' THEN '["categorias","paginacion","publicaciones"]'::jsonb
-       WHEN 'vec.catalogos.categorias.consultar_historica' THEN '["publicacion","entrada","control_actual"]'::jsonb
+       WHEN 'vec.catalogos.categorias.consultar_historica' THEN '["control_actual","entrada","publicacion"]'::jsonb
        ELSE '["uso"]'::jsonb END
  AND d->'obligaciones' IS NOT DISTINCT FROM '[]'::jsonb)
 $x$;
@@ -193,7 +193,7 @@ BEGIN
         tipo := 'catalogo_configurable';
         campos := CASE WHEN p_accion='vec.catalogos.categorias.listar_habilitadas'
             THEN '["categorias","paginacion","publicaciones"]'::jsonb
-            ELSE '["publicacion","entrada","control_actual"]'::jsonb END;
+            ELSE '["control_actual","entrada","publicacion"]'::jsonb END;
         ambitos := '{"ambitos":{"catalogo_id":"'||recurso||'","modulo_id":"'||(p_material->>'modulo_id')||'"},"atributos":{"material_sha256":"'||material_h||'"}}';
     END IF;
     contexto_h := pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(ambitos,'UTF8')),'hex');
