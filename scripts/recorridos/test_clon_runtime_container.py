@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import struct
+import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -91,6 +92,42 @@ class ContainerBoundaryTests(unittest.TestCase):
         for path in (self.source, self.binary):
             self.assertIn({'source': str(path), 'target': str(path), 'rw': False}, self.mounts)
         self.assertNotIn(str(self.state), [mount['source'] for mount in self.mounts])
+
+    def test_docker_error_is_private_0600_and_public_exception_constant(self):
+        secret_marker = 'fixture-private-error-not-for-public-output'
+        result = subprocess.CompletedProcess(['docker'], 23, stdout='private inspect output', stderr=secret_marker)
+        with patch.object(runtime.subprocess, 'run', return_value=result), \
+                patch.object(runtime, '_diagnostic_phase', 'scratch_image'), \
+                patch.object(runtime, '_diagnostic_attempt', 'e' * 32):
+            with self.assertRaises(runtime.ContainerError) as rejected:
+                runtime.docker(self.state, 'build', '--network=none')
+        self.assertEqual(str(rejected.exception), 'Local Docker operation failed; no secret-bearing output is displayed.')
+        self.assertNotIn(secret_marker, str(rejected.exception))
+        path = self.state / 'runtime-container-diagnostic.json'
+        self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+        record = json.loads(path.read_text())
+        self.assertEqual(record['stage'], 'scratch_image')
+        self.assertEqual(record['cli'], {'operation': 'build', 'exit_code': 23, 'stderr': secret_marker})
+        self.assertNotIn('stdout', record['cli'])
+        self.assertNotIn('environment', record)
+
+    def test_input_failure_records_exact_stage_without_creating_docker_object(self):
+        invalid = dict(self.manifest, cgo_enabled=True)
+        with patch.object(runtime, 'docker') as docker, self.assertRaises(runtime.ContainerError):
+            runtime.start(self.state, self.source, self.binary, self.environment, invalid, self.projection, 19443, 55531)
+        docker.assert_not_called()
+        record = json.loads((self.state / 'runtime-container-diagnostic.json').read_text())
+        self.assertEqual(record['stage'], 'preflight_inputs')
+        self.assertEqual(record['guard'], 'Runtime static binary or source proof does not match.')
+
+    def test_diagnostic_cannot_overwrite_symlink_or_mask_original_error(self):
+        foreign = self.state / 'offline-private-marker'
+        foreign.write_text('unchanged')
+        (self.state / 'runtime-container-diagnostic.json').symlink_to(foreign)
+        result = subprocess.CompletedProcess(['docker'], 1, stdout='', stderr='fixture private error')
+        with patch.object(runtime.subprocess, 'run', return_value=result), self.assertRaises(runtime.ContainerError):
+            runtime.docker(self.state, 'build')
+        self.assertEqual(foreign.read_text(), 'unchanged')
 
     def test_extra_ro_mount_and_state_parent_are_rejected(self):
         for path in (self.state, self.root, self.state / 'material'):

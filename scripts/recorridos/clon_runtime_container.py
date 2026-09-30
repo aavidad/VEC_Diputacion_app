@@ -24,6 +24,8 @@ OWNER = 'Codex-M'
 PREFIX = 'vec.clon.runtime.'
 HOME = '/home/runtime'
 RW_KINDS = {'documentos', 'imagenes', 'data', 'comunicaciones'}
+_diagnostic_phase = 'local_docker'
+_diagnostic_attempt = None
 
 
 class ContainerError(Exception):
@@ -99,6 +101,36 @@ def read_private_json(path):
     return json.loads(path.read_text())
 
 
+def diagnose(state, guard, cli=None):
+    """Keep technical failures private; never include the sealed environment."""
+    path = Path(state) / 'runtime-container-diagnostic.json'
+    try:
+        previous = read_private_json(path)
+        if previous is not None and (previous.get('owner') != OWNER or previous.get('state') != str(state)):
+            return
+        attempt = _diagnostic_attempt or secrets.token_hex(16)
+        record = previous if previous is not None and previous.get('attempt') == attempt else {
+            'owner': OWNER, 'state': str(state), 'attempt': attempt, 'stage': _diagnostic_phase,
+            'guard': guard,
+        }
+        if cli is not None and 'cli' not in record:
+            record['cli'] = cli
+        descriptor, name = tempfile.mkstemp(prefix='.runtime-container-diagnostic-', dir=state)
+        temporary = Path(name)
+        try:
+            with os.fdopen(descriptor, 'w') as stream:
+                json.dump(record, stream, sort_keys=True)
+                stream.write('\n')
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(temporary, path)
+        finally:
+            temporary.unlink(missing_ok=True)
+    except (OSError, ValueError, ContainerError):
+        # A diagnostic write cannot change ownership guards or prevent cleanup.
+        return
+
+
 def docker(state, *args):
     config = Path(state) / 'runtime-docker-client'
     config.mkdir(mode=0o700, exist_ok=True)
@@ -109,10 +141,13 @@ def docker(state, *args):
                                 env={'PATH': '/usr/bin:/bin', 'HOME': str(config)},
                                 stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=60)
     except subprocess.TimeoutExpired:
+        diagnose(state, 'docker_timeout', {'operation': '.'.join(args[:2]) if args[0] in ('image', 'container') else args[0], 'timeout': True})
         fail('Local Docker operation timed out; creation intent is preserved for recovery.')
     if result.returncode:
         if args[:2] == ('container', 'inspect') and re.search(r'No such (?:object|container):', result.stderr):
             raise DockerNotFound('The immutable container ID no longer exists.')
+        diagnose(state, 'docker_nonzero', {'operation': '.'.join(args[:2]) if args[0] in ('image', 'container') else args[0],
+                                         'exit_code': result.returncode, 'stderr': result.stderr})
         fail('Local Docker operation failed; no secret-bearing output is displayed.')
     return result.stdout.strip()
 
@@ -425,11 +460,24 @@ def container_name(state, commit):
 
 
 def start(state, source, binary, environment, manifest, projection, port, pg_port):
+    global _diagnostic_phase, _diagnostic_attempt
+    _diagnostic_phase, _diagnostic_attempt = 'preflight_inputs', secrets.token_hex(16)
+    try:
+        return _start(state, source, binary, environment, manifest, projection, port, pg_port)
+    except (ContainerError, OSError, ValueError) as error:
+        diagnose(state, str(error) if isinstance(error, ContainerError) else type(error).__name__)
+        raise
+
+
+def _start(state, source, binary, environment, manifest, projection, port, pg_port):
+    global _diagnostic_phase
     state, source, binary = Path(state), Path(source), Path(binary)
     mounts = validate_inputs(state, source, binary, manifest, projection)
+    _diagnostic_phase = 'recover_intent'
     recover_intent(state)
     if read_record(state) is not None:
         fail('An owned container reservation already exists.')
+    _diagnostic_phase = 'sealed_environment'
     if (environment.get('HOME') != HOME or environment.get('TMPDIR') != '/tmp'
             or environment.get('TZ') != 'UTC' or environment.get('PATH') != '/usr/bin:/bin'
             or environment.get('VEC_HTTP_ADDR') != f'127.0.0.1:{port}'
@@ -439,10 +487,12 @@ def start(state, source, binary, environment, manifest, projection, port, pg_por
                and isinstance(value, str) and not any(char in value for char in '\0\n\r')
                for key, value in environment.items()):
         fail('The sealed runtime environment is invalid.')
+    _diagnostic_phase = 'pidfd_preflight'
     if not hasattr(os, 'pidfd_open') or not hasattr(signal, 'pidfd_send_signal'):
         fail('The host lacks the process identity primitive required for this runtime.')
     capability = os.pidfd_open(os.getpid())
     os.close(capability)
+    _diagnostic_phase = 'scratch_image'
     image_id = build_image(state, manifest['source_commit'])
     record = {'source': str(source), 'binary': str(binary), 'source_commit': manifest['source_commit'],
               'manifest': manifest, 'projection': projection, 'mounts': mounts, 'image_id': image_id,
@@ -455,6 +505,7 @@ def start(state, source, binary, environment, manifest, projection, port, pg_por
                   runtime_config_path=projection.get('runtime_config_path', str(Path(projection['root']) / 'runtime-config.json')),
                   material_path=projection.get('material_path', str(Path(projection['root']) / 'material')),
                   manifest_path=projection.get('manifest_path', str(Path(projection['root']) / 'material-manifest.json')))
+    _diagnostic_phase = 'export_environment'
     env_bytes = ''.join(f'{key}={value}\n' for key, value in sorted(environment.items())).encode()
     env_path = state / ('runtime-container-env-' + hashlib.sha256(env_bytes).hexdigest() + '.env')
     if env_path.exists() or env_path.is_symlink():
@@ -480,14 +531,19 @@ def start(state, source, binary, environment, manifest, projection, port, pg_por
     command.append(image_id)
     record['name'] = container_name(state, manifest['source_commit'])
     intent_path = state / 'runtime-container-intent.json'
+    _diagnostic_phase = 'publish_intent'
     private_json(intent_path, record)
     succeeded = False
     try:
+        _diagnostic_phase = 'docker_create'
         container_id = docker(state, *command)
         record['container_id'] = container_id
         # Validate the immutable object before allowing even its first instruction.
+        _diagnostic_phase = 'verify_created_container'
         verify_configuration(state, record, inspect(state, container_id))
+        _diagnostic_phase = 'docker_start'
         docker(state, 'start', container_id)
+        _diagnostic_phase = 'direct_process_identity'
         deadline = time.monotonic() + 5
         while time.monotonic() < deadline:
             proof = inspect(state, container_id)
@@ -501,7 +557,9 @@ def start(state, source, binary, environment, manifest, projection, port, pg_por
             time.sleep(0.05)
         if 'pid' not in record:
             fail('The direct runtime process could not be verified.')
+        _diagnostic_phase = 'verify_live_container'
         verify_record(state, record)
+        _diagnostic_phase = 'publish_live_record'
         private_json(state / 'runtime-container.json', record)
         succeeded = True
         intent_path.unlink()
