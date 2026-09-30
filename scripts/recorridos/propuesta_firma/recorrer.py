@@ -7,6 +7,7 @@ import argparse
 from asyncio import CancelledError
 import errno
 import hashlib
+from importlib import import_module, metadata
 import json
 import os
 import re
@@ -40,6 +41,37 @@ class Corte(RuntimeError):
         super().__init__(motivo)
         self.paso = paso
         self.motivo = motivo
+
+
+def comprobar_sdk_playwright():
+    """Lee el pin local y verifica el SDK antes de exponer el lector importado."""
+    try:
+        lineas = [linea.strip() for linea in Path(__file__).with_name("requirements.txt")
+                  .read_text(encoding="utf-8").splitlines()
+                  if linea.strip() and not linea.lstrip().startswith("#")]
+        pin = re.fullmatch(r"playwright==([0-9]+\.[0-9]+\.[0-9]+)", lineas[0]) if len(lineas) == 1 else None
+        if not pin:
+            raise ValueError
+        requerida = pin.group(1)
+    except (OSError, ValueError):
+        raise Corte("precondiciones", "falta un catálogo válido de la dependencia Playwright") from None
+    try:
+        distribucion = metadata.distribution("playwright")
+        if distribucion.version != requerida:
+            raise Corte("precondiciones", "Playwright debe coincidir con la versión exacta del catálogo")
+        # La metadata puede proceder de otra instalación presente en sys.path.
+        # Contrastar también los módulos realmente importados, sin abrir Chrome.
+        for nombre, relativo in (("playwright", "playwright/__init__.py"),
+                                 ("playwright.sync_api", "playwright/sync_api/__init__.py"),
+                                 ("playwright._impl._cdp_session", "playwright/_impl/_cdp_session.py")):
+            modulo = import_module(nombre)
+            actual = Path(modulo.__file__).resolve(strict=True)
+            declarado = Path(distribucion.locate_file(relativo)).resolve(strict=True)
+            if actual != declarado:
+                raise Corte("precondiciones", "el SDK importado no corresponde a la dependencia verificada")
+    except (metadata.PackageNotFoundError, ImportError, OSError, TypeError):
+        raise Corte("precondiciones", "no se pudo verificar la dependencia Playwright instalada") from None
+    return requerida
 
 
 def argumentos(argv=None):
@@ -415,6 +447,7 @@ def comprobar_movil(page, a, pdf_escritorio):
 
 
 def recorrer(a, chrome, entorno):
+    comprobar_sdk_playwright()
     try:
         from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeout
     except ImportError:
@@ -614,6 +647,16 @@ def main(argv=None):
     print(salida)
     return 0 if informe["estado"] == "COMPLETO" else 2
 
+
+# Se aplica también a quienes importan únicamente GuardiaNavegador: el módulo
+# no se entrega al llamador con un SDK que carezca del evento close verificado.
+try:
+    comprobar_sdk_playwright()
+except Corte as e:
+    if __name__ != "__main__":
+        raise
+    print(json.dumps({"estado": "NO EJECUTADO", "corte": e.paso, "motivo": e.motivo}, ensure_ascii=False))
+    sys.exit(2)
 
 if __name__ == "__main__":
     sys.exit(main())

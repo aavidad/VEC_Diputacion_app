@@ -4,6 +4,10 @@ import unittest
 import hashlib
 import os
 import threading
+import io
+import runpy
+from contextlib import redirect_stdout
+from unittest import mock
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -11,6 +15,50 @@ import recorrer
 
 
 class RecorridoFirmaTest(unittest.TestCase):
+    def test_catalogo_sdk_exacto_y_distribucion_instalada(self):
+        self.assertEqual(recorrer.comprobar_sdk_playwright(), "1.60.0")
+
+    def test_importacion_y_cli_rechazan_sdk_no_ensayado_sin_efectos(self):
+        for version in ("1.55.0", "1.60.1"):
+            for modo in ("lector_privado", "__main__"):
+                with self.subTest(version=version, modo=modo), tempfile.TemporaryDirectory() as tmp:
+                    salida = Path(tmp) / "informe.json"
+                    escritorio = Path(tmp) / "1440.png"
+                    movil = Path(tmp) / "390.png"
+                    argv = [recorrer.__file__, "--salida", str(salida),
+                            "--captura-escritorio", str(escritorio), "--captura-movil", str(movil)]
+                    with mock.patch("importlib.metadata.distribution", return_value=mock.Mock(version=version)), \
+                         mock.patch("playwright.sync_api.sync_playwright") as proceso, \
+                         mock.patch("playwright.sync_api.BrowserType.launch") as chrome, \
+                         mock.patch("playwright.sync_api.Browser.new_context") as contextos, \
+                         mock.patch("sys.argv", argv), redirect_stdout(io.StringIO()) as texto:
+                        if modo == "__main__":
+                            with self.assertRaises(SystemExit) as corte:
+                                runpy.run_path(recorrer.__file__, run_name=modo)
+                            self.assertEqual(corte.exception.code, 2)
+                            self.assertEqual(json.loads(texto.getvalue())["estado"], "NO EJECUTADO")
+                        else:
+                            with self.assertRaises(RuntimeError) as corte:
+                                runpy.run_path(recorrer.__file__, run_name=modo)
+                            self.assertEqual(corte.exception.paso, "precondiciones")
+                        proceso.assert_not_called()
+                        chrome.assert_not_called()
+                        contextos.assert_not_called()
+                    self.assertEqual(list(Path(tmp).iterdir()), [])
+
+    def test_sdk_ausente_catalogo_invalido_y_metadata_ajena_se_denegan(self):
+        with mock.patch("importlib.metadata.distribution", side_effect=recorrer.metadata.PackageNotFoundError):
+            with self.assertRaises(recorrer.Corte):
+                recorrer.comprobar_sdk_playwright()
+        with mock.patch("pathlib.Path.read_text", return_value="playwright>=1.60.0"):
+            with self.assertRaises(recorrer.Corte):
+                recorrer.comprobar_sdk_playwright()
+        ajena = mock.Mock(version="1.60.0")
+        ajena.locate_file.return_value = "/no-existe-sdk-verificado/__init__.py"
+        with mock.patch("importlib.metadata.distribution", return_value=ajena):
+            with self.assertRaises(recorrer.Corte):
+                recorrer.comprobar_sdk_playwright()
+
     def test_salida_rechaza_git_worktree_permisos_y_enlaces(self):
         with tempfile.TemporaryDirectory() as tmp:
             raiz = Path(tmp)

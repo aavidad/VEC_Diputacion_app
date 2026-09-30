@@ -6,6 +6,12 @@ El resultado se detiene en el primer punto sin evidencia. `NO EJECUTADO` signifi
 
 ## Preparación
 
+El lector exige la versión exacta de Playwright fijada en [requirements.txt](requirements.txt): `1.60.0`. Esta versión se ha ensayado con Chrome y emite el evento de cierre de la sesión CDP que usa la guardia. La versión `1.55` del sistema acepta el listener, pero no emite ese evento.
+
+La comprobación se ejecuta al importar el módulo, antes de crear Chrome, contextos o páginas. También contrasta que el paquete y la API importados pertenezcan a la distribución verificada. Si falta el catálogo, la versión difiere o las instalaciones se mezclan, el lector se detiene sin abrir Chrome ni guardar capturas o informes. El SDK debe estar preparado localmente; el lector no descarga ni instala dependencias.
+
+Los lectores privados que importan solo `GuardiaNavegador` deben copiar el módulo completo y su `requirements.txt` al mismo directorio. Extraer únicamente la clase omite esta precondición. Las capturas anteriores obtenidas con Playwright `1.60.0` conservan su procedencia; no acreditan un recorrido con otra versión.
+
 Dirección debe aportar fuera de Git un clon local con H3, H4 y H5 ensayados, el binario correspondiente, datos sintéticos y material mTLS. No se usa la principal ni el clon HITO1 del puerto 55441. El archivo de inventario contiene únicamente estos datos no secretos:
 
 ```json
