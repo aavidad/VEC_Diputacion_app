@@ -55,6 +55,38 @@ test("GET y PUT usan el contrato único, usan credenciales de mismo origen y con
   assert.equal(llamadas[1].opciones.headers["X-Idempotency-Key"], undefined);
 });
 
+test("catálogo v2 carga estado v1 y guarda los seis temas con la versión vigente", async () => {
+  const nuevos = ["diputacion_granada", "arena", "salvia", "lavanda", "azul_sereno", "noche_suave"];
+  const catalogoV2 = { ...catalogo, version_ref: "usuarios-preferencias-v2",
+    temas: [...catalogo.temas, ...nuevos.map((codigo) => ({ codigo, nombre_key: `ui.usuarios.preferencias.tema.${codigo}` }))] };
+  const solicitudes = [];
+  const cliente = crearClientePreferencias({ fetchImpl: async (_ruta, opciones) => {
+    solicitudes.push(opciones);
+    if (opciones.method === "GET") return json({ catalogo: catalogoV2, estado });
+    const peticion = JSON.parse(opciones.body);
+    return json({ ...estado, version: 1, catalogo_version_ref: "usuarios-preferencias-v2",
+      valores: peticion.valores, recibo_ref: "recibo:tema", fecha_utc: "2026-09-30T00:00:00Z", replay: false }, 201);
+  } });
+  const leido = await cliente.cargar();
+  assert.equal(leido.estado.catalogo_version_ref, "usuarios-preferencias-v1");
+  assert.equal(leido.catalogo.version_ref, "usuarios-preferencias-v2");
+  for (const tema of nuevos) {
+    const valoresNuevos = { ...valores, tema };
+    const operacion = crearOperacionPreferencias(leido, valoresNuevos, { randomUUID: () => "clave-v2" });
+    const recibo = await cliente.guardar(operacion);
+    assert.equal(recibo.valores.tema, tema);
+    assert.equal(JSON.parse(solicitudes.at(-1).body).catalogo_version_ref, "usuarios-preferencias-v2");
+    await assert.rejects(cliente.guardar({ ...operacion, catalogo_version_ref: "usuarios-preferencias-v1" }),
+      (error) => error.codigo === "validacion");
+  }
+  const inverso = crearClientePreferencias({ fetchImpl: async () => json({ catalogo,
+    estado: { ...estado, catalogo_version_ref: "usuarios-preferencias-v2" } }) });
+  await assert.rejects(inverso.cargar(), (error) => error.codigo === "respuesta");
+  const falsoHistorico = crearClientePreferencias({ fetchImpl: async () => json({ catalogo: catalogoV2,
+    estado: { ...estado, valores: { ...valores, tema: "salvia" } } }) });
+  await assert.rejects(falsoHistorico.cargar(), (error) => error.codigo === "respuesta");
+});
+
 test("rechaza cuerpo directo, respuesta sin recibo y errores HTTP sin confirmar guardado", async () => {
   await assert.rejects(crearClientePreferencias({ fetchImpl: async () => ({ status: 200,
     headers: { get: () => "application/json" }, text: async () => JSON.stringify({ catalogo, estado }) }) }).cargar(),

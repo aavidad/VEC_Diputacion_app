@@ -106,8 +106,11 @@ export function crearClientePreferencias({ fetchImpl = globalThis.fetch } = {}) 
       const catalogo = validarCatalogo(datos?.catalogo);
       const estado = datos?.estado;
       if (!objeto(estado) || !Number.isSafeInteger(estado.version) || estado.version < 0
-        || estado.catalogo_version_ref !== catalogo.version_ref) throw new TypeError("estado de preferencias inválido");
-      const valores = validarValores(estado.valores, TEMAS_POR_VERSION[catalogo.version_ref]);
+        || !Object.hasOwn(TEMAS_POR_VERSION, estado.catalogo_version_ref)
+        || (catalogo.version_ref === "usuarios-preferencias-v1" && estado.catalogo_version_ref !== catalogo.version_ref)) {
+        throw new TypeError("estado de preferencias inválido");
+      }
+      const valores = validarValores(estado.valores, TEMAS_POR_VERSION[estado.catalogo_version_ref]);
       if (!catalogo.temas.some((opcion) => opcion.codigo === valores.tema)) throw new TypeError("estado de preferencias inválido");
       return Object.freeze({ catalogo, estado: Object.freeze({ version: estado.version, valores }) });
     },
