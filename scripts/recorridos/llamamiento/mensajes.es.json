@@ -1,0 +1,6 @@
+{
+  "destino": "Las evidencias necesitan una carpeta nueva, absoluta y fuera de Git, sin enlaces simbólicos.",
+  "navegador": "Falta Chrome del sistema o Playwright Python local.",
+  "corte": "CORTE DE APLICACIÓN: revise resultado.json y las capturas privadas. El flujo posterior no se ejecutó.",
+  "apertura": "APERTURA OBSERVADA: HTTP y capturas privados conservados. El flujo posterior no se ejecutó."
+}

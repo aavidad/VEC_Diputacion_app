@@ -1,0 +1,3 @@
+# 5.06 custodia del documento firmado: consumidor AD3 y función de Documentos (orden causal)
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000113_custodia_documento_firmado.up.sql
+deploy/postgresql/documentos/migraciones/000009_custodia_documento_firmado.up.sql

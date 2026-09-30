@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -367,6 +368,7 @@ func (o *origenConsultasContratacionTemporalDesarrollo) centroDeOrganizacionPeti
 	}
 	catalogos, err := o.catalogosAlta()
 	if err != nil {
+		slog.Warn("catálogo de centros de petición no disponible", "causa", "catalogo_alta_no_disponible")
 		return false
 	}
 	for _, centro := range catalogos.centrosOrganizacion {

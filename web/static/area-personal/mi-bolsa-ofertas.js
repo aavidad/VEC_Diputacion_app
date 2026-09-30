@@ -2,7 +2,7 @@
 // bolsas y manifiesta su disposición (Bolsa 000029). El servidor comprueba
 // que la oferta es de una bolsa suya y que sigue abierta; aquí solo se
 // recoge la oferta elegida y se muestra el recibo.
-import { traducir } from "./i18n.js";
+import { localizacionAreaPersonal, traducir } from "./i18n.js";
 import { escaparAtributo, escaparHTML, listaDatos } from "./vistas/comunes.js";
 import { nombreCategoria } from "./mi-bolsa-campos.js";
 
@@ -13,28 +13,9 @@ const OFERTA = /^oferta:[0-9a-f]{64}$/u;
 const DIA = /^\d{4}-\d{2}-\d{2}$/u;
 const INSTANTE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?Z$/u;
 
-const RESPALDO = Object.freeze({
-  "areaPersonal.ofertas.titulo": "Ofertas publicadas",
-  "areaPersonal.ofertas.subtitulo": "De mis bolsas",
-  "areaPersonal.ofertas.centro": "Centro",
-  "areaPersonal.ofertas.inicio": "Inicio",
-  "areaPersonal.ofertas.fin": "Fin",
-  "areaPersonal.ofertas.sinFin": "Sin fecha de fin",
-  "areaPersonal.ofertas.descripcion": "Descripción",
-  "areaPersonal.ofertas.vence": "Ofrecerse antes de",
-  "areaPersonal.ofertas.manifestar": "Me ofrezco",
-  "areaPersonal.ofertas.manifestada": "Se ofreció el {fecha} · Recibo {recibo}",
-  "areaPersonal.ofertas.estado.abierta": "Abierta",
-  "areaPersonal.ofertas.estado.pendiente_resolucion": "Plazo terminado; pendiente de RRHH",
-  "areaPersonal.ofertas.estado.resuelta": "Resuelta",
-  "areaPersonal.ofertas.estado.adjudicada_propia": "Adjudicada a usted",
-});
 
 export function textoOfertas(clave, variables = {}) {
-  const completa = `areaPersonal.ofertas.${clave}`;
-  const traducido = traducir(completa, variables);
-  if (traducido !== completa) return traducido;
-  return (RESPALDO[completa] ?? completa).replace(/\{([a-z_]+)\}/giu, (_, nombre) => String(variables[nombre] ?? ""));
+  return traducir(`areaPersonal.ofertas.${clave}`, variables);
 }
 
 function instante(valor, nombre) {
@@ -67,12 +48,12 @@ export function validarOfertasMiBolsa(datos) {
 }
 
 function fecha(valor) {
-  return new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Madrid" }).format(new Date(valor));
+  return new Intl.DateTimeFormat(localizacionAreaPersonal(), { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Madrid" }).format(new Date(valor));
 }
 
 function dia(valor) {
   const [a, m, d] = valor.split("-").map(Number);
-  return new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeZone: "UTC" }).format(new Date(Date.UTC(a, m - 1, d)));
+  return new Intl.DateTimeFormat(localizacionAreaPersonal(), { dateStyle: "medium", timeZone: "UTC" }).format(new Date(Date.UTC(a, m - 1, d)));
 }
 
 function claseEstado(estado) {

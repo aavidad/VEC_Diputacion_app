@@ -1,4 +1,4 @@
-import { traducir } from "./i18n.js";
+import { localizacionAreaPersonal, traducir } from "./i18n.js";
 
 // Datos de «Mi bolsa» que el catálogo de Bolsa (regla b29.campos_mi_bolsa)
 // puede mostrar u ocultar. El servidor ya retira los ocultos; la web solo
@@ -33,5 +33,5 @@ export function nombreCategoria(item) {
   if (codigo && !codigo.includes(":")) return codigo;
   const tramo = codigo.split(":").pop().replace(/[_-]+/gu, " ").trim();
   if (!tramo) return traducir("areaPersonal.miBolsa.categoriaSinNombre");
-  return tramo.charAt(0).toLocaleUpperCase("es") + tramo.slice(1);
+  return tramo.charAt(0).toLocaleUpperCase(localizacionAreaPersonal()) + tramo.slice(1);
 }

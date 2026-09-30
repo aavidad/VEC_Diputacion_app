@@ -4,6 +4,7 @@ import test from "node:test";
 import { datosMinimosMiBolsa } from "./aplicacion.js";
 import { iniciarI18nAreaPersonal, traducir } from "./i18n.js";
 import { renderizarPerfil } from "./vistas/perfil-meritos-solicitud.js";
+import { catalogoPlano, lectorCatalogos } from "./textos-prueba.test-helper.mjs";
 
 test("Mi bolsa vacía no fabrica persona, iniciales ni referencias para el área personal", () => {
   const datos = datosMinimosMiBolsa({ consultada_en: "2026-09-24T09:00:00Z", participaciones: [] });
@@ -21,15 +22,13 @@ test("Mi bolsa vacía no fabrica persona, iniciales ni referencias para el área
 });
 
 test("la identidad no facilitada usa las claves del catálogo real y el respaldo común", async () => {
-  const catalogo = JSON.parse(await readFile(new URL("./locales/es.json", import.meta.url), "utf8"));
+  const catalogo = await catalogoPlano("es");
   const claves = ["noFacilitada", "metodoNoFacilitado", "valorNoFacilitado"]
     .map((sufijo) => `areaPersonal.miBolsa.identidad.${sufijo}`);
   for (const clave of claves) assert.equal(typeof catalogo[clave], "string", clave);
-  await iniciarI18nAreaPersonal({ querySelectorAll: () => [] }, async (ruta, opciones) => {
-    assert.equal(ruta, "/area-personal/locales/es.json");
-    assert.equal(opciones.credentials, "same-origin");
-    return { ok: true, json: async () => catalogo };
-  });
+  const leer = lectorCatalogos();
+  await iniciarI18nAreaPersonal({ querySelectorAll: () => [] }, { leer, ubicacion: { href: "https://vec.example/area-personal/?lang=es" } });
+  assert.ok(leer.pedidas.includes("es/area-personal.json"));
   const datos = datosMinimosMiBolsa({ consultada_en: "2026-09-24T09:00:00Z", participaciones: [] });
   assert.equal(datos.sesion.nombre_visible, "");
   assert.equal(datos.sesion.metodo, traducir(claves[1]));
