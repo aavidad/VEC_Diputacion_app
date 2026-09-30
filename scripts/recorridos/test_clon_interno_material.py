@@ -13,19 +13,34 @@ SPEC.loader.exec_module(projection)
 
 
 class InternalProjectionTests(unittest.TestCase):
-    def test_reviewed_main_committed_contracts_are_accepted(self):
+    def test_complete_frozen_h6_and_reviewed_main_contracts_are_accepted(self):
         repo = Path(__file__).resolve().parents[2]
-        source = "ebac67de4e43fc49add3d82a011b2b0c9f6a6b21"
-        self.assertEqual(projection.source_contracts(repo, source), projection.APPROVED_CONTRACTS)
-
-    def test_reviewed_main_rejects_a_changed_contract_digest(self):
-        repo = Path(__file__).resolve().parents[2]
-        source = "ebac67de4e43fc49add3d82a011b2b0c9f6a6b21"
-        changed = dict(projection.APPROVED_CONTRACTS)
-        changed["config/portal_proceso.go"] = "0" * 64
-        with patch.object(projection, "APPROVED_CONTRACTS", changed):
-            with self.assertRaisesRegex(projection.ProjectionError, "projection_source_contract_review_required"):
+        for source in ('ab875bb8036af59e9b5ac624d6840b8581178ed2', 'ebac67de4e43fc49add3d82a011b2b0c9f6a6b21'):
+            with self.subTest(source=source):
                 projection.source_contracts(repo, source)
+
+    def test_mixed_variants_and_changed_digest_are_rejected(self):
+        import subprocess
+        repo = Path(__file__).resolve().parents[2]
+        original = subprocess.run
+        old, new = ('ab875bb8036af59e9b5ac624d6840b8581178ed2', 'ebac67de4e43fc49add3d82a011b2b0c9f6a6b21')
+        # Each local validator also rejects the other helper's changed pin.
+        paths = ('config/portal_proceso.go', 'internal/app/bootstrap/bolsa_borrador_llamamiento_desarrollo.go')
+        for source, replacement in [(old, new), (new, old)]:
+            for path in paths:
+                for change in ['other_variant', 'altered_digest']:
+                    def altered(argv, **kwargs):
+                        if argv[-1] == source + ':' + path:
+                            if change == 'other_variant':
+                                argv = [*argv[:-1], replacement + ':' + path]
+                            result = original(argv, **kwargs)
+                            if change == 'altered_digest':
+                                result.stdout += b'\n'
+                            return result
+                        return original(argv, **kwargs)
+                    with self.subTest(source=source, path=path, change=change), patch('subprocess.run', side_effect=altered):
+                        with self.assertRaises(projection.ProjectionError):
+                            projection.source_contracts(repo, source)
 
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()

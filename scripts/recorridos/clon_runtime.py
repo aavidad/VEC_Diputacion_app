@@ -499,9 +499,11 @@ def read_runtime_descriptor(state):
             fail('El material interno no acredita su copia del origen sellado.')
     contracts = proof.get('contracts', {})
     projection = projection_module()
-    approved_contracts = projection.APPROVED_CONTRACTS
+    approved_sets = projection.APPROVED_SOURCE_CONTRACT_SETS
     source = confined(state / ('source-' + descriptor['source_commit']), state, directory=True)
-    if contracts != approved_contracts or any(digest(confined(source / path, source)) != value for path, value in approved_contracts.items()):
+    source_contracts = {path: digest(confined(source / path, source)) for path in approved_sets[0]}
+    internal_contracts = {path: source_contracts[path] for path in projection.SOURCE_PATHS}
+    if source_contracts not in approved_sets or contracts != internal_contracts:
         fail('La proyección no corresponde a los contratos de la fuente fijada.')
     public_names = {'catalogos/organizacion-publica.json', 'catalogos/rpt-publica.json'}
     present_public = set(positive) & public_names

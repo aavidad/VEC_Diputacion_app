@@ -62,20 +62,54 @@ SOURCE_PATHS = (
     "config/postgresql_importacion_convoca.go", "internal/app/bootstrap/bolsa_importacion_convoca_pool.go",
     "internal/app/bootstrap/bolsa_importacion_convoca_custodia.go",
 )
-# Reviewed portal/material contracts at main ebac67de4e43fc49add3d82a011b2b0c9f6a6b21.
-# B11 only adds external database environment names; ENV_KEYS excludes them.
-# SQL lineage cannot approve changes to these Go loaders or their classification.
-APPROVED_CONTRACTS = dict(zip(SOURCE_PATHS, (
-    "fd439d9d544fe3dc931ef0a4ccd7154165fae7ba05faef46cbc30f750ee4c218",
-    "db7f6f31d99173185774cf046f9e0e1abd55362c2d0741e4ca131592eb9a541f",
-    "6f267a8a72b137e672289c9381d7a4ad71b033c4d69ead5c0d2a875e0fe066a6",
-    "6fb7e6f198f30613040210088f0e285bfbff11db8e0161936888b7bcbf8c0e32",
-    "3ee0ac2917e03b1093b528781b2af25238600b7400d4d30f78c836d26355665a",
-    "dcfb4d6c6eb4f438993de0ab6c027b21b429826a601519fafdeec3ef2ed68bf8",
-    "b30ac7f1c8f92d95a251704f0c128315070eafc2a0c743a08c627b72e7e39ece",
-    "5707fbbe5c78c4b7b48267b8bb39f0095e224eddbd3b16c071d216daad1b72be",
-    "8b3c2909bc3278c9937f45935f54774edd141230e8824022657742a159549d04",
-)))
+# Complete reviewed material contracts: frozen H6 and main ebac67de4.
+# Compare whole sets, including both portal and Bolsa pins; never mix variants.
+APPROVED_SOURCE_CONTRACT_SETS = (
+    # ab875bb8036af59e9b5ac624d6840b8581178ed2
+    {
+        'config/portal_proceso.go': '083e46c4ac92b85d32386820038b3f5264f6af974550cea1850b7bfaf713ea89',
+        'internal/app/separacionportales/material.go': 'db7f6f31d99173185774cf046f9e0e1abd55362c2d0741e4ca131592eb9a541f',
+        'internal/app/bootstrap/material_desarrollo.go': '6f267a8a72b137e672289c9381d7a4ad71b033c4d69ead5c0d2a875e0fe066a6',
+        'internal/app/bootstrap/usuarios_preferencias_config_identidad.go': '6fb7e6f198f30613040210088f0e285bfbff11db8e0161936888b7bcbf8c0e32',
+        'internal/app/bootstrap/documentos_montaje.go': '3ee0ac2917e03b1093b528781b2af25238600b7400d4d30f78c836d26355665a',
+        'internal/app/bootstrap/usuarios_imagen_montaje.go': 'dcfb4d6c6eb4f438993de0ab6c027b21b429826a601519fafdeec3ef2ed68bf8',
+        'config/postgresql_importacion_convoca.go': 'b30ac7f1c8f92d95a251704f0c128315070eafc2a0c743a08c627b72e7e39ece',
+        'internal/app/bootstrap/bolsa_importacion_convoca_pool.go': '5707fbbe5c78c4b7b48267b8bb39f0095e224eddbd3b16c071d216daad1b72be',
+        'internal/app/bootstrap/bolsa_importacion_convoca_custodia.go': '8b3c2909bc3278c9937f45935f54774edd141230e8824022657742a159549d04',
+        'internal/app/bootstrap/bolsa_borrador_contexto_postgresql_desarrollo.go': '3d541ce90fac13a788d94577d921ad7c663ecf53fd5eadf3ce6b7d576db09550',
+        'internal/app/bootstrap/bolsa_borrador_identidad_desarrollo.go': '451d9d56f108480cea5a92164f0f1b8cfc04a168267a36b9e79de16f71e9762e',
+        'internal/app/bootstrap/bolsa_borrador_llamamiento_desarrollo.go': 'a9a4cc7e268e2d7cca3825102001003c338cd72ad37d21d03580c4ad056bbc05',
+        'internal/app/bootstrap/bolsa_ofertas_desarrollo.go': '9727a2d8e4b0f00112e42377b5674e0cf0ca339225d543f35f97b0deeef82bec',
+        'internal/app/bootstrap/bolsa_auditoria_frontera_postgresql_desarrollo.go': '3fe40db4d72ac34374b3817078b9dda69b7a8283eb0f4c49cc3f7e228e27182a',
+        'internal/app/bootstrap/bolsa_borrador_politica_desarrollo.go': '190089f6b533b9c7e0c1135fcfc6b5d8143656faca82f4db6b02b7f29ab96a13',
+        'config/postgresql_borradores.go': '6770f91af7bd67b75b8beb14b13e78290b88364217d5efafe70659c3a2dd8725',
+        'internal/app/bootstrap/postgresql_borradores_configuracion.go': 'd33403dde4e0f77e4864198f8e758b3959c3a946bf9e76112cce5c7022f19abc',
+        'internal/app/bootstrap/bolsa_rrhh_constituida_desarrollo.go': '326fdc828547b378cf1ca4434b626fb5f35973bb6d91d406081155cd84542fdd',
+    },
+    # ebac67de4e43fc49add3d82a011b2b0c9f6a6b21
+    {
+        'config/portal_proceso.go': 'fd439d9d544fe3dc931ef0a4ccd7154165fae7ba05faef46cbc30f750ee4c218',
+        'internal/app/separacionportales/material.go': 'db7f6f31d99173185774cf046f9e0e1abd55362c2d0741e4ca131592eb9a541f',
+        'internal/app/bootstrap/material_desarrollo.go': '6f267a8a72b137e672289c9381d7a4ad71b033c4d69ead5c0d2a875e0fe066a6',
+        'internal/app/bootstrap/usuarios_preferencias_config_identidad.go': '6fb7e6f198f30613040210088f0e285bfbff11db8e0161936888b7bcbf8c0e32',
+        'internal/app/bootstrap/documentos_montaje.go': '3ee0ac2917e03b1093b528781b2af25238600b7400d4d30f78c836d26355665a',
+        'internal/app/bootstrap/usuarios_imagen_montaje.go': 'dcfb4d6c6eb4f438993de0ab6c027b21b429826a601519fafdeec3ef2ed68bf8',
+        'config/postgresql_importacion_convoca.go': 'b30ac7f1c8f92d95a251704f0c128315070eafc2a0c743a08c627b72e7e39ece',
+        'internal/app/bootstrap/bolsa_importacion_convoca_pool.go': '5707fbbe5c78c4b7b48267b8bb39f0095e224eddbd3b16c071d216daad1b72be',
+        'internal/app/bootstrap/bolsa_importacion_convoca_custodia.go': '8b3c2909bc3278c9937f45935f54774edd141230e8824022657742a159549d04',
+        'internal/app/bootstrap/bolsa_borrador_contexto_postgresql_desarrollo.go': '3d541ce90fac13a788d94577d921ad7c663ecf53fd5eadf3ce6b7d576db09550',
+        'internal/app/bootstrap/bolsa_borrador_identidad_desarrollo.go': '451d9d56f108480cea5a92164f0f1b8cfc04a168267a36b9e79de16f71e9762e',
+        'internal/app/bootstrap/bolsa_borrador_llamamiento_desarrollo.go': '34a468ec7eae26d70e37450228f96041b1bed165362a51a830fcc88561f9f490',
+        'internal/app/bootstrap/bolsa_ofertas_desarrollo.go': '9727a2d8e4b0f00112e42377b5674e0cf0ca339225d543f35f97b0deeef82bec',
+        'internal/app/bootstrap/bolsa_auditoria_frontera_postgresql_desarrollo.go': '3fe40db4d72ac34374b3817078b9dda69b7a8283eb0f4c49cc3f7e228e27182a',
+        'internal/app/bootstrap/bolsa_borrador_politica_desarrollo.go': '190089f6b533b9c7e0c1135fcfc6b5d8143656faca82f4db6b02b7f29ab96a13',
+        'config/postgresql_borradores.go': '6770f91af7bd67b75b8beb14b13e78290b88364217d5efafe70659c3a2dd8725',
+        'internal/app/bootstrap/postgresql_borradores_configuracion.go': 'd33403dde4e0f77e4864198f8e758b3959c3a946bf9e76112cce5c7022f19abc',
+        'internal/app/bootstrap/bolsa_rrhh_constituida_desarrollo.go': '326fdc828547b378cf1ca4434b626fb5f35973bb6d91d406081155cd84542fdd',
+    },
+)
+# The existing projection seal retains its nine internal loader contracts.
+APPROVED_CONTRACTS = {path: APPROVED_SOURCE_CONTRACT_SETS[-1][path] for path in SOURCE_PATHS}
 
 
 class ProjectionError(RuntimeError):
@@ -137,19 +171,23 @@ def write(path, data):
 
 def source_contracts(repo, source):
     import subprocess
+    if not isinstance(source, str) or not re.fullmatch(r"[0-9a-f]{40}", source):
+        fail("projection_source_contract_unavailable")
     result = {}
     contents = {}
-    for relative in SOURCE_PATHS:
-        completed = subprocess.run(["git", "-C", str(repo), "show", source + ":" + relative], capture_output=True, timeout=20)
+    for relative in APPROVED_SOURCE_CONTRACT_SETS[0]:
+        completed = subprocess.run(["git", "-C", str(repo), "show", source + ":" + relative], capture_output=True, timeout=20,
+                                   env={"PATH": os.defpath, "LC_ALL": "C", "GIT_CONFIG_NOSYSTEM": "1",
+                                        "GIT_CONFIG_GLOBAL": "/dev/null", "GIT_NO_REPLACE_OBJECTS": "1"})
         if completed.returncode:
             fail("projection_source_contract_unavailable")
         contents[relative] = completed.stdout.decode()
         result[relative] = digest(completed.stdout)
-    if result != APPROVED_CONTRACTS:
+    if result not in APPROVED_SOURCE_CONTRACT_SETS:
         fail("projection_source_contract_review_required")
     if '"VEC_PORTAL_PROCESO"' not in contents[SOURCE_PATHS[0]] or '"interno"' not in contents[SOURCE_PATHS[0]] or "portalProcesoSeparado(cfg)" not in contents[SOURCE_PATHS[2]] or "!superficieExternaUsuariosEnProceso(cfg)" not in contents[SOURCE_PATHS[3]]:
         fail("projection_source_internal_contract_missing")
-    return result
+    return {path: result[path] for path in SOURCE_PATHS}
 
 
 def rewrite_dsn(value, old_material, new_material, pg_port):

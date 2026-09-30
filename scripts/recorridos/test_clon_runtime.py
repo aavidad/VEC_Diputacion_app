@@ -366,11 +366,13 @@ class RuntimeTests(unittest.TestCase):
             stream.write('\n' + '\n'.join('"' + key + '"' for key in values))
         source = self.root / ('source-' + 'a' * 40)
         contracts = {}
-        for name in runtime.projection_module().APPROVED_CONTRACTS:
+        projection = runtime.projection_module()
+        for name in projection.APPROVED_SOURCE_CONTRACT_SETS[-1]:
             path = source / name
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_bytes((Path(__file__).resolve().parents[2] / name).read_bytes())
-            contracts[name] = runtime.digest(path)
+            path.write_bytes(subprocess.run(['git', '-C', str(Path(__file__).resolve().parents[2]), 'show', 'ebac67de4e43fc49add3d82a011b2b0c9f6a6b21:' + name], capture_output=True, check=True).stdout)
+            if name in projection.SOURCE_PATHS:
+                contracts[name] = runtime.digest(path)
         top = {'owner': 'Codex-M', 'target': {'source_commit': 'a' * 40, 'app_port': 18531, 'pg_port': 55531},
                'files': {'material/' + name: runtime.digest(self.material / name) for name in names}}
         proof = {'operator_manifest_normalization': 'drop_runtime_interno_only',
@@ -477,7 +479,7 @@ class RuntimeTests(unittest.TestCase):
             runtime.write_json(root / 'material-manifest.json', sealed)
             top['runtime_interno']['manifest_sha256'] = runtime.digest(root / 'material-manifest.json')
             runtime.write_json(self.root / 'material-manifest.json', top)
-        projection = SimpleNamespace(APPROVED_CONTRACTS=runtime.projection_module().APPROVED_CONTRACTS, APPROVED_PUBLIC_SOURCES=public)
+        projection = SimpleNamespace(APPROVED_SOURCE_CONTRACT_SETS=runtime.projection_module().APPROVED_SOURCE_CONTRACT_SETS, SOURCE_PATHS=runtime.projection_module().SOURCE_PATHS, APPROVED_PUBLIC_SOURCES=public)
         seal()
         with patch.object(runtime, 'projection_module', return_value=projection):
             self.assertEqual(runtime.read_runtime_descriptor(self.root)['root'], str(root))
@@ -558,7 +560,13 @@ class RuntimeTests(unittest.TestCase):
         with self.assertRaises(runtime.RuntimeErrorLocal):
             runtime.read_runtime_descriptor(self.root)
 
-    def test_real_projector_contracts_are_consumed_and_unapproved_proofs_are_denied(self):
+    def test_frozen_h6_projection_is_preserved_and_unapproved_proofs_are_denied(self):
+        self.assert_real_projector_contracts('ab875bb8036af59e9b5ac624d6840b8581178ed2')
+
+    def test_new_projection_is_preserved_and_unapproved_proofs_are_denied(self):
+        self.assert_real_projector_contracts('ebac67de4e43fc49add3d82a011b2b0c9f6a6b21')
+
+    def assert_real_projector_contracts(self, source_ref):
         from urllib.parse import urlencode
         projection = runtime.projection_module()
         repo = self.root / 'contract-repo'
@@ -568,11 +576,11 @@ class RuntimeTests(unittest.TestCase):
         git_env = {'PATH': '/usr/bin:/bin', 'HOME': str(git_home), 'GIT_CONFIG_NOSYSTEM': '1',
                    'GIT_CONFIG_GLOBAL': '/dev/null', 'GIT_CONFIG_SYSTEM': '/dev/null'}
         public_sources = getattr(projection, 'APPROVED_PUBLIC_SOURCES', {})
-        source_paths = set(projection.APPROVED_CONTRACTS) | {entry['source_path'] for entry in public_sources.values()}
+        source_paths = set(projection.APPROVED_SOURCE_CONTRACT_SETS[0]) | {entry['source_path'] for entry in public_sources.values()}
         for name in source_paths:
             path = repo / name
             path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-            path.write_bytes((Path(__file__).resolve().parents[2] / name).read_bytes())
+            path.write_bytes(subprocess.run(['git', '-C', str(Path(__file__).resolve().parents[2]), 'show', source_ref + ':' + name], capture_output=True, check=True).stdout)
         def git(*args):
             return subprocess.run(['git', '-C', str(repo), *args], env=git_env,
                                   capture_output=True, text=True, check=True).stdout.strip()
@@ -633,6 +641,18 @@ class RuntimeTests(unittest.TestCase):
                 runtime.write_json(self.root / 'material-manifest.json', top)
                 with self.assertRaisesRegex(runtime.RuntimeErrorLocal, 'contratos de la fuente fijada'):
                     runtime.read_runtime_descriptor(self.root)
+        # Resealing a portal pin from the other variant cannot approve a mix.
+        other_ref = 'ebac67de4e43fc49add3d82a011b2b0c9f6a6b21' if source_ref.startswith('ab875') else 'ab875bb8036af59e9b5ac624d6840b8581178ed2'
+        portal = source / 'config/portal_proceso.go'
+        original_portal = portal.read_bytes()
+        portal.write_bytes(subprocess.run(['git', '-C', str(Path(__file__).resolve().parents[2]), 'show', other_ref + ':config/portal_proceso.go'], capture_output=True, check=True).stdout)
+        sealed['source_proof']['contracts'] = dict(original, **{'config/portal_proceso.go': runtime.digest(portal)})
+        runtime.write_json(root / 'material-manifest.json', sealed)
+        top['runtime_interno']['manifest_sha256'] = runtime.digest(root / 'material-manifest.json')
+        runtime.write_json(self.root / 'material-manifest.json', top)
+        with self.assertRaisesRegex(runtime.RuntimeErrorLocal, 'contratos de la fuente fijada'):
+            runtime.read_runtime_descriptor(self.root)
+        portal.write_bytes(original_portal)
         # Matching an altered local file is insufficient without its approved pin.
         altered = source / 'config/postgresql_importacion_convoca.go'
         altered.write_text('unapproved source contract')

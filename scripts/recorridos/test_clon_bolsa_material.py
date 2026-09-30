@@ -85,19 +85,34 @@ class FakeConvoca:
 
 
 class ProvisionTests(unittest.TestCase):
-    def test_reviewed_main_committed_contracts_are_accepted(self):
+    def test_complete_frozen_h6_and_reviewed_main_contracts_are_accepted(self):
         repo = Path(__file__).resolve().parents[2]
-        source = "ebac67de4e43fc49add3d82a011b2b0c9f6a6b21"
-        module._source_contracts(repo, source)
-
-    def test_reviewed_main_rejects_a_changed_contract_digest(self):
-        repo = Path(__file__).resolve().parents[2]
-        source = "ebac67de4e43fc49add3d82a011b2b0c9f6a6b21"
-        changed = dict(module.CONTRACT_HASHES)
-        changed["internal/app/bootstrap/bolsa_borrador_llamamiento_desarrollo.go"] = "0" * 64
-        with patch.object(module, "CONTRACT_HASHES", changed):
-            with self.assertRaisesRegex(module.ProvisionError, "source_contract_changed"):
+        for source in ('ab875bb8036af59e9b5ac624d6840b8581178ed2', 'ebac67de4e43fc49add3d82a011b2b0c9f6a6b21'):
+            with self.subTest(source=source):
                 module._source_contracts(repo, source)
+
+    def test_mixed_variants_and_changed_digest_are_rejected(self):
+        import subprocess
+        repo = Path(__file__).resolve().parents[2]
+        original = subprocess.run
+        old, new = ('ab875bb8036af59e9b5ac624d6840b8581178ed2', 'ebac67de4e43fc49add3d82a011b2b0c9f6a6b21')
+        # Each local validator also rejects the other helper's changed pin.
+        paths = ('config/portal_proceso.go', 'internal/app/bootstrap/bolsa_borrador_llamamiento_desarrollo.go')
+        for source, replacement in [(old, new), (new, old)]:
+            for path in paths:
+                for change in ['other_variant', 'altered_digest']:
+                    def altered(argv, **kwargs):
+                        if argv[-1] == source + ':' + path:
+                            if change == 'other_variant':
+                                argv = [*argv[:-1], replacement + ':' + path]
+                            result = original(argv, **kwargs)
+                            if change == 'altered_digest':
+                                result.stdout += b'\n'
+                            return result
+                        return original(argv, **kwargs)
+                    with self.subTest(source=source, path=path, change=change), patch('subprocess.run', side_effect=altered):
+                        with self.assertRaises(module.ProvisionError):
+                            module._source_contracts(repo, source)
 
     @staticmethod
     def convoca_fixture(root):
@@ -414,7 +429,7 @@ class ProvisionTests(unittest.TestCase):
         from types import SimpleNamespace
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            with patch.object(module, "CONTRACT_HASHES", {"contract.go": "unchanged digest"}), patch.object(module.subprocess, "run", return_value=SimpleNamespace(returncode=0, stdout=b"changed")):
+            with patch.object(module, "CONTRACT_SETS", ({"contract.go": "unchanged digest"},)), patch.object(module.subprocess, "run", return_value=SimpleNamespace(returncode=0, stdout=b"changed")):
                 with self.assertRaisesRegex(module.ProvisionError, "source_contract_changed"):
                     module._source_contracts(root, module.SOURCE)
 
@@ -426,7 +441,7 @@ class ProvisionTests(unittest.TestCase):
             root = Path(directory)
             (root / "contract.go").write_bytes(b"unrelated WIP")
             hashes = {"contract.go": hashlib.sha256(committed).hexdigest()}
-            with patch.object(module, "CONTRACT_HASHES", hashes), patch.object(module.subprocess, "run", return_value=SimpleNamespace(returncode=0, stdout=committed)) as run:
+            with patch.object(module, "CONTRACT_SETS", (hashes,)), patch.object(module.subprocess, "run", return_value=SimpleNamespace(returncode=0, stdout=committed)) as run:
                 module._source_contracts(root, module.SOURCE)
                 self.assertEqual(run.call_args.args[0], ["git", "-C", str(root), "show", module.SOURCE + ":contract.go"])
 
