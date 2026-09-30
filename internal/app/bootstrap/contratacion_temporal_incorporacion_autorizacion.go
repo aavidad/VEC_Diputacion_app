@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"bytes"
 	"context"
+	"errors"
 	"maps"
 
 	inc "vec-diputacion-granada/internal/app/incorporacionejercicio"
@@ -148,7 +149,10 @@ func (a *autoridadOperacionesIncorporacionV2) validarSolicitud(ctx context.Conte
 	if d.Accion != ct.AccionConsultarDetalleRRHH {
 		var err error
 		p, err = a.planes.ResolverPlan(ctx, a.referencias.OrganizacionRef, exp)
-		if err != nil || p.OrganizacionRef != a.referencias.OrganizacionRef || p.UnidadRef != a.referencias.UnidadRef || p.SolicitudPersonal.ExpedienteRef != exp {
+		if err != nil {
+			return errors.Join(fallo, err)
+		}
+		if p.OrganizacionRef != a.referencias.OrganizacionRef || p.UnidadRef != a.referencias.UnidadRef || p.SolicitudPersonal.ExpedienteRef != exp {
 			return fallo
 		}
 	}
@@ -172,16 +176,19 @@ func (a *autoridadOperacionesIncorporacionV2) validarSolicitud(ctx context.Conte
 		}
 		fuente, err := fuenteejercicio.NuevaFuenteEjercicio(a.personal, a.ternaPersonal)
 		if err != nil {
-			return fallo
+			return errors.Join(fallo, err)
 		}
 		vinculo, err := fuente.Resolver(ctx, p.SolicitudPersonal)
 		if err != nil {
-			return fallo
+			return errors.Join(fallo, err)
 		}
 		// El recurso completo se reconstruye con el plan/fuente privados, nunca
 		// con un centro o material proporcionados por la solicitud de autorización.
 		esperado, err := alta.RecursoAltaEjercicio(alta.MaterialAlta{Preparacion: alta.PreparacionAlta{Solicitud: p.SolicitudPersonal, Fuente: p.FuentePersonal, Vinculo: vinculo}, OrganizacionRef: a.referencias.OrganizacionRef, ActorRef: a.referencias.PrincipalV3Ref, PerfilRef: contexto.Resultado.Contexto.PerfilActivoRef})
-		if err != nil || r.Referencia != esperado.Referencia || !maps.Equal(r.Atributos, esperado.Atributos) {
+		if err != nil {
+			return errors.Join(fallo, err)
+		}
+		if r.Referencia != esperado.Referencia || !maps.Equal(r.Atributos, esperado.Atributos) {
 			return fallo
 		}
 		ambitos["centro_ref"] = vinculo.CentroRef
@@ -192,10 +199,13 @@ func (a *autoridadOperacionesIncorporacionV2) validarSolicitud(ctx context.Conte
 			ResultadoRef: r.Atributos["resultado_ref"], ReciboRef: r.Atributos["recibo_ref"], RelacionRef: r.Atributos["relacion_ref"], OcupacionRef: r.Atributos["ocupacion_ref"], MaterialSHA256: r.Atributos["material_sha256"]}
 		material, err := lectura.NuevoMaterialV2(selector, a.referencias.UnidadRef, contexto, a.reloj.Ahora())
 		if err != nil {
-			return fallo
+			return errors.Join(fallo, err)
 		}
 		esperado, err := material.Recurso()
-		if err != nil || r.Referencia != esperado.Referencia || !maps.Equal(r.Atributos, esperado.Atributos) {
+		if err != nil {
+			return errors.Join(fallo, err)
+		}
+		if r.Referencia != esperado.Referencia || !maps.Equal(r.Atributos, esperado.Atributos) {
 			return fallo
 		}
 		ambitos["unidad_ref"] = a.referencias.UnidadRef
@@ -203,7 +213,10 @@ func (a *autoridadOperacionesIncorporacionV2) validarSolicitud(ctx context.Conte
 		modulo, tipo, finalidad = ct.ModuloContratacion, ct.TipoRecursoConfirmacionIncorporacionV2, ct.FinalidadConfirmarIncorporacion
 		motivo = p.MotivoV3
 		cor, err := d.Correlacion.ValorCanonico()
-		if err != nil || len(r.Atributos) != 8 || !huellaSHA256ValidaContratacionTemporalDesarrollo(r.Atributos["material_sha256"]) || !dom.ReferenciaOpacaValida(r.Atributos["correlacion_seguimiento_ref"]) || motivo.CatalogoID != a.motivoAlta.CatalogoID || r.Atributos["principal_v3_ref"] != a.referencias.PrincipalV3Ref || r.Atributos["perfil_v3_ref"] != a.referencias.PerfilV3Ref || r.Atributos["actor_seguimiento_ref"] != a.referencias.ActorRef || r.Atributos["correlacion_v3_ref"] != cor || r.Atributos["motivo_v3_ref"] != motivo.EntradaClave || r.Atributos["tipo_validacion"] != "ejercicio_sintetico" {
+		if err != nil {
+			return errors.Join(fallo, err)
+		}
+		if len(r.Atributos) != 8 || !huellaSHA256ValidaContratacionTemporalDesarrollo(r.Atributos["material_sha256"]) || !dom.ReferenciaOpacaValida(r.Atributos["correlacion_seguimiento_ref"]) || motivo.CatalogoID != a.motivoAlta.CatalogoID || r.Atributos["principal_v3_ref"] != a.referencias.PrincipalV3Ref || r.Atributos["perfil_v3_ref"] != a.referencias.PerfilV3Ref || r.Atributos["actor_seguimiento_ref"] != a.referencias.ActorRef || r.Atributos["correlacion_v3_ref"] != cor || r.Atributos["motivo_v3_ref"] != motivo.EntradaClave || r.Atributos["tipo_validacion"] != "ejercicio_sintetico" {
 			return fallo
 		}
 		ambitos["unidad_ref"] = a.referencias.UnidadRef

@@ -33,10 +33,12 @@ func TestReincorporacionPerfilFijoValidaEvidenciaYFormaCerrada(t *testing.T) {
 		t.Fatal("recurso válido rechazado")
 	}
 	for _, caso := range []struct{ clave, valor string }{
-		{"version_expediente", "04"}, {"version_expediente", "0"}, {"relacion_ref", ""}, {"fecha_efectiva", "2026-09-31"},
+		{"version_expediente", "04"}, {"version_expediente", "0"}, {"version_expediente", "18446744073709551616"},
+		{"version_expediente", "+4"}, {"relacion_ref", ""}, {"fecha_efectiva", "2026-09-31"},
 		{"documento_ref", ""}, {"documento_sha256", "mal"}, {"fase_previa", "solicitud"}, {"estado_previo", "completado"},
 		{"cese_evento_ref", ""}, {"cese_recibo_ref", ""}, {"ambito_idempotencia_hmac", "mal"}, {"huella_peticion_hmac", "mal"},
-		{"politica_ref", ""}, {"politica_version", "01"}, {"politica_huella_sha256", "mal"}, {"extra", "valor"},
+		{"politica_ref", ""}, {"politica_version", "01"}, {"politica_version", "18446744073709551616"},
+		{"politica_version", "-1"}, {"politica_huella_sha256", "mal"}, {"extra", "valor"},
 	} {
 		t.Run(caso.clave+"_"+caso.valor, func(t *testing.T) {
 			alterada := datos
