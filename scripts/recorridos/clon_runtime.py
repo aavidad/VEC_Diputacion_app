@@ -18,6 +18,7 @@ import stat
 import subprocess
 import sys
 import tarfile
+import tempfile
 import time
 from urllib.parse import parse_qsl, urlsplit
 
@@ -39,12 +40,17 @@ def digest(path):
 
 
 def write_json(path, value):
-    temporary = path.with_suffix('.tmp')
-    fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
-    with os.fdopen(fd, 'w') as stream:
-        json.dump(value, stream, indent=2)
-        stream.write('\n')
-    os.replace(temporary, path)
+    descriptor, temporary_name = tempfile.mkstemp(prefix='.' + path.name + '-', suffix='.tmp', dir=path.parent)
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, 'w') as stream:
+            json.dump(value, stream, indent=2)
+            stream.write('\n')
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 def confined(path, root, directory=False):
@@ -205,10 +211,10 @@ def inspect_smtp_resource(kind, name):
     return data[0]
 
 
-def smtp_proxy_identity(record, state, address):
+def smtp_proxy_identity(record, state, address, port):
     data = json.loads(confined(record, state).read_text())
     command = ['/usr/bin/socat', '-T', '15',
-               'TCP4-LISTEN:11025,bind=127.0.0.1,reuseaddr,fork,max-children=8',
+               'TCP4-LISTEN:' + str(port) + ',bind=127.0.0.1,reuseaddr,fork,max-children=8',
                'TCP4:' + address + ':1025,connect-timeout=5']
     if (data.get('owner') != 'Codex-M' or data.get('state') != str(state)
             or data.get('command') != command or type(data.get('pid')) is not int or data['pid'] < 2):
@@ -229,9 +235,9 @@ def validate_smtp(values, state):
     if not any(values.get(field) for field in fields):
         return
     if (any(not values.get(field) for field in fields) or values['VEC_SMTP_HOST'] != '127.0.0.1'
-            or values['VEC_SMTP_PORT'] != '11025' or values['VEC_SMTP_FROM'] != 'rrhh@example.test'
+            or values['VEC_SMTP_FROM'] != 'rrhh@example.test'
             or values['VEC_SMTP_MODO_TLS'] != 'starttls'):
-        fail('SMTP requiere el buzón sintético local, puerto 11025 y STARTTLS.')
+        fail('SMTP requiere el buzón sintético local y STARTTLS.')
     ca = confined(values['VEC_SMTP_CA_FILE'], state)
     if ca.stat().st_uid != os.getuid() or stat.S_IMODE(ca.stat().st_mode) & 0o077:
         fail('La CA SMTP debe ser privada del clon.')
@@ -240,26 +246,48 @@ def validate_smtp(values, state):
         fail('El recibo SMTP debe ser privado del clon.')
     profiles = json.loads(profile_file.read_text())
     proof = profiles.get('profiles', {}).get('usuarios_comunicaciones', {})
+    clone_path = confined(state / 'clon.json', state)
+    target_path = confined(state / 'comunicaciones/target.json', state)
+    for path in (clone_path, target_path):
+        if path.stat().st_uid != os.getuid() or stat.S_IMODE(path.stat().st_mode) & 0o077:
+            fail('La reserva SMTP debe ser privada del clon.')
+    clone = json.loads(clone_path.read_text())
+    # El preparador y el lanzador validan la misma reserva, incluidos sus nombres.
+    import importlib.util
+    spec = importlib.util.spec_from_file_location('recorridos_comunicaciones', Path(__file__).with_name('clon_comunicaciones.py'))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    try:
+        target = module._target(state, clone.get('contenedor'), clone.get('puerto_pg'))
+    except (module.PreparationError, OSError, ValueError, TypeError):
+        fail('La reserva SMTP no corresponde al clon propio.')
+    if (clone.get('propietario') != 'Codex-M' or clone.get('estado') != str(state)
+            or proof.get('source_commit') != clone.get('commit')
+            or proof.get('target_sha256') != digest(target_path)
+            or any(proof.get(key) != value for key, value in target.items())
+            or values['VEC_SMTP_PORT'] != str(target['smtp_port'])):
+        fail('El recibo SMTP no coincide con su reserva privada.')
     if (proof.get('smtp_ready') is not True or proof.get('smtp_scope') != 'synthetic_local_sink'
             or proof.get('corporate_delivery') is not False or proof.get('starttls_verified') is not True
             or proof.get('external_recipient_rejected') is not True
-            or proof.get('mailpit_container') != 'vec-codexm-recorridos-mailpit-20260930'):
+            or proof.get('mailpit_container') != target['container']):
         fail('Falta el recibo del SMTP sintético verificado por el preparador.')
     if ca != state / 'material/ca/ca.crt':
         fail('La CA SMTP no coincide con el material acreditado del clon.')
     sink = inspect_smtp_resource('container', proof['mailpit_container'])
-    network_name = 'vec-codexm-recorridos-mailpit-red-20260930'
+    network_name = target['network']
     network = inspect_smtp_resource('network', network_name)
     image = inspect_smtp_resource('image', 'axllent/mailpit:v1.27.8')
     labels = {'vec.recorridos.owner': 'Codex-M', 'vec.recorridos.state': str(state)}
     if (any(sink.get('Config', {}).get('Labels', {}).get(k) != v for k, v in labels.items())
             or any(network.get('Labels', {}).get(k) != v for k, v in labels.items())
             or network.get('Internal') is not True or sink.get('State', {}).get('Running') is not True
-            or not image.get('Id') or sink.get('Image') != image.get('Id')):
+            or not image.get('Id') or sink.get('Image') != image.get('Id')
+            or proof.get('image_id') != image.get('Id')):
         fail('El buzón SMTP no pertenece al clon privado aislado.')
     host = sink.get('HostConfig', {})
-    expected_ports = {'1025/tcp': [{'HostIp': '127.0.0.1', 'HostPort': '11025'}],
-                      '8025/tcp': [{'HostIp': '127.0.0.1', 'HostPort': '18532'}]}
+    expected_ports = {'1025/tcp': [{'HostIp': '127.0.0.1', 'HostPort': str(target['smtp_port'])}],
+                      '8025/tcp': [{'HostIp': '127.0.0.1', 'HostPort': str(target['http_port'])}]}
     command = sink.get('Config', {}).get('Cmd') or []
     recipients = r'^[A-Za-z0-9._+\-]+@example\.test$'
     expected_command = ['--disable-version-check', '--block-remote-css-and-fonts',
@@ -288,10 +316,12 @@ def validate_smtp(values, state):
     except ValueError:
         fail('El destino del buzón SMTP es inválido.')
     proxies = proof.get('loopback_proxies') or []
-    matching = [item for item in proxies if item.get('port') == 11025]
+    matching = [item for item in proxies if item.get('port') == target['smtp_port']]
     if len(matching) != 1:
         fail('Falta la reserva del proxy SMTP propio.')
-    pid = smtp_proxy_identity(matching[0].get('record', ''), state, address)
+    if matching[0].get('record') != str(state / 'comunicaciones' / ('proxy-' + str(target['smtp_port']) + '.json')):
+        fail('La reserva del proxy SMTP tiene otra ruta.')
+    pid = smtp_proxy_identity(matching[0].get('record', ''), state, address, target['smtp_port'])
     if matching[0].get('pid') != pid:
         fail('El recibo SMTP no corresponde al proceso reservado.')
 
@@ -485,6 +515,64 @@ def stop(state):
         os.close(descriptor)
 
 
+def verify_running(state, commit, port, pg_port):
+    record = own_process(state)
+    if record is None:
+        fail('El clon no tiene un proceso propio activo.')
+    manifest = json.loads(confined(state / 'runtime-manifest.json', state).read_text())
+    source = confined(state / ('source-' + commit), state, directory=True)
+    if (record.get('source_commit') != commit or manifest.get('source_commit') != commit
+            or record.get('port') != port or record.get('pg_port') != pg_port
+            or manifest.get('binary_sha256') != record.get('binary_sha256')
+            or source_digest(source) != manifest.get('source_sha256')):
+        fail('El proceso activo no corresponde a su fuente y binario acreditados.')
+    material_sha = validate_material(state, commit, port, pg_port)
+    environment, config_sha = runtime_environment(source, state, port, pg_port)
+    if record.get('material_sha256') != material_sha or record.get('config_sha256') != config_sha:
+        fail('El material o la configuración cambiaron después del arranque.')
+    material = Path(environment['VEC_DEVELOPMENT_MATERIAL_DIR'])
+    context = ssl.create_default_context(cafile=str(material / 'ca/ca.crt'))
+    context.load_cert_chain(str(confined(material / 'mtls/cliente.crt', state)),
+                            str(confined(material / 'mtls/cliente.key', state)))
+    with socket.create_connection(('127.0.0.1', port), timeout=3) as connection:
+        with context.wrap_socket(connection, server_hostname='localhost') as tls:
+            tls.sendall(b'GET /livez HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n')
+            if not tls.recv(1024).split(b'\r\n', 1)[0].startswith(b'HTTP/1.1 200'):
+                fail('El proceso activo no respondió HTTPS /livez 200.')
+    if own_process(state) != record:
+        fail('El proceso cambió durante su comprobación.')
+    return record
+
+
+def stop_started_child(child, descriptor):
+    """Use the descriptor of the freshly spawned child, never a saved PID."""
+    if child.poll() is not None:
+        child.wait()
+        return
+    if descriptor is not None:
+        try:
+            signal.pidfd_send_signal(descriptor, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+    else:
+        # If descriptor allocation failed, retain the unreaped child identity:
+        # waitid(WNOWAIT) cannot make its PID available to an unrelated process.
+        try:
+            ended = os.waitid(os.P_PID, child.pid, os.WEXITED | os.WNOHANG | os.WNOWAIT)
+            if ended is None:
+                os.kill(child.pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+    try:
+        child.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        if descriptor is not None:
+            signal.pidfd_send_signal(descriptor, signal.SIGKILL)
+        else:
+            os.kill(child.pid, signal.SIGKILL)  # Still our unreaped, directly created child.
+        child.wait(timeout=5)
+
+
 def start(source, binary, manifest, state, port, pg_port):
     if own_process(state):
         fail('Ya hay un proceso propio; use restart o stop.')
@@ -499,46 +587,69 @@ def start(source, binary, manifest, state, port, pg_port):
             probe.bind(('127.0.0.1', port))
         except OSError:
             fail('El puerto de aplicación está ocupado; no se tocará su proceso.')
+    if signal.getsignal(signal.SIGCHLD) == signal.SIG_IGN:
+        fail('El lanzador no puede conservar la identidad del proceso hijo.')
+    # Check kernel support before spawning; hold the child descriptor from the
+    # first instruction after Popen until publication and HTTPS verification.
+    capability = os.pidfd_open(os.getpid())
+    os.close(capability)
     log_path = state / 'runtime.log'
     fd = os.open(log_path, os.O_WRONLY | os.O_CREAT | os.O_APPEND | os.O_NOFOLLOW, 0o600)
     with os.fdopen(fd, 'ab') as output:
         child = subprocess.Popen([str(binary)], cwd=source, env=environment, stdin=subprocess.DEVNULL,
                                  stdout=output, stderr=subprocess.STDOUT, start_new_session=True)
-    identity = None
-    for _ in range(100):
-        identity = process_identity(child.pid)
-        if identity and identity['exe'] == str(binary):
-            break
-        if child.poll() is not None:
-            fail('El servidor terminó al arrancar; consulte runtime.log privado.')
-        time.sleep(0.01)
-    if not identity or identity['exe'] != str(binary):
-        fail('No se pudo comprobar la identidad del proceso recién iniciado.')
-    record = dict(identity, source_commit=manifest['source_commit'], binary_sha256=manifest['binary_sha256'],
-                  config_sha256=config_sha, material_sha256=material_sha, port=port, pg_port=pg_port)
-    write_json(state / 'runtime-process.json', record)
-    deadline = time.monotonic() + 60
-    while time.monotonic() < deadline:
-        if child.poll() is not None:
-            (state / 'runtime-process.json').unlink(missing_ok=True)
-            fail('El servidor rechazó el arranque; consulte runtime.log privado.')
+    descriptor = None
+    succeeded = False
+    record = None
+    record_path = state / 'runtime-process.json'
+    try:
+        descriptor = os.pidfd_open(child.pid)
+        identity = None
+        for _ in range(100):
+            identity = process_identity(child.pid)
+            if identity and identity['exe'] == str(binary):
+                break
+            if child.poll() is not None:
+                fail('El servidor terminó al arrancar; consulte runtime.log privado.')
+            time.sleep(0.01)
+        if not identity or identity['exe'] != str(binary):
+            fail('No se pudo comprobar la identidad del proceso recién iniciado.')
+        record = dict(identity, source_commit=manifest['source_commit'], binary_sha256=manifest['binary_sha256'],
+                      config_sha256=config_sha, material_sha256=material_sha, port=port, pg_port=pg_port)
+        write_json(record_path, record)
+        deadline = time.monotonic() + 60
+        while time.monotonic() < deadline:
+            if child.poll() is not None:
+                fail('El servidor rechazó el arranque; consulte runtime.log privado.')
+            try:
+                with socket.create_connection(('127.0.0.1', port), timeout=1) as connection:
+                    with context.wrap_socket(connection, server_hostname='localhost') as tls:
+                        tls.sendall(b'GET /livez HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n')
+                        first = tls.recv(1024).split(b'\r\n', 1)[0]
+                        if first.startswith(b'HTTP/1.1 200'):
+                            succeeded = True
+                            return record
+            except (OSError, ssl.SSLError):
+                pass
+            time.sleep(0.2)
+        fail('El servidor no respondió HTTPS /livez 200; se detuvo solo el proceso propio.')
+    finally:
         try:
-            with socket.create_connection(('127.0.0.1', port), timeout=1) as connection:
-                with context.wrap_socket(connection, server_hostname='localhost') as tls:
-                    tls.sendall(b'GET /livez HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n')
-                    first = tls.recv(1024).split(b'\r\n', 1)[0]
-                    if first.startswith(b'HTTP/1.1 200'):
-                        return record
-        except (OSError, ssl.SSLError):
-            pass
-        time.sleep(0.2)
-    stop(state)
-    fail('El servidor no respondió HTTPS /livez 200; se detuvo solo el proceso propio.')
+            if not succeeded:
+                stop_started_child(child, descriptor)
+                # Remove only the record published by this invocation. A failure
+                # or changed record cannot erase another process's reservation.
+                if record is not None and record_path.exists():
+                    if json.loads(confined(record_path, state).read_text()) == record:
+                        record_path.unlink()
+        finally:
+            if descriptor is not None:
+                os.close(descriptor)
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=['build', 'start', 'stop', 'restart', 'status'])
+    parser.add_argument('action', choices=['build', 'start', 'stop', 'restart', 'status', 'verify'])
     parser.add_argument('--repo', required=True, type=Path)
     parser.add_argument('--commit', required=True)
     parser.add_argument('--state', required=True, type=Path)
@@ -561,6 +672,10 @@ def main():
             print(json.dumps({'running': record is not None, 'source_commit': (record or {}).get('source_commit')}))
             return
         commit = pinned_main(repo, args.commit)
+        if args.action == 'verify':
+            record = verify_running(state, commit, args.port, args.pg_port)
+            print(json.dumps({'verified': True, 'pid': record['pid'], 'source_commit': commit}))
+            return
         if args.action == 'restart':
             stop(state)
         source, binary, manifest = build(repo, state, commit, args.go)

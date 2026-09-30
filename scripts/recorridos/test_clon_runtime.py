@@ -1,8 +1,10 @@
 import importlib.util
+import hashlib
 import json
 import os
 from pathlib import Path
 import signal
+import shutil
 import socket
 import subprocess
 import sys
@@ -58,33 +60,42 @@ class RuntimeTests(unittest.TestCase):
         with self.assertRaises(runtime.RuntimeErrorLocal):
             runtime.validate_material(self.root, 'a' * 40, 18531, 55531)
 
-    def smtp_fixture(self):
+    def smtp_fixture(self, smtp_port=11025, http_port=18532):
         ca = self.material / 'ca/ca.crt'
         ca.chmod(0o600)
-        self.values.update({'VEC_SMTP_HOST': '127.0.0.1', 'VEC_SMTP_PORT': '11025',
+        self.values.update({'VEC_SMTP_HOST': '127.0.0.1', 'VEC_SMTP_PORT': str(smtp_port),
                             'VEC_SMTP_FROM': 'rrhh@example.test', 'VEC_SMTP_CA_FILE': str(ca),
                             'VEC_SMTP_MODO_TLS': 'starttls'})
         with (self.source / 'config/config.go').open('a') as stream:
             stream.write('\n'.join('"' + k + '"' for k in self.values if k.startswith('VEC_SMTP_')))
-        proxy = self.root / 'comunicaciones/proxy-11025.json'
+        proxy = self.root / ('comunicaciones/proxy-' + str(smtp_port) + '.json')
         proxy.parent.mkdir()
         proxy.write_text('{}')
         proxy.chmod(0o600)
-        proof = {'smtp_ready': True, 'smtp_scope': 'synthetic_local_sink', 'corporate_delivery': False,
+        suffix = hashlib.sha256('\0'.join((str(self.root), 'vec-fixture-pg', '55531')).encode()).hexdigest()[:24]
+        target = {'version': 1, 'owner': 'Codex-M', 'state': str(self.root), 'pg_container': 'vec-fixture-pg',
+                  'pg_port': 55531, 'smtp_host': '127.0.0.1', 'smtp_port': smtp_port, 'http_port': http_port,
+                  'container': 'vec-codexm-mailpit-' + suffix, 'network': 'vec-codexm-mailpit-red-' + suffix}
+        target_file = self.root / 'comunicaciones/target.json'
+        runtime.write_json(target_file, target)
+        runtime.write_json(self.root / 'clon.json', {'propietario': 'Codex-M', 'estado': str(self.root),
+                           'contenedor': 'vec-fixture-pg', 'puerto_pg': 55531, 'commit': 'a' * 40})
+        proof = {**target, 'source_commit': 'a' * 40, 'target_sha256': runtime.digest(target_file),
+                 'image_id': 'fixture-image', 'smtp_ready': True, 'smtp_scope': 'synthetic_local_sink', 'corporate_delivery': False,
                  'starttls_verified': True, 'external_recipient_rejected': True,
-                 'mailpit_container': 'vec-codexm-recorridos-mailpit-20260930',
-                 'loopback_proxies': [{'port': 11025, 'pid': 41, 'record': str(proxy)}]}
+                 'mailpit_container': target['container'],
+                 'loopback_proxies': [{'port': smtp_port, 'pid': 41, 'record': str(proxy)}]}
         profiles = self.root / 'perfiles.json'
         profiles.write_text(json.dumps({'profiles': {'usuarios_comunicaciones': proof}}))
         profiles.chmod(0o600)
         self.save()
         labels = {'vec.recorridos.owner': 'Codex-M', 'vec.recorridos.state': str(self.root)}
-        network_name = 'vec-codexm-recorridos-mailpit-red-20260930'
+        network_name = target['network']
         sink = {'Image': 'fixture-image', 'State': {'Running': True},
                 'Config': {'Labels': labels, 'Cmd': ['--disable-version-check', '--block-remote-css-and-fonts', '--smtp-disable-rdns', '--smtp-require-starttls', '--smtp-tls-cert', '/tls/servidor.crt', '--smtp-tls-key', '/tls/servidor.key', '--smtp-allowed-recipients', r'^[A-Za-z0-9._+\-]+@example\.test$', '--smtp', '0.0.0.0:1025', '--listen', '0.0.0.0:8025', '--database', '/data/mailpit.db', '--max', '100', '--quiet']},
                 'HostConfig': {'ReadonlyRootfs': True, 'NetworkMode': network_name,
-                               'PortBindings': {'1025/tcp': [{'HostIp': '127.0.0.1', 'HostPort': '11025'}],
-                                                '8025/tcp': [{'HostIp': '127.0.0.1', 'HostPort': '18532'}]}},
+                               'PortBindings': {'1025/tcp': [{'HostIp': '127.0.0.1', 'HostPort': str(smtp_port)}],
+                                                '8025/tcp': [{'HostIp': '127.0.0.1', 'HostPort': str(http_port)}]}},
                 'Mounts': [{'Destination': '/tls', 'Source': str(self.root / 'material/comunicaciones'), 'RW': False}],
                 'NetworkSettings': {'Networks': {network_name: {'IPAddress': '172.31.0.2'}}}}
         network = {'Labels': labels, 'Internal': True}
@@ -108,6 +119,133 @@ class RuntimeTests(unittest.TestCase):
             changed = dict(self.values, **{field: value})
             with self.subTest(field=field, value=value), self.assertRaises(runtime.RuntimeErrorLocal):
                 runtime.validate_smtp(changed, self.root)
+
+    def test_another_clone_can_use_its_reserved_ports(self):
+        resources = self.smtp_fixture(smtp_port=11029, http_port=18537)
+        with patch.object(runtime, 'inspect_smtp_resource', side_effect=resources), patch.object(runtime, 'smtp_proxy_identity', return_value=41) as identity:
+            environment, _ = runtime.runtime_environment(self.source, self.root, 18531, 55531)
+        self.assertEqual(environment['VEC_SMTP_PORT'], '11029')
+        self.assertEqual(identity.call_args.args[-1], 11029)
+
+    def test_smtp_rejects_changed_target_or_source_before_resource_lookup(self):
+        self.smtp_fixture()
+        profiles = self.root / 'perfiles.json'
+        original = json.loads(profiles.read_text())
+        for field, value in [('state', '/other-clone'), ('source_commit', 'b' * 40), ('target_sha256', '0' * 64)]:
+            data = json.loads(json.dumps(original))
+            data['profiles']['usuarios_comunicaciones'][field] = value
+            profiles.write_text(json.dumps(data))
+            with self.subTest(field=field), patch.object(runtime, 'inspect_smtp_resource') as inspect:
+                with self.assertRaises(runtime.RuntimeErrorLocal):
+                    runtime.validate_smtp(self.values, self.root)
+                inspect.assert_not_called()
+
+    def test_smtp_rejects_changed_image_when_resources_are_checked(self):
+        resources = self.smtp_fixture()
+        profiles = self.root / 'perfiles.json'
+        data = json.loads(profiles.read_text())
+        data['profiles']['usuarios_comunicaciones']['image_id'] = 'other-image'
+        profiles.write_text(json.dumps(data))
+        with patch.object(runtime, 'inspect_smtp_resource', side_effect=resources) as inspect:
+            with self.assertRaises(runtime.RuntimeErrorLocal):
+                runtime.validate_smtp(self.values, self.root)
+            self.assertEqual(inspect.call_count, 3)
+
+    def test_atomic_json_write_recovers_stale_fixed_tmp_and_cleans_failure(self):
+        target = self.root / 'record.json'
+        old_tmp = target.with_suffix('.tmp')
+        old_tmp.write_text('old interrupted attempt')
+        runtime.write_json(target, {'version': 1})
+        self.assertEqual(json.loads(target.read_text()), {'version': 1})
+        self.assertEqual(old_tmp.read_text(), 'old interrupted attempt')
+        with patch.object(runtime.os, 'replace', side_effect=OSError('fixture failure')):
+            with self.assertRaises(OSError):
+                runtime.write_json(target, {'version': 2})
+        self.assertEqual(json.loads(target.read_text()), {'version': 1})
+        self.assertEqual(list(self.root.glob('.record.json-*.tmp')), [])
+
+    def test_publication_failure_stops_only_the_new_child(self):
+        binary = self.root / 'fixture-sleep'
+        shutil.copyfile('/bin/sleep', binary)
+        binary.chmod(0o700)
+        for name in ['cliente.crt', 'cliente.key']:
+            path = self.material / 'mtls' / name
+            path.parent.mkdir(exist_ok=True)
+            path.write_text('fixture')
+        unrelated = subprocess.Popen(['/bin/sleep', '60'])
+        created = []
+        real_popen = subprocess.Popen
+        def spawn(command, **kwargs):
+            child = real_popen([command[0], '60'], **kwargs)
+            created.append(child)
+            return child
+        def cleanup_unrelated():
+            if unrelated.poll() is None:
+                unrelated.terminate()
+            unrelated.wait(timeout=5)
+        self.addCleanup(cleanup_unrelated)
+        with patch.object(runtime, 'own_process', return_value=None), patch.object(runtime, 'validate_material', return_value='material'), patch.object(runtime, 'runtime_environment', return_value=(self.values, 'config')), patch.object(runtime.ssl, 'create_default_context'), patch.object(runtime.subprocess, 'Popen', side_effect=spawn), patch.object(runtime, 'write_json', side_effect=OSError('cannot publish')):
+            with self.assertRaises(OSError):
+                runtime.start(self.source, binary, {'source_commit': 'a' * 40, 'binary_sha256': runtime.digest(binary)}, self.root, 18531, 55531)
+        self.assertEqual(len(created), 1)
+        self.assertIsNotNone(created[0].poll())
+        self.assertIsNone(unrelated.poll())
+        self.assertFalse((self.root / 'runtime-process.json').exists())
+
+    def test_identification_failure_cleans_child_before_publishing(self):
+        binary = self.root / 'unidentified-sleep'
+        shutil.copyfile('/bin/sleep', binary)
+        binary.chmod(0o700)
+        for name in ['cliente.crt', 'cliente.key']:
+            path = self.material / 'mtls' / name
+            path.parent.mkdir(exist_ok=True)
+            path.write_text('fixture')
+        real_popen = subprocess.Popen
+        children = []
+        def spawn(command, **kwargs):
+            child = real_popen([command[0], '60'], **kwargs)
+            children.append(child)
+            return child
+        with patch.object(runtime, 'own_process', return_value=None), patch.object(runtime, 'validate_material', return_value='material'), patch.object(runtime, 'runtime_environment', return_value=(self.values, 'config')), patch.object(runtime.ssl, 'create_default_context'), patch.object(runtime.subprocess, 'Popen', side_effect=spawn), patch.object(runtime, 'process_identity', return_value=None), patch.object(runtime.time, 'sleep'), patch.object(runtime, 'write_json') as publication:
+            with self.assertRaises(runtime.RuntimeErrorLocal):
+                runtime.start(self.source, binary, {'source_commit': 'a' * 40, 'binary_sha256': runtime.digest(binary)}, self.root, 18531, 55531)
+            publication.assert_not_called()
+        self.assertIsNotNone(children[0].poll())
+
+    def test_verify_running_rejects_source_material_and_config_changes(self):
+        commit = 'a' * 40
+        source = self.root / ('source-' + commit)
+        source.mkdir()
+        record = {'pid': 41, 'source_commit': commit, 'port': 18531, 'pg_port': 55531,
+                  'binary_sha256': 'binary', 'material_sha256': 'material', 'config_sha256': 'config'}
+        runtime.write_json(self.root / 'runtime-manifest.json', {'source_commit': commit,
+                           'binary_sha256': 'binary', 'source_sha256': runtime.source_digest(source)})
+        for failure in ['source', 'material', 'config']:
+            with self.subTest(failure=failure):
+                if failure == 'source':
+                    (source / 'changed').write_text('new source')
+                with patch.object(runtime, 'own_process', return_value=record), patch.object(runtime, 'validate_material', return_value='other' if failure == 'material' else 'material'), patch.object(runtime, 'runtime_environment', return_value=({}, 'other' if failure == 'config' else 'config')), patch.object(runtime.socket, 'create_connection') as connect:
+                    with self.assertRaises(runtime.RuntimeErrorLocal):
+                        runtime.verify_running(self.root, commit, 18531, 55531)
+                    connect.assert_not_called()
+                (source / 'changed').unlink(missing_ok=True)
+
+    def test_stop_does_not_require_valid_configuration_or_material(self):
+        binary = self.root / 'fixture-owned-sleep'
+        shutil.copyfile('/bin/sleep', binary)
+        binary.chmod(0o700)
+        child = subprocess.Popen([str(binary), '60'])
+        try:
+            identity = runtime.process_identity(child.pid)
+            runtime.write_json(self.root / 'runtime-process.json', dict(identity, binary_sha256=runtime.digest(binary)))
+            with patch.object(runtime, 'runtime_environment', side_effect=AssertionError('not needed')), patch.object(runtime, 'validate_material', side_effect=AssertionError('not needed')):
+                self.assertTrue(runtime.stop(self.root))
+            child.wait(timeout=5)
+            self.assertFalse((self.root / 'runtime-process.json').exists())
+        finally:
+            if child.poll() is None:
+                child.terminate()
+                child.wait(timeout=5)
 
     def test_smtp_rejects_missing_proof_external_network_and_foreign_container(self):
         resources = self.smtp_fixture()
@@ -133,6 +271,7 @@ class RuntimeTests(unittest.TestCase):
                 with patch.object(runtime, 'inspect_smtp_resource', side_effect=resources), self.assertRaises(runtime.RuntimeErrorLocal):
                     runtime.validate_smtp(self.values, self.root)
                 (self.root / 'comunicaciones/proxy-11025.json').unlink()
+                (self.root / 'comunicaciones/target.json').unlink()
                 (self.root / 'comunicaciones').rmdir()
 
     def test_smtp_rejects_foreign_sink_before_proxy_checks(self):

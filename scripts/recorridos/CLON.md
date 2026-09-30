@@ -1,22 +1,29 @@
 # Clon local para comprobar recorridos
 
 Este guion reconstruye una copia aislada con datos sintéticos. Usa el archivo del
-hito 1, instala únicamente las 34 SQL posteriores de este corte y construye el
+hito 1, instala únicamente las SQL posteriores del plan revisado y construye el
 binario del mismo commit de `main`. El hito 5 configura la política de ofertas;
 no contiene migraciones. No contacta con la principal.
 
-El corte actual es `ff6493cfccb2da4e83c94fa7c59be24c025cb7c9`. La revisión
-anterior, `7f1ecea2fd9f8912d255a80e74da84c69e46b978`, tenía 33 SQL; la
-actualización añade CT147 y conserva sus recibos. Para comprobar otro commit
-hay que revisar la lista y las huellas de `sql_main.txt` primero.
-Cambiar el binario sin comprobar su esquema no prepara otro clon válido.
+El plan revisado de `a7d9df2b3285b0df6be6bba0bae09331463f0a3d` contiene
+38 SQL. Conserva las 33 de `7f1ecea2`, CT147, AD3-114 y CT148; añade
+AD3-113 y Documentos9. El orden sigue las dependencias, no el número de migración.
+Los recibos anteriores conservan sus posiciones y fechas.
+
+Un commit posterior de `main` puede usar este mismo plan si conserva exactamente
+el inventario SQL revisado. El guion compara los archivos del commit con la fuente
+extraída. Una SQL nueva, modificada o ausente detiene la preparación y exige
+revisar el plan. El commit de la aplicación y la referencia del plan quedan
+registrados por separado.
 
 Necesita Docker, las imágenes locales `postgres:18.4` y `alpine:3.22`, Python,
-OpenSSL, `certutil`, Chrome del sistema, Playwright y el compilador indicado por
+OpenSSL, `certutil`, `socat`, Chrome del sistema, Playwright y el compilador indicado por
 `go.mod`, con las dependencias descargadas. La compilación usa los 32 núcleos y
 la caché compartida `/dev/shm/go-build`. PostgreSQL usa un volumen temporal en
 `/dev/shm`, montado con `-v`; el contenedor lleva `--rm` y solo publica en
-`127.0.0.1`.
+`127.0.0.1`. El correo de prueba usa la imagen local `axllent/mailpit:v1.27.8`,
+una red Docker interna y dos puertos locales. Exige TLS y solo admite destinatarios
+del dominio sintético `example.test`.
 
 El archivo `estado-cidonia-20260929-hito1.tgz` y el material sintético del hito 1
 deben estar fuera de Git, en el directorio privado de estado `vec-clon`. El
@@ -37,23 +44,31 @@ Desde un checkout que contenga estos guiones:
 
 ```bash
 git fetch origin
-export VEC_RECORRIDOS_REFERENCIA=ff6493cfccb2da4e83c94fa7c59be24c025cb7c9
+export VEC_RECORRIDOS_REFERENCIA=origin/main
 export VEC_RECORRIDOS_ESTADO="$HOME/.local/state/vec-recorridos"
 export VEC_RECORRIDOS_CONTENEDOR=vec-recorridos-local
 export VEC_RECORRIDOS_PUERTO_PG=55531
 export VEC_RECORRIDOS_PUERTO_WEB=18531
+export VEC_RECORRIDOS_PUERTO_SMTP=11025
+export VEC_RECORRIDOS_PUERTO_CORREO_WEB=18532
 bash scripts/recorridos/preparar_clon.sh plan
 bash scripts/recorridos/preparar_clon.sh preparar
 ```
 
-Elija otro nombre y otros puertos si están ocupados. El guion rechaza un
+Elija otro nombre y cuatro puertos distintos si están ocupados. El guion rechaza un
 contenedor ajeno. El directorio privado tiene permisos `0700`; las claves,
 configuración y registros se guardan con permisos `0600`.
 
 El registro de SQL queda en la propia copia, dentro de cada transacción, y en
 `sql-journal.json`. Si se pierde el JSON, se recupera desde ese registro. Repetir
 el guion no reaplica una migración ni ejecuta `DOWN`. Una fuente o una huella
-distinta detienen el montaje.
+distinta detienen el montaje. No instala SQL de una PR pendiente.
+
+La preparación acredita los accesos técnicos del archivo del hito 1. Si faltan,
+restaura únicamente los permisos nominales comprobados y retira el acceso general
+de la base. Conserva la preimagen, comprueba la reversión en una transacción sin
+efectos y verifica las conexiones reales con TLS. No concede privilegios para
+sortear otra comprobación fallida.
 
 Para actualizar el clon anterior a este corte, detenga primero la aplicación
 con `parar`, cambie `VEC_RECORRIDOS_REFERENCIA` y vuelva a ejecutar `preparar`.
@@ -84,7 +99,9 @@ debe estar confiada tanto por Chrome como por el transporte de Playwright;
 no se desactiva la comprobación TLS.
 
 `READY.json` solo aparece después de comprobar binario, SQL, material y escucha
-HTTPS. Incluye las condiciones que siguen pendientes. La preparación crea un
+HTTPS. Incluye las condiciones que siguen pendientes. Un certificado de candidato
+puede existir sin una cuenta externa autorizada: ese caso queda bloqueado y no se
+reutiliza la identidad de otra persona. La preparación crea un
 almacén de confianza privado en `chrome-home`, sin modificar el del usuario.
 Al invocar un guion, use ese directorio como `HOME` únicamente para su proceso
 y `NODE_EXTRA_CA_CERTS` con la CA que indica el registro. Los planes siguen
@@ -97,8 +114,10 @@ bash scripts/recorridos/preparar_clon.sh parar
 bash scripts/recorridos/preparar_clon.sh retirar
 ```
 
-`parar` conserva el volumen para continuar más tarde; `retirar` elimina el
-volumen propio tras cotejar su registro y marca ese estado como retirado. Para
+`parar` detiene la aplicación, PostgreSQL y el correo propios; conserva el volumen
+para continuar más tarde. `retirar` elimina el volumen, las fuentes temporales,
+los binarios y los logs del guion, y marca ese estado como retirado. Conserva
+material, recibos y capturas para revisión. Para
 reconstruir después de retirar, elija un directorio privado nuevo, por ejemplo:
 
 ```bash

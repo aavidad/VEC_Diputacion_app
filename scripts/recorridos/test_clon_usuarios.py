@@ -29,6 +29,7 @@ class UsersTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / 'private'
             path.write_text('synthetic')
+            path.chmod(0o644)
             with self.assertRaises(users.UsersError):
                 users.private(path)
             path.chmod(0o600)

@@ -11,11 +11,20 @@ referencia=${VEC_RECORRIDOS_REFERENCIA:-origin/main}
 nombre=${VEC_RECORRIDOS_CONTENEDOR:-vec-recorridos-local}
 puerto_pg=${VEC_RECORRIDOS_PUERTO_PG:-55531}
 puerto_web=${VEC_RECORRIDOS_PUERTO_WEB:-18531}
+puerto_smtp=${VEC_RECORRIDOS_PUERTO_SMTP:-11025}
+puerto_correo_web=${VEC_RECORRIDOS_PUERTO_CORREO_WEB:-18532}
 accion=${1:-preparar}
 case "$accion" in preparar|estado|reiniciar|parar|retirar|plan) ;; *) echo 'Uso: preparar_clon.sh [preparar|plan|estado|reiniciar|parar|retirar]' >&2; exit 2;; esac
 [[ "$nombre" =~ ^vec-[a-z0-9-]+$ ]] || exit 2
-[[ "$puerto_pg" =~ ^[0-9]+$ && "$puerto_web" =~ ^[0-9]+$ ]] || exit 2
-((puerto_pg > 1024 && puerto_pg < 65536 && puerto_web > 1024 && puerto_web < 65536 && puerto_pg != puerto_web)) || exit 2
+for puerto in "$puerto_pg" "$puerto_web" "$puerto_smtp" "$puerto_correo_web"; do
+  [[ "$puerto" =~ ^[0-9]+$ ]] || exit 2
+  ((puerto > 1024 && puerto < 65536)) || exit 2
+done
+python3 - "$puerto_pg" "$puerto_web" "$puerto_smtp" "$puerto_correo_web" <<'PY'
+import sys
+if len(set(map(int, sys.argv[1:]))) != 4:
+    raise SystemExit("Los cuatro servicios necesitan puertos diferentes.")
+PY
 python3 - "$estado" <<'PY'
 from pathlib import Path
 import sys
@@ -49,6 +58,7 @@ limpiar_restauracion_incompleta() {
 trap limpiar_restauracion_incompleta EXIT
 
 publicar_ready() {
+runtime verify || return $?
 python3 - "$estado" <<'PY'
 import hashlib,json,pathlib,subprocess,sys
 s=pathlib.Path(sys.argv[1]); m=json.loads((s/'material-manifest.json').read_text()); r=json.loads((s/'runtime-process.json').read_text()); j=json.loads((s/'sql-journal.json').read_text())
@@ -87,6 +97,10 @@ PY
   python3 "$guiones/clon_runtime.py" "$operacion" --repo "$repo" --commit "$hash" --state "$estado" --port "$puerto_web" --pg-port "$puerto_pg"
 }
 
+comunicaciones() {
+  python3 "$guiones/clon_comunicaciones.py" "$1" --repo "$repo" --state "$estado" --container "$nombre" --pg-port "$puerto_pg" --smtp-port "$puerto_smtp" --mailpit-http-port "$puerto_correo_web"
+}
+
 registro_propio() {
   [[ -f "$marcador" ]] || { echo 'Falta el registro de propiedad del clon.' >&2; return 1; }
   python3 - "$marcador" "$nombre" "$estado" <<'PY'
@@ -98,8 +112,19 @@ PY
 
 propio() {
   registro_propio
-  [[ "$(docker inspect -f '{{ index .Config.Labels "vec.recorridos.owner" }}' "$nombre")" == Codex-M ]]
-  [[ "$(docker inspect -f '{{ index .Config.Labels "vec.recorridos.state" }}' "$nombre")" == "$estado" ]]
+  pg_id=$(python3 - "$marcador" "$nombre" <<'PY'
+import json,re,subprocess,sys
+v=json.load(open(sys.argv[1]))
+result=subprocess.run(['docker','inspect',sys.argv[2]],capture_output=True,check=True)
+c=json.loads(result.stdout)[0]; labels=c['Config'].get('Labels') or {}
+assert labels.get('vec.recorridos.owner') == v['propietario'] == 'Codex-M'
+assert labels.get('vec.recorridos.state') == v['estado']
+assert c['Config']['Image'] == 'postgres:18.4'
+assert any(m['Type']=='bind' and m['Destination']=='/var/lib/postgresql' and m['Source']==v['pgdata'] for m in c.get('Mounts',[]))
+assert re.fullmatch('[0-9a-f]{64}',c['Id'])
+print(c['Id'])
+PY
+)
 }
 
 if [[ "$accion" == estado ]]; then
@@ -111,13 +136,15 @@ fi
 if [[ "$accion" == parar || "$accion" == retirar ]]; then
   registro_propio
   rm -f -- "$estado/READY.json"
+  pg_id=''
   if docker inspect "$nombre" >/dev/null 2>&1; then propio; fi
   runtime stop
-  if docker inspect "$nombre" >/dev/null 2>&1; then docker stop "$nombre" >/dev/null; fi
+  comunicaciones stop
+  if [[ -n "$pg_id" ]] && docker inspect "$pg_id" >/dev/null 2>&1; then docker stop "$pg_id" >/dev/null; fi
   rm -f -- "$estado/READY.json"
   if [[ "$accion" == retirar ]]; then
     python3 - "$marcador" <<'PY'
-import json, pathlib, shutil, sys
+import json, os, pathlib, re, shutil, sys
 v=json.load(open(sys.argv[1])); p=pathlib.Path(v['pgdata'])
 assert p.parent == pathlib.Path('/dev/shm') and p.name.startswith('vec-recorridos-') and not p.is_symlink()
 # PostgreSQL crea ficheros de otro uid: la limpieza usa el mismo contenedor
@@ -125,6 +152,23 @@ assert p.parent == pathlib.Path('/dev/shm') and p.name.startswith('vec-recorrido
 import subprocess
 subprocess.run(['docker','run','--rm','--network','none','-v',str(p)+':/datos','alpine:3.22','sh','-c','find /datos -mindepth 1 -delete'],check=True,stdout=subprocess.DEVNULL)
 p.rmdir()
+s=pathlib.Path(v['estado'])
+# Conservar material y recibos; retirar fuentes, binarios y logs del guion.
+directorios={'fuente','usuarios-source','usuarios-h4-source','tmp'}
+ficheros={'build.log','runtime.log','usuarios-install.log','usuarios-h4-install.log','source.tar'}
+for item in s.iterdir():
+    directorio=item.name in directorios or re.fullmatch(r'(?:fuente|source)-[0-9a-f]{40}',item.name)
+    fichero=item.name in ficheros or re.fullmatch(r'vec-server-[0-9a-f]{40}',item.name)
+    if not (directorio or fichero):
+        continue
+    if item.is_symlink() or item.stat().st_uid != os.getuid():
+        raise SystemExit('Una ruta temporal no pertenece al guion; se conserva para revisión.')
+    if directorio and item.is_dir():
+        shutil.rmtree(item)
+    elif fichero and item.is_file() and item.stat().st_nlink == 1:
+        item.unlink()
+    else:
+        raise SystemExit('Tipo inesperado en una ruta temporal; se conserva para revisión.')
 PY
     mv -- "$marcador" "$estado/RETIRADO.json"
   fi
@@ -135,9 +179,9 @@ if [[ "$accion" == reiniciar ]]; then
   rm -f -- "$estado/READY.json"
   runtime stop
   # Con --rm no se puede hacer stop/start de PostgreSQL; restart conserva el volumen.
-  docker restart "$nombre" >/dev/null
-  for ((i=0; i<60; i++)); do docker exec "$nombre" pg_isready -q -U postgres && break; sleep 1; done
-  docker exec "$nombre" pg_isready -q -U postgres
+  docker restart "$pg_id" >/dev/null
+  for ((i=0; i<60; i++)); do docker exec "$pg_id" pg_isready -q -U postgres && break; sleep 1; done
+  docker exec "$pg_id" pg_isready -q -U postgres
   finalizar_arranque
   exit
 fi
@@ -146,7 +190,7 @@ commit=$(git -C "$repo" rev-parse --verify "$referencia^{commit}")
 git -C "$repo" merge-base --is-ancestor "$commit" origin/main || { echo 'La fuente debe estar integrada en origin/main.' >&2; exit 2; }
 [[ -f "$archivo" && ! -L "$archivo" ]] || { echo 'Falta el estado sintético del hito 1.' >&2; exit 2; }
 if [[ "$accion" == plan ]]; then
-  python3 "$guiones/clon_sql.py" --repo "$repo" --source-ref "$commit" --container "$nombre" --state-dir "$estado" --plan
+  python3 "$guiones/clon_sql.py" --repo "$repo" --git-repo "$repo" --source-ref "$commit" --container "$nombre" --state-dir "$estado" --plan
   exit
 fi
 if [[ -e "$marcador" ]]; then
@@ -218,7 +262,7 @@ if [[ ! -e "$fuente" ]]; then
   mkdir -m 700 "$fuente"
   git -C "$repo" archive "$commit" | tar -x -C "$fuente"
 fi
-python3 "$guiones/clon_sql.py" --repo "$fuente" --source-ref "$commit" --container "$nombre" --state-dir "$estado"
+python3 "$guiones/clon_sql.py" --repo "$fuente" --git-repo "$repo" --source-ref "$commit" --container "$nombre" --state-dir "$estado"
 python3 - "$marcador" "$estado" "$commit" <<'PY'
 import datetime,json,os,pathlib,sys
 p=pathlib.Path(sys.argv[1]); state=pathlib.Path(sys.argv[2]); v=json.loads(p.read_text())
@@ -235,12 +279,13 @@ if v['commit'] != actual:
 v.update(sql_instaladas=len(j['installed']),app_lista=False)
 d=state/'DB_READY.json'; d.write_text(json.dumps(v,indent=2)+'\n'); d.chmod(0o600)
 PY
+runtime build
+comunicaciones configure
 opciones_material=()
 if [[ -f "$estado/material-manifest.json" ]]; then opciones_material+=(--upgrade-source); fi
 estado_material=0
-python3 "$guiones/clon_material.py" --repo "$repo" --commit "$commit" --container "$nombre" --output "$estado" --port "$puerto_web" --pg-port "$puerto_pg" --complete-profiles "${opciones_material[@]}" || estado_material=$?
+python3 "$guiones/clon_material.py" --repo "$repo" --source-archive "$estado/source-$commit" --commit "$commit" --container "$nombre" --output "$estado" --port "$puerto_web" --pg-port "$puerto_pg" --repair-coverage-connect --repair-nominal-connect --complete-profiles "${opciones_material[@]}" || estado_material=$?
 [[ "$estado_material" == 0 || "$estado_material" == 3 ]] || exit "$estado_material"
-runtime build
 finalizar_arranque
 
 echo 'Clon preparado. Consulte el registro privado de estado antes de ejecutar recorridos.'
