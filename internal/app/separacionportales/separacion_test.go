@@ -187,6 +187,18 @@ func TestMaterialPropioDeCadaPortalSeAdmite(t *testing.T) {
 	}
 }
 
+func TestProcesoSeparadoSoloAdmiteTLSDelServidor(t *testing.T) {
+	for _, p := range []Portal{PortalInterno, PortalExterno} {
+		for _, relativa := range []string{"tls/cliente.key", "tls/intervencion.key", "tls/cliente.pem", "tls/otro.crt"} {
+			material := materialSintetico(t, p)
+			escribir(t, material, relativa, "material sintetico")
+			if got := motivo(t, ComprobarMaterial(p, material)); got != relativa {
+				t.Fatalf("%s: se esperaba rechazar %s, llego %s", p, relativa, got)
+			}
+		}
+	}
+}
+
 func TestProcesoExternoNoPuedeAbrirMaterialInterno(t *testing.T) {
 	for _, relativa := range []string{
 		"identidad/identidad.json",
