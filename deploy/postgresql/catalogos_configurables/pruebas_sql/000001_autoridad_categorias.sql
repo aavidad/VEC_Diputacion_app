@@ -143,6 +143,22 @@ BEGIN
         RAISE EXCEPTION 'republicacion olvido total historico positivo';
     EXCEPTION WHEN SQLSTATE '55000' THEN NULL;
     END;
+    revision := vec_catalogos_configurables.cambiar_proyeccion('cat-declared', 4,
+        'cobertura', 'evidencia:declarada-v2', 1, 'actor:uno',
+        'decision:decl-cob-v2', 'recibo:decl-cob-v2', motivo);
+    IF revision <> 5 THEN RAISE EXCEPTION 'cobertura positiva conservada rechazada'; END IF;
+    IF vec_catalogos_configurables.cambiar_proyeccion('cat-declared', 4,
+        'cobertura', 'evidencia:declarada-v2', 1, 'actor:dos',
+        'decision:decl-cob-v2-replay', 'recibo:decl-cob-v2', motivo_nuevo) <> 5 THEN
+        RAISE EXCEPTION 'replay de cobertura positiva incorrecto';
+    END IF;
+    BEGIN
+        PERFORM vec_catalogos_configurables.cambiar_proyeccion('cat-declared', 5,
+            'tombstone', NULL, NULL, 'actor:uno', 'decision:decl-tomb-v2',
+            'recibo:decl-tomb-v2', motivo);
+        RAISE EXCEPTION 'republicacion admitio tombstone historico';
+    EXCEPTION WHEN SQLSTATE '55000' THEN NULL;
+    END;
     revision := vec_catalogos_configurables.cambiar_proyeccion('cat-empty', 1,
         'deshabilitar', NULL, NULL, 'actor:uno', 'decision:empty-des', 'recibo:empty-des', motivo);
     IF revision <> 2 THEN RAISE EXCEPTION 'deshabilitacion vacia incorrecta'; END IF;
@@ -225,7 +241,7 @@ BEGIN
                          AND revision = 4 AND total_historico_declarado = 0)
        OR NOT EXISTS (SELECT 1 FROM vec_catalogos_configurables.categoria_control
                        WHERE categoria_id = 'cat-declared' AND estado = 'deshabilitada'
-                         AND version = 2 AND revision = 4 AND total_historico_declarado IS NULL)
+                         AND version = 2 AND revision = 5 AND total_historico_declarado = 1)
        OR NOT EXISTS (SELECT 1 FROM vec_catalogos_configurables.uso
                        WHERE consumidor = 'consumidor-demo' AND uso_ref = 'uso:uno' AND estado = 'confirmado')
        OR NOT EXISTS (SELECT 1 FROM vec_catalogos_configurables.categoria_control
@@ -240,7 +256,7 @@ BEGIN
         RAISE EXCEPTION 'proyección alteró publicación o uso';
     END IF;
     IF (SELECT count(*) FROM vec_catalogos_configurables.historia
-         WHERE categoria_id IN ('cat-demo', 'cat-empty', 'cat-declared', 'cat-version')) <> 16
+         WHERE categoria_id IN ('cat-demo', 'cat-empty', 'cat-declared', 'cat-version')) <> 17
        OR EXISTS (SELECT 1 FROM vec_catalogos_configurables.historia
                    WHERE categoria_id IN ('cat-demo', 'cat-empty', 'cat-declared', 'cat-version')
                      AND motivo_ref IS DISTINCT FROM motivo) THEN
