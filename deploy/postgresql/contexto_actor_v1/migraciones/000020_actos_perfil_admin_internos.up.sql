@@ -121,6 +121,12 @@ BEGIN
        WHERE procedencia_ref=p_procedencia_ref AND procedencia_version=p_procedencia_version
          AND procedencia_huella_sha256=p_procedencia_huella
          AND procedencia_autoridad='autoridad_maestra_acreditada')
+     OR NOT EXISTS (
+       SELECT 1 FROM vec_contexto_actor_v1.vinculo_contexto_actual va
+       JOIN vec_contexto_actor_v1.vinculo_contexto_versiones vv USING (vinculo_ref,version)
+       WHERE vv.cuenta_ref=p_cuenta_ref AND vv.persona_ref=p_persona_ref
+         AND vv.estado='activo' AND vv.procedencia_autoridad='autoridad_maestra_acreditada'
+         AND instante>=vv.vigente_desde AND instante<vv.vigente_hasta)
      OR EXISTS (SELECT 1 FROM vec_contexto_actor_v1.perfil_actual WHERE perfil_ref=p_perfil_ref)
      OR EXISTS (SELECT 1 FROM vec_contexto_actor_v1.vinculo_contexto_actual WHERE vinculo_ref=p_vinculo_ref) THEN
     RAISE EXCEPTION 'CA20: alta sin preimagen acreditada' USING ERRCODE = '55000';
