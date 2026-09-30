@@ -128,7 +128,7 @@ func ejecutar(args []string, salida, errores io.Writer) int {
 		return fallar(errores, "plan_divergente_o_destino_inseguro")
 	}
 	if _, err = fmt.Fprintln(salida, huella); err != nil {
-		return 1
+		return fallar(errores, "plan_salida_fallida")
 	}
 	return 0
 }
