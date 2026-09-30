@@ -98,3 +98,57 @@ func TestPublicarPreparaValorAnteriorDeBaseYReplayNoMueveCAS(t *testing.T) {
 		t.Fatalf("replay no conservó petición original: %+v", repo.material)
 	}
 }
+
+func TestConsultaProyectaValorVigenteDeCabezaAutorizada(t *testing.T) {
+	ahora := time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)
+	archivo, err := fichero.NuevaConsultaCatalogos("../../../../../data/demo/reglas/ct_reglas.ejemplo.demo.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resolutor, err := reglas.NuevoResolutor(reglas.Configuracion{
+		Consulta: archivo, Metadatos: archivo, CatalogoID: reglas.CatalogoContratacionTemporal,
+		ModuloID: reglas.ModuloContratacionTemporal, Reloj: relojFijo{ahora},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	contenido, err := os.ReadFile("../../../../../data/catalogos/contratacion_temporal/motivos_ajuste_v1.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	motivos, err := LeerCatalogoMotivos(contenido)
+	if err != nil {
+		t.Fatal(err)
+	}
+	actor, _, err := vecpruebas.NuevoContextoYVinculo(ahora, "per_0123456789abcdef0123456789abcdef",
+		"prf_0123456789abcdef0123456789abcdef", vecdomain.AuthMethodCertificate, vecdomain.AuthAssuranceHigh)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ajustes := map[string]map[string]string{reglas.CTPlazoFiscalizacion: {reglas.CampoCantidad: "7"}}
+	huella, err := reglas.HuellaAjustes(ajustes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	repo := &repoPrueba{lectura: Lectura{Vigente: &reglas.VersionAjustes{
+		CatalogoID: reglas.CatalogoAjustesDe(reglas.CatalogoContratacionTemporal), Version: 1,
+		HuellaSHA256: huella, VigenteDesde: ahora.Add(-time.Hour), Ajustes: ajustes,
+	}, VigenteBaseVersion: 1, VigenteBaseHuella: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}
+	servicio, err := NuevoServicio(repo, resolutor, motivos, relojFijo{ahora})
+	if err != nil {
+		t.Fatal(err)
+	}
+	lectura, err := servicio.Consultar(t.Context(), actor, 20, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, regla := range lectura.Reglas {
+		if regla.Clave == reglas.CTPlazoFiscalizacion {
+			if regla.Cantidad != 7 || regla.Ajuste == nil || regla.Ajuste.Version != lectura.Vigente.Version {
+				t.Fatalf("GET mezcló cabeza e inicial: %+v", regla)
+			}
+			return
+		}
+	}
+	t.Fatal("GET sin c03")
+}
