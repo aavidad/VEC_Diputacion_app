@@ -119,7 +119,13 @@ export function crearClienteAjustes(fetchImpl = globalThis.fetch, timeoutMs = 10
   });
 }
 
-const etiquetaCampo = (campo) => t(`ajustesCampo_${campo}`);
+const CLAVES_CAMPO = Object.freeze({
+  cantidad: "ajustesCampo_cantidad",
+  cantidad_urgente: "ajustesCampo_cantidad_urgente",
+  unidad: "ajustesCampo_unidad",
+  computo: "ajustesCampo_computo",
+});
+const etiquetaCampo = (campo) => t(CLAVES_CAMPO[campo]);
 const etiquetaOpcion = (tipo, valor) => t(`${tipo}_${valor}`);
 const presentarValor = (regla, campo, valor, unidad = regla.valores.unidad ?? regla.unidad) => ["cantidad", "cantidad_urgente"].includes(campo)
   ? `${formatearNumero(Number(valor))} ${etiquetaOpcion("unidad", unidad)}`

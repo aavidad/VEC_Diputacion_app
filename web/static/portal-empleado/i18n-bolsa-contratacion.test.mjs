@@ -64,6 +64,8 @@ const PERMITIDAS = new Map([
   ["modulos/contratacion-temporal/formulario-analisis.js", ["catálogos del análisis", "motivos de rectificación", "grupos o subgrupos"]],
   // Segundo argumento de `t(clave, respaldo)`: la clave existe en el catálogo.
   ["modulos/contratacion-temporal/adaptador-http-expedientes.js", ["Observaciones"]],
+  // Claves del catálogo de Reglas; los rótulos se leen con t(clave).
+  ["reglas/ajustes.js", ["ajustesCampo_cantidad", "ajustesCampo_cantidad_urgente", "ajustesCampo_unidad", "ajustesCampo_computo"]],
 ]);
 // En los contratos, las cadenas en minúscula nombran campos en errores internos.
 const CONTRATO = /(?:^|\/)(?:contrato[\w-]*|[\w-]*-contrato)\.js$/u;
