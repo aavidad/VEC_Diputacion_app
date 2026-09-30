@@ -430,7 +430,7 @@ a:focus-visible,
   border: 2px solid var(--portal-superficie);
   border-radius: 999px;
   background: var(--portal-peligro);
-  color: #fff;
+  color: var(--portal-texto-inverso);
   font-size: 0.66rem;
   font-weight: 600;
   line-height: 1;
@@ -473,7 +473,7 @@ a:focus-visible,
   place-items: center;
   border-radius: 50%;
   background: var(--portal-azul-950);
-  color: #fff;
+  color: var(--portal-texto-inverso);
   font-size: 0.82rem;
   font-weight: 600;
 }

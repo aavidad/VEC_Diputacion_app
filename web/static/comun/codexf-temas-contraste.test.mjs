@@ -4,6 +4,7 @@ import test from "node:test";
 
 const css = await readFile(new URL("./tema-vec.css", import.meta.url), "utf8");
 const portal = await readFile(new URL("../portal-empleado/portal.css", import.meta.url), "utf8");
+const componentes = await readFile(new URL("../portal-empleado/portal-componentes.css", import.meta.url), "utf8");
 const menuBolsa = await readFile(new URL("../portal-empleado/portal-menu-bolsa.css", import.meta.url), "utf8");
 const modos = ["diputacion_granada", "arena", "salvia", "lavanda", "azul_sereno", "noche_suave"];
 
@@ -72,6 +73,7 @@ test("texto, acciones, navegación, estados y foco cumplen WCAG 2.2 AA", () => {
       exigir("texto-inverso", boton, 4.5);
     }
     exigir("texto-inverso", "azul-950", 4.5);
+    exigir("texto-inverso", "peligro", 4.5);
     exigir("lateral-texto", "lateral-fondo", 4.5);
     exigir("lateral-muted", "lateral-fondo", 4.5);
     exigir("azul-900", "azul-100", 4.5);
@@ -100,6 +102,10 @@ test("marca y enlaces del lateral usan el par de tokens comprobado", () => {
     assert.match(declaracion(portal, selector), /color: var\(--portal-lateral-texto\)/u);
   }
   assert.match(declaracion(menuBolsa, ".enlace-submenu:hover:not(:disabled)"), /color: var\(--portal-lateral-texto\)/u);
+  for (const selector of [".boton-avisos span", ".avatar"]) {
+    assert.match(declaracion(portal, selector), /color: var\(--portal-texto-inverso\)/u);
+  }
+  assert.match(declaracion(componentes, '.paginacion-marco button[aria-current="page"]'), /color: var\(--portal-texto-inverso\)/u);
   assert.match(css, /\.portal-lateral \.enlace-submenu\[aria-current="page"\]:focus-visible,[^}]*\.portal-lateral \.categoria-menu-bolsa\[data-categoria-activa="true"\]:focus-visible\s*\{\s*outline-color: var\(--portal-texto-inverso\);/u);
   assert.doesNotMatch(css, /\.portal-lateral \.enlace-lateral\[aria-current="page"\]:focus-visible/u);
 });

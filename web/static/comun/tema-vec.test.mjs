@@ -44,6 +44,7 @@ test("catálogo F2 cerrado: institucional heredado y granate cromático", () => 
 });
 
 test("modo oscuro conserva ambas paletas con texto, acciones y focos AA", () => {
+  assert.equal(oscuro["--portal-lateral-texto"], "var(--portal-texto-inverso)");
   for (const [nombre, paleta] of [
     ["institucional", { ...base, ...oscuro }],
     ["granate", { ...base, ...granate, ...oscuro, ...granateOscuro }],
@@ -55,6 +56,7 @@ test("modo oscuro conserva ambas paletas con texto, acciones y focos AA", () => 
     assert.ok(contraste(paleta["--portal-lateral-muted"], paleta["--portal-azul-950"]) >= 4.5, `${nombre}: navegación`);
     assert.ok(contraste(paleta["--portal-azul-700"], paleta["--portal-superficie"]) >= 4.5, `${nombre}: foco`);
     assert.ok(contraste(paleta["--portal-texto-inverso"], paleta["--portal-azul-950"]) >= 4.5, `${nombre}: foco lateral`);
+    assert.ok(contraste(paleta["--portal-texto-inverso"], paleta["--portal-peligro"]) >= 4.5, `${nombre}: aviso`);
     for (const [fuerte, suave] of [["exito", "exito-suave"], ["aviso", "aviso-suave"], ["peligro", "peligro-suave"], ["violeta", "violeta-suave"], ["cian-fuerte", "cian-suave"], ["naranja", "naranja-suave"]]) {
       assert.ok(contraste(paleta[`--portal-${fuerte}`], paleta[`--portal-${suave}`]) >= 4.5, `${nombre}: estado ${fuerte}`);
     }
