@@ -135,7 +135,7 @@ DO $cortes$
 DECLARE c record; f record; corte timestamptz; j jsonb; fila jsonb; valor text; n integer; tipos text[]:=ARRAY['mi_bolsa','historial']; tipo text; delta integer;
 BEGIN
  SELECT * INTO STRICT f FROM pg_temp.b66_propia;
- FOR c IN SELECT * FROM pg_temp.b66_casos WHERE n<=8 ORDER BY n LOOP
+ FOR c IN SELECT a.* FROM pg_temp.b66_casos a WHERE a.n<=8 ORDER BY a.n LOOP
   FOREACH delta IN ARRAY ARRAY[10,31] LOOP
    corte:=c.emitido+delta*interval '1 second';
    valor:=CASE WHEN c.n=7 THEN 'enviado' WHEN c.n=8 AND delta=10 THEN 'enviado'
