@@ -43,7 +43,9 @@ BEGIN
     OR strpos(fuente,'vinculo_categoria_rpt_ct')=0
     OR strpos(fuente,'consulta_persona_aceptacion_ct_bolsa')=0
     OR strpos(fuente,'consulta_anclaje_aceptacion_ct_bolsa')=0
-    OR strpos(fuente,'plan_incorporacion_personal_ct')=0
+    OR strpos(fuente,'p_perfil_mutacion IS NOT DISTINCT FROM ''registro_empleado_b2''')=0
+    OR strpos(fuente,'vec_personal.plan_incorporacion_ct.v1')=0
+    OR strpos(fuente,'personal.plan_incorporacion_ct.clases_ocupacion')=0
     OR strpos(fuente,'incorporacion_personal_ct')=0
  THEN RAISE EXCEPTION 'B2: núcleo incompleto'; END IF;
 END $prueba$;
