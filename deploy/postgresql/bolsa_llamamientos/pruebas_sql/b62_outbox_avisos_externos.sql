@@ -27,6 +27,8 @@ CREATE TEMP TABLE b62_fixture AS
 DO $esquema_temporal$ DECLARE nombre text; BEGIN
  SELECT nspname INTO STRICT nombre FROM pg_catalog.pg_namespace WHERE oid=pg_my_temp_schema();
  EXECUTE format('GRANT USAGE ON SCHEMA %I TO vec_bolsa_llamamientos_propietario,vec_contexto_actor_v1_propietario,vec_autorizacion_atestada_v3_propietario,vec_externo_avisos_bolsa',nombre);
+ EXECUTE format('GRANT CREATE ON SCHEMA %I TO vec_externo_avisos_bolsa',nombre);
+ EXECUTE format('GRANT TEMPORARY ON DATABASE %I TO vec_externo_avisos_bolsa',current_database());
 END $esquema_temporal$;
 GRANT SELECT ON TABLE pg_temp.b62_fixture TO vec_bolsa_llamamientos_propietario,vec_contexto_actor_v1_propietario,vec_autorizacion_atestada_v3_propietario;
 DO $fixture$ BEGIN IF (SELECT count(*) FROM pg_temp.b62_fixture)<>1 THEN RAISE EXCEPTION 'B62: falta vínculo sintético en clon'; END IF; END $fixture$;
