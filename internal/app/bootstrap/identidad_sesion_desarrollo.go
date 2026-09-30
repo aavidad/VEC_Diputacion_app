@@ -193,10 +193,10 @@ func rutaConsultaRespuestaCTDesarrollo(ruta string) bool {
 	return ruta == httpinterno.RutaConsultaReciboRespuesta || ruta == httpinterno.RutaConsultaComunicacionesExpediente
 }
 
-// Entrega y firma conservan la misma distinción que las consultas de respuesta,
+// Entrega, incorporación y firma conservan la distinción de las consultas de respuesta,
 // sin alterar la clasificación de las demás rutas.
 func rutaSesionConIndisponibilidadCTDesarrollo(ruta string) bool {
-	return rutaConsultaRespuestaCTDesarrollo(ruta) || ruta == rutaEntregaPeticionCentro || rutaFirmaDocumentoCTDesarrollo(ruta)
+	return rutaConsultaRespuestaCTDesarrollo(ruta) || ruta == rutaEntregaPeticionCentro || ruta == httpinterno.RutaIncorporacionEjercicioV2 || rutaFirmaDocumentoCTDesarrollo(ruta)
 }
 
 func (p *proveedorSesionConsultaRRHHDesarrollo) errorSesionConsultaComunicacionesExpediente(ctx context.Context, err error) error {

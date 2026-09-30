@@ -2682,6 +2682,35 @@ en el clon. La aplicación inicializa ese gobierno al arrancar contra `55433`.
 - Estos pasos son de presentación; el WIP durable no se instala, expone ni recupera en este corte.
 
 
+## Recuperar una incorporación de ejercicio — 30 de septiembre de 2026
+
+Ensayo en un clon sintético con el binario de `6c86ee563`. Se conservan la
+configuración original, el plan, la fuente Personal, la solicitud y las claves
+de idempotencia. Una copia de configuración liga las referencias del servidor
+al actor actual de H1, autorizado mediante perfiles nominales; no lo presenta
+como el autor histórico. El bloque opcional de continuidad queda fuera de esta
+copia y de este ensayo.
+
+1. Consulte la incorporación original con el actor actual autorizado. Debe
+   devolver 200 y el recibo conservado.
+2. Repita el POST con la intención y clave originales. Debe devolver 200 con
+   el mismo recibo, aun cuando el expediente esté en v9 y la intención sea v8.
+   Una intención nueva desfasada mantiene el conflicto; no se crea otra alta.
+3. Detenga solo PostgreSQL del clon: GET debe devolver 503. Recupere los
+   mismos datos y reinicie la aplicación; GET y POST deben mantener el recibo.
+4. Compruebe una fila de incorporación CT y una de alta Personal, sin duplicados.
+
+Los 18 campos comparados del recibo permanecieron iguales. El acta privada
+minimizada tiene SHA-256
+`e7619db4f310adbf48685241a051daf780bfc06bf5175225cbdf90a1bf65bab6`.
+CT153 se instaló una vez en el clon; no se reaplica ni revierte SQL con historia.
+
+Este ensayo cubre un expediente de ejercicio y su replay. Anotación, cierre,
+un segundo plan, incorporación B2 y retorno del titular siguen pendientes de
+sus fuentes y antecedentes. No se ejecutó reincorporación sin un cese ni se
+atribuyó firma legal o eficacia administrativa. La rama requiere la CI final
+y la integración de dirección antes de considerarse publicada en main.
+
 ## Consulta nominal de firmas — 30 de septiembre de 2026
 
 Este ensayo usa un clon local, datos sintéticos y el binario de la rama
