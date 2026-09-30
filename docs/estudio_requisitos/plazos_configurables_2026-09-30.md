@@ -320,23 +320,25 @@ referencia opaca.
 
 ### 2.5 Los plazos que ya están corriendo
 
-**Decisión propuesta: el plazo que ya corre se queda con el valor con que
-empezó.** Un ajuste se aplica a los plazos que empiecen después de guardarlo.
+**Decisión de diseño pendiente de persistencia: el plazo que ya corre conserva
+el valor con que empezó.** No basta con consultar después los ajustes vigentes
+en la fecha de inicio: `vigente_desde` se toma antes del `COMMIT` y una consulta
+posterior puede reconstruir otra versión. Tampoco se puede recuperar la base
+anterior desde el fichero actual.
 
-Cómo se hace sin guardar nada por expediente:
-
-- el catálogo base se resuelve siempre con la hora actual (el fichero no tiene
-  historia en la aplicación);
-- los ajustes, que no se borran nunca y tienen `vigente_desde`, se resuelven
-  en el **instante en que empezó el plazo**. `Vencimiento` y
-  `VencimientoUrgente` ya lo hacen por defecto con su `inicio`, así que todos
-  los consumidores que calculan un plazo cumplen la regla sin tocarlos. Para
-  la lista de expedientes, el inicio es la entrada en la fase (`FasesDesde`,
-  CT-000110).
-
-Consecuencia que hay que tener clara: **un cambio del catálogo base sí afecta
-a los plazos en curso**. Lo que se congela son los ajustes de RRHH. En
-producción el catálogo base solo cambia con una PR y un despliegue.
+El resolutor prepara una instantánea con copia de la regla base y su valor
+efectivo, más la versión y huella del conjunto completo de ajustes. Registra
+también la ausencia de versión (`encontrada=false`, versión 0 y huella del
+conjunto vacío) o una versión que no haya cambiado esa regla. El cálculo desde
+esa instantánea no vuelve a consultar ajustes. Es una preparación de datos:
+**todavía no se guarda al iniciar ningún plazo**. Hace falta una migración de
+Contratación sobre CT-000110 que guarde la instantánea en la misma transacción
+que abre el tramo y conserve la versión y huella que esa transacción vio.
+Dirección reservará el número y coordinará ese corte antes de activar el
+cálculo operativo con ajustes. `Vencimiento` y `VencimientoUrgente` fallan
+cerrados cuando se compone el almacén de ajustes sin ese paso; sin almacén
+conservan el cálculo anterior con la base. `ReglasEn` es una consulta histórica
+de lectura y no acredita la instantánea de un plazo real.
 
 Por qué:
 
@@ -352,23 +354,24 @@ Casos límite:
   la subsanación fuera una suspensión del plazo (Ley 39/2015, art. 22.1.a), lo
   correcto sería reanudar el plazo, no reiniciarlo. Viene de antes y se
   pregunta a RRHH (apartado 4).
-- **Urgencia declarada después de entrar en la fase:** se usa la cantidad
-  urgente de la versión vigente al entrar en la fase.
+- **Urgencia declarada después de entrar en la fase:** el diseño usaría la
+  cantidad urgente de la instantánea guardada al abrir ese tramo. No existe
+  aún ese guardado.
 - **Ajuste deshecho:** se publica otra versión con el valor anterior; los
   plazos que empezaron entre medias conservan el suyo.
-- **Carrera de milisegundos** entre `vigente_desde` y la confirmación de la
-  transacción: un plazo que empiece en ese intervalo puede calcularse con la
-  versión anterior. Es aceptable y queda dicho.
+- **Carrera entre `vigente_desde` y confirmación:** el instante por sí solo
+  no decide qué versión se vio. La futura transacción de inicio debe fijar la
+  versión o la ausencia que consumió; el ajuste publicado después afecta solo
+  a otros tramos.
 
 Si RRHH quiere dar más tiempo a un expediente concreto que ya está en plazo,
 eso es una **ampliación de plazo** (Ley 39/2015, art. 32: antes de que venza y
 como mucho la mitad del plazo), un acto sobre ese expediente con su propio
 motivo. No se hace cambiando el catálogo. Queda fuera de esta fase.
 
-**Rendimiento.** La lista agrupa por (fase, entrada en fase) y haría casi una
-consulta de ajustes por fila. Como las versiones son inmutables, el adaptador
-guarda en memoria las versiones ya leídas por número y solo pregunta a la base
-cuál es la última.
+**Rendimiento.** El adaptador aún no guarda una caché de versiones. La
+optimización de listas vendrá después de fijar el contrato de instantánea y
+sus efectos duraderos; una caché no puede suplir la versión guardada.
 
 ### 2.6 Pantalla
 
@@ -425,11 +428,12 @@ La ayuda va en el botón «?» de la pantalla, no en el texto.
 Cada corte es una PR pequeña que compila, se prueba y se revisa sola.
 
 1. **Resolutor con ajustes (Go, sin SQL).** Puerto de ajustes, contrato
-   `editable`, aplicación del ajuste con fallo aislado por regla, plazos con
-   los ajustes vigentes en su inicio, lectura común que admite reglas
+   `editable`, aplicación del ajuste con fallo aislado por regla, preparación
+   de la instantánea y cálculo puro desde ella, lectura común que admite reglas
    ajustadas, y c01–c04 declaradas ajustables en el paquete de ejemplo. Sin
-   almacén de ajustes compuesto, la conducta no cambia. Pruebas con un almacén
-   en memoria.
+   almacén de ajustes compuesto, la conducta de cálculo no cambia. Con el
+   almacén compuesto, el cálculo operativo espera el guardado transaccional
+   de la instantánea. Pruebas con un almacén en memoria.
 2. **Un solo resolutor de Contratación.** Los cinco sitios que abren el
    fichero pasan a compartir el mismo `Resolutor`; el respaldo fijo de 37 h
    30 min falla cerrado.
@@ -437,9 +441,12 @@ Cada corte es una PR pequeña que compila, se prueba y se revisa sola.
    cambios y outbox; función de publicación con consumo V3 y huella del
    efecto; lectura de la versión vigente en un instante. Ensayo en el clon de
    la principal y revisión con `revisor-sql-vec`.
-4. **Go: almacén y caso de uso.** Adaptador PostgreSQL con caché por versión y
+4. **Go: almacén y caso de uso.** Adaptador PostgreSQL de lectura y
    caso de uso de publicar (validación contra la base, cálculo de cambios y de
-   la huella del efecto).
+   la huella del efecto). La caché queda pospuesta; la preparación pura no
+   publica nada y obtiene el valor anterior de un ajuste previo o de la base
+   exacta, nunca del cliente. Una petición sin cambios llega al SQL para que
+   este pueda decidir si es el replay de un recibo anterior.
 5. **Go: HTTP y perfil fijo.** Rutas de lectura de edición y de guardado,
    perfil fijo de administración de reglas y composición, con la ruta de
    guardado apagada. Revisión de seguridad focal y Semgrep.
@@ -501,3 +508,11 @@ ensayo no acredita todavía el caso de uso, la pantalla ni el recorrido real.
 El futuro adaptador Go debe calcular la huella del material normalizado con
 `$1::jsonb::text` en PostgreSQL, como `plantillascatalogo/repositorio.go`.
 El relé del outbox requerirá una tabla de entregas aparte, como CT-131.
+
+Una revisión posterior del circuito completo mantiene tres dependencias antes
+de activarlo: el consumidor debe guardar en CT-000110 la instantánea de base y
+ajustes al iniciar el plazo; el adaptador debe devolver un conflicto nominal
+para `55P03` y `40001`; y la preparación de cambios debe tomar el valor
+anterior de la versión previa o de la base exacta cuando aún no estaba
+ajustado, con huella del conjunto completo. La sentinela y la preparación
+son contratos Go de este corte, pero aún falta el efecto durable y su ensayo.

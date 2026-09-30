@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"maps"
 	"slices"
 	"strconv"
 	"strings"
@@ -105,6 +106,232 @@ type Ajuste struct {
 	BaseReferencia domain.ReferenciaEntradaCatalogo
 	// HuellaAjustes es la huella de la versión de ajustes.
 	HuellaAjustes string
+}
+
+// DatosInstantaneaRegla contiene la base y el valor resuelto con la versión
+// completa de ajustes que se leyó. Incluso una regla sin cambio conserva la
+// versión y huella de esa lectura. Sin versión publicada, Encontrada es false,
+// VersionAjustes es 0 y la huella corresponde al canónico vacío ({}).
+type DatosInstantaneaRegla struct {
+	Base                Regla
+	Efectiva            Regla
+	CatalogoAjustesID   string
+	AjustesEncontrados  bool
+	VersionAjustes      int
+	HuellaAjustes       string
+	CanonicoAjustes     []byte
+	AjustesVigenteDesde time.Time
+	PreparadaEn         time.Time
+}
+
+// InstantaneaRegla no expone alias mutables. Es una preparación de lectura:
+// todavía falta guardarla junto al inicio del plazo en una transacción real.
+type InstantaneaRegla struct{ datos DatosInstantaneaRegla }
+
+// Datos devuelve copias independientes de mapas, listas y bytes.
+func (i InstantaneaRegla) Datos() (DatosInstantaneaRegla, error) {
+	if !i.valida() {
+		return DatosInstantaneaRegla{}, ErrReglasNoDisponibles
+	}
+	d := i.datos
+	d.Base = copiarRegla(d.Base)
+	d.Efectiva = copiarRegla(d.Efectiva)
+	d.CanonicoAjustes = slices.Clone(d.CanonicoAjustes)
+	return d, nil
+}
+
+func (i InstantaneaRegla) valida() bool {
+	d := i.datos
+	if d.PreparadaEn.IsZero() || d.Base.ReferenciaEntrada.Validar() != nil ||
+		d.Efectiva.ReferenciaEntrada.Validar() != nil || d.Base.Clave != d.Efectiva.Clave ||
+		d.CatalogoAjustesID != CatalogoAjustesDe(d.Base.ReferenciaEntrada.CatalogoID) ||
+		len(d.CanonicoAjustes) == 0 || !claveCanonica(d.CatalogoAjustesID) {
+		return false
+	}
+	suma := sha256.Sum256(d.CanonicoAjustes)
+	if hex.EncodeToString(suma[:]) != d.HuellaAjustes {
+		return false
+	}
+	if !d.AjustesEncontrados {
+		return d.VersionAjustes == 0 && d.AjustesVigenteDesde.IsZero() && string(d.CanonicoAjustes) == "{}"
+	}
+	return d.VersionAjustes > 0 && !d.AjustesVigenteDesde.IsZero() &&
+		!d.AjustesVigenteDesde.After(d.PreparadaEn)
+}
+
+func copiarRegla(r Regla) Regla {
+	copia := r
+	copia.Atributos = maps.Clone(r.Atributos)
+	if r.Edicion != nil {
+		edicion := *r.Edicion
+		edicion.Campos = slices.Clone(r.Edicion.Campos)
+		edicion.OpcionesUnidad = slices.Clone(r.Edicion.OpcionesUnidad)
+		edicion.OpcionesComputo = slices.Clone(r.Edicion.OpcionesComputo)
+		copia.Edicion = &edicion
+	}
+	if r.Ajuste != nil {
+		ajuste := *r.Ajuste
+		ajuste.Campos = maps.Clone(r.Ajuste.Campos)
+		copia.Ajuste = &ajuste
+	}
+	return copia
+}
+
+// SolicitudCambioAjuste no admite un valor anterior del cliente. La fuente
+// de ese valor es la versión previa de ajustes o la entrada base exacta.
+type SolicitudCambioAjuste struct {
+	ReglaClave string
+	Campo      string
+	Nuevo      string
+}
+
+// CambioAjustePreparado incluye el anterior que verificará CT148.
+type CambioAjustePreparado struct {
+	ReglaClave string
+	Campo      string
+	Anterior   string
+	Nuevo      string
+}
+
+// DatosPreparacionAjustes es el material puro de una versión candidata. No
+// publica una versión ni valida autorización; el caso de uso posterior debe
+// ligar estos datos a su transacción y a una clave de idempotencia.
+type DatosPreparacionAjustes struct {
+	CatalogoAjustesID string
+	VersionEsperada   int
+	BaseVersion       int
+	BaseHuellaSHA256  string
+	Ajustes           map[string]map[string]string
+	Canonico          []byte
+	HuellaSHA256      string
+	Cambios           []CambioAjustePreparado
+}
+
+// PreparacionAjustes conserva copias internas para que quien inspeccione sus
+// datos no pueda cambiar el material preparado.
+type PreparacionAjustes struct{ datos DatosPreparacionAjustes }
+
+func (p PreparacionAjustes) Datos() DatosPreparacionAjustes {
+	d := p.datos
+	d.Ajustes = copiarConjuntoAjustes(d.Ajustes)
+	d.Canonico = slices.Clone(d.Canonico)
+	d.Cambios = slices.Clone(d.Cambios)
+	return d
+}
+
+func copiarConjuntoAjustes(origen map[string]map[string]string) map[string]map[string]string {
+	copia := make(map[string]map[string]string, len(origen))
+	for clave, campos := range origen {
+		copia[clave] = maps.Clone(campos)
+	}
+	return copia
+}
+
+// PrepararCambioAjustes calcula el conjunto completo y su huella, y obtiene
+// cada valor anterior exclusivamente de la versión previa o de la base.
+// Conserva solicitudes sin cambio: CT148 comprueba replay antes de decidir
+// si una publicación nueva con esos datos es admisible.
+func PrepararCambioAjustes(
+	catalogo domain.CatalogoConfigurable, instante time.Time,
+	previa VersionAjustes, encontrada bool, solicitadas []SolicitudCambioAjuste,
+) (PreparacionAjustes, error) {
+	var vacia PreparacionAjustes
+	if instante.IsZero() || len(solicitadas) > maximoReglasAjustadas*4 {
+		return vacia, ErrAjusteInvalido
+	}
+	base, err := catalogo.ClonarCanonico()
+	if err != nil || !catalogoVigenteEn(base, instante.UTC()) {
+		return vacia, ErrReglasNoDisponibles
+	}
+	huellaBase, err := base.HuellaSHA256()
+	if err != nil {
+		return vacia, ErrReglasNoDisponibles
+	}
+	id := CatalogoAjustesDe(base.ID)
+	if encontrada {
+		if err := validarVersionAjustes(previa, id, instante.UTC()); err != nil {
+			return vacia, err
+		}
+	} else if previa.CatalogoID != "" || previa.Version != 0 || previa.HuellaSHA256 != "" ||
+		!previa.VigenteDesde.IsZero() || len(previa.Ajustes) != 0 {
+		return vacia, ErrAjustesNoDisponibles
+	}
+	ajustes := copiarConjuntoAjustes(previa.Ajustes)
+	cambios := make([]CambioAjustePreparado, 0, len(solicitadas))
+	tocadas := make(map[string]domain.EntradaCatalogoConfigurable)
+	vistas := make(map[string]Regla)
+	vistasPorClave := make(map[string]domain.EntradaCatalogoConfigurable)
+	for _, entrada := range base.Entradas {
+		if entrada.VigenteEn(instante.UTC()) {
+			vistasPorClave[entrada.Clave] = entrada
+		}
+	}
+	vistos := make(map[string]bool, len(solicitadas))
+	for _, solicitud := range solicitadas {
+		claveCampo := solicitud.ReglaClave + "\x00" + solicitud.Campo
+		if vistos[claveCampo] || !claveAjusteCanonica(solicitud.ReglaClave) ||
+			!campoAjustable(solicitud.Campo) || !valorAjusteCanonico(solicitud.Nuevo) {
+			return vacia, ErrAjusteInvalido
+		}
+		vistos[claveCampo] = true
+		entrada, existe := vistasPorClave[solicitud.ReglaClave]
+		if !existe {
+			return vacia, ErrAjusteInvalido
+		}
+		regla, vista := vistas[solicitud.ReglaClave]
+		if !vista {
+			regla, err = reglaDesdeEntrada(base, huellaBase, base.FuenteRef == MarcaPaqueteEjemplo, entrada)
+			if err != nil {
+				return vacia, ErrReglaInvalida
+			}
+			vistas[solicitud.ReglaClave] = regla
+		}
+		if !regla.Edicion.Admite(solicitud.Campo) {
+			return vacia, ErrAjusteInvalido
+		}
+		anterior, ajustado := previa.Ajustes[solicitud.ReglaClave][solicitud.Campo]
+		if !ajustado {
+			anterior, ajustado = entrada.Atributos[solicitud.Campo]
+		}
+		if !ajustado {
+			return vacia, ErrAjusteInvalido
+		}
+		if ajustes[solicitud.ReglaClave] == nil {
+			ajustes[solicitud.ReglaClave] = make(map[string]string)
+		}
+		ajustes[solicitud.ReglaClave][solicitud.Campo] = solicitud.Nuevo
+		cambios = append(cambios, CambioAjustePreparado{
+			ReglaClave: solicitud.ReglaClave, Campo: solicitud.Campo, Anterior: anterior, Nuevo: solicitud.Nuevo,
+		})
+		tocadas[solicitud.ReglaClave] = entrada
+	}
+	canonico, err := CanonicoAjustes(ajustes)
+	if err != nil {
+		return vacia, err
+	}
+	huella, err := HuellaAjustes(ajustes)
+	if err != nil {
+		return vacia, err
+	}
+	versionCandidata := VersionAjustes{CatalogoID: id, Version: previa.Version + 1,
+		HuellaSHA256: huella, VigenteDesde: instante.UTC(), Ajustes: ajustes}
+	for clave, entrada := range tocadas {
+		if _, err := aplicarAjuste(base, huellaBase, base.FuenteRef == MarcaPaqueteEjemplo,
+			entrada, vistas[clave], versionCandidata, ajustes[clave]); err != nil {
+			return vacia, ErrAjusteInvalido
+		}
+	}
+	slices.SortFunc(cambios, func(a, b CambioAjustePreparado) int {
+		if orden := strings.Compare(a.ReglaClave, b.ReglaClave); orden != 0 {
+			return orden
+		}
+		return strings.Compare(a.Campo, b.Campo)
+	})
+	return PreparacionAjustes{datos: DatosPreparacionAjustes{
+		CatalogoAjustesID: id, VersionEsperada: previa.Version,
+		BaseVersion: base.Version, BaseHuellaSHA256: huellaBase,
+		Ajustes: ajustes, Canonico: canonico, HuellaSHA256: huella, Cambios: cambios,
+	}}, nil
 }
 
 // CatalogoAjustesDe devuelve el identificador del catálogo de ajustes de un

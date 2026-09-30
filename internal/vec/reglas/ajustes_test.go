@@ -107,32 +107,24 @@ func TestAjusteSeAplicaSobreLaReglaBaseYCitaSuVersion(t *testing.T) {
 	}
 }
 
-// Un plazo se calcula con el ajuste vigente cuando empezó a correr: un cambio
-// posterior no mueve los plazos que ya corren.
-func TestPlazoEnCursoConservaElValorConQueEmpezo(t *testing.T) {
+// La consulta retrospectiva es solo una vista; el cálculo operativo exige
+// una instantánea que CT deberá guardar al iniciar el plazo.
+func TestCalculoConAjustesExigeInstantaneaExplicita(t *testing.T) {
 	cambio := time.Date(2026, 9, 25, 9, 0, 0, 0, time.UTC)
 	almacen := &ajustesMemoria{versiones: []VersionAjustes{versionAjustes(t, 1, cambio, map[string]map[string]string{
 		CTPlazoFiscalizacion: {CampoCantidad: "7"},
 	})}}
 	calculadora := &calculadoraFalsa{resultado: Vencimiento{UltimoDia: "2026-10-09", VenceAntesDe: time.Date(2026, 10, 9, 22, 0, 0, 0, time.UTC)}}
 	resolutor := resolutorCTConAjustes(t, almacen, calculadora)
-
 	antes := cambio.Add(-time.Hour)
-	regla, _, err := resolutor.Vencimiento(t.Context(), CTPlazoFiscalizacion, antes, "")
-	if err != nil || calculadora.recibida.Cantidad != 10 || regla.Ajuste != nil {
-		t.Fatalf("empezó antes del cambio: cantidad %d, %v", calculadora.recibida.Cantidad, err)
-	}
 	despues := cambio.Add(time.Hour)
-	regla, _, err = resolutor.Vencimiento(t.Context(), CTPlazoFiscalizacion, despues, "")
-	if err != nil || calculadora.recibida.Cantidad != 7 || regla.Ajuste == nil || regla.Ajuste.Version != 1 {
-		t.Fatalf("empezó después del cambio: cantidad %d, %v", calculadora.recibida.Cantidad, err)
-	}
-	if got := almacen.pedidos[len(almacen.pedidos)-1]; !got.Equal(despues) {
-		t.Fatalf("los ajustes se piden en el inicio del plazo, no ahora: %v", got)
-	}
-	// Urgente: sin ajuste de la cantidad urgente rige la de la base.
-	if _, _, err := resolutor.VencimientoUrgente(t.Context(), CTPlazoFiscalizacion, despues, ""); err != nil || calculadora.recibida.Cantidad != 5 {
-		t.Fatalf("urgente tras ajustar solo la ordinaria: %d, %v", calculadora.recibida.Cantidad, err)
+	for _, inicio := range []time.Time{antes, despues} {
+		if _, _, err := resolutor.Vencimiento(t.Context(), CTPlazoFiscalizacion, inicio, ""); !errors.Is(err, ErrAjustesNoDisponibles) {
+			t.Fatalf("cálculo sin instantánea admitido: %v", err)
+		}
+		if _, _, err := resolutor.VencimientoUrgente(t.Context(), CTPlazoFiscalizacion, inicio, ""); !errors.Is(err, ErrAjustesNoDisponibles) {
+			t.Fatalf("cálculo urgente sin instantánea admitido: %v", err)
+		}
 	}
 	enCurso, err := resolutor.ReglasEn(t.Context(), antes)
 	if err != nil || len(enCurso) == 0 {
@@ -145,6 +137,109 @@ func TestPlazoEnCursoConservaElValorConQueEmpezo(t *testing.T) {
 	}
 	if _, err := resolutor.ReglasEn(t.Context(), time.Time{}); !errors.Is(err, ErrReglasNoDisponibles) {
 		t.Fatalf("instante vacío: %v", err)
+	}
+	if calculadora.recibida.Cantidad != 0 {
+		t.Fatal("la calculadora recibió un plazo sin instantánea")
+	}
+}
+
+func TestInstantaneaConAusenciaEstableEInmutable(t *testing.T) {
+	almacen := &ajustesMemoria{}
+	calculadora := &calculadoraFalsa{resultado: Vencimiento{UltimoDia: "2026-10-09", VenceAntesDe: time.Date(2026, 10, 9, 22, 0, 0, 0, time.UTC)}}
+	resolutor := resolutorCTConAjustes(t, almacen, calculadora)
+	instantanea, err := resolutor.PrepararInstantaneaRegla(t.Context(), CTPlazoFiscalizacion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	datos, err := instantanea.Datos()
+	huellaVacia, _ := HuellaAjustes(nil)
+	if err != nil || datos.AjustesEncontrados || datos.VersionAjustes != 0 ||
+		datos.HuellaAjustes != huellaVacia || string(datos.CanonicoAjustes) != "{}" ||
+		datos.Base.Cantidad != 10 || datos.Efectiva.Cantidad != 10 {
+		t.Fatalf("ausencia no fijada: %+v, %v", datos, err)
+	}
+	datos.Base.Atributos[CampoCantidad] = "999"
+	datos.Efectiva.Atributos[CampoCantidad] = "999"
+	datos.Efectiva.Edicion.Campos[0] = "fases"
+	datos.CanonicoAjustes[0] = 'x'
+	otra, err := instantanea.Datos()
+	if err != nil || otra.Base.Atributos[CampoCantidad] != "10" ||
+		otra.Efectiva.Atributos[CampoCantidad] != "10" || otra.Efectiva.Edicion.Campos[0] != CampoCantidad ||
+		string(otra.CanonicoAjustes) != "{}" {
+		t.Fatalf("la copia mutó la instantánea: %+v, %v", otra, err)
+	}
+	consultas := len(almacen.pedidos)
+	almacen.versiones = append(almacen.versiones, versionAjustes(t, 1, diaPresentacion.Ahora().Add(time.Second),
+		map[string]map[string]string{CTPlazoFiscalizacion: {CampoCantidad: "7"}}))
+	regla, _, err := resolutor.CalcularConInstantanea(t.Context(), instantanea, diaPresentacion.Ahora().Add(time.Minute), "", false)
+	if err != nil || regla.Cantidad != 10 || calculadora.recibida.Cantidad != 10 || len(almacen.pedidos) != consultas {
+		t.Fatalf("la ausencia se recalculó: regla=%+v, pedido=%+v, err=%v", regla, calculadora.recibida, err)
+	}
+	if _, _, err := resolutor.CalcularConInstantanea(t.Context(), InstantaneaRegla{}, diaPresentacion.Ahora(), "", false); !errors.Is(err, ErrReglasNoDisponibles) {
+		t.Fatalf("instantánea vacía admitida: %v", err)
+	}
+	if _, _, err := resolutor.CalcularConInstantanea(t.Context(), instantanea, diaPresentacion.Ahora().Add(-time.Second), "", false); !errors.Is(err, ErrReglasNoDisponibles) {
+		t.Fatalf("inicio anterior a la instantánea admitido: %v", err)
+	}
+	sinAlmacen := resolutorReal(t, rutaReglasCTPrueba, CatalogoContratacionTemporal, ModuloContratacionTemporal, calculadora)
+	if _, err := sinAlmacen.PrepararInstantaneaRegla(t.Context(), CTPlazoFiscalizacion); !errors.Is(err, ErrAjustesNoDisponibles) {
+		t.Fatalf("instantánea sin fuente de ajustes admitida: %v", err)
+	}
+}
+
+func TestInstantaneaConVersionAunqueLaReglaNoCambie(t *testing.T) {
+	desde := time.Date(2026, 9, 20, 10, 0, 0, 0, time.UTC)
+	version := versionAjustes(t, 1, desde, map[string]map[string]string{CTPlazoSubsanacion: {CampoCantidad: "7"}})
+	almacen := &ajustesMemoria{versiones: []VersionAjustes{version}}
+	calculadora := &calculadoraFalsa{resultado: Vencimiento{UltimoDia: "2026-10-09", VenceAntesDe: time.Date(2026, 10, 9, 22, 0, 0, 0, time.UTC)}}
+	resolutor := resolutorCTConAjustes(t, almacen, calculadora)
+	instantanea, err := resolutor.PrepararInstantaneaRegla(t.Context(), CTPlazoFiscalizacion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	datos, err := instantanea.Datos()
+	if err != nil || !datos.AjustesEncontrados || datos.VersionAjustes != 1 ||
+		datos.HuellaAjustes != version.HuellaSHA256 || !datos.AjustesVigenteDesde.Equal(desde) ||
+		datos.Efectiva.Ajuste != nil || datos.Efectiva.Cantidad != 10 ||
+		datos.Base.ReferenciaEntrada.CatalogoHuellaSHA256 != datos.Efectiva.HuellaCatalogo {
+		t.Fatalf("versión sin cambio perdida: %+v, %v", datos, err)
+	}
+	almacen.versiones = append(almacen.versiones, versionAjustes(t, 2, diaPresentacion.Ahora().Add(time.Second),
+		map[string]map[string]string{CTPlazoFiscalizacion: {CampoCantidad: "8"}}))
+	consultas := len(almacen.pedidos)
+	if _, _, err := resolutor.CalcularConInstantanea(t.Context(), instantanea, diaPresentacion.Ahora().Add(time.Minute), "", false); err != nil ||
+		calculadora.recibida.Cantidad != 10 || len(almacen.pedidos) != consultas {
+		t.Fatalf("instantánea sin cambio reconsultada: %+v, %v", calculadora.recibida, err)
+	}
+}
+
+func TestInstantaneaAjustadaConservaValorYUrgencia(t *testing.T) {
+	desde := time.Date(2026, 9, 20, 10, 0, 0, 0, time.UTC)
+	version := versionAjustes(t, 1, desde, map[string]map[string]string{CTPlazoFiscalizacion: {CampoCantidad: "7"}})
+	almacen := &ajustesMemoria{versiones: []VersionAjustes{version}}
+	calculadora := &calculadoraFalsa{resultado: Vencimiento{UltimoDia: "2026-10-09", VenceAntesDe: time.Date(2026, 10, 9, 22, 0, 0, 0, time.UTC)}}
+	resolutor := resolutorCTConAjustes(t, almacen, calculadora)
+	instantanea, err := resolutor.PrepararInstantaneaRegla(t.Context(), CTPlazoFiscalizacion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	datos, err := instantanea.Datos()
+	if err != nil || datos.Base.Cantidad != 10 || datos.Efectiva.Cantidad != 7 ||
+		datos.Efectiva.Ajuste == nil || datos.HuellaAjustes != version.HuellaSHA256 {
+		t.Fatalf("valor ajustado no fijado: %+v, %v", datos, err)
+	}
+	datos.Efectiva.Ajuste.Campos[CampoCantidad] = "999"
+	almacen.versiones = append(almacen.versiones, versionAjustes(t, 2, diaPresentacion.Ahora().Add(time.Second),
+		map[string]map[string]string{CTPlazoFiscalizacion: {CampoCantidad: "6"}}))
+	consultas := len(almacen.pedidos)
+	inicio := diaPresentacion.Ahora().Add(time.Minute)
+	if _, _, err := resolutor.CalcularConInstantanea(t.Context(), instantanea, inicio, "", false); err != nil ||
+		calculadora.recibida.Cantidad != 7 || len(almacen.pedidos) != consultas {
+		t.Fatalf("valor ajustado reconsultado: %+v, %v", calculadora.recibida, err)
+	}
+	if _, _, err := resolutor.CalcularConInstantanea(t.Context(), instantanea, inicio, "", true); err != nil ||
+		calculadora.recibida.Cantidad != 5 {
+		t.Fatalf("urgencia de la base perdida: %+v, %v", calculadora.recibida, err)
 	}
 }
 
@@ -258,6 +353,11 @@ func TestVersionDeAjustesIncoherenteNoSeSustituyePorLaBase(t *testing.T) {
 	if _, err := conflicto.Reglas(t.Context()); !errors.Is(err, ErrAjustesConflicto) || errors.Is(err, ErrAjustesNoDisponibles) {
 		t.Fatalf("conflicto de ajustes colapsado: %v", err)
 	}
+	ctx, cancelar := context.WithCancel(t.Context())
+	cancelar()
+	if _, _, err := conflicto.ajustesEn(ctx, diaPresentacion.Ahora()); !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancelación no tuvo prioridad sobre conflicto: %v", err)
+	}
 	vacio := resolutorCTConAjustes(t, &ajustesMemoria{}, nil)
 	if regla, err := vacio.Regla(t.Context(), CTPlazoFiscalizacion); err != nil || regla.Cantidad != 10 || regla.Ajuste != nil {
 		t.Fatalf("sin versiones rige la base: %+v %v", regla, err)
@@ -337,5 +437,90 @@ func TestCanonicoDeAjustes(t *testing.T) {
 	}
 	if _, err := CanonicoAjustes(demasiadosBytes); !errors.Is(err, ErrAjusteInvalido) {
 		t.Fatalf("admitidos más de 16 KiB de ajustes: %v", err)
+	}
+}
+
+func TestPrepararCambioDerivaAnteriorDeBaseYCanonicoCompleto(t *testing.T) {
+	resolutor := resolutorReal(t, rutaReglasCTPrueba, CatalogoContratacionTemporal, ModuloContratacionTemporal, nil)
+	base, instante, err := resolutor.catalogoVigente(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	preparada, err := PrepararCambioAjustes(base, instante, VersionAjustes{}, false,
+		[]SolicitudCambioAjuste{{ReglaClave: CTPlazoFiscalizacion, Campo: CampoCantidad, Nuevo: "7"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	datos := preparada.Datos()
+	if datos.VersionEsperada != 0 || datos.BaseVersion != base.Version ||
+		len(datos.Cambios) != 1 || datos.Cambios[0].Anterior != "10" || datos.Cambios[0].Nuevo != "7" ||
+		string(datos.Canonico) != `{"c03.plazo_fiscalizacion":{"cantidad":"7"}}` {
+		t.Fatalf("primer cambio no deriva la base exacta: %+v", datos)
+	}
+	huella, err := HuellaAjustes(datos.Ajustes)
+	if err != nil || datos.HuellaSHA256 != huella {
+		t.Fatalf("huella no canónica: %s %v", datos.HuellaSHA256, err)
+	}
+	datos.Ajustes[CTPlazoFiscalizacion][CampoCantidad] = "99"
+	datos.Canonico[0] = 'x'
+	datos.Cambios[0].Anterior = "inventado"
+	otra := preparada.Datos()
+	if otra.Cambios[0].Anterior != "10" || otra.Ajustes[CTPlazoFiscalizacion][CampoCantidad] != "7" ||
+		string(otra.Canonico) != `{"c03.plazo_fiscalizacion":{"cantidad":"7"}}` {
+		t.Fatalf("la preparación conservó alias mutable: %+v", otra)
+	}
+	// Una petición igual al valor base no se rechaza antes de que CT148
+	// pueda recuperar, por su clave, el recibo de una operación anterior.
+	igual, err := PrepararCambioAjustes(base, instante, VersionAjustes{}, false,
+		[]SolicitudCambioAjuste{{ReglaClave: CTPlazoFiscalizacion, Campo: CampoCantidad, Nuevo: "10"}})
+	if err != nil || igual.Datos().Cambios[0].Anterior != "10" {
+		t.Fatalf("el replay sin cambio fue rechazado antes de SQL: %v", err)
+	}
+}
+
+func TestPrepararCambioConVersionPreviaConservaOtrosCampos(t *testing.T) {
+	resolutor := resolutorReal(t, rutaReglasCTPrueba, CatalogoContratacionTemporal, ModuloContratacionTemporal, nil)
+	base, instante, err := resolutor.catalogoVigente(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	previa := versionAjustes(t, 1, instante.Add(-time.Hour), map[string]map[string]string{
+		CTPlazoFiscalizacion: {CampoCantidad: "7", CampoCantidadUrgente: "3"},
+		CTPlazoSubsanacion:   {CampoCantidad: "8"},
+	})
+	preparada, err := PrepararCambioAjustes(base, instante, previa, true,
+		[]SolicitudCambioAjuste{{ReglaClave: CTPlazoFiscalizacion, Campo: CampoCantidad, Nuevo: "9"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	datos := preparada.Datos()
+	if datos.VersionEsperada != 1 || datos.Cambios[0].Anterior != "7" ||
+		datos.Ajustes[CTPlazoFiscalizacion][CampoCantidadUrgente] != "3" ||
+		datos.Ajustes[CTPlazoSubsanacion][CampoCantidad] != "8" {
+		t.Fatalf("perdió la versión completa: %+v", datos)
+	}
+	canonico, err := CanonicoAjustes(datos.Ajustes)
+	if err != nil || string(canonico) != string(datos.Canonico) {
+		t.Fatalf("material completo divergente: %s, %v", datos.Canonico, err)
+	}
+	// Una solicitud vacía permanece disponible para el replay SQL. El caso
+	// de uso no debe presentarla como una nueva versión publicada.
+	vacia, err := PrepararCambioAjustes(base, instante, previa, true, nil)
+	if err != nil || len(vacia.Datos().Cambios) != 0 || vacia.Datos().HuellaSHA256 != previa.HuellaSHA256 {
+		t.Fatalf("petición vacía rechazada antes del replay: %v", err)
+	}
+	corrupta := previa
+	corrupta.HuellaSHA256 = strings.Repeat("0", 64)
+	if _, err := PrepararCambioAjustes(base, instante, corrupta, true, nil); !errors.Is(err, ErrAjustesNoDisponibles) {
+		t.Fatalf("versión previa sin huella aceptada: %v", err)
+	}
+	for _, solicitud := range [][]SolicitudCambioAjuste{
+		{{ReglaClave: CTPlazoFiscalizacion, Campo: CampoCantidad, Nuevo: "61"}},
+		{{ReglaClave: CTPlazoFiscalizacion, Campo: CampoCantidad, Nuevo: "9"},
+			{ReglaClave: CTPlazoFiscalizacion, Campo: CampoCantidad, Nuevo: "8"}},
+	} {
+		if _, err := PrepararCambioAjustes(base, instante, previa, true, solicitud); !errors.Is(err, ErrAjusteInvalido) {
+			t.Fatalf("cambio inválido aceptado: %+v, %v", solicitud, err)
+		}
 	}
 }
