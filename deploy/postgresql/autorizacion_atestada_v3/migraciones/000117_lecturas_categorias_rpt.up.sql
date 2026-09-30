@@ -228,7 +228,7 @@ CREATE FUNCTION vec_autorizacion_atestada_v3.listar_categorias_habilitadas_rpt_v
     p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,
     p_evidencia bytea,p_raiz bytea
 ) RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER
-SET search_path=pg_catalog SET lock_timeout='2s' SET statement_timeout='30s' AS $f$
+SET search_path=pg_catalog SET lock_timeout='2s' SET statement_timeout='15s' AS $f$
 DECLARE
     a record; r jsonb; pub jsonb; doc jsonb; respuesta jsonb; catalogo text; modulo text; limite integer;
 BEGIN
@@ -295,7 +295,7 @@ CREATE FUNCTION vec_autorizacion_atestada_v3.leer_publicacion_categoria_rpt_v3_a
     p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,
     p_evidencia bytea,p_raiz bytea
 ) RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER
-SET search_path=pg_catalog SET lock_timeout='2s' SET statement_timeout='30s' AS $f$
+SET search_path=pg_catalog SET lock_timeout='2s' SET statement_timeout='15s' AS $f$
 DECLARE
     a record; r jsonb; doc jsonb; catalogo text; modulo text;
 BEGIN
@@ -352,7 +352,7 @@ CREATE FUNCTION vec_autorizacion_atestada_v3.consultar_uso_categoria_rpt_v3_ates
     p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,
     p_evidencia bytea,p_raiz bytea
 ) RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER
-SET search_path=pg_catalog SET lock_timeout='2s' SET statement_timeout='30s' AS $f$
+SET search_path=pg_catalog SET lock_timeout='2s' SET statement_timeout='15s' AS $f$
 DECLARE
     a record; r jsonb; historica jsonb; doc jsonb; catalogo text; modulo text;
 BEGIN
@@ -447,7 +447,7 @@ BEGIN
                        AND p.prosecdef
                        AND p.proconfig=CASE WHEN f=ayuda
                            THEN ARRAY['search_path=pg_catalog','lock_timeout=2s']
-                           ELSE ARRAY['search_path=pg_catalog','lock_timeout=2s','statement_timeout=30s'] END)
+                           ELSE ARRAY['search_path=pg_catalog','lock_timeout=2s','statement_timeout=15s'] END)
            OR EXISTS (SELECT 1 FROM pg_catalog.pg_proc AS p
              CROSS JOIN LATERAL pg_catalog.aclexplode(coalesce(p.proacl,pg_catalog.acldefault('f',p.proowner))) AS a
              WHERE p.oid=f AND (a.grantee=0 OR a.privilege_type<>'EXECUTE' OR a.is_grantable
