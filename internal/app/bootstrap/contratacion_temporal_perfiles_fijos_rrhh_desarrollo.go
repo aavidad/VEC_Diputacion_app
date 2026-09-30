@@ -29,13 +29,16 @@ import (
 // ruta se deniega hasta una provisión aprobada por el operador (huella de la
 // asignación vigente, CAS bajo bloqueo).
 const (
-	clavePerfilFijoAltaCTDesarrollo         = "alta"
-	clavePerfilFijoCoberturaCTDesarrollo    = "cobertura"
-	clavePerfilFijoOrganizacionCTDesarrollo = "organizacion"
-	clavePerfilFijoAnalisisCTDesarrollo     = "analisis"
-	clavePerfilFijoAsignacionCTDesarrollo   = "asignacion"
-	clavePerfilFijoInformeCTDesarrollo      = "informe_juridico"
-	clavePerfilFijoSubsanacionCTDesarrollo  = "subsanacion"
+	clavePerfilFijoAltaCTDesarrollo          = "alta"
+	clavePerfilFijoCoberturaCTDesarrollo     = "cobertura"
+	clavePerfilFijoOrganizacionCTDesarrollo  = "organizacion"
+	clavePerfilFijoAnalisisCTDesarrollo      = "analisis"
+	clavePerfilFijoAsignacionCTDesarrollo    = "asignacion"
+	clavePerfilFijoInformeCTDesarrollo       = "informe_juridico"
+	clavePerfilFijoSubsanacionCTDesarrollo   = "subsanacion"
+	clavePerfilFijoEntregaCTDesarrollo       = "entrega_peticion"
+	clavePerfilFijoLectorEntregaCTDesarrollo = "lector_entrega_peticion"
+	clavePerfilFijoFirmaCTDesarrollo         = "firma_documento"
 	// Acto con el que este circuito publica las asignaciones de los perfiles
 	// fijos. Distinto del del perfil dinámico: una provisión solo reconoce como
 	// propia una asignación puesta por él.
@@ -389,6 +392,11 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaPerfilFijoParaCon
 		case rutaAnalisisContratacionTemporalDesarrollo(ruta):
 			fase, ok := s.opcionesCatalogo.faseOperacionVigente(operacionFaseAnalisisCT)
 			valida = ok && solicitudAutorizacionAnalisisContratacionTemporalDesarrolloValida(ruta, datos, fase)
+		case rutaFirmaDocumentoCTDesarrollo(ruta):
+			valida = solicitudAutorizacionConsultaFirmasDocumentoCTDesarrolloValida(ctx, datos) ||
+				ruta == httpinterno.RutaFirmaDocumento && solicitudAutorizacionFirmaDocumentoCTDesarrolloValida(ctx, datos)
+		case rutaReincorporacionTitularDesarrollo(ruta):
+			valida = solicitudAutorizacionReincorporacionTitularValida(ruta, datos)
 		case rutaAsignacionContratacionTemporalDesarrollo(ruta):
 			fase, ok := s.opcionesCatalogo.faseOperacionVigente(operacionFaseAsignacionCT)
 			valida = ok && solicitudAutorizacionAsignacionContratacionTemporalDesarrolloValida(ruta, datos, fase)

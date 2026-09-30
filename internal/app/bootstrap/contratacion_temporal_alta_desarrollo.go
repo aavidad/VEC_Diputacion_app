@@ -327,6 +327,20 @@ func nuevasDependenciasAltaContratacionTemporalDesarrollo(
 	if err := componerPerfilesFijosAltaCoberturaCTDesarrollo(soporte, principal, ahora, origen); err != nil {
 		return vacias, err
 	}
+	firmaActiva, err := cfg.CTFirmaRegistroDesarrolloActivo()
+	if err != nil {
+		return vacias, err
+	}
+	if firmaActiva {
+		perfilFirma, err := nuevoPerfilFijoCTDesarrollo(principal, soporte.contexto, ahora, clavePerfilFijoFirmaCTDesarrollo,
+			[]string{httpinterno.RutaFirmaDocumento, httpinterno.RutaConsultaFirmaDocumento},
+			func(principalID, perfilRef string) (dominiovec.InstantaneaAutorizacion, error) {
+				return instantaneaPerfilFijoFirmaDocumentoCTDesarrollo(principalID, perfilRef, ahora)
+			})
+		if err != nil || soporte.registrarPerfilFijoCTDesarrollo(perfilFirma) != nil {
+			return vacias, errAltaContratacionTemporalDesarrolloNoDisponible
+		}
+	}
 	generador := seguridadvec.GeneradorReferenciasCriptograficas{}
 	autorizadorBase, err := aplicacionvec.NuevoServicioAutorizacionSolicitudLigadaV3(
 		soporte, soporte, soporte, soporte, reloj, generador,
