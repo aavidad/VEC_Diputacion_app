@@ -21,6 +21,7 @@ var (
 	ErrAccesoDenegado          = errors.New("administracion de perfiles: acceso denegado")
 	ErrConflictoEstado         = errors.New("administracion de perfiles: conflicto de estado")
 	ErrRecursoNoEncontrado     = errors.New("administracion de perfiles: recurso no encontrado")
+	errCuerpoExcesivo          = errors.New("administracion de perfiles: cuerpo excesivo")
 )
 
 // SesionConfiable procede exclusivamente de la frontera mTLS y de la sesión
@@ -42,12 +43,23 @@ type ResolvedorSesion interface {
 // AuditorFrontera conserva denegaciones previas a la identidad sin guardar
 // cabeceras, certificado ni cuerpo. Sin recibo de auditoría se responde 503.
 type AuditorFrontera interface {
-	RegistrarDenegacionADMIN(context.Context, string) error
+	RegistrarDenegacionADMIN(context.Context, DenegacionADMIN) error
+}
+
+type DenegacionADMIN struct {
+	Codigo          string
+	Accion          string
+	RecursoRef      string
+	ActorPersonaRef string
+	PerfilActivoRef string
+	CorrelacionRef  string
 }
 
 // FuenteLecturas debe aplicar V3, auditar cada lectura y denegación y devolver
 // solo datos de la persona solicitada. La consulta de propuesta recupera los
-// participantes durables para el cierre; el navegador nunca los proporciona.
+// participantes durables también tras cerrar para recuperar el mismo recibo;
+// el navegador nunca los proporciona. PuedeCerrar es solo una pista de UI:
+// la autoridad durable decide y audita cada cierre y cada replay.
 type FuenteLecturas interface {
 	Capacidades(context.Context, domain.ContextoActor) (Capacidades, error)
 	BuscarPersonas(context.Context, domain.ContextoActor, string, string) (PaginaPersonas, error)
@@ -107,10 +119,10 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r == nil || r.TLS == nil || len(r.TLS.VerifiedChains) == 0 ||
-		r.Host != h.host || r.Header.Get("Authorization") != "" || r.Header.Get("Cookie") != "" ||
-		r.Header.Get("Proxy-Authorization") != "" ||
-		r.Header.Get("X-Forwarded-Client-Cert") != "" || r.Header.Get("X-Client-Cert") != "" ||
-		r.Header.Get("X-SSL-Client-Cert") != "" || r.Header.Get("X-Remote-User") != "" {
+		r.Host != h.host || hayCabecera(r, "Authorization") || hayCabecera(r, "Cookie") ||
+		hayCabecera(r, "Proxy-Authorization") ||
+		hayCabecera(r, "X-Forwarded-Client-Cert") || hayCabecera(r, "X-Client-Cert") ||
+		hayCabecera(r, "X-SSL-Client-Cert") || hayCabecera(r, "X-Remote-User") {
 		h.denegar(w, r, http.StatusUnauthorized, "autenticacion_requerida")
 		return
 	}
@@ -122,9 +134,12 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.denegar(w, r, http.StatusMethodNotAllowed, "metodo_no_permitido")
 		return
 	}
-	if r.Method == http.MethodPost && (r.Header.Get("Origin") != h.origen ||
+	if r.Method == http.MethodPost && (len(r.Header.Values("Origin")) != 1 || r.Header.Get("Origin") != h.origen ||
+		len(r.Header.Values("Sec-Fetch-Site")) != 1 ||
 		r.Header.Get("Sec-Fetch-Site") != "same-origin" ||
+		len(r.Header.Values("Sec-Fetch-Mode")) != 1 ||
 		(r.Header.Get("Sec-Fetch-Mode") != "cors" && r.Header.Get("Sec-Fetch-Mode") != "same-origin") ||
+		len(r.Header.Values("Sec-Fetch-Dest")) != 1 ||
 		r.Header.Get("Sec-Fetch-Dest") != "empty") {
 		h.denegar(w, r, http.StatusForbidden, "acceso_denegado")
 		return
@@ -149,7 +164,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.Method == http.MethodGet {
-		h.get(w, r, sesion.Actor)
+		h.get(w, r, sesion)
 		return
 	}
 	h.post(w, r, sesion)
@@ -158,12 +173,16 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) origenValido(r *http.Request) bool {
 	return len(r.Header.Values("Origin")) <= 1 &&
 		(r.Header.Get("Origin") == "" || r.Header.Get("Origin") == h.origen) &&
+		len(r.Header.Values("Sec-Fetch-Site")) <= 1 &&
 		(r.Header.Get("Sec-Fetch-Site") == "" || r.Header.Get("Sec-Fetch-Site") == "same-origin")
 }
 
-func (h *Handler) get(w http.ResponseWriter, r *http.Request, actor domain.ContextoActor) {
+func hayCabecera(r *http.Request, nombre string) bool { return len(r.Header.Values(nombre)) != 0 }
+
+func (h *Handler) get(w http.ResponseWriter, r *http.Request, s SesionConfiable) {
+	actor := s.Actor
 	if r.Body != nil && r.ContentLength > 0 {
-		fallo(w, http.StatusBadRequest, "solicitud_invalida")
+		h.denegarActor(w, r, s, http.StatusBadRequest, "solicitud_invalida", "consultar", "")
 		return
 	}
 	p := r.URL.Path
@@ -182,14 +201,14 @@ func (h *Handler) get(w http.ResponseWriter, r *http.Request, actor domain.Conte
 		q := r.URL.Query()
 		if len(q) > 2 || (len(q) == 2 && q["cursor"] == nil) || len(q["q"]) != 1 || len(q["q"][0]) < 2 || len(q["q"][0]) > 80 ||
 			len(q["cursor"]) > 1 || len(q["cursor"]) == 1 && len(q["cursor"][0]) > 256 {
-			fallo(w, http.StatusBadRequest, "solicitud_invalida")
+			h.denegarActor(w, r, s, http.StatusBadRequest, "solicitud_invalida", "buscar_personas", "")
 			return
 		}
 		result, err = h.lecturas.BuscarPersonas(ctx, actor, q.Get("q"), q.Get("cursor"))
 	case strings.HasPrefix(p, PrefijoV1+"/personas/") && r.URL.RawQuery == "":
 		ref := strings.TrimPrefix(p, PrefijoV1+"/personas/")
 		if !refOpaca(ref, "per_") {
-			fallo(w, http.StatusBadRequest, "solicitud_invalida")
+			h.denegarActor(w, r, s, http.StatusBadRequest, "solicitud_invalida", "consultar_persona", "")
 			return
 		}
 		result, err = h.lecturas.ConsultarPersona(ctx, actor, ref)
@@ -198,7 +217,7 @@ func (h *Handler) get(w http.ResponseWriter, r *http.Request, actor domain.Conte
 	case strings.HasPrefix(p, PrefijoV1+"/recibos/") && r.URL.RawQuery == "":
 		ref := strings.TrimPrefix(p, PrefijoV1+"/recibos/")
 		if !domain.ReferenciaAdministracionPerfilesValida(ref, "recibo_admin:") {
-			fallo(w, http.StatusBadRequest, "solicitud_invalida")
+			h.denegarActor(w, r, s, http.StatusBadRequest, "solicitud_invalida", "consultar_recibo", "")
 			return
 		}
 		var recibo domain.ReciboAdministracionPerfiles
@@ -210,7 +229,7 @@ func (h *Handler) get(w http.ResponseWriter, r *http.Request, actor domain.Conte
 			Recibo Recibo `json:"recibo"`
 		}{reciboDTO(recibo)}
 	default:
-		fallo(w, http.StatusNotFound, "recurso_no_encontrado")
+		h.denegarActor(w, r, s, http.StatusNotFound, "recurso_no_encontrado", "consultar", "")
 		return
 	}
 	if err != nil {
@@ -223,18 +242,32 @@ func (h *Handler) get(w http.ResponseWriter, r *http.Request, actor domain.Conte
 func (h *Handler) post(w http.ResponseWriter, r *http.Request, s SesionConfiable) {
 	media, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
 	if err != nil || media != "application/json" {
-		fallo(w, http.StatusBadRequest, "solicitud_invalida")
+		h.denegarActor(w, r, s, http.StatusBadRequest, "solicitud_invalida", "escribir", "")
 		return
 	}
 	p := r.URL.Path
 	if r.URL.RawQuery != "" {
-		fallo(w, http.StatusBadRequest, "solicitud_invalida")
+		h.denegarActor(w, r, s, http.StatusBadRequest, "solicitud_invalida", "escribir", "")
 		return
 	}
 	switch {
 	case p == PrefijoV1+"/actos-ordinarios" || p == PrefijoV1+"/propuestas":
 		var dto SolicitudActo
-		if !decodificar(w, r, &dto) {
+		if err := decodificar(w, r, &dto); err != nil {
+			estado := http.StatusBadRequest
+			if errors.Is(err, errCuerpoExcesivo) {
+				estado = http.StatusRequestEntityTooLarge
+			}
+			h.denegarActor(w, r, s, estado, "solicitud_invalida", "escribir", "")
+			return
+		}
+		prefijoOperacion := "acto_admin:"
+		accion := "aplicar_ordinario"
+		if p == PrefijoV1+"/propuestas" {
+			prefijoOperacion, accion = "propuesta_admin:", "proponer"
+		}
+		if !domain.ReferenciaAdministracionPerfilesValida(dto.OperacionRef, prefijoOperacion) {
+			h.denegarActor(w, r, s, http.StatusBadRequest, "solicitud_invalida", accion, "")
 			return
 		}
 		clase, err := h.catalogo.ResolverRolAdministrable(r.Context(), dto.RolVersionRef)
@@ -248,12 +281,12 @@ func (h *Handler) post(w http.ResponseWriter, r *http.Request, s SesionConfiable
 			RolVersionRef: dto.RolVersionRef, Objetivo: dto.Objetivo.dominio(),
 			Motivo: dto.Motivo.dominio(), CorrelacionRef: s.CorrelacionRef}
 		if solicitud.Validar() != nil {
-			fallo(w, http.StatusBadRequest, "solicitud_invalida")
+			h.denegarActor(w, r, s, http.StatusBadRequest, "solicitud_invalida", accion, "")
 			return
 		}
 		if p == PrefijoV1+"/actos-ordinarios" {
 			if clase.Clase != domain.ClaseControlPerfilOrdinario {
-				fallo(w, http.StatusBadRequest, "solicitud_invalida")
+				h.denegarActor(w, r, s, http.StatusBadRequest, "solicitud_invalida", accion, "")
 				return
 			}
 			recibo, err := h.actos.AplicarOrdinario(r.Context(), solicitud)
@@ -271,7 +304,7 @@ func (h *Handler) post(w http.ResponseWriter, r *http.Request, s SesionConfiable
 			return
 		}
 		if !clase.Clase.RequiereDobleControl() {
-			fallo(w, http.StatusBadRequest, "solicitud_invalida")
+			h.denegarActor(w, r, s, http.StatusBadRequest, "solicitud_invalida", accion, "")
 			return
 		}
 		propuesta, err := h.actos.ProponerSensible(r.Context(), solicitud)
@@ -294,11 +327,16 @@ func (h *Handler) post(w http.ResponseWriter, r *http.Request, s SesionConfiable
 	case strings.HasPrefix(p, PrefijoV1+"/propuestas/") && strings.HasSuffix(p, "/cierre"):
 		ref := strings.TrimSuffix(strings.TrimPrefix(p, PrefijoV1+"/propuestas/"), "/cierre")
 		if !domain.ReferenciaAdministracionPerfilesValida(ref, "propuesta_admin:") {
-			fallo(w, http.StatusBadRequest, "solicitud_invalida")
+			h.denegarActor(w, r, s, http.StatusBadRequest, "solicitud_invalida", "cerrar_propuesta", "")
 			return
 		}
 		var dto SolicitudCierre
-		if !decodificar(w, r, &dto) {
+		if err := decodificar(w, r, &dto); err != nil {
+			estado := http.StatusBadRequest
+			if errors.Is(err, errCuerpoExcesivo) {
+				estado = http.StatusRequestEntityTooLarge
+			}
+			h.denegarActor(w, r, s, estado, "solicitud_invalida", "cerrar_propuesta", ref)
 			return
 		}
 		propuesta, err := h.lecturas.ConsultarPropuesta(r.Context(), s.Actor, ref)
@@ -306,12 +344,8 @@ func (h *Handler) post(w http.ResponseWriter, r *http.Request, s SesionConfiable
 			falloError(w, err)
 			return
 		}
-		if !propuesta.PuedeCerrar {
-			fallo(w, http.StatusForbidden, "acceso_denegado")
-			return
-		}
 		if propuesta.PropuestaRef != ref || propuesta.HuellaSHA256 != dto.PropuestaHuellaSHA256 {
-			fallo(w, http.StatusConflict, "conflicto_estado")
+			h.denegarActor(w, r, s, http.StatusConflict, "conflicto_estado", "cerrar_propuesta", ref)
 			return
 		}
 		solicitud := domain.SolicitudCierrePropuestaAdministracionPerfiles{
@@ -321,7 +355,7 @@ func (h *Handler) post(w http.ResponseWriter, r *http.Request, s SesionConfiable
 			Decision: domain.DecisionPropuestaAdministracionPerfiles(dto.Decision), Motivo: dto.Motivo.dominio(),
 			CorrelacionRef: s.CorrelacionRef}
 		if solicitud.Validar() != nil {
-			fallo(w, http.StatusBadRequest, "solicitud_invalida")
+			h.denegarActor(w, r, s, http.StatusBadRequest, "solicitud_invalida", "cerrar_propuesta", ref)
 			return
 		}
 		cierre, err := h.actos.CerrarPropuestaSensible(r.Context(), solicitud)
@@ -351,7 +385,7 @@ func (h *Handler) post(w http.ResponseWriter, r *http.Request, s SesionConfiable
 			Cierre any `json:"cierre"`
 		}{cierreDTO})
 	default:
-		fallo(w, http.StatusNotFound, "recurso_no_encontrado")
+		h.denegarActor(w, r, s, http.StatusNotFound, "recurso_no_encontrado", "escribir", "")
 	}
 }
 
@@ -373,23 +407,28 @@ func refOpaca(v, prefix string) bool {
 	return true
 }
 
-func decodificar(w http.ResponseWriter, r *http.Request, destino any) bool {
+func decodificar(w http.ResponseWriter, r *http.Request, destino any) error {
 	if r.ContentLength > 16*1024 {
-		fallo(w, http.StatusRequestEntityTooLarge, "solicitud_invalida")
-		return false
+		return errCuerpoExcesivo
 	}
 	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, 16*1024))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(destino); err != nil {
-		fallo(w, http.StatusBadRequest, "solicitud_invalida")
-		return false
+		var exceso *http.MaxBytesError
+		if errors.As(err, &exceso) {
+			return errCuerpoExcesivo
+		}
+		return err
 	}
 	var sobrante any
 	if err := dec.Decode(&sobrante); err != io.EOF {
-		fallo(w, http.StatusBadRequest, "solicitud_invalida")
-		return false
+		var exceso *http.MaxBytesError
+		if errors.As(err, &exceso) {
+			return errCuerpoExcesivo
+		}
+		return ErrConfiguracionIncompleta
 	}
-	return true
+	return nil
 }
 
 func falloError(w http.ResponseWriter, err error) {
@@ -408,7 +447,19 @@ func falloError(w http.ResponseWriter, err error) {
 }
 
 func (h *Handler) denegar(w http.ResponseWriter, r *http.Request, estado int, codigo string) {
-	if r == nil || h.auditor.RegistrarDenegacionADMIN(r.Context(), codigo) != nil {
+	if r == nil || h.auditor.RegistrarDenegacionADMIN(r.Context(), DenegacionADMIN{Codigo: codigo}) != nil {
+		fallo(w, http.StatusServiceUnavailable, "servicio_no_disponible")
+		return
+	}
+	fallo(w, estado, codigo)
+}
+
+func (h *Handler) denegarActor(w http.ResponseWriter, r *http.Request, s SesionConfiable,
+	estado int, codigo, accion, recurso string) {
+	registro := DenegacionADMIN{Codigo: codigo, Accion: accion, RecursoRef: recurso,
+		ActorPersonaRef: s.Actor.PersonaRef, PerfilActivoRef: s.Actor.PerfilActivoRef,
+		CorrelacionRef: s.CorrelacionRef}
+	if h.auditor.RegistrarDenegacionADMIN(r.Context(), registro) != nil {
 		fallo(w, http.StatusServiceUnavailable, "servicio_no_disponible")
 		return
 	}

@@ -9,19 +9,30 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"vec-diputacion-granada/internal/vec/domain"
 	"vec-diputacion-granada/internal/vec/ports"
 )
 
-type sesionPrueba struct{ llamadas int }
+type sesionPrueba struct {
+	llamadas  int
+	resultado SesionConfiable
+	err       error
+}
 
 func (s *sesionPrueba) ResolverSesionADMIN(context.Context, *http.Request) (SesionConfiable, error) {
 	s.llamadas++
-	return SesionConfiable{}, ErrAccesoDenegado
+	if s.err != nil {
+		return SesionConfiable{}, s.err
+	}
+	return s.resultado, nil
 }
 
-type lecturasPrueba struct{ llamadas int }
+type lecturasPrueba struct {
+	llamadas  int
+	propuesta Propuesta
+}
 
 func (l *lecturasPrueba) Capacidades(context.Context, domain.ContextoActor) (Capacidades, error) {
 	l.llamadas++
@@ -45,7 +56,7 @@ func (l *lecturasPrueba) ListarPropuestas(context.Context, domain.ContextoActor)
 }
 func (l *lecturasPrueba) ConsultarPropuesta(context.Context, domain.ContextoActor, string) (Propuesta, error) {
 	l.llamadas++
-	return Propuesta{}, nil
+	return l.propuesta, nil
 }
 func (l *lecturasPrueba) ConsultarRecibo(context.Context, domain.ContextoActor, string) (domain.ReciboAdministracionPerfiles, error) {
 	l.llamadas++
@@ -59,15 +70,20 @@ func (c *catalogoPrueba) ResolverRolAdministrable(context.Context, string) (port
 	return ports.RolAdministrable{}, nil
 }
 
-type actosPrueba struct{ llamadas int }
-
-type auditorPrueba struct {
+type actosPrueba struct {
 	llamadas int
 	err      error
 }
 
-func (a *auditorPrueba) RegistrarDenegacionADMIN(context.Context, string) error {
+type auditorPrueba struct {
+	llamadas int
+	err      error
+	ultima   DenegacionADMIN
+}
+
+func (a *auditorPrueba) RegistrarDenegacionADMIN(_ context.Context, d DenegacionADMIN) error {
 	a.llamadas++
+	a.ultima = d
 	return a.err
 }
 
@@ -81,7 +97,7 @@ func (a *actosPrueba) ProponerSensible(context.Context, domain.SolicitudActoAdmi
 }
 func (a *actosPrueba) CerrarPropuestaSensible(context.Context, domain.SolicitudCierrePropuestaAdministracionPerfiles) (ports.CierrePropuestaAdministracionPerfiles, error) {
 	a.llamadas++
-	return ports.CierrePropuestaAdministracionPerfiles{}, nil
+	return ports.CierrePropuestaAdministracionPerfiles{}, a.err
 }
 
 func TestFronteraADMINRechazaAntesDeResolverSesion(t *testing.T) {
@@ -167,7 +183,7 @@ func TestEscrituraRechazaAutoridadYTextoFueraDelContrato(t *testing.T) {
 		r := httptest.NewRequest(http.MethodPost, "https://admin.example.test"+PrefijoV1+"/actos-ordinarios", strings.NewReader(cuerpo))
 		w := httptest.NewRecorder()
 		var dto SolicitudActo
-		if decodificar(w, r, &dto) || w.Code != http.StatusBadRequest {
+		if decodificar(w, r, &dto) == nil {
 			t.Fatalf("contenido fuera de contrato admitido: %s", cuerpo)
 		}
 	}
@@ -185,5 +201,120 @@ func TestDenegacionADMINFallaCerradoSinAuditoria(t *testing.T) {
 	h.ServeHTTP(w, r)
 	if w.Code != http.StatusServiceUnavailable || aud.llamadas != 1 {
 		t.Fatalf("estado=%d auditoria=%d", w.Code, aud.llamadas)
+	}
+}
+
+func sesionADMINPrueba(t *testing.T) SesionConfiable {
+	t.Helper()
+	ahora := time.Date(2026, 9, 30, 19, 0, 0, 0, time.UTC)
+	persona := "per_" + strings.Repeat("a", 22)
+	perfil := "prf_" + strings.Repeat("b", 22)
+	cuenta := domain.CuentaAutenticadaContextoActor{
+		CuentaRef: "cta_" + strings.Repeat("c", 22), Metodo: domain.AuthMethodCertificate,
+		Garantia: domain.AuthAssuranceHigh,
+	}
+	i := domain.InstantaneaContextoActor{
+		VinculoRef: "vca_" + strings.Repeat("d", 22), VinculoVersion: 1,
+		CuentaRef: cuenta.CuentaRef, CuentaVersion: 1, PersonaRef: persona, PersonaVersion: 1,
+		PerfilActivoRef: perfil, PerfilVersion: 1, Estado: domain.EstadoVinculoContextoActorActivo,
+		VigenteDesde: ahora.Add(-time.Hour), VigenteHasta: ahora.Add(time.Hour),
+	}
+	actor, err := domain.NuevoContextoActor(cuenta, i, ahora)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rol := domain.VersionRol{
+		RolID: "tecnico_bolsa", Version: 1, Nombre: "Tecnico de bolsa",
+		Estado:       domain.EstadoVersionRolPublicada,
+		Concesiones:  []domain.ConcesionRol{{Accion: "bolsa.expediente.leer", ModuloID: "bolsa", TipoRecurso: "expediente", Finalidades: []string{"gestion_bolsa"}, GarantiaMinima: domain.AuthAssuranceSubstantial}},
+		PublicadaPor: "responsable-seguridad", PublicadaEn: ahora.Add(-24 * time.Hour),
+	}
+	huella, err := domain.HuellaCatalogoPoliticasAutorizacion(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot := domain.InstantaneaAutorizacion{
+		AsignacionPerfil: domain.AsignacionPerfil{
+			AsignacionID: "asig-admin", Version: 1, PerfilActivoRef: perfil, PrincipalID: persona,
+			VersionRolRef: rol.Referencia(), Estado: domain.EstadoAsignacionPerfilActiva,
+			Ambitos:      []domain.AmbitoPerfil{{Clave: "unidad", Valores: []string{"seleccion"}}},
+			VigenteDesde: ahora.Add(-time.Hour), VigenteHasta: ahora.Add(time.Hour),
+			EmitidaPor: "responsable-seguridad", EmitidaEn: ahora.Add(-2 * time.Hour),
+		},
+		VersionRol: rol,
+		ControlVigenciaVersionRol: domain.ControlVigenciaVersionRol{
+			VersionRolRef: rol.Referencia(), Revision: 1,
+			Estado:         domain.EstadoControlVigenciaVersionRolHabilitada,
+			ActualizadoPor: rol.PublicadaPor, ActualizadoEn: rol.PublicadaEn,
+		},
+		RevisionCatalogoPoliticas: 1, CatalogoPoliticasHuellaSHA256: huella,
+	}
+	if err := snapshot.Validar(); err != nil {
+		t.Fatal(err)
+	}
+	return SesionConfiable{Actor: actor, InstantaneaAutorizacion: snapshot,
+		CorrelacionRef: "correlacion_" + strings.Repeat("e", 32)}
+}
+
+func peticionADMIN(metodo, ruta, cuerpo string) *http.Request {
+	r := httptest.NewRequest(metodo, "https://admin.example.test"+ruta, strings.NewReader(cuerpo))
+	r.TLS = &tls.ConnectionState{VerifiedChains: [][]*x509.Certificate{{{}}}}
+	if metodo == http.MethodPost {
+		r.Header.Set("Origin", "https://admin.example.test")
+		r.Header.Set("Sec-Fetch-Site", "same-origin")
+		r.Header.Set("Sec-Fetch-Mode", "cors")
+		r.Header.Set("Sec-Fetch-Dest", "empty")
+		r.Header.Set("Content-Type", "application/json")
+	}
+	return r
+}
+
+func TestPrefijoDeOperacionNoCruzaRutasADMIN(t *testing.T) {
+	s := &sesionPrueba{resultado: sesionADMINPrueba(t)}
+	l, c, a, aud := &lecturasPrueba{}, &catalogoPrueba{}, &actosPrueba{}, &auditorPrueba{}
+	h, err := NuevoHandler("https://admin.example.test", s, l, c, a, aud)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, caso := range []struct{ ruta, prefijo string }{
+		{PrefijoV1 + "/actos-ordinarios", "propuesta_admin:"},
+		{PrefijoV1 + "/propuestas", "acto_admin:"},
+	} {
+		cuerpo := `{"operacion_ref":"` + caso.prefijo + strings.Repeat("a", 32) + `"}`
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, peticionADMIN(http.MethodPost, caso.ruta, cuerpo))
+		if w.Code != http.StatusBadRequest || c.llamadas != 0 || a.llamadas != 0 || aud.llamadas == 0 {
+			t.Fatalf("ruta=%s estado=%d catalogo=%d actos=%d auditoria=%d", caso.ruta, w.Code, c.llamadas, a.llamadas, aud.llamadas)
+		}
+		if aud.ultima.ActorPersonaRef != s.resultado.Actor.PersonaRef ||
+			aud.ultima.PerfilActivoRef != s.resultado.Actor.PerfilActivoRef ||
+			aud.ultima.CorrelacionRef != s.resultado.CorrelacionRef {
+			t.Fatal("denegacion sin contexto acreditado")
+		}
+	}
+	aud.err = errors.New("auditoria indisponible")
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, peticionADMIN(http.MethodPost, PrefijoV1+"/actos-ordinarios", `{"operacion_ref":"propuesta_admin:`+strings.Repeat("a", 32)+`"}`))
+	if w.Code != http.StatusServiceUnavailable || c.llamadas != 0 || a.llamadas != 0 {
+		t.Fatalf("auditoria caída: estado=%d catalogo=%d actos=%d", w.Code, c.llamadas, a.llamadas)
+	}
+}
+
+func TestCierreADMINNoUsaPuedeCerrarParaBloquearReplay(t *testing.T) {
+	s := &sesionPrueba{resultado: sesionADMINPrueba(t)}
+	ref := "propuesta_admin:" + strings.Repeat("a", 32)
+	huella := strings.Repeat("b", 64)
+	l := &lecturasPrueba{propuesta: Propuesta{PropuestaRef: ref, HuellaSHA256: huella,
+		ProponentePersonaRef: "per_" + strings.Repeat("f", 22), ObjetivoPersonaRef: "per_" + strings.Repeat("g", 22), PuedeCerrar: false}}
+	a := &actosPrueba{err: ErrConflictoEstado}
+	h, err := NuevoHandler("https://admin.example.test", s, l, &catalogoPrueba{}, a, &auditorPrueba{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cuerpo := `{"operacion_ref":"cierre_admin:` + strings.Repeat("c", 32) + `","propuesta_huella_sha256":"` + huella + `","decision":"aprobada","motivo":{"catalogo_id":"motivos_admin","catalogo_version":1,"catalogo_huella_sha256":"` + strings.Repeat("d", 64) + `","entrada_clave":"revision"}}`
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, peticionADMIN(http.MethodPost, PrefijoV1+"/propuestas/"+ref+"/cierre", cuerpo))
+	if w.Code != http.StatusConflict || l.llamadas != 1 || a.llamadas != 1 {
+		t.Fatalf("estado=%d lectura=%d cierre_durable=%d cuerpo=%s", w.Code, l.llamadas, a.llamadas, w.Body.String())
 	}
 }
