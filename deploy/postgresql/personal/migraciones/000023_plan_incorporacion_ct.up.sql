@@ -476,6 +476,15 @@ BEGIN
   IF NOT FOUND THEN RAISE EXCEPTION 'Personal23: plan no encontrado' USING ERRCODE='P7404'; END IF;
  END IF;
  IF op<>'seleccionar' THEN est:=vec_personal.estado_plan_ct_interno(p); END IF;
+ IF op='ejecutar' AND est->>'estado' IN ('preparado','relacion_registrada') THEN
+  seleccion:=vec_personal.seleccion_plan_ct_interna(org,jsonb_build_object(
+   'plaza_ref',p.datos->>'plaza_ref','puesto_ref',p.datos->>'puesto_ref','desde',p.datos->>'desde'));
+  FOREACH k IN ARRAY ARRAY['version_plantilla_ref','version_rpt_ref','revision_plaza','revision_puesto',
+      'fuente_organizacion_ref','fuente_organizacion_huella_sha256','unidad_ref'] LOOP
+   IF seleccion->>k IS DISTINCT FROM p.datos->>k THEN
+    RAISE EXCEPTION 'Personal23: estructura cambió antes de ejecutar' USING ERRCODE='42501'; END IF;
+  END LOOP;
+ END IF;
  IF op='confirmar' AND est->>'estado'<>'ejecutado' THEN
   IF est->>'estado' IS DISTINCT FROM 'ocupacion_registrada' THEN
    RAISE EXCEPTION 'Personal23: efectos pendientes' USING ERRCODE='55000'; END IF;
