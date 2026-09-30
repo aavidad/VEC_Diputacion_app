@@ -63,7 +63,7 @@ func ejecutar(ctx context.Context, args []string, cfg config.Config, salida, err
 		return rechazar(errores, "provision_plan_rechazado", 2)
 	}
 	dsn := ""
-	if fase == "contexto" || aprobar != "" {
+	if fase == "contexto" || fase == "bolsa" || aprobar != "" {
 		b, e := bootstrap.LeerMaterialProvisionExterna(dsnArchivo, 16<<10)
 		if e != nil {
 			return rechazar(errores, "provision_conexion_rechazada", 2)

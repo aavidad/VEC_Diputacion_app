@@ -81,7 +81,7 @@ func componenteExternoValido(c ComponenteSnapshotContextoExterno, prefijo string
 	desde, e1 := time.Parse("2006-01-02T15:04:05.000000Z", c.VigenteDesde)
 	hasta, e2 := time.Parse("2006-01-02T15:04:05.000000Z", c.VigenteHasta)
 	return referenciaExterna(c.Referencia, prefijo) && c.Version > 0 && c.ProcedenciaVersion > 0 &&
-		referenciaProvisionExterna.MatchString(c.ProcedenciaRef) && huellaPreimagenMiBolsaPortalExterno.MatchString(c.ProcedenciaHuellaSHA256) &&
+		referenciaExterna(c.ProcedenciaRef, "prc_") && huellaPreimagenMiBolsaPortalExterno.MatchString(c.ProcedenciaHuellaSHA256) &&
 		c.ProcedenciaAutoridad == "autoridad_maestra_acreditada" && (c.Estado == "activo" || c.Estado == "revocado") &&
 		e1 == nil && e2 == nil && desde.Format("2006-01-02T15:04:05.000000Z") == c.VigenteDesde && hasta.Format("2006-01-02T15:04:05.000000Z") == c.VigenteHasta && hasta.After(desde)
 }
@@ -100,6 +100,8 @@ type PreimagenProvisionCandidatoExterno struct {
 	VersionContexto    int64  `json:"version_contexto"`
 	HuellaContexto     string `json:"huella_contexto"`
 	SecuenciaMotivos   int64  `json:"secuencia_motivos"`
+	VersionBolsa       int64  `json:"version_bolsa,omitempty"`
+	HuellaBolsa        string `json:"huella_bolsa,omitempty"`
 }
 
 func (p PreimagenProvisionCandidatoExterno) validar() bool {
@@ -111,7 +113,7 @@ func (p PreimagenProvisionCandidatoExterno) validar() bool {
 			return false
 		}
 	}
-	return p.SecuenciaMotivos >= 0 && p.SecuenciaMotivos < 1<<62
+	return p.SecuenciaMotivos >= 0 && p.SecuenciaMotivos < 1<<62 && preimagenParticipacionBolsaValida(p.VersionBolsa, p.HuellaBolsa)
 }
 
 type FuenteProvisionCandidatoExterno struct {
@@ -119,6 +121,7 @@ type FuenteProvisionCandidatoExterno struct {
 	Snapshot  SnapshotContextoExterno             `json:"snapshot"`
 	Preimagen PreimagenProvisionCandidatoExterno  `json:"preimagen"`
 	Identidad *IdentidadProvisionCandidatoExterno `json:"identidad,omitempty"`
+	Bolsa     *ContextoParticipacionBolsaExterna  `json:"bolsa,omitempty"`
 }
 
 func (FuenteProvisionCandidatoExterno) String() string   { return "[FUENTE EXTERNA PRIVADA]" }
@@ -152,7 +155,7 @@ func CargarFuenteProvisionCandidatoExterno(ruta string) (FuenteProvisionCandidat
 	d.DisallowUnknownFields()
 	var sobra any
 	if validarClavesJSONUnicas(b) != nil || d.Decode(&f) != nil || !errors.Is(d.Decode(&sobra), io.EOF) ||
-		f.Version != 1 || !f.Snapshot.validar() || f.Snapshot.Poblacion != "candidato" || !f.Preimagen.validar() {
+		f.Version != 1 || !f.Snapshot.validar() || !f.Preimagen.validar() {
 		return FuenteProvisionCandidatoExterno{}, ErrProvisionCandidatoExterno
 	}
 	return f, nil
@@ -178,6 +181,8 @@ type PlanProvisionCandidatoExterno struct {
 	motivos        []core.ReferenciaEntradaCatalogo
 	desde          time.Time
 	identidad      *IdentidadProvisionCandidatoExterno
+	bolsa          *ContextoParticipacionBolsaExterna
+	huellaBolsa    string
 }
 
 func (PlanProvisionCandidatoExterno) String() string                              { return "[PLAN EXTERNO PRIVADO]" }
@@ -193,11 +198,28 @@ func procesoInternoProvisionExterna(cfg config.Config) bool {
 // Contexto se completa después con su hash canónico calculado por CTX15.
 func PrepararProvisionCandidatoExterno(cfg config.Config, f FuenteProvisionCandidatoExterno, fase string, ahora time.Time) (PlanProvisionCandidatoExterno, error) {
 	var p PlanProvisionCandidatoExterno
-	if !procesoInternoProvisionExterna(cfg) || f.Version != 1 || !f.Snapshot.validar() || f.Snapshot.Poblacion != "candidato" ||
-		!f.Preimagen.validar() || f.Snapshot.Estado != "activo" || (fase != "contexto" && fase != "autorizacion" && fase != "motivos" && fase != "identidad") {
+	if !procesoInternoProvisionExterna(cfg) || f.Version != 1 || !f.Snapshot.validar() ||
+		(f.Snapshot.Poblacion != "candidato" && !(fase == "identidad" && f.Snapshot.Poblacion == "usuarios")) ||
+		!f.Preimagen.validar() || f.Snapshot.Estado != "activo" || (fase != "contexto" && fase != "autorizacion" && fase != "motivos" && fase != "identidad" && fase != "bolsa") {
 		return p, ErrProvisionCandidatoExterno
 	}
 	s := f.Snapshot
+	if s.Poblacion == "usuarios" {
+		if f.Identidad == nil || !f.Identidad.validaPara(s.Cuenta.Referencia) {
+			return p, ErrProvisionCandidatoExterno
+		}
+		var err error
+		p.snapshot, err = json.Marshal(s)
+		if err != nil {
+			return p, ErrProvisionCandidatoExterno
+		}
+		p.preimagen = f.Preimagen
+		copia := *f.Identidad
+		p.identidad = &copia
+		p.resumen = ResumenProvisionCandidatoExterno{Fase: fase, Estado: "preparado", PreimagenSHA256: huellaAusenciaIdentidadExterna(copia.CuentaRef)}
+		p.actualizarHuella()
+		return p, nil
+	}
 	identidad := &identidadCandidatoBolsaDesarrollo{cuentaRef: s.Cuenta.Referencia, personaRef: s.Persona.Referencia, perfilRef: s.Perfil.Referencia, candidatoRef: s.VinculoCandidato.CandidatoRef}
 	semilla, err := semillaMiBolsaPortalExterno(identidad, ahora, "areaPersonal.miBolsa.rolPortal")
 	if err != nil {
@@ -228,6 +250,13 @@ func PrepararProvisionCandidatoExterno(cfg config.Config, f FuenteProvisionCandi
 		p.identidad = &copia
 		p.resumen.PreimagenSHA256 = huellaAusenciaIdentidadExterna(copia.CuentaRef)
 	}
+	if fase == "bolsa" {
+		if f.Bolsa == nil || !f.Bolsa.validaPara(s) {
+			return PlanProvisionCandidatoExterno{}, ErrProvisionCandidatoExterno
+		}
+		copia := *f.Bolsa
+		p.bolsa = &copia
+	}
 	p.actualizarHuella()
 	return p, nil
 }
@@ -252,5 +281,7 @@ func (p *PlanProvisionCandidatoExterno) actualizarHuella() {
 		Motivos                  []core.ReferenciaEntradaCatalogo
 		Desde                    time.Time
 		Identidad                *IdentidadProvisionCandidatoExterno
-	}{"provision_candidato_externo_v1", p.resumen.Fase, p.preimagen, p.snapshot, p.huellaContexto, p.rol.RolDocumento, p.rol.ControlDocumento, p.asignacion.Documento, p.motivos, p.desde, p.identidad})
+		Bolsa                    *ContextoParticipacionBolsaExterna `json:"Bolsa,omitempty"`
+		HuellaBolsa              string                             `json:"HuellaBolsa,omitempty"`
+	}{"provision_candidato_externo_v1", p.resumen.Fase, p.preimagen, p.snapshot, p.huellaContexto, p.rol.RolDocumento, p.rol.ControlDocumento, p.asignacion.Documento, p.motivos, p.desde, p.identidad, p.bolsa, p.huellaBolsa})
 }

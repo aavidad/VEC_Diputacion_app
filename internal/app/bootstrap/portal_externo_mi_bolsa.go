@@ -210,10 +210,10 @@ func abrirBolsaMiBolsaPortalExterno(ctx context.Context, dsn string) (*pgxpool.P
 )
 SELECT (SELECT count(*)=11 AND count(DISTINCT proname)=11 AND bool_and(prosecdef)
  AND bool_and(proname=ANY(ARRAY[
- 'consultar_mi_bolsa_v1','consultar_mi_bolsa_portal_v1','consultar_historial_mi_bolsa_v1',
- 'manifestar_disposicion_oferta_v1','listar_ofertas_candidato_v1','solicitar_portal_candidato_v1',
- 'responder_llamamiento_portal_v1','preparar_respuesta_portal_v1','leer_portal_candidato_v1',
- 'confirmar_contacto_propio_v1','leer_contacto_candidato_v1'])) FROM funciones)
+ 'consultar_mi_bolsa_externo_v1','consultar_mi_bolsa_portal_externo_v1','consultar_historial_mi_bolsa_externo_v1',
+ 'manifestar_disposicion_oferta_externo_v1','listar_ofertas_candidato_externo_v1','solicitar_portal_candidato_externo_v1',
+ 'responder_llamamiento_portal_externo_v1','preparar_respuesta_portal_externo_v1','leer_portal_candidato_externo_v1',
+ 'confirmar_contacto_propio_externo_v1','leer_contacto_candidato_externo_v1'])) FROM funciones)
  AND NOT EXISTS (SELECT 1 FROM tablas t WHERE
    pg_catalog.has_table_privilege(session_user,t.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
    OR pg_catalog.has_any_column_privilege(session_user,t.oid,'SELECT,INSERT,UPDATE,REFERENCES'))
@@ -375,7 +375,7 @@ func nuevasRutasMiBolsaPortalExterno(d dependenciasMiBolsaPortalExterno) ([]vech
 	propio := d.autorizador
 	preparador := d.preparador
 	var err error
-	consulta, err := bolsapg.NuevaConsultaMiBolsaPostgreSQL(d.bolsa)
+	consulta, err := bolsapg.NuevaConsultaMiBolsaExternaPostgreSQL(d.bolsa)
 	if err != nil {
 		return nil, errMiBolsaNoDisponible
 	}
@@ -416,7 +416,7 @@ func nuevasRutasMiBolsaPortalExterno(d dependenciasMiBolsaPortalExterno) ([]vech
 	if d.reglas == nil {
 		return rutas, nil
 	}
-	registro, err := bolsapg.NuevoRegistroPortalCandidatoPostgreSQL(d.bolsa)
+	registro, err := bolsapg.NuevoRegistroPortalCandidatoExternoPostgreSQL(d.bolsa)
 	if err != nil {
 		return nil, errMiBolsaNoDisponible
 	}
@@ -435,7 +435,7 @@ func nuevasRutasMiBolsaPortalExterno(d dependenciasMiBolsaPortalExterno) ([]vech
 		}
 		rutas = append(rutas, vechttp.RutaExacta{Ruta: ruta, Manejador: h})
 	}
-	ofertas, err := bolsapg.NuevoRegistroDisposicionOfertaPostgreSQL(d.bolsa)
+	ofertas, err := bolsapg.NuevoRegistroDisposicionOfertaExternoPostgreSQL(d.bolsa)
 	if err != nil {
 		return nil, errMiBolsaNoDisponible
 	}
@@ -448,7 +448,7 @@ func nuevasRutasMiBolsaPortalExterno(d dependenciasMiBolsaPortalExterno) ([]vech
 		return nil, errMiBolsaNoDisponible
 	}
 	rutas = append(rutas, vechttp.RutaExacta{Ruta: bolsahttp.RutaMiBolsaDisposiciones, Manejador: disposicion})
-	contactos, err := bolsapg.NuevoRegistroConfirmacionContactoPostgreSQL(d.bolsa)
+	contactos, err := bolsapg.NuevoRegistroConfirmacionContactoExternoPostgreSQL(d.bolsa)
 	if err != nil {
 		return nil, errMiBolsaNoDisponible
 	}
