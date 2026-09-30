@@ -35,7 +35,7 @@ func (*CredencialesGobiernoCategoriaRPT) UnmarshalJSON([]byte) error {
 
 type OrdenProponerGobiernoCategoriaRPT struct {
 	Credenciales CredencialesGobiernoCategoriaRPT
-	Material     ports.MaterialPropuestaGobiernoCategoriaRPT
+	Borrador     ports.BorradorPropuestaGobiernoCategoriaRPT
 }
 
 type OrdenAvanzarGobiernoCategoriaRPT struct {
@@ -78,30 +78,45 @@ func NuevoServicioGobiernoCategoriaRPT(
 
 func (s *ServicioGobiernoCategoriaRPT) Proponer(ctx context.Context, o OrdenProponerGobiernoCategoriaRPT) (ports.ResultadoGobiernoCategoriaRPT, error) {
 	var cero ports.ResultadoGobiernoCategoriaRPT
+	b := o.Borrador
+	b.Contenido = clonarContenidoGobiernoCategoriaRPT(b.Contenido)
 	if s == nil || ctx == nil || ctx.Err() != nil ||
-		!referenciaGobiernoCategoriaRPTValida(o.Material.PropuestaRef) ||
-		!referenciaGobiernoCategoriaRPTValida(o.Material.ReciboRef) ||
-		!huellaGobiernoCategoriaRPTValida(o.Material.HuellaSHA256) ||
-		o.Material.Contenido.ValidarParaEditor(o.Credenciales.Actor.Principal.ID) != nil ||
-		o.Material.Contenido.MotivoRef != o.Credenciales.Motivo.Referencia() {
+		!referenciaGobiernoCategoriaRPTValida(b.PropuestaRef) ||
+		!referenciaGobiernoCategoriaRPTValida(b.ReciboRef) ||
+		b.Contenido.MotivoRef != o.Credenciales.Motivo.Referencia() {
 		return cero, ErrOrdenGobiernoCategoriaRPTInvalida
 	}
-	p, err := s.preparador.PrepararPropuestaGobiernoCategoriaRPT(ctx, o.Material)
+	contenido, err := b.Contenido.PrepararBorradorParaEditor(o.Credenciales.Actor.Principal.ID)
 	if err != nil {
-		return cero, err
+		return cero, ErrOrdenGobiernoCategoriaRPTInvalida
 	}
-	solicitud, material, err := s.autorizar(ctx, o.Credenciales, p,
-		ports.AccionProponerGobiernoCategoriaRPT, o.Material.PropuestaRef,
-		o.Material.Contenido.CatalogoID, o.Material.Contenido.ModuloID, o.Material.HuellaSHA256)
+	b.Contenido = contenido
+	original := clonarContenidoGobiernoCategoriaRPT(contenido)
+	p, err := s.preparador.PrepararPropuestaGobiernoCategoriaRPT(ctx, b)
 	if err != nil {
-		return cero, err
+		return cero, errorDependenciaGobiernoCategoriaRPT(ctx, err)
 	}
-	r, err := s.gestor.ProponerGobiernoCategoriaRPT(ctx, ports.OrdenPropuestaGobiernoCategoriaRPT{Material: o.Material, Solicitud: solicitud, Autorizacion: material})
+	m := p.Material
+	comparacion := m.Contenido
+	comparacion.PreimagenesHuellaSHA256 = ""
+	if m.PropuestaRef != b.PropuestaRef || m.ReciboRef != b.ReciboRef ||
+		!reflect.DeepEqual(comparacion, original) ||
+		!huellaGobiernoCategoriaRPTValida(m.HuellaSHA256) ||
+		m.Contenido.ValidarParaEditor(o.Credenciales.Actor.Principal.ID) != nil {
+		return cero, ports.ErrGobiernoCategoriaRPTNoConfiable
+	}
+	solicitud, material, err := s.autorizar(ctx, o.Credenciales, p.Autorizable,
+		ports.AccionProponerGobiernoCategoriaRPT, m.PropuestaRef,
+		m.Contenido.CatalogoID, m.Contenido.ModuloID, m.HuellaSHA256)
 	if err != nil {
-		return cero, err
+		return cero, errorDependenciaGobiernoCategoriaRPT(ctx, err)
 	}
-	if !resultadoGobiernoCategoriaRPTValido(r, o.Material.PropuestaRef, o.Material.HuellaSHA256,
-		o.Material.ReciboRef, 1, domain.EstadoGobiernoCategoriaRPTPropuesta, material.ResumenCapacidad()) {
+	r, err := s.gestor.ProponerGobiernoCategoriaRPT(ctx, ports.OrdenPropuestaGobiernoCategoriaRPT{Material: m, Solicitud: solicitud, Autorizacion: material})
+	if err != nil {
+		return cero, errorDependenciaGobiernoCategoriaRPT(ctx, err)
+	}
+	if !resultadoGobiernoCategoriaRPTValido(r, m.PropuestaRef, m.HuellaSHA256,
+		m.ReciboRef, 1, domain.EstadoGobiernoCategoriaRPTPropuesta, material.ResumenCapacidad()) {
 		return cero, ports.ErrGobiernoCategoriaRPTNoConfiable
 	}
 	return r, nil
@@ -150,11 +165,11 @@ func (s *ServicioGobiernoCategoriaRPT) avanzar(ctx context.Context, o OrdenAvanz
 		return cero, ErrOrdenGobiernoCategoriaRPTInvalida
 	}
 	if err != nil {
-		return cero, err
+		return cero, errorDependenciaGobiernoCategoriaRPT(ctx, err)
 	}
 	solicitud, material, err := s.autorizar(ctx, o.Credenciales, p, accion, m.PropuestaRef, m.CatalogoID, m.ModuloID, m.HuellaSHA256)
 	if err != nil {
-		return cero, err
+		return cero, errorDependenciaGobiernoCategoriaRPT(ctx, err)
 	}
 	orden := ports.OrdenAvanceGobiernoCategoriaRPT{Material: m, Solicitud: solicitud, Autorizacion: material}
 	var r ports.ResultadoGobiernoCategoriaRPT
@@ -314,4 +329,49 @@ func nuloGobiernoCategoriaRPT(v any) bool {
 		return r.IsNil()
 	}
 	return false
+}
+
+func clonarContenidoGobiernoCategoriaRPT(c domain.ContenidoGobiernoCategoriaRPT) domain.ContenidoGobiernoCategoriaRPT {
+	if c.DocumentoCanonico != nil {
+		s := *c.DocumentoCanonico
+		c.DocumentoCanonico = &s
+	}
+	if c.DocumentoHuellaSHA256 != nil {
+		s := *c.DocumentoHuellaSHA256
+		c.DocumentoHuellaSHA256 = &s
+	}
+	if c.CategoriaID != nil {
+		s := *c.CategoriaID
+		c.CategoriaID = &s
+	}
+	if c.RevisionEsperada != nil {
+		r := *c.RevisionEsperada
+		c.RevisionEsperada = &r
+	}
+	if c.PreimagenesControl != nil {
+		m := make(map[string]domain.PreimagenControlGobiernoCategoriaRPT, len(c.PreimagenesControl))
+		for id, p := range c.PreimagenesControl {
+			m[id] = p
+		}
+		c.PreimagenesControl = m
+	}
+	return c
+}
+
+func errorDependenciaGobiernoCategoriaRPT(ctx context.Context, err error) error {
+	if ctx != nil && ctx.Err() != nil {
+		return ctx.Err()
+	}
+	for _, conocido := range []error{
+		ports.ErrGobiernoCategoriaRPTInvalido,
+		ports.ErrGobiernoCategoriaRPTDenegado,
+		ports.ErrGobiernoCategoriaRPTConflicto,
+		ports.ErrGobiernoCategoriaRPTNoDisponible,
+		ports.ErrGobiernoCategoriaRPTNoConfiable,
+	} {
+		if errors.Is(err, conocido) {
+			return conocido
+		}
+	}
+	return ports.ErrGobiernoCategoriaRPTNoDisponible
 }

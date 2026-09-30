@@ -50,6 +50,29 @@ type ContenidoGobiernoCategoriaRPT struct {
 	FuenteRef               string                                          `json:"fuente_ref"`
 }
 
+// PrepararBorradorParaEditor calcula únicamente la huella de los bytes del
+// documento, que no depende de JSONB. La huella de preimagenes y la de toda
+// la propuesta se completan en PostgreSQL antes de solicitar V3.
+func (c ContenidoGobiernoCategoriaRPT) PrepararBorradorParaEditor(editor string) (ContenidoGobiernoCategoriaRPT, error) {
+	if c.PreimagenesHuellaSHA256 != "" || c.DocumentoHuellaSHA256 != nil {
+		return ContenidoGobiernoCategoriaRPT{}, ErrGobiernoCategoriaRPTInvalido
+	}
+	if c.Accion == AccionGobiernoCategoriaRPTPublicar {
+		if c.DocumentoCanonico == nil {
+			return ContenidoGobiernoCategoriaRPT{}, ErrGobiernoCategoriaRPTInvalido
+		}
+		suma := sha256.Sum256([]byte(*c.DocumentoCanonico))
+		huella := hex.EncodeToString(suma[:])
+		c.DocumentoHuellaSHA256 = &huella
+	}
+	validacion := c
+	validacion.PreimagenesHuellaSHA256 = strings.Repeat("0", 64)
+	if validacion.ValidarParaEditor(editor) != nil {
+		return ContenidoGobiernoCategoriaRPT{}, ErrGobiernoCategoriaRPTInvalido
+	}
+	return c, nil
+}
+
 func (c ContenidoGobiernoCategoriaRPT) ValidarParaEditor(editor string) error {
 	if !identificadorGobiernoRPT.MatchString(c.CatalogoID) ||
 		!identificadorGobiernoRPT.MatchString(c.ModuloID) ||

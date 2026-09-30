@@ -32,6 +32,14 @@ type MaterialPropuestaGobiernoCategoriaRPT struct {
 	ReciboRef    string                               `json:"recibo_ref"`
 }
 
+// El borrador no lleva huellas de JSONB. El preparador las calcula en
+// PostgreSQL sin lectura privada y devuelve el material final exacto.
+type BorradorPropuestaGobiernoCategoriaRPT struct {
+	PropuestaRef string
+	Contenido    domain.ContenidoGobiernoCategoriaRPT
+	ReciboRef    string
+}
+
 type MaterialAvanceGobiernoCategoriaRPT struct {
 	PropuestaRef     string `json:"propuesta_ref"`
 	HuellaSHA256     string `json:"huella_sha256"`
@@ -50,6 +58,11 @@ type PreparacionGobiernoCategoriaRPT struct {
 	Audiencia       string
 	Recurso         domain.RecursoAutorizable
 	HuellaPropuesta string
+}
+
+type PreparacionPropuestaGobiernoCategoriaRPT struct {
+	Material    MaterialPropuestaGobiernoCategoriaRPT
+	Autorizable PreparacionGobiernoCategoriaRPT
 }
 
 type OrdenPropuestaGobiernoCategoriaRPT struct {
@@ -87,7 +100,7 @@ type ResultadoGobiernoCategoriaRPT struct {
 }
 
 type PreparadorGobiernoCategoriaRPT interface {
-	PrepararPropuestaGobiernoCategoriaRPT(context.Context, MaterialPropuestaGobiernoCategoriaRPT) (PreparacionGobiernoCategoriaRPT, error)
+	PrepararPropuestaGobiernoCategoriaRPT(context.Context, BorradorPropuestaGobiernoCategoriaRPT) (PreparacionPropuestaGobiernoCategoriaRPT, error)
 	PrepararAprobacionGobiernoCategoriaRPT(context.Context, MaterialAvanceGobiernoCategoriaRPT) (PreparacionGobiernoCategoriaRPT, error)
 	PrepararConfirmacionGobiernoCategoriaRPT(context.Context, MaterialAvanceGobiernoCategoriaRPT) (PreparacionGobiernoCategoriaRPT, error)
 }
