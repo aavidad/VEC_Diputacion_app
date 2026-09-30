@@ -23,4 +23,17 @@ BEGIN
  IF vec_contratacion_temporal.canon_plan_personal_ct155('{"z":9007199254740991,"a":{"z":"<&>","a":"fecha"}}'::jsonb) IS DISTINCT FROM '{"a":{"a":"fecha","z":"\u003c\u0026\u003e"},"z":9007199254740991}' THEN RAISE EXCEPTION 'CT155: codec Go/SQL divergente';END IF;
  BEGIN PERFORM vec_contratacion_temporal.canon_plan_personal_ct155('{"z":9007199254740992}'::jsonb);RAISE EXCEPTION 'CT155: entero fuera de rango admitido';EXCEPTION WHEN invalid_parameter_value THEN NULL;END;
 END $prueba$;
+-- CT155 positiva: plan y origen usan operaciones distintas aunque ambos
+-- eventos conservan el mismo plan_ref. Ejercita el helper y la restricción
+-- UNIQUE real del outbox, con rollback; no simula autorización Personal.
+DO $outbox$
+DECLARE e record; p text:='plan:prueba:ct155'; ahora timestamptz:=clock_timestamp();
+BEGIN
+ SELECT expediente_ref,version INTO STRICT e FROM vec_contratacion_temporal.expediente_version_integral ORDER BY expediente_ref,version LIMIT 1;
+ PERFORM vec_contratacion_temporal.evento_plan_personal_ct155('org:prueba:ct155',e.expediente_ref,e.version,p,'evento:prueba:ct155:plan','ct.plan-incorporacion-personal.v1','recibo:prueba:ct155:plan',ahora);
+ PERFORM vec_contratacion_temporal.evento_plan_personal_ct155('org:prueba:ct155',e.expediente_ref,e.version,p,'evento:prueba:ct155:origen','ct.incorporacion-personal.v1','recibo:prueba:ct155:origen',ahora);
+ IF (SELECT count(DISTINCT operacion_ref) FROM vec_contratacion_temporal.outbox_expediente_integral WHERE evento_ref IN ('evento:prueba:ct155:plan','evento:prueba:ct155:origen'))<>2
+ OR (SELECT count(*) FROM vec_contratacion_temporal.outbox_expediente_integral WHERE evento_ref IN ('evento:prueba:ct155:plan','evento:prueba:ct155:origen') AND convert_from(payload_canonico,'UTF8')::jsonb->>'plan_ref'=p)<>2
+ THEN RAISE EXCEPTION 'CT155: plan y origen colisionan o pierden vínculo'; END IF;
+END $outbox$;
 ROLLBACK;

@@ -110,7 +110,7 @@ BEGIN
  payload:=convert_to(jsonb_build_object('esquema','vec.ct.incorporacion-personal-b2.evento.v1','protocolo','personal_b2_v1','organizacion_ref',org,'expediente_ref',exp,'plan_ref',op,'recibo_ref',recibo,'registrada_en',instante)::text,'UTF8');
  huella:=encode(sha256(anterior::bytea||payload),'hex');
  INSERT INTO vec_contratacion_temporal.outbox_expediente_integral(evento_ref,secuencia,operacion_ref,expediente_ref,version_expediente,tipo_evento,payload_canonico,payload_huella_sha256,anterior_sha256,huella_sha256,registrada_en)
- VALUES(eventoref,sec+1,op,exp,ver,tipo,payload,encode(sha256(payload),'hex'),anterior,huella,instante);
+ VALUES(eventoref,sec+1,CASE WHEN tipo='ct.incorporacion-personal.v1' THEN 'origen:'||op ELSE op END,exp,ver,tipo,payload,encode(sha256(payload),'hex'),anterior,huella,instante);
  UPDATE vec_contratacion_temporal.control_cadenas_expediente_integral SET secuencia_outbox=sec+1,cabeza_outbox_sha256=huella WHERE control_id;
 END $f$;
 
@@ -181,7 +181,8 @@ BEGIN
  OR p->>'categoria_ref' IS DISTINCT FROM p#>>'{bolsa,categoria_ref}'
  OR jsonb_typeof(p->'ejercicio_sintetico') IS DISTINCT FROM 'boolean'
  OR p->>'motivo_clave'!~'^[a-z][a-z0-9_.-]{1,79}$'
- OR p->>'clase_ocupacion' NOT IN ('temporal','provisional','titular')
+ OR jsonb_typeof(p->'clase_ocupacion') IS DISTINCT FROM 'string'
+ OR p->>'clase_ocupacion' !~ '^[a-z][a-z0-9_.-]{1,79}$'
  OR p->>'desde'!~'^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
  OR (p->>'hasta'<>'' AND p->>'hasta'!~'^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
  THEN RAISE EXCEPTION 'CT155: intención inválida' USING ERRCODE='22023'; END IF;
@@ -324,7 +325,7 @@ CREATE FUNCTION vec_contratacion_temporal.enlazar_origen_personal_ct155()
 RETURNS trigger LANGUAGE plpgsql VOLATILE SET search_path=pg_catalog AS $f$
 DECLARE ref text;
 BEGIN
- ref:=CASE WHEN TG_TABLE_NAME='reincorporacion_titular_v1' THEN NEW.incorporacion_recibo_ref ELSE NEW.incorporacion_ref END;
+ IF TG_TABLE_NAME='reincorporacion_titular_v1' THEN ref:=NEW.incorporacion_recibo_ref;ELSE ref:=NEW.incorporacion_ref;END IF;
  -- El recibo B2 tiene un espacio propio. La FK compuesta valida el padre y
  -- organización/expediente: el prefijo sólo selecciona la columna, no autoriza.
  IF ref LIKE 'recibo:incorporacion-personal-b2:%' THEN
@@ -342,9 +343,9 @@ BEGIN
 END $triggers$;
 
 DO $consumidores$
-DECLARE x record;p record;def text;meta jsonb;
+DECLARE x record;p record;def text;meta jsonb;paso jsonb;
 BEGIN
- FOR x IN SELECT * FROM (VALUES
+ FOR x IN SELECT firma,jsonb_agg(jsonb_build_object('anterior',anterior,'nuevo',nuevo)) AS pasos FROM (VALUES
 ('incorporacion_expediente_ct115(text,text)',$old$    SELECT r.recibo_ref, vec_contratacion_temporal.inicio_incorporacion_ct115(r.material_json),
            (SELECT pf.llamamiento_ref FROM vec_contratacion_temporal.propuesta_formalizacion pf
              WHERE pf.organizacion_ref=p_organizacion AND pf.expediente_ref=p_expediente
@@ -355,7 +356,7 @@ BEGIN
 ('resultado_cese_ct115(vec_contratacion_temporal.cese_nombramiento_v1)',$old$r.incorporacion_ref,'inicio'$old$,$new$coalesce(r.incorporacion_ref,r.incorporacion_b2_ref),'inicio'$new$),
 ('resultado_ginpix_ct124(vec_contratacion_temporal.confirmacion_ginpix_v1)',$old$r.incorporacion_ref,'inicio'$old$,$new$coalesce(r.incorporacion_ref,r.incorporacion_b2_ref),'inicio'$new$),
 ('ginpix_confirmado_ct124(text,text)',$old$g.incorporacion_ref=(SELECT$old$,$new$coalesce(g.incorporacion_ref,g.incorporacion_b2_ref)=(SELECT$new$),
-('preparar_confirmacion_ginpix_v1(jsonb)',$old$WHERE incorporacion_ref=v_inc.recibo_ref$old$,$new$WHERE coalesce(incorporacion_ref,incorporacion_b2_ref)=v_inc.recibo_ref$new$),
+('confirmar_confirmacion_ginpix_v1(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',$old$WHERE incorporacion_ref=v_inc.recibo_ref$old$,$new$WHERE coalesce(incorporacion_ref,incorporacion_b2_ref)=v_inc.recibo_ref$new$),
 ('origen_reincorporacion_ct130(jsonb)',$old$DECLARE c vec_contratacion_temporal.cese_nombramiento_v1%ROWTYPE; i vec_contratacion_temporal.incorporacion_registro_v2%ROWTYPE;
  r vec_contratacion_temporal.seguimiento_raiz_v2%ROWTYPE;$old$,$new$DECLARE c vec_contratacion_temporal.cese_nombramiento_v1%ROWTYPE; i record;$new$),
 ('origen_reincorporacion_ct130(jsonb)',$old$ SELECT * INTO i FROM vec_contratacion_temporal.incorporacion_registro_v2 WHERE recibo_ref=c.incorporacion_ref;
@@ -376,16 +377,15 @@ BEGIN
 ('leer_antecedente_reincorporacion_titular_atestada_v1(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',$old$   AND r.organizacion_ref=c.organizacion_ref AND r.expediente_ref=c.expediente_ref
    AND i.material_json#>>'{Confirmacion,ResultadoPersonal,relacion_ref}'=r.relacion_ref
    AND r.relacion_ref=p_material->>'relacion_ref'$old$,$new$   AND i.protocolo=c.incorporacion_protocolo
-   AND i.relacion_ref=p_material->>'relacion_ref'$new$),
-('leer_contratos_bolsa_v1(bigint,text,integer)',$old$          JOIN vec_contratacion_temporal.incorporacion_registro_v2 r ON r.recibo_ref = c.incorporacion_ref$old$,$new$          CROSS JOIN LATERAL vec_contratacion_temporal.origen_incorporacion_neutral_ct155(c.organizacion_ref,c.expediente_ref,coalesce(c.incorporacion_ref,c.incorporacion_b2_ref)) r$new$),
-('leer_contratos_bolsa_v1(bigint,text,integer)',$old$                   'llamamiento_ref', c.llamamiento_ref,
-                   'inicio', vec_contratacion_temporal.instante_contrato_bolsa_v1(
-                       (r.material_json #>> '{Confirmacion,PeriodoIncorporacion,desde}')::timestamptz),$old$,$new$                   'llamamiento_ref', c.llamamiento_ref,
-                   'inicio', vec_contratacion_temporal.instante_contrato_bolsa_v1(r.inicio::timestamp AT TIME ZONE 'UTC'),$new$)
- ) v(firma,anterior,nuevo) LOOP
+   AND i.relacion_ref=p_material->>'relacion_ref'$new$)
+ ) v(firma,anterior,nuevo) GROUP BY firma LOOP
  SELECT pg_get_functiondef(oid) AS def,to_jsonb(q)-'prosrc' AS meta INTO STRICT p FROM pg_proc q WHERE oid=to_regprocedure('vec_contratacion_temporal.'||x.firma) AND proowner=current_user::regrole;
- IF length(p.def)-length(replace(p.def,x.anterior,''))<>length(x.anterior) THEN RAISE EXCEPTION 'CT155: preimagen incompatible: %',x.firma USING ERRCODE='55000';END IF;
- def:=replace(p.def,x.anterior,x.nuevo);EXECUTE def;
+ def:=p.def;
+ FOR paso IN SELECT value FROM jsonb_array_elements(x.pasos) LOOP
+ IF length(def)-length(replace(def,paso->>'anterior',''))<>length(paso->>'anterior') THEN RAISE EXCEPTION 'CT155: preimagen incompatible: %',x.firma USING ERRCODE='55000';END IF;
+ def:=replace(def,paso->>'anterior',paso->>'nuevo');
+ END LOOP;
+ EXECUTE def;
  IF (SELECT pg_get_functiondef(oid) FROM pg_proc WHERE oid=to_regprocedure('vec_contratacion_temporal.'||x.firma)) IS DISTINCT FROM def OR (SELECT to_jsonb(q)-'prosrc' FROM pg_proc q WHERE oid=to_regprocedure('vec_contratacion_temporal.'||x.firma)) IS DISTINCT FROM p.meta THEN RAISE EXCEPTION 'CT155: metadatos alterados' USING ERRCODE='55000';END IF;
  END LOOP;
 END $consumidores$;
