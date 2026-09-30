@@ -1,5 +1,9 @@
 \set ON_ERROR_STOP on
 -- Solo clon desechable H1+H3+H4+CA19+AUT22+AUT23. Sin COMMIT.
+-- Esta focal prueba la separación de personas y los umbrales declarados.
+-- AUT24 debe probar el efecto real: bootstrap con dos personas; baja 2→1
+-- autorizada por B proponente y A aprobador; 1→0 denegada; con una persona
+-- las nuevas operaciones sensibles esperan recuperación excepcional.
 BEGIN;
 DO $prueba$
 DECLARE r record; a record; v record; documento jsonb; ref text;
@@ -12,7 +16,8 @@ BEGIN
     OR (SELECT count(*) FROM vec_autorizacion.acto_perfil_sensible)<>0
     OR (SELECT count(*) FROM vec_autorizacion.recibo_perfil_sensible)<>0
     OR (SELECT count(*) FROM vec_autorizacion.control_continuidad_admin
-        WHERE control_id AND minimo_personas=2 AND bootstrap_estado='pendiente'
+        WHERE control_id AND bootstrap_minimo_personas=2 AND minimo_personas=1
+          AND bootstrap_estado='pendiente'
           AND bootstrap_acto_ref IS NULL)<>1
  THEN RAISE EXCEPTION 'catálogo o historia inicial incompatibles'; END IF;
  SELECT * INTO STRICT r FROM vec_autorizacion.version_rol
@@ -72,16 +77,16 @@ BEGIN
  WHERE perfil_activo_ref=a.perfil_activo_ref;
  IF NOT FOUND THEN RAISE EXCEPTION 'Intervención quedó bloqueada'; END IF;
 
- -- Propuesta por una persona. Autoaprobación denegada; otra persona puede
- -- cerrar la propuesta, sin crear efecto ni recibo administrativo.
+ -- B propone su propia baja; B no puede autoaprobarse, A sí puede
+ -- aprobarla. No se aplica efecto: la población 2→1/1→0 queda para AUT24.
  SELECT revision INTO STRICT revision_actual FROM vec_autorizacion.control_continuidad_admin WHERE control_id=true;
  INSERT INTO vec_autorizacion.propuesta_perfil_sensible
  (propuesta_ref,clase,operacion,version_rol_ref,objetivo_persona_ref,objetivo_cuenta_ref,
   objetivo_perfil_ref,proponente_persona_ref,proponente_cuenta_ref,proponente_perfil_ref,
   motivo_codigo,revision_continuidad_esperada,preimagen_huella_sha256,
   documento_canonico,huella_sha256,creada_en,caduca_en)
- VALUES('propuesta_admin:'||pg_catalog.repeat('a',32),'administrador','otorgar',r.version_rol_ref,
-  'per_aut23_objetivo','cta_aut23_objetivo','prf_aut23_objetivo',
+ VALUES('propuesta_admin:'||pg_catalog.repeat('a',32),'administrador','revocar',r.version_rol_ref,
+  'per_aut23_proponente','cta_aut23_proponente','prf_aut23_proponente',
   'per_aut23_proponente','cta_aut23_proponente','prf_aut23_proponente','motivo_aut23',
   revision_actual,pg_catalog.repeat('a',64),pg_catalog.convert_to('{}','UTF8'),
   pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to('{}','UTF8')),'hex'),

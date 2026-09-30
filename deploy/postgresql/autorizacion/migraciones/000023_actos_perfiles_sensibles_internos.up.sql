@@ -53,10 +53,14 @@ CREATE TABLE vec_autorizacion.rol_sensible_exacto (
   publicado_en timestamptz NOT NULL DEFAULT pg_catalog.clock_timestamp(),
   UNIQUE(version_rol_ref,clase)
 );
+-- Bootstrap: dos personas nominativas en un único acto. Tras él se admite
+-- 2→1 con doble control; 1→0 se deniega. AUT24 comprobará la población
+-- efectiva con CA20/identidad y bloqueará otros actos sensibles si queda una.
 CREATE TABLE vec_autorizacion.control_continuidad_admin (
   control_id boolean PRIMARY KEY DEFAULT true CHECK (control_id),
   revision bigint NOT NULL CHECK (revision>0),
-  minimo_personas integer NOT NULL CHECK (minimo_personas=2),
+  bootstrap_minimo_personas integer NOT NULL CHECK (bootstrap_minimo_personas=2),
+  minimo_personas integer NOT NULL CHECK (minimo_personas=1),
   bootstrap_estado text NOT NULL CHECK (bootstrap_estado IN ('pendiente','consumido')),
   bootstrap_acto_ref text CHECK (bootstrap_acto_ref IS NULL OR bootstrap_acto_ref ~ '^acto_admin:[0-9a-f]{32}$'),
   actualizado_en timestamptz NOT NULL,
@@ -69,8 +73,8 @@ INSERT INTO vec_autorizacion.operacion_perfil_sensible VALUES
  ('administrador','otorgar'),('administrador','revocar'),
  ('intervencion','otorgar'),('intervencion','revocar');
 INSERT INTO vec_autorizacion.control_continuidad_admin
- (control_id,revision,minimo_personas,bootstrap_estado,actualizado_en)
-VALUES(true,1,2,'pendiente',pg_catalog.clock_timestamp());
+ (control_id,revision,bootstrap_minimo_personas,minimo_personas,bootstrap_estado,actualizado_en)
+VALUES(true,1,2,1,'pendiente',pg_catalog.clock_timestamp());
 
 -- Ningún rol sensible tiene permiso por esta migración: solo se publican las
 -- definiciones. Intervención aún carece de mapeo exacto y permanece cerrada.
@@ -191,6 +195,7 @@ RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_
 BEGIN
  IF NEW.control_id IS DISTINCT FROM OLD.control_id
     OR NEW.revision IS DISTINCT FROM OLD.revision+1
+    OR NEW.bootstrap_minimo_personas IS DISTINCT FROM OLD.bootstrap_minimo_personas
     OR NEW.minimo_personas IS DISTINCT FROM OLD.minimo_personas
     OR (OLD.bootstrap_estado='consumido' AND
        (NEW.bootstrap_estado IS DISTINCT FROM OLD.bootstrap_estado OR
