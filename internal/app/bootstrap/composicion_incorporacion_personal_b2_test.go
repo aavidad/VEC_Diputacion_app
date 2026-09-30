@@ -3,11 +3,15 @@ package bootstrap
 import (
 	"context"
 	"errors"
+	"math"
 	"testing"
 
+	inc "vec-diputacion-granada/internal/app/incorporacionejercicio"
 	bp "vec-diputacion-granada/internal/modules/bolsa/ports"
 	httpct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	ct "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	personal "vec-diputacion-granada/internal/modules/personal/domain"
+	pp "vec-diputacion-granada/internal/modules/personal/ports"
 	core "vec-diputacion-granada/internal/vec/domain"
 	vp "vec-diputacion-granada/internal/vec/ports"
 )
@@ -16,6 +20,33 @@ type servicioCTFacadeB2Prueba struct {
 	contrato             ct.ContratoPlanNominalB2
 	err                  error
 	lecturas, mutaciones int
+}
+
+func TestIncorporacionB2HechosRechazanVersionesFirmadasInvalidas(t *testing.T) {
+	recibo := "recibo:rpt"
+	base := inc.ResultadoConsumidorPersonalB2{
+		Estado: pp.EstadoPlanIncorporacionCT{Plan: personal.PlanIncorporacionCT{Version: 1}, ReciboAltaRelacion: &pp.ReciboActoRegistroEmpleadoB2{}, ReciboOcupacion: &pp.ReciboActoRegistroEmpleadoB2{}},
+		Hechos: pp.HechosIncorporacionCT{Seleccion: pp.SeleccionHechosIncorporacionCT{VersionRelacion: 1, VersionOcupacion: 1}},
+		Uso:    vp.ResultadoUsoCategoriaRPT{Encontrado: true, Uso: &vp.UsoCategoriaRPT{Estado: "confirmado", TerminalReciboRef: &recibo}},
+	}
+	for nombre, cambiar := range map[string]func(*inc.ResultadoConsumidorPersonalB2){
+		"plan":      func(r *inc.ResultadoConsumidorPersonalB2) { r.Estado.Plan.Version = -1 },
+		"relacion":  func(r *inc.ResultadoConsumidorPersonalB2) { r.Hechos.Seleccion.VersionRelacion = 0 },
+		"ocupacion": func(r *inc.ResultadoConsumidorPersonalB2) { r.Hechos.Seleccion.VersionOcupacion = math.MinInt64 },
+	} {
+		r := base
+		cambiar(&r)
+		if _, err := hechosCTDesdePersonalB2(r); !errors.Is(err, httpct.ErrManejadorIncorporacionPersonalB2) {
+			t.Fatalf("%s: versión inválida admitida: %v", nombre, err)
+		}
+	}
+	base.Estado.Plan.Version = math.MaxInt64
+	base.Hechos.Seleccion.VersionRelacion = math.MaxInt64
+	base.Hechos.Seleccion.VersionOcupacion = math.MaxInt64
+	h, err := hechosCTDesdePersonalB2(base)
+	if err != nil || h.PersonalPlanVersion != math.MaxInt64 || h.RelacionVersion != math.MaxInt64 || h.OcupacionVersion != math.MaxInt64 {
+		t.Fatalf("límite válido alterado: %+v, %v", h, err)
+	}
 }
 
 func (s *servicioCTFacadeB2Prueba) LeerContratoPlanNominal(context.Context, string, string) (ct.ContratoPlanNominalB2, error) {

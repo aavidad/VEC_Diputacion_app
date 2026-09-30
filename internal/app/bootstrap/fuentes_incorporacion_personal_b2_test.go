@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"context"
 	"errors"
+	"math"
 	"strings"
 	"testing"
 	"time"
@@ -121,14 +122,61 @@ func TestIncorporacionB2SeleccionNoSustituyeFuentesCT(t *testing.T) {
 func TestIncorporacionB2TraduccionConservaInstrumentosYProcedencia(t *testing.T) {
 	plantilla := "11111111-1111-4111-8111-111111111111"
 	rpt := "22222222-2222-4222-8222-222222222222"
-	m := domct.PlanIncorporacionPersonalB2{PersonaRef: "per_0123456789abcdefghijkl", PersonaVersion: 7, PersonaFuente: domct.FuentePlanPersonalB2{Ref: "fuente:bolsa", Version: 8, SHA256: strings.Repeat("f", 64)}, PersonaReciboBolsaRef: "recibo:bolsa", VersionPlazaRef: "plantilla:" + plantilla, VersionPuestoRef: "rpt:" + rpt, FuentePlantilla: domct.InstrumentoPlanPersonalB2{Ref: plantilla, Revision: 2, FuenteRef: "fuente:plantilla", FuenteSHA256: strings.Repeat("a", 64)}, FuenteRPT: domct.InstrumentoPlanPersonalB2{Ref: rpt, Revision: 3, FuenteRef: "fuente:rpt", FuenteSHA256: strings.Repeat("b", 64)}, RevisionPlaza: 4, RevisionPuesto: 5}
+	m := domct.PlanIncorporacionPersonalB2{PersonaRef: "per_0123456789abcdefghijkl", PersonaVersion: 7, PersonaFuente: domct.FuentePlanPersonalB2{Ref: "fuente:bolsa", Version: 8, SHA256: strings.Repeat("f", 64)}, PersonaReciboBolsaRef: "recibo:bolsa", VersionPlazaRef: "plantilla:" + plantilla, VersionPuestoRef: "rpt:" + rpt, FuentePlantilla: domct.InstrumentoPlanPersonalB2{Ref: plantilla, Revision: 2, FuenteRef: "fuente:plantilla", FuenteSHA256: strings.Repeat("a", 64)}, FuenteRPT: domct.InstrumentoPlanPersonalB2{Ref: rpt, Revision: 3, FuenteRef: "fuente:rpt", FuenteSHA256: strings.Repeat("b", 64)}, RevisionPlaza: 4, RevisionPuesto: 5, Regimen: domct.EntradaPlanPersonalB2{Version: 1}, Modalidad: domct.EntradaPlanPersonalB2{Version: 1}}
 	c := ct.ContratoPlanNominalB2{Material: m, PlanRef: "plan:ct", PlanReciboRef: "recibo:plan", PlanVersion: 1, PlanSHA256: strings.Repeat("c", 64), IdempotenciaPersonalUUID: "33333333-3333-4333-8333-333333333333"}
-	r := contratoAplicacionB2(c)
+	r, err := contratoAplicacionB2(c)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if r.Protocolo != inc.ProtocoloPersonalB2V1 || r.PersonaRef != m.PersonaRef || r.PersonaVersion != m.PersonaVersion || r.PersonaFuente != m.PersonaFuente || r.SeleccionReciboRef != m.PersonaReciboBolsaRef || r.DatosPersonal.VersionPlantillaRef != m.VersionPlazaRef || r.DatosPersonal.VersionRPTRef != m.VersionPuestoRef || r.DatosPersonal.RevisionPlaza != 4 || r.DatosPersonal.RevisionPuesto != 5 || r.FuenteRPT.Version != 3 || r.FuenteRPT.HuellaSHA256 != m.FuenteRPT.FuenteSHA256 {
 		t.Fatal("traducción mezcló instrumentos, revisiones o fuente")
 	}
 	p := r.DatosPersonal.Procedencia
 	if p.ActoRef != c.PlanRef || p.FuenteRef != c.PlanRef || p.FuenteVersion != 1 || p.FuenteHuellaSHA256 != c.PlanSHA256 || p.IdempotenciaRef != c.IdempotenciaPersonalUUID {
 		t.Fatal("traducción sustituyó la procedencia del plan durable")
+	}
+}
+
+func TestIncorporacionB2ConversionesVersionRechazanDesbordamientos(t *testing.T) {
+	for _, v := range []int64{math.MinInt64, -1, 0} {
+		if n, ok := versionB2DesdeInt64(v); ok || n != 0 {
+			t.Fatalf("versión firmada inválida %d aceptada: %d", v, n)
+		}
+	}
+	for _, v := range []int64{1, math.MaxInt64} {
+		if n, ok := versionB2DesdeInt64(v); !ok || n != uint64(v) {
+			t.Fatalf("versión firmada válida %d alterada: %d", v, n)
+		}
+	}
+	for _, v := range []uint64{0, uint64(math.MaxInt64) + 1, math.MaxUint64} {
+		if n, ok := versionB2HaciaInt64(v); ok || n != 0 {
+			t.Fatalf("versión sin signo inválida %d aceptada: %d", v, n)
+		}
+	}
+	for _, v := range []uint64{1, math.MaxInt64} {
+		if n, ok := versionB2HaciaInt64(v); !ok || n != int64(v) {
+			t.Fatalf("versión sin signo válida %d alterada: %d", v, n)
+		}
+	}
+}
+
+func TestIncorporacionB2TraduccionNoTruncaVersionesCT(t *testing.T) {
+	m := domct.PlanIncorporacionPersonalB2{Regimen: domct.EntradaPlanPersonalB2{Version: 1}, Modalidad: domct.EntradaPlanPersonalB2{Version: 1}, RevisionPlaza: 1, RevisionPuesto: 1}
+	for nombre, cambiar := range map[string]func(*domct.PlanIncorporacionPersonalB2){
+		"regimen":   func(m *domct.PlanIncorporacionPersonalB2) { m.Regimen.Version = uint64(math.MaxInt64) + 1 },
+		"modalidad": func(m *domct.PlanIncorporacionPersonalB2) { m.Modalidad.Version = math.MaxUint64 },
+		"plaza":     func(m *domct.PlanIncorporacionPersonalB2) { m.RevisionPlaza = math.MaxUint64 },
+		"puesto":    func(m *domct.PlanIncorporacionPersonalB2) { m.RevisionPuesto = 0 },
+	} {
+		alterado := m
+		cambiar(&alterado)
+		if _, err := contratoAplicacionDesdeMaterialB2(alterado); !errors.Is(err, ct.ErrPlanNominalB2Conflicto) {
+			t.Fatalf("%s: versión fuera de rango aceptada: %v", nombre, err)
+		}
+	}
+	for _, version := range []uint64{0, uint64(math.MaxInt64) + 1, math.MaxUint64} {
+		if _, err := contratoAplicacionB2(ct.ContratoPlanNominalB2{Material: m, PlanVersion: version}); !errors.Is(err, ct.ErrPlanNominalB2Conflicto) {
+			t.Fatalf("plan %d: procedencia truncada: %v", version, err)
+		}
 	}
 }

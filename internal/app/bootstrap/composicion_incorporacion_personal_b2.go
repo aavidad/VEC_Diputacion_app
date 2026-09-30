@@ -167,8 +167,14 @@ func hechosCTDesdePersonalB2(r inc.ResultadoConsumidorPersonalB2) (ct.HechosPers
 	if r.Estado.ReciboAltaRelacion == nil || r.Estado.ReciboOcupacion == nil || !r.Uso.Encontrado || r.Uso.Uso == nil || r.Uso.Uso.Estado != "confirmado" || r.Uso.Uso.TerminalReciboRef == nil {
 		return ct.HechosPersonalIncorporacionB2{}, httpct.ErrManejadorIncorporacionPersonalB2
 	}
+	planVersion, okPlan := versionB2DesdeInt64(p.Version)
+	relacionVersion, okRelacion := versionB2DesdeInt64(s.VersionRelacion)
+	ocupacionVersion, okOcupacion := versionB2DesdeInt64(s.VersionOcupacion)
+	if !okPlan || !okRelacion || !okOcupacion {
+		return ct.HechosPersonalIncorporacionB2{}, httpct.ErrManejadorIncorporacionPersonalB2
+	}
 	a, o := r.Estado.ReciboAltaRelacion, r.Estado.ReciboOcupacion
-	h := ct.HechosPersonalIncorporacionB2{ModoPersonal: p.Modo, PersonalPlanRef: p.PlanRef, PersonalPlanVersion: uint64(p.Version), PersonalPlanReciboRef: p.ReciboRef, PersonalPlanSHA256: p.HuellaSHA256, EmpleadoRef: s.EmpleadoRef, RelacionRef: s.RelacionRef, RelacionVersion: uint64(s.VersionRelacion), RelacionReciboRef: a.ReciboRef, OcupacionRef: s.OcupacionRef, OcupacionVersion: uint64(s.VersionOcupacion), OcupacionReciboRef: o.ReciboRef, RPTConfirmacionRef: p.ConfirmacionRPTRef, RPTReciboRef: *r.Uso.Uso.TerminalReciboRef, SeguimientoRef: r.Estado.EjecucionReciboRef}
+	h := ct.HechosPersonalIncorporacionB2{ModoPersonal: p.Modo, PersonalPlanRef: p.PlanRef, PersonalPlanVersion: planVersion, PersonalPlanReciboRef: p.ReciboRef, PersonalPlanSHA256: p.HuellaSHA256, EmpleadoRef: s.EmpleadoRef, RelacionRef: s.RelacionRef, RelacionVersion: relacionVersion, RelacionReciboRef: a.ReciboRef, OcupacionRef: s.OcupacionRef, OcupacionVersion: ocupacionVersion, OcupacionReciboRef: o.ReciboRef, RPTConfirmacionRef: p.ConfirmacionRPTRef, RPTReciboRef: *r.Uso.Uso.TerminalReciboRef, SeguimientoRef: r.Estado.EjecucionReciboRef}
 	if p.Modo == "alta_empleado" {
 		h.AltaReciboRef = a.ReciboRef
 	}
