@@ -1,228 +1,236 @@
+"""Fixtures desechables del orquestador, sin Docker, PostgreSQL ni red."""
 from pathlib import Path
-import hashlib
+import importlib.util
 import json
+import os
 import subprocess
 import tempfile
 import unittest
+import uuid
 
 
-class PublicacionReadyTests(unittest.TestCase):
-    def test_plan_45_propuesto_detiene_preparacion_antes_de_restaurar(self):
-        source = Path(__file__).with_name('preparar_clon.sh').read_text()
-        preflight = source[source.index('# Cotejar todo el inventario SQL'):source.index('if [[ -e "$marcador" ]]')]
-        with tempfile.TemporaryDirectory() as directory:
-            state = Path(directory)
-            marker = state / 'restauracion-invocada'
-            script = '''set -eu
-repo="$VEC_TEST_REPO"
-guiones="$repo/scripts/recorridos"
-commit=73e56c106d12fdda0bd16d6fe573503c42c5495f
-accion=preparar
-''' + preflight + '\ntouch "$VEC_TEST_RESTORE"\n'
-            process = subprocess.run(['bash', '-c', script], capture_output=True, timeout=30,
-                env={'PATH': '/usr/bin:/bin', 'PYTHONDONTWRITEBYTECODE': '1',
-                     'VEC_TEST_REPO': str(Path(__file__).resolve().parents[2]),
-                     'VEC_TEST_RESTORE': str(marker)})
-            self.assertNotEqual(process.returncode, 0)
-            self.assertIn('plan SQL propuesto', process.stderr.decode())
-            self.assertFalse(marker.exists())
-            self.assertFalse((state / 'READY.json').exists())
+SCRIPT = Path(__file__).with_name('preparar_clon.sh')
+REPO = SCRIPT.resolve().parents[2]
+spec = importlib.util.spec_from_file_location('sql_orquestador_test', SCRIPT.with_name('clon_sql.py'))
+sql = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(sql)
 
-    def test_plan_45_propuesto_impide_publicacion_ready_tras_runtime_valido(self):
-        source = Path(__file__).with_name('preparar_clon.sh').read_text()
-        function = source[source.index('publicar_ready() {'):source.index('\nfinalizar_arranque() {')]
-        with tempfile.TemporaryDirectory() as directory:
-            state = Path(directory)
-            script = '''set -eu
-repo="$VEC_TEST_REPO"
-guiones="$repo/scripts/recorridos"
-estado="$VEC_TEST_STATE"
-marcador=fixture
-nombre=vec-fixture
-runtime() { return 0; }
-python3() {
-  if [[ "$1" == '-' && "$2" == fixture ]]; then
-    printf '%s\\n' 73e56c106d12fdda0bd16d6fe573503c42c5495f
-  elif [[ "$1" == "$guiones/clon_sql.py" ]]; then
-    /usr/bin/python3 "$@"
-  else
-    touch "$estado/READY.json"
-  fi
-}
-''' + function + '\nif ! publicar_ready; then exit 17; fi\n'
-            # El control de propuesta precede a la lectura del archive y de BD.
-            # Se usa un archive SQL real porque verify_live valida primero la fuente.
-            import importlib.util
-            spec = importlib.util.spec_from_file_location('sql_ready_test',
-                Path(__file__).with_name('clon_sql.py'))
-            sql = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(sql)
-            repo = Path(__file__).resolve().parents[2]
-            _, contents = sql.GitSource(repo).inventory(sql.H6_FIRMA_FINAL_REF)
-            archive = state / ('fuente-' + sql.H6_FIRMA_FINAL_REF)
-            for path, data in contents.items():
-                file = archive / path
-                file.parent.mkdir(parents=True, exist_ok=True)
-                file.write_bytes(data)
-            process = subprocess.run(['bash', '-c', script], capture_output=True, timeout=30,
-                env={'PATH': '/usr/bin:/bin', 'PYTHONDONTWRITEBYTECODE': '1',
-                     'VEC_TEST_REPO': str(repo), 'VEC_TEST_STATE': str(state)})
-            self.assertEqual(process.returncode, 17)
-            self.assertIn('plan SQL propuesto', process.stderr.decode())
-            self.assertFalse((state / 'READY.json').exists())
 
-    def test_inventario_sql_se_valida_antes_de_restaurar_h1(self):
-        source = Path(__file__).with_name('preparar_clon.sh').read_text()
-        preflight = source.index('"$guiones/clon_sql.py" --repo "$repo" --git-repo "$repo" --source-ref "$commit" --plan')
-        installable = source.index('"$guiones/clon_sql.py" --repo "$repo" --git-repo "$repo" --source-ref "$commit" --installable')
-        restore = source.index('docker run --rm --network none -v "$pgdata:/datos"', preflight)
-        self.assertLess(preflight, restore)
-        self.assertLess(installable, restore)
+class OrquestadorTests(unittest.TestCase):
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.root = Path(self.temporary.name)
+        self.state = self.root / 'state'
+        self.state.mkdir(mode=0o700)
+        self.calls = self.root / 'docker-called'
+        tools = self.root / 'tools'
+        tools.mkdir()
+        docker = tools / 'docker'
+        docker.write_text('#!/bin/sh\nprintf "%s\\n" "$*" >> "$VEC_TEST_CALLS"\nexit 97\n')
+        docker.chmod(0o700)
+        self.environment = {'PATH': str(tools) + ':/usr/bin:/bin',
+            'HOME': str(self.root), 'TMPDIR': str(self.root),
+            'PYTHONDONTWRITEBYTECODE': '1', 'GIT_CONFIG_NOSYSTEM': '1',
+            'VEC_TEST_CALLS': str(self.calls),
+            'VEC_RECORRIDOS_ESTADO': str(self.state),
+            'VEC_RECORRIDOS_CONTENEDOR': 'vec-fixture'}
 
-    def comprobar_publicacion(self, resultado):
-        source = Path(__file__).with_name('preparar_clon.sh').read_text()
-        function = source[source.index('publicar_ready() {'):source.index('\nfinalizar_arranque() {')]
-        with tempfile.TemporaryDirectory() as directory:
-            marker = Path(directory) / 'publisher-called'
-            script = '''set -e
-runtime() { return "$VEC_TEST_VERIFY_EXIT"; }
-python3() { touch "$VEC_TEST_PUBLISHER_MARKER"; }
-''' + function + '''
-if ! publicar_ready; then exit 17; fi
-'''
-            environment = {'PATH': '/usr/bin:/bin', 'VEC_TEST_VERIFY_EXIT': str(resultado),
-                           'VEC_TEST_PUBLISHER_MARKER': str(marker)}
-            process = subprocess.run(['bash', '-c', script], env=environment, capture_output=True, timeout=5)
-            return process.returncode, marker.exists()
+    def run_action(self, action, **environment):
+        return subprocess.run(['bash', str(SCRIPT), action],
+            env=self.environment | environment, capture_output=True, text=True, timeout=20)
 
-    def test_verificacion_fallida_impide_publicar_incluso_dentro_de_if(self):
-        self.assertEqual(self.comprobar_publicacion(7), (17, False))
+    def write_json(self, name, value):
+        p = self.state / name
+        p.write_text(json.dumps(value))
+        p.chmod(0o600)
 
-    def test_verificacion_correcta_permite_la_publicacion(self):
-        self.assertEqual(self.comprobar_publicacion(0), (0, True))
+    def owner(self, **fields):
+        self.write_json('clon.json', {'propietario': 'Codex-M', 'estado': str(self.state),
+            'contenedor': 'vec-fixture', 'commit': sql.H6_FIRMA_FINAL_REF,
+            'pgdata': '/dev/shm/vec-recorridos-fixture', 'puerto_pg': 55531,
+            'puerto_web': 18531} | fields)
 
-    def publicar_fixture(self, *, binario_alterado=False, fuente_alterada=False):
-        source = Path(__file__).with_name('preparar_clon.sh').read_text()
-        function = source[source.index('publicar_ready() {'):source.index('\nfinalizar_arranque() {')]
-        code = function.split('python3 - "$estado" <<\'PY\'\n', 1)[1].split('\nPY\n}', 1)[0]
-        with tempfile.TemporaryDirectory() as directory:
-            state = Path(directory)
-            binary = state / 'vec-server'
-            binary.write_bytes(b'binario-sintetico')
-            manifest = state / 'manifest.json'
-            config = state / 'config.json'
-            records = {
-                'material-manifest.json': {},
-                'manifest.json': {'target': {'source_commit': 'app-fijada'}},
-                'config.json': {'VEC_PORTAL_PROCESO': 'interno', 'VEC_BOLSA_POLITICA_OFERTAS_ENABLED': 'true'},
-                'clon.json': {'contenedor': 'vec-fixture'},
-                'sql-journal.json': {'source_ref': 'sql-aprobada', 'current_source_ref': 'app-fijada',
-                    'verified_source_ref': 'otra-app' if fuente_alterada else 'app-fijada',
-                    'approved_sql_ref': 'sql-aprobada', 'plan_sha': 'plan', 'inventory_sha': 'inventario',
-                    'installed': [1, 2]},
-                'runtime-process.json': {'container_mode': 'interno', 'runtime_manifest_path': str(manifest),
-                    'runtime_config_path': str(config), 'exe': str(binary), 'source_commit': 'app-fijada',
-                    'port': 18531, 'pid': 123, 'config_sha256': 'configuracion',
-                    'binary_sha256': hashlib.sha256(binary.read_bytes()).hexdigest()},
-            }
-            for name, record in records.items():
-                (state / name).write_text(json.dumps(record))
-            if binario_alterado:
-                binary.write_bytes(b'otro-binario')
-            # No se usa un certificado ni un almacén NSS real en esta fixture.
-            certutil = state / 'certutil'
-            certutil.write_text('#!/bin/sh\nexit 0\n')
-            certutil.chmod(0o700)
-            process = subprocess.run(['/usr/bin/python3', '-c', code, str(state)],
-                env={'PATH': str(state) + ':/usr/bin:/bin'}, capture_output=True, timeout=5)
-            ready = state / 'READY.json'
-            return process.returncode, json.loads(ready.read_text()) if ready.exists() else None
+    def journal(self, **fields):
+        record = {'version': 2, 'run_id': str(uuid.uuid4()), 'pending': None} | fields
+        record['journal_sha'] = sql.record_hash(record)
+        self.write_json('sql-journal.json', record)
 
-    def test_ready_separa_fuente_app_y_plan_sql(self):
-        status, ready = self.publicar_fixture()
-        self.assertEqual(status, 0)
-        self.assertEqual((ready['commit'], ready['sql_fuente_aprobada']), ('app-fijada', 'sql-aprobada'))
-        self.assertEqual((ready['sql_plan_sha256'], ready['sql_inventario_sha256']), ('plan', 'inventario'))
-        self.assertEqual(ready['configuracion_sha256'], 'configuracion')
+    def assert_no_services(self):
+        self.assertFalse(self.calls.exists())
+        self.assertFalse((self.state / 'runtime-process.json').exists())
+        self.assertFalse((self.state / 'DB_READY.json').exists())
 
-    def test_binario_modificado_impide_ready(self):
-        status, ready = self.publicar_fixture(binario_alterado=True)
-        self.assertNotEqual(status, 0)
-        self.assertIsNone(ready)
+    def test_preparar_y_reiniciar_rechazan_antes_de_servicios_y_estado(self):
+        self.state.rmdir()
+        for action in ('preparar', 'reiniciar'):
+            with self.subTest(action=action):
+                p = self.run_action(action)
+                self.assertNotEqual(p.returncode, 0)
+                self.assertIn('falta kit D aprobado y completo', p.stderr)
+                self.assertFalse(self.state.exists())
+                self.assert_no_services()
 
-    def test_fuente_sql_verificada_distinta_impide_ready(self):
-        status, ready = self.publicar_fixture(fuente_alterada=True)
-        self.assertNotEqual(status, 0)
-        self.assertIsNone(ready)
+    def test_plan_lee_git_sin_h1_estado_ni_servicios(self):
+        self.state.rmdir()
+        p = self.run_action('plan', VEC_RECORRIDOS_ARCHIVO='/no-existe')
+        self.assertEqual(p.returncode, 0, p.stderr)
+        lines = p.stdout.splitlines()
+        self.assertEqual(len(lines), 45)
+        self.assertIn('000153_perfil_reincorporacion_titular.up.sql', lines[-1])
+        self.assertNotIn('000132', p.stdout)
+        self.assertFalse(self.state.exists())
+        self.assert_no_services()
 
-    def test_plan_sin_etapas_no_intenta_archivar_una_referencia_vacia(self):
-        source = Path(__file__).with_name('preparar_clon.sh').read_text()
-        loop = source[source.index('while IFS= read -r paso_sql; do'):source.index('# La última llamada verifica')]
-        with tempfile.TemporaryDirectory() as directory:
-            marker = Path(directory) / 'git-invocado'
-            script = '''set -eu
-etapas_sql='[]'
-repo='fixture'
-estado="$VEC_TEST_STATE"
-guiones='fixture'
-git() { touch "$VEC_TEST_MARKER"; return 9; }
-''' + loop
-            process = subprocess.run(['bash', '-c', script], capture_output=True, timeout=5,
-                env={'PATH': '/usr/bin:/bin', 'VEC_TEST_STATE': directory, 'VEC_TEST_MARKER': str(marker)})
-            self.assertEqual(process.returncode, 0)
-            self.assertFalse(marker.exists())
-            self.assertFalse((Path(directory) / 'fuente-sql-').exists())
+    def test_publicacion_ready_no_usa_runtime_ni_sql_aunque_verifiquen(self):
+        source = SCRIPT.read_text()
+        functions = source[source.index('requerir_kit_d() {'):source.index('# Ni reiniciar')]
+        called = self.root / 'runtime-called'
+        script = 'set -eu\nguiones="$VEC_TEST_SCRIPTS"\nruntime() { touch "$VEC_TEST_RUNTIME"; }\n' + functions
+        p = subprocess.run(['bash', '-c', script + '\nif ! publicar_ready; then exit 17; fi'],
+            capture_output=True, text=True, timeout=5,
+            env=self.environment | {'VEC_TEST_SCRIPTS': str(SCRIPT.parent), 'VEC_TEST_RUNTIME': str(called)})
+        self.assertEqual(p.returncode, 17)
+        self.assertIn('no instalar ni publicar READY', p.stderr)
+        self.assertFalse(called.exists())
+        self.assertFalse((self.state / 'READY.json').exists())
+        self.assert_no_services()
 
-    def argumentos_runtime(self, operation):
-        source = Path(__file__).with_name('preparar_clon.sh').read_text()
-        function = source[source.index('runtime() {'):source.index('\ncomunicaciones() {')]
-        with tempfile.TemporaryDirectory() as directory:
-            arguments = Path(directory) / 'arguments'
-            script = '''set -eu
-marcador='fixture'
-repo='fixture'
-guiones='fixture'
-estado='fixture'
-puerto_web=18531
-puerto_pg=55531
-artefacto='/fixture/vec-server'
-artefacto_sha="$(printf 'a%.0s' {1..64})"
-artefacto_fuente="$(printf 'b%.0s' {1..40})"
-python3() {
-  if [[ "$1" == '-' ]]; then printf '%s\n' "$artefacto_fuente";
-  else printf '%s\n' "$@" > "$VEC_TEST_ARGUMENTS"; fi
-}
-''' + function + '\nruntime "$VEC_TEST_OPERATION"\n'
-            process = subprocess.run(['bash', '-c', script], capture_output=True, timeout=5,
-                env={'PATH': '/usr/bin:/bin', 'VEC_TEST_ARGUMENTS': str(arguments), 'VEC_TEST_OPERATION': operation})
-            self.assertEqual(process.returncode, 0)
-            return arguments.read_text().splitlines()
+    def test_estado_sin_journal_es_lectura_y_no_ready(self):
+        self.owner()
+        before = sorted(p.name for p in self.state.iterdir())
+        p = self.run_action('estado')
+        self.assertEqual(p.returncode, 0, p.stderr)
+        value = json.loads(p.stdout)
+        self.assertEqual(value['journal'], 'ausente')
+        self.assertFalse(value['ready'])
+        self.assertEqual(before, sorted(p.name for p in self.state.iterdir()))
+        self.assert_no_services()
 
-    def test_build_transmite_artefacto_huella_y_fuente_juntos(self):
-        arguments = self.argumentos_runtime('build')
-        self.assertEqual(arguments[-6:], ['--artifact', '/fixture/vec-server', '--artifact-sha256', 'a'*64,
-                                        '--artifact-source', 'b'*40])
+    def test_pending_despues_de_crash_se_conserva_y_bloquea_ready(self):
+        self.owner()
+        self.journal(pending={'position': 1})
+        self.write_json('READY.json', {'legado': True})
+        before = (self.state / 'sql-journal.json').read_bytes()
+        p = self.run_action('estado')
+        self.assertEqual(p.returncode, 0, p.stderr)
+        value = json.loads(p.stdout)
+        self.assertEqual(value['journal'], 'bloqueado')
+        self.assertIn('no reaplicar ni publicar READY', value['motivo'])
+        self.assertTrue(value['ready_legacy_presente'])
+        self.assertFalse(value['ready'])
+        p = self.run_action('reiniciar')
+        self.assertNotEqual(p.returncode, 0)
+        self.assertEqual((self.state / 'sql-journal.json').read_bytes(), before)
+        self.assert_no_services()
 
-    def test_verificacion_no_importa_artefactos(self):
-        arguments = self.argumentos_runtime('verify')
-        self.assertNotIn('--artifact', arguments)
-        self.assertNotIn('--artifact-sha256', arguments)
-        self.assertNotIn('--artifact-source', arguments)
+    def test_diario_v1_y_corrupto_no_se_convierten(self):
+        self.owner()
+        for record in ({'version': 1, 'installed': []}, {'version': 2, 'journal_sha': 'incorrecto'}):
+            with self.subTest(record=record):
+                self.write_json('sql-journal.json', record)
+                before = (self.state / 'sql-journal.json').read_bytes()
+                p = self.run_action('estado')
+                self.assertEqual(p.returncode, 0, p.stderr)
+                self.assertEqual(json.loads(p.stdout)['journal'], 'bloqueado')
+                self.assertEqual((self.state / 'sql-journal.json').read_bytes(), before)
+                self.assert_no_services()
 
-    def comprobar_opciones_rotacion(self, *, rotar, misma, sha):
-        source = Path(__file__).with_name('preparar_clon.sh').read_text()
-        guards = source[source.index('rotar_proyeccion='):source.index('accion=${1:-preparar}')]
-        process = subprocess.run(['bash', '-c', 'set -eu\n' + guards], capture_output=True, timeout=5,
-            env={'PATH': '/usr/bin:/bin', 'VEC_RECORRIDOS_ROTAR_PROYECCION_INTERNA': rotar,
-                 'VEC_RECORRIDOS_ROTACION_MISMA_FUENTE': misma,
-                 'VEC_RECORRIDOS_ROTACION_MANIFIESTO_PREVIO_SHA256': sha})
-        return process.returncode
+    def test_journal_completo_local_no_acredita_ready_sin_kit(self):
+        self.owner()
+        plan = sql.validate_git_source(sql.H6_FIRMA_FINAL_REF, REPO)
+        # Confirmaciones ficticias para probar exclusivamente la lectura local.
+        receipts = [dict(position=i, **row, confirmed_at='2026-09-30T00:00:00+00:00',
+                    confirmation='commit_returned_and_postcheck')
+                    for i, row in enumerate(plan['entries'], 1)]
+        self.journal(**{k: 'a'*64 for k in sql.CONTEXT_KEYS}, source_commit=plan['source_ref'],
+            approved_sql_ref=plan['approved_sql_ref'], plan_sha=plan['plan_sha'],
+            inventory_sha=plan['inventory_sha'], entries=plan['entries'], file_count=45,
+            installed=receipts, phase='ad132_confirmed')
+        p = self.run_action('estado')
+        self.assertEqual(p.returncode, 0, p.stderr)
+        value = json.loads(p.stdout)
+        self.assertEqual(value['journal'], 'v2')
+        self.assertEqual(value['sql_confirmadas'], 45)
+        self.assertFalse(value['ready'])
+        self.assert_no_services()
 
-    def test_misma_fuente_exige_rotacion_y_preimagen_explicitas(self):
-        self.assertEqual(self.comprobar_opciones_rotacion(rotar='true', misma='true', sha='a'*64), 0)
-        self.assertEqual(self.comprobar_opciones_rotacion(rotar='false', misma='true', sha='a'*64), 2)
-        self.assertEqual(self.comprobar_opciones_rotacion(rotar='true', misma='true', sha=''), 2)
-        self.assertEqual(self.comprobar_opciones_rotacion(rotar='true', misma='false', sha='a'*64), 2)
+    def test_estado_rechaza_permisos_abiertos_enlaces_y_git(self):
+        self.owner()
+        self.state.chmod(0o755)
+        p = self.run_action('estado')
+        self.assertNotEqual(p.returncode, 0)
+        self.state.chmod(0o700)
+        alias = self.root / 'alias'
+        alias.symlink_to(self.state, target_is_directory=True)
+        p = self.run_action('estado', VEC_RECORRIDOS_ESTADO=str(alias))
+        self.assertNotEqual(p.returncode, 0)
+        (self.state / '.git').write_text('fixture')
+        p = self.run_action('estado')
+        self.assertNotEqual(p.returncode, 0)
+        self.assert_no_services()
+
+    def test_estado_rechaza_marker_enlazado_y_journal_no_lo_sigue(self):
+        self.owner()
+        external = self.root / 'foreign'
+        external.write_text('privado-sintetico')
+        (self.state / 'sql-journal.json').symlink_to(external)
+        p = self.run_action('estado')
+        self.assertEqual(p.returncode, 0, p.stderr)
+        self.assertEqual(json.loads(p.stdout)['journal'], 'bloqueado')
+        self.assertNotIn('privado-sintetico', p.stdout + p.stderr)
+        (self.state / 'clon.json').unlink()
+        (self.state / 'clon.json').symlink_to(external)
+        p = self.run_action('estado')
+        self.assertNotEqual(p.returncode, 0)
+        self.assert_no_services()
+
+    def test_parar_y_retirar_rechazan_propietario_y_volumen_ajenos(self):
+        for fields in ({'propietario': 'Otro'}, {'pgdata': '/otra/ruta'},
+                       {'estado': str(self.root)}, {'contenedor': 'vec-ajeno'}):
+            for action in ('parar', 'retirar'):
+                with self.subTest(fields=fields, action=action):
+                    self.owner(**fields)
+                    p = self.run_action(action)
+                    self.assertNotEqual(p.returncode, 0)
+                    self.assert_no_services()
+
+    def test_optimizacion_python_no_desactiva_propiedad(self):
+        self.owner(propietario='Otro')
+        p=self.run_action('retirar',PYTHONOPTIMIZE='1')
+        self.assertNotEqual(p.returncode,0)
+        self.assert_no_services()
+
+    def test_limpieza_conserva_diario_material_y_archivos_no_reconocidos(self):
+        source = SCRIPT.read_text()
+        start = source.index('    python3 - "$marcador" <<\'PY\'')
+        code = source[start:].split("\n", 1)[1].split('\nPY\n', 1)[0]
+        with tempfile.TemporaryDirectory(prefix='vec-recorridos-', dir='/dev/shm') as volume:
+            self.owner(pgdata=volume)
+            for name in ('sql-journal.json', 'material', 'capturas', 'ajeno', 'READY-historico.json'):
+                self.write_json(name, {'conservar': True})
+            (self.state / 'fuente').mkdir()
+            (self.state / 'fuente' / 'dummy').write_text('fixture')
+            (self.state / 'build.log').write_text('fixture')
+            # Sustituir sólo el lanzamiento Docker; el volumen de fixture está vacío.
+            harness = "import subprocess,sys\nsubprocess.run=lambda *a,**kw: None\nsys.argv=['fixture',sys.argv[1]]\n" + code
+            p = subprocess.run(['/usr/bin/python3', '-c', harness, str(self.state / 'clon.json')],
+                capture_output=True, text=True, env=self.environment, timeout=5)
+            self.assertEqual(p.returncode, 0, p.stderr)
+            self.assertFalse(Path(volume).exists())
+            self.assertFalse((self.state / 'fuente').exists())
+            self.assertFalse((self.state / 'build.log').exists())
+            for name in ('sql-journal.json', 'material', 'capturas', 'ajeno', 'READY-historico.json'):
+                self.assertTrue((self.state / name).exists())
+            self.assert_no_services()
+
+    def test_preparador_no_tiene_ledger_sql_ni_camino_de_instalacion_heredado(self):
+        source = SCRIPT.read_text()
+        self.assertNotIn('vec_recorridos_clon', source)
+        self.assertNotIn('docker exec', source)
+        self.assertNotIn('clon_material.py', source)
+        self.assertNotIn('--steps', source)
+        self.assertNotIn('db.query', source)
 
 
 if __name__ == '__main__':
