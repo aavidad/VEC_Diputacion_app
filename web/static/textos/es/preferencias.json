@@ -62,7 +62,13 @@
           "tema": {
             "sistema": "Según el dispositivo",
             "claro": "Claro",
-            "oscuro": "Oscuro"
+            "oscuro": "Oscuro",
+            "diputacion_granada": "Diputación de Granada",
+            "arena": "Arena",
+            "salvia": "Salvia",
+            "lavanda": "Lavanda",
+            "azul_sereno": "Azul sereno",
+            "noche_suave": "Noche suave"
           },
           "inicio": {
             "cuadro": "Cuadro de mando",
@@ -123,7 +129,13 @@
         "tema": {
           "sistema": "Según el dispositivo",
           "claro": "Claro",
-          "oscuro": "Oscuro"
+          "oscuro": "Oscuro",
+          "diputacion_granada": "Diputación de Granada",
+          "arena": "Arena",
+          "salvia": "Salvia",
+          "lavanda": "Lavanda",
+          "azul_sereno": "Azul sereno",
+          "noche_suave": "Noche suave"
         },
         "inicio": {
           "cuadro": "Cuadro de mando",

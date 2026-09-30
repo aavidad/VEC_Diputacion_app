@@ -28,6 +28,28 @@ test("GET conserva la versión cero y el catálogo servidor sin crear ni escribi
   assert.equal(peticiones[0].opciones.body, undefined);
 });
 
+test("v2 permite los seis temas; v1 rechaza un tema adelantado", async () => {
+  const temasNuevos = ["diputacion_granada", "arena", "salvia", "lavanda", "azul_sereno", "noche_suave"];
+  const catalogoV2 = { ...catalogo, version_ref: "usuarios-preferencias-v2",
+    temas: [...catalogo.temas, ...temasNuevos.map((codigo) => ({ codigo, nombre_key: `ui.usuarios.preferencias.tema.${codigo}` }))] };
+  for (const tema of temasNuevos) {
+    const elegidos = { ...valores, tema };
+    const cliente = crearClientePreferencias({ fetchImpl: async (_ruta, opciones) => opciones.method === "GET"
+      ? respuesta({ data: { catalogo: catalogoV2, estado: { version: 0, catalogo_version_ref: catalogoV2.version_ref, valores: elegidos } } })
+      : respuesta({ data: { recibo_ref: "recibo:tema", version: 1, catalogo_version_ref: catalogoV2.version_ref,
+        valores: elegidos, fecha_utc: "2026-09-30T00:00:00Z" } }, 201) });
+    assert.equal((await cliente.consultar()).estado.valores.tema, tema);
+    assert.equal((await cliente.guardar({ version: 0, catalogoVersion: catalogoV2.version_ref,
+      clave: "tema-123456789012345", valores: elegidos })).valores.tema, tema);
+    await assert.rejects(cliente.guardar({ version: 0, catalogoVersion: catalogo.version_ref,
+      clave: "tema-123456789012345", valores: elegidos }), /valores de preferencias inválidos/u);
+  }
+  const fueraDeCatalogo = { ...catalogoV2, temas: catalogoV2.temas.slice(0, -1) };
+  const cliente = crearClientePreferencias({ fetchImpl: async () => respuesta({ data: { catalogo: fueraDeCatalogo,
+    estado: { version: 0, catalogo_version_ref: fueraDeCatalogo.version_ref, valores: { ...valores, tema: "noche_suave" } } } }) });
+  await assert.rejects(cliente.consultar(), /estado de preferencias inválido|valores de preferencias inválidos/u);
+});
+
 test("PUT envía solo CAS, catálogo, clave y valores, y conserva el recibo", async () => {
   let cuerpo;
   const cliente = crearClientePreferencias({ fetchImpl: async (_ruta, opciones) => {
