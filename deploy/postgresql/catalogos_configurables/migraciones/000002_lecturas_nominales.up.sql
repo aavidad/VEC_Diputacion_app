@@ -10,8 +10,8 @@ SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('vec_catalog
 DO $pre$
 BEGIN
     IF current_user <> 'vec_catalogos_configurables_propietario'
-       OR pg_catalog.to_regprocedure('vec_catalogos_configurables.publicar(text,integer,text,text,jsonb,text,text,text,text,text,text)') IS NULL
-       OR pg_catalog.to_regprocedure('vec_catalogos_configurables.reservar(text,text,text,text,integer,text,text,text,text)') IS NULL
+       OR pg_catalog.to_regprocedure('vec_catalogos_configurables.publicar(text,integer,text,text,jsonb,text,text,text,text,text,text,text)') IS NULL
+       OR pg_catalog.to_regprocedure('vec_catalogos_configurables.reservar(text,text,text,text,integer,text,text,text,text,text)') IS NULL
        OR pg_catalog.to_regrole('vec_autorizacion_atestada_v3_propietario') IS NULL
        OR pg_catalog.to_regprocedure('vec_catalogos_configurables.listar_habilitadas(text,text,integer)') IS NOT NULL
        OR pg_catalog.to_regprocedure('vec_catalogos_configurables.leer_publicacion_categoria(text,integer,text,text)') IS NOT NULL
