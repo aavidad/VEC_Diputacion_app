@@ -50,6 +50,27 @@ func CanonicoCatalogoBaseReglas(catalogo domain.CatalogoConfigurable) ([]byte, s
 	return contenido, huella, nil
 }
 
+// ValidarCatalogoBaseReglas comprueba todas las entradas con el mismo parser
+// tipado que usa el resolutor, incluso las que empiezan a regir en el futuro o
+// ya dejaron de regir. Sirve para revisar un artefacto antes de publicarlo;
+// no cambia su canónico ni su huella.
+func ValidarCatalogoBaseReglas(catalogo domain.CatalogoConfigurable) error {
+	base, err := catalogo.ClonarCanonico()
+	if err != nil {
+		return ErrReglasNoDisponibles
+	}
+	huella, err := base.HuellaSHA256()
+	if err != nil {
+		return ErrReglasNoDisponibles
+	}
+	for _, entrada := range base.Entradas {
+		if _, err := reglaDesdeEntrada(base, huella, base.FuenteRef == MarcaPaqueteEjemplo, entrada); err != nil {
+			return ErrReglaInvalida
+		}
+	}
+	return nil
+}
+
 // RehidratarInstantaneaRegla valida la definición y reconstruye la regla con
 // el mismo motor del resolutor. No consulta el catálogo ni los ajustes actuales.
 func RehidratarInstantaneaRegla(p InstantaneaPersistidaRegla) (InstantaneaRegla, error) {
