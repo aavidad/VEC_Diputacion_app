@@ -7,10 +7,15 @@ SET LOCAL ROLE vec_contexto_actor_v1_propietario;
 DO $prueba$
 DECLARE c constant text := 'cta_ca20_prueba_aaaaaaaaaaaaaaaaaaaaaaaa';
         pe constant text := 'per_ca20_prueba_bbbbbbbbbbbbbbbbbbbbbbbb';
+        p0 constant text := 'prf_ca20_prueba_000000000000000000000000';
+        v0 constant text := 'vca_ca20_prueba_000000000000000000000000';
         p1 constant text := 'prf_ca20_prueba_cccccccccccccccccccccccc';
         v1 constant text := 'vca_ca20_prueba_dddddddddddddddddddddddd';
         p2 constant text := 'prf_ca20_prueba_eeeeeeeeeeeeeeeeeeeeeeee';
         v2 constant text := 'vca_ca20_prueba_ffffffffffffffffffffffff';
+        pe_ajena constant text := 'per_ca20_prueba_zzzzzzzzzzzzzzzzzzzzzzzz';
+        p_ajeno constant text := 'prf_ca20_prueba_zzzzzzzzzzzzzzzzzzzzzzzz';
+        v_ajeno constant text := 'vca_ca20_prueba_zzzzzzzzzzzzzzzzzzzzzzzz';
         pr1 constant text := 'prc_ca20_prueba_111111111111111111111111';
         pr2 constant text := 'prc_ca20_prueba_222222222222222222222222';
         pr3 constant text := 'prc_ca20_prueba_333333333333333333333333';
@@ -37,6 +42,32 @@ BEGIN
   VALUES (pe,1,pr1,1,repeat('1',64),'autoridad_maestra_acreditada','activo',
           pg_catalog.clock_timestamp()-interval '1 hour',pg_catalog.clock_timestamp()+interval '1 hour');
   INSERT INTO vec_contexto_actor_v1.persona_actual VALUES (pe,1);
+  -- Vínculo previo acreditado por la fuente: el alta administrativa no crea
+  -- por sí sola la relación entre una cuenta y una persona.
+  INSERT INTO vec_contexto_actor_v1.perfil_versiones
+    (perfil_ref,version,persona_ref,procedencia_ref,procedencia_version,procedencia_huella_sha256,
+     procedencia_autoridad,estado,vigente_desde,vigente_hasta)
+  VALUES (p0,1,pe,pr1,1,repeat('1',64),'autoridad_maestra_acreditada','activo',
+          pg_catalog.clock_timestamp()-interval '1 hour',pg_catalog.clock_timestamp()+interval '1 hour');
+  INSERT INTO vec_contexto_actor_v1.perfil_actual VALUES (p0,1);
+  INSERT INTO vec_contexto_actor_v1.vinculo_contexto_versiones
+    (vinculo_ref,version,cuenta_ref,perfil_ref,persona_ref,procedencia_ref,procedencia_version,
+     procedencia_huella_sha256,procedencia_autoridad,estado,vigente_desde,vigente_hasta)
+  VALUES (v0,1,c,p0,pe,pr1,1,repeat('1',64),'autoridad_maestra_acreditada','activo',
+          pg_catalog.clock_timestamp()-interval '1 hour',pg_catalog.clock_timestamp()+interval '1 hour');
+  INSERT INTO vec_contexto_actor_v1.vinculo_contexto_actual VALUES (v0,1);
+  INSERT INTO vec_contexto_actor_v1.persona_versiones
+    (persona_ref,version,procedencia_ref,procedencia_version,procedencia_huella_sha256,
+     procedencia_autoridad,estado,vigente_desde,vigente_hasta)
+  VALUES (pe_ajena,1,pr1,1,repeat('1',64),'autoridad_maestra_acreditada','activo',
+          pg_catalog.clock_timestamp()-interval '1 hour',pg_catalog.clock_timestamp()+interval '1 hour');
+  INSERT INTO vec_contexto_actor_v1.persona_actual VALUES (pe_ajena,1);
+  BEGIN
+    PERFORM vec_contexto_actor_v1.crear_perfil_vinculo_admin_v1(
+      c,pe_ajena,1,1,p_ajeno,v_ajeno,pr2,1,repeat('2',64),pg_catalog.clock_timestamp()+interval '1 hour');
+    RAISE EXCEPTION 'CA20: cuenta vinculada a persona ajena';
+  EXCEPTION WHEN sqlstate '55000' THEN NULL;
+  END;
 
   PERFORM vec_contexto_actor_v1.crear_perfil_vinculo_admin_v1(
     c,pe,1,1,p1,v1,pr2,1,repeat('2',64),pg_catalog.clock_timestamp()+interval '1 hour');
@@ -44,7 +75,8 @@ BEGIN
     c,pe,1,1,p2,v2,pr2,1,repeat('2',64),pg_catalog.clock_timestamp()+interval '1 hour');
   IF (SELECT count(*) FROM vec_contexto_actor_v1.perfil_actual pa
       JOIN vec_contexto_actor_v1.perfil_versiones pv USING (perfil_ref,version)
-      WHERE pv.persona_ref=pe AND pv.estado='activo') <> 2 THEN
+      WHERE pv.persona_ref=pe AND pv.estado='activo'
+        AND pa.perfil_ref IN (p1,p2)) <> 2 THEN
     RAISE EXCEPTION 'CA20: multiples perfiles de persona no conservados';
   END IF;
 
