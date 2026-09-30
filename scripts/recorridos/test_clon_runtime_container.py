@@ -2,6 +2,7 @@
 """Local dummy fixtures; Docker and process signals are always mocked."""
 
 import copy
+import errno
 import json
 import os
 from pathlib import Path
@@ -555,11 +556,63 @@ class ContainerBoundaryTests(unittest.TestCase):
         # Kernel bind mounts need privileges. Model their sole changed fact,
         # the directory's inode, while keeping all normal file guards active.
         ancestor = self.relay.parent.stat()
-        original_stat = Path.stat
+        original_fstat = os.fstat
         rw_root = self.root / 'rw/data'
-        def inode_alias(path, *args, **kwargs):
-            return ancestor if path == rw_root else original_stat(path, *args, **kwargs)
-        with patch.object(Path, 'stat', inode_alias), self.assertRaisesRegex(runtime.ContainerError, 'aliases'):
+        original_inode = rw_root.stat().st_ino
+        def inode_alias(descriptor):
+            info = original_fstat(descriptor)
+            return ancestor if info.st_ino == original_inode else info
+        with patch.object(runtime.os, 'fstat', inode_alias), self.assertRaisesRegex(runtime.ContainerError, 'aliases'):
+            self.validate()
+
+    def test_unreadable_writable_subdirectory_rejects_before_docker(self):
+        hidden = self.root / 'rw/data/oculto'
+        hidden.mkdir(mode=0o700)
+        hidden.chmod(0)
+        self.addCleanup(hidden.chmod, 0o700)
+        with patch.object(runtime, 'docker') as docker, patch.object(runtime, 'build_image') as build:
+            with self.assertRaisesRegex(runtime.ContainerError, 'inspected completely'):
+                self.start_runtime()
+        docker.assert_not_called()
+        build.assert_not_called()
+
+    def test_scandir_error_never_hides_writable_inode_alias(self):
+        hidden = self.root / 'rw/data/oculto'
+        hidden.mkdir()
+        hidden_inode = hidden.stat().st_ino
+        scandir = os.scandir
+        ancestor = self.relay.parent.stat()
+        def cannot_inspect(descriptor):
+            if isinstance(descriptor, int) and os.fstat(descriptor).st_ino == hidden_inode:
+                raise PermissionError(errno.EACCES, 'fixture unreadable subtree')
+            return scandir(descriptor)
+        with patch.object(runtime.os, 'scandir', side_effect=cannot_inspect), \
+                patch.object(runtime, 'docker') as docker, patch.object(runtime, 'build_image') as build:
+            with self.assertRaisesRegex(runtime.ContainerError, 'inspected completely'):
+                self.start_runtime()
+        docker.assert_not_called()
+        build.assert_not_called()
+        # The alias below the previously unreadable directory is also checked.
+        nested = hidden / 'alias'
+        nested.mkdir()
+        nested_inode = nested.stat().st_ino
+        fstat = os.fstat
+        def inode_alias(descriptor):
+            info = fstat(descriptor)
+            return ancestor if info.st_ino == nested_inode else info
+        with patch.object(runtime.os, 'fstat', side_effect=inode_alias), \
+                self.assertRaisesRegex(runtime.ContainerError, 'aliases'):
+            self.validate()
+
+    def test_writable_inspection_entry_byte_and_depth_limits_reject(self):
+        root = self.root / 'rw/data'
+        (root / 'one').write_bytes(b'fixture')
+        for limit, value in [('RW_SCAN_ENTRIES', 0), ('RW_SCAN_BYTES', 1)]:
+            with self.subTest(limit=limit), patch.object(runtime, limit, value), \
+                    self.assertRaisesRegex(runtime.ContainerError, 'limit'):
+                self.validate()
+        (root / 'nested').mkdir()
+        with patch.object(runtime, 'RW_SCAN_DEPTH', 0), self.assertRaisesRegex(runtime.ContainerError, 'depth limit'):
             self.validate()
 
     def test_owned_app_cleanup_remains_possible_after_pg_or_relay_disappears(self):

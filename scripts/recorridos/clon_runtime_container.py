@@ -26,6 +26,9 @@ HOME = '/home/runtime'
 RELAY_TARGET = '/opt/vec/relay_tcp'
 PG_PORT = 5432
 RW_KINDS = {'documentos', 'imagenes', 'data', 'comunicaciones'}
+RW_SCAN_ENTRIES = 10000
+RW_SCAN_BYTES = 512 * 1024 * 1024
+RW_SCAN_DEPTH = 32
 _diagnostic_phase = 'local_docker'
 _diagnostic_attempt = None
 
@@ -208,6 +211,60 @@ def projection_sha(projection):
     return object_sha(files)
 
 
+def check_writable_tree(root, protected):
+    """Inspect all entries by no-follow FDs; an unreadable subtree rejects all."""
+    count, size = 0, 0
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
+
+    def check(info):
+        if (info.st_dev, info.st_ino) in protected:
+            fail('A writable runtime tree aliases the relay or its ancestry.')
+        if info.st_uid != os.getuid() or not (stat.S_ISDIR(info.st_mode) or
+                (stat.S_ISREG(info.st_mode) and info.st_nlink == 1)):
+            fail('Writable runtime trees require owned directories and regular files with a single link.')
+
+    def walk(descriptor, depth):
+        nonlocal count, size
+        if depth > RW_SCAN_DEPTH:
+            fail('Writable runtime tree exceeds its inspection depth limit.')
+        with os.scandir(descriptor) as entries:
+            for entry in entries:
+                count += 1
+                if count > RW_SCAN_ENTRIES:
+                    fail('Writable runtime tree exceeds its inspection entry limit.')
+                info = entry.stat(follow_symlinks=False)
+                check(info)
+                if stat.S_ISDIR(info.st_mode):
+                    child = os.open(entry.name, flags, dir_fd=descriptor)
+                    try:
+                        opened = os.fstat(child)
+                        check(opened)
+                        if (opened.st_dev, opened.st_ino) != (info.st_dev, info.st_ino):
+                            fail('Writable runtime directory changed during inspection.')
+                        walk(child, depth + 1)
+                    finally:
+                        os.close(child)
+                else:
+                    size += info.st_size
+                    if size > RW_SCAN_BYTES:
+                        fail('Writable runtime tree exceeds its inspection byte limit.')
+
+    descriptor = None
+    try:
+        before = root.stat(follow_symlinks=False)
+        descriptor = os.open(root, flags)
+        opened = os.fstat(descriptor)
+        check(opened)
+        if (opened.st_dev, opened.st_ino) != (before.st_dev, before.st_ino):
+            fail('Writable runtime root changed during inspection.')
+        walk(descriptor, 0)
+    except OSError:
+        fail('Writable runtime tree could not be inspected completely.')
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
+
+
 def relay_mount(state, relay_binary, relay_sha256, *, live=False):
     path = Path(relay_binary)
     writable_roots = [state / 'runtime-interno/rw' / kind for kind in RW_KINDS]
@@ -230,14 +287,7 @@ def relay_mount(state, relay_binary, relay_sha256, *, live=False):
             protected.add((info.st_dev, info.st_ino))
         for root in writable_roots:
             checked_path(root, state, directory=True)
-            info = root.stat()
-            if (info.st_dev, info.st_ino) in protected:
-                fail('A writable runtime tree aliases the relay or its ancestry.')
-            for child in root.rglob('*'):
-                checked_path(child, root, directory=child.is_dir())
-                info = child.stat()
-                if (info.st_dev, info.st_ino) in protected:
-                    fail('A writable runtime tree aliases the relay or its ancestry.')
+            check_writable_tree(root, protected)
     return {'source': str(path), 'target': RELAY_TARGET, 'rw': False}
 
 
