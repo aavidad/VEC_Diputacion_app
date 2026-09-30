@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"reflect"
 	"strings"
 	"time"
@@ -226,8 +227,11 @@ func (s *ServicioGobiernoCategoriaRPT) autorizar(ctx context.Context, c Credenci
 	}
 	material, err := exportador.ExportarMaterialParaConsumidor()
 	instanteConsumo := s.reloj.Ahora().UTC().Truncate(time.Microsecond)
-	if err != nil || !concesionGobiernoCategoriaRPTValida(material, solicitud, decision,
-		confirmacion, c.ResultadoContexto, c.Actor, accion, p.Recurso, instanteConsumo) {
+	if err != nil {
+		return domain.SolicitudAutorizacionLigadaV3{}, cero, denegacionValidacionGobiernoCategoriaRPT(err)
+	}
+	if err := concesionGobiernoCategoriaRPTValida(material, solicitud, decision,
+		confirmacion, c.ResultadoContexto, c.Actor, accion, p.Recurso, instanteConsumo); err != nil {
 		return domain.SolicitudAutorizacionLigadaV3{}, cero, ports.ErrGobiernoCategoriaRPTDenegado
 	}
 	return solicitud, material, nil
@@ -238,41 +242,58 @@ func concesionGobiernoCategoriaRPTValida(m ports.ExportacionMaterialConsumoAutor
 	c ports.ConfirmacionRegistroConcesionAutorizacionLigadaV3,
 	resultado domain.ResultadoContextoActorRegistradoV2, actor domain.ContextoActor,
 	accion string, recurso domain.RecursoAutorizable, ahora time.Time,
-) bool {
-	if m.ValidarEstructura() != nil || d.ValidarPara(s) != nil {
-		return false
+) error {
+	if err := m.ValidarEstructura(); err != nil {
+		return denegacionValidacionGobiernoCategoriaRPT(err)
+	}
+	if err := d.ValidarPara(s); err != nil {
+		return denegacionValidacionGobiernoCategoriaRPT(err)
 	}
 	datos, err := s.Datos()
-	if err != nil || datos.Accion != accion || datos.Finalidad != ports.FinalidadGobiernoCategoriaRPT ||
+	if err != nil {
+		return denegacionValidacionGobiernoCategoriaRPT(err)
+	}
+	if datos.Accion != accion || datos.Finalidad != ports.FinalidadGobiernoCategoriaRPT ||
 		!reflect.DeepEqual(datos.Recurso, recurso) {
-		return false
+		return ports.ErrGobiernoCategoriaRPTDenegado
 	}
 	orden, err := ports.NuevaOrdenRegistroConcesionCandidataAutorizacionLigadaV3(s, d, datos.ReferenciaMotivo, resultado)
-	if err != nil || c.ValidarPara(orden) != nil {
-		return false
+	if err != nil {
+		return denegacionValidacionGobiernoCategoriaRPT(err)
+	}
+	if err := c.ValidarPara(orden); err != nil {
+		return denegacionValidacionGobiernoCategoriaRPT(err)
 	}
 	cd, err := c.Datos()
-	if err != nil || !c.DentroDeVentanaEn(cd.RegistradaEn) {
-		return false
+	if err != nil {
+		return denegacionValidacionGobiernoCategoriaRPT(err)
+	}
+	if !c.DentroDeVentanaEn(cd.RegistradaEn) {
+		return ports.ErrGobiernoCategoriaRPTDenegado
 	}
 	dc, errD := domain.RepresentacionCanonicaDecisionAutorizacionV3(d)
 	mc, errM := domain.RepresentacionCanonicaMotivoAutorizacionV2(datos.ReferenciaMotivo)
 	h, errR := recurso.HuellaContextoAutorizacionSHA256()
-	if errD != nil || errM != nil || errR != nil {
-		return false
+	for _, causa := range []error{errD, errM, errR} {
+		if causa != nil {
+			return denegacionValidacionGobiernoCategoriaRPT(causa)
+		}
 	}
 	hd, hm := sha256.Sum256(dc), sha256.Sum256(mc)
 	r := m.ResumenCapacidad()
 	proyeccion, err := domain.ParsearMensajeAtestacionAutorizacionV3NoAutoritativo(m.PayloadVECAD3())
 	if err != nil {
-		return false
+		return denegacionValidacionGobiernoCategoriaRPT(err)
 	}
 	cabecera, err := proyeccion.Cabecera()
 	if err != nil {
-		return false
+		return denegacionValidacionGobiernoCategoriaRPT(err)
 	}
 	mensaje, err := domain.SerializarMensajeAtestacionAutorizacionV3(cabecera, d, datos.ReferenciaMotivo, resultado)
-	return err == nil && bytes.Equal(mensaje, m.PayloadVECAD3()) &&
+	if err != nil {
+		return denegacionValidacionGobiernoCategoriaRPT(err)
+	}
+	if bytes.Equal(mensaje, m.PayloadVECAD3()) &&
 		r.DecisionRef() == cd.DecisionRef && r.DecisionHuellaSHA256() == cd.DecisionHuellaSHA256 &&
 		bytes.Equal(dc, m.DecisionCanonica()) && bytes.Equal(mc, m.MotivoCanonico()) &&
 		bytes.Equal(resultado.RepresentacionCanonica, m.ContextoActorCanonico()) &&
@@ -284,7 +305,16 @@ func concesionGobiernoCategoriaRPTValida(m ports.ExportacionMaterialConsumoAutor
 		r.ContextoHuellaSHA256() == resultado.HuellaSHA256 &&
 		m.PersonaVersion() == actor.Instantanea.PersonaVersion &&
 		m.PerfilVersion() == actor.Instantanea.PerfilVersion &&
-		!ahora.Before(r.EmitidaEn()) && ahora.Before(r.ExpiraEn())
+		!ahora.Before(r.EmitidaEn()) && ahora.Before(r.ExpiraEn()) {
+		return nil
+	}
+	return ports.ErrGobiernoCategoriaRPTDenegado
+}
+
+// Solo transporta el tipo de la causa interna. El mensaje del proveedor puede
+// contener datos privados y no debe atravesar esta frontera.
+func denegacionValidacionGobiernoCategoriaRPT(causa error) error {
+	return fmt.Errorf("%w: %T", ports.ErrGobiernoCategoriaRPTDenegado, causa)
 }
 
 func resultadoGobiernoCategoriaRPTValido(r ports.ResultadoGobiernoCategoriaRPT,
