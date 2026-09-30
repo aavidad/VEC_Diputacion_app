@@ -122,6 +122,9 @@ fi
 git -C "$raiz_repo" archive "$revisado" | tar -x -C "$base/source"
 sha256sum "$archivo" > "$base/build/h1_sha256.txt"
 tar -xzf "$archivo" -C "$base/pg"
+# tar restaura el modo del miembro './' sobre el directorio de destino. El
+# padre host sigue 0700; solo el punto montado y su nivel 18 son atravesables.
+chmod 755 "$base/pg" "$base/pg/18"
 docker_local run -d --pull never --name "$contenedor" --network none --memory 4g --cpus 2 \
   --pids-limit 128 --shm-size 256m \
   --mount "type=bind,src=$base/pg,dst=/var/lib/postgresql" \
