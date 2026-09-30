@@ -68,6 +68,7 @@ func TestCoberturaRutasCTInventarioCompletoYOpcionales(t *testing.T) {
 	descriptores = append(descriptores, descriptoresFronterasReincorporacionTitularDesarrollo(perfil)...)
 	descriptores = append(descriptores, descriptoresFronterasPlantillasCTDesarrollo(perfil)...)
 	descriptores = append(descriptores, descriptoresFronterasPlantillasDocumentalCTDesarrollo(perfil)...)
+	descriptores = append(descriptores, descriptorFronteraConsultaAjustesCT(perfil))
 	catalogo, err := nuevoCatalogoFronterasComunDesarrollo(descriptores)
 	if err != nil {
 		t.Fatalf("catálogo real de descriptores CT: %v", err)

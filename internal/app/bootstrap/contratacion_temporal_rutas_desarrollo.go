@@ -8,6 +8,7 @@ import (
 
 	bolsahttp "vec-diputacion-granada/internal/modules/bolsa/adapters/httpinterno"
 	bolsapersonal "vec-diputacion-granada/internal/modules/bolsa/adapters/httppersonal"
+	ajusteshttp "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpapi/ajustesreglas"
 	plantillashttp "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpapi/plantillascatalogo"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
@@ -67,6 +68,7 @@ func inventarioRutasCTDesarrollo() map[string][]metodoRutaCTDesarrollo {
 		plantillashttp.RutaPublicar:                     {pdpCT(http.MethodPost)},
 		plantillashttp.RutaBorradoresDisponibles:        {pdpCT(http.MethodPost)},
 		plantillashttp.RutaBorradores:                   {pdpCT(http.MethodPost)},
+		ajusteshttp.Ruta:                                {pdpCT(http.MethodGet)},
 
 		// Autoridades nominales existentes. Una lectura sin acción V3 propia
 		// conserva su guarda de identidad/ruta; no se inventa una acción V3.
@@ -169,7 +171,8 @@ func (m manejadorMetodosInventariadosCTDesarrollo) ServeHTTP(w http.ResponseWrit
 }
 
 func esPrefijoRutaCTDesarrollo(ruta string) bool {
-	return ruta == "/api/vec/contratacion-temporal" || strings.HasPrefix(ruta, "/api/vec/contratacion-temporal/")
+	return rutaConsultaAjustesReglasCT(ruta) || ruta == "/api/vec/contratacion-temporal" ||
+		strings.HasPrefix(ruta, "/api/vec/contratacion-temporal/")
 }
 
 func validarMetodoRutaCTDesarrollo(ruta string, metodo metodoRutaCTDesarrollo, fronteras catalogoFronterasComunDesarrollo) error {
@@ -241,5 +244,6 @@ func esRutaContratacionTemporalDesarrollo(r *http.Request) bool {
 		r.URL.Path == rutaCircuitoFirmaContratacionTemporalDesarrollo ||
 		rutaFirmaDocumentoCTDesarrollo(r.URL.Path) ||
 		rutaCalendariosDesarrollo(r.URL.Path) || rutaDocumentacionFormalizacionDesarrollo(r.URL.Path) ||
-		rutaReglasVigentesDesarrollo(r.URL.Path)
+		rutaReglasVigentesDesarrollo(r.URL.Path) ||
+		rutaConsultaAjustesReglasCT(r.URL.Path)
 }
