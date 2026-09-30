@@ -148,6 +148,21 @@ const fecha = (iso) => {
   }).format(d);
 };
 
+function renderizarHistoriaSinBase(historial, motivos) {
+  if (!historial.length) return "";
+  const entradas = historial.map((h) => {
+    const motivo = motivos.find((m) => m.clave === h.motivo_clave);
+    const motivoTexto = motivo ? t(motivo.texto_clave) : t("ajustesMotivoNoIdentificado");
+    const cambios = h.cambios.map((c) => `<li>${esc(etiquetaCampo(c.campo))}: ${esc(valorHistorico(c.campo, c.anterior))} → ${esc(valorHistorico(c.campo, c.nuevo))} <small>${esc(t("ajustesReglaHistorica"))} <code>${esc(c.regla_clave)}</code></small></li>`).join("");
+    return `<li><span>${esc(fecha(h.vigente_desde))}</span> · ${esc(t("ajustesVersion", { version: formatearNumero(h.version) }))} · ${esc(motivoTexto)}
+      <ul>${cambios}</ul>
+      ${h.referencia ? `<p>${esc(t("ajustesReferenciaHistoria", { referencia: h.referencia }))}</p>` : ""}
+      ${h.nota ? `<p>${esc(t("ajustesNotaHistoria", { nota: h.nota }))}</p>` : ""}
+      ${h.recibo_ref ? `<details><summary>${esc(t("ajustesVerJustificante"))}</summary><code>${esc(h.recibo_ref)}</code></details>` : ""}</li>`;
+  }).join("");
+  return `<details class="rg-ajuste-historial"><summary>${esc(t("ajustesHistorial"))}</summary><ol>${entradas}</ol></details>`;
+}
+
 export function renderizarAjustes(modelo, { reglaActiva = "", borrador = null, fase = "lista", aviso = "", error = false, recibo = null, bloqueado = false } = {}) {
   const motivos = modelo.motivos ?? [];
   const baseActiva = modelo.activacion.estado === "activa";
@@ -169,7 +184,7 @@ export function renderizarAjustes(modelo, { reglaActiva = "", borrador = null, f
       ${activa && editable && !r.ajuste_no_aplicable ? renderizarFormulario(r, motivos, borrador, fase) : ""}
       <details class="rg-ajuste-historial"><summary>${esc(t("ajustesHistorial"))}</summary><ol>${listaHistorial}</ol></details></article>`;
   }).join("");
-  const historiaSinBase = !baseActiva && modelo.historial.length ? `<details class="rg-ajuste-historial"><summary>${esc(t("ajustesHistorial"))}</summary><ol>${modelo.historial.map((h) => `<li><span>${esc(fecha(h.vigente_desde))}</span> · ${esc(t("ajustesVersion", { version: formatearNumero(h.version) }))} · ${esc(motivos.find((m) => m.clave === h.motivo_clave)?.texto_clave ? t(motivos.find((m) => m.clave === h.motivo_clave).texto_clave) : t("ajustesMotivoNoIdentificado"))}${h.referencia ? `<p>${esc(t("ajustesReferenciaHistoria", { referencia: h.referencia }))}</p>` : ""}${h.recibo_ref ? `<details><summary>${esc(t("ajustesVerJustificante"))}</summary><code>${esc(h.recibo_ref)}</code></details>` : ""}</li>`).join("")}</ol></details>` : "";
+  const historiaSinBase = !baseActiva ? renderizarHistoriaSinBase(modelo.historial, motivos) : "";
   const mensajeBase = !baseActiva ? t(modelo.activacion.estado === "sin_publicar" ? "ajustesBaseSinPublicar" : "ajustesBaseInactiva") : "";
   return `<section class="rg-panel rg-ajustes" aria-labelledby="rg-ajustes-titulo"><div class="rg-panel-cabecera"><div><h2 id="rg-ajustes-titulo" tabindex="-1">${esc(t("ajustesTitulo"))}</h2><p class="rg-meta">${esc(t("ajustesVersion", { version: formatearNumero(modelo.version_esperada) }))}</p></div></div>
     ${mensajeBase ? `<p class="rg-aviso" role="status">${esc(mensajeBase)}</p>` : !modelo.puede_ajustar ? `<p class="rg-aviso">${esc(t("ajustesSoloLectura"))}</p>` : ""}

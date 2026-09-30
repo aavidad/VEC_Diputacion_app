@@ -1,7 +1,7 @@
 /** Vista y enlace DOM de la superficie de expedientes de contratación temporal. */
 
 import { validarReciboAlta } from "./contrato.js";
-import { montarFormularioCobertura } from "./formulario-cobertura.js";
+import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20260930-plazos-activacion-ct158-v1";
 import { montarFormularioResolucionFormalizacion } from "./formulario-resolucion-formalizacion.js";
 import { montarFormularioAnotacionAdministrativa } from "./formulario-anotacion-administrativa.js";
 import { montarFormularioCierreAdministrativo } from "./formulario-cierre-administrativo.js";
@@ -22,7 +22,7 @@ import { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedient
 import { crearGestorDescargaBorradorRRHH } from "./vista-expedientes-borrador.js";
 import { crearGestorCircuitoFirma } from "./circuito-firma.js?v=20260930-portales-i18n-integracion-v1";
 import { crearGestorIncorporacion } from "./vista-expedientes-incorporacion.js?v=20260926-huecos-rrhh-v1";
-import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js";
+import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js?v=20260930-plazos-activacion-ct158-v1";
 import { crearGestorInformeTrasSubsanacion } from "./informe-tras-subsanacion.js?v=20260926-huecos-rrhh-v1";
 import { contextoSeguimientoCeseDesdeEstado, montarPanelSeguimientoCese } from "./seguimiento-cese.js?v=20260926-huecos-rrhh-v2";
 import { montarCancelacionSiProcede } from "./vista-expedientes-cancelacion.js?v=20260926-huecos-rrhh-v1";

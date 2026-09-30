@@ -108,6 +108,7 @@
     "ajustesSinCambios": "No ha cambiado ningún valor. Revise los campos antes de guardar.",
     "ajustesMotivoRequerido": "Elija un motivo para continuar.",
     "ajustesReferenciaHistoria": "Referencia: {referencia}",
+    "ajustesReglaHistorica": "Identificador de la regla:",
     "ajustesAuditoria": "Auditoría:",
     "ajustesCorregir": "Cambiar datos",
     "ajustesSoloLectura": "Puede consultar los valores y su historial. Su perfil o la configuración de este entorno no permiten cambiarlos ahora.",

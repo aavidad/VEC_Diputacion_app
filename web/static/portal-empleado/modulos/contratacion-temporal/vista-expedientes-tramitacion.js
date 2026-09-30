@@ -3,7 +3,7 @@
 import { escaparHTML } from "./componentes-expedientes.js";
 import { montarFormularioAnalisisRRHH } from "./formulario-analisis.js?v=20260926-huecos-rrhh-v1";
 import { montarFormularioAsignacion } from "./formulario-asignacion.js";
-import { montarFormularioCobertura } from "./formulario-cobertura.js";
+import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20260930-plazos-activacion-ct158-v1";
 import { montarFormularioFiscalizacion } from "./formulario-fiscalizacion.js";
 import { montarFormularioInformeJuridico } from "./formulario-informe-juridico.js";
 import { montarFormularioSubsanacionReparos } from "./formulario-subsanacion-reparos.js";

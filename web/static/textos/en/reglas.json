@@ -108,6 +108,7 @@
     "ajustesSinCambios": "No value has changed. Review the fields before saving.",
     "ajustesMotivoRequerido": "Choose a reason to continue.",
     "ajustesReferenciaHistoria": "Reference: {referencia}",
+    "ajustesReglaHistorica": "Rule identifier:",
     "ajustesAuditoria": "Audit:",
     "ajustesCorregir": "Change details",
     "ajustesSoloLectura": "You can view the values and their history. Your profile or this environment's settings do not allow changes now.",

@@ -96,7 +96,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
       import("./modulos/contratacion-temporal/contrato.js"),
       import("./modulos/contratacion-temporal/cliente-http.js"),
       import("./modulos/contratacion-temporal/presentador-expedientes.js"),
-      import("./modulos/contratacion-temporal/vista-expedientes.js?v=20260930-ct-lista-recuperada-v2"),
+      import("./modulos/contratacion-temporal/vista-expedientes.js?v=20260930-plazos-activacion-ct158-v1"),
       import("./modulos/contratacion-temporal/adaptador-http-expedientes.js"),
       import("./modulos/auditoria/vista.js?v=20260930-portales-i18n-integracion-v1"),
       import("./modulos/auditoria/cliente-http.js?v=20260928-usab-auditoria-v2"),

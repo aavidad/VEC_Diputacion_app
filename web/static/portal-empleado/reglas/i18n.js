@@ -38,6 +38,7 @@ const CLAVES = Object.freeze(`
   ajustesReferencia ajustesNota ajustesSinDatosPersonales ajustesRevisar ajustesEfecto
   ajustesCancelar ajustesGuardar ajustesGuardando ajustesSinCambios ajustesMotivoRequerido
   ajustesReferenciaHistoria ajustesAuditoria
+  ajustesReglaHistorica
   ajustesCorregir
   ajustesSoloLectura
   ajustesConflictoSinLectura

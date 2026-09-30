@@ -48,6 +48,9 @@ test("una base sin publicar o inactiva muestra historia sin afirmar valores vige
     const html = renderizarAjustes(modelo);
     assert.match(html, /Ver historial/u);
     assert.match(html, /Duda 63/u);
+    assert.match(html, /Identificador de la regla: <code>c03\.plazo_fiscalizacion<\/code>/u);
+    assert.match(html, /Cantidad: 12 → 10/u);
+    assert.match(html, /Revisado/u);
     assert.doesNotMatch(html, /data-ajustes-editar/u);
     assert.doesNotMatch(html, /Plazo de fiscalización/u);
     assert.match(html, estado === "sin_publicar" ? /base de plazos aprobada y publicada/u : /base de plazos está desactivada/u);
