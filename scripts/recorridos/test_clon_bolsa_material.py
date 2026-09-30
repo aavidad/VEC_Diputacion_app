@@ -59,7 +59,104 @@ class FakeSQLAuthority:
             raise RuntimeError("fixture receipt disagreement")
 
 
+def convoca_inventory(connect=False):
+    roles = []
+    for name in (module.IMPORT_LOGIN, *module.IMPORT_GROUPS):
+        roles.append({"rolname": name, "rolcanlogin": name == module.IMPORT_LOGIN,
+                      "rolinherit": True, "rolsuper": False, "rolcreatedb": False,
+                      "rolcreaterole": False, "rolreplication": False, "rolbypassrls": False,
+                      "rolconfig": None if name == module.IMPORT_LOGIN else ["search_path=pg_catalog,pg_temp"]})
+    return {"roles": roles,
+            "memberships": [{"member": module.IMPORT_LOGIN, "role": g, "admin_option": False,
+                             "inherit_option": True, "set_option": True} for g in module.IMPORT_GROUPS],
+            "db_role_settings": 0, "owned_objects": 0, "direct_database_acl": 0, "connect": connect}
+
+
+class FakeConvoca:
+    def __init__(self, connect=False):
+        self.inventory = convoca_inventory(connect)
+        self.plan = {"source_ref": "8fc0b534dbdaa0a5b34d835810c4593ad823780b"}
+        self.calls = []
+        self.physical = module.IMPORT_LOGIN + "|true|true|true|true|TLSv1.3"
+
+    def sql(self, statement, **kwargs):
+        self.calls.append((statement, kwargs))
+        return json.dumps(self.inventory) if "pg_db_role_setting" in statement else self.physical
+
+
 class ProvisionTests(unittest.TestCase):
+    @staticmethod
+    def convoca_fixture(root):
+        material = root / "material"
+        (material / "kms").mkdir(parents=True, mode=0o700)
+        key = material / "kms/clave-maestra.bin"
+        key.write_bytes(b"d" * 32)
+        key.chmod(0o600)
+        return material
+
+    def test_convoca_connect_pending_returns_nominal_url_without_accreditation(self):
+        from urllib.parse import urlsplit
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            material = self.convoca_fixture(root)
+            clone = FakeConvoca()
+            uri, proof, blockers = module._prepare_convoca(clone, material, root / "ca.crt", 55577, "/private/ca.crt")
+            self.assertEqual(urlsplit(uri).username, module.IMPORT_LOGIN)
+            self.assertEqual(proof["status"], "metadata_only")
+            self.assertEqual(proof["accreditation"], "not_accredited")
+            self.assertFalse(proof["tls_probe_verified"])
+            self.assertEqual(blockers, [{"profile": "bolsa", "code": "bolsa_importacion_convoca_connect_pendiente"}])
+            self.assertEqual(len(clone.calls), 1)
+            self.assertNotIn("user", clone.calls[0][1])
+            self.assertEqual((material / "kms/clave-maestra.bin").read_bytes(), b"d" * 32)
+
+    def test_convoca_connect_repaired_requires_physical_login_tls_probe(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            material = self.convoca_fixture(root)
+            clone = FakeConvoca(connect=True)
+            _, proof, blockers = module._prepare_convoca(clone, material, root / "ca.crt", 55577, "/private/ca.crt")
+            self.assertEqual(blockers, [])
+            self.assertTrue(proof["tls_probe_verified"])
+            self.assertEqual(proof["source_ref"], clone.plan["source_ref"])
+            self.assertEqual(proof["pending"], ["rrhh_http_read_and_recovery"])
+            self.assertEqual(clone.calls[1][1], {"user": module.IMPORT_LOGIN, "tls_ca": "/private/ca.crt"})
+            for statement, _ in clone.calls:
+                self.assertTrue(statement.lstrip().startswith("SELECT"))
+                self.assertFalse(any(token in statement.upper() for token in ("CREATE ", "GRANT ", "ALTER ", "REVOKE ")))
+
+    def test_convoca_preserves_exact_two_historical_memberships(self):
+        original = convoca_inventory(connect=True)
+        self.assertTrue(module._convoca_nominal(original))
+        self.assertEqual(original, convoca_inventory(connect=True))
+        for failure in ("missing_login", "nologin", "extra_role", "admin", "settings", "owned"):
+            with self.subTest(failure=failure):
+                value = copy.deepcopy(original)
+                if failure == "missing_login":
+                    value["roles"] = value["roles"][1:]
+                elif failure == "nologin":
+                    value["roles"][0]["rolcanlogin"] = False
+                elif failure == "extra_role":
+                    value["memberships"].append({"member": module.IMPORT_LOGIN, "role": "unrelated_owner",
+                                                 "admin_option": False, "inherit_option": True, "set_option": True})
+                elif failure == "admin":
+                    value["memberships"][0]["admin_option"] = True
+                elif failure == "settings":
+                    value["db_role_settings"] = 1
+                else:
+                    value["owned_objects"] = 1
+                with self.assertRaises(module.ProvisionError):
+                    module._convoca_nominal(value)
+
+    def test_convoca_failed_physical_probe_does_not_claim_accreditation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            material = self.convoca_fixture(root)
+            clone = FakeConvoca(connect=True)
+            clone.physical = module.IMPORT_LOGIN + "|true|true|true|false|"
+            with self.assertRaisesRegex(module.ProvisionError, "bolsa_importacion_convoca_sonda_nominal_tls_fallida"):
+                module._prepare_convoca(clone, material, root / "ca.crt", 55577, "/private/ca.crt")
+
     @staticmethod
     def target_fixture(state, container, port):
         inventory = {"propietario": "Codex-M", "estado": str(state),

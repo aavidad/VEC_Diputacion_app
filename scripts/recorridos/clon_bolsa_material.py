@@ -36,6 +36,8 @@ CONTRACT_HASHES = {
     "internal/app/bootstrap/bolsa_borrador_politica_desarrollo.go": "190089f6b533b9c7e0c1135fcfc6b5d8143656faca82f4db6b02b7f29ab96a13",
     "config/postgresql_borradores.go": "6770f91af7bd67b75b8beb14b13e78290b88364217d5efafe70659c3a2dd8725",
     "internal/app/bootstrap/postgresql_borradores_configuracion.go": "d33403dde4e0f77e4864198f8e758b3959c3a946bf9e76112cce5c7022f19abc",
+    "internal/app/bootstrap/bolsa_importacion_convoca_pool.go": "5707fbbe5c78c4b7b48267b8bb39f0095e224eddbd3b16c071d216daad1b72be",
+    "internal/app/bootstrap/bolsa_rrhh_constituida_desarrollo.go": "326fdc828547b378cf1ca4434b626fb5f35973bb6d91d406081155cd84542fdd",
 }
 CONTAINER = "vec-codexm-recorridos-20260930"
 STATE = Path.home() / ".local/state/vec-recorridos-codexm-20260930"
@@ -43,6 +45,8 @@ CALCULATOR = "vec_bolsa_calculador_politica_desarrollo"
 CALCULATOR_GROUP = "vec_bolsa_llamamientos_calculador_politica"
 BUSINESS = "vec_bolsa_llamamientos_desarrollo"
 AUDIT = "vec_b2_auditoria_frontera_desarrollo"
+IMPORT_LOGIN = "vec_bolsa_importacion_convoca_desarrollo"
+IMPORT_GROUPS = ("vec_bolsa_importacion_convoca_ejecutor", "vec_bolsa_importacion_convoca_recuperador")
 REQUIRED = {
     BUSINESS: "vec_bolsa_llamamientos_ejecutor",
     AUDIT: "vec_bolsa_llamamientos_registrador_frontera",
@@ -428,6 +432,79 @@ def _dsn(login: str, pg_port: int, ca: Path, password: str = "") -> str:
         "sslmode": "verify-full", "sslrootcert": str(ca)})
 
 
+def _convoca_nominal(inventory: dict) -> bool:
+    roles = {r["rolname"]: r for r in inventory["roles"]}
+    login = roles.get(IMPORT_LOGIN)
+    if login is None:
+        raise ProvisionError("bolsa_importacion_convoca_login_ausente")
+    for name, can_login in ((IMPORT_LOGIN, True), *((g, False) for g in IMPORT_GROUPS)):
+        role = roles.get(name)
+        if (role is None or role["rolcanlogin"] is not can_login or not role["rolinherit"]
+                or any(role[k] for k in ("rolsuper", "rolcreatedb", "rolcreaterole", "rolreplication", "rolbypassrls"))):
+            raise ProvisionError("bolsa_importacion_convoca_identidad_no_nominal")
+    if (login.get("rolconfig") is not None or inventory.get("db_role_settings") != 0
+            or inventory.get("owned_objects") != 0 or inventory.get("direct_database_acl") != 0):
+        raise ProvisionError("bolsa_importacion_convoca_identidad_no_nominal")
+    # The H1 LOGIN historically combines these two exact groups. Main8fc's
+    # pool checks executor membership and the RRHH reader needs recovery.
+    # Preserve both memberships and their settings; never repair them here.
+    direct = [m for m in inventory["memberships"] if m["member"] == IMPORT_LOGIN]
+    if (len(direct) != 2 or {m["role"] for m in direct} != set(IMPORT_GROUPS)
+            or any(m["admin_option"] or not m["inherit_option"] or not m["set_option"] for m in direct)
+            or any(m["member"] in IMPORT_GROUPS for m in inventory["memberships"])):
+        raise ProvisionError("bolsa_importacion_convoca_membresias_distintas_h1")
+    if type(inventory.get("connect")) is not bool:
+        raise ProvisionError("bolsa_importacion_convoca_inventario_incompleto")
+    return inventory["connect"]
+
+
+def _prepare_convoca(clone: Clone, material: Path, ca: Path, pg_port: int, tls_ca: str) -> tuple[str, dict, list]:
+    names = ",".join(_literal(n) for n in (IMPORT_LOGIN, *IMPORT_GROUPS))
+    inventory = json.loads(clone.sql(f"""
+      SELECT json_build_object(
+        'roles', COALESCE((SELECT json_agg(row_to_json(r)) FROM
+          (SELECT rolname,rolcanlogin,rolinherit,rolsuper,rolcreatedb,rolcreaterole,
+             rolreplication,rolbypassrls,rolconfig FROM pg_roles WHERE rolname IN ({names})) r),'[]'::json),
+        'memberships', COALESCE((SELECT json_agg(row_to_json(m)) FROM
+          (SELECT member.rolname AS member,g.rolname AS role,a.admin_option,a.inherit_option,a.set_option
+           FROM pg_auth_members a JOIN pg_roles member ON member.oid=a.member JOIN pg_roles g ON g.oid=a.roleid
+           WHERE member.rolname IN ({names})) m),'[]'::json),
+        'db_role_settings', (SELECT count(*) FROM pg_db_role_setting WHERE setrole=to_regrole('{IMPORT_LOGIN}')),
+        'owned_objects', (SELECT count(*) FROM pg_shdepend WHERE refclassid='pg_authid'::regclass
+                           AND refobjid=to_regrole('{IMPORT_LOGIN}') AND deptype='o'),
+        'direct_database_acl', (SELECT count(*) FROM pg_database d,
+          LATERAL aclexplode(COALESCE(d.datacl,acldefault('d',d.datdba))) a
+          WHERE d.datname=current_database() AND a.grantee=to_regrole('{IMPORT_LOGIN}')),
+        'connect', COALESCE(has_database_privilege(to_regrole('{IMPORT_LOGIN}'),current_database(),'CONNECT'),false));
+    """))
+    connected = _convoca_nominal(inventory)
+    kms = material / "kms/clave-maestra.bin"
+    _check_path(kms, private=True)
+    if kms.stat().st_size != 32:
+        raise ProvisionError("bolsa_importacion_convoca_kms_h1_invalido")
+    proof = {
+        "status": "metadata_only", "accreditation": "not_accredited",
+        "source_ref": clone.plan["source_ref"], "login": IMPORT_LOGIN, "groups": list(IMPORT_GROUPS),
+        "historical_memberships_preserved": True, "tls_probe_verified": False,
+        "kms": "existing_h1_material_required_and_preserved", "pending": ["rrhh_http_read_and_recovery"],
+    }
+    dsn = _dsn(IMPORT_LOGIN, pg_port, ca)
+    if not connected:
+        # This nominal URL lets the director's separate repair identify the
+        # existing H1 LOGIN. No CONNECT is granted and READY remains blocked.
+        proof["pending"].insert(0, "connect_and_physical_tls")
+        return dsn, proof, [{"profile": "bolsa", "code": "bolsa_importacion_convoca_connect_pendiente"}]
+    # No staging rows, custody files or key bytes are read or generated.
+    observed = clone.sql(f"""SELECT session_user::text||'|'||(session_user=current_user)::text||'|'||
+      pg_has_role(session_user,'{IMPORT_GROUPS[0]}','MEMBER')::text||'|'||
+      pg_has_role(session_user,'{IMPORT_GROUPS[1]}','MEMBER')::text||'|'||ssl::text||'|'||version
+      FROM pg_stat_ssl WHERE pid=pg_backend_pid();""", user=IMPORT_LOGIN, tls_ca=tls_ca)
+    if observed != IMPORT_LOGIN + "|true|true|true|true|TLSv1.3":
+        raise ProvisionError("bolsa_importacion_convoca_sonda_nominal_tls_fallida")
+    proof.update(status="existing_login_prepared", accreditation="nominal_connection_verified", tls_probe_verified=True)
+    return dsn, proof, []
+
+
 def provision(repo: Path, container: str, state: Path, material: Path,
               pg_port: int, engine: str = "docker", *, source_context: dict | None = None) -> dict:
     """Return sensitive URLs to the caller only; CLI persists them privately."""
@@ -475,6 +552,7 @@ def provision(repo: Path, container: str, state: Path, material: Path,
                                 user=login, tls_ca=configured_ca)
                 if ssl != "true|TLSv1.3":
                     raise ProvisionError("runtime_tls_probe_failed")
+            import_dsn, import_proof, import_blockers = _prepare_convoca(clone, material, ca, pg_port, configured_ca)
             intent_path = private / "calculator-intent.json"
             password = _read_json(intent_path)["password"] if intent_path.exists() else ""
             _write_new(path, manifest)
@@ -483,13 +561,16 @@ def provision(repo: Path, container: str, state: Path, material: Path,
                 "VEC_BOLSA_POLITICA_OFERTAS_ENABLED": "true",
                 "VEC_BOLSA_AUDITORIA_FRONTERA_DATABASE_URL": _dsn(AUDIT, pg_port, ca),
                 "VEC_BOLSA_POLITICA_OFERTAS_CALCULADOR_DATABASE_URL": _dsn(CALCULATOR, pg_port, ca, password),
+                "VEC_BOLSA_IMPORTACION_CONVOCA_DATABASE_URL": import_dsn,
             }
             result["profiles"] = {"bolsa_bback": {
                 "profile_ref": manifest["perfil_ref"], "manifest": "material/identidad/bolsa-bback.json",
                 "status": "prepared_for_bootstrap", "bolsas_count": len(manifest["bolsas_ref"]),
                 "calculator_role_verified": True, "tls_probes": len(REQUIRED),
                 "government_publication": "existing_main_bootstrap_required",
+                "fuente_convoca": import_proof,
             }}
+            result["blockers"] = import_blockers
             absent = [g for g in OPTIONAL_GROUPS if g not in {r["rolname"] for r in clone.snapshot()["roles"]}]
             # These pools are a different, optional capability. Never synthesize their groups.
             if absent:
