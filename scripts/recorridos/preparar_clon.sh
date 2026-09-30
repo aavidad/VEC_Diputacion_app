@@ -61,8 +61,11 @@ publicar_ready() {
 runtime verify || return $?
 python3 - "$estado" <<'PY'
 import hashlib,json,pathlib,subprocess,sys
-s=pathlib.Path(sys.argv[1]); m=json.loads((s/'material-manifest.json').read_text()); r=json.loads((s/'runtime-process.json').read_text()); j=json.loads((s/'sql-journal.json').read_text())
-cfg=json.loads((s/'runtime-config.json').read_text())
+s=pathlib.Path(sys.argv[1]); original=json.loads((s/'material-manifest.json').read_text()); r=json.loads((s/'runtime-process.json').read_text()); j=json.loads((s/'sql-journal.json').read_text())
+assert r['container_mode'] == 'interno'
+m=json.loads(pathlib.Path(r['runtime_manifest_path']).read_text())
+cfg=json.loads(pathlib.Path(r['runtime_config_path']).read_text())
+assert cfg.get('VEC_PORTAL_PROCESO') == 'interno'
 assert cfg.get('VEC_BOLSA_POLITICA_OFERTAS_ENABLED') == 'true', 'Falta preparar la configuración del hito 5.'
 home=s/'chrome-home'; nss=home/'.pki/nssdb'; nss.mkdir(parents=True,mode=0o700,exist_ok=True); home.chmod(0o700); (home/'.pki').chmod(0o700)
 if not (nss/'cert9.db').exists():
@@ -72,7 +75,7 @@ for f in nss.iterdir():
     if f.is_file(): f.chmod(0o600)
 binary=pathlib.Path(r['exe']); actual=j.get('current_source_ref',j['source_ref'])
 assert actual == r['source_commit'] == m['target']['source_commit']
-v=dict(tipo='clon_local_h3_h5',clon='local',datos='sinteticos',hitos=['H3','H4','H5'],hitos_verificados=['H3','H4','H5'],clon_sintetico=True,clon_ref=json.loads((s/'clon.json').read_text())['contenedor'],origen='https://127.0.0.1:'+str(r['port']),commit=actual,binario=str(binary),binario_sha256=r['binary_sha256'],pid=r['pid'],sql_instaladas=len(j['installed']),material_sha256=hashlib.sha256((s/'material-manifest.json').read_bytes()).hexdigest(),bloqueos=m.get('blockers',[]),chrome_home=str(home),ca=str(s/'material/ca/ca.crt'))
+v=dict(tipo='clon_local_h3_h5',clon='local',datos='sinteticos',hitos=['H3','H4','H5'],hitos_verificados=['H3','H4','H5'],clon_sintetico=True,clon_ref=json.loads((s/'clon.json').read_text())['contenedor'],origen='https://127.0.0.1:'+str(r['port']),commit=actual,binario=str(binary),binario_sha256=r['binary_sha256'],pid=r['pid'],sql_instaladas=len(j['installed']),material_sha256=hashlib.sha256(pathlib.Path(r['runtime_manifest_path']).read_bytes()).hexdigest(),portal_proceso='interno',recorridos_externos_habilitados=False,bloqueos=original.get('blockers',[]),chrome_home=str(home),ca=str(s/'material/ca/ca.crt'))
 p=s/'READY.json'; t=s/'READY.json.nuevo'; t.write_text(json.dumps(v,ensure_ascii=False,indent=2)+'\n'); t.chmod(0o600); t.replace(p)
 PY
 }
@@ -94,7 +97,7 @@ import json,sys
 print(json.load(open(sys.argv[1]))['commit'])
 PY
 )
-  python3 "$guiones/clon_runtime.py" "$operacion" --repo "$repo" --commit "$hash" --state "$estado" --port "$puerto_web" --pg-port "$puerto_pg"
+  python3 "$guiones/clon_runtime.py" "$operacion" --mode interno --repo "$repo" --commit "$hash" --state "$estado" --port "$puerto_web" --pg-port "$puerto_pg"
 }
 
 comunicaciones() {

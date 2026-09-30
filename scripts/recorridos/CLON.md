@@ -2,7 +2,8 @@
 
 Este guion reconstruye una copia aislada con datos sintéticos. Usa el archivo del
 hito 1, instala únicamente las SQL posteriores del plan revisado y construye el
-binario del mismo commit de `main`. El hito 5 configura la política de ofertas;
+binario del mismo commit de `main`. Ejecuta el portal interno de forma explícita.
+El hito 5 configura la política de ofertas;
 no contiene migraciones. No contacta con la principal.
 
 El plan revisado de `a7d9df2b3285b0df6be6bba0bae09331463f0a3d` contiene
@@ -30,6 +31,21 @@ deben estar fuera de Git, en el directorio privado de estado `vec-clon`. El
 guion conserva los certificados de RRHH e Intervención y las claves que
 protegen la historia. Añade solo las identidades que faltan. No copia material
 de una persona real ni concede permisos a partir de una petición del navegador.
+
+Los perfiles externos conservan su material fuera del proceso interno. Preparar
+sus certificados no habilita sus autoridades. Mientras sus dependencias no estén
+en `main`, esos recorridos quedan pendientes; el modo combinado histórico no los
+sustituye.
+
+El binario interno se construye sin dependencias dinámicas y se ejecuta en un
+contenedor propio. Solo monta su fuente y material interno como lectura, más
+cuatro directorios propios de escritura: documentos, imágenes, datos y avisos.
+Las claves de cliente y emisión de certificados permanecen fuera de esos
+montajes. El usuario del proceso tiene un directorio personal vacío.
+
+El contenedor usa la red del anfitrión para alcanzar PostgreSQL y el correo del
+clon. El guion valida esos destinos locales; esta configuración no acredita
+aislamiento de red frente a otros servicios del anfitrión.
 
 El archivo del hito 1 no incluye las cuentas de Usuarios que indican sus JSON
 privados. La preparación las concilia con la autoridad de identidad del clon,
@@ -99,7 +115,8 @@ debe estar confiada tanto por Chrome como por el transporte de Playwright;
 no se desactiva la comprobación TLS.
 
 `READY.json` solo aparece después de comprobar binario, SQL, material y escucha
-HTTPS. Incluye las condiciones que siguen pendientes. Un certificado de candidato
+HTTPS del portal interno. El registro identifica esa superficie y las condiciones
+que siguen pendientes; no acredita disponibilidad del portal externo. Un certificado de candidato
 puede existir sin una cuenta externa autorizada: ese caso queda bloqueado y no se
 reutiliza la identidad de otra persona. La preparación crea un
 almacén de confianza privado en `chrome-home`, sin modificar el del usuario.
