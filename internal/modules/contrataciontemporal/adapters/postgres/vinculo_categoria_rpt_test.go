@@ -44,7 +44,7 @@ func TestRegistroVinculoRPTSoloDevuelveReciboExacto(t *testing.T) {
 		FuenteRef: m.FuenteRef, MotivoRef: m.MotivoRef, AprobacionRef: m.AprobacionRef, Prospectivo: true}
 	recibo := ports.ReciboVinculoCategoriaRPT{ReciboRef: "recibo:vinculo", RegistradoEn: time.Date(2026, 9, 30, 8, 0, 0, 0, time.UTC), Revision: 1, MaterialSHA256: h, Prospectivo: true,
 		DecisionRef: "decision:ct", AuditoriaRef: "auditoria:ct", ConsumoHuellaSHA256: strings.Repeat("c", 64),
-		RPTDecisionRef: "decision:rpt", RPTAuditoriaRef: "auditoria:rpt", RPTConsumoHuellaSHA256: strings.Repeat("d", 64), Vinculo: vinculo}
+		RPTDecisionRef: "decision:rpt", RPTPerfilRef: "perfil:rpt", RPTAuditoriaRef: "auditoria:rpt", RPTConsumoHuellaSHA256: strings.Repeat("d", 64), Vinculo: vinculo}
 	respuesta := map[string]any{"replay": false, "recibo": recibo, "vinculo": vinculo}
 	b, _ := json.Marshal(respuesta)
 	if _, e := decodificarRegistroVinculoRPT(string(b), m); e != nil {
@@ -93,5 +93,22 @@ func TestLecturaHistoricaRPTCompruebaDocumentoYClave(t *testing.T) {
 	b, _ = json.Marshal(respuesta)
 	if _, e := validarLecturaPublicacionRPT(string(b), p); e == nil {
 		t.Fatal("entrada ajena admitida")
+	}
+}
+
+func TestHuellaContextoVinculoRPTCoincideConContextoSQL(t *testing.T) {
+	material := []byte(`{"esquema":"vec.ct.vinculo-categoria-rpt.consulta.v1","organizacion_ref":"organizacion:uno","expediente_ref":"expediente:uno"}`)
+	h := sha256.Sum256(material)
+	canon := `{"ambitos":{"organizacion_ref":"organizacion:uno"},"atributos":{"material_sha256":"` + hex.EncodeToString(h[:]) + `"}}`
+	esperado := sha256.Sum256([]byte(canon))
+	actual, e := huellaContextoVinculoRPT("expediente:uno", "contratacion_temporal", "vinculo_categoria_rpt_ct", map[string]string{"organizacion_ref": "organizacion:uno"}, material)
+	if e != nil || actual != hex.EncodeToString(esperado[:]) {
+		t.Fatalf("contexto CT divergente de AD3-127: %s %v", actual, e)
+	}
+	canonRPT := `{"ambitos":{"catalogo_id":"rpt-categorias","modulo_id":"personal"},"atributos":{"material_sha256":"` + hex.EncodeToString(h[:]) + `"}}`
+	esperadoRPT := sha256.Sum256([]byte(canonRPT))
+	actual, e = huellaContextoVinculoRPT("rpt-categorias", "personal", "catalogo_configurable", map[string]string{"catalogo_id": "rpt-categorias", "modulo_id": "personal"}, material)
+	if e != nil || actual != hex.EncodeToString(esperadoRPT[:]) {
+		t.Fatalf("contexto RPT divergente de AD3-117: %s %v", actual, e)
 	}
 }

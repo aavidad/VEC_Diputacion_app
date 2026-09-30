@@ -33,9 +33,13 @@ func TestRegistroVinculoRPTCanonicoFijoYConflictoLiteral(t *testing.T) {
 	if _, e = m.Canonico(); e == nil {
 		t.Fatal("revision sin recibo anterior admitida")
 	}
-	anterior:="recibo:vinculo-anterior"
-	m.AnteriorReciboRef=&anterior
-	if _,e=m.Canonico(); e!=nil { t.Fatalf("revision con recibo anterior rechazada: %v",e) }
-	m.ClaveIdempotencia="clave:libre"
-	if _,e=m.Canonico(); e==nil { t.Fatal("clave no UUID admitida") }
+	anterior := "recibo:vinculo-anterior"
+	m.AnteriorReciboRef = &anterior
+	if _, e = m.Canonico(); e != nil {
+		t.Fatalf("revision con recibo anterior rechazada: %v", e)
+	}
+	m.ClaveIdempotencia = "clave:libre"
+	if _, e = m.Canonico(); e == nil {
+		t.Fatal("clave no UUID admitida")
+	}
 }
