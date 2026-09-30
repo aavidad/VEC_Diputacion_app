@@ -92,7 +92,8 @@ func (s *ServicioPlanIncorporacionCT) EjecutarPlan(ctx context.Context, sol port
 		return vacio, err
 	}
 	p := estado.Plan
-	evidencia, err := s.rpt.AcreditarReservaPlanCT(ctx, p, sol.Actor)
+	actorRPT, _ := sol.Actor.Clonar()
+	evidencia, err := s.rpt.AcreditarReservaPlanCT(ctx, p, actorRPT)
 	if err != nil {
 		return vacio, errorRegistroB2Opaco(ctx, err)
 	}
@@ -107,15 +108,16 @@ func (s *ServicioPlanIncorporacionCT) EjecutarPlan(ctx context.Context, sol port
 	}
 	d := p.Datos
 	if estado.ReciboAltaRelacion == nil {
+		actorActo, _ := sol.Actor.Clonar()
 		proc := d.Procedencia
 		proc.IdempotenciaRef = p.ClaveAltaRelacion
 		var recibo ports.ReciboActoRegistroEmpleadoB2
 		if p.Modo == "alta_empleado" {
-			r, e := s.actos.RegistrarEmpleado(ctx, domain.SolicitudAltaEmpleadoB2{PersonaRef: d.PersonaRef, OrganismoRef: d.OrganismoRef, UnidadRef: d.UnidadRef, Regimen: d.Regimen, Modalidad: d.Modalidad, VigenteDesde: d.Desde, VigenteHasta: d.Hasta, Procedencia: proc, Actor: sol.Actor})
+			r, e := s.actos.RegistrarEmpleado(ctx, domain.SolicitudAltaEmpleadoB2{PersonaRef: d.PersonaRef, OrganismoRef: d.OrganismoRef, UnidadRef: d.UnidadRef, Regimen: d.Regimen, Modalidad: d.Modalidad, VigenteDesde: d.Desde, VigenteHasta: d.Hasta, Procedencia: proc, Actor: actorActo})
 			err = e
 			recibo = r.Recibo
 		} else {
-			r, e := s.actos.RegistrarHecho(ctx, domain.SolicitudHechoEmpleadoB2{Tipo: "relacion", EmpleadoRef: p.EmpleadoExistenteRef, OrganismoRef: d.OrganismoRef, RevisionEsperada: 1, UnidadRef: d.UnidadRef, Regimen: d.Regimen, Modalidad: d.Modalidad, Estado: "vigente", VigenteDesde: d.Desde, VigenteHasta: d.Hasta, Procedencia: proc, Actor: sol.Actor})
+			r, e := s.actos.RegistrarHecho(ctx, domain.SolicitudHechoEmpleadoB2{Tipo: "relacion", EmpleadoRef: p.EmpleadoExistenteRef, OrganismoRef: d.OrganismoRef, RevisionEsperada: 1, UnidadRef: d.UnidadRef, Regimen: d.Regimen, Modalidad: d.Modalidad, Estado: "vigente", VigenteDesde: d.Desde, VigenteHasta: d.Hasta, Procedencia: proc, Actor: actorActo})
 			err = e
 			recibo = r.Recibo
 		}
@@ -131,10 +133,11 @@ func (s *ServicioPlanIncorporacionCT) EjecutarPlan(ctx context.Context, sol port
 		}
 	}
 	if estado.ReciboOcupacion == nil {
+		actorActo, _ := sol.Actor.Clonar()
 		proc := d.Procedencia
 		proc.IdempotenciaRef = p.ClaveOcupacion
 		relacion := estado.ReciboAltaRelacion
-		r, e := s.actos.RegistrarHecho(ctx, domain.SolicitudHechoEmpleadoB2{Tipo: "ocupacion", EmpleadoRef: relacion.EmpleadoRef, OrganismoRef: d.OrganismoRef, RelacionRef: relacion.RelacionRef, RevisionEsperada: 1, RelacionVersionEsperada: relacion.Version, UnidadRef: d.UnidadRef, Modalidad: d.Modalidad, ClaseOcupacion: d.ClaseOcupacion, Estado: "vigente", PlazaRef: d.PlazaRef, PuestoRef: d.PuestoRef, VersionPlazaRef: d.VersionPlantillaRef, VersionPuestoRef: d.VersionRPTRef, VigenteDesde: d.Desde, VigenteHasta: d.Hasta, Procedencia: proc, Actor: sol.Actor})
+		r, e := s.actos.RegistrarHecho(ctx, domain.SolicitudHechoEmpleadoB2{Tipo: "ocupacion", EmpleadoRef: relacion.EmpleadoRef, OrganismoRef: d.OrganismoRef, RelacionRef: relacion.RelacionRef, RevisionEsperada: 1, RelacionVersionEsperada: relacion.Version, UnidadRef: d.UnidadRef, Modalidad: d.Modalidad, ClaseOcupacion: d.ClaseOcupacion, Estado: "vigente", PlazaRef: d.PlazaRef, PuestoRef: d.PuestoRef, VersionPlazaRef: d.VersionPlantillaRef, VersionPuestoRef: d.VersionRPTRef, VigenteDesde: d.Desde, VigenteHasta: d.Hasta, Procedencia: proc, Actor: actorActo})
 		if e != nil {
 			return vacio, errorRegistroB2Opaco(ctx, e)
 		}
