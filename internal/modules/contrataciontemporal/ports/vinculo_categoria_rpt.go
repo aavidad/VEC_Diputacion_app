@@ -199,6 +199,7 @@ type ReciboVinculoCategoriaRPT struct {
 	AuditoriaRef                 string                    `json:"auditoria_ref"`
 	ConsumoHuellaSHA256          string                    `json:"consumo_huella_sha256"`
 	RPTDecisionRef               string                    `json:"rpt_decision_ref"`
+	RPTPerfilRef                 string                    `json:"rpt_perfil_ref"`
 	RPTAuditoriaRef              string                    `json:"rpt_auditoria_ref"`
 	RPTConsumoHuellaSHA256       string                    `json:"rpt_consumo_huella_sha256"`
 	Vinculo                      EstadoVinculoCategoriaRPT `json:"vinculo"`
@@ -209,7 +210,7 @@ func (r ReciboVinculoCategoriaRPT) ValidarPara(m RegistroVinculoCategoriaRPT) er
 	if e != nil || !domain.ReferenciaOpacaValida(r.ReciboRef) || !domain.InstanteUTCCanonico(r.RegistradoEn) ||
 		r.Revision != m.RevisionEsperada+1 || r.MaterialSHA256 != h || !r.Prospectivo || r.AcreditaProcedenciaHistorica ||
 		!domain.ReferenciaOpacaValida(r.DecisionRef) || !domain.ReferenciaOpacaValida(r.AuditoriaRef) || !huellaVinculoRPT(r.ConsumoHuellaSHA256) ||
-		!domain.ReferenciaOpacaValida(r.RPTDecisionRef) || !domain.ReferenciaOpacaValida(r.RPTAuditoriaRef) || !huellaVinculoRPT(r.RPTConsumoHuellaSHA256) ||
+		!domain.ReferenciaOpacaValida(r.RPTDecisionRef) || !domain.ReferenciaOpacaValida(r.RPTPerfilRef) || !domain.ReferenciaOpacaValida(r.RPTAuditoriaRef) || !huellaVinculoRPT(r.RPTConsumoHuellaSHA256) ||
 		r.DecisionRef == r.RPTDecisionRef || r.AuditoriaRef == r.RPTAuditoriaRef || r.ConsumoHuellaSHA256 == r.RPTConsumoHuellaSHA256 ||
 		r.Vinculo.Validar() != nil || r.Vinculo.Revision != r.Revision || r.Vinculo.ReciboRef != r.ReciboRef ||
 		r.Vinculo.CatalogoID != m.CatalogoID || r.Vinculo.ModuloID != m.ModuloID || r.Vinculo.CatalogoVersion != m.CatalogoVersion ||
