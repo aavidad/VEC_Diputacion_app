@@ -49,6 +49,7 @@ ALTER TABLE vec_catalogos_configurables.evidencia_terminal FORCE ROW LEVEL SECUR
 CREATE POLICY evidencia_terminal_propietario ON vec_catalogos_configurables.evidencia_terminal
     TO vec_catalogos_configurables_propietario USING (true) WITH CHECK (true);
 REVOKE ALL ON TABLE vec_catalogos_configurables.evidencia_terminal FROM PUBLIC;
+REVOKE ALL ON TYPE vec_catalogos_configurables.evidencia_terminal FROM PUBLIC;
 CREATE TRIGGER evidencia_terminal_inmutable BEFORE UPDATE OR DELETE OR TRUNCATE
     ON vec_catalogos_configurables.evidencia_terminal
     FOR EACH STATEMENT EXECUTE FUNCTION vec_catalogos_configurables.rechazar_cambio_inmutable();
@@ -58,7 +59,7 @@ CREATE TRIGGER evidencia_terminal_inmutable BEFORE UPDATE OR DELETE OR TRUNCATE
 CREATE FUNCTION vec_catalogos_configurables.obtener_uso_publicacion(
     p_consumidor text,p_uso_ref text,p_reserva_recibo_ref text
 ) RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER
-SET search_path=pg_catalog SET lock_timeout='2s' AS $f$
+SET search_path=pg_catalog, pg_temp SET lock_timeout='2s' AS $f$
 DECLARE
     r record;
 BEGIN
@@ -99,7 +100,7 @@ CREATE FUNCTION vec_catalogos_configurables.terminar_uso_con_evidencia(
     p_actor_ref text,p_decision_ref text,p_terminal_recibo_ref text,p_motivo_ref text,
     p_evidencia_ref text,p_evidencia_sha256 text
 ) RETURNS text LANGUAGE plpgsql VOLATILE SECURITY DEFINER
-SET search_path=pg_catalog SET lock_timeout='2s' AS $f$
+SET search_path=pg_catalog, pg_temp SET lock_timeout='2s' AS $f$
 DECLARE
     previo vec_catalogos_configurables.uso%ROWTYPE;
     actual vec_catalogos_configurables.uso%ROWTYPE;
@@ -173,7 +174,7 @@ BEGIN
     ] LOOP
         IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_proc WHERE oid=f
             AND proowner='vec_catalogos_configurables_propietario'::regrole AND prosecdef
-            AND proconfig=ARRAY['search_path=pg_catalog','lock_timeout=2s'])
+            AND proconfig=ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s'])
            OR EXISTS (SELECT 1 FROM pg_catalog.pg_proc p
                CROSS JOIN LATERAL pg_catalog.aclexplode(coalesce(p.proacl,pg_catalog.acldefault('f',p.proowner))) a
               WHERE p.oid=f AND (a.grantee=0 OR a.privilege_type<>'EXECUTE' OR a.is_grantable

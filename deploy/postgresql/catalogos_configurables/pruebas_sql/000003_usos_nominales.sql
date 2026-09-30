@@ -5,6 +5,25 @@ SET LOCAL search_path=pg_catalog;
 SET LOCAL timezone='UTC';
 SET LOCAL lock_timeout='5s';
 SET LOCAL statement_timeout='15s';
+DO $configuracion$
+DECLARE f regprocedure;
+BEGIN
+    FOREACH f IN ARRAY ARRAY[
+      'vec_catalogos_configurables.obtener_uso_publicacion(text,text,text)'::regprocedure,
+      'vec_catalogos_configurables.terminar_uso_con_evidencia(text,text,text,text,text,text,text,text,text,text)'::regprocedure
+    ] LOOP
+        IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_proc WHERE oid=f AND prosecdef
+             AND proowner='vec_catalogos_configurables_propietario'::regrole
+             AND proconfig=ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s'])
+           OR NOT pg_catalog.has_function_privilege('vec_autorizacion_atestada_v3_propietario',f,'EXECUTE')
+           OR EXISTS (SELECT 1 FROM pg_catalog.pg_proc p
+                CROSS JOIN LATERAL pg_catalog.aclexplode(coalesce(p.proacl,pg_catalog.acldefault('f',p.proowner))) a
+               WHERE p.oid=f AND (a.grantor<>p.proowner OR a.privilege_type<>'EXECUTE' OR a.is_grantable
+                 OR a.grantee NOT IN (p.proowner,'vec_autorizacion_atestada_v3_propietario'::regrole))) THEN
+            RAISE EXCEPTION 'funcion del catalogo con configuracion o ACL incorrecta';
+        END IF;
+    END LOOP;
+END $configuracion$;
 DO $prueba$
 DECLARE
     doc text := '{"id":"rpt-usos-demo","modulo_id":"personal","version":1,"estado":"publicado","entradas":[{"clave":"cat-uno","etiqueta":"Uno"}]}';

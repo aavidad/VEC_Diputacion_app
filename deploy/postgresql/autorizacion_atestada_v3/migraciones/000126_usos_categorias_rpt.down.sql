@@ -33,7 +33,8 @@ DROP FUNCTION vec_autorizacion_atestada_v3.autorizar_uso_categoria_rpt_v3_intern
 DO $nucleo$
 DECLARE
     f oid := 'vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure;
-    original text; nuevo text; actual text; meta jsonb; deps jsonb; acl aclitem[];
+    original text; nuevo text; actual text; meta jsonb; deps jsonb; deps_compartidas jsonb; acl aclitem[];
+    fuente text; fuente_sha256 text; definicion_sha256 text;
     propietario oid; config text[]; definidora boolean;
     exclusor text := E'               AND p_perfil_mutacion IS DISTINCT FROM ''alta_personal_ejercicio'' AND p_perfil_mutacion IS DISTINCT FROM ''lectura_registro_personal_incorporacion'' AND p_perfil_mutacion IS DISTINCT FROM ''lectura_registro_personal_incorporacion_v2'' AND p_perfil_mutacion IS DISTINCT FROM ''lectura_categorias''';
     cierre_roles text := E'           )\n       ) THEN\n        RAISE EXCEPTION USING\n            ERRCODE = ''42501'',\n            MESSAGE = ''consumo VEC-AD-3 rechazado'';';
@@ -71,12 +72,138 @@ $x$;
  AND d->'obligaciones' IS NOT DISTINCT FROM '[]'::jsonb)
 $x$;
 BEGIN
-    SELECT pg_catalog.pg_get_functiondef(f),pg_catalog.to_jsonb(p)-'prosrc',p.proacl,p.proowner,p.proconfig,p.prosecdef
-      INTO STRICT original,meta,acl,propietario,config,definidora FROM pg_catalog.pg_proc AS p WHERE p.oid=f;
+    SELECT pg_catalog.pg_get_functiondef(f),pg_catalog.to_jsonb(p),p.proacl,p.proowner,p.proconfig,p.prosecdef,p.prosrc
+      INTO STRICT original,meta,acl,propietario,config,definidora,fuente FROM pg_catalog.pg_proc AS p WHERE p.oid=f;
     SELECT coalesce(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
       INTO deps FROM pg_catalog.pg_depend AS d WHERE d.classid='pg_catalog.pg_proc'::regclass AND d.objid=f;
-    IF propietario <> 'vec_autorizacion_atestada_v3_propietario'::regrole OR NOT definidora
-       OR config IS DISTINCT FROM ARRAY['search_path=pg_catalog','lock_timeout=2s']
+    SELECT coalesce(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(d) ORDER BY d.dbid,d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype),'[]'::jsonb)
+      INTO deps_compartidas FROM pg_catalog.pg_shdepend AS d
+     WHERE d.dbid=(SELECT oid FROM pg_catalog.pg_database WHERE datname=current_database())
+       AND d.classid='pg_catalog.pg_proc'::regclass AND d.objid=f;
+    fuente_sha256 := pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(fuente,'UTF8')),'hex');
+    definicion_sha256 := pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(original,'UTF8')),'hex');
+    IF fuente_sha256 IS DISTINCT FROM '1542976c6948408364a36d71bea0066c33cc84ecff67ca1aacafdfc264eaeef0'
+       OR definicion_sha256 IS DISTINCT FROM 'e3e560534158edf6095fdc50e01e872df793a93db762302782bc56dd19a94802'
+       OR propietario <> 'vec_autorizacion_atestada_v3_propietario'::regrole OR NOT definidora
+       OR deps IS DISTINCT FROM (SELECT pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
+            'classid','pg_catalog.pg_proc'::regclass::oid,'objid',f,'objsubid',0,
+            'refclassid',v.refclassid,'refobjid',v.refobjid,'refobjsubid',0,'deptype','n')
+            ORDER BY v.refclassid)
+          FROM (VALUES ('pg_catalog.pg_language'::regclass::oid,(SELECT oid FROM pg_catalog.pg_language WHERE lanname='plpgsql')),
+                       ('pg_catalog.pg_namespace'::regclass::oid,'vec_autorizacion_atestada_v3'::regnamespace::oid)) AS v(refclassid,refobjid))
+       OR deps_compartidas IS DISTINCT FROM pg_catalog.jsonb_build_array(pg_catalog.jsonb_build_object(
+            'dbid',(SELECT oid FROM pg_catalog.pg_database WHERE datname=current_database()),
+            'classid','pg_catalog.pg_proc'::regclass::oid,'objid',f,'objsubid',0,
+            'refclassid','pg_catalog.pg_authid'::regclass::oid,'refobjid',propietario,'deptype','o'))
+       OR (meta-'prosrc'-'oid'-'prolang'-'pronamespace'-'proowner')
+            IS DISTINCT FROM $meta$
+{
+    "proacl": [
+        "vec_autorizacion_atestada_v3_propietario=X/vec_autorizacion_atestada_v3_propietario"
+    ],
+    "proallargtypes": [
+        "25",
+        "17",
+        "17",
+        "17",
+        "17",
+        "1700",
+        "1700",
+        "17",
+        "17",
+        "17",
+        "17",
+        "25",
+        "25",
+        "25",
+        "25",
+        "25",
+        "1184",
+        "16"
+    ],
+    "proargdefaults": null,
+    "proargmodes": [
+        "i",
+        "i",
+        "i",
+        "i",
+        "i",
+        "i",
+        "i",
+        "i",
+        "i",
+        "i",
+        "i",
+        "t",
+        "t",
+        "t",
+        "t",
+        "t",
+        "t",
+        "t"
+    ],
+    "proargnames": [
+        "p_perfil_mutacion",
+        "p_capacidad_canonica",
+        "p_decision_canonica",
+        "p_motivo_canonico",
+        "p_contexto_actor_canonico",
+        "p_persona_version",
+        "p_perfil_version",
+        "p_payload_vec_ad_3",
+        "p_sobre_cose_sign1",
+        "p_evidencia_verificacion",
+        "p_raiz_publica_spki",
+        "decision_ref",
+        "efecto_ref",
+        "huella_efecto_sha256",
+        "consumo_huella_sha256",
+        "auditoria_ref",
+        "consumida_en",
+        "consumo_nuevo"
+    ],
+    "proargtypes": [
+        "25",
+        "17",
+        "17",
+        "17",
+        "17",
+        "1700",
+        "1700",
+        "17",
+        "17",
+        "17",
+        "17"
+    ],
+    "probin": null,
+    "proconfig": [
+        "search_path=pg_catalog, pg_temp",
+        "lock_timeout=2s"
+    ],
+    "procost": 100,
+    "proisstrict": false,
+    "prokind": "f",
+    "proleakproof": false,
+    "proname": "consumir_decision_mutacion_v3_interna",
+    "pronargdefaults": 0,
+    "pronargs": 11,
+    "proparallel": "u",
+    "proretset": true,
+    "prorettype": "2249",
+    "prorows": 1000,
+    "prosecdef": true,
+    "prosqlbody": null,
+    "prosupport": "-",
+    "protrftypes": null,
+    "provariadic": "0",
+    "provolatile": "v"
+}
+$meta$::jsonb
+       OR (SELECT prolang FROM pg_catalog.pg_proc WHERE oid=f)
+            IS DISTINCT FROM (SELECT oid FROM pg_catalog.pg_language WHERE lanname='plpgsql')
+       OR (SELECT pronamespace FROM pg_catalog.pg_proc WHERE oid=f)
+            IS DISTINCT FROM 'vec_autorizacion_atestada_v3'::regnamespace::oid
+       OR config IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s']
        OR pg_catalog.strpos(original,exclusor||E' AND p_perfil_mutacion IS DISTINCT FROM ''usos_categorias''')=0
        OR pg_catalog.strpos(original,rol_nuevo||cierre_roles)=0
        OR pg_catalog.strpos(original,capacidad_nueva||marca_capacidad)=0 THEN
@@ -85,34 +212,113 @@ BEGIN
     nuevo := pg_catalog.replace(original,capacidad_nueva||marca_capacidad,marca_capacidad);
     nuevo := pg_catalog.replace(nuevo,rol_nuevo||cierre_roles,cierre_roles);
     nuevo := pg_catalog.replace(nuevo,exclusor||E' AND p_perfil_mutacion IS DISTINCT FROM ''usos_categorias''',exclusor);
+    nuevo := pg_catalog.replace(nuevo,E'SET search_path TO ''pg_catalog'', ''pg_temp''',E'SET search_path TO ''pg_catalog''');
     EXECUTE nuevo;
     SELECT pg_catalog.pg_get_functiondef(f) INTO STRICT actual;
     IF actual IS DISTINCT FROM nuevo
-       OR (SELECT pg_catalog.to_jsonb(p)-'prosrc' FROM pg_catalog.pg_proc AS p WHERE p.oid=f) IS DISTINCT FROM meta
+       OR pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(actual,'UTF8')),'hex')
+            IS DISTINCT FROM 'bffec9cc86fdf5a0619c0f21441955ed86a6cec6c2694968781e5f8952096356'
+       OR (SELECT pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(prosrc,'UTF8')),'hex')
+             FROM pg_catalog.pg_proc WHERE oid=f) IS DISTINCT FROM '6db82c972593908020edd20ddde9cf0f0c876ad366609ce4f3e62cfc49dec05b'
+       OR (SELECT pg_catalog.to_jsonb(p)-'prosrc'-'proconfig' FROM pg_catalog.pg_proc AS p WHERE p.oid=f)
+            IS DISTINCT FROM (meta-'prosrc'-'proconfig')
+       OR 'vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure::oid IS DISTINCT FROM f
        OR (SELECT proacl FROM pg_catalog.pg_proc WHERE oid=f) IS DISTINCT FROM acl
        OR (SELECT proowner FROM pg_catalog.pg_proc WHERE oid=f) IS DISTINCT FROM propietario
-       OR (SELECT proconfig FROM pg_catalog.pg_proc WHERE oid=f) IS DISTINCT FROM config
+       OR (SELECT proconfig FROM pg_catalog.pg_proc WHERE oid=f) IS DISTINCT FROM ARRAY['search_path=pg_catalog','lock_timeout=2s']
        OR (SELECT prosecdef FROM pg_catalog.pg_proc WHERE oid=f) IS DISTINCT FROM definidora
        OR (SELECT coalesce(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
-             FROM pg_catalog.pg_depend AS d WHERE d.classid='pg_catalog.pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps THEN
+             FROM pg_catalog.pg_depend AS d WHERE d.classid='pg_catalog.pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps
+       OR (SELECT coalesce(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(d) ORDER BY d.dbid,d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype),'[]'::jsonb)
+             FROM pg_catalog.pg_shdepend AS d
+            WHERE d.dbid=(SELECT oid FROM pg_catalog.pg_database WHERE datname=current_database())
+              AND d.classid='pg_catalog.pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps_compartidas THEN
         RAISE EXCEPTION 'AD3-126: nucleo alterado en DOWN' USING ERRCODE='55000';
     END IF;
 END $nucleo$;
 
 DO $audiencia$
-DECLARE definicion text; vieja text; nueva text := 'vec_catalogos_configurables.usos_categorias.v1';
+DECLARE
+    c_oid oid; original text; definicion text; esperada text; actual text;
+    meta jsonb; deps jsonb; deps_compartidas jsonb;
+    nueva text := 'vec_catalogos_configurables.usos_categorias.v1';
 BEGIN
-    SELECT pg_catalog.regexp_replace(pg_catalog.pg_get_constraintdef(c.oid,true),'\s+',' ','g')
-      INTO STRICT definicion FROM pg_catalog.pg_constraint AS c
+    SELECT c.oid,pg_catalog.pg_get_constraintdef(c.oid,true),pg_catalog.to_jsonb(c)
+      INTO STRICT c_oid,original,meta FROM pg_catalog.pg_constraint AS c
      WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
-       AND c.conname='clave_capacidad_version_audiencia_consumo_check' AND c.contype='c' AND c.convalidated;
-    IF pg_catalog.right(definicion,3)<>']))'
-       OR pg_catalog.strpos(definicion,', '||pg_catalog.quote_literal(nueva)||'::text]))')=0 THEN
-        RAISE EXCEPTION 'AD3-126: audiencia cambiada, DOWN denegado' USING ERRCODE='55000';
+       AND c.conname='clave_capacidad_version_audiencia_consumo_check';
+    SELECT coalesce(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(d)-'objid'
+        ORDER BY d.classid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
+      INTO deps FROM pg_catalog.pg_depend AS d
+     WHERE d.classid='pg_catalog.pg_constraint'::regclass AND d.objid=c_oid;
+    SELECT coalesce(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(d)-'objid'
+        ORDER BY d.dbid,d.classid,d.objsubid,d.refclassid,d.refobjid,d.deptype),'[]'::jsonb)
+      INTO deps_compartidas FROM pg_catalog.pg_shdepend AS d
+     WHERE d.dbid=(SELECT oid FROM pg_catalog.pg_database WHERE datname=current_database())
+       AND d.classid='pg_catalog.pg_constraint'::regclass AND d.objid=c_oid;
+    IF pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(original,'UTF8')),'hex')
+            IS DISTINCT FROM '02d131264c6d76e8e898125f261c17b5d3978f35a504a07c8617a5693b39031c'
+       OR (meta-'oid'-'conbin'-'conrelid'-'connamespace') IS DISTINCT FROM $meta$
+{
+    "condeferrable": false,
+    "condeferred": false,
+    "conenforced": true,
+    "conexclop": null,
+    "confdelsetcols": null,
+    "confdeltype": " ",
+    "conffeqop": null,
+    "confkey": null,
+    "confmatchtype": " ",
+    "confrelid": "0",
+    "confupdtype": " ",
+    "conindid": "0",
+    "coninhcount": 0,
+    "conislocal": true,
+    "conkey": [
+        8
+    ],
+    "conname": "clave_capacidad_version_audiencia_consumo_check",
+    "connoinherit": false,
+    "conparentid": "0",
+    "conperiod": false,
+    "conpfeqop": null,
+    "conppeqop": null,
+    "contype": "c",
+    "contypid": "0",
+    "convalidated": true
+}
+$meta$::jsonb
+       OR (meta->>'connamespace')::oid IS DISTINCT FROM 'vec_autorizacion_atestada_v3'::regnamespace::oid
+       OR NOT EXISTS (SELECT 1 FROM pg_catalog.pg_class
+             WHERE oid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
+               AND relowner='vec_autorizacion_atestada_v3_propietario'::regrole AND relkind='r') THEN
+        RAISE EXCEPTION 'AD3-126: CHECK de audiencias incompatible' USING ERRCODE='55000';
     END IF;
-    vieja := pg_catalog.replace(definicion,', '||pg_catalog.quote_literal(nueva)||'::text]))','']))');
+    definicion := pg_catalog.regexp_replace(original,'\s+',' ','g');
+    esperada := pg_catalog.replace(definicion,', '||pg_catalog.quote_literal(nueva)||'::text]))',$cierre$]))$cierre$);
     ALTER TABLE vec_autorizacion_atestada_v3.clave_capacidad_version
         DROP CONSTRAINT clave_capacidad_version_audiencia_consumo_check;
-    EXECUTE 'ALTER TABLE vec_autorizacion_atestada_v3.clave_capacidad_version ADD CONSTRAINT clave_capacidad_version_audiencia_consumo_check '||vieja;
+    EXECUTE 'ALTER TABLE vec_autorizacion_atestada_v3.clave_capacidad_version ADD CONSTRAINT clave_capacidad_version_audiencia_consumo_check '||esperada;
+    SELECT c.oid,pg_catalog.pg_get_constraintdef(c.oid,true)
+      INTO STRICT c_oid,actual FROM pg_catalog.pg_constraint AS c
+     WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
+       AND c.conname='clave_capacidad_version_audiencia_consumo_check';
+    -- DROP/ADD cambia el OID propio y conbin; todo el resto debe conservarse.
+    IF pg_catalog.regexp_replace(actual,'\s+',' ','g') IS DISTINCT FROM esperada
+       OR pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(actual,'UTF8')),'hex')
+            IS DISTINCT FROM '5a6bb90b8ef5b7aa3569235101eab4a4d0e7279230bea8b4fb26445bd3ec14c9'
+       OR (SELECT pg_catalog.to_jsonb(c)-'oid'-'conbin' FROM pg_catalog.pg_constraint AS c WHERE c.oid=c_oid)
+            IS DISTINCT FROM (meta-'oid'-'conbin')
+       OR (SELECT coalesce(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(d)-'objid'
+             ORDER BY d.classid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
+             FROM pg_catalog.pg_depend AS d
+            WHERE d.classid='pg_catalog.pg_constraint'::regclass AND d.objid=c_oid) IS DISTINCT FROM deps
+       OR (SELECT coalesce(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(d)-'objid'
+             ORDER BY d.dbid,d.classid,d.objsubid,d.refclassid,d.refobjid,d.deptype),'[]'::jsonb)
+             FROM pg_catalog.pg_shdepend AS d
+            WHERE d.dbid=(SELECT oid FROM pg_catalog.pg_database WHERE datname=current_database())
+              AND d.classid='pg_catalog.pg_constraint'::regclass AND d.objid=c_oid) IS DISTINCT FROM deps_compartidas THEN
+        RAISE EXCEPTION 'AD3-126: CHECK alterado fuera de contrato' USING ERRCODE='55000';
+    END IF;
 END $audiencia$;
 COMMIT;

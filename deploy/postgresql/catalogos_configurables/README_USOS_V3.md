@@ -66,10 +66,48 @@ huella/CAS, el acto prospectivo de Contratación temporal y el plan durable de
 Personal. Estas migraciones no acreditan instalación ni operación utilizable.
 
 La lista `deploy/principal/lista_sql_trabajo_codexd_rpt_escritura_v3_20260930.txt`
-describe el orden causal RPT para un clon nuevo. La lista H6 de 26 entradas ya
-contiene roles, 000001, 000002 y AD3-117: al componer el clon se apartan esas
-cuatro rutas de H6, se instalan una sola vez desde este árbol y se deja CT148
-para después de AD3-126. Hay que comprobar la unicidad de todas las rutas.
-No se reaplican 000001, 000002 o AD3-117 en una base donde ya tengan historia.
-Los archivos DOWN son solo para un clon vacío y rechazan historia; no forman
-parte del procedimiento de despliegue.
+se aplica en un clon nuevo en este orden: roles → 000001 corregida → 000002 →
+AD3-117 → 000003 → AD3-126. El paquete H6 excluye las rutas RPT. Que 000002 y
+AD3-117 estén publicados en `main` no acredita su instalación: Dirección debe
+comprobar la preimagen de la base y aplicar cada ruta una sola vez. CT148 queda
+para después de AD3-126. No se reaplican migraciones con historia. Los archivos
+DOWN son exclusivos de un clon vacío y no forman parte del despliegue.
+
+## Preimagen y reconstrucción del núcleo
+
+Las funciones nuevas de 000001, 000003 y AD3-126 fijan
+`search_path=pg_catalog, pg_temp`. 000002 y AD3-117 conservan su definición
+publicada. AD3-126 recibe el núcleo postAD117 con
+`search_path=pg_catalog` y `lock_timeout=2s`, valida su cuerpo completo y
+reconstruye únicamente el perfil nominal de usos y la configuración de búsqueda.
+Su DOWN exige la postimagen completa y devuelve la definición y configuración
+postAD117 anteriores. No retira una audiencia si conserva claves ni revierte
+instalaciones con historia.
+
+Las guardas se fijaron con una captura de PostgreSQL 18 de la cadena causal
+hasta AD3-117, desde `37dafd3fe71dce5ac0e0e989a471017bbb45ec50`.
+La captura completa tiene SHA-256
+`9aab4c6bb8583ab50d07d277bc9724d978b37dff30f78d5447490cbb43b4ffc6`.
+Las postimágenes se calculan con las inserciones nominales exactas de AD3-126:
+
+| Huella SHA-256 | Preimagen postAD117 | Postimagen AD3-126 |
+| --- | --- | --- |
+| Cuerpo `prosrc` | `6db82c972593908020edd20ddde9cf0f0c876ad366609ce4f3e62cfc49dec05b` | `1542976c6948408364a36d71bea0066c33cc84ecff67ca1aacafdfc264eaeef0` |
+| `pg_get_functiondef` | `bffec9cc86fdf5a0619c0f21441955ed86a6cec6c2694968781e5f8952096356` | `e3e560534158edf6095fdc50e01e872df793a93db762302782bc56dd19a94802` |
+| Definición del CHECK de audiencias | `5a6bb90b8ef5b7aa3569235101eab4a4d0e7279230bea8b4fb26445bd3ec14c9` | `02d131264c6d76e8e898125f261c17b5d3978f35a504a07c8617a5693b39031c` |
+
+Las guardas también comparan todos los metadatos de `pg_proc`, propietario,
+ACL, lenguaje, esquema y dependencias de `pg_depend` y `pg_shdepend`.
+El OID de la función se resuelve en la base concreta y debe conservarse dentro
+de la transacción; no se importa el OID del clon de captura. La postimagen solo
+permite cambios en `prosrc` y `proconfig`. Para el CHECK, DROP/ADD cambia el OID
+propio y `conbin`; el resto de sus metadatos y dependencias debe conservarse.
+Una definición parecida o unas marcas coincidentes no bastan para instalar.
+
+Antes de integrar, el ensayo PostgreSQL debe cubrir UP/DOWN en el clon vacío,
+las pruebas SQL de contrato y dos rechazos: un cambio del cuerpo del núcleo fuera
+de las marcas nominales y una audiencia adicional en el CHECK. Ambos deben
+producir `55000` sin dejar funciones, configuración, ACL ni audiencias parciales.
+Las sondas SQL preparadas comprueban configuración y postimagen completas;
+la prueba positiva de V3 exige decisiones firmadas por el circuito existente.
+Este parche no acredita esos ensayos, una instalación ni un recorrido de usuario.
