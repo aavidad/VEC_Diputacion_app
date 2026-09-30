@@ -65,14 +65,21 @@ func descriptoresFronterasContratacionTemporalDesarrollo(
 		fronteraContratacionTemporalDesarrollo("ct-cobertura-proponer", accionPropuestaCoberturaDesarrollo, cthttp.RutaPropuestaCobertura, []string{perfilCT}),
 		fronteraContratacionTemporalDesarrollo("ct-cobertura-resultado-consultar", string(ctports.AccionConsultarResultadoCobertura), cthttp.RutaResultadoCobertura, []string{perfilCT}),
 	}, append(descriptoresFronterasSeguimientoCeseDesarrollo(perfilCT), descriptoresFronterasCancelacionCTDesarrollo(perfilCT)...)...)
-	return append(fronteras, fronteraPeticionesCentroRRHHDesarrollo(perfilCT))
+	return append(fronteras, fronteraEntregaPeticionCentroRRHHDesarrollo(perfilCT), fronteraPeticionesCentroRRHHDesarrollo(perfilCT))
+}
+
+// El POST conserva la acción de entrega. El alta anidada requiere además un
+// vínculo explícito de CrearSolicitud a esta misma frontera; GET no lo recibe.
+func fronteraEntregaPeticionCentroRRHHDesarrollo(perfilCT string) descriptorFronteraComunDesarrollo {
+	return fronteraContratacionTemporalDesarrollo("ct-peticiones-centro-rrhh-entregar",
+		ctports.AccionEntregarPeticionRRHH, rutaEntregaPeticionCentro, []string{perfilCT})
 }
 
 // fronteraPeticionesCentroRRHHDesarrollo declara la lista de «Peticiones de
 // los centros» que consulta RRHH (GET). Con Bolsa compuesta, el autorizador
 // CT delega en el PDP común; sin esta frontera, la consulta se denegaba antes
 // de decidir y la ruta respondía siempre 503. Solo el perfil CT base la usa;
-// la entrega (POST) no se declara aquí: su alta interna exige otra frontera.
+// la entrega (POST) tiene una frontera distinta para la acción de escritura.
 func fronteraPeticionesCentroRRHHDesarrollo(perfilCT string) descriptorFronteraComunDesarrollo {
 	f := fronteraContratacionTemporalDesarrollo("ct-peticiones-centro-rrhh-consultar",
 		ctports.AccionConsultarPeticionesRRHH, rutaEntregaPeticionCentro, []string{perfilCT})
@@ -147,13 +154,7 @@ func descriptoresAutorizacionContratacionTemporalDesarrollo(
 		"prf_catalogo_ct", []string{"prf_catalogo_ct"},
 	)
 	descriptores := make([]descriptorAutorizacionComunDesarrollo, 0, len(fronteras))
-	porAccion := map[string]int{}
 	for _, frontera := range fronteras {
-		if i, existe := porAccion[frontera.ClaveCapacidad]; existe {
-			descriptores[i].Fronteras = append(descriptores[i].Fronteras, frontera.Clave)
-			continue
-		}
-		porAccion[frontera.ClaveCapacidad] = len(descriptores)
 		descriptores = append(descriptores, descriptorAutorizacionComunDesarrollo{
 			Accion:         frontera.ClaveCapacidad,
 			ClavePolitica:  frontera.ClavePolitica,
@@ -162,14 +163,17 @@ func descriptoresAutorizacionContratacionTemporalDesarrollo(
 			Politica:       politica,
 		})
 	}
+	// CrearSolicitud desde una petición ratificada conserva el perfil y el
+	// sello de la reserva. Su autorización se liga solo al POST de entrega;
+	// el alta directa mantiene su propia frontera y perfil fijo.
+	entrega := fronteraEntregaPeticionCentroRRHHDesarrollo("prf_catalogo_ct")
+	descriptores = append(descriptores, descriptorAutorizacionComunDesarrollo{
+		Accion: ctports.AccionCrearSolicitud, ClavePolitica: entrega.ClavePolitica,
+		ClaveCapacidad: entrega.ClaveCapacidad, Fronteras: []string{entrega.Clave}, Politica: politica,
+	})
 	if len(reincorporacion) != 0 && reincorporacion[0] {
 		for _, ruta := range []string{cthttp.RutaReincorporacionesTitular, cthttp.RutaCapacidadReincorporacionTitular} {
 			o, _ := operacionSeguimientoCesePorRuta(ruta)
-			if indice, existe := porAccion[o.accion]; existe {
-				descriptores[indice].Fronteras = append(descriptores[indice].Fronteras, o.frontera)
-				continue
-			}
-			porAccion[o.accion] = len(descriptores)
 			descriptores = append(descriptores, descriptorAutorizacionComunDesarrollo{
 				Accion: o.accion, ClavePolitica: clavePoliticaContratacionTemporalDesarrollo,
 				ClaveCapacidad: o.accion, Fronteras: []string{o.frontera}, Politica: politica,

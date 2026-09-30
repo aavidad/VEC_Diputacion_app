@@ -44,7 +44,7 @@ func (m *manejadorEntregaPeticionDesarrollo) ServeHTTP(w http.ResponseWriter, r 
 		return
 	}
 	if _, _, err := m.proveedor.ActorEntregaPeticionCentro(r.Context()); err != nil {
-		fallo(403, "operacion_denegada")
+		fallo(falloEntregaPeticionDesarrollo(r.Method, errors.Join(err, r.Context().Err())))
 		return
 	}
 	responder := func(data any) { _ = json.NewEncoder(w).Encode(map[string]any{"data": data}) }
@@ -55,7 +55,7 @@ func (m *manejadorEntregaPeticionDesarrollo) ServeHTTP(w http.ResponseWriter, r 
 		}
 		filas, err := m.repositorio.ListarPeticionesRRHH(r.Context())
 		if err != nil {
-			fallo(falloEntregaPeticionDesarrollo(r.Method, err))
+			fallo(falloEntregaPeticionDesarrollo(r.Method, errors.Join(err, r.Context().Err())))
 			return
 		}
 		responder(map[string]any{"peticiones": filas, "limite": 50})
@@ -87,13 +87,16 @@ func (m *manejadorEntregaPeticionDesarrollo) ServeHTTP(w http.ResponseWriter, r 
 		case errors.Is(err, ports.ErrEntregaPeticionEnConflicto) && causaFalloEntregaPeticionDesarrollo(err) != "autorizacion_denegada":
 			fallo(409, "peticion_en_conflicto")
 		default:
-			fallo(falloEntregaPeticionDesarrollo(r.Method, err))
+			fallo(falloEntregaPeticionDesarrollo(r.Method, errors.Join(err, r.Context().Err())))
 		}
 		return
 	}
 	// La clave de alta y el dueño de la reserva no salen al navegador. El
 	// recibo sí conserva la trazabilidad original y permite retomar el análisis.
 	e.ClaveAlta, e.AmbitoAltaHMAC, e.ActorRef, e.PerfilRef = "", "", "", ""
+	if e.ReservaCreadaAhora && e.ConfirmadaAhora {
+		w.WriteHeader(http.StatusCreated)
+	}
 	responder(e)
 }
 
@@ -133,6 +136,8 @@ func causaFalloEntregaPeticionDesarrollo(err error) string {
 		return "registro_decision_no_disponible"
 	case errors.Is(err, ports.ErrReciboPeticionCentroNoConfiable):
 		return "respuesta_base_no_confiable"
+	case errors.Is(err, ports.ErrConsultaRRHHNoDisponible):
+		return "sesion_no_disponible"
 	case errors.Is(err, ports.ErrPeticionCentroNoDisponible):
 		return "persistencia_no_disponible"
 	case errors.Is(err, ports.ErrAutorizacionDenegada), errors.Is(err, vecdomain.ErrAutorizacionDenegada):

@@ -164,7 +164,14 @@ func (t *TransaccionFiscalizacionesPostgreSQL) ConfirmarFiscalizacion(
 		return ports.ReciboFiscalizacion{}, err
 	}
 	defer entradas.borrar()
+	return t.confirmarFiscalizacionConReintentos(ctx, orden, entradas)
+}
 
+func (t *TransaccionFiscalizacionesPostgreSQL) confirmarFiscalizacionConReintentos(
+	ctx context.Context,
+	orden ports.OrdenConfirmarFiscalizacion,
+	entradas entradasConfirmarFiscalizacion,
+) (ports.ReciboFiscalizacion, error) {
 	for intento := 1; intento <= maximoIntentosConfirmarFiscalizacion; intento++ {
 		recibo, causa := t.confirmarEnTransaccion(ctx, orden, entradas)
 		if causa == nil {
@@ -178,6 +185,9 @@ func (t *TransaccionFiscalizacionesPostgreSQL) ConfirmarFiscalizacion(
 		}
 		if confirmacionFiscalizacionEsperaInformeNuevo(causa) {
 			return ports.ReciboFiscalizacion{}, ports.ErrInformeNuevoPendiente
+		}
+		if conflictoDeclaradoPorFuncionSQL(causa) {
+			return ports.ReciboFiscalizacion{}, domain.ErrVersionEnConflicto
 		}
 		if !errorPostgreSQLReintentable(causa) ||
 			intento == maximoIntentosConfirmarFiscalizacion ||

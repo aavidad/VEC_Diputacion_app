@@ -86,9 +86,19 @@ func TestPDPComunAutorizaLaListaDePeticionesDeCentrosDeRRHH(t *testing.T) {
 			t.Fatalf("la frontera de la lista admite %s", accion)
 		}
 	}
-	// La entrega (POST) no se declara en este corte.
-	if _, ok := catalogoFronteras.resolver(http.MethodPost, rutaEntregaPeticionCentro); ok {
-		t.Fatal("la entrega quedó declarada sin su alta interna")
+	post, ok := catalogoFronteras.resolver(http.MethodPost, rutaEntregaPeticionCentro)
+	if !ok || post.Clave != "ct-peticiones-centro-rrhh-entregar" || !post.admitePerfil(perfil) || post.admitePerfil("prf_ct_ajeno") {
+		t.Fatal("la entrega no conserva una frontera POST del perfil CT")
+	}
+	for _, accion := range []string{ports.AccionEntregarPeticionRRHH, ports.AccionCrearSolicitud} {
+		if _, ok := catalogo.politicaPara(accion, post.Clave, post.ClavePolitica, post.ClaveCapacidad); !ok {
+			t.Fatalf("el POST no enlaza la acción %s", accion)
+		}
+	}
+	ctxPost := context.WithValue(context.Background(), claveFronteraSeguridadComunDesarrollo{}, fronteraSeguridadComunDesarrollo{
+		metodo: http.MethodPost, ruta: rutaEntregaPeticionCentro, superficie: post.Superficie, catalogo: catalogoFronteras, descriptor: post})
+	if _, err := pdp.contextoSolicitud(ctxPost, solicitudBandejaEntregaPeticionPrueba(t)); !errors.Is(err, errAutorizacionComunDesarrolloNoDisponible) {
+		t.Fatalf("el POST admitió la acción de consulta: %v", err)
 	}
 }
 
@@ -124,15 +134,17 @@ func TestFalloEntregaPeticionSeparaDenegacionDeIndisponibilidad(t *testing.T) {
 		{errors.Join(vecdomain.ErrAutorizacionDenegada, vecports.ErrRegistroDenegacionAutorizacionLigadaV3NoDisponible), 503, "servicio_no_disponible", "registro_decision_no_disponible"},
 		{errors.Join(vecdomain.ErrAutorizacionDenegada, context.Canceled), 503, "servicio_no_disponible", "peticion_cancelada_o_vencida"},
 	}
-	for _, c := range casos {
-		registro.Reset()
-		estado, codigo := falloEntregaPeticionDesarrollo(http.MethodGet, c.err)
-		linea := registro.String()
-		if estado != c.estado || codigo != c.codigo || !strings.Contains(linea, `"causa":"`+c.causa+`"`) || !strings.Contains(linea, rutaEntregaPeticionCentro) {
-			t.Fatalf("%v: %d %s, registro %q", c.err, estado, codigo, linea)
-		}
-		if strings.Contains(linea, secreto) {
-			t.Fatalf("el registro copia el texto del error: %q", linea)
+	for _, metodo := range []string{http.MethodGet, http.MethodPost} {
+		for _, c := range casos {
+			registro.Reset()
+			estado, codigo := falloEntregaPeticionDesarrollo(metodo, c.err)
+			linea := registro.String()
+			if estado != c.estado || codigo != c.codigo || !strings.Contains(linea, `"causa":"`+c.causa+`"`) || !strings.Contains(linea, rutaEntregaPeticionCentro) || !strings.Contains(linea, `"metodo":"`+metodo+`"`) {
+				t.Fatalf("%s %v: %d %s, registro %q", metodo, c.err, estado, codigo, linea)
+			}
+			if strings.Contains(linea, secreto) {
+				t.Fatalf("el registro copia el texto del error: %q", linea)
+			}
 		}
 	}
 }
