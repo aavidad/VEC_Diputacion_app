@@ -6,6 +6,7 @@ import { crearClienteOperacionesContactoPropio, RUTAS_OPERACIONES_CONTACTO } fro
 import { textoContactoPropio } from "./i18n-contacto-propio.js";
 import { traducir } from "./i18n.js";
 import { exigirRenovado } from "../portal-empleado/versiones-cache.test-helper.mjs";
+import { catalogoPlano, lectorCatalogos } from "./textos-prueba.test-helper.mjs";
 
 const REF = `opr_${"a".repeat(22)}`;
 const preparado = (version = 7) => ({ operacion_ref: REF, estado: "preparada", version_esperada: version });
@@ -374,6 +375,6 @@ test("entrada capturada e i18n real sin correo en el índice", async () => {
   assert.equal(capturarCorreoEnviado(entrada), "persona@ejemplo.test");
   entrada.value = "otra@ejemplo.test";
   assert.equal(textoContactoPropio("historialTitulo"), traducir("areaPersonal.contacto.historialTitulo"));
-  const claves = JSON.parse(await readFile(new URL("./locales/es.json", import.meta.url), "utf8"));
+  const claves = await catalogoPlano("es");
   assert.equal(claves["areaPersonal.contacto.historialTitulo"], textoContactoPropio("historialTitulo"));
 });

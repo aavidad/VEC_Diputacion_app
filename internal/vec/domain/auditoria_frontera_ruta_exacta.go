@@ -12,6 +12,9 @@ const SuperficieAuditoriaFronteraRutaExactaAuditoria = "api.auditoria.ruta_exact
 const SuperficieAuditoriaFronteraRutaExactaUsuariosPreferencias = "api.usuarios.preferencias.ruta_exacta"
 const SuperficieAuditoriaFronteraRutaExactaBolsaCandidato = "api.bolsa.candidato.ruta_exacta"
 
+// Aspirantes no guarda `per_`: sus denegaciones de frontera nunca llevan actor.
+const SuperficieAuditoriaFronteraRutaExactaAspirantes = "api.aspirantes.ficha.ruta_exacta"
+
 var ErrOrdenAuditoriaFronteraRutaExactaInvalida = errors.New(
 	"vec ports: orden de auditoria de frontera de ruta exacta invalida",
 )
@@ -46,7 +49,8 @@ func (o OrdenAuditoriaFronteraRutaExacta) Validar() error {
 			o.Superficie == SuperficieAuditoriaFronteraRutaExactaBolsaCandidato) &&
 			((o.Motivo == MotivoAuditoriaFronteraRutaExactaAutenticacionRequerida && o.ActorRef != "") ||
 				(o.Motivo == MotivoAuditoriaFronteraRutaExactaAccesoDenegado &&
-					!referenciaOpacaContextoActorValida(o.ActorRef, "per_")))) {
+					!referenciaOpacaContextoActorValida(o.ActorRef, "per_")))) ||
+		(o.Superficie == SuperficieAuditoriaFronteraRutaExactaAspirantes && o.ActorRef != "") {
 		return ErrOrdenAuditoriaFronteraRutaExactaInvalida
 	}
 	return nil
@@ -94,6 +98,8 @@ func rutaAuditoriaFronteraRutaExactaValidaParaSuperficie(superficie, ruta string
 			ruta == "/api/vec/bolsa/mi-bolsa/respuestas" ||
 			ruta == "/api/vec/bolsa/mi-bolsa/disposiciones" ||
 			ruta == "/api/vec/bolsa/mi-bolsa/contacto"
+	case SuperficieAuditoriaFronteraRutaExactaAspirantes:
+		return ruta == "/api/vec/aspirantes/area-personal/mi-ficha"
 	default:
 		return false
 	}

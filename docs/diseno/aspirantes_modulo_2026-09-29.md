@@ -31,7 +31,8 @@ paso de Bolsa a `asp_`. Todo eso tiene su hueco previsto en el modelo.
 | --- | --- | --- |
 | 1 | Este diseño, dominio, puertos, forma canónica y aplicación, con pruebas | 1 |
 | 2 | Criptografía (AES-GCM e índice ciego), SQL (roles, esquema, consumidor V3), adaptador PostgreSQL y prueba PG18 | 2 |
-| 3 | API, identidad del certificado, composición y pantalla «Perfil y contacto» | 3 |
+| 3 | API y lectura del certificado | 3 |
+| 4 | Catálogo de datos personales, composición en el arranque, registro de denegaciones de frontera (000002) y pantalla «Perfil y contacto» | 4 |
 
 ## Paquetes Go
 

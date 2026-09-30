@@ -244,11 +244,7 @@ func nuevoServidorDesarrollo(
 	}
 	// Antes de leer material o abrir conexiones: un proceso separado no
 	// arranca con credenciales ni claves del otro portal.
-	entorno, err := entornoProcesoActual()
-	if err != nil && portalProcesoSeparado(cfg) {
-		return nil, nil, err
-	}
-	portal, err := comprobarSeparacionPortalProceso(cfg, entorno)
+	portal, err := comprobarSeparacionPortalConEntorno(cfg, entornoProcesoActual)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -432,9 +428,13 @@ func nuevoServidorDesarrollo(
 	if err != nil {
 		return nil, nil, err
 	}
+	aspirantes, err := nuevasDependenciasAspirantesDesarrollo(cfg, composicion.emisorKMS, autoridadContratacion.materialAspirantes)
+	if err != nil {
+		return nil, nil, err
+	}
 	usuariosPreferencias, err := nuevasRutasUsuariosPreferenciasDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia, autoridadContratacion.gobiernoUsuariosPreferencias, emisor,
 		autoridadContratacion.materialUsuariosPreferenciasConsultaInterna, autoridadContratacion.materialUsuariosPreferenciasActualizacionInterna,
-		autoridadContratacion.materialUsuariosPreferenciasConsultaExterna, autoridadContratacion.materialUsuariosPreferenciasActualizacionExterna, usuariosCorreos, usuariosImagen)
+		autoridadContratacion.materialUsuariosPreferenciasConsultaExterna, autoridadContratacion.materialUsuariosPreferenciasActualizacionExterna, usuariosCorreos, usuariosImagen, aspirantes)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -458,7 +458,14 @@ func nuevoServidorDesarrollo(
 	}
 	registradorFrontera := vecports.RegistradorAuditoriaFronteraRutaExacta(autoridadContratacion.registradorAuditoriaFronteraRutasExactas)
 	if usuariosPreferencias != nil {
-		registradorFrontera = registradorFronterasConUsuariosPreferencias{delegado: registradorFrontera, interna: usuariosPreferencias.interna.registrador, externa: usuariosPreferencias.externa.registrador}
+		frontera := registradorFronterasConUsuariosPreferencias{delegado: registradorFrontera, interna: usuariosPreferencias.interna.registrador}
+		if usuariosPreferencias.externa != nil {
+			frontera.externa = usuariosPreferencias.externa.registrador
+			if usuariosPreferencias.externa.aspirantes != nil {
+				frontera.aspirantes = usuariosPreferencias.externa.aspirantes.registrador
+			}
+		}
+		registradorFrontera = frontera
 	}
 	vecAPI, err := newVECShellAPICompuestaConIdentidadYRutas(
 		cfg, emisor, resolvedor, categoriasPersonal, rutasContratacion, autoridadExactas,

@@ -41,7 +41,7 @@ func TestProvisionCandidatoPlanDeterministaSinIdentidadEnResumen(t *testing.T) {
 		t.Fatal(e)
 	}
 	p2, e := PrepararProvisionCandidatoExterno(cfg, f, "autorizacion", time.Now().Add(time.Minute))
-	if e != nil || p.resumen != p2.resumen {
+	if e != nil || !reflect.DeepEqual(p.resumen, p2.resumen) {
 		t.Fatal("plan depende del reloj de ejecución")
 	}
 	resumen, _ := json.Marshal(p.Resumen())

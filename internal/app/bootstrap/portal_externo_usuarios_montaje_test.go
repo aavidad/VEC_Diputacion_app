@@ -15,7 +15,7 @@ func TestFronteraUsuariosExternaNoAdmiteRolesInternos(t *testing.T) {
 }
 
 func TestFronteraUsuariosSinDependenciasDeniegaAntesDeLeerMaterial(t *testing.T) {
-	if _, err := nuevaRutaUsuariosPreferenciasConFrontera(config.Config{}, nil, nil, nil, topologiaPostgreSQLPreferenciasUsuarios{}, "", "", nil, nil, nil, nil, fronteraPreferenciasUsuarios{}); err == nil {
+	if _, err := nuevaRutaUsuariosPreferenciasConFrontera(config.Config{}, nil, nil, nil, topologiaPostgreSQLPreferenciasUsuarios{}, "", "", nil, nil, nil, nil, nil, fronteraPreferenciasUsuarios{}); err == nil {
 		t.Fatal("montaje incompleto aceptado")
 	}
 }

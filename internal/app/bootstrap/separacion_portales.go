@@ -52,6 +52,7 @@ func comprobarSeparacionPortalProceso(cfg config.Config, entorno separacionporta
 	}
 	portal, _ := portalProcesoConfigurado(cfg)
 	if portal.Separado() {
+		entorno.DirectorioMaterial = cfg.DevelopmentMaterialDir
 		if err := separacionportales.ComprobarEntorno(portal, entorno); err != nil {
 			return portal, err
 		}

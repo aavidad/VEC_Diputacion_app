@@ -2,7 +2,7 @@
 // responder al llamamiento abierto. El servidor decide con el catálogo de
 // reglas (modo, plazo, situaciones admitidas, causas); aquí solo se recogen
 // los datos, se calcula la huella del justificante y se muestra el recibo.
-import { traducir } from "./i18n.js";
+import { localizacionAreaPersonal, traducir } from "./i18n.js";
 import { escaparAtributo, escaparHTML, listaDatos } from "./vistas/comunes.js";
 import { cuerpoDisposicion, validarOfertasMiBolsa } from "./mi-bolsa-ofertas.js";
 import { nombreCategoria } from "./mi-bolsa-campos.js";
@@ -13,60 +13,16 @@ export const RUTAS_PORTAL_MI_BOLSA = Object.freeze({
   responder: "/api/vec/bolsa/mi-bolsa/respuestas",
 });
 
-const RESPALDO = Object.freeze({
-  "areaPersonal.portal.titulo": "Disponibilidad y respuesta",
-  "areaPersonal.portal.subtitulo": "Por bolsa",
-  "areaPersonal.portal.pausa": "Pedir una pausa hasta",
-  "areaPersonal.portal.pausaEnviar": "Pedir pausa",
-  "areaPersonal.portal.reactivar": "Pedir la reactivación",
-  "areaPersonal.portal.pendiente": "Solicitud de {tipo} pendiente de RRHH",
-  "areaPersonal.portal.tipo.pausa": "pausa",
-  "areaPersonal.portal.tipo.reactivacion": "reactivación",
-  "areaPersonal.portal.recibo": "Recibo",
-  "areaPersonal.portal.llamamiento": "Llamamiento abierto",
-  "areaPersonal.portal.contacto": "Contacto",
-  "areaPersonal.portal.vence": "Responder antes de",
-  "areaPersonal.portal.venceNoDisponible": "Plazo no disponible",
-  "areaPersonal.portal.respuesta": "Mi respuesta",
-  "areaPersonal.portal.respuesta.acepta": "Acepto",
-  "areaPersonal.portal.respuesta.renuncia": "Renuncio",
-  "areaPersonal.portal.respuesta.renuncia_justificada": "Renuncio con causa justificada",
-  "areaPersonal.portal.causa": "Causa",
-  "areaPersonal.portal.causa.enfermedad": "Enfermedad",
-  "areaPersonal.portal.causa.maternidad_paternidad_adopcion": "Maternidad, paternidad o adopción",
-  "areaPersonal.portal.causa.alta_seguridad_social": "Alta en la Seguridad Social",
-  "areaPersonal.portal.causa.matrimonio_union_hecho": "Matrimonio o unión de hecho",
-  "areaPersonal.portal.justificante": "Justificante",
-  "areaPersonal.portal.justificanteRef": "Referencia del justificante",
-  "areaPersonal.portal.responder": "Enviar respuesta",
-  "areaPersonal.portal.modo.propuesta_rrhh": "RRHH confirmará la respuesta",
-  "areaPersonal.portal.modo.firme": "Respuesta firme",
-  "areaPersonal.portal.ultimaRespuesta": "Respuesta registrada",
-  "areaPersonal.portal.enviando": "Enviando…",
-  "areaPersonal.portal.hecho": "Registrado. Recibo {recibo}.",
-  "areaPersonal.portal.error.solicitud_pendiente": "Ya tiene una solicitud pendiente de RRHH en esta bolsa.",
-  "areaPersonal.portal.error.situacion_no_admite": "Su situación actual en la bolsa no admite esta solicitud.",
-  "areaPersonal.portal.error.sin_llamamiento_abierto": "No hay un llamamiento abierto que responder.",
-  "areaPersonal.portal.error.fuera_de_plazo": "El plazo de respuesta ha terminado.",
-  "areaPersonal.portal.error.causa_no_admitida": "La causa indicada no está admitida.",
-  "areaPersonal.portal.error.pausa_fuera_de_limite": "La fecha de fin de la pausa no está permitida.",
-  "areaPersonal.portal.error.oferta_no_abierta": "La oferta ya no está abierta.",
-  "areaPersonal.portal.error.disposicion_ya_manifestada": "Ya se había ofrecido para esta oferta.",
-  "areaPersonal.portal.error.contacto_cambiado": "RRHH ha actualizado su contacto. Recargue la página antes de confirmarlo.",
-  "areaPersonal.portal.error.contacto_ya_confirmado": "Este contacto ya estaba confirmado.",
-  "areaPersonal.portal.error.sin_contacto": "No hay contacto registrado que confirmar.",
-  "areaPersonal.portal.error.clave_reutilizada": "Esta petición ya se envió con otros datos. Recargue la página.",
-  "areaPersonal.portal.error.datos_no_validos": "Revise los datos del formulario.",
-  "areaPersonal.portal.error.acceso_denegado": "No tiene permiso para esta acción.",
-  "areaPersonal.portal.error.autenticacion_requerida": "Identifíquese de nuevo para continuar.",
-  "areaPersonal.portal.error.servicio_no_disponible": "Servicio no disponible. No se ha registrado nada; puede volver a intentarlo.",
-});
+
+// Códigos de error del servidor con mensaje propio; los demás se muestran como
+// servicio no disponible.
+const CODIGOS_ERROR = new Set(["solicitud_pendiente", "situacion_no_admite", "sin_llamamiento_abierto", "fuera_de_plazo",
+  "causa_no_admitida", "pausa_fuera_de_limite", "oferta_no_abierta", "disposicion_ya_manifestada", "contacto_cambiado",
+  "contacto_ya_confirmado", "sin_contacto", "clave_reutilizada", "datos_no_validos", "acceso_denegado",
+  "autenticacion_requerida", "servicio_no_disponible"]);
 
 export function textoPortal(clave, variables = {}) {
-  const completa = `areaPersonal.portal.${clave}`;
-  const traducido = traducir(completa, variables);
-  if (traducido !== completa) return traducido;
-  return (RESPALDO[completa] ?? completa).replace(/\{([a-z_]+)\}/giu, (_, nombre) => String(variables[nombre] ?? ""));
+  return traducir(`areaPersonal.portal.${clave}`, variables);
 }
 
 const INSTANTE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?Z$/u;
@@ -108,7 +64,7 @@ export function validarPortalMiBolsa(datos) {
 }
 
 function fecha(valor) {
-  return new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Madrid" }).format(new Date(valor));
+  return new Intl.DateTimeFormat(localizacionAreaPersonal(), { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Madrid" }).format(new Date(valor));
 }
 
 function fechaISO(valor) {
@@ -243,7 +199,7 @@ export async function enviarPortalMiBolsa(formulario, { fetchImpl = globalThis.f
       return true;
     }
     const codigo = String(datos?.error?.codigo || "servicio_no_disponible");
-    mostrar(textoPortal(`error.${Object.hasOwn(RESPALDO, `areaPersonal.portal.error.${codigo}`) ? codigo : "servicio_no_disponible"}`));
+    mostrar(textoPortal(`error.${CODIGOS_ERROR.has(codigo) ? codigo : "servicio_no_disponible"}`));
     return false;
   } catch {
     mostrar(textoPortal("error.servicio_no_disponible"));

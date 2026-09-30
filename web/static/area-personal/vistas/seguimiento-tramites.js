@@ -2,12 +2,18 @@ import {
   botonOperacion, chip, encabezadoVista, enlaceRuta, escaparAtributo, escaparHTML,
   formatoPuntos, listaDatos, panel, tabla,
 } from "./comunes.js";
-import { traducir } from "../i18n.js";
+import { localizacionAreaPersonal, traducir } from "../i18n.js";
 import { campoVisibleMiBolsa, nombreCategoria } from "../mi-bolsa-campos.js";
 import { renderizarPortalMiBolsa, textoPortal } from "../mi-bolsa-portal.js";
 import { renderizarOfertasMiBolsa, textoOfertas } from "../mi-bolsa-ofertas.js";
 import { renderizarContactoMiBolsa, textoContacto } from "../mi-bolsa-contacto.js";
 import { renderizarHistorialMiBolsa } from "../mi-bolsa-historial.js";
+
+const e = (clave, variables) => traducir(`areaPersonal.vista.seguimiento.${clave}`, variables);
+const b = (clave, variables) => traducir(`areaPersonal.vista.miBolsa.${clave}`, variables);
+const u = (clave, variables) => traducir(`areaPersonal.vista.subsanaciones.${clave}`, variables);
+const g = (clave, variables) => traducir(`areaPersonal.vista.alegaciones.${clave}`, variables);
+const h = (texto) => escaparHTML(texto);
 
 const CLASES_SITUACION = Object.freeze({
   disponible: "exito", no_disponible: "aviso", trabajando: "info",
@@ -16,7 +22,7 @@ const CLASES_SITUACION = Object.freeze({
 });
 
 function fechaSituacion(valor) {
-  return new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Madrid" }).format(new Date(valor));
+  return new Intl.DateTimeFormat(localizacionAreaPersonal(), { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Madrid" }).format(new Date(valor));
 }
 
 function fichaSituacionActual(actual) {
@@ -37,62 +43,50 @@ function fichaSituacionActual(actual) {
 export function renderizarSeguimiento(datos, estado) {
   const solicitud = datos.solicitudes.find((item) => item.id === estado.expedienteSeleccionado) || datos.solicitudes[0];
   if (!solicitud) {
-    const cabecera = encabezadoVista(
-      "Mis expedientes y seguimiento",
-      "Estado, puntuación, posición, documentos y próximos pasos.",
-      enlaceRuta("certificados", "Certificados y descargas", "boton-secundario"),
-    );
-    const vacio = panel(
-      "Sin expedientes en el ámbito autorizado",
-      "No se ha seleccionado ningún expediente",
-      "<p>No hay datos de expediente para consultar o descargar.</p>",
-    );
-    const acciones = panel(
-      "Acciones disponibles",
-      "Solo para el expediente seleccionado",
-      "<p>No hay acciones disponibles hasta que el servicio facilite un expediente autorizado.</p>",
-    );
+    const cabecera = encabezadoVista(e("titulo"), e("descripcion"), enlaceRuta("certificados", e("certificados"), "boton-secundario"));
+    const vacio = panel(e("vacio.titulo"), e("vacio.subtitulo"), `<p>${h(e("vacio.detalle"))}</p>`);
+    const acciones = panel(e("acciones.titulo"), e("acciones.subtitulo"), `<p>${h(e("acciones.vacio"))}</p>`);
     return `${cabecera}${vacio}${acciones}`;
   }
   const filas = datos.solicitudes.map((item) => [
     `<strong>${escaparHTML(item.titulo)}</strong><small>${escaparHTML(item.referencia)}</small>`,
     chip(item.estado),
-    `<strong>${formatoPuntos(item.puntuacion)} puntos</strong><small>${escaparHTML(item.posicion)}</small>`,
+    `<strong>${h(e("puntos", { puntos: formatoPuntos(item.puntuacion) }))}</strong><small>${escaparHTML(item.posicion)}</small>`,
     escaparHTML(item.actualizado),
-    `<div class="acciones-tabla"><button type="button" class="boton-secundario" data-accion="abrir-expediente" data-id="${escaparAtributo(item.id)}">Seleccionar</button></div>`,
+    `<div class="acciones-tabla"><button type="button" class="boton-secundario" data-accion="abrir-expediente" data-id="${escaparAtributo(item.id)}">${h(e("seleccionar"))}</button></div>`,
   ]);
   const timeline = datos.actividad.map((item) => `<li><strong>${escaparHTML(item.titulo)}</strong><span>${escaparHTML(item.detalle)}</span><small>${escaparHTML(item.fecha)} · ${escaparHTML(item.actor)} · ${escaparHTML(item.recibo)}</small></li>`).join("");
   const panelPosicion = datos.posicion
-    ? panel("Mi posición", "Situación y orden de prelación en la bolsa adscrita", `<div class="posicion-destacada"><output>#${escaparHTML(String(datos.posicion.orden))}</output><span><strong>${escaparHTML(datos.posicion.categoria)}</strong><small>${escaparHTML(datos.posicion.bolsa)}</small></span></div>${listaDatos([["Bolsa", escaparHTML(datos.posicion.bolsa)], ["Categoría", escaparHTML(datos.posicion.categoria)], ["Orden", `#${escaparHTML(String(datos.posicion.orden))} de ${escaparHTML(String(datos.posicion.total))}`], ["Puntuación", `${formatoPuntos(datos.posicion.puntuacion)} puntos`], ["Vigente desde", escaparHTML(datos.posicion.vigente_desde)]])}`, { estado: `#${datos.posicion.orden}` })
-    : panel("Posición provisional", "La posición puede cambiar tras revisión y alegaciones", `<div class="posicion-destacada"><output>${escaparHTML((solicitud.posicion.match(/^\d+/) || ["—"])[0])}</output><span><strong>${escaparHTML(solicitud.posicion)}</strong><small>Orden provisional y sujeto a las bases.</small></span></div>`, { estado: "Provisional" });
-  return `${encabezadoVista("Mis expedientes y seguimiento", "Estado, puntuación, posición, documentos y próximos pasos.", enlaceRuta("certificados", "Certificados y descargas", "boton-secundario"))}
-    ${panel("Solicitudes en curso", "Seleccione un expediente para consultar el detalle", tabla({ descripcion: "Solicitudes de la persona autenticada", columnas: ["Proceso", "Estado", "Puntuación y posición", "Actualización", "Acción"], filas }))}
+    ? panel(e("posicion.titulo"), e("posicion.subtitulo"), `<div class="posicion-destacada"><output>#${escaparHTML(String(datos.posicion.orden))}</output><span><strong>${escaparHTML(datos.posicion.categoria)}</strong><small>${escaparHTML(datos.posicion.bolsa)}</small></span></div>${listaDatos([[e("posicion.bolsa"), escaparHTML(datos.posicion.bolsa)], [e("posicion.categoria"), escaparHTML(datos.posicion.categoria)], [e("posicion.orden"), h(e("posicion.ordenDe", { orden: String(datos.posicion.orden), total: String(datos.posicion.total) }))], [e("posicion.puntuacion"), h(e("puntos", { puntos: formatoPuntos(datos.posicion.puntuacion) }))], [e("posicion.vigenteDesde"), escaparHTML(datos.posicion.vigente_desde)]])}`, { estado: `#${datos.posicion.orden}` })
+    : panel(e("provisional.titulo"), e("provisional.subtitulo"), `<div class="posicion-destacada"><output>${escaparHTML((solicitud.posicion.match(/^\d+/) || ["—"])[0])}</output><span><strong>${escaparHTML(solicitud.posicion)}</strong><small>${h(e("provisional.detalle"))}</small></span></div>`, { estado: e("provisional.estado") });
+  return `${encabezadoVista(e("titulo"), e("descripcion"), enlaceRuta("certificados", e("certificados"), "boton-secundario"))}
+    ${panel(e("curso.titulo"), e("curso.subtitulo"), tabla({ descripcion: e("curso.tabla"), columnas: [e("columnas.proceso"), e("columnas.estado"), e("columnas.puntuacion"), e("columnas.actualizacion"), e("columnas.accion")], filas }))}
     <div class="rejilla-principal"><div>
-      ${panel(solicitud.titulo, solicitud.referencia, `${listaDatos([["Estado", chip(solicitud.estado)], ["Puntuación provisional", `${formatoPuntos(solicitud.puntuacion)} puntos`], ["Posición", escaparHTML(solicitud.posicion)], ["Tasa", escaparHTML(solicitud.pago)], ["Firma", escaparHTML(solicitud.firma)], ["Última actualización", escaparHTML(solicitud.actualizado)]])}<p class="nota aviso"><strong>Siguiente actuación:</strong> ${escaparHTML(solicitud.siguiente)}</p>`, { estado: solicitud.estado })}
-      ${panel("Historial del expediente", "Cada cambio muestra fecha, actor y referencia", `<ol class="linea-tiempo">${timeline}</ol>`)}
+      ${panel(solicitud.titulo, solicitud.referencia, `${listaDatos([[e("ficha.estado"), chip(solicitud.estado)], [e("ficha.puntuacion"), h(e("puntos", { puntos: formatoPuntos(solicitud.puntuacion) }))], [e("ficha.posicion"), escaparHTML(solicitud.posicion)], [e("ficha.tasa"), escaparHTML(solicitud.pago)], [e("ficha.firma"), escaparHTML(solicitud.firma)], [e("ficha.actualizacion"), escaparHTML(solicitud.actualizado)]])}<p class="nota aviso"><strong>${h(e("ficha.siguiente"))}</strong> ${escaparHTML(solicitud.siguiente)}</p>`, { estado: solicitud.estado })}
+      ${panel(e("historial.titulo"), e("historial.subtitulo"), `<ol class="linea-tiempo">${timeline}</ol>`)}
     </div><aside>
       ${panelPosicion}
-      ${panel("Acciones disponibles", "Solo para el expediente seleccionado", `<div class="fila-acciones">${enlaceRuta("subsanaciones", "Subsanar", "enlace-boton")}${enlaceRuta("alegaciones", "Alegar", "enlace-boton")}${botonOperacion("solicitar_descarga", "Descargar expediente", { id: solicitud.id, clase: "boton-secundario", descripcion: "Preparar una copia descargable del expediente" })}</div>`)}
+      ${panel(e("acciones.titulo"), e("acciones.subtitulo"), `<div class="fila-acciones">${enlaceRuta("subsanaciones", e("acciones.subsanar"), "enlace-boton")}${enlaceRuta("alegaciones", e("acciones.alegar"), "enlace-boton")}${botonOperacion("solicitar_descarga", e("acciones.descargar"), { id: solicitud.id, clase: "boton-secundario", descripcion: e("acciones.descargarDescripcion") })}</div>`)}
     </aside></div>`;
 }
 
 export function renderizarLlamamientos(datos, estado = {}) {
   const participaciones = Array.isArray(estado.participaciones) && estado.participaciones.length
-    ? estado.participaciones : datos.posicion ? [{ bolsa: datos.posicion.bolsa, categoria: datos.posicion.categoria, orden_inicial: datos.posicion.orden, total_instantanea: datos.posicion.total, version: "—", estado_bolsa: "Sin datos", vigente_desde: datos.posicion.vigente_desde, vigente_hasta: null }] : [];
+    ? estado.participaciones : datos.posicion ? [{ bolsa: datos.posicion.bolsa, categoria: datos.posicion.categoria, orden_inicial: datos.posicion.orden, total_instantanea: datos.posicion.total, version: "—", estado_bolsa: b("sinDatos"), vigente_desde: datos.posicion.vigente_desde, vigente_hasta: null }] : [];
   const pagina = Math.max(1, Number(estado.paginaParticipaciones || 1));
   const porPagina = [20, 50, 100].includes(estado.filasPreferidas) ? estado.filasPreferidas : 20;
   const totalPaginas = Math.max(1, Math.ceil(participaciones.length / porPagina));
   const paginaActual = Math.min(pagina, totalPaginas);
   const visibles = participaciones.slice((paginaActual - 1) * porPagina, paginaActual * porPagina);
   const ver = (campo) => campoVisibleMiBolsa(estado.camposMiBolsa, campo);
-  const tarjetasParticipacion = visibles.map((item) => panel("Mi participación", nombreCategoria(item), `${listaDatos([
-    ...(ver("estado") ? [["Estado de la bolsa", chip(item.estado_bolsa)]] : []),
-    ...(ver("posicion") ? [[traducir("areaPersonal.miBolsa.ordenInicial"), `${escaparHTML(String(item.orden_inicial))} de ${escaparHTML(String(item.total_instantanea))}`]] : []),
-    [traducir("areaPersonal.miBolsa.vigenciaBolsa"), `${escaparHTML(fechaSituacion(item.vigente_desde))}${item.vigente_hasta ? ` · hasta ${escaparHTML(fechaSituacion(item.vigente_hasta))}` : " · vigente"}`],
+  const tarjetasParticipacion = visibles.map((item) => panel(b("participacion"), nombreCategoria(item), `${listaDatos([
+    ...(ver("estado") ? [[b("estadoBolsa"), chip(item.estado_bolsa)]] : []),
+    ...(ver("posicion") ? [[traducir("areaPersonal.miBolsa.ordenInicial"), h(b("ordenDe", { orden: String(item.orden_inicial), total: String(item.total_instantanea) }))]] : []),
+    [traducir("areaPersonal.miBolsa.vigenciaBolsa"), h(item.vigente_hasta ? b("vigenciaHasta", { desde: fechaSituacion(item.vigente_desde), hasta: fechaSituacion(item.vigente_hasta) }) : b("vigenciaAbierta", { desde: fechaSituacion(item.vigente_desde) }))],
     ...(!ver("estado") && ver("fecha_disponible") && item.situacion_actual?.fecha_disponible ? [[traducir("areaPersonal.miBolsa.situacion.fechaDisponible"), escaparHTML(fechaSituacion(item.situacion_actual.fecha_disponible))]] : []),
   ])}${ver("estado") ? `<h4>${escaparHTML(traducir("areaPersonal.miBolsa.situacion.titulo"))}</h4>${fichaSituacionActual(item.situacion_actual)}` : ""}`, { estado: ver("estado") ? item.estado_bolsa : "", clase: "participacion-propia" })).join("");
-  const paginacion = participaciones.length > porPagina ? `<nav class="paginacion-participaciones" aria-label="Paginación de participaciones"><span>Mostrando ${(paginaActual - 1) * porPagina + 1} a ${Math.min(paginaActual * porPagina, participaciones.length)} de ${participaciones.length}</span><button type="button" class="boton-secundario" data-accion="pagina-participaciones" data-pagina="${paginaActual - 1}" ${paginaActual === 1 ? "disabled" : ""}>Anterior</button><button type="button" class="boton-secundario" data-accion="pagina-participaciones" data-pagina="${paginaActual + 1}" ${paginaActual === totalPaginas ? "disabled" : ""}>Siguiente</button></nav>` : "";
-  const fichaParticipaciones = participaciones.length ? `<section class="marco-participaciones" aria-label="Mis participaciones en bolsa">${tarjetasParticipacion}${paginacion}</section>` : panel("Mis participaciones", "Sin participaciones activas", "<p>No constan participaciones en bolsa para la identidad actual.</p>");
+  const paginacion = participaciones.length > porPagina ? `<nav class="paginacion-participaciones" aria-label="${escaparAtributo(b("paginacion"))}"><span>${h(b("mostrando", { desde: (paginaActual - 1) * porPagina + 1, hasta: Math.min(paginaActual * porPagina, participaciones.length), total: participaciones.length }))}</span><button type="button" class="boton-secundario" data-accion="pagina-participaciones" data-pagina="${paginaActual - 1}" ${paginaActual === 1 ? "disabled" : ""}>${h(b("anterior"))}</button><button type="button" class="boton-secundario" data-accion="pagina-participaciones" data-pagina="${paginaActual + 1}" ${paginaActual === totalPaginas ? "disabled" : ""}>${h(b("siguiente"))}</button></nav>` : "";
+  const fichaParticipaciones = participaciones.length ? `<section class="marco-participaciones" aria-label="${escaparAtributo(b("participacionesEtiqueta"))}">${tarjetasParticipacion}${paginacion}</section>` : panel(b("participaciones"), b("sinParticipaciones"), `<p>${h(b("sinParticipacionesDetalle"))}</p>`);
   const propios = participaciones.filter((item) => item.ultimo_llamamiento);
   propios.sort((a, b) => b.ultimo_llamamiento.emitido_en.localeCompare(a.ultimo_llamamiento.emitido_en) || a.categoria.localeCompare(b.categoria) || a.bolsa.localeCompare(b.bolsa));
   const ultimo = propios[0];
@@ -107,7 +101,7 @@ export function renderizarLlamamientos(datos, estado = {}) {
     : `<p class="nota aviso">${escaparHTML(traducir("areaPersonal.miBolsa.llamamiento.sinDato"))}</p>`;
   const llamamientos = panel(traducir("areaPersonal.miBolsa.llamamiento.titulo"), traducir("areaPersonal.miBolsa.llamamiento.subtitulo"), detalle);
 
-  return `${encabezadoVista("Mi bolsa", "")}
+  return `${encabezadoVista(b("titulo"), "")}
     ${fichaParticipaciones}
     <div id="historial-mi-bolsa" aria-live="polite">${renderizarHistorialMiBolsa()}</div>
     <div class="rejilla-principal"><div>${ver("ultimo_llamamiento") ? llamamientos : ""}${estado.ofertasMiBolsa?.length ? panel(textoOfertas("titulo"), textoOfertas("subtitulo"), renderizarOfertasMiBolsa(estado.ofertasMiBolsa)) : ""}</div><aside>
@@ -119,11 +113,11 @@ export function renderizarLlamamientos(datos, estado = {}) {
 }
 
 export function renderizarSubsanaciones(datos) {
-  const formularios = datos.subsanaciones.map((item) => `<article class="panel"><header><div><h3>${escaparHTML(item.motivo)}</h3><p>${escaparHTML(item.id)} · ${escaparHTML(item.solicitud_ref)}</p></div>${chip(item.estado)}</header><div class="panel-contenido">${listaDatos([["Documento solicitado", escaparHTML(item.documento_solicitado)], ["Plazo", escaparHTML(item.plazo)], ["Estado", chip(item.estado)]])}${item.estado === "Pendiente" ? `<form data-operacion="presentar_subsanacion" data-id="${escaparAtributo(item.id)}"><div class="formulario-rejilla"><div class="campo ancho-completo"><label for="subsanacion-${escaparAtributo(item.id)}">Explicación</label><textarea id="subsanacion-${escaparAtributo(item.id)}" name="explicacion" required maxlength="1000">Se aporta documentación para completar la información solicitada.</textarea></div><div class="campo ancho-completo"><label for="fichero-${escaparAtributo(item.id)}">Documento</label><input id="fichero-${escaparAtributo(item.id)}" name="documento" type="file" accept=".pdf,.odt,.docx,.jpg,.png" required><small>El fichero se custodiará solo si el servicio confirma la carga.</small></div></div><label class="opcion-check"><input type="checkbox" name="declaracion" required><span><strong>Declaro que la documentación corresponde al requerimiento</strong><small>La operación requerirá firma y devolverá un recibo de registro.</small></span></label><button type="submit" class="boton-primario">Revisar, firmar y presentar</button></form>` : `<p class="nota">La subsanación ya no requiere actuación en este recorrido.</p>`}</div></article>`).join("");
-  return `${encabezadoVista("Subsanaciones", "Responda a requerimientos dentro de plazo y conserve el recibo de presentación.")}${formularios || panel("Sin subsanaciones", "No hay requerimientos pendientes", `<p>Cuando exista un requerimiento aparecerá aquí con su plazo y documentación solicitada.</p>`)}`;
+  const formularios = datos.subsanaciones.map((item) => `<article class="panel"><header><div><h3>${escaparHTML(item.motivo)}</h3><p>${escaparHTML(item.id)} · ${escaparHTML(item.solicitud_ref)}</p></div>${chip(item.estado)}</header><div class="panel-contenido">${listaDatos([[u("documentoSolicitado"), escaparHTML(item.documento_solicitado)], [u("plazo"), escaparHTML(item.plazo)], [u("estado"), chip(item.estado)]])}${item.estado === "Pendiente" ? `<form data-operacion="presentar_subsanacion" data-id="${escaparAtributo(item.id)}"><div class="formulario-rejilla"><div class="campo ancho-completo"><label for="subsanacion-${escaparAtributo(item.id)}">${h(u("explicacion"))}</label><textarea id="subsanacion-${escaparAtributo(item.id)}" name="explicacion" required maxlength="1000">${h(u("explicacionInicial"))}</textarea></div><div class="campo ancho-completo"><label for="fichero-${escaparAtributo(item.id)}">${h(u("documento"))}</label><input id="fichero-${escaparAtributo(item.id)}" name="documento" type="file" accept=".pdf,.odt,.docx,.jpg,.png" required><small>${h(u("documentoAyuda"))}</small></div></div><label class="opcion-check"><input type="checkbox" name="declaracion" required><span><strong>${h(u("declaracion"))}</strong><small>${h(u("declaracionDetalle"))}</small></span></label><button type="submit" class="boton-primario">${h(u("presentar"))}</button></form>` : `<p class="nota">${h(u("sinActuacion"))}</p>`}</div></article>`).join("");
+  return `${encabezadoVista(u("titulo"), u("descripcion"))}${formularios || panel(u("vacio.titulo"), u("vacio.subtitulo"), `<p>${h(u("vacio.detalle"))}</p>`)}`;
 }
 
 export function renderizarAlegaciones(datos) {
-  const tarjetas = datos.alegaciones.map((item) => `<article class="panel"><header><div><h3>${escaparHTML(item.asunto)}</h3><p>${escaparHTML(item.id)} · ${escaparHTML(item.solicitud_ref)}</p></div>${chip(item.estado)}</header><div class="panel-contenido">${listaDatos([["Fecha", escaparHTML(item.fecha)], ["Estado", chip(item.estado)]])}${item.estado === "Borrador" ? `<form data-operacion="presentar_alegacion" data-id="${escaparAtributo(item.id)}"><div class="campo"><label for="alegacion-${escaparAtributo(item.id)}">Fundamento de la alegación</label><textarea id="alegacion-${escaparAtributo(item.id)}" name="fundamento" required maxlength="2000">Solicito la revisión del mérito señalado conforme al criterio de las bases.</textarea><small>Identifique el concepto discutido y la evidencia que lo respalda.</small></div><div class="campo"><label for="evidencia-${escaparAtributo(item.id)}">Evidencia adicional, si procede</label><input id="evidencia-${escaparAtributo(item.id)}" name="documento" type="file" accept=".pdf,.odt,.docx,.jpg,.png"></div><label class="opcion-check"><input type="checkbox" name="declaracion" required><span><strong>Confirmo el contenido de la alegación</strong><small>La operación se firmará y registrará.</small></span></label><button type="submit" class="boton-primario">Revisar, firmar y presentar</button></form>` : `<p class="nota">La alegación consta como ${escaparHTML(item.estado)}.</p>`}</div></article>`).join("");
-  return `${encabezadoVista("Alegaciones y revisión", "Discuta una puntuación o decisión provisional con fundamento y evidencia.", enlaceRuta("autobaremacion", "Ver puntuación desglosada", "boton-secundario"))}${tarjetas || panel("Sin alegaciones", "No existen alegaciones asociadas", `<p>Podrá iniciar una cuando el procedimiento y el plazo lo permitan.</p>`)}`;
+  const tarjetas = datos.alegaciones.map((item) => `<article class="panel"><header><div><h3>${escaparHTML(item.asunto)}</h3><p>${escaparHTML(item.id)} · ${escaparHTML(item.solicitud_ref)}</p></div>${chip(item.estado)}</header><div class="panel-contenido">${listaDatos([[g("fecha"), escaparHTML(item.fecha)], [g("estado"), chip(item.estado)]])}${item.estado === "Borrador" ? `<form data-operacion="presentar_alegacion" data-id="${escaparAtributo(item.id)}"><div class="campo"><label for="alegacion-${escaparAtributo(item.id)}">${h(g("fundamento"))}</label><textarea id="alegacion-${escaparAtributo(item.id)}" name="fundamento" required maxlength="2000">${h(g("fundamentoInicial"))}</textarea><small>${h(g("fundamentoAyuda"))}</small></div><div class="campo"><label for="evidencia-${escaparAtributo(item.id)}">${h(g("evidencia"))}</label><input id="evidencia-${escaparAtributo(item.id)}" name="documento" type="file" accept=".pdf,.odt,.docx,.jpg,.png"></div><label class="opcion-check"><input type="checkbox" name="declaracion" required><span><strong>${h(g("declaracion"))}</strong><small>${h(g("declaracionDetalle"))}</small></span></label><button type="submit" class="boton-primario">${h(g("presentar"))}</button></form>` : `<p class="nota">${h(g("consta", { estado: item.estado }))}</p>`}</div></article>`).join("");
+  return `${encabezadoVista(g("titulo"), g("descripcion"), enlaceRuta("autobaremacion", g("verPuntuacion"), "boton-secundario"))}${tarjetas || panel(g("vacio.titulo"), g("vacio.subtitulo"), `<p>${h(g("vacio.detalle"))}</p>`)}`;
 }
