@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	postgresqlcomun "vec-diputacion-granada/internal/shared/postgresql"
 	"vec-diputacion-granada/internal/vec/domain"
 	"vec-diputacion-granada/internal/vec/ports"
 )
@@ -103,8 +104,15 @@ func (r *ResolutorRegistroContextoActorExternoPostgreSQLV1) ResolverYRegistrarCo
 		}
 		return confirmarRespuestaCandidatoExterno(solicitud, respuesta)
 	}
-	for intento := 0; intento < 2; intento++ {
-		respuesta, estado, denegacion := r.base.ejecutar(ctx, resolver, argumentos)
+	// Los abortos serializables siguen la política común. Cada intento abre
+	// otra transacción y conserva la operación y sus argumentos; un COMMIT
+	// incierto exige antes reconciliar y confirmar ausencia.
+	repetidoTrasIncierto := false
+	for intento := 1; intento <= postgresqlcomun.IntentosMaximosCarreraSerializable; intento++ {
+		if intento > 1 && !postgresqlcomun.EsperarReintentoCarreraSerializable(ctx, intento-1) {
+			return ports.ConfirmacionRegistroContextoActorV2{}, errorResolutorContextoActorPostgreSQL(ctx)
+		}
+		respuesta, estado, denegacion := r.base.ejecutarConClasificador(ctx, resolver, argumentos, postgresqlcomun.EsCarreraSerializable)
 		if estado == estadoContextoActorConfirmado {
 			return confirmar(respuesta)
 		}
@@ -127,6 +135,12 @@ func (r *ResolutorRegistroContextoActorExternoPostgreSQLV1) ResolverYRegistrarCo
 			}
 			return confirmar(reconciliada)
 		case estadoContextoActorAusente:
+			// Solo la ausencia confirmada permite el único reintento histórico
+			// tras un COMMIT incierto, conservando la misma operación y recibo.
+			if repetidoTrasIncierto {
+				return ports.ConfirmacionRegistroContextoActorV2{}, errorResolutorContextoActorPostgreSQL(ctx)
+			}
+			repetidoTrasIncierto = true
 			continue
 		default:
 			return ports.ConfirmacionRegistroContextoActorV2{}, errorResolutorContextoActorPostgreSQL(ctx)

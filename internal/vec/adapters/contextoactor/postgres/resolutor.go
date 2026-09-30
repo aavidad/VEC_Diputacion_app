@@ -201,6 +201,17 @@ func (r *ResolutorRegistroContextoActorPostgreSQLV2) ejecutar(
 	consulta string,
 	argumentos []any,
 ) (respuestaContextoActorPostgreSQL, estadoEjecucionContextoActor, error) {
+	return r.ejecutarConClasificador(ctx, consulta, argumentos, errorContextoActorPostgreSQLReintentable)
+}
+
+// ejecutarConClasificador comparte la transacción y sus guardas. Cada fachada
+// decide qué abortos de consulta tienen garantía de repetición segura.
+func (r *ResolutorRegistroContextoActorPostgreSQLV2) ejecutarConClasificador(
+	ctx context.Context,
+	consulta string,
+	argumentos []any,
+	reintentable func(error) bool,
+) (respuestaContextoActorPostgreSQL, estadoEjecucionContextoActor, error) {
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite})
 	if err != nil {
 		return respuestaContextoActorPostgreSQL{}, estadoContextoActorFallido, nil
@@ -214,7 +225,7 @@ func (r *ResolutorRegistroContextoActorPostgreSQLV2) ejecutar(
 		if denegacion := denegacionProyeccionContextoActorPostgreSQL(err); denegacion != nil {
 			return respuestaContextoActorPostgreSQL{}, estadoContextoActorDenegado, denegacion
 		}
-		if errorContextoActorPostgreSQLReintentable(err) {
+		if reintentable(err) {
 			return respuestaContextoActorPostgreSQL{}, estadoContextoActorReintentable, nil
 		}
 		return respuestaContextoActorPostgreSQL{}, estadoContextoActorFallido, nil
