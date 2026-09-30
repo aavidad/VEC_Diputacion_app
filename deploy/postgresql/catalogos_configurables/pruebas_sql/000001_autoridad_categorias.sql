@@ -80,6 +80,12 @@ BEGIN
         RAISE EXCEPTION 'reserva terminal no recuperable';
     END IF;
     BEGIN
+        PERFORM vec_catalogos_configurables.terminar_uso('consumidor-demo', 'uso:uno',
+            'recibo:res1', 'cancelado', 'actor:dos', 'decision:conflicto', 'recibo:conflicto', motivo_nuevo);
+        RAISE EXCEPTION 'terminal opuesto admitido';
+    EXCEPTION WHEN SQLSTATE '23505' THEN NULL;
+    END;
+    BEGIN
         PERFORM vec_catalogos_configurables.cambiar_proyeccion('cat-demo', 2,
             'cobertura', 'evidencia:historica', 0, 'actor:uno', 'decision:cob', 'recibo:cob', motivo);
         RAISE EXCEPTION 'cobertura menor que los usos confirmados admitida';
@@ -206,7 +212,9 @@ BEGIN
        OR EXISTS (SELECT 1 FROM vec_catalogos_configurables.entrada_publicada
                    WHERE categoria_id = 'cat-version' AND definicion ? 'preimagen_control')
        OR EXISTS (SELECT 1 FROM vec_catalogos_configurables.historia
-                   WHERE categoria_id IN ('cat-demo', 'cat-declared') AND accion = 'tombstone') THEN
+                   WHERE categoria_id IN ('cat-demo', 'cat-declared') AND accion = 'tombstone')
+       OR EXISTS (SELECT 1 FROM vec_catalogos_configurables.historia
+                   WHERE recibo_ref IN ('recibo:borrar', 'recibo:conflicto')) THEN
         RAISE EXCEPTION 'proyección alteró publicación o uso';
     END IF;
     IF (SELECT count(*) FROM vec_catalogos_configurables.historia
