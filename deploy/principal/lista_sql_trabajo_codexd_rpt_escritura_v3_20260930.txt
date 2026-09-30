@@ -1,0 +1,11 @@
+# Preimagen obligatoria: AD3-114 instalada una sola vez antes de esta lista.
+# Orden causal: AD3-114 -> catalogos 000001 -> 000002 -> AD3-117
+# -> catalogos 000003 -> AD3-126. En clon fresco H1, aplicar antes H3/H4,
+# las SQL previas de main hasta AD3-114; H5 no añade SQL.
+# No reaplicar estas SQL en una base que ya conserve historia RPT.
+deploy/postgresql/catalogos_configurables/roles_up.sql
+deploy/postgresql/catalogos_configurables/migraciones/000001_autoridad_categorias.up.sql
+deploy/postgresql/catalogos_configurables/migraciones/000002_lecturas_nominales.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000117_lecturas_categorias_rpt.up.sql
+deploy/postgresql/catalogos_configurables/migraciones/000003_usos_nominales.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000126_usos_categorias_rpt.up.sql

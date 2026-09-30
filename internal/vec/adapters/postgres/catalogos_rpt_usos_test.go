@@ -72,6 +72,10 @@ func TestUsoRefRPTDebePoderSerRecursoV3SinRestringirRecibos(t *testing.T) {
 }
 
 func autorizacionUsoRPTPrueba(t *testing.T, accion, audiencia, usoRef string) (domain.SolicitudAutorizacionLigadaV3, ports.ExportacionMaterialConsumoAutorizacionAtestadaV3) {
+	return autorizacionUsoRPTHuellaPrueba(t, accion, audiencia, usoRef, strings.Repeat("a", 64))
+}
+
+func autorizacionUsoRPTHuellaPrueba(t *testing.T, accion, audiencia, usoRef, materialSHA256 string) (domain.SolicitudAutorizacionLigadaV3, ports.ExportacionMaterialConsumoAutorizacionAtestadaV3) {
 	t.Helper()
 	escenario := nuevoEscenarioRegistroContextoActorV3PostgreSQLPrueba(t, true)
 	d, err := escenario.solicitud.Datos()
@@ -83,7 +87,7 @@ func autorizacionUsoRPTPrueba(t *testing.T, accion, audiencia, usoRef string) (d
 		Referencia: usoRef, ModuloID: descriptorRPTPrueba.ModuloID, Tipo: tipoUsoRPT,
 		Ambitos: map[string]string{"catalogo_id": descriptorRPTPrueba.CatalogoID,
 			"modulo_id": descriptorRPTPrueba.ModuloID, "consumidor": "contratacion_temporal"},
-		Atributos: map[string]string{"material_sha256": strings.Repeat("a", 64)},
+		Atributos: map[string]string{"material_sha256": materialSHA256},
 	}
 	solicitud, err := domain.NuevaSolicitudAutorizacionLigadaV3(d)
 	if err != nil {
@@ -93,21 +97,190 @@ func autorizacionUsoRPTPrueba(t *testing.T, accion, audiencia, usoRef string) (d
 	if err != nil {
 		t.Fatal(err)
 	}
+	huellaSolicitud, err := domain.HuellaSHA256SolicitudAutorizacionV3(solicitud)
+	if err != nil {
+		t.Fatal(err)
+	}
+	motivoCanonico, err := domain.RepresentacionCanonicaMotivoAutorizacionV2(d.ReferenciaMotivo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	vinculo, err := d.VinculoAutenticacionActor.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	correlacion, err := d.Correlacion.ValorCanonico()
+	if err != nil {
+		t.Fatal(err)
+	}
+	decisionCanonica := jsonRPTPrueba(t, decisionLigaduraUsoRPT{
+		Esquema:     domain.EsquemaHuellaDecisionAutorizacionV3,
+		DecisionRef: "decision:rpt:uso:prueba", SolicitudHuellaSHA256: huellaSolicitud,
+		MotivoHuellaSHA256: huellaBytesUsoRPT(motivoCanonico), ContextoRecursoHuellaSHA256: huella,
+		CorrelacionRef: correlacion,
+		PrincipalID:    vinculo.PrincipalID, PerfilActivoRef: vinculo.PerfilActivoRef,
+	})
+	contextoCanonico := escenario.resultado.RepresentacionCanonica
 	resumen, err := ports.NuevoResumenCapacidadAtestacionAutorizacionV3(
-		"decision:rpt:uso:prueba", strings.Repeat("a", 64), strings.Repeat("b", 64),
-		"contexto:rpt:uso:prueba", strings.Repeat("c", 64), accion, usoRef, huella,
+		"decision:rpt:uso:prueba", huellaBytesUsoRPT(decisionCanonica), huellaBytesUsoRPT(motivoCanonico),
+		vinculo.RegistroContextoRef, huellaBytesUsoRPT(contextoCanonico), accion, usoRef, huella,
 		audiencia, escenario.ahora, escenario.ahora.Add(3*time.Second))
 	if err != nil {
 		t.Fatal(err)
 	}
 	raiz, _ := hex.DecodeString("302a300506032b65700321002152f8d19b791d24453242e15f2eab6cb7cffa7b6a5ed30097960e069881db12")
 	autorizacion, err := ports.NuevaExportacionMaterialConsumoAutorizacionAtestadaV3(
-		bytes.Repeat([]byte("x"), 512), resumen, []byte("d"), []byte("m"), []byte("c"), 1, 1,
+		bytes.Repeat([]byte("x"), 512), resumen, decisionCanonica, motivoCanonico, contextoCanonico, 1, 1,
 		[]byte("p"), []byte("s"), []byte("e"), raiz)
 	if err != nil {
 		t.Fatal(err)
 	}
 	return solicitud, autorizacion
+}
+
+func TestLecturaDecisionLigaduraUsoRPTRechazaDuplicadosTiposYCola(t *testing.T) {
+	_, exportacion := autorizacionUsoRPTPrueba(t, accionReservarUsoRPT, audienciaUsosRPT, materialReservaUsoRPTPrueba().UsoRef)
+	canon := exportacion.DecisionCanonica()
+	if _, err := leerDecisionLigaduraUsoRPT(canon); err != nil {
+		t.Fatal("decisión de prueba íntegra rechazada")
+	}
+	for _, caso := range []struct {
+		nombre string
+		bytes  []byte
+	}{
+		{"clave duplicada", append(append([]byte(nil), canon[:len(canon)-1]...), []byte(`,"solicitud_huella_sha256":"`+strings.Repeat("f", 64)+`"}`)...)},
+		{"tipo numérico", []byte(`{"solicitud_huella_sha256":123}`)},
+		{"cola JSON", append(append([]byte(nil), canon...), []byte(` {}`)...)},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			if _, err := leerDecisionLigaduraUsoRPT(caso.bytes); err == nil {
+				t.Fatal("decisión ambigua aceptada")
+			}
+		})
+	}
+}
+
+func TestUsoRPTDeniegaSolicitudBAunqueRecursoYMaterialCoincidanConExportacionA(t *testing.T) {
+	m := materialReservaUsoRPTPrueba()
+	terminal := ports.MaterialTerminalUsoCategoriaRPT{Reserva: m, TerminalReciboRef: "recibo:terminal:001",
+		EvidenciaRef: "evidencia:ct:001", EvidenciaSHA256: strings.Repeat("e", 64)}
+	for _, accion := range []string{accionReservarUsoRPT, accionConfirmarUsoRPT, accionCancelarUsoRPT} {
+		t.Run(accion, func(t *testing.T) {
+			solicitudA, exportacionA := autorizacionUsoRPTPrueba(t, accion, audienciaUsosRPT, m.UsoRef)
+			base, err := solicitudA.Datos()
+			if err != nil {
+				t.Fatal(err)
+			}
+			vinculoA, err := base.VinculoAutenticacionActor.Datos()
+			if err != nil {
+				t.Fatal(err)
+			}
+			escenario := nuevoEscenarioRegistroContextoActorV3PostgreSQLPrueba(t, true)
+			autenticacionB := vinculoA.Autenticacion()
+			autenticacionB.SesionRef = "ses_bbbbbbbbbbbbbbbbbbbbbb"
+			actor := escenario.resultado.Contexto
+			cuenta := domain.CuentaAutenticadaContextoActor{CuentaRef: actor.Instantanea.CuentaRef,
+				Metodo: actor.Principal.AuthMethod, Garantia: actor.Principal.AuthAssurance}
+			vinculoB, err := domain.CrearVinculoAutenticacionActorV2(t.Context(),
+				revalidadorRegistroContextoActorV3PostgreSQLPrueba{autenticacionB},
+				domain.SolicitudRevalidacionAutenticacionActorV1{
+					AutenticacionRef: autenticacionB.AutenticacionRef, SesionRef: autenticacionB.SesionRef},
+				resolutorRegistroContextoActorV3PostgreSQLPrueba{escenario.resultado},
+				domain.SolicitudContextoActor{Cuenta: cuenta, PerfilActivoRef: actor.PerfilActivoRef},
+				relojRegistroContextoActorV3PostgreSQLPrueba{escenario.ahora})
+			if err != nil {
+				t.Fatal(err)
+			}
+			instantaneaB := actor.Instantanea
+			instantaneaB.PerfilActivoRef = "prf_bbbbbbbbbbbbbbbbbbbbbb"
+			instantaneaB.VinculoRef = "vca_bbbbbbbbbbbbbbbbbbbbbb"
+			actorB, err := domain.NuevoContextoActor(cuenta, instantaneaB, actor.ResueltoEn)
+			if err != nil {
+				t.Fatal(err)
+			}
+			resultadoB := escenario.resultado
+			resultadoB.Contexto = actorB
+			resultadoB.RegistroContextoRef = "rca_bbbbbbbbbbbbbbbbbbbbbbbb"
+			resultadoB.RepresentacionCanonica, err = actorB.RepresentacionCanonicaVinculadaV2()
+			if err != nil {
+				t.Fatal(err)
+			}
+			resultadoB.HuellaSHA256, err = actorB.HuellaSHA256VinculadaV2()
+			if err != nil {
+				t.Fatal(err)
+			}
+			manifiestoB, err := domain.RehidratarManifiestoProcedenciaContextoActorV1(escenario.resultado.ManifiestoProcedenciaCanonico)
+			if err != nil {
+				t.Fatal(err)
+			}
+			manifiestoB.Perfil.PerfilRef = instantaneaB.PerfilActivoRef
+			manifiestoB.Contexto.VinculoRef = instantaneaB.VinculoRef
+			resultadoB.ManifiestoProcedenciaCanonico, err = manifiestoB.RepresentacionCanonicaV1()
+			if err != nil {
+				t.Fatal(err)
+			}
+			resultadoB.ManifiestoProcedenciaHuellaSHA256, err = domain.HuellaSHA256ManifiestoProcedenciaContextoActorV1(resultadoB.ManifiestoProcedenciaCanonico)
+			if err != nil {
+				t.Fatal(err)
+			}
+			vinculoPerfilB, err := domain.CrearVinculoAutenticacionActorV2(t.Context(),
+				revalidadorRegistroContextoActorV3PostgreSQLPrueba{vinculoA.Autenticacion()},
+				domain.SolicitudRevalidacionAutenticacionActorV1{
+					AutenticacionRef: autenticacionB.AutenticacionRef, SesionRef: vinculoA.SesionRef},
+				resolutorRegistroContextoActorV3PostgreSQLPrueba{resultadoB},
+				domain.SolicitudContextoActor{Cuenta: cuenta, PerfilActivoRef: actorB.PerfilActivoRef},
+				relojRegistroContextoActorV3PostgreSQLPrueba{escenario.ahora})
+			if err != nil {
+				t.Fatal(err)
+			}
+			correlacionB, err := domain.GenerarReferenciaCorrelacionAutorizacionV2(t.Context(),
+				generadorCorrelacionRegistroContextoActorV3PostgreSQLPrueba{valor: "correlacion_22222222222222222222222222222222"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, variante := range []struct {
+				nombre  string
+				cambiar func(*domain.DatosSolicitudAutorizacionLigadaV3)
+			}{
+				{"vinculo_actor_sesion", func(d *domain.DatosSolicitudAutorizacionLigadaV3) { d.VinculoAutenticacionActor = vinculoB }},
+				{"perfil_contexto", func(d *domain.DatosSolicitudAutorizacionLigadaV3) { d.VinculoAutenticacionActor = vinculoPerfilB }},
+				{"motivo", func(d *domain.DatosSolicitudAutorizacionLigadaV3) {
+					d.ReferenciaMotivo.EntradaClave = "motivo_22222222222222222222222222222222"
+				}},
+				{"correlacion", func(d *domain.DatosSolicitudAutorizacionLigadaV3) { d.Correlacion = correlacionB }},
+			} {
+				t.Run(variante.nombre, func(t *testing.T) {
+					d := base
+					variante.cambiar(&d)
+					solicitudB, err := domain.NuevaSolicitudAutorizacionLigadaV3(d)
+					if err != nil {
+						t.Fatal(err)
+					}
+					if d.Recurso.Referencia != base.Recurso.Referencia ||
+						d.Recurso.Atributos["material_sha256"] != base.Recurso.Atributos["material_sha256"] {
+						t.Fatal("caso A/B no conserva recurso y material")
+					}
+					inicio := &iniciadorUsoRPTPrueba{tx: &transaccionLecturaRPTPrueba{}}
+					g, err := nuevoGestorUsosCategoriaRPTPostgreSQL(inicio, descriptorRPTPrueba, m.Consumidor)
+					if err != nil {
+						t.Fatal(err)
+					}
+					var resultado ports.ResultadoUsoCategoriaRPT
+					switch accion {
+					case accionReservarUsoRPT:
+						resultado, err = g.ReservarUsoCategoriaRPT(t.Context(), ports.OrdenReservaUsoCategoriaRPT{Material: m, Solicitud: solicitudB, Autorizacion: exportacionA})
+					case accionConfirmarUsoRPT:
+						resultado, err = g.ConfirmarUsoCategoriaRPT(t.Context(), ports.OrdenConfirmacionUsoCategoriaRPT{Material: terminal, Solicitud: solicitudB, Autorizacion: exportacionA})
+					case accionCancelarUsoRPT:
+						resultado, err = g.CancelarUsoCategoriaRPT(t.Context(), ports.OrdenCancelacionUsoCategoriaRPT{Material: terminal, Solicitud: solicitudB, Autorizacion: exportacionA})
+					}
+					if !errors.Is(err, ports.ErrUsoCategoriaRPTDenegado) || resultado.Encontrado || inicio.llamadas != 0 {
+						t.Fatalf("solicitud B accedió a PG con exportación A: %+v, %v, BeginTx=%d", resultado, err, inicio.llamadas)
+					}
+				})
+			}
+		})
+	}
 }
 
 func reciboUsoRPTPrueba(t *testing.T, a ports.ExportacionMaterialConsumoAutorizacionAtestadaV3,

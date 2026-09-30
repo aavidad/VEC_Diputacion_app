@@ -55,6 +55,27 @@ type OrdenCancelacionUsoCategoriaRPT struct {
 	Autorizacion ExportacionMaterialConsumoAutorizacionAtestadaV3
 }
 
+// PreparacionAutorizacionUsoCategoriaRPT contiene el recurso exacto para
+// solicitar V3. No es una concesión ni prueba de existencia o efecto: la
+// preparación sólo calcula la huella del material suministrado. El actor,
+// motivo y correlación proceden de las autoridades del caso de uso.
+type PreparacionAutorizacionUsoCategoriaRPT struct {
+	Accion           string
+	Finalidad        string
+	AudienciaConsumo string
+	Recurso          domain.RecursoAutorizable
+}
+
+// PreparadorUsosCategoriaRPT mantiene la canonicalización del material en
+// la autoridad PostgreSQL que lo consume. El llamador prepara, obtiene V3
+// y envía el mismo material al gestor; el gestor vuelve a cotejar la huella
+// dentro de la transacción de efecto. Nunca imita jsonb::text desde Go.
+type PreparadorUsosCategoriaRPT interface {
+	PrepararReservaUsoCategoriaRPT(context.Context, MaterialReservaUsoCategoriaRPT) (PreparacionAutorizacionUsoCategoriaRPT, error)
+	PrepararConfirmacionUsoCategoriaRPT(context.Context, MaterialTerminalUsoCategoriaRPT) (PreparacionAutorizacionUsoCategoriaRPT, error)
+	PrepararCancelacionUsoCategoriaRPT(context.Context, MaterialTerminalUsoCategoriaRPT) (PreparacionAutorizacionUsoCategoriaRPT, error)
+}
+
 // GestorUsosCategoriaRPT es el puerto de la autoridad común. Cada operación
 // consume una decisión V3 nueva en la misma transacción que el recibo de uso.
 // Una reserva repetida puede devolver un uso ya confirmado o cancelado; el
