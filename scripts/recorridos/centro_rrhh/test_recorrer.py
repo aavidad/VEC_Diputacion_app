@@ -1,0 +1,193 @@
+"""Pruebas con datos sintéticos; no acceden a VEC ni crean peticiones."""
+
+import json
+import threading
+import tempfile
+import unittest
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from types import SimpleNamespace
+
+from recorrer import (
+    Evidencia, NoEjecutado, bloquear_websocket, exigir_tres_actores, huellas_certificados,
+    identidad_rrhh_previa, interceptar_ruta, origen_local, preflight,
+    verificar_entrega, verificar_recibo_centro,
+)
+
+
+class RecorridoCentroTest(unittest.TestCase):
+    def test_evidencia_privada_sin_cabeceras_url_ni_credenciales(self):
+        with tempfile.TemporaryDirectory() as temporal:
+            carpeta = Path(temporal) / "evidencia"
+            evidencia = Evidencia(str(carpeta))
+            evidencia.http(SimpleNamespace(
+                url="https://127.0.0.1:8443/api/vec/prueba?token=secreto",
+                status=403, headers={"authorization": "secreto"}), "rrhh", "GET")
+            archivo = carpeta / "resultado.json"
+            registro = json.loads(archivo.read_text())
+            self.assertEqual(registro["http"], [{"rol": "rrhh", "metodo": "GET",
+                                                "ruta": "/api/vec/prueba", "estado": 403}])
+            self.assertNotIn("secreto", archivo.read_text())
+            self.assertEqual(archivo.stat().st_mode & 0o777, 0o600)
+            self.assertEqual(carpeta.stat().st_mode & 0o777, 0o700)
+            with self.assertRaises(FileExistsError):
+                Evidencia(str(carpeta))
+        with self.assertRaises(NoEjecutado):
+            Evidencia(str(Path(__file__).parent / "evidencia"))
+
+    def test_origen_solo_loopback_https(self):
+        self.assertEqual(origen_local("https://127.0.0.1:8443/"), "https://127.0.0.1:8443")
+        for valor in ("http://127.0.0.1:8443", "https://cidonia.cloud",
+                      "https://127.0.0.1:8443/ruta", "https://127.0.0.1:invalido"):
+            with self.subTest(valor=valor), self.assertRaises(NoEjecutado):
+                origen_local(valor)
+
+    def test_sin_acreditacion_no_se_abre_navegador(self):
+        with self.assertRaisesRegex(NoEjecutado, "acreditacion"):
+            preflight(SimpleNamespace(origen="https://127.0.0.1:8443", acreditacion=None))
+
+    def test_certificado_copiado_y_actor_rrhh_repetido_se_denegan(self):
+        with tempfile.TemporaryDirectory() as carpeta:
+            rutas = [Path(carpeta) / f"cert-{n}.pem" for n in range(3)]
+            for ruta, contenido in zip(rutas, (b"certificado-centro", b"certificado-ratificador", b"certificado-centro")):
+                ruta.write_bytes(contenido)
+            with self.assertRaisesRegex(NoEjecutado, "contenido distinto"):
+                huellas_certificados(*(str(ruta) for ruta in rutas))
+        with self.assertRaisesRegex(AssertionError, "tres identidades"):
+            exigir_tres_actores("persona:sol", "persona:rat", "persona:sol")
+        with self.assertRaisesRegex(AssertionError, "tres identidades"):
+            exigir_tres_actores("persona:sol", "persona:rat", "")
+        exigir_tres_actores("persona:sol", "persona:rat", "persona:rrhh")
+
+    def test_preferencia_rrhh_denegada_corta_antes_de_escribir(self):
+        class Peticion:
+            def __init__(self, estado, cuerpo):
+                self.estado = estado
+                self.cuerpo = cuerpo
+                self.consultas = []
+
+            def get(self, url, **opciones):
+                self.consultas.append((url, opciones))
+                return SimpleNamespace(
+                    url=url, status=self.estado, json=lambda: {"data": self.cuerpo})
+
+        origen = "https://127.0.0.1:8443"
+        denegada = Peticion(403, {})
+        with self.assertRaisesRegex(NoEjecutado, "vec.preferencias.consultar.*VEC_USUARIOS_PREFERENCIAS_ENABLED"):
+            identidad_rrhh_previa(SimpleNamespace(request=denegada), origen)
+        self.assertEqual(denegada.consultas[0][1], {"max_redirects": 0})
+
+        incompleta = Peticion(200, {"estado": {}})
+        with self.assertRaises(NoEjecutado):
+            identidad_rrhh_previa(SimpleNamespace(request=incompleta), origen)
+
+        propia = Peticion(200, {"estado": {"persona_ref": "persona:rrhh"}})
+        self.assertEqual(identidad_rrhh_previa(SimpleNamespace(request=propia), origen), "persona:rrhh")
+
+    def test_recibos_exigen_identidad_version_y_misma_alta(self):
+        centro = {"peticion_ref": "peticion:centro:uno", "version": 2, "estado": "ratificada",
+                  "actor_ref": "ratificador", "recibo_ref": "recibo:dos",
+                  "registrado_en": "2026-09-29T12:00:00Z", "estado_local": "registrado"}
+        self.assertEqual(verificar_recibo_centro(centro, "peticion:centro:uno", 2, "ratificada", "ratificador"),
+                         ("recibo:dos", "2026-09-29T12:00:00Z"))
+        with self.assertRaises(AssertionError):
+            verificar_recibo_centro(centro, "peticion:centro:uno", 2, "ratificada", "solicitante")
+        entrega = {"peticion": {"referencia": "peticion:centro:uno"}, "estado_entrega": "confirmada",
+                   "recibo_alta": {"recibo_ref": "recibo:alta", "confirmada_en": "2026-09-29T12:01:00Z",
+                                    "expediente_ref": "expediente:uno", "numero_visible": "2026/CT-1",
+                                    "version": 1, "auditoria_ref": "auditoria:uno", "evento_ref": "evento:uno"}}
+        original = verificar_entrega(entrega, "peticion:centro:uno")
+        self.assertEqual(original, verificar_entrega(entrega, "peticion:centro:uno"))
+        entrega["recibo_alta"]["expediente_ref"] = "expediente:dos"
+        self.assertNotEqual(original, verificar_entrega(entrega, "peticion:centro:uno"))
+
+    @unittest.skipUnless(Path("/usr/bin/google-chrome").is_file(), "falta Chrome del sistema")
+    def test_302_a_otro_puerto_no_llega_al_destino(self):
+        from playwright.sync_api import Error, sync_playwright
+
+        contador = {"destino": 0}
+
+        class Destino(BaseHTTPRequestHandler):
+            def do_GET(self):
+                contador["destino"] += 1
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(b"destino")
+
+            def log_message(self, *_args):
+                pass
+
+        destino = ThreadingHTTPServer(("127.0.0.1", 0), Destino)
+        puerto_destino = destino.server_port
+
+        class Origen(BaseHTTPRequestHandler):
+            def do_GET(self):
+                self.send_response(302)
+                self.send_header("Location", f"http://127.0.0.1:{puerto_destino}/contador")
+                self.end_headers()
+
+            def log_message(self, *_args):
+                pass
+
+        origen = ThreadingHTTPServer(("127.0.0.1", 0), Origen)
+        hilos = [threading.Thread(target=s.serve_forever, daemon=True) for s in (destino, origen)]
+        for hilo in hilos:
+            hilo.start()
+        try:
+            permitido = f"http://127.0.0.1:{origen.server_port}"
+            with sync_playwright() as pw:
+                browser = pw.chromium.launch(executable_path="/usr/bin/google-chrome", headless=True)
+                try:
+                    contexto = browser.new_context(service_workers="block")
+                    contexto.route("**/*", lambda ruta: interceptar_ruta(ruta, permitido))
+                    with self.assertRaises(Error):
+                        contexto.new_page().goto(permitido + "/salto", wait_until="domcontentloaded")
+                    self.assertEqual(contador["destino"], 0)
+                finally:
+                    browser.close()
+        finally:
+            for servidor in (origen, destino):
+                servidor.shutdown()
+                servidor.server_close()
+            for hilo in hilos:
+                hilo.join(timeout=2)
+
+    @unittest.skipUnless(Path("/usr/bin/google-chrome").is_file(), "falta Chrome del sistema")
+    def test_websocket_no_inicia_handshake(self):
+        from playwright.sync_api import sync_playwright
+
+        contador = {"handshake": 0}
+
+        class Destino(BaseHTTPRequestHandler):
+            def do_GET(self):
+                contador["handshake"] += 1
+                self.send_response(400)
+                self.end_headers()
+
+            def log_message(self, *_args):
+                pass
+
+        destino = ThreadingHTTPServer(("127.0.0.1", 0), Destino)
+        hilo = threading.Thread(target=destino.serve_forever, daemon=True)
+        hilo.start()
+        try:
+            with sync_playwright() as pw:
+                browser = pw.chromium.launch(executable_path="/usr/bin/google-chrome", headless=True)
+                try:
+                    contexto = browser.new_context(service_workers="block")
+                    contexto.route_web_socket("**/*", bloquear_websocket)
+                    pagina = contexto.new_page()
+                    pagina.evaluate("url => { window.ws = new WebSocket(url); }",
+                                    f"ws://127.0.0.1:{destino.server_port}/fuera")
+                    pagina.wait_for_timeout(300)
+                    self.assertEqual(contador["handshake"], 0)
+                finally:
+                    browser.close()
+        finally:
+            destino.shutdown()
+            destino.server_close()
+            hilo.join(timeout=2)
+
+
+if __name__ == "__main__":
+    unittest.main()
