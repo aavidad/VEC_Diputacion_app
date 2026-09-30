@@ -109,11 +109,24 @@ CREATE TABLE vec_catalogos_configurables.historia (
     recibo_ref text NOT NULL UNIQUE CHECK (pg_catalog.octet_length(recibo_ref) BETWEEN 3 AND 320),
     decision_ref text NOT NULL CHECK (pg_catalog.octet_length(decision_ref) BETWEEN 3 AND 160),
     actor_ref text NOT NULL CHECK (pg_catalog.octet_length(actor_ref) BETWEEN 3 AND 160),
+    -- ReferenciaEntradaCatalogo.Referencia() del motivo V3 ya acreditado.
+    motivo_ref text NOT NULL CHECK (pg_catalog.octet_length(motivo_ref) BETWEEN 3 AND 320
+        AND motivo_ref ~ '^[a-z][a-z0-9._-]{0,127}:[1-9][0-9]{0,9}:[a-z][a-z0-9._-]{0,127}$'),
+    estado_anterior text,
+    estado_posterior text NOT NULL,
     cobertura_ref text,
     total_historico_declarado bigint,
     registrada_en timestamptz(6) NOT NULL DEFAULT pg_catalog.clock_timestamp(),
     CHECK ((accion = 'cobertura' AND cobertura_ref IS NOT NULL AND total_historico_declarado >= 0)
-         OR (accion <> 'cobertura' AND cobertura_ref IS NULL AND total_historico_declarado IS NULL))
+         OR (accion <> 'cobertura' AND cobertura_ref IS NULL AND total_historico_declarado IS NULL)),
+    CHECK (((accion = 'publicar' AND estado_posterior IN ('habilitada', 'deshabilitada')
+               AND (estado_anterior IS NULL OR estado_anterior = estado_posterior))
+        OR (accion = 'reservar' AND estado_anterior IS NULL AND estado_posterior = 'reservado')
+        OR (accion = 'confirmar' AND estado_anterior = 'reservado' AND estado_posterior = 'confirmado')
+        OR (accion = 'cancelar' AND estado_anterior = 'reservado' AND estado_posterior = 'cancelado')
+        OR (accion = 'deshabilitar' AND estado_anterior = 'habilitada' AND estado_posterior = 'deshabilitada')
+        OR (accion = 'cobertura' AND estado_anterior = 'deshabilitada' AND estado_posterior = 'deshabilitada')
+        OR (accion = 'tombstone' AND estado_anterior = 'deshabilitada' AND estado_posterior = 'tombstone')) IS TRUE)
 );
 
 -- Ninguna tabla tiene políticas de aplicación. Solo el propietario NOLOGIN
@@ -152,13 +165,28 @@ CREATE TRIGGER entrada_inmutable BEFORE UPDATE OR DELETE ON vec_catalogos_config
     FOR EACH ROW EXECUTE FUNCTION vec_catalogos_configurables.rechazar_cambio_inmutable();
 CREATE TRIGGER historia_inmutable BEFORE UPDATE OR DELETE ON vec_catalogos_configurables.historia
     FOR EACH ROW EXECUTE FUNCTION vec_catalogos_configurables.rechazar_cambio_inmutable();
+CREATE TRIGGER control_no_borrar BEFORE DELETE ON vec_catalogos_configurables.categoria_control
+    FOR EACH ROW EXECUTE FUNCTION vec_catalogos_configurables.rechazar_cambio_inmutable();
+CREATE TRIGGER uso_no_borrar BEFORE DELETE ON vec_catalogos_configurables.uso
+    FOR EACH ROW EXECUTE FUNCTION vec_catalogos_configurables.rechazar_cambio_inmutable();
+CREATE TRIGGER publicacion_no_truncar BEFORE TRUNCATE ON vec_catalogos_configurables.publicacion
+    FOR EACH STATEMENT EXECUTE FUNCTION vec_catalogos_configurables.rechazar_cambio_inmutable();
+CREATE TRIGGER entrada_no_truncar BEFORE TRUNCATE ON vec_catalogos_configurables.entrada_publicada
+    FOR EACH STATEMENT EXECUTE FUNCTION vec_catalogos_configurables.rechazar_cambio_inmutable();
+CREATE TRIGGER control_no_truncar BEFORE TRUNCATE ON vec_catalogos_configurables.categoria_control
+    FOR EACH STATEMENT EXECUTE FUNCTION vec_catalogos_configurables.rechazar_cambio_inmutable();
+CREATE TRIGGER uso_no_truncar BEFORE TRUNCATE ON vec_catalogos_configurables.uso
+    FOR EACH STATEMENT EXECUTE FUNCTION vec_catalogos_configurables.rechazar_cambio_inmutable();
+CREATE TRIGGER historia_no_truncar BEFORE TRUNCATE ON vec_catalogos_configurables.historia
+    FOR EACH STATEMENT EXECUTE FUNCTION vec_catalogos_configurables.rechazar_cambio_inmutable();
 
 -- El documento exacto es el JSON canónico de Go; se conserva como bytes UTF-8
 -- y se coteja su SHA-256. Nunca se reserializa JSONB para reconstruir la huella.
 CREATE FUNCTION vec_catalogos_configurables.publicar(
     p_catalogo_id text, p_version integer, p_huella text, p_documento text,
     p_preimagenes jsonb, p_preimagenes_huella text,
-    p_aprobacion_a text, p_aprobacion_b text, p_actor text, p_decision text, p_recibo text
+    p_aprobacion_a text, p_aprobacion_b text, p_actor text, p_decision text, p_recibo text,
+    p_motivo_ref text
 ) RETURNS text LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog SET lock_timeout = '5s' SET statement_timeout = '30s' AS $f$
 DECLARE
@@ -185,7 +213,9 @@ BEGIN
        OR p_aprobacion_a = p_aprobacion_b
        OR p_actor IS NULL OR pg_catalog.octet_length(p_actor) NOT BETWEEN 3 AND 160
        OR p_decision IS NULL OR pg_catalog.octet_length(p_decision) NOT BETWEEN 3 AND 160
-       OR p_recibo IS NULL OR pg_catalog.octet_length(p_recibo) NOT BETWEEN 3 AND 160 THEN
+       OR p_recibo IS NULL OR pg_catalog.octet_length(p_recibo) NOT BETWEEN 3 AND 160
+       OR p_motivo_ref IS NULL OR pg_catalog.octet_length(p_motivo_ref) NOT BETWEEN 3 AND 320
+       OR p_motivo_ref !~ '^[a-z][a-z0-9._-]{0,127}:[1-9][0-9]{0,9}:[a-z][a-z0-9._-]{0,127}$' THEN
         RAISE EXCEPTION 'publicacion invalida' USING ERRCODE = '22023';
     END IF;
     contenido := p_documento::jsonb;
@@ -270,8 +300,10 @@ BEGIN
             END IF;
         END IF;
         INSERT INTO vec_catalogos_configurables.historia
-            (categoria_id, accion, revision, recibo_ref, decision_ref, actor_ref)
-        SELECT clave, 'publicar', revision, p_recibo || ':' || clave, p_decision, p_actor
+            (categoria_id, accion, revision, recibo_ref, decision_ref, actor_ref,
+             motivo_ref, estado_anterior, estado_posterior)
+        SELECT clave, 'publicar', revision, p_recibo || ':' || clave, p_decision, p_actor,
+               p_motivo_ref, control_anterior.estado, estado
           FROM vec_catalogos_configurables.categoria_control WHERE categoria_id = clave;
         total := total + 1;
     END LOOP;
@@ -288,7 +320,8 @@ END $f$;
 -- idéntico; una cancelación no reabre la identidad.
 CREATE FUNCTION vec_catalogos_configurables.reservar(
     p_consumidor text, p_uso_ref text, p_categoria_id text, p_catalogo_id text,
-    p_version integer, p_huella text, p_actor text, p_decision text, p_recibo text
+    p_version integer, p_huella text, p_actor text, p_decision text, p_recibo text,
+    p_motivo_ref text
 ) RETURNS text LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog SET lock_timeout = '5s' SET statement_timeout = '30s' AS $f$
 DECLARE
@@ -299,7 +332,9 @@ BEGIN
        OR p_uso_ref IS NULL OR pg_catalog.octet_length(p_uso_ref) NOT BETWEEN 3 AND 160
        OR p_actor IS NULL OR pg_catalog.octet_length(p_actor) NOT BETWEEN 3 AND 160
        OR p_decision IS NULL OR pg_catalog.octet_length(p_decision) NOT BETWEEN 3 AND 160
-       OR p_recibo IS NULL OR pg_catalog.octet_length(p_recibo) NOT BETWEEN 3 AND 160 THEN
+       OR p_recibo IS NULL OR pg_catalog.octet_length(p_recibo) NOT BETWEEN 3 AND 160
+       OR p_motivo_ref IS NULL OR pg_catalog.octet_length(p_motivo_ref) NOT BETWEEN 3 AND 320
+       OR p_motivo_ref !~ '^[a-z][a-z0-9._-]{0,127}:[1-9][0-9]{0,9}:[a-z][a-z0-9._-]{0,127}$' THEN
         RAISE EXCEPTION 'reserva invalida' USING ERRCODE = '22023';
     END IF;
     SELECT * INTO c FROM vec_catalogos_configurables.categoria_control
@@ -324,14 +359,16 @@ BEGIN
     VALUES (p_consumidor, p_uso_ref, p_categoria_id, p_catalogo_id, p_version, p_huella,
             'reservado', 1, p_recibo);
     INSERT INTO vec_catalogos_configurables.historia
-        (categoria_id, accion, revision, consumidor, uso_ref, recibo_ref, decision_ref, actor_ref)
-    VALUES (p_categoria_id, 'reservar', 1, p_consumidor, p_uso_ref, p_recibo, p_decision, p_actor);
+        (categoria_id, accion, revision, consumidor, uso_ref, recibo_ref, decision_ref, actor_ref,
+         motivo_ref, estado_anterior, estado_posterior)
+    VALUES (p_categoria_id, 'reservar', 1, p_consumidor, p_uso_ref, p_recibo, p_decision, p_actor,
+            p_motivo_ref, NULL, 'reservado');
     RETURN p_recibo;
 END $f$;
 
 CREATE FUNCTION vec_catalogos_configurables.terminar_uso(
     p_consumidor text, p_uso_ref text, p_reserva_recibo text, p_estado text,
-    p_actor text, p_decision text, p_recibo text
+    p_actor text, p_decision text, p_recibo text, p_motivo_ref text
 ) RETURNS text LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog SET lock_timeout = '5s' SET statement_timeout = '30s' AS $f$
 DECLARE
@@ -340,7 +377,9 @@ BEGIN
     IF p_estado IS NULL OR p_estado NOT IN ('confirmado', 'cancelado')
        OR p_actor IS NULL OR pg_catalog.octet_length(p_actor) NOT BETWEEN 3 AND 160
        OR p_decision IS NULL OR pg_catalog.octet_length(p_decision) NOT BETWEEN 3 AND 160
-       OR p_recibo IS NULL OR pg_catalog.octet_length(p_recibo) NOT BETWEEN 3 AND 160 THEN
+       OR p_recibo IS NULL OR pg_catalog.octet_length(p_recibo) NOT BETWEEN 3 AND 160
+       OR p_motivo_ref IS NULL OR pg_catalog.octet_length(p_motivo_ref) NOT BETWEEN 3 AND 320
+       OR p_motivo_ref !~ '^[a-z][a-z0-9._-]{0,127}:[1-9][0-9]{0,9}:[a-z][a-z0-9._-]{0,127}$' THEN
         RAISE EXCEPTION 'terminal de uso invalido' USING ERRCODE = '22023';
     END IF;
     SELECT * INTO u FROM vec_catalogos_configurables.uso
@@ -367,15 +406,18 @@ BEGIN
     WHERE consumidor = p_consumidor AND uso_ref = p_uso_ref AND revision = 1 AND estado = 'reservado';
     IF NOT FOUND THEN RAISE EXCEPTION 'CAS de uso fallido' USING ERRCODE = '40001'; END IF;
     INSERT INTO vec_catalogos_configurables.historia
-        (categoria_id, accion, revision, consumidor, uso_ref, recibo_ref, decision_ref, actor_ref)
+        (categoria_id, accion, revision, consumidor, uso_ref, recibo_ref, decision_ref, actor_ref,
+         motivo_ref, estado_anterior, estado_posterior)
     VALUES (u.categoria_id, CASE WHEN p_estado = 'confirmado' THEN 'confirmar' ELSE 'cancelar' END,
-            2, p_consumidor, p_uso_ref, p_recibo, p_decision, p_actor);
+            2, p_consumidor, p_uso_ref, p_recibo, p_decision, p_actor,
+            p_motivo_ref, 'reservado', p_estado);
     RETURN p_recibo;
 END $f$;
 
 CREATE FUNCTION vec_catalogos_configurables.cambiar_proyeccion(
     p_categoria_id text, p_revision bigint, p_accion text, p_cobertura_ref text,
-    p_total_historico bigint, p_actor text, p_decision text, p_recibo text
+    p_total_historico bigint, p_actor text, p_decision text, p_recibo text,
+    p_motivo_ref text
 ) RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog SET lock_timeout = '5s' SET statement_timeout = '30s' AS $f$
 DECLARE
@@ -386,7 +428,9 @@ BEGIN
        OR (p_accion <> 'cobertura' AND (p_cobertura_ref IS NOT NULL OR p_total_historico IS NOT NULL))
        OR p_actor IS NULL OR pg_catalog.octet_length(p_actor) NOT BETWEEN 3 AND 160
        OR p_decision IS NULL OR pg_catalog.octet_length(p_decision) NOT BETWEEN 3 AND 160
-       OR p_recibo IS NULL OR pg_catalog.octet_length(p_recibo) NOT BETWEEN 3 AND 160 THEN
+       OR p_recibo IS NULL OR pg_catalog.octet_length(p_recibo) NOT BETWEEN 3 AND 160
+       OR p_motivo_ref IS NULL OR pg_catalog.octet_length(p_motivo_ref) NOT BETWEEN 3 AND 320
+       OR p_motivo_ref !~ '^[a-z][a-z0-9._-]{0,127}:[1-9][0-9]{0,9}:[a-z][a-z0-9._-]{0,127}$' THEN
         RAISE EXCEPTION 'cambio de proyeccion invalido' USING ERRCODE = '22023';
     END IF;
     SELECT * INTO c FROM vec_catalogos_configurables.categoria_control
@@ -425,10 +469,13 @@ BEGIN
          WHERE categoria_id = p_categoria_id AND revision = p_revision;
     ELSE
         IF c.estado <> 'deshabilitada' OR NOT c.cobertura_verificada
+           OR c.total_historico_declarado IS DISTINCT FROM 0
            OR c.total_historico_declarado < (SELECT count(*) FROM vec_catalogos_configurables.uso
                                                WHERE categoria_id = p_categoria_id AND estado = 'confirmado')
            OR EXISTS (SELECT 1 FROM vec_catalogos_configurables.uso
-                       WHERE categoria_id = p_categoria_id AND estado = 'reservado') THEN
+                       WHERE categoria_id = p_categoria_id AND estado = 'reservado')
+           OR EXISTS (SELECT 1 FROM vec_catalogos_configurables.uso
+                       WHERE categoria_id = p_categoria_id AND estado IN ('reservado', 'confirmado')) THEN
             RAISE EXCEPTION 'proyeccion con reservas o sin cobertura' USING ERRCODE = '55000';
         END IF;
         UPDATE vec_catalogos_configurables.categoria_control
@@ -440,8 +487,12 @@ BEGIN
     nuevos := p_revision + 1;
     INSERT INTO vec_catalogos_configurables.historia
         (categoria_id, accion, revision, recibo_ref, decision_ref, actor_ref,
+         motivo_ref, estado_anterior, estado_posterior,
          cobertura_ref, total_historico_declarado)
     VALUES (p_categoria_id, p_accion, nuevos, p_recibo, p_decision, p_actor,
+            p_motivo_ref, c.estado,
+            CASE p_accion WHEN 'deshabilitar' THEN 'deshabilitada'
+                          WHEN 'tombstone' THEN 'tombstone' ELSE c.estado END,
             p_cobertura_ref, p_total_historico);
     RETURN nuevos;
 END $f$;
@@ -450,9 +501,9 @@ REVOKE ALL ON ALL FUNCTIONS IN SCHEMA vec_catalogos_configurables FROM PUBLIC;
 -- Solo el propietario NOLOGIN de AD3 podrá llamar al core desde sus wrappers
 -- SECURITY DEFINER, después de consumir la decisión V3 en la misma transacción.
 GRANT USAGE ON SCHEMA vec_catalogos_configurables TO vec_autorizacion_atestada_v3_propietario;
-GRANT EXECUTE ON FUNCTION vec_catalogos_configurables.publicar(text,integer,text,text,jsonb,text,text,text,text,text,text),
-    vec_catalogos_configurables.reservar(text,text,text,text,integer,text,text,text,text),
-    vec_catalogos_configurables.terminar_uso(text,text,text,text,text,text,text),
-    vec_catalogos_configurables.cambiar_proyeccion(text,bigint,text,text,bigint,text,text,text)
+GRANT EXECUTE ON FUNCTION vec_catalogos_configurables.publicar(text,integer,text,text,jsonb,text,text,text,text,text,text,text),
+    vec_catalogos_configurables.reservar(text,text,text,text,integer,text,text,text,text,text),
+    vec_catalogos_configurables.terminar_uso(text,text,text,text,text,text,text,text),
+    vec_catalogos_configurables.cambiar_proyeccion(text,bigint,text,text,bigint,text,text,text,text)
     TO vec_autorizacion_atestada_v3_propietario;
 COMMIT;
