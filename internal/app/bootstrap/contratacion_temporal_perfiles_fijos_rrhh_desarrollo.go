@@ -402,6 +402,8 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaPerfilFijoParaCon
 		case rutaInformeJuridicoContratacionTemporalDesarrollo(ruta):
 			fase, ok := s.opcionesCatalogo.faseOperacionVigente(operacionFaseInformeJuridicoCT)
 			valida = ok && solicitudAutorizacionInformeJuridicoContratacionTemporalDesarrolloValida(ruta, datos, fase)
+		case rutaReincorporacionTitularDesarrollo(ruta):
+			valida = solicitudAutorizacionReincorporacionTitularValida(ruta, datos)
 		case rutaConsultaRRHHContratacionTemporalDesarrollo(ruta):
 			valida = s.lectorConsultasRRHH && s.solicitudAutorizacionConsultaRRHHDesarrolloValida(ruta, datos)
 		}
