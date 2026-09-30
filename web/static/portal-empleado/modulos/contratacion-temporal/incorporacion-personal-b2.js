@@ -253,7 +253,7 @@ export function montarIncorporacionPersonalB2({ raiz, cliente, expedienteRef, ve
       fallo(error, true);
       if (!denegado) {
         try { const c = await cliente.consultar(expedienteRef, { signal: actual.signal }); if (vigente() && !actual.signal.aborted) aceptarConsulta(c); }
-        catch (lectura) { if (vigente() && !actual.signal.aborted) fallo(lectura, false); }
+        catch (lectura) { if (vigente() && !actual.signal.aborted) fallo(lectura, false, true); }
         if (!recibo && !denegado) { incierto = true; mensaje = reintentoBloqueado ? "seleccion_obsoleta" : "registro_pendiente"; }
       }
     } finally { if (controlador === actual) { controlador = null; pintar("[data-b2-mensaje]"); } }
