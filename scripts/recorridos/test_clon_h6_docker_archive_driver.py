@@ -228,6 +228,36 @@ class DriverTests(unittest.TestCase):
         self.assertIn(self.session.volume, self.cli.volumes)
         self.assertFalse(any(args[0] == "rm" for args, _ in self.cli.calls))
 
+    def test_parent_fsync_failure_aborts_before_docker_and_preserves_session_directory(self):
+        owner = "h6-" + "d" * 32
+        with patch.object(driver.secrets, "token_hex", return_value="d" * 32), \
+             patch.object(driver.os, "fsync", side_effect=OSError("fixture parent fsync failure")), \
+             patch.object(driver, "LocalDockerCLI", side_effect=AssertionError("Docker must not be reached")):
+            with self.assertRaisesRegex(OSError, "fixture parent fsync failure"):
+                driver.ArchiveSession(self.state, self.cli.image, cli=self.cli)
+        preserved = self.state / owner
+        self.assertTrue(preserved.is_dir())
+        self.assertEqual(list(preserved.iterdir()), [])
+        self.assertEqual(self.cli.calls, [])
+        # Reusing the interrupted name never opens or overwrites that directory.
+        with patch.object(driver.secrets, "token_hex", return_value="d" * 32):
+            with self.assertRaises(FileExistsError):
+                driver.ArchiveSession(self.state, self.cli.image, cli=self.cli)
+        self.assertEqual(list(preserved.iterdir()), [])
+        self.assertEqual(self.cli.calls, [])
+
+    def test_parent_directory_is_synced_before_session_evidence(self):
+        original_sync = driver.os.fsync
+        locations = []
+        def sync(fd):
+            locations.append(os.readlink("/proc/self/fd/" + str(fd)))
+            return original_sync(fd)
+        with patch.object(driver.os, "fsync", side_effect=sync):
+            session = driver.ArchiveSession(self.state, self.cli.image, cli=self.cli)
+        self.assertEqual(locations[0], str(self.state))
+        self.assertTrue(any(path.startswith(str(session.private)) for path in locations[1:]))
+        self.assertEqual(self.cli.calls, [])
+
     def test_intent_record_failure_blocks_effect_and_retry(self):
         with patch.object(driver.os, "fsync", side_effect=OSError("fixture broken intent")):
             with self.assertRaisesRegex(OSError, "fixture broken intent"):

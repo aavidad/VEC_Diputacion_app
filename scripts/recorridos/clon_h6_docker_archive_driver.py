@@ -244,6 +244,9 @@ class ArchiveSession:
             info = os.fstat(fd)
             require(info.st_uid == os.getuid() and stat.S_IMODE(info.st_mode) == 0o700, "state_private")
             os.mkdir(self.owner, 0o700, dir_fd=fd)
+            # Make the session directory discoverable after a host crash before
+            # recording any Docker intent or creating any Docker resource.
+            os.fsync(fd)
         self.private = self.state / self.owner
         with archive.directory(self.private) as fd:
             os.mkdir("docker-config", 0o700, dir_fd=fd)
