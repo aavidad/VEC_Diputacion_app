@@ -26,6 +26,15 @@ func TestDecodificarConsultaVinculoRPTConservaAnclajeSQL(t *testing.T) {
 	if _, _, e = decodificarConsultaVinculoRPT(strings.Replace(raw, "categoria:tecnica", "", 1), c); e == nil {
 		t.Fatal("analisis incompleto admitido")
 	}
+	vinculo := `{"revision":1,"recibo_ref":"recibo:vinculo","catalogo_id":"rpt-categorias","modulo_id":"personal","catalogo_version":1,"catalogo_huella_sha256":"` + strings.Repeat("b", 64) + `","categoria_id":"categoria:tecnica","fuente_ref":"fuente:expediente","motivo_ref":"motivo:uno","aprobacion_ref":"aprobacion:uno","prospectivo":true,"acredita_procedencia_historica":false}`
+	conVinculo := strings.Replace(raw, `"vinculo":null`, `"vinculo":`+vinculo, 1)
+	l, ok, e = decodificarConsultaVinculoRPT(conVinculo, c)
+	if e != nil || !ok || l.Vinculo == nil || l.Vinculo.MotivoRef != "motivo:uno" || l.Vinculo.AprobacionRef != "aprobacion:uno" {
+		t.Fatalf("vinculo confirmado ilegible: %+v %v %v", l, ok, e)
+	}
+	if _, _, e = decodificarConsultaVinculoRPT(strings.Replace(conVinculo, `"motivo_ref":"motivo:uno",`, "", 1), c); e == nil {
+		t.Fatal("vinculo sin motivo admitido")
+	}
 }
 
 func TestRegistroVinculoRPTSoloDevuelveReciboExacto(t *testing.T) {
