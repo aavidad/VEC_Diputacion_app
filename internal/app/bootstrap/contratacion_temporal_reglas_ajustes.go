@@ -182,7 +182,28 @@ func (p *proveedorConsultaAjustesCT) contexto(ctx context.Context) (contextoSegu
 		operativo.Resultado.Contexto.PerfilActivoRef != perfil.perfilRef() {
 		return vacio, vecdomain.ErrAutorizacionDenegada
 	}
+	if err := comprobarPerfilConsultaAjustesCT(ctx, p.soporte, perfil); err != nil {
+		return vacio, err
+	}
 	return contextoSeguridadComunDesarrollo{Vinculo: operativo.Vinculo, Resultado: operativo.Resultado}, nil
+}
+
+// La fuente de asignaciones distingue caída de una revocación efectiva.
+// Se comprueba antes del PDP, que vuelve a contrastar la instantánea viva.
+func comprobarPerfilConsultaAjustesCT(ctx context.Context, soporte *soporteAltaContratacionTemporalDesarrollo,
+	perfil *perfilFijoCTDesarrollo) error {
+	if soporte == nil || perfil == nil || ctx == nil || ctx.Err() != nil {
+		return vecdomain.ErrAutorizacionDenegada
+	}
+	_, estado := soporte.consumirPerfilFijoCTDesarrolloConEstado(ctx, perfil)
+	switch estado {
+	case perfilFijoConsumoVigente:
+		return nil
+	case perfilFijoConsumoFuenteNoDisponible:
+		return ajustesapp.ErrNoDisponible
+	default:
+		return vecdomain.ErrAutorizacionDenegada
+	}
 }
 
 func (p *proveedorConsultaAjustesCT) ResolverContextoActor(ctx context.Context) (vecdomain.ContextoActor, error) {
@@ -227,6 +248,13 @@ func (p *proveedorConsultaAjustesCT) AutorizarAjustesReglasCT(ctx context.Contex
 	ctx = context.WithValue(ctx, claveSolicitudAutorizacionContratacionTemporalDesarrollo{}, datos)
 	decision, confirmacion, err := p.pdp.ExigirSolicitudLigadaV3(ctx, solicitud, operativo.Resultado)
 	if err != nil {
+		if errors.Is(err, vecports.ErrFuenteAutorizacionNoDisponible) {
+			perfil := p.soporte.perfilFijoParaRutaYMetodo(rutaAjustesReglasCT, http.MethodGet)
+			if estado := comprobarPerfilConsultaAjustesCT(ctx, p.soporte, perfil); estado != nil {
+				return vacio, estado
+			}
+			return vacio, ajustesapp.ErrNoDisponible
+		}
 		return vacio, err
 	}
 	exportacion, err := p.material.proveerMaterialConfirmacion(ctx, solicitud, decision, confirmacion, p.motivo, operativo.Resultado)

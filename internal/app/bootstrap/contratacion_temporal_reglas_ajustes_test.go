@@ -1,14 +1,26 @@
 package bootstrap
 
 import (
+	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
 	"vec-diputacion-granada/config"
+	ajustesapp "vec-diputacion-granada/internal/modules/contrataciontemporal/application/ajustesreglas"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
+	vecdomain "vec-diputacion-granada/internal/vec/domain"
 )
+
+type lectorAjustesCTCaidoPrueba struct {
+	*autoridadAsignacionesContratacionTemporalDesarrolloPrueba
+}
+
+func (lectorAjustesCTCaidoPrueba) leerAsignacionPublicada(context.Context, string) (instantaneaPublicadaDesarrollo, bool, error) {
+	return instantaneaPublicadaDesarrollo{}, false, errors.New("fuente de prueba caída")
+}
 
 func TestCatalogoMotivoAutorizacionAjustesSoloConDobleLlave(t *testing.T) {
 	t.Setenv(envCTMotivoAutorizacionAjustes,
@@ -64,5 +76,30 @@ func TestPerfilAjustesCTSigueSoloLectura(t *testing.T) {
 		len(plantilla.AsignacionPerfil.Ambitos) != 1 ||
 		plantilla.AsignacionPerfil.Ambitos[0].Clave != "organizacion_ref" {
 		t.Fatal("el perfil de reglas amplió acción, campos o ámbito")
+	}
+}
+
+func TestConsultaAjustesDistingueFuenteCaidaDePerfilRevocado(t *testing.T) {
+	s, lector := escenarioPerfilesFijosPrueba(t)
+	perfil := s.perfilFijoParaRutaYMetodo(rutaEntregaPeticionCentro, http.MethodGet)
+	if perfil == nil {
+		t.Fatal("falta perfil fijo de prueba")
+	}
+	lector.asignaciones = map[string]instantaneaPublicadaDesarrollo{
+		perfil.perfilRef(): {instantanea: clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(perfil.plantilla),
+			actoAsignacion: actoAsignacionPerfilFijoCTDesarrollo},
+	}
+	if err := comprobarPerfilConsultaAjustesCT(context.Background(), s, perfil); err != nil {
+		t.Fatalf("perfil publicado rechazado: %v", err)
+	}
+	delete(lector.asignaciones, perfil.perfilRef())
+	if err := comprobarPerfilConsultaAjustesCT(context.Background(), s, perfil); !errors.Is(err, vecdomain.ErrAutorizacionDenegada) {
+		t.Fatalf("perfil retirado no devolvió denegación: %v", err)
+	}
+	s.mu.Lock()
+	s.autoridadAsignaciones = lectorAjustesCTCaidoPrueba{lector}
+	s.mu.Unlock()
+	if err := comprobarPerfilConsultaAjustesCT(context.Background(), s, perfil); !errors.Is(err, ajustesapp.ErrNoDisponible) {
+		t.Fatalf("lector caído se confundió con revocación: %v", err)
 	}
 }
