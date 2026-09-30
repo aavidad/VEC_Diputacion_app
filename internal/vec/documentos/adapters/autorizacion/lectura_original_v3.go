@@ -126,7 +126,7 @@ func (f *FabricaContextoLecturaOriginalV3) ContextoLecturaOriginal(
 	if err := ctx.Err(); err != nil {
 		return vecports.ContextoOperacionAlmacen{}, denegadoPor(err)
 	}
-	if err := concesionDelActor(concesion, a, recurso); err != nil {
+	if err := concesionDelActor(concesion, a, recurso, vecports.AccionNegocioLeerOriginalDocumentoGenerado); err != nil {
 		return vecports.ContextoOperacionAlmacen{}, denegadoPor(err)
 	}
 	return vecports.NuevoContextoLeerDocumentoGeneradoAlmacenV3(
@@ -136,7 +136,7 @@ func (f *FabricaContextoLecturaOriginalV3) ContextoLecturaOriginal(
 // concesionDelActor exige que la solicitud evaluada sea la pedida y del mismo
 // actor, perfil y finalidad que la descarga consumida. La decisión y su
 // registro los coteja el núcleo al derivar el contexto.
-func concesionDelActor(c ConcesionAlmacenV3, a docports.AutorizacionV3, recurso vecdomain.RecursoAutorizable) error {
+func concesionDelActor(c ConcesionAlmacenV3, a docports.AutorizacionV3, recurso vecdomain.RecursoAutorizable, accion string) error {
 	datos, err := c.Solicitud.Datos()
 	if err != nil {
 		return err
@@ -152,7 +152,7 @@ func concesionDelActor(c ConcesionAlmacenV3, a docports.AutorizacionV3, recurso 
 	obtenida, err := datos.Recurso.HuellaContextoAutorizacionSHA256()
 	if err != nil || obtenida != esperada || datos.Recurso.Referencia != recurso.Referencia ||
 		datos.Recurso.ModuloID != recurso.ModuloID || datos.Recurso.Tipo != recurso.Tipo ||
-		datos.Accion != vecports.AccionNegocioLeerOriginalDocumentoGenerado || datos.Finalidad != a.Finalidad ||
+		datos.Accion != accion || datos.Finalidad != a.Finalidad ||
 		vinculo.PrincipalID != a.PrincipalID || vinculo.PerfilActivoRef != a.PerfilActivoRef {
 		return vecports.ErrAutorizacionAlmacenInvalida
 	}
