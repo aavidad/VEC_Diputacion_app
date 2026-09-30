@@ -31,7 +31,7 @@ BEGIN
     ] LOOP
         IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_proc AS p
                        WHERE p.oid=f AND p.proowner='vec_autorizacion_atestada_v3_propietario'::regrole
-                         AND p.prosecdef AND p.proconfig=ARRAY['search_path=pg_catalog','lock_timeout=2s','statement_timeout=15s']) THEN
+                         AND p.prosecdef AND p.proconfig=ARRAY['search_path=pg_catalog','lock_timeout=2s']) THEN
             RAISE EXCEPTION 'AD3-117: propietario o entorno de fachada incorrecto';
         END IF;
         FOR x IN SELECT a.grantee,a.privilege_type,a.is_grantable,p.proowner

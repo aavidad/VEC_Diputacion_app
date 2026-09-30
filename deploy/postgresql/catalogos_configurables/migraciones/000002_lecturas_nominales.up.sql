@@ -26,7 +26,7 @@ END $pre$;
 CREATE FUNCTION vec_catalogos_configurables.listar_habilitadas(
     p_catalogo_id text, p_cursor_categoria_id text, p_limite integer
 ) RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER
-SET search_path = pg_catalog SET lock_timeout = '5s' SET statement_timeout = '15s' AS $f$
+SET search_path = pg_catalog SET lock_timeout = '5s' AS $f$
 DECLARE
     r record;
     items jsonb := '[]'::jsonb;
@@ -124,7 +124,7 @@ END $f$;
 CREATE FUNCTION vec_catalogos_configurables.leer_publicacion_categoria(
     p_catalogo_id text, p_version integer, p_huella text, p_categoria_id text
 ) RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER
-SET search_path = pg_catalog SET lock_timeout = '5s' SET statement_timeout = '15s' AS $f$
+SET search_path = pg_catalog SET lock_timeout = '5s' AS $f$
 DECLARE
     r record;
 BEGIN
@@ -163,7 +163,7 @@ END $f$;
 CREATE FUNCTION vec_catalogos_configurables.consultar_uso(
     p_consumidor text, p_uso_ref text, p_reserva_recibo_ref text
 ) RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER
-SET search_path = pg_catalog SET lock_timeout = '5s' SET statement_timeout = '15s' AS $f$
+SET search_path = pg_catalog SET lock_timeout = '5s' AS $f$
 DECLARE
     u vec_catalogos_configurables.uso%ROWTYPE;
 BEGIN
