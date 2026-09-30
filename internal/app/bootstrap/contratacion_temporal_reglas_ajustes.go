@@ -23,9 +23,16 @@ import (
 	seguridadvec "vec-diputacion-granada/internal/vec/adapters/seguridad"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
+	"vec-diputacion-granada/internal/vec/reglas"
 )
 
 const envCTMotivoAutorizacionAjustes = "VEC_CT_MOTIVO_AUTORIZACION_AJUSTES_FILE"
+
+const (
+	envCTEdicionAjustesReglas   = "VEC_CT_AJUSTES_REGLAS_EDICION_ENABLED"
+	envCTRolEditorAjustesReglas = "VEC_CT_AJUSTES_REGLAS_EDITOR_ROL_ID"
+	envCTAprobacionBaseReglas   = "VEC_CT_REGLA_BASE_APROBACION_REF"
+)
 
 var errMotivoAutorizacionAjustes = errors.New("bootstrap: motivo de autorización de ajustes CT no disponible")
 
@@ -100,14 +107,22 @@ const (
 	accionConsultarAjustesCT = "contratacion_temporal.reglas.consultar_ajustes"
 	accionAjustarReglasCT    = "contratacion_temporal.reglas.ajustar"
 	audienciaAjustesCT       = "vec_contratacion_temporal.ajustes_reglas.v1"
+	capacidadPostAjustesCT   = "ct-reglas-ajustes-post"
 	recursoReglasCT          = "vec.contratacion_temporal.reglas"
 	finalidadAjustesCT       = "gobierno_reglas_contratacion_temporal"
 )
 
 func rutaConsultaAjustesReglasCT(ruta string) bool { return ruta == rutaAjustesReglasCT }
 
-// El perfil de este corte concede exclusivamente consulta. CT110 aún no
-// conserva la instantánea al abrir cada tramo: no hay concesión de escritura.
+func solicitudAjustesCTValida(d vecdomain.DatosSolicitudAutorizacionLigadaV3, metodo string) bool {
+	if !recursoConsultaAjustesCTValido(d.Recurso) || d.Finalidad != finalidadAjustesCT {
+		return false
+	}
+	return metodo == http.MethodGet && d.Accion == accionConsultarAjustesCT ||
+		metodo == http.MethodPost && (d.Accion == accionConsultarAjustesCT || d.Accion == accionAjustarReglasCT)
+}
+
+// La consulta conserva un perfil propio sin concesión de escritura.
 func componerPerfilConsultaAjustesCT(ctx context.Context, pool *pgxpool.Pool, s *soporteAltaContratacionTemporalDesarrollo,
 	m motivoAutorizacionAjustesCT, aprobacion aprobacionProvisionPerfilesRRHHDesarrollo,
 ) (*perfilFijoCTDesarrollo, error) {
@@ -152,12 +167,58 @@ func plantillaConsultaAjustesCT(principalID, perfilRef string, ahora time.Time, 
 		[]vecdomain.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}}})
 }
 
+func componerPerfilEditorAjustesCT(ctx context.Context, pool *pgxpool.Pool, s *soporteAltaContratacionTemporalDesarrollo,
+	m motivoAutorizacionAjustesCT, rolEditor string, aprobacion aprobacionProvisionPerfilesRRHHDesarrollo,
+) (*perfilFijoCTDesarrollo, error) {
+	if s == nil || pool == nil || ctx == nil || ctx.Err() != nil || !nombrePerfilSinteticoValido(rolEditor) ||
+		rolEditor == m.RolID || !vecdomain.ReferenciaMotivoAutorizacionV2Valida(m.Referencia) {
+		return nil, errMotivoAutorizacionAjustes
+	}
+	desde, _, vigente := ventanaAutoridadSinteticaContratacionTemporalDesarrollo(s.reloj.Ahora())
+	if !vigente || publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(ctx, pool,
+		[]vecdomain.ReferenciaEntradaCatalogo{m.Referencia}, desde) != nil {
+		return nil, errMotivoAutorizacionAjustes
+	}
+	principal := vecdomain.Principal{ID: s.principalID, Roles: []string{rolTecnicoRRHHContratacionTemporalDesarrollo},
+		AuthMethod: vecdomain.AuthMethodCertificate, AuthAssurance: vecdomain.AuthAssuranceHigh,
+		Attributes: map[string]string{"autoridad": AutoridadNoAutoritativa, "perfil_ejecucion": config.ExecutionProfileDevelopment,
+			"certificate_sha256": s.certificadoSHA256}}
+	p, err := nuevoPerfilFijoCTDesarrollo(principal, s.contexto, s.reloj.Ahora(), rolEditor,
+		[]string{ajusteshttp.Ruta}, func(principalID, perfilRef string) (vecdomain.InstantaneaAutorizacion, error) {
+			return plantillaEditorAjustesCT(principalID, perfilRef, s.reloj.Ahora(), rolEditor)
+		})
+	if err != nil || p == nil {
+		return nil, errMotivoAutorizacionAjustes
+	}
+	p.metodo = http.MethodPost
+	if s.registrarPerfilFijoCTDesarrollo(p) != nil {
+		return nil, errMotivoAutorizacionAjustes
+	}
+	if err := asegurarPerfilesFijosCTDesarrollo(ctx, pool, s, aprobacion, p); err != nil {
+		return nil, err
+	}
+	return p, nil
+}
+
+func plantillaEditorAjustesCT(principalID, perfilRef string, ahora time.Time, rolID string) (vecdomain.InstantaneaAutorizacion, error) {
+	return nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(principalID, perfilRef, ahora,
+		rolID, rolID, rolID,
+		[]vecdomain.ConcesionRol{
+			{Accion: accionConsultarAjustesCT, ModuloID: "contratacion_temporal", TipoRecurso: "catalogo_reglas",
+				Finalidades: []string{finalidadAjustesCT}, CamposPermitidos: []string{"historial", "vigente"},
+				GarantiaMinima: vecdomain.AuthAssuranceHigh},
+			{Accion: accionAjustarReglasCT, ModuloID: "contratacion_temporal", TipoRecurso: "catalogo_reglas",
+				Finalidades: []string{finalidadAjustesCT}, GarantiaMinima: vecdomain.AuthAssuranceHigh},
+		}, []vecdomain.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}}})
+}
+
 type proveedorConsultaAjustesCT struct {
 	soporte  *soporteAltaContratacionTemporalDesarrollo
 	pdp      autorizadorLigadoContratacionTemporalDesarrollo
 	material *proveedorMaterialAltaContratacionTemporalDesarrollo
 	motivo   vecdomain.ReferenciaEntradaCatalogo
 	reloj    relojContratacionTemporalDesarrollo
+	editor   *perfilFijoCTDesarrollo
 }
 
 func (p *proveedorConsultaAjustesCT) contexto(ctx context.Context) (contextoSeguridadComunDesarrollo, error) {
@@ -167,10 +228,15 @@ func (p *proveedorConsultaAjustesCT) contexto(ctx context.Context) (contextoSegu
 	}
 	capacidad, valida := p.soporte.capacidadValida(ctx)
 	frontera, tieneFrontera := fronteraSeguridadComunDesdeContexto(ctx)
-	perfil := p.soporte.perfilFijoParaRutaYMetodo(ajusteshttp.Ruta, http.MethodGet)
-	if !valida || !tieneFrontera || perfil == nil || capacidad.ruta != ajusteshttp.Ruta || capacidad.metodo != http.MethodGet ||
-		frontera.ruta != ajusteshttp.Ruta || frontera.metodo != http.MethodGet ||
-		frontera.descriptor.ClaveCapacidad != accionConsultarAjustesCT || !frontera.descriptor.admitePerfil(perfil.perfilRef()) {
+	perfil := p.soporte.perfilFijoParaRutaYMetodo(ajusteshttp.Ruta, capacidad.metodo)
+	accionFrontera := accionConsultarAjustesCT
+	if capacidad.metodo == http.MethodPost && p.editor != nil && perfil == p.editor {
+		accionFrontera = capacidadPostAjustesCT
+	}
+	if !valida || !tieneFrontera || perfil == nil || capacidad.ruta != ajusteshttp.Ruta ||
+		(capacidad.metodo != http.MethodGet && capacidad.metodo != http.MethodPost) ||
+		frontera.ruta != ajusteshttp.Ruta || frontera.metodo != capacidad.metodo ||
+		frontera.descriptor.ClaveCapacidad != accionFrontera || !frontera.descriptor.admitePerfil(perfil.perfilRef()) {
 		return vacio, vecdomain.ErrAutorizacionDenegada
 	}
 	operativo, err := p.soporte.contextoOperativoDesarrollo(ctx)
@@ -218,7 +284,8 @@ func (p *proveedorConsultaAjustesCT) AutorizarAjustesReglasCT(ctx context.Contex
 	accion string, recurso vecdomain.RecursoAutorizable,
 ) (vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
 	vacio := vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}
-	if accion != accionConsultarAjustesCT || !recursoConsultaAjustesCTValido(recurso) || actor.Validar() != nil {
+	if (accion != accionConsultarAjustesCT && accion != accionAjustarReglasCT) ||
+		!recursoConsultaAjustesCTValido(recurso) || actor.Validar() != nil {
 		return vacio, vecdomain.ErrAutorizacionDenegada
 	}
 	operativo, err := p.contexto(ctx)
@@ -227,7 +294,9 @@ func (p *proveedorConsultaAjustesCT) AutorizarAjustesReglasCT(ctx context.Contex
 	}
 	huellaActor, err := actor.HuellaSHA256VinculadaV2()
 	huellaActual, errActual := operativo.Resultado.Contexto.HuellaSHA256VinculadaV2()
-	if err != nil || errActual != nil || huellaActor != huellaActual {
+	capacidad, valida := p.soporte.capacidadValida(ctx)
+	if err != nil || errActual != nil || huellaActor != huellaActual || !valida ||
+		(accion == accionAjustarReglasCT && capacidad.metodo != http.MethodPost) {
 		return vacio, vecdomain.ErrAutorizacionDenegada
 	}
 	correlacion, err := vecdomain.GenerarReferenciaCorrelacionAutorizacionV2(ctx, seguridadvec.GeneradorReferenciasCriptograficas{})
@@ -242,14 +311,14 @@ func (p *proveedorConsultaAjustesCT) AutorizarAjustesReglasCT(ctx context.Contex
 		return vacio, vecdomain.ErrAutorizacionDenegada
 	}
 	datos, err := solicitud.Datos()
-	if err != nil || !solicitudConsultaAjustesCTValida(datos) {
+	if err != nil || !solicitudAjustesCTValida(datos, capacidad.metodo) || datos.Accion != accion {
 		return vacio, vecdomain.ErrAutorizacionDenegada
 	}
 	ctx = context.WithValue(ctx, claveSolicitudAutorizacionContratacionTemporalDesarrollo{}, datos)
 	decision, confirmacion, err := p.pdp.ExigirSolicitudLigadaV3(ctx, solicitud, operativo.Resultado)
 	if err != nil {
 		if errors.Is(err, vecports.ErrFuenteAutorizacionNoDisponible) {
-			perfil := p.soporte.perfilFijoParaRutaYMetodo(rutaAjustesReglasCT, http.MethodGet)
+			perfil := p.soporte.perfilFijoParaRutaYMetodo(rutaAjustesReglasCT, capacidad.metodo)
 			if estado := comprobarPerfilConsultaAjustesCT(ctx, p.soporte, perfil); estado != nil {
 				return vacio, estado
 			}
@@ -271,9 +340,27 @@ func (p *proveedorConsultaAjustesCT) AutorizarAjustesReglasCT(ctx context.Contex
 	return exportacion, nil
 }
 
-func (p *proveedorConsultaAjustesCT) ComprobarCapacidadAjustesReglasCT(context.Context, vecdomain.ContextoActor,
-	string, vecdomain.RecursoAutorizable) (bool, error) {
-	return false, nil // CT110 no guarda aún la instantánea al iniciar el plazo.
+func (p *proveedorConsultaAjustesCT) ComprobarCapacidadAjustesReglasCT(ctx context.Context, actor vecdomain.ContextoActor,
+	accion string, recurso vecdomain.RecursoAutorizable) (bool, error) {
+	if p == nil || p.editor == nil || accion != accionAjustarReglasCT || actor.Validar() != nil ||
+		recurso.Referencia != recursoReglasCT || recurso.ModuloID != "contratacion_temporal" ||
+		recurso.Tipo != "catalogo_reglas" || len(recurso.Ambitos) != 1 ||
+		recurso.Ambitos["organizacion_ref"] != organizacionAltaContratacionTemporalDesarrollo ||
+		len(recurso.Atributos) != 1 || recurso.Atributos["operacion"] != "ajustar" {
+		return false, nil
+	}
+	operativo, err := p.contexto(ctx)
+	if err != nil {
+		return false, err
+	}
+	if operativo.Resultado.Contexto.PersonaRef != actor.PersonaRef ||
+		operativo.Resultado.Contexto.Instantanea.CuentaRef != actor.Instantanea.CuentaRef {
+		return false, vecdomain.ErrAutorizacionDenegada
+	}
+	if err := comprobarPerfilConsultaAjustesCT(ctx, p.soporte, p.editor); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 func recursoConsultaAjustesCTValido(r vecdomain.RecursoAutorizable) bool {
@@ -297,6 +384,13 @@ func descriptorFronteraConsultaAjustesCT(perfil string) descriptorFronteraComunD
 		ClaveCapacidad: accionConsultarAjustesCT}
 }
 
+func descriptorFronteraEdicionAjustesCT(perfil string) descriptorFronteraComunDesarrollo {
+	return descriptorFronteraComunDesarrollo{Clave: "ct-reglas-ajustes-ajustar",
+		Superficie: superficieInternaSeguridadComunDesarrollo, Metodo: http.MethodPost, Ruta: ajusteshttp.Ruta,
+		PerfilesActivosRef: []string{perfil}, ClavePolitica: clavePoliticaContratacionTemporalDesarrollo,
+		ClaveCapacidad: capacidadPostAjustesCT}
+}
+
 func descriptorMaterialConsultaAjustesCT() descriptorMaterialConsumidorV3Desarrollo {
 	return descriptorMaterialConsumidorV3Desarrollo{Audiencia: audienciaAjustesCT,
 		Dominio: "vec.ct.ajustes-reglas.desarrollo.capacidad-v3", Prefijo: "clave:capacidad:ct-ajustes-reglas:",
@@ -311,6 +405,81 @@ func preflightConsultaAjustesCT(ctx context.Context, pool *pgxpool.Pool) error {
 	err := pool.QueryRow(ctx, `SELECT has_function_privilege(current_user,
 		to_regprocedure('vec_contratacion_temporal.operar_ajustes_reglas_v1(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'), 'EXECUTE')`).Scan(&permitida)
 	if err != nil || !permitida {
+		return errMotivoAutorizacionAjustes
+	}
+	return nil
+}
+
+func configuracionEdicionAjustesCT(cfg config.Config) (rolEditor, aprobacion string, activa bool, err error) {
+	activa, err = selectorCapacidadRRHHDesarrollo(cfg, envCTEdicionAjustesReglas)
+	if err != nil || !activa {
+		return "", "", false, err
+	}
+	rolEditor = strings.TrimSpace(os.Getenv(envCTRolEditorAjustesReglas))
+	aprobacion = strings.TrimSpace(os.Getenv(envCTAprobacionBaseReglas))
+	if !nombrePerfilSinteticoValido(rolEditor) || len(aprobacion) < 1 || len(aprobacion) > 200 ||
+		aprobacion != os.Getenv(envCTAprobacionBaseReglas) || strings.ContainsAny(aprobacion, "\r\n\t") {
+		return "", "", false, ErrActivacionDesarrolloInvalida
+	}
+	return rolEditor, aprobacion, true, nil
+}
+
+// El preflight solo admite la escritura si CT157 y CT158 están instaladas,
+// conservan la ACL nominal y la base activa coincide con el catálogo Go. La
+// operación SQL repite estas guardas al escribir: un arranque correcto no
+// autoriza una base retirada después.
+func preflightEdicionAjustesCT(ctx context.Context, pool *pgxpool.Pool, fuente *reglas.Resolutor, aprobacion string) error {
+	if ctx == nil || ctx.Err() != nil || pool == nil || fuente == nil || aprobacion == "" {
+		return errMotivoAutorizacionAjustes
+	}
+	base, huella, _, err := fuente.CatalogoVigente(ctx)
+	if err != nil || base.ID != reglas.CatalogoContratacionTemporal || base.AprobacionRef != aprobacion ||
+		base.Version < 1 || len(huella) != 64 {
+		return errMotivoAutorizacionAjustes
+	}
+	const preflightSQL = `WITH funciones AS (
+ SELECT p.oid,p.prosecdef,p.proowner,p.proacl
+ FROM pg_catalog.pg_proc p WHERE p.oid IN (
+  pg_catalog.to_regprocedure('vec_contratacion_temporal.leer_activacion_regla_base_v1()'),
+  pg_catalog.to_regprocedure('vec_contratacion_temporal.operar_ajustes_reglas_v1(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'))
+), tablas AS (
+ SELECT c.oid,c.relowner,c.relrowsecurity,c.relforcerowsecurity
+ FROM pg_catalog.pg_class c WHERE c.oid IN (
+  pg_catalog.to_regclass('vec_contratacion_temporal.regla_base_publicada_v1'),
+  pg_catalog.to_regclass('vec_contratacion_temporal.regla_base_activacion_v1'),
+  pg_catalog.to_regclass('vec_contratacion_temporal.fase_regla_instantanea_v1'))
+)
+SELECT
+ (SELECT count(*)=2 FROM funciones f WHERE f.prosecdef
+  AND f.proowner='vec_contratacion_temporal_propietario'::regrole
+  AND pg_catalog.has_function_privilege(session_user,f.oid,'EXECUTE')
+  AND NOT EXISTS (SELECT 1 FROM pg_catalog.aclexplode(
+   coalesce(f.proacl,pg_catalog.acldefault('f',f.proowner))) a
+   WHERE a.grantee=0 AND a.privilege_type='EXECUTE'))
+ AND (SELECT count(*)=3 FROM tablas t WHERE t.relowner='vec_contratacion_temporal_propietario'::regrole
+  AND t.relrowsecurity AND t.relforcerowsecurity
+  AND NOT pg_catalog.has_table_privilege(session_user,t.oid,'SELECT')
+  AND NOT pg_catalog.has_table_privilege(session_user,t.oid,'INSERT'))
+ AND (SELECT count(*)=2 FROM pg_catalog.pg_trigger tg
+  WHERE ((tg.tgrelid=pg_catalog.to_regclass('vec_contratacion_temporal.regla_base_activacion_v1')
+     AND tg.tgname='regla_base_activacion_cas'
+     AND tg.tgfoid=pg_catalog.to_regprocedure('vec_contratacion_temporal.comprobar_activacion_regla_base_v1()'))
+   OR (tg.tgrelid=pg_catalog.to_regclass('vec_contratacion_temporal.fase_entrada_publicacion_rrhh')
+     AND tg.tgname='fase_entrada_instantanea_regla'
+     AND tg.tgfoid=pg_catalog.to_regprocedure('vec_contratacion_temporal.registrar_instantanea_fase_regla_v1()')))
+  AND tg.tgenabled='O' AND NOT tg.tgisinternal)`
+	var instalada bool
+	if err := pool.QueryRow(ctx, preflightSQL).Scan(&instalada); err != nil || !instalada {
+		return errMotivoAutorizacionAjustes
+	}
+	var estado, catalogoID, huellaActiva, aprobacionActiva string
+	var secuencia, version int64
+	err = pool.QueryRow(ctx, `SELECT estado,secuencia,catalogo_id,version,huella_sha256,aprobacion_ref
+ FROM vec_contratacion_temporal.leer_activacion_regla_base_v1()`).Scan(
+		&estado, &secuencia, &catalogoID, &version, &huellaActiva, &aprobacionActiva)
+	if err != nil || estado != "activa" || secuencia < 1 || secuencia > 9999999 ||
+		catalogoID != base.ID || version != int64(base.Version) || huellaActiva != huella ||
+		aprobacionActiva != aprobacion {
 		return errMotivoAutorizacionAjustes
 	}
 	return nil
