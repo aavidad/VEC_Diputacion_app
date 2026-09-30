@@ -1,9 +1,14 @@
 package postgres
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"strconv"
 	"strings"
 	"time"
@@ -284,7 +289,173 @@ func (g *GestorUsosCategoriaRPTPostgreSQL) validarAutorizacion(
 		resumen.EfectoRef() != usoRef || resumen.EfectoHuellaSHA256() != huellaRecurso {
 		return "", ports.ErrUsoCategoriaRPTDenegado
 	}
+	// El recurso no distingue dos solicitudes de distintos actores, motivos o
+	// correlaciones. La huella de solicitud V3 sí compromete esas piezas y debe
+	// proceder de los bytes de la decisión entregados a la fachada atestada.
+	if err := ligaduraSolicitudUsoRPT(d, solicitud, autorizacion, resumen, huellaRecurso); err != nil {
+		// El tipo de fallo permite diagnosticar la frontera sin exponer su
+		// contenido (identidad, motivo o documento) al llamador.
+		return "", fmt.Errorf("%w: %T", ports.ErrUsoCategoriaRPTDenegado, err)
+	}
 	return r.Atributos["material_sha256"], nil
+}
+
+type decisionLigaduraUsoRPT struct {
+	Esquema                     string `json:"esquema"`
+	DecisionRef                 string `json:"decision_ref"`
+	SolicitudHuellaSHA256       string `json:"solicitud_huella_sha256"`
+	MotivoHuellaSHA256          string `json:"motivo_huella_sha256"`
+	ContextoRecursoHuellaSHA256 string `json:"contexto_recurso_huella_sha256"`
+	CorrelacionRef              string `json:"correlacion_ref"`
+	PrincipalID                 string `json:"principal_id"`
+	PerfilActivoRef             string `json:"perfil_activo_ref"`
+}
+
+func ligaduraSolicitudUsoRPT(
+	d domain.DatosSolicitudAutorizacionLigadaV3,
+	solicitud domain.SolicitudAutorizacionLigadaV3,
+	autorizacion ports.ExportacionMaterialConsumoAutorizacionAtestadaV3,
+	resumen ports.ResumenCapacidadAtestacionAutorizacionV3,
+	huellaRecurso string,
+) error {
+	vinculo, err := d.VinculoAutenticacionActor.Datos()
+	if err != nil {
+		return err
+	}
+	correlacion, err := d.Correlacion.ValorCanonico()
+	if err != nil {
+		return err
+	}
+	huellaSolicitud, err := domain.HuellaSHA256SolicitudAutorizacionV3(solicitud)
+	if err != nil {
+		return err
+	}
+	motivoCanonico, err := domain.RepresentacionCanonicaMotivoAutorizacionV2(d.ReferenciaMotivo)
+	if err != nil {
+		return err
+	}
+	if !bytes.Equal(motivoCanonico, autorizacion.MotivoCanonico()) ||
+		huellaBytesUsoRPT(motivoCanonico) != resumen.MotivoHuellaSHA256() ||
+		vinculo.RegistroContextoRef != resumen.ContextoRef() ||
+		vinculo.ContextoActorHuellaSHA256 != resumen.ContextoHuellaSHA256() {
+		return ports.ErrUsoCategoriaRPTDenegado
+	}
+	contextoCanonico := autorizacion.ContextoActorCanonico()
+	if huellaBytesUsoRPT(contextoCanonico) != resumen.ContextoHuellaSHA256() {
+		return ports.ErrUsoCategoriaRPTDenegado
+	}
+	contexto, err := domain.RehidratarContextoActorVinculadoV2(contextoCanonico)
+	if err != nil {
+		return err
+	}
+	if contexto.Principal.ID != vinculo.PrincipalID || contexto.PerfilActivoRef != vinculo.PerfilActivoRef ||
+		contexto.Instantanea.VinculoRef != vinculo.ContextoActorRef ||
+		contexto.Instantanea.VinculoVersion != vinculo.ContextoActorVersion ||
+		contexto.Instantanea.CuentaVersion != vinculo.ContextoActorCuentaVersion {
+		return ports.ErrUsoCategoriaRPTDenegado
+	}
+	decisionCanonica := autorizacion.DecisionCanonica()
+	if huellaBytesUsoRPT(decisionCanonica) != resumen.DecisionHuellaSHA256() {
+		return ports.ErrUsoCategoriaRPTDenegado
+	}
+	decision, err := leerDecisionLigaduraUsoRPT(decisionCanonica)
+	if err != nil {
+		return err
+	}
+	if decision.Esquema != domain.EsquemaHuellaDecisionAutorizacionV3 ||
+		decision.DecisionRef != resumen.DecisionRef() ||
+		decision.SolicitudHuellaSHA256 != huellaSolicitud ||
+		decision.MotivoHuellaSHA256 != resumen.MotivoHuellaSHA256() ||
+		decision.ContextoRecursoHuellaSHA256 != huellaRecurso ||
+		decision.CorrelacionRef != correlacion ||
+		decision.PrincipalID != vinculo.PrincipalID ||
+		decision.PerfilActivoRef != vinculo.PerfilActivoRef {
+		return ports.ErrUsoCategoriaRPTDenegado
+	}
+	return nil
+}
+
+// La decisión viva no tiene constructor inverso. Extraemos únicamente los
+// compromisos necesarios de sus bytes, sin normalizar claves ni aceptar
+// duplicados que pudieran dar otra lectura a Go y PostgreSQL.
+func leerDecisionLigaduraUsoRPT(contenido []byte) (decisionLigaduraUsoRPT, error) {
+	var cero decisionLigaduraUsoRPT
+	if len(contenido) == 0 || len(contenido) > ports.TamanoMaximoDecisionCanonicaV3 {
+		return cero, ports.ErrUsoCategoriaRPTDenegado
+	}
+	lector := json.NewDecoder(bytes.NewReader(contenido))
+	inicio, err := lector.Token()
+	if err != nil {
+		return cero, err
+	}
+	if inicio != json.Delim('{') {
+		return cero, ports.ErrUsoCategoriaRPTDenegado
+	}
+	campos := make(map[string]json.RawMessage, 40)
+	for lector.More() {
+		token, err := lector.Token()
+		if err != nil {
+			return cero, err
+		}
+		clave, correcta := token.(string)
+		if !correcta || len(campos) >= 64 {
+			return cero, ports.ErrUsoCategoriaRPTDenegado
+		}
+		if _, repetida := campos[clave]; repetida {
+			return cero, ports.ErrUsoCategoriaRPTDenegado
+		}
+		var valor json.RawMessage
+		if err := lector.Decode(&valor); err != nil {
+			return cero, err
+		}
+		campos[clave] = valor
+	}
+	fin, err := lector.Token()
+	if err != nil {
+		return cero, err
+	}
+	if fin != json.Delim('}') {
+		return cero, ports.ErrUsoCategoriaRPTDenegado
+	}
+	if err := lector.Decode(new(any)); err != io.EOF {
+		if err != nil {
+			return cero, err
+		}
+		return cero, ports.ErrUsoCategoriaRPTDenegado
+	}
+	leerTexto := func(clave string) (string, error) {
+		bruto, existe := campos[clave]
+		if !existe || len(bruto) == 0 || bruto[0] != '"' {
+			return "", ports.ErrUsoCategoriaRPTDenegado
+		}
+		var texto string
+		if err := json.Unmarshal(bruto, &texto); err != nil {
+			return "", err
+		}
+		return texto, nil
+	}
+	camposNecesarios := []*string{&cero.Esquema, &cero.DecisionRef, &cero.SolicitudHuellaSHA256,
+		&cero.MotivoHuellaSHA256, &cero.ContextoRecursoHuellaSHA256, &cero.CorrelacionRef,
+		&cero.PrincipalID, &cero.PerfilActivoRef}
+	clavesNecesarias := []string{"esquema", "decision_ref", "solicitud_huella_sha256",
+		"motivo_huella_sha256", "contexto_recurso_huella_sha256", "correlacion_ref",
+		"principal_id", "perfil_activo_ref"}
+	for i, clave := range clavesNecesarias {
+		valor, err := leerTexto(clave)
+		if err != nil {
+			return decisionLigaduraUsoRPT{}, err
+		}
+		if valor == "" {
+			return decisionLigaduraUsoRPT{}, ports.ErrUsoCategoriaRPTDenegado
+		}
+		*camposNecesarios[i] = valor
+	}
+	return cero, nil
+}
+
+func huellaBytesUsoRPT(contenido []byte) string {
+	suma := sha256.Sum256(contenido)
+	return hex.EncodeToString(suma[:])
 }
 
 func (g *GestorUsosCategoriaRPTPostgreSQL) ejecutar(
