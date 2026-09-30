@@ -15,6 +15,7 @@ import (
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	vecdomain "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
@@ -69,7 +70,7 @@ func (f *FuenteVinculoCategoriaRPTPostgreSQL) Consultar(ctx context.Context, c p
 	if e != nil {
 		return ports.LecturaVinculoCategoriaRPT{}, e
 	}
-	if !capacidadParaVinculoRPT(cap, ports.AccionConsultarVinculoCategoriaRPT, ports.AudienciaConsultarVinculoCategoriaRPT, c.ExpedienteRef, b) {
+	if !capacidadParaVinculoRPT(cap, ports.AccionConsultarVinculoCategoriaRPT, ports.AudienciaConsultarVinculoCategoriaRPT, c.ExpedienteRef, "contratacion_temporal", "vinculo_categoria_rpt_ct", map[string]string{"organizacion_ref": c.OrganizacionRef}, b) {
 		return ports.LecturaVinculoCategoriaRPT{}, ports.ErrVinculoCategoriaRPTDenegado
 	}
 	tx, e := iniciarVinculoRPT(ctx, f.pool)
@@ -107,8 +108,8 @@ func (f *FuenteVinculoCategoriaRPTPostgreSQL) Registrar(ctx context.Context, m p
 	if e != nil {
 		return ports.ReciboVinculoCategoriaRPT{}, e
 	}
-	if !capacidadParaVinculoRPT(capCT, ports.AccionRegistrarVinculoCategoriaRPT, ports.AudienciaRegistrarVinculoCategoriaRPT, m.ExpedienteRef, b) ||
-		!capacidadParaVinculoRPT(capRPT, ports.AccionConsultarPublicacionCategoriaRPT, ports.AudienciaConsultarPublicacionCategoriaRPT, m.CatalogoID, materialRPT) {
+	if !capacidadParaVinculoRPT(capCT, ports.AccionRegistrarVinculoCategoriaRPT, ports.AudienciaRegistrarVinculoCategoriaRPT, m.ExpedienteRef, "contratacion_temporal", "vinculo_categoria_rpt_ct", map[string]string{"organizacion_ref": m.OrganizacionRef}, b) ||
+		!capacidadParaVinculoRPT(capRPT, ports.AccionConsultarPublicacionCategoriaRPT, ports.AudienciaConsultarPublicacionCategoriaRPT, m.CatalogoID, m.ModuloID, "catalogo_configurable", map[string]string{"catalogo_id": m.CatalogoID, "modulo_id": m.ModuloID}, materialRPT) {
 		return ports.ReciboVinculoCategoriaRPT{}, ports.ErrVinculoCategoriaRPTDenegado
 	}
 	tx, e := iniciarVinculoRPT(ctx, f.pool)
@@ -140,7 +141,7 @@ func (f *FuentePublicacionCategoriaRPTPostgreSQL) ConsultarPublicacionCategoriaR
 	if e != nil {
 		return domain.PublicacionCategoriaRPT{}, e
 	}
-	if !capacidadParaVinculoRPT(cap, ports.AccionConsultarPublicacionCategoriaRPT, ports.AudienciaConsultarPublicacionCategoriaRPT, p.CatalogoID, b) {
+	if !capacidadParaVinculoRPT(cap, ports.AccionConsultarPublicacionCategoriaRPT, ports.AudienciaConsultarPublicacionCategoriaRPT, p.CatalogoID, p.ModuloID, "catalogo_configurable", map[string]string{"catalogo_id": p.CatalogoID, "modulo_id": p.ModuloID}, b) {
 		return domain.PublicacionCategoriaRPT{}, ports.ErrVinculoCategoriaRPTDenegado
 	}
 	tx, e := iniciarVinculoRPT(ctx, f.pool)
@@ -191,13 +192,20 @@ func argumentosCapacidadVinculoRPT(a vecports.ExportacionMaterialConsumoAutoriza
 	return []any{a.CapacidadCanonica(), a.DecisionCanonica(), a.MotivoCanonico(), a.ContextoActorCanonico(),
 		strconv.FormatUint(a.PersonaVersion(), 10), strconv.FormatUint(a.PerfilVersion(), 10), a.PayloadVECAD3(), a.SobreCOSESign1(), a.EvidenciaVerificacion(), a.RaizPublicaSPKI()}
 }
-func capacidadParaVinculoRPT(a vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, accion, audiencia, recurso string, material []byte) bool {
+func capacidadParaVinculoRPT(a vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, accion, audiencia, recurso, modulo, tipo string, ambitos map[string]string, material []byte) bool {
 	if a.ValidarEstructura() != nil {
 		return false
 	}
 	r := a.ResumenCapacidad()
+	contexto, e := huellaContextoVinculoRPT(recurso, modulo, tipo, ambitos, material)
+	return e == nil && r.Operacion() == accion && r.AudienciaConsumo() == audiencia && r.EfectoRef() == recurso && r.EfectoHuellaSHA256() == contexto
+}
+
+func huellaContextoVinculoRPT(recurso, modulo, tipo string, ambitos map[string]string, material []byte) (string, error) {
 	h := sha256.Sum256(material)
-	return r.Operacion() == accion && r.AudienciaConsumo() == audiencia && r.EfectoRef() == recurso && r.EfectoHuellaSHA256() == hex.EncodeToString(h[:])
+	r := vecdomain.RecursoAutorizable{Referencia: recurso, ModuloID: modulo, Tipo: tipo, Ambitos: ambitos,
+		Atributos: map[string]string{"material_sha256": hex.EncodeToString(h[:])}}
+	return r.HuellaContextoAutorizacionSHA256()
 }
 
 func clasificarErrorVinculoRPT(ctx context.Context, e error) error {
