@@ -1,0 +1,151 @@
+package domain
+
+import (
+	"strings"
+	"testing"
+	"time"
+)
+
+func solicitudActoAdministracionPerfilesPrueba(t *testing.T) SolicitudActoAdministracionPerfiles {
+	t.Helper()
+	instante := instanteContextoActorPrueba()
+	cuenta := solicitudContextoActorPrueba().Cuenta
+	actor, err := NuevoContextoActor(cuenta, instantaneaContextoActorPrueba(instante), instante)
+	if err != nil {
+		t.Fatal(err)
+	}
+	version := versionRolValidaPrueba()
+	asignacion := asignacionPerfilValidaPrueba()
+	asignacion.PerfilActivoRef = actor.PerfilActivoRef
+	asignacion.PrincipalID = actor.PersonaRef
+	politicas := []PoliticaRestrictiva{politicaRestrictivaValidaPrueba("minimizacion")}
+	huellaCatalogo, err := HuellaCatalogoPoliticasAutorizacion(politicas)
+	if err != nil {
+		t.Fatal(err)
+	}
+	instantanea := InstantaneaAutorizacion{
+		AsignacionPerfil: asignacion,
+		VersionRol:       version,
+		ControlVigenciaVersionRol: ControlVigenciaVersionRol{
+			VersionRolRef: version.Referencia(), Revision: 1,
+			Estado:         EstadoControlVigenciaVersionRolHabilitada,
+			ActualizadoPor: version.PublicadaPor, ActualizadoEn: version.PublicadaEn,
+		},
+		Politicas: politicas, RevisionCatalogoPoliticas: 3,
+		CatalogoPoliticasHuellaSHA256: huellaCatalogo,
+	}
+	if err := instantanea.Validar(); err != nil {
+		t.Fatal(err)
+	}
+	return SolicitudActoAdministracionPerfiles{
+		OperacionRef: "acto_admin:" + strings.Repeat("a", 32),
+		Actor:        actor, InstantaneaAutorizacion: instantanea,
+		Operacion: OperacionOtorgarPerfil, Clase: ClaseControlPerfilOrdinario,
+		RolVersionRef: "rol:tecnico_bolsa:v1",
+		Objetivo: PreimagenAdministracionPerfiles{
+			CuentaRef: referenciaContextoActorPrueba("cta_", "b"), CuentaVersion: 2,
+			PersonaRef: referenciaContextoActorPrueba("per_", "s"), PersonaVersion: 3,
+			PerfilRef:      referenciaContextoActorPrueba("prf_", "x"),
+			VinculoRef:     referenciaContextoActorPrueba("vca_", "y"),
+			HuellaSHA256:   strings.Repeat("c", 64),
+			ProcedenciaRef: "procedencia:maestra:1", ProcedenciaVersion: 1,
+			ProcedenciaHuellaSHA256: strings.Repeat("f", 64),
+			VigenteHasta:            instante.Add(24 * time.Hour),
+		},
+		Motivo: ReferenciaEntradaCatalogo{
+			CatalogoID: "motivos_administracion", CatalogoVersion: 1,
+			CatalogoHuellaSHA256: strings.Repeat("d", 64), EntradaClave: "provision_nominal",
+		},
+		CorrelacionRef: "correlacion_" + strings.Repeat("e", 32),
+	}
+}
+
+func TestAdministracionPerfilesSeparaActoOrdinarioDePropuestaSensible(t *testing.T) {
+	s := solicitudActoAdministracionPerfilesPrueba(t)
+	if err := s.Validar(); err != nil {
+		t.Fatalf("acto ordinario: %v", err)
+	}
+	s.Clase = ClaseControlPerfilAdministrador
+	if err := s.Validar(); err == nil {
+		t.Fatal("propuesta sin revision de continuidad aceptada")
+	}
+	s.Objetivo.RevisionContinuidad = 1
+	s.OperacionRef = "propuesta_admin:" + strings.Repeat("a", 32)
+	if err := s.Validar(); err != nil {
+		t.Fatalf("propuesta sensible: %v", err)
+	}
+	s.Objetivo.PerfilVersion = 1
+	if err := s.Validar(); err == nil {
+		t.Fatal("otorgamiento que recicla perfil aceptado")
+	}
+}
+
+func TestAdministracionPerfilesRevocacionExigeCASCompleto(t *testing.T) {
+	s := solicitudActoAdministracionPerfilesPrueba(t)
+	s.Operacion = OperacionRevocarPerfil
+	if err := s.Validar(); err == nil {
+		t.Fatal("revocacion sin perfil ni vinculo aceptada")
+	}
+	s.Objetivo.PerfilVersion = 2
+	s.Objetivo.VinculoVersion = 3
+	s.Objetivo.VigenteHasta = time.Time{}
+	if err := s.Validar(); err != nil {
+		t.Fatalf("revocacion con CAS: %v", err)
+	}
+	s.Objetivo.VinculoVersion = 0
+	if err := s.Validar(); err == nil {
+		t.Fatal("revocacion sin version de vinculo aceptada")
+	}
+}
+
+func TestAdministracionPerfilesDobleControlPorPersona(t *testing.T) {
+	s := solicitudActoAdministracionPerfilesPrueba(t)
+	cierre := SolicitudCierrePropuestaAdministracionPerfiles{
+		OperacionRef:          "cierre_admin:" + strings.Repeat("b", 32),
+		PropuestaRef:          "propuesta_admin:" + strings.Repeat("a", 32),
+		PropuestaHuellaSHA256: strings.Repeat("c", 64),
+		ProponentePersonaRef:  referenciaContextoActorPrueba("per_", "p"),
+		ObjetivoPersonaRef:    s.Objetivo.PersonaRef,
+		Aprobador:             s.Actor, InstantaneaAutorizacion: s.InstantaneaAutorizacion,
+		Decision: DecisionAprobarPropuestaPerfil, Motivo: s.Motivo,
+		CorrelacionRef: s.CorrelacionRef,
+	}
+	if err := cierre.Validar(); err != nil {
+		t.Fatalf("tres personas distintas: %v", err)
+	}
+	cierre.ProponentePersonaRef = cierre.Aprobador.PersonaRef
+	if err := cierre.Validar(); err == nil {
+		t.Fatal("autoaprobacion aceptada")
+	}
+	cierre.ProponentePersonaRef = referenciaContextoActorPrueba("per_", "p")
+	cierre.ObjetivoPersonaRef = cierre.Aprobador.PersonaRef
+	if err := cierre.Validar(); err == nil {
+		t.Fatal("aprobacion del afectado aceptada")
+	}
+}
+
+func TestReciboAdministracionPerfilesNoConfundePropuestaConEfecto(t *testing.T) {
+	r := ReciboAdministracionPerfiles{}
+	if err := r.Validar(); err == nil {
+		t.Fatal("recibo vacio aceptado")
+	}
+	r = ReciboAdministracionPerfiles{
+		OperacionRef:       "acto_admin:" + strings.Repeat("a", 32),
+		ActoRef:            "acto_admin:" + strings.Repeat("a", 32),
+		ReciboRef:          "recibo_admin:" + strings.Repeat("b", 32),
+		AuditoriaRef:       "auditoria:admin:1",
+		ObjetivoPersonaRef: referenciaContextoActorPrueba("per_", "s"),
+		PerfilRef:          referenciaContextoActorPrueba("prf_", "x"),
+		VinculoRef:         referenciaContextoActorPrueba("vca_", "y"),
+		EstadoPosterior:    EstadoVinculoContextoActorActivo, VersionPosterior: 1,
+		HuellaAntesSHA256: strings.Repeat("c", 64), HuellaDespuesSHA256: strings.Repeat("d", 64),
+		ConfirmadoEn: time.Date(2026, 9, 30, 19, 0, 0, 0, time.UTC),
+	}
+	if err := r.Validar(); err != nil {
+		t.Fatalf("recibo durable: %v", err)
+	}
+	r.ReciboRef = ""
+	if err := r.Validar(); err == nil {
+		t.Fatal("recibo sin referencia durable aceptado")
+	}
+}
