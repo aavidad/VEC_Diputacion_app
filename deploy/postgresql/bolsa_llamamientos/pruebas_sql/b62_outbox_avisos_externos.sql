@@ -23,6 +23,8 @@ CREATE TEMP TABLE b62_fixture AS
  FROM vec_bolsa_llamamientos.vinculo_candidato v
  JOIN vec_bolsa_llamamientos.constitucion c ON c.acta_ref=v.acta_ref
  ORDER BY c.confirmada_en DESC,v.participacion_ref LIMIT 1;
+-- Acceso sólo al esquema temporal del ensayo para los helpers nominales.
+GRANT USAGE ON SCHEMA pg_temp TO vec_bolsa_llamamientos_propietario,vec_contexto_actor_v1_propietario,vec_autorizacion_atestada_v3_propietario,vec_externo_avisos_bolsa;
 GRANT SELECT ON TABLE pg_temp.b62_fixture TO vec_bolsa_llamamientos_propietario,vec_contexto_actor_v1_propietario,vec_autorizacion_atestada_v3_propietario;
 DO $fixture$ BEGIN IF (SELECT count(*) FROM pg_temp.b62_fixture)<>1 THEN RAISE EXCEPTION 'B62: falta vínculo sintético en clon'; END IF; END $fixture$;
 CREATE OR REPLACE FUNCTION vec_contexto_actor_v1.es_candidato_externo_avisos_v1(p_candidato text)
