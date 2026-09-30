@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/url"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -299,8 +298,11 @@ func (h *bolsasRRHHDesarrollo) cargarContactos(ctx context.Context, vista *bolsa
 			return false
 		}
 		vista.datos.Contactos = append(vista.datos.Contactos, p.Contactos...)
-		if len(p.Contactos) < 100 || p.CursorSiguiente == "" {
+		if p.CursorSiguiente == "" {
 			return true
+		}
+		if p.CursorSiguiente == cursor {
+			return false
 		}
 		cursor = p.CursorSiguiente
 	}
@@ -422,27 +424,33 @@ func (h *bolsasRRHHDesarrolloDatos) respuestaCandidatos(ref string, consulta con
 	if bolsa == nil {
 		return nil, false
 	}
-	candidatas := make([]int, 0)
+	todos := make([]bolsaapplication.CandidatoTurno, 0)
+	contactosBolsa := make([]dominiobolsa.ContactoParticipacion, 0)
+	for _, candidata := range h.datos.Candidaturas {
+		if candidata.BolsaRef == ref {
+			todos = append(todos, bolsaapplication.CandidatoTurno{ParticipacionRef: candidata.Referencia, NombreVisible: candidata.Nombre, Orden: candidata.Orden, OrdenActa: candidata.OrdenActa, Estado: candidata.Estado})
+		}
+	}
+	for _, contacto := range h.datos.Contactos {
+		if contacto.BolsaRef == ref {
+			contactosBolsa = append(contactosBolsa, contacto)
+		}
+	}
+	turno := bolsaapplication.ProyectarTurnoCandidatos(bolsa.PoliticaOrden.Referencia, bolsa.PoliticaOrden.Version, bolsa.PoliticaOrden.Provisional, todos, contactosBolsa)
+	candidatas := make([]bolsaapplication.CandidatoTurno, 0)
+	indices := make(map[string]int)
 	for indice, candidata := range h.datos.Candidaturas {
 		if candidata.BolsaRef != ref || (consulta.estado != "" && estadoBolsaCanonico(candidata.Estado) != consulta.estado) || (consulta.texto != "" && !strings.Contains(strings.ToLower(candidata.Nombre+" "+candidata.Documento), consulta.texto)) {
 			continue
 		}
-		candidatas = append(candidatas, indice)
+		candidatas = append(candidatas, bolsaapplication.CandidatoTurno{ParticipacionRef: candidata.Referencia, NombreVisible: candidata.Nombre, Orden: candidata.Orden, OrdenActa: candidata.OrdenActa, Estado: candidata.Estado})
+		indices[candidata.Referencia] = indice
 	}
-	sort.Slice(candidatas, func(i, j int) bool {
-		a, b := h.datos.Candidaturas[candidatas[i]], h.datos.Candidaturas[candidatas[j]]
-		if a.Orden == nil {
-			return false
-		}
-		if b.Orden == nil {
-			return true
-		}
-		return *a.Orden < *b.Orden
-	})
+	candidatas = bolsaapplication.OrdenarCandidatosTurno(candidatas)
 	inicio := 0
 	if consulta.cursor != "" {
-		for i, indice := range candidatas {
-			if h.datos.Candidaturas[indice].Referencia == consulta.cursor {
+		for i, candidata := range candidatas {
+			if candidata.ParticipacionRef == consulta.cursor {
 				inicio = i + 1
 				break
 			}
@@ -456,8 +464,8 @@ func (h *bolsasRRHHDesarrolloDatos) respuestaCandidatos(ref string, consulta con
 		fin = len(candidatas)
 	}
 	salida := make([]map[string]any, 0, fin-inicio)
-	for _, indice := range candidatas[inicio:fin] {
-		salida = append(salida, h.salidaCandidata(h.datos.Candidaturas[indice]))
+	for _, candidata := range candidatas[inicio:fin] {
+		salida = append(salida, h.salidaCandidata(h.datos.Candidaturas[indices[candidata.ParticipacionRef]]))
 	}
 	conteo := mapaEstadosVacio()
 	for _, candidata := range h.datos.Candidaturas {
@@ -468,7 +476,7 @@ func (h *bolsasRRHHDesarrolloDatos) respuestaCandidatos(ref string, consulta con
 	hayMas := fin < len(candidatas)
 	var siguiente any = nil
 	if hayMas {
-		siguiente = h.datos.Candidaturas[candidatas[fin-1]].Referencia
+		siguiente = candidatas[fin-1].ParticipacionRef
 	}
 	contactos := make([]map[string]any, 0)
 	for _, c := range h.datos.Contactos {
@@ -476,7 +484,21 @@ func (h *bolsasRRHHDesarrolloDatos) respuestaCandidatos(ref string, consulta con
 			contactos = append(contactos, map[string]any{"contacto_ref": c.ContactoRef, "participacion_ref": c.ParticipacionRef, "llamamiento_ref": nuloBootstrap(c.LlamamientoRef), "canal": c.Canal, "instante": c.Instante.UTC().Format(time.RFC3339Nano), "actor_ref": c.Actor, "resultado": c.Resultado, "anotacion": c.Anotacion})
 		}
 	}
-	return map[string]any{"esquema": "vec.bolsa.rrhh.candidatos.v1", "generado_en": instanteBolsasRRHH(h.datos.GeneradoEn), "bolsa": salidaBolsaRRHH(bolsa.Referencia, bolsa.CategoriaRef, bolsa.Categoria, bolsa.TipoLista, bolsa.VigenteDesde, bolsa.VigenteHasta, conteo, bolsa.LlamamientosEnCurso, bolsa.PoliticaOrden), "candidatos": salida, "contactos": contactos, "hay_mas": hayMas, "cursor_siguiente": siguiente}, true
+	return map[string]any{"esquema": "vec.bolsa.rrhh.candidatos.v2", "generado_en": instanteBolsasRRHH(h.datos.GeneradoEn), "bolsa": salidaBolsaRRHH(bolsa.Referencia, bolsa.CategoriaRef, bolsa.Categoria, bolsa.TipoLista, bolsa.VigenteDesde, bolsa.VigenteHasta, conteo, bolsa.LlamamientosEnCurso, bolsa.PoliticaOrden), "candidatos": salida, "contactos": contactos, "turno": salidaTurnoCandidatos(turno), "hay_mas": hayMas, "cursor_siguiente": siguiente}, true
+}
+
+func salidaTurnoCandidatos(turno bolsaapplication.TurnoCandidatos) map[string]any {
+	var ultimo any
+	if turno.UltimoLlamado != nil {
+		candidato, contacto := turno.UltimoLlamado.Candidato, turno.UltimoLlamado.Contacto
+		ultimo = map[string]any{"participacion_ref": candidato.ParticipacionRef, "nombre_visible": candidato.NombreVisible, "orden": candidato.Orden, "comunicado_en": contacto.Instante.UTC().Format(time.RFC3339Nano), "canal": contacto.Canal, "resultado": contacto.Resultado}
+	}
+	var siguiente any
+	if turno.Siguiente != nil {
+		candidato := turno.Siguiente
+		siguiente = map[string]any{"participacion_ref": candidato.ParticipacionRef, "nombre_visible": candidato.NombreVisible, "orden": candidato.Orden}
+	}
+	return map[string]any{"politica_ref": turno.PoliticaRef, "politica_version": turno.PoliticaVersion, "provisional": turno.Provisional, "ultimo_llamado": ultimo, "siguiente": siguiente, "estado_siguiente": turno.EstadoSiguiente}
 }
 
 func nuloBootstrap(v string) any {
@@ -507,21 +529,19 @@ func (h *bolsasRRHHDesarrolloDatos) salidaCandidata(candidata struct {
 	EstadoDesde string  `json:"estado_desde"`
 	Disponible  *string `json:"disponible_desde"`
 }) map[string]any {
-	var ultimo map[string]string
-	for _, llamada := range h.datos.Llamamientos {
-		if llamada.Candidatura == candidata.Referencia && (ultimo == nil || llamada.Comunicado > ultimo["comunicado_en"]) {
-			ultimo = map[string]string{"llamamiento_ref": llamada.Referencia, "comunicado_en": llamada.Comunicado, "canal": llamada.Canal, "resultado": llamada.Resultado}
-		}
-	}
 	var llamada any = nil
-	if ultimo != nil {
-		llamada = ultimo
-	}
 	contactos := 0
-	for _, c := range h.datos.Contactos {
-		if c.ParticipacionRef == candidata.Referencia {
+	contactosBolsa := make([]dominiobolsa.ContactoParticipacion, 0)
+	for _, contacto := range h.datos.Contactos {
+		if contacto.BolsaRef == candidata.BolsaRef && contacto.ParticipacionRef == candidata.Referencia {
 			contactos++
+			contactosBolsa = append(contactosBolsa, contacto)
 		}
+	}
+	candidatoTurno := bolsaapplication.CandidatoTurno{ParticipacionRef: candidata.Referencia}
+	if ultimo := bolsaapplication.UltimoLlamadoDesdeContactos([]bolsaapplication.CandidatoTurno{candidatoTurno}, contactosBolsa); ultimo != nil {
+		contacto := ultimo.Contacto
+		llamada = map[string]any{"llamamiento_ref": contacto.LlamamientoRef, "comunicado_en": contacto.Instante.UTC().Format(time.RFC3339Nano), "canal": contacto.Canal, "resultado": contacto.Resultado}
 	}
 	salida := map[string]any{"participacion_ref": candidata.Referencia, "orden": candidata.Orden, "orden_acta": candidata.OrdenActa, "razon_orden": candidata.RazonOrden, "nombre_visible": candidata.Nombre, "documento_enmascarado": candidata.Documento, "estado_clave": estadoBolsaCanonico(candidata.Estado), "estado_desde": candidata.EstadoDesde, "disponible_desde": candidata.Disponible, "ultimo_llamamiento": llamada, "contactos_total": contactos}
 	if h.datos.Marcas != nil {
