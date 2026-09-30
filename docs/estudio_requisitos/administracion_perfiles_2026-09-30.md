@@ -24,9 +24,10 @@ cidonia, firma legal o acceso a expedientes.
    aprobación de otra persona administradora, distinta de la proponente y de
    la afectada. El mismo doble control rige las altas y bajas de Intervención.
    Las asignaciones nominales y la decisión V3 se revalidan al aplicar.
-5. La baja ordinaria conserva al menos dos personas administradoras efectivas;
-   ninguna transición puede dejar el sistema sin administrador. Si se pierde
-   una credencial o una persona, se bloquean los actos sin aprobador válido.
+5. La guarda de una baja conserva al menos una persona administradora activa.
+   Se recomienda mantener dos o más para sostener el doble control. Si se
+   pierde una credencial o una persona, se bloquean los actos sin aprobador
+   válido aunque aún quede una persona administradora activa.
    La recuperación necesita procedimiento excepcional, aprobación expresa del
    operador, evidencia y revisión antes de implementarse. No abre un segundo
    bootstrap ni permite autoalta.
@@ -56,7 +57,7 @@ decisión de VEC; ninguna fuente acredita una práctica de la Diputación.
 | [Keycloak: hostname de administración](https://www.keycloak.org/server/hostname) | Permite otra URL para la consola; advierte que `hostname-admin` por sí solo no cierra la API administrativa en la URL principal. | Subdominio, proceso y rutas ADMIN separados; la entrada pública no enruta su API. |
 | [Microsoft Entra PIM: aprobación](https://learn.microsoft.com/en-us/entra/id-governance/privileged-identity-management/pim-approval-workflow) | Admite aprobación delegada para activar roles e impide al solicitante aprobar su propia activación. | Dos personas distintas para cambios de administrador e Intervención; VEC revalida la asignación al ejecutar. |
 | [Teleport: solicitudes de acceso](https://goteleport.com/docs/identity-governance/access-requests/access-request-configuration/) | Configura roles solicitables y revisores; por defecto no se puede solicitar elevación. | Lista positiva cerrada y doble control. Una solicitud nunca publica permisos por sí sola. |
-| [GitHub: continuidad de propietarios](https://docs.github.com/en/organizations/managing-peoples-access-to-your-organization-with-roles/maintaining-ownership-continuity-for-your-organization) | Recomienda dos personas propietarias para evitar perder acceso y no permite cambiar el rol propio. | Arranque con dos personas y mínimo de dos tras una baja ordinaria; recuperación excepcional con contrato propio. |
+| [GitHub: continuidad de propietarios](https://docs.github.com/en/organizations/managing-peoples-access-to-your-organization-with-roles/maintaining-ownership-continuity-for-your-organization) | Recomienda dos personas propietarias para evitar perder acceso y no permite cambiar el rol propio. | Arranque obligatorio con dos personas, recomendación de mantener dos y guarda posterior de una activa; recuperación excepcional con contrato propio. |
 
 ## Autoridades que se reutilizan
 
@@ -100,8 +101,10 @@ del rol, ámbito, vigencia, versión y huella anteriores, versión y huella
 nuevas, motivo, correlación e instante. Compara la preimagen exacta por CAS y
 vuelve a comprobar la decisión V3 en la misma transacción que escribe estado,
 auditoría y recibo. Un replay de la misma clave recupera el recibo anterior
-sin duplicar efectos; una preimagen diferente se rechaza. No se publican
-permisos por petición, menú o arranque.
+sin duplicar efectos; una preimagen diferente se rechaza. No hay provisión
+implícita por petición, menú o arranque. En desarrollo permanece la provisión
+expresamente autorizada con doble llave, preimagen y huella CAS, distinta del
+acto inicial ADMIN aquí definido.
 
 Una revocación crea historia y retira la asignación vigente. Una futura
 concesión autorizada usa otra referencia; no reactiva el vínculo ni la
@@ -114,8 +117,8 @@ huella inmutable, caducidad gobernada, estado e historia. El aprobador ve la
 preimagen y el efecto, aporta motivo y no puede ser proponente ni afectado.
 Se cotejan dos personas y dos asignaciones vivas, nunca dos sesiones o dos
 perfiles de la misma persona. Para una baja ordinaria se bloquea el conjunto
-relevante y se comprueba dentro de la transacción que permanecen al menos dos
-personas efectivas. Dos bajas concurrentes no pueden eludir el mínimo: SQL
+relevante y se comprueba dentro de la transacción que permanece al menos una
+persona administradora activa. Dos bajas concurrentes no pueden dejar cero: SQL
 debe usar bloqueo/CAS o aislamiento serializable con reintento completo de
 `40001`, y probarlo en PostgreSQL 18. Véanse el
 [aislamiento](https://www.postgresql.org/docs/18/transaction-iso.html) y los
@@ -181,8 +184,9 @@ por separado integración, instalación, API, navegador y recuperación.
   persona repetida: cero efectos.
 - Dos sesiones de una persona no satisfacen el doble control. Una persona
   afectada, revocada o sin asignación nominal vigente tampoco aprueba.
-- Dos bajas concurrentes que dejarían menos de dos administradores efectivos:
-  como máximo una confirma; la otra falla con historia y auditoría coherentes.
+- Dos bajas concurrentes que dejarían cero administradores activos: no pueden
+  confirmar ambas. Cada una exige proponente y aprobador válidos, con aprobador
+  distinto del proponente y de la persona afectada; sin ellos, ninguna confirma.
 - La gestión del perfil de Intervención exige rol publicado, propuesta y otra
   persona administradora aprobadora; una petición sola se deniega. Para
   fiscalizar, el rol ADMIN no basta: se exige un perfil activo de Intervención.
