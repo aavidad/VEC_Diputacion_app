@@ -24,6 +24,8 @@ rules:
     languages: [go]
     severity: ERROR
     message: El fixture debe llamar al publicador completo de gobierno.
+    paths:
+      exclude: ["**/contratacion_temporal_postgresql_gobierno_desarrollo.go"]
     pattern: 'publicarGobiernoAtestacionCTEnTxDesarrollo(...)'
   - id: vec-rpt-fixture-provision-ct
     languages: [go]

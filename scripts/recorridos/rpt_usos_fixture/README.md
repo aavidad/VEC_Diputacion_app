@@ -4,10 +4,10 @@ Base del encargo: `b8bd755b70399fab6627d12858e4dc90ade6b7d3` (PR #222).
 La plantilla conserva datos de entrada pendientes. No contiene credenciales ni
 material criptográfico y no autoriza ninguna operación.
 
-Este subcorte conserva guardas puras y el contrato del recorrido. El resultado
-operativo es **NO-GO**: todavía falta la composición que provisione el perfil
-y emita material RPT real. No hay ejecutable del fixture ni se ha probado un
-positivo V3. Las guardas se validan en memoria, sin conectarse a PostgreSQL.
+La entrega incluye guardas, una composición optativa de V3 y un coordinador
+del recorrido. El resultado operativo sigue siendo **NO-GO** hasta obtener
+las dos revisiones sensibles del candidato y el READY del clon. No se ha
+ejecutado provisión, COSE de consumo real ni un positivo PostgreSQL.
 
 El ejercicio se limita al clon local en loopback. Su DSN y puerto proceden de
 la configuración privada y se cotejan con la huella del clon H6; el puerto
@@ -91,32 +91,58 @@ La provisión fija existente en
 está ligada al soporte y los actos de CT. La autoridad común de publicación con
 CAS está en `internal/app/bootstrap/autoridad_postgresql_desarrollo.go:179`.
 La composición RPT debe reutilizar esa autoridad con actos propios y una
-plantilla fija; falta revisar su entrada nominal para este fixture. Los nombres
-de las APIs anteriores no demuestran que esa composición ya exista.
+plantilla fija. El fixture usa `autoridadPostgreSQLDesarrollo` con actos RPT
+propios, sin llamar al asegurador de perfiles CT.
 
-El bloqueo concreto de emisión está en
+La modificación de emisión se limita a
 `internal/app/bootstrap/contratacion_temporal_postgresql_gobierno_desarrollo.go`:
-`audienciasConsumoGobiernoCTDesarrollo()` no contiene la audiencia de usos RPT.
+`audienciasConsumoGobiernoCTDesarrollo()` admite la audiencia exacta de usos RPT.
 La misma lista protege el publicador y el reconocimiento del puntero de gobierno
-propio. La corrección mínima propuesta añade esa audiencia nominal, mediante
-cesión exclusiva del archivo y dos revisiones sensibles. No se llama al helper
+propio. El archivo se modificó tras su cesión exclusiva; la revisión sensible
+del candidato final sigue pendiente. No se llama al helper
 inferior `publicarGobiernoAtestacionCTEnTxDesarrollo` para eludir la guarda.
 
-Después se puede implementar la composición optativa en archivos nuevos
+La composición optativa está en los archivos nuevos
 `catalogos_rpt_usos_fixture_*`: derivación nominal con dominio y prefijo RPT
 propios, publicación mediante el publicador completo, contexto con discriminador
 RPT propio y publicación real por `publicarResultadoContextoPostgreSQLDesarrollo`,
 perfil fijo con actos RPT propios y CAS, y tres pools separados de gobierno,
 registro de decisiones y ejecución. La verificación del certificado contra la
 CA de desarrollo es una comprobación separada; el contexto sintético no
-acredita autenticación mTLS de una persona.
+acredita autenticación mTLS de una persona. La cuenta y persona conservan su
+procedencia común; perfil, vínculo, registro, autenticación y sesión quedan
+separados mediante el discriminador propio del fixture.
+
+`PlanificarPerfilRPTUsosFixtureV3(cfg, descriptor)` obtiene los compromisos de
+la plantilla inicial sin abrir PostgreSQL ni publicar. El operador aprueba su
+huella antes de provisionar. Para sustituir una asignación ya publicada, la
+huella aprobada debe ser la de esa preimagen vigente, obtenida por su autoridad.
+
+`NuevoRPTUsosFixtureV3(ctx, cfg, configuracion, validadorMotivos)` crea la
+composición privada. Recibe el validador nominal de motivos ya configurado,
+igual que CT usa `NuevoValidadorReferenciaMotivoPostgreSQLV2` con el pool
+`motivos_autorizacion` en su composición nominal. Si ese puerto o su configuración
+aprobada faltan, la construcción deniega; este fixture no crea un LOGIN nuevo
+para suplirlos. Los métodos `Preparador()`, `Gestor()` y `Emitir(...)` conectan
+con `rptusosfixture.NuevoRecorrido(...)`; `Cerrar()` libera los tres pools propios.
+No hay montaje HTTP ni ampliación de permisos por una ruta pública.
+
+La composición comprueba el destino y los tres LOGIN antes de escribir. Lee
+la asignación vigente y admite su preimagen antes de publicar gobierno/contexto;
+repite la admisión al provisionar y conserva el CAS del publicador común.
+El preflight del ejecutor sólo lee metadata de PostgreSQL y exige su familia
+única, las seis firmas RPT y sus permisos de ejecución. El resto de READY
+procede de las evidencias privadas aprobadas del clon, no de esos nombres SQL.
 
 ## Recorrido previsto cuando la composición esté revisada y el clon esté READY
 
 1. Conservar fuera de Git la aprobación, preimagen de la asignación y evidencia
    de las dependencias. Acreditar una categoría habilitada, la publicación exacta
    y el descriptor gobernado. Inventariar la historia anterior del clon.
-2. Provisionar el perfil fijo mediante su autoridad y verificar la identidad
+2. Preparar la configuración privada a partir de `plantilla.json` y los DTO
+   tipados de bootstrap. La plantilla es una lista de datos pendientes, no un
+   codec de capacidades V3 ni una orden ejecutable. Construir el fixture con
+   el validador de motivos existente y provisionar el perfil mediante su autoridad.
    operativa. En las operaciones posteriores, consumirlo sin republicarlo.
 3. Preparar la primera reserva, solicitar V3 real y reservar. Conservar el uso,
    recibo de reserva, versión, estado y fecha devueltos por RPT.
@@ -131,7 +157,7 @@ acredita autenticación mTLS de una persona.
    autorización y su auditoría son nuevos; el uso, recibos, fechas y revisión
    de negocio permanecen idénticos. No reutilizar una capacidad consumida.
 7. El responsable reinicia únicamente los servicios autorizados del clon.
-   Recuperar los dos usos con otra V3 fresca y cotejar los recibos, fechas,
+   Repetir el mismo recorrido con otra V3 fresca y cotejar los recibos, fechas,
    publicación, estado y revisión. No aumentar la historia de negocio ni borrar
    la auditoría nueva de los accesos.
 8. El responsable de persistencia compara la historia de negocio y las huellas

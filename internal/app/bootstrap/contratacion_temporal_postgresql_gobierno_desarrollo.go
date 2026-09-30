@@ -328,6 +328,8 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		puertosbolsa.AudienciaHistorialMiBolsa,
 		docports.AudienciaV3,
 		personal.AudienciaFichaPropia,
+		// AD3-126: sólo al provisionar el fixture privado y optativo de usos RPT.
+		"vec_catalogos_configurables.usos_categorias.v1",
 	}
 }
 

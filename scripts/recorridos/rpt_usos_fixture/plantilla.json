@@ -1,9 +1,11 @@
 {
   "version": 1,
-  "estado": "pendiente_composicion_revisada",
+  "estado": "pendiente_revision_y_ready",
+  "activar": false,
   "destino": {
     "host": "127.0.0.1",
     "puerto": null,
+    "base": null,
     "clon_ref": null,
     "clon_huella_sha256": null,
     "ready_h6_ref": null,
@@ -18,6 +20,12 @@
   "material_privado_ref": null,
   "aprobacion_ref": null,
   "asignacion_preimagen_sha256": null,
+  "motivo_publicado": {
+    "catalogo_id": null,
+    "catalogo_version": null,
+    "catalogo_huella_sha256": null,
+    "entrada_clave": null
+  },
   "descriptor": {
     "catalogo_id": null,
     "modulo_id": null
