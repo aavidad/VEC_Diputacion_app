@@ -1,0 +1,5 @@
+# Tras Usuarios10/11/12/13, Documentos10 y correctivas AUT21/AD3-122 de #179.
+# Nueva clausura; una sola instalación por base, sin reaplicar ni DOWN.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000124_clausura_tipos_temporales.up.sql
+deploy/postgresql/documentos/migraciones/000011_clausura_tipos_temporales.up.sql
+deploy/postgresql/usuarios_vec/migraciones/000015_clausura_tipos_temporales.up.sql
