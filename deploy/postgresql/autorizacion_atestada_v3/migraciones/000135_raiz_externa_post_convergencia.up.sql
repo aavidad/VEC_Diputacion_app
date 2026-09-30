@@ -129,13 +129,13 @@ select jsonb_build_object(
           AND c.conname='clave_capacidad_version_audiencia_consumo_check'),
       'tipos',(SELECT pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
         'nombre',t.typname,'propietario',pg_catalog.pg_get_userbyid(t.typowner),
-        'acl',pg_catalog.coalesce((SELECT pg_catalog.jsonb_agg(
+        'acl',coalesce((SELECT pg_catalog.jsonb_agg(
            pg_catalog.jsonb_build_object(
-             'grantee',pg_catalog.coalesce(r.rolname,'PUBLIC'),
+             'grantee',coalesce(r.rolname,'PUBLIC'),
              'privilege',a.privilege_type,'grantable',a.is_grantable)
-           ORDER BY pg_catalog.coalesce(r.rolname,'PUBLIC'),
+           ORDER BY coalesce(r.rolname,'PUBLIC'),
                     a.privilege_type,a.is_grantable)
-           FROM pg_catalog.aclexplode(pg_catalog.coalesce(
+           FROM pg_catalog.aclexplode(coalesce(
              t.typacl,pg_catalog.acldefault('T',t.typowner))) AS a
            LEFT JOIN pg_catalog.pg_roles AS r ON r.oid=a.grantee),
            '[]'::pg_catalog.jsonb)) ORDER BY t.typname)
@@ -151,17 +151,17 @@ select jsonb_build_object(
         JOIN pg_catalog.pg_roles AS m ON m.oid=a.member
         WHERE pg_catalog.left(g.rolname,4)='vec_'
            OR pg_catalog.left(m.rolname,4)='vec_'),
-      'public_temp',(SELECT pg_catalog.coalesce(pg_catalog.bool_or(
+      'public_temp',(SELECT coalesce(pg_catalog.bool_or(
         a.grantee=0 AND a.privilege_type='TEMPORARY'),false)
         FROM pg_catalog.pg_database AS d
-        LEFT JOIN LATERAL pg_catalog.aclexplode(pg_catalog.coalesce(
+        LEFT JOIN LATERAL pg_catalog.aclexplode(coalesce(
           d.datacl,pg_catalog.acldefault('d',d.datdba))) AS a ON true
         WHERE d.datname=pg_catalog.current_database())) INTO frontera_actual;
     IF frontera_actual->'audiencias' IS NULL
        OR frontera_actual->'audiencias'='null'::pg_catalog.jsonb
        OR frontera_actual->>'public_temp' IS DISTINCT FROM 'false'
        OR frontera_actual IS DISTINCT FROM
-          CASE WHEN actual=ampliada THEN frontera_a ELSE frontera_b END THEN
+          (CASE WHEN actual=ampliada THEN frontera_a ELSE frontera_b END) THEN
        RAISE EXCEPTION 'AD3-135: CHECK, tipos, membresías o TEMP incompatibles'
          USING ERRCODE='55000';
     END IF;

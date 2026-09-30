@@ -18,18 +18,18 @@ WITH funciones AS (
   'configuracion',p.proconfig,
   'metadatos',pg_catalog.to_jsonb(p) - ARRAY[
       'oid','pronamespace','proowner','prolang','prosrc','proacl'],
-  'acl',pg_catalog.coalesce((
+  'acl',coalesce((
       SELECT pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
-        'grantee',pg_catalog.coalesce(gr.rolname,'PUBLIC'),
+        'grantee',coalesce(gr.rolname,'PUBLIC'),
         'grantor',go.rolname,'privilege',a.privilege_type,
         'grantable',a.is_grantable)
-        ORDER BY pg_catalog.coalesce(gr.rolname,'PUBLIC'),
+        ORDER BY coalesce(gr.rolname,'PUBLIC'),
                  go.rolname,a.privilege_type,a.is_grantable)
-      FROM pg_catalog.aclexplode(pg_catalog.coalesce(
+      FROM pg_catalog.aclexplode(coalesce(
            p.proacl,pg_catalog.acldefault('f',p.proowner))) AS a
       LEFT JOIN pg_catalog.pg_roles AS gr ON gr.oid=a.grantee
       LEFT JOIN pg_catalog.pg_roles AS go ON go.oid=a.grantor),'[]'::pg_catalog.jsonb),
-  'dependencias_locales',pg_catalog.coalesce((
+  'dependencias_locales',coalesce((
       SELECT pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
         'class',d.classid::pg_catalog.regclass::pg_catalog.text,
         'refclass',d.refclassid::pg_catalog.regclass::pg_catalog.text,
@@ -40,7 +40,7 @@ WITH funciones AS (
           d.refclassid,d.refobjid,d.refobjsubid) AS i
       WHERE d.classid='pg_catalog.pg_proc'::pg_catalog.regclass
         AND d.objid=p.oid),'[]'::pg_catalog.jsonb),
-  'dependencias_compartidas',pg_catalog.coalesce((
+  'dependencias_compartidas',coalesce((
       SELECT pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
         'refclass',d.refclassid::pg_catalog.regclass::pg_catalog.text,
         'deptype',d.deptype,'target',pg_catalog.to_jsonb(i))
@@ -63,7 +63,7 @@ WITH funciones AS (
    'metadatos',pg_catalog.to_jsonb(c) - ARRAY[
        'oid','connamespace','conrelid','conbin'],
    'tabla',c.conrelid::pg_catalog.regclass::pg_catalog.text,
-   'dependencias',pg_catalog.coalesce((
+   'dependencias',coalesce((
      SELECT pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
        'refclass',d.refclassid::pg_catalog.regclass::pg_catalog.text,
        'deptype',d.deptype,'target',pg_catalog.to_jsonb(i))
@@ -83,14 +83,14 @@ WITH funciones AS (
    'propietario',pg_catalog.pg_get_userbyid(t.typowner),
    'metadatos',pg_catalog.to_jsonb(t) - ARRAY[
        'oid','typnamespace','typowner','typrelid','typarray','typacl'],
-   'acl',pg_catalog.coalesce((
+   'acl',coalesce((
      SELECT pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
-       'grantee',pg_catalog.coalesce(gr.rolname,'PUBLIC'),
+       'grantee',coalesce(gr.rolname,'PUBLIC'),
        'grantor',go.rolname,'privilege',a.privilege_type,
        'grantable',a.is_grantable)
-       ORDER BY pg_catalog.coalesce(gr.rolname,'PUBLIC'),
+       ORDER BY coalesce(gr.rolname,'PUBLIC'),
                 go.rolname,a.privilege_type,a.is_grantable)
-     FROM pg_catalog.aclexplode(pg_catalog.coalesce(
+     FROM pg_catalog.aclexplode(coalesce(
           t.typacl,pg_catalog.acldefault('T',t.typowner))) AS a
      LEFT JOIN pg_catalog.pg_roles AS gr ON gr.oid=a.grantee
      LEFT JOIN pg_catalog.pg_roles AS go ON go.oid=a.grantor),'[]'::pg_catalog.jsonb)
@@ -109,10 +109,10 @@ WITH funciones AS (
  WHERE pg_catalog.left(g.rolname,4)='vec_'
     OR pg_catalog.left(m.rolname,4)='vec_'
 ), temporal AS (
- SELECT pg_catalog.coalesce(pg_catalog.bool_or(
+ SELECT coalesce(pg_catalog.bool_or(
    a.grantee=0 AND a.privilege_type='TEMPORARY'),false) AS public_temp
  FROM pg_catalog.pg_database AS d
- LEFT JOIN LATERAL pg_catalog.aclexplode(pg_catalog.coalesce(
+ LEFT JOIN LATERAL pg_catalog.aclexplode(coalesce(
    d.datacl,pg_catalog.acldefault('d',d.datdba))) AS a ON true
  WHERE d.datname=pg_catalog.current_database()
 ), inventario AS (
