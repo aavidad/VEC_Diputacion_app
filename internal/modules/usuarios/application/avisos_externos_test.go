@@ -205,6 +205,26 @@ func TestInboxSinCorreoOFalloSobreNoEnvia(t *testing.T) {
 		}
 	}
 }
+func TestInboxPlantillaRevocadaDespuesDeAceptarNoCierraComoRechazoSMTP(t *testing.T) {
+	r := &registroInboxPrueba{}
+	tr := &transportadorInboxPrueba{resultado: ports.AvisoExternoAceptadoPorRelay}
+	s := servicioInboxPrueba(t, r, &protectorInboxPrueba{}, tr)
+	ctx := context.Background()
+	rec, err := s.Aceptar(ctx, eventoInboxPrueba())
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.catalogo = catalogoInboxPrueba(false)
+	primero, err := s.Despachar(ctx, rec.ReciboRef)
+	if !errors.Is(err, ports.ErrAvisoExternoNoDisponible) || primero.Estado != "reservado_incierto" || tr.n != 0 {
+		t.Fatal("revocación se convirtió en rechazo SMTP", primero, err, tr.n)
+	}
+	s = servicioInboxPrueba(t, r, &protectorInboxPrueba{}, tr)
+	replay, err := s.Despachar(ctx, rec.ReciboRef)
+	if err != nil || !replay.Replay || replay.Estado != "reservado_incierto" || tr.n != 0 {
+		t.Fatal("replay abrió otro envío", replay, err, tr.n)
+	}
+}
 func TestInboxRechazaProductorYPlantillaAntesPersistir(t *testing.T) {
 	r := &registroInboxPrueba{}
 	tr := &transportadorInboxPrueba{}
