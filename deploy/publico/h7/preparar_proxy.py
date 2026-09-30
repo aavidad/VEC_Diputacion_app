@@ -102,6 +102,7 @@ def tls_context(ca_file, certificate=None, key=None):
     ca = read_file(ca_file).decode("ascii")
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
     context.minimum_version = ssl.TLSVersion.TLSv1_2
+    context.set_alpn_protocols(["http/1.1"])
     context.load_verify_locations(cadata=ca)
     if certificate is not None:
         read_file(certificate)

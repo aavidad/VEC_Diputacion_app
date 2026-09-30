@@ -35,6 +35,8 @@ class SyntheticServer:
                                 or key.lower().startswith(("x-vec-", "x-auth-", "x-forwarded-"))
                                 for key in self.headers)
                 status = 400 if dangerous else 404 if not internal and self.path in coexist.PRIVATE_ROUTES else 200
+                if internal and self.connection.selected_alpn_protocol() != "http/1.1":
+                    status = 400
                 body = BODY
                 if owner.failure == "private" and self.path in coexist.PRIVATE_ROUTES:
                     status = 200
@@ -62,6 +64,7 @@ class SyntheticServer:
         if internal:
             context.verify_mode = ssl.CERT_REQUIRED
             context.load_verify_locations(fixture.ca)
+            context.set_alpn_protocols(["http/1.1"])
         self.server.socket = context.wrap_socket(self.server.socket, server_side=True)
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
@@ -143,6 +146,15 @@ class CoexistenceTests(unittest.TestCase):
         with self.assertRaises((ssl.SSLError, ConnectionResetError)):
             coexist.fetch(self.internal.endpoint(), "/portal-empleado/", client=False)
         self.assertEqual(coexist.fetch(self.internal.endpoint(), "/portal-empleado/")[0], 200)
+
+    def test_internal_requires_negotiated_http11_alpn(self):
+        endpoint = self.internal.endpoint()
+        context = proxy.tls_context(endpoint["ca_file"], endpoint["client_certificate_file"],
+                                    endpoint["client_key_file"])
+        context.set_alpn_protocols([])
+        with patch.object(coexist, "tls_context", return_value=context):
+            self.assertEqual(coexist.fetch(endpoint, "/portal-empleado/")[0], 400)
+        self.assertEqual(coexist.fetch(endpoint, "/portal-empleado/")[0], 200)
 
     def test_cookies_redirects_location_and_private_leak_fail(self):
         for failure in ("cookie", "redirect", "location", "private", "body"):
