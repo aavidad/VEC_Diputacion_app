@@ -5,6 +5,10 @@ H1 se restaura antes; H5 solo configura la aplicación. No instala SQL de ramas
 pendientes ni ejecuta DOWN. --plan valida todos los SHA sin acceder a Docker.
 El journal privado v2 conserva confirmaciones observadas fuera de PostgreSQL.
 Un pending obliga a retirar y reconstruir el clon en otro estado privado.
+La familia independiente h6_package_62 usa 17 H3/H4 de Git73e y las 45 SQL
+del paquete D en su orden exacto. Tar, lock externo y H1 exigen huellas
+aprobadas recibidas por argumentos; la coherencia interna no es aprobación.
+El plan histórico45 conserva su propuesta y nunca se convierte al nuevo62.
 Admite la base main@7f1ecea2f (33 SQL), la extensión main@ff6493cfc
 (CT147, posición 34), main@e78687528 (AD3-114/CT148, posiciones 35/36)
 main@a7d9df2b3 (AD3-113/Documentos9, posiciones 37/38), main@1e443463d
@@ -38,6 +42,7 @@ import stat
 import subprocess
 import sys
 import uuid
+import tarfile
 from datetime import datetime, timezone
 
 BASE_REF = "7f1ecea2fd9f8912d255a80e74da84c69e46b978"
@@ -71,6 +76,9 @@ REF_PLAN_SHA = {
     H6_FIRMA_REF: "248e8771af8a8d59fb9df94d3400cabecb9421dbb56b8b62c479432f2e7bab92",
     H6_FIRMA_FINAL_REF: "52240f99125ce4b83872bc41c75bfda233e7957b0b2978aa361c26fba708ac48",
 }
+H6_PACKAGE_FAMILY = "h6_package_62"
+H6_PREFIX_MANIFEST = Path(__file__).with_name("sql_h6_prefix17.txt")
+H6_PREFIX_PLAN_SHA = "aa2cfe38e53d3af96da7200a3dc87353a973ba496212d1026081e032d1e5cf4e"
 OWNER_LABEL = "vec.recorridos.owner"
 OWNER = "Codex-M"
 MANIFEST = Path(__file__).with_name("sql_main.txt")
@@ -252,6 +260,182 @@ def load_plan(repo, manifest=None, source_ref=MAIN_REF, contents=None):
 def plan_hash(rows):
     return sha(json.dumps([{k: v for k, v in row.items() if k != "sql"}
                            for row in rows], sort_keys=True).encode())
+
+
+def approved_file(path, digest, limit, retain=True):
+    """Lee por descriptores sin enlaces; la aprobación siempre llega de fuera."""
+    if not isinstance(digest, str) or not re.fullmatch(r"[a-f0-9]{64}", digest):
+        raise Refused("falta SHA256 aprobado externo")
+    original = validate_original_path(path)
+    directory = os.open("/", os.O_RDONLY | os.O_DIRECTORY)
+    fd = None
+    try:
+        for component in original.parts[1:-1]:
+            following = os.open(component, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+                                dir_fd=directory)
+            os.close(directory)
+            directory = following
+        fd = os.open(original.name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK,
+                     dir_fd=directory)
+        before = os.fstat(fd)
+        if not stat.S_ISREG(before.st_mode) or before.st_nlink != 1 or before.st_size > limit:
+            raise Refused("material aprobado debe ser fichero regular acotado sin enlaces")
+        chunks, size, checksum = [], 0, hashlib.sha256()
+        while chunk := os.read(fd, 1024 * 1024):
+            size += len(chunk)
+            if size > limit:
+                raise Refused("material aprobado excede límites")
+            checksum.update(chunk)
+            if retain:
+                chunks.append(chunk)
+        after = os.fstat(fd)
+        if (size != before.st_size or checksum.hexdigest() != digest
+                or (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns, before.st_ctime_ns)
+                != (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns, after.st_ctime_ns)):
+            raise Refused("material distinto de la huella aprobada externa o cambiado al leer")
+        return b"".join(chunks) if retain else digest
+    finally:
+        if fd is not None:
+            os.close(fd)
+        os.close(directory)
+
+
+def package_members(data):
+    """Inspecciona el tar aprobado en memoria; no extrae ni ejecuta sus ficheros."""
+    files, seen, total = {}, set(), 0
+    with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as archive:
+        for count, member in enumerate(archive, 1):
+            name = member.name[2:] if member.name.startswith("./") else member.name
+            if name in ("", ".") and member.isdir():
+                continue
+            if (count > 20000 or not name or name.startswith("/")
+                    or "\\" in name or any(p in ("", ".", "..") for p in name.rstrip("/").split("/"))
+                    or name.rstrip("/") in seen or not (member.isfile() or member.isdir())):
+                raise Refused("paquete con ruta insegura, duplicada o enlace")
+            seen.add(name.rstrip("/"))
+            if member.isdir():
+                continue
+            total += member.size
+            if member.size > 128 * 1024 * 1024 or total > 512 * 1024 * 1024:
+                raise Refused("paquete fuera de límites")
+            if name.lower().endswith((".sql", ".json", ".py", ".md")) or name == "lista_sql_h6.txt":
+                with archive.extractfile(member) as file:
+                    files[name] = file.read(member.size + 1)
+                if len(files[name]) != member.size:
+                    raise Refused("paquete incompleto")
+    return files
+
+
+def h6_sql_row(phase, path, digest, data):
+    if (phase not in {"H3", "H4", "H6"}
+            or not isinstance(path, str)
+            or not re.fullmatch(r"deploy/postgresql/[a-z0-9_/]+(?:\.up\.sql|_up\.sql)", path)
+            or any(p in ("", ".", "..") for p in path.split("/"))
+            or not isinstance(digest, str) or not re.fullmatch(r"[a-f0-9]{64}", digest)
+            or sha(data) != digest):
+        raise Refused("ruta o SHA SQL incompatible con el plan H6")
+    text = data.decode("utf-8")
+    if (len(re.findall(r"(?m)^BEGIN;\s*$", text)) != 1
+            or len(re.findall(r"(?m)^COMMIT;\s*$", text)) != 1
+            or not re.search(r"COMMIT;\s*$", text)
+            or any(line.lstrip().startswith("\\") and not re.fullmatch(
+                r"\s*\\set ON_ERROR_STOP (?:on|1|true)\s*", line)
+                   for line in text.splitlines())):
+        raise Refused("H6 exige BEGIN/COMMIT y solo permite el guard ON_ERROR_STOP de psql")
+    return {"phase": phase, "path": path, "sha256": digest, "sql": text}
+
+
+def preflight_h6_package(package_path, lock_path, approved_package_sha256,
+                         approved_lock_sha256, h1_state_file, estado_h1_sha,
+                         source_ref=H6_FIRMA_FINAL_REF, git_repo=None):
+    """RO, antes de Docker: familia62 distinta de toda aprobación histórica.
+
+    D aprueba fuera del kit las huellas del tar y lock. La coherencia interna
+    sola no basta. H1 también exige su huella externa. Devuelve bytes SQL
+    congelados; AD132 y sus anclas quedan inventariadas, nunca autoaprobadas.
+    """
+    if source_ref != H6_FIRMA_FINAL_REF:
+        raise Refused("H6 paquete62 exige la fuente Git73e exacta")
+    lock_data = approved_file(lock_path, approved_lock_sha256, 1024 * 1024)
+    lock = {}
+    for line in lock_data.decode("utf-8").splitlines():
+        parts = line.split()
+        if len(parts) != 2 or parts[0] in lock:
+            raise Refused("lock H6 inválido o clave duplicada")
+        lock[parts[0]] = parts[1]
+    if lock.get("COMMIT") != source_ref or lock.get("PAQUETE_SHA256") != approved_package_sha256:
+        raise Refused("lock de otro paquete o fuente H6")
+    approved_file(h1_state_file, estado_h1_sha, 2 * 1024**3, retain=False)
+    package_data = approved_file(package_path, approved_package_sha256, 256 * 1024 * 1024)
+    files = package_members(package_data)
+    try:
+        release_data, list_data = files["h6-sql-release.json"], files["lista_sql_h6.txt"]
+        release = json.loads(release_data)
+        functional = release["functional_sql"]
+        listed = list_data.decode("utf-8").splitlines()
+        if (release.get("version") != 1 or release["source_commit"] != source_ref
+                or sha(release_data) != lock.get("SQL_RELEASE_SHA256")
+                or sha(list_data) != lock.get("SQL_LIST_SHA256")
+                or sha(list_data) != release["sql_list_sha256"]
+                or not isinstance(functional, list) or len(functional) != 45
+                or listed != [item["path"] for item in functional]):
+            raise Refused("lista/release H6 distinta del lock o sin las 45 SQL exactas")
+        git = GitSource(git_repo)
+        if git.run("cat-file", "-t", source_ref).strip() != b"commit":
+            raise Refused("fuente Git73e ausente")
+        inventory, contents = git.inventory(source_ref)
+        rows = []
+        for line in H6_PREFIX_MANIFEST.read_text().splitlines():
+            if not line or line.startswith("#"):
+                continue
+            phase, digest, path = line.split()
+            rows.append(h6_sql_row(phase, path, digest, contents[path]))
+        if ([row["phase"] for row in rows] != ["H3"] * 8 + ["H4"] * 9
+                or plan_hash(rows) != H6_PREFIX_PLAN_SHA):
+            raise Refused("prefijo H6 exige ocho H3 y nueve H4")
+        for item in functional:
+            path, digest = item["path"], item["sha256"]
+            data = files[path]
+            if data != contents[path]:
+                raise Refused("paquete SQL mezclado: bytes distintos de Git73e")
+            rows.append(h6_sql_row("H6", path, digest, data))
+        paths = [row["path"] for row in rows]
+        if len(set(paths)) != 62:
+            raise Refused("SQL duplicada en la familia H6 paquete62")
+        ad132 = release["ad132"]
+        lock_keys = {"sql": "AD132_SQL_SHA256", "cli": "AD132_CLI_SHA256",
+                     "inventory": "AD132_INVENTARIO_SHA256", "doc": "AD132_DOC_SHA256",
+                     "anchors_query": "AD132_ANCLAS_SQL_SHA256", "anchors_expected": "AD132_ANCLAS_JSON_SHA256"}
+        excluded = ad132["sql"]["path"]
+        if excluded != next(iter(H6_DBA_EXCLUDED)) or excluded in paths:
+            raise Refused("AD132 solo pertenece a la CLI DBA separada")
+        package_up = {p for p in files if p.lower().endswith((".up.sql", "_up.sql"))}
+        if package_up != set(listed) | {excluded}:
+            raise Refused("paquete mezclado: UP fuera de la lista45 y AD132")
+        # Los seis elementos AD132 se cotejan con el lock externo, sin ejecutar
+        # la CLI ni adoptar las huellas de estado DB como contrato verificado.
+        for name, key in lock_keys.items():
+            item = ad132[name]
+            path, digest = item["path"], item["sha256"]
+            if (not re.fullmatch(r"deploy/postgresql/[A-Za-z0-9_/.]+\.[a-z]+", path)
+                    or any(p in ("", ".", "..") for p in path.split("/"))
+                    or digest != lock.get(key) or not re.fullmatch(r"[a-f0-9]{64}", digest)):
+                raise Refused("artefacto AD132 distinto del lock aprobado")
+            if sha(files[path]) != digest:
+                raise Refused("artefacto AD132 modificado en el paquete")
+    except (KeyError, TypeError, ValueError, UnicodeError, tarfile.TarError) as error:
+        raise Refused("estructura del paquete H6 incompatible") from error
+    plan = {"source_ref": source_ref, "approved_sql_ref": source_ref,
+            "status": "externally_pinned", "plan_family": H6_PACKAGE_FAMILY,
+            "execution_manifest": H6_PREFIX_MANIFEST.name + "+lista_sql_h6.txt",
+            "plan_sha": plan_hash(rows), "file_count": 62,
+            "inventory_sha": sha(json.dumps(inventory, sort_keys=True).encode()),
+            "entries": [{k: v for k, v in row.items() if k != "sql"} for row in rows],
+            "package_sha": approved_package_sha256, "lock_sha": approved_lock_sha256,
+            "list_sha": sha(list_data), "release_sha": sha(release_data),
+            "estado_h1_sha": estado_h1_sha, "dba_excluded": ad132,
+            "ad132_verification": "blocked_pending_reviewed_contract"}
+    return plan, rows
 
 
 class GitSource:
@@ -554,11 +738,16 @@ def validate_context(context):
     if not isinstance(context, dict) or any(not isinstance(context.get(k), str)
             or not re.fullmatch(r"[a-f0-9]{64}", context[k]) for k in CONTEXT_KEYS):
         raise Refused("faltan identidad del clon o huellas H1/paquete/lista/release")
-    return {k: context[k] for k in CONTEXT_KEYS}
+    result = {k: context[k] for k in CONTEXT_KEYS}
+    if "lock_sha" in context:
+        if not isinstance(context["lock_sha"], str) or not re.fullmatch(r"[a-f0-9]{64}", context["lock_sha"]):
+            raise Refused("lock externo sin huella aprobada")
+        result["lock_sha"] = context["lock_sha"]
+    return result
 
 
 def context_from_record(record):
-    return {k: record.get(k) for k in CONTEXT_KEYS}
+    return {k: record.get(k) for k in (*CONTEXT_KEYS, "lock_sha") if k in record}
 
 
 def record_hash(record):
@@ -570,7 +759,7 @@ class Journal:
     """Journal privado, bloqueo único y reemplazo durable mediante dir_fd.
 
     Se conserva pending desde antes de enviar SQL hasta después del retorno
-    COMMIT y la comprobación RO del kit. No hay reconciliación ni reUP.
+    COMMIT y la observación de salida 0 de psql (familia62). No hay reconciliación ni reUP.
     """
     def __init__(self, state):
         self.state = Path(state).absolute()
@@ -622,6 +811,14 @@ class Journal:
 
     def load(self, required=False):
         try:
+            os.stat(".sql-confirming", dir_fd=self.directory, follow_symlinks=False)
+        except FileNotFoundError:
+            pass
+        else:
+            # Cubre también un reemplazo de confirmación cuyo fsync falló:
+            # un JSON aparentemente completo nunca elimina esta incertidumbre.
+            raise Refused(REBUILD)
+        try:
             fd = os.open("sql-journal.json", os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK,
                          dir_fd=self.directory)
         except FileNotFoundError:
@@ -648,6 +845,26 @@ class Journal:
         finally:
             os.close(fd)
 
+    def mark_confirmation_pending(self):
+        fd = os.open(".sql-confirming", os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                     0o600, dir_fd=self.directory)
+        try:
+            os.write(fd, b"pending\n")
+            os.fsync(fd)
+        finally:
+            os.close(fd)
+        os.fsync(self.directory)
+
+    def clear_confirmation_pending(self):
+        os.unlink(".sql-confirming", dir_fd=self.directory)
+        try:
+            os.fsync(self.directory)
+        except BaseException:
+            # El recibo ya se sincronizó; aun así, el error del guard obliga a
+            # conservar una marca de reconstrucción y no continuar otra SQL.
+            self.mark_confirmation_pending()
+            raise
+
     def store(self, record):
         # Comprobar también el destino antes de reemplazarlo. No se convierte ni
         # se borra un archivo ajeno. El caller conserva su copia pending en RAM.
@@ -666,7 +883,7 @@ class Journal:
                         or old.get("run_id") != record["run_id"]
                         or old.get("journal_sha") != record_hash(old)):
                     raise Refused("journal ajeno o corrupto; conservar evidencia")
-                for key in CONTEXT_KEYS:
+                for key in (*CONTEXT_KEYS, "lock_sha"):
                     if old.get(key) != record.get(key):
                         raise Refused("journal de otro clon/paquete; conservar evidencia")
             except (ValueError, KeyError, TypeError) as error:
@@ -702,6 +919,11 @@ def validate_record(record, plan, context):
     context = validate_context(context)
     if any(record.get(k) != context[k] for k in CONTEXT_KEYS):
         raise Refused("journal de otro clon/paquete; reconstruir sin reaplicar")
+    if plan.get("plan_family") == H6_PACKAGE_FAMILY:
+        if (record.get("plan_family") != H6_PACKAGE_FAMILY
+                or record.get("lock_sha") != plan.get("lock_sha")
+                or record.get("revisions") != []):
+            raise Refused("journal histórico/otra familia; reconstruir sin convertir")
     for key, expected in (("source_commit", plan["source_ref"]),
                           ("approved_sql_ref", plan["approved_sql_ref"]),
                           ("plan_sha", plan["plan_sha"]),
@@ -712,8 +934,10 @@ def validate_record(record, plan, context):
     validate_receipts(record.get("installed", []), plan, complete=False)
     try:
         for item in record["installed"]:
+            confirmation = ("psql_exit0_observed" if plan.get("plan_family") == H6_PACKAGE_FAMILY
+                            else "commit_returned_and_postcheck")
             if (datetime.fromisoformat(item["confirmed_at"]).tzinfo is None
-                    or item["confirmation"] != "commit_returned_and_postcheck"):
+                    or item["confirmation"] != confirmation):
                 raise ValueError()
         complete = len(record["installed"]) == plan["file_count"]
         if record.get("phase") not in ({"awaiting_ad132", "ad132_confirmed"} if complete else {"installing"}):
@@ -728,6 +952,9 @@ def advance_record(record, plan, context):
     validate_context(context)
     if any(record.get(k) != context[k] for k in CONTEXT_KEYS):
         raise Refused("journal de otro clon/paquete; reconstruir sin reaplicar")
+    if H6_PACKAGE_FAMILY in (record.get("plan_family"), plan.get("plan_family")):
+        validate_record(record, plan, context)
+        return record
     previous = record.get("approved_sql_ref")
     target = plan["approved_sql_ref"]
     if previous not in REF_COUNTS or record.get("plan_sha") != REF_PLAN_SHA[previous]:
@@ -758,25 +985,36 @@ def apply(db, rows, state, source_ref=MAIN_REF, source_plan=None, context=None, 
     """Instala exclusivamente bytes originales; journal externo nunca modifica BD.
 
     Contrato proveedor: validate(plan, context)->True; identity(ro_db, context)
-    -> identidad_clon; confirm(ro_db, entry, position, context)->True después de
-    COMMIT observado y postcotejo RO real; verify(ro_db, record, context)->True
-    para anclas finales y evidencia AD132. Kit ausente/incompleto deniega.
+    -> identidad_clon; confirm(ro_db, entry, position, context)->True para la
+    preimagen inicial. Familia62 registra la salida0 observada sin callback
+    por SQL; familias históricas conservan su postcotejo. verify corresponde
+    a anclas finales/AD132, todavía bloqueado para62. Kit ausente deniega.
     """
     if source_plan is None or (source_plan["source_ref"] != source_ref
             or source_plan["plan_sha"] != plan_hash(rows)):
         raise Refused("instalación exige procedencia Git y plan exactos")
     plan = source_plan
     approved = plan["approved_sql_ref"]
-    require_installable(approved)
+    package62 = plan.get("plan_family") == H6_PACKAGE_FAMILY
+    if not package62:
+        require_installable(approved)
     if ([{k: v for k, v in row.items() if k != "sql"} for row in rows] != plan["entries"]
             or any(not isinstance(row.get("sql"), str)
                    or sha(row["sql"].encode()) != row["sha256"] for row in rows)):
         raise Refused("bytes SQL divergentes del plan; no ejecutar")
-    if len(rows) != REF_COUNTS.get(approved) or plan_hash(rows) != REF_PLAN_SHA.get(approved):
+    if package62:
+        if (approved != H6_FIRMA_FINAL_REF or len(rows) != 62
+                or [r["phase"] for r in rows] != ["H3"] * 8 + ["H4"] * 9 + ["H6"] * 45
+                or plan_hash(rows[:17]) != H6_PREFIX_PLAN_SHA):
+            raise Refused("familia62 incompatible con prefijo17 y paquete45")
+    elif len(rows) != REF_COUNTS.get(approved) or plan_hash(rows) != REF_PLAN_SHA.get(approved):
         raise Refused("plan SQL no corresponde a su referencia aprobada")
     with Journal(state) as journal:
         record = journal.load()
         context = validate_context(context or (context_from_record(record) if record else None))
+        if package62 and any(context.get(k) != plan.get(k) or context.get(k) is None
+                for k in ("package_sha", "lock_sha", "list_sha", "release_sha", "estado_h1_sha")):
+            raise Refused("contexto distinto del H1/paquete/lock aprobados")
         if record:
             record = advance_record(record, plan, context)
             validate_record(record, plan, context)
@@ -812,9 +1050,11 @@ def apply(db, rows, state, source_ref=MAIN_REF, source_plan=None, context=None, 
             record["pending"] = {"position": position, **entry,
                                   "prepared_at": datetime.now(timezone.utc).isoformat()}
             journal.store(record)  # fsync del fichero Y del directorio antes de SQL.
+            if package62:
+                journal.mark_confirmation_pending()
             try:
                 db.query(row["sql"])
-                if provider.confirm(ro, entry, position, context) is not True:
+                if not package62 and provider.confirm(ro, entry, position, context) is not True:
                     raise Refused("postcotejo de lectura no confirmado")
             except Exception as error:
                 # Incluso un retorno de error antes del COMMIT queda ambiguo:
@@ -822,10 +1062,12 @@ def apply(db, rows, state, source_ref=MAIN_REF, source_plan=None, context=None, 
                 raise Refused(REBUILD) from error
             record["installed"].append({"position": position, **entry,
                 "confirmed_at": datetime.now(timezone.utc).isoformat(),
-                "confirmation": "commit_returned_and_postcheck"})
+                "confirmation": "psql_exit0_observed" if package62 else "commit_returned_and_postcheck"})
             record["pending"] = None
             record["phase"] = "awaiting_ad132" if position == len(rows) else "installing"
             journal.store(record)
+            if package62:
+                journal.clear_confirmation_pending()
         return record
 
 
@@ -856,13 +1098,60 @@ def main(argv=None):
     parser.add_argument("--installable", action="store_true", help="rechaza un plan aún propuesto sin tocar el clon")
     parser.add_argument("--verify-live", action="store_true", help="coteja journal externo y anclas del kit; exige AD132 independiente")
     parser.add_argument("--steps", action="store_true", help="etapas pendientes, consejo JSON sin Docker/BD")
+    parser.add_argument("--h6-package", type=Path)
+    parser.add_argument("--h6-lock", type=Path)
+    parser.add_argument("--approved-package-sha256")
+    parser.add_argument("--approved-lock-sha256")
+    parser.add_argument("--h1-state-file", type=Path)
+    parser.add_argument("--estado-h1-sha")
+    parser.add_argument("--identidad-clon", help="identidad nominal para el proveedor inicial revisado")
     args = parser.parse_args(argv)
     # Incluso --plan valida los nombres originales antes de cualquier acceso
     # Git, Docker o resolución de rutas. No seguir alias de un estado privado.
-    for name in ("repo", "git_repo", "state_dir"):
+    for name in ("repo", "git_repo", "state_dir", "h6_package", "h6_lock", "h1_state_file"):
         value = getattr(args, name)
         if value is not None:
             setattr(args, name, validate_original_path(value))
+    package_options = (args.h6_package, args.h6_lock, args.approved_package_sha256,
+                       args.approved_lock_sha256, args.h1_state_file, args.estado_h1_sha)
+    if any(package_options):
+        if not all(package_options):
+            raise Refused("H6 exige paquete, lock y H1 con las tres huellas aprobadas externas")
+        plan, rows = preflight_h6_package(*package_options, source_ref=args.source_ref,
+                                         git_repo=args.git_repo)
+        if args.plan:
+            print(json.dumps(plan, sort_keys=True))
+            return
+        if args.verify_live:
+            raise Refused("AD132/final H6 bloqueado: falta contrato revisado; no publicar READY")
+        context = {k: plan[k] for k in (*CONTEXT_KEYS[1:], "lock_sha")}
+        context["identidad_clon"] = args.identidad_clon
+        if args.steps:
+            if not args.state_dir:
+                raise Refused("--steps exige --state-dir")
+            with Journal(args.state_dir) as journal:
+                record = journal.load()
+                if record is None:
+                    print(json.dumps([args.source_ref]))
+                else:
+                    validate_record(record, plan, context_from_record(record))
+                    print(json.dumps([] if len(record["installed"]) == 62 else [args.source_ref]))
+            return
+        # No crear estado ni inspeccionar Docker antes de disponer del proveedor
+        # inicial. Su ausencia tampoco aprueba una instalación por coherencia.
+        require_kit(LIVE_KIT, plan, context)
+        context = validate_context(context)
+        if args.installable:
+            return
+        if not args.state_dir or not args.container:
+            raise Refused("la instalación exige --container y --state-dir")
+        state = args.state_dir.resolve()
+        if (state.is_relative_to(args.repo.resolve())
+                or any((parent / ".git").exists() for parent in (state, *state.parents))):
+            raise Refused("el journal debe estar fuera de cualquier repositorio Git")
+        state.mkdir(mode=0o700, parents=True, exist_ok=True)
+        apply(DockerDB(args.container, state), rows, state, args.source_ref, plan, context)
+        return
     if args.installable:
         require_installable(validate_git_source(args.source_ref, args.git_repo)["approved_sql_ref"])
         return

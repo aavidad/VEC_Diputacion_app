@@ -3,6 +3,8 @@
 import importlib.util
 import contextlib
 import json
+import io
+import tarfile
 import os
 from pathlib import Path
 import subprocess
@@ -780,6 +782,186 @@ class GitSourceTests(unittest.TestCase):
             self.assertEqual(plan["approved_sql_ref"], base)
             self.assertEqual(plan["source_ref"], descendant)
 
+
+
+class H6Package62Tests(unittest.TestCase):
+    @contextlib.contextmanager
+    def fixture(self, mutation=None):
+        with tempfile.TemporaryDirectory() as scratch:
+            root = Path(scratch)
+            _, git_contents = SQL.GitSource(GIT_REPO).inventory(SQL.H6_FIRMA_FINAL_REF)
+            prefix = []
+            for line in SQL.H6_PREFIX_MANIFEST.read_text().splitlines():
+                if line.startswith("#") or not line: continue
+                phase, digest, path = line.split()
+                prefix.append(SQL.h6_sql_row(phase, path, digest, git_contents[path]))
+            contents = {r["path"]: r["sql"].encode() for r in prefix}
+            files, functional = {}, []
+            for index in range(45):
+                path = f"deploy/postgresql/demo/{index:06d}.up.sql"
+                data = f"BEGIN;\nSELECT {index};\nCOMMIT;\n".encode()
+                contents[path] = files[path] = data
+                functional.append({"path": path, "sha256": SQL.sha(data)})
+            adroot = "deploy/postgresql/autorizacion_atestada_v3/"
+            ad132 = {}
+            adpaths = {"sql": next(iter(SQL.H6_DBA_EXCLUDED)),
+                       "cli": adroot + "aplicar_000132_temp_public.py",
+                       "inventory": adroot + "migraciones/000132_inventario_temp_public.sql",
+                       "doc": adroot + "000132_TEMP_PUBLIC.md",
+                       "anchors_query": adroot + "000132_anclas_h6.sql",
+                       "anchors_expected": adroot + "000132_anclas_h6.json"}
+            for name, path in adpaths.items():
+                files[path] = b"synthetic " + name.encode()
+                ad132[name] = {"path": path, "sha256": SQL.sha(files[path])}
+            list_data = ("\n".join(item["path"] for item in functional) + "\n").encode()
+            release = {"version": 1, "source_commit": SQL.H6_FIRMA_FINAL_REF,
+                       "functional_sql": functional, "ad132": ad132,
+                       "sql_list_sha256": SQL.sha(list_data)}
+            files["lista_sql_h6.txt"] = list_data
+            files["h6-sql-release.json"] = json.dumps(release, sort_keys=True).encode()
+            if mutation: mutation(files, release)
+            package = root / "kit.tgz"
+            with tarfile.open(package, "w:gz") as archive:
+                for path, data in files.items():
+                    member = tarfile.TarInfo("./" + path); member.size = len(data)
+                    archive.addfile(member, io.BytesIO(data))
+            package_sha = SQL.sha(package.read_bytes())
+            lock = {"COMMIT": SQL.H6_FIRMA_FINAL_REF, "PAQUETE_SHA256": package_sha,
+                    "SQL_LIST_SHA256": SQL.sha(files["lista_sql_h6.txt"]),
+                    "SQL_RELEASE_SHA256": SQL.sha(files["h6-sql-release.json"])}
+            for name, key in {"sql": "AD132_SQL_SHA256", "cli": "AD132_CLI_SHA256",
+                    "inventory": "AD132_INVENTARIO_SHA256", "doc": "AD132_DOC_SHA256",
+                    "anchors_query": "AD132_ANCLAS_SQL_SHA256",
+                    "anchors_expected": "AD132_ANCLAS_JSON_SHA256"}.items():
+                lock[key] = ad132[name]["sha256"]
+            lock_file = root / "lock"; lock_file.write_text("\n".join(f"{k} {v}" for k, v in lock.items()) + "\n")
+            h1 = root / "h1.tgz"; h1.write_bytes(b"synthetic H1")
+            args = [package, lock_file, package_sha, SQL.sha(lock_file.read_bytes()), h1, SQL.sha(h1.read_bytes())]
+            with patch.object(SQL.GitSource, "inventory", return_value=([], contents)):
+                yield root, args
+
+    def test_17_plus_45_exact_list_source_and_separate_family(self):
+        with self.fixture() as (_, args):
+            plan, rows = SQL.preflight_h6_package(*args, git_repo=GIT_REPO)
+            self.assertEqual(len(rows), 62)
+            self.assertEqual([r["phase"] for r in rows], ["H3"] * 8 + ["H4"] * 9 + ["H6"] * 45)
+            self.assertEqual([r["path"] for r in rows[17:]], [f"deploy/postgresql/demo/{n:06d}.up.sql" for n in range(45)])
+            self.assertEqual(plan["plan_family"], "h6_package_62")
+            self.assertNotEqual(plan["plan_sha"], SQL.REF_PLAN_SHA[SQL.H6_FIRMA_FINAL_REF])
+            self.assertEqual(plan["ad132_verification"], "blocked_pending_reviewed_contract")
+            self.assertNotIn(next(iter(SQL.H6_DBA_EXCLUDED)), [r["path"] for r in rows])
+            with self.assertRaisesRegex(SQL.Refused, "fuente Git73e"):
+                SQL.preflight_h6_package(*args, source_ref=SQL.H6_FIRMA_REF, git_repo=GIT_REPO)
+
+    def test_external_approval_required_and_tar_lock_h1_tampering_denied(self):
+        for index in (2, 3, 5):
+            with self.fixture() as (_, args):
+                for value in (None, "", "f" * 64):
+                    bad = list(args); bad[index] = value
+                    with self.subTest(index=index, value=value), self.assertRaises(SQL.Refused):
+                        SQL.preflight_h6_package(*bad, git_repo=GIT_REPO)
+        for index in (0, 1, 4):
+            with self.fixture() as (_, args):
+                args[index].write_bytes(args[index].read_bytes() + b"tampered")
+                with self.subTest(index=index), self.assertRaisesRegex(SQL.Refused, "huella aprobada"):
+                    SQL.preflight_h6_package(*args, git_repo=GIT_REPO)
+
+    def test_mixed_sql_unknown_up_order_duplicate_and_unsafe_paths_denied(self):
+        def mixed(files, release):
+            path = release["functional_sql"][0]["path"]
+            files[path] += b"-- mixed\n"
+            release["functional_sql"][0]["sha256"] = SQL.sha(files[path])
+            files["h6-sql-release.json"] = json.dumps(release).encode()
+        def extra(files, _): files["deploy/postgresql/demo/extra.up.sql"] = b"BEGIN;\nCOMMIT;\n"
+        def order(files, _): files["lista_sql_h6.txt"] = b"\n".join(reversed(files["lista_sql_h6.txt"].splitlines())) + b"\n"
+        def duplicate(files, release):
+            release["functional_sql"][-1] = release["functional_sql"][0]
+            files["lista_sql_h6.txt"] = ("\n".join(r["path"] for r in release["functional_sql"]) + "\n").encode()
+            release["sql_list_sha256"] = SQL.sha(files["lista_sql_h6.txt"])
+            files["h6-sql-release.json"] = json.dumps(release).encode()
+        def unsafe(files, _): files["../unsafe.sql"] = b"dummy"
+        for mutation in (mixed, extra, order, duplicate, unsafe):
+            with self.subTest(mutation=mutation.__name__), self.fixture(mutation) as (_, args):
+                with self.assertRaises(SQL.Refused): SQL.preflight_h6_package(*args, git_repo=GIT_REPO)
+
+    def test_tar_duplicate_link_absolute_and_psql_commands_denied(self):
+        for name, kind in (("./one.sql", tarfile.REGTYPE), ("/one.sql", tarfile.REGTYPE),
+                           ("./link", tarfile.SYMTYPE)):
+            stream = io.BytesIO()
+            with tarfile.open(fileobj=stream, mode="w:gz") as archive:
+                member = tarfile.TarInfo(name); member.type = kind
+                archive.addfile(member)
+                if name == "./one.sql": archive.addfile(member)
+            with self.subTest(name=name), self.assertRaises(SQL.Refused): SQL.package_members(stream.getvalue())
+        for data in (b"SELECT 1;", b"BEGIN;\n\\! echo bad\nCOMMIT;\n", b"BEGIN;\nCOMMIT;\nSELECT 1;"):
+            with self.assertRaises(SQL.Refused):
+                SQL.h6_sql_row("H6", "deploy/postgresql/demo/one.up.sql", SQL.sha(data), data)
+
+    def test_psql_exit0_only_pending_crash_and_historical_journal_rejected(self):
+        for fail in (None, KeyboardInterrupt(), subprocess.TimeoutExpired("fixture", 1), "postrename"):
+            with self.fixture() as (root, args):
+                plan, rows = SQL.preflight_h6_package(*args, git_repo=GIT_REPO)
+                state = root / "state"; state.mkdir(mode=0o700)
+                context = {k: plan[k] for k in (*SQL.CONTEXT_KEYS[1:], "lock_sha")}
+                context["identidad_clon"] = "a" * 64
+                class DB:
+                    calls = []
+                    def check_owner(self): pass
+                    def query(self, text):
+                        raw = json.loads((state / "sql-journal.json").read_text())
+                        self.assert_pending = raw["pending"] is not None
+                        if not self.assert_pending: raise AssertionError("no pending")
+                        self.calls.append(text)
+                        if fail and fail != "postrename": raise fail
+                class Kit:
+                    calls = []
+                    def validate(self, plan, context): return True
+                    def identity(self, ro, context): return context["identidad_clon"]
+                    def confirm(self, ro, entry, position, context):
+                        self.calls.append(position)
+                        return position == 0 or position == 62
+                    def verify(self, ro, record, context): return True
+                db, kit = DB(), Kit(); db.calls = []; kit.calls = []
+                def apply(): return SQL.apply(db, rows, state, SQL.H6_FIRMA_FINAL_REF, plan, context, kit)
+                if fail:
+                    original_store = SQL.Journal.store
+                    def uncertain(journal, record):
+                        original_store(journal, record)
+                        if record["installed"]: raise OSError("directory fsync uncertain")
+                    with contextlib.ExitStack() as stack:
+                        if fail == "postrename": stack.enter_context(patch.object(SQL.Journal, "store", uncertain))
+                        with self.assertRaises((SQL.Refused, KeyboardInterrupt, OSError)): apply()
+                    self.assertTrue((state / ".sql-confirming").exists())
+                    with self.assertRaisesRegex(SQL.Refused, "pendiente"): apply()
+                    self.assertEqual(len(db.calls), 1)
+                else:
+                    record = apply()
+                    self.assertEqual(len(db.calls), 62)
+                    self.assertEqual(kit.calls, [0])
+                    self.assertEqual({r["confirmation"] for r in record["installed"]}, {"psql_exit0_observed"})
+                    self.assertEqual(record["phase"], "awaiting_ad132")
+                    apply(); self.assertEqual(len(db.calls), 62)
+                    record["plan_family"] = "h6_45"
+                    with SQL.Journal(state) as journal: journal.store(record)
+                    with self.assertRaisesRegex(SQL.Refused, "histórico"): apply()
+                self.assertFalse((state / "READY.json").exists())
+
+    def test_h6_cli_plan_json_missing_kit_and_final_blocked_before_docker(self):
+        with self.fixture() as (root, args):
+            command = ["--repo", str(REPO), "--git-repo", str(GIT_REPO), "--source-ref", SQL.H6_FIRMA_FINAL_REF]
+            for option, value in zip(("--h6-package", "--h6-lock", "--approved-package-sha256",
+                    "--approved-lock-sha256", "--h1-state-file", "--estado-h1-sha"), args):
+                command.extend([option, str(value)])
+            with patch.object(SQL.DockerDB, "check_owner") as docker:
+                with contextlib.redirect_stdout(io.StringIO()) as output:
+                    SQL.main([*command, "--plan"])
+                self.assertEqual(json.loads(output.getvalue())["file_count"], 62)
+                with self.assertRaisesRegex(SQL.Refused, "contrato revisado"):
+                    SQL.main([*command, "--verify-live"])
+                with self.assertRaisesRegex(SQL.Refused, "kit D"):
+                    SQL.main([*command, "--installable"])
+                docker.assert_not_called()
+                self.assertFalse((root / "state").exists())
 
 if __name__ == "__main__":
     unittest.main()
