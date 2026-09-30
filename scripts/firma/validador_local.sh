@@ -28,13 +28,16 @@ trap cleanup EXIT HUP INT TERM
 
 mkdir -p "$scratch/src/cmd/vecfixture" "$scratch/home" "$scratch/tmp" "$scratch/cache" "$scratch/bin"
 rsync -a --exclude=.git --exclude=.worktrees --exclude='*.p12' --exclude='*.key' "$af_source/" "$scratch/src/"
-cp -- "$script_dir/fixture/main.go" "$scratch/src/cmd/vecfixture/main.go"
+[[ "$(head -n 1 "$script_dir/fixture/main.go")" == '//go:build ignore' ]] || {
+  echo 'La fuente del fixture debe permanecer excluida del módulo VEC' >&2; exit 2;
+}
+tail -n +3 "$script_dir/fixture/main.go" > "$scratch/src/cmd/vecfixture/main.go"
 cp -- "$script_dir/validador_runtime.sh" "$scratch/runtime.sh"
 
 # El proceso ensayado solo ve el árbol temporal, herramientas y caché Go de lectura.
 # Namespace de red aislado: únicamente loopback. Entorno reconstruido por bwrap.
 prlimit --cpu=170 --as=4294967296 --nproc=4096 --nofile=128 --fsize=67108864 -- \
-  timeout --kill-after=5s 180s bwrap --unshare-all --new-session --cap-drop ALL \
+  timeout --kill-after=5s 180s bwrap --unshare-all --new-session --cap-drop ALL --clearenv \
     --ro-bind /usr /usr --ro-bind /bin /bin --ro-bind /lib /lib --ro-bind /lib64 /lib64 \
     --ro-bind "$cache" /modcache --bind "$scratch" /work \
     --proc /proc --dev /dev --tmpfs /tmp --dir /home --chdir /work/src \

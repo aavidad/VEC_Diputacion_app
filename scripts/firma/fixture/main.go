@@ -1,3 +1,5 @@
+//go:build ignore
+
 // Genera material desechable para ensayar el validador local de AutofirmaV2.
 // Se copia al árbol temporal de AutofirmaV2 para usar sus tipos internos.
 package main
