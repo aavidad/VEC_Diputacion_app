@@ -32,13 +32,13 @@ func nominalCT(metodo, guardia string) metodoRutaCTDesarrollo {
 // inventarioRutasCTDesarrollo es deliberadamente cerrado. Las rutas opcionales
 // sólo se comprueban si la composición realmente las registra. No incluye
 // rutas de Bolsa, Calendarios, Usuarios ni Documentos aunque compartan slice.
-func inventarioRutasCTDesarrollo() map[string][]metodoRutaCTDesarrollo {
+func inventarioRutasCTDesarrollo(fronteras ...catalogoFronterasComunDesarrollo) map[string][]metodoRutaCTDesarrollo {
 	const (
 		llamamiento = "contratacion_temporal_comunicacion_llamamiento_desarrollo.go:proveedorComunicacionLlamamientoDesarrollo"
 		centro      = "contratacion_temporal_peticion_centro_http_desarrollo.go:manejadorPeticionCentroDesarrollo"
 		continuidad = "contratacion_temporal_continuidad_nominal.go:autoridadContinuidadNominal"
 	)
-	return map[string][]metodoRutaCTDesarrollo{
+	inventario := map[string][]metodoRutaCTDesarrollo{
 		// PDP común: 21 pares base, POST de entrega, reincorporación y plantillas opcionales.
 		httpinterno.RutaRegistroAnalisisRRHH:            {pdpCT(http.MethodPost)},
 		httpinterno.RutaRectificacionAnalisisRRHH:       {pdpCT(http.MethodPost)},
@@ -110,6 +110,13 @@ func inventarioRutasCTDesarrollo() map[string][]metodoRutaCTDesarrollo {
 		httpinterno.RutaFirmaDocumento:                          {pdpCT(http.MethodPost)},
 		httpinterno.RutaConsultaFirmaDocumento:                  {pdpCT(http.MethodPost)},
 	}
+	if len(fronteras) == 1 {
+		if post, existe := fronteras[0].resolver(http.MethodPost, rutaAjustesReglasCT); existe &&
+			post.Clave == "ct-reglas-ajustes-ajustar" && post.ClaveCapacidad == capacidadPostAjustesCT {
+			inventario[rutaAjustesReglasCT] = append(inventario[rutaAjustesReglasCT], pdpCT(http.MethodPost))
+		}
+	}
+	return inventario
 }
 
 // validarCoberturaRutasCTDesarrollo se ejecuta sobre el slice final, antes del
@@ -117,7 +124,7 @@ func inventarioRutasCTDesarrollo() map[string][]metodoRutaCTDesarrollo {
 // una frontera PDP resuelta o una autoridad nominal identificada. RutaExacta
 // no declara verbos: cambios internos de un handler deben revisarse aparte.
 func validarCoberturaRutasCTDesarrollo(rutas []vechttp.RutaExacta, fronteras catalogoFronterasComunDesarrollo) error {
-	inventario := inventarioRutasCTDesarrollo()
+	inventario := inventarioRutasCTDesarrollo(fronteras)
 	vistas := make(map[string]struct{})
 	for _, ruta := range rutas {
 		if !esPrefijoRutaCTDesarrollo(ruta.Ruta) {
@@ -176,7 +183,7 @@ func esPrefijoRutaCTDesarrollo(ruta string) bool {
 }
 
 func validarMetodoRutaCTDesarrollo(ruta string, metodo metodoRutaCTDesarrollo, fronteras catalogoFronterasComunDesarrollo) error {
-	esperados, conocida := inventarioRutasCTDesarrollo()[ruta]
+	esperados, conocida := inventarioRutasCTDesarrollo(fronteras)[ruta]
 	declarado := false
 	for _, esperado := range esperados {
 		if esperado == metodo {

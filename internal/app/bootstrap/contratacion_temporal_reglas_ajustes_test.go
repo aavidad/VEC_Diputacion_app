@@ -79,6 +79,65 @@ func TestPerfilAjustesCTSigueSoloLectura(t *testing.T) {
 	}
 }
 
+func TestPerfilEditorAjustesCTSeparaConsultaYAjuste(t *testing.T) {
+	plantilla, err := plantillaEditorAjustesCT("principal_prueba", "prf_reglas_editor_prueba",
+		time.Now().UTC().Truncate(time.Microsecond), "ct_reglas_ajustes_editor_desarrollo")
+	if err != nil || plantilla.Validar() != nil {
+		t.Fatalf("perfil editor inválido: %v", err)
+	}
+	concesiones := plantilla.VersionRol.Concesiones
+	if len(concesiones) != 2 || concesiones[0].Accion != accionConsultarAjustesCT ||
+		concesiones[1].Accion != accionAjustarReglasCT || len(concesiones[0].CamposPermitidos) != 2 ||
+		len(concesiones[1].CamposPermitidos) != 0 || len(plantilla.AsignacionPerfil.Ambitos) != 1 {
+		t.Fatal("el perfil editor mezcló campos, acción o ámbito")
+	}
+}
+
+func TestEdicionAjustesCTRequiereSelectorYDeclaraciones(t *testing.T) {
+	cfg := config.Config{ExecutionProfile: config.ExecutionProfileDevelopment,
+		AuthMode: config.AuthModeDevelopment, DevelopmentGuard: config.DevelopmentGuardAcknowledgement}
+	t.Setenv(envCTEdicionAjustesReglas, "")
+	if _, _, activa, err := configuracionEdicionAjustesCT(cfg); err != nil || activa {
+		t.Fatalf("edición activada por defecto: %v", err)
+	}
+	t.Setenv(envCTEdicionAjustesReglas, "true")
+	if _, _, activa, err := configuracionEdicionAjustesCT(cfg); err == nil || activa {
+		t.Fatal("faltan rol editor y aprobación")
+	}
+	t.Setenv(envCTRolEditorAjustesReglas, "ct_reglas_editor_desarrollo")
+	t.Setenv(envCTAprobacionBaseReglas, "aprobacion:rrhh:prueba")
+	if rol, aprobacion, activa, err := configuracionEdicionAjustesCT(cfg); err != nil || !activa ||
+		rol != "ct_reglas_editor_desarrollo" || aprobacion != "aprobacion:rrhh:prueba" {
+		t.Fatalf("declaración válida rechazada: activa=%t error=%v", activa, err)
+	}
+	if _, _, activa, err := configuracionEdicionAjustesCT(config.Config{}); err == nil || activa {
+		t.Fatal("edición aceptada fuera de la doble llave")
+	}
+	if err := preflightEdicionAjustesCT(t.Context(), nil, nil, "aprobacion:rrhh:prueba"); err == nil {
+		t.Fatal("preflight aceptó SQL y base ausentes")
+	}
+}
+
+func TestInventarioAjustesCTExigeFronteraPOSTExplicita(t *testing.T) {
+	lectura, err := nuevoCatalogoFronterasComunDesarrollo([]descriptorFronteraComunDesarrollo{
+		descriptorFronteraConsultaAjustesCT("prf_reglas_lector_prueba")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := inventarioRutasCTDesarrollo(lectura)[rutaAjustesReglasCT]; len(got) != 1 || got[0].metodo != http.MethodGet {
+		t.Fatalf("POST abierto sin frontera: %v", got)
+	}
+	escritura, err := nuevoCatalogoFronterasComunDesarrollo([]descriptorFronteraComunDesarrollo{
+		descriptorFronteraConsultaAjustesCT("prf_reglas_lector_prueba"),
+		descriptorFronteraEdicionAjustesCT("prf_reglas_editor_prueba")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := inventarioRutasCTDesarrollo(escritura)[rutaAjustesReglasCT]; len(got) != 2 || got[1].metodo != http.MethodPost {
+		t.Fatalf("POST no quedó ligado a su frontera: %v", got)
+	}
+}
+
 func TestConsultaAjustesDistingueFuenteCaidaDePerfilRevocado(t *testing.T) {
 	s, lector := escenarioPerfilesFijosPrueba(t)
 	perfil := s.perfilFijoParaRutaYMetodo(rutaEntregaPeticionCentro, http.MethodGet)

@@ -541,8 +541,22 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	}
 	descriptoresAutorizacion := append(descriptoresAutorizacionContratacionTemporalDesarrollo(politicaCT, reincorporacionActiva, firmaDocumentoPerfilFijoCompuesto(alta.soporte)), descriptoresBolsa...)
 	if alta.postgresql.consultaAjustesReglasActiva {
-		if alta.soporte.perfilFijoParaRutaYMetodo(rutaAjustesReglasCT, http.MethodGet) == nil {
+		lector := alta.soporte.perfilFijoParaRutaYMetodo(rutaAjustesReglasCT, http.MethodGet)
+		if lector == nil {
 			return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
+		}
+		if editor := alta.soporte.perfilFijoParaRutaYMetodo(rutaAjustesReglasCT, http.MethodPost); editor != nil {
+			if editor == lector {
+				return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
+			}
+			descriptoresAutorizacion = append(descriptoresAutorizacion, descriptorAutorizacionComunDesarrollo{
+				Accion: accionAjustarReglasCT, ClavePolitica: clavePoliticaContratacionTemporalDesarrollo,
+				ClaveCapacidad: capacidadPostAjustesCT, Fronteras: []string{"ct-reglas-ajustes-ajustar"}, Politica: politicaCT,
+			})
+			descriptoresAutorizacion = append(descriptoresAutorizacion, descriptorAutorizacionComunDesarrollo{
+				Accion: accionConsultarAjustesCT, ClavePolitica: clavePoliticaContratacionTemporalDesarrollo,
+				ClaveCapacidad: capacidadPostAjustesCT, Fronteras: []string{"ct-reglas-ajustes-ajustar"}, Politica: politicaCT,
+			})
 		}
 		descriptoresAutorizacion = append(descriptoresAutorizacion, descriptorAutorizacionComunDesarrollo{
 			Accion: accionConsultarAjustesCT, ClavePolitica: clavePoliticaContratacionTemporalDesarrollo,

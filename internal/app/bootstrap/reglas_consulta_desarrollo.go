@@ -35,10 +35,11 @@ func nuevaRutaReglasVigentesDesarrollo(compuestas reglasEjemploDesarrollo) (vech
 	return vechttp.RutaExacta{Ruta: reglashttp.RutaReglasVigentes, Manejador: manejador}, nil
 }
 
-// La escritura queda cerrada hasta que CT110 conserve la instantánea de cada
-// plazo al abrir el tramo. La lectura sí consume una decisión V3 nominal.
+// La lectura consume una decisión V3 nominal. La escritura solo se monta con
+// un perfil editor ya provisionado y el preflight de CT157/CT158 superado.
 func nuevaRutaConsultaAjustesCT(alta *dependenciasAltaContratacionTemporalDesarrollo,
 	perfil *perfilFijoCTDesarrollo, fuente *reglas.Resolutor, reloj relojContratacionTemporalDesarrollo,
+	editores ...*perfilFijoCTDesarrollo,
 ) (vechttp.RutaExacta, error) {
 	if alta == nil || perfil == nil || fuente == nil || alta.postgresql.ejecucion == nil ||
 		alta.postgresql.proveedorMaterialConsultaAjustesReglas == nil ||
@@ -66,6 +67,16 @@ func nuevaRutaConsultaAjustesCT(alta *dependenciasAltaContratacionTemporalDesarr
 	proveedor := &proveedorConsultaAjustesCT{soporte: alta.soporte, pdp: alta.autorizador,
 		material: alta.postgresql.proveedorMaterialConsultaAjustesReglas,
 		motivo:   alta.postgresql.motivoConsultaAjustesReglas.Referencia, reloj: reloj}
+	if len(editores) > 1 {
+		return vechttp.RutaExacta{}, errMotivoAutorizacionAjustes
+	}
+	if len(editores) == 1 {
+		if editores[0] == nil || editores[0].metodo != "POST" ||
+			alta.soporte.perfilFijoParaRutaYMetodo(ajusteshttp.Ruta, "POST") != editores[0] {
+			return vechttp.RutaExacta{}, errMotivoAutorizacionAjustes
+		}
+		proveedor.editor = editores[0]
+	}
 	repositorio, err := ajustespg.NuevoRepositorioAjustesReglasCT(alta.postgresql.ejecucion, proveedor,
 		organizacionAltaContratacionTemporalDesarrollo)
 	if err != nil {
@@ -75,7 +86,12 @@ func nuevaRutaConsultaAjustesCT(alta *dependenciasAltaContratacionTemporalDesarr
 	if err != nil {
 		return vechttp.RutaExacta{}, err
 	}
-	manejador, err := ajusteshttp.NuevoManejadorSoloLectura(proveedor, servicio)
+	var manejador *ajusteshttp.Manejador
+	if proveedor.editor == nil {
+		manejador, err = ajusteshttp.NuevoManejadorSoloLectura(proveedor, servicio)
+	} else {
+		manejador, err = ajusteshttp.NuevoManejador(proveedor, servicio)
+	}
 	if err != nil {
 		return vechttp.RutaExacta{}, err
 	}

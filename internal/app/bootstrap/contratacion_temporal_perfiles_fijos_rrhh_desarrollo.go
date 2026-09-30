@@ -152,7 +152,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) perfilFijoParaRuta(ruta stri
 func (s *soporteAltaContratacionTemporalDesarrollo) perfilFijoParaContexto(
 	ctx context.Context, ruta string,
 ) *perfilFijoCTDesarrollo {
-	if ruta == rutaEntregaPeticionCentro {
+	if ruta == rutaEntregaPeticionCentro || rutaConsultaAjustesReglasCT(ruta) {
 		capacidad, valida := s.capacidadValida(ctx)
 		if !valida || capacidad.ruta != ruta ||
 			(capacidad.metodo != http.MethodGet && capacidad.metodo != http.MethodPost) {
@@ -470,7 +470,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaPerfilFijoParaCon
 		case ruta == rutaCambiosOrganizacionContratacionTemporalDesarrollo:
 			valida = solicitudAutorizacionOrganizacionDesarrolloValida(ctx, datos)
 		case rutaConsultaAjustesReglasCT(ruta):
-			valida = solicitudConsultaAjustesCTValida(datos)
+			valida = solicitudAjustesCTValida(datos, p.metodo)
 		case ruta == httpinterno.RutaResultadoCobertura:
 			valida = true
 		case rutaAnalisisContratacionTemporalDesarrollo(ruta):
