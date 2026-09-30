@@ -6,7 +6,7 @@ const SHA = /^[0-9a-f]{64}$/u;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u;
 const CLAVE = /^[a-z][a-z0-9_.:-]{1,159}$/u;
 const CAMPOS_PLAN = ["expediente_ref", "version_expediente", "puesto_ref", "plaza_ref", "version_plantilla_ref",
-  "version_rpt_ref", "regimen", "modalidad", "desde", "hasta", "motivo_clave", "documento_ref", "documento_sha256", "clave_idempotencia"];
+  "version_rpt_ref", "regimen", "modalidad", "clase_ocupacion", "desde", "hasta", "motivo_clave", "documento_ref", "documento_sha256", "clave_idempotencia"];
 function fallo() { throw new TypeError("contrato_incorporacion_personal_b2_invalido"); }
 export function registroB2(v, campos) {
   if (!v || Object.getPrototypeOf(v) !== Object.prototype || Object.getOwnPropertySymbols(v).length
@@ -39,7 +39,7 @@ export function validarSolicitudPlanB2(v) {
   const p = registroB2(v, CAMPOS_PLAN);
   exigir(["expediente_ref", "version_plantilla_ref", "version_rpt_ref", "documento_ref"].every((c) => referenciaB2(p[c]))
     && ["puesto_ref", "plaza_ref"].every((c) => referenciaB2(p[c]) || UUID.test(p[c]))
-    && version(p.version_expediente) && clave(p.motivo_clave) && SHA.test(p.documento_sha256)
+    && version(p.version_expediente) && clave(p.clase_ocupacion) && clave(p.motivo_clave) && SHA.test(p.documento_sha256)
     && UUID.test(p.clave_idempotencia));
   p.regimen = catalogo(p.regimen); p.modalidad = catalogo(p.modalidad); periodo(p);
   return Object.freeze(p);
@@ -61,7 +61,7 @@ export function validarReciboB2(v, contexto) {
   return Object.freeze(r);
 }
 function validarOpciones(v) {
-  const o = registroB2(v, ["vacantes", "regimenes", "modalidades", "motivos", "documentos", "periodo"]);
+  const o = registroB2(v, ["vacantes", "regimenes", "modalidades", "clases_ocupacion", "motivos", "documentos", "periodo"]);
   o.vacantes = lista(o.vacantes, 100, (v) => {
     const x = registroB2(v, ["plaza_ref", "puesto_ref", "version_plantilla_ref", "version_rpt_ref", "unidad_ref", "categoria_ref", "plaza_etiqueta", "puesto_etiqueta"]);
     exigir(["plaza_ref", "puesto_ref", "version_plantilla_ref", "version_rpt_ref", "unidad_ref", "categoria_ref"].every((c) => referenciaB2(x[c]))
@@ -71,6 +71,10 @@ function validarOpciones(v) {
     const x = registroB2(v, ["ref", "version", "denominacion"]);
     exigir(referenciaB2(x.ref) && version(x.version) && etiqueta(x.denominacion)); return Object.freeze(x);
   }, (x) => `${x.ref}|${x.version}`);
+  o.clases_ocupacion = lista(o.clases_ocupacion, 100, (v) => {
+    const x = registroB2(v, ["valor", "texto_clave"]);
+    exigir(clave(x.valor) && clave(x.texto_clave)); return Object.freeze(x);
+  }, (x) => x.valor);
   o.motivos = lista(o.motivos, 32, (x) => { exigir(clave(x)); return x; }, (x) => x);
   o.documentos = lista(o.documentos, 32, (v) => {
     const x = registroB2(v, ["documento_ref", "documento_sha256", "etiqueta_clave_i18n"]);

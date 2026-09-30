@@ -59,5 +59,16 @@
   "documento": "Commencement of service document (required)",
   "sin_documento": "No document is available. Review the appointment formalities before proceeding.",
   "sin_catalogos": "Personnel terms are unavailable. Human Resources must review the catalogues.",
-  "revision_lista": "Review these details before recording commencement of service."
+  "revision_lista": "Review these details before recording commencement of service.",
+  "clase_ocupacion": "Occupancy type (required)",
+  "personal": {
+    "ocupacion": {
+      "clase": {
+        "titular": "Substantive",
+        "provisional": "Provisional",
+        "temporal": "Temporary"
+      }
+    }
+  },
+  "ct_incorporacion_b2_documento_formalizacion": "Case appointment formalisation document"
 }

@@ -8,7 +8,7 @@ import { validarConsultaB2, validarSolicitudPlanB2, validarReciboB2, ESQUEMA_CON
 const expediente = "expediente:b2:1", clave = "99000000-0000-4000-8000-000000000001", sha = "a".repeat(64);
 const solicitud = { expediente_ref: expediente, version_expediente: 7, puesto_ref: "puesto:1", plaza_ref: "plaza:1",
   version_plantilla_ref: "plantilla:1", version_rpt_ref: "rpt:1", regimen: { ref: "regimen:1", version: 1 },
-  modalidad: { ref: "modalidad:1", version: 1 }, desde: "2026-10-01", hasta: "", motivo_clave: "incorporar",
+  modalidad: { ref: "modalidad:1", version: 1 }, clase_ocupacion: "temporal", desde: "2026-10-01", hasta: "", motivo_clave: "incorporar",
   documento_ref: "documento:1", documento_sha256: sha, clave_idempotencia: clave };
 const plan = { plan_ref: "plan:b2:1", version: 1, sha256: sha, intencion: solicitud };
 const recibo = { esquema: ESQUEMA_RECIBO_B2, expediente_ref: expediente, plan_ref: plan.plan_ref, plan_version: 1,
@@ -19,6 +19,8 @@ const inicial = () => ({ esquema: ESQUEMA_CONSULTA_B2, expediente_ref: expedient
     vacantes: [{ plaza_ref: "plaza:1", puesto_ref: "puesto:1", version_plantilla_ref: "plantilla:1", version_rpt_ref: "rpt:1",
       unidad_ref: "unidad:1", categoria_ref: "categoria:1", plaza_etiqueta: "Plaza uno", puesto_etiqueta: "Puesto uno" }],
     regimenes: [{ ref: "regimen:1", version: 1, denominacion: "Personal laboral" }],
+    clases_ocupacion: [{ valor: "titular", texto_clave: "personal.ocupacion.clase.titular" },
+      { valor: "provisional", texto_clave: "personal.ocupacion.clase.provisional" }, { valor: "temporal", texto_clave: "personal.ocupacion.clase.temporal" }],
     modalidades: [{ ref: "modalidad:1", version: 1, denominacion: "Sustitución" }], motivos: ["incorporar"],
     documentos: [{ documento_ref: "documento:1", documento_sha256: sha, etiqueta_clave_i18n: "documento.resolucion" }],
     periodo: { desde: "2026-10-01", hasta: "", fuente_ref: "periodo:1" } }, plan: null, recibo: null });
@@ -30,7 +32,7 @@ function raiz() {
   const eventos = new Map();
   return { innerHTML: "", isConnected: true, addEventListener(k, f) { eventos.set(k, f); }, removeEventListener(k) { eventos.delete(k); },
     replaceChildren() { this.innerHTML = ""; },
-    revisar(valores = { desde: "2026-10-01", hasta: "" }) {
+    revisar(valores = { desde: "2026-10-01", hasta: "", clase_ocupacion: "2" }) {
       return eventos.get("submit")({ preventDefault() {}, target: { matches: () => true,
         elements: Object.fromEntries(Object.entries(valores).map(([k, value]) => [k, { value }])) } });
     },
@@ -54,6 +56,7 @@ test("contrato cerrado: persona, permiso, catálogo extra, fechas imposibles y c
     assert.throws(() => validarSolicitudPlanB2({ ...solicitud, ...extra }));
   }
   assert.throws(() => validarSolicitudPlanB2({ ...solicitud, motivo_clave: false }));
+  assert.throws(() => validarSolicitudPlanB2({ ...solicitud, clase_ocupacion: false }));
   for (const desde of ["2026-02-30", "0000-10-01", "2026-10-01T00:00:00Z"]) assert.throws(() => validarSolicitudPlanB2({ ...solicitud, desde }));
   assert.throws(() => validarSolicitudPlanB2({ ...solicitud, regimen: { ...solicitud.regimen, etiqueta: "extra" } }));
   assert.throws(() => validarConsultaB2({ ...historia(), recibo: { ...recibo, plan_ref: "plan:otro" } }, expediente));
@@ -172,5 +175,54 @@ test("cliente acepta sólo errores reconocidos y no incluye el cuerpo privado en
       codigo, clave_i18n: `api.contratacion_temporal.incorporacion_personal_b2.error.${codigo}`, correlacion_ref: "correlacion:1",
     } }), { status: estado, headers: { "Content-Type": "application/json; charset=utf-8" } }) });
     await assert.rejects(cliente.consultar(expediente), (e) => e.estado === estado && e.envelopeValido === true && e.codigo === codigo);
+  }
+});
+
+
+test("tipo de ocupación exige elección expresa, también si Personal ofrece una sola opción", async () => {
+  for (const clases of [inicial().opciones.clases_ocupacion, [inicial().opciones.clases_ocupacion[2]]]) {
+    const c = inicial(); c.opciones.clases_ocupacion = clases;
+    const x = await montar(clienteBase({ consultar: async () => c, preparar: () => assert.fail() }));
+    assert.match(x.r.innerHTML, /<select id="ct-b2-clase_ocupacion" name="clase_ocupacion" required/u);
+    assert.doesNotMatch(x.r.innerHTML, /<option value="[012]" selected/u);
+    x.r.revisar({ desde: "2026-10-01", hasta: "" });
+    assert.match(x.r.innerHTML, /aria-invalid="true"/u); assert.doesNotMatch(x.r.innerHTML, /data-b2-accion="registrar"/u);
+    x.desmontar();
+  }
+});
+
+test("la clase elegida procede del subconjunto propietario y no se deriva de la modalidad", async () => {
+  const c = inicial(); c.opciones.clases_ocupacion = [c.opciones.clases_ocupacion[1]];
+  const posts = [], intencion = { ...solicitud, clase_ocupacion: "provisional" };
+  const x = await montar(clienteBase({ consultar: async () => c, preparar: async (s) => {
+    posts.push(s); return { ...c, estado: "plan_preparado", plan: { ...plan, intencion: s } };
+  } }));
+  x.r.revisar({ desde: "2026-10-01", hasta: "", clase_ocupacion: "0" });
+  assert.match(x.r.innerHTML, /Tipo de ocupación \(obligatorio\)<\/dt><dd>Provisional/u);
+  await x.r.click("registrar"); assert.deepEqual(posts, [intencion]); x.desmontar();
+});
+
+test("sin clases o con etiqueta desconocida se bloquea el formulario", async () => {
+  for (const clases of [[], [{ valor: "otra", texto_clave: "personal.ocupacion.clase.desconocida" }]]) {
+    const c = inicial(); c.opciones.clases_ocupacion = clases;
+    const x = await montar(clienteBase({ consultar: async () => c, preparar: () => assert.fail() }));
+    assert.doesNotMatch(x.r.innerHTML, /data-b2-form|data-b2-accion="registrar"/u); x.desmontar();
+  }
+});
+
+test("recuperar una intención con otra clase no confirma el contenido divergente", async () => {
+  let lecturas = 0, confirmaciones = 0;
+  const x = await montar(clienteBase({ consultar: async () => ++lecturas === 1 ? inicial() : { ...preparado(), plan: {
+    ...plan, intencion: { ...solicitud, clase_ocupacion: "titular" },
+  } }, preparar: async () => { throw new Error(); }, confirmar: async () => { confirmaciones++; return recibo; } }));
+  x.r.revisar(); await x.r.click("registrar");
+  assert.equal(confirmaciones, 0); assert.match(x.r.innerHTML, /Comprobar la operación/u); x.desmontar();
+});
+
+test("catálogo propio resuelve las clases ES/EN sin depender de traducciones antiguas del montaje", async () => {
+  for (const [idioma, titular] of [["es", "Titular"], ["en", "Substantive"]]) {
+    const traduccion = await cargarTextos("contratacion-temporal-incorporacion-personal-b2", { idioma, porDefecto: "es" });
+    const x = await montar(clienteBase(), { textos: traduccion });
+    assert.match(x.r.innerHTML, new RegExp(titular, "u")); x.desmontar();
   }
 });

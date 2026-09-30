@@ -59,5 +59,16 @@
   "documento": "Documento de la incorporación (obligatorio)",
   "sin_documento": "No hay documento disponible. Revise la formalización antes de continuar.",
   "sin_catalogos": "Las condiciones de Personal no están disponibles. RRHH debe revisar sus catálogos.",
-  "revision_lista": "Revise estos datos antes de registrar la incorporación."
+  "revision_lista": "Revise estos datos antes de registrar la incorporación.",
+  "clase_ocupacion": "Tipo de ocupación (obligatorio)",
+  "personal": {
+    "ocupacion": {
+      "clase": {
+        "titular": "Titular",
+        "provisional": "Provisional",
+        "temporal": "Temporal"
+      }
+    }
+  },
+  "ct_incorporacion_b2_documento_formalizacion": "Documento de formalización del expediente"
 }

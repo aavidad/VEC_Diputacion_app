@@ -14,7 +14,8 @@ export function montarIncorporacionPersonalB2({ raiz, cliente, expedienteRef, ve
     || !Number.isSafeInteger(versionEsperada) || versionEsperada < 1) throw new TypeError("montaje_incorporacion_b2_invalido");
   const t = (k, vars) => textos.traducir(k, vars);
   const traducirDato = (clave) => {
-    const valor = resolverEtiqueta ? resolverEtiqueta(clave) : t(clave);
+    let valor;
+    try { valor = t(clave); } catch { valor = resolverEtiqueta?.(clave); }
     if (typeof valor !== "string" || !valor || valor === clave) throw new TypeError("etiqueta_b2_no_disponible");
     return valor;
   };
@@ -25,13 +26,13 @@ export function montarIncorporacionPersonalB2({ raiz, cliente, expedienteRef, ve
   const fecha = (v) => textos.fecha(`${v}T00:00:00Z`, { dateStyle: "medium", timeZone: "UTC" });
   const puedePreparar = () => consulta && consulta.version_expediente_actual === versionEsperada
     && consulta.prerrequisitos.length > 0 && consulta.prerrequisitos.every((p) => p.cumplido)
-    && ["vacantes", "regimenes", "modalidades", "motivos", "documentos"].every((k) => consulta.opciones[k].length > 0);
-  const campos = ["vacante", "regimen", "modalidad", "desde", "hasta", "motivo", "documento"];
+    && ["vacantes", "regimenes", "modalidades", "clases_ocupacion", "motivos", "documentos"].every((k) => consulta.opciones[k].length > 0);
+  const campos = ["vacante", "regimen", "modalidad", "clase_ocupacion", "desde", "hasta", "motivo", "documento"];
   const valorOpcion = (lista, v) => typeof v === "string" && /^(?:0|[1-9]\d*)$/u.test(v) ? lista[Number(v)] : undefined;
   const fechaFuente = () => Boolean(consulta?.opciones.periodo.fuente_ref && consulta.opciones.periodo.desde);
   function erroresDe(v) {
     const o = consulta.opciones, resultado = {};
-    for (const [campo, lista] of [["vacante", o.vacantes], ["regimen", o.regimenes], ["modalidad", o.modalidades], ["motivo", o.motivos], ["documento", o.documentos]]) {
+    for (const [campo, lista] of [["vacante", o.vacantes], ["regimen", o.regimenes], ["modalidad", o.modalidades], ["clase_ocupacion", o.clases_ocupacion], ["motivo", o.motivos], ["documento", o.documentos]]) {
       if (valorOpcion(lista, v[campo]) === undefined) resultado[campo] = "error_campo";
     }
     if (!fechaCivilB2(v.desde)) resultado.desde = "error_campo";
@@ -48,7 +49,7 @@ export function montarIncorporacionPersonalB2({ raiz, cliente, expedienteRef, ve
     const cat = (campo, lista) => { const x = valorOpcion(lista, valores[campo]); return { ref: x.ref, version: x.version }; };
     return validarSolicitudPlanB2({ expediente_ref: expedienteRef, version_expediente: consulta.version_expediente_actual,
       puesto_ref: vacante.puesto_ref, plaza_ref: vacante.plaza_ref, version_plantilla_ref: vacante.version_plantilla_ref,
-      version_rpt_ref: vacante.version_rpt_ref, regimen: cat("regimen", o.regimenes), modalidad: cat("modalidad", o.modalidades),
+      version_rpt_ref: vacante.version_rpt_ref, regimen: cat("regimen", o.regimenes), modalidad: cat("modalidad", o.modalidades), clase_ocupacion: valorOpcion(o.clases_ocupacion, valores.clase_ocupacion).valor,
       desde: valores.desde, hasta: valores.hasta, motivo_clave: valorOpcion(o.motivos, valores.motivo),
       documento_ref: doc.documento_ref, documento_sha256: doc.documento_sha256, clave_idempotencia: generarClave() });
   }
@@ -57,16 +58,17 @@ export function montarIncorporacionPersonalB2({ raiz, cliente, expedienteRef, ve
     const vacante = o.vacantes.find((x) => x.puesto_ref === s.puesto_ref && x.plaza_ref === s.plaza_ref);
     const regimen = o.regimenes.find((x) => x.ref === s.regimen.ref && x.version === s.regimen.version);
     const modalidad = o.modalidades.find((x) => x.ref === s.modalidad.ref && x.version === s.modalidad.version);
+    const clase = o.clases_ocupacion.find((x) => x.valor === s.clase_ocupacion);
     const documento = o.documentos.find((x) => x.documento_ref === s.documento_ref && x.documento_sha256 === s.documento_sha256);
-    if (!vacante || !regimen || !modalidad || !documento) throw new TypeError("seleccion_b2_no_disponible");
+    if (!vacante || !regimen || !modalidad || !clase || !documento) throw new TypeError("seleccion_b2_no_disponible");
     return `<dl class="ct-resumen">${fila("persona", t("persona_aceptada"))}
       ${fila("puesto", `${vacante.puesto_etiqueta} · ${vacante.plaza_etiqueta}`)}
-      ${fila("regimen", regimen.denominacion)}${fila("modalidad", modalidad.denominacion)}
+      ${fila("regimen", regimen.denominacion)}${fila("modalidad", modalidad.denominacion)}${fila("clase_ocupacion", traducirDato(clase.texto_clave))}
       ${fila("desde", fecha(s.desde))}${fila("hasta", s.hasta ? fecha(s.hasta) : t("sin_fin"))}
       ${fila("motivo", traducirDato(`motivo.${s.motivo_clave}`))}${fila("documento", traducirDato(documento.etiqueta_clave_i18n))}</dl>`;
   }
-  function select(campo, clave, lista, rotulo) {
-    if (lista.length === 1) return `<label class="ct-campo"><span>${e(t(clave))}</span><input type="text" value="${e(rotulo(lista[0]))}" readonly></label>`;
+  function select(campo, clave, lista, rotulo, seleccionExpresa = false) {
+    if (lista.length === 1 && !seleccionExpresa) return `<label class="ct-campo"><span>${e(t(clave))}</span><input type="text" value="${e(rotulo(lista[0]))}" readonly></label>`;
     return `<label class="ct-campo" for="ct-b2-${campo}"><span>${e(t(clave))}</span>
       <select id="ct-b2-${campo}" name="${campo}" required${errores[campo] ? ' aria-invalid="true"' : ""}
         aria-describedby="ct-b2-error-${campo}"><option value="">${e(t("seleccionar"))}</option>
@@ -85,7 +87,8 @@ export function montarIncorporacionPersonalB2({ raiz, cliente, expedienteRef, ve
       <legend>${e(t("contexto"))}</legend><p>${e(t("persona_aceptada"))}</p>
       <div class="ct-campos">${select("vacante", "puesto", o.vacantes, (x) => `${x.puesto_etiqueta} · ${x.plaza_etiqueta}`)}
         ${select("regimen", "regimen", o.regimenes, (x) => x.denominacion)}
-        ${select("modalidad", "modalidad", o.modalidades, (x) => x.denominacion)}${datoFecha("desde")}${datoFecha("hasta")}
+        ${select("modalidad", "modalidad", o.modalidades, (x) => x.denominacion)}
+        ${select("clase_ocupacion", "clase_ocupacion", o.clases_ocupacion, (x) => traducirDato(x.texto_clave), true)}${datoFecha("desde")}${datoFecha("hasta")}
         ${select("motivo", "motivo", o.motivos, (x) => traducirDato(`motivo.${x}`))}
         ${select("documento", "documento", o.documentos, (x) => traducirDato(x.etiqueta_clave_i18n))}</div>
       <p class="ct-ayuda">${e(t(fechaFuente() ? "periodo_fuente" : "periodo_pendiente"))}</p></fieldset>
@@ -112,7 +115,7 @@ export function montarIncorporacionPersonalB2({ raiz, cliente, expedienteRef, ve
         else if (!incierto) {
           cuerpo += `<p>${e(t(!consulta.opciones.vacantes.length ? "sin_puestos"
             : !consulta.opciones.documentos.length ? "sin_documento"
-              : !consulta.opciones.regimenes.length || !consulta.opciones.modalidades.length ? "sin_catalogos" : "faltan_comprobaciones"))}</p>`;
+              : !consulta.opciones.regimenes.length || !consulta.opciones.modalidades.length || !consulta.opciones.clases_ocupacion.length ? "sin_catalogos" : "faltan_comprobaciones"))}</p>`;
         }
       }
     } catch { cuerpo = ""; mensaje = "no_disponible"; }
@@ -137,7 +140,7 @@ export function montarIncorporacionPersonalB2({ raiz, cliente, expedienteRef, ve
     if (plan) { intencion = plan.intencion; fase = "revision"; }
     else if (!intencion) {
       const o = c.opciones;
-      valores = { ...Object.fromEntries([["vacante", o.vacantes], ["regimen", o.regimenes], ["modalidad", o.modalidades], ["motivo", o.motivos], ["documento", o.documentos]].map(([k, lista]) => [k, lista.length === 1 ? "0" : ""])),
+      valores = { ...Object.fromEntries([["vacante", o.vacantes], ["regimen", o.regimenes], ["modalidad", o.modalidades], ["clase_ocupacion", o.clases_ocupacion], ["motivo", o.motivos], ["documento", o.documentos]].map(([k, lista]) => [k, k !== "clase_ocupacion" && lista.length === 1 ? "0" : ""])),
         desde: o.periodo.desde, hasta: o.periodo.hasta };
     }
     incierto = Boolean(intencion && !recibo && !plan); denegado = false;
