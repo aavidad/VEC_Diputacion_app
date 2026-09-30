@@ -1,6 +1,0 @@
-# IS9 depende de A1/A2 (CA19/AUT22) y de las fachadas CA20/AUT23.
-deploy/postgresql/contexto_actor_v1/migraciones/000019_perfiles_nominales_sin_revivir.up.sql
-deploy/postgresql/autorizacion/migraciones/000022_rol_administracion_perfiles_sin_revivir.up.sql
-deploy/postgresql/contexto_actor_v1/migraciones/000020_actos_perfil_admin_internos.up.sql
-deploy/postgresql/autorizacion/migraciones/000023_actos_perfiles_sensibles_internos.up.sql
-deploy/postgresql/identidad_sesiones_v1/migraciones/000009_politica_certificado_admin_v1.up.sql
