@@ -55,7 +55,7 @@ func TestPlazoFaseCTConAjustesNoRecalculaSinInstantanea(t *testing.T) {
 		plazo, aplicable, err := calculadora.CalcularPlazoFase(t.Context(), ports.SolicitudPlazoFaseRRHH{
 			Fase: "fiscalizacion", Desde: desde, Ahora: ahora,
 		})
-		if !errors.Is(err, reglas.ErrAjustesNoDisponibles) || aplicable || plazo.Valido() ||
+		if !errors.Is(err, reglas.ErrReglasNoDisponibles) || aplicable || plazo.Valido() ||
 			plazo.ReglaRef != "" || calendarios.recibida.Cantidad != 0 {
 			t.Fatalf("desde %v se recalculó sin instantánea: %+v cantidad %d %v",
 				desde, plazo, calendarios.recibida.Cantidad, err)
