@@ -315,6 +315,7 @@
     "inicio": {
       "consultaBolsa": {
         "titulo": "Su participación en Bolsa",
+        "descripcion": "Consulte los datos de su participación que ya están disponibles.",
         "subtitulo": "Información disponible en esta consulta",
         "detalle": "Aquí puede consultar su participación en Bolsa. Los plazos y las solicitudes de convocatorias aún no están disponibles en esta área.",
         "abrir": "Ver Mi bolsa"
@@ -377,6 +378,7 @@
     "convocatorias": {
       "consultaBolsa": {
         "titulo": "Convocatorias no disponibles aquí",
+        "descripcion": "El listado de convocatorias aún no está disponible en esta área.",
         "subtitulo": "Esta consulta muestra su participación en Bolsa",
         "detalle": "El listado de convocatorias no está conectado a esta área. Puede consultar la información disponible de su bolsa.",
         "abrir": "Ver Mi bolsa"
@@ -403,6 +405,7 @@
         "noEncontradaDetalle": "No se puede abrir el detalle solicitado.",
         "noEncontradaEstado": "No se muestra ninguna convocatoria",
         "noEncontradaAyuda": "Vuelva al listado y elija una convocatoria disponible.",
+        "noEncontradaAyudaBolsa": "Las convocatorias aún no están disponibles aquí. Consulte su participación en Mi bolsa.",
         "documentoPublico": "Documento público de la convocatoria",
         "abrir": "Abrir {formato}",
         "documento": "documento",

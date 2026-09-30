@@ -10,7 +10,7 @@ const soloMiBolsa = (datos) => datos.meta?.origen === "GET /api/vec/bolsa/mi-bol
 
 export function renderizarInicio(datos) {
   if (soloMiBolsa(datos)) {
-    return `${encabezadoVista(t("titulo"), t("descripcion"))}
+    return `${encabezadoVista(t("titulo"), t("consultaBolsa.descripcion"))}
       ${panel(t("consultaBolsa.titulo"), t("consultaBolsa.subtitulo"),
         `<p>${escaparHTML(t("consultaBolsa.detalle"))}</p>${enlaceRuta("llamamientos", t("consultaBolsa.abrir"), "boton-primario")}`)}`;
   }
@@ -48,7 +48,7 @@ export function renderizarInicio(datos) {
 
 export function renderizarConvocatorias(datos, estado) {
   if (soloMiBolsa(datos)) {
-    return `${encabezadoVista(c("titulo"), c("descripcion"))}
+    return `${encabezadoVista(c("titulo"), c("consultaBolsa.descripcion"))}
       ${panel(c("consultaBolsa.titulo"), c("consultaBolsa.subtitulo"),
         `<p>${escaparHTML(c("consultaBolsa.detalle"))}</p>${enlaceRuta("llamamientos", c("consultaBolsa.abrir"), "boton-primario")}`)}`;
   }
@@ -75,9 +75,12 @@ export function renderizarConvocatorias(datos, estado) {
 export function renderizarDetalleConvocatoria(datos, estado) {
   const convocatoria = datos.convocatorias.find((item) => item.id === estado.convocatoriaSeleccionada);
   if (!convocatoria) {
+    const consultaBolsa = soloMiBolsa(datos);
     return `${encabezadoVista(c("detalle.noEncontradaTitulo"), c("detalle.noEncontradaDetalle"))}
       ${panel(c("detalle.noEncontradaTitulo"), "", estadoVacio(c("detalle.noEncontradaEstado"),
-        c("detalle.noEncontradaAyuda"), enlaceRuta("convocatorias", c("detalle.volver"), "boton-secundario")))}`;
+        c(consultaBolsa ? "detalle.noEncontradaAyudaBolsa" : "detalle.noEncontradaAyuda"),
+        enlaceRuta(consultaBolsa ? "llamamientos" : "convocatorias",
+          c(consultaBolsa ? "consultaBolsa.abrir" : "detalle.volver"), "boton-secundario")))}`;
   }
   const requisitos = convocatoria.requisitos.map((requisito) => `<li>${escaparHTML(requisito)}</li>`).join("");
   const documentos = convocatoria.documentos.map((documento, indice) => {

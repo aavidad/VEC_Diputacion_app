@@ -315,6 +315,7 @@
     "inicio": {
       "consultaBolsa": {
         "titulo": "Your employment pool participation",
+        "descripcion": "View the details of your participation that are already available.",
         "subtitulo": "Information available in this enquiry",
         "detalle": "You can view your employment pool participation here. Recruitment deadlines and applications are not yet available in this area.",
         "abrir": "View my employment pool"
@@ -377,6 +378,7 @@
     "convocatorias": {
       "consultaBolsa": {
         "titulo": "Recruitment notices unavailable here",
+        "descripcion": "The list of recruitment notices is not yet available in this area.",
         "subtitulo": "This enquiry shows your employment pool participation",
         "detalle": "Recruitment notices are not connected to this area. You can view the available information about your employment pool.",
         "abrir": "View my employment pool"
@@ -403,6 +405,7 @@
         "noEncontradaDetalle": "The requested details cannot be opened.",
         "noEncontradaEstado": "No recruitment notice is shown",
         "noEncontradaAyuda": "Return to the list and choose an available recruitment notice.",
+        "noEncontradaAyudaBolsa": "Recruitment notices are not yet available here. View your employment pool participation.",
         "documentoPublico": "Public document of the recruitment notice",
         "abrir": "Open {formato}",
         "documento": "document",

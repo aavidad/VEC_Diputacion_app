@@ -10,15 +10,30 @@ const estado = { filtros: { termino: "", estado: "", categoria: "" }, convocator
 
 test("la consulta real de Mi bolsa no presenta ceros como plazos o solicitudes confirmados", async () => {
   const datos = datosMinimosMiBolsa({ consultada_en: "2026-09-30T10:00:00Z" });
+  assert.equal(datos.meta.origen, "GET /api/vec/bolsa/mi-bolsa");
   for (const [idioma, visible] of [["es", "Ver Mi bolsa"], ["en", "View my employment pool"]]) {
     await iniciarI18nAreaPersonal({ querySelectorAll: () => [], documentElement: {} }, {
       leer: lectorCatalogos(), ubicacion: { href: `https://vec.example/area-personal/?lang=${idioma}` },
     });
     for (const html of [renderizarInicio(datos), renderizarConvocatorias(datos, estado)]) {
       assert.match(html, /data-ruta="llamamientos"/u);
+      assert.match(html, /href="\?vista=llamamientos"/u);
       assert.ok(html.includes(visible));
       assert.doesNotMatch(html, /data-accion="iniciar-solicitud"|data-accion="abrir-expediente"/u);
       assert.doesNotMatch(html, /class="resumen-cifras"|id="filtros-convocatorias"/u);
+    }
+    const inicio = renderizarInicio(datos);
+    const convocatorias = renderizarConvocatorias(datos, estado);
+    if (idioma === "es") {
+      assert.match(inicio, /Consulte los datos de su participación que ya están disponibles/u);
+      assert.match(convocatorias, /El listado de convocatorias aún no está disponible/u);
+      assert.doesNotMatch(inicio, /Plazos, acciones y estado de sus procesos/u);
+      assert.doesNotMatch(convocatorias, /Consulte bases, requisitos, plazos y estado/u);
+    } else {
+      assert.match(inicio, /View the details of your participation that are already available/u);
+      assert.match(convocatorias, /The list of recruitment notices is not yet available/u);
+      assert.doesNotMatch(inicio, /Deadlines, actions and the status of your processes/u);
+      assert.doesNotMatch(convocatorias, /Check the terms, requirements, deadlines and status/u);
     }
   }
 });
@@ -34,6 +49,11 @@ test("un identificador ausente no muestra el detalle de otra convocatoria", asyn
   assert.match(html, /Convocatoria no disponible/u);
   assert.match(html, /data-ruta="convocatorias"/u);
   assert.doesNotMatch(html, /Convocatoria de otra persona|data-accion="iniciar-solicitud"/u);
+
+  const consultaBolsa = renderizarDetalleConvocatoria(datosMinimosMiBolsa({ consultada_en: "2026-09-30T10:00:00Z" }), estado);
+  assert.match(consultaBolsa, /data-ruta="llamamientos"/u);
+  assert.match(consultaBolsa, /Consulte su participación en Mi bolsa/u);
+  assert.doesNotMatch(consultaBolsa, /data-ruta="convocatorias"|Vuelva al listado/u);
 });
 
 test("un listado vacío y un filtro sin coincidencias tienen mensajes distintos", () => {
