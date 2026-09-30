@@ -90,8 +90,8 @@ func generarMaterialPortalExternoPrueba(t *testing.T) materialPortalExternoPrueb
 		}
 	}
 	separarMaterial(t, raiz, separacionportales.PortalExterno)
-	for _, relativa := range []string{"identidad/identidad.json", "identidad/intervencion.json", "mtls/cliente.crt", "mtls/intervencion.crt"} {
-		if err := os.Remove(filepath.Join(raiz, filepath.FromSlash(relativa))); err != nil {
+	for _, relativa := range []string{"identidad/identidad.json", "identidad/intervencion.json", "mtls/cliente.crt", "mtls/intervencion.crt", "kms", "tsa"} {
+		if err := os.RemoveAll(filepath.Join(raiz, filepath.FromSlash(relativa))); err != nil {
 			t.Fatal(err)
 		}
 	}

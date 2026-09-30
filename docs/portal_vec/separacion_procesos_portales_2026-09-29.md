@@ -78,13 +78,17 @@ la misma composición externa.
   `~/.postgresql/postgresql.key`).
 - Material: cada proceso tiene su propio directorio con un fichero
   `portal-proceso.json` (`{"version":1,"portal":"interno"}` o `"externo"`).
-  Cada uno tiene su propia clave maestra, sellado de tiempo, idempotencia y
-  clave TLS. El externo solo admite su lista positiva (identidad del candidato,
+  Cada uno tiene su propia idempotencia, clave TLS y autoridad certificadora.
+  El KMS y el sellado de tiempo bajo `kms/` y `tsa/` pertenecen al interno. El externo solo admite su lista positiva (identidad del candidato,
   `usuarios-preferencias-externa.json`, `mtls/candidato.crt`, `externo/…`,
-  más TLS, KMS, TSA, idempotencia, `ca/ca.crt`, manifiesto y
+  más TLS, idempotencia, `ca/ca.crt`, manifiesto y
   `desarrollo.env`). El interno rechaza esos ficheros del externo. Ninguno
-  admite nada bajo `ca/` salvo `ca/ca.crt`, ningún `*.p12` ni `*.password`,
-  ningún `*.key` fuera de `tls/` y `kms/`, ni enlaces simbólicos.
+  admite nada bajo `ca/` salvo `ca/ca.crt`; bajo `tls/` solo admite
+  `tls/servidor.crt` y `tls/servidor.key`. El interno admite en `kms/` solo la
+  clave maestra y los pares de atestación y revalidación; en `tsa/`, solo
+  `clave-hmac.bin`. El externo rechaza todos esos ficheros antes de leerlos.
+  Rechaza claves privadas de cliente, `*.pem`, `*.p12`, `*.password`, otros
+  `*.key` y enlaces simbólicos.
 - El proceso externo tampoco admite secretos ni custodias del interno aunque
   no sean conexiones: la custodia de CONVOCA, el token del validador de firma,
   el fichero de incorporación de CT o cualquier variable `VEC_*` con aspecto
@@ -114,8 +118,11 @@ vec-server comprobar-separacion-portales \
   [--entorno-interno GUION] [--entorno-externo GUION]
 ```
 
-Falla si algún secreto (KMS, sellado, idempotencia, clave TLS, `externo/*.bin`)
-tiene el mismo contenido en los dos directorios, si un mismo usuario de
+Falla si los dos directorios comparten autoridad certificadora, incluso cuando
+el formato PEM difiere. Compara la huella SHA-256 del certificado DER y rechaza
+un certificado de CA ausente o inválido. También falla si algún secreto (KMS,
+sellado, idempotencia, clave TLS, `externo/*.bin`) tiene el mismo contenido en
+los dos directorios, si un mismo usuario de
 PostgreSQL aparece en las conexiones de ambos (variables del guion y cadenas
 dentro de los JSON del material) o si alguna conexión no lleva usuario
 explícito. Solo imprime recuentos y el nombre del elemento repetido.
@@ -226,3 +233,22 @@ Pendiente, en este orden:
 - La clasificación de ficheros y rutas es una lista en el código. Una ruta o un
   fichero nuevo del Área personal hay que añadirlo ahí; si se olvida, el
   proceso externo lo rechaza (falla cerrado) y el interno lo sirve como hoy.
+
+### Preflight del gobierno externo
+
+El preflight externo usa exclusivamente el login
+`vec_externo_preflight_v3_desarrollo` (AD3-112), con TLS `verify-full`, también
+en loopback y en los ensayos locales. Rechaza conexiones sin TLS, sin
+verificación del nombre del servidor o con alternativas de conexión inseguras
+antes de abrir el pool. No cambia los permisos ni el SQL instalado.
+
+Pruebas focales del material y la configuración de conexión:
+
+```sh
+GOCACHE=/dev/shm/go-build TMPDIR=/tmp go test -p 32 \
+  ./internal/app/separacionportales ./internal/app/bootstrap \
+  -run 'Test(PreflightV3PortalExterno|ComprobarSeparacion|ProcesoExterno|ProcesoSeparadoSolo|MaterialPropio|MaterialSin)'
+```
+
+Estas pruebas verifican rechazo y configuración local; el recorrido con los
+dos procesos y PostgreSQL se comprueba por separado.

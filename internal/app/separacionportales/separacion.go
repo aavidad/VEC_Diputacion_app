@@ -3,7 +3,9 @@ package separacionportales
 import (
 	"bytes"
 	"crypto/sha256"
+	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"io"
 	"net/url"
 	"path/filepath"
@@ -62,6 +64,9 @@ func ComprobarSeparacion(interno, externo Proceso) (InformeSeparacion, error) {
 				return informe, err
 			}
 		}
+	}
+	if err := comprobarCADistintas(interno.Material, externo.Material); err != nil {
+		return informe, err
 	}
 	secretosInterno, err := huellasSecretos(interno.Material)
 	if err != nil {
@@ -131,8 +136,33 @@ func dentro(padre, hijo string) bool {
 	return err == nil && (rel == "." || (rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))))
 }
 
+// comprobarCADistintas compara los certificados DER: cambiar los espacios o
+// saltos de línea del PEM no convierte una autoridad en otra.
+func comprobarCADistintas(interno, externo string) error {
+	var huellas [2][sha256.Size]byte
+	for i, directorio := range []string{interno, externo} {
+		contenido, err := leerFicheroAcotado(filepath.Join(directorio, "ca", "ca.crt"), tamanoMaximoSecreto)
+		if err != nil {
+			return rechazo("autoridad certificadora no legible", "ca/ca.crt")
+		}
+		bloque, resto := pem.Decode(contenido)
+		if bloque == nil || bloque.Type != "CERTIFICATE" || len(bytes.TrimSpace(resto)) != 0 {
+			return rechazo("autoridad certificadora no valida", "ca/ca.crt")
+		}
+		certificado, err := x509.ParseCertificate(bloque.Bytes)
+		if err != nil || !certificado.IsCA || certificado.KeyUsage&x509.KeyUsageCertSign == 0 {
+			return rechazo("autoridad certificadora no valida", "ca/ca.crt")
+		}
+		huellas[i] = sha256.Sum256(certificado.Raw)
+	}
+	if huellas[0] == huellas[1] {
+		return rechazo("los dos procesos comparten autoridad certificadora", "ca/ca.crt")
+	}
+	return nil
+}
+
 // esSecreto señala los ficheros cuyo contenido no puede coincidir entre
-// procesos. Las claves públicas y los certificados pueden repetirse.
+// procesos. Las claves públicas pueden repetirse; las CA se comparan aparte.
 func esSecreto(relativa string) bool {
 	switch {
 	case strings.HasPrefix(relativa, "kms/"):
