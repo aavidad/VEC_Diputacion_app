@@ -77,7 +77,7 @@
       "b26.agotamiento": {
         "ejemplo_parcial": {
           "original": "Que VEC proponga la bolsa como «agotada provisionalmente» cuando las personas disponibles no superan umbral_disponibles, y que RRHH lo confirme, es un circuito de ejemplo; el umbral 0 corresponde a «no quedan integrantes disponibles» y el agotamiento exige resolución expresa.",
-          "texto": "Es un circuito de ejemplo que VEC proponga «agotada provisionalmente» una bolsa sin personas disponibles y RRHH lo confirme. El agotamiento exige una resolución expresa."
+          "texto": "En este ejemplo, VEC propone el agotamiento provisional cuando las personas disponibles no superan el umbral configurado. RRHH lo confirma mediante resolución expresa."
         }
       },
       "b28.transiciones.disponible": {
@@ -105,7 +105,7 @@
         }
       }
     },
-    "ct": {
+    "contratacion_temporal": {
       "c02.plazo_informes": {
         "duda": {
           "original": "Su aplicación a este procedimiento, y a qué fases del expediente (atributo fases), la confirma RRHH.",
@@ -181,31 +181,31 @@
       "c15.urgencia": {
         "descripcion": {
           "original": "RRHH puede declarar urgente el expediente al analizarlo, con su motivo. Los plazos con cantidad urgente (c03) usan esa cantidad; la urgencia declarada se mantiene.",
-          "texto": "RRHH puede declarar urgente el expediente al analizarlo y debe indicar el motivo. En fiscalización se aplica entonces el plazo previsto para la urgencia; la declaración permanece."
+          "texto": "RRHH puede declarar urgente el expediente al analizarlo y debe indicar el motivo. Los plazos que prevén urgencia aplican su cantidad correspondiente. La declaración permanece."
         }
       },
       "c19.fiscalizacion_resultados": {
         "descripcion": {
           "original": "Resultados que Intervención puede registrar y qué ocurre con el expediente: «continua» sigue la tramitación y «vuelve_unidad_gestora» lo devuelve a la unidad gestora para subsanar y fiscalizar de nuevo. «informe_nuevo_tras_subsanacion» (si/no) decide si tras subsanar hace falta un informe jurídico nuevo, y «documento_firma_informe_nuevo» qué documento del circuito de firma se vuelve a firmar por ello.",
-          "texto": "Si Intervención informa favorablemente, con o sin observaciones, el expediente continúa. Si informa desfavorablemente, vuelve a la unidad gestora para subsanar y fiscalizar de nuevo. Tras la subsanación se exige otro informe jurídico y se firma de nuevo el informe definitivo."
+          "texto": "La regla indica si cada resultado de Intervención permite continuar o devuelve el expediente a la unidad gestora para subsanar y fiscalizar de nuevo. También fija si la subsanación exige otro informe jurídico y qué documento se firma de nuevo."
         }
       },
       "c20.cancelacion_expediente": {
         "descripcion": {
           "original": "El centro solicitante o RRHH pueden cancelar el expediente, con un motivo del catálogo motivos_cancelacion_contratacion_temporal, mientras esté en una de estas fases. Tras la fiscalización nunca se cancela. «roles_centro» fija qué perfiles del centro cancelan (sin él, el centro no cancela).",
-          "texto": "El centro solicitante o RRHH pueden cancelar el expediente por uno de los motivos admitidos durante la solicitud, la asignación de unidad o el informe jurídico. Tras la fiscalización ya no se cancela. En este ejemplo pueden hacerlo los perfiles de solicitud y ratificación del centro; sin perfiles designados, el centro no puede cancelar."
+          "texto": "El centro solicitante o RRHH pueden cancelar el expediente por un motivo admitido, en las fases que permite esta regla. Tras la fiscalización ya no se cancela. El centro necesita uno de los perfiles designados en la regla; sin ellos no puede cancelar."
         }
       },
       "c22.no_incorporacion": {
         "descripcion": {
           "original": "Motivos por los que la persona seleccionada no se incorpora, con la consecuencia que se aplica en la bolsa (una entrada b24.sancion.* del catálogo de Bolsa) y el llamamiento al siguiente candidato. La resolución la firma una segunda persona si segunda_persona vale «si».",
-          "texto": "Si la persona seleccionada no se incorpora, se registra el motivo, se aplica la consecuencia prevista en la bolsa y se llama a la siguiente persona. En este ejemplo, una segunda persona firma la resolución."
+          "texto": "Si la persona seleccionada no se incorpora, se registra el motivo, se aplica la consecuencia prevista en la bolsa y se llama a la siguiente persona. Una segunda persona firma la resolución cuando la regla lo exige."
         }
       },
       "c23.fase_operacion.analisis": {
         "descripcion": {
           "original": "RRHH registra o rectifica el análisis de una solicitud mientras el expediente está en alguna de estas fases y en el estado indicado. Es lo que cubre el permiso de análisis de RRHH para toda la organización, sin atarlo a un expediente concreto.",
-          "texto": "RRHH puede registrar o rectificar el análisis mientras el expediente está en curso y en fase de solicitud. El permiso abarca toda la organización sin vincularse a un expediente concreto."
+          "texto": "RRHH puede registrar o rectificar el análisis en las fases y el estado que permite esta regla. El permiso abarca toda la organización sin vincularse a un expediente concreto."
         }
       }
     }

@@ -77,7 +77,7 @@
       "b26.agotamiento": {
         "ejemplo_parcial": {
           "original": "Que VEC proponga la bolsa como «agotada provisionalmente» cuando las personas disponibles no superan umbral_disponibles, y que RRHH lo confirme, es un circuito de ejemplo; el umbral 0 corresponde a «no quedan integrantes disponibles» y el agotamiento exige resolución expresa.",
-          "texto": "In this example, VEC proposes marking a pool with no available candidates as provisionally exhausted, and HR confirms it. Exhaustion requires an express decision."
+          "texto": "In this example, VEC proposes provisional exhaustion when available candidates do not exceed the configured threshold. HR confirms it by an express decision."
         }
       },
       "b28.transiciones.disponible": {
@@ -105,7 +105,7 @@
         }
       }
     },
-    "ct": {
+    "contratacion_temporal": {
       "c02.plazo_informes": {
         "duda": {
           "original": "Su aplicación a este procedimiento, y a qué fases del expediente (atributo fases), la confirma RRHH.",
@@ -181,31 +181,31 @@
       "c15.urgencia": {
         "descripcion": {
           "original": "RRHH puede declarar urgente el expediente al analizarlo, con su motivo. Los plazos con cantidad urgente (c03) usan esa cantidad; la urgencia declarada se mantiene.",
-          "texto": "HR may mark the case as urgent when analysing it and must give a reason. The period provided for urgent cases then applies during financial review; the urgent status remains recorded."
+          "texto": "HR may mark the case as urgent when analysing it and must give a reason. Time limits that provide for urgency apply the corresponding amount. The urgent status remains recorded."
         }
       },
       "c19.fiscalizacion_resultados": {
         "descripcion": {
           "original": "Resultados que Intervención puede registrar y qué ocurre con el expediente: «continua» sigue la tramitación y «vuelve_unidad_gestora» lo devuelve a la unidad gestora para subsanar y fiscalizar de nuevo. «informe_nuevo_tras_subsanacion» (si/no) decide si tras subsanar hace falta un informe jurídico nuevo, y «documento_firma_informe_nuevo» qué documento del circuito de firma se vuelve a firmar por ello.",
-          "texto": "If the financial review is favourable, with or without observations, the case continues. If it is unfavourable, the case returns to the managing unit for correction and another review. A new legal report is then required, and the final report is signed again."
+          "texto": "The rule specifies whether each financial review result allows the case to continue or returns it to the managing unit for correction and another review. It also sets whether correction requires a new legal report and which document is signed again."
         }
       },
       "c20.cancelacion_expediente": {
         "descripcion": {
           "original": "El centro solicitante o RRHH pueden cancelar el expediente, con un motivo del catálogo motivos_cancelacion_contratacion_temporal, mientras esté en una de estas fases. Tras la fiscalización nunca se cancela. «roles_centro» fija qué perfiles del centro cancelan (sin él, el centro no cancela).",
-          "texto": "The requesting centre or HR may cancel the case for an accepted reason during the request, unit assignment or legal report stage. It cannot be cancelled after financial review. In this example, the centre’s request and ratification roles may cancel it; without designated roles, the centre cannot cancel."
+          "texto": "The requesting centre or HR may cancel the case for an accepted reason, at the stages allowed by this rule. It cannot be cancelled after financial review. The centre needs one of the roles designated by the rule; without them it cannot cancel."
         }
       },
       "c22.no_incorporacion": {
         "descripcion": {
           "original": "Motivos por los que la persona seleccionada no se incorpora, con la consecuencia que se aplica en la bolsa (una entrada b24.sancion.* del catálogo de Bolsa) y el llamamiento al siguiente candidato. La resolución la firma una segunda persona si segunda_persona vale «si».",
-          "texto": "If the selected person does not start work, the reason is recorded, the applicable consequence is applied in the employment pool, and the next candidate is called. In this example, a second person signs the decision."
+          "texto": "If the selected person does not start work, the reason is recorded, the applicable consequence is applied in the employment pool, and the next candidate is called. A second person signs the decision when the rule requires it."
         }
       },
       "c23.fase_operacion.analisis": {
         "descripcion": {
           "original": "RRHH registra o rectifica el análisis de una solicitud mientras el expediente está en alguna de estas fases y en el estado indicado. Es lo que cubre el permiso de análisis de RRHH para toda la organización, sin atarlo a un expediente concreto.",
-          "texto": "HR may record or correct the analysis while the case is in progress and at the request stage. The permission covers the whole organisation without being tied to one case."
+          "texto": "HR may record or correct the analysis at the stages and in the status allowed by this rule. The permission covers the whole organisation without being tied to one case."
         }
       }
     }
