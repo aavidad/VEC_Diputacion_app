@@ -313,6 +313,12 @@
       "porcentajeLeido": "{valor} percent"
     },
     "inicio": {
+      "consultaBolsa": {
+        "titulo": "Your employment pool participation",
+        "subtitulo": "Information available in this enquiry",
+        "detalle": "You can view your employment pool participation here. Recruitment deadlines and applications are not yet available in this area.",
+        "abrir": "View my employment pool"
+      },
       "cifras": {
         "pendientes": "Pending actions",
         "pendientesAyuda": "Check deadlines and messages",
@@ -334,6 +340,8 @@
       "plazos": {
         "titulo": "Upcoming deadlines",
         "subtitulo": "Dates calculated for your processes",
+        "vacioTitulo": "No deadlines reported",
+        "vacioDetalle": "This enquiry contains no deadlines. Check the terms of each recruitment notice when available.",
         "cuenta": {
           "one": "{cuenta} deadline",
           "other": "{cuenta} deadlines"
@@ -361,10 +369,18 @@
       },
       "actividad": {
         "titulo": "Recent activity",
-        "subtitulo": "Audit trail visible to the person concerned"
+        "subtitulo": "Audit trail visible to the person concerned",
+        "vacioTitulo": "No recorded activity",
+        "vacioDetalle": "There are no actions to show in this enquiry yet."
       }
     },
     "convocatorias": {
+      "consultaBolsa": {
+        "titulo": "Recruitment notices unavailable here",
+        "subtitulo": "This enquiry shows your employment pool participation",
+        "detalle": "Recruitment notices are not connected to this area. You can view the available information about your employment pool.",
+        "abrir": "View my employment pool"
+      },
       "todas": "All",
       "publicada": "Published on {fecha}",
       "verDetalle": "View details and requirements",
@@ -380,7 +396,13 @@
       },
       "sinResultados": "No results",
       "sinResultadosDetalle": "Change the filters to see other recruitment notices.",
+      "sinConvocatorias": "No recruitment notices in this enquiry",
+      "sinConvocatoriasDetalle": "No recruitment notices were received to display. Please check again later.",
       "detalle": {
+        "noEncontradaTitulo": "Recruitment notice unavailable",
+        "noEncontradaDetalle": "The requested details cannot be opened.",
+        "noEncontradaEstado": "No recruitment notice is shown",
+        "noEncontradaAyuda": "Return to the list and choose an available recruitment notice.",
         "documentoPublico": "Public document of the recruitment notice",
         "abrir": "Open {formato}",
         "documento": "document",
