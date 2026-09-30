@@ -69,6 +69,7 @@ var ficherosInternos = map[string]struct{}{
 	"kms/revalidacion-ed25519.pub": {},
 	"tsa/clave-hmac.bin":           {},
 }
+
 var directoriosComunes = []string{"idempotencia/"}
 
 // clasificar asigna una ruta relativa (con barras) a su portal. Lo que no está
