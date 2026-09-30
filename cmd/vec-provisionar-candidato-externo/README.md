@@ -102,3 +102,16 @@ El ensayo `cierre_externo_tipos_000020_000121_000065_pg18.sh` usa un clon
 PostgreSQL 18 desechable y revierte todos sus casos. Comprueba la corrección,
 la conservación del canon y las filas, y el rechazo de preimágenes modificadas.
 No se ejecuta sobre la principal ni instala las migraciones.
+
+Si algunos motivos ya están publicados, puede preparar solo los catálogos
+pendientes con `catalogos_motivos` en la fuente de la fase `motivos`. Para el
+historial propio, use `["motivos_historial_mi_bolsa_desarrollo"]`. La selección
+se limita a los tres catálogos existentes de Bolsa y queda ligada a la huella
+que muestra el plan. Una lista vacía, duplicada o desconocida se rechaza.
+
+Coteje `preimagen.secuencia_motivos` con el checkpoint actual del publicador.
+La publicación consume la siguiente secuencia en la misma transacción. Para
+recuperar una publicación, conserve la fuente original y sus dos huellas:
+la función existente verifica el evento, la secuencia, la fecha y el contenido.
+Esta fase no cambia la cuenta, el perfil ni su asignación. El servidor del
+portal tampoco publica motivos al atender peticiones.
