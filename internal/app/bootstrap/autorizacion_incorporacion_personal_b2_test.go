@@ -46,6 +46,56 @@ func TestIncorporacionB2MaterialAjenoNoPreparaNiEmiteV3(t *testing.T) {
 	}
 }
 
+func TestIncorporacionB2PlanDeOtroCatalogoOModuloNoLlegaAPreparadorRPT(t *testing.T) {
+	d := personal.DatosPlanIncorporacionCT{
+		IdempotenciaRef: "10000000-0000-4000-8000-000000000001", OrigenCTRef: "ct:plan", OrigenCTReciboRef: "ct:recibo", OrigenCTHuellaSHA256: strings.Repeat("a", 64),
+		ExpedienteRef: "exp:uno", ExpedienteVersion: 7, OrganismoRef: "org:uno", UnidadRef: "uni:uno", PersonaRef: "per_" + strings.Repeat("p", 24), PersonaVersion: 1,
+		FuenteBolsaRef: "bolsa:persona", FuenteBolsaVersion: 2, FuenteBolsaReciboRef: "bolsa:recibo", FuenteBolsaHuellaSHA256: strings.Repeat("b", 64),
+		Regimen: personal.EntradaCatalogoEmpleadoB2{Ref: "reg:uno", Version: 1}, Modalidad: personal.EntradaCatalogoEmpleadoB2{Ref: "mod:uno", Version: 2}, Desde: personal.FechaCivil("2026-10-01"),
+		PlazaRef: "plaza:10000000-0000-4000-8000-000000000002", PuestoRef: "puesto:10000000-0000-4000-8000-000000000003", ClaseOcupacion: "temporal",
+		VersionPlantillaRef: "plantilla:uno", VersionRPTRef: "rpt:uno", RevisionPlaza: 1, RevisionPuesto: 2, FuenteOrganizacionRef: "organizacion:uno", FuenteOrganizacionHuellaSHA256: strings.Repeat("c", 64),
+		CatalogoRPTID: "rpt:catalogo", CatalogoRPTModulo: "personal", CatalogoRPTCategoria: "categoria:uno", CatalogoRPTVersion: 1, CatalogoRPTHuellaSHA256: strings.Repeat("d", 64),
+		VinculoCTReciboRef: "vinculo:recibo", Procedencia: personal.ProcedenciaActoEmpleadoB2{ActoRef: "acto:incorporacion", FuenteRef: "fuente:ct", FuenteVersion: 7, FuenteHuellaSHA256: strings.Repeat("e", 64), IdempotenciaRef: "10000000-0000-4000-8000-000000000004"},
+	}
+	p := personal.PlanIncorporacionCT{
+		ClasesOcupacionCatalogoRef: "personal:clases_ocupacion_ct", ClasesOcupacionCatalogoVersion: 1, ClasesOcupacionCatalogoHuellaSHA256: strings.Repeat("f", 64),
+		PlanRef: "perplan_" + strings.Repeat("a", 32), ReciboRef: "perplanrec_" + strings.Repeat("b", 32), Version: 1, Datos: d, Modo: "alta_empleado",
+		ClaveAltaRelacion: "10000000-0000-4000-8000-000000000005", ClaveOcupacion: "10000000-0000-4000-8000-000000000006", UsoRPTRef: "uso:uno", ReservaRPTRef: "reserva:uno", ConfirmacionRPTRef: "confirmacion:uno",
+	}
+	for _, caso := range []struct {
+		nombre  string
+		cambiar func(*personal.PlanIncorporacionCT)
+	}{
+		{"catalogo", func(p *personal.PlanIncorporacionCT) { p.Datos.CatalogoRPTID = "rpt:otro" }},
+		{"modulo", func(p *personal.PlanIncorporacionCT) { p.Datos.CatalogoRPTModulo = "bolsa" }},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			plan := p
+			caso.cambiar(&plan)
+			plan.HuellaSHA256 = plan.CalcularHuellaSHA256()
+			if err := plan.Validar(); err != nil {
+				t.Fatalf("plan de prueba inválido: %v", err)
+			}
+			m := vp.MaterialReservaUsoCategoriaRPT{Consumidor: "personal", UsoRef: plan.UsoRPTRef, CategoriaID: plan.Datos.CatalogoRPTCategoria,
+				Publicacion: vp.ReferenciaPublicacionRPT{CatalogoID: plan.Datos.CatalogoRPTID, Version: int(plan.Datos.CatalogoRPTVersion), HuellaSHA256: plan.Datos.CatalogoRPTHuellaSHA256}, ReservaReciboRef: plan.ReservaRPTRef}
+			if !materialReservaCorrespondePlanB2(plan, m) {
+				t.Fatal("la prueba no ejercita la guarda del catálogo y módulo")
+			}
+			preparador := &preparadorUsosB2Prueba{}
+			a := &autoridadIncorporacionPersonalB2{preparadorUsosRPT: preparador, catalogoRPTID: p.Datos.CatalogoRPTID, moduloRPTID: p.Datos.CatalogoRPTModulo}
+			if _, err := a.AutorizarReservaPlanB2(t.Context(), plan, m); !errors.Is(err, ct.ErrAutorizacionDenegada) {
+				t.Fatalf("reserva: %v", err)
+			}
+			if _, err := a.AutorizarConfirmacionPlanB2(t.Context(), plan, vp.MaterialTerminalUsoCategoriaRPT{Reserva: m, TerminalReciboRef: plan.ConfirmacionRPTRef}); !errors.Is(err, ct.ErrAutorizacionDenegada) {
+				t.Fatalf("confirmación: %v", err)
+			}
+			if preparador.llamadas != 0 {
+				t.Fatalf("plan de otro catálogo o módulo alcanzó preparador: %d", preparador.llamadas)
+			}
+		})
+	}
+}
+
 func TestIncorporacionB2SoloEmiteParaPreparacionRPTExacta(t *testing.T) {
 	const usoRef = "uso:incorporacion:prueba"
 	const accion = "vec.catalogos.categorias.reservar_uso"

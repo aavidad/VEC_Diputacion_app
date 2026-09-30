@@ -461,7 +461,7 @@ func (a *autoridadIncorporacionPersonalB2) materialConsultaUsoRPT(ctx context.Co
 	return a.emitirRecurso(ctx, "vec.catalogos.categorias.consultar_uso", r)
 }
 func (a *autoridadIncorporacionPersonalB2) AutorizarReservaPlanB2(ctx context.Context, p pp.PlanIncorporacionCT, m vp.MaterialReservaUsoCategoriaRPT) (vp.OrdenReservaUsoCategoriaRPT, error) {
-	if a == nil || a.preparadorUsosRPT == nil || !materialReservaCorrespondePlanB2(p, m) {
+	if a == nil || a.preparadorUsosRPT == nil || p.Datos.CatalogoRPTID != a.catalogoRPTID || p.Datos.CatalogoRPTModulo != a.moduloRPTID || !materialReservaCorrespondePlanB2(p, m) {
 		return vp.OrdenReservaUsoCategoriaRPT{}, ct.ErrAutorizacionDenegada
 	}
 	preparada, e := a.preparadorUsosRPT.PrepararReservaUsoCategoriaRPT(ctx, m)
@@ -476,7 +476,7 @@ func (a *autoridadIncorporacionPersonalB2) AutorizarReservaPlanB2(ctx context.Co
 	return vp.OrdenReservaUsoCategoriaRPT{Material: m, Solicitud: s, Autorizacion: x}, e
 }
 func (a *autoridadIncorporacionPersonalB2) AutorizarConfirmacionPlanB2(ctx context.Context, p pp.PlanIncorporacionCT, m vp.MaterialTerminalUsoCategoriaRPT) (vp.OrdenConfirmacionUsoCategoriaRPT, error) {
-	if a == nil || a.preparadorUsosRPT == nil || !materialReservaCorrespondePlanB2(p, m.Reserva) || m.TerminalReciboRef != p.ConfirmacionRPTRef {
+	if a == nil || a.preparadorUsosRPT == nil || p.Datos.CatalogoRPTID != a.catalogoRPTID || p.Datos.CatalogoRPTModulo != a.moduloRPTID || !materialReservaCorrespondePlanB2(p, m.Reserva) || m.TerminalReciboRef != p.ConfirmacionRPTRef {
 		return vp.OrdenConfirmacionUsoCategoriaRPT{}, ct.ErrAutorizacionDenegada
 	}
 	preparada, e := a.preparadorUsosRPT.PrepararConfirmacionUsoCategoriaRPT(ctx, m)
