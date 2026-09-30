@@ -22,28 +22,10 @@ if [[ "$accion" == plan ]]; then
   exec python3 -B "$guiones/clon_sql.py" --repo "$repo" --git-repo "$repo" --source-ref "$commit" --plan
 fi
 
-requerir_kit_d() {
-  python3 -B - "$guiones" <<'PYTHON'
-import sys
-sys.path.insert(0, sys.argv[1])
-import clon_sql
-# No aceptar variables ni un JSON como sustitutos del proveedor revisado.
-if clon_sql.LIVE_KIT is None:
-    print('SQL-NO-GO falta kit D aprobado y completo; no instalar ni publicar READY', file=sys.stderr)
-else:
-    print('SQL-NO-GO falta conectar el contexto H1 y el proveedor D revisados; no instalar ni publicar READY', file=sys.stderr)
-raise SystemExit(1)
-PYTHON
-}
-
-publicar_ready() {
-  requerir_kit_d
-}
-
-# Ni reiniciar una copia antigua ni revalidar un READY legado activa servicios.
+# Composición documental; nunca importa proveedores ni crea estado privado.
+# Los bloqueos de material, transporte, aprobación y red preceden H1 y SQL.
 if [[ "$accion" == preparar || "$accion" == reiniciar ]]; then
-  requerir_kit_d
-  exit 1
+  exec python3 -B "$guiones/clon_h6_orquestador.py" "$accion" --source-ref "$referencia"
 fi
 
 [[ "$nombre" =~ ^vec-[a-z0-9-]+$ ]] || exit 2
@@ -172,6 +154,12 @@ else:
         v.update(journal='bloqueado', motivo='journal inválido; conservar evidencia y reconstruir clon nuevo')
     finally:
         os.close(fd)
+try:
+    import clon_h6_orquestador as orchestrator
+    v['composicion_h6'] = orchestrator.composition()
+except (ImportError, OSError, ValueError):
+    v['composicion_h6'] = {'ready': False, 'executable': False,
+                           'blockers': ['orchestrator_unavailable']}
 print(json.dumps(v,ensure_ascii=False))
 PYTHON
   exit
@@ -217,7 +205,7 @@ if not (p.parent == pathlib.Path('/dev/shm') and re.fullmatch('vec-recorridos-[A
 # PostgreSQL crea ficheros de otro uid: la limpieza usa el mismo contenedor
 # efímero que creó el volumen, sobre una ruta de propiedad comprobada.
 import subprocess
-subprocess.run(['docker','run','--rm','--network','none','-v',str(p)+':/datos','alpine:3.22','sh','-c','find /datos -mindepth 1 -delete'],check=True,stdout=subprocess.DEVNULL)
+subprocess.run(['docker','--host','unix:///var/run/docker.sock','run','--rm','--pull=never','--network','none','-v',str(p)+':/datos','alpine:3.22','sh','-c','find /datos -mindepth 1 -delete'],check=True,stdout=subprocess.DEVNULL)
 p.rmdir()
 s=pathlib.Path(v['estado'])
 # Conservar material y recibos; retirar fuentes, binarios y logs del guion.

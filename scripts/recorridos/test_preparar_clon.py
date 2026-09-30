@@ -68,7 +68,7 @@ class OrquestadorTests(unittest.TestCase):
             with self.subTest(action=action):
                 p = self.run_action(action)
                 self.assertNotEqual(p.returncode, 0)
-                self.assertIn('falta kit D aprobado y completo', p.stderr)
+                self.assertIn('H6-NO-GO composition_incomplete', p.stderr)
                 self.assertFalse(self.state.exists())
                 self.assert_no_services()
 
@@ -83,18 +83,17 @@ class OrquestadorTests(unittest.TestCase):
         self.assertFalse(self.state.exists())
         self.assert_no_services()
 
-    def test_publicacion_ready_no_usa_runtime_ni_sql_aunque_verifiquen(self):
-        source = SCRIPT.read_text()
-        functions = source[source.index('requerir_kit_d() {'):source.index('# Ni reiniciar')]
-        called = self.root / 'runtime-called'
-        script = 'set -eu\nguiones="$VEC_TEST_SCRIPTS"\nruntime() { touch "$VEC_TEST_RUNTIME"; }\n' + functions
-        p = subprocess.run(['bash', '-c', script + '\nif ! publicar_ready; then exit 17; fi'],
-            capture_output=True, text=True, timeout=5,
-            env=self.environment | {'VEC_TEST_SCRIPTS': str(SCRIPT.parent), 'VEC_TEST_RUNTIME': str(called)})
-        self.assertEqual(p.returncode, 17)
-        self.assertIn('no instalar ni publicar READY', p.stderr)
-        self.assertFalse(called.exists())
-        self.assertFalse((self.state / 'READY.json').exists())
+    def test_bloqueo_composicion_identifica_transporte_material_y_runtime(self):
+        p = self.run_action('preparar', VEC_H6_APPROVED='true')
+        self.assertNotEqual(p.returncode, 0)
+        value = json.loads(p.stdout)
+        self.assertEqual(value['sql_count'], 62)
+        self.assertTrue(value['ad132_separate'])
+        self.assertFalse(value['executable'])
+        for dependency in ('fresh_definitive_material_authority_missing',
+                           'archive_Docker_controller_and_canonical_pair_not_connected',
+                           'PG_namespace_runtime_and_pinned_loopback_relay_not_connected'):
+            self.assertIn(dependency, value['blockers'])
         self.assert_no_services()
 
     def test_estado_sin_journal_es_lectura_y_no_ready(self):
@@ -105,6 +104,7 @@ class OrquestadorTests(unittest.TestCase):
         value = json.loads(p.stdout)
         self.assertEqual(value['journal'], 'ausente')
         self.assertFalse(value['ready'])
+        self.assertFalse(value['composicion_h6']['executable'])
         self.assertEqual(before, sorted(p.name for p in self.state.iterdir()))
         self.assert_no_services()
 
@@ -220,7 +220,7 @@ class OrquestadorTests(unittest.TestCase):
         scripts=control/'scripts/recorridos'
         scripts.mkdir(parents=True)
         for name in ('preparar_clon.sh','clon_sql.py','sql_main.txt',
-                     'sql_main_h6.txt','sql_main_h6_firma.txt'):
+                     'sql_main_h6.txt','sql_main_h6_firma.txt','clon_h6_orquestador.py'):
             shutil.copyfile(SCRIPT.with_name(name),scripts/name)
         git=self.root/'tools/git'
         git.write_text('#!/bin/sh\ncase "$*" in *"rev-parse --show-toplevel") printf "%s\\n" "$VEC_TEST_REPO" ;; *) exec /usr/bin/git "$@" ;; esac\n')
