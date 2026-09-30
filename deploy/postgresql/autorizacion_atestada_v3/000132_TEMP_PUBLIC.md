@@ -1,48 +1,56 @@
 # AD3-132: privilegio TEMP de la base VEC
 
-Esta reparación se ejecuta después de las SQL funcionales del H6 y antes de
-arrancar la aplicación nueva. Retira únicamente `TEMPORARY` de `PUBLIC` en la
-base `postgres` identificada por la preimagen VEC. Conserva `CONNECT`, `CREATE`,
-el propietario, las concesiones directas y la historia. No tiene `DOWN`: una
-concesión nueva de `TEMPORARY` requeriría otro cambio aprobado.
+Esta reparación va después de las 45 SQL funcionales del H6 y antes de
+arrancar la aplicación nueva. Retira sólo `TEMPORARY` de `PUBLIC` en la base
+`postgres` identificada por la preimagen VEC. Conserva `CONNECT`, `CREATE`, el
+propietario, los demás privilegios y la historia. No tiene `DOWN`.
 
-La ruta de operación es `aplicar_000132_temp_public.py`. Se usa con el ID completo
-del contenedor PostgreSQL aislado, un plan de conexiones obtenido del canario
-interno antes del arranque, la lista causal SQL del H6 y el commit fuente fijado.
-El CLI se conecta como el dueño DBA de la base. No recibe DSN ni contraseña.
+La CLI recibe el plan del canario interno, el manifiesto SQL construido desde
+un único commit y el lock verificado del paquete. Comprueba los SHA256 de las
+45 SQL, de la migración, de la propia CLI, del inventario y de las anclas
+CT145/AD125/CT152/CT153. Consulta PostgreSQL para comprobar que esas anclas tienen
+las definiciones, propietarios, ACL y configuración fijados tras instalar el
+lote. Una lista recortada o un archivo cambiado detienen la operación.
 
 ```sh
 python3 deploy/postgresql/autorizacion_atestada_v3/aplicar_000132_temp_public.py preview \
   --engine podman --container "$PG_ID" --plan "$PLAN_H6" \
-  --sql-list "$LISTA_H6" --source-commit "$FUENTE_SHA" \
-  --output "$APROBACION_PRIVADA"
+  --plan-receipt "$RECIBO_PLAN_H6" \
+  --release-manifest "$PAQUETE/h6-sql-release.json" \
+  --release-lock "$LOCK_H6" --output "$APROBACION_PRIVADA"
 ```
 
-`preview` crea un JSON privado con `approved: false`, inventario de todos los
-LOGIN y CONNECT, sesiones activas, membresías, acceso a esquemas VEC, ACL de la
-base y huellas de preimagen. El DBA verifica cada cuenta CONNECT que no figura
-en el plan interno. Para una cuenta VEC adicional inactiva consigna finalidad,
-provisión SQL de la fuente con SHA256 o referencia privada de provisión, y su
-aprobación referenciada. Si la cuenta pertenece a otro servicio, carece de
-procedencia comprobable o mantiene sesiones, se detiene el corte. Después el
-DBA fija `approval_ref` y `approved: true` en ese mismo JSON. El archivo queda
-fuera de Git y no contiene claves.
+`preview` crea un JSON privado con `approved: false`. Incluye todos los LOGIN
+con CONNECT, su actividad y membresías, el plan, la ACL y las huellas del
+release y de la base. Cualquier LOGIN conectable fuera del plan y del dueño
+DBA queda en `unexplained_connect_logins`: `trial` y `apply` se detienen aunque
+alguien cambie el campo `approved`. Un nombre, una membresía, USAGE de un
+esquema o una referencia de ticket no acreditan la provisión de otro servicio.
+Si hay un extra, Alberto debe localizar su configuración o provisión real y
+someter ese origen a revisión antes de continuar. No se añade una excepción
+manual a esta reparación.
 
-Con los mismos argumentos, se sustituye `preview --output ...` por
-`trial --approval "$APROBACION_PRIVADA"` y después por
+El recibo del plan lo emite el guion fijado del kit al promover el archivo
+producido por el canario sin red. Liga el SHA del plan, material, paquete,
+imagen, arranque y contenedor. En principal deriva del recibo del clon y liga
+su propio contenedor. Es un control de consistencia del proceso local; no es
+una firma frente a quien ya puede operar PostgreSQL como DBA.
+
+Cuando el inventario no contiene extras y el DBA aprueba la preimagen exacta,
+fija `approval_ref` y `approved: true` en el mismo archivo 0600. Se usan los
+mismos argumentos con `trial --approval "$APROBACION_PRIVADA"` y después con
 `apply --approval "$APROBACION_PRIVADA"`. `trial` ejecuta la transacción con
-`ROLLBACK` y exige preimagen idéntica. `apply` vuelve a inventariar y compara
-la aprobación exacta antes del efecto. Un cambio de ACL, propietario, roles,
-membresías, plan, lista o fuente exige otra previsualización y aprobación.
+`ROLLBACK` y exige preimagen idéntica. `apply` revalida manifiesto, código,
+lista, plan, anclas, roles y ACL, y pasa a `psql` los bytes SQL ya comprobados.
 
-La migración comprueba la base, dueño, esquemas, funciones, objetos públicos
-conocidos, extensiones, roles y sesiones. Después de revocar, compara cada
-privilegio de la ACL salvo `PUBLIC TEMPORARY`, confirma que los LOGIN de
-aplicación no conservan TEMP efectivo y exige que CONNECT siga igual. Un fallo
-de estas comprobaciones revierte toda la transacción. Tras `apply`, se repite
-la inspección de LOGIN del kit antes del arranque y tras el reinicio.
+Una concesión TEMP directa o heredada a cualquier LOGIN de aplicación detiene
+la operación y revierte la transacción. Tras `apply`, se comprueban de nuevo
+CONNECT, roles, propietario, ACL y anclas. Si `psql` falla durante la aplicación,
+el resultado se declara incierto aunque se observe una postimagen compatible:
+el DBA debe conciliarla antes de reintentar o arrancar. No se reaplica la
+migración por inferencia.
 
-Las migraciones que usan tablas temporales durante su instalación deben
-preceder AD3-132 y ejecutarse como DBA. No se concede TEMP al proceso de
-aplicación. Una necesidad futura de TEMP se estudia para el rol técnico y
-operación concretos; no se devuelve el permiso a `PUBLIC`.
+Las migraciones que usan tablas temporales al instalarse deben preceder
+AD3-132 y ejecutarse con el DBA autorizado. Si alguna operación de aplicación
+necesita TEMP en el futuro, se estudia su rol técnico concreto; no se devuelve
+el privilegio a `PUBLIC`.

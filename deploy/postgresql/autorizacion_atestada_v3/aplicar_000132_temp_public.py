@@ -20,10 +20,26 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
 INVENTORY = HERE / "migraciones/000132_inventario_temp_public.sql"
 MIGRATION = HERE / "migraciones/000132_cierre_temp_public_base_vec.up.sql"
+ANCHORS_QUERY = HERE / "000132_anclas_h6.sql"
+ANCHORS_EXPECTED = HERE / "000132_anclas_h6.json"
 HEX40 = re.compile(r"[0-9a-f]{40}\Z")
 HEX64 = re.compile(r"[0-9a-f]{64}\Z")
 ROLE = re.compile(r"[a-z][a-z0-9_]{2,95}\Z")
 REF = re.compile(r"[A-Za-z0-9._:/-]{8,120}\Z")
+RELEASE_PATHS = {
+    "sql": "deploy/postgresql/autorizacion_atestada_v3/migraciones/000132_cierre_temp_public_base_vec.up.sql",
+    "cli": "deploy/postgresql/autorizacion_atestada_v3/aplicar_000132_temp_public.py",
+    "inventory": "deploy/postgresql/autorizacion_atestada_v3/migraciones/000132_inventario_temp_public.sql",
+    "doc": "deploy/postgresql/autorizacion_atestada_v3/000132_TEMP_PUBLIC.md",
+    "anchors_query": "deploy/postgresql/autorizacion_atestada_v3/000132_anclas_h6.sql",
+    "anchors_expected": "deploy/postgresql/autorizacion_atestada_v3/000132_anclas_h6.json",
+}
+NEW_FUNCTIONAL = [
+    "deploy/postgresql/contratacion_temporal/migraciones/000145_enlace_firma_documento_custodiado.up.sql",
+    "deploy/postgresql/autorizacion_atestada_v3/migraciones/000125_consumidor_consulta_firmas_documento_ct.up.sql",
+    "deploy/postgresql/contratacion_temporal/migraciones/000152_consulta_firmas_documento_atestada.up.sql",
+    "deploy/postgresql/contratacion_temporal/migraciones/000153_perfil_reincorporacion_titular.up.sql",
+]
 ANCHORS = [
     ["vec_autorizacion_atestada_v3", "vec_autorizacion_atestada_v3_propietario"],
     ["vec_contratacion_temporal", "vec_contratacion_temporal_propietario"],
@@ -61,6 +77,10 @@ class Stop(Exception):
     pass
 
 
+class PsqlFailure(Stop):
+    pass
+
+
 def sha_bytes(data):
     return hashlib.sha256(data).hexdigest()
 
@@ -86,7 +106,7 @@ def read_regular(path, maximum=4_000_000):
 
 def json_file(path):
     try:
-        value = json.loads(read_regular(path))
+        value = json.loads(read_regular(path), object_pairs_hook=unique_object)
     except (ValueError, UnicodeError) as exc:
         raise Stop(f"JSON inválido: {path}") from exc
     if not isinstance(value, dict):
@@ -94,7 +114,134 @@ def json_file(path):
     return value
 
 
-def psql(args, sql_path=None, variables=(), sql_bytes=None):
+def canonical_json(data):
+    return (json.dumps(data, sort_keys=True, separators=(",", ":"), ensure_ascii=False) + "\n").encode()
+
+
+def unique_object(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise Stop("JSON con clave duplicada")
+        result[key] = value
+    return result
+
+
+def lock_values(data):
+    values = {}
+    for line in data.decode("ascii", "strict").splitlines():
+        parts = line.split()
+        if len(parts) != 2 or parts[0] in values:
+            raise Stop("release.lock duplicado o inválido")
+        values[parts[0]] = parts[1]
+    for key in ("COMMIT", "SQL_LIST_SHA256", "SQL_RELEASE_SHA256", "PAQUETE_SHA256"):
+        if key not in values:
+            raise Stop(f"release.lock sin {key}")
+    return values
+
+
+def package_file(relative):
+    if not isinstance(relative, str) or Path(relative).is_absolute() or \
+            ".." in Path(relative).parts or not relative or "//" in relative:
+        raise Stop("ruta del paquete inválida")
+    path = ROOT / relative
+    if not path.resolve().is_relative_to(ROOT.resolve()) or \
+            any(part.is_symlink() for part in (path, *path.parents)
+                if part != ROOT and ROOT in part.parents):
+        raise Stop("enlace o ruta fuera del paquete")
+    return read_regular(path)
+
+
+def load_release(args):
+    if args.release_manifest.resolve() != (ROOT / "h6-sql-release.json").resolve():
+        raise Stop("manifiesto fuera de la raíz del paquete")
+    lock = lock_values(read_regular(args.release_lock, 64_000))
+    if any(not HEX64.fullmatch(str(lock[key])) for key in
+           ("SQL_LIST_SHA256", "SQL_RELEASE_SHA256", "PAQUETE_SHA256")):
+        raise Stop("huellas de release.lock inválidas")
+    manifest_bytes = read_regular(args.release_manifest, 1_000_000)
+    if sha_bytes(manifest_bytes) != lock["SQL_RELEASE_SHA256"]:
+        raise Stop("manifiesto SQL distinto de release.lock")
+    try:
+        manifest = json.loads(manifest_bytes, object_pairs_hook=unique_object)
+    except ValueError as exc:
+        raise Stop("manifiesto SQL inválido") from exc
+    if not isinstance(manifest, dict) or manifest_bytes != canonical_json(manifest) or \
+            manifest.get("version") != 1 or \
+            not HEX40.fullmatch(str(manifest.get("source_commit", ""))) or \
+            manifest["source_commit"] != lock["COMMIT"] or \
+            not HEX64.fullmatch(str(manifest.get("sql_list_sha256", ""))) or \
+            manifest["sql_list_sha256"] != lock["SQL_LIST_SHA256"]:
+        raise Stop("manifiesto SQL sin identidad de fuente canónica")
+    if read_regular(ROOT / "COMMIT", 100).decode().strip() != manifest["source_commit"]:
+        raise Stop("COMMIT del paquete distinto del release")
+    list_bytes = package_file("lista_sql_h6.txt")
+    if sha_bytes(list_bytes) != manifest["sql_list_sha256"]:
+        raise Stop("lista SQL distinta del release")
+    try:
+        lines = list_bytes.decode("ascii").splitlines()
+    except UnicodeError as exc:
+        raise Stop("lista SQL no canónica") from exc
+    functions = manifest.get("functional_sql")
+    if not list_bytes.endswith(b"\n") or b"\r" in list_bytes or b"\n\n" in list_bytes or \
+            len(lines) != 45 or not isinstance(functions, list) or len(functions) != 45 or \
+            len(set(lines)) != 45 or any(not isinstance(x, dict) for x in functions) or \
+            [x.get("path") for x in functions] != lines or \
+            any(not isinstance(x.get("sha256"), str) or not HEX64.fullmatch(x["sha256"])
+                for x in functions):
+        raise Stop("lista funcional H6 no es causal45 exacta")
+    positions = [lines.index(name) if name in lines else -1 for name in NEW_FUNCTIONAL]
+    if positions != sorted(positions) or any(x < 0 for x in positions):
+        raise Stop("faltan CT145/AD125/CT152/CT153 en orden causal")
+    for item in functions:
+        path = item["path"]
+        if not re.fullmatch(r"deploy/postgresql/[A-Za-z0-9_/-]+(?:\.up\.sql|_up\.sql)", path) or \
+                sha_bytes(package_file(path)) != item["sha256"]:
+            raise Stop("SQL funcional distinta de fuente fijada")
+    ad132 = manifest.get("ad132")
+    if not isinstance(ad132, dict) or set(ad132) != set(RELEASE_PATHS):
+        raise Stop("artefactos AD3-132 incompletos")
+    artifacts = {}
+    for key, path in RELEASE_PATHS.items():
+        item = ad132[key]
+        if not isinstance(item, dict) or item.get("path") != path or \
+                not isinstance(item.get("sha256"), str) or not HEX64.fullmatch(item["sha256"]):
+            raise Stop(f"artefacto AD3-132 {key} sin pin")
+        data = package_file(path)
+        if sha_bytes(data) != item["sha256"]:
+            raise Stop(f"artefacto AD3-132 {key} cambió")
+        artifacts[key] = data
+    for key, lock_key in (("sql", "AD132_SQL_SHA256"), ("cli", "AD132_CLI_SHA256"),
+                          ("inventory", "AD132_INVENTARIO_SHA256"),
+                          ("doc", "AD132_DOC_SHA256"),
+                          ("anchors_query", "AD132_ANCLAS_SQL_SHA256"),
+                          ("anchors_expected", "AD132_ANCLAS_JSON_SHA256")):
+        if lock_key in lock and lock[lock_key] != ad132[key]["sha256"]:
+            raise Stop(f"pin de {key} distinto en release.lock")
+    try:
+        anchors_expected = json.loads(artifacts["anchors_expected"], object_pairs_hook=unique_object)
+    except ValueError as exc:
+        raise Stop("anclas esperadas inválidas") from exc
+    if not isinstance(anchors_expected, dict) or \
+            artifacts["anchors_expected"] != canonical_json(anchors_expected) or \
+            manifest.get("installed_anchors") != anchors_expected or \
+            set(anchors_expected) != {"functions", "ct145_table"} or \
+            not HEX64.fullmatch(str(anchors_expected["ct145_table"])) or \
+            not isinstance(anchors_expected["functions"], dict) or \
+            set(anchors_expected["functions"]) != {"ad125_core", "ad125_consumer",
+                                                     "ct145_register", "ct145_read",
+                                                     "ct152_attested_read",
+                                                     "ct153_reincorporation"} or \
+            any(not HEX64.fullmatch(str(value)) for value in anchors_expected["functions"].values()):
+        raise Stop("anclas H6 sin postimagen exacta")
+    return {"sha256": sha_bytes(manifest_bytes), "source_commit": manifest["source_commit"],
+            "sql_list_sha256": manifest["sql_list_sha256"], "artifacts": artifacts,
+            "package_sha256": lock["PAQUETE_SHA256"],
+            "anchors_expected": anchors_expected,
+            "artifact_sha256": {key: ad132[key]["sha256"] for key in RELEASE_PATHS}}
+
+
+def psql(args, sql_bytes, variables=()):
     if not HEX64.fullmatch(args.container):
         raise Stop("ID de contenedor no canónico")
     engine = (["podman", "--remote=false"] if args.engine == "podman" else
@@ -104,26 +251,23 @@ def psql(args, sql_path=None, variables=(), sql_bytes=None):
                "-U", "postgres", "-d", "postgres"]
     for name, value in variables:
         command.extend(["-v", f"{name}={value}"])
-    if (sql_path is None) == (sql_bytes is None):
-        raise Stop("entrada SQL interna ambigua")
-    statement = read_regular(sql_path) if sql_path is not None else sql_bytes
+    if not isinstance(sql_bytes, bytes):
+        raise Stop("SQL interna no cargada")
     local_env = {"PATH": "/usr/local/bin:/usr/bin:/bin",
                  "HOME": pwd.getpwuid(os.getuid()).pw_dir}
     runtime_dir = Path(f"/run/user/{os.getuid()}")
     if args.engine == "podman" and runtime_dir.is_dir():
         local_env["XDG_RUNTIME_DIR"] = str(runtime_dir)
-    result = subprocess.run(command, input=statement, stdout=subprocess.PIPE,
+    result = subprocess.run(command, input=sql_bytes, stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE, timeout=60, check=False,
                             env=local_env)
     if result.returncode:
-        # PostgreSQL puede imprimir detalles del entorno; el operador consulta
-        # su acta privada, mientras stdout de esta CLI no expone esos detalles.
-        raise Stop(f"psql falló ({result.returncode}); sin cambios confirmados")
+        raise PsqlFailure(f"psql terminó con código {result.returncode}")
     return result.stdout.decode("utf-8", "strict").strip()
 
 
-def current_inventory(args):
-    lines = psql(args, INVENTORY).splitlines()
+def current_inventory(args, release):
+    lines = psql(args, release["artifacts"]["inventory"]).splitlines()
     if len(lines) != 1:
         raise Stop("inventario SQL inesperado")
     try:
@@ -135,8 +279,25 @@ def current_inventory(args):
     return item
 
 
+def current_anchors(args, release):
+    lines = psql(args, release["artifacts"]["anchors_query"]).splitlines()
+    if len(lines) != 1:
+        raise Stop("anclas SQL inesperadas")
+    try:
+        item = json.loads(lines[0])
+    except ValueError as exc:
+        raise Stop("anclas SQL inválidas") from exc
+    if item != release["anchors_expected"]:
+        raise Stop("CT145/AD125/CT152 no instaladas con postimagen fijada")
+    return item
+
+
 def plan_logins(path):
-    plan = json_file(path)
+    data = read_regular(path)
+    try:
+        plan = json.loads(data, object_pairs_hook=unique_object)
+    except ValueError as exc:
+        raise Stop("plan H6 de conexiones inválido") from exc
     connections = plan.get("conexiones") if isinstance(plan, dict) else None
     if not isinstance(connections, list) or not connections or not isinstance(plan.get("huellas"), dict) or \
             "incorporación/servidor.json" not in plan["huellas"]:
@@ -151,24 +312,72 @@ def plan_logins(path):
         pairs.add((login, group))
     if any(not isinstance(value, str) or not HEX64.fullmatch(value) for value in plan["huellas"].values()):
         raise Stop("huellas del plan H6 inválidas")
-    return pairs
+    return pairs, sha_bytes(data), plan
 
 
-def source_file(relative):
-    if not isinstance(relative, str) or not relative.startswith("deploy/postgresql/") or \
-            Path(relative).is_absolute() or ".." in Path(relative).parts or \
-            not relative.endswith(".sql"):
-        raise Stop("ruta de provisión SQL fuera de VEC")
-    # El kit se opera sin .git. Sólo acepta artefactos incluidos y fijados por
-    # su SHA256; otra provisión se consigna como referencia privada verificable.
-    path = ROOT / relative
-    if not path.resolve().is_relative_to(ROOT.resolve()) or \
-            any(parent.is_symlink() for parent in (path, *path.parents) if parent != ROOT and ROOT in parent.parents):
-        raise Stop("provisión SQL con enlace o fuera del paquete")
-    return read_regular(path)
+def load_plan_receipt(args, release, plan_sha, plan):
+    receipt_path = args.plan_receipt
+    if args.plan.name != "plan-conexiones.json" or \
+            receipt_path.parent.resolve() != args.plan.parent.resolve() or \
+            receipt_path.name not in ("plan-canonico-clon.json", "plan-canonico-principal.json"):
+        raise Stop("recibo de canario fuera de ruta fijada")
+    if receipt_path.stat().st_mode & 0o077 or \
+            receipt_path.stat().st_uid != os.getuid() or \
+            args.plan.stat().st_uid != os.getuid() or \
+            args.plan.stat().st_mode & 0o022:
+        raise Stop("plan o recibo sin dueño y modo privado esperados")
+    receipt_bytes = read_regular(receipt_path, 100_000)
+    try:
+        receipt = json.loads(receipt_bytes, object_pairs_hook=unique_object)
+    except ValueError as exc:
+        raise Stop("recibo de canario inválido") from exc
+    if not isinstance(receipt, dict) or receipt_bytes != canonical_json(receipt):
+        raise Stop("recibo de canario no canónico")
+    kind = receipt.get("kind")
+    common = {"version", "kind", "package_sha256", "source_commit",
+              "pg_container_id", "plan_sha256", "material_inventory_sha256",
+              "canary_image_id", "arranque_sha256", "canary_output_sha256"}
+    if kind not in ("clon", "principal") or \
+            set(receipt) != (common | ({"origin_receipt_sha256"} if kind == "principal" else set())) or \
+            receipt_path.name != f"plan-canonico-{kind}.json" or \
+            type(receipt["version"]) is not int or receipt["version"] != 1 or \
+            receipt["package_sha256"] != release["package_sha256"] or \
+            receipt["source_commit"] != release["source_commit"] or \
+            receipt["pg_container_id"] != args.container or \
+            receipt["plan_sha256"] != plan_sha or \
+            receipt["material_inventory_sha256"] != sha_bytes(canonical_json(plan["huellas"])) or \
+            receipt["canary_output_sha256"] != plan_sha or \
+            not HEX64.fullmatch(str(receipt["arranque_sha256"])):
+        raise Stop("recibo de canario no liga plan, material, paquete y base")
+    image_id = receipt["canary_image_id"]
+    if not isinstance(image_id, str) or not image_id.startswith("sha256:") or \
+            not HEX64.fullmatch(image_id[7:]):
+        raise Stop("imagen de canario no fijada")
+    if kind == "principal":
+        origin_path = receipt_path.with_name("plan-canonico-clon.json")
+        if origin_path.stat().st_mode & 0o077 or origin_path.stat().st_uid != os.getuid():
+            raise Stop("recibo clon sin dueño y modo privado esperados")
+        origin_bytes = read_regular(origin_path, 100_000)
+        if sha_bytes(origin_bytes) != receipt["origin_receipt_sha256"]:
+            raise Stop("recibo principal no deriva del clon fijado")
+        try:
+            origin = json.loads(origin_bytes, object_pairs_hook=unique_object)
+        except ValueError as exc:
+            raise Stop("recibo clon inválido") from exc
+        if not isinstance(origin, dict) or origin_bytes != canonical_json(origin) or \
+                set(origin) != common or origin.get("version") != 1 or \
+                origin.get("kind") != "clon" or \
+                not HEX64.fullmatch(str(origin.get("pg_container_id"))) or \
+                any(origin.get(field) != receipt.get(field) for field in
+                    ("package_sha256", "source_commit", "plan_sha256",
+                     "material_inventory_sha256", "canary_image_id",
+                     "arranque_sha256", "canary_output_sha256")) or \
+                origin.get("pg_container_id") == args.container:
+            raise Stop("recibo principal sin origen clon coherente")
+    return sha_bytes(receipt_bytes)
 
 
-def validate(args, inventory, pairs, approval=None):
+def validate(inventory, pairs, plan_sha, receipt_sha, release, anchors, approval=None):
     if inventory.get("database_name") != "postgres" or inventory.get("allowconn") is not True or \
             inventory.get("owner_name") != "postgres" or \
             inventory.get("vec_anchors") != ANCHORS or \
@@ -208,41 +417,39 @@ def validate(args, inventory, pairs, approval=None):
     if approval.get("approved") is not True or approval.get("approved_by") != inventory["owner_name"] or \
             not REF.fullmatch(str(approval.get("approval_ref", ""))):
         raise Stop("falta aprobación DBA positiva y referenciada")
-    if approval.get("inventory") != inventory or approval.get("plan_sha256") != sha_bytes(read_regular(args.plan)) or \
-            approval.get("sql_list_sha256") != sha_bytes(read_regular(args.sql_list)) or \
-            approval.get("source_commit") != args.source_commit:
-        raise Stop("aprobación no coincide con preimagen, plan, lista SQL o fuente")
-    services = approval.get("other_vec_services")
-    if not isinstance(services, list) or not all(isinstance(x, dict) and isinstance(x.get("role"), str)
-                                                  for x in services) or \
-            sorted(x.get("role") for x in services) != extras:
-        raise Stop("servicios extra CONNECT sin clasificación gobernada exacta")
-    for service in services:
-        role = service["role"]
-        row = indexed[role]
-        purpose = service.get("purpose")
-        schema_owners = {item.split("|", 1)[1] for item in SCHEMAS}
-        can_migrate = purpose == "migrador_vec_inactivo" and any(
-            group in schema_owners for group in row.get("memberships", []))
-        if row.get("superuser") is True or not row.get("memberships") or \
-                (not row.get("vec_schema_usage") and not can_migrate) or \
-                purpose not in ("servicio_vec_inactivo", "migrador_vec_inactivo") or \
-                service.get("approved_by") != inventory["owner_name"] or \
-                service.get("approval_ref") != approval["approval_ref"]:
-            raise Stop("servicio extra sin procedencia VEC/aprobación comprobable")
-        relative = service.get("provision_sql")
-        if relative:
-            data = source_file(relative)
-            if service.get("provision_sha256") != sha_bytes(data) or \
-                    not any(re.search(r"\b" + re.escape(group) + r"\b", data.decode("utf-8", "strict"))
-                            for group in row["memberships"]):
-                raise Stop("provisión SQL del servicio extra no acredita su grupo")
-        elif not REF.fullmatch(str(service.get("private_provision_ref", ""))):
-            raise Stop("servicio extra sin referencia privada de provisión")
+    if approval.get("inventory") != inventory or approval.get("plan_sha256") != plan_sha or \
+            approval.get("plan_receipt_sha256") != receipt_sha or \
+            approval.get("release_sha256") != release["sha256"] or \
+            approval.get("sql_list_sha256") != release["sql_list_sha256"] or \
+            approval.get("source_commit") != release["source_commit"] or \
+            approval.get("artifact_sha256") != release["artifact_sha256"] or \
+            approval.get("installed_anchors") != anchors or \
+            approval.get("unexplained_connect_logins") != extras:
+        raise Stop("aprobación no coincide con código, SQL, anclas o preimagen")
+    if extras:
+        raise Stop("LOGIN CONNECT fuera del plan H6 sin procedencia acreditada")
     if any(x.get("temp") is True for x in logins if x["role"] != inventory["owner_name"] and
            x["role"] not in connect):
         raise Stop("LOGIN sin CONNECT conserva TEMP y requiere investigación")
     return extras
+
+
+def postimage_compatible(before, after):
+    preserved = ("database_name", "database_oid", "owner_name", "owner_oid",
+                 "allowconn", "role_graph_sha256", "connect_roles", "login_roles",
+                 "vec_anchors", "non_system_schemas", "public_relations",
+                 "public_nonextension_functions", "extensions", "functions",
+                 "public_connect")
+    def stable_logins(snapshot):
+        return [{key: value for key, value in row.items()
+                 if key not in ("temp", "active_sessions")}
+                for row in snapshot.get("logins", [])]
+    return (all(before.get(key) == after.get(key) for key in preserved) and
+            stable_logins(before) == stable_logins(after) and
+            before.get("public_temp") is True and after.get("public_temp") is False and
+            before.get("acl_sha256") != after.get("acl_sha256") and
+            all(x.get("temp") is False for x in after.get("logins", [])
+                if x.get("role") != after.get("owner_name")))
 
 
 def main():
@@ -251,46 +458,48 @@ def main():
     parser.add_argument("--engine", choices=("docker", "podman"), required=True)
     parser.add_argument("--container", required=True, help="ID completo del contenedor PostgreSQL aislado")
     parser.add_argument("--plan", required=True, type=Path)
-    parser.add_argument("--sql-list", required=True, type=Path)
-    parser.add_argument("--source-commit", required=True)
+    parser.add_argument("--plan-receipt", required=True, type=Path)
+    parser.add_argument("--release-manifest", required=True, type=Path)
+    parser.add_argument("--release-lock", required=True, type=Path)
     parser.add_argument("--output", type=Path)
     parser.add_argument("--approval", type=Path)
     args = parser.parse_args()
-    if not HEX40.fullmatch(args.source_commit) or \
-            not read_regular(args.sql_list) or \
-            (args.mode == "preview" and (not args.output or args.approval)) or \
+    if (args.mode == "preview" and (not args.output or args.approval)) or \
             (args.mode in ("trial", "apply") and (not args.approval or args.output)):
         raise Stop("argumentos de aprobación incompletos")
-    pairs = plan_logins(args.plan)
-    inventory = current_inventory(args)
-    extras = validate(args, inventory, pairs)
+    release = load_release(args)
+    pairs, plan_sha, plan = plan_logins(args.plan)
+    receipt_sha = load_plan_receipt(args, release, plan_sha, plan)
+    inventory = current_inventory(args, release)
+    anchors = current_anchors(args, release)
+    extras = validate(inventory, pairs, plan_sha, receipt_sha, release, anchors)
     if args.mode == "preview":
         proposal = {
             "operation": "vec.h6.ad3_132.revoke_public_temp.v1",
             "approved": False,
             "approved_by": inventory["owner_name"],
             "approval_ref": "",
-            "source_commit": args.source_commit,
-            "sql_list_sha256": sha_bytes(read_regular(args.sql_list)),
-            "plan_sha256": sha_bytes(read_regular(args.plan)),
+            "source_commit": release["source_commit"],
+            "sql_list_sha256": release["sql_list_sha256"],
+            "release_sha256": release["sha256"],
+            "artifact_sha256": release["artifact_sha256"],
+            "plan_sha256": plan_sha,
+            "plan_receipt_sha256": receipt_sha,
             "inventory": inventory,
-            "other_vec_services": [
-                {"role": role, "purpose": "", "provision_sql": "",
-                 "provision_sha256": "", "private_provision_ref": "",
-                 "approved_by": "", "approval_ref": ""} for role in extras
-            ],
+            "installed_anchors": anchors,
+            "unexplained_connect_logins": extras,
         }
         args.output.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         descriptor = os.open(args.output, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
         with os.fdopen(descriptor, "w", encoding="utf-8") as out:
             json.dump(proposal, out, ensure_ascii=False, indent=2, sort_keys=True)
             out.write("\n")
-        print(f"PREVIEW-OK: {len(inventory['login_roles'])} LOGIN, {len(inventory['connect_roles'])} CONNECT, {len(extras)} extras; propuesta privada creada")
+        print(f"PREVIEW: {len(inventory['login_roles'])} LOGIN, {len(inventory['connect_roles'])} CONNECT, {len(extras)} sin procedencia; propuesta privada creada")
         return
     approval = json_file(args.approval)
     if args.approval.stat().st_mode & 0o077:
         raise Stop("aprobación privada legible por otros usuarios")
-    validate(args, inventory, pairs, approval)
+    validate(inventory, pairs, plan_sha, receipt_sha, release, anchors, approval)
     selected = {
         "operation": approval["operation"],
         "database_name": inventory["database_name"],
@@ -301,9 +510,9 @@ def main():
         "role_graph_sha256": inventory["role_graph_sha256"],
         "connect_roles": inventory["connect_roles"],
         "login_roles": inventory["login_roles"],
-        "plan_sha256": approval["plan_sha256"],
-        "sql_list_sha256": approval["sql_list_sha256"],
-        "source_commit": approval["source_commit"],
+        "plan_sha256": plan_sha,
+        "sql_list_sha256": release["sql_list_sha256"],
+        "source_commit": release["source_commit"],
         "approved_by": approval["approved_by"],
         "approval_ref": approval["approval_ref"],
     }
@@ -311,20 +520,34 @@ def main():
         raise Stop("operación de aprobación distinta")
     variables = (("h6_approval", json.dumps(selected, separators=(",", ":"), sort_keys=True)),)
     if args.mode == "trial":
-        original = read_regular(MIGRATION)
+        original = release["artifacts"]["sql"]
         if not original.endswith(b"\nCOMMIT;\n") or original.count(b"\nCOMMIT;\n") != 1:
             raise Stop("migración sin cierre transaccional canónico")
         trial = original[:-len(b"\nCOMMIT;\n")] + b"\nROLLBACK;\n"
         psql(args, variables=variables, sql_bytes=trial)
-        if current_inventory(args) != inventory:
+        if current_inventory(args, release) != inventory or current_anchors(args, release) != anchors:
             raise Stop("ensayo ROLLBACK alteró la preimagen")
         print("AD3-132-ROLLBACK-OK: preimagen íntegra")
         return
-    psql(args, MIGRATION, variables)
-    after = current_inventory(args)
-    if after.get("public_temp") is not False or \
-            any(x.get("temp") is True for x in after.get("logins", []) if x.get("role") != after.get("owner_name")):
-        raise Stop("postimagen TEMP incompatible tras COMMIT; detener arranque")
+    try:
+        psql(args, release["artifacts"]["sql"], variables)
+        after = current_inventory(args, release)
+        if not postimage_compatible(inventory, after) or \
+                current_anchors(args, release) != anchors:
+            raise Stop("postimagen TEMP incompatible")
+    except (Stop, OSError, subprocess.TimeoutExpired) as exc:
+        observed = "no consultable"
+        try:
+            snapshot = current_inventory(args, release)
+            if snapshot == inventory:
+                observed = "preimagen observada"
+            elif postimage_compatible(inventory, snapshot) and current_anchors(args, release) == anchors:
+                observed = "postimagen compatible observada"
+            else:
+                observed = "postimagen divergente"
+        except (Stop, OSError, subprocess.TimeoutExpired):
+            pass
+        raise Stop(f"resultado de aplicación incierto ({observed}): conciliar ACL, roles y anclas antes de reintentar o arrancar") from exc
     print("AD3-132-OK: PUBLIC TEMP retirado; LOGIN sin TEMP efectivo")
 
 
