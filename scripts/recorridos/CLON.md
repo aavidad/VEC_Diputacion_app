@@ -16,6 +16,14 @@ Aspirantes000002, después de Aspirantes000001. Son 39 instalaciones. Al pasar
 de la copia anterior a esta fuente, solo se instala esa ampliación. Una fuente
 anterior conserva su plan de 38; no se le atribuyen instalaciones posteriores.
 
+El plan de `890b3fe0e9f9e30e249b9dc2d3778971121a8cc2` contiene 43 entradas.
+Dirección ha retenido su primera instalación de RPT para corregir la fuente.
+El guion solo permite recuperar esa versión si sus 43 recibos exactos ya están
+en la copia; no la instala sobre H1 ni sobre un prefijo incompleto. El último
+punto reconstruible aprobado es `3be3110e6d4a8389aed5a496c0b6d1bd805b7723`,
+con 39 instalaciones. La fuente corregida requiere una revisión y una copia fría
+distinta; la versión retenida conserva su historia, sin DOWN ni reaplicación.
+
 Un commit posterior de `main` puede usar este mismo plan si conserva exactamente
 el inventario SQL revisado. El guion compara los archivos del commit con la fuente
 extraída. Una SQL nueva, modificada o ausente detiene la preparación y exige
@@ -95,6 +103,15 @@ Para actualizar el clon anterior a este corte, detenga primero la aplicación
 con `parar`, cambie `VEC_RECORRIDOS_REFERENCIA` y vuelva a ejecutar `preparar`.
 La fuente anterior debe ser antecesora de la nueva y el instalador debe conocer
 la ampliación. El volumen, la historia y el material privado se conservan.
+
+Si cambia la proyección de la aplicación, añada
+`VEC_RECORRIDOS_ROTAR_PROYECCION_INTERNA=true`. Después de comprobar que el
+runtime está detenido, el guion archiva la proyección anterior completa, prepara
+la nueva y copia sus cuatro directorios de datos. Coteja contenido, permisos y
+propiedad antes del arranque. El recibo `rotacion-interna.json` permite continuar
+una copia interrumpida; nunca sobrescribe datos nuevos ni vuelve a transferirlos
+después de una actualización completada. El archivo anterior no autoriza
+arrancar el binario antiguo sobre SQL posteriores.
 
 Si solo cambia el sello de preparación del operador, puede solicitar su
 conciliación con `VEC_RECORRIDOS_REFRESCAR_PRUEBA_INTERNA=true`. El guion

@@ -15,6 +15,8 @@ puerto_smtp=${VEC_RECORRIDOS_PUERTO_SMTP:-11025}
 puerto_correo_web=${VEC_RECORRIDOS_PUERTO_CORREO_WEB:-18532}
 refrescar_prueba=${VEC_RECORRIDOS_REFRESCAR_PRUEBA_INTERNA:-false}
 [[ "$refrescar_prueba" == true || "$refrescar_prueba" == false ]] || exit 2
+rotar_proyeccion=${VEC_RECORRIDOS_ROTAR_PROYECCION_INTERNA:-false}
+[[ "$rotar_proyeccion" == true || "$rotar_proyeccion" == false ]] || exit 2
 accion=${1:-preparar}
 case "$accion" in preparar|estado|reiniciar|parar|retirar|plan) ;; *) echo 'Uso: preparar_clon.sh [preparar|plan|estado|reiniciar|parar|retirar]' >&2; exit 2;; esac
 [[ "$nombre" =~ ^vec-[a-z0-9-]+$ ]] || exit 2
@@ -232,6 +234,23 @@ PY
     echo 'El clon propio está en marcha y su registro está actualizado.'
     exit
   fi
+  if [[ "$rotar_proyeccion" == true ]]; then
+    origen_proyeccion=$(python3 - "$estado" "$anterior" "$commit" <<'PY'
+import json,pathlib,sys
+s=pathlib.Path(sys.argv[1]); previous=sys.argv[2]; target=sys.argv[3]
+p=s/'rotacion-interna.json'
+if p.exists():
+    r=json.loads(p.read_text())
+    assert r['owner']=='Codex-M' and r['state']==str(s)
+    if r['new_source']==target:
+        previous=r['old_source']
+    else:
+        assert r['phase']=='restored', 'Hay otra rotación pendiente.'
+print(previous)
+PY
+)
+    python3 "$guiones/clon_rotacion_interna.py" archive --state "$estado" --old-source "$origen_proyeccion" --new-source "$commit"
+  fi
 else
   ! docker inspect "$nombre" >/dev/null 2>&1 || { echo 'El nombre de contenedor ya está ocupado.' >&2; exit 1; }
   [[ ! -e "$estado/fuente" ]] || { echo 'Existe una fuente sin registro de propiedad; revise el estado.' >&2; exit 1; }
@@ -303,6 +322,9 @@ if [[ "$refrescar_prueba" == true ]]; then opciones_material+=(--refresh-interna
 estado_material=0
 python3 "$guiones/clon_material.py" --repo "$repo" --source-archive "$estado/source-$commit" --commit "$commit" --container "$nombre" --output "$estado" --port "$puerto_web" --pg-port "$puerto_pg" --repair-coverage-connect --repair-importacion-connect --repair-nominal-connect --complete-profiles "${opciones_material[@]}" || estado_material=$?
 [[ "$estado_material" == 0 || "$estado_material" == 3 ]] || exit "$estado_material"
+if [[ "$rotar_proyeccion" == true && -f "$estado/rotacion-interna.json" ]]; then
+  python3 "$guiones/clon_rotacion_interna.py" restore --state "$estado" --new-source "$commit"
+fi
 finalizar_arranque
 
 echo 'Clon preparado. Consulte el registro privado de estado antes de ejecutar recorridos.'
