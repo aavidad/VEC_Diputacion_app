@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"errors"
+	"io"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
@@ -82,6 +83,21 @@ type relojGobiernoRPTPrueba struct{ ahora time.Time }
 func (r relojGobiernoRPTPrueba) Ahora() time.Time { return r.ahora }
 
 type correlacionGobiernoRPTPrueba struct{}
+
+type lectorGobiernoRPTCancela struct {
+	io.Reader
+	cancelar context.CancelFunc
+}
+
+func (l *lectorGobiernoRPTCancela) Read(p []byte) (int, error) {
+	n, err := l.Reader.Read(p)
+	if n > 0 {
+		l.cancelar()
+	}
+	return n, err
+}
+
+func (*lectorGobiernoRPTCancela) Close() error { return nil }
 
 func (correlacionGobiernoRPTPrueba) NuevaReferenciaCorrelacionAutorizacionV2(context.Context) (string, error) {
 	return "correlacion_0123456789abcdef0123456789abcdef", nil
@@ -496,11 +512,19 @@ func TestGobiernoRPTFronteraValidaYDenegacionesAuditadas(t *testing.T) {
 		})
 	}
 	fuente.err = nil
+	rLecturaCancelada := peticionGobiernoRPTPrueba(t, ca, cert, RutaProponerGobiernoCategoriaRPT, cuerpo)
+	ctxLectura, cancelarLectura := context.WithCancel(rLecturaCancelada.Context())
+	rLecturaCancelada = rLecturaCancelada.WithContext(ctxLectura)
+	rLecturaCancelada.Body = &lectorGobiernoRPTCancela{Reader: strings.NewReader(cuerpo), cancelar: cancelarLectura}
+	antesAuditoria, antesOperador := len(audit.codigos), op.llamadas
+	if estado := enviar(rLecturaCancelada); estado != http.StatusServiceUnavailable || len(audit.codigos) != antesAuditoria+1 || op.llamadas != antesOperador || audit.codigos[len(audit.codigos)-1] != "servicio_no_disponible" {
+		t.Fatalf("lectura cancelada: estado=%d auditoria=%v operador=%d", estado, audit.codigos, op.llamadas)
+	}
 	rCancelado := peticionGobiernoRPTPrueba(t, ca, cert, RutaProponerGobiernoCategoriaRPT, cuerpo)
 	ctxFuente, cancelarFuente := context.WithCancel(rCancelado.Context())
 	rCancelado = rCancelado.WithContext(ctxFuente)
 	fuente.cancelar = cancelarFuente
-	antesAuditoria, antesOperador := len(audit.codigos), op.llamadas
+	antesAuditoria, antesOperador = len(audit.codigos), op.llamadas
 	if estado := enviar(rCancelado); estado != http.StatusServiceUnavailable || len(audit.codigos) != antesAuditoria+1 || op.llamadas != antesOperador {
 		t.Fatalf("fuente cancelada: estado=%d auditoria=%v operador=%d", estado, audit.codigos, op.llamadas)
 	}
@@ -514,6 +538,17 @@ func TestGobiernoRPTFronteraValidaYDenegacionesAuditadas(t *testing.T) {
 		t.Fatalf("operador cancelado: estado=%d auditoria=%v", estado, audit.codigos)
 	}
 	op.cancelar = nil
+	rCancelado = peticionGobiernoRPTPrueba(t, ca, cert, RutaProponerGobiernoCategoriaRPT, cuerpo)
+	ctxErrorOperador, cancelarErrorOperador := context.WithCancel(rCancelado.Context())
+	rCancelado = rCancelado.WithContext(ctxErrorOperador)
+	op.cancelar = cancelarErrorOperador
+	op.err = ports.ErrGobiernoCategoriaRPTInvalido
+	antesAuditoria = len(audit.codigos)
+	if estado := enviar(rCancelado); estado != http.StatusServiceUnavailable || len(audit.codigos) != antesAuditoria+1 || audit.codigos[len(audit.codigos)-1] != "servicio_no_disponible" {
+		t.Fatalf("error con cancelacion: estado=%d auditoria=%v", estado, audit.codigos)
+	}
+	op.cancelar = nil
+	op.err = nil
 	audit.err = errors.New("auditoria caída")
 	op.err = ports.ErrGobiernoCategoriaRPTConflicto
 	if estado := enviar(peticionGobiernoRPTPrueba(t, ca, cert, RutaProponerGobiernoCategoriaRPT, cuerpo)); estado != http.StatusServiceUnavailable {

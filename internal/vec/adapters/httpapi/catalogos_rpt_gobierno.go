@@ -167,6 +167,10 @@ func (h *handlerGobiernoCategoriaRPT) ServeHTTP(w http.ResponseWriter, r *http.R
 		return
 	}
 	clave, entrada, err := leerEntradaGobiernoRPT(w, r)
+	if r.Context().Err() != nil {
+		h.denegar(w, r.Context(), r.URL.Path, http.StatusServiceUnavailable, "servicio_no_disponible")
+		return
+	}
 	if err != nil || entrada.CatalogoID != h.descriptor.CatalogoID || entrada.ModuloID != h.descriptor.ModuloID {
 		h.denegar(w, r.Context(), r.URL.Path, http.StatusBadRequest, "peticion_no_valida")
 		return
@@ -198,12 +202,12 @@ func (h *handlerGobiernoCategoriaRPT) ServeHTTP(w http.ResponseWriter, r *http.R
 			resultado, err = h.operador.Confirmar(r.Context(), o)
 		}
 	}
-	if err != nil {
-		h.errorOperacion(w, r.Context(), r.URL.Path, err)
-		return
-	}
 	if r.Context().Err() != nil {
 		h.denegar(w, r.Context(), r.URL.Path, http.StatusServiceUnavailable, "servicio_no_disponible")
+		return
+	}
+	if err != nil {
+		h.errorOperacion(w, r.Context(), r.URL.Path, err)
 		return
 	}
 	if resultado.PropuestaRef != entrada.PropuestaRef || resultado.ReciboRef != clave || resultado.Evidencia.AuditoriaRef == "" || !resultado.Evidencia.ConsumoNuevo {
