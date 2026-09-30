@@ -10,6 +10,8 @@
   --portal-acento: var(--portal-azul-700);
   --portal-foco: var(--portal-azul-700);
   --portal-texto-inverso: #ffffff;
+  --portal-lateral-fondo: var(--portal-azul-950);
+  --portal-lateral-texto: #ffffff;
   /* El logotipo institucional se imprime siempre sobre blanco, también en oscuro. */
   --portal-fondo-logo: #ffffff;
   --portal-lateral-muted: #b7cde0;
@@ -265,9 +267,11 @@ body[data-modo-color="noche_suave"]:not([data-contraste="true"]):not(.alto-contr
   --portal-acento: var(--portal-azul-700);
   --portal-foco: var(--portal-azul-700);
   --portal-texto-inverso: #152631;
-  --portal-lateral-muted: #263f4b;
-  --portal-lateral-separador: rgb(21 38 49 / 24%);
-  --portal-lateral-hover: rgb(21 38 49 / 12%);
+  --portal-lateral-fondo: #142b38;
+  --portal-lateral-texto: #ffffff;
+  --portal-lateral-muted: #c7d9e3;
+  --portal-lateral-separador: rgb(255 255 255 / 17%);
+  --portal-lateral-hover: rgb(255 255 255 / 12%);
   --portal-tinta: #edf3f4;
   --portal-muted: #c5d6d9;
   --portal-borde: #839ba1;
@@ -308,7 +312,7 @@ body[data-modo-color="oscuro"]:not([data-contraste="true"]):not(.alto-contraste)
 }
 
 body[data-modo-color="noche_suave"]:not([data-contraste="true"]):not(.alto-contraste) .portal-lateral :focus-visible {
-  outline-color: var(--portal-texto-inverso);
+  outline-color: var(--portal-lateral-texto);
 }
 
 body[data-contraste="true"],

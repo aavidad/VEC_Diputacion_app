@@ -68,7 +68,8 @@ test("texto, acciones, navegación, estados y foco cumplen WCAG 2.2 AA", () => {
       exigir("texto-inverso", boton, 4.5);
     }
     exigir("texto-inverso", "azul-950", 4.5);
-    exigir("lateral-muted", "azul-950", 4.5);
+    exigir("lateral-texto", "lateral-fondo", 4.5);
+    exigir("lateral-muted", "lateral-fondo", 4.5);
     exigir("azul-900", "azul-100", 4.5);
     exigir("foco", "superficie", 3);
     exigir("foco", "fondo", 3);
