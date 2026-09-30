@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -118,8 +119,8 @@ func (h *Manejador) consultar(w http.ResponseWriter, r *http.Request, actor vecd
 		fallo(w, http.StatusBadRequest, "solicitud_invalida")
 		return
 	}
-	limite, antes, bien := paginacion(r)
-	if !bien {
+	limite, antes, err := paginacion(r)
+	if err != nil {
 		fallo(w, http.StatusBadRequest, "solicitud_invalida")
 		return
 	}
@@ -159,7 +160,11 @@ func (h *Manejador) publicar(w http.ResponseWriter, r *http.Request, actor vecdo
 		return
 	}
 	cuerpo, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maximoCuerpo+1))
-	if err != nil || len(cuerpo) == 0 || len(cuerpo) > maximoCuerpo || !jsonSinDuplicados(cuerpo) {
+	if err != nil || len(cuerpo) == 0 || len(cuerpo) > maximoCuerpo {
+		fallo(w, http.StatusBadRequest, "solicitud_invalida")
+		return
+	}
+	if err := jsonSinDuplicados(cuerpo); err != nil {
 		fallo(w, http.StatusBadRequest, "solicitud_invalida")
 		return
 	}
@@ -184,39 +189,47 @@ func (h *Manejador) publicar(w http.ResponseWriter, r *http.Request, actor vecdo
 	}})
 }
 
-func paginacion(r *http.Request) (int, *int64, bool) {
+var errFormaSolicitud = errors.New("forma de solicitud invalida")
+
+func paginacion(r *http.Request) (int, *int64, error) {
 	const limiteInicial = 20
 	q, err := url.ParseQuery(r.URL.RawQuery)
 	if err != nil {
-		return 0, nil, false
+		return 0, nil, fmt.Errorf("leer paginacion: %w", err)
 	}
 	if len(q) > 2 {
-		return 0, nil, false
+		return 0, nil, errFormaSolicitud
 	}
 	limite := limiteInicial
 	var antes *int64
 	for clave, valores := range q {
 		if len(valores) != 1 || valores[0] == "" {
-			return 0, nil, false
+			return 0, nil, errFormaSolicitud
 		}
 		switch clave {
 		case "limite":
 			n, err := strconv.Atoi(valores[0])
-			if err != nil || n < 1 || n > 50 || strconv.Itoa(n) != valores[0] {
-				return 0, nil, false
+			if err != nil {
+				return 0, nil, fmt.Errorf("leer limite: %w", err)
+			}
+			if n < 1 || n > 50 || strconv.Itoa(n) != valores[0] {
+				return 0, nil, errFormaSolicitud
 			}
 			limite = n
 		case "antes_de_version":
 			n, err := strconv.ParseInt(valores[0], 10, 64)
-			if err != nil || n < 2 || n > 10_000_000 || strconv.FormatInt(n, 10) != valores[0] {
-				return 0, nil, false
+			if err != nil {
+				return 0, nil, fmt.Errorf("leer cursor: %w", err)
+			}
+			if n < 2 || n > 10_000_000 || strconv.FormatInt(n, 10) != valores[0] {
+				return 0, nil, errFormaSolicitud
 			}
 			antes = &n
 		default:
-			return 0, nil, false
+			return 0, nil, errFormaSolicitud
 		}
 	}
-	return limite, antes, true
+	return limite, antes, nil
 }
 
 type reglaVista struct {
@@ -317,44 +330,62 @@ func cabecerasProhibidas(h http.Header) bool {
 	return false
 }
 
-func jsonSinDuplicados(contenido []byte) bool {
+func jsonSinDuplicados(contenido []byte) error {
 	d := json.NewDecoder(bytes.NewReader(contenido))
-	if !valorUnico(d) {
-		return false
+	if err := valorUnico(d); err != nil {
+		return err
 	}
 	_, err := d.Token()
-	return err == io.EOF
+	if err == io.EOF {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("leer resto JSON: %w", err)
+	}
+	return errFormaSolicitud
 }
 
-func valorUnico(d *json.Decoder) bool {
+func valorUnico(d *json.Decoder) error {
 	t, err := d.Token()
 	if err != nil {
-		return false
+		return fmt.Errorf("leer valor JSON: %w", err)
 	}
 	delimitador, esDelimitador := t.(json.Delim)
 	if !esDelimitador {
-		return true
+		return nil
 	}
 	switch delimitador {
 	case '{':
 		vistas := make(map[string]bool)
 		for d.More() {
 			clave, err := d.Token()
+			if err != nil {
+				return fmt.Errorf("leer clave JSON: %w", err)
+			}
 			k, ok := clave.(string)
-			if err != nil || !ok || vistas[k] || !valorUnico(d) {
-				return false
+			if !ok || vistas[k] {
+				return errFormaSolicitud
+			}
+			if err := valorUnico(d); err != nil {
+				return err
 			}
 			vistas[k] = true
 		}
 	case '[':
 		for d.More() {
-			if !valorUnico(d) {
-				return false
+			if err := valorUnico(d); err != nil {
+				return err
 			}
 		}
 	default:
-		return false
+		return errFormaSolicitud
 	}
 	final, err := d.Token()
-	return err == nil && final == json.Delim(map[json.Delim]rune{'{': '}', '[': ']'}[delimitador])
+	if err != nil {
+		return fmt.Errorf("leer cierre JSON: %w", err)
+	}
+	if final != json.Delim(map[json.Delim]rune{'{': '}', '[': ']'}[delimitador]) {
+		return errFormaSolicitud
+	}
+	return nil
 }
