@@ -69,6 +69,20 @@ BEGIN
     END;
     BEGIN
         PERFORM vec_autorizacion_atestada_v3.listar_categorias_habilitadas_rpt_v3_atestada(
+            pg_catalog.jsonb_set(material,'{limite}','"1"'::jsonb),
+            NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+        RAISE EXCEPTION 'AD3-117: limite string admitido';
+    EXCEPTION WHEN SQLSTATE '22023' THEN NULL;
+    END;
+    BEGIN
+        PERFORM vec_autorizacion_atestada_v3.listar_categorias_habilitadas_rpt_v3_atestada(
+            pg_catalog.jsonb_set(material,'{catalogo_id}','true'::jsonb),
+            NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+        RAISE EXCEPTION 'AD3-117: catalogo boolean admitido';
+    EXCEPTION WHEN SQLSTATE '22023' THEN NULL;
+    END;
+    BEGIN
+        PERFORM vec_autorizacion_atestada_v3.listar_categorias_habilitadas_rpt_v3_atestada(
             material,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
         RAISE EXCEPTION 'AD3-117: lista sin V3 admitida';
     EXCEPTION WHEN SQLSTATE '42501' THEN NULL;
@@ -94,6 +108,22 @@ BEGIN
                 'version',2147483648,'huella_sha256',pg_catalog.repeat('0',64),'categoria_id','cat-demo'),
             NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
         RAISE EXCEPTION 'AD3-117: version fuera de integer admitida';
+    EXCEPTION WHEN SQLSTATE '22023' THEN NULL;
+    END;
+    BEGIN
+        PERFORM vec_autorizacion_atestada_v3.leer_publicacion_categoria_rpt_v3_atestada(
+            pg_catalog.jsonb_build_object('catalogo_id','rpt-demo','modulo_id','personal',
+                'version','1','huella_sha256',pg_catalog.repeat('0',64),'categoria_id','cat-demo'),
+            NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+        RAISE EXCEPTION 'AD3-117: version string admitida';
+    EXCEPTION WHEN SQLSTATE '22023' THEN NULL;
+    END;
+    BEGIN
+        PERFORM vec_autorizacion_atestada_v3.consultar_uso_categoria_rpt_v3_atestada(
+            pg_catalog.jsonb_build_object('catalogo_id','rpt-demo','modulo_id','personal',
+                'consumidor','bolsa','uso_ref',1234,'reserva_recibo_ref','recibo:uno'),
+            NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+        RAISE EXCEPTION 'AD3-117: uso_ref numerico admitido';
     EXCEPTION WHEN SQLSTATE '22023' THEN NULL;
     END;
     -- pg_temp se antepone a pg_catalog para relaciones sin cualificar. Un

@@ -155,7 +155,9 @@ BEGIN
             'vec.catalogos.categorias.consultar_uso') THEN
         RAISE EXCEPTION 'AD3-117: material de lectura invalido' USING ERRCODE='22023';
     END IF;
-    IF p_material->>'catalogo_id' IS NULL OR p_material->>'catalogo_id' !~ '^[a-z][a-z0-9_.:-]{2,127}$'
+    IF pg_catalog.jsonb_typeof(p_material->'catalogo_id') IS DISTINCT FROM 'string'
+       OR p_material->>'catalogo_id' IS NULL OR p_material->>'catalogo_id' !~ '^[a-z][a-z0-9_.:-]{2,127}$'
+       OR pg_catalog.jsonb_typeof(p_material->'modulo_id') IS DISTINCT FROM 'string'
        OR p_material->>'modulo_id' IS NULL OR p_material->>'modulo_id' !~ '^[a-z][a-z0-9_.:-]{2,127}$' THEN
         RAISE EXCEPTION 'AD3-117: descriptor de catalogo invalido' USING ERRCODE='22023';
     END IF;
@@ -170,7 +172,8 @@ BEGIN
         recurso := p_material->>'uso_ref';
         tipo := 'uso_categoria';
         campos := '["uso"]'::jsonb;
-        IF p_material->>'consumidor' IS NULL OR p_material->>'consumidor' !~ '^[a-z][a-z0-9_.:-]{2,127}$'
+        IF pg_catalog.jsonb_typeof(p_material->'consumidor') IS DISTINCT FROM 'string'
+           OR p_material->>'consumidor' IS NULL OR p_material->>'consumidor' !~ '^[a-z][a-z0-9_.:-]{2,127}$'
            OR recurso IS NULL OR pg_catalog.octet_length(recurso) NOT BETWEEN 3 AND 160
            OR p_material->>'reserva_recibo_ref' IS NULL
            OR pg_catalog.octet_length(p_material->>'reserva_recibo_ref') NOT BETWEEN 3 AND 160 THEN
@@ -233,12 +236,15 @@ BEGIN
         RAISE EXCEPTION 'AD3-117: lista invalida' USING ERRCODE='22023';
     END IF;
     IF (SELECT count(*) FROM pg_catalog.jsonb_object_keys(p_material))<>4
+       OR pg_catalog.jsonb_typeof(p_material->'catalogo_id') IS DISTINCT FROM 'string'
        OR p_material->>'catalogo_id' IS NULL OR p_material->>'catalogo_id' !~ '^[a-z][a-z0-9_.:-]{2,127}$'
+       OR pg_catalog.jsonb_typeof(p_material->'modulo_id') IS DISTINCT FROM 'string'
        OR p_material->>'modulo_id' IS NULL OR p_material->>'modulo_id' !~ '^[a-z][a-z0-9_.:-]{2,127}$'
        OR NOT (p_material ? 'cursor_categoria_id')
        OR (pg_catalog.jsonb_typeof(p_material->'cursor_categoria_id') NOT IN ('null','string'))
        OR (pg_catalog.jsonb_typeof(p_material->'cursor_categoria_id')='string'
            AND p_material->>'cursor_categoria_id' !~ '^[a-z][a-z0-9_.:-]{2,127}$')
+       OR pg_catalog.jsonb_typeof(p_material->'limite') IS DISTINCT FROM 'number'
        OR p_material->>'limite' IS NULL OR p_material->>'limite' !~ '^(100|[1-9][0-9]?)$' THEN
         RAISE EXCEPTION 'AD3-117: lista invalida' USING ERRCODE='22023';
     END IF;
@@ -262,7 +268,10 @@ BEGIN
             END IF;
             BEGIN doc := (pub->>'documento_canonico')::jsonb;
             EXCEPTION WHEN others THEN RAISE EXCEPTION 'AD3-117: canon ilegible' USING ERRCODE='55000'; END;
-            IF doc->>'id' IS DISTINCT FROM catalogo
+            IF pg_catalog.jsonb_typeof(doc->'id') IS DISTINCT FROM 'string'
+               OR pg_catalog.jsonb_typeof(doc->'modulo_id') IS DISTINCT FROM 'string'
+               OR pg_catalog.jsonb_typeof(doc->'version') IS DISTINCT FROM 'number'
+               OR doc->>'id' IS DISTINCT FROM catalogo
                OR doc->>'version' IS DISTINCT FROM pub->>'version'
                OR doc->>'modulo_id' IS DISTINCT FROM modulo THEN
                 RAISE EXCEPTION 'AD3-117: modulo de publicacion ajeno' USING ERRCODE='42501';
@@ -294,10 +303,15 @@ BEGIN
         RAISE EXCEPTION 'AD3-117: historia invalida' USING ERRCODE='22023';
     END IF;
     IF (SELECT count(*) FROM pg_catalog.jsonb_object_keys(p_material))<>5
+       OR pg_catalog.jsonb_typeof(p_material->'catalogo_id') IS DISTINCT FROM 'string'
        OR p_material->>'catalogo_id' IS NULL OR p_material->>'catalogo_id' !~ '^[a-z][a-z0-9_.:-]{2,127}$'
+       OR pg_catalog.jsonb_typeof(p_material->'modulo_id') IS DISTINCT FROM 'string'
        OR p_material->>'modulo_id' IS NULL OR p_material->>'modulo_id' !~ '^[a-z][a-z0-9_.:-]{2,127}$'
+       OR pg_catalog.jsonb_typeof(p_material->'version') IS DISTINCT FROM 'number'
        OR p_material->>'version' IS NULL OR p_material->>'version' !~ '^[1-9][0-9]{0,9}$'
+       OR pg_catalog.jsonb_typeof(p_material->'huella_sha256') IS DISTINCT FROM 'string'
        OR p_material->>'huella_sha256' IS NULL OR p_material->>'huella_sha256' !~ '^[0-9a-f]{64}$'
+       OR pg_catalog.jsonb_typeof(p_material->'categoria_id') IS DISTINCT FROM 'string'
        OR p_material->>'categoria_id' IS NULL OR p_material->>'categoria_id' !~ '^[a-z][a-z0-9_.:-]{2,127}$' THEN
         RAISE EXCEPTION 'AD3-117: historia invalida' USING ERRCODE='22023';
     END IF;
@@ -313,7 +327,10 @@ BEGIN
     IF r->>'encontrado'='true' THEN
         BEGIN doc := (r#>>'{datos,publicacion,documento_canonico}')::jsonb;
         EXCEPTION WHEN others THEN RAISE EXCEPTION 'AD3-117: canon ilegible' USING ERRCODE='55000'; END;
-        IF doc->>'id' IS DISTINCT FROM catalogo
+        IF pg_catalog.jsonb_typeof(doc->'id') IS DISTINCT FROM 'string'
+           OR pg_catalog.jsonb_typeof(doc->'modulo_id') IS DISTINCT FROM 'string'
+           OR pg_catalog.jsonb_typeof(doc->'version') IS DISTINCT FROM 'number'
+           OR doc->>'id' IS DISTINCT FROM catalogo
            OR doc->>'version' IS DISTINCT FROM p_material->>'version'
            OR doc->>'modulo_id' IS DISTINCT FROM modulo
            OR p_material->>'huella_sha256' IS DISTINCT FROM pg_catalog.encode(pg_catalog.sha256(
@@ -343,10 +360,15 @@ BEGIN
         RAISE EXCEPTION 'AD3-117: uso invalido' USING ERRCODE='22023';
     END IF;
     IF (SELECT count(*) FROM pg_catalog.jsonb_object_keys(p_material))<>5
+       OR pg_catalog.jsonb_typeof(p_material->'catalogo_id') IS DISTINCT FROM 'string'
        OR p_material->>'catalogo_id' IS NULL OR p_material->>'catalogo_id' !~ '^[a-z][a-z0-9_.:-]{2,127}$'
+       OR pg_catalog.jsonb_typeof(p_material->'modulo_id') IS DISTINCT FROM 'string'
        OR p_material->>'modulo_id' IS NULL OR p_material->>'modulo_id' !~ '^[a-z][a-z0-9_.:-]{2,127}$'
+       OR pg_catalog.jsonb_typeof(p_material->'consumidor') IS DISTINCT FROM 'string'
        OR p_material->>'consumidor' IS NULL OR p_material->>'consumidor' !~ '^[a-z][a-z0-9_.:-]{2,127}$'
+       OR pg_catalog.jsonb_typeof(p_material->'uso_ref') IS DISTINCT FROM 'string'
        OR p_material->>'uso_ref' IS NULL OR pg_catalog.octet_length(p_material->>'uso_ref') NOT BETWEEN 3 AND 160
+       OR pg_catalog.jsonb_typeof(p_material->'reserva_recibo_ref') IS DISTINCT FROM 'string'
        OR p_material->>'reserva_recibo_ref' IS NULL
        OR pg_catalog.octet_length(p_material->>'reserva_recibo_ref') NOT BETWEEN 3 AND 160 THEN
         RAISE EXCEPTION 'AD3-117: uso invalido' USING ERRCODE='22023';
@@ -371,7 +393,10 @@ BEGIN
         END IF;
         BEGIN doc := (historica#>>'{datos,publicacion,documento_canonico}')::jsonb;
         EXCEPTION WHEN others THEN RAISE EXCEPTION 'AD3-117: canon ilegible' USING ERRCODE='55000'; END;
-        IF doc->>'id' IS DISTINCT FROM catalogo OR doc->>'modulo_id' IS DISTINCT FROM modulo
+        IF pg_catalog.jsonb_typeof(doc->'id') IS DISTINCT FROM 'string'
+           OR pg_catalog.jsonb_typeof(doc->'modulo_id') IS DISTINCT FROM 'string'
+           OR pg_catalog.jsonb_typeof(doc->'version') IS DISTINCT FROM 'number'
+           OR doc->>'id' IS DISTINCT FROM catalogo OR doc->>'modulo_id' IS DISTINCT FROM modulo
            OR doc->>'version' IS DISTINCT FROM r#>>'{datos,version}'
            OR r#>>'{datos,huella_sha256}' IS DISTINCT FROM pg_catalog.encode(pg_catalog.sha256(
                 pg_catalog.convert_to(historica#>>'{datos,publicacion,documento_canonico}','UTF8')),'hex') THEN
