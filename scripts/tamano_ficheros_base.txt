@@ -124,7 +124,7 @@
 887 internal/app/bootstrap/contratacion_temporal_cobertura_autorizacion_desarrollo_test.go
 1178 deploy/postgresql/usuarios_vec/migraciones/000010_correos_por_poblacion.up.sql
 1006 scripts/recorridos/clon_runtime.py
-1346 scripts/recorridos/clon_material.py
+1357 scripts/recorridos/clon_material.py
 911 scripts/recorridos/test_clon_runtime.py
 1200 scripts/recorridos/clon_sql.py
 967 scripts/recorridos/clon_sql.test.py
