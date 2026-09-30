@@ -10,7 +10,7 @@ Dirección aún no ha confirmado un proceso completo que permita publicar su man
 | Recorrido | Resultado observado | Punto pendiente |
 | --- | --- | --- |
 | Accesos | RRHH, centro y ratificador pasan sus comprobaciones positivas y de denegación. Intervención entra al portal. | Completar las comprobaciones de Intervención y disponer del portal externo con su propia autoridad de acceso. |
-| Centro → RRHH | Petición y ratificación registradas por personas distintas, con recibos de versiones 1 y 2. La consulta posterior conserva la petición ratificada. | La entrega a RRHH responde 503: su POST todavía carece de frontera nominal en esta fuente. No hay alta confirmada. |
+| Centro → RRHH | Petición y ratificación registradas por personas distintas, con recibos de versiones 1 y 2. La consulta posterior conserva la petición ratificada. | La entrega a RRHH responde 503: esa operación aún no está declarada en el control de acceso de esta versión. No hay alta confirmada. |
 | Análisis e informe | El cuadro abre y consulta los expedientes con respuesta 200. | No hay expediente nuevo procedente de la entrega. El sembrador oficial se detiene antes de escribir porque faltan centros y categorías de sus casos. No se han ejecutado las actuaciones. |
 | Intervención | La entrada y el formulario de acceso manual se ven en escritorio y móvil. Las consultas de RRHH se deniegan a este perfil. | Faltan casos nuevos en informe jurídico para recorrer fiscalización favorable, reparo y subsanación. |
 | Llamamiento y respuesta | Se han observado las entradas de RRHH y del candidato. | La lista de bolsas responde 503 por una conexión omitida en el preparador del clon. Se corregirá antes de valorar el proceso. El portal externo aún no está habilitado. |
