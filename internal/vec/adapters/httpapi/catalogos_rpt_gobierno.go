@@ -28,10 +28,11 @@ var ErrHandlerGobiernoCategoriaRPTInvalido = errors.New("vec http: frontera de g
 var clavePreimagenGobiernoRPT = regexp.MustCompile(`^[a-z][a-z0-9_.:-]{2,127}$`)
 
 // La fuente pertenece a la composicion ADMIN. Debe enlazar el certificado del
-// handshake con actor, vinculo, contexto registrado, motivo y perfil publicados.
+// handshake con actor, vinculo, contexto registrado, motivo y asignacion
+// vigente al rol publicado.
 // La solicitud HTTP no puede publicar ni provisionar esas capacidades.
 type FuenteCredencialesGobiernoCategoriaRPT interface {
-	ResolverGobiernoCategoriaRPT(context.Context, *x509.Certificate) (application.CredencialesGobiernoCategoriaRPT, ports.DescriptorCatalogoRPT, string, error)
+	ResolverGobiernoCategoriaRPT(context.Context, *x509.Certificate) (application.CredencialesGobiernoCategoriaRPT, ports.DescriptorCatalogoRPT, domain.InstantaneaAutorizacion, error)
 }
 
 type AuditorDenegacionGobiernoCategoriaRPT interface {
@@ -47,25 +48,26 @@ type OperadorGobiernoCategoriaRPT interface {
 var _ OperadorGobiernoCategoriaRPT = (*application.ServicioGobiernoCategoriaRPT)(nil)
 
 type handlerGobiernoCategoriaRPT struct {
-	operador   OperadorGobiernoCategoriaRPT
-	fuente     FuenteCredencialesGobiernoCategoriaRPT
-	auditor    AuditorDenegacionGobiernoCategoriaRPT
-	adminHost  string
-	raices     *x509.CertPool
-	descriptor ports.DescriptorCatalogoRPT
-	perfilFijo string
+	operador      OperadorGobiernoCategoriaRPT
+	fuente        FuenteCredencialesGobiernoCategoriaRPT
+	auditor       AuditorDenegacionGobiernoCategoriaRPT
+	adminHost     string
+	raices        *x509.CertPool
+	descriptor    ports.DescriptorCatalogoRPT
+	versionRolRef string
 }
 
-// Construir estas rutas no las monta en el portal ordinario. #211 debe crear
-// un listener ADMIN exclusivo con ClientAuth y entregar su CA privada.
-func NuevasRutasGobiernoCategoriaRPT(op OperadorGobiernoCategoriaRPT, fuente FuenteCredencialesGobiernoCategoriaRPT, auditor AuditorDenegacionGobiernoCategoriaRPT, adminHost string, raices *x509.CertPool, descriptor ports.DescriptorCatalogoRPT, perfilFijo string) ([]RutaExacta, error) {
+// El montaje necesita un listener ADMIN exclusivo con ClientAuth y su CA
+// privada. El estudio #211 conserva esa dependencia pendiente. La composicion
+// fija la version de rol comun; cada actor conserva su asignacion individual.
+func NuevasRutasGobiernoCategoriaRPT(op OperadorGobiernoCategoriaRPT, fuente FuenteCredencialesGobiernoCategoriaRPT, auditor AuditorDenegacionGobiernoCategoriaRPT, adminHost string, raices *x509.CertPool, descriptor ports.DescriptorCatalogoRPT, versionRolRef string) ([]RutaExacta, error) {
 	if dependenciaRutaExactaNula(op) || dependenciaRutaExactaNula(fuente) || dependenciaRutaExactaNula(auditor) ||
 		raices == nil || len(raices.Subjects()) == 0 || adminHost == "" || adminHost != strings.ToLower(adminHost) ||
 		strings.ContainsAny(adminHost, ":/ \t\r\n") || !strings.Contains(adminHost, ".") ||
-		descriptor.CatalogoID == "" || descriptor.ModuloID == "" || perfilFijo == "" {
+		descriptor.CatalogoID == "" || descriptor.ModuloID == "" || versionRolRef == "" {
 		return nil, ErrHandlerGobiernoCategoriaRPTInvalido
 	}
-	h := &handlerGobiernoCategoriaRPT{op, fuente, auditor, adminHost, raices.Clone(), descriptor, perfilFijo}
+	h := &handlerGobiernoCategoriaRPT{op, fuente, auditor, adminHost, raices.Clone(), descriptor, versionRolRef}
 	return []RutaExacta{
 		{Ruta: RutaProponerGobiernoCategoriaRPT, Manejador: h},
 		{Ruta: RutaAprobarGobiernoCategoriaRPT, Manejador: h},
@@ -143,7 +145,7 @@ func (h *handlerGobiernoCategoriaRPT) ServeHTTP(w http.ResponseWriter, r *http.R
 		h.denegar(w, r.Context(), r.URL.Path, http.StatusUnauthorized, "autenticacion_requerida")
 		return
 	}
-	cred, descriptor, perfil, err := h.fuente.ResolverGobiernoCategoriaRPT(r.Context(), cert)
+	cred, descriptor, asignacion, err := h.fuente.ResolverGobiernoCategoriaRPT(r.Context(), cert)
 	if err != nil {
 		if errors.Is(err, ErrAutenticacionRutaExactaRequerida) || errors.Is(err, domain.ErrContextoActorNoResuelto) {
 			h.denegar(w, r.Context(), r.URL.Path, http.StatusUnauthorized, "autenticacion_requerida")
@@ -158,9 +160,24 @@ func (h *handlerGobiernoCategoriaRPT) ServeHTTP(w http.ResponseWriter, r *http.R
 		h.denegar(w, r.Context(), r.URL.Path, http.StatusServiceUnavailable, "servicio_no_disponible")
 		return
 	}
-	if perfil != h.perfilFijo || cred.Actor.PerfilActivoRef != h.perfilFijo || descriptor != h.descriptor ||
+	ahora := time.Now().UTC().Truncate(time.Microsecond)
+	vinculo, errVinculo := cred.Vinculo.Datos()
+	huellaActor, errActor := cred.Actor.HuellaSHA256VinculadaV2()
+	if descriptor != h.descriptor || asignacion.Validar() != nil ||
+		asignacion.VersionRol.Referencia() != h.versionRolRef ||
+		asignacion.VersionRol.Estado != domain.EstadoVersionRolPublicada || asignacion.VersionRol.PublicadaEn.After(ahora) ||
+		asignacion.ControlVigenciaVersionRol.Estado != domain.EstadoControlVigenciaVersionRolHabilitada ||
+		asignacion.ControlVigenciaVersionRol.ActualizadoEn.After(ahora) ||
+		!asignacion.AsignacionPerfil.VigenteEn(ahora) ||
+		asignacion.AsignacionPerfil.PrincipalID != cred.Actor.Principal.ID ||
+		asignacion.AsignacionPerfil.PerfilActivoRef != cred.Actor.PerfilActivoRef ||
+		errVinculo != nil || errActor != nil || cred.ResultadoContexto.HuellaSHA256 != huellaActor ||
+		vinculo.PrincipalID != cred.Actor.Principal.ID || vinculo.PerfilActivoRef != cred.Actor.PerfilActivoRef ||
+		!vinculo.CuentaPrivilegiada || vinculo.Superficie != domain.SuperficieAutenticacionAdministracionPrivilegiadaV1 ||
+		!vinculo.GarantiaObservada.Cumple(domain.AuthAssuranceHigh) ||
 		!cred.Actor.Principal.AuthAssurance.Cumple(domain.AuthAssuranceHigh) ||
 		cred.Actor.Validar() != nil || cred.Vinculo.ValidarPara(cred.ResultadoContexto) != nil ||
+		!cred.Vinculo.VigenteEn(ahora, cred.ResultadoContexto) ||
 		cred.ResultadoContexto.Validar() != nil || !domain.ReferenciaMotivoAutorizacionV2Valida(cred.Motivo) ||
 		cred.Correlacion.Validar() != nil {
 		h.denegar(w, r.Context(), r.URL.Path, http.StatusForbidden, "acceso_denegado")

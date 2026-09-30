@@ -27,18 +27,18 @@ import (
 type fuenteGobiernoRPTPrueba struct {
 	cred       application.CredencialesGobiernoCategoriaRPT
 	descriptor ports.DescriptorCatalogoRPT
-	perfil     string
+	asignacion domain.InstantaneaAutorizacion
 	err        error
 	llamadas   int
 	cancelar   context.CancelFunc
 }
 
-func (f *fuenteGobiernoRPTPrueba) ResolverGobiernoCategoriaRPT(_ context.Context, _ *x509.Certificate) (application.CredencialesGobiernoCategoriaRPT, ports.DescriptorCatalogoRPT, string, error) {
+func (f *fuenteGobiernoRPTPrueba) ResolverGobiernoCategoriaRPT(_ context.Context, _ *x509.Certificate) (application.CredencialesGobiernoCategoriaRPT, ports.DescriptorCatalogoRPT, domain.InstantaneaAutorizacion, error) {
 	f.llamadas++
 	if f.cancelar != nil {
 		f.cancelar()
 	}
-	return f.cred, f.descriptor, f.perfil, f.err
+	return f.cred, f.descriptor, f.asignacion, f.err
 }
 
 type auditorGobiernoRPTPrueba struct {
@@ -56,6 +56,7 @@ func (a *auditorGobiernoRPTPrueba) RegistrarDenegacionGobiernoCategoriaRPT(_ con
 
 type operadorGobiernoRPTPrueba struct {
 	llamadas  int
+	cred      application.CredencialesGobiernoCategoriaRPT
 	respuesta ports.ResultadoGobiernoCategoriaRPT
 	err       error
 	ultimo    ports.BorradorPropuestaGobiernoCategoriaRPT
@@ -103,15 +104,21 @@ func (correlacionGobiernoRPTPrueba) NuevaReferenciaCorrelacionAutorizacionV2(con
 	return "correlacion_0123456789abcdef0123456789abcdef", nil
 }
 
+const versionRolGobiernoRPTPrueba = "rol:configuracion_rpt:v1"
+
 func credencialesGobiernoRPTPrueba(t *testing.T) application.CredencialesGobiernoCategoriaRPT {
+	return credencialesGobiernoRPTActorPrueba(t, "0123456789abcdefghijkl", domain.SuperficieAutenticacionAdministracionPrivilegiadaV1, 0)
+}
+
+func credencialesGobiernoRPTActorPrueba(t *testing.T, id string, superficie domain.SuperficieAutenticacionActorV1, desfase time.Duration) application.CredencialesGobiernoCategoriaRPT {
 	t.Helper()
-	ahora := time.Now().UTC().Truncate(time.Microsecond)
-	cuenta := domain.CuentaAutenticadaContextoActor{CuentaRef: "cta_0123456789abcdefghijkl", Metodo: domain.AuthMethodCertificate, Garantia: domain.AuthAssuranceHigh}
+	ahora := time.Now().Add(desfase).UTC().Truncate(time.Microsecond)
+	cuenta := domain.CuentaAutenticadaContextoActor{CuentaRef: "cta_" + id, Metodo: domain.AuthMethodCertificate, Garantia: domain.AuthAssuranceHigh}
 	instantanea := domain.InstantaneaContextoActor{
-		VinculoRef: "vca_0123456789abcdefghijkl", VinculoVersion: 5,
+		VinculoRef: "vca_" + id, VinculoVersion: 5,
 		CuentaRef: cuenta.CuentaRef, CuentaVersion: 7,
-		PersonaRef: "per_0123456789abcdefghijkl", PersonaVersion: 3,
-		PerfilActivoRef: "prf_0123456789abcdefghijkl", PerfilVersion: 4,
+		PersonaRef: "per_" + id, PersonaVersion: 3,
+		PerfilActivoRef: "prf_" + id, PerfilVersion: 4,
 		Estado:       domain.EstadoVinculoContextoActorActivo,
 		VigenteDesde: ahora.Add(-time.Hour), VigenteHasta: ahora.Add(time.Hour),
 	}
@@ -163,12 +170,16 @@ func credencialesGobiernoRPTPrueba(t *testing.T) application.CredencialesGobiern
 		ControlSesionRef: "cse_0123456789abcdefghijkl", ControlSesionRevision: 7,
 		ControlSesionHuellaSHA256: strings.Repeat("2", 64),
 		CuentaRef:                 cuenta.CuentaRef, CuentaOrdinariaRef: cuenta.CuentaRef,
-		Superficie:      domain.SuperficieAutenticacionInternaCorporativaV1,
+		Superficie:      superficie,
 		MetodoObservado: domain.AuthMethodCertificate, GarantiaObservada: domain.AuthAssuranceHigh,
 		PoliticaGarantiaRef:          "pga_0123456789abcdefghijkl",
 		PoliticaGarantiaHuellaSHA256: strings.Repeat("3", 64),
 		AutenticacionVerificadaEn:    ahora.Add(-5 * time.Minute), SesionEmitidaEn: ahora.Add(-4 * time.Minute),
 		SesionRevalidadaEn: ahora.Add(-3 * time.Minute), SesionValidaHasta: ahora.Add(10 * time.Minute),
+	}
+	if superficie == domain.SuperficieAutenticacionAdministracionPrivilegiadaV1 {
+		autenticacion.CuentaPrivilegiada = true
+		autenticacion.CuentaOrdinariaRef = "cta_ordinaria0123456789abcdef"
 	}
 	vinculo, err := domain.CrearVinculoAutenticacionActorV2(t.Context(),
 		revalidadorGobiernoRPTPrueba{autenticacion},
@@ -193,15 +204,18 @@ func (o *operadorGobiernoRPTPrueba) Proponer(_ context.Context, orden applicatio
 	if o.cancelar != nil {
 		o.cancelar()
 	}
+	o.cred = orden.Credenciales
 	o.ultimo = orden.Borrador
 	return o.respuesta, o.err
 }
-func (o *operadorGobiernoRPTPrueba) Aprobar(context.Context, application.OrdenAvanzarGobiernoCategoriaRPT) (ports.ResultadoGobiernoCategoriaRPT, error) {
+func (o *operadorGobiernoRPTPrueba) Aprobar(_ context.Context, orden application.OrdenAvanzarGobiernoCategoriaRPT) (ports.ResultadoGobiernoCategoriaRPT, error) {
 	o.llamadas++
+	o.cred = orden.Credenciales
 	return o.respuesta, o.err
 }
-func (o *operadorGobiernoRPTPrueba) Confirmar(context.Context, application.OrdenAvanzarGobiernoCategoriaRPT) (ports.ResultadoGobiernoCategoriaRPT, error) {
+func (o *operadorGobiernoRPTPrueba) Confirmar(_ context.Context, orden application.OrdenAvanzarGobiernoCategoriaRPT) (ports.ResultadoGobiernoCategoriaRPT, error) {
 	o.llamadas++
+	o.cred = orden.Credenciales
 	return o.respuesta, o.err
 }
 
@@ -274,12 +288,12 @@ func TestGobiernoRPTConstructorDeniegaSinFronteraADMIN(t *testing.T) {
 		descriptor ports.DescriptorCatalogoRPT
 		perfil     string
 	}{
-		{"operador", nil, fuente, audit, "admin.ejemplo.test", ca, d, "perfil-fijo"},
-		{"fuente", op, nil, audit, "admin.ejemplo.test", ca, d, "perfil-fijo"},
-		{"auditoria", op, fuente, nil, "admin.ejemplo.test", ca, d, "perfil-fijo"},
-		{"CA", op, fuente, audit, "admin.ejemplo.test", nil, d, "perfil-fijo"},
-		{"host", op, fuente, audit, "vec.ejemplo.test:8443", ca, d, "perfil-fijo"},
-		{"descriptor", op, fuente, audit, "admin.ejemplo.test", ca, ports.DescriptorCatalogoRPT{}, "perfil-fijo"},
+		{"operador", nil, fuente, audit, "admin.ejemplo.test", ca, d, versionRolGobiernoRPTPrueba},
+		{"fuente", op, nil, audit, "admin.ejemplo.test", ca, d, versionRolGobiernoRPTPrueba},
+		{"auditoria", op, fuente, nil, "admin.ejemplo.test", ca, d, versionRolGobiernoRPTPrueba},
+		{"CA", op, fuente, audit, "admin.ejemplo.test", nil, d, versionRolGobiernoRPTPrueba},
+		{"host", op, fuente, audit, "vec.ejemplo.test:8443", ca, d, versionRolGobiernoRPTPrueba},
+		{"descriptor", op, fuente, audit, "admin.ejemplo.test", ca, ports.DescriptorCatalogoRPT{}, versionRolGobiernoRPTPrueba},
 		{"perfil", op, fuente, audit, "admin.ejemplo.test", ca, d, ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -296,7 +310,7 @@ func TestGobiernoRPTMTLSADMINDeniegaPortalNormalYFuenteSinPerfil(t *testing.T) {
 	op, fuente, audit := &operadorGobiernoRPTPrueba{}, &fuenteGobiernoRPTPrueba{err: ErrAccesoRutaExactaDenegado}, &auditorGobiernoRPTPrueba{}
 	d := ports.DescriptorCatalogoRPT{CatalogoID: "catalogo.rpt", ModuloID: "bolsa"}
 	actor := actorOrganizacionHistoricaPrueba(t)
-	rutas, err := NuevasRutasGobiernoCategoriaRPT(op, fuente, audit, "admin.ejemplo.test", ca, d, actor.PerfilActivoRef)
+	rutas, err := NuevasRutasGobiernoCategoriaRPT(op, fuente, audit, "admin.ejemplo.test", ca, d, versionRolGobiernoRPTPrueba)
 	if err != nil || len(rutas) != 3 {
 		t.Fatalf("rutas=%d error=%v", len(rutas), err)
 	}
@@ -342,7 +356,7 @@ func TestGobiernoRPTMTLSADMINDeniegaPortalNormalYFuenteSinPerfil(t *testing.T) {
 	}
 	fuente.err = nil
 	fuente.descriptor = d
-	fuente.perfil = actor.PerfilActivoRef
+	fuente.asignacion = asignacionGobiernoRPTPrueba(t, credencialesGobiernoRPTPrueba(t))
 	fuente.cred.Actor = actor
 	fuente.cred.Actor.Principal.AuthAssurance = domain.AuthAssuranceSubstantial
 	if estado := enviar("admin.ejemplo.test", cuerpo, cliente); estado != http.StatusForbidden {
@@ -356,7 +370,7 @@ func TestGobiernoRPTMTLSADMINDeniegaPortalNormalYFuenteSinPerfil(t *testing.T) {
 func TestGobiernoRPTDTORechazaAutoridadYHuellasCliente(t *testing.T) {
 	for _, tc := range []struct{ ruta, campo string }{
 		{RutaProponerGobiernoCategoriaRPT, "actor"}, {RutaProponerGobiernoCategoriaRPT, "perfil_activo_ref"},
-		{RutaProponerGobiernoCategoriaRPT, "auth_assurance"}, {RutaProponerGobiernoCategoriaRPT, "preimagenes_huella_sha256"},
+		{RutaProponerGobiernoCategoriaRPT, "version_rol_ref"}, {RutaProponerGobiernoCategoriaRPT, "auth_assurance"}, {RutaProponerGobiernoCategoriaRPT, "preimagenes_huella_sha256"},
 		{RutaProponerGobiernoCategoriaRPT, "documento_huella_sha256"}, {RutaProponerGobiernoCategoriaRPT, "huella_sha256"},
 		{RutaAprobarGobiernoCategoriaRPT, "fuente_ref"}, {RutaConfirmarGobiernoCategoriaRPT, "motivo_ref"},
 	} {
@@ -403,11 +417,11 @@ func TestGobiernoRPTFronteraValidaYDenegacionesAuditadas(t *testing.T) {
 	ca, cert, _ := caGobiernoRPTPrueba(t)
 	cred := credencialesGobiernoRPTPrueba(t)
 	d := ports.DescriptorCatalogoRPT{CatalogoID: "catalogo.rpt", ModuloID: "bolsa"}
-	fuente := &fuenteGobiernoRPTPrueba{cred: cred, descriptor: d, perfil: cred.Actor.PerfilActivoRef}
+	fuente := &fuenteGobiernoRPTPrueba{cred: cred, descriptor: d, asignacion: asignacionGobiernoRPTPrueba(t, cred)}
 	audit := &auditorGobiernoRPTPrueba{}
 	resultado := ports.ResultadoGobiernoCategoriaRPT{PropuestaRef: "propuesta:ejemplo", ReciboRef: "12345678-1234-4234-8234-123456789abc", HuellaSHA256: strings.Repeat("a", 64), Revision: 1, Estado: "propuesta", Evidencia: ports.EvidenciaGobiernoCategoriaRPT{AuditoriaRef: "aud:prueba", ConsumoNuevo: true}}
 	op := &operadorGobiernoRPTPrueba{respuesta: resultado}
-	rutas, err := NuevasRutasGobiernoCategoriaRPT(op, fuente, audit, "admin.ejemplo.test", ca, d, cred.Actor.PerfilActivoRef)
+	rutas, err := NuevasRutasGobiernoCategoriaRPT(op, fuente, audit, "admin.ejemplo.test", ca, d, versionRolGobiernoRPTPrueba)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -553,5 +567,131 @@ func TestGobiernoRPTFronteraValidaYDenegacionesAuditadas(t *testing.T) {
 	op.err = ports.ErrGobiernoCategoriaRPTConflicto
 	if estado := enviar(peticionGobiernoRPTPrueba(t, ca, cert, RutaProponerGobiernoCategoriaRPT, cuerpo)); estado != http.StatusServiceUnavailable {
 		t.Fatalf("fallo auditor=%d", estado)
+	}
+}
+
+func asignacionGobiernoRPTPrueba(t *testing.T, cred application.CredencialesGobiernoCategoriaRPT) domain.InstantaneaAutorizacion {
+	t.Helper()
+	ahora := time.Now().UTC().Truncate(time.Microsecond)
+	rol := domain.VersionRol{RolID: "configuracion_rpt", Version: 1, Nombre: "Configuracion RPT sintetica", Estado: domain.EstadoVersionRolPublicada,
+		PublicadaPor: "autoridad:prueba", PublicadaEn: ahora.Add(-2 * time.Hour)}
+	for _, accion := range []string{ports.AccionProponerGobiernoCategoriaRPT, ports.AccionAprobarGobiernoCategoriaRPT, ports.AccionConfirmarGobiernoCategoriaRPT} {
+		rol.Concesiones = append(rol.Concesiones, domain.ConcesionRol{Accion: accion, ModuloID: "bolsa", TipoRecurso: ports.TipoRecursoGobiernoCategoriaRPT,
+			Finalidades: []string{ports.FinalidadGobiernoCategoriaRPT}, GarantiaMinima: domain.AuthAssuranceHigh, CamposPermitidos: []string{"gobierno", "recibo"}})
+	}
+	huella, err := domain.HuellaCatalogoPoliticasAutorizacion(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	i := domain.InstantaneaAutorizacion{VersionRol: rol,
+		AsignacionPerfil: domain.AsignacionPerfil{AsignacionID: "admin:" + cred.Actor.Principal.ID, Version: 1,
+			PrincipalID: cred.Actor.Principal.ID, PerfilActivoRef: cred.Actor.PerfilActivoRef, VersionRolRef: rol.Referencia(),
+			Estado: domain.EstadoAsignacionPerfilActiva, EmitidaPor: "autoridad:prueba", EmitidaEn: ahora.Add(-time.Hour),
+			VigenteDesde: ahora.Add(-time.Hour), VigenteHasta: ahora.Add(time.Hour),
+			Ambitos: []domain.AmbitoPerfil{{Clave: "catalogo_id", Valores: []string{"catalogo.rpt"}}, {Clave: "modulo_id", Valores: []string{"bolsa"}}}},
+		ControlVigenciaVersionRol: domain.ControlVigenciaVersionRol{VersionRolRef: rol.Referencia(), Revision: 1,
+			Estado: domain.EstadoControlVigenciaVersionRolHabilitada, ActualizadoPor: rol.PublicadaPor, ActualizadoEn: rol.PublicadaEn},
+		RevisionCatalogoPoliticas: 1, CatalogoPoliticasHuellaSHA256: huella}
+	if err := i.Validar(); err != nil {
+		t.Fatalf("instantanea: %v rol=%v asignacion=%v control=%v", err, i.VersionRol.Validar(), i.AsignacionPerfil.Validar(), i.ControlVigenciaVersionRol.Validar())
+	}
+	return i
+}
+
+func TestGobiernoRPTAdmiteAsignacionesIndividualesAlMismoRolADMIN(t *testing.T) {
+	ca, cert, _ := caGobiernoRPTPrueba(t)
+	actores := []application.CredencialesGobiernoCategoriaRPT{
+		credencialesGobiernoRPTPrueba(t),
+		credencialesGobiernoRPTActorPrueba(t, "abcdefghijkl0123456789", domain.SuperficieAutenticacionAdministracionPrivilegiadaV1, 0),
+	}
+	if actores[0].Actor.Principal.ID == actores[1].Actor.Principal.ID || actores[0].Actor.PerfilActivoRef == actores[1].Actor.PerfilActivoRef {
+		t.Fatal("el ejercicio requiere personas y perfiles distintos")
+	}
+	d := ports.DescriptorCatalogoRPT{CatalogoID: "catalogo.rpt", ModuloID: "bolsa"}
+	fuente, audit := &fuenteGobiernoRPTPrueba{descriptor: d}, &auditorGobiernoRPTPrueba{}
+	op := &operadorGobiernoRPTPrueba{respuesta: ports.ResultadoGobiernoCategoriaRPT{PropuestaRef: "propuesta:ejemplo",
+		ReciboRef: "12345678-1234-4234-8234-123456789abc", Evidencia: ports.EvidenciaGobiernoCategoriaRPT{AuditoriaRef: "aud:prueba", ConsumoNuevo: true}}}
+	rutas, err := NuevasRutasGobiernoCategoriaRPT(op, fuente, audit, "admin.ejemplo.test", ca, d, versionRolGobiernoRPTPrueba)
+	if err != nil {
+		t.Fatal(err)
+	}
+	propuesta := `{"propuesta_ref":"propuesta:ejemplo","accion":"deshabilitar","catalogo_id":"catalogo.rpt","modulo_id":"bolsa","version":1,"preimagenes_control":{},"categoria_id":"categoria:ejemplo","revision_esperada":1,"fuente_ref":"fuente:prueba"}`
+	avance := `{"propuesta_ref":"propuesta:ejemplo","catalogo_id":"catalogo.rpt","modulo_id":"bolsa","revision_esperada":1,"huella_sha256":"` + strings.Repeat("a", 64) + `"}`
+	for _, cred := range actores {
+		fuente.cred, fuente.asignacion = cred, asignacionGobiernoRPTPrueba(t, cred)
+		for _, ruta := range rutas {
+			cuerpo := avance
+			if ruta.Ruta == RutaProponerGobiernoCategoriaRPT {
+				cuerpo = propuesta
+			}
+			w := httptest.NewRecorder()
+			ruta.Manejador.ServeHTTP(w, peticionGobiernoRPTPrueba(t, ca, cert, ruta.Ruta, cuerpo))
+			if w.Code != http.StatusOK {
+				t.Fatalf("actor=%s ruta=%s estado=%d", cred.Actor.Principal.ID, ruta.Ruta, w.Code)
+			}
+			if op.cred.Actor.Principal.ID != cred.Actor.Principal.ID || op.cred.Actor.PerfilActivoRef != cred.Actor.PerfilActivoRef {
+				t.Fatal("la frontera sustituyo la asignacion individual")
+			}
+		}
+	}
+	if op.llamadas != 6 || len(audit.codigos) != 0 {
+		t.Fatalf("efectos=%d auditoria=%v", op.llamadas, audit.codigos)
+	}
+
+	for _, caso := range []struct {
+		nombre  string
+		cambiar func()
+	}{
+		{"asignacion ajena", func() { fuente.asignacion.AsignacionPerfil.PrincipalID = actores[1].Actor.Principal.ID }},
+		{"perfil ajeno", func() { fuente.asignacion.AsignacionPerfil.PerfilActivoRef = actores[1].Actor.PerfilActivoRef }},
+		{"vinculo ajeno", func() { fuente.cred.Vinculo = actores[1].Vinculo }},
+		{"actor ajeno", func() { fuente.cred.Actor = actores[1].Actor }},
+		{"rol distinto", func() {
+			fuente.asignacion.VersionRol.RolID = "otro_rol"
+			fuente.asignacion.AsignacionPerfil.VersionRolRef = fuente.asignacion.VersionRol.Referencia()
+			fuente.asignacion.ControlVigenciaVersionRol.VersionRolRef = fuente.asignacion.VersionRol.Referencia()
+		}},
+		{"rol retirado", func() {
+			fuente.asignacion.ControlVigenciaVersionRol.Estado = domain.EstadoControlVigenciaVersionRolRetirada
+			fuente.asignacion.ControlVigenciaVersionRol.ActoRef = "acto:retirada"
+			fuente.asignacion.ControlVigenciaVersionRol.MotivoCodigo = "retirada"
+		}},
+		{"version de rol retirada", func() {
+			fuente.asignacion.VersionRol.Estado = domain.EstadoVersionRolRetirada
+			fuente.asignacion.VersionRol.RetiradaPor = "autoridad:prueba"
+			fuente.asignacion.VersionRol.RetiradaEn = time.Now().UTC().Add(-time.Minute).Truncate(time.Microsecond)
+			fuente.asignacion.VersionRol.RetiradaRef = "acto:retirada"
+			fuente.asignacion.VersionRol.MotivoRetiradaCodigo = "retirada"
+			fuente.asignacion.ControlVigenciaVersionRol.Estado = domain.EstadoControlVigenciaVersionRolRetirada
+			fuente.asignacion.ControlVigenciaVersionRol.ActoRef = "acto:retirada"
+			fuente.asignacion.ControlVigenciaVersionRol.MotivoCodigo = "retirada"
+		}},
+		{"asignacion revocada", func() {
+			fuente.asignacion.AsignacionPerfil.Estado = domain.EstadoAsignacionPerfilRevocada
+			fuente.asignacion.AsignacionPerfil.RevocadaPor = "autoridad:prueba"
+			fuente.asignacion.AsignacionPerfil.RevocadaEn = time.Now().UTC().Add(-time.Minute).Truncate(time.Microsecond)
+			fuente.asignacion.AsignacionPerfil.RevocacionRef = "acto:revocacion"
+		}},
+		{"asignacion vencida", func() {
+			fuente.asignacion.AsignacionPerfil.VigenteHasta = time.Now().UTC().Add(-time.Minute).Truncate(time.Microsecond)
+		}},
+		{"contexto vencido", func() {
+			fuente.cred = credencialesGobiernoRPTActorPrueba(t, "0123456789abcdefghijkl", domain.SuperficieAutenticacionAdministracionPrivilegiadaV1, -2*time.Hour)
+		}},
+		{"superficie ordinaria", func() {
+			fuente.cred = credencialesGobiernoRPTActorPrueba(t, "0123456789abcdefghijkl", domain.SuperficieAutenticacionInternaCorporativaV1, 0)
+		}},
+		{"garantia insuficiente", func() { fuente.cred.Actor.Principal.AuthAssurance = domain.AuthAssuranceSubstantial }},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			fuente.cred, fuente.asignacion = actores[0], asignacionGobiernoRPTPrueba(t, actores[0])
+			caso.cambiar()
+			antes := op.llamadas
+			w := httptest.NewRecorder()
+			rutas[1].Manejador.ServeHTTP(w, peticionGobiernoRPTPrueba(t, ca, cert, rutas[1].Ruta, avance))
+			if w.Code != http.StatusForbidden || op.llamadas != antes {
+				t.Fatalf("estado=%d efectos=%d", w.Code, op.llamadas-antes)
+			}
+		})
 	}
 }

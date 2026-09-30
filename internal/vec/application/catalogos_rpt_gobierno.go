@@ -58,10 +58,11 @@ func (*OrdenAvanzarGobiernoCategoriaRPT) UnmarshalJSON([]byte) error {
 }
 
 type ServicioGobiernoCategoriaRPT struct {
-	preparador  ports.PreparadorGobiernoCategoriaRPT
-	autorizador ports.AutorizadorGobiernoCategoriaRPT
-	gestor      ports.GestorGobiernoCategoriaRPT
-	reloj       ports.Reloj
+	preparador    ports.PreparadorGobiernoCategoriaRPT
+	autorizador   ports.AutorizadorGobiernoCategoriaRPT
+	gestor        ports.GestorGobiernoCategoriaRPT
+	reloj         ports.Reloj
+	versionRolRef string
 }
 
 func NuevoServicioGobiernoCategoriaRPT(
@@ -69,12 +70,14 @@ func NuevoServicioGobiernoCategoriaRPT(
 	autorizador ports.AutorizadorGobiernoCategoriaRPT,
 	gestor ports.GestorGobiernoCategoriaRPT,
 	reloj ports.Reloj,
+	versionRolRef string,
 ) (*ServicioGobiernoCategoriaRPT, error) {
 	if nuloGobiernoCategoriaRPT(preparador) || nuloGobiernoCategoriaRPT(autorizador) ||
-		nuloGobiernoCategoriaRPT(gestor) || nuloGobiernoCategoriaRPT(reloj) {
+		nuloGobiernoCategoriaRPT(gestor) || nuloGobiernoCategoriaRPT(reloj) ||
+		!referenciaGobiernoCategoriaRPTValida(versionRolRef) {
 		return nil, ports.ErrGobiernoCategoriaRPTNoDisponible
 	}
-	return &ServicioGobiernoCategoriaRPT{preparador, autorizador, gestor, reloj}, nil
+	return &ServicioGobiernoCategoriaRPT{preparador, autorizador, gestor, reloj, versionRolRef}, nil
 }
 
 func (s *ServicioGobiernoCategoriaRPT) Proponer(ctx context.Context, o OrdenProponerGobiernoCategoriaRPT) (ports.ResultadoGobiernoCategoriaRPT, error) {
@@ -201,6 +204,9 @@ func (s *ServicioGobiernoCategoriaRPT) autorizar(ctx context.Context, c Credenci
 		c.ResultadoContexto.Validar() != nil || c.ResultadoContexto.HuellaSHA256 != h ||
 		c.Vinculo.ValidarPara(c.ResultadoContexto) != nil || !c.Vinculo.VigenteEn(instanteInicial, c.ResultadoContexto) ||
 		c.Actor.Principal.ID != v.PrincipalID || c.Actor.PerfilActivoRef != v.PerfilActivoRef ||
+		!v.CuentaPrivilegiada || v.Superficie != domain.SuperficieAutenticacionAdministracionPrivilegiadaV1 ||
+		!v.GarantiaObservada.Cumple(domain.AuthAssuranceHigh) ||
+		!referenciaGobiernoCategoriaRPTValida(s.versionRolRef) ||
 		!c.Actor.Principal.AuthAssurance.Cumple(domain.AuthAssuranceHigh) ||
 		!domain.ReferenciaMotivoAutorizacionV2Valida(c.Motivo) || c.Correlacion.Validar() != nil ||
 		p.Accion != accion || p.Finalidad != ports.FinalidadGobiernoCategoriaRPT ||
@@ -231,7 +237,7 @@ func (s *ServicioGobiernoCategoriaRPT) autorizar(ctx context.Context, c Credenci
 		return domain.SolicitudAutorizacionLigadaV3{}, cero, denegacionValidacionGobiernoCategoriaRPT(err)
 	}
 	if err := concesionGobiernoCategoriaRPTValida(material, solicitud, decision,
-		confirmacion, c.ResultadoContexto, c.Actor, accion, p.Recurso, instanteConsumo); err != nil {
+		confirmacion, c.ResultadoContexto, c.Actor, accion, p.Recurso, instanteConsumo, s.versionRolRef); err != nil {
 		return domain.SolicitudAutorizacionLigadaV3{}, cero, ports.ErrGobiernoCategoriaRPTDenegado
 	}
 	return solicitud, material, nil
@@ -241,7 +247,7 @@ func concesionGobiernoCategoriaRPTValida(m ports.ExportacionMaterialConsumoAutor
 	s domain.SolicitudAutorizacionLigadaV3, d domain.DecisionAutorizacionLigadaV3,
 	c ports.ConfirmacionRegistroConcesionAutorizacionLigadaV3,
 	resultado domain.ResultadoContextoActorRegistradoV2, actor domain.ContextoActor,
-	accion string, recurso domain.RecursoAutorizable, ahora time.Time,
+	accion string, recurso domain.RecursoAutorizable, ahora time.Time, versionRolRef string,
 ) error {
 	if err := m.ValidarEstructura(); err != nil {
 		return denegacionValidacionGobiernoCategoriaRPT(err)
@@ -284,6 +290,12 @@ func concesionGobiernoCategoriaRPTValida(m ports.ExportacionMaterialConsumoAutor
 	proyeccion, err := domain.ParsearMensajeAtestacionAutorizacionV3NoAutoritativo(m.PayloadVECAD3())
 	if err != nil {
 		return denegacionValidacionGobiernoCategoriaRPT(err)
+	}
+	// La proyeccion no concede autoridad: se contrasta el rol y despues el
+	// mensaje completo contra la decision nominal y el material del consumidor.
+	rolDecision, err := proyeccion.VersionRolRef()
+	if err != nil || !referenciaGobiernoCategoriaRPTValida(versionRolRef) || rolDecision != versionRolRef {
+		return ports.ErrGobiernoCategoriaRPTDenegado
 	}
 	cabecera, err := proyeccion.Cabecera()
 	if err != nil {
