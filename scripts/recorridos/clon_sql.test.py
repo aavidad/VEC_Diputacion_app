@@ -17,6 +17,34 @@ REPO = Path(os.environ.get("VEC_CLON_SQL_TEST_REPO", Path(__file__).resolve().pa
 
 
 class HelperTests(unittest.TestCase):
+    def test_main_interno_firma_amplia_41_a_44_y_retiene_sql_exterior(self):
+        previous = SQL.load_plan(REPO, source_ref=SQL.H6_REF)
+        rows = SQL.load_plan(REPO, source_ref=SQL.H6_FIRMA_REF)
+        self.assertEqual(rows[:41], previous)
+        self.assertEqual([Path(row["path"]).name for row in rows[41:]], [
+            "000145_enlace_firma_documento_custodiado.up.sql",
+            "000125_consumidor_consulta_firmas_documento_ct.up.sql",
+            "000152_consulta_firmas_documento_atestada.up.sql",
+        ])
+        self.assertEqual(SQL.plan_hash(rows), SQL.REF_PLAN_SHA[SQL.H6_FIRMA_REF])
+        self.assertEqual(len(SQL.H6_FIRMA_WITHHELD), 23)
+        self.assertTrue(SQL.H6_FIRMA_WITHHELD.keys().isdisjoint({r["path"] for r in rows}))
+        inventory, _ = SQL.GitSource(REPO).inventory(SQL.H6_FIRMA_REF)
+        up_paths = {item["path"] for item in inventory
+                    if item["path"].endswith((".up.sql", "_up.sql"))}
+        self.assertEqual(up_paths, {r["path"] for r in rows} | SQL.H6_FIRMA_WITHHELD.keys())
+        self.assertEqual(SQL.plan_path(SQL.H6_FIRMA_REF)[-2:], (SQL.H6_REF, SQL.H6_FIRMA_REF))
+        plan = SQL.validate_git_source(SQL.H6_FIRMA_REF, REPO)
+        self.assertEqual((plan["file_count"], plan["plan_family"], plan["execution_manifest"]),
+                         (44, "h6_44", "sql_main_h6_firma.txt"))
+        for relative in SQL.H6_FIRMA_WITHHELD:
+            with self.subTest(relative=relative):
+                contents = {r["path"]: r["sql"].encode() for r in rows}
+                contents.update({p: (REPO / p).read_bytes() for p in SQL.H6_FIRMA_WITHHELD})
+                contents[relative] = b"cambio no aprobado"
+                with self.assertRaisesRegex(SQL.Refused, "retenida"):
+                    SQL.load_plan(None, source_ref=SQL.H6_FIRMA_REF, contents=contents)
+
     def test_h6_manifest_has_39_exact_prefix_and_only_ct150_ct151(self):
         rows = SQL.load_plan(REPO, source_ref=SQL.H6_REF)
         old = SQL.load_plan(REPO)
@@ -453,6 +481,34 @@ class HelperTests(unittest.TestCase):
         with patch.object(SQL.DockerDB, "query", side_effect=["t", json.dumps(revisions), "[]"]):
             with self.assertRaisesRegex(SQL.Refused, "39 SQL"):
                 SQL.acknowledge_plan(SQL.DockerDB("vec-test"), rows, SQL.H6_REF, original)
+
+    def test_revision_44_exige_recibos_41_y_rechaza_ledger_43(self):
+        rows = SQL.load_plan(REPO, source_ref=SQL.H6_FIRMA_REF)
+        _, _, record = self.planner_fixture(SQL.H6_REF, SQL.H6_FIRMA_REF)
+        original = {k: record[k] for k in ("run_id", "source_ref", "plan_sha")}
+        revisions = record["revisions"]
+        new = {"revision": 7, "source_ref": SQL.H6_FIRMA_REF,
+               "plan_sha": SQL.plan_hash(rows), "file_count": 44,
+               "acknowledged_at": "2026-09-30T16:00:00Z"}
+        answers = ["t", json.dumps(revisions), json.dumps(record["installed"]), "",
+                   "t", json.dumps([*revisions, new])]
+        with patch.object(SQL.DockerDB, "query", side_effect=answers) as queries:
+            result = SQL.acknowledge_plan(SQL.DockerDB("vec-test"), rows, SQL.H6_FIRMA_REF, original)
+        self.assertEqual(result["revisions"][-1], new)
+        mutation = queries.call_args_list[3].args[0]
+        self.assertIn("(revision=7 AND file_count=44)", mutation)
+        self.assertNotIn("UPDATE", mutation)
+        self.assertNotIn("DELETE", mutation)
+        with patch.object(SQL.DockerDB, "query", side_effect=["t", json.dumps(revisions), "[]"]):
+            with self.assertRaisesRegex(SQL.Refused, "41 SQL"):
+                SQL.acknowledge_plan(SQL.DockerDB("vec-test"), rows, SQL.H6_FIRMA_REF, original)
+        plan, current, record43 = self.planner_fixture(SQL.MAIN_REF, SQL.H6_FIRMA_REF)
+        with tempfile.TemporaryDirectory() as scratch:
+            (Path(scratch) / "sql-journal.json").write_text(json.dumps(record43))
+            with patch.object(SQL, "approved_source_plan", return_value=plan), \
+                    patch.object(SQL, "validate_git_source", return_value=current):
+                with self.assertRaisesRegex(SQL.Refused, "familia"):
+                    SQL.etapas_requeridas(REPO, REPO, SQL.H6_FIRMA_REF, Path(scratch))
 
     def test_h6_steps_fresh_38_39_and_complete_41(self):
         plan, _, _ = self.planner_fixture(target=SQL.H6_REF)

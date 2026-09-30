@@ -39,6 +39,20 @@ El artefacto fijado para H6 tiene SHA256
 La preparación de ese corte debe importarlo del kit aprobado, conservando
 su procedencia; no lo sustituye por otra compilación.
 
+La fuente `origin/main@ebac67de4e43fc49add3d82a011b2b0c9f6a6b21`
+incorpora 22 SQL de subida respecto de ese H6. La propuesta de plan interno
+`sql_main_h6_firma.txt` conserva las 41 instalaciones y añade, en este orden,
+CT145, AD3-125 y CT152. Sus 44 posiciones dejan fuera las 19 SQL del portal
+exterior y las cuatro de RPT, todas fijadas por ruta y huella. El inventario
+completo de Git, incluidas las SQL de bajada y las pruebas, se coteja antes
+de restaurar la copia H1. La familia de 43 instalaciones sigue separada y
+no puede convertirse en una de 44.
+
+Este plan interno necesita revisión SQL independiente y ensayo en el clon
+antes de utilizarse para recorridos. La revocación de `TEMP` de `PUBLIC`
+anunciada para AD3-132 no figura en esa fuente. No se atribuye a esta
+propuesta un arranque seguro, un portal exterior ni un estado `READY`.
+
 H6 se prepara desde una copia fría nueva de H1 o continúa un prefijo de ese
 plan hasta 39. La copia que ya contiene las 43 instalaciones de RPT se
 conserva aparte; no puede convertirse en una copia de 41. No se ejecutan

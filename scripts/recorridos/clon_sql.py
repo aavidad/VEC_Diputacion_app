@@ -9,9 +9,10 @@ Admite la base main@7f1ecea2f (33 SQL), la extensión main@ff6493cfc
 main@a7d9df2b3 (AD3-113/Documentos9, posiciones 37/38), main@1e443463d
 (Aspirantes000002, posición39) y main@890b3fe0e (roles, categorías, lecturas
 nominales y AD3-117, posiciones40..43).
-H6 main@5694d2da1 instala 41 SQL: el prefijo39 y CT150/CT151. Las cuatro
-SQL de RPT siguen en el inventario verificado, pero quedan fuera de ejecución.
-Las familias 41 y 43 parten de39; no existe transición de43 a41.
+H6 main@5694d2da1 instala 41 SQL: el prefijo39 y CT150/CT151. El plan interno
+main@ebac67de4 añade CT145/AD125/CT152 como revisión7 de esa familia, hasta44.
+Retiene cuatro SQL RPT y 19 del portal exterior, cotejadas con todo el inventario.
+Las familias 41/44 y 43 parten de39; no existe transición de43 a41/44.
 El plan 43 de 890b3fe0e está retirado para nuevas instalaciones: se conserva
 solo para lectura y recuperación de los 43 recibos exactos ya instalados.
 Cada extensión conserva los recibos y metadatos originales
@@ -44,13 +45,14 @@ FOURTH_REF = "a7d9df2b3285b0df6be6bba0bae09331463f0a3d"
 FIFTH_REF = "1e443463df69dffeaac239f9b7000f48dd1b7bb7"
 MAIN_REF = "890b3fe0e9f9e30e249b9dc2d3778971121a8cc2"
 H6_REF = "5694d2da15e19fa97afecae51e1a30ce21d5fca5"
+H6_FIRMA_REF = "ebac67de4e43fc49add3d82a011b2b0c9f6a6b21"
 REF_COUNTS = {BASE_REF: 33, PREVIOUS_REF: 34, THIRD_REF: 36, FOURTH_REF: 38,
-              FIFTH_REF: 39, MAIN_REF: 43, H6_REF: 41}
+              FIFTH_REF: 39, MAIN_REF: 43, H6_REF: 41, H6_FIRMA_REF: 44}
 # Índice de aprobaciones SQL en Git; no determina el orden de instalación.
 REF_ORDER = tuple(REF_COUNTS)
 REF_PARENT = {BASE_REF: None, PREVIOUS_REF: BASE_REF, THIRD_REF: PREVIOUS_REF,
               FOURTH_REF: THIRD_REF, FIFTH_REF: FOURTH_REF,
-              MAIN_REF: FIFTH_REF, H6_REF: FIFTH_REF}
+              MAIN_REF: FIFTH_REF, H6_REF: FIFTH_REF, H6_FIRMA_REF: H6_REF}
 RECOVERY_ONLY_REFS = {MAIN_REF}
 REF_PLAN_SHA = {
     BASE_REF: "70795c1580e550e2ccc8927bf50cf7130f73ca282d6069f74ba7e697f79e6be0",
@@ -60,12 +62,14 @@ REF_PLAN_SHA = {
     FIFTH_REF: "af888b95d532a0b698212adbebb381d5f2f126e7393396af90000fddc9ca3427",
     MAIN_REF: "5999af8fc61d25a6d63c4f2664012edfc59f4a38b8fb5ddea5daea2b818f4877",
     H6_REF: "95c3feff3cbd5b95cf0286af74c576d2c551d92b3cb7787b337754d3aeed87fb",
+    H6_FIRMA_REF: "248e8771af8a8d59fb9df94d3400cabecb9421dbb56b8b62c479432f2e7bab92",
 }
 OWNER_LABEL = "vec.recorridos.owner"
 OWNER = "Codex-M"
 SCHEMA = "vec_recorridos_clon"
 MANIFEST = Path(__file__).with_name("sql_main.txt")
 H6_MANIFEST = Path(__file__).with_name("sql_main_h6.txt")
+H6_FIRMA_MANIFEST = Path(__file__).with_name("sql_main_h6_firma.txt")
 H6_WITHHELD = {
     "deploy/postgresql/catalogos_configurables/roles_up.sql":
         "55b5b8aa2102ce45fc56f37eb165f3cd5119e343a345d238e26a5e3023ff2547",
@@ -76,6 +80,35 @@ H6_WITHHELD = {
     "deploy/postgresql/autorizacion_atestada_v3/migraciones/000117_lecturas_categorias_rpt.up.sql":
         "eaceb3b03b6db8a5bed6be4b42ff9e939525234308cdda52b899716f98658cca",
 }
+H6_FIRMA_WITHHELD = H6_WITHHELD | {
+    "deploy/postgresql/identidad_sesiones_v1/roles_externos_up.sql": "210fec093139607c3d4a42a35705e085eb9f8d7e631d62d9867f6dd62bc0adaf",
+    "deploy/postgresql/identidad_sesiones_v1/migraciones/000007_identidad_externa_v1.up.sql": "74a9feaeab395c756d9a7db6d39bafca3fb2af54e12039ba7d5907851997bb1c",
+    "deploy/postgresql/identidad_sesiones_v1/migraciones/000008_fachada_autorizacion_externa_v1.up.sql": "49584659f913bf203a9e420502e03b7f3cae02c228b1c603f87832103d3542e5",
+    "deploy/postgresql/contexto_actor_v1/roles_candidato_externo_up.sql": "1dab1abe1405ffff850ee1e6b688462ac5b05d8ff6a682e7e07331334e339c76",
+    "deploy/postgresql/contexto_actor_v1/migraciones/000012_contexto_candidato_externo.up.sql": "d7146f04da8f95eb6d564a5ea8cdfb1c0d237df957042f285fe43bb4b0a6fe31",
+    "deploy/postgresql/contexto_actor_v1/migraciones/000013_acreditacion_candidato_externo_exacto.up.sql": "0e05fd70fd443f6c029df933b679dddf0198c1dbeefcd7683f95014009885a85",
+    "deploy/postgresql/contexto_actor_v1/migraciones/000014_perfil_usuarios_externo.up.sql": "89476b2e2d131ee78804878bae9fb9ab1517ae288973adb42c1f7d603af67bee",
+    "deploy/postgresql/contexto_actor_v1/migraciones/000015_contexto_externo_segregado.up.sql": "23654ff30e8fc72e04245dd9ba27f69a62746c83250cbafb05d025fbdfa2b2f0",
+    "deploy/postgresql/contexto_actor_v1/migraciones/000017_contexto_externo_tipos_temporales.up.sql": "cdc46530f3360651739e444f051e5a1ef35d27d81d09f68daaeef3ab34702c37",
+    "deploy/postgresql/bolsa_llamamientos/migraciones/000060_portal_externo_candidato.up.sql": "2a98410ec05feda76aef3ceb01bf4ca173c9f0da6c27f7d22876c536e14e3214",
+    "deploy/postgresql/bolsa_llamamientos/migraciones/000061_denegaciones_portal_externo.up.sql": "449094f319a198936effeedaff2a766966f721953e8d5ce4931b2cd0c66cdff2",
+    "deploy/postgresql/autorizacion_atestada_v3/migraciones/000115_consumidor_bolsa_portal_externo.up.sql": "89b15f44b43593c74eb0889d692ab958c60b8aa12e93d58b4fa30a325ca27b46",
+    "deploy/postgresql/autorizacion/migraciones/000015_candidato_externo.up.sql": "98f28821769bfc68ae3f95dd971e6694bb6c8a033639cee3c781778cbce72aec",
+    "deploy/postgresql/autorizacion/migraciones/000016_asignacion_perfil_candidato_externo.up.sql": "7cd4b35819e2731cd0281f60b59aaa7b214b2c2e109284dd792347c2fc323e18",
+    "deploy/postgresql/autorizacion/migraciones/000019_candidato_externo_fechas_cero_canonicas.up.sql": "da485ff14aee904c6d48e6b544804a3ceb82a0c038c3fc90992f43a75e4c3f05",
+    "deploy/postgresql/autorizacion_atestada_v3/migraciones/000116_consumo_candidato_externo.up.sql": "dc15f6e9d86c92725e7e63970cc02a06f4b31310a1cc7f4d857d865db7e5778c",
+    "deploy/postgresql/autorizacion/migraciones/000020_clausura_externa_tipos_temporales.up.sql": "180200f6e42c09272a439652df7b02faf64ca8e009715b0356519553deffeb30",
+    "deploy/postgresql/autorizacion_atestada_v3/migraciones/000121_clausura_externa_tipos_temporales.up.sql": "c0a6387ac3c75cfed9bede92128756f7c9cb692839f2d5ee8461ea169ae2043c",
+    "deploy/postgresql/bolsa_llamamientos/migraciones/000065_clausura_externa_tipos_temporales.up.sql": "07c00288269d91dbd4331c4e28ed5f363288df62926fc1c08dcf7571525c8fd6",
+}
+
+
+def execution_manifest(source_ref):
+    return {H6_REF: H6_MANIFEST, H6_FIRMA_REF: H6_FIRMA_MANIFEST}.get(source_ref, MANIFEST)
+
+
+def withheld_sql(source_ref):
+    return {H6_REF: H6_WITHHELD, H6_FIRMA_REF: H6_FIRMA_WITHHELD}.get(source_ref, {})
 
 
 class Refused(RuntimeError):
@@ -99,7 +132,7 @@ def plan_path(source_ref):
 
 
 def plan_family(source_ref):
-    return {H6_REF: "h6_41", MAIN_REF: "retained_43"}.get(source_ref, "common_prefix")
+    return {H6_REF: "h6_41", H6_FIRMA_REF: "h6_44", MAIN_REF: "retained_43"}.get(source_ref, "common_prefix")
 
 
 def validate_history(original, revisions):
@@ -122,13 +155,13 @@ def load_plan(repo, manifest=None, source_ref=MAIN_REF, contents=None):
     if source_ref not in REF_COUNTS:
         raise Refused("el plan solo corresponde a los hashes main fijados")
     if manifest is None:
-        manifest = H6_MANIFEST if source_ref == H6_REF else MANIFEST
+        manifest = execution_manifest(source_ref)
     for line in manifest.read_text().splitlines():
         if not line.strip() or line.startswith("#"):
             continue
         if len(rows) == REF_COUNTS[source_ref]:
-            if source_ref == H6_REF:
-                raise Refused("manifiesto H6 contiene SQL fuera de sus 41 entradas")
+            if source_ref in (H6_REF, H6_FIRMA_REF):
+                raise Refused(f"manifiesto H6 contiene SQL fuera de sus {REF_COUNTS[source_ref]} entradas")
             break
         phase, digest, relative = line.split()
         if phase not in {"H3", "H4", "MAIN"} or not re.fullmatch(r"[a-f0-9]{64}", digest):
@@ -156,8 +189,8 @@ def load_plan(repo, manifest=None, source_ref=MAIN_REF, contents=None):
         raise Refused("número de SQL incompatible con el hash main fijado")
     if plan_hash(rows) != REF_PLAN_SHA[source_ref]:
         raise Refused("manifiesto incompatible con el hash main fijado")
-    if source_ref == H6_REF:
-        for relative, digest in H6_WITHHELD.items():
+    if source_ref in (H6_REF, H6_FIRMA_REF):
+        for relative, digest in withheld_sql(source_ref).items():
             if contents is None:
                 path = repo / relative
                 if not path.resolve().is_relative_to(repo.resolve()) or path.is_symlink():
@@ -166,7 +199,7 @@ def load_plan(repo, manifest=None, source_ref=MAIN_REF, contents=None):
             else:
                 data = contents[relative]
             if sha(data) != digest or any(row["path"] == relative for row in rows):
-                raise Refused("SQL RPT retenida distinta de la aprobación H6; requiere nueva revisión")
+                raise Refused("SQL retenida distinta de la aprobación H6; requiere nueva revisión")
     return rows
 
 
@@ -275,7 +308,7 @@ def validate_git_source(source_ref, git_repo=None):
     return {"source_ref": source_ref, "approved_sql_ref": approved,
             "status": "recovery_only" if approved in RECOVERY_ONLY_REFS else "installable",
             "plan_family": plan_family(approved),
-            "execution_manifest": (H6_MANIFEST if approved == H6_REF else MANIFEST).name,
+            "execution_manifest": execution_manifest(approved).name,
             "plan_sha": plan_hash(rows), "inventory_sha": sha(json.dumps(actual, sort_keys=True).encode()),
             "file_count": len(rows), "entries": [{k: v for k, v in r.items() if k != "sql"} for r in rows],
             "verified_main_ref": main, "sql_inventory": actual}
@@ -515,7 +548,8 @@ def acknowledge_plan(db, rows, source_ref, meta):
               ADD CONSTRAINT plan_revisions_supported CHECK (
                 (revision=2 AND file_count=34) OR (revision=3 AND file_count=36)
                 OR (revision=4 AND file_count=38) OR (revision=5 AND file_count=39)
-                OR (revision=6 AND file_count IN (41,43)));"""
+                OR (revision=6 AND file_count IN (41,43))
+                OR (revision=7 AND file_count=44));"""
         else:
             ddl = f"""CREATE TABLE {SCHEMA}.plan_revisions (
               revision integer PRIMARY KEY, source_ref text NOT NULL,
@@ -524,7 +558,8 @@ def acknowledge_plan(db, rows, source_ref, meta):
               CONSTRAINT plan_revisions_supported CHECK (
                 (revision=2 AND file_count=34) OR (revision=3 AND file_count=36)
                 OR (revision=4 AND file_count=38) OR (revision=5 AND file_count=39)
-                OR (revision=6 AND file_count IN (41,43))));
+                OR (revision=6 AND file_count IN (41,43))
+                OR (revision=7 AND file_count=44)));
               REVOKE ALL ON {SCHEMA}.plan_revisions FROM PUBLIC;"""
         db.query(f"""BEGIN;
           SELECT pg_advisory_xact_lock(hashtextextended('vec_recorridos_clon:sql',0));
@@ -536,7 +571,7 @@ def acknowledge_plan(db, rows, source_ref, meta):
     # Plan SQL reconocido; apply añade la procedencia de código verificada.
     return {**meta, "current_source_ref": source_ref, "current_plan_sha": plan_hash(rows),
             "plan_family": plan_family(source_ref),
-            "execution_manifest": (H6_MANIFEST if source_ref == H6_REF else MANIFEST).name,
+            "execution_manifest": execution_manifest(source_ref).name,
             "revisions": revisions}
 
 
@@ -614,7 +649,7 @@ def apply(db, rows, state, source_ref=MAIN_REF, source_plan=None):
     meta = initialize(db, rows, approved_ref)
     meta["approved_sql_ref"] = approved_ref
     meta.update(plan_family=plan_family(approved_ref),
-                execution_manifest=(H6_MANIFEST if approved_ref == H6_REF else MANIFEST).name,
+                execution_manifest=execution_manifest(approved_ref).name,
                 file_count=len(rows))
     if source_plan:
         # Esta procedencia no aprueba los contratos Go, material ni DB_READY.

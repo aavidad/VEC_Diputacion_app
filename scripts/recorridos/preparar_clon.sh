@@ -224,6 +224,9 @@ fi
 commit=$(git -C "$repo" rev-parse --verify "$referencia^{commit}")
 git -C "$repo" merge-base --is-ancestor "$commit" origin/main || { echo 'La fuente debe estar integrada en origin/main.' >&2; exit 2; }
 [[ -f "$archivo" && ! -L "$archivo" ]] || { echo 'Falta el estado sintético del hito 1.' >&2; exit 2; }
+# Cotejar todo el inventario SQL antes de restaurar H1 o arrancar PostgreSQL.
+# La comprobación repetida por el instalador sigue protegiendo cada transacción.
+python3 "$guiones/clon_sql.py" --repo "$repo" --git-repo "$repo" --source-ref "$commit" --plan >/dev/null
 if [[ "$accion" == plan ]]; then
   python3 "$guiones/clon_sql.py" --repo "$repo" --git-repo "$repo" --source-ref "$commit" --container "$nombre" --state-dir "$estado" --plan
   exit
