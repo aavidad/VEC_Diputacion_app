@@ -14,6 +14,7 @@ DECLARE
  f regprocedure:='vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure;
  w regprocedure;
  actual text; anterior text; restaurado text; meta jsonb; deps jsonb; hay_historia boolean;
+ doc9_total integer; doc9_exacto integer;
  antiguo text:=$x$   OR (d->>'accion' IS NOT DISTINCT FROM 'documentos.externo.registrar'
     AND d->>'tipo_recurso' IS NOT DISTINCT FROM 'documento_externo'
     AND d->>'finalidad' IS NOT DISTINCT FROM 'registrar_documento_externo'
@@ -30,9 +31,19 @@ DECLARE
  ))$x$;
 BEGIN
  w:=to_regprocedure('vec_autorizacion_atestada_v3.consumir_operacion_documentos_replay_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
+ SELECT count(*),count(*) FILTER (WHERE p.prokind='f' AND p.pronargs=13
+   AND p.proowner='vec_documentos_propietario'::regrole
+   AND p.proargtypes=ARRAY[
+    'pg_catalog.bytea'::regtype::oid,'pg_catalog.jsonb'::regtype::oid,'pg_catalog.jsonb'::regtype::oid,
+    'pg_catalog.bytea'::regtype::oid,'pg_catalog.bytea'::regtype::oid,'pg_catalog.bytea'::regtype::oid,
+    'pg_catalog.bytea'::regtype::oid,'pg_catalog.numeric'::regtype::oid,'pg_catalog.numeric'::regtype::oid,
+    'pg_catalog.bytea'::regtype::oid,'pg_catalog.bytea'::regtype::oid,'pg_catalog.bytea'::regtype::oid,
+    'pg_catalog.bytea'::regtype::oid]::oidvector)
+   INTO doc9_total,doc9_exacto FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+   WHERE n.nspname='vec_documentos' AND p.proname='custodiar_firmado_v1';
  IF current_user<>'vec_autorizacion_atestada_v3_propietario' OR w IS NULL
     OR md5(pg_get_functiondef(w))<>'2f9f7fe8b8508a6b80f95a56942cade5'
-    OR to_regprocedure('vec_documentos.custodiar_firmado_v1(bytea,jsonb,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
+    OR doc9_total<>0 OR doc9_exacto<>0
     OR to_regclass('vec_autorizacion_atestada_v3.consumo_decision_v3') IS NULL
     OR to_regclass('vec_autorizacion_atestada_v3.atestacion_decision_v3') IS NULL
  THEN RAISE EXCEPTION 'AD3-136 DOWN: retire antes Documentos9 y AD3-113' USING ERRCODE='55000'; END IF;
