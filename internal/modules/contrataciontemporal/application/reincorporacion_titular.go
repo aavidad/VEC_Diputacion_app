@@ -90,7 +90,7 @@ func (s *ServicioReincorporacionTitular) RegistrarReincorporacionTitular(ctx con
 	}
 	recursoLectura := vd.RecursoAutorizable{Referencia: m.ExpedienteRef, ModuloID: ports.ModuloContratacion,
 		Tipo:    ports.TipoRecursoLecturaReincorporacionTitular,
-		Ambitos: map[string]string{"organizacion_ref": m.OrganizacionRef, "expediente_ref": m.ExpedienteRef},
+		Ambitos: map[string]string{"organizacion_ref": m.OrganizacionRef},
 		Atributos: map[string]string{"version_expediente": strconv.FormatUint(m.VersionEsperada, 10),
 			"relacion_ref": m.RelacionRef, "fecha_efectiva": m.FechaEfectiva.Format(time.DateOnly),
 			"documento_ref": m.DocumentoRef, "documento_sha256": m.DocumentoSHA256}}
@@ -160,7 +160,8 @@ func (s *ServicioReincorporacionTitular) RegistrarReincorporacionTitular(ctx con
 		"ambito_idempotencia_hmac": prep.AmbitoIdempotenciaHMAC, "huella_peticion_hmac": prep.HuellaPeticionHMAC,
 		"politica_ref": politica.DefinicionRef, "politica_version": strconv.FormatUint(politica.DefinicionVersion, 10),
 		"politica_huella_sha256": politica.DefinicionHuellaSHA256}
-	ambitosRecurso := ambitosSeguimiento(m.OrganizacionRef, m.ExpedienteRef)
+	ambitosRecurso := map[string]string{"organizacion_ref": m.OrganizacionRef}
+	atributos["fase_previa"], atributos["estado_previo"] = string(domain.FaseNombramiento), string(domain.EstadoEnCurso)
 	recurso := vd.RecursoAutorizable{Referencia: m.ExpedienteRef, ModuloID: ports.ModuloContratacion,
 		Tipo: ports.TipoRecursoReincorporacionTitular, Ambitos: ambitosRecurso, Atributos: atributos}
 	autorizacion, err := s.d.Autorizador.AutorizarOperacionSeguimiento(ctx, ports.SolicitudAutorizarOperacionSeguimiento{

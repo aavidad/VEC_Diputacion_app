@@ -184,7 +184,7 @@ func TestLecturaReincorporacionTitularConsumeV3EnTransaccionDeEscritura(t *testi
 		DocumentoSHA256: strings.Repeat("a", 64), ClaveIdempotencia: "11111111-1111-4111-8111-111111111111"}
 	recurso := vd.RecursoAutorizable{Referencia: m.ExpedienteRef, ModuloID: ports.ModuloContratacion,
 		Tipo:    ports.TipoRecursoLecturaReincorporacionTitular,
-		Ambitos: map[string]string{"organizacion_ref": m.OrganizacionRef, "expediente_ref": m.ExpedienteRef},
+		Ambitos: map[string]string{"organizacion_ref": m.OrganizacionRef},
 		Atributos: map[string]string{"version_expediente": "4", "relacion_ref": m.RelacionRef,
 			"fecha_efectiva": "2026-09-28", "documento_ref": m.DocumentoRef, "documento_sha256": m.DocumentoSHA256}}
 	huella, err := recurso.HuellaContextoAutorizacionSHA256()

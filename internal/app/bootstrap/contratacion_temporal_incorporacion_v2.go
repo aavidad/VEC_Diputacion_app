@@ -24,6 +24,7 @@ import (
 // Autoridad/Detalle/Reloj de Preparacion se ligan aquí, no desde configuración.
 type ConfiguracionIncorporacionDesarrollo struct {
 	continuidad *continuidadNominalDesarrollo
+	nominales   *perfilesNominalesIncorporacion
 	// fronteras se recibe de la composición del servidor y liga todas las
 	// subconsultas de incorporación al mismo catálogo inmutable CT/Bolsa.
 	// No se reconstruye ni se deduce desde la ruta.
@@ -75,6 +76,7 @@ type fuenteAutoridadIncorporacionV2Desarrollo struct {
 	consultas                 *autoridadConsultasRRHHDesarrollo
 	motivoAlta, motivoLectura core.ReferenciaEntradaCatalogo
 	referencias               ReferenciasCTIncorporacionDesarrollo
+	nominales                 *perfilesNominalesIncorporacion
 }
 
 func (f *fuenteAutoridadIncorporacionV2Desarrollo) PeticionVerificada(ctx context.Context) (inc.PeticionAutoridad, error) {
@@ -88,9 +90,31 @@ func (f *fuenteAutoridadIncorporacionV2Desarrollo) PeticionVerificada(ctx contex
 	if ctx.Value(claveIncorporacionV2Desarrollo{}) != f.soporte.sello || ctx.Value(claveRutaContinuidadNominal{}) != nil {
 		return cero, ct.ErrDenegadaIncorporacionAplicacion
 	}
-	c, err := f.consultas.contextoConsultaRRHHDesarrollo(ctx)
-	if err != nil {
-		return cero, err
+	var c ct.ContextoAutorizacionAltaV3
+	var err error
+	if f.nominales == nil {
+		c, err = f.consultas.contextoConsultaRRHHDesarrollo(ctx)
+		if err != nil {
+			return cero, err
+		}
+	}
+	var altaNominal *inc.PeticionAutoridadAlta
+	var perfiles inc.PerfilesAutoridadAplicacion
+	if f.nominales != nil {
+		c, err = f.nominales.resolver(ctx, f.nominales.ct)
+		if err != nil {
+			return cero, err
+		}
+		a, err := f.nominales.resolver(ctx, f.nominales.alta)
+		if err != nil {
+			return cero, err
+		}
+		v, err := a.Vinculo.Datos()
+		if err != nil {
+			return cero, ct.ErrDenegadaIncorporacionAplicacion
+		}
+		altaNominal = &inc.PeticionAutoridadAlta{Autenticacion: core.SolicitudRevalidacionAutenticacionActorV1{AutenticacionRef: v.AutenticacionRef, SesionRef: v.SesionRef}, Contexto: core.SolicitudContextoActor{Cuenta: core.CuentaAutenticadaContextoActor{CuentaRef: v.CuentaRef, Metodo: v.MetodoObservado, Garantia: v.GarantiaObservada}, PerfilActivoRef: v.PerfilActivoRef}}
+		perfiles = inc.PerfilesAutoridadAplicacion{AltaRef: f.nominales.alta.perfilRef(), ConsultaConfirmacionRef: f.nominales.ct.perfilRef()}
 	}
 	v, err := c.Vinculo.Datos()
 	if err != nil {
@@ -109,6 +133,7 @@ func (f *fuenteAutoridadIncorporacionV2Desarrollo) PeticionVerificada(ctx contex
 		Contexto:      core.SolicitudContextoActor{Cuenta: core.CuentaAutenticadaContextoActor{CuentaRef: v.CuentaRef, Metodo: v.MetodoObservado, Garantia: v.GarantiaObservada}, PerfilActivoRef: v.PerfilActivoRef},
 		PreparacionCT: ct.PreparacionSeguimientoConfirmacionIncorporacion{OrganizacionRef: f.referencias.OrganizacionRef, UnidadRef: f.referencias.UnidadRef, ActorRef: f.referencias.ActorRef, CorrelacionRef: "ref:" + hex.EncodeToString(nonce[:])},
 		MotivoAlta:    f.motivoAlta, MotivoLectura: f.motivoLectura,
+		AltaNominal: altaNominal, PerfilesNominales: perfiles,
 	}, nil
 }
 
@@ -133,7 +158,7 @@ func nuevasDependenciasIncorporacionV2Desarrollo(c ConfiguracionIncorporacionDes
 	}
 	c.Preparacion.Detalle, c.Preparacion.Reloj = detalle, reloj
 	return inc.NuevoServidorV2PostgreSQL(inc.ConfiguracionServidorV2PostgreSQL{
-		FuenteAutoridad: &fuenteAutoridadIncorporacionV2Desarrollo{alta.soporte, consultas.autoridad, c.MotivoAlta, c.MotivoLectura, c.Referencias},
+		FuenteAutoridad: &fuenteAutoridadIncorporacionV2Desarrollo{alta.soporte, consultas.autoridad, c.MotivoAlta, c.MotivoLectura, c.Referencias, c.nominales},
 		Revalidador:     consultas.identidad.revalidador, Resolutor: consultas.identidad.resolutor, Cadena: c.Cadena,
 		Correlador: seguridad.GeneradorReferenciasCriptograficas{}, Preparacion: c.Preparacion, AltaPersonal: c.AltaPersonal, RegistroCT: c.RegistroCT,
 	})
@@ -195,6 +220,7 @@ func contextoDetalleIncorporacionV2Desarrollo(ctx context.Context, soporte *sopo
 	if err != nil {
 		return nil, err
 	}
+	ctx = context.WithValue(ctx, claveContextosNominalesIncorporacion{}, &capturaContextosNominalesIncorporacion{})
 	return context.WithValue(ctx, claveIncorporacionV2Desarrollo{}, soporte.sello), nil
 }
 
