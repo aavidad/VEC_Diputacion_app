@@ -7,16 +7,22 @@ The material driver consumes env/profiles/blockers and seals private files.
 from __future__ import annotations
 
 import argparse
+from contextlib import contextmanager
+import errno
+import fcntl
 import ipaddress
 import json
 import os
 from pathlib import Path
 import smtplib
 import resource
+import select
+import signal
 import socket
 import ssl
 import stat
 import subprocess
+import tempfile
 import time
 
 OWNER = "Codex-M"
@@ -124,7 +130,7 @@ def _free_ports() -> None:
             listener.close()
 
 
-def _validate_sink(resource: dict, state: Path, image_id: str) -> None:
+def _validate_sink(resource: dict, state: Path, image_id: str, *, allow_stopped=False) -> None:
     _owned(resource, state, "container")
     host = resource.get("HostConfig", {})
     if (resource.get("Image") != image_id or resource.get("Config", {}).get("Cmd") != SMTP_FLAGS
@@ -142,7 +148,7 @@ def _validate_sink(resource: dict, state: Path, image_id: str) -> None:
         entry = mounts.get(destination, {})
         if entry.get("Source") != str(source) or entry.get("RW") is not writable:
             raise PreparationError("mailpit_mount_mismatch")
-    if not resource.get("State", {}).get("Running"):
+    if not allow_stopped and not resource.get("State", {}).get("Running"):
         raise PreparationError("mailpit_not_running")
 
 
@@ -196,6 +202,10 @@ def preflight(repo, container, state, material, pg_port, engine) -> dict:
             or proof.get("surfaces") != 2 or proof.get("grants_per_role") != 10):
         return _result(source=source, error="h4_roles_profiles_unverified")
     try:
+        if not hasattr(os, "pidfd_open") or not hasattr(signal, "pidfd_send_signal"):
+            raise PreparationError("mailpit_pidfd_unavailable")
+        own_descriptor = os.pidfd_open(os.getpid())
+        os.close(own_descriptor)
         _private(material / "ca/ca.crt")
         _private(material / "ca/ca.key")
         image = _inspect(engine, "image", IMAGE)
@@ -293,6 +303,117 @@ def _proxy_limits() -> None:
     resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
 
 
+def _private_append(path: Path):
+    _canonical(path.parent)
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_APPEND | os.O_NOFOLLOW | os.O_NONBLOCK, 0o600)
+    info = os.fstat(fd)
+    if (not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or info.st_uid != os.getuid()
+            or stat.S_IMODE(info.st_mode) != 0o600):
+        os.close(fd)
+        raise PreparationError("unsafe_proxy_log")
+    return os.fdopen(fd, "ab")
+
+
+@contextmanager
+def _proxy_lock(state: Path):
+    _directory(state / "comunicaciones")
+    with _private_append(state / "comunicaciones/lifecycle.lock") as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            raise PreparationError("mailpit_lifecycle_busy") from None
+        try:
+            yield
+        finally:
+            fcntl.flock(lock, fcntl.LOCK_UN)
+
+
+def _process_snapshot(pid: int) -> dict:
+    proc = Path("/proc") / str(pid)
+    details = proc.joinpath("stat").read_text().rsplit(")", 1)[1].split()
+    return {"uid": proc.stat().st_uid, "start_ticks": details[19],
+            "command": proc.joinpath("cmdline").read_bytes().rstrip(b"\0").split(b"\0")}
+
+
+def _pidfd_dead(fd: int, timeout=0) -> bool:
+    poller = select.poll()
+    poller.register(fd, select.POLLIN)
+    return bool(poller.poll(timeout))
+
+
+def _proxy_guard(data: dict, command: list[str], state: Path) -> tuple[str, int | None]:
+    """Return an identity-pinned descriptor; never signal by numeric PID."""
+    if not isinstance(data, dict):
+        raise PreparationError("mailpit_proxy_record_mismatch")
+    pid = data.get("pid")
+    if (data.get("owner") != OWNER or data.get("state") != str(state) or data.get("command") != command
+            or type(pid) is not int or pid < 2 or not isinstance(data.get("start_ticks"), str)
+            or not data["start_ticks"].isdigit()):
+        raise PreparationError("mailpit_proxy_record_mismatch")
+    try:
+        fd = os.pidfd_open(pid)
+    except ProcessLookupError:
+        return "dead", None
+    except OSError as error:
+        if error.errno == errno.ESRCH:
+            return "dead", None
+        raise PreparationError("mailpit_pidfd_unavailable") from None
+    try:
+        if _pidfd_dead(fd):
+            os.close(fd)
+            return "dead", None
+        try:
+            actual = _process_snapshot(pid)
+        except FileNotFoundError:
+            if _pidfd_dead(fd):
+                os.close(fd)
+                return "dead", None
+            raise PreparationError("mailpit_proxy_process_unverifiable") from None
+        if (actual["command"] != [value.encode() for value in command] or actual["uid"] != os.getuid()
+                or actual["start_ticks"] != data["start_ticks"]):
+            raise PreparationError("mailpit_proxy_process_mismatch")
+        if _pidfd_dead(fd):
+            os.close(fd)
+            return "dead", None
+        return "alive", fd
+    except BaseException:
+        os.close(fd)
+        raise
+
+
+def _publish_record(path: Path, data: dict, previous: bytes | None) -> None:
+    """Replace only the previously validated private record, under the lifecycle lock."""
+    content = (json.dumps(data, indent=2) + "\n").encode()
+    if previous is None:
+        _write_new(path, content)
+        return
+    if _private(path) != previous:
+        raise PreparationError("mailpit_proxy_record_changed")
+    fd, name = tempfile.mkstemp(prefix=".proxy-", dir=path.parent)
+    try:
+        with os.fdopen(fd, "wb") as stream:
+            os.fchmod(stream.fileno(), 0o600)
+            stream.write(content)
+            stream.flush()
+            os.fsync(stream.fileno())
+        if _private(path) != previous:
+            raise PreparationError("mailpit_proxy_record_changed")
+        os.replace(name, path)
+    finally:
+        if os.path.exists(name):
+            os.unlink(name)
+
+
+def _terminate_child(fd: int) -> None:
+    if not _pidfd_dead(fd):
+        try:
+            signal.pidfd_send_signal(fd, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+        if not _pidfd_dead(fd, timeout=5000):
+            raise PreparationError("mailpit_proxy_stop_pending")
+
+
 def _ensure_proxies(sink: dict, state: Path) -> list[dict]:
     """Docker internal networks have no NAT publications: use owned fixed proxies.
 
@@ -308,33 +429,33 @@ def _ensure_proxies(sink: dict, state: Path) -> list[dict]:
     for port, target in ((SMTP_PORT, 1025), (HTTP_PORT, 8025)):
         command = _proxy_command(address, port, target)
         record = state / "comunicaciones" / f"proxy-{port}.json"
-        if record.exists():
-            data = json.loads(_private(record))
-            pid = data.get("pid")
-            if (data.get("owner") != OWNER or data.get("state") != str(state)
-                    or data.get("command") != command or not isinstance(pid, int) or pid < 2):
-                raise PreparationError("mailpit_proxy_record_mismatch")
-            proc = Path("/proc") / str(pid)
-            actual = proc.joinpath("cmdline").read_bytes().rstrip(b"\0").split(b"\0")
-            if (actual != [value.encode() for value in command] or proc.stat().st_uid != os.getuid()
-                    or proc.joinpath("stat").read_text().split()[21] != data.get("start_ticks")):
-                raise PreparationError("mailpit_proxy_process_mismatch")
-        else:
+        previous = _private(record) if record.exists() or record.is_symlink() else None
+        data = json.loads(previous) if previous is not None else None
+        kind, descriptor = _proxy_guard(data, command, state) if previous is not None else ("dead", None)
+        if descriptor is not None:
+            os.close(descriptor)
+        if kind == "dead":
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
                 listener.bind(("127.0.0.1", port))
             log = state / "comunicaciones" / f"proxy-{port}.log"
-            fd = os.open(log, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
-            with os.fdopen(fd, "wb") as stream:
+            with _private_append(log) as stream:
                 process = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                                            stderr=stream, cwd=state / "comunicaciones", close_fds=True,
                                            start_new_session=True, preexec_fn=_proxy_limits,
                                            env={"PATH": "/usr/bin:/bin", "LANG": "C"})
-            time.sleep(0.1)
-            if process.poll() is not None:
-                raise PreparationError("mailpit_proxy_start_failed")
-            data = {"owner": OWNER, "state": str(state), "pid": process.pid, "command": command,
-                    "start_ticks": Path(f"/proc/{process.pid}/stat").read_text().split()[21]}
-            _write_new(record, (json.dumps(data, indent=2) + "\n").encode())
+            child = os.pidfd_open(process.pid)
+            try:
+                time.sleep(0.1)
+                if process.poll() is not None:
+                    raise PreparationError("mailpit_proxy_start_failed")
+                data = {"owner": OWNER, "state": str(state), "pid": process.pid, "command": command,
+                        "start_ticks": _process_snapshot(process.pid)["start_ticks"]}
+                _publish_record(record, data, previous)
+            except BaseException:
+                _terminate_child(child)
+                raise
+            finally:
+                os.close(child)
         records.append({"port": port, "pid": data["pid"], "record": str(record)})
     return records
 
@@ -344,6 +465,11 @@ def provision(repo, container, state, material, pg_port, engine) -> dict:
     result = preflight(repo, container, state, material, pg_port, engine)
     if result["blockers"]:
         return result
+    with _proxy_lock(Path(state)):
+        return _provision_prepared(result, state, material, engine)
+
+
+def _provision_prepared(result: dict, state, material, engine) -> dict:
     state, material = Path(state), Path(material)
     source = result["profiles"]["usuarios_comunicaciones"]["source_commit"]
     try:
@@ -384,14 +510,100 @@ def provision(repo, container, state, material, pg_port, engine) -> dict:
                        error=str(error) if isinstance(error, PreparationError) else "smtp_local_preparation_failed")
 
 
+def _record_command(data: dict, port: int) -> list[str]:
+    command = data.get("command") if isinstance(data, dict) else None
+    if not isinstance(command, list) or len(command) != 5 or not isinstance(command[-1], str):
+        raise PreparationError("mailpit_proxy_record_mismatch")
+    parts = command[-1].split(":")
+    if len(parts) != 3 or parts[0] != "TCP4":
+        raise PreparationError("mailpit_proxy_record_mismatch")
+    target = 1025 if port == SMTP_PORT else 8025
+    expected = _proxy_command(parts[1], port, target)
+    if command != expected:
+        raise PreparationError("mailpit_proxy_record_mismatch")
+    return expected
+
+
+def _clear_record(path: Path, previous: bytes) -> None:
+    if _private(path) != previous:
+        raise PreparationError("mailpit_proxy_record_changed")
+    path.unlink()
+
+
+def _lifecycle(repo, container, state, material, pg_port, engine, *, stop=False) -> dict:
+    _scope(repo, container, state, material, pg_port, engine)
+    state = Path(state)
+    pinned = []
+    try:
+        with _proxy_lock(state):
+            sink = _inspect(engine, "container", MAIL_CONTAINER)
+            network = _inspect(engine, "network", NETWORK)
+            if sink:
+                image = _inspect(engine, "image", IMAGE)
+                if image is None:
+                    raise PreparationError("mailpit_image_not_installed")
+                _validate_sink(sink, state, image["Id"], allow_stopped=True)
+            if network:
+                _owned(network, state, "network")
+                if network.get("Internal") is not True:
+                    raise PreparationError("mailpit_network_not_isolated")
+                allowed = {sink["Id"]} if sink else set()
+                if set(network.get("Containers", {})) - allowed:
+                    raise PreparationError("mailpit_network_foreign_attachment")
+            # Pin and validate every process before any stop or resource removal.
+            proxies = []
+            for port in (SMTP_PORT, HTTP_PORT):
+                path = state / "comunicaciones" / f"proxy-{port}.json"
+                if not path.exists() and not path.is_symlink():
+                    proxies.append({"port": port, "status": "absent"})
+                    continue
+                previous = _private(path)
+                data = json.loads(previous)
+                command = _record_command(data, port)
+                kind, fd = _proxy_guard(data, command, state)
+                pinned.append((path, previous, fd))
+                proxies.append({"port": port, "pid": data["pid"], "status": kind})
+            if stop:
+                for path, previous, fd in pinned:
+                    if fd is not None:
+                        _terminate_child(fd)
+                    _clear_record(path, previous)
+                if sink:
+                    # Immutable resource ID prevents name reuse between inspect and stop.
+                    _run([engine, "stop", "--time", "5", sink["Id"]])
+                if network:
+                    _run([engine, "network", "rm", network["Id"]])
+            return {"env": {}, "profiles": {}, "blockers": [],
+                    "lifecycle": {"owner": OWNER, "mode": "stop" if stop else "status",
+                                  "container": "stopped" if stop else "running" if sink and sink.get("State", {}).get("Running") else "absent",
+                                  "network": "removed" if stop else "internal" if network else "absent",
+                                  "proxies": [{**item, "status": "stopped"} for item in proxies] if stop else proxies}}
+    except (PreparationError, OSError, ValueError) as error:
+        return {"env": {}, "profiles": {}, "blockers": [{"profile": "usuarios_comunicaciones",
+                "code": "mailpit_lifecycle_denied", "detail": str(error) if isinstance(error, PreparationError) else "mailpit_lifecycle_unverifiable"}]}
+    finally:
+        for _, _, fd in pinned:
+            if fd is not None:
+                os.close(fd)
+
+
+def status(repo, container, state, material, pg_port, engine) -> dict:
+    return _lifecycle(repo, container, state, material, pg_port, engine)
+
+
+def stop(repo, container, state, material, pg_port, engine) -> dict:
+    return _lifecycle(repo, container, state, material, pg_port, engine, stop=True)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=("preflight", "provision", "verify-smtp"))
+    parser.add_argument("mode", choices=("preflight", "provision", "verify-smtp", "status", "stop"))
     parser.add_argument("--repo", type=Path, required=True)
     args = parser.parse_args()
     parameters = dict(repo=args.repo, container=PG_CONTAINER, state=STATE,
                       material=STATE / "material", pg_port=55531, engine="docker")
-    result = provision(**parameters) if args.mode != "preflight" else preflight(**parameters)
+    operation = {"preflight": preflight, "status": status, "stop": stop}.get(args.mode, provision)
+    result = operation(**parameters)
     if args.mode == "verify-smtp" and not result["blockers"]:
         result["smtp_probe"] = _smtp_probe(STATE / "material/ca/ca.crt", send=True)
     print(json.dumps(result, ensure_ascii=False, indent=2))
