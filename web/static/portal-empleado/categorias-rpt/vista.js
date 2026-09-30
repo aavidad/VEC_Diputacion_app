@@ -160,11 +160,10 @@ export function montarVistaCategorias({ doc, puerto, t, idiomaUI, idiomaDatos, l
     } catch (error) {
       if (actual !== secuencia || controlador.signal.aborted) return;
       const codigo = error?.codigo;
-      estado.textContent = t(error?.estado === 401 || codigo === "autenticacion_requerida"
-        ? "sinIdentidad"
-        : error?.estado === 403 || codigo === "acceso_denegado"
-          ? "sinPermiso" : "errorConsulta");
-      reintentar.hidden = false;
+      const sinIdentidad = error?.estado === 401 || codigo === "autenticacion_requerida";
+      const sinPermiso = error?.estado === 403 || codigo === "acceso_denegado";
+      estado.textContent = t(sinIdentidad ? "sinIdentidad" : sinPermiso ? "sinPermiso" : "errorConsulta");
+      reintentar.hidden = sinIdentidad || sinPermiso;
     }
   }
 
