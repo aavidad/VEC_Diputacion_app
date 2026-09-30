@@ -80,6 +80,7 @@ type autoridadConsultasContratacionTemporalDesarrollo struct {
 	materialUsuariosPreferenciasActualizacionExterna *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialUsuariosCorreos                          proveedoresMaterialCorreosUsuarios
 	materialUsuariosImagen                           proveedoresMaterialImagenUsuarios
+	materialAspirantes                               proveedoresMaterialAspirantes
 	plazosOfertasBolsa                               *calculadoraPlazoOfertaDesarrollo
 	// presentadorCobertura permite activar después los avisos de la vía de
 	// cobertura, cuando Bolsa y las reglas de ejemplo ya están compuestas.
@@ -413,6 +414,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		&alta,
 		sello,
 		reloj,
+		aprobacionProvisionPerfilesRRHHDesdeConfig(cfg),
 	)
 	if err != nil {
 		return nil, nil, nil, err
@@ -434,7 +436,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			log.Print("contratacion temporal: subsanacion no disponible; etapa=configuracion")
 		} else {
 			fuente := fuentePoliticaSubsanacionReparosDesarrollo{soporte: alta.soporte, configuracion: politica}
-			if fuente.configurar(&alta) != nil {
+			if fuente.configurar(&alta, aprobacionProvisionPerfilesRRHHDesdeConfig(cfg)) != nil {
 				log.Print("contratacion temporal: subsanacion no disponible; etapa=fuente")
 			} else {
 				var causaDependencias error
@@ -964,6 +966,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		materialUsuariosPreferenciasActualizacionExterna: alta.postgresql.materialUsuariosPreferenciasActualizacionExterna,
 		materialUsuariosCorreos:                          alta.postgresql.materialUsuariosCorreos,
 		materialUsuariosImagen:                           alta.postgresql.materialUsuariosImagen,
+		materialAspirantes:                               alta.postgresql.materialAspirantes,
 		presentadorCobertura:                             coberturaReal.presentador,
 		firmaDocumento:                                   firmaDocumento,
 	}

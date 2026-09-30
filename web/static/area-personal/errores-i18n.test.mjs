@@ -4,6 +4,7 @@ import test from "node:test";
 
 import { renderizarErrorCargaAreaPersonal } from "./aplicacion.js";
 import { iniciarI18nAreaPersonal, traducir } from "./i18n.js";
+import { catalogoPlano, lectorCatalogos } from "./textos-prueba.test-helper.mjs";
 
 const prefijo = "areaPersonal.estado.error.";
 
@@ -37,10 +38,8 @@ test("una caída de red conserva un mensaje propio y no se confunde con el 503",
 
 test("errores desconocidos usan claves genéricas y escapan el catálogo real", async () => {
   const documento = { querySelectorAll: () => [] };
-  await iniciarI18nAreaPersonal(documento, async () => ({
-    ok: true,
-    json: async () => ({ [`${prefijo}titulo`]: '<img src=x onerror="alert(1)">' }),
-  }));
+  await iniciarI18nAreaPersonal(documento, { leer: lectorCatalogos({ [`${prefijo}titulo`]: '<img src=x onerror="alert(1)">' }),
+    ubicacion: { href: "https://vec.example/area-personal/?lang=es" } });
   const html = renderizarErrorCargaAreaPersonal(Object.assign(new Error("secreto"), { codigo: "sin_catalogar" }));
   assert.match(html, /&lt;img src=x onerror=&quot;alert\(1\)&quot;&gt;/);
   assert.doesNotMatch(html, /<img|secreto/);

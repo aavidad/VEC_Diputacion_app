@@ -1,4 +1,4 @@
-import { traducir } from "../i18n.js";
+import { localizacionAreaPersonal, traducir } from "../i18n.js";
 import { icono } from "../../comun/iconos-vec.js?v=20260925-aspecto-v1";
 
 export function escaparHTML(valor) {
@@ -54,11 +54,11 @@ export function tabla({ descripcion, columnas, filas, vacio = traducir("areaPers
 
 export function barraProgreso(valor, maximo) {
   const porcentaje = Math.max(0, Math.min(100, maximo > 0 ? (Number(valor) / Number(maximo)) * 100 : 0));
-  return `<progress class="barra-progreso" value="${porcentaje.toFixed(1)}" max="100" aria-label="${porcentaje.toFixed(1)} por ciento">${porcentaje.toFixed(1)} %</progress>`;
+  return `<progress class="barra-progreso" value="${porcentaje.toFixed(1)}" max="100" aria-label="${escaparAtributo(traducir("areaPersonal.vista.comun.porcentajeLeido", { valor: porcentaje.toFixed(1) }))}">${escaparHTML(traducir("areaPersonal.vista.comun.porcentaje", { valor: porcentaje.toFixed(1) }))}</progress>`;
 }
 
 export function formatoPuntos(valor) {
-  return new Intl.NumberFormat("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(valor || 0));
+  return new Intl.NumberFormat(localizacionAreaPersonal(), { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(valor || 0));
 }
 
 export function estadoVacio(titulo, detalle, accion = "") {

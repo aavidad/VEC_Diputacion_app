@@ -1,4 +1,8 @@
 import { validarRecibo, validarRespuestaMiBolsa } from "./contrato.js";
+import { traducir } from "./i18n.js";
+import { IDIOMAS_DISPONIBLES } from "../comun/idioma.js";
+
+const mensaje = (clave, variables) => traducir(`areaPersonal.cliente.${clave}`, variables);
 
 const RUTA_MI_BOLSA = "/api/vec/bolsa/mi-bolsa";
 export const RUTA_MIS_PREFERENCIAS = "/api/vec/usuarios/area-personal/mis-preferencias";
@@ -54,7 +58,7 @@ const CODIGOS_PREFERENCIAS = Object.freeze({
 
 function validarValoresPreferencias(valores) {
   return valores && typeof valores === "object" && !Array.isArray(valores)
-    && ["navegador", "es", "en"].includes(valores.idioma)
+    && (valores.idioma === "navegador" || IDIOMAS_DISPONIBLES.some(({ codigo }) => codigo === valores.idioma))
     && ["normal", "grande", "muy_grande"].includes(valores.tamano_texto)
     && typeof valores.alto_contraste === "boolean"
     && ["sistema", "claro", "oscuro"].includes(valores.tema)
@@ -270,7 +274,7 @@ export function crearClienteOperacionesContactoPropio({ fetchImpl = globalThis.f
 function exigirEnvelope(valor, nombre) {
   if (!valor || typeof valor !== "object" || Array.isArray(valor)
     || !valor.data || typeof valor.data !== "object" || Array.isArray(valor.data)) {
-    throw new ErrorClienteAreaPersonal("respuesta_incompatible", `${nombre} no contiene el envelope data esperado.`);
+    throw new ErrorClienteAreaPersonal("respuesta_incompatible", mensaje("sinEnvelope", { nombre }));
   }
   return valor.data;
 }
@@ -278,28 +282,28 @@ function exigirEnvelope(valor, nombre) {
 async function leerJSONAcotado(respuesta) {
   const tipo = respuesta.headers?.get?.("Content-Type") || "";
   if (!/^application\/json(?:\s*;\s*charset=utf-8)?$/i.test(tipo)) {
-    throw new ErrorClienteAreaPersonal("tipo_respuesta", "El servicio no devolvió JSON UTF-8.");
+    throw new ErrorClienteAreaPersonal("tipo_respuesta", mensaje("tipoRespuesta"));
   }
   const declarada = respuesta.headers?.get?.("Content-Length");
   if (declarada !== null && declarada !== undefined && declarada !== "") {
     if (!/^(?:0|[1-9][0-9]*)$/.test(declarada) || Number(declarada) > MAXIMO_JSON_BYTES) {
-      throw new ErrorClienteAreaPersonal("respuesta_excesiva", "La respuesta supera el límite permitido.");
+      throw new ErrorClienteAreaPersonal("respuesta_excesiva", mensaje("respuestaExcesiva"));
     }
   }
   const texto = await respuesta.text();
   if (new TextEncoder().encode(texto).byteLength > MAXIMO_JSON_BYTES) {
-    throw new ErrorClienteAreaPersonal("respuesta_excesiva", "La respuesta supera el límite permitido.");
+    throw new ErrorClienteAreaPersonal("respuesta_excesiva", mensaje("respuestaExcesiva"));
   }
   try {
     return JSON.parse(texto);
   } catch (error) {
-    throw new ErrorClienteAreaPersonal("json_invalido", "El servicio devolvió JSON no válido.", error);
+    throw new ErrorClienteAreaPersonal("json_invalido", mensaje("jsonInvalido"), error);
   }
 }
 
 function nuevaIdempotencia() {
   if (typeof globalThis.crypto?.randomUUID !== "function") {
-    throw new ErrorClienteAreaPersonal("idempotencia_no_disponible", "No se puede garantizar la idempotencia de la operación.");
+    throw new ErrorClienteAreaPersonal("idempotencia_no_disponible", mensaje("idempotencia"));
   }
   return `WEB-${globalThis.crypto.randomUUID()}`;
 }
@@ -314,26 +318,26 @@ function contieneDescriptorFichero(valor) {
 function serializarSolicitudAcotada(valor) {
   const texto = JSON.stringify(valor);
   if (new TextEncoder().encode(texto).byteLength > MAXIMO_SOLICITUD_BYTES) {
-    throw new ErrorClienteAreaPersonal("solicitud_excesiva", "La solicitud supera el límite permitido.");
+    throw new ErrorClienteAreaPersonal("solicitud_excesiva", mensaje("solicitudExcesiva"));
   }
   return texto;
 }
 
 function mensajeHTTP(estado) {
-  if (estado === 401) return "La identificación ha caducado o no está disponible.";
-  if (estado === 403) return "La sesión no dispone de permiso para esta operación.";
-  if (estado === 409) return "El expediente cambió. Recargue la información antes de continuar.";
-  if (estado === 422) return "La operación no supera las validaciones del expediente.";
-  if (estado === 429) return "El servicio está ocupado. Espere antes de reintentar.";
-  return `El servicio no pudo completar la operación (HTTP ${estado}).`;
+  if (estado === 401) return mensaje("http401");
+  if (estado === 403) return mensaje("http403");
+  if (estado === 409) return mensaje("http409");
+  if (estado === 422) return mensaje("http422");
+  if (estado === 429) return mensaje("http429");
+  return mensaje("httpOtro", { estado });
 }
 
 export function crearClienteHTTPAreaPersonal({ fetchImpl = globalThis.fetch } = {}) {
   if (typeof fetchImpl !== "function") {
     return Object.freeze({
       modo: "http",
-      cargar: async () => { throw new ErrorClienteAreaPersonal("transporte_no_disponible", "El cliente HTTP no está disponible."); },
-      ejecutar: async () => { throw new ErrorClienteAreaPersonal("transporte_no_disponible", "El cliente HTTP no está disponible."); },
+      cargar: async () => { throw new ErrorClienteAreaPersonal("transporte_no_disponible", mensaje("sinTransporte")); },
+      ejecutar: async () => { throw new ErrorClienteAreaPersonal("transporte_no_disponible", mensaje("sinTransporte")); },
     });
   }
 
@@ -348,7 +352,7 @@ export function crearClienteHTTPAreaPersonal({ fetchImpl = globalThis.fetch } = 
         credentials: "same-origin",
       });
     } catch (error) {
-      throw new ErrorClienteAreaPersonal("servicio_no_disponible", "No se pudo establecer una conexión segura con el servicio.", error);
+      throw new ErrorClienteAreaPersonal("servicio_no_disponible", mensaje("sinConexion"), error);
     }
     if (!estadosValidos.includes(respuesta?.status)) {
       const codigo = respuesta?.status === 401 ? "autenticacion_requerida"
@@ -368,7 +372,7 @@ export function crearClienteHTTPAreaPersonal({ fetchImpl = globalThis.fetch } = 
     if (!estado || typeof estado !== "object" || Array.isArray(estado)
       || typeof estado.encontrado !== "boolean" || !Number.isSafeInteger(estado.version)
       || estado.version < 0 || estado.encontrado !== (estado.version > 0)) {
-      throw new ErrorClienteAreaPersonal("respuesta_incompatible", "El estado del contacto no es válido.");
+      throw new ErrorClienteAreaPersonal("respuesta_incompatible", mensaje("contactoNoValido"));
     }
     let recibo = null;
     if (estado.encontrado) {
@@ -377,7 +381,7 @@ export function crearClienteHTTPAreaPersonal({ fetchImpl = globalThis.fetch } = 
         body: JSON.stringify({ version: estado.version }), signal,
       }, [200]);
       if (!recibido || typeof recibido.recibo_ref !== "string" || !recibido.recibo_ref
-        || recibido.version !== estado.version) throw new ErrorClienteAreaPersonal("respuesta_incompatible", "El recibo del contacto no coincide.");
+        || recibido.version !== estado.version) throw new ErrorClienteAreaPersonal("respuesta_incompatible", mensaje("reciboContacto"));
       recibo = Object.freeze({ reciboRef: recibido.recibo_ref, version: recibido.version });
     }
     return Object.freeze({ autorizacion: Object.freeze({ capacidad: true, version: estado.version, consultarRecibo: estado.encontrado }), recibo });
@@ -393,15 +397,15 @@ export function crearClienteHTTPAreaPersonal({ fetchImpl = globalThis.fetch } = 
 
   async function ejecutar({ accion, payload = {}, confirmacion = false, capacidad = false } = {}) {
     if (capacidad !== true) {
-      throw new ErrorClienteAreaPersonal("capacidad_denegada", "El servidor no ha concedido capacidad para esta acción.");
+      throw new ErrorClienteAreaPersonal("capacidad_denegada", mensaje("sinCapacidad"));
     }
     if (confirmacion !== true) {
-      throw new ErrorClienteAreaPersonal("confirmacion_ausente", "La acción requiere confirmación explícita.");
+      throw new ErrorClienteAreaPersonal("confirmacion_ausente", mensaje("sinConfirmacion"));
     }
     const definicion = ACCIONES[accion];
-    if (!definicion) throw new ErrorClienteAreaPersonal("accion_no_admitida", "La acción solicitada no está admitida por este cliente.");
+    if (!definicion) throw new ErrorClienteAreaPersonal("accion_no_admitida", mensaje("accionNoAdmitida"));
     if (contieneDescriptorFichero(payload)) {
-      throw new ErrorClienteAreaPersonal("carga_documental_no_compuesta", "La carga documental segura todavía no está conectada. No se ha enviado el fichero.");
+      throw new ErrorClienteAreaPersonal("carga_documental_no_compuesta", mensaje("sinCargaDocumental"));
     }
     const [metodo, ruta] = definicion;
     const envelope = await solicitar(ruta, {

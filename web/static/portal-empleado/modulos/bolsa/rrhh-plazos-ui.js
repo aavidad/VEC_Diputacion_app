@@ -1,4 +1,4 @@
-import { traducirPortal } from "../../portal-i18n.js?v=20260929-i18n-shell-v2";
+import { traducirPortal } from "../../portal-i18n.js?v=20260930-portales-i18n-integracion-v1";
 import { crearClientePoliticaOfertas, validarPoliticaEditable, cargarEjemploPlazas, plazasCompletas,
   LLAMADAS_PLAZAS, TRAS_RENUNCIA_PLAZAS, MAXIMO_HORAS_RESPUESTA } from "./rrhh-plazos-api.js";
 
@@ -30,7 +30,7 @@ function claveNueva() {
 /** Propuesta del catálogo de Bolsa; sin regla no se propone una cifra. */
 export async function cargarPlazoCatalogo({ cliente } = {}) {
   try {
-    const lector = cliente ?? (await import("../../reglas/reglas.js?v=20260928-ppt-v2")).crearCliente();
+    const lector = cliente ?? (await import("../../reglas/reglas.js?v=20260930-reglas-detalle-v3")).crearCliente();
     const datos = await lector.reglas();
     const reglas = datos.catalogos.filter((catalogo) => catalogo.modulo === "bolsa" && catalogo.estado === "disponible")
       .flatMap((catalogo) => catalogo.reglas).filter((regla) => regla.clave === CLAVE_PLAZO_CATALOGO);
