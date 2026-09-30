@@ -38,20 +38,30 @@ func TestIncorporacionB2ClaseProcedeDelCatalogoPersonal(t *testing.T) {
 		publicador.publicadas[p.perfilRef()] = instantaneaPublicadaDesarrollo{instantanea: p.plantilla, actoAsignacion: actoAsignacionPerfilFijoCTDesarrollo}
 	}
 	ctx = context.WithValue(ctx, claveRutaPeticionIncorporacionB2{}, rutaPeticionIncorporacionB2{metodo: "POST", ruta: "/api/interno/contratacion-temporal/incorporacion-personal-b2/plan/v1"})
-	clases := &clasesIncorporacionB2Prueba{resultado: pp.ResultadoClasesOcupacionCT{Catalogo: personal.CatalogoClasesOcupacionCT{Ref: "catalogo:clases", Version: 4, HuellaSHA256: strings.Repeat("a", 64), Opciones: []personal.OpcionClaseOcupacionCT{{Valor: "reserva", TextoClave: "personal_clase_reserva"}}}}}
+	clases := &clasesIncorporacionB2Prueba{resultado: pp.ResultadoClasesOcupacionCT{Catalogo: personal.CatalogoClasesOcupacionCT{Ref: "catalogo:clases", Version: 4, HuellaSHA256: strings.Repeat("a", 64), Opciones: []personal.OpcionClaseOcupacionCT{{Valor: "temporal", TextoClave: "personal.clases.temporal"}}}}}
 	f := &fuentesIncorporacionPersonalB2{organismoRef: "organismo:prueba", clases: clases, autoridad: &autoridadIncorporacionPersonalB2{perfiles: base.nominales, reloj: base.reloj}}
-	if e := f.validarClaseOcupacion(ctx, "reserva"); e != nil {
+	if e := f.validarClaseOcupacion(ctx, "temporal"); e != nil {
 		t.Fatalf("clase publicada de Personal rechazada: %v", e)
 	}
-	if e := f.validarClaseOcupacion(ctx, "temporal"); !errors.Is(e, ct.ErrPlanNominalB2Invalido) {
+	if e := f.validarClaseOcupacion(ctx, "provisional"); !errors.Is(e, ct.ErrPlanNominalB2Invalido) {
 		t.Fatalf("clase ausente del catálogo admitida: %v", e)
 	}
 	clases.err = personal.ErrRegistroEmpleadoB2NoDisponible
-	if e := f.validarClaseOcupacion(ctx, "reserva"); !errors.Is(e, personal.ErrRegistroEmpleadoB2NoDisponible) {
+	if e := f.validarClaseOcupacion(ctx, "temporal"); !errors.Is(e, personal.ErrRegistroEmpleadoB2NoDisponible) {
 		t.Fatalf("caída del catálogo sustituyó fuente: %v", e)
 	}
 	if clases.llamadas != 3 {
 		t.Fatal("no se releyó Personal para cada selección")
+	}
+	clases.err = nil
+	clases.resultado.Catalogo.Version = 0
+	if e := f.validarClaseOcupacion(ctx, "temporal"); !errors.Is(e, ct.ErrPlanNominalB2NoDisponible) {
+		t.Fatalf("fuente sin versión admitida: %v", e)
+	}
+	clases.resultado.Catalogo.Version = 4
+	clases.resultado.Catalogo.Opciones = append(clases.resultado.Catalogo.Opciones, personal.OpcionClaseOcupacionCT{Valor: "reserva", TextoClave: "personal.clases.reserva"})
+	if e := f.validarClaseOcupacion(ctx, "temporal"); !errors.Is(e, ct.ErrPlanNominalB2NoDisponible) {
+		t.Fatalf("catálogo con reserva efectiva admitido: %v", e)
 	}
 }
 

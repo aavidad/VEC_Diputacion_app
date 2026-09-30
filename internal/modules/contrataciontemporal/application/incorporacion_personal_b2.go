@@ -28,7 +28,7 @@ func validarSolicitudPlanB2(s ports.SolicitudPlanNominalB2) bool {
 	}
 	d, e := time.Parse(time.DateOnly, s.Desde)
 	h, eh := time.Parse(time.DateOnly, s.Hasta)
-	return (s.ClaseOcupacion == "" || s.ClaseOcupacion == "temporal" || s.ClaseOcupacion == "provisional" || s.ClaseOcupacion == "titular") && e == nil && d.Format(time.DateOnly) == s.Desde && (s.Hasta == "" || eh == nil && h.Format(time.DateOnly) == s.Hasta && h.After(d)) && domain.VersionPlanPersonalB2Valida(s.VersionExpediente) && domain.VersionPlanPersonalB2Valida(s.Regimen.Version) && domain.VersionPlanPersonalB2Valida(s.Modalidad.Version) && domain.ClaveCatalogo(s.MotivoClave).Valida() && domain.HuellaPlanPersonalB2Valida(s.DocumentoSHA256) && domain.UUIDPlanPersonalB2Valido(s.ClaveIdempotencia)
+	return domain.ClaseOcupacionPlanPersonalB2Valida(s.ClaseOcupacion) && e == nil && d.Year() > 0 && d.Format(time.DateOnly) == s.Desde && (s.Hasta == "" || eh == nil && h.Year() > 0 && h.Format(time.DateOnly) == s.Hasta && h.After(d)) && domain.VersionPlanPersonalB2Valida(s.VersionExpediente) && domain.VersionPlanPersonalB2Valida(s.Regimen.Version) && domain.VersionPlanPersonalB2Valida(s.Modalidad.Version) && domain.ClaveCatalogo(s.MotivoClave).Valida() && domain.HuellaPlanPersonalB2Valida(s.DocumentoSHA256) && domain.UUIDPlanPersonalB2Valido(s.ClaveIdempotencia)
 }
 func planCoincideSeleccionB2(p domain.PlanIncorporacionPersonalB2, s ports.SolicitudPlanNominalB2) bool {
 	return p.Validar() == nil && p.OrganizacionRef == s.OrganizacionRef && p.ExpedienteRef == s.ExpedienteRef && p.VersionExpediente == s.VersionExpediente && p.PuestoRef == s.PuestoRef && p.PlazaRef == s.PlazaRef && p.VersionPlazaRef == s.VersionPlantillaRef && p.VersionPuestoRef == s.VersionRPTRef && p.ClaseOcupacion == s.ClaseOcupacion && p.Regimen == s.Regimen && p.Modalidad == s.Modalidad && p.Desde == s.Desde && p.Hasta == s.Hasta && p.MotivoClave == s.MotivoClave && p.DocumentoRef == s.DocumentoRef && p.DocumentoSHA256 == s.DocumentoSHA256
@@ -58,9 +58,6 @@ func (s *ServicioPlanNominalB2) RegistrarPlanNominalB2(ctx context.Context, sol 
 	p, e := s.fuentes.ResolverPlanNominalB2(ctx, sol, actor)
 	if e != nil {
 		return cero, e
-	}
-	if sol.ClaseOcupacion == "" {
-		sol.ClaseOcupacion = p.ClaseOcupacion
 	}
 	if !planCoincideSeleccionB2(p, sol) {
 		return cero, ports.ErrPlanNominalB2Conflicto

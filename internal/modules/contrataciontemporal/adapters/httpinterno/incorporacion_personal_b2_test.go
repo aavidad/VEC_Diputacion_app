@@ -57,6 +57,21 @@ func planHTTPB2Prueba() EntradaPlanB2 {
 func proyeccionHTTPB2Prueba() ProyeccionIncorporacionPersonalB2HTTP {
 	return ProyeccionIncorporacionPersonalB2HTTP{Esquema: EsquemaConsultaIncorporacionPersonalB2, ExpedienteRef: "expediente:b2", VersionExpedienteActual: 7, Estado: "sin_plan"}
 }
+func TestIncorporacionPersonalB2CatalogoProyectadoConProcedencia(t *testing.T) {
+	v := proyeccionHTTPB2Prueba()
+	v.Opciones.ClasesOcupacion = []OpcionClaseOcupacionB2{{Valor: "temporal", TextoClave: "personal.clases.temporal"}}
+	if proyeccionHTTPB2Valida(v, v.ExpedienteRef) {
+		t.Fatal("opciones sin procedencia admitidas")
+	}
+	v.Opciones.CatalogoClasesOcupacion = CatalogoClasesOcupacionB2{Ref: "personal:clases", Version: 3, HuellaSHA256: strings.Repeat("a", 64)}
+	if !proyeccionHTTPB2Valida(v, v.ExpedienteRef) {
+		t.Fatal("catálogo publicado rechazado")
+	}
+	v.Opciones.CatalogoClasesOcupacion.Version = 0
+	if proyeccionHTTPB2Valida(v, v.ExpedienteRef) {
+		t.Fatal("catálogo sin versión admitido")
+	}
+}
 func reciboHTTPB2Prueba() ReciboIncorporacionPersonalB2HTTP {
 	return ReciboIncorporacionPersonalB2HTTP{Esquema: EsquemaReciboIncorporacionPersonalB2, ExpedienteRef: "expediente:b2", PlanRef: "plan:b2", PlanVersion: 1, ReciboRef: "recibo:b2", RegistradaEn: "2026-10-01T12:00:00Z", EmpleadoRef: "empleado:b2", RelacionRef: "relacion:b2", OcupacionRef: "ocupacion:b2"}
 }

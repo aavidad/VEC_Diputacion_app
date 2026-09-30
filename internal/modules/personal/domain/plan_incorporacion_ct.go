@@ -278,7 +278,7 @@ func (c CatalogoClasesOcupacionCT) Validar() error {
 	}
 	claves := map[string]bool{}
 	for _, o := range c.Opciones {
-		if !claseOcupacionPlanCTValida.MatchString(o.Valor) || claves[o.Valor] || !textoClaveClaseOcupacionCTValido.MatchString(o.TextoClave) {
+		if !claseOcupacionPlanCTValida.MatchString(o.Valor) || o.Valor == "reserva" || claves[o.Valor] || !textoClaveClaseOcupacionCTValido.MatchString(o.TextoClave) {
 			return ErrRegistroEmpleadoB2Invalido
 		}
 		claves[o.Valor] = true

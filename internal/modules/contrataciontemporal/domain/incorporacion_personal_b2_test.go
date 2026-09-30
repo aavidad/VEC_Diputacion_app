@@ -28,6 +28,7 @@ func TestPlanPersonalB2NoConvierteFechasNiFuentes(t *testing.T) {
 		{"apertura sin huella", func(p *PlanIncorporacionPersonalB2) { p.Bolsa.AperturaRegistroSHA256 = "" }},
 		{"persona sin procedencia", func(p *PlanIncorporacionPersonalB2) { p.PersonaFuente.SHA256 = strings.Repeat("0", 64) }},
 		{"clase no acreditada", func(p *PlanIncorporacionPersonalB2) { p.ClaseOcupacion = "" }},
+		{"año cero", func(p *PlanIncorporacionPersonalB2) { p.Desde = "0000-09-30" }},
 	}
 	for _, c := range casos {
 		t.Run(c.nombre, func(t *testing.T) {
@@ -37,6 +38,19 @@ func TestPlanPersonalB2NoConvierteFechasNiFuentes(t *testing.T) {
 				t.Fatal("plan contradictorio admitido")
 			}
 		})
+	}
+}
+func TestPlanPersonalB2ClaseConGramaticaPersonal(t *testing.T) {
+	p := planPersonalB2Prueba()
+	p.ClaseOcupacion = "temporal_especial_2"
+	if e := p.Validar(); e != nil {
+		t.Fatalf("clave canónica rechazada: %v", e)
+	}
+	for _, clase := range []string{"", "Reserva", "temporal-especial", "a" + strings.Repeat("b", 64)} {
+		p.ClaseOcupacion = clase
+		if p.Validar() == nil {
+			t.Fatalf("clave fuera de gramática admitida: %q", clase)
+		}
 	}
 }
 func TestCanonicoPlanPersonalB2PreservaEnteroYOrdenRecursivo(t *testing.T) {

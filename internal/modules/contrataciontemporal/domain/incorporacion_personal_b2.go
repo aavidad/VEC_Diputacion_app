@@ -12,6 +12,11 @@ import (
 
 var ErrPlanIncorporacionPersonalB2 = errors.New("contratacion temporal: plan de incorporacion personal invalido")
 var uuidPlanPersonalB2 = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
+var claseOcupacionPlanPersonalB2 = regexp.MustCompile(`^[a-z][a-z0-9_]{0,63}$`)
+
+func ClaseOcupacionPlanPersonalB2Valida(s string) bool {
+	return claseOcupacionPlanPersonalB2.MatchString(s)
+}
 
 // Referencias de fuentes propietarias; CT no copia sus agregados.
 type FuentePlanPersonalB2 struct {
@@ -127,7 +132,7 @@ func (p PlanIncorporacionPersonalB2) Validar() error {
 	}
 	d, e := time.Parse(time.DateOnly, p.Desde)
 	h, eh := time.Parse(time.DateOnly, p.Hasta)
-	if (p.ClaseOcupacion != "temporal" && p.ClaseOcupacion != "provisional" && p.ClaseOcupacion != "titular") || e != nil || d.Format(time.DateOnly) != p.Desde || p.Hasta != "" && (eh != nil || h.Format(time.DateOnly) != p.Hasta || !h.After(d)) || !ClaveCatalogo(p.MotivoClave).Valida() || p.AnalisisVersion > p.VersionExpediente || p.CategoriaRef != p.Bolsa.CategoriaRef || !p.PersonaFuente.Valida() || !p.FuenteOrganizacion.Valida() || !p.FuentePlantilla.Valida() || !p.FuenteRPT.Valida() {
+	if !ClaseOcupacionPlanPersonalB2Valida(p.ClaseOcupacion) || e != nil || d.Year() <= 0 || d.Format(time.DateOnly) != p.Desde || p.Hasta != "" && (eh != nil || h.Year() <= 0 || h.Format(time.DateOnly) != p.Hasta || !h.After(d)) || !ClaveCatalogo(p.MotivoClave).Valida() || p.AnalisisVersion > p.VersionExpediente || p.CategoriaRef != p.Bolsa.CategoriaRef || !p.PersonaFuente.Valida() || !p.FuenteOrganizacion.Valida() || !p.FuentePlantilla.Valida() || !p.FuenteRPT.Valida() {
 		return ErrPlanIncorporacionPersonalB2
 	}
 	return nil

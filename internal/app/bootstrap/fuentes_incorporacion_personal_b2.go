@@ -262,12 +262,21 @@ func (f *fuentesIncorporacionPersonalB2) ConsultarOpcionesIncorporacionB2(ctx co
 	if e != nil {
 		return cero, e
 	}
-	r := httpct.ProyeccionIncorporacionPersonalB2HTTP{Esquema: httpct.EsquemaConsultaIncorporacionPersonalB2, ExpedienteRef: exp, VersionExpedienteActual: d.Resumen.Version, Estado: "sin_plan", Prerrequisitos: []httpct.PrerrequisitoB2{}, Opciones: httpct.OpcionesIncorporacionPersonalB2{Vacantes: []httpct.OpcionVacanteB2{}, Regimenes: []httpct.OpcionCatalogoB2{}, Modalidades: []httpct.OpcionCatalogoB2{}, Motivos: []string{string(d.Solicitud.MotivoClave)}, Documentos: []httpct.OpcionDocumentoB2{}}}
+	r := httpct.ProyeccionIncorporacionPersonalB2HTTP{Esquema: httpct.EsquemaConsultaIncorporacionPersonalB2, ExpedienteRef: exp, VersionExpedienteActual: d.Resumen.Version, Estado: "sin_plan", Prerrequisitos: []httpct.PrerrequisitoB2{
+		{ClaveI18n: "ct_incorporacion_b2_previo_aceptacion_persona"},
+		{ClaveI18n: "ct_incorporacion_b2_previo_documento"},
+		{ClaveI18n: "ct_incorporacion_b2_previo_rpt"},
+		{ClaveI18n: "ct_incorporacion_b2_previo_plaza"},
+		{ClaveI18n: "ct_incorporacion_b2_previo_periodo"},
+	}, Opciones: httpct.OpcionesIncorporacionPersonalB2{Vacantes: []httpct.OpcionVacanteB2{}, Regimenes: []httpct.OpcionCatalogoB2{}, Modalidades: []httpct.OpcionCatalogoB2{}, ClasesOcupacion: []httpct.OpcionClaseOcupacionB2{}, Motivos: []string{string(d.Solicitud.MotivoClave)}, Documentos: []httpct.OpcionDocumentoB2{}}}
+	r.Prerrequisitos[1].Cumplido = domct.ReferenciaOpacaValida(a.DocumentoRef) && domct.HuellaPlanPersonalB2Valida(a.DocumentoSHA256)
+	r.Prerrequisitos[2].Cumplido = a.Vinculo != nil && a.Vinculo.Validar() == nil && domct.ReferenciaOpacaValida(a.CategoriaRef)
 	if d.Analisis == nil {
 		return r, nil
 	}
 	desde, hasta := fechaCivilFuenteCT(d.Analisis.PeriodoInicio), fechaCivilFuenteCT(d.Analisis.PeriodoFin)
 	r.Opciones.Periodo = httpct.PeriodoOpcionesB2{Desde: desde, Hasta: hasta, FuenteRef: a.AnalisisReciboRef}
+	r.Prerrequisitos[4].Cumplido = domct.ReferenciaOpacaValida(a.AnalisisReciboRef) && domct.HuellaPlanPersonalB2Valida(a.AnalisisSHA256) && domct.VersionPlanPersonalB2Valida(a.AnalisisVersion) && a.AnalisisVersion <= d.Resumen.Version && desde != "" && d.Analisis.PeriodoInicio.Year() > 0 && (hasta == "" || d.Analisis.PeriodoFin.Year() > 0 && hasta > desde)
 	actor, e := f.autoridad.actor(ctx, personal.AccionVacantesB2)
 	if e != nil {
 		return cero, e
@@ -282,6 +291,7 @@ func (f *fuentesIncorporacionPersonalB2) ConsultarOpcionesIncorporacionB2(ctx co
 		}
 		r.Opciones.Vacantes = append(r.Opciones.Vacantes, httpct.OpcionVacanteB2{PlazaRef: v.PlazaRef, PuestoRef: v.PuestoRef, VersionPlantillaRef: v.VersionPlantillaRef, VersionRPTRef: v.VersionRPTRef, UnidadRef: v.UnidadRef, CategoriaRef: a.CategoriaRef, PlazaEtiqueta: v.CodigoPlazaFuente, PuestoEtiqueta: v.PuestoDenominacion})
 	}
+	r.Prerrequisitos[3].Cumplido = len(r.Opciones.Vacantes) > 0
 	actor, e = f.autoridad.actor(ctx, personal.AccionConsultarCatalogoEmpleadoB2)
 	if e != nil {
 		return cero, e
@@ -312,11 +322,22 @@ func (f *fuentesIncorporacionPersonalB2) ConsultarOpcionesIncorporacionB2(ctx co
 	if e != nil {
 		return cero, e
 	}
+	if catalogoClases.Catalogo.Validar() != nil {
+		return cero, ct.ErrPlanNominalB2NoDisponible
+	}
+	r.Opciones.CatalogoClasesOcupacion = httpct.CatalogoClasesOcupacionB2{Ref: catalogoClases.Catalogo.Ref, Version: uint64(catalogoClases.Catalogo.Version), HuellaSHA256: catalogoClases.Catalogo.HuellaSHA256}
 	for _, clase := range catalogoClases.Catalogo.Opciones {
 		r.Opciones.ClasesOcupacion = append(r.Opciones.ClasesOcupacion, httpct.OpcionClaseOcupacionB2{Valor: clase.Valor, TextoClave: clase.TextoClave})
 	}
 	if a.DocumentoRef != "" && a.DocumentoSHA256 != "" {
 		r.Opciones.Documentos = append(r.Opciones.Documentos, httpct.OpcionDocumentoB2{DocumentoRef: a.DocumentoRef, DocumentoSHA256: a.DocumentoSHA256, EtiquetaClaveI18n: "ct_incorporacion_b2_documento_formalizacion"})
+	}
+	if a.ExpedienteRef == exp && a.VersionExpediente == d.Resumen.Version && domct.ReferenciaOpacaValida(a.AceptacionRef) && domct.ReferenciaOpacaValida(a.AceptacionReciboRef) {
+		if anclado, err := f.acreditarAnclajeB2(ctx, a); err == nil {
+			if persona, err := f.resolverPersonaInicialB2(ctx, inc.ContratoPlanNominal{OrganizacionRef: f.organizacionRef, ExpedienteRef: exp, AceptacionRef: a.AceptacionRef, AceptacionReciboRef: a.AceptacionReciboRef, SelectorBolsa: anclado.Bolsa}); err == nil {
+				r.Prerrequisitos[0].Cumplido = persona.ExpedienteRef == exp && persona.AceptacionRef == a.AceptacionRef && persona.LlamamientoRef == anclado.Bolsa.LlamamientoRef && domct.ReferenciaOpacaValida(persona.PersonaRef) && domct.VersionPlanPersonalB2Valida(persona.PersonaVersion) && domct.ReferenciaOpacaValida(persona.ReciboRef) && domct.HuellaPlanPersonalB2Valida(persona.FuenteSHA256)
+			}
+		}
 	}
 	return r, nil
 }
@@ -359,6 +380,9 @@ func (f *fuentesIncorporacionPersonalB2) validarClaseOcupacion(ctx context.Conte
 	c, e := f.clases.ConsultarClasesOcupacion(ctx, pp.ConsultaClasesOcupacionCT{OrganismoRef: f.organismoRef, Actor: actor})
 	if e != nil {
 		return e
+	}
+	if c.Catalogo.Validar() != nil {
+		return ct.ErrPlanNominalB2NoDisponible
 	}
 	for _, o := range c.Catalogo.Opciones {
 		if o.Valor == clase {

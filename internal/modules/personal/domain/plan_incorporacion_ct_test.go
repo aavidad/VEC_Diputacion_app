@@ -105,7 +105,6 @@ func TestPlanCTSeleccionLigaRevisionesFuenteYActor(t *testing.T) {
 
 func TestPlanCTClasesSinVersionODuplicadasNoSonCatalogo(t *testing.T) {
 	c := CatalogoClasesOcupacionCT{Ref: "personal:clases:publicacion", Version: 1, HuellaSHA256: strings.Repeat("e", 64), Opciones: []OpcionClaseOcupacionCT{
-		{Valor: "reserva", TextoClave: "personal.clases.reserva"},
 		{Valor: "temporal", TextoClave: "personal.clases.temporal"},
 		{Valor: "titular", TextoClave: "personal.clases.titular"},
 		{Valor: "provisional", TextoClave: "personal.clases.provisional"},
@@ -113,6 +112,11 @@ func TestPlanCTClasesSinVersionODuplicadasNoSonCatalogo(t *testing.T) {
 	if e := c.Validar(); e != nil {
 		t.Fatal(e)
 	}
+	c.Opciones = append(c.Opciones, OpcionClaseOcupacionCT{Valor: "reserva", TextoClave: "personal.clases.reserva"})
+	if c.Validar() == nil {
+		t.Fatal("reserva no es incorporación efectiva")
+	}
+	c.Opciones = c.Opciones[:len(c.Opciones)-1]
 	c.Version = 0
 	if c.Validar() == nil {
 		t.Fatal("fuente sin versión")

@@ -144,7 +144,21 @@ func TestPlanPersonalB2CotejaVersionesNativasNoUUIDInstrumento(t *testing.T) {
 		VersionExpediente: p.VersionExpediente, PuestoRef: p.PuestoRef, PlazaRef: p.PlazaRef,
 		VersionPlantillaRef: p.VersionPlazaRef, VersionRPTRef: p.VersionPuestoRef,
 		Regimen: p.Regimen, Modalidad: p.Modalidad, ClaseOcupacion: p.ClaseOcupacion,
-		Desde: p.Desde, Hasta: p.Hasta, MotivoClave: p.MotivoClave, DocumentoRef: p.DocumentoRef, DocumentoSHA256: p.DocumentoSHA256}
+		Desde: p.Desde, Hasta: p.Hasta, MotivoClave: p.MotivoClave, DocumentoRef: p.DocumentoRef, DocumentoSHA256: p.DocumentoSHA256,
+		ClaveIdempotencia: "33333333-3333-4333-8333-333333333333"}
+	if !validarSolicitudPlanB2(s) {
+		t.Fatal("selección canónica rechazada")
+	}
+	s.Desde = "0000-09-30"
+	if validarSolicitudPlanB2(s) {
+		t.Fatal("año cero admitido")
+	}
+	s.Desde = p.Desde
+	s.ClaseOcupacion = ""
+	if validarSolicitudPlanB2(s) {
+		t.Fatal("clase ausente admitida")
+	}
+	s.ClaseOcupacion = p.ClaseOcupacion
 	if !planCoincideSeleccionB2(p, s) {
 		t.Fatal("la selección válida rechazó versiones nativas distintas del UUID de instrumento")
 	}

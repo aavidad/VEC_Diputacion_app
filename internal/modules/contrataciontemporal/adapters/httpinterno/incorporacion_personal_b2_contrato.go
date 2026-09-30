@@ -33,6 +33,7 @@ var (
 	patronUUIDHTTPB2                               = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 	patronSHAHTTPB2                                = regexp.MustCompile(`^[0-9a-f]{64}$`)
 	patronClaveHTTPB2                              = regexp.MustCompile(`^[a-z][a-z0-9_.:-]{1,159}$`)
+	patronClaseOcupacionHTTPB2                     = regexp.MustCompile(`^[a-z][a-z0-9_]{0,63}$`)
 )
 
 // Estos DTO son el canal público minimizado. El ensamblado obtiene organización,
@@ -92,19 +93,25 @@ type OpcionClaseOcupacionB2 struct {
 	Valor      string `json:"valor"`
 	TextoClave string `json:"texto_clave"`
 }
+type CatalogoClasesOcupacionB2 struct {
+	Ref          string `json:"ref"`
+	Version      uint64 `json:"version"`
+	HuellaSHA256 string `json:"huella_sha256"`
+}
 type PeriodoOpcionesB2 struct {
 	Desde     string `json:"desde"`
 	Hasta     string `json:"hasta"`
 	FuenteRef string `json:"fuente_ref"`
 }
 type OpcionesIncorporacionPersonalB2 struct {
-	Vacantes        []OpcionVacanteB2        `json:"vacantes"`
-	Regimenes       []OpcionCatalogoB2       `json:"regimenes"`
-	Modalidades     []OpcionCatalogoB2       `json:"modalidades"`
-	ClasesOcupacion []OpcionClaseOcupacionB2 `json:"clases_ocupacion"`
-	Motivos         []string                 `json:"motivos"`
-	Documentos      []OpcionDocumentoB2      `json:"documentos"`
-	Periodo         PeriodoOpcionesB2        `json:"periodo"`
+	Vacantes                []OpcionVacanteB2         `json:"vacantes"`
+	Regimenes               []OpcionCatalogoB2        `json:"regimenes"`
+	Modalidades             []OpcionCatalogoB2        `json:"modalidades"`
+	ClasesOcupacion         []OpcionClaseOcupacionB2  `json:"clases_ocupacion"`
+	CatalogoClasesOcupacion CatalogoClasesOcupacionB2 `json:"catalogo_clases_ocupacion"`
+	Motivos                 []string                  `json:"motivos"`
+	Documentos              []OpcionDocumentoB2       `json:"documentos"`
+	Periodo                 PeriodoOpcionesB2         `json:"periodo"`
 }
 type PlanIncorporacionPersonalB2HTTP struct {
 	PlanRef   string        `json:"plan_ref"`
@@ -146,7 +153,7 @@ type EjecutorIncorporacionPersonalB2 interface {
 }
 
 func (e EntradaPlanB2) Validar() error {
-	if !patronClaveHTTPB2.MatchString(e.ClaseOcupacion) {
+	if !patronClaseOcupacionHTTPB2.MatchString(e.ClaseOcupacion) {
 		return ErrPeticionIncorporacionPersonalB2
 	}
 	for _, ref := range []string{e.ExpedienteRef, e.VersionPlantillaRef, e.VersionRPTRef, e.Regimen.Ref, e.Modalidad.Ref, e.DocumentoRef} {
@@ -265,9 +272,12 @@ func proyeccionHTTPB2Valida(v ProyeccionIncorporacionPersonalB2HTTP, exp string)
 	if len(o.ClasesOcupacion) > 100 {
 		return false
 	}
+	if len(o.ClasesOcupacion) > 0 && (!domain.ReferenciaOpacaValida(o.CatalogoClasesOcupacion.Ref) || !versionHTTPB2(o.CatalogoClasesOcupacion.Version) || !domain.HuellaPlanPersonalB2Valida(o.CatalogoClasesOcupacion.HuellaSHA256)) {
+		return false
+	}
 	clases := make(map[string]bool, len(o.ClasesOcupacion))
 	for _, clase := range o.ClasesOcupacion {
-		if !patronClaveHTTPB2.MatchString(clase.Valor) || !patronClaveHTTPB2.MatchString(clase.TextoClave) || clases[clase.Valor] {
+		if !patronClaseOcupacionHTTPB2.MatchString(clase.Valor) || !patronClaveHTTPB2.MatchString(clase.TextoClave) || clases[clase.Valor] {
 			return false
 		}
 		clases[clase.Valor] = true
