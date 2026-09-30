@@ -22,10 +22,24 @@ if archivo.st_uid!=os.getuid() or stat.S_IMODE(archivo.st_mode)!=0o600:
     raise SystemExit('configuración sin propietario o modo 0600')
 if padre.st_uid!=os.getuid() or stat.S_IMODE(padre.st_mode)!=0o700:
     raise SystemExit('directorio de configuración sin propietario o modo 0700')
+for ancestro in (ruta.parent,*ruta.parent.parents):
+    if os.path.lexists(ancestro/'.git') or (
+        (ancestro/'HEAD').is_file() and (ancestro/'objects').is_dir()
+    ):
+        raise SystemExit('configuración dentro de un repositorio Git')
 entorno={k:v for k,v in os.environ.items() if not k.startswith('GIT_')}
-if subprocess.run(['git','-C',str(ruta.parent),'rev-parse','--git-dir'],
-                  env=entorno,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL).returncode==0:
+entorno.update({'LC_ALL':'C','GIT_CONFIG_NOSYSTEM':'1',
+                'GIT_CONFIG_GLOBAL':'/dev/null',
+                'GIT_DISCOVERY_ACROSS_FILESYSTEM':'1'})
+diagnostico=subprocess.run(
+    ['git','-c','safe.directory=*','-C',str(ruta.parent),'rev-parse','--git-dir'],
+    env=entorno,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
+if diagnostico.returncode==0:
     raise SystemExit('configuración dentro de un repositorio Git')
+if diagnostico.returncode!=128 or not diagnostico.stderr.startswith(
+    'fatal: not a git repository'
+):
+    raise SystemExit('no se pudo descartar un repositorio Git')
 PY
 [[ $base =~ ^/dev/shm/vec-rpt-testigo-v3-[a-z0-9-]+$ ]]
 [[ $contenedor =~ ^vec-rpt-testigo-v3-[a-z0-9-]+$ ]]
