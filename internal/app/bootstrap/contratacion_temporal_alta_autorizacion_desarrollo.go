@@ -223,6 +223,10 @@ func (s *soporteAltaContratacionTemporalDesarrollo) centroDeCatalogo(ref string)
 	return s.origen.centroDeCatalogo(ref)
 }
 
+func (s *soporteAltaContratacionTemporalDesarrollo) centroDeOrganizacionPeticion(ref string) bool {
+	return s != nil && s.origen != nil && s.origen.centroDeOrganizacionPeticion(ref)
+}
+
 func (s *soporteAltaContratacionTemporalDesarrollo) categoriaDeCatalogo(ref string) bool {
 	if s == nil || s.origen == nil {
 		return ref == categoriaAltaContratacionTemporalDesarrollo
@@ -236,7 +240,8 @@ func (s *soporteAltaContratacionTemporalDesarrollo) ResolverFlujoAlta(
 ) (ports.ConfiguracionAltaFlujo, error) {
 	centroValido := s.centroDeCatalogo(solicitud.CentroRef)
 	if e, ok := altaDePeticionConfiable(ctx); ok {
-		centroValido = solicitud.CentroRef == e.Peticion.Solicitud.CentroRef && centroValido
+		centroValido = solicitud.CentroRef == e.Peticion.Solicitud.CentroRef &&
+			s.centroDeOrganizacionPeticion(solicitud.CentroRef)
 	}
 	if !s.capacidadAltaValida(ctx) || solicitud.Validar() != nil ||
 		solicitud.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo ||
@@ -315,7 +320,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) RegistrarConcesionCandidataA
 	}
 	var instantanea dominiovec.InstantaneaAutorizacion
 	var registroAnalisis registroDecisionesAnalisisContratacionTemporalDesarrollo
-	if s.perfilFijoParaRuta(capacidad.ruta) != nil {
+	if s.perfilFijoParaContexto(ctx, capacidad.ruta) != nil {
 		// Perfil fijo: sin publicación. El registro V3 comprueba bajo bloqueo
 		// que la asignación de la decisión sigue siendo la vigente.
 		s.mu.Lock()
@@ -395,7 +400,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) RegistrarDenegacionAutorizac
 	if err != nil || !motivoValido || datos.ReferenciaMotivo != esperada {
 		return puertosvec.ErrRegistroDenegacionAutorizacionLigadaV3NoDisponible
 	}
-	if s.perfilFijoParaRuta(capacidad.ruta) != nil {
+	if s.perfilFijoParaContexto(ctx, capacidad.ruta) != nil {
 		s.mu.Lock()
 		registro := s.registroDecisionesAnalisis
 		s.mu.Unlock()
@@ -522,7 +527,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaRuta(
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if ruta == rutaEntregaPeticionCentro {
-		return clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(s.instantaneaEntregaPeticion), s.instantaneaEntregaPeticion.Validar() == nil
+		return dominiovec.InstantaneaAutorizacion{}, false
 	}
 	if ruta == rutaCambiosOrganizacionContratacionTemporalDesarrollo {
 		return clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(s.instantaneaOrganizacion), s.instantaneaOrganizacion.Validar() == nil

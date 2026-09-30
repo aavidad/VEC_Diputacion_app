@@ -1,7 +1,9 @@
 package application
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"reflect"
 	"testing"
@@ -23,18 +25,39 @@ func TestEntregaPeticionCentroAltaUnaVezYReplayNoVuelveAAlta(t *testing.T) {
 	if registro.llamadas != 1 || repo.confirmaciones != 1 {
 		t.Fatalf("seam invocado con cardinalidad incorrecta: alta=%d confirmación=%d", registro.llamadas, repo.confirmaciones)
 	}
-	if primera.EstadoEntrega != "confirmada" || primera.ClaveAlta != preparado.ClaveAlta {
+	if primera.EstadoEntrega != "confirmada" || primera.ClaveAlta != preparado.ClaveAlta ||
+		!primera.ReservaCreadaAhora || !primera.ConfirmadaAhora {
 		t.Fatalf("entrega no confirmada: %#v", primera)
 	}
 
 	repo.preparada.EstadoEntrega = "confirmada"
 	repo.preparada.ReciboAlta = primera.ReciboAlta
 	segunda, err := servicio.Entregar(context.Background(), comando)
-	if err != nil || !reflect.DeepEqual(segunda, primera) {
+	if err != nil {
+		t.Fatal(err)
+	}
+	primeraJSON, errPrimera := json.Marshal(primera)
+	segundaJSON, errSegunda := json.Marshal(segunda)
+	if errPrimera != nil || errSegunda != nil || segunda.ReservaCreadaAhora || segunda.ConfirmadaAhora ||
+		!bytes.Equal(segundaJSON, primeraJSON) || bytes.Contains(primeraJSON, []byte("creada_ahora")) {
 		t.Fatalf("replay no devuelve la confirmación original: entrega=%#v error=%v", segunda, err)
 	}
 	if registro.llamadas != 1 || repo.confirmaciones != 1 {
 		t.Fatalf("el replay volvió a producir efectos: alta=%d confirmación=%d", registro.llamadas, repo.confirmaciones)
+	}
+}
+
+func TestEntregaPeticionCentroConfirmacionConcurrenteRecuperadaNoEsCreacion(t *testing.T) {
+	repo, registro, servicio, comando, _ := entregaPeticionCentroPrueba(t)
+	// Otro intento preparó la reserva antes de este y ganó la confirmación
+	// después de que ambos recuperaran el mismo alta idempotente.
+	repo.preparaciones = 1
+	repo.confirmacionRecuperada = true
+	entrega, err := servicio.Entregar(context.Background(), comando)
+	if err != nil || entrega.EstadoEntrega != "confirmada" ||
+		entrega.ReservaCreadaAhora || entrega.ConfirmadaAhora ||
+		registro.llamadas != 1 || repo.confirmaciones != 1 {
+		t.Fatalf("confirmación recuperada presentada como creación: entrega=%#v error=%v", entrega, err)
 	}
 }
 
@@ -77,7 +100,7 @@ func TestEntregaPeticionCentroFalloAltaNoConfirmaYFalloEnlacePermiteReintento(t 
 		}
 		repo.errConfirmar = nil
 		segunda, err := servicio.Entregar(context.Background(), comando)
-		if err != nil || segunda.EstadoEntrega != "confirmada" {
+		if err != nil || segunda.EstadoEntrega != "confirmada" || segunda.ReservaCreadaAhora || !segunda.ConfirmadaAhora {
 			t.Fatalf("reintento no recuperable: entrega=%#v error=%v", segunda, err)
 		}
 		if registro.llamadas != 2 || repo.confirmaciones != 2 || registro.recibo.ReciboRef != "recibo:alta:001" ||
@@ -109,17 +132,21 @@ func TestEntregaPeticionCentroDeniegaDivergentesYCancelacion(t *testing.T) {
 }
 
 type repositorioEntregaPeticionCentroPrueba struct {
-	preparada      ports.EntregaPeticionCentro
-	ultimaComando  ports.ComandoEntregarPeticionCentro
-	confirmaciones int
-	preparaciones  int
-	errConfirmar   error
+	preparada              ports.EntregaPeticionCentro
+	ultimaComando          ports.ComandoEntregarPeticionCentro
+	confirmaciones         int
+	preparaciones          int
+	errConfirmar           error
+	confirmacionRecuperada bool
 }
 
 func (r *repositorioEntregaPeticionCentroPrueba) PrepararEntrega(_ context.Context, comando ports.ComandoEntregarPeticionCentro) (ports.EntregaPeticionCentro, error) {
 	r.preparaciones++
 	r.ultimaComando = comando
-	return r.preparada, nil
+	e := r.preparada
+	e.ReservaCreadaAhora = r.preparaciones == 1 && e.EstadoEntrega == "preparada"
+	e.ConfirmadaAhora = false
+	return e, nil
 }
 func (r *repositorioEntregaPeticionCentroPrueba) ConfirmarEntrega(_ context.Context, _ ports.ComandoEntregarPeticionCentro, alta ports.AltaDePeticionCentro) (ports.EntregaPeticionCentro, error) {
 	r.confirmaciones++
@@ -128,7 +155,10 @@ func (r *repositorioEntregaPeticionCentroPrueba) ConfirmarEntrega(_ context.Cont
 	}
 	r.preparada.EstadoEntrega = "confirmada"
 	r.preparada.ReciboAlta = &alta.Recibo
-	return r.preparada, nil
+	e := r.preparada
+	e.ReservaCreadaAhora = false
+	e.ConfirmadaAhora = !r.confirmacionRecuperada
+	return e, nil
 }
 func (r *repositorioEntregaPeticionCentroPrueba) ListarPeticionesRRHH(context.Context) ([]ports.EntregaPeticionCentro, error) {
 	return nil, nil

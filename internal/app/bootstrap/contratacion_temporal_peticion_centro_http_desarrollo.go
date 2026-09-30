@@ -2,9 +2,11 @@ package bootstrap
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"mime"
 	"net/http"
 	"strings"
@@ -13,7 +15,9 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	personalports "vec-diputacion-granada/internal/modules/personal/ports"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
+	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
 type manejadorPeticionCentroDesarrollo struct {
@@ -62,7 +66,7 @@ func (m *manejadorPeticionCentroDesarrollo) ServeHTTP(w http.ResponseWriter, r *
 	}
 	a, err := m.proveedor.identidad(r.Context())
 	if err != nil {
-		fallo(403, "operacion_denegada")
+		fallo(falloPeticionCentroDesarrollo(r, err))
 		return
 	}
 	responder := func(data any) { _ = json.NewEncoder(w).Encode(map[string]any{"data": data}) }
@@ -74,7 +78,7 @@ func (m *manejadorPeticionCentroDesarrollo) ServeHTTP(w http.ResponseWriter, r *
 		if r.URL.Path == rutaContextoPeticionCentro {
 			data, err := m.contexto(r, a)
 			if err != nil {
-				fallo(503, "servicio_no_disponible")
+				fallo(falloPeticionCentroDesarrollo(r, err))
 				return
 			}
 			responder(data)
@@ -82,7 +86,7 @@ func (m *manejadorPeticionCentroDesarrollo) ServeHTTP(w http.ResponseWriter, r *
 		}
 		datos, err := m.bandeja.ListarPeticiones(r.Context(), a.actor)
 		if err != nil {
-			fallo(503, "servicio_no_disponible")
+			fallo(falloPeticionCentroDesarrollo(r, err))
 			return
 		}
 		responder(map[string]any{"peticiones": datos, "limite": 50})
@@ -115,16 +119,47 @@ func (m *manejadorPeticionCentroDesarrollo) ServeHTTP(w http.ResponseWriter, r *
 		switch {
 		case errors.Is(err, domain.ErrPeticionCentroInvalida):
 			fallo(400, "solicitud_invalida")
-		case errors.Is(err, domain.ErrRatificacionCentroDenegada):
-			fallo(403, "operacion_denegada")
 		case errors.Is(err, ports.ErrClavePeticionCentroUsada), errors.Is(err, domain.ErrVersionPeticionCentroEnConflicto):
 			fallo(409, "peticion_en_conflicto")
 		default:
-			fallo(503, "servicio_no_disponible")
+			fallo(falloPeticionCentroDesarrollo(r, err))
 		}
 		return
 	}
 	responder(recibo)
+}
+
+// Las dependencias pueden envolver una denegación genérica. Se comprueba
+// primero su causa concreta y solo se informa una denegación real como 403.
+// El registro nunca contiene err: podría incluir referencias de la petición.
+func falloPeticionCentroDesarrollo(r *http.Request, err error) (int, string) {
+	// identidad() normaliza el contexto vencido como denegación. La petición
+	// conserva la causa para responder 503 sin abrir la operación.
+	causa := causaFalloPeticionCentroDesarrollo(errors.Join(err, r.Context().Err()))
+	if causa == "autorizacion_denegada" {
+		slog.Warn("petición de centro denegada", "ruta", r.URL.Path, "metodo", r.Method, "causa", causa)
+		return http.StatusForbidden, "operacion_denegada"
+	}
+	slog.Error("petición de centro no disponible", "ruta", r.URL.Path, "metodo", r.Method, "causa", causa)
+	return http.StatusServiceUnavailable, "servicio_no_disponible"
+}
+
+func causaFalloPeticionCentroDesarrollo(err error) string {
+	switch {
+	case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
+		return "peticion_cancelada_o_vencida"
+	case errors.Is(err, personalports.ErrCambioOrganizacionNoDisponible), errors.Is(err, vecports.ErrCatalogoNoEncontrado):
+		return "catalogo_organizacion_no_disponible"
+	}
+	// La recepción RRHH ya cataloga los fallos del autorizador V3 y del
+	// registro. Sus causas de indisponibilidad preceden a la denegación.
+	if causa := causaFalloEntregaPeticionDesarrollo(err); causa != "no_clasificada" {
+		return causa
+	}
+	if errors.Is(err, domain.ErrRatificacionCentroDenegada) {
+		return "autorizacion_denegada"
+	}
+	return "no_clasificada"
 }
 
 // Los nombres sirven para presentar la identidad ya autenticada. No vuelven
