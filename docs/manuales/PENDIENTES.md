@@ -1,5 +1,33 @@
 # Recorridos pendientes de manual
 
+## Comprobación del 30/09/2026
+
+Se han observado ocho recorridos con Chrome en el clon sintético de
+`main@8fc0b534dbdaa0a5b34d835810c4593ad823780b`, con 38 instalaciones SQL.
+Las capturas reales de escritorio y móvil se conservan fuera de Git para revisión.
+Dirección aún no ha confirmado un proceso completo que permita publicar su manual.
+
+| Recorrido | Resultado observado | Punto pendiente |
+| --- | --- | --- |
+| Accesos | RRHH, centro y ratificador pasan sus comprobaciones positivas y de denegación. Intervención entra al portal. | Completar las comprobaciones de Intervención y disponer del portal externo con su propia autoridad de acceso. |
+| Centro → RRHH | Petición y ratificación registradas por personas distintas, con recibos de versiones 1 y 2. La consulta posterior conserva la petición ratificada. | La entrega a RRHH responde 503: su POST todavía carece de frontera nominal en esta fuente. No hay alta confirmada. |
+| Análisis e informe | El cuadro abre y consulta los expedientes con respuesta 200. | No hay expediente nuevo procedente de la entrega. El sembrador oficial se detiene antes de escribir porque faltan centros y categorías de sus casos. No se han ejecutado las actuaciones. |
+| Intervención | La entrada y el formulario de acceso manual se ven en escritorio y móvil. Las consultas de RRHH se deniegan a este perfil. | Faltan casos nuevos en informe jurídico para recorrer fiscalización favorable, reparo y subsanación. |
+| Llamamiento y respuesta | Se han observado las entradas de RRHH y del candidato. | La lista de bolsas responde 503 por una conexión omitida en el preparador del clon. Se corregirá antes de valorar el proceso. El portal externo aún no está habilitado. |
+| Propuesta, documentos y firma | Una propuesta histórica en versión 7 permite descargar los seis borradores. Sus tamaños y huellas coinciden a 1440 y 390 píxeles. | La consulta de seguimiento responde 404 y el circuito de firma 503. No se ha solicitado una firma ni continuado hasta el cierre. |
+| Bolsa y ofertas | El portal interno abre. | La misma conexión omitida impide cargar las bolsas. No se han publicado ofertas ni ejecutado respuestas, avisos o envío masivo. |
+| Área personal | RRHH consulta sus preferencias internas y las recupera sin cambios tras recargar. Correos e imagen responden como lecturas. | Esto no acredita el Área personal del candidato. Faltan su entrada, los cambios confirmados, correo verificado, «Mi bolsa» y «Mi ficha». |
+
+El primer 400 observado en el cuadro era un efecto del transporte del guion;
+Chrome nativo devuelve 200. Tampoco se atribuye al producto el 503 de Bolsa
+causado por el preparador. Los recibos del centro se conservan para recuperar
+la misma petición; no se ha comprobado todavía su recuperación tras reinicio.
+
+La actualización del clon a una fuente posterior se registrará por separado.
+Estos resultados no se atribuyen a otro binario ni a SQL instaladas después.
+
+## Evidencia anterior: 29/09/2026
+
 Revisión del 29/09/2026 sobre `origin/main@3b910a170`. Aún no está acreditado de principio a fin ninguno de los procesos completos pedidos para esta carpeta. Las dos copias locales consultadas contienen expedientes y propuestas de ejemplo, pero no registran firmas de Contratación temporal.
 
 En esta revisión no se abrió Chrome contra una copia con todas las novedades instaladas. La tabla recoge el último paso demostrado en las comprobaciones anteriores.
