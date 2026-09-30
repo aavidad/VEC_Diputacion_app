@@ -34,10 +34,25 @@ El orden de las migraciones propias está en `deploy/principal/lista_sql_trabajo
 
 `pruebas_sql/000004_gobierno_categorias_rpt.sql` comprueba doble identidad, huella cambiada, módulo ajeno a la publicación, CAS, recibo idéntico al recuperar, fallo posterior al efecto, conservación del uso y denegación de una reserva posterior a deshabilitar. El fallo de persistencia por referencia de auditoría ausente prueba el rollback del catálogo; la comprobación de la auditoría central corresponde a AD3.
 
-Pendientes de acreditar en el corte inicial: ensayo completo sobre la Cat1 corregida, atestaciones criptográficas V3 para tres identidades, caducidad del sobre de las aprobaciones manteniendo su efecto histórico, revocación del confirmador antes de su acto, fallo de auditoría central y el recorrido completo con atestaciones V3 reales. La carrera real en dos conexiones se ensayó en ambos órdenes sobre el core de persistencia, observando el bloqueo: una reserva anterior se conserva y una posterior se deniega sin fila. Esta comprobación usa identidades sintéticas del core y no acredita V3. Dirección organiza las dos revisiones independientes del mismo hash antes de integrar.
+Pendientes de acreditar: atestaciones criptográficas V3 para las dos identidades del circuito, caducidad del sobre de las aprobaciones manteniendo su efecto histórico, revocación del confirmador antes de su acto y fallo de auditoría central. La carrera real en dos conexiones se ensayó en ambos órdenes sobre el core de persistencia, observando el bloqueo: una reserva anterior se conserva y una posterior se deniega sin fila. Esta comprobación usa identidades sintéticas del core y no acredita V3. Dirección organiza las dos revisiones independientes del mismo hash antes de integrar.
 
 No hay instalación en la principal, publicación, recorrido web ni permisos de datos reales acreditados por estos archivos. Las migraciones DOWN se reservan al clon sin hechos y rechazan la reversión si existe historia de gobierno.
 
 Los intentos iniciales de DOWN fueron transaccionales: AD134 falló por un literal mal citado antes de retirar objetos y Cat4 rechazó historia con SQLSTATE `55000`. Ambas conexiones revirtieron. Dirección precisó después que no se ejecutaría ningún DOWN adicional, también en clones; el literal de AD134 se corrigió por inspección.
 
 La preimagen positiva de AD134 es el núcleo de AD126 con `search_path=pg_catalog`. El ensayo en clon nuevo H1 y las 41 SQL previas exactas de `e528c7eaa` rechazó AD133 `af68c20b` después de AD126 con `55000: preimagen global incompatible`. Su matriz de 17 funciones todavía no admite este linaje. AD134 conserva la guarda exacta; integrar AD133 o AD135 en el mismo producto exige una convergencia nueva y revisada, y otro ensayo causal. No se acredita compatibilidad por aceptar otra configuración de `search_path`.
+
+El candidato SQL `39ef1e909` superó el ensayo de 43 SQL UP en un clon PG18 nuevo: las 41 previas exactas de `e528c7eaa` y Cat4/AD134 aplicadas una sola vez. Las dos pruebas SQL focales terminaron con ROLLBACK. Las carreras reales usaron dos conexiones, con el bloqueo de la segunda observado antes de liberar la primera. Tras `pg_ctl restart` del PostgreSQL aislado, cuatro confirmaciones del core devolvieron los mismos recibos y resultados; revisiones, usos y outbox quedaron idénticos. Estas confirmaciones usan el propietario técnico como doble de persistencia y no acreditan un consumo V3 real.
+
+Comprobación focal, exclusivamente contra el clon desechable preparado con el orden anterior:
+
+```sh
+docker exec -i <clon_aislado> env -i PATH=/usr/lib/postgresql/18/bin:/usr/bin:/bin HOME=/scratch \
+  psql -X -q -U postgres -d postgres -v ON_ERROR_STOP=1 \
+  < deploy/postgresql/catalogos_configurables/pruebas_sql/000004_gobierno_categorias_rpt.sql
+docker exec -i <clon_aislado> env -i PATH=/usr/lib/postgresql/18/bin:/usr/bin:/bin HOME=/scratch \
+  psql -X -q -U postgres -d postgres -v ON_ERROR_STOP=1 \
+  < deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/ad3_134_gobierno_categorias_rpt.sql
+```
+
+El análisis local Semgrep de las cuatro migraciones usa dos reglas genéricas para concesiones positivas a PUBLIC y funciones definidoras sin ruta fija. No envía código y no sustituye las dos revisiones SQL independientes. `git diff --check` forma parte del cierre del candidato.
