@@ -2,6 +2,9 @@ const RUTA = "/api/vec/usuarios/mis-preferencias";
 const MAX_BYTES = 65536;
 const LIMITE_MS = 10000;
 const CAMPOS = Object.freeze(["idioma", "tamano_texto", "alto_contraste", "tema", "inicio", "filas", "aviso_correo_tareas", "aviso_correo_plazos"]);
+const TEMAS_V1 = Object.freeze(["sistema", "claro", "oscuro"]);
+const TEMAS_V2 = Object.freeze([...TEMAS_V1, "diputacion_granada", "arena", "salvia", "lavanda", "azul_sereno", "noche_suave"]);
+const TEMAS_POR_VERSION = Object.freeze({ "usuarios-preferencias-v1": TEMAS_V1, "usuarios-preferencias-v2": TEMAS_V2 });
 
 export class ErrorPreferencias extends Error {
   constructor(estado = 0, codigo = "") {
@@ -13,12 +16,12 @@ export class ErrorPreferencias extends Error {
 }
 
 function objeto(valor) { return valor && typeof valor === "object" && !Array.isArray(valor); }
-function validarValores(valores) {
+function validarValores(valores, temasPermitidos = TEMAS_V2) {
   if (!objeto(valores) || Object.keys(valores).length !== CAMPOS.length || !CAMPOS.every((campo) => Object.hasOwn(valores, campo))) throw new TypeError("valores de preferencias inválidos");
   if (!["navegador", "es", "en"].includes(valores.idioma)
     || !["normal", "grande", "muy_grande"].includes(valores.tamano_texto)
     || typeof valores.alto_contraste !== "boolean"
-    || !["sistema", "claro", "oscuro"].includes(valores.tema)
+    || !temasPermitidos.includes(valores.tema)
     || !["cuadro", "peticiones", "bolsas"].includes(valores.inicio)
     || ![20, 50, 100].includes(valores.filas)
     || typeof valores.aviso_correo_tareas !== "boolean"
@@ -27,13 +30,13 @@ function validarValores(valores) {
 }
 
 function validarCatalogo(catalogo) {
-  if (!objeto(catalogo) || catalogo.version_ref !== "usuarios-preferencias-v1") throw new TypeError("catálogo de preferencias inválido");
-  for (const [nombre, permitidos] of [["idiomas", ["navegador", "es", "en"]], ["tamanos_texto", ["normal", "grande", "muy_grande"]], ["temas", ["sistema", "claro", "oscuro"]], ["inicios", ["cuadro", "peticiones", "bolsas"]]]) {
+  if (!objeto(catalogo) || !Object.hasOwn(TEMAS_POR_VERSION, catalogo.version_ref)) throw new TypeError("catálogo de preferencias inválido");
+  for (const [nombre, permitidos] of [["idiomas", ["navegador", "es", "en"]], ["tamanos_texto", ["normal", "grande", "muy_grande"]], ["temas", TEMAS_POR_VERSION[catalogo.version_ref]], ["inicios", ["cuadro", "peticiones", "bolsas"]]]) {
     const opciones = catalogo[nombre];
     if (!Array.isArray(opciones) || opciones.length === 0 || opciones.some((opcion) => !objeto(opcion) || !permitidos.includes(opcion.codigo) || typeof opcion.nombre_key !== "string")) throw new TypeError("opciones de preferencias inválidas");
   }
   if (!Array.isArray(catalogo.filas) || catalogo.filas.length === 0 || catalogo.filas.some((filas) => ![20, 50, 100].includes(filas))) throw new TypeError("opciones de filas inválidas");
-  validarValores(catalogo.predeterminados);
+  validarValores(catalogo.predeterminados, TEMAS_POR_VERSION[catalogo.version_ref]);
   return catalogo;
 }
 
@@ -103,23 +106,27 @@ export function crearClientePreferencias({ fetchImpl = globalThis.fetch } = {}) 
       const catalogo = validarCatalogo(datos?.catalogo);
       const estado = datos?.estado;
       if (!objeto(estado) || !Number.isSafeInteger(estado.version) || estado.version < 0
-        || estado.catalogo_version_ref !== catalogo.version_ref) throw new TypeError("estado de preferencias inválido");
-      const valores = validarValores(estado.valores);
+        || !Object.hasOwn(TEMAS_POR_VERSION, estado.catalogo_version_ref)
+        || (catalogo.version_ref === "usuarios-preferencias-v1" && estado.catalogo_version_ref !== catalogo.version_ref)) {
+        throw new TypeError("estado de preferencias inválido");
+      }
+      const valores = validarValores(estado.valores, TEMAS_POR_VERSION[estado.catalogo_version_ref]);
+      if (!catalogo.temas.some((opcion) => opcion.codigo === valores.tema)) throw new TypeError("estado de preferencias inválido");
       return Object.freeze({ catalogo, estado: Object.freeze({ version: estado.version, valores }) });
     },
     async guardar({ version, catalogoVersion, clave, valores, signal }) {
-      if (!Number.isSafeInteger(version) || version < 0 || catalogoVersion !== "usuarios-preferencias-v1"
+      if (!Number.isSafeInteger(version) || version < 0 || !Object.hasOwn(TEMAS_POR_VERSION, catalogoVersion)
         || typeof clave !== "string" || !/^[A-Za-z0-9:_.-]{16,128}$/u.test(clave)) throw new TypeError("petición de preferencias inválida");
       const cuerpo = await solicitar("PUT", {
         version_esperada: version, catalogo_version_ref: catalogoVersion,
-        clave_operacion: clave, valores: validarValores(valores),
+        clave_operacion: clave, valores: validarValores(valores, TEMAS_POR_VERSION[catalogoVersion]),
       }, signal);
       const recibo = cuerpo?.data;
       if (!objeto(recibo) || typeof recibo.recibo_ref !== "string" || recibo.recibo_ref.length === 0
         || !Number.isSafeInteger(recibo.version) || recibo.version < 1
         || recibo.catalogo_version_ref !== catalogoVersion || typeof recibo.fecha_utc !== "string") throw new TypeError("recibo de preferencias inválido");
       return Object.freeze({ recibo_ref: recibo.recibo_ref, version: recibo.version,
-        fecha_utc: recibo.fecha_utc, replay: recibo.replay === true, valores: validarValores(recibo.valores) });
+        fecha_utc: recibo.fecha_utc, replay: recibo.replay === true, valores: validarValores(recibo.valores, TEMAS_POR_VERSION[catalogoVersion]) });
     },
   });
 }

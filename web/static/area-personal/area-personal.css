@@ -37,7 +37,8 @@ a:focus-visible, summary:focus-visible, [tabindex]:focus-visible {
   outline: 3px solid var(--ap-azul-700);
   outline-offset: 2px;
 }
-.ap-lateral :focus-visible { outline-color: var(--ap-texto-inverso); outline-offset: -3px; }
+.ap-lateral :focus-visible { outline-color: var(--portal-lateral-texto); outline-offset: -3px; }
+.ap-navegacion > a[aria-current="page"]:focus-visible { outline-color: var(--ap-texto-inverso); }
 a { color: var(--ap-azul-700); }
 .salto-contenido {
   position: fixed;
@@ -75,8 +76,8 @@ a { color: var(--ap-azul-700); }
   height: 100dvh;
   flex-direction: column;
   overflow-y: auto;
-  background: var(--ap-azul-950);
-  color: var(--ap-texto-inverso);
+  background: var(--portal-lateral-fondo);
+  color: var(--portal-lateral-texto);
   scrollbar-color: var(--ap-lateral-muted) transparent;
   scrollbar-width: thin;
 }
@@ -84,7 +85,7 @@ a { color: var(--ap-azul-700); }
   display: block;
   padding: 16px 18px 13px;
   border-bottom: 1px solid var(--portal-lateral-separador);
-  color: var(--ap-texto-inverso);
+  color: var(--portal-lateral-texto);
   text-decoration: none;
 }
 .marca-portal img {
@@ -107,7 +108,7 @@ a { color: var(--ap-azul-700); }
   padding: 8px 10px;
   border-radius: var(--portal-radio);
   background: var(--portal-lateral-hover);
-  color: var(--ap-texto-inverso);
+  color: var(--portal-lateral-texto);
   font-size: .8125rem;
   font-weight: 600;
 }
@@ -129,7 +130,7 @@ a { color: var(--ap-azul-700); }
   gap: 12px;
   padding: 8px 18px;
   border-bottom: 1px solid var(--portal-lateral-separador);
-  color: var(--ap-texto-inverso);
+  color: var(--portal-lateral-texto);
   font-size: .9375rem;
   text-decoration: none;
 }
@@ -137,7 +138,7 @@ a { color: var(--ap-azul-700); }
   background: var(--ap-azul-700);
   color: var(--ap-texto-inverso);
 }
-.ap-navegacion > a:hover:not([aria-current="page"]) { background: var(--portal-lateral-hover); }
+.ap-navegacion > a:hover:not([aria-current="page"]) { background: var(--portal-lateral-hover); color: var(--portal-lateral-texto); }
 .ap-navegacion svg, .cabecera-portal svg {
   width: 21px;
   height: 21px;

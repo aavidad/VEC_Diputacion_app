@@ -402,7 +402,7 @@ button.tarjeta-kpi .metrica-enlace { margin-top: 4px; }
 .paginacion-marco button[aria-current="page"] {
   border-color: var(--portal-azul-700);
   background: var(--portal-azul-700);
-  color: #fff;
+  color: var(--portal-texto-inverso);
 }
 
 .paginacion-marco button:disabled {

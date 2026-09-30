@@ -61,7 +61,7 @@
 }
 
 .enlace-submenu:hover:not(:disabled) {
-  color: var(--portal-texto-inverso);
+  color: var(--portal-lateral-texto);
 }
 
 .enlace-submenu[aria-current="page"],
@@ -75,8 +75,12 @@
 .enlace-submenu:focus-visible {
   position: relative;
   z-index: 1;
-  outline: 3px solid var(--portal-texto-inverso);
+  outline: 3px solid var(--portal-lateral-texto);
   outline-offset: -3px;
+}
+
+.enlace-submenu[aria-current="page"]:focus-visible {
+  outline-color: var(--portal-texto-inverso);
 }
 
 body[data-contraste="true"] .categoria-menu-bolsa[data-categoria-activa="true"],
