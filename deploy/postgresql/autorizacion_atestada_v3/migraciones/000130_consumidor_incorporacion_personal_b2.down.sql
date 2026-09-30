@@ -1,7 +1,7 @@
 \set ON_ERROR_STOP on
 BEGIN;
 SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
-SET LOCAL search_path=pg_catalog;
+SET LOCAL search_path=pg_catalog, pg_temp;
 SET LOCAL lock_timeout='5s';SET LOCAL statement_timeout='2min';
 SELECT pg_advisory_xact_lock(hashtextextended('vec_autorizacion_atestada_v3:migracion:000130',0));
 SELECT pg_advisory_xact_lock(hashtextextended('vec_autorizacion_atestada_v3:nucleo',0));

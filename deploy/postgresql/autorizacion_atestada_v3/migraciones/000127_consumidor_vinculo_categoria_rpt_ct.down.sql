@@ -2,7 +2,7 @@
 -- Inversión posible solo antes de CT-154 y de cualquier acto confirmado.
 BEGIN;
 SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
-SET LOCAL search_path=pg_catalog;
+SET LOCAL search_path=pg_catalog, pg_temp;
 SET LOCAL lock_timeout='5s';
 SET LOCAL statement_timeout='30s';
 SELECT pg_advisory_xact_lock(hashtextextended('vec_autorizacion_atestada_v3:migracion:000127',0));

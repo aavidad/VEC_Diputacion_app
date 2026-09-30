@@ -3,7 +3,7 @@
 -- AD3-117 conserva íntegra su fachada de publicación histórica RPT.
 BEGIN;
 SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
-SET LOCAL search_path=pg_catalog;
+SET LOCAL search_path=pg_catalog, pg_temp;
 SET LOCAL timezone='UTC';
 SET LOCAL lock_timeout='5s';
 SET LOCAL statement_timeout='2min';
@@ -12,6 +12,7 @@ SELECT pg_advisory_xact_lock(hashtextextended('vec_autorizacion_atestada_v3:nucl
 DO $pre$
 BEGIN
  IF current_user<>'vec_autorizacion_atestada_v3_propietario'
+    OR to_regclass('vec_autorizacion_atestada_v3.checkpoint_gobierno_externo') IS NULL
     OR to_regprocedure('vec_autorizacion_atestada_v3.leer_publicacion_categoria_rpt_v3_atestada(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
     OR has_function_privilege('vec_contratacion_temporal_propietario',
        'vec_autorizacion_atestada_v3.leer_publicacion_categoria_rpt_v3_atestada(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
@@ -24,8 +25,11 @@ END $pre$;
 DO $nucleo$
 DECLARE
  f oid:='vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure;
- original text; nuevo text; actual text; meta jsonb; deps jsonb; acl aclitem[];
+ original text; nuevo text; actual text; fuente text; meta jsonb; deps jsonb; acl aclitem[];
  propietario oid; config text[]; definidora boolean;
+ -- Medir ambas huellas en el clon causal post-AD133/135/136. NULL deniega la instalación.
+ esperada_def_sha256 text:=NULL;
+ esperada_fuente_sha256 text:=NULL;
  marca text:=E'       )\n       OR c ->> ''suite'' <> ''VEC-AD-3-COSE-EDDSA-1''';
  extension text:=$x$           OR (
  p_perfil_mutacion IS NOT DISTINCT FROM 'vinculo_categoria_rpt_ct'
@@ -46,14 +50,17 @@ DECLARE
  AND d->'obligaciones' IS NOT DISTINCT FROM '[]'::jsonb)
 $x$;
 BEGIN
- SELECT pg_get_functiondef(f),to_jsonb(p)-'prosrc',p.proacl,p.proowner,p.proconfig,p.prosecdef
- INTO STRICT original,meta,acl,propietario,config,definidora FROM pg_proc p WHERE p.oid=f;
+ SELECT pg_get_functiondef(f),p.prosrc,to_jsonb(p)-'prosrc',p.proacl,p.proowner,p.proconfig,p.prosecdef
+ INTO STRICT original,fuente,meta,acl,propietario,config,definidora FROM pg_proc p WHERE p.oid=f;
  SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
  INTO deps FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f;
  IF propietario<>'vec_autorizacion_atestada_v3_propietario'::regrole OR NOT definidora
-    OR config IS DISTINCT FROM ARRAY['search_path=pg_catalog','lock_timeout=2s']
+    OR config IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s']
+    OR encode(sha256(convert_to(original,'UTF8')),'hex') IS DISTINCT FROM esperada_def_sha256
+    OR encode(sha256(convert_to(fuente,'UTF8')),'hex') IS DISTINCT FROM esperada_fuente_sha256
     OR length(original)-length(replace(original,marca,''))<>length(marca)
     OR strpos(original,'vec_contratacion_temporal_ejecutor')=0
+    OR strpos(original,'documentos.firmado.custodiar')=0
     OR strpos(original,'vinculo_categoria_rpt_ct')<>0
  THEN RAISE EXCEPTION 'AD3-127: núcleo incompatible' USING ERRCODE='55000'; END IF;
  nuevo:=replace(original,marca,extension||marca);
@@ -92,7 +99,7 @@ CREATE FUNCTION vec_autorizacion_atestada_v3.consumir_vinculo_categoria_rpt_ct_v
  p_material text,p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,
  p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea)
 RETURNS TABLE(decision_ref text,efecto_ref text,huella_efecto_sha256 text,consumo_huella_sha256 text,auditoria_ref text,consumida_en timestamptz,consumo_nuevo boolean)
-LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET lock_timeout='2s' AS $f$
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog, pg_temp SET lock_timeout='2s' AS $f$
 DECLARE s jsonb; c jsonb; d jsonb; x record; material_h text; contexto_h text; accion text;
 BEGIN
  IF p_material IS NULL OR octet_length(p_material) NOT BETWEEN 2 AND 8192
@@ -144,7 +151,7 @@ BEGIN
     CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE quote_ident(pg_get_userbyid(a.grantee)) END);
  END LOOP;
  IF (SELECT proowner FROM pg_proc WHERE oid=f)<>'vec_autorizacion_atestada_v3_propietario'::regrole
-    OR (SELECT proconfig FROM pg_proc WHERE oid=f) IS DISTINCT FROM ARRAY['search_path=pg_catalog','lock_timeout=2s']
+    OR (SELECT proconfig FROM pg_proc WHERE oid=f) IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s']
     OR EXISTS(SELECT 1 FROM pg_proc p,LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) x
               WHERE p.oid=f AND x.grantee NOT IN (p.proowner,'vec_contratacion_temporal_propietario'::regrole))
  THEN RAISE EXCEPTION 'AD3-127: ACL incompatible' USING ERRCODE='55000'; END IF;

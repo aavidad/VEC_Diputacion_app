@@ -6,7 +6,7 @@
 -- cerrojo común antes de leer su preimagen. Sin DOWN tras historia.
 BEGIN;
 SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
-SET LOCAL search_path=pg_catalog;
+SET LOCAL search_path=pg_catalog, pg_temp;
 SET LOCAL timezone='UTC';
 SET LOCAL lock_timeout='5s';
 SET LOCAL statement_timeout='30s';
@@ -55,7 +55,7 @@ BEGIN
  -- Perfil nuevo en las dos listas del núcleo: exclusión del bloque general y
  -- selección de la guarda de sesión miembro del ejecutor Bolsa.
  IF propietario<>'vec_autorizacion_atestada_v3_propietario'::regrole OR NOT definidora
-    OR config IS DISTINCT FROM ARRAY['search_path=pg_catalog','lock_timeout=2s']
+    OR config IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s']
     OR length(original)-length(replace(original,marca,''))<>length(marca)
     OR length(original)-length(replace(original,excl,''))<>length(excl)
     OR length(original)-length(replace(original,runtime,''))<>length(runtime)
@@ -103,7 +103,7 @@ END $audiencias$;
 CREATE FUNCTION vec_autorizacion_atestada_v3.consumir_consulta_anclaje_aceptacion_ct_bolsa_v3_atestada(
  p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea)
 RETURNS TABLE(decision_ref text,efecto_ref text,huella_efecto_sha256 text,consumo_huella_sha256 text,auditoria_ref text,consumida_en timestamptz,consumo_nuevo boolean)
-LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET lock_timeout='2s' AS $f$
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog, pg_temp SET lock_timeout='2s' AS $f$
 DECLARE c jsonb; d jsonb; x record;
 BEGIN
  BEGIN c:=convert_from(p_capacidad,'UTF8')::jsonb; d:=convert_from(p_decision,'UTF8')::jsonb;
@@ -139,7 +139,7 @@ BEGIN
  EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO vec_bolsa_llamamientos_propietario',f::text);
  IF (SELECT proowner FROM pg_proc WHERE oid=f) IS DISTINCT FROM 'vec_autorizacion_atestada_v3_propietario'::regrole
     OR (SELECT prosecdef FROM pg_proc WHERE oid=f) IS NOT TRUE
-    OR (SELECT proconfig FROM pg_proc WHERE oid=f) IS DISTINCT FROM ARRAY['search_path=pg_catalog','lock_timeout=2s']
+    OR (SELECT proconfig FROM pg_proc WHERE oid=f) IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s']
     OR NOT has_schema_privilege('vec_bolsa_llamamientos_propietario','vec_autorizacion_atestada_v3','USAGE')
  THEN RAISE EXCEPTION 'AD3-131: propietario o entorno de fachada incompatible' USING ERRCODE='55000'; END IF;
  FOR x IN SELECT a.grantee,a.privilege_type,a.is_grantable,p.proowner

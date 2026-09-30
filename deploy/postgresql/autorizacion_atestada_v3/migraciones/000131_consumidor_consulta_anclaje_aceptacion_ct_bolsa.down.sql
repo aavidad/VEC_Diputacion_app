@@ -3,7 +3,7 @@
 -- inserciones del núcleo, la audiencia y la fachada nominal.
 BEGIN;
 SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
-SET LOCAL search_path=pg_catalog;
+SET LOCAL search_path=pg_catalog, pg_temp;
 SET LOCAL timezone='UTC';
 SET LOCAL lock_timeout='5s';
 SET LOCAL statement_timeout='30s';
