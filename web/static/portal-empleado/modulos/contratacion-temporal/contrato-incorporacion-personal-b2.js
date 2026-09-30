@@ -61,7 +61,7 @@ export function validarReciboB2(v, contexto) {
   return Object.freeze(r);
 }
 function validarOpciones(v) {
-  const o = registroB2(v, ["vacantes", "regimenes", "modalidades", "clases_ocupacion", "motivos", "documentos", "periodo"]);
+  const o = registroB2(v, ["vacantes", "regimenes", "modalidades", "catalogo_clases_ocupacion", "clases_ocupacion", "motivos", "documentos", "periodo"]);
   o.vacantes = lista(o.vacantes, 100, (v) => {
     const x = registroB2(v, ["plaza_ref", "puesto_ref", "version_plantilla_ref", "version_rpt_ref", "unidad_ref", "categoria_ref", "plaza_etiqueta", "puesto_etiqueta"]);
     exigir(["plaza_ref", "puesto_ref", "version_plantilla_ref", "version_rpt_ref", "unidad_ref", "categoria_ref"].every((c) => referenciaB2(x[c]))
@@ -71,7 +71,14 @@ function validarOpciones(v) {
     const x = registroB2(v, ["ref", "version", "denominacion"]);
     exigir(referenciaB2(x.ref) && version(x.version) && etiqueta(x.denominacion)); return Object.freeze(x);
   }, (x) => `${x.ref}|${x.version}`);
-  o.clases_ocupacion = lista(o.clases_ocupacion, 100, (v) => {
+  o.catalogo_clases_ocupacion = registroB2(o.catalogo_clases_ocupacion, ["ref", "version", "huella_sha256"]);
+  const catalogoClases = o.catalogo_clases_ocupacion;
+  const clasesEntrada = o.clases_ocupacion === null ? [] : o.clases_ocupacion;
+  exigir(o.clases_ocupacion !== null || catalogoClases.ref === "");
+  exigir(referenciaB2(catalogoClases.ref) && version(catalogoClases.version) && SHA.test(catalogoClases.huella_sha256)
+    || catalogoClases.ref === "" && catalogoClases.version === 0 && catalogoClases.huella_sha256 === "" && clasesEntrada.length === 0);
+  o.catalogo_clases_ocupacion = Object.freeze(catalogoClases);
+  o.clases_ocupacion = lista(clasesEntrada, 100, (v) => {
     const x = registroB2(v, ["valor", "texto_clave"]);
     exigir(clave(x.valor) && clave(x.texto_clave)); return Object.freeze(x);
   }, (x) => x.valor);

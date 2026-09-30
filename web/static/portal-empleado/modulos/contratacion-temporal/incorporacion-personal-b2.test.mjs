@@ -19,6 +19,7 @@ const inicial = () => ({ esquema: ESQUEMA_CONSULTA_B2, expediente_ref: expedient
     vacantes: [{ plaza_ref: "plaza:1", puesto_ref: "puesto:1", version_plantilla_ref: "plantilla:1", version_rpt_ref: "rpt:1",
       unidad_ref: "unidad:1", categoria_ref: "categoria:1", plaza_etiqueta: "Plaza uno", puesto_etiqueta: "Puesto uno" }],
     regimenes: [{ ref: "regimen:1", version: 1, denominacion: "Personal laboral" }],
+    catalogo_clases_ocupacion: { ref: "catalogo:clases:1", version: 1, huella_sha256: sha },
     clases_ocupacion: [{ valor: "titular", texto_clave: "personal.ocupacion.clase.titular" },
       { valor: "provisional", texto_clave: "personal.ocupacion.clase.provisional" }, { valor: "temporal", texto_clave: "personal.ocupacion.clase.temporal" }],
     modalidades: [{ ref: "modalidad:1", version: 1, denominacion: "Sustitución" }], motivos: ["incorporar"],
@@ -61,6 +62,21 @@ test("contrato cerrado: persona, permiso, catálogo extra, fechas imposibles y c
   assert.throws(() => validarSolicitudPlanB2({ ...solicitud, regimen: { ...solicitud.regimen, etiqueta: "extra" } }));
   assert.throws(() => validarConsultaB2({ ...historia(), recibo: { ...recibo, plan_ref: "plan:otro" } }, expediente));
   assert.throws(() => validarReciboB2({ ...recibo, firma_oficial: true }, solicitud));
+});
+
+test("la consulta vincula las clases al catálogo de Personal y admite ausencia sin análisis", () => {
+  const consulta = inicial();
+  assert.equal(validarConsultaB2(consulta, expediente).opciones.catalogo_clases_ocupacion.ref, "catalogo:clases:1");
+  for (const catalogo of [undefined, { ref: "", version: 0, huella_sha256: "" },
+    { ref: "catalogo:clases:1", version: 1, huella_sha256: "x".repeat(64) }]) {
+    const alterada = inicial();
+    alterada.opciones.catalogo_clases_ocupacion = catalogo;
+    assert.throws(() => validarConsultaB2(alterada, expediente));
+  }
+  const sinAnalisis = inicial();
+  sinAnalisis.opciones.catalogo_clases_ocupacion = { ref: "", version: 0, huella_sha256: "" };
+  sinAnalisis.opciones.clases_ocupacion = null;
+  assert.deepEqual(validarConsultaB2(sinAnalisis, expediente).opciones.clases_ocupacion, []);
 });
 
 test("transportes fijos GET, plan y confirmar: mismos datos, sin credenciales externas ni almacenamiento", async () => {
@@ -220,7 +236,7 @@ test("recuperar una intención con otra clase no confirma el contenido divergent
 });
 
 test("catálogo propio resuelve las clases ES/EN sin depender de traducciones antiguas del montaje", async () => {
-  for (const [idioma, titular] of [["es", "Titular"], ["en", "Substantive"]]) {
+  for (const [idioma, titular] of [["es", "Titular"], ["en", "Permanent"]]) {
     const traduccion = await cargarTextos("contratacion-temporal-incorporacion-personal-b2", { idioma, porDefecto: "es" });
     const x = await montar(clienteBase(), { textos: traduccion });
     assert.match(x.r.innerHTML, new RegExp(titular, "u")); x.desmontar();

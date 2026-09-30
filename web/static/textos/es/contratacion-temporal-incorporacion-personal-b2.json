@@ -45,6 +45,7 @@
   "no_disponible": "Ahora no se puede consultar la incorporación. Pulse Actualizar las opciones. Si continúa el problema, avise a Informática.",
   "rechazada": "No se ha aceptado la operación. Revise los datos antes de continuar.",
   "faltan_comprobaciones": "Complete las comprobaciones pendientes antes de registrar la incorporación.",
+  "pendientes_antes_legacy": "Esta incorporación en Personal tiene comprobaciones pendientes. Si el expediente sigue el circuito anterior, consulte su incorporación al ejercicio.",
   "confirmada": "Incorporación registrada en Personal",
   "recibo": "Justificante",
   "fecha_registro": "Registrada el",
@@ -70,5 +71,17 @@
       }
     }
   },
-  "ct_incorporacion_b2_documento_formalizacion": "Documento de formalización del expediente"
+  "ct_incorporacion_b2_documento_formalizacion": "Documento de formalización del expediente",
+  "previo": {"aceptacion": "Aceptación confirmada"},
+  "ct_incorporacion_b2_motivo_sustitucion": "Sustitución temporal",
+  "ct_incorporacion_b2_motivo_vacante": "Vacante",
+  "ct_incorporacion_b2_motivo_acumulacion_tareas": "Acumulación de tareas",
+  "ct_incorporacion_b2_motivo_programa": "Programa temporal",
+  "ct_incorporacion_b2_motivo_relevo": "Relevo",
+  "ct_incorporacion_b2_motivo_incorporar": "Incorporación del expediente",
+  "ct_incorporacion_b2_previo_aceptacion_persona": "Aceptación y persona comprobadas",
+  "ct_incorporacion_b2_previo_documento": "Documento de formalización disponible",
+  "ct_incorporacion_b2_previo_rpt": "Puesto vigente comprobado",
+  "ct_incorporacion_b2_previo_plaza": "Plaza disponible comprobada",
+  "ct_incorporacion_b2_previo_periodo": "Periodo de incorporación comprobado"
 }

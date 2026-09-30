@@ -21,7 +21,7 @@ import {
 import { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js";
 import { crearGestorDescargaBorradorRRHH } from "./vista-expedientes-borrador.js";
 import { crearGestorCircuitoFirma } from "./circuito-firma.js?v=20260930-portales-i18n-integracion-v1";
-import { crearGestorIncorporacion } from "./vista-expedientes-incorporacion.js?v=20260926-huecos-rrhh-v1";
+import { crearGestorIncorporacion } from "./vista-expedientes-incorporacion.js?v=20260930-inc-b2-web-v1";
 import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js";
 import { crearGestorInformeTrasSubsanacion } from "./informe-tras-subsanacion.js?v=20260926-huecos-rrhh-v1";
 import { contextoSeguimientoCeseDesdeEstado, montarPanelSeguimientoCese } from "./seguimiento-cese.js?v=20260926-huecos-rrhh-v2";
@@ -115,6 +115,7 @@ export async function montarModuloContratacionTemporal({
   fiscalizacion = null,
   subsanacion = null,
   continuidad = null,
+  incorporacionPersonalB2 = null,
   auditoriaComun = null,
   llamamiento = null,
   clienteBorradorRRHH,
@@ -358,6 +359,7 @@ export async function montarModuloContratacionTemporal({
     clienteLlamamiento,
     resolucionFormalizacionDisponible,
     incorporacionEjercicioDisponible,
+    incorporacionPersonalB2,
     confirmarOperacion,
     mensajes,
     locale,
@@ -518,7 +520,7 @@ export async function montarModuloContratacionTemporal({
       reciboAsignacionConfirmado: gestorTramitacion.obtenerReciboAsignacionConfirmado(),
       llamamientoDisponible,
       resolucionFormalizacionDisponible,
-      incorporacionEjercicioDisponible,
+      incorporacionEjercicioDisponible: incorporacionEjercicioDisponible || incorporacionPersonalB2 !== null,
       resolverBolsa: typeof resolverBolsa === "function" ? resolverBolsa : null,
       filtroLista,
     });
@@ -759,6 +761,8 @@ export async function montarModuloContratacionTemporal({
       await gestorIncorporacion.montarResolucionFormalizacion();
     } else if (["consultar-incorporacion", "reintentar-incorporacion"].includes(accion.dataset.ctExpAccion)) {
       await gestorIncorporacion.montarIncorporacionEjercicio();
+    } else if (accion.dataset.ctExpAccion === "reintentar-incorporacion-b2") {
+      await gestorIncorporacion.ofrecerIncorporacionEjercicio();
     } else if (accion.dataset.ctExpAccion === "cancelar-descarga") {
       if (gestorBorrador.cancelarDescargaInforme()) gestorBorrador.informarDescarga("descarga_cancelada", "informacion");
     } else if (gestorBorrador.esAccionDescarga(accion.dataset.ctExpAccion)) {

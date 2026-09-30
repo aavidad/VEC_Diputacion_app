@@ -45,6 +45,7 @@
   "no_disponible": "Commencement of service cannot be checked right now. Select Refresh options. If the problem persists, contact IT.",
   "rechazada": "The operation was not accepted. Review the details before proceeding.",
   "faltan_comprobaciones": "Complete the pending checks before recording commencement of service.",
+  "pendientes_antes_legacy": "This commencement in Personnel has pending checks. If the case follows the earlier process, check its commencement of service.",
   "confirmada": "Commencement of service recorded in Personnel",
   "recibo": "Receipt",
   "fecha_registro": "Recorded on",
@@ -64,11 +65,23 @@
   "personal": {
     "ocupacion": {
       "clase": {
-        "titular": "Substantive",
+        "titular": "Permanent",
         "provisional": "Provisional",
         "temporal": "Temporary"
       }
     }
   },
-  "ct_incorporacion_b2_documento_formalizacion": "Case appointment formalisation document"
+  "ct_incorporacion_b2_documento_formalizacion": "Case appointment formalisation document",
+  "previo": {"aceptacion": "Confirmed acceptance"},
+  "ct_incorporacion_b2_motivo_sustitucion": "Temporary replacement",
+  "ct_incorporacion_b2_motivo_vacante": "Vacant post",
+  "ct_incorporacion_b2_motivo_acumulacion_tareas": "Temporary increase in workload",
+  "ct_incorporacion_b2_motivo_programa": "Temporary programme",
+  "ct_incorporacion_b2_motivo_relevo": "Replacement arrangement",
+  "ct_incorporacion_b2_motivo_incorporar": "Commencement for this case",
+  "ct_incorporacion_b2_previo_aceptacion_persona": "Acceptance and person verified",
+  "ct_incorporacion_b2_previo_documento": "Appointment document available",
+  "ct_incorporacion_b2_previo_rpt": "Current post verified",
+  "ct_incorporacion_b2_previo_plaza": "Available establishment position verified",
+  "ct_incorporacion_b2_previo_periodo": "Commencement period verified"
 }
