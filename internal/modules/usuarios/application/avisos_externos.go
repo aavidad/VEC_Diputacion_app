@@ -86,8 +86,13 @@ func (s *ServicioAvisosExternos) Despachar(ctx context.Context, reciboRef string
 				if ctx.Err() != nil {
 					return ctx.Err()
 				}
-				if s.transportador.EnviarAvisoExterno(ctx, ports.MensajeAvisoExterno{EnvioRef: r.Recibo.ReciboRef, Destino: string(claro), Evento: r.Evento}) {
+				switch s.transportador.EnviarAvisoExterno(ctx, ports.MensajeAvisoExterno{EnvioRef: r.Recibo.ReciboRef, Destino: string(claro), Evento: r.Evento}) {
+				case ports.AvisoExternoAceptadoPorRelay:
 					estado = "aceptado"
+				case ports.AvisoExternoNoAceptado:
+					estado = "no_aceptado"
+				default:
+					estado = "reservado_incierto"
 				}
 				return nil
 			})

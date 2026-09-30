@@ -67,16 +67,18 @@ CREATE TABLE vec_usuarios_correos_externo.avisos_reserva (
 );
 CREATE TABLE vec_usuarios_correos_externo.avisos_historia (
  recibo_ref text NOT NULL REFERENCES vec_usuarios_correos_externo.avisos_inbox(recibo_ref),
- accion text NOT NULL CHECK(accion IN ('aceptar','reservar','aceptado','no_aceptado','sin_destino','replay_aceptar','replay_reservar','replay_confirmar','denegado_aceptar','denegado_reservar','denegado_confirmar')),
+ accion text NOT NULL CHECK(accion IN ('aceptar','reservar','aceptado','no_aceptado','reservado_incierto','sin_destino','replay_aceptar','replay_reservar','replay_confirmar','denegado_aceptar','denegado_reservar','denegado_confirmar')),
  registrado_en timestamptz(6) NOT NULL,
  correlacion_ref text NOT NULL,
  sesion text NOT NULL,
  auditoria_ref text PRIMARY KEY CHECK(auditoria_ref ~ '^auditoria_tecnica_externa:[0-9a-f]{32}$')
 );
 CREATE UNIQUE INDEX avisos_un_cambio ON vec_usuarios_correos_externo.avisos_historia(recibo_ref,accion)
- WHERE accion IN ('aceptar','reservar','aceptado','no_aceptado','sin_destino');
+ WHERE accion IN ('aceptar','reservar','aceptado','no_aceptado','reservado_incierto','sin_destino');
+-- reservado_incierto es un resultado durable. Su reserva permanece inmutable
+-- y excluye tanto otro despacho como sustituirlo por aceptación o rechazo.
 CREATE UNIQUE INDEX avisos_un_resultado ON vec_usuarios_correos_externo.avisos_historia(recibo_ref)
- WHERE accion IN ('aceptado','no_aceptado','sin_destino');
+ WHERE accion IN ('aceptado','no_aceptado','reservado_incierto','sin_destino');
 CREATE FUNCTION vec_usuarios_correos_externo.sesion_inbox_avisos_externos_v1()
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $f$
  SELECT current_user='vec_usuarios_correos_externo_propietario' AND session_user='vec_externo_avisos_usuarios'
@@ -128,7 +130,7 @@ REVOKE ALL ON FUNCTION vec_usuarios_correos_externo.huella_estado_inbox_v1(text,
 CREATE FUNCTION vec_usuarios_correos_externo.estado_actual_inbox_v1(p_recibo text)
 RETURNS text LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp SET row_security=on AS $f$
  SELECT coalesce((SELECT accion FROM vec_usuarios_correos_externo.avisos_historia
-  WHERE recibo_ref=p_recibo AND accion IN ('aceptado','no_aceptado','sin_destino')),
+  WHERE recibo_ref=p_recibo AND accion IN ('aceptado','no_aceptado','reservado_incierto','sin_destino')),
   (CASE WHEN EXISTS(SELECT 1 FROM vec_usuarios_correos_externo.avisos_reserva WHERE recibo_ref=p_recibo) THEN 'reservado' ELSE 'inbox' END))
 $f$;
 REVOKE ALL ON FUNCTION vec_usuarios_correos_externo.estado_actual_inbox_v1(text) FROM PUBLIC,vec_usuarios_ejecutor_interno,vec_usuarios_ejecutor_externo;
@@ -213,7 +215,7 @@ DECLARE i vec_usuarios_correos_externo.avisos_inbox; m jsonb; persona text; toke
  SELECT * INTO i FROM vec_usuarios_correos_externo.avisos_inbox WHERE recibo_ref=p_recibo;
  IF NOT FOUND THEN RETURN vec_usuarios_correos_externo.denegar_inbox_v1(i,'reservar','no_disponible','inbox',0); END IF;
  IF EXISTS(SELECT 1 FROM vec_usuarios_correos_externo.avisos_reserva WHERE recibo_ref=p_recibo) THEN
-  SELECT accion INTO estado FROM vec_usuarios_correos_externo.avisos_historia WHERE recibo_ref=p_recibo AND accion IN ('aceptado','no_aceptado','sin_destino');
+  SELECT accion INTO estado FROM vec_usuarios_correos_externo.avisos_historia WHERE recibo_ref=p_recibo AND accion IN ('aceptado','no_aceptado','reservado_incierto','sin_destino');
   version_actual:=(CASE WHEN estado IS NULL THEN 2 ELSE 3 END);
   estado_h:=vec_usuarios_correos_externo.huella_estado_inbox_v1(i.huella,coalesce(estado,'reservado'));
   a:=vec_usuarios_correos_externo.auditar_historia_inbox_v1(i,'replay_reservar','reservar','replay',estado_h,estado_h,version_actual);
@@ -238,12 +240,12 @@ CREATE FUNCTION vec_usuarios_correos_externo.confirmar_aviso_externo_v1(p_recibo
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp SET row_security=on AS $f$
 DECLARE r vec_usuarios_correos_externo.avisos_reserva; i vec_usuarios_correos_externo.avisos_inbox; anterior text; a text; estado_h text; BEGIN
  IF NOT vec_usuarios_correos_externo.sesion_inbox_avisos_externos_v1() THEN RAISE EXCEPTION 'ejecutor no admitido' USING ERRCODE='42501'; END IF;
- IF p_recibo IS NULL OR p_recibo !~ '^aviso_recibo:[0-9a-f]{32}$' OR p_token IS NULL OR p_token !~ '^reserva:[0-9a-f]{32}$' OR p_estado IS NULL OR p_estado NOT IN ('aceptado','no_aceptado','sin_destino') THEN RETURN vec_usuarios_correos_externo.denegar_inbox_v1(i,'confirmar','invalido','inbox',0); END IF;
+ IF p_recibo IS NULL OR p_recibo !~ '^aviso_recibo:[0-9a-f]{32}$' OR p_token IS NULL OR p_token !~ '^reserva:[0-9a-f]{32}$' OR p_estado IS NULL OR p_estado NOT IN ('aceptado','no_aceptado','reservado_incierto','sin_destino') THEN RETURN vec_usuarios_correos_externo.denegar_inbox_v1(i,'confirmar','invalido','inbox',0); END IF;
  PERFORM pg_advisory_xact_lock(hashtextextended('u14:despacho:'||p_recibo,0));
  SELECT * INTO i FROM vec_usuarios_correos_externo.avisos_inbox WHERE recibo_ref=p_recibo;
  SELECT * INTO r FROM vec_usuarios_correos_externo.avisos_reserva WHERE recibo_ref=p_recibo;
  IF NOT FOUND OR r.reserva_sha256<>encode(sha256(convert_to(p_token,'UTF8')),'hex') OR r.sesion<>session_user THEN RETURN vec_usuarios_correos_externo.denegar_inbox_v1(i,'confirmar','no_disponible','reservado',(CASE WHEN i.recibo_ref IS NULL THEN 0 ELSE 2 END)); END IF;
- SELECT accion INTO anterior FROM vec_usuarios_correos_externo.avisos_historia WHERE recibo_ref=p_recibo AND accion IN ('aceptado','no_aceptado','sin_destino');
+ SELECT accion INTO anterior FROM vec_usuarios_correos_externo.avisos_historia WHERE recibo_ref=p_recibo AND accion IN ('aceptado','no_aceptado','reservado_incierto','sin_destino');
  IF FOUND THEN
   IF anterior<>p_estado THEN RETURN vec_usuarios_correos_externo.denegar_inbox_v1(i,'confirmar','conflicto',anterior,3); END IF;
   estado_h:=vec_usuarios_correos_externo.huella_estado_inbox_v1(i.huella,anterior);

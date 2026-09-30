@@ -77,8 +77,18 @@ type MensajeAvisoExterno struct {
 func (MensajeAvisoExterno) String() string   { return "usuarios.MensajeAvisoExterno{redactado}" }
 func (MensajeAvisoExterno) GoString() string { return "usuarios.MensajeAvisoExterno{redactado}" }
 
-// true acredita únicamente aceptación del relay SMTP; una respuesta incierta
-// se conserva como no_aceptado, sin reintento automático de la reserva.
+// ResultadoTransporteAvisoExterno distingue aceptación del relay, rechazo
+// confirmado e incertidumbre. El valor cero no afirma aceptación ni rechazo.
+type ResultadoTransporteAvisoExterno uint8
+
+const (
+	AvisoExternoIndeterminado ResultadoTransporteAvisoExterno = iota
+	AvisoExternoNoAceptado
+	AvisoExternoAceptadoPorRelay
+)
+
+// Aceptación del relay no acredita entrega. La incertidumbre conserva la
+// reserva durable para conciliación y nunca habilita otro envío automático.
 type TransportadorAvisoExterno interface {
-	EnviarAvisoExterno(context.Context, MensajeAvisoExterno) bool
+	EnviarAvisoExterno(context.Context, MensajeAvisoExterno) ResultadoTransporteAvisoExterno
 }

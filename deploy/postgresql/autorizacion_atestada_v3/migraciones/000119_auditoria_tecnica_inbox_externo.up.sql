@@ -44,14 +44,14 @@ CREATE TABLE vec_autorizacion_atestada_v3.auditoria_tecnica_inbox_externa (
  antes_sha256 text NOT NULL CHECK(antes_sha256 ~ '^[0-9a-f]{64}$'),
  despues_sha256 text NOT NULL CHECK(despues_sha256 ~ '^[0-9a-f]{64}$'),
  version bigint NOT NULL CHECK(version BETWEEN 0 AND 9007199254740991),
- resultado text NOT NULL CHECK(resultado IN('aceptado','reservado','no_aceptado','sin_destino','replay','denegado')),
+ resultado text NOT NULL CHECK(resultado IN('aceptado','reservado','no_aceptado','reservado_incierto','sin_destino','replay','denegado')),
  registrada_en timestamptz(6) NOT NULL,
  anterior_sha256 text NOT NULL CHECK(anterior_sha256 ~ '^[0-9a-f]{64}$'),
  huella_sha256 text NOT NULL UNIQUE CHECK(huella_sha256 ~ '^[0-9a-f]{64}$'),
  CHECK((recibo_ref IS NULL AND version=0 AND resultado='denegado') OR (recibo_ref IS NOT NULL AND version>0)),
  CHECK((accion='aceptar' AND resultado IN('aceptado','replay','denegado'))
     OR (accion='reservar' AND resultado IN('reservado','replay','denegado'))
-    OR (accion='confirmar' AND resultado IN('aceptado','no_aceptado','sin_destino','replay','denegado')))
+    OR (accion='confirmar' AND resultado IN('aceptado','no_aceptado','reservado_incierto','sin_destino','replay','denegado')))
 );
 CREATE TRIGGER inmutable BEFORE UPDATE OR DELETE ON vec_autorizacion_atestada_v3.auditoria_tecnica_inbox_externa
  FOR EACH ROW EXECUTE FUNCTION vec_autorizacion_atestada_v3.rechazar_mutacion();
@@ -99,7 +99,7 @@ BEGIN
  OR (p_recibo IS NOT NULL AND p_version=0)
  OR NOT ((p_accion='aceptar' AND p_resultado IN('aceptado','replay','denegado'))
     OR (p_accion='reservar' AND p_resultado IN('reservado','replay','denegado'))
-    OR (p_accion='confirmar' AND p_resultado IN('aceptado','no_aceptado','sin_destino','replay','denegado')))
+    OR (p_accion='confirmar' AND p_resultado IN('aceptado','no_aceptado','reservado_incierto','sin_destino','replay','denegado')))
  THEN RAISE EXCEPTION 'AD3-119 material nominal inválido' USING ERRCODE='22023'; END IF;
  SELECT secuencia,cabeza_sha256 INTO STRICT s,cabeza
  FROM vec_autorizacion_atestada_v3.control_cadena_tecnica_inbox_externa WHERE control_id FOR UPDATE;

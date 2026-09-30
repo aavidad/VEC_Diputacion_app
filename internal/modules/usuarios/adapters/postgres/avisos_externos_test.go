@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"errors"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -209,5 +210,23 @@ func TestInboxPGExigeLoginWorkerExactoYTodoCanalTLSVerificado(t *testing.T) {
 		if configuracionInboxExternoValida(cfg) {
 			t.Fatalf("canal inseguro %d admitido", i)
 		}
+	}
+}
+
+func TestInboxPGResultadoInciertoSeConfirmaYReplayNoEntregaReserva(t *testing.T) {
+	ctx := context.Background()
+	rec := reciboInboxPGPrueba()
+	b, _ := json.Marshal(map[string]any{"confirmado": true, "auditoria_ref": refAuditoriaInboxPG})
+	tx := &txCorreoPGPrueba{respuestas: []filaCorreoPGPrueba{{valor: true}, {valor: b}}}
+	token := "reserva:" + strings.Repeat("b", 32)
+	if err := registroInboxPGPrueba(tx).ConfirmarAvisoExterno(ctx, rec.ReciboRef, token, "reservado_incierto"); err != nil || tx.commits != 1 {
+		t.Fatal("no confirmó incertidumbre", err, tx.commits)
+	}
+	rec.Replay = true
+	b, _ = json.Marshal(map[string]any{"recibo": rec, "estado": "reservado_incierto", "replay": true, "auditoria_ref": refAuditoriaInboxPG})
+	tx = &txCorreoPGPrueba{respuestas: []filaCorreoPGPrueba{{valor: true}, {valor: b}}}
+	out, err := registroInboxPGPrueba(tx).ReservarAvisoExterno(ctx, rec.ReciboRef)
+	if err != nil || !out.Replay || out.Estado != "reservado_incierto" || out.Recibo != rec || out.ReservaRef != "" || out.PersonaRef != "" || !reflect.DeepEqual(out.Sobre, ports.SobreDireccionCorreo{}) || out.Evento != (ports.EventoAvisoExterno{}) || tx.commits != 1 {
+		t.Fatal("replay incierto abrió reserva", out, err, tx.commits)
 	}
 }

@@ -202,7 +202,7 @@ type reservaAvisoExternoSQL struct {
 }
 
 func estadoAvisoValido(e string) bool {
-	return e == "reservado" || e == "aceptado" || e == "no_aceptado" || e == "sin_destino"
+	return e == "reservado" || e == "reservado_incierto" || e == "aceptado" || e == "no_aceptado" || e == "sin_destino"
 }
 func (r *RegistroAvisosExternosPostgreSQL) ReservarAvisoExterno(ctx context.Context, ref string) (ports.ReservaAvisoExterno, error) {
 	var cero ports.ReservaAvisoExterno

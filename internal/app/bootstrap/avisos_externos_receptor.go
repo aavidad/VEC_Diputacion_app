@@ -47,13 +47,20 @@ type transporteAvisosExternos struct {
 	ahora                   func() time.Time
 }
 
-func (t *transporteAvisosExternos) EnviarAvisoExterno(ctx context.Context, m usuariosports.MensajeAvisoExterno) bool {
-	if t == nil || ctx == nil || t.smtp == nil || m.Destino == "" || !strings.HasPrefix(m.EnvioRef, "aviso_recibo:") {
-		return false
+func (t *transporteAvisosExternos) EnviarAvisoExterno(ctx context.Context, m usuariosports.MensajeAvisoExterno) usuariosports.ResultadoTransporteAvisoExterno {
+	if t == nil || ctx == nil || t.smtp == nil || t.ahora == nil || m.Destino == "" || !strings.HasPrefix(m.EnvioRef, "aviso_recibo:") {
+		return usuariosports.AvisoExternoIndeterminado
 	}
 	resultado := t.smtp.Enviar(ctx, smtpct.Mensaje{Destino: m.Destino, Asunto: t.asunto, Cuerpo: t.cuerpo,
 		MessageID: "<" + strings.ReplaceAll(m.EnvioRef, ":", "-") + "@" + t.dominio + ">", FechaOrigen: t.ahora().UTC()})
-	return resultado.Estado == smtpct.AceptadoPorRelay
+	switch resultado.Estado {
+	case smtpct.AceptadoPorRelay:
+		return usuariosports.AvisoExternoAceptadoPorRelay
+	case smtpct.NoAceptadoTransitorio, smtpct.NoAceptadoPermanente:
+		return usuariosports.AvisoExternoNoAceptado
+	default:
+		return usuariosports.AvisoExternoIndeterminado
+	}
 }
 func nuevoTransporteAvisosExternos(cfg config.Config, c configuracionAvisosExternos) (*transporteAvisosExternos, error) {
 	u, err := url.Parse(c.URLPersonal)

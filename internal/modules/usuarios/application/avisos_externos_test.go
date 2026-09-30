@@ -87,16 +87,19 @@ func (p *protectorInboxPrueba) ConDireccionCorreoDescifrada(_ context.Context, _
 }
 
 type transportadorInboxPrueba struct {
-	mu     sync.Mutex
-	n      int
-	acepta bool
+	mu        sync.Mutex
+	n         int
+	resultado ports.ResultadoTransporteAvisoExterno
 }
 
-func (t *transportadorInboxPrueba) EnviarAvisoExterno(_ context.Context, m ports.MensajeAvisoExterno) bool {
+func (t *transportadorInboxPrueba) EnviarAvisoExterno(_ context.Context, m ports.MensajeAvisoExterno) ports.ResultadoTransporteAvisoExterno {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	t.n++
-	return t.acepta && m.Destino == "sintetico@example.test"
+	if m.Destino != "sintetico@example.test" {
+		return ports.AvisoExternoNoAceptado
+	}
+	return t.resultado
 }
 
 type catalogoInboxPrueba bool
@@ -117,7 +120,7 @@ func servicioInboxPrueba(t *testing.T, r *registroInboxPrueba, p *protectorInbox
 }
 func TestInboxAceptacionNoEnviaYMismoEventoConservaRecibo(t *testing.T) {
 	r := &registroInboxPrueba{}
-	tr := &transportadorInboxPrueba{acepta: true}
+	tr := &transportadorInboxPrueba{resultado: ports.AvisoExternoAceptadoPorRelay}
 	s := servicioInboxPrueba(t, r, &protectorInboxPrueba{}, tr)
 	ctx := context.Background()
 	e := eventoInboxPrueba()
@@ -136,7 +139,7 @@ func TestInboxAceptacionNoEnviaYMismoEventoConservaRecibo(t *testing.T) {
 }
 func TestInboxConcurrenteDespachaUnaVez(t *testing.T) {
 	r := &registroInboxPrueba{}
-	tr := &transportadorInboxPrueba{acepta: true}
+	tr := &transportadorInboxPrueba{resultado: ports.AvisoExternoAceptadoPorRelay}
 	s := servicioInboxPrueba(t, r, &protectorInboxPrueba{}, tr)
 	ctx := context.Background()
 	rec, err := s.Aceptar(ctx, eventoInboxPrueba())
@@ -167,7 +170,7 @@ func TestInboxConcurrenteDespachaUnaVez(t *testing.T) {
 }
 func TestInboxFalloTrasSMTPNoReenvia(t *testing.T) {
 	r := &registroInboxPrueba{confirmacionFalla: true}
-	tr := &transportadorInboxPrueba{acepta: true}
+	tr := &transportadorInboxPrueba{resultado: ports.AvisoExternoAceptadoPorRelay}
 	s := servicioInboxPrueba(t, r, &protectorInboxPrueba{}, tr)
 	ctx := context.Background()
 	rec, _ := s.Aceptar(ctx, eventoInboxPrueba())
@@ -186,7 +189,7 @@ func TestInboxSinCorreoOFalloSobreNoEnvia(t *testing.T) {
 		estado            string
 	}{{true, false, "sin_destino"}, {false, true, "no_aceptado"}} {
 		r := &registroInboxPrueba{sinDestino: caso.sinDestino}
-		tr := &transportadorInboxPrueba{acepta: true}
+		tr := &transportadorInboxPrueba{resultado: ports.AvisoExternoAceptadoPorRelay}
 		s := servicioInboxPrueba(t, r, &protectorInboxPrueba{falla: caso.falla}, tr)
 		ctx := context.Background()
 		rec, _ := s.Aceptar(ctx, eventoInboxPrueba())
@@ -212,5 +215,45 @@ func TestInboxRechazaProductorYPlantillaAntesPersistir(t *testing.T) {
 	var typedNil *registroInboxPrueba
 	if _, err := NuevoServicioAvisosExternos(typedNil, &protectorInboxPrueba{}, tr, catalogoInboxPrueba(true), "productor:bolsa"); err == nil {
 		t.Fatal("dependencia nil admitida")
+	}
+}
+
+func TestInboxResultadoTransporteConservadoSinReenvio(t *testing.T) {
+	for _, caso := range []struct {
+		nombre     string
+		transporte ports.ResultadoTransporteAvisoExterno
+		estado     string
+	}{
+		{"aceptado", ports.AvisoExternoAceptadoPorRelay, "aceptado"},
+		{"no_aceptado", ports.AvisoExternoNoAceptado, "no_aceptado"},
+		{"indeterminado_cero", ports.AvisoExternoIndeterminado, "reservado_incierto"},
+		{"desconocido", ports.ResultadoTransporteAvisoExterno(99), "reservado_incierto"},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			r := &registroInboxPrueba{}
+			tr := &transportadorInboxPrueba{resultado: caso.transporte}
+			s := servicioInboxPrueba(t, r, &protectorInboxPrueba{}, tr)
+			ctx := context.Background()
+			evento := eventoInboxPrueba()
+			recibo, err := s.Aceptar(ctx, evento)
+			if err != nil {
+				t.Fatal(err)
+			}
+			primero, err := s.Despachar(ctx, recibo.ReciboRef)
+			if err != nil || primero.Estado != caso.estado || primero.Replay || primero.ReciboRef != recibo.ReciboRef || tr.n != 1 {
+				t.Fatal("resultado de transporte perdido", primero, err, tr.n)
+			}
+			token := r.token
+			// Otra instancia recupera el mismo registro tras una interrupción.
+			s = servicioInboxPrueba(t, r, &protectorInboxPrueba{}, tr)
+			ack, err := s.Aceptar(ctx, evento)
+			if err != nil || !ack.Replay || ack.ReciboRef != recibo.ReciboRef || ack.Huella != recibo.Huella || ack.AceptadoEn != recibo.AceptadoEn {
+				t.Fatal("recibo original sustituido", ack, err)
+			}
+			replay, err := s.Despachar(ctx, ack.ReciboRef)
+			if err != nil || !replay.Replay || replay.ReciboRef != primero.ReciboRef || replay.Estado != caso.estado || r.estado != caso.estado || r.token != token || !r.reservado || tr.n != 1 {
+				t.Fatal("replay cambió resultado o repitió SMTP", replay, err, tr.n)
+			}
+		})
 	}
 }
