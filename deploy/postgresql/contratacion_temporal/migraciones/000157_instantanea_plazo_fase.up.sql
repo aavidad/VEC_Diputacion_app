@@ -246,15 +246,17 @@ BEGIN
   p_sobre_cose_sign_1,p_evidencia_verificacion,p_raiz_publica_spki);
  SELECT coalesce(array_agg(
   CASE WHEN s.estado='capturada' THEN jsonb_build_object(
-   'estado',s.estado,'fase',s.fase_clave,'fase_desde',s.fase_desde,
+   'estado',s.estado,'expediente_ref',e.expediente_ref,
+   'version_expediente',e.version,'fase',s.fase_clave,'fase_desde',s.fase_desde,
    'catalogo_base_id',s.base_catalogo_id,'base_version',s.base_version,
    'base_huella_sha256',s.base_huella_sha256,
    'catalogo_ajustes_id',s.ajustes_catalogo_id,'ajustes_encontrados',s.ajustes_encontrados,
    'ajustes_version',s.ajustes_version,'ajustes_huella_sha256',s.ajustes_huella_sha256,
    'ajustes_vigente_desde',s.ajustes_vigente_desde,
    'capturada_en',s.capturada_en)
-  ELSE jsonb_build_object('estado','legado_sin_instantanea','fase',s.fase_clave,
-   'fase_desde',s.fase_desde) END ORDER BY e.orden),ARRAY[]::jsonb[]),
+  ELSE jsonb_build_object('estado','legado_sin_instantanea',
+   'expediente_ref',e.expediente_ref,'version_expediente',e.version,
+   'fase',s.fase_clave,'fase_desde',s.fase_desde) END ORDER BY e.orden),ARRAY[]::jsonb[]),
   count(*)::integer,count(s.version)::integer
  INTO v_instantaneas,v_filas,v_con_fila
  FROM vec_contratacion_temporal.expedientes_contenido_cuadro_rrhh_v1(v_v4.contenido_canonico) e
