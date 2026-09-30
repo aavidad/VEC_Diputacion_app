@@ -38,7 +38,7 @@ const (
 	consultaPublicacionRPT    = `SELECT vec_autorizacion_atestada_v3.leer_publicacion_categoria_rpt_v3_atestada($1::jsonb,$2::bytea,$3::bytea,$4::bytea,$5::bytea,$6::numeric,$7::numeric,$8::bytea,$9::bytea,$10::bytea,$11::bytea)`
 	consultaUsoRPT            = `SELECT vec_autorizacion_atestada_v3.consultar_uso_categoria_rpt_v3_atestada($1::jsonb,$2::bytea,$3::bytea,$4::bytea,$5::bytea,$6::numeric,$7::numeric,$8::bytea,$9::bytea,$10::bytea,$11::bytea)`
 	consultaHuellaMaterialRPT = `SELECT pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to($1::jsonb::text,'UTF8')),'hex')`
-	configurarLecturaRPT      = `SELECT set_config('search_path','pg_catalog',true),set_config('row_security','on',true),set_config('timezone','UTC',true),set_config('lock_timeout','2s',true),set_config('statement_timeout','30s',true),set_config('idle_in_transaction_session_timeout','35s',true)`
+	configurarLecturaRPT      = `SELECT set_config('search_path','pg_catalog',true),set_config('row_security','on',true),set_config('timezone','UTC',true),set_config('lock_timeout','2s',true),set_config('statement_timeout','15s',true),set_config('idle_in_transaction_session_timeout','20s',true)`
 )
 
 var huellaRPT = regexp.MustCompile(`^[0-9a-f]{64}$`)
