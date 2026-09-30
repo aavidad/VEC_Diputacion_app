@@ -83,3 +83,11 @@ Un fallo al confirmar no se reintenta automáticamente. Consulte la preimagen
 por el canal de gobierno y reconcilie el resultado antes de preparar otra
 operación. Ninguna prueba ni configuración de este ejercicio acredita la
 fuente real, su cobertura aprobada o un despliegue en la principal.
+
+Las actuaciones de Bolsa conservan autorización, recibo y auditoría en su
+historia común. El ejercicio del portal puede probar consulta, pausa,
+reactivación y respuesta propia con referencias opacas. El contacto externo
+nuevo requiere su fuente en el almacén externo: no se publica correo ni
+teléfono en `datos_contacto_participacion` para completar este recorrido.
+La confirmación queda denegada mientras falte una versión válida de esa fuente.
+La pregunta 97 de `dudas.md` recoge la conservación pendiente de criterio del DPD.
