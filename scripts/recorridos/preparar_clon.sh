@@ -19,11 +19,11 @@ case "$accion" in preparar|estado|reiniciar|parar|retirar|plan) ;; *) echo 'Uso:
 # Lectura Git exclusivamente: no exige H1, estado privado, Docker ni runtime.
 if [[ "$accion" == plan ]]; then
   commit=$(git -C "$repo" rev-parse --verify "$referencia^{commit}")
-  exec python3 "$guiones/clon_sql.py" --repo "$repo" --git-repo "$repo" --source-ref "$commit" --plan
+  exec python3 -B "$guiones/clon_sql.py" --repo "$repo" --git-repo "$repo" --source-ref "$commit" --plan
 fi
 
 requerir_kit_d() {
-  python3 - "$guiones" <<'PYTHON'
+  python3 -B - "$guiones" <<'PYTHON'
 import sys
 sys.path.insert(0, sys.argv[1])
 import clon_sql
@@ -51,13 +51,13 @@ for puerto in "$puerto_pg" "$puerto_web" "$puerto_smtp" "$puerto_correo_web"; do
   [[ "$puerto" =~ ^[0-9]+$ ]] || exit 2
   ((puerto > 1024 && puerto < 65536)) || exit 2
 done
-python3 - "$puerto_pg" "$puerto_web" "$puerto_smtp" "$puerto_correo_web" <<'PYTHON'
+python3 -B - "$puerto_pg" "$puerto_web" "$puerto_smtp" "$puerto_correo_web" <<'PYTHON'
 import sys
 if len(set(map(int,sys.argv[1:]))) != 4:
     raise SystemExit('Los cuatro servicios necesitan puertos diferentes.')
 PYTHON
 # No crear ni normalizar silenciosamente un estado ausente/enlazado.
-estado=$(python3 - "$estado" <<'PYTHON'
+estado=$(python3 -B - "$estado" <<'PYTHON'
 import os, stat, sys
 from pathlib import Path
 p=Path(sys.argv[1]).expanduser().absolute()
@@ -79,7 +79,7 @@ PYTHON
 marcador="$estado/clon.json"
 
 registro_propio() {
-  python3 - "$marcador" "$nombre" "$estado" "$puerto_pg" "$puerto_web" <<'PYTHON'
+  python3 -B - "$marcador" "$nombre" "$estado" "$puerto_pg" "$puerto_web" <<'PYTHON'
 import json, os, re, stat, sys
 from pathlib import Path
 fd=os.open(sys.argv[1], os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
@@ -102,21 +102,21 @@ PYTHON
 
 runtime() {
   local operacion=$1 hash
-  hash=$(python3 - "$marcador" <<'PYTHON'
+  hash=$(python3 -B - "$marcador" <<'PYTHON'
 import json,sys
 print(json.load(open(sys.argv[1]))['commit'])
 PYTHON
 )
-  python3 "$guiones/clon_runtime.py" "$operacion" --mode interno --repo "$repo" --commit "$hash" --state "$estado" --port "$puerto_web" --pg-port "$puerto_pg"
+  python3 -B "$guiones/clon_runtime.py" "$operacion" --mode interno --repo "$repo" --commit "$hash" --state "$estado" --port "$puerto_web" --pg-port "$puerto_pg"
 }
 
 comunicaciones() {
-  python3 "$guiones/clon_comunicaciones.py" "$1" --repo "$repo" --state "$estado" --container "$nombre" --pg-port "$puerto_pg" --smtp-port "$puerto_smtp" --mailpit-http-port "$puerto_correo_web"
+  python3 -B "$guiones/clon_comunicaciones.py" "$1" --repo "$repo" --state "$estado" --container "$nombre" --pg-port "$puerto_pg" --smtp-port "$puerto_smtp" --mailpit-http-port "$puerto_correo_web"
 }
 
 propio() {
   registro_propio
-  pg_id=$(python3 - "$marcador" "$nombre" <<'PY'
+  pg_id=$(python3 -B - "$marcador" "$nombre" <<'PY'
 import json,re,subprocess,sys
 v=json.load(open(sys.argv[1]))
 result=subprocess.run(['docker','inspect',sys.argv[2]],capture_output=True,check=True)
@@ -138,7 +138,7 @@ PY
 
 if [[ "$accion" == estado ]]; then
   registro_propio
-  python3 - "$guiones" "$repo" "$estado" <<'PYTHON'
+  python3 -B - "$guiones" "$repo" "$estado" <<'PYTHON'
 import json, os, subprocess, sys, uuid
 from pathlib import Path
 sys.path.insert(0,sys.argv[1])
@@ -184,7 +184,7 @@ registro_propio
 }
 [[ ! -L "$estado/preparar.lock" ]] || exit 2
 exec 9<>"$estado/preparar.lock"
-python3 - <<'PYTHON'
+python3 -B - <<'PYTHON'
 import os,stat
 v=os.fstat(9)
 if not stat.S_ISREG(v.st_mode) or v.st_nlink != 1 or v.st_uid != os.getuid() or v.st_mode & 0o077:
@@ -194,15 +194,22 @@ flock -n 9 || { echo 'El clon tiene otra operación en curso.' >&2; exit 1; }
 
 if [[ "$accion" == parar || "$accion" == retirar ]]; then
   registro_propio
-  rm -f -- "$estado/READY.json"
   pg_id=''
-  if docker inspect "$nombre" >/dev/null 2>&1; then propio; fi
+  if docker inspect "$nombre" >/dev/null 2>&1; then
+    propio
+  elif [[ "$accion" == retirar ]]; then
+    # El marcador histórico no conserva dev/ino/run_id del volumen. Un nombre
+    # con prefijo propio no sustituye la comprobación del montaje del contenedor.
+    echo 'Retirada bloqueada: no se puede acreditar el volumen sin su contenedor. Conserve la copia para revisión manual.' >&2
+    exit 1
+  fi
+  rm -f -- "$estado/READY.json"
   runtime stop
   comunicaciones stop
   if [[ -n "$pg_id" ]] && docker inspect "$pg_id" >/dev/null 2>&1; then docker stop "$pg_id" >/dev/null; fi
   rm -f -- "$estado/READY.json"
   if [[ "$accion" == retirar ]]; then
-    python3 - "$marcador" <<'PY'
+    python3 -B - "$marcador" <<'PY'
 import json, os, pathlib, re, shutil, sys
 v=json.load(open(sys.argv[1])); p=pathlib.Path(v['pgdata'])
 if not (p.parent == pathlib.Path('/dev/shm') and re.fullmatch('vec-recorridos-[A-Za-z0-9_-]+',p.name) and not p.is_symlink()):

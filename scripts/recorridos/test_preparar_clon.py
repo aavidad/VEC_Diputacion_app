@@ -3,6 +3,7 @@ from pathlib import Path
 import importlib.util
 import json
 import os
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -195,6 +196,48 @@ class OrquestadorTests(unittest.TestCase):
                     self.assertNotEqual(p.returncode, 0)
                     self.assert_no_services()
 
+    def test_retirar_sin_contenedor_conserva_volumen_prefijado_y_evidencia(self):
+        with tempfile.TemporaryDirectory(prefix='vec-recorridos-ajeno-', dir='/dev/shm') as volume:
+            self.owner(pgdata=volume)
+            payload=Path(volume)/'ajeno'
+            payload.write_bytes(b'contenido-ajeno')
+            self.write_json('READY.json',{'legado':True})
+            self.journal(pending={'position':1})
+            before={p.name:p.read_bytes() for p in self.state.iterdir()}
+            p=self.run_action('retirar')
+            self.assertNotEqual(p.returncode,0)
+            self.assertIn('Retirada bloqueada',p.stderr)
+            self.assertEqual(self.calls.read_text().splitlines(),['inspect vec-fixture'])
+            self.assertEqual(payload.read_bytes(),b'contenido-ajeno')
+            for name,data in before.items():
+                self.assertEqual((self.state/name).read_bytes(),data)
+            self.assertFalse((self.state/'RETIRADO.json').exists())
+            self.assertFalse((self.state/'runtime-process.json').exists())
+
+    def test_plan_y_estado_no_crean_bytecode_con_fuente_escribible(self):
+        self.owner()
+        control=self.root/'control'
+        scripts=control/'scripts/recorridos'
+        scripts.mkdir(parents=True)
+        for name in ('preparar_clon.sh','clon_sql.py','sql_main.txt',
+                     'sql_main_h6.txt','sql_main_h6_firma.txt'):
+            shutil.copyfile(SCRIPT.with_name(name),scripts/name)
+        git=self.root/'tools/git'
+        git.write_text('#!/bin/sh\ncase "$*" in *"rev-parse --show-toplevel") printf "%s\\n" "$VEC_TEST_REPO" ;; *) exec /usr/bin/git "$@" ;; esac\n')
+        git.chmod(0o700)
+        environment=self.environment | {'VEC_TEST_REPO':str(REPO),
+            'PYTHONPYCACHEPREFIX':str(self.root/'bytecode')}
+        environment.pop('PYTHONDONTWRITEBYTECODE',None)
+        for action in ('plan','estado'):
+            with self.subTest(action=action):
+                p=subprocess.run(['bash',str(scripts/'preparar_clon.sh'),action],
+                    capture_output=True,text=True,env=environment,timeout=20)
+                self.assertEqual(p.returncode,0,p.stderr)
+                self.assertFalse((self.root/'bytecode').exists())
+                self.assertEqual(list(control.rglob('*.pyc')),[])
+                self.assertEqual(list(control.rglob('__pycache__')),[])
+        self.assert_no_services()
+
     def test_optimizacion_python_no_desactiva_propiedad(self):
         self.owner(propietario='Otro')
         p=self.run_action('retirar',PYTHONOPTIMIZE='1')
@@ -203,7 +246,7 @@ class OrquestadorTests(unittest.TestCase):
 
     def test_limpieza_conserva_diario_material_y_archivos_no_reconocidos(self):
         source = SCRIPT.read_text()
-        start = source.index('    python3 - "$marcador" <<\'PY\'')
+        start = source.index('    python3 -B - "$marcador" <<\'PY\'')
         code = source[start:].split("\n", 1)[1].split('\nPY\n', 1)[0]
         with tempfile.TemporaryDirectory(prefix='vec-recorridos-', dir='/dev/shm') as volume:
             self.owner(pgdata=volume)
