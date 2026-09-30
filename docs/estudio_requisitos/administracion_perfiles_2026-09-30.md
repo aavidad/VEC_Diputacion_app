@@ -1,196 +1,195 @@
-# Administración de perfiles: estudio y diseño
+# Administración de perfiles: requisitos y orden de implantación
 
-**Estado: BORRADOR incompleto.** Se cerró por orden de Alberto el 30/09/2026
-antes de terminar. Falta, y no debe darse por hecho:
+**Estado: estudio de diseño, sin administración funcional.** La PR #211 abrió
+este estudio. La [PR #232](https://github.com/aavidad/VEC_Diputacion_app/pull/232)
+prepara la frontera y contratos, pero no da de alta administradores ni expone
+la pantalla de gestión. Ningún corte citado aquí acredita instalación en
+cidonia, firma legal o acceso a expedientes.
 
-- la comparación con otros productos y administraciones (paso 1): no se ha
-  consultado ninguna fuente, así que este borrador no afirma nada sobre cómo lo
-  resuelven Workday, SAP SuccessFactors, Oracle HCM, Odoo, Keycloak, Entra ID
-  PIM ni ninguna administración española;
-- la revisión independiente de seguridad (opus-alto con `security-audit`);
-- el repaso de pantallas con `usabilidad-vec` y el de textos con `humanizer`;
-- la reserva real de números de migración en `RESERVAS_MIGRACIONES.md`.
+## Decisiones vigentes
 
-Lo que sí contiene está sacado del código de `main` en `5cc7ca123`,
-localizado con el índice de código.
+1. Una persona puede tener varios perfiles. Cada petición utiliza uno solo,
+   elegido expresamente y ligado a la identidad y al canal. Sus permisos no
+   se suman.
+2. Hay un único tipo de rol para administrar perfiles. Cada administrador
+   tiene su propia cuenta privilegiada y asignación nominal vigente. El rol
+   común no convierte `PerfilActivoRef` en una referencia compartida ni da
+   acceso a Contratación, Bolsa, Personal o documentos.
+3. El acto inicial de instalación provisiona **a la vez dos personas
+   administradoras nominativas ya acreditadas**. Alberto aprueba expresamente
+   la preimagen y su huella; el aplicador usa CAS y confirma las dos altas en
+   una sola transacción. La decisión consta en el canal del 30/09/2026 a las
+   21:25 y 22:30. Preparar un plan y su huella no efectúa el alta.
+4. Después del arranque, dar o quitar el rol administrador exige propuesta y
+   aprobación de otra persona administradora, distinta de la proponente y de
+   la afectada. El mismo doble control rige las altas y bajas de Intervención.
+   Las asignaciones nominales y la decisión V3 se revalidan al aplicar.
+5. La baja ordinaria conserva al menos dos personas administradoras efectivas;
+   ninguna transición puede dejar el sistema sin administrador. Si se pierde
+   una credencial o una persona, se bloquean los actos sin aprobador válido.
+   La recuperación necesita procedimiento excepcional, aprobación expresa del
+   operador, evidencia y revisión antes de implementarse. No abre un segundo
+   bootstrap ni permite autoalta.
+6. ADMIN usa proceso, subdominio, cuenta técnica y CA propios. En cidonia el
+   TLS cliente llega directo a Go por passthrough de capa 4; Go verifica la
+   cadena mTLS de la CA ADMIN. Un PEM reenviado en una cabecera no acredita
+   `VerifiedChains`.
+7. Solo en la frontera ADMIN de desarrollo y cidonia, un certificado ADMIN
+   verificado puede aportar garantía HIGH sin Kerberos. Aun así se exige la
+   concesión administrativa exacta y vigente. Producción exige Kerberos,
+   certificado y CIDR corporativas; cualquier falta deniega.
+8. Los actos, consultas y denegaciones quedan auditados con datos mínimos.
+   Una revocación conserva su historia y no vuelve a `activo` por otra versión.
 
-## 1. Requisitos de Alberto
+Estas decisiones concretan la separación de autoridades y la denegación por
+defecto de [ESPECIFICACIONES_AGENTES.md](../../ESPECIFICACIONES_AGENTES.md)
+(E04–E07 y E10). La matriz general distingue otras funciones técnicas
+privilegiadas; el rol de este estudio gobierna perfiles sin absorberlas.
 
-1. Una persona puede tener varios perfiles (técnico de RRHH, Intervención,
-   centro solicitante, ratificador, empleado, candidato…). En la cabecera elige
-   el perfil activo, y con él cambian la vista, los menús y los permisos.
-2. Hay un perfil «administrador», el único que pone y quita perfiles.
-3. La administración va en un subdominio propio (p. ej.
-   `admin.vec.cidonia.cloud`), con mTLS de una CA propia de administración. En
-   producción solo se entra desde la red corporativa (rangos en configuración,
-   aplicados en Caddy y en la aplicación). En desarrollo y en cidonia, abierto.
-4. El administrador no ve expedientes ni Bolsa (separación de funciones).
-5. Dar o quitar el perfil de administrador exige doble control, y el sistema
-   nunca puede quedarse sin ningún administrador.
-6. El primer administrador se provisiona una sola vez, con aprobación del
-   operador.
-7. Todo queda auditado: quién, cuándo, antes, después y motivo.
-8. Una revocación nunca revive.
+## Contraste con productos existentes
 
-## 2. Lo que ya existe y hay que reutilizar
+Las fuentes describen sus productos. El encaje de la última columna es una
+decisión de VEC; ninguna fuente acredita una práctica de la Diputación.
 
-No se crea una segunda autoridad de permisos. Todo lo necesario ya tiene dueño:
-
-| Pieza | Dónde está | Qué aporta |
+| Fuente primaria | Hecho comprobado | Encaje en VEC |
 | --- | --- | --- |
-| Perfil y vínculo cuenta-persona-perfil | `deploy/postgresql/contexto_actor_v1` (`perfil_versiones`/`perfil_actual`, `vinculo_contexto_versiones`/`_actual`) | Cada perfil es una referencia `prf_…` de una persona `per_…`, con estado `activo`/`revocado` y vigencia. Una persona con varios perfiles ya se representa como varios vínculos. |
-| ContextoActor | `internal/vec/domain/contexto_actor.go` | `SolicitudContextoActor` exige un `PerfilActivoRef` concreto: un perfil vacío no significa «el habitual» ni se elige el primero. |
-| Roles fijos y asignaciones V3 | `deploy/postgresql/autorizacion/migraciones/000001_autorizacion.up.sql` (`version_rol`, `control_vigencia_version_rol`, `asignacion_perfil`, `asignacion_perfil_actual`) | Rol versionado sin comodines; asignación versionada por `perfil_activo_ref`, con puntero actual que solo avanza (disparador `validar_avance_asignacion_actual`) y guarda `actualizada_por` y `acto_ref`. |
-| Provisión por huella y CAS | `config/ct_provision_perfiles_centro.go`, `cmd/vec-publicar-permiso-interno` | El operador aprueba sustituir una asignación exacta por su huella SHA-256; nunca actúa sobre una revocada, restringida o retirada. No se publican permisos por petición ni al arrancar. |
-| Superficie de administración | `internal/vec/adapters/httpseguridad/superficie.go` | Ya existen `SuperficieAdministracionPrivilegiada` y `ZonaRedAdministracion`. Exigen Kerberos + certificado, dos grupos criptográficos, garantía alta, cuenta privilegiada separada y autenticación de hace menos de 5 minutos. Una superficie no interna no puede escuchar en todas las interfaces. |
-| Sesión | `internal/vec/adapters/httpseguridad/sesion_durable.go` (`AltaSesionAtomica`, con `CuentaPrivilegiada` y `Superficie`) | Alta de sesión atómica y durable, ligada a la superficie. |
-| Separación de procesos | `cmd/vec-publico`, `cmd/vec-interno`, `cmd/vec-server`; PR #143/#147/#192 | Un proceso por portal, con su propio listener y su propio LOGIN de base de datos. |
-| Pantalla de administración | `web/static/portal-empleado/modulos/administracion/` | Pestañas ya dibujadas sin autoridad («roles» con acciones bloqueadas). Textos en `web/static/textos/es/administracion.json`. |
+| [Keycloak: hostname de administración](https://www.keycloak.org/server/hostname) | Permite otra URL para la consola; advierte que `hostname-admin` por sí solo no cierra la API administrativa en la URL principal. | Subdominio, proceso y rutas ADMIN separados; la entrada pública no enruta su API. |
+| [Microsoft Entra PIM: aprobación](https://learn.microsoft.com/en-us/entra/id-governance/privileged-identity-management/pim-approval-workflow) | Admite aprobación delegada para activar roles e impide al solicitante aprobar su propia activación. | Dos personas distintas para cambios de administrador e Intervención; VEC revalida la asignación al ejecutar. |
+| [Teleport: solicitudes de acceso](https://goteleport.com/docs/identity-governance/access-requests/access-request-configuration/) | Configura roles solicitables y revisores; por defecto no se puede solicitar elevación. | Lista positiva cerrada y doble control. Una solicitud nunca publica permisos por sí sola. |
+| [GitHub: continuidad de propietarios](https://docs.github.com/en/organizations/managing-peoples-access-to-your-organization-with-roles/maintaining-ownership-continuity-for-your-organization) | Recomienda dos personas propietarias para evitar perder acceso y no permite cambiar el rol propio. | Arranque con dos personas y mínimo de dos tras una baja ordinaria; recuperación excepcional con contrato propio. |
 
-## 3. Encaje propuesto en VEC
+## Autoridades que se reutilizan
 
-### 3.1 Perfil activo
+| Pieza existente | Contrato para este estudio |
+| --- | --- |
+| `contexto_actor_v1`: `perfil_versiones`, `perfil_actual`, `vinculo_contexto_versiones` y `vinculo_contexto_actual` | Cada vínculo de persona y perfil tiene referencia, vigencia y estado. El perfil activo procede de un vínculo vivo de esa persona. |
+| `internal/vec/domain/contexto_actor.go` | `SolicitudContextoActor` exige un `PerfilActivoRef` concreto; no elige un perfil por defecto. |
+| `autorizacion`: `version_rol`, `asignacion_perfil` y `asignacion_perfil_actual` | La versión del rol se publica mediante el circuito gobernado. Cada administrador conserva una asignación nominal distinta, con versión, ámbito, vigencia y acto. |
+| Provisión existente por huella y CAS | La preimagen aprobada identifica exactamente dos personas acreditadas, dos asignaciones y la versión del rol. Una petición web no es aprobación. |
+| `SuperficieAdministracionPrivilegiada` y sesiones durables | ADMIN usa cuenta privilegiada, audiencia y superficie propias. La excepción HIGH en desarrollo/cidonia se limita a esta frontera. |
+| Auditoría V3 y registro de sesiones | Se conserva quién hizo cada lectura, denegación, propuesta, aprobación y cambio, y su resultado. El administrador funcional no altera el destino de auditoría. |
 
-- El perfil activo va **en la sesión del servidor**, nunca en cookies,
-  `localStorage` ni cabeceras que mande el navegador.
-- Cambiar de perfil es abrir una sesión nueva ligada al otro perfil. El
-  navegador pide el cambio con una petición `POST` que solo lleva la referencia
-  opaca `prf_…` elegida. El servidor:
-  1. comprueba que ese perfil pertenece a la misma persona y cuenta de la
-     sesión actual y que su vínculo está activo y vigente;
-  2. resuelve de nuevo el `ContextoActor` con esa `SolicitudContextoActor`;
-  3. da de alta una sesión nueva (misma autenticación, perfil distinto) y
-     cierra la anterior;
-  4. deja auditado el cambio (perfil anterior, perfil nuevo, sesión).
-- Cada decisión V3 ya comprueba el perfil activo de la sesión. Cambiar el menú
-  en el navegador no concede nada.
-- La lista de perfiles de la cabecera sale de una lectura del servidor que
-  devuelve solo las referencias y su nombre visible (clave i18n del rol), no
-  los permisos.
-- El perfil «administrador» no aparece en ese selector: solo existe en el
-  subdominio de administración, con su propia cuenta privilegiada.
+En desarrollo existe además una provisión autorizada de doble llave, preimagen
+y huella CAS. Se debe cotejar con el acto inicial antes de instalar, sin
+interpretar su presencia como alta ejecutada ni copiar identidades o claves a
+Git. El rol SQL técnico del pool no equivale al rol humano publicado ni a sus
+dos asignaciones nominales.
 
-### 3.2 Perfil de administrador y separación de funciones
+## Contrato funcional pendiente
 
-- Nuevo rol fijo `administracion_perfiles` en `version_rol`, cuyas concesiones
-  son solo: listar personas y perfiles (datos mínimos), dar perfil, quitar
-  perfil, leer la auditoría de perfiles y proponer o aprobar cambios de
-  administrador.
-- Ninguna concesión de expedientes, Contratación, Bolsa, Personal ni
-  documentos. Una prueba lo verifica leyendo la versión publicada del rol.
-- La cuenta de administrador es la cuenta privilegiada separada que ya exige
-  la superficie de administración (`RequiereCuentaPrivilegiada`). Aunque la
-  misma persona tenga perfiles de RRHH, no los usa desde ese proceso y el
-  proceso de administración no tiene LOGIN de base de datos sobre esquemas de
-  negocio.
+### Perfil activo y sesión
 
-### 3.3 Actos, doble control y mínimo de administradores
+La cabecera muestra los perfiles que el servidor resolvió para la misma
+persona y cuenta, con nombre del catálogo i18n. Elegir otro perfil abre un
+contexto de sesión ligado a su referencia nominal; el servidor comprueba
+titularidad, vigencia, revocación, audiencia y superficie. Invalida la sesión
+anterior y audita el cambio. El identificador enviado por el navegador nunca
+concede el perfil. Pestañas que usen la sesión antigua reciben denegación o
+piden recarga; no heredan el nuevo perfil por compartir navegador. Cabecera y
+acciones siguen la sesión confirmada, sin guardar permisos o identidad en
+cookies ni almacenamiento web.
 
-Cada cambio es un **acto** con referencia propia, idempotente y con CAS sobre
-la versión actual:
+El administrador usa su perfil solo en el subdominio ADMIN y con cuenta
+privilegiada. No aparece en el selector del portal ordinario. El selector y
+su sesión requieren una pieza posterior; la PR #232 no los entrega.
 
-| Acto | Quién | Control |
+### Asignaciones, doble control y recuperación
+
+Cada acto conserva actor, persona afectada, perfil nominal, versión publicada
+del rol, ámbito, vigencia, versión y huella anteriores, versión y huella
+nuevas, motivo, correlación e instante. Compara la preimagen exacta por CAS y
+vuelve a comprobar la decisión V3 en la misma transacción que escribe estado,
+auditoría y recibo. Un replay de la misma clave recupera el recibo anterior
+sin duplicar efectos; una preimagen diferente se rechaza. No se publican
+permisos por petición, menú o arranque.
+
+Una revocación crea historia y retira la asignación vigente. Una futura
+concesión autorizada usa otra referencia; no reactiva el vínculo ni la
+asignación revocados. Intervención necesita una referencia de rol publicada y
+exacta antes de abrir sus actos. Hasta entonces su alta o baja se deniega.
+Gestionar esa asignación no permite al administrador fiscalizar expedientes.
+
+Las propuestas de administrador e Intervención tienen referencia, contenido,
+huella inmutable, caducidad gobernada, estado e historia. El aprobador ve la
+preimagen y el efecto, aporta motivo y no puede ser proponente ni afectado.
+Se cotejan dos personas y dos asignaciones vivas, nunca dos sesiones o dos
+perfiles de la misma persona. Para una baja ordinaria se bloquea el conjunto
+relevante y se comprueba dentro de la transacción que permanecen al menos dos
+personas efectivas. Dos bajas concurrentes no pueden eludir el mínimo: SQL
+debe usar bloqueo/CAS o aislamiento serializable con reintento completo de
+`40001`, y probarlo en PostgreSQL 18. Véanse el
+[aislamiento](https://www.postgresql.org/docs/18/transaction-iso.html) y los
+[bloqueos](https://www.postgresql.org/docs/18/explicit-locking.html).
+
+El acto inicial único valida aprobación expresa, dos personas nominativas ya
+acreditadas y distintas, sus cuentas privilegiadas, versión del rol y preimagen
+por huella/CAS. Si falta algo, no aplica ninguna asignación. La señal de
+bootstrap consumida y los dos recibos se escriben juntos; la repetición exacta
+recupera el resultado y una segunda preimagen distinta se rechaza. No se crea
+primero una persona administradora para que apruebe a la segunda.
+
+La pérdida sobrevenida de ambos administradores es un bloqueo operativo. El
+estudio no define aún un mecanismo de recuperación extraordinaria: debe
+autorizarse y revisarse con su propia preimagen, actor y rastro antes de
+implementarlo. No se reutiliza la operación inicial ya consumida.
+
+### Auditoría, frontera y pantalla
+
+Se auditan también búsqueda y consulta de personas, perfiles y propuestas,
+incluidas denegaciones, sin volcar DNI, certificados, documentos o resultados
+completos en logs. La historia es de solo adición y reconstruye preimagen,
+decisión, aprobador, resultado y recibo. La vista devuelve solo campos
+necesarios para gestionar perfiles; el administrador no edita esa auditoría.
+
+`vec-admin` escucha en listener propio, con CA ADMIN distinta de la del portal
+interno. En cidonia, Caddy enruta TLS por passthrough de capa 4 hasta Go; se
+comprueban cadena y revocación del certificado cliente. La política nominal
+liga certificado y cuenta privilegiada, además de exigir asignación V3.
+Producción añade Kerberos y CIDR corporativas en entrada y aplicación. Red,
+CA, certificados y cuentas quedan fuera de Git. No se infiere identidad de
+`Host`, `X-Forwarded-*` ni de un PEM enviado por el cliente.
+
+La futura pantalla permitirá buscar una persona por campos mínimos, consultar
+sus perfiles, proponer altas y bajas, revisar propuestas ajenas y leer el
+historial permitido. Mostrará preimagen, efecto y motivo antes de confirmar;
+explicará caducidad, conflictos y denegaciones sin revelar datos ajenos. Los
+textos estarán en `web/static/textos/<idioma>/*.json`. Requiere revisión de
+usabilidad independiente antes de publicarse. Las pestañas dibujadas hoy no
+son autoridad funcional.
+
+## Orden real y límite de la PR #232
+
+| Orden | Entrega o dependencia | Estado que puede afirmarse |
 | --- | --- | --- |
-| Dar perfil ordinario | un administrador | CAS sobre el vínculo y la asignación; motivo obligatorio |
-| Quitar perfil ordinario | un administrador | CAS; motivo; pasa a `revocado` y ya no vuelve |
-| Proponer dar o quitar administrador | un administrador | queda pendiente, con caducidad |
-| Aprobar la propuesta | **otro** administrador distinto | persona distinta a quien propuso y a la afectada; misma huella de propuesta |
-| Provisión del primer administrador | el operador, fuera de la web | una sola vez; aprobación por referencia y huella, como la provisión actual |
+| A1/A2: CA19 y AUT22 | Historia que no revive y rol ADMIN lector sin negocio. | Preparados y ensayados en clon; sin asignación ni administración funcional. |
+| CA20 → AUT23 → IS9 | Fachadas y actos con doble control; política de certificado y vínculo nominal. | Preparados y ensayados, sin aplicar plan inicial ni abrir permisos runtime. |
+| Paso 3 de M en el núcleo V3 | Postimagen y orden que fija Dirección en `ORDEN_SQL_NUCLEO.md`, fuera de Git. | Dependencia de AD137; no se adelanta. |
+| AD137 → AUT24 | Consumidor V3 y aplicación atómica del plan aprobado de dos personas. | Pendientes; requieren ensayo, dos revisiones sensibles e instalación dirigida. |
+| API, sesión de perfil y pantalla | Gestión y selector con autorización, auditoría y recorrido real. | Pendientes; la PR #232 solo expone `GET /livez` en ADMIN. |
 
-Reglas en la base de datos, no solo en Go:
+La secuencia causal del material preparado por la PR #232 es
+CA19 → AUT22 → CA20 → AUT23 → IS9, sobre la preimagen autorizada por Dirección.
+Su CLI prepara y coteja un plan privado de dos personas; **no lo aplica**.
+AUT24 deberá consumir la decisión V3 de AD137 y confirmar ambas altas en una
+transacción. Ensayar en clon no instala SQL en cidonia. Dirección comprueba
+por separado integración, instalación, API, navegador y recuperación.
 
-- **Nunca cero administradores.** La función que aplica una revocación de
-  administrador cuenta, con bloqueo, los administradores activos y vigentes y
-  rechaza si quedaría ninguno. Recomendación a confirmar: exigir al menos dos
-  antes de permitir una revocación.
-- **Una revocación no revive.** Tras `revocado`, una nueva versión del mismo
-  vínculo o asignación en `activo` se rechaza. Volver a dar el perfil crea un
-  vínculo nuevo con otra referencia; la historia anterior se conserva.
-- **Primer administrador, una sola vez.** Una fila de control que solo admite
-  un único alta de arranque; si ya existe cualquier administrador (activo o
-  revocado), la provisión se rechaza.
-- Nadie aprueba su propia propuesta ni se revoca a sí mismo sin segundo
-  administrador.
+## Comprobaciones de aceptación pendientes
 
-### 3.4 Auditoría
-
-Cada acto guarda en una tabla de solo adición: referencia del acto, quién
-(persona y cuenta opacas), cuándo (UTC), perfil afectado, estado y huella
-**antes**, estado y huella **después**, motivo (texto libre limitado, sin datos
-personales de terceros), propuesta y aprobación si hubo doble control, y
-correlación de la petición. Se reutiliza `acto_ref`/`actualizada_por` de
-`asignacion_perfil_actual`. La auditoría de cambios de perfil activo (3.1) va
-en el registro de sesiones.
-
-### 3.5 Proceso, subdominio, CA y red
-
-- Proceso nuevo `cmd/vec-admin`, con la superficie
-  `administracion_privilegiada` y zona `administracion` ya definidas, su
-  propio listener y su propio LOGIN de base de datos con permisos solo sobre
-  las funciones de administración de perfiles.
-- Subdominio propio (p. ej. `admin.vec.cidonia.cloud`) en Caddy, con mTLS
-  contra una **CA de administración distinta** de la interna. La aplicación
-  vuelve a comprobar la huella del certificado de cliente.
-- Rangos de red permitidos en configuración (`RedesPermitidas`), aplicados dos
-  veces: en Caddy (`remote_ip`) y en la aplicación (`NuevaPoliticaRed`).
-  Producción: solo redes corporativas. Desarrollo y cidonia: abierto, con la
-  excepción declarada y fechada, como la política interna temporal.
-- Pendiente de decidir: en cidonia no hay Kerberos, y la superficie exige
-  Kerberos + certificado. Hará falta una excepción de desarrollo fechada,
-  parecida a `PoliticaInternaDesarrolloCertificadoPersonal`, que hoy la
-  superficie de administración prohíbe expresamente.
-
-### 3.6 Pantallas del administrador (pendiente de `usabilidad-vec`)
-
-Esbozo inicial, sin revisar:
-
-1. **Buscar persona**: un buscador; resultado con nombre y unidad.
-2. **Ficha de la persona**: sus perfiles con estado y fechas; botones «Dar
-   perfil» y «Quitar perfil». Quitar pide motivo y avisa de que no se puede
-   deshacer.
-3. **Pendientes de aprobar**: propuestas de administrador de otros; aprobar o
-   rechazar con motivo.
-4. **Historial**: la auditoría filtrable por persona, perfil o fecha.
-
-Todos los textos en `web/static/textos/<idioma>/administracion.json`. Las
-pestañas actuales de `modulos/administracion` sirven de base.
-
-### 3.7 SQL y números a reservar
-
-Números orientativos, **no reservados todavía**. Reservarlos en
-`RESERVAS_MIGRACIONES.md` al empezar cada corte, cogiendo el siguiente libre:
-
-| Esquema | Número orientativo | Contenido |
-| --- | --- | --- |
-| `contexto_actor_v1` | siguiente libre tras 000018 | vínculo sin revivir tras revocación; lectura de perfiles de una persona |
-| `autorizacion` | siguiente libre tras 000021 | rol `administracion_perfiles`, actos, propuestas, aprobación, mínimo de administradores, provisión única, auditoría |
-| `autorizacion_atestada_v3` | siguiente libre tras 000128 | consumidor V3 de los actos de administración |
-| `identidad_sesiones_v1` | siguiente libre tras 000008 | cambio de perfil activo con sesión nueva y su auditoría |
-
-Cada migración: revisión con `revisar-sql-vec`, ensayo con `ensayar-sql` en el
-clon de la principal y revisor SQL independiente.
-
-## 4. Cortes propuestos
-
-| Corte | Qué entrega | Depende de |
-| --- | --- | --- |
-| A1 | SQL: una revocación no revive (vínculo y asignación) | — |
-| A2 | SQL: rol fijo `administracion_perfiles` sin acceso a negocio y prueba de ello | — |
-| A3 | SQL: actos dar/quitar perfil ordinario con CAS, motivo y auditoría | A1, A2 |
-| A4 | SQL: propuesta y aprobación de administrador, mínimo de administradores | A3 |
-| A5 | CLI de operador: primer administrador una sola vez | A2, A4 |
-| B1 | Proceso `cmd/vec-admin` con superficie de administración, mTLS de CA propia y rangos de red | — |
-| B2 | Caddy: subdominio, CA de administración y `remote_ip` | B1 |
-| B3 | Casos de uso y API de administración sobre A3–A4 | A4, B1 |
-| B4 | Pantallas del administrador (con `usabilidad-vec` y revisión independiente) | B3 |
-| C1 | SQL + backend: cambio de perfil activo con sesión nueva | A1 |
-| C2 | Selector de perfil en la cabecera del portal interno | C1 |
-| D1 | Recorrido completo en navegador y revisión de seguridad | B4, C2, A5 |
-
-## 5. Preguntas abiertas
-
-1. ¿Mínimo de uno o de dos administradores activos?
-2. ¿Cómo se entra a `vec-admin` en cidonia sin Kerberos?
-3. ¿El perfil de candidato se gestiona también desde aquí o sigue en su
-   proceso externo separado (#143/#192)? Este borrador supone que sigue fuera.
-4. ¿Caducan los perfiles ordinarios o duran hasta que se quitan?
+- Instalación con dos personas sintéticas distintas y preimagen aprobada:
+  dos altas y recibo recuperable. Preimagen distinta, aprobación ausente o
+  persona repetida: cero efectos.
+- Dos sesiones de una persona no satisfacen el doble control. Una persona
+  afectada, revocada o sin asignación nominal vigente tampoco aprueba.
+- Dos bajas concurrentes que dejarían menos de dos administradores efectivos:
+  como máximo una confirma; la otra falla con historia y auditoría coherentes.
+- La gestión del perfil de Intervención exige rol publicado, propuesta y otra
+  persona administradora aprobadora; una petición sola se deniega. Para
+  fiscalizar, el rol ADMIN no basta: se exige un perfil activo de Intervención.
+- TLS sin cadena verificada, CA equivocada, certificado revocado, identidad
+  discordante o falta de CIDR/Kerberos en producción: denegación.
+- Consulta autorizada y denegada auditadas; revocación sin reactivación;
+  pestañas con sesión anterior sin perfil nuevo.
+- Recorrido navegador → API → V3 → PostgreSQL → recibo, con recuperación tras
+  reinicio, antes de declarar la administración utilizable. Autenticarse con
+  certificado no firma una resolución ni acredita entrega legal.
