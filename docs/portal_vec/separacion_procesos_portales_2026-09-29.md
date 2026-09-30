@@ -226,11 +226,15 @@ Pendiente, en este orden:
 
 - Mientras no haya un gestor de claves real, las claves siguen dentro de cada
   proceso. Esto limita el daño a un portal, no lo evita.
-- El proceso externo guarda la semilla de la raíz de atestación V3, la misma
-  que usa el interno (como ya hace vec-interno). No le sirve para actuar sobre
-  datos internos: cada consumo exige además la clave HMAC de su audiencia, que
-  el externo solo tiene para las suyas. Una raíz propia del externo exige que
-  el gobierno V3 admita varias raíces por configuración; queda para después.
+- La preparación explícita crea y conserva una raíz de atestación V3 propia
+  del externo. Su semilla permanece en su material; el gobierno recibe la clave
+  pública y publica su configuración por huella y control de versión. La
+  configuración interna mantiene su raíz y sus referencias. Las claves de
+  audiencias del material externo se limitan a las capacidades habilitadas.
+- Una rotación exige la preimagen aprobada y reiniciar el proceso externo para
+  cargar la nueva raíz. Un proceso que conserve la anterior deniega el nuevo
+  material; no adopta la raíz interna como sustituta. La instalación y el
+  recorrido con los dos procesos se comprueban aparte del ensayo del código.
 - Ambos procesos usan la misma instancia de PostgreSQL. La separación por
   esquemas por población (opción B) y, si la categorización ENS lo pide, una
   base aparte (opción C) vienen después.
