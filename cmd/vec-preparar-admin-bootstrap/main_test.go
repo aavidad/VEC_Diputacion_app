@@ -3,12 +3,20 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 )
+
+type salidaFallida struct{}
+
+func (salidaFallida) Write([]byte) (int, error) { return 0, errors.New("salida no disponible") }
+
+var _ io.Writer = salidaFallida{}
 
 func materialSintetico() material {
 	h := func(c string) string { return strings.Repeat(c, 64) }
@@ -141,5 +149,19 @@ func TestRechazaFicheroInseguro(t *testing.T) {
 	var salida, errores bytes.Buffer
 	if ejecutar([]string{"-fuente", fuente, "-plan", plan}, &salida, &errores) == 0 || salida.Len() != 0 {
 		t.Fatal("fuente pública")
+	}
+}
+
+func TestFalloAlEntregarHuellaTieneCodigoNominal(t *testing.T) {
+	fuente, plan := prepararFuente(t, materialSintetico())
+	var errores bytes.Buffer
+	if ejecutar([]string{"-fuente", fuente, "-plan", plan}, salidaFallida{}, &errores) == 0 {
+		t.Fatal("salida fallida aceptada")
+	}
+	if errores.String() != "plan_salida_fallida\n" {
+		t.Fatalf("error no minimizado: %q", errores.String())
+	}
+	if _, err := os.Stat(plan); err != nil {
+		t.Fatal("el fallo de salida no debe borrar el plan preparado")
 	}
 }
