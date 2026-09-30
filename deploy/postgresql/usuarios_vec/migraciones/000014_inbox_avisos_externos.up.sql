@@ -263,7 +263,7 @@ DO $post_fachada$ DECLARE f regprocedure:='vec_usuarios_correos_avisos.correo_ac
  OR has_schema_privilege('vec_usuarios_ejecutor_interno','vec_usuarios_correos_avisos','USAGE')
  OR EXISTS(SELECT 1 FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a WHERE p.oid=f AND a.grantee<>p.proowner)
  OR EXISTS(SELECT 1 FROM pg_namespace n CROSS JOIN LATERAL aclexplode(coalesce(n.nspacl,acldefault('n',n.nspowner))) a WHERE n.oid='vec_usuarios_correos_avisos'::regnamespace AND a.grantee<>n.nspowner)
- OR EXISTS(SELECT 1 FROM pg_roles r WHERE r.rolcanlogin AND pg_has_role(r.oid,'vec_usuarios_ejecutor_interno','MEMBER')
+ OR EXISTS(SELECT 1 FROM pg_roles r WHERE r.rolcanlogin AND NOT r.rolsuper AND pg_has_role(r.oid,'vec_usuarios_ejecutor_interno','MEMBER')
   AND (has_function_privilege(r.oid,f,'EXECUTE') OR has_schema_privilege(r.oid,'vec_usuarios_correos_avisos','USAGE')))
  THEN RAISE EXCEPTION 'Usuarios U14 fachada interna todavía accesible' USING ERRCODE='55000'; END IF;
 END $post_fachada$;
