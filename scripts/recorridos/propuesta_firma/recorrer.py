@@ -222,10 +222,13 @@ def comparar_recuperacion(informe, ruta):
 
 def limitar_peticion_cdp(cdp, evento, origen):
     """Mantiene Chrome nativo y corta otros orígenes y respuestas 3xx."""
+    if evento.get("responseErrorReason"):
+        raise Corte("guardia_red", "la guardia recibió un fallo de transporte")
     identificador = evento["requestId"]
     esperado = urlsplit(origen)
     solicitado = urlsplit(evento["request"]["url"])
-    if (solicitado.scheme, solicitado.hostname, solicitado.port) != \
+    if solicitado.username or solicitado.password or \
+            (solicitado.scheme, solicitado.hostname, solicitado.port) != \
             (esperado.scheme, esperado.hostname, esperado.port) \
             or 300 <= evento.get("responseStatusCode", 0) < 400:
         cdp.send("Fetch.failRequest", {"requestId": identificador, "errorReason": "BlockedByClient"})
@@ -233,6 +236,54 @@ def limitar_peticion_cdp(cdp, evento, origen):
         # route.fetch añade Connection: keep-alive con otro cliente HTTP.
         # CDP conserva la petición y el transporte originales del navegador.
         cdp.send("Fetch.continueRequest", {"requestId": identificador})
+
+
+class GuardiaNavegador:
+    """Instala una única guardia global antes de crear contextos o páginas."""
+
+    def __init__(self, browser, origen):
+        self.browser = browser
+        self.errores = []
+        self.cerrando = False
+        try:
+            self.cdp = browser.new_browser_cdp_session()
+            self.cdp.on("Fetch.requestPaused", self.interceptar)
+            browser.on("disconnected", self.desconectado)
+            self.origen = origen
+            self.cdp.send("Fetch.enable", {"patterns": [
+                {"urlPattern": "*", "requestStage": "Request"},
+                {"urlPattern": "*", "requestStage": "Response"},
+            ]})
+        except Exception:
+            self.cerrar()
+            raise Corte("guardia_red", "no se pudo instalar la guardia global del navegador") from None
+
+    def interceptar(self, evento):
+        if self.cerrando:
+            return
+        try:
+            limitar_peticion_cdp(self.cdp, evento, self.origen)
+        except Exception as e:
+            if not self.cerrando:
+                self.errores.append(type(e).__name__)
+                self.cerrando = True
+                # Cerrar Chrome por su sesión global evita la reentrancia de
+                # browser.close dentro del callback síncrono de Playwright.
+                try:
+                    self.cdp.send("Browser.close")
+                except Exception:
+                    # Fetch sigue pausando: el finally cierra el proceso propio.
+                    pass
+
+    def desconectado(self):
+        if not self.cerrando:
+            self.errores.append("navegador_desconectado")
+            self.cerrar()
+
+    def cerrar(self):
+        # Mantener Fetch activo hasta cerrar todo Chrome, incluidos sus targets.
+        self.cerrando = True
+        self.browser.close()
 
 
 def limitar_websocket(route, permitir_autofirma):
@@ -361,32 +412,13 @@ def recorrer(a, chrome, entorno):
                "expediente_ref": a.expediente_ref, "pdf": {}, "firma": None, "http": []}
     with sync_playwright() as pw:
         browser = pw.chromium.launch(executable_path=chrome, headless=not a.firmar)
+        guardia = GuardiaNavegador(browser, a.origen)
         context = browser.new_context(
             client_certificates=[{"origin": a.origen, "certPath": str(a.certificado), "keyPath": str(a.clave)}],
             ignore_https_errors=False, service_workers="block", accept_downloads=True,
             locale="es-ES", timezone_id="Europe/Madrid", viewport={"width": 1440, "height": 900},
         )
         page = context.new_page()
-        # Un único interceptor evita colisiones con context.route y pausa las
-        # respuestas antes de cualquier salto de redirección.
-        cdp = context.new_cdp_session(page)
-        cerrando = False
-        errores_intercepcion = []
-
-        def interceptar(evento):
-            if cerrando:
-                return
-            try:
-                limitar_peticion_cdp(cdp, evento, a.origen)
-            except Exception as e:
-                if not cerrando:
-                    errores_intercepcion.append(type(e).__name__)
-
-        cdp.on("Fetch.requestPaused", interceptar)
-        cdp.send("Fetch.enable", {"patterns": [
-            {"urlPattern": "*", "requestStage": "Request"},
-            {"urlPattern": "*", "requestStage": "Response"},
-        ]})
         errores_js = []
         cookies_http = []
         page.on("pageerror", lambda e: errores_js.append(type(e).__name__))
@@ -524,8 +556,11 @@ def recorrer(a, chrome, entorno):
         finally:
             capturar_corte(page, a, informe)
             informe["sin_errores_js"] = not errores_js
-            informe["sin_errores_intercepcion"] = not errores_intercepcion
-            informe["sin_cookies_http"] = not cookies_http and not context.cookies()
+            informe["sin_errores_intercepcion"] = not guardia.errores
+            try:
+                informe["sin_cookies_http"] = not cookies_http and not context.cookies()
+            except Exception:
+                informe["sin_cookies_http"] = False
             try:
                 informe["sin_almacenamiento_web"] = page.evaluate("""async () =>
                   localStorage.length === 0 && sessionStorage.length === 0 &&
@@ -537,12 +572,10 @@ def recorrer(a, chrome, entorno):
                 informe["estado"] = "CORTE"
                 informe["corte"] = "controles_navegador"
                 informe["motivo"] = "fallo de la guardia de red, errores JavaScript, cookies o almacenamiento web detectados"
-            # No deshabilitar Fetch con Chrome vivo: mantiene el bloqueo hasta
-            # cerrar el contexto y evita reanudar peticiones pendientes.
-            cerrando = True
-            cdp.remove_listener("Fetch.requestPaused", interceptar)
-            context.close()
-            browser.close()
+            if guardia.errores:
+                informe["corte"] = "guardia_red"
+                informe["motivo"] = "la guardia global falló; se cerró el navegador"
+            guardia.cerrar()
     return informe
 
 
