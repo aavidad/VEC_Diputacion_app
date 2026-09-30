@@ -26,7 +26,7 @@ distinta; la versión retenida conserva su historia, sin DOWN ni reaplicación.
 
 El plan H6 aprobado para `5694d2da15e19fa97afecae51e1a30ce21d5fca5`
 contiene 41 instalaciones: conserva las primeras 39 y añade CT150 y CT151.
-Usa `sql_main_h6.txt`, con huella
+Usa `sql_main_h6.txt`. La huella del plan normalizado es
 `95c3feff3cbd5b95cf0286af74c576d2c551d92b3cb7787b337754d3aeed87fb`.
 Las cuatro entradas de RPT retenidas se cotejan como parte del inventario de
 la fuente, pero quedan fuera de este plan de ejecución. El binario congelado
