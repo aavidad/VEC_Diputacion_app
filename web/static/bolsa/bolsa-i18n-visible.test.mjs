@@ -17,17 +17,19 @@ const fuente = { revision: "sintetica-v2", actualizada_en: instante, demostracio
 const convocatoria = {
   identificador_publico: "aviso-2026", version: "v2", huella_sha256: huella,
   titulo: "Convocatoria sintética", resumen: "Información pública sintética.",
-  tipo: { etiqueta: "Bolsa", semantica: "informacion" }, estado: { etiqueta: "Publicada", semantica: "informacion" },
+  tipo: { clave: "bolsa", version: 1, etiqueta: "Bolsa", semantica: "informacion" },
+  estado: { clave: "publicada", version: 1, etiqueta: "Publicada", semantica: "informacion" },
   catalogo_categorias: snapshot, categorias: [{ clave: categoria.clave, version: 1 }],
   numero_requisitos: 0, numero_documentos: 0, numero_ayudas: 0, publicada_en: instante,
   plazo_destacado: {
+    titulo: "Plazo sintético", tipo: { clave: "presentacion", version: 1, etiqueta: "Presentación", semantica: "informacion" },
     abre_en: instante, cierra_en: "2026-10-02T10:00:00Z",
     etiqueta_situacion: "Abierto", semantica_situacion: "exito",
   },
 };
 const listado = {
   esquema: "vec.bolsa.publico.convocatorias.v2", fuente,
-  facetas: { tipos: [], categorias: [categoria], estados: [] }, diccionario_categorias: [categoria],
+  facetas: { tipos: [], categorias: [{ ...categoria, numero_resultados: 1 }], estados: [] }, diccionario_categorias: [categoria],
   paginacion: { pagina: 1, tamano: 12, total: 1, paginas: 1 }, convocatorias: [convocatoria],
 };
 const detalle = {
