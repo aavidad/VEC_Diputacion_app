@@ -255,7 +255,10 @@ func (h *Handler) registrarDenegacionRutaExacta(
 		return nil
 	}
 	superficie := superficieAuditoriaFronteraRutaExacta(ruta)
-	usuarios := superficie == ports.SuperficieAuditoriaFronteraRutaExactaUsuariosPreferencias
+	// Usuarios y Aspirantes fallan cerrado: una denegación sin anotar es 503.
+	// Aspirantes nunca anota persona.
+	usuarios := superficie == ports.SuperficieAuditoriaFronteraRutaExactaUsuariosPreferencias ||
+		superficie == ports.SuperficieAuditoriaFronteraRutaExactaAspirantes
 	if h == nil || dependenciaRutaExactaNula(h.registradorAuditoriaFronteraRutasExactas) {
 		if usuarios {
 			return errAuditoriaFronteraUsuariosNoDisponible
@@ -268,7 +271,7 @@ func (h *Handler) registrarDenegacionRutaExacta(
 		Superficie:     superficie,
 		Ruta:           ruta,
 	}
-	if usuarios &&
+	if superficie == ports.SuperficieAuditoriaFronteraRutaExactaUsuariosPreferencias &&
 		motivo == ports.MotivoAuditoriaFronteraRutaExactaAccesoDenegado {
 		orden.ActorRef, _ = ctx.Value(claveActorAuditoriaPreferenciasUsuarios{}).(string)
 	}
@@ -306,6 +309,8 @@ func superficieAuditoriaFronteraRutaExacta(ruta string) string {
 		"/api/vec/usuarios/mis-correos", "/api/vec/usuarios/area-personal/mis-correos",
 		"/api/vec/usuarios/mi-imagen", "/api/vec/usuarios/area-personal/mi-imagen":
 		return ports.SuperficieAuditoriaFronteraRutaExactaUsuariosPreferencias
+	case "/api/vec/aspirantes/area-personal/mi-ficha":
+		return ports.SuperficieAuditoriaFronteraRutaExactaAspirantes
 	default:
 		return ports.SuperficieAuditoriaFronteraRutaExactaContratacionTemporal
 	}

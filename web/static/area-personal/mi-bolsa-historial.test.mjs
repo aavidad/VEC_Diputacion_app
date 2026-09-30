@@ -3,6 +3,7 @@ import test from "node:test";
 import { readFile } from "node:fs/promises";
 
 import { cargarHistorialMiBolsa, montarHistorialMiBolsa, renderizarHistorialMiBolsa, validarHistorialMiBolsa } from "./mi-bolsa-historial.js";
+import { catalogoPlano, lectorCatalogos } from "./textos-prueba.test-helper.mjs";
 
 const ahora = "2026-09-27T20:00:00.000000Z";
 const comunes = { bolsa: "bolsa:prueba:1", categoria: "Auxiliar <sanitario>", ocurrido_en: "2026-09-26T10:00:00.000000Z" };
@@ -95,7 +96,7 @@ test("la paginación consulta la página siguiente sin enviar referencias de par
 });
 
 test("los textos nuevos están en el catálogo común", async () => {
-  const catalogo = JSON.parse(await readFile(new URL("./locales/es.json", import.meta.url), "utf8"));
+  const catalogo = await catalogoPlano("es");
   for (const clave of ["titulo", "cargando", "vacio", "sinCampos", "denegado", "limite", "contrato", "llamamiento", "renuncia"]) {
     assert.equal(typeof catalogo[`areaPersonal.miBolsa.historial.${clave}`], "string");
   }
