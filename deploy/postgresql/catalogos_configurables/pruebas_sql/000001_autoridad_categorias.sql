@@ -94,13 +94,6 @@ BEGIN
         RAISE EXCEPTION 'tombstone admitio un uso confirmado';
     EXCEPTION WHEN SQLSTATE '55000' THEN NULL;
     END;
-    IF NOT EXISTS (SELECT 1 FROM vec_catalogos_configurables.categoria_control
-                   WHERE categoria_id = 'cat-demo' AND revision = 3
-                     AND estado = 'deshabilitada' AND total_historico_declarado = 1)
-       OR EXISTS (SELECT 1 FROM vec_catalogos_configurables.historia
-                   WHERE categoria_id = 'cat-demo' AND accion = 'tombstone') THEN
-        RAISE EXCEPTION 'tombstone altero categoria usada';
-    END IF;
     IF vec_catalogos_configurables.cambiar_proyeccion('cat-demo', 1,
         'deshabilitar', NULL, NULL, 'actor:dos', 'decision:des-replay', 'recibo:des', motivo_nuevo) <> 2
        OR vec_catalogos_configurables.cambiar_proyeccion('cat-demo', 2,
@@ -189,6 +182,33 @@ BEGIN
         RAISE EXCEPTION 'publicacion rehabilito categoria deshabilitada';
     EXCEPTION WHEN SQLSTATE '55000' THEN NULL;
     END;
+END $prueba$;
+RESET ROLE;
+DO $persistencia$
+DECLARE
+    motivo text := 'motivos_rpt:1:motivo_11111111111111111111111111111111';
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM vec_catalogos_configurables.publicacion WHERE catalogo_id = 'rpt-demo')
+       OR NOT EXISTS (SELECT 1 FROM vec_catalogos_configurables.categoria_control
+                       WHERE categoria_id = 'cat-demo' AND estado = 'deshabilitada'
+                         AND revision = 3 AND total_historico_declarado = 1)
+       OR NOT EXISTS (SELECT 1 FROM vec_catalogos_configurables.categoria_control
+                       WHERE categoria_id = 'cat-empty' AND estado = 'tombstone'
+                         AND revision = 4 AND total_historico_declarado = 0)
+       OR NOT EXISTS (SELECT 1 FROM vec_catalogos_configurables.categoria_control
+                       WHERE categoria_id = 'cat-declared' AND estado = 'deshabilitada'
+                         AND revision = 3 AND total_historico_declarado = 1)
+       OR NOT EXISTS (SELECT 1 FROM vec_catalogos_configurables.uso
+                       WHERE consumidor = 'consumidor-demo' AND uso_ref = 'uso:uno' AND estado = 'confirmado')
+       OR NOT EXISTS (SELECT 1 FROM vec_catalogos_configurables.categoria_control
+                       WHERE categoria_id = 'cat-version' AND version = 2
+                         AND revision = 3 AND estado = 'deshabilitada')
+       OR EXISTS (SELECT 1 FROM vec_catalogos_configurables.entrada_publicada
+                   WHERE categoria_id = 'cat-version' AND definicion ? 'preimagen_control')
+       OR EXISTS (SELECT 1 FROM vec_catalogos_configurables.historia
+                   WHERE categoria_id IN ('cat-demo', 'cat-declared') AND accion = 'tombstone') THEN
+        RAISE EXCEPTION 'proyección alteró publicación o uso';
+    END IF;
     IF (SELECT count(*) FROM vec_catalogos_configurables.historia
          WHERE categoria_id IN ('cat-demo', 'cat-empty', 'cat-declared', 'cat-version')) <> 15
        OR EXISTS (SELECT 1 FROM vec_catalogos_configurables.historia
@@ -216,29 +236,6 @@ BEGIN
         )
     ) THEN
         RAISE EXCEPTION 'historia omitió motivo o transición de estado';
-    END IF;
-END $prueba$;
-RESET ROLE;
-DO $persistencia$
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM vec_catalogos_configurables.publicacion WHERE catalogo_id = 'rpt-demo')
-       OR NOT EXISTS (SELECT 1 FROM vec_catalogos_configurables.categoria_control
-                       WHERE categoria_id = 'cat-demo' AND estado = 'deshabilitada'
-                         AND revision = 3 AND total_historico_declarado = 1)
-       OR NOT EXISTS (SELECT 1 FROM vec_catalogos_configurables.categoria_control
-                       WHERE categoria_id = 'cat-empty' AND estado = 'tombstone'
-                         AND revision = 4 AND total_historico_declarado = 0)
-       OR NOT EXISTS (SELECT 1 FROM vec_catalogos_configurables.categoria_control
-                       WHERE categoria_id = 'cat-declared' AND estado = 'deshabilitada'
-                         AND revision = 3 AND total_historico_declarado = 1)
-       OR NOT EXISTS (SELECT 1 FROM vec_catalogos_configurables.uso
-                       WHERE consumidor = 'consumidor-demo' AND uso_ref = 'uso:uno' AND estado = 'confirmado')
-       OR NOT EXISTS (SELECT 1 FROM vec_catalogos_configurables.categoria_control
-                       WHERE categoria_id = 'cat-version' AND version = 2
-                         AND revision = 3 AND estado = 'deshabilitada')
-       OR EXISTS (SELECT 1 FROM vec_catalogos_configurables.entrada_publicada
-                   WHERE categoria_id = 'cat-version' AND definicion ? 'preimagen_control') THEN
-        RAISE EXCEPTION 'proyección alteró publicación o uso';
     END IF;
 END $persistencia$;
 SET LOCAL ROLE vec_catalogos_configurables_propietario;
