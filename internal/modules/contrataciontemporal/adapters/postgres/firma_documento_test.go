@@ -76,6 +76,8 @@ func TestRegistroFirma118CarrerasSimultaneas(t *testing.T) {
 			[]any{errorPG118("23505", restriccionSecuenciaFirma118)}, nil, ports.ErrFirmaDocumentoEnConflicto, 1, 0, 1},
 		{"otra restriccion unica no se reintenta ni es conflicto",
 			[]any{errorPG118("23505", "firma_documento_v1_recibo_ref_key")}, nil, ports.ErrRegistroFirmaDocumentoNoDisponible, 1, 0, 1},
+		{"documento custodiado ya enlazado es conflicto sin reintento",
+			[]any{errorPG118("23505", restriccionDocumentoCustodia145)}, nil, ports.ErrFirmaDocumentoEnConflicto, 1, 0, 1},
 		{"P1183 es conflicto", []any{errorPG118("P1183", "")}, nil, ports.ErrFirmaDocumentoEnConflicto, 1, 0, 1},
 		{"P1181 es clave reutilizada", []any{errorPG118("P1181", "")}, nil, ports.ErrClaveFirmaDocumentoUsada, 1, 0, 1},
 		{"recibo incoherente no se confirma", []any{reciboFirmaPrueba118}, ports.ErrResultadoFirmaDocumentoInvalido,
@@ -101,5 +103,20 @@ func TestErrorFirma118ContextoCancelado(t *testing.T) {
 	cancelar()
 	if err := errorFirma118(ctx, errorPG118("40001", "")); !errors.Is(err, context.Canceled) {
 		t.Fatalf("cancelación: %v", err)
+	}
+}
+
+// CT145 devuelve el enlace con el documento custodiado (o null) en el recibo
+// y en la historia; el decodificador estricto los admite.
+func TestDecodificaElEnlaceDeCustodia145(t *testing.T) {
+	var w reciboFirmaSQL118
+	con := `{"FirmaRef":"firma-ct:1","ReciboRef":"recibo-firma-ct:1","Secuencia":1,"Resultado":"firmado","ExpedienteVersion":7,"ActorRef":"a","PerfilRef":"p","RegistradaEn":"2026-09-25T10:00:00Z","SolicitudHuella":"h","YaRegistrada":false,"DocumentoCustodiaRef":"ref:abc","DocumentoCustodiaVersion":1}`
+	if decodificarFirma118([]byte(con), &w) != nil || textoFirma118(w.DocumentoCustodia) != "ref:abc" || versionFirma118(w.VersionCustodia) != 1 {
+		t.Fatalf("recibo con enlace: %+v", w)
+	}
+	var filas []firmaSQL118
+	sin := `[{"FirmaRef":"firma-ct:1","ReciboRef":"recibo-firma-ct:1","Documento":"resolucion","Secuencia":1,"ExpedienteVersion":7,"CatalogoRef":"c","CatalogoHuella":"h","PasoRef":"p","PasoOrden":1,"Resultado":"devuelto","ConMotivoDevolucion":true,"OriginalHuella":null,"FirmadoHuella":null,"SelloTiempoEstado":null,"RegistradaEn":"2026-09-25T10:00:00Z","ClaveIdempotencia":"clave-firma-000000001","DocumentoCustodiaRef":null,"DocumentoCustodiaVersion":null}]`
+	if decodificarFirma118([]byte(sin), &filas) != nil || len(filas) != 1 || textoFirma118(filas[0].DocumentoCustodia) != "" || filas[0].ClaveIdempotencia != "clave-firma-000000001" || versionFirma118(filas[0].VersionCustodia) != 0 {
+		t.Fatalf("historia sin enlace: %+v", filas)
 	}
 }

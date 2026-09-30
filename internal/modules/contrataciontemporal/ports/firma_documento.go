@@ -85,6 +85,11 @@ type MaterialFirmaDocumento struct {
 	RevocacionEstado     string
 	SelloTiempoEstado    string
 	ClaveIdempotencia    string
+	// DocumentoCustodiaRef y DocumentoCustodiaVersion enlazan la firma con el
+	// PDF firmado que custodia Documentos (CT145). Solo en una firma y juntos;
+	// vacíos si el documento no se custodia.
+	DocumentoCustodiaRef     string
+	DocumentoCustodiaVersion uint64
 }
 
 // Validar comprueba la forma que CT118 exige: una firma lleva todo su
@@ -96,6 +101,11 @@ func (m MaterialFirmaDocumento) Validar() error {
 		!domain.HuellaSHA256FirmaValida(m.CatalogoHuella) || m.PasoRef == "" || len(m.PasoRef) > 256 ||
 		m.PasoOrden < 1 || m.PasoOrden > domain.MaximoPasosCircuitoFirma || m.Secuencia < 1 || m.Secuencia > 100000 ||
 		!ClaveIdempotenciaFirmaValida(m.ClaveIdempotencia) {
+		return ErrSolicitudFirmaDocumentoInvalida
+	}
+	if (m.DocumentoCustodiaRef == "") != (m.DocumentoCustodiaVersion == 0) ||
+		(m.DocumentoCustodiaRef != "" && (m.Resultado != domain.ResultadoFirmaFirmado ||
+			!domain.ReferenciaOpacaValida(m.DocumentoCustodiaRef) || m.DocumentoCustodiaVersion > 9007199254740991)) {
 		return ErrSolicitudFirmaDocumentoInvalida
 	}
 	switch m.Resultado {
@@ -126,8 +136,15 @@ func nulo(v string) *string {
 	return &v
 }
 
-// Canonico devuelve el JSON de orden fijo que CT118 recibe y cuya huella
-// liga la decisión V3. Los campos ausentes viajan como null.
+func nuloVersion(v uint64) *uint64 {
+	if v == 0 {
+		return nil
+	}
+	return &v
+}
+
+// Canonico devuelve el JSON de orden fijo que CT145 (registrar v2) recibe y
+// cuya huella liga la decisión V3. Los campos ausentes viajan como null.
 func (m MaterialFirmaDocumento) Canonico() ([]byte, error) {
 	if m.Validar() != nil {
 		return nil, ErrSolicitudFirmaDocumentoInvalida
@@ -152,10 +169,13 @@ func (m MaterialFirmaDocumento) Canonico() ([]byte, error) {
 		RevocacionEstado     *string `json:"RevocacionEstado"`
 		SelloTiempoEstado    *string `json:"SelloTiempoEstado"`
 		ClaveIdempotencia    string  `json:"ClaveIdempotencia"`
+		DocumentoCustodia    *string `json:"DocumentoCustodiaRef"`
+		VersionCustodia      *uint64 `json:"DocumentoCustodiaVersion"`
 	}{m.OrganizacionRef, m.ExpedienteRef, m.VersionExpediente, m.Documento, m.CatalogoRef, m.CatalogoHuella,
 		m.PasoRef, m.PasoOrden, m.Secuencia, string(m.Resultado), nulo(m.MotivoDevolucion), nulo(m.OriginalHuella),
 		nulo(m.FirmadoHuella), nulo(m.CertificadoHuella), nulo(m.FirmanteRef), nulo(m.PoliticaVerificacion),
-		nulo(m.RevocacionEstado), nulo(m.SelloTiempoEstado), m.ClaveIdempotencia})
+		nulo(m.RevocacionEstado), nulo(m.SelloTiempoEstado), m.ClaveIdempotencia,
+		nulo(m.DocumentoCustodiaRef), nuloVersion(m.DocumentoCustodiaVersion)})
 }
 
 // HuellaSHA256 es la huella del JSON canónico.
@@ -202,6 +222,9 @@ type ReciboFirmaDocumento struct {
 	RegistradaEn      time.Time
 	SolicitudHuella   string
 	YaRegistrada      bool
+	// Enlace al documento custodiado (vacío si la firma no lo tiene).
+	DocumentoCustodiaRef     string
+	DocumentoCustodiaVersion uint64
 }
 
 // FirmaRegistrada es una fila de la historia de un expediente.
@@ -227,6 +250,12 @@ type FirmaRegistrada struct {
 	ActorRef            string
 	PerfilRef           string
 	RegistradaEn        time.Time
+	// ClaveIdempotencia es la de la operación que registró la fila: permite
+	// reconocer el reintento de una firma ya registrada.
+	ClaveIdempotencia string
+	// Enlace al PDF firmado que custodia Documentos, si lo hay.
+	DocumentoCustodiaRef     string
+	DocumentoCustodiaVersion uint64
 }
 
 // RegistroFirmasDocumento es el almacén de solo adición de CT118.
