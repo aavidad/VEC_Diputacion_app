@@ -194,6 +194,7 @@ def complete_profiles(args: argparse.Namespace, output: Path, manifest: dict) ->
     modules = (
         ("clon_usuarios", set()),
         ("clon_usuarios_h4", {"concesiones_correos_imagen_pendientes"}),
+        ("clon_comunicaciones", {"smtp_sintetico_no_preparado"}),
         ("clon_bolsa_material", {"bback_politica_ofertas_pendiente"}),
         ("clon_candidato_material", {"cuenta_contexto_candidato_pendiente", "contexto_externo_provision_autoridad_ausente_main"}),
     )
@@ -209,6 +210,14 @@ def complete_profiles(args: argparse.Namespace, output: Path, manifest: dict) ->
             raise ModuleProvisionError(name, error) from None
         if not isinstance(result, dict) or not isinstance(result.get("env", {}), dict) or not isinstance(result.get("profiles", {}), dict) or not isinstance(result.get("blockers", []), list):
             fail("invalid profile provisioning result")
+        files = result.get("files", [])
+        if not isinstance(files, list):
+            fail("invalid private module file inventory")
+        for declared in files:
+            path = canonical(Path(declared))
+            if not path.is_relative_to(output / "material"):
+                fail("module file outside private material")
+            private_read(path)
         env.update(result.get("env", {}))
         profiles["profiles"].update(result.get("profiles", {}))
         blockers = [b for b in blockers if b["code"] not in owned_codes]

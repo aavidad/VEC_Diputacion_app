@@ -196,7 +196,7 @@ class MaterialTests(unittest.TestCase):
             self.assertEqual(called, [])
             def later(**kwargs):
                 raise material.MaterialError("later dependency blocked")
-            with patch.object(material, "load_profile_module", side_effect=[SimpleNamespace(provision=first), SimpleNamespace(provision=later), SimpleNamespace(provision=later), SimpleNamespace(provision=later)]):
+            with patch.object(material, "load_profile_module", side_effect=[SimpleNamespace(provision=first), SimpleNamespace(provision=later), SimpleNamespace(provision=later), SimpleNamespace(provision=later), SimpleNamespace(provision=later)]):
                 with self.assertRaises(material.MaterialError):
                     material.complete_profiles(args, root, manifest)
             current = material.verify_existing(root, {})
@@ -217,6 +217,12 @@ class MaterialTests(unittest.TestCase):
                 self.assertEqual(json.loads(material.private_read(root / "perfiles.json"))["users"]["interna"][0]["cuenta_ref"], "cta_new_interna")
                 called.append("h4")
                 return {"env": {"VEC_USUARIOS_PREFERENCIAS_ENABLED": "true"}, "blockers": []}
+            def comunicaciones(**kwargs):
+                called.append("comunicaciones")
+                certificate = root / "material/comunicaciones/servidor.crt"
+                material.private_write(certificate, "synthetic certificate")
+                return {"env": {"VEC_USUARIOS_CORREOS_ENABLED": "true", "VEC_USUARIOS_IMAGEN_ENABLED": "true"},
+                        "files": [str(certificate)], "blockers": []}
             def bolsa(**kwargs):
                 called.append("bolsa")
                 return {"blockers": []}
@@ -224,11 +230,16 @@ class MaterialTests(unittest.TestCase):
                 called.append("candidato")
                 return {"blockers": [{"profile": "candidato", "code": "contexto_externo_provision_autoridad_ausente_main"}]}
             called.clear()
-            with patch.object(material, "load_profile_module", side_effect=[SimpleNamespace(provision=first), SimpleNamespace(provision=h4), SimpleNamespace(provision=bolsa), SimpleNamespace(provision=candidato)]):
+            with patch.object(material, "load_profile_module", side_effect=[SimpleNamespace(provision=first), SimpleNamespace(provision=h4), SimpleNamespace(provision=comunicaciones), SimpleNamespace(provision=bolsa), SimpleNamespace(provision=candidato)]):
                 final = material.complete_profiles(args, root, current)
-            self.assertEqual(called, ["users", "h4", "bolsa", "candidato"])
+            self.assertEqual(called, ["users", "h4", "comunicaciones", "bolsa", "candidato"])
             self.assertNotIn("concesiones_correos_imagen_pendientes", [b["code"] for b in final["blockers"]])
             self.assertEqual(json.loads(material.private_read(root / "runtime-config.json"))["VEC_USUARIOS_PREFERENCIAS_ENABLED"], "true")
+            runtime = json.loads(material.private_read(root / "runtime-config.json"))
+            self.assertEqual(runtime["VEC_USUARIOS_CORREOS_ENABLED"], "true")
+            self.assertEqual(runtime["VEC_USUARIOS_IMAGEN_ENABLED"], "true")
+            self.assertIn("material/comunicaciones/servidor.crt", final["files"])
+            material.verify_existing(root, {})
 
     def test_full_preparation_preserves_existing_actors_and_never_claims_candidate_account(self):
         with tempfile.TemporaryDirectory() as directory:
