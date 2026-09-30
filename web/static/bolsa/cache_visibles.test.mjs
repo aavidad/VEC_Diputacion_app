@@ -5,7 +5,7 @@ import test from "node:test";
 const raizWeb = new URL("../../", import.meta.url);
 const versionI18n = "20260928-i18n-ingles-v1";
 const versionI18nIndice = "20260928-i18n-ingles-v1";
-const versionControlador = "20260924-rescate-bolsa-v3";
+const versionControlador = "20260930-publico-v2-v2";
 const versionLista = "20260924-b10-reintento-foco-v1";
 const versionAnterior = "20260924-bolsa-publica-final";
 const versionListaAnterior = "20260924-bolsa-ayuda-v3";
@@ -72,6 +72,7 @@ test("las páginas y los scripts renovados constan en ambos manifiestos de produ
     "static/bolsa/listas.html",
     "static/bolsa/i18n-publica.js",
     "static/bolsa/bolsa.js",
+    "static/bolsa/contrato-v2.js",
     "static/bolsa/lista-bolsas.js",
   ]) {
     assert.ok(publico.has(ruta), `${ruta}: manifiesto público`);
