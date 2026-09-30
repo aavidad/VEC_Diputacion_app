@@ -1,16 +1,21 @@
 """Pure archive and Docker contract tests; never launch Docker or restore H1."""
 
+import contextlib
+import hashlib
 import io
 import json
 import os
 from pathlib import Path
 import stat
+import subprocess
+import sys
 import tarfile
 import tempfile
 import unittest
 from unittest.mock import patch
 
 import clon_h1_restore as restore
+import clon_sql
 
 
 class FakeDocker:
@@ -318,6 +323,178 @@ class RestoreTests(unittest.TestCase):
         volume.mkdir()
         with self.assertRaises(restore.RestoreError):
             restore.volume_identity(volume, (info.st_dev, info.st_ino))
+
+
+# Exact non-secret normalizer D bytes, pinned independently of the scratch file.
+NORMALIZER_D_SHA = '529b99dcb8a6b0368ac545a0a2cb456b8410a9bd5f9fe4e4683e2c87694b6623'
+NORMALIZER_D = r'''#!/usr/bin/env python3
+"""Normaliza únicamente la clave aleatoria de los delimitadores psql de pg_dump 18."""
+import re
+import sys
+
+texto = sys.stdin.buffer.read().decode("utf-8")
+lineas = texto.splitlines(keepends=True)
+patron = re.compile(r"^(\\(?:restrict|unrestrict)) ([A-Za-z0-9]+)(\r?\n)$")
+claves = []
+normalizadas = []
+for linea in lineas:
+    if linea.startswith(("\\restrict", "\\unrestrict")):
+        coincide = patron.fullmatch(linea)
+        if coincide is None:
+            raise SystemExit("PARO: delimitador de pg_dump inesperado")
+        claves.append((coincide.group(1), coincide.group(2)))
+        normalizadas.append(f"{coincide.group(1)} CLAVE_NORMALIZADA{coincide.group(3)}")
+    else:
+        normalizadas.append(linea)
+if len(claves) != 2 or claves[0][0] != "\\restrict" or claves[1][0] != "\\unrestrict" or claves[0][1] != claves[1][1]:
+    raise SystemExit("PARO: faltan o no coinciden los delimitadores de pg_dump")
+sys.stdout.buffer.write("".join(normalizadas).encode("utf-8"))
+'''.encode('utf-8')
+
+
+class RealProbeTests(unittest.TestCase):
+    """Exercise _probe, DockerDB, ReadOnlyDB and normalization without Docker/SQL."""
+    cid = 'c' * 64
+    volume = '/dev/shm/vec-recorridos-probe-fixture'
+    schema = b"\\restrict Schema123\nCREATE SCHEMA fixture AUTHORIZATION postgres;\n\\unrestrict Schema123\n"
+    roles = b"\\restrict Roles456\nCREATE ROLE fixture NOLOGIN;\n\\unrestrict Roles456\n"
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+        self.state = self.root / 'state'
+        self.state.mkdir(mode=0o700)
+        self.normalizer = self.root / 'h6_normalizar_pg_dump.py'
+        self.normalizer.write_bytes(NORMALIZER_D)
+        self.normalizer.chmod(0o600)
+        self.identity = {'system_identifier': '12345', 'database_name': 'postgres', 'database_oid': 5}
+        self.acl = 'd' * 64
+        self.metadata = {
+            'Id': self.cid, 'Image': restore.IMAGE_ID,
+            'Config': {'Image': restore.IMAGE_ID, 'Labels': {
+                clon_sql.OWNER_LABEL: restore.OWNER, 'vec.recorridos.state': str(self.state)}},
+            'Running': True, 'NetworkMode': 'none', 'Ports': {},
+            'Mounts': [{'Type': 'bind', 'Destination': '/var/lib/postgresql', 'Source': self.volume}],
+        }
+        self.commands = []
+
+    @contextlib.contextmanager
+    def docker_transport(self):
+        # Only Docker is replaced. Real bounded pipes/selectors and D execute normally.
+        original_popen = subprocess.Popen
+        emitter = (
+            'import json, sys\n'
+            'responses = json.loads(sys.argv[1])\n'
+            'payload = sys.stdin.buffer.read().hex()\n'
+            'if payload not in responses: raise SystemExit(9)\n'
+            'sys.stdout.buffer.write(bytes.fromhex(responses[payload]))\n'
+        )
+
+        def popen(command, **kwargs):
+            self.commands.append(command)
+            self.assertEqual(kwargs['env'], {'PATH': '/usr/bin:/bin', 'LANG': 'C.UTF-8'})
+            self.assertIs(kwargs['close_fds'], True)
+            if command[0] != 'docker':
+                self.assertEqual(command, [sys.executable, '-I', '-S', '-c', NORMALIZER_D.decode()])
+                return original_popen(command, **kwargs)
+            if command[1] == 'inspect':
+                self.assertEqual(command, ['docker', 'inspect', '--format', clon_sql.PROBE_INSPECT_FORMAT, self.cid])
+                responses = {'': json.dumps(self.metadata).encode().hex()}
+            elif command[2] == '-i':
+                self.assertEqual(command, ['docker', 'exec', '-i', self.cid, 'psql', '-h', '/var/run/postgresql',
+                    '-p', '5432', '-U', 'postgres', '-d', 'postgres', '-X', '-q', '-A', '-t', '-v', 'ON_ERROR_STOP=1'])
+                responses = {
+                    ('BEGIN READ ONLY;\n' + clon_sql.SYSTEM_IDENTITY_SQL + ';\nCOMMIT;').encode().hex():
+                        json.dumps(self.identity).encode().hex(),
+                    ('BEGIN READ ONLY;\n' + clon_sql.DATABASE_ACL_SQL + ';\nCOMMIT;').encode().hex():
+                        (self.acl + '\n').encode().hex(),
+                }
+            else:
+                self.assertEqual(command[:5], ['docker', 'exec', '-e',
+                    'PGOPTIONS=-c default_transaction_read_only=on -c statement_timeout=120000 -c lock_timeout=15000', self.cid])
+                arguments = command[5:]
+                if arguments == ['pg_dump', '-s', '-U', 'postgres', '-d', 'postgres']:
+                    output = self.schema
+                else:
+                    self.assertEqual(arguments, ['pg_dumpall', '--globals-only', '--no-role-passwords', '-U', 'postgres'])
+                    output = self.roles
+                responses = {'': output.hex()}
+            return original_popen([sys.executable, '-I', '-S', '-c', emitter, json.dumps(responses)], **kwargs)
+
+        with patch.object(clon_sql.subprocess, 'Popen', side_effect=popen):
+            yield
+
+    def probe(self, normalizer_sha=NORMALIZER_D_SHA):
+        with self.docker_transport():
+            return restore._probe(self.cid, self.state, self.normalizer, normalizer_sha)
+
+    def test_real_probe_returns_cid_image_identity_and_three_fingerprints(self):
+        self.assertEqual(hashlib.sha256(NORMALIZER_D).hexdigest(), NORMALIZER_D_SHA)
+        observed = self.probe()
+        self.assertEqual(observed, {
+            **self.identity, 'pg_container_id': self.cid, 'pg_image': restore.IMAGE,
+            'pg_image_id': restore.IMAGE_ID, 'pg_volume': self.volume,
+            'schema_sha': hashlib.sha256(b"\\restrict CLAVE_NORMALIZADA\nCREATE SCHEMA fixture AUTHORIZATION postgres;\n\\unrestrict CLAVE_NORMALIZADA\n").hexdigest(),
+            'roles_sha': hashlib.sha256(b"\\restrict CLAVE_NORMALIZADA\nCREATE ROLE fixture NOLOGIN;\n\\unrestrict CLAVE_NORMALIZADA\n").hexdigest(),
+            'datacl_sha': self.acl,
+        })
+        self.assertEqual(sum(command[:2] == ['docker', 'inspect'] for command in self.commands), 4)
+        self.assertEqual(sum(command[0] != 'docker' for command in self.commands), 2)
+
+    def test_real_probe_rejects_divergent_identity_labels_image_and_volume(self):
+        variants = {
+            'cid': {'Id': 'e' * 64},
+            'image': {'Image': 'sha256:' + 'e' * 64},
+            'configured-image': {'Config': {**self.metadata['Config'], 'Image': 'postgres:latest'}},
+            'owner': {'Config': {**self.metadata['Config'], 'Labels': {
+                clon_sql.OWNER_LABEL: 'foreign', 'vec.recorridos.state': str(self.state)}}},
+            'state': {'Config': {**self.metadata['Config'], 'Labels': {
+                clon_sql.OWNER_LABEL: restore.OWNER, 'vec.recorridos.state': str(self.root / 'foreign-state')}}},
+            'volume': {'Mounts': [{'Type': 'bind', 'Destination': '/var/lib/postgresql', 'Source': '/private/foreign'}]},
+            'volume-traversal': {'Mounts': [{'Type': 'bind', 'Destination': '/var/lib/postgresql', 'Source': '/dev/shm/../foreign'}]},
+            'volume-destination': {'Mounts': [{'Type': 'bind', 'Destination': '/other', 'Source': self.volume}]},
+        }
+        original = self.metadata
+        for name, change in variants.items():
+            self.metadata = {**original, **change}
+            self.commands.clear()
+            with self.subTest(name=name), self.assertRaises(clon_sql.Refused):
+                self.probe()
+            self.assertEqual(len(self.commands), 1)
+        self.metadata = original
+
+    def test_real_probe_requires_private_state_before_transport(self):
+        self.state.chmod(0o755)
+        with self.assertRaises(clon_sql.Refused):
+            self.probe()
+        self.assertEqual(self.commands, [])
+
+    def test_real_probe_rejects_invalid_postgresql_identity(self):
+        original = self.identity
+        for change in ({'system_identifier': '0'}, {'database_name': 'foreign'}, {'database_oid': True}):
+            self.identity = {**original, **change}
+            self.commands.clear()
+            with self.subTest(change=change), self.assertRaises(clon_sql.Refused):
+                self.probe()
+            self.assertEqual(len(self.commands), 2)
+
+    def test_real_probe_rejects_unapproved_normalizer_before_dump(self):
+        for changed_bytes, pin in ((NORMALIZER_D, 'e' * 64), (NORMALIZER_D + b'# changed\n', NORMALIZER_D_SHA)):
+            self.normalizer.write_bytes(changed_bytes)
+            self.commands.clear()
+            with self.subTest(pin=pin), self.assertRaises(clon_sql.Refused):
+                self.probe(pin)
+            self.assertEqual(len(self.commands), 2)  # Identity succeeds; no dump starts.
+
+    def test_real_probe_rejects_invalid_acl_and_unpaired_dump_delimiters(self):
+        self.acl = 'not-a-digest'
+        with self.assertRaises(clon_sql.Refused):
+            self.probe()
+        self.acl = 'd' * 64
+        self.roles = self.roles.replace(b'unrestrict Roles456', b'unrestrict Wrong789')
+        with self.assertRaises(clon_sql.Refused):
+            self.probe()
 
 
 if __name__ == '__main__':
