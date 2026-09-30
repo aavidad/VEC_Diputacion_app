@@ -1,0 +1,13 @@
+# Sufijo ejecutable H7-AD133 tras AD118/AUT21 y AD134/136, instaladas una vez.
+# Antes: AD117/Cat3/AD126 -> Cat4/AD134; AD113/Documentos9 -> AD136.
+# Ambos linajes conservan AD111/114 en el núcleo completo antes de AD117.
+# A instala AD111/114 antes de AD116/118 y obtiene copias externas ampliadas.
+# B instala AD116/118 antes de AD111/114 tardías: copias históricas, núcleo completo.
+# Se aceptan solo esas dos matrices NUEVAS post134/136; el estadio anterior se rechaza.
+# AD121/122 quedan sustituidas por AD133; no se ejecutan ni registran como ejecutadas.
+# AD133 se ejecuta realmente y esta lista termina en ella.
+# Falta raíz externa AD135 para H7 completo. Después: AD135 -> AD124 -> D11 -> U15.
+# AD135 sustituirá AD123, que no se ejecuta en este linaje alternativo.
+# B65 debe ejecutarse realmente en su posición de la cadena completa; no se sustituye.
+# No reaplicar esta lista, ejecutar DOWN ni utilizarla sobre historia instalada.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000133_convergencia_linaje_externo.up.sql
