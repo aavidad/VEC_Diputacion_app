@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"io"
 	"strconv"
 	"strings"
 	"time"
@@ -341,8 +342,8 @@ func ligaduraSolicitudUsoRPT(
 	if huellaBytesUsoRPT(decisionCanonica) != resumen.DecisionHuellaSHA256() {
 		return false
 	}
-	var decision decisionLigaduraUsoRPT
-	if json.Unmarshal(decisionCanonica, &decision) != nil {
+	decision, ok := leerDecisionLigaduraUsoRPT(decisionCanonica)
+	if !ok {
 		return false
 	}
 	return decision.Esquema == domain.EsquemaHuellaDecisionAutorizacionV3 &&
@@ -353,6 +354,69 @@ func ligaduraSolicitudUsoRPT(
 		decision.CorrelacionRef == correlacion &&
 		decision.PrincipalID == vinculo.PrincipalID &&
 		decision.PerfilActivoRef == vinculo.PerfilActivoRef
+}
+
+// La decisión viva no tiene constructor inverso. Extraemos únicamente los
+// compromisos necesarios de sus bytes, sin normalizar claves ni aceptar
+// duplicados que pudieran dar otra lectura a Go y PostgreSQL.
+func leerDecisionLigaduraUsoRPT(contenido []byte) (decisionLigaduraUsoRPT, bool) {
+	var cero decisionLigaduraUsoRPT
+	if len(contenido) == 0 || len(contenido) > ports.TamanoMaximoDecisionCanonicaV3 {
+		return cero, false
+	}
+	lector := json.NewDecoder(bytes.NewReader(contenido))
+	inicio, err := lector.Token()
+	if err != nil || inicio != json.Delim('{') {
+		return cero, false
+	}
+	campos := make(map[string]json.RawMessage, 40)
+	for lector.More() {
+		token, err := lector.Token()
+		clave, correcta := token.(string)
+		if err != nil || !correcta || len(campos) >= 64 {
+			return cero, false
+		}
+		if _, repetida := campos[clave]; repetida {
+			return cero, false
+		}
+		var valor json.RawMessage
+		if lector.Decode(&valor) != nil {
+			return cero, false
+		}
+		campos[clave] = valor
+	}
+	fin, err := lector.Token()
+	if err != nil || fin != json.Delim('}') {
+		return cero, false
+	}
+	if lector.Decode(new(any)) != io.EOF {
+		return cero, false
+	}
+	leerTexto := func(clave string) (string, bool) {
+		bruto, existe := campos[clave]
+		if !existe || len(bruto) == 0 || bruto[0] != '"' {
+			return "", false
+		}
+		var texto string
+		if json.Unmarshal(bruto, &texto) != nil {
+			return "", false
+		}
+		return texto, true
+	}
+	camposNecesarios := []*string{&cero.Esquema, &cero.DecisionRef, &cero.SolicitudHuellaSHA256,
+		&cero.MotivoHuellaSHA256, &cero.ContextoRecursoHuellaSHA256, &cero.CorrelacionRef,
+		&cero.PrincipalID, &cero.PerfilActivoRef}
+	clavesNecesarias := []string{"esquema", "decision_ref", "solicitud_huella_sha256",
+		"motivo_huella_sha256", "contexto_recurso_huella_sha256", "correlacion_ref",
+		"principal_id", "perfil_activo_ref"}
+	for i, clave := range clavesNecesarias {
+		valor, ok := leerTexto(clave)
+		if !ok || valor == "" {
+			return decisionLigaduraUsoRPT{}, false
+		}
+		*camposNecesarios[i] = valor
+	}
+	return cero, true
 }
 
 func huellaBytesUsoRPT(contenido []byte) string {
