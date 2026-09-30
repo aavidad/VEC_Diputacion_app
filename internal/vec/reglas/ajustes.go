@@ -238,8 +238,9 @@ func versionAjustesVacia(v VersionAjustes) bool {
 // debe reutilizar el material original ligado a la clave, o recuperar esa
 // preimagen histórica. Nunca debe reprocesar la cabeza actual, que cambiaría
 // la huella de solicitud y perdería el recibo. Una lista vacía no sirve:
-// CT148 la rechaza antes de consultar la clave de idempotencia. Un reintento
-// no vacío conserva el mismo valor nuevo y anterior de su material original.
+// CT148 la rechaza antes de consultar la clave de idempotencia. Los cambios
+// nuevos deben variar el valor anterior; un replay usa la solicitud original
+// conservada y no vuelve a pasar por esta preparación.
 func PrepararCambioAjustes(
 	catalogo domain.CatalogoConfigurable, instante time.Time, versionEsperada int,
 	previa VersionAjustes, encontrada bool, solicitadas []SolicitudCambioAjuste,
@@ -305,7 +306,7 @@ func PrepararCambioAjustes(
 		if !ajustado {
 			anterior, ajustado = entrada.Atributos[solicitud.Campo]
 		}
-		if !ajustado {
+		if !ajustado || anterior == solicitud.Nuevo {
 			return vacia, ErrAjusteInvalido
 		}
 		if ajustes[solicitud.ReglaClave] == nil {
