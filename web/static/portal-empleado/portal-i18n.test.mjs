@@ -58,6 +58,7 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     // 5.06, segundo corte: el circuito de firma trae el estado de Firmadoc.
     // Reglas vigentes: el detalle de cada regla y sus textos en catálogos renuevan el enlace del panel.
     ["portal.js", "20260930-custodia-506-e3-v3"],
+    ["portal-borrador-llamamiento-ui.js", "20260930-bolsa-resumen-llamamiento-v1"],
     ["portal-panel-interno.js", "20260930-portales-i18n-integracion-v1"],
     ["reglas/enlace.js", "20260930-portales-i18n-integracion-v1"],
     ["portal-modulos-coordinador.js", "20260930-custodia-506-e3-v3"],
