@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -132,7 +133,7 @@ func TestPrepararRechazaAmbiguedadYFuenteAdulterada(t *testing.T) {
 }
 
 func TestEjecutarCreaFicherosPrivadosSinSobrescribir(t *testing.T) {
-	if rutaSalidaValida("/tmp/catalogo.json") || rutaSalidaValida("catalogo.json") {
+	if validarRutaSalida("/tmp/catalogo.json") == nil || validarRutaSalida("catalogo.json") == nil {
 		t.Fatal("destino fuera del directorio controlado")
 	}
 	dir, err := os.MkdirTemp(".", "ct157-prueba-")
@@ -143,6 +144,9 @@ func TestEjecutarCreaFicherosPrivadosSinSobrescribir(t *testing.T) {
 	dir, err = filepath.Abs(dir)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if err := validarRutaSalida(filepath.Join(dir, "inexistente", "salida.json")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatal("no se propagó el error del directorio", err)
 	}
 	fuente := filepath.Join(dir, "fuente.json")
 	canonico := filepath.Join(dir, "canonico.json")

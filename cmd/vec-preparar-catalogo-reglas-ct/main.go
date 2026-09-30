@@ -39,8 +39,9 @@ type fuenteCatalogo struct {
 }
 
 var (
-	patronRevision = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,79}$`)
-	patronSHA256   = regexp.MustCompile(`^[a-f0-9]{64}$`)
+	patronRevision        = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,79}$`)
+	patronSHA256          = regexp.MustCompile(`^[a-f0-9]{64}$`)
+	errRutaSalidaInvalida = errors.New("ruta de salida no controlada")
 )
 
 type paqueteCatalogo struct {
@@ -76,9 +77,14 @@ func ejecutar(args []string, salida, errores io.Writer) int {
 	flags.StringVar(&aprobacionRef, "aprobacion-ref", "", "")
 	flags.BoolVar(&permitirEjemplo, "permitir-ejemplo", false, "")
 	if flags.Parse(args) != nil || flags.NArg() != 0 || !rutaFuenteValida(fuente) ||
-		!rutaSalidaValida(destino) || !rutaSalidaValida(destinoManifiesto) ||
 		fuente == destino || fuente == destinoManifiesto || destino == destinoManifiesto {
 		return rechazar(errores, "catalogo_ct157_uso_invalido", 2)
+	}
+	if err := validarRutaSalida(destino); err != nil {
+		return rechazar(errores, "catalogo_ct157_salida_invalida", 2)
+	}
+	if err := validarRutaSalida(destinoManifiesto); err != nil {
+		return rechazar(errores, "catalogo_ct157_salida_invalida", 2)
 	}
 	contenido, err := leerFuente(fuente)
 	if err != nil {
@@ -174,16 +180,25 @@ func leerFuente(ruta string) ([]byte, error) {
 
 func rutaFuenteValida(ruta string) bool { return filepath.IsAbs(ruta) && filepath.Clean(ruta) == ruta }
 
-func rutaSalidaValida(ruta string) bool {
+func validarRutaSalida(ruta string) error {
 	if !rutaFuenteValida(ruta) {
-		return false
+		return errRutaSalidaInvalida
 	}
 	padre, err := filepath.EvalSymlinks(filepath.Dir(ruta))
-	if err != nil || padre == "/tmp" || strings.HasPrefix(padre, "/tmp/") {
-		return false
+	if err != nil {
+		return fmt.Errorf("%w: %w", errRutaSalidaInvalida, err)
+	}
+	if padre == "/tmp" || strings.HasPrefix(padre, "/tmp/") {
+		return errRutaSalidaInvalida
 	}
 	info, err := os.Stat(padre)
-	return err == nil && info.IsDir() && info.Mode().Perm()&0022 == 0
+	if err != nil {
+		return fmt.Errorf("%w: %w", errRutaSalidaInvalida, err)
+	}
+	if !info.IsDir() || info.Mode().Perm()&0022 != 0 {
+		return errRutaSalidaInvalida
+	}
+	return nil
 }
 
 func crearSalida(ruta string, contenido []byte) error {
