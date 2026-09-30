@@ -41,6 +41,8 @@ function contraste(paleta, primer, segundo) {
 }
 
 test("seis modos solo cambian tokens de color y dejan libre el alto contraste", () => {
+  assert.match(css, /body\[data-modo-color\]:not\(\[data-contraste="true"\]\):not\(\.alto-contraste\)\s*\{\s*--portal-lateral-fondo:\s*var\(--portal-azul-950\);/u);
+  assert.match(css, /body\[data-contraste="true"\],\s*body\.alto-contraste\s*\{[^}]*--portal-lateral-fondo:\s*var\(--portal-azul-950\);/u);
   for (const modo of modos) {
     const selector = `body[data-modo-color="${modo}"]:not([data-contraste="true"]):not(.alto-contraste)`;
     const paleta = bloque(selector);
@@ -98,4 +100,5 @@ test("marca y enlaces del lateral usan el par de tokens comprobado", () => {
     assert.match(declaracion(portal, selector), /color: var\(--portal-lateral-texto\)/u);
   }
   assert.match(declaracion(menuBolsa, ".enlace-submenu:hover:not(:disabled)"), /color: var\(--portal-lateral-texto\)/u);
+  assert.match(css, /\.portal-lateral \.enlace-lateral\[aria-current="page"\]:focus-visible,[^}]*\.portal-lateral \.categoria-menu-bolsa\[data-categoria-activa="true"\]:focus-visible\s*\{\s*outline-color: var\(--portal-texto-inverso\);/u);
 });

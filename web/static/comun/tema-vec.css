@@ -83,6 +83,11 @@ html[data-tema="granate"] {
   --portal-sombra-color: rgb(69 26 50 / 15%);
 }
 
+/* Resolver el alias en body evita heredar el azul base ya calculado en :root. */
+body[data-modo-color]:not([data-contraste="true"]):not(.alto-contraste) {
+  --portal-lateral-fondo: var(--portal-azul-950);
+}
+
 /* El modo oscuro cambia solo tokens; la gramática de paneles y controles permanece. */
 body[data-modo-color="oscuro"]:not([data-contraste="true"]):not(.alto-contraste) {
   color-scheme: dark;
@@ -315,9 +320,16 @@ body[data-modo-color="noche_suave"]:not([data-contraste="true"]):not(.alto-contr
   outline-color: var(--portal-lateral-texto);
 }
 
+body[data-modo-color="noche_suave"]:not([data-contraste="true"]):not(.alto-contraste) .portal-lateral .enlace-lateral[aria-current="page"]:focus-visible,
+body[data-modo-color="noche_suave"]:not([data-contraste="true"]):not(.alto-contraste) .portal-lateral .enlace-submenu[aria-current="page"]:focus-visible,
+body[data-modo-color="noche_suave"]:not([data-contraste="true"]):not(.alto-contraste) .portal-lateral .categoria-menu-bolsa[data-categoria-activa="true"]:focus-visible {
+  outline-color: var(--portal-texto-inverso);
+}
+
 body[data-contraste="true"],
 body.alto-contraste {
   --portal-azul-950: #001d3b;
+  --portal-lateral-fondo: var(--portal-azul-950);
   --portal-azul-900: #002a54;
   --portal-azul-800: #003c78;
   --portal-azul-100: #d7e6fc;
