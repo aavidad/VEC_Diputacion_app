@@ -109,6 +109,9 @@ BEGIN
      AND d.classid='pg_proc'::regclass AND d.objid=f;
  IF encode(sha256(convert_to(original,'UTF8')),'hex') IS DISTINCT FROM esperada_def_sha256
     OR encode(sha256(convert_to(fuente,'UTF8')),'hex') IS DISTINCT FROM esperada_fuente_sha256
+    OR EXISTS (SELECT 1 FROM pg_database db
+         CROSS JOIN LATERAL aclexplode(coalesce(db.datacl,acldefault('d',db.datdba))) a
+         WHERE db.datname=current_database() AND a.grantee=0 AND a.privilege_type='TEMPORARY')
     OR NOT EXISTS (SELECT 1 FROM aclexplode(coalesce(acl,acldefault('f',propietario))) a
                    WHERE a.grantee=propietario AND a.privilege_type='EXECUTE' AND NOT a.is_grantable)
     OR EXISTS (SELECT 1 FROM aclexplode(coalesce(acl,acldefault('f',propietario))) a
