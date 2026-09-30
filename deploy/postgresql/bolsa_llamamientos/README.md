@@ -199,11 +199,21 @@ los parámetros del receptor. La activación del receptor exige
 La conexión `VEC_EXTERNO_AVISOS_BOLSA_DATABASE_URL` usa el LOGIN
 `vec_externo_avisos_bolsa`, cuya única membresía es el grupo nominal
 `vec_bolsa_avisos_externos_consumidor` (herencia sí, SET y ADMIN no).
-El DBA prepara el LOGIN sin contraseña en Git y con las mismas restricciones
-TLS, base e identidad de servidor que el resto del proceso externo.
+La conexión `VEC_EXTERNO_AVISOS_USUARIOS_DATABASE_URL` usa otro LOGIN,
+`vec_externo_avisos_usuarios`, con una sola membresía en
+`vec_usuarios_ejecutor_externo` (herencia sí, SET y ADMIN no).
+El DBA prepara ambos LOGIN y sus credenciales fuera de Git, con las mismas
+restricciones TLS, base e identidad de servidor que el resto del proceso externo.
 
-Se bloquea una emisión separada si la autoridad no acredita al destinatario
-externo vigente. La ausencia de ese vínculo no permite usar el correo del alta.
+La lista causal es
+`deploy/principal/lista_sql_codexb_avisos_externos_20260930.txt`.
+Requiere previamente CTX15 y las migraciones del portal externo de #179.
+Contiene CTX16, AD3-119, AD3-120, Bolsa 000062 y Usuarios 000014;
+no incluye Bolsa 000063 ni crea los LOGIN.
+
+Esta composición separada admite emisiones cuyos destinatarios son todos
+externos. Un lote mixto se rechaza. Se bloquea una emisión si la autoridad
+no acredita al destinatario externo vigente. La ausencia de ese vínculo no permite usar el correo del alta.
 El candidato empleado precisa una clasificación interna nominal adicional;
 este canal no la sustituye. El funcionamiento combinado conserva su composición
 histórica mientras no se retire su lectura al instalar la separación.
