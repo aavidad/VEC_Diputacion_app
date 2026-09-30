@@ -967,29 +967,89 @@ class H6Package62Tests(unittest.TestCase):
                 self.assertFalse((root / "state").exists())
 
 class ImagePinTests(unittest.TestCase):
+    @staticmethod
+    @contextlib.contextmanager
+    def pinned_clon(image="sha256:" + "d" * 64):
+        with tempfile.TemporaryDirectory() as scratch:
+            state = Path(scratch)
+            metadata = PreimageProbeTests.metadata()
+            metadata["Config"]["Labels"]["vec.recorridos.state"] = str(state)
+            yield SQL.DockerDB("c" * 64, state, expected_image_id=image), metadata
+
+    def test_restore_shape_uses_real_constructor_and_full_identity_probe(self):
+        with self.pinned_clon() as (db, metadata):
+            metadata["Config"]["Image"] = db.expected_image_id
+            metadata["State"] = {"Running": True}
+            identity = {"system_identifier": "7533565316322819991", "database_name": "postgres", "database_oid": 5}
+            result = subprocess.CompletedProcess([], 0, json.dumps([metadata]), "")
+            with patch.object(SQL.subprocess, "run", return_value=result) as inspect, \
+                    patch.object(SQL, "_probe_command", side_effect=[json.dumps(metadata).encode(),
+                        json.dumps(identity).encode()]) as probe:
+                db.check_owner()
+                self.assertEqual(db.system_identity()["pg_container_id"], "c" * 64)
+                self.assertEqual(inspect.call_args.args[0], ["docker", "inspect", "c" * 64])
+                self.assertEqual(probe.call_args_list[0].args[0][-1], "c" * 64)
+                self.assertEqual(probe.call_args_list[1].args[0][3], "c" * 64)
+
+    def test_cid_requires_pin_and_owned_private_canonical_state_before_any_probe(self):
+        with tempfile.TemporaryDirectory() as scratch:
+            state = Path(scratch)
+            link = state / "link"; link.symlink_to(state, target_is_directory=True)
+            public = state / "public"; public.mkdir(mode=0o755)
+            foreign = state / "foreign"; foreign.mkdir(mode=0o700)
+            pin = "sha256:" + "d" * 64
+            for container, directory, image in (("c" * 64, None, pin), ("c" * 64, state, None),
+                    ("c" * 64, public, pin), ("c" * 64, link, pin),
+                    ("c" * 64, str(state) + "/../" + state.name, pin),
+                    ("c" * 64, Path("relative"), pin), ("c" * 64, state / "absent", pin),
+                    ("c" * 63, state, pin), ("C" * 64, state, pin),
+                    ("foreign-container", state, pin), ("vec-fixture", state, pin)):
+                with self.subTest(container=container, directory=directory, pin=image), \
+                        patch.object(SQL, "_probe_command") as probe, patch.object(SQL.subprocess, "run") as inspect:
+                    with self.assertRaises(SQL.Refused):
+                        SQL.DockerDB(container, directory, expected_image_id=image)
+                    probe.assert_not_called(); inspect.assert_not_called()
+            with patch.object(SQL.os, "getuid", return_value=os.getuid() + 1):
+                with self.assertRaisesRegex(SQL.Refused, "propietario"):
+                    SQL.DockerDB("c" * 64, foreign, expected_image_id=pin)
+
+    def test_inspected_cid_and_state_must_match_approved_restore_before_query(self):
+        for field in ("id", "state"):
+            with self.pinned_clon() as (db, metadata):
+                metadata["Config"]["Image"] = db.expected_image_id
+                metadata["State"] = {"Running": True}
+                if field == "id": metadata["Id"] = "e" * 64
+                else: metadata["Config"]["Labels"]["vec.recorridos.state"] += "-foreign"
+                result = subprocess.CompletedProcess([], 0, json.dumps([metadata]), "")
+                with self.subTest(field=field), patch.object(SQL.subprocess, "run", return_value=result), \
+                        patch.object(SQL, "_probe_command", return_value=json.dumps(metadata).encode()) as probe:
+                    with self.assertRaises(SQL.Refused): db.check_owner()
+                    with self.assertRaises(SQL.Refused): db.system_identity()
+                    self.assertEqual(probe.call_count, 1)
+
     def test_check_owner_accepts_historical_tag_and_exact_externally_pinned_digest(self):
         for configured, image, pin in (("postgres:18.4", "sha256:" + "d" * 64, None),
                                        ("sha256:" + "d" * 64, "sha256:" + "d" * 64, "sha256:" + "d" * 64)):
-            obj = PreimageProbeTests.metadata()
-            obj["Config"]["Image"], obj["Image"] = configured, image
-            obj["State"] = {"Running": True}
-            result = subprocess.CompletedProcess([], 0, json.dumps([obj]), "")
-            with self.subTest(configured=configured), patch.object(SQL.subprocess, "run", return_value=result):
-                SQL.DockerDB("vec-fixture", expected_image_id=pin).check_owner()
+            with self.pinned_clon() as (db, obj):
+                obj["Config"]["Image"], obj["Image"] = configured, image
+                obj["State"] = {"Running": True}
+                result = subprocess.CompletedProcess([], 0, json.dumps([obj]), "")
+                with self.subTest(configured=configured), patch.object(SQL.subprocess, "run", return_value=result):
+                    (db if pin else SQL.DockerDB("vec-fixture")).check_owner()
 
     def test_check_owner_rejects_digest_without_pin_and_any_pinned_image_mismatch(self):
         digest, other = "sha256:" + "d" * 64, "sha256:" + "e" * 64
         for configured, image, pin in ((digest, digest, None), (digest, other, digest),
                                        (other, digest, digest), (digest, digest, other),
                                        ("postgres:18.4", digest, digest), (digest, None, digest)):
-            obj = PreimageProbeTests.metadata()
-            obj["Config"]["Image"], obj["Image"] = configured, image
-            obj["State"] = {"Running": True}
-            result = subprocess.CompletedProcess([], 0, json.dumps([obj]), "")
-            with self.subTest(configured=configured, image=image, pin=pin), \
-                    patch.object(SQL.subprocess, "run", return_value=result):
-                with self.assertRaisesRegex(SQL.Refused, "huella aprobada externa"):
-                    SQL.DockerDB("vec-fixture", expected_image_id=pin).check_owner()
+            with self.pinned_clon(pin or digest) as (db, obj):
+                obj["Config"]["Image"], obj["Image"] = configured, image
+                obj["State"] = {"Running": True}
+                result = subprocess.CompletedProcess([], 0, json.dumps([obj]), "")
+                with self.subTest(configured=configured, image=image, pin=pin), \
+                        patch.object(SQL.subprocess, "run", return_value=result):
+                    with self.assertRaisesRegex(SQL.Refused, "huella aprobada externa"):
+                        (db if pin else SQL.DockerDB("vec-fixture")).check_owner()
 
     def test_h6_cli_missing_or_invalid_image_pin_denies_before_kit_state_or_database(self):
         with tempfile.TemporaryDirectory() as scratch:
@@ -1013,7 +1073,7 @@ class ImagePinTests(unittest.TestCase):
                 "--h6-lock", str(root / "lock"), "--approved-package-sha256", "a" * 64,
                 "--approved-lock-sha256", "b" * 64, "--h1-state-file", str(root / "h1"),
                 "--estado-h1-sha", "c" * 64, "--identidad-clon", "d" * 64,
-                "--container", "vec-fixture", "--state-dir", str(root / "state")]
+                "--container", "c" * 64, "--state-dir", str(root / "state")]
 
     def test_h6_cli_passes_external_image_pin_to_apply_without_enabling_kit(self):
         with tempfile.TemporaryDirectory() as scratch:
@@ -1151,14 +1211,14 @@ class PreimageProbeTests(unittest.TestCase):
 
     def test_immutable_image_launch_requires_external_pin_and_returns_logical_family(self):
         for configured_image in ("postgres:18.4", "sha256:" + "d" * 64):
-            metadata = self.metadata()
-            metadata["Config"]["Image"] = configured_image
-            identity = {"system_identifier": "7533565316322819991", "database_name": "postgres", "database_oid": 5}
-            with self.subTest(image=configured_image), patch.object(SQL, "_probe_command", side_effect=[
-                    json.dumps(metadata).encode(), json.dumps(identity).encode()]):
-                result = SQL.DockerDB("vec-fixture", expected_image_id="sha256:" + "d" * 64).system_identity()
-                self.assertEqual(result["pg_image"], "postgres:18.4")
-                self.assertEqual(result["pg_image_id"], "sha256:" + "d" * 64)
+            with ImagePinTests.pinned_clon() as (db, metadata):
+                metadata["Config"]["Image"] = configured_image
+                identity = {"system_identifier": "7533565316322819991", "database_name": "postgres", "database_oid": 5}
+                with self.subTest(image=configured_image), patch.object(SQL, "_probe_command", side_effect=[
+                        json.dumps(metadata).encode(), json.dumps(identity).encode()]):
+                    result = db.system_identity()
+                    self.assertEqual(result["pg_image"], "postgres:18.4")
+                    self.assertEqual(result["pg_image_id"], "sha256:" + "d" * 64)
 
     def test_image_pin_rejects_missing_foreign_and_invalid_approval_before_query(self):
         for configured_image, expected in (("sha256:" + "d" * 64, None),
@@ -1166,13 +1226,13 @@ class PreimageProbeTests(unittest.TestCase):
                 ("postgres:18.4", "sha256:" + "e" * 64),
                 ("postgres:other", "sha256:" + "d" * 64),
                 (None, None), ("sha256:" + "e" * 64, "sha256:" + "d" * 64)):
-            metadata = self.metadata()
-            metadata["Config"]["Image"] = configured_image
-            with self.subTest(image=configured_image, pin=expected), \
-                    patch.object(SQL, "_probe_command", return_value=json.dumps(metadata).encode()) as runner:
-                with self.assertRaises(SQL.Refused):
-                    SQL.DockerDB("vec-fixture", expected_image_id=expected).system_identity()
-                self.assertEqual(runner.call_count, 1)
+            with ImagePinTests.pinned_clon(expected or "sha256:" + "d" * 64) as (db, metadata):
+                metadata["Config"]["Image"] = configured_image
+                with self.subTest(image=configured_image, pin=expected), \
+                        patch.object(SQL, "_probe_command", return_value=json.dumps(metadata).encode()) as runner:
+                    with self.assertRaises(SQL.Refused):
+                        (db if expected else SQL.DockerDB("vec-fixture")).system_identity()
+                    self.assertEqual(runner.call_count, 1)
         for expected in ("", "postgres:18.4", "SHA256:" + "d" * 64, True, []):
             with self.subTest(pin=expected), patch.object(SQL, "_probe_command") as runner:
                 with self.assertRaises(SQL.Refused):

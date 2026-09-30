@@ -781,7 +781,10 @@ def _probe_command(command, data=None, limit=PROBE_DUMP_LIMIT, timeout=PROBE_TIM
 
 class DockerDB:
     def __init__(self, container, state=None, expected_image_id=None):
-        if not re.fullmatch(r"vec-[a-z0-9-]+", container):
+        if not isinstance(container, str):
+            raise Refused("identificador de clon incompatible")
+        self.container_is_id = re.fullmatch(r"[a-f0-9]{64}", container) is not None
+        if not self.container_is_id and not re.fullmatch(r"vec-[a-z0-9-]+", container):
             raise Refused("el nombre debe identificar un clon vec- propio")
         self.container = container
         self.state = state
@@ -789,6 +792,32 @@ class DockerDB:
                 or not re.fullmatch(r"sha256:[a-f0-9]{64}", expected_image_id)):
             raise Refused("huella aprobada de imagen incompatible")
         self.expected_image_id = expected_image_id
+        if self.container_is_id:
+            if expected_image_id is None or state is None:
+                raise Refused("ID inmutable exige huella de imagen aprobada y estado privado H6")
+            directory = None
+            try:
+                original = os.fspath(state)
+                if (not isinstance(original, str) or not original.startswith("/")
+                        or any(p in ("", ".", "..") for p in original.split("/")[1:])):
+                    raise Refused("estado privado H6 debe ser absoluto y canónico")
+                self.state = Path(original)
+                directory = os.open("/", os.O_RDONLY | os.O_DIRECTORY)
+                for component in self.state.parts[1:]:
+                    following = os.open(component, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+                                        dir_fd=directory)
+                    os.close(directory)
+                    directory = following
+                status = os.fstat(directory)
+                if status.st_uid != os.getuid() or status.st_mode & 0o077:
+                    raise Refused("estado privado H6 exige propietario actual y modo 0700")
+            except (TypeError, ValueError, OSError):
+                raise Refused("estado privado H6 inválido o enlazado") from None
+            finally:
+                if directory is not None:
+                    os.close(directory)
+        elif expected_image_id is not None:
+            raise Refused("H6 con huella de imagen exige ID inmutable del contenedor")
 
     def _probe_metadata(self):
         raw = _probe_command(["docker", "inspect", "--format", PROBE_INSPECT_FORMAT,
@@ -801,6 +830,7 @@ class DockerDB:
                     or (obj["Config"]["Image"] != "postgres:18.4"
                         and (self.expected_image_id is None or obj["Config"]["Image"] != self.expected_image_id))
                     or not re.fullmatch(r"[a-f0-9]{64}", obj["Id"])
+                    or (self.container_is_id and obj["Id"] != self.container)
                     or not re.fullmatch(r"sha256:[a-f0-9]{64}", obj["Image"])
                     or (self.expected_image_id is not None and obj["Image"] != self.expected_image_id)
                     or obj["NetworkMode"] != "none"
@@ -892,6 +922,8 @@ class DockerDB:
                                 capture_output=True, text=True, check=True, timeout=15)
         obj = json.loads(result.stdout)[0]
         labels = obj["Config"].get("Labels") or {}
+        if self.container_is_id and obj.get("Id") != self.container:
+            raise Refused("ID inspeccionado distinto del clon inmutable solicitado")
         if labels.get(OWNER_LABEL) != OWNER or not obj["State"]["Running"]:
             raise Refused("el contenedor no es un clon activo propiedad de Codex-M")
         if self.state is not None and labels.get("vec.recorridos.state") != str(self.state):
