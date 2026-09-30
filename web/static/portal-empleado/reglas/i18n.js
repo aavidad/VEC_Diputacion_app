@@ -19,7 +19,7 @@ export const IDIOMA_DATOS_REGLAS = IDIOMA_POR_DEFECTO;
 const CLAVES = Object.freeze(`
   documentTitle miga titulo volver ayudaAbrir ayudaTitulo ayudaCerrar ayudaQue ayudaOrigen ayudaVersion
   filtros filtroModulo filtroOrigen filtroTexto todos origen_reglamento origen_ejemplo cargando sinResultados
-  kpiTotal kpiReglamento kpiEjemplo modulo_bolsa modulo_contratacion_temporal catalogoVersion catalogoHuella
+  kpiTotal kpiReglamento kpiEjemplo modulo_bolsa modulo_contratacion_temporal catalogoVersion reintentar
   paqueteEjemplo estado_sin_catalogo estado_no_disponible contadorReglas colRegla colValor colUnidad colOrigen
   colDuda colVersion origenArticulo origenEjemplo parteEjemplo sinValor computo_administrativo computo_civil
   unidad_dias_habiles unidad_dias_naturales unidad_meses unidad_anios unidad_horas unidad_minutos_semanales

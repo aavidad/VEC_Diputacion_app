@@ -5,3 +5,4 @@
 deploy/postgresql/aspirantes/roles_up.sql
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000111_consumidor_aspirantes.up.sql
 deploy/postgresql/aspirantes/migraciones/000001_ficha_propia.up.sql
+deploy/postgresql/aspirantes/migraciones/000002_frontera.up.sql

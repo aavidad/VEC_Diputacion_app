@@ -3,6 +3,8 @@ import test from "node:test";
 import { readFile } from "node:fs/promises";
 
 import { cargarHistorialMiBolsa, montarHistorialMiBolsa, renderizarHistorialMiBolsa, validarHistorialMiBolsa } from "./mi-bolsa-historial.js";
+import { iniciarI18nAreaPersonal } from "./i18n.js";
+import { catalogoPlano, lectorCatalogos } from "./textos-prueba.test-helper.mjs";
 
 const ahora = "2026-09-27T20:00:00.000000Z";
 const comunes = { bolsa: "bolsa:prueba:1", categoria: "Auxiliar <sanitario>", ocurrido_en: "2026-09-26T10:00:00.000000Z" };
@@ -95,8 +97,27 @@ test("la paginación consulta la página siguiente sin enviar referencias de par
 });
 
 test("los textos nuevos están en el catálogo común", async () => {
-  const catalogo = JSON.parse(await readFile(new URL("./locales/es.json", import.meta.url), "utf8"));
+  const catalogo = await catalogoPlano("es");
   for (const clave of ["titulo", "cargando", "vacio", "sinCampos", "denegado", "limite", "contrato", "llamamiento", "renuncia"]) {
     assert.equal(typeof catalogo[`areaPersonal.miBolsa.historial.${clave}`], "string");
+  }
+});
+
+test("el histórico muestra el envío sin confirmar en ambos idiomas y rechaza estados inventados", async () => {
+  const original = pagina([{ ...llamamiento(), resultado: "aviso_pendiente" }]);
+  const datos = validarHistorialMiBolsa(original, 1);
+  assert.equal(datos.historial.items[0].resultado, "aviso_pendiente");
+  assert.throws(() => validarHistorialMiBolsa(pagina([{ ...llamamiento(), resultado: "entregado" }]), 1), /Llamamiento no válido/u);
+  try {
+    for (const idioma of ["es", "en"]) {
+      await iniciarI18nAreaPersonal(null, { preferidos: [idioma], leer: lectorCatalogos() });
+      const esperado = (await catalogoPlano(idioma))["areaPersonal.miBolsa.historial.aviso_pendiente"];
+      const html = renderizarHistorialMiBolsa(datos, { estado: "correcto" });
+      assert.ok(html.includes(esperado));
+      assert.match(html, /estado-chip aviso/u);
+      assert.doesNotMatch(html, /aviso_pendiente|Correo enviado|Email sent|Delivered/u);
+    }
+  } finally {
+    await iniciarI18nAreaPersonal(null, { preferidos: ["es"], leer: lectorCatalogos() });
   }
 });

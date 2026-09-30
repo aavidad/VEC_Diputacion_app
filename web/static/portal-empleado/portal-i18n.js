@@ -1,5 +1,3 @@
-import * as textosPlazosBolsa from "./modulos/bolsa/rrhh-plazos-i18n.js?v=20260928-rrhh-politica-ofertas-v1";
-import * as textosPoliticaCese from "./modulos/bolsa/rrhh-politica-cese-i18n.js?v=20260928-rrhh-politica-cese-v1";
 import { IDIOMA_ACTUAL, LOCALIZACION_ACTUAL } from "../comun/idioma.js";
 import { cargarTextos } from "../comun/textos.js";
 import { mensajesTramitePortal } from "./modulos/contratacion-temporal/i18n-fases-rrhh.js";
@@ -7,19 +5,11 @@ import { mensajesTramitePortal } from "./modulos/contratacion-temporal/i18n-fase
 /**
  * Textos del shell del portal: viven en `textos/<idioma>/portal.json`
  * (secciones `general`, `textos` y `panel_interno`), `portal-ayuda.json` y la
- * sección `portal` de `preferencias.json`. Se combinan en un único catálogo
- * plano que consulta `traducirPortal`; si al idioma actual le falta una clave
- * se usa la del idioma por defecto.
+ * sección `portal` de `preferencias.json`, más las secciones `plazos` y
+ * `politica_cese` de `bolsa.json` (políticas de ofertas y de cese de Bolsa).
+ * Se combinan en un único catálogo plano que consulta `traducirPortal`; si al
+ * idioma actual le falta una clave se usa la del idioma por defecto.
  */
-
-/**
- * Diccionario de un módulo de Bolsa que aún no está migrado a catálogos. Se
- * toma por espacio de nombres (su único objeto exportado) para no depender del
- * nombre de su constante; al migrarlo, se sustituye por su sección de datos.
- */
-function diccionarioHeredado(espacio) {
-  return Object.values(espacio).find((valor) => valor !== null && typeof valor === "object") ?? {};
-}
 
 /** Aplana una sección anidada a claves `a.b.c`, como las usa el portal. */
 function aplanar(seccion, prefijo = "", salida = {}) {
@@ -33,16 +23,17 @@ function aplanar(seccion, prefijo = "", salida = {}) {
 
 /** Catálogo común del shell en `idioma` (por defecto, el de la interfaz). */
 export async function cargarMensajesPortal(idioma = IDIOMA_ACTUAL) {
-  const [portal, ayuda, preferencias] = await Promise.all(["portal", "portal-ayuda", "preferencias"]
+  const [portal, ayuda, preferencias, bolsa, avisos] = await Promise.all(["portal", "portal-ayuda", "preferencias", "bolsa", "avisos-externos"]
     .map((modulo) => cargarTextos(modulo, { idioma })));
   return Object.freeze({
     ...ayuda.seccion("ayuda"),
     ...portal.seccion("panel_interno"),
     ...portal.seccion("textos"),
-    ...diccionarioHeredado(textosPlazosBolsa),
-    ...diccionarioHeredado(textosPoliticaCese),
+    ...bolsa.seccion("plazos"),
+    ...bolsa.seccion("politica_cese"),
     ...mensajesTramitePortal(idioma),
     ...portal.seccion("general"),
+    ...avisos.mensajes,
     ...aplanar(preferencias.seccion("portal")),
   });
 }

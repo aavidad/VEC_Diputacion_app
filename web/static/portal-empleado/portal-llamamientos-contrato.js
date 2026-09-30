@@ -190,7 +190,7 @@ export function validarEmisionLlamamiento(datos) {
     .forEach((campo) => exigirCadena(datos.configuracion[campo], campo, 4000));
   exigirInstanteUTC(datos.emitido_en, "emisión");
   if (datos.contactos !== undefined && (!Array.isArray(datos.contactos)
-    || datos.contactos.some((c) => !esObjeto(c) || !["enviado", "no_enviado"].includes(c.resultado)
+    || datos.contactos.some((c) => !esObjeto(c) || !["enviado", "no_enviado", "aviso_pendiente"].includes(c.resultado)
       || typeof c.recibo_ref !== "string" || typeof c.participacion_ref !== "string"))) {
     throw new Error("contactos de emisión no válidos");
   }
