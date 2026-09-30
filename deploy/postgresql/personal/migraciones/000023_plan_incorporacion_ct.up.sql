@@ -42,14 +42,14 @@ BEGIN
  IF NEW.version IS DISTINCT FROM anterior+1
     OR ARRAY(SELECT jsonb_object_keys(NEW.datos) ORDER BY 1) IS DISTINCT FROM ARRAY['opciones']
     OR jsonb_typeof(NEW.datos->'opciones') IS DISTINCT FROM 'array'
-    OR jsonb_array_length(NEW.datos->'opciones') NOT BETWEEN 1 AND 3
+    OR jsonb_array_length(NEW.datos->'opciones') NOT BETWEEN 1 AND 64
     OR (SELECT count(DISTINCT o->>'valor') FROM jsonb_array_elements(NEW.datos->'opciones') o)
        <>jsonb_array_length(NEW.datos->'opciones') THEN
   RAISE EXCEPTION 'Personal23: versión de clases inválida' USING ERRCODE='22023'; END IF;
  FOR opcion IN SELECT value FROM jsonb_array_elements(NEW.datos->'opciones') LOOP
   IF jsonb_typeof(opcion) IS DISTINCT FROM 'object'
      OR ARRAY(SELECT jsonb_object_keys(opcion) ORDER BY 1) IS DISTINCT FROM ARRAY['etiquetas','texto_clave','valor']
-     OR opcion->>'valor' IS NULL OR opcion->>'valor' NOT IN ('titular','provisional','temporal')
+     OR opcion->>'valor' IS NULL OR opcion->>'valor' !~ '^[a-z][a-z0-9_]{0,63}$'
      OR opcion->>'texto_clave' IS DISTINCT FROM 'rrhh.ct.incorporacion.b2.clase_ocupacion.opcion.'||(opcion->>'valor')
      OR jsonb_typeof(opcion->'etiquetas') IS DISTINCT FROM 'object'
      OR ARRAY(SELECT jsonb_object_keys(opcion->'etiquetas') ORDER BY 1) IS DISTINCT FROM ARRAY['en','es']
@@ -328,7 +328,7 @@ BEGIN
  IF d->>k !~ '^[a-z][a-z0-9_:-]{2,159}$' THEN RAISE EXCEPTION 'Personal23: referencia inválida' USING ERRCODE='22023'; END IF; END LOOP;
  FOREACH k IN ARRAY ARRAY['origen_ct_huella_sha256','fuente_bolsa_huella_sha256','fuente_organizacion_huella_sha256','catalogo_rpt_huella_sha256'] LOOP
  IF d->>k !~ '^[0-9a-f]{64}$' THEN RAISE EXCEPTION 'Personal23: huella inválida' USING ERRCODE='22023'; END IF; END LOOP;
- IF d->>'persona_ref' !~ '^per_[A-Za-z0-9_-]{22,128}$' OR d->>'idempotencia_ref' !~ '^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$' OR d->>'plaza_ref' !~ '^plaza:[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$' OR d->>'puesto_ref' !~ '^puesto:[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$' OR d->>'desde' !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' OR (d->>'hasta'<>'' AND d->>'hasta' !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$') OR d->>'clase_ocupacion' NOT IN ('temporal','provisional','titular') THEN RAISE EXCEPTION 'Personal23: datos de incorporación inválidos' USING ERRCODE='22023'; END IF;
+ IF d->>'persona_ref' !~ '^per_[A-Za-z0-9_-]{22,128}$' OR d->>'idempotencia_ref' !~ '^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$' OR d->>'plaza_ref' !~ '^plaza:[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$' OR d->>'puesto_ref' !~ '^puesto:[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$' OR d->>'desde' !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' OR (d->>'hasta'<>'' AND d->>'hasta' !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$') OR d->>'clase_ocupacion' !~ '^[a-z][a-z0-9_]{0,63}$' THEN RAISE EXCEPTION 'Personal23: datos de incorporación inválidos' USING ERRCODE='22023'; END IF;
  IF NOT isfinite((d->>'desde')::date) OR (d->>'hasta'<>'' AND (NOT isfinite((d->>'hasta')::date) OR (d->>'hasta')::date<=(d->>'desde')::date)) THEN RAISE EXCEPTION 'Personal23: periodo inválido' USING ERRCODE='22023'; END IF;
 END $f$;
 REVOKE ALL ON FUNCTION vec_personal.validar_datos_plan_ct_interno(jsonb,text) FROM PUBLIC,vec_personal_ejecutor;

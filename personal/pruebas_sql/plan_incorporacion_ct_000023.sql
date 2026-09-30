@@ -79,22 +79,38 @@ BEGIN
  IF estado->>'estado' IS DISTINCT FROM 'preparado' OR estado->'recibo_alta_relacion' IS DISTINCT FROM 'null'::jsonb
     OR estado->'recibo_ocupacion' IS DISTINCT FROM 'null'::jsonb THEN
   RAISE EXCEPTION 'Personal23: plan sin efectos declaró progreso'; END IF;
- -- Una publicación posterior no cambia la colección que acredita el plan.
- SELECT jsonb_build_object('opciones',jsonb_agg(o ORDER BY ord))::text INTO canon_nuevo
- FROM jsonb_array_elements(c.datos->'opciones') WITH ORDINALITY x(o,ord) WHERE o->>'valor'<>'temporal';
+ -- La versión nueva incorpora reserva y retira temporal; el plan conserva v1.
+ SELECT jsonb_build_object('opciones',jsonb_agg(opcion ORDER BY ord))::text INTO canon_nuevo
+ FROM (SELECT o AS opcion,ord FROM jsonb_array_elements(c.datos->'opciones') WITH ORDINALITY x(o,ord)
+       WHERE o->>'valor'<>'temporal'
+       UNION ALL SELECT jsonb_build_object('valor','reserva',
+        'texto_clave','rrhh.ct.incorporacion.b2.clase_ocupacion.opcion.reserva',
+        'etiquetas',jsonb_build_object('es','Reserva','en','Reserved')),4::bigint) opciones;
  INSERT INTO vec_personal.clases_ocupacion_plan_ct_catalogo VALUES(c.ref,2,canon_nuevo,canon_nuevo::jsonb,
    encode(sha256(convert_to(canon_nuevo,'UTF8')),'hex'),clock_timestamp());
  estado:=vec_personal.estado_plan_ct_interno(p);
  IF estado->'plan'->>'clases_ocupacion_catalogo_version' IS DISTINCT FROM '1'
     OR estado->'plan'->>'clases_ocupacion_catalogo_huella_sha256' IS DISTINCT FROM c.huella_sha256 THEN
   RAISE EXCEPTION 'Personal23: publicación nueva reescribió catálogo original'; END IF;
+ p.datos:=jsonb_set(p.datos,'{clase_ocupacion}','"reserva"'::jsonb);
+ BEGIN
+  PERFORM vec_personal.validar_clase_plan_ct_interna(p);
+  RAISE EXCEPTION 'Personal23: reserva admitida antes de publicarse';
+ EXCEPTION WHEN SQLSTATE '23505' THEN NULL; END;
+ p.clases_ocupacion_catalogo_version:=2;
+ p.clases_ocupacion_catalogo_huella_sha256:=encode(sha256(convert_to(canon_nuevo,'UTF8')),'hex');
+ PERFORM vec_personal.validar_clase_plan_ct_interna(p);
+ p.datos:=jsonb_set(p.datos,'{clase_ocupacion}','"sin_publicar"'::jsonb);
+ BEGIN
+  PERFORM vec_personal.validar_clase_plan_ct_interna(p);
+  RAISE EXCEPTION 'Personal23: clase ausente admitida';
+ EXCEPTION WHEN SQLSTATE '23505' THEN NULL; END;
+ p.datos:=jsonb_set(p.datos,'{clase_ocupacion}','"temporal"'::jsonb);
  BEGIN
   UPDATE vec_personal.clases_ocupacion_plan_ct_catalogo SET datos_canon='{}' WHERE ref=c.ref AND version=1;
   RAISE EXCEPTION 'Personal23: catálogo histórico modificado';
  EXCEPTION WHEN SQLSTATE '55000' THEN NULL; END;
  BEGIN
-  p.clases_ocupacion_catalogo_version:=2;
-  p.clases_ocupacion_catalogo_huella_sha256:=encode(sha256(convert_to(canon_nuevo,'UTF8')),'hex');
   PERFORM vec_personal.validar_clase_plan_ct_interna(p);
   RAISE EXCEPTION 'Personal23: clase admitida en versión que no la contiene';
  EXCEPTION WHEN SQLSTATE '23505' THEN NULL; END;
