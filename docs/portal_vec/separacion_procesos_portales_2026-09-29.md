@@ -120,7 +120,11 @@ vec-server comprobar-separacion-portales \
 
 Falla si los dos directorios comparten autoridad certificadora, incluso cuando
 el formato PEM difiere. Compara la huella SHA-256 del certificado DER y rechaza
-un certificado de CA ausente o inválido. También falla si algún secreto (KMS,
+un certificado de CA ausente o inválido. El manifiesto externo debe usar
+versión 2 y declarar `huella_ca_interna_sha256`, calculada sobre el DER de la
+CA interna actual, como 64 caracteres hexadecimales en minúsculas. La
+comprobación coteja esa declaración con el certificado del directorio interno.
+También falla si algún secreto (KMS,
 sellado, idempotencia, clave TLS, `externo/*.bin`) tiene el mismo contenido en
 los dos directorios, si un mismo usuario de
 PostgreSQL aparece en las conexiones de ambos (variables del guion y cadenas
@@ -252,3 +256,15 @@ GOCACHE=/dev/shm/go-build TMPDIR=/tmp go test -p 32 \
 
 Estas pruebas verifican rechazo y configuración local; el recorrido con los
 dos procesos y PostgreSQL se comprueba por separado.
+
+El arranque externo exige ese manifiesto v2 y rechaza una huella interna
+ausente, mal formada o igual a su propia CA. Lee solo su directorio: la
+preparación del operador entrega la huella pública y la comprobación de
+despliegue contrasta ambos directorios. El `manifiesto.json` interno conserva su
+versión 4. La marca `portal-proceso.json` sigue en versión 1 en ambos procesos.
+
+El manifiesto es JSON sin firma. Su confianza procede del aprovisionamiento
+controlado y del cotejo de despliegue. Las comprobaciones de fichero regular,
+enlaces y permisos protegen la lectura, pero no acreditan por sí solas quién
+lo preparó. Cada renovación de CA requiere repetir la preparación explícita
+y el cotejo antes del arranque.

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"crypto/x509"
+	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
 	"io"
@@ -158,7 +159,63 @@ func comprobarCADistintas(interno, externo string) error {
 	if huellas[0] == huellas[1] {
 		return rechazo("los dos procesos comparten autoridad certificadora", "ca/ca.crt")
 	}
+	declarada, err := leerHuellaCAInternaDeclarada(externo)
+	if err != nil {
+		return err
+	}
+	if declarada != huellas[0] {
+		return rechazo("la CA interna declarada no coincide con su material", "manifiesto.json")
+	}
 	return nil
+}
+
+// leerHuellaCAInternaDeclarada exige el manifiesto externo v2 y una huella
+// DER hexadecimal canónica. El cotejo corresponde al despliegue controlado;
+// este JSON no es un documento firmado.
+func leerHuellaCAInternaDeclarada(externo string) ([sha256.Size]byte, error) {
+	var huella [sha256.Size]byte
+	contenido, err := leerFicheroAcotado(filepath.Join(externo, "manifiesto.json"), tamanoMaximoJSON)
+	if err != nil {
+		return huella, rechazo("manifiesto externo no legible", "manifiesto.json")
+	}
+	decoder := json.NewDecoder(bytes.NewReader(contenido))
+	inicio, err := decoder.Token()
+	if err != nil || inicio != json.Delim('{') {
+		return huella, rechazo("manifiesto externo no valido", "manifiesto.json")
+	}
+	campos := map[string]json.RawMessage{}
+	for decoder.More() {
+		clave, err := decoder.Token()
+		if err != nil {
+			return huella, rechazo("manifiesto externo no valido", "manifiesto.json")
+		}
+		nombre, ok := clave.(string)
+		if _, repetida := campos[nombre]; !ok || repetida {
+			return huella, rechazo("manifiesto externo no valido", "manifiesto.json")
+		}
+		var valor json.RawMessage
+		if decoder.Decode(&valor) != nil {
+			return huella, rechazo("manifiesto externo no valido", "manifiesto.json")
+		}
+		campos[nombre] = valor
+	}
+	fin, err := decoder.Token()
+	var sobra any
+	if err != nil || fin != json.Delim('}') || decoder.Decode(&sobra) != io.EOF {
+		return huella, rechazo("manifiesto externo no valido", "manifiesto.json")
+	}
+	var version int
+	var texto string
+	if json.Unmarshal(campos["version"], &version) != nil || version != 2 ||
+		json.Unmarshal(campos["huella_ca_interna_sha256"], &texto) != nil {
+		return huella, rechazo("manifiesto externo sin CA interna declarada", "manifiesto.json")
+	}
+	binario, err := hex.DecodeString(texto)
+	if err != nil || len(binario) != sha256.Size || hex.EncodeToString(binario) != texto {
+		return huella, rechazo("huella de CA interna no valida", "manifiesto.json")
+	}
+	copy(huella[:], binario)
+	return huella, nil
 }
 
 // esSecreto señala los ficheros cuyo contenido no puede coincidir entre

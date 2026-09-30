@@ -37,6 +37,28 @@ func generarMaterialPortalExternoPrueba(t *testing.T) materialPortalExternoPrueb
 	}
 	cfg, rutas := generarMaterialDesarrolloPrueba(t)
 	raiz := cfg.DevelopmentMaterialDir
+	// El operador declara la huella pública de otra CA, sin incorporar su
+	// material al proceso externo.
+	_, rutasInternas := generarMaterialDesarrolloPrueba(t)
+	caInternaPEM, err := os.ReadFile(rutasInternas.CACertificate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	caInterna, err := decodificarCertificadoUnico(caInternaPEM)
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifiestoPEM, err := os.ReadFile(filepath.Join(raiz, "manifiesto.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var manifiesto archivoManifiestoDesarrollo
+	if json.Unmarshal(manifiestoPEM, &manifiesto) != nil {
+		t.Fatal("manifiesto sintetico no valido")
+	}
+	manifiesto.Version = 2
+	manifiesto.HuellaCAInternaSHA256 = hexHuellaMiBolsaPrueba(sha256.Sum256(caInterna.Raw))
+	escribirJSONExternoPrueba(t, filepath.Join(raiz, "manifiesto.json"), manifiesto)
 	clientes := t.TempDir()
 	certificado := filepath.Join(raiz, "mtls", "candidato.crt")
 	clave := filepath.Join(clientes, "candidato.key")
@@ -247,5 +269,42 @@ func TestProcesoExternoConPreferenciasExigeSuMaterialYSuPreflight(t *testing.T) 
 			t.Fatalf("%s aun no se compone en el externo y debe impedir arrancar: %v", selector, err)
 		}
 		t.Setenv(selector, "")
+	}
+}
+
+func TestProcesoExternoRechazaManifiestoSinSeparacionDeCA(t *testing.T) {
+	vaciarConexionesDelEntorno(t)
+	m := generarMaterialPortalExternoPrueba(t)
+	m.cfg.PersonalCatalogPath = "memory"
+	ruta := filepath.Join(m.cfg.DevelopmentMaterialDir, "manifiesto.json")
+	contenido, err := os.ReadFile(ruta)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var valido archivoManifiestoDesarrollo
+	if json.Unmarshal(contenido, &valido) != nil {
+		t.Fatal("manifiesto no decodificable")
+	}
+	for _, caso := range []struct {
+		nombre  string
+		version int
+		huella  string
+	}{
+		{"version antigua", 1, valido.HuellaCAInternaSHA256},
+		{"version desconocida", 3, valido.HuellaCAInternaSHA256},
+		{"sin huella interna", 2, ""},
+		{"huella corta", 2, "abcdef"},
+		{"huella no hexadecimal", 2, strings.Repeat("z", 64)},
+		{"huella no canonica", 2, strings.ToUpper(valido.HuellaCAInternaSHA256)},
+		{"CA compartida", 2, valido.HuellaCASHA256},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			alterado := valido
+			alterado.Version, alterado.HuellaCAInternaSHA256 = caso.version, caso.huella
+			escribirJSONExternoPrueba(t, ruta, alterado)
+			if _, err := NewHTTPServerWithConfig(m.cfg); !errors.Is(err, ErrMaterialPortalExternoInvalido) {
+				t.Fatalf("manifiesto rechazable admitido: %v", err)
+			}
+		})
 	}
 }

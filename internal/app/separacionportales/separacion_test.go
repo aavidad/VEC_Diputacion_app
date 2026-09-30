@@ -4,8 +4,10 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/sha256"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/hex"
 	"encoding/pem"
 	"errors"
 	"math/big"
@@ -58,6 +60,47 @@ func materialSintetico(t *testing.T, p Portal) string {
 	return raiz
 }
 
+func declararCAInternaPrueba(t *testing.T, interno, externo string) string {
+	t.Helper()
+	ca, err := os.ReadFile(filepath.Join(interno, "ca", "ca.crt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	bloque, _ := pem.Decode(ca)
+	if bloque == nil {
+		t.Fatal("CA sintetica no decodificable")
+	}
+	huella := sha256.Sum256(bloque.Bytes)
+	texto := hex.EncodeToString(huella[:])
+	escribir(t, externo, "manifiesto.json", `{"version":2,"huella_ca_interna_sha256":"`+texto+`"}`)
+	return texto
+}
+
+func TestComprobarSeparacionExigeCAInternaActualDeclarada(t *testing.T) {
+	interno, externo := materialSintetico(t, PortalInterno), materialSintetico(t, PortalExterno)
+	huella := declararCAInternaPrueba(t, interno, externo)
+	for _, invalido := range []string{
+		`{"version":1,"huella_ca_interna_sha256":"` + huella + `"}`,
+		`{"version":2}`, `{}`,
+		`{"version":2,"huella_ca_interna_sha256":"` + strings.Repeat("0", 64) + `"}`,
+		`{"version":2,"huella_ca_interna_sha256":"` + strings.ToUpper(huella) + `"}`,
+		`{"version":2,"huella_ca_interna_sha256":"` + huella + `","huella_ca_interna_sha256":"` + huella + `"}`,
+		`{"version":2,"huella_ca_interna_sha256":"` + huella + `"}{}`,
+	} {
+		escribir(t, externo, "manifiesto.json", invalido)
+		_, err := ComprobarSeparacion(Proceso{Material: interno}, Proceso{Material: externo})
+		if got := motivo(t, err); got != "manifiesto.json" {
+			t.Fatalf("manifiesto no valido aceptado: %s", got)
+		}
+	}
+	declararCAInternaPrueba(t, interno, externo)
+	escribir(t, interno, "ca/ca.crt", certificadoCASintetico(t))
+	_, err := ComprobarSeparacion(Proceso{Material: interno}, Proceso{Material: externo})
+	if got := motivo(t, err); got != "manifiesto.json" {
+		t.Fatalf("CA interna renovada no detectada: %s", got)
+	}
+}
+
 func certificadoCASintetico(t *testing.T) string {
 	t.Helper()
 	clave, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
@@ -79,6 +122,7 @@ func certificadoCASintetico(t *testing.T) string {
 func TestComprobarSeparacionRechazaCAMismaConOtroFormatoPEM(t *testing.T) {
 	interno := materialSintetico(t, PortalInterno)
 	externo := materialSintetico(t, PortalExterno)
+	declararCAInternaPrueba(t, interno, externo)
 	ca, err := os.ReadFile(filepath.Join(interno, "ca", "ca.crt"))
 	if err != nil {
 		t.Fatal(err)
@@ -94,6 +138,7 @@ func TestComprobarSeparacionRechazaCANoValida(t *testing.T) {
 	for _, invalida := range []string{"", "certificado no valido", certificadoCASintetico(t) + certificadoCASintetico(t)} {
 		interno := materialSintetico(t, PortalInterno)
 		externo := materialSintetico(t, PortalExterno)
+		declararCAInternaPrueba(t, interno, externo)
 		escribir(t, externo, "ca/ca.crt", invalida)
 		_, err := ComprobarSeparacion(Proceso{Material: interno}, Proceso{Material: externo})
 		if got := motivo(t, err); got != "ca/ca.crt" {
@@ -351,6 +396,7 @@ func TestMarcaDePortalObligatoriaYCoherente(t *testing.T) {
 func TestMaterialSinEnlacesNiRutasRelativas(t *testing.T) {
 	interno := materialSintetico(t, PortalInterno)
 	externo := materialSintetico(t, PortalExterno)
+	declararCAInternaPrueba(t, interno, externo)
 	if err := os.Mkdir(filepath.Join(externo, "kms"), 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -374,9 +420,11 @@ func TestEntornoDeclaradoEnElMaterialTambienSeComprueba(t *testing.T) {
 }
 
 func TestComprobarSeparacionAceptaProcesosDistintos(t *testing.T) {
+	interno, externo := materialSintetico(t, PortalInterno), materialSintetico(t, PortalExterno)
+	declararCAInternaPrueba(t, interno, externo)
 	informe, err := ComprobarSeparacion(
-		Proceso{Material: materialSintetico(t, PortalInterno), Entorno: []byte("export VEC_CT_DATABASE_URL=\"postgresql://vec_ct_runtime:x@127.0.0.1:$vec_local_pg_puerto/vec\"\n")},
-		Proceso{Material: materialSintetico(t, PortalExterno), Entorno: []byte("VEC_EXTERNO_BOLSA_DATABASE_URL='postgresql://vec_bolsa_ext:x@127.0.0.1/vec'\n")},
+		Proceso{Material: interno, Entorno: []byte("export VEC_CT_DATABASE_URL=\"postgresql://vec_ct_runtime:x@127.0.0.1:$vec_local_pg_puerto/vec\"\n")},
+		Proceso{Material: externo, Entorno: []byte("VEC_EXTERNO_BOLSA_DATABASE_URL='postgresql://vec_bolsa_ext:x@127.0.0.1/vec'\n")},
 	)
 	if err != nil {
 		t.Fatalf("procesos separados rechazados: %v", err)
@@ -389,12 +437,14 @@ func TestComprobarSeparacionAceptaProcesosDistintos(t *testing.T) {
 func TestComprobarSeparacionDetectaClaveCopiada(t *testing.T) {
 	interno := materialSintetico(t, PortalInterno)
 	externo := materialSintetico(t, PortalExterno)
+	declararCAInternaPrueba(t, interno, externo)
 	escribir(t, externo, "idempotencia/g1-localizador.bin", "idem interno")
 	_, err := ComprobarSeparacion(Proceso{Material: interno}, Proceso{Material: externo})
 	if got := motivo(t, err); got != "idempotencia/g1-localizador.bin = idempotencia/g1-localizador.bin" {
 		t.Fatalf("clave de idempotencia compartida aceptada: %s", got)
 	}
 	externo = materialSintetico(t, PortalExterno)
+	declararCAInternaPrueba(t, interno, externo)
 	escribir(t, externo, "externo/otra.bin", "idem externo")
 	if _, err := ComprobarSeparacion(Proceso{Material: interno}, Proceso{Material: externo}); err == nil {
 		t.Fatal("un mismo secreto usado para dos fines debe rechazarse")
@@ -404,6 +454,7 @@ func TestComprobarSeparacionDetectaClaveCopiada(t *testing.T) {
 func TestComprobarSeparacionDetectaUsuarioCompartido(t *testing.T) {
 	interno := materialSintetico(t, PortalInterno)
 	externo := materialSintetico(t, PortalExterno)
+	declararCAInternaPrueba(t, interno, externo)
 	_, err := ComprobarSeparacion(
 		Proceso{Material: interno, Entorno: []byte("export VEC_CT_DATABASE_URL=\"postgresql://vec_compartido:x@127.0.0.1/vec\"\n")},
 		Proceso{Material: externo, Entorno: []byte("VEC_EXTERNO_X_DATABASE_URL=host=127.0.0.1 user=vec_compartido password=y\n")},
@@ -449,6 +500,7 @@ func TestUsuarioConexion(t *testing.T) {
 func TestComprobarSeparacionDetectaClaveCopiadaEnExterno(t *testing.T) {
 	interno := materialSintetico(t, PortalInterno)
 	externo := materialSintetico(t, PortalExterno)
+	declararCAInternaPrueba(t, interno, externo)
 	escribir(t, externo, "externo/clave.bin", "kms interno")
 	if _, err := ComprobarSeparacion(Proceso{Material: interno}, Proceso{Material: externo}); err == nil {
 		t.Fatal("una clave interna copiada bajo externo/ debe rechazarse")
@@ -458,6 +510,7 @@ func TestComprobarSeparacionDetectaClaveCopiadaEnExterno(t *testing.T) {
 func TestComprobarSeparacionExigeUsuarioExplicito(t *testing.T) {
 	interno := materialSintetico(t, PortalInterno)
 	externo := materialSintetico(t, PortalExterno)
+	declararCAInternaPrueba(t, interno, externo)
 	_, err := ComprobarSeparacion(
 		Proceso{Material: interno},
 		Proceso{Material: externo, Entorno: []byte("VEC_EXTERNO_X_DATABASE_URL=\"host=127.0.0.1 password=x dbname=vec\"\n")},
