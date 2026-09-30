@@ -467,6 +467,9 @@ func nuevoServidorDesarrollo(
 		}
 		registradorFrontera = frontera
 	}
+	if err = validarCoberturaRutasCTDesarrollo(rutasContratacion, autoridadContratacion.fronterasSeguridadComun); err != nil {
+		return nil, nil, err
+	}
 	vecAPI, err := newVECShellAPICompuestaConIdentidadYRutas(
 		cfg, emisor, resolvedor, categoriasPersonal, rutasContratacion, autoridadExactas,
 		registradorFrontera, autoridadDietas, coleccionesBolsasRRHH...,

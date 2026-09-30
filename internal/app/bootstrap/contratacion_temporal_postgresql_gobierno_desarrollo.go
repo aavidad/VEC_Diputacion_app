@@ -260,6 +260,7 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		// Registro de firmas de prueba de los borradores (AD3-85); solo se
 		// publica con VEC_CT_FIRMA_REGISTRO_ENABLED.
 		ports.AudienciaFirmaDocumentoV3,
+		ports.AudienciaConsultaFirmasDocumentoV3,
 		puertosbolsa.AudienciaCrearBorradorLlamamientoInterno,
 		puertosbolsa.AudienciaConsultarBorradorLlamamientoInterno,
 		puertosbolsa.AudienciaCambiarSituacionParticipacion,

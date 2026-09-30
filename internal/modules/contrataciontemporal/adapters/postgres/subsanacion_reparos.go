@@ -259,12 +259,22 @@ func (t *TransaccionSubsanacionReparosPostgreSQL) ConfirmarSubsanacionReparo(ctx
 		return ports.ReciboSubsanacionReparo{}, err
 	}
 	defer entradas.borrar()
+	return t.confirmarSubsanacionConReintentos(ctx, o, entradas)
+}
+
+func (t *TransaccionSubsanacionReparosPostgreSQL) confirmarSubsanacionConReintentos(ctx context.Context, o ports.OrdenConfirmarSubsanacionReparo, entradas entradasConfirmarFiscalizacion) (ports.ReciboSubsanacionReparo, error) {
 	for intento := 0; intento < maximoIntentosConfirmarFiscalizacion; intento++ {
 		recibo, causa := t.confirmarEnTransaccionSubsanacion(ctx, o, entradas)
 		if causa == nil {
 			return recibo, nil
 		}
-		if ctx.Err() != nil || !errorPostgreSQLReintentable(causa) || intento+1 == maximoIntentosConfirmarFiscalizacion ||
+		if ctx.Err() != nil {
+			return ports.ReciboSubsanacionReparo{}, ctx.Err()
+		}
+		if conflictoDeclaradoPorFuncionSQL(causa) {
+			return ports.ReciboSubsanacionReparo{}, domain.ErrVersionEnConflicto
+		}
+		if !errorPostgreSQLReintentable(causa) || intento+1 == maximoIntentosConfirmarFiscalizacion ||
 			!postgresqlcomun.EsperarReintentoCarreraSerializable(ctx, intento+1) {
 			return ports.ReciboSubsanacionReparo{}, normalizarErrorSubsanacionSQL(ctx, causa)
 		}

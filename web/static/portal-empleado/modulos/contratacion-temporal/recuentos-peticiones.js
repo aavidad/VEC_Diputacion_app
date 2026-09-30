@@ -23,6 +23,11 @@ export function requiereAtencion(expediente) {
     || expediente.plazo_estado === "vence_hoy" || expediente.estado_clave === "incidencia");
 }
 
+/** Solo plazos vencidos de expedientes que siguen en trámite. */
+export function tienePlazoVencido(expediente) {
+  return enTramite(expediente) && expediente.plazo_estado === "vencido";
+}
+
 function diaPlazo(expediente) {
   return PATRON_DIA.test(expediente?.plazo_ultimo_dia ?? "") ? expediente.plazo_ultimo_dia : "";
 }
@@ -39,8 +44,19 @@ export function compararPorPlazo(a, b) {
 }
 
 /** Días entre dos fechas civiles AAAA-MM-DD (b − a). */
-function diasEntre(a, b) {
+export function diasEntre(a, b) {
   return Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 86_400_000);
+}
+
+/** Día civil de la lectura en la sede; evita contar el UTC anterior tras la medianoche. */
+export function diaConsulta(generadoEn) {
+  const fecha = new Date(generadoEn ?? "");
+  if (!Number.isFinite(fecha.getTime())) return "";
+  const partes = Object.fromEntries(new Intl.DateTimeFormat(undefined, {
+    timeZone: "Europe/Madrid", calendar: "gregory", numberingSystem: "latn",
+    year: "numeric", month: "2-digit", day: "2-digit",
+  }).formatToParts(fecha).map(({ type, value }) => [type, value]));
+  return `${partes.year}-${partes.month}-${partes.day}`;
 }
 
 /**
@@ -52,7 +68,7 @@ function diasEntre(a, b) {
 export function resumirPeticiones({ expedientes = [], parcial = false, generadoEn = "" } = {}) {
   const lista = Array.isArray(expedientes) ? expedientes : [];
   const vivos = lista.filter(enTramite);
-  const hoy = /^\d{4}-\d{2}-\d{2}/u.exec(String(generadoEn ?? ""))?.[0] ?? "";
+  const hoy = diaConsulta(generadoEn);
   const porFase = new Map(FASES_RRHH.map((fase) => [fase, 0]));
   for (const expediente of vivos) {
     const fase = faseRRHH(expediente.fase_clave);
@@ -68,6 +84,7 @@ export function resumirPeticiones({ expedientes = [], parcial = false, generadoE
     parcial: parcial === true,
     total: lista.length,
     enTramite: vivos.length,
+    vencidos: vivos.filter(tienePlazoVencido).length,
     atencion: Object.freeze(vivos.filter(requiereAtencion).sort(compararPorPlazo)),
     vencenSemana,
     porFase: Object.freeze(Object.fromEntries(porFase)),
@@ -76,7 +93,7 @@ export function resumirPeticiones({ expedientes = [], parcial = false, generadoE
 
 /** Filtros de la lista que se aplican en pantalla sobre la consulta ya cargada. */
 export const FILTRO_LISTA_INICIAL = Object.freeze({ texto: "", fase: "", centro: "", categoria: "", mostrar: "en_tramite" });
-export const OPCIONES_MOSTRAR = Object.freeze(["en_tramite", "atencion", "vencen_semana", "espera", "terminadas", "todas"]);
+export const OPCIONES_MOSTRAR = Object.freeze(["en_tramite", "vencidos", "atencion", "vencen_semana", "espera", "terminadas", "todas"]);
 
 /** Normaliza un filtro recibido (de la portada o del formulario) sin aceptar claves ajenas. */
 export function filtroListaValido(entrada = {}) {
@@ -98,6 +115,7 @@ function cumpleMostrar(expediente, mostrar, hoy) {
   if (mostrar === "todas") return true;
   if (mostrar === "terminadas") return !enTramite(expediente);
   if (!enTramite(expediente)) return false;
+  if (mostrar === "vencidos") return tienePlazoVencido(expediente);
   if (mostrar === "atencion") return requiereAtencion(expediente);
   if (mostrar === "espera") return expediente.estado_clave === "espera";
   if (mostrar === "vencen_semana") {
@@ -111,7 +129,7 @@ function cumpleMostrar(expediente, mostrar, hoy) {
 
 /** Aplica los filtros de pantalla y ordena por plazo (lo más urgente, arriba). */
 export function filtrarPeticiones(expedientes, filtro = FILTRO_LISTA_INICIAL, generadoEn = "") {
-  const hoy = /^\d{4}-\d{2}-\d{2}/u.exec(String(generadoEn ?? ""))?.[0] ?? "";
+  const hoy = diaConsulta(generadoEn);
   const texto = normalizar(filtro.texto);
   return (Array.isArray(expedientes) ? expedientes : []).filter((expediente) => (
     cumpleMostrar(expediente, filtro.mostrar, hoy)

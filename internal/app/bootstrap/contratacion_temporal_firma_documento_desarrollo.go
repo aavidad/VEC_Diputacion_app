@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log"
 	"maps"
+	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -13,11 +14,14 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	postgrescontratacion "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
 	ctapplication "vec-diputacion-granada/internal/modules/contrataciontemporal/application"
+	consultafirmas "vec-diputacion-granada/internal/modules/contrataciontemporal/application/consultafirmas"
 	ctdomain "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	seguridadvec "vec-diputacion-granada/internal/vec/adapters/seguridad"
+	docports "vec-diputacion-granada/internal/vec/documentos/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
+	puertosvec "vec-diputacion-granada/internal/vec/ports"
 	"vec-diputacion-granada/internal/vec/reglas"
 )
 
@@ -35,12 +39,66 @@ func rutaFirmaDocumentoCTDesarrollo(ruta string) bool {
 	return ruta == httpinterno.RutaFirmaDocumento || ruta == httpinterno.RutaConsultaFirmaDocumento
 }
 
+func firmaDocumentoPerfilFijoCompuesto(s *soporteAltaContratacionTemporalDesarrollo) bool {
+	return s != nil && s.perfilFijoParaRuta(httpinterno.RutaFirmaDocumento) != nil
+}
+
 // descriptorMaterialFirmaDocumentoCTDesarrollo es el consumidor V3 de AD3-85.
 func descriptorMaterialFirmaDocumentoCTDesarrollo() descriptorMaterialConsumidorV3Desarrollo {
 	return descriptorMaterialConsumidorV3Desarrollo{
 		Audiencia: ports.AudienciaFirmaDocumentoV3, Dominio: "vec.ct.firma-documento.desarrollo.capacidad-v3",
 		Prefijo: "clave:capacidad:ct-firma-documento:", ProveedorNominal: proveedorMaterialContratacionTemporal,
 	}
+}
+
+func descriptorMaterialConsultaFirmasDocumentoCTDesarrollo() descriptorMaterialConsumidorV3Desarrollo {
+	return descriptorMaterialConsumidorV3Desarrollo{
+		Audiencia: ports.AudienciaConsultaFirmasDocumentoV3, Dominio: "vec.ct.firmas-documento.consulta.capacidad-v3",
+		Prefijo: "clave:capacidad:ct-firmas-documento-consulta:", ProveedorNominal: proveedorMaterialContratacionTemporal,
+	}
+}
+
+// El mismo catálogo motivado de firma cubre la gestión y su consulta; la
+// acción y la proyección autorizada se distinguen en concesiones separadas.
+func motivoConsultaFirmasDocumentoCTDesarrollo() dominiovec.ReferenciaEntradaCatalogo {
+	return motivoFirmaDocumentoCTDesarrollo()
+}
+
+// custodia solo se fija desde la configuración documental validada ANTES de
+// publicar la plantilla inicial. Una ampliación posterior exige huella y CAS.
+func instantaneaPerfilFijoFirmaDocumentoCTDesarrollo(principalID, perfilRef string, ahora time.Time, custodia ...bool) (dominiovec.InstantaneaAutorizacion, error) {
+	concesiones := []dominiovec.ConcesionRol{
+		{Accion: ports.AccionFirmarDocumento, ModuloID: ports.ModuloContratacion, TipoRecurso: ports.TipoRecursoFirmaDocumento,
+			Finalidades: []string{ports.FinalidadFirmaDocumento}, GarantiaMinima: dominiovec.AuthAssuranceHigh},
+		{Accion: ports.AccionConsultarFirmasDocumento, ModuloID: ports.ModuloContratacion, TipoRecurso: ports.TipoRecursoConsultaFirmasDocumento,
+			Finalidades: []string{ports.FinalidadFirmaDocumento}, GarantiaMinima: dominiovec.AuthAssuranceHigh,
+			CamposPermitidos: consultafirmas.CamposConsultaFirmasDocumento()},
+	}
+	if len(custodia) > 1 {
+		return dominiovec.InstantaneaAutorizacion{}, errFirmaDocumentoCTDesarrolloNoDisponible
+	}
+	if len(custodia) == 1 && custodia[0] {
+		concesiones = append(concesiones, dominiovec.ConcesionRol{Accion: docports.AccionCustodiarFirmado, ModuloID: "documentos", TipoRecurso: "documento_firmado",
+			Finalidades: []string{docports.FinalidadCustodiarFirmado}, GarantiaMinima: dominiovec.AuthAssuranceHigh})
+	}
+	return nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(principalID, perfilRef, ahora,
+		"firma_documento_ct_desarrollo", "Firma de prueba de borradores CT de desarrollo", "asignacion-firma-documento-ct-desarrollo-no-autoritativa",
+		concesiones, []dominiovec.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}}})
+}
+
+type claveConsultaFirmasDocumentoCTDesarrollo struct{}
+
+func solicitudAutorizacionConsultaFirmasDocumentoCTDesarrolloValida(ctx context.Context, datos dominiovec.DatosSolicitudAutorizacionLigadaV3) bool {
+	if ctx == nil {
+		return false
+	}
+	m, ok := ctx.Value(claveConsultaFirmasDocumentoCTDesarrollo{}).(ports.MaterialConsultaFirmasDocumento)
+	esperado, err := consultafirmas.RecursoConsultaFirmasDocumento(m)
+	r := datos.Recurso
+	return ok && err == nil && m.OrganizacionRef == organizacionAltaContratacionTemporalDesarrollo &&
+		datos.Accion == ports.AccionConsultarFirmasDocumento && datos.Finalidad == ports.FinalidadFirmaDocumento &&
+		datos.ReferenciaMotivo == motivoConsultaFirmasDocumentoCTDesarrollo() && r.Referencia == esperado.Referencia &&
+		r.ModuloID == esperado.ModuloID && r.Tipo == esperado.Tipo && maps.Equal(r.Ambitos, esperado.Ambitos) && maps.Equal(r.Atributos, esperado.Atributos)
 }
 
 func motivoFirmaDocumentoCTDesarrollo() dominiovec.ReferenciaEntradaCatalogo {
@@ -76,9 +134,11 @@ func solicitudAutorizacionFirmaDocumentoCTDesarrolloValida(ctx context.Context, 
 // firmaDocumentoCTDesarrollo reúne autoridad de canal, autorizador V3 y
 // registro PostgreSQL; la ruta se compone cuando llega el circuito.
 type firmaDocumentoCTDesarrollo struct {
-	alta     *dependenciasAltaContratacionTemporalDesarrollo
-	registro *postgrescontratacion.RegistroFirmasDocumentoPostgreSQL
-	reloj    relojContratacionTemporalDesarrollo
+	alta          *dependenciasAltaContratacionTemporalDesarrollo
+	registro      *postgrescontratacion.RegistroFirmasDocumentoPostgreSQL
+	lector        ports.LectorFirmasDocumentoAutorizadas
+	lectorInterno *lectorFirmasIntervencionCTDesarrollo
+	reloj         relojContratacionTemporalDesarrollo
 	// fiscalizacion recibe al componer las rutas la comprobación de la firma
 	// que habilita la remisión a Intervención (duda 4).
 	fiscalizacion *ctapplication.ServicioFiscalizaciones
@@ -89,6 +149,7 @@ type firmaDocumentoCTDesarrollo struct {
 
 var (
 	_ ports.AutorizadorFirmaDocumento          = (*firmaDocumentoCTDesarrollo)(nil)
+	_ ports.AutorizadorConsultaFirmasDocumento = (*firmaDocumentoCTDesarrollo)(nil)
 	_ httpinterno.AutoridadCanalFirmaDocumento = (*firmaDocumentoCTDesarrollo)(nil)
 )
 
@@ -100,22 +161,15 @@ func nuevaFirmaDocumentoCTDesarrollo(cfg config.Config, alta *dependenciasAltaCo
 		return nil, err
 	}
 	if alta == nil || alta.soporte == nil || alta.autorizador == nil || alta.postgresql.gobierno == nil || fiscalizacion == nil ||
-		alta.postgresql.ejecucion == nil || alta.postgresql.proveedorMaterialFirmaDocumento == nil {
+		alta.postgresql.ejecucion == nil || alta.postgresql.proveedorMaterialFirmaDocumento == nil ||
+		alta.postgresql.proveedorMaterialConsultaFirmasDocumento == nil || alta.soporte.perfilFijoParaRuta(httpinterno.RutaConsultaFirmaDocumento) == nil {
 		return nil, errFirmaDocumentoCTDesarrolloNoDisponible
 	}
 	registro, err := postgrescontratacion.NuevoRegistroFirmasDocumentoPostgreSQL(alta.postgresql.ejecucion)
 	if err != nil {
 		return nil, errFirmaDocumentoCTDesarrolloNoDisponible
 	}
-	v, err := alta.soporte.contexto.Vinculo.Datos()
-	if err != nil {
-		return nil, errFirmaDocumentoCTDesarrolloNoDisponible
-	}
-	instantanea, err := nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(v.PrincipalID, v.PerfilActivoRef, reloj.Ahora(),
-		"firma_documento_ct_desarrollo", "Firma de prueba de borradores CT de desarrollo", "asignacion-firma-documento-ct-desarrollo-no-autoritativa",
-		[]dominiovec.ConcesionRol{{Accion: ports.AccionFirmarDocumento, ModuloID: ports.ModuloContratacion, TipoRecurso: ports.TipoRecursoFirmaDocumento,
-			Finalidades: []string{ports.FinalidadFirmaDocumento}, GarantiaMinima: dominiovec.AuthAssuranceHigh}},
-		[]dominiovec.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}}})
+	lector, err := postgrescontratacion.NuevoLectorFirmasDocumentoAutorizadasPostgreSQL(alta.postgresql.ejecucion)
 	if err != nil {
 		return nil, errFirmaDocumentoCTDesarrolloNoDisponible
 	}
@@ -128,20 +182,20 @@ func nuevaFirmaDocumentoCTDesarrollo(cfg config.Config, alta *dependenciasAltaCo
 		return nil, errFirmaDocumentoCTDesarrolloNoDisponible
 	}
 	alta.soporte.mu.Lock()
-	alta.soporte.instantaneaFirmaDocumento = instantanea
 	alta.soporte.motivoFirmaDocumento = motivoFirmaDocumentoCTDesarrollo()
 	alta.soporte.mu.Unlock()
-	return &firmaDocumentoCTDesarrollo{alta: alta, registro: registro, reloj: reloj, fiscalizacion: fiscalizacion}, nil
+	return &firmaDocumentoCTDesarrollo{alta: alta, registro: registro, lector: lector, reloj: reloj, fiscalizacion: fiscalizacion}, nil
 }
 
-// ResolverOrganizacionFirmaDocumento solo responde dentro de la frontera mTLS
-// de CT y para las dos rutas de firma.
+// ResolverOrganizacionFirmaDocumento valida el canal, sin conceder acceso al
+// expediente. El lector nominal exige después su propia decisión V3.
 func (f *firmaDocumentoCTDesarrollo) ResolverOrganizacionFirmaDocumento(ctx context.Context) (string, error) {
 	if f == nil || f.alta == nil || f.alta.soporte == nil || ctx == nil {
 		return "", ports.ErrAutorizacionDenegada
 	}
 	capacidad, valida := f.alta.soporte.capacidadValida(ctx)
-	if !valida || !rutaFirmaDocumentoCTDesarrollo(capacidad.ruta) {
+	if !valida || !rutaFirmaDocumentoCTDesarrollo(capacidad.ruta) ||
+		capacidad.ruta == httpinterno.RutaConsultaFirmaDocumento && dependenciaEsNulaContratacionTemporalDesarrollo(f.lector) {
 		return "", ports.ErrAutorizacionDenegada
 	}
 	return organizacionAltaContratacionTemporalDesarrollo, nil
@@ -157,7 +211,7 @@ func (f *firmaDocumentoCTDesarrollo) AutorizarFirmaDocumento(ctx context.Context
 	}
 	s := f.alta.soporte
 	capacidad, valida := s.capacidadValida(ctx)
-	if !valida || capacidad.ruta != httpinterno.RutaFirmaDocumento || m.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo {
+	if !valida || capacidad.ruta != httpinterno.RutaFirmaDocumento || s.perfilFijoParaContexto(ctx, capacidad.ruta) == nil || m.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo {
 		return vacia, ports.ErrFirmaDocumentoDenegada
 	}
 	recurso, err := ctapplication.RecursoFirmaDocumento(m)
@@ -191,6 +245,10 @@ func (f *firmaDocumentoCTDesarrollo) AutorizarFirmaDocumento(ctx context.Context
 		if ctx.Err() != nil {
 			return vacia, ctx.Err()
 		}
+		if errors.Is(err, puertosvec.ErrRegistroConcesionAutorizacionLigadaV3NoDisponible) ||
+			errors.Is(err, puertosvec.ErrRegistroDenegacionAutorizacionLigadaV3NoDisponible) {
+			return vacia, ports.ErrRegistroFirmaDocumentoNoDisponible
+		}
 		return vacia, ports.ErrFirmaDocumentoDenegada
 	}
 	material, err := f.alta.postgresql.proveedorMaterialFirmaDocumento.proveerMaterialConfirmacion(ctx, solicitud, decision, confirmacion, motivo, operativo.Resultado)
@@ -207,6 +265,136 @@ func (f *firmaDocumentoCTDesarrollo) AutorizarFirmaDocumento(ctx context.Context
 		return vacia, ports.ErrFirmaDocumentoDenegada
 	}
 	return c, nil
+}
+
+func (f *firmaDocumentoCTDesarrollo) AutorizarConsultaFirmasDocumento(ctx context.Context, m ports.MaterialConsultaFirmasDocumento) (ports.CapacidadConsultaFirmasDocumento, error) {
+	vacia := ports.CapacidadConsultaFirmasDocumento{}
+	if ctx == nil || f == nil || f.alta == nil || f.alta.soporte == nil || f.alta.autorizador == nil ||
+		f.alta.postgresql.proveedorMaterialConsultaFirmasDocumento == nil || m.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo {
+		return vacia, ports.ErrFirmaDocumentoDenegada
+	}
+	s := f.alta.soporte
+	capacidad, valida := s.capacidadValida(ctx)
+	perfil := s.perfilFijoParaContexto(ctx, capacidad.ruta)
+	if !valida || !rutaFirmaDocumentoCTDesarrollo(capacidad.ruta) || perfil == nil {
+		return vacia, ports.ErrFirmaDocumentoDenegada
+	}
+	_, estadoPerfil := s.consumirPerfilFijoCTDesarrolloConEstado(ctx, perfil)
+	if estadoPerfil == perfilFijoConsumoFuenteNoDisponible {
+		return vacia, ports.ErrRegistroFirmaDocumentoNoDisponible
+	}
+	if estadoPerfil != perfilFijoConsumoVigente {
+		return vacia, ports.ErrFirmaDocumentoDenegada
+	}
+	recurso, err := consultafirmas.RecursoConsultaFirmasDocumento(m)
+	if err != nil {
+		return vacia, ports.ErrSolicitudFirmaDocumentoInvalida
+	}
+	operativo, err := s.contextoOperativoDesarrollo(ctx)
+	if err != nil {
+		if errors.Is(err, ports.ErrConsultaRRHHNoDisponible) {
+			return vacia, ports.ErrRegistroFirmaDocumentoNoDisponible
+		}
+		return vacia, ports.ErrFirmaDocumentoDenegada
+	}
+	correlacion, err := dominiovec.GenerarReferenciaCorrelacionAutorizacionV2(ctx, seguridadvec.GeneradorReferenciasCriptograficas{})
+	if err != nil {
+		return vacia, ports.ErrFirmaDocumentoDenegada
+	}
+	motivo := motivoConsultaFirmasDocumentoCTDesarrollo()
+	datos := dominiovec.DatosSolicitudAutorizacionLigadaV3{
+		VinculoAutenticacionActor: operativo.Vinculo, ReferenciaMotivo: motivo, Accion: ports.AccionConsultarFirmasDocumento,
+		Recurso: recurso, Finalidad: ports.FinalidadFirmaDocumento, Correlacion: correlacion,
+	}
+	ctx = context.WithValue(ctx, claveConsultaFirmasDocumentoCTDesarrollo{}, m)
+	if !solicitudAutorizacionConsultaFirmasDocumentoCTDesarrolloValida(ctx, datos) {
+		return vacia, ports.ErrFirmaDocumentoDenegada
+	}
+	solicitud, err := dominiovec.NuevaSolicitudAutorizacionLigadaV3(datos)
+	if err != nil {
+		return vacia, ports.ErrFirmaDocumentoDenegada
+	}
+	ctx = context.WithValue(ctx, claveSolicitudAutorizacionContratacionTemporalDesarrollo{}, datos)
+	decision, confirmacion, err := f.alta.autorizador.ExigirSolicitudLigadaV3(ctx, solicitud, operativo.Resultado)
+	if err != nil {
+		if ctx.Err() != nil {
+			return vacia, ctx.Err()
+		}
+		if errors.Is(err, puertosvec.ErrFuenteAutorizacionNoDisponible) {
+			_, estado := s.consumirPerfilFijoCTDesarrolloConEstado(ctx, perfil)
+			if estado == perfilFijoConsumoDenegado {
+				return vacia, ports.ErrFirmaDocumentoDenegada
+			}
+			return vacia, ports.ErrRegistroFirmaDocumentoNoDisponible
+		}
+		if errors.Is(err, errAutorizacionComunDesarrolloNoDisponible) ||
+			errors.Is(err, puertosvec.ErrRegistroConcesionAutorizacionLigadaV3NoDisponible) ||
+			errors.Is(err, puertosvec.ErrRegistroDenegacionAutorizacionLigadaV3NoDisponible) {
+			return vacia, ports.ErrRegistroFirmaDocumentoNoDisponible
+		}
+		return vacia, ports.ErrFirmaDocumentoDenegada
+	}
+	material, err := f.alta.postgresql.proveedorMaterialConsultaFirmasDocumento.proveerMaterialConfirmacion(ctx, solicitud, decision, confirmacion, motivo, operativo.Resultado)
+	if err != nil {
+		return vacia, ports.ErrRegistroFirmaDocumentoNoDisponible
+	}
+	c := ports.TransportarMaterialConsultaFirmasDocumento(material)
+	r := material.ResumenCapacidad()
+	ahora := f.reloj.Ahora()
+	if consultafirmas.ValidarCapacidadConsultaFirmasDocumento(c, m) != nil || ahora.Before(r.EmitidaEn()) || !ahora.Before(r.ExpiraEn()) {
+		return vacia, ports.ErrFirmaDocumentoDenegada
+	}
+	return c, nil
+}
+
+// Toda lectura de la historia, incluida la prelectura de una firma, pasa por
+// el mismo consumidor nominal. El almacén de escritura conserva su contrato.
+type registroFirmasDocumentoNominal struct{ firma *firmaDocumentoCTDesarrollo }
+
+func (r registroFirmasDocumentoNominal) RegistrarFirma(ctx context.Context, m ports.MaterialFirmaDocumento, c ports.CapacidadFirmaDocumento) (ports.ReciboFirmaDocumento, error) {
+	if r.firma == nil || r.firma.registro == nil {
+		return ports.ReciboFirmaDocumento{}, ports.ErrRegistroFirmaDocumentoNoDisponible
+	}
+	return r.firma.registro.RegistrarFirma(ctx, m, c)
+}
+
+func (r registroFirmasDocumentoNominal) ConsultarFirmas(ctx context.Context, organizacion, expediente string) ([]ports.FirmaRegistrada, error) {
+	if r.firma == nil || dependenciaEsNulaContratacionTemporalDesarrollo(r.firma.lector) {
+		return nil, ports.ErrFirmaDocumentoDenegada
+	}
+	if ctx != nil {
+		canal, ok := ctx.Value(claveCapacidadConsultasContratacionTemporalDesarrollo{}).(capacidadConsultaContratacionTemporalDesarrollo)
+		if ok && canal.ruta == httpinterno.RutaResultadosFiscalizacion && canal.metodo == http.MethodPost {
+			if r.firma.lectorInterno == nil {
+				return nil, ports.ErrRegistroFirmaDocumentoNoDisponible
+			}
+			if !r.firma.lectorInterno.capacidadValida(ctx) {
+				return nil, ports.ErrAutorizacionDenegada
+			}
+			return r.firma.lectorInterno.ConsultarFirmas(ctx, organizacion, expediente)
+		}
+	}
+	m := ports.MaterialConsultaFirmasDocumento{OrganizacionRef: organizacion, ExpedienteRef: expediente}
+	c, err := r.firma.AutorizarConsultaFirmasDocumento(ctx, m)
+	if err != nil {
+		return nil, err
+	}
+	return r.firma.lector.ConsultarFirmasAutorizadas(ctx, m, c)
+}
+
+// La composición llama este hook cuando la identidad nominal y las
+// autoridades de sesión están disponibles, antes de servir peticiones.
+func (f *firmaDocumentoCTDesarrollo) configurarLecturaIntervencion(ctx context.Context, canal *soporteFiscalizacionContratacionTemporalDesarrollo,
+	base *proveedorSesionConsultaRRHHDesarrollo, aprobacion aprobacionProvisionPerfilesRRHHDesarrollo) error {
+	if f == nil || f.lectorInterno != nil {
+		return ports.ErrRegistroFirmaDocumentoNoDisponible
+	}
+	lector, err := nuevoLectorFirmasIntervencionCTDesarrollo(ctx, f, canal, base, aprobacion)
+	if err != nil {
+		return err
+	}
+	f.lectorInterno = lector
+	return nil
 }
 
 // fuenteCircuitoFirmaReglasDesarrollo traduce el circuito del catálogo de
@@ -249,7 +437,7 @@ func (f *firmaDocumentoCTDesarrollo) rutas(cfg config.Config, circuito *reglas.R
 	if verificador == nil {
 		log.Print("contratacion temporal: registro de firmas sin verificacion; toda firma se rechazara")
 	}
-	servicio, err := ctapplication.NuevoServicioFirmaDocumento(fuenteCircuitoFirmaReglasDesarrollo{resolutor: circuito}, f.registro, f, verificador)
+	servicio, err := ctapplication.NuevoServicioFirmaDocumento(fuenteCircuitoFirmaReglasDesarrollo{resolutor: circuito}, registroFirmasDocumentoNominal{f}, f, verificador)
 	if err != nil {
 		return nil, errFirmaDocumentoCTDesarrolloNoDisponible
 	}

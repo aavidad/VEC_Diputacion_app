@@ -83,6 +83,9 @@ func TestCatalogoAreaPersonalComunConservaBytesEnSuperficies(t *testing.T) {
 					if respuesta.Code != superficie.estado {
 						t.Fatalf("%s = %d; esperado %d", superficie.nombre, respuesta.Code, superficie.estado)
 					}
+					if superficie.nombre == "publica" && respuesta.Header().Get("Location") != "" {
+						t.Fatalf("redirección pública = %q; esperado vacío", respuesta.Header().Get("Location"))
+					}
 					if superficie.estado == http.StatusOK && metodo == http.MethodGet && !bytes.Equal(respuesta.Body.Bytes(), contenido) {
 						t.Fatalf("%s no conserva los bytes del catálogo común", superficie.nombre)
 					}

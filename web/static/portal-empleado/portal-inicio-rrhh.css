@@ -10,6 +10,7 @@
 }
 
 .portal-rrhh-inicio > .cabeza-pagina { margin: 0; }
+.portal-rrhh-pendientes .cabecera-panel { flex-wrap: wrap; }
 .portal-rrhh-inicio .rejilla-kpi { margin: 0; }
 .portal-rrhh-fecha { font-size: 1.125rem; }
 

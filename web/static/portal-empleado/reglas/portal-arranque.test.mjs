@@ -4,11 +4,9 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 
-const ejecutar = promisify(execFile);
 const raiz = path.resolve(fileURLToPath(new URL("../..", import.meta.url)));
 const tipos = { ".html": "text/html", ".js": "text/javascript", ".json": "application/json", ".css": "text/css", ".svg": "image/svg+xml" };
 
@@ -46,28 +44,53 @@ test("el portal inicia en Chrome con el catálogo de reglas ausente, malformado 
     const abrir = async (ruta, escenario) => {
       // Cada dump necesita su propio perfil: un Chrome anterior puede dejar
       // vivo su proceso de perfil durante unos instantes en el runner de CI.
-      // Un timeout de arranque se repite una vez con otro perfil; nunca se
-      // repiten respuestas HTML que no superen las aserciones.
+      // Solo se repite un plazo agotado: Chrome puede salir 0 y sin DOM tras
+      // recibir la señal de cierre. Un DOM vacío sin plazo sigue fallando.
       for (let intento = 0; intento < 2; intento += 1) {
         const perfil = await mkdtemp(path.join(tmpdir(), "vec-reglas-chrome-"));
         try {
-          const proceso = ejecutar("/usr/bin/google-chrome", [
-            "--headless=new", "--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage",
-            "--disable-background-networking", "--disable-extensions", "--no-first-run",
-            `--user-data-dir=${perfil}`, "--virtual-time-budget=6000", "--dump-dom",
-            `http://127.0.0.1:${puerto}${ruta}`,
-          ], { detached: true, timeout: 15000, maxBuffer: 8 * 1024 * 1024 });
-          try {
-            return (await proceso).stdout;
-          } catch (error) {
-            const agotado = error.killed === true && error.signal === "SIGTERM" && error.code == null;
-            if (agotado && proceso.child?.pid) {
-              try { process.kill(-proceso.child.pid, "SIGKILL"); }
-              catch (matarError) { if (matarError.code !== "ESRCH") throw matarError; }
-            }
-            if (!agotado || intento === 1) {
-              throw new Error(`Chrome no terminó ${escenario} (${ruta}) en el intento ${intento + 1}`, { cause: error });
-            }
+          const resultado = await new Promise((resolver, rechazar) => {
+            let agotado = false;
+            let terminado = false;
+            let errorAnterior;
+            let plazo;
+            let cierre;
+            const finalizar = (error, dom) => {
+              if (terminado) return;
+              terminado = true;
+              clearTimeout(plazo);
+              clearTimeout(cierre);
+              if (error) rechazar(error);
+              else resolver({ agotado, dom });
+            };
+            const chrome = execFile("/usr/bin/google-chrome", [
+              "--headless=new", "--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage",
+              "--disable-background-networking", "--disable-extensions", "--no-first-run",
+              `--user-data-dir=${perfil}`, "--virtual-time-budget=6000", "--dump-dom",
+              `http://127.0.0.1:${puerto}${ruta}`,
+            ], { detached: true, maxBuffer: 8 * 1024 * 1024 }, (error, dom) => {
+              if (errorAnterior || (error && (!agotado || error.code != null || error.signal !== "SIGKILL"))) {
+                finalizar(errorAnterior ?? error);
+              } else {
+                finalizar(null, dom);
+              }
+            });
+            chrome.once("error", (error) => { if (!agotado) errorAnterior = error; });
+            plazo = setTimeout(() => {
+              // maxBuffer y fallos de spawn también pueden matar al hijo antes
+              // de este plazo. Se conservan como errores, sin segundo intento.
+              const falloAnterior = errorAnterior || chrome.killed;
+              if (!falloAnterior) agotado = true;
+              try { process.kill(-chrome.pid, "SIGKILL"); }
+              catch (error) { if (error.code !== "ESRCH") { finalizar(error); return; } }
+              cierre = setTimeout(() => finalizar(errorAnterior ?? new Error(
+                falloAnterior ? "Chrome falló antes de agotar el plazo" : "Chrome no cerró tras agotar el plazo",
+              )), 500);
+            }, 15000);
+          });
+          if (!resultado.agotado) return resultado.dom;
+          if (intento === 1) {
+            throw new Error(`Chrome agotó dos veces el plazo de ${escenario} (${ruta})`);
           }
         } finally {
           await rm(perfil, { recursive: true, force: true });

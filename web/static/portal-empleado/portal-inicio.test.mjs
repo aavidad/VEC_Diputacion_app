@@ -234,6 +234,7 @@ test("la portada de RRHH empieza por los expedientes que piden atención, ordena
 
 test("los indicadores cuentan igual que la lista y llevan a ella filtrada", () => {
   const html = portadaRRHH();
+  assert.match(html, /data-ct-exp-lista-mostrar="vencidos">Con plazo vencido: 1<\/button>/u);
   assert.match(html, /data-metrica="en_tramite" data-vista="contratacion-temporal" data-ct-exp-vista="cuadro" data-ct-exp-lista-mostrar="en_tramite">[\s\S]*?<strong class="valor-kpi">3<\/strong>/u);
   // Vence esta semana: 29/09 y 01/10 desde el 29/09; el vencido no cuenta.
   assert.match(html, /data-metrica="vencen_semana"[^>]*>[\s\S]*?<strong class="valor-kpi">2<\/strong>/u);
