@@ -132,6 +132,18 @@ class MaterialTests(unittest.TestCase):
                 with self.subTest(invalid=invalid), patch.object(material, "run", return_value=b"SQL"), patch.object(material, "probe_pg_tls"), patch.object(material.socket, "create_connection", side_effect=OSError), self.assertRaises(material.MaterialError):
                     material.update_source(args, root, target)
 
+    def test_nominal_connect_matrix_is_closed_and_motives_postimage_is_strict(self):
+        self.assertEqual(len(material.NOMINAL_CONNECT_GROUPS), 8)
+        self.assertEqual(set(material.NOMINAL_CONNECT_GROUPS), set(material.NOMINAL_CONNECT_SOURCES))
+        self.assertFalse(any("propietario" in role or "migrador" in role for role in material.NOMINAL_CONNECT_GROUPS.values()))
+        value = {"f" + str(n): True for n in range(5, 16)}
+        value.update(f1="nominal_login", f2="nominal_login", f3="16786", f4="16790")
+        self.assertTrue(material.motives_metadata_valid(value, "nominal_login"))
+        for key in ("f5", "f6", "f9", "f10", "f11", "f12", "f13", "f14", "f15"):
+            self.assertFalse(material.motives_metadata_valid(dict(value, **{key: False}), "nominal_login"))
+        self.assertFalse(material.motives_metadata_valid(dict(value, f4=value["f3"]), "nominal_login"))
+        self.assertFalse(material.motives_metadata_valid(dict(value, f1="postgres"), "nominal_login"))
+
     def test_coverage_accreditation_denies_any_extra_failure_and_does_not_infer_socket_tls(self):
         value = {"f" + str(n): True for n in range(4, 21)}
         value.update(f1="17852", f2="vec_ct_o207_lector", f3="vec_ct_o207_lector")

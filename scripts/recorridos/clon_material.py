@@ -418,6 +418,195 @@ def center_bindings(catalog: dict) -> tuple[str, str, str] | None:
     return None
 
 
+NOMINAL_CONNECT_GROUPS = {
+    "VEC_CT_DATABASE_URL": "vec_contratacion_temporal_ejecutor",
+    "VEC_CT_GOBIERNO_DATABASE_URL": "vec_contratacion_temporal_gobernador",
+    "VEC_CT_CONFIRMADOR_DATABASE_URL": "vec_contratacion_temporal_confirmador_cobertura",
+    "VEC_CT_CONSULTAS_RRHH_DATABASE_URL": "vec_contratacion_temporal_consultor_rrhh",
+    "VEC_CT_AUDITORIA_FRONTERA_DATABASE_URL": "vec_contratacion_temporal_registrador_frontera",
+    "VEC_CT_MOTIVOS_RRHH_DATABASE_URL": "vec_autorizacion_motivos_rrhh_resolutor",
+    "VEC_BOLSA_LLAMAMIENTOS_DATABASE_URL": "vec_bolsa_llamamientos_ejecutor",
+    "VEC_BOLSA_AUDITORIA_FRONTERA_DATABASE_URL": "vec_bolsa_llamamientos_registrador_frontera",
+}
+NOMINAL_CONNECT_SOURCES = {
+    "VEC_CT_DATABASE_URL": ("CT execution", "deploy/postgresql/contratacion_temporal/roles_up.sql"),
+    "VEC_CT_GOBIERNO_DATABASE_URL": ("CT inherited government connection", "deploy/postgresql/contratacion_temporal/roles_up.sql"),
+    "VEC_CT_CONFIRMADOR_DATABASE_URL": ("CT coverage confirmation", "deploy/postgresql/contratacion_temporal/roles_up.sql"),
+    "VEC_CT_CONSULTAS_RRHH_DATABASE_URL": ("CT RRHH query", "deploy/postgresql/contratacion_temporal/migraciones/000036_registro_accesos_rrhh_o4_05.up.sql"),
+    "VEC_CT_AUDITORIA_FRONTERA_DATABASE_URL": ("CT boundary audit", "internal/app/bootstrap/contratacion_temporal_postgresql_desarrollo.go"),
+    "VEC_CT_MOTIVOS_RRHH_DATABASE_URL": ("RRHH governed query motives", "internal/modules/contrataciontemporal/adapters/postgres/acreditacion_pool_resolucion_motivos_rrhh.go"),
+    "VEC_BOLSA_LLAMAMIENTOS_DATABASE_URL": ("Bolsa operations", "deploy/postgresql/bolsa_llamamientos/roles_up.sql"),
+    "VEC_BOLSA_AUDITORIA_FRONTERA_DATABASE_URL": ("Bolsa boundary audit", "internal/app/bootstrap/bolsa_auditoria_frontera_postgresql_desarrollo.go"),
+}
+
+
+def nominal_source_bindings(repo: Path, source: str) -> list[dict]:
+    bindings = []
+    for key, group in NOMINAL_CONNECT_GROUPS.items():
+        capability, path = NOMINAL_CONNECT_SOURCES[key]
+        data = run(["git", "-C", str(repo), "show", source + ":" + path])
+        if group.encode() not in data:
+            fail("nominal CONNECT role is not in its reviewed source")
+        bindings.append({"variable": key, "group": group, "capability": capability,
+                         "source_file": path, "source_sha256": hashlib.sha256(data).hexdigest()})
+    return bindings
+
+
+MOTIVES_SOURCE = "internal/modules/contrataciontemporal/adapters/postgres/acreditacion_pool_resolucion_motivos_rrhh.go"
+MOTIVES_SOURCE_SHA = "2ce9f494fc3b52393e2f3e0444d9061342fef5552214a651911a1f3f1320e822"
+
+
+def motives_accreditation_sql(repo: Path, source: str, login: str, *, physical: bool) -> str:
+    data = run(["git", "-C", str(repo), "show", source + ":" + MOTIVES_SOURCE])
+    if hashlib.sha256(data).hexdigest() != MOTIVES_SOURCE_SHA or not re.fullmatch(r"[a-z0-9_]{3,63}", login):
+        fail("motives source contract or LOGIN changed")
+    match = re.findall(r"const consultaAcreditacionPoolResolucionMotivosRRHH = `(.*?)`", data.decode(), re.S)
+    if len(match) != 1:
+        fail("motives accreditation contract missing")
+    sql = match[0].strip().rstrip(";").replace("$1", "'" + login + "'").replace("$2", "true" if physical else "false")
+    return "SELECT row_to_json(ROW(motives_metadata.*)) FROM (" + sql + ") AS motives_metadata"
+
+
+def motives_metadata_valid(value: dict, login: str | None = None) -> bool:
+    if len(value) != 15 or not all(re.fullmatch(r"[1-9][0-9]{0,9}", str(value.get(k, ""))) for k in ("f3", "f4")) or value["f3"] == value["f4"]:
+        return False
+    if login is not None and (value.get("f1") != login or value.get("f2") != login):
+        return False
+    return all(value.get("f" + str(n)) is True for n in range(5, 16))
+
+
+def pool_login(raw: str, args: argparse.Namespace, output: Path) -> str:
+    dsn = urlsplit(raw)
+    pairs = parse_qsl(dsn.query, strict_parsing=True)
+    if dsn.scheme not in ("postgres", "postgresql") or dsn.hostname != "127.0.0.1" or dsn.port != args.pg_port or dsn.path != "/postgres" or dsn.fragment or not re.fullmatch(r"[a-z0-9_]{3,63}", dsn.username or ""):
+        fail("nominal runtime pool left the owned clone")
+    if len(pairs) != 2 or dict(pairs).get("sslmode") != "verify-full" or dict(pairs).get("sslrootcert") != str(output / "material/pg/ca.crt"):
+        fail("nominal runtime pool has unsupported parameters")
+    return dsn.username
+
+
+def physical_pool_query(args: argparse.Namespace, login: str, ca: str, sql: str) -> dict:
+    return json.loads(run([args.engine, "exec", "-i", "-e", "PGSSLMODE=verify-full", "-e", "PGSSLROOTCERT=" + ca,
+                          "-e", "PGOPTIONS=", args.container, "psql", "-XqAt", "-h", "localhost", "-p", "5432", "-U", login,
+                          "-d", "postgres", "-v", "ON_ERROR_STOP=1", "-f", "-"], "BEGIN READ ONLY;SET LOCAL statement_timeout='8s';SET LOCAL lock_timeout='3s';" + sql + ";ROLLBACK;"))
+
+
+def nominal_connect_snapshot_sql(logins: list[str]) -> str:
+    names = ",".join("'" + login + "'" for login in sorted(logins))
+    return """SELECT jsonb_build_object(
+ 'database_acl',(SELECT coalesce(datacl,acldefault('d',datdba))::text FROM pg_database WHERE datname='postgres'),
+ 'acl_rows',(SELECT coalesce(jsonb_agg(jsonb_build_object('grantor',a.grantor,'grantee',a.grantee,'privilege',a.privilege_type,'grantable',a.is_grantable) ORDER BY a.grantor,a.grantee,a.privilege_type),'[]'::jsonb) FROM pg_database d,LATERAL aclexplode(coalesce(d.datacl,acldefault('d',d.datdba))) a WHERE d.datname='postgres'),
+ 'roles',(SELECT jsonb_agg(row_to_json(r) ORDER BY rolname) FROM pg_roles r),
+ 'memberships',(SELECT jsonb_agg(row_to_json(m) ORDER BY roleid,member) FROM pg_auth_members m),
+ 'non_database_acl_sha256',(SELECT encode(sha256(convert_to(string_agg(v,E'\n' ORDER BY kind,oid),'UTF8')),'hex') FROM (
+   SELECT 'schema' kind,oid,nspacl::text v FROM pg_namespace WHERE nspname NOT LIKE 'pg_%' AND nspname<>'information_schema'
+   UNION ALL SELECT 'function',oid,proacl::text FROM pg_proc WHERE pronamespace IN(SELECT oid FROM pg_namespace WHERE nspname LIKE 'vec_%')
+   UNION ALL SELECT 'relation',oid,relacl::text FROM pg_class WHERE relnamespace IN(SELECT oid FROM pg_namespace WHERE nspname LIKE 'vec_%')
+   UNION ALL SELECT 'type',oid,typacl::text FROM pg_type WHERE typnamespace IN(SELECT oid FROM pg_namespace WHERE nspname LIKE 'vec_%')) acl),
+ 'pool_connect',(SELECT jsonb_object_agg(rolname,jsonb_build_object('connect',has_database_privilege(oid,'postgres','CONNECT'),'create',has_database_privilege(oid,'postgres','CREATE'),'temp',has_database_privilege(oid,'postgres','TEMP'))) FROM pg_roles WHERE rolname IN(""" + names + ")) )"
+
+
+def repair_nominal_connect(args: argparse.Namespace, output: Path, source: str) -> None:
+    if source != "e78687528d5725efd74e95c858d389f4437099ca":
+        fail("nominal CONNECT migration requires the reviewed e786 source")
+    try:
+        with socket.create_connection(("127.0.0.1", args.port), timeout=0.2):
+            fail("application must be stopped before nominal CONNECT migration")
+    except OSError:
+        pass
+    bindings = nominal_source_bindings(args.repo, source)
+    env = json.loads(private_read(output / "runtime-config.json"))
+    expected = set(DSN_KEYS) | {"VEC_BOLSA_AUDITORIA_FRONTERA_DATABASE_URL", "VEC_BOLSA_POLITICA_OFERTAS_CALCULADOR_DATABASE_URL"}
+    if {k for k in env if k.endswith("_DATABASE_URL")} != expected:
+        fail("nominal CONNECT runtime inventory changed")
+    pools = {key: pool_login(env[key], args, output) for key in expected}
+    users = {}
+    for surface in ("interna", "externa"):
+        config = json.loads(private_read(output / f"material/identidad/usuarios-preferencias-{surface}.json"))
+        for key, raw in config.items():
+            if key.startswith("dsn_"):
+                users[surface + ":" + key] = pool_login(raw, args, output)
+    if len(users) != 16 or len(set(users.values())) != 16:
+        fail("Users nominal CONNECT inventory is not exactly two eight-pool surfaces")
+    all_logins = sorted(set(pools.values()) | set(users.values()))
+    snapshot = nominal_connect_snapshot_sql(all_logins)
+    motives = motives_accreditation_sql(args.repo, source, pools["VEC_CT_MOTIVOS_RRHH_DATABASE_URL"], physical=False)
+    coverage = coverage_accreditation_sql(args.repo, source, pools["VEC_CT_LECTOR_RESULTADO_DATABASE_URL"])
+    fd = os.open(output / "sql.lock", os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+    try:
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or info.st_uid != os.getuid() or info.st_mode & 0o077:
+            fail("unsafe nominal CONNECT SQL lock")
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        image = json.loads(query(args, snapshot + ";"))
+        roles = {r["rolname"]: r for r in image["roles"]}
+        groupoids = {g: roles[g]["oid"] for g in NOMINAL_CONNECT_GROUPS.values()}
+        # Preserve the effective CONNECT already in use, not new capabilities.
+        if any(not image["pool_connect"].get(l, {}).get("connect") or image["pool_connect"][l]["create"] or image["pool_connect"][l]["temp"] for l in all_logins):
+            fail("configured pool effective preimage is not CONNECT-only")
+        public = [a for a in image["acl_rows"] if str(a["grantee"]) == "0"]
+        if public != [{"grantor": "10", "grantee": "0", "privilege": "CONNECT", "grantable": False}]:
+            # A successful repeat has no PUBLIC and already exact physical accreditations.
+            if not public and motives_metadata_valid(json.loads(query(args, motives + ";"))) and coverage_metadata_valid(json.loads(query(args, coverage + ";"))):
+                return
+            fail("PUBLIC database ACL is not the reviewed CONNECT-only preimage")
+        for key, group in NOMINAL_CONNECT_GROUPS.items():
+            r = roles[group]
+            if r["rolcanlogin"] or any(r[x] for x in ("rolsuper","rolcreatedb","rolcreaterole","rolreplication","rolbypassrls")) or group.endswith("propietario"):
+                fail("nominal group is not a safe non-owner runtime authority")
+            owner = query(args,"SELECT EXISTS(SELECT 1 FROM pg_database WHERE datdba="+str(r["oid"])+") OR EXISTS(SELECT 1 FROM pg_namespace WHERE nspowner="+str(r["oid"])+") OR EXISTS(SELECT 1 FROM pg_class WHERE relowner="+str(r["oid"])+") OR EXISTS(SELECT 1 FROM pg_proc WHERE proowner="+str(r["oid"])+");").strip()
+            if owner != b"f": fail("nominal group owns a database object")
+            login_oid = roles[pools[key]]["oid"]
+            if not any(m["member"]==login_oid and m["roleid"]==r["oid"] and m["inherit_option"] and not m["admin_option"] for m in image["memberships"]):
+                fail("nominal group is not already inherited by its configured LOGIN")
+            if any(a["grantee"]==r["oid"] for a in image["acl_rows"]):
+                fail("one of the eight nominal CONNECT grants is already present or broader")
+        ca = query(args,"SHOW ssl_ca_file;").decode().strip()
+        if not re.fullmatch(r"/var/lib/postgresql/(?:data|18/docker)/vec-recorridos-ca.crt",ca):fail("nominal CONNECT TLS CA changed")
+        probe = "SELECT jsonb_build_object('session',session_user,'current',current_user,'tls',(SELECT ssl AND version='TLSv1.3' FROM pg_stat_ssl WHERE pid=pg_backend_pid()),'connect',has_database_privilege(current_user,'postgres','CONNECT'),'database',current_database())"
+        def probes():
+            for login in all_logins:
+                value = physical_pool_query(args,login,ca,probe)
+                if value != {"session":login,"current":login,"tls":True,"connect":True,"database":"postgres"}:fail("nominal pool physical TLS continuity failed")
+        probes()
+        expected_acl = [a for a in image["acl_rows"] if str(a["grantee"])!="0"] + [{"grantor":"10","grantee":oid,"privilege":"CONNECT","grantable":False} for oid in groupoids.values()]
+        before_literal = "'" + json.dumps(image,sort_keys=True).replace("'","''") + "'::jsonb"
+        acl_literal = "'" + json.dumps(sorted(expected_acl,key=lambda a:(int(a['grantor']),int(a['grantee']),a['privilege'])),sort_keys=True).replace("'","''") + "'::jsonb"
+        checks = " AND ".join("(accredited->>'f"+str(n)+"')::boolean" for n in range(6,16))
+        coverage_checks = " AND ".join("(accredited->>'f"+str(n)+"')::boolean" for n in range(5,21))
+        body = "SET LOCAL search_path=pg_catalog;SET LOCAL lock_timeout='3s';SET LOCAL statement_timeout='8s';SELECT pg_advisory_xact_lock(hashtextextended('Codex-M:nominal-database-connect:v1',0));SELECT datacl FROM pg_database WHERE datname='postgres' FOR UPDATE;"
+        body += "DO $nominal$ DECLARE actual jsonb;BEGIN " + snapshot + " INTO actual;IF actual<>"+before_literal+" THEN RAISE EXCEPTION 'nominal CONNECT preimage changed';END IF;END $nominal$;"
+        body += "".join("GRANT CONNECT ON DATABASE postgres TO "+g+";" for g in NOMINAL_CONNECT_GROUPS.values())+"REVOKE CONNECT ON DATABASE postgres FROM PUBLIC;"
+        body += "DO $nominal$ DECLARE accredited jsonb;actual jsonb; BEGIN "+motives+" INTO accredited;IF ("+checks+") IS NOT TRUE THEN RAISE EXCEPTION 'motives complete accreditation failed';END IF;"+coverage+" INTO accredited;IF ("+coverage_checks+") IS NOT TRUE THEN RAISE EXCEPTION 'coverage complete accreditation failed';END IF;"+snapshot+" INTO actual;IF (actual-'database_acl'-'acl_rows')<>("+before_literal+"-'database_acl'-'acl_rows') OR actual->'acl_rows'<>"+acl_literal+" THEN RAISE EXCEPTION 'nominal CONNECT postimage changed another privilege';END IF;END $nominal$;"
+        query(args,"BEGIN;"+body+"ROLLBACK;")
+        if json.loads(query(args,snapshot+";"))!=image:fail("nominal CONNECT rollback did not preserve preimage")
+        # Keep the transaction open for real LOGIN TLS continuity probes before COMMIT.
+        command=[args.engine,"exec","-i",args.container,"psql","-XqAt","-h","/var/run/postgresql","-p","5432","-U","postgres","-d","postgres","-v","ON_ERROR_STOP=1","-f","-"]
+        process=subprocess.Popen(command,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+        try:
+            process.stdin.write(("BEGIN;"+body+"\nSELECT 'NOMINAL_READY_TO_COMMIT';\n").encode());process.stdin.flush()
+            while process.stdout.readline().strip()!=b"NOMINAL_READY_TO_COMMIT":
+                if process.poll() is not None:fail("nominal CONNECT transaction preparation failed")
+            probes() # MVCC preimage visible externally; new CONNECT is separately proved above in the same TX.
+            process.stdin.write(b"COMMIT;\n");process.stdin.close()
+            if process.wait(timeout=20):fail("nominal CONNECT commit failed")
+        except BaseException:
+            process.kill();process.wait();raise
+        probes()
+        physical_motives=motives_accreditation_sql(args.repo,source,pools["VEC_CT_MOTIVOS_RRHH_DATABASE_URL"],physical=True)
+        if not motives_metadata_valid(physical_pool_query(args,pools["VEC_CT_MOTIVOS_RRHH_DATABASE_URL"],ca,physical_motives),pools["VEC_CT_MOTIVOS_RRHH_DATABASE_URL"]):fail("physical motives postimage failed")
+        if not coverage_metadata_valid(physical_pool_query(args,pools["VEC_CT_LECTOR_RESULTADO_DATABASE_URL"],ca,coverage),physical_login=pools["VEC_CT_LECTOR_RESULTADO_DATABASE_URL"]):fail("physical coverage postimage failed")
+        result={"source_commit":source,"only_change":"eight_nominal_group_CONNECT_and_PUBLIC_CONNECT_removed","runtime_pools":16,"users_pools":16,"groups":list(NOMINAL_CONNECT_GROUPS.values()),"source_bindings":bindings,"preserved_effective_privilege":"CONNECT only", "transaction_metadata_is_not_a_physical_LOGIN_TLS_assertion":True,"rollback_preimage_verified":True,"physical_TLS_probes_before_commit_and_after":len(all_logins),"new_connect_proved_in_transaction":True,"motives_full15":True,"coverage_full20":True,"preimage_sha256":hashlib.sha256(json.dumps(image,sort_keys=True).encode()).hexdigest(),"postimage_sha256":hashlib.sha256(query(args,snapshot+";")).hexdigest()}
+        path=output/"nominal-connect-receipt.json"
+        if not path.exists():json_write(path,result)
+        else:
+            existing=json.loads(private_read(path))
+            if existing.get("source_commit")!=source or existing.get("only_change")!=result["only_change"] or existing.get("preimage_sha256")!=result["preimage_sha256"]:
+                fail("nominal CONNECT receipt preimage changed")
+            replace_private(path,result)
+    finally:os.close(fd)
+
+
 COVERAGE_GROUP = "vec_contratacion_temporal_lector_resultado_cobertura"
 COVERAGE_SOURCE = "internal/modules/contrataciontemporal/adapters/postgres/acreditacion_pool_recuperacion_cobertura_o4_05.go"
 COVERAGE_SOURCE_SHA = "1c07d19cec869c80cbef20ab160e4ad9507c11c1fc35c5bdb7489abf1abf5d58"
@@ -608,10 +797,12 @@ def prepare(args: argparse.Namespace) -> dict:
     if (output / "material-manifest.json").exists():
         manifest = update_source(args, output, identity) if getattr(args, "update_source", False) else verify_existing(output, identity)
         probe_pg_tls(args.pg_port, output / "material/pg/ca.crt")
+        if getattr(args, "complete_profiles", False):
+            manifest = complete_profiles(args, output, manifest)
+        if getattr(args, "repair_nominal_connect", False):
+            repair_nominal_connect(args, output, head)
         if getattr(args, "repair_coverage_connect", False):
             repair_coverage_connect(args, output, head)
-        if getattr(args, "complete_profiles", False):
-            return complete_profiles(args, output, manifest)
         return manifest
     output.mkdir(mode=0o700, parents=True, exist_ok=True)
     if output.stat().st_uid != os.getuid() or output.stat().st_mode & 0o077:
@@ -721,10 +912,12 @@ def prepare(args: argparse.Namespace) -> dict:
     manifest = {"version": 1, "owner": OWNER, "target": identity, "status": "partial_blocked",
                 "files": files, "blockers": blockers, "application_started": False, "sql_applied": False, "pg_tls_configured": True}
     json_write(output / "material-manifest.json", manifest)
+    if getattr(args, "complete_profiles", False):
+        manifest = complete_profiles(args, output, manifest)
+    if getattr(args, "repair_nominal_connect", False):
+        repair_nominal_connect(args, output, head)
     if getattr(args, "repair_coverage_connect", False):
         repair_coverage_connect(args, output, head)
-    if getattr(args, "complete_profiles", False):
-        return complete_profiles(args, output, manifest)
     return manifest
 
 
@@ -738,6 +931,7 @@ def main() -> int:
     parser.add_argument("--pg-port", type=int, required=True)
     parser.add_argument("--base-material", type=Path, default=BASE)
     parser.add_argument("--source-env", type=Path)
+    parser.add_argument("--repair-nominal-connect", action="store_true", help="migrate only reviewed runtime group CONNECT from PUBLIC on the owned clone")
     parser.add_argument("--repair-coverage-connect", action="store_true", help="accredit and grant only the missing coverage reader group CONNECT on the owned clone")
     parser.add_argument("--upgrade-source", "--update-source", dest="update_source", action="store_true", help="bind preserved material to a descendant main revision after matching DB_READY")
     parser.add_argument("--complete-profiles", action="store_true", help="run reviewed Users/Bolsa/candidate provisioning modules on existing material")
