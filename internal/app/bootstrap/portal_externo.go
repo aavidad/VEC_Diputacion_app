@@ -20,6 +20,7 @@ import (
 	"vec-diputacion-granada/config"
 	publicatransitoria "vec-diputacion-granada/internal/app/composicion/publicatransitoria"
 	"vec-diputacion-granada/internal/app/server"
+	bolsahttp "vec-diputacion-granada/internal/modules/bolsa/adapters/httppersonal"
 	bolsapublicahttp "vec-diputacion-granada/internal/modules/bolsa/publico/httpapi"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
@@ -167,9 +168,8 @@ func validarManifiestoPortalExterno(ruta string, ca, servidor *x509.Certificate)
 
 // nuevoServidorPortalExternoDesarrollo compone el proceso del portal externo:
 // mTLS con la identidad de la persona candidata, consulta pública y los
-// ficheros del Área personal. No abre ninguna conexión de RRHH ni carga
-// material interno; cada capacidad personal solo lee sus claves y conexiones
-// nominales del proceso externo.
+// ficheros del Área personal. Las capacidades personales usan conexiones
+// nominales externas; no abre conexiones de RRHH ni carga material interno.
 func nuevoServidorPortalExternoDesarrollo(cfg config.Config, registro io.Writer, emisor vecports.EmisorIncidenciasTecnicas) (*http.Server, error) {
 	cfg = cfg.Normalize()
 	if registro == nil {
@@ -228,8 +228,8 @@ func nuevoServidorPortalExternoDesarrollo(cfg config.Config, registro io.Writer,
 }
 
 // nuevasCapacidadesPersonalesPortalExterno compone las capacidades del Área
-// personal que el proceso externo tenga encendidas. Correos necesita una
-// clave propia y la acreditación durable de que no quedan cifrados antiguos.
+// personal activadas: preferencias, correos, imagen, Mi bolsa y acciones del
+// candidato. Una capacidad activa sin infraestructura completa impide arrancar.
 func nuevasCapacidadesPersonalesPortalExterno(cfg config.Config, identidad *resolvedorIdentidadDesarrollo, emisor vecports.EmisorIncidenciasTecnicas) (http.Handler, func(), error) {
 	nada := func() {}
 	preferencias, err := selectorCapacidadRRHHDesarrollo(cfg, envUsuariosPreferenciasDesarrollo)
@@ -247,7 +247,16 @@ func nuevasCapacidadesPersonalesPortalExterno(cfg config.Config, identidad *reso
 	if (correos || imagen) && !preferencias {
 		return nil, nada, ErrUsuariosPortalExternoNoDisponible
 	}
-	if !preferencias {
+	portalCandidato, err := cfg.BolsaPortalCandidatoDesarrolloActivo()
+	if err != nil {
+		return nil, nada, err
+	}
+	_, sinBolsa := cfg.ExternoBolsaPostgreSQL.DSN()
+	miBolsa := sinBolsa == nil
+	if portalCandidato && !miBolsa {
+		return nil, nada, errMiBolsaNoDisponible
+	}
+	if !preferencias && !miBolsa {
 		return nil, nada, nil
 	}
 	if emisor == nil {
@@ -287,23 +296,49 @@ func nuevasCapacidadesPersonalesPortalExterno(cfg config.Config, identidad *reso
 		}
 		cerrar()
 	}
-	var autoridad *autoridadPreferenciasUsuariosDesarrollo
-	if fuenteCorreos != nil {
-		autoridad, err = nuevasPreferenciasPortalExterno(ctx, cfg, identidad, derivador, emisor, preflight, fuenteCorreos)
-	} else {
-		autoridad, err = nuevasPreferenciasPortalExterno(ctx, cfg, identidad, derivador, emisor, preflight)
+	var personal http.Handler
+	cerrarPreferencias := nada
+	if preferencias {
+		var autoridad *autoridadPreferenciasUsuariosDesarrollo
+		if fuenteCorreos != nil {
+			autoridad, err = nuevasPreferenciasPortalExterno(ctx, cfg, identidad, derivador, emisor, preflight, fuenteCorreos)
+		} else {
+			autoridad, err = nuevasPreferenciasPortalExterno(ctx, cfg, identidad, derivador, emisor, preflight)
+		}
+		if err != nil {
+			cerrarConClaves()
+			return nil, nada, err
+		}
+		cerrarPreferencias = autoridad.cerrar
+		cerrarTodo := func() { cerrarPreferencias(); cerrarConClaves() }
+		manejador, err := nuevaAPIPersonalPortalExterno(identidad, emisor, autoridad)
+		if err != nil {
+			cerrarTodo()
+			return nil, nada, err
+		}
+		personal = manejador
 	}
+	bolsa, cerrarBolsa, err := nuevaMiBolsaPortalExterno(ctx, cfg, identidad, derivador, preflight, emisor)
 	if err != nil {
+		cerrarPreferencias()
 		cerrarConClaves()
 		return nil, nada, err
 	}
-	cerrarTodo := func() { autoridad.cerrar(); cerrarConClaves() }
-	manejador, err := nuevaAPIPersonalPortalExterno(identidad, emisor, autoridad)
-	if err != nil {
-		cerrarTodo()
-		return nil, nada, err
+	cerrarTodo := func() { cerrarBolsa(); cerrarPreferencias(); cerrarConClaves() }
+	if bolsa == nil {
+		return personal, cerrarTodo, nil
 	}
-	return manejador, cerrarTodo, nil
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r != nil && r.URL != nil && bolsahttp.EsRutaPortal(r.URL.Path) {
+			bolsa.ServeHTTP(w, r)
+			return
+		}
+		if personal != nil {
+			personal.ServeHTTP(w, r)
+			return
+		}
+		http.NotFound(w, r)
+	}), cerrarTodo, nil
 }
 
 // avisarArranquePortalExterno deja constancia ruidosa, como el resto de la

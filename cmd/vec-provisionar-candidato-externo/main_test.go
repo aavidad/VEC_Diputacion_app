@@ -20,7 +20,7 @@ func materialCLIPrueba(t *testing.T) (string, string, config.Config) {
 	t.Helper()
 	c := func(prefijo string) bootstrap.ComponenteSnapshotContextoExterno {
 		return bootstrap.ComponenteSnapshotContextoExterno{
-			Referencia: prefijo + "sintetico_1234567890123456", Version: 1, ProcedenciaRef: "fue_sintetica_1234567890123456", ProcedenciaVersion: 1,
+			Referencia: prefijo + "sintetico_1234567890123456", Version: 1, ProcedenciaRef: "prc_sintetica_1234567890123456", ProcedenciaVersion: 1,
 			ProcedenciaHuellaSHA256: strings.Repeat("a", 64), ProcedenciaAutoridad: "autoridad_maestra_acreditada", Estado: "activo", VigenteDesde: "2026-01-01T00:00:00.000000Z", VigenteHasta: "2027-01-01T00:00:00.000000Z"}
 	}
 	f := bootstrap.FuenteProvisionCandidatoExterno{Version: 1, Snapshot: bootstrap.SnapshotContextoExterno{ProvisionRef: "pce_sintetico_1234567890123456", Poblacion: "candidato", Estado: "activo", Cuenta: c("cta_"), Persona: c("per_"), Perfil: c("prf_"), Contexto: c("vca_"), VinculoCandidato: &bootstrap.VinculoSnapshotCandidatoExterno{ComponenteSnapshotContextoExterno: c("vin_"), CandidatoRef: "can_sintetico_1234567890123456"}}}

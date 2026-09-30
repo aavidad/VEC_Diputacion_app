@@ -108,7 +108,11 @@ pero sus conexiones de autorización usan estos LOGIN y grupos exclusivos:
 
 Cada LOGIN hereda únicamente su grupo, con `INHERIT TRUE`, `SET FALSE` y
 `ADMIN FALSE`. Todas las conexiones se cotejan con la instancia observada por
-el preflight externo. `dsn_contexto` usa el grupo
+el preflight externo. `dsn_registro_identidad` y `dsn_revalidacion_identidad`
+usan respectivamente los grupos `vec_identidad_externa_v1_registrador` y
+`vec_identidad_externa_v1_revalidador`. El montaje consume exclusivamente el
+registro y la revalidación de sesiones externas; rechaza los grupos de identidad
+compartidos. `dsn_contexto` usa el grupo
 `vec_contexto_actor_v1_usuarios_externo`, que resuelve y registra únicamente el
 perfil propio de Usuarios en el almacén externo. El perfil de Bolsa es distinto.
 

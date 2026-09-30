@@ -28,7 +28,9 @@ const EnvExternoBolsaPublicaDatabaseURL = "VEC_EXTERNO_BOLSA_PUBLICA_DATABASE_UR
 // B11: conexiones nominales del candidato. Cada LOGIN hereda solo su rol de
 // consumo externo; la provisión y el gobierno permanecen en el proceso interno.
 const (
+	EnvExternoCalendariosDatabaseURL           = "VEC_EXTERNO_CALENDARIOS_DATABASE_URL"
 	EnvExternoBolsaDatabaseURL                 = "VEC_EXTERNO_BOLSA_DATABASE_URL"
+	EnvExternoBolsaFronteraDatabaseURL         = "VEC_EXTERNO_BOLSA_FRONTERA_DATABASE_URL"
 	EnvExternoAutorizacionFuenteDatabaseURL    = "VEC_EXTERNO_AUTORIZACION_FUENTE_DATABASE_URL"
 	EnvExternoAutorizacionRegistroDatabaseURL  = "VEC_EXTERNO_AUTORIZACION_REGISTRO_DATABASE_URL"
 	EnvExternoAutorizacionMotivosDatabaseURL   = "VEC_EXTERNO_AUTORIZACION_MOTIVOS_DATABASE_URL"
