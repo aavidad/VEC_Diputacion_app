@@ -2,6 +2,7 @@ package ajustesreglas
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -17,11 +18,12 @@ import (
 type actorPrueba struct {
 	actor    vecdomain.ContextoActor
 	llamadas int
+	err      error
 }
 
 func (a *actorPrueba) ResolverContextoActor(context.Context) (vecdomain.ContextoActor, error) {
 	a.llamadas++
-	return a.actor, nil
+	return a.actor, a.err
 }
 
 type servicioPrueba struct{ publicaciones int }
@@ -131,5 +133,36 @@ func TestSoloLecturaNoAnunciaNiEjecutaGuardado(t *testing.T) {
 	h.ServeHTTP(w, r)
 	if w.Code != http.StatusServiceUnavailable || s.publicaciones != 0 || a.llamadas != 1 {
 		t.Fatalf("POST alcanzó operación en solo lectura: %d %d %d", w.Code, s.publicaciones, a.llamadas)
+	}
+}
+
+func TestResolverActorDistingueCaidaNominalDeDenegacion(t *testing.T) {
+	s := &servicioPrueba{}
+	casos := []struct {
+		nombre string
+		err    error
+		estado int
+		codigo string
+	}{
+		{"dependencia_caida", app.ErrNoDisponible, http.StatusServiceUnavailable, "servicio_no_disponible"},
+		{"denegacion", vecdomain.ErrAutorizacionDenegada, http.StatusForbidden, "acceso_denegado"},
+		{"error_no_nominal", errors.New("fallo no clasificado"), http.StatusForbidden, "acceso_denegado"},
+		{"actor_invalido", nil, http.StatusForbidden, "acceso_denegado"},
+	}
+	for _, c := range casos {
+		t.Run(c.nombre, func(t *testing.T) {
+			a := &actorPrueba{err: c.err}
+			h, err := NuevoManejador(a, s)
+			if err != nil {
+				t.Fatal(err)
+			}
+			r := httptest.NewRequest(http.MethodGet, Ruta, nil)
+			r.Header.Set("Accept", "application/json")
+			w := httptest.NewRecorder()
+			h.ServeHTTP(w, r)
+			if w.Code != c.estado || !strings.Contains(w.Body.String(), `"`+c.codigo+`"`) || a.llamadas != 1 {
+				t.Fatalf("clasificación del resolver: %d %s", w.Code, w.Body.String())
+			}
+		})
 	}
 }
