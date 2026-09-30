@@ -20,7 +20,10 @@ def preparar_destino(destino):
         raise NoEjecutado(MENSAJES["destino"])
     if any(p.is_symlink() for p in (destino, *destino.parents)):
         raise NoEjecutado(MENSAJES["destino"])
-    destino.mkdir(mode=0o700, parents=True, exist_ok=False)
+    try:
+        destino.mkdir(mode=0o700, parents=True, exist_ok=False)
+    except OSError as error:
+        raise NoEjecutado(MENSAJES["destino"]) from error
     return destino
 
 

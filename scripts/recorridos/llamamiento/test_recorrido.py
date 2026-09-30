@@ -73,7 +73,7 @@ class RecorridoPrueba(unittest.TestCase):
     def test_evidencias_no_sobrescriben_carpeta_ni_entran_en_git(self):
         from observar import preparar_destino
         existente = Path(self.temporal.name) / "material"
-        with self.assertRaises(FileExistsError):
+        with self.assertRaises(NoEjecutado):
             preparar_destino(existente)
         (self.raiz / ".git").mkdir()
         with self.assertRaises(NoEjecutado):
@@ -88,6 +88,24 @@ class RecorridoPrueba(unittest.TestCase):
             capture_output=True, text=True, timeout=5, check=False)
         self.assertEqual(resultado.returncode, 3)
         self.assertIn("NO EJECUTADO", resultado.stderr)
+
+    def test_cli_carpeta_existente_no_ejecuta_ni_sobrescribe_evidencias(self):
+        material = Path(self.temporal.name) / "material"
+        escenario = material / "apertura.json"
+        escenario.write_text(json.dumps(self.escenario), encoding="utf-8")
+        evidencias = material / "capturas"
+        evidencias.mkdir()
+        anterior = evidencias / "resultado.json"
+        anterior.write_bytes(b"evidencia anterior")
+        resultado = subprocess.run(
+            [sys.executable, str(Path(__file__).with_name("recorrido.py")),
+             "--escenario", str(escenario), "--observar", "--evidencias", str(evidencias)],
+            capture_output=True, text=True, timeout=5, check=False)
+        self.assertEqual(resultado.returncode, 3)
+        self.assertIn("NO EJECUTADO", resultado.stderr)
+        self.assertNotIn("CORTE DE APLICACIÓN", resultado.stdout)
+        self.assertEqual(anterior.read_bytes(), b"evidencia anterior")
+        self.assertEqual(list(evidencias.iterdir()), [anterior])
 
     def test_timeout_de_apertura_conserva_capturas_en_ambas_vistas(self):
         from observar import observar_apertura
