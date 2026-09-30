@@ -39,11 +39,23 @@ type txPersonaAceptacionCTPrueba struct {
 	args               []any
 	commits, rollbacks int
 	commitErr          error
+	execErr            error
+	ajustes            string
+	execs              int
+}
+
+func (t *txPersonaAceptacionCTPrueba) Exec(_ context.Context, q string, _ ...any) (pgconn.CommandTag, error) {
+	t.execs++
+	t.ajustes = q
+	return pgconn.NewCommandTag("SELECT 1"), t.execErr
 }
 
 func (t *txPersonaAceptacionCTPrueba) QueryRow(_ context.Context, q string, args ...any) pgx.Row {
 	t.consulta = q
 	t.args = append([]any(nil), args...)
+	if t.execs != 1 || t.ajustes != ajustesConsultaPersonaAceptacionCT {
+		return filaPersonaAceptacionCTPrueba{err: &pgconn.PgError{Code: "22023"}}
+	}
 	return t.fila
 }
 func (t *txPersonaAceptacionCTPrueba) Commit(context.Context) error   { t.commits++; return t.commitErr }
@@ -118,10 +130,21 @@ func TestPersonaAceptacionCTPostgreSQLConfirmaLosTresEstadosConEvidencia(t *test
 				t.Fatalf("transacción estado %s: %v", estado, e)
 			}
 			p, _ := application.PrepararConsultaPersonaAceptacionCT(o.Solicitud)
-			if tx.consulta != funcionConsultaPersonaAceptacionCT || len(tx.args) != 11 || tx.args[0] != string(p.MaterialCanonico) || !bytes.Equal(tx.args[1].([]byte), o.Material.CapacidadCanonica()) || !bytes.Equal(tx.args[4].([]byte), o.Material.ContextoActorCanonico()) || !bytes.Equal(tx.args[10].([]byte), o.Material.RaizPublicaSPKI()) {
+			if tx.execs != 1 || tx.ajustes != ajustesConsultaPersonaAceptacionCT || tx.consulta != funcionConsultaPersonaAceptacionCT || len(tx.args) != 11 || tx.args[0] != string(p.MaterialCanonico) || !bytes.Equal(tx.args[1].([]byte), o.Material.CapacidadCanonica()) || !bytes.Equal(tx.args[4].([]byte), o.Material.ContextoActorCanonico()) || !bytes.Equal(tx.args[10].([]byte), o.Material.RaizPublicaSPKI()) {
 				t.Fatal("fachada o material V3 sustituidos")
 			}
 		})
+	}
+}
+
+func TestPersonaAceptacionCTPostgreSQLFalloDeAjustesLocalesNoConsultaNiConfirma(t *testing.T) {
+	o, ahora := ordenPersonaAceptacionCTPrueba(t)
+	tx := &txPersonaAceptacionCTPrueba{execErr: errors.New("detalle privado"), fila: filaPersonaAceptacionCTPrueba{}}
+	pool := &poolPersonaAceptacionCTPrueba{transacciones: []*txPersonaAceptacionCTPrueba{tx}}
+	r := &RepositorioConsultaPersonaAceptacionCTPostgreSQL{pool: pool, ahora: func() time.Time { return ahora }}
+	v, err := r.ConsultarPersonaAceptacionCT(context.Background(), o)
+	if !errors.Is(err, ports.ErrConsultaPersonaAceptacionCTNoDisponible) || v.Estado != "" || tx.execs != 1 || tx.consulta != "" || tx.commits != 0 || tx.rollbacks != 1 || pool.inicios != 1 {
+		t.Fatal("consultó o confirmó sin límites locales")
 	}
 }
 
