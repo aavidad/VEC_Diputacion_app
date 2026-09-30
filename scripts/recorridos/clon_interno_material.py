@@ -29,6 +29,11 @@ OPTIONAL = (
     "mtls/solicitante.crt", "mtls/ratificador.crt", "identidad/solicitante.json", "identidad/ratificador.json",
     "identidad/centros.json", "identidad/consultas-rrhh.json", "identidad/bolsa-bback.json", "identidad/documentos.json",
 )
+APPROVED_PUBLIC_SOURCES = {
+    "catalogos/organizacion-publica.json": {"source_path": "data/catalogos/estructura-organizativa/v1.rpt-publica.json", "sha256": "0e52d878526d6a5e7ee4ab6f525ef92a70144aef665f0b031fca6051564e054c"},
+    "catalogos/rpt-publica.json": {"source_path": "data/catalogos/rpt/v1.rpt-2026.json", "sha256": "b0685beb5c02b8a30d5e0d6d3d9bceca11ddf76ad4987f4bcb1aa60ac7ebe9a8"},
+}
+PUBLIC_ENV_FILES = {"VEC_PERSONAL_ORGANIZACION_SOURCE_PATH": "catalogos/organizacion-publica.json", "VEC_RPT_CATALOGO_PATH": "catalogos/rpt-publica.json"}
 DATABASE_KEYS = (
     "VEC_CT_DATABASE_URL", "VEC_CT_GOBIERNO_DATABASE_URL", "VEC_CT_REGISTRO_AUTORIZACION_DATABASE_URL",
     "VEC_CT_CONFIRMADOR_DATABASE_URL", "VEC_CT_LECTOR_RESULTADO_DATABASE_URL", "VEC_BOLSA_LLAMAMIENTOS_DATABASE_URL",
@@ -47,6 +52,7 @@ ENV_KEYS = set(DATABASE_KEYS) | {
     "VEC_AUDITORIA_CONSULTA_EXPEDIENTE_BOLSA", "VEC_CT_FIRMA_REGISTRO_ENABLED", "VEC_CT_SEGUIMIENTO_CESE_ENABLED",
     "VEC_CT_CANCELACION_ENABLED", "VEC_CT_INCORPORACION_ACREDITADA_ENABLED",
 }
+ENV_KEYS.update(PUBLIC_ENV_FILES)
 RW_ENV = {"VEC_BOLSA_DATA_DIR": "data/bolsa", "VEC_BOLSA_DATA_PATH": "data/bolsa/bolsa_store.json",
           "VEC_PERSONAL_CATALOG_PATH": "data/personal-catalog.json", "VEC_BOLSA_IMPORTACION_CONVOCA_CUSTODIA_DIR": "data/importaciones"}
 SOURCE_PATHS = (
@@ -91,9 +97,10 @@ def read(path):
     fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
     with os.fdopen(fd, "rb") as stream:
         info = os.fstat(stream.fileno())
-        if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or info.st_uid != os.getuid() or info.st_mode & 0o077 or not 0 < info.st_size <= 262144:
+        limit = 1048576 if Path(path).parts[-3:] == ("material", "catalogos", "rpt-publica.json") else 262144
+        if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or info.st_uid != os.getuid() or info.st_mode & 0o077 or not 0 < info.st_size <= limit:
             fail("projection_unsafe_source_file")
-        return stream.read(262145)
+        return stream.read(limit + 1)
 
 
 def digest(data):
@@ -207,6 +214,11 @@ def preflight(repo, container, state, material, pg_port, source_context):
     root = canonical(state / "runtime-interno")
     projected_material = root / "material"
     selected = set(REQUIRED) | {p for p in OPTIONAL if (material / p).exists()}
+    for key, relative in PUBLIC_ENV_FILES.items():
+        if key in env:
+            if env[key] != str(material / relative):
+                fail("projection_unapproved_public_catalog_path")
+            selected.add(relative)
     if env.get("VEC_DOCUMENTOS_ENABLED") == "true" and "identidad/documentos.json" not in selected:
         fail("projection_documents_config_missing")
     payload = {}
@@ -215,6 +227,12 @@ def preflight(repo, container, state, material, pg_port, source_context):
         if "material/" + relative not in principal["files"]:
             fail("projection_selected_source_not_sealed")
         original = read(material / relative)
+        if relative in APPROVED_PUBLIC_SOURCES:
+            if digest(original) != APPROVED_PUBLIC_SOURCES[relative]["sha256"]:
+                fail("projection_public_catalog_source_changed")
+            payload["material/" + relative] = original
+            copied[relative] = {"source_sha256": digest(original), "projected_sha256": digest(original), "unchanged": True}
+            continue
         output = original
         if relative.endswith(".json"):
             value = json.loads(original)
@@ -246,6 +264,9 @@ def preflight(repo, container, state, material, pg_port, source_context):
             projected_env[key] = rewrite_dsn(projected_env[key], material, projected_material, pg_port)
     projected_env.update(VEC_PORTAL_PROCESO="interno", VEC_DEVELOPMENT_MATERIAL_DIR=str(projected_material),
                          VEC_TLS_CERT_FILE=str(projected_material / "tls/servidor.crt"), VEC_TLS_KEY_FILE=str(projected_material / "tls/servidor.key"))
+    for key, relative in PUBLIC_ENV_FILES.items():
+        if key in env:
+            projected_env[key] = str(projected_material / relative)
     if env.get("VEC_SMTP_CA_FILE"):
         if env["VEC_SMTP_CA_FILE"] != str(material / "ca/ca.crt"):
             fail("projection_unclassified_SMTP_CA")

@@ -140,7 +140,8 @@ class MaterialTests(unittest.TestCase):
         args = SimpleNamespace(complete_profiles=True, repair_coverage_connect=True, repair_nominal_connect=True)
         events = []
         original, completed = {"status": "base"}, {"status": "completed"}
-        with patch.object(material, "complete_profiles", side_effect=lambda *a: events.append("complete") or completed), \
+        with patch.object(material, "provision_public_catalogs", side_effect=lambda *a: a[-1]), \
+             patch.object(material, "complete_profiles", side_effect=lambda *a: events.append("complete") or completed), \
              patch.object(material, "repair_coverage_connect", side_effect=lambda *a: events.append("coverage")), \
              patch.object(material, "repair_nominal_connect", side_effect=lambda *a: events.append("nominal")), \
              patch.object(material, "seal_internal_projection", side_effect=lambda *a: events.append("projection") or completed):
@@ -169,7 +170,8 @@ class MaterialTests(unittest.TestCase):
         def complete(*args, only_bolsa=False):
             events.append("bolsa" if only_bolsa else "complete")
             return {"status": "prepared"}
-        with patch.object(material, "complete_profiles", side_effect=complete), \
+        with patch.object(material, "provision_public_catalogs", side_effect=lambda *a: a[-1]), \
+             patch.object(material, "complete_profiles", side_effect=complete), \
              patch.object(material, "repair_coverage_connect", side_effect=lambda *a: events.append("coverage")), \
              patch.object(material, "repair_importacion_connect", side_effect=lambda *a: events.append("importacion")), \
              patch.object(material, "repair_nominal_connect", side_effect=lambda *a: events.append("nominal")), \
@@ -446,6 +448,53 @@ class MaterialTests(unittest.TestCase):
                 path.write_text(json.dumps(invalid) if case != "duplicate_json" else '{"version":1,"version":1}')
                 with self.subTest(case=case), patch.object(material, "SYNTHETIC_PROFILE_FIXTURE", path), self.assertRaises(material.MaterialError):
                     material.fresh_profile_names()
+
+    def test_public_catalogs_use_exact_archive_and_git_bytes_preserve_identity_and_replay(self):
+        module = material.load_profile_module("clon_interno_material")
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            archive = state / "source"
+            payload = {}
+            for relative, declared in module.APPROVED_PUBLIC_SOURCES.items():
+                raw = (Path(__file__).resolve().parents[2] / declared["source_path"]).read_bytes()
+                destination = archive / declared["source_path"]
+                destination.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+                destination.write_bytes(raw)
+                destination.chmod(0o644)
+                payload[relative] = raw
+            args = SimpleNamespace(_source_context={"source_repo": archive, "git_repo": state, "source_ref": "a" * 40})
+            material.private_write(state / "material/mtls/cliente.crt", "original historical certificate")
+            material.private_write(state / "material/kms/clave-maestra.bin", "original historical key")
+            material.json_write(state / "runtime-config.json", {"VEC_AUTH_MODE": "desarrollo"})
+            material.private_write(state / "runtime.env", "VEC_AUTH_MODE=desarrollo\n")
+            material.json_write(state / "perfiles.json", {"profiles": {}, "blockers": []})
+            manifest = {"target": {}, "files": {}, "blockers": []}
+            material.json_write(state / "material-manifest.json", manifest)
+            def git(arguments):
+                if "ls-tree" in arguments: return b"100644 blob " + b"d" * 40 + b"\tpublic.json\n"
+                relative = next(path for path, declared in module.APPROVED_PUBLIC_SOURCES.items() if arguments[-1].endswith(":" + declared["source_path"]))
+                return payload[relative]
+            with patch.object(material, "run", side_effect=git):
+                prepared = material.provision_public_catalogs(args, state, "a" * 40, manifest)
+                before = (state / "material-manifest.json").read_bytes()
+                self.assertEqual(material.provision_public_catalogs(args, state, "a" * 40, prepared), prepared)
+            self.assertEqual((state / "material-manifest.json").read_bytes(), before)
+            for relative, raw in payload.items(): self.assertEqual(material.private_read(state / "material" / relative), raw)
+            self.assertEqual((state / "material/mtls/cliente.crt").read_text(), "original historical certificate")
+            self.assertEqual((state / "material/kms/clave-maestra.bin").read_text(), "original historical key")
+            metadata = prepared["public_catalogs"]["declared_metadata"]
+            self.assertGreater(metadata["organization_centers"], 0)
+            self.assertEqual(metadata["rpt_categories"], 145)
+            self.assertEqual(metadata["rpt_positions"], 842)
+            self.assertEqual(metadata["organization_state"], "borrador")
+            organization = json.loads(payload["catalogos/organizacion-publica.json"])
+            organization["catalogo"]["entradas"] = []
+            with self.assertRaises(material.MaterialError): material.public_catalog_metadata(organization, json.loads(payload["catalogos/rpt-publica.json"]))
+            changed = archive / module.APPROVED_PUBLIC_SOURCES["catalogos/organizacion-publica.json"]["source_path"]
+            changed.write_text(json.dumps(organization))
+            with patch.object(material, "run", side_effect=git), self.assertRaises(material.MaterialError):
+                material.provision_public_catalogs(args, state, "a" * 40, prepared)
+            self.assertEqual((state / "material-manifest.json").read_bytes(), before)
 
     def test_full_preparation_preserves_existing_actors_and_never_claims_candidate_account(self):
         with tempfile.TemporaryDirectory() as directory:

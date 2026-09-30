@@ -92,9 +92,10 @@ def private_read(path: Path) -> bytes:
     fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
     with os.fdopen(fd, "rb") as f:
         info = os.fstat(f.fileno())
-        if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or info.st_uid != os.getuid() or info.st_mode & 0o077 or not 0 < info.st_size <= 262144:
+        limit = 1048576 if path.parts[-3:] == ("material", "catalogos", "rpt-publica.json") else 262144
+        if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or info.st_uid != os.getuid() or info.st_mode & 0o077 or not 0 < info.st_size <= limit:
             fail("unsafe private file")
-        return f.read(262145)
+        return f.read(limit + 1)
 
 
 def private_write(path: Path, data: bytes | str) -> None:
@@ -938,6 +939,8 @@ def update_source(args: argparse.Namespace, output: Path, identity: dict) -> dic
 
 
 def finish_preparation(args: argparse.Namespace, output: Path, source: str, manifest: dict) -> dict:
+    if public_catalogs_requested(args):
+        manifest = provision_public_catalogs(args, output, source, manifest)
     if getattr(args, "complete_profiles", False):
         manifest = complete_profiles(args, output, manifest)
     # A fresh H1 lacks coverage CONNECT: establish it before nominal migration
@@ -954,6 +957,73 @@ def finish_preparation(args: argparse.Namespace, output: Path, source: str, mani
     if getattr(args, "complete_profiles", False) or getattr(args, "project_internal", False) or getattr(args, "refresh_internal_proof", False):
         manifest = seal_internal_projection(args, output, source, manifest)
     return manifest
+
+
+def public_catalogs_requested(args) -> bool:
+    return any(getattr(args, name, False) for name in ("complete_profiles", "project_internal", "prepare_public_catalogs"))
+
+
+def public_catalog_metadata(organization: dict, rpt: dict) -> dict:
+    if set(organization) != {"version_esquema", "fuente", "catalogo"} or type(organization["version_esquema"]) is not int or organization["version_esquema"] != 1:
+        fail("public organization schema changed")
+    catalog = organization["catalogo"]
+    if catalog["id"] != "estructura-organizativa-dipgra" or type(catalog["version"]) is not int or catalog["version"] != 1 or not isinstance(catalog["entradas"], list):
+        fail("public organization catalogue identity changed")
+    centers = [entry["clave"] for entry in catalog["entradas"] if entry.get("atributos", {}).get("tipo") == "centro"]
+    if not centers or len(set(centers)) != len(centers) or any(not isinstance(center, str) or not center for center in centers):
+        fail("public organization has no declared unique centers")
+    if set(rpt) != {"esquema", "fuente", "resumen", "categorias", "puestos"} or rpt["esquema"] != "vec.catalogo.rpt.v1" or not rpt["categorias"] or not rpt["puestos"]:
+        fail("public RPT schema changed")
+    if rpt["resumen"]["categorias"] != len(rpt["categorias"]) or rpt["resumen"]["puestos"] != len(rpt["puestos"]):
+        fail("public RPT declared inventory differs")
+    return {"organization_id": catalog["id"], "organization_version": catalog["version"], "organization_state": catalog["estado"],
+            "organization_entries": len(catalog["entradas"]), "organization_centers": len(centers),
+            "rpt_schema": rpt["esquema"], "rpt_categories": len(rpt["categorias"]), "rpt_positions": len(rpt["puestos"])}
+
+
+def validate_public_catalogs(args, output: Path, source: str) -> tuple[dict, dict]:
+    context = getattr(args, "_source_context", None) or source_context(args, output, source)
+    if context["source_ref"] != source:
+        fail("public catalogue source context changed")
+    module = load_profile_module("clon_interno_material")
+    payload = {}
+    for relative, declared in module.APPROVED_PUBLIC_SOURCES.items():
+        path = canonical(context["source_repo"] / declared["source_path"])
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+        with os.fdopen(fd, "rb") as stream:
+            info = os.fstat(stream.fileno())
+            if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or info.st_uid != os.getuid() or info.st_mode & 0o777 != 0o644 or not 0 < info.st_size <= 1048576:
+                fail("unsafe public catalogue source file")
+            data = stream.read(1048577)
+        committed = run(["git", "-C", str(context["git_repo"]), "show", source + ":" + declared["source_path"]])
+        tree = run(["git", "-C", str(context["git_repo"]), "ls-tree", source, "--", declared["source_path"]])
+        if not tree.startswith(b"100644 blob ") or data != committed or hashlib.sha256(data).hexdigest() != declared["sha256"]:
+            fail("public catalogue differs from its reviewed committed source")
+        payload[relative] = data
+    metadata = public_catalog_metadata(json.loads(payload["catalogos/organizacion-publica.json"]), json.loads(payload["catalogos/rpt-publica.json"]))
+    return payload, metadata
+
+
+def provision_public_catalogs(args, output: Path, source: str, manifest: dict) -> dict:
+    payload, metadata = validate_public_catalogs(args, output, source)
+    env = json.loads(private_read(output / "runtime-config.json"))
+    module = load_profile_module("clon_interno_material")
+    for key, relative in module.PUBLIC_ENV_FILES.items():
+        if key in env and env[key] != str(output / "material" / relative):
+            fail("existing public catalogue path differs")
+    for relative, data in payload.items():
+        destination = canonical(output / "material" / relative)
+        if destination.exists() and private_read(destination) != data:
+            fail("existing public catalogue bytes changed")
+    for relative, data in payload.items():
+        destination = output / "material" / relative
+        if not destination.exists():
+            private_write(destination, data)
+    env.update({key: str(output / "material" / relative) for key, relative in module.PUBLIC_ENV_FILES.items()})
+    manifest["public_catalogs"] = {"source_commit": source, "declared_metadata": metadata,
+                                  "files": {relative: dict(module.APPROVED_PUBLIC_SOURCES[relative]) for relative in payload}, "sql_authority_changed": False}
+    profiles = json.loads(private_read(output / "perfiles.json"))
+    return seal_state(output, manifest, env, profiles, manifest["blockers"])
 
 
 def seal_internal_projection(args: argparse.Namespace, output: Path, source: str, manifest: dict) -> dict:
@@ -1036,6 +1106,8 @@ def prepare(args: argparse.Namespace) -> dict:
     head = run(["git", "-C", str(repo), "rev-parse", requested + "^{commit}"]).decode().strip()
     run(["git", "-C", str(repo), "merge-base", "--is-ancestor", head, "origin/main"])
     plan, journal_bytes = validate_source_receipts(args, output, head)
+    if public_catalogs_requested(args):
+        validate_public_catalogs(args, output, head)
     ready = json.loads(private_read(output / "DB_READY.json"))
     expected = {"commit": head, "contenedor": args.container, "propietario": OWNER,
                 "puerto_pg": args.pg_port, "puerto_web": args.port}
@@ -1183,6 +1255,7 @@ def main() -> int:
     parser.add_argument("--repair-importacion-connect", action="store_true", help="restore only CONNECT for the existing H1 importacion group and LOGIN")
     parser.add_argument("--upgrade-source", "--update-source", dest="update_source", action="store_true", help="bind preserved material to a descendant main revision after matching DB_READY")
     parser.add_argument("--complete-profiles", action="store_true", help="run reviewed Users/Bolsa/candidate provisioning modules on existing material")
+    parser.add_argument("--prepare-public-catalogs", action="store_true", help="copy the reviewed public organization and RPT files from the pinned source archive")
     parser.add_argument("--project-internal", action="store_true", help="seal only the internal runtime projection; complete-profiles also seals it")
     parser.add_argument("--refresh-internal-proof", action="store_true", help="CAS only a changed operator-manifest reference when all internal runtime bytes remain identical")
     parser.add_argument("--engine", choices=("docker", "podman"), default="docker")

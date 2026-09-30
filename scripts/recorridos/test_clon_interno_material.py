@@ -242,3 +242,18 @@ class InternalProjectionTests(unittest.TestCase):
         self.assertIn("sslmode=verify-full", current["VEC_BOLSA_IMPORTACION_CONVOCA_DATABASE_URL"])
         self.assertEqual(current["VEC_BOLSA_IMPORTACION_CONVOCA_CUSTODIA_DIR"], str(self.state / "runtime-interno/rw/data/importaciones"))
         self.assertEqual((self.state / "runtime-interno/material/kms/clave-maestra.bin").read_bytes(), (self.material / "kms/clave-maestra.bin").read_bytes())
+
+    def test_public_catalogs_are_positive_readonly_byte_exact_and_paths_are_projected(self):
+        env = json.loads((self.state / "runtime-config.json").read_bytes())
+        for relative, declared in projection.APPROVED_PUBLIC_SOURCES.items():
+            raw = (Path(__file__).resolve().parents[2] / declared["source_path"]).read_bytes()
+            self.put(self.material / relative, raw)
+        for key, relative in projection.PUBLIC_ENV_FILES.items(): env[key] = str(self.material / relative)
+        self.put(self.state / "runtime-config.json", projection.json_bytes(env))
+        self.seal()
+        descriptor = self.provision()
+        projected_env = json.loads((self.state / descriptor["config"]).read_bytes())
+        for key, relative in projection.PUBLIC_ENV_FILES.items():
+            self.assertEqual(projected_env[key], str(self.state / descriptor["material"] / relative))
+            self.assertEqual(projection.read(self.state / descriptor["material"] / relative), (self.material / relative).read_bytes())
+        self.assertEqual(self.provision(), descriptor)
