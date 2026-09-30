@@ -68,7 +68,7 @@ BEGIN
                                  'YYYY-MM-DD"T"HH24:MI:SS"Z"');
   -- Orden y omisión de campos opcionales idénticos a VersionRol y
   -- ControlVigenciaVersionRol de domain/autorizacion.go (json.Marshal).
-  rol_bytes := pg_catalog.format('{"rol_id":"administracion_perfiles","version":1,"nombre":"administracion.perfiles.rol","estado":"publicada","concesiones":[{"accion":"administracion.perfiles.consultar","modulo_id":"administracion","tipo_recurso":"perfil","finalidades":["gestion_perfiles"],"garantia_minima":"alto","campos_permitidos":["perfil_ref","vinculo_ref","version"]}],"publicada_por":"migracion:autorizacion:000022","publicada_en":"%s"}', instante);
+  rol_bytes := pg_catalog.format('{"rol_id":"administracion_perfiles","version":1,"nombre":"administracion.perfiles.rol","estado":"publicada","concesiones":[{"accion":"administracion.perfiles.consultar","modulo_id":"administracion","tipo_recurso":"perfil","finalidades":["gestion_perfiles"],"garantia_minima":"alto","campos_permitidos":["perfil_ref","vinculo_ref","version"]}],"publicada_por":"migracion:autorizacion:000022","publicada_en":"%s","retirada_en":"0001-01-01T00:00:00Z"}', instante);
   rol := rol_bytes::jsonb;
   IF NOT vec_autorizacion.concesiones_positivas_validas(rol) THEN
     RAISE EXCEPTION 'AUT22: rol no válido' USING ERRCODE = '23514';
