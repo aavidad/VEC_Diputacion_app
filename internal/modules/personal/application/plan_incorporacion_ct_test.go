@@ -272,7 +272,12 @@ func TestPlanCTClasesProcedenDeLaColeccionVersionada(t *testing.T) {
 		t.Fatal("colección no procede del propietario", e)
 	}
 	c.Opciones[0].Valor = "desconocida"
+	r, e = s.ConsultarClasesOcupacion(context.Background(), ports.ConsultaClasesOcupacionCT{OrganismoRef: "org:uno", Actor: solicitudP(t).Actor})
+	if e != nil || len(r.Catalogo.Opciones) != 1 || r.Catalogo.Opciones[0].Valor != "desconocida" {
+		t.Fatal("la colección versionada no admite una clase válida nueva", e)
+	}
+	c.Opciones = append(c.Opciones, domain.OpcionClaseOcupacionCT{Valor: "desconocida", TextoClave: "personal.clases.duplicada"})
 	if _, e := s.ConsultarClasesOcupacion(context.Background(), ports.ConsultaClasesOcupacionCT{OrganismoRef: "org:uno", Actor: solicitudP(t).Actor}); !errors.Is(e, domain.ErrRegistroEmpleadoB2NoDisponible) {
-		t.Fatal("clase fuera de soporte técnico", e)
+		t.Fatal("colección con opción duplicada aceptada", e)
 	}
 }
