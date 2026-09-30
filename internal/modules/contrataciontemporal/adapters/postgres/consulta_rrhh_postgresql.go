@@ -104,6 +104,9 @@ func (s *SesionConsultaRRHHPostgreSQL) ConsultarCuadroYRegistrar(
 	var salida salidaCuadroConsultaRRHH
 	defer func() {
 		clear(salida.contenidoCanonico)
+		clear(salida.instantaneasRegla)
+		clear(salida.basesRegla)
+		clear(salida.ajustesRegla)
 		salida.cursorSiguiente = ""
 	}()
 	argumentosSQL := argumentosSQLCuadroConsultaRRHH(
@@ -153,6 +156,10 @@ func (s *SesionConsultaRRHHPostgreSQL) ConsultarCuadroYRegistrar(
 					&diagnostico.FalloConsultaRRHH{Etapa: diagnostico.EtapaResultadoSQL, Sentinela: ports.ErrResultadoConsultaRRHHNoConfiable, Causa: err}
 			}
 			if pagina.Urgentes, err = salida.urgentesAlineados(pagina.Expedientes); err != nil {
+				return ports.PaginaCuadroRRHH{},
+					&diagnostico.FalloConsultaRRHH{Etapa: diagnostico.EtapaResultadoSQL, Sentinela: ports.ErrResultadoConsultaRRHHNoConfiable, Causa: err}
+			}
+			if pagina.InstantaneasPlazo, err = salida.instantaneasAlineadas(pagina.Expedientes, pagina.FasesDesde); err != nil {
 				return ports.PaginaCuadroRRHH{},
 					&diagnostico.FalloConsultaRRHH{Etapa: diagnostico.EtapaResultadoSQL, Sentinela: ports.ErrResultadoConsultaRRHHNoConfiable, Causa: err}
 			}
@@ -500,7 +507,8 @@ func destinosCuadroConsultaRRHH(s *salidaCuadroConsultaRRHH) []any {
 		append(destinosCierreConsultaRRHH(&s.cierre),
 			&s.totalFiltrado, &s.enTramitacion,
 			&s.conIncidencia, &s.enLlamamiento,
-			&s.faseDesdeExpedientes, &s.faseDesdeInstantes, &s.urgentes)...,
+			&s.faseDesdeExpedientes, &s.faseDesdeInstantes, &s.urgentes,
+			&s.instantaneasRegla, &s.basesRegla, &s.ajustesRegla)...,
 	)
 }
 
