@@ -15,7 +15,8 @@ SPEC.loader.exec_module(projection)
 class InternalProjectionTests(unittest.TestCase):
     def test_complete_frozen_h6_and_reviewed_main_contracts_are_accepted(self):
         repo = Path(__file__).resolve().parents[2]
-        for source in ('ab875bb8036af59e9b5ac624d6840b8581178ed2', 'ebac67de4e43fc49add3d82a011b2b0c9f6a6b21'):
+        for source in ('ab875bb8036af59e9b5ac624d6840b8581178ed2', 'ebac67de4e43fc49add3d82a011b2b0c9f6a6b21',
+                       '73e56c106d12fdda0bd16d6fe573503c42c5495f'):
             with self.subTest(source=source):
                 projection.source_contracts(repo, source)
 
@@ -286,3 +287,180 @@ class InternalProjectionTests(unittest.TestCase):
             self.assertEqual(projected_env[key], str(self.state / descriptor["material"] / relative))
             self.assertEqual(projection.read(self.state / descriptor["material"] / relative), (self.material / relative).read_bytes())
         self.assertEqual(self.provision(), descriptor)
+
+    def staged_fixture(self):
+        spec = importlib.util.spec_from_file_location("pre_gate_tests", Path(__file__).with_name("clon_material_pre_ad132.py"))
+        gate = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(gate)
+        sql = gate.load_sql()
+        self.approval = {"h6_package": self.state / "dummy.tar", "h6_lock": self.state / "dummy.lock",
+                         "h1_state_file": self.state / "dummy.h1", "approved_package_sha256": "b" * 64,
+                         "approved_lock_sha256": "c" * 64, "estado_h1_sha": "d" * 64, "identidad_clon": "e" * 64}
+        context = {"package_sha": "b" * 64, "lock_sha": "c" * 64, "estado_h1_sha": "d" * 64,
+                   "identidad_clon": "e" * 64, "list_sha": "f" * 64, "release_sha": "1" * 64}
+        entries = [{"path": "fixture_" + str(n) + ".up.sql", "sha256": "2" * 64,
+                    "phase": "H3" if n < 8 else "H4" if n < 17 else "H6"} for n in range(62)]
+        self.plan = {"source_ref": self.source, "approved_sql_ref": self.source, "plan_family": sql.H6_PACKAGE_FAMILY,
+                     "file_count": 62, "plan_sha": sql.plan_hash(entries), "inventory_sha": "3" * 64,
+                     "entries": entries, **{k: v for k, v in context.items() if k != "identidad_clon"}}
+        self.journal = {"version": sql.JOURNAL_VERSION, "run_id": "00000000-0000-4000-8000-000000000001",
+                        "source_commit": self.source, "phase": "awaiting_ad132", "pending": None,
+                        "revisions": [], **context,
+                        **{k: self.plan[k] for k in ("approved_sql_ref", "plan_family", "file_count", "plan_sha", "inventory_sha", "entries")},
+                        "installed": [{"position": n, "path": row["path"], "sha256": row["sha256"],
+                                       "confirmed_at": "2026-09-30T12:00:00+00:00", "confirmation": "psql_exit0_observed"}
+                                      for n, row in enumerate(entries, 1)]}
+        self.gate, self.sql = gate, sql
+        self.save_journal()
+        ready = json.loads((self.state / "DB_READY.json").read_bytes())
+        ready["puerto_web"] = 18531
+        self.put(self.state / "clon.json", projection.json_bytes(ready))
+        (self.state / "DB_READY.json").unlink()
+        env = json.loads((self.state / "runtime-config.json").read_bytes())
+        for relative, declared in projection.APPROVED_PUBLIC_SOURCES.items():
+            self.put(self.material / relative, (Path(__file__).resolve().parents[2] / declared["source_path"]).read_bytes())
+        for key, relative in projection.PUBLIC_ENV_FILES.items(): env[key] = str(self.material / relative)
+        self.put(self.state / "runtime-config.json", projection.json_bytes(env))
+        self.seal()
+        parent = json.loads((self.state / "material-manifest.json").read_bytes())
+        parent.update(status="prepared", blockers=[])
+        self.put(self.state / "material-manifest.json", projection.json_bytes(parent))
+
+    def save_journal(self):
+        self.journal["journal_sha"] = self.sql.record_hash(self.journal)
+        self.put(self.state / "sql-journal.json", projection.json_bytes(self.journal))
+
+    def staged_provision(self, pre=True, refresh=False):
+        with patch.object(self.gate, "load_sql", return_value=self.sql), \
+             patch.object(self.sql, "preflight_h6_package", return_value=(self.plan, [])), \
+             patch.object(projection, "preparation_gate", side_effect=self.gate.validate), \
+             patch.object(projection, "source_contracts", return_value={"source.go": "f" * 64}):
+            return projection.provision(self.repo, "vec-owned", self.state, self.material, 55531,
+                                        pre_ad132=pre, approval=self.approval, refresh_operator_proof=refresh)
+
+    def snapshot(self):
+        return {str(p.relative_to(self.state)): (p.read_bytes(), p.stat().st_mtime_ns)
+                for p in self.state.rglob("*") if p.is_file() and not p.is_symlink()}
+
+    def test_pre_ad132_projects_definitive_files_without_ready_and_post_only_verifies_bytes(self):
+        self.staged_fixture()
+        before = self.snapshot()
+        descriptor = self.staged_provision()
+        self.assertEqual(descriptor["status"], "pending_ad132")
+        parent = json.loads((self.state / "material-manifest.json").read_bytes())
+        parent["runtime_interno"] = descriptor
+        self.put(self.state / "material-manifest.json", projection.json_bytes(parent))
+        for name, value in before.items():
+            if name != "material-manifest.json":
+                path = self.state / name
+                self.assertEqual((path.read_bytes(), path.stat().st_mtime_ns), value)
+        sealed = json.loads((self.state / descriptor["manifest"]).read_bytes())
+        self.assertEqual(sealed["status"], "pending_ad132")
+        self.assertFalse(sealed["database_identity_verified"])
+        self.assertFalse(sealed["database_ready"])
+        self.assertFalse(sealed["application_started"])
+        self.assertFalse((self.state / "DB_READY.json").exists())
+        repeat = self.snapshot()
+        self.assertEqual(self.staged_provision(), descriptor)
+        self.assertEqual(self.snapshot(), repeat)
+        self.journal["phase"] = "ad132_confirmed"
+        self.save_journal()
+        ready = json.loads((self.state / "clon.json").read_bytes()) | {"sql_instaladas": 62}
+        self.put(self.state / "DB_READY.json", projection.json_bytes(ready))
+        post = self.snapshot()
+        self.assertEqual(self.staged_provision(pre=False), descriptor)
+        self.assertEqual(self.snapshot(), post)
+        self.put(self.state / descriptor["material"] / "tls/servidor.key", b"changed dummy key")
+        changed = self.snapshot()
+        with self.assertRaises(projection.ProjectionError): self.staged_provision(pre=False)
+        self.assertEqual(self.snapshot(), changed)
+
+    def test_pre_ad132_rejects_unapproved_journal_package_identity_and_material_before_any_copy(self):
+        self.staged_fixture()
+        original = self.snapshot()
+        for failure in ("missing_journal", "partial_journal", "pending_sql", "confirmation_marker", "wrong_family",
+                        "wrong_package", "missing_approval", "wrong_identity", "wrong_owner", "partial_material",
+                        "missing_catalog", "symlink_material", "symlink_journal", "public_state", "app", "ready"):
+            with self.subTest(failure=failure):
+                approval = dict(self.approval)
+                journal = json.loads(json.dumps(self.journal))
+                if failure == "missing_journal": (self.state / "sql-journal.json").unlink()
+                elif failure == "partial_journal": self.journal["installed"].pop(); self.save_journal()
+                elif failure == "pending_sql": self.journal["pending"] = {"position": 63}; self.save_journal()
+                elif failure == "confirmation_marker": self.put(self.state / ".sql-confirming", b"uncertain")
+                elif failure == "wrong_family": self.journal["plan_family"] = "historical"; self.save_journal()
+                elif failure == "wrong_package": self.journal["package_sha"] = "4" * 64; self.save_journal()
+                elif failure == "missing_approval": self.approval.pop("h6_package")
+                elif failure == "wrong_identity": self.approval["identidad_clon"] = "5" * 64
+                elif failure == "wrong_owner":
+                    marker = json.loads((self.state / "clon.json").read_bytes()) | {"propietario": "Other"}
+                    self.put(self.state / "clon.json", projection.json_bytes(marker))
+                elif failure == "partial_material": (self.material / "tls/servidor.key").unlink()
+                elif failure == "missing_catalog": (self.material / "catalogos/rpt-publica.json").unlink()
+                elif failure in ("symlink_material", "symlink_journal"):
+                    path = self.material / "tls/servidor.key" if failure == "symlink_material" else self.state / "sql-journal.json"
+                    path.unlink(); path.symlink_to(self.material / "ca/ca.crt")
+                elif failure == "ready": self.put(self.state / "DB_READY.json", b"{}")
+                elif failure == "app": self.put(self.state / "runtime-process.json", b"{}")
+                elif failure == "public_state": self.state.chmod(0o755)
+                modified = self.snapshot()
+                with self.assertRaises((RuntimeError, OSError)): self.staged_provision()
+                self.assertEqual(self.snapshot(), modified)
+                self.assertFalse((self.state / "runtime-interno").exists())
+                self.assertEqual(list(self.state.glob(".runtime-interno-*")), [])
+                self.approval = approval
+                self.journal = journal
+                self.state.chmod(0o700)
+                for p in self.state.rglob("*"):
+                    if p.is_file() or p.is_symlink(): p.unlink()
+                for name, (data, _) in original.items(): self.put(self.state / name, data)
+
+    def test_pre_ad132_forbids_cas_and_ordinary_projection_still_requires_ready(self):
+        self.staged_fixture()
+        before = self.snapshot()
+        with self.assertRaises(projection.ProjectionError): self.staged_provision(refresh=True)
+        self.assertEqual(self.snapshot(), before)
+        with self.assertRaises(projection.ProjectionError): self.provision()
+        self.assertEqual(self.snapshot(), before)
+
+    def test_driver_pre_ad132_and_post_verification_never_enter_sql_docker_or_profile_provision(self):
+        self.staged_fixture()
+        spec = importlib.util.spec_from_file_location("staged_driver", Path(__file__).with_name("clon_material.py"))
+        driver = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(driver)
+        args = SimpleNamespace(repo=self.repo, output=self.state, container="vec-owned", commit=self.source,
+                               pg_port=55531, port=18531, engine="docker", pre_ad132=True, **self.approval)
+        def forbidden(*a, **kw): self.fail("unexpected database, Docker, TLS or profile effect")
+        with patch.object(self.gate, "load_sql", return_value=self.sql), \
+             patch.object(self.sql, "preflight_h6_package", return_value=(self.plan, [])), \
+             patch.object(projection, "preparation_gate", side_effect=self.gate.validate), \
+             patch.object(projection, "source_contracts", return_value={"source.go": "f" * 64}), \
+             patch.object(driver, "load_profile_module", return_value=projection), \
+             patch.object(driver, "run", side_effect=forbidden), \
+             patch.object(driver, "query", side_effect=forbidden), \
+             patch.object(driver, "probe_pg_tls", side_effect=forbidden), \
+             patch.object(driver, "complete_profiles", side_effect=forbidden), \
+             patch.object(driver, "provision_public_catalogs", side_effect=forbidden):
+            result = driver.prepare(args)
+            self.assertEqual(result["runtime_interno"]["status"], "pending_ad132")
+            self.assertFalse((self.state / "DB_READY.json").exists())
+            before = self.snapshot()
+            self.assertEqual(driver.prepare(args), result)
+            self.assertEqual(self.snapshot(), before)
+            self.journal["phase"] = "ad132_confirmed"
+            self.save_journal()
+            self.put(self.state / "DB_READY.json", projection.json_bytes(
+                json.loads((self.state / "clon.json").read_bytes()) | {"sql_instaladas": 62}))
+            args.pre_ad132 = False
+            before = self.snapshot()
+            self.assertEqual(driver.prepare(args), result)
+            self.assertEqual(self.snapshot(), before)
+            for flag in ("complete_profiles", "repair_coverage_connect", "repair_importacion_connect", "repair_nominal_connect",
+                         "update_source", "refresh_internal_proof", "prepare_public_catalogs"):
+                for pre in (True, False):
+                    with self.subTest(flag=flag, pre=pre):
+                        args.pre_ad132 = pre
+                        setattr(args, flag, True)
+                        with self.assertRaises(driver.MaterialError): driver.prepare(args)
+                        self.assertEqual(self.snapshot(), before)
+                        setattr(args, flag, False)

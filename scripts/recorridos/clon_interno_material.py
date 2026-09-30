@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import fcntl
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -223,12 +224,22 @@ def rewrite_json(value, old_material, new_material, root, selected, pg_port):
     return value
 
 
-def preflight(repo, container, state, material, pg_port, source_context):
+def preparation_gate(repo, state, container, pg_port, source, approval, *, pre_ad132=True):
+    path = Path(__file__).with_name("clon_material_pre_ad132.py")
+    if not path.is_file() or path.is_symlink():
+        fail("projection_pre_ad132_validator_missing")
+    spec = importlib.util.spec_from_file_location("projection_pre_ad132", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.validate(repo, state, container, pg_port, source, approval, pre_ad132=pre_ad132)
+
+
+def preflight(repo, container, state, material, pg_port, source_context, *, pre_ad132=False, approval=None):
     repo, state, material = map(canonical, (repo, state, material))
     if material != state / "material" or state.stat().st_uid != os.getuid() or state.stat().st_mode & 0o077:
         fail("projection_invalid_operator_root")
     records = []
-    for record in ("clon.json", "DB_READY.json"):
+    for record in (("clon.json",) if pre_ad132 else ("clon.json", "DB_READY.json")):
         metadata = json.loads(read(state / record))
         if metadata.get("propietario") != OWNER or metadata.get("estado") != str(state) or metadata.get("contenedor") != container or metadata.get("puerto_pg") != pg_port:
             fail("projection_clone_inventory_mismatch")
@@ -242,6 +253,14 @@ def preflight(repo, container, state, material, pg_port, source_context):
         fail("projection_parent_target_mismatch")
     if any(record.get("commit") != source for record in records):
         fail("projection_source_marker_mismatch")
+    staged = pre_ad132 or principal.get("runtime_interno", {}).get("status") == "pending_ad132"
+    proof = None
+    if staged:
+        proof = preparation_gate(repo, state, container, pg_port, source, approval, pre_ad132=pre_ad132)
+        if principal.get("status") != "prepared" or principal.get("blockers") != []:
+            fail("projection_pre_ad132_material_incomplete")
+        if records[0].get("puerto_web") != principal["target"]["app_port"]:
+            fail("projection_pre_ad132_web_port_mismatch")
     expected_env = {"VEC_EXECUTION_PROFILE": "desarrollo", "VEC_AUTH_MODE": "desarrollo", "VEC_DEVELOPMENT_GUARD": GUARD,
                     "VEC_DEVELOPMENT_MATERIAL_DIR": str(material), "VEC_HTTP_ADDR": "127.0.0.1:" + str(principal["target"]["app_port"])}
     if any(env.get(k) != v for k, v in expected_env.items()) or "runtime-config.json" not in principal["files"]:
@@ -254,6 +273,8 @@ def preflight(repo, container, state, material, pg_port, source_context):
     projected_material = root / "material"
     selected = set(REQUIRED) | {p for p in OPTIONAL if (material / p).exists()}
     for key, relative in PUBLIC_ENV_FILES.items():
+        if staged and key not in env:
+            fail("projection_pre_ad132_public_catalog_missing")
         if key in env:
             if env[key] != str(material / relative):
                 fail("projection_unapproved_public_catalog_path")
@@ -321,17 +342,22 @@ def preflight(repo, container, state, material, pg_port, source_context):
     payload["runtime-config.json"] = json_bytes(projected_env)
     payload["runtime.env"] = payload["material/desarrollo.env"]
     manifest = {"version": 1, "owner": OWNER, "portal": "interno", "mode": "interno", "target": principal["target"],
-                "status": "prepared", "files": {k: digest(v) for k, v in payload.items()},
+                "status": "pending_ad132" if staged else "prepared", "files": {k: digest(v) for k, v in payload.items()},
                 "source_proof": {"operator_manifest_sha256": operator_digest(principal), "operator_manifest_normalization": "drop_runtime_interno_only", "operator_env_sha256": digest(env_bytes),
                                  "contracts": contracts, "positive_files": copied},
                 "source_sql_approval": principal.get("source_sql_approval", {}), "application_started": False,
                 "external_profiles_available": False, "operator_material_mounted": False}
+    if staged:
+        manifest.update(pre_ad132_approval=proof, database_identity_verified=False, database_ready=False)
     payload["material-manifest.json"] = json_bytes(manifest)
     rw = [{"source": "runtime-interno/rw/" + p, "target": str(root / "rw" / p), "kind": p} for p in ("documentos", "imagenes", "data")]
     rw.append({"source": "runtime-interno/rw/comunicaciones", "target": str(projected_material / "comunicaciones"), "kind": "comunicaciones"})
-    return root, payload, {"mode": "interno", "portal": "interno", "material": "runtime-interno/material",
+    descriptor = {"mode": "interno", "portal": "interno", "material": "runtime-interno/material",
                           "config": "runtime-interno/runtime-config.json", "manifest": "runtime-interno/material-manifest.json",
                           "rw": rw, "manifest_sha256": digest(payload["material-manifest.json"]), "source_commit": source}
+    if staged:
+        descriptor["status"] = "pending_ad132"
+    return root, payload, descriptor
 
 
 def check_closed_inventory(root, payload, descriptor):
@@ -418,11 +444,22 @@ def refresh_proof_reference(state, root, payload, descriptor):
         os.close(fd)
 
 
-def provision(repo, container, state, material, pg_port, engine="docker", source_context=None, refresh_operator_proof=False):
+def provision(repo, container, state, material, pg_port, engine="docker", source_context=None, refresh_operator_proof=False,
+              pre_ad132=False, approval=None):
     """Create an immutable projection; never alter original operator material."""
     if engine not in ("docker", "podman"):
         fail("projection_engine_not_supported")
-    root, payload, descriptor = preflight(repo, container, state, material, pg_port, source_context)
+    principal = json.loads(read(Path(state) / "material-manifest.json"))
+    staged = pre_ad132 or principal.get("runtime_interno", {}).get("status") == "pending_ad132"
+    journal_path = Path(state) / "sql-journal.json"
+    if not staged and journal_path.exists():
+        journal = json.loads(read(journal_path))
+        if journal.get("plan_family") == "h6_package_62" and journal.get("phase") in ("awaiting_ad132", "ad132_confirmed"):
+            fail("projection_package62_requires_pre_ad132_seal")
+    if staged and refresh_operator_proof:
+        fail("projection_pre_ad132_refresh_forbidden")
+    root, payload, descriptor = preflight(repo, container, state, material, pg_port, source_context,
+                                        pre_ad132=pre_ad132, approval=approval)
     if root.exists():
         canonical(root)
         check_closed_inventory(root, payload, descriptor)
@@ -436,6 +473,8 @@ def provision(repo, container, state, material, pg_port, engine="docker", source
         return descriptor
     if refresh_operator_proof:
         fail("projection_refresh_requires_existing_sealed_projection")
+    if staged and not pre_ad132:
+        fail("projection_post_ad132_missing_preparation")
     # No writes until every source, reference, env, contract and digest passed.
     temporary = Path(tempfile.mkdtemp(prefix=".runtime-interno-", dir=state))
     try:
@@ -462,7 +501,17 @@ if __name__ == "__main__":
     parser.add_argument("--container", required=True)
     parser.add_argument("--pg-port", type=int, required=True)
     parser.add_argument("--refresh-internal-proof", action="store_true")
+    parser.add_argument("--pre-ad132", action="store_true")
+    parser.add_argument("--h6-package", type=Path)
+    parser.add_argument("--h6-lock", type=Path)
+    parser.add_argument("--approved-package-sha256")
+    parser.add_argument("--approved-lock-sha256")
+    parser.add_argument("--h1-state-file", type=Path)
+    parser.add_argument("--estado-h1-sha")
+    parser.add_argument("--identidad-clon")
     args = parser.parse_args()
     result = provision(args.repo, args.container, args.state, args.state / "material", args.pg_port,
-                       refresh_operator_proof=args.refresh_internal_proof)
-    print(json.dumps({"material": result["material"], "portal": result["portal"], "status": "prepared"}))
+                       refresh_operator_proof=args.refresh_internal_proof, pre_ad132=args.pre_ad132,
+                       approval={key: getattr(args, key) for key in ("h6_package", "h6_lock", "approved_package_sha256",
+                           "approved_lock_sha256", "h1_state_file", "estado_h1_sha", "identidad_clon")})
+    print(json.dumps({"material": result["material"], "portal": result["portal"], "status": result.get("status", "prepared")}))

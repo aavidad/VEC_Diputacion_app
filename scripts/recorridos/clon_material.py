@@ -940,6 +940,9 @@ def update_source(args: argparse.Namespace, output: Path, identity: dict) -> dic
 
 
 def finish_preparation(args: argparse.Namespace, output: Path, source: str, manifest: dict) -> dict:
+    if getattr(args, "pre_ad132", False) or manifest.get("runtime_interno", {}).get("status") == "pending_ad132":
+        reject_staged_mutations(args)
+        return seal_internal_projection(args, output, source, manifest)
     if public_catalogs_requested(args):
         manifest = provision_public_catalogs(args, output, source, manifest)
     if getattr(args, "complete_profiles", False):
@@ -958,6 +961,36 @@ def finish_preparation(args: argparse.Namespace, output: Path, source: str, mani
     if getattr(args, "complete_profiles", False) or getattr(args, "project_internal", False) or getattr(args, "refresh_internal_proof", False):
         manifest = seal_internal_projection(args, output, source, manifest)
     return manifest
+
+
+def reject_staged_mutations(args):
+    forbidden = ("complete_profiles", "repair_coverage_connect", "repair_importacion_connect",
+                 "repair_nominal_connect", "update_source", "refresh_internal_proof", "prepare_public_catalogs")
+    if any(getattr(args, name, False) for name in forbidden):
+        fail("definitive material forbids provisioning, repair, refresh and source changes")
+
+
+def prepare_staged(args):
+    reject_staged_mutations(args)
+    repo, output = map(canonical, (args.repo, args.output))
+    source = getattr(args, "commit", None)
+    if not isinstance(source, str) or not re.fullmatch(r"[0-9a-f]{40}", source):
+        fail("definitive material requires a full approved source SHA")
+    if not re.fullmatch(r"vec-[a-z0-9_-]+", args.container):
+        fail("invalid clone container name")
+    manifest = json.loads(private_read(output / "material-manifest.json"))
+    target = manifest.get("target", {})
+    if (manifest.get("owner") != OWNER or target.get("source_commit") != source
+            or target.get("pg_port") != args.pg_port or target.get("app_port") != args.port
+            or manifest.get("status") != "prepared" or manifest.get("blockers") != []):
+        fail("definitive material must already be complete and bound to the clone")
+    if not getattr(args, "pre_ad132", False) and manifest.get("runtime_interno", {}).get("status") != "pending_ad132":
+        fail("post AD132 verification requires previously sealed definitive material")
+    args._material_approval = {key: getattr(args, key, None) for key in (
+        "h6_package", "h6_lock", "approved_package_sha256", "approved_lock_sha256",
+        "h1_state_file", "estado_h1_sha", "identidad_clon")}
+    args._source_context = {"source_ref": source}
+    return finish_preparation(args, output, source, manifest)
 
 
 def public_catalogs_requested(args) -> bool:
@@ -1031,11 +1064,16 @@ def seal_internal_projection(args: argparse.Namespace, output: Path, source: str
     # This proof has its own root: profile-module result.files still permits
     # only files under operator material/. Do not expose that root to runtime.
     name = "clon_interno_material"
+    staged = getattr(args, "pre_ad132", False) or manifest.get("runtime_interno", {}).get("status") == "pending_ad132"
     try:
+        options = {}
+        if staged:
+            reject_staged_mutations(args)
+            options.update(pre_ad132=getattr(args, "pre_ad132", False), approval=getattr(args, "_material_approval", None))
         descriptor = load_profile_module(name).provision(repo=args.repo, container=args.container, state=output,
             material=output / "material", pg_port=args.pg_port, engine=args.engine,
             source_context=getattr(args, "_source_context", None),
-            refresh_operator_proof=getattr(args, "refresh_internal_proof", False))
+            refresh_operator_proof=getattr(args, "refresh_internal_proof", False), **options)
         expected = {"mode": "interno", "portal": "interno", "material": "runtime-interno/material",
                     "config": "runtime-interno/runtime-config.json", "manifest": "runtime-interno/material-manifest.json",
                     "source_commit": source}
@@ -1047,8 +1085,14 @@ def seal_internal_projection(args: argparse.Namespace, output: Path, source: str
         if descriptor.get("rw") != expected_rw or descriptor.get("manifest_sha256") != hashlib.sha256(private_read(output / expected["manifest"])).hexdigest():
             fail("invalid internal projection proof")
     except (RuntimeError, OSError, ValueError, KeyError, subprocess.TimeoutExpired) as error:
+        if staged:
+            fail("definitive material validation failed; preserve original bytes")
         log_module_failure(output, name, error)
         raise ModuleProvisionError(name, error) from None
+    if manifest.get("runtime_interno") == descriptor:
+        return manifest
+    if staged and not getattr(args, "pre_ad132", False):
+        fail("post AD132 verification cannot replace the projection proof")
     manifest["runtime_interno"] = descriptor
     replace_private(output / "material-manifest.json", manifest)
     return manifest
@@ -1088,6 +1132,16 @@ def fresh_profile_names() -> tuple[dict, str]:
 
 def prepare(args: argparse.Namespace) -> dict:
     os.umask(0o077)
+    if getattr(args, "pre_ad132", False):
+        return prepare_staged(args)
+    previous = canonical(args.output) / "material-manifest.json"
+    if previous.exists() and json.loads(private_read(previous)).get("runtime_interno", {}).get("status") == "pending_ad132":
+        return prepare_staged(args)
+    journal_path = canonical(args.output) / "sql-journal.json"
+    if journal_path.exists():
+        journal = json.loads(private_read(journal_path))
+        if journal.get("plan_family") == "h6_package_62" and journal.get("phase") in ("awaiting_ad132", "ad132_confirmed"):
+            return prepare_staged(args)
     repo, output, base = map(canonical, (args.repo, args.output, args.base_material))
     for directory in (repo, base):
         if not directory.is_dir():
@@ -1259,6 +1313,14 @@ def main() -> int:
     parser.add_argument("--prepare-public-catalogs", action="store_true", help="copy the reviewed public organization and RPT files from the pinned source archive")
     parser.add_argument("--project-internal", action="store_true", help="seal only the internal runtime projection; complete-profiles also seals it")
     parser.add_argument("--refresh-internal-proof", action="store_true", help="CAS only a changed operator-manifest reference when all internal runtime bytes remain identical")
+    parser.add_argument("--pre-ad132", action="store_true", help="project complete definitive files for the offline canary without DB_READY or database effects")
+    parser.add_argument("--h6-package", type=Path)
+    parser.add_argument("--h6-lock", type=Path)
+    parser.add_argument("--approved-package-sha256")
+    parser.add_argument("--approved-lock-sha256")
+    parser.add_argument("--h1-state-file", type=Path)
+    parser.add_argument("--estado-h1-sha")
+    parser.add_argument("--identidad-clon")
     parser.add_argument("--engine", choices=("docker", "podman"), default="docker")
     args = parser.parse_args()
     if not (1024 <= args.port <= 65535 and 1024 <= args.pg_port <= 65535) or args.port == args.pg_port:
@@ -1268,7 +1330,8 @@ def main() -> int:
         parser.error("distinct unprivileged SMTP and Mailpit ports are required")
     try:
         manifest = prepare(args)
-        print(json.dumps({"status": manifest["status"], "blockers": [b["code"] for b in manifest["blockers"]]}))
+        status = "pending_ad132" if args.pre_ad132 else ("verified" if manifest.get("runtime_interno", {}).get("status") == "pending_ad132" else manifest["status"])
+        print(json.dumps({"status": status, "blockers": [b["code"] for b in manifest["blockers"]]}))
         return 3 if manifest["blockers"] else 0
     except ModuleProvisionError as error:
         print(json.dumps({"status": "failed", "module": error.module, "code": error.cause_type,
