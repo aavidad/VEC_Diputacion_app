@@ -3,12 +3,23 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/sha256"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/hex"
+	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"io"
+	"math/big"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"vec-diputacion-granada/config"
 	"vec-diputacion-granada/internal/app/bootstrap"
@@ -37,12 +48,39 @@ func TestTareasInternasNoSeEjecutanEnElProcesoExterno(t *testing.T) {
 	}
 }
 
-func materialPrueba(t *testing.T, portal, clave string) string {
+func materialPrueba(t *testing.T, portal, clave, huellaCAInterna string) (string, string) {
 	t.Helper()
 	raiz := filepath.Join(t.TempDir(), "material")
+	claveCA, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	certificado := &x509.Certificate{
+		SerialNumber: big.NewInt(1), Subject: pkix.Name{CommonName: "CA sintetica del portal " + portal},
+		NotBefore: time.Now().Add(-time.Hour), NotAfter: time.Now().Add(time.Hour),
+		IsCA: true, BasicConstraintsValid: true, KeyUsage: x509.KeyUsageCertSign,
+	}
+	der, err := x509.CreateCertificate(rand.Reader, certificado, certificado, &claveCA.PublicKey, claveCA)
+	if err != nil {
+		t.Fatal(err)
+	}
+	huella := sha256.Sum256(der)
+	version := 4
+	manifiesto := map[string]any{}
+	if portal == "externo" {
+		version = 2
+		manifiesto["huella_ca_interna_sha256"] = huellaCAInterna
+	}
+	manifiesto["version"] = version
+	contenidoManifiesto, err := json.Marshal(manifiesto)
+	if err != nil {
+		t.Fatal(err)
+	}
 	for relativa, contenido := range map[string]string{
 		separacionportales.FicheroMarcaPortal: `{"version":1,"portal":"` + portal + `"}`,
-		"kms/clave-maestra.bin":               clave,
+		"idempotencia/clave.bin":              clave,
+		"ca/ca.crt":                           string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})),
+		"manifiesto.json":                     string(contenidoManifiesto),
 	} {
 		ruta := filepath.Join(raiz, filepath.FromSlash(relativa))
 		if err := os.MkdirAll(filepath.Dir(ruta), 0o700); err != nil {
@@ -52,12 +90,12 @@ func materialPrueba(t *testing.T, portal, clave string) string {
 			t.Fatal(err)
 		}
 	}
-	return raiz
+	return raiz, hex.EncodeToString(huella[:])
 }
 
 func TestComprobarSeparacionPortalesInformaSinValores(t *testing.T) {
-	interno := materialPrueba(t, "interno", "clave sintetica interna")
-	externo := materialPrueba(t, "externo", "clave sintetica externa")
+	interno, huellaCAInterna := materialPrueba(t, "interno", "clave sintetica interna", "")
+	externo, _ := materialPrueba(t, "externo", "clave sintetica externa", huellaCAInterna)
 	guion := filepath.Join(t.TempDir(), "arrancar.sh")
 	if err := os.WriteFile(guion, []byte("export VEC_CT_DATABASE_URL=\"postgresql://vec_ct_sintetico:secreta@127.0.0.1/vec\"\n"), 0o600); err != nil {
 		t.Fatal(err)
@@ -72,9 +110,12 @@ func TestComprobarSeparacionPortalesInformaSinValores(t *testing.T) {
 	if !errors.Is(err, separacionportales.ErrSeparacionPortales) || strings.Contains(err.Error(), "secreta") {
 		t.Fatalf("una conexion interna en el externo debe rechazarse sin mostrarla: %v", err)
 	}
-	copia := materialPrueba(t, "externo", "clave sintetica interna")
-	if err := ejecutarComprobacionSeparacion([]string{"--material-interno", interno, "--material-externo", copia}, &salida); !errors.Is(err, separacionportales.ErrSeparacionPortales) {
-		t.Fatalf("una clave KMS copiada debe rechazarse: %v", err)
+	copia, _ := materialPrueba(t, "externo", "clave sintetica interna", huellaCAInterna)
+	err = ejecutarComprobacionSeparacion([]string{"--material-interno", interno, "--material-externo", copia}, &salida)
+	var rechazo *separacionportales.ErrorSeparacion
+	if !errors.Is(err, separacionportales.ErrSeparacionPortales) || !errors.As(err, &rechazo) ||
+		rechazo.Elemento != "idempotencia/clave.bin = idempotencia/clave.bin" {
+		t.Fatalf("una clave de idempotencia copiada debe rechazarse por su contenido: %v", err)
 	}
 	if err := ejecutarComprobacionSeparacion([]string{"--material-interno", interno}, &salida); !errors.Is(err, errArgumentosSeparacion) {
 		t.Fatalf("faltan argumentos: %v", err)

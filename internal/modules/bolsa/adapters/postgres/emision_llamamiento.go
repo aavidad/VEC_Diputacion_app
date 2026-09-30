@@ -16,7 +16,8 @@ type RepositorioEmisionLlamamientoPostgreSQL struct {
 	pool *pgxpool.Pool
 	// fuentes indica que B59 está instalado y activo: la respuesta y la
 	// recuperación incluyen la fuente del correo de cada aviso.
-	fuentes bool
+	fuentes        bool
+	avisosExternos bool
 }
 
 func NuevoRepositorioEmisionLlamamientoPostgreSQL(pool *pgxpool.Pool) (*RepositorioEmisionLlamamientoPostgreSQL, error) {
@@ -39,7 +40,23 @@ func (r *RepositorioEmisionLlamamientoPostgreSQL) Reservar(ctx context.Context, 
 	}
 	var salidaJSON []byte
 	var reutilizada bool
-	err := r.pool.QueryRow(ctx, `SELECT emision,reutilizada FROM vec_bolsa_llamamientos.reservar_llamamiento_v1($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8,$9,$10,$11,$12,$13,$14::numeric,$15::numeric,$16,$17,$18,$19)`, c.LlamamientoRef, c.ReciboRef, c.BolsaRef, c.ActorRef, c.ClaveIdempotencia, participaciones, configuracion, c.EmitidoEn, huellaFinalizacion[:], m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), m.PersonaVersion(), m.PerfilVersion(), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI()).Scan(&salidaJSON, &reutilizada)
+	consulta := `SELECT emision,reutilizada FROM vec_bolsa_llamamientos.reservar_llamamiento_v1($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8,$9,$10,$11,$12,$13,$14::numeric,$15::numeric,$16,$17,$18,$19)`
+	args := []any{c.LlamamientoRef, c.ReciboRef, c.BolsaRef, c.ActorRef, c.ClaveIdempotencia, participaciones, configuracion, c.EmitidoEn, huellaFinalizacion[:], m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), m.PersonaVersion(), m.PerfilVersion(), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI()}
+	if c.AvisosExternos != nil {
+		if !r.avisosExternos {
+			return ports.EmisionLlamamiento{}, ports.ErrEmisionLlamamientoNoDisponible
+		}
+		eventos, err := json.Marshal(c.AvisosExternos)
+		if err != nil {
+			return ports.EmisionLlamamiento{}, ports.ErrEmisionLlamamientoInvalida
+		}
+		consulta = `SELECT emision,reutilizada FROM vec_bolsa_llamamientos.reservar_llamamiento_avisos_externos_v1($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8,$9,$10,$11,$12,$13,$14::numeric,$15::numeric,$16,$17,$18,$19,$20::jsonb)`
+		args[8] = c.TokenFinalizacion
+		args = append(args, eventos)
+	} else if r.avisosExternos {
+		return ports.EmisionLlamamiento{}, ports.ErrEmisionLlamamientoNoDisponible
+	}
+	err := r.pool.QueryRow(ctx, consulta, args...).Scan(&salidaJSON, &reutilizada)
 	if err != nil {
 		return ports.EmisionLlamamiento{}, errorEmision(err)
 	}
@@ -49,13 +66,17 @@ func (r *RepositorioEmisionLlamamientoPostgreSQL) Reservar(ctx context.Context, 
 	}
 	out.Reutilizada = reutilizada
 	if reutilizada {
-		return r.conFuentesCorreo(ctx, out, c.BolsaRef, c.ClaveIdempotencia)
+		out, err = r.conFuentesCorreo(ctx, out, c.BolsaRef, c.ClaveIdempotencia)
+		if err != nil {
+			return ports.EmisionLlamamiento{}, err
+		}
+		return r.conAvisosExternos(ctx, out, c.BolsaRef, c.ClaveIdempotencia)
 	}
-	return out, nil
+	return r.conAvisosExternos(ctx, out, c.BolsaRef, c.ClaveIdempotencia)
 }
 
 func (r *RepositorioEmisionLlamamientoPostgreSQL) RegistrarContactos(ctx context.Context, bolsa, clave, actor string, token []byte, contactos []ports.ResultadoContactoEmision) (ports.EmisionLlamamiento, error) {
-	if r == nil || r.pool == nil || ctx == nil || bolsa == "" || clave == "" || actor == "" || len(token) != 32 || len(contactos) == 0 {
+	if r == nil || r.pool == nil || ctx == nil || r.avisosExternos || bolsa == "" || clave == "" || actor == "" || len(token) != 32 || len(contactos) == 0 {
 		return ports.EmisionLlamamiento{}, ports.ErrEmisionLlamamientoNoDisponible
 	}
 	conFuente := 0
@@ -83,7 +104,7 @@ func (r *RepositorioEmisionLlamamientoPostgreSQL) RegistrarContactos(ctx context
 	if json.Unmarshal(salidaJSON, &out) != nil {
 		return ports.EmisionLlamamiento{}, ports.ErrEmisionLlamamientoNoDisponible
 	}
-	return aplicarFuentesCorreo(out.EmisionLlamamiento, out.FuentesCorreo), nil
+	return r.conAvisosExternos(ctx, aplicarFuentesCorreo(out.EmisionLlamamiento, out.FuentesCorreo), bolsa, clave)
 }
 
 func (r *RepositorioEmisionLlamamientoPostgreSQL) Recuperar(ctx context.Context, bolsa, clave string) (ports.EmisionLlamamiento, error) {
@@ -99,7 +120,11 @@ func (r *RepositorioEmisionLlamamientoPostgreSQL) Recuperar(ctx context.Context,
 		return out, ports.ErrEmisionLlamamientoNoDisponible
 	}
 	out.Reutilizada = true
-	return r.conFuentesCorreo(ctx, out, bolsa, clave)
+	out, err := r.conFuentesCorreo(ctx, out, bolsa, clave)
+	if err != nil {
+		return ports.EmisionLlamamiento{}, err
+	}
+	return r.conAvisosExternos(ctx, out, bolsa, clave)
 }
 
 func (r *RepositorioEmisionLlamamientoPostgreSQL) ContarEnCurso(ctx context.Context, bolsa string) (int, error) {
@@ -156,7 +181,7 @@ func aplicarFuentesCorreo(e ports.EmisionLlamamiento, fuentes map[string]ports.F
 // ActivarFuentesCorreo comprueba que B59 está instalado y accesible al
 // ejecutor. Sin esta llamada el repositorio se comporta como antes de B59.
 func (r *RepositorioEmisionLlamamientoPostgreSQL) ActivarFuentesCorreo(ctx context.Context) error {
-	if r == nil || r.pool == nil || ctx == nil {
+	if r == nil || r.pool == nil || ctx == nil || r.avisosExternos {
 		return ports.ErrEmisionLlamamientoNoDisponible
 	}
 	var ok bool

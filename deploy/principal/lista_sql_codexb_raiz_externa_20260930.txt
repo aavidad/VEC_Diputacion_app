@@ -1,0 +1,1 @@
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000123_raiz_externa_propia.up.sql

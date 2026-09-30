@@ -19,21 +19,11 @@ import (
 func materialesPublicadosPrueba(t *testing.T, consumidores ...string) map[string][]materialAtestacionContratacionTemporalDesarrollo {
 	t.Helper()
 	cfg, _ := generarMaterialDesarrolloPrueba(t)
-	raiz := cfg.DevelopmentMaterialDir
-	idempotencia, err := cargarMaterialIdempotenciaDesarrollo(raiz, filepath.Join(raiz, config.DevelopmentIdempotencyHMACConfigRelativePath))
+	base, err := prepararBasePropiaPortalExterno(cfg.DevelopmentMaterialDir, "", time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer idempotencia.borrar()
-	derivador, err := nuevoDerivadorIdentidadOperacionDesarrollo(&idempotencia)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer derivador.borrar()
-	base, err := nuevoMaterialAtestacionContratacionTemporalDesarrollo(derivador, time.Now())
-	if err != nil {
-		t.Fatal(err)
-	}
+	defer base.borrarCopiasEfimeras()
 	catalogo, err := nuevoCatalogoMaterialAutorizacionComunDesarrollo(descriptoresMaterialPortalExternoV3())
 	if err != nil {
 		t.Fatal(err)

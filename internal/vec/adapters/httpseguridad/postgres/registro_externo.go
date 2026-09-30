@@ -8,6 +8,8 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	postgresqlcomun "vec-diputacion-granada/internal/shared/postgresql"
+
 	"vec-diputacion-granada/internal/vec/adapters/httpseguridad"
 )
 
@@ -128,10 +130,31 @@ func (r *RegistroSesionesExternoPostgreSQL) ConsumirAsercionYRegistrar(
 	return confirmacion, nil
 }
 
+// Cada aborto SERIALIZABLE repite la transacción con la operación original.
+// Un COMMIT de resultado desconocido conserva la reconciliación exclusiva.
 func (r *RegistroSesionesExternoPostgreSQL) ejecutarAlta(
 	ctx context.Context,
 	argumentos []any,
 ) (respuestaAlta, error) {
+	var respuesta respuestaAlta
+	err := postgresqlcomun.RepetirTrasCarreraSerializable(ctx, func() error {
+		var intento error
+		respuesta, intento = r.ejecutarAltaUnaVez(ctx, argumentos)
+		return intento
+	})
+	if err != nil {
+		return respuestaAlta{}, errorSesionSaneado(ctx)
+	}
+	return respuesta, nil
+}
+
+func (r *RegistroSesionesExternoPostgreSQL) ejecutarAltaUnaVez(
+	ctx context.Context,
+	argumentos []any,
+) (respuestaAlta, error) {
+	if ctx.Err() != nil {
+		return respuestaAlta{}, errorSesionSaneado(ctx)
+	}
 	tx, err := r.base.registro.BeginTx(ctx, opcionesTransaccion())
 	if err != nil {
 		return respuestaAlta{}, errorSesionSaneado(ctx)
@@ -142,10 +165,16 @@ func (r *RegistroSesionesExternoPostgreSQL) ejecutarAlta(
 	}
 	respuesta, err := consultarRespuestaAlta(ctx, tx, consultaRegistrarSesionExterna, argumentos)
 	if err != nil {
+		if postgresqlcomun.EsCarreraSerializable(err) {
+			return respuestaAlta{}, err
+		}
 		return respuestaAlta{}, errorSesionSaneado(ctx)
 	}
-	if tx.Commit(ctx) == nil {
+	if err = tx.Commit(ctx); err == nil {
 		return respuesta, nil
+	}
+	if postgresqlcomun.EsCarreraSerializable(err) {
+		return respuestaAlta{}, err
 	}
 	// Un COMMIT incierto se coteja por su operación original, nunca se reenvía.
 	ctxRecuperacion, cancelar := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
@@ -180,6 +209,22 @@ func (r *RegistroSesionesExternoPostgreSQL) ComprobarSesionYCuentaActivas(
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+	argumentos := argumentosConsulta(consulta)
+	if err := postgresqlcomun.RepetirTrasCarreraSerializable(ctx, func() error {
+		return r.comprobarSesionYCuentaUnaVez(ctx, argumentos)
+	}); err != nil {
+		return errorSesionSaneado(ctx)
+	}
+	return nil
+}
+
+func (r *RegistroSesionesExternoPostgreSQL) comprobarSesionYCuentaUnaVez(
+	ctx context.Context,
+	argumentos []any,
+) error {
+	if ctx.Err() != nil {
+		return errorSesionSaneado(ctx)
+	}
 	tx, err := r.base.revalidacion.BeginTx(ctx, opcionesTransaccion())
 	if err != nil {
 		return errorSesionSaneado(ctx)
@@ -189,8 +234,20 @@ func (r *RegistroSesionesExternoPostgreSQL) ComprobarSesionYCuentaActivas(
 		return errorSesionSaneado(ctx)
 	}
 	var activa bool
-	if tx.QueryRow(ctx, consultaRevalidarSesionExterna, argumentosConsulta(consulta)...).Scan(&activa) != nil ||
-		!activa || tx.Commit(ctx) != nil {
+	if err = tx.QueryRow(ctx, consultaRevalidarSesionExterna, argumentos...).Scan(&activa); err != nil {
+		if postgresqlcomun.EsCarreraSerializable(err) {
+			return err
+		}
+		return errorSesionSaneado(ctx)
+	}
+	if !activa {
+		return errorSesionSaneado(ctx)
+	}
+	if err = tx.Commit(ctx); err != nil {
+		if postgresqlcomun.EsCarreraSerializable(err) {
+			return err
+		}
+		// Un COMMIT incierto no permite afirmar que la sesión sigue activa.
 		return errorSesionSaneado(ctx)
 	}
 	return nil

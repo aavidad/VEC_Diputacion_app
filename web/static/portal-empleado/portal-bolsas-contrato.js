@@ -14,7 +14,7 @@
  * - Contratos estrictos y cerrados: cualquier propiedad no declarada invalida la respuesta.
  */
 
-import { validarMarcasCandidato } from "./portal-bolsas-marcas.js?v=20260930-portales-i18n-integracion-v1";
+import { validarMarcasCandidato } from "./portal-bolsas-marcas.js?v=20260930-avisos-main-v3";
 
 export const ESQUEMA_BOLSAS = "vec.bolsa.rrhh.bolsas.v1";
 export const ESQUEMA_CANDIDATOS = "vec.bolsa.rrhh.candidatos.v1";
@@ -38,7 +38,7 @@ export const CANALES_LLAMAMIENTO = Object.freeze([
   "sede",
 ]);
 export const CANALES_CONTACTO = Object.freeze(["telefono", "correo", "sms", "presencial", "otro"]);
-export const RESULTADOS_CONTACTO = Object.freeze(["contactado", "no_contesta", "buzon", "acepta", "rechaza", "aplazado", "otro", "enviado", "no_enviado"]);
+export const RESULTADOS_CONTACTO = Object.freeze(["contactado", "no_contesta", "buzon", "acepta", "rechaza", "aplazado", "otro", "enviado", "no_enviado", "aviso_pendiente"]);
 
 export const RESULTADOS_LLAMAMIENTO_BOLSA = Object.freeze([
   "aceptado",

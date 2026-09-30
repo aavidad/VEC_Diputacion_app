@@ -6,8 +6,8 @@ import { crearTraductorConvocatoriasS1, MENSAJES_CONVOCATORIAS_S1 } from "./port
 
 test("la vista resuelve el catálogo S1 con la versión de caché F2", async () => {
   const codigo = readFileSync(new URL("./portal-vistas-convocatorias.js", import.meta.url), "utf8");
-  assert.match(codigo, /from "\.\/portal-i18n-convocatorias\.js\?v=20260930-portales-i18n-integracion-v1"/);
-  const catalogo = await import("./portal-i18n-convocatorias.js?v=20260930-portales-i18n-integracion-v1");
+  assert.match(codigo, /from "\.\/portal-i18n-convocatorias\.js\?v=20260930-avisos-main-v3"/);
+  const catalogo = await import("./portal-i18n-convocatorias.js?v=20260930-avisos-main-v3");
   assert.equal(catalogo.traducirConvocatoriasS1("titulo"), "Convocatorias, bases y calendario");
 });
 

@@ -54,6 +54,15 @@ test("el cliente acepta el payload exacto serializado por httppersonal", async (
   assert.equal(recibido.consulta.consultada_en, "2026-09-20T11:00:00.000000Z");
 });
 
+test("Mi bolsa conserva el aviso pendiente recibido sin convertirlo en correo enviado", async () => {
+  const archivo = new URL("../../../internal/modules/bolsa/adapters/httppersonal/testdata/mi_bolsa_situacion.json", import.meta.url);
+  const payload = JSON.parse(await readFile(archivo, "utf8"));
+  payload.data.participaciones[0].ultimo_llamamiento.resultado = "aviso_pendiente";
+  const cliente = crearClienteHTTPAreaPersonal({ fetchImpl: async () => respuestaJSON(payload) });
+  const recibido = await cliente.cargar();
+  assert.equal(recibido.consulta.participaciones[0].ultimo_llamamiento.resultado, "aviso_pendiente");
+});
+
 for (const [estado, codigo] of [
   [401, "autenticacion_requerida"],
   [403, "acceso_denegado"],

@@ -177,3 +177,86 @@ RLS, `SECURITY DEFINER`, claves de idempotencia y una carrera real por la misma
 necesidad. Los datos sinteticos se insertan unicamente como propietario en la
 base efimera para probar restricciones; no crean una via de carga productiva.
 La prueba positiva de la funcion sigue cerrada hasta disponer de COSE real.
+
+## Avisos del proceso interno al candidato externo
+
+El proceso separado escribe referencias en un outbox al reservar el llamamiento.
+El receptor externo recoge ese evento con una conexión propia y registra su
+aceptación en Usuarios. El interno no recibe dirección, sobre cifrado ni claves
+externas. El recibo de aceptación del evento no acredita envío SMTP ni entrega.
+
+La plantilla y su versión se cotejan con el catálogo vigente de llamamientos.
+El correo de aviso utiliza los textos de `web/static/textos/<idioma>/avisos-externos.json`.
+La URL del área personal, el productor, el tamaño del lote y el intervalo se
+configuran en material privado propio. Los dos ejemplos de
+`data/demo/reglas/avisos_externos.*.ejemplo.demo.json` sirven para un ejercicio
+sintético: no configuran por sí mismos un portal real.
+
+En el material interno, `bolsa/avisos-externos.json` declara sólo el productor.
+En el externo, `usuarios/avisos-externos.json` declara ese mismo productor y
+los parámetros del receptor. La activación del receptor exige
+`VEC_EXTERNO_AVISOS_ENABLED=true` y las dos llaves de desarrollo habituales.
+La conexión `VEC_EXTERNO_AVISOS_BOLSA_DATABASE_URL` usa el LOGIN
+`vec_externo_avisos_bolsa`, cuya única membresía es el grupo nominal
+`vec_bolsa_avisos_externos_consumidor` (herencia sí, SET y ADMIN no).
+La conexión `VEC_EXTERNO_AVISOS_USUARIOS_DATABASE_URL` usa otro LOGIN,
+`vec_externo_avisos_usuarios`, con una sola membresía en
+`vec_usuarios_ejecutor_externo` (herencia sí, SET y ADMIN no).
+El DBA prepara ambos LOGIN y sus credenciales fuera de Git, con las mismas
+restricciones TLS, base e identidad de servidor que el resto del proceso externo.
+
+La lista causal es
+`deploy/principal/lista_sql_codexb_avisos_externos_20260930.txt`.
+Requiere previamente CTX15 y las migraciones del portal externo de #179.
+Contiene CTX16, AD3-119, AD3-120, Bolsa 000062 y Usuarios 000014;
+no incluye Bolsa 000063 ni crea los LOGIN.
+
+Esta composición separada admite emisiones cuyos destinatarios son todos
+externos. Un lote mixto se rechaza. Se bloquea una emisión si la autoridad
+no acredita al destinatario externo vigente. La ausencia de ese vínculo no permite usar el correo del alta.
+El candidato empleado precisa una clasificación interna nominal adicional;
+este canal no la sustituye. El funcionamiento combinado conserva su composición
+histórica mientras no se retire su lectura al instalar la separación.
+
+Antes de integrar se ensayan las nuevas migraciones en su orden causal y se
+verifican los roles y los recibos. El ensayo debe repetir un evento después de
+reiniciar ambos procesos y PostgreSQL, comprobar la misma huella y fecha,
+y provocar una interrupción antes y después del ACK. Una reserva con resultado
+incierto no se despacha de nuevo automáticamente; requiere conciliación.
+
+## Avisos pendientes en consultas propias — Bolsa 000066
+
+`000066_proyeccion_avisos_propios.up.sql` corrige las consultas Mi Bolsa e
+historial propio. Cada pareja de llamamiento y participación de B62 aparece
+una sola vez desde la emisión y el alta del outbox. Sin resultado, o con un
+resultado incierto, devuelve `aviso_pendiente`. Un resultado `aceptado` se
+proyecta como `enviado`; `no_aceptado` y `sin_destino`, como `no_enviado`.
+El acuse del inbox por sí solo conserva el estado pendiente.
+
+La fecha consultada limita la emisión, el alta del outbox y los resultados.
+El contacto terminal B62 no se usa para reconstruir un estado anterior:
+su fecha es la de emisión, aunque el resultado se haya registrado después.
+Las parejas sin outbox mantienen la consulta anterior. La fecha y el orden
+de la entrada B62 permanecen iguales al cambiar su resultado.
+
+La migración exige B62 y la preimagen B65 exacta. Sustituye sólo los dos
+fragmentos de consulta; comprueba que OID, firma, propietario, ACL y
+configuración se conservan. No cambia el consumo de autorización V3, la
+consulta indirecta `consultar_mi_bolsa_portal_v1`, las guardas de candidato
+ni la auditoría. No añade tablas, permisos o datos de contacto personales.
+
+El manifiesto causal es
+`deploy/principal/lista_sql_trabajo_codexb_avisos_proyeccion_20260930.txt`.
+B62 y B65 ya instaladas no se reaplican. Esta corrección sólo tiene UP:
+la recuperación de un ensayo se hace con ROLLBACK en un clon desechable,
+sin ejecutar DOWN sobre historia conservada.
+
+La prueba `pruebas_sql/b66_proyeccion_avisos_propios.sql` se ejecuta después
+de B66 en PostgreSQL 18 desechable. Comprueba pendientes sin contacto,
+inciertos, los tres resultados terminales, cortes anteriores y posteriores,
+acuse sin resultado, emisión futura, legado, ausencia de duplicados,
+paginación estable y denegación de candidato ajeno. Usa consumidores V3
+de prueba dentro de una transacción que termina en ROLLBACK; no acredita
+criptografía, auditoría institucional, SMTP, HTTP ni un recorrido de navegador.
+Una proyección `enviado` no acredita entrega legal ni habilita una respuesta
+sin validación gobernada.

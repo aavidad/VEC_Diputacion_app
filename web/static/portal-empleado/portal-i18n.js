@@ -23,7 +23,7 @@ function aplanar(seccion, prefijo = "", salida = {}) {
 
 /** Catálogo común del shell en `idioma` (por defecto, el de la interfaz). */
 export async function cargarMensajesPortal(idioma = IDIOMA_ACTUAL) {
-  const [portal, ayuda, preferencias, bolsa] = await Promise.all(["portal", "portal-ayuda", "preferencias", "bolsa"]
+  const [portal, ayuda, preferencias, bolsa, avisos] = await Promise.all(["portal", "portal-ayuda", "preferencias", "bolsa", "avisos-externos"]
     .map((modulo) => cargarTextos(modulo, { idioma })));
   return Object.freeze({
     ...ayuda.seccion("ayuda"),
@@ -33,6 +33,7 @@ export async function cargarMensajesPortal(idioma = IDIOMA_ACTUAL) {
     ...bolsa.seccion("politica_cese"),
     ...mensajesTramitePortal(idioma),
     ...portal.seccion("general"),
+    ...avisos.seccion("portal"),
     ...aplanar(preferencias.seccion("portal")),
   });
 }

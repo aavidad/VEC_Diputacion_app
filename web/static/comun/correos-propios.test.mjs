@@ -162,3 +162,33 @@ test("los textos de «Mis correos» existen en castellano e inglés con la misma
   assert.deepEqual(Object.keys(en.seccion("correos")).sort(), Object.keys(textos.seccion("correos")).sort());
   assert.equal(en.traducir("correos.titulo"), "My email addresses");
 });
+
+test("el reenvío repetido confirma la solicitud sin afirmar envío, también cuando se omite el resultado", async () => {
+  for (const idioma of ["es", "en"]) {
+    const propios = await cargarTextosCorreos({ idioma });
+    for (const envio of ["no_enviado", undefined]) {
+      const peticiones = [];
+      const cliente = crearClienteCorreos({ ruta: RUTA, fetchImpl: async (_ruta, opciones) => {
+        peticiones.push(opciones);
+        if (opciones.method === "GET") return respuesta({ data: { version: 1, correos: [correo(A, "ana.reyes@example.org", "pendiente")] } });
+        return respuesta({ data: { recibo_ref: "correo_recibo:" + "1".repeat(32), accion: "vec.correos.reenviar", correo_ref: A,
+          version: 1, fecha_utc: "2026-09-29T10:00:00Z", replay: true, ...(envio === undefined ? {} : { envio }) } });
+      } });
+      const vista = crearSuperficieCorreos({ cliente, textos: propios, aleatorio });
+      const contenedor = contenedorPrueba();
+      vista.instalar(contenedor);
+      await vista.cargar();
+      contenedor.manejadores.click({ target: { closest: () => ({ dataset: { correosAccion: "reenviar", correosRef: A } }) } });
+      await new Promise((resolver) => setImmediate(resolver));
+      const html = contenedor.raiz.innerHTML;
+      assert.match(html, idioma === "es"
+        ? /La solicitud de reenvío a ana\.reyes@example\.org ya está registrada\./u
+        : /The resend request for ana\.reyes@example\.org is already recorded\./u);
+      assert.doesNotMatch(html, /Ya le enviamos|Le hemos enviado|We already sent|We have sent|Check your inbox/u);
+      const escritos = peticiones.filter((p) => p.method === "POST");
+      assert.equal(escritos.length, 1);
+      assert.equal(JSON.parse(escritos[0].body).operacion, "reenviar");
+      assert.deepEqual(peticiones.map((p) => p.method), ["GET", "POST", "GET"]);
+    }
+  }
+});

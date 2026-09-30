@@ -1,0 +1,5 @@
+{
+  "esquema": "vec.avisos-externos.configuracion.v1",
+  "version": 1,
+  "productor_ref": "productor:bolsa:avisos:ejercicio"
+}
