@@ -7,8 +7,8 @@ SET LOCAL lock_timeout = '5s';
 SET LOCAL statement_timeout = '30s';
 DO $prueba$
 DECLARE
-    doc1 text := '{"id":"rpt-read-demo","version":1,"estado":"publicado","entradas":[{"clave":"cat-alfa","etiqueta":"Alfa"},{"clave":"cat-beta","etiqueta":"Beta"}]}';
-    doc2 text := '{"id":"rpt-read-demo","version":2,"estado":"publicado","entradas":[{"clave":"cat-beta","etiqueta":"Beta nueva"},{"clave":"cat-gamma","etiqueta":"Gamma"}]}';
+    doc1 text := '{"id":"rpt-read-demo","modulo_id":"personal","version":1,"estado":"publicado","entradas":[{"clave":"cat-alfa","etiqueta":"Alfa"},{"clave":"cat-beta","etiqueta":"Beta"}]}';
+    doc2 text := '{"id":"rpt-read-demo","modulo_id":"personal","version":2,"estado":"publicado","entradas":[{"clave":"cat-beta","etiqueta":"Beta nueva"},{"clave":"cat-gamma","etiqueta":"Gamma"}]}';
     h1 text;
     h2 text;
     pre jsonb;
@@ -37,6 +37,8 @@ BEGIN
 
     pagina := vec_catalogos_configurables.listar_habilitadas('rpt-read-demo',NULL,2);
     IF pagina->>'encontrado'<>'true'
+       OR pagina#>>'{datos,anclaje_publicacion,documento_canonico}'<>doc1
+       OR pagina#>>'{datos,anclaje_publicacion,huella_sha256}'<>h1
        OR pg_catalog.jsonb_array_length(pagina#>'{datos,items}')<>2
        OR pagina#>>'{datos,items,0,categoria_id}'<>'cat-alfa'
        OR pagina#>>'{datos,items,0,version}'<>'1'
@@ -44,13 +46,13 @@ BEGIN
        OR pagina#>>'{datos,items,1,version}'<>'2'
        OR pagina#>>'{datos,hay_mas}'<>'true'
        OR pagina#>>'{datos,siguiente_cursor}'<>'cat-beta'
-       OR pg_catalog.jsonb_array_length(pagina#>'{datos,publicaciones}')<>2
-       OR pagina#>>'{datos,publicaciones,0,documento_canonico}'<>doc1
-       OR pagina#>>'{datos,publicaciones,1,documento_canonico}'<>doc2 THEN
+       OR pg_catalog.jsonb_array_length(pagina#>'{datos,publicaciones}')<>1
+       OR pagina#>>'{datos,publicaciones,0,documento_canonico}'<>doc2 THEN
         RAISE EXCEPTION 'pagina multiversion incorrecta';
     END IF;
     segunda := vec_catalogos_configurables.listar_habilitadas('rpt-read-demo','cat-beta',2);
     IF pg_catalog.jsonb_array_length(segunda#>'{datos,items}')<>1
+       OR segunda#>>'{datos,anclaje_publicacion,documento_canonico}'<>doc1
        OR segunda#>>'{datos,items,0,categoria_id}'<>'cat-gamma'
        OR segunda#>>'{datos,hay_mas}'<>'false'
        OR segunda#>'{datos,siguiente_cursor}'<>'null'::jsonb
@@ -58,7 +60,9 @@ BEGIN
         RAISE EXCEPTION 'cursor o fin de pagina incorrecto';
     END IF;
     IF vec_catalogos_configurables.listar_habilitadas('rpt-ausente',NULL,10)->>'encontrado'<>'false'
-       OR vec_catalogos_configurables.listar_habilitadas('rpt-read-demo','cat-zeta',10)#>>'{datos,hay_mas}'<>'false' THEN
+       OR vec_catalogos_configurables.listar_habilitadas('rpt-read-demo','cat-zeta',10)#>>'{datos,hay_mas}'<>'false'
+       OR vec_catalogos_configurables.listar_habilitadas('rpt-read-demo','cat-zeta',10)#>>'{datos,anclaje_publicacion,documento_canonico}'<>doc1
+       OR pg_catalog.jsonb_array_length(vec_catalogos_configurables.listar_habilitadas('rpt-read-demo','cat-zeta',10)#>'{datos,publicaciones}')<>0 THEN
         RAISE EXCEPTION 'catalogo ausente o pagina vacia incorrectos';
     END IF;
 
@@ -102,5 +106,14 @@ BEGIN
         RAISE EXCEPTION 'deshabilitada admitio uso nuevo';
     EXCEPTION WHEN SQLSTATE '55000' THEN NULL;
     END;
+    PERFORM vec_catalogos_configurables.cambiar_proyeccion('cat-gamma',1,'deshabilitar',NULL,NULL,
+        'actor:uno','decision:des-gamma','recibo:des-gamma');
+    pagina := vec_catalogos_configurables.listar_habilitadas('rpt-read-demo',NULL,10);
+    IF pagina->>'encontrado'<>'true'
+       OR pg_catalog.jsonb_array_length(pagina#>'{datos,items}')<>0
+       OR pg_catalog.jsonb_array_length(pagina#>'{datos,publicaciones}')<>0
+       OR pagina#>>'{datos,anclaje_publicacion,documento_canonico}'<>doc1 THEN
+        RAISE EXCEPTION 'catalogo sin habilitadas perdio anclaje verificable';
+    END IF;
 END $prueba$;
 ROLLBACK;

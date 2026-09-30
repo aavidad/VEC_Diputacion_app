@@ -41,15 +41,29 @@ DECLARE
     hay_mas boolean := false;
     presupuesto constant bigint := 50331648; -- 48 MiB; admite un canon de 16 MiB y su entrada.
     resultado jsonb;
+    documento_base text;
+    version_base integer;
+    huella_base text;
+    anclaje jsonb;
 BEGIN
     IF p_catalogo_id IS NULL OR p_catalogo_id !~ '^[a-z][a-z0-9_.:-]{2,127}$'
        OR (p_cursor_categoria_id IS NOT NULL AND p_cursor_categoria_id !~ '^[a-z][a-z0-9_.:-]{2,127}$')
        OR p_limite IS NULL OR p_limite NOT BETWEEN 1 AND 100 THEN
         RAISE EXCEPTION 'lista de categorias invalida' USING ERRCODE = '22023';
     END IF;
-    IF NOT EXISTS (SELECT 1 FROM vec_catalogos_configurables.publicacion WHERE catalogo_id = p_catalogo_id) THEN
+    SELECT version,huella_sha256,documento_canonico
+      INTO version_base,huella_base,documento_base FROM vec_catalogos_configurables.publicacion
+     WHERE catalogo_id = p_catalogo_id ORDER BY version LIMIT 1;
+    IF NOT FOUND THEN
         RETURN pg_catalog.jsonb_build_object('encontrado', false, 'datos', NULL);
     END IF;
+    anclaje := pg_catalog.jsonb_build_object('catalogo_id',p_catalogo_id,
+        'version',version_base,'huella_sha256',huella_base,'documento_canonico',documento_base);
+    bytes_usados := pg_catalog.octet_length(anclaje::text)+256;
+    IF bytes_usados>presupuesto THEN
+        RAISE EXCEPTION 'anclaje publicado supera presupuesto de lectura' USING ERRCODE='54000';
+    END IF;
+    vistos := pg_catalog.jsonb_build_object(p_catalogo_id||':'||version_base::text||':'||huella_base,true);
     FOR r IN
         SELECT c.categoria_id,c.catalogo_id,c.version,c.huella_sha256,c.revision,c.estado,
                e.etiqueta,e.definicion,p.documento_canonico
@@ -96,7 +110,7 @@ BEGIN
         total := total + 1;
     END LOOP;
     resultado := pg_catalog.jsonb_build_object('encontrado',true,'datos',pg_catalog.jsonb_build_object(
-        'items',items,'publicaciones',publicaciones,'hay_mas',hay_mas,
+        'anclaje_publicacion',anclaje,'items',items,'publicaciones',publicaciones,'hay_mas',hay_mas,
         'siguiente_cursor',CASE WHEN hay_mas THEN cursor_siguiente ELSE NULL END));
     IF pg_catalog.octet_length(resultado::text)>presupuesto THEN
         RAISE EXCEPTION 'pagina de categorias supera presupuesto de lectura' USING ERRCODE = '54000';
