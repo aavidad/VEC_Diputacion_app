@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"context"
 	"errors"
+	"log"
 	"net/http"
 	"time"
 
@@ -74,6 +75,7 @@ func nuevoLectorFirmasIntervencionCTDesarrollo(
 			SesionRef:        vinculo.SesionRef,
 			PerfilRef:        actor.PerfilActivoRef,
 		}, canal.reloj.Ahora()) != nil {
+		log.Print("contratacion temporal: consulta de firmas de Intervencion no disponible; causa=contexto_lectura_invalido")
 		return nil, fallo
 	}
 	perfil, err := nuevoPerfilFijoCTDesarrollo(actor.Principal, canal.contexto, canal.reloj.Ahora(),
@@ -82,6 +84,7 @@ func nuevoLectorFirmasIntervencionCTDesarrollo(
 			return nuevaInstantaneaLectorFirmasIntervencionCTDesarrollo(principalID, perfilRef, canal.reloj.Ahora())
 		})
 	if err != nil || perfil == nil || perfil.perfilRef() == canal.fijo.perfilRef() {
+		log.Print("contratacion temporal: consulta de firmas de Intervencion no disponible; causa=perfil_lector_invalido")
 		return nil, fallo
 	}
 	perfil.metodo = http.MethodPost
@@ -94,14 +97,17 @@ func nuevoLectorFirmasIntervencionCTDesarrollo(
 		pool: firma.alta.postgresql.gobierno, soporte: puente,
 	}
 	if err := publicarContextoPerfilFijoCTDesarrollo(ctx, firma.alta.postgresql.gobierno, perfil); err != nil {
+		log.Print("contratacion temporal: consulta de firmas de Intervencion no disponible; causa=publicacion_contexto")
 		return nil, fallo
 	}
 	if _, err := asegurarPerfilFijoCTDesarrollo(ctx, firma.alta.postgresql.gobierno, puente, perfil,
 		aprobacion, preimagenPropiaPerfilFijoCTDesarrollo(perfil, actoAsignacionPerfilFijoCTDesarrollo)); err != nil {
+		log.Print("contratacion temporal: consulta de firmas de Intervencion no disponible; causa=provision_perfil")
 		return nil, fallo
 	}
 	sesion, err := nuevaSesionConsultaFirmasIntervencionCTDesarrollo(ctx, base, canal, puente, perfil)
 	if err != nil {
+		log.Print("contratacion temporal: consulta de firmas de Intervencion no disponible; causa=sesion_lectora")
 		return nil, fallo
 	}
 	lector := &lectorFirmasIntervencionCTDesarrollo{canal: canal, puente: puente, perfil: perfil,
@@ -110,6 +116,7 @@ func nuevoLectorFirmasIntervencionCTDesarrollo(
 		lector, lector, lector, lector, canal.reloj, seguridadvec.GeneradorReferenciasCriptograficas{},
 		aplicacionvec.ConfiguracionServicioAutorizacion{VigenciaDecision: 90 * time.Second})
 	if err != nil {
+		log.Print("contratacion temporal: consulta de firmas de Intervencion no disponible; causa=autorizador_lectura")
 		return nil, fallo
 	}
 	lector.autorizador = autorizador

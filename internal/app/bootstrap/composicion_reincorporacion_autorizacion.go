@@ -1,6 +1,7 @@
 package bootstrap
 
 import (
+	"log"
 	"strconv"
 	"time"
 
@@ -27,6 +28,7 @@ func solicitudAutorizacionReincorporacionTitularValida(ruta string, d vecdomain.
 	version, err := strconv.ParseUint(r.Atributos["version_expediente"], 10, 64)
 	if err != nil || !ports.VersionOperacionAnalisisConIncrementoValida(version) ||
 		r.Atributos["version_expediente"] != strconv.FormatUint(version, 10) {
+		log.Print("contratacion temporal: reincorporacion denegada; causa=version_expediente_invalida")
 		return false
 	}
 	if d.Accion == string(ports.AccionConsultarAntecedenteReincorporacionTitular) {
@@ -50,6 +52,7 @@ func solicitudAutorizacionReincorporacionTitularValida(ruta string, d vecdomain.
 	politicaVersion, err := strconv.ParseUint(r.Atributos["politica_version"], 10, 64)
 	if err != nil || !ports.VersionOperacionAnalisisValida(politicaVersion) ||
 		r.Atributos["politica_version"] != strconv.FormatUint(politicaVersion, 10) {
+		log.Print("contratacion temporal: reincorporacion denegada; causa=version_politica_invalida")
 		return false
 	}
 	ambitos, errAmbitos := ports.NuevaColeccionSellosHMAC(r.Atributos["ambito_idempotencia_hmac"], nil)
