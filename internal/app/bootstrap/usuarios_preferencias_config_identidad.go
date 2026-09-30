@@ -28,12 +28,16 @@ func validarIdentidadesPreferenciasAntesDeCT(cfg config.Config, resolvedor vecht
 	if err != nil {
 		return errComposicionUsuariosPreferencias
 	}
+	if _, err = cuentasPreferenciasAcreditadas(identidad, interna); err != nil {
+		return err
+	}
+	// El proceso interno separado no tiene la configuración del Área personal.
+	if !superficieExternaUsuariosEnProceso(cfg) {
+		return nil
+	}
 	externa, err := leerConfiguracionUsuariosPreferenciasDesarrollo(cfg, core.SuperficieAutenticacionExternaPersonalV1)
 	if err != nil || !configuracionesPreferenciasSeparadas(interna, externa) {
 		return errComposicionUsuariosPreferencias
-	}
-	if _, err = cuentasPreferenciasAcreditadas(identidad, interna); err != nil {
-		return err
 	}
 	if _, err = cuentasPreferenciasAcreditadas(identidad, externa); err != nil {
 		return err

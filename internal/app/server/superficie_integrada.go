@@ -56,7 +56,8 @@ func newHandlerIntegradoConHashTeselasOSM(cfg config.Config, api http.Handler, c
 	mux.Handle(cfg.APIBasePath+"/", api)
 	mux.Handle("/candidates", api)
 	mux.Handle("/candidates/", api)
-	handler := rechazarRutasNoCanonicas(mux)
+	// Con un proceso por portal, cada uno sirve solo las rutas de su portal.
+	handler := rechazarRutasNoCanonicas(restringirRutasPortalProceso(cfg.PortalProceso, mux))
 	handler = rechazarSelectorPresentacionFueraDePresentacion(handler)
 	handler = prohibirCookiesYAutorizacionProxyConLimite(handler, cfg.MaxRequestBodyBytes)
 	handler = restrictRemoteAddrs(handler, cfg.HTTPAllowedCIDRs)
