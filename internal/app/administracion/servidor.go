@@ -30,6 +30,16 @@ var (
 	errCertificadoRevocado = errors.New("administracion: certificado revocado")
 )
 
+// falloConfiguracion conserva la causa para errors.Is/As sin exponer rutas de
+// certificados o claves al registro de arranque.
+type falloConfiguracion struct {
+	clase string
+	causa error
+}
+
+func (f falloConfiguracion) Error() string   { return ErrConfiguracion.Error() + ": " + f.clase }
+func (f falloConfiguracion) Unwrap() []error { return []error{ErrConfiguracion, f.causa} }
+
 type Configuracion struct {
 	Entorno             string
 	Escucha             string
@@ -78,19 +88,19 @@ func NuevoServidor(cfg Configuracion) (*http.Server, error) {
 		CertificadoClienteDirecto:           true,
 	}
 	if err := superficie.Validar(); err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrConfiguracion, err)
+		return nil, falloConfiguracion{clase: "superficie", causa: err}
 	}
 	red, err := httpseguridad.NuevaPoliticaRed(superficie)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrConfiguracion, err)
+		return nil, falloConfiguracion{clase: "red", causa: err}
 	}
 	cert, err := tls.LoadX509KeyPair(cfg.CertificadoServidor, cfg.ClaveServidor)
 	if err != nil {
-		return nil, fmt.Errorf("%w: certificado servidor: %w", ErrConfiguracion, err)
+		return nil, falloConfiguracion{clase: "tls", causa: err}
 	}
 	ca, err := cargarCA(cfg.CAAdministracion)
 	if err != nil {
-		return nil, fmt.Errorf("%w: CA ADMIN: %w", ErrConfiguracion, err)
+		return nil, falloConfiguracion{clase: "ca", causa: err}
 	}
 	raices := x509.NewCertPool()
 	raices.AddCert(ca)
