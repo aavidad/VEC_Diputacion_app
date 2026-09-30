@@ -963,5 +963,203 @@ class H6Package62Tests(unittest.TestCase):
                 docker.assert_not_called()
                 self.assertFalse((root / "state").exists())
 
+class PreimageProbeTests(unittest.TestCase):
+    """Sondas fijas con transportes dobles; nunca requieren Docker o PostgreSQL."""
+    @staticmethod
+    def metadata():
+        return {"Id": "c" * 64, "Image": "sha256:" + "d" * 64, "Config": {"Image": "postgres:18.4", "Labels": {
+                    SQL.OWNER_LABEL: SQL.OWNER, "vec.recorridos.state": "/private/fixture"}},
+                "Running": True, "Mounts": [{"Type": "bind", "Destination": "/var/lib/postgresql",
+                                               "Source": "/dev/shm/vec-fixture"}],
+                "NetworkMode": "none", "Ports": {"5432/tcp": None}}
+
+    @contextlib.contextmanager
+    def normalizer(self):
+        with tempfile.TemporaryDirectory() as scratch:
+            path = Path(scratch) / "h6_normalizar_pg_dump.py"
+            data = b"import sys\nsys.stdout.buffer.write(sys.stdin.buffer.read())\n"
+            path.write_bytes(data)
+            yield path, SQL.sha(data), data
+
+    def test_readonly_exposes_only_fixed_preimage_methods(self):
+        db = SQL.DockerDB("vec-fixture")
+        ro = SQL.ReadOnlyDB(db)
+        for name, args in (("schema_digest", ("path", "sha")), ("roles_digest", ("path", "sha")),
+                           ("database_acl_digest", ()), ("system_identity", ())):
+            with self.subTest(name=name), patch.object(db, name, return_value="fixture") as method:
+                self.assertEqual(getattr(ro, name)(*args), "fixture")
+                method.assert_called_once_with(*args)
+
+    def test_dump_commands_pin_normalizer_bytes_and_preserve_acl_owners(self):
+        with self.normalizer() as (path, digest, data):
+            for name, arguments in (("schema_digest", ["pg_dump", "-s", "-U", "postgres", "-d", "postgres"]),
+                                   ("roles_digest", ["pg_dumpall", "--globals-only", "--no-role-passwords",
+                                                     "-U", "postgres"])):
+                with self.subTest(name=name), patch.object(SQL, "_probe_command", side_effect=[
+                        json.dumps(self.metadata()).encode(), b"raw dump", b"normalized dump\n"]) as runner:
+                    value = getattr(SQL.DockerDB("vec-fixture", Path("/private/fixture")), name)(path, digest)
+                    self.assertEqual(value, SQL.sha(b"normalized dump\n"))
+                    calls = runner.call_args_list
+                    self.assertEqual(calls[0].args[0], ["docker", "inspect", "--format",
+                                                       SQL.PROBE_INSPECT_FORMAT, "vec-fixture"])
+                    self.assertNotIn("Env", SQL.PROBE_INSPECT_FORMAT)
+                    self.assertEqual(calls[1].args[0], ["docker", "exec", "-e",
+                        "PGOPTIONS=-c default_transaction_read_only=on -c statement_timeout=120000 -c lock_timeout=15000", "c" * 64, *arguments])
+                    self.assertEqual(calls[2].args, ([SQL.sys.executable, "-I", "-S", "-c", data.decode()], b"raw dump"))
+                    self.assertNotIn(str(path), calls[2].args[0])
+
+    def test_unapproved_unsafe_or_linked_normalizer_never_starts_probe(self):
+        with self.normalizer() as (path, digest, data):
+            linked = path.parent / "link"; linked.symlink_to(path.parent, target_is_directory=True)
+            wrong_name = path.parent / "other.py"; wrong_name.write_bytes(data)
+            for candidate, pin in ((path, "f" * 64), (path, None), (wrong_name, digest),
+                                   (linked / path.name, digest), (Path(path.name), digest),
+                                   (str(path.parent) + "/../" + path.parent.name + "/" + path.name, digest),
+                                   (path.parent / "missing" / path.name, digest)):
+                with self.subTest(candidate=candidate), patch.object(SQL, "_probe_command") as runner:
+                    with self.assertRaises(SQL.Refused):
+                        SQL.DockerDB("vec-fixture").schema_digest(candidate, pin)
+                    runner.assert_not_called()
+            hardlink = path.parent / "hard"; os.link(path, hardlink)
+            with patch.object(SQL, "_probe_command") as runner, self.assertRaises(SQL.Refused):
+                SQL.DockerDB("vec-fixture").schema_digest(path, digest)
+            runner.assert_not_called()
+            hardlink.unlink()
+            path.write_bytes(b"x" * (64 * 1024 + 1))
+            with patch.object(SQL, "_probe_command") as runner, self.assertRaises(SQL.Refused):
+                SQL.DockerDB("vec-fixture").roles_digest(path, SQL.sha(path.read_bytes()))
+            runner.assert_not_called()
+
+    def test_sql_probes_are_read_only_fixed_and_return_exact_contract(self):
+        db = SQL.DockerDB("vec-fixture")
+        identity = {"system_identifier": "7533565316322819991", "database_name": "postgres", "database_oid": 5}
+        for method, statement, value, expected in (
+                (db.database_acl_digest, SQL.DATABASE_ACL_SQL, "a" * 64, "a" * 64),
+                (db.system_identity, SQL.SYSTEM_IDENTITY_SQL, json.dumps(identity),
+                 {**identity, "pg_container_id": "c" * 64, "pg_image": "postgres:18.4",
+                  "pg_image_id": "sha256:" + "d" * 64, "pg_volume": "/dev/shm/vec-fixture"})):
+            with self.subTest(method=method.__name__), patch.object(SQL, "_probe_command", side_effect=[
+                    json.dumps(self.metadata()).encode(), (value + "\n").encode()]) as runner:
+                self.assertEqual(method(), expected)
+                call = runner.call_args_list[1]
+                self.assertEqual(call.args[1], ("BEGIN READ ONLY;\n" + statement + ";\nCOMMIT;").encode())
+                self.assertEqual(call.kwargs["limit"], 4096)
+                self.assertEqual(call.args[0], ["docker", "exec", "-i", "c" * 64, "psql", "-h",
+                    "/var/run/postgresql", "-p", "5432", "-U", "postgres", "-d", "postgres", "-X", "-q", "-A",
+                    "-t", "-v", "ON_ERROR_STOP=1"])
+        self.assertIn("'acl',datacl::text,'owner',datdba::regrole::text", SQL.DATABASE_ACL_SQL)
+        self.assertIn("pg_catalog.pg_control_system()", SQL.SYSTEM_IDENTITY_SQL)
+
+    def test_normalizer_path_mutation_after_pin_cannot_change_executed_bytes(self):
+        with self.normalizer() as (path, digest, data):
+            def fixture(command, payload=None, **kwargs):
+                if command[:2] == ["docker", "inspect"]:
+                    return json.dumps(self.metadata()).encode()
+                if command[:2] == ["docker", "exec"]:
+                    path.write_bytes(b"unapproved bytes")
+                    return b"dump"
+                self.assertEqual(command, [SQL.sys.executable, "-I", "-S", "-c", data.decode()])
+                self.assertEqual(payload, b"dump")
+                return b"normalized"
+            with patch.object(SQL, "_probe_command", side_effect=fixture):
+                self.assertEqual(SQL.DockerDB("vec-fixture").schema_digest(path, digest), SQL.sha(b"normalized"))
+
+    def test_metadata_rejects_foreign_container_mount_image_ports_and_state(self):
+        changes = [{"Id": "not-id"}, {"Image": "not-image-id"}, {"Running": False},
+                   {"NetworkMode": "bridge"}, {"Config": {"Image": "postgres:latest"}},
+                   {"Mounts": []}, {"Mounts": [{"Type": "volume", "Destination": "/var/lib/postgresql",
+                                                "Source": "/dev/shm/fixture"}]},
+                   {"Mounts": [{"Type": "bind", "Destination": "/var/lib/postgresql", "Source": "/private"}]},
+                   {"Ports": {"5432/tcp": [{"HostIp": "0.0.0.0"}]}},
+                   {"Ports": {"5432/tcp": [{"HostIp": "127.0.0.1"}]}},
+                   {"Config": {"Image": "postgres:18.4", "Labels": {SQL.OWNER_LABEL: "foreign"}}}]
+        with self.normalizer() as (path, digest, _):
+            for change in changes:
+                for method, args in (("system_identity", ()), ("database_acl_digest", ()),
+                                     ("schema_digest", (path, digest)), ("roles_digest", (path, digest))):
+                    with self.subTest(change=change, method=method), patch.object(SQL, "_probe_command",
+                            return_value=json.dumps({**self.metadata(), **change}).encode()) as runner:
+                        with self.assertRaises(SQL.Refused): getattr(SQL.DockerDB("vec-fixture"), method)(*args)
+                        self.assertEqual(runner.call_count, 1)
+            with patch.object(SQL, "_probe_command", return_value=json.dumps(self.metadata()).encode()):
+                with self.assertRaises(SQL.Refused):
+                    SQL.DockerDB("vec-fixture", Path("/wrong-state")).system_identity()
+
+    def test_malformed_sql_output_is_refused(self):
+        identity = {"system_identifier": "7533565316322819991", "database_name": "postgres", "database_oid": 5}
+        invalid = [b"not-json", b"[]", b"null", json.dumps({**identity, "database_name": "other"}).encode(),
+                   json.dumps({**identity, "database_oid": True}).encode(),
+                   json.dumps({**identity, "system_identifier": "0"}).encode(),
+                   json.dumps({**identity, "system_identifier": str(2 ** 64)}).encode(),
+                   json.dumps({**identity, "extra": "untrusted"}).encode()]
+        for method, outputs in (("system_identity", invalid),
+                                ("database_acl_digest", [b"", b"A" * 64, b"a" * 64 + b"\na", b"secret", b"\xff"])):
+            for output in outputs:
+                with self.subTest(method=method, output=output), patch.object(SQL, "_probe_command", side_effect=[
+                        json.dumps(self.metadata()).encode(), output]):
+                    with self.assertRaises(SQL.Refused): getattr(SQL.DockerDB("vec-fixture"), method)()
+
+    class Process:
+        """Tubos locales con salida fixture; no lanza comandos del sistema."""
+        def __init__(self, stdout=b"", stderr=b"", code=0, **kwargs):
+            self.code, self.returncode, self.killed = code, None, False
+            self.stdout, self.stderr = self.pipe(stdout), self.pipe(stderr)
+            if kwargs.get("stdin") == subprocess.PIPE:
+                read, write = os.pipe()
+                self.stdin_reader = os.fdopen(read, "rb")
+                self.stdin = os.fdopen(write, "wb")
+            else:
+                self.stdin, self.stdin_reader = None, None
+        @staticmethod
+        def pipe(data):
+            read, write = os.pipe()
+            os.write(write, data); os.close(write)
+            return os.fdopen(read, "rb")
+        def wait(self, timeout=None): self.returncode = self.code; return self.code
+        def poll(self): return self.returncode
+        def kill(self): self.killed = True; self.code = -9
+        def close(self):
+            if self.stdin_reader: self.stdin_reader.close()
+
+    def test_transport_bounds_output_and_errors_and_redacts_failures(self):
+        for stdout, stderr, code, limit, error in (
+                (b"result", b"", 0, 6, None), (b"secret-value", b"", 0, 6, "límite de salida"),
+                (b"", b"secret-value", 0, 6, "límite de error"),
+                (b"secret-value", b"secret-value", 1, 100, "falló")):
+            with self.subTest(error=error):
+                process = self.Process(stdout, stderr, code)
+                try:
+                    with patch.object(SQL.subprocess, "Popen", return_value=process) as popen, \
+                            patch.object(SQL, "PROBE_STDERR_LIMIT", 6 if error == "límite de error" else 100):
+                        if error:
+                            with self.assertRaisesRegex(SQL.Refused, error) as raised:
+                                SQL._probe_command(["fixed-fixture"], limit=limit)
+                            self.assertNotIn("secret-value", str(raised.exception))
+                        else:
+                            self.assertEqual(SQL._probe_command(["fixed-fixture"], limit=limit), b"result")
+                        self.assertEqual(popen.call_args.kwargs["env"], {"PATH": "/usr/bin:/bin", "LANG": "C.UTF-8"})
+                        self.assertNotIn("shell", popen.call_args.kwargs)
+                        self.assertTrue(process.stdout.closed and process.stderr.closed)
+                        if error and code == 0: self.assertTrue(process.killed)
+                finally: process.close()
+
+    def test_transport_timeout_spawn_error_and_stdin_are_bounded(self):
+        process = self.Process(b"result", stdin=subprocess.PIPE)
+        try:
+            with patch.object(SQL.subprocess, "Popen", return_value=process):
+                self.assertEqual(SQL._probe_command(["fixed-fixture"], b"input"), b"result")
+                self.assertEqual(process.stdin_reader.read(), b"input")
+        finally: process.close()
+        process = self.Process()
+        with patch.object(SQL.subprocess, "Popen", return_value=process), \
+                patch.object(SQL.time, "monotonic", side_effect=[0, 2]):
+            with self.assertRaisesRegex(SQL.Refused, "tiempo"):
+                SQL._probe_command(["fixed-fixture"], timeout=1)
+            self.assertTrue(process.killed)
+        with patch.object(SQL.subprocess, "Popen", side_effect=OSError("secret-value")):
+            with self.assertRaises(SQL.Refused) as raised: SQL._probe_command(["fixed-fixture"])
+            self.assertNotIn("secret-value", str(raised.exception))
+
+
 if __name__ == "__main__":
     unittest.main()

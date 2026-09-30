@@ -41,6 +41,8 @@ import posixpath
 import stat
 import subprocess
 import sys
+import selectors
+import time
 import uuid
 import tarfile
 from datetime import datetime, timezone
@@ -621,6 +623,18 @@ class ReadOnlyDB:
     def __init__(self, db):
         self._db = db
 
+    def schema_digest(self, normalizer_path, normalizer_sha):
+        return self._db.schema_digest(normalizer_path, normalizer_sha)
+
+    def roles_digest(self, normalizer_path, normalizer_sha):
+        return self._db.roles_digest(normalizer_path, normalizer_sha)
+
+    def database_acl_digest(self):
+        return self._db.database_acl_digest()
+
+    def system_identity(self):
+        return self._db.system_identity()
+
     def query(self, text):
         # Subconjunto cerrado: una SELECT, sin comandos psql, comentarios ni
         # terminadores internos, también dentro de literales. No interpretar
@@ -684,12 +698,187 @@ def etapas_requeridas(repo, git_repo, source_ref, state):
         return list(path[index + 1:])
 
 
+PROBE_DUMP_LIMIT = 64 * 1024 * 1024
+PROBE_STDERR_LIMIT = 64 * 1024
+PROBE_TIMEOUT = 180
+# Misma expresión de datacl_sha en h6_comun.sh de D: NULL y ACL explícita
+# son distintos; también queda ligado el propietario de DATABASE postgres.
+DATABASE_ACL_SQL = """SELECT pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(
+       pg_catalog.jsonb_build_object('acl',datacl::text,'owner',datdba::regrole::text)::text,
+       'UTF8')), 'hex') FROM pg_catalog.pg_database WHERE datname='postgres'"""
+SYSTEM_IDENTITY_SQL = """SELECT pg_catalog.jsonb_build_object(
+    'system_identifier', c.system_identifier::text,
+    'database_name', d.datname, 'database_oid', d.oid::bigint)::text
+    FROM pg_catalog.pg_control_system() c CROSS JOIN pg_catalog.pg_database d
+    WHERE d.datname = pg_catalog.current_database() AND d.datname = 'postgres'"""
+PROBE_INSPECT_FORMAT = ('{"Id":{{json .Id}},"Image":{{json .Image}},"Config":{"Image":{{json .Config.Image}},'
+                        '"Labels":{{json .Config.Labels}}},"Running":{{json .State.Running}},'
+                        '"NetworkMode":{{json .HostConfig.NetworkMode}},'
+                        '"Mounts":{{json .Mounts}},"Ports":{{json .NetworkSettings.Ports}}}')
+
+
+def _probe_command(command, data=None, limit=PROBE_DUMP_LIMIT, timeout=PROBE_TIMEOUT):
+    """Captura acotada sin shell; ningún error devuelve salida del proceso."""
+    process = None
+    try:
+        process = subprocess.Popen(command, stdin=subprocess.PIPE if data is not None else subprocess.DEVNULL,
+                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True,
+                                   env={"PATH": "/usr/bin:/bin", "LANG": "C.UTF-8"})
+        deadline = time.monotonic() + timeout
+        output, stderr_size, written = bytearray(), 0, 0
+        with selectors.DefaultSelector() as selector:
+            for stream, name in ((process.stdout, "stdout"), (process.stderr, "stderr")):
+                os.set_blocking(stream.fileno(), False)
+                selector.register(stream, selectors.EVENT_READ, name)
+            if data is not None:
+                os.set_blocking(process.stdin.fileno(), False)
+                if data:
+                    selector.register(process.stdin, selectors.EVENT_WRITE, "stdin")
+                else:
+                    process.stdin.close()
+            while selector.get_map():
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise Refused("sonda de preimagen excedió el tiempo permitido")
+                for key, _ in selector.select(remaining):
+                    if key.data == "stdin":
+                        try:
+                            written += os.write(key.fd, memoryview(data)[written:written + 65536])
+                        except BrokenPipeError:
+                            selector.unregister(key.fileobj)
+                            key.fileobj.close()
+                            continue
+                        if written == len(data):
+                            selector.unregister(key.fileobj)
+                            key.fileobj.close()
+                        continue
+                    chunk = os.read(key.fd, 65536)
+                    if not chunk:
+                        selector.unregister(key.fileobj)
+                        continue
+                    if key.data == "stdout":
+                        if len(output) + len(chunk) > limit:
+                            raise Refused("sonda de preimagen excedió el límite de salida")
+                        output.extend(chunk)
+                    else:
+                        stderr_size += len(chunk)
+                        if stderr_size > PROBE_STDERR_LIMIT:
+                            raise Refused("sonda de preimagen excedió el límite de error")
+            if process.wait(timeout=max(0.001, deadline - time.monotonic())):
+                raise Refused("falló la sonda de preimagen")
+        return bytes(output)
+    except (OSError, subprocess.SubprocessError):
+        raise Refused("no se pudo completar la sonda de preimagen") from None
+    finally:
+        if process is not None:
+            if process.poll() is None:
+                process.kill()
+                process.wait()
+            for stream in (process.stdin, process.stdout, process.stderr):
+                if stream is not None:
+                    stream.close()
+
+
 class DockerDB:
     def __init__(self, container, state=None):
         if not re.fullmatch(r"vec-[a-z0-9-]+", container):
             raise Refused("el nombre debe identificar un clon vec- propio")
         self.container = container
         self.state = state
+
+    def _probe_metadata(self):
+        raw = _probe_command(["docker", "inspect", "--format", PROBE_INSPECT_FORMAT,
+                              self.container], limit=1024 * 1024, timeout=15)
+        try:
+            obj = json.loads(raw)
+            labels = obj["Config"].get("Labels") or {}
+            mounts = [m for m in obj["Mounts"] if m["Destination"] == "/var/lib/postgresql"]
+            if (labels.get(OWNER_LABEL) != OWNER or obj["Running"] is not True
+                    or obj["Config"]["Image"] != "postgres:18.4"
+                    or not re.fullmatch(r"[a-f0-9]{64}", obj["Id"])
+                    or not re.fullmatch(r"sha256:[a-f0-9]{64}", obj["Image"])
+                    or obj["NetworkMode"] != "none"
+                    or len(mounts) != 1 or mounts[0]["Type"] != "bind"
+                    or not mounts[0]["Source"].startswith("/dev/shm/")
+                    or any(p in ("", ".", "..") for p in mounts[0]["Source"].split("/")[1:])
+                    or (self.state is not None and labels.get("vec.recorridos.state") != str(self.state))
+                    or any(bindings for bindings in (obj["Ports"] or {}).values())):
+                raise Refused("identidad o propiedad del clon incompatible")
+            return {"pg_container_id": obj["Id"], "pg_image": obj["Config"]["Image"], "pg_image_id": obj["Image"],
+                    "pg_volume": mounts[0]["Source"]}
+        except (KeyError, TypeError, ValueError, AttributeError):
+            raise Refused("metadatos de clon incompatibles") from None
+
+    def _preimage_digest(self, normalizer_path, normalizer_sha, program):
+        # approved_file recorre sin seguir enlaces y conserva los bytes leídos.
+        # Ejecutar esos bytes evita volver a abrir una ruta que pudiera cambiar.
+        try:
+            original = os.fspath(normalizer_path)
+            if (not isinstance(original, str) or not original.startswith("/")
+                    or any(p in ("", ".", "..") for p in original.split("/")[1:])):
+                raise Refused("ruta del normalizador debe ser absoluta y canónica")
+            path = validate_original_path(original)
+        except (TypeError, ValueError, OSError):
+            raise Refused("ruta del normalizador incompatible") from None
+        if path.name != "h6_normalizar_pg_dump.py":
+            raise Refused("normalizador de preimagen inesperado")
+        try:
+            normalizer = approved_file(path, normalizer_sha, 64 * 1024)
+        except OSError:
+            raise Refused("normalizador no disponible o enlazado") from None
+        try:
+            source = normalizer.decode("utf-8")
+        except UnicodeError:
+            raise Refused("normalizador de preimagen incompatible") from None
+        metadata = self._probe_metadata()
+        arguments = {"schema": ["pg_dump", "-s", "-U", "postgres", "-d", "postgres"],
+                     "roles": ["pg_dumpall", "--globals-only", "--no-role-passwords", "-U", "postgres"]}[program]
+        dump = _probe_command(["docker", "exec", "-e", "PGOPTIONS=-c default_transaction_read_only=on -c statement_timeout=120000 -c lock_timeout=15000",
+                               metadata["pg_container_id"], *arguments])
+        normalized = _probe_command([sys.executable, "-I", "-S", "-c", source], dump)
+        if not normalized:
+            raise Refused("preimagen normalizada vacía")
+        return sha(normalized)
+
+    def schema_digest(self, normalizer_path, normalizer_sha):
+        return self._preimage_digest(normalizer_path, normalizer_sha, "schema")
+
+    def roles_digest(self, normalizer_path, normalizer_sha):
+        return self._preimage_digest(normalizer_path, normalizer_sha, "roles")
+
+    def _fixed_probe_query(self, statement, container_id):
+        raw = _probe_command(["docker", "exec", "-i", container_id, "psql", "-h", "/var/run/postgresql",
+                              "-p", "5432", "-U", "postgres", "-d", "postgres", "-X", "-q", "-A", "-t",
+                              "-v", "ON_ERROR_STOP=1"],
+                             ("BEGIN READ ONLY;\n" + statement + ";\nCOMMIT;").encode(), limit=4096)
+        try:
+            return raw.decode("utf-8").strip()
+        except UnicodeError:
+            raise Refused("salida de sonda incompatible") from None
+
+    def database_acl_digest(self):
+        metadata = self._probe_metadata()
+        digest = self._fixed_probe_query(DATABASE_ACL_SQL, metadata["pg_container_id"])
+        if not re.fullmatch(r"[a-f0-9]{64}", digest):
+            raise Refused("huella ACL de DATABASE incompatible")
+        return digest
+
+    def system_identity(self):
+        metadata = self._probe_metadata()
+        try:
+            identity = json.loads(self._fixed_probe_query(SYSTEM_IDENTITY_SQL, metadata["pg_container_id"]))
+            if (not isinstance(identity, dict)
+                    or set(identity) != {"system_identifier", "database_name", "database_oid"}
+                    or not isinstance(identity["system_identifier"], str)
+                    or not re.fullmatch(r"[1-9][0-9]{0,19}", identity["system_identifier"])
+                    or int(identity["system_identifier"]) >= 2 ** 64
+                    or identity["database_name"] != "postgres"
+                    or type(identity["database_oid"]) is not int
+                    or not 0 < identity["database_oid"] < 2 ** 32):
+                raise Refused("identidad PostgreSQL incompatible")
+        except (TypeError, ValueError):
+            raise Refused("identidad PostgreSQL incompatible") from None
+        return {**identity, **metadata}
 
     def check_owner(self):
         result = subprocess.run(["docker", "inspect", self.container],
