@@ -38,6 +38,7 @@ type GestorUsosCategoriaRPTPostgreSQL struct {
 }
 
 var _ ports.GestorUsosCategoriaRPT = (*GestorUsosCategoriaRPTPostgreSQL)(nil)
+var _ ports.PreparadorUsosCategoriaRPT = (*GestorUsosCategoriaRPTPostgreSQL)(nil)
 
 func NuevoGestorUsosCategoriaRPTPostgreSQL(pool *pgxpool.Pool, descriptor ports.DescriptorCatalogoRPT, consumidor string) (*GestorUsosCategoriaRPTPostgreSQL, error) {
 	return nuevoGestorUsosCategoriaRPTPostgreSQL(pool, descriptor, consumidor)
@@ -177,6 +178,86 @@ func comprobarContextoUsoRPT(ctx context.Context) error {
 	return ctx.Err()
 }
 
+func (g *GestorUsosCategoriaRPTPostgreSQL) PrepararReservaUsoCategoriaRPT(ctx context.Context, m ports.MaterialReservaUsoCategoriaRPT) (ports.PreparacionAutorizacionUsoCategoriaRPT, error) {
+	if err := comprobarContextoUsoRPT(ctx); err != nil {
+		return ports.PreparacionAutorizacionUsoCategoriaRPT{}, err
+	}
+	wire, err := g.materialReserva(m)
+	if err != nil {
+		return ports.PreparacionAutorizacionUsoCategoriaRPT{}, err
+	}
+	return g.preparar(ctx, accionReservarUsoRPT, m.UsoRef, wire)
+}
+
+func (g *GestorUsosCategoriaRPTPostgreSQL) PrepararConfirmacionUsoCategoriaRPT(ctx context.Context, m ports.MaterialTerminalUsoCategoriaRPT) (ports.PreparacionAutorizacionUsoCategoriaRPT, error) {
+	return g.prepararTerminal(ctx, m, accionConfirmarUsoRPT)
+}
+
+func (g *GestorUsosCategoriaRPTPostgreSQL) PrepararCancelacionUsoCategoriaRPT(ctx context.Context, m ports.MaterialTerminalUsoCategoriaRPT) (ports.PreparacionAutorizacionUsoCategoriaRPT, error) {
+	return g.prepararTerminal(ctx, m, accionCancelarUsoRPT)
+}
+
+func (g *GestorUsosCategoriaRPTPostgreSQL) prepararTerminal(ctx context.Context, m ports.MaterialTerminalUsoCategoriaRPT, accion string) (ports.PreparacionAutorizacionUsoCategoriaRPT, error) {
+	if err := comprobarContextoUsoRPT(ctx); err != nil {
+		return ports.PreparacionAutorizacionUsoCategoriaRPT{}, err
+	}
+	wire, err := g.materialTerminal(m)
+	if err != nil {
+		return ports.PreparacionAutorizacionUsoCategoriaRPT{}, err
+	}
+	return g.preparar(ctx, accion, m.Reserva.UsoRef, wire)
+}
+
+func (g *GestorUsosCategoriaRPTPostgreSQL) preparar(ctx context.Context, accion, usoRef string, wire any) (ports.PreparacionAutorizacionUsoCategoriaRPT, error) {
+	var cero ports.PreparacionAutorizacionUsoCategoriaRPT
+	material, err := json.Marshal(wire)
+	if err != nil || len(material) == 0 || len(material) > 4096 {
+		return cero, ports.ErrUsoCategoriaRPTInvalido
+	}
+	defer borrarPiezasRPT(material)
+	tx, err := g.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted, AccessMode: pgx.ReadOnly})
+	if err != nil {
+		return cero, errorUsoCategoriaRPT(ctx, err)
+	}
+	if valorNuloPostgreSQL(tx) {
+		return cero, ports.ErrUsoCategoriaRPTNoDisponible
+	}
+	defer revertirUsoRPT(tx)
+	if _, err := tx.Exec(ctx, configurarLecturaRPT); err != nil {
+		return cero, errorUsoCategoriaRPT(ctx, err)
+	}
+	var huella string
+	if err := tx.QueryRow(ctx, consultaHuellaMaterialRPT, string(material)).Scan(&huella); err != nil {
+		return cero, errorUsoCategoriaRPT(ctx, err)
+	}
+	if !huellaRPT.MatchString(huella) {
+		return cero, ports.ErrUsoCategoriaRPTNoConfiable
+	}
+	recurso := domain.RecursoAutorizable{
+		Referencia: usoRef, ModuloID: g.descriptor.ModuloID, Tipo: tipoUsoRPT,
+		Ambitos:   map[string]string{"catalogo_id": g.descriptor.CatalogoID, "modulo_id": g.descriptor.ModuloID, "consumidor": g.consumidor},
+		Atributos: map[string]string{"material_sha256": huella},
+	}
+	if recurso.Validar() != nil {
+		return cero, ports.ErrUsoCategoriaRPTInvalido
+	}
+	if err := ctx.Err(); err != nil {
+		return cero, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return cero, errorUsoCategoriaRPT(ctx, err)
+	}
+	return ports.PreparacionAutorizacionUsoCategoriaRPT{
+		Accion: accion, Finalidad: finalidadUsosRPT, AudienciaConsumo: audienciaUsosRPT, Recurso: recurso,
+	}, nil
+}
+
+func revertirUsoRPT(tx pgx.Tx) {
+	c, cancelar := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancelar()
+	_ = tx.Rollback(c)
+}
+
 func (g *GestorUsosCategoriaRPTPostgreSQL) validarAutorizacion(
 	solicitud domain.SolicitudAutorizacionLigadaV3,
 	autorizacion ports.ExportacionMaterialConsumoAutorizacionAtestadaV3,
@@ -236,11 +317,7 @@ func (g *GestorUsosCategoriaRPTPostgreSQL) ejecutar(
 	if valorNuloPostgreSQL(tx) {
 		return cero, ports.ErrUsoCategoriaRPTNoDisponible
 	}
-	defer func() {
-		c, cancelar := context.WithTimeout(context.Background(), 2*time.Second)
-		defer cancelar()
-		_ = tx.Rollback(c)
-	}()
+	defer revertirUsoRPT(tx)
 	if _, err := tx.Exec(ctx, configurarLecturaRPT); err != nil {
 		return cero, errorUsoCategoriaRPT(ctx, err)
 	}

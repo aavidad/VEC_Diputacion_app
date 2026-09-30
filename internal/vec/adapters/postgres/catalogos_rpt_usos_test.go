@@ -72,6 +72,10 @@ func TestUsoRefRPTDebePoderSerRecursoV3SinRestringirRecibos(t *testing.T) {
 }
 
 func autorizacionUsoRPTPrueba(t *testing.T, accion, audiencia, usoRef string) (domain.SolicitudAutorizacionLigadaV3, ports.ExportacionMaterialConsumoAutorizacionAtestadaV3) {
+	return autorizacionUsoRPTHuellaPrueba(t, accion, audiencia, usoRef, strings.Repeat("a", 64))
+}
+
+func autorizacionUsoRPTHuellaPrueba(t *testing.T, accion, audiencia, usoRef, materialSHA256 string) (domain.SolicitudAutorizacionLigadaV3, ports.ExportacionMaterialConsumoAutorizacionAtestadaV3) {
 	t.Helper()
 	escenario := nuevoEscenarioRegistroContextoActorV3PostgreSQLPrueba(t, true)
 	d, err := escenario.solicitud.Datos()
@@ -83,7 +87,7 @@ func autorizacionUsoRPTPrueba(t *testing.T, accion, audiencia, usoRef string) (d
 		Referencia: usoRef, ModuloID: descriptorRPTPrueba.ModuloID, Tipo: tipoUsoRPT,
 		Ambitos: map[string]string{"catalogo_id": descriptorRPTPrueba.CatalogoID,
 			"modulo_id": descriptorRPTPrueba.ModuloID, "consumidor": "contratacion_temporal"},
-		Atributos: map[string]string{"material_sha256": strings.Repeat("a", 64)},
+		Atributos: map[string]string{"material_sha256": materialSHA256},
 	}
 	solicitud, err := domain.NuevaSolicitudAutorizacionLigadaV3(d)
 	if err != nil {
