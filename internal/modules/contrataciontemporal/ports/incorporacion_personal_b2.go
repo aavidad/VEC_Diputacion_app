@@ -42,6 +42,7 @@ type SolicitudPlanNominalB2 struct {
 	VersionRPTRef       string                       `json:"version_rpt_ref"`
 	Regimen             domain.EntradaPlanPersonalB2 `json:"regimen"`
 	Modalidad           domain.EntradaPlanPersonalB2 `json:"modalidad"`
+	ClaseOcupacion      string                       `json:"clase_ocupacion"`
 	Desde               string                       `json:"desde"`
 	Hasta               string                       `json:"hasta"`
 	MotivoClave         string                       `json:"motivo_clave"`
@@ -60,6 +61,7 @@ type ContratoPlanNominalB2 struct {
 	IntencionVersion         uint64                             `json:"intencion_version"`
 	SolicitudPersonalRef     string                             `json:"solicitud_personal_ref"`
 	IdempotenciaPersonalUUID string                             `json:"idempotencia_personal_uuid"`
+	Solicitud                SolicitudPlanNominalB2             `json:"solicitud"`
 	Material                 domain.PlanIncorporacionPersonalB2 `json:"material"`
 	RegistradoEn             time.Time                          `json:"registrado_en"`
 }
@@ -67,6 +69,7 @@ type ContratoPlanNominalB2 struct {
 // HechosPersonalIncorporacionB2 es una proyección del propietario, releída con
 // permiso actual. No admite las referencias de recibos como prueba por sí solas.
 type HechosPersonalIncorporacionB2 struct {
+	ModoPersonal          string `json:"modo_personal"`
 	PersonalPlanRef       string `json:"personal_plan_ref"`
 	PersonalPlanVersion   uint64 `json:"personal_plan_version"`
 	PersonalPlanReciboRef string `json:"personal_plan_recibo_ref"`
@@ -116,4 +119,23 @@ type RepositorioPlanNominalB2 interface {
 	RegistrarPlanNominalB2(context.Context, RegistroPlanNominalB2, vp.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ContratoPlanNominalB2, error)
 	LeerContratoPlanNominal(context.Context, string, string, vp.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ContratoPlanNominalB2, error)
 	ConfirmarOrigenIncorporacionB2(context.Context, ConfirmacionOrigenIncorporacionB2, vp.ExportacionMaterialConsumoAutorizacionAtestadaV3) (OrigenIncorporacionPersonalB2, error)
+}
+
+// AntecedentesPlanNominalB2 sólo contiene referencias propias de CT.
+type AntecedentesPlanNominalB2 struct {
+	OrganizacionRef     string                     `json:"organizacion_ref"`
+	ExpedienteRef       string                     `json:"expediente_ref"`
+	VersionExpediente   uint64                     `json:"version_expediente"`
+	AnalisisVersion     uint64                     `json:"analisis_version"`
+	AnalisisReciboRef   string                     `json:"analisis_recibo_ref"`
+	AnalisisSHA256      string                     `json:"analisis_sha256"`
+	CategoriaRef        string                     `json:"categoria_ref"`
+	PropuestaReciboRef  string                     `json:"propuesta_recibo_ref"`
+	AceptacionRef       string                     `json:"aceptacion_ref"`
+	AceptacionReciboRef string                     `json:"aceptacion_recibo_ref"`
+	Bolsa               domain.SelectorBolsaPlanB2 `json:"bolsa"`
+	Vinculo             *EstadoVinculoCategoriaRPT `json:"vinculo"`
+}
+type LectorOrigenIncorporacionB2 interface {
+	LeerOrigenIncorporacionB2(context.Context, string, string, vp.ExportacionMaterialConsumoAutorizacionAtestadaV3) (OrigenIncorporacionPersonalB2, bool, error)
 }
