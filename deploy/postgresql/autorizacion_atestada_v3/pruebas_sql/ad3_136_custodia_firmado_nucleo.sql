@@ -15,7 +15,7 @@ BEGIN
  d:=pg_get_functiondef(f);
  coincidencias:=(length(d)-length(replace(d,caso,'')))/length(caso);
  IF coincidencias<>1 OR p.proowner<>'vec_autorizacion_atestada_v3_propietario'::regrole
-    OR NOT p.prosecdef OR p.proconfig<>ARRAY['search_path=pg_catalog','lock_timeout=2s']
+    OR NOT p.prosecdef OR p.proconfig IS DISTINCT FROM ARRAY['search_path=pg_catalog','lock_timeout=2s']
     OR EXISTS (SELECT 1 FROM aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a WHERE a.grantee=0)
  THEN RAISE EXCEPTION 'AD3-136: caso exacto, propietario, configuración o ACL inválidos'; END IF;
  IF NOT (d LIKE '%''documentos.generado.alta''%'
