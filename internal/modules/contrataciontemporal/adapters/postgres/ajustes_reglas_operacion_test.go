@@ -132,8 +132,15 @@ func TestOperacionAjustesCTHuellaYConsultaSinRepositorio(t *testing.T) {
 	canonico := []byte(`{"c03.plazo_fiscalizacion":{"cantidad":"7","unidad":"dias_habiles"}}`)
 	suma := sha256.Sum256(canonico)
 	ajustes := map[string]map[string]string{"c03.plazo_fiscalizacion": {"cantidad": "7", "unidad": "dias_habiles"}}
-	if !huellaAjustesCTValida(ajustes, hex.EncodeToString(suma[:])) || huellaAjustesCTValida(ajustes, "otra") {
-		t.Fatal("huella de respuesta no validada")
+	if err := validarHuellaAjustesCT(ajustes, hex.EncodeToString(suma[:])); err != nil {
+		t.Fatalf("huella válida: %v", err)
+	}
+	if err := validarHuellaAjustesCT(ajustes, "otra"); !errors.Is(err, app.ErrNoDisponible) {
+		t.Fatalf("huella divergente no cerrada: %v", err)
+	}
+	invalido := map[string]map[string]string{"c03.plazo_fiscalizacion": {"campo_desconocido": "dato_privado"}}
+	if err := validarHuellaAjustesCT(invalido, hex.EncodeToString(suma[:])); !errors.Is(err, app.ErrNoDisponible) || strings.Contains(err.Error(), "dato_privado") {
+		t.Fatalf("fallo de canonización no propagado o detalle expuesto: %v", err)
 	}
 	if !huellaSHA256CTValida(hex.EncodeToString(suma[:])) || huellaSHA256CTValida("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF") {
 		t.Fatal("huella de base inválida aceptada")

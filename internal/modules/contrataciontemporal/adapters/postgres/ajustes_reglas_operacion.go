@@ -111,9 +111,11 @@ func (r *RepositorioAjustesReglasCT) Consultar(ctx context.Context, actor vecdom
 	lectura := app.Lectura{Historial: sql.Historial, HayMas: sql.HayMas}
 	if sql.Vigente != nil {
 		if sql.Vigente.Version < 1 || sql.Vigente.Version > maximoVersionAjustesCT || sql.Vigente.VigenteDesde.IsZero() ||
-			sql.Vigente.BaseVersion < 1 || sql.Vigente.BaseVersion > maximoVersionAjustesCT || !huellaSHA256CTValida(sql.Vigente.BaseHuellaSHA256) ||
-			!huellaAjustesCTValida(sql.Vigente.Ajustes, sql.Vigente.HuellaSHA256) {
+			sql.Vigente.BaseVersion < 1 || sql.Vigente.BaseVersion > maximoVersionAjustesCT || !huellaSHA256CTValida(sql.Vigente.BaseHuellaSHA256) {
 			return app.Lectura{}, app.ErrNoDisponible
+		}
+		if err := validarHuellaAjustesCT(sql.Vigente.Ajustes, sql.Vigente.HuellaSHA256); err != nil {
+			return app.Lectura{}, err
 		}
 		lectura.Vigente = &reglas.VersionAjustes{CatalogoID: catalogoAjustesCT, Version: sql.Vigente.Version, HuellaSHA256: sql.Vigente.HuellaSHA256,
 			Ajustes: sql.Vigente.Ajustes, VigenteDesde: sql.Vigente.VigenteDesde}
@@ -150,23 +152,31 @@ func (r *RepositorioAjustesReglasCT) Operar(ctx context.Context, actor vecdomain
 	if json.Unmarshal(respuesta, &resultado) != nil || resultado.Recibo.ReciboRef == "" || resultado.Recibo.ClaveIdempotencia != material.ClaveIdempotencia ||
 		resultado.Recibo.Version < 1 || resultado.Recibo.Version > maximoVersionAjustesCT || resultado.Recibo.VigenteDesde.IsZero() ||
 		resultado.Recibo.DecisionRef == "" || resultado.Recibo.AuditoriaRef == "" || len(resultado.Recibo.ConsumoHuellaSHA256) != 64 ||
-		!huellaAjustesCTValida(resultado.Ajustes, resultado.Recibo.HuellaSHA256) ||
 		(!resultado.Replay && (resultado.Recibo.Version != material.VersionEsperada+1 || resultado.Recibo.HuellaSHA256 != material.AjustesHuellaSHA256)) {
 		return app.Resultado{}, app.ErrNoDisponible
+	}
+	if err := validarHuellaAjustesCT(resultado.Ajustes, resultado.Recibo.HuellaSHA256); err != nil {
+		return app.Resultado{}, err
 	}
 	return resultado, nil
 }
 
-func huellaAjustesCTValida(ajustes map[string]map[string]string, esperada string) bool {
+func validarHuellaAjustesCT(ajustes map[string]map[string]string, esperada string) error {
 	if !huellaSHA256CTValida(esperada) || ajustes == nil {
-		return false
+		return app.ErrNoDisponible
 	}
 	canonico, err := reglas.CanonicoAjustes(ajustes)
-	if err != nil || len(canonico) > maximoCanonicoAjustesCT {
-		return false
+	if err != nil {
+		return errorAjustesCTAplicacion(err)
+	}
+	if len(canonico) > maximoCanonicoAjustesCT {
+		return app.ErrNoDisponible
 	}
 	suma := sha256.Sum256(canonico)
-	return hex.EncodeToString(suma[:]) == esperada
+	if hex.EncodeToString(suma[:]) != esperada {
+		return app.ErrNoDisponible
+	}
+	return nil
 }
 
 func huellaSHA256CTValida(valor string) bool {
