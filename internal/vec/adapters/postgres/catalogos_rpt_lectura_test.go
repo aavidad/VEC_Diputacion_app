@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -217,6 +218,26 @@ type filaLecturaRPTPrueba struct {
 	err       error
 }
 
+type filaHuellaRPTPrueba struct {
+	huella string
+	err    error
+}
+
+func (f filaHuellaRPTPrueba) Scan(destinos ...any) error {
+	if f.err != nil {
+		return f.err
+	}
+	if len(destinos) != 1 {
+		return errors.New("huella con columnas inesperadas")
+	}
+	destino, ok := destinos[0].(*string)
+	if !ok {
+		return errors.New("huella sin destino textual")
+	}
+	*destino = f.huella
+	return nil
+}
+
 func (f filaLecturaRPTPrueba) Scan(destinos ...any) error {
 	if f.err != nil {
 		return f.err
@@ -234,13 +255,17 @@ func (f filaLecturaRPTPrueba) Scan(destinos ...any) error {
 
 type transaccionLecturaRPTPrueba struct {
 	pgx.Tx
-	respuesta   []byte
-	errConsulta error
-	consulta    string
-	argumentos  []any
-	configurada bool
-	confirmada  bool
-	revertida   bool
+	respuesta        []byte
+	errConsulta      error
+	huellaMaterial   string
+	materialCanonico string
+	consultasCanon   int
+	fachadas         int
+	consulta         string
+	argumentos       []any
+	configurada      bool
+	confirmada       bool
+	revertida        bool
 }
 
 func (t *transaccionLecturaRPTPrueba) Exec(_ context.Context, consulta string, _ ...any) (pgconn.CommandTag, error) {
@@ -249,6 +274,18 @@ func (t *transaccionLecturaRPTPrueba) Exec(_ context.Context, consulta string, _
 }
 
 func (t *transaccionLecturaRPTPrueba) QueryRow(_ context.Context, consulta string, argumentos ...any) pgx.Row {
+	if consulta == consultaHuellaMaterialRPT {
+		t.consultasCanon++
+		if len(argumentos) == 1 {
+			t.materialCanonico, _ = argumentos[0].(string)
+		}
+		huella := t.huellaMaterial
+		if huella == "" {
+			huella = strings.Repeat("a", 64)
+		}
+		return filaHuellaRPTPrueba{huella: huella}
+	}
+	t.fachadas++
 	t.consulta = consulta
 	t.argumentos = make([]any, len(argumentos))
 	for i, argumento := range argumentos {
@@ -351,7 +388,7 @@ func TestLecturaRPTConsumeAD3EnTransaccionYConservaAuditoriaSiNoHayFilas(t *test
 	r, err := lector.ListarCategoriasHabilitadasRPT(context.Background(), orden)
 	if err != nil || r.Encontrado || !r.Evidencia.ConsumoNuevo || !tx.confirmada || !tx.configurada ||
 		iniciador.opciones.IsoLevel != pgx.Serializable || iniciador.opciones.AccessMode != pgx.ReadWrite ||
-		tx.consulta != consultaListaRPT || len(tx.argumentos) != 11 {
+		tx.consulta != consultaListaRPT || len(tx.argumentos) != 11 || tx.consultasCanon != 1 || tx.fachadas != 1 {
 		t.Fatalf("lectura sin efecto no conservó recibo: %+v %v tx=%+v", r, err, tx)
 	}
 	var material map[string]any
@@ -417,7 +454,7 @@ func TestLecturasRPTHistoricaYUsoEnlazanMaterialYFuncionNominal(t *testing.T) {
 	r, err := lector.LeerPublicacionCategoriaRPT(context.Background(), ports.OrdenPublicacionCategoriaRPT{
 		Consulta: historica, Solicitud: s, Autorizacion: a})
 	if err != nil || r.Encontrado || !r.Evidencia.ConsumoNuevo || !tx.confirmada ||
-		tx.consulta != consultaPublicacionRPT || len(tx.argumentos) != 11 {
+		tx.consulta != consultaPublicacionRPT || len(tx.argumentos) != 11 || tx.consultasCanon != 1 || tx.fachadas != 1 {
 		t.Fatalf("consulta histórica ajena: %+v %v tx=%+v", r, err, tx)
 	}
 	var m map[string]any
@@ -436,7 +473,7 @@ func TestLecturasRPTHistoricaYUsoEnlazanMaterialYFuncionNominal(t *testing.T) {
 	ru, err := lector.ConsultarUsoCategoriaRPT(context.Background(), ports.OrdenUsoCategoriaRPT{
 		Consulta: uso, Solicitud: s, Autorizacion: a})
 	if err != nil || ru.Encontrado || !ru.Evidencia.ConsumoNuevo || !tx.confirmada ||
-		tx.consulta != consultaUsoRPT || len(tx.argumentos) != 11 {
+		tx.consulta != consultaUsoRPT || len(tx.argumentos) != 11 || tx.consultasCanon != 1 || tx.fachadas != 1 {
 		t.Fatalf("consulta de uso ajena: %+v %v tx=%+v", ru, err, tx)
 	}
 	m = nil
@@ -481,12 +518,67 @@ func TestVersionHistoricaRPTRangoEnteroPositivoSQL117(t *testing.T) {
 			material["version"] != float64(version) {
 			t.Fatalf("versión %d no viajó como JSON number: %+v %v", version, material, err)
 		}
-		for _, fuera := range []int{0, maximoVersionMaterialRPT + 1} {
+		fueraDeRango := []int{0}
+		if strconv.IntSize > 32 {
+			demasiadoAlta := int64(maximoVersionMaterialRPT) + 1
+			fueraDeRango = append(fueraDeRango, int(demasiadoAlta))
+		}
+		for _, fuera := range fueraDeRango {
 			consulta.Referencia.Version = fuera
 			if _, err := lector.LeerPublicacionCategoriaRPT(context.Background(), ports.OrdenPublicacionCategoriaRPT{
 				Consulta: consulta, Solicitud: s, Autorizacion: a}); !errors.Is(err, ports.ErrLecturaRPTInvalida) || iniciador.llamadas != 1 {
 				t.Fatalf("versión %d fuera de rango llegó a SQL: %v, llamadas=%d", fuera, err, iniciador.llamadas)
 			}
 		}
+	}
+}
+
+func TestLecturasRPTRechazanMaterialAjenoAntesDeConsumirAD3(t *testing.T) {
+	lista := ordenListaRPTPrueba(t)
+	lista.Consulta.CursorCategoriaID = "categoria.dos"
+	p, entrada := publicacionRPTPrueba(t, 1, "categoria.uno")
+	sHistorica, aHistorica := autorizacionYSolicitudRPTPrueba(t, accionLeerPublicacionRPT,
+		tipoCatalogoRPT, descriptorRPTPrueba.CatalogoID, "")
+	historica := ports.OrdenPublicacionCategoriaRPT{
+		Consulta: ports.ConsultaPublicacionCategoriaRPT{Referencia: ports.ReferenciaPublicacionRPT{
+			CatalogoID: p.CatalogoID, Version: 2, HuellaSHA256: p.HuellaSHA256}, CategoriaID: entrada.Clave},
+		Solicitud: sHistorica, Autorizacion: aHistorica,
+	}
+	sUso, aUso := autorizacionYSolicitudRPTPrueba(t, accionConsultarUsoRPT,
+		tipoUsoRPT, "uso:prueba:uno", "contratacion_temporal")
+	uso := ports.OrdenUsoCategoriaRPT{
+		Consulta: ports.ConsultaUsoCategoriaRPT{Consumidor: "contratacion_temporal", UsoRef: "uso:prueba:uno",
+			ReservaReciboRef: "recibo:otra-reserva"}, Solicitud: sUso, Autorizacion: aUso,
+	}
+	for _, caso := range []struct {
+		nombre   string
+		invocar  func(*LectorCategoriasRPTPostgreSQL) error
+		material string
+	}{
+		{"lista", func(l *LectorCategoriasRPTPostgreSQL) error {
+			_, err := l.ListarCategoriasHabilitadasRPT(context.Background(), lista)
+			return err
+		}, `"cursor_categoria_id":"categoria.dos"`},
+		{"historica", func(l *LectorCategoriasRPTPostgreSQL) error {
+			_, err := l.LeerPublicacionCategoriaRPT(context.Background(), historica)
+			return err
+		}, `"version":2`},
+		{"uso", func(l *LectorCategoriasRPTPostgreSQL) error {
+			_, err := l.ConsultarUsoCategoriaRPT(context.Background(), uso)
+			return err
+		}, `"reserva_recibo_ref":"recibo:otra-reserva"`},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			tx := &transaccionLecturaRPTPrueba{huellaMaterial: strings.Repeat("b", 64)}
+			lector, err := nuevoLectorCategoriasRPTPostgreSQL(&iniciadorLecturaRPTPrueba{tx: tx}, descriptorRPTPrueba)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := caso.invocar(lector); !errors.Is(err, ports.ErrLecturaRPTDenegada) ||
+				tx.consultasCanon != 1 || tx.fachadas != 0 || tx.confirmada || !tx.revertida ||
+				!strings.Contains(tx.materialCanonico, caso.material) {
+				t.Fatalf("material ajeno alcanzó AD3: %v tx=%+v", err, tx)
+			}
+		})
 	}
 }

@@ -37,6 +37,7 @@ const (
 	consultaListaRPT          = `SELECT vec_autorizacion_atestada_v3.listar_categorias_habilitadas_rpt_v3_atestada($1::jsonb,$2::bytea,$3::bytea,$4::bytea,$5::bytea,$6::numeric,$7::numeric,$8::bytea,$9::bytea,$10::bytea,$11::bytea)`
 	consultaPublicacionRPT    = `SELECT vec_autorizacion_atestada_v3.leer_publicacion_categoria_rpt_v3_atestada($1::jsonb,$2::bytea,$3::bytea,$4::bytea,$5::bytea,$6::numeric,$7::numeric,$8::bytea,$9::bytea,$10::bytea,$11::bytea)`
 	consultaUsoRPT            = `SELECT vec_autorizacion_atestada_v3.consultar_uso_categoria_rpt_v3_atestada($1::jsonb,$2::bytea,$3::bytea,$4::bytea,$5::bytea,$6::numeric,$7::numeric,$8::bytea,$9::bytea,$10::bytea,$11::bytea)`
+	consultaHuellaMaterialRPT = `SELECT pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to($1::jsonb::text,'UTF8')),'hex')`
 	configurarLecturaRPT      = `SELECT set_config('search_path','pg_catalog',true),set_config('row_security','on',true),set_config('timezone','UTC',true),set_config('lock_timeout','2s',true),set_config('statement_timeout','30s',true),set_config('idle_in_transaction_session_timeout','35s',true)`
 )
 
@@ -177,35 +178,35 @@ func (l *LectorCategoriasRPTPostgreSQL) validarAutorizacionRPT(
 	solicitud domain.SolicitudAutorizacionLigadaV3,
 	autorizacion ports.ExportacionMaterialConsumoAutorizacionAtestadaV3,
 	accion, tipo, referencia, consumidor string,
-) error {
+) (string, error) {
 	if l == nil || valorNuloPostgreSQL(l.pool) || autorizacion.ValidarEstructura() != nil {
-		return ports.ErrLecturaRPTDenegada
+		return "", ports.ErrLecturaRPTDenegada
 	}
 	d, err := solicitud.Datos()
 	if err != nil || d.Recurso.Validar() != nil {
-		return ports.ErrLecturaRPTDenegada
+		return "", ports.ErrLecturaRPTDenegada
 	}
 	r := d.Recurso
 	if d.Accion != accion || d.Finalidad != finalidadLecturaRPT ||
 		r.Referencia != referencia || r.ModuloID != l.descriptor.ModuloID || r.Tipo != tipo ||
 		len(r.Atributos) != 1 || !huellaRPT.MatchString(r.Atributos["material_sha256"]) ||
 		r.Ambitos["catalogo_id"] != l.descriptor.CatalogoID || r.Ambitos["modulo_id"] != l.descriptor.ModuloID {
-		return ports.ErrLecturaRPTDenegada
+		return "", ports.ErrLecturaRPTDenegada
 	}
 	if tipo == tipoCatalogoRPT {
 		if len(r.Ambitos) != 2 || consumidor != "" {
-			return ports.ErrLecturaRPTDenegada
+			return "", ports.ErrLecturaRPTDenegada
 		}
 	} else if len(r.Ambitos) != 3 || r.Ambitos["consumidor"] != consumidor || consumidor == "" {
-		return ports.ErrLecturaRPTDenegada
+		return "", ports.ErrLecturaRPTDenegada
 	}
 	huella, err := r.HuellaContextoAutorizacionSHA256()
 	z := autorizacion.ResumenCapacidad()
 	if err != nil || z.Operacion() != accion || z.AudienciaConsumo() != audienciaLecturaRPT ||
 		z.EfectoRef() != referencia || z.EfectoHuellaSHA256() != huella {
-		return ports.ErrLecturaRPTDenegada
+		return "", ports.ErrLecturaRPTDenegada
 	}
-	return nil
+	return r.Atributos["material_sha256"], nil
 }
 
 func ejecutarLecturaRPT[T any](l *LectorCategoriasRPTPostgreSQL, ctx context.Context,
@@ -217,8 +218,12 @@ func ejecutarLecturaRPT[T any](l *LectorCategoriasRPTPostgreSQL, ctx context.Con
 	var cero T
 	var evidenciaVacia ports.EvidenciaLecturaRPT
 	defer borrarPiezasRPT(material)
-	if ctx == nil || decodificar == nil || l.validarAutorizacionRPT(solicitud, autorizacion, accion, tipo, referencia, consumidor) != nil {
+	if ctx == nil || decodificar == nil {
 		return cero, evidenciaVacia, ports.ErrLecturaRPTDenegada
+	}
+	huellaEsperada, err := l.validarAutorizacionRPT(solicitud, autorizacion, accion, tipo, referencia, consumidor)
+	if err != nil {
+		return cero, evidenciaVacia, err
 	}
 	if err := ctx.Err(); err != nil {
 		return cero, evidenciaVacia, err
@@ -237,6 +242,15 @@ func ejecutarLecturaRPT[T any](l *LectorCategoriasRPTPostgreSQL, ctx context.Con
 	}()
 	if _, err := tx.Exec(ctx, configurarLecturaRPT); err != nil {
 		return cero, evidenciaVacia, errorLecturaRPT(ctx, err)
+	}
+	// jsonb::text tiene la representación de PostgreSQL, distinta de
+	// json.Marshal. Se coteja sin leer tablas ni consumir AD3.
+	var huellaMaterial string
+	if err := tx.QueryRow(ctx, consultaHuellaMaterialRPT, string(material)).Scan(&huellaMaterial); err != nil {
+		return cero, evidenciaVacia, errorLecturaRPT(ctx, err)
+	}
+	if huellaMaterial != huellaEsperada {
+		return cero, evidenciaVacia, ports.ErrLecturaRPTDenegada
 	}
 	piezas := [][]byte{
 		autorizacion.CapacidadCanonica(), autorizacion.DecisionCanonica(), autorizacion.MotivoCanonico(),
