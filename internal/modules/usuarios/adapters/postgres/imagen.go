@@ -21,6 +21,7 @@ import (
 	"vec-diputacion-granada/internal/modules/usuarios/canonico"
 	"vec-diputacion-granada/internal/modules/usuarios/domain"
 	"vec-diputacion-granada/internal/modules/usuarios/ports"
+	"vec-diputacion-granada/internal/shared/postgresql"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
@@ -87,6 +88,10 @@ func NuevoRegistroImagenPostgreSQL(ctx context.Context, pool *pgxpool.Pool, supe
 }
 
 func (r *RegistroImagenPostgreSQL) abrir(ctx context.Context) (transaccionCorreos, error) {
+	return r.abrirConError(ctx, errorImagenSeguro)
+}
+
+func (r *RegistroImagenPostgreSQL) abrirConError(ctx context.Context, seguro func(context.Context, error) error) (transaccionCorreos, error) {
 	if ctx == nil || r == nil || r.iniciar == nil || rolEjecutorPreferencias(r.superficie) == "" {
 		return nil, ports.ErrImagenNoDisponible
 	}
@@ -95,14 +100,14 @@ func (r *RegistroImagenPostgreSQL) abrir(ctx context.Context) (transaccionCorreo
 	}
 	tx, err := r.iniciar(ctx)
 	if err != nil {
-		return nil, errorImagenSeguro(ctx, err)
+		return nil, seguro(ctx, err)
 	}
 	if tx == nil {
 		return nil, ports.ErrImagenNoDisponible
 	}
 	fallar := func(err error) (transaccionCorreos, error) {
 		_ = tx.Rollback(context.Background())
-		return nil, errorImagenSeguro(ctx, err)
+		return nil, seguro(ctx, err)
 	}
 	for _, ajuste := range [...]string{
 		"SET LOCAL search_path = pg_catalog",
@@ -127,7 +132,18 @@ func (r *RegistroImagenPostgreSQL) abrir(ctx context.Context) (transaccionCorreo
 	return tx, nil
 }
 
+// CatalogoVigente repite la consulta completa sólo ante un aborto SERIALIZABLE seguro.
 func (r *RegistroImagenPostgreSQL) CatalogoVigente(ctx context.Context, orden ports.OrdenImagen) (domain.CatalogoImagen, error) {
+	var estado domain.CatalogoImagen
+	err := postgresql.RepetirTrasCarreraSerializable(ctx, func() error {
+		var err error
+		estado, err = r.catalogoVigenteIntento(ctx, orden)
+		return err
+	})
+	return estado, errorFinalConsultaSerializable(ctx, err)
+}
+
+func (r *RegistroImagenPostgreSQL) catalogoVigenteIntento(ctx context.Context, orden ports.OrdenImagen) (domain.CatalogoImagen, error) {
 	var vacio domain.CatalogoImagen
 	_, _, superficie, err := orden.Identidad.Datos()
 	if err != nil {
@@ -136,21 +152,23 @@ func (r *RegistroImagenPostgreSQL) CatalogoVigente(ctx context.Context, orden po
 	if r == nil || superficie != r.superficie {
 		return vacio, ports.ErrImagenProhibido
 	}
-	tx, err := r.abrir(ctx)
+	tx, err := r.abrirConError(ctx, func(ctx context.Context, err error) error {
+		return errorConsultaSerializable(ctx, err, errorImagenSeguro)
+	})
 	if err != nil {
 		return vacio, err
 	}
 	defer tx.Rollback(context.Background())
 	var bruto []byte
 	if err := tx.QueryRow(ctx, catalogoImagenSQL, string(superficie)).Scan(&bruto); err != nil {
-		return vacio, errorImagenSeguro(ctx, err)
+		return vacio, errorConsultaSerializable(ctx, err, errorImagenSeguro)
 	}
 	var c domain.CatalogoImagen
 	if decodificarImagenEstricto(bruto, &c) != nil || c.Validar() != nil {
 		return vacio, ports.ErrImagenNoDisponible
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return vacio, errorImagenSeguro(ctx, err)
+		return vacio, errorConsultaSerializable(ctx, err, errorImagenSeguro)
 	}
 	return c, nil
 }
@@ -201,20 +219,35 @@ type estadoImagenSQL struct {
 	Eleccion           domain.EleccionImagen `json:"eleccion"`
 }
 
+// Consultar repite la consulta completa sólo ante un aborto SERIALIZABLE seguro.
 func (r *RegistroImagenPostgreSQL) Consultar(ctx context.Context, orden ports.OrdenImagen, m ports.MaterialImagen, v3 vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ports.EstadoImagen, bool, *ports.FotoImagen, error) {
+	var estado ports.EstadoImagen
+	var existe bool
+	var foto *ports.FotoImagen
+	err := postgresql.RepetirTrasCarreraSerializable(ctx, func() error {
+		var err error
+		estado, existe, foto, err = r.consultarIntento(ctx, orden, m, v3)
+		return err
+	})
+	return estado, existe, foto, errorFinalConsultaSerializable(ctx, err)
+}
+
+func (r *RegistroImagenPostgreSQL) consultarIntento(ctx context.Context, orden ports.OrdenImagen, m ports.MaterialImagen, v3 vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ports.EstadoImagen, bool, *ports.FotoImagen, error) {
 	var vacio ports.EstadoImagen
 	material, err := r.validarOrdenImagen(orden, m, v3, ports.AccionConsultarImagen)
 	if err != nil {
 		return vacio, false, nil, err
 	}
-	tx, err := r.abrir(ctx)
+	tx, err := r.abrirConError(ctx, func(ctx context.Context, err error) error {
+		return errorConsultaSerializable(ctx, err, errorImagenSeguro)
+	})
 	if err != nil {
 		return vacio, false, nil, err
 	}
 	defer tx.Rollback(context.Background())
 	var bruto, foto []byte
 	if err := tx.QueryRow(ctx, consultarImagenSQL, argumentosImagenV3(material, v3)...).Scan(&bruto, &foto); err != nil {
-		return vacio, false, nil, errorImagenSeguro(ctx, err)
+		return vacio, false, nil, errorConsultaSerializable(ctx, err, errorImagenSeguro)
 	}
 	var e estadoImagenSQL
 	if decodificarImagenEstricto(bruto, &e) != nil || e.PersonaRef != m.PersonaRef || e.Eleccion.ValidarCodigos() != nil ||
@@ -223,7 +256,7 @@ func (r *RegistroImagenPostgreSQL) Consultar(ctx context.Context, orden ports.Or
 		return vacio, false, nil, ports.ErrImagenNoDisponible
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return vacio, false, nil, errorImagenSeguro(ctx, err)
+		return vacio, false, nil, errorConsultaSerializable(ctx, err, errorImagenSeguro)
 	}
 	var f *ports.FotoImagen
 	if len(foto) > 0 {

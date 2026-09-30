@@ -21,6 +21,7 @@ import (
 	"vec-diputacion-granada/internal/modules/usuarios/canonico"
 	"vec-diputacion-granada/internal/modules/usuarios/domain"
 	"vec-diputacion-granada/internal/modules/usuarios/ports"
+	"vec-diputacion-granada/internal/shared/postgresql"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
@@ -154,6 +155,10 @@ func NuevoRegistroCorreosPostgreSQL(ctx context.Context, pool *pgxpool.Pool, des
 }
 
 func (r *RegistroCorreosPostgreSQL) abrir(ctx context.Context) (transaccionCorreos, error) {
+	return r.abrirConError(ctx, errorCorreosSeguro)
+}
+
+func (r *RegistroCorreosPostgreSQL) abrirConError(ctx context.Context, seguro func(context.Context, error) error) (transaccionCorreos, error) {
 	if ctx == nil || r == nil || r.iniciar == nil || r.descifrador == nil || rolEjecutorPreferencias(r.superficie) == "" || r.sql.acreditar == "" {
 		return nil, ports.ErrCorreosNoDisponible
 	}
@@ -162,14 +167,14 @@ func (r *RegistroCorreosPostgreSQL) abrir(ctx context.Context) (transaccionCorre
 	}
 	tx, err := r.iniciar(ctx)
 	if err != nil {
-		return nil, errorCorreosSeguro(ctx, err)
+		return nil, seguro(ctx, err)
 	}
 	if tx == nil {
 		return nil, ports.ErrCorreosNoDisponible
 	}
 	fallar := func(err error) (transaccionCorreos, error) {
 		_ = tx.Rollback(context.Background())
-		return nil, errorCorreosSeguro(ctx, err)
+		return nil, seguro(ctx, err)
 	}
 	for _, ajuste := range [...]string{
 		"SET LOCAL search_path = pg_catalog",
@@ -400,20 +405,33 @@ type correoPropioSQL struct {
 	Codigo        *codigoCorreoSQL    `json:"codigo"`
 }
 
+// ConsultarPropios repite la consulta completa sólo ante un aborto SERIALIZABLE seguro.
 func (r *RegistroCorreosPostgreSQL) ConsultarPropios(ctx context.Context, orden ports.OrdenCorreos, m ports.MaterialCorreos, v3 vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ports.VistaCorreos, error) {
+	var estado ports.VistaCorreos
+	err := postgresql.RepetirTrasCarreraSerializable(ctx, func() error {
+		var err error
+		estado, err = r.consultarPropiosIntento(ctx, orden, m, v3)
+		return err
+	})
+	return estado, errorFinalConsultaSerializable(ctx, err)
+}
+
+func (r *RegistroCorreosPostgreSQL) consultarPropiosIntento(ctx context.Context, orden ports.OrdenCorreos, m ports.MaterialCorreos, v3 vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ports.VistaCorreos, error) {
 	var vacio ports.VistaCorreos
 	material, err := r.validarOrdenCorreos(orden, m, v3, ports.AccionConsultarCorreos)
 	if err != nil {
 		return vacio, err
 	}
-	tx, err := r.abrir(ctx)
+	tx, err := r.abrirConError(ctx, func(ctx context.Context, err error) error {
+		return errorConsultaSerializable(ctx, err, errorCorreosSeguro)
+	})
 	if err != nil {
 		return vacio, err
 	}
 	defer tx.Rollback(context.Background())
 	var bruto []byte
 	if err := tx.QueryRow(ctx, r.sql.consultar, argumentosCorreosV3(material, v3)...).Scan(&bruto); err != nil {
-		return vacio, errorCorreosSeguro(ctx, err)
+		return vacio, errorConsultaSerializable(ctx, err, errorCorreosSeguro)
 	}
 	var sql struct {
 		PersonaRef string            `json:"persona_ref"`
@@ -450,7 +468,7 @@ func (r *RegistroCorreosPostgreSQL) ConsultarPropios(ctx context.Context, orden 
 		return vacio, ports.ErrCorreosNoDisponible
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return vacio, errorCorreosSeguro(ctx, err)
+		return vacio, errorConsultaSerializable(ctx, err, errorCorreosSeguro)
 	}
 	return vista, nil
 }
