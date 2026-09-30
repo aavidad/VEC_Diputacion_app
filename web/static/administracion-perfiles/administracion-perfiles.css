@@ -24,9 +24,9 @@
 .admin-introduccion p { margin: 0; color: var(--portal-muted); font-size: .86rem; }
 .admin-miga { font-size: .75rem !important; font-weight: 700; }
 .admin-mensaje { max-width: 560px; min-height: 0; font-size: .85rem; }
-.admin-mensaje:not(:empty) { padding: 9px 13px; border-left: 4px solid var(--portal-azul-700); border-radius: var(--portal-radio); background: var(--portal-azul-100); }
-.admin-mensaje[data-tipo="error"] { border-left-color: var(--portal-peligro); background: var(--portal-peligro-suave); }
-.admin-mensaje[data-tipo="exito"] { border-left-color: var(--portal-exito); background: var(--portal-exito-suave); }
+.admin-mensaje:not(:empty) { padding: 9px 13px; border: 1px solid var(--portal-azul-700); border-radius: var(--portal-radio); background: var(--portal-azul-100); }
+.admin-mensaje[data-tipo="error"] { border-color: var(--portal-peligro); background: var(--portal-peligro-suave); }
+.admin-mensaje[data-tipo="exito"] { border-color: var(--portal-exito); background: var(--portal-exito-suave); }
 .admin-columnas { display: grid; flex: 1 1 auto; min-height: 0; grid-template-columns: minmax(260px, .8fr) minmax(360px, 1.25fr) minmax(260px, .9fr); gap: 16px; }
 .admin-columnas > .panel { display: flex; min-height: 0; flex-direction: column; }
 .admin-columnas > .panel > .cuerpo-panel { flex: 1 1 auto; min-height: 0; overflow-y: auto; scrollbar-color: var(--portal-borde) transparent; }
@@ -59,17 +59,18 @@
 .admin-perfil p, .admin-propuesta p { margin: 7px 0 0; color: var(--portal-muted); font-size: .81rem; }
 .admin-acciones { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
 .admin-vacio, .admin-limite { margin: 0; padding: 14px; border: 1px dashed var(--portal-borde); border-radius: var(--portal-radio-lg); color: var(--portal-muted); background: var(--portal-superficie-alterna); font-size: .86rem; }
-.admin-limite { border-left: 4px solid var(--portal-aviso); border-style: solid; }
+.admin-limite { border-color: var(--portal-aviso); border-style: solid; }
 .admin-historia-item { padding: 9px 11px; font-size: .81rem; }
 .admin-historia-item time { display: block; color: var(--portal-muted); }
 .admin-tecnico { margin-top: 6px; font-size: .76rem; overflow-wrap: anywhere; }
 .admin-tecnico summary { color: var(--portal-azul-800); cursor: pointer; }
 .admin-tecnico code { display: block; margin-top: 4px; white-space: normal; }
 .admin-dialogo { width: min(520px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); padding: 0; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio-lg); color: var(--portal-tinta); background: var(--portal-superficie); box-shadow: var(--portal-sombra); }
-.admin-dialogo::backdrop { background: rgb(6 25 49 / 58%); }
+.admin-dialogo::backdrop { background: color-mix(in srgb, var(--portal-tinta) 58%, transparent); }
 .admin-dialogo form { display: grid; gap: 13px; padding: 22px; }
 .admin-dialogo h2 { margin: 0; font-size: 1.2rem; }
 .admin-dialogo p { margin: 0; color: var(--portal-muted); }
+.admin-dialogo .admin-dialogo-error:not([hidden]) { padding: 10px 12px; border: 1px solid var(--portal-peligro); border-radius: var(--portal-radio); background: var(--portal-peligro-suave); color: var(--portal-peligro); }
 .admin-dialogo dl { display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; margin: 0; padding: 12px; border-radius: var(--portal-radio); background: var(--portal-superficie-alterna); font-size: .83rem; }
 .admin-dialogo dt { color: var(--portal-muted); }
 .admin-dialogo dd { min-width: 0; margin: 0; overflow-wrap: anywhere; font-weight: 700; }

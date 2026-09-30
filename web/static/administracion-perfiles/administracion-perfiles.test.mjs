@@ -35,7 +35,8 @@ test("solo una respuesta ligada a la operación confirma el acto", () => {
   assert.equal(validarConfirmacion("ordinario", { recibo: { recibo_ref: "recibo_admin:" + "b".repeat(32), operacion_ref: "otro" } }, operacion), false);
   assert.equal(validarConfirmacion("propuesta", { propuesta: { propuesta_ref: propuesta, huella_sha256: "a".repeat(64), caduca_en: "2026-10-01T10:00:00Z" } }, propuesta), true);
   assert.equal(validarConfirmacion("propuesta", { propuesta: { propuesta_ref: "otro", huella_sha256: "a".repeat(64) } }, operacion), false);
-  assert.equal(validarConfirmacion("cierre", { cierre: { operacion_ref: cierre, propuesta_ref: propuesta, decision: "aprobada", huella_cierre_sha256: "a".repeat(64), confirmado_en: "2026-09-30T10:00:00Z" } }, cierre, propuesta, "aprobada"), true);
+  assert.equal(validarConfirmacion("cierre", { cierre: { operacion_ref: cierre, propuesta_ref: propuesta, decision: "aprobada", huella_cierre_sha256: "a".repeat(64), confirmado_en: "2026-09-30T10:00:00Z", recibo: { recibo_ref: "recibo_admin:" + "b".repeat(32) } } }, cierre, propuesta, "aprobada"), true);
+  assert.equal(validarConfirmacion("cierre", { cierre: { operacion_ref: cierre, propuesta_ref: propuesta, decision: "aprobada", huella_cierre_sha256: "a".repeat(64), confirmado_en: "2026-09-30T10:00:00Z" } }, cierre, propuesta, "aprobada"), false);
   assert.equal(validarConfirmacion("cierre", { cierre: { operacion_ref: cierre, propuesta_ref: propuesta, decision: "rechazada", huella_cierre_sha256: "a".repeat(64), confirmado_en: "2026-09-30T10:00:00Z" } }, cierre, propuesta, "aprobada"), false);
   assert.equal(validarConfirmacion("cierre", { cierre: { operacion_ref: operacion, propuesta_ref: "otra", huella_cierre_sha256: "a", confirmado_en: "hoy" } }, operacion, "propuesta_admin:" + "b".repeat(32)), false);
 });

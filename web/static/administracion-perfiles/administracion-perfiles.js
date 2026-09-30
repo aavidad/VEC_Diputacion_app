@@ -47,7 +47,8 @@ export function validarConfirmacion(tipo, datos, operacionRef, propuestaRef = ""
   return datos?.cierre?.operacion_ref === operacionRef && datos.cierre.propuesta_ref === propuestaRef
     && datos.cierre.decision === decision && HUELLA.test(datos.cierre.huella_cierre_sha256)
     && fechaValida(datos.cierre.confirmado_en) !== null
-    && (!datos.cierre.recibo || REF_RECIBO.test(datos.cierre.recibo.recibo_ref));
+    && (decision === "aprobada" ? REF_RECIBO.test(datos.cierre.recibo?.recibo_ref)
+      : decision === "rechazada" && !datos.cierre.recibo);
 }
 
 /** Montaje aislado: solo consume capacidades y preimágenes de la API ADMIN. */
@@ -60,7 +61,7 @@ export function montarAdministracionPerfiles({ documento = globalThis.document, 
     resultados: $("resultados"), ficha: $("ficha"), pendientes: $("pendientes"), recargar: $("pendientes-recargar"),
     ayuda: $("ayuda-contenido"), ayudaBoton: $("ayuda-boton"), dialogo: $("decision-dialogo"),
     decision: $("decision-form"), tituloDecision: $("decision-titulo"), descripcionDecision: $("decision-descripcion"),
-    resumenDecision: $("decision-resumen"), motivo: $("decision-motivo"), confirmar: $("decision-confirmar"),
+    resumenDecision: $("decision-resumen"), errorDecision: $("decision-error"), motivo: $("decision-motivo"), confirmar: $("decision-confirmar"),
     cancelar: $("decision-cancelar"),
   };
   if (Object.values(elementos).some((nodo) => !nodo)) throw new TypeError("pantalla incompleta");
@@ -92,6 +93,11 @@ export function montarAdministracionPerfiles({ documento = globalThis.document, 
     elementos.conexion.className = `admin-chip admin-chip--${clase}`;
   }
   function vacio(contenedor, clave) { contenedor.replaceChildren(elemento(documento, "p", "admin-vacio", t(clave))); }
+  function errorDialogo(clave = "") {
+    elementos.errorDecision.textContent = clave ? t(clave) : "";
+    elementos.errorDecision.hidden = !clave;
+    if (clave) elementos.errorDecision.focus();
+  }
   function tecnico(referencia) {
     if (!textoValido(referencia)) return null;
     const d = elemento(documento, "details", "admin-tecnico");
@@ -111,8 +117,10 @@ export function montarAdministracionPerfiles({ documento = globalThis.document, 
     const clave = estadoError(error);
     mensaje(clave, "error");
     if (error?.estado === 401 || error?.estado === 403) {
+      for (const controlador of [peticionInicio, peticionBusqueda, peticionFicha, peticionPendientes]) controlador?.abort();
       capacidades = new Set();
       actorPersonaRef = "";
+      roles = new Map();
       personaActual = null;
       fichaActual = null;
       resultadoActual = [];
@@ -192,7 +200,11 @@ export function montarAdministracionPerfiles({ documento = globalThis.document, 
     });
     if (acciones.length) {
       const grupo = elemento(documento, "div", "admin-acciones");
-      for (const acto of acciones) grupo.append(botonAccion(`operacion_${acto.operacion}`, () => abrirDecision({ tipo: roles.get(acto.rol_version_ref).clase === "ordinario" ? "ordinario" : "propuesta", acto, persona: datos })));
+      for (const acto of acciones) {
+        const boton = botonAccion(`operacion_${acto.operacion}`, () => abrirDecision({ tipo: roles.get(acto.rol_version_ref).clase === "ordinario" ? "ordinario" : "propuesta", acto, persona: datos }));
+        boton.textContent = t("accion_perfil", { accion: etiquetaOperacion(acto.operacion), perfil: etiquetaRol(acto.rol_version_ref) });
+        grupo.append(boton);
+      }
       raiz.append(grupo);
     } else raiz.append(elemento(documento, "p", "admin-limite", t(accionPermitida("aplicar_ordinario") || accionPermitida("proponer") ? "accion_no_disponible" : "lectura_sin_cambio")));
     raiz.append(elemento(documento, "h3", "admin-subtitulo", t("historia_titulo")));
@@ -222,6 +234,7 @@ export function montarAdministracionPerfiles({ documento = globalThis.document, 
       if (!textoValido(propuesta?.propuesta_ref)) continue;
       const li = elemento(documento, "li", "admin-propuesta");
       li.append(elemento(documento, "strong", "", `${etiquetaOperacion(propuesta.operacion)} · ${etiquetaRol(propuesta.rol_version_ref)}`));
+      if (textoValido(propuesta.objetivo_nombre)) li.append(elemento(documento, "p", "", t("pendientes_objetivo", { nombre: propuesta.objetivo_nombre })));
       if (fecha(propuesta.caduca_en)) li.append(elemento(documento, "p", "", t("pendientes_caduca", { fecha: fecha(propuesta.caduca_en) })));
       const detalle = tecnico(propuesta.propuesta_ref);
       if (detalle) li.append(detalle);
@@ -251,6 +264,7 @@ export function montarAdministracionPerfiles({ documento = globalThis.document, 
       || seleccion.propuesta.objetivo_persona_ref === actorPersonaRef)) return;
     const prefijo = seleccion.tipo === "ordinario" ? "acto_admin:" : seleccion.tipo === "propuesta" ? "propuesta_admin:" : "cierre_admin:";
     decisionPendiente = { ...seleccion, motivos, operacionRef: nuevaOperacionRef(prefijo) };
+    errorDialogo();
     elementos.tituloDecision.textContent = t("decision_titulo");
     elementos.descripcionDecision.textContent = t(seleccion.tipo === "propuesta" ? "decision_descripcion_doble" : seleccion.tipo === "cierre" ? "decision_descripcion_cierre" : "decision_descripcion");
     const operacion = seleccion.tipo === "cierre" ? seleccion.decision === "aprobada" ? t("aprobar") : t("rechazar") : etiquetaOperacion(seleccion.acto.operacion);
@@ -279,6 +293,7 @@ export function montarAdministracionPerfiles({ documento = globalThis.document, 
     if (peticionDecision) return;
     if (elementos.dialogo.open) elementos.dialogo.close();
     decisionPendiente = null;
+    errorDialogo();
   }
 
   async function registrarDecision(evento) {
@@ -293,7 +308,7 @@ export function montarAdministracionPerfiles({ documento = globalThis.document, 
     elementos.cancelar.disabled = true;
     mensaje("guardando");
     let resultadoIncierto = false;
-    let conflicto = false;
+    errorDialogo();
     try {
       let resultado;
       if (seleccion.tipo === "cierre") {
@@ -312,21 +327,28 @@ export function montarAdministracionPerfiles({ documento = globalThis.document, 
       if (!validarConfirmacion(seleccion.tipo, resultado, seleccion.operacionRef, seleccion.propuesta?.propuesta_ref, seleccion.decision)) {
         resultadoIncierto = true;
         mensaje("error_respuesta", "error");
+        errorDialogo("error_respuesta");
         return;
       }
-      const ref = seleccion.tipo === "ordinario" ? resultado.recibo.recibo_ref : seleccion.tipo === "propuesta" ? resultado.propuesta.propuesta_ref : resultado.cierre.recibo?.recibo_ref;
+      const ref = seleccion.tipo === "ordinario" ? resultado.recibo.recibo_ref : seleccion.tipo === "propuesta" ? resultado.propuesta.propuesta_ref : resultado.cierre.recibo?.recibo_ref || resultado.cierre.operacion_ref;
+      const claveRef = seleccion.tipo === "ordinario" || seleccion.tipo === "cierre" && resultado.cierre.recibo ? "recibo_referencia"
+        : seleccion.tipo === "propuesta" ? "propuesta_referencia" : "decision_referencia";
       peticionDecision = null;
       cerrarDialogo();
       mensaje(seleccion.tipo === "ordinario" ? "recibo_titulo" : seleccion.tipo === "propuesta" ? "propuesta_confirmada" : "cierre_confirmado", "exito");
-      if (ref) elementos.mensaje.append(elemento(documento, "span", "admin-recibo", ` ${t("recibo_referencia", { referencia: ref })}`));
+      if (ref) elementos.mensaje.append(elemento(documento, "span", "admin-recibo", ` ${t(claveRef, { referencia: ref })}`));
       elementos.mensaje.focus();
       if (personaActual) cargarPersona(personaActual);
       cargarPendientes();
     } catch (error) {
       if (error?.name !== "AbortError") {
-        errorDe(error);
+        const clave = errorDe(error);
+        if ([401, 403, 409].includes(error?.estado)) {
+          peticionDecision = null;
+          cerrarDialogo();
+          elementos.mensaje.focus();
+        } else errorDialogo(clave === "error_servicio" ? "error_servicio_dialogo" : clave);
         if (error?.estado === 409) {
-          conflicto = true;
           if (personaActual) cargarPersona(personaActual);
           cargarPendientes();
         }
@@ -334,7 +356,7 @@ export function montarAdministracionPerfiles({ documento = globalThis.document, 
     } finally {
       peticionDecision = null;
       elementos.cancelar.disabled = false;
-      if (decisionPendiente) elementos.confirmar.disabled = resultadoIncierto || conflicto;
+      if (decisionPendiente) elementos.confirmar.disabled = resultadoIncierto;
     }
   }
 
