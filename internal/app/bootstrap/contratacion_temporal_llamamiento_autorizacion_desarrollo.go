@@ -74,42 +74,6 @@ func ambitosLlamamientoDesarrollo(recurso dominiovec.RecursoAutorizable) []domin
 	return ambitos
 }
 
-func categoriaPersistidaLlamamientoDesarrollo(p preparacionLlamamientoDesarrollo) string {
-	if p.expediente.Fiscalizado.Analisis == nil {
-		return ""
-	}
-	categoria := p.expediente.Fiscalizado.Analisis.CategoriaRef
-	// La preparación inicial la conserva; las rutas posteriores recuperan
-	// únicamente el expediente fiscalizado y dejan p.categoria sin rellenar.
-	if categoria == "" || (p.categoria != "" && p.categoria != categoria) {
-		return ""
-	}
-	return categoria
-}
-
-// El análisis fiscalizado conserva la categoría de la necesidad. La consulta
-// comprueba su referencia en el catálogo RPT cargado por la composición, sin
-// deducirla del nombre. El catálogo actual no modela la habilitación de altas.
-func (s *soporteAltaContratacionTemporalDesarrollo) categoriaBolsaPersistidaEnCatalogo(
-	ctx context.Context, ruta, accion string,
-) bool {
-	if ruta != httpinterno.RutaResolucionComunicacionLlamamiento && ruta != httpinterno.RutaContinuacionLlamamiento {
-		return true
-	}
-	switch accion {
-	case puertosbolsa.AccionAceptarLlamamientoRRHHDesarrollo,
-		puertosbolsa.AccionRenunciarLlamamientoRRHHDesarrollo,
-		puertosbolsa.AccionAbrirSiguienteLlamamientoDesarrollo:
-		if s == nil || ctx == nil {
-			return false
-		}
-		p, ok := ctx.Value(clavePreparacionLlamamientoDesarrollo{}).(preparacionLlamamientoDesarrollo)
-		return ok && s.categoriaDeCatalogo(categoriaPersistidaLlamamientoDesarrollo(p))
-	default:
-		return true
-	}
-}
-
 func solicitudAutorizacionLlamamientoDesarrolloValida(ctx context.Context, ruta string, datos dominiovec.DatosSolicitudAutorizacionLigadaV3) bool {
 	if ctx == nil || datos.Finalidad != "gestionar_contratacion_temporal" {
 		return false
@@ -609,8 +573,7 @@ func (a *autorizadorLlamamientoDesarrollo) exigirOperacion(ctx context.Context, 
 		VinculoAutenticacionActor: operativo.Vinculo, ReferenciaMotivo: a.motivo(),
 		Accion: accion, Recurso: recurso, Finalidad: "gestionar_contratacion_temporal", Correlacion: correlacion,
 	}
-	if !s.categoriaBolsaPersistidaEnCatalogo(ctx, capacidad.ruta, accion) ||
-		!solicitudAutorizacionLlamamientoDesarrolloValida(ctx, capacidad.ruta, datos) {
+	if !solicitudAutorizacionLlamamientoDesarrolloValida(ctx, capacidad.ruta, datos) {
 		return fallo(ports.ErrAutorizacionDenegada)
 	}
 	solicitud, err := dominiovec.NuevaSolicitudAutorizacionLigadaV3(datos)

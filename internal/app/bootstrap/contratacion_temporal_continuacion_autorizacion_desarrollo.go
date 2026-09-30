@@ -91,9 +91,8 @@ func solicitudAutorizacionContinuacionDesarrolloValida(ctx context.Context, d do
 			igual(postgresct.RecursoConsultaJustificanteRespuestaRecibida(s))
 	}
 	recursoBolsa := func(referencia string) bool {
-		return categoriaPersistidaLlamamientoDesarrollo(p) != "" && l.antecedenteLigado() &&
-			r.ModuloID == "bolsa" && r.Tipo == "integracion_llamamientos_bolsa" && r.Referencia == referencia &&
-			len(r.Ambitos) == 2 && r.Ambitos["categoria_ref"] == categoriaPersistidaLlamamientoDesarrollo(p) && r.Ambitos["unidad_ref"] == unidadCoberturaContratacionTemporalDesarrollo &&
+		return l.antecedenteLigado() && r.ModuloID == "bolsa" && r.Tipo == "integracion_llamamientos_bolsa" && r.Referencia == referencia &&
+			len(r.Ambitos) == 2 && r.Ambitos["categoria_ref"] == "categoria:desarrollo:c2" && r.Ambitos["unidad_ref"] == unidadCoberturaContratacionTemporalDesarrollo &&
 			len(r.Atributos) == 2 && r.Atributos["necesidad_ref"] == l.seleccion.Necesidad.Referencia &&
 			huellaSHA256ValidaContratacionTemporalDesarrollo(r.Atributos["contenido_sha256"])
 	}
@@ -136,11 +135,10 @@ func configurarAutoridadContinuacionDesarrollo(ctx context.Context, alta *depend
 	if err != nil {
 		return err
 	}
-	categorias := alta.soporte.origen.referenciasCategorias()
 	bolsa, err := nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(v.PrincipalID, v.PerfilActivoRef, reloj.Ahora(),
 		"siguiente_llamamiento_bolsa_desarrollo", "Siguiente llamamiento en Bolsa sintética", "siguiente-llamamiento-bolsa-desarrollo",
 		[]dominiovec.ConcesionRol{concesion(puertosbolsa.AccionAbrirSiguienteLlamamientoDesarrollo, "bolsa", "integracion_llamamientos_bolsa")},
-		[]dominiovec.AmbitoPerfil{{Clave: "categoria_ref", Valores: categorias},
+		[]dominiovec.AmbitoPerfil{{Clave: "categoria_ref", Valores: []string{"categoria:desarrollo:c2"}},
 			{Clave: "unidad_ref", Valores: []string{unidadCoberturaContratacionTemporalDesarrollo}}})
 	if err != nil {
 		return err
