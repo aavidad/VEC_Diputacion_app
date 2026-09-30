@@ -174,6 +174,19 @@ func TestConsultaProyectaValorVigenteDeCabezaAutorizada(t *testing.T) {
 	if lectura.Activacion.Estado != "activa" || lectura.Activacion.HuellaSHA256 != repo.activacion.HuellaSHA256 {
 		t.Fatalf("GET perdió estado nominal de activación: %+v", lectura.Activacion)
 	}
+	repo.lectura.PuedeAjustar = true
+	repo.activacion = ActivacionBase{Estado: "inactiva", Secuencia: 2}
+	pausa, err := servicio.Consultar(t.Context(), actor, 20, nil)
+	if err != nil || pausa.PuedeAjustar || len(pausa.Reglas) != 0 || pausa.Vigente == nil ||
+		pausa.Activacion.Estado != "inactiva" || pausa.Activacion.Secuencia != 2 {
+		t.Fatalf("GET inactivo atribuyó reglas vigentes o perdió historia: %+v, %v", pausa, err)
+	}
+	repo.activacion = ActivacionBase{Estado: "sin_publicar"}
+	pausa, err = servicio.Consultar(t.Context(), actor, 20, nil)
+	if err != nil || pausa.PuedeAjustar || len(pausa.Reglas) != 0 || pausa.Activacion.Estado != "sin_publicar" {
+		t.Fatalf("GET sin publicación atribuyó reglas vigentes: %+v, %v", pausa, err)
+	}
+	activarBasePrueba(t, repo, resolutor)
 	repo.activacion.HuellaSHA256 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 	if _, err := servicio.Consultar(t.Context(), actor, 20, nil); !errors.Is(err, ErrNoDisponible) {
 		t.Fatalf("GET proyectó catálogo no activado: %v", err)

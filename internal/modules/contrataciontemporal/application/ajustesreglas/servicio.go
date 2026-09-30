@@ -72,15 +72,25 @@ func (s *Servicio) Consultar(ctx context.Context, actor vecdomain.ContextoActor,
 	if err := validarCabeza(lectura); err != nil {
 		return Lectura{}, err
 	}
+	activacion, err := s.repo.LeerActivacion(ctx)
+	if err != nil {
+		return Lectura{}, ErrNoDisponible
+	}
+	lectura.Activacion = activacion
+	if activacion.Estado == "sin_publicar" || activacion.Estado == "inactiva" {
+		// La historia sigue siendo consultable, pero el catálogo local no se
+		// presenta como regla vigente hasta que CT158 confirme su activación.
+		lectura.PuedeAjustar = false
+		lectura.Reglas = []reglas.Regla{}
+		return lectura, nil
+	}
 	base, huella, instante, err := s.reglas.CatalogoVigente(ctx)
 	if err != nil {
 		return Lectura{}, ErrNoDisponible
 	}
-	activacion, err := s.repo.LeerActivacion(ctx)
-	if err != nil || comprobarBaseActiva(base, huella, activacion) != nil {
+	if comprobarBaseActiva(base, huella, activacion) != nil {
 		return Lectura{}, ErrNoDisponible
 	}
-	lectura.Activacion = activacion
 	lectura.Reglas, err = reglas.ProyectarReglasConAjustes(base, instante, lectura.Vigente)
 	if err != nil {
 		return Lectura{}, ErrNoDisponible
