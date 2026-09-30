@@ -3,6 +3,7 @@ package incorporacionejercicio
 import (
 	"context"
 	"errors"
+	"math"
 	"reflect"
 
 	dom "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
@@ -86,7 +87,7 @@ func (c *ConsumidorPersonalB2) ReservarPersonalB2(ctx context.Context, s Solicit
 		return cero, err
 	}
 	plan := estado.Plan
-	if plan.Validar() != nil || !reflect.DeepEqual(plan.Datos, d) {
+	if plan.Validar() != nil || plan.Version < 1 || !reflect.DeepEqual(plan.Datos, d) {
 		return cero, ct.ErrConflictoIncorporacionAplicacion
 	}
 	contrato := s.Contrato
@@ -110,7 +111,8 @@ func datosPlanPropietarioB2(s SolicitudReservaPersonalB2) (pp.DatosPlanIncorpora
 		s.Puesto.Fuente != x.FuenteRPT || s.Puesto.PuestoRef != x.PuestoRef || s.Puesto.PlazaRef != x.PlazaRef ||
 		s.Puesto.CategoriaRef != x.CategoriaRef || s.Puesto.VinculoRevision != x.VinculoRevision ||
 		s.Puesto.VinculoReciboRef != x.VinculoReciboRef ||
-		!s.Puesto.Prospectivo || s.Puesto.AcreditaProcedenciaHistorica {
+		!s.Puesto.Prospectivo || s.Puesto.AcreditaProcedenciaHistorica ||
+		x.VersionExpediente > math.MaxInt64 || p.PersonaVersion > math.MaxInt64 || d.CatalogoRPTVersion > math.MaxInt64 {
 		return pp.DatosPlanIncorporacionCT{}, ct.ErrConflictoIncorporacionAplicacion
 	}
 	r := pp.DatosPlanIncorporacionCT{

@@ -3,6 +3,7 @@ package incorporacionejercicio
 import (
 	"context"
 	"errors"
+	"math"
 	"strings"
 	"testing"
 	"time"
@@ -132,14 +133,11 @@ func (f *fichaConsumidorB2Prueba) ConsultarFicha(_ context.Context, q pd.Solicit
 		EfectoRef: q.EmpleadoRef, ConsumoHuellaSHA256: strings.Repeat("a", 64), ConsultadaEn: q.Corte.ConocidoEn}}, nil
 }
 
-func escenarioConsumidorB2(t *testing.T, modo string) (*ConsumidorPersonalB2, *planConsumidorB2Prueba, *rptConsumidorB2Prueba, *fichaConsumidorB2Prueba) {
-	t.Helper()
-	ahora := time.Date(2026, 10, 1, 10, 0, 0, 0, time.UTC)
-	ctx, _, _ := autoridadFixtureContexto(t, ahora, "p", "c")
+func solicitudReservaConsumidorB2Prueba() SolicitudReservaPersonalB2 {
 	x := contratoB2Prueba()
 	x.PlazaRef = "plaza:11111111-1111-4111-8111-111111111111"
 	x.PuestoRef = "puesto:22222222-2222-4222-8222-222222222222"
-	s := SolicitudReservaPersonalB2{Contrato: x,
+	return SolicitudReservaPersonalB2{Contrato: x,
 		Persona: PersonaSeleccionadaBolsa{OrganizacionRef: x.OrganizacionRef, ExpedienteRef: x.ExpedienteRef,
 			AceptacionRef: x.AceptacionRef, LlamamientoRef: x.LlamamientoRef, SeleccionRef: x.SeleccionRef,
 			VersionSeleccion: x.VersionSeleccion, ReciboRef: x.SeleccionReciboRef, PersonaRef: "per_" + strings.Repeat("p", 24),
@@ -147,6 +145,13 @@ func escenarioConsumidorB2(t *testing.T, modo string) (*ConsumidorPersonalB2, *p
 		Puesto: PuestoRPTNominal{OrganizacionRef: x.OrganizacionRef, ExpedienteRef: x.ExpedienteRef, Fuente: x.FuenteRPT,
 			PuestoRef: x.PuestoRef, PlazaRef: x.PlazaRef, CategoriaRef: x.CategoriaRef,
 			VinculoRevision: x.VinculoRevision, VinculoReciboRef: x.VinculoReciboRef, Prospectivo: true}}
+}
+
+func escenarioConsumidorB2(t *testing.T, modo string) (*ConsumidorPersonalB2, *planConsumidorB2Prueba, *rptConsumidorB2Prueba, *fichaConsumidorB2Prueba) {
+	t.Helper()
+	ahora := time.Date(2026, 10, 1, 10, 0, 0, 0, time.UTC)
+	ctx, _, _ := autoridadFixtureContexto(t, ahora, "p", "c")
+	s := solicitudReservaConsumidorB2Prueba()
 	d, err := datosPlanPropietarioB2(s)
 	if err != nil {
 		t.Fatal(err)
@@ -234,6 +239,61 @@ func TestConsumidorPersonalB2GETNoPreparaNiReservaNiEjecuta(t *testing.T) {
 	_, err := c.ConsultarPersonalB2(context.Background(), p.estado.Plan.PlanRef, p.estado.Plan.Datos.OrganismoRef)
 	if err != nil || p.consultas != 1 || p.preparaciones != 0 || p.ejecuciones != 0 || rpt.reservas != 0 || rpt.confirmaciones != 0 || f.lecturas != 0 {
 		t.Fatalf("GET produjo efectos: %v", err)
+	}
+}
+
+func TestConsumidorPersonalB2VersionesLimiteAntesDePreparar(t *testing.T) {
+	for _, caso := range []struct {
+		nombre  string
+		cambiar func(*SolicitudReservaPersonalB2)
+		valido  bool
+	}{
+		{"expediente_maximo", func(s *SolicitudReservaPersonalB2) {
+			s.Contrato.VersionExpediente = ct.MaximoEnteroSeguroOperacionAnalisis
+		}, true},
+		{"expediente_fuera_de_contrato", func(s *SolicitudReservaPersonalB2) {
+			s.Contrato.VersionExpediente = ct.MaximoEnteroSeguroOperacionAnalisis + 1
+		}, false},
+		{"expediente_desborda_int64", func(s *SolicitudReservaPersonalB2) { s.Contrato.VersionExpediente = uint64(math.MaxInt64) + 1 }, false},
+		{"persona_maxima", func(s *SolicitudReservaPersonalB2) {
+			s.Contrato.PersonaVersion = ct.MaximoEnteroSeguroOperacionAnalisis
+			s.Persona.PersonaVersion = s.Contrato.PersonaVersion
+		}, true},
+		{"persona_fuera_de_contrato", func(s *SolicitudReservaPersonalB2) {
+			s.Contrato.PersonaVersion = ct.MaximoEnteroSeguroOperacionAnalisis + 1
+			s.Persona.PersonaVersion = s.Contrato.PersonaVersion
+		}, false},
+		{"persona_desborda_int64", func(s *SolicitudReservaPersonalB2) {
+			s.Contrato.PersonaVersion = uint64(math.MaxInt64) + 1
+			s.Persona.PersonaVersion = s.Contrato.PersonaVersion
+		}, false},
+		{"catalogo_maximo", func(s *SolicitudReservaPersonalB2) { s.Contrato.DatosPersonal.CatalogoRPTVersion = math.MaxInt32 }, true},
+		{"catalogo_fuera_de_contrato", func(s *SolicitudReservaPersonalB2) { s.Contrato.DatosPersonal.CatalogoRPTVersion = math.MaxInt32 + 1 }, false},
+		{"catalogo_desborda_int64", func(s *SolicitudReservaPersonalB2) {
+			s.Contrato.DatosPersonal.CatalogoRPTVersion = uint64(math.MaxInt64) + 1
+		}, false},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			s := solicitudReservaConsumidorB2Prueba()
+			caso.cambiar(&s)
+			c, p, rpt, _ := escenarioConsumidorB2(t, "alta_empleado")
+			_, err := c.ReservarPersonalB2(context.Background(), s)
+			if caso.valido && (err != nil || p.preparaciones != 1) {
+				t.Fatalf("versión válida rechazada: %v, preparaciones=%d", err, p.preparaciones)
+			}
+			if !caso.valido && (!errors.Is(err, ct.ErrIntencionIncorporacionAplicacion) || p.preparaciones != 0 || rpt.reservas != 0) {
+				t.Fatalf("versión inválida produjo efecto o error inesperado: %v, preparaciones=%d, reservas=%d", err, p.preparaciones, rpt.reservas)
+			}
+		})
+	}
+}
+
+func TestConsumidorPersonalB2PlanConVersionInvalidaNoSeDevuelveComoReserva(t *testing.T) {
+	c, p, rpt, _ := escenarioConsumidorB2(t, "alta_empleado")
+	p.estado.Plan.Version = -1
+	_, err := c.ReservarPersonalB2(context.Background(), solicitudReservaConsumidorB2Prueba())
+	if !errors.Is(err, ct.ErrConflictoIncorporacionAplicacion) || rpt.reservas != 0 {
+		t.Fatalf("plan con versión inválida admitido: %v", err)
 	}
 }
 
