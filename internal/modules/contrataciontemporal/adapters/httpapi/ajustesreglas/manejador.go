@@ -88,6 +88,10 @@ func (h *Manejador) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	actor, err := h.actor.ResolverContextoActor(r.Context())
+	if errors.Is(err, app.ErrNoDisponible) {
+		fallo(w, http.StatusServiceUnavailable, "servicio_no_disponible")
+		return
+	}
 	if err != nil || actor.Validar() != nil {
 		fallo(w, http.StatusForbidden, "acceso_denegado")
 		return
