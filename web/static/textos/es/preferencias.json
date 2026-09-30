@@ -199,7 +199,7 @@
     "exito_anadir_repetido": "{direccion} ya estaba añadida. Si no le ha llegado el código, pulse «Enviar otro código».",
     "exito_reenviar": "Le hemos enviado un código nuevo a {direccion}. El anterior ya no vale.",
     "exito_reenviar_sin_envio": "No hemos podido enviar el código. Inténtelo de nuevo dentro de unos minutos.",
-    "exito_reenviar_repetido": "Ya le enviamos un código nuevo a {direccion}. Revise su bandeja de entrada.",
+    "exito_reenviar_repetido": "La solicitud de reenvío a {direccion} ya está registrada.",
     "exito_verificar": "Dirección confirmada. Si quiere recibir los avisos en {direccion}, pulse «Usar para los avisos».",
     "exito_verificar_activo": "Dirección confirmada. Desde ahora le enviaremos los avisos a {direccion}.",
     "exito_activar": "Desde ahora le enviaremos los avisos a {direccion}.",

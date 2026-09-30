@@ -199,7 +199,7 @@
     "exito_anadir_repetido": "{direccion} was already added. If the code has not arrived, select “Send another code”.",
     "exito_reenviar": "We have sent a new code to {direccion}. The previous one no longer works.",
     "exito_reenviar_sin_envio": "We could not send the code. Try again in a few minutes.",
-    "exito_reenviar_repetido": "We already sent a new code to {direccion}. Check your inbox.",
+    "exito_reenviar_repetido": "The resend request for {direccion} is already recorded.",
     "exito_verificar": "Address confirmed. If you want to get notifications at {direccion}, select “Use for notifications”.",
     "exito_verificar_activo": "Address confirmed. From now on we will send your notifications to {direccion}.",
     "exito_activar": "From now on we will send your notifications to {direccion}.",
