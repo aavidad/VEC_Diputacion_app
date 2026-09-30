@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
+import { lectorCatalogos, catalogoPlano } from "./textos-prueba.test-helper.mjs";
 import { cambiosDeContacto, claveOperacion, montarFichaAspirante, RUTA_MI_FICHA, validarVista } from "./ficha-aspirante.js";
 import { iniciarI18nAreaPersonal } from "./i18n.js";
 
 // Los textos se cargan del catálogo en castellano, como en el arranque.
-const catalogoES = JSON.parse(await readFile(new URL("./locales/es.json", import.meta.url), "utf8"));
 const documentoIdioma = { documentElement: { lang: "" } };
-await iniciarI18nAreaPersonal(documentoIdioma, async () => ({ ok: true, json: async () => catalogoES }), ["es"], { href: "https://vec.test/area-personal/" });
+await iniciarI18nAreaPersonal(documentoIdioma, { leer: lectorCatalogos(), preferidos: ["es"], ubicacion: { href: "https://vec.test/area-personal/" } });
 globalThis.document = documentoIdioma;
 
 // DOM mínimo: lo justo para montar, pulsar y enviar el formulario.
@@ -308,8 +308,8 @@ test("validarVista y cambiosDeContacto", () => {
 test("los textos están en los dos catálogos y no en el código", async () => {
   const codigo = await readFile(new URL("./ficha-aspirante.js", import.meta.url), "utf8");
   const claves = new Set([...codigo.matchAll(/t\(`?"?([a-zA-Z_.]+)/gu)].map((m) => m[1]).filter((c) => !c.endsWith(".")));
-  const es = JSON.parse(await readFile(new URL("./locales/es.json", import.meta.url), "utf8"));
-  const en = JSON.parse(await readFile(new URL("./locales/en.json", import.meta.url), "utf8"));
+  const es = await catalogoPlano("es");
+  const en = await catalogoPlano("en");
   for (const sufijo of ["cargando", "identidad.titulo", "contacto.titulo", "accion.crear", "accion.guardar", "motivo.pregunta", "sinCambios",
     "error.no_disponible", "error.prohibido", "error.conflicto", "error.guardar", "error.motivo", "quitar.pregunta", "resumen",
     "validacion.telefono", "validacion.movil", "validacion.codigo_postal", "validacion.domicilio", "validacion.vacio.telefono", "condicion.si_elige_notificacion_papel", "campo.codigo_postal", "panel.titulo"]) {

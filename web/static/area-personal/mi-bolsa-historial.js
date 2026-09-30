@@ -1,6 +1,6 @@
 // Histórico propio de Bolsa. El servidor obtiene la identidad y las participaciones
 // de la sesión; el navegador solo elige un número de página.
-import { traducir } from "./i18n.js";
+import { localizacionAreaPersonal, traducir } from "./i18n.js";
 import { escaparHTML, listaDatos, panel } from "./vistas/comunes.js";
 import { nombreCategoria } from "./mi-bolsa-campos.js";
 
@@ -11,30 +11,12 @@ const CLASE_CAMPO = { contrato_bolsa: "contratos", llamamiento: "llamamientos", 
 const INSTANTE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/u;
 const TIPO = /^[a-z][a-z0-9_]{1,39}$/u;
 const MAXIMO_BYTES = 256 * 1024;
+// Estados de consulta que tienen mensaje propio; cualquier otro se muestra como «error».
+const ESTADOS_CON_MENSAJE = new Set(["vacio", "sinCampos", "error", "autenticacion", "denegado"]);
 
-const RESPALDO = Object.freeze({
-  titulo: "Histórico de mi bolsa", subtitulo: "Actuaciones de mis participaciones registradas en VEC",
-  cargando: "Cargando histórico autorizado…", vacio: "No constan actuaciones en el histórico de VEC.",
-  sinCampos: "El servicio no ha habilitado datos del histórico para esta identidad.",
-  error: "El histórico todavía no está disponible. Puede volver a consultarlo más tarde.",
-  autenticacion: "Identifíquese de nuevo para consultar su histórico.",
-  denegado: "No tiene permiso para consultar este histórico.",
-  reintentar: "Volver a consultar", anterior: "Anterior", siguiente: "Siguiente", pagina: "Página {pagina}",
-  contrato: "Contrato comunicado a Bolsa", incorporacion: "Incorporación comunicada a Bolsa",
-  llamamiento: "Correo de llamamiento", renuncia: "Respuesta de renuncia",
-  categoria: "Categoría", fecha: "Fecha registrada", inicio: "Inicio comunicado", fin: "Fin previsto comunicado",
-  sinFecha: "Sin fecha comunicada", resultado: "Resultado del correo", enviado: "Enviado", no_enviado: "No enviado",
-  respuesta: "Respuesta", renuncia_simple: "Renuncia", renuncia_justificada: "Renuncia con causa justificada",
-  estado: "Estado", respuesta_registrada: "Respuesta registrada", propuesta_pendiente_rrhh: "Propuesta pendiente de RRHH",
-  modo: "Tratamiento", firme: "Registro directo en Bolsa", propuesta_rrhh: "Pendiente de confirmación de RRHH",
-  limite: "Aquí solo aparece lo registrado en VEC. Que se enviara un correo no significa que llegara, y una renuncia o incorporación anotada aún puede estar pendiente de que RRHH la resuelva.",
-});
 
 function t(clave, variables = {}) {
-  const completa = `areaPersonal.miBolsa.historial.${clave}`;
-  const catalogo = traducir(completa, variables);
-  const texto = catalogo === completa ? RESPALDO[clave] : catalogo;
-  return String(texto ?? completa).replace(/\{([a-z_]+)\}/giu, (_, nombre) => String(variables[nombre] ?? ""));
+  return traducir(`areaPersonal.miBolsa.historial.${clave}`, variables);
 }
 
 function objeto(valor, nombre) {
@@ -112,7 +94,7 @@ export async function cargarHistorialMiBolsa({ pagina = 1, fetchImpl = globalThi
 }
 
 function fecha(valor) {
-  return new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Madrid" }).format(new Date(valor));
+  return new Intl.DateTimeFormat(localizacionAreaPersonal(), { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Madrid" }).format(new Date(valor));
 }
 
 function tarjeta(item) {
@@ -135,7 +117,7 @@ export function renderizarHistorialMiBolsa(datos = null, { pagina = 1, estado = 
   let contenido;
   if (estado === "cargando") contenido = `<p role="status">${escaparHTML(t("cargando"))}</p>`;
   else if (estado !== "correcto") {
-    const clave = Object.hasOwn(RESPALDO, estado) ? estado : "error";
+    const clave = ESTADOS_CON_MENSAJE.has(estado) ? estado : "error";
     // Si el servicio no responde no es culpa de la persona: estado neutro, sin alarma.
     const identidad = clave === "autenticacion" || clave === "denegado";
     contenido = `<div class="${identidad ? "estado-error" : "estado-vacio"}" role="${identidad ? "alert" : "status"}"><p>${escaparHTML(t(clave))}</p><button type="button" class="boton-secundario" data-historial-accion="reintentar">${escaparHTML(t("reintentar"))}</button></div>`;

@@ -2,7 +2,7 @@
 // La identidad (nombre, apellidos y documento) viene del certificado y solo
 // se muestra. El teléfono, el móvil, el domicilio y el código postal solo se
 // piden si el catálogo de datos personales los pide. Los textos viven en
-// locales/<idioma>.json (claves areaPersonal.ficha.*).
+// textos/<idioma>/area-personal.json (claves areaPersonal.ficha.*).
 import { idiomaAreaPersonal, traducir } from "./i18n.js";
 
 export const RUTA_MI_FICHA = "/api/vec/aspirantes/area-personal/mi-ficha";
