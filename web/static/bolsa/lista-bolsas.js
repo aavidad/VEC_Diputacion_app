@@ -6,7 +6,7 @@
 import {
   consultarBolsasPublicas,
   consultarListaBolsaPublica,
-} from "./lista-bolsas-api.js";
+} from "./lista-bolsas-api.js?v=20260930-codexe-publico-v2-v1";
 import { PATRON_DOCUMENTO_ENMASCARADO } from "./contrato-publico-bolsas.js";
 
 const t = globalThis.VECBolsaI18n?.t || ((clave) => clave);

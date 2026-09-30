@@ -71,7 +71,7 @@ function textos(nodo) {
 }
 
 test("la página monta exclusivamente V2 antes del controlador con la misma versión de caché", () => {
-  const version = "20260930-publico-v2-v2";
+  const version = "20260930-codexe-publico-v2-v1";
   assert.ok(html.indexOf(`/bolsa/contrato-v2.js?v=${version}`) < html.indexOf(`/bolsa/bolsa.js?v=${version}`));
   assert.doesNotMatch(html, /contrato-v1\.js/);
 });

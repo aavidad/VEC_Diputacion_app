@@ -113,9 +113,11 @@ test("ambas páginas cargan tema positivo y activos públicos versionados", () =
   }
   assert.match(listas, /\/bolsa\/listas\.css\?v=[\w.-]+"/);
   assert.doesNotMatch(listas, /listas\.css\?v=20260924-bolsa-sin-inline-v4/);
-  assert.match(listas, /lista-bolsas\.js\?v=20260924-b10-reintento-foco-v1/);
+  assert.match(listas, /lista-bolsas-api\.js\?v=20260930-codexe-publico-v2-v1/);
+  assert.match(listas, /lista-bolsas\.js\?v=20260930-codexe-publico-v2-v1/);
   assert.doesNotMatch(listas, /listas\.css\?v=20260924-bolsa-ayuda-v3|lista-bolsas\.js\?v=20260924-(?:bolsa-ayuda-v3|bolsa-publica-final)/);
-  assert.match(html, /bolsa\.js\?v=20260930-publico-v2-v2/);
+  assert.match(html, /contrato-v2\.js\?v=20260930-codexe-publico-v2-v1/);
+  assert.match(html, /bolsa\.js\?v=20260930-codexe-publico-v2-v1/);
   assert.doesNotMatch(html, /bolsa\.js\?v=20260924-bolsa-i18n-v2/);
   assert.doesNotMatch(html, /bolsa\.js\?v=20260924-bolsa-publica-final/);
   assert.match(css, /--bolsa-bg:\s*var\(--portal-fondo, var\(--bg\)\)/);
