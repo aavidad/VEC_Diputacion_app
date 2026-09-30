@@ -74,7 +74,7 @@ $x$;
  AND d->>'recurso_ref' IS NOT DISTINCT FROM c->>'efecto_ref'
  AND d->>'contexto_recurso_huella_sha256' IS NOT DISTINCT FROM c->>'huella_efecto_sha256'
  AND d->'campos_permitidos' IS NOT DISTINCT FROM CASE c->>'operacion'
-       WHEN 'vec.catalogos.categorias.listar_habilitadas' THEN '["categorias","publicaciones"]'::jsonb
+       WHEN 'vec.catalogos.categorias.listar_habilitadas' THEN '["categorias","paginacion","publicaciones"]'::jsonb
        WHEN 'vec.catalogos.categorias.consultar_historica' THEN '["publicacion","entrada","control_actual"]'::jsonb
        ELSE '["uso"]'::jsonb END
  AND d->'obligaciones' IS NOT DISTINCT FROM '[]'::jsonb)
@@ -189,7 +189,7 @@ BEGIN
         recurso := p_material->>'catalogo_id';
         tipo := 'catalogo_configurable';
         campos := CASE WHEN p_accion='vec.catalogos.categorias.listar_habilitadas'
-            THEN '["categorias","publicaciones"]'::jsonb
+            THEN '["categorias","paginacion","publicaciones"]'::jsonb
             ELSE '["publicacion","entrada","control_actual"]'::jsonb END;
         ambitos := '{"ambitos":{"catalogo_id":"'||recurso||'","modulo_id":"'||(p_material->>'modulo_id')||'"},"atributos":{"material_sha256":"'||material_h||'"}}';
     END IF;
