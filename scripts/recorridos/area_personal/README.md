@@ -36,7 +36,9 @@ El guion fija el castellano, cambia el número de filas de preferencias y elige 
 
 La recuperación aquí es **recarga de navegador**. No acredita recuperación tras reiniciar aplicación o PostgreSQL, auditoría completa, entrega de correo, ni funciones administrativas de Aspirantes. Esas afirmaciones requieren un recorrido adicional en el clon, con inspección de historia y recibos. El guion comprueba ausencia de cookies, almacenamiento web, errores JavaScript, peticiones externas y desbordamiento horizontal en la vista final alcanzada. Intercepta cada respuesta sin seguir redirecciones y corta cualquier 3xx; la prueba focal demuestra que un 302 local hacia otro puerto no llega al destino. También intercepta WebSocket antes de conectar al servidor y descarta sus mensajes; una prueba comprueba que no hubo handshake en otro puerto.
 
-`--evidencias` crea una carpeta privada nueva fuera de Git, sin sobrescribir capturas anteriores. Guarda la vista final alcanzada a 1440 y 390 px, también cuando el recorrido se corta. La salida incluye método, ruta pública y estado HTTP de los endpoints del guion; omite parámetros, cuerpos y cabeceras. Las capturas contienen solo los datos sintéticos del clon y permanecen fuera de Git.
+`--evidencias` crea una carpeta privada nueva bajo un padre existente, propio y con permisos `0700`. Antes de abrir Chrome comprueba que ningún ancestro pertenezca a un repositorio Git, un worktree de cualquier proyecto o un repositorio bare. Rechaza rutas con enlaces o `..` y capturas existentes. Cada PNG se crea mediante el descriptor del directorio, con permisos `0600`, sin seguir enlaces ni sobrescribir archivos.
+
+Guarda la vista final alcanzada a 1440 y 390 px, también cuando el recorrido se corta. La salida incluye método, ruta pública y estado HTTP de los endpoints del guion; omite parámetros, cuerpos y cabeceras. Las capturas contienen solo los datos sintéticos del clon y permanecen fuera de Git.
 
 La ruta `?vista=llamamientos` presenta el título «Disponibilidad y llamamientos», según el catálogo castellano de este corte. El guion usa ese título y la sección propia de histórico para identificar Mi Bolsa.
 
@@ -46,4 +48,10 @@ Prueba focal sin servicios:
 
 ```bash
 python3 -m unittest discover -s scripts/recorridos/area_personal -p 'test_*.py'
+```
+
+Pruebas de precondiciones y guardia de archivos, sin Chrome ni red:
+
+```bash
+PYTHONPATH=scripts/recorridos/area_personal python3 -m unittest test_recorrer.Precondiciones test_recorrer.SalidasPrivadas
 ```

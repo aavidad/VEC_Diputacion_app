@@ -8,10 +8,12 @@ importar Playwright, abrir Chrome o conectar con el servidor.
 from __future__ import annotations
 
 import argparse
+import errno
 import hashlib
 import json
 import os
 import shutil
+import stat
 import subprocess
 import sys
 from pathlib import Path
@@ -82,20 +84,88 @@ def sha256_archivo(ruta: Path) -> str:
     return resumen.hexdigest()
 
 
-def preparar_evidencias(ruta: Path) -> Path:
-    if dentro_git(ruta, raices_git()):
-        raise NoEjecutado("evidencias: se exige una carpeta nueva fuera de Git")
+def abrir_directorio_privado(ruta: Path) -> int:
+    """Abre el padre sin seguir enlaces ni aceptar repositorios o worktrees."""
+    ruta = Path(ruta)
+    if ".." in ruta.parts or not ruta.name:
+        raise OSError(errno.EPERM, "ruta privada no válida")
+    absoluta = ruta if ruta.is_absolute() else Path.cwd() / ruta
+    descriptor = os.open(absoluta.anchor, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
     try:
-        ruta.mkdir(mode=0o700, parents=True, exist_ok=False)
+        for componente in (*absoluta.parent.parts[1:], None):
+            try:
+                os.stat(".git", dir_fd=descriptor, follow_symlinks=False)
+            except FileNotFoundError:
+                pass
+            else:
+                raise OSError(errno.EPERM, "no se guardan artefactos dentro de Git")
+            try:
+                cabecera = os.stat("HEAD", dir_fd=descriptor, follow_symlinks=False)
+                objetos = os.stat("objects", dir_fd=descriptor, follow_symlinks=False)
+                configuracion = os.stat("config", dir_fd=descriptor, follow_symlinks=False)
+            except FileNotFoundError:
+                pass
+            else:
+                if stat.S_ISREG(cabecera.st_mode) and stat.S_ISDIR(objetos.st_mode) \
+                        and stat.S_ISREG(configuracion.st_mode):
+                    raise OSError(errno.EPERM, "no se guardan artefactos dentro de Git bare")
+            if componente is not None:
+                siguiente = os.open(componente, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+                                    dir_fd=descriptor)
+                os.close(descriptor)
+                descriptor = siguiente
+        padre = os.fstat(descriptor)
+        if padre.st_uid != os.getuid() or stat.S_IMODE(padre.st_mode) != 0o700:
+            raise OSError(errno.EPERM, "el directorio de salida debe ser propio y 0700")
+        return descriptor
+    except BaseException:
+        os.close(descriptor)
+        raise
+
+
+def preparar_evidencias(ruta: Path) -> Path:
+    directorio = None
+    try:
+        directorio = abrir_directorio_privado(ruta)
+        os.mkdir(ruta.name, mode=0o700, dir_fd=directorio)
+        absoluta = ruta if ruta.is_absolute() else Path.cwd() / ruta
+        validar_capturas(absoluta)
+        return absoluta
     except OSError:
-        raise NoEjecutado("evidencias: no se puede crear una carpeta nueva privada") from None
-    return ruta.resolve()
+        raise NoEjecutado("evidencias: se exige una carpeta nueva fuera de Git, sin enlaces y con padre propio 0700") from None
+    finally:
+        if directorio is not None:
+            os.close(directorio)
+
+
+def validar_capturas(evidencias: Path) -> None:
+    for ancho in (1440, 390):
+        directorio = None
+        try:
+            ruta = evidencias / f"area-personal-{ancho}.png"
+            directorio = abrir_directorio_privado(ruta)
+            try:
+                os.stat(ruta.name, dir_fd=directorio, follow_symlinks=False)
+            except FileNotFoundError:
+                pass
+            else:
+                raise OSError(errno.EEXIST, "no se sobrescribe una captura existente")
+        except OSError:
+            raise NoEjecutado("evidencias: capturas ocupadas o directorio sin garantías privadas") from None
+        finally:
+            if directorio is not None:
+                os.close(directorio)
 
 
 def guardar_captura(ruta: Path, contenido: bytes) -> None:
-    descriptor = os.open(ruta, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
-    with os.fdopen(descriptor, "wb") as fichero:
-        fichero.write(contenido)
+    directorio = abrir_directorio_privado(ruta)
+    try:
+        descriptor = os.open(ruta.name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                             0o600, dir_fd=directorio)
+        with os.fdopen(descriptor, "wb") as fichero:
+            fichero.write(contenido)
+    finally:
+        os.close(directorio)
 
 
 def preparar(origen: str, acta: Path, certificado: Path, clave: Path) -> tuple[str, Path]:
@@ -228,6 +298,8 @@ def comprobar_pagina(pagina, contexto, errores_js: list[str], respuestas_externa
 
 def ejecutar(origen: str, chrome: Path, certificado: Path, clave: Path,
              evidencias: Path | None = None) -> dict:
+    if evidencias is not None:
+        validar_capturas(evidencias)
     from playwright.sync_api import sync_playwright
 
     resultado = {"estado": "CORTE", "pasos": [], "primer_corte": None, "http": []}
@@ -383,6 +455,9 @@ def main() -> int:
         resultado = ejecutar(origen, chrome, args.certificado, args.clave, evidencias)
         print(json.dumps(resultado, ensure_ascii=False, sort_keys=True))
         return 0 if resultado["estado"] == "COMPLETO_CON_LIMITES" else 1
+    except NoEjecutado as error:
+        print(json.dumps({"estado": "NO EJECUTADO", "motivo": str(error)}, ensure_ascii=False))
+        return 2
     except Exception:
         # No incluir excepciones de Playwright: pueden contener URL, cabeceras o datos.
         print(json.dumps({"estado": "CORTE", "primer_corte": {"paso": "runtime", "motivo": "fallo no clasificado; revisar en entorno aislado"}}, ensure_ascii=False))

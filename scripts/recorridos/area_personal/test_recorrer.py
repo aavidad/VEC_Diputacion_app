@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import shutil
 import subprocess
 import tempfile
@@ -13,7 +14,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from unittest.mock import patch
 
-from recorrer import NoEjecutado, RAIZ_REPO, bloquear_websocket, dentro_git, filtrar_red, guardar_captura, preparar, preparar_evidencias, raices_git
+from recorrer import NoEjecutado, RAIZ_REPO, bloquear_websocket, dentro_git, ejecutar, filtrar_red, guardar_captura, preparar, preparar_evidencias, raices_git, validar_capturas
 
 
 class Precondiciones(unittest.TestCase):
@@ -119,6 +120,105 @@ class Precondiciones(unittest.TestCase):
         with self.assertRaises(FileExistsError):
             guardar_captura(ruta, b"otro contenido")
         self.assertEqual(ruta.read_bytes(), b"captura sintetica")
+
+
+class SalidasPrivadas(unittest.TestCase):
+    """Fixtures de sistema de archivos; no importan Playwright ni abren red."""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.raiz = Path(self.temp.name)
+
+    def directorio(self, nombre):
+        ruta = self.raiz / nombre
+        ruta.mkdir(mode=0o700)
+        return ruta
+
+    def test_otro_repositorio_y_worktree_se_rechazan_antes_de_chrome(self):
+        for clase in ("repositorio", "worktree"):
+            with self.subTest(clase=clase):
+                raiz = self.directorio(clase)
+                if clase == "repositorio":
+                    (raiz / ".git").mkdir()
+                else:
+                    (raiz / ".git").write_text("gitdir: /referencia-sintetica/worktrees/otro\n")
+                padre = raiz / "privado"
+                padre.mkdir(mode=0o700)
+                with self.assertRaises(NoEjecutado):
+                    preparar_evidencias(padre / "capturas")
+                self.assertFalse((padre / "capturas").exists())
+                with patch("builtins.__import__") as importar:
+                    with self.assertRaises(NoEjecutado):
+                        ejecutar("https://127.0.0.1:18531", Path("chrome"),
+                                 Path("cert"), Path("clave"), padre)
+                    importar.assert_not_called()
+
+    def test_bare_y_enlace_git_se_rechazan(self):
+        bare = self.directorio("bare")
+        (bare / "HEAD").write_text("ref: refs/heads/main\n")
+        (bare / "objects").mkdir()
+        (bare / "config").write_text("[core]\n bare = true\n")
+        with self.assertRaises(NoEjecutado):
+            preparar_evidencias(bare / "capturas")
+        repo = self.directorio("git-enlace")
+        (repo / ".git").symlink_to(self.raiz / "git-ausente")
+        with self.assertRaises(NoEjecutado):
+            preparar_evidencias(repo / "capturas")
+
+    def test_ancestro_enlazado_y_ruta_con_subida_se_rechazan(self):
+        padre = self.directorio("privado")
+        enlace = self.raiz / "enlace"
+        enlace.symlink_to(padre, target_is_directory=True)
+        with self.assertRaises(NoEjecutado):
+            preparar_evidencias(enlace / "capturas")
+        with self.assertRaises(NoEjecutado):
+            preparar_evidencias(padre / ".." / "capturas")
+        with self.assertRaises(OSError):
+            guardar_captura(enlace / "archivo.png", b"sintetico")
+        self.assertFalse((padre / "archivo.png").exists())
+
+    def test_padre_abierto_o_ajeno_se_rechaza(self):
+        padre = self.directorio("abierto")
+        padre.chmod(0o755)
+        with self.assertRaises(NoEjecutado):
+            preparar_evidencias(padre / "capturas")
+        with self.assertRaises(OSError):
+            guardar_captura(padre / "archivo.png", b"sintetico")
+        padre.chmod(0o700)
+        with patch("recorrer.os.getuid", return_value=os.getuid() + 1):
+            with self.assertRaises(NoEjecutado):
+                preparar_evidencias(padre / "capturas")
+
+    def test_enlace_y_hardlink_de_captura_no_se_sobrescriben(self):
+        contenido = self.raiz / "original.png"
+        contenido.write_bytes(b"original sintetico")
+        for clase in ("symlink", "hardlink"):
+            with self.subTest(clase=clase):
+                padre = self.directorio(clase)
+                ruta = padre / "area-personal-1440.png"
+                if clase == "symlink":
+                    ruta.symlink_to(contenido)
+                else:
+                    os.link(contenido, ruta)
+                with self.assertRaises(NoEjecutado):
+                    validar_capturas(padre)
+                with self.assertRaises(FileExistsError):
+                    guardar_captura(ruta, b"otro contenido")
+                self.assertEqual(contenido.read_bytes(), b"original sintetico")
+
+    def test_exterior_privado_admite_dos_capturas_y_no_sobrescribe(self):
+        carpeta = preparar_evidencias(self.raiz / "capturas")
+        self.assertEqual(carpeta.stat().st_mode & 0o777, 0o700)
+        validar_capturas(carpeta)
+        for ancho in (1440, 390):
+            ruta = carpeta / f"area-personal-{ancho}.png"
+            guardar_captura(ruta, b"captura sintetica")
+            self.assertEqual(ruta.stat().st_mode & 0o777, 0o600)
+            self.assertEqual(ruta.stat().st_nlink, 1)
+            with self.assertRaises(FileExistsError):
+                guardar_captura(ruta, b"otro contenido")
+            self.assertEqual(ruta.read_bytes(), b"captura sintetica")
 
 
 class Redirecciones(unittest.TestCase):
