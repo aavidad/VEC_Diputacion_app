@@ -1,0 +1,32 @@
+rules:
+  - id: vec-rpt-fixture-tls-sin-verificacion
+    languages: [go]
+    severity: ERROR
+    message: El fixture debe conservar la verificación TLS.
+    pattern: 'tls.Config{..., InsecureSkipVerify: true, ...}'
+  - id: vec-rpt-fixture-sql-interpolado
+    languages: [go]
+    severity: ERROR
+    message: Las entradas SQL deben usar parámetros.
+    pattern-either:
+      - pattern: '$POOL.Exec($CTX, fmt.Sprintf(...), ...)'
+      - pattern: '$POOL.QueryRow($CTX, fmt.Sprintf(...), ...)'
+  - id: vec-rpt-fixture-clave-nueva
+    languages: [go]
+    severity: ERROR
+    message: El fixture debe usar el proveedor gobernado de material.
+    pattern-either:
+      - pattern: 'ed25519.GenerateKey(...)'
+      - pattern: 'ed25519.NewKeyFromSeed(...)'
+      - pattern: 'rsa.GenerateKey(...)'
+      - pattern: 'x509.CreateCertificate(...)'
+  - id: vec-rpt-fixture-gobierno-sin-guarda
+    languages: [go]
+    severity: ERROR
+    message: El fixture debe llamar al publicador completo de gobierno.
+    pattern: 'publicarGobiernoAtestacionCTEnTxDesarrollo(...)'
+  - id: vec-rpt-fixture-provision-ct
+    languages: [go]
+    severity: ERROR
+    message: La provisión RPT debe conservar sus actos propios.
+    pattern: 'asegurarPerfilFijoCTDesarrollo(...)'

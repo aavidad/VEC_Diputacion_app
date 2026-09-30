@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "estado": "pendiente_composicion_revisada",
+  "destino": {
+    "host": "127.0.0.1",
+    "puerto": null,
+    "clon_ref": null,
+    "clon_huella_sha256": null,
+    "ready_h6_ref": null,
+    "ready_ad3_132_ref": null,
+    "ready_seis_rpt_ref": null
+  },
+  "consumidor": "contratacion_temporal",
+  "familia_login": "vec_contratacion_temporal_ejecutor",
+  "perfil_fijo": "usos_categorias",
+  "audiencia_consumo": "vec_catalogos_configurables.usos_categorias.v1",
+  "identidad_sintetica_ref": null,
+  "material_privado_ref": null,
+  "aprobacion_ref": null,
+  "asignacion_preimagen_sha256": null,
+  "descriptor": {
+    "catalogo_id": null,
+    "modulo_id": null
+  },
+  "categoria_id": null,
+  "publicacion": {
+    "catalogo_id": null,
+    "version": null,
+    "huella_sha256": null
+  },
+  "confirmacion": {
+    "uso_ref": "fixture:rpt:usos:confirmacion:v1",
+    "reserva_recibo_ref": "fixture:rpt:recibo:reserva-confirmacion:v1",
+    "terminal_recibo_ref": "fixture:rpt:recibo:confirmacion:v1",
+    "entrada_ensayo_ref": null,
+    "entrada_ensayo_sha256": null
+  },
+  "cancelacion": {
+    "uso_ref": "fixture:rpt:usos:cancelacion:v1",
+    "reserva_recibo_ref": "fixture:rpt:recibo:reserva-cancelacion:v1",
+    "terminal_recibo_ref": "fixture:rpt:recibo:cancelacion:v1",
+    "entrada_ensayo_ref": null,
+    "entrada_ensayo_sha256": null
+  }
+}
