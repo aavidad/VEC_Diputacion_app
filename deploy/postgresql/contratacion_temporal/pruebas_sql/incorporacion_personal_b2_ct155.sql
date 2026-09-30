@@ -18,6 +18,8 @@ BEGIN
  END LOOP;
  FOR f IN SELECT p.oid,p.proname,p.prosecdef,p.proconfig FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='vec_contratacion_temporal' AND (p.proname LIKE '%ct155' OR p.proname IN ('registrar_plan_nominal_b2_v1','leer_plan_nominal_b2_v1','confirmar_origen_incorporacion_b2_v1','leer_origen_incorporacion_b2_v1','leer_antecedentes_plan_b2_v1')) LOOP
  IF EXISTS(SELECT 1 FROM pg_proc p,LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) x WHERE p.oid=f.oid AND x.grantee=0) THEN RAISE EXCEPTION 'CT155: EXECUTE PUBLIC: %',f.proname;END IF;
+	 IF f.prosecdef AND f.proconfig IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','row_security=on']
+	 THEN RAISE EXCEPTION 'CT155: entorno SECURITY DEFINER incompatible: %',f.proname; END IF;
  IF f.proname LIKE '%ct155' AND has_function_privilege('vec_contratacion_temporal_ejecutor',f.oid,'EXECUTE') THEN RAISE EXCEPTION 'CT155: auxiliar alcanzable: %',f.proname;END IF;
  END LOOP;
  IF vec_contratacion_temporal.canon_plan_personal_ct155('{"z":9007199254740991,"a":{"z":"<&>","a":"fecha"}}'::jsonb) IS DISTINCT FROM '{"a":{"a":"fecha","z":"\u003c\u0026\u003e"},"z":9007199254740991}' THEN RAISE EXCEPTION 'CT155: codec Go/SQL divergente';END IF;

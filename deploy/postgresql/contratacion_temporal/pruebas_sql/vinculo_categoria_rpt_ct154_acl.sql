@@ -13,9 +13,20 @@ DECLARE
  b bytea:=convert_to('{}','UTF8');
  d bytea:=convert_to('{"principal_id":"actor:ensayo","perfil_activo_ref":"perfil:ensayo"}','UTF8');
  drpt bytea:=convert_to('{"principal_id":"actor:ensayo","perfil_activo_ref":"perfil:rpt:ensayo"}','UTF8');
- mensaje text;
+	 mensaje text; fachada regprocedure; entorno text[];
 BEGIN
- IF has_table_privilege(current_user,'vec_contratacion_temporal.vinculo_categoria_rpt_ct_v1','SELECT')
+	 FOREACH fachada IN ARRAY ARRAY[
+	  'vec_contratacion_temporal.anclaje_vinculo_categoria_rpt_ct154(text,text)'::regprocedure,
+	  'vec_contratacion_temporal.consultar_vinculo_categoria_rpt_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure,
+	  'vec_contratacion_temporal.registrar_vinculo_categoria_rpt_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure] LOOP
+	  SELECT proconfig INTO STRICT entorno FROM pg_proc WHERE oid=fachada;
+	  IF entorno IS DISTINCT FROM CASE
+	    WHEN fachada='vec_contratacion_temporal.anclaje_vinculo_categoria_rpt_ct154(text,text)'::regprocedure
+	    THEN ARRAY['search_path=pg_catalog, pg_temp','row_security=on']
+	    ELSE ARRAY['search_path=pg_catalog, pg_temp','row_security=on','timezone=UTC','lock_timeout=2s'] END
+	  THEN RAISE EXCEPTION 'CT154: search_path inseguro: %',fachada; END IF;
+	 END LOOP;
+	 IF has_table_privilege(current_user,'vec_contratacion_temporal.vinculo_categoria_rpt_ct_v1','SELECT')
     OR has_table_privilege(current_user,'vec_contratacion_temporal.vinculo_categoria_rpt_ct_v1','INSERT')
     OR NOT has_function_privilege(current_user,
       'vec_contratacion_temporal.consultar_vinculo_categoria_rpt_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')

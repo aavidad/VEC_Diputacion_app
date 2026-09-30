@@ -113,7 +113,7 @@ CREATE FUNCTION vec_contratacion_temporal.anclaje_vinculo_categoria_rpt_ct154(
  p_organizacion_ref text,p_expediente_ref text)
 RETURNS TABLE(version_expediente numeric,analisis_version numeric,analisis_recibo_ref text,
  analisis_huella_sha256 text,categoria_ref text)
-LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog SET row_security='on' AS $f$
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog, pg_temp SET row_security='on' AS $f$
  SELECT a.version,v.version,r.recibo_ref,
         vec_contratacion_temporal.huella_analisis_derivado_v2(v.agregado_json->'analisis'),
         v.agregado_json#>>'{analisis,categoria_ref}'
@@ -152,7 +152,7 @@ CREATE FUNCTION vec_contratacion_temporal.consultar_vinculo_categoria_rpt_v1(
  p_material text,p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,
  p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea)
 RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER
-SET search_path=pg_catalog SET row_security='on' SET timezone='UTC' SET lock_timeout='2s' AS $f$
+SET search_path=pg_catalog, pg_temp SET row_security='on' SET timezone='UTC' SET lock_timeout='2s' AS $f$
 DECLARE s jsonb; a record; v record; consumo record;
 BEGIN
  IF current_user<>'vec_contratacion_temporal_propietario' OR session_user=current_user
@@ -204,7 +204,7 @@ CREATE FUNCTION vec_contratacion_temporal.registrar_vinculo_categoria_rpt_v1(
  p_rpt_capacidad bytea,p_rpt_decision bytea,p_rpt_motivo bytea,p_rpt_contexto bytea,
  p_rpt_persona_version numeric,p_rpt_perfil_version numeric,p_rpt_payload bytea,p_rpt_sobre bytea,p_rpt_evidencia bytea,p_rpt_raiz bytea)
 RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER
-SET search_path=pg_catalog SET row_security='on' SET timezone='UTC' SET lock_timeout='2s' AS $f$
+SET search_path=pg_catalog, pg_temp SET row_security='on' SET timezone='UTC' SET lock_timeout='2s' AS $f$
 DECLARE s jsonb; d jsonb; rd jsonb; ct record; rpt jsonb; anterior record; previa record; a record;
  rpt_material jsonb; recibo jsonb; vinculo jsonb; recibo_ref text; instante timestamptz(6);
  material_h text; revision_nueva bigint; version_esperada numeric; analisis_version numeric;

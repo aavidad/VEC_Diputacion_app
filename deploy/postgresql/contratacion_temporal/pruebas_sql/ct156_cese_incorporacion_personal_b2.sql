@@ -19,7 +19,7 @@ GRANT vec_bolsa_llamamientos_ejecutor TO vec_ct156_ajeno_prueba;
 CREATE SCHEMA prueba_ct156 AUTHORIZATION vec_bolsa_llamamientos_propietario;
 SET LOCAL ROLE vec_bolsa_llamamientos_propietario;
 CREATE FUNCTION prueba_ct156.verificar(origen text,huella text,posicion bigint) RETURNS jsonb
-LANGUAGE sql VOLATILE SECURITY DEFINER SET search_path=pg_catalog AS $$
+LANGUAGE sql VOLATILE SECURITY DEFINER SET search_path=pg_catalog, pg_temp AS $$
  SELECT to_jsonb(v) FROM vec_contratacion_temporal.verificar_cese_publicado_bolsa_v1(origen,huella,posicion) v
 $$;
 REVOKE ALL ON FUNCTION prueba_ct156.verificar(text,text,bigint) FROM PUBLIC;
@@ -120,5 +120,6 @@ SET SESSION AUTHORIZATION vec_ct156_ajeno_prueba;
 SELECT pg_temp.exigir_ct156(NOT EXISTS(SELECT 1 FROM ct156_ceses f WHERE prueba_ct156.verificar(f.origen_ref,f.huella_sha256,f.origen_posicion) IS NOT NULL),'runtime Bolsa ajeno denegado');
 RESET SESSION AUTHORIZATION;
 SELECT pg_temp.exigir_ct156(NOT has_function_privilege('public','vec_contratacion_temporal.origen_publicacion_bolsa_ct156(text,text,text,text)','EXECUTE') AND NOT has_function_privilege('vec_contratacion_temporal_ejecutor','vec_contratacion_temporal.origen_publicacion_bolsa_ct156(text,text,text,text)','EXECUTE'),'auxiliar cerrado');
+SELECT pg_temp.exigir_ct156((SELECT proconfig FROM pg_proc WHERE oid='prueba_ct156.verificar(text,text,bigint)'::regprocedure) IS NOT DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp'],'helper SECURITY DEFINER con entorno fijo');
 ROLLBACK;
 SELECT 'CT156 OK';

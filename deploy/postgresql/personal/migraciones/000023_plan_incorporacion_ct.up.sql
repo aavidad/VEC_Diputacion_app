@@ -391,7 +391,7 @@ CREATE FUNCTION vec_personal.plan_incorporacion_ct_v1(
  p_material text,p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,
  p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea
 ) RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER
- SET search_path=pg_catalog SET row_security=on SET timezone='UTC' SET lock_timeout='2s' SET statement_timeout='30s' AS $f$
+ SET search_path=pg_catalog, pg_temp SET row_security=on SET timezone='UTC' SET lock_timeout='2s' SET statement_timeout='30s' AS $f$
 DECLARE m jsonb; c jsonb; d jsonb; x jsonb; a jsonb; datos jsonb; seleccion jsonb; op text; selector text; org text;
  datos_raw text; actor_raw text; canon text; sha text; recurso text; recurso_sha text; clave uuid;
  p vec_personal.plan_incorporacion_ct%ROWTYPE; v_consumo record; catalogo vec_personal.clases_ocupacion_plan_ct_catalogo%ROWTYPE; est jsonb; evidencia jsonb;
@@ -618,7 +618,7 @@ CREATE FUNCTION vec_personal.registrar_acto_plan_incorporacion_ct_v1(
  p_operacion text,p_material text,p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,
  p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea
 ) RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER
- SET search_path=pg_catalog SET row_security=on SET timezone='UTC' SET lock_timeout='2s' SET statement_timeout='30s' AS $f$
+ SET search_path=pg_catalog, pg_temp SET row_security=on SET timezone='UTC' SET lock_timeout='2s' SET statement_timeout='30s' AS $f$
 DECLARE m jsonb; clave uuid; n bigint; p vec_personal.plan_incorporacion_ct%ROWTYPE;
  resultado jsonb; estado jsonb; seleccion jsonb; k text; esperado jsonb;
 BEGIN
@@ -686,7 +686,7 @@ GRANT EXECUTE ON FUNCTION vec_personal.registrar_acto_plan_incorporacion_ct_v1(t
 CREATE FUNCTION vec_personal.probar_origen_incorporacion_plan_v1(
  p_org text,p_exp text,p_ct_plan_ref text,p_ct_plan_version bigint,p_ct_sha text,p_hechos jsonb
 ) RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER
- SET search_path=pg_catalog SET row_security=on SET lock_timeout='2s' AS $f$
+ SET search_path=pg_catalog, pg_temp SET row_security=on SET lock_timeout='2s' AS $f$
 DECLARE p vec_personal.plan_incorporacion_ct%ROWTYPE; est jsonb; a jsonb; o jsonb;
 BEGIN
  IF current_user<>'vec_personal_propietario' OR session_user=current_user

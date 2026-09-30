@@ -41,7 +41,7 @@ CREATE OR REPLACE FUNCTION vec_autorizacion_atestada_v3.consumir_decision_mutaci
  p_perfil_mutacion text,p_capacidad_canonica bytea,p_decision_canonica bytea,p_motivo_canonico bytea,p_contexto_actor_canonico bytea,
  p_persona_version numeric,p_perfil_version numeric,p_payload_vec_ad_3 bytea,p_sobre_cose_sign1 bytea,p_evidencia_verificacion bytea,p_raiz_publica_spki bytea)
 RETURNS TABLE(decision_ref text,efecto_ref text,huella_efecto_sha256 text,consumo_huella_sha256 text,auditoria_ref text,consumida_en timestamptz,consumo_nuevo boolean)
-LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET lock_timeout='2s' AS $stub$
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog, pg_temp SET lock_timeout='2s' AS $stub$
 DECLARE c jsonb:=convert_from(p_capacidad_canonica,'UTF8')::jsonb; nueva boolean; a text:='auditoria-prueba:'||md5(p_capacidad_canonica::text);
 BEGIN
  IF p_perfil_mutacion IS DISTINCT FROM 'consulta_persona_aceptacion_ct_bolsa' THEN RAISE EXCEPTION 'perfil de prueba incorrecto'; END IF;
@@ -52,7 +52,7 @@ END $stub$;
 RESET ROLE;
 SET LOCAL ROLE vec_contexto_actor_v1_propietario;
 CREATE OR REPLACE FUNCTION vec_contexto_actor_v1.acreditar_persona_candidato_incorporacion_v1(p_candidato_ref text)
-RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog AS $stub$
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog, pg_temp AS $stub$
 BEGIN
  IF current_setting('prueba_b67.ctx_estado',true)='pendiente' THEN RETURN jsonb_build_object('estado','pendiente','persona',NULL,'vinculo',NULL); END IF;
  RETURN jsonb_build_object('estado','acreditado','persona',jsonb_build_object('ref','per_'||repeat('a',22),'version',1),

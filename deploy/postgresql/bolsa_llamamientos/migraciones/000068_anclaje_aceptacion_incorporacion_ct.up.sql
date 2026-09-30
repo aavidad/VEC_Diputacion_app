@@ -28,7 +28,7 @@ CREATE FUNCTION vec_bolsa_llamamientos.consultar_anclaje_aceptacion_ct_v1(
  p_material text,p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,
  p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea)
 RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
-SET search_path=pg_catalog SET row_security='on' SET timezone='UTC' SET lock_timeout='2s' AS $f$
+SET search_path=pg_catalog, pg_temp SET row_security='on' SET timezone='UTC' SET lock_timeout='2s' AS $f$
 DECLARE
  s jsonb; c jsonb; d jsonb; h text; material_hash text; canon text; consumo record;
  terminal record; apertura record; llamamiento record; t jsonb; a jsonb; i jsonb; p jsonb;
@@ -200,7 +200,7 @@ BEGIN
     OR (SELECT prosecdef FROM pg_proc WHERE oid=f) IS NOT TRUE
     OR (SELECT array_agg(lower(split_part(k,'=',1))||'='||substr(k,strpos(k,'=')+1) ORDER BY n)
         FROM pg_proc p CROSS JOIN LATERAL unnest(p.proconfig) WITH ORDINALITY cfg(k,n) WHERE p.oid=f)
-       IS DISTINCT FROM ARRAY['search_path=pg_catalog','row_security=on','timezone=UTC','lock_timeout=2s']
+       IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','row_security=on','timezone=UTC','lock_timeout=2s']
  THEN RAISE EXCEPTION 'B68: propietario o entorno incompatible' USING ERRCODE='55000'; END IF;
  FOR x IN SELECT a.grantee,a.privilege_type,a.is_grantable,p.proowner FROM pg_proc p
   CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a WHERE p.oid=f LOOP
