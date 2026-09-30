@@ -483,6 +483,7 @@ def read_runtime_descriptor(state):
         'identidad/usuarios-preferencias-interna.json', 'mtls/solicitante.crt', 'mtls/ratificador.crt',
         'identidad/solicitante.json', 'identidad/ratificador.json', 'identidad/centros.json',
         'identidad/consultas-rrhh.json', 'identidad/bolsa-bback.json', 'identidad/documentos.json',
+        'catalogos/organizacion-publica.json', 'catalogos/rpt-publica.json',
     }
     generated = {'runtime-config.json', 'runtime.env', 'material/portal-proceso.json', 'material/desarrollo.env'}
     if (not positive or set(positive) - material_names
@@ -497,10 +498,28 @@ def read_runtime_descriptor(state):
                 or evidence.get('unchanged') is not (digest(original) == digest(projected))):
             fail('El material interno no acredita su copia del origen sellado.')
     contracts = proof.get('contracts', {})
-    approved_contracts = projection_module().APPROVED_CONTRACTS
+    projection = projection_module()
+    approved_contracts = projection.APPROVED_CONTRACTS
     source = confined(state / ('source-' + descriptor['source_commit']), state, directory=True)
     if contracts != approved_contracts or any(digest(confined(source / path, source)) != value for path, value in approved_contracts.items()):
         fail('La proyección no corresponde a los contratos de la fuente fijada.')
+    public_names = {'catalogos/organizacion-publica.json', 'catalogos/rpt-publica.json'}
+    present_public = set(positive) & public_names
+    public_selectors = {'VEC_PERSONAL_ORGANIZACION_SOURCE_PATH': 'catalogos/organizacion-publica.json',
+                        'VEC_RPT_CATALOGO_PATH': 'catalogos/rpt-publica.json'}
+    projected_config = json.loads(paths['config'].read_text())
+    if present_public or any(projected_config.get(key) for key in public_selectors):
+        approved_public = getattr(projection, 'APPROVED_PUBLIC_SOURCES', {})
+        if (present_public != public_names or set(approved_public) != public_names
+                or any(projected_config.get(key) != str(paths['material'] / name) for key, name in public_selectors.items())):
+            fail('La proyección necesita las dos fuentes públicas aprobadas completas.')
+        for name, evidence in approved_public.items():
+            expected_sha = evidence['sha256']
+            if (digest(confined(source / evidence['source_path'], source)) != expected_sha
+                    or positive[name].get('source_sha256') != expected_sha
+                    or positive[name].get('projected_sha256') != expected_sha
+                    or positive[name].get('unchanged') is not True):
+                fail('Una fuente pública de la proyección difiere de su copia Git aprobada.')
     actual = set()
     for path in root.rglob('*'):
         if (root / 'rw') in path.parents or path == root / 'rw':

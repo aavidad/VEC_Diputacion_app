@@ -412,6 +412,62 @@ class RuntimeTests(unittest.TestCase):
         with self.assertRaises(runtime.RuntimeErrorLocal):
             runtime.read_runtime_descriptor(self.root)
 
+    def test_public_catalogs_require_canonical_bytes_and_exact_projected_selectors(self):
+        from types import SimpleNamespace
+        root, values, top, sealed = self.projection_fixture()
+        public = {
+            'catalogos/organizacion-publica.json': {
+                'source_path': 'data/catalogos/estructura-organizativa/v1.rpt-publica.json',
+                'sha256': '0e52d878526d6a5e7ee4ab6f525ef92a70144aef665f0b031fca6051564e054c'},
+            'catalogos/rpt-publica.json': {
+                'source_path': 'data/catalogos/rpt/v1.rpt-2026.json',
+                'sha256': 'b0685beb5c02b8a30d5e0d6d3d9bceca11ddf76ad4987f4bcb1aa60ac7ebe9a8'},
+        }
+        source = self.root / ('source-' + 'a' * 40)
+        for name, evidence in public.items():
+            data = (Path(__file__).resolve().parents[2] / evidence['source_path']).read_bytes()
+            self.assertEqual(hashlib.sha256(data).hexdigest(), evidence['sha256'])
+            for path in [self.material / name, root / 'material' / name, source / evidence['source_path']]:
+                path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+                path.write_bytes(data)
+                path.chmod(0o600)
+            top['files']['material/' + name] = evidence['sha256']
+            sealed['files']['material/' + name] = evidence['sha256']
+            sealed['source_proof']['positive_files'][name] = {'source_sha256': evidence['sha256'], 'projected_sha256': evidence['sha256'], 'unchanged': True}
+        selectors = {'VEC_PERSONAL_ORGANIZACION_SOURCE_PATH': 'catalogos/organizacion-publica.json', 'VEC_RPT_CATALOGO_PATH': 'catalogos/rpt-publica.json'}
+        self.values.update({key: str(self.material / name) for key, name in selectors.items()})
+        self.save()
+        values.update({key: str(root / 'material' / name) for key, name in selectors.items()})
+        def seal():
+            runtime.write_json(root / 'runtime-config.json', values)
+            sealed['files']['runtime-config.json'] = runtime.digest(root / 'runtime-config.json')
+            sealed['source_proof']['operator_env_sha256'] = runtime.digest(self.config)
+            parent = {key: value for key, value in top.items() if key != 'runtime_interno'}
+            sealed['source_proof']['operator_manifest_sha256'] = hashlib.sha256(json.dumps(parent, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+            runtime.write_json(root / 'material-manifest.json', sealed)
+            top['runtime_interno']['manifest_sha256'] = runtime.digest(root / 'material-manifest.json')
+            runtime.write_json(self.root / 'material-manifest.json', top)
+        projection = SimpleNamespace(APPROVED_CONTRACTS=runtime.projection_module().APPROVED_CONTRACTS, APPROVED_PUBLIC_SOURCES=public)
+        seal()
+        with patch.object(runtime, 'projection_module', return_value=projection):
+            self.assertEqual(runtime.read_runtime_descriptor(self.root)['root'], str(root))
+            original = values['VEC_RPT_CATALOGO_PATH']
+            values['VEC_RPT_CATALOGO_PATH'] = str(root / 'material/identidad/identidad.json')
+            seal()
+            with self.assertRaisesRegex(runtime.RuntimeErrorLocal, 'fuentes públicas aprobadas completas'):
+                runtime.read_runtime_descriptor(self.root)
+            values['VEC_RPT_CATALOGO_PATH'] = original
+            name = 'catalogos/rpt-publica.json'
+            for path in [self.material / name, root / 'material' / name]:
+                path.write_bytes(path.read_bytes() + b'\n')
+            altered = runtime.digest(self.material / name)
+            top['files']['material/' + name] = altered
+            sealed['files']['material/' + name] = altered
+            sealed['source_proof']['positive_files'][name] = {'source_sha256': altered, 'projected_sha256': altered, 'unchanged': True}
+            seal()
+            with self.assertRaisesRegex(runtime.RuntimeErrorLocal, 'copia Git aprobada'):
+                runtime.read_runtime_descriptor(self.root)
+
     def test_future_data_rejects_foreign_paths_symlinks_and_missing_ro_file(self):
         root, values, _, _ = self.projection_fixture()
         for name, value in [('VEC_PERSONAL_CATALOG_PATH', str(self.root / 'offline.json')),
@@ -449,7 +505,9 @@ class RuntimeTests(unittest.TestCase):
         git_home.mkdir(mode=0o700)
         git_env = {'PATH': '/usr/bin:/bin', 'HOME': str(git_home), 'GIT_CONFIG_NOSYSTEM': '1',
                    'GIT_CONFIG_GLOBAL': '/dev/null', 'GIT_CONFIG_SYSTEM': '/dev/null'}
-        for name in projection.APPROVED_CONTRACTS:
+        public_sources = getattr(projection, 'APPROVED_PUBLIC_SOURCES', {})
+        source_paths = set(projection.APPROVED_CONTRACTS) | {entry['source_path'] for entry in public_sources.values()}
+        for name in source_paths:
             path = repo / name
             path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
             path.write_bytes((Path(__file__).resolve().parents[2] / name).read_bytes())
@@ -461,7 +519,7 @@ class RuntimeTests(unittest.TestCase):
         git('-c', 'user.name=fixture', '-c', 'user.email=fixture@example.test', 'commit', '-qm', 'fixture contracts')
         commit = git('rev-parse', 'HEAD')
         source = self.root / ('source-' + commit)
-        for name in projection.APPROVED_CONTRACTS:
+        for name in source_paths:
             path = source / name
             path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
             path.write_bytes((repo / name).read_bytes())
@@ -476,6 +534,12 @@ class RuntimeTests(unittest.TestCase):
             else:
                 path.write_bytes(('synthetic fixture ' + name).encode())
                 path.chmod(0o600)
+        for name, evidence in public_sources.items():
+            path = self.material / name
+            path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+            path.write_bytes((repo / evidence['source_path']).read_bytes())
+            path.chmod(0o600)
+        self.values.update({key: str(self.material / name) for key, name in getattr(projection, 'PUBLIC_ENV_FILES', {}).items()})
         dsn = 'postgres://fixture:dummy@127.0.0.1:55531/postgres?' + urlencode({
             'sslmode': 'verify-full', 'sslrootcert': str(self.material / 'pg/ca.crt')})
         self.values.update(VEC_HTTP_ADDR='127.0.0.1:18531', VEC_BOLSA_IMPORTACION_CONVOCA_DATABASE_URL=dsn)
