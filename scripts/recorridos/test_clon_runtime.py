@@ -208,6 +208,7 @@ class RuntimeTests(unittest.TestCase):
         path = self.root / 'fixture-elf'
         header = bytearray(64)
         header[:6] = b'\x7fELF\x02\x01'
+        struct.pack_into('<H', header, 18, 62)
         struct.pack_into('<Q', header, 32, 64)
         struct.pack_into('<HH', header, 54, 56, 1)
         program = bytearray(56)
@@ -218,6 +219,126 @@ class RuntimeTests(unittest.TestCase):
         struct.pack_into('<Q', program, 32, 8)
         path.write_bytes(header + program + b'/loader\0')
         self.assertEqual(runtime.elf_interpreter(path), '/loader')
+
+    def artifact_fixture(self):
+        import struct
+        commit = 'a' * 40
+        source = self.root / ('source-' + commit)
+        source.mkdir()
+        (source / 'go.mod').write_text('module fixture\n')
+        snapshot = {'source_commit': commit, 'source_sha256': runtime.source_digest(source)}
+        runtime.write_json(self.root / ('source-manifest-' + commit + '.json'), snapshot)
+        header = bytearray(64)
+        header[:6] = b'\x7fELF\x02\x01'
+        struct.pack_into('<H', header, 18, 62)
+        struct.pack_into('<Q', header, 32, 64)
+        struct.pack_into('<HH', header, 54, 56, 1)
+        artifact = self.root / 'approved-artifact'
+        artifact.write_bytes(header + bytearray(56) + b'approved fixture bytes')
+        artifact.chmod(0o755)
+        go = self.root / 'go-inspector'
+        go.write_text('fixture tool, not executed')
+        info = {'GoVersion': 'go1.26.6', 'Main': {'Path': 'fixture'}, 'Path': 'fixture/cmd/vec-server',
+                'Settings': [{'Key': key, 'Value': value} for key, value in {
+                    'CGO_ENABLED': '0', 'GOOS': 'linux', 'GOARCH': 'amd64'}.items()]}
+        claim = {'path': artifact, 'sha256': runtime.digest(artifact), 'source_commit': commit}
+        return source, go, artifact, info, claim
+
+    def test_explicit_static_artifact_is_copied_exactly_without_compiling(self):
+        source, go, artifact, info, claim = self.artifact_fixture()
+        result = subprocess.CompletedProcess([], 0, json.dumps(info).encode(), b'')
+        with patch.object(runtime.subprocess, 'run', return_value=result) as inspect, patch.object(runtime, 'git', return_value='b' * 40):
+            extracted, binary, manifest = runtime.build(self.source, self.root, 'a' * 40, str(go), claim)
+        self.assertEqual(extracted, source)
+        self.assertEqual(binary.read_bytes(), artifact.read_bytes())
+        self.assertEqual(binary.stat().st_mode & 0o777, 0o755)
+        self.assertEqual(manifest['binary_sha256'], claim['sha256'])
+        self.assertEqual(manifest['build_mode'], 'artifact_direction')
+        self.assertEqual(manifest['artifact_direction']['source_commit'], 'a' * 40)
+        self.assertEqual(manifest['artifact_direction']['source_binding'], 'operator_declared_commit')
+        self.assertIsNone(manifest['build_command'])
+        inspect.assert_called_once()
+        self.assertEqual(inspect.call_args.args[0][1:4], ['version', '-m', '-json'])
+
+    def test_artifact_rejects_wrong_hash_source_links_and_foreign_owner_before_mutation(self):
+        _, go, artifact, _, claim = self.artifact_fixture()
+        for label, changed in [('sha', dict(claim, sha256='0' * 64)), ('source', dict(claim, source_commit='b' * 40))]:
+            with self.subTest(label=label), patch.object(runtime.subprocess, 'run') as inspect, self.assertRaises(runtime.RuntimeErrorLocal):
+                runtime.build(self.source, self.root, 'a' * 40, str(go), changed)
+            inspect.assert_not_called()
+        alias = self.root / 'artifact-link'
+        alias.symlink_to(artifact)
+        with self.assertRaises(runtime.RuntimeErrorLocal):
+            runtime.validate_artifact_claim(dict(claim, path=alias), 'a' * 40)
+        with patch.object(runtime.os, 'getuid', return_value=os.getuid() + 1), self.assertRaises(runtime.RuntimeErrorLocal):
+            runtime.validate_artifact_claim(claim, 'a' * 40)
+        self.assertFalse((self.root / ('vec-server-' + 'a' * 40)).exists())
+
+    def test_artifact_rejects_dynamic_or_incompatible_go_buildinfo(self):
+        import struct
+        _, go, artifact, info, claim = self.artifact_fixture()
+        original = artifact.read_bytes()
+        data = bytearray(original)
+        struct.pack_into('<I', data, 64, 3)
+        struct.pack_into('<Q', data, 72, 120)
+        struct.pack_into('<Q', data, 96, 8)
+        artifact.write_bytes(data[:120] + b'/loader\0')
+        with self.assertRaises(runtime.RuntimeErrorLocal):
+            runtime.validate_artifact_claim(dict(claim, sha256=runtime.digest(artifact)), 'a' * 40)
+        artifact.write_bytes(original)
+        for label, changed in [('cgo', dict(info, Settings=[{'Key': 'CGO_ENABLED', 'Value': '1'}])),
+                               ('foreign_package', dict(info, Path='fixture/cmd/other')),
+                               ('different_source', dict(info, Settings=info['Settings'] + [{'Key': 'vcs.revision', 'Value': 'b' * 40}]))]:
+            result = subprocess.CompletedProcess([], 0, json.dumps(changed).encode(), b'')
+            with self.subTest(label=label), patch.object(runtime.subprocess, 'run', return_value=result), self.assertRaises(runtime.RuntimeErrorLocal):
+                runtime.build(self.source, self.root, 'a' * 40, str(go), claim)
+        self.assertFalse((self.root / ('vec-server-' + 'a' * 40)).exists())
+
+    def test_artifact_import_preserves_previous_binary_and_rolls_back_publication_failure(self):
+        source, go, artifact, info, claim = self.artifact_fixture()
+        binary = self.root / ('vec-server-' + 'a' * 40)
+        old_bytes = artifact.read_bytes() + b'previous build'
+        binary.write_bytes(old_bytes)
+        old = {'source_commit': 'a' * 40, 'source_sha256': runtime.source_digest(source),
+               'binary_sha256': runtime.digest(binary), 'cgo_enabled': False, 'elf_interpreter': None}
+        runtime.write_json(self.root / 'runtime-manifest.json', old)
+        result = subprocess.CompletedProcess([], 0, json.dumps(info).encode(), b'')
+        original_write = runtime.write_json
+        def reject_latest(path, value):
+            if path.name == 'runtime-manifest.json':
+                raise OSError('private publication fixture failure')
+            return original_write(path, value)
+        with patch.object(runtime.subprocess, 'run', return_value=result), patch.object(runtime, 'git', return_value='b' * 40), \
+                patch.object(runtime, 'write_json', side_effect=reject_latest), self.assertRaises(OSError):
+            runtime.build(self.source, self.root, 'a' * 40, str(go), claim)
+        self.assertEqual(binary.read_bytes(), old_bytes)
+        self.assertEqual(json.loads((self.root / 'runtime-manifest.json').read_text()), old)
+        with patch.object(runtime.subprocess, 'run', return_value=result), patch.object(runtime, 'git', return_value='b' * 40):
+            runtime.build(self.source, self.root, 'a' * 40, str(go), claim)
+        self.assertEqual((self.root / ('vec-server-' + 'a' * 40 + '-' + old['binary_sha256'])).read_bytes(), old_bytes)
+        self.assertEqual(binary.read_bytes(), artifact.read_bytes())
+
+    def test_artifact_import_refuses_any_active_runtime_reservation(self):
+        _, go, _, info, claim = self.artifact_fixture()
+        result = subprocess.CompletedProcess([], 0, json.dumps(info).encode(), b'')
+        for name in ['runtime-process.json', 'runtime-container.json', 'runtime-container-intent.json']:
+            path = self.root / name
+            runtime.write_json(path, {'private': 'fixture reservation'})
+            with self.subTest(name=name), patch.object(runtime.subprocess, 'run', return_value=result), self.assertRaises(runtime.RuntimeErrorLocal):
+                runtime.build(self.source, self.root, 'a' * 40, str(go), claim)
+            self.assertFalse((self.root / ('vec-server-' + 'a' * 40)).exists())
+            self.assertTrue(path.exists())
+            path.unlink()
+
+    def test_wrong_artifact_source_is_rejected_before_restart_stop(self):
+        _, go, artifact, _, claim = self.artifact_fixture()
+        args = ['runtime', 'restart', '--repo', str(self.source), '--state', str(self.root), '--commit', 'a' * 40,
+                '--port', '18531', '--pg-port', '55531', '--mode', 'interno', '--go', str(go),
+                '--artifact', str(artifact), '--artifact-sha256', claim['sha256'], '--artifact-source', 'b' * 40]
+        with patch.object(runtime.sys, 'argv', args), patch.object(runtime, 'pinned_main', return_value='a' * 40), \
+                patch.object(runtime, 'stop') as stop, self.assertRaises(runtime.RuntimeErrorLocal):
+            runtime.main()
+        stop.assert_not_called()
 
     def projection_fixture(self):
         root = self.root / 'runtime-interno'
@@ -245,12 +366,10 @@ class RuntimeTests(unittest.TestCase):
             stream.write('\n' + '\n'.join('"' + key + '"' for key in values))
         source = self.root / ('source-' + 'a' * 40)
         contracts = {}
-        for name in ['config/portal_proceso.go', 'internal/app/separacionportales/material.go',
-                     'internal/app/bootstrap/material_desarrollo.go', 'internal/app/bootstrap/usuarios_preferencias_config_identidad.go',
-                     'internal/app/bootstrap/documentos_montaje.go', 'internal/app/bootstrap/usuarios_imagen_montaje.go']:
+        for name in runtime.projection_module().APPROVED_CONTRACTS:
             path = source / name
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text('fixture source contract')
+            path.write_bytes((Path(__file__).resolve().parents[2] / name).read_bytes())
             contracts[name] = runtime.digest(path)
         top = {'owner': 'Codex-M', 'target': {'source_commit': 'a' * 40, 'app_port': 18531, 'pg_port': 55531},
                'files': {'material/' + name: runtime.digest(self.material / name) for name in names}}
@@ -312,12 +431,90 @@ class RuntimeTests(unittest.TestCase):
         runtime.write_json(self.root / 'material-manifest.json', top)
         with self.assertRaises(runtime.RuntimeErrorLocal):
             runtime.read_runtime_descriptor(self.root)
+
         # Restore only the descriptor; then change its pinned loader content.
         top['runtime_interno']['rw'].append({'source': 'runtime-interno/rw/comunicaciones',
                                             'target': str(root / 'material/comunicaciones'), 'kind': 'comunicaciones'})
         runtime.write_json(self.root / 'material-manifest.json', top)
         (self.root / ('source-' + 'a' * 40) / 'config/portal_proceso.go').write_text('changed source')
         with self.assertRaises(runtime.RuntimeErrorLocal):
+            runtime.read_runtime_descriptor(self.root)
+
+    def test_real_projector_contracts_are_consumed_and_unapproved_proofs_are_denied(self):
+        from urllib.parse import urlencode
+        projection = runtime.projection_module()
+        repo = self.root / 'contract-repo'
+        repo.mkdir(mode=0o700)
+        git_home = self.root / 'git-home'
+        git_home.mkdir(mode=0o700)
+        git_env = {'PATH': '/usr/bin:/bin', 'HOME': str(git_home), 'GIT_CONFIG_NOSYSTEM': '1',
+                   'GIT_CONFIG_GLOBAL': '/dev/null', 'GIT_CONFIG_SYSTEM': '/dev/null'}
+        for name in projection.APPROVED_CONTRACTS:
+            path = repo / name
+            path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+            path.write_bytes((Path(__file__).resolve().parents[2] / name).read_bytes())
+        def git(*args):
+            return subprocess.run(['git', '-C', str(repo), *args], env=git_env,
+                                  capture_output=True, text=True, check=True).stdout.strip()
+        git('init', '-q')
+        git('add', '.')
+        git('-c', 'user.name=fixture', '-c', 'user.email=fixture@example.test', 'commit', '-qm', 'fixture contracts')
+        commit = git('rev-parse', 'HEAD')
+        source = self.root / ('source-' + commit)
+        for name in projection.APPROVED_CONTRACTS:
+            path = source / name
+            path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+            path.write_bytes((repo / name).read_bytes())
+        for name in projection.REQUIRED:
+            path = self.material / name
+            path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+            if name.endswith('.json'):
+                value = {'version': 1, 'autoridad': 'no_autoritativo'}
+                if name == 'identidad/usuarios-preferencias-interna.json':
+                    value.update(superficie='interna_corporativa', cuentas=[{'cuenta_ref': 'fixture', 'perfil_ref': 'fixture'}])
+                runtime.write_json(path, value)
+            else:
+                path.write_bytes(('synthetic fixture ' + name).encode())
+                path.chmod(0o600)
+        dsn = 'postgres://fixture:dummy@127.0.0.1:55531/postgres?' + urlencode({
+            'sslmode': 'verify-full', 'sslrootcert': str(self.material / 'pg/ca.crt')})
+        self.values.update(VEC_HTTP_ADDR='127.0.0.1:18531', VEC_BOLSA_IMPORTACION_CONVOCA_DATABASE_URL=dsn)
+        self.values.update({name: dsn for name in self.values if name.endswith('_DATABASE_URL')})
+        self.save()
+        top = {'owner': 'Codex-M', 'target': {'source_commit': commit, 'pg_port': 55531, 'app_port': 18531},
+               'files': {str(path.relative_to(self.root)): runtime.digest(path) for path in self.material.rglob('*') if path.is_file()}}
+        top['files']['runtime-config.json'] = runtime.digest(self.config)
+        runtime.write_json(self.root / 'material-manifest.json', top)
+        marker = {'propietario': 'Codex-M', 'estado': str(self.root), 'contenedor': 'vec-fixture', 'puerto_pg': 55531, 'commit': commit}
+        for name in ['clon.json', 'DB_READY.json']:
+            runtime.write_json(self.root / name, marker)
+        descriptor = projection.provision(repo, 'vec-fixture', self.root, self.material, 55531, source_context={'source_ref': commit})
+        top['runtime_interno'] = descriptor
+        runtime.write_json(self.root / 'material-manifest.json', top)
+        root = self.root / 'runtime-interno'
+        sealed = json.loads((root / 'material-manifest.json').read_text())
+        self.assertEqual(len(sealed['source_proof']['contracts']), 9)
+        self.assertEqual(runtime.read_runtime_descriptor(self.root)['runtime_config_path'], str(root / 'runtime-config.json'))
+        original = sealed['source_proof']['contracts']
+        changed = dict(original, **{'config/postgresql_importacion_convoca.go': '0' * 64})
+        extra = dict(original, **{'config/unapproved.go': 'f' * 64})
+        missing = {name: sha for name, sha in original.items() if name != 'config/postgresql_importacion_convoca.go'}
+        for label, contracts in [('eight', missing), ('ten', extra), ('unapproved_hash', changed)]:
+            with self.subTest(label=label):
+                sealed['source_proof']['contracts'] = contracts
+                runtime.write_json(root / 'material-manifest.json', sealed)
+                top['runtime_interno']['manifest_sha256'] = runtime.digest(root / 'material-manifest.json')
+                runtime.write_json(self.root / 'material-manifest.json', top)
+                with self.assertRaisesRegex(runtime.RuntimeErrorLocal, 'contratos de la fuente fijada'):
+                    runtime.read_runtime_descriptor(self.root)
+        # Matching an altered local file is insufficient without its approved pin.
+        altered = source / 'config/postgresql_importacion_convoca.go'
+        altered.write_text('unapproved source contract')
+        sealed['source_proof']['contracts'] = dict(original, **{'config/postgresql_importacion_convoca.go': runtime.digest(altered)})
+        runtime.write_json(root / 'material-manifest.json', sealed)
+        top['runtime_interno']['manifest_sha256'] = runtime.digest(root / 'material-manifest.json')
+        runtime.write_json(self.root / 'material-manifest.json', top)
+        with self.assertRaisesRegex(runtime.RuntimeErrorLocal, 'contratos de la fuente fijada'):
             runtime.read_runtime_descriptor(self.root)
 
     def test_container_publication_failure_stops_only_its_reservation(self):

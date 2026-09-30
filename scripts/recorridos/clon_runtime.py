@@ -436,6 +436,13 @@ def container_module():
     return module
 
 
+def projection_module():
+    spec = importlib.util.spec_from_file_location('runtime_projection', Path(__file__).with_name('clon_interno_material.py'))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def read_runtime_descriptor(state):
     top = json.loads(confined(state / 'material-manifest.json', state).read_text())
     descriptor = top.get('runtime_interno', {})
@@ -490,11 +497,9 @@ def read_runtime_descriptor(state):
                 or evidence.get('unchanged') is not (digest(original) == digest(projected))):
             fail('El material interno no acredita su copia del origen sellado.')
     contracts = proof.get('contracts', {})
-    contract_paths = {'config/portal_proceso.go', 'internal/app/separacionportales/material.go',
-                      'internal/app/bootstrap/material_desarrollo.go', 'internal/app/bootstrap/usuarios_preferencias_config_identidad.go',
-                      'internal/app/bootstrap/documentos_montaje.go', 'internal/app/bootstrap/usuarios_imagen_montaje.go'}
+    approved_contracts = projection_module().APPROVED_CONTRACTS
     source = confined(state / ('source-' + descriptor['source_commit']), state, directory=True)
-    if set(contracts) != contract_paths or any(digest(confined(source / path, source)) != value for path, value in contracts.items()):
+    if contracts != approved_contracts or any(digest(confined(source / path, source)) != value for path, value in approved_contracts.items()):
         fail('La proyección no corresponde a los contratos de la fuente fijada.')
     actual = set()
     for path in root.rglob('*'):
@@ -579,19 +584,122 @@ def elf_interpreter(path):
     return None
 
 
-def build(repo, state, commit, go_binary):
+def validate_artifact_claim(artifact, commit):
+    if (artifact.get('source_commit') != commit or not re.fullmatch(r'[0-9a-f]{64}', artifact.get('sha256', ''))):
+        fail('El artefacto aprobado no corresponde a la fuente y huella solicitadas.')
+    path = Path(os.path.abspath(artifact['path']))
+    if '..' in Path(artifact['path']).parts or any(item.is_symlink() for item in [path, *path.parents]):
+        fail('El artefacto aprobado no admite enlaces ni rutas ambiguas.')
+    metadata = path.stat()
+    if (not stat.S_ISREG(metadata.st_mode) or metadata.st_uid != os.getuid()
+            or metadata.st_nlink != 1 or stat.S_IMODE(metadata.st_mode) & 0o022):
+        fail('El artefacto aprobado debe ser un archivo regular del operador.')
+    if digest(path) != artifact['sha256'] or elf_interpreter(path) is not None:
+        fail('La huella o el ELF estático del artefacto aprobado no coinciden.')
+    with path.open('rb') as stream:
+        header = stream.read(64)
+    if struct.unpack_from(('<' if header[5] == 1 else '>') + 'H', header, 18)[0] != 62:
+        fail('El artefacto aprobado no corresponde a la arquitectura Linux amd64 del clon.')
+    return path
+
+
+def inspect_artifact(path, source, commit, go):
+    result = subprocess.run([str(go), 'version', '-m', '-json', str(path)],
+                            env={'PATH': str(go.parent) + ':/usr/bin:/bin', 'HOME': '/nonexistent',
+                                 'GOTOOLCHAIN': 'local', 'GOPROXY': 'off', 'GOSUMDB': 'off'},
+                            capture_output=True, timeout=20)
+    if result.returncode:
+        fail('No se puede comprobar la información Go del artefacto aprobado.')
+    info = json.loads(result.stdout)
+    settings = {entry['Key']: entry['Value'] for entry in info.get('Settings', [])}
+    module = re.search(r'^module\s+(\S+)\s*$', (source / 'go.mod').read_text(), re.MULTILINE)
+    if (module is None or info.get('Main', {}).get('Path') != module[1]
+            or info.get('Path') != module[1] + '/cmd/vec-server'
+            or settings.get('CGO_ENABLED') != '0' or settings.get('GOOS') != 'linux'
+            or settings.get('GOARCH') != 'amd64' or settings.get('vcs.modified') == 'true'
+            or settings.get('vcs.revision', commit) != commit):
+        fail('La información Go del artefacto no acredita el servidor estático y su fuente.')
+    return {'go_version': info.get('GoVersion'), 'main_module': module[1], 'package': info['Path'],
+            'buildinfo_sha256': hashlib.sha256(result.stdout).hexdigest(),
+            'source_binding': 'operator_declared_commit', 'vcs_revision': settings.get('vcs.revision')}
+
+
+def import_artifact(repo, state, source, binary, snapshot, commit, go, artifact, path, previous):
+    if previous is not None and previous.get('binary_sha256') == artifact['sha256'] and previous.get('artifact_direction', {}).get('source_commit') == commit:
+        inspect_artifact(binary, source, commit, go)
+        return source, binary, previous
+    if any((state / name).exists() for name in ('runtime-process.json', 'runtime-container.json', 'runtime-container-intent.json')):
+        fail('Detenga y cierre la reserva propia antes de importar otro artefacto.')
+    if binary.exists() and previous is None:
+        fail('El binario existente carece de un manifiesto válido; no se sustituirá.')
+    fd, temporary_name = tempfile.mkstemp(prefix='.vec-server-artifact-', dir=state)
+    temporary = Path(temporary_name)
+    backup = None
+    published = False
+    try:
+        with os.fdopen(fd, 'wb') as output:
+            incoming_fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+            with os.fdopen(incoming_fd, 'rb') as incoming:
+                metadata = os.fstat(incoming.fileno())
+                if (not stat.S_ISREG(metadata.st_mode) or metadata.st_uid != os.getuid()
+                        or metadata.st_nlink != 1 or stat.S_IMODE(metadata.st_mode) & 0o022):
+                    fail('El artefacto cambió de propietario o tipo antes de copiarse.')
+                shutil.copyfileobj(incoming, output)
+            output.flush()
+            os.fsync(output.fileno())
+            os.fchmod(output.fileno(), 0o755)
+        if digest(temporary) != artifact['sha256'] or elf_interpreter(temporary) is not None:
+            fail('El artefacto cambió durante la copia privada.')
+        information = inspect_artifact(temporary, source, commit, go)
+        manifest = {'version': 3, 'runtime_mode': 'interno', 'cgo_enabled': False, 'elf_interpreter': None,
+                    'source_commit': commit, 'source_tree': git(repo, 'rev-parse', commit + '^{tree}'),
+                    'source_sha256': snapshot['source_sha256'], 'binary_sha256': artifact['sha256'],
+                    'build_mode': 'artifact_direction', 'build_command': None,
+                    'artifact_direction': dict(information, path=str(path), sha256=artifact['sha256'], source_commit=commit)}
+        if previous is not None:
+            old_sha = previous['binary_sha256']
+            history = state / ('runtime-manifest-' + commit + '-' + old_sha + '.json')
+            if history.exists() and json.loads(confined(history, state).read_text()) != previous:
+                fail('El manifiesto histórico del binario existente cambió.')
+            if not history.exists():
+                write_json(history, previous)
+            candidate_backup = state / ('vec-server-' + commit + '-' + old_sha)
+            if candidate_backup.exists() and digest(confined(candidate_backup, state)) != old_sha:
+                fail('La copia histórica del binario existente cambió.')
+            os.replace(confined(binary, state), candidate_backup)
+            backup = candidate_backup
+        os.replace(temporary, binary)
+        published = True
+        write_json(state / 'runtime-manifest.json', manifest)
+        return source, binary, manifest
+    except BaseException:
+        if published:
+            binary.unlink(missing_ok=True)
+        if backup is not None and backup.exists():
+            os.replace(backup, binary)
+        raise
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def build(repo, state, commit, go_binary, artifact=None):
     manifest_path = state / 'runtime-manifest.json'
     source = state / ('source-' + commit)
     binary = state / ('vec-server-' + commit)
+    artifact_path = validate_artifact_claim(artifact, commit) if artifact is not None else None
+    previous = None
     if manifest_path.exists():
         manifest = json.loads(confined(manifest_path, state).read_text())
         if (manifest.get('source_commit') == commit and binary.is_file()
                 and not binary.is_symlink() and digest(binary) == manifest.get('binary_sha256')
+                and binary.stat().st_uid == os.getuid() and binary.stat().st_nlink == 1
                 and source.is_dir() and not source.is_symlink()
                 and source_digest(source) == manifest.get('source_sha256')
                 and manifest.get('cgo_enabled') is False and manifest.get('elf_interpreter') is None
                 and elf_interpreter(binary) is None):
-            return source, binary, manifest
+            if artifact is None:
+                return source, binary, manifest
+            previous = manifest
     if (state / 'runtime-process.json').exists():
         fail('Detenga el proceso propio antes de recompilar.')
     snapshot_path = state / ('source-manifest-' + commit + '.json')
@@ -614,9 +722,11 @@ def build(repo, state, commit, go_binary):
         archive.unlink()
         snapshot = {'source_commit': commit, 'source_sha256': source_digest(source)}
         write_json(snapshot_path, snapshot)
+    go = local_go(source, go_binary)
+    if artifact is not None:
+        return import_artifact(repo, state, source, binary, snapshot, commit, go, artifact, artifact_path, previous)
     if binary.exists():
         fail('Hay un binario sin manifiesto válido; revise el estado privado.')
-    go = local_go(source, go_binary)
     go_path = Path.home() / 'go'
     environment = {'PATH': str(go.parent) + ':/usr/bin:/bin', 'HOME': str(state),
                    'TMPDIR': str(state / 'tmp'), 'GOCACHE': '/dev/shm/go-build',
@@ -804,11 +914,19 @@ def main():
     parser.add_argument('--pg-port', required=True, type=int)
     parser.add_argument('--mode', choices=['interno'])
     parser.add_argument('--go', help='Compilador local; por defecto usa el toolchain de go.mod si está instalado.')
+    parser.add_argument('--artifact', type=Path)
+    parser.add_argument('--artifact-sha256')
+    parser.add_argument('--artifact-source')
     args = parser.parse_args()
     if not 1024 <= args.port <= 65535 or not 1024 <= args.pg_port <= 65535 or args.port == args.pg_port:
         fail('Puertos locales inválidos.')
     if args.action in ('build', 'start', 'restart', 'verify') and args.mode != 'interno':
         fail('Seleccione explícitamente --mode interno.')
+    artifact = None
+    if any((args.artifact, args.artifact_sha256, args.artifact_source)):
+        if args.action not in ('build', 'start', 'restart') or not all((args.artifact, args.artifact_sha256, args.artifact_source)):
+            fail('La importación exige archivo, huella y fuente explícitos en build, start o restart.')
+        artifact = {'path': args.artifact, 'sha256': args.artifact_sha256, 'source_commit': args.artifact_source}
     repo = args.repo.resolve(strict=True)
     state = validate_state(repo, args.state)
     fd = os.open(state / 'runtime.lock', os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
@@ -826,13 +944,15 @@ def main():
             print(json.dumps({'running': record is not None, 'source_commit': (record or {}).get('source_commit')}))
             return
         commit = pinned_main(repo, args.commit)
+        if artifact is not None:
+            validate_artifact_claim(artifact, commit)
         if args.action == 'verify':
             record = verify_running(state, commit, args.port, args.pg_port)
             print(json.dumps({'verified': True, 'pid': record['pid'], 'source_commit': commit}))
             return
         if args.action == 'restart':
             stop(state)
-        source, binary, manifest = build(repo, state, commit, args.go)
+        source, binary, manifest = build(repo, state, commit, args.go, artifact)
         if args.action == 'build':
             print(json.dumps(manifest))
         else:
