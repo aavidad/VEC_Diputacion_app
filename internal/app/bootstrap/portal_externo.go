@@ -110,9 +110,8 @@ func cargarMaterialPortalExterno(cfg config.Config) (materialPortalExterno, erro
 			ClientCAs:    raices,
 			MinVersion:   tls.VersionTLS13,
 			MaxVersion:   tls.VersionTLS13,
-			// La CA emite también los certificados de RRHH, Intervención y
-			// centros. El proceso externo solo acepta los de las personas
-			// que conoce: cualquier otro corta la conexión en el saludo TLS.
+			// La CA del externo es propia. Además, solo se admiten los
+			// certificados de las personas registradas en este proceso.
 			VerifyConnection: verificarClienteConocido(identidad),
 		},
 		identidad: identidad,
@@ -120,7 +119,7 @@ func cargarMaterialPortalExterno(cfg config.Config) (materialPortalExterno, erro
 }
 
 // verificarClienteConocido rechaza en el saludo TLS cualquier certificado de
-// cliente, aunque lo haya emitido la CA común, cuya huella no esté registrada
+// cliente, aunque lo haya emitido su CA, cuya huella no esté registrada
 // en el resolvedor del proceso.
 func verificarClienteConocido(identidad *resolvedorIdentidadDesarrollo) func(tls.ConnectionState) error {
 	return func(estado tls.ConnectionState) error {
@@ -137,7 +136,8 @@ func verificarClienteConocido(identidad *resolvedorIdentidadDesarrollo) func(tls
 
 // validarManifiestoPortalExterno comprueba lo que el manifiesto del material
 // dice del propio proceso externo: perfil de desarrollo no autoritativo, no
-// migrable, y huellas de su CA y de su certificado de servidor. Los demás
+// migrable, huellas de su CA y de su servidor, y la huella pública de la CA
+// interna, distinta de la propia. No abre material interno. Los demás
 // campos describen material que el externo no tiene y no se miran.
 func validarManifiestoPortalExterno(ruta string, ca, servidor *x509.Certificate) error {
 	contenido, err := leerFicheroMaterialSeguro(ruta, 64<<10)
@@ -149,8 +149,15 @@ func validarManifiestoPortalExterno(ruta string, ca, servidor *x509.Certificate)
 	var manifiesto archivoManifiestoDesarrollo
 	var sobrante any
 	if decodificador.Decode(&manifiesto) != nil || !errors.Is(decodificador.Decode(&sobrante), io.EOF) ||
-		manifiesto.Perfil != config.ExecutionProfileDevelopment ||
+		manifiesto.Version != 2 || manifiesto.Perfil != config.ExecutionProfileDevelopment ||
 		manifiesto.Autoridad != AutoridadNoAutoritativa || manifiesto.MigrableAProduccion {
+		return ErrMaterialPortalExternoInvalido
+	}
+	huellaInterna, err := hex.DecodeString(manifiesto.HuellaCAInternaSHA256)
+	huellaPropia := sha256.Sum256(ca.Raw)
+	if err != nil || len(huellaInterna) != sha256.Size ||
+		hex.EncodeToString(huellaInterna) != manifiesto.HuellaCAInternaSHA256 ||
+		subtle.ConstantTimeCompare(huellaInterna, huellaPropia[:]) == 1 {
 		return ErrMaterialPortalExternoInvalido
 	}
 	for _, dato := range []struct {

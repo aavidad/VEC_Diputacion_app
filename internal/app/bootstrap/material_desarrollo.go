@@ -136,6 +136,7 @@ type archivoManifiestoDesarrollo struct {
 	Autoridad                          string            `json:"autoridad"`
 	MigrableAProduccion                bool              `json:"migrable_a_produccion"`
 	HuellaCASHA256                     string            `json:"huella_ca_sha256"`
+	HuellaCAInternaSHA256              string            `json:"huella_ca_interna_sha256,omitempty"`
 	HuellaServidorSHA256               string            `json:"huella_servidor_sha256"`
 	HuellaClienteSHA256                string            `json:"huella_cliente_sha256"`
 	HuellaIntervencionSHA256           string            `json:"huella_intervencion_sha256"`
