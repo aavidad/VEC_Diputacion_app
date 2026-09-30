@@ -1,0 +1,2 @@
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000131_consumidor_consulta_anclaje_aceptacion_ct_bolsa.up.sql
+deploy/postgresql/bolsa_llamamientos/migraciones/000068_anclaje_aceptacion_incorporacion_ct.up.sql
