@@ -1,0 +1,1097 @@
+{
+  "miBolsa": {
+    "historial": {
+      "titulo": "Histórico de mi bolsa",
+      "subtitulo": "Actuaciones de mis participaciones registradas en VEC",
+      "cargando": "Cargando histórico autorizado…",
+      "vacio": "No constan actuaciones en el histórico de VEC.",
+      "sinCampos": "El servicio no ha habilitado datos del histórico para esta identidad.",
+      "error": "El histórico todavía no está disponible. Puede volver a consultarlo más tarde.",
+      "autenticacion": "Identifíquese de nuevo para consultar su histórico.",
+      "denegado": "No tiene permiso para consultar este histórico.",
+      "reintentar": "Volver a consultar",
+      "anterior": "Anterior",
+      "siguiente": "Siguiente",
+      "pagina": "Página {pagina}",
+      "contrato": "Contrato comunicado a Bolsa",
+      "incorporacion": "Incorporación comunicada a Bolsa",
+      "llamamiento": "Correo de llamamiento",
+      "renuncia": "Respuesta de renuncia",
+      "categoria": "Categoría",
+      "fecha": "Fecha registrada",
+      "inicio": "Inicio comunicado",
+      "fin": "Fin previsto comunicado",
+      "sinFecha": "Sin fecha comunicada",
+      "resultado": "Resultado del correo",
+      "enviado": "Enviado",
+      "no_enviado": "No enviado",
+      "respuesta": "Respuesta",
+      "renuncia_simple": "Renuncia",
+      "renuncia_justificada": "Renuncia con causa justificada",
+      "estado": "Estado",
+      "respuesta_registrada": "Respuesta registrada",
+      "propuesta_pendiente_rrhh": "Propuesta pendiente de RRHH",
+      "modo": "Tratamiento",
+      "firme": "Registro directo en Bolsa",
+      "propuesta_rrhh": "Pendiente de confirmación de RRHH",
+      "limite": "Aquí solo aparece lo registrado en VEC. Que se enviara un correo no significa que llegara, y una renuncia o incorporación anotada aún puede estar pendiente de que RRHH la resuelva."
+    },
+    "situacion": {
+      "titulo": "Última situación registrada de mi participación",
+      "sinDato": "La situación actual de esta participación aún no está disponible en Mi bolsa.",
+      "estado": "Estado",
+      "desde": "Desde",
+      "hasta": "Hasta",
+      "sinFin": "Sin fecha de fin registrada",
+      "fechaDisponible": "Fecha de disponibilidad indicada",
+      "explicacion": {
+        "_": "Qué significa",
+        "disponible": "Consta disponible en Bolsa; un llamamiento depende del orden y las reglas aplicables.",
+        "no_disponible": "Consta temporalmente no disponible en Bolsa.",
+        "trabajando": "Consta una situación de trabajo comunicada a Bolsa.",
+        "pendiente_incorporacion": "Consta una incorporación pendiente; todavía no acredita una relación de servicio.",
+        "renuncia": "Consta una renuncia registrada para esta participación.",
+        "excluido": "Consta una exclusión registrada para esta participación.",
+        "disponible_desde": "Consta una fecha indicada para recuperar disponibilidad; no acredita un llamamiento ni determina por sí sola los efectos legales."
+      },
+      "disponible": "Disponible",
+      "no_disponible": "No disponible",
+      "trabajando": "Trabajando",
+      "pendiente_incorporacion": "Pendiente de incorporación",
+      "renuncia": "Renuncia",
+      "excluido": "Excluido",
+      "disponible_desde": "Disponible desde fecha"
+    },
+    "ordenInicial": "Mi número de orden inicial",
+    "vigenciaBolsa": "Vigencia de la bolsa",
+    "identidad": {
+      "noFacilitada": "Identidad no facilitada",
+      "metodoNoFacilitado": "Método no facilitado",
+      "valorNoFacilitado": "No facilitado"
+    },
+    "disponibilidad": {
+      "titulo": "Disponibilidad",
+      "subtitulo": "Situación por participación",
+      "detalle": "Pausar o reactivar su disponibilidad todavía no se puede solicitar aquí."
+    },
+    "llamamiento": {
+      "titulo": "Último resultado de correo",
+      "subtitulo": "De mis llamamientos en Bolsa",
+      "bolsa": "Bolsa",
+      "categoria": "Categoría",
+      "fecha": "Emisión registrada",
+      "canal": "Canal",
+      "correo": "Correo",
+      "resultado": "Resultado",
+      "enviado": "Enviado",
+      "no_enviado": "No enviado",
+      "limite": "Que el correo se enviara no significa que haya llegado ni que ya tenga respuesta.",
+      "sinDato": "No constan llamamientos por correo para estas participaciones."
+    },
+    "contratos": {
+      "sinDato": "Sin información de contratos."
+    },
+    "categoriaSinNombre": "Categoría sin nombre"
+  },
+  "ofertas": {
+    "titulo": "Ofertas publicadas",
+    "subtitulo": "De mis bolsas",
+    "centro": "Centro",
+    "inicio": "Inicio",
+    "fin": "Fin",
+    "sinFin": "Sin fecha de fin",
+    "descripcion": "Descripción",
+    "vence": "Ofrecerse antes de",
+    "manifestar": "Me ofrezco",
+    "manifestada": "Se ofreció el {fecha} · Recibo {recibo}",
+    "estado": {
+      "abierta": "Abierta",
+      "pendiente_resolucion": "Plazo terminado; pendiente de RRHH",
+      "resuelta": "Resuelta",
+      "adjudicada_propia": "Adjudicada a usted"
+    }
+  },
+  "contacto": {
+    "titulo": "Correo electrónico",
+    "subtitulo": "Prepare y confirme el correo de forma independiente",
+    "convoca": "Contacto de origen CONVOCA sin confirmar",
+    "vencido": "Contacto de origen CONVOCA; confirmación pendiente desde el {fecha}",
+    "confirmado": "Contacto confirmado el {fecha}",
+    "rrhh": "Contacto registrado por RRHH",
+    "confirmar": "Confirmar cambio",
+    "tituloOtrosDatos": "Teléfono y domicilio",
+    "subtituloOtrosDatos": "Otros datos de contacto, con su propio guardado",
+    "ayuda": "Primero prepare el cambio y después confírmelo. Si recarga, consulte la operación y vuelva a introducir el correo: la dirección no aparece en el historial. No guarda teléfono ni domicilio.",
+    "ayudaTitulo": "Ayuda sobre el cambio de correo",
+    "etiquetaCorreo": "Correo de contacto",
+    "guardar": "Guardar correo",
+    "reintentoExacto": "Reintentar el mismo correo",
+    "guardarTelefonoDomicilio": "Revisar y guardar teléfono y domicilio",
+    "preparando": "Guardando correo…",
+    "sinAutorizacion": "El correo no se puede actualizar porque el servicio no ha aportado permiso expreso y versión vigente.",
+    "noConfigurado": "Contacto propio no configurado: el servicio no ha aportado permiso expreso y versión vigente. No se consultará el historial ni se enviarán cambios.",
+    "correcto": "Correo de contacto guardado. Referencia de recibo: {recibo}.",
+    "correctoAnterior": "Recibo de un guardado anterior: {recibo}. No acredita el resultado de otro intento.",
+    "errorEntrada": "Revise el correo de contacto antes de enviarlo.",
+    "errorPermiso": "No dispone de permiso para actualizar el correo de contacto.",
+    "errorServicio": "No se pudo determinar el resultado del cambio. Consulte las operaciones antes de volver a actuar; no se ha repetido la petición.",
+    "consultarRecibo": "Consultar recibo",
+    "consultando": "Consultando recibo…",
+    "consultaNoDisponible": "La consulta del recibo no está disponible para este intento.",
+    "consultaSinConfirmacion": "No se ha podido recuperar el recibo. El guardado anterior podría haberse completado; esta consulta no lo confirma ni lo descarta.",
+    "reciboConsultado": "Recibo de la versión {version}: {recibo}. Esta consulta no confirma que el correo del último intento coincida con el guardado. El formulario no se ha actualizado.",
+    "preparar": "Preparar cambio",
+    "cancelar": "Cancelar preparación",
+    "confirmarCancelacion": "¿Cancelar esta preparación? Podrá iniciar otra después.",
+    "historialTitulo": "Operaciones de correo propias",
+    "situacionTitulo": "Situación vigente del correo",
+    "situacionVersion": "Versión vigente {version}",
+    "situacionSubtitulo": "Para comprobar un cambio concreto, selecciónelo en el historial.",
+    "verReciboVigente": "Ver recibo de la situación vigente",
+    "reciboVigente": "Recibo de la versión vigente: {recibo}. No identifica una operación pendiente.",
+    "actualizarHistorial": "Actualizar operaciones",
+    "masOperaciones": "Ver operaciones anteriores",
+    "historialVacio": "Aún no hay operaciones de correo registradas.",
+    "seleccionExplicita": "Seleccione una operación para consultar su estado y recibo. El recibo vigente no identifica por sí solo un intento anterior.",
+    "seleccionarOperacion": "Consultar operación {numero}: {estado}, referencia {referencia}",
+    "operacionResumen": "Operación {numero} · {referencia} · Versión de partida {version}",
+    "versionOperacion": "Versión de partida {version}",
+    "estado": {
+      "preparada": "Preparada",
+      "confirmada": "Confirmada",
+      "cancelada": "Cancelada"
+    },
+    "preparadaRevisar": "Cambio preparado. Revise el correo y confirme expresamente. Si recarga, vuelva a introducirlo.",
+    "preparadaSeleccionada": "Operación terminada en {referencia} preparada. Introduzca de nuevo el mismo correo para confirmarla o cancele la preparación.",
+    "preparadaPendiente": "Ya hay una operación preparada. Selecciónela o cancélela antes de iniciar otra.",
+    "canceladaSeleccionada": "Operación terminada en {referencia} cancelada. Puede iniciar un cambio nuevo.",
+    "reciboSeleccionado": "Operación confirmada. Recibo original: {recibo}.",
+    "conflictoPreparada": "Otra pestaña preparó un cambio. Actualice las operaciones y seleccione la preparación pendiente.",
+    "conflicto": "La versión o el estado cambió. Actualice las operaciones y recargue la página antes de continuar.",
+    "confirmacionIncierta": "La confirmación no tiene respuesta definitiva. Se consulta esta operación exacta; no se enviará otra confirmación automáticamente.",
+    "resultadoNoConfirmado": "La operación sigue preparada. Consulte su estado antes de decidir cómo continuar."
+  },
+  "portal": {
+    "titulo": "Disponibilidad y respuesta",
+    "subtitulo": "Por bolsa",
+    "pausa": "Pedir una pausa hasta",
+    "pausaEnviar": "Pedir pausa",
+    "reactivar": "Pedir la reactivación",
+    "pendiente": "Solicitud de {tipo} pendiente de RRHH",
+    "tipo": {
+      "pausa": "pausa",
+      "reactivacion": "reactivación"
+    },
+    "recibo": "Recibo",
+    "llamamiento": "Llamamiento abierto",
+    "contacto": "Contacto",
+    "vence": "Responder antes de",
+    "venceNoDisponible": "Plazo no disponible",
+    "respuesta": {
+      "_": "Mi respuesta",
+      "acepta": "Acepto",
+      "renuncia": "Renuncio",
+      "renuncia_justificada": "Renuncio con causa justificada"
+    },
+    "causa": {
+      "_": "Causa",
+      "enfermedad": "Enfermedad",
+      "maternidad_paternidad_adopcion": "Maternidad, paternidad o adopción",
+      "alta_seguridad_social": "Alta en la Seguridad Social",
+      "matrimonio_union_hecho": "Matrimonio o unión de hecho"
+    },
+    "justificante": "Justificante",
+    "justificanteRef": "Referencia del justificante",
+    "responder": "Enviar respuesta",
+    "modo": {
+      "propuesta_rrhh": "RRHH confirmará la respuesta",
+      "firme": "Respuesta firme"
+    },
+    "ultimaRespuesta": "Respuesta registrada",
+    "enviando": "Enviando…",
+    "hecho": "Registrado. Recibo {recibo}.",
+    "error": {
+      "solicitud_pendiente": "Ya tiene una solicitud pendiente de RRHH en esta bolsa.",
+      "situacion_no_admite": "Su situación actual en la bolsa no admite esta solicitud.",
+      "sin_llamamiento_abierto": "No hay un llamamiento abierto que responder.",
+      "fuera_de_plazo": "El plazo de respuesta ha terminado.",
+      "causa_no_admitida": "La causa indicada no está admitida.",
+      "pausa_fuera_de_limite": "La fecha de fin de la pausa no está permitida.",
+      "oferta_no_abierta": "La oferta ya no está abierta.",
+      "disposicion_ya_manifestada": "Ya se había ofrecido para esta oferta.",
+      "contacto_cambiado": "RRHH ha actualizado su contacto. Recargue la página antes de confirmarlo.",
+      "contacto_ya_confirmado": "Este contacto ya estaba confirmado.",
+      "sin_contacto": "No hay contacto registrado que confirmar.",
+      "clave_reutilizada": "Esta petición ya se envió con otros datos. Recargue la página.",
+      "datos_no_validos": "Revise los datos del formulario.",
+      "acceso_denegado": "No tiene permiso para esta acción.",
+      "autenticacion_requerida": "Identifíquese de nuevo para continuar.",
+      "servicio_no_disponible": "Servicio no disponible. No se ha registrado nada; puede volver a intentarlo."
+    }
+  },
+  "rutas": {
+    "inicio": "Inicio y plazos",
+    "convocatorias": "Convocatorias",
+    "oportunidades": "Oportunidades para ti",
+    "convocatoria": "Detalle de convocatoria",
+    "perfil": "Perfil y contacto",
+    "meritos": "Méritos y documentos",
+    "solicitud": "Nueva solicitud",
+    "autobaremacion": "Autobaremación",
+    "seguimiento": "Mis expedientes",
+    "llamamientos": "Disponibilidad y llamamientos",
+    "subsanaciones": "Subsanaciones",
+    "alegaciones": "Alegaciones",
+    "mensajes": "Mensajes y noticias",
+    "certificados": "Certificados y descargas",
+    "ayuda": "Ayuda y accesibilidad"
+  },
+  "tabla": {
+    "sinResultados": "Sin resultados",
+    "sinRegistros": "No hay registros para mostrar."
+  },
+  "estado": {
+    "error": {
+      "titulo": "No se pudo cargar el área personal",
+      "detalle": "Servicio no disponible.",
+      "garantia": "No se muestran datos aparentes y no se ha realizado ninguna operación.",
+      "reintentar": "Reintentar conexión segura",
+      "autenticacion": {
+        "titulo": "Identifíquese para consultar su bolsa",
+        "detalle": "Use su DNIe o certificado para continuar."
+      },
+      "acceso": {
+        "titulo": "No tiene acceso a esta área personal",
+        "detalle": "El servicio no ha autorizado esta consulta para su identidad.",
+        "garantia": "No se muestran datos de otra persona."
+      },
+      "recurso": {
+        "titulo": "No se pudo acceder a la información solicitada",
+        "detalle": "No hay una consulta disponible para esta identidad y ámbito."
+      },
+      "servicio": {
+        "detalle": "El servicio no está disponible temporalmente. Vuelva a intentarlo más tarde."
+      },
+      "red": {
+        "detalle": "No se pudo establecer una conexión segura con el servicio."
+      },
+      "carga": {
+        "garantia": "No se muestran datos ni se confirma el resultado de operaciones anteriores."
+      }
+    }
+  },
+  "capacidad": {
+    "noHabilitada": "{operacion} no está habilitada para la identidad y el expediente actuales.",
+    "accionNoReconocida": "La acción no está reconocida por esta superficie.",
+    "operacionNoDisponible": "Operación no disponible."
+  },
+  "documento": {
+    "noDisponible": "El documento solicitado no está disponible en el ámbito actual."
+  },
+  "sesion": {
+    "titulo": "Identidad y contexto de sesión",
+    "persona": "Persona",
+    "referencia": "Referencia",
+    "metodo": "Método",
+    "origen": "Origen",
+    "origenSintetico": "Identidad sintética. No existe autenticación, certificado ni persona real.",
+    "autoridadServidor": "La autoridad efectiva se comprueba en el servidor para cada operación."
+  },
+  "ayuda": {
+    "descripcion": "Guías, preguntas frecuentes y opciones de lectura.",
+    "guia": {
+      "titulo": "Guía de uso",
+      "subtitulo": "Texto completo de la ayuda",
+      "encabezado": "Leer esta ayuda",
+      "texto": "Esta guía explica el área personal de Bolsa. En Inicio aparecen plazos y acciones pendientes. En Convocatorias puede revisar bases y comenzar una solicitud. El inventario de Méritos permite reutilizar títulos, experiencia y documentos. La Autobaremación es provisional y será revisada por Recursos Humanos. Las acciones de pago, firma, registro, llamamiento, subsanación y alegación necesitan confirmación y recibo.",
+      "limiteServicio": "Cada operación real depende de la confirmación del servicio autorizado."
+    }
+  },
+  "vista": {
+    "comun": {
+      "porcentaje": "{valor} %",
+      "porcentajeLeido": "{valor} por ciento"
+    },
+    "inicio": {
+      "cifras": {
+        "pendientes": "Acciones pendientes",
+        "pendientesAyuda": "Revise plazos y comunicaciones",
+        "convocatorias": "Convocatorias abiertas",
+        "convocatoriasAyuda": "Procesos disponibles ahora",
+        "solicitudes": "Solicitudes activas",
+        "solicitudesAyuda": "En tramitación o revisión",
+        "puntos": "Puntos provisionales",
+        "puntosAyuda": "Sujeto a revisión técnica"
+      },
+      "abrir": "Abrir",
+      "atender": "Atender",
+      "puntos": "{puntos} puntos",
+      "verSeguimiento": "Ver seguimiento",
+      "titulo": "Qué necesita su atención",
+      "descripcion": "Plazos, acciones y estado de sus procesos en un único espacio.",
+      "verConvocatorias": "Ver convocatorias",
+      "resumen": "Resumen personal",
+      "plazos": {
+        "titulo": "Próximos plazos",
+        "subtitulo": "Fechas calculadas para sus procesos",
+        "cuenta": {
+          "one": "{cuenta} plazo",
+          "other": "{cuenta} plazos"
+        }
+      },
+      "solicitudes": {
+        "titulo": "Mis solicitudes",
+        "subtitulo": "Estado jurídico y siguiente actuación",
+        "tabla": "Solicitudes asociadas a la identidad autenticada"
+      },
+      "columnas": {
+        "proceso": "Proceso",
+        "estado": "Estado",
+        "puntuacion": "Puntuación y posición",
+        "accion": "Acción"
+      },
+      "atencion": {
+        "titulo": "Requiere atención",
+        "subtitulo": "Tareas que pueden tener plazo",
+        "vacio": "No existen acciones pendientes.",
+        "cuenta": {
+          "one": "{cuenta} pendiente",
+          "other": "{cuenta} pendientes"
+        }
+      },
+      "actividad": {
+        "titulo": "Actividad reciente",
+        "subtitulo": "Trazabilidad visible para la persona interesada"
+      }
+    },
+    "convocatorias": {
+      "todas": "Todas",
+      "publicada": "Publicada el {fecha}",
+      "verDetalle": "Ver detalle y requisitos",
+      "iniciarSolicitud": "Iniciar solicitud",
+      "titulo": "Convocatorias y procesos selectivos",
+      "descripcion": "Consulte bases, requisitos, plazos y estado antes de iniciar una solicitud.",
+      "filtros": {
+        "buscar": "Buscar",
+        "buscarEjemplo": "Título, referencia o categoría",
+        "estado": "Estado",
+        "categoria": "Categoría",
+        "aplicar": "Aplicar filtros"
+      },
+      "sinResultados": "Sin resultados",
+      "sinResultadosDetalle": "Modifique los filtros para ver otras convocatorias.",
+      "detalle": {
+        "documentoPublico": "Documento público de la convocatoria",
+        "abrir": "Abrir {formato}",
+        "documento": "documento",
+        "descargar": "Descargar",
+        "prepararDescarga": "Preparar descarga de {titulo}",
+        "volver": "Volver al listado",
+        "resumen": "Resumen de la convocatoria",
+        "estado": "Estado",
+        "categoria": "Categoría",
+        "publicacion": "Publicación",
+        "noDisponible": "No disponible",
+        "cve": "CVE / referencia BOP",
+        "plazo": "Plazo",
+        "presentacionHasta": "Presentación hasta",
+        "plazas": "Plazas o bolsa",
+        "tasa": "Tasa",
+        "requisitos": "Requisitos de participación",
+        "requisitosSubtitulo": "La comprobación definitiva se realizará según las bases",
+        "requisitosNota": "Revise las bases completas. Esta lista facilita la consulta, pero no sustituye al texto aprobado.",
+        "documentacion": "Documentación pública",
+        "documentacionSubtitulo": "Bases, anexos y baremo",
+        "antes": "Antes de empezar",
+        "antesSubtitulo": "El asistente comprobará cada paso",
+        "paso1": "Datos personales y contacto.",
+        "paso2": "Requisitos y méritos reutilizables.",
+        "paso3": "Autobaremación.",
+        "paso4": "Pago, firma y registro."
+      }
+    },
+    "perfil": {
+      "telefono": "Teléfono de contacto",
+      "domicilio": "Domicilio a efectos de contacto",
+      "avisos": {
+        "leyenda": "Canales de aviso voluntarios",
+        "correo": "Correo electrónico",
+        "correoDetalle": "Avisos de plazos, cambios y llamamientos.",
+        "telegram": "Telegram",
+        "telegramDetalle": "Se activará cuando el conector y el consentimiento estén disponibles.",
+        "interno": "Bandeja interna",
+        "internoDetalle": "Siempre disponible dentro del área personal.",
+        "nota": "Los avisos complementan, pero no sustituyen, una notificación administrativa cuando esta sea exigible.",
+        "guardar": "Guardar preferencias",
+        "titulo": "Preferencias de comunicación",
+        "subtitulo": "Seleccione los avisos que desea recibir"
+      },
+      "titulo": "Perfil, identidad y contacto",
+      "descripcion": "Una identidad común para solicitudes, bolsas, certificados y futuros módulos.",
+      "identidad": {
+        "titulo": "Datos de identidad",
+        "subtitulo": "La identidad principal procede del sistema de autenticación",
+        "nombre": "Nombre visible",
+        "identificador": "Identificador",
+        "referencia": "Referencia interna",
+        "verificacion": "Verificación",
+        "provincia": "Provincia",
+        "idioma": "Idioma"
+      },
+      "privacidad": {
+        "titulo": "Privacidad y trazabilidad",
+        "subtitulo": "Control sobre el uso de sus datos",
+        "texto": "Los accesos y cambios relevantes quedan sujetos a registro de auditoría. Desde esta área podrá consultar el origen de los datos, rectificarlos cuando proceda y conocer qué documentos se reutilizan.",
+        "enlace": "Consultar protección de datos"
+      }
+    },
+    "meritos": {
+      "puntosEstimados": "{puntos} puntos estimados",
+      "verEvidencia": "Ver evidencia",
+      "descargar": "Descargar",
+      "prepararDescarga": "Preparar descarga de {nombre}",
+      "formulario": {
+        "tipo": "Tipo de mérito",
+        "seleccione": "Seleccione",
+        "denominacion": "Denominación",
+        "jornada": "Jornada, si corresponde",
+        "documento": "Documento acreditativo",
+        "documentoAyuda": "El documento solo se incorporará cuando el servicio seguro confirme su custodia.",
+        "nota": "La aceptación y puntuación dependen de las bases de cada convocatoria. Aportar un mérito al inventario no implica su validación.",
+        "revisar": "Revisar incorporación"
+      },
+      "tipos": {
+        "titulacion": "Titulación",
+        "experiencia": "Experiencia",
+        "formacion": "Formación",
+        "ejercicio": "Ejercicio superado",
+        "otro": "Otro mérito previsto en bases"
+      },
+      "jornadas": {
+        "no_corresponde": "No corresponde",
+        "completa": "Completa",
+        "parcial_50": "Parcial 50 %",
+        "parcial_33": "Parcial 33 %",
+        "otra": "Porcentaje distinto"
+      },
+      "titulo": "Méritos, títulos y documentos",
+      "descripcion": "Inventario reutilizable con estado, evidencia y contribución a cada proceso.",
+      "anadir": "Añadir mérito",
+      "cifras": {
+        "inventariados": "Méritos inventariados",
+        "inventariadosAyuda": "Todas las categorías",
+        "validados": "Validados",
+        "validadosAyuda": "Confirmados por personal técnico",
+        "pendientes": "Pendientes o subsanables",
+        "pendientesAyuda": "Requieren revisión",
+        "documentos": "Documentos",
+        "documentosAyuda": "Con versión y trazabilidad"
+      },
+      "inventario": {
+        "titulo": "Inventario de méritos",
+        "subtitulo": "La puntuación se recalcula para las bases de cada proceso",
+        "tabla": "Méritos asociados al expediente personal"
+      },
+      "columnas": {
+        "merito": "Mérito",
+        "tipo": "Tipo",
+        "detalle": "Detalle y estimación",
+        "estado": "Estado",
+        "evidencia": "Evidencia",
+        "documento": "Documento",
+        "fecha": "Fecha",
+        "accion": "Acción"
+      },
+      "incorporar": {
+        "titulo": "Incorporar un mérito",
+        "subtitulo": "Aporte los datos y la evidencia disponible"
+      },
+      "documentos": {
+        "titulo": "Documentos del expediente",
+        "subtitulo": "Descarga y estado de validación",
+        "tabla": "Documentos aportados u obtenidos de oficio"
+      }
+    },
+    "solicitud": {
+      "pasos": {
+        "convocatoria": "Convocatoria",
+        "datos": "Datos",
+        "meritos": "Méritos",
+        "autobaremo": "Autobaremo",
+        "registro": "Pago, firma y registro",
+        "titulo": "Pasos de la solicitud",
+        "numero": "Paso {numero}"
+      },
+      "guardarBorradorContinuar": "Guardar borrador y continuar",
+      "guardarContinuar": "Guardar y continuar",
+      "anterior": "Anterior",
+      "paso1": {
+        "leyenda": "Convocatoria con plazo abierto",
+        "comprobacion": "El servicio comprobará el plazo vigente",
+        "declaracion": "He leído las bases y declaro cumplir los requisitos",
+        "declaracionDetalle": "El servicio volverá a comprobar plazo, requisitos y causas de exclusión antes del registro."
+      },
+      "paso2": {
+        "identidad": "Identidad",
+        "identificador": "Identificador",
+        "correo": "Correo",
+        "telefono": "Teléfono",
+        "verificacion": "Verificación",
+        "declaracion": "Confirmo que mis datos personales y de contacto son correctos",
+        "declaracionDetalle": "Puede modificarlos desde Perfil y contacto antes de continuar."
+      },
+      "paso3": {
+        "leyenda": "Méritos que desea asociar",
+        "nota": "Seleccione al menos un mérito. Los documentos se reutilizan sin duplicar el fichero y la solicitud conserva la referencia y versión exactas."
+      },
+      "paso4": {
+        "total": "Total autobaremado para los méritos seleccionados y datos de oficio",
+        "provisionales": "puntos provisionales",
+        "nota": "El cálculo usa los méritos elegidos y los conceptos obtenidos de oficio para esta convocatoria. No vincula a RRHH y cada concepto será revisado conforme a las bases."
+      },
+      "paso5": {
+        "sinBorrador": "Borrador no disponible.",
+        "sinBorradorDetalle": "Vuelva al paso anterior y guárdelo antes de iniciar pago, firma o registro.",
+        "pagoConfirmado": "Pago o exención confirmado",
+        "pagar": "Pagar o acreditar exención",
+        "pagarDescripcion": "Confirmar el pago o la acreditación de exención",
+        "firmaConfirmada": "Firma confirmada",
+        "firmar": "Firmar solicitud",
+        "firmarDescripcion": "Firmar electrónicamente la solicitud",
+        "firmaBloqueadaAyuda": "Confirme antes el pago o la exención",
+        "firmaBloqueada": "Firma bloqueada hasta confirmar pago o exención",
+        "registrada": "Solicitud registrada.",
+        "registradaDetalle": "Conserve el recibo y el asiento devueltos por el servicio.",
+        "declaracion": "Confirmo la solicitud completa que se va a presentar",
+        "declaracionDetalle": "He revisado convocatoria, requisitos, datos, méritos, autobaremación, tasa o exención y firma.",
+        "registrar": "Registrar solicitud",
+        "registroBloqueado": "Registro bloqueado.",
+        "registroBloqueadoDetalle": "Debe confirmar primero el pago o la exención y la firma.",
+        "borrador": "Borrador seleccionado:",
+        "tasa": "1. Tasa o exención",
+        "importe": "Importe mostrado:",
+        "firma": "2. Firma electrónica",
+        "firmaDetalle": "Se firmará la representación exacta de la solicitud.",
+        "registro": "3. Registro",
+        "registroDetalle": "El registro es el acto que presenta la solicitud y solo se habilita tras pago o exención y firma."
+      },
+      "error": "No se puede continuar.",
+      "pasoDe": "Paso {paso} de {total}",
+      "revisionFinal": "Revisión final",
+      "enPreparacion": "En preparación",
+      "titulo": "Nueva solicitud",
+      "sinGuardar": "Borrador sin guardar"
+    },
+    "autobaremo": {
+      "recalculado": "Resultado recalculado.",
+      "meritos": {
+        "one": "{cuenta} mérito.",
+        "other": "{cuenta} méritos."
+      },
+      "titulo": "Autobaremación desglosada",
+      "descripcion": "Estimación trazable aplicada a la versión de bases de la convocatoria.",
+      "recalcular": "Recalcular autobaremo",
+      "recalcularDescripcion": "Recalcular la autobaremación con los méritos seleccionados",
+      "criterios": "Criterios aplicados",
+      "criteriosSubtitulo": "{convocatoria} · versión vigente de bases",
+      "convocatoriaSeleccionada": "Convocatoria seleccionada",
+      "resultado": "Resultado provisional",
+      "resultadoSubtitulo": {
+        "one": "{cuenta} mérito seleccionado más conceptos de oficio",
+        "other": "{cuenta} méritos seleccionados más conceptos de oficio"
+      },
+      "estimada": "Puntuación estimada",
+      "deMaximo": "de {maximo} posibles",
+      "nota": "No constituye puntuación oficial. RRHH aceptará, rechazará o ajustará cada concepto con motivación y trazabilidad.",
+      "provisional": "Provisional",
+      "reglas": "Qué se tendrá en cuenta",
+      "reglasSubtitulo": "Reglas parametrizadas desde las bases",
+      "regla1": "Periodos exactos y solapamientos.",
+      "regla2": "Porcentaje de jornada y reducciones.",
+      "regla3": "Administración, categoría y rama.",
+      "regla4": "Topes por bloque y puntuación máxima.",
+      "regla5": "Documentos de oficio y aportados."
+    },
+    "seguimiento": {
+      "titulo": "Mis expedientes y seguimiento",
+      "descripcion": "Estado, puntuación, posición, documentos y próximos pasos.",
+      "certificados": "Certificados y descargas",
+      "vacio": {
+        "titulo": "Sin expedientes en el ámbito autorizado",
+        "subtitulo": "No se ha seleccionado ningún expediente",
+        "detalle": "No hay datos de expediente para consultar o descargar."
+      },
+      "acciones": {
+        "titulo": "Acciones disponibles",
+        "subtitulo": "Solo para el expediente seleccionado",
+        "vacio": "No hay acciones disponibles hasta que el servicio facilite un expediente autorizado.",
+        "subsanar": "Subsanar",
+        "alegar": "Alegar",
+        "descargar": "Descargar expediente",
+        "descargarDescripcion": "Preparar una copia descargable del expediente"
+      },
+      "puntos": "{puntos} puntos",
+      "seleccionar": "Seleccionar",
+      "posicion": {
+        "titulo": "Mi posición",
+        "subtitulo": "Situación y orden de prelación en la bolsa adscrita",
+        "bolsa": "Bolsa",
+        "categoria": "Categoría",
+        "orden": "Orden",
+        "ordenDe": "#{orden} de {total}",
+        "puntuacion": "Puntuación",
+        "vigenteDesde": "Vigente desde"
+      },
+      "provisional": {
+        "titulo": "Posición provisional",
+        "subtitulo": "La posición puede cambiar tras revisión y alegaciones",
+        "detalle": "Orden provisional y sujeto a las bases.",
+        "estado": "Provisional"
+      },
+      "curso": {
+        "titulo": "Solicitudes en curso",
+        "subtitulo": "Seleccione un expediente para consultar el detalle",
+        "tabla": "Solicitudes de la persona autenticada"
+      },
+      "columnas": {
+        "proceso": "Proceso",
+        "estado": "Estado",
+        "puntuacion": "Puntuación y posición",
+        "actualizacion": "Actualización",
+        "accion": "Acción"
+      },
+      "ficha": {
+        "estado": "Estado",
+        "puntuacion": "Puntuación provisional",
+        "posicion": "Posición",
+        "tasa": "Tasa",
+        "firma": "Firma",
+        "actualizacion": "Última actualización",
+        "siguiente": "Siguiente actuación:"
+      },
+      "historial": {
+        "titulo": "Historial del expediente",
+        "subtitulo": "Cada cambio muestra fecha, actor y referencia"
+      }
+    },
+    "miBolsa": {
+      "sinDatos": "Sin datos",
+      "participacion": "Mi participación",
+      "estadoBolsa": "Estado de la bolsa",
+      "ordenDe": "{orden} de {total}",
+      "vigenciaHasta": "{desde} · hasta {hasta}",
+      "vigenciaAbierta": "{desde} · vigente",
+      "paginacion": "Paginación de participaciones",
+      "mostrando": "Mostrando {desde} a {hasta} de {total}",
+      "anterior": "Anterior",
+      "siguiente": "Siguiente",
+      "participacionesEtiqueta": "Mis participaciones en bolsa",
+      "participaciones": "Mis participaciones",
+      "sinParticipaciones": "Sin participaciones activas",
+      "sinParticipacionesDetalle": "No constan participaciones en bolsa para la identidad actual.",
+      "titulo": "Mi bolsa"
+    },
+    "subsanaciones": {
+      "documentoSolicitado": "Documento solicitado",
+      "plazo": "Plazo",
+      "estado": "Estado",
+      "explicacion": "Explicación",
+      "explicacionInicial": "Se aporta documentación para completar la información solicitada.",
+      "documento": "Documento",
+      "documentoAyuda": "El fichero se custodiará solo si el servicio confirma la carga.",
+      "declaracion": "Declaro que la documentación corresponde al requerimiento",
+      "declaracionDetalle": "La operación requerirá firma y devolverá un recibo de registro.",
+      "presentar": "Revisar, firmar y presentar",
+      "sinActuacion": "La subsanación ya no requiere actuación en este recorrido.",
+      "titulo": "Subsanaciones",
+      "descripcion": "Responda a requerimientos dentro de plazo y conserve el recibo de presentación.",
+      "vacio": {
+        "titulo": "Sin subsanaciones",
+        "subtitulo": "No hay requerimientos pendientes",
+        "detalle": "Cuando exista un requerimiento aparecerá aquí con su plazo y documentación solicitada."
+      }
+    },
+    "alegaciones": {
+      "fecha": "Fecha",
+      "estado": "Estado",
+      "fundamento": "Fundamento de la alegación",
+      "fundamentoInicial": "Solicito la revisión del mérito señalado conforme al criterio de las bases.",
+      "fundamentoAyuda": "Identifique el concepto discutido y la evidencia que lo respalda.",
+      "evidencia": "Evidencia adicional, si procede",
+      "declaracion": "Confirmo el contenido de la alegación",
+      "declaracionDetalle": "La operación se firmará y registrará.",
+      "presentar": "Revisar, firmar y presentar",
+      "consta": "La alegación consta como {estado}.",
+      "titulo": "Alegaciones y revisión",
+      "descripcion": "Discuta una puntuación o decisión provisional con fundamento y evidencia.",
+      "verPuntuacion": "Ver puntuación desglosada",
+      "vacio": {
+        "titulo": "Sin alegaciones",
+        "subtitulo": "No existen alegaciones asociadas",
+        "detalle": "Podrá iniciar una cuando el procedimiento y el plazo lo permitan."
+      }
+    },
+    "mensajes": {
+      "errorBandeja": "No se puede mostrar la bandeja.",
+      "errorBandejaDetalle": "No se ha realizado ninguna operación ni se ha enviado aviso alguno.",
+      "marcarLeido": "Marcar como leído",
+      "marcarLeidoDescripcion": "Marcar como leído: {asunto}",
+      "abrirAsunto": "Abrir asunto",
+      "vacio": "No hay mensajes",
+      "vacioDetalle": "Cuando exista una comunicación accesible para usted aparecerá aquí.",
+      "preferencias": {
+        "aviso": "Los canales de aviso no están conectados en esta superficie. Guardar una preferencia no configura un envío, una entrega ni una notificación administrativa.",
+        "leyenda": "Avisos que desea recibir cuando el canal autorizado esté disponible",
+        "convocatorias": "Nuevas convocatorias de categorías compatibles",
+        "convocatoriasDetalle": "Según titulaciones validadas y sus preferencias.",
+        "plazos": "Plazos de mis expedientes",
+        "plazosDetalle": "Subsanaciones, alegaciones y publicaciones.",
+        "llamamientos": "Llamamientos personales",
+        "llamamientosDetalle": "Aviso complementario sujeto al canal autorizado.",
+        "noticias": "Noticias generales de empleo público",
+        "noticiasDetalle": "Información sin efectos administrativos.",
+        "guardar": "Guardar preferencias",
+        "titulo": "Preferencias",
+        "subtitulo": "Configure avisos complementarios"
+      },
+      "titulo": "Mensajes, avisos y noticias",
+      "descripcion": "Bandeja personal con el proceso relacionado, plazo y canal.",
+      "bandeja": "Bandeja de entrada",
+      "bandejaSubtitulo": "Las notificaciones administrativas se identificarán expresamente",
+      "noLeidos": {
+        "one": "{cuenta} no leído",
+        "other": "{cuenta} no leídos"
+      },
+      "lateral": "Preferencias y alcance de los avisos",
+      "diferencia": {
+        "titulo": "Diferencia importante",
+        "subtitulo": "Aviso frente a notificación",
+        "texto": "Un aviso no acredita una notificación administrativa. Cuando esta sea exigible, el portal mostrará expresamente su carácter, acceso, fecha y efectos."
+      }
+    },
+    "certificados": {
+      "referencia": "Referencia técnica: {id}",
+      "formato": "Formato",
+      "solicitar": "Solicitar certificado",
+      "descargar": "Descargar",
+      "prepararDescarga": "Preparar descarga de {nombre}",
+      "titulo": "Certificados y descargas",
+      "descripcion": "Obtenga documentos en formatos configurados y consulte su procedencia.",
+      "nota": "Un certificado solo podrá presentarse como oficial cuando incluya firma o sello, CSV/QR verificable, versión y, cuando corresponda, vigencia o revocación.",
+      "error": "No se pueden mostrar los certificados.",
+      "errorDetalle": "Inténtelo de nuevo cuando el servicio autorizado esté disponible.",
+      "vacio": "No hay certificados disponibles",
+      "vacioDetalle": "No se ha preparado ningún certificado para esta identidad.",
+      "documentos": {
+        "titulo": "Mis documentos",
+        "subtitulo": "Descargas autorizadas asociadas a la identidad",
+        "tabla": "Documentación disponible para la persona interesada"
+      },
+      "columnas": {
+        "documento": "Documento",
+        "tipo": "Tipo",
+        "fecha": "Fecha",
+        "estado": "Estado",
+        "accion": "Acción"
+      }
+    },
+    "ayuda": {
+      "error": "La ayuda no está disponible.",
+      "errorDetalle": "No se ha enviado información a ningún servicio externo.",
+      "sinCoincidencias": "Sin coincidencias",
+      "sinCoincidenciasDetalle": "Pruebe con otras palabras o borre la búsqueda.",
+      "titulo": "Ayuda y accesibilidad",
+      "leerPagina": "Leer esta página",
+      "buscar": {
+        "titulo": "Buscar en la ayuda",
+        "subtitulo": "Respuestas sobre inscripción, méritos, baremo y llamamientos",
+        "pregunta": "¿Qué necesita saber?",
+        "ejemplo": "Ejemplo: presentar una subsanación",
+        "boton": "Buscar"
+      },
+      "lateral": "Opciones y canales de ayuda",
+      "visualizacion": {
+        "titulo": "Opciones de visualización",
+        "subtitulo": "Se aplican solo durante esta visita",
+        "texto": "Aumentar texto",
+        "contraste": "Alto contraste",
+        "voz": "Lectura por voz",
+        "detalle": "La interfaz admite teclado, ampliación del navegador, lectura de pantalla y reducción de movimiento."
+      },
+      "soporte": {
+        "titulo": "Canales de soporte",
+        "subtitulo": "Ayuda sin exponer datos personales",
+        "asistente": "Asistente",
+        "asistenteDetalle": "Consultas públicas sobre plazos, requisitos y uso del portal.",
+        "tecnico": "Soporte técnico",
+        "tecnicoDetalle": "Canal autorizado indicado por el servicio",
+        "datos": "Protección de datos",
+        "datosDetalle": "Información de derechos y tratamiento en el aviso aplicable.",
+        "nota": "No incluya documentación personal en consultas generales de ayuda."
+      },
+      "rapida": {
+        "titulo": "Navegación rápida",
+        "subtitulo": "Recorridos habituales",
+        "inscribirme": "Inscribirme",
+        "meritos": "Aportar méritos",
+        "llamamiento": "Responder llamamiento"
+      }
+    }
+  },
+  "autobaremo": {
+    "pendienteRegla": "{tipo} · pendiente de regla aplicable"
+  },
+  "flujo": {
+    "pasoNoValido": "El paso de solicitud no es válido.",
+    "sinConvocatoria": "Seleccione una convocatoria con plazo abierto.",
+    "sinRequisitos": "Debe confirmar que ha leído las bases y que cumple los requisitos declarados.",
+    "completarPaso1": "Complete primero la convocatoria y la declaración de requisitos.",
+    "sinDatos": "Debe confirmar que sus datos personales y de contacto son correctos.",
+    "completarPaso2": "Confirme sus datos antes de seleccionar méritos.",
+    "sinMeritos": "Seleccione al menos un mérito para continuar.",
+    "sinMeritosAutobaremo": "Seleccione al menos un mérito antes de revisar la autobaremación.",
+    "borradorIncompleto": "El borrador no reúne convocatoria, requisitos, datos, méritos y autobaremación revisada."
+  },
+  "cliente": {
+    "sinEnvelope": "{nombre} no contiene el envelope data esperado.",
+    "tipoRespuesta": "El servicio no devolvió JSON UTF-8.",
+    "respuestaExcesiva": "La respuesta supera el límite permitido.",
+    "jsonInvalido": "El servicio devolvió JSON no válido.",
+    "idempotencia": "No se puede garantizar la idempotencia de la operación.",
+    "solicitudExcesiva": "La solicitud supera el límite permitido.",
+    "http401": "La identificación ha caducado o no está disponible.",
+    "http403": "La sesión no dispone de permiso para esta operación.",
+    "http409": "El expediente cambió. Recargue la información antes de continuar.",
+    "http422": "La operación no supera las validaciones del expediente.",
+    "http429": "El servicio está ocupado. Espere antes de reintentar.",
+    "httpOtro": "El servicio no pudo completar la operación (HTTP {estado}).",
+    "sinTransporte": "El cliente HTTP no está disponible.",
+    "sinConexion": "No se pudo establecer una conexión segura con el servicio.",
+    "contactoNoValido": "El estado del contacto no es válido.",
+    "reciboContacto": "El recibo del contacto no coincide.",
+    "sinCapacidad": "El servidor no ha concedido capacidad para esta acción.",
+    "sinConfirmacion": "La acción requiere confirmación explícita.",
+    "accionNoAdmitida": "La acción solicitada no está admitida por este cliente.",
+    "sinCargaDocumental": "La carga documental segura todavía no está conectada. No se ha enviado el fichero."
+  },
+  "app": {
+    "parametrosNoAdmitidos": "La dirección contiene parámetros no admitidos en el área personal.",
+    "fuenteNoConfigurada": "La fuente del área personal no está configurada para esta consulta.",
+    "accionNoHabilitada": "Acción no habilitada por el servicio autorizado",
+    "estaAccion": "Esta acción",
+    "noDisponible": "No disponible",
+    "tituloDocumento": "{titulo} · Mi área personal",
+    "migas": "Mi área personal",
+    "migasVista": "Mi área personal → {titulo}",
+    "documento": {
+      "referencia": "Referencia",
+      "tipo": "Tipo",
+      "fecha": "Fecha",
+      "estado": "Estado",
+      "huella": "Huella",
+      "huellaPendiente": "Pendiente del servicio documental"
+    },
+    "confirmacion": {
+      "accion": "Acción",
+      "objeto": "Objeto",
+      "expediente": "Expediente personal",
+      "resultado": "Resultado esperado",
+      "resultadoDetalle": "Confirmación emitida por el servicio autorizado",
+      "nota": "El servidor volverá a comprobar identidad, permiso, estado e idempotencia."
+    },
+    "confirmar": "Confirmar operación",
+    "reciboNoValido": "El servicio no devolvió un recibo válido para el área personal.",
+    "borradorSinReferencia": "El servicio guardó el borrador, pero no devolvió su referencia autorizada.",
+    "operacionFallida": "No se pudo completar la operación.",
+    "operacionNoCompletada": "Operación no completada.",
+    "reciboAjeno": "El recibo no pertenece al área personal habilitada.",
+    "recibo": {
+      "referencia": "Referencia",
+      "accion": "Acción",
+      "objetivo": "Objetivo",
+      "fecha": "Fecha UTC",
+      "actor": "Actor"
+    },
+    "descargarCertificado": "Descargar certificado PDF",
+    "descargarRecibo": "Descargar recibo PDF",
+    "operacionCompletada": "Operación completada. Recibo {recibo}.",
+    "pdf": {
+      "reciboNoValido": "El recibo documental no es válido.",
+      "reciboPresentacion": "El recibo de presentación no está admitido en esta superficie.",
+      "certificadoAjeno": "El certificado solicitado no pertenece al expediente visible.",
+      "tipoCertificado": "CERTIFICADO",
+      "tipoRecibo": "RECIBO DE ACTUACIÓN",
+      "titulo": "Recibo de actuación del Portal de Recursos Humanos",
+      "subtitulo": "Diputación de Granada · Área de Recursos Humanos y Régimen Interior",
+      "marca": "Documento emitido por el sistema de gestión de Recursos Humanos",
+      "actuacion": "Actuación",
+      "resultado": "Resultado",
+      "referencia": "Referencia del trámite",
+      "fecha": "Fecha de emisión (UTC)",
+      "identidad": "Identidad actuante",
+      "certificacionCertificado": "La emisión del certificado corresponde al servicio documental autorizado y requiere su firma o sello verificable.",
+      "certificacionRecibo": "Se deja constancia de la actuación indicada, su resultado y referencia de comprobación. El servicio autorizado debe emitir y custodiar el recibo."
+    },
+    "sinRecibo": "No existe un recibo disponible para descargar.",
+    "sinGenerador": "El generador documental autorizado no está disponible.",
+    "sinDocumento": "No se ha generado ningún documento.",
+    "certificadoPreparado": "Certificado PDF preparado para descarga.",
+    "reciboPreparado": "Recibo PDF preparado para descarga.",
+    "certificadoFallido": "No se pudo generar el certificado PDF.",
+    "reciboFallido": "No se pudo generar el recibo PDF.",
+    "sinDescarga": "No se ha descargado ningún documento.",
+    "lectura": {
+      "aviso": "La lectura de expedientes privados requiere un conector y una política aprobados. Consulte la guía textual de Ayuda.",
+      "anuncio": "Lectura por voz no iniciada. Se abre la guía textual de Ayuda."
+    },
+    "respuestaAjena": "La respuesta no corresponde a la identidad consultada.",
+    "guardeBorrador": "Guarde primero el borrador y espere a que el servicio devuelva su referencia.",
+    "guardarBorradorDescripcion": "Guardar el borrador completo antes de pago, firma y registro",
+    "pasoNoValido": "El paso no supera las validaciones.",
+    "revisarCampos": "No se puede continuar. Revise los campos indicados.",
+    "accionNoHabilitadaExpediente": "La acción no está habilitada para la identidad y el expediente actuales.",
+    "sinDeclaracion": "Debe confirmar la declaración final antes de registrar la solicitud.",
+    "sinDeclaracionAnuncio": "No se puede registrar sin la declaración final.",
+    "clienteNoValido": "El cliente inyectado no respeta el contrato del área personal."
+  },
+  "operacion": {
+    "actualizar_contacto": "Actualizar datos de contacto",
+    "incorporar_merito": "Incorporar mérito y evidencia",
+    "guardar_borrador": "Guardar borrador",
+    "calcular_autobaremo": "Calcular autobaremación",
+    "iniciar_pago": "Realizar pago o acreditar exención",
+    "firmar_solicitud": "Firmar solicitud",
+    "registrar_solicitud": "Registrar solicitud",
+    "cambiar_disponibilidad": "Cambiar disponibilidad",
+    "responder_llamamiento": "Responder llamamiento",
+    "presentar_subsanacion": "Presentar subsanación",
+    "presentar_alegacion": "Presentar alegación",
+    "marcar_mensaje": "Marcar mensaje como leído",
+    "actualizar_notificaciones": "Actualizar preferencias",
+    "solicitar_certificado": "Solicitar certificado",
+    "solicitar_descarga": "Preparar descarga"
+  },
+  "html": {
+    "titulo": "Mi área personal · Bolsas de trabajo",
+    "saltar": "Saltar al contenido principal",
+    "navegacion": "Navegación del área personal",
+    "irInicio": "Ir al inicio del área personal",
+    "logo": "Diputación de Granada",
+    "marca": "Mi área personal",
+    "marcaDetalle": "Empleo público y bolsas",
+    "contexto": "Bolsa de trabajo habilitada",
+    "opciones": "Opciones del área personal",
+    "grupoResumen": "Resumen",
+    "grupoInformacion": "Mi información",
+    "grupoTramitacion": "Tramitación",
+    "grupoComunicaciones": "Comunicaciones",
+    "miBolsa": "Mi bolsa",
+    "pieLateral": "Portal genérico de RRHH",
+    "pieLateralDetalle": "Fase inicial · Módulo Bolsa",
+    "abrirNavegacion": "Abrir navegación",
+    "migas": "Migas de pan",
+    "cargando": "Cargando área personal…",
+    "buscarEtiqueta": "Buscar en convocatorias y ayuda",
+    "buscarEjemplo": "Buscar convocatoria o ayuda",
+    "buscar": "Buscar",
+    "escuchar": "Escuchar",
+    "sesionSinResolver": "Sesión sin resolver",
+    "identificacionRequerida": "Identificación requerida",
+    "cargandoInformacion": "Cargando información autorizada…",
+    "pie": "© 2026 Diputación de Granada · Mi área personal",
+    "legal": "Información legal",
+    "accesibilidad": "Accesibilidad",
+    "proteccionDatos": "Protección de datos",
+    "ayuda": "Ayuda",
+    "confirmacionNecesaria": "Confirmación necesaria",
+    "confirmarAccion": "Confirmar acción",
+    "cancelar": "Cancelar",
+    "resultadoOperacion": "Resultado de la operación",
+    "recibo": "Recibo",
+    "descargarPDF": "Descargar PDF",
+    "cerrar": "Cerrar",
+    "informacionDetallada": "Información detallada",
+    "detalle": "Detalle",
+    "cerrarDetalle": "Cerrar detalle"
+  },
+  "ficha": {
+    "cargando": "Cargando su ficha…",
+    "identidad": {
+      "titulo": "Sus datos de identidad"
+    },
+    "campo": {
+      "nombre": "Nombre",
+      "apellidos": "Apellidos",
+      "documento": "Documento",
+      "telefono": "Teléfono",
+      "movil": "Móvil",
+      "domicilio": "Domicilio",
+      "codigo_postal": "Código postal"
+    },
+    "tipo": {
+      "dni": "DNI",
+      "nie": "NIE",
+      "pasaporte": "Pasaporte",
+      "otro": "Documento"
+    },
+    "contacto": {
+      "titulo": "Teléfono y domicilio",
+      "nadaPedido": "Ahora sus convocatorias no le piden teléfono ni domicilio.",
+      "sinCatalogo": "Ahora no podemos saber qué datos le piden sus convocatorias. Vuelva a intentarlo más tarde."
+    },
+    "opcional": "(opcional)",
+    "condicion": {
+      "si_elige_notificacion_papel": "Solo si quiere recibir las notificaciones en papel."
+    },
+    "ejemplo": "Esta lista de datos puede cambiar: Recursos Humanos aún está decidiendo cuáles pide.",
+    "motivo": {
+      "pregunta": "¿Por qué cambia estos datos?",
+      "cambio_de_dato": "Han cambiado",
+      "correccion_de_error": "Estaban mal"
+    },
+    "accion": {
+      "crear": "Crear mi ficha",
+      "guardar": "Guardar cambios",
+      "reintentar": "Reintentar",
+      "quitar": "Quitar este dato",
+      "confirmarQuitar": "Sí, quitarlo",
+      "cancelar": "No, dejarlo"
+    },
+    "sobrantes": {
+      "titulo": "Datos que ya no se piden"
+    },
+    "creada": "Ficha creada el {fecha}.",
+    "guardado": "Datos guardados el {fecha}.",
+    "sinCambios": "No ha cambiado ningún dato.",
+    "error": {
+      "no_autenticado": "Su sesión ha caducado. Vuelva a entrar con su certificado.",
+      "prohibido": "Su certificado no permite ver esta ficha. Entre con un certificado de persona física o con el DNIe.",
+      "sin_ficha": "Todavía no tiene ficha. Créela para guardar sus datos.",
+      "ficha_existente": "Ya tenía una ficha. Se muestra de nuevo.",
+      "conflicto": "Sus datos han cambiado en otra ventana. Se muestran los últimos; revise el cambio y guárdelo otra vez.",
+      "peticion_invalida": "Revise los datos: alguno no tiene el formato correcto.",
+      "no_disponible": "No se han podido cargar sus datos. Vuelva a intentarlo en unos minutos.",
+      "guardar": "No se han podido guardar sus datos. Sus cambios siguen en el formulario; vuelva a pulsar Guardar dentro de unos minutos.",
+      "motivo": "Elija por qué cambia los datos."
+    },
+    "panel": {
+      "titulo": "Mi ficha"
+    },
+    "resumen": "Revise los datos marcados en el formulario.",
+    "validacion": {
+      "telefono": "Revise el teléfono: escriba solo números, por ejemplo 958 123 456.",
+      "movil": "Revise el móvil: escriba solo números, por ejemplo 612 345 678.",
+      "codigo_postal": "Escriba los 5 números del código postal, por ejemplo 18002.",
+      "domicilio": "Escriba el domicilio completo: calle, número y localidad.",
+      "vacio": {
+        "telefono": "Escriba su teléfono.",
+        "movil": "Escriba su móvil.",
+        "domicilio": "Escriba su domicilio.",
+        "codigo_postal": "Escriba su código postal."
+      }
+    },
+    "quitar": {
+      "pregunta": "¿Quitar «{campo}» de su ficha? No podrá volver a añadirlo hasta que una convocatoria lo pida."
+    }
+  }
+}

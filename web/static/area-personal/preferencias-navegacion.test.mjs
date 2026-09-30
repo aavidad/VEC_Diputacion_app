@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { test } from "node:test";
 import { iniciarAreaPersonal } from "./aplicacion.js";
 import { iniciarI18nAreaPersonal } from "./i18n.js";
+import { catalogoPlano, lectorCatalogos } from "./textos-prueba.test-helper.mjs";
 
 const valores = { idioma: "navegador", tamano_texto: "normal", alto_contraste: false,
   tema: "sistema", inicio: "bolsas", filas: 20, aviso_correo_tareas: false, aviso_correo_plazos: false };
@@ -48,9 +49,8 @@ async function escenario(idioma, lectura, errorPreferencias = null) {
   globalThis.document = documento;
   globalThis.window = ventana;
   try {
-    const catalogo = JSON.parse(await readFile(new URL(`./locales/${idioma}.json`, import.meta.url), "utf8"));
-    await iniciarI18nAreaPersonal(documento, async () => ({ ok: true, json: async () => catalogo }),
-      [idioma], { href: `https://vec.example/area-personal/?lang=${idioma}` });
+    await iniciarI18nAreaPersonal(documento, { leer: lectorCatalogos(), preferidos: [idioma],
+      ubicacion: { href: `https://vec.example/area-personal/?lang=${idioma}` } });
     let consultasBolsa = 0;
     const cliente = { async cargar() { consultasBolsa += 1; throw { codigo: "servicio_no_disponible" }; },
       async ejecutar() { throw new Error("No debe ejecutarse una operación de Bolsa."); } };

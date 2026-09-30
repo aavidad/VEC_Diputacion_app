@@ -61,6 +61,8 @@ while IFS= read -r paquete; do
 			"golang.org/x/text/width" | \
 			"${modulo}/cmd/vec-publico" | \
 			"${modulo}/config" | \
+			"${modulo}/web" | \
+			"${modulo}/internal/shared/i18n" | \
 			"${modulo}/internal/app/composicion/publica" | \
 			"${modulo}/internal/app/server" | \
 			"${modulo}/internal/modules/bolsa/adapters/postgrespublico" | \

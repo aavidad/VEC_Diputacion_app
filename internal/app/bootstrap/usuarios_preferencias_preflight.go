@@ -154,9 +154,13 @@ func preflightSQLPreferenciasUsuariosDesarrollo(cfg config.Config, derivador *de
 	if err != nil {
 		return errComposicionUsuariosPreferencias
 	}
-	cExterna, err := leerConfiguracionUsuariosPreferenciasDesarrollo(cfg, core.SuperficieAutenticacionExternaPersonalV1)
-	if err != nil || !configuracionesPreferenciasSeparadas(cInterna, cExterna) {
-		return errComposicionUsuariosPreferencias
+	configuraciones := []configuracionUsuariosPreferenciasDesarrollo{cInterna}
+	if superficieExternaUsuariosEnProceso(cfg) {
+		cExterna, err := leerConfiguracionUsuariosPreferenciasDesarrollo(cfg, core.SuperficieAutenticacionExternaPersonalV1)
+		if err != nil || !configuracionesPreferenciasSeparadas(cInterna, cExterna) {
+			return errComposicionUsuariosPreferencias
+		}
+		configuraciones = append(configuraciones, cExterna)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -171,7 +175,7 @@ func preflightSQLPreferenciasUsuariosDesarrollo(cfg config.Config, derivador *de
 		}
 	}()
 	logins := map[string]bool{}
-	for _, c := range []configuracionUsuariosPreferenciasDesarrollo{cInterna, cExterna} {
+	for _, c := range configuraciones {
 		superficie := c.Superficie
 		entradas := []struct{ dsn, rol string }{
 			{c.DSNRegistroIdentidad, "vec_identidad_sesiones_v1_registrador"}, {c.DSNRevalidacionIdentidad, "vec_identidad_sesiones_v1_revalidador"},

@@ -2,7 +2,7 @@
 // tiene RRHH procede de CONVOCA y lo confirma. Se confirma la versión que se
 // muestra; si RRHH registró otra entre medias, el servidor lo rechaza. El
 // correo y los teléfonos nunca llegan a esta pantalla.
-import { traducir } from "./i18n.js";
+import { localizacionAreaPersonal, traducir } from "./i18n.js";
 import { escaparAtributo, escaparHTML } from "./vistas/comunes.js";
 import { nombreCategoria } from "./mi-bolsa-campos.js";
 
@@ -11,21 +11,9 @@ export const RUTA_CONTACTO_MI_BOLSA = "/api/vec/bolsa/mi-bolsa/contacto";
 const DIA = /^\d{4}-\d{2}-\d{2}$/u;
 const INSTANTE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?Z$/u;
 
-const RESPALDO = Object.freeze({
-  "areaPersonal.contacto.titulo": "Mi contacto",
-  "areaPersonal.contacto.subtitulo": "Por bolsa",
-  "areaPersonal.contacto.convoca": "Contacto de origen CONVOCA sin confirmar",
-  "areaPersonal.contacto.vencido": "Contacto de origen CONVOCA; confirmación pendiente desde el {fecha}",
-  "areaPersonal.contacto.confirmado": "Contacto confirmado el {fecha}",
-  "areaPersonal.contacto.rrhh": "Contacto registrado por RRHH",
-  "areaPersonal.contacto.confirmar": "Confirmo que mi contacto es correcto",
-});
 
 export function textoContacto(clave, variables = {}) {
-  const completa = `areaPersonal.contacto.${clave}`;
-  const traducido = traducir(completa, variables);
-  if (traducido !== completa) return traducido;
-  return (RESPALDO[completa] ?? completa).replace(/\{([a-z_]+)\}/giu, (_, nombre) => String(variables[nombre] ?? ""));
+  return traducir(`areaPersonal.contacto.${clave}`, variables);
 }
 
 // validarContactosMiBolsa comprueba la parte opcional «contactos».
@@ -44,12 +32,12 @@ export function validarContactosMiBolsa(datos) {
 }
 
 function fecha(valor) {
-  return new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeZone: "Europe/Madrid" }).format(new Date(valor));
+  return new Intl.DateTimeFormat(localizacionAreaPersonal(), { dateStyle: "medium", timeZone: "Europe/Madrid" }).format(new Date(valor));
 }
 
 function dia(valor) {
   const [a, m, d] = valor.split("-").map(Number);
-  return new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeZone: "UTC" }).format(new Date(Date.UTC(a, m - 1, d)));
+  return new Intl.DateTimeFormat(localizacionAreaPersonal(), { dateStyle: "medium", timeZone: "UTC" }).format(new Date(Date.UTC(a, m - 1, d)));
 }
 
 // renderizarContactoMiBolsa pinta el estado del contacto de cada bolsa y, si

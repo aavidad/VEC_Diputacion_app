@@ -5,29 +5,33 @@ import {
 import { estadoActosSolicitud, localizarSolicitudEdicion } from "../flujo-solicitud.js";
 import { calcularAutobaremo } from "../calculo-autobaremo.js";
 import { textoContactoPropio } from "../i18n-contacto-propio.js";
+import { traducir } from "../i18n.js";
+
+const p = (clave, variables) => traducir(`areaPersonal.vista.perfil.${clave}`, variables);
+const m = (clave, variables) => traducir(`areaPersonal.vista.meritos.${clave}`, variables);
+const s = (clave, variables) => traducir(`areaPersonal.vista.solicitud.${clave}`, variables);
+const a = (clave, variables) => traducir(`areaPersonal.vista.autobaremo.${clave}`, variables);
+const h = (texto) => escaparHTML(texto);
+
+// Códigos de las opciones del formulario de méritos; su nombre visible está en el catálogo.
+const TIPOS_MERITO = Object.freeze(["titulacion", "experiencia", "formacion", "ejercicio", "otro"]);
+const JORNADAS_MERITO = Object.freeze(["no_corresponde", "completa", "parcial_50", "parcial_33", "otra"]);
+
+function opcionCheck(nombre, marcado, titulo, detalle) {
+  return `<label class="opcion-check"><input type="checkbox" name="${nombre}" ${marcado ? "checked" : ""}><span><strong>${h(titulo)}</strong><small>${h(detalle)}</small></span></label>`;
+}
 
 export function renderizarPerfil(datos) {
-  const perfil = datos.perfil;
   const preferenciasAviso = datos.preferencias_notificacion || {};
-  const formularioContacto = `<form id="formulario-contacto" data-operacion="actualizar_contacto">
-    <div class="formulario-rejilla">
-      <div class="campo"><label for="perfil-telefono">Teléfono de contacto</label><input id="perfil-telefono" name="telefono" type="tel" autocomplete="tel" value="${escaparAtributo(perfil.telefono)}" required></div>
-      <div class="campo ancho-completo"><label for="perfil-domicilio">Domicilio a efectos de contacto</label><textarea id="perfil-domicilio" name="domicilio" autocomplete="street-address" required>${escaparHTML(perfil.domicilio)}</textarea></div>
-    </div><div class="fila-acciones"><button type="submit" class="boton-primario">${textoContactoPropio("guardarTelefonoDomicilio")}</button></div></form>`;
-  const preferencias = `<form id="formulario-notificaciones" data-operacion="actualizar_notificaciones"><fieldset><legend>Canales de aviso voluntarios</legend><label class="opcion-check"><input type="checkbox" name="correo" ${preferenciasAviso.correo ? "checked" : ""}><span><strong>Correo electrónico</strong><small>Avisos de plazos, cambios y llamamientos.</small></span></label><label class="opcion-check"><input type="checkbox" name="telegram" ${preferenciasAviso.telegram ? "checked" : ""}><span><strong>Telegram</strong><small>Se activará cuando el conector y el consentimiento estén disponibles.</small></span></label><label class="opcion-check"><input type="checkbox" name="interno" ${preferenciasAviso.interno ? "checked" : ""}><span><strong>Bandeja interna</strong><small>Siempre disponible dentro del área personal.</small></span></label></fieldset><p class="nota">Los avisos complementan, pero no sustituyen, una notificación administrativa cuando esta sea exigible.</p><button type="submit" class="boton-secundario">Guardar preferencias</button></form>`;
+  const preferencias = `<form id="formulario-notificaciones" data-operacion="actualizar_notificaciones"><fieldset><legend>${h(p("avisos.leyenda"))}</legend>${opcionCheck("correo", preferenciasAviso.correo, p("avisos.correo"), p("avisos.correoDetalle"))}${opcionCheck("telegram", preferenciasAviso.telegram, p("avisos.telegram"), p("avisos.telegramDetalle"))}${opcionCheck("interno", preferenciasAviso.interno, p("avisos.interno"), p("avisos.internoDetalle"))}</fieldset><p class="nota">${h(p("avisos.nota"))}</p><button type="submit" class="boton-secundario">${h(p("avisos.guardar"))}</button></form>`;
 
-  return `${encabezadoVista("Perfil, identidad y contacto", "Una identidad común para solicitudes, bolsas, certificados y futuros módulos.")}
+  return `${encabezadoVista(p("titulo"), p("descripcion"))}
     <div class="rejilla-principal perfil"><div>
-      ${panel("Datos de identidad", "La identidad principal procede del sistema de autenticación", listaDatos([
-        ["Nombre visible", escaparHTML(perfil.nombre_visible)], ["Identificador", escaparHTML(perfil.identificador_visible)],
-        ["Referencia interna", escaparHTML(perfil.referencia)], ["Verificación", chip(perfil.estado_verificacion)],
-        ["Provincia", escaparHTML(perfil.provincia)], ["Idioma", escaparHTML(perfil.idioma)],
-      ]), { estado: perfil.estado_verificacion })}
+      ${panel(traducir("areaPersonal.ficha.panel.titulo"), "", '<div id="ficha-aspirante"></div>')}
       ${panel(textoContactoPropio("titulo"), textoContactoPropio("subtitulo"), '<div id="contacto-propio"></div>')}
-      ${panel(textoContactoPropio("tituloOtrosDatos"), textoContactoPropio("subtituloOtrosDatos"), formularioContacto)}
     </div><aside>
-      ${panel("Preferencias de comunicación", "Seleccione los avisos que desea recibir", preferencias)}
-      ${panel("Privacidad y trazabilidad", "Control sobre el uso de sus datos", `<p>Los accesos y cambios relevantes quedan sujetos a registro de auditoría. Desde esta área podrá consultar el origen de los datos, rectificarlos cuando proceda y conocer qué documentos se reutilizan.</p>${enlaceRuta("ayuda", "Consultar protección de datos", "enlace-boton")}`)}
+      ${panel(p("avisos.titulo"), p("avisos.subtitulo"), preferencias)}
+      ${panel(p("privacidad.titulo"), p("privacidad.subtitulo"), `<p>${h(p("privacidad.texto"))}</p>${enlaceRuta("ayuda", p("privacidad.enlace"), "enlace-boton")}`)}
     </aside></div>`;
 }
 
@@ -35,31 +39,32 @@ export function renderizarMeritos(datos) {
   const filasMeritos = datos.meritos.map((merito) => [
     `<strong>${escaparHTML(merito.titulo)}</strong><small>${escaparHTML(merito.id)}</small>`,
     escaparHTML(merito.tipo),
-    `<span>${escaparHTML(merito.detalle)}</span><small>${formatoPuntos(merito.puntos_estimados)} puntos estimados</small>`,
+    `<span>${escaparHTML(merito.detalle)}</span><small>${h(m("puntosEstimados", { puntos: formatoPuntos(merito.puntos_estimados) }))}</small>`,
     chip(merito.estado),
-    `<div class="acciones-tabla"><button type="button" class="boton-secundario" data-accion="abrir-documento" data-id="${escaparAtributo(merito.documento_ref)}">Ver evidencia</button></div>`,
+    `<div class="acciones-tabla"><button type="button" class="boton-secundario" data-accion="abrir-documento" data-id="${escaparAtributo(merito.documento_ref)}">${h(m("verEvidencia"))}</button></div>`,
   ]);
   const filasDocumentos = datos.documentos.map((documento) => [
     `<strong>${escaparHTML(documento.nombre)}</strong><small>${escaparHTML(documento.id)}</small>`,
     escaparHTML(documento.tipo), escaparHTML(documento.fecha), chip(documento.estado),
-    `<div class="acciones-tabla">${botonOperacion("solicitar_descarga", "Descargar", { id: documento.id, clase: "boton-secundario", descripcion: `Preparar descarga de ${documento.nombre}` })}</div>`,
+    `<div class="acciones-tabla">${botonOperacion("solicitar_descarga", m("descargar"), { id: documento.id, clase: "boton-secundario", descripcion: m("prepararDescarga", { nombre: documento.nombre }) })}</div>`,
   ]);
-  const formulario = `<form id="formulario-merito" data-operacion="incorporar_merito"><div class="formulario-rejilla"><div class="campo"><label for="merito-tipo">Tipo de mérito</label><select id="merito-tipo" name="tipo" required><option value="">Seleccione</option><option>Titulación</option><option>Experiencia</option><option>Formación</option><option>Ejercicio superado</option><option>Otro mérito previsto en bases</option></select></div><div class="campo"><label for="merito-titulo">Denominación</label><input id="merito-titulo" name="titulo" required maxlength="180"></div><div class="campo"><label for="merito-jornada">Jornada, si corresponde</label><select id="merito-jornada" name="jornada"><option>No corresponde</option><option>Completa</option><option>Parcial 50 %</option><option>Parcial 33 %</option><option>Porcentaje distinto</option></select></div><div class="campo"><label for="merito-documento">Documento acreditativo</label><input id="merito-documento" name="documento" type="file" accept=".pdf,.odt,.docx,.jpg,.png"><small>El documento solo se incorporará cuando el servicio seguro confirme su custodia.</small></div></div><p class="nota aviso">La aceptación y puntuación dependen de las bases de cada convocatoria. Aportar un mérito al inventario no implica su validación.</p><button type="submit" class="boton-primario">Revisar incorporación</button></form>`;
+  const opciones = (codigos, grupo) => codigos.map((codigo) => `<option value="${codigo}">${h(m(`${grupo}.${codigo}`))}</option>`).join("");
+  const formulario = `<form id="formulario-merito" data-operacion="incorporar_merito"><div class="formulario-rejilla"><div class="campo"><label for="merito-tipo">${h(m("formulario.tipo"))}</label><select id="merito-tipo" name="tipo" required><option value="">${h(m("formulario.seleccione"))}</option>${opciones(TIPOS_MERITO, "tipos")}</select></div><div class="campo"><label for="merito-titulo">${h(m("formulario.denominacion"))}</label><input id="merito-titulo" name="titulo" required maxlength="180"></div><div class="campo"><label for="merito-jornada">${h(m("formulario.jornada"))}</label><select id="merito-jornada" name="jornada">${opciones(JORNADAS_MERITO, "jornadas")}</select></div><div class="campo"><label for="merito-documento">${h(m("formulario.documento"))}</label><input id="merito-documento" name="documento" type="file" accept=".pdf,.odt,.docx,.jpg,.png"><small>${h(m("formulario.documentoAyuda"))}</small></div></div><p class="nota aviso">${h(m("formulario.nota"))}</p><button type="submit" class="boton-primario">${h(m("formulario.revisar"))}</button></form>`;
 
-  return `${encabezadoVista("Méritos, títulos y documentos", "Inventario reutilizable con estado, evidencia y contribución a cada proceso.", `<button type="button" class="boton-primario" data-accion="enfocar-nuevo-merito">Añadir mérito</button>`)}
-    <section class="resumen-cifras">${cifraResumen(datos.meritos.length, "Méritos inventariados", "Todas las categorías", { clase: "merito", nombreIcono: "expediente" })}${cifraResumen(datos.meritos.filter((item) => item.estado === "Validado").length, "Validados", "Confirmados por personal técnico", { clase: "exito", nombreIcono: "correcto" })}${cifraResumen(datos.meritos.filter((item) => item.estado !== "Validado").length, "Pendientes o subsanables", "Requieren revisión", { clase: "aviso", nombreIcono: "pendiente" })}${cifraResumen(datos.documentos.length, "Documentos", "Con versión y trazabilidad", { nombreIcono: "documento" })}</section>
-    ${panel("Inventario de méritos", "La puntuación se recalcula para las bases de cada proceso", tabla({ descripcion: "Méritos asociados al expediente personal", columnas: ["Mérito", "Tipo", "Detalle y estimación", "Estado", "Evidencia"], filas: filasMeritos }))}
-    <div class="rejilla-dos"><div>${panel("Incorporar un mérito", "Aporte los datos y la evidencia disponible", formulario, { clase: "panel-nuevo-merito" })}</div><div>${panel("Documentos del expediente", "Descarga y estado de validación", tabla({ descripcion: "Documentos aportados u obtenidos de oficio", columnas: ["Documento", "Tipo", "Fecha", "Estado", "Acción"], filas: filasDocumentos }))}</div></div>`;
+  return `${encabezadoVista(m("titulo"), m("descripcion"), `<button type="button" class="boton-primario" data-accion="enfocar-nuevo-merito">${h(m("anadir"))}</button>`)}
+    <section class="resumen-cifras">${cifraResumen(datos.meritos.length, m("cifras.inventariados"), m("cifras.inventariadosAyuda"), { clase: "merito", nombreIcono: "expediente" })}${cifraResumen(datos.meritos.filter((item) => item.estado === "Validado").length, m("cifras.validados"), m("cifras.validadosAyuda"), { clase: "exito", nombreIcono: "correcto" })}${cifraResumen(datos.meritos.filter((item) => item.estado !== "Validado").length, m("cifras.pendientes"), m("cifras.pendientesAyuda"), { clase: "aviso", nombreIcono: "pendiente" })}${cifraResumen(datos.documentos.length, m("cifras.documentos"), m("cifras.documentosAyuda"), { nombreIcono: "documento" })}</section>
+    ${panel(m("inventario.titulo"), m("inventario.subtitulo"), tabla({ descripcion: m("inventario.tabla"), columnas: [m("columnas.merito"), m("columnas.tipo"), m("columnas.detalle"), m("columnas.estado"), m("columnas.evidencia")], filas: filasMeritos }))}
+    <div class="rejilla-dos"><div>${panel(m("incorporar.titulo"), m("incorporar.subtitulo"), formulario, { clase: "panel-nuevo-merito" })}</div><div>${panel(m("documentos.titulo"), m("documentos.subtitulo"), tabla({ descripcion: m("documentos.tabla"), columnas: [m("columnas.documento"), m("columnas.tipo"), m("columnas.fecha"), m("columnas.estado"), m("columnas.accion")], filas: filasDocumentos }))}</div></div>`;
 }
 
 function pasosSolicitud(paso) {
-  const etiquetas = ["Convocatoria", "Datos", "Méritos", "Autobaremo", "Pago, firma y registro"];
-  return `<ol class="pasos" aria-label="Pasos de la solicitud">${etiquetas.map((etiqueta, indice) => `<li class="${paso === indice + 1 ? "activo" : paso > indice + 1 ? "completo" : ""}" ${paso === indice + 1 ? 'aria-current="step"' : ""}><span>Paso ${indice + 1}</span>${escaparHTML(etiqueta)}</li>`).join("")}</ol>`;
+  const etiquetas = ["convocatoria", "datos", "meritos", "autobaremo", "registro"].map((clave) => s(`pasos.${clave}`));
+  return `<ol class="pasos" aria-label="${escaparAtributo(s("pasos.titulo"))}">${etiquetas.map((etiqueta, indice) => `<li class="${paso === indice + 1 ? "activo" : paso > indice + 1 ? "completo" : ""}" ${paso === indice + 1 ? 'aria-current="step"' : ""}><span>${h(s("pasos.numero", { numero: indice + 1 }))}</span>${escaparHTML(etiqueta)}</li>`).join("")}</ol>`;
 }
 
 function accionesPaso(paso) {
-  const etiqueta = paso === 4 ? "Guardar borrador y continuar" : "Guardar y continuar";
-  return `<div class="fila-acciones">${paso > 1 ? '<button type="button" class="boton-secundario" data-accion="paso-anterior">Anterior</button>' : ""}${paso < 5 ? `<button type="submit" class="boton-primario">${etiqueta}</button>` : ""}</div>`;
+  const etiqueta = paso === 4 ? s("guardarBorradorContinuar") : s("guardarContinuar");
+  return `<div class="fila-acciones">${paso > 1 ? `<button type="button" class="boton-secundario" data-accion="paso-anterior">${h(s("anterior"))}</button>` : ""}${paso < 5 ? `<button type="submit" class="boton-primario">${h(etiqueta)}</button>` : ""}</div>`;
 }
 
 function meritosAutobaremacion(datos, estado, convocatoriaId) {
@@ -79,45 +84,49 @@ function meritosAutobaremacion(datos, estado, convocatoriaId) {
   return datos.meritos.map((item) => item.id);
 }
 
+function declaracion(nombre, marcado, titulo, detalle) {
+  return `<label class="opcion-check"><input type="checkbox" name="${nombre}" value="true" required ${marcado ? "checked" : ""}><span><strong>${h(titulo)}</strong><small>${h(detalle)}</small></span></label>`;
+}
+
 function contenidoPaso(datos, estado, convocatoria) {
   const paso = estado.pasoSolicitud;
   if (paso === 1) {
     const disponibles = datos.convocatorias.filter((item) => item.estado === "Plazo abierto");
     const requisitosConfirmados = estado.progresoSolicitud?.requisitos_confirmados === true;
-    return `<fieldset><legend>Convocatoria con plazo abierto</legend>${disponibles.map((item) => `<label class="opcion-check"><input type="radio" name="convocatoria" value="${escaparAtributo(item.id)}" ${item.id === convocatoria.id ? "checked" : ""} required data-accion="seleccionar-convocatoria"><span><strong>${escaparHTML(item.titulo)}</strong><small>${escaparHTML(item.referencia)} · El servicio comprobará el plazo vigente</small></span></label>`).join("")}</fieldset><label class="opcion-check"><input type="checkbox" name="requisitos_confirmados" value="true" required ${requisitosConfirmados ? "checked" : ""}><span><strong>He leído las bases y declaro cumplir los requisitos</strong><small>El servicio volverá a comprobar plazo, requisitos y causas de exclusión antes del registro.</small></span></label>`;
+    return `<fieldset><legend>${h(s("paso1.leyenda"))}</legend>${disponibles.map((item) => `<label class="opcion-check"><input type="radio" name="convocatoria" value="${escaparAtributo(item.id)}" ${item.id === convocatoria.id ? "checked" : ""} required data-accion="seleccionar-convocatoria"><span><strong>${escaparHTML(item.titulo)}</strong><small>${escaparHTML(item.referencia)} · ${h(s("paso1.comprobacion"))}</small></span></label>`).join("")}</fieldset>${declaracion("requisitos_confirmados", requisitosConfirmados, s("paso1.declaracion"), s("paso1.declaracionDetalle"))}`;
   }
   if (paso === 2) {
-    return `${listaDatos([["Identidad", escaparHTML(datos.perfil.nombre_visible)], ["Identificador", escaparHTML(datos.perfil.identificador_visible)], ["Correo", escaparHTML(datos.perfil.correo)], ["Teléfono", escaparHTML(datos.perfil.telefono)], ["Verificación", chip(datos.perfil.estado_verificacion)]])}<label class="opcion-check"><input type="checkbox" name="datos_confirmados" value="true" required ${estado.progresoSolicitud?.datos_confirmados === true ? "checked" : ""}><span><strong>Confirmo que mis datos personales y de contacto son correctos</strong><small>Puede modificarlos desde Perfil y contacto antes de continuar.</small></span></label>`;
+    return `${listaDatos([[s("paso2.identidad"), escaparHTML(datos.perfil.nombre_visible)], [s("paso2.identificador"), escaparHTML(datos.perfil.identificador_visible)], [s("paso2.correo"), escaparHTML(datos.perfil.correo)], [s("paso2.telefono"), escaparHTML(datos.perfil.telefono)], [s("paso2.verificacion"), chip(datos.perfil.estado_verificacion)]])}${declaracion("datos_confirmados", estado.progresoSolicitud?.datos_confirmados === true, s("paso2.declaracion"), s("paso2.declaracionDetalle"))}`;
   }
   if (paso === 3) {
     const seleccionados = new Set(estado.progresoSolicitud?.meritos_ids || []);
-    return `<fieldset><legend>Méritos que desea asociar</legend>${datos.meritos.map((item) => `<label class="opcion-check"><input type="checkbox" name="meritos" value="${escaparAtributo(item.id)}" ${seleccionados.has(item.id) ? "checked" : ""}><span><strong>${escaparHTML(item.titulo)}</strong><small>${escaparHTML(item.estado)} · ${formatoPuntos(item.puntos_estimados)} puntos estimados</small></span></label>`).join("")}</fieldset><p class="nota aviso">Seleccione al menos un mérito. Los documentos se reutilizan sin duplicar el fichero y la solicitud conserva la referencia y versión exactas.</p>`;
+    return `<fieldset><legend>${h(s("paso3.leyenda"))}</legend>${datos.meritos.map((item) => `<label class="opcion-check"><input type="checkbox" name="meritos" value="${escaparAtributo(item.id)}" ${seleccionados.has(item.id) ? "checked" : ""}><span><strong>${escaparHTML(item.titulo)}</strong><small>${escaparHTML(item.estado)} · ${h(m("puntosEstimados", { puntos: formatoPuntos(item.puntos_estimados) }))}</small></span></label>`).join("")}</fieldset><p class="nota aviso">${h(s("paso3.nota"))}</p>`;
   }
   if (paso === 4) {
     const calculo = calcularAutobaremo(datos, estado.progresoSolicitud?.meritos_ids);
-    return `<div class="rejilla-dos"><div>${calculo.criterios.map((item) => `<div class="criterio-baremo"><span><strong>${escaparHTML(item.nombre)}</strong><small>${escaparHTML(item.detalle)}</small></span>${barraProgreso(item.puntos, item.maximo)}<output>${formatoPuntos(item.puntos)}</output></div>`).join("")}</div><aside class="puntuacion-total"><span>Total autobaremado para los méritos seleccionados y datos de oficio</span><output>${formatoPuntos(calculo.total)}</output><span>puntos provisionales</span></aside></div><p class="nota aviso">El cálculo usa los méritos elegidos y los conceptos obtenidos de oficio para esta convocatoria. No vincula a RRHH y cada concepto será revisado conforme a las bases.</p>`;
+    return `<div class="rejilla-dos"><div>${calculo.criterios.map((item) => `<div class="criterio-baremo"><span><strong>${escaparHTML(item.nombre)}</strong><small>${escaparHTML(item.detalle)}</small></span>${barraProgreso(item.puntos, item.maximo)}<output>${formatoPuntos(item.puntos)}</output></div>`).join("")}</div><aside class="puntuacion-total"><span>${h(s("paso4.total"))}</span><output>${formatoPuntos(calculo.total)}</output><span>${h(s("paso4.provisionales"))}</span></aside></div><p class="nota aviso">${h(s("paso4.nota"))}</p>`;
   }
   const solicitud = localizarSolicitudEdicion(datos, {
     solicitudId: estado.solicitudEdicionId,
     convocatoriaId: convocatoria.id,
   });
-  if (!solicitud) return '<p class="nota error" role="alert"><strong>Borrador no disponible.</strong> Vuelva al paso anterior y guárdelo antes de iniciar pago, firma o registro.</p>';
+  if (!solicitud) return `<p class="nota error" role="alert"><strong>${h(s("paso5.sinBorrador"))}</strong> ${h(s("paso5.sinBorradorDetalle"))}</p>`;
   const actos = estadoActosSolicitud(solicitud);
   const pago = actos.pagoConfirmado
-    ? chip("Pago o exención confirmado")
-    : botonOperacion("iniciar_pago", "Pagar o acreditar exención", { id: solicitud.id, descripcion: "Confirmar el pago o la acreditación de exención" });
+    ? chip(s("paso5.pagoConfirmado"))
+    : botonOperacion("iniciar_pago", s("paso5.pagar"), { id: solicitud.id, descripcion: s("paso5.pagarDescripcion") });
   const firma = actos.firmaConfirmada
-    ? chip("Firma confirmada")
+    ? chip(s("paso5.firmaConfirmada"))
     : actos.pagoConfirmado
-      ? botonOperacion("firmar_solicitud", "Firmar solicitud", { id: solicitud.id, descripcion: "Firmar electrónicamente la solicitud" })
-      : '<button type="button" class="boton-secundario" disabled aria-disabled="true" title="Confirme antes el pago o la exención">Firma bloqueada hasta confirmar pago o exención</button>';
-  let registro = '<p class="nota"><strong>Solicitud registrada.</strong> Conserve el recibo y el asiento devueltos por el servicio.</p>';
+      ? botonOperacion("firmar_solicitud", s("paso5.firmar"), { id: solicitud.id, descripcion: s("paso5.firmarDescripcion") })
+      : `<button type="button" class="boton-secundario" disabled aria-disabled="true" title="${escaparAtributo(s("paso5.firmaBloqueadaAyuda"))}">${h(s("paso5.firmaBloqueada"))}</button>`;
+  let registro = `<p class="nota"><strong>${h(s("paso5.registrada"))}</strong> ${h(s("paso5.registradaDetalle"))}</p>`;
   if (!actos.registrada) {
     registro = actos.pagoConfirmado && actos.firmaConfirmada
-      ? `<form id="formulario-registro-solicitud" data-operacion="registrar_solicitud" data-id="${escaparAtributo(solicitud.id)}"><label class="opcion-check"><input type="checkbox" name="declaracion_final" value="true" required><span><strong>Confirmo la solicitud completa que se va a presentar</strong><small>He revisado convocatoria, requisitos, datos, méritos, autobaremación, tasa o exención y firma.</small></span></label><button type="submit" class="boton-primario">Registrar solicitud</button></form>`
-      : '<p class="nota aviso"><strong>Registro bloqueado.</strong> Debe confirmar primero el pago o la exención y la firma.</p>';
+      ? `<form id="formulario-registro-solicitud" data-operacion="registrar_solicitud" data-id="${escaparAtributo(solicitud.id)}"><label class="opcion-check"><input type="checkbox" name="declaracion_final" value="true" required><span><strong>${h(s("paso5.declaracion"))}</strong><small>${h(s("paso5.declaracionDetalle"))}</small></span></label><button type="submit" class="boton-primario">${h(s("paso5.registrar"))}</button></form>`
+      : `<p class="nota aviso"><strong>${h(s("paso5.registroBloqueado"))}</strong> ${h(s("paso5.registroBloqueadoDetalle"))}</p>`;
   }
-  return `<p class="nota"><strong>Borrador seleccionado:</strong> ${escaparHTML(solicitud.id)}</p><div class="rejilla-dos"><section><h3>1. Tasa o exención</h3><p>Importe mostrado: <strong>${escaparHTML(convocatoria.tasa)}</strong></p>${pago}</section><section><h3>2. Firma electrónica</h3><p>Se firmará la representación exacta de la solicitud.</p>${firma}</section></div><section class="panel separacion-superior"><div class="panel-contenido"><h3>3. Registro</h3><p>El registro es el acto que presenta la solicitud y solo se habilita tras pago o exención y firma.</p>${registro}</div></section>`;
+  return `<p class="nota"><strong>${h(s("paso5.borrador"))}</strong> ${escaparHTML(solicitud.id)}</p><div class="rejilla-dos"><section><h3>${h(s("paso5.tasa"))}</h3><p>${h(s("paso5.importe"))} <strong>${escaparHTML(convocatoria.tasa)}</strong></p>${pago}</section><section><h3>${h(s("paso5.firma"))}</h3><p>${h(s("paso5.firmaDetalle"))}</p>${firma}</section></div><section class="panel separacion-superior"><div class="panel-contenido"><h3>${h(s("paso5.registro"))}</h3><p>${h(s("paso5.registroDetalle"))}</p>${registro}</div></section>`;
 }
 
 export function renderizarSolicitud(datos, estado) {
@@ -129,13 +138,13 @@ export function renderizarSolicitud(datos, estado) {
     convocatoriaId: convocatoria.id,
   });
   const error = estado.errorPasoSolicitud
-    ? `<p class="nota error" role="alert"><strong>No se puede continuar.</strong> ${escaparHTML(estado.errorPasoSolicitud)}</p>`
+    ? `<p class="nota error" role="alert"><strong>${h(s("error"))}</strong> ${escaparHTML(estado.errorPasoSolicitud)}</p>`
     : "";
-  const contenido = `${pasosSolicitud(estado.pasoSolicitud)}${error}<section class="panel"><header><div><h3>Paso ${estado.pasoSolicitud} de 5</h3></div>${chip(estado.pasoSolicitud === 5 ? "Revisión final" : "En preparación")}</header><div class="panel-contenido">${contenidoPaso(datos, estado, convocatoria)}</div></section>`;
+  const contenido = `${pasosSolicitud(estado.pasoSolicitud)}${error}<section class="panel"><header><div><h3>${h(s("pasoDe", { paso: estado.pasoSolicitud, total: 5 }))}</h3></div>${chip(estado.pasoSolicitud === 5 ? s("revisionFinal") : s("enPreparacion"))}</header><div class="panel-contenido">${contenidoPaso(datos, estado, convocatoria)}</div></section>`;
   const asistente = estado.pasoSolicitud < 5
     ? `<form id="formulario-solicitud-paso" data-paso="${estado.pasoSolicitud}">${contenido}${accionesPaso(estado.pasoSolicitud)}</form>`
     : contenido;
-  return `${encabezadoVista("Nueva solicitud", `${convocatoria.titulo} · ${convocatoria.referencia}`, chip(solicitud?.estado || "Borrador sin guardar"))}${asistente}`;
+  return `${encabezadoVista(s("titulo"), `${convocatoria.titulo} · ${convocatoria.referencia}`, chip(solicitud?.estado || s("sinGuardar")))}${asistente}`;
 }
 
 export function renderizarAutobaremacion(datos, estado = {}) {
@@ -146,8 +155,8 @@ export function renderizarAutobaremacion(datos, estado = {}) {
   const calculo = calcularAutobaremo(datos, meritosIds);
   const criterios = calculo.criterios.map((criterio) => `<article class="criterio-baremo"><span><strong>${escaparHTML(criterio.nombre)}</strong><small>${escaparHTML(criterio.detalle)} · ${escaparHTML(criterio.estado)}</small></span>${barraProgreso(criterio.puntos, criterio.maximo)}<output>${formatoPuntos(criterio.puntos)}</output></article>`).join("");
   const recalculado = datos.resultado_autobaremo?.convocatoria_id === convocatoria?.id
-    ? `<p class="nota"><strong>Resultado recalculado.</strong> ${escaparHTML(datos.resultado_autobaremo.calculado_en)} · ${meritosIds.length} méritos.</p>`
+    ? `<p class="nota"><strong>${h(a("recalculado"))}</strong> ${escaparHTML(datos.resultado_autobaremo.calculado_en)} · ${h(a("meritos", { cuenta: meritosIds.length }))}</p>`
     : "";
-  return `${encabezadoVista("Autobaremación desglosada", "Estimación trazable aplicada a la versión de bases de la convocatoria.", botonOperacion("calcular_autobaremo", "Recalcular autobaremo", { id: convocatoria?.id || "", descripcion: "Recalcular la autobaremación con los méritos seleccionados" }))}
-    ${recalculado}<div class="rejilla-principal"><div>${panel("Criterios aplicados", `${convocatoria?.titulo || "Convocatoria seleccionada"} · versión vigente de bases`, `<div class="desglose-baremo">${criterios}</div>`)}</div><aside>${panel("Resultado provisional", `${meritosIds.length} méritos seleccionados más conceptos de oficio`, `<div class="puntuacion-total"><span>Puntuación estimada</span><output>${formatoPuntos(calculo.total)}</output><span>de ${formatoPuntos(calculo.maximo)} posibles</span></div><p>${barraProgreso(calculo.total, calculo.maximo)}</p><p class="nota aviso">No constituye puntuación oficial. RRHH aceptará, rechazará o ajustará cada concepto con motivación y trazabilidad.</p>`, { estado: "Provisional" })}${panel("Qué se tendrá en cuenta", "Reglas parametrizadas desde las bases", `<ul><li>Periodos exactos y solapamientos.</li><li>Porcentaje de jornada y reducciones.</li><li>Administración, categoría y rama.</li><li>Topes por bloque y puntuación máxima.</li><li>Documentos de oficio y aportados.</li></ul>`)}</aside></div>`;
+  return `${encabezadoVista(a("titulo"), a("descripcion"), botonOperacion("calcular_autobaremo", a("recalcular"), { id: convocatoria?.id || "", descripcion: a("recalcularDescripcion") }))}
+    ${recalculado}<div class="rejilla-principal"><div>${panel(a("criterios"), a("criteriosSubtitulo", { convocatoria: convocatoria?.titulo || a("convocatoriaSeleccionada") }), `<div class="desglose-baremo">${criterios}</div>`)}</div><aside>${panel(a("resultado"), a("resultadoSubtitulo", { cuenta: meritosIds.length }), `<div class="puntuacion-total"><span>${h(a("estimada"))}</span><output>${formatoPuntos(calculo.total)}</output><span>${h(a("deMaximo", { maximo: formatoPuntos(calculo.maximo) }))}</span></div><p>${barraProgreso(calculo.total, calculo.maximo)}</p><p class="nota aviso">${h(a("nota"))}</p>`, { estado: a("provisional") })}${panel(a("reglas"), a("reglasSubtitulo"), `<ul><li>${h(a("regla1"))}</li><li>${h(a("regla2"))}</li><li>${h(a("regla3"))}</li><li>${h(a("regla4"))}</li><li>${h(a("regla5"))}</li></ul>`)}</aside></div>`;
 }

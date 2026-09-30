@@ -24,8 +24,7 @@
     "kpiEjemplo": "De ejemplo",
     "modulo_bolsa": "Bolsa",
     "modulo_contratacion_temporal": "Peticiones de personal temporal",
-    "catalogoVersion": "Catálogo {catalogo} · versión {version}",
-    "catalogoHuella": "Huella {huella}",
+    "catalogoVersion": "Versión {version} del catálogo",
     "paqueteEjemplo": "Paquete de ejemplo",
     "estado_sin_catalogo": "Sin catálogo de reglas cargado: el módulo aplica su comportamiento actual.",
     "estado_no_disponible": "El catálogo de reglas no está disponible en este momento.",
@@ -53,18 +52,19 @@
     "unidad_franja_horaria": "Franja horaria",
     "unidad_lista": "Lista",
     "unidad_ninguna": "Sin cantidad",
-    "error_solicitud_invalida": "La consulta no es válida.",
-    "error_servicio_no_disponible": "El servicio de reglas no está disponible. Inténtelo más tarde.",
+    "error_solicitud_invalida": "No se han podido consultar las reglas. Pulse Reintentar y, si sigue igual, avise a Informática.",
+    "error_servicio_no_disponible": "El servicio de reglas no está disponible ahora. Pulse Reintentar dentro de unos minutos.",
     "error_autenticacion_requerida": "Identifíquese con su certificado para consultar las reglas.",
     "error_acceso_denegado": "Su perfil no permite consultar las reglas.",
-    "error_respuesta": "La respuesta del servidor no es válida.",
+    "error_respuesta": "No se han podido leer las reglas. Pulse Reintentar y, si sigue igual, avise a Informática.",
     "ayudaDetalle": "Pulse el nombre de una regla para leerla entera: qué establece, en qué norma se basa, qué valores admite y qué duda de RRHH queda por contestar. Vuelva a pulsarlo para cerrarla.",
     "ayudaResolver": "En esta pantalla no se cambian reglas. Las dudas las contesta el Departamento de RRHH fuera de VEC. Cuando se aprueba un valor, se publica una versión nueva del catálogo y esa versión es la que aparece aquí.",
     "detalleQue": "Qué establece",
     "detalleNorma": "Norma en que se basa",
     "detalleOrigen": "Origen",
     "detalleDuda": "Duda de RRHH",
-    "detalleSinDescripcion": "El catálogo no describe esta regla."
+    "detalleSinDescripcion": "El catálogo no describe esta regla.",
+    "reintentar": "Reintentar"
   },
   "presentacion": {
     "bolsa": {

@@ -84,3 +84,19 @@ func TestDocumentoConCustodiaExternaNoLlevaObjetoYExigeReferenciaYHuella(t *test
 		t.Fatal("custodia VEC sin objeto aceptada")
 	}
 }
+
+// La versión del objeto la fija el conector: «1» en el de ficheros, el
+// VersionId en S3. Antes se exigía la longitud mínima de una referencia y todo
+// documento del almacén de ficheros resultaba inválido.
+func TestVersionObjetoSigueElContratoDelAlmacen(t *testing.T) {
+	for _, v := range []string{"1", "ov1", "3HL4kqtJlcpXroDTDmJ.rmSpXd3dIbrHY", strings.Repeat("v", 256)} {
+		if !VersionObjetoValida(v) {
+			t.Errorf("versión válida rechazada: %q", v)
+		}
+	}
+	for _, v := range []string{"", " ", "1 2", "../1", "a/b", `a\b`, "v*", "v%", "ñ", strings.Repeat("v", 257)} {
+		if VersionObjetoValida(v) {
+			t.Errorf("versión inválida aceptada: %q", v)
+		}
+	}
+}

@@ -1,4 +1,5 @@
 import { escaparAtributo, escaparHTML, listaDatos } from "./vistas/comunes.js";
+import { IDIOMAS_DISPONIBLES } from "../comun/idioma.js";
 import { MOTIVOS_PAUSA_DISPONIBILIDAD } from "./contrato.js";
 import { iniciarI18nAreaPersonal, textosErrorCargaAreaPersonal, traducir } from "./i18n.js";
 import { alternarVisualSesion, crearOperacionPreferencias, montarUsuariosAreaPersonal, pintarInicialesSesion, renderizarPreferencias,
@@ -15,6 +16,7 @@ import {
 } from "./vistas/seguimiento-tramites.js";
 import { renderizarAyuda, renderizarCertificados, renderizarMensajes } from "./vistas/comunicaciones-ayuda.js";
 import { crearControladorContactoPropio, montarContactoPropio } from "./contacto-propio.js";
+import { montarFichaAspirante } from "./ficha-aspirante.js?v=20260930-portales-i18n-integracion-v1";
 import { enviarPortalMiBolsa } from "./mi-bolsa-portal.js";
 import { montarHistorialMiBolsa } from "./mi-bolsa-historial.js";
 import {
@@ -43,23 +45,16 @@ const RUTAS = Object.freeze({
   ayuda: ["areaPersonal.rutas.ayuda", renderizarAyuda],
 });
 
-const TITULOS_OPERACION = Object.freeze({
-  actualizar_contacto: "Actualizar datos de contacto",
-  incorporar_merito: "Incorporar mérito y evidencia",
-  guardar_borrador: "Guardar borrador",
-  calcular_autobaremo: "Calcular autobaremación",
-  iniciar_pago: "Realizar pago o acreditar exención",
-  firmar_solicitud: "Firmar solicitud",
-  registrar_solicitud: "Registrar solicitud",
-  cambiar_disponibilidad: "Cambiar disponibilidad",
-  responder_llamamiento: "Responder llamamiento",
-  presentar_subsanacion: "Presentar subsanación",
-  presentar_alegacion: "Presentar alegación",
-  marcar_mensaje: "Marcar mensaje como leído",
-  actualizar_notificaciones: "Actualizar preferencias",
-  solicitar_certificado: "Solicitar certificado",
-  solicitar_descarga: "Preparar descarga",
-});
+// Operaciones que la superficie admite; su título visible está en el catálogo
+// (`areaPersonal.operacion.<operación>`).
+const OPERACIONES = Object.freeze(new Set([
+  "actualizar_contacto", "incorporar_merito", "guardar_borrador", "calcular_autobaremo", "iniciar_pago",
+  "firmar_solicitud", "registrar_solicitud", "cambiar_disponibilidad", "responder_llamamiento",
+  "presentar_subsanacion", "presentar_alegacion", "marcar_mensaje", "actualizar_notificaciones",
+  "solicitar_certificado", "solicitar_descarga",
+]));
+const tituloOperacion = (operacion) => (OPERACIONES.has(operacion) ? traducir(`areaPersonal.operacion.${operacion}`) : "");
+const t = (clave, variables) => traducir(`areaPersonal.app.${clave}`, variables);
 
 export function conservarResultadoContactoPropio(estado, { reciboRef, version, correo }) {
   estado.contactoPropio = { ...estado.contactoPropio, version };
@@ -85,13 +80,13 @@ const PARAMETROS_URL_ADMITIDOS = Object.freeze(new Set(["vista", "id", "lang"]))
 
 export function exigirParametrosConocidos(parametros) {
   for (const nombre of parametros.keys()) {
-    if (!PARAMETROS_URL_ADMITIDOS.has(nombre)) throw new TypeError("La dirección contiene parámetros no admitidos en el área personal.");
+    if (!PARAMETROS_URL_ADMITIDOS.has(nombre)) throw new TypeError(t("parametrosNoAdmitidos"));
   }
 }
 
 export function exigirDatosOperativos(datos) {
   if (datos?.meta?.presentacion !== false || esOrigenSinteticoODesarrollo(datos.meta)) {
-    throw new TypeError("La fuente del área personal no está configurada para esta consulta.");
+    throw new TypeError(t("fuenteNoConfigurada"));
   }
   return datos;
 }
@@ -122,7 +117,7 @@ function crearURL(estado, vista, opciones = {}) {
   const url = new URL(window.location.pathname, window.location.origin);
   url.searchParams.set("vista", vista);
   const idiomaURL = new URLSearchParams(window.location.search).get("lang");
-  if (idiomaURL === "es" || idiomaURL === "en") url.searchParams.set("lang", idiomaURL);
+  if (IDIOMAS_DISPONIBLES.some(({ codigo }) => codigo === idiomaURL)) url.searchParams.set("lang", idiomaURL);
   if (opciones.id) url.searchParams.set("id", opciones.id);
   return `${url.pathname}${url.search}`;
 }
@@ -132,7 +127,7 @@ function actualizarEnlacesNavegacion(estado) {
   if (inicioInstitucional) {
     inicioInstitucional.dataset.ruta = "inicio";
     inicioInstitucional.setAttribute("href", crearURL(estado, "inicio"));
-    inicioInstitucional.setAttribute("aria-label", "Ir al inicio del área personal");
+    inicioInstitucional.setAttribute("aria-label", traducir("areaPersonal.html.irInicio"));
   }
   document.querySelectorAll("a[data-ruta]").forEach((enlace) => {
     if (enlace === inicioInstitucional) return;
@@ -156,12 +151,12 @@ function aplicarCapacidadesVisibles(estado) {
       boton.disabled = true;
       boton.setAttribute("aria-disabled", "true");
       boton.setAttribute("aria-describedby", idAyuda);
-      boton.title = "Acción no habilitada por el servicio autorizado";
+      boton.title = t("accionNoHabilitada");
     });
     const ayuda = document.createElement("small");
     ayuda.id = idAyuda;
     ayuda.className = "nota aviso ayuda-capacidad";
-    ayuda.textContent = `${TITULOS_OPERACION[operacion] || "Esta acción"} no está habilitada para la identidad y el expediente actuales.`;
+    ayuda.textContent = traducir("areaPersonal.capacidad.noHabilitada", { operacion: tituloOperacion(operacion) || t("estaAccion") });
     control.insertAdjacentElement("afterend", ayuda);
   });
 }
@@ -201,7 +196,7 @@ export function datosMinimosMiBolsa(consulta) {
     resumen: { acciones_pendientes: 0, convocatorias_abiertas: 0, solicitudes_activas: 0, mensajes_no_leidos: 0, puntuacion_provisional: 0 },
     perfil: { referencia: null, nombre_visible: "", identificador_visible: traducir("areaPersonal.miBolsa.identidad.valorNoFacilitado"), correo: traducir("areaPersonal.miBolsa.identidad.valorNoFacilitado"), telefono: traducir("areaPersonal.miBolsa.identidad.valorNoFacilitado"), domicilio: traducir("areaPersonal.miBolsa.identidad.valorNoFacilitado"), estado_verificacion: traducir("areaPersonal.miBolsa.identidad.valorNoFacilitado") },
     plazos: [], convocatorias: [], meritos: [], solicitudes: [], baremo: [], llamamientos: [], subsanaciones: [], alegaciones: [], mensajes: [], certificados: [], documentos: [], actividad: [], ayuda: [], contratos: [],
-    disponibilidad: { disponible: false, estado: "No disponible" }, capacidades: {},
+    disponibilidad: { disponible: false, estado: t("noDisponible") }, capacidades: {},
   });
 }
 
@@ -229,9 +224,9 @@ function datosDeRespuesta(respuesta) {
 function actualizarShell(estado) {
   const { datos, vista } = estado;
   const titulo = traducir(RUTAS[vista][0]);
-  document.title = `${titulo} · Mi área personal`;
+  document.title = t("tituloDocumento", { titulo });
   porId("titulo-vista").textContent = titulo;
-  porId("migas-pan").textContent = vista === "inicio" ? "Mi área personal" : `Mi área personal → ${titulo}`;
+  porId("migas-pan").textContent = vista === "inicio" ? t("migas") : t("migasVista", { titulo });
   pintarInicialesSesion(estado, porId("avatar-sesion"), datos.sesion.iniciales);
   porId("nombre-sesion").textContent = datos.sesion.nombre_visible;
   porId("perfil-sesion").textContent = datos.sesion.metodo;
@@ -255,6 +250,7 @@ function renderizar(estado, { enfocar = false, confirmacionContacto = null } = {
   estado.desmontarOportunidades?.();
   estado.desmontarOportunidades = null;
   estado.destruirContactoPropio?.();
+  estado.destruirFichaAspirante?.(); estado.destruirFichaAspirante = null;
   estado.destruirContactoPropio = null;
   estado.controladorContactoPropio = null;
   if (estado.vista !== "perfil") Object.assign(estado, { contactoPropio: null, contactoPropioRecibo: null });
@@ -304,6 +300,7 @@ function renderizar(estado, { enfocar = false, confirmacionContacto = null } = {
       controlador: estado.controladorContactoPropio,
     });
     estado.destruirContactoPropio = montajeContacto?.destruir ?? null;
+    estado.destruirFichaAspirante = montarFichaAspirante({ contenedor: porId("ficha-aspirante"), fetchImpl: estado.fetchImpl })?.destruir ?? null;
   }
 
   if (enfocar) {
@@ -405,29 +402,29 @@ function verSesion(estado) {
 function verDocumento(estado, id) {
   const documento = estado.datos.documentos.find((item) => item.id === id);
   if (!documento) {
-    notificar("El documento solicitado no está disponible en el ámbito actual.");
+    notificar(traducir("areaPersonal.documento.noDisponible"));
     return;
   }
-  mostrarDetalle(documento.nombre, listaDatos([["Referencia", escaparHTML(documento.id)], ["Tipo", escaparHTML(documento.tipo)], ["Fecha", escaparHTML(documento.fecha)], ["Estado", escaparHTML(documento.estado)], ["Huella", escaparHTML(documento.huella || "Pendiente del servicio documental")]]));
+  mostrarDetalle(documento.nombre, listaDatos([[t("documento.referencia"), escaparHTML(documento.id)], [t("documento.tipo"), escaparHTML(documento.tipo)], [t("documento.fecha"), escaparHTML(documento.fecha)], [t("documento.estado"), escaparHTML(documento.estado)], [t("documento.huella"), escaparHTML(documento.huella || t("documento.huellaPendiente"))]]));
 }
 
 function prepararOperacion(estado, operacion, {
   id = "", descripcion = "", payload = {}, alCompletar = null,
 } = {}) {
-  if (!TITULOS_OPERACION[operacion]) {
-    notificar("La acción no está reconocida por esta superficie.");
+  if (!OPERACIONES.has(operacion)) {
+    notificar(traducir("areaPersonal.capacidad.accionNoReconocida"));
     return;
   }
   if (estado.datos.capacidades[operacion] !== true) {
-    notificar(`${TITULOS_OPERACION[operacion]} no está habilitada para la identidad y el expediente actuales.`);
-    anunciar("Operación no disponible.");
+    notificar(traducir("areaPersonal.capacidad.noHabilitada", { operacion: tituloOperacion(operacion) }));
+    anunciar(traducir("areaPersonal.capacidad.operacionNoDisponible"));
     return;
   }
   estado.operacionPendiente = { operacion, payload: { ...payload, id }, descripcion, alCompletar };
-  porId("titulo-confirmacion").textContent = TITULOS_OPERACION[operacion];
-  porId("contenido-confirmacion").innerHTML = `<p>${escaparHTML(descripcion || TITULOS_OPERACION[operacion])}</p><dl class="dato-lista"><dt>Acción</dt><dd>${escaparHTML(operacion)}</dd><dt>Objeto</dt><dd>${escaparHTML(id || "Expediente personal")}</dd><dt>Resultado esperado</dt><dd>Confirmación emitida por el servicio autorizado</dd></dl><p class="nota aviso">El servidor volverá a comprobar identidad, permiso, estado e idempotencia.</p>`;
+  porId("titulo-confirmacion").textContent = tituloOperacion(operacion);
+  porId("contenido-confirmacion").innerHTML = `<p>${escaparHTML(descripcion || tituloOperacion(operacion))}</p><dl class="dato-lista"><dt>${escaparHTML(t("confirmacion.accion"))}</dt><dd>${escaparHTML(operacion)}</dd><dt>${escaparHTML(t("confirmacion.objeto"))}</dt><dd>${escaparHTML(id || t("confirmacion.expediente"))}</dd><dt>${escaparHTML(t("confirmacion.resultado"))}</dt><dd>${escaparHTML(t("confirmacion.resultadoDetalle"))}</dd></dl><p class="nota aviso">${escaparHTML(t("confirmacion.nota"))}</p>`;
   const confirmar = porId("formulario-confirmacion").querySelector('[value="confirmar"]');
-  confirmar.textContent = "Confirmar operación";
+  confirmar.textContent = t("confirmar");
   porId("dialogo-confirmacion").showModal();
 }
 
@@ -443,7 +440,7 @@ async function ejecutarPendiente(estado) {
       capacidad: estado.datos.capacidades[pendiente.operacion] === true,
     });
     if (resultado?.recibo?.presentacion !== false) {
-      throw new TypeError("El servicio no devolvió un recibo válido para el área personal.");
+      throw new TypeError(t("reciboNoValido"));
     }
     const datosActualizados = resultado.datos?.meta
       ? exigirDatosOperativos(resultado.datos)
@@ -455,7 +452,7 @@ async function ejecutarPendiente(estado) {
         solicitudId: pendiente.payload.id,
         convocatoriaId: pendiente.payload.convocatoria_id,
       });
-      if (!solicitud) throw new Error("El servicio guardó el borrador, pero no devolvió su referencia autorizada.");
+      if (!solicitud) throw new Error(t("borradorSinReferencia"));
       estado.solicitudEdicionId = solicitud.id;
     }
     if (Number.isInteger(pendiente.alCompletar?.pasoSolicitud)) {
@@ -465,67 +462,67 @@ async function ejecutarPendiente(estado) {
     renderizar(estado);
     mostrarRecibo(estado, resultado.recibo);
   } catch (error) {
-    notificar(error instanceof Error ? error.message : "No se pudo completar la operación.");
-    anunciar("Operación no completada.");
+    notificar(error instanceof Error ? error.message : t("operacionFallida"));
+    anunciar(t("operacionNoCompletada"));
   }
 }
 
 function mostrarRecibo(estado, recibo) {
-  if (recibo?.presentacion !== false) throw new TypeError("El recibo no pertenece al área personal habilitada.");
-  porId("contenido-recibo").innerHTML = `<div><p><strong>${escaparHTML(recibo.resultado)}</strong></p>${listaDatos([["Referencia", escaparHTML(recibo.referencia)], ["Acción", escaparHTML(recibo.accion)], ["Objetivo", escaparHTML(recibo.objetivo)], ["Fecha UTC", escaparHTML(recibo.fecha)], ["Actor", escaparHTML(recibo.actor)]])}<p>${escaparHTML(recibo.advertencia)}</p></div>`;
+  if (recibo?.presentacion !== false) throw new TypeError(t("reciboAjeno"));
+  porId("contenido-recibo").innerHTML = `<div><p><strong>${escaparHTML(recibo.resultado)}</strong></p>${listaDatos([[t("recibo.referencia"), escaparHTML(recibo.referencia)], [t("recibo.accion"), escaparHTML(recibo.accion)], [t("recibo.objetivo"), escaparHTML(recibo.objetivo)], [t("recibo.fecha"), escaparHTML(recibo.fecha)], [t("recibo.actor"), escaparHTML(recibo.actor)]])}<p>${escaparHTML(recibo.advertencia)}</p></div>`;
   const botonDescarga = document.querySelector('[data-accion="descargar-recibo"]');
   if (botonDescarga) {
     botonDescarga.textContent = recibo.accion === "solicitar_certificado"
-      ? "Descargar certificado PDF" : "Descargar recibo PDF";
+      ? t("descargarCertificado") : t("descargarRecibo");
   }
   porId("dialogo-recibo").showModal();
-  anunciar(`Operación completada. Recibo ${recibo.referencia}.`);
+  anunciar(t("operacionCompletada", { recibo: recibo.referencia }));
 }
 
 export function crearDescriptorPDFRecibo({ recibo, certificados = [], origen }) {
   if (!recibo || typeof recibo !== "object" || Array.isArray(recibo)) {
-    throw new TypeError("El recibo documental no es válido.");
+    throw new TypeError(t("pdf.reciboNoValido"));
   }
-  if (recibo.presentacion !== false) throw new TypeError("El recibo de presentación no está admitido en esta superficie.");
+  if (recibo.presentacion !== false) throw new TypeError(t("pdf.reciboPresentacion"));
   const esCertificado = recibo.accion === "solicitar_certificado";
   const certificado = esCertificado
     ? certificados.find((item) => item.id === recibo.objetivo)
     : null;
   if (esCertificado && !certificado) {
-    throw new TypeError("El certificado solicitado no pertenece al expediente visible.");
+    throw new TypeError(t("pdf.certificadoAjeno"));
   }
   const urlVerificacion = new URL("/verificar/", origen);
   urlVerificacion.searchParams.set("ref", recibo.referencia);
   const prefijoArchivo = esCertificado ? "certificado" : "recibo";
   return Object.freeze({
     referencia: recibo.referencia,
-    tipo_documento: esCertificado ? "CERTIFICADO" : "RECIBO DE ACTUACIÓN",
-    titulo: certificado?.tipo || "Recibo de actuación del Portal de Recursos Humanos",
-    subtitulo: "Diputación de Granada · Área de Recursos Humanos y Régimen Interior",
-    marca: "Documento emitido por el sistema de gestión de Recursos Humanos",
+    tipo_documento: esCertificado ? t("pdf.tipoCertificado") : t("pdf.tipoRecibo"),
+    titulo: certificado?.tipo || t("pdf.titulo"),
+    subtitulo: t("pdf.subtitulo"),
+    marca: t("pdf.marca"),
     filas: Object.freeze([
-      Object.freeze({ etiqueta: "Actuación", valor: recibo.accion }),
-      Object.freeze({ etiqueta: "Resultado", valor: recibo.resultado }),
-      Object.freeze({ etiqueta: "Referencia del trámite", valor: recibo.objetivo }),
-      Object.freeze({ etiqueta: "Fecha de emisión (UTC)", valor: recibo.fecha }),
-      Object.freeze({ etiqueta: "Identidad actuante", valor: recibo.actor }),
+      Object.freeze({ etiqueta: t("pdf.actuacion"), valor: recibo.accion }),
+      Object.freeze({ etiqueta: t("pdf.resultado"), valor: recibo.resultado }),
+      Object.freeze({ etiqueta: t("pdf.referencia"), valor: recibo.objetivo }),
+      Object.freeze({ etiqueta: t("pdf.fecha"), valor: recibo.fecha }),
+      Object.freeze({ etiqueta: t("pdf.identidad"), valor: recibo.actor }),
     ]),
     comprobacion: Object.freeze({ qr_contenido: urlVerificacion.href }),
     nombre_archivo: `${prefijoArchivo}-${recibo.referencia.toLowerCase()}.pdf`,
     texto_certificacion: certificado
-      ? "La emisión del certificado corresponde al servicio documental autorizado y requiere su firma o sello verificable."
-      : "Se deja constancia de la actuación indicada, su resultado y referencia de comprobación. El servicio autorizado debe emitir y custodiar el recibo.",
+      ? t("pdf.certificacionCertificado")
+      : t("pdf.certificacionRecibo"),
   });
 }
 
 async function descargarRecibo(estado) {
   if (!estado.ultimoRecibo) {
-    notificar("No existe un recibo disponible para descargar.");
+    notificar(t("sinRecibo"));
     return;
   }
   if (typeof estado.descargarReciboPDF !== "function") {
-    notificar("El generador documental autorizado no está disponible.");
-    anunciar("No se ha generado ningún documento.");
+    notificar(t("sinGenerador"));
+    anunciar(t("sinDocumento"));
     return;
   }
   const recibo = estado.ultimoRecibo;
@@ -536,19 +533,19 @@ async function descargarRecibo(estado) {
       origen: window.location.origin,
     }));
     notificar(recibo.accion === "solicitar_certificado"
-      ? "Certificado PDF preparado para descarga."
-      : "Recibo PDF preparado para descarga.");
+      ? t("certificadoPreparado")
+      : t("reciboPreparado"));
   } catch {
     notificar(recibo.accion === "solicitar_certificado"
-      ? "No se pudo generar el certificado PDF."
-      : "No se pudo generar el recibo PDF.");
-    anunciar("No se ha descargado ningún documento.");
+      ? t("certificadoFallido")
+      : t("reciboFallido"));
+    anunciar(t("sinDescarga"));
   }
 }
 
 function leerPantalla(estado) {
-  notificar("La lectura de expedientes privados requiere un conector y una política aprobados. Consulte la guía textual de Ayuda.");
-  anunciar("Lectura por voz no iniciada. Se abre la guía textual de Ayuda.");
+  notificar(t("lectura.aviso"));
+  anunciar(t("lectura.anuncio"));
   if (estado.vista !== "ayuda") navegar(estado, "ayuda");
 }
 
@@ -566,7 +563,7 @@ async function recargarPreferencias(estado) {
     estado.paginaParticipaciones = 1;
     estado.controladorVisual?.aplicarPreferenciasServidor(lectura.estado.valores);
     sincronizarAtajosVisuales(lectura.estado.valores);
-    await iniciarI18nAreaPersonal(document, fetch, navigator.languages, window.location, lectura.estado.valores.idioma);
+    await iniciarI18nAreaPersonal(document, { idiomaPreferido: lectura.estado.valores.idioma });
   } catch (error) {
     preferencias.error = error;
     preferencias.catalogo = null;
@@ -604,7 +601,7 @@ async function guardarPreferencias(estado, formulario, { reintento = false } = {
   try {
     const resultado = await estado.clientePreferencias.guardar(operacion);
     if (resultado.persona_ref !== preferencias.estado.persona_ref) {
-      throw Object.assign(new Error("La respuesta no corresponde a la identidad consultada."), { codigo: "respuesta" });
+      throw Object.assign(new Error(t("respuestaAjena")), { codigo: "respuesta" });
     }
     preferencias.estado = { persona_ref: resultado.persona_ref, version: resultado.version,
       catalogo_version_ref: resultado.catalogo_version_ref, valores: resultado.valores };
@@ -616,7 +613,7 @@ async function guardarPreferencias(estado, formulario, { reintento = false } = {
     estado.paginaParticipaciones = 1;
     estado.controladorVisual?.aplicarPreferenciasServidor(resultado.valores);
     sincronizarAtajosVisuales(resultado.valores);
-    await iniciarI18nAreaPersonal(document, fetch, navigator.languages, window.location, resultado.valores.idioma);
+    await iniciarI18nAreaPersonal(document, { idiomaPreferido: resultado.valores.idioma });
     anunciar(traducir("areaPersonal.preferencias.guardado", { recibo: resultado.recibo_ref }));
   } catch (error) {
     preferencias.error = error;
@@ -709,7 +706,7 @@ function atenderAccion(estado, boton) {
       payload.meritos_ids = [...seleccionados];
     }
     if (["iniciar_pago", "firmar_solicitud"].includes(boton.dataset.operacion) && !id) {
-      notificar("Guarde primero el borrador y espere a que el servicio devuelva su referencia.");
+      notificar(t("guardeBorrador"));
       return;
     }
     return prepararOperacion(estado, boton.dataset.operacion, { id, descripcion: boton.dataset.descripcion, payload });
@@ -775,21 +772,21 @@ function conectarEventos(estado) {
         const payload = crearPayloadBorrador(progreso, solicitud?.id || "");
         prepararOperacion(estado, "guardar_borrador", {
           id: solicitud?.id || "",
-          descripcion: "Guardar el borrador completo antes de pago, firma y registro",
+          descripcion: t("guardarBorradorDescripcion"),
           payload,
           alCompletar: { seleccionarBorrador: true, pasoSolicitud: 5 },
         });
       } catch (error) {
-        estado.errorPasoSolicitud = error instanceof Error ? error.message : "El paso no supera las validaciones.";
-        anunciar("No se puede continuar. Revise los campos indicados.");
+        estado.errorPasoSolicitud = error instanceof Error ? error.message : t("pasoNoValido");
+        anunciar(t("revisarCampos"));
         renderizar(estado);
       }
       return;
     }
     if (formulario.dataset.operacion) {
       if (estado.datos.capacidades[formulario.dataset.operacion] !== true) {
-        notificar("La acción no está habilitada para la identidad y el expediente actuales.");
-        anunciar("Operación no disponible.");
+        notificar(t("accionNoHabilitadaExpediente"));
+        anunciar(traducir("areaPersonal.capacidad.operacionNoDisponible"));
         return;
       }
       const payloadInicial = formularioAObjeto(formulario);
@@ -820,8 +817,8 @@ function conectarEventos(estado) {
       }
       if (formulario.dataset.operacion === "registrar_solicitud") {
         if (!declaracionFinalConfirmada(payload.declaracion_final)) {
-          estado.errorPasoSolicitud = "Debe confirmar la declaración final antes de registrar la solicitud.";
-          anunciar("No se puede registrar sin la declaración final.");
+          estado.errorPasoSolicitud = t("sinDeclaracion");
+          anunciar(t("sinDeclaracionAnuncio"));
           renderizar(estado);
           return;
         }
@@ -829,7 +826,7 @@ function conectarEventos(estado) {
       }
       prepararOperacion(estado, formulario.dataset.operacion, {
         id: formulario.dataset.id || "",
-        descripcion: TITULOS_OPERACION[formulario.dataset.operacion],
+        descripcion: tituloOperacion(formulario.dataset.operacion),
         payload,
       });
     }
@@ -881,7 +878,7 @@ async function cargar(estado) {
   estado.destruirHistorialMiBolsa = null;
   const reintento = document.activeElement?.dataset.accion === "reintentar"; porId("estado-carga").hidden = false;
   porId("estado-carga").className = "estado-carga";
-  porId("estado-carga").innerHTML = '<span aria-hidden="true"></span>Cargando información autorizada…';
+  porId("estado-carga").innerHTML = `<span aria-hidden="true"></span>${escaparHTML(traducir("areaPersonal.html.cargandoInformacion"))}`;
   porId("espacio-trabajo").replaceChildren();
   try {
     const respuesta = await estado.cliente.cargar();
@@ -910,7 +907,7 @@ async function cargar(estado) {
 export async function iniciarAreaPersonal({ cliente, descargarReciboPDF = null, fetchImpl = globalThis.fetch,
   clientePreferencias = null, preferencias = null, errorPreferencias = null, controladorVisual = null } = {}) {
   if (!cliente || typeof cliente.cargar !== "function" || typeof cliente.ejecutar !== "function") {
-    throw new TypeError("El cliente inyectado no respeta el contrato del área personal.");
+    throw new TypeError(t("clienteNoValido"));
   }
   const parametros = new URLSearchParams(window.location.search);
   exigirParametrosConocidos(parametros);
@@ -928,7 +925,7 @@ export async function iniciarAreaPersonal({ cliente, descargarReciboPDF = null, 
     soloPreferencias: false,
     avisoInicio: inicioAjeno && !parametros.has("vista"),
     filasPreferidas: preferencias?.estado.valores.filas || 20,
-    filtros: { termino: "", estado: "Todas", categoria: "Todas" },
+    filtros: { termino: "", estado: "", categoria: "" },
     consultaAyuda: "",
     pasoSolicitud: 1,
     convocatoriaSeleccionada: parametros.get("id") || "",

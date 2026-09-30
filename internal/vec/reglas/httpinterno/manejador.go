@@ -96,24 +96,26 @@ type Catalogo struct {
 }
 
 // ReglaVista es la vista de lectura de una regla. Cantidad es cero cuando la
-// unidad no la admite; Valor lleva la franja o la lista.
+// unidad no la admite; Valor lleva la franja o la lista. AjusteNoAplicable
+// indica que ninguno de esos valores se puede usar hasta revisar el ajuste.
 type ReglaVista struct {
-	Clave          string `json:"clave"`
-	Etiqueta       string `json:"etiqueta"`
-	Descripcion    string `json:"descripcion"`
-	Unidad         string `json:"unidad"`
-	Cantidad       int    `json:"cantidad,omitempty"`
-	Valor          string `json:"valor,omitempty"`
-	Computo        string `json:"computo,omitempty"`
-	Inicio         string `json:"inicio,omitempty"`
-	Origen         string `json:"origen"`
-	Articulo       string `json:"articulo,omitempty"`
-	Norma          string `json:"norma"`
-	Duda           string `json:"duda"`
-	ParteEjemplo   string `json:"ejemplo_parcial,omitempty"`
-	Version        int    `json:"version"`
-	Referencia     string `json:"referencia"`
-	PaqueteEjemplo bool   `json:"paquete_ejemplo"`
+	Clave             string `json:"clave"`
+	Etiqueta          string `json:"etiqueta"`
+	Descripcion       string `json:"descripcion"`
+	Unidad            string `json:"unidad"`
+	Cantidad          int    `json:"cantidad,omitempty"`
+	Valor             string `json:"valor,omitempty"`
+	AjusteNoAplicable bool   `json:"ajuste_no_aplicable,omitempty"`
+	Computo           string `json:"computo,omitempty"`
+	Inicio            string `json:"inicio,omitempty"`
+	Origen            string `json:"origen"`
+	Articulo          string `json:"articulo,omitempty"`
+	Norma             string `json:"norma"`
+	Duda              string `json:"duda"`
+	ParteEjemplo      string `json:"ejemplo_parcial,omitempty"`
+	Version           int    `json:"version"`
+	Referencia        string `json:"referencia"`
+	PaqueteEjemplo    bool   `json:"paquete_ejemplo"`
 }
 
 func (m *Manejador) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -168,19 +170,35 @@ func consultar(ctx context.Context, f Fuente) Catalogo {
 	}
 	catalogo.Estado = EstadoDisponible
 	for _, regla := range vigentes {
-		if regla.ReferenciaEntrada.CatalogoID != f.CatalogoID {
+		// Una regla ajustada cita su ajuste; el catálogo se identifica por la
+		// entrada base sobre la que se aplica.
+		base := regla.ReferenciaEntrada
+		if regla.Ajuste != nil {
+			base = regla.Ajuste.BaseReferencia
+			if regla.ReferenciaEntrada.CatalogoID != reglas.CatalogoAjustesDe(f.CatalogoID) {
+				return Catalogo{Modulo: f.Modulo, CatalogoID: f.CatalogoID, Estado: EstadoNoDisponible, Reglas: []ReglaVista{}}
+			}
+		}
+		if base.CatalogoID != f.CatalogoID {
 			// Un resolutor que devuelve otro catálogo no se mezcla con este.
 			return Catalogo{Modulo: f.Modulo, CatalogoID: f.CatalogoID, Estado: EstadoNoDisponible, Reglas: []ReglaVista{}}
 		}
-		catalogo.Version = regla.ReferenciaEntrada.CatalogoVersion
-		catalogo.HuellaSHA256 = regla.HuellaCatalogo
+		catalogo.Version = base.CatalogoVersion
+		catalogo.HuellaSHA256 = base.CatalogoHuellaSHA256
+		cantidad, valor := regla.Cantidad, regla.Valor
+		if regla.AjusteNoAplicable {
+			// El valor base ya no rige y el ajuste no encaja: no se muestra
+			// ningún valor como si estuviera vigente.
+			cantidad, valor = 0, ""
+		}
 		catalogo.PaqueteEjemplo = catalogo.PaqueteEjemplo || regla.PaqueteEjemplo
 		catalogo.Reglas = append(catalogo.Reglas, ReglaVista{
 			Clave: regla.Clave, Etiqueta: regla.Etiqueta, Descripcion: regla.Descripcion,
-			Unidad: string(regla.Unidad), Cantidad: regla.Cantidad, Valor: regla.Valor,
-			Computo: string(regla.Computo), Inicio: regla.Inicio, Origen: string(regla.Origen),
+			Unidad: string(regla.Unidad), Cantidad: cantidad, Valor: valor,
+			AjusteNoAplicable: regla.AjusteNoAplicable,
+			Computo:           string(regla.Computo), Inicio: regla.Inicio, Origen: string(regla.Origen),
 			Articulo: regla.Articulo, Norma: regla.Norma, Duda: regla.Duda, ParteEjemplo: regla.ParteEjemplo,
-			Version: regla.ReferenciaEntrada.CatalogoVersion, Referencia: regla.Referencia,
+			Version: base.CatalogoVersion, Referencia: regla.Referencia,
 			PaqueteEjemplo: regla.PaqueteEjemplo,
 		})
 	}
