@@ -283,18 +283,21 @@ func (i *iniciadorLecturaRPTPrueba) BeginTx(_ context.Context, opciones pgx.TxOp
 	return i.tx, nil
 }
 
-func ordenListaRPTPrueba(t *testing.T) ports.OrdenCategoriasHabilitadasRPT {
+func autorizacionYSolicitudRPTPrueba(t *testing.T, accion, tipo, referencia, consumidor string) (domain.SolicitudAutorizacionLigadaV3, ports.ExportacionMaterialConsumoAutorizacionAtestadaV3) {
 	t.Helper()
 	escenario := nuevoEscenarioRegistroContextoActorV3PostgreSQLPrueba(t, true)
 	d, err := escenario.solicitud.Datos()
 	if err != nil {
 		t.Fatal(err)
 	}
-	d.Accion, d.Finalidad = accionListarCategoriasRPT, finalidadLecturaRPT
+	d.Accion, d.Finalidad = accion, finalidadLecturaRPT
+	ambitos := map[string]string{"catalogo_id": descriptorRPTPrueba.CatalogoID, "modulo_id": descriptorRPTPrueba.ModuloID}
+	if consumidor != "" {
+		ambitos["consumidor"] = consumidor
+	}
 	d.Recurso = domain.RecursoAutorizable{
-		Referencia: descriptorRPTPrueba.CatalogoID, ModuloID: descriptorRPTPrueba.ModuloID,
-		Tipo: tipoCatalogoRPT, Ambitos: map[string]string{
-			"catalogo_id": descriptorRPTPrueba.CatalogoID, "modulo_id": descriptorRPTPrueba.ModuloID},
+		Referencia: referencia, ModuloID: descriptorRPTPrueba.ModuloID,
+		Tipo: tipo, Ambitos: ambitos,
 		Atributos: map[string]string{"material_sha256": strings.Repeat("a", 64)},
 	}
 	solicitud, err := domain.NuevaSolicitudAutorizacionLigadaV3(d)
@@ -307,7 +310,7 @@ func ordenListaRPTPrueba(t *testing.T) ports.OrdenCategoriasHabilitadasRPT {
 	}
 	resumen, err := ports.NuevoResumenCapacidadAtestacionAutorizacionV3(
 		"decision:rpt:prueba", strings.Repeat("a", 64), strings.Repeat("b", 64),
-		"contexto:rpt:prueba", strings.Repeat("c", 64), accionListarCategoriasRPT,
+		"contexto:rpt:prueba", strings.Repeat("c", 64), accion,
 		d.Recurso.Referencia, huella, audienciaLecturaRPT, escenario.ahora, escenario.ahora.Add(3*time.Second))
 	if err != nil {
 		t.Fatal(err)
@@ -319,6 +322,13 @@ func ordenListaRPTPrueba(t *testing.T) ports.OrdenCategoriasHabilitadasRPT {
 	if err != nil {
 		t.Fatal(err)
 	}
+	return solicitud, autorizacion
+}
+
+func ordenListaRPTPrueba(t *testing.T) ports.OrdenCategoriasHabilitadasRPT {
+	t.Helper()
+	solicitud, autorizacion := autorizacionYSolicitudRPTPrueba(t, accionListarCategoriasRPT,
+		tipoCatalogoRPT, descriptorRPTPrueba.CatalogoID, "")
 	return ports.OrdenCategoriasHabilitadasRPT{Consulta: ports.ConsultaCategoriasHabilitadasRPT{
 		CatalogoID: descriptorRPTPrueba.CatalogoID, Limite: 100}, Solicitud: solicitud, Autorizacion: autorizacion}
 }
@@ -383,5 +393,70 @@ func TestLectorRPTSinDescriptorConfiableDeniegaAntesDeConsultar(t *testing.T) {
 	}
 	if _, err := nuevoLectorCategoriasRPTPostgreSQL(nil, descriptorRPTPrueba); !errors.Is(err, ports.ErrLecturaRPTNoDisponible) {
 		t.Fatalf("pool ausente creó lector: %v", err)
+	}
+}
+
+func reciboAusenciaRPTPrueba(t *testing.T, autorizacion ports.ExportacionMaterialConsumoAutorizacionAtestadaV3) []byte {
+	t.Helper()
+	z := autorizacion.ResumenCapacidad()
+	return jsonRPTPrueba(t, reciboLecturaRPTWire{
+		DecisionRef: z.DecisionRef(), EfectoRef: z.EfectoRef(),
+		HuellaEfectoSHA256: z.EfectoHuellaSHA256(), ConsumoHuellaSHA256: strings.Repeat("d", 64),
+		AuditoriaRef: "aud_v3_sintetica", ConsumidaEn: z.EmitidaEn().Add(time.Second),
+		ConsumoNuevo: true, Encontrado: false, Datos: json.RawMessage("null"),
+	})
+}
+
+func TestLecturasRPTHistoricaYUsoEnlazanMaterialYFuncionNominal(t *testing.T) {
+	p, entrada := publicacionRPTPrueba(t, 1, "categoria.uno")
+	historica := ports.ConsultaPublicacionCategoriaRPT{Referencia: p.referencia(), CategoriaID: entrada.Clave}
+	s, a := autorizacionYSolicitudRPTPrueba(t, accionLeerPublicacionRPT,
+		tipoCatalogoRPT, descriptorRPTPrueba.CatalogoID, "")
+	tx := &transaccionLecturaRPTPrueba{respuesta: reciboAusenciaRPTPrueba(t, a)}
+	lector, _ := nuevoLectorCategoriasRPTPostgreSQL(&iniciadorLecturaRPTPrueba{tx: tx}, descriptorRPTPrueba)
+	r, err := lector.LeerPublicacionCategoriaRPT(context.Background(), ports.OrdenPublicacionCategoriaRPT{
+		Consulta: historica, Solicitud: s, Autorizacion: a})
+	if err != nil || r.Encontrado || !r.Evidencia.ConsumoNuevo || !tx.confirmada ||
+		tx.consulta != consultaPublicacionRPT || len(tx.argumentos) != 11 {
+		t.Fatalf("consulta histórica ajena: %+v %v tx=%+v", r, err, tx)
+	}
+	var m map[string]any
+	if err := json.Unmarshal([]byte(tx.argumentos[0].(string)), &m); err != nil || len(m) != 5 ||
+		m["catalogo_id"] != p.CatalogoID || m["modulo_id"] != descriptorRPTPrueba.ModuloID ||
+		m["version"] != float64(p.Version) || m["huella_sha256"] != p.HuellaSHA256 ||
+		m["categoria_id"] != entrada.Clave {
+		t.Fatalf("material histórico no exacto: %+v %v", m, err)
+	}
+	uso := ports.ConsultaUsoCategoriaRPT{Consumidor: "contratacion_temporal",
+		UsoRef: "uso:prueba:uno", ReservaReciboRef: "recibo:reserva:uno"}
+	s, a = autorizacionYSolicitudRPTPrueba(t, accionConsultarUsoRPT, tipoUsoRPT, uso.UsoRef, uso.Consumidor)
+	tx = &transaccionLecturaRPTPrueba{respuesta: reciboAusenciaRPTPrueba(t, a)}
+	iniciador := &iniciadorLecturaRPTPrueba{tx: tx}
+	lector, _ = nuevoLectorCategoriasRPTPostgreSQL(iniciador, descriptorRPTPrueba)
+	ru, err := lector.ConsultarUsoCategoriaRPT(context.Background(), ports.OrdenUsoCategoriaRPT{
+		Consulta: uso, Solicitud: s, Autorizacion: a})
+	if err != nil || ru.Encontrado || !ru.Evidencia.ConsumoNuevo || !tx.confirmada ||
+		tx.consulta != consultaUsoRPT || len(tx.argumentos) != 11 {
+		t.Fatalf("consulta de uso ajena: %+v %v tx=%+v", ru, err, tx)
+	}
+	m = nil
+	if err := json.Unmarshal([]byte(tx.argumentos[0].(string)), &m); err != nil || len(m) != 5 ||
+		m["catalogo_id"] != descriptorRPTPrueba.CatalogoID || m["modulo_id"] != descriptorRPTPrueba.ModuloID ||
+		m["consumidor"] != uso.Consumidor || m["uso_ref"] != uso.UsoRef ||
+		m["reserva_recibo_ref"] != uso.ReservaReciboRef {
+		t.Fatalf("material de uso no exacto: %+v %v", m, err)
+	}
+	d, err := s.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	d.Recurso.Ambitos["consumidor"] = "bolsa"
+	ajena, err := domain.NuevaSolicitudAutorizacionLigadaV3(d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := lector.ConsultarUsoCategoriaRPT(context.Background(), ports.OrdenUsoCategoriaRPT{
+		Consulta: uso, Solicitud: ajena, Autorizacion: a}); !errors.Is(err, ports.ErrLecturaRPTDenegada) || iniciador.llamadas != 1 {
+		t.Fatalf("ámbito de otro consumidor llegó a SQL: %v, llamadas=%d", err, iniciador.llamadas)
 	}
 }
