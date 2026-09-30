@@ -20,7 +20,10 @@ DO $login$ BEGIN
  THEN RAISE EXCEPTION 'U14 login de ensayo incompatible'; END IF;
 END $login$;
 CREATE TEMP TABLE u14_incierto_observacion(recibo text,token text);
-GRANT USAGE ON SCHEMA pg_temp TO vec_externo_avisos_usuarios;
+DO $esquema_temporal$ DECLARE nombre name; BEGIN
+ SELECT nspname INTO STRICT nombre FROM pg_catalog.pg_namespace WHERE oid=pg_catalog.pg_my_temp_schema();
+ EXECUTE format('GRANT USAGE ON SCHEMA %I TO vec_externo_avisos_usuarios',nombre);
+END $esquema_temporal$;
 GRANT INSERT ON u14_incierto_observacion TO vec_externo_avisos_usuarios;
 SET SESSION AUTHORIZATION vec_externo_avisos_usuarios;
 DO $recorrido$
