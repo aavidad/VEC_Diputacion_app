@@ -98,10 +98,46 @@ func TestRutaAjustesRechazaCuerpoDuplicadoYCabecerasDeIdentidad(t *testing.T) {
 }
 
 func TestJSONSinDuplicadosCompruebaObjetosAnidados(t *testing.T) {
-	if !jsonSinDuplicados([]byte(`{"cambios":[{"regla_clave":"c03","campo":"cantidad","nuevo":"7"}]}`)) ||
-		jsonSinDuplicados([]byte(`{"cambios":[{"nuevo":"7","nuevo":"8"}]}`)) ||
-		jsonSinDuplicados([]byte(`{"cambios":[{}],"cambios":[]}`)) {
+	if jsonSinDuplicados([]byte(`{"cambios":[{"regla_clave":"c03","campo":"cantidad","nuevo":"7"}]}`)) != nil ||
+		jsonSinDuplicados([]byte(`{"cambios":[{"nuevo":"7","nuevo":"8"}]}`)) == nil ||
+		jsonSinDuplicados([]byte(`{"cambios":[{}],"cambios":[]}`)) == nil ||
+		jsonSinDuplicados([]byte(`{"cambios":[`)) == nil {
 		t.Fatal("detector de claves duplicadas")
+	}
+}
+
+func TestPaginacionPropagaErroresSinAceptarFormaInvalida(t *testing.T) {
+	for _, ruta := range []string{Ruta + "?limite=abc", Ruta + "?limite=1;otro=2", Ruta + "?antes_de_version=999999999999999999999"} {
+		r := httptest.NewRequest(http.MethodGet, ruta, nil)
+		if _, _, err := paginacion(r); err == nil {
+			t.Fatalf("paginacion admitió %s", ruta)
+		}
+	}
+	r := httptest.NewRequest(http.MethodGet, Ruta+"?limite=20&antes_de_version=2", nil)
+	limite, antes, err := paginacion(r)
+	if err != nil || limite != 20 || antes == nil || *antes != 2 {
+		t.Fatalf("paginacion valida: %d %v %v", limite, antes, err)
+	}
+}
+
+func TestGETPaginacionIlegibleResponde400SinDetalles(t *testing.T) {
+	ahora := time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)
+	actor, _, err := vecpruebas.NuevoContextoYVinculo(ahora, "per_0123456789abcdef0123456789abcdef",
+		"prf_0123456789abcdef0123456789abcdef", vecdomain.AuthMethodCertificate, vecdomain.AuthAssuranceHigh)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h, err := NuevoManejador(&actorPrueba{actor: actor}, &servicioPrueba{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := httptest.NewRequest(http.MethodGet, Ruta+"?limite=abc", nil)
+	r.Header.Set("Accept", "application/json")
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, r)
+	if w.Code != http.StatusBadRequest || !strings.Contains(w.Body.String(), `"solicitud_invalida"`) ||
+		strings.Contains(w.Body.String(), "strconv") {
+		t.Fatalf("GET expuso parseo interno: %d %s", w.Code, w.Body.String())
 	}
 }
 
