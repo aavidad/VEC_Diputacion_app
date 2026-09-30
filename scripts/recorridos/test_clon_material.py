@@ -136,17 +136,31 @@ class MaterialTests(unittest.TestCase):
             with patch.object(material, "load_source_validator", return_value=central), self.assertRaises(material.MaterialError):
                 material.validate_source_receipts(args, state, source)
 
-    def test_fresh_and_repeat_flags_order_complete_coverage_nominal_before_app(self):
+    def test_fresh_and_repeat_flags_order_complete_coverage_nominal_projection_before_app(self):
         args = SimpleNamespace(complete_profiles=True, repair_coverage_connect=True, repair_nominal_connect=True)
         events = []
         original, completed = {"status": "base"}, {"status": "completed"}
         with patch.object(material, "complete_profiles", side_effect=lambda *a: events.append("complete") or completed), \
              patch.object(material, "repair_coverage_connect", side_effect=lambda *a: events.append("coverage")), \
-             patch.object(material, "repair_nominal_connect", side_effect=lambda *a: events.append("nominal")):
+             patch.object(material, "repair_nominal_connect", side_effect=lambda *a: events.append("nominal")), \
+             patch.object(material, "seal_internal_projection", side_effect=lambda *a: events.append("projection") or completed):
             for branch in ("fresh", "repeat"):
                 events.clear()
                 self.assertEqual(material.finish_preparation(args, Path("/private"), "b" * 40, original), completed)
-                self.assertEqual(events, ["complete", "coverage", "nominal"])
+                self.assertEqual(events, ["complete", "coverage", "nominal", "projection"])
+
+    def test_projection_failure_preserves_last_operator_manifest_and_logs_private_reason(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            manifest = {"status": "partial_blocked", "files": {"material/internal": "c" * 64}}
+            material.json_write(root / "material-manifest.json", manifest)
+            before = (root / "material-manifest.json").read_bytes()
+            args = SimpleNamespace(repo=root, container="vec-owned", pg_port=55531, engine="docker")
+            module = SimpleNamespace(provision=unittest.mock.Mock(side_effect=RuntimeError("private fixture failure")))
+            with patch.object(material, "load_profile_module", return_value=module), self.assertRaises(material.ModuleProvisionError):
+                material.seal_internal_projection(args, root, "b" * 40, manifest)
+            self.assertEqual((root / "material-manifest.json").read_bytes(), before)
+            self.assertIn("private fixture failure", (root / "material-provision-private.log").read_text())
 
     def test_nominal_connect_matrix_is_closed_and_motives_postimage_is_strict(self):
         self.assertEqual(len(material.NOMINAL_CONNECT_GROUPS), 8)

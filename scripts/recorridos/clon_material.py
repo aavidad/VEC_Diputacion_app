@@ -810,6 +810,34 @@ def finish_preparation(args: argparse.Namespace, output: Path, source: str, mani
         repair_coverage_connect(args, output, source)
     if getattr(args, "repair_nominal_connect", False):
         repair_nominal_connect(args, output, source)
+    if getattr(args, "complete_profiles", False) or getattr(args, "project_internal", False):
+        manifest = seal_internal_projection(args, output, source, manifest)
+    return manifest
+
+
+def seal_internal_projection(args: argparse.Namespace, output: Path, source: str, manifest: dict) -> dict:
+    # This proof has its own root: profile-module result.files still permits
+    # only files under operator material/. Do not expose that root to runtime.
+    name = "clon_interno_material"
+    try:
+        descriptor = load_profile_module(name).provision(repo=args.repo, container=args.container, state=output,
+            material=output / "material", pg_port=args.pg_port, engine=args.engine,
+            source_context=getattr(args, "_source_context", None))
+        expected = {"mode": "interno", "portal": "interno", "material": "runtime-interno/material",
+                    "config": "runtime-interno/runtime-config.json", "manifest": "runtime-interno/material-manifest.json",
+                    "source_commit": source}
+        if not isinstance(descriptor, dict) or any(descriptor.get(k) != v for k, v in expected.items()):
+            fail("invalid internal projection descriptor")
+        expected_rw = [{"source": "runtime-interno/rw/" + kind, "target": str(output / "runtime-interno/rw" / kind), "kind": kind}
+                       for kind in ("documentos", "imagenes", "data")]
+        expected_rw.append({"source": "runtime-interno/rw/comunicaciones", "target": str(output / "runtime-interno/material/comunicaciones"), "kind": "comunicaciones"})
+        if descriptor.get("rw") != expected_rw or descriptor.get("manifest_sha256") != hashlib.sha256(private_read(output / expected["manifest"])).hexdigest():
+            fail("invalid internal projection proof")
+    except (RuntimeError, OSError, ValueError, KeyError, subprocess.TimeoutExpired) as error:
+        log_module_failure(output, name, error)
+        raise ModuleProvisionError(name, error) from None
+    manifest["runtime_interno"] = descriptor
+    replace_private(output / "material-manifest.json", manifest)
     return manifest
 
 
@@ -1012,6 +1040,7 @@ def main() -> int:
     parser.add_argument("--repair-coverage-connect", action="store_true", help="accredit and grant only the missing coverage reader group CONNECT on the owned clone")
     parser.add_argument("--upgrade-source", "--update-source", dest="update_source", action="store_true", help="bind preserved material to a descendant main revision after matching DB_READY")
     parser.add_argument("--complete-profiles", action="store_true", help="run reviewed Users/Bolsa/candidate provisioning modules on existing material")
+    parser.add_argument("--project-internal", action="store_true", help="seal only the internal runtime projection; complete-profiles also seals it")
     parser.add_argument("--engine", choices=("docker", "podman"), default="docker")
     args = parser.parse_args()
     if not (1024 <= args.port <= 65535 and 1024 <= args.pg_port <= 65535) or args.port == args.pg_port:
