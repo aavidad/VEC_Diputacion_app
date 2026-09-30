@@ -47,6 +47,9 @@ PY
 [[ ! -e $base ]]
 mkdir -m 700 "$base"
 mkdir -m 700 "$base/build" "$base/source" "$base/inputs" "$base/docker-config"
+# El montaje PostgreSQL puede ser atravesado por su UID; la raíz externa
+# conserva 0700 y hace inaccesible el subdirectorio desde fuera.
+mkdir -m 755 "$base/pg"
 
 configurar() {
   python3 - "$config" "$1" <<'PY'
@@ -118,18 +121,26 @@ if docker_local container inspect "$contenedor" >/dev/null 2>&1; then
 fi
 git -C "$raiz_repo" archive "$revisado" | tar -x -C "$base/source"
 sha256sum "$archivo" > "$base/build/h1_sha256.txt"
-tar -xzf "$archivo" -C "$base"
+tar -xzf "$archivo" -C "$base/pg"
 docker_local run -d --pull never --name "$contenedor" --network none --memory 4g --cpus 2 \
   --pids-limit 128 --shm-size 256m \
-  --mount "type=bind,src=$base,dst=/var/lib/postgresql" \
+  --mount "type=bind,src=$base/pg,dst=/var/lib/postgresql" \
   --tmpfs /tmp:rw,nosuid,nodev,size=32m \
   --tmpfs /var/run/postgresql:rw,nosuid,nodev,size=16m,uid=999,gid=999 \
   postgres:18.4 >/dev/null
+listo=0
 for _ in {1..100}; do
-  if docker_local exec "$contenedor" pg_isready -q -h /var/run/postgresql -U postgres; then break; fi
+  if [[ $(docker_local container inspect --format '{{.State.Running}}' "$contenedor") != true ]]; then
+    echo 'RPT-V3-FALLO: PostgreSQL aislado se detuvo' >&2
+    exit 1
+  fi
+  if docker_local exec "$contenedor" pg_isready -q -h /var/run/postgresql -U postgres >/dev/null 2>&1; then
+    listo=1
+    break
+  fi
   sleep 0.2
 done
-docker_local exec "$contenedor" pg_isready -q -h /var/run/postgresql -U postgres
+[[ $listo -eq 1 ]]
 
 aplicar() {
   docker_local exec -i --user postgres "$contenedor" \
