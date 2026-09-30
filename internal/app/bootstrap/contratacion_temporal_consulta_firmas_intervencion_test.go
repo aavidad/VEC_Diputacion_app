@@ -14,9 +14,99 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	consultafirmas "vec-diputacion-granada/internal/modules/contrataciontemporal/application/consultafirmas"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	postgresidentidad "vec-diputacion-granada/internal/vec/adapters/httpseguridad/postgres"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
+
+type seudonimizadorCuentaIntervencionPrueba struct {
+	delegado postgresidentidad.SeudonimizadorAlta
+	entradas []postgresidentidad.IdentificadoresAlta
+}
+
+func (s *seudonimizadorCuentaIntervencionPrueba) SeudonimizarAlta(ctx context.Context, ids postgresidentidad.IdentificadoresAlta) (postgresidentidad.SeudonimosAlta, error) {
+	s.entradas = append(s.entradas, ids)
+	return s.delegado.SeudonimizarAlta(ctx, ids)
+}
+
+func TestCuentaNominalFirmasIntervencionArranqueYReplayConMismoHMAC(t *testing.T) {
+	l, _ := escenarioLectorFirmasContextoCanonicoPrueba(t)
+	seudonimizador := &seudonimizadorCuentaIntervencionPrueba{delegado: &seudonimizadorSesionDesarrollo{derivador: nuevoDerivadorIdempotenciaPrueba(t, 2, 1)}}
+	gobierno := new(baseCuentaNominalDesarrolloPrueba)
+	for i := 0; i < 2; i++ {
+		if err := prepararCuentaNominalFirmasIntervencionConTransaccion(context.Background(), gobierno, l.canal, seudonimizador); err != nil {
+			t.Fatal(err)
+		}
+	}
+	v, err := l.canal.contexto.Vinculo.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	rrhh, _, _ := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
+	if v.CuentaRef == rrhh.contexto.Resultado.Contexto.Instantanea.CuentaRef ||
+		gobierno.incorporaciones != 1 || gobierno.confirmaciones != 2 || len(seudonimizador.entradas) != 2 {
+		t.Fatal("cuenta mezclada con RRHH o alta de cuenta duplicada")
+	}
+	ids := seudonimizador.entradas[0]
+	if ids.CuentaID != "desarrollo:"+v.CuentaRef || ids.SujetoID != l.canal.principalOriginal.ID ||
+		ids.EspacioIdentidad != espacioIdentidadSesionDesarrollo || ids.CuentaOrdinariaID != "" {
+		t.Fatal("alias derivado para otro sujeto o namespace")
+	}
+	esperados, err := seudonimizador.delegado.SeudonimizarAlta(context.Background(), ids)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tx := range gobierno.transacciones {
+		if tx.cuenta != v.CuentaRef || tx.alias[1] != v.CuentaRef || tx.alias[5] != int64(esperados.ClaveVersion) ||
+			!reflect.DeepEqual(tx.alias[6], esperados.CuentaIDHMAC[:]) || !reflect.DeepEqual(tx.alias[7], esperados.SujetoIDHMAC[:]) {
+			t.Fatal("registro de alias no conserva la generación/HMAC de sesión")
+		}
+		for _, paso := range tx.pasos {
+			if paso != "configuracion" && paso != "consultar" && paso != "incorporar" && paso != "cotejar" && paso != "alias" && paso != "commit" {
+				t.Fatal("el arranque registró una sesión o autenticación")
+			}
+		}
+	}
+}
+
+func TestCuentaNominalFirmasIntervencionNoReparaRetiradaNiAdmiteContextoAjeno(t *testing.T) {
+	for _, caso := range []string{"cuenta_retirada", "alias_ajeno", "perfil_lector", "cuenta_ajena", "actor_original_ajeno"} {
+		t.Run(caso, func(t *testing.T) {
+			l, _ := escenarioLectorFirmasContextoCanonicoPrueba(t)
+			gobierno := new(baseCuentaNominalDesarrolloPrueba)
+			s := &seudonimizadorSesionDesarrollo{derivador: nuevoDerivadorIdempotenciaPrueba(t, 2, 1)}
+			switch caso {
+			case "cuenta_retirada":
+				gobierno.existe, gobierno.incompatibilidad = true, true
+			case "alias_ajeno":
+				gobierno.fallo = "alias_otra_cuenta"
+			case "perfil_lector":
+				l.canal.contexto = l.perfil.contexto
+			case "actor_original_ajeno":
+				l.canal.principalOriginal.ID = "desarrollo:actor-ajeno"
+			case "cuenta_ajena":
+				otro := clonarPrincipalDesarrollo(l.canal.principalOriginal)
+				otro.ID = "desarrollo:actor-ajeno"
+				contexto, err := nuevoContextoSinteticoContratacionTemporalDesarrollo(otro, l.canal.reloj.Ahora())
+				if err != nil {
+					t.Fatal(err)
+				}
+				l.canal.contexto = contexto
+			}
+			if err := prepararCuentaNominalFirmasIntervencionConTransaccion(context.Background(), gobierno, l.canal, s); err == nil || gobierno.confirmaciones != 0 || gobierno.incorporaciones != 0 {
+				t.Fatal("estado ajeno reparado o confirmado")
+			}
+			if caso == "perfil_lector" || caso == "cuenta_ajena" || caso == "actor_original_ajeno" {
+				if gobierno.inicios != 0 {
+					t.Fatal("una identidad ajena alcanzó SQL")
+				}
+			}
+			if caso == "cuenta_retirada" && gobierno.transacciones[0].alias != nil {
+				t.Fatal("se registró alias sobre cuenta retirada")
+			}
+		})
+	}
+}
 
 func escenarioLectorFirmasContextoCanonicoPrueba(t *testing.T) (*lectorFirmasIntervencionCTDesarrollo, context.Context) {
 	t.Helper()

@@ -659,8 +659,11 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	}()
 	if firmaDocumento != nil {
 		ctxFirma, cancelarFirma := context.WithTimeout(context.Background(), 15*time.Second)
-		err := firmaDocumento.configurarLecturaIntervencion(ctxFirma, fiscalizacionReal.soporte,
-			consultasRRHH.identidad, aprobacionProvisionPerfilesRRHHDesdeConfig(cfg))
+		err := prepararCuentaNominalFirmasIntervencionDesarrollo(ctxFirma, alta.postgresql.gobierno, fiscalizacionReal.soporte, derivador)
+		if err == nil {
+			err = firmaDocumento.configurarLecturaIntervencion(ctxFirma, fiscalizacionReal.soporte,
+				consultasRRHH.identidad, aprobacionProvisionPerfilesRRHHDesdeConfig(cfg))
+		}
 		cancelarFirma()
 		if err != nil {
 			return nil, nil, nil, err
