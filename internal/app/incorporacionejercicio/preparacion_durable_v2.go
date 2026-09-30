@@ -329,6 +329,11 @@ func errorAutoridadPreparacion(ctx context.Context, err error) error {
 	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 		return err
 	}
+	// El revalidador puede envolver una revocación central con su centinela
+	// genérico de indisponibilidad. La causa explícita de revocación prevalece.
+	if errors.Is(err, core.ErrAutenticacionRevalidadaInvalida) || errors.Is(err, core.ErrAutorizacionDenegada) {
+		return ct.ErrDenegadaIncorporacionAplicacion
+	}
 	// Una dependencia caída puede llegar unida a un centinela de denegación
 	// desde la sesión. La indisponibilidad tiene prioridad para no responder
 	// que el actor carece de permiso cuando ni siquiera se pudo comprobarlo.
@@ -336,7 +341,6 @@ func errorAutoridadPreparacion(ctx context.Context, err error) error {
 		return ct.ErrComposicionIncorporacionAplicacion
 	}
 	if errors.Is(err, ct.ErrDenegadaIncorporacionAplicacion) || errors.Is(err, ct.ErrAutorizacionDenegada) ||
-		errors.Is(err, core.ErrAutorizacionDenegada) || errors.Is(err, core.ErrAutenticacionRevalidadaInvalida) ||
 		errors.Is(err, core.ErrContextoActorNoResuelto) || errors.Is(err, core.ErrContextoActorInvalido) ||
 		errors.Is(err, core.ErrInstantaneaContextoActorInvalida) || errors.Is(err, ErrAutoridadAplicacion) {
 		return ct.ErrDenegadaIncorporacionAplicacion
