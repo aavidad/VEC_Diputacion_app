@@ -140,6 +140,23 @@ test("recargar cancela la lectura anterior y descarta su respuesta aunque el cli
   assert.equal(senales.length, 2, "una vista desmontada no inicia consultas");
 });
 
+test("el reintento devuelve el foco a la acción de recuperar si falla o al filtro seleccionado si tiene éxito", async () => {
+  const { nodo, raiz } = raizFalsa(); let consultas = 0; let envios = 0;
+  nodo.querySelector = (selector) => ({ selector, focus() { raiz.ownerDocument.activeElement = this; } });
+  const vista = montarBandejaNotificacionesCronos({ raiz, cliente: {
+    consultarBandeja: async () => { consultas++; if (consultas < 3) throw new Error("sin conexión"); return bandeja(); },
+    atender: async () => { envios++; return {}; },
+  } });
+  await esperar();
+  nodo.eventos.click(pulsar("[data-cronos-filtro-notificaciones]", { cronosFiltroNotificaciones: "atendidas" }));
+  nodo.eventos.click(pulsar("[data-cronos-reintentar-bandeja]", {})); await esperar();
+  assert.equal(raiz.ownerDocument.activeElement.selector, "[data-cronos-reintentar-bandeja]");
+  nodo.eventos.click(pulsar("[data-cronos-reintentar-bandeja]", {})); await esperar();
+  assert.equal(raiz.ownerDocument.activeElement.selector, '[data-cronos-filtro-notificaciones="atendidas"]');
+  assert.equal(envios, 0); assert.equal(consultas, 3);
+  vista.desmontar();
+});
+
 test("desmontar aborta e ignora decisiones y lecturas tardías sin anunciar ni consultar otra vez", async () => {
   for (const fase of ["lectura", "decision"]) {
     const { nodo, raiz } = raizFalsa(); const pendiente = diferida(); const anuncios = []; let consultas = 0; let senal;
@@ -167,6 +184,7 @@ test("recuperación y recibo usan los catálogos reales en ambos idiomas y escap
     assert.match(html, /data-cronos-reintentar-bandeja/); assert.match(html, /&lt;script&gt;/);
     assert.ok(html.includes(propios.traducir("bandeja.error_actualizar_bandeja")));
     assert.ok(html.includes(comunes.traducir("notificaciones.notificaciones_reintentar_consulta")));
+    assert.ok(propios.traducir("bandeja.error_actualizar_bandeja").includes(comunes.traducir("notificaciones.notificaciones_reintentar_consulta")), "el aviso nombra el botón que permite recuperar");
     assert.doesNotMatch(html, /<script>/);
   }
 });

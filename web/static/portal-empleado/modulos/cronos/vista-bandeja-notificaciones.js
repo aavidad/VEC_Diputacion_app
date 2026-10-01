@@ -84,7 +84,7 @@ export function montarBandejaNotificacionesCronos({ raiz, cliente = crearCliente
     if (activa) contenedor.innerHTML = renderizarBandejaNotificacionesCronos({ estado, filtro, datos, atendiendo: atencion?.enCurso ? atencion.notificacionRef : "",
       mensaje, tonoMensaje, recibo, confirmadas: [...confirmadas], mensajes, locale, zonaHoraria });
   };
-  const cargar = async () => {
+  const cargar = async ({ recuperarFoco = false } = {}) => {
     if (!activa) return;
     controlador?.abort(); const consulta = new AbortController(); controlador = consulta; const turno = ++secuencia;
     estado = "cargando"; datos = null; dibujar();
@@ -96,6 +96,7 @@ export function montarBandejaNotificacionesCronos({ raiz, cliente = crearCliente
       if (!activa || turno !== secuencia || consulta.signal.aborted) return;
       estado = estadoError(error); dibujar(); anunciar(t(estado === "demasiado_grande" ? "bandeja_demasiado_grande" : estado === "error" ? "error_actualizar_bandeja" : estado));
     }
+    if (recuperarFoco) contenedor.querySelector?.(estado === "error" ? "[data-cronos-reintentar-bandeja]" : `[data-cronos-filtro-notificaciones="${filtro}"]`)?.focus?.();
   };
   const atender = async (notificacionRef) => {
     if (!activa || estado !== "listo" || atencion?.enCurso || confirmadas.has(notificacionRef)
@@ -119,7 +120,7 @@ export function montarBandejaNotificacionesCronos({ raiz, cliente = crearCliente
   };
   const alPulsar = (evento) => {
     const botonReintentar = evento.target?.closest?.("[data-cronos-reintentar-bandeja]");
-    if (botonReintentar && estado === "error" && !botonReintentar.disabled) { void cargar(); return; }
+    if (botonReintentar && estado === "error" && !botonReintentar.disabled) { void cargar({ recuperarFoco: true }); return; }
     const botonFiltro = evento.target?.closest?.("[data-cronos-filtro-notificaciones]");
     if (botonFiltro && FILTROS.includes(botonFiltro.dataset.cronosFiltroNotificaciones)) { filtro = botonFiltro.dataset.cronosFiltroNotificaciones; dibujar(); return; }
     const botonAtender = evento.target?.closest?.("[data-cronos-atender]");
