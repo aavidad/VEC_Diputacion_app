@@ -1,6 +1,6 @@
 import { crearTraductorSolicitudesCronos, formatearCantidadCronos, MENSAJES_CRONOS_SOLICITUDES } from "./i18n-solicitudes.js";
 import { ErrorClienteSolicitudesCronos, crearClienteSolicitudesCronosHTTP, validarPermisosPropiosCronos, validarEntradaPermisoCronos } from "./cliente-solicitudes-http.js";
-import { hoyCivilCronos } from "./vista-movimientos-propios.js?v=20261001-cronos-grafo-bandeja-v3";
+import { hoyCivilCronos } from "./vista-movimientos-propios.js?v=20261001-cronos-grafo-bandeja-v4";
 import { crearTraductorHistorialCronos, MENSAJES_HISTORIAL_CRONOS } from "./i18n-historial.js?v=20261001-cronos-historial-v1";
 import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
 import { crearTraductorJustificacionCronos, MENSAJES_JUSTIFICACION_CRONOS } from "./i18n-permisos.js";
@@ -208,18 +208,21 @@ export function montarPermisosPropiosCronos({ raiz, cliente = crearClienteSolici
   const dibujar = () => {
     if (!activa) return;
     const foco = raiz.ownerDocument.activeElement;
-    let selector = null;
+    let selector = null; let direccionAnio = null;
     if (foco && contenedor.contains?.(foco)) {
-      for (const atributo of ["data-cronos-historial-filtro", "data-cronos-historial-pagina", "data-cronos-historial-recuento", "data-cronos-ver-justificacion", "data-cronos-justificacion-ayuda", "name"]) {
+      for (const atributo of ["data-cronos-anio", "data-cronos-historial-filtro", "data-cronos-historial-pagina", "data-cronos-historial-recuento", "data-cronos-ver-justificacion", "data-cronos-justificacion-ayuda", "name"]) {
         const valor = foco.getAttribute?.(atributo);
-        if (valor !== null && valor !== undefined && /^[a-z_]*$/u.test(valor)) { selector = `[${atributo}="${valor}"]`; break; }
+        const valido = atributo === "data-cronos-anio" ? ["-1", "1"].includes(valor) : valor !== null && valor !== undefined && /^[a-z_]*$/u.test(valor);
+        if (valido) { selector = `[${atributo}="${valor}"]`; if (atributo === "data-cronos-anio") direccionAnio = valor; break; }
       }
     }
     contenedor.innerHTML = renderizarPermisosPropiosCronos({ estado, anio: anioVisible, datos, solicitud, mensajes, locale,
       hoy: hoyCivilCronos(zonaHoraria), filtro, pagina, tamanoPagina, reciboConfirmado, mensajesHistorial, zonaHoraria, mensajesJustificacion, ayudaJustificacion });
     if (selector) {
-      const destino = contenedor.querySelector?.(selector);
-      (destino && !destino.disabled ? destino : contenedor.querySelector?.("[data-cronos-historial-recuento]"))?.focus?.();
+      let destino = contenedor.querySelector?.(selector);
+      if (!destino || destino.disabled) destino = contenedor.querySelector?.(direccionAnio
+        ? `[data-cronos-anio="${direccionAnio === "-1" ? "1" : "-1"}"]` : "[data-cronos-historial-recuento]");
+      if (!destino?.disabled) destino?.focus?.();
     }
   };
   const cargar = async () => {
