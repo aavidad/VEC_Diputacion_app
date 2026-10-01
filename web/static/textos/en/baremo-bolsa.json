@@ -7,7 +7,7 @@
     "activacion_pendiente": "Activation requires the version register and its permissions to be connected.",
     "activar": "Activate rules",
     "ayuda": "Help",
-    "ayuda_texto": "Select a synthetic case or load its rules. Edit the date, scores and limits. Choose Validate and compare to see the effect on the same case. Export the draft before leaving: closing the page discards changes. Imported rules are not approved call terms.",
+    "ayuda_texto": "Select a synthetic case or load its rules. Edit the date, scores and limits. Choose Validate and compare to see the effect on the same case. Export the draft before leaving: closing the page discards changes. Imported rules are not approved call terms. The breakdown shows points before the limit, the section maximum and the resulting points. Fractions are shown as exact divisions. When the result includes an overall limit, the summary shows the section sum, maximum and total.",
     "ejemplo": "Synthetic case",
     "caso_experiencia": "Experience · case {n}",
     "caso_meritos": "Merits · case {n}",
@@ -94,6 +94,13 @@
     "concursos_pendiente": "Awaiting configuration",
     "concursos_vacio": "No competition terms have been configured",
     "concursos_siguiente": "Configure each competition’s terms before starting. Employment pool rules do not apply to competitions.",
-    "concursos_limite": "This section does not calculate scores or allow saving or signing."
+    "concursos_limite": "This section does not calculate scores or allow saving or signing.",
+    "antes_tope": "Before the limit",
+    "maximo_apartado": "Section limit",
+    "despues_tope": "After the limit",
+    "dato_no_disponible": "Data unavailable",
+    "puntos_fraccion": "{numerador} ÷ {denominador}",
+    "suma_apartados": "Section sum",
+    "tope_global": "Overall limit"
   }
 }
