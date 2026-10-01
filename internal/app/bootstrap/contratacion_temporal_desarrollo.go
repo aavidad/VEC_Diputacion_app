@@ -236,6 +236,31 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	return nuevasRutasContratacionTemporalConReglasDesarrollo(cfg, reglasEjemploDesarrollo{bolsa: reglasBolsa}, resolvedor, derivador, kms, registro, incorporacion...)
 }
 
+// La selección de material y la raíz consultan la misma configuración privada.
+// La carga final vuelve a validarla antes de exponer cualquier ruta.
+func protocolosIncorporacionConfiguradosDesarrollo(cfg config.Config) (b2, legado bool, err error) {
+	cfg = cfg.Normalize()
+	if cfg.IncorporacionV2File == "" {
+		return false, false, nil
+	}
+	c, raiz, err := leerConfiguracionIncorporacionV2(cfg.IncorporacionV2File)
+	if err != nil {
+		return false, false, err
+	}
+	defer raiz.Close()
+	return c.PersonalB2 != nil, c.Planes != "", nil
+}
+
+func descriptoresFronterasIncorporacionB2Desarrollo() []descriptorFronteraComunDesarrollo {
+	planGET := fronteraContratacionTemporalDesarrollo("ct-incorporacion-b2-plan-consultar", ports.AccionLeerPlanNominalB2, httpinterno.RutaPlanB2, nil)
+	planGET.Metodo = http.MethodGet
+	return []descriptorFronteraComunDesarrollo{
+		planGET,
+		fronteraContratacionTemporalDesarrollo("ct-incorporacion-b2-plan-registrar", ports.AccionRegistrarPlanNominalB2, httpinterno.RutaPlanB2, nil),
+		fronteraContratacionTemporalDesarrollo("ct-incorporacion-b2-origen-confirmar", ports.AccionConfirmarOrigenB2, httpinterno.RutaConfirmacionB2, nil),
+	}
+}
+
 // nuevasRutasContratacionTemporalConReglasDesarrollo recibe además las
 // reglas de ejemplo ya validadas; sin ellas cada consumidor conserva su
 // conducta sin catálogo.
@@ -255,6 +280,10 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 ) {
 	if len(incorporacion) > 1 || (len(incorporacion) != 0 && cfg.IncorporacionV2File != "") {
 		return nil, nil, nil, ErrComposicionDesarrolloIncompleta
+	}
+	b2Configurada, legadoConfigurado, err := protocolosIncorporacionConfiguradosDesarrollo(cfg)
+	if err != nil {
+		return nil, nil, nil, err
 	}
 	dependencias, err := nuevasDependenciasCT(cfg, resolvedor, derivador, kms, registro)
 	if err != nil {
@@ -345,6 +374,12 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			alta.cerrar()
 		}
 	}()
+	for _, descriptor := range descriptoresMaterialIncorporacionB2() {
+		_, seleccionada := alta.postgresql.catalogoMaterial.descriptorPara(descriptor.Audiencia)
+		if seleccionada != b2Configurada {
+			return nil, nil, nil, ErrComposicionDesarrolloIncompleta
+		}
+	}
 	var soportePlantillas *soporteAltaContratacionTemporalDesarrollo
 	var perfilPlantillas string
 	if plantillasActivas {
@@ -565,8 +600,15 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	if cfg.IncorporacionV2File != "" {
+	if legadoConfigurado {
 		declaracionesFrontera, err = asignarPerfilesNominalesIncorporacionEnFronteras(alta.soporte, declaracionesFrontera)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+	}
+	if b2Configurada {
+		declaracionesFrontera = append(declaracionesFrontera, descriptoresFronterasIncorporacionB2Desarrollo()...)
+		declaracionesFrontera, err = asignarPerfilesNominalesB2EnFronteras(alta.soporte, declaracionesFrontera)
 		if err != nil {
 			return nil, nil, nil, err
 		}
@@ -691,9 +733,20 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		}
 	}()
 	if len(incorporacion) == 1 {
-		incorporacionV2, err = nuevasDependenciasIncorporacionV2Desarrollo(incorporacion[0], &alta, consultasRRHH, reloj)
-		if err != nil {
-			return nil, nil, nil, err
+		if cfg.IncorporacionV2File == "" && !incorporacion[0].legadoCompuesto {
+			return nil, nil, nil, ErrComposicionDesarrolloIncompleta
+		}
+		if (incorporacion[0].nominales != nil && incorporacion[0].nominales.montajeB2 != nil) != b2Configurada {
+			return nil, nil, nil, ErrComposicionDesarrolloIncompleta
+		}
+		if cfg.IncorporacionV2File != "" && incorporacion[0].legadoCompuesto != legadoConfigurado {
+			return nil, nil, nil, ErrComposicionDesarrolloIncompleta
+		}
+		if incorporacion[0].legadoCompuesto {
+			incorporacionV2, err = nuevasDependenciasIncorporacionV2Desarrollo(incorporacion[0], &alta, consultasRRHH, reloj)
+			if err != nil {
+				return nil, nil, nil, err
+			}
 		}
 	}
 	presentacionFlujoRRHH, err := LeerLectorFlujoVisualRRHH(
@@ -745,6 +798,13 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		return nil, nil, nil, err
 	}
 	rutas = append(rutas, rutaCatalogosAlta, rutaConfiguracionAnalisis)
+	if len(incorporacion) == 1 && incorporacion[0].nominales != nil && incorporacion[0].nominales.montajeB2 != nil {
+		rutasB2, err := incorporacion[0].nominales.montajeB2.rutas(alta.soporte, catalogoFronteras)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		rutas = append(rutas, rutasB2...)
+	}
 	if incorporacionV2 != nil {
 		mapeo, err := nuevoMapeoFichaGINPIXDesarrollo()
 		if err != nil {

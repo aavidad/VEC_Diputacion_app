@@ -156,6 +156,8 @@ static/textos/es/contratacion-temporal-lista-plazos.json
 static/textos/en/contratacion-temporal-lista-plazos.json
 static/textos/es/contratacion-temporal-firma.json
 static/textos/en/contratacion-temporal-firma.json
+static/textos/es/contratacion-temporal-incorporacion-personal-b2.json
+static/textos/en/contratacion-temporal-incorporacion-personal-b2.json
 static/portal-empleado/modulos/contratacion-temporal/componentes-expedientes.js
 static/portal-empleado/modulos/contratacion-temporal/contratacion-temporal.css
 static/portal-empleado/modulos/contratacion-temporal/consulta-seguimiento.html
@@ -190,6 +192,9 @@ static/portal-empleado/modulos/contratacion-temporal/cliente-http-alta.js
 static/portal-empleado/modulos/contratacion-temporal/cliente-http-consultas-rrhh.js
 static/portal-empleado/modulos/contratacion-temporal/cliente-http-informe-definitivo.js
 static/portal-empleado/modulos/contratacion-temporal/cliente-http-incorporacion-ejercicio.js
+static/portal-empleado/modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js
+static/portal-empleado/modulos/contratacion-temporal/contrato-incorporacion-personal-b2.js
+static/portal-empleado/modulos/contratacion-temporal/incorporacion-personal-b2.js
 static/portal-empleado/modulos/contratacion-temporal/contrato-incorporacion-ejercicio.js
 static/portal-empleado/modulos/contratacion-temporal/formulario-incorporacion-ejercicio.js
 static/portal-empleado/modulos/contratacion-temporal/contrato-ficha-ginpix.js
@@ -389,3 +394,5 @@ static/portal-empleado/categorias-rpt/cliente.js
 static/portal-empleado/categorias-rpt/i18n.js
 static/textos/es/rpt-categorias-rrhh.json
 static/textos/en/rpt-categorias-rrhh.json
+static/textos/es/baremo-concursos.json
+static/textos/en/baremo-concursos.json
