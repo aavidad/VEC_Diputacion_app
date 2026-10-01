@@ -40,12 +40,10 @@ type Politica struct {
 }
 
 type Textos struct {
-	VersionEsquema int    `json:"version_esquema"`
-	Demostracion   bool   `json:"demostracion"`
-	Aviso          string `json:"aviso"`
-	Anexo          string `json:"anexo"`
-	Revision       string `json:"revision"`
-	Limite         string `json:"limite"`
+	Aviso    string `json:"aviso"`
+	Anexo    string `json:"anexo"`
+	Revision string `json:"revision"`
+	Limite   string `json:"limite"`
 }
 
 func CargarEscenarios(b []byte, sha string) (Escenarios, error) {
@@ -82,7 +80,7 @@ func CargarPolitica(b []byte, sha string) (domain.PoliticaJustificacion, error) 
 
 func CargarTextos(b []byte, sha string) (Textos, error) {
 	var t Textos
-	if catalogoefectos.DecodificarEstricto(b, sha, &t) != nil || t.VersionEsquema != 1 || !t.Demostracion {
+	if catalogoefectos.DecodificarEstricto(b, sha, &t) != nil {
 		return Textos{}, ErrEntrada
 	}
 	for _, s := range []string{t.Aviso, t.Anexo, t.Revision, t.Limite} {
