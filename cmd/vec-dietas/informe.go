@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"io"
 	"os"
@@ -61,10 +62,23 @@ func ejecutarInformePreparacion(in io.Reader, out io.Writer, rutaTextos, rutaTem
 	}
 	escritos, err := out.Write(html)
 	if err != nil {
-		return escribirFalloPreparacion(out, err)
+		return informarFalloInforme(err)
 	}
 	if escritos != len(html) {
-		return 1
+		return informarFalloInforme(io.ErrShortWrite)
 	}
 	return 0
+}
+
+// El diagnóstico va separado del HTML y conserva únicamente un código cerrado.
+// Ningún segundo intento escribe JSON sobre una salida de informe incompleta.
+func informarFalloInforme(causa error) int {
+	codigo := "salida_informe_no_disponible"
+	if errors.Is(causa, io.ErrShortWrite) {
+		codigo = "salida_informe_incompleta"
+	}
+	if json.NewEncoder(os.Stderr).Encode(fallo{codigo}) != nil {
+		return 1
+	}
+	return 1
 }

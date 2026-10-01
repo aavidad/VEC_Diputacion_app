@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -55,5 +56,28 @@ func TestInformePreparacionRechazaSalidaIncompleta(t *testing.T) {
 	}
 	if code := ejecutarInformePreparacion(bytes.NewReader(entrada), salidaCortaInforme{}, "../../web/static/textos/es/dietas-liquidacion-informe.json", "../../web/static/comun/tema-vec.css"); code != 1 {
 		t.Fatalf("salida incompleta anunciada como correcta: %d", code)
+	}
+}
+
+type salidaFallaUnaVezInforme struct {
+	llamadas int
+}
+
+func (s *salidaFallaUnaVezInforme) Write(datos []byte) (int, error) {
+	s.llamadas++
+	if s.llamadas == 1 {
+		return 3, errors.New("causa_sintetica_no_visible")
+	}
+	return len(datos), nil
+}
+
+func TestInformePreparacionNoMezclaJSONConSalidaParcial(t *testing.T) {
+	entrada, err := os.ReadFile("testdata/preparacion_liquidacion.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	salida := &salidaFallaUnaVezInforme{}
+	if code := ejecutarInformePreparacion(bytes.NewReader(entrada), salida, "../../web/static/textos/es/dietas-liquidacion-informe.json", "../../web/static/comun/tema-vec.css"); code != 1 || salida.llamadas != 1 {
+		t.Fatalf("fallo de salida no conservado: code=%d, escrituras=%d", code, salida.llamadas)
 	}
 }
