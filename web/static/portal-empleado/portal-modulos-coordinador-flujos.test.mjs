@@ -12,7 +12,7 @@ import {
   crearCoordinadorModulosPortal,
   moduloDeVistaPortal,
   rutaDeVistaPortal,
-} from "./portal-modulos-coordinador.js?v=20261001-cronos-grafo-fichaje-v3";
+} from "./portal-modulos-coordinador.js?v=20261001-cronos-grafo-saldo-v3";
 
 function raizFalsa() {
   const eventos = new Map();
