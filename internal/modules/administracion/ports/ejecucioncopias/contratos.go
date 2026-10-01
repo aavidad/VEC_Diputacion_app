@@ -74,6 +74,12 @@ type RegistroAbandono interface {
 	AbandonarCaptura(context.Context, string, string) error
 }
 
+// RegistroFalloPublicado conserva el enlace publicado y la medida de origen
+// antes de conciliar el fallo; no sustituye la autenticación del destino.
+type RegistroFalloPublicado interface {
+	RegistrarFalloPublicado(context.Context, string, Conjunto) error
+}
+
 type ObservacionRestauracion struct {
 	Propuesta
 	VersionRef, InstaladoRef, IndiceAutenticadoRef string

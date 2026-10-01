@@ -26,6 +26,11 @@ type estadoExterior struct {
 	ConjuntoObservadoRef                                                                                 string `json:",omitempty"`
 	IndiceObservadoRef                                                                                   string `json:",omitempty"`
 	FalloCapturaRef                                                                                      string `json:",omitempty"`
+	IndicePublicadoRef                                                                                   string `json:",omitempty"`
+	ManifiestoPublicadoSHA256                                                                            string `json:",omitempty"`
+	ManifiestoBasePublicadoSHA256                                                                        string `json:",omitempty"`
+	EjecucionPublicadaRef                                                                                string `json:",omitempty"`
+	OrigenPublicadoSHA256                                                                                string `json:",omitempty"`
 }
 type tramaExterior struct {
 	Secuencia uint64         `json:"secuencia"`
@@ -313,7 +318,10 @@ func leerExterior(f *os.File) (map[string]estadoExterior, uint64, string, []byte
 }
 func transicionExteriorValida(anterior, siguiente, accion string) bool {
 	if accion == "abandono_captura" {
-		return (anterior == "capturando" || anterior == "captura_pendiente_conciliacion") && siguiente == "abandonada_declarada"
+		return (anterior == "capturando" || anterior == "capturada" || anterior == "verificando" || anterior == "captura_pendiente_conciliacion") && siguiente == "abandonada_declarada"
+	}
+	if accion == "fallo_publicado" {
+		return (anterior == "capturando" || anterior == "capturada" || anterior == "verificando") && siguiente == "captura_pendiente_conciliacion"
 	}
 	if accion == "observar_restauracion" {
 		if siguiente != "revertida" && siguiente != "instalado_pendiente_conciliacion" {

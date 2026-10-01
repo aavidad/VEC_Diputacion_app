@@ -134,6 +134,10 @@ func (r *registroPrueba) Anotar(_ context.Context, _ string, estado, detalle str
 	return nil
 }
 func (r *registroPrueba) AplicarCopia(context.Context, puertos.EventoCopia) error { return nil }
+func (r *registroPrueba) RegistrarFalloPublicado(ctx context.Context, ref string, c puertos.Conjunto) error {
+	r.op.FalloCapturaRef = "verificacion_fallida"
+	return r.Anotar(ctx, ref, "captura_pendiente_conciliacion", "verificacion_fallida")
+}
 func (r *registroPrueba) ConciliarRestauracion(ctx context.Context, o puertos.ObservacionRestauracion) error {
 	estado := "revertida"
 	if o.InstaladoRef == r.op.ConjuntoRef {
@@ -314,7 +318,7 @@ func TestEnsayosValidosRechazaContenidoDistintoConMismoRecuento(t *testing.T) {
 	}
 }
 
-func TestCopiarMarcaNoValidaSiContenidoDifiereConMismoRecuento(t *testing.T) {
+func TestCopiarConciliaFalloPublicadoSiContenidoDifiereConMismoRecuento(t *testing.T) {
 	p, lectura, objetivo, captura := propuestaPrueba(t)
 	captura.Manifiesto.ConjuntoRef = p.ConjuntoRef
 	captura.Manifiesto.OperacionRef = p.OperacionRef
@@ -338,11 +342,11 @@ func TestCopiarMarcaNoValidaSiContenidoDifiereConMismoRecuento(t *testing.T) {
 		t.Fatalf("error=%v", err)
 	}
 	for _, evento := range eventos {
-		if evento == "anotar:no_valida" {
+		if evento == "anotar:captura_pendiente_conciliacion" {
 			return
 		}
 	}
-	t.Fatalf("no registró no_valida: %v", eventos)
+	t.Fatalf("no registró conciliación pendiente: %v", eventos)
 }
 
 func TestCopiarRecuperaConjuntoPublicadoSinNuevaCaptura(t *testing.T) {

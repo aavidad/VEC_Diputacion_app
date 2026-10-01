@@ -330,8 +330,8 @@ func etapaPermitida(estado, etapa, valor string, e estadoExterior) bool {
 		// has a preimage and must remain reconcilable rather than being relabelled.
 		return e.PreimagenSHA256 == "" && estado != "valida" && estado != "no_valida"
 	case "captura_pendiente_conciliacion":
-		return e.PreimagenSHA256 == "" && (estado == "capturando" || estado == "captura_pendiente_conciliacion") &&
-			(valor == "captura_fallida" || valor == "captura_no_comprobable") && (e.FalloCapturaRef == "" || e.FalloCapturaRef == valor)
+		return e.PreimagenSHA256 == "" && (estado == "capturando" || estado == "captura_pendiente_conciliacion" || valor == "verificacion_fallida" && (estado == "capturada" || estado == "verificando")) &&
+			(valor == "captura_fallida" || valor == "captura_no_comprobable" || valor == "verificacion_fallida") && (e.FalloCapturaRef == "" || e.FalloCapturaRef == valor)
 	}
 	return false
 }

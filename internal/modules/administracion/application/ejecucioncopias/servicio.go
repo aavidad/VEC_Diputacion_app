@@ -151,12 +151,10 @@ func (s *Servicio) Copiar(ctx context.Context, p puertos.Peticion) (resultado Re
 			return Recibo{}, ErrConciliacion
 		}
 		if err := validarConjunto(c, "pendiente_verificacion"); err != nil {
-			_ = s.d.Registro.Anotar(context.WithoutCancel(ctx), op.Ref, "no_valida", "sello_no_comprobable")
-			return Recibo{}, err
+			return Recibo{}, s.publicadoFallido(ctx, op.Ref, c, err)
 		}
 		if c.Manifiesto.InventarioSHA256 != captura.Manifiesto.InventarioSHA256 || !reflect.DeepEqual(c.Manifiesto.Componentes, captura.Manifiesto.Componentes) || !reflect.DeepEqual(c.Origen, captura.Origen) {
-			_ = s.d.Registro.Anotar(context.WithoutCancel(ctx), op.Ref, "no_valida", "sello_otro_conjunto")
-			return Recibo{}, denegar("sello_otro_conjunto")
+			return Recibo{}, s.publicadoFallido(ctx, op.Ref, c, denegar("sello_otro_conjunto"))
 		}
 		op.Estado = "capturando"
 	case "capturando", "capturada", "verificando", "verificada_declarada":
@@ -177,10 +175,7 @@ func (s *Servicio) Copiar(ctx context.Context, p puertos.Peticion) (resultado Re
 	}
 	c, err = s.reanudarPublicado(ctx, c, op.Estado)
 	if err != nil {
-		if errors.Is(err, ErrBloqueada) {
-			_ = s.d.Registro.Anotar(context.WithoutCancel(ctx), op.Ref, "no_valida", "contraste_fallido")
-		}
-		return Recibo{}, err
+		return Recibo{}, s.publicadoFallido(ctx, op.Ref, c, err)
 	}
 	if err := s.d.Registro.Anotar(ctx, op.Ref, "valida", c.IndiceAutenticadoRef); err != nil {
 		return Recibo{}, ErrConciliacion
@@ -189,7 +184,7 @@ func (s *Servicio) Copiar(ctx context.Context, p puertos.Peticion) (resultado Re
 }
 
 func (s *Servicio) capturaFallida(ctx context.Context, ref, fallo string, causa error) error {
-	if fallo != "captura_fallida" && fallo != "captura_no_comprobable" {
+	if fallo != "captura_fallida" && fallo != "captura_no_comprobable" && fallo != "verificacion_fallida" {
 		return errors.Join(causa, ErrConciliacion)
 	}
 	ctx = context.WithoutCancel(ctx)
@@ -202,6 +197,20 @@ func (s *Servicio) capturaFallida(ctx context.Context, ref, fallo string, causa 
 		return errors.Join(causa, ErrConciliacion, err)
 	}
 	return errors.Join(causa, ErrConciliacion)
+}
+
+func (s *Servicio) publicadoFallido(ctx context.Context, ref string, c puertos.Conjunto, causa error) error {
+	ctx = context.WithoutCancel(ctx)
+	r, ok := s.d.Registro.(puertos.RegistroFalloPublicado)
+	if !ok {
+		anotacion := s.d.Registro.Anotar(ctx, ref, "captura_pendiente_conciliacion", "verificacion_fallida")
+		return errors.Join(causa, ErrConciliacion, anotacion)
+	}
+	if err := r.RegistrarFalloPublicado(ctx, ref, c); err != nil {
+		anotacion := s.d.Registro.Anotar(ctx, ref, "captura_pendiente_conciliacion", "verificacion_fallida")
+		return errors.Join(causa, ErrConciliacion, err, anotacion)
+	}
+	return s.capturaFallida(ctx, ref, "verificacion_fallida", causa)
 }
 
 func (s *Servicio) copiaRestaurable(ctx context.Context, c puertos.Conjunto) error {
