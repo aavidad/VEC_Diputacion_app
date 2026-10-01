@@ -60,7 +60,10 @@ func ejecutarInformePreparacion(in io.Reader, out io.Writer, rutaTextos, rutaTem
 		return escribirFalloPreparacion(out, err)
 	}
 	escritos, err := out.Write(html)
-	if err != nil || escritos != len(html) {
+	if err != nil {
+		return escribirFalloPreparacion(out, err)
+	}
+	if escritos != len(html) {
 		return 1
 	}
 	return 0
