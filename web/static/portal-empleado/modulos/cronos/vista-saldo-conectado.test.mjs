@@ -81,10 +81,123 @@ test("404 de la API: «no disponible» neutro, sin alerta; incrustada sin sobrel
   const raiz = { ownerDocument: { createElement: () => nodo }, append() {} };
   const vista = montarVistaSaldoCronos({ raiz, incrustada: true, cliente: { consultar: async () => { throw new ErrorClienteSaldoCronos("servicio_no_disponible", 404); } } });
   await Promise.resolve(); await Promise.resolve();
-  assert.match(nodo.innerHTML, /<p class="cronos-vacio" role="status">El servicio de saldo no está disponible/u);
+  assert.match(nodo.innerHTML, /<p class="cronos-vacio"[^>]*role="status">El servicio de saldo no está disponible/u);
   assert.doesNotMatch(nodo.innerHTML, /No se pudo consultar/u);
   assert.doesNotMatch(nodo.innerHTML, /sobrelinea|<h2/u);
   assert.match(nodo.innerHTML, /<h3 id="cronos-saldo-titulo">/u);
   assert.match(renderizarVistaSaldoCronos({ estado: "cargando" }), /<p class="sobrelinea">[^<]+<\/p><h2 id="cronos-saldo-titulo">/u, "suelta conserva su encabezado de página");
   vista.desmontar();
+});
+
+function datosLargos(tipo = "anio", cantidad = 65) {
+  const resultado = datos(tipo, 600);
+  resultado.periodo = { tipo, desde: "2026-01-01", hasta: "2026-12-31" };
+  resultado.detalle = Array.from({ length: cantidad }, (_, i) => ({ ...datos().detalle[0],
+    fecha: new Date(Date.UTC(2026, 0, i + 1)).toISOString().slice(0, 10), marcajes: [] }));
+  return resultado;
+}
+function montajePrueba(cliente, opciones = {}) {
+  const documento = { activeElement: null }; const nodos = new Map();
+  const nodo = { dataset: {}, innerHTML: "", eventos: {}, addEventListener(tipo, fn) { this.eventos[tipo] = fn; },
+    removeEventListener(tipo) { delete this.eventos[tipo]; }, remove() {}, contains: (elemento) => [...nodos.values()].includes(elemento),
+    querySelector(selector) {
+      if (!nodos.has(selector)) nodos.set(selector, { disabled: false,
+        getAttribute: (atributo) => selector.startsWith(`[${atributo}=`) ? selector.split('"')[1] : null,
+        focus() { documento.activeElement = this; } });
+      return nodos.get(selector);
+    } };
+  const raiz = { ownerDocument: Object.assign(documento, { createElement: () => nodo }), append() {} };
+  const vista = montarVistaSaldoCronos({ raiz, cliente, ...opciones });
+  const pulsar = (selector, dataset) => nodo.eventos.click({ target: { closest: (buscado) => buscado === selector ? { dataset } : null } });
+  return { vista, nodo, documento, pulsar };
+}
+async function asentarse() { await Promise.resolve(); await Promise.resolve(); }
+
+test("pagina el detalle completo sin alterar el resumen ni hacer peticiones por página", async () => {
+  const recibidas = [];
+  const m = montajePrueba({ consultar: async (consulta) => { recibidas.push(consulta); return datosLargos(consulta.periodo); } });
+  await asentarse();
+  assert.equal((m.nodo.innerHTML.match(/<th scope="row">/gu) || []).length, 31);
+  assert.match(m.nodo.innerHTML, /Días 1–31 de 65. Página 1 de 3/);
+  assert.match(m.nodo.innerHTML, /10:00/);
+  m.pulsar("[data-cronos-saldo-pagina]", { cronosSaldoPagina: "siguiente" });
+  assert.match(m.nodo.innerHTML, /Días 32–62 de 65. Página 2 de 3/);
+  assert.match(m.nodo.innerHTML, /datetime="2026-02-01"/);
+  assert.match(m.nodo.innerHTML, /10:00/);
+  assert.equal(recibidas.length, 1);
+  m.pulsar("[data-cronos-saldo-pagina]", { cronosSaldoPagina: "siguiente" });
+  assert.equal((m.nodo.innerHTML.match(/<th scope="row">/gu) || []).length, 3);
+  assert.match(m.nodo.innerHTML, /Días 63–65 de 65/);
+  m.vista.desmontar();
+});
+
+test("actualizar y reintentar conservan rango, página y foco sin dejar totales anteriores", async () => {
+  const consultas = []; let fallar = false; let cantidad = 65; const anuncios = [];
+  const consulta = { periodo: "rango", desde: "2026-01-01", hasta: "2026-12-31" };
+  const m = montajePrueba({ consultar: async (c) => {
+    consultas.push(c);
+    if (fallar) throw new ErrorClienteSaldoCronos("red_no_disponible");
+    return datosLargos(c.periodo, cantidad);
+  } }, { anunciar: (texto) => anuncios.push(texto) });
+  await asentarse(); await m.vista.consultar(consulta);
+  m.pulsar("[data-cronos-saldo-pagina]", { cronosSaldoPagina: "siguiente" });
+  const control = m.nodo.querySelector('[data-cronos-saldo-actualizar=""]'); control.focus();
+  fallar = true; await m.vista.actualizar();
+  assert.match(m.nodo.innerHTML, /Reintentar/);
+  assert.doesNotMatch(m.nodo.innerHTML, /10:00/);
+  assert.match(m.nodo.innerHTML, /name="desde" value="2026-01-01"/);
+  assert.equal(m.documento.activeElement, control);
+  fallar = false; await m.vista.actualizar();
+  assert.match(m.nodo.innerHTML, /Página 2 de 3/);
+  assert.equal(m.documento.activeElement, control);
+  assert.deepEqual(consultas.slice(1), [consulta, consulta, consulta]);
+  cantidad = 2; await m.vista.actualizar();
+  assert.match(m.nodo.innerHTML, /Página 1 de 1/);
+  assert.ok(anuncios.includes("Saldo actualizado."));
+  assert.ok(!anuncios.includes("error"));
+  m.vista.desmontar();
+});
+
+test("no ofrece recuperación para 403 o 404 y valida respuestas de clientes inyectados", async () => {
+  for (const error of [new ErrorClienteSaldoCronos("acceso_denegado", 403), new ErrorClienteSaldoCronos("servicio_no_disponible", 404)]) {
+    let llamadas = 0;
+    const m = montajePrueba({ consultar: async () => { llamadas++; throw error; } });
+    await asentarse(); await m.vista.actualizar();
+    assert.equal(llamadas, 1);
+    assert.doesNotMatch(m.nodo.innerHTML, /data-cronos-saldo-actualizar/);
+    m.vista.desmontar();
+  }
+  const m = montajePrueba({ consultar: async () => ({ ...datos(), extra: "no admitido" }) });
+  await asentarse();
+  assert.match(m.nodo.innerHTML, /data-cronos-saldo-estado="error"/);
+  assert.doesNotMatch(m.nodo.innerHTML, /01:05/);
+  assert.match(m.nodo.innerHTML, /Reintentar/);
+  m.vista.desmontar();
+});
+
+test("cambiar periodo reinicia página y finalizar una actualización no roba foco externo", async () => {
+  const pendiente = diferido(); let esperar = false;
+  const m = montajePrueba({ consultar: async (c) => esperar ? pendiente.promesa : datosLargos(c.periodo) });
+  await asentarse();
+  m.pulsar("[data-cronos-saldo-pagina]", { cronosSaldoPagina: "siguiente" });
+  await m.vista.consultar({ periodo: "mes" });
+  assert.match(m.nodo.innerHTML, /Página 1 de 3/);
+  m.nodo.querySelector('[data-cronos-saldo-actualizar=""]').focus();
+  esperar = true; const actualizar = m.vista.actualizar();
+  const externo = {}; m.documento.activeElement = externo;
+  pendiente.resolver(datosLargos("mes")); await actualizar;
+  assert.equal(m.documento.activeElement, externo);
+  m.vista.desmontar();
+  await m.vista.actualizar();
+});
+
+test("tamaño de presentación configurable, acotado y datos vacíos sin paginación ficticia", () => {
+  const html = renderizarVistaSaldoCronos({ estado: "listo", datos: datosLargos("hoy", 5), tamanoPagina: 2 });
+  assert.equal((html.match(/<th scope="row">/gu) || []).length, 2);
+  assert.match(html, /Página 1 de 3/);
+  const vacio = renderizarVistaSaldoCronos({ estado: "listo", datos: { ...datos(), detalle: [] } });
+  assert.doesNotMatch(vacio, /data-cronos-saldo-pagina/);
+  for (const tamanoPagina of [0, -1, 1.5, 368, Infinity]) {
+    assert.throws(() => renderizarVistaSaldoCronos({ tamanoPagina }), RangeError);
+  }
 });
