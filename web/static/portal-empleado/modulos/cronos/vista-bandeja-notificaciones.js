@@ -1,7 +1,7 @@
 import {
   documentoNotificacionCronos, fechaCivilVisibleCronos, instanteVisibleCronos,
 } from "./i18n-notificaciones.js";
-import { crearTraductorBandejaNotificacionesCronos } from "./i18n-bandeja-notificaciones.js?v=20261001-cronos-c9-recuperacion-v1";
+import { crearTraductorBandejaNotificacionesCronos } from "./i18n-bandeja-notificaciones.js?v=20261001-cronos-c9-recuperacion-v2";
 import { ErrorClienteNotificacionesCronos, crearClienteNotificacionesCronosHTTP } from "./cliente-notificaciones-http.js";
 import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
 
