@@ -101,6 +101,20 @@ La evidencia se liga a propiedades actuales, versión de PostgreSQL y ventana.
 Sin esa evidencia, el resultado es `no_comprobable`. El lector no activa
 `template0`, no escribe en el origen y no genera una huella de fábrica supuesta.
 
+`NuevoFuentePlantillaFisica` permite obtener esa evidencia desde el runtime
+aislado de una captura física del mismo punto. Recibe un runtime verificado
+que vincula artefacto, imagen, operación, conjunto y ventana. Consulta el censo
+y los metadatos originales, crea un clon técnico mediante un canal cerrado,
+lee su contenido en `REPEATABLE READ READ ONLY` y lo retira antes del censo final.
+Las propiedades y ACL pertenecen a la base original, no se deducen del clon.
+
+El runtime conserva solo dos operaciones técnicas de escritura: crear y retirar
+su clon. Debe reconciliar una creación confirmada si se pierde la respuesta y
+limpiar su base antes de devolver el error. El proveedor rechaza una base
+preexistente y no la retira. La autenticación del manifiesto físico corresponde
+al constructor y al contexto verificado del ejecutor; SHA256 por sí solo no la
+acredita.
+
 El canal directo de esta CLI conserva el alcance de una sola base. Un conjunto
 declarado mediante `bases_inventariadas` requiere el ejecutor y la fuente tipada;
 el canal DSN lo rechaza antes de abrir la conexión. La comparación offline admite
@@ -186,3 +200,15 @@ antes de la ventana y la retiró antes de capturar el conjunto. Consultó las
 propiedades y ACL de la base original. Este ejercicio controlado no entrega un
 proveedor de inicialización para el circuito real; sin esa fuente, la base no
 conectable sigue como `no_comprobable`. No se activó ni escribió `template0`.
+
+El ensayo del proveedor físico detuvo limpiamente un PostgreSQL 18.4 propio,
+archivó su PGDATA completo y restauró el archivo en otro runtime aislado con
+solo lectura por defecto. Dos capturas completas coincidieron. Las alteraciones
+de procedencia, imagen o ventana se rechazaron antes de crear el clon; también
+se comprobó la protección de bases preexistentes y la limpieza tras fallo de
+lectura o respuesta de creación perdida. Ambos contenedores y el archivo
+temporal se retiraron.
+
+Ese ensayo acredita la custodia local del archivo observado y la ejecución
+técnica con PostgreSQL. La autenticación criptográfica CS03 y su integración
+con el runtime físico real siguen pendientes en el puente de composición.
