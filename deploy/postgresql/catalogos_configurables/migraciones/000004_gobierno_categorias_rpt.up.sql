@@ -121,8 +121,8 @@ DECLARE
            AND g.editor_ref<>p_actor AND cg.revision=2 AND cg.estado='aprobada'
            AND ag.ordinal=1 AND ag.actor_ref=p_actor AND ag.recibo_ref=p_aprobacion_a
            AND ag.huella_sha256=g.huella_sha256
-           AND contenido->>'publicado_por'=p_actor
-           AND contenido->>'aprobacion_ref'=ag.recibo_ref;
+           AND (p_documento::jsonb)->>'publicado_por'=p_actor
+           AND (p_documento::jsonb)->>'aprobacion_ref'=ag.recibo_ref;
         IF gobierno_ref IS NULL THEN
             RAISE EXCEPTION 'Cat4: publicacion sin propuesta y aprobacion reales' USING ERRCODE='42501';
         END IF;
@@ -195,7 +195,7 @@ BEGIN
     EXECUTE nuevo;
     IF (SELECT pg_catalog.pg_get_functiondef(f)) IS DISTINCT FROM nuevo
     OR (SELECT pg_catalog.to_jsonb(p)-'prosrc' FROM pg_catalog.pg_proc p WHERE p.oid=f) IS DISTINCT FROM meta
-    OR (SELECT pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(prosrc,'UTF8')),'hex') FROM pg_catalog.pg_proc WHERE oid=f)<>'3678f3d95376bc2a10e91d0099da92ec2cb0c37d6c0cf35a2c81708370b9756a'
+    OR (SELECT pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(prosrc,'UTF8')),'hex') FROM pg_catalog.pg_proc WHERE oid=f)<>'f6aaf535445d27b5c1c6f8e64622c1246d687c72414c0d14b2ac7c41a6b054c1'
     OR (SELECT coalesce(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb) FROM pg_catalog.pg_depend d WHERE d.classid='pg_catalog.pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps THEN
         RAISE EXCEPTION 'Cat4: contrato publicar postimagen incompatible' USING ERRCODE='55000';
     END IF;

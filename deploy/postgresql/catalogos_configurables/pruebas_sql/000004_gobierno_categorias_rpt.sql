@@ -2,6 +2,8 @@
 -- Clon desechable. Dobles de persona en el core: no acreditan consumo V3.
 BEGIN;
 SET LOCAL search_path=pg_catalog;
+-- La publicación positiva debe compilar y ejecutarse con rechazo de nombres ambiguos.
+SET LOCAL plpgsql.variable_conflict='error';
 SET LOCAL lock_timeout='5s';
 SET LOCAL statement_timeout='30s';
 CREATE TEMP TABLE preimagen_legacy AS SELECT * FROM vec_catalogos_configurables.publicacion WHERE circuito='doble_aprobacion';
