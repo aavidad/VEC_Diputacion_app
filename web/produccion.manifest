@@ -525,6 +525,9 @@ static/textos/en/carrera.json
 static/portal-empleado/modulos/personal/preparacion-servicios-cer.js
 static/textos/es/personal-servicios-cer.json
 static/textos/en/personal-servicios-cer.json
+static/portal-empleado/portal-accesos-empleado.js
+static/textos/es/accesos-empleado.json
+static/textos/en/accesos-empleado.json
 static/portal-empleado/modulos/analitica/ficha-indicadores.js
 static/portal-empleado/modulos/analitica/catalogo-indicadores.json
 static/textos/es/analitica.json
