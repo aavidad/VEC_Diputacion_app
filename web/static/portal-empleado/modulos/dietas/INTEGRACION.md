@@ -28,13 +28,15 @@ montarVistaRecorridosDietas(raiz, {
 });
 ```
 
-El portal interno (`componerDietasInternas`) compone hoy `clienteBorradores`,
-`clienteAsignacion`, `calculadorRuta`, `visorRuta` y las relaciones que
-Personal acredita antes de montar. Si Personal deniega por falta de empleado
+El portal interno (`componerDietasInternas`) compone `clienteBorradores`,
+`clienteAsignacion`, `clienteCircuito`, `calculadorRuta`, `visorRuta` y las
+relaciones que Personal acredita antes de montar. `clienteBorradores` consulta
+también el documento propio v2. Si Personal deniega por falta de empleado
 canónico (`empleado_no_disponible`) o por ambigüedad (`empleado_ambiguo`), la
-vista lo dice y deja el alta y el envío cerrados. `clienteCircuito`,
-`clienteRectificacion` y `clienteRectificacionAdmin` todavía no se componen:
-sin ellos no aparecen los pasos del circuito ni la corrección de la asignación.
+vista lo dice y deja el alta y el envío cerrados. Las pestañas del circuito
+dependen de las competencias acreditadas; hoy la fuente gobernada responde
+`sin_fuente`. `clienteRectificacion` y `clienteRectificacionAdmin` siguen sin
+inyectarse, por lo que la rectificación D7c no está disponible en esta vista.
 
 `clienteBorradores` usa `/api/vec/dietas/comisiones` para alta, consulta,
 edición, borrado lógico y envío. POST crea cabecera v1; PUT conserva documento
@@ -64,6 +66,11 @@ centros y personas. Sin ese catálogo, la confirmación queda deshabilitada.
 fiscalización y envía decisiones con motivo cuando se devuelve. Cada etapa
 exige permiso V3 propio; mostrar una pestaña no concede acceso. Una comisión
 fiscalizada no se presenta como pagada.
+
+La regla de tramos no falta en SQL: Dietas 000006 publica una configuración
+versionada y una función de consulta; el preparador Go la consume. Su valor
+actual es provisional y marca `liquidable:false`. Tenerla en Git no acredita
+que esté instalada ni que RRHH haya aprobado sus cuantías y horarios.
 
 ## Ruta y mapa
 

@@ -322,6 +322,13 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		personal.AudienciaPublicarCatalogoEmpleadoB2,
 		personal.AudienciaRetirarCatalogoEmpleadoB2,
 		personal.AudienciaEmpleadosB2,
+		// B2 de incorporación usa sólo estas cinco audiencias nominales;
+		// el catálogo las selecciona únicamente con la configuración privada.
+		puertosbolsa.AudienciaConsultaAnclajeAceptacionCT,
+		personal.AudienciaPlanIncorporacionCT,
+		ports.AudienciaRegistrarPlanNominalB2,
+		ports.AudienciaLeerPlanNominalB2,
+		ports.AudienciaConfirmarOrigenB2,
 		// Consumidores del catálogo común sin entrada previa en la lista:
 		// Mi bolsa (AD3-43), Documentos (AD3-60) y ficha propia (AD3-74).
 		puertosbolsa.AudienciaMiBolsa,

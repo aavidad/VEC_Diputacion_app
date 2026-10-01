@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js";
-import { crearAdaptadorHTTPExpedientesContratacionTemporal } from "./adaptador-http-expedientes.js";
-import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js";
-import { montarModuloContratacionTemporal } from "./vista-expedientes.js";
-import { contextoLlamamientoDesdeEstado } from "./vista-expedientes-render.js";
+import { crearAdaptadorHTTPExpedientesContratacionTemporal } from "./adaptador-http-expedientes.js?v=20261001-codexf-ct-catalogos-v1";
+import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js?v=20261001-codexf-ct-catalogos-v1";
+import { montarModuloContratacionTemporal } from "./vista-expedientes.js?v=20261001-codexf-ct-catalogos-v1";
+import { contextoLlamamientoDesdeEstado } from "./vista-expedientes-render.js?v=20261001-codexf-ct-catalogos-v1";
 
 // Dobles de transporte y DOM; adapter, contratos, presentador y vista son los reales.
 const A = "expediente:ct:001", B = "expediente:ct:002";

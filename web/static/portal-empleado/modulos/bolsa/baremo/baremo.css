@@ -58,10 +58,38 @@
 
 .baremo-modulos { display: flex; flex-direction: column; gap: 12px; }
 .baremo-navegacion { display: flex; gap: 8px; flex-wrap: wrap; }
-#baremo-panel-bolsa { min-width: 0; min-height: 0; }
+#baremo-panel-bolsa, #baremo-panel-concursos { min-width: 0; min-height: 0; }
 #baremo-panel-concursos h1 { margin: 0; font-size: 26px; font-weight: 600; }
 #baremo-panel-concursos h2 { font-size: 18px; font-weight: 600; }
 @media (min-width: 1000px) and (min-height: 700px) {
  .baremo-modulos { height: 100%; }
- #baremo-panel-bolsa { flex: 1; }
+ #baremo-panel-bolsa, #baremo-panel-concursos { flex: 1; }
+}
+
+.concursos-editor .baremo-reglas th { min-width: 200px; }
+.concursos-editor .baremo-reglas details { font-weight: 400; }
+.concursos-editor summary { cursor: pointer; padding-block: 8px; color: var(--portal-azul-700); }
+.concursos-editor .baremo-reglas details .tabla-datos { min-width: 600px; }
+.concursos-editor .baremo-reglas details .tabla-contenedor { max-width: 760px; }
+.concursos-hechos { margin: 0; font-size: 13px; }
+.concursos-hechos > div { display: flex; justify-content: space-between; gap: 12px; padding-block: 4px; }
+.concursos-hechos dd { margin: 0; font-variant-numeric: tabular-nums; }
+.concursos-traza { margin-top: 12px; }
+.concursos-traza dl { display: grid; gap: 4px; }
+.concursos-traza dd { overflow-wrap: anywhere; font-weight: 400; font-size: 13px; }
+.concursos-editor #concursos-error { padding: 12px; color: var(--portal-peligro); background: var(--portal-superficie); border-radius: 8px; }
+.concursos-editor #concursos-error:empty { display: none; }
+.concursos-editor #concursos-error p { margin: 0; }
+.concursos-editor .baremo-controles .campo { flex: 1 1 180px; }
+.concursos-editor .baremo-controles > label:first-child { flex: 2 1 210px; }
+.concursos-editor .baremo-reglas .tabla-datos { min-width: 640px; }
+.concursos-resultados .tabla-datos { min-width: 400px; }
+.concursos-resultados details li { max-width: 65ch; overflow-wrap: anywhere; }
+@media (min-width: 1000px) and (min-height: 700px) {
+ .concursos-editor .baremo-reglas .tabla-contenedor { overflow: auto; }
+ .concursos-editor .concursos-resultados-panel { flex: 0 1 265px; }
+}
+@media (max-width: 760px) {
+ .concursos-editor .baremo-controles .campo { flex-basis: 100%; }
+ .concursos-editor .baremo-reglas details .tabla-contenedor { max-width: 600px; }
 }
