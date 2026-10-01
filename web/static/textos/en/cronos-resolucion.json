@@ -1,5 +1,6 @@
 {
   "bandeja": {
+    "avisos_reintentar_consulta": "Refresh notices",
     "resumen_alcance": "The summary counts only requests in this inbox for {paso}.",
     "resumen_total": "Requests in this inbox",
     "resumen_resolubles": "Requests you can review",
