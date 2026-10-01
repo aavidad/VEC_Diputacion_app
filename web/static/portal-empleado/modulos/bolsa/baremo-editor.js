@@ -16,6 +16,10 @@ export function leerReglas(texto) {
       || !(puntos(regla.maximo_puntos) || regla.maximo_puntos?.modo === "sin_limite" || regla.maximo_puntos?.modo === "limitado" && puntos(regla.maximo_puntos.valor))) throw new Error("archivo_invalido");
     if (reglas.reglas_experiencia && (!regla.jornada || typeof regla.jornada !== "object" || Array.isArray(regla.jornada)
       || typeof regla.jornada.modo !== "string" || !/^[a-z_]+$/u.test(regla.jornada.modo))) throw new Error("archivo_invalido");
+    if (reglas.esquema === "vec.bolsa.reglas_meritos.v1" && regla.familia === "formacion" && regla.unidad === "hora") {
+      try { if (normalizarMinimoFormacion(regla.minimo_unidades) !== regla.minimo_unidades) throw new Error(); }
+      catch { throw new Error("archivo_invalido"); }
+    }
     if (Object.hasOwn(regla, "criterios") && (!Array.isArray(regla.criterios)
       || regla.criterios.some((criterio) => !criterio || !Array.isArray(criterio.valores)
         || criterio.valores.some((valor) => typeof valor !== "string")))) throw new Error("archivo_invalido");
@@ -45,6 +49,16 @@ export function normalizarFraccionJornada(valor) {
   const n = numerador / a, d = denominador / a;
   // Límite de los componentes canónicos de baremacion.Racional V1.
   if (n > 1000000000n || d > 1000000000n) throw new Error("umbral_invalido");
+  return `${n}/${d}`;
+}
+/** Horas exactas de cada curso; normaliza la representación sin puntuar méritos. */
+export function normalizarMinimoFormacion(valor) {
+  if (typeof valor !== "string" || !/^(0|[1-9][0-9]{0,18})\/[1-9][0-9]{0,18}$/u.test(valor)) throw new Error("minimo_formacion_invalido");
+  const [numerador, denominador] = valor.split("/").map(BigInt);
+  let a = numerador, b = denominador;
+  while (b) [a, b] = [b, a % b];
+  const n = numerador / a, d = denominador / a;
+  if (n > 1000000000n || d > 1000000000n) throw new Error("minimo_formacion_invalido");
   return `${n}/${d}`;
 }
 /** Catálogo de la herramienta local; no es aprobación de las bases. */
@@ -125,6 +139,14 @@ export function crearEditorBaremo({ cliente, catalogoJornada = null, alCambiar =
     try { editar(ruta, normalizarFraccionJornada(valor)); }
     catch (error) { invalidar(); estado.cambiado = true; estado.invalidos[JSON.stringify(ruta)] = valor; throw error; }
   }
+  function editarMinimoFormacion(indice, valor) {
+    const regla = estado.borrador?.reglas?.[indice];
+    if (!Number.isInteger(indice) || indice < 0 || estado.borrador?.esquema !== "vec.bolsa.reglas_meritos.v1"
+      || regla?.familia !== "formacion" || regla.unidad !== "hora") throw new Error("campo_invalido");
+    const ruta = ["reglas", indice, "minimo_unidades"];
+    try { editar(ruta, normalizarMinimoFormacion(valor)); }
+    catch (error) { invalidar(); estado.cambiado = true; estado.invalidos[JSON.stringify(ruta)] = valor; throw error; }
+  }
   async function comparar() {
     if (!estado.ejemplo || estado.trabajando || Object.keys(estado.invalidos).length) return;
     if (estado.catalogoJornada && (estado.borrador.reglas_experiencia ?? []).some((r) => !estado.catalogoJornada.opciones.find((o) => o.modo === r.jornada?.modo)?.disponible)) {
@@ -146,7 +168,7 @@ export function crearEditorBaremo({ cliente, catalogoJornada = null, alCambiar =
       if (turno === generacion) { estado.trabajando = false; solicitud = null; alCambiar(); }
     }
   }
-  return Object.freeze({ cargar, editar, editarPoliticaJornada, editarUmbralJornada, comparar, invalidar,
+  return Object.freeze({ cargar, editar, editarPoliticaJornada, editarUmbralJornada, editarMinimoFormacion, comparar, invalidar,
     cancelarSimulacion() {
       // Cambiar de panel no equivale a descartar el borrador ni su último error.
       generacion++; solicitud?.abort(); solicitud = null; estado.trabajando = false;
