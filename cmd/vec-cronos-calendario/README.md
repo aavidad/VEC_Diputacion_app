@@ -69,8 +69,11 @@ archivo oficial ni verificación documental. La entrada admite hasta 2 MiB,
 entre 2000 y 2100. Rechaza campos desconocidos, claves duplicadas y más de una
 versión del mismo ámbito y año.
 
-Los textos legibles están en `textos.json`, en castellano e inglés. Para usar
-inglés, cambia `idioma` a `en` en una copia del JSON.
+Los textos legibles están en
+`web/static/textos/<idioma>/cronos-calendario-ensayo.json`. Los idiomas y el
+predeterminado proceden de `web/static/textos/idiomas.json`. Si omites `idioma`,
+el comando usa ese predeterminado. Para usar inglés, cambia `idioma` a `en` en
+una copia del JSON.
 
 ## Qué significa el resultado
 

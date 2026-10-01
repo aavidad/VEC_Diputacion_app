@@ -54,7 +54,7 @@ func leerEntrada(r io.Reader) (entrada, []byte, error) {
 	if err = d.Decode(&e); err != nil {
 		return e, nil, errEntrada
 	}
-	if !e.Demostracion || (e.Idioma != "es" && e.Idioma != "en") || e.PersonaNombre == "" || len(e.PersonaNombre) > 160 || !e.Calendarios.ConocidoEn.Equal(e.Solicitud.ConocidoEn) || len(e.Calendarios.Versiones) > 128 {
+	if !e.Demostracion || e.PersonaNombre == "" || len(e.PersonaNombre) > 160 || !e.Calendarios.ConocidoEn.Equal(e.Solicitud.ConocidoEn) || len(e.Calendarios.Versiones) > 128 {
 		return e, nil, errEntrada
 	}
 	return e, b, nil

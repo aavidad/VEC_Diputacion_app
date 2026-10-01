@@ -4,7 +4,6 @@ package main
 import (
 	"context"
 	"crypto/sha256"
-	_ "embed"
 	"encoding/hex"
 	"encoding/json"
 	"io"
@@ -15,10 +14,8 @@ import (
 	cal "vec-diputacion-granada/internal/modules/calendarios/domain"
 	cronos "vec-diputacion-granada/internal/modules/cronos/application"
 	"vec-diputacion-granada/internal/modules/cronos/ports"
+	"vec-diputacion-granada/web"
 )
-
-//go:embed textos.json
-var textosJSON []byte
 
 type fuenteVersion struct {
 	VersionID            string                       `json:"version_id"`
@@ -38,24 +35,27 @@ type salida struct {
 func main() { os.Exit(ejecutar(os.Stdin, os.Stdout, os.Stderr, len(os.Args)-1)) }
 
 func ejecutar(in io.Reader, out, diagnostico io.Writer, argumentos int) int {
-	var catalogos map[string]map[string]string
-	if json.Unmarshal(textosJSON, &catalogos) != nil {
+	catalogo, mensajes, err := web.CatalogoCronosCalendarioEnsayo()
+	if err != nil {
 		return 1
 	}
 	fallar := func(codigo, idioma string) int {
-		mensaje := catalogos[idioma][codigo]
-		if mensaje == "" {
-			mensaje = catalogos["es"][codigo]
-		}
+		mensaje := catalogo.T(idioma, codigo)
 		_ = json.NewEncoder(diagnostico).Encode(map[string]any{"demostracion": true, "error": map[string]string{"codigo": codigo, "mensaje": mensaje}})
 		return 1
 	}
 	if argumentos != 0 {
-		return fallar("entrada_invalida", "es")
+		return fallar("entrada_invalida", catalogo.DefaultLocale())
 	}
 	e, b, err := leerEntrada(in)
 	if err != nil {
-		return fallar("entrada_invalida", "es")
+		return fallar("entrada_invalida", catalogo.DefaultLocale())
+	}
+	if e.Idioma == "" {
+		e.Idioma = catalogo.DefaultLocale()
+	}
+	if _, admitido := mensajes[e.Idioma]; !admitido {
+		return fallar("entrada_invalida", catalogo.DefaultLocale())
 	}
 	consulta, err := consultaEnsayo(e)
 	if err != nil {
@@ -89,7 +89,7 @@ func ejecutar(in io.Reader, out, diagnostico io.Writer, argumentos int) int {
 	sort.Slice(fuentes, func(i, j int) bool { return fuentes[i].VersionID < fuentes[j].VersionID })
 	enc := json.NewEncoder(out)
 	enc.SetIndent("", "  ")
-	if enc.Encode(salida{ResultadoEnsayoCalendario: r, Idioma: e.Idioma, PersonaNombre: e.PersonaNombre, HuellaEntrada: huella(b), FuentesCalendario: fuentes, Textos: catalogos[e.Idioma]}) != nil {
+	if enc.Encode(salida{ResultadoEnsayoCalendario: r, Idioma: e.Idioma, PersonaNombre: e.PersonaNombre, HuellaEntrada: huella(b), FuentesCalendario: fuentes, Textos: mensajes[e.Idioma]}) != nil {
 		return fallar("salida_no_disponible", e.Idioma)
 	}
 	return 0

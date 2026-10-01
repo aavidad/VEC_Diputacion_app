@@ -11,6 +11,7 @@ import (
 
 	cal "vec-diputacion-granada/internal/modules/calendarios/domain"
 	calports "vec-diputacion-granada/internal/modules/calendarios/ports"
+	"vec-diputacion-granada/web"
 )
 
 func fixture(t *testing.T, nombre string) []byte {
@@ -236,5 +237,58 @@ func TestCatalogoYReferenciasNoAbrenDocumentos(t *testing.T) {
 	s, _ := resultado(t, modificado)
 	if s.Textos["titulo"] == "" || !strings.Contains(s.Textos["titulo"], "synthetic") {
 		t.Fatal("catalogo")
+	}
+}
+
+func TestCatalogoEnsayoUsaIndiceComunYDefault(t *testing.T) {
+	catalogo, mensajes, err := web.CatalogoCronosCalendarioEnsayo()
+	if err != nil {
+		t.Fatal(err)
+	}
+	indiceJSON, err := os.ReadFile("../../web/static/textos/idiomas.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var indice struct {
+		PorDefecto string `json:"por_defecto"`
+		Idiomas    []struct {
+			Codigo string `json:"codigo"`
+		} `json:"idiomas"`
+	}
+	if err := json.Unmarshal(indiceJSON, &indice); err != nil || catalogo.DefaultLocale() != indice.PorDefecto {
+		t.Fatalf("default=%s err=%v", catalogo.DefaultLocale(), err)
+	}
+	if len(catalogo.Locales()) != len(indice.Idiomas) {
+		t.Fatal(catalogo.Locales())
+	}
+	var entrada map[string]any
+	if err := json.Unmarshal(fixture(t, "cambio-centro"), &entrada); err != nil {
+		t.Fatal(err)
+	}
+	delete(entrada, "idioma")
+	b, err := json.Marshal(entrada)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s, _ := resultado(t, b)
+	if s.Idioma != indice.PorDefecto || s.Textos["titulo"] != catalogo.T(indice.PorDefecto, "titulo") {
+		t.Fatal(s.Idioma)
+	}
+	for _, idioma := range indice.Idiomas {
+		traducciones := mensajes[idioma.Codigo]
+		if len(traducciones) != len(mensajes[indice.PorDefecto]) {
+			t.Fatal(idioma.Codigo)
+		}
+		for clave := range mensajes[indice.PorDefecto] {
+			if traducciones[clave] == "" || catalogo.T(idioma.Codigo, clave) != traducciones[clave] {
+				t.Fatal(clave)
+			}
+		}
+	}
+	entrada["idioma"] = "xx"
+	b, _ = json.Marshal(entrada)
+	var out, diag bytes.Buffer
+	if ejecutar(bytes.NewReader(b), &out, &diag, 0) == 0 || out.Len() != 0 {
+		t.Fatal(diag.String())
 	}
 }
