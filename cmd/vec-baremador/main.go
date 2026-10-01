@@ -19,6 +19,7 @@ func main() { os.Exit(ejecutar(os.Args[1:], os.Stdout, os.Stderr, simulacionbare
 func ejecutar(args []string, salida, diagnostico io.Writer, servicio simulacionbaremo.Simulador) int {
 	flags := flag.NewFlagSet("vec-baremador", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
+	modo := flags.String("modo", "experiencia", "")
 	reglas := flags.String("reglas", "", "")
 	huellaReglas := flags.String("reglas-sha256", "", "")
 	entrada := flags.String("entrada", "", "")
@@ -26,11 +27,11 @@ func ejecutar(args []string, salida, diagnostico io.Writer, servicio simulacionb
 	limite := flags.Int64("limite-bytes", maximoBytesArchivo, "")
 	if err := flags.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
-			return diagnosticar(diagnostico, "uso", "reglas,reglas-sha256,entrada,entrada-sha256,limite-bytes", 0)
+			return diagnosticar(diagnostico, "uso", "modo,reglas,reglas-sha256,entrada,entrada-sha256,limite-bytes", 0)
 		}
 		return diagnosticar(diagnostico, "argumentos_invalidos", "", 2)
 	}
-	if flags.NArg() != 0 || *reglas == "" || *entrada == "" || *huellaReglas == "" || *huellaEntrada == "" || *limite <= 0 || *limite > maximoBytesArchivo {
+	if (*modo != "experiencia" && *modo != "meritos") || flags.NArg() != 0 || *reglas == "" || *entrada == "" || *huellaReglas == "" || *huellaEntrada == "" || *limite <= 0 || *limite > maximoBytesArchivo {
 		return diagnosticar(diagnostico, "argumentos_invalidos", "", 2)
 	}
 	contenidoReglas, err := leerArchivoLimitado(*reglas, *limite)
@@ -41,10 +42,20 @@ func ejecutar(args []string, salida, diagnostico io.Writer, servicio simulacionb
 	if err != nil {
 		return diagnosticar(diagnostico, "archivo_invalido", "entrada", 2)
 	}
-	simulacion, err := servicio.Simular(simulacionbaremo.Solicitud{
+	solicitud := simulacionbaremo.Solicitud{
 		ConjuntoCanonico: contenidoReglas, HuellaConjuntoSHA256: *huellaReglas,
 		EntradaCanonica: contenidoEntrada, HuellaEntradaSHA256: *huellaEntrada,
-	})
+	}
+	var contenido []byte
+	if *modo == "meritos" {
+		var simulacion simulacionbaremo.SimulacionMeritos
+		simulacion, err = (simulacionbaremo.ServicioMeritos{}).SimularMeritos(solicitud)
+		contenido = simulacion.RepresentacionCanonica()
+	} else {
+		var simulacion simulacionbaremo.Simulacion
+		simulacion, err = servicio.Simular(solicitud)
+		contenido = simulacion.RepresentacionCanonica()
+	}
 	if err != nil {
 		fase := "simulacion"
 		var fallo *simulacionbaremo.Error
@@ -53,7 +64,6 @@ func ejecutar(args []string, salida, diagnostico io.Writer, servicio simulacionb
 		}
 		return diagnosticar(diagnostico, "simulacion_fallida", fase, 2)
 	}
-	contenido := simulacion.RepresentacionCanonica()
 	if len(contenido) == 0 {
 		return diagnosticar(diagnostico, "simulacion_fallida", "resultado", 2)
 	}
