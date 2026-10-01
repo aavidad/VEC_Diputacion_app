@@ -1,5 +1,12 @@
 # Clon local para comprobar recorridos
 
+**Documento histórico.** Conserva el diseño anterior al guion H6 actual. El
+comando `plan` mostrado abajo ya no acepta esa invocación sin entradas, y la
+fase H1→SQL62 sí está conectada mediante `preparar-sql` y `verificar-sql`.
+Para reconstruir o comprobar una copia use la [guía H6 vigente](README_CLON_H6.md).
+Las secciones siguientes explican decisiones de aquel corte; sus comandos no
+son instrucciones para el clon actual.
+
 La instalación y el arranque están retenidos. `preparar`, `reiniciar` y la
 publicación de `READY.json` rechazan la operación antes de restaurar H1,
 acceder a Docker, ejecutar SQL o iniciar la aplicación. Falta conectar el kit
@@ -33,7 +40,8 @@ El manifiesto histórico `sql_main_h6_firma.txt` también tiene 45 entradas,
 pero mezcla ese prefijo H3/H4 con parte de H6 y no coincide con
 `lista_sql_h6.txt`. Compartir fuente y número de entradas no permite sustituir
 una lista por otra. La conexión pendiente debe respetar cada lista y su
-preimagen. El preparador no aplica ninguno de esos planes.
+preimagen. El preparador de aquel corte no aplicaba ninguno de esos planes.
+La fase H1→SQL62 añadida después se describe en la guía H6 vigente.
 
 La copia debe conservar los objetos, ACL, identidades, claves e historia del
 origen acreditado, y permitir cotejar sus diferencias autorizadas tras el kit.
@@ -45,8 +53,8 @@ lista final y comprobaciones del kit.
 
 ## Leer el plan histórico
 
-Este comando consulta los objetos Git locales. No necesita el archivo H1,
-un directorio privado, Docker ni PostgreSQL, y no crea estado:
+El ejemplo siguiente corresponde al parser anterior. **No se ejecuta con el
+guion actual**: hoy `plan` exige entradas externas y rechaza esta invocación.
 
 ```bash
 VEC_RECORRIDOS_REFERENCIA=73e56c106d12fdda0bd16d6fe573503c42c5495f \
@@ -140,9 +148,10 @@ bash -n scripts/recorridos/preparar_clon.sh
 python3 -m unittest scripts.recorridos.test_preparar_clon
 ```
 
-El instalador necesita un corte posterior que sustituya el manifiesto histórico
-por las 62 SQL exactas y adapte su contrato al kit final revisado. Este corte
-conserva el bloqueo y no conecta ese reemplazo.
+El corte posterior conectó las 62 SQL exactas mediante `preparar-sql` y emitió
+un recibo propio en una copia desechable. La guía H6 recoge esa comprobación y
+su recuperación tras reiniciar PostgreSQL. El arranque, AD132 y los recorridos
+de navegador permanecen pendientes.
 
-El kit final, su revisión, el ensayo SQL y el recorrido navegador con
+El kit final para arrancar la aplicación, AD132 y el recorrido navegador con
 recuperación siguen pendientes. Ninguna prueba simulada acredita esos pasos.
