@@ -1,20 +1,20 @@
 /** Textos castellanos del módulo; las vistas solo consumen claves. */
-import { MENSAJES_LLAMAMIENTO_ES } from "./i18n-llamamiento.js";
-import { MENSAJES_SUBSANACION_REPAROS_ES } from "./i18n-subsanacion-reparos.js";
+import { MENSAJES_LLAMAMIENTO_ES } from "./i18n-llamamiento.js?v=20261001-codexf-ct-catalogos-v1";
+import { MENSAJES_SUBSANACION_REPAROS_ES } from "./i18n-subsanacion-reparos.js?v=20261001-codexf-ct-catalogos-v1";
 import { MENSAJES_DOCUMENTACION_FORMALIZACION_ES } from "./i18n-documentacion-formalizacion.js?v=20260926-pulido-tecnico-v1";
-import { MENSAJES_AVISOS_VIA_COBERTURA_ES } from "./i18n-avisos-via-cobertura.js";
-import { MENSAJES_ANALISIS_CATALOGO_ES } from "./i18n-analisis-catalogo.js?v=20260926-huecos-rrhh-v1";
-import { MENSAJES_TEXTOS_VISTAS_ES } from "./i18n-textos-vistas.js?v=20260929-demo-ficha-v1";
-import { MENSAJES_BORRADORES_PUBLICADOS_ES } from "./i18n-borradores-publicados.js?v=20260928-rrhh-borradores-publicados-v1";
-import { MENSAJES_LLAMAMIENTO_EN } from "./i18n-llamamiento.js";
-import { MENSAJES_SUBSANACION_REPAROS_EN } from "./i18n-subsanacion-reparos.js";
+import { MENSAJES_AVISOS_VIA_COBERTURA_ES } from "./i18n-avisos-via-cobertura.js?v=20261001-codexf-ct-catalogos-v1";
+import { MENSAJES_ANALISIS_CATALOGO_ES } from "./i18n-analisis-catalogo.js?v=20261001-codexf-ct-catalogos-v1";
+import { MENSAJES_TEXTOS_VISTAS_ES } from "./i18n-textos-vistas.js?v=20261001-codexf-ct-catalogos-v1";
+import { MENSAJES_BORRADORES_PUBLICADOS_ES } from "./i18n-borradores-publicados.js?v=20261001-codexf-ct-catalogos-v1";
+import { MENSAJES_LLAMAMIENTO_EN } from "./i18n-llamamiento.js?v=20261001-codexf-ct-catalogos-v1";
+import { MENSAJES_SUBSANACION_REPAROS_EN } from "./i18n-subsanacion-reparos.js?v=20261001-codexf-ct-catalogos-v1";
 import { MENSAJES_DOCUMENTACION_FORMALIZACION_EN } from "./i18n-documentacion-formalizacion.js?v=20260926-pulido-tecnico-v1";
-import { MENSAJES_AVISOS_VIA_COBERTURA_EN } from "./i18n-avisos-via-cobertura.js";
-import { MENSAJES_ANALISIS_CATALOGO_EN } from "./i18n-analisis-catalogo.js?v=20260926-huecos-rrhh-v1";
-import { MENSAJES_TEXTOS_VISTAS_EN } from "./i18n-textos-vistas.js?v=20260929-demo-ficha-v1";
-import { MENSAJES_BORRADORES_PUBLICADOS_EN } from "./i18n-borradores-publicados.js?v=20260928-rrhh-borradores-publicados-v1";
+import { MENSAJES_AVISOS_VIA_COBERTURA_EN } from "./i18n-avisos-via-cobertura.js?v=20261001-codexf-ct-catalogos-v1";
+import { MENSAJES_ANALISIS_CATALOGO_EN } from "./i18n-analisis-catalogo.js?v=20261001-codexf-ct-catalogos-v1";
+import { MENSAJES_TEXTOS_VISTAS_EN } from "./i18n-textos-vistas.js?v=20261001-codexf-ct-catalogos-v1";
+import { MENSAJES_BORRADORES_PUBLICADOS_EN } from "./i18n-borradores-publicados.js?v=20261001-codexf-ct-catalogos-v1";
 import { IDIOMA_ACTUAL } from "../../../comun/idioma.js";
-import { rotulosFasesComoMensajes } from "./i18n-fases-rrhh.js";
+import { rotulosFasesComoMensajes } from "./i18n-fases-rrhh.js?v=20261001-codexf-ct-catalogos-v1";
 
 export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   ...rotulosFasesComoMensajes("contratacion_temporal.fase.", "es"),

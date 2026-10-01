@@ -246,6 +246,38 @@ test("Jornada: una parte que falla deja su aviso accesible y, sin calendario, no
   assert.equal(olvidos, 1);
 });
 
+test("fichaje confirmado actualiza las lecturas montadas sin sustituir el periodo ni actuar tras salir", async () => {
+  const lecturas = [];
+  let confirmar;
+  const parte = (nombre) => () => ({ desmontar() {}, actualizar() { lecturas.push(nombre); } });
+  const cronos = componerCronosInterno(recursosCronos({
+    saldo: parte("saldo"), movimientos: parte("movimientos"), calendario: parte("calendario"),
+    remoto: (opciones) => { confirmar = opciones.onRegistrado; return { desmontar() {} }; },
+  }), {});
+  const montaje = cronos.montar({ raiz: domFalso() });
+  assert.deepEqual(lecturas, []);
+  await confirmar();
+  assert.deepEqual(lecturas, ["saldo", "movimientos", "calendario"]);
+  montaje.desmontar();
+  await confirmar();
+  assert.equal(lecturas.length, 3);
+});
+
+test("una parte no montada no impide actualizar el resto después del fichaje", async () => {
+  let confirmar;
+  let lecturas = 0;
+  const falla = () => { throw new Error("no disponible"); };
+  const cronos = componerCronosInterno(recursosCronos({
+    saldo: falla, calendario: falla,
+    movimientos: () => ({ desmontar() {}, actualizar() { lecturas += 1; } }),
+    remoto: (opciones) => { confirmar = opciones.onRegistrado; return { desmontar() {} }; },
+  }), {});
+  const montaje = cronos.montar({ raiz: domFalso() });
+  await confirmar();
+  assert.equal(lecturas, 1);
+  montaje.desmontar();
+});
+
 test("Cronos ofrece bandeja y avisos solo con sus tres piezas y un único cliente de resolución", () => {
   const creados = []; const montados = [];
   const partes = { saldo: () => ({}), remoto: () => ({}), movimientos: () => ({}), calendario: () => ({}) };
