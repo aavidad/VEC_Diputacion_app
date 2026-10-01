@@ -277,3 +277,76 @@ test("el filtro conserva foco al cambiar y una respuesta tardía no muestra otro
   assert.match(nodo.innerHTML, /value="cancelados" selected/);
   vista.desmontar();
 });
+
+test("la justificación muestra solo la marca del servidor sobre permisos concedidos", () => {
+  const d = datos();
+  d.permisos[0].justificante_exigido = false;
+  d.solicitudes.push({ ...d.solicitudes[0], solicitud_ref: "permiso:cronos:solicitud:sin-pendiente", pendiente_justificar: false });
+  d.solicitudes[1].pendiente_justificar = true;
+  const html = renderizarPermisosPropiosCronos({ estado: "listo", anio: 2026, datos: d });
+  const panel = html.slice(html.indexOf('id="cronos-permisos-just-panel"'));
+  assert.equal((panel.match(/<tbody><tr>/gu) || []).length, 1);
+  assert.equal((panel.match(/data-estado="concedido"/gu) || []).length, 1);
+  assert.doesNotMatch(panel, /data-estado="solicitado"/u);
+  assert.match(panel, /Pendiente de justificar/u);
+  assert.match(panel, /El registro de justificantes todavía no está disponible/u);
+  assert.doesNotMatch(panel, /type="file"|<form|Registrar justificante|data-cronos-solicitar/u);
+  assert.match(html, /data-cronos-ver-justificacion aria-controls="cronos-permisos-just-panel"/u);
+  assert.match(panel, /id="cronos-justificacion-ayuda" hidden/u);
+  d.solicitudes.forEach((s) => { s.pendiente_justificar = false; });
+  const vacio = renderizarPermisosPropiosCronos({ estado: "listo", anio: 2026, datos: d });
+  assert.match(vacio, /No tienes permisos pendientes de justificar en este año/u);
+  assert.doesNotMatch(vacio, /El registro de justificantes todavía no está disponible/u);
+});
+
+test("ir a justificar enfoca el panel sin peticiones y la ayuda conserva borrador y filtro", async () => {
+  const { nodo, raiz } = raizFalsa(); let consultas = 0; let escrituras = 0; let desplazamientos = 0;
+  const titulo = { focus() { raiz.ownerDocument.activeElement = this; }, scrollIntoView(opciones) { assert.deepEqual(opciones, { block: "nearest" }); desplazamientos++; } };
+  const botonAyuda = { focus() { raiz.ownerDocument.activeElement = this; } };
+  nodo.querySelector = (selector) => selector === "#cronos-permisos-just" ? titulo
+    : selector === "[data-cronos-justificacion-ayuda]" ? botonAyuda : null;
+  const vista = montarPermisosPropiosCronos({ raiz, anio: 2026,
+    cliente: { consultarPermisos: async () => { consultas++; return datos(); }, solicitarPermiso: async () => { escrituras++; } } });
+  await esperar();
+  pulsar(nodo, "[data-cronos-solicitar]", { cronosSolicitar: "permiso:cronos:asuntos-propios" });
+  editar(nodo, "desde", "2026-10-20"); filtrar(nodo, "denegados");
+  pulsar(nodo, "[data-cronos-ver-justificacion]", {});
+  assert.equal(raiz.ownerDocument.activeElement, titulo); assert.equal(desplazamientos, 1);
+  pulsar(nodo, "[data-cronos-justificacion-ayuda]", {});
+  assert.equal(raiz.ownerDocument.activeElement, botonAyuda);
+  assert.match(nodo.innerHTML, /aria-expanded="true" aria-controls="cronos-justificacion-ayuda"/u);
+  assert.doesNotMatch(nodo.innerHTML, /id="cronos-justificacion-ayuda" hidden/u);
+  assert.match(nodo.innerHTML, /value="2026-10-20"/u); assert.match(nodo.innerHTML, /value="denegados" selected/u);
+  pulsar(nodo, "[data-cronos-justificacion-ayuda]", {});
+  assert.match(nodo.innerHTML, /id="cronos-justificacion-ayuda" hidden/u);
+  assert.equal(consultas, 1); assert.equal(escrituras, 0);
+  vista.desmontar();
+});
+
+test("la denegación elimina los pendientes anteriores y no permite navegar a ellos", async () => {
+  const { nodo, raiz } = raizFalsa(); let denegado = false; let focos = 0;
+  nodo.querySelector = () => ({ focus() { focos++; } });
+  const vista = montarPermisosPropiosCronos({ raiz, anio: 2026,
+    cliente: { consultarPermisos: async () => { if (denegado) throw new ErrorClienteSolicitudesCronos("acceso_denegado", 403); return datos(); }, solicitarPermiso: async () => {} } });
+  await esperar(); assert.match(nodo.innerHTML, /data-cronos-ver-justificacion/u);
+  denegado = true; await vista.recargar();
+  assert.doesNotMatch(nodo.innerHTML, /data-cronos-ver-justificacion|cronos-permisos-just-panel|Asuntos propios/u);
+  pulsar(nodo, "[data-cronos-ver-justificacion]", {}); assert.equal(focos, 0);
+  vista.desmontar();
+});
+
+test("los textos de justificación se cargan y traducen en los idiomas del portal", async () => {
+  const { cargarTextos } = await import("../../../comun/textos.js");
+  const { crearTraductorJustificacionCronos } = await import("./i18n-permisos.js");
+  let claves;
+  for (const [idioma, esperado] of [["es", "Ver pendientes de justificar"], ["en", "View leave awaiting evidence"]]) {
+    const catalogo = await cargarTextos("cronos-permisos", { idioma, avisar: (aviso) => assert.fail(aviso) });
+    const mensajes = catalogo.seccion("justificacion"); claves ??= Object.keys(mensajes);
+    assert.deepEqual(Object.keys(mensajes), claves);
+    const t = crearTraductorJustificacionCronos(mensajes);
+    assert.equal(t("ver_pendientes"), esperado); assert.throws(() => t("inexistente"), TypeError);
+    assert.throws(() => crearTraductorJustificacionCronos({}), TypeError);
+    const html = renderizarPermisosPropiosCronos({ estado: "listo", anio: 2026, datos: datos(), mensajesJustificacion: mensajes });
+    assert.ok(html.includes(esperado));
+  }
+});
