@@ -36,7 +36,7 @@
 <th scope="col">{{.Textos.Rotulos.Motivo}}</th>
 </tr></thead>
 <tbody>{{range .Filas}}<tr>
-<th scope="row">{{.Concepto}}{{if .Detalle}}<span class="detalle-linea">{{.Detalle}}</span>{{end}}</th>
+<th scope="row">{{.Concepto}}{{if .Detalle}}<span class="detalle-linea">{{.Detalle}}</span>{{end}}{{if .D5}}<span class="detalle-linea">{{$.Textos.Rotulos.DescripcionDeclarada}}: {{.Descripcion}}</span><span class="detalle-linea">{{$.Textos.Rotulos.FechaGasto}}: {{.Fecha}}</span>{{end}}</th>
 <td class="importe">{{.Inicial}}</td><td class="importe">{{.Propuesto}}</td><td class="importe">{{.Diferencia}}</td><td>{{.Motivo}}</td>
 </tr>{{end}}</tbody>
 <tfoot><tr><th scope="row">{{.Textos.Rotulos.Total}}</th><td class="importe">{{.TotalInicial}}</td><td class="importe">{{.TotalPropuesto}}</td><td class="importe">{{.TotalDiferencia}}</td><td></td></tr></tfoot>
@@ -58,7 +58,8 @@
 <h3>{{.Textos.Rotulos.Fuentes}}</h3>
 <ul class="fuentes">{{range .Fuentes}}<li>{{.}}</li>{{end}}</ul>
 <h3>{{.Textos.Rotulos.Reglas}}</h3>
-<dl class="reglas">{{range .Filas}}<div><dt>{{$.Textos.Rotulos.Linea}} {{.Numero}}</dt><dd>{{$.Textos.Rotulos.Regla}}: {{.Regla}}</dd></div>{{end}}</dl>
+<dl class="reglas">{{range .Filas}}<div><dt>{{$.Textos.Rotulos.Linea}} {{.Numero}}</dt><dd>{{$.Textos.Rotulos.Regla}}: {{.Regla}}</dd>{{if .D5}}<dd>{{$.Textos.Rotulos.CatalogoOtrosGastos}}: {{.CatalogoOtros}}</dd><dd>{{$.Textos.Rotulos.TopeLinea}}: {{.Tope}}</dd><dd>{{$.Textos.Rotulos.JustificanteRef}}: {{.JustificanteRef}}</dd><dd>{{$.Textos.Rotulos.JustificanteHuella}}: <span class="huella">{{.JustificanteSHA}}</span></dd>{{end}}</div>{{end}}</dl>
+{{if .TieneD5}}<p class="limite-huella">{{.Textos.Rotulos.JustificanteLimite}}</p>{{end}}
 <p class="limite-huella">{{.Textos.Rotulos.HuellaLimite}}</p>
 </div>
 </details>
