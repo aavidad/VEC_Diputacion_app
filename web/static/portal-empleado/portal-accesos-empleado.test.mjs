@@ -30,7 +30,7 @@ test("la carga conserva el enlace nativo y anuncia el estado sin afirmar autoriz
 test("el error muestra el destino y recuperación sin ofrecer un enlace", () => {
   const html = renderizar({ dietas: { estado: "error", error: "detalle privado" } });
   assert.match(html, /Mis dietas/u);
-  assert.match(html, /role="alert">No se pudo cargar la vista\. Vuelva a intentarlo desde el menú\./u);
+  assert.match(html, /role="alert">No se pudo cargar la vista\. Actualice la página para volver a intentarlo\./u);
   assert.doesNotMatch(html, /<a\b|data-vista|detalle privado/u);
 });
 
@@ -55,7 +55,7 @@ test("los catálogos completos se traducen con el lector común en ambos idiomas
     assert.throws(() => traducir("inexistente"));
   }
   const html = renderizar({ personal: { estado: "disponible" }, cronos: { estado: "cargando" }, dietas: { estado: "error" } }, crearTraductorAccesosEmpleado(textosEN));
-  assert.match(html, /My space[\s\S]*My personnel file[\s\S]*My working hours[\s\S]*Loading the view…[\s\S]*My travel expenses[\s\S]*Try again from the menu\./u);
+  assert.match(html, /My space[\s\S]*My personnel file[\s\S]*My working hours[\s\S]*Loading the view…[\s\S]*My travel expenses[\s\S]*Refresh the page to try again\./u);
   assert.doesNotMatch(html, /Mi espacio|Mi jornada|Cargando/u);
 });
 

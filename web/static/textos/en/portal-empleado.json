@@ -5,6 +5,6 @@
     "cronos": "My working hours",
     "dietas": "My travel expenses",
     "cargando": "Loading the view…",
-    "error": "The view could not be loaded. Try again from the menu."
+    "error": "The view could not be loaded. Refresh the page to try again."
   }
 }
