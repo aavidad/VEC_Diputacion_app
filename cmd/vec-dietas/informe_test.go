@@ -41,3 +41,19 @@ func TestInformePreparacionNoExponeRutaYLimitaCatalogo(t *testing.T) {
 		t.Fatalf("respuesta incorrecta: code=%d %s", code, out.String())
 	}
 }
+
+type salidaCortaInforme struct{}
+
+func (salidaCortaInforme) Write(datos []byte) (int, error) {
+	return len(datos) - 1, nil
+}
+
+func TestInformePreparacionRechazaSalidaIncompleta(t *testing.T) {
+	entrada, err := os.ReadFile("testdata/preparacion_liquidacion.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if code := ejecutarInformePreparacion(bytes.NewReader(entrada), salidaCortaInforme{}, "../../web/static/textos/es/dietas-liquidacion-informe.json", "../../web/static/comun/tema-vec.css"); code != 1 {
+		t.Fatalf("salida incompleta anunciada como correcta: %d", code)
+	}
+}

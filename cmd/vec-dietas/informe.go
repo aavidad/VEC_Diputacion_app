@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"errors"
 	"io"
 	"os"
@@ -60,7 +59,8 @@ func ejecutarInformePreparacion(in io.Reader, out io.Writer, rutaTextos, rutaTem
 	if err != nil {
 		return escribirFalloPreparacion(out, err)
 	}
-	if _, err := io.Copy(out, bytes.NewReader(html)); err != nil {
+	escritos, err := out.Write(html)
+	if err != nil || escritos != len(html) {
 		return 1
 	}
 	return 0
