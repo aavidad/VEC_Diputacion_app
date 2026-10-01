@@ -22,6 +22,51 @@ BEGIN
  ON b.organizacion_ref=i.organizacion_ref AND b.expediente_ref=i.expediente_ref)
  THEN RAISE EXCEPTION 'CT156: historia con orígenes incompatibles' USING ERRCODE='55000'; END IF;
 END $pre$;
+-- Rellenar SOLO con la preimagen final posterior a CT155. Los NULL impiden
+-- instalar CT156 con definiciones, ACL o dependencias de un clon intermedio.
+DO $preimagen_consumidores$
+DECLARE x record;p record;acl_sha text;efectiva_sha text;dep_sha text;shdep_sha text;
+BEGIN
+ FOR x IN SELECT * FROM (VALUES
+  ('leer_contratos_bolsa_v1(bigint,text,integer)',NULL::text,NULL::text,NULL::text[],NULL::text,NULL::text,NULL::text,NULL::text),
+  ('leer_ceses_bolsa_v1(bigint,text,integer)',NULL::text,NULL::text,NULL::text[],NULL::text,NULL::text,NULL::text,NULL::text),
+  ('verificar_cese_publicado_bolsa_v1(text,text,bigint)',NULL::text,NULL::text,NULL::text[],NULL::text,NULL::text,NULL::text,NULL::text),
+  ('registrar_incorporacion_ejercicio_v2(jsonb,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea,bytea,bytea,bigint,bigint,bytea,bytea,bytea,bytea,jsonb)',NULL::text,NULL::text,NULL::text[],NULL::text,NULL::text,NULL::text,NULL::text)
+ ) v(firma,def_sha,src_sha,config,acl_sha,efectiva_sha,dep_sha,shdep_sha) LOOP
+  IF x.def_sha IS NULL OR x.src_sha IS NULL OR x.config IS NULL OR x.acl_sha IS NULL
+     OR x.efectiva_sha IS NULL OR x.dep_sha IS NULL OR x.shdep_sha IS NULL THEN
+   RAISE EXCEPTION 'CT156: falta preimagen final de %',x.firma USING ERRCODE='55000';
+  END IF;
+  SELECT q.oid,q.pronamespace,q.proowner,q.prosecdef,q.proconfig,
+         pg_get_functiondef(q.oid) AS def,q.prosrc INTO STRICT p
+  FROM pg_proc q WHERE q.oid=to_regprocedure('vec_contratacion_temporal.'||x.firma);
+  SELECT encode(sha256(convert_to(coalesce(jsonb_agg(jsonb_build_object(
+   'grantee',CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END,
+   'grantor',pg_get_userbyid(a.grantor),'privilege_type',a.privilege_type,
+   'is_grantable',a.is_grantable) ORDER BY a.grantee,a.grantor,a.privilege_type,a.is_grantable),'[]'::jsonb)::text,'UTF8')),'hex')
+  INTO acl_sha FROM aclexplode(coalesce((SELECT proacl FROM pg_proc WHERE oid=p.oid),
+                                         acldefault('f',p.proowner))) a;
+  SELECT encode(sha256(convert_to(coalesce(jsonb_agg(jsonb_build_object(
+   'rolname',r.rolname,'execute',has_function_privilege(r.oid,p.oid,'EXECUTE'),
+   'schema_usage',has_schema_privilege(r.oid,p.pronamespace,'USAGE')) ORDER BY r.rolname),'[]'::jsonb)::text,'UTF8')),'hex')
+  INTO efectiva_sha FROM pg_roles r;
+  SELECT encode(sha256(convert_to(coalesce(jsonb_agg(to_jsonb(d) ORDER BY
+   d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)::text,'UTF8')),'hex')
+  INTO dep_sha FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=p.oid;
+  SELECT encode(sha256(convert_to(coalesce(jsonb_agg(to_jsonb(d) ORDER BY
+   d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype,d.dbid),'[]'::jsonb)::text,'UTF8')),'hex')
+  INTO shdep_sha FROM pg_shdepend d WHERE d.dbid=(SELECT oid FROM pg_database WHERE datname=current_database())
+   AND d.classid='pg_proc'::regclass AND d.objid=p.oid;
+  IF p.proowner IS DISTINCT FROM 'vec_contratacion_temporal_propietario'::regrole
+     OR p.prosecdef IS DISTINCT FROM true OR p.proconfig IS DISTINCT FROM x.config
+     OR encode(sha256(convert_to(p.def,'UTF8')),'hex') IS DISTINCT FROM x.def_sha
+     OR encode(sha256(convert_to(p.prosrc,'UTF8')),'hex') IS DISTINCT FROM x.src_sha
+     OR acl_sha IS DISTINCT FROM x.acl_sha OR efectiva_sha IS DISTINCT FROM x.efectiva_sha
+     OR dep_sha IS DISTINCT FROM x.dep_sha OR shdep_sha IS DISTINCT FROM x.shdep_sha THEN
+   RAISE EXCEPTION 'CT156: preimagen incompatible: %',x.firma USING ERRCODE='55000';
+  END IF;
+ END LOOP;
+END $preimagen_consumidores$;
 -- Sin reescribir filas: NULL conserva posición 0 en cualquier origen previo.
 ALTER TABLE vec_contratacion_temporal.origen_incorporacion_personal_b2_v1 ADD COLUMN transaccion_publicacion xid8;
 ALTER TABLE vec_contratacion_temporal.origen_incorporacion_personal_b2_v1 ALTER COLUMN transaccion_publicacion SET DEFAULT pg_current_xact_id();
@@ -55,6 +100,7 @@ BEGIN
 END $acl$;
 DO $parches$
 DECLARE x record; p record; def text; meta jsonb; config_esperada text[];
+        dependencias jsonb; compartidas jsonb; permisos_efectivos jsonb;
 BEGIN
  FOR x IN SELECT * FROM (VALUES
 ('leer_contratos_bolsa_v1(bigint,text,integer)',$old$          JOIN vec_contratacion_temporal.incorporacion_registro_v2 r ON r.recibo_ref = c.incorporacion_ref$old$,$new$          CROSS JOIN LATERAL vec_contratacion_temporal.origen_publicacion_bolsa_ct156(c.organizacion_ref,c.expediente_ref,coalesce(c.incorporacion_ref,c.incorporacion_b2_ref),c.incorporacion_protocolo) r$new$),
@@ -120,6 +166,20 @@ BEGIN
  SELECT pg_get_functiondef(q.oid) AS def,to_jsonb(q)-'prosrc' AS meta,
         q.proconfig,q.prosecdef INTO STRICT p
  FROM pg_proc q WHERE q.oid=to_regprocedure('vec_contratacion_temporal.'||x.firma) AND q.proowner=current_user::regrole;
+ SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY
+  d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
+ INTO dependencias FROM pg_depend d WHERE d.classid='pg_proc'::regclass
+  AND d.objid=to_regprocedure('vec_contratacion_temporal.'||x.firma);
+ SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY
+  d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype,d.dbid),'[]'::jsonb)
+ INTO compartidas FROM pg_shdepend d WHERE d.dbid=(SELECT oid FROM pg_database WHERE datname=current_database())
+   AND d.classid='pg_proc'::regclass
+  AND d.objid=to_regprocedure('vec_contratacion_temporal.'||x.firma);
+ SELECT coalesce(jsonb_agg(jsonb_build_object(
+  'rolname',r.rolname,'execute',has_function_privilege(r.oid,q.oid,'EXECUTE'),
+  'schema_usage',has_schema_privilege(r.oid,q.pronamespace,'USAGE')) ORDER BY r.rolname),'[]'::jsonb)
+ INTO permisos_efectivos FROM pg_roles r CROSS JOIN pg_proc q
+ WHERE q.oid=to_regprocedure('vec_contratacion_temporal.'||x.firma);
  IF NOT p.prosecdef OR p.proconfig IS NULL
     OR (SELECT count(*) FROM unnest(p.proconfig) c WHERE c LIKE 'search_path=%')<>1
     OR NOT p.proconfig && ARRAY['search_path=pg_catalog','search_path=pg_catalog, pg_temp'] THEN
@@ -139,6 +199,20 @@ BEGIN
  def:=replace(def,x.anterior,x.nuevo); EXECUTE def;
  IF (SELECT pg_get_functiondef(q.oid) FROM pg_proc q WHERE q.oid=to_regprocedure('vec_contratacion_temporal.'||x.firma)) IS DISTINCT FROM def
  OR (SELECT to_jsonb(q)-'prosrc' FROM pg_proc q WHERE q.oid=to_regprocedure('vec_contratacion_temporal.'||x.firma)) IS DISTINCT FROM meta
+ OR (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY
+     d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
+     FROM pg_depend d WHERE d.classid='pg_proc'::regclass
+       AND d.objid=to_regprocedure('vec_contratacion_temporal.'||x.firma)) IS DISTINCT FROM dependencias
+ OR (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY
+     d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype,d.dbid),'[]'::jsonb)
+     FROM pg_shdepend d WHERE d.dbid=(SELECT oid FROM pg_database WHERE datname=current_database())
+   AND d.classid='pg_proc'::regclass
+       AND d.objid=to_regprocedure('vec_contratacion_temporal.'||x.firma)) IS DISTINCT FROM compartidas
+ OR (SELECT coalesce(jsonb_agg(jsonb_build_object(
+     'rolname',r.rolname,'execute',has_function_privilege(r.oid,q.oid,'EXECUTE'),
+     'schema_usage',has_schema_privilege(r.oid,q.pronamespace,'USAGE')) ORDER BY r.rolname),'[]'::jsonb)
+     FROM pg_roles r CROSS JOIN pg_proc q
+     WHERE q.oid=to_regprocedure('vec_contratacion_temporal.'||x.firma)) IS DISTINCT FROM permisos_efectivos
  THEN RAISE EXCEPTION 'CT156: firma/OID/ACL/metadatos alterados: %',x.firma USING ERRCODE='55000'; END IF;
  END LOOP;
 END $parches$;
