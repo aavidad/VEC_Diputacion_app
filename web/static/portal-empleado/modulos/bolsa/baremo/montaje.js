@@ -1,7 +1,7 @@
 import { cargarTextos } from "/comun/textos.js";
-import { crearClienteBaremo } from "../baremo-cliente.js?v=20261001-baremo-editor-v1";
-import { crearEditorBaremo, leerReglas, aMicropuntos, MAXIMO_ARCHIVO } from "../baremo-editor.js?v=20261001-baremo-editor-v1";
-import { renderizarBaremo } from "../baremo-vista.js?v=20261001-baremo-editor-v1";
+import { crearClienteBaremo } from "../baremo-cliente.js?v=20261001-baremo-editor-v3";
+import { crearEditorBaremo, leerReglas, aMicropuntos, MAXIMO_ARCHIVO } from "../baremo-editor.js?v=20261001-baremo-editor-v3";
+import { renderizarBaremo } from "../baremo-vista.js?v=20261001-baremo-editor-v3";
 const textos = await cargarTextos("baremo-bolsa");
 const t = (clave) => textos.traducir(`editor.${clave}`);
 document.documentElement.lang = textos.idioma;
