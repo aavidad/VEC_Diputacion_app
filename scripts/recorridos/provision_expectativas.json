@@ -4,8 +4,14 @@
   "configuracion": "/api/provision/v1/procesos-locales",
   "simulacion": "/api/provision/v1/procesos-locales/simulaciones",
   "endpoint_institucional_ausente": "/api/provision/v1/solicitudes",
-  "idiomas": ["es", "en"],
-  "anchos": [1440, 390],
+  "idiomas": [
+    "es",
+    "en"
+  ],
+  "anchos": [
+    1440,
+    390
+  ],
   "selectores": {
     "raiz": "#espacio-trabajo",
     "convocatoria": "[data-foco=\"vista-convocatoria\"]",
@@ -21,5 +27,135 @@
     "maximo": "[data-foco=\"maximo-0\"]",
     "simular": "[data-foco=\"simular\"]"
   },
-  "escenarios": []
+  "escenarios": [
+    {
+      "id": "adjudicacion",
+      "tipo": "adjudicacion",
+      "selector": "[data-foco=\"adjudicacion-simular\"]",
+      "ruta": "/api/provision/v1/adjudicaciones-locales/simulaciones",
+      "estado_http": 200,
+      "repetir": true,
+      "pasos": [
+        {
+          "selector": "[data-foco=\"vista-adjudicacion\"]",
+          "accion": "click"
+        }
+      ],
+      "esperado": {
+        "/schema_version": "provision.adjudicacion.v1",
+        "/alcance": "simulacion_sintetica_sin_efectos",
+        "/estado": "propuesta_simulada"
+      },
+      "cantidades": {
+        "/asignaciones": 2
+      }
+    },
+    {
+      "id": "ciclo-pendiente",
+      "tipo": "ciclo",
+      "selector": "[data-foco=\"ciclo-simular\"]",
+      "ruta": "/api/provision/v1/ciclos-locales/simulaciones",
+      "estado_http": 200,
+      "repetir": true,
+      "pasos": [
+        {
+          "selector": "[data-foco=\"vista-ciclo\"]",
+          "accion": "click"
+        },
+        {
+          "selector": "[data-foco=\"ciclo-caso\"]",
+          "accion": "selectOption",
+          "valor": "pendiente"
+        }
+      ],
+      "esperado": {
+        "/schema_version": "provision.ciclo.ensayo.v1",
+        "/alcance": "ensayo_sintetico_sin_efectos",
+        "/resolucion/estado": "borrador",
+        "/resolucion/firmada": false,
+        "/resolucion/publicada": false,
+        "/resolucion/efecto_oficial": false,
+        "/resolucion/version_valoracion": 1,
+        "/valoraciones/0/resultado/total": "28386027"
+      },
+      "cantidades": {
+        "/valoraciones": 1,
+        "/reclamaciones": 1,
+        "/decisiones": 0,
+        "/resolucion/reclamaciones_pendientes": 1
+      }
+    },
+    {
+      "id": "ciclo-mantener",
+      "tipo": "ciclo",
+      "selector": "[data-foco=\"ciclo-simular\"]",
+      "ruta": "/api/provision/v1/ciclos-locales/simulaciones",
+      "estado_http": 200,
+      "repetir": true,
+      "pasos": [
+        {
+          "selector": "[data-foco=\"vista-ciclo\"]",
+          "accion": "click"
+        },
+        {
+          "selector": "[data-foco=\"ciclo-caso\"]",
+          "accion": "selectOption",
+          "valor": "mantener"
+        }
+      ],
+      "esperado": {
+        "/schema_version": "provision.ciclo.ensayo.v1",
+        "/alcance": "ensayo_sintetico_sin_efectos",
+        "/resolucion/estado": "borrador",
+        "/resolucion/firmada": false,
+        "/resolucion/publicada": false,
+        "/resolucion/efecto_oficial": false,
+        "/resolucion/version_valoracion": 2,
+        "/valoraciones/0/resultado/total": "28386027",
+        "/valoraciones/1/resultado/total": "28386027"
+      },
+      "cantidades": {
+        "/valoraciones": 2,
+        "/reclamaciones": 1,
+        "/decisiones": 1,
+        "/resolucion/reclamaciones_pendientes": 0
+      }
+    },
+    {
+      "id": "ciclo-rectificar",
+      "tipo": "ciclo",
+      "selector": "[data-foco=\"ciclo-simular\"]",
+      "ruta": "/api/provision/v1/ciclos-locales/simulaciones",
+      "estado_http": 200,
+      "repetir": true,
+      "pasos": [
+        {
+          "selector": "[data-foco=\"vista-ciclo\"]",
+          "accion": "click"
+        },
+        {
+          "selector": "[data-foco=\"ciclo-caso\"]",
+          "accion": "selectOption",
+          "valor": "rectificar"
+        }
+      ],
+      "esperado": {
+        "/schema_version": "provision.ciclo.ensayo.v1",
+        "/alcance": "ensayo_sintetico_sin_efectos",
+        "/resolucion/estado": "borrador",
+        "/resolucion/firmada": false,
+        "/resolucion/publicada": false,
+        "/resolucion/efecto_oficial": false,
+        "/resolucion/version_valoracion": 2,
+        "/valoraciones/0/resultado/total": "28386027",
+        "/valoraciones/1/resultado/total": "27906027"
+      },
+      "cantidades": {
+        "/valoraciones": 2,
+        "/reclamaciones": 1,
+        "/decisiones": 1,
+        "/resolucion/reclamaciones_pendientes": 0
+      }
+    }
+  ]
 }

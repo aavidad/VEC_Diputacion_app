@@ -58,16 +58,39 @@ binario. También atiende `SIGINT`, `SIGTERM` y un límite total de ocho minutos
 Chrome puede escribir un diagnóstico de red por los rechazos provocados. El acta
 los cuenta aparte; nunca los presenta como errores JavaScript.
 
-Los selectores y las rutas acordadas con la interfaz están en
-`provision_expectativas.json`. La propiedad `escenarios` permite incorporar
-adjudicación y ciclo cuando tengan contrato y controles propios. Cada entrada
-necesita `id`, `selector`, `ruta`, `estado_http` y `esperado` (punteros JSON y
-valores exactos); `repetir: true` exige una segunda respuesta idéntica.
-Los `pasos` previos admiten `selector`, `accion` (`click`, `fill` o `selectOption`)
-y `valor` cuando corresponda, para elegir un ejemplo y completar sus controles.
-Los escenarios se eligen
-explícitamente con `--escenarios ID,ID`. Un escenario pendiente o desconocido
-falla antes de arrancar servicios. Una lista vacía no acredita estos recorridos.
+Los selectores, rutas y resultados esperados están en
+`provision_expectativas.json`. `esperado` relaciona punteros JSON con valores
+exactos; `cantidades` exige el tamaño de una colección. Los `pasos` previos
+admiten `selector`, `accion` (`click`, `fill` o `selectOption`) y `valor` cuando
+corresponda.
+
+## Adjudicación y ciclo
+
+Los cuatro escenarios disponibles son `adjudicacion`, `ciclo-pendiente`,
+`ciclo-mantener` y `ciclo-rectificar`. Este modo omite las pruebas y los POST de
+preparación ya comprobados. La página carga su preparación inicial, pero el
+recorrido actúa exclusivamente sobre las pestañas de ensayos.
+
+```bash
+node scripts/probar_provision_navegador.mjs \
+  --source-root /ruta/al/arbol/con/ensayos \
+  --server-bin /ruta/al/binario/vec-baremador-web \
+  --escenarios adjudicacion,ciclo-pendiente,ciclo-mantener,ciclo-rectificar
+```
+
+Cada escenario compara la petición y los bytes de dos respuestas HTTP reales,
+conserva el JSON recibido y su SHA256, coteja el resultado visible y abre los
+detalles por teclado. Se comprueba el foco al terminar la respuesta, los recortes
+de referencias y huellas, las tablas y los botones. La adjudicación verifica dos
+asignaciones sin duplicados y la validación de política. El ciclo exige una o
+dos versiones según el caso, la misma valoración inicial, enlaces de huellas y
+los puntos exactos del ejemplo. Mantener conserva `28386027`; rectificar pasa a
+`27906027`. Son micro-puntos de este fixture sintético.
+
+La resolución queda en borrador, con firma, publicación y efecto oficial en
+`false`; los botones oficiales permanecen deshabilitados. Los rechazos de JSON
+incompleto y endpoint institucional pertenecen al modo de preparación, no se
+repiten con los ensayos. Un escenario desconocido falla antes de arrancar.
 
 ## Evidencia y alcance
 
@@ -111,5 +134,11 @@ dentro del panel. Las actas bajo el mismo directorio de evidencia son:
 | Inglés, reflujo 720 px | `run-p15TQM/resultado.json` |
 
 El recorrido cubre la primera interfaz de preparación y simulación.
-Adjudicación y ciclo necesitan sus propios controles, expectativas y ejecución;
-la lista de escenarios aún está vacía.
+La matriz de adjudicación y los tres casos de ciclo pasó sobre
+`52ee65857597f1bb50bcba9873a6f4d5512aee7b`, fuente limpia y binario coherente,
+en `run-BHiEPN/resultado.json`: seis combinaciones ES/EN a 1440, 390 y reflujo
+720 píxeles, con ocho POST de ensayos por combinación y ninguno de preparación.
+El focal `run-oDO61e/resultado.json`, sobre la misma fuente a ES/390, comprobó la
+aserción añadida de foco tras respuesta y los valores exactos del fixture.
+Estas actas corresponden al montaje combinado; una rama aislada necesita
+comprobar sus diferencias de montaje antes de atribuirle la misma evidencia.

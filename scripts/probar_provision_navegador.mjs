@@ -166,13 +166,16 @@ async function geometria(page) {
     cuerpo: document.body.scrollWidth, tablas: [...document.querySelectorAll(".tabla-contenedor")]
       .filter((e) => e.getClientRects().length).map((e) => ({ ancho: e.clientWidth, contenido: e.scrollWidth,
         overflow: getComputedStyle(e).overflowX, ...limites(e) })),
-    acciones: [...document.querySelectorAll('[data-foco="simular"],[data-foco="corregir-configuracion"]')]
+    tecnicos: [...document.querySelectorAll("details[open] dd,details[open] p")].filter(e => e.getClientRects().length)
+      .map(e => ({ ...limites(e), sinContenidoRecortado: e.scrollWidth <= e.clientWidth + 1 })),
+    acciones: [...document.querySelectorAll('[data-foco="simular"],[data-foco="corregir-configuracion"],[data-foco$="-simular"],[data-foco$="-resolver"],[data-foco$="-alegar"]')]
       .filter((e) => e.getClientRects().length).map((e) => ({ accion: e.dataset.foco, ...limites(e) })) };
   });
   assert(medidas.documento <= medidas.ancho + 1 && medidas.cuerpo <= medidas.ancho + 1, "desbordamiento horizontal global");
   assert(medidas.tablas.every((t) => t.contenido <= t.ancho + 1 || ["auto", "scroll"].includes(t.overflow)), "tabla sin scroll interno");
   assert(medidas.tablas.every((t) => t.sinRecorte), `contenedor de tabla recortado: ${JSON.stringify(medidas.tablas)}`);
   assert(medidas.acciones.every((a) => a.sinRecorte), `acción recortada: ${JSON.stringify(medidas.acciones)}`);
+  assert(medidas.tecnicos.every(t => t.sinRecorte && t.sinContenidoRecortado), `detalle técnico recortado: ${JSON.stringify(medidas.tecnicos)}`);
   return medidas;
 }
 
@@ -273,6 +276,77 @@ async function preferencias(page) {
   }
 }
 
+const punteroJSON = (datos, puntero) => puntero.split("/").slice(1)
+  .reduce((v, k) => v?.[k.replaceAll("~1", "/").replaceAll("~0", "~")], datos);
+function puntosEnsayo(valor, idioma) {
+  const n = BigInt(valor), fraccion = String(n % 1000000n).padStart(6, "0").replace(/0+$/u, "");
+  const formato = new Intl.NumberFormat(idioma);
+  return formato.format(n / 1000000n) + (fraccion ? formato.formatToParts(1.1).find(p => p.type === "decimal").value + fraccion : "");
+}
+async function recorrerEnsayo(page, escenario, caso, prefijo, catalogo, idioma) {
+  for (const paso of escenario.pasos ?? []) {
+    const control = page.locator(paso.selector);
+    if (paso.accion === "click") await control.click();
+    else if (paso.accion === "fill") await control.fill(paso.valor);
+    else if (paso.accion === "selectOption") await control.selectOption(paso.valor);
+    else throw new Error(`acción no admitida: ${paso.accion}`);
+  }
+  const r = await responder(page, escenario.selector, escenario.ruta, escenario.estado_http);
+  for (const [p, esperado] of Object.entries(escenario.esperado)) assert.deepEqual(punteroJSON(r.datos, p), esperado, `${escenario.id}: ${p}`);
+  for (const [p, cantidad] of Object.entries(escenario.cantidades ?? {})) assert.equal(punteroJSON(r.datos, p)?.length, cantidad, `${escenario.id}: ${p}`);
+  const repetida = await responder(page, escenario.selector, escenario.ruta, escenario.estado_http);
+  assert.equal(repetida.entrada, r.entrada, "ensayo cambia petición al repetir");
+  assert.equal(repetida.sha256, r.sha256, "ensayo cambia bytes al repetir");
+  assert.deepEqual(repetida.datos, r.datos, "ensayo cambia resultado al repetir");
+  const entrada = JSON.parse(r.entrada), esCiclo = escenario.tipo === "ciclo";
+  assert.deepEqual(Object.keys(entrada).sort(), esCiclo ? ["caso_ref", "ejemplo_ref"] : ["configuracion", "ejemplo_ref"]);
+  const espacio = page.locator(esCiclo ? '[data-ensayo-ciclo]' : '[data-ensayo-adjudicacion]');
+  const titulo = esCiclo ? catalogo.ciclo.cronologia : catalogo.ensayos.asignaciones;
+  const filas = espacio.getByRole("table", { name: titulo, exact: true }).locator("tbody > tr");
+  await filas.first().waitFor();
+  await page.waitForFunction(selector => document.activeElement === document.querySelector(selector), escenario.selector);
+  if (esCiclo) {
+    assert.equal(await filas.count(), r.datos.valoraciones.length);
+    for (const [i, v] of r.datos.valoraciones.entries()) {
+      assert.equal(await filas.nth(i).locator("td").nth(1).textContent(), v.resultado.total === null ? catalogo.estados.sin_dato : puntosEnsayo(v.resultado.total, idioma));
+      assert.match(v.huella_revision, /^[a-f0-9]{64}$/u);
+      if (i) assert.equal(v.huella_anterior, r.datos.valoraciones[i - 1].huella_revision);
+    }
+    if (entrada.caso_ref === "rectificar") assert.notEqual(r.datos.valoraciones[1].resultado.total, r.datos.valoraciones[0].resultado.total);
+    if (entrada.caso_ref === "mantener") assert.equal(r.datos.valoraciones[1].resultado.total, r.datos.valoraciones[0].resultado.total);
+    for (const clave of ["ciclo-alegar", "ciclo-resolver"]) assert(await page.locator(`[data-foco="${clave}"]`).isDisabled());
+  } else {
+    assert.match(r.datos.huella_resultado, /^[a-f0-9]{64}$/u);
+    assert.equal(new Set(r.datos.asignaciones.map(a => a.persona_ref)).size, r.datos.asignaciones.length);
+    assert.equal(new Set(r.datos.asignaciones.map(a => a.vacante_ref)).size, r.datos.asignaciones.length);
+    assert.equal(await filas.count(), r.datos.asignaciones.length);
+    for (const [i, a] of r.datos.asignaciones.entries()) {
+      assert.equal(await filas.nth(i).locator("th").textContent(), catalogo.ensayos.personas[a.persona_ref]);
+      assert.equal(await filas.nth(i).locator("td").first().textContent(), catalogo.ensayos.puestos[a.puesto_ref]);
+    }
+    assert(await page.locator('[data-foco="adjudicacion-resolver"]').isDisabled());
+  }
+  for (const detalle of await espacio.locator("details").all()) {
+    if (!(await detalle.evaluate(e => e.open))) { await detalle.locator("summary").focus(); await page.keyboard.press("Enter"); }
+    assert(await detalle.evaluate(e => e.open), "detalle no abre por teclado");
+  }
+  const registro = { id: escenario.id, sha256: r.sha256, entrada, respuesta: r.datos,
+    focoRetenidoTrasRespuesta: true, geometria: await geometria(page), teclado: await teclado(page) };
+  await page.screenshot({ path: join(artefactos, `${prefijo}-${escenario.id}.png`), fullPage: false });
+  if (!esCiclo) {
+    const campo = page.locator('[data-foco="adjudicacion-politica_ref"]'), valor = await campo.inputValue();
+    await campo.fill(""); await page.keyboard.press("Tab");
+    assert.equal(await campo.getAttribute("aria-invalid"), "true");
+    assert(await page.locator(escenario.selector).isDisabled());
+    assert.equal(await page.locator("#adjudicacion-error-politica_ref").textContent(), catalogo.ensayos.configuracion_invalida);
+    registro.geometriaError = await geometria(page);
+    await page.screenshot({ path: join(artefactos, `${prefijo}-adjudicacion-error.png`), fullPage: false });
+    await campo.fill(valor); await page.keyboard.press("Tab"); assert(await page.locator(escenario.selector).isEnabled());
+    registro.validacionVisible = true;
+  }
+  caso.escenarios.push(registro); return r.datos;
+}
+
 async function recorrer(url, idioma, ancho, reflujo = false) {
   cancelacion.signal.throwIfAborted();
   const caso = { idioma, anchoCSS: ancho, estado: "en_curso",
@@ -291,6 +365,7 @@ async function recorrer(url, idioma, ancho, reflujo = false) {
     await page.locator(contrato.selectores.raiz).waitFor();
     const catalogo = JSON.parse(await readFile(join(fuente, `web/static/textos/${idioma}/provision.json`), "utf8"));
     assert.equal(await page.locator("html").getAttribute("lang"), idioma);
+    if (!escenarios.length) {
     caso.inicio = await geometria(page);
     await page.screenshot({ path: join(artefactos, `${prefijo}-inicio.png`), fullPage: false });
     caso.teclado = await teclado(page);
@@ -327,33 +402,24 @@ async function recorrer(url, idioma, ancho, reflujo = false) {
     await page.locator(contrato.selectores.valoracion).click();
     assert(await page.locator(contrato.selectores.simular).isEnabled(), "corrección no recupera simulación");
     caso.validacionVisible = { datoConservado: true, configuracionInvalidaBloqueada: true, correccionRecuperada: true };
-    caso.escenarios = [];
-    for (const escenario of escenarios) {
-      for (const paso of escenario.pasos ?? []) {
-        const control = page.locator(paso.selector);
-        if (paso.accion === "click") await control.click();
-        else if (paso.accion === "fill") await control.fill(paso.valor);
-        else if (paso.accion === "selectOption") await control.selectOption(paso.valor);
-        else throw new Error(`acción de escenario no admitida: ${paso.accion}`);
-      }
-      const r = await responder(page, escenario.selector, escenario.ruta, escenario.estado_http);
-      for (const [puntero, esperado] of Object.entries(escenario.esperado)) {
-        const valor = puntero.split("/").slice(1).reduce((v, k) => v?.[k.replaceAll("~1", "/").replaceAll("~0", "~")], r.datos);
-        assert.deepEqual(valor, esperado, `resultado escenario ${escenario.id}: ${puntero}`);
-      }
-      if (escenario.repetir) {
-        const repeticion = await responder(page, escenario.selector, escenario.ruta, escenario.estado_http);
-        assert.equal(repeticion.sha256, r.sha256, `escenario ${escenario.id} no reproducible`);
-      }
-      caso.escenarios.push({ id: escenario.id, sha256: r.sha256 });
     }
-    // Rechazos reales del servidor privado. No se provocan errores contra servicios ajenos.
-    const errores = await page.evaluate(async ({ simulacion, endpoint_institucional_ausente }) => {
-      const roto = await fetch(simulacion, { method: "POST", credentials: "omit", headers: { "Content-Type": "application/json" }, body: "{" });
-      const ausente = await fetch(endpoint_institucional_ausente, { credentials: "omit" });
-      return { roto: roto.status, ausente: ausente.status };
-    }, contrato);
-    assert.deepEqual(errores, { roto: 400, ausente: 404 }); caso.rechazos = errores;
+    caso.escenarios = [];
+    let inicialCiclo;
+    for (const escenario of escenarios) {
+      const resultado = await recorrerEnsayo(page, escenario, caso, prefijo, catalogo, idioma);
+      if (escenario.tipo === "ciclo") {
+        inicialCiclo ??= resultado.valoraciones[0];
+        assert.deepEqual(resultado.valoraciones[0], inicialCiclo, "otro caso reescribe la versión inicial");
+      }
+    }
+    if (!escenarios.length) {
+      const errores = await page.evaluate(async ({ simulacion, endpoint_institucional_ausente }) => {
+        const roto = await fetch(simulacion, { method: "POST", credentials: "omit", headers: { "Content-Type": "application/json" }, body: "{" });
+        const ausente = await fetch(endpoint_institucional_ausente, { credentials: "omit" });
+        return { roto: roto.status, ausente: ausente.status };
+      }, contrato);
+      assert.deepEqual(errores, { roto: 400, ausente: 404 }); caso.rechazos = errores;
+    }
     await comprobar(context, caso); caso.estado = "pasado";
   } catch (e) {
     caso.estado = "fallido"; caso.error = e.message;
