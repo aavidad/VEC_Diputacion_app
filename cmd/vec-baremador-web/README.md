@@ -84,3 +84,23 @@ Esta huella no es una firma ni un justificante de presentación.
 
 Los textos están disponibles en español e inglés mediante el selector común.
 No se monta una API institucional ni se añaden conexiones, permisos o SQL.
+
+## Ensayo de adjudicación global
+
+La pestaña «Adjudicación» compara tres solicitudes sintéticas para dos puestos.
+Muestra preferencias y puntuaciones de partida. La política del ensayo identifica
+bases, versión, método y cadena de desempates; se pueden reordenar sus criterios y
+cambiar su sentido. El método disponible es experimental y no constituye una
+regla aprobada por RRHH.
+
+«Simular adjudicación» llama al mismo caso de uso que
+`vec-simular-adjudicacion`. Ninguna persona obtiene dos puestos y un puesto
+individual no se oferta dos veces. Un empate sin resolver deja el conjunto
+pendiente, sin asignaciones. La propuesta reproducida no reserva vacantes ni
+firma, publica o ejecuta una resolución.
+
+`GET /api/provision/v1/adjudicaciones-locales` devuelve la configuración y el
+resumen sintético. El POST de `/simulaciones` recibe sólo `ejemplo_ref` y
+`configuracion`; los resultados de valoración y las solicitudes se fijan en el
+servidor. El [contrato del CLI](../vec-simular-adjudicacion/README.md) explica
+las entradas completas y los límites del método.
