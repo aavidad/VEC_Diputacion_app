@@ -183,3 +183,10 @@ func TestEnterosGrandesNoPierdenPrecision(t *testing.T) {
 		t.Fatal("integer precision lost")
 	}
 }
+
+func TestFalloDiagnosticoDevuelveErrorDeSalida(t *testing.T) {
+	var out bytes.Buffer
+	if estado := ejecutar([]string{"archivo"}, bytes.NewReader(nil), &out, writerFalla{}); estado != 2 || out.Len() != 0 {
+		t.Fatalf("diagnostic write failure: status=%d, output=%d", estado, out.Len())
+	}
+}

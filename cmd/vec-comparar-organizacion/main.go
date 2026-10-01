@@ -49,10 +49,15 @@ func main() { os.Exit(ejecutar(os.Args[1:], os.Stdin, os.Stdout, os.Stderr)) }
 func ejecutar(args []string, input io.Reader, output, errors io.Writer) int {
 	catalogo, mensajes, err := web.CatalogoComparacionOrganizacion()
 	if err != nil {
-		return 1
+		return codigoErrorSalida(err)
 	}
 	idioma := catalogo.DefaultLocale()
-	fallo := func(key string) int { _, _ = fmt.Fprintln(errors, catalogo.T(idioma, key)); return 1 }
+	fallo := func(key string) int {
+		if _, err := fmt.Fprintln(errors, catalogo.T(idioma, key)); err != nil {
+			return codigoErrorSalida(err)
+		}
+		return 1
+	}
 	if len(args) != 0 {
 		return fallo("error_entrada")
 	}
@@ -164,3 +169,14 @@ func clavesUnicas(datos []byte) error {
 }
 
 func texto(c *i18n.Catalog, idioma, key string) string { return c.T(idioma, key) }
+
+// Un error de salida se comunica al invocante mediante el estado del proceso.
+// No incorpora valores recibidos ni el detalle técnico a un mensaje de usuario.
+func codigoErrorSalida(err error) int {
+	switch err {
+	case nil:
+		return 0
+	default:
+		return 2
+	}
+}
