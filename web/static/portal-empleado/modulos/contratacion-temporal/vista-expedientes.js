@@ -6,7 +6,7 @@ import { montarFormularioResolucionFormalizacion } from "./formulario-resolucion
 import { montarFormularioAnotacionAdministrativa } from "./formulario-anotacion-administrativa.js?v=20261001-f-reconciliacion-325-v1";
 import { montarFormularioCierreAdministrativo } from "./formulario-cierre-administrativo.js?v=20261001-f-reconciliacion-325-v1";
 import { montarFormularioLlamamiento } from "./formulario-llamamiento.js?v=20261001-f-reconciliacion-325-v1";
-import { montarVistaEstadisticas } from "./vista-estadisticas.js?v=20261001-ct-a-i18n-v1";
+import { montarVistaEstadisticas } from "./vista-estadisticas.js?v=20261001-ana001-v4";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261001-ct-a-i18n-v1";
 import { filtroListaValido } from "./recuentos-peticiones.js?v=20261001-f-reconciliacion-325-v1";
 import { renderizarResultadosCuadro } from "./componentes-expedientes.js?v=20261001-f-reconciliacion-325-v1";

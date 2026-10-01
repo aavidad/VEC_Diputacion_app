@@ -13,6 +13,8 @@ import { generarCSVEstadisticas } from "./contrato-estadisticas.js?v=20261001-ct
 import { consultarEstadisticas } from "./cliente-http-estadisticas.js?v=20261001-ct-a-i18n-v1";
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261001-ct-a-i18n-v1";
 
+import { cargarFichaIndicadores, renderizarFichaIndicadores } from "../analitica/ficha-indicadores.js?v=20261001-ana001-v4";
+
 const traducirCT = crearTraductorContratacionTemporal();
 
 function escaparHTML(valor) {
@@ -215,10 +217,18 @@ export function renderizarFormularioFiltros({ periodo = "mensual", desde = "", h
   `;
 }
 
-export function renderizarVistaEstadisticas({ estadoEstadisticas, filtros }) {
+export function renderizarAyudaIndicadoresEstadisticas(ficha, respuesta = null) {
+  if (!ficha) return "";
+  const titulo = escaparHTML(ficha.textos.traducir("ayuda"));
+  return `<details data-ct-ayuda-indicadores><summary class="boton-secundario boton-icono" aria-label="${titulo}">?</summary>
+    ${renderizarFichaIndicadores({ ...ficha, respuesta, conCierre: false })}</details>`;
+}
+
+export function renderizarVistaEstadisticas({ estadoEstadisticas, filtros, fichaIndicadores = null }) {
   const encabezado = `
     <header class="cabecera-vista">
       <h2>${textoCT("ct_txt_estadisticas_de_contratacion_temporal")}</h2>
+      <div data-ct-ayuda-indicadores-slot>${renderizarAyudaIndicadoresEstadisticas(fichaIndicadores, estadoEstadisticas?.datos ?? null)}</div>
       <p>${textoCT("ct_txt_cuadro_de_evolucion_temporal_altas_llamamientos")}</p>
     </header>
   `;
@@ -299,8 +309,9 @@ export function renderizarVistaEstadisticas({ estadoEstadisticas, filtros }) {
   `;
 }
 
-export function montarVistaEstadisticas({ raiz, cliente, anunciar, descargarCSVImpl }) {
+export function montarVistaEstadisticas({ raiz, cliente, anunciar, descargarCSVImpl, fichaIndicadores = null, cargarFicha = cargarFichaIndicadores }) {
   let montada = true;
+  let ficha = fichaIndicadores;
   let generacionConsulta = 0;
   let filtros = {
     periodo: "mensual",
@@ -317,7 +328,7 @@ export function montarVistaEstadisticas({ raiz, cliente, anunciar, descargarCSVI
   const ejecutarConsulta = typeof cliente === "function" ? cliente : consultarEstadisticas;
 
   function renderizar() {
-    raiz.innerHTML = renderizarVistaEstadisticas({ estadoEstadisticas, filtros });
+    raiz.innerHTML = renderizarVistaEstadisticas({ estadoEstadisticas, filtros, fichaIndicadores: ficha });
   }
 
   async function cargar() {
@@ -393,6 +404,14 @@ export function montarVistaEstadisticas({ raiz, cliente, anunciar, descargarCSVI
   raiz.addEventListener("click", manejarClick);
   raiz.addEventListener("submit", manejarSubmit);
 
+  if (!ficha) void cargarFicha().then((datos) => {
+    if (!montada) return;
+    ficha = datos;
+    // La ayuda puede llegar mientras se editan filtros. Actualizar solo su hueco
+    // conserva los valores escritos y el foco del formulario.
+    const hueco = raiz.querySelector?.("[data-ct-ayuda-indicadores-slot]");
+    if (hueco) hueco.innerHTML = renderizarAyudaIndicadoresEstadisticas(ficha, estadoEstadisticas.datos);
+  }).catch(() => {});
   void cargar();
 
   return {
