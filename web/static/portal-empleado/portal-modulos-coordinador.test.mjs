@@ -370,6 +370,7 @@ test("el portal real de Personal no ofrece apartados sin fuente y abre los catá
     escaparHTML: String,
     entorno: { fetch: async (ruta) => {
       llamadas.push(ruta);
+      if (ruta === "/api/interna/personal/mi-ficha") return new Response(null, { status: 404 });
       return ruta.startsWith("/api/vec/personal/categories?") ? respuestaPersonalJSON(CATEGORIAS_PERSONAL_VACIAS)
         : new Response(JSON.stringify({ error: "no_disponible" }), { status: 503, headers: { "Content-Type": "application/json; charset=utf-8" } });
     } },
@@ -472,7 +473,8 @@ test("Personal monta solo los catálogos públicos que el servidor sirve", async
   ]) {
     const coordinador = crearCoordinadorModulosPortal({
       escaparHTML: String,
-      entorno: { fetch: async () => respuestaPersonalJSON(CATEGORIAS_PERSONAL_VACIAS) },
+      entorno: { fetch: async (ruta) => ruta === "/api/interna/personal/mi-ficha"
+        ? new Response(null, { status: 404 }) : respuestaPersonalJSON(CATEGORIAS_PERSONAL_VACIAS) },
       cargarCatalogoInterno: async () => Object.freeze([{ clave: "personal" }, { clave: "dietas" }]),
       cargadoresInternos: {
         contratacion_temporal: async () => { throw new Error("no debe cargar CT"); },
