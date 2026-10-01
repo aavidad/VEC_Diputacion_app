@@ -128,13 +128,14 @@ func (e exportadorPrueba) LogValue() slog.Value { return slog.StringValue(e.Stri
 type registroPrueba struct {
 	lecturas, confirmaciones, recuperaciones int
 	recibo                                   *ports.Recibo
+	actual                                   *ports.RegistroActual
 	err                                      error
 	mutar                                    bool
 }
 
 func (r *registroPrueba) PrepararOperacion(context.Context, ports.OrdenOperacion) (ports.PreparacionOperacion, error) {
 	r.lecturas++
-	return ports.PreparacionOperacion{ReciboAnterior: r.recibo}, nil
+	return ports.PreparacionOperacion{Actual: r.actual, ReciboAnterior: r.recibo}, nil
 }
 func (r *registroPrueba) ConfirmarCambio(_ context.Context, c ports.Cambio) (ports.Recibo, error) {
 	r.confirmaciones++
@@ -156,9 +157,11 @@ func (r *registroPrueba) RecuperarCambio(context.Context, ports.OrdenOperacion) 
 type auditoriaPrueba struct {
 	llamadas int
 	err      error
+	ultima   vec.AuditEntry
 }
 
 func (a *auditoriaPrueba) AppendAudit(_ context.Context, e vec.AuditEntry) (vec.AuditEntry, error) {
 	a.llamadas++
+	a.ultima = e
 	return e, a.err
 }

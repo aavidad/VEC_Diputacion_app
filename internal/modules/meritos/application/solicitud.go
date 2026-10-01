@@ -37,10 +37,16 @@ type Solicitud struct {
 	Hecho             domain.Hecho
 }
 
-func (s Solicitud) validar() error {
+func (s Solicitud) validarContexto() error {
+	if s.Contexto.Validar() != nil || s.Vinculo.ValidarPara(s.Contexto) != nil || s.Correlacion.Validar() != nil {
+		return ErrSolicitud
+	}
+	return nil
+}
+
+func (s Solicitud) validarComando() error {
 	_, err := time.Parse("2006-01-02", s.FechaCorte)
-	if s.Contexto.Validar() != nil || s.Vinculo.ValidarPara(s.Contexto) != nil ||
-		s.Correlacion.Validar() != nil || !vec.ReferenciaMotivoAutorizacionV2Valida(s.Motivo) ||
+	if !vec.ReferenciaMotivoAutorizacionV2Valida(s.Motivo) ||
 		!domain.ReferenciaValida(s.ClaveIdempotencia) || s.VersionEsperada < 0 ||
 		s.VersionEsperada >= 1<<30 || s.Hecho.Validar() != nil || s.Hecho.Version != s.VersionEsperada+1 ||
 		s.Hecho.Estado != domain.Declarado || s.Hecho.Revision != nil || err != nil || len(s.FechaCorte) != 10 {

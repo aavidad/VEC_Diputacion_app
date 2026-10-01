@@ -36,10 +36,81 @@ func TestVerificarNoAcreditaNiConsultaRegistro(t *testing.T) {
 }
 
 func TestSolicitudCruzaVinculoAntesDeAutoridad(t *testing.T) {
-	s, solicitud, auth, registro, _ := escenario(t)
+	s, solicitud, auth, registro, audit := escenario(t)
 	solicitud.Vinculo = vec.VinculoAutenticacionActorV2{}
-	if _, err := s.Declarar(context.Background(), solicitud); !errors.Is(err, vec.ErrAutorizacionDenegada) || auth.llamadas != 0 || registro.lecturas != 0 {
+	if _, err := s.Declarar(context.Background(), solicitud); !errors.Is(err, vec.ErrAutorizacionDenegada) || auth.llamadas != 0 || registro.lecturas != 0 || audit.llamadas != 0 {
 		t.Fatal(err)
+	}
+}
+
+func TestComandoInvalidoConContextoValidoAuditaSoloMetadatosSeguros(t *testing.T) {
+	for _, caso := range []string{"version", "contenido", "motivo"} {
+		t.Run(caso, func(t *testing.T) {
+			s, solicitud, auth, registro, audit := escenario(t)
+			switch caso {
+			case "version":
+				solicitud.Hecho.Version = 2
+			case "contenido":
+				solicitud.Hecho.Referencia = "dato privado inválido"
+			case "motivo":
+				solicitud.Motivo.EntradaClave = "motivo privado inválido"
+			}
+			if r, err := s.Declarar(context.Background(), solicitud); !errors.Is(err, ErrSolicitud) || r.Referencia != "" ||
+				audit.llamadas != 1 || auth.llamadas != 0 || registro.lecturas != 0 || registro.confirmaciones != 0 {
+				t.Fatal("rechazo de negocio sin auditoría o con efecto", err)
+			}
+			correlacion, _ := solicitud.Correlacion.ValorCanonico()
+			if audit.ultima.ActorID != persona || audit.ultima.CorrelationRef != correlacion || audit.ultima.Action != accionDeclarar ||
+				audit.ultima.Result != "no_confirmado" || audit.ultima.SubjectRef != "" || audit.ultima.RuleRef != "" ||
+				audit.ultima.ObjectVersion != 0 || len(audit.ultima.Metadata) != 0 {
+				t.Fatal("auditoría perdió contexto nominal o incorporó campos rechazados")
+			}
+		})
+	}
+}
+
+func TestRecibosConfirmadosYRecuperadosNoCompartenMemoriaConRegistro(t *testing.T) {
+	for _, operacion := range []string{"declarar", "rechazar"} {
+		t.Run(operacion, func(t *testing.T) {
+			s, solicitud, _, registro, _ := escenario(t)
+			horas := 20
+			solicitud.Hecho.Horas = &horas
+			ejecutar := s.Declarar
+			if operacion == "rechazar" {
+				solicitud.Hecho.PersonaRef = "per_bbbbbbbbbbbbbbbbbbbbbb"
+				actual := ports.RegistroActual{Hecho: copiarHecho(solicitud.Hecho), DeclaranteRef: solicitud.Hecho.PersonaRef}
+				registro.actual = &actual
+				solicitud.VersionEsperada, solicitud.Hecho.Version = 1, 2
+				ejecutar = s.Rechazar
+			}
+			primero, err := ejecutar(context.Background(), solicitud)
+			if err != nil {
+				t.Fatal(err)
+			}
+			original := copiarRecibo(*registro.recibo)
+			mutar := func(r *ports.Recibo) {
+				r.Registro.Hecho.Evidencias[0].Version = 99
+				*r.Registro.Hecho.Horas = 99
+				if r.Registro.Hecho.Revision != nil {
+					r.Registro.Hecho.Revision.ActorRef = "persona:ajena"
+				}
+			}
+			mutar(&primero)
+			if !reflect.DeepEqual(*registro.recibo, original) {
+				t.Fatal("mutar resultado confirmado altera registro")
+			}
+			segundo, err := ejecutar(context.Background(), solicitud)
+			if err != nil || !reflect.DeepEqual(segundo, original) {
+				t.Fatal("recuperación perdió recibo original", err)
+			}
+			mutar(&segundo)
+			if !reflect.DeepEqual(*registro.recibo, original) {
+				t.Fatal("mutar resultado recuperado altera registro")
+			}
+			if tercero, err := ejecutar(context.Background(), solicitud); err != nil || !reflect.DeepEqual(tercero, original) || registro.confirmaciones != 1 || registro.recuperaciones != 2 {
+				t.Fatal("mutación del resultado impide reintento o duplica efecto", err)
+			}
+		})
 	}
 }
 

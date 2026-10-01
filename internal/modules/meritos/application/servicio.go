@@ -46,15 +46,14 @@ func (s *Servicio) ejecutar(ctx context.Context, solicitud Solicitud, accion str
 	}
 	// La frontera común audita autenticación/contexto inválidos. Aquí no se
 	// escriben actores o correlaciones libres que no superan su validación nominal.
-	if solicitud.validar() != nil {
+	if solicitud.validarContexto() != nil {
 		return ports.Recibo{}, errors.Join(vec.ErrAutorizacionDenegada, ErrSolicitud)
 	}
 	ahora := s.reloj.Ahora().UTC()
 	finalidad, _ := finalidadAudiencia(accion)
 	correlacion, _ := solicitud.Correlacion.ValorCanonico()
 	audit := vec.AuditEntry{ActorID: solicitud.Contexto.Contexto.PersonaRef, ActorProfile: solicitud.Contexto.Contexto.PerfilActivoRef,
-		Action: accion, ModuleID: "meritos", Purpose: finalidad, SubjectRef: solicitud.Hecho.Referencia,
-		ObjectVersion: solicitud.Hecho.Version, RuleRef: solicitud.Motivo.EntradaClave,
+		Action: accion, ModuleID: "meritos", Purpose: finalidad,
 		CorrelationRef: correlacion, OccurredAt: ahora}
 	defer func() {
 		if err != nil {
@@ -64,6 +63,12 @@ func (s *Servicio) ejecutar(ctx context.Context, solicitud Solicitud, accion str
 			}
 		}
 	}()
+	// Un comando rechazado solo audita contexto nominal y metadatos fijos.
+	// Su cuerpo no se añade a la auditoría hasta superar la validación de negocio.
+	if solicitud.validarComando() != nil {
+		return ports.Recibo{}, ErrSolicitud
+	}
+	audit.SubjectRef, audit.ObjectVersion, audit.RuleRef = solicitud.Hecho.Referencia, solicitud.Hecho.Version, solicitud.Motivo.EntradaClave
 	orden, err := ordenSolicitud(solicitud, accion)
 	if err != nil {
 		return ports.Recibo{}, err
@@ -91,7 +96,7 @@ func (s *Servicio) ejecutar(ctx context.Context, solicitud Solicitud, accion str
 		if err != nil {
 			return ports.Recibo{}, err
 		}
-		return recibo, nil
+		return copiarRecibo(recibo), nil
 	}
 	cambio, err := prepararCambio(orden, preparacion.Actual, ahora)
 	if err != nil {
@@ -106,7 +111,12 @@ func (s *Servicio) ejecutar(ctx context.Context, solicitud Solicitud, accion str
 	if !reciboCoincide(recibo, orden) || !reflect.DeepEqual(recibo.Registro, cambio.Nuevo) {
 		return ports.Recibo{}, ports.ErrRegistroNoDisponible
 	}
-	return recibo, nil
+	return copiarRecibo(recibo), nil
+}
+
+func copiarRecibo(recibo ports.Recibo) ports.Recibo {
+	recibo.Registro.Hecho = copiarHecho(recibo.Registro.Hecho)
+	return recibo
 }
 
 func nulo(x any) bool {
