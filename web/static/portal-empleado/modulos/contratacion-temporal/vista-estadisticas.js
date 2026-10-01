@@ -228,7 +228,7 @@ export function renderizarVistaEstadisticas({ estadoEstadisticas, filtros, ficha
   const encabezado = `
     <header class="cabecera-vista">
       <h2>${textoCT("ct_txt_estadisticas_de_contratacion_temporal")}</h2>
-      <span data-ct-ayuda-indicadores-slot>${renderizarAyudaIndicadoresEstadisticas(fichaIndicadores, estadoEstadisticas?.datos ?? null)}</span>
+      <div data-ct-ayuda-indicadores-slot>${renderizarAyudaIndicadoresEstadisticas(fichaIndicadores, estadoEstadisticas?.datos ?? null)}</div>
       <p>${textoCT("ct_txt_cuadro_de_evolucion_temporal_altas_llamamientos")}</p>
     </header>
   `;
