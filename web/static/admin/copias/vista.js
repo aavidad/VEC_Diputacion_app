@@ -169,7 +169,7 @@ export function montarVistaCopias({ raiz, cliente = crearClienteCopias(), anunci
       return;
     }
     if (estado.tab === "catalogo") pintarCatalogo();
-    else if (estado.tab === "calendario") pintarConfiguracion({ cuerpo, estado, cliente, s, operar, recibido, pintar });
+    else if (estado.tab === "calendario") pintarConfiguracion({ cuerpo, estado, cliente, s, operar, recibido, pintar, cargarConfiguracion });
     else pintarRecuperacion({ cuerpo, estado, cliente, s, operar, recibido, pintar, cargarRestauracion });
     for (const h of cuerpo.querySelectorAll("h3")) h.tabIndex = -1;
   }
