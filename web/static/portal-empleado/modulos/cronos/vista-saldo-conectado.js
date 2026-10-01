@@ -154,7 +154,9 @@ export function montarVistaSaldoCronos({ raiz, cliente, mensajes = MENSAJES_CRON
       dibujar(); anunciar(t(estado === "denegado" ? "saldo_denegado" : estado === "no_disponible" ? "saldo_no_disponible" : "saldo_error"));
     }
   };
-  const actualizar = () => ["listo", "error"].includes(estado) ? cargar(consulta, true) : Promise.resolve();
+  // Un fichaje confirmado puede llegar mientras se lee: sustituye esa
+  // lectura anterior, sin cambiar su periodo ni la página seleccionada.
+  const actualizar = () => ["listo", "error", "cargando"].includes(estado) ? cargar(consulta, true) : Promise.resolve();
   const alPulsar = (evento) => {
     const accion = evento.target?.closest?.("[data-cronos-saldo-actualizar]");
     if (accion) { void actualizar(); return; }

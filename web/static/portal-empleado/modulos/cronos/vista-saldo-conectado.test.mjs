@@ -201,3 +201,24 @@ test("tamaño de presentación configurable, acotado y datos vacíos sin paginac
     assert.throws(() => renderizarVistaSaldoCronos({ tamanoPagina }), RangeError);
   }
 });
+
+test("un fichaje confirmado sustituye una lectura anterior pendiente del mismo periodo", async () => {
+  const anterior = diferido();
+  const posterior = diferido();
+  const llamadas = [];
+  const { nodo, vista } = montajePrueba({ consultar(consulta, { signal }) {
+    llamadas.push({ consulta, signal });
+    return llamadas.length === 1 ? anterior.promesa : posterior.promesa;
+  } });
+  const refresco = vista.actualizar();
+  assert.equal(llamadas.length, 2);
+  assert.equal(llamadas[0].signal.aborted, true);
+  assert.deepEqual(llamadas[1].consulta, llamadas[0].consulta);
+  posterior.resolver(datos("hoy", 65));
+  await refresco;
+  anterior.resolver(datos("hoy", 999));
+  await Promise.resolve(); await Promise.resolve();
+  assert.match(nodo.innerHTML, /01:05/);
+  assert.doesNotMatch(nodo.innerHTML, /16:39/);
+  vista.desmontar();
+});
