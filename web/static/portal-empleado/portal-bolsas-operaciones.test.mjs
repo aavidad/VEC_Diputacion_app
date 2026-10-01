@@ -8,7 +8,7 @@ import {
   renderizarOperacionesSituacion,
   rutaOperacionesSituacion,
   operacionesDisponibles,
-} from "./portal-bolsas-operaciones.js?v=20261001-ct-a-i18n-v1";
+} from "./portal-bolsas-operaciones.js?v=20261001-f-reconciliacion-323-v1";
 
 test("P-WEB-14 rechaza DNI, NIE y etiquetas de identidad antes del POST B8", async () => {
   for (const referencia of ["12345678Z", "REG/X1234567L", "exp:12.34.56.78-Z", "dni:123", "nie-ref"] ) {
@@ -192,4 +192,102 @@ test("el historial de operaciones presenta fecha local, situación legible y pap
   assert.match(html, /Personal de RRHH <button[^>]*data-copiar-justificante="per_rrhh"/u);
   assert.match(html, /\/ Ana Ruiz<br>23\/9\/26, 11:30/u);
   assert.match(html, /REG-2026\/15/u);
+});
+
+test("B8 permite revisar la operación y el justificante antes de confirmar, con datos escapados", () => {
+  const estado = { carga: "listo", items: [], operacion: "excluir", paso: 3, formulario: {
+    motivo: '<img src=x onerror="alert(1)"> & solicitud',
+    tipo: "correo", referencia: 'REG-1"><svg onload="alert(2)">',
+    sha256: "a".repeat(64), validador: 'Ana "Ruiz"', confirma_validador_distinto: true,
+  } };
+  const html = renderizarOperacionesSituacion({ candidato: { estado_clave: "disponible" }, estado });
+  assert.match(html, /<legend>Revisión<\/legend><dl class="resumen-expediente">/);
+  assert.match(html, /<dt>Operación seleccionada:<\/dt><dd>Excluir<\/dd>/);
+  assert.match(html, /<dt>Motivo<\/dt><dd>&lt;img src=x onerror=&quot;alert\(1\)&quot;&gt; &amp; solicitud<\/dd>/);
+  assert.match(html, /<dt>Tipo de justificante<\/dt><dd>Correo<\/dd>/);
+  assert.match(html, /<dt>Referencia del documento en su custodia<\/dt><dd>REG-1&quot;&gt;&lt;svg onload=&quot;alert\(2\)&quot;&gt;<\/dd>/);
+  assert.doesNotMatch(html, /<img|<svg|a{64}/);
+  assert.match(html, /name="validador"[^>]*value="Ana &quot;Ruiz&quot;"/);
+  assert.match(html, /name="confirma_validador_distinto" required checked/);
+  assert.match(html, /Confirmar Excluir/);
+  assert.doesNotMatch(renderizarOperacionesSituacion({ candidato: { estado_clave: "disponible" }, estado: { ...estado, paso: 2 } }), /<legend>Revisión<\/legend>/);
+});
+
+test("B8 vuelve para corregir sin perder datos escritos ni enviar antes de la confirmación", async () => {
+  const fetchAnterior = globalThis.fetch;
+  const formDataAnterior = globalThis.FormData;
+  const peticiones = [];
+  globalThis.FormData = class {
+    constructor(formulario) { this.valores = formulario.valores; }
+    get(campo) { return this.valores[campo] ?? null; }
+    has(campo) { return Boolean(this.valores[campo]); }
+  };
+  globalThis.fetch = async (ruta, opciones) => {
+    peticiones.push({ ruta, opciones });
+    return response(503, { error: { codigo: "servicio_no_disponible" } });
+  };
+  try {
+    const estado = { bolsaSeleccionada: "bolsa:uno", modalFicha: { candidato: { estado_clave: "disponible", participacion_ref: "participacion:dos" } } };
+    const controlador = crearControladorOperacionesSituacion({ estado, renderizar() {}, recargar() {} });
+    const click = (accion, valores = {}) => controlador.manejarClick({
+      target: { closest: () => ({ dataset: { b8Accion: accion, operacion: "excluir" }, closest: () => ({ valores }) }) }, preventDefault() {},
+    });
+    const submit = (valores) => controlador.manejarSubmit({ target: { closest: () => ({ valores }) }, preventDefault() {} });
+    click("seleccionar");
+    submit({ motivo: "Solicitud original" });
+    submit({ tipo: "correo", referencia: "REG-1", sha256: "a".repeat(64) });
+    const flujo = estado.modalFicha.operacionesB8;
+    assert.equal(flujo.paso, 3);
+    click("anterior", { validador: "Ana Ruiz", confirma_validador_distinto: true });
+    assert.equal(flujo.paso, 2);
+    assert.equal(flujo.formulario.validador, "Ana Ruiz");
+    assert.equal(flujo.formulario.confirma_validador_distinto, true);
+    click("anterior", { tipo: "resolucion", referencia: "REG-2", sha256: "b".repeat(64) });
+    assert.equal(flujo.paso, 1);
+    assert.deepEqual(flujo.formulario, { motivo: "Solicitud original", tipo: "resolucion", referencia: "REG-2", sha256: "b".repeat(64), validador: "Ana Ruiz", confirma_validador_distinto: true });
+    submit({ motivo: "Solicitud corregida" });
+    const justificante = renderizarOperacionesSituacion({ candidato: estado.modalFicha.candidato, estado: flujo });
+    assert.match(justificante, /value="REG-2"/);
+    assert.match(justificante, /name="sha256" value="b{64}"/);
+    submit({ tipo: flujo.formulario.tipo, referencia: flujo.formulario.referencia, sha256: flujo.formulario.sha256 });
+    const revision = renderizarOperacionesSituacion({ candidato: estado.modalFicha.candidato, estado: flujo });
+    assert.match(revision, /<dd>Solicitud corregida<\/dd>/);
+    assert.match(revision, /<dd>REG-2<\/dd>/);
+    assert.match(revision, /value="Ana Ruiz"/);
+    assert.match(revision, /name="confirma_validador_distinto" required checked/);
+    assert.equal(peticiones.length, 0);
+    submit({ validador: "Ana Ruiz", confirma_validador_distinto: true });
+    await new Promise((resolver) => setTimeout(resolver, 0));
+    assert.equal(peticiones.length, 1);
+    assert.equal(peticiones[0].opciones.method, "POST");
+    assert.equal(peticiones[0].ruta, rutaOperacionesSituacion("bolsa:uno", "participacion:dos"));
+    assert.deepEqual(JSON.parse(peticiones[0].opciones.body), { operacion: "excluir", motivo: "Solicitud corregida", validador: "Ana Ruiz", justificante: { tipo: "resolucion", referencia: "REG-2", sha256: "b".repeat(64) } });
+    assert.ok(peticiones[0].opciones.headers["Idempotency-Key"]);
+  } finally {
+    globalThis.fetch = fetchAnterior;
+    globalThis.FormData = formDataAnterior;
+  }
+});
+
+test("B8 permite volver aunque haya datos incompletos o una referencia pendiente de corregir", () => {
+  const formDataAnterior = globalThis.FormData;
+  globalThis.FormData = class {
+    constructor(formulario) { this.valores = formulario.valores; }
+    get(campo) { return this.valores[campo] ?? null; }
+    has(campo) { return Boolean(this.valores[campo]); }
+  };
+  try {
+    const flujo = { carga: "listo", items: [], operacion: "excluir", paso: 3, formulario: { validador: "Ana", confirma_validador_distinto: true } };
+    const estado = { modalFicha: { candidato: { estado_clave: "disponible" }, operacionesB8: flujo } };
+    const controlador = crearControladorOperacionesSituacion({ estado, renderizar() {}, recargar() {} });
+    const volver = (valores) => controlador.manejarClick({ target: { closest: () => ({ dataset: { b8Accion: "anterior" }, closest: () => ({ valores }) }) }, preventDefault() {} });
+    volver({ validador: "" });
+    assert.equal(flujo.paso, 2);
+    assert.equal(flujo.formulario.validador, "");
+    assert.equal(flujo.formulario.confirma_validador_distinto, false);
+    volver({ tipo: "", referencia: "X1234567L", sha256: "" });
+    assert.equal(flujo.paso, 1);
+    assert.equal(flujo.formulario.referencia, "X1234567L");
+    assert.equal(flujo.formulario.sha256, "");
+  } finally { globalThis.FormData = formDataAnterior; }
 });

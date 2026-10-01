@@ -179,6 +179,12 @@ function renderizarPaso(estado, escaparHTML) {
   const exclusiones = operacion === "excluir" ? `<label><input type="checkbox" name="confirma_validador_distinto" required ${datos.confirma_validador_distinto ? "checked" : ""}> ${textoPortal("txt_confirmo_que_el_validador_es_otra_persona")}</label>` : "";
   const etapa = estado.paso;
   const causas = operacion === "excluir" ? estado.causasBaja || [] : [];
+  const revision = etapa === 3 ? `<fieldset class="grupo-campo"><legend>${textoPortal("txt_revision")}</legend><dl class="resumen-expediente">
+    <div class="fila-resumen"><dt>${textoPortal("txt_operacion_seleccionada")}</dt><dd>${escaparHTML(OPERACIONES[operacion] || "")}</dd></div>
+    <div class="fila-resumen"><dt>${textoPortal("txt_motivo")}</dt><dd>${escaparHTML(datos.motivo || "")}</dd></div>
+    <div class="fila-resumen"><dt>${textoPortal("txt_tipo_de_justificante")}</dt><dd>${escaparHTML(TIPOS_ETIQUETA[datos.tipo] || "")}</dd></div>
+    <div class="fila-resumen"><dt>${textoPortal("txt_referencia_del_documento_en_su_custodia")}</dt><dd>${escaparHTML(datos.referencia || "")}</dd></div>
+  </dl></fieldset>` : "";
   const campos = etapa === 1 && causas.length
     ? renderizarCausasBaja({ causas, seleccion: datos.causa, detalle: datos.detalle, escaparHTML })
     : etapa === 1
@@ -186,7 +192,7 @@ function renderizarPaso(estado, escaparHTML) {
     : etapa === 2
       ? `<label>${textoPortal("txt_tipo_de_justificante")} <select name="tipo" required><option value="">${textoPortal("txt_seleccione_un_tipo")}</option>${TIPOS_JUSTIFICANTE.map((tipo) => `<option value="${tipo}" ${datos.tipo === tipo ? "selected" : ""}>${TIPOS_ETIQUETA[tipo]}</option>`).join("")}</select></label><label>${textoPortal("txt_referencia_del_documento_en_su_custodia")} <input name="referencia" required minlength="2" maxlength="240" value="${escaparHTML(datos.referencia || "")}"></label>${renderizarCampoHuellaArchivo({ id: "b8-justificante-archivo", nombre: "sha256", huella: datos.sha256, escapar: escaparHTML })}`
         : `<label>${textoPortal("txt_persona_validadora")} <input name="validador" required minlength="2" maxlength="200" value="${escaparHTML(datos.validador || "")}"></label>${exclusiones}`;
-  return `<form data-b8-form="operacion" data-b8-paso="${etapa}"><p><strong>${textoPortal("txt_operacion_seleccionada")}</strong> ${OPERACIONES[operacion]}</p><h5>${textoPortal("txt_paso_de_tres", { etapa, nombre: traducirPortal(etapa === 1 ? "txt_motivo" : etapa === 2 ? "txt_justificante" : "txt_validacion") })}</h5>${campos}<p class="mensaje-error" role="alert">${escaparHTML(estado.errorFormulario || "")}</p><div class="acciones-vista"><button type="button" class="boton-secundario" data-b8-accion="anterior" ${etapa === 1 || estado.enviando ? "disabled" : ""}>${textoPortal("txt_anterior")}</button><button type="submit" class="boton-primario" ${estado.enviando ? "disabled" : ""}>${estado.enviando ? traducirPortal("txt_registrando") : etapa < 3 ? traducirPortal("txt_continuar") : traducirPortal("txt_confirmar_operacion_nombre", { operacion: OPERACIONES[operacion] })}</button></div></form>`;
+  return `<form data-b8-form="operacion" data-b8-paso="${etapa}"><p><strong>${textoPortal("txt_operacion_seleccionada")}</strong> ${OPERACIONES[operacion]}</p><h5>${textoPortal("txt_paso_de_tres", { etapa, nombre: traducirPortal(etapa === 1 ? "txt_motivo" : etapa === 2 ? "txt_justificante" : "txt_validacion") })}</h5>${revision}${campos}<p class="mensaje-error" role="alert">${escaparHTML(estado.errorFormulario || "")}</p><div class="acciones-vista"><button type="button" class="boton-secundario" data-b8-accion="anterior" ${etapa === 1 || estado.enviando ? "disabled" : ""}>${textoPortal("txt_anterior")}</button><button type="submit" class="boton-primario" ${estado.enviando ? "disabled" : ""}>${estado.enviando ? traducirPortal("txt_registrando") : etapa < 3 ? traducirPortal("txt_continuar") : traducirPortal("txt_confirmar_operacion_nombre", { operacion: OPERACIONES[operacion] })}</button></div></form>`;
 }
 
 export function crearControladorOperacionesSituacion({ estado, renderizar, recargar, consultarReglas = consultarReglasSituacion }) {
@@ -232,6 +238,19 @@ export function crearControladorOperacionesSituacion({ estado, renderizar, recar
     } else if (control.dataset.b8Accion === "cancelar") {
       delete flujo.operacion; delete flujo.paso; delete flujo.formulario; delete flujo.clave; delete flujo.huella;
     } else if (control.dataset.b8Accion === "anterior") {
+      const formulario = control.closest?.('[data-b8-form="operacion"]');
+      if (formulario) {
+        const datos = new FormData(formulario);
+        if (flujo.paso === 3) flujo.formulario = { ...flujo.formulario, validador: String(datos.get("validador") || ""), confirma_validador_distinto: datos.has("confirma_validador_distinto") };
+        else if (flujo.paso === 2) flujo.formulario = { ...flujo.formulario, tipo: String(datos.get("tipo") || ""), referencia: String(datos.get("referencia") || ""), sha256: String(datos.get("sha256") || "") };
+        else {
+          const causa = datos.get("causa");
+          const motivo = String(datos.get("motivo") || "");
+          flujo.formulario = causa === null
+            ? { ...flujo.formulario, motivo }
+            : { ...flujo.formulario, causa: String(causa), detalle: motivo, motivo: motivoConCausa(flujo.causasBaja || [], String(causa), motivo) };
+        }
+      }
       flujo.paso = Math.max(1, Number(flujo.paso || 1) - 1);
     } else if (control.dataset.b8Accion === "reintentar") {
       void cargar(modal);
