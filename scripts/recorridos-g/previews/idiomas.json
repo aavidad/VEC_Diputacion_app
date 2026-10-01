@@ -1,5 +1,8 @@
 {
+  "por_defecto": "es",
+  "disponibles": {
   "es": {
+    "localizacion": "es-ES",
     "codigo": "es",
     "titulo_plan": "Plan preparado: ambas previews sintéticas y sus datos están presentes.",
     "dependencia": "Falta alguna preview o alguno de sus datos en la fuente indicada. Instale ambos cortes antes de ejecutar Chrome.",
@@ -8,12 +11,12 @@
     "texto_sintetico_catalogo": "Ejemplo de referencia; cuantías pendientes de confirmación por RRHH",
     "texto_limite_propuesta": "La propuesta está solo en esta sesión y no se ha registrado ni publicado.",
     "texto_reintentar": "Reintentar",
-    "texto_importe": "42,50",
     "texto_exportar": "Exportar",
     "texto_imprimir": "Imprimir",
     "texto_publicar": "Publicar tarifa"
   },
   "en": {
+    "localizacion": "en-GB",
     "codigo": "en",
     "titulo_plan": "Plan ready: both synthetic previews and their data are present.",
     "dependencia": "A preview or its data is missing from the selected source. Install both changes before opening Chrome.",
@@ -22,9 +25,9 @@
     "texto_sintetico_catalogo": "Reference example; amounts await HR confirmation",
     "texto_limite_propuesta": "This proposal exists only in this session. It has not been recorded or published.",
     "texto_reintentar": "Retry",
-    "texto_importe": "42.50",
     "texto_exportar": "Export",
     "texto_imprimir": "Print",
     "texto_publicar": "Publish rate"
+  }
   }
 }

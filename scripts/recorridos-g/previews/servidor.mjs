@@ -3,11 +3,9 @@ import path from 'node:path';
 import http from 'node:http';
 import { once } from 'node:events';
 
-const datos = new Set([
-  '/data/demo/dietas/informes.json',
-  '/data/demo/dietas/catalogo-rrhh.json',
-  '/data/catalogos/dietas/informes-ejemplo-v1.json',
-]);
+const casos = JSON.parse(fs.readFileSync(new URL('casos.json', import.meta.url), 'utf8'));
+const idiomas = JSON.parse(fs.readFileSync(new URL('idiomas.json', import.meta.url), 'utf8'));
+const datos = new Set(casos.datos);
 const extensiones = new Map([
   ['.html', 'text/html; charset=utf-8'], ['.js', 'text/javascript; charset=utf-8'],
   ['.css', 'text/css; charset=utf-8'], ['.json', 'application/json; charset=utf-8'],
@@ -24,6 +22,19 @@ export function ficheroPermitido(url) {
   if (!url.startsWith('/web/static/')) return null;
   const ext = path.extname(url).toLowerCase();
   return extensiones.has(ext) ? url.slice(1) : null;
+}
+
+export function peticionPermitida(raw, metodo, origen) {
+  let url;
+  try { url = new URL(raw, origen); } catch { return false; }
+  if (url.origin !== origen || metodo !== 'GET' || url.hash || !ficheroPermitido(url.pathname)) return false;
+  if (!url.search) return true;
+  if (Object.values(casos.paginas).includes(url.pathname)) {
+    const valor = url.searchParams.get('lang');
+    return url.searchParams.size === 1 && Object.hasOwn(idiomas.disponibles, valor)
+      && url.search === `?lang=${encodeURIComponent(valor)}`;
+  }
+  return url.pathname.startsWith('/web/static/') && /^\?v=[A-Za-z0-9._-]{1,80}$/u.test(url.search);
 }
 
 export function comprobarFuente(fuente, casos) {
@@ -55,13 +66,9 @@ export function crearServidor(fuente) {
   let peticiones = 0;
   let denegadas = 0;
   const servidor = http.createServer((req, res) => {
-    let url;
-    try { url = new URL(req.url, 'http://127.0.0.1'); } catch { url = null; }
-    const consultaIdioma = url && /^\?lang=(?:es|en)$/u.test(url.search)
-      && ['/web/static/portal-empleado/modulos/dietas/informes/index.html', '/web/static/portal-empleado/modulos/dietas/catalogo/index.html'].includes(url.pathname);
-    const version = url && url.pathname.startsWith('/web/static/') && /^\?v=[A-Za-z0-9._-]{1,80}$/u.test(url.search);
-    const relativo = req.method === 'GET' && url && (!url.search || consultaIdioma || version) && !url.hash
-      ? ficheroPermitido(url.pathname) : null;
+    const origen = `http://127.0.0.1:${servidor.address().port}`;
+    const relativo = peticionPermitida(req.url, req.method, origen)
+      ? ficheroPermitido(new URL(req.url, origen).pathname) : null;
     if (!relativo) { denegadas++; res.writeHead(403, { 'Cache-Control': 'no-store' }); res.end(); return; }
     const absoluto = path.join(fuente, relativo);
     try {
