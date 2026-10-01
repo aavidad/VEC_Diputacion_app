@@ -1,6 +1,6 @@
 import { crearTraductorSolicitudesCronos, formatearCantidadCronos, MENSAJES_CRONOS_SOLICITUDES } from "./i18n-solicitudes.js";
 import { ErrorClienteSolicitudesCronos, crearClienteSolicitudesCronosHTTP, validarPermisosPropiosCronos, validarEntradaPermisoCronos } from "./cliente-solicitudes-http.js";
-import { hoyCivilCronos } from "./vista-movimientos-propios.js?v=20261001-cronos-incidencias-v3";
+import { hoyCivilCronos } from "./vista-movimientos-propios.js?v=20261001-cronos-grafo-incidencias-v3";
 import { crearTraductorHistorialCronos, MENSAJES_HISTORIAL_CRONOS } from "./i18n-historial.js?v=20261001-cronos-historial-v1";
 import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
 

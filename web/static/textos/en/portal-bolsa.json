@@ -230,8 +230,8 @@
     "hito_exigibilidad": "Required at",
     "hitos": "Milestones and deadlines",
     "hitos_vacios": "No calendar milestones were returned.",
-    "documentos": "Documents of the terms",
-    "documentos_vacios": "No documents of the terms were returned.",
+    "documentos": "Recruitment terms documents",
+    "documentos_vacios": "No recruitment terms documents were returned.",
     "acciones": "Processing",
     "editar_bases": "Edit terms",
     "enviar_firma": "Send for signature",
@@ -289,11 +289,11 @@
     "cargando": "Checking the contact…",
     "error": "The contact could not be checked.",
     "denegado": "No permission to view the contact.",
-    "sin_contacto": "No contact recorded",
-    "propio": "Own contact",
+    "sin_contacto": "No contact details recorded",
+    "propio": "Own contact details",
     "origen_convoca": "From CONVOCA",
     "vigente_hasta": "Valid until {fecha}",
-    "no_confirmado": "Contact not confirmed",
+    "no_confirmado": "Contact details not confirmed",
     "vencido_el": "From CONVOCA; expired on {fecha}",
     "avisos_titulo": "Contacts to review",
     "aviso_no_confirmado": "{nombre}: contact from CONVOCA not confirmed since {fecha}. The email has been sent; a phone call is advisable.",
@@ -323,22 +323,22 @@
     "modalidad_general": "Other type",
     "modalidad_acumulacion_tareas": "Workload increase",
     "modalidad_meses": "{modalidad} ({meses} months)",
-    "propuesta": "Proposed date: {meses} months from date to date ({procedencia}).",
+    "propuesta": "Proposed date: {meses} calendar months, counted to the corresponding calendar date ({procedencia}).",
     "procedencia_reglamento": "Regulation, {articulo}",
     "procedencia_ejemplo": "working criterion",
-    "regla_ejemplo": "Includes an example part pending with HR.",
+    "regla_ejemplo": "Includes an example rule awaiting HR confirmation.",
     "propuesta_pasada": "The date has already passed: choose “Available”.",
     "propuesta_no_disponible": "No proposal: enter the date manually.",
-    "causa_baja": "Reason for leaving",
+    "causa_baja": "Reason for removal",
     "causa_elegir": "Select a reason",
     "causa_otro": "Other reason",
     "causa_detalle": "Details",
-    "causa_incompleta": "Choose a reason; with “Other reason”, write the reason (up to 1000 characters).",
+    "causa_incompleta": "Choose a reason. If you select “Other reason”, describe it in up to 1000 characters.",
     "motivo_causa": "{causa} ({procedencia})"
   },
   "areaPersonal": {
     "miBolsa": {
-      "rolPortal": "My pool and call-ups"
+      "rolPortal": "My job pool and call-ups"
     }
   }
 }

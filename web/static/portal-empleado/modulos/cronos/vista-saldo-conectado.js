@@ -1,6 +1,6 @@
 import { crearTraductorCronos, MENSAJES_CRONOS } from "./i18n.js?v=20260929-i18n-textos-v1";
 import { ErrorClienteSaldoCronos, validarConsultaSaldoCronos, validarResultadoSaldoCronos } from "./cliente-saldo-http.js";
-import { crearTraductorConsultaCronos, MENSAJES_CONSULTA_CRONOS } from "./i18n-consulta.js?v=20261001-cronos-saldo-v2";
+import { crearTraductorConsultaCronos, MENSAJES_CONSULTA_CRONOS } from "./i18n-consulta.js?v=20261001-cronos-grafo-incidencias-v3";
 import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
 
 const PERIODOS = ["hoy", "semana", "mes", "anio", "rango"];

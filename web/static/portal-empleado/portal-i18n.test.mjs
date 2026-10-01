@@ -5,7 +5,9 @@ import {
   cargarMensajesPortal,
   crearTraductorPortal,
   MENSAJES_PORTAL,
-} from "./portal-i18n.js";
+} from "./portal-i18n.js?v=20261001-codexf-ct-catalogos-v1";
+
+import { versionDe } from "./versiones-cache.test-helper.mjs";
 
 const MENSAJES_PORTAL_INGLES = await cargarMensajesPortal("en");
 
@@ -51,28 +53,43 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   const raiz = new URL("./", import.meta.url);
   const anteriores = ["20260928-ppt-503-v6", "20260928-auditoria-expediente-en-v1", "20260928-auditoria-expediente-en-v2", "20260929-pref-508a-v2", "20260929-firma-506-v1", "20260929-firma-506-v2", "20260929-auditoria-legible-v1", "20260929-sondeo-opcional-507", "20260929-plazas-306-v1", "20260929-i18n-shell-v1"];
   // El shell pasó sus textos a `textos/<idioma>/portal*.json` (integrado con 5.06, 5.07, 3.06 y 4.11): todo su grafo renueva URL.
-  const vigente = "20260930-portales-i18n-integracion-v1";
+  const vigente = "20261001-codexf-ct-catalogos-v1";
   const versionBolsaTurno = "20260930-bolsa-turno-v2";
   const versionTemas = "20260930-codexf-temas-v2";
+  const entrada = await readFile(new URL("index.html", raiz), "utf8");
+  const coordinador = await readFile(new URL("portal-modulos-coordinador.js", raiz), "utf8");
+  const recorridosDietas = await readFile(new URL("modulos/dietas/vista-recorridos.js", raiz), "utf8");
   const versionesEspeciales = new Map([
-    ["modulos/bolsa/rrhh-plazos-ui.js", "20260930-ofertas-reglas-integradas-v4"],
-    ["portal-inicio.js", "20261001-rpt-categorias-v1"],
+    ["modulos/cronos/vista-permisos-propios.js", "20261001-cronos-grafo-incidencias-v3"],
+    ["modulos/cronos/vista-movimientos-propios.js", "20261001-cronos-grafo-incidencias-v3"],
+    ["modulos/cronos/i18n-incidencias.js", "20261001-cronos-grafo-incidencias-v3"],
+    ["modulos/cronos/i18n-consulta.js", "20261001-cronos-grafo-incidencias-v3"],
+    ["portal-composicion-empleado.js", "20261001-cronos-grafo-incidencias-v3"],
+    ["modulos/cronos/vista-saldo-conectado.js", "20261001-cronos-grafo-incidencias-v3"],
+    ["modulos/cronos/vista-remoto.js", "20261001-cronos-grafo-incidencias-v3"],
+    ["modulos/cronos/vista-movimientos-conectado.js", "20261001-cronos-grafo-incidencias-v3"],
+    ["modulos/cronos/i18n-fichaje.js", "20261001-cronos-grafo-incidencias-v3"],
+    ["modulos/bolsa/rrhh-plazos-ui.js", "20261001-codexf-ct-catalogos-v1"],
+    ["portal-inicio.js", "20261001-codexf-ct-catalogos-v1"],
     // 5.06, segundo corte: el circuito de firma trae el estado de Firmadoc.
     // Reglas vigentes: el detalle de cada regla y sus textos en catálogos renuevan el enlace del panel.
     // Nuevo llamamiento: el campo «Resumen de la preparación» usa la etiqueta encima y el campo a lo ancho.
-    ["portal.js", "20261001-cronos-incidencias-v3"],
-    ["portal-preferencias-integracion.js", versionTemas],
-    ["portal-preferencias.js", versionTemas],
+    ["portal.js", "20261001-cronos-grafo-incidencias-v3"],
+    ["portal-vistas-utilidades.js", "20261001-codexf-ct-catalogos-v1"],
+    ["portal-preferencias-integracion.js", "20261001-codexf-ct-catalogos-v1"],
+    ["portal-preferencias.js", "20261001-codexf-ct-catalogos-v1"],
     ["portal-preferencias-api.js", versionTemas],
-    ["portal-borrador-llamamiento-ui.js", "20260930-bolsa-resumen-llamamiento-v1"],
-    ["portal-panel-interno.js", versionBolsaTurno],
-    ["portal-bolsas-api.js", versionBolsaTurno],
-    ["portal-bolsas-contrato.js", versionBolsaTurno],
-    ["portal-llamamientos-operaciones-api.js", versionBolsaTurno],
-    ["reglas/enlace.js", "20260930-portales-i18n-integracion-v1"],
-    ["portal-modulos-coordinador.js", "20261001-cronos-incidencias-v3"],
-    ["modulos/contratacion-temporal/vista-expedientes.js", "20260930-ct-lista-recuperada-v2"],
-    ["modulos/contratacion-temporal/circuito-firma.js", "20260930-portales-i18n-integracion-v1"],
+    ["portal-borrador-llamamiento-ui.js", "20261001-codexf-ct-catalogos-v1"],
+    ["portal-panel-interno.js", "20261001-codexf-ct-catalogos-v1"],
+    ["portal-bolsas-api.js", "20261001-codexf-ct-catalogos-v1"],
+    ["portal-bolsas-contrato.js", "20261001-codexf-ct-catalogos-v1"],
+    ["portal-llamamientos-operaciones-api.js", "20261001-codexf-ct-catalogos-v1"],
+    ["reglas/enlace.js", "20261001-codexf-ct-catalogos-v1"],
+    ["portal-modulos-coordinador.js", "20261001-cronos-grafo-incidencias-v3"],
+    ["modulos/dietas/vista-recorridos.js", "20261001-codexf-ct-catalogos-v1"],
+    ["modulos/dietas/vista-bandeja-circuito.js", "20261001-codexf-ct-catalogos-v1"],
+    ["modulos/contratacion-temporal/vista-expedientes.js", "20261001-codexf-ct-catalogos-v1"],
+    ["modulos/contratacion-temporal/circuito-firma.js", "20261001-codexf-ct-catalogos-v1"],
   ]);
   const archivos = ["index.html"];
   const pendientes = [""];

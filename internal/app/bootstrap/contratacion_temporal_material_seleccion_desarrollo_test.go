@@ -6,6 +6,9 @@ import (
 	"testing"
 
 	"vec-diputacion-granada/config"
+	bolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
+	ct "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	personal "vec-diputacion-granada/internal/modules/personal/domain"
 )
 
 // seleccionMaterialCTCompletaDesarrollo enciende todos los consumidores.
@@ -15,7 +18,7 @@ func seleccionMaterialCTCompletaDesarrollo() seleccionMaterialCTDesarrollo {
 		borradoresBolsa: true, miBolsa: true, portalCandidato: true,
 		dietas: true, cronos: true, documentos: true, cronosResolucion: true, cronosAvisos: true,
 		fichaPropiaPersonal: true, firmaDocumento: true, seguimientoCese: true, personalB2: true, cancelacion: true,
-		incorporacionAcreditada: true, reincorporacionTitular: true, politicaOfertas: true,
+		incorporacionAcreditada: true, incorporacionB2: true, reincorporacionTitular: true, politicaOfertas: true,
 		plantillasCatalogo: true, plantillasDocumental: true,
 	}
 }
@@ -41,6 +44,29 @@ func TestAudienciasSeleccionCompletaPublicablesPorElGobiernoCT(t *testing.T) {
 	}
 	if _, err := nuevoCatalogoMaterialAutorizacionComunDesarrollo(descriptores); err != nil {
 		t.Fatal("la selección completa colisiona en el catálogo común", err)
+	}
+}
+
+func TestIncorporacionB2PublicaSoloCincoAudienciasNominales(t *testing.T) {
+	esperadas := map[string]bool{
+		bolsa.AudienciaConsultaAnclajeAceptacionCT: true,
+		personal.AudienciaPlanIncorporacionCT:      true,
+		ct.AudienciaRegistrarPlanNominalB2:         true,
+		ct.AudienciaLeerPlanNominalB2:              true,
+		ct.AudienciaConfirmarOrigenB2:              true,
+	}
+	nuevas := descriptoresMaterialIncorporacionB2()
+	if len(nuevas) != len(esperadas) {
+		t.Fatalf("audiencias B2: %d", len(nuevas))
+	}
+	for _, d := range nuevas {
+		if !esperadas[d.Audiencia] || !audienciaConsumoGobiernoPostgreSQLContratacionTemporalDesarrolloEsPropia(d.Audiencia) {
+			t.Fatalf("audiencia B2 inesperada o no gobernada: %s", d.Audiencia)
+		}
+		delete(esperadas, d.Audiencia)
+	}
+	if len(esperadas) != 0 || audienciaConsumoGobiernoPostgreSQLContratacionTemporalDesarrolloEsPropia("vec_contratacion_temporal.incorporacion_personal.ajena.v1") {
+		t.Fatal("lista de audiencias B2 abierta o incompleta")
 	}
 }
 

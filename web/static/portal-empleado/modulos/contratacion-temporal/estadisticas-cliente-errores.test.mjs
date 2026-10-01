@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { consultarEstadisticas } from "./cliente-http-estadisticas.js";
+import { consultarEstadisticas } from "./cliente-http-estadisticas.js?v=20261001-codexf-ct-catalogos-v1";
 
 const detallePrivado = "DSN privado: postgres://usuario:secreto@interno";
 

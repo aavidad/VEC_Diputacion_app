@@ -84,6 +84,32 @@ func TestResolutorDevuelveReglaTipadaConReferenciaYHuella(t *testing.T) {
 	}
 }
 
+func TestReglaEjemploSustitucionVersionadaYRetirable(t *testing.T) {
+	const clave = "c24.sustitucion_reserva_retorno_ejemplo"
+	if _, err := resolutorReal(t, rutaReglasCTPrueba, CatalogoContratacionTemporal, ModuloContratacionTemporal, nil).Regla(t.Context(), clave); !errors.Is(err, ErrReglaNoEncontrada) {
+		t.Fatalf("la versión anterior debe conservarse sin el ejemplo nuevo: %v", err)
+	}
+	consulta, err := fichero.NuevaConsultaCatalogos("../../../data/demo/reglas/ct_reglas.ejemplo.demo.v2.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resolutor, err := NuevoResolutor(Configuracion{
+		Consulta: consulta, Metadatos: consulta, CatalogoID: CatalogoContratacionTemporal,
+		ModuloID:      ModuloContratacionTemporal,
+		Reloj:         relojFijo(time.Date(2026, 10, 1, 8, 0, 0, 0, time.UTC)),
+		MunicipioSede: MunicipioSedeDiputacion,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	regla, err := resolutor.Regla(t.Context(), clave)
+	if err != nil || regla.Referencia != "vec.contratacion_temporal.reglas:2:"+clave ||
+		!regla.EsEjemplo() || regla.Atributos["retirable"] != "si" ||
+		regla.Atributos["documento_retorno_titular"] != "pendiente_rrhh" {
+		t.Fatalf("ejemplo versionado inesperado: %+v, %v", regla, err)
+	}
+}
+
 func TestResolutorResuelveTodasLasClavesPublicadas(t *testing.T) {
 	casos := []struct {
 		ruta, catalogo, modulo string
