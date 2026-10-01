@@ -4,6 +4,135 @@ import { iniciarI18nAreaPersonal, traducir } from "./i18n.js";
 import { cuerpoPortalMiBolsa, enviarPortalMiBolsa, renderizarPortalMiBolsa } from "./mi-bolsa-portal.js";
 import { catalogoPlano, lectorCatalogos } from "./textos-prueba.test-helper.mjs";
 
+const huella = "a".repeat(64);
+const oferta = `oferta:${huella}`;
+const bolsa = "bolsa:demo:1";
+const escenarios = [
+  { accion: "solicitar", dataset: { tipo: "reactivacion", bolsa }, tipo: "solicitud", referencia: `solicitud-portal:${huella}`, prefijo: "solicitud-portal", estado: "pendiente_rrhh" },
+  { accion: "responder", dataset: { bolsa }, tipo: "respuesta", referencia: `respuesta-portal:${huella}`, prefijo: "respuesta-portal", estado: "propuesta_rrhh" },
+  { accion: "disposicion", dataset: { oferta }, tipo: "disposicion", referencia: oferta, prefijo: "disposicion", estado: "manifestada" },
+  { accion: "contacto", dataset: { bolsa, version: "3" }, tipo: "contacto", referencia: bolsa, prefijo: "confirmacion-contacto", estado: "confirmado" },
+];
+
+function reciboDe(escenario, repetida = false) {
+  return { data: {
+    esquema: `vec.bolsa.mi-bolsa.${escenario.tipo}.v1`, referencia: escenario.referencia,
+    recibo: `recibo:${escenario.prefijo}:${huella}`, registrada_en: "2026-10-01T08:00:00.000000Z",
+    estado: escenario.estado, repetida,
+  } };
+}
+
+function formularioDe(escenario) {
+  const zona = { textContent: "" };
+  const boton = { disabled: false };
+  return { dataset: { portalMiBolsa: escenario.accion, ...escenario.dataset }, zona, boton,
+    querySelector: (selector) => selector === "[data-portal-resultado]" ? zona : boton };
+}
+
+function datosDe() {
+  const datos = new FormData();
+  datos.set("respuesta", "acepta");
+  return datos;
+}
+
+test("solo confirma los cuatro recibos completos y su recuperación HTTP", async (t) => {
+  for (const escenario of escenarios) {
+    for (const status of [201, 200]) await t.test(`${escenario.accion}: ${status}`, async () => {
+      const formulario = formularioDe(escenario);
+      let confirmaciones = 0;
+      const recibo = reciboDe(escenario, status === 200);
+      assert.equal(await enviarPortalMiBolsa(formulario, { datos: datosDe(), alRegistrar: () => confirmaciones++,
+        fetchImpl: async () => ({ status, json: async () => recibo }) }), true);
+      assert.equal(confirmaciones, 1);
+      assert.ok(formulario.zona.textContent.includes(recibo.data.recibo));
+      assert.equal(formulario.boton.disabled, false);
+    });
+  }
+});
+
+test("un 200/201 sin recibo válido queda incierto en los dos idiomas sin recargar ni reenviar", async (t) => {
+  for (const idioma of ["es", "en"]) {
+    await iniciarI18nAreaPersonal({ documentElement: {}, querySelectorAll: () => [] }, {
+      leer: lectorCatalogos(), ubicacion: { href: `https://vec.example/area-personal/?lang=${idioma}` },
+    });
+    const catalogo = await catalogoPlano(idioma);
+    for (const escenario of escenarios) {
+      const valido = reciboDe(escenario);
+      const invalidos = [null, {}, { data: [] }, { data: { recibo: valido.data.recibo } },
+        ...["esquema", "referencia", "recibo", "registrada_en", "estado", "repetida"].map((campo) => {
+          const copia = structuredClone(valido); delete copia.data[campo]; return copia;
+        }),
+        { data: { ...valido.data, recibo: " " } }, { data: { ...valido.data, recibo: 42 } },
+        { data: { ...valido.data, esquema: "vec.bolsa.area-personal.recibo.v1" } },
+        { data: { ...valido.data, referencia: escenario.accion === "disposicion" ? `oferta:${"b".repeat(64)}` : "bolsa:ajena" } },
+        { data: { ...valido.data, estado: "desconocido" } },
+        { data: { ...valido.data, registrada_en: "fecha no válida" } },
+        { data: { ...valido.data, repetida: true } },
+        { data: { ...valido.data, vence_antes_de: "fecha no válida" } },
+      ];
+      for (const [indice, invalido] of invalidos.entries()) await t.test(`${idioma}/${escenario.accion}/${indice}`, async () => {
+        const formulario = formularioDe(escenario);
+        let envios = 0, confirmaciones = 0;
+        assert.equal(await enviarPortalMiBolsa(formulario, { datos: datosDe(), alRegistrar: () => confirmaciones++,
+          fetchImpl: async () => { envios++; return { status: 201, json: async () => invalido }; } }), false);
+        assert.equal(formulario.zona.textContent, catalogo["areaPersonal.portal.error.servicio_no_disponible"]);
+        assert.equal(formulario.boton.disabled, false);
+        assert.equal(confirmaciones, 0);
+        assert.equal(envios, 1);
+      });
+    }
+    const formulario = formularioDe(escenarios[0]);
+    assert.equal(await enviarPortalMiBolsa(formulario, { datos: datosDe(), fetchImpl: async () => ({ status: 200,
+      json: async () => { throw new SyntaxError(); } }) }), false);
+    assert.equal(formulario.zona.textContent, catalogo["areaPersonal.portal.error.servicio_no_disponible"]);
+  }
+});
+
+test("el reintento explícito conserva bolsa, versión y clave después de un recibo incompleto", async () => {
+  const escenario = escenarios[3];
+  const formulario = formularioDe(escenario);
+  const enviadas = [];
+  let confirmaciones = 0;
+  const fetchImpl = async (_ruta, opciones) => {
+    enviadas.push(opciones.body);
+    return { status: enviadas.length === 1 ? 201 : 200,
+      json: async () => enviadas.length === 1 ? {} : reciboDe(escenario, true) };
+  };
+  const dependencias = { datos: datosDe(), fetchImpl, alRegistrar: () => confirmaciones++ };
+  assert.equal(await enviarPortalMiBolsa(formulario, dependencias), false);
+  formulario.dataset.bolsa = "bolsa:otra";
+  formulario.dataset.version = "9";
+  assert.equal(await enviarPortalMiBolsa(formulario, dependencias), true);
+  assert.equal(enviadas[1], enviadas[0]);
+  assert.equal(JSON.parse(enviadas[1]).version, 3);
+  assert.equal(confirmaciones, 1);
+});
+
+test("un corte conserva respuesta y justificante originales sin un segundo envío concurrente", async () => {
+  const formulario = formularioDe(escenarios[1]);
+  const datos = new FormData();
+  datos.set("respuesta", "renuncia_justificada"); datos.set("causa", "enfermedad");
+  datos.set("justificante_ref", "documento:demo:1"); datos.set("justificante", new Blob(["abc"]));
+  const enviadas = [];
+  let terminar;
+  const dependencias = { datos, fetchImpl: async (_ruta, opciones) => {
+    enviadas.push(opciones.body);
+    await new Promise((resolver) => { terminar = resolver; });
+    throw new TypeError();
+  } };
+  const primera = enviarPortalMiBolsa(formulario, dependencias);
+  assert.equal(await enviarPortalMiBolsa(formulario, dependencias), false);
+  while (!terminar) await new Promise((resolver) => setImmediate(resolver));
+  terminar();
+  assert.equal(await primera, false);
+  assert.equal(enviadas.length, 1);
+  datos.set("respuesta", "acepta"); datos.set("justificante_ref", "documento:otro");
+  assert.equal(await enviarPortalMiBolsa(formulario, { datos, fetchImpl: async (_ruta, opciones) => {
+    enviadas.push(opciones.body); return { status: 200, json: async () => reciboDe(escenarios[1], true) };
+  } }), true);
+  assert.equal(enviadas[1], enviadas[0]);
+});
+
 test("Mi bolsa explica el resultado incierto y el límite del justificante en ambos idiomas", async (t) => {
   for (const idioma of ["es", "en"]) {
     const documento = { documentElement: { lang: idioma }, querySelectorAll: () => [] };
