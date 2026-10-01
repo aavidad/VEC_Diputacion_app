@@ -1,0 +1,94 @@
+{
+  "presentacion": {
+    "persona": "Antonio López Fernández",
+    "actualizado": "20 September 2026 · 09:30",
+    "tramites": {
+      "item_0": {
+        "id": "SOL-2026-00184",
+        "tipo": "Recognition of prior service",
+        "categoria": "Personnel",
+        "fecha": "17/09/2026",
+        "estado": "Under review",
+        "unidad": "Personnel Service",
+        "paso": "Document checks",
+        "descripcion": "Request to include service in another public administration."
+      },
+      "item_1": {
+        "id": "SOL-2026-00167",
+        "tipo": "Leave for a medical appointment",
+        "categoria": "Cronos",
+        "fecha": "12/09/2026",
+        "estado": "Awaiting corrections",
+        "unidad": "Head of Area",
+        "paso": "Provide supporting evidence",
+        "descripcion": "The evidence of attendance requested by the processing unit is missing."
+      },
+      "item_2": {
+        "id": "SOL-2026-00121",
+        "tipo": "Social assistance application",
+        "categoria": "Remuneration",
+        "fecha": "03/09/2026",
+        "estado": "Registered",
+        "unidad": "Payroll Section",
+        "paso": "Submission registered",
+        "descripcion": "Application included in the annual social assistance call."
+      },
+      "item_3": {
+        "id": "SOL-2026-00098",
+        "tipo": "Certificate of service",
+        "categoria": "Certificates",
+        "fecha": "28/08/2026",
+        "estado": "Completed",
+        "unidad": "Personnel Service",
+        "paso": "Document available",
+        "descripcion": "Certificate awaiting connection to the document repository."
+      }
+    },
+    "catalogo": {
+      "item_0": {
+        "id": "servicios",
+        "titulo": "Prior service",
+        "texto": "Request recognition of service in another public administration.",
+        "etiqueta": "Personnel"
+      },
+      "item_1": {
+        "id": "permiso",
+        "titulo": "Leave and absences",
+        "texto": "Prepare a request for leave, absence or supporting evidence.",
+        "etiqueta": "Cronos"
+      },
+      "item_2": {
+        "id": "accion-social",
+        "titulo": "Social assistance",
+        "texto": "View and prepare applications for assistance calls.",
+        "etiqueta": "Remuneration"
+      },
+      "item_3": {
+        "id": "compatibilidad",
+        "titulo": "Permission for a second activity",
+        "texto": "Start a request for permission to undertake a second activity.",
+        "etiqueta": "Personnel"
+      }
+    },
+    "certificados": {
+      "item_0": {
+        "tipo": "Service history",
+        "alcance": "Service history and periods",
+        "estado": "Available once connected",
+        "referencia": "CERT-2026-041"
+      },
+      "item_1": {
+        "tipo": "Administrative status",
+        "alcance": "Status on the issue date",
+        "estado": "Awaiting validation",
+        "referencia": "CERT-2026-039"
+      },
+      "item_2": {
+        "tipo": "Withholdings and income",
+        "alcance": "Financial year 2025",
+        "estado": "Available once connected",
+        "referencia": "CERT-2026-031"
+      }
+    }
+  }
+}

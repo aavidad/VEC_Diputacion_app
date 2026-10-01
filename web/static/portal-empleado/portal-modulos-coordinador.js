@@ -15,7 +15,7 @@ import {
   componerDietasInternas,
   componerPersonalVisible,
   componerRegistroPersonal,
-} from "./portal-composicion-empleado.js?v=20261001-codexg-i03-v2";
+} from "./portal-composicion-empleado.js?v=20261001-codexg-i03-v3";
 import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20261001-ct-a-i18n-v1";
 import {
   CLAVES_CARGA_MODULAR,
@@ -127,7 +127,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
       import("./modulos/personal/cliente-http-rpt-publica.js?v=20260925-portal-integrado-v1"),
       import("./modulos/personal/vista-rpt-publica.js?v=20260929-i18n-personal-v1"),
       import("./modulos/personal/cliente-http-estructura-organizativa-publica.js?v=20260925-portal-integrado-v1"),
-      import("./modulos/personal/vista-estructura-organizativa-publica.js?v=20260929-i18n-personal-v1"),
+      import("./modulos/personal/vista-estructura-organizativa-publica.js?v=20261001-b-org-sync-v3"),
     ]);
     return Object.freeze({ clienteRPT, vistaRPT, clienteEstructura, vistaEstructura });
   },
@@ -216,8 +216,8 @@ export function crearCoordinadorModulosPortal({
   cargadoresInternos = CARGADORES_INTERNOS_PREDETERMINADOS,
   cargarTramitesPropios = async () => {
     const [fuente, vista] = await Promise.all([
-      import("./modulos/solicitudes/fuente-tramites-propios.js?v=20261001-codexg-i03-v2"),
-      import("./modulos/solicitudes/vista-tramites-propios.js?v=20261001-codexg-i03-v2"),
+      import("./modulos/solicitudes/fuente-tramites-propios.js?v=20261001-codexg-i03-v3"),
+      import("./modulos/solicitudes/vista-tramites-propios.js?v=20261001-codexg-i03-v3"),
     ]);
     return { fuente, vista };
   },
