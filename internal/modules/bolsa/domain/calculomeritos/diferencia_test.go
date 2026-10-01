@@ -148,3 +148,32 @@ func TestClavesRenombradasSonBajaYAlta(t *testing.T) {
 		t.Fatalf("renombre inferido: %+v", d.Cambios)
 	}
 }
+
+func TestDiferenciaNoPermiteSuplantarLasInstantaneas(t *testing.T) {
+	for _, caso := range []string{"catalogo_suplanta_anterior", "catalogo_suplanta_nuevo", "anterior_suplanta_nuevo"} {
+		t.Run(caso, func(t *testing.T) {
+			a, n := parejaComparacion(t)
+			dependencia := Dependencia{n.Referencia, n.Version, strings.Repeat("f", 64)}
+			switch caso {
+			case "catalogo_suplanta_anterior":
+				dependencia.Version = a.Version
+				n.Reglas[0].Catalogo = dependencia
+			case "catalogo_suplanta_nuevo":
+				n.Reglas[0].Catalogo = dependencia
+			case "anterior_suplanta_nuevo":
+				a.Reglas[0].Catalogo = dependencia
+			}
+			if err := a.Validar(); err != nil {
+				t.Fatal(err)
+			}
+			if err := n.Validar(); err != nil {
+				t.Fatal(err)
+			}
+			d, err := CompararConjuntos(a, n)
+			fallo, ok := err.(*Error)
+			if !ok || fallo.Codigo != "dependencia_contradictoria" || d.Esquema != "" || len(d.Cambios) != 0 {
+				t.Fatalf("instantanea suplantada: esquema=%q cambios=%d error=%v", d.Esquema, len(d.Cambios), err)
+			}
+		})
+	}
+}

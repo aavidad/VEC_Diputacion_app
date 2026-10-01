@@ -47,7 +47,10 @@ func CompararConjuntos(anterior, nuevo Conjunto) (DiferenciaReglas, error) {
 	if nuevo.Version == anterior.Version && !bytes.Equal(a, n) {
 		return DiferenciaReglas{}, fallo("version_contradictoria")
 	}
-	dependencias := []Dependencia{}
+	dependencias := []Dependencia{
+		{anterior.Referencia, anterior.Version, HuellaSHA256(a)},
+		{nuevo.Referencia, nuevo.Version, HuellaSHA256(n)},
+	}
 	for _, c := range []Conjunto{anterior, nuevo} {
 		dependencias = append(dependencias, c.Bases)
 		for _, s := range c.Secciones {
