@@ -79,6 +79,7 @@ func TestKilometrajeRevisionLimiteRedondeo(t *testing.T) {
 		t.Fatal("pierde original o snapshot anterior")
 	}
 	e.Documento.Lineas[1].Kilometros = "0.0200"
+	e.Documento.Lineas[1].KilometrosBase = "0.0200"
 	e.Documento.Lineas[1].ImporteCentimos = 1
 	e.Documento.KilometrajeCentimos = 1
 	e.Documento.TotalOrientativoCentimos = 1871
@@ -89,6 +90,7 @@ func TestKilometrajeRevisionLimiteRedondeo(t *testing.T) {
 		t.Fatal("medio centimo no redondeado arriba", err)
 	}
 	e.Documento.Lineas[1].Kilometros = "0.0199"
+	e.Documento.Lineas[1].KilometrosBase = "0.0199"
 	e.DocumentoSHA256, _ = domain.HuellaDatosLiquidacion(e.Documento)
 	if _, err := Preparar(e); err == nil {
 		t.Fatal("importe propuesto superior al redondeo")
