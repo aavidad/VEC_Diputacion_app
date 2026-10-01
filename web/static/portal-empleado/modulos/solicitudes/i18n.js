@@ -3,8 +3,6 @@ import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
 const { cargarTextos, crearTextos } = await import("../../../comun/textos.js");
 const textos = await cargarTextos("solicitudes");
 export const MENSAJES_SOLICITUDES = textos.seccion("general");
-// Compatibilidad con consumidores anteriores; el contenido usa el idioma actual.
-export const MENSAJES_SOLICITUDES_ES = MENSAJES_SOLICITUDES;
 const CLAVES = Object.freeze(Object.keys(MENSAJES_SOLICITUDES));
 
 export function crearTraductorSolicitudes(catalogo = MENSAJES_SOLICITUDES, localizacion = LOCALIZACION_ACTUAL) {

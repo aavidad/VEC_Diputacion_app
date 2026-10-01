@@ -65,3 +65,20 @@ test("las hojas de Solicitudes usan catálogos comunes sin diccionarios ni idiom
     assert.doesNotMatch(codigo, /titulo:\s*["']|localStorage|sessionStorage|document\.cookie|indexedDB/);
   }
 });
+
+test("los ejemplos conservan sus referencias y permanecen fuera de la fuente de consulta", async () => {
+  const { DATOS_SOLICITUDES_PRESENTACION: ejemplos } = await import("./datos-presentacion.js");
+  assert.deepEqual(ejemplos.tramites.map(({ id, fecha }) => [id, fecha]), [
+    ["SOL-2026-00184", "17/09/2026"], ["SOL-2026-00167", "12/09/2026"],
+    ["SOL-2026-00121", "03/09/2026"], ["SOL-2026-00098", "28/08/2026"],
+  ]);
+  assert.deepEqual(ejemplos.catalogo.map(({ id }) => id), ["servicios", "permiso", "accion-social", "compatibilidad"]);
+  assert.deepEqual(ejemplos.certificados.map(({ referencia }) => referencia), ["CERT-2026-041", "CERT-2026-039", "CERT-2026-031"]);
+  for (const valor of [ejemplos, ejemplos.tramites, ejemplos.catalogo, ejemplos.certificados, ...ejemplos.tramites, ...ejemplos.catalogo, ...ejemplos.certificados]) assert.ok(Object.isFrozen(valor));
+  for (const { codigo } of INDICE_IDIOMAS.idiomas) {
+    const textos = await cargarTextos("solicitudes-ejemplos", { idioma: codigo });
+    assert.deepEqual(textos.faltantes, []);
+    assert.ok(textos.traducir("presentacion.tramites.item_0.tipo"));
+  }
+  assert.doesNotMatch(renderizarSolicitudes(), /SOL-2026|CERT-2026|Antonio López/);
+});
