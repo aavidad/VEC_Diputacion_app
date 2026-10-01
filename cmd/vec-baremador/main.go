@@ -1,6 +1,9 @@
 package main
 
 import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -10,6 +13,9 @@ import (
 	"syscall"
 
 	"vec-diputacion-granada/internal/modules/bolsa/application/simulacionbaremo"
+	"vec-diputacion-granada/internal/modules/provision/adapters/simulacion"
+	"vec-diputacion-granada/internal/modules/provision/application"
+	"vec-diputacion-granada/internal/modules/provision/domain"
 )
 
 const maximoBytesArchivo = 16 * 1024 * 1024
@@ -24,11 +30,19 @@ func ejecutar(args []string, salida, diagnostico io.Writer, servicio simulacionb
 	huellaReglas := flags.String("reglas-sha256", "", "")
 	entrada := flags.String("entrada", "", "")
 	huellaEntrada := flags.String("entrada-sha256", "", "")
+	ejemplo := flags.String("ejemplo", "", "")
+	listar := flags.Bool("listar-ejemplos", false, "")
 	limite := flags.Int64("limite-bytes", maximoBytesArchivo, "")
 	if err := flags.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return diagnosticar(diagnostico, "uso", "modo,reglas,reglas-sha256,entrada,entrada-sha256,limite-bytes", 0)
 		}
+		return diagnosticar(diagnostico, "argumentos_invalidos", "", 2)
+	}
+	if *modo == "concursos" {
+		return ejecutarConcursos(salida, diagnostico, *ejemplo, *listar, *reglas, *huellaReglas, *entrada, *huellaEntrada, *limite, flags.NArg())
+	}
+	if *ejemplo != "" || *listar {
 		return diagnosticar(diagnostico, "argumentos_invalidos", "", 2)
 	}
 	if (*modo != "experiencia" && *modo != "meritos") || flags.NArg() != 0 || *reglas == "" || *entrada == "" || *huellaReglas == "" || *huellaEntrada == "" || *limite <= 0 || *limite > maximoBytesArchivo {
@@ -124,4 +138,73 @@ func diagnosticar(salida io.Writer, codigo, fase string, retorno int) int {
 		return 2
 	}
 	return retorno
+}
+
+func ejecutarConcursos(salida, diagnostico io.Writer, ejemplo string, listar bool, rutaReglas, shaReglas, rutaEntrada, shaEntrada string, limite int64, nArg int) int {
+	if nArg != 0 || limite <= 0 || limite > maximoBytesArchivo || ((ejemplo != "" || listar) && (rutaReglas != "" || rutaEntrada != "" || shaReglas != "" || shaEntrada != "")) || (ejemplo != "" && listar) {
+		return diagnosticar(diagnostico, "argumentos_invalidos", "concursos", 2)
+	}
+	var c domain.Configuracion
+	var e domain.Entrada
+	if listar || ejemplo != "" {
+		ejemplos, err := simulacion.Ejemplos()
+		if err != nil {
+			return diagnosticar(diagnostico, "ejemplos_invalidos", "concursos", 2)
+		}
+		if listar {
+			return emitirConcursos(salida, diagnostico, ejemplos)
+		}
+		encontrado := false
+		for _, x := range ejemplos {
+			if x.Referencia == ejemplo {
+				c, e = x.Configuracion, x.Entrada
+				encontrado = true
+				break
+			}
+		}
+		if !encontrado {
+			return diagnosticar(diagnostico, "ejemplo_inexistente", "concursos", 2)
+		}
+	} else {
+		if rutaReglas == "" || shaReglas == "" || rutaEntrada == "" || shaEntrada == "" {
+			return diagnosticar(diagnostico, "argumentos_invalidos", "concursos", 2)
+		}
+		for _, x := range []struct {
+			ruta, sha, campo string
+			destino          any
+		}{{rutaReglas, shaReglas, "reglas", &c}, {rutaEntrada, shaEntrada, "entrada", &e}} {
+			datos, err := leerArchivoLimitado(x.ruta, limite)
+			if err != nil {
+				return diagnosticar(diagnostico, "archivo_invalido", x.campo, 2)
+			}
+			suma := sha256.Sum256(datos)
+			if x.sha != hex.EncodeToString(suma[:]) {
+				return diagnosticar(diagnostico, "huella_invalida", x.campo, 2)
+			}
+			if err := simulacion.Decodificar(bytes.NewReader(datos), x.destino); err != nil {
+				return diagnosticar(diagnostico, "json_contrato_invalido", x.campo, 2)
+			}
+		}
+	}
+	resultado, err := application.Simular(c, e)
+	if err != nil {
+		campo := "calculo"
+		var nominal *domain.Error
+		if errors.As(err, &nominal) {
+			campo = nominal.Codigo + ":" + nominal.Campo
+		}
+		return diagnosticar(diagnostico, "simulacion_fallida", campo, 2)
+	}
+	return emitirConcursos(salida, diagnostico, simulacion.Sobre(resultado))
+}
+func emitirConcursos(salida, diagnostico io.Writer, v any) int {
+	contenido, err := json.Marshal(v)
+	if err != nil {
+		return diagnosticar(diagnostico, "salida_fallida", "concursos", 2)
+	}
+	n, err := salida.Write(contenido)
+	if err != nil || n != len(contenido) {
+		return diagnosticar(diagnostico, "salida_fallida", "concursos", 2)
+	}
+	return 0
 }
