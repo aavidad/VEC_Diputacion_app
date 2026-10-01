@@ -116,7 +116,7 @@ rechazos 422 provocados por el guion. No hubo errores JavaScript, errores de
 consola inesperados, cookies, almacenamiento web ni llamadas externas.
 
 El informe de esa ejecución está en
-`/tmp/vec-baremador-evidencia-KAcUFb/resultado.json`, con SHA256
+`~/.local/state/vec-codexb-concursos-20261001/evidencia/matriz/resultado.json`, con SHA256
 `5e2c1bbf05d226e79942ef9aafd599bab5443186b69297b24630e39f53a06e1b`.
 El directorio conserva 16 capturas. Son artefactos temporales fuera de Git;
 dirección debe conservar las capturas que use en la entrega. Aquellas capturas
@@ -141,7 +141,7 @@ día, muestra la explicación traducida y devuelve un total de `23129315`
 micropuntos. No hubo errores JavaScript, errores de consola, cookies,
 almacenamiento web ni llamadas externas.
 
-El informe focal está en `/tmp/vec-baremador-evidencia-FL99Aj/resultado.json`,
+El informe focal está en `~/.local/state/vec-codexb-concursos-20261001/evidencia/explicaciones/resultado.json`,
 con SHA256 `32126ba2a423974f27cda7110440955945bf7828c27f02cfe11ec0ab468db319`.
 Conserva 20 capturas de ventana: inicio de Bolsa y Concursos, curso abierto,
 tabla de grado y curso excluido. La revisión visual independiente recibe estas
