@@ -1,0 +1,430 @@
+{
+  "version_esquema": 1,
+  "demostracion": true,
+  "politica_ref": "demo:cronos:efectos-permisos:v1",
+  "politica_version": 1,
+  "politica_sha256": "3e24a2b1a0643dc721e4edd49178ee99e07aca9a6d3a844dc68564f588af290c",
+  "escenarios": [
+    {
+      "referencia": "demo:completa-a",
+      "dias": [
+        {
+          "fecha": "2026-10-01",
+          "programacion": {
+            "fecha": "2026-10-01",
+            "referencia": "demo:programacion:1",
+            "politica_version_ref": "demo:jornada:v1",
+            "fuente_ref": "demo:fuente-programacion:1",
+            "minutos_previstos": 420,
+            "acreditada": true
+          },
+          "trabajados_minutos": 0,
+          "completo": true,
+          "sin_anomalias": true,
+          "permisos": [
+            {
+              "solicitud_ref": "demo:solicitud:1",
+              "resolucion_ref": "demo:resolucion:1",
+              "permiso_ref": "demo:permiso:ebep49a",
+              "catalogo_version_ref": "demo:catalogo:ebep49a:v1",
+              "colectivo_ref": "demo:colectivo:funcionario",
+              "desde": "2026-10-01",
+              "hasta": "2026-10-01",
+              "concedido": true,
+              "jornada_completa": true
+            }
+          ],
+          "sin_trabajo": true
+        }
+      ]
+    },
+    {
+      "referencia": "demo:completa-b",
+      "dias": [
+        {
+          "fecha": "2026-10-01",
+          "programacion": {
+            "fecha": "2026-10-01",
+            "referencia": "demo:programacion:1",
+            "politica_version_ref": "demo:jornada:v1",
+            "fuente_ref": "demo:fuente-programacion:1",
+            "minutos_previstos": 420,
+            "acreditada": true
+          },
+          "trabajados_minutos": 0,
+          "completo": true,
+          "sin_anomalias": true,
+          "permisos": [
+            {
+              "solicitud_ref": "demo:solicitud:1",
+              "resolucion_ref": "demo:resolucion:1",
+              "permiso_ref": "demo:permiso:ebep49b",
+              "catalogo_version_ref": "demo:catalogo:ebep49b:v1",
+              "colectivo_ref": "demo:colectivo:funcionario",
+              "desde": "2026-10-01",
+              "hasta": "2026-10-01",
+              "concedido": true,
+              "jornada_completa": true
+            }
+          ],
+          "sin_trabajo": true
+        }
+      ]
+    },
+    {
+      "referencia": "demo:completa-c",
+      "dias": [
+        {
+          "fecha": "2026-10-01",
+          "programacion": {
+            "fecha": "2026-10-01",
+            "referencia": "demo:programacion:1",
+            "politica_version_ref": "demo:jornada:v1",
+            "fuente_ref": "demo:fuente-programacion:1",
+            "minutos_previstos": 420,
+            "acreditada": true
+          },
+          "trabajados_minutos": 0,
+          "completo": true,
+          "sin_anomalias": true,
+          "permisos": [
+            {
+              "solicitud_ref": "demo:solicitud:1",
+              "resolucion_ref": "demo:resolucion:1",
+              "permiso_ref": "demo:permiso:ebep49c",
+              "catalogo_version_ref": "demo:catalogo:ebep49c:v1",
+              "colectivo_ref": "demo:colectivo:funcionario",
+              "desde": "2026-10-01",
+              "hasta": "2026-10-01",
+              "concedido": true,
+              "jornada_completa": true
+            }
+          ],
+          "sin_trabajo": true
+        }
+      ]
+    },
+    {
+      "referencia": "demo:parcial",
+      "dias": [
+        {
+          "fecha": "2026-10-01",
+          "programacion": {
+            "fecha": "2026-10-01",
+            "referencia": "demo:programacion:1",
+            "politica_version_ref": "demo:jornada:v1",
+            "fuente_ref": "demo:fuente-programacion:1",
+            "minutos_previstos": 420,
+            "acreditada": true
+          },
+          "trabajados_minutos": 0,
+          "completo": true,
+          "sin_anomalias": true,
+          "permisos": [
+            {
+              "solicitud_ref": "demo:solicitud:1",
+              "resolucion_ref": "demo:resolucion:1",
+              "permiso_ref": "demo:permiso:ebep49a",
+              "catalogo_version_ref": "demo:catalogo:ebep49a:v1",
+              "colectivo_ref": "demo:colectivo:funcionario",
+              "desde": "2026-10-01",
+              "hasta": "2026-10-01",
+              "concedido": true,
+              "jornada_completa": false
+            }
+          ],
+          "sin_trabajo": true
+        }
+      ]
+    },
+    {
+      "referencia": "demo:trabajo-concurrente",
+      "dias": [
+        {
+          "fecha": "2026-10-01",
+          "programacion": {
+            "fecha": "2026-10-01",
+            "referencia": "demo:programacion:1",
+            "politica_version_ref": "demo:jornada:v1",
+            "fuente_ref": "demo:fuente-programacion:1",
+            "minutos_previstos": 420,
+            "acreditada": true
+          },
+          "trabajados_minutos": 30,
+          "completo": true,
+          "sin_anomalias": true,
+          "permisos": [
+            {
+              "solicitud_ref": "demo:solicitud:1",
+              "resolucion_ref": "demo:resolucion:1",
+              "permiso_ref": "demo:permiso:ebep49a",
+              "catalogo_version_ref": "demo:catalogo:ebep49a:v1",
+              "colectivo_ref": "demo:colectivo:funcionario",
+              "desde": "2026-10-01",
+              "hasta": "2026-10-01",
+              "concedido": true,
+              "jornada_completa": true
+            }
+          ],
+          "sin_trabajo": false
+        }
+      ]
+    },
+    {
+      "referencia": "demo:permisos-coincidentes",
+      "dias": [
+        {
+          "fecha": "2026-10-01",
+          "programacion": {
+            "fecha": "2026-10-01",
+            "referencia": "demo:programacion:1",
+            "politica_version_ref": "demo:jornada:v1",
+            "fuente_ref": "demo:fuente-programacion:1",
+            "minutos_previstos": 420,
+            "acreditada": true
+          },
+          "trabajados_minutos": 0,
+          "completo": true,
+          "sin_anomalias": true,
+          "permisos": [
+            {
+              "solicitud_ref": "demo:solicitud:1",
+              "resolucion_ref": "demo:resolucion:1",
+              "permiso_ref": "demo:permiso:ebep49a",
+              "catalogo_version_ref": "demo:catalogo:ebep49a:v1",
+              "colectivo_ref": "demo:colectivo:funcionario",
+              "desde": "2026-10-01",
+              "hasta": "2026-10-01",
+              "concedido": true,
+              "jornada_completa": true
+            },
+            {
+              "solicitud_ref": "demo:solicitud:2",
+              "resolucion_ref": "demo:resolucion:2",
+              "permiso_ref": "demo:permiso:ebep49a",
+              "catalogo_version_ref": "demo:catalogo:ebep49a:v1",
+              "colectivo_ref": "demo:colectivo:funcionario",
+              "desde": "2026-10-01",
+              "hasta": "2026-10-01",
+              "concedido": true,
+              "jornada_completa": true
+            }
+          ],
+          "sin_trabajo": true
+        }
+      ]
+    },
+    {
+      "referencia": "demo:programacion-ausente",
+      "dias": [
+        {
+          "fecha": "2026-10-01",
+          "programacion": null,
+          "trabajados_minutos": 0,
+          "completo": true,
+          "sin_anomalias": true,
+          "permisos": [
+            {
+              "solicitud_ref": "demo:solicitud:1",
+              "resolucion_ref": "demo:resolucion:1",
+              "permiso_ref": "demo:permiso:ebep49a",
+              "catalogo_version_ref": "demo:catalogo:ebep49a:v1",
+              "colectivo_ref": "demo:colectivo:funcionario",
+              "desde": "2026-10-01",
+              "hasta": "2026-10-01",
+              "concedido": true,
+              "jornada_completa": true
+            }
+          ],
+          "sin_trabajo": true
+        }
+      ]
+    },
+    {
+      "referencia": "demo:fuente-incompleta",
+      "dias": [
+        {
+          "fecha": "2026-10-01",
+          "programacion": {
+            "fecha": "2026-10-01",
+            "referencia": "demo:programacion:1",
+            "politica_version_ref": "demo:jornada:v1",
+            "fuente_ref": "demo:fuente-programacion:1",
+            "minutos_previstos": 420,
+            "acreditada": true
+          },
+          "trabajados_minutos": 0,
+          "completo": false,
+          "sin_anomalias": true,
+          "permisos": [
+            {
+              "solicitud_ref": "demo:solicitud:1",
+              "resolucion_ref": "demo:resolucion:1",
+              "permiso_ref": "demo:permiso:ebep49a",
+              "catalogo_version_ref": "demo:catalogo:ebep49a:v1",
+              "colectivo_ref": "demo:colectivo:funcionario",
+              "desde": "2026-10-01",
+              "hasta": "2026-10-01",
+              "concedido": true,
+              "jornada_completa": true
+            }
+          ],
+          "sin_trabajo": true
+        }
+      ]
+    },
+    {
+      "referencia": "demo:anomalia",
+      "dias": [
+        {
+          "fecha": "2026-10-01",
+          "programacion": {
+            "fecha": "2026-10-01",
+            "referencia": "demo:programacion:1",
+            "politica_version_ref": "demo:jornada:v1",
+            "fuente_ref": "demo:fuente-programacion:1",
+            "minutos_previstos": 420,
+            "acreditada": true
+          },
+          "trabajados_minutos": 0,
+          "completo": true,
+          "sin_anomalias": false,
+          "permisos": [
+            {
+              "solicitud_ref": "demo:solicitud:1",
+              "resolucion_ref": "demo:resolucion:1",
+              "permiso_ref": "demo:permiso:ebep49a",
+              "catalogo_version_ref": "demo:catalogo:ebep49a:v1",
+              "colectivo_ref": "demo:colectivo:funcionario",
+              "desde": "2026-10-01",
+              "hasta": "2026-10-01",
+              "concedido": true,
+              "jornada_completa": true
+            }
+          ],
+          "sin_trabajo": true
+        }
+      ]
+    },
+    {
+      "referencia": "demo:colectivo-distinto",
+      "dias": [
+        {
+          "fecha": "2026-10-01",
+          "programacion": {
+            "fecha": "2026-10-01",
+            "referencia": "demo:programacion:1",
+            "politica_version_ref": "demo:jornada:v1",
+            "fuente_ref": "demo:fuente-programacion:1",
+            "minutos_previstos": 420,
+            "acreditada": true
+          },
+          "trabajados_minutos": 0,
+          "completo": true,
+          "sin_anomalias": true,
+          "permisos": [
+            {
+              "solicitud_ref": "demo:solicitud:1",
+              "resolucion_ref": "demo:resolucion:1",
+              "permiso_ref": "demo:permiso:ebep49a",
+              "catalogo_version_ref": "demo:catalogo:ebep49a:v1",
+              "colectivo_ref": "demo:colectivo:sin-regla",
+              "desde": "2026-10-01",
+              "hasta": "2026-10-01",
+              "concedido": true,
+              "jornada_completa": true
+            }
+          ],
+          "sin_trabajo": true
+        }
+      ]
+    },
+    {
+      "referencia": "demo:catalogo-distinto",
+      "dias": [
+        {
+          "fecha": "2026-10-01",
+          "programacion": {
+            "fecha": "2026-10-01",
+            "referencia": "demo:programacion:1",
+            "politica_version_ref": "demo:jornada:v1",
+            "fuente_ref": "demo:fuente-programacion:1",
+            "minutos_previstos": 420,
+            "acreditada": true
+          },
+          "trabajados_minutos": 0,
+          "completo": true,
+          "sin_anomalias": true,
+          "permisos": [
+            {
+              "solicitud_ref": "demo:solicitud:1",
+              "resolucion_ref": "demo:resolucion:1",
+              "permiso_ref": "demo:permiso:ebep49a",
+              "catalogo_version_ref": "demo:catalogo:ebep49a:v2",
+              "colectivo_ref": "demo:colectivo:funcionario",
+              "desde": "2026-10-01",
+              "hasta": "2026-10-01",
+              "concedido": true,
+              "jornada_completa": true
+            }
+          ],
+          "sin_trabajo": true
+        }
+      ]
+    },
+    {
+      "referencia": "demo:concesion-no-acreditada",
+      "dias": [
+        {
+          "fecha": "2026-10-01",
+          "programacion": {
+            "fecha": "2026-10-01",
+            "referencia": "demo:programacion:1",
+            "politica_version_ref": "demo:jornada:v1",
+            "fuente_ref": "demo:fuente-programacion:1",
+            "minutos_previstos": 420,
+            "acreditada": true
+          },
+          "trabajados_minutos": 0,
+          "completo": true,
+          "sin_anomalias": true,
+          "permisos": [
+            {
+              "solicitud_ref": "demo:solicitud:1",
+              "resolucion_ref": "demo:resolucion:1",
+              "permiso_ref": "demo:permiso:ebep49a",
+              "catalogo_version_ref": "demo:catalogo:ebep49a:v1",
+              "colectivo_ref": "demo:colectivo:funcionario",
+              "desde": "2026-10-01",
+              "hasta": "2026-10-01",
+              "concedido": false,
+              "jornada_completa": true
+            }
+          ],
+          "sin_trabajo": true
+        }
+      ]
+    },
+    {
+      "referencia": "demo:sin-permisos",
+      "dias": [
+        {
+          "fecha": "2026-10-01",
+          "programacion": {
+            "fecha": "2026-10-01",
+            "referencia": "demo:programacion:1",
+            "politica_version_ref": "demo:jornada:v1",
+            "fuente_ref": "demo:fuente-programacion:1",
+            "minutos_previstos": 420,
+            "acreditada": true
+          },
+          "trabajados_minutos": 420,
+          "completo": true,
+          "sin_anomalias": true,
+          "permisos": [],
+          "sin_trabajo": false
+        }
+      ]
+    }
+  ]
+}

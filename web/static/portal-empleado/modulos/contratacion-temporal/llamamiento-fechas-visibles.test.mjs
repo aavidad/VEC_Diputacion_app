@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { renderizarLlamamiento } from "./renderizado-llamamiento.js";
-import { crearTraductorContratacionTemporal } from "./i18n.js";
+import { renderizarLlamamiento } from "./renderizado-llamamiento.js?v=20261001-codexf-ct-catalogos-v1";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261001-codexf-ct-catalogos-v1";
 import {
   recibo as seleccion, comunicacionRegistrada, justificante, declaracion,
   reciboResolucion, continuacionConfirmada, avisoSiguienteRegistrado,
   justificanteSiguiente, declaracionSiguiente, reciboResolucionSucesor,
-} from "./formulario-llamamiento-pruebas.js";
+} from "./formulario-llamamiento-pruebas.js?v=20261001-codexf-ct-catalogos-v1";
 
 const fecha = new Intl.DateTimeFormat("es-ES", {
   dateStyle: "medium", timeStyle: "medium", timeZone: "Europe/Madrid",

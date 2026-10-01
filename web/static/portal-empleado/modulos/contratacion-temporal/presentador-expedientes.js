@@ -9,7 +9,7 @@ import {
   validarExpedienteContratacionTemporal,
   validarReciboActuacion,
 } from "./contrato-expedientes.js";
-import { crearTraductorContratacionTemporal } from "./i18n.js";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261001-codexf-ct-catalogos-v1";
 
 const traducirCT = crearTraductorContratacionTemporal();
 

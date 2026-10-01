@@ -179,5 +179,7 @@
 
 @media (max-width: 640px) {
   .cronos-permisos-propios .rejilla-kpi { grid-template-columns: 1fr; }
+  .cronos-permisos-propios .cabecera-panel { flex-wrap: wrap; }
+  .cronos-permisos-propios .cabecera-panel > h3 { flex: 1 1 100%; }
   .cronos-anio-navegacion { margin-left: 0; }
 }

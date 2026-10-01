@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { cargarTextos } from "../../../comun/textos.js";
-import { montarIncorporacionPersonalB2 } from "./incorporacion-personal-b2.js";
+import { montarIncorporacionPersonalB2 } from "./incorporacion-personal-b2.js?v=20261001-codexf-ct-catalogos-v1";
 import { ESQUEMA_CONSULTA_B2, ESQUEMA_RECIBO_B2 } from "./contrato-incorporacion-personal-b2.js";
 
 const expediente = "expediente:b2:recuperacion";
