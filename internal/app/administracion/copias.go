@@ -17,11 +17,12 @@ type DependenciasCopias struct {
 	Cambios         p.Cambios
 	Control         p.Control
 	Opciones        p.FuenteOpciones
+	FuenteRevision  p.FuenteRevision
 }
 
 // NuevoHandlerCopias is mounted only behind the existing live ADMIN TLS/CRL
 // verification. Missing business ports remain unavailable, never successful.
 func NuevoHandlerCopias(origen string, deps DependenciasCopias) (http.Handler, error) {
 	return adapter.Nuevo(origen, deps.ResolverSesion, deps.AuditorFrontera,
-		&app.Servicio{Autoridad: deps.Autoridad, Lecturas: deps.Lecturas, Cambios: deps.Cambios, Control: deps.Control, Opciones: deps.Opciones})
+		&app.Servicio{Autoridad: deps.Autoridad, Lecturas: deps.Lecturas, Cambios: deps.Cambios, Control: deps.Control, Opciones: deps.Opciones, FuenteRevision: deps.FuenteRevision})
 }

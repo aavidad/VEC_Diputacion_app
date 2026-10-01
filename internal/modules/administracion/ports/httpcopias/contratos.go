@@ -122,17 +122,18 @@ type FuenteOpciones interface {
 	Opciones(context.Context, Sesion) (OpcionesRestauracion, error)
 }
 type Propuesta struct {
-	ConjuntoHuellaSHA256    string     `json:"conjunto_huella_sha256"`
-	PreimagenSHA256         string     `json:"preimagen_sha256"`
-	PoliticaRef             string     `json:"politica_ref"`
-	PoliticaHuellaSHA256    string     `json:"politica_huella_sha256"`
-	MotivoRef               string     `json:"motivo_ref"`
-	VentanaRef              string     `json:"ventana_ref"`
-	DobleControl            bool       `json:"doble_control"`
-	CopiaPreviaRequerida    bool       `json:"copia_previa_requerida"`
-	PerdidaDesde            *time.Time `json:"perdida_desde,omitempty"`
-	PerdidaHasta            *time.Time `json:"perdida_hasta,omitempty"`
-	AlcancePerdidaClaveI18N string     `json:"alcance_perdida_clave_i18n,omitempty"`
+	MetadatosRevision       *MetadatosRevision `json:"metadatos_revision,omitempty"`
+	ConjuntoHuellaSHA256    string             `json:"conjunto_huella_sha256"`
+	PreimagenSHA256         string             `json:"preimagen_sha256"`
+	PoliticaRef             string             `json:"politica_ref"`
+	PoliticaHuellaSHA256    string             `json:"politica_huella_sha256"`
+	MotivoRef               string             `json:"motivo_ref"`
+	VentanaRef              string             `json:"ventana_ref"`
+	DobleControl            bool               `json:"doble_control"`
+	CopiaPreviaRequerida    bool               `json:"copia_previa_requerida"`
+	PerdidaDesde            *time.Time         `json:"perdida_desde,omitempty"`
+	PerdidaHasta            *time.Time         `json:"perdida_hasta,omitempty"`
+	AlcancePerdidaClaveI18N string             `json:"alcance_perdida_clave_i18n,omitempty"`
 
 	PropuestaRef  string    `json:"propuesta_ref"`
 	ConjuntoRef   string    `json:"conjunto_ref"`

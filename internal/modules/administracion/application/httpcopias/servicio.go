@@ -8,11 +8,12 @@ import (
 )
 
 type Servicio struct {
-	Autoridad p.Autorizador
-	Lecturas  p.Consultas
-	Cambios   p.Cambios
-	Control   p.Control
-	Opciones  p.FuenteOpciones
+	Autoridad      p.Autorizador
+	Lecturas       p.Consultas
+	Cambios        p.Cambios
+	Control        p.Control
+	Opciones       p.FuenteOpciones
+	FuenteRevision p.FuenteRevision
 }
 
 func Ausente(v any) bool {
@@ -46,7 +47,7 @@ func (s *Servicio) Capacidades(ctx context.Context, ses p.Sesion) (p.Capacidades
 	}{
 		{p.Consultar, &c.Consultar, s.Lecturas}, {p.Lanzar, &c.Lanzar, s.Cambios},
 		{p.ConfigurarCalendario, &c.ConfigurarCalendario, s.Cambios}, {p.ConfigurarRetencion, &c.ConfigurarRetencion, s.Cambios},
-		{p.Proponer, &c.Proponer, s.Control}, {p.Revisar, &c.Revisar, s.Control}, {p.Ejecutar, &c.Ejecutar, s.Control},
+		{p.Proponer, &c.Proponer, s.Control}, {p.Ejecutar, &c.Ejecutar, s.Control},
 	} {
 		if Ausente(v.dep) {
 			continue
@@ -57,6 +58,9 @@ func (s *Servicio) Capacidades(ctx context.Context, ses p.Sesion) (p.Capacidades
 		} else if !errors.Is(err, p.ErrDenegado) {
 			return p.Capacidades{}, err
 		}
+	}
+	if c.Consultar {
+		c.Revisar = s.revisarDisponible(ctx, ses)
 	}
 	return c, nil
 }

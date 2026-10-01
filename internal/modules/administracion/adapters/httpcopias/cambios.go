@@ -110,6 +110,10 @@ func (h *Handler) post(w http.ResponseWriter, r *http.Request, s p.Sesion) {
 			return
 		}
 		if op == p.Revisar {
+			if _, prepareErr := h.servicio.PrepararRevision(r.Context(), s, parts[0], v); prepareErr != nil {
+				h.denegar(w, r, s, prepareErr, string(op), parts[0])
+				return
+			}
 			var vout p.Propuesta
 			vout, err = h.servicio.Control.Revisar(r.Context(), s, parts[0], v)
 			if err == nil && (!propuestaValida(vout) || vout.PropuestaRef != parts[0] || vout.HuellaSHA256 != v.PropuestaHuellaSHA256 || vout.DestinoRef != v.DestinoRef) {
