@@ -6,7 +6,7 @@ export const ESQUEMA_ORGANIZACION = "personal.estructura_organizativa.v1";
 export const LIMITE_UNIDADES = 1000;
 export const LIMITE_RESPUESTA = 512 * 1024;
 import { crearTraductorPersonal } from "../modulos/personal/i18n.js";
-import { iniciarHistorico, iniciarImportacion, iniciarPestanasOrganizacion } from "./historico.js";
+import { iniciarHistorico, iniciarImportacion, iniciarPestanasOrganizacion } from "./historico.js?v=20261001-org-intervalos-v2";
 const traducirOrganizacion = crearTraductorPersonal();
 
 const TYPES = new Set(["delegacion", "centro", "puesto_responsabilidad"]);
