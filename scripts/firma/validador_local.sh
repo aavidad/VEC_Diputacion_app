@@ -40,7 +40,7 @@ cp -- "$script_dir/validador_runtime.sh" "$scratch/runtime.sh"
 
 # Las copias de fuente se montan de lectura. Solo /work es escribible y su
 # tmpfs tiene una cuota total de 4 GiB. La red queda reducida a loopback.
-prlimit --cpu=570 --as=8589934592 --nproc=4096 --nofile=128 --fsize=67108864 -- \
+prlimit --cpu=570 --as=8589934592 --nproc=4096 --nofile=1024 --fsize=67108864 -- \
   timeout --kill-after=5s 600s bwrap --unshare-all --new-session --cap-drop ALL --clearenv \
     --ro-bind /usr /usr --ro-bind /bin /bin --ro-bind /lib /lib --ro-bind /lib64 /lib64 \
     --ro-bind "$cache" /modcache --size 4294967296 --tmpfs /work \
