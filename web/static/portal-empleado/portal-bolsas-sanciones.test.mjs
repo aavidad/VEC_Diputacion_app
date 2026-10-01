@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {
   consultarSanciones, crearControladorSanciones, registrarRecursoSancion, registrarSancion,
   renderizarSanciones, rutaRecursoSancion, rutaSanciones, MENSAJES_SANCIONES_ES,
-} from "./portal-bolsas-sanciones.js";
+} from "./portal-bolsas-sanciones.js?v=20261001-ct-a-i18n-v1";
 
 const SHA = "a".repeat(64);
 const item = {

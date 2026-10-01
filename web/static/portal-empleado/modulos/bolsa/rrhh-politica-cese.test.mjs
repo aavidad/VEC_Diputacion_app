@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { crearClientePoliticaCeseRRHH, RUTA_POLITICA_CESE, validarPoliticaCeseRRHH } from "./rrhh-politica-cese-api.js";
-import { montarVistaPoliticaCeseRRHH, renderizarVistaPoliticaCeseRRHH } from "./rrhh-politica-cese-vista.js";
+import { montarVistaPoliticaCeseRRHH, renderizarVistaPoliticaCeseRRHH } from "./rrhh-politica-cese-vista.js?v=20261001-ct-a-i18n-v1";
 
 const politica = Object.freeze({
   version: 2, catalogo_ref: "politica:bolsa:cese:2", catalogo_sha256: "a".repeat(64),

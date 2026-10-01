@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { montarModuloContratacionTemporal, renderizarModuloContratacionTemporal } from "./vista-expedientes.js";
-import { solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js";
+import { montarModuloContratacionTemporal, renderizarModuloContratacionTemporal } from "./vista-expedientes.js?v=20261001-ct-a-i18n-v1";
+import { solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js?v=20261001-ct-a-i18n-v1";
 import { crearClienteHTTPContratacionTemporal, RUTAS_HTTP_CONTRATACION_TEMPORAL } from "./cliente-http.js";
-import { crearAdaptadorHTTPExpedientesContratacionTemporal } from "./adaptador-http-expedientes.js";
-import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js";
+import { crearAdaptadorHTTPExpedientesContratacionTemporal } from "./adaptador-http-expedientes.js?v=20261001-ct-a-i18n-v1";
+import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js?v=20261001-ct-a-i18n-v1";
 import { validarExpedienteContratacionTemporal } from "./contrato-expedientes.js";
 import { crearClienteHTTPBorradorRRHH, tipoBorradorDeAccion } from "./cliente-http-informe-definitivo.js";
 

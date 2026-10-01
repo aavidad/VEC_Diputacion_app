@@ -6,13 +6,13 @@ import {
   cargarCatalogoModulosInterno,
   crearCatalogoModulosDesdeManifiestos,
   extraerModulosEnvelopeCanonico,
-} from "./portal-catalogo-modulos.js";
+} from "./portal-catalogo-modulos.js?v=20261001-ct-a-i18n-v1";
 import {
   CLAVES_MODULOS_VEC_REGISTRADOS,
   crearCoordinadorModulosPortal,
   moduloDeVistaPortal,
   rutaDeVistaPortal,
-} from "./portal-modulos-coordinador.js";
+} from "./portal-modulos-coordinador.js?v=20261001-cronos-grafo-bandeja-v5";
 
 function raizFalsa() {
   const eventos = new Map();

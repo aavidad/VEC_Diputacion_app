@@ -1,51 +1,7 @@
-export const MENSAJES_BORRADORES_PUBLICADOS_ES = Object.freeze({
-  bp_titulo: "Borradores del catálogo publicado",
-  bp_subtitulo: "Tipos disponibles para este expediente y su versión actual",
-  bp_ayuda_boton: "Ayuda sobre los borradores publicados",
-  bp_ayuda: "Se ofrecen únicamente los tipos y formatos que devolvió el catálogo publicado para este expediente. Cada descarga consulta de nuevo los permisos y conserva los bytes originales. Un borrador descargado no es un documento firmado ni enviado.",
-  bp_cargando: "Comprobando tipos publicados…",
-  bp_vacio: "No hay tipos publicados disponibles para este expediente.",
-  bp_denegado: "La sesión no dispone de permiso para consultar estos borradores.",
-  bp_error: "No se pudieron consultar los borradores publicados.",
-  bp_conflicto: "El expediente o el catálogo cambió. Actualice el detalle antes de descargar.",
-  bp_reintentar: "Reintentar consulta",
-  bp_tipo: "Tipo de documento",
-  bp_formatos: "Formatos",
-  bp_pdf: "Descargar PDF",
-  bp_docx: "Descargar DOCX",
-  bp_descargando: "Descargando y comprobando el documento…",
-  bp_cancelar: "Cancelar espera",
-  bp_cancelada: "La descarga se ha cancelado.",
-  bp_listo: "Borrador descargado y huella comprobada: {nombre}",
-  bp_huella: "SHA-256: {huella}",
-  bp_descarga_error: "No se pudo comprobar la descarga. No se ha guardado ningún documento.",
-  bp_catalogo: "Catálogo publicado",
-  bp_publicacion: "Publicación comprobada:",
-  bp_publicacion_recibo: "Recibo de publicación: {recibo}",
-});
+import { cargarCatalogosContratacion } from "./i18n-catalogos.js?v=20261001-ct-a-i18n-v1";
 
-export const MENSAJES_BORRADORES_PUBLICADOS_EN = Object.freeze({
-  bp_titulo: "Drafts from the published catalogue",
-  bp_subtitulo: "Types available for this case and their current version",
-  bp_ayuda_boton: "Help with published drafts",
-  bp_ayuda: "Only the types and formats returned by the catalogue published for this case are available. Each download checks permissions again and preserves the original bytes. A downloaded draft has not been signed or sent.",
-  bp_cargando: "Checking published types…",
-  bp_vacio: "No published types are available for this case.",
-  bp_denegado: "This session does not have permission to view these drafts.",
-  bp_error: "The published drafts could not be retrieved.",
-  bp_conflicto: "The case or catalogue has changed. Refresh the details before downloading.",
-  bp_reintentar: "Try again",
-  bp_tipo: "Document type",
-  bp_formatos: "Formats",
-  bp_pdf: "Download PDF",
-  bp_docx: "Download DOCX",
-  bp_descargando: "Downloading and verifying the document…",
-  bp_cancelar: "Cancel wait",
-  bp_cancelada: "The download has been cancelled.",
-  bp_listo: "Draft downloaded and fingerprint verified: {nombre}",
-  bp_huella: "SHA-256: {huella}",
-  bp_descarga_error: "The download could not be verified. No document has been saved.",
-  bp_catalogo: "Published catalogue",
-  bp_publicacion: "Publication verified:",
-  bp_publicacion_recibo: "Publication receipt: {recibo}",
-});
+const catalogos = await cargarCatalogosContratacion("contratacion-temporal-borradores-publicados");
+
+export const MENSAJES_BORRADORES_PUBLICADOS_ES = catalogos.exportaciones.ES;
+
+export const MENSAJES_BORRADORES_PUBLICADOS_EN = catalogos.exportaciones.EN;

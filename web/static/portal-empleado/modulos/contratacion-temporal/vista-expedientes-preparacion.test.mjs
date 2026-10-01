@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js";
+import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js?v=20261001-ct-a-i18n-v1";
 
 const HUELLA = "b".repeat(64);
 

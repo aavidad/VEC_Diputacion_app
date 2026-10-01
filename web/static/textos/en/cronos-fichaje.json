@@ -1,0 +1,8 @@
+{
+  "general": {
+    "consultando_siguiente": "Checking which movement you can register now.",
+    "error_actualizacion": "Your last clocking is confirmed. Available movements could not be updated. Select Refresh.",
+    "ultimo_confirmado": "Last confirmed clocking",
+    "lecturas_pendientes": "Your clocking is confirmed. The rest of your working time information still needs to be refreshed."
+  }
+}

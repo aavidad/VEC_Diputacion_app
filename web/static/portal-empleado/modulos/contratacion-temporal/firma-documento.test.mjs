@@ -4,8 +4,8 @@ import test from "node:test";
 
 import { crearClienteAutoFirma, ErrorAutoFirma, paraPruebas } from "./firma-autofirma.js";
 import { crearClienteFirmaDocumento, ErrorFirmaDocumento, RUTA_CONSULTA_FIRMA_DOCUMENTO, RUTA_FIRMA_DOCUMENTO, validarEstadoFirmas } from "./firma-documento-cliente.js";
-import { crearAccionesFirma, fusionarEstadoFirmas, renderizarAccionesPaso } from "./circuito-firma-acciones.js";
-import { crearTraductorCircuitoFirma } from "./i18n-circuito-firma.js";
+import { crearAccionesFirma, fusionarEstadoFirmas, renderizarAccionesPaso } from "./circuito-firma-acciones.js?v=20261001-ct-a-i18n-v1";
+import { crearTraductorCircuitoFirma } from "./i18n-circuito-firma.js?v=20261001-ct-a-i18n-v1";
 
 const t = crearTraductorCircuitoFirma();
 const PDF = new TextEncoder().encode("%PDF-1.7 borrador");

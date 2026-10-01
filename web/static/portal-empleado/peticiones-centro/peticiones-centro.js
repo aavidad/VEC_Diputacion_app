@@ -8,10 +8,10 @@ import {
   extraerBorradorPeticionCentro,
   renderizarFormularioPeticionCentro,
   renderizarRevisionPeticionCentro,
-} from "../modulos/contratacion-temporal/vista.js";
-import { MENSAJES_CONTRATACION_TEMPORAL_ES, crearTraductorContratacionTemporal } from "../modulos/contratacion-temporal/i18n.js?v=20260929-demo-centro-v1";
+} from "../modulos/contratacion-temporal/vista.js?v=20261001-ct-a-i18n-v1";
+import { MENSAJES_CONTRATACION_TEMPORAL_ES, crearTraductorContratacionTemporal } from "../modulos/contratacion-temporal/i18n.js?v=20261001-ct-a-i18n-v1";
 import { IDIOMA_ACTUAL } from "../../comun/idioma.js";
-import { aplicarIdiomaDocumento, aplicarTextosPortal, instalarValidacionI18n } from "../portal-idioma.js?v=20260930-portales-i18n-integracion-v1";
+import { aplicarIdiomaDocumento, aplicarTextosPortal, instalarValidacionI18n } from "../portal-idioma.js?v=20261001-ct-a-i18n-v1";
 
 const RUTAS = Object.freeze({
   contexto: "/api/vec/contratacion-temporal/peticiones-centro/contexto",

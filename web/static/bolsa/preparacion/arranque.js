@@ -129,6 +129,8 @@ export async function montarPreparacion(documento = globalThis.document, ubicaci
     archivos = [];
     paso = 1;
     porId('lectura-confirmada').checked = false;
+    porId('lectura-confirmada').setAttribute('aria-invalid', 'false');
+    porId('error-lectura').textContent = '';
     porId('version-convocatoria').hidden = true;
     porId('reintentar').hidden = true;
     porId('trabajo-preparacion').setAttribute('aria-busy', 'true');
@@ -171,10 +173,14 @@ export async function montarPreparacion(documento = globalThis.document, ubicaci
     }
     evento.target.value = '';
   });
-  porId('lectura-confirmada').addEventListener('change', () => { porId('error-lectura').textContent = ''; });
+  porId('lectura-confirmada').addEventListener('change', () => {
+    porId('error-lectura').textContent = '';
+    porId('lectura-confirmada').setAttribute('aria-invalid', 'false');
+  });
   porId('siguiente').addEventListener('click', () => {
     if (!detalle) return;
     if (paso === 1 && !porId('lectura-confirmada').checked) {
+      porId('lectura-confirmada').setAttribute('aria-invalid', 'true');
       porId('error-lectura').textContent = t('convocatoria.lectura_error');
       porId('lectura-confirmada').focus();
       return;
@@ -210,6 +216,7 @@ export async function montarPreparacion(documento = globalThis.document, ubicaci
     archivos = [];
     porId('archivos-locales').value = '';
     porId('lectura-confirmada').checked = false;
+    porId('lectura-confirmada').setAttribute('aria-invalid', 'false');
     for (const id of ['lista-archivos', 'revision-resumen', 'cantidad-archivos', 'error-archivos', 'error-lectura', 'estado-preparacion']) porId(id).replaceChildren();
     pintarPaso();
     if (urlDescarga) URL.revokeObjectURL(urlDescarga);

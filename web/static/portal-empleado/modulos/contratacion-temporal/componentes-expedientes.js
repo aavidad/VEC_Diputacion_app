@@ -1,17 +1,17 @@
 /** Componentes HTML puros de la superficie de expedientes. */
 
 import "./atajos-incidencia.js";
-import "./fases-expediente.js";
+import "./fases-expediente.js?v=20261001-ct-a-i18n-v1";
 import { CAPACIDADES_CONTRATACION_TEMPORAL, versionPropuestaDocumentalValida } from "./contrato-expedientes.js";
-import { renderizarCambiosExpediente } from "./vista-expedientes-cambios.js";
-import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js";
+import { renderizarCambiosExpediente } from "./vista-expedientes-cambios.js?v=20261001-ct-a-i18n-v1";
+import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261001-ct-a-i18n-v1";
 import { justificanteTraducido } from "../../portal-justificante.js";
-import { FILTRO_LISTA_INICIAL, filtroListaValido } from "./recuentos-peticiones.js";
-import { renderizarListaPeticiones, renderizarResultadosLista } from "./vista-expedientes-lista.js";
+import { FILTRO_LISTA_INICIAL, filtroListaValido } from "./recuentos-peticiones.js?v=20261001-ct-a-i18n-v1";
+import { renderizarListaPeticiones, renderizarResultadosLista } from "./vista-expedientes-lista.js?v=20261001-ct-a-i18n-v1";
 import {
   renderizarCabeceraFicha, renderizarDatosPeticion, renderizarDocumentosFicha, renderizarHistorialFicha,
   renderizarLineaFases, renderizarSiguientePasoFicha,
-} from "./vista-expedientes-ficha.js";
+} from "./vista-expedientes-ficha.js?v=20261001-ct-a-i18n-v1";
 
 const traductorPorOmision = crearTraductorExpedientesContratacion();
 

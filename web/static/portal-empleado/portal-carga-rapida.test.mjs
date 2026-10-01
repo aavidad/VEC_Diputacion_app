@@ -3,12 +3,12 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { CLAVES_SIN_ENTRADA_PORTAL, crearCoordinadorModulosPortal } from "./portal-modulos-coordinador.js";
-import { traducirPortal } from "./portal-i18n.js";
+import { CLAVES_SIN_ENTRADA_PORTAL, crearCoordinadorModulosPortal } from "./portal-modulos-coordinador.js?v=20261001-cronos-grafo-bandeja-v5";
+import { traducirPortal } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
 import { versionDe } from "./versiones-cache.test-helper.mjs";
-import { crearVistaInicioPortal } from "./portal-inicio.js";
-import { etiquetaCatalogo } from "./modulos/contratacion-temporal/adaptador-http-expedientes.js";
-import { numeroExpedienteVisible } from "./modulos/contratacion-temporal/componentes-expedientes.js";
+import { crearVistaInicioPortal } from "./portal-inicio.js?v=20261001-ct-a-i18n-v1";
+import { etiquetaCatalogo } from "./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=20261001-ct-a-i18n-v1";
+import { numeroExpedienteVisible } from "./modulos/contratacion-temporal/componentes-expedientes.js?v=20261001-ct-a-i18n-v1";
 
 test("la tarjeta de un módulo que aún carga dice «Comprobando» y queda ocupada", () => {
   const renderizar = crearVistaInicioPortal({
@@ -545,8 +545,8 @@ test("ningún módulo del portal se pide con dos URL distintas (una sola descarg
   const codigoPortal = await readFile(new URL("./portal.js", import.meta.url), "utf8");
   const versionCoordinador = versionDe(codigoPortal, "./portal-modulos-coordinador.js");
   for (const url of [
-    "/portal-empleado/portal-bolsas-api.js?v=20260930-bolsa-turno-v2",
-    "/portal-empleado/portal-bolsas-contrato.js?v=20260930-bolsa-turno-v2",
+    "/portal-empleado/portal-bolsas-api.js?v=20261001-ct-a-i18n-v1",
+    "/portal-empleado/portal-bolsas-contrato.js?v=20261001-ct-a-i18n-v1",
     `/portal-empleado/portal-modulos-coordinador.js?v=${versionCoordinador}`,
     "/portal-empleado/modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js?v=20260930-inc-b2-web-v1",
   ]) assert.ok(urls.has(url), `${url}: el portal debe alcanzar ambas ramas integradas`);

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { renderizarModuloContratacionTemporal } from "./vista-expedientes.js";
+import { renderizarModuloContratacionTemporal } from "./vista-expedientes.js?v=20261001-ct-a-i18n-v1";
 
 function estado(version = 7) {
   return {
