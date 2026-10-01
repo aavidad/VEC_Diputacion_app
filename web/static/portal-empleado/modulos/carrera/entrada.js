@@ -1,7 +1,8 @@
 import { crearClienteCarrera, crearBorrador, leerErrorCatalogo } from './cliente.js?v=20261001-carrera-preparacion-v1';
 import { pintarCarrera, pintarEstado } from './vista.js?v=20261001-carrera-preparacion-v1';
 async function iniciar() {
-const [{ cargarTextos }, { INDICE_IDIOMAS }] = await Promise.all([import('../../../comun/textos.js'), import('../../../comun/idioma.js')]);
+const { cargarTextos } = await import('../../../comun/textos.js');
+const { INDICE_IDIOMAS } = await import('../../../comun/idioma.js');
 const textos = await cargarTextos('carrera'); const t = textos.traducir;
 document.documentElement.lang = textos.idioma; document.title = t('titulo');
 document.querySelectorAll('[data-texto]').forEach(n => { n.textContent = t(n.dataset.texto); });
