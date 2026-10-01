@@ -93,7 +93,10 @@ function etiquetasActivas(estado, filtro, t, ayudas) {
 export function renderizarResultadosLista(estado, t, filtroEntrada, ayudas) {
   const cuadro = estado.cuadro;
   const filtro = filtroEfectivo(estado, filtroEntrada);
-  const filas = filtrarPeticiones(cuadro.expedientes, filtro, cuadro.generado_en);
+  const filas = filtrarPeticiones(cuadro.expedientes, filtro, cuadro.generado_en, (expediente) => [
+    ayudas.numeroVisible(expediente.numero_visible),
+    ayudas.centroVisible(expediente.centro).etiqueta,
+  ]);
   return `<div data-ct-exp-resultados>
     ${etiquetasActivas(estado, filtroEntrada, t, ayudas)}
     <p class="solo-lectura" role="status" aria-live="polite">${escapar(t("lista_resultados", { total: filas.length, de: cuadro.expedientes.length }))}</p>
