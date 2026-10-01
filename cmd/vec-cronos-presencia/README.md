@@ -12,12 +12,12 @@ go run ./cmd/vec-cronos-presencia \
   --snapshot data/demo/cronos/presencia-equipo.json \
   --snapshot-sha256 3bff2e709dbc868843cc3d1f9e235a70cf2e384ca2b22a70bc3621cfc92a6c36 \
   --textos web/static/textos/es/cronos-presencia-ensayo.json \
-  --textos-sha256 f2c4e495cfbc693cc37464046e6af22de895d5a0c12db8b4d982a1d10bc78366 \
+  --textos-sha256 c793612dc99b24ae48e1bd0b7e39f4ca0c838f05a868be37f076f67eb04c1304 \
   --idioma es
 ```
 
 Para inglés, use `web/static/textos/en/cronos-presencia-ensayo.json`, huella
-`346e27b1acf85c865fc9ce4cec6ede803ec27df39f2374378a1d2bc67165a254` e idioma `en`.
+`8888482d73e1a524a0e5d548eb5504239785cb3b80fe4144d06ecfe5a2761bc2` e idioma `en`.
 El idioma debe coincidir con el archivo cargado. La zona es un dato de la instantánea;
 el ejemplo utiliza Europe/Madrid. Se rechaza `Local`, porque depende del equipo. Los instantes son UTC y conservan precisión de microsegundos.
 
@@ -34,7 +34,21 @@ El ejemplo contiene seis personas y devuelve este resumen:
 ```
 
 Las tres personas con estado indeterminado representan falta de marcajes, una secuencia
-ambigua y cobertura incompleta. Una entrada abierta es `entrada_registrada`; no acredita
+ambigua y cobertura incompleta. Cada resultado indeterminado incluye `motivo`:
+
+| Motivo | Por qué queda indeterminado |
+| --- | --- |
+| `cobertura_incompleta` | La fuente no cubre todo el periodo hasta el corte. |
+| `sin_marcajes` | La cobertura es completa, pero no hay marcajes. |
+| `secuencia_ambigua` | Hay instantes iguales o una transición incoherente. |
+
+El consumidor obtiene el mensaje y la acción de `textos[persona.motivo]` en la salida.
+Las tres claves están en los catálogos español e inglés; Go devuelve códigos, no frases.
+La cobertura incompleta tiene prioridad, incluso sin marcajes o con una secuencia ambigua.
+Los estados determinados omiten `motivo`. Los datos inválidos siguen rechazando toda la
+instantánea: no se presentan como un estado indeterminado.
+
+Una entrada abierta es `entrada_registrada`; no acredita
 presencia física. Los estados no calculan trabajo, minutos, saldo ni absentismo.
 
 La selección `personas_ref` contiene entre 1 y 100 referencias únicas y coincide exactamente
