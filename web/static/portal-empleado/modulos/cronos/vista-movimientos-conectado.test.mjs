@@ -219,3 +219,19 @@ test("una respuesta incompatible del cliente inyectado queda en error sin mostra
   await completar(); assert.match(nodo.innerHTML, /data-cronos-movimientos-estado="error"/u);
   assert.doesNotMatch(nodo.innerHTML, /09:10|Entrada|Remoto/u); vista.desmontar();
 });
+
+test("editar un rango ya confirmado bloquea refresco y paginación hasta enviarlo, sin sustituir campos", async () => {
+  const { nodo, raiz } = raizFalsa(); const llamadas = [];
+  const vista = montarVistaMovimientosCronos({ raiz, cliente: { consultar: async (consulta) => { llamadas.push(consulta); return consulta.periodo === "hoy" ? respuesta() : anual("rango"); } } });
+  await completar(); await vista.consultar({ periodo: "rango", desde: "2026-01-01", hasta: "2026-12-31" });
+  pulsar(nodo, "cronosMovimientosPagina", "siguiente");
+  const desde = { name: "desde", value: "2026-02-01" }; const hasta = { name: "hasta", value: "2026-12-31" };
+  const formulario = { elements: { namedItem: (nombre) => nombre === "desde" ? desde : hasta } };
+  desde.closest = () => formulario; raiz.ownerDocument.activeElement = desde;
+  const html = nodo.innerHTML; nodo.eventos.input({ target: desde });
+  await assert.doesNotReject(Promise.all([vista.actualizar(), Promise.resolve("fichaje confirmado")]));
+  pulsar(nodo, "cronosMovimientosPagina", "siguiente");
+  assert.equal(llamadas.length, 2); assert.equal(nodo.innerHTML, html);
+  assert.equal(desde.value, "2026-02-01"); assert.equal(raiz.ownerDocument.activeElement, desde);
+  vista.desmontar(); assert.equal(nodo.eventos.input, undefined);
+});

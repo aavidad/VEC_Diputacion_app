@@ -93,7 +93,7 @@ export function renderizarVistaMovimientosCronos({ estado = "cargando", consulta
       <nav class="cronos-navegacion" aria-label="${escaparHTML(t("movimientos_periodos"))}">${PERIODOS.map((periodo) => `<button type="button" data-cronos-movimientos-periodo="${periodo}" aria-pressed="${seleccion.periodo === periodo}">${escaparHTML(t(`saldo_${periodo}`))}</button>`).join("")}</nav>
       <form data-cronos-movimientos-rango ${rango ? "" : "hidden"}><label>${escaparHTML(t("saldo_desde"))}<input type="date" name="desde" value="${escaparHTML(rango ? seleccion.desde : "")}" ${rango ? "required" : ""}></label><label>${escaparHTML(t("saldo_hasta"))}<input type="date" name="hasta" value="${escaparHTML(rango ? seleccion.hasta : "")}" ${rango ? "required" : ""}></label><button type="submit" class="boton-primario" data-cronos-movimientos-consultar>${escaparHTML(tc("consultar_movimientos"))}</button><p data-cronos-movimientos-validacion role="alert" hidden></p></form>
     </div></section>
-    <section class="panel cronos-panel" aria-labelledby="cronos-movimientos-detalle-titulo"><div class="cabecera-panel"><h3 id="cronos-movimientos-detalle-titulo">${escaparHTML(t("movimientos_detalle"))}</h3></div>${cuerpo}</section>
+    <section class="panel cronos-panel" aria-labelledby="cronos-movimientos-detalle-titulo"><div class="cabecera-panel"><h3 id="cronos-movimientos-detalle-titulo">${escaparHTML(t("movimientos_detalle"))}</h3></div><div data-cronos-movimientos-contenido>${cuerpo}</div></section>
     ${correccionDisponible ? `<section class="panel cronos-panel" aria-labelledby="cronos-movimientos-correccion-titulo"><div class="cabecera-panel"><h3 id="cronos-movimientos-correccion-titulo">${escaparHTML(t("movimientos_correccion"))}</h3></div><div class="cuerpo-panel">
       <button type="button" class="boton-secundario" data-cronos-accion="solicitar-correccion">${escaparHTML(t("movimientos_correccion"))}</button></div></section>` : ""}
   </section>`;
@@ -185,6 +185,20 @@ export function montarVistaMovimientosCronos({ raiz, cliente = crearClienteSaldo
     }
     void cargar({ periodo });
   };
+  const alEditar = (evento) => {
+    const formulario = evento.target?.closest?.("[data-cronos-movimientos-rango]");
+    if (!formulario || !["desde", "hasta"].includes(evento.target.name)) return;
+    borradorRango = { periodo: "rango", desde: formulario.elements.namedItem("desde").value,
+      hasta: formulario.elements.namedItem("hasta").value };
+    controlador?.abort(); ++secuencia; estado = "seleccion"; datos = null;
+    // Sustituir sólo el resultado evita interrumpir la edición y mantiene su foco.
+    const contenido = contenedor.querySelector?.("[data-cronos-movimientos-contenido]");
+    if (contenido) contenido.innerHTML = `<p class="cronos-vacio" role="status">${escaparHTML(t("movimientos_seleccionar_rango"))}</p>`;
+    const accion = contenedor.querySelector?.("[data-cronos-movimientos-actualizar]");
+    if (accion) accion.hidden = true;
+    const region = contenedor.querySelector?.("[data-cronos-movimientos-estado]");
+    region?.setAttribute?.("data-cronos-movimientos-estado", estado); region?.setAttribute?.("aria-busy", "false");
+  };
   const alEnviar = (evento) => {
     if (!evento.target?.matches?.("[data-cronos-movimientos-rango]")) return;
     evento.preventDefault();
@@ -198,12 +212,12 @@ export function montarVistaMovimientosCronos({ raiz, cliente = crearClienteSaldo
     }
     void cargar({ periodo: "rango", desde, hasta });
   };
-  contenedor.addEventListener("click", alPulsar); contenedor.addEventListener("submit", alEnviar);
+  contenedor.addEventListener("click", alPulsar); contenedor.addEventListener("submit", alEnviar); contenedor.addEventListener("input", alEditar);
   void cargar(consulta);
   const desmontar = () => {
     if (!activa) return;
     activa = false; ++secuencia; controlador?.abort();
-    contenedor.removeEventListener("click", alPulsar); contenedor.removeEventListener("submit", alEnviar); contenedor.remove?.();
+    contenedor.removeEventListener("click", alPulsar); contenedor.removeEventListener("submit", alEnviar); contenedor.removeEventListener("input", alEditar); contenedor.remove?.();
   };
   registrarDesmontar?.(desmontar);
   return Object.freeze({ desmontar, consultar: cargar, actualizar });
