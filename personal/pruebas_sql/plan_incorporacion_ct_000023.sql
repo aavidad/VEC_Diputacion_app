@@ -15,7 +15,7 @@ BEGIN
    'vec_personal.registrar_acto_plan_incorporacion_ct_v1(text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure] LOOP
  SELECT proowner,prosecdef,provolatile,proconfig INTO STRICT p FROM pg_proc WHERE oid=f;
  IF p.proowner<>'vec_personal_propietario'::regrole OR NOT p.prosecdef OR p.provolatile<>'v'
-	    OR p.proconfig IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','row_security=on','timezone=UTC','lock_timeout=2s','statement_timeout=30s']
+	    OR p.proconfig IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s','statement_timeout=30s']
     OR NOT has_function_privilege('vec_personal_ejecutor',f,'EXECUTE')
     OR EXISTS (SELECT 1 FROM pg_proc q CROSS JOIN LATERAL aclexplode(coalesce(q.proacl,acldefault('f',q.proowner))) a WHERE q.oid=f AND a.grantee=0) THEN
   RAISE EXCEPTION 'Personal23: fachada incompatible'; END IF;
