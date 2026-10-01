@@ -38,6 +38,7 @@ HEX = re.compile(r'[a-f0-9]{64}')
 IMAGE = re.compile(r'sha256:[a-f0-9]{64}')
 MAX_FILE = 1 << 20
 MAX_TOTAL = 4 << 20
+SQL_BARRIER_TIMEOUT = 30
 
 
 def require(ok, code):
@@ -530,6 +531,75 @@ def publish(fd, name, value):
     publish_raw(fd, name, contract.canonical(value))
 
 
+def controller_normalizer_bundle(request, backend):
+    """Pin both controller-side programs, never an assertion from helper JSON."""
+    bundle = backend.normalizer_bundle()
+    keys(bundle, ('h6_comun.sh', 'h6_normalizar_pg_dump.py'), 'podman_normalizer_bundle_files')
+    require(all(type(raw) is bytes and 0 < len(raw) <= MAX_FILE for raw in bundle.values()),
+            'podman_normalizer_bundle_size')
+    hashes = {name: contract.digest(raw) for name, raw in bundle.items()}
+    require(hashes == request['normalizer_bundle']
+            and contract.digest(contract.canonical(hashes)) == request['pins']['normalizer_sha256'],
+            'podman_controller_normalizer_pin')
+    return hashes
+
+
+def sql_barrier_observer(request, layout, backend, expected_physical):
+    """Private fixture adapter: controller observes at two open-session barriers.
+
+    The helper can request a stage and provide session identities. It cannot
+    supply the authoritative SQL state or normalizer evidence. There is no live
+    transport here; the future controller must enforce the passed hard timeout.
+    """
+    observations, sessions = {}, {}
+    def observe(stage, helper_request, initial_sessions):
+        require(stage == ('before' if not observations else 'after')
+                and stage not in observations, 'podman_sql_barrier_order')
+        require(contract.canonical(helper_request) == contract.canonical(request),
+                'podman_sql_barrier_request_changed')
+        controller_normalizer_bundle(request, backend)
+        initial = contract.decode(contract.canonical(initial_sessions))
+        if sessions:
+            require(initial == sessions, 'podman_sql_barrier_sessions_changed')
+        else:
+            sessions.update(initial)
+        require(physical_snapshot(request, layout, backend) == expected_physical,
+                'podman_sql_barrier_physical_changed')
+        acquired = backend.observe_sql(stage, request, initial,
+                                       timeout_seconds=SQL_BARRIER_TIMEOUT)
+        attestation = contract.validate_sql_postimage_observation(acquired, request, initial, stage)
+        controller_normalizer_bundle(request, backend)
+        require(physical_snapshot(request, layout, backend) == expected_physical,
+                'podman_sql_barrier_physical_changed')
+        # Retain a detached observation before returning another detached value.
+        observations[stage] = contract.decode(contract.canonical(attestation))
+        return contract.decode(contract.canonical(attestation))
+    return observe, observations, sessions
+
+
+def close_started_helper(backend, original_error):
+    """Always attempt both closure and confirmation; preserve the primary error."""
+    close_ok = confirmed = False
+    cleanup_error = None
+    try:
+        close_ok = backend.close_helper() is True
+    except BaseException as error:
+        cleanup_error = error
+    try:
+        confirmed = backend.helper_closed() is True
+    except BaseException as error:
+        if cleanup_error is None:
+            cleanup_error = error
+    if not (close_ok and confirmed):
+        if original_error is not None:
+            original_error.add_note('podman_helper_close_unconfirmed')
+        elif cleanup_error is not None:
+            raise cleanup_error
+        else:
+            raise Refused('podman_helper_close_unconfirmed')
+    return close_ok and confirmed
+
+
 def _measure_fixture(request, layout, backend):
     """Non-CLI seam for simulated transport tests, not an authority provider.
 
@@ -545,6 +615,7 @@ def _measure_fixture(request, layout, backend):
     socket_identity = validate_controller(request, layout.controller_socket, backend.controller())
     validate_image(backend.image(request['helper']['image_id']),
                    request['helper']['image_id'], request['helper']['repo_digest'], helper=True)
+    controller_normalizer_bundle(request, backend)
     pg_before = postgres_snapshot(request, backend)
     with directory(state_path) as path_fd:
         fd = os.open('.', os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC, dir_fd=path_fd)
@@ -562,18 +633,31 @@ def _measure_fixture(request, layout, backend):
                     and postgres_snapshot(request, backend) == pg_before,
                     'podman_prestart_inputs_or_postgres_changed')
             # First helper effect follows the exclusively created durable attempt.
-            backend.start_helper(helper_spec(request, layout))
-            before = physical_snapshot(request, layout, backend)
-            result_raw = backend.measure(request)
-            result = contract.bind_result(request, contract.decode(result_raw))
-            after = physical_snapshot(request, layout, backend)
-            require(before == after and snapshot_inputs(request, layout) == initial_inputs,
-                    'podman_physical_or_inputs_changed')
-            require(validate_controller(request, layout.controller_socket, backend.controller())
-                    == socket_identity, 'podman_controller_socket_changed')
-            # Result says rollback, but receipt requires independent lifecycle closure too.
-            require(backend.close_helper() is True and backend.helper_closed() is True,
-                    'podman_helper_close_unconfirmed')
+            start_attempted, primary_error = False, None
+            try:
+                # Set before the call: a failed start may already own a helper.
+                start_attempted = True
+                backend.start_helper(helper_spec(request, layout))
+                before = physical_snapshot(request, layout, backend)
+                observer, sql_observations, sessions = sql_barrier_observer(request, layout, backend, before)
+                result_raw = backend.measure(request, observer)
+                result = contract.bind_result(request, contract.decode(result_raw))
+                require(set(sql_observations) == {'before', 'after'}
+                        and result['sql_postimage_observations'] == sql_observations
+                        and all(pair['before'] == sessions[channel]
+                                for channel, pair in result['sessions'].items()),
+                        'podman_sql_observations_not_acquired')
+                after = physical_snapshot(request, layout, backend)
+                require(before == after and snapshot_inputs(request, layout) == initial_inputs,
+                        'podman_physical_or_inputs_changed')
+                require(validate_controller(request, layout.controller_socket, backend.controller())
+                        == socket_identity, 'podman_controller_socket_changed')
+            except BaseException as error:
+                primary_error = error
+                raise
+            finally:
+                if start_attempted:
+                    close_started_helper(backend, primary_error)
             require(snapshot_inputs(request, layout) == initial_inputs, 'podman_inputs_changed_after_close')
             require(postgres_snapshot(request, backend) == pg_before,
                     'podman_postgres_changed_after_close')

@@ -17,6 +17,9 @@ except ImportError:
     import clon_cas_podman_namespace as ns
     import test_clon_cas_podman_contract as fixtures
 
+FIXTURE_NORMALIZERS = {'h6_comun.sh': b'# inert H6 controller shell fixture\n',
+                       'h6_normalizar_pg_dump.py': b'# inert H6 normalizer fixture\n'}
+
 
 def inspection(req, cid, helper, binds=()):
     pg = req['pgid']
@@ -59,6 +62,42 @@ class FakePodman:
         self.closed = False
         self.drift = None
         self.raw_result = None
+        self.normalizers = deepcopy(FIXTURE_NORMALIZERS)
+        self.sql_state = deepcopy(req['receipt_bindings']['post'])
+        self.helper_open = False
+        self.open_session_count = 0
+        self.fail_at = None
+        self.failure = RuntimeError('fixture_primary_failure')
+        self.close_error = None
+        self.confirm_ok = True
+        self.skip_observers = False
+        self.observer_order = ('before', 'after')
+
+    def fail(self, stage):
+        if self.fail_at == stage:
+            raise self.failure
+
+    def normalizer_bundle(self):
+        return deepcopy(self.normalizers)
+
+    def observe_sql(self, stage, request, initial_sessions, *, timeout_seconds):
+        assert self.helper_open and self.open_session_count == 3
+        assert timeout_seconds == ns.SQL_BARRIER_TIMEOUT
+        self.events.append('sql-' + stage)
+        self.fail('sql-' + stage)
+        pg = self.req['pgid']
+        process = self.observe(self.pg['State']['Pid'], self.pg['State']['StartedAt'])['process']
+        return {'stage': stage, 'nonce': self.req['nonce'],
+                'request_sha256': ns.contract.digest(ns.contract.canonical(self.req)),
+                'sessions_sha256': ns.contract.digest(ns.contract.canonical(initial_sessions)),
+                'pg_container_id': pg['pg_container_id'], 'pg_image_id': pg['pg_image_id'],
+                'system_identifier': pg['system_identifier'], 'database_oid': pg['database_oid'],
+                'normalizer_sha256': self.req['pins']['normalizer_sha256'],
+                'normalizer_bundle': deepcopy(self.req['normalizer_bundle']),
+                'postgres_process': process,
+                'network_namespace': {'dev': process['dev'], 'ino': process['ino']},
+                'mount_inventory_sha256': ns.contract.digest(ns.contract.canonical(self.req['runtime']['mounts'])),
+                **self.sql_state}
 
     def controller(self):
         return {'rootless': True, 'remote': False, 'socket_path': str(self.layout.controller_socket),
@@ -78,6 +117,8 @@ class FakePodman:
                 'Anonymous': True, 'Options': {}}
 
     def inspect(self, cid):
+        if cid == self.helper_id:
+            self.fail('physical')
         return deepcopy(self.helper if cid == self.helper_id else self.pg)
 
     def observe(self, pid, started_at):
@@ -106,19 +147,36 @@ class FakePodman:
         assert spec == ns.helper_spec(self.req, self.layout)
         assert spec['user'] == '10002:10002' and spec['pull'] == 'never'
         self.events.append('start')
+        self.helper_open = True
+        self.fail('start-partial')
 
-    def measure(self, request):
+    def measure(self, request, state_observer):
         self.events.append('measure')
-        return self.raw_result if self.raw_result is not None else ns.contract.canonical(self.returned)
+        self.fail('measure')
+        self.open_session_count = 3
+        try:
+            initial = {channel: pair['before'] for channel, pair in self.returned['sessions'].items()}
+            if not self.skip_observers:
+                acquired = {stage: state_observer(stage, request, initial) for stage in self.observer_order}
+                self.returned['sql_postimage_observations'] = acquired
+                self.returned['postimage'] = {key: acquired['after'][key] for key in ns.contract.STATE_FIELDS}
+            return self.raw_result if self.raw_result is not None else ns.contract.canonical(self.returned)
+        finally:
+            self.open_session_count = 0
 
     def close_helper(self):
         assert not (self.layout.state / ns.RECEIPT).exists()
         self.events.append('close')
+        if self.close_error is not None:
+            raise self.close_error
         self.closed = self.close_ok
+        if self.closed:
+            self.helper_open = False
         return self.close_ok
 
     def helper_closed(self):
-        return self.closed
+        self.events.append('confirm_close')
+        return self.closed and self.confirm_ok
 
 
 class FilesystemTests(unittest.TestCase):
@@ -177,6 +235,8 @@ class FilesystemTests(unittest.TestCase):
         req['helper']['code_sha256'] = ns.contract.digest(ns.contract.canonical(hashes))
         req['receipt_bindings']['receipt_sha256']['a'] = req['pins']['aut26_receipt_sha256']
         req['receipt_bindings']['receipt_sha256']['l'] = req['pins']['login_receipt_sha256']
+        req['normalizer_bundle'] = {name: ns.contract.digest(raw) for name, raw in FIXTURE_NORMALIZERS.items()}
+        req['pins']['normalizer_sha256'] = ns.contract.digest(ns.contract.canonical(req['normalizer_bundle']))
         self.req, self.root = req, root
         self.layout = ns.Layout(state, sockpath, tuple(binds))
         self.backend = FakePodman(req, self.layout)
@@ -201,7 +261,7 @@ class FilesystemTests(unittest.TestCase):
 
     def test_complete_simulated_lifecycle(self):
         receipt = ns._measure_fixture(self.req, self.layout, self.backend)
-        self.assertEqual(self.backend.events, ['start', 'measure', 'close'])
+        self.assertEqual(self.backend.events, ['start', 'measure', 'sql-before', 'sql-after', 'close', 'confirm_close'])
         self.assertEqual(ns.contract.validate_measurement(receipt, self.req), receipt)
         self.assertEqual(receipt['physical']['before'], receipt['physical']['after'])
         self.assertEqual(receipt['result']['cas_applied'], False)
@@ -241,6 +301,97 @@ class FilesystemTests(unittest.TestCase):
                     ns._measure_fixture(self.req, layout, backend)
                 self.assertTrue((state / ns.ATTEMPT).is_file())
                 self.assertFalse((state / ns.RECEIPT).exists())
+
+    def test_partial_start_and_each_operation_failure_close_in_finally(self):
+        for stage in ('start-partial', 'physical', 'measure', 'sql-before', 'sql-after'):
+            with self.subTest(stage=stage):
+                state = self.root / ('state-finally-' + stage)
+                state.mkdir(mode=0o700)
+                layout = ns.Layout(state, self.layout.controller_socket, self.layout.inputs)
+                backend = FakePodman(self.req, layout)
+                backend.fail_at = stage
+                with self.assertRaises(RuntimeError) as caught:
+                    ns._measure_fixture(self.req, layout, backend)
+                self.assertIs(caught.exception, backend.failure)
+                self.assertEqual(backend.events[-2:], ['close', 'confirm_close'])
+                self.assertFalse(backend.helper_open)
+                self.assertEqual(backend.open_session_count, 0)
+                self.assertTrue((state / ns.ATTEMPT).exists())
+                self.assertFalse((state / ns.RECEIPT).exists())
+
+    def test_invalid_result_still_closes_and_does_not_publish(self):
+        self.backend.raw_result = b'{}'
+        with self.assertRaises(ns.Refused):
+            ns._measure_fixture(self.req, self.layout, self.backend)
+        self.assertEqual(self.backend.events[-2:], ['close', 'confirm_close'])
+        self.assertFalse(self.backend.helper_open)
+        self.assertTrue((self.layout.state / ns.ATTEMPT).exists())
+        self.assertFalse((self.layout.state / ns.RECEIPT).exists())
+
+    def test_cleanup_failure_preserves_primary_error_and_checks_closure(self):
+        self.backend.fail_at = 'start-partial'
+        self.backend.close_error = ValueError('fixture_close_failure')
+        with self.assertRaises(RuntimeError) as caught:
+            ns._measure_fixture(self.req, self.layout, self.backend)
+        self.assertIs(caught.exception, self.backend.failure)
+        self.assertIn('podman_helper_close_unconfirmed', caught.exception.__notes__)
+        self.assertEqual(self.backend.events[-2:], ['close', 'confirm_close'])
+        self.assertTrue((self.layout.state / ns.ATTEMPT).exists())
+        self.assertFalse((self.layout.state / ns.RECEIPT).exists())
+
+    def test_successful_close_without_confirmation_cannot_publish(self):
+        self.backend.confirm_ok = False
+        with self.assertRaises(ns.Refused):
+            ns._measure_fixture(self.req, self.layout, self.backend)
+        self.assertEqual(self.backend.events[-2:], ['close', 'confirm_close'])
+        self.assertTrue((self.layout.state / ns.ATTEMPT).exists())
+        self.assertFalse((self.layout.state / ns.RESULT).exists())
+        self.assertFalse((self.layout.state / ns.RECEIPT).exists())
+
+    def test_helper_report_cannot_replace_external_observations(self):
+        self.backend.skip_observers = True
+        with self.assertRaises(ns.Refused):
+            ns._measure_fixture(self.req, self.layout, self.backend)
+        self.assertNotIn('sql-before', self.backend.events)
+        self.assertEqual(self.backend.events[-2:], ['close', 'confirm_close'])
+        self.assertFalse((self.layout.state / ns.RECEIPT).exists())
+
+    def test_external_sql_state_change_rejected_despite_old_helper_report(self):
+        self.backend.sql_state['schema_sha256'] = '0' * 64
+        with self.assertRaises(ns.Refused):
+            ns._measure_fixture(self.req, self.layout, self.backend)
+        self.assertIn('sql-before', self.backend.events)
+        self.assertNotIn('sql-after', self.backend.events)
+        self.assertEqual(self.backend.events[-2:], ['close', 'confirm_close'])
+        self.assertFalse((self.layout.state / ns.RECEIPT).exists())
+
+    def test_simulated_controller_timeout_at_second_barrier_closes_helper(self):
+        self.backend.fail_at = 'sql-after'
+        self.backend.failure = TimeoutError('fixture_controller_timeout')
+        with self.assertRaises(TimeoutError) as caught:
+            ns._measure_fixture(self.req, self.layout, self.backend)
+        self.assertIs(caught.exception, self.backend.failure)
+        self.assertEqual(self.backend.events[-2:], ['close', 'confirm_close'])
+        self.assertEqual(self.backend.open_session_count, 0)
+        self.assertTrue((self.layout.state / ns.ATTEMPT).exists())
+        self.assertFalse((self.layout.state / ns.RECEIPT).exists())
+
+    def test_both_normalizer_programs_pinned_before_start(self):
+        for name in FIXTURE_NORMALIZERS:
+            with self.subTest(name=name):
+                self.backend.normalizers = deepcopy(FIXTURE_NORMALIZERS)
+                self.backend.normalizers[name] += b'# changed\n'
+                with self.assertRaises(ns.Refused):
+                    ns._measure_fixture(self.req, self.layout, self.backend)
+                self.assertEqual(self.backend.events, [])
+                self.assertFalse((self.layout.state / ns.ATTEMPT).exists())
+
+    def test_reordered_or_repeated_barriers_close_and_reject(self):
+        self.backend.observer_order = ('after', 'before')
+        with self.assertRaises(ns.Refused):
+            ns._measure_fixture(self.req, self.layout, self.backend)
+        self.assertEqual(self.backend.events[-2:], ['close', 'confirm_close'])
+        self.assertFalse((self.layout.state / ns.RECEIPT).exists())
 
     def test_attempt_is_exclusive_and_cannot_be_replayed(self):
         ns._measure_fixture(self.req, self.layout, self.backend)
