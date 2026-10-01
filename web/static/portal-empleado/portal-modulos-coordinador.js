@@ -73,7 +73,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
       import("./modulos/cronos/vista-remoto.js?v=20260929-i18n-textos-v1"),
       import("./modulos/cronos/vista-movimientos-conectado.js?v=20260929-i18n-textos-v1"),
       import("./modulos/cronos/vista-movimientos-propios.js?v=20260929-i18n-textos-v1"),
-      import("./modulos/cronos/vista-permisos-propios.js?v=20260929-i18n-textos-v1"),
+      import("./modulos/cronos/vista-permisos-propios.js?v=20261001-cronos-historial-v1"),
       import("./modulos/cronos/cliente-saldo-http.js"),
       import("./modulos/cronos/cliente-remoto-http.js"),
       import("./modulos/cronos/cliente-solicitudes-http.js"),
@@ -133,7 +133,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   dietas: async () => {
     const [contrato, recorridos, clienteBorradores, clienteAsignacion, calculador, mapa, clienteCircuito] = await Promise.all([
       import("./modulos/dietas/contrato.js"),
-      import("./modulos/dietas/vista-recorridos.js?v=20261001-dietas-bandejas-v4"),
+      import("./modulos/dietas/vista-recorridos.js?v=20261001-dietas-bandejas-v5"),
       import("./modulos/dietas/cliente-borradores-http.js?v=20260925-d5d6-v2"),
       import("./modulos/dietas/cliente-asignacion-http.js?v=20260925-d5d6-v1"),
       import("./modulos/dietas/calculador-rutas-http.js?v=20260925-d5d6-v1"),
