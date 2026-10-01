@@ -45,11 +45,20 @@ test("una sola consulta same-origin alimenta relaciones y servicios con textos l
   assert.ok(!JSON.stringify([relaciones, servicios]).match(/(?:emp|per|rel|srv)_/u), "sin referencias internas");
 });
 
-test("sin fuente servida, sin permiso o con respuesta no válida los apartados no se ofrecen", async () => {
+test("401, 403 y 404 no ofrecen apartados propios", async () => {
   const casos = [
     () => respuesta({ error: "no_encontrada" }, 404),
     () => respuesta({ error: "sin_empleado" }, 403),
     () => respuesta({ error: "autenticacion_requerida" }, 401),
+  ];
+  for (const [indice, caso] of casos.entries()) {
+    const fuentes = await crearFuentesFichaPropia({ fetchImpl: async () => caso() }).preparar();
+    assert.deepEqual(fuentes, {}, `caso ${indice}`);
+  }
+});
+
+test("fallos de red, servidor o contrato dejan ambos apartados en error y permiten recuperar", async () => {
+  const casos = [
     () => respuesta({ error: "no_disponible" }, 503),
     () => respuesta({ data: { ...FICHA.data, persona_ref: "per_x" } }),
     () => respuesta({ data: { ...FICHA.data, ficha: { ...FICHA.data.ficha, relaciones: [{ ...FICHA.data.ficha.relaciones[0], relacion_ref: "rel_x" }] } } }),
@@ -59,8 +68,19 @@ test("sin fuente servida, sin permiso o con respuesta no válida los apartados n
     () => { throw new TypeError("red"); },
   ];
   for (const [indice, caso] of casos.entries()) {
-    const fuentes = await crearFuentesFichaPropia({ fetchImpl: async () => caso() }).preparar();
-    assert.deepEqual(fuentes, {}, `caso ${indice}`);
+    let llamadas = 0;
+    const fuentes = await crearFuentesFichaPropia({ fetchImpl: async () => {
+      llamadas += 1; return llamadas === 1 ? caso() : respuesta(FICHA);
+    } }).preparar();
+    assert.deepEqual(Object.keys(fuentes), ["relaciones", "servicios"], `caso ${indice}`);
+    assert.equal(fuentes.relaciones.estadoInicial, "error");
+    assert.deepEqual(await fuentes.relaciones.consultarPropios(), { estado: "error" });
+    assert.deepEqual(await fuentes.servicios.consultarPropios(), { estado: "error" });
+    assert.equal(llamadas, 1, "el fallo se comparte sin duplicar GET");
+    fuentes.servicios.actualizar();
+    assert.equal((await fuentes.relaciones.consultarPropios()).estado, "disponible");
+    assert.equal((await fuentes.servicios.consultarPropios()).estado, "disponible");
+    assert.equal(llamadas, 2, "actualizar consulta una sola vez para ambos apartados");
   }
 });
 
@@ -93,7 +113,8 @@ test("límite de texto único: régimen y modalidad largos se recortan y la vist
   assert.ok(items.every((item) => Object.values(item).every((valor) => valor.length <= LIMITE_TEXTO_CAMPO_FICHA)));
   assert.doesNotMatch(items[1].regimen, /[\ud800-\udbff](?![\udc00-\udfff])/u, "sin pares sustitutos partidos");
   const excedido = { data: { ...FICHA.data, ficha: { ...FICHA.data.ficha, relaciones: [{ ...relaciones[0], unidad: `${largo}x` }] } } };
-  assert.deepEqual(await crearFuentesFichaPropia({ fetchImpl: async () => respuesta(excedido) }).preparar(), {});
+  const fuentesInvalidas = await crearFuentesFichaPropia({ fetchImpl: async () => respuesta(excedido) }).preparar();
+  assert.deepEqual(await fuentesInvalidas.relaciones.consultarPropios(), { estado: "error" });
 });
 
 test("más filas de las que se muestran: los apartados se ofrecen con estado propio, sin volver a consultar", async () => {
@@ -110,13 +131,38 @@ test("más filas de las que se muestran: los apartados se ofrecen con estado pro
     assert.equal(llamadas, 1, `caso ${indice}`);
   }
   // Un 422 con otro código no es un exceso de filas.
-  assert.deepEqual(await crearFuentesFichaPropia({ fetchImpl: async () => respuesta({ error: "otra_cosa" }, 422) }).preparar(), {});
+  const otras = await crearFuentesFichaPropia({ fetchImpl: async () => respuesta({ error: "otra_cosa" }, 422) }).preparar();
+  assert.deepEqual(await otras.relaciones.consultarPropios(), { estado: "error" });
 });
 
 test("una ficha sin registros deja los apartados vacíos, no en cero inventado", async () => {
   const vacia = { data: { ...FICHA.data, ficha: { ...FICHA.data.ficha, relaciones: [], servicios: [] } } };
   const fuentes = await crearFuentesFichaPropia({ fetchImpl: async () => respuesta(vacia) }).preparar();
   assert.deepEqual(await fuentes.servicios.consultarPropios({}), { estado: "vacio", fuente: "Registro de Personal", actualizado_en: "2026-09-25T09:00:00.000000Z", items: [] });
+});
+
+test("actualizar borra la ficha anterior y no permite que una respuesta tardía repueble la caché", async () => {
+  let resolverAntigua;
+  let llamadas = 0;
+  const cliente = crearFuentesFichaPropia({ fetchImpl: async () => {
+    llamadas += 1;
+    if (llamadas === 1) return respuesta(FICHA);
+    if (llamadas === 2) return new Promise((resolver) => { resolverAntigua = resolver; });
+    if (llamadas === 3) return respuesta({ error: "no_disponible" }, 503);
+    return respuesta({ data: { ...FICHA.data, ficha: { ...FICHA.data.ficha, relaciones: [], servicios: [] } } });
+  } });
+  const fuentes = await cliente.preparar();
+  assert.equal((await fuentes.relaciones.consultarPropios()).estado, "disponible");
+  fuentes.relaciones.actualizar();
+  const antigua = fuentes.relaciones.consultarPropios();
+  fuentes.servicios.actualizar();
+  assert.deepEqual(await fuentes.servicios.consultarPropios(), { estado: "error" });
+  resolverAntigua(respuesta(FICHA));
+  await antigua;
+  assert.deepEqual(await fuentes.relaciones.consultarPropios(), { estado: "error" }, "una respuesta anterior no sustituye el fallo reciente");
+  fuentes.relaciones.actualizar();
+  assert.equal((await fuentes.relaciones.consultarPropios()).estado, "vacio");
+  assert.equal(llamadas, 4);
 });
 
 test("la consulta se cancela con la vista y respeta el plazo", async () => {
@@ -126,7 +172,8 @@ test("la consulta se cancela con la vista y respeta el plazo", async () => {
   controlador.abort();
   await assert.rejects(pendiente, (causa) => causa.codigo === "operacion_abortada");
   const conPlazo = crearFuentesFichaPropia({ plazoMs: 5, fetchImpl: (_ruta, { signal }) => new Promise((_resolver, rechazar) => signal.addEventListener("abort", () => rechazar(new Error("plazo")))) });
-  assert.deepEqual(await conPlazo.preparar(), {});
+  const conError = await conPlazo.preparar();
+  assert.deepEqual(await conError.relaciones.consultarPropios(), { estado: "error" });
   assert.throws(() => crearFuentesFichaPropia({ fetchImpl: null }), TypeError);
 });
 

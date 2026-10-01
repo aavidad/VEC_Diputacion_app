@@ -15,7 +15,7 @@ const BLOQUES = Object.freeze({
   economia: { titulo: "ficha_economia_titulo", ayuda: "ficha_economia_ayuda", columnas: [["documento", "ficha_cab_documento"], ["periodo", "ficha_cab_periodo"], ["estado", "ficha_cab_estado"]] },
   documentos: { titulo: "ficha_documentos_titulo", ayuda: "ficha_documentos_ayuda", columnas: [["documento", "ficha_cab_documento"], ["fecha", "ficha_cab_fecha"], ["estado", "ficha_cab_estado"]] },
 });
-const ESTADOS = new Set(["disponible", "vacio", "no_configurado", "denegado", "excede_limite"]);
+const ESTADOS = new Set(["disponible", "vacio", "no_configurado", "denegado", "excede_limite", "error"]);
 /** Longitud máxima de una celda; la misma que valida el cliente de la ficha propia. */
 export const LIMITE_TEXTO_CAMPO_FICHA = 300;
 const ETIQUETAS_ESTADO = Object.freeze({
@@ -120,7 +120,7 @@ function tabla(d, t, bloque, items) {
   const indicacion = nodo(d, "p", t("ficha_desplazar_tabla")); indicacion.className = "personal-ficha-desplazar";
   conjunto.append(indicacion, region); return conjunto;
 }
-function pintarBloque(d, principal, t, bloque, resultado) {
+function pintarBloque(d, principal, t, bloque, resultado, actualizar) {
   const definicion = BLOQUES[bloque]; const piezas = [];
   if (resultado.estado === "disponible" || resultado.estado === "vacio") {
     const metadatos = nodo(d, "p", t("ficha_procedencia", { fuente: resultado.fuente, fecha: formatearFecha(resultado.actualizado_en) }));
@@ -129,6 +129,11 @@ function pintarBloque(d, principal, t, bloque, resultado) {
   } else {
     const clave = { cargando: "ficha_cargando", no_configurado: "ficha_no_configurado", denegado: "ficha_denegado", excede_limite: "ficha_excede_limite", error: "ficha_error" }[resultado.estado];
     piezas.push(mensaje(d, t(clave), resultado.estado === "error" ? "alert" : "status"));
+  }
+  if (typeof actualizar === "function" && ["disponible", "vacio", "excede_limite", "error"].includes(resultado.estado)) {
+    const accion = nodo(d, "button", t(resultado.estado === "error" ? "ficha_reintentar" : "ficha_actualizar"));
+    accion.type = "button"; accion.className = "boton-secundario"; accion.dataset.personalFichaActualizar = bloque;
+    accion.addEventListener("click", actualizar); piezas.push(accion);
   }
   principal.replaceChildren(panel(d, t(definicion.titulo), piezas, "personal-ficha-panel-ancho"));
 }
@@ -150,7 +155,8 @@ export function montarVistaFichaIntegralPersonal({ raiz, anunciar = () => {}, re
   const t = crearTraductorPersonal(); const contenedor = nodo(d, "section"); contenedor.className = "modulo-personal";
   contenedor.dataset.personalFichaIntegral = ""; raiz.append(contenedor);
   const estados = Object.fromEntries(Object.keys(BLOQUES).map((clave) => [clave,
-    Object.hasOwn(fuentes, clave) && typeof fuentes[clave]?.consultarPropios === "function" ? "sin_consulta" : "no_configurado"]));
+    Object.hasOwn(fuentes, clave) && typeof fuentes[clave]?.consultarPropios === "function"
+      ? (fuentes[clave].estadoInicial === "error" ? "error" : "sin_consulta") : "no_configurado"]));
   const visibles = Object.keys(BLOQUES).filter((clave) => !ocultarSinFuente || estados[clave] !== "no_configurado");
   const pestanas = PESTANAS.filter(([clave]) => clave === "ficha" || visibles.includes(clave) || (clave === "catalogos" && (!ocultarSinFuente || montarCatalogos)));
   let activa = true; let actual = ocultarSinFuente && visibles.length === 0 && montarCatalogos ? "catalogos" : "ficha";
@@ -164,7 +170,7 @@ export function montarVistaFichaIntegralPersonal({ raiz, anunciar = () => {}, re
   const tabs = nodo(d, "div"); tabs.className = "personal-ficha-pestanas"; tabs.setAttribute("role", "tablist"); tabs.setAttribute("aria-label", t("ficha_navegacion"));
   const principal = nodo(d, "div"); principal.className = "personal-ficha-principal"; principal.id = "personal-ficha-panel";
   principal.setAttribute("role", "tabpanel"); principal.setAttribute("tabindex", "0");
-  const pintar = (clave) => {
+  const pintar = (clave, enfocarAccion = false) => {
     if (!activa) return;
     if (actual === "catalogos") limpiar();
     if (vuelo && Object.hasOwn(estados, actual) && estados[actual] === "cargando") estados[actual] = "sin_consulta";
@@ -193,17 +199,31 @@ export function montarVistaFichaIntegralPersonal({ raiz, anunciar = () => {}, re
     }
     const consultar = Object.hasOwn(fuentes, clave) ? fuentes[clave]?.consultarPropios : undefined;
     if (typeof consultar !== "function") { pintarBloque(d, principal, t, clave, { estado: "no_configurado" }); return; }
+    const actualizar = typeof fuentes[clave].actualizar === "function" ? () => {
+      fuentes[clave].actualizar();
+      const grupo = fuentes[clave].grupoActualizacion;
+      if (grupo) for (const otra of visibles) {
+        if (fuentes[otra]?.grupoActualizacion === grupo) estados[otra] = "sin_consulta";
+      }
+      pintar(clave, true);
+    } : undefined;
+    const enfocar = () => {
+      if (!enfocarAccion || d.activeElement !== principal || (typeof d.hasFocus === "function" && !d.hasFocus())) return;
+      (principal.querySelector?.(`[data-personal-ficha-actualizar="${clave}"]`) || principal).focus?.();
+    };
     const turno = secuencia; const controlador = new AbortController(); vuelo = controlador;
     estados[clave] = "cargando";
     pintarBloque(d, principal, t, clave, { estado: "cargando" });
+    if (enfocarAccion) principal.focus?.();
     Promise.resolve().then(() => consultar({ signal: controlador.signal })).then((resultado) => {
       if (!activa || actual !== clave || turno !== secuencia || controlador.signal.aborted) return;
       const validado = validarResultado(resultado, clave); estados[clave] = validado.estado;
-      pintarBloque(d, principal, t, clave, validado);
+      pintarBloque(d, principal, t, clave, validado, actualizar); enfocar();
+      if (validado.estado === "error") anunciar(t("ficha_error"), "error");
     }).catch(() => {
       if (!activa || actual !== clave || turno !== secuencia || controlador.signal.aborted) return;
       estados[clave] = "error";
-      pintarBloque(d, principal, t, clave, { estado: "error" }); anunciar(t("ficha_error"), "error");
+      pintarBloque(d, principal, t, clave, { estado: "error" }, actualizar); enfocar(); anunciar(t("ficha_error"), "error");
     }).finally(() => { if (vuelo === controlador) vuelo = undefined; });
   };
   pestanas.forEach(([clave, texto], indice) => {

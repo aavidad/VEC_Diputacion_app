@@ -53,6 +53,7 @@ $prevalidacion$;
 
 ALTER TABLE vec_contratacion_temporal.prueba_resultado_recibo_rrhh_v2
     DROP CONSTRAINT prueba_resultado_recibo_rrhh_v2_check1;
+SET LOCAL statement_timeout = '20min';
 ALTER TABLE vec_contratacion_temporal.prueba_resultado_recibo_rrhh_v2
     ADD CONSTRAINT prueba_resultado_recibo_rrhh_v2_check1
     CHECK (
@@ -86,6 +87,7 @@ ALTER TABLE vec_contratacion_temporal.prueba_resultado_recibo_rrhh_v2
             AND cursor_huella_sha256 IS NULL
         )
     );
+SET LOCAL statement_timeout = '30s';
 
 CREATE FUNCTION
 vec_contratacion_temporal.validar_detalle_nuevo_recibo_rrhh_ct159()

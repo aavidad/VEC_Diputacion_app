@@ -18,11 +18,11 @@ function raizFalsa() {
     remove() { if (this.parent) this.parent.children = this.parent.children.filter((hijo) => hijo !== this); }
     addEventListener(tipo, fn) { this.listeners.set(tipo, fn); }
     setAttribute(clave, valor) { this.atributos.set(clave, valor); }
-    focus() { this.enfocado = true; }
+    focus() { this.enfocado = true; this.ownerDocument.activeElement = this; }
     matches(selector) { const coincide = selector.match(/^\[data-([a-z-]+)(?:="([a-z_-]+)")?\]$/u); if (!coincide) return false; const clave = coincide[1].replace(/-([a-z])/g, (_m, letra) => letra.toUpperCase()); return this.dataset[clave] !== undefined && (coincide[2] === undefined || this.dataset[clave] === coincide[2]); }
     querySelector(selector) { if (this.matches(selector)) return this; for (const hijo of this.children) { const encontrado = hijo.querySelector(selector); if (encontrado) return encontrado; } return null; }
   }
-  const documento = { createElement: (etiqueta) => new Nodo(documento, etiqueta) };
+  const documento = { createElement: (etiqueta) => new Nodo(documento, etiqueta), activeElement: null, tieneFoco: true, hasFocus() { return this.tieneFoco; } };
   return new Nodo(documento, "root");
 }
 function nodos(n) { return [n, ...n.children.flatMap(nodos)]; }
@@ -132,6 +132,90 @@ test("estados separados: fuente ausente, vacío autorizado, denegado y error", a
   tab(ficha, "ficha").listeners.get("click")();
   assert.equal(nodos(ficha).find((n) => n.dataset.personalFichaEstado === "denegado") !== undefined, true);
   assert.equal(nodos(ficha).filter((n) => n.dataset.personalFichaEstado === "error").length, 2);
+});
+
+test("un fallo inicial conserva relaciones y servicios; Reintentar y Actualizar recuperan con foco", async () => {
+  const raiz = raizFalsa(); let llamadas = 0; let revision = 0;
+  const grupoActualizacion = {};
+  const fuente = {
+    estadoInicial: "error",
+    grupoActualizacion,
+    actualizar() { revision += 1; },
+    consultarPropios() {
+      llamadas += 1;
+      if (revision === 0 || revision === 2) return { estado: "error" };
+      return { estado: "disponible", fuente: "Registro de Personal", actualizado_en: "2026-09-24T08:00:00Z", items: [{ desde: "2026-01-01", puesto: `Puesto ${revision}` }] };
+    },
+  };
+  montarVistaFichaIntegralPersonal({ raiz, ocultarSinFuente: true, fuentes: { relaciones: fuente, servicios: { ...fuente, consultarPropios: () => ({ estado: "error" }) } } });
+  const ficha = raiz.querySelector("[data-personal-ficha-integral]");
+  assert.deepEqual(nodos(ficha).filter((n) => n.dataset.personalFichaTab).map((n) => n.dataset.personalFichaTab), ["ficha", "relaciones", "servicios"]);
+  assert.equal(nodos(ficha).filter((n) => n.dataset.personalFichaEstado === "error").length, 2);
+  tab(ficha, "relaciones").listeners.get("click")(); await completar();
+  assert.match(texto(ficha), /No se pudo consultar/);
+  let accion = ficha.querySelector('[data-personal-ficha-actualizar="relaciones"]');
+  assert.equal(accion.textContent, "Reintentar consulta");
+  accion.listeners.get("click")();
+  assert.match(texto(ficha), /Consultando este apartado/);
+  assert.doesNotMatch(texto(ficha), /Puesto 1/);
+  await completar();
+  accion = ficha.querySelector('[data-personal-ficha-actualizar="relaciones"]');
+  assert.equal(accion.textContent, "Actualizar datos");
+  assert.equal(accion.enfocado, true);
+  assert.equal(raiz.ownerDocument.activeElement, accion);
+  assert.match(texto(ficha), /Puesto 1/);
+  tab(ficha, "ficha").listeners.get("click")();
+  assert.deepEqual(nodos(ficha).filter((n) => n.dataset.personalFichaEstado).map((n) => n.dataset.personalFichaEstado), ["disponible", "sin_consulta"]);
+  tab(ficha, "relaciones").listeners.get("click")(); await completar();
+  accion = ficha.querySelector('[data-personal-ficha-actualizar="relaciones"]');
+  accion.listeners.get("click")(); await completar();
+  assert.doesNotMatch(texto(ficha), /Puesto 1/, "el fallo posterior no muestra datos anteriores");
+  accion = ficha.querySelector('[data-personal-ficha-actualizar="relaciones"]');
+  assert.equal(accion.textContent, "Reintentar consulta");
+  assert.equal(accion.enfocado, true);
+  accion.listeners.get("click")(); await completar();
+  assert.match(texto(ficha), /Puesto 3/);
+  assert.equal(llamadas, 5);
+});
+
+test("el reintento conserva el foco del usuario y una denegación lo deja en el panel", async () => {
+  const raiz = raizFalsa(); let resolver; let consultas = 0;
+  montarVistaFichaIntegralPersonal({ raiz, fuentes: { relaciones: {
+    estadoInicial: "error",
+    actualizar() {},
+    consultarPropios() {
+      consultas += 1;
+      if (consultas === 1) return { estado: "error" };
+      return new Promise((resolve) => { resolver = resolve; });
+    },
+  } } });
+  const ficha = raiz.querySelector("[data-personal-ficha-integral]");
+  const documento = raiz.ownerDocument;
+  const principal = nodos(ficha).find((n) => n.className === "personal-ficha-principal");
+  const ayuda = ficha.querySelector("[data-personal-ficha-ayuda]").children[0];
+  tab(ficha, "relaciones").listeners.get("click")(); await completar();
+  let accion = ficha.querySelector('[data-personal-ficha-actualizar="relaciones"]');
+  accion.focus(); accion.listeners.get("click")();
+  assert.equal(documento.activeElement, principal, "la carga conserva un foco útil");
+  await completar(); ayuda.focus();
+  resolver({ estado: "disponible", fuente: "Personal", actualizado_en: "2026-09-24T08:00:00Z", items: [{ puesto: "Nuevo" }] });
+  await completar();
+  assert.equal(documento.activeElement, ayuda, "la respuesta no recupera el foco si se abrió Ayuda");
+
+  accion = ficha.querySelector('[data-personal-ficha-actualizar="relaciones"]');
+  accion.focus(); accion.listeners.get("click")(); await completar();
+  documento.tieneFoco = false;
+  resolver({ estado: "disponible", fuente: "Personal", actualizado_en: "2026-09-24T08:00:00Z", items: [{ puesto: "Otro" }] });
+  await completar();
+  assert.equal(documento.activeElement, principal, "una ventana sin foco no recibe foco nuevo");
+  documento.tieneFoco = true;
+
+  accion = ficha.querySelector('[data-personal-ficha-actualizar="relaciones"]');
+  accion.focus(); accion.listeners.get("click")(); await completar();
+  resolver({ estado: "denegado" }); await completar();
+  assert.equal(ficha.querySelector('[data-personal-ficha-actualizar="relaciones"]'), null);
+  assert.equal(documento.activeElement, principal, "sin acción permitida queda el foco en el panel");
+  assert.match(texto(ficha), /No tiene permiso/);
 });
 
 test("más filas de las que se muestran: estado propio visible, no desaparece; celdas hasta 300", async () => {
