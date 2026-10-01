@@ -12,6 +12,7 @@ function congelarDatos(datos, localizacion) {
   if (datos?.naturaleza !== "sintetica" || datos.schema !== "dietas-informes-demo"
     || datos.version !== 1 || datos.criterio_periodo !== "fecha_inicio"
     || typeof datos.moneda !== "string" || !/^[A-Z]{3}$/u.test(datos.moneda)
+    || typeof Intl.supportedValuesOf !== "function" || !Intl.supportedValuesOf("currency").includes(datos.moneda)
     || !fechaValida(datos.fecha_corte) || !Array.isArray(datos.registros)) throw new TypeError("datos");
   let moneda;
   try { moneda = new Intl.NumberFormat(localizacion, { style: "currency", currency: datos.moneda }); }

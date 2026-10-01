@@ -163,6 +163,14 @@ test("la moneda procede de la fuente y nunca mezcla divisas de distintas filas",
   await esperar();
   assert.match(sinCentimos.querySelector("[data-dietas-informes-estado]").textContent, /datos incorrectos/u);
   vistaSinCentimos.desmontar();
+
+  const desconocida = raiz();
+  const vistaDesconocida = montarInformesDietas(desconocida, { cargarDatos: async () => ({ ...fuente, moneda: "ZZZ" }),
+    traducir: t, localizacion: catalogo.localizacion });
+  await esperar();
+  assert.equal(desconocida.querySelectorAll("tbody").length, 0);
+  assert.match(desconocida.querySelector("[data-dietas-informes-estado]").textContent, /datos incorrectos/u);
+  vistaDesconocida.desmontar();
 });
 
 test("Reintentar lleva el foco del botón oculto al resumen visible al recuperar", async () => {
