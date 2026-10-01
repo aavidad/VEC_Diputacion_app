@@ -10,6 +10,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"syscall"
 )
 
 var errEntrada = errors.New("ensayo_logico_entrada_no_admitida")
@@ -17,7 +18,7 @@ var errEntrada = errors.New("ensayo_logico_entrada_no_admitida")
 // El archivo abierto se comprueba por resultado y se copia a un directorio
 // exclusivo. La herramienta de restauración sólo monta esa copia de lectura.
 func copiarArchivo(a Archivo, destino string, limite int64) error {
-	f, err := os.Open(a.Ruta) // #nosec G304 G703 -- ruta offline explícita del operador; no procede de HTTP ni se usa como comando.
+	f, err := os.OpenFile(a.Ruta, os.O_RDONLY|syscall.O_NONBLOCK, 0) // #nosec G304 G703 -- ruta offline explícita; modo no bloqueante permite rechazar FIFO/dispositivos tras fstat.
 	if err != nil {
 		return errEntrada
 	}

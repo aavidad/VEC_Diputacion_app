@@ -7,6 +7,7 @@ import (
 	"flag"
 	"io"
 	"os"
+	"syscall"
 	"time"
 
 	"vec-diputacion-granada/internal/modules/administracion/adapters/ensayologicopg"
@@ -29,7 +30,7 @@ type salida struct {
 }
 
 func leer(ruta string, destino any) error {
-	f, err := os.Open(ruta) // #nosec G304 G703 -- fichero local explícito del operador; sin origen HTTP ni ejecución.
+	f, err := os.OpenFile(ruta, os.O_RDONLY|syscall.O_NONBLOCK, 0) // #nosec G304 G703 -- fichero local explícito; fstat rechaza FIFO/dispositivos sin bloquear la lectura.
 	if err != nil {
 		return err
 	}

@@ -11,8 +11,8 @@ import (
 )
 
 var versionHerramienta = regexp.MustCompile(`\(PostgreSQL\) ([0-9]+\.[0-9]+)(?:[ \r\n]|$)`)
-var versionOrigen = regexp.MustCompile(`(?m)^; Dumped from database version: ([0-9]+\.[0-9]+)(?:[ \r\n]|$)`)
-var versionDump = regexp.MustCompile(`(?m)^; Dumped by pg_dump version: ([0-9]+\.[0-9]+)(?:[ \r\n]|$)`)
+var versionOrigen = regexp.MustCompile(`(?m)^;[ \t]+Dumped from database version: ([0-9]+\.[0-9]+)(?:[ \r\n]|$)`)
+var versionDump = regexp.MustCompile(`(?m)^;[ \t]+Dumped by pg_dump version: ([0-9]+\.[0-9]+)(?:[ \r\n]|$)`)
 
 func version(texto []byte, patron *regexp.Regexp) string {
 	v := patron.FindSubmatch(texto)
