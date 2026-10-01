@@ -153,3 +153,11 @@ La rama de ciclo `0a634b8fe` conserva los mismos blobs que `52ee6585` en la
 interfaz Provisión, sus catálogos ES/EN y los handlers de proceso, adjudicación,
 ciclo y catálogo de ensayos examinados. Esa comparación de fuentes no es otra
 ejecución del navegador; la matriz registrada se ejecutó sobre `52ee6585`.
+
+El focal separado `native-zoom-C0Qmbq/resultado.json` pasó ocho vistas ES/EN
+con zoom nativo de Chrome al 200 %: preferencias, valoración, adjudicación y ciclo.
+Usó preparación `2245df471` y ensayos `7f4103218`, con foco y capturas CDP revisados.
+Chrome midió 720 píxeles CSS en una ventana de 1440, DPR 2 y zoom CSS 1.
+Se hicieron doce POST locales para las fases de métricas y capturas.
+El guion conserva su prueba de reflujo; no automatiza este focal de zoom nativo.
+La revisión fue favorable; no acredita contraste completo, lector de pantalla ni persistencia.
