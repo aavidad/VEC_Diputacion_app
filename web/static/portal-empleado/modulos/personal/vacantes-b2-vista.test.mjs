@@ -55,3 +55,13 @@ test("catálogos reales ES/EN y plurales completos; inglés también distingue e
   const codigo = await readFile(new URL("./vacantes-b2-vista.js", import.meta.url), "utf8");
   assert.doesNotMatch(codigo, /innerHTML|localStorage|sessionStorage|indexedDB|document\.cookie|fetch\(/u);
 });
+
+
+test("una denominación larga válida sigue llegando a las celdas, sin perder registros ni cambiar cobertura", () => {
+  const pagina = dto(); const nombre = "😀".repeat(300);
+  pagina.vacantes[0].puesto_denominacion = nombre; pagina.vacantes[0].unidad_denominacion = "U".repeat(257);
+  const hoja = crearVistaVacantesB2(opciones(pagina));
+  assert.ok(nodos(hoja).some((n) => n.textContent === nombre));
+  assert.ok(nodos(hoja).some((n) => n.textContent === "U".repeat(257)));
+  assert.equal(nodos(hoja).filter((n) => n.dataset.personalVacante !== undefined).length, 1);
+});

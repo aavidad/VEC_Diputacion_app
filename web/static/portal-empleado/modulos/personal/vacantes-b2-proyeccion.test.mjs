@@ -42,3 +42,19 @@ test("cobertura incompleta o trazas incompatibles rechazan toda la página, incl
   const reservado = pagina(); reservado.vacantes[0].estado_cobertura = "reservada";
   assert.throws(() => proyectarPaginaVacantesB2(reservado), TypeError);
 });
+
+
+test("las denominaciones válidas de la fuente conservan 257 ASCII y 300 puntos Unicode; 301 se rechaza", () => {
+  for (const nombre of ["P".repeat(257), "😀".repeat(300)]) {
+    const original = pagina(); original.vacantes[0].puesto_denominacion = nombre; original.vacantes[0].unidad_denominacion = nombre;
+    const fila = proyectarPaginaVacantesB2(original).filas[0];
+    assert.equal(fila.puesto, nombre); assert.equal(fila.unidad, nombre);
+    assert.equal(fila.necesidadMensaje, "cubrible_pendiente");
+  }
+  for (const campo of ["puesto_denominacion", "unidad_denominacion"]) {
+    const original = pagina(); original.vacantes[0][campo] = "😀".repeat(301);
+    assert.throws(() => proyectarPaginaVacantesB2(original), TypeError);
+  }
+  const referencia = pagina(); referencia.vacantes[0].plaza_ref = "r".repeat(257);
+  assert.throws(() => proyectarPaginaVacantesB2(referencia), TypeError, "las referencias conservan su límite anterior");
+});

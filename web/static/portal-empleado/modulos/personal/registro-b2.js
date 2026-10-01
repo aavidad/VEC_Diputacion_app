@@ -8,7 +8,7 @@ import { crearPanelPreparacionServiciosCER } from "./preparacion-servicios-cer.j
 import { crearPanelRelacionParaRPT } from "./preparacion-relacion-rpt.js?v=20261001-ficha-buffer-v1";
 import { renderizarPreparacionAntecedentesCarrera, validarPreparacionAntecedentesCarrera } from "./preparacion-antecedentes-carrera.js?v=20261001-ficha-buffer-v1";
 
-import { crearVistaVacantesB2 } from "./vacantes-b2-vista.js?v=20261002-b-rpt-vacantes-v1";
+import { crearVistaVacantesB2 } from "./vacantes-b2-vista.js?v=20261002-b-rpt-vacantes-v2";
 
 const BLOQUES = Object.freeze([
   ["relaciones", "registro_b2_relaciones", "registro_b2_tabla_relaciones", [

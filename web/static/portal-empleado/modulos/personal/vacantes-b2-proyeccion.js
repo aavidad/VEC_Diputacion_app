@@ -7,6 +7,12 @@ function texto(valor, obligatorio = false) {
   if (typeof valor !== "string" || !valor || valor.length > 256 || /[\u0000-\u001f\u007f]/u.test(valor)) throw new TypeError("dato de vacantes incompatible");
   return valor;
 }
+// SQL10 admite 300 caracteres en denominaciones, no 300 unidades UTF-16.
+function denominacion(valor) {
+  if (valor === undefined || valor === "") return "";
+  if (typeof valor !== "string" || [...valor].length > 300 || /[\u0000-\u001f\u007f]/u.test(valor)) throw new TypeError("denominación de vacantes incompatible");
+  return valor;
+}
 function dato(codigoMensaje, valor, tipo = "texto") { return Object.freeze({ codigoMensaje, valor, tipo }); }
 
 export function proyectarPaginaVacantesB2(pagina) {
@@ -32,7 +38,7 @@ export function proyectarPaginaVacantesB2(pagina) {
       dato("fuente_ref", texto(traza.fuente_ref, true)), dato("acto_ref", texto(traza.acto_ref, true)), dato("fuente_huella_sha256", traza.fuente_huella_sha256),
     ].filter((entrada) => entrada.valor !== ""));
     return Object.freeze({
-      codigoPlaza: texto(vacante.codigo_plaza_fuente), unidad: texto(vacante.unidad_denominacion), puesto: puestoRef ? texto(vacante.puesto_denominacion) : "",
+      codigoPlaza: texto(vacante.codigo_plaza_fuente), unidad: denominacion(vacante.unidad_denominacion), puesto: puestoRef ? denominacion(vacante.puesto_denominacion) : "",
       dotacionMensaje: "sin_ocupacion", puestoMensaje: puestoRef ? "puesto_vinculado" : "puesto_no_consta", necesidadMensaje: "cubrible_pendiente",
       origenVisible: visibles, origenTecnico: tecnicos,
     });
