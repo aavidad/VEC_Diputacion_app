@@ -162,11 +162,9 @@ func limitesPeriodo(p domain.Periodo) bool {
 func ocupacionVigente(o ports.OcupacionAntecedente, corte string) bool {
 	dia, err := time.Parse(time.DateOnly, corte)
 	ini, errIni := time.Parse(time.DateOnly, o.Periodo.Inicio)
-	if err != nil || errIni != nil || dia.Before(ini) {
-		return false
-	}
-	if o.Periodo.Fin == "" {
-		return true
+	vigente := err == nil && errIni == nil && !dia.Before(ini)
+	if !vigente || o.Periodo.Fin == "" {
+		return vigente
 	}
 	fin, errFin := time.Parse(time.DateOnly, o.Periodo.Fin)
 	return errFin == nil && !fin.Before(ini) && !dia.After(fin)

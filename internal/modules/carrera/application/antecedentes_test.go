@@ -157,3 +157,17 @@ func TestAntecedentesConservanFuentesPropiasYSolapesSinSumarPeriodos(t *testing.
 	}
 	t.Fatal("omite el solape en la preparación existente")
 }
+
+func TestAntecedentesCorteInvalidoMantieneNivelPendiente(t *testing.T) {
+	e, a := escenarioAntecedentes()
+	a.CorteEfectivo = "2026-02-30"
+	out, err := (Servicio{}).PrepararConAntecedentesSinteticos(context.Background(), e, lectorAntecedentesFunc(func(context.Context, ports.ConsultaAntecedentesSinteticos) (ports.InstantaneaAntecedentesSinteticos, error) {
+		return a, nil
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out.Preparacion.Casos[0].NivelPuesto != nil || !slices.Contains(out.Casos[0].Faltantes, "corte_efectivo") || !slices.Contains(out.Casos[0].Faltantes, "nivel_puesto") {
+		t.Fatal("una fecha de corte inválida permite consumir el nivel")
+	}
+}
