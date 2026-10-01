@@ -1,0 +1,86 @@
+{
+  "esquema": "vec.analitica.definiciones.v1",
+  "version": 1,
+  "responsable": null,
+  "aprobacion": "pendiente",
+  "fuente": {
+    "endpoint": "/api/vec/contratacion-temporal/estadisticas",
+    "esquema_respuesta": "vec.ct.estadisticas.v1",
+    "migracion": "deploy/postgresql/contratacion_temporal/migraciones/000107_estadisticas_rrhh_periodo.up.sql",
+    "funcion": "vec_contratacion_temporal.consultar_estadisticas_rrhh_v1",
+    "proyeccion": "vec_contratacion_temporal.publicacion_version_rrhh",
+    "corte": "vec_contratacion_temporal.control_publicacion_rrhh.ultimo_corte"
+  },
+  "periodos": [
+    "anual",
+    "mensual",
+    "semanal"
+  ],
+  "zona_horaria": "Europe/Madrid",
+  "intervalo": "periodos_completos",
+  "ambitos": [
+    "organizacion",
+    "centro",
+    "unidad_gestion"
+  ],
+  "notas": [
+    "periodo",
+    "ambito",
+    "corte",
+    "calidad",
+    "gobierno"
+  ],
+  "indicadores": [
+    {
+      "id": "altas",
+      "nombre": "indicadores.altas.nombre",
+      "definicion": "indicadores.altas.definicion",
+      "unidad": "expedientes",
+      "hito": "min(creado_en)"
+    },
+    {
+      "id": "llamamientos",
+      "nombre": "indicadores.llamamientos.nombre",
+      "definicion": "indicadores.llamamientos.definicion",
+      "unidad": "expedientes",
+      "hito": "min(actualizado_en)",
+      "condicion": {
+        "fase_clave": "llamamiento"
+      }
+    },
+    {
+      "id": "formalizaciones",
+      "nombre": "indicadores.formalizaciones.nombre",
+      "definicion": "indicadores.formalizaciones.definicion",
+      "unidad": "expedientes",
+      "hito": "min(actualizado_en)",
+      "condicion": {
+        "fase_clave": "nombramiento"
+      }
+    },
+    {
+      "id": "cierres",
+      "nombre": "indicadores.cierres.nombre",
+      "definicion": "indicadores.cierres.definicion",
+      "unidad": "expedientes",
+      "hito": "min(actualizado_en)",
+      "condicion": {
+        "estado_clave": [
+          "completado",
+          "cancelado"
+        ]
+      }
+    },
+    {
+      "id": "incidencias",
+      "nombre": "indicadores.incidencias.nombre",
+      "definicion": "indicadores.incidencias.definicion",
+      "unidad": "entradas_estado",
+      "hito": "actualizado_en",
+      "condicion": {
+        "estado_clave": "incidencia",
+        "estado_anterior": "distinto_o_ausente"
+      }
+    }
+  ]
+}
