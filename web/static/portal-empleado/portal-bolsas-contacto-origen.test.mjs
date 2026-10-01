@@ -6,7 +6,7 @@ import {
   fechaCivilVisible,
   renderizarAvisosContactoEmision,
   renderizarOrigenContacto,
-} from "./portal-bolsas-contacto-origen.js";
+} from "./portal-bolsas-contacto-origen.js?v=20261001-codexf-ct-catalogos-v1";
 import { validarEmisionLlamamiento } from "./portal-llamamientos-contrato.js";
 
 const respuesta = (status, cuerpo) => async () => ({ status, ok: status >= 200 && status < 300, json: async () => cuerpo });

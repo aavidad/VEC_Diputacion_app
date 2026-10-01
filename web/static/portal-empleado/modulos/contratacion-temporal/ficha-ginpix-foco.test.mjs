@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { montarFichaGINPIX } from "./ficha-ginpix.js";
+import { montarFichaGINPIX } from "./ficha-ginpix.js?v=20261001-codexf-ct-catalogos-v1";
 
 const recibo = {
   esquema: "vec.contratacion-temporal.incorporacion-ejercicio.recibo.v2",

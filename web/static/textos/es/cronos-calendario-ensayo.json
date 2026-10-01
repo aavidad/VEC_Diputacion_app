@@ -1,0 +1,18 @@
+{
+  "titulo": "Calendario histórico de centro: ensayo sintético",
+  "alcance": "Los días laborables pertenecen al calendario del centro. No acreditan que la persona tuviera trabajo programado.",
+  "limites": "No calcula jornada, minutos, presencia, saldo ni plazos administrativos. No consulta Personal ni fuentes oficiales.",
+  "fuentes": "Las referencias y huellas de fuente son datos declarados del ensayo. No se abren documentos, archivos ni enlaces. Las huellas de entrada y de resultado permiten repetir y comparar este cálculo.",
+  "determinado": "El tramo tiene una adscripción y calendario completo de centro.",
+  "parcial": "Hay tramos con calendario y otros que no pueden determinarse.",
+  "indeterminado": "No se puede determinar el calendario del tramo.",
+  "adscripcion_sin_cobertura": "Falta la adscripción para estas fechas.",
+  "adscripcion_multiple": "Varias adscripciones cubren las mismas fechas. El ensayo no elige una.",
+  "calendario_sin_cobertura": "Falta alguna capa del calendario del centro para este año.",
+  "calendario_no_disponible": "No se pudo consultar un calendario completo.",
+  "programacion_persona_no_disponible": "Faltan el perfil horario y el cuadrante de la persona.",
+  "presencia_y_saldo_fuera_de_alcance": "Los fichajes y el saldo quedan fuera de este ensayo.",
+  "entrada_invalida": "La entrada no es un ensayo válido. Usa un único JSON sintético por la entrada estándar y sin argumentos.",
+  "consulta_no_disponible": "No se pudo reproducir la consulta con el snapshot y el instante de conocimiento indicados.",
+  "salida_no_disponible": "No se pudo escribir el resultado."
+}

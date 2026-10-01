@@ -1,0 +1,31 @@
+{
+  "referencia": "propuesta:catalogo:dietas:ejemplo",
+  "version": "propuesta:liquidacion:ejemplo:v1",
+  "version_tarifa_ref": "provisional:ejemplo:20261001",
+  "pais_iso2": "ES",
+  "ambito": "nacional_ordinario_sin_alojamiento",
+  "procedencia": "ejemplo_retirable_sin_aprobacion",
+  "fuentes": [
+    "https://www.boe.es/buscar/act.php?id=BOE-A-2002-10337#a10",
+    "https://www.boe.es/buscar/doc.php?id=BOE-A-2005-19988",
+    "https://www.boe.es/buscar/doc.php?id=BOE-A-2023-16462"
+  ],
+  "reglas": [
+    {
+      "referencia": "propuesta:regla:manutencion:grupo2",
+      "tipo": "dieta",
+      "concepto": "manutencion",
+      "grupo": 2,
+      "tope_centimos": 3740,
+      "centimos_por_km": 0
+    },
+    {
+      "referencia": "propuesta:regla:km:vehiculo-propio",
+      "tipo": "kilometraje",
+      "concepto": "vehiculo_propio",
+      "grupo": 0,
+      "tope_centimos": 0,
+      "centimos_por_km": 26
+    }
+  ]
+}
