@@ -41,7 +41,10 @@ type fila struct {
 	Concepto, Detalle, Inicial, Propuesto, Diferencia, Motivo, Regla          string
 	Descripcion, Fecha, JustificanteRef, JustificanteSHA, CatalogoOtros, Tope string
 	Numero                                                                    int
-	D5                                                                        bool
+	D5, Kilometraje                                                           bool
+	OrigenCodigo, DestinoCodigo, KilometrosBase, KilometrosFinales            string
+	AjusteKilometros, MotivoAjuste                                            string
+	RutaNumero                                                                int
 }
 type vista struct {
 	Textos                                                                          Textos
@@ -118,6 +121,24 @@ func (r *Renderizador) Renderizar(p *domain.PreparacionLiquidacion, t Textos) ([
 			}
 		}
 		f := fila{Concepto: concepto, Detalle: detalle, Inicial: moneda(l.OriginalCentimos, t.Formato), Propuesto: moneda(l.ReconocidoPropuestoCentimos, t.Formato), Diferencia: moneda(l.RechazadoCentimos, t.Formato), Motivo: motivo, Regla: l.ReglaRef, Numero: l.Indice + 1}
+		if d.Tipo == "kilometraje" {
+			for _, rotulo := range []string{t.Rotulos.Ruta, t.Rotulos.OrigenCodigo, t.Rotulos.DestinoCodigo, t.Rotulos.KilometrosBase, t.Rotulos.KilometrosFinales, t.Rotulos.AjusteKilometros, t.Rotulos.MotivoAjuste, t.Rotulos.NoConsta} {
+				if !texto(rotulo) {
+					return nil, ErrTextos
+				}
+			}
+			f.Kilometraje = true
+			f.RutaNumero = d.RutaIndice
+			f.OrigenCodigo = d.OrigenCodigo
+			f.DestinoCodigo = d.DestinoCodigo
+			f.KilometrosBase = distancia(d.KilometrosBase, t)
+			f.KilometrosFinales = distancia(d.Kilometros, t)
+			f.AjusteKilometros = distancia(d.AjusteKilometros, t)
+			f.MotivoAjuste = d.MotivoAjuste
+			if f.MotivoAjuste == "" {
+				f.MotivoAjuste = t.Rotulos.NoConsta
+			}
+		}
 		if d.Tipo == domain.ClaseOtroMedio || d.Tipo == domain.ClaseOtroGasto {
 			regla, ok := reglas[l.ReglaRef]
 			if !ok || regla.Tipo != d.Tipo || regla.Concepto != d.TipoGasto || regla.TopeCentimos <= 0 {
@@ -165,3 +186,27 @@ func moneda(n int64, f Formato) string {
 	}
 	return entero + f.Decimal + decimal + "\u00a0" + f.Moneda
 }
+
+// distancia localiza el decimal declarado sin calcular ni completar datos ausentes.
+func distancia(s string, t Textos) string {
+	if s == "" {
+		return t.Rotulos.NoConsta
+	}
+	if !distanciaDecimal.MatchString(s) {
+		return s
+	}
+	entero, decimal, _ := strings.Cut(s, ".")
+	negativo := strings.HasPrefix(entero, "-")
+	if negativo {
+		entero = entero[1:]
+	}
+	for i := len(entero) - 3; i > 0; i -= 3 {
+		entero = entero[:i] + t.Formato.Agrupacion + entero[i:]
+	}
+	if negativo {
+		entero = "-" + entero
+	}
+	return entero + t.Formato.Decimal + decimal
+}
+
+var distanciaDecimal = regexp.MustCompile(`^-?[0-9]+\.[0-9]{4}$`)
