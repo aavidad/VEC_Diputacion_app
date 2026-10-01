@@ -129,3 +129,5 @@
 1437 scripts/recorridos/clon_sql.py
 1358 scripts/recorridos/clon_sql.test.py
 895 scripts/recorridos/clon_runtime_container.py
+901 scripts/recorridos/clon_cas_namespace.py
+829 scripts/recorridos/test_clon_cas_namespace.py
