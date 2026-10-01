@@ -172,6 +172,44 @@ func descriptorPersonalB2Interno(d DescriptorCapacidadPersonalB2V3) descriptorMa
 		ProveedorNominal: "proveedor-material-personal-b2-" + d.Capacidad}
 }
 
+// publicarMaterialIncorporacionB2Desarrollo publica las nueve audiencias
+// nominales de la incorporación en el mismo gobierno V3 de vec-server. La
+// configuración privada sólo habilita su selección; vec-interno consume las
+// claves publicadas sin convertirse en publicador.
+func publicarMaterialIncorporacionB2Desarrollo(ctx context.Context, gobierno *pgxpool.Pool, material materialAtestacionContratacionTemporalDesarrollo, catalogo catalogoMaterialAutorizacionComunDesarrollo) error {
+	return publicarMaterialIncorporacionB2ConDesarrollo(material, catalogo, func(m *materialAtestacionContratacionTemporalDesarrollo) error {
+		return publicarGobiernoAtestacionContratacionTemporalDesarrollo(ctx, gobierno, m)
+	})
+}
+
+func publicarMaterialIncorporacionB2ConDesarrollo(material materialAtestacionContratacionTemporalDesarrollo, catalogo catalogoMaterialAutorizacionComunDesarrollo, publicar func(*materialAtestacionContratacionTemporalDesarrollo) error) error {
+	descriptores := descriptoresMaterialIncorporacionB2()
+	if publicar == nil || len(descriptores) != 9 {
+		return errGobiernoPostgreSQLContratacionTemporalDesarrolloIncoherente
+	}
+	// Comprobar el lote completo antes del primer efecto: cada audiencia debe
+	// tener el descriptor exacto elegido por la composición y estar en la lista
+	// positiva del gobierno. No admitir sustitutos por prefijo o módulo.
+	for _, d := range descriptores {
+		seleccionado, ok := catalogo.descriptorPara(d.Audiencia)
+		if !ok || seleccionado != d || !audienciaConsumoGobiernoPostgreSQLContratacionTemporalDesarrolloEsPropia(d.Audiencia) {
+			return errGobiernoPostgreSQLContratacionTemporalDesarrolloIncoherente
+		}
+	}
+	for _, d := range descriptores {
+		derivado, err := derivarMaterialConsumidorV3Desarrollo(material, d)
+		if err != nil {
+			return err
+		}
+		err = publicar(&derivado)
+		borrarBytes(derivado.claveHMAC)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // publicarMaterialPersonalB2Desarrollo ejecuta la publicación de las ocho
 // claves con el publicador existente (misma transacción serializada, mismo
 // cerrojo consultivo y mismos actos `acto:ct:desarrollo:`). Es idempotente:
