@@ -328,3 +328,21 @@ func TestAdjudicacionLimitesCardinalidad(t *testing.T) {
 		}
 	})
 }
+
+func TestAdjudicacionRechazaDosVacantesDelMismoPuestoIndividual(t *testing.T) {
+	c, a := adjConfiguraciones(t)
+	e := adjEntrada(t, c)
+	e.Vacantes[1].PuestoRef = e.Vacantes[0].PuestoRef
+	// A solicita solo va y B solo vb. Ambas valoraciones proceden del motor
+	// propio contra el mismo puesto individual y sus respectivas instantáneas.
+	for i := range e.Solicitudes {
+		s := &e.Solicitudes[i]
+		v := e.Vacantes[i]
+		s.Preferencias = []d.PreferenciaAdjudicacion{{VacanteRef: v.VacanteRef, Admision: "admitida", Valoracion: adjValoracion(t, c, s.PersonaRef, v.PuestoRef, 10, 0, true)}}
+	}
+	r, err := d.SimularAdjudicacion(a, e)
+	nominal, ok := err.(*d.Error)
+	if !ok || nominal.Codigo != "adjudicacion_vacante_invalida" || nominal.Campo != "vacantes" || len(r.Asignaciones) != 0 {
+		t.Fatalf("puesto individual duplicado aceptado: resultado=%+v error=%v", r, err)
+	}
+}

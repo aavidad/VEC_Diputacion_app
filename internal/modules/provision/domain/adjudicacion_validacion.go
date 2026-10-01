@@ -58,11 +58,13 @@ func ValidarAdjudicacion(c ConfiguracionAdjudicacion, e EntradaAdjudicacion) err
 		return fallo("adjudicacion_universo_invalido", "cardinalidad")
 	}
 	vacantes := map[string]string{}
+	puestos := map[string]bool{}
 	for _, v := range e.Vacantes {
-		if !referenciaAdjudicacion(v.VacanteRef) || !referenciaAdjudicacion(v.PuestoRef) || vacantes[v.VacanteRef] != "" {
+		if !referenciaAdjudicacion(v.VacanteRef) || !referenciaAdjudicacion(v.PuestoRef) || vacantes[v.VacanteRef] != "" || puestos[v.PuestoRef] {
 			return fallo("adjudicacion_vacante_invalida", "vacantes")
 		}
 		vacantes[v.VacanteRef] = v.PuestoRef
+		puestos[v.PuestoRef] = true // PuestoRef identifica una unidad RPT individual.
 	}
 	personas, solicitudes := map[string]bool{}, map[string]bool{}
 	total := 0
