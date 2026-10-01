@@ -66,9 +66,15 @@ export function actualizarConfiguracion(estado, { campo, valor, regla }) {
     if (!['coeficiente', 'maximo'].includes(campo) || !proceso.configuracion.reglas[regla]) throw new TypeError('provision.configuracion');
     proceso.configuracion.reglas[regla][campo] = puntosDesdeDecimal(valor);
   } else {
-    if (!['fecha_corte', 'ventana_desde'].includes(campo) || !fechaCivilValida(valor)) throw new TypeError('provision.fecha');
-    proceso.configuracion[campo] = valor;
-    if (proceso.configuracion.ventana_desde >= proceso.configuracion.fecha_corte) throw new TypeError('provision.fecha');
+    if (!['fecha_corte', 'ventana_desde'].includes(campo)) throw new TypeError('provision.fecha');
+    const fechas = {
+      ventana_desde: estado.invalidos?.ventana_desde ?? proceso.configuracion.ventana_desde,
+      fecha_corte: estado.invalidos?.fecha_corte ?? proceso.configuracion.fecha_corte,
+      [campo]: valor,
+    };
+    if (!fechaCivilValida(fechas.ventana_desde) || !fechaCivilValida(fechas.fecha_corte)
+      || fechas.ventana_desde >= fechas.fecha_corte) throw new TypeError('provision.fecha');
+    Object.assign(proceso.configuracion, fechas);
   }
   return { ...estado, proceso, resultado: null, estado: 'pendiente', revision: estado.revision + 1 };
 }

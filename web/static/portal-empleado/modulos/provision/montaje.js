@@ -17,7 +17,15 @@ export async function montarModuloProvision({ raiz, cliente, preparacion, proyec
       try {
         const siguiente = actualizarConfiguracion(estado, cambio); cancelar(); estado = siguiente;
         estado.invalidos = { ...estado.invalidos }; estado.errores = { ...estado.errores };
-        delete estado.invalidos[clave]; delete estado.errores[clave]; valido = true;
+        const limpiados = cambio.regla === undefined ? ['ventana_desde', 'fecha_corte'] : [clave];
+        for (const campo of limpiados) {
+          delete estado.invalidos[campo]; delete estado.errores[campo];
+          const control = Array.from(raiz.querySelectorAll('[data-foco]')).find(n => n.dataset.foco === campo);
+          control?.setAttribute('aria-invalid', 'false');
+          const errorVisible = raiz.querySelector(`#provision-error-${campo}`);
+          if (errorVisible) { errorVisible.textContent = ''; errorVisible.hidden = true; }
+        }
+        valido = true;
       } catch (error) {
         estado.invalidos = { ...estado.invalidos, [clave]: cambio.valor };
         estado.errores = { ...estado.errores, [clave]: error.message === 'provision.fecha' ? 'configuracion.fecha_invalida' : 'configuracion.invalida' };

@@ -18,7 +18,7 @@ function dom() {
     get firstChild() { return this.children[0]; }
     setAttribute(k, v) { this.atributos[k] = v; }
     addEventListener(k, f) { this.listeners[k] = f; }
-    querySelector(selector) { return nodos(this).find(n => selector === '[data-provision-aviso]' && n.dataset.provisionAviso !== undefined) ?? null; }
+    querySelector(selector) { return nodos(this).find(n => selector.startsWith('#') ? n.id === selector.slice(1) : selector === '[data-provision-aviso]' && n.dataset.provisionAviso !== undefined) ?? null; }
     querySelectorAll() { return this.children.flatMap(n => [n, ...n.querySelectorAll()]).filter(n => n.dataset.foco); }
     focus() { d.activeElement = this; }
   }
@@ -90,4 +90,19 @@ test('rechazo 400/422 distingue validación de servicio indisponible', async () 
     const cliente = crearClienteProvisionLocal({ fetchImpl: async () => ({ ok: false, status }) });
     await assert.rejects(cliente.simular({}), e => e.codigo === 'validacion');
   }
+});
+
+test('corregir la segunda fecha revalida el intervalo visible y conserva errores numéricos ajenos', async () => {
+  const raiz = dom(); const p = preparacion(); p.proceso.configuracion.reglas = [{ familia: 'grado', coeficiente: '0', maximo: '1000000' }];
+  let enviada; const cliente = { simular: async peticion => { enviada = peticion; return resultado(m.obtenerEstado()); } };
+  const m = await montarModuloProvision({ raiz, textos, preparacion: p, cliente });
+  const maximo = nodos(raiz).find(n => n.dataset.foco === 'maximo-0'); maximo.value = 'abc'; maximo.listeners.change();
+  const inicio = nodos(raiz).find(n => n.dataset.foco === 'ventana_desde'); inicio.value = '2030-01-01'; inicio.listeners.change();
+  assert.equal(inicio.atributos['aria-invalid'], 'true');
+  const corte = nodos(raiz).find(n => n.dataset.foco === 'fecha_corte'); corte.value = '2035-01-01'; corte.listeners.change();
+  assert.equal(inicio.atributos['aria-invalid'], 'false'); assert.equal(raiz.querySelector('#provision-error-ventana_desde').hidden, true);
+  assert.deepEqual(Object.keys(m.obtenerEstado().invalidos), ['maximo-0']);
+  assert.equal(m.obtenerEstado().proceso.configuracion.ventana_desde, '2030-01-01'); assert.equal(m.obtenerEstado().proceso.configuracion.fecha_corte, '2035-01-01');
+  maximo.value = '1'; maximo.listeners.change(); click(raiz, 'vista-valoracion'); await click(raiz, 'simular');
+  assert.equal(enviada.configuracion.ventana_desde, '2030-01-01'); assert.equal(enviada.configuracion.fecha_corte, '2035-01-01');
 });
