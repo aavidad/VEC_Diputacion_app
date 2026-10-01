@@ -1,7 +1,7 @@
 const VIAS = new Set(['grado', 'progresion', 'promocion']);
 const ESTADOS = new Set(['disponible', 'pendiente', 'incompatible']);
-const texto = v => typeof v === 'string' && v.length > 0 && v.length <= 500;
-const datoTexto = v => typeof v === 'string' && v.length <= 500;
+const texto = v => typeof v === 'string' && v.length > 0 && v.length <= 1024;
+const datoTexto = v => typeof v === 'string' && v.length <= 1024;
 const version = v => texto(v) || Number.isSafeInteger(v) && v > 0;
 const versionDato = v => datoTexto(v) || Number.isSafeInteger(v) && v > 0;
 const clave = (v, grupo) => texto(v) && new RegExp(`^carrera\\.${grupo}\\.[a-z_]+$`).test(v);
