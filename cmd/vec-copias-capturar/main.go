@@ -72,7 +72,8 @@ func entorno(c configuracion) ([]string, bool) {
 	// This CLI is deliberately unable to address deployed hosts. Explicit socket
 	// paths are allowed for isolated Docker --network none fixtures.
 	host := c.EntornoPG["PGHOST"]
-	if host != "127.0.0.1" && host != "::1" && !strings.HasPrefix(host, "/") {
+	// libpq interprets commas as a host list, including socket-first lists.
+	if strings.Contains(host, ",") || (host != "127.0.0.1" && host != "::1" && !strings.HasPrefix(host, "/")) {
 		return nil, false
 	}
 	if c.EntornoPG["PGSERVICE"] != "" || c.EntornoPG["PGSERVICEFILE"] != "" {
