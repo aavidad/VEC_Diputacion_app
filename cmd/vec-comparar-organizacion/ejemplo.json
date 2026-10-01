@@ -1,0 +1,223 @@
+{
+  "esquema": "vec.personal.comparacion-organizacion.preparacion.v1",
+  "sintetico": true,
+  "idioma": "es",
+  "formato": "json",
+  "antes": {
+    "selector": {
+      "organismo_ref": "organismo:dipgra",
+      "unidad_clave": "",
+      "vigente_en": "2024-12-31",
+      "conocido_en": "2024-12-31T12:00:00Z",
+      "version_rpt_ref": "rpt:2024",
+      "version_plantilla_ref": "plantilla:2024",
+      "limite": 100,
+      "cursor": ""
+    },
+    "cobertura": {
+      "unidades": "completa",
+      "puestos_tipo": "completa",
+      "dotaciones": "completa",
+      "plazas": "completa",
+      "puestos_individuales": "completa",
+      "vinculos": "completa"
+    },
+    "unidades": [
+      {
+        "traza": {
+          "id": "unidad:cultura",
+          "version": 1,
+          "fuente_ref": "fuente:rpt_sintetica",
+          "acto_ref": "acto:preparacion_sintetica",
+          "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "efectos_desde": "2024-01-01",
+          "conocido_desde": "2024-01-01T00:00:00Z"
+        },
+        "catalogo_id": "estructura-organizativa-dipgra",
+        "catalogo_version": 1,
+        "catalogo_revision": 1,
+        "clave_catalogo": "centro:cultura",
+        "tipo": "centro",
+        "etiqueta": "Servicio de Cultura"
+      }
+    ],
+    "puestos_tipo": [
+      {
+        "traza": {
+          "id": "tipo:administrativo",
+          "version": 1,
+          "fuente_ref": "fuente:rpt_sintetica",
+          "acto_ref": "acto:preparacion_sintetica",
+          "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "efectos_desde": "2024-01-01",
+          "conocido_desde": "2024-01-01T00:00:00Z"
+        },
+        "version_rpt_ref": "rpt:2024",
+        "codigo_fuente": "ADM-01",
+        "unidad_id": "unidad:cultura",
+        "denominacion": "Administrativo de Cultura",
+        "clasificacion_ref": "clasificacion:c1"
+      }
+    ],
+    "dotaciones": [
+      {
+        "traza": {
+          "id": "dotacion:administrativo",
+          "version": 1,
+          "fuente_ref": "fuente:rpt_sintetica",
+          "acto_ref": "acto:preparacion_sintetica",
+          "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "efectos_desde": "2024-01-01",
+          "conocido_desde": "2024-01-01T00:00:00Z"
+        },
+        "version_rpt_ref": "rpt:2024",
+        "puesto_tipo_id": "tipo:administrativo",
+        "cantidad": 2
+      }
+    ],
+    "plazas": [
+      {
+        "traza": {
+          "id": "plaza:cultura",
+          "version": 1,
+          "fuente_ref": "fuente:rpt_sintetica",
+          "acto_ref": "acto:preparacion_sintetica",
+          "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "efectos_desde": "2024-01-01",
+          "conocido_desde": "2024-01-01T00:00:00Z"
+        },
+        "version_plantilla_ref": "plantilla:2024",
+        "codigo_fuente": "PL-01",
+        "clasificacion_ref": "clasificacion:c1",
+        "unidad_id": "unidad:cultura",
+        "estado_estructural": "vigente"
+      }
+    ],
+    "puestos_individuales": [
+      {
+        "traza": {
+          "id": "puesto:administrativo",
+          "version": 1,
+          "fuente_ref": "fuente:rpt_sintetica",
+          "acto_ref": "acto:preparacion_sintetica",
+          "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "efectos_desde": "2024-01-01",
+          "conocido_desde": "2024-01-01T00:00:00Z"
+        },
+        "version_rpt_ref": "rpt:2024",
+        "codigo_fuente": "PU-01",
+        "puesto_tipo_id": "tipo:administrativo",
+        "unidad_id": "unidad:cultura",
+        "estado_estructural": "vigente"
+      }
+    ],
+    "vinculos": [
+      {
+        "traza": {
+          "id": "vinculo:cultura",
+          "version": 1,
+          "fuente_ref": "fuente:rpt_sintetica",
+          "acto_ref": "acto:preparacion_sintetica",
+          "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "efectos_desde": "2024-01-01",
+          "conocido_desde": "2024-01-01T00:00:00Z"
+        },
+        "plaza_id": "plaza:cultura",
+        "puesto_id": "puesto:administrativo"
+      }
+    ]
+  },
+  "despues": {
+    "selector": {
+      "organismo_ref": "organismo:dipgra",
+      "unidad_clave": "",
+      "vigente_en": "2026-09-30",
+      "conocido_en": "2026-09-30T12:00:00Z",
+      "version_rpt_ref": "rpt:2026",
+      "version_plantilla_ref": "plantilla:2026",
+      "limite": 100,
+      "cursor": ""
+    },
+    "cobertura": {
+      "unidades": "completa",
+      "puestos_tipo": "completa",
+      "dotaciones": "completa",
+      "plazas": "completa",
+      "puestos_individuales": "completa",
+      "vinculos": "completa"
+    },
+    "unidades": [
+      {
+        "traza": {
+          "id": "unidad:cultura",
+          "version": 1,
+          "fuente_ref": "fuente:rpt_sintetica",
+          "acto_ref": "acto:preparacion_sintetica",
+          "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "efectos_desde": "2024-01-01",
+          "conocido_desde": "2024-01-01T00:00:00Z"
+        },
+        "catalogo_id": "estructura-organizativa-dipgra",
+        "catalogo_version": 1,
+        "catalogo_revision": 1,
+        "clave_catalogo": "centro:cultura",
+        "tipo": "centro",
+        "etiqueta": "Servicio de Cultura"
+      }
+    ],
+    "puestos_tipo": [
+      {
+        "traza": {
+          "id": "tipo:administrativo",
+          "version": 1,
+          "fuente_ref": "fuente:rpt_sintetica",
+          "acto_ref": "acto:preparacion_sintetica",
+          "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "efectos_desde": "2024-01-01",
+          "conocido_desde": "2024-01-01T00:00:00Z"
+        },
+        "version_rpt_ref": "rpt:2026",
+        "codigo_fuente": "ADM-01",
+        "unidad_id": "unidad:cultura",
+        "denominacion": "Administrativo de Cultura",
+        "clasificacion_ref": "clasificacion:c1"
+      }
+    ],
+    "dotaciones": [
+      {
+        "traza": {
+          "id": "dotacion:administrativo",
+          "version": 1,
+          "fuente_ref": "fuente:rpt_sintetica",
+          "acto_ref": "acto:preparacion_sintetica",
+          "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "efectos_desde": "2024-01-01",
+          "conocido_desde": "2024-01-01T00:00:00Z"
+        },
+        "version_rpt_ref": "rpt:2026",
+        "puesto_tipo_id": "tipo:administrativo",
+        "cantidad": 1
+      }
+    ],
+    "plazas": [
+      {
+        "traza": {
+          "id": "plaza:cultura",
+          "version": 2,
+          "fuente_ref": "fuente:rpt_sintetica",
+          "acto_ref": "acto:preparacion_sintetica",
+          "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "efectos_desde": "2024-01-01",
+          "conocido_desde": "2024-01-01T00:00:00Z"
+        },
+        "version_plantilla_ref": "plantilla:2026",
+        "codigo_fuente": "PL-01",
+        "clasificacion_ref": "clasificacion:c1",
+        "unidad_id": "unidad:cultura",
+        "estado_estructural": "amortizada"
+      }
+    ],
+    "puestos_individuales": [],
+    "vinculos": []
+  }
+}

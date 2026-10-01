@@ -200,7 +200,7 @@
       "alta_seguridad_social": "Alta en la Seguridad Social",
       "matrimonio_union_hecho": "Matrimonio o unión de hecho"
     },
-    "justificante": "Justificante",
+    "justificante": "Justificante (el archivo no se envía)",
     "justificanteRef": "Referencia del justificante",
     "responder": "Enviar respuesta",
     "modo": {
@@ -226,7 +226,7 @@
       "datos_no_validos": "Revise los datos del formulario.",
       "acceso_denegado": "No tiene permiso para esta acción.",
       "autenticacion_requerida": "Identifíquese de nuevo para continuar.",
-      "servicio_no_disponible": "Servicio no disponible. No se ha registrado nada; puede volver a intentarlo."
+      "servicio_no_disponible": "No se ha podido confirmar el resultado. Consulte Mi bolsa antes de volver a enviar la petición."
     }
   },
   "rutas": {

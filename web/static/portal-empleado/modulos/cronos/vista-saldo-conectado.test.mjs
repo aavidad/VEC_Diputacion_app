@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFile } from "node:fs/promises";
 import { MENSAJES_CRONOS } from "./i18n.js";
 import { ErrorClienteSaldoCronos } from "./cliente-saldo-http.js";
 import { montarVistaSaldoCronos, renderizarVistaSaldoCronos } from "./vista-saldo-conectado.js";
@@ -14,6 +15,58 @@ function datos(tipo = "hoy", trabajados = 65) {
   };
 }
 function diferido() { let resolver; let rechazar; const promesa = new Promise((si, no) => { resolver = si; rechazar = no; }); return { promesa, resolver, rechazar }; }
+
+test("detalle del cálculo distingue cero, jornada ausente e incompleto sin inferir salidas", () => {
+  const resultado = datos();
+  Object.assign(resultado.detalle[0], { previstos_minutos: 0, trabajados_minutos: 0, pausas_minutos: 0, saldo_minutos: 123, estado: "disponible" });
+  const render = () => renderizarVistaSaldoCronos({ estado: "listo", datos: resultado });
+  let html = render();
+  assert.match(html, /<details><summary>Detalle del cálculo<\/summary><dl>\s*<dt>Tiempo previsto<\/dt><dd>00:00<\/dd>\s*<dt>Tiempo computado<\/dt><dd>00:00<\/dd>\s*<dt>Pausas<\/dt><dd>00:00<\/dd>/u);
+  assert.match(html, /02:03/u, "el saldo de la consulta no se recalcula con los valores del detalle");
+  assert.doesNotMatch(html, /No consta jornada prevista|Cálculo incompleto/u);
+  resultado.detalle[0].previstos_minutos = null;
+  html = render();
+  assert.match(html, /No consta jornada prevista para este día\./u);
+  assert.doesNotMatch(html, /Cálculo incompleto/u);
+  resultado.detalle[0].estado = "incompleto";
+  html = render();
+  assert.match(html, /Cálculo incompleto\./u);
+  assert.match(html, /No consta jornada prevista/u);
+  assert.doesNotMatch(html, /falta.*salida|salida.*pendiente/iu);
+  resultado.detalle[0].previstos_minutos = 420;
+  assert.doesNotMatch(render(), /No consta jornada prevista/u);
+});
+
+test("referencias opcionales sólo en detalle técnico plegado, escapadas y sin enlaces", () => {
+  const resultado = datos();
+  const render = () => renderizarVistaSaldoCronos({ estado: "listo", datos: resultado });
+  assert.doesNotMatch(render(), /Detalle técnico|Referencia del turno|Versión de la política/u);
+  resultado.detalle[0].turno_ref = '<img src=x onerror="x()">&\'';
+  resultado.detalle[0].politica_version_ref = 'https://example.invalid/<script>"';
+  let html = render();
+  assert.match(html, /<details><summary>Detalle técnico<\/summary><dl><dt>Referencia del turno<\/dt><dd>&lt;img src=x onerror=&quot;x\(\)&quot;&gt;&amp;&#39;<\/dd>/u);
+  assert.match(html, /https:\/\/example.invalid\/&lt;script&gt;&quot;/u);
+  assert.doesNotMatch(html, /<img|<script|<a\b|<details[^>]*\bopen\b/u);
+  delete resultado.detalle[0].turno_ref;
+  html = render();
+  assert.doesNotMatch(html, /Referencia del turno/u);
+  assert.match(html, /Versión de la política de cálculo/u);
+  resultado.detalle[0].politica_version_ref = "";
+  assert.doesNotMatch(render(), /Detalle técnico/u);
+});
+
+test("detalle del cálculo usa el catálogo inglés real y escapa las nuevas etiquetas", async () => {
+  const mensajes = JSON.parse(await readFile(new URL("../../../textos/en/cronos.json", import.meta.url), "utf8")).general;
+  const resultado = datos(); resultado.detalle[0].estado = "incompleto";
+  const html = renderizarVistaSaldoCronos({ estado: "listo", datos: resultado, mensajes, locale: "en-GB" });
+  assert.match(html, /Calculation details/u);
+  assert.match(html, /Incomplete calculation\./u);
+  assert.match(html, /No scheduled working hours are recorded for this day\./u);
+  const escapado = renderizarVistaSaldoCronos({ estado: "listo", datos: resultado,
+    mensajes: { ...MENSAJES_CRONOS, saldo_calculo_detalle: "<script>" } });
+  assert.match(escapado, /<summary>&lt;script&gt;<\/summary>/u);
+  assert.doesNotMatch(escapado, /<script>/u);
+});
 
 test("saldo conectado muestra minutos reales, nulidad y detalle sin revelar códigos privados", () => {
   const html = renderizarVistaSaldoCronos({ estado: "listo", consulta: { periodo: "hoy" }, datos: datos() });
@@ -122,6 +175,8 @@ test("pagina el detalle completo sin alterar el resumen ni hacer peticiones por 
   assert.match(m.nodo.innerHTML, /10:00/);
   m.pulsar("[data-cronos-saldo-pagina]", { cronosSaldoPagina: "siguiente" });
   assert.match(m.nodo.innerHTML, /Días 32–62 de 65. Página 2 de 3/);
+  assert.equal((m.nodo.innerHTML.match(/<summary>Detalle del cálculo<\/summary>/gu) || []).length, 31);
+  assert.match(m.nodo.innerHTML, /No consta jornada prevista para este día/u);
   assert.match(m.nodo.innerHTML, /datetime="2026-02-01"/);
   assert.match(m.nodo.innerHTML, /10:00/);
   assert.equal(recibidas.length, 1);
