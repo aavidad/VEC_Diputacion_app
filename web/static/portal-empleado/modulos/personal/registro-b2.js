@@ -3,6 +3,7 @@ import { crearTraductorPersonal } from "./i18n.js?v=20260925-personal-e10-v1";
 import { ErrorRegistroB2 } from "./registro-b2-cliente.js?v=20260925-b2-selector-v1";
 import { accionesRegistroB2Disponibles, montarActosRegistroB2 } from "./registro-b2-actos.js?v=20260929-i18n-personal-v1";
 import { cargarOpcionesPublicadasCatalogoB2, montarCatalogosRegistroB2 } from "./registro-b2-catalogos.js?v=20260929-i18n-personal-v1";
+import { crearTraductorTraza } from "./personal-traza-i18n.js?v=20261001-personal-expediente-v1";
 
 const BLOQUES = Object.freeze([
   ["relaciones", "registro_b2_relaciones", "registro_b2_tabla_relaciones", [
@@ -57,14 +58,53 @@ function presentar(item, campo, t) {
 }
 function estado(d, texto, alerta = false) { const p = nodo(d, "p", texto); p.className = "personal-registro-b2-estado"; p.setAttribute("role", alerta ? "alert" : "status"); return p; }
 function panel(d, titulo) { const s = nodo(d, "section"); s.className = "panel"; const h = nodo(d, "header"); h.className = "cabecera-panel"; h.append(nodo(d, "h3", titulo)); const c = nodo(d, "div"); c.className = "cuerpo-panel"; s.append(h, c); return { elemento: s, cuerpo: c }; }
-function tabla(d, t, titulo, columnas, filas) {
+function datoTraza(d, lista, titulo, valor) {
+  lista.append(nodo(d, "dt", titulo), nodo(d, "dd", valor));
+}
+function detalleTraza(d, item, t, tt, numeroFila, nombreTabla) {
+  const traza = item.traza;
+  const detalle = nodo(d, "details"); detalle.className = "personal-registro-b2-traza";
+  const resumen = nodo(d, "summary", tt("ver_origen"));
+  resumen.setAttribute("aria-label", tt("origen_fila", { fila: new Intl.NumberFormat(LOCALIZACION_ACTUAL).format(numeroFila), tabla: nombreTabla }));
+  detalle.append(resumen);
+  const lista = nodo(d, "dl");
+  datoTraza(d, lista, tt("fecha_registro"), formatoInstante(traza.registrada_en, t));
+  datoTraza(d, lista, tt("fecha_efectos"), formatoFecha(traza.desde, t));
+  datoTraza(d, lista, tt("fecha_fin"), traza.hasta ? formatoFecha(traza.hasta, t) : tt("sin_fin"));
+  datoTraza(d, lista, tt("version_hecho"), Number.isSafeInteger(traza.version) && traza.version > 0 ? new Intl.NumberFormat(LOCALIZACION_ACTUAL).format(traza.version) : tt("sin_valor"));
+  datoTraza(d, lista, tt("estado"), item.estado ? etiquetaEstado(item.estado, t) : tt("sin_valor"));
+  datoTraza(d, lista, tt("fuente"), tt("sin_denominacion"));
+  datoTraza(d, lista, tt("acto"), tt("sin_denominacion"));
+  const snapshots = Object.entries({ regimen: item.catalogo_snapshot?.regimen, modalidad: item.catalogo_snapshot?.modalidad, situacion: item.catalogo_snapshot?.situacion, clase_servicio: item.catalogo_snapshot?.clase_servicio });
+  for (const [tipo, snapshot] of snapshots) {
+    if (!snapshot) continue;
+    const nombre = textoSeguro(snapshot.denominacion, 256) || tt("sin_denominacion");
+    const version = Number.isSafeInteger(snapshot.version) && snapshot.version > 0 ? tt("version_catalogo", { version: new Intl.NumberFormat(LOCALIZACION_ACTUAL).format(snapshot.version) }) : tt("sin_valor");
+    datoTraza(d, lista, tt(tipo), `${nombre} · ${version}`);
+  }
+  detalle.append(lista);
+  const tecnico = nodo(d, "details"); tecnico.className = "personal-registro-b2-traza-tecnica";
+  tecnico.append(nodo(d, "summary", tt("detalle_tecnico")));
+  const referencias = nodo(d, "dl");
+  for (const [clave, valor] of [
+    ["fuente_ref", traza.fuente_ref], ["acto_ref", traza.acto_ref], ["fuente_version", traza.fuente_version],
+    ["plaza_ref", item.plaza_ref], ["puesto_ref", item.puesto_ref],
+  ]) {
+    const seguro = typeof valor === "number" && Number.isSafeInteger(valor) && valor > 0 ? new Intl.NumberFormat(LOCALIZACION_ACTUAL).format(valor) : textoSeguro(valor, 256);
+    if (seguro) datoTraza(d, referencias, tt(clave), seguro);
+  }
+  tecnico.append(referencias); detalle.append(tecnico);
+  return detalle;
+}
+function tabla(d, t, titulo, columnas, filas, tt) {
   const region = nodo(d, "div"); region.className = "tabla-contenedor"; region.setAttribute("role", "region"); region.setAttribute("tabindex", "0"); region.setAttribute("aria-label", t(titulo));
   const tab = nodo(d, "table"); tab.className = "tabla-datos"; tab.append(nodo(d, "caption", t(titulo)));
   const thead = nodo(d, "thead"); const cab = nodo(d, "tr");
   for (const [, clave] of columnas) { const th = nodo(d, "th", t(clave)); th.setAttribute("scope", "col"); cab.append(th); }
+  if (tt) { const th = nodo(d, "th", tt("ver_origen")); th.setAttribute("scope", "col"); cab.append(th); }
   thead.append(cab); tab.append(thead);
   const body = nodo(d, "tbody");
-  for (const item of filas) {
+  for (const [indice, item] of filas.entries()) {
     const tr = nodo(d, "tr");
     for (const [campo] of columnas) {
       const td = nodo(d, "td");
@@ -73,6 +113,7 @@ function tabla(d, t, titulo, columnas, filas) {
       td.textContent = snapshot && textoSeguro(snapshot.denominacion, 256) ? snapshot.denominacion : presentar(item, campo, t);
       tr.append(td);
     }
+    if (tt) { const td = nodo(d, "td"); td.append(detalleTraza(d, item, t, tt, indice + 1, t(titulo))); tr.append(td); }
     body.append(tr);
   }
   tab.append(body); region.append(tab); return region;
@@ -122,7 +163,7 @@ export function montarRegistroB2({ raiz, cliente, clienteCatalogos, empleadoRef 
       (empleadoRef !== "" && !/^emp_[A-Za-z0-9_-]{22,128}$/u.test(empleadoRef)) ||
       (personaRef !== "" && !/^per_[A-Za-z0-9_-]{22,128}$/u.test(personaRef)) ||
       typeof anunciar !== "function" || (registrarDesmontar !== undefined && typeof registrarDesmontar !== "function") || typeof reloj !== "function") throw new TypeError("Registro de Personal no disponible");
-  const d = raiz.ownerDocument; const t = crearTraductorPersonal(); const s = nodo(d, "section"); s.className = "modulo-personal personal-registro-b2"; s.dataset.personalRegistroB2 = "";
+  const d = raiz.ownerDocument; const t = crearTraductorPersonal(); const tt = crearTraductorTraza(); const s = nodo(d, "section"); s.className = "modulo-personal personal-registro-b2"; s.dataset.personalRegistroB2 = "";
   const cabecera = nodo(d, "header"); cabecera.className = "cabecera-vista"; cabecera.append(nodo(d, "h2", t("registro_b2_titulo")));
   const ayuda = nodo(d, "details"); ayuda.className = "personal-registro-b2-ayuda"; const resumenAyuda = nodo(d, "summary", "?"); resumenAyuda.setAttribute("aria-label", t("registro_b2_ayuda_abrir")); const textoAyuda = nodo(d, "div"); textoAyuda.append(nodo(d, "p", t("registro_b2_ayuda"))); ayuda.append(resumenAyuda, textoAyuda); cabecera.append(ayuda);
   const pestañas = nodo(d, "div"); pestañas.className = "personal-registro-b2-pestanas"; pestañas.setAttribute("role", "tablist"); pestañas.setAttribute("aria-label", t("registro_b2_pestanas"));
@@ -160,7 +201,7 @@ export function montarRegistroB2({ raiz, cliente, clienteCatalogos, empleadoRef 
       const filas = clave === "relaciones" ? ficha[clave] : ficha[clave].filter((fila) => fila.relacion_ref === seleccionRelacion);
       if (clave !== "relaciones" && relacionesUnicas.length > 1 && !seleccionRelacion) bloque.cuerpo.append(estado(d, t("registro_b2_relacion_pendiente")));
       else if (filas.length === 0) bloque.cuerpo.append(estado(d, t("registro_b2_vacio")));
-      else bloque.cuerpo.append(tabla(d, t, nombreTabla, columnas, filas));
+      else bloque.cuerpo.append(tabla(d, t, nombreTabla, columnas, filas, tt));
       rejilla.append(bloque.elemento);
     }
     contenido.append(rejilla);
