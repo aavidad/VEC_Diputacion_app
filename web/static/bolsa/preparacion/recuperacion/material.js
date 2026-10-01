@@ -9,13 +9,13 @@ function claves(v, permitidas, opcionales = []) {
   if (!v || typeof v !== 'object' || Array.isArray(v) || Object.keys(v).some(k => !permitidas.includes(k)) ||
       permitidas.some(k => !opcionales.includes(k) && !Object.hasOwn(v, k))) fallo();
 }
-function texto(v, maximo = 12000, vacio = false) {
+function texto(v, maximo = MAXIMO_ARCHIVO, vacio = false) {
   if (typeof v !== 'string' || v.length > maximo || (!vacio && !v.trim())) fallo();
 }
 function fecha(v) {
   if (typeof v !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?Z$/u.test(v) || !Number.isFinite(Date.parse(v)) || new Date(v).toISOString().slice(0, 19) !== v.slice(0, 19)) fallo();
 }
-function lista(v) { if (!Array.isArray(v) || v.length > 256) fallo(); }
+function lista(v) { if (!Array.isArray(v)) fallo(); }
 function inmovilizar(v) {
   if (v && typeof v === 'object') { Object.values(v).forEach(inmovilizar); Object.freeze(v); }
   return v;
@@ -25,19 +25,19 @@ export function validarResumen(resumen, limites) {
   if (resumen.esquema !== ESQUEMA || resumen.estado !== 'sin_presentar' || typeof resumen.lectura_confirmada !== 'boolean') fallo();
   claves(resumen.convocatoria, ['identificador_publico', 'titulo', 'version', 'huella_sha256']);
   if (!validarIdentificador(resumen.convocatoria.identificador_publico) || typeof resumen.convocatoria.huella_sha256 !== 'string' || !/^[a-f0-9]{64}$/u.test(resumen.convocatoria.huella_sha256)) fallo();
-  texto(resumen.convocatoria.titulo, 180); texto(resumen.convocatoria.version, 180); fecha(resumen.generada_en);
+  texto(resumen.convocatoria.titulo); texto(resumen.convocatoria.version); fecha(resumen.generada_en);
   for (const k of ['requisitos', 'plazos', 'documentos_publicos', 'archivos_locales']) lista(resumen[k]);
   for (const r of resumen.requisitos) {
-    claves(r, ['titulo', 'descripcion', 'obligatorio', 'cumplimiento']); texto(r.titulo, 180); texto(r.descripcion);
+    claves(r, ['titulo', 'descripcion', 'obligatorio', 'cumplimiento']); texto(r.titulo); texto(r.descripcion);
     if (typeof r.obligatorio !== 'boolean' || r.cumplimiento !== 'pendiente') fallo();
   }
   for (const p of resumen.plazos) {
     claves(p, ['titulo', 'abre_en', 'cierra_en', 'etiqueta_situacion', 'descripcion'], ['descripcion']);
-    texto(p.titulo, 180); fecha(p.abre_en); fecha(p.cierra_en); texto(p.etiqueta_situacion, 500);
-    if (Object.hasOwn(p, 'descripcion')) texto(p.descripcion, 12000, true);
+    texto(p.titulo); fecha(p.abre_en); fecha(p.cierra_en); texto(p.etiqueta_situacion);
+    if (Object.hasOwn(p, 'descripcion')) texto(p.descripcion, MAXIMO_ARCHIVO, true);
   }
   for (const d of resumen.documentos_publicos) {
-    claves(d, ['titulo', 'url']); texto(d.titulo, 180);
+    claves(d, ['titulo', 'url']); texto(d.titulo);
     if (!globalThis.VECBolsaContratoV2.urlDocumentoPublicoValida(d.url)) fallo();
   }
   for (const a of resumen.archivos_locales) claves(a, ['nombre', 'tamano']);

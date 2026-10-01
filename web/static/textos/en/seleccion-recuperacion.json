@@ -8,14 +8,14 @@
   "ayuda": "Help with recovering a preparation",
   "local": "Local file",
   "limite": "The content stays in this tab. No application is sent or submitted.",
-  "ayuda_texto": "Open the preparation JSON summary and review the requirements, dates and documents it contains. Download the same file to retain it. Closing removes it from this tab. Recovery does not verify its source, identity, validity, signature, payment or registration.",
+  "ayuda_texto": "You need the preparation JSON file. The TXT summary cannot restore its data. Open the JSON and review the supplied requirements, dates and documents. Download the same file to retain it. Recovery does not verify its source, identity, validity, signature, payment or registration.",
   "cargar_titulo": "Open a preparation",
   "archivo": "Choose a JSON summary",
-  "archivo_pista": "Preparation JSON file, up to 2 MiB.",
+  "archivo_pista": "Preparation JSON file, up to 2 MiB. The TXT summary is not compatible.",
   "vacio": "No file is open.",
   "cargando": "Reading the local file…",
   "recuperado": "Preparation recovered from the file. Its source remains unverified.",
-  "error_archivo": "The summary could not be recovered. Check that it is a preparation JSON with an unsubmitted status and pending requirements, within the file size limit.",
+  "error_archivo": "The summary could not be recovered. Use the preparation JSON file; TXT is not compatible. Check the size limit, unsubmitted status and pending requirements.",
   "datos_titulo": "Preparation content",
   "sin_presentar": "Unsubmitted, according to the file",
   "datos_vacios": "Choose a file to see its content.",
@@ -46,5 +46,6 @@
   "pendiente_formulario": "Obtain the form and documents accepted by HR.",
   "pendiente_identidad": "Establish identity and, where applicable, representation. Being an employee is not required to prepare an application.",
   "pendiente_circuito": "Determine the applicable fee or exemption and complete the custody, signature and submission procedure that applies.",
-  "elegir": "Select file"
+  "elegir": "Select file",
+  "origen_json": "Open the Bolsa preparation page"
 }

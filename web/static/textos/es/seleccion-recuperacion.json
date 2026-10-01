@@ -8,14 +8,14 @@
   "ayuda": "Ayuda para recuperar una preparación",
   "local": "Archivo local",
   "limite": "El contenido permanece en esta pestaña. No se envía ni presenta una solicitud.",
-  "ayuda_texto": "Abra el resumen JSON de preparación y revise los requisitos, plazos y documentos que contiene. Puede descargar el mismo archivo para conservarlo. Al cerrar se borra de esta pestaña. La recuperación no comprueba su fuente, identidad, vigencia, firma, pago ni registro.",
+  "ayuda_texto": "Necesita el archivo JSON de preparación. El resumen TXT no permite recuperar sus datos. Abra el JSON y revise los requisitos, plazos y documentos aportados. Puede descargar el mismo archivo para conservarlo. La recuperación no comprueba su fuente, identidad, vigencia, firma, pago ni registro.",
   "cargar_titulo": "Abrir una preparación",
   "archivo": "Elegir resumen JSON",
-  "archivo_pista": "Archivo JSON de preparación, de hasta 2 MiB.",
+  "archivo_pista": "Archivo JSON de preparación, de hasta 2 MiB. El resumen TXT no es compatible.",
   "vacio": "No hay ningún archivo abierto.",
   "cargando": "Leyendo el archivo local…",
   "recuperado": "Preparación recuperada del archivo. Su fuente sigue sin verificar.",
-  "error_archivo": "No se ha podido recuperar el resumen. Compruebe que es un JSON de preparación sin presentar, con requisitos pendientes, y que no supera el límite.",
+  "error_archivo": "No se ha podido recuperar el resumen. Use el archivo JSON de preparación; el TXT no es compatible. Compruebe el límite de tamaño, el estado sin presentar y los requisitos pendientes.",
   "datos_titulo": "Contenido de la preparación",
   "sin_presentar": "Sin presentar, según el archivo",
   "datos_vacios": "Elija un archivo para ver su contenido.",
@@ -46,5 +46,6 @@
   "pendiente_formulario": "Disponer del formulario y los documentos admitidos por RRHH.",
   "pendiente_identidad": "Acreditar la identidad y, si procede, la representación. No se exige ser empleado para preparar una solicitud.",
   "pendiente_circuito": "Determinar la tasa o exención aplicable y completar el circuito de custodia, firma y presentación que corresponda.",
-  "elegir": "Seleccionar archivo"
+  "elegir": "Seleccionar archivo",
+  "origen_json": "Abrir la preparación de Bolsa"
 }
