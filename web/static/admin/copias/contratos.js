@@ -1,4 +1,4 @@
-import { ErrorCopias, objeto, entero, fecha, codigo, lista, referencia } from "./cliente-http.js?v=20261001-cs09-copias-v1";
+import { ErrorCopias, objeto, entero, fecha, codigo, lista, referencia } from "./cliente-http.js?v=20261001-cs09-copias-ux-v2";
 
 const HUELLA = /^[a-f0-9]{64}$/u;
 export function huella(valor) { if (typeof valor !== "string" || !HUELLA.test(valor)) throw new ErrorCopias(); return valor; }
@@ -26,7 +26,7 @@ export function normalizarConfiguracion(valor) {
 }
 export function normalizarPropuesta(valor) {
   const p = objeto(valor);
-  return Object.freeze({ propuesta_ref: referencia(p.propuesta_ref), conjunto_ref: referencia(p.conjunto_ref),
+  const propuesta = { propuesta_ref: referencia(p.propuesta_ref), conjunto_ref: referencia(p.conjunto_ref),
     conjunto_huella_sha256: huella(p.conjunto_huella_sha256), destino_ref: referencia(p.destino_ref), motivo_ref: referencia(p.motivo_ref), ventana_ref: referencia(p.ventana_ref),
     politica_ref: referencia(p.politica_ref), preimagen_sha256: huella(p.preimagen_sha256), politica_huella_sha256: huella(p.politica_huella_sha256),
     estado: codigo(p.estado), version: entero(p.version), huella_sha256: huella(p.huella_sha256),
@@ -34,7 +34,9 @@ export function normalizarPropuesta(valor) {
     doble_control: bool(p.doble_control), copia_previa_requerida: bool(p.copia_previa_requerida),
     ...(p.perdida_desde ? { perdida_desde: fecha(p.perdida_desde) } : {}),
     ...(p.perdida_hasta ? { perdida_hasta: fecha(p.perdida_hasta) } : {}),
-    ...(p.alcance_perdida_clave_i18n ? { alcance_perdida_clave_i18n: clave(p.alcance_perdida_clave_i18n) } : {}) });
+    ...(p.alcance_perdida_clave_i18n ? { alcance_perdida_clave_i18n: clave(p.alcance_perdida_clave_i18n) } : {}) };
+  if (p.metadatos_revision !== undefined) propuesta.metadatos_revision = normalizarMetadatosRevision(p.metadatos_revision, propuesta);
+  return Object.freeze(propuesta);
 }
 function clave(valor) { if (typeof valor !== "string" || !/^[a-z][a-z0-9_.-]{0,179}$/u.test(valor)) throw new ErrorCopias(); return valor; }
 export function normalizarOpciones(valor) {
@@ -51,4 +53,21 @@ export function solicitudPropuesta(valor) {
 export function solicitudControl(valor) {
   const p = objeto(valor); return { operacion_ref: referencia(p.operacion_ref), destino_ref: referencia(p.destino_ref),
     propuesta_huella_sha256: huella(p.propuesta_huella_sha256), version_esperada: entero(p.version_esperada) };
+}
+
+function versionInstalada(valor) {
+  const v = objeto(valor);
+  const version = valor => { if (typeof valor !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._+-]{0,95}$/u.test(valor)) throw new ErrorCopias(); return valor; };
+  return Object.freeze({ release_ref: referencia(v.release_ref), app_version: version(v.app_version), postgresql_version: version(v.postgresql_version),
+    esquema_ref: referencia(v.esquema_ref), descriptor_huella_sha256: huella(v.descriptor_huella_sha256) });
+}
+export function normalizarMetadatosRevision(valor, propuesta) {
+  const m = objeto(valor), compatibilidad = objeto(m.compatibilidad);
+  for (const k of ["propuesta_ref", "propuesta_huella_sha256", "conjunto_ref", "conjunto_huella_sha256", "destino_ref", "preimagen_sha256"])
+    if (m[k] !== propuesta[k === "propuesta_huella_sha256" ? "huella_sha256" : k]) throw new ErrorCopias();
+  return Object.freeze({ propuesta_ref: referencia(m.propuesta_ref), propuesta_huella_sha256: huella(m.propuesta_huella_sha256),
+    conjunto_ref: referencia(m.conjunto_ref), conjunto_huella_sha256: huella(m.conjunto_huella_sha256), destino_ref: referencia(m.destino_ref), preimagen_sha256: huella(m.preimagen_sha256),
+    fecha_copia: fecha(m.fecha_copia), perdida_desde: fecha(m.perdida_desde), observada_en: fecha(m.observada_en),
+    actual: versionInstalada(m.actual), resultante: versionInstalada(m.resultante),
+    compatibilidad: Object.freeze({ estado: codigo(compatibilidad.estado), razones: Object.freeze(lista(compatibilidad.razones).map(clave)) }) });
 }

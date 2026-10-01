@@ -1,4 +1,4 @@
-import { normalizarConfiguracion, normalizarPropuesta, normalizarOpciones, solicitudPropuesta, solicitudControl } from "./contratos.js?v=20261001-cs09-copias-v1";
+import { normalizarConfiguracion, normalizarPropuesta, normalizarOpciones, solicitudPropuesta, solicitudControl } from "./contratos.js?v=20261001-cs09-copias-ux-v2";
 
 const BASE = "/api/admin/copias/v1";
 const REFERENCIA = /^[A-Za-z0-9][A-Za-z0-9:_-]{0,159}$/u;
