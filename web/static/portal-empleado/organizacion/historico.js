@@ -497,7 +497,7 @@ export function iniciarPreparacionLocal(capacidad = PREPARACION_LOCAL_ORGANIZACI
   limpiar();
   q("#local-help").hidden = false;
   q("#local-choose").onclick = () => archivoInput.click();
-  vaciar.onclick = () => { secuencia += 1; archivoInput.value = ""; limpiar(); };
+  vaciar.onclick = () => { secuencia += 1; archivoInput.value = ""; limpiar(); q("#local-choose").focus(); };
   archivoInput.onchange = () => {
     const actual = ++secuencia, archivo = archivoInput.files?.[0];
     limpiar();

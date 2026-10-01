@@ -28,17 +28,18 @@ const fichero = (valor, nombre = "organizacion-ejemplo.json") => {
 };
 function documento() {
   const nodos = new Map();
+  let activo = null;
   const obtener = (selector) => {
     if (!nodos.has(selector)) {
       const atributos = new Map();
       nodos.set(selector, { hidden: true, disabled: false, open: false, value: "", textContent: "", innerHTML: "",
         files: [], onclick: null, clicks: 0,
         click() { this.clicks += 1; return this.onclick?.(); },
-        focus() {}, setAttribute(k, v) { atributos.set(k, String(v)); }, getAttribute(k) { return atributos.get(k); } });
+        focus() { activo = this; }, setAttribute(k, v) { atributos.set(k, String(v)); }, getAttribute(k) { return atributos.get(k); } });
     }
     return nodos.get(selector);
   };
-  return { querySelector: obtener, querySelectorAll: () => [], getElementById: (id) => obtener(`#${id}`) };
+  return { querySelector: obtener, querySelectorAll: () => [], getElementById: (id) => obtener(`#${id}`), get activeElement() { return activo; } };
 }
 function preparar(t) {
   const doc = documento(), llamadas = [];
@@ -161,7 +162,7 @@ test("el límite de 8 MiB se comprueba antes y después de leer los bytes", asyn
 });
 
 test("cambiar o vaciar el archivo descarta lecturas antiguas y espera su turno", async (t) => {
-  const { q, elegir, control } = preparar(t);
+  const { doc, q, elegir, control } = preparar(t);
   let terminar, iniciadas = 0;
   const viejo = fichero(paquete(), "anterior.json");
   viejo.arrayBuffer = () => { iniciadas += 1; return new Promise((resolve) => { terminar = resolve; }); };
@@ -180,7 +181,10 @@ test("cambiar o vaciar el archivo descarta lecturas antiguas y espera su turno",
   assert.equal(q("#local-state").textContent, traducir("localReady"));
   const porVaciar = elegir(viejo);
   await Promise.resolve();
+  q("#local-clear").focus();
   q("#local-clear").click();
+  assert.equal(q("#local-clear").disabled, true);
+  assert.equal(doc.activeElement, q("#local-choose"));
   terminar(await fichero(paquete()).arrayBuffer());
   await porVaciar;
   assert.equal(q("#local-results").hidden, true);
