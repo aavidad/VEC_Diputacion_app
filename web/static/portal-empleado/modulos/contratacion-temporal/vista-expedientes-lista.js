@@ -10,7 +10,7 @@
  * etiquetas quitables. HTML puro: los eventos los atiende vista-expedientes.js.
  */
 import { FASES_RRHH, faseRRHH } from "./i18n-fases-rrhh.js?v=20261001-ct-a-i18n-v1";
-import { diaConsulta, diasEntre, filtrarPeticiones, OPCIONES_MOSTRAR, resumirPeticiones, tienePlazoVencido } from "./recuentos-peticiones.js?v=20261001-ct-a-i18n-v1";
+import { diaConsulta, diasEntre, filtrarPeticiones, OPCIONES_MOSTRAR, resumirPeticiones, tienePlazoVencido } from "./recuentos-peticiones.js?v=20261001-f-reconciliacion-325-v1";
 
 function escapar(valor) {
   return String(valor ?? "")
@@ -93,7 +93,10 @@ function etiquetasActivas(estado, filtro, t, ayudas) {
 export function renderizarResultadosLista(estado, t, filtroEntrada, ayudas) {
   const cuadro = estado.cuadro;
   const filtro = filtroEfectivo(estado, filtroEntrada);
-  const filas = filtrarPeticiones(cuadro.expedientes, filtro, cuadro.generado_en);
+  const filas = filtrarPeticiones(cuadro.expedientes, filtro, cuadro.generado_en, (expediente) => [
+    ayudas.numeroVisible(expediente.numero_visible),
+    ayudas.centroVisible(expediente.centro).etiqueta,
+  ]);
   return `<div data-ct-exp-resultados>
     ${etiquetasActivas(estado, filtroEntrada, t, ayudas)}
     <p class="solo-lectura" role="status" aria-live="polite">${escapar(t("lista_resultados", { total: filas.length, de: cuadro.expedientes.length }))}</p>
