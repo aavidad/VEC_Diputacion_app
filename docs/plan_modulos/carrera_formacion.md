@@ -23,12 +23,13 @@ Orden de dirección 16:15: **VEC consulta y deriva** mientras se aclara qué fun
 
 | Rama propia | Fuente congelada | Resultado |
 | --- | --- | --- |
-| `trabajo/codexh-formacion-plan-20261001` | `17b29f11d` | CLI Go revisa un plan sintético, fechas, necesidades, ediciones, plazas y presupuesto; visor ES/EN con filtro, detalle, pendientes y descarga del JSON original. |
+| `trabajo/codexh-formacion-plan-20261001` | `17b29f11d6e661a5e660cb086f936d2efcf33cb7` | CLI Go revisa un plan sintético, fechas, necesidades, ediciones, plazas y presupuesto; visor ES/EN con filtro, detalle, pendientes y descarga del JSON original. |
 | `trabajo/codexh-carrera-preparacion-20261001` | `ccd814ba71d64b41c4d4ba707113bc9b8c0c0c8d` | CLI Go revisa integridad de grado, progresión y promoción; conserva antecedentes, fuentes, periodos y referencias. Visor ES/EN y descarga. Todos los casos siguen pendientes. |
 
-Ambas fuentes están en ramas locales, todavía sin PR ni CI; tienen pruebas focales
-y revisión independiente, con calidad global en comprobación. Antes de cerrar se
-anotarán sus PR y SHA remotos exactos.
+Ambas fuentes están verificadas en `origin` en las ramas de la tabla, todavía sin PR
+ni CI. Tienen pruebas focales, revisión independiente y Chrome ES/EN 1440/390 con
+filtros, descarga y zoom de presentación 200 %. La calidad global está en comprobación;
+se registrará su resultado y las PR antes de cerrar.
 
 Son herramientas locales de preparación, no inscripciones, solicitudes registradas,
 selección, reconocimiento, firma ni incorporación a méritos. No añaden SQL o permisos.
