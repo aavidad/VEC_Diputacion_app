@@ -42,7 +42,7 @@ class PlanTest(unittest.TestCase):
         self.write(planner.LIST_DEFERRED, self.list_bytes(planner.DEFERRED_SQL[:1]))
         for path in (planner.B_SQL_PATHS + planner.B_COMPANIONS + planner.A_SQL_PATHS +
                      planner.A_COMPANIONS + planner.B2_SQL_PATHS + tuple(planner.B2_COMPANIONS) +
-                     planner.DEFERRED_SQL):
+                     planner.DEFERRED_SQL + (planner.E3_FIXTURE,)):
             self.write(path, ("-- synthetic target " + path + "\n").encode())
         self.target = self.commit()
         self.point_origin()
@@ -82,7 +82,7 @@ class PlanTest(unittest.TestCase):
             tuple(self.pin(path) for path in planner.A_COMPANIONS),
             self.pin(planner.LIST_B2), tuple(self.pin(path) for path in planner.B2_SQL_PATHS),
             tuple(self.pin(path) for path in planner.B2_COMPANIONS), self.pin(planner.LIST_DEFERRED),
-            tuple(self.pin(path) for path in planner.DEFERRED_SQL))
+            tuple(self.pin(path) for path in planner.DEFERRED_SQL), self.pin(planner.E3_FIXTURE))
 
     def test_plan_uses_commit_bytes_and_classifies_modified_and_companions(self):
         request = self.request()
@@ -94,9 +94,10 @@ class PlanTest(unittest.TestCase):
             original = (self.repo / path).read_bytes()
             self.write(path, bytes([original[0] ^ 1]) + original[1:])
         self.write(planner.SQL_PATHS[1], b"cwd SQL must be ignored\n")
+        self.write(planner.E3_FIXTURE, b"cwd fixture must be ignored\n")
         value = planner.build_plan(request)
         self.assertEqual(value["plan"], "pending_approval")
-        self.assertEqual(value["version"], 4)
+        self.assertEqual(value["version"], 5)
         self.assertIs(value["executable"], False)
         self.assertFalse(value["sql_invoked"])
         self.assertEqual(value["blockers"], [])
@@ -126,9 +127,10 @@ class PlanTest(unittest.TestCase):
             b"-- synthetic target DOWN\n").hexdigest())
         self.assertEqual(value["receipt_requirements"]["status"], "not_read_not_validated")
         future = value["receipt_requirements"]["postmain"]
-        self.assertEqual(future["expected"], {"version": 4, "kind": "clon_postmain_receipt",
+        self.assertEqual(future["expected"], {"version": 5, "kind": "clon_postmain_receipt",
             "main_commit": self.target, "main_tree": value["target"]["tree"],
-            "causal_list_count": 4, "operation_count": 26})
+            "causal_list_count": 4, "operation_count": 26,
+            "excluded": value["excluded"], "execution_prohibitions": value["execution_prohibitions"]})
         self.assertTrue({"preimages", "postimages", "h6_receipt_sha256", "ad132_receipt_sha256"}
                         <= set(future["required_fields"]))
         self.assertIn("h6_live_validation_before_transition",
@@ -157,7 +159,7 @@ class PlanTest(unittest.TestCase):
                 self.assertNotIn(path, operation_paths)
         self.assertTrue(all(item["executable"] is False for item in value["sql_diff"]))
 
-    def test_cli_v4_pins_and_unknown_sql_exit_status(self):
+    def test_cli_v5_pins_and_second_unknown_sql_exit_status(self):
         argv = ["--repo", str(self.repo), "--target-commit", self.target]
         request = self.request()
         for name in request.__dataclass_fields__:
@@ -170,9 +172,12 @@ class PlanTest(unittest.TestCase):
         with patch.object(planner.sys, "stdout", output):
             self.assertEqual(planner.main(argv), 0)
         value = json.loads(output.buffer.getvalue())
-        self.assertEqual(value["version"], 4)
+        self.assertEqual(value["version"], 5)
         self.assertEqual(len(value["operations"]), 26)
-        self.write("deploy/postgresql/contratacion_temporal/pruebas_sql/custodia_firmado_e2e_dobles.sql", b"-- unrelated synthetic SQL\n")
+        self.assertEqual(value["blockers"], [])
+        self.assertEqual(value["excluded"][0]["path"], planner.E3_FIXTURE)
+        unknown = planner.CT + "pruebas_sql/custodia_firmado_e2e_extra.sql"
+        self.write(unknown, b"-- unrelated synthetic SQL\n")
         self.target = self.commit()
         self.point_origin()
         argv[3] = self.target
@@ -180,7 +185,7 @@ class PlanTest(unittest.TestCase):
         with patch.object(planner.sys, "stdout", output):
             self.assertEqual(planner.main(argv), 2)
         value = json.loads(output.buffer.getvalue())
-        self.assertIn({"code": "unknown_sql_path", "path": "deploy/postgresql/contratacion_temporal/pruebas_sql/custodia_firmado_e2e_dobles.sql"},
+        self.assertIn({"code": "unknown_sql_path", "path": unknown},
                       value["blockers"])
         self.assertIs(value["executable"], False)
 
@@ -407,7 +412,8 @@ class PlanTest(unittest.TestCase):
         self.point_origin()
         after = planner.build_plan(self.request())
         self.assertNotEqual(before["target"], after["target"])
-        for key in ("causal_lists", "operations", "companions", "deferred", "sql_diff", "blockers"):
+        for key in ("causal_lists", "operations", "companions", "deferred", "excluded",
+                    "execution_prohibitions", "sql_diff", "blockers"):
             self.assertEqual(before[key], after[key])
         self.assertEqual(after["plan"], "pending_approval")
         self.assertIs(after["executable"], False)
@@ -446,6 +452,7 @@ class PlanTest(unittest.TestCase):
                         replace(request, expected_a_companion_sha256=("0" * 64,) + request.expected_a_companion_sha256[1:]),
                         replace(request, expected_a_companion_sha256=request.expected_a_companion_sha256[:1] + ("0" * 64,)),
                         replace(request, expected_deferred_list_sha256="0" * 64),
+                        replace(request, expected_e3_fixture_sha256="0" * 64),
                         replace(request, expected_deferred_sql_sha256=("0" * 64,) + request.expected_deferred_sql_sha256[1:])):
             with self.assertRaisesRegex(planner.Refused, "expected_sha_mismatch"):
                 planner.build_plan(changed)
@@ -475,6 +482,88 @@ class PlanTest(unittest.TestCase):
         with patch.object(planner, "_git", side_effect=changed), self.assertRaisesRegex(
                 planner.Refused, "original_bytes_mismatch"):
             planner.build_plan(request)
+
+    def test_e3_exclusion_is_pinned_and_bound_to_future_approval_and_receipt(self):
+        request = self.request()
+        value = planner.build_plan(request)
+        self.assertEqual(len(value["excluded"]), 1)
+        excluded = value["excluded"][0]
+        self.assertEqual(excluded["path"], planner.E3_FIXTURE)
+        self.assertEqual(excluded["classification"], "excluded_lab_fixture")
+        self.assertEqual(excluded["sha256"], request.expected_e3_fixture_sha256)
+        self.assertEqual(excluded["expected_sha256"], request.expected_e3_fixture_sha256)
+        self.assertEqual(excluded["blob"], self.git("rev-parse",
+            self.target + ":" + planner.E3_FIXTURE).decode().strip())
+        self.assertEqual(excluded["historical_lab_chain"],
+                         ["ad3_113", "documentos_000009", "ct_145", planner.E3_FIXTURE])
+        self.assertIn("without_cose", excluded["reason"])
+        self.assertIs(excluded["causal_dependency"], False)
+        self.assertIs(excluded["executable"], False)
+        for key in ("operations", "companions", "deferred"):
+            self.assertNotIn(planner.E3_FIXTURE, {item["path"] for item in value[key]})
+        change = next(item for item in value["sql_diff"] if item["path"] == planner.E3_FIXTURE)
+        self.assertEqual(change["classification"], "excluded_lab_fixture")
+        self.assertEqual(change["after"]["sha256"], excluded["sha256"])
+        self.assertIsNone(change["linked_up"])
+        self.assertEqual(change["linked_ups"], [])
+        self.assertIs(change["executable"], False)
+        prohibitions = [{"path": planner.E3_FIXTURE, "sha256": excluded["sha256"],
+                         "scope": "causal_clone", "execution": "forbidden", "executable": False}]
+        self.assertEqual(value["execution_prohibitions"], prohibitions)
+        receipt = value["receipt_requirements"]
+        self.assertTrue({"excluded", "execution_prohibitions"} <=
+                        set(receipt["postmain"]["required_fields"]))
+        self.assertEqual(receipt["postmain"]["expected"]["excluded"], value["excluded"])
+        self.assertEqual(receipt["postmain"]["expected"]["execution_prohibitions"], prohibitions)
+        for gate in ("external_approval_binds_excluded_fixture_path_sha256_and_execution_prohibition",
+                     "postmain_receipt_binds_excluded_fixture_path_sha256_and_execution_prohibition",
+                     "e3_lab_fixture_never_executes_in_causal_clone"):
+            self.assertIn(gate, receipt["future_gates"])
+        self.assertEqual(value["blockers"], [])
+        self.assertEqual(value["plan"], "pending_approval")
+        self.assertIs(value["executable"], False)
+
+    def test_e3_changed_commit_bytes_refuse_old_external_pin(self):
+        request = self.request()
+        self.write(planner.E3_FIXTURE, b"-- changed fixture must require another pin\n")
+        self.target = self.commit()
+        self.point_origin()
+        with self.assertRaisesRegex(planner.Refused, "expected_sha_mismatch"):
+            planner.build_plan(replace(request, target_commit=self.target))
+
+    def test_e3_cannot_enter_any_causal_list_or_companions(self):
+        for list_path, paths in ((planner.LIST, planner.SQL_PATHS),
+                                 (planner.LIST_B, planner.B_SQL_PATHS),
+                                 (planner.LIST_A, planner.A_SQL_PATHS),
+                                 (planner.LIST_B2, planner.B2_SQL_PATHS)):
+            with self.subTest(list_path=list_path):
+                self.write(list_path, self.list_bytes(paths + (planner.E3_FIXTURE,)))
+                self.target = self.commit()
+                self.point_origin()
+                with self.assertRaisesRegex(planner.Refused, "causal_order_mismatch"):
+                    planner.build_plan(self.request())
+                self.write(list_path, self.list_bytes(paths))
+
+    def test_e3_missing_symlink_and_gitlink_refuse_exclusion(self):
+        request = self.request()
+        path = self.repo / planner.E3_FIXTURE
+        path.unlink()
+        self.target = self.commit()
+        self.point_origin()
+        with self.assertRaisesRegex(planner.Refused, "blob_missing"):
+            planner.build_plan(replace(request, target_commit=self.target))
+        path.symlink_to("/private-receipt-must-never-be-read")
+        self.target = self.commit()
+        self.point_origin()
+        with self.assertRaisesRegex(planner.Refused, "not_regular_blob"):
+            planner.build_plan(replace(request, target_commit=self.target))
+        self.git("update-index", "--add", "--cacheinfo", "160000", self.source, planner.E3_FIXTURE)
+        tree = self.git("write-tree").decode().strip()
+        self.target = self.git("commit-tree", tree, "-p", self.target,
+                               "-m", "synthetic E3 gitlink").decode().strip()
+        self.point_origin()
+        with self.assertRaisesRegex(planner.Refused, "not_regular_blob"):
+            planner.build_plan(replace(request, target_commit=self.target))
 
     def test_unknown_symlink_sql_blocks_without_following_it(self):
         path = self.repo / "deploy/postgresql/unknown.sql"
@@ -525,6 +614,8 @@ class PlanTest(unittest.TestCase):
                         replace(request, expected_deferred_sql_sha256=("0" * 64,)),
                         replace(request, expected_b_list_sha256=None),
                         replace(request, expected_deferred_list_sha256=None),
+                        replace(request, expected_e3_fixture_sha256=None),
+                        replace(request, expected_e3_fixture_sha256="not-a-hash"),
                         replace(request, expected_list_sha256=None), {}):
             with self.subTest(changed=changed), patch.object(planner, "_git") as git:
                 with self.assertRaises(planner.Refused):
