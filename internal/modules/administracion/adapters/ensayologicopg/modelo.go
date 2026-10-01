@@ -13,6 +13,7 @@ import (
 )
 
 type Configuracion struct {
+	RaizTemporal       string        `json:"raiz_temporal,omitempty"`
 	ImagenSHA256       string        `json:"imagen_sha256"`
 	VersionPostgreSQL  string        `json:"version_postgresql"`
 	UsuarioBootstrap   string        `json:"usuario_bootstrap"`

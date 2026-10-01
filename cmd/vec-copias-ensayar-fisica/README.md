@@ -75,6 +75,12 @@ modos especiales. La extracción escribe sólo dentro de una raíz privada nueva
 Se conservan los archivos originales y sus huellas; la copia de ensayo usa
 configuración PostgreSQL nueva, sin conexiones, replicación o archivado del origen.
 
+La raíz temporal se genera bajo `/var/tmp`, con permisos `0700`. Opcionalmente,
+`raiz_temporal` puede señalar una carpeta propia privada directamente bajo
+`/var/tmp`; no se admiten enlaces ni bases temporales compartidas elegidas por entrada.
+Este corte evita `/dev/shm`: una prueba real detectó cuota agotada al crear PGDATA,
+aunque el sistema aún mostraba espacio libre. No modifica cachés ni carpetas ajenas.
+
 Docker usa endpoint Unix local fijo, red `none`, usuario sin privilegios, raíz de
 sólo lectura, capacidades retiradas y límites de CPU, memoria, procesos y tiempo.
 No se montan bases principales ni sockets del host dentro del contenedor.

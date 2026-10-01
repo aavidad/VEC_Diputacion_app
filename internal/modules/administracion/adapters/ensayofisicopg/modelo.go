@@ -11,6 +11,7 @@ import (
 )
 
 type Configuracion struct {
+	RaizTemporal        string        `json:"raiz_temporal,omitempty"`
 	ImagenSHA256        string        `json:"imagen_sha256"`
 	VersionPostgreSQL   string        `json:"version_postgresql"`
 	UsuarioBootstrap    string        `json:"usuario_bootstrap"`
@@ -53,7 +54,7 @@ var (
 	huellaValida  = regexp.MustCompile(`^[a-f0-9]{64}$`)
 	versionValida = regexp.MustCompile(`^18\.[0-9]{1,2}$`)
 	usuarioValido = regexp.MustCompile(`^cs06_[a-z][a-z0-9_]{1,40}$`)
-	idValido      = regexp.MustCompile(`^fisica:[a-z][a-z0-9_-]{0,63}$`)
+	idValido      = regexp.MustCompile(`^fisica:[a-zA-Z0-9][a-zA-Z0-9:_.-]{0,120}$`)
 	tipoValido    = regexp.MustCompile(`^[a-z][a-z0-9_]{0,63}$`)
 )
 
