@@ -17,6 +17,12 @@ function textoValido(valor, maximo = 300) {
     valor.trim() === valor && !/[\x00-\x1f\x7f]/u.test(valor);
 }
 
+function idiomaMotivoValido(valor) {
+  if (typeof valor !== "string" || !/^[a-z]{2,3}(?:-[A-Z]{2})?$/u.test(valor)) return false;
+  try { return Intl.getCanonicalLocales(valor).length === 1; }
+  catch { return false; }
+}
+
 function fuenteHTTPS(valor) {
   if (!textoValido(valor, 500)) return false;
   try {
@@ -49,6 +55,7 @@ export function catalogoTarifasDietasValido(catalogo) {
   return catalogo.historia.every((entrada) =>
     entrada?.estado === "ejemplo" && textoValido(entrada.actor, 100) &&
     textoValido(entrada.accion, 80) &&
+    idiomaMotivoValido(entrada.idioma_motivo) &&
     textoValido(entrada.motivo, 500) && fechaValida(entrada.fecha) &&
     textoValido(entrada.version, 120));
 }
@@ -118,7 +125,7 @@ export function montarCatalogoTarifasDietas(contenedor, {
   const ayuda = nodo(d, "details");
   const botonAyuda = nodo(d, "summary", "?"); botonAyuda.setAttribute("aria-label", t("ayuda_etiqueta"));
   ayuda.append(botonAyuda, nodo(d, "p", t("ayuda"))); cabecera.append(ayuda);
-  const estado = nodo(d, "p"); estado.setAttribute("role", "status"); estado.setAttribute("aria-live", "polite");
+  const estado = nodo(d, "p"); estado.setAttribute("role", "status"); estado.setAttribute("aria-live", "polite"); estado.tabIndex = -1;
   const cuerpo = nodo(d, "div"); cuerpo.className = "cuerpo-panel";
   raiz.append(cabecera, estado, cuerpo); contenedor.append(raiz);
   let vivo = true, secuencia = 0, controlador, catalogo;
@@ -137,6 +144,7 @@ export function montarCatalogoTarifasDietas(contenedor, {
     const fila = nodo(d, "div"), definicion = nodo(d, "dd");
     if (valor?.nodeType) definicion.append(valor); else definicion.textContent = String(valor);
     fila.append(nodo(d, "dt", t(clave)), definicion); lista.append(fila);
+    return definicion;
   }
 
   function pintar() {
@@ -147,14 +155,21 @@ export function montarCatalogoTarifasDietas(contenedor, {
     par(contexto, "estado_ejemplo", t("ejemplo"));
     par(contexto, "aprobacion", t("aprobacion_pendiente"));
     par(contexto, "vigencia", `${fecha(catalogo.vigente_desde)} — ${catalogo.vigente_hasta ? fecha(catalogo.vigente_hasta) : t("sin_fin")}`);
-    cuerpo.append(contexto);
-    const fuentes = nodo(d, "section"); fuentes.append(nodo(d, "h3", t("fuentes")));
+    const panelContexto = nodo(d, "section"); panelContexto.className = "panel";
+    const cabContexto = nodo(d, "div"); cabContexto.className = "cabecera-panel";
+    cabContexto.append(nodo(d, "h3", t("version")));
+    const cuerpoContexto = nodo(d, "div"); cuerpoContexto.className = "cuerpo-panel"; cuerpoContexto.append(contexto);
+    panelContexto.append(cabContexto, cuerpoContexto); cuerpo.append(panelContexto);
+    const fuentes = nodo(d, "section"); fuentes.className = "panel";
+    const cabFuentes = nodo(d, "div"); cabFuentes.className = "cabecera-panel";
+    cabFuentes.append(nodo(d, "h3", t("fuentes")));
+    const cuerpoFuentes = nodo(d, "div"); cuerpoFuentes.className = "cuerpo-panel";
     const listaFuentes = nodo(d, "ul");
     for (const url of catalogo.fuentes) {
       const li = nodo(d, "li"), enlace = nodo(d, "a", t("consultar_fuente", { referencia: referenciaFuente(url) }));
       enlace.href = url; enlace.rel = "noopener noreferrer"; enlace.target = "_blank"; li.append(enlace); listaFuentes.append(li);
     }
-    fuentes.append(listaFuentes); cuerpo.append(fuentes);
+    cuerpoFuentes.append(listaFuentes); fuentes.append(cabFuentes, cuerpoFuentes); cuerpo.append(fuentes);
 
     if (!catalogo.tarifas.length) cuerpo.append(nodo(d, "p", t("vacio")));
     else {
@@ -188,7 +203,8 @@ export function montarCatalogoTarifasDietas(contenedor, {
       const dl = nodo(d, "dl");
       par(dl, "historia_fecha", fecha(evento.fecha)); par(dl, "historia_actor", evento.actor);
       par(dl, "historia_accion", t(`accion_${evento.accion}`));
-      par(dl, "historia_motivo", evento.motivo); par(dl, "version", textoCortable(evento.version));
+      par(dl, "historia_motivo", evento.motivo).setAttribute("lang", evento.idioma_motivo);
+      par(dl, "version", textoCortable(evento.version));
       par(dl, "estado_ejemplo", t("ejemplo")); listaHistoria.append(dl);
     }
     historia.append(cabHistoria, listaHistoria); cuerpo.append(historia);
@@ -266,8 +282,10 @@ export function montarCatalogoTarifasDietas(contenedor, {
     }
   }
 
-  async function cargar() {
+  async function cargar(origenFoco) {
     const turno = ++secuencia;
+    const recuperarFoco = origenFoco && d.activeElement === origenFoco;
+    const focoLibre = () => !d.activeElement || d.activeElement === d.body || d.activeElement === origenFoco;
     controlador?.abort(); controlador = new AbortController();
     ponerEstado("cargando"); cuerpo.replaceChildren();
     try {
@@ -275,11 +293,17 @@ export function montarCatalogoTarifasDietas(contenedor, {
       if (!vivo || turno !== secuencia) return;
       if (!catalogoTarifasDietasValido(dato)) throw new TypeError("catalogo invalido");
       catalogo = dato; ponerEstado("ejemplo"); pintar();
+      if (recuperarFoco && focoLibre()) {
+        estado.focus({ preventScroll: true });
+        estado.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+      }
     } catch (error) {
       if (!vivo || turno !== secuencia || controlador.signal.aborted) return;
       ponerEstado(error?.codigo === "acceso_denegado" ? "denegado" : "error");
       const reintentar = nodo(d, "button", t("reintentar")); reintentar.type = "button";
-      reintentar.className = "boton-secundario"; reintentar.addEventListener("click", cargar); cuerpo.append(reintentar);
+      reintentar.className = "boton-secundario";
+      reintentar.addEventListener("click", () => { void cargar(reintentar); }); cuerpo.append(reintentar);
+      if (recuperarFoco && focoLibre()) reintentar.focus({ preventScroll: true });
     }
   }
   const desmontar = () => { vivo = false; ++secuencia; controlador?.abort(); propuestas.clear(); raiz.remove(); };

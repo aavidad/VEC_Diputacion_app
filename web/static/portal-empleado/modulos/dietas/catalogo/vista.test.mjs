@@ -16,6 +16,7 @@ test("el ejemplo refleja las reglas existentes y nunca se clasifica como tarifa 
   assert.deepEqual(catalogo.tarifas.map((tarifa) => [tarifa.id, tarifa.importe_centimos]),
     original.reglas.map((regla) => [regla.referencia, regla.tope_centimos || regla.centimos_por_km]));
   assert.equal(catalogo.historia.every((entrada) => entrada.estado === "ejemplo"), true);
+  assert.equal(catalogoTarifasDietasValido({ ...catalogo, historia: [{ ...catalogo.historia[0], idioma_motivo: "idioma-invalido" }] }), false);
   assert.equal(catalogoTarifasDietasValido({ ...catalogo, estado: "aprobado" }), false);
   assert.equal(catalogoTarifasDietasValido({ ...catalogo, fuentes: ["javascript:alert(1)"] }), false);
   assert.equal(catalogoTarifasDietasValido({ ...catalogo, fuentes: ["https://user:secret@example.org/"] }), false);
@@ -53,7 +54,12 @@ function documentoMinimo() {
     set textContent(valor) { this.children = []; this._texto = String(valor); }
     get textContent() { return this._texto + this.children.map((n) => n.textContent).join(""); }
     append(...nodos) { for (const n of nodos) { this.children.push(n); n.parent = this; } }
-    replaceChildren(...nodos) { this.children = []; this._texto = ""; this.append(...nodos); }
+    replaceChildren(...nodos) {
+      for (let actual = doc.activeElement; actual; actual = actual.parent) {
+        if (actual === this) { doc.activeElement = doc.body; break; }
+      }
+      this.children = []; this._texto = ""; this.append(...nodos);
+    }
     remove() { if (this.parent) this.parent.children = this.parent.children.filter((n) => n !== this); }
     setAttribute(clave, valor) { this.atributos.set(clave, valor); }
     addEventListener(evento, callback) { this.listeners.set(evento, callback); }
@@ -68,7 +74,7 @@ function documentoMinimo() {
   }
   doc.createElement = (etiqueta) => new Elemento(etiqueta);
   doc.createTextNode = (texto) => ({ nodeType: 3, textContent: texto });
-  return doc.createElement("main");
+  const raiz = doc.createElement("main"); doc.body = raiz; return raiz;
 }
 
 function descendientes(raiz, predicado) {
@@ -88,9 +94,33 @@ test("sin tarifas conserva versión, fuentes e historia", async () => {
   assert.match(raiz.textContent, /Esta versión no contiene tarifas/u);
   assert.match(raiz.textContent, /propuesta:liquidacion:ejemplo:v1/u);
   assert.match(raiz.textContent, /Elena Martín/u);
+  const motivo = descendientes(raiz, (n) => n.tagName === "DD" && n.textContent.includes("Preparación sintética"))[0];
+  assert.equal(motivo.atributos.get("lang"), original.historia[0].idioma_motivo);
   assert.match(raiz.textContent, /BOE-A-2002-10337/u);
   assert.equal(raiz.querySelector("[data-dietas-catalogo-editor]"), null);
   desmontar();
+});
+
+test("reintentar devuelve el foco tras cargar y respeta otro foco elegido durante la espera", async () => {
+  const original = await leer("../../../../../../data/demo/dietas/catalogo-rrhh.json");
+  const textos = (await leer("../../../../textos/es/dietas-catalogo.json")).catalogo;
+  const traducir = (clave, valores = {}) => textos[clave.slice(9)].replace(/\{(\w+)\}/gu, (_m, k) => valores[k] ?? "");
+  for (const moverFoco of [false, true]) {
+    const raiz = documentoMinimo(); let llamada = 0, resolver;
+    const fuente = () => ++llamada === 1
+      ? Promise.reject(new Error("503")) : new Promise((completar) => { resolver = completar; });
+    const desmontar = montarCatalogoTarifasDietas(raiz, { fuente, traducir, localizacion: "es-ES" });
+    await new Promise(setImmediate);
+    const boton = descendientes(raiz, (n) => n.tagName === "BUTTON" && n.textContent === textos.reintentar)[0];
+    boton.focus(); boton.listeners.get("click")();
+    const otro = raiz.ownerDocument.createElement("button");
+    if (moverFoco) { raiz.append(otro); otro.focus(); }
+    resolver(original); await new Promise(setImmediate);
+    assert.equal(raiz.ownerDocument.activeElement, moverFoco ? otro :
+      descendientes(raiz, (n) => n.atributos?.get("role") === "status")[0]);
+    assert.match(raiz.textContent, /Catálogo de tarifas de Dietas/u);
+    desmontar();
+  }
 });
 
 test("elegir tarifa enfoca la propuesta y conserva la unidad en revisión", async () => {

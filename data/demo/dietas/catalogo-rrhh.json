@@ -36,6 +36,7 @@
       "actor": "Elena Martín",
       "accion": "preparacion_ejemplo",
       "motivo": "Preparación sintética del catálogo de ejemplo para revisar su presentación.",
+      "idioma_motivo": "es",
       "version": "propuesta:liquidacion:ejemplo:v1",
       "estado": "ejemplo"
     }
