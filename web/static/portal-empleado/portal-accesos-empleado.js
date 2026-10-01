@@ -12,7 +12,7 @@ export const traducirAccesosEmpleado = crearTraductorAccesosEmpleado();
 // La composición entrega navegación propia, no concesiones de lectura. Cada
 // destino conserva la autorización del servidor y la propiedad de sus datos.
 const DESTINOS = Object.freeze([
-  { vista: "mis-tramites", icono: "expediente" },
+  { vista: "mis-tramites", texto: "mis_tramites", icono: "expediente" },
   { vista: "personal", icono: "expediente" },
   { vista: "cronos", icono: "reloj" },
   { vista: "dietas", icono: "euro" },
@@ -34,12 +34,12 @@ export function crearTraductorResumenAccesosEmpleado({ accesos, traducir, textos
  */
 export function renderizarAccesosEmpleado({ accesos, escaparHTML, traducir = traducirAccesosEmpleado }) {
   const t = (clave) => escaparHTML(traducir(clave));
-  const filas = DESTINOS.flatMap(({ vista, icono: nombreIcono }) => {
+  const filas = DESTINOS.flatMap(({ vista, texto = vista, icono: nombreIcono }) => {
     if (!accesos || !Object.hasOwn(accesos, vista)) return [];
     const estado = accesos[vista]?.estado;
     const navegable = ESTADOS_NAVEGABLES.has(estado);
     if (!navegable && estado !== "error") return [];
-    const etiqueta = t(vista);
+    const etiqueta = t(texto);
     const accion = navegable
       ? `<a class="boton-terciario" href="#${vista}" data-vista="${vista}"${estado === "cargando" ? ' aria-busy="true"' : ""}>${icono(nombreIcono)}${etiqueta}</a>`
       : `<strong>${etiqueta}</strong>`;
