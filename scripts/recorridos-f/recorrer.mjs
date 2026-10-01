@@ -2,7 +2,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { cargarConfig, rutaExterna, prepararSalida, solicitudPermitida, huella, idiomas, CUADRO, DETALLE } from './config.mjs';
+import { cargarConfig, rutaExterna, prepararSalida, solicitudPermitida, huella, idiomas, CUADRO, DETALLE, BORRADORES, FIRMAS } from './config.mjs';
+import { validarRespuestaMiBolsa } from '../../web/static/area-personal/contrato.js';
+import { validarHistorialMiBolsa, RUTA_HISTORIAL_MI_BOLSA } from '../../web/static/area-personal/mi-bolsa-historial.js';
+import { validarRespuestaBolsas, validarRespuestaCandidatosBolsa } from '../../web/static/portal-empleado/portal-bolsas-contrato.js';
+import { crearConsultasRRHHClienteHTTP } from '../../web/static/portal-empleado/modulos/contratacion-temporal/cliente-http-consultas-rrhh.js';
+import { validarBorradoresDisponibles } from '../../web/static/portal-empleado/modulos/contratacion-temporal/cliente-http-borradores-publicados.js';
+import { validarEstadoFirmas } from '../../web/static/portal-empleado/modulos/contratacion-temporal/firma-documento-cliente.js';
 
 const preferido = process.env.LANG?.split(/[_.-]/)[0];
 const idioma = Object.hasOwn(idiomas.disponibles, preferido) ? preferido : idiomas.respaldo;
@@ -23,6 +29,15 @@ export async function interceptar(route, origen, datos) {
       await route.abort();
       return;
     }
+    const ruta = new URL(route.request().url()).pathname;
+    if ([BORRADORES, FIRMAS].includes(ruta)) {
+      datos.auxiliares ??= [];
+      datos.auxiliares.push({ lectura: ruta === BORRADORES ? 'borradores_disponibles' : 'firmas_consulta', http: response.status() });
+      if (response.status() === 200) {
+        try { validarLectura(ruta, await response.json()); }
+        catch { datos.contratos_fallidos = (datos.contratos_fallidos || 0) + 1; }
+      }
+    }
     await route.fulfill({ response });
   } catch {
     datos.red_fallida += 1;
@@ -30,14 +45,35 @@ export async function interceptar(route, origen, datos) {
   }
 }
 
-async function respuesta(page, ruta, accion) {
+// La fábrica publica en ejecutar el validador real usado por el cliente CT.
+// Este adaptador sólo obtiene contratos: no crea otro transporte ni envía red.
+const contratosCT = crearConsultasRRHHClienteHTTP({ ejecutar: solicitud => solicitud, validarOpciones: () => ({}) });
+const validarCuadro = contratosCT.consultarCuadroRRHH({ filtros: { texto: '', estado_clave: '', fase_clave: '' }, paginacion: { limite: 10, cursor: '' } }).validarRespuesta;
+const validarDetalle = contratosCT.consultarDetalleRRHH({ expediente_ref: 'expediente:contrato', version_observada: 0 }).validarRespuesta;
+
+export function validarLectura(ruta, envelope) {
+  if (ruta === '/api/vec/bolsa/mi-bolsa') return validarRespuestaMiBolsa(envelope);
+  if (ruta === RUTA_HISTORIAL_MI_BOLSA) return validarHistorialMiBolsa(envelope, 1);
+  if (ruta === '/api/vec/bolsa/bolsas') return validarRespuestaBolsas(envelope);
+  if (ruta.startsWith('/api/vec/bolsa/bolsas/') && ruta.endsWith('/candidatos')) return validarRespuestaCandidatosBolsa(envelope);
+  if (ruta === CUADRO) return validarCuadro(envelope?.data);
+  if (ruta === DETALLE) return validarDetalle(envelope?.data);
+  if (ruta === BORRADORES) return validarBorradoresDisponibles(envelope);
+  if (ruta === FIRMAS) {
+    const estado = validarEstadoFirmas(envelope?.data);
+    if (!estado) throw new Error('contrato');
+    return estado;
+  }
+  throw new Error('contrato');
+}
+
+export async function respuesta(page, ruta, accion) {
   const pendiente = page.waitForResponse(r => new URL(r.url()).pathname === ruta, { timeout: 20000 });
   // Instalar ambas promesas antes de esperar evita rechazos sin observador.
   const [r] = await Promise.all([pendiente, accion()]);
   if (r.status() !== 200) throw new Error('http');
-  const data = (await r.json()).data;
-  if (!data || typeof data !== 'object') throw new Error('sobre');
-  return data;
+  try { return validarLectura(ruta, await r.json()); }
+  catch { throw new Error('contrato'); }
 }
 
 async function controles(page, context, datos) {
@@ -47,7 +83,7 @@ async function controles(page, context, datos) {
     caches: (await caches.keys()).length,
   }));
   Object.assign(datos, vista, { cookies: (await context.cookies()).length });
-  if (Object.values(vista).some(Boolean) || datos.cookies || datos.errores_js || datos.bloqueadas || datos.red_fallida) throw new Error('controles');
+  if (Object.values(vista).some(Boolean) || datos.cookies || datos.errores_js || datos.bloqueadas || datos.red_fallida || datos.contratos_fallidos) throw new Error('controles');
 }
 
 async function abrir(page, destino) {
@@ -77,21 +113,22 @@ export async function recorrer(c, chromium, salida, anterior) {
     pasos: [], reinicio_verificado: false };
   const guardar = () => fs.writeFileSync(path.join(salida, 'resultado.json'), JSON.stringify(resultado, null, 2), { mode: 0o600 });
   guardar();
-  const browser = await chromium.launch({ executablePath: '/usr/bin/google-chrome', headless: true });
+  let browser;
   try {
+    browser = await chromium.launch({ executablePath: '/usr/bin/google-chrome', headless: true });
     for (const width of [1440, 390]) {
       for (const nombre of ['mi_bolsa', 'bolsa_rrhh', 'contratacion']) {
         const identidad = c.identidades[nombre === 'mi_bolsa' ? 'candidato' : 'rrhh'];
         const origen = c.origenes[nombre === 'mi_bolsa' ? 'externo' : 'interno'];
-        const context = await browser.newContext({ clientCertificates: [{ origin: origen,
-          certPath: identidad.certificado, keyPath: identidad.clave }],
-          ignoreHTTPSErrors: false, serviceWorkers: 'block',
-          locale: idiomas.disponibles[c.idioma].locale, timezoneId: 'Europe/Madrid',
-          viewport: { width, height: 900 } });
         const datos = { nombre, ancho: width, estado: 'ENTRADA', errores_js: 0, bloqueadas: 0, red_fallida: 0 };
         resultado.pasos.push(datos);
-        let page;
+        let page, context;
         try {
+          context = await browser.newContext({ clientCertificates: [{ origin: origen,
+            certPath: identidad.certificado, keyPath: identidad.clave }],
+            ignoreHTTPSErrors: false, serviceWorkers: 'block',
+            locale: idiomas.disponibles[c.idioma].locale, timezoneId: 'Europe/Madrid',
+            viewport: { width, height: 900 } });
           await context.route('**/*', route => interceptar(route, origen, datos));
           await context.routeWebSocket('**/*', async route => { datos.bloqueadas += 1; await route.close(); });
           page = await context.newPage();
@@ -103,9 +140,16 @@ export async function recorrer(c, chromium, salida, anterior) {
             const [data, historico] = await Promise.all([
               respuesta(page, '/api/vec/bolsa/mi-bolsa', () => abrir(page, `${origen}/area-personal/?vista=llamamientos&lang=${c.idioma}`)), historial,
             ]);
-            if (historico.status() !== 200 || !(await historico.json()).data) throw new Error('historial');
+            if (historico.status() !== 200) throw new Error('historial');
+            try { validarLectura(RUTA_HISTORIAL_MI_BOLSA, await historico.json()); }
+            catch { throw new Error('historial'); }
             if (!data.participaciones?.some(p => p.bolsa === c.bolsa_ref)) throw new Error('bolsa');
             await page.locator('#historial-mi-bolsa').waitFor({ state: 'visible' });
+            await page.waitForFunction(() => {
+              const contenedor = document.querySelector('#historial-mi-bolsa');
+              return contenedor?.querySelector('.historial-mi-bolsa') && !contenedor.querySelector('p[role="status"]');
+            });
+            if (await page.locator('#historial-mi-bolsa [data-historial-accion="reintentar"]').count()) throw new Error('historial');
             datos.mi_bolsa_http = 200; datos.historial_http = 200;
           } else if (nombre === 'bolsa_rrhh') {
             const data = await respuesta(page, '/api/vec/bolsa/bolsas', () => abrir(page, `${origen}/portal-empleado/?lang=${c.idioma}#bolsa/resumen`));
@@ -124,6 +168,8 @@ export async function recorrer(c, chromium, salida, anterior) {
             const detalle = await respuesta(page, DETALLE, () => boton.click());
             if (detalle.resumen?.expediente_ref !== c.expediente_ref || !Number.isSafeInteger(detalle.resumen.version)
                 || detalle.resumen.version < 1 || !Array.isArray(detalle.hitos)) throw new Error('detalle');
+            await page.locator('[data-modulo="contratacion-temporal"] .ct-exp-ficha-cabecera').waitFor({ state: 'visible' });
+            if (await page.locator('[data-modulo="contratacion-temporal"] .ct-exp-estado-global[role="alert"]').count()) throw new Error('detalle');
             datos.cuadro_http = 200; datos.detalle_http = 200;
             datos.version_expediente = detalle.resumen.version;
             datos.detalle_sha256 = huella(JSON.stringify([detalle.resumen, detalle.hitos]));
@@ -142,19 +188,27 @@ export async function recorrer(c, chromium, salida, anterior) {
         } catch (e) {
           datos.estado = 'CORTADO';
           // Solo códigos internos controlados; los errores Playwright contienen URL/identidad.
-          datos.corte = ['http', 'sobre', 'entrada', 'historial', 'bolsa', 'candidatos', 'expediente_no_visible', 'detalle', 'controles', 'comparacion', 'idioma', 'teclado'].includes(e.message) ? e.message : 'navegador';
+          datos.corte = ['http', 'contrato', 'entrada', 'historial', 'bolsa', 'candidatos', 'expediente_no_visible', 'detalle', 'controles', 'comparacion', 'idioma', 'teclado'].includes(e.message) ? e.message : 'navegador';
           resultado.estado = 'CORTADO';
           throw e;
         } finally {
           guardar();
-          await context.close();
+          await context?.close();
         }
       }
     }
     resultado.estado = 'LECTURAS_COMPROBADAS';
     guardar();
     return resultado;
-  } finally { await browser.close(); }
+  } catch (e) {
+    resultado.estado = 'CORTADO';
+    resultado.corte = 'navegador';
+    guardar();
+    throw e;
+  } finally {
+    try { await browser?.close(); }
+    catch (e) { resultado.estado = 'CORTADO'; resultado.corte = 'navegador'; guardar(); throw e; }
+  }
 }
 
 async function main() {

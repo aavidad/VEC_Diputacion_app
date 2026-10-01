@@ -4,6 +4,8 @@ import { createHash } from 'node:crypto';
 
 export const CUADRO = '/api/vec/contratacion-temporal/cuadro/consultas';
 export const DETALLE = '/api/vec/contratacion-temporal/expedientes/consultas';
+export const BORRADORES = '/api/vec/contratacion-temporal/expedientes/borradores/disponibles';
+export const FIRMAS = '/api/vec/contratacion-temporal/firmas-documento/consultas';
 export const huella = value => createHash('sha256').update(value).digest('hex');
 export const idiomas = JSON.parse(fs.readFileSync(new URL('idiomas.json', import.meta.url)));
 const referencia = /^[A-Za-z0-9][A-Za-z0-9:._-]{2,159}$/;
@@ -68,14 +70,16 @@ export function solicitudPermitida(request, origen) {
     const u = new URL(request.url());
     if (u.origin !== origen || u.username || u.password || !['GET', 'POST'].includes(request.method())) return false;
     if (request.method() === 'GET') return true;
-    if (u.search || ![CUADRO, DETALLE].includes(u.pathname)) return false;
+    if (u.search || ![CUADRO, DETALLE, BORRADORES, FIRMAS].includes(u.pathname)) return false;
     const raw = request.postData();
     if (typeof raw !== 'string' || Buffer.byteLength(raw) > 4096) return false;
     const body = JSON.parse(raw);
     const exacto = (v, keys) => v && typeof v === 'object' && !Array.isArray(v)
       && Object.keys(v).length === keys.length && keys.every(k => Object.hasOwn(v, k));
-    if (u.pathname === DETALLE) return exacto(body, ['expediente_ref', 'version_observada'])
-      && referencia.test(body.expediente_ref) && Number.isSafeInteger(body.version_observada) && body.version_observada >= 0;
+    if (u.pathname === FIRMAS) return exacto(body, ['expediente_ref']) && typeof body.expediente_ref === 'string' && referencia.test(body.expediente_ref);
+    if ([DETALLE, BORRADORES].includes(u.pathname)) return exacto(body, ['expediente_ref', 'version_observada'])
+      && typeof body.expediente_ref === 'string' && referencia.test(body.expediente_ref)
+      && Number.isSafeInteger(body.version_observada) && body.version_observada >= (u.pathname === BORRADORES ? 1 : 0);
     return exacto(body, ['filtros', 'paginacion'])
       && exacto(body.filtros, ['texto', 'estado_clave', 'fase_clave'])
       && Object.values(body.filtros).every(v => typeof v === 'string' && v.length <= 80)

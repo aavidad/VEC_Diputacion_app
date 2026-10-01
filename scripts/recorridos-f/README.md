@@ -8,7 +8,9 @@ arrancado. Abre Chrome del sistema a 1440 y 390 px y comprueba:
 - RRHH abre el cuadro de Contratación y el detalle de un expediente existente.
 
 No arranca servicios, instala SQL ni prepara datos. Las únicas peticiones POST
-admitidas son las consultas del cuadro y detalle CT. No pulsa acciones de
+admitidas son cuatro consultas CT: cuadro, detalle, catálogo de borradores
+disponibles y estado de firmas. Las dos últimas se montan automáticamente al
+abrir la ficha; se admiten solo sus cuerpos exactos. No pulsa acciones de
 negocio ni ofrece un modo de escritura. Las lecturas pueden registrar auditoría
 de acceso en VEC.
 
@@ -90,6 +92,15 @@ Las lecturas de Bolsa se repiten; **no se comparan sus recibos ni su contenido**
 Dirección debe acreditar el reinicio y contrastar tablas, historia y outbox
 antes de afirmar recuperación durable sin duplicados.
 
+Los sobres se comprueban con los validadores del frontend de este mismo árbol,
+sin copiar sus contratos. Un HTTP 200 incompatible corta el paso. El historial
+debe terminar de cargar sin botón de reintento; CT debe mostrar la cabecera de
+la ficha, sin el aviso de error global. Las respuestas 200 de las consultas
+automáticas de borradores y firmas también pasan por sus contratos originales.
+Su estado HTTP queda en el informe: un 404 o una denegación de esos paneles no
+acredita que estén disponibles ni invalida la lectura del detalle principal.
+No se descargan borradores ni se registran firmas.
+
 `resultado.json` conserva pasos, estados HTTP esperados, contadores y huella CT;
 omite URL, credenciales, nombres, cuerpos HTTP, referencias y capturas. En móvil
 comprueba el menú con Tab, Enter y Escape. En ambos anchos exige cero errores JS,
@@ -123,6 +134,9 @@ guiones existentes de altas, llamamiento y recuperación, los recorridos H6 de M
 y el baremador de B. Este corte no acredita las ocho fases, firma, entrega de
 correo, perfiles completos ni conformidad global de accesibilidad.
 
-Verificación del productor: cinco pruebas Node y smoke Chrome aislado verdes.
+Verificación del productor: nueve pruebas Node y smoke Chrome aislado verdes.
+Las regresiones cubren los HTTP 200 incompatibles y el resultado terminal
+saneado cuando falla Chrome o el contexto mTLS. El smoke de transporte se
+conserva del primer corte; no se repitió tras estas correcciones de contratos.
 Las seis lecturas contra VEC están **pendientes**, porque no se ha entregado un
 servidor con sus dos orígenes y perfiles sintéticos listo para este runner.
