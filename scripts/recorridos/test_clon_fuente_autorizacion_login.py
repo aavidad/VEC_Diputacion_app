@@ -5,6 +5,7 @@ import io
 import json
 import unittest
 from contextlib import redirect_stdout, redirect_stderr
+from unittest.mock import patch
 
 import clon_fuente_autorizacion_login as consumer
 
@@ -28,17 +29,34 @@ class ChainTests(unittest.TestCase):
         self.clonado = ('\n'.join([self.package, self.physical['pgid'], h(5), h(6), h(7)]) + '\n').encode()
         self.pre = dict(schema_sha256=h(8), roles_sha256=h(9), datacl_sha256=h(10))
         self.post = dict(self.pre, roles_sha256=h(11))
-        self.pre_inventory = {'roles': {'postgres': h(12), consumer.GROUP: h(13)},
+        p_before = {'roles': {'postgres': h(12), consumer.GROUP: h(13), consumer.P_GROUP: h(20)},
                               'memberships': [], 'settings': []}
+        self.pre_inventory = copy.deepcopy(p_before)
+        self.pre_inventory['roles'][consumer.P_LOGIN] = h(21)
+        self.pre_inventory['memberships'].append(dict(consumer.MEMBERSHIP,
+            role=consumer.P_GROUP, member=consumer.P_LOGIN))
         self.post_inventory = copy.deepcopy(self.pre_inventory)
         self.post_inventory['roles'][consumer.LOGIN] = h(14)
         self.post_inventory['memberships'].append(dict(consumer.MEMBERSHIP))
-        self.p = dict(contrato='h6_p_login_clon_v1', estado='R0',
-            paquete_sha256=self.package, commit_confirmed=True, intent_sha256=h(15),
+        self.pj = dict(contrato='h6_p_login_intento_v1', paquete_sha256=self.package,
             clonado_sha256=consumer.digest(self.clonado), **self.physical,
-            post_schema=h(16), post_roles=self.pre['roles_sha256'],
-            post_datacl=self.pre['datacl_sha256'])
+            sql_func_sha256=h(22), sql_sha256=h(23), post_sql_sha256=h(24),
+            acl_ro_sha256=h(25), roles_ro_sha256=h(26), script_sha256=h(27),
+            helper_sha256=consumer.P_HELPER_SHA256, pre_schema=h(16), pre_roles=h(28),
+            pre_datacl=self.pre['datacl_sha256'], pre_inventory=p_before,
+            pre_role_inventory_sha256=consumer.digest(raw(p_before).rstrip(b'\n')),
+            login=consumer.P_LOGIN, grupo=consumer.P_GROUP, effect=dict(consumer.P_EFFECT),
+            approval_sha256=h(29), review1_sha256=h(30), review2_sha256=h(31),
+            trial_receipt_sha256=h(32), approval_path='/fixture/approval',
+            review1_path='/fixture/review1', review2_path='/fixture/review2',
+            trial_path='/fixture/trial', trial_journal_path='/fixture/trial-intent')
+        self.p = dict(copy.deepcopy(self.pj), contrato='h6_p_login_clon_v1', estado='R0',
+            commit_confirmed=True, intent_sha256=consumer.digest(raw(self.pj)),
+            post_schema=h(16), post_roles=self.pre['roles_sha256'], post_datacl=self.pre['datacl_sha256'],
+            post_inventory=copy.deepcopy(self.pre_inventory),
+            post_role_inventory_sha256=consumer.digest(raw(self.pre_inventory).rstrip(b'\n')))
         self.a = dict(contrato='h6_ext_aut26_clon_v1', paquete_sha256=self.package,
+            commit=consumer.A_COMMIT, sql_sha256=consumer.A_SQL_SHA256,
             **{k: self.physical[k] for k in ('pgid', 'imagen', 'volumen')},
             pre_schema=self.p['post_schema'], pre_roles=self.p['post_roles'],
             pre_datacl=self.p['post_datacl'], post_schema=self.pre['schema_sha256'],
@@ -62,7 +80,8 @@ class ChainTests(unittest.TestCase):
             copy.deepcopy(self.pre_inventory), copy.deepcopy(self.post_inventory), nominal,
             consumer.digest(raw(self.j)), consumer.digest(self.clonado),
             dict(a_receipt_sha256=consumer.digest(raw(self.a)),
-                 clonado_sha256=consumer.digest(self.clonado), physical=dict(self.physical)))
+                 clonado_sha256=consumer.digest(self.clonado), physical=dict(self.physical)),
+            consumer.digest(raw(self.pj)))
 
     def hashes(self):
         return {n: consumer.digest(raw(d)) for n, d in
@@ -70,7 +89,8 @@ class ChainTests(unittest.TestCase):
 
     def validate(self, **kwargs):
         return consumer.validate_chain(*(raw(d) for d in (self.p, self.a, self.j, self.l)),
-            pins=kwargs.get('pins', self.pins), clonado_raw=kwargs.get('clonado_raw', self.clonado))
+            pins=kwargs.get('pins', self.pins), clonado_raw=kwargs.get('clonado_raw', self.clonado),
+            p_intent_raw=kwargs.get('p_intent_raw', raw(self.pj)))
 
     def repin_bytes(self):
         # Simulate an attacker with autoconsistent files. Independent state,
@@ -147,7 +167,7 @@ class ChainTests(unittest.TestCase):
                            ('grantor', consumer.GROUP), ('role', 'postgres'), ('admin', 0)):
             with self.subTest(key=key, value=value):
                 self.l = copy.deepcopy(original)
-                self.l['post_inventory']['memberships'][0][key] = value
+                self.l['post_inventory']['memberships'][-1][key] = value
                 self.repin_bytes()
                 self.reject('l_inventory_delta')
 
@@ -197,7 +217,8 @@ class ChainTests(unittest.TestCase):
                     old = record.get(key)
                     record[key] = '9999' if key in ('system_identifier', 'base_oid') else 'f' * 64
                     self.repin_bytes()
-                    self.reject('physical_identity_mismatch')
+                    code = 'a_receipt_contract' if record is self.a and old is None else 'physical_identity_mismatch'
+                    self.reject(code)
                     if old is None:
                         del record[key]
                     else:
@@ -207,6 +228,65 @@ class ChainTests(unittest.TestCase):
         self.reject('clonado_original_bytes_pin', clonado_raw=self.clonado + b' ')
         binding = dict(self.pins.a_physical_binding, a_receipt_sha256='f' * 64)
         self.reject('a_physical_binding_mismatch', pins=replace(self.pins, a_physical_binding=binding))
+
+    def test_a_v1_extra_physical_fields_never_evade_binding_or_clonado(self):
+        self.a.update(system_identifier=self.physical['system_identifier'], base_oid=self.physical['base_oid'])
+        self.repin_bytes()
+        result = self.reject('a_receipt_contract', pins=replace(self.pins, a_physical_binding=None), clonado_raw=None)
+        self.assertIn('a_physical_evidence_missing', result.codes)
+        self.assertIn('clonado_original_bytes_missing', result.codes)
+
+    def test_p_and_a_require_complete_source_contracts(self):
+        for record, code in ((self.p, 'p_receipt_contract'), (self.a, 'a_receipt_contract')):
+            original = dict(record)
+            for key in original:
+                with self.subTest(contract=code, missing=key):
+                    del record[key]
+                    self.repin_bytes()
+                    self.reject(code)
+                    record[key] = original[key]
+            record['invented_state'] = 'replay'
+            self.repin_bytes()
+            self.reject(code)
+            del record['invented_state']
+
+    def test_p_intention_is_original_and_independently_pinned_before_effect(self):
+        self.reject('p_intent_evidence_missing', p_intent_raw=None)
+        self.reject('p_intent_evidence_missing', pins=replace(self.pins, p_intent_before_effect_sha256=None))
+        self.p['intent_sha256'] = 'f' * 64
+        self.repin_bytes()
+        self.reject('p_intent_original_bytes_pin')
+
+    def test_forged_original_p_intention_does_not_match_prior_external_pin(self):
+        self.pj['review1_sha256'] = self.p['review1_sha256'] = 'f' * 64
+        self.p['intent_sha256'] = consumer.digest(raw(self.pj))
+        self.repin_bytes()
+        self.reject('p_intent_original_bytes_pin')
+
+    def test_p_inventory_hash_and_delta(self):
+        self.p['post_inventory']['roles']['extra'] = 'f' * 64
+        self.p['post_role_inventory_sha256'] = consumer.digest(raw(self.p['post_inventory']).rstrip(b'\n'))
+        self.repin_bytes()
+        self.reject('p_inventory_delta')
+        self.reject('p_l_inventory_link')
+
+    def test_clonado_boundary_rejects_before_hash_or_decode(self):
+        for bad in (b'x' * 4097, b'', 'synthetic-text', bytearray(self.clonado), 42):
+            with self.subTest(kind=type(bad).__name__):
+                with patch.object(consumer, 'digest', side_effect=AssertionError('hash must not run')):
+                    result = self.validate(clonado_raw=bad)
+                self.assertEqual(result.codes, ('clonado_bytes_invalid',))
+
+    def test_local_bind_physics_cannot_be_treated_as_a_volume(self):
+        path = '/dev/shm/synthetic-clone'
+        for record in (self.p, self.pj, self.a, self.j, self.l):
+            record['volumen'] = path
+        physics = dict(self.physical, volumen=path)
+        self.pins = replace(self.pins, physical=physics, a_physical_binding=dict(
+            self.pins.a_physical_binding, physical=physics))
+        self.repin_bytes()
+        self.reject('physical_pins_invalid')
+        self.assertIsNone(consumer.OPERATIONAL_GATE)
 
     def test_nominal_flags_cannot_be_inferred_from_role_hash(self):
         for flag in ('login', 'super', 'inherit', 'bypassrls', 'password_is_null'):

@@ -7,6 +7,8 @@ original intention bytes must be pinned independently before the effect, under
 the reviewed source's fsync protocol. A's missing physical database identity
 requires external evidence linked to original A/CLONADO bytes. The future
 file/live consumer owns acquisition; missing evidence stays pending.
+Operational use with the local /dev/shm bind clone is NO-GO until D supplies
+a separately reviewed physical variant; volumen remains a hex64 volume ID.
 """
 from __future__ import annotations
 
@@ -21,8 +23,29 @@ OPERATIONAL_GATE = None
 MAX_BYTES = 131072
 LOGIN = 'vec_externo_v3_fuente_autorizacion_desarrollo'
 GROUP = 'vec_autorizacion_fuente_externa'
+P_LOGIN = 'vec_externo_preflight_v3_desarrollo'
+P_GROUP = 'vec_autorizacion_atestada_v3_preflight_externo'
+P_HELPER_SHA256 = '3d7c76f73b2fc7b33e59bb1a1e91b92c54b0aaaec4f6cda0c7dfbe48b9f86d45'
+A_COMMIT = '9595970a7a591ae2e2e043c1e4b14e6b62e3cd8f'
+A_SQL_SHA256 = '1a651f21808bb7c19eae7b0534aaec4ab6d71c3f20a082af67a6aa2d67e4cbdc'
 PHYSICAL = ('pgid', 'imagen', 'volumen', 'system_identifier', 'base_oid')
 STATES = ('schema_sha256', 'roles_sha256', 'datacl_sha256')
+P_BASE_KEYS = frozenset(('paquete_sha256', 'clonado_sha256', 'sql_func_sha256',
+    *PHYSICAL, 'sql_sha256', 'post_sql_sha256', 'acl_ro_sha256', 'roles_ro_sha256',
+    'script_sha256', 'helper_sha256', 'pre_schema', 'pre_roles', 'pre_datacl',
+    'pre_role_inventory_sha256', 'login', 'grupo', 'effect'))
+P_REF_KEYS = frozenset(('approval_sha256', 'review1_sha256', 'review2_sha256',
+    'trial_receipt_sha256', 'approval_path', 'review1_path', 'review2_path',
+    'trial_path', 'trial_journal_path'))
+P_INTENT_KEYS = P_BASE_KEYS | P_REF_KEYS | {'contrato', 'pre_inventory'}
+P_RECEIPT_KEYS = P_INTENT_KEYS | {'estado', 'intent_sha256', 'commit_confirmed',
+    'post_schema', 'post_roles', 'post_datacl', 'post_inventory', 'post_role_inventory_sha256'}
+A_KEYS = frozenset(('contrato', 'paquete_sha256', 'pgid', 'imagen', 'volumen',
+    'commit', 'sql_sha256', 'pre_schema', 'pre_roles', 'pre_datacl',
+    'post_schema', 'post_roles', 'post_datacl'))
+P_EFFECT = {'create_role': 'LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD NULL',
+    'grant_role': P_GROUP, 'admin': False, 'inherit': True, 'set': False,
+    'additional_grants': False}
 INTENT_KEYS = frozenset(('kind', 'version', 'aut26_receipt_sha256',
     'ad112_receipt_sha256', *PHYSICAL, 'pre', 'pre_inventory', 'login',
     'grupo', 'operation_id', 'created_at', 'order_sha256', 'approval_sha256',
@@ -44,6 +67,8 @@ does not reconstruct PostgreSQL jsonb hashes from Python JSON serialization.
 intent_before_effect_sha256 is captured after the reviewed writer's file and
 directory fsync and before SQL, never reconstructed from the final receipt.
 a_physical_binding links independently observed A physics to A/CLONADO bytes.
+p_intent_before_effect_sha256 pins the original P intention independently;
+the caller must supply those bytes as p_intent_raw, never infer its digest.
 """
     receipt_sha256: dict
     physical: dict
@@ -57,6 +82,7 @@ a_physical_binding links independently observed A physics to A/CLONADO bytes.
     intent_before_effect_sha256: str | None = None
     clonado_sha256: str | None = None
     a_physical_binding: dict | None = None
+    p_intent_before_effect_sha256: str | None = None
 
 
 @dataclass(frozen=True)
@@ -144,17 +170,18 @@ def _inventory(value) -> bool:
     return len(set(canonical)) == len(canonical)
 
 
-def _delta(pre, post) -> bool:
-    if not _inventory(pre) or not _inventory(post) or LOGIN in pre['roles']:
+def _delta(pre, post, login=LOGIN, group=GROUP) -> bool:
+    if not _inventory(pre) or not _inventory(post) or login in pre['roles']:
         return False
-    if set(post['roles']) != set(pre['roles']) | {LOGIN} or \
+    if set(post['roles']) != set(pre['roles']) | {login} or \
             any(post['roles'][k] != v for k, v in pre['roles'].items()) or \
             not _same(pre['settings'], post['settings']):
         return False
     a = [json.dumps(m, sort_keys=True) for m in pre['memberships']]
     b = [json.dumps(m, sort_keys=True) for m in post['memberships']]
-    return sorted(b) == sorted(a + [json.dumps(MEMBERSHIP, sort_keys=True)]) and \
-        all(m['member'] != GROUP and m['role'] != LOGIN for m in post['memberships'])
+    member = dict(MEMBERSHIP, role=group, member=login)
+    return sorted(b) == sorted(a + [json.dumps(member, sort_keys=True)]) and \
+        all(m['member'] != group and m['role'] != login for m in post['memberships'])
 
 
 def _nominal(value, inventory) -> bool:
@@ -182,7 +209,8 @@ def _time(value):
 
 
 def validate_chain(p_raw: bytes, a_raw: bytes, intent_raw: bytes, l_raw: bytes,
-                   *, pins: Pins, clonado_raw: bytes | None = None) -> Validation:
+                   *, pins: Pins, clonado_raw: bytes | None = None,
+                   p_intent_raw: bytes | None = None) -> Validation:
     """Validate original bytes and independently pinned observations.
 
 Returns fixed codes and fixed missing-field identifiers only. It never returns
@@ -201,12 +229,33 @@ input content, private paths, hashes, principal names or provider exceptions.
         p, a, j, l = records
         if not isinstance(pins, Pins):
             return Validation(('external_pins_required',))
+        need(clonado_raw is not None, 'CLONADO.original_bytes', 'clonado_original_bytes_missing')
+        if clonado_raw is not None and (type(clonado_raw) is not bytes or
+                                       not 0 < len(clonado_raw) <= 4096):
+            return Validation(('clonado_bytes_invalid',))
         for name, raw in zip(('p', 'a', 'intent', 'l'), (p_raw, a_raw, intent_raw, l_raw)):
             expected = pins.receipt_sha256.get(name)
             check(_hex(expected) and digest(raw) == expected, 'original_bytes_pin_' + name)
         check(p.get('contrato') == 'h6_p_login_clon_v1' and p.get('estado') == 'R0' and
-              p.get('commit_confirmed') is True and _hex(p.get('intent_sha256')), 'p_receipt_contract')
-        check(a.get('contrato') == 'h6_ext_aut26_clon_v1', 'a_receipt_contract')
+              p.get('commit_confirmed') is True and set(p) == P_RECEIPT_KEYS and
+              all(_hex(v) and v != '0' * 64 for k, v in p.items() if k.endswith('sha256')) and
+              p.get('login') == P_LOGIN and p.get('grupo') == P_GROUP and
+              _same(p.get('effect'), P_EFFECT) and p.get('helper_sha256') == P_HELPER_SHA256 and
+              all(isinstance(p.get(k), str) and p[k].startswith('/') and len(p[k]) <= 4096
+                  for k in P_REF_KEYS if k.endswith('_path')), 'p_receipt_contract')
+        need(p_intent_raw is not None and _hex(pins.p_intent_before_effect_sha256),
+             'external.p_intent_original_bytes_and_prior_pin', 'p_intent_evidence_missing')
+        if p_intent_raw is not None:
+            pj = _decode(p_intent_raw)
+            check(pj.get('contrato') == 'h6_p_login_intento_v1' and set(pj) == P_INTENT_KEYS,
+                  'p_intent_contract')
+            check(digest(p_intent_raw) == p.get('intent_sha256') == pins.p_intent_before_effect_sha256,
+                  'p_intent_original_bytes_pin')
+            check(all(_same(p.get(k), v) for k, v in pj.items() if k != 'contrato'),
+                  'p_intent_receipt_divergence')
+        check(a.get('contrato') == 'h6_ext_aut26_clon_v1' and set(a) == A_KEYS and
+              a.get('commit') == A_COMMIT and a.get('sql_sha256') == A_SQL_SHA256,
+              'a_receipt_contract')
         check(j.get('kind') == 'h6_login_fuente_autorizacion_intent' and
               type(j.get('version')) is int and j['version'] == 1 and set(j) == INTENT_KEYS,
               'l_intent_contract')
@@ -237,26 +286,23 @@ input content, private paths, hashes, principal names or provider exceptions.
         # A v1 carries only PGID/image/volume. Its database identity must be
         # observed independently and bound to the exact A and CLONADO bytes.
         a_physical = dict(a)
-        absent_a = [k for k in PHYSICAL if k not in a]
-        if absent_a:
-            need(pins.a_physical_binding is not None and clonado_raw is not None,
-                 'external.a_physical_binding', 'a_physical_evidence_missing')
-            if pins.a_physical_binding is not None and clonado_raw is not None:
-                binding = pins.a_physical_binding
-                check(type(clonado_raw) is bytes and 0 < len(clonado_raw) <= 4096,
-                      'clonado_bytes_invalid')
-                clon_sha = digest(clonado_raw)
-                lines = clonado_raw.decode('utf-8').splitlines()
-                check(_hex(pins.clonado_sha256) and clon_sha == pins.clonado_sha256 and
-                      p.get('clonado_sha256') == clon_sha, 'clonado_original_bytes_pin')
-                check(len(lines) == 5 and lines[:2] == [pins.package_sha256, pins.physical['pgid']]
-                      and all(_hex(v) for v in lines[2:]), 'clonado_contract')
-                check(set(binding) == {'a_receipt_sha256', 'clonado_sha256', 'physical'} and
-                      binding['a_receipt_sha256'] == digest(a_raw) and
-                      binding['clonado_sha256'] == clon_sha and
-                      _same(binding['physical'], pins.physical), 'a_physical_binding_mismatch')
-                for k in absent_a:
-                    a_physical[k] = binding['physical'].get(k)
+        need(pins.a_physical_binding is not None, 'external.a_physical_binding',
+             'a_physical_evidence_missing')
+        if clonado_raw is not None:
+            clon_sha = digest(clonado_raw)
+            lines = clonado_raw.decode('utf-8').splitlines()
+            check(_hex(pins.clonado_sha256) and clon_sha == pins.clonado_sha256 and
+                  p.get('clonado_sha256') == clon_sha, 'clonado_original_bytes_pin')
+            check(len(lines) == 5 and lines[:2] == [pins.package_sha256, pins.physical['pgid']]
+                  and all(_hex(v) for v in lines[2:]), 'clonado_contract')
+        if pins.a_physical_binding is not None:
+            binding = pins.a_physical_binding
+            check(set(binding) == {'a_receipt_sha256', 'clonado_sha256', 'physical'} and
+                  binding['a_receipt_sha256'] == digest(a_raw) and
+                  binding['clonado_sha256'] == pins.clonado_sha256 and
+                  _same(binding['physical'], pins.physical), 'a_physical_binding_mismatch')
+            for k in ('system_identifier', 'base_oid'):
+                a_physical[k] = binding['physical'].get(k)
         for name, record in zip(('P', 'A', 'J', 'L'), (p, a_physical, j, l)):
             for k in PHYSICAL:
                 need(k in record, name + '.' + k, 'physical_identity_missing')
@@ -266,6 +312,17 @@ input content, private paths, hashes, principal names or provider exceptions.
         a_post = {k: a.get('post_' + k.removesuffix('_sha256')) for k in STATES}
         check(all(_state(s) for s in (p_post, a_pre, a_post, j.get('pre'),
                   l.get('pre'), l.get('post'), pins.pre, pins.post)), 'state_shape')
+        check(p.get('pre_schema') == p.get('post_schema') and
+              p.get('pre_datacl') == p.get('post_datacl') and
+              _hex(p.get('pre_roles')) and p['pre_roles'] != p.get('post_roles'), 'p_delta_not_roles_only')
+        check(_delta(p.get('pre_inventory'), p.get('post_inventory'), P_LOGIN, P_GROUP),
+              'p_inventory_delta')
+        for name in ('pre', 'post'):
+            inventory = p.get(name + '_inventory')
+            check(_inventory(inventory) and digest(json.dumps(inventory, sort_keys=True,
+                  separators=(',', ':')).encode()) == p.get(name + '_role_inventory_sha256'),
+                  'p_inventory_hash')
+        check(_same(p.get('post_inventory'), pins.pre_inventory), 'p_l_inventory_link')
         check(_same(p_post, a_pre), 'p_a_preimage_mismatch')
         check(a_pre['roles_sha256'] == a_post['roles_sha256'] and
               a_pre['datacl_sha256'] == a_post['datacl_sha256'], 'a_roles_datacl_changed')
