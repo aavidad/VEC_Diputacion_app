@@ -11,7 +11,7 @@ import { renderizarListaPeticiones, renderizarResultadosLista } from "./vista-ex
 import {
   renderizarCabeceraFicha, renderizarDatosPeticion, renderizarDocumentosFicha, renderizarHistorialFicha,
   renderizarLineaFases, renderizarSiguientePasoFicha,
-} from "./vista-expedientes-ficha.js?v=20261001-ct-a-i18n-v1";
+} from "./vista-expedientes-ficha.js?v=20261001-f-reconciliacion-324-v1";
 
 const traductorPorOmision = crearTraductorExpedientesContratacion();
 
