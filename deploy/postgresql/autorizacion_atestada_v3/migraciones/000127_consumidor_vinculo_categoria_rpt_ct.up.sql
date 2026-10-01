@@ -66,6 +66,34 @@ BEGIN
     OR config IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s']
     OR encode(sha256(convert_to(original,'UTF8')),'hex') IS DISTINCT FROM esperada_def_sha256
     OR encode(sha256(convert_to(fuente,'UTF8')),'hex') IS DISTINCT FROM esperada_fuente_sha256
+    OR NOT EXISTS (SELECT 1 FROM pg_proc p WHERE p.oid=f
+         AND p.proowner='vec_autorizacion_atestada_v3_propietario'::regrole
+         AND p.prokind='f' AND p.provolatile='v' AND p.proparallel='u'
+         AND p.prosecdef AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s'])
+    OR EXISTS (SELECT 1 FROM pg_database db
+         CROSS JOIN LATERAL aclexplode(coalesce(db.datacl,acldefault('d',db.datdba))) a
+         WHERE db.datname=current_database() AND a.grantee=0 AND a.privilege_type='TEMPORARY')
+    OR EXISTS (SELECT 1 FROM pg_roles r WHERE left(r.rolname,4)='vec_' AND r.rolcanlogin
+         AND has_database_privilege(r.oid,current_database(),'TEMPORARY'))
+    OR NOT EXISTS (SELECT 1 FROM aclexplode(coalesce(acl,acldefault('f',propietario))) a
+         WHERE a.grantee=propietario AND a.grantor=propietario
+           AND a.privilege_type='EXECUTE' AND NOT a.is_grantable)
+    OR EXISTS (SELECT 1 FROM aclexplode(coalesce(acl,acldefault('f',propietario))) a
+         WHERE a.grantee<>propietario OR a.grantor<>propietario
+            OR a.privilege_type<>'EXECUTE' OR a.is_grantable)
+    OR deps IS DISTINCT FROM jsonb_build_array(
+         jsonb_build_object('classid','pg_proc'::regclass::oid,'objid',f::oid,'objsubid',0,
+           'refclassid','pg_language'::regclass::oid,
+           'refobjid',(SELECT oid FROM pg_language WHERE lanname='plpgsql'),
+           'refobjsubid',0,'deptype','n'),
+         jsonb_build_object('classid','pg_proc'::regclass::oid,'objid',f::oid,'objsubid',0,
+           'refclassid','pg_namespace'::regclass::oid,
+           'refobjid','vec_autorizacion_atestada_v3'::regnamespace::oid,
+           'refobjsubid',0,'deptype','n'))
+    OR deps_compartidas IS DISTINCT FROM jsonb_build_array(
+         jsonb_build_object('dbid',(SELECT oid FROM pg_database WHERE datname=current_database()),
+           'classid','pg_proc'::regclass::oid,'objid',f::oid,'objsubid',0,
+           'refclassid','pg_authid'::regclass::oid,'refobjid',propietario,'deptype','o'))
     OR length(original)-length(replace(original,marca,''))<>length(marca)
     OR strpos(original,'vec_contratacion_temporal_ejecutor')=0
     OR strpos(original,'documentos.firmado.custodiar')=0
@@ -90,11 +118,15 @@ END $nucleo$;
 
 LOCK TABLE vec_autorizacion_atestada_v3.clave_capacidad_version IN ACCESS EXCLUSIVE MODE;
 DO $audiencias$
-DECLARE d text; a text;
+DECLARE d text; esperada_audiencia_sha256 text:='4fef385ffcee91a94046b1dda4368d3b85630df12d251384fd9d723352c8fdb8'; a text;
 BEGIN
- SELECT regexp_replace(pg_get_constraintdef(c.oid,true),'\s+',' ','g') INTO STRICT d
+ SELECT pg_get_constraintdef(c.oid,true) INTO d
  FROM pg_constraint c WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
  AND c.conname='clave_capacidad_version_audiencia_consumo_check' AND c.contype='c' AND c.convalidated;
+ IF NOT FOUND OR d IS NULL
+    OR encode(sha256(convert_to(d,'UTF8')),'hex') IS DISTINCT FROM esperada_audiencia_sha256
+ THEN RAISE EXCEPTION 'AD3-127: CHECK de audiencias incompatible' USING ERRCODE='55000'; END IF;
+ d:=regexp_replace(d,'\s+',' ','g');
  IF strpos(d,'CHECK (audiencia_consumo = ANY (ARRAY[')<>1 OR right(d,3)<>']))'
     OR strpos(d,'vec_catalogos_configurables.lectura_categorias.v1')=0
  THEN RAISE EXCEPTION 'AD3-127: audiencia previa incompatible' USING ERRCODE='55000'; END IF;
