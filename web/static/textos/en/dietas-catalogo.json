@@ -52,6 +52,23 @@
     "historia_actor": "Prepared by",
     "historia_accion": "Action",
     "accion_preparacion_ejemplo": "Example prepared",
-    "historia_motivo": "Reason"
+    "historia_motivo": "Reason",
+    "tarifa_resumen": "{concepto} · Group {grupo} · {pais}",
+    "propuestas_titulo": "Proposals reviewed on this page",
+    "propuestas_limite": "They are kept only while this view is open. They do not change the example catalogue.",
+    "propuestas_vacias": "There are no reviewed proposals yet. Prepare a change and select Review proposal.",
+    "propuestas_desplazable": "Local proposals; use the arrow keys to see all columns",
+    "propuesto": "Proposed amount",
+    "diferencia": "Difference",
+    "fecha_propuesta": "Proposed start date",
+    "sin_cambio": "No change",
+    "aumento": "Increase of {importe}",
+    "reduccion": "Decrease of {importe}",
+    "corregir_propuesta": "Review or edit",
+    "retirar_propuesta": "Remove from this page",
+    "corregir_tarifa": "Review or edit: {tarifa}",
+    "retirar_tarifa": "Remove from this page: {tarifa}",
+    "propuesta_retirada": "The local proposal for {tarifa} has been removed.",
+    "tarifa_acciones": "Rate and actions"
   }
 }
