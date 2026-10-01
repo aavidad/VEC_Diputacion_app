@@ -8,7 +8,7 @@
   "ayuda": "Ayuda para recuperar una preparación",
   "local": "Archivo local",
   "limite": "El contenido permanece en esta pestaña. No se envía ni presenta una solicitud.",
-  "ayuda_texto": "Necesita el archivo JSON de preparación. El resumen TXT no permite recuperar sus datos. Abra el JSON y revise los requisitos, plazos y documentos aportados. Puede descargar el mismo archivo para conservarlo. La recuperación no comprueba su fuente, identidad, vigencia, firma, pago ni registro.",
+  "ayuda_texto": "En la preparación de Bolsa, pulse «Descargar borrador JSON». Ese archivo permite recuperar los requisitos, plazos y documentos aportados. El resumen TXT no es compatible. Puede descargar aquí el mismo JSON para conservarlo. La recuperación no comprueba su fuente, identidad, vigencia, firma, pago ni registro.",
   "cargar_titulo": "Abrir una preparación",
   "archivo": "Elegir resumen JSON",
   "archivo_pista": "Archivo JSON de preparación, de hasta 2 MiB. El resumen TXT no es compatible.",

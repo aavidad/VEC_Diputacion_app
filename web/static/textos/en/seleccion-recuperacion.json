@@ -8,7 +8,7 @@
   "ayuda": "Help with recovering a preparation",
   "local": "Local file",
   "limite": "The content stays in this tab. No application is sent or submitted.",
-  "ayuda_texto": "You need the preparation JSON file. The TXT summary cannot restore its data. Open the JSON and review the supplied requirements, dates and documents. Download the same file to retain it. Recovery does not verify its source, identity, validity, signature, payment or registration.",
+  "ayuda_texto": "On the Bolsa preparation page, select “Download JSON draft”. That file restores the supplied requirements, dates and documents. The TXT summary is not compatible. Download the same JSON here to retain it. Recovery does not verify its source, identity, validity, signature, payment or registration.",
   "cargar_titulo": "Open a preparation",
   "archivo": "Choose a JSON summary",
   "archivo_pista": "Preparation JSON file, up to 2 MiB. The TXT summary is not compatible.",

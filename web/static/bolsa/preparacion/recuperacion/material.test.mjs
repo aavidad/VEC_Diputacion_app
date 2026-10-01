@@ -33,6 +33,15 @@ test('arrays vacíos y descripción de plazo omitida son compatibles con el prod
   assert.deepEqual(recuperarResumen(bytes(entrada), limites).resumen, entrada);
 });
 
+test('conserva textos largos y listas válidas que el productor original permite', () => {
+  const fuente = structuredClone(detalle);
+  fuente.convocatoria.titulo = 'x'.repeat(400);
+  fuente.requisitos = Array.from({ length: 300 }, (_, i) => ({ ...fuente.requisitos[0], titulo: `r${i}` }));
+  fuente.convocatoria.numero_requisitos = fuente.requisitos.length;
+  const producido = crearResumen(fuente, { limites: { maximoArchivos: Number(limites.maximo_archivos), maximoBytesArchivo: Number(limites.maximo_bytes_archivo) } });
+  assert.deepEqual(recuperarResumen(bytes(producido), limites).resumen, producido);
+});
+
 test('rechaza estados elevados, campos de autoridad y requisitos resueltos', () => {
   for (const cambiar of [
     r => { r.estado = 'presentada'; }, r => { r.requisitos[0].cumplimiento = 'cumple'; },

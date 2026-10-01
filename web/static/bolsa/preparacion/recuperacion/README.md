@@ -11,10 +11,11 @@ no exige vínculo de empleado ni añade persona o empleado al resumen.
 
 Recorrido local:
 
-1. Abrir `/bolsa/preparacion/recuperacion/?lang=es` o `?lang=en`.
-2. Seleccionar un resumen JSON de preparación. Revisar sus datos y lo pendiente.
-3. Descargar el mismo resumen: se conservan exactamente los bytes importados.
-4. Cerrar el archivo y volver a elegirlo para recuperar el mismo contenido.
+1. En la preparación de Bolsa, llegar al resumen y pulsar «Descargar borrador JSON».
+2. Abrir `/bolsa/preparacion/recuperacion/?lang=es` o `?lang=en`.
+3. Seleccionar ese JSON y revisar sus datos y lo pendiente. El TXT no es compatible.
+4. Descargar el mismo resumen: se conservan exactamente los bytes importados.
+5. Cerrar el archivo y volver a elegirlo para recuperar el mismo contenido.
 
 El archivo solo vive en memoria de la pestaña. No se envía a un servidor ni se
 guarda en almacenamiento web. Al cerrar, sustituirlo o abandonar la página se
@@ -25,8 +26,12 @@ El lector rechaza claves duplicadas o desconocidas, tipos incorrectos, un estado
 distinto de `sin_presentar` y requisitos distintos de `pendiente`. Reutiliza los
 validadores existentes de identificadores, límites, nombres de archivo y rutas
 documentales. Los arrays vacíos y la descripción opcional de los plazos siguen
-siendo compatibles con el productor. El límite de 2 MiB y las cardinalidades del
-lector son límites técnicos propios; no son reglas de inscripción ni admisión.
+siendo compatibles con el productor. El límite de 2 MiB del archivo es técnico; no es una regla de inscripción ni
+admisión. No se imponen máximos adicionales a textos o listas de requisitos,
+plazos y documentos. Los metadatos de archivos se comprueban con los límites
+actuales del catálogo de preparación de Bolsa (8 archivos y 10 MiB por archivo).
+El formato v1 no conserva una versión de esos límites: un resumen histórico
+que exceda la configuración actual queda fuera del alcance de este lector.
 
 La versión y huella aportadas no acreditan fuente, publicación ni vigencia. La
 identidad, representación, formulario admitido y documentos custodiados siguen
@@ -34,11 +39,13 @@ pendientes. Las tasas o exenciones dependen de las bases y de su circuito; aquí
 no se calculan ni se declaran obligatorias. No hay firma, registro, pago,
 presentación, justificante ni inscripción durable por recuperar este archivo.
 
-Dependencia pendiente: la pantalla actual de Bolsa descarga texto localizado;
-no exporta todavía su objeto JSON interno. La exportación JSON adicional se ha
-encargado al propietario de esa pantalla. Este corte prueba el consumidor con
-un archivo sintético generado en pruebas mediante el `crearResumen` existente.
-No acredita el recorrido completo desde esa descarga hasta la recuperación.
+Esta unión incluye la exportación JSON adicional del productor revisado en
+`8dd9b4cd7`, junto a su descarga TXT anterior. Los cinco archivos del productor
+conservan exactamente los blobs revisados. La ayuda del recuperador dirige a
+su botón JSON. La preparación, sus guardas y los derechos siguen intactos.
+La prueba focal usa una respuesta pública sintética declarada: la pantalla
+productora genera el JSON real, el consumidor lo importa y lo reexporta con
+los mismos bytes. No acredita una fuente administrativa ni datos de producción.
 
 Comprobación focal:
 
