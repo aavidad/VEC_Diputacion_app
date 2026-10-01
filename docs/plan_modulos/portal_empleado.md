@@ -49,11 +49,44 @@ implementación pendiente que deba reconstruirse.
 | I-06 | Recuperar justificantes conservados y separar avisos de notificaciones. Previsión: lectura propia de recibos/documentos en el módulo dueño y enlaces desde trámites. | Cronos/Dietas, Documentos, Registro y Notificaciones comunes. Cierre: consulta posterior devuelve bytes o referencia acreditada, sin repetir una escritura; no llamar registro, firma, notificación o entrega a lo que no lo acredita. |
 | I-07 | Conectar espacio de responsable de unidad a la autoridad común. Previsión: puerto de consulta de competencia/tareas y vista propia del portal; adaptadores de los módulos dueños. | D, Organización/Personal B/M y circuitos E/G. Sin esta fuente no se ofrece gestión por etiqueta de puesto ni existencia de una función. Cierre: unidad, procedimiento, acciones, acto, vigencia y revocación acreditados; delegación expirada o retirada denegada, auditoría y campos mínimos; dos revisiones sensibles. |
 
+| I-08 | Montar el primer trámite gobernado distinto de Cronos/Dietas en la superficie de solicitudes existente. Previsión: `modulos/solicitudes/vista.js`, i18n común, esquema/catálogo recibido y cliente del procedimiento propietario. | RRHH identifica el trámite; NUC-008/NUC-014 y módulo dueño aportan esquema, validación, borrador, firma/registro y permisos. El portal no inventa otro motor ni duplica formularios. Cierre: completar, corregir, conservar/recuperar borrador y presentar con justificante real; vuelta a bandeja con estados, plazos y decisión de I-05/I-06. La primera entrega lleva un consumidor aprobado, no un formulario genérico sin procedimiento. |
+
 Los cambios previstos en varios padres de I-01/I-03 son la cadena de montaje y
 caché de una misma función visible; no abren módulos paralelos. No hay SQL nuevo
 de I. Si B/D requieren SQL para proyecciones o competencia, su dueño reserva el
 número y fija su dependencia en `ORDEN_SQL_NUCLEO.md`. Solo borrador; ensayo en
 clon y revisiones antes de instalar. El portal no consulta tablas ajenas.
+
+## Estimación
+
+Horas de trabajo de un equipo Codex con varios subagentes, PR de 1–3 horas,
+una revisión independiente —dos en SQL, permisos o datos personales— y CI.
+Incluyen programación, comprobación y corrección; no son fechas de compromiso.
+
+| Minitarea | Horas de un equipo |
+| --- | --- |
+| I-01 · Accesos y navegación propia | 3–5 |
+| I-02 · Verificar/corregir vista WIP | 2–4 |
+| I-03 · Composición de trámites | 3–5 |
+| I-04 · Actos y documentos propios | 8–14 |
+| I-05 · Tareas y plazos recibidos | 6–10 |
+| I-06 · Justificantes y notificaciones | 8–14 |
+| I-07 · Espacio de responsable | 8–14 |
+| I-08 · Primer trámite gobernado | 12–20 |
+| **Total propio** | **50–86** |
+
+Con jornadas de ocho horas: **7–11 días de un equipo**. Con dos equipos:
+**5–8 días**, repartiendo vistas/contratos propios; no se paralelizan escritores
+sobre padres ni se adelantan I-03 o gestión sin sus dependencias.
+
+Este total completa el trabajo del portal previsto aquí cuando las capacidades
+propietarias existen. No incluye terminar Personal, Cronos, Dietas ni el núcleo.
+RRHH, B/M, E/G/F y D deben resolver campos, fuente de competencia, procedimientos,
+plazos, registro/documentos y servidor. Si las fuentes ya están disponibles,
+prever **2–5 días adicionales** de acuerdos y coordinación. Sin autoridad común,
+conector o respuesta de RRHH no hay fecha global fiable: la espera puede ser
+indefinida y se estima de nuevo al fijar cada contrato. Los tiempos de nuevos
+adaptadores/SQL propietarios los confirma su equipo, no se atribuyen al portal.
 
 ## Decisiones pendientes de RRHH
 
@@ -63,7 +96,7 @@ cerrar este plan.
 
 - Fuente de responsables y suplentes: quién acredita unidad/procedimiento,
   acciones, titular, sustituto, inicio, fin, acto y retirada. D mantiene la autoridad.
-- Qué actos y documentos oficiales puede consultar o descargar cada empleado,
+- Qué primer trámite gobernado debe ofrecerse sin duplicar Cronos/Dietas, y qué actos y documentos oficiales puede consultar o descargar cada empleado,
   y cómo solicita una corrección sin reescribir el dato histórico.
 - Para cada tipo de solicitud: quién actúa, qué hecho inicia el plazo, qué
   calendario/regla aplica y dónde se conservan decisión, justificante y notificación.
