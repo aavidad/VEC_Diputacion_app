@@ -56,12 +56,12 @@ func EnsayarPresencia(ctx context.Context, lector ports.LectorSnapshotEnsayoPres
 			marcas[m.Referencia] = true
 			hechos[i] = domain.HechoSaldo{Movimiento: m.Movimiento, InstanteUTC: m.InstanteUTC}
 		}
-		estado, err := domain.EstadoRegistradoAlCorte(hechos, dia.UTC(), s.InstanteCorteUTC, *p.CompletaHastaCorte)
+		resultado, err := domain.EvaluarPresenciaAlCorte(hechos, dia.UTC(), s.InstanteCorteUTC, *p.CompletaHastaCorte)
 		if err != nil {
 			return vacio, err
 		}
-		porPersona[p.PersonaRef] = ports.EstadoPersonaEnsayoPresencia{PersonaRef: p.PersonaRef, Estado: estado, CoberturaCompleta: *p.CompletaHastaCorte}
-		switch estado {
+		porPersona[p.PersonaRef] = ports.EstadoPersonaEnsayoPresencia{PersonaRef: p.PersonaRef, Estado: resultado.Estado, Motivo: resultado.Causa, CoberturaCompleta: *p.CompletaHastaCorte}
+		switch resultado.Estado {
 		case domain.PresenciaRegistrada:
 			r.Agregado.EntradasRegistradas++
 		case domain.PausaRegistrada:

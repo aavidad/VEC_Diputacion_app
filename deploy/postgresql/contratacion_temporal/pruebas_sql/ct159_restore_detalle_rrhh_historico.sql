@@ -15,6 +15,7 @@ ALTER TABLE pg_temp.ct159_prueba
     OWNER TO vec_contratacion_temporal_propietario;
 SET LOCAL ROLE vec_contratacion_temporal_propietario;
 
+SET LOCAL statement_timeout = '20min';
 DO $prueba$
 DECLARE
     v_columnas text;
@@ -183,6 +184,7 @@ BEGIN
     END IF;
 END
 $prueba$;
+SET LOCAL statement_timeout = '30s';
 
 SET LOCAL ROLE vec_contratacion_temporal_consultor_rrhh;
 DO $denegacion$
