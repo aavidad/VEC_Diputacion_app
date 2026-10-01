@@ -27,9 +27,9 @@ DECLARE
  f oid:=to_regprocedure('vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
  original text; nuevo text; actual text; fuente text; meta jsonb; deps jsonb; deps_compartidas jsonb; acl aclitem[];
  propietario oid; config text[]; definidora boolean;
- -- Medir ambas huellas en el clon causal post-AD133/135/136. NULL deniega la instalación.
- esperada_def_sha256 text:=NULL;
- esperada_fuente_sha256 text:=NULL;
+ -- Preimagen post-AD136 del clon causal B c6b29fd4 -> AD136 c0845b78.
+ esperada_def_sha256 text:='c5612fc12e96f462ab925157d1a394a18af67339836f88773178768adf6d7da7';
+ esperada_fuente_sha256 text:='2829f6cae1ad11d31832c53f1320bb8db976a9d21a4710fbb855d9c8939b9e8c';
  marca text:=E'       )\n       OR c ->> ''suite'' <> ''VEC-AD-3-COSE-EDDSA-1''';
  extension text:=$x$           OR (
  p_perfil_mutacion IS NOT DISTINCT FROM 'vinculo_categoria_rpt_ct'
