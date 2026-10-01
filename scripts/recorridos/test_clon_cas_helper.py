@@ -98,7 +98,8 @@ class HelperTests(unittest.TestCase):
         self.r = request()
         self.runtime = FakePsycopg()
     def run_fixture(self):
-        with patch.object(h, 'require_authority'), patch.object(h, 'read_inputs', return_value={TARGET['cuenta_ref']: ALIAS}), \
+        with patch.object(h, 'require_authority'), patch.object(h, 'read_inputs', return_value={target['cuenta_ref']: {**ALIAS, 'cuenta_ref': target['cuenta_ref']}
+                                                                    for target in self.r['targets'].values()}), \
              patch.dict(sys.modules, {'psycopg': self.runtime}):
             return h.run_request(self.r)
     def test_production_gate_precedes_reads_and_connect(self):
@@ -127,6 +128,18 @@ class HelperTests(unittest.TestCase):
         output = json.dumps(result)
         for secret in ('cuenta_id_hmac', 'sujeto_id_hmac', ALIAS['cuenta_id_hmac'], ALIAS['sujeto_id_hmac'], TARGET['persona_ref']):
             self.assertNotIn(secret, output)
+    def test_users_distinct_never_use_candidate_authorization(self):
+        users = self.r['targets']['usuarios']
+        users.update(cuenta_ref='cta_' + 'e' * 32, persona_ref='per_' + 'f' * 32,
+                     perfil_ref='prf_' + '0' * 32)
+        result = self.run_fixture()
+        self.assertEqual(set(result['preimages']['usuarios']), p.CONTEXT_FIELDS)
+        auth_calls = [args for channel, sql, args in self.runtime.calls if sql == p.AUTH_SQL]
+        self.assertEqual(auth_calls, [(p.ROLE_ID, p.ROLE_REF, TARGET['persona_ref'], TARGET['perfil_ref'])] * 2)
+        account_calls = [args for channel, sql, args in self.runtime.calls if sql == p.ACCOUNT_SQL]
+        self.assertIn((users['cuenta_ref'],), account_calls)
+        context_calls = [args for channel, sql, args in self.runtime.calls if sql == p.CONTEXT_SQL]
+        self.assertIn((users['provision_ref'],), context_calls)
     def test_permission_rls_tls_drift_and_rollback_refusals(self):
         for field, setting in (('permission', False), ('rls', False), ('policy', False), ('tls', False),
                                ('pid_drift', True), ('drift', True), ('rollback', False)):
