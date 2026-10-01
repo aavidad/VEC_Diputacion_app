@@ -4,6 +4,7 @@ import (
 	"bytes"
 	_ "embed"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 
 	"vec-diputacion-granada/internal/modules/provision/adapters/simulacion"
@@ -59,6 +60,7 @@ func configurarProcesosLocales(w http.ResponseWriter) {
 	if err := json.NewEncoder(w).Encode(struct {
 		Ejemplos []ejemploPublico `json:"ejemplos"`
 	}{[]ejemploPublico{{proyeccion.EjemploRef, p.Proceso, p.Solicitud.Preferencias, proyeccion.Proyeccion}}}); err != nil {
+		slog.Warn("provision_respuesta_no_entregada", "operacion", "configuracion_local")
 		return
 	}
 }
@@ -110,6 +112,7 @@ func simularProcesoLocal(w http.ResponseWriter, datos []byte) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(resultado); err != nil {
+		slog.Warn("provision_respuesta_no_entregada", "operacion", "simulacion_local")
 		return
 	}
 }
