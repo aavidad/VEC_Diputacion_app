@@ -285,6 +285,8 @@
     "organizacion_status": "Status",
     "organizacion_tableTitle": "Organisational units",
     "organizacion_filterText": "Filter by text",
+    "estructura_buscar": "Search by name or parent unit",
+    "estructura_limpiar_filtros": "Clear filters",
     "organizacion_filterType": "Filter by type",
     "organizacion_allTypes": "All types",
     "organizacion_delegacion": "Grouping",
