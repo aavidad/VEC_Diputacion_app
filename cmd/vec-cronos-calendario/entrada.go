@@ -81,7 +81,7 @@ func comprobarJSON(d *json.Decoder, profundidad int) error {
 				return err
 			}
 			k, ok := t.(string)
-			if !ok || vistos[k] {
+			if !ok || !claveCanonicaJSON(k) || vistos[k] {
 				return errEntrada
 			}
 			vistos[k] = true
@@ -100,6 +100,20 @@ func comprobarJSON(d *json.Decoder, profundidad int) error {
 	}
 	_, err = d.Token()
 	return err
+}
+
+// encoding/json también reconoce alias con mayúsculas y ciertos caracteres
+// Unicode. Solo admitimos la grafía ASCII de las claves declaradas en los DTO.
+func claveCanonicaJSON(k string) bool {
+	if k == "" {
+		return false
+	}
+	for _, c := range k {
+		if !((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_') {
+			return false
+		}
+	}
+	return true
 }
 
 // El repositorio de ensayo contiene versiones ya seleccionadas por el fixture

@@ -192,6 +192,34 @@ func TestRepositorioExigeConocimientoExacto(t *testing.T) {
 	}
 }
 
+func TestEntradaRechazaAliasNoCanonicos(t *testing.T) {
+	b := string(fixture(t, "cambio-centro"))
+	for nombre, entrada := range map[string]string{
+		"demo_alias_despues":      strings.Replace(b, `"demostracion": true`, `"demostracion": false, "Demostracion": true`, 1),
+		"demo_alias_antes":        strings.Replace(b, `"demostracion": true`, `"Demostracion": true, "demostracion": false`, 1),
+		"demo_solo_alias":         strings.Replace(b, `"demostracion": true`, `"Demostracion": true`, 1),
+		"hasta_alias_despues":     strings.Replace(b, `"hasta": "2026-06-10"`, `"hasta": "2026-06-10", "HASTA": "2026-06-09"`, 1),
+		"hasta_alias_antes":       strings.Replace(b, `"hasta": "2026-06-10"`, `"HASTA": "2026-06-09", "hasta": "2026-06-10"`, 1),
+		"hasta_solo_alias":        strings.Replace(b, `"hasta": "2026-06-10"`, `"HASTA": "2026-06-10"`, 1),
+		"solicitud_alias_unicode": strings.Replace(b, `"solicitud":`, `"ſolicitud":`, 1),
+	} {
+		t.Run(nombre, func(t *testing.T) {
+			var out, diag bytes.Buffer
+			if ejecutar(strings.NewReader(entrada), &out, &diag, 0) == 0 || out.Len() != 0 || !json.Valid(diag.Bytes()) {
+				t.Fatalf("out=%s diag=%s", out.Bytes(), diag.Bytes())
+			}
+			var errorSalida struct {
+				Error struct {
+					Codigo string `json:"codigo"`
+				} `json:"error"`
+			}
+			if json.Unmarshal(diag.Bytes(), &errorSalida) != nil || errorSalida.Error.Codigo != "entrada_invalida" {
+				t.Fatal(diag.String())
+			}
+		})
+	}
+}
+
 func TestCatalogoYReferenciasNoAbrenDocumentos(t *testing.T) {
 	b := fixture(t, "cambio-centro")
 	e, _, err := leerEntrada(bytes.NewReader(b))
