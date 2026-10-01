@@ -20,18 +20,22 @@ func ejecutar(argumentos []string, salida io.Writer) int {
 	ruta := fs.String("binario", "", "")
 	maxBytes := fs.Int64("max-bytes", 0, "")
 	if err := fs.Parse(argumentos); err != nil || fs.NArg() != 0 || *raiz == "" || *ruta == "" || *maxBytes <= 0 {
-		_ = json.NewEncoder(salida).Encode(releasebinario.Informe{
+		return responder(salida, releasebinario.Informe{
 			Estado: "no_comprobable", Autenticidad: "no_comprobada",
 			Razones: []copias.Razon{{Codigo: "argumentos_no_validos", Clave: "argumentos", Esperado: "raiz_binario_y_limite_explicitos", Obtenido: "ausentes_o_invalidos", Accion: "revisar_argumentos"}},
-		})
-		return 2
+		}, 2)
 	}
 	informe := releasebinario.Inspeccionar(*raiz, *ruta, *maxBytes)
-	if err := json.NewEncoder(salida).Encode(informe); err != nil {
-		return 2
-	}
+	codigo := 0
 	if informe.Estado == "no_comprobable" {
-		return 1
+		codigo = 1
 	}
-	return 0
+	return responder(salida, informe, codigo)
+}
+
+func responder(salida io.Writer, informe releasebinario.Informe, codigo int) int {
+	if json.NewEncoder(salida).Encode(informe) != nil {
+		return 4
+	}
+	return codigo
 }

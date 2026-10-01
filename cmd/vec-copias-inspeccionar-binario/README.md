@@ -32,6 +32,6 @@ la autoridad externa pendiente de Sistemas. `autenticidad` siempre es `no_compro
 ni verifica el resto del conjunto instalado. Una copia deberá superar su restauración
 aislada por separado.
 
-La salida es JSON: código 0 para datos completos, 1 para `no_comprobable` y 2 para
-argumentos incorrectos o fallo de salida. Las pruebas construyen binarios Go reales
+La salida es JSON: código 0 para datos completos, 1 para `no_comprobable`, 2 para
+argumentos incorrectos y 4 si no se puede escribir la salida. Las pruebas construyen binarios Go reales
 con un repositorio Git sintético temporal; no ejecutan esos binarios.

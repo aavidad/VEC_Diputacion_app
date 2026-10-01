@@ -60,20 +60,17 @@ func Inspeccionar(raiz, ruta string, maxBytes int64) Informe {
 	}
 	r, err := os.OpenRoot(raiz)
 	if err != nil {
-		falloArchivo(&informe)
-		return informe
+		return falloArchivo(&informe)
 	}
 	defer r.Close()
 	f, err := r.OpenFile(ruta, os.O_RDONLY|syscall.O_NONBLOCK, 0)
 	if err != nil {
-		falloArchivo(&informe)
-		return informe
+		return falloArchivo(&informe)
 	}
 	defer f.Close()
 	info, err := f.Stat()
 	if err != nil || !info.Mode().IsRegular() {
-		falloArchivo(&informe)
-		return informe
+		return falloArchivo(&informe)
 	}
 	if info.Size() > maxBytes {
 		fallo(&informe, "limite_superado", "tamano_bytes", strconv.FormatInt(maxBytes, 10), strconv.FormatInt(info.Size(), 10), "revisar_limite_operador")
@@ -81,16 +78,14 @@ func Inspeccionar(raiz, ruta string, maxBytes int64) Informe {
 	}
 	datos, err := io.ReadAll(io.LimitReader(f, maxBytes+1))
 	if err != nil || int64(len(datos)) > maxBytes || int64(len(datos)) != info.Size() {
-		fallo(&informe, "lectura_no_comprobable", "bytes", "lectura_completa_acotada", "no_completa", "capturar_binario_estable")
-		return informe
+		return fallo(&informe, "lectura_no_comprobable", "bytes", "lectura_completa_acotada", "no_completa", "capturar_binario_estable")
 	}
 	h := sha256.Sum256(datos)
 	informe.Observado.SHA256 = hex.EncodeToString(h[:])
 	informe.Observado.TamanoBytes = int64(len(datos))
 	bi, err := buildinfo.Read(bytes.NewReader(datos))
 	if err != nil {
-		fallo(&informe, "metadatos_go_ausentes", "build_info", "metadatos_go", "ausentes_o_no_validos", "obtener_descriptor_autenticado")
-		return informe
+		return fallo(&informe, "metadatos_go_ausentes", "build_info", "metadatos_go", "ausentes_o_no_validos", "obtener_descriptor_autenticado")
 	}
 	extraer(&informe, bi)
 	return informe
@@ -165,11 +160,12 @@ func falloMetadato(informe *Informe, campo string) {
 	fallo(informe, "metadato_no_comprobable", campo, "declaracion_valida", "ausente_o_invalida", "obtener_descriptor_autenticado")
 }
 
-func falloArchivo(informe *Informe) {
-	fallo(informe, "binario_no_legible", "binario", "regular_legible_en_raiz", "no_legible", "elegir_binario_autorizado")
+func falloArchivo(informe *Informe) Informe {
+	return fallo(informe, "binario_no_legible", "binario", "regular_legible_en_raiz", "no_legible", "elegir_binario_autorizado")
 }
 
-func fallo(informe *Informe, codigo, campo, esperado, obtenido, accion string) {
+func fallo(informe *Informe, codigo, campo, esperado, obtenido, accion string) Informe {
 	informe.Estado = "no_comprobable"
 	informe.Razones = append(informe.Razones, copias.Razon{Codigo: codigo, Clave: campo, Esperado: esperado, Obtenido: obtenido, Accion: accion})
+	return *informe
 }
