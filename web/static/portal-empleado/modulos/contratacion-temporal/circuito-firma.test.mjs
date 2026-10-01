@@ -8,7 +8,7 @@ import {
 
 } from "./circuito-firma.js?v=20261001-ct-firma-verificador-v2";
 import { crearAccionesFirma, fusionarEstadoFirmas, renderizarAccionesPaso } from "./circuito-firma-acciones.js?v=20261001-ct-firma-verificador-v2";
-import { crearTraductorCircuitoFirma, MENSAJES_CIRCUITO_FIRMA_ES, MENSAJES_CIRCUITO_FIRMA_EN } from "./i18n-circuito-firma.js?v=20261001-ct-firma-verificador-v2";
+import { crearTraductorCircuitoFirma, MENSAJES_CIRCUITO_FIRMA_ES, MENSAJES_CIRCUITO_FIRMA_EN } from "./i18n-circuito-firma.js?v=20261001-ct-a-i18n-v1";
 import { cargarTextos } from "../../../comun/textos.js";
 import { IDIOMA_POR_DEFECTO } from "../../../comun/idioma.js";
 
@@ -539,7 +539,7 @@ test("los importadores locales de la vista y el circuito evitan las URLs immutab
   ]);
   const versiones = new Map([
     ["circuito-firma.js", "20261001-ct-firma-verificador-v2"],
-    ["vista-expedientes.js", "20261001-ct-firma-verificador-v2"],
+    ["vista-expedientes.js", "20261001-f-ct-foco-v1"],
   ]);
   const anterior = "20260929-custodia-506-v1";
   const importadores = [

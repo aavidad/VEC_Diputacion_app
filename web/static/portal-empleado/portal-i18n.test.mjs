@@ -98,6 +98,11 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     ["modulos/contratacion-temporal/vista-expedientes.js", "20261001-ct-firma-verificador-v2"],
     ["modulos/contratacion-temporal/seguimiento-cese.js", vigente],
     ["modulos/contratacion-temporal/circuito-firma.js", "20261001-ct-firma-verificador-v2"],
+    ["modulos/contratacion-temporal/formulario-llamamiento.js", "20261001-f-ct-foco-v1"],
+    ["modulos/contratacion-temporal/vista-expedientes-fiscalizacion.js", "20261001-f-ct-foco-v1"],
+    ["modulos/contratacion-temporal/vista-expedientes.js", "20261001-f-ct-foco-v1"],
+    ["portal-modulos-coordinador.js", "20261001-f-ct-foco-v1"],
+    ["portal.js", "20261001-f-ct-foco-v1"],
   ]);
   const archivos = ["index.html"];
   const pendientes = [""];
@@ -226,8 +231,9 @@ test("Cronos renueva los traductores de permisos y resolución y todos sus padre
     assert.doesNotMatch(fuente, /i18n-resolucion\.js["']/u);
   }
   assert.equal(versionDe(permisos, "./i18n-permisos.js"), version);
-  for (const recurso of ["vista-avisos-propios.js", "vista-bandeja-permisos.js", "vista-permisos-propios.js"])
-    assert.equal(versionDe(coordinador, `./modulos/cronos/${recurso}`), version);
+  const versionesVistas = new Map([["vista-avisos-propios.js", "20261001-cronos-grafo-bandeja-v5"], ["vista-bandeja-permisos.js", "20261001-cronos-grafo-bandeja-v5"], ["vista-permisos-propios.js", "20261001-cronos-grafo-bandeja-v5"]]);
+  for (const [recurso, vigente] of versionesVistas)
+    assert.equal(versionDe(coordinador, `./modulos/cronos/${recurso}`), vigente);
   const versionPortal = versionDe(portal, "./portal-modulos-coordinador.js");
   assert.notEqual(versionPortal, "20261001-cronos-grafo-bandeja-v5");
   assert.equal(versionDe(html, "/portal-empleado/portal-modulos-coordinador.js"), versionPortal);
