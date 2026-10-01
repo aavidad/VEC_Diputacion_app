@@ -115,7 +115,8 @@ BEGIN
  OR (SELECT version FROM vec_catalogos_configurables.categoria_control WHERE categoria_id='cat-gobierno-otra')<>2
  OR (SELECT count(*) FROM vec_catalogos_configurables.historia WHERE categoria_id='cat-gobierno-demo' AND accion='deshabilitar')<>1 THEN RAISE EXCEPTION 'historia/version/publicacion incoherente'; END IF;
  IF EXISTS(SELECT * FROM pg_temp.preimagen_legacy EXCEPT SELECT * FROM vec_catalogos_configurables.publicacion WHERE circuito='doble_aprobacion') THEN RAISE EXCEPTION 'publicaciones legacy alteradas'; END IF;
- IF NOT EXISTS(SELECT 1 FROM pg_catalog.pg_proc WHERE oid=f AND proowner='vec_catalogos_configurables_propietario'::regrole AND prosecdef AND proconfig=ARRAY['search_path=pg_catalog','lock_timeout=5s','statement_timeout=30s']) THEN RAISE EXCEPTION 'metadatos Cat1 alterados'; END IF;
+ IF NOT EXISTS(SELECT 1 FROM pg_catalog.pg_proc WHERE oid=f AND proowner='vec_catalogos_configurables_propietario'::regrole AND prosecdef AND proconfig=ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=5s','statement_timeout=30s']
+ AND pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(prosrc,'UTF8')),'hex')='f6aaf535445d27b5c1c6f8e64622c1246d687c72414c0d14b2ac7c41a6b054c1') THEN RAISE EXCEPTION 'metadatos Cat1 alterados'; END IF;
  BEGIN
   UPDATE vec_catalogos_configurables.propuesta_gobierno SET editor_ref='actor:cambio' WHERE propuesta_ref='propuesta:gobierno:demo';
   RAISE EXCEPTION 'propuesta mutable';
@@ -124,6 +125,7 @@ END $historia$;
 SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
 DO $legacy$
 DECLARE doc text:='{"id":"rpt-legacy-demo","modulo_id":"personal","version":1,"estado":"publicado","entradas":[{"clave":"cat-legacy-demo","etiqueta":"Categoria legacy"}]}';h text;ph text;
+ siguiente text;sh text;pre jsonb;pre_h text;
 BEGIN
  h:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(doc,'UTF8')),'hex');ph:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to('{}','UTF8')),'hex');
  BEGIN
@@ -131,5 +133,52 @@ BEGIN
   RAISE EXCEPTION 'NULL sin propuesta fue publicado';
  EXCEPTION WHEN SQLSTATE '42501' THEN NULL; END;
  PERFORM vec_catalogos_configurables.publicar('rpt-legacy-demo',1,h,doc,'{}'::jsonb,ph,'recibo:legacy-a','recibo:legacy-b','actor:b','decision:legacy','recibo:legacy','motivos_rpt:1:prueba_gobierno');
+ -- Cat4 gobierna la continuidad del módulo también en el circuito histórico.
+ pre:=pg_catalog.jsonb_build_object('cat-legacy-demo',pg_catalog.jsonb_build_object('version',1,'huella_sha256',h,'revision',1,'estado','habilitada'));
+ pre_h:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(pre::text,'UTF8')),'hex');
+ siguiente:=(doc::jsonb||'{"version":2,"modulo_id":"bolsa"}'::jsonb)::text;
+ sh:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(siguiente,'UTF8')),'hex');
+ BEGIN
+  PERFORM vec_catalogos_configurables.publicar('rpt-legacy-demo',2,sh,siguiente,pre,pre_h,'recibo:legacy-a2','recibo:legacy-b2','actor:b','decision:modulo-ajeno','recibo:modulo-ajeno','motivos_rpt:1:prueba_gobierno');
+  RAISE EXCEPTION 'Cat4 cambio modulo historico';
+ EXCEPTION WHEN SQLSTATE '42501' THEN NULL; END;
+ siguiente:=((doc::jsonb-'modulo_id')||'{"version":2}'::jsonb)::text;
+ sh:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(siguiente,'UTF8')),'hex');
+ BEGIN
+  PERFORM vec_catalogos_configurables.publicar('rpt-legacy-demo',2,sh,siguiente,pre,pre_h,'recibo:legacy-a2','recibo:legacy-b2','actor:b','decision:sin-modulo','recibo:sin-modulo','motivos_rpt:1:prueba_gobierno');
+  RAISE EXCEPTION 'Cat4 retiro modulo historico';
+ EXCEPTION WHEN SQLSTATE '42501' THEN NULL; END;
+ siguiente:=(doc::jsonb||'{"version":3}'::jsonb)::text;
+ sh:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(siguiente,'UTF8')),'hex');
+ BEGIN
+  PERFORM vec_catalogos_configurables.publicar('rpt-legacy-demo',3,sh,siguiente,pre,pre_h,'recibo:legacy-a3','recibo:legacy-b3','actor:b','decision:salto','recibo:salto','motivos_rpt:1:prueba_gobierno');
+  RAISE EXCEPTION 'Cat4 acepto salto de version';
+ EXCEPTION WHEN SQLSTATE '23505' THEN NULL; END;
+ siguiente:=(doc::jsonb||'{"version":2}'::jsonb)::text;
+ sh:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(siguiente,'UTF8')),'hex');
+ PERFORM vec_catalogos_configurables.publicar('rpt-legacy-demo',2,sh,siguiente,pre,pre_h,'recibo:legacy-a2','recibo:legacy-b2','actor:b','decision:legacy2','recibo:legacy2','motivos_rpt:1:prueba_gobierno');
+ -- La ausencia original de módulo tampoco permite atribuir otro propietario.
+ doc:=((doc::jsonb-'modulo_id')||'{"id":"rpt-sin-modulo","entradas":[{"clave":"cat-sin-modulo","etiqueta":"Categoria historica"}]}'::jsonb)::text;
+ h:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(doc,'UTF8')),'hex');
+ PERFORM vec_catalogos_configurables.publicar('rpt-sin-modulo',1,h,doc,'{}'::jsonb,ph,'recibo:sinmod-a','recibo:sinmod-b','actor:b','decision:sinmod','recibo:sinmod','motivos_rpt:1:prueba_gobierno');
+ pre:=pg_catalog.jsonb_build_object('cat-sin-modulo',pg_catalog.jsonb_build_object('version',1,'huella_sha256',h,'revision',1,'estado','habilitada'));
+ pre_h:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(pre::text,'UTF8')),'hex');
+ siguiente:=(doc::jsonb||'{"version":2,"modulo_id":"personal"}'::jsonb)::text;
+ sh:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(siguiente,'UTF8')),'hex');
+ BEGIN
+  PERFORM vec_catalogos_configurables.publicar('rpt-sin-modulo',2,sh,siguiente,pre,pre_h,'recibo:sinmod-a2','recibo:sinmod-b2','actor:b','decision:atribuir','recibo:atribuir','motivos_rpt:1:prueba_gobierno');
+  RAISE EXCEPTION 'Cat4 asigno modulo sobre ausencia historica';
+ EXCEPTION WHEN SQLSTATE '42501' THEN NULL; END;
 END $legacy$;
+RESET ROLE;
+DO $continuidad$
+BEGIN
+ IF (SELECT count(*) FROM vec_catalogos_configurables.publicacion WHERE catalogo_id='rpt-legacy-demo')<>2
+ OR EXISTS(SELECT 1 FROM vec_catalogos_configurables.publicacion WHERE catalogo_id='rpt-legacy-demo' AND (documento_canonico::jsonb->>'modulo_id') IS DISTINCT FROM 'personal')
+ OR (SELECT count(*) FROM vec_catalogos_configurables.historia WHERE categoria_id='cat-legacy-demo')<>2
+ OR (SELECT count(*) FROM vec_catalogos_configurables.publicacion WHERE catalogo_id='rpt-sin-modulo')<>1
+ OR (SELECT count(*) FROM vec_catalogos_configurables.historia WHERE categoria_id='cat-sin-modulo')<>1 THEN
+  RAISE EXCEPTION 'Cat4 altero continuidad o dejo efecto parcial';
+ END IF;
+END $continuidad$;
 ROLLBACK;

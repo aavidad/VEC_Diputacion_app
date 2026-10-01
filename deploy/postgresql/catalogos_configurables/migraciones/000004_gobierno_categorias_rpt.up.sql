@@ -93,7 +93,9 @@ ALTER TABLE vec_catalogos_configurables.publicacion
 ALTER TABLE vec_catalogos_configurables.publicacion ADD CONSTRAINT publicacion_circuito_check CHECK(
  (circuito='doble_aprobacion' AND propuesta_ref IS NULL AND aprobacion_b_ref IS NOT NULL)
  OR(circuito='propuesta_aprobacion_rrhh' AND propuesta_ref IS NOT NULL AND aprobacion_b_ref IS NULL));
--- Evolución explícita de Cat1 instalada: nunca se edita ni reaplica su archivo.
+-- Evolución explícita desde Cat1 de main@105c537e2: no se reaplica Cat1.
+-- Huellas candidatas medidas sobre los cuerpos literales; instalación NO-GO
+-- hasta cotejar prosrc y pg_get_functiondef en PostgreSQL 18 desechable.
 DO $contrato_publicar$
 DECLARE
     f oid := 'vec_catalogos_configurables.publicar(text,integer,text,text,jsonb,text,text,text,text,text,text,text)'::regprocedure;
@@ -165,10 +167,28 @@ DECLARE
     nueva_8 text := $cambio_8$               SET version = p_version, huella_sha256 = p_huella, revision = revision + 1, estado=estado_publicado,$cambio_8$;
     vieja_9 text := $marca_9$        SELECT clave, 'publicar', revision, p_recibo || ':' || clave, p_decision, p_actor,$marca_9$;
     nueva_9 text := $cambio_9$        SELECT clave, CASE WHEN gobierno_ref IS NOT NULL AND control_anterior.estado='habilitada' AND estado_publicado='deshabilitada' THEN 'deshabilitar' ELSE 'publicar' END, revision, p_recibo || ':' || clave, p_decision, p_actor,$cambio_9$;
+    vieja_10 text := $marca_10$    IF (p_version > 1 AND NOT EXISTS (
+            SELECT 1 FROM vec_catalogos_configurables.publicacion
+             WHERE catalogo_id = p_catalogo_id AND version = p_version - 1)) THEN
+        RAISE EXCEPTION 'version de publicacion en conflicto' USING ERRCODE = '23505';
+    END IF;$marca_10$;
+    nueva_10 text := $cambio_10$    IF p_version > 1 THEN
+        SELECT * INTO anterior FROM vec_catalogos_configurables.publicacion
+         WHERE catalogo_id = p_catalogo_id AND version = p_version - 1;
+        IF NOT FOUND THEN
+            RAISE EXCEPTION 'version de publicacion en conflicto' USING ERRCODE = '23505';
+        END IF;
+        -- Una versión nueva conserva el módulo propietario; la ausencia
+        -- histórica del campo tampoco autoriza asignarlo después.
+        IF (anterior.documento_canonico::jsonb->>'modulo_id')
+            IS DISTINCT FROM (contenido->>'modulo_id') THEN
+            RAISE EXCEPTION 'modulo de catalogo incompatible' USING ERRCODE = '42501';
+        END IF;
+    END IF;$cambio_10$;
 BEGIN
     SELECT pg_catalog.pg_get_functiondef(f),pg_catalog.to_jsonb(p)-'prosrc' INTO STRICT original,meta FROM pg_catalog.pg_proc p WHERE p.oid=f;
     SELECT coalesce(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb) INTO deps FROM pg_catalog.pg_depend d WHERE d.classid='pg_catalog.pg_proc'::regclass AND d.objid=f;
-    IF NOT EXISTS(SELECT 1 FROM pg_catalog.pg_proc WHERE oid=f AND proowner='vec_catalogos_configurables_propietario'::regrole AND prosecdef AND proconfig=ARRAY['search_path=pg_catalog','lock_timeout=5s','statement_timeout=30s'] AND pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(prosrc,'UTF8')),'hex')='d44a94df48182b45d97095c47cb9ee7505d2a267399d541150fc22176606f8dd') THEN
+    IF NOT EXISTS(SELECT 1 FROM pg_catalog.pg_proc WHERE oid=f AND proowner='vec_catalogos_configurables_propietario'::regrole AND prosecdef AND proconfig=ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=5s','statement_timeout=30s'] AND pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(prosrc,'UTF8')),'hex')='f04abe6afb52343e58e51ce43d03d6ad2df8eb073edfb1810c40c411e01cb564') THEN
         RAISE EXCEPTION 'Cat4: contrato publicar preimagen incompatible' USING ERRCODE='55000';
     END IF;
     nuevo:=original;
@@ -192,6 +212,8 @@ BEGIN
     nuevo:=pg_catalog.replace(nuevo,vieja_8,nueva_8);
     IF pg_catalog.length(nuevo)-pg_catalog.length(pg_catalog.replace(nuevo,vieja_9,''))<>pg_catalog.length(vieja_9) THEN RAISE EXCEPTION 'Cat4: marca 9 incompatible' USING ERRCODE='55000'; END IF;
     nuevo:=pg_catalog.replace(nuevo,vieja_9,nueva_9);
+    IF pg_catalog.length(nuevo)-pg_catalog.length(pg_catalog.replace(nuevo,vieja_10,''))<>pg_catalog.length(vieja_10) THEN RAISE EXCEPTION 'Cat4: marca 10 incompatible' USING ERRCODE='55000'; END IF;
+    nuevo:=pg_catalog.replace(nuevo,vieja_10,nueva_10);
     EXECUTE nuevo;
     IF (SELECT pg_catalog.pg_get_functiondef(f)) IS DISTINCT FROM nuevo
     OR (SELECT pg_catalog.to_jsonb(p)-'prosrc' FROM pg_catalog.pg_proc p WHERE p.oid=f) IS DISTINCT FROM meta

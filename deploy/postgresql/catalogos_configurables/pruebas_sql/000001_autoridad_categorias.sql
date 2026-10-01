@@ -5,6 +5,27 @@ SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
 SET LOCAL search_path = pg_catalog;
 SET LOCAL lock_timeout = '5s';
 SET LOCAL statement_timeout = '30s';
+DO $configuracion$
+DECLARE f regprocedure;
+BEGIN
+    FOREACH f IN ARRAY ARRAY[
+      'vec_catalogos_configurables.publicar(text,integer,text,text,jsonb,text,text,text,text,text,text,text)'::regprocedure,
+      'vec_catalogos_configurables.reservar(text,text,text,text,integer,text,text,text,text,text)'::regprocedure,
+      'vec_catalogos_configurables.terminar_uso(text,text,text,text,text,text,text,text)'::regprocedure,
+      'vec_catalogos_configurables.cambiar_proyeccion(text,bigint,text,text,bigint,text,text,text,text)'::regprocedure
+    ] LOOP
+        IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_proc WHERE oid=f AND prosecdef
+             AND proowner='vec_catalogos_configurables_propietario'::regrole
+             AND proconfig=ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=5s','statement_timeout=30s'])
+           OR NOT pg_catalog.has_function_privilege('vec_autorizacion_atestada_v3_propietario',f,'EXECUTE')
+           OR EXISTS (SELECT 1 FROM pg_catalog.pg_proc p
+                CROSS JOIN LATERAL pg_catalog.aclexplode(coalesce(p.proacl,pg_catalog.acldefault('f',p.proowner))) a
+               WHERE p.oid=f AND (a.grantor<>p.proowner OR a.privilege_type<>'EXECUTE' OR a.is_grantable
+                 OR a.grantee NOT IN (p.proowner,'vec_autorizacion_atestada_v3_propietario'::regrole))) THEN
+            RAISE EXCEPTION 'funcion del catalogo con configuracion o ACL incorrecta';
+        END IF;
+    END LOOP;
+END $configuracion$;
 DO $prueba$
 DECLARE
     documento text := '{"id":"rpt-demo","version":1,"estado":"publicado","entradas":[{"clave":"cat-demo","etiqueta":"Categoria usada"},{"clave":"cat-empty","etiqueta":"Categoria sin usos"},{"clave":"cat-declared","etiqueta":"Categoria con total declarado"}]}';
@@ -226,43 +247,6 @@ BEGIN
         RAISE EXCEPTION 'publicacion rehabilito categoria deshabilitada';
     EXCEPTION WHEN SQLSTATE '55000' THEN NULL;
     END;
-
-    -- Ni una preimagen válida permite trasladar una categoría a otro módulo.
-    documento_version := pg_catalog.jsonb_build_object('id', 'rpt-modulo', 'version', 1,
-        'modulo_id', 'bolsa', 'estado', 'publicado', 'entradas', pg_catalog.jsonb_build_array(
-            pg_catalog.jsonb_build_object('clave', 'cat-modulo', 'etiqueta', 'Categoria con modulo')))::text;
-    huella_version := pg_catalog.encode(pg_catalog.sha256(
-        pg_catalog.convert_to(documento_version, 'UTF8')), 'hex');
-    PERFORM vec_catalogos_configurables.publicar('rpt-modulo', 1, huella_version,
-        documento_version, '{}'::jsonb, huella_vacias,
-        'aprobacion:modulo-a1', 'aprobacion:modulo-b1',
-        'actor:uno', 'decision:modulo-1', 'recibo:modulo-1', motivo);
-    preimagenes := pg_catalog.jsonb_build_object('cat-modulo', pg_catalog.jsonb_build_object(
-        'version', 1, 'huella_sha256', huella_version, 'revision', 1, 'estado', 'habilitada'));
-    huella_preimagenes := pg_catalog.encode(pg_catalog.sha256(
-        pg_catalog.convert_to(preimagenes::text, 'UTF8')), 'hex');
-    documento_siguiente := pg_catalog.jsonb_build_object('id', 'rpt-modulo', 'version', 2,
-        'modulo_id', 'personal', 'estado', 'publicado', 'entradas', pg_catalog.jsonb_build_array(
-            pg_catalog.jsonb_build_object('clave', 'cat-modulo', 'etiqueta', 'Categoria trasladada')))::text;
-    huella_siguiente := pg_catalog.encode(pg_catalog.sha256(
-        pg_catalog.convert_to(documento_siguiente, 'UTF8')), 'hex');
-    BEGIN
-        PERFORM vec_catalogos_configurables.publicar('rpt-modulo', 2, huella_siguiente,
-            documento_siguiente, preimagenes, huella_preimagenes,
-            'aprobacion:modulo-a2', 'aprobacion:modulo-b2',
-            'actor:uno', 'decision:modulo-2-ajeno', 'recibo:modulo-2-ajeno', motivo);
-        RAISE EXCEPTION 'publicacion cambio modulo del catalogo';
-    EXCEPTION WHEN SQLSTATE '42501' THEN NULL;
-    END;
-    documento_siguiente := pg_catalog.jsonb_build_object('id', 'rpt-modulo', 'version', 2,
-        'modulo_id', 'bolsa', 'estado', 'publicado', 'entradas', pg_catalog.jsonb_build_array(
-            pg_catalog.jsonb_build_object('clave', 'cat-modulo', 'etiqueta', 'Categoria actualizada')))::text;
-    huella_siguiente := pg_catalog.encode(pg_catalog.sha256(
-        pg_catalog.convert_to(documento_siguiente, 'UTF8')), 'hex');
-    PERFORM vec_catalogos_configurables.publicar('rpt-modulo', 2, huella_siguiente,
-        documento_siguiente, preimagenes, huella_preimagenes,
-        'aprobacion:modulo-a2', 'aprobacion:modulo-b2',
-        'actor:uno', 'decision:modulo-2', 'recibo:modulo-2', motivo);
 END $prueba$;
 RESET ROLE;
 DO $persistencia$
@@ -291,15 +275,6 @@ BEGIN
        OR EXISTS (SELECT 1 FROM vec_catalogos_configurables.historia
                    WHERE recibo_ref IN ('recibo:borrar', 'recibo:conflicto')) THEN
         RAISE EXCEPTION 'proyección alteró publicación o uso';
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM vec_catalogos_configurables.publicacion
-                    WHERE catalogo_id = 'rpt-modulo' AND version = 2
-                      AND documento_canonico::jsonb->>'modulo_id' = 'bolsa')
-       OR (SELECT count(*) FROM vec_catalogos_configurables.historia
-             WHERE categoria_id = 'cat-modulo') <> 2
-       OR EXISTS (SELECT 1 FROM vec_catalogos_configurables.publicacion
-                   WHERE catalogo_id = 'rpt-modulo' AND documento_canonico::jsonb->>'modulo_id' = 'personal') THEN
-        RAISE EXCEPTION 'publicacion trasladó el módulo propietario';
     END IF;
     IF (SELECT count(*) FROM vec_catalogos_configurables.historia
          WHERE categoria_id IN ('cat-demo', 'cat-empty', 'cat-declared', 'cat-version')) <> 17
