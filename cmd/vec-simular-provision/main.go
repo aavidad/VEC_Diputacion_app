@@ -57,8 +57,16 @@ func emitirError(salida io.Writer, err error) int {
 	if !ok {
 		e = &domain.Error{Codigo: "simulacion_fallida", Campo: "documento"}
 	}
+	// Algunos errores del motor usan como campo un ID editable de regla.
+	// El diagnóstico CLI sólo publica nombres técnicos de esta lista cerrada.
+	campo := "documento"
+	switch e.Campo {
+	case "entrada", "documento", "proceso", "solicitud", "instantanea", "preferencias", "puestos", "requisitos", "valoraciones":
+		campo = e.Campo
+	}
+	nominal := &domain.Error{Codigo: e.Codigo, Campo: campo}
 	_ = json.NewEncoder(salida).Encode(struct {
 		Error *domain.Error `json:"error"`
-	}{e})
+	}{nominal})
 	return 1
 }
