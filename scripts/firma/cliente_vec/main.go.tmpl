@@ -45,6 +45,7 @@ func main() {
 	solicitud := ports.SolicitudVerificacionFirma{
 		DocumentoID: "ref:" + strings.Repeat("a", 64), Version: 1,
 		HuellaOriginalSHA256: hex.EncodeToString(huellaOriginal[:]),
+		FormatoEsperado:      "PAdES",
 		ContenidoOriginal:    original, ContenidoFirmado: firmado,
 	}
 	exigir(solicitud.Validar() == nil, "Solicitud VEC sintética inválida")
@@ -91,7 +92,8 @@ func main() {
 	exigir(respuesta.Resultado.Estado == e.estado && respuesta.Motivo == e.motivo,
 		fmt.Sprintf("%s: resultado inesperado: %s/%s", caso, respuesta.Resultado.Estado, respuesta.Motivo))
 	if caso == "valida" {
-		exigir(respuesta.Resultado.VinculoOriginal && respuesta.Resultado.ValidarContra(solicitud) == nil &&
+		exigir(respuesta.Resultado.Formato == solicitud.FormatoEsperado &&
+			respuesta.Resultado.VinculoOriginal && respuesta.Resultado.ValidarContra(solicitud) == nil &&
 			respuesta.Resultado.RevocacionEstado == ports.RevocacionVigente &&
 			respuesta.Resultado.FirmanteRef == "ref:"+respuesta.Resultado.CertificadoHuellaSHA256,
 			"El positivo carece de vínculo, certificado o revocación acreditada")

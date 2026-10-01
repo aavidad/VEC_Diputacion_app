@@ -21,7 +21,7 @@ El ensayo exige estos resultados de `Cliente.VerificarMotivado`:
 | PDF firmado alterado | `indeterminada / rechazada_por_validador` |
 
 En todos los casos comprueba las huellas calculadas por VEC sobre ambos
-contenidos. El positivo exige vínculo con el original, certificado,
+contenidos. El positivo exige el formato PAdES, vínculo con el original, certificado,
 firmante y revocación vigentes; los otros resultados no pueden acreditar una
 firma. La ruta `/health` sirve solo para esperar al servicio. El ensayo no
 invoca operaciones de firma ni acepta rutas de fichero como entrada del
