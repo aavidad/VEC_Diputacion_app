@@ -463,3 +463,6 @@ static/textos/en/carrera.json
 static/portal-empleado/modulos/personal/preparacion-servicios-cer.js
 static/textos/es/personal-servicios-cer.json
 static/textos/en/personal-servicios-cer.json
+static/portal-empleado/modulos/personal/preparacion-relacion-rpt.js
+static/textos/es/preparacion-relacion-rpt.json
+static/textos/en/preparacion-relacion-rpt.json
