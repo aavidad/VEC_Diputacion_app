@@ -202,7 +202,8 @@ coeficientes, tablas, topes, jornada, conversión y redondeo.
 
 Para una configuración propia, entregue los objetos `configuracion` y
 `entrada` en archivos separados con `--reglas`, `--entrada` y sus respectivas
-huellas SHA256. Los archivos sólo pueden contener datos sintéticos. No combine
+huellas SHA256. Cada JSON de Concursos admite hasta 2 MiB; `--limite-bytes` puede
+reducir el límite de lectura. Los archivos sólo pueden contener datos sintéticos. No combine
 estos parámetros con `--ejemplo` o `--listar-ejemplos`.
 
 Los intervalos incluyen su comienzo y excluyen su final. `fecha_corte` es el
