@@ -84,9 +84,9 @@ function formularioOlvido(f, t, hoy) {
   const opciones = MOVIMIENTOS.map((m) => `<option value="${m}"${f.movimiento === m ? " selected" : ""}>${escaparHTML(t(`movimiento_${m}`))}</option>`).join("");
   const aviso = f.mensaje ? `<p class="cronos-solicitud-aviso" data-tono="${f.estado === "hecho" ? "exito" : "error"}" role="${f.estado === "hecho" ? "status" : "alert"}">${escaparHTML(f.mensaje)}</p>` : "";
   return `<form class="cronos-solicitud-formulario" data-cronos-olvido-formulario aria-label="${escaparHTML(t("olvido_formulario"))}">
-    <label>${escaparHTML(t("fecha"))}<input type="date" name="fecha_civil" required max="${hoy}" value="${escaparHTML(f.fecha ?? "")}"${enviando ? " disabled" : ""}></label>
-    <label>${escaparHTML(t("hora"))}<input type="time" name="hora_pretendida" required value="${escaparHTML(f.hora ?? "")}"${enviando ? " disabled" : ""}></label>
-    <label>${escaparHTML(t("olvido_movimiento"))}<select name="movimiento"${enviando ? " disabled" : ""}>${opciones}</select></label>
+    <label>${escaparHTML(t("fecha"))}<input class="control-formulario" type="date" name="fecha_civil" required max="${hoy}" value="${escaparHTML(f.fecha ?? "")}"${enviando ? " disabled" : ""}></label>
+    <label>${escaparHTML(t("hora"))}<input class="control-formulario" type="time" name="hora_pretendida" required value="${escaparHTML(f.hora ?? "")}"${enviando ? " disabled" : ""}></label>
+    <label>${escaparHTML(t("olvido_movimiento"))}<select class="control-formulario" name="movimiento"${enviando ? " disabled" : ""}>${opciones}</select></label>
     <div class="cronos-solicitud-acciones"><button type="submit" class="boton-primario"${enviando ? " disabled" : ""}>${escaparHTML(t(enviando ? "olvido_enviando" : "olvido_enviar"))}</button>
     <button type="button" class="boton-secundario" data-cronos-olvido="cerrar"${enviando ? " disabled" : ""}>${escaparHTML(t("cancelar"))}</button></div>${aviso}</form>`;
 }
@@ -120,10 +120,10 @@ function filtrosHTML(datos, filtros, t, locale) {
   const resumen = [["correcciones_total", datos.correcciones.length, "correcciones"], ["ausencias_total", datos.absentismos.length, "ausencias"], ["justificaciones_total", datos.absentismos.filter((a) => a.pendiente_justificar).length, "pendiente"]]
     .map(([clave, cantidad, filtro]) => `<div class="tarjeta-kpi"><strong>${n(cantidad)}</strong><button type="button" class="boton-secundario" data-cronos-recuento="${filtro}">${escaparHTML(t(clave))}</button></div>`).join("");
   return `<section class="panel cronos-panel" aria-labelledby="cronos-incidencias-titulo"><div class="cabecera-panel"><h3 id="cronos-incidencias-titulo">${escaparHTML(t("incidencias"))}</h3></div><div class="cuerpo-panel"><div class="rejilla-kpi">${resumen}</div><div class="cronos-solicitud-formulario">
-    <label>${escaparHTML(t("desde_filtro"))}<input type="date" data-cronos-filtro="desde" value="${escaparHTML(filtros.desde || "")}"></label>
-    <label>${escaparHTML(t("hasta_filtro"))}<input type="date" data-cronos-filtro="hasta" value="${escaparHTML(filtros.hasta || "")}"></label>
-    <label>${escaparHTML(t("filtrar_estado"))}<select data-cronos-filtro="estado">${opcion("", "todos_estados", filtros.estado || "")}${estados}</select></label>
-    <label>${escaparHTML(t("filtrar_justificante"))}<select data-cronos-filtro="justificante">${opcion("", "todos_justificantes", filtros.justificante || "")}${opcion("pendiente", "justificante_pendiente", filtros.justificante)}${opcion("completo", "justificante_ok", filtros.justificante)}</select></label>
+    <label>${escaparHTML(t("desde_filtro"))}<input class="control-formulario" type="date" data-cronos-filtro="desde" value="${escaparHTML(filtros.desde || "")}"></label>
+    <label>${escaparHTML(t("hasta_filtro"))}<input class="control-formulario" type="date" data-cronos-filtro="hasta" value="${escaparHTML(filtros.hasta || "")}"></label>
+    <label>${escaparHTML(t("filtrar_estado"))}<select class="control-formulario" data-cronos-filtro="estado">${opcion("", "todos_estados", filtros.estado || "")}${estados}</select></label>
+    <label>${escaparHTML(t("filtrar_justificante"))}<select class="control-formulario" data-cronos-filtro="justificante">${opcion("", "todos_justificantes", filtros.justificante || "")}${opcion("pendiente", "justificante_pendiente", filtros.justificante)}${opcion("completo", "justificante_ok", filtros.justificante)}</select></label>
     <button type="button" class="boton-secundario" data-cronos-quitar-filtros>${escaparHTML(t("quitar_filtros"))}</button></div>${filtros.desde && filtros.hasta && filtros.desde > filtros.hasta ? `<p role="alert">${escaparHTML(t("periodo_invalido"))}</p>` : ""}</div></section>`;
 }
 
