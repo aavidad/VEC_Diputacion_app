@@ -78,7 +78,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
       import("./modulos/cronos/cliente-remoto-http.js"),
       import("./modulos/cronos/cliente-solicitudes-http.js"),
       import("./modulos/cronos/i18n.js?v=20260929-i18n-textos-v1"),
-      import("./modulos/cronos/vista-bandeja-permisos.js?v=20261001-cronos-grafo-bandeja-v5"),
+      import("./modulos/cronos/vista-bandeja-permisos.js?v=20261001-f-reconciliacion-321-v1"),
       import("./modulos/cronos/vista-avisos-propios.js?v=20261001-cronos-avisos-confirmados-v1"),
       import("./modulos/cronos/cliente-resolucion-http.js"),
       import("./modulos/cronos/i18n-resolucion.js?v=20261001-cronos-grafo-bandeja-v5"),
