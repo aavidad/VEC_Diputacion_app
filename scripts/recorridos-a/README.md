@@ -17,6 +17,8 @@ Crear fuera de Git un directorio propio con permisos `0700`, el inventario JSON 
   "origen": "https://127.0.0.1:PUERTO",
   "expediente_ref": "expediente:ct:ejemplo",
   "identidad": {
+    "perfil_ref": "perfil:ct:tecnico_rrhh",
+    "certificado_firma_sha256": "<huella SHA-256 del certificado AutoFirma de esa persona>",
     "certificado": "/ruta/privada/rrhh.crt",
     "clave": "/ruta/privada/rrhh.key"
   },
@@ -29,12 +31,17 @@ Crear fuera de Git un directorio propio con permisos `0700`, el inventario JSON 
   },
   "auxiliares": ["wss://127.0.0.1:63117"],
   "seleccion": {
-    "vacante": "plaza:ejemplo",
-    "regimen": "regimen:ejemplo",
-    "modalidad": "modalidad:ejemplo",
+    "vacante": {
+      "plaza_ref": "plaza:ejemplo",
+      "puesto_ref": "puesto:ejemplo",
+      "version_plantilla_ref": "plantilla:ejemplo",
+      "version_rpt_ref": "rpt:ejemplo"
+    },
+    "regimen": { "ref": "regimen:ejemplo", "version": 1 },
+    "modalidad": { "ref": "modalidad:ejemplo", "version": 1 },
     "clase_ocupacion": "titular",
     "motivo": "incorporacion",
-    "documento": "documento:ejemplo",
+    "documento": { "documento_ref": "documento:ejemplo", "documento_sha256": "<64 caracteres hexadecimales>" },
     "desde": "2026-10-02",
     "hasta": ""
   }
@@ -63,7 +70,9 @@ VEC_PLAYWRIGHT_MODULE=/ruta/instalada/playwright/index.mjs \
   --modo incorporar --estado /ruta/privada/b2-e3-estado.json
 ```
 
-`firmar` abre Chrome con ventana y procesa todos los documentos y pasos pendientes que devuelve E3. Exige que todos queden firmados y compara cada recibo nuevo con la consulta. `incorporar` recorre revisión, plan y confirmación B2 en el formulario, y conserva intención, claves, plan, recibo y fecha en el estado privado. Si hay un POST incierto, el archivo marca `pendiente` y bloquea otra escritura. `--modo reconciliar` hace una consulta de solo lectura: conserva el recibo si el efecto ya aparece y mantiene el bloqueo si la consulta no lo demuestra. No borrar ni editar el estado para forzar otro POST.
+`firmar` abre Chrome con ventana y procesa los pasos E3 correspondientes al perfil declarado. Contrasta perfil y huella del certificado del recibo con la entrada privada. El servidor decide la autorización; el perfil escrito en el JSON no la concede. Si el siguiente paso corresponde a otra persona, deja `E3_PENDIENTE_OTRA_IDENTIDAD` y `siguiente_perfil_ref` en el estado: cambie `identidad` por los datos y certificado de firma de esa persona autorizada y repita `--modo firmar` con el mismo archivo de estado. No repite pasos firmados. Solo `E3_COMPROBADA` indica que todos los documentos y pasos han quedado firmados.
+
+`incorporar` recorre revisión, plan y confirmación B2 en el formulario, y conserva intención, claves, plan, recibo y fecha en el estado privado. Se puede cambiar la identidad al perfil autorizado para B2 sin cambiar el expediente ni su selección. Si hay un POST incierto, el archivo marca `pendiente` y bloquea otra escritura. `--modo reconciliar` hace una consulta de solo lectura: conserva el recibo si el efecto B2 queda vinculado a la intención y su clave. La consulta E3 no devuelve la clave idempotente; ante una firma incierta, este modo deja el bloqueo aunque observe un paso firmado. No borrar ni editar el estado para forzar otro POST.
 
 ```sh
 VEC_PLAYWRIGHT_MODULE=/ruta/instalada/playwright/index.mjs \
@@ -71,7 +80,7 @@ VEC_PLAYWRIGHT_MODULE=/ruta/instalada/playwright/index.mjs \
   --modo reconciliar --estado /ruta/privada/b2-e3-estado.json
 ```
 
-Cuando E3 solo se pudo recuperar por consulta, el recibo y la fecha quedan acreditados por esa lectura; la huella del PDF firmado del POST original queda sin recuperar.
+Cuando E3 solo se pudo observar por consulta, el estado registra el recibo y la fecha observados, pero no atribuye ese efecto al POST incierto ni acredita la huella del PDF firmado de aquel POST. La continuación requiere resolver esa relación con evidencia externa autorizada.
 
 Tras reiniciar **externamente solo el clon autorizado**, registrar fuera de Git un JSON privado con `expediente_ref`, `aplicacion_reiniciada: true`, `postgresql_reiniciado: true` e `instante_utc`. Ese documento declara el reinicio; el guion no lo observa por sí mismo. La recuperación no emite escrituras:
 
@@ -82,7 +91,7 @@ VEC_PLAYWRIGHT_MODULE=/ruta/instalada/playwright/index.mjs \
   --reinicio /ruta/privada/reinicio-clon.json
 ```
 
-El resultado `LECTURAS_RECUPERADAS` coteja recibos, fecha y estado de todos los pasos E3 registrados, además del recibo B2 completo. La consulta E3 no vuelve a entregar la huella del PDF firmado; esa huella queda solo en el recibo original. El archivo privado conserva lo necesario para cotejar sin guardar bytes de documentos ni certificados. El guion comprueba errores JavaScript, cookies, almacenamiento web, red y desbordamiento a 1440 y 390 px. Una inspección humana de la pantalla sigue pendiente antes de afirmar usabilidad.
+El resultado `LECTURAS_RECUPERADAS` coteja recibos, fecha y estado de **todos** los pasos E3, incluidos los firmados antes de iniciar el guion, además del recibo B2 completo. La consulta E3 no vuelve a entregar la huella del PDF firmado; esa huella queda solo en el recibo original. El archivo privado conserva lo necesario para cotejar sin guardar bytes de documentos ni certificados. El guion comprueba errores JavaScript, cookies, almacenamiento web, red y desbordamiento a 1440 y 390 px. Una inspección humana de la pantalla sigue pendiente antes de afirmar usabilidad.
 Si se indica `capturas`, el guion guarda dos PNG privados por modo, sin sobrescribir nombres; el informe solo conserva sus huellas y tamaños.
 
 Prueba focal de la lógica local:

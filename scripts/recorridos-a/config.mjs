@@ -49,6 +49,8 @@ export function cargarConfig(file) {
     && c.validacion.b2_instalado === true && c.validacion.e3_instalado === true
     && c.validacion.autofirma_preparada === true && c.validacion.grxfirma_preparada === true);
   c.origen = origen(c.origen);
+  exigir(typeof c.identidad.perfil_ref === 'string' && REF.test(c.identidad.perfil_ref));
+  exigir(typeof c.identidad.certificado_firma_sha256 === 'string' && SHA.test(c.identidad.certificado_firma_sha256));
   c.identidad.certificado = rutaPrivada(c.identidad.certificado);
   c.identidad.clave = rutaPrivada(c.identidad.clave);
   if (c.capturas !== undefined) c.capturas = rutaPrivada(c.capturas, { directorio: true });
@@ -58,12 +60,13 @@ export function cargarConfig(file) {
   exigir(c.seleccion && typeof c.seleccion === 'object'
     && ['vacante', 'regimen', 'modalidad', 'clase_ocupacion', 'motivo', 'documento', 'desde', 'hasta'].every(k => Object.hasOwn(c.seleccion, k)));
   const s = c.seleccion;
-  exigir(typeof s.vacante === 'string' && REF.test(s.vacante)
-    && typeof s.regimen === 'string' && REF.test(s.regimen)
-    && typeof s.modalidad === 'string' && REF.test(s.modalidad)
+  const catalogo = v => v && typeof v === 'object' && REF.test(v.ref) && Number.isSafeInteger(v.version) && v.version >= 1;
+  exigir(s.vacante && typeof s.vacante === 'object'
+    && ['plaza_ref', 'puesto_ref', 'version_plantilla_ref', 'version_rpt_ref'].every(k => REF.test(s.vacante[k]))
+    && catalogo(s.regimen) && catalogo(s.modalidad)
     && typeof s.clase_ocupacion === 'string' && s.clase_ocupacion.length < 160
     && typeof s.motivo === 'string' && s.motivo.length < 160
-    && typeof s.documento === 'string' && REF.test(s.documento)
+    && s.documento && REF.test(s.documento.documento_ref) && SHA.test(s.documento.documento_sha256)
     && /^\d{4}-\d{2}-\d{2}$/u.test(s.desde) && (s.hasta === '' || /^\d{4}-\d{2}-\d{2}$/u.test(s.hasta)));
   exigir(fs.statSync('/usr/bin/google-chrome').isFile());
   fs.accessSync('/usr/bin/google-chrome', fs.constants.X_OK);
@@ -80,8 +83,13 @@ export function guardarEstado(file, data) {
   // Se crea antes de cada efecto; un resultado ambiguo nunca invita a repetir POST.
   const temporal = `${file}.tmp`;
   exigir(!fs.existsSync(temporal));
-  fs.writeFileSync(temporal, JSON.stringify(data, null, 2), { mode: 0o600, flag: 'wx' });
+  const descriptor = fs.openSync(temporal, 'wx', 0o600);
+  try { fs.writeFileSync(descriptor, JSON.stringify(data, null, 2)); fs.fsyncSync(descriptor); }
+  finally { fs.closeSync(descriptor); }
   fs.renameSync(temporal, file);
+  const padre = fs.openSync(path.dirname(file), 'r');
+  try { fs.fsyncSync(padre); }
+  finally { fs.closeSync(padre); }
 }
 
 export function huellaEscenario(c) {
@@ -94,11 +102,12 @@ export function validarEstadoAnterior(estado, c) {
   return estado;
 }
 
-export function validarReciboFirma(r, expediente, documento, orden) {
+export function validarReciboFirma(r, expediente, documento, orden, identidad) {
   exigir(r?.esquema === 'vec.contratacion-temporal.recibo-firma-documento.v1'
     && r.expediente_ref === expediente && r.documento === documento && r.paso_orden === orden
-    && r.resultado === 'firmado' && r.firma_verificada === true && r.firma_eficaz === false
+    && r.resultado === 'firmado' && r.perfil_ref === identidad.perfil_ref && r.firma_verificada === true && r.firma_eficaz === false
     && r.verificacion?.estado === 'valida' && r.verificacion?.motivo === 'verificada'
+    && r.verificacion?.certificado_sha256 === identidad.certificado_firma_sha256
     && SHA.test(r.verificacion.firmado_sha256) && REF.test(r.recibo_ref)
     && typeof r.registrada_en === 'string' && !Number.isNaN(Date.parse(r.registrada_en)));
   if (r.documento_custodiado !== undefined) exigir(r.documento_custodiado
@@ -107,6 +116,6 @@ export function validarReciboFirma(r, expediente, documento, orden) {
     && Number.isSafeInteger(r.documento_custodiado.version) && r.documento_custodiado.version >= 1
     && r.documento_custodiado.huella_sha256 === r.verificacion.firmado_sha256);
   return { documento, orden, recibo_ref: r.recibo_ref, registrada_en: r.registrada_en,
-    firmado_sha256: r.verificacion.firmado_sha256,
+    firmado_sha256: r.verificacion.firmado_sha256, certificado_sha256: r.verificacion.certificado_sha256,
     custodiado: r.documento_custodiado ?? null };
 }
