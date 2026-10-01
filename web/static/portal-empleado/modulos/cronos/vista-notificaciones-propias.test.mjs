@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
-import { ErrorClienteNotificacionesCronos } from "./cliente-notificaciones-http.js";
+import { crearClienteNotificacionesCronosHTTP, ErrorClienteNotificacionesCronos } from "./cliente-notificaciones-http.js";
 import { hoyCivilCronos, montarNotificacionesPropiasCronos, renderizarNotificacionesPropiasCronos } from "./vista-notificaciones-propias.js";
 
 const TIPO = "notificacion:cronos:tipo:incidencia-marcaje:sintetico-1";
@@ -152,4 +152,109 @@ test("la huella del documento se ofrece en un detalle desplegable, no sólo en u
   const html = renderizarNotificacionesPropiasCronos({ estado: "listo", datos: datos(), hoy: "2026-09-25" });
   assert.match(html, /<details class="cronos-huella"><summary>Huella<\/summary><span class="cronos-huella-valor">Huella SHA-256: a{64}<\/span><\/details>/u);
   assert.doesNotMatch(html, /title="Huella/u);
+});
+
+function diferida() {
+  let resolver; let rechazar;
+  const promesa = new Promise((resolve, reject) => { resolver = resolve; rechazar = reject; });
+  return { promesa, resolver, rechazar };
+}
+const clicConsultar = () => ({ target: { closest: (selector) => selector === "[data-cronos-notificacion-reintentar]" ? {} : null } });
+
+for (const [status, replay, confirmacion] of [[201, false, /Notificación enviada a RRHH/], [200, true, /Esta notificación ya estaba registrada/]]) {
+  test(`registro ${status}, consulta 503 y recuperación GET mantienen la confirmación sin otro POST`, async () => {
+    const { nodo, nodos, raiz } = raizFalsa(); const llamadas = []; const pendiente = diferida(); const foco = [];
+    let consultas = 0;
+    const cliente = crearClienteNotificacionesCronosHTTP({ fetchImpl: async (_url, opciones) => {
+      llamadas.push(opciones.method);
+      if (opciones.method === "POST") return new Response(JSON.stringify({ recibo: {
+        notificacion_ref: "notificacion:cronos:0f0e0d0c-0b0a-4000-8000-000000000003",
+        recibo_ref: "recibo:cronos:0b9f3c2e-1d4a-4c6b-9e8f-0a1b2c3d4e5f", instante_utc: "2026-09-25T08:00:00Z", replay,
+      } }), { status, headers: { "content-type": "application/json" } });
+      consultas++;
+      if (consultas === 2) return pendiente.promesa;
+      return new Response(JSON.stringify(datos()), { status: 200, headers: { "content-type": "application/json" } });
+    } });
+    nodos["[data-cronos-notificacion-reintentar]"] = { focus: () => foco.push("consulta") };
+    nodos["[data-cronos-notificacion-mensaje]"] = { focus: () => foco.push("confirmacion") };
+    const vista = montarNotificacionesPropiasCronos({ raiz, cliente });
+    await esperar(); await esperar();
+    const registro = nodo.eventos.submit({ target: formulario({ tipo: TIPO, fecha: "2026-09-24", texto: "Texto registrado", referencia: "" }), preventDefault() {} });
+    await esperar(); await esperar();
+    assert.match(nodo.innerHTML, /data-estado="cargando"/);
+    assert.match(nodo.innerHTML, confirmacion);
+    assert.doesNotMatch(nodo.innerHTML, /<table|data-cronos-notificacion-formulario/);
+    pendiente.resolver(new Response(JSON.stringify({ error: "no_disponible" }), { status: 503, headers: { "content-type": "application/json" } }));
+    await registro;
+    assert.match(nodo.innerHTML, /data-estado="error"/);
+    assert.match(nodo.innerHTML, confirmacion);
+    assert.match(nodo.innerHTML, /data-cronos-notificacion-reintentar/);
+    assert.doesNotMatch(nodo.innerHTML, /<table|data-cronos-notificacion-formulario|No pude fichar/);
+    assert.deepEqual(foco, ["consulta"]);
+    await nodo.eventos.click(clicConsultar());
+    assert.match(nodo.innerHTML, /data-estado="listo"/);
+    assert.match(nodo.innerHTML, confirmacion);
+    assert.match(nodo.innerHTML, /<table/);
+    assert.match(nodo.innerHTML, /<textarea[^>]*><\/textarea>/);
+    assert.deepEqual(llamadas, ["GET", "POST", "GET", "GET"]);
+    assert.deepEqual(foco, ["consulta", "confirmacion"]);
+    vista.desmontar();
+  });
+}
+
+test("consulta antigua resuelta o rechazada no sustituye la recuperación vigente ni mueve el foco", async () => {
+  for (const rechazada of [false, true]) {
+    const { nodo, nodos, raiz } = raizFalsa(); const antigua = diferida(); const vigente = diferida(); const signals = []; const anuncios = []; let consulta = 0;
+    const cliente = { consultarPropias: ({ signal }) => {
+      signals.push(signal); consulta++;
+      return consulta === 1 ? Promise.reject(new ErrorClienteNotificacionesCronos("servicio_no_disponible", 503))
+        : consulta === 2 ? antigua.promesa : vigente.promesa;
+    }, enviar: async () => { assert.fail("consultar no debe registrar"); } };
+    let focos = 0;
+    nodos["[data-cronos-notificacion-reintentar]"] = { focus: () => { focos++; } };
+    const vista = montarNotificacionesPropiasCronos({ raiz, cliente, anunciar: (texto) => anuncios.push(texto) });
+    await esperar();
+    const reintento = nodo.eventos.click(clicConsultar());
+    const actual = vista.recargar();
+    assert.equal(signals[1].aborted, true);
+    if (rechazada) antigua.rechazar(new ErrorClienteNotificacionesCronos("servicio_no_disponible", 503)); else antigua.resolver(datos());
+    await reintento;
+    assert.match(nodo.innerHTML, /data-estado="cargando"/);
+    assert.equal(focos, 0); assert.equal(anuncios.length, 1);
+    vigente.resolver({ tipos: datos().tipos, notificaciones: [] }); await actual;
+    assert.match(nodo.innerHTML, /data-estado="listo"/);
+    assert.doesNotMatch(nodo.innerHTML, /No pude fichar/);
+    vista.desmontar();
+  }
+});
+
+test("desmontar durante recuperación cancela el GET y descarta su respuesta y su foco", async () => {
+  for (const rechazada of [false, true]) {
+    const { nodo, nodos, raiz } = raizFalsa(); const pendiente = diferida(); let consulta = 0; let signal; let focos = 0;
+    const cliente = { consultarPropias: (opciones) => {
+      consulta++; signal = opciones.signal;
+      return consulta === 1 ? Promise.reject(new ErrorClienteNotificacionesCronos("servicio_no_disponible", 503)) : pendiente.promesa;
+    }, enviar: async () => { assert.fail("consultar no debe registrar"); } };
+    nodos["[data-cronos-notificacion-reintentar]"] = { focus: () => { focos++; } };
+    const vista = montarNotificacionesPropiasCronos({ raiz, cliente }); await esperar();
+    const alConsultar = nodo.eventos.click;
+    const reintento = alConsultar(clicConsultar()); const html = nodo.innerHTML;
+    vista.desmontar(); assert.equal(signal.aborted, true); assert.equal(nodo.eventos.click, undefined);
+    if (rechazada) pendiente.rechazar(new ErrorClienteNotificacionesCronos("servicio_no_disponible", 503)); else pendiente.resolver(datos());
+    await reintento; await vista.recargar(); await alConsultar(clicConsultar());
+    assert.equal(nodo.innerHTML, html); assert.equal(focos, 0); assert.equal(consulta, 2);
+  }
+});
+
+test("el recibo tardío tras desmontar no muestra confirmación ni inicia otra consulta", async () => {
+  const { nodo, raiz } = raizFalsa(); const pendiente = diferida(); let consultas = 0; let signal; const anuncios = [];
+  const vista = montarNotificacionesPropiasCronos({ raiz, anunciar: (texto) => anuncios.push(texto), cliente: {
+    consultarPropias: async () => { consultas++; return datos(); },
+    enviar: (_entrada, opciones) => { signal = opciones.signal; return pendiente.promesa; },
+  } });
+  await esperar();
+  const registro = nodo.eventos.submit({ target: formulario({ tipo: TIPO, fecha: "2026-09-24", texto: "Texto", referencia: "" }), preventDefault() {} });
+  const html = nodo.innerHTML; vista.desmontar(); assert.equal(signal.aborted, true);
+  pendiente.resolver({ replay: false }); await registro;
+  assert.equal(nodo.innerHTML, html); assert.equal(consultas, 1); assert.equal(anuncios.length, 0);
 });
