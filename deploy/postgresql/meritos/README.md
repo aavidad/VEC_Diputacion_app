@@ -10,10 +10,13 @@ deben acreditarse en el circuito admitido antes de atribuirles eficacia real.
 
 ## Dependencias y orden
 
-La instalación requiere roles propios, el consumidor nominal V3 de Méritos y
-la migración `000001`, en ese orden. El consumidor común se instala por su
-propietario en una migración nueva reservada. La lista causal de esta entrega
-está en `deploy/principal/lista_sql_codexa_rum03.txt`.
+La entrega se apila sobre S1, que instala AD141 y su lector de Bolsa. Ese
+consumidor es un prerrequisito y no se reaplica aquí. La lista causal propia
+es roles de Méritos → AD142 → Méritos `000001`, recogida en
+`deploy/principal/lista_sql_codexa_rum03.txt`. AD142 conserva los archivos
+reservados y revisados, sin modificar sus bytes. El ensayo independiente
+`pruebas_sql/000142_meritos_acl_contratos.sql` comprueba su contrato y seis
+negativos, incluidos los tres rechazos del exterior antes del núcleo interno.
 
 Los cinco roles son `NOLOGIN`, sin privilegios elevados. Cada identidad de
 conexión tiene exactamente dos concesiones directas: `vec_meritos_ejecutor` y
