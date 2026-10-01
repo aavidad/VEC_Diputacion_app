@@ -1,0 +1,192 @@
+{
+  "listado": {
+    "esquema": "vec.bolsa.publico.convocatorias.v2",
+    "fuente": {
+      "revision": "sintetica-v2",
+      "actualizada_en": "2026-09-30T10:00:00Z",
+      "demostracion": false
+    },
+    "facetas": {
+      "tipos": [
+        {
+          "clave": "bolsa",
+          "version": 1,
+          "etiqueta": "Bolsa",
+          "semantica": "informacion"
+        }
+      ],
+      "categorias": [
+        {
+          "clave": "auxiliar-administrativo",
+          "version": 1,
+          "etiqueta": "Categoria sintetica",
+          "semantica": "informacion",
+          "catalogo_categorias": {
+            "catalogo_id": "categorias-profesionales",
+            "version": 1,
+            "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "huella_proyeccion_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "numero_resultados": 1
+        }
+      ],
+      "estados": [
+        {
+          "clave": "bolsa",
+          "version": 1,
+          "etiqueta": "Bolsa",
+          "semantica": "informacion"
+        }
+      ]
+    },
+    "diccionario_categorias": [
+      {
+        "clave": "auxiliar-administrativo",
+        "version": 1,
+        "etiqueta": "Categoria sintetica",
+        "semantica": "informacion",
+        "catalogo_categorias": {
+          "catalogo_id": "categorias-profesionales",
+          "version": 1,
+          "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "huella_proyeccion_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      }
+    ],
+    "paginacion": {
+      "pagina": 1,
+      "tamano": 12,
+      "total": 1,
+      "paginas": 1
+    },
+    "convocatorias": [
+      {
+        "identificador_publico": "sintetica-2026",
+        "version": "v2",
+        "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "titulo": "Bolsa sintetica",
+        "resumen": "Solo prueba del guion",
+        "tipo": {
+          "clave": "bolsa",
+          "version": 1,
+          "etiqueta": "Bolsa",
+          "semantica": "informacion"
+        },
+        "estado": {
+          "clave": "bolsa",
+          "version": 1,
+          "etiqueta": "Bolsa",
+          "semantica": "informacion"
+        },
+        "catalogo_categorias": {
+          "catalogo_id": "categorias-profesionales",
+          "version": 1,
+          "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "huella_proyeccion_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "categorias": [
+          {
+            "clave": "auxiliar-administrativo",
+            "version": 1
+          }
+        ],
+        "numero_requisitos": 0,
+        "numero_documentos": 0,
+        "numero_ayudas": 0,
+        "publicada_en": "2026-09-30T10:00:00Z"
+      }
+    ]
+  },
+  "detalle": {
+    "esquema": "vec.bolsa.publico.convocatoria.v2",
+    "fuente": {
+      "revision": "sintetica-v2",
+      "actualizada_en": "2026-09-30T10:00:00Z",
+      "demostracion": false
+    },
+    "convocatoria": {
+      "identificador_publico": "sintetica-2026",
+      "version": "v2",
+      "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "titulo": "Bolsa sintetica",
+      "resumen": "Solo prueba del guion",
+      "tipo": {
+        "clave": "bolsa",
+        "version": 1,
+        "etiqueta": "Bolsa",
+        "semantica": "informacion"
+      },
+      "estado": {
+        "clave": "bolsa",
+        "version": 1,
+        "etiqueta": "Bolsa",
+        "semantica": "informacion"
+      },
+      "catalogo_categorias": {
+        "catalogo_id": "categorias-profesionales",
+        "version": 1,
+        "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "huella_proyeccion_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "categorias": [
+        {
+          "clave": "auxiliar-administrativo",
+          "version": 1
+        }
+      ],
+      "numero_requisitos": 0,
+      "numero_documentos": 0,
+      "numero_ayudas": 0,
+      "publicada_en": "2026-09-30T10:00:00Z"
+    },
+    "diccionario_categorias": [
+      {
+        "clave": "auxiliar-administrativo",
+        "version": 1,
+        "etiqueta": "Categoria sintetica",
+        "semantica": "informacion",
+        "catalogo_categorias": {
+          "catalogo_id": "categorias-profesionales",
+          "version": 1,
+          "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "huella_proyeccion_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      }
+    ],
+    "descripcion": "Prueba sintetica",
+    "plazos": [],
+    "requisitos": [],
+    "documentos": [],
+    "ayuda": []
+  },
+  "categorias": {
+    "esquema": "vec.bolsa.publico.categorias.v1",
+    "fuente": {
+      "revision": "sintetica-v2",
+      "actualizada_en": "2026-09-30T10:00:00Z",
+      "demostracion": false
+    },
+    "catalogo": {
+      "catalogo_id": "categorias-profesionales",
+      "version": 1,
+      "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "huella_proyeccion_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "total": 1
+    },
+    "categorias": [
+      {
+        "clave": "auxiliar-administrativo",
+        "version": 1,
+        "etiqueta": "Categoria sintetica",
+        "semantica": "informacion",
+        "catalogo_categorias": {
+          "catalogo_id": "categorias-profesionales",
+          "version": 1,
+          "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "huella_proyeccion_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "numero_convocatorias": 1
+      }
+    ]
+  }
+}
