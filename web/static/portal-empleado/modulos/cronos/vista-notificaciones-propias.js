@@ -75,13 +75,14 @@ export function renderizarNotificacionesPropiasCronos({ estado = "cargando", dat
   const ayuda = t("abrir_ayuda", { asunto: t("notificaciones_titulo") });
   const cabecera = `<header class="cronos-encabezado"><div><p class="sobrelinea">${escaparHTML(t("sobrelinea"))}</p><h2 id="cronos-notificaciones-propias-titulo">${escaparHTML(t("notificaciones_titulo"))}</h2></div>
     <button type="button" class="cronos-boton-ayuda" data-accion="ayuda" aria-label="${escaparHTML(ayuda)}" title="${escaparHTML(ayuda)}"><span aria-hidden="true">?</span></button></header>`;
+  const tono = tonoMensaje === "error" ? "error" : "exito";
+  const aviso = mensaje ? `<p class="cronos-solicitud-aviso" data-cronos-notificacion-mensaje data-tono="${tono}" role="${tono === "error" ? "alert" : "status"}" tabindex="-1">${escaparHTML(mensaje)}</p>` : "";
   if (estado !== "listo") {
     const clave = { denegado: "denegado", sin_empleado: "sin_empleado", error: "error" }[estado] ?? "cargando";
+    const reintento = estado === "error" ? `<div class="cronos-solicitud-acciones"><button type="button" class="boton-secundario" data-cronos-notificacion-reintentar>${escaparHTML(t("notificaciones_reintentar_consulta"))}</button></div>` : "";
     return `<section class="cronos-area cronos-notificaciones-propias" aria-labelledby="cronos-notificaciones-propias-titulo" data-estado="${escaparHTML(estado)}">${cabecera}
-      <section class="panel cronos-panel"><div class="cuerpo-panel"><p class="cronos-${estado === "cargando" ? "vacio" : "acceso-denegado"}" role="${estado === "error" ? "alert" : "status"}">${escaparHTML(t(clave))}</p></div></section></section>`;
+      <section class="panel cronos-panel"><div class="cuerpo-panel">${aviso}<p class="cronos-${estado === "cargando" ? "vacio" : "acceso-denegado"}" role="${estado === "error" ? "alert" : "status"}">${escaparHTML(t(clave))}</p>${reintento}</div></section></section>`;
   }
-  const tono = tonoMensaje === "error" ? "error" : "exito";
-  const aviso = mensaje ? `<p class="cronos-solicitud-aviso" data-cronos-notificacion-mensaje data-tono="${tono}" role="${tono === "error" ? "alert" : "status"}">${escaparHTML(mensaje)}</p>` : "";
   const f = formulario ?? formularioVacio(hoy);
   const cabeceras = ["col_enviada", "col_tipo", "col_fecha", "col_mensaje", "col_documento", "col_estado"];
   const filas = datos.notificaciones.map((n) => filaNotificacion(n, t, locale, zonaHoraria)).join("");
@@ -118,19 +119,26 @@ export function montarNotificacionesPropiasCronos({ raiz, cliente = crearCliente
   const dibujar = () => {
     if (activa) contenedor.innerHTML = renderizarNotificacionesPropiasCronos({ estado, datos, formulario, envio, mensaje, tonoMensaje, mensajes, locale, zonaHoraria });
   };
-  const cargar = async () => {
-    controlador?.abort(); controlador = new AbortController(); const turno = ++secuencia;
+  const cargar = async ({ recuperarFoco = false } = {}) => {
+    if (!activa) return;
+    controlador?.abort(); controlador = new AbortController(); const signal = controlador.signal; const turno = ++secuencia;
     estado = "cargando"; datos = null; dibujar();
     try {
-      const r = await cliente.consultarPropias({ signal: controlador.signal });
-      if (!activa || turno !== secuencia) return;
+      const r = await cliente.consultarPropias({ signal });
+      if (!activa || turno !== secuencia || signal.aborted) return;
       estado = "listo"; datos = r;
       if (formulario.tipo && !r.tipos.some((tipo) => tipo.tipo_version_ref === formulario.tipo)) formulario = { ...formulario, tipo: "" };
       dibujar();
+      if (recuperarFoco) contenedor.querySelector?.(mensaje ? "[data-cronos-notificacion-mensaje]" : "[data-cronos-notificacion-formulario] [name=tipo]")?.focus?.();
     } catch (error) {
-      if (!activa || turno !== secuencia || controlador.signal.aborted) return;
+      if (!activa || turno !== secuencia || signal.aborted) return;
       estado = estadoError(error); dibujar(); anunciar(t(estado));
+      if (recuperarFoco) contenedor.querySelector?.("[data-cronos-notificacion-reintentar]")?.focus?.();
     }
+  };
+  const alConsultar = (evento) => {
+    if (!activa || estado !== "error" || !evento.target?.closest?.("[data-cronos-notificacion-reintentar]")) return;
+    return cargar({ recuperarFoco: true });
   };
   const estadoDocumento = (clave) => {
     formulario = { ...formulario, documento: clave };
@@ -191,7 +199,7 @@ export function montarNotificacionesPropiasCronos({ raiz, cliente = crearCliente
     }
   };
   const alEnviar = async (evento) => {
-    if (!evento.target?.matches?.("[data-cronos-notificacion-formulario]") || envio?.enviando) return;
+    if (!activa || estado !== "listo" || !evento.target?.matches?.("[data-cronos-notificacion-formulario]") || envio?.enviando) return;
     evento.preventDefault();
     const elementos = evento.target.elements;
     const valor = (nombre, previo) => String(elementos?.namedItem?.(nombre)?.value ?? previo);
@@ -216,7 +224,7 @@ export function montarNotificacionesPropiasCronos({ raiz, cliente = crearCliente
       if (!activa) return;
       envio = null; formulario = formularioVacio(hoyCivilCronos(ahora(), zonaHoraria));
       mensaje = t(recibo.replay ? "ya_enviada" : "enviada"); tonoMensaje = "exito"; anunciar(mensaje);
-      await cargar();
+      await cargar({ recuperarFoco: true });
     } catch (error) {
       if (!activa || peticion.signal.aborted) return;
       const codigo = error instanceof ErrorClienteNotificacionesCronos ? error.codigo : error instanceof TypeError ? "peticion_invalida" : "";
@@ -233,11 +241,13 @@ export function montarNotificacionesPropiasCronos({ raiz, cliente = crearCliente
     }
   };
   contenedor.addEventListener("change", alCambiar); contenedor.addEventListener("input", alCambiar); contenedor.addEventListener("submit", alEnviar);
+  contenedor.addEventListener("click", alConsultar);
   void cargar();
   const desmontar = () => {
     if (!activa) return;
     activa = false; ++secuencia; ++lecturaDocumento; controlador?.abort(); peticion?.abort();
     contenedor.removeEventListener("change", alCambiar); contenedor.removeEventListener("input", alCambiar); contenedor.removeEventListener("submit", alEnviar);
+    contenedor.removeEventListener("click", alConsultar);
     contenedor.remove?.();
   };
   registrarDesmontar?.(desmontar);
