@@ -161,13 +161,17 @@ class AccreditationTests(unittest.TestCase):
         with self.assertRaisesRegex(module.AccreditationError, "cas_present_incoherent"):
             module.validate_observations(self.act, self.context, self.snapshots, NOW)
 
-    def complete_material(self):
+    def fabricated_receipts(self):
+        # All certificates, HMACs and query digests are deliberately fabricated.
+        # Even a self-consistent inventory must never enable source snapshots.
         root = self.base / "material"
         root.mkdir(mode=0o700)
         (root / "runtime-externo").mkdir(mode=0o700)
         names = ("ca/ca.crt", "tls/servidor.crt", "tls/servidor.key", "mtls/candidato.crt",
                  "identidad/candidato.json", "identidad/bolsa-candidato.json", "idempotencia/configuracion.json",
-                 "manifiesto.json", "portal-proceso.json")
+                 "manifiesto.json", "portal-proceso.json",
+                 *[f"idempotencia/g{generation}-{kind}.bin" for generation in (1,2)
+                   for kind in ("localizador","huella-solicitud")])
         hashes = {}
         for name in names:
             path = root / "runtime-externo" / name
@@ -180,6 +184,14 @@ class AccreditationTests(unittest.TestCase):
                                       ("cuenta","persona","perfil","candidato")} | {"sujeto":self.metadata["sujeto"]})
             self.put(path, data)
             hashes["runtime-externo/"+name] = {"sha256":module.sha(data),"bytes":len(data)}
+        (root / "custodia").mkdir(mode=0o700)
+        for name in ("ca/ca.crt","ca/ca.key","mtls/candidato.crt","mtls/candidato.key",
+                     "mtls/candidato.p12","mtls/candidato.p12.password"):
+            path=root/"custodia"/name
+            path.parent.mkdir(parents=True,exist_ok=True,mode=0o700)
+            data=b"fabricated custody fixture\n"
+            self.put(path,data)
+            hashes["custodia/"+name]={"sha256":module.sha(data),"bytes":len(data)}
         material = {key:self.metadata[key] for key in ("autoridad_maestra","responsable","acreditado_en","refs","sujeto",
                                                       "vigente_desde","vigente_hasta")}
         material.update(version=1,kind="material_externo_offline_v1",estado="preparado_offline",
@@ -205,28 +217,41 @@ class AccreditationTests(unittest.TestCase):
         return {"material_root":root,"material_act_path":material_path,"alias_path":alias_path,
                 "alias_act_path":alias_act_path,"observations_path":obs_path,"clone_context_path":context_path}
 
-    def test_complete_assembly_and_exact_replay_preserve_source(self):
-        inputs = self.complete_material()
+    def test_fabricated_complete_receipts_cannot_enable_snapshots_and_plan_replays(self):
+        inputs = self.fabricated_receipts()
         original_source = {p.name:p.read_bytes() for p in self.source_root.iterdir()}
         result, outputs = module.assemble(self.source_root, self.ack_path, now=NOW, **inputs)
-        self.assertEqual(result["estado"], "ensamblado_offline")
-        self.assertEqual(result["snapshots"], 2)
-        for population in module.POPULATIONS:
-            value = json.loads(outputs[population+"-fuente.acreditada-v1.json"])
-            self.assertEqual(value["snapshot"]["cuenta"]["procedencia_autoridad"], "autoridad_maestra_acreditada")
-            self.assertIsInstance(value["preimagen"], dict)
+        self.assertEqual(result["estado"], "bloqueado")
+        self.assertEqual(result["snapshots"], 0)
+        self.assertEqual(outputs,{})
+        self.assertTrue(set(module.TRUST_BLOCKERS)<=set(result["blockers"]))
         destination = self.base / "output"
-        module.write_bundle(destination, outputs)
-        inodes = {p.name:p.stat().st_ino for p in (destination/"derivados-v1").iterdir()}
-        module.write_bundle(destination, outputs)
-        self.assertEqual(inodes, {p.name:p.stat().st_ino for p in (destination/"derivados-v1").iterdir()})
+        parent_inode=self.base.stat().st_ino
+        synced=[]
+        original_fsync=module.os.fsync
+        def record_fsync(fd):
+            synced.append(os.fstat(fd).st_ino)
+            return original_fsync(fd)
+        with patch.object(module.os,"fsync",side_effect=record_fsync):
+            module.write_blocked_plan(destination,result)
+        self.assertIn(parent_inode,synced)
+        inodes = {p.name:p.stat().st_ino for p in (destination/"plan-v1").iterdir()}
+        module.write_blocked_plan(destination,result)
+        self.assertEqual(inodes, {p.name:p.stat().st_ino for p in (destination/"plan-v1").iterdir()})
+        self.assertEqual(set(inodes),{"plan.bloqueado-v1.json"})
+        persisted=(destination/"plan-v1/plan.bloqueado-v1.json").read_bytes()
+        self.assertNotIn(b"autoridad_maestra_acreditada",persisted)
+        self.assertNotIn(b'"snapshot"',persisted)
         self.assertEqual(original_source, {p.name:p.read_bytes() for p in self.source_root.iterdir()})
-        changed = outputs | {"candidato-fuente.acreditada-v1.json": b"changed"}
+        changed=result|{"blockers":result["blockers"]+["preimagen_cas_nominal_pendiente"]}
         with self.assertRaisesRegex(module.AccreditationError, "replay_bundle_changed"):
-            module.write_bundle(destination, changed)
+            module.write_blocked_plan(destination,changed)
+        with self.assertRaisesRegex(module.AccreditationError,"plan_executable_rejected"):
+            module.write_blocked_plan(self.base/"forged-output",result|{"snapshots":2,"estado":"ensamblado_offline"})
+        self.assertFalse((self.base/"forged-output").exists())
 
     def test_material_change_missing_alias_and_duplicate_alias_fail(self):
-        inputs = self.complete_material()
+        inputs = self.fabricated_receipts()
         result, outputs = module.assemble(self.source_root,self.ack_path,now=NOW,**(inputs|{"alias_path":None}))
         self.assertEqual(outputs,{})
         self.assertIn("alias_externo_nominal_pendiente",result["blockers"])
@@ -236,6 +261,12 @@ class AccreditationTests(unittest.TestCase):
         receipt["salida_sha256"] = module.sha(module.encoded(alias))
         with self.assertRaisesRegex(module.AccreditationError,"alias_account_ambiguous"):
             module.validate_alias(module.encoded(alias),receipt,inputs["material_act_path"].read_bytes(),self.metadata)
+        reduced=json.loads(inputs["material_act_path"].read_bytes())
+        reduced["archivos"]={name:value for name,value in reduced["archivos"].items()
+                            if name.startswith("runtime-externo/") and not name.endswith(".bin")}
+        self.assertEqual(len(reduced["archivos"]),9)
+        with self.assertRaisesRegex(module.AccreditationError,"material_inventory_incomplete"):
+            module.validate_material(inputs["material_root"],module.encoded(reduced),module.encoded(self.ack),self.metadata)
         self.put(inputs["material_root"]/"runtime-externo/ca/ca.crt",b"changed")
         with self.assertRaisesRegex(module.AccreditationError,"material_preimage_changed"):
             module.assemble(self.source_root,self.ack_path,now=NOW,**inputs)
@@ -287,7 +318,8 @@ class AccreditationTests(unittest.TestCase):
                 module.read_private(self.ack_path)
 
     def test_output_toctou_and_exclusive_commit_do_not_replace(self):
-        _,outputs = module.assemble(self.source_root,self.ack_path,now=NOW,**self.complete_material())
+        result,outputs = module.assemble(self.source_root,self.ack_path,now=NOW,**self.fabricated_receipts())
+        self.assertEqual(outputs,{})
         ancestor=self.base/"ancestor"
         ancestor.mkdir(mode=0o700)
         root=ancestor/"output"
@@ -301,7 +333,7 @@ class AccreditationTests(unittest.TestCase):
             return original(fd,source,destination)
         with patch.object(module,"rename_exclusive",side_effect=swapped):
             with self.assertRaisesRegex(module.AccreditationError,"private_directory_changed"):
-                module.write_bundle(root,outputs)
+                module.write_blocked_plan(root,result)
         self.assertEqual(set(p.name for p in redirected.iterdir()),{".git"})
         with module.PrivateDirectory(self.base) as parent:
             (self.base/"from").mkdir(mode=0o700)

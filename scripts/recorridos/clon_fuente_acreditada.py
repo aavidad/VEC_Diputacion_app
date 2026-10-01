@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Validate an acknowledged synthetic source and assemble measured offline inputs.
+"""Validate an acknowledged synthetic source and report offline blockers.
 
 The acknowledgement is pinned to Direction's exact message, not a caller flag.
-CAS and material receipts are supplied by their owners. This tool neither measures
-PostgreSQL nor creates material, aliases, permissions or provisioning approvals.
+CAS/material/alias JSON is untrusted schema input. Approved producer receipts,
+physical RESTORE/CID binding and a verified alias export are pending. This cut
+cannot emit executable snapshots, regardless of the caller's input files.
 """
 from __future__ import annotations
 
@@ -33,6 +34,10 @@ CAS_FIELDS = {"revision_control_rol", "huella_control_rol", "version_asignacion"
 MEASUREMENTS = {"cuenta", "alias", "contexto", "rol", "control_rol", "asignacion", "checkpoint", "catalogos"}
 CATALOGS = {"motivos_mi_bolsa_desarrollo", "motivos_historial_mi_bolsa_desarrollo", "motivos_portal_mi_bolsa_desarrollo"}
 ROLE_REF = "rol:candidato_bolsa_portal_historial_propio_desarrollo:v1"
+TRUST_BLOCKERS = ("recibos_productores_aprobados_pendientes", "enlace_fisico_restore_cid_pendiente",
+                  "alias_exportado_verificado_pendiente")
+BLOCKERS = set(TRUST_BLOCKERS) | {"preimagen_cas_nominal_pendiente", "contexto_clon_nominal_pendiente",
+                               "material_externo_validado_pendiente", "alias_externo_nominal_pendiente"}
 
 
 class AccreditationError(RuntimeError):
@@ -177,6 +182,7 @@ def validate_preimage(preimage: dict) -> None:
 
 
 def validate_observations(act: dict, context: dict, snapshots: dict, now: datetime) -> dict:
+    """Check untrusted structure; no live CAS or physical clone is accredited."""
     keys(act, {"version", "kind", "source_sha256", "observado_en", "pgid", "journal_sha256",
                "restore_receipt_sha256", "observaciones"}, "observations_schema_invalid")
     keys(context, {"version", "pgid", "journal_sha256", "restore_receipt_sha256"}, "clone_context_invalid")
@@ -289,6 +295,7 @@ class PrivateDirectory:
                 if leaf and create:
                     try:
                         os.mkdir(name, 0o700, dir_fd=fd)
+                        os.fsync(fd)
                     except FileExistsError:
                         pass
                 fd = os.open(name, flags, dir_fd=fd)
@@ -382,11 +389,15 @@ def rename_exclusive(parent: int, source: str, destination: str) -> None:
         raise AccreditationError("exclusive_output_commit_failed")
 
 
-def write_bundle(root: Path, outputs: dict[str, bytes]) -> None:
-    """Expose one complete bundle by a directory rename; exact replay is read-only."""
-    require(set(outputs) == {"candidato-fuente.acreditada-v1.json", "usuarios-fuente.acreditada-v1.json",
-                            "manifiesto.acreditado-v1.json"} and
-            all(isinstance(v, bytes) and 0 < len(v) <= MAX_FILE for v in outputs.values()), "outputs_invalid")
+def write_blocked_plan(root: Path, plan: dict) -> None:
+    """Only a blocked, nonexecutable plan may be persisted; exact replay is read-only."""
+    keys(plan, {"estado", "source_sha256", "snapshots", "provision_ejecutada", "blockers"}, "plan_invalid")
+    require(plan["estado"] == "bloqueado" and plan["source_sha256"] == SOURCE_SHA256 and
+            type(plan["snapshots"]) is int and plan["snapshots"] == 0 and plan["provision_ejecutada"] is False and
+            isinstance(plan["blockers"], list) and bool(plan["blockers"]) and
+            all(isinstance(code, str) and code in BLOCKERS for code in plan["blockers"]) and
+            set(TRUST_BLOCKERS) <= set(plan["blockers"]), "plan_executable_rejected")
+    outputs = {"plan.bloqueado-v1.json": encoded({"version": 1, "kind": "plan_fuente_bloqueado_v1", **plan})}
     with PrivateDirectory(root, create=True) as destination:
         lock = os.open(".acreditacion.lock", os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | os.O_NONBLOCK,
                        0o600, dir_fd=destination.fd)
@@ -395,7 +406,7 @@ def write_bundle(root: Path, outputs: dict[str, bytes]) -> None:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
             destination.check()
             try:
-                final = os.open("derivados-v1", os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+                final = os.open("plan-v1", os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
                                 dir_fd=destination.fd)
             except FileNotFoundError:
                 final = None
@@ -413,7 +424,7 @@ def write_bundle(root: Path, outputs: dict[str, bytes]) -> None:
                                     "replay_bundle_changed")
                         finally:
                             os.close(fd)
-                    linked = os.stat("derivados-v1", dir_fd=destination.fd, follow_symlinks=False)
+                    linked = os.stat("plan-v1", dir_fd=destination.fd, follow_symlinks=False)
                     require(PrivateDirectory.identity(final, True) == (linked.st_dev, linked.st_ino) and
                             stat.S_ISDIR(linked.st_mode), "replay_directory_changed")
                     destination.check()
@@ -439,9 +450,9 @@ def write_bundle(root: Path, outputs: dict[str, bytes]) -> None:
                 linked = os.stat(temporary, dir_fd=destination.fd, follow_symlinks=False)
                 require(stat.S_ISDIR(linked.st_mode) and (linked.st_dev, linked.st_ino) == stage_identity,
                         "stage_directory_changed")
-                rename_exclusive(destination.fd, temporary, "derivados-v1")
+                rename_exclusive(destination.fd, temporary, "plan-v1")
                 destination.check()
-                linked = os.stat("derivados-v1", dir_fd=destination.fd, follow_symlinks=False)
+                linked = os.stat("plan-v1", dir_fd=destination.fd, follow_symlinks=False)
                 require(stat.S_ISDIR(linked.st_mode) and (linked.st_dev, linked.st_ino) == stage_identity,
                         "output_directory_changed")
                 os.fsync(destination.fd)
@@ -459,7 +470,7 @@ def read_relative(root: Path, name: str) -> bytes:
 
 
 def validate_material(root: Path, act_bytes: bytes, ack_bytes: bytes, accredited: dict) -> dict:
-    """Cotejar la evidencia del productor; la criptografía pertenece a ese productor."""
+    """Inspect untrusted inventory and hashes; this does not verify cryptography or origin."""
     act = decoded(act_bytes)
     keys(act, {"version", "kind", "estado", "fuente_sha256", "acuse_sha256", "autoridad_maestra",
                "responsable", "acreditado_en", "refs", "sujeto", "vigente_desde", "vigente_hasta",
@@ -476,9 +487,12 @@ def validate_material(root: Path, act_bytes: bytes, ack_bytes: bytes, accredited
     required = {"runtime-externo/ca/ca.crt", "runtime-externo/tls/servidor.crt", "runtime-externo/tls/servidor.key",
                 "runtime-externo/mtls/candidato.crt", "runtime-externo/identidad/candidato.json",
                 "runtime-externo/identidad/bolsa-candidato.json", "runtime-externo/idempotencia/configuracion.json",
-                "runtime-externo/manifiesto.json", "runtime-externo/portal-proceso.json"}
-    require(isinstance(act["archivos"], dict) and required <= set(act["archivos"]) and
-            len(act["archivos"]) <= 32, "material_inventory_incomplete")
+                "runtime-externo/manifiesto.json", "runtime-externo/portal-proceso.json",
+                *{f"runtime-externo/idempotencia/g{generation}-{kind}.bin"
+                  for generation in (1, 2) for kind in ("localizador", "huella-solicitud")},
+                *{"custodia/" + name for name in ("ca/ca.crt", "ca/ca.key", "mtls/candidato.crt",
+                  "mtls/candidato.key", "mtls/candidato.p12", "mtls/candidato.p12.password")}}
+    require(isinstance(act["archivos"], dict) and set(act["archivos"]) == required, "material_inventory_incomplete")
     for name, entry in act["archivos"].items():
         require(isinstance(name, str) and name.startswith(("runtime-externo/", "custodia/")), "material_inventory_path_invalid")
         keys(entry, {"sha256", "bytes"}, "material_inventory_entry_invalid")
@@ -497,6 +511,7 @@ def validate_material(root: Path, act_bytes: bytes, ack_bytes: bytes, accredited
 
 
 def validate_alias(alias_bytes: bytes, receipt: dict, material_bytes: bytes, accredited: dict) -> dict:
+    """Inspect untrusted export structure; a label or digest is not an exporter receipt."""
     keys(receipt, {"version", "kind", "fuente_sha256", "material_acta_sha256", "exportador", "salida_sha256"},
          "alias_receipt_invalid")
     require(type(receipt["version"]) is int and receipt["version"] == 1 and
@@ -533,9 +548,11 @@ def assemble(source_root: Path, ack_path: Path, *, now: datetime,
         accredited = validate_accreditation(source.read("fuente-sintetica-v1.json"), decoded(ack_bytes), now)
         snapshots = {population: validate_proposal(decoded(source.read(population + "-fuente.propuesta-v1.json")),
                                                   population, accredited) for population in POPULATIONS}
-    blockers = []
-    preimages, alias = None, None
-    evidence_hashes = {"acuse_sha256": sha(ack_bytes)}
+    # None of the following files is a trusted receipt. Their schemas can be
+    # inspected for errors, but neither matching hashes nor named exporters
+    # authenticate their producer. There is deliberately no success branch,
+    # caller-supplied approval flag, or callback that can enable snapshots.
+    blockers = list(TRUST_BLOCKERS)
     if observations_path is None:
         blockers.append("preimagen_cas_nominal_pendiente")
     if clone_context_path is None:
@@ -543,39 +560,20 @@ def assemble(source_root: Path, ack_path: Path, *, now: datetime,
     if observations_path is not None and clone_context_path is not None:
         observations = read_private(observations_path)
         clone_context = read_private(clone_context_path)
-        preimages = validate_observations(decoded(observations), decoded(clone_context), snapshots, now)
-        evidence_hashes.update(observaciones_sha256=sha(observations), contexto_clon_sha256=sha(clone_context))
+        validate_observations(decoded(observations), decoded(clone_context), snapshots, now)
     material_bytes = None
     if material_root is None or material_act_path is None:
         blockers.append("material_externo_validado_pendiente")
     else:
         material_bytes = read_private(material_act_path)
         validate_material(material_root, material_bytes, ack_bytes, accredited)
-        evidence_hashes["material_acta_sha256"] = sha(material_bytes)
     if alias_path is None or alias_act_path is None or material_bytes is None:
         blockers.append("alias_externo_nominal_pendiente")
     else:
         alias_bytes, alias_receipt = read_private(alias_path), read_private(alias_act_path)
-        alias = validate_alias(alias_bytes, decoded(alias_receipt), material_bytes, accredited)
-        evidence_hashes.update(alias_sha256=sha(alias_bytes), alias_acta_sha256=sha(alias_receipt))
-    if blockers:
-        return {"estado": "bloqueado", "source_sha256": SOURCE_SHA256, "snapshots": 0,
-                "provision_ejecutada": False, "blockers": blockers}, {}
-    outputs = {}
-    for population in POPULATIONS:
-        snapshot = snapshots[population]
-        for name in ("cuenta", "persona", "perfil", "contexto", "vinculo_candidato"):
-            if snapshot[name] is not None:
-                snapshot[name]["procedencia_autoridad"] = "autoridad_maestra_acreditada"
-        outputs[population + "-fuente.acreditada-v1.json"] = encoded(
-            {"version": 1, "snapshot": snapshot, "preimagen": preimages[population], "identidad": alias})
-    manifest = {"version": 1, "kind": "fuente_derivada_acreditada_offline_v1", "estado": "ensamblado_offline",
-                **accredited, **evidence_hashes, "provision_ejecutada": False,
-                "archivos": {name: {"sha256": sha(data), "bytes": len(data)} for name, data in outputs.items()}}
-    outputs["manifiesto.acreditado-v1.json"] = encoded(manifest)
-    return {"estado": "ensamblado_offline", "source_sha256": SOURCE_SHA256, "snapshots": 2,
-            "provision_ejecutada": False, "archivos_sha256": {name: sha(data) for name, data in outputs.items()},
-            "blockers": []}, outputs
+        validate_alias(alias_bytes, decoded(alias_receipt), material_bytes, accredited)
+    return {"estado": "bloqueado", "source_sha256": SOURCE_SHA256, "snapshots": 0,
+            "provision_ejecutada": False, "blockers": blockers}, {}
 
 
 def main() -> int:
@@ -592,15 +590,15 @@ def main() -> int:
                                    observations_path=args.observaciones, clone_context_path=args.contexto_clon,
                                    material_root=args.material, material_act_path=args.acta_material,
                                    alias_path=args.alias, alias_act_path=args.acta_alias)
-        if outputs:
-            write_bundle(args.salida, outputs)
+        require(not outputs, "executable_snapshots_unavailable")
+        write_blocked_plan(args.salida, result)
     except (AccreditationError, OSError, ValueError, TypeError, KeyError) as error:
         code = str(error) if isinstance(error, AccreditationError) else "material_o_evidencia_invalida"
         print(json.dumps({"error": "fuente_acreditada_rechazada", "estado": "bloqueado", "snapshots": 0,
                           "provision_ejecutada": False, "blockers": [code]}, sort_keys=True), file=sys.stderr)
         return 2
     print(json.dumps(result, sort_keys=True))
-    return 0 if outputs else 3
+    return 3
 
 
 if __name__ == "__main__":
