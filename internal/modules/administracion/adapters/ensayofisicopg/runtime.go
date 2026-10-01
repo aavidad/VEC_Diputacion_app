@@ -123,7 +123,7 @@ func (r RuntimeObservacion) ComprobarExclusion(ctx context.Context) (string, err
 		return "", errRuntime
 	}
 	raiz := filepath.Clean(r.Raiz)
-	if raiz == "." || !strings.HasPrefix(raiz, "/dev/shm/vec-cs06") {
+	if !raizTemporalAdmitida(raiz) {
 		return "", errRuntime
 	}
 	for _, m := range i.Mounts {

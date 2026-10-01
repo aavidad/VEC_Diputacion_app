@@ -17,7 +17,7 @@ var versionHerramienta = regexp.MustCompile(`\(PostgreSQL\) ([0-9]+\.[0-9]+)(?:[
 
 func (e Ensayador) ensayar(ctx context.Context, s Solicitud, r Resultado) (resultado Resultado) {
 	resultado = r
-	raiz, err := os.MkdirTemp("/dev/shm", "vec-cs06f-")
+	raiz, err := CrearRaizTemporal(e.Configuracion.RaizTemporal, "vec-cs06f-")
 	if err != nil {
 		fallo(&resultado, "entrada", "scratch")
 		return

@@ -120,7 +120,7 @@ func nuevoOrigenSintetico(t *testing.T, imagen string) *origenSintetico {
 	if _, err := rand.Read(aleatorio[:]); err != nil {
 		t.Fatal(err)
 	}
-	datos, err := os.MkdirTemp("/dev/shm", "vec-cs06l-fuente-")
+	datos, err := os.MkdirTemp("/var/tmp", "vec-cs06l-fuente-")
 	if err != nil {
 		t.Fatalf("crear PGDATA propio de la fuente: %v", err)
 	}

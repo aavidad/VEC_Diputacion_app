@@ -15,6 +15,7 @@ import (
 )
 
 type configuracionCLI struct {
+	RaizTemporal         string `json:"raiz_temporal,omitempty"`
 	ImagenSHA256         string `json:"imagen_sha256"`
 	VersionPostgreSQL    string `json:"version_postgresql"`
 	UsuarioBootstrap     string `json:"usuario_bootstrap"`
@@ -87,7 +88,7 @@ func runContext(ctx context.Context, args []string, out, diag io.Writer) int {
 		return 2
 	}
 	e := ensayofisicopg.Ensayador{Configuracion: ensayofisicopg.Configuracion{
-		ImagenSHA256: c.ImagenSHA256, VersionPostgreSQL: c.VersionPostgreSQL, UsuarioBootstrap: c.UsuarioBootstrap,
+		RaizTemporal: c.RaizTemporal, ImagenSHA256: c.ImagenSHA256, VersionPostgreSQL: c.VersionPostgreSQL, UsuarioBootstrap: c.UsuarioBootstrap,
 		LimiteArchivoBytes: c.LimiteArchivoBytes, LimiteExtraidoBytes: c.LimiteExtraidoBytes, LimiteEntradas: c.LimiteEntradas, CPUs: c.CPUs, MemoriaBytes: c.MemoriaBytes,
 		TiempoLimite: time.Duration(c.TiempoLimiteSegundos) * time.Second,
 	}}

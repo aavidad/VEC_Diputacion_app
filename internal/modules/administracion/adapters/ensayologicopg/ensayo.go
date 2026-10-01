@@ -28,7 +28,7 @@ func (e Ensayador) ensayar(ctx context.Context, s Solicitud, r Resultado) (resul
 	resultado = r
 	// Raíz y nombres se generan aquí. El operador no puede elegir un volumen,
 	// servicio o contenedor existente. Todos los archivos permanecen privados.
-	raiz, err := os.MkdirTemp("/dev/shm", "vec-cs06l-")
+	raiz, err := ensayofisicopg.CrearRaizTemporal(e.Configuracion.RaizTemporal, "vec-cs06l-")
 	if err != nil {
 		fallo(&resultado, "entrada", "scratch", "disponible", "no_disponible")
 		return

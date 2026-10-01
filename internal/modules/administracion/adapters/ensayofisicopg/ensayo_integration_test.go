@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -67,7 +68,7 @@ func TestFisicaPG18RealAislada(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
-	raiz, err := os.MkdirTemp("/dev/shm", "vec-cs06f-fixture-")
+	raiz, err := os.MkdirTemp("/var/tmp", "vec-cs06f-fixture-")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -86,17 +87,35 @@ func TestFisicaPG18RealAislada(t *testing.T) {
 	}
 	c := Configuracion{ImagenSHA256: imagen, VersionPostgreSQL: "18.4", UsuarioBootstrap: "cs06_fixture", LimiteArchivoBytes: 128 << 20, LimiteExtraidoBytes: 128 << 20, LimiteEntradas: 10000, CPUs: 1, MemoriaBytes: 512 << 20, TiempoLimite: 90 * time.Second}
 	e := Ensayador{Configuracion: c}
-	cmd := append(e.opcionesAisladas(nombre), "-d", "-v", datos+":/data:rw", "-e", "PGDATA=/data", "-e", "POSTGRES_USER=cs06_fixture", "-e", "POSTGRES_HOST_AUTH_METHOD=trust", "sha256:"+imagen, "postgres", "-c", "listen_addresses=", "-c", "unix_socket_directories=/var/run/postgresql")
+	opciones := e.opcionesAisladas(nombre)
+	for i, a := range opciones {
+		if a == "--rm" {
+			opciones = append(opciones[:i], opciones[i+1:]...)
+			break
+		}
+	}
+	cmd := append(opciones, "-d", "-v", datos+":/data:rw", "-e", "PGDATA=/data", "-e", "POSTGRES_USER=cs06_fixture", "-e", "POSTGRES_HOST_AUTH_METHOD=trust", "sha256:"+imagen, "postgres", "-c", "listen_addresses=", "-c", "unix_socket_directories=/var/run/postgresql")
 	if _, err = docker(ctx, nil, 4096, cmd...); err != nil {
 		t.Fatal("iniciar fixture", err)
 	}
-	for ctx.Err() == nil {
-		b, err := docker(ctx, nil, 4096, "exec", nombre, "cat", "/proc/1/comm")
-		if err == nil && strings.TrimSpace(string(b)) == "postgres" && e.esperar(ctx, nombre) {
+	inicio, cerrarInicio := context.WithTimeout(ctx, 30*time.Second)
+	defer cerrarInicio()
+	for inicio.Err() == nil {
+		estado, _ := docker(inicio, nil, 4096, "inspect", "--format", "{{.State.Running}}", nombre)
+		if strings.TrimSpace(string(estado)) != "true" {
+			estado, _ := docker(inicio, nil, 4096, "inspect", "--format", "{{json .State}}", nombre)
+			t.Logf("fixture state %s", estado)
+			logs := exec.CommandContext(inicio, dockerLocal, "--host", "unix:///var/run/docker.sock", "logs", nombre)
+			logs.Env = []string{"PATH=/usr/bin:/bin", "HOME=/nonexistent", "DOCKER_CONFIG=/nonexistent"}
+			b, _ := logs.CombinedOutput()
+			t.Fatalf("fixture no arrancó: %s", b)
+		}
+		b, err := docker(inicio, nil, 4096, "exec", nombre, "cat", "/proc/1/comm")
+		if err == nil && strings.TrimSpace(string(b)) == "postgres" && e.esperar(inicio, nombre) {
 			break
 		}
 		select {
-		case <-ctx.Done():
+		case <-inicio.Done():
 			t.Fatal("fixture timeout")
 		case <-time.After(100 * time.Millisecond):
 		}
@@ -120,6 +139,12 @@ func TestFisicaPG18RealAislada(t *testing.T) {
 	}
 	cert, key := archivosTLS(t)
 	s := Solicitud{Sintetica: true, Componentes: []Componente{{ID: "fisica:pgdata", Tipo: "base_fisica", Tar: pg}, {ID: "fisica:testigo", Tipo: "binario", Tar: bin}, {ID: "fisica:servidor", Tipo: "binario", Tar: empaquetar(t, exe)}, {ID: "fisica:certificado", Tipo: "configuracion", Tar: empaquetar(t, cert)}, {ID: "fisica:clave", Tipo: "configuracion", Tar: empaquetar(t, key)}}}
+	cuenta := &cuentaTar{}
+	for _, comp := range s.Componentes {
+		if err := revisarTar(ctx, comp.Tar.Ruta, c, cuenta); err != nil {
+			t.Fatalf("TAR fixture %s no admitido bytes=%d entradas=%d: %v", comp.ID, cuenta.bytes, cuenta.entradas, err)
+		}
+	}
 	o := &observadorReal{t: t}
 	e.Observador = o
 	r := e.Ensayar(ctx, s)
