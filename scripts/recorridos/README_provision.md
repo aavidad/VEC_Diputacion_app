@@ -52,7 +52,8 @@ binario. También atiende `SIGINT`, `SIGTERM` y un límite total de ocho minutos
 - Ningún error JavaScript, error inesperado de consola, llamada externa,
   credencial enviada, cookie o uso de almacenamiento web.
 - Ausencia de desbordamiento horizontal de página; las tablas anchas deben
-  desplazarse dentro de su contenedor.
+  desplazarse dentro de su contenedor. Los contenedores y las acciones deben
+  caber en sus antecesores, sin recorte oculto por `overflow`.
 
 Chrome puede escribir un diagnóstico de red por los rechazos provocados. El acta
 los cuenta aparte; nunca los presenta como errores JavaScript.
@@ -92,6 +93,23 @@ los puntos y el desglose localizados, la repetición exacta y los rechazos previ
 Los seis casos tuvieron cero errores JavaScript, llamadas externas, cookies y
 uso de almacenamiento web. Chrome, su perfil y el servidor propio se cerraron.
 
-Ese resultado cubre la primera interfaz de preparación y simulación.
+La revisión visual encontró después recorte de tablas y acciones a 390 píxeles.
+Ese acta conserva lo probado sobre HTTP, teclado y determinismo; no acredita
+corrección visual del móvil. El guion incorpora ahora el control del recorte.
+
+La corrección pasó cuatro recorridos focales sobre la fuente limpia
+`2245df47124d54651f083bc811be55baeffd3019`, con el binario construido desde ese
+árbol. Las tablas de valoración ocuparon 324 píxeles a 390, con desplazamiento
+interno del contenido. Las acciones de simulación y corrección quedaron completas
+dentro del panel. Las actas bajo el mismo directorio de evidencia son:
+
+| Caso | Acta |
+| --- | --- |
+| Español, 390 px | `run-olfz1I/resultado.json` |
+| Inglés, 390 px | `run-3RWIxk/resultado.json` |
+| Español, reflujo 720 px | `run-OScxDB/resultado.json` |
+| Inglés, reflujo 720 px | `run-p15TQM/resultado.json` |
+
+El recorrido cubre la primera interfaz de preparación y simulación.
 Adjudicación y ciclo necesitan sus propios controles, expectativas y ejecución;
 la lista de escenarios aún está vacía.

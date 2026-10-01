@@ -151,12 +151,28 @@ function observar(page, origen) {
 }
 
 async function geometria(page) {
-  const medidas = await page.evaluate(() => ({ ancho: innerWidth, documento: document.documentElement.scrollWidth,
+  const medidas = await page.evaluate(() => {
+    const limites = (e) => {
+      let izquierda = 0, derecha = innerWidth;
+      for (let padre = e.parentElement; padre; padre = padre.parentElement) {
+        if (["hidden", "clip", "auto", "scroll"].includes(getComputedStyle(padre).overflowX)) {
+          const r = padre.getBoundingClientRect(); izquierda = Math.max(izquierda, r.left); derecha = Math.min(derecha, r.right);
+        }
+      }
+      const r = e.getBoundingClientRect();
+      return { izquierda: r.left, derecha: r.right, sinRecorte: r.left >= izquierda - 1 && r.right <= derecha + 1 };
+    };
+    return { ancho: innerWidth, documento: document.documentElement.scrollWidth,
     cuerpo: document.body.scrollWidth, tablas: [...document.querySelectorAll(".tabla-contenedor")]
       .filter((e) => e.getClientRects().length).map((e) => ({ ancho: e.clientWidth, contenido: e.scrollWidth,
-        overflow: getComputedStyle(e).overflowX })) }));
+        overflow: getComputedStyle(e).overflowX, ...limites(e) })),
+    acciones: [...document.querySelectorAll('[data-foco="simular"],[data-foco="corregir-configuracion"]')]
+      .filter((e) => e.getClientRects().length).map((e) => ({ accion: e.dataset.foco, ...limites(e) })) };
+  });
   assert(medidas.documento <= medidas.ancho + 1 && medidas.cuerpo <= medidas.ancho + 1, "desbordamiento horizontal global");
   assert(medidas.tablas.every((t) => t.contenido <= t.ancho + 1 || ["auto", "scroll"].includes(t.overflow)), "tabla sin scroll interno");
+  assert(medidas.tablas.every((t) => t.sinRecorte), `contenedor de tabla recortado: ${JSON.stringify(medidas.tablas)}`);
+  assert(medidas.acciones.every((a) => a.sinRecorte), `acción recortada: ${JSON.stringify(medidas.acciones)}`);
   return medidas;
 }
 
@@ -177,7 +193,7 @@ async function teclado(page) {
       const encima = document.elementFromPoint(Math.max(0, Math.min(innerWidth - 1, r.x + r.width / 2)),
         Math.max(0, Math.min(innerHeight - 1, r.y + r.height / 2)));
       return r.width > 0 && r.height > 0 && r.right > 0 && r.left < innerWidth && r.bottom > 0 && r.top < innerHeight
-        && (encima === e || e.contains(encima) || encima?.contains(e));
+        && (encima === e || e.contains(encima));
     }, undefined, { timeout: 1200 }).catch(() => {});
     const foco = await page.evaluate(() => {
       const e = document.activeElement, r = e.getBoundingClientRect(), s = getComputedStyle(e);
@@ -187,7 +203,7 @@ async function teclado(page) {
         rect: { x: r.x, y: r.y, ancho: r.width, alto: r.height },
         tipo: e.type, focusWithin: e.matches(":focus-within"),
         visible: r.width > 0 && r.height > 0 && r.right > 0 && r.left < innerWidth && r.bottom > 0 && r.top < innerHeight,
-        tapado: encima !== e && !e.contains(encima) && !encima?.contains(e),
+        tapado: encima !== e && !e.contains(encima),
         indicador: parseFloat(s.outlineWidth) > 0 && s.outlineStyle !== "none" || s.boxShadow !== "none" };
     });
     if (foco.tag === "BODY") continue;
@@ -303,6 +319,7 @@ async function recorrer(url, idioma, ancho, reflujo = false) {
     assert(await page.locator(contrato.selectores.simular).isDisabled(), "configuración inválida permite simular");
     assert.equal(await page.locator('[data-provision-aviso]').textContent(), catalogo.configuracion.errores_pendientes,
       "configuración inválida sin explicación localizada");
+    caso.errorConfiguracion = await geometria(page);
     await page.screenshot({ path: join(artefactos, `${prefijo}-configuracion-invalida.png`), fullPage: false });
     await page.locator(contrato.selectores.convocatoria).click(); await campo.fill(valor); await page.keyboard.press("Tab");
     await page.evaluate(() => new Promise((r) => requestAnimationFrame(r)));
