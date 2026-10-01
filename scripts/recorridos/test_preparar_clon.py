@@ -263,6 +263,28 @@ os.execv('/usr/bin/python3', ['/usr/bin/python3', *args])
         self.assertEqual(before, sorted(p.name for p in self.state.iterdir()))
         self.assert_no_services()
 
+    def test_estado_h6_con_journal_sin_marcador_legacy(self):
+        self.journal(phase='awaiting_ad132', file_count=62,
+            source_commit='73e56c106d12fdda0bd16d6fe573503c42c5495f',
+            approved_sql_ref='73e56c106d12fdda0bd16d6fe573503c42c5495f',
+            entries=[{'position': i} for i in range(1, 63)],
+            installed=[{'position': i} for i in range(1, 63)])
+        before = (self.state / 'sql-journal.json').read_bytes()
+        p = self.run_action('estado')
+        self.assertEqual(p.returncode, 0, p.stderr)
+        value = json.loads(p.stdout)
+        self.assertEqual(value['journal'], 'v2_sin_revalidacion_viva')
+        self.assertEqual(value['fase'], 'awaiting_ad132')
+        self.assertEqual(value['sql_declaradas'], 62)
+        self.assertFalse(value['ready'])
+        self.assertEqual((self.state / 'sql-journal.json').read_bytes(), before)
+        self.assert_no_services()
+
+    def test_estado_sin_marcador_ni_journal_no_infiere_clon(self):
+        p = self.run_action('estado')
+        self.assertEqual(p.returncode, 2)
+        self.assert_no_services()
+
     def test_pending_despues_de_crash_se_conserva_y_bloquea_ready(self):
         self.owner()
         self.journal(pending={'position': 1})

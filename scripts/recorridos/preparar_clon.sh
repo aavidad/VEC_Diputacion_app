@@ -166,7 +166,14 @@ PY
 }
 
 if [[ "$accion" == estado ]]; then
-  registro_propio
+  # El clon H6 nuevo se identifica por su journal; clon.json pertenece solo al
+  # runtime anterior. No exigir ese marcador para consultar una fase SQL62.
+  if [[ -e "$marcador" || -L "$marcador" ]]; then
+    registro_propio
+  elif [[ ! -f "$estado/sql-journal.json" || -L "$estado/sql-journal.json" ]]; then
+    echo 'El estado no conserva un registro propio ni un journal H6.' >&2
+    exit 2
+  fi
   python3 -B - "$guiones" "$repo" "$estado" <<'PYTHON'
 import json, os, subprocess, sys, uuid
 from pathlib import Path
@@ -192,9 +199,21 @@ else:
         uuid.UUID(j['run_id'])
         if j.get('pending') is not None:
             raise sql.Refused(sql.REBUILD)
-        plan=sql.validate_git_source(j['source_commit'],Path(sys.argv[2]))
-        sql.validate_record(j,plan,sql.context_from_record(j))
-        v.update(journal='v2', fase=j['phase'], sql_confirmadas=len(j['installed']))
+        if (j.get('file_count') == 62 and
+                j.get('source_commit') == j.get('approved_sql_ref') ==
+                '73e56c106d12fdda0bd16d6fe573503c42c5495f' and
+                j.get('phase') == 'awaiting_ad132' and
+                isinstance(j.get('entries'), list) and len(j['entries']) == 62 and
+                isinstance(j.get('installed'), list) and len(j['installed']) == 62):
+            # El validador legacy solo conoce las 45 SQL H6 originales. Para
+            # H1+62 se necesita verificar-sql con pines y acta externos; aquí
+            # se muestra exclusivamente el diario local y nunca READY.
+            v.update(journal='v2_sin_revalidacion_viva', fase=j['phase'],
+                     sql_declaradas=62, requiere='verificar-sql con acta aprobada')
+        else:
+            plan=sql.validate_git_source(j['source_commit'],Path(sys.argv[2]))
+            sql.validate_record(j,plan,sql.context_from_record(j))
+            v.update(journal='v2', fase=j['phase'], sql_confirmadas=len(j['installed']))
     except sql.Refused as e:
         v.update(journal='bloqueado', motivo=str(e))
     except (ValueError,KeyError,TypeError,OSError,AttributeError,subprocess.SubprocessError):
