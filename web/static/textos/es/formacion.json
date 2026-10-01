@@ -1,0 +1,113 @@
+{
+  "titulo": "Plan de formación",
+  "saltar": "Saltar al contenido",
+  "portal": "Recursos Humanos",
+  "organizacion": "Diputación de Granada",
+  "volver": "Volver al portal",
+  "idioma": "Idioma",
+  "ayuda_signo": "?",
+  "ayuda": "Ayuda de Formación",
+  "ayuda_texto": "Revise las ediciones y sus necesidades. Filtre por modalidad y abra una edición para ver qué falta. Descargue el borrador para revisarlo. Consulte la fuente institucional para los trámites oficiales.",
+  "preparacion": "Preparación del plan · datos sintéticos",
+  "limite": "Este borrador usa datos sintéticos. No inscribe, acredita asistencia, emite certificados ni concede puntos. El plan requiere fuente y aprobación corporativas.",
+  "sin_dato": "Pendiente de concretar",
+  "periodo": "{desde} – {hasta}",
+  "exportar": "Descargar borrador JSON",
+  "ver_fuente": "Consultar el plan institucional",
+  "ver_plataforma": "Abrir la plataforma de formación",
+  "ediciones": "Ediciones previstas",
+  "todas_modalidades": "Todas las modalidades",
+  "quitar_filtro": "Quitar filtro",
+  "recuento": {
+    "one": "{cuenta} edición",
+    "other": "{cuenta} ediciones"
+  },
+  "sin_ediciones": "No hay ediciones para esta modalidad. Cambie el filtro para ver las demás.",
+  "ver_detalle": "Ver detalle",
+  "abrir_edicion": "Ver {titulo} · {modalidad}",
+  "detalle_edicion": "Edición: {titulo}",
+  "pendiente_item": "Pendiente: {tarea}",
+  "presentar": "Presentar inscripción",
+  "certificado": "Emitir certificado",
+  "bloqueo_inscripcion": "La inscripción requiere un circuito corporativo autorizado. La certificación requiere asistencia y superación acreditadas. Estas acciones aún no están conectadas.",
+  "cerrar_detalle": "Cerrar detalle",
+  "siguiente": "Qué falta para tramitar el plan",
+  "detalle_tecnico": "Ver referencias del borrador",
+  "cargando": "Cargando el borrador de formación…",
+  "error_escenario": "No se ha podido cargar el borrador. Reintente. Si el problema continúa, avise a Informática.",
+  "reintentar": "Reintentar",
+  "campos": {
+    "periodo": "Periodo previsto",
+    "presupuesto": "Presupuesto previsto",
+    "plazas": "Plazas previstas",
+    "version": "Versión del borrador",
+    "modalidad": "Modalidad",
+    "accion": "Acción formativa",
+    "horas": "Horas previstas",
+    "detalle": "Detalle",
+    "necesidad": "Necesidad que atiende",
+    "prioridad": "Prioridad prevista",
+    "fuente": "Referencia de origen",
+    "version_fuente": "Versión de origen",
+    "referencia": "Referencia del plan"
+  },
+  "fuentes_permitidas": {
+    "plan": "https://www.dipgra.es/servicios/empleo-y-formacion/formacion-para-el-empleo-publico/plan-agrupado-de-formacion/",
+    "plataforma": "https://formacion.dipgra.es/"
+  },
+  "formacion": {
+    "plan": {
+      "2027": "Plan de formación 2027"
+    },
+    "accion": {
+      "expedientes": "Gestión de expedientes electrónicos",
+      "atencion": "Atención a la ciudadanía",
+      "accesibilidad": "Documentos accesibles"
+    },
+    "necesidad": {
+      "expedientes": "Mejorar la tramitación de expedientes electrónicos",
+      "atencion": "Mejorar la atención a la ciudadanía",
+      "accesibilidad": "Preparar documentos accesibles"
+    },
+    "modalidad": {
+      "presencial": "Presencial",
+      "mixta": "Mixta",
+      "distancia": "A distancia"
+    },
+    "prioridad": {
+      "alta": "Alta",
+      "media": "Media"
+    },
+    "pendiente": {
+      "fuente_maestra": "Confirmar la fuente corporativa del plan",
+      "aprobacion_plan": "Aprobar el plan por la unidad competente",
+      "publicacion": "Publicar el plan por el circuito oficial",
+      "criterios_seleccion": "Aprobar los criterios de selección",
+      "asistencia_certificacion": "Conectar asistencia, evaluación y certificación",
+      "meritos": "Definir el uso de formación acreditada en cada baremo",
+      "fechas_plan": "Concretar las fechas del plan",
+      "plazas_plan": "Concretar las plazas del plan",
+      "presupuesto_plan": "Concretar el presupuesto del plan",
+      "configuracion": "Completar la configuración del plan",
+      "acciones": "Definir las acciones formativas",
+      "ediciones": "Definir las ediciones del plan",
+      "necesidad": "Concretar la necesidad formativa",
+      "aprobacion_edicion": "Aprobar la edición",
+      "inscripciones": "Conectar el circuito de inscripciones",
+      "accion": "Vincular la acción formativa",
+      "fechas_edicion": "Concretar las fechas de la edición",
+      "plazas_edicion": "Concretar las plazas de la edición",
+      "horas": "Concretar las horas de la edición",
+      "presupuesto_edicion": "Concretar el presupuesto de la edición",
+      "modalidad": "Concretar la modalidad",
+      "prioridad": "Concretar la prioridad"
+    },
+    "checklist": {
+      "for001": "Preparar el plan y las ediciones",
+      "for002": "Conectar selección, inscripción y asistencia",
+      "for003": "Conectar evaluación y certificados"
+    }
+  },
+  "comprobaciones_ediciones": "Comprobaciones pendientes por edición",
+  "nombre_exportacion": "formacion-borrador-v{version}.json"
+}
