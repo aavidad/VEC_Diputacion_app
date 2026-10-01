@@ -97,6 +97,7 @@ func scanCollection(d *json.Decoder, kind byte, depth int) error {
 	return nil
 }
 
+// Require exact JSON names before encoding/json can apply case-insensitive aliases.
 // Required zero-valued fields (including CAS=0 and false) must be explicit.
 func requiredFields(data []byte, t reflect.Type) bool {
 	if t.Kind() != reflect.Struct || t == reflect.TypeFor[time.Time]() {
@@ -106,12 +107,14 @@ func requiredFields(data []byte, t reflect.Type) bool {
 	if json.Unmarshal(data, &fields) != nil {
 		return false
 	}
+	allowed := make(map[string]struct{}, t.NumField())
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
 		tag := strings.Split(f.Tag.Get("json"), ",")
 		if len(tag) == 0 || tag[0] == "" || tag[0] == "-" {
 			continue
 		}
+		allowed[tag[0]] = struct{}{}
 		raw, ok := fields[tag[0]]
 		optional := len(tag) > 1 && tag[1] == "omitempty"
 		if !ok {
@@ -121,6 +124,11 @@ func requiredFields(data []byte, t reflect.Type) bool {
 			return false
 		}
 		if f.Type.Kind() == reflect.Struct && !requiredFields(raw, f.Type) {
+			return false
+		}
+	}
+	for key := range fields {
+		if _, ok := allowed[key]; !ok {
 			return false
 		}
 	}
