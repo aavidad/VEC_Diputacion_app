@@ -26,7 +26,7 @@ END $pre$;
 
 DO $nucleo$
 DECLARE
- f oid:='vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure;
+ f oid:=to_regprocedure('vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
  original text; nuevo text; actual text; fuente text; meta jsonb; deps jsonb; deps_compartidas jsonb; acl aclitem[];
  propietario oid; config text[]; definidora boolean;
  -- Huellas de la preimagen causal: medir tras la SQL anterior en el clon único.
@@ -51,8 +51,12 @@ DECLARE
  AND d->'obligaciones' IS NOT DISTINCT FROM '[]'::jsonb)
 $x$;
 BEGIN
+ IF f IS NULL THEN RAISE EXCEPTION 'AD3-131: núcleo ausente' USING ERRCODE='55000'; END IF;
  SELECT pg_get_functiondef(f),p.prosrc,to_jsonb(p)-'prosrc',p.proacl,p.proowner,p.proconfig,p.prosecdef
- INTO STRICT original,fuente,meta,acl,propietario,config,definidora FROM pg_proc p WHERE p.oid=f;
+ INTO original,fuente,meta,acl,propietario,config,definidora FROM pg_proc p WHERE p.oid=f;
+ IF NOT FOUND OR original IS NULL OR fuente IS NULL OR meta IS NULL
+    OR propietario IS NULL OR config IS NULL OR definidora IS NULL
+ THEN RAISE EXCEPTION 'AD3-131: metadatos de núcleo ausentes' USING ERRCODE='55000'; END IF;
  SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
  INTO deps FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f;
  SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.dbid,d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype),'[]'::jsonb)
