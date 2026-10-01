@@ -13,13 +13,13 @@ import {
   validarTotalesEstadisticas,
   validarRespuestaEstadisticas,
   generarCSVEstadisticas,
-} from "./contrato-estadisticas.js";
+} from "./contrato-estadisticas.js?v=20261001-codexf-ct-catalogos-v1";
 
 import {
   RUTA_ESTADISTICAS,
   construirUrlEstadisticas,
   consultarEstadisticas,
-} from "./cliente-http-estadisticas.js";
+} from "./cliente-http-estadisticas.js?v=20261001-codexf-ct-catalogos-v1";
 
 import {
   renderizarGraficoSVG,
@@ -27,7 +27,7 @@ import {
   renderizarFormularioFiltros,
   renderizarVistaEstadisticas,
   montarVistaEstadisticas,
-} from "./vista-estadisticas.js";
+} from "./vista-estadisticas.js?v=20261001-codexf-ct-catalogos-v1";
 
 const DATOS_MUESTRA = {
   esquema: ESQUEMA_ESTADISTICAS,

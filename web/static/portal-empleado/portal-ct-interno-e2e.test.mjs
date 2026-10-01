@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { crearCatalogoModulosDesdeManifiestos } from "./portal-catalogo-modulos.js";
-import { crearCoordinadorModulosPortal } from "./portal-modulos-coordinador.js";
+import { crearCatalogoModulosDesdeManifiestos } from "./portal-catalogo-modulos.js?v=20261001-codexf-ct-catalogos-v1";
+import { crearCoordinadorModulosPortal } from "./portal-modulos-coordinador.js?v=20261001-cronos-grafo-justificacion-v3";
 
 function raizFalsa() {
   const eventos = new Map();

@@ -5,21 +5,21 @@ import {
   cargarCatalogoModulosInterno,
   crearCatalogoModulosDesdeManifiestos,
   extraerModulosEnvelopeCanonico,
-} from "./portal-catalogo-modulos.js";
+} from "./portal-catalogo-modulos.js?v=20261001-codexf-ct-catalogos-v1";
 import {
   CLAVES_MODULOS_VEC_REGISTRADOS,
   crearCoordinadorModulosPortal,
   moduloDeVistaPortal,
   rutaDeVistaPortal,
   VISTA_PLANTILLAS_RRHH,
-} from "./portal-modulos-coordinador.js";
-import { crearPresentadorExpedientesContratacionTemporal } from "./modulos/contratacion-temporal/presentador-expedientes.js";
+} from "./portal-modulos-coordinador.js?v=20261001-cronos-grafo-justificacion-v3";
+import { crearPresentadorExpedientesContratacionTemporal } from "./modulos/contratacion-temporal/presentador-expedientes.js?v=20261001-codexf-ct-catalogos-v1";
 import {
   crearCuadroContratacionTemporalPresentacion,
   crearExpedienteContratacionTemporalPresentacion,
 } from "./modulos/contratacion-temporal/datos-presentacion.js";
-import { renderizarModuloContratacionTemporal } from "./modulos/contratacion-temporal/vista-expedientes-render.js";
-import { MENSAJES_EXPEDIENTES_CONTRATACION_EN } from "./modulos/contratacion-temporal/i18n-expedientes.js";
+import { renderizarModuloContratacionTemporal } from "./modulos/contratacion-temporal/vista-expedientes-render.js?v=20261001-codexf-ct-catalogos-v1";
+import { MENSAJES_EXPEDIENTES_CONTRATACION_EN } from "./modulos/contratacion-temporal/i18n-expedientes.js?v=20261001-codexf-ct-catalogos-v1";
 
 test("plantillas RRHH conserva la autoridad CT y una ruta interna propia", () => {
   assert.equal(moduloDeVistaPortal(VISTA_PLANTILLAS_RRHH), "contratacion_temporal");

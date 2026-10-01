@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { traducirPortal } from "./portal-i18n.js";
-import { crearPresentadorPanelInterno } from "./portal-panel-interno.js";
+import { traducirPortal } from "./portal-i18n.js?v=20261001-codexf-ct-catalogos-v1";
+import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261001-codexf-ct-catalogos-v1";
 import { traducirAvisoPanelInterno } from "./portal-panel-interno-i18n.js";
 
 test("B7 traduce los cuatro pasos y distingue registro, recibo y entrega", () => {
@@ -101,6 +101,6 @@ test("Bolsa distingue anotaciones de contacto y respuesta formal sin inventar ex
   // En Node la interfaz está en el idioma por defecto; el inglés se comprueba en su catálogo de datos.
   assert.doesNotMatch(traducirAvisoPanelInterno("panel_resultado_sin_expediente"), /\bHTTP\b|B3|CT[0-9]/);
   const ingles = JSON.parse(await readFile(new URL("../textos/en/portal.json", import.meta.url), "utf8")).panel_interno;
-  assert.match(ingles.panel_resultado_sin_expediente, /This employment pool does not identify the case/);
-  assert.match(ingles.panel_contacto_no_respuesta, /If the person accepts or withdraws/);
+  assert.match(ingles.panel_resultado_sin_expediente, /This job pool does not identify the case/);
+  assert.match(ingles.panel_contacto_no_respuesta, /If the person accepts or declines/);
 });

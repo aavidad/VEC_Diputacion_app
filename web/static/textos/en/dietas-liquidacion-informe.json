@@ -1,0 +1,49 @@
+{
+  "idioma": "en",
+  "formato": {
+    "decimal": ".",
+    "agrupacion": ",",
+    "moneda": "€",
+    "fecha": "02/01/2006"
+  },
+  "rotulos": {
+    "titulo": "Travel expense settlement preparation",
+    "estado": "Proposal awaiting approval",
+    "limite": "This proposal has not been registered. It does not confirm approval, financial review or payment.",
+    "comision": "Business trip",
+    "version": "Version",
+    "conceptos": "Expense breakdown",
+    "concepto": "Expense",
+    "inicial": "Initial amount",
+    "propuesto": "Proposed amount",
+    "diferencia": "Difference",
+    "motivo": "Reason for the difference",
+    "total": "Total",
+    "sin_reduccion": "No reduction",
+    "detalle": "View catalogue, sources and fingerprints",
+    "catalogo": "Proposal catalogue",
+    "tarifa": "Reference rate version",
+    "fuentes": "Catalogue sources",
+    "documento_huella": "Trip document fingerprint",
+    "catalogo_huella": "Catalogue fingerprint",
+    "preparacion_huella": "Preparation fingerprint",
+    "huella_limite": "Fingerprints allow data to be compared. They do not confirm approval, authenticity or document custody.",
+    "reglas": "Rules applied to each expense",
+    "linea": "Line",
+    "regla": "Rule reference",
+    "tabla_ayuda": "The difference is the amount excluded from this proposal. On small screens, scroll the table to view all columns.",
+    "grupo": "Declared allowance group",
+    "referencia_comision": "Trip reference"
+  },
+  "conceptos": {
+    "manutencion": "Meals"
+  },
+  "tipos": {
+    "dieta": "Subsistence allowance",
+    "kilometraje": "Mileage"
+  },
+  "motivos": {
+    "revision_tarifa_importada": "Amount adjusted after reviewing the imported rate.",
+    "revision_documental": "Amount adjusted after reviewing the supporting documents."
+  }
+}

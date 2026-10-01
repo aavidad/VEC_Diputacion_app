@@ -4,7 +4,7 @@ import { crearClientePoliticaOfertas, ESQUEMA_POLITICA_OFERTAS, RUTA_POLITICA_OF
   RUTA_CAPACIDAD_POLITICA_OFERTAS,
   validarPoliticaEditable, validarPoliticaRecibida, cargarEjemploPlazas, plazasCompletas } from "./rrhh-plazos-api.js";
 import { crearTraductorRRHHPlazos } from "./rrhh-plazos-i18n.js";
-import { crearSuperficieRRHHPlazos, cargarPlazoCatalogo } from "./rrhh-plazos-ui.js";
+import { crearSuperficieRRHHPlazos, cargarPlazoCatalogo } from "./rrhh-plazos-ui.js?v=20261001-codexf-ct-catalogos-v1";
 
 const POLITICA = Object.freeze({
   plazo: { unidad: "dias_habiles", cantidad: 3, computo: "administrativo", municipio_sede: "18087" },

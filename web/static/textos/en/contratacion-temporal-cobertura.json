@@ -2,7 +2,7 @@
   "preparacion": {
     "titulo": "Documents and details each route needs",
     "pestanas": "Routes to fill the post",
-    "via_bolsa": "Through a recruitment pool",
+    "via_bolsa": "Through a job pool",
     "via_sae": "Through an SAE vacancy notice",
     "documentos": "Documents",
     "datos": "Details to fill in",
@@ -16,13 +16,13 @@
     "cobertura": {
       "doc": {
         "ficha_preparacion_cobertura": "Recruitment route preparation sheet",
-        "resumen_consulta_bolsa": "Recruitment pool search summary",
+        "resumen_consulta_bolsa": "Job pool search summary",
         "nota_informativa_sae": "Information note on the SAE vacancy notice",
-        "nota_informativa_convocatoria": "Information note on the new recruitment pool call"
+        "nota_informativa_convocatoria": "Information note on the new job pool call for applications"
       },
       "dato": {
         "categoria": "Job category",
-        "bolsa_ref": "Recruitment pool",
+        "bolsa_ref": "Job pool",
         "candidaturas_disponibles": "Available candidates",
         "descripcion_puesto": "Post description",
         "jornada": "Working hours",

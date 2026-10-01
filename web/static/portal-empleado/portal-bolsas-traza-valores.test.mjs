@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { renderizarTrazaValores, validarCambiosTraza } from "./portal-bolsas-traza-valores.js";
-import { consultarOperacionesSituacion, renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js";
+import { renderizarTrazaValores, validarCambiosTraza } from "./portal-bolsas-traza-valores.js?v=20261001-codexf-ct-catalogos-v1";
+import { consultarOperacionesSituacion, renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20261001-codexf-ct-catalogos-v1";
 
 const escapar = (v) => String(v ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
 const cambio = (campo, valor_anterior, valor_nuevo) => ({ instante: "2026-09-25T08:00:00.123456Z", recibo_ref: "recibo:1", campo, valor_anterior, valor_nuevo, actor: "per_rrhh" });

@@ -9,8 +9,8 @@
  * pidió el servidor (estado o fase de origen) se muestran también como
  * etiquetas quitables. HTML puro: los eventos los atiende vista-expedientes.js.
  */
-import { FASES_RRHH, faseRRHH } from "./i18n-fases-rrhh.js";
-import { diaConsulta, diasEntre, filtrarPeticiones, OPCIONES_MOSTRAR, resumirPeticiones, tienePlazoVencido } from "./recuentos-peticiones.js";
+import { FASES_RRHH, faseRRHH } from "./i18n-fases-rrhh.js?v=20261001-codexf-ct-catalogos-v1";
+import { diaConsulta, diasEntre, filtrarPeticiones, OPCIONES_MOSTRAR, resumirPeticiones, tienePlazoVencido } from "./recuentos-peticiones.js?v=20261001-codexf-ct-catalogos-v1";
 
 function escapar(valor) {
   return String(valor ?? "")
