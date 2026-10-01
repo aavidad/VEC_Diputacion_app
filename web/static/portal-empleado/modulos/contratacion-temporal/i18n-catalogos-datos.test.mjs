@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+import { execFile } from "node:child_process";
 import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
+import { promisify } from "node:util";
 import test from "node:test";
 import { cargarCatalogosContratacion } from "./i18n-catalogos.js";
 import { cargarTextos } from "../../../comun/textos.js";
@@ -139,6 +141,38 @@ test("las exportaciones no cambian al reordenar el índice ni al cambiar el idio
     assert.deepEqual(modulo.MENSAJES_ANALISIS_CATALOGO_EN, original.MENSAJES_ANALISIS_CATALOGO_EN);
     const helper = await import(pathToFileURL(join(temporal, "portal-empleado/modulos/contratacion-temporal/i18n-catalogos.js")));
     assert.deepEqual((await helper.cargarCatalogosContratacion("contratacion-temporal-analisis-catalogo")).actual, original.MENSAJES_ANALISIS_CATALOGO_EN);
+  } finally {
+    await rm(temporal, { recursive: true, force: true });
+  }
+});
+
+test("un índice ausente conserva el idioma del documento sin bloquear el catálogo", async () => {
+  const temporal = await mkdtemp(join(tmpdir(), "vec-ct-idioma-"));
+  try {
+    const codigo = codigos.ES;
+    const fuentes = [
+      "comun/idioma.js", "comun/textos.js",
+      "portal-empleado/modulos/contratacion-temporal/i18n-catalogos.js",
+      `textos/${codigo}/contratacion-temporal-compatibilidad.json`,
+      `textos/${codigo}/contratacion-temporal-analisis-catalogo.json`,
+    ];
+    const raiz = new URL("../../../", import.meta.url);
+    for (const archivo of fuentes) {
+      const destino = join(temporal, archivo);
+      await mkdir(dirname(destino), { recursive: true });
+      await cp(new URL(archivo, raiz), destino);
+    }
+    await writeFile(join(temporal, "package.json"), JSON.stringify({ type: "module" }));
+    const entrada = pathToFileURL(join(temporal, "portal-empleado/modulos/contratacion-temporal/i18n-catalogos.js")).href;
+    const script = `
+      import assert from 'node:assert/strict';
+      globalThis.document = { documentElement: { lang: process.argv[2] } };
+      const { cargarCatalogosContratacion } = await import(process.argv[1]);
+      const catalogo = await cargarCatalogosContratacion('contratacion-temporal-analisis-catalogo');
+      assert.ok(Object.keys(catalogo.actual).length > 0);
+      for (const exportacion of Object.values(catalogo.exportaciones)) assert.deepEqual(exportacion, catalogo.actual);
+    `;
+    await promisify(execFile)(process.execPath, ["--input-type=module", "-e", script, entrada, codigo]);
   } finally {
     await rm(temporal, { recursive: true, force: true });
   }
