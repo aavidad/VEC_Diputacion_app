@@ -1,5 +1,5 @@
 import { aDecimal } from "./baremo-editor.js?v=20261001-g-curso-minimo-v1";
-import { escapar } from "./baremo-vista.js?v=20261001-g-curso-minimo-v1";
+import { escapar } from "./baremo-vista.js?v=20261001-g-curso-minimo-v2";
 
 export function renderizarConcursos(estado, { textos, ejemplos = [], ayuda = false, filtro = "" }) {
   const tr = (clave, v = {}) => textos.traducir(`concursos.${clave}`, v);
