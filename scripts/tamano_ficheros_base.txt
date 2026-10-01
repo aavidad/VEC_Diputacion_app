@@ -92,7 +92,7 @@
 962 web/static/area-personal/aplicacion.js
 863 web/static/portal-empleado/modulos/contratacion-temporal/componentes-expedientes.js
 914 web/static/portal-empleado/modulos/contratacion-temporal/cliente-http.test.mjs
-870 web/static/portal-empleado/modulos/contratacion-temporal/formulario-llamamiento.js
+909 web/static/portal-empleado/modulos/contratacion-temporal/formulario-llamamiento.js
 1194 web/static/portal-empleado/modulos/contratacion-temporal/expedientes.css
 960 web/static/portal-empleado/modulos/contratacion-temporal/expedientes-presentacion.test.mjs
 848 web/static/bolsa/bolsa.css
