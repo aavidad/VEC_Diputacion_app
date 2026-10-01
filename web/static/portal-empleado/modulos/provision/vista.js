@@ -67,13 +67,13 @@ export function pintarProvision({ raiz, estado, textos, proyeccion = {}, accione
     if (['error', 'denegado', 'conflicto', 'validacion'].includes(estado.estado)) { const error = nodo(d, 'p', t(`estados.${estado.estado}`)); error.setAttribute('role', 'alert'); p.cuerpo.append(error); }
     if (!estado.resultado && estado.estado !== 'cargando') p.cuerpo.append(nodo(d, 'p', t('estados.sin_resultado')));
     (estado.resultado?.valoraciones ?? []).forEach(v => {
-      const r = v.resultado; const detalles = nodo(d, 'details'); detalles.open = true; const summary = nodo(d, 'summary', nombre(v.puesto_ref)); detalles.append(summary);
+      const r = v.resultado; const detalles = nodo(d, 'details', undefined, 'campo'); detalles.open = true; const summary = nodo(d, 'summary', nombre(v.puesto_ref)); detalles.append(summary);
       detalles.append(datos(d, t, [['preferencia', textos.numero(v.orden)], ['estado', t(`estados.${r.completo ? 'completo' : 'pendiente'}`)], ['total', r.total === null ? t('estados.sin_dato') : formatearPuntos(r.total, textos.localizacion)]]));
       const reqs = (v.requisitos ?? []).map(q => [proyeccion.requisitos?.[q.requisito_ref] ?? t('requisito_grupo'), t(`estados.${q.estado}`), t(`motivos.${Object.hasOwn(textos.mensajes.motivos, q.motivo_codigo) ? q.motivo_codigo : 'sin_motivo'}`), q.fuente_ref]);
       detalles.append(tabla(d, t, t('requisitos'), ['requisito', 'estado', 'motivo', 'fuente'], reqs));
       const filas = r.desglose.map(g => [t(`familias.${g.familia}`), t(`estados.${g.estado === 'calculado' ? 'completo' : 'pendiente'}`), g.estado === 'pendiente_dato' ? t('estados.sin_dato') : formatearPuntos(g.resultado, textos.localizacion)]);
       detalles.append(tabla(d, t, t('detalle'), ['regla', 'estado', 'puntos'], filas));
-      const evidencia = nodo(d, 'details'); evidencia.append(nodo(d, 'summary', t('detalle_tecnico')), nodo(d, 'p', r.huella_resultado)); detalles.append(evidencia); p.cuerpo.append(detalles);
+      const evidencia = nodo(d, 'details', undefined, 'campo'); const huella = nodo(d, 'p'); String(r.huella_resultado ?? '').match(/.{1,8}/g)?.forEach(parte => huella.append(d.createTextNode(parte), nodo(d, 'wbr'))); evidencia.append(nodo(d, 'summary', t('detalle_tecnico')), huella); detalles.append(evidencia); p.cuerpo.append(detalles);
     });
     p.cuerpo.append(nodo(d, 'p', t('resultado_limite')));
   }
