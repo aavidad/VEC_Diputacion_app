@@ -1,0 +1,64 @@
+{
+  "sintetica": true,
+  "solicitud": {
+    "operacion": "operacion:sintetica:1",
+    "clave": "solicitud:1",
+    "solicitud_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+    "conjunto": "conjunto:sintetico:1",
+    "destino": "destino:ensayo",
+    "politica": "politica:ensayo:1"
+  },
+  "comandos": [
+    {
+      "clave": "paso:1",
+      "version_esperada": 0,
+      "solicitud_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "accion": "iniciar_captura"
+    },
+    {
+      "clave": "paso:2",
+      "version_esperada": 1,
+      "solicitud_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "accion": "confirmar_captura",
+      "manifiesto_sha256": "2222222222222222222222222222222222222222222222222222222222222222"
+    },
+    {
+      "clave": "paso:3",
+      "version_esperada": 2,
+      "solicitud_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "accion": "iniciar_verificacion",
+      "manifiesto_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "ejecucion": "ejecucion:ensayo:1"
+    },
+    {
+      "clave": "paso:4",
+      "version_esperada": 3,
+      "solicitud_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "accion": "declarar_ensayo",
+      "evidencia": {
+        "modo": "fisico",
+        "conjunto": "conjunto:sintetico:1",
+        "manifiesto_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+        "ejecucion": "ejecucion:ensayo:1",
+        "referencia": "evidencia:fisico",
+        "sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+        "resultado": "satisfactorio"
+      }
+    },
+    {
+      "clave": "paso:5",
+      "version_esperada": 4,
+      "solicitud_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "accion": "declarar_ensayo",
+      "evidencia": {
+        "modo": "logico",
+        "conjunto": "conjunto:sintetico:1",
+        "manifiesto_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+        "ejecucion": "ejecucion:ensayo:1",
+        "referencia": "evidencia:logico",
+        "sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+        "resultado": "satisfactorio"
+      }
+    }
+  ]
+}
