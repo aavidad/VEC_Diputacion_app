@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { exigirVersiones } from "./versiones-cache.test-helper.mjs";
 
-const versionEntrada = "20261001-ana002-v2";
+const versionEntrada = "20261001-ana001-v3";
 const raiz = new URL("./", import.meta.url);
 
 test("la extracción CT renueva cada padre hasta la entrada del portal", async () => {

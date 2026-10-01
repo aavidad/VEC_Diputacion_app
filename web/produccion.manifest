@@ -526,3 +526,7 @@ static/portal-empleado/modulos/analitica/ficha-indicadores.js
 static/portal-empleado/modulos/analitica/catalogo-indicadores.json
 static/textos/es/analitica.json
 static/textos/en/analitica.json
+static/textos/es/solicitudes-ejemplos.json
+static/textos/en/solicitudes-ejemplos.json
+static/textos/es/solicitudes.json
+static/textos/en/solicitudes.json
