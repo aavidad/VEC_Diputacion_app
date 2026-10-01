@@ -198,6 +198,39 @@ conserva PostgreSQL en un bind de `/dev/shm`; no se usarán sus recibos remotos
 como prueba de este clon. D debe entregar una variante física local revisada
 y M deberá atestarla antes de conectar este validador al CAS.
 
+### CAS para el clon Podman de H6
+
+El kit de H6 usa un volumen anónimo Podman y un bind PGDATA anidado. Su recibo
+necesita el contrato propio de
+[`clon_cas_podman_contract.py`](clon_cas_podman_contract.py), el lector nominal
+[`clon_cas_podman_helper.py`](clon_cas_podman_helper.py) y el controlador
+[`clon_cas_podman_namespace.py`](clon_cas_podman_namespace.py). Los recibos del
+clon Docker local no sirven para este kit.
+
+El contrato fija ambos montajes, proceso e imagen de PostgreSQL, cuentas y
+certificados nominales, y las huellas de los bytes originales de P/A/L,
+CLONADO y SQL-FUNC-OK. El lector conserva
+tres sesiones de solo lectura y compara dos veces las preimágenes. Mientras
+siguen abiertas, el controlador debe medir en dos barreras el esquema, roles
+y permisos de base con los mismos guiones H6 que creó el recibo L. Un fallo
+de lectura, identidad o cierre conserva el intento y no produce recibo válido.
+
+La candidata de código `1f62f07ed` pasó 56 pruebas aisladas con dobles,
+Semgrep local y Gitleaks sin hallazgos. Dos revisiones independientes dieron
+GO **solo a esta preparación**. Para repetir las pruebas focales:
+
+```sh
+cd scripts/recorridos
+python3 -m unittest test_clon_cas_podman_contract test_clon_cas_podman_helper test_clon_cas_podman_namespace
+```
+
+`acquire()` y `run_request()` siguen cerrados. Falta el transporte Podman real
+revisado, las fuentes P/A/L y HBA acreditadas, los plazos efectivos del
+observador y el ensayo sobre la instancia prevista. Este código no aplica SQL,
+no abre la aplicación ni autoriza AD132. Una lectura repetida tampoco permite
+dar por vigente una decisión posterior: 2b tendrá que comprobar su propia
+preimagen al actuar.
+
 Las huellas y evidencias proceden de las notas de Codex-M del canal compartido
 `CANAL_CLAUDE_CODEX.md`, conservado fuera del árbol de esta candidata. Consultar
 las notas vigentes antes de reconstruir; los manuales finales esperan el
