@@ -1,5 +1,12 @@
 {
   "general": {
+    "saldo_fichajes_calculo": "Records and calculation",
+    "saldo_calculo_detalle": "Calculation details",
+    "saldo_sin_jornada_prevista": "No scheduled working hours are recorded for this day.",
+    "saldo_calculo_incompleto": "Incomplete calculation.",
+    "saldo_detalle_tecnico": "Technical details",
+    "saldo_turno_ref": "Shift reference",
+    "saldo_politica_version_ref": "Calculation policy version",
     "accion_entrada": "Clock in",
     "accion_salida": "Clock out",
     "accion_inicio_pausa": "Start break",

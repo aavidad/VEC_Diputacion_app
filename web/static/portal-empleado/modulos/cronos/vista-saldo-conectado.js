@@ -41,6 +41,19 @@ function marcajesVisibles(marcajes, t, locale, zonaHoraria) {
     return `<li><time datetime="${escaparHTML(marcaje.instante_utc)}">${escaparHTML(hora)}</time> · ${escaparHTML(movimiento)} · ${escaparHTML(origen)}</li>`;
   }).join("")}</ul></details>`;
 }
+function calculoVisible(dia, t) {
+  const previstos = dia.previstos_minutos === null ? t("saldo_sin_jornada_prevista") : minutosVisibles(dia.previstos_minutos, t);
+  const incompleto = dia.estado === "incompleto" ? `<p class="cronos-mensaje">${escaparHTML(t("saldo_calculo_incompleto"))}</p>` : "";
+  const referencias = [["saldo_turno_ref", dia.turno_ref], ["saldo_politica_version_ref", dia.politica_version_ref]]
+    .filter(([, valor]) => typeof valor === "string" && valor.length > 0);
+  const tecnico = referencias.length ? `<details><summary>${escaparHTML(t("saldo_detalle_tecnico"))}</summary><dl>${referencias.map(([clave, valor]) =>
+    `<dt>${escaparHTML(t(clave))}</dt><dd>${escaparHTML(valor)}</dd>`).join("")}</dl></details>` : "";
+  return `<details><summary>${escaparHTML(t("saldo_calculo_detalle"))}</summary>${incompleto}<dl>
+    <dt>${escaparHTML(t("saldo_previsto"))}</dt><dd>${escaparHTML(previstos)}</dd>
+    <dt>${escaparHTML(t("saldo_trabajado"))}</dt><dd>${escaparHTML(minutosVisibles(dia.trabajados_minutos, t))}</dd>
+    <dt>${escaparHTML(t("saldo_pausas"))}</dt><dd>${escaparHTML(minutosVisibles(dia.pausas_minutos, t))}</dd>
+    </dl>${tecnico}</details>`;
+}
 // Tamaño de presentación; no cambia el periodo autorizado ni sus totales.
 function paginarDetalle(detalle, pagina, tamanoPagina) {
   if (!Number.isSafeInteger(tamanoPagina) || tamanoPagina < 1 || tamanoPagina > 367
@@ -58,12 +71,12 @@ function tablaDetalle(datos, t, locale, zonaHoraria, filas) {
   if (!datos.detalle.length) return `<p class="cronos-vacio" role="status">${escaparHTML(t("saldo_vacio"))}</p>`;
   return `<div class="cronos-tabla-contenedor"><table class="cronos-tabla">
     <caption>${escaparHTML(t("saldo_detalle"))}</caption>
-    <thead><tr><th scope="col">${escaparHTML(t("saldo_fecha"))}</th><th scope="col">${escaparHTML(t("saldo_previsto"))}</th><th scope="col">${escaparHTML(t("saldo_trabajado"))}</th><th scope="col">${escaparHTML(t("saldo_pausas"))}</th><th scope="col">${escaparHTML(t("saldo_diferencia"))}</th><th scope="col">${escaparHTML(t("saldo_estado"))}</th><th scope="col">${escaparHTML(t("saldo_marcajes"))}</th></tr></thead>
+    <thead><tr><th scope="col">${escaparHTML(t("saldo_fecha"))}</th><th scope="col">${escaparHTML(t("saldo_previsto"))}</th><th scope="col">${escaparHTML(t("saldo_trabajado"))}</th><th scope="col">${escaparHTML(t("saldo_pausas"))}</th><th scope="col">${escaparHTML(t("saldo_diferencia"))}</th><th scope="col">${escaparHTML(t("saldo_estado"))}</th><th scope="col">${escaparHTML(t("saldo_fichajes_calculo"))}</th></tr></thead>
     <tbody>${filas.map((dia) => `<tr><th scope="row"><time datetime="${escaparHTML(dia.fecha)}">${escaparHTML(fechaVisible(dia.fecha, locale))}</time></th>
       <td>${escaparHTML(minutosVisibles(dia.previstos_minutos, t))}</td><td>${escaparHTML(minutosVisibles(dia.trabajados_minutos, t))}</td><td>${escaparHTML(minutosVisibles(dia.pausas_minutos, t))}</td>
       <td><strong>${escaparHTML(minutosVisibles(dia.saldo_minutos, t))}</strong></td>
       <td><span class="cronos-estado cronos-estado-${claseEstado(dia.estado)}">${escaparHTML(estadoVisible(dia.estado, t))}</span></td>
-      <td>${marcajesVisibles(dia.marcajes, t, locale, zonaHoraria)}</td></tr>`).join("")}</tbody></table></div>`;
+      <td>${marcajesVisibles(dia.marcajes, t, locale, zonaHoraria)}${calculoVisible(dia, t)}</td></tr>`).join("")}</tbody></table></div>`;
 }
 
 /** Render puro: los importes de tiempo proceden exclusivamente de la respuesta validada. */
