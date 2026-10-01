@@ -115,10 +115,9 @@ S2, S3 y S5 se dividirán en PR pequeñas según se confirme cada contrato.
 Con jornadas de ocho horas, un equipo necesita **26–43 días de esfuerzo** si
 las dependencias están disponibles. Dos equipos no reducen esa cifra a la mitad:
 S0–S7 tienen un camino casi secuencial. Con S8 en paralelo, la planificación
-orientativa es **24–39 días**; podría acercarse a **21–34 días** si la preparación
-de S5 se realiza desde S2 mientras otro equipo tramita S3/S4. Esta segunda
-horquilla requiere repartir primero las horas de preparación y actas y volver a
-calcular el camino crítico. Ninguna de las dos es una fecha de entrega.
+orientativa es **24–39 días**. La preparación de S5 desde S2 podría acortar ese
+camino, pero hay que separar sus horas de las actas posteriores a S4 antes de
+calcular otra horquilla. La cifra de dos equipos no es una fecha de entrega.
 
 RRHH debe facilitar o validar las bases por modalidad, reglas de tasa y
 exención, órganos competentes, composición del tribunal, actos y datos del
