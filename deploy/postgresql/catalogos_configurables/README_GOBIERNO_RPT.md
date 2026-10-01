@@ -2,6 +2,23 @@
 
 Las categorías RPT las gestiona RRHH mediante un único circuito versionado. La orden de Dirección del 1 de octubre de 2026, 01:37 CEST, y la rectificación de las 02:00 fijan propuesta, aprobación por otra persona de RRHH y confirmación. La capacidad funcional usa autorización nominal propia de RRHH; los permisos y la ruta ADMIN no habilitan este recorrido.
 
+## Estado de esta candidata
+
+Cat1 y su prueba conservan ahora los bytes exactos de `main@105c537e2`.
+Cat4 prepara su evolución desde esa fuente, incluida la continuidad del
+módulo propietario, sin reescribir una migración histórica. AD134 prepara la
+postimagen del núcleo V3 tras AD133/AD135/AD136 y deniega con `55000` **antes
+de crear roles o tomar bloqueos**: faltan dos huellas que deben medirse en
+PostgreSQL 18 sobre esa cadena exacta. Por ello Cat4/AD134 **no son instalables
+todavía** ni publican un perfil o una ruta RRHH.
+
+Las comprobaciones estáticas y Semgrep local están verdes para estos cambios.
+Quedan pendientes el ensayo PostgreSQL causal, CA21/AUT25/IS10 finales, un
+descriptor RPT aprobado con su huella, dos revisiones del hash que resulte de
+medir las postimágenes y el recorrido autorizado con dos personas distintas.
+El resto de este documento conserva evidencia de candidatos anteriores; sus
+ensayos no acreditan la instalación de esta versión.
+
 Catálogos `000004` (Cat4) conserva una propuesta inmutable de publicación o deshabilitación, su contenido completo y SHA-256, fuente, motivo catalogado y preimágenes. AD3 `000134` (AD134) conecta cada acto con la autoridad V3. El rol técnico de gobierno está separado de los consumidores de usos; estas migraciones no provisionan personas ni concesiones funcionales. La adaptación SQL y Go sigue siendo candidata, pendiente de composición y de las comprobaciones del contenido final.
 
 ## Propuesta, aprobación y confirmación
