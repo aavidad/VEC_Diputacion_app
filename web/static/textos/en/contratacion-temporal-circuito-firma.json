@@ -43,6 +43,7 @@
     "circuito_firma_registrada": "Signature verified and recorded under receipt {recibo}. It has no administrative effect until processed by the corporate signing platform.",
     "circuito_firma_devuelta": "Test return recorded under receipt {recibo}.",
     "circuito_firma_error_verificacion": "Signature verification is not enabled on this server, so the signature was not recorded.",
+    "circuito_firma_error_validador_no_disponible": "The verification could not be completed. The signature was not recorded. Please try again later or contact IT support.",
     "circuito_firma_error_no_verificada": "The signature could not be verified. It was not recorded; try again or contact IT support.",
     "circuito_firma_error_autofirma": "Could not connect to your signing program (GrxFirma or AutoFirma). Check that it is installed and try again.",
     "circuito_firma_error_cancelada": "Signing was cancelled in GrxFirma or AutoFirma.",

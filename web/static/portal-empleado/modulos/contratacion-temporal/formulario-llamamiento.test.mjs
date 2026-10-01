@@ -11,7 +11,7 @@ import {
   CORREO, HUELLA, archivoCorreo, comunicacionRegistrada, declaracion,
   justificante, abrirRespuesta, CLAVE_RESOLUCION, revisionManual,
   resolucionConfirmada, reciboResolucion, abrirResolucion,
-} from "./formulario-llamamiento-pruebas.js?v=20261001-ct-a-i18n-v1";
+} from "./formulario-llamamiento-pruebas.js?v=20261001-ct-firma-verificador-v2";
 
 test("la vista de alta no monta el bloque de llamamiento sin expediente fiscalizado", async () => {
   const alta = { catalogos: {}, ejecutor: () => { throw new Error("no debe registrar otra petición"); } };

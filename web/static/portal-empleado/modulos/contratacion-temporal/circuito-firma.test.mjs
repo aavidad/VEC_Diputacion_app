@@ -5,9 +5,10 @@ import test from "node:test";
 import {
   crearClienteHTTPCircuitoFirma, crearGestorCircuitoFirma, renderizarCircuitoFirma,
   RUTA_CIRCUITO_FIRMA, validarCircuitoFirma,
-} from "./circuito-firma.js?v=20261001-ct-a-i18n-v1";
-import { crearAccionesFirma, fusionarEstadoFirmas } from "./circuito-firma-acciones.js?v=20261001-ct-a-i18n-v1";
-import { crearTraductorCircuitoFirma, MENSAJES_CIRCUITO_FIRMA_ES, MENSAJES_CIRCUITO_FIRMA_EN } from "./i18n-circuito-firma.js?v=20261001-ct-a-i18n-v1";
+
+} from "./circuito-firma.js?v=20261001-ct-firma-verificador-v2";
+import { crearAccionesFirma, fusionarEstadoFirmas, renderizarAccionesPaso } from "./circuito-firma-acciones.js?v=20261001-ct-firma-verificador-v2";
+import { crearTraductorCircuitoFirma, MENSAJES_CIRCUITO_FIRMA_ES, MENSAJES_CIRCUITO_FIRMA_EN } from "./i18n-circuito-firma.js?v=20261001-ct-firma-verificador-v2";
 import { cargarTextos } from "../../../comun/textos.js";
 import { IDIOMA_POR_DEFECTO } from "../../../comun/idioma.js";
 
@@ -154,6 +155,61 @@ test("las acciones activas de AutoFirma indican que son PRUEBA", () => {
   assert.match(html, />Devolver en PRUEBA<\/button>/u);
   assert.match(html, />Registrar devolución de PRUEBA<\/button>/u);
   assert.match(html, /Pendiente de firma de prueba por/u);
+});
+
+test("verificación apagada mantiene Firmar enfocable y explica por qué no puede usarse", () => {
+  const catalogo = validarCircuitoFirma(circuito());
+  const estado = (disponible) => fusionarEstadoFirmas(catalogo, {
+    huella_sha256: catalogo.huella_sha256, verificacion_disponible: disponible,
+    documentos: [{ documento: "informe_definitivo", paso_pendiente: 1,
+      pasos: [{ estado: "pendiente_firma" }, { estado: "en_espera" }] }],
+  });
+  const t = crearTraductorCircuitoFirma();
+  const apagado = estado(false);
+  const html = renderizarAccionesPaso(apagado, apagado.documentos[0], apagado.documentos[0].pasos[0], t);
+  assert.match(html, /data-ct-firma-accion="firmar"[^>]*aria-disabled="true" aria-describedby="ct-firma-resultado-informe_definitivo-1"/u);
+  assert.match(html, /id="ct-firma-resultado-informe_definitivo-1"[^>]*>La verificación de firmas no está activada/u);
+  assert.match(html, /data-ct-firma-accion="devolver"/u);
+  assert.doesNotMatch(html, /data-ct-firma-accion="firmar"[^>]*\sdisabled(?:\s|>)/u);
+  const activo = estado(true);
+  const disponible = renderizarAccionesPaso(activo, activo.documentos[0], activo.documentos[0].pasos[0], t);
+  assert.doesNotMatch(disponible, /aria-disabled="true"|La verificación de firmas no está activada/u);
+  assert.match(disponible, /data-ct-firma-accion="firmar"/u);
+});
+
+test("al activar firma conocida imposible no descarga ni lanza AutoFirma; devolución sigue disponible", async () => {
+  const ref = "expediente:ct:001";
+  const estado = { vista: "expediente", carga: "listo", expediente_ref: ref,
+    expediente: { expediente_ref: ref, version: 7, demostracion: false },
+    cuadro: { demostracion: false, expedientes: [{ expediente_ref: ref, version: 7,
+      fase_clave: "nombramiento", estado_clave: "en_curso" }] } };
+  const salida = { textContent: "" };
+  const contenedor = { querySelector: (selector) => selector === "[data-ct-firma-resultado]" ? salida
+    : selector === "[data-ct-firma-motivo]" ? { value: "Falta la fecha de efectos" } : null,
+  querySelectorAll: () => [] };
+  const boton = { dataset: { ctFirmaAccion: "firmar", ctFirmaDocumento: "informe_definitivo", ctFirmaOrden: "1" },
+    getAttribute: () => "true", disabled: false,
+    closest: (selector) => selector === "[data-ct-firma-accion]" ? boton : contenedor };
+  let descargas = 0; let lanzamientos = 0; const registros = [];
+  const acciones = crearAccionesFirma({ obtenerEstado: () => estado, t: crearTraductorCircuitoFirma(),
+    clienteBorrador: { descargarBorrador: async () => { descargas += 1; return new Blob(["%PDF-1.7"]); } },
+    autofirma: { firmarPDF: async () => { lanzamientos += 1; return new Uint8Array([1]); } },
+    clienteFirma: { registrar: async (orden) => { registros.push(orden); return { recibo_ref: "recibo:firma:1" }; } },
+    aleatorio: (n) => new Uint8Array(n) });
+  await acciones.manejarClic({ target: { closest: () => boton } });
+  assert.match(salida.textContent, /verificación de firmas no está activada/u);
+  assert.equal(descargas, 0); assert.equal(lanzamientos, 0); assert.equal(registros.length, 0);
+  assert.equal(boton.disabled, false, "el botón conserva el foco posible");
+
+  boton.getAttribute = () => null;
+  await acciones.manejarClic({ target: { closest: () => boton } });
+  assert.equal(descargas, 1); assert.equal(lanzamientos, 1); assert.equal(registros[0].resultado, "firmado");
+
+  boton.getAttribute = () => "true";
+  boton.dataset.ctFirmaAccion = "confirmar-devolucion";
+  await acciones.manejarClic({ target: { closest: () => boton } });
+  assert.equal(descargas, 1); assert.equal(lanzamientos, 1);
+  assert.equal(registros[1].resultado, "devuelto");
 });
 
 test("todas las claves de vocabulario tienen traducción", () => {
@@ -345,6 +401,16 @@ test("un rechazo del verificador no muestra sus códigos internos", async () => 
   await acciones.manejarClic({ target: { closest: () => boton } });
   assert.match(salida.textContent, /could not be verified/u);
   assert.doesNotMatch(salida.textContent, /firma_no_verificada|revocacion_no_acreditada/u);
+
+  for (const motivo of ["validador_no_disponible", "credencial_rechazada"]) {
+    const servicioCaido = crearAccionesFirma({ obtenerEstado: () => estado, t: (clave) => clave,
+      clienteBorrador: { descargarBorrador: async () => new Blob(["%PDF-1.7"]) },
+      autofirma: { firmarPDF: async () => new Uint8Array([1]) },
+      clienteFirma: { registrar: async () => { throw { codigo: "servicio_no_disponible", motivo }; } },
+      aleatorio: (n) => new Uint8Array(n) });
+    await servicioCaido.manejarClic({ target: { closest: () => boton } });
+    assert.equal(salida.textContent, "circuito_firma_error_validador_no_disponible");
+  }
 });
 
 test("la ayuda explica el circuito de ejemplo y la falta de eficacia sin portafirmas", async () => {
@@ -472,8 +538,8 @@ test("los importadores locales de la vista y el circuito evitan las URLs immutab
     readFile(new URL("./formulario-llamamiento-pruebas.js", import.meta.url), "utf8"),
   ]);
   const versiones = new Map([
-    ["circuito-firma.js", "20261001-ct-a-i18n-v1"],
-    ["vista-expedientes.js", "20261001-ct-a-i18n-v1"],
+    ["circuito-firma.js", "20261001-ct-firma-verificador-v2"],
+    ["vista-expedientes.js", "20261001-ct-firma-verificador-v2"],
   ]);
   const anterior = "20260929-custodia-506-v1";
   const importadores = [

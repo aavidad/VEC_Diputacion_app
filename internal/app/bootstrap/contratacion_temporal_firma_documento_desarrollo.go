@@ -29,7 +29,7 @@ import (
 // y CT118 instaladas) y el circuito de firma de ejemplo. La autorización es
 // un rol nominal propio publicado para la identidad del canal CT: no se
 // infiere del cargo del catálogo, cuyo perfil_ref sigue siendo informativo.
-// La verificación la hace el validador de AutoFirma; apagado, toda firma se
+// La verificación la hace GrxFirma como servicio separado; apagado, toda firma se
 // rechaza. Ninguna firma registrada tiene eficacia administrativa.
 
 var errFirmaDocumentoCTDesarrolloNoDisponible = errors.New("contratacion temporal: registro de firmas de desarrollo no disponible")
@@ -213,6 +213,13 @@ func (f *firmaDocumentoCTDesarrollo) AutorizarFirmaDocumento(ctx context.Context
 	s := f.alta.soporte
 	capacidad, valida := s.capacidadValida(ctx)
 	if !valida || capacidad.ruta != httpinterno.RutaFirmaDocumento || s.perfilFijoParaContexto(ctx, capacidad.ruta) == nil || m.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo {
+		return vacia, ports.ErrFirmaDocumentoDenegada
+	}
+	// Esta rama de desarrollo solo admite una firma de prueba cuyo
+	// certificado sea exactamente el ya verificado para el canal actual.
+	// La huella se toma del contexto sellado, nunca del cuerpo HTTP.
+	if m.Resultado == ctdomain.ResultadoFirmaFirmado &&
+		(m.CertificadoHuella == "" || m.CertificadoHuella != capacidad.principal.Attributes["certificate_sha256"]) {
 		return vacia, ports.ErrFirmaDocumentoDenegada
 	}
 	recurso, err := ctapplication.RecursoFirmaDocumento(m)

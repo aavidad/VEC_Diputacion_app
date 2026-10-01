@@ -86,6 +86,8 @@ func TestManejadorFirmaDocumentoErrores(t *testing.T) {
 	}{
 		{application.ErrVerificacionFirmaApagada, http.StatusServiceUnavailable, "verificacion_no_disponible"},
 		{application.DictamenRechazado{Estado: docports.EstadoVerificacionNoValida, Motivo: docports.MotivoIntegridadNoValida}, http.StatusUnprocessableEntity, "firma_no_verificada"},
+		{application.DictamenRechazado{Estado: docports.EstadoVerificacionIndeterminada, Motivo: docports.MotivoValidadorNoDisponible}, http.StatusServiceUnavailable, "servicio_no_disponible"},
+		{application.DictamenRechazado{Estado: docports.EstadoVerificacionIndeterminada, Motivo: docports.MotivoCredencialRechazada}, http.StatusServiceUnavailable, "servicio_no_disponible"},
 		{application.ErrPasoFirmaNoPendiente, http.StatusConflict, "paso_no_pendiente"},
 		{ports.ErrCadenaFirmaDocumentoRota, http.StatusConflict, "cadena_rota"},
 		{ports.ErrFirmaDocumentoDenegada, http.StatusForbidden, "acceso_denegado"},

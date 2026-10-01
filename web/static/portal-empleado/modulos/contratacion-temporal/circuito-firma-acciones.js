@@ -50,9 +50,11 @@ export function fusionarEstadoFirmas(circuito, estado) {
 export function renderizarAccionesPaso(circuito, documento, paso, t) {
   if (!circuito.registro || circuito.acciones === false || documento.paso_pendiente !== paso.orden || !Object.hasOwn(PERFILES_BORRADOR_RRHH, documento.documento)) return "";
   const id = `ct-firma-motivo-${documento.documento}-${paso.orden}`;
+  const avisoId = `ct-firma-resultado-${documento.documento}-${paso.orden}`;
+  const verificacionApagada = circuito.registro.verificacion === false;
   const datos = `data-ct-firma-documento="${escaparHTML(documento.documento)}" data-ct-firma-orden="${paso.orden}"`;
   return `<div class="ct-circuito-acciones" ${datos}>
-    <button type="button" class="boton-primario" data-ct-firma-accion="firmar" ${datos}>${escaparHTML(t("circuito_firma_firmar"))}</button>
+    <button type="button" class="boton-primario" data-ct-firma-accion="firmar" ${datos}${verificacionApagada ? ` aria-disabled="true" aria-describedby="${avisoId}"` : ""}>${escaparHTML(t("circuito_firma_firmar"))}</button>
     <button type="button" class="boton-secundario" data-ct-firma-accion="devolver" ${datos} aria-expanded="false" aria-controls="${id}">${escaparHTML(t("circuito_firma_devolver"))}</button>
     <div class="ct-circuito-devolucion" id="${id}" hidden>
       <label for="${id}-texto">${escaparHTML(t("circuito_firma_motivo_etiqueta"))}</label>
@@ -62,7 +64,7 @@ export function renderizarAccionesPaso(circuito, documento, paso, t) {
         <button type="button" class="boton-terciario" data-ct-firma-accion="cancelar-devolucion" ${datos}>${escaparHTML(t("circuito_firma_cancelar"))}</button>
       </div>
     </div>
-    <p class="ct-circuito-resultado" role="status" aria-live="polite" data-ct-firma-resultado></p>
+    <p id="${avisoId}" class="ct-circuito-resultado" role="status" aria-live="polite" data-ct-firma-resultado>${verificacionApagada ? escaparHTML(t("circuito_firma_error_verificacion")) : ""}</p>
   </div>`;
 }
 
@@ -89,6 +91,10 @@ export function crearAccionesFirma({
   }
 
   function textoError(error) {
+    if (error?.codigo === "servicio_no_disponible" &&
+      ["validador_no_disponible", "credencial_rechazada"].includes(error?.motivo)) {
+      return t("circuito_firma_error_validador_no_disponible");
+    }
     const clave = CLAVE_ERROR[error?.codigo] ?? "circuito_firma_error_generico";
     return t(clave);
   }
@@ -133,6 +139,10 @@ export function crearAccionesFirma({
       conmutador?.setAttribute("aria-expanded", String(abrir));
       if (abrir) panel?.querySelector?.("textarea")?.focus?.();
       else conmutador?.focus?.();
+      return;
+    }
+    if (accion === "firmar" && boton.getAttribute?.("aria-disabled") === "true") {
+      mostrar(contenedor, t("circuito_firma_error_verificacion"));
       return;
     }
     if (ocupado || !contenedor || !Number.isSafeInteger(orden)) return;

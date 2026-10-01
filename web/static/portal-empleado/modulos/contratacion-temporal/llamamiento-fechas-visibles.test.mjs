@@ -6,7 +6,7 @@ import {
   recibo as seleccion, comunicacionRegistrada, justificante, declaracion,
   reciboResolucion, continuacionConfirmada, avisoSiguienteRegistrado,
   justificanteSiguiente, declaracionSiguiente, reciboResolucionSucesor,
-} from "./formulario-llamamiento-pruebas.js?v=20261001-ct-a-i18n-v1";
+} from "./formulario-llamamiento-pruebas.js?v=20261001-ct-firma-verificador-v2";
 
 const fecha = new Intl.DateTimeFormat("es-ES", {
   dateStyle: "medium", timeStyle: "medium", timeZone: "Europe/Madrid",

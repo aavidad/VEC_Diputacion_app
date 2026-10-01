@@ -11,7 +11,7 @@ import {
   crearCuadroContratacionTemporalPresentacion,
   crearExpedienteContratacionTemporalPresentacion,
 } from "./datos-presentacion.js";
-import { renderizarModuloContratacionTemporal } from "./vista-expedientes.js?v=20261001-ct-a-i18n-v1";
+import { renderizarModuloContratacionTemporal } from "./vista-expedientes.js?v=20261001-ct-firma-verificador-v2";
 
 function estadoVista(expediente, tareaRef = expediente.tareas[0].tarea_ref) {
   return {

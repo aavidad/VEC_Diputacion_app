@@ -20,8 +20,11 @@ const (
 )
 
 type SolicitudVerificacionFirma struct {
-	DocumentoID          string
-	Version              uint64
+	DocumentoID string
+	Version     uint64
+	// FormatoEsperado es opcional para consumidores genericos. Un consumidor
+	// que exige un formato concreto debe fijarlo antes de verificar.
+	FormatoEsperado      string
 	HuellaOriginalSHA256 string
 	ContenidoOriginal    []byte
 	ContenidoFirmado     []byte
@@ -29,6 +32,7 @@ type SolicitudVerificacionFirma struct {
 
 func (s SolicitudVerificacionFirma) Validar() error {
 	if !domain.ReferenciaOpacaValida(s.DocumentoID) || s.Version == 0 ||
+		!formatoEsperadoValido(s.FormatoEsperado) ||
 		!domain.HuellaValida(s.HuellaOriginalSHA256) || len(s.ContenidoOriginal) == 0 ||
 		len(s.ContenidoOriginal) > 16<<20 || len(s.ContenidoFirmado) == 0 ||
 		len(s.ContenidoFirmado) > 16<<20 {
@@ -41,8 +45,22 @@ func (s SolicitudVerificacionFirma) Validar() error {
 	return nil
 }
 
+func formatoEsperadoValido(formato string) bool {
+	if len(formato) > 32 {
+		return false
+	}
+	for i := 0; i < len(formato); i++ {
+		c := formato[i]
+		if !(c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || c == '-' || c == '_') {
+			return false
+		}
+	}
+	return true
+}
+
 type ResultadoVerificacionFirma struct {
 	Estado                  EstadoVerificacionFirma
+	Formato                 string
 	VinculoOriginal         bool
 	HuellaOriginalSHA256    string
 	HuellaFirmadoSHA256     string
@@ -93,6 +111,7 @@ func SelloTiempoAdmisible(estado string) bool {
 // huella, una revocacion no vigente o un sello no valido no firman nada.
 func (r ResultadoVerificacionFirma) ValidarContra(s SolicitudVerificacionFirma) error {
 	if s.Validar() != nil || r.Estado != EstadoVerificacionValida || !r.VinculoOriginal ||
+		(s.FormatoEsperado != "" && r.Formato != s.FormatoEsperado) ||
 		r.HuellaOriginalSHA256 != s.HuellaOriginalSHA256 ||
 		!domain.ReferenciaOpacaValida(r.FirmanteRef) ||
 		!domain.HuellaValida(r.CertificadoHuellaSHA256) ||

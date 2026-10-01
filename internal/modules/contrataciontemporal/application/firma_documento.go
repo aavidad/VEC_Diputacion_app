@@ -316,6 +316,7 @@ func (s *ServicioFirmaDocumento) Firmar(ctx context.Context, sol SolicitudFirmaD
 		}
 		peticion := docports.SolicitudVerificacionFirma{
 			DocumentoID: identificadorDocumentoVerificacion(sol.ExpedienteRef, sol.Documento), Version: sol.VersionExpediente,
+			FormatoEsperado:      "PAdES",
 			HuellaOriginalSHA256: original, ContenidoOriginal: sol.Original, ContenidoFirmado: sol.Firmado,
 		}
 		dictamen, err := s.verificador.VerificarMotivado(ctx, peticion)
@@ -349,18 +350,10 @@ func (s *ServicioFirmaDocumento) Firmar(ctx context.Context, sol SolicitudFirmaD
 	if material.Validar() != nil {
 		return cero, ports.ErrSolicitudFirmaDocumentoInvalida
 	}
-	// El PDF firmado se custodia antes de pedir la autorización de la firma,
-	// que es breve: si la custodia falla no se registra nada; si falla después
-	// el registro, el reintento recupera el mismo documento en Documentos. Si
-	// el registro falla de forma definitiva (autorización denegada, conflicto),
-	// el documento queda custodiado sin firma que lo enlace: la conciliación
-	// de Documentos debe tenerlo en cuenta.
-	if material.DocumentoCustodiaRef != "" {
-		custodiado, err = s.custodiarFirmado(ctx, sol, material, tipo)
-		if err != nil {
-			return cero, err
-		}
-	}
+	// Autorizar el material completo antes de custodiar evita guardar un PDF
+	// firmado por un certificado ajeno al canal. El registro consume la misma
+	// capacidad; si caduca durante la custodia, falla cerrado y un reintento
+	// recupera el documento con la misma clave y los mismos bytes.
 	capacidad, err := s.autorizador.AutorizarFirmaDocumento(ctx, material)
 	if err != nil {
 		if ctx.Err() != nil {
@@ -370,6 +363,12 @@ func (s *ServicioFirmaDocumento) Firmar(ctx context.Context, sol SolicitudFirmaD
 	}
 	if err := ValidarCapacidadFirmaDocumento(capacidad, material); err != nil {
 		return cero, err
+	}
+	if material.DocumentoCustodiaRef != "" {
+		custodiado, err = s.custodiarFirmado(ctx, sol, material, tipo)
+		if err != nil {
+			return cero, err
+		}
 	}
 	recibo, err := s.registro.RegistrarFirma(ctx, material, capacidad)
 	if err != nil {

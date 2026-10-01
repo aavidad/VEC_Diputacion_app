@@ -118,13 +118,18 @@ func materialFirmaPrueba(m ports.MaterialFirmaDocumento) vecports.ExportacionMat
 // verificadorPrueba acredita una firma PAdES simulada: el firmado empieza
 // por el original. Solo es un doble del puerto, no una verificación.
 type verificadorPrueba struct {
-	motivo docports.MotivoVerificacionFirma
+	motivo  docports.MotivoVerificacionFirma
+	formato string
 }
 
 func (v verificadorPrueba) VerificarMotivado(_ context.Context, s docports.SolicitudVerificacionFirma) (docports.VerificacionFirmaMotivada, error) {
 	suma := sha256.Sum256(s.ContenidoFirmado)
 	r := docports.ResultadoVerificacionFirma{Estado: v.motivo.EstadoAsociado(), HuellaOriginalSHA256: s.HuellaOriginalSHA256,
-		HuellaFirmadoSHA256: hex.EncodeToString(suma[:]), SelloTiempoEstado: docports.SelloTiempoNoPresente, RevocacionEstado: docports.RevocacionNoComprobada}
+		HuellaFirmadoSHA256: hex.EncodeToString(suma[:]), SelloTiempoEstado: docports.SelloTiempoNoPresente, RevocacionEstado: docports.RevocacionNoComprobada,
+		Formato: "PAdES"}
+	if v.formato != "" {
+		r.Formato = v.formato
+	}
 	if v.motivo == docports.MotivoFirmaVerificada && bytes.HasPrefix(s.ContenidoFirmado, s.ContenidoOriginal) {
 		r.VinculoOriginal, r.FirmanteRef, r.CertificadoHuellaSHA256, r.RevocacionEstado = true, "ref:"+strings.Repeat("f", 64), strings.Repeat("e", 64), docports.RevocacionVigente
 	}
@@ -186,6 +191,21 @@ func TestFirmaDocumentoNuncaSinVerificacion(t *testing.T) {
 	}
 	if len(registro.registrado) != 0 || len(autorizador.visto) != 0 {
 		t.Fatal("una firma no verificada llegó a autorizarse o registrarse")
+	}
+}
+
+func TestFirmaDocumentoRechazaFormatoAjenoSinEfectos(t *testing.T) {
+	registro, autorizador := &registroFirmaPrueba{}, &autorizadorFirmaPrueba{}
+	s, err := NuevoServicioFirmaDocumento(circuitoFirmaPrueba{}, registro, autorizador,
+		verificadorPrueba{motivo: docports.MotivoFirmaVerificada, formato: "CAdES"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	original := []byte("%PDF-1.7 borrador")
+	firmado := append(append([]byte(nil), original...), []byte(" firma")...)
+	_, err = s.Firmar(context.Background(), solicitudFirmaPrueba(1, original, firmado, "clave-firma-formato-ajeno"))
+	if !errors.Is(err, ErrFirmaNoVerificada) || len(registro.registrado) != 0 || len(autorizador.visto) != 0 {
+		t.Fatalf("formato CAdES admitido para PDF CT: %v, registros=%d, autorizaciones=%d", err, len(registro.registrado), len(autorizador.visto))
 	}
 }
 
