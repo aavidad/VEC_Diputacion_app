@@ -1,0 +1,123 @@
+{
+  "titulo": "Professional career",
+  "portal": "HR portal",
+  "organizacion": "Granada Provincial Council",
+  "saltar": "Skip to content",
+  "idioma": "Language",
+  "navegacion": "Module navigation",
+  "limite": "Exercise with synthetic data. Checks prepare a review; they do not recognise a personal grade, progression or eligibility to apply.",
+  "carga": "Loading the exercise cases. Please wait.",
+  "error": "The exercise could not be loaded. Select Retry. If the problem continues, contact IT.",
+  "ayuda": {
+    "boton": "? Help",
+    "titulo": "How to review the exercise",
+    "elegir": "Filter by route and select an example person.",
+    "revisar": "Review the available data and pending reasons. Position level and personal grade are separate data.",
+    "descargar": "Download the draft to review its sources and versions. Downloading does not start a procedure."
+  },
+  "lista": {
+    "titulo": "Exercise cases",
+    "filtro": "Filter by route",
+    "cuenta": "Cases shown: {cuenta}",
+    "sin_filtro": "There are no cases for this route. Select All routes to view the full exercise.",
+    "vacia": "The exercise contains no cases. Ask IT to check the preparation."
+  },
+  "vias": {
+    "todas": "All routes",
+    "grado": "Personal grade consolidation",
+    "progresion": "Labour progression",
+    "promocion": "Internal promotion"
+  },
+  "estados": {
+    "global": "Pending review",
+    "disponible": "Data available",
+    "pendiente": "Pending",
+    "incompatible": "Incompatibility in the exercise"
+  },
+  "regimen": {
+    "funcionario_carrera": "Career civil servant",
+    "laboral_fijo": "Permanent labour employee"
+  },
+  "detalle": {
+    "titulo": "Case review",
+    "regimen": "Employment regime",
+    "nivel_puesto": "Position level",
+    "grado_personal": "Personal grade",
+    "sin_dato": "Data awaiting a source",
+    "regimen_pendiente": "Employment regime awaiting confirmation",
+    "separacion": "The level describes the position. Personal grade requires recognition; it is not derived from the position level.",
+    "comprobaciones": "Data and checks",
+    "comprobacion_pendiente": "Check awaiting definition",
+    "motivo_pendiente": "The reason requires confirmation in the exercise source.",
+    "sin_comprobaciones": "There are no prepared checks for this case.",
+    "siguiente": "Next pending step",
+    "responsable": "HR must confirm the sources and applicable policy before processing recognition or an application.",
+    "dependencia_pendiente": "Confirm the procedure, sources and competent unit.",
+    "fuentes": "View sources and versions",
+    "version_ejercicio": "Exercise version",
+    "fuente_ejercicio": "Exercise source",
+    "referencia": "Case reference",
+    "version": "Version {version}",
+    "bloqueo": "The approved procedure, competent decision and entry in Personnel are pending. This screen only prepares the review.",
+    "elegir": "Select a case to review its data.",
+    "version_fuente": "Source version",
+    "persona_pendiente": "Person awaiting a source"
+  },
+  "exportar": {
+    "titulo": "Exercise draft",
+    "limite": "The download preserves all cases, sources and versions. It is not a decision, a register entry or a submitted application.",
+    "preparado": "The draft download has been prepared. Check your downloads folder."
+  },
+  "acciones": {
+    "descargar": "Download exercise draft",
+    "reintentar": "Retry",
+    "reconocer": "Process recognition"
+  },
+  "carrera": {
+    "comprobacion": {
+      "datos": "Person data",
+      "fuentes": "Sources and versions",
+      "compatibilidad": "Regime and route compatibility",
+      "periodos": "Service periods",
+      "evidencias": "Accredited evidence",
+      "politica": "Procedure policy",
+      "convenio": "Applicable collective agreement",
+      "curso_prueba": "Course and test",
+      "convocatoria": "Promotion call",
+      "reconocimiento": "Recognition decision",
+      "registro": "Entry in Personnel"
+    },
+    "motivo": {
+      "disponible": "The data is available in the synthetic exercise. Check its source before processing.",
+      "datos_incompletos": "Person data is missing for the review.",
+      "fuente_incompleta": "A source or its version is missing.",
+      "regimen_pendiente": "The applicable regime requires confirmation.",
+      "regimen_incompatible": "The regime does not match the route configured in this exercise. HR must review the source.",
+      "periodos_incompletos": "Service periods or their dates are missing.",
+      "fecha_invalida": "An exercise date is invalid. Review the source.",
+      "periodos_solapados": "Some periods overlap. Review them before calculating service.",
+      "evidencia_incompleta": "Evidence or its accreditation is missing.",
+      "politica_pendiente": "An approved policy has not been confirmed for this procedure.",
+      "politica_preparada": "An example policy is prepared. Its approval remains pending.",
+      "convenio_pendiente": "The applicable agreement and its version require confirmation.",
+      "curso_prueba_pendiente": "The course and test required by the procedure need confirmation.",
+      "convocatoria_pendiente": "The versioned call rules are missing.",
+      "resolucion_necesaria": "Recognition requires a decision by the competent unit.",
+      "registro_necesario": "Personnel must register the effective act. The exercise does not make that entry."
+    },
+    "pendiente": {
+      "datos": "Complete the person data from its source.",
+      "fuentes": "Confirm the sources and their versions.",
+      "compatibilidad": "Confirm the regime and route with the competent unit.",
+      "periodos": "Accredit service periods and dates.",
+      "evidencias": "Provide and accredit the required evidence.",
+      "politica": "Confirm the approved procedure policy.",
+      "convenio": "Confirm the applicable collective agreement.",
+      "curso_prueba": "Confirm and accredit the course and test.",
+      "convocatoria": "Confirm the promotion call rules.",
+      "reconocimiento": "Obtain the competent recognition decision.",
+      "registro": "Register the effective act in Personnel."
+    }
+  },
+  "contexto": "Career preparation"
+}

@@ -27,10 +27,10 @@ func CargarSnapshot(b []byte, sha string) (ports.SnapshotEnsayoPresencia, error)
 }
 func CargarTextos(b []byte, sha, idioma string) (CatalogoTextos, error) {
 	var c CatalogoTextos
-	if catalogoefectos.DecodificarEstricto(b, sha, &c) != nil || c.VersionEsquema != "1" || (idioma == "" || strings.TrimSpace(idioma) != idioma || len(idioma) > 64) || c.Idioma != idioma || len(c.Textos) != 10 {
+	if catalogoefectos.DecodificarEstricto(b, sha, &c) != nil || c.VersionEsquema != "1" || (idioma == "" || strings.TrimSpace(idioma) != idioma || len(idioma) > 64) || c.Idioma != idioma || len(c.Textos) != 13 {
 		return CatalogoTextos{}, domain.ErrPresenciaInvalida
 	}
-	for _, k := range []string{"titulo", "aviso", "entrada_registrada", "pausa_registrada", "salida_registrada", "indeterminado", "agregado", "cobertura", "limites", "entrada_invalida"} {
+	for _, k := range []string{"titulo", "aviso", "entrada_registrada", "pausa_registrada", "salida_registrada", "indeterminado", "agregado", "cobertura", "limites", "entrada_invalida", "cobertura_incompleta", "sin_marcajes", "secuencia_ambigua"} {
 		v := c.Textos[k]
 		if strings.TrimSpace(v) != v || v == "" || len(v) > 1024 {
 			return CatalogoTextos{}, domain.ErrPresenciaInvalida

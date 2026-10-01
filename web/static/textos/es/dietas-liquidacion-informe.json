@@ -14,10 +14,10 @@
     "version": "Versión",
     "conceptos": "Detalle de importes",
     "concepto": "Concepto",
-    "inicial": "Importe inicial",
-    "propuesto": "Importe propuesto",
-    "diferencia": "Diferencia",
-    "motivo": "Motivo de la diferencia",
+    "inicial": "Importe declarado",
+    "propuesto": "Propuesto como admitido",
+    "diferencia": "Reducido o rechazado",
+    "motivo": "Motivo de la reducción o rechazo",
     "total": "Total",
     "sin_reduccion": "Sin reducción",
     "detalle": "Ver catálogo, fuentes y huellas",
@@ -31,9 +31,16 @@
     "reglas": "Reglas aplicadas a cada concepto",
     "linea": "Línea",
     "regla": "Referencia de regla",
-    "tabla_ayuda": "La diferencia es el importe que esta propuesta no reconoce. En pantallas pequeñas, desplace la tabla para ver todas las columnas.",
+    "tabla_ayuda": "El importe reducido o rechazado no se propone para admisión. En pantallas pequeñas, desplace la tabla para ver todas las columnas.",
     "grupo": "Grupo de dieta declarado",
-    "referencia_comision": "Referencia de la comisión"
+    "referencia_comision": "Referencia de la comisión",
+    "fecha_gasto": "Fecha del gasto",
+    "descripcion_declarada": "Descripción declarada",
+    "justificante_ref": "Referencia declarada del justificante",
+    "justificante_huella": "Huella SHA-256 declarada del justificante",
+    "catalogo_otros_gastos": "Versión del catálogo de otros gastos",
+    "tope_linea": "Tope por línea del catálogo de ejemplo",
+    "justificante_limite": "La referencia y la huella del justificante son datos declarados. Este informe no acredita su comprobación ni su custodia."
   },
   "conceptos": {
     "manutencion": "Manutención"
@@ -42,8 +49,22 @@
     "dieta": "Dieta",
     "kilometraje": "Kilometraje"
   },
+  "tipos_gasto": {
+    "tren": "Tren",
+    "autobus": "Autobús",
+    "metro_tranvia": "Metro o tranvía",
+    "taxi": "Taxi",
+    "avion": "Avión",
+    "barco": "Barco",
+    "vehiculo_alquiler": "Vehículo de alquiler",
+    "aparcamiento": "Aparcamiento",
+    "peaje": "Peaje",
+    "consigna": "Consigna"
+  },
   "motivos": {
     "revision_tarifa_importada": "Importe ajustado tras revisar la tarifa importada.",
-    "revision_documental": "Importe ajustado tras revisar la documentación."
+    "revision_documental": "Importe ajustado tras revisar la documentación.",
+    "revision_justificante": "Importe reducido en la revisión de la propuesta. El justificante no se conserva aquí.",
+    "gasto_no_admitido": "Este gasto no se propone para admisión."
   }
 }

@@ -5,7 +5,7 @@ import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261001-
 import { montarFormularioResolucionFormalizacion } from "./formulario-resolucion-formalizacion.js?v=20261001-ct-a-i18n-v1";
 import { montarFormularioAnotacionAdministrativa } from "./formulario-anotacion-administrativa.js?v=20261001-ct-a-i18n-v1";
 import { montarFormularioCierreAdministrativo } from "./formulario-cierre-administrativo.js?v=20261001-ct-a-i18n-v1";
-import { montarFormularioLlamamiento } from "./formulario-llamamiento.js?v=20261001-ct-a-i18n-v1";
+import { montarFormularioLlamamiento } from "./formulario-llamamiento.js?v=20261001-f-reconciliacion-317-v1";
 import { montarVistaEstadisticas } from "./vista-estadisticas.js?v=20261001-ct-a-i18n-v1";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261001-ct-a-i18n-v1";
 import { filtroListaValido } from "./recuentos-peticiones.js?v=20261001-ct-a-i18n-v1";
@@ -18,7 +18,7 @@ import {
   mensajeEstadoVisible,
   renderizarModuloContratacionTemporal,
 } from "./vista-expedientes-render.js?v=20261001-ct-a-i18n-v1";
-import { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js?v=20261001-ct-a-i18n-v1";
+import { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js?v=20261001-f-reconciliacion-317-v1";
 import { crearGestorDescargaBorradorRRHH } from "./vista-expedientes-borrador.js?v=20261001-ct-a-i18n-v1";
 import { crearGestorCircuitoFirma } from "./circuito-firma.js?v=20261001-ct-firma-verificador-v2";
 import { crearGestorIncorporacion } from "./vista-expedientes-incorporacion.js?v=20261001-ct-a-i18n-v1";
@@ -31,7 +31,7 @@ import { montarBorradoresPublicados } from "./vista-borradores-publicados.js?v=2
 import { traducirPortal } from "../../portal-i18n.js?v=20261001-ct-a-i18n-v1";
 
 export { renderizarModuloContratacionTemporal } from "./vista-expedientes-render.js?v=20261001-ct-a-i18n-v1";
-export { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js?v=20261001-ct-a-i18n-v1";
+export { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js?v=20261001-f-reconciliacion-317-v1";
 export { numeroExpedienteVisible } from "./componentes-expedientes.js?v=20261001-ct-a-i18n-v1";
 
 // Exportaciones auxiliares conservadas para compatibilidad con tests e importadores

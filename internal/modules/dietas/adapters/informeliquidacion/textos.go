@@ -14,12 +14,13 @@ var ErrTextos = errors.New("dietas_informe_textos_invalidos")
 // Textos se inyecta desde un catálogo de datos del idioma elegido.
 // Los mapas traducen códigos del dominio; ninguna clave se imprime como rótulo.
 type Textos struct {
-	Idioma    string            `json:"idioma"`
-	Formato   Formato           `json:"formato"`
-	Rotulos   Rotulos           `json:"rotulos"`
-	Conceptos map[string]string `json:"conceptos"`
-	Tipos     map[string]string `json:"tipos"`
-	Motivos   map[string]string `json:"motivos"`
+	Idioma     string            `json:"idioma"`
+	Formato    Formato           `json:"formato"`
+	Rotulos    Rotulos           `json:"rotulos"`
+	Conceptos  map[string]string `json:"conceptos"`
+	Tipos      map[string]string `json:"tipos"`
+	TiposGasto map[string]string `json:"tipos_gasto,omitempty"`
+	Motivos    map[string]string `json:"motivos"`
 }
 
 type Formato struct {
@@ -30,33 +31,40 @@ type Formato struct {
 }
 
 type Rotulos struct {
-	Titulo             string `json:"titulo"`
-	Estado             string `json:"estado"`
-	Limite             string `json:"limite"`
-	Comision           string `json:"comision"`
-	Grupo              string `json:"grupo"`
-	ReferenciaComision string `json:"referencia_comision"`
-	Version            string `json:"version"`
-	Conceptos          string `json:"conceptos"`
-	Concepto           string `json:"concepto"`
-	Inicial            string `json:"inicial"`
-	Propuesto          string `json:"propuesto"`
-	Diferencia         string `json:"diferencia"`
-	Motivo             string `json:"motivo"`
-	Total              string `json:"total"`
-	SinReduccion       string `json:"sin_reduccion"`
-	Detalle            string `json:"detalle"`
-	Catalogo           string `json:"catalogo"`
-	Tarifa             string `json:"tarifa"`
-	Fuentes            string `json:"fuentes"`
-	DocumentoHuella    string `json:"documento_huella"`
-	CatalogoHuella     string `json:"catalogo_huella"`
-	PreparacionHuella  string `json:"preparacion_huella"`
-	HuellaLimite       string `json:"huella_limite"`
-	Reglas             string `json:"reglas"`
-	Linea              string `json:"linea"`
-	Regla              string `json:"regla"`
-	TablaAyuda         string `json:"tabla_ayuda"`
+	Titulo               string `json:"titulo"`
+	Estado               string `json:"estado"`
+	Limite               string `json:"limite"`
+	Comision             string `json:"comision"`
+	Grupo                string `json:"grupo"`
+	ReferenciaComision   string `json:"referencia_comision"`
+	Version              string `json:"version"`
+	Conceptos            string `json:"conceptos"`
+	Concepto             string `json:"concepto"`
+	Inicial              string `json:"inicial"`
+	Propuesto            string `json:"propuesto"`
+	Diferencia           string `json:"diferencia"`
+	Motivo               string `json:"motivo"`
+	Total                string `json:"total"`
+	SinReduccion         string `json:"sin_reduccion"`
+	Detalle              string `json:"detalle"`
+	Catalogo             string `json:"catalogo"`
+	Tarifa               string `json:"tarifa"`
+	Fuentes              string `json:"fuentes"`
+	DocumentoHuella      string `json:"documento_huella"`
+	CatalogoHuella       string `json:"catalogo_huella"`
+	PreparacionHuella    string `json:"preparacion_huella"`
+	HuellaLimite         string `json:"huella_limite"`
+	Reglas               string `json:"reglas"`
+	Linea                string `json:"linea"`
+	Regla                string `json:"regla"`
+	TablaAyuda           string `json:"tabla_ayuda"`
+	FechaGasto           string `json:"fecha_gasto,omitempty"`
+	DescripcionDeclarada string `json:"descripcion_declarada,omitempty"`
+	JustificanteRef      string `json:"justificante_ref,omitempty"`
+	JustificanteHuella   string `json:"justificante_huella,omitempty"`
+	CatalogoOtrosGastos  string `json:"catalogo_otros_gastos,omitempty"`
+	TopeLinea            string `json:"tope_linea,omitempty"`
+	JustificanteLimite   string `json:"justificante_limite,omitempty"`
 }
 
 var idiomaValido = regexp.MustCompile(`^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$`)
@@ -96,6 +104,19 @@ func (t Textos) validar() error {
 			if len(k) > 128 || !texto(k) || !texto(s) {
 				return ErrTextos
 			}
+		}
+	}
+	if len(t.TiposGasto) > 128 {
+		return ErrTextos
+	}
+	for k, s := range t.TiposGasto {
+		if len(k) > 128 || !texto(k) || !texto(s) {
+			return ErrTextos
+		}
+	}
+	for _, s := range []string{r.FechaGasto, r.DescripcionDeclarada, r.JustificanteRef, r.JustificanteHuella, r.CatalogoOtrosGastos, r.TopeLinea, r.JustificanteLimite} {
+		if s != "" && !texto(s) {
+			return ErrTextos
 		}
 	}
 	return nil

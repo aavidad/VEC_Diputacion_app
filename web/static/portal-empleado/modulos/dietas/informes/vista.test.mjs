@@ -90,6 +90,58 @@ test("período invertido muestra error y el filtro vacío se puede limpiar", asy
   vista.desmontar();
 });
 
+test("recargar conserva solo los filtros aplicados y descarta un período editado inválido", async () => {
+  const contenedor = raiz();
+  const vista = montarInformesDietas(contenedor, {
+    cargarDatos: async () => datos, cargarConfiguracion, traducir: t, localizacion: catalogo.localizacion,
+  });
+  await esperar();
+  const form = contenedor.querySelector("[data-dietas-informes-filtros]");
+  const [persona, unidad] = form.querySelectorAll("select");
+  const [desde, hasta] = form.querySelectorAll("input");
+  persona.value = "persona-demo-01"; unidad.value = "unidad-demo-01";
+  desde.value = "2026-09-10"; hasta.value = "2026-09-30";
+  form.listeners.submit({ preventDefault() {} });
+  assert.deepEqual(contenedor.querySelectorAll("tbody")[0].children.map((fila) => fila.children[0].textContent), ["DI-004"]);
+
+  persona.value = "persona-demo-02"; unidad.value = "unidad-demo-02";
+  desde.value = "2026-09-30"; hasta.value = "2026-09-01";
+  form.listeners.submit({ preventDefault() {} });
+  assert.equal(desde.attrs["aria-invalid"], "true");
+  await vista.recargar();
+  assert.deepEqual([persona.value, unidad.value, desde.value, hasta.value],
+    ["persona-demo-01", "unidad-demo-01", "2026-09-10", "2026-09-30"]);
+  assert.equal(desde.attrs["aria-invalid"], undefined);
+  assert.deepEqual(contenedor.querySelectorAll("tbody")[0].children.map((fila) => fila.children[0].textContent), ["DI-004"]);
+  assert.match(contenedor.querySelector("[data-dietas-informes-estado]").textContent, /1/u);
+  vista.desmontar();
+});
+
+test("recargar conserva una persona y unidad aplicadas aunque desaparezcan de la fuente", async () => {
+  const contenedor = raiz(); let lecturas = 0;
+  const vista = montarInformesDietas(contenedor, {
+    cargarDatos: async () => {
+      lecturas += 1;
+      return lecturas === 1 ? datos : { ...datos, registros: datos.registros.filter((fila) => fila.persona_ref !== "persona-demo-04") };
+    }, cargarConfiguracion, traducir: t, localizacion: catalogo.localizacion,
+  });
+  await esperar();
+  const form = contenedor.querySelector("[data-dietas-informes-filtros]");
+  const [persona, unidad] = form.querySelectorAll("select");
+  persona.value = "persona-demo-04"; unidad.value = "unidad-demo-03";
+  form.listeners.submit({ preventDefault() {} });
+  assert.equal(contenedor.querySelectorAll("tbody")[0].children.length, 2);
+  await vista.recargar();
+  assert.deepEqual([persona.value, unidad.value], ["persona-demo-04", "unidad-demo-03"]);
+  assert.equal(persona.children.find((opcion) => opcion.value === persona.value).textContent, "Eva Torres");
+  assert.equal(unidad.children.find((opcion) => opcion.value === unidad.value).textContent, "Medio Ambiente");
+  assert.equal(contenedor.querySelectorAll("tbody").length, 0);
+  assert.match(texto(contenedor), /No hay informes/u);
+  form.querySelectorAll("button")[1].listeners.click();
+  assert.equal(contenedor.querySelectorAll("tbody")[0].children.length, 6);
+  vista.desmontar();
+});
+
 test("datos alterados no producen cifras y una nueva carga válida permite recuperarse", async () => {
   const contenedor = raiz(); let intento = 0;
   const vista = montarInformesDietas(contenedor, { cargarDatos: async () => {

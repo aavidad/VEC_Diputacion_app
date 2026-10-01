@@ -1,0 +1,16 @@
+# Principal física POST AD139/140, sin reaplicar CT155/156 pendientes.
+# Aplicar cada UP una sola vez en este orden causal; ensayo en clon privado.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000136_custodia_firmado_nucleo.up.sql
+deploy/postgresql/contexto_actor_v1/migraciones/000018_persona_candidato_incorporacion.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000127_consumidor_vinculo_categoria_rpt_ct.up.sql
+deploy/postgresql/contratacion_temporal/migraciones/000154_vinculo_categoria_rpt_prospectivo.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000128_consumidor_consulta_persona_aceptacion_ct_bolsa.up.sql
+deploy/postgresql/bolsa_llamamientos/migraciones/000067_persona_aceptacion_ct.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000131_consumidor_consulta_anclaje_aceptacion_ct_bolsa.up.sql
+deploy/postgresql/bolsa_llamamientos/migraciones/000068_anclaje_aceptacion_incorporacion_ct.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000129_consumidor_plan_incorporacion_personal_ct.up.sql
+deploy/postgresql/personal/migraciones/000023_plan_incorporacion_ct.up.sql
+deploy/postgresql/personal/migraciones/000024_catalogo_clases_multilingue.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000130_consumidor_incorporacion_personal_b2.up.sql
+deploy/postgresql/contratacion_temporal/migraciones/000160_incorporacion_personal_b2_fisica.up.sql
+deploy/postgresql/contratacion_temporal/migraciones/000161_cese_incorporacion_personal_b2_fisica.up.sql
