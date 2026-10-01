@@ -98,11 +98,12 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     ["modulos/contratacion-temporal/vista-expedientes.js", "20261001-ct-firma-verificador-v2"],
     ["modulos/contratacion-temporal/seguimiento-cese.js", vigente],
     ["modulos/contratacion-temporal/circuito-firma.js", "20261001-ct-firma-verificador-v2"],
-    ["modulos/contratacion-temporal/formulario-llamamiento.js", "20261001-f-ct-foco-v1"],
-    ["modulos/contratacion-temporal/vista-expedientes-fiscalizacion.js", "20261001-f-ct-foco-v1"],
-    ["modulos/contratacion-temporal/vista-expedientes.js", "20261001-f-ct-foco-v1"],
-    ["portal-modulos-coordinador.js", "20261001-f-ct-foco-v1"],
-    ["portal.js", "20261001-f-ct-foco-v1"],
+    ["modulos/contratacion-temporal/formulario-llamamiento.js", "20261001-f-ct-validacion-v1"],
+    ["modulos/contratacion-temporal/renderizado-llamamiento.js", "20261001-f-ct-validacion-v1"],
+    ["modulos/contratacion-temporal/vista-expedientes-fiscalizacion.js", "20261001-f-ct-validacion-v1"],
+    ["modulos/contratacion-temporal/vista-expedientes.js", "20261001-f-ct-validacion-v1"],
+    ["portal-modulos-coordinador.js", "20261001-f-ct-validacion-v1"],
+    ["portal.js", "20261001-f-ct-validacion-v1"],
   ]);
   const archivos = ["index.html"];
   const pendientes = [""];
