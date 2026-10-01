@@ -22,7 +22,7 @@ Estado comprobado sobre `origin/main` `0a62a3ea6` el 1 de octubre de 2026. El ca
 
 ## Estimación
 
-Trabajo restante con un equipo Codex y varios subagentes, PR pequeñas de 1–3 horas, revisión independiente y CI; jornada de referencia de ocho horas. Las horquillas incluyen integración y pruebas del equipo dueño, **suponiendo disponibles** fuentes, decisiones y servicios externos.
+Estimación inicial de los cortes descritos, pendiente de contrastar con los equipos dueños: un equipo Codex con varios subagentes, PR pequeñas de 1–3 horas, revisión independiente y CI; jornada de referencia de ocho horas. Las horquillas incluyen consumidores, integración y pruebas de J, **suponiendo disponibles** fuentes, decisiones y servicios externos. No estiman el cierre completo del gobierno ANA-001, del cuadro transversal ANA-002 ni las alertas ANA-005 sin regla aprobada.
 
 | Minitarea | Horas de un equipo |
 | --- | ---: |
@@ -34,7 +34,7 @@ Trabajo restante con un equipo Codex y varios subagentes, PR pequeñas de 1–3 
 
 **Total de implementación pendiente:** 99–154 horas, unas **13–20 jornadas de un equipo**. Con dos equipos que trabajen en paralelo en Certificados y Analítica, con D/Personal/F como dueños de sus contratos y una integración final, **8–13 jornadas de calendario de trabajo**. No se ganan todas las horas en paralelo: ANA-005 depende de la frontera CT y CER emisión depende de Personal y Documentos.
 
-**Fuera de nuestro control:** Personal B debe aportar servicios autorizados (8–16 h de su equipo tras acordar el contrato); D/F deben fijar perfiles, orden SQL y transacción de estadísticas (16–24 h de sus equipos, coordinadas con la minitarea 5); Documentos/firma y servidor deben aportar el circuito de firma/verificación (16–32 h de sus equipos si faltan adaptadores); RRHH debe decidir fuentes, plantillas, firmantes, gobierno y finalidades. Estas dependencias pueden añadir **5–9 jornadas de trabajo ajeno** si no están hechas y pueden solaparse parcialmente con las nuestras. La espera de decisiones institucionales y de disponibilidad del servidor no tiene fecha acreditada; no cabe convertirla en días de calendario cerrados.
+**Fuera de nuestro control:** Personal B debe aportar servicios autorizados (8–16 h de su equipo tras acordar el contrato); D/F deben fijar perfiles, orden SQL y transacción de estadísticas (16–24 h de sus equipos, coordinadas con la minitarea 5); Documentos/firma y servidor deben aportar el circuito de firma/verificación (16–32 h de sus equipos si faltan adaptadores); RRHH debe decidir fuentes, plantillas, firmantes, gobierno y finalidades. Son **5–9 jornadas agregadas de esfuerzo ajeno**, que pueden solaparse con nuestras 8–13 jornadas y no se suman sin más al plazo. Las horas se conciliarán con los dueños para no contar dos veces un mismo contrato. La espera de decisiones institucionales y de disponibilidad del servidor no tiene fecha acreditada; no cabe convertirla en días de calendario cerrados.
 
 ## Decisiones pendientes de RRHH
 
