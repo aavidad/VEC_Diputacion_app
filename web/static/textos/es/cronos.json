@@ -589,7 +589,8 @@
     "archivar_aviso": "Archivar el aviso de {permiso}",
     "aviso_archivado": "Aviso archivado.",
     "aviso_ya_archivado": "Este aviso ya estaba archivado.",
-    "error_archivar": "No se pudo archivar el aviso. Puede reintentarlo."
+    "error_archivar": "No se pudo archivar el aviso. Puede reintentarlo.",
+    "avisos_reintentar_consulta": "Volver a consultar"
   },
   "notificaciones": {
     "notificaciones_titulo": "Notificaciones a RRHH",

@@ -589,7 +589,8 @@
     "archivar_aviso": "Archive the notice for {permiso}",
     "aviso_archivado": "Notice archived.",
     "aviso_ya_archivado": "This notice was already archived.",
-    "error_archivar": "The notice could not be archived. You can retry."
+    "error_archivar": "The notice could not be archived. You can retry.",
+    "avisos_reintentar_consulta": "Refresh notices"
   },
   "notificaciones": {
     "notificaciones_titulo": "Notifications to HR",
