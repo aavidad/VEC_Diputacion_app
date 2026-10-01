@@ -642,6 +642,7 @@
     "sin_atendidas": "There are no handled notifications.",
     "error_no_competente_notificacion": "You are not responsible for handling this notification.",
     "error_atender": "It could not be marked as handled. You can retry.",
-    "bandeja_demasiado_grande": "There are more than 500 notifications and they cannot all be shown at once. Please contact the VEC support team."
+    "bandeja_demasiado_grande": "There are more than 500 notifications and they cannot all be shown at once. Please contact the VEC support team.",
+    "notificaciones_reintentar_consulta": "Refresh notifications"
   }
 }

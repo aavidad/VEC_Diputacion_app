@@ -642,6 +642,7 @@
     "sin_atendidas": "No hay notificaciones atendidas.",
     "error_no_competente_notificacion": "No le corresponde atender esta notificación.",
     "error_atender": "No se pudo marcar como atendida. Puede reintentarlo.",
-    "bandeja_demasiado_grande": "Hay más de 500 notificaciones y no se pueden mostrar todas a la vez. Avise al equipo de soporte de VEC."
+    "bandeja_demasiado_grande": "Hay más de 500 notificaciones y no se pueden mostrar todas a la vez. Avise al equipo de soporte de VEC.",
+    "notificaciones_reintentar_consulta": "Volver a consultar"
   }
 }
