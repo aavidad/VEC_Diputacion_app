@@ -1,0 +1,367 @@
+#!/usr/bin/env node
+// Chrome y HTTP locales reales. Las expectativas no sustituyen respuestas.
+import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
+import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { createRequire } from "node:module";
+import { homedir, tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const propia = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const ayuda = `node scripts/probar_provision_navegador.mjs [--source-root RUTA] [--server-bin RUTA] [--escenarios ID,ID]
+--verificar-configuracion comprueba el contrato sin arrancar Go ni Chrome.
+CHROME_BIN, PLAYWRIGHT_MODULE y GO_BIN seleccionan herramientas locales ya instaladas.
+La fuente debe contener vec-baremador-web y la interfaz Provisión agrupados.
+Acta/capturas: ~/.local/state/vec-codexb-provision-20261001/run-*/`;
+const args = process.argv.slice(2), opciones = {};
+for (let i = 0; i < args.length; i++) {
+  const clave = args[i];
+  if (["--help", "--verificar-configuracion"].includes(clave)) opciones[clave] = true;
+  else {
+    assert(["--source-root", "--server-bin", "--escenarios"].includes(clave), `argumento desconocido: ${clave}`);
+    assert(args[i + 1] && !args[i + 1].startsWith("--"), `falta valor: ${clave}`);
+    assert(!(clave in opciones), `argumento repetido: ${clave}`);
+    opciones[clave] = args[++i];
+  }
+}
+if (opciones["--help"]) { console.log(ayuda); process.exit(0); }
+const fuente = resolve(opciones["--source-root"] ?? propia);
+const contrato = JSON.parse(await readFile(join(propia, "scripts/recorridos/provision_expectativas.json"), "utf8"));
+assert.equal(contrato.schema_version, "vec.recorrido_provision.v1");
+for (const clave of ["pagina", "configuracion", "simulacion", "endpoint_institucional_ausente"]) {
+  assert(/^\/(?!\/)[^?#]+$/u.test(contrato[clave]), `ruta local inválida: ${clave}`);
+}
+assert.deepEqual(contrato.idiomas, ["es", "en"]);
+assert.deepEqual(contrato.anchos, [1440, 390]);
+assert(Object.values(contrato.selectores).every((s) => typeof s === "string" && s.length > 0));
+const elegidos = opciones["--escenarios"]?.split(",") ?? [];
+const escenarios = elegidos.map((id) => {
+  const escenario = contrato.escenarios.find((e) => e.id === id);
+  assert(escenario, `escenario pendiente o desconocido: ${id}`);
+  assert(escenario.selector && /^\/api\/provision\//u.test(escenario.ruta));
+  assert(Number.isInteger(escenario.estado_http) && escenario.esperado && Object.keys(escenario.esperado).length);
+  return escenario;
+});
+if (opciones["--verificar-configuracion"]) { console.log("Contrato Provisión válido; navegador no ejecutado."); process.exit(0); }
+
+const informe = { esquema: contrato.schema_version, inicio: new Date().toISOString(), estado: "en_curso",
+  alcance: "simulador_interno_sintetico_local", transporte: "HTTP real, sin interceptar APIs",
+  pendientes: ["portal_institucional", "PostgreSQL", "identidad_y_autorizacion", "firma", "efectos_administrativos",
+    "zoom_nativo_200_por_ciento", "revision_visual_independiente"],
+  escenariosSolicitados: elegidos, casos: [] };
+const procesos = new Set(), cancelacion = new AbortController();
+let temporal, artefactos, browser;
+const matar = (p, senal = "SIGTERM") => {
+  if (p?.exitCode === null && p.signalCode === null) {
+    try { process.kill(-p.pid, senal); } catch (e) { if (e.code !== "ESRCH") throw e; }
+  }
+};
+const cancelar = () => {
+  cancelacion.abort(); for (const p of procesos) matar(p); void browser?.close().catch(() => {});
+};
+process.on("SIGINT", cancelar); process.on("SIGTERM", cancelar);
+const limite = setTimeout(cancelar, 8 * 60 * 1000);
+
+function proceso(programa, argumentos, listo) {
+  cancelacion.signal.throwIfAborted();
+  return new Promise((aceptar, rechazar) => {
+    const p = spawn(programa, argumentos, { cwd: fuente, detached: true, stdio: ["ignore", "pipe", "pipe"],
+      env: { ...process.env, GOTOOLCHAIN: "local", GOPROXY: "off", GOSUMDB: "off" } });
+    procesos.add(p); let salida = "", error = "", entregado = false;
+    const tiempo = setTimeout(() => { matar(p, "SIGKILL"); rechazar(new Error("proceso excede su límite")); }, listo ? 15000 : 180000);
+    p.stdout.on("data", (b) => {
+      salida += b;
+      if (salida.length > 1048576) { matar(p); rechazar(new Error("salida excesiva")); }
+      const valor = listo?.(salida);
+      if (valor && !entregado) { entregado = true; clearTimeout(tiempo); aceptar(valor); }
+    });
+    p.stderr.on("data", (b) => { error = (error + b).slice(-2000); });
+    p.once("error", (e) => { clearTimeout(tiempo); procesos.delete(p); rechazar(e); });
+    p.once("close", (codigo) => {
+      clearTimeout(tiempo); procesos.delete(p);
+      if (listo && entregado) return;
+      if (codigo === 0 && !listo) aceptar(salida.trim());
+      else rechazar(new Error(`${programa} terminó (${codigo}): ${error}`));
+    });
+  });
+}
+
+function vigilarAlmacenamiento() {
+  globalThis.__vecAlmacenamiento = [];
+  const registrar = (nombre) => globalThis.__vecAlmacenamiento.push(nombre);
+  for (const nombre of ["setItem", "removeItem", "clear"]) {
+    const original = Storage.prototype[nombre];
+    Storage.prototype[nombre] = function (...args) { registrar(`Storage.${nombre}`); return original.apply(this, args); };
+  }
+  const cookie = Object.getOwnPropertyDescriptor(Document.prototype, "cookie");
+  if (cookie?.set) Object.defineProperty(Document.prototype, "cookie", {
+    ...cookie, set(v) { registrar("cookie"); return cookie.set.call(this, v); },
+  });
+  for (const [objeto, nombre] of [[indexedDB, "open"], [indexedDB, "deleteDatabase"],
+    [globalThis.caches, "open"], [navigator.serviceWorker, "register"]]) {
+    if (objeto?.[nombre]) {
+      const original = objeto[nombre].bind(objeto);
+      objeto[nombre] = (...args) => { registrar(nombre); return original(...args); };
+    }
+  }
+}
+
+function observar(page, origen) {
+  const errores = [], solicitudes = [], respuestas = [], pendientes = new Set();
+  page.on("pageerror", (e) => errores.push({ tipo: "js", texto: e.message }));
+  page.on("console", (m) => { if (m.type() === "error") errores.push({ tipo: "consola", texto: m.text() }); });
+  page.on("request", (r) => solicitudes.push({ fuera: new URL(r.url()).origin !== origen,
+    credenciales: Boolean(r.headers().cookie || r.headers().authorization) }));
+  page.on("response", (r) => {
+    const tarea = r.allHeaders().then((h) => respuestas.push({ ruta: new URL(r.url()).pathname,
+      metodo: r.request().method(), estado: r.status(), cookie: Boolean(h["set-cookie"]) }));
+    pendientes.add(tarea); tarea.then(() => pendientes.delete(tarea), () => pendientes.delete(tarea));
+  });
+  return async (context, caso) => {
+    while (pendientes.size) await Promise.all([...pendientes]);
+    assert(solicitudes.every((s) => !s.fuera && !s.credenciales), "petición externa o con credenciales");
+    assert(!respuestas.some((r) => r.cookie), "Set-Cookie recibido");
+    assert.deepEqual(await context.cookies(), [], "cookies conservadas");
+    const storage = await page.evaluate(async () => ({ intentos: globalThis.__vecAlmacenamiento,
+      local: localStorage.length, sesion: sessionStorage.length, bases: await indexedDB.databases(), caches: await caches.keys() }));
+    assert.deepEqual(storage, { intentos: [], local: 0, sesion: 0, bases: [], caches: [] }, "almacenamiento web usado");
+    const provocados = respuestas.filter((r) => r.ruta === contrato.simulacion && r.estado === 400
+      || r.ruta === contrato.endpoint_institucional_ausente && r.estado === 404);
+    const red = errores.filter((e) => e.tipo === "consola" && /^Failed to load resource:.*(?:400|404)/u.test(e.texto));
+    assert(red.length <= provocados.length, "diagnóstico de red sin rechazo provocado");
+    assert.deepEqual(errores.filter((e) => !red.includes(e)), [], "errores JS o consola inesperados");
+    assert(respuestas.every((r) => r.estado < 400 || provocados.includes(r)), "respuesta HTTP inesperada");
+    caso.vigilancia = { erroresJS: 0, erroresConsolaInesperados: 0, diagnosticosRedProvocados: red.length,
+      llamadasExternas: 0, cookies: 0, almacenamiento: storage };
+    caso.http = respuestas;
+  };
+}
+
+async function geometria(page) {
+  const medidas = await page.evaluate(() => ({ ancho: innerWidth, documento: document.documentElement.scrollWidth,
+    cuerpo: document.body.scrollWidth, tablas: [...document.querySelectorAll(".tabla-contenedor")]
+      .filter((e) => e.getClientRects().length).map((e) => ({ ancho: e.clientWidth, contenido: e.scrollWidth,
+        overflow: getComputedStyle(e).overflowX })) }));
+  assert(medidas.documento <= medidas.ancho + 1 && medidas.cuerpo <= medidas.ancho + 1, "desbordamiento horizontal global");
+  assert(medidas.tablas.every((t) => t.contenido <= t.ancho + 1 || ["auto", "scroll"].includes(t.overflow)), "tabla sin scroll interno");
+  return medidas;
+}
+
+async function teclado(page) {
+  await page.evaluate(() => { document.body.tabIndex = -1; document.body.focus(); document.body.removeAttribute("tabindex"); });
+  const vistos = new Set();
+  const maximo = await page.locator('button:visible:not([disabled]),input:visible:not([disabled]),select:visible:not([disabled]),summary:visible,a:visible,[tabindex="0"]:visible').count() * 3 + 5;
+  let primero;
+  for (let i = 0; i < maximo; i++) {
+    await page.keyboard.press("Tab");
+    // Espera el desplazamiento nativo de foco; no desplaza la página por código.
+    await page.waitForFunction(() => {
+      const r = document.activeElement.getBoundingClientRect();
+      return r.width > 0 && r.height > 0 && r.right > 0 && r.left < innerWidth && r.bottom > 0 && r.top < innerHeight;
+    }, undefined, { timeout: 1200 }).catch(() => {});
+    const foco = await page.evaluate(() => {
+      const e = document.activeElement, r = e.getBoundingClientRect(), s = getComputedStyle(e);
+      const encima = document.elementFromPoint(Math.max(0, Math.min(innerWidth - 1, r.x + r.width / 2)),
+        Math.max(0, Math.min(innerHeight - 1, r.y + r.height / 2)));
+      return { tag: e.tagName, clave: e.dataset.foco || e.id || e.name || e.outerHTML.slice(0, 100),
+        rect: { x: r.x, y: r.y, ancho: r.width, alto: r.height },
+        visible: r.width > 0 && r.height > 0 && r.right > 0 && r.left < innerWidth && r.bottom > 0 && r.top < innerHeight,
+        tapado: encima !== e && !e.contains(encima) && !encima?.contains(e),
+        indicador: parseFloat(s.outlineWidth) > 0 && s.outlineStyle !== "none" || s.boxShadow !== "none" };
+    });
+    if (foco.tag === "BODY") continue;
+    assert(foco.visible && !foco.tapado && foco.indicador, `foco invisible, tapado o sin indicador: ${JSON.stringify(foco)}`);
+    primero ??= foco.clave;
+    if (vistos.size > 1 && foco.clave === primero) break;
+    vistos.add(foco.clave);
+  }
+  assert(vistos.size >= 4, "teclado no alcanza controles principales");
+  return [...vistos];
+}
+
+async function responder(page, selector, ruta, estado = 200) {
+  const espera = page.waitForResponse((r) => new URL(r.url()).pathname === ruta && r.request().method() === "POST");
+  await page.locator(selector).click();
+  const r = await espera; assert.equal(r.status(), estado);
+  const bytes = await r.body();
+  return { datos: JSON.parse(bytes.toString()), sha256: createHash("sha256").update(bytes).digest("hex"),
+    entrada: r.request().postData() };
+}
+
+async function compararVista(page, datos, idioma, catalogo) {
+  assert.equal(datos.alcance, "simulacion"); assert.equal(datos.estado, "borrador");
+  assert(datos.valoraciones.length > 0, "respuesta sin valoraciones");
+  const bloques = page.locator(".cuerpo-panel > details");
+  await page.waitForFunction((cantidad) => document.querySelectorAll(".cuerpo-panel > details").length === cantidad,
+    datos.valoraciones.length);
+  for (const [i, valoracion] of datos.valoraciones.entries()) {
+    const r = valoracion.resultado, bloque = bloques.nth(i);
+    const puntos = (v) => {
+      const n = BigInt(v), fraccion = String(n % 1000000n).padStart(6, "0").replace(/0+$/u, "");
+      const formato = new Intl.NumberFormat(idioma);
+      const separador = formato.formatToParts(1.1).find((p) => p.type === "decimal").value;
+      return formato.format(n / 1000000n) + (fraccion ? separador + fraccion : "");
+    };
+    assert.equal(await bloque.locator("dd").last().textContent(), r.total === null ? catalogo.estados.sin_dato : puntos(r.total));
+    const filas = bloque.locator("table").nth(1).locator("tbody > tr");
+    assert.equal(await filas.count(), r.desglose.length);
+    for (const [j, d] of r.desglose.entries()) {
+      assert.equal(await filas.nth(j).locator("td").last().textContent(),
+        d.estado === "pendiente_dato" ? catalogo.estados.sin_dato : puntos(d.resultado), "desglose visible distinto del servidor");
+    }
+  }
+}
+
+async function preferencias(page) {
+  const s = contrato.selectores;
+  await page.locator(s.personal).click();
+  for (const selector of [s.quitar_primero, s.quitar_segundo]) {
+    if (await page.locator(selector).count()) await page.locator(selector).click();
+  }
+  await page.locator(s.puestos).click();
+  for (const selector of [s.seleccionar_primero, s.seleccionar_segundo]) {
+    if (await page.locator(selector).isEnabled()) await page.locator(selector).click();
+  }
+  await page.locator(s.personal).click();
+  for (const [selector, siguiente] of [[s.bajar_primero, s.subir_primero], [s.subir_primero, s.bajar_primero]]) {
+    await page.locator(selector).focus(); await page.keyboard.press("Enter");
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(r)));
+    assert(await page.locator(siguiente).evaluate((e) => e === document.activeElement), "mover preferencia pierde foco en el extremo");
+  }
+}
+
+async function recorrer(url, idioma, ancho, reflujo = false) {
+  cancelacion.signal.throwIfAborted();
+  const caso = { idioma, anchoCSS: ancho, estado: "en_curso",
+    ...(reflujo ? { reflujo: "720 CSS px con escala 2; no acredita zoom nativo" } : {}) };
+  informe.casos.push(caso);
+  const context = await browser.newContext({ viewport: { width: ancho, height: reflujo ? 450 : 900 },
+    deviceScaleFactor: reflujo ? 2 : 1, locale: idioma, serviceWorkers: "block" });
+  await context.addInitScript(vigilarAlmacenamiento);
+  const page = await context.newPage(); page.setDefaultTimeout(12000);
+  const comprobar = observar(page, url.origin), prefijo = `${idioma}-${ancho}`;
+  try {
+    const destino = new URL(contrato.pagina, url); destino.searchParams.set("lang", idioma);
+    const configuracion = page.waitForResponse((r) => new URL(r.url()).pathname === contrato.configuracion);
+    assert.equal((await page.goto(destino.href, { waitUntil: "networkidle" })).status(), 200);
+    assert.equal((await configuracion).status(), 200);
+    await page.locator(contrato.selectores.raiz).waitFor();
+    const catalogo = JSON.parse(await readFile(join(fuente, `web/static/textos/${idioma}/provision.json`), "utf8"));
+    assert.equal(await page.locator("html").getAttribute("lang"), idioma);
+    caso.inicio = await geometria(page);
+    await page.screenshot({ path: join(artefactos, `${prefijo}-inicio.png`), fullPage: false });
+    caso.teclado = await teclado(page);
+    await preferencias(page);
+    caso.preferencias = await geometria(page);
+    await page.screenshot({ path: join(artefactos, `${prefijo}-preferencias.png`), fullPage: false });
+    await page.locator(contrato.selectores.valoracion).click();
+    const primera = await responder(page, contrato.selectores.simular, contrato.simulacion);
+    const repetida = await responder(page, contrato.selectores.simular, contrato.simulacion);
+    assert.equal(primera.entrada, repetida.entrada, "UI cambia entrada al repetir");
+    assert.deepEqual(primera.datos, repetida.datos, "desglose no determinista");
+    assert.equal(primera.sha256, repetida.sha256, "mismos bytes cambian respuesta");
+    await compararVista(page, repetida.datos, idioma, catalogo);
+    caso.simulacion = { sha256: primera.sha256, respuesta: primera.datos, reproducida: true };
+    caso.resultado = await geometria(page);
+    await page.screenshot({ path: join(artefactos, `${prefijo}-valoracion.png`), fullPage: false });
+    await page.locator(contrato.selectores.convocatoria).click();
+    const campo = page.locator(contrato.selectores.maximo), valor = await campo.inputValue();
+    await campo.fill("abc"); await page.keyboard.press("Tab");
+    assert.equal(await campo.getAttribute("aria-invalid"), "true", "campo inválido sin indicación accesible");
+    assert.equal(await campo.inputValue(), "abc", "validación pierde dato que debe corregirse");
+    await page.locator(contrato.selectores.valoracion).click();
+    assert(await page.locator(contrato.selectores.simular).isDisabled(), "configuración inválida permite simular");
+    assert.equal(await page.locator('[data-provision-aviso]').textContent(), catalogo.configuracion.invalida,
+      "configuración inválida sin explicación localizada");
+    await page.locator(contrato.selectores.convocatoria).click(); await campo.fill(valor); await page.keyboard.press("Tab");
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(r)));
+    assert(!(await campo.evaluate((e) => e === document.activeElement)), "editar configuración atrapa Tab en el campo");
+    await page.locator(contrato.selectores.valoracion).click();
+    assert(await page.locator(contrato.selectores.simular).isEnabled(), "corrección no recupera simulación");
+    caso.validacionVisible = { datoConservado: true, configuracionInvalidaBloqueada: true, correccionRecuperada: true };
+    caso.escenarios = [];
+    for (const escenario of escenarios) {
+      for (const paso of escenario.pasos ?? []) {
+        const control = page.locator(paso.selector);
+        if (paso.accion === "click") await control.click();
+        else if (paso.accion === "fill") await control.fill(paso.valor);
+        else if (paso.accion === "selectOption") await control.selectOption(paso.valor);
+        else throw new Error(`acción de escenario no admitida: ${paso.accion}`);
+      }
+      const r = await responder(page, escenario.selector, escenario.ruta, escenario.estado_http);
+      for (const [puntero, esperado] of Object.entries(escenario.esperado)) {
+        const valor = puntero.split("/").slice(1).reduce((v, k) => v?.[k.replaceAll("~1", "/").replaceAll("~0", "~")], r.datos);
+        assert.deepEqual(valor, esperado, `resultado escenario ${escenario.id}: ${puntero}`);
+      }
+      if (escenario.repetir) {
+        const repeticion = await responder(page, escenario.selector, escenario.ruta, escenario.estado_http);
+        assert.equal(repeticion.sha256, r.sha256, `escenario ${escenario.id} no reproducible`);
+      }
+      caso.escenarios.push({ id: escenario.id, sha256: r.sha256 });
+    }
+    // Rechazos reales del servidor privado. No se provocan errores contra servicios ajenos.
+    const errores = await page.evaluate(async ({ simulacion, endpoint_institucional_ausente }) => {
+      const roto = await fetch(simulacion, { method: "POST", credentials: "omit", headers: { "Content-Type": "application/json" }, body: "{" });
+      const ausente = await fetch(endpoint_institucional_ausente, { credentials: "omit" });
+      return { roto: roto.status, ausente: ausente.status };
+    }, contrato);
+    assert.deepEqual(errores, { roto: 400, ausente: 404 }); caso.rechazos = errores;
+    await comprobar(context, caso); caso.estado = "pasado";
+  } catch (e) {
+    caso.estado = "fallido"; caso.error = e.message;
+    await page.screenshot({ path: join(artefactos, `${prefijo}-fallo.png`), fullPage: true }).catch(() => {});
+    throw e;
+  } finally { await context.close().catch(() => {}); }
+}
+
+try {
+  const evidencia = join(homedir(), ".local/state/vec-codexb-provision-20261001");
+  await mkdir(evidencia, { recursive: true, mode: 0o700 });
+  artefactos = await mkdtemp(join(evidencia, "run-")); temporal = await mkdtemp(join(tmpdir(), "vec-provision-proceso-"));
+  console.log(`Artefactos: ${artefactos}`);
+  informe.commitFuente = await proceso("git", ["rev-parse", "HEAD"]);
+  informe.cambiosFuente = await proceso("git", ["status", "--short"]);
+  const require = createRequire(import.meta.url); let sdk;
+  for (const modulo of [process.env.PLAYWRIGHT_MODULE, "playwright", "playwright-core",
+    "/home/alberto/.local/share/openclaw-operativo/app/node_modules/playwright-core"].filter(Boolean)) {
+    try { sdk = require(modulo); break; } catch (e) { if (e.code !== "MODULE_NOT_FOUND") throw e; }
+  }
+  assert(sdk?.chromium, "Playwright no instalado; no se descargan dependencias");
+  const chrome = process.env.CHROME_BIN ?? "/usr/bin/google-chrome"; await access(chrome);
+  let binario = opciones["--server-bin"] && resolve(opciones["--server-bin"]);
+  if (!binario) {
+    const go = process.env.GO_BIN ?? await proceso("bash", ["scripts/seleccionar_toolchain_go_local.sh"]);
+    binario = join(temporal, "vec-baremador-web");
+    await proceso(go, ["build", "-buildvcs=false", "-o", binario, "./cmd/vec-baremador-web"]);
+  }
+  informe.sha256Binario = createHash("sha256").update(await readFile(binario)).digest("hex");
+  const url = await proceso(binario, ["--puerto", "0", "--web-dir", join(fuente, "web/static")], (salida) => {
+    const direccion = salida.match(/http:\/\/127\.0\.0\.1:\d+\/[^\s]+/u); return direccion && new URL(direccion[0]);
+  });
+  browser = await sdk.chromium.launch({ executablePath: chrome, headless: true,
+    args: ["--disable-background-networking", "--disable-component-update", "--no-first-run"] });
+  informe.chrome = browser.version();
+  for (const idioma of contrato.idiomas) {
+    for (const ancho of contrato.anchos) { console.log(`Provisión ${idioma} ${ancho}px`); await recorrer(url, idioma, ancho); }
+    await recorrer(url, idioma, 720, true);
+  }
+  informe.estado = "pasado";
+} catch (e) {
+  informe.estado = cancelacion.signal.aborted ? "interrumpido" : "fallido"; informe.error = e.message;
+  console.error(e.message); process.exitCode = 1;
+} finally {
+  clearTimeout(limite); await browser?.close().catch(() => {});
+  for (const p of procesos) matar(p);
+  for (const p of [...procesos]) {
+    if (p.exitCode === null && p.signalCode === null) {
+      await Promise.race([new Promise((r) => p.once("close", r)), new Promise((r) => setTimeout(r, 2500))]); matar(p, "SIGKILL");
+    }
+  }
+  if (temporal) await rm(temporal, { recursive: true, force: true });
+  informe.fin = new Date().toISOString();
+  if (artefactos) await writeFile(join(artefactos, "resultado.json"), JSON.stringify(informe, null, 2) + "\n", { mode: 0o600 });
+  console.log(`${informe.estado}: ${artefactos ? join(artefactos, "resultado.json") : "sin artefactos"}`);
+  process.removeListener("SIGINT", cancelar); process.removeListener("SIGTERM", cancelar);
+}

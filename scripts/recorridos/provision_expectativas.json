@@ -1,0 +1,25 @@
+{
+  "schema_version": "vec.recorrido_provision.v1",
+  "pagina": "/portal-empleado/modulos/provision/",
+  "configuracion": "/api/provision/v1/procesos-locales",
+  "simulacion": "/api/provision/v1/procesos-locales/simulaciones",
+  "endpoint_institucional_ausente": "/api/provision/v1/solicitudes",
+  "idiomas": ["es", "en"],
+  "anchos": [1440, 390],
+  "selectores": {
+    "raiz": "#espacio-trabajo",
+    "convocatoria": "[data-foco=\"vista-convocatoria\"]",
+    "puestos": "[data-foco=\"vista-puestos\"]",
+    "personal": "[data-foco=\"vista-personal\"]",
+    "valoracion": "[data-foco=\"vista-valoracion\"]",
+    "seleccionar_primero": "[data-foco=\"seleccionar-puesto:sintetico:1\"]",
+    "seleccionar_segundo": "[data-foco=\"seleccionar-puesto:sintetico:2\"]",
+    "bajar_primero": "[data-foco=\"abajo-puesto:sintetico:1\"]",
+    "subir_primero": "[data-foco=\"arriba-puesto:sintetico:1\"]",
+    "quitar_primero": "[data-foco=\"quitar-puesto:sintetico:1\"]",
+    "quitar_segundo": "[data-foco=\"quitar-puesto:sintetico:2\"]",
+    "maximo": "[data-foco=\"maximo-0\"]",
+    "simular": "[data-foco=\"simular\"]"
+  },
+  "escenarios": []
+}
