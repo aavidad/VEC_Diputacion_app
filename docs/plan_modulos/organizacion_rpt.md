@@ -42,8 +42,8 @@ provisión o informes de vacantes. No modificar originales de RRHH.
 | RPT-002 | Plantilla por ejercicio, dotación presupuestaria, actos de creación/amortización/reserva y vínculo OEP, con historia. |
 | RPT-003 | Inventario individual reconciliado y condiciones completas del puesto: requisitos, funciones, provisión, nivel, complementos y vigencia. |
 | RPT-004 | Montaje de consulta/importación existentes, fuentes y aprobaciones reales; comparación conectada a lecturas autorizadas. |
-| RPT-005 | Circuito completo persona–relación–plaza–puesto, titularidad, fechas, actos y reserva. Propietario: Personal B. |
-| RPT-006 | Proyecciones distintas de dotación vacante, puesto sin ocupante y necesidad cubrible, con cobertura e incertidumbre. Coordinar con B. |
+| RPT-005 | Circuito completo persona–relación–plaza–puesto, titularidad, fechas, actos y reserva. Propietario de RPT-005: M; B aporta la relación de la persona por puerto. |
+| RPT-006 | Proyecciones distintas de dotación vacante, puesto sin ocupante y necesidad cubrible, con cobertura e incertidumbre. Propietario de RPT-006: M; coordinar el contrato de relación con B. |
 
 El informe sintético de diferencias descrito abajo permite revisar dos cortes.
 No cubre por sí solo importación, autorización, ocupación ni vacantes reales.
@@ -103,15 +103,22 @@ No cubre por sí solo importación, autorización, ocupación ni vacantes reales
   requisitos, funciones, provisión, nivel y complementos del puesto; acuerdos,
   BOP, incidencias y comparación de versiones desde lecturas autorizadas.
 
-### 5. Completar ocupación, reserva y vacantes con Personal B
+### 5. Completar ocupación, reserva y vacantes de RPT
 
-- Propietario: B; M aporta referencias/versiones estructurales por puertos.
-- Archivos B: `registro_empleado_b2*`, montaje B2 y `registro-b2*`; M no los edita.
-- Dependencias: relaciones y actos acreditados, vínculos estructurales exactos
-  y cobertura de las fuentes; nunca deducir ocupación desde nómina o certificado.
-- SQL/servidor: revisión y ensayo por B/D sobre su propia candidata; sin tablas cruzadas.
-- Cierre: historia privada preservada y las tres proyecciones separadas,
-  sin convertir ausencia de datos en plaza vacante ni en necesidad cubrible.
+- Propietario: M, RPT-005 y RPT-006. B aporta persona y relación de servicio por
+  puerto: referencia, versión, vigencia y procedencia mínima. Sin tablas cruzadas.
+- Archivos previstos de M: `rpt_ocupaciones`, `rpt_reservas` y `rpt_vacantes` en
+  dominio, puertos, aplicación y adaptadores de Personal; consumidor RPT propio.
+  Reutilizar o extraer las operaciones B2 actuales antes de activar el reemplazo:
+  una sola autoridad de ocupación, con historia y recibos anteriores consultables.
+- Dependencias: contrato de B, vínculos plaza–puesto, actos de ocupación/reserva,
+  presupuesto y cobertura. No inferir la relación desde nómina o certificado.
+- SQL/servidor: M produce su candidata; D valida composición e instalación.
+  Reservar números y ordenar en `ORDEN_SQL_NUCLEO.md` si hacen falta cambios.
+  Ensayo y dos revisiones exactas para SQL/permisos/datos personales.
+- Cierre: ocupación y reserva con recibo recuperable; tres proyecciones separadas
+  de dotación vacante, puesto sin ocupante y necesidad cubrible. Revalidar tras
+  reinicio; una fuente ausente conserva incertidumbre y no declara vacante.
 
 ### 6. Completar tipos y relaciones de organización
 
@@ -125,6 +132,30 @@ No cubre por sí solo importación, autorización, ocupación ni vacantes reales
   reservar migración y reestimar antes de ampliarlo. No conceder permiso por cargo.
 - Cierre: consultar una relación y su rectificación por efectos y conocimiento,
   con acto, procedencia, permiso propio y acceso minimizado a referencias de personas.
+
+## Reparto de archivos con Personal
+
+La ubicación física actual es `internal/modules/personal/`; la propiedad de
+capacidad fijada por Dirección no autoriza dos escritores del mismo archivo.
+
+| Propietario | Archivos y responsabilidad |
+| --- | --- |
+| M | `domain/organizacion*.go`, `domain/importacion_organizacion_historica.go`, `domain/estructura_organizativa_publica.go`, `domain/rpt_publica.go`, `domain/comparacion_organizacion_historica.go` y sus pruebas; puertos/aplicación/adaptadores específicos de esos recorridos; `adapters/organizacionpublica`, `adapters/rptpublica`; vistas de organización/RPT y CLI del comparador. |
+| M, nuevos | `rpt_ocupaciones`, `rpt_reservas`, `rpt_vacantes` por capas y consumidor propio: RPT-005/006. Antes de crear, localizar y reutilizar el comportamiento B2 existente. |
+| B | Persona, relación de servicio, ficha, servicios y actos personales; `relacion_empleado*`, `ficha_propia*`, registro e incorporación del empleado. Publica su contrato mínimo para M. |
+| Mixtos, escritor acordado | `registro_empleado_b2*`, `interna/personal_b2_montaje.go`, `registro-b2*` y manifiesto Personal. B conserva la edición actual; M acuerda con B la extracción/transición de ocupaciones y vacantes antes de tocar estos archivos. |
+| D/común | Identidad, contexto y autorización; consume la fuente histórica de responsables, delegaciones y suplencias de M. El Portal del empleado I solo consume esa capacidad. |
+| En turno M | Padres, manifiestos web, importadores y `dudas.md`, tras LIBERO F→M y con un solo escritor. Dirección revisa e integra. |
+
+Propuesta posterior: estudiar un módulo enchufable `organizacion` al estabilizar
+los puertos con Personal. Hoy se conservan ubicación, contratos e historia;
+no duplicar dominio, tablas ni autorización para preparar esa separación.
+
+## Fase posterior, fuera de esta estimación
+
+PLA-001 (necesidades, escenarios y crédito) y PLA-002 (escenarios del capítulo I
+conciliados con presupuesto/nómina) se abordarán después. No hay programación
+ni estimación para ellos en este corte; no producen decisiones automáticas.
 
 ## Decisiones pendientes de RRHH y Sistemas
 
@@ -150,7 +181,7 @@ no activar el histórico ni abrir otro desarrollo. Después se continúa por la 
 | Fuente conservada | Estado y siguiente dependencia |
 | --- | --- |
 | `trabajo/codexm-org-busqueda-20261001@a6b9eae35` | WIP de hoja, GO independiente, Node 9/9 y Chrome focal; caché/importadores pendientes F→M, sin PR. |
-| `trabajo/codexm-rpt-informe-20261001@aaa8fa072` | [PR #305](https://github.com/aavidad/VEC_Diputacion_app/pull/305), borrador. Incluye núcleo `ae87d7cb8` y CLI/informe `cmd/vec-comparar-organizacion`; GO independiente, focales y Chrome verdes. Calidad global y CI en curso; no publicado en main. |
+| `trabajo/codexm-rpt-informe-20261001@c02852f30` | [PR #305](https://github.com/aavidad/VEC_Diputacion_app/pull/305), borrador. Incluye núcleo `ae87d7cb8` y CLI/informe `cmd/vec-comparar-organizacion`; GO independiente, focales y Chrome verdes. Calidad global y CI en curso; no publicado en main. |
 | `origin/trabajo/codexm-rpt-escritura-retoma-20260930@a9001c097` | Gobierno de categorías pendiente B→A, dependencias nominales y ensayo final; preservar. |
 | [#249 IS10](https://github.com/aavidad/VEC_Diputacion_app/pull/249), [#256 CA21](https://github.com/aavidad/VEC_Diputacion_app/pull/256) | Abiertas; postimágenes de D, no capacidades instaladas. |
 | [#290](https://github.com/aavidad/VEC_Diputacion_app/pull/290) `d957f0ec9` | Borrador abierto, CI 5/5; preparación reproducible de clon H6 hasta SQL62. No manual ni instalación. |
@@ -172,17 +203,17 @@ las revisiones de SQL o permisos requieren dos lectores.
 | 2. Precondiciones, autorización y consulta histórica montada | 16–28 |
 | 3. Gobierno de categorías conservado, convergencia y ensayo | 20–36 |
 | 4. Fuente/importación y recorrido de plantilla y puestos | 48–80 |
-| 5. Consumir estructura y comprobar las tres proyecciones con Personal B | 24–40 |
+| 5. Ocupación, reserva y las tres proyecciones; contrato de B | 40–64 |
 | 6. Tipos, jerarquías, delegaciones y suplencias | 20–36 |
-| **Total técnico estimado** | **129–223** |
+| **Total técnico estimado** | **145–247** |
 
-A ocho horas por jornada: **17–28 días de un equipo**. Con dos equipos y
-archivos disjuntos: **12–20 días**, porque fuentes, autorización y publicación
+A ocho horas por jornada: **19–31 días de un equipo**. Con dos equipos y
+archivos disjuntos: **14–23 días**, porque fuentes, autorización y publicación
 siguen condicionando el orden. Esta horquilla es planificación; no acredita
 que las capacidades estén cerradas ni promete una fecha de entrega.
 
 Fuera del equipo M: D/Sistemas aporta instalación y perfiles; Personal B,
-relaciones, actos y reservas; RRHH, diccionario, fuentes y decisiones de
+persona y relación de servicio por puerto; RRHH, diccionario, fuentes y decisiones de
 cobertura. Si entregan esos contratos y datos al comenzar, prever **3–8 jornadas
 adicionales de coordinación y validación**. Pueden solaparse con tareas
 independientes; no se suman automáticamente al total. Sin fuentes o respuestas
@@ -200,7 +231,12 @@ no cubrían los tipos, delegaciones de competencia y suplencias de ORG-001.
 La estimación queda condicionada a las fuentes, contratos y circuito acordados.
 
 Acuerdos: cerrar primero la búsqueda conservada; reutilizar historia e
-importación con concesión V3 propia; Personal B conserva ocupaciones y reservas;
-M aporta estructura por puertos. El comparador sintético no acredita vacantes
+importación con concesión V3 propia; M conserva ocupaciones y reservas RPT;
+B aporta persona y relación de servicio por puerto. El comparador sintético no acredita vacantes
 ni historia corporativa. Las candidatas SQL y la evidencia NO-GO se preservan.
 No se abre la PR del plan hasta recibir el GO de Dirección sobre su SHA exacto.
+
+La ronda posterior aplica la decisión de Dirección de las 17:40: RPT-005/006
+pertenecen a M; B aporta relación/persona por puerto y conserva los archivos
+mixtos hasta acordar su transición. Se evita una segunda autoridad de ocupación.
+La tarea 5 se estima una sola vez en M. PLA-001/002 quedan para después.
