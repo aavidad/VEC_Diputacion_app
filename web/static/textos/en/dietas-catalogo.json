@@ -58,7 +58,6 @@
     "propuestas_limite": "They are kept only while this view is open. They do not change the example catalogue.",
     "propuestas_vacias": "There are no reviewed proposals yet. Prepare a change and select Review proposal.",
     "propuestas_desplazable": "Local proposals; use the arrow keys to see all columns",
-    "tarifa": "Rate",
     "propuesto": "Proposed amount",
     "diferencia": "Difference",
     "fecha_propuesta": "Proposed start date",
@@ -69,6 +68,7 @@
     "retirar_propuesta": "Remove from this page",
     "corregir_tarifa": "Review or edit: {tarifa}",
     "retirar_tarifa": "Remove from this page: {tarifa}",
-    "propuesta_retirada": "The local proposal for {tarifa} has been removed."
+    "propuesta_retirada": "The local proposal for {tarifa} has been removed.",
+    "tarifa_acciones": "Rate and actions"
   }
 }

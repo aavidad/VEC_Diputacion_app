@@ -246,3 +246,28 @@ test("diferencia del importe seguro conserva cada céntimo sin modificar la tari
   assert.equal(catalogo.tarifas[0].importe_centimos, Number.MAX_SAFE_INTEGER);
   desmontar();
 });
+
+
+test("una mutación de la fuente no reinterpreta la propuesta como otra versión", async () => {
+  const fuente = await leer("../../../../../../data/demo/dietas/catalogo-rrhh.json");
+  const original = structuredClone(fuente);
+  const respaldo = await leer("../../../../textos/es/dietas-catalogo.json");
+  const { traducir } = crearTextos({ modulo: "dietas-catalogo", idioma: "es", localizacion: "es-ES", respaldo });
+  const raiz = documentoMinimo();
+  const desmontar = montarCatalogoTarifasDietas(raiz, { fuente: async () => fuente, traducir, localizacion: "es-ES" });
+  await new Promise(setImmediate);
+  descendientes(raiz, (n) => n.tagName === "BUTTON" && n.textContent === respaldo.catalogo.preparar)[0].listeners.get("click")();
+  fuente.version = "catalogo:version:posterior"; fuente.tarifas[0].importe_centimos = 9000;
+  fuente.fuentes[0] = "https://example.org/fuente-distinta";
+  const editor = raiz.querySelector("[data-dietas-catalogo-editor]");
+  descendientes(editor, (n) => n.name === "importe_propuesto")[0].value = "38,40";
+  descendientes(editor, (n) => n.name === "motivo")[0].value = "Revisión local";
+  descendientes(editor, (n) => n.tagName === "FORM")[0].listeners.get("submit")({ preventDefault() {} });
+  const resumen = raiz.querySelector("[data-dietas-catalogo-propuestas]");
+  assert.equal(descendientes(resumen, (n) => n.tagName === "BUTTON" && n.textContent === respaldo.catalogo.corregir_propuesta).length, 1);
+  assert.ok(editor.textContent.includes(original.version));
+  assert.equal(raiz.textContent.includes(fuente.version), false);
+  assert.ok(resumen.textContent.includes(formatearImporteCentimos(original.tarifas[0].importe_centimos, "es-ES", "EUR")));
+  assert.equal(descendientes(resumen, (n) => n.tagName === "A")[0].href, original.fuentes[0]);
+  desmontar();
+});

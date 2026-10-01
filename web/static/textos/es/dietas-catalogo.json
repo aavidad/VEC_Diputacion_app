@@ -58,7 +58,6 @@
     "propuestas_limite": "Solo se conservan mientras esta vista esté abierta. No cambian el catálogo de ejemplo.",
     "propuestas_vacias": "Aún no hay propuestas revisadas. Prepare un cambio y pulse Revisar propuesta.",
     "propuestas_desplazable": "Propuestas locales; use las flechas para ver todas las columnas",
-    "tarifa": "Tarifa",
     "propuesto": "Importe propuesto",
     "diferencia": "Diferencia",
     "fecha_propuesta": "Inicio propuesto",
@@ -69,6 +68,7 @@
     "retirar_propuesta": "Retirar de esta pantalla",
     "corregir_tarifa": "Revisar o corregir: {tarifa}",
     "retirar_tarifa": "Retirar de esta pantalla: {tarifa}",
-    "propuesta_retirada": "Se ha retirado la propuesta local de {tarifa}."
+    "propuesta_retirada": "Se ha retirado la propuesta local de {tarifa}.",
+    "tarifa_acciones": "Tarifa y acciones"
   }
 }

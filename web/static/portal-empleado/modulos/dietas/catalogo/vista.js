@@ -237,7 +237,7 @@ export function montarCatalogoTarifasDietas(contenedor, {
       const tabla = nodo(d, "table"); tabla.className = "tabla-datos";
       tabla.setAttribute("aria-label", t("propuestas_titulo"));
       const cabTabla = nodo(d, "thead"), filaCab = nodo(d, "tr");
-      for (const clave of ["tarifa", "importe_actual", "propuesto", "diferencia", "historia_motivo", "fecha_propuesta", "fuentes", "accion"]) {
+      for (const clave of ["tarifa_acciones", "importe_actual", "propuesto", "diferencia", "historia_motivo", "fecha_propuesta", "fuentes"]) {
         const th = nodo(d, "th", t(clave)); th.setAttribute("scope", "col"); filaCab.append(th);
       }
       cabTabla.append(filaCab); tabla.append(cabTabla);
@@ -253,7 +253,7 @@ export function montarCatalogoTarifasDietas(contenedor, {
         const motivo = nodo(d, "td", propuesta.motivo); motivo.setAttribute("lang", propuesta.idioma_motivo);
         const referencia = nodo(d, "td"), enlace = nodo(d, "a", t("consultar_fuente", { referencia: referenciaFuente(propuesta.fuente) }));
         enlace.href = propuesta.fuente; enlace.rel = "noopener noreferrer"; enlace.target = "_blank"; referencia.append(enlace);
-        const acciones = nodo(d, "td"), grupoAcciones = nodo(d, "div"); grupoAcciones.className = "acciones-vista";
+        const grupoAcciones = nodo(d, "div"); grupoAcciones.className = "acciones-vista";
         const elegir = nodo(d, "button", t("corregir_propuesta")); elegir.type = "button"; elegir.className = "boton-secundario";
         elegir.setAttribute("aria-label", t("corregir_tarifa", { tarifa: nombreTarifa(tarifa) }));
         if (tarifaEditada === tarifa.id) elegir.setAttribute("aria-current", "true");
@@ -270,10 +270,10 @@ export function montarCatalogoTarifasDietas(contenedor, {
           pintarPropuestas(indice);
           anunciar(t("propuesta_retirada", { tarifa: nombreTarifa(tarifa) }));
         });
-        grupoAcciones.append(elegir, retirar); acciones.append(grupoAcciones);
+        grupoAcciones.append(elegir, retirar); nombre.append(grupoAcciones);
         fila.append(nombre, nodo(d, "td", importeTarifa(tarifa.importe_centimos, tarifa)),
           nodo(d, "td", importeTarifa(propuesta.importe_centimos, tarifa)), nodo(d, "td", delta),
-          motivo, nodo(d, "td", fecha(propuesta.vigencia)), referencia, acciones); filas.append(fila);
+          motivo, nodo(d, "td", fecha(propuesta.vigencia)), referencia); filas.append(fila);
       }
       tabla.append(filas); envoltura.append(tabla); zona.append(envoltura);
     }
@@ -366,7 +366,7 @@ export function montarCatalogoTarifasDietas(contenedor, {
       const dato = await fuente({ signal: controlador.signal });
       if (!vivo || turno !== secuencia) return;
       if (!catalogoTarifasDietasValido(dato)) throw new TypeError("catalogo invalido");
-      catalogo = dato; ponerEstado("ejemplo"); pintar();
+      catalogo = structuredClone(dato); ponerEstado("ejemplo"); pintar();
       if (recuperarFoco && focoLibre()) {
         estado.focus({ preventScroll: true });
         estado.scrollIntoView?.({ block: "nearest", inline: "nearest" });
