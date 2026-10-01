@@ -258,3 +258,30 @@ test("el recibo tardío tras desmontar no muestra confirmación ni inicia otra c
   pendiente.resolver({ replay: false }); await registro;
   assert.equal(nodo.innerHTML, html); assert.equal(consultas, 1); assert.equal(anuncios.length, 0);
 });
+
+test("tipo retirado 409 y consulta 503 conservan el aviso sin afirmar una actualización ni repetir POST", async () => {
+  const { nodo, raiz } = raizFalsa(); const llamadas = []; let consultas = 0;
+  const cliente = crearClienteNotificacionesCronosHTTP({ fetchImpl: async (_url, opciones) => {
+    llamadas.push(opciones.method);
+    if (opciones.method === "POST") return new Response(JSON.stringify({ error: "tipo_no_vigente" }), {
+      status: 409, headers: { "content-type": "application/json" },
+    });
+    consultas++;
+    return new Response(JSON.stringify(consultas === 2 ? { error: "no_disponible" } : datos()), {
+      status: consultas === 2 ? 503 : 200, headers: { "content-type": "application/json" },
+    });
+  } });
+  const vista = montarNotificacionesPropiasCronos({ raiz, cliente });
+  await esperar(); await esperar();
+  await nodo.eventos.submit({ target: formulario({ tipo: TIPO, fecha: "2026-09-24", texto: "Texto", referencia: "" }), preventDefault() {} });
+  assert.match(nodo.innerHTML, /data-estado="error"/);
+  assert.match(nodo.innerHTML, /Ese tipo ya no está disponible\. Elija otro tipo\./);
+  assert.match(nodo.innerHTML, /data-cronos-notificacion-reintentar/);
+  assert.doesNotMatch(nodo.innerHTML, /La lista se ha actualizado|<table|data-cronos-notificacion-formulario|data-tono="exito"/);
+  await nodo.eventos.click(clicConsultar());
+  assert.match(nodo.innerHTML, /data-estado="listo"/);
+  assert.match(nodo.innerHTML, /Ese tipo ya no está disponible\. Elija otro tipo\./);
+  assert.doesNotMatch(nodo.innerHTML, /<option[^>]* selected/);
+  assert.deepEqual(llamadas, ["GET", "POST", "GET", "GET"]);
+  vista.desmontar();
+});
