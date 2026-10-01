@@ -157,6 +157,7 @@
   margin: var(--portal-espacio-2) 0;
   font-size: .82rem;
 }
+.personal-registro-b2-traza :is(dt, dd, summary) { white-space: normal; overflow-wrap: anywhere; }
 .personal-registro-b2-traza dt { color: var(--portal-muted); }
 .personal-registro-b2-traza dd { min-width: 0; margin: 0; overflow-wrap: anywhere; }
 .personal-registro-b2-traza-tecnica {
