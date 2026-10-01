@@ -4,10 +4,14 @@ set -euo pipefail
 
 af_source="${AUTOFIRMAV2_SOURCE:-$HOME/Trabajo/AutofirmaV2-vec-verificacion}"
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-for command in bwrap rsync go timeout prlimit; do
+vec_source="$(cd -- "$script_dir/../.." && pwd)"
+for command in bwrap rsync go timeout prlimit curl base64 jq; do
   command -v "$command" >/dev/null || { echo "Falta $command" >&2; exit 2; }
 done
 [[ -f "$af_source/go.mod" && -f "$af_source/cmd/autofirma/main.go" ]] || { echo 'Falta la fuente local de AutofirmaV2' >&2; exit 2; }
+[[ -f "$vec_source/go.mod" && -f "$vec_source/internal/vec/documentos/adapters/validadorautofirma/cliente.go" ]] || {
+  echo 'Falta el cliente real de VEC' >&2; exit 2;
+}
 cache="$(go env GOMODCACHE)"
 [[ -d "$cache" ]] || { echo 'Falta la caché local de módulos Go; no se descargarán dependencias' >&2; exit 2; }
 toolchain="$(go env GOROOT)"
@@ -19,26 +23,29 @@ else
   echo 'Toolchain Go fuera de los directorios permitidos' >&2; exit 2
 fi
 
-scratch_parent="${VEC_E3_SCRATCH_PARENT:-${XDG_CACHE_HOME:-$HOME/.cache}}"
+scratch_parent="${VEC_E3_SCRATCH_PARENT:-/dev/shm/go-build}"
 mkdir -p -- "$scratch_parent"
 scratch="$(mktemp -d "$scratch_parent/vec-e3-validador.XXXXXXXX")"
 chmod 700 "$scratch"
 cleanup() { rm -rf -- "$scratch"; }
 trap cleanup EXIT HUP INT TERM
 
-mkdir -p "$scratch/src/cmd/vecfixture" "$scratch/home" "$scratch/tmp" "$scratch/cache" "$scratch/bin"
+mkdir -p "$scratch/src/cmd/vecfixture" "$scratch/vec/cmd/clientevec" "$scratch/vec/internal/vec" "$scratch/home" "$scratch/tmp" "$scratch/cache" "$scratch/bin"
 rsync -a --exclude=.git --exclude=.worktrees --exclude='*.p12' --exclude='*.key' "$af_source/" "$scratch/src/"
+cp -- "$vec_source/go.mod" "$vec_source/go.sum" "$scratch/vec/"
+rsync -a --exclude='*_test.go' "$vec_source/internal/vec/" "$scratch/vec/internal/vec/"
 cp -- "$script_dir/fixture/main.go.tmpl" "$scratch/src/cmd/vecfixture/main.go"
+cp -- "$script_dir/cliente_vec/main.go.tmpl" "$scratch/vec/cmd/clientevec/main.go"
 cp -- "$script_dir/validador_runtime.sh" "$scratch/runtime.sh"
 
 # El proceso ensayado solo ve el árbol temporal, herramientas y caché Go de lectura.
 # Namespace de red aislado: únicamente loopback. Entorno reconstruido por bwrap.
-prlimit --cpu=170 --as=4294967296 --nproc=4096 --nofile=128 --fsize=67108864 -- \
-  timeout --kill-after=5s 180s bwrap --unshare-all --new-session --cap-drop ALL --clearenv \
+prlimit --cpu=570 --as=8589934592 --nproc=4096 --nofile=128 --fsize=67108864 -- \
+  timeout --kill-after=5s 600s bwrap --unshare-all --new-session --cap-drop ALL --clearenv \
     --ro-bind /usr /usr --ro-bind /bin /bin --ro-bind /lib /lib --ro-bind /lib64 /lib64 \
     --ro-bind "$cache" /modcache --bind "$scratch" /work \
-    --proc /proc --dev /dev --tmpfs /tmp --dir /home --chdir /work/src \
+    --proc /proc --dev /dev --dir /tmp --bind "$scratch/tmp" /tmp --dir /home --chdir /work/src \
     --setenv PATH "$sandbox_toolchain/bin:/usr/bin:/bin" --setenv GOROOT "$sandbox_toolchain" --setenv HOME /work/home \
     --setenv TMPDIR /work/tmp --setenv GOCACHE /work/cache --setenv GOMODCACHE /modcache \
-    --setenv GOPROXY off --setenv GOSUMDB off --setenv GOTOOLCHAIN local --setenv GOMAXPROCS 2 \
+    --setenv GOPROXY off --setenv GOSUMDB off --setenv GOTOOLCHAIN local --setenv GOFLAGS '-p=32' \
     -- bash /work/runtime.sh
