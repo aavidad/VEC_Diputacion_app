@@ -133,6 +133,38 @@ test("el máximo entero seguro conserva sus dos céntimos finales en tarjeta, de
   vista.desmontar();
 });
 
+test("la moneda procede de la fuente y nunca mezcla divisas de distintas filas", async () => {
+  const maximo = Number.MAX_SAFE_INTEGER;
+  const fuente = { ...datos, moneda: "USD", registros: [{ ...datos.registros[0],
+    total_centimos: maximo, conceptos_centimos: { manutencion: maximo, kilometraje: 0, otros_gastos: 0 } }] };
+  const contenedor = raiz();
+  const vista = montarInformesDietas(contenedor, {
+    cargarDatos: async () => fuente, traducir: t, localizacion: catalogo.localizacion,
+  });
+  await esperar();
+  const signo = new Intl.NumberFormat(catalogo.localizacion, { style: "currency", currency: fuente.moneda })
+    .formatToParts(0).find((parte) => parte.type === "currency").value;
+  assert.match(texto(contenedor), /90\.071\.992\.547\.409,91/u);
+  assert.ok(texto(contenedor).includes(signo));
+  assert.doesNotMatch(texto(contenedor), /€/u);
+  vista.desmontar();
+
+  const mezcla = raiz();
+  const vistaMezcla = montarInformesDietas(mezcla, { cargarDatos: async () => ({ ...fuente,
+    registros: [{ ...fuente.registros[0], moneda: "EUR" }] }), traducir: t, localizacion: catalogo.localizacion });
+  await esperar();
+  assert.equal(mezcla.querySelectorAll("tbody").length, 0);
+  assert.match(mezcla.querySelector("[data-dietas-informes-estado]").textContent, /datos incorrectos/u);
+  vistaMezcla.desmontar();
+
+  const sinCentimos = raiz();
+  const vistaSinCentimos = montarInformesDietas(sinCentimos, { cargarDatos: async () => ({ ...fuente, moneda: "JPY" }),
+    traducir: t, localizacion: catalogo.localizacion });
+  await esperar();
+  assert.match(sinCentimos.querySelector("[data-dietas-informes-estado]").textContent, /datos incorrectos/u);
+  vistaSinCentimos.desmontar();
+});
+
 test("Reintentar lleva el foco del botón oculto al resumen visible al recuperar", async () => {
   const contenedor = raiz(); let resolver; let intento = 0;
   const vista = montarInformesDietas(contenedor, { cargarDatos: () => {

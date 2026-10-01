@@ -8,16 +8,23 @@ function fechaValida(valor) {
   return !Number.isNaN(fecha.valueOf()) && fecha.toISOString().slice(0, 10) === valor;
 }
 
-function congelarDatos(datos) {
+function congelarDatos(datos, localizacion) {
   if (datos?.naturaleza !== "sintetica" || datos.schema !== "dietas-informes-demo"
-    || datos.version !== 1 || datos.criterio_periodo !== "fecha_inicio" || datos.moneda !== "EUR"
+    || datos.version !== 1 || datos.criterio_periodo !== "fecha_inicio"
+    || typeof datos.moneda !== "string" || !/^[A-Z]{3}$/u.test(datos.moneda)
     || !fechaValida(datos.fecha_corte) || !Array.isArray(datos.registros)) throw new TypeError("datos");
+  let moneda;
+  try { moneda = new Intl.NumberFormat(localizacion, { style: "currency", currency: datos.moneda }); }
+  catch { throw new TypeError("datos"); }
+  if (moneda.resolvedOptions().minimumFractionDigits !== 2
+    || moneda.resolvedOptions().maximumFractionDigits !== 2) throw new TypeError("datos");
   const referencias = new Set();
   const registros = datos.registros.map((entrada) => {
     if (!entrada || !["referencia", "persona_ref", "persona", "unidad_ref", "unidad"].every((campo) =>
       typeof entrada[campo] === "string" && entrada[campo].trim()) || !fechaValida(entrada.fecha_inicio)
       || !Number.isSafeInteger(entrada.version_comision) || entrada.version_comision < 1
       || !["orientativo", "liquidado", "fiscalizado"].includes(entrada.situacion)
+      || (entrada.moneda !== undefined && entrada.moneda !== datos.moneda)
       || referencias.has(entrada.referencia)) throw new TypeError("datos");
     referencias.add(entrada.referencia);
     const conceptos = {};
@@ -33,7 +40,7 @@ function congelarDatos(datos) {
       persona: entrada.persona, unidad_ref: entrada.unidad_ref, unidad: entrada.unidad,
       fecha_inicio: entrada.fecha_inicio, conceptos_centimos: Object.freeze(conceptos), total_centimos: entrada.total_centimos });
   });
-  return Object.freeze(registros);
+  return Object.freeze({ registros: Object.freeze(registros), moneda });
 }
 
 export function resumirInformesDietas(registros, filtros = {}) {
@@ -66,10 +73,10 @@ export function montarInformesDietas(contenedor, { cargarDatos, traducir, docume
     throw new TypeError("informes de Dietas no disponibles");
 
   const t = (clave, variables) => traducir(clave, variables);
-  const moneda = new Intl.NumberFormat(localizacion, { style: "currency", currency: "EUR" });
+  let moneda;
   const numero = new Intl.NumberFormat(localizacion);
   const fecha = new Intl.DateTimeFormat(localizacion, { dateStyle: "medium", timeZone: "UTC" });
-  const euros = (centimos) => {
+  const importeMonetario = (centimos) => {
     // Intl recibe el entero como BigInt: convertir los céntimos a Number perdería precisión.
     const importe = BigInt(centimos);
     const fraccion = (importe % 100n).toString().padStart(2, "0");
@@ -163,9 +170,10 @@ export function montarInformesDietas(contenedor, { cargarDatos, traducir, docume
     resumen.replaceChildren(); listado.replaceChildren();
     resumen.append(nodo(documento, "h3", t("resumen")));
     const tarjetas = nodo(documento, "div"); tarjetas.className = "rejilla-kpi cuatro";
-    for (const [etiqueta, valor] of [["registros", numero.format(filas.length)], ["total", euros(informe.total_centimos)]]) {
+    for (const [etiqueta, valor] of [["registros", numero.format(filas.length)], ["total", importeMonetario(informe.total_centimos)]]) {
       const tarjeta = nodo(documento, "article"); tarjeta.className = "tarjeta-kpi";
-      const icono = nodo(documento, "span", etiqueta === "total" ? "€" : "≡");
+      const icono = nodo(documento, "span", etiqueta === "total"
+        ? moneda.formatToParts(0).find((parte) => parte.type === "currency").value : "≡");
       icono.className = "icono-kpi"; icono.setAttribute("aria-hidden", "true");
       const textoTarjeta = nodo(documento, "div");
       const cantidad = nodo(documento, "strong", valor); cantidad.className = "valor-kpi";
@@ -176,7 +184,7 @@ export function montarInformesDietas(contenedor, { cargarDatos, traducir, docume
     const desglose = nodo(documento, "dl"); desglose.className = "datos-clave";
     for (const clave of CONCEPTOS) {
       const fila = nodo(documento, "div");
-      fila.append(nodo(documento, "dt", t(clave)), nodo(documento, "dd", euros(informe.conceptos_centimos[clave])));
+      fila.append(nodo(documento, "dt", t(clave)), nodo(documento, "dd", importeMonetario(informe.conceptos_centimos[clave])));
       desglose.append(fila);
     }
     resumen.append(desglose);
@@ -197,7 +205,8 @@ export function montarInformesDietas(contenedor, { cargarDatos, traducir, docume
       const tr = nodo(documento, "tr");
       const valores = [fila.referencia, numero.format(fila.version_comision), t(`situacion_${fila.situacion}`),
         fecha.format(new Date(`${fila.fecha_inicio}T00:00:00Z`)), fila.persona,
-        fila.unidad, ...CONCEPTOS.map((clave) => euros(fila.conceptos_centimos[clave])), euros(fila.total_centimos)];
+        fila.unidad, ...CONCEPTOS.map((clave) => importeMonetario(fila.conceptos_centimos[clave])),
+        importeMonetario(fila.total_centimos)];
       valores.forEach((valor, indice) => { const td = nodo(documento, "td", valor);
         if (indice === 1 || indice >= 6) td.dataset.tipo = "numero"; tr.append(td); });
       tbody.append(tr);
@@ -228,7 +237,8 @@ export function montarInformesDietas(contenedor, { cargarDatos, traducir, docume
     try {
       const datos = await cargarDatos({ signal: controlador.signal });
       if (!activa || propia !== generacion) return;
-      registros = congelarDatos(datos); elegir(persona, registros, "persona_ref", "persona");
+      const fuente = congelarDatos(datos, localizacion); registros = fuente.registros; moneda = fuente.moneda;
+      elegir(persona, registros, "persona_ref", "persona");
       elegir(unidad, registros, "unidad_ref", "unidad");
       filtros = Object.freeze({ persona: persona.value, unidad: unidad.value, desde: desde.value, hasta: hasta.value });
       disponible = true; form.hidden = false; resumen.hidden = false; listado.hidden = false;
