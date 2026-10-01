@@ -1,11 +1,11 @@
 import { traducirCopias as t } from "./i18n.js?v=20261001-cs09-copias-v1";
 
 const DIAS = ["domingo", "lunes", "martes", "miercoles", "jueves", "viernes", "sabado"];
-export function pintarConfiguracion({ cuerpo, estado, cliente, s, operar, recibido, pintar }) {
+export function pintarConfiguracion({ cuerpo, estado, cliente, s, operar, recibido, pintar, cargarConfiguracion }) {
   const { crear, boton, panel, campo, dato, numero } = s;
   const { p, h, c } = panel("calendario"); cuerpo.append(p); h.append(boton("actualizar", () => {
     estado.configuracion = null; estado.borradorConfiguracion = null;
-    operar(signal => cliente.configuracion({ signal }), config => { estado.configuracion = config; });
+    pintar(); cargarConfiguracion();
   }, { disabled: estado.busy }));
   if (!estado.configuracion) { c.append(crear("p", t("fuente_pendiente"))); return; }
   const config = estado.configuracion, politica = config.politica;
@@ -27,7 +27,7 @@ export function pintarConfiguracion({ cuerpo, estado, cliente, s, operar, recibi
     c.append(dl, crear("p", t("sin_cambios"), "copias-nota"), boton("confirmar_guardado", () => operar(signal => cliente.guardarConfiguracion(revision.ambito, {
       operacion_ref: revision.operacion_ref, version_esperada: config.version, politica: revision.politica,
     }, { signal }), recibo => { recibido(recibo); estado.revisionConfiguracion = null; estado.borradorConfiguracion = null; estado.configuracion = null;
-      cliente.configuracion().then(c => { if (estado.activa) { estado.configuracion = c; pintar(); } }).catch(() => {});
+      cargarConfiguracion();
     }), { clase: "boton-primario", disabled: estado.busy }), boton("cambiar", () => { estado.revisionConfiguracion = null; pintar(); }, { disabled: estado.busy }));
     return;
   }
