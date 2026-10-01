@@ -87,3 +87,34 @@ test("el motivo de una decisión no admite blancos de borde que Go rechaza", asy
   for (const motivo of ["Falta ticket\u0085", "\ufeffFalta ticket", " Falta ticket"])
     await assert.rejects(() => cliente.decidir(referencia, { etapa: "revision", decision: "devolver", motivo, clave_idempotencia: "decision-circuito-0001", version_esperada: 3 }), TypeError);
 });
+
+test("el motivo de decisión usa los límites UTF-8 de Go también al aprobar", async () => {
+  const llamadas = [];
+  const cliente = crearClienteCircuitoDietasHTTP({ fetchImpl: async (_ruta, opciones) => {
+    llamadas.push(JSON.parse(opciones.body)); return respuesta({ comision: { referencia, estado: "devuelta", version: 4 }, recibo }, 201);
+  } });
+  const entrada = { etapa: "autorizacion", decision: "devolver", clave_idempotencia: "decision-circuito-0001", version_esperada: 3 };
+  for (const motivo of ["漢", "😀", "é".repeat(300), "a".repeat(600)]) {
+    await cliente.decidir(referencia, { ...entrada, motivo });
+    assert.equal(llamadas.at(-1).motivo, motivo);
+  }
+  for (const decision of ["aprobar", "devolver"]) {
+    for (const motivo of ["é".repeat(301), "😀".repeat(151), "a".repeat(601), "Falta\njustificante", "Falta\u0000justificante", "Falta\u007fjustificante"]) {
+      const previas = llamadas.length;
+      await assert.rejects(() => cliente.decidir(referencia, { ...entrada, decision, motivo }), TypeError);
+      assert.equal(llamadas.length, previas);
+    }
+  }
+  for (const motivo of ["", "a", "é"])
+    await assert.rejects(() => cliente.decidir(referencia, { ...entrada, motivo }), TypeError);
+  await cliente.decidir(referencia, { ...entrada, decision: "aprobar", motivo: "" });
+});
+
+
+test("la lectura de reenvío acepta el motivo multibyte conservado por Go", async () => {
+  for (const motivo of ["漢", "😀", "é".repeat(300)]) {
+    const devolucion = { etapa: "autorizacion", motivo, version: 3, devuelta_en: "2026-09-19T09:00:00.123456Z" };
+    const cliente = crearClienteCircuitoDietasHTTP({ fetchImpl: async () => respuesta({ comision: { ...documento, version: 5, devolucion } }) });
+    assert.equal((await cliente.documento(referencia, "autorizacion")).devolucion.motivo, motivo);
+  }
+});
