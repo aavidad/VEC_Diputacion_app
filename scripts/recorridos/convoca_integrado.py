@@ -4,13 +4,16 @@
 from __future__ import annotations
 
 import argparse
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from hashlib import sha256
 import json
+import os
 from pathlib import Path
 import re
 import sys
+import stat
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -157,7 +160,66 @@ def resumir_auditoria(page: Any, context: Any) -> dict[str, Any]:
 
 def registrar_http(response: Any) -> dict[str, Any]:
     return {"ruta": urlsplit(response.url).path, "http": response.status,
+            "metodo": getattr(getattr(response, "request", None), "method", "GET"),
             "set_cookie": "set-cookie" in response.all_headers()}
+
+
+def registrar_fallo_red(request: Any) -> dict[str, str]:
+    codigo = request.failure
+    return {"ruta": urlsplit(request.url).path, "metodo": request.method,
+            "codigo": codigo if isinstance(codigo, str) and re.fullmatch(r"net::ERR_[A-Z_]{1,64}", codigo) else "red_sin_respuesta"}
+
+
+def registrar_consola(message: Any) -> dict[str, Any]:
+    ubicacion = message.location
+    registro = {"ruta": urlsplit(ubicacion.get("url", "")).path, "codigo": "consola_error"}
+    # Se reconoce transitoriamente el diagnóstico de recurso de Chrome; no se guarda su texto.
+    recurso = re.fullmatch(r"Failed to load resource: the server responded with a status of ([0-9]{3}) \([^\r\n)]{1,64}\)", message.text)
+    if recurso and ubicacion.get("lineNumber", 0) == 0 and ubicacion.get("columnNumber", 0) == 0:
+        registro.update(codigo="http_recurso", http=int(recurso.group(1)))
+    return registro
+
+
+def consola_inesperada(vista: dict[str, Any], cierres: dict[str, list[int]]) -> int:
+    disponibles = Counter((r["ruta"], r["http"]) for r in vista.get("red", [])
+                          if r.get("metodo") == "GET" and r["http"] in cierres.get(r["ruta"], []))
+    registros = vista.get("consola_error", [])
+    exentos = 0
+    for registro in registros:
+        llave = (registro.get("ruta"), registro.get("http"))
+        if registro.get("codigo") == "http_recurso" and disponibles[llave] > 0:
+            disponibles[llave] -= 1
+            exentos += 1
+    return max(vista.get("errores_consola", 0), len(registros)) - exentos
+
+
+def validar_material_externo(base: str, certificado: Path | None, clave: Path | None) -> list[dict[str, str]]:
+    if certificado is None and clave is None:
+        return []
+    if certificado is None or clave is None or urlsplit(base).scheme != "https":
+        raise ValueError("material_externo_invalido")
+    base = url_local(base)
+    for ruta in (certificado, clave):
+        if not ruta.is_absolute() or ".." in ruta.parts:
+            raise ValueError("material_ruta_invalida")
+        for componente in (ruta, *ruta.parents):
+            if stat.S_ISLNK(componente.lstat().st_mode) or (componente.is_dir() and (componente / ".git").exists()):
+                raise ValueError("material_ruta_invalida")
+        datos = ruta.lstat()
+        directorio = ruta.parent.lstat()
+        if (not stat.S_ISREG(datos.st_mode) or datos.st_nlink != 1 or datos.st_uid != os.getuid() or stat.S_IMODE(datos.st_mode) != 0o600
+            or directorio.st_uid != os.getuid() or stat.S_IMODE(directorio.st_mode) & 0o077):
+            raise ValueError("material_permisos_invalidos")
+    return [{"origin": base, "certPath": str(certificado), "keyPath": str(clave)}]
+
+
+def crear_contexto(browser: Any, superficie: str, ancho: int, alto: int, args: argparse.Namespace) -> Any:
+    opciones = {"viewport": {"width": ancho, "height": alto}, "locale": "es-ES", "timezone_id": "Europe/Madrid",
+                "service_workers": "block", "reduced_motion": "reduce", "ignore_https_errors": False,
+                "accept_downloads": args.preparacion_local and superficie == "publico"}
+    if superficie == "externo" and args.material_externo:
+        opciones["client_certificates"] = args.material_externo
+    return browser.new_context(**opciones)
 
 
 def preparar_local(page: Any, identificador: str, detalle: dict[str, Any], navegar: Any, capturar: Any) -> dict[str, Any]:
@@ -203,13 +265,13 @@ def recorrer(superficie: str, base: str, args: argparse.Namespace, expectativas:
         browser = playwright.chromium.launch(executable_path=str(args.chrome), headless=True, timeout=args.timeout_ms)
         try:
             for ancho, alto in TAMANOS:
-                context = browser.new_context(viewport={"width": ancho, "height": alto}, locale="es-ES",
-                                              timezone_id="Europe/Madrid", service_workers="block",
-                                              reduced_motion="reduce", accept_downloads=args.preparacion_local and superficie == "publico")
+                context = crear_contexto(browser, superficie, ancho, alto, args)
                 try:
                     red: list[dict[str, Any]] = []
                     bloqueos: list[dict[str, str]] = []
                     errores: list[str] = []
+                    consola_error: list[dict[str, Any]] = []
+                    fallos_red: list[dict[str, str]] = []
 
                     def limitar_red(route: Any) -> None:
                         request = route.request
@@ -229,7 +291,8 @@ def recorrer(superficie: str, base: str, args: argparse.Namespace, expectativas:
                     page.set_default_navigation_timeout(args.timeout_ms)
                     page.on("response", respuesta)
                     page.on("pageerror", lambda _: errores.append("javascript"))
-                    page.on("console", lambda m: errores.append("consola") if m.type == "error" else None)
+                    page.on("console", lambda m: consola_error.append(registrar_consola(m)) if m.type == "error" else None)
+                    page.on("requestfailed", lambda request: fallos_red.append(registrar_fallo_red(request)))
 
                     def navegar(ruta: str) -> None:
                         res = page.goto(base + ruta, wait_until="networkidle")
@@ -284,11 +347,10 @@ def recorrer(superficie: str, base: str, args: argparse.Namespace, expectativas:
                         for vista in ("perfil", "preferencias"):
                             navegar("/area-personal/?vista=" + vista)
                             capturar(vista)
-                    # Los 4xx/503 de capacidades cerradas quedan en el diagnóstico.
-                    # Errores de consola provocados por esos HTTP no cuentan como JS no controlado.
                     resultado["vistas"].append({"ancho": ancho, "red": red, "bloqueos": bloqueos,
                                                 "errores_javascript": errores.count("javascript"),
-                                                "errores_consola": errores.count("consola")})
+                                                "errores_consola": len(consola_error), "consola_error": consola_error,
+                                                "fallos_red": fallos_red})
                 finally:
                     context.close()
         finally:
@@ -308,6 +370,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--salida", type=Path, required=True)
     parser.add_argument("--timeout-ms", type=int, default=12_000)
     parser.add_argument("--tipo-ejecucion", choices=("aplicacion", "prueba_guion"), default="aplicacion")
+    parser.add_argument("--certificado-externo", type=Path)
+    parser.add_argument("--clave-externa", type=Path)
     args = parser.parse_args(argv)
     try:
         bases = {"publico": url_local(args.url_publico), "externo": url_local(args.url_externo)}
@@ -318,6 +382,7 @@ def main(argv: list[str] | None = None) -> int:
         if not args.chrome.is_file() or not 500 <= args.timeout_ms <= 30_000:
             raise ValueError("chrome_o_timeout_invalido")
         expectativas, auxiliares = cargar_expectativas(args.expectativas)
+        args.material_externo = validar_material_externo(bases["externo"], args.certificado_externo, args.clave_externa)
         # Directorio nuevo: nunca reemplaza evidencia de otra ejecución.
         args.salida.mkdir(parents=True, exist_ok=False, mode=0o700)
         with ThreadPoolExecutor(max_workers=2) as pool:
@@ -336,17 +401,21 @@ def main(argv: list[str] | None = None) -> int:
             preparaciones = publico.get("preparacion_local")
             fallo = fallo or not isinstance(preparaciones, list) or len(preparaciones) != len(TAMANOS)
         rutas_cerradas = {API_BOLSA: expectativas["externo.mi_bolsa"], API_PREFERENCIAS: expectativas["externo.preferencias"]}
+        cierres = {ruta: expectativa["http"] for ruta, expectativa in rutas_cerradas.items() if expectativa["estado"] == "cerrada"}
+        cierres.update(auxiliares)
         def respuesta_inesperada(res: dict[str, Any]) -> bool:
             esperado = rutas_cerradas.get(res["ruta"], {})
             cerrado_esperado = esperado.get("estado") == "cerrada" and res["http"] in esperado.get("http", [])
             cerrado_esperado = cerrado_esperado or res["http"] in auxiliares.get(res["ruta"], [])
             return res["set_cookie"] or (res["http"] >= 400 and not cerrado_esperado)
         fallo = fallo or any(v.get("auditoria", {}).get("hallazgos") or v.get("bloqueos") or v.get("errores_javascript")
+                             or v.get("fallos_red") or consola_inesperada(v, cierres)
                              or any(respuesta_inesperada(res) for res in v.get("red", [])) for v in vistas)
         cerrado = any(c["estado"] == "dependencia_cerrada" for c in comprobaciones)
         codigo = 1 if fallo else 2 if cerrado else 0
         informe = {"esquema": "vec.recorrido.convoca.resultado.v1", "generado_en": datetime.now(timezone.utc).isoformat(),
                    "tipo_ejecucion": args.tipo_ejecucion, "codigo_salida": codigo,
+                   "mtls_material_configurado": bool(args.material_externo), "mtls_acreditado": False,
                    "dependencias_auxiliares_cerradas": [res for v in vistas for res in v.get("red", [])
                                                         if res["http"] in auxiliares.get(res["ruta"], [])],
                    "consultas_conformes": not fallo and not cerrado,

@@ -4,12 +4,19 @@ from pathlib import Path
 import argparse
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import json
+import os
+import io
+from contextlib import redirect_stdout
+from types import SimpleNamespace
 import sys
+import tempfile
 import threading
 import unittest
+from unittest.mock import patch
 
-from convoca_integrado import (API_BOLSA, API_PREFERENCIAS, CONSULTAR_JS, cargar_expectativas,
-                              clasificar, main, registrar_http, url_local)
+from convoca_integrado import (API_BOLSA, API_PREFERENCIAS, CAPACIDADES, CONSULTAR_JS, cargar_expectativas,
+                              clasificar, consola_inesperada, crear_contexto, main, registrar_consola,
+                              registrar_fallo_red, registrar_http, url_local, validar_material_externo)
 
 
 class LimitesRecorrido(unittest.TestCase):
@@ -61,6 +68,106 @@ class LimitesRecorrido(unittest.TestCase):
         registro = registrar_http(Respuesta())
         self.assertTrue(registro["set_cookie"])
         self.assertNotIn("sentinel", json.dumps(registro))
+
+
+class FiabilidadEvidencia(unittest.TestCase):
+    def agregado(self, directorio, vista, cerrado=False):
+        config = {"esquema": "vec.recorrido.convoca.v1", "datos": "sinteticos",
+                  "capacidades": {c: {"estado": "disponible"} for c in CAPACIDADES}}
+        if cerrado:
+            config["capacidades"]["externo.mi_bolsa"] = {"estado": "cerrada", "http": [403]}
+        ruta = directorio / "expectativas.json"
+        ruta.write_text(json.dumps(config))
+
+        def recorrer_stub(superficie, *_):
+            capacidades = [{"capacidad": c, "coincide": True,
+                            "estado": "dependencia_cerrada" if cerrado and c == "externo.mi_bolsa" else "consulta_disponible"}
+                           for c in CAPACIDADES if c.startswith(superficie + ".") for _ in (1440, 390)]
+            return {"superficie": superficie, "capacidades": capacidades, "vistas": [vista] if superficie == "externo" else []}
+
+        with patch("convoca_integrado.recorrer", recorrer_stub), redirect_stdout(io.StringIO()):
+            codigo = main(["--url-publico", "http://127.0.0.1:18091", "--url-externo", "http://127.0.0.1:18092",
+                           "--datos-sinteticos", "--chrome", "/bin/true", "--expectativas", str(ruta),
+                           "--salida", str(directorio / "resultado")])
+        return codigo, json.loads((directorio / "resultado/resultado.json").read_text())
+
+    def test_fallo_sin_http_impide_exito_con_ocho_capacidades_conformes(self):
+        fallo = registrar_fallo_red(SimpleNamespace(url="http://127.0.0.1:18092/recurso?secreto=sentinel",
+                                                   method="GET", failure="net::ERR_CONNECTION_RESET"))
+        self.assertNotIn("sentinel", json.dumps(fallo))
+        with tempfile.TemporaryDirectory() as temporal:
+            codigo, informe = self.agregado(Path(temporal), {"fallos_red": [fallo]})
+        self.assertEqual(codigo, 1)
+        self.assertFalse(informe["consultas_conformes"])
+
+    def test_error_consola_inesperado_impide_exito_con_ocho_capacidades_conformes(self):
+        with tempfile.TemporaryDirectory() as temporal:
+            codigo, informe = self.agregado(Path(temporal), {"errores_consola": 1})
+        self.assertEqual(codigo, 1)
+        self.assertFalse(informe["consultas_conformes"])
+
+    def test_cierre_http_exacto_conserva_codigo_dos_y_no_exime_errores_de_aplicacion(self):
+        mensaje = SimpleNamespace(text="Failed to load resource: the server responded with a status of 403 (Forbidden)",
+                                  location={"url": "http://127.0.0.1:18092" + API_BOLSA, "lineNumber": 0, "columnNumber": 0})
+        registro = registrar_consola(mensaje)
+        vista = {"errores_consola": 1, "consola_error": [registro],
+                 "red": [{"ruta": API_BOLSA, "http": 403, "metodo": "GET", "set_cookie": False}]}
+        with tempfile.TemporaryDirectory() as temporal:
+            codigo, informe = self.agregado(Path(temporal), vista, cerrado=True)
+        self.assertEqual(codigo, 2)
+        self.assertFalse(informe["flujo_funcional_completado"])
+        mensaje.text = "sentinel"
+        vista["consola_error"] = [registrar_consola(mensaje)]
+        self.assertEqual(consola_inesperada(vista, {API_BOLSA: [403]}), 1)
+        vista["consola_error"] = [registro, registro]
+        self.assertEqual(consola_inesperada(vista, {API_BOLSA: [403]}), 1)
+        vista["red"][0]["ruta"] = "/otra"
+        self.assertEqual(consola_inesperada(vista, {API_BOLSA: [403]}), 2)
+
+    def test_material_pareado_https_privado_y_solo_contexto_externo(self):
+        with tempfile.TemporaryDirectory() as temporal:
+            directorio = Path(temporal)
+            cert, clave = directorio / "cert.pem", directorio / "key.pem"
+            for p in (cert, clave):
+                p.write_bytes(b"fixture_metadata_only")
+                p.chmod(0o600)
+            for base, primero, segundo in [("https://127.0.0.1:18443", cert, None),
+                                          ("https://127.0.0.1:18443", None, clave),
+                                          ("http://127.0.0.1:18092", cert, clave),
+                                          ("https://example.com:443", cert, clave)]:
+                with self.assertRaises(ValueError):
+                    validar_material_externo(base, primero, segundo)
+            material = validar_material_externo("https://127.0.0.1:18443", cert, clave)
+            configuraciones = []
+            browser = SimpleNamespace(new_context=lambda **kw: configuraciones.append(kw))
+            args = SimpleNamespace(preparacion_local=False, material_externo=material)
+            crear_contexto(browser, "publico", 1440, 900, args)
+            crear_contexto(browser, "externo", 1440, 900, args)
+            self.assertNotIn("client_certificates", configuraciones[0])
+            self.assertEqual(configuraciones[1]["client_certificates"], material)
+            self.assertFalse(configuraciones[1]["ignore_https_errors"])
+            clave.chmod(0o644)
+            with self.assertRaises(ValueError):
+                validar_material_externo("https://127.0.0.1:18443", cert, clave)
+            clave.chmod(0o600)
+            enlace = directorio / "link.pem"
+            enlace.symlink_to(cert)
+            with self.assertRaises(ValueError):
+                validar_material_externo("https://127.0.0.1:18443", enlace, clave)
+            enlace_duro = directorio / "hardlink.pem"
+            os.link(cert, enlace_duro)
+            with self.assertRaises(ValueError):
+                validar_material_externo("https://127.0.0.1:18443", cert, clave)
+            enlace_duro.unlink()
+            with patch("convoca_integrado.os.getuid", return_value=cert.stat().st_uid + 1), self.assertRaises(ValueError):
+                validar_material_externo("https://127.0.0.1:18443", cert, clave)
+            directorio.chmod(0o755)
+            with self.assertRaises(ValueError):
+                validar_material_externo("https://127.0.0.1:18443", cert, clave)
+            directorio.chmod(0o700)
+            (directorio / ".git").write_text("fixture")
+            with self.assertRaises(ValueError):
+                validar_material_externo("https://127.0.0.1:18443", cert, clave)
 
 
 def comprobar_imports_200(servidor, salida, chrome):

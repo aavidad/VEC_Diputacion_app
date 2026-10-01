@@ -8,7 +8,17 @@ ficha propia. Reutiliza las utilidades de auditoría y captura de `revision_web`
 Ambos procesos deben contener exclusivamente datos sintéticos. El guion no los
 arranca ni publica permisos. Rechaza destinos fuera de loopback, TLS no válido,
 peticiones que puedan escribir y recursos servidos por otro origen. Los perfiles
-de Chrome son efímeros. No recibe cabeceras de identidad, claves ni credenciales.
+de Chrome son efímeros. No recibe cabeceras libres de identidad.
+
+Para un proceso externo HTTPS que exige mTLS, indique juntas
+`--certificado-externo` y `--clave-externa`. Deben ser rutas absolutas fuera de
+Git, sin enlaces, de archivos regulares propios con permisos 0600 y directorio
+privado. El material se aplica solo al contexto externo y al origen indicado;
+el certificado del servidor se sigue verificando. El guion no genera material
+ni lo importa a NSS. El informe guarda únicamente si se configuró, nunca rutas
+ni contenidos. Configurar mTLS no acredita autenticación, permiso o inscripción.
+Sin material, el guion conserva el diagnóstico de las dependencias: los HTTP 200
+del fixture no acreditan la frontera mTLS ni un acceso H6 real.
 
 ```sh
 python3 scripts/recorridos/convoca_integrado.py \
@@ -33,6 +43,10 @@ de la dependencia. El estado HTTP por sí solo no identifica H6.
 Las lecturas auxiliares de imagen y correos que hace Mis preferencias tienen
 expectativas cerradas separadas. Otros errores de red siempre hacen fallar el
 guion; no se admite una excepción general para las rutas de la API.
+También falla ante una petición sin respuesta HTTP o un error de consola
+inesperado. Un diagnóstico de recurso de Chrome solo se admite si coincide en
+ruta y estado con una respuesta cerrada prevista; cada respuesta permite un solo
+diagnóstico. Los mensajes de consola y los detalles libres del fallo no se guardan.
 
 El código de salida es 0 cuando las cuatro consultas son válidas y se cumplen
 las comprobaciones de página; 2 cuando se confirma una dependencia cerrada; 1
@@ -112,3 +126,10 @@ dos módulos ausentes sin consulta y una cookie expirada detectada sin retenerla
 Mi bolsa usó `contrato.js` sin query; preferencias usó la URL observada de
 `cliente-http.js?v=20260930-temas-v2-historico-v1`. El informe identifica ambas
 funciones exportadas y mantiene registro, persistencia y flujo completo en falso.
+
+El último parche pasó cuatro pruebas focales nuevas: fallo de red sin HTTP con
+ocho capacidades conformes, error de consola inesperado con ese mismo agregado,
+cierre HTTP previsto con código 2 y configuración mTLS por contexto mediante
+un espía del SDK. La validación de material incluye pareja de archivos, HTTPS
+loopback, permisos, propietario, directorio privado y rechazo de enlaces o Git.
+Estas pruebas no usan certificados reales ni acreditan una conexión mTLS.
