@@ -1,10 +1,10 @@
 import { cargarTextos } from "/comun/textos.js";
-import { crearClienteBaremo } from "../baremo-cliente.js?v=20261001-concursos-v5";
-import { crearEditorBaremo, leerReglas, aMicropuntos, MAXIMO_ARCHIVO } from "../baremo-editor.js?v=20261001-concursos-v5";
-import { renderizarPanelesBaremo } from "../baremo-vista.js?v=20261001-concursos-v5";
-import { crearClienteConcursos } from "../concursos-cliente.js?v=20261001-concursos-v5";
-import { renderizarConcursos } from "../concursos-vista.js?v=20261001-concursos-v5";
-import { montarConcursos } from "../concursos-montaje.js?v=20261001-concursos-v5";
+import { crearClienteBaremo } from "../baremo-cliente.js?v=20261001-concursos-v6";
+import { crearEditorBaremo, leerReglas, aMicropuntos, MAXIMO_ARCHIVO } from "../baremo-editor.js?v=20261001-concursos-v6";
+import { renderizarPanelesBaremo } from "../baremo-vista.js?v=20261001-concursos-v6";
+import { crearClienteConcursos } from "../concursos-cliente.js?v=20261001-concursos-v6";
+import { renderizarConcursos } from "../concursos-vista.js?v=20261001-concursos-v6";
+import { montarConcursos } from "../concursos-montaje.js?v=20261001-concursos-v6";
 const [textos, textosConcursos] = await Promise.all([cargarTextos("baremo-bolsa"), cargarTextos("baremo-concursos")]);
 const t = (clave) => textos.traducir(`editor.${clave}`);
 document.documentElement.lang = textos.idioma;
