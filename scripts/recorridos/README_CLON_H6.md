@@ -85,6 +85,14 @@ La segunda copia del ensayo se retiró; estas huellas no corresponden a una nuev
 reconstrucción. La recuperación acredita SQL local, sin aplicación ni navegador.
 `preparar` completo y `reiniciar` continúan bloqueados en el orquestador.
 
+El clon local conservado con sufijo `-b` tiene diario SQL62 y preimagen
+comprobada, pero se creó antes de emitir el recibo `sql62-fase.json` de este
+guion. No debe construirse ese recibo a posteriori ni copiarse el del ensayo
+retirado: identifica otra copia física. Para usar el contrato P/A/L local hace
+falta una copia nueva con `preparar-sql` y pines de lock/guiones aprobados.
+Hasta que Dirección fije esos pines, la copia `-b` se conserva solo como
+evidencia y no se reaplican sus SQL.
+
 El paquete H6 canónico conserva una lista propia de 45 rutas, SHA
 `18f977413a431fb4e112577ac989e8c80cc1f678002494902e6394adebf8b0b2`.
 Un cotejo de solo lectura encontró las 45 rutas y huellas, en el mismo orden,
