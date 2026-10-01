@@ -26,8 +26,8 @@ DECLARE
  original text; nuevo text; actual text; fuente text; meta jsonb; deps jsonb; deps_compartidas jsonb; acl aclitem[];
  propietario oid; config text[]; definidora boolean;
  -- Postimagen AD141 comprobada en PostgreSQL18.4 sobre baseline actual.
- esperada_def_sha256 text:=$esperada_def_sha256$5e85b599200a5829e000ce3b3c3c0c59fb2242183cbe6f23b4d3aabe4220760d$esperada_def_sha256$;
- esperada_fuente_sha256 text:=$esperada_fuente_sha256$90c9234d31f0ae45797dc4aba22ec514183494aec15f4f3a0a3c01681f1ee0e3$esperada_fuente_sha256$;
+ esperada_def_sha256 text:=$esperada_def_sha256$202b1580f00e1618e0fb311dcf0911992e56d9eb5f17bc642d58c73768f360f1$esperada_def_sha256$;
+ esperada_fuente_sha256 text:=$esperada_fuente_sha256$4a98b94be7e198a6c1e364949e60f35f39b2e5bf931bc361b1adb52a12a94905$esperada_fuente_sha256$;
  marca text:=$marca$       )
        OR c ->> 'suite' <> 'VEC-AD-3-COSE-EDDSA-1'$marca$;
  excl text:=$excl$               p_perfil_mutacion IS DISTINCT FROM 'bolsa_llamamiento'
@@ -43,14 +43,14 @@ $excl_nuevo$;
 $runtime$;
  runtime_nuevo text:=$runtime_nuevo$       OR NOT (
            (
-               p_perfil_mutacion IN ('meritos_hecho_propio_interno','meritos_hecho_propio_externo','meritos_hecho_rechazar')
+               p_perfil_mutacion IN ('meritos_hecho_propio_interno','meritos_hecho_rechazar')
                AND EXISTS (SELECT 1 FROM pg_roles r WHERE r.rolname=session_user AND r.rolcanlogin
                   AND NOT r.rolsuper AND NOT r.rolcreaterole AND NOT r.rolcreatedb AND NOT r.rolbypassrls)
                AND EXISTS (SELECT 1 FROM pg_auth_members m WHERE m.member=session_user::regrole
                   AND m.roleid='vec_meritos_ejecutor'::regrole
                   AND m.inherit_option AND NOT m.set_option AND NOT m.admin_option)
                AND EXISTS (SELECT 1 FROM pg_auth_members m WHERE m.member=session_user::regrole
-                  AND m.roleid IN ('vec_meritos_interno'::regrole,'vec_meritos_externo'::regrole)
+                  AND m.roleid='vec_meritos_interno'::regrole
                   AND m.inherit_option AND NOT m.set_option AND NOT m.admin_option)
                AND (SELECT count(*) FROM pg_auth_members m WHERE m.member=session_user::regrole)=2
                AND NOT EXISTS (SELECT 1 FROM pg_auth_members m
@@ -60,21 +60,16 @@ $runtime$;
                p_perfil_mutacion IS NOT DISTINCT FROM 'consulta_version_convocatoria_bolsa'
 $runtime_nuevo$;
  extension text:=$extension$           OR (
- p_perfil_mutacion IN ('meritos_hecho_propio_interno','meritos_hecho_propio_externo')
+ p_perfil_mutacion IS NOT DISTINCT FROM 'meritos_hecho_propio_interno'
  AND ((c->>'operacion' IS NOT DISTINCT FROM 'meritos.hecho.declarar'
        AND c->>'audiencia_consumo' IS NOT DISTINCT FROM 'vec_meritos.hecho.declarar.v1'
        AND d->>'finalidad' IS NOT DISTINCT FROM 'declaracion_hecho_propio')
    OR (c->>'operacion' IS NOT DISTINCT FROM 'meritos.hecho.rectificar'
        AND c->>'audiencia_consumo' IS NOT DISTINCT FROM 'vec_meritos.hecho.rectificar.v1'
        AND d->>'finalidad' IS NOT DISTINCT FROM 'rectificacion_hecho_propio'))
- AND ((d#>>'{vinculo_autenticacion_actor,superficie}' IS NOT DISTINCT FROM 'interna_corporativa'
-       AND p_perfil_mutacion IS NOT DISTINCT FROM 'meritos_hecho_propio_interno'
-       AND pg_has_role(session_user,'vec_meritos_interno','MEMBER')
-       AND NOT pg_has_role(session_user,'vec_meritos_externo','MEMBER'))
-   OR (d#>>'{vinculo_autenticacion_actor,superficie}' IS NOT DISTINCT FROM 'externa_personal'
-       AND p_perfil_mutacion IS NOT DISTINCT FROM 'meritos_hecho_propio_externo'
-       AND pg_has_role(session_user,'vec_meritos_externo','MEMBER')
-       AND NOT pg_has_role(session_user,'vec_meritos_interno','MEMBER')))
+ AND d#>>'{vinculo_autenticacion_actor,superficie}' IS NOT DISTINCT FROM 'interna_corporativa'
+ AND pg_has_role(session_user,'vec_meritos_interno','MEMBER')
+ AND NOT pg_has_role(session_user,'vec_meritos_externo','MEMBER')
  AND d->>'accion' IS NOT DISTINCT FROM c->>'operacion'
  AND d->>'modulo_id' IS NOT DISTINCT FROM 'meritos'
  AND d->>'tipo_recurso' IS NOT DISTINCT FROM 'hecho'

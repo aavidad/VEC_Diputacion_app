@@ -1,6 +1,6 @@
 \set ON_ERROR_STOP on
 -- AD3-142: consumidores nominales de declaración, rectificación y rechazo RUM.
--- Verificación fuera de esta migración. Se instala después de AD141.
+-- Exterior y verificación cerrados. Se instala después de AD141.
 BEGIN;
 SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
 SET LOCAL search_path=pg_catalog, pg_temp;
@@ -44,14 +44,14 @@ $excl_nuevo$;
 $runtime$;
  runtime_nuevo text:=$runtime_nuevo$       OR NOT (
            (
-               p_perfil_mutacion IN ('meritos_hecho_propio_interno','meritos_hecho_propio_externo','meritos_hecho_rechazar')
+               p_perfil_mutacion IN ('meritos_hecho_propio_interno','meritos_hecho_rechazar')
                AND EXISTS (SELECT 1 FROM pg_roles r WHERE r.rolname=session_user AND r.rolcanlogin
                   AND NOT r.rolsuper AND NOT r.rolcreaterole AND NOT r.rolcreatedb AND NOT r.rolbypassrls)
                AND EXISTS (SELECT 1 FROM pg_auth_members m WHERE m.member=session_user::regrole
                   AND m.roleid='vec_meritos_ejecutor'::regrole
                   AND m.inherit_option AND NOT m.set_option AND NOT m.admin_option)
                AND EXISTS (SELECT 1 FROM pg_auth_members m WHERE m.member=session_user::regrole
-                  AND m.roleid IN ('vec_meritos_interno'::regrole,'vec_meritos_externo'::regrole)
+                  AND m.roleid='vec_meritos_interno'::regrole
                   AND m.inherit_option AND NOT m.set_option AND NOT m.admin_option)
                AND (SELECT count(*) FROM pg_auth_members m WHERE m.member=session_user::regrole)=2
                AND NOT EXISTS (SELECT 1 FROM pg_auth_members m
@@ -61,21 +61,16 @@ $runtime$;
                p_perfil_mutacion IS NOT DISTINCT FROM 'consulta_version_convocatoria_bolsa'
 $runtime_nuevo$;
  extension text:=$extension$           OR (
- p_perfil_mutacion IN ('meritos_hecho_propio_interno','meritos_hecho_propio_externo')
+ p_perfil_mutacion IS NOT DISTINCT FROM 'meritos_hecho_propio_interno'
  AND ((c->>'operacion' IS NOT DISTINCT FROM 'meritos.hecho.declarar'
        AND c->>'audiencia_consumo' IS NOT DISTINCT FROM 'vec_meritos.hecho.declarar.v1'
        AND d->>'finalidad' IS NOT DISTINCT FROM 'declaracion_hecho_propio')
    OR (c->>'operacion' IS NOT DISTINCT FROM 'meritos.hecho.rectificar'
        AND c->>'audiencia_consumo' IS NOT DISTINCT FROM 'vec_meritos.hecho.rectificar.v1'
        AND d->>'finalidad' IS NOT DISTINCT FROM 'rectificacion_hecho_propio'))
- AND ((d#>>'{vinculo_autenticacion_actor,superficie}' IS NOT DISTINCT FROM 'interna_corporativa'
-       AND p_perfil_mutacion IS NOT DISTINCT FROM 'meritos_hecho_propio_interno'
-       AND pg_has_role(session_user,'vec_meritos_interno','MEMBER')
-       AND NOT pg_has_role(session_user,'vec_meritos_externo','MEMBER'))
-   OR (d#>>'{vinculo_autenticacion_actor,superficie}' IS NOT DISTINCT FROM 'externa_personal'
-       AND p_perfil_mutacion IS NOT DISTINCT FROM 'meritos_hecho_propio_externo'
-       AND pg_has_role(session_user,'vec_meritos_externo','MEMBER')
-       AND NOT pg_has_role(session_user,'vec_meritos_interno','MEMBER')))
+ AND d#>>'{vinculo_autenticacion_actor,superficie}' IS NOT DISTINCT FROM 'interna_corporativa'
+ AND pg_has_role(session_user,'vec_meritos_interno','MEMBER')
+ AND NOT pg_has_role(session_user,'vec_meritos_externo','MEMBER')
  AND d->>'accion' IS NOT DISTINCT FROM c->>'operacion'
  AND d->>'modulo_id' IS NOT DISTINCT FROM 'meritos'
  AND d->>'tipo_recurso' IS NOT DISTINCT FROM 'hecho'
@@ -195,6 +190,10 @@ DECLARE c jsonb; d jsonb; x record; perfil text;
 BEGIN
  BEGIN c:=convert_from(p_capacidad,'UTF8')::jsonb; d:=convert_from(p_decision,'UTF8')::jsonb;
  EXCEPTION WHEN others THEN RAISE EXCEPTION 'AD3-142: material RUM inválido' USING ERRCODE='22023'; END;
+ -- El exterior permanece cerrado hasta disponer de confianza segregada nominal.
+ -- Se rechaza antes de llamar al núcleo interno, incluso con material correcto.
+ IF d#>>'{vinculo_autenticacion_actor,superficie}' IS NOT DISTINCT FROM 'externa_personal'
+ THEN RAISE EXCEPTION 'AD3-142: exterior no habilitado' USING ERRCODE='42501'; END IF;
  -- No se consulta el agregado ni se publica una concesión; solo el núcleo común
  -- revalida y consume. El módulo aplica titularidad/CAS/historia en la misma TX.
  IF (
@@ -204,12 +203,9 @@ BEGIN
    OR (c->>'operacion' IS NOT DISTINCT FROM 'meritos.hecho.rectificar'
        AND c->>'audiencia_consumo' IS NOT DISTINCT FROM 'vec_meritos.hecho.rectificar.v1'
        AND d->>'finalidad' IS NOT DISTINCT FROM 'rectificacion_hecho_propio'))
- AND ((d#>>'{vinculo_autenticacion_actor,superficie}' IS NOT DISTINCT FROM 'interna_corporativa'
-       AND pg_has_role(session_user,'vec_meritos_interno','MEMBER')
-       AND NOT pg_has_role(session_user,'vec_meritos_externo','MEMBER'))
-   OR (d#>>'{vinculo_autenticacion_actor,superficie}' IS NOT DISTINCT FROM 'externa_personal'
-       AND pg_has_role(session_user,'vec_meritos_externo','MEMBER')
-       AND NOT pg_has_role(session_user,'vec_meritos_interno','MEMBER')))
+ AND d#>>'{vinculo_autenticacion_actor,superficie}' IS NOT DISTINCT FROM 'interna_corporativa'
+ AND pg_has_role(session_user,'vec_meritos_interno','MEMBER')
+ AND NOT pg_has_role(session_user,'vec_meritos_externo','MEMBER')
  AND d->>'accion' IS NOT DISTINCT FROM c->>'operacion'
  AND d->>'modulo_id' IS NOT DISTINCT FROM 'meritos'
  AND d->>'tipo_recurso' IS NOT DISTINCT FROM 'hecho'
@@ -217,9 +213,7 @@ BEGIN
  AND d->>'contexto_recurso_huella_sha256' IS NOT DISTINCT FROM c->>'huella_efecto_sha256'
  AND d->'campos_permitidos' IS NOT DISTINCT FROM '["declarante_ref","hecho","recibo","version"]'::jsonb
  AND d->'obligaciones' IS NOT DISTINCT FROM '["auditar"]'::jsonb
- ) IS TRUE THEN perfil:=CASE d#>>'{vinculo_autenticacion_actor,superficie}'
-     WHEN 'interna_corporativa' THEN 'meritos_hecho_propio_interno'
-     WHEN 'externa_personal' THEN 'meritos_hecho_propio_externo' END;
+ ) IS TRUE THEN perfil:='meritos_hecho_propio_interno';
  ELSIF (
  c->>'operacion' IS NOT DISTINCT FROM 'meritos.hecho.rechazar'
  AND c->>'audiencia_consumo' IS NOT DISTINCT FROM 'vec_meritos.hecho.rechazar.v1'
