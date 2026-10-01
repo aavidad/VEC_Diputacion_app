@@ -83,6 +83,29 @@ y después de la captura. El sello de la evidencia debe permanecer idéntico.
 Ese canal permite leer restauraciones primarias aisladas antes de limpiarlas.
 Los límites y la base proceden de la configuración externa del ejecutor.
 
+Para un conjunto de bases, configure `BasesInventariadas` en el adaptador como
+lista explícita de todos los nombres observados en `pg_database`, incluidas
+las bases de mantenimiento y las plantillas. Las referencias a objetos grandes
+deben indicar también su `Base`. Una base omitida, repetida o desconocida impide
+afirmar que se ha capturado el conjunto completo. No se excluye `postgres` por
+considerarla una base de mantenimiento.
+
+`CapturarEjecutorConFuente` captura las bases conectables bajo la misma ventana
+de exclusión y conserva propietarios, ACL y propiedades de todas ellas. Comparte
+los límites de filas, bytes y objetos; prefija las identidades con la base y
+ordena el conjunto antes de sellarlo.
+
+Para una base no conectable, `FuenteBaseNoConectable` debe observar y validar
+su material lógico conservado y la procedencia auténtica de su inicialización.
+La evidencia se liga a propiedades actuales, versión de PostgreSQL y ventana.
+Sin esa evidencia, el resultado es `no_comprobable`. El lector no activa
+`template0`, no escribe en el origen y no genera una huella de fábrica supuesta.
+
+El canal directo de esta CLI conserva el alcance de una sola base. Un conjunto
+declarado mediante `bases_inventariadas` requiere el ejecutor y la fuente tipada;
+el canal DSN lo rechaza antes de abrir la conexión. La comparación offline admite
+los inventarios de conjunto producidos por ese ejecutor.
+
 ## Formato y alcance
 
 `Snapshot` versión 1 contiene versión exacta de PostgreSQL, `completo`, motivos
@@ -150,3 +173,16 @@ Cambiar bytes, propietario, ACL, presencia o referencia produjo diferencias.
 Las referencias huérfanas o sin declaración impidieron afirmar igualdad.
 La caché compartida de Go agotó su cuota antes de compilar; el ensayo verde
 usó una caché privada fuera de Git. El contenedor propio se eliminó.
+
+El ensayo multibase capturó `postgres`, `template0`, `template1` y `vec_cs11`.
+Una restauración con nombre y `--create` conservó la igualdad. Cambiar una celda
+o ACL de mantenimiento, o el contenido de `template1`, produjo diferencias.
+Una base adicional, evidencia ausente y presupuesto insuficiente bloquearon
+el resultado completo. Las cuatro bases necesitaron un presupuesto explícito
+de 32 MiB en el fixture; los límites del código de producción no aumentaron.
+
+El proveedor de prueba observó una copia técnica de `template0` en el motor
+antes de la ventana y la retiró antes de capturar el conjunto. Consultó las
+propiedades y ACL de la base original. Este ejercicio controlado no entrega un
+proveedor de inicialización para el circuito real; sin esa fuente, la base no
+conectable sigue como `no_comprobable`. No se activó ni escribió `template0`.

@@ -36,11 +36,20 @@ var baseAdmitida = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_$-]{0,62}$`)
 // abre REPEATABLE READ READ ONLY; con la ventana externa exclusiva observada,
 // todas pertenecen al mismo estado. Sin el guard no existe evidencia completa.
 func (l *Lector) CapturarEjecutor(ctx context.Context, exec EjecutorPostgreSQL, base string, exclusion ExclusionObservada) (domain.Snapshot, error) {
+	return l.CapturarEjecutorConFuente(ctx, exec, base, exclusion, nil)
+}
+
+// La fuente opcional pertenece al operador de plataforma y verifica procedencia
+// de bases no conectables sin activarlas ni sustituir la evidencia por constantes.
+func (l *Lector) CapturarEjecutorConFuente(ctx context.Context, exec EjecutorPostgreSQL, base string, exclusion ExclusionObservada, fuente FuenteBaseNoConectable) (domain.Snapshot, error) {
 	if exec == nil || exclusion == nil || !baseAdmitida.MatchString(base) {
 		return domain.Snapshot{}, errCaptura
 	}
 	ctx, cancel := context.WithTimeout(ctx, l.limites.TiempoMaximo)
 	defer cancel()
+	if len(l.limites.BasesInventariadas) != 0 {
+		return l.capturarBases(ctx, exec, base, exclusion, fuente)
+	}
 	tx := &transporteEjecutor{exec: exec, base: base, maxBytes: l.limites.MaxBytes, timeout: l.limites.TiempoMaximo.Milliseconds()}
 	return l.capturarSQL(ctx, tx, exclusion)
 }
