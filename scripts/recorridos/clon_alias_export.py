@@ -297,7 +297,7 @@ def export(repo: Path, binary: Path, source: Path, ack: Path, root: Path, output
                "exportador": "cmd/vec-server " + COMMAND}
     with ExitStack() as stack:
         argv, fds, environment = sandbox_command(executable, files, root / "runtime-externo", stack)
-        fd, identities = material.open_root(output, create=True)
+        fd, identities = material.open_root(output, create=receipt_sha is None)
         stack.callback(os.close, fd)
         material.revalidate(output, identities)
         names = set(os.listdir(fd))

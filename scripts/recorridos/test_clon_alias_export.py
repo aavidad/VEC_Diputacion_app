@@ -357,6 +357,45 @@ sock.close()
                 with self.assertRaises((alias.ExportError, m.OfflineMaterialError, ValueError)):
                     alias.validate_stdout(data, self.files, self.bound)
 
+    def test_replay_absent_output_never_creates_directory_or_changes_parent_mtime(self):
+        before = (self.base.stat().st_ino, self.base.stat().st_mtime_ns)
+        opened = m.open_root
+        with patch.object(m, "open_root", wraps=opened) as roots, \
+                patch.object(m, "write_at", side_effect=AssertionError("replay must not write")), \
+                patch.object(alias, "execute", side_effect=AssertionError("replay must not launch exporter")):
+            for pin in ("a" * 64, ""):
+                with self.subTest(pin_length=len(pin)):
+                    with self.assertRaises(FileNotFoundError):
+                        self.run_export(receipt_sha=pin)
+                    self.assertFalse(self.output.exists())
+            roots.assert_any_call(self.output, create=False)
+        self.assertEqual(before, (self.base.stat().st_ino, self.base.stat().st_mtime_ns))
+
+    def test_replay_symlink_output_never_changes_link_or_target(self):
+        target = self.base / "empty-target"
+        target.mkdir(mode=0o700)
+        self.output.symlink_to(target, target_is_directory=True)
+        before = {str(path): (path.lstat().st_ino, path.lstat().st_mtime_ns)
+                  for path in (self.base, self.output, target)}
+        with patch.object(m, "write_at", side_effect=AssertionError("replay must not write")), \
+                patch.object(alias, "execute", side_effect=AssertionError("replay must not launch exporter")):
+            with self.assertRaisesRegex(alias.ExportError, "output_route_pin_changed"):
+                self.run_export(receipt_sha="a" * 64)
+        self.assertEqual(before, {str(path): (path.lstat().st_ino, path.lstat().st_mtime_ns)
+                                  for path in (self.base, self.output, target)})
+        self.assertTrue(self.output.is_symlink())
+        self.assertEqual(list(target.iterdir()), [])
+
+    def test_replay_existing_empty_output_preserves_directory_mtime(self):
+        self.output.mkdir(mode=0o700)
+        before = {str(path): (path.stat().st_ino, path.stat().st_mtime_ns) for path in (self.base, self.output)}
+        with patch.object(m, "write_at", side_effect=AssertionError("replay must not write")), \
+                patch.object(alias, "execute", side_effect=AssertionError("replay must not launch exporter")):
+            with self.assertRaisesRegex(alias.ExportError, "replay_attempt_absent"):
+                self.run_export(receipt_sha="a" * 64)
+        self.assertEqual(before, {str(path): (path.stat().st_ino, path.stat().st_mtime_ns) for path in (self.base, self.output)})
+        self.assertEqual(list(self.output.iterdir()), [])
+
     def test_replay_output_receipt_pending_and_material_changes_never_execute(self):
         receipt = self.run_export()
         pin = m.digest(m.encoded(receipt))
