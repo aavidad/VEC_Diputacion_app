@@ -35,10 +35,16 @@ function congelarConfiguracion(configuracion, datos) {
     if (entrada?.version !== indice + 1 || typeof entrada.actor_ref !== "string"
       || !entrada.actor_ref.startsWith("actor:ejemplo:") || !instanteValido(entrada.fecha)
       || typeof entrada.actor_nombre !== "string" || !entrada.actor_nombre.trim()
+      || typeof entrada.idioma_motivo !== "string"
+      || !/^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/u.test(entrada.idioma_motivo)
       || typeof entrada.motivo !== "string"
       || !entrada.motivo.trim()) throw new TypeError("datos");
+    try {
+      if (Intl.getCanonicalLocales(entrada.idioma_motivo).length !== 1) throw new TypeError("datos");
+    } catch { throw new TypeError("datos"); }
     return Object.freeze({ version: entrada.version, actor_ref: entrada.actor_ref,
-      actor_nombre: entrada.actor_nombre, fecha: entrada.fecha, motivo: entrada.motivo });
+      actor_nombre: entrada.actor_nombre, fecha: entrada.fecha,
+      idioma_motivo: entrada.idioma_motivo, motivo: entrada.motivo });
   });
   return Object.freeze({ referencia: configuracion.referencia, version: configuracion.version,
     campo_fecha: criterio.campo_fecha,
@@ -227,9 +233,11 @@ export function montarInformesDietas(contenedor, { cargarDatos, cargarConfigurac
   };
 
   function pintarAyuda(criterio) {
-    const dato = (lista, clave, valor) => {
+    const dato = (lista, clave, valor, idioma) => {
       const fila = nodo(documento, "div");
-      fila.append(nodo(documento, "dt", t(clave)), nodo(documento, "dd", valor)); lista.append(fila);
+      const valorNodo = nodo(documento, "dd", valor);
+      if (idioma) valorNodo.setAttribute("lang", idioma);
+      fila.append(nodo(documento, "dt", t(clave)), valorNodo); lista.append(fila);
     };
     const etiquetaFecha = t(`fecha_${criterio.campo_fecha}`);
     const resumenCriterio = nodo(documento, "dl"); resumenCriterio.className = "datos-clave";
@@ -246,7 +254,7 @@ export function montarInformesDietas(contenedor, { cargarDatos, cargarConfigurac
       dato(datosHistoria, "version_comision", numero.format(entrada.version));
       dato(datosHistoria, "preparado_por", entrada.actor_nombre);
       dato(datosHistoria, "fecha_historia", fechaHistoria.format(new Date(entrada.fecha)));
-      dato(datosHistoria, "motivo_historia", entrada.motivo);
+      dato(datosHistoria, "motivo_historia", entrada.motivo, entrada.idioma_motivo);
       const referencias = nodo(documento, "details");
       referencias.append(nodo(documento, "summary", t("detalle_referencias")));
       const datosReferencia = nodo(documento, "dl"); datosReferencia.className = "datos-clave";

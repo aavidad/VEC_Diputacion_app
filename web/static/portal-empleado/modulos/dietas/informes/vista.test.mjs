@@ -253,6 +253,8 @@ test("Ayuda muestra configuración e historia sintética sin abrir referencias",
   assert.match(texto(ayuda), /Marina Torres/u);
   assert.match(texto(ayuda), /Preparación de un informe sintético/u);
   assert.match(texto(ayuda), /No acredita aprobación administrativa/u);
+  const motivo = ayuda.querySelectorAll("dd").find((n) => n.textContent === configuracion.historia[0].motivo);
+  assert.equal(motivo.attrs.lang, configuracion.historia[0].idioma_motivo);
   const referencias = ayuda.querySelector("details");
   assert.equal(referencias.querySelector("summary").textContent, t("detalle_referencias"));
   assert.notEqual(referencias.open, true);
