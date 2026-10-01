@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { crearTextos } from "../../../../comun/textos.js";
 import { catalogoTarifasDietasValido, formatearImporteCentimos, importeACentimos, montarCatalogoTarifasDietas } from "./vista.js";
 
 const leer = async (ruta) => JSON.parse(await readFile(new URL(ruta, import.meta.url), "utf8"));
@@ -154,4 +155,94 @@ test("las dos traducciones cubren las mismas claves de la vista", async () => {
   assert.deepEqual(Object.keys(es).sort(), Object.keys(en).sort());
   assert.equal(Object.values(es).every((valor) => typeof valor === "string" && valor.length > 0), true);
   assert.equal(Object.values(en).every((valor) => typeof valor === "string" && valor.length > 0), true);
+});
+
+
+test("dos propuestas conservan revisión, corrección y retirada independientes en ambos idiomas", async () => {
+  const original = await leer("../../../../../../data/demo/dietas/catalogo-rrhh.json");
+  const respaldo = await leer("../../../../textos/es/dietas-catalogo.json");
+  for (const [idioma, localizacion, cantidades] of [["es", "es-ES", ["38,40", "0,20", "39,40"]], ["en", "en-GB", ["38.40", "0.20", "39.40"]]]) {
+    const propio = await leer(`../../../../textos/${idioma}/dietas-catalogo.json`);
+    const { traducir, faltantes } = crearTextos({ modulo: "dietas-catalogo", idioma, localizacion, respaldo, propio });
+    const textos = propio.catalogo, raiz = documentoMinimo(), anuncios = [];
+    const antes = structuredClone(original);
+    let llamadas = 0;
+    const desmontar = montarCatalogoTarifasDietas(raiz, {
+      fuente: async () => { llamadas++; return original; }, traducir, localizacion, anunciar: (texto) => anuncios.push(texto),
+    });
+    await new Promise(setImmediate);
+    const resumen = raiz.querySelector("[data-dietas-catalogo-propuestas]");
+    const editor = raiz.querySelector("[data-dietas-catalogo-editor]");
+    const botones = (zona, texto) => descendientes(zona, (n) => n.tagName === "BUTTON" && n.textContent === texto);
+    const control = (nombre) => descendientes(editor, (n) => n.name === nombre)[0];
+    const enviar = () => descendientes(editor, (n) => n.tagName === "FORM")[0].listeners.get("submit")({ preventDefault() {} });
+    const preparar = botones(raiz, textos.preparar);
+    assert.match(resumen.textContent, new RegExp(textos.propuestas_vacias, "u"));
+    for (const indice of [0, 1]) {
+      preparar[indice].listeners.get("click")();
+      control("importe_propuesto").value = cantidades[indice];
+      control("motivo").value = `<img src=x onerror=alert(1)> ${indice}`;
+      control("fuente_propuesta").value = original.fuentes[indice];
+      enviar();
+    }
+    assert.equal(botones(resumen, textos.corregir_propuesta).length, 2);
+    assert.match(resumen.textContent, /<img src=x onerror=alert\(1\)> 0/u);
+    assert.equal(descendientes(resumen, (n) => n.tagName === "IMG").length, 0);
+    const moneda = (centimos) => formatearImporteCentimos(centimos, localizacion, "EUR");
+    assert.ok(resumen.textContent.includes(traducir("catalogo.aumento", { importe: moneda(100) })));
+    assert.ok(resumen.textContent.includes(traducir("catalogo.reduccion", { importe: `${moneda(6)}${textos.por_km}` })));
+    assert.deepEqual(descendientes(resumen, (n) => n.tagName === "A").map((n) => n.href), original.fuentes.slice(0, 2));
+    assert.equal(descendientes(resumen, (n) => n.tagName === "TD" && n.textContent.includes("<img"))[0].atributos.get("lang"), localizacion);
+    assert.equal(descendientes(editor, (n) => n.tagName === "BUTTON" && n.textContent === textos.publicar)[0].disabled, true);
+    // La selección recupera lo revisado y enfoca el editor sin perder la otra tarifa.
+    botones(resumen, textos.corregir_propuesta)[0].listeners.get("click")();
+    assert.equal(raiz.ownerDocument.activeElement.tagName, "H3");
+    assert.equal(control("importe_propuesto").value, cantidades[0]);
+    assert.equal(control("fuente_propuesta").value, original.fuentes[0]);
+    assert.equal(botones(resumen, textos.corregir_propuesta).length, 2);
+    control("importe_propuesto").value = cantidades[2]; control("importe_propuesto").listeners.get("input")();
+    assert.equal(botones(resumen, textos.corregir_propuesta).length, 1);
+    control("importe_propuesto").value = "-1"; enviar();
+    assert.equal(botones(resumen, textos.corregir_propuesta).length, 1);
+    assert.equal(raiz.ownerDocument.activeElement, control("importe_propuesto"));
+    control("importe_propuesto").value = cantidades[2]; enviar();
+    assert.equal(botones(resumen, textos.corregir_propuesta).length, 2);
+    assert.ok(resumen.textContent.includes(traducir("catalogo.aumento", { importe: moneda(200) })));
+    // Retirar la otra tarifa no reemplaza el editor que se está corrigiendo.
+    botones(resumen, textos.retirar_propuesta)[1].listeners.get("click")();
+    assert.equal(editor.hidden, false);
+    assert.equal(control("importe_propuesto").value, cantidades[2]);
+    assert.equal(raiz.ownerDocument.activeElement, botones(resumen, textos.corregir_propuesta)[0]);
+    botones(resumen, textos.retirar_propuesta)[0].listeners.get("click")();
+    assert.equal(editor.hidden, true);
+    assert.equal(botones(resumen, textos.corregir_propuesta).length, 0);
+    assert.equal(raiz.ownerDocument.activeElement.tagName, "H3");
+    assert.ok(resumen.textContent.includes(textos.propuestas_vacias));
+    assert.ok(anuncios.at(-1).includes(traducir("catalogo.propuesta_retirada", { tarifa: traducir("catalogo.tarifa_resumen", {concepto: textos.concepto_manutencion, grupo: "2", pais: "ES"}) })));
+    preparar[0].listeners.get("click")();
+    assert.equal(control("importe_propuesto").value, "");
+    assert.deepEqual(original, antes); assert.equal(llamadas, 1); assert.deepEqual(faltantes, []);
+    desmontar();
+    assert.equal(raiz.children.length, 0);
+  }
+});
+
+test("diferencia del importe seguro conserva cada céntimo sin modificar la tarifa", async () => {
+  const original = await leer("../../../../../../data/demo/dietas/catalogo-rrhh.json");
+  const catalogo = structuredClone(original); catalogo.tarifas[0].importe_centimos = Number.MAX_SAFE_INTEGER;
+  const respaldo = await leer("../../../../textos/es/dietas-catalogo.json");
+  const { traducir } = crearTextos({ modulo: "dietas-catalogo", idioma: "es", localizacion: "es-ES", respaldo });
+  const raiz = documentoMinimo();
+  const desmontar = montarCatalogoTarifasDietas(raiz, { fuente: async () => catalogo, traducir, localizacion: "es-ES" });
+  await new Promise(setImmediate);
+  descendientes(raiz, (n) => n.tagName === "BUTTON" && n.textContent === respaldo.catalogo.preparar)[0].listeners.get("click")();
+  const editor = raiz.querySelector("[data-dietas-catalogo-editor]");
+  descendientes(editor, (n) => n.name === "importe_propuesto")[0].value = "0,00";
+  descendientes(editor, (n) => n.name === "motivo")[0].value = "Revisión local";
+  descendientes(editor, (n) => n.tagName === "FORM")[0].listeners.get("submit")({ preventDefault() {} });
+  assert.ok(raiz.querySelector("[data-dietas-catalogo-propuestas]").textContent.includes(traducir("catalogo.reduccion", {
+    importe: formatearImporteCentimos(Number.MAX_SAFE_INTEGER, "es-ES", "EUR"),
+  })));
+  assert.equal(catalogo.tarifas[0].importe_centimos, Number.MAX_SAFE_INTEGER);
+  desmontar();
 });

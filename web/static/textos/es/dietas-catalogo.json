@@ -52,6 +52,23 @@
     "historia_actor": "Preparado por",
     "historia_accion": "Acción",
     "accion_preparacion_ejemplo": "Preparación del ejemplo",
-    "historia_motivo": "Motivo"
+    "historia_motivo": "Motivo",
+    "tarifa_resumen": "{concepto} · Grupo {grupo} · {pais}",
+    "propuestas_titulo": "Propuestas revisadas en esta pantalla",
+    "propuestas_limite": "Solo se conservan mientras esta vista esté abierta. No cambian el catálogo de ejemplo.",
+    "propuestas_vacias": "Aún no hay propuestas revisadas. Prepare un cambio y pulse Revisar propuesta.",
+    "propuestas_desplazable": "Propuestas locales; use las flechas para ver todas las columnas",
+    "tarifa": "Tarifa",
+    "propuesto": "Importe propuesto",
+    "diferencia": "Diferencia",
+    "fecha_propuesta": "Inicio propuesto",
+    "sin_cambio": "Sin cambio",
+    "aumento": "Aumenta {importe}",
+    "reduccion": "Disminuye {importe}",
+    "corregir_propuesta": "Revisar o corregir",
+    "retirar_propuesta": "Retirar de esta pantalla",
+    "corregir_tarifa": "Revisar o corregir: {tarifa}",
+    "retirar_tarifa": "Retirar de esta pantalla: {tarifa}",
+    "propuesta_retirada": "Se ha retirado la propuesta local de {tarifa}."
   }
 }
