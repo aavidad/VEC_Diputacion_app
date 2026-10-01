@@ -1,4 +1,64 @@
 \set ON_ERROR_STOP on
+-- Modo previo a AUT26: -v aut26_guard_sql=<bloque DO $preimagen$ real de la UP>.
+-- Extraer desde DO $preimagen$ hasta END $preimagen$; no copiar la guardia.
+-- Este modo usa H1→SQL62 sintético sin AUT26 y revierte todas las policies.
+\if :{?aut26_guard_sql}
+BEGIN;
+SET LOCAL search_path = pg_catalog;
+SET LOCAL lock_timeout = '5s';
+SET LOCAL statement_timeout = '30s';
+SELECT pg_catalog.set_config('vec.aut26_guard_sql', :'aut26_guard_sql', true);
+DO $rls$
+DECLARE t pg_catalog.text; modo pg_catalog.text; rechazadas pg_catalog.int4 := 0;
+        mensaje pg_catalog.text;
+BEGIN
+    IF pg_catalog.current_setting('vec.aut26_clon_desechable', true) IS DISTINCT FROM 'on'
+       OR NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = current_user AND rolsuper)
+       OR pg_catalog.to_regprocedure('vec_autorizacion.obtener_preimagen_candidato_externo_ro_v1(text,text,text,text)') IS NOT NULL
+       OR pg_catalog.to_regprocedure('vec_autorizacion.obtener_checkpoint_motivos_candidato_externo_ro_v1()') IS NOT NULL
+    THEN RAISE EXCEPTION 'prueba RLS requiere clon desechable previo a AUT26'; END IF;
+    -- La guardia real debe aceptar primero la preimagen canónica.
+    EXECUTE pg_catalog.current_setting('vec.aut26_guard_sql');
+    FOREACH t IN ARRAY ARRAY[
+        'version_rol', 'control_vigencia_version_rol', 'control_vigencia_version_rol_actual',
+        'asignacion_perfil_externa', 'asignacion_perfil_actual_externa',
+        'motivo_v2_checkpoint_origen', 'motivo_v2_evento_origen',
+        'motivo_v2_catalogo_publicado', 'motivo_v2_retirada', 'motivo_v2_entrada'
+    ] LOOP
+        FOREACH modo IN ARRAY ARRAY['restrictiva_adicional', 'canonica_restrictiva'] LOOP
+            BEGIN
+                IF modo = 'restrictiva_adicional' THEN
+                    EXECUTE pg_catalog.format('CREATE POLICY aut26_restrictiva_fixture ON vec_autorizacion.%I '
+                        'AS RESTRICTIVE FOR SELECT TO vec_autorizacion_propietario USING (false)', t);
+                ELSE
+                    EXECUTE pg_catalog.format('DROP POLICY acceso_propietario_exacto ON vec_autorizacion.%I', t);
+                    EXECUTE pg_catalog.format('CREATE POLICY acceso_propietario_exacto ON vec_autorizacion.%I '
+                        'AS RESTRICTIVE FOR ALL TO vec_autorizacion_propietario '
+                        'USING (CURRENT_USER = ''vec_autorizacion_propietario''::name) '
+                        'WITH CHECK (CURRENT_USER = ''vec_autorizacion_propietario''::name)', t);
+                END IF;
+                BEGIN
+                    EXECUTE pg_catalog.current_setting('vec.aut26_guard_sql');
+                    RAISE EXCEPTION 'guardia AUT26 admitió % en %', modo, t;
+                EXCEPTION WHEN SQLSTATE '55000' THEN
+                    GET STACKED DIAGNOSTICS mensaje = MESSAGE_TEXT;
+                    IF mensaje IS DISTINCT FROM 'AUT26: tabla/ACL/RLS incompatible ' || t THEN
+                        RAISE EXCEPTION 'rechazo ajeno al caso RLS %/%: %', t, modo, mensaje;
+                    END IF;
+                END;
+                -- Revertir el DDL del caso antes de pasar a la siguiente tabla.
+                RAISE EXCEPTION USING ERRCODE = 'Z0026', MESSAGE = 'revertir fixture RLS';
+            EXCEPTION WHEN SQLSTATE 'Z0026' THEN
+                rechazadas := rechazadas + 1;
+            END;
+            EXECUTE pg_catalog.current_setting('vec.aut26_guard_sql');
+        END LOOP;
+    END LOOP;
+    IF rechazadas <> 20 THEN RAISE EXCEPTION 'casos RLS incompletos: %', rechazadas; END IF;
+END $rls$;
+ROLLBACK;
+SELECT 'AUT26_PREIMAGEN_RLS_20_RECHAZOS_OK' AS resultado;
+\else
 -- Exclusivamente en clon sintético desechable H1→SQL62→AUT26, antes de AD132.
 -- El invocador debe fijar vec.aut26_clon_desechable=on. No ejecutar en principal.
 BEGIN;
@@ -194,3 +254,4 @@ BEGIN
 END $nominal$;
 COMMIT;
 SELECT 'AUT26_PRELIMINAR_OK' AS resultado;
+\endif

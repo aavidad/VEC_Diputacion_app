@@ -68,13 +68,12 @@ BEGIN
               AND c.relowner = pg_catalog.to_regrole('vec_autorizacion_propietario'))
            OR NOT EXISTS (SELECT 1 FROM pg_catalog.pg_policy q
                 WHERE q.polrelid = pg_catalog.to_regclass('vec_autorizacion.' || t)
-                  AND q.polname = 'acceso_propietario_exacto' AND q.polcmd = '*'
+                  AND q.polname = 'acceso_propietario_exacto' AND q.polpermissive AND q.polcmd = '*'
                   AND q.polroles = ARRAY[pg_catalog.to_regrole('vec_autorizacion_propietario')::pg_catalog.oid]
                   AND pg_catalog.pg_get_expr(q.polqual, q.polrelid) = '(CURRENT_USER = ''vec_autorizacion_propietario''::name)'
                   AND pg_catalog.pg_get_expr(q.polwithcheck, q.polrelid) = '(CURRENT_USER = ''vec_autorizacion_propietario''::name)')
-           OR EXISTS (SELECT 1 FROM pg_catalog.pg_policy q
-                WHERE q.polrelid = pg_catalog.to_regclass('vec_autorizacion.' || t)
-                  AND q.polroles <> ARRAY[pg_catalog.to_regrole('vec_autorizacion_propietario')::pg_catalog.oid])
+           OR (SELECT count(*) FROM pg_catalog.pg_policy q
+                WHERE q.polrelid = pg_catalog.to_regclass('vec_autorizacion.' || t)) <> 1
            OR EXISTS (SELECT 1 FROM pg_catalog.pg_class c,
                 LATERAL pg_catalog.aclexplode(coalesce(c.relacl, pg_catalog.acldefault('r', c.relowner))) a
                 WHERE c.oid = pg_catalog.to_regclass('vec_autorizacion.' || t) AND a.grantee = 0)
