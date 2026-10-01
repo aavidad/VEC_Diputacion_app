@@ -1,0 +1,27 @@
+{
+  "general": {
+    "ver_origen": "View origin",
+    "origen_fila": "View origin of row {fila} in {tabla}",
+    "fecha_registro": "Recorded on",
+    "fecha_efectos": "Effective from",
+    "fecha_fin": "End date (not included)",
+    "sin_fin": "No end date",
+    "version_hecho": "Record version",
+    "estado": "Status",
+    "fuente": "Source",
+    "acto": "Act",
+    "sin_denominacion": "Name unavailable",
+    "regimen": "Regime",
+    "modalidad": "Employment type",
+    "situacion": "Situation",
+    "clase_servicio": "Service class",
+    "version_catalogo": "version {version}",
+    "detalle_tecnico": "View technical references",
+    "fuente_ref": "Source reference",
+    "acto_ref": "Act reference",
+    "fuente_version": "Source version",
+    "plaza_ref": "Position reference",
+    "puesto_ref": "Post reference",
+    "sin_valor": "Not recorded"
+  }
+}
