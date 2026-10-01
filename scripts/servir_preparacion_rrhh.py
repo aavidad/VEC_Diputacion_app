@@ -40,9 +40,12 @@ def cargar_recursos(raiz, modulo):
         if not isinstance(codigo, str) or not codigo.replace("-", "").isalpha():
             raise ValueError("indice_idiomas_invalido")
         rutas.append(f"textos/{codigo}/{modulo}.json")
+        error = f"textos/{codigo}/{modulo}-error.json"
+        if (raiz / error).is_file():
+            rutas.append(error)
     prefijo = f"portal-empleado/modulos/{modulo}"
     # Archivos de la vista, nunca pruebas ni datos aportados por una persona.
-    for nombre in ("index.html", "entrada.js", "cliente.js", "vista.js", "modelo.js", f"{modulo}.css", "escenario.json", "error-catalogo.json"):
+    for nombre in ("index.html", "entrada.js", "cliente.js", "vista.js", "modelo.js", f"{modulo}.css", "escenario.json"):
         ruta = f"{prefijo}/{nombre}"
         if (raiz / ruta).exists():
             rutas.append(ruta)
@@ -57,6 +60,10 @@ def cargar_recursos(raiz, modulo):
         tipo = mimetypes.guess_type(ruta)[0] or "application/octet-stream"
         recursos[f"/{ruta}"] = (contenido, tipo)
     recursos[f"/{prefijo}/"] = recursos[f"/{prefijo}/index.html"]
+    defecto = indice.get("por_defecto", indice["idiomas"][0]["codigo"])
+    error = recursos.get(f"/textos/{defecto}/{modulo}-error.json")
+    if error is not None:
+        recursos[f"/{prefijo}/error-catalogo.json"] = error
     return recursos, f"/{prefijo}/"
 
 
