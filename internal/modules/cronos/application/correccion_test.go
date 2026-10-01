@@ -59,7 +59,10 @@ func (r *repositorioCorreccionPrueba) RecuperarRecibo(_ context.Context, clave p
 func TestCorreccionRecuperaSoloReciboDelPasoPedido(t *testing.T) {
 	instante := time.Now().UTC().Truncate(time.Microsecond)
 	repo := &repositorioCorreccionPrueba{}
-	servicio, _ := NuevoServicioCorrecciones(repo, relojMarcajePrueba{instante})
+	lector := lectorVinculoCRN11Prueba(func(_ context.Context, in ports.InputConsultaVinculoPropioCRN11) (ports.VinculoPropioHistoricoCRN11, error) {
+		return vinculoCRN11Prueba(in, instante), nil
+	})
+	servicio, _ := NuevoServicioCorreccionesConVinculoHistorico(repo, relojMarcajePrueba{instante}, lector)
 	clave := ports.ClaveRecuperacionCorreccion{SolicitudRef: "correccion:cronos:olvido_0001", ClaveOperacion: "olvido_0001", Paso: domain.PasoSolicitudCorreccion}
 	recibo, err := servicio.RecuperarRecibo(context.Background(), ordenCorreccionPrueba(t), clave)
 	if err != nil || !recibo.Replay || repo.recuperaciones != 1 {
