@@ -145,7 +145,8 @@ func (m *motor) procesar(p peticion, instante string) (port.Resultado, *operacio
 				}
 			}
 			if err != nil {
-				break
+				res.Auditoria.Resultado = err.Error()
+				return res, nil, err
 			}
 		}
 		var anterior *operacionescopias.Operacion
