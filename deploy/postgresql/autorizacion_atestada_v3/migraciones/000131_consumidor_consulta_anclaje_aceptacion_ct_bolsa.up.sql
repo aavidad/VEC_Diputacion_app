@@ -29,9 +29,9 @@ DECLARE
  f oid:=to_regprocedure('vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
  original text; nuevo text; actual text; fuente text; meta jsonb; deps jsonb; deps_compartidas jsonb; acl aclitem[];
  propietario oid; config text[]; definidora boolean;
- -- Huellas de la preimagen causal: medir tras la SQL anterior en el clon único.
- esperada_def_sha256 text:=NULL;
- esperada_fuente_sha256 text:=NULL;
+ -- Preimagen post-AD128 del clon causal B -> AD136 -> AD127 -> AD128.
+ esperada_def_sha256 text:='ae97811282c9e811a0400764d3a1888210bfcce1f475e73727ff4f6006c5314d';
+ esperada_fuente_sha256 text:='5950eeb847478b1b000a3232c8b7baa7e9fc9ba049f43f2bc9255effac6915c7';
  marca text:=E'       )\n       OR c ->> ''suite'' <> ''VEC-AD-3-COSE-EDDSA-1''';
  excl text:=E'               AND p_perfil_mutacion IS DISTINCT FROM ''consulta_persona_aceptacion_ct_bolsa''\n';
  excl_nuevo text:=excl||E'               AND p_perfil_mutacion IS DISTINCT FROM ''consulta_anclaje_aceptacion_ct_bolsa''\n';
@@ -127,7 +127,7 @@ END $nucleo$;
 
 LOCK TABLE vec_autorizacion_atestada_v3.clave_capacidad_version IN ACCESS EXCLUSIVE MODE;
 DO $audiencias$
-DECLARE d text; esperada_audiencia_sha256 text:=NULL; audiencia text:='vec_bolsa_llamamientos.aceptacion_ct.anclaje.v1';
+DECLARE d text; esperada_audiencia_sha256 text:='f04a6ec6b751fc6abecc4c858a321659014f12abc002718092f4ca61b43bf8fc'; audiencia text:='vec_bolsa_llamamientos.aceptacion_ct.anclaje.v1';
 BEGIN
  SELECT pg_get_constraintdef(c.oid,true) INTO d
  FROM pg_constraint c WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
