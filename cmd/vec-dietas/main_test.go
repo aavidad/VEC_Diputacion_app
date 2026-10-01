@@ -88,3 +88,16 @@ func TestLimiteExacto(t *testing.T) {
 		t.Fatal("exact limit rejected")
 	}
 }
+
+func TestArgumentosRechazadosYFalloEscritura(t *testing.T) {
+	var out bytes.Buffer
+	if ejecutarConArgumentos([]string{"extra"}, failingIO{}, &out) != 2 || out.String() != "{\"codigo\":\"argumentos_no_admitidos\"}\n" {
+		t.Fatal(out.String())
+	}
+	if ejecutarConArgumentos([]string{"extra"}, failingIO{}, failingIO{}) != 1 {
+		t.Fatal("write error ignored")
+	}
+	if ejecutarConArgumentos(nil, bytes.NewReader(fixture(t)), io.Discard) != 0 {
+		t.Fatal("valid invocation rejected")
+	}
+}

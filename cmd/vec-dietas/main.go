@@ -13,11 +13,16 @@ type fallo struct {
 }
 
 func main() {
-	if len(os.Args) != 1 {
-		_ = json.NewEncoder(os.Stdout).Encode(fallo{"argumentos_no_admitidos"})
-		os.Exit(2)
+	os.Exit(ejecutarConArgumentos(os.Args[1:], os.Stdin, os.Stdout))
+}
+func ejecutarConArgumentos(args []string, in io.Reader, out io.Writer) int {
+	if len(args) != 0 {
+		if err := json.NewEncoder(out).Encode(fallo{"argumentos_no_admitidos"}); err != nil {
+			return 1
+		}
+		return 2
 	}
-	os.Exit(ejecutar(os.Stdin, os.Stdout))
+	return ejecutar(in, out)
 }
 func ejecutar(in io.Reader, out io.Writer) int {
 	entrada, err := leerEntrada(in)

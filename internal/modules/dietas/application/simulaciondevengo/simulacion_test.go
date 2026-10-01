@@ -127,3 +127,10 @@ func TestUmbralesSalidaYRegreso(t *testing.T) {
 		}
 	}
 }
+
+func TestHuellaFallaSinValorParcial(t *testing.T) {
+	h, err := huella(make(chan int))
+	if err != ErrSerializacion || h != "" {
+		t.Fatalf("%s %v", h, err)
+	}
+}

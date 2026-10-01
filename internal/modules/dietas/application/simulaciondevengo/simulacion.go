@@ -17,6 +17,7 @@ var ErrEntrada = errors.New("entrada_invalida")
 var ErrCatalogo = errors.New("catalogo_discordante")
 var ErrVigencia = errors.New("vigencia_invalida")
 var ErrCalculo = errors.New("calculo_no_disponible")
+var ErrSerializacion = errors.New("serializacion_invalida")
 
 type Civil struct {
 	Fecha string `json:"fecha"`
@@ -118,7 +119,19 @@ func Simular(e Entrada) (*Salida, error) {
 	// Copiar el catálogo para que cambios del llamador no alteren la instantánea.
 	e.Catalogo = append([]Tarifa(nil), e.Catalogo...)
 	resultado := Resultado{elegido.Tramos, elegido.ManutencionCentimos, elegido.AlojamientoTopeCentimos, elegido.TotalMaximoOrientativo}
-	return &Salida{Esquema: Esquema, Procedencia: "propuesta_sin_publicar", Liquidable: false, Entrada: e, Resultado: resultado, Huellas: Huellas{Namespace: Esquema, EntradaSHA256: huella(e), ResultadoSHA256: huella(resultado), ConfiguracionSHA256: huella(r.Configuracion), ReglaImportadaDeclaradaSHA256: r.HuellaSHA256}}, nil
+	entradaSHA256, err := huella(e)
+	if err != nil {
+		return nil, err
+	}
+	resultadoSHA256, err := huella(resultado)
+	if err != nil {
+		return nil, err
+	}
+	configuracionSHA256, err := huella(r.Configuracion)
+	if err != nil {
+		return nil, err
+	}
+	return &Salida{Esquema: Esquema, Procedencia: "propuesta_sin_publicar", Liquidable: false, Entrada: e, Resultado: resultado, Huellas: Huellas{Namespace: Esquema, EntradaSHA256: entradaSHA256, ResultadoSHA256: resultadoSHA256, ConfiguracionSHA256: configuracionSHA256, ReglaImportadaDeclaradaSHA256: r.HuellaSHA256}}, nil
 }
 func vigente(desde, hasta, inicio, fin string) bool {
 	d, err := time.Parse("2006-01-02", desde)
@@ -133,8 +146,11 @@ func vigente(desde, hasta, inicio, fin string) bool {
 }
 
 // huella usa la serialización JSON de los DTO tipados, no jsonb::text de PostgreSQL.
-func huella(v any) string {
-	b, _ := json.Marshal(v) // Solo DTO cerrados sin tipos capaces de fallar al serializar.
+func huella(v any) (string, error) {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return "", ErrSerializacion
+	}
 	h := sha256.Sum256(b)
-	return hex.EncodeToString(h[:])
+	return hex.EncodeToString(h[:]), nil
 }
