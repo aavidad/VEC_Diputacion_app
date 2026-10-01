@@ -48,3 +48,20 @@ Una prueba HTTP con mTLS local verifica denegación sin sesión o permiso, recha
 entradas falsificadas, autorización nominal y retirada de permiso en una conexión.
 Son fixtures sintéticos: no acreditan montaje, asignaciones administrativas,
 consumo V3, persistencia de una copia ni un recorrido de navegador.
+
+La revisión exige `propuesta.metadatos_revision` con fecha de copia, comienzo de la
+pérdida de cambios, versiones observadas de aplicación/PostgreSQL/esquema en el
+destino y en el conjunto resultante, huellas de sus descriptores y razones de
+compatibilidad. Estos datos se vinculan a la propuesta, conjunto, destino y
+preimagen por referencias y SHA256. Proceden del manifiesto autenticado y de la
+observación actual del destino; no se rellenan con fechas o versiones por defecto.
+
+La composición inyecta `FuenteRevision.PropuestaParaRevision`. Cada revisión vuelve
+a consultar esa fuente, exige permiso de lectura, contrasta versión y sello y
+comprueba que la información permita decidir. La ventana y la caducidad siguen
+siendo las de la propuesta sellada. Sin fuente, con datos desconocidos o con
+compatibilidad sin acreditar, la capacidad de revisar queda desactivada y el POST
+se deniega antes de llamar al control. Los consumidores anteriores pueden seguir
+mostrando historia sin esos metadatos, pero no aprobarla. El cuerpo del POST sigue
+limitado a operación, destino, sello y versión; rechaza metadatos aportados por el
+cliente. El control conserva la revalidación de preimagen y autoridad en su efecto.
