@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -162,6 +163,7 @@ func (t *transporteEjecutor) Query(ctx context.Context, sql string, args ...any)
 	// -q elimina tags BEGIN/SET/COMMIT; row_to_json conserva orden de columnas y
 	// escapa contenido. No se interpretan nombres/celdas como comandos psql.
 	input := `BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;
+SET LOCAL client_encoding='UTF8';
 SET LOCAL search_path=pg_catalog;
 SET LOCAL timezone='UTC';
 SET LOCAL datestyle='ISO, YMD';
@@ -180,6 +182,9 @@ COMMIT;
 	}
 	if int64(len(out)) > t.maxBytes+1<<20 {
 		return nil, errLimite
+	}
+	if !utf8.Valid(out) {
+		return nil, errCaptura
 	}
 	rows := &filasEjecutor{at: -1}
 	for _, line := range bytes.Split(out, []byte{'\n'}) {

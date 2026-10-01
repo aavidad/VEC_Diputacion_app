@@ -37,7 +37,8 @@ por una referencia opaca. El catálogo inglés está en `textos/en`.
 | `2` | Error de argumentos, configuración, lectura o escritura. |
 
 `--ayuda --catalogo ARCHIVO` muestra la ayuda del idioma elegido. La lectura
-rechaza campos desconocidos, alias de nombres, claves repetidas, JSON adicional, archivos no
+rechaza campos desconocidos, alias de nombres, claves repetidas, UTF-8 inválido,
+JSON adicional, archivos no
 regulares y tamaños superiores a 32 MiB por inventario o 1 MiB de configuración.
 
 ## Capturar PostgreSQL
@@ -55,6 +56,18 @@ El tiempo máximo es diez minutos; los presupuestos de filas, bytes y objetos
 abarcan toda la captura. La evidencia serializada también se limita a 32 MiB.
 No guarda ni imprime la conexión. Las credenciales pertenecen al canal de
 ensayo y no se toman de la aplicación instalada.
+
+Para comprobar objetos grandes, active `objetos_grandes_semanticos` y declare
+`referencias_objetos_grandes` como lista de objetos con `esquema`, `tabla` y
+`columna`. Solo se admiten columnas PostgreSQL `oid` declaradas explícitamente.
+Un valor distinto de cero y de `NULL` debe apuntar a un objeto grande existente.
+Una referencia ausente, desconocida o no declarada devuelve `no_comprobable`.
+Sin activar este modo, la presencia de objetos grandes mantiene ese resultado.
+
+El identificador del objeto grande es una identidad lógica que conserva
+`pg_dump`; se contrasta junto con las referencias declaradas. El lector sella
+los bytes de `lo_get`, su propietario y ACL. Los huecos se leen como ceros;
+la distribución en páginas y el tamaño de cada fragmento no intervienen.
 
 El canal directo usa `pgx/v5`, fijado en `go.mod`, con una transacción
 `REPEATABLE READ READ ONLY`, representación temporal UTC y lectura sin filtros
@@ -88,8 +101,8 @@ Este lector admite árboles sintéticos simples. Las funciones, tipos propios,
 vistas, triggers, políticas RLS, tablas externas y otras estructuras avanzadas
 no cubiertas producen `no_comprobable`. No acredita todavía el inventario
 completo del esquema de VEC. Un objeto desconocido nunca se omite para afirmar
-igualdad. Los objetos grandes referenciados mediante identificadores internos
-requieren una correspondencia semántica que este formato no inventa.
+igualdad. Los OID que identifican otros objetos internos siguen fuera del
+alcance admitido; no se reinterpretan como referencias a objetos grandes.
 
 Los archivos offline son declaraciones privadas: SHA256 prueba integridad del
 contenido, pero no identifica al emisor. Su procedencia y autenticación deben
@@ -129,3 +142,11 @@ GOCACHE=/dev/shm/go-build go test -race -p 8 \
 El test PostgreSQL optativo necesita preparar previamente su contenedor
 sintético exclusivo. Sin `VEC_CS06_CONTENEDOR_ENSAYO` se omite; una prueba
 unitaria verde no demuestra una nueva ejecución del ensayo PostgreSQL.
+
+El ensayo adicional de objetos grandes usó `pg_dump` y `psql` de PostgreSQL
+18.4 sobre el contenedor propio. El contenido y las referencias siguieron
+iguales tras restaurar, aunque los huecos se materializaron en más páginas.
+Cambiar bytes, propietario, ACL, presencia o referencia produjo diferencias.
+Las referencias huérfanas o sin declaración impidieron afirmar igualdad.
+La caché compartida de Go agotó su cuota antes de compilar; el ensayo verde
+usó una caché privada fuera de Git. El contenedor propio se eliminó.

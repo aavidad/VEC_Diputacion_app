@@ -13,6 +13,7 @@ import (
 	"strings"
 	"syscall"
 	"time"
+	"unicode/utf8"
 
 	a "vec-diputacion-granada/internal/modules/administracion/adapters/contrastecopias"
 	s "vec-diputacion-granada/internal/modules/administracion/application/contrastecopias"
@@ -20,12 +21,20 @@ import (
 )
 
 type configuracion struct {
-	DSN                  string `json:"dsn"`
-	VersionPostgreSQL    string `json:"version_postgresql"`
-	TiempoMaximoSegundos int64  `json:"tiempo_maximo_segundos"`
-	MaxFilas             int64  `json:"max_filas"`
-	MaxBytes             int64  `json:"max_bytes"`
-	MaxObjetos           int    `json:"max_objetos"`
+	DSN                       string                   `json:"dsn"`
+	VersionPostgreSQL         string                   `json:"version_postgresql"`
+	TiempoMaximoSegundos      int64                    `json:"tiempo_maximo_segundos"`
+	MaxFilas                  int64                    `json:"max_filas"`
+	MaxBytes                  int64                    `json:"max_bytes"`
+	MaxObjetos                int                      `json:"max_objetos"`
+	ObjetosGrandesSemanticos  bool                     `json:"objetos_grandes_semanticos"`
+	ReferenciasObjetosGrandes []referenciaObjetoGrande `json:"referencias_objetos_grandes"`
+}
+
+type referenciaObjetoGrande struct {
+	Esquema string `json:"esquema"`
+	Tabla   string `json:"tabla"`
+	Columna string `json:"columna"`
 }
 
 type diagnostico struct {
@@ -124,7 +133,7 @@ func leer(ruta string, destino any, limite int64) error {
 		return errEntrada
 	}
 	b, err := io.ReadAll(io.LimitReader(f, limite+1))
-	if err != nil || int64(len(b)) > limite {
+	if err != nil || int64(len(b)) > limite || !utf8.Valid(b) {
 		return errEntrada
 	}
 	dec := json.NewDecoder(bytes.NewReader(b))
@@ -195,7 +204,11 @@ func run(ctx context.Context, args []string, out, diag io.Writer) int {
 			emitir("copias_contraste_error_configuracion")
 			return 2
 		}
-		lector, err := a.Nuevo(a.Configuracion{DSN: c.DSN, VersionPostgreSQL: c.VersionPostgreSQL, TiempoMaximo: time.Duration(c.TiempoMaximoSegundos) * time.Second, MaxFilas: c.MaxFilas, MaxBytes: c.MaxBytes, MaxObjetos: c.MaxObjetos})
+		refs := make([]a.ReferenciaObjetoGrande, 0, len(c.ReferenciasObjetosGrandes))
+		for _, r := range c.ReferenciasObjetosGrandes {
+			refs = append(refs, a.ReferenciaObjetoGrande{Esquema: r.Esquema, Tabla: r.Tabla, Columna: r.Columna})
+		}
+		lector, err := a.Nuevo(a.Configuracion{DSN: c.DSN, VersionPostgreSQL: c.VersionPostgreSQL, TiempoMaximo: time.Duration(c.TiempoMaximoSegundos) * time.Second, MaxFilas: c.MaxFilas, MaxBytes: c.MaxBytes, MaxObjetos: c.MaxObjetos, ObjetosGrandesSemanticos: c.ObjetosGrandesSemanticos, ReferenciasObjetosGrandes: refs})
 		if err != nil {
 			emitir("copias_contraste_error_configuracion")
 			return 2

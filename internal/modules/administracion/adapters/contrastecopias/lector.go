@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -20,13 +21,18 @@ import (
 )
 
 type Configuracion struct {
-	DSN               string
-	VersionPostgreSQL string
-	TiempoMaximo      time.Duration
-	MaxFilas          int64
-	MaxBytes          int64
-	MaxObjetos        int
+	DSN                       string
+	VersionPostgreSQL         string
+	TiempoMaximo              time.Duration
+	MaxFilas                  int64
+	MaxBytes                  int64
+	MaxObjetos                int
+	ObjetosGrandesSemanticos  bool
+	ReferenciasObjetosGrandes []ReferenciaObjetoGrande
 }
+
+// ReferenciaObjetoGrande declara una columna cuyo oid es identidad lógica LO.
+type ReferenciaObjetoGrande struct{ Esquema, Tabla, Columna string }
 
 type Lector struct {
 	config  *pgx.ConnConfig
@@ -41,6 +47,10 @@ func Nuevo(c Configuracion) (*Lector, error) {
 	if !version.MatchString(c.VersionPostgreSQL) || c.TiempoMaximo <= 0 || c.TiempoMaximo > 10*time.Minute || c.MaxFilas < 1 || c.MaxFilas > 10000000 || c.MaxBytes < 1 || c.MaxBytes > 1<<30 || c.MaxObjetos < 8 || c.MaxObjetos > 100000 {
 		return nil, errors.New("configuracion_contraste_postgresql_no_admitida")
 	}
+	if e := validarReferencias(c); e != nil {
+		return nil, e
+	}
+	c.ReferenciasObjetosGrandes = append([]ReferenciaObjetoGrande(nil), c.ReferenciasObjetosGrandes...)
 	var config *pgx.ConnConfig
 	if c.DSN == "" {
 		return &Lector{limites: c}, nil
@@ -50,7 +60,7 @@ func Nuevo(c Configuracion) (*Lector, error) {
 		return nil, errors.New("configuracion_contraste_postgresql_no_admitida")
 	}
 	// No heredamos search_path ni GUC aportados por la cadena de conexión.
-	config.RuntimeParams = map[string]string{"application_name": "vec_cs06_lector", "default_transaction_read_only": "on", "search_path": "pg_catalog"}
+	config.RuntimeParams = map[string]string{"application_name": "vec_cs06_lector", "default_transaction_read_only": "on", "search_path": "pg_catalog", "client_encoding": "UTF8"}
 	config.ConnectTimeout = c.TiempoMaximo
 	return &Lector{config: config, limites: c}, nil
 }
@@ -94,7 +104,7 @@ func (l *Lector) Capturar(ctx context.Context) (domain.Snapshot, error) {
 		defer cancel()
 		_ = tx.Rollback(cleanup)
 	}()
-	for _, sql := range []string{`SET LOCAL search_path = pg_catalog`, `SET LOCAL timezone = 'UTC'`, `SET LOCAL datestyle = 'ISO, YMD'`, `SET LOCAL intervalstyle = 'postgres'`, `SET LOCAL extra_float_digits = 3`, `SET LOCAL bytea_output = 'hex'`, `SET LOCAL row_security = off`, `SET LOCAL standard_conforming_strings = on`} {
+	for _, sql := range []string{`SET LOCAL client_encoding = 'UTF8'`, `SET LOCAL search_path = pg_catalog`, `SET LOCAL timezone = 'UTC'`, `SET LOCAL datestyle = 'ISO, YMD'`, `SET LOCAL intervalstyle = 'postgres'`, `SET LOCAL extra_float_digits = 3`, `SET LOCAL bytea_output = 'hex'`, `SET LOCAL row_security = off`, `SET LOCAL standard_conforming_strings = on`} {
 		if _, e = tx.Exec(ctx, sql); e != nil {
 			return domain.Snapshot{}, errCaptura
 		}
@@ -134,7 +144,7 @@ func (l *Lector) capturarSQL(ctx context.Context, tx consultaSQL, guard Exclusio
 	}
 	for _, check := range comprobaciones {
 		var existe bool
-		if e = tx.QueryRow(ctx, check.sql).Scan(&existe); e != nil {
+		if e = tx.QueryRow(ctx, consultaComprobacion(check, l.limites.ObjetosGrandesSemanticos)).Scan(&existe); e != nil {
 			return domain.Snapshot{}, errCaptura
 		}
 		if existe {
@@ -149,6 +159,9 @@ func (l *Lector) capturarSQL(ctx context.Context, tx consultaSQL, guard Exclusio
 		if e = c.agregar(domain.Objeto{Clase: q.clase, Clave: "inventario", Cantidad: int64(len(rows)), SHA256: huella(rows)}); e != nil {
 			return domain.Snapshot{}, e
 		}
+	}
+	if e = c.validarReferencias(ctx); e != nil {
+		return domain.Snapshot{}, e
 	}
 	if e = c.tablas(ctx); e != nil {
 		return domain.Snapshot{}, e
@@ -264,6 +277,9 @@ func (c *captura) leer(ctx context.Context, sql string, args ...any) ([]string, 
 		if v == nil {
 			return nil, errLimite
 		}
+		if !utf8.ValidString(*v) {
+			return nil, errCaptura
+		}
 		c.bytes += int64(len(*v))
 		c.filas++
 		if c.bytes > c.l.limites.MaxBytes || c.filas > c.l.limites.MaxFilas {
@@ -338,7 +354,8 @@ func (c *captura) tablas(ctx context.Context) error {
 			if json.Unmarshal([]byte(col), &p) != nil || len(p) != 4 {
 				return errCaptura
 			}
-			if p[2] != "pg_catalog" || p[3] == "v" || !tipos[p[1]] {
+			oidAdmitido := p[1] == "oid" && c.l.limites.ObjetosGrandesSemanticos && c.referenciaDeclarada(parts[0], parts[1], p[0])
+			if p[2] != "pg_catalog" || p[3] == "v" || (!tipos[p[1]] && !oidAdmitido) {
 				unsupported = true
 				continue
 			}
@@ -404,6 +421,9 @@ func (c *captura) secuencias(ctx context.Context) ([]string, error) {
 }
 
 func (c *captura) grandes(ctx context.Context) error {
+	if c.l.limites.ObjetosGrandesSemanticos {
+		return c.grandesSemanticos(ctx)
+	}
 	// OID solo se usa como localizador efímero. La identidad publicada sella dueño,
 	// ACL y páginas (conserva huecos), más ordinal para objetos idénticos duplicados.
 	var count int64
