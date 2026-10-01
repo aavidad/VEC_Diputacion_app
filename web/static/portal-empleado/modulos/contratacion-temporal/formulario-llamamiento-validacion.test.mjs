@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { raizPrueba, montar, seleccion } from "./formulario-llamamiento-pruebas.js";
 import { mensajeValidacionPortal } from "../../portal-idioma.js?v=20260930-portales-i18n-integracion-v1";
 
-function escenario({ radio = false, anterior = null } = {}) {
+function escenario({ radio = false, radioExtra = false, anterior = null } = {}) {
   const raiz = raizPrueba(), nodos = new Map();
   let peticiones = 0, confirmaciones = 0;
   const crearNodo = () => ({ children: [], hidden: true, textContent: "", dataset: {},
@@ -16,11 +16,12 @@ function escenario({ radio = false, anterior = null } = {}) {
   });
   const formulario = raiz.preparar("seleccion", seleccion());
   const nombres = radio ? ["respuesta", "respuesta"] : ["expediente_ref", "version_esperada", "clave_idempotencia"];
+  if (radioExtra) nombres.push("respuesta", "respuesta");
   const controles = nombres.map((nombre, indice) => {
     const atributos = new Map([["aria-describedby", `pista-${indice}`]]);
     if (anterior !== null) atributos.set("aria-invalid", anterior);
-    const control = { name: nombre, id: `ct-llamamiento-seleccion-${nombre}${radio ? `-${indice}` : ""}`,
-      type: radio ? "radio" : nombre === "version_esperada" ? "number" : "text",
+    const control = { name: nombre, id: `ct-llamamiento-seleccion-${nombre}${(radio || radioExtra) && nombre === "respuesta" ? `-${indice}` : ""}`,
+      type: (radio || radioExtra) && nombre === "respuesta" ? "radio" : nombre === "version_esperada" ? "number" : "text",
       value: seleccion()[nombre] ?? "", willValidate: true, fallo: {},
       labels: [{ textContent: nombre }],
       get validity() { return { valid: Object.keys(this.fallo).length === 0, ...this.fallo }; },
@@ -39,7 +40,7 @@ function escenario({ radio = false, anterior = null } = {}) {
   controles.namedItem = (nombre) => controles.find((control) => control.name === nombre);
   formulario.elements = controles;
   formulario.contains = (nodo) => [...nodos.values()].includes(nodo);
-  formulario.reportValidity = () => controles.every((control) => control.validity.valid);
+  formulario.reportValidity = formulario.checkValidity = () => { throw new Error("invalid global no permitido"); };
   const lista = crearNodo(), resumen = { ...crearNodo(), querySelector: () => lista };
   formulario.querySelector = (selector) => selector === "[data-ct-llamamiento-errores]" ? resumen : null;
   formulario.querySelectorAll = () => [...nodos.entries()].filter(([id]) => id.endsWith("-error")).map(([, nodo]) => nodo);
@@ -155,4 +156,28 @@ test("desmontar y repintar conservan las marcas ajenas y retiran escuchadores pr
   assert.equal(e.controles[0].getAttribute("aria-describedby"), "pista-0 otra-pista");
   assert.equal(e.raiz.eventos.has("focusout"), false);
   assert.equal(e.raiz.eventos.has("input"), false);
+});
+
+
+test("radio vacío y una elección válida permiten el primer intento sin disparar invalid global", async () => {
+  const e = escenario({ radioExtra: true });
+  try {
+    const radios = e.controles.filter((control) => control.type === "radio");
+    for (const radio of radios) {
+      Object.defineProperty(radio, "validity", { get: () => ({
+        valid: radios.some((control) => control.checked === true),
+        valueMissing: !radios.some((control) => control.checked === true),
+      }) });
+      radio.setCustomValidity = () => { throw new Error("customValidity ajeno no permitido"); };
+    }
+    await e.enviar();
+    assert.deepEqual(e.efectos(), { peticiones: 0, confirmaciones: 0 });
+    assert.equal(e.lista.children.length, 1);
+    radios[0].checked = true;
+    e.evento("input", radios[0]);
+    assert.equal(e.resumen.hidden, true);
+    for (const radio of radios) assert.equal(radio.getAttribute("aria-invalid"), null);
+    await e.enviar();
+    assert.deepEqual(e.efectos(), { peticiones: 1, confirmaciones: 1 });
+  } finally { e.cerrar(); }
 });

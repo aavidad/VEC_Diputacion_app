@@ -450,7 +450,7 @@ export function montarFormularioLlamamiento({
       }
       resumen.hidden = errores.size === 0;
     }
-    return errores.values().next().value?.control;
+    return controles.find((control) => control.willValidate === true && !control.validity.valid);
   }
   function alEditarCampo(evento) {
     const control = evento.target;
@@ -619,7 +619,8 @@ export function montarFormularioLlamamiento({
     guardarBorradores();
     if (paso.solicitud === null) {
       const primero = mostrarErroresNativos(formulario);
-      if (formulario.reportValidity?.() === false) {
+      // Consultar validity evita que invalid global deje mensajes propios en otros radios.
+      if (primero) {
         primero?.focus?.();
         primero?.scrollIntoView?.({ block: "nearest" });
         return;
