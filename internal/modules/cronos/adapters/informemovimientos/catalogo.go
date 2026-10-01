@@ -81,8 +81,9 @@ func leerJSON(datos io.Reader, destino any) error {
 	return nil
 }
 
-// Rechaza claves repetidas, incluidas variantes de mayúsculas que encoding/json
-// trataría como el mismo campo. El límite de profundidad ya se usa en informes.
+// Las claves de este esquema son ASCII. Rechazar otras evita alias Unicode
+// que encoding/json plegaría al mismo campo; las variantes ASCII se comparan
+// sin mayúsculas. El límite de profundidad ya se usa en informes.
 func validarClaves(raw []byte) error {
 	d := json.NewDecoder(bytes.NewReader(raw))
 	var valor func(int) error
@@ -104,7 +105,15 @@ func validarClaves(raw []byte) error {
 			for d.More() {
 				t, err := d.Token()
 				k, ok := t.(string)
-				if err != nil || !ok || vistos[strings.ToLower(k)] {
+				if err != nil || !ok {
+					return ErrEjemploInvalido
+				}
+				for _, caracter := range k {
+					if caracter > unicode.MaxASCII {
+						return ErrEjemploInvalido
+					}
+				}
+				if vistos[strings.ToLower(k)] {
 					return ErrEjemploInvalido
 				}
 				vistos[strings.ToLower(k)] = true

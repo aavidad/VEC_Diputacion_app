@@ -222,3 +222,20 @@ func TestCatalogoEstrictoIdiomaYPlantillas(t *testing.T) {
 		}
 	}
 }
+
+func TestLeerEjemploRechazaAliasUnicodeAntesDeDecodificar(t *testing.T) {
+	raw, err := os.ReadFile("../../../../../cmd/vec-cronos-informe-saldo/testdata/movimientos.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	objeto := bytes.TrimSpace(raw)
+	for nombre, clave := range map[string]string{"ascii": "MARCAJES", "unicode": "marcajeſ", "unicode_escapado": `marcaje\u017f`} {
+		t.Run(nombre, func(t *testing.T) {
+			datos := append(append([]byte(nil), objeto[:len(objeto)-1]...), []byte(`, "`+clave+`": []}`)...)
+			e, err := LeerEjemploSintetico(bytes.NewReader(datos))
+			if !errors.Is(err, ErrEjemploInvalido) || e.Marcajes != nil {
+				t.Fatal("un alias sobrescribió la lista", err)
+			}
+		})
+	}
+}

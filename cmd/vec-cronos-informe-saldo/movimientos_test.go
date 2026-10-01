@@ -112,3 +112,24 @@ func TestCLIVistaMovimientosCatalogoInvalidoSinBytes(t *testing.T) {
 		}
 	}
 }
+
+func TestCLIVistaMovimientosRechazaAliasUnicodeSinPerderFilas(t *testing.T) {
+	raw, err := os.ReadFile("testdata/movimientos.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	objeto := bytes.TrimSpace(raw)
+	for nombre, clave := range map[string]string{"ascii": "MARCAJES", "unicode": "marcajeſ", "unicode_escapado": `marcaje\u017f`} {
+		t.Run(nombre, func(t *testing.T) {
+			datos := append(append([]byte(nil), objeto[:len(objeto)-1]...), []byte(`, "`+clave+`": []}`)...)
+			ruta := filepath.Join(t.TempDir(), "ejemplo.json")
+			if err := os.WriteFile(ruta, datos, 0600); err != nil {
+				t.Fatal(err)
+			}
+			var salida bytes.Buffer
+			if err := ejecutar(context.Background(), []string{"--vista=movimientos", "../../web/static/textos/es/cronos-informe-movimientos.json", ruta}, &salida); err == nil || salida.Len() != 0 {
+				t.Fatal("un alias borró filas y produjo bytes", err)
+			}
+		})
+	}
+}
