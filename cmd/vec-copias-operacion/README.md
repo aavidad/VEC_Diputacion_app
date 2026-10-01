@@ -32,7 +32,9 @@ Los resultados declarados por quien prepara el JSON no prueban una restauración
 La entrada declara `sintetica: true`, una `solicitud`, una lista opcional `historia`
 y `comandos`. El límite es 1 MiB y 128 elementos entre historia y comandos. La CLI
 termina tras 30 segundos si la entrada queda bloqueada. Rechaza campos desconocidos,
-JSON adicional, referencias vacías y huellas que no sean SHA256 hexadecimal minúscula.
+claves repetidas en el mismo objeto y nombres de campo que no usen su forma exacta
+en minúsculas. Rechaza también JSON adicional, referencias vacías y huellas que no
+sean SHA256 hexadecimal minúscula.
 Los errores no muestran el contenido original ni rutas privadas. Un conflicto de
 versión publica la clave comparada y sus valores numéricos.
 

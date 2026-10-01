@@ -127,3 +127,40 @@ func TestCatalogosConTraductorReal(t *testing.T) {
 		}
 	}
 }
+
+func TestCLIRechazaClavesDuplicadas(t *testing.T) {
+	for _, in := range []string{
+		`{"sintetica":false,"sintetica":true}`,
+		`{"comandos":[{"version_esperada":1,"version_esperada":2}]}`,
+		`{"historia":[{"comando":{"evidencia":{"resultado":"fallido","resultado":"satisfactorio"}}}]}`,
+	} {
+		var out, diag bytes.Buffer
+		if ejecutar([]string{"-textos", catalogo}, strings.NewReader(in), &out, &diag) != 2 || out.Len() != 0 || !strings.Contains(diag.String(), `"error":"entrada_invalida"`) {
+			t.Fatal(out.String(), diag.String())
+		}
+		// Verify lexical rejection independently of missing required fields.
+		var target any
+		if err := decodificar(strings.NewReader(in), &target); err == nil {
+			t.Fatal("duplicate key accepted")
+		}
+	}
+}
+
+func TestParserRechazaAliasDeMayusculas(t *testing.T) {
+	for _, in := range []string{
+		`{"Sintetica":true}`,
+		`{"sintetica":false,"SINTETICA":true}`,
+		`{"comandos":[{"Version_Esperada":1}]}`,
+		`{"ſintetica":true}`,
+	} {
+		var target any
+		if err := decodificar(strings.NewReader(in), &target); err == nil {
+			t.Fatal("case alias accepted")
+		}
+	}
+	// The same key is valid in separate objects; values may contain capitals.
+	var target any
+	if err := decodificar(strings.NewReader(`[{"clave":"Valor"},{"clave":"Otro"}]`), &target); err != nil {
+		t.Fatal(err)
+	}
+}
