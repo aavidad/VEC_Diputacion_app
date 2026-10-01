@@ -117,6 +117,44 @@ Gosec solo en paquetes cambiados y Semgrep local sin métricas. Revisión indepe
 dos en SQL, permisos, identidad, firma o datos personales. Calidad global una vez
 por PR cuando corresponda; no repetir puertas verdes. Registrar impedimentos de entorno sin omitir controles obligatorios.
 
+## Estimación
+
+Horas de trabajo de un equipo Codex con subagentes, revisión y CI. Las filas largas
+se reparten en cortes de PR de 1–3 horas, conservando el mismo contrato y propietario.
+No son plazos de aprobación ni fechas de despliegue.
+
+| Minitarea | Horas de un equipo |
+| --- | --- |
+| H01 Verificar entregas | 1–2 |
+| H02 Acordar fuente Formación | 2–4 |
+| H03 Puerto de catálogo | 2–4 |
+| H04 Adaptador y consulta visible | 4–8 |
+| H05 Contrato de antecedentes B | 3–6 |
+| H06 Política CAR-001 | 4–8 |
+| H07 Preparación de expediente | 5–9 |
+| H08 Autorización nominal | 6–10 |
+| H09 Candidata de persistencia | 8–14 |
+| H10 Resolución e inscripción | 10–18 |
+| H11 Cotejo de promoción | 5–9 |
+| H12 Seguimiento de promoción | 6–10 |
+| H13 Política laboral | 3–6 |
+| H14 Expediente laboral | 8–14 |
+| H15 Consulta/derivación de solicitudes | 6–10 |
+| H16 Ejecución y certificado de fuente | 8–14 |
+| H17 Entrega a Méritos | 8–14 |
+
+Total técnico: **99–168 horas**, unas **13–21 jornadas de un equipo** de ocho horas.
+Con dos equipos, Carrera y Formación pueden separarse: **9–15 jornadas**, porque
+contratos de Personal, autorización, firma y revisión limitan el paralelismo.
+
+Trabajo externo: Personal B y proceso A pueden añadir **1–3 jornadas cada uno** si
+sus contratos están cerca; servidor/autoridades nominales, **2–4 jornadas**; Formación
+y Méritos, **3–8 jornadas** de coordinación si hay fuente/adaptador disponible.
+Parte puede solaparse: no sumar esas horquillas automáticamente. La espera de RRHH,
+convenio y vías de reconocimiento no tiene fecha comprometida. Sin respuesta o API
+admitida, solo se cierra consulta/derivación; no se declara terminado el circuito completo.
+La estimación supone fuentes y competencias confirmadas, y se revisa al cerrar H02/H05.
+
 ## Consenso Astra
 
 - Se compararon Granada, Alicante, EAPC, INAP y GVA. Granada ya tiene plataforma
@@ -132,3 +170,7 @@ por PR cuando corresponda; no repetir puertas verdes. Registrar impedimentos de 
   separados, SHA/estado de candidatas y parada explícitos. La tabla se corrigió a cinco
   columnas sin cambiar su contenido. Falta el GO de dirección sobre este documento exacto;
   no abrir la PR del plan antes de recibirlo.
+
+Astra validó también la estimación del documento `0c1a028d…`: 17 filas suman 99–168 h;
+13–21 jornadas de un equipo y 9–15 con dos, condicionadas a fuentes y autoridades.
+Se separa la espera externa y se revisa la horquilla al cerrar H02/H05.
