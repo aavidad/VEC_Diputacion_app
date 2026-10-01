@@ -4,7 +4,7 @@ import { ErrorRegistroB2 } from "./registro-b2-cliente.js?v=20260925-b2-selector
 import { accionesRegistroB2Disponibles, montarActosRegistroB2 } from "./registro-b2-actos.js?v=20260929-i18n-personal-v1";
 import { cargarOpcionesPublicadasCatalogoB2, montarCatalogosRegistroB2 } from "./registro-b2-catalogos.js?v=20260929-i18n-personal-v1";
 import { crearTraductorTraza } from "./personal-traza-i18n.js?v=20261001-personal-expediente-v2";
-import { crearPanelPreparacionServiciosCER } from "./preparacion-servicios-cer.js?v=20261001-b-servicios-reconcile351-v1";
+import { crearPanelPreparacionServiciosCER } from "./preparacion-servicios-cer.js?v=20261001-b-servicios-reconcile351-v2";
 
 const BLOQUES = Object.freeze([
   ["relaciones", "registro_b2_relaciones", "registro_b2_tabla_relaciones", [
