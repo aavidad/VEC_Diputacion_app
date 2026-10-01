@@ -43,6 +43,7 @@ var recursos = []string{
 	"/comun/tema-vec.css", "/comun/textos.js", "/comun/idioma.js",
 	"/textos/idiomas.json",
 	"/catalogos/baremo-jornada-v1.json",
+	"/catalogos/baremo-restos-v1.json",
 }
 
 var codigoIdioma = regexp.MustCompile(`^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$`)
@@ -84,6 +85,9 @@ func cargarRecursos(dir string) (map[string]recurso, error) {
 	}
 	for _, ruta := range recursos {
 		if err := cargar(ruta); err != nil {
+			if ruta == "/catalogos/baremo-restos-v1.json" && errors.Is(err, os.ErrNotExist) {
+				continue
+			}
 			return nil, err
 		}
 	}

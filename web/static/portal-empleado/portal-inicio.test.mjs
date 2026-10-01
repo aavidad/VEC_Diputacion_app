@@ -28,6 +28,23 @@ function renderizar(acceso) {
   })();
 }
 
+test("Inicio ofrece Mi espacio al empleado y a RRHH sin consultar los destinos", () => {
+  const anterior = globalThis.fetch;
+  globalThis.fetch = () => assert.fail("Inicio no debe consultar datos propios");
+  try {
+    for (const esPerfilRRHH of [() => false, () => true]) {
+      const vista = crearVistaInicioPortal({
+        encabezadoVista: () => "<header>Portal</header>", escaparHTML, esPerfilRRHH,
+        obtenerCatalogo: () => [], resolverAcceso: () => ({ disponible: false }),
+        obtenerAccesosEmpleado: () => ({ personal: { estado: "diferido" }, cronos: { estado: "diferido" }, dietas: { estado: "diferido" } }),
+      });
+      const html = vista();
+      for (const destino of ["personal", "cronos", "dietas"]) assert.match(html, new RegExp(`href="#${destino}" data-vista="${destino}"`));
+      assert.doesNotMatch(html, /data-inicio-sin-modulos|cronos-bandeja|personal-registro|datos-presentacion/);
+    }
+  } finally { globalThis.fetch = anterior; }
+});
+
 test("la portada sin catálogo ofrece reintento y el clic activa la recarga existente", async () => {
   const estado = { errorFuente: "error anterior", fuenteLista: true };
   const vista = crearVistaInicioPortal({
