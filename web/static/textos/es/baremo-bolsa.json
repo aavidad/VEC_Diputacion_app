@@ -7,7 +7,7 @@
     "activacion_pendiente": "Para activar el baremo falta conectar el registro de versiones y sus permisos.",
     "activar": "Activar baremo",
     "ayuda": "Ayuda",
-    "ayuda_texto": "Seleccione un caso sintético o cargue sus reglas. Edite la fecha, las puntuaciones y los topes. Pulse Validar y comparar para ver el efecto sobre el mismo caso. Exporte el borrador antes de salir: los cambios se pierden al cerrar la página. Las reglas importadas no son bases aprobadas.",
+    "ayuda_texto": "Seleccione un caso sintético o cargue sus reglas. Edite la fecha, las puntuaciones y los topes. Pulse Validar y comparar para ver el efecto sobre el mismo caso. Exporte el borrador antes de salir: los cambios se pierden al cerrar la página. Las reglas importadas no son bases aprobadas. El desglose muestra los puntos antes del tope, el máximo del apartado y los puntos resultantes. Las fracciones se muestran como divisiones exactas.",
     "ejemplo": "Caso sintético",
     "caso_experiencia": "Experiencia · caso {n}",
     "caso_meritos": "Méritos · caso {n}",
@@ -94,6 +94,11 @@
     "concursos_pendiente": "Pendiente de configuración",
     "concursos_vacio": "No hay bases de concursos configuradas",
     "concursos_siguiente": "Para empezar, falta configurar las bases de cada concurso. Las reglas de Bolsa no se aplican a concursos.",
-    "concursos_limite": "Esta pestaña no calcula puntuaciones ni permite guardar o firmar."
+    "concursos_limite": "Esta pestaña no calcula puntuaciones ni permite guardar o firmar.",
+    "antes_tope": "Antes del tope",
+    "maximo_apartado": "Tope del apartado",
+    "despues_tope": "Tras el tope",
+    "dato_no_disponible": "Dato no disponible",
+    "puntos_fraccion": "{numerador} ÷ {denominador}"
   }
 }

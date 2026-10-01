@@ -51,8 +51,12 @@ test("envía la solicitud y explica los conflictos del servidor", async () => {
   assert.match(zona.textContent, /no admite/u);
   assert.equal(peticion.opciones.headers["Content-Type"], "application/json");
   let recargado = false;
-  const correcto = async () => ({ status: 201, json: async () => ({ data: { recibo: "recibo:solicitud-portal:z" } }) });
+  const recibo = `recibo:solicitud-portal:${"a".repeat(64)}`;
+  const correcto = async () => ({ status: 201, json: async () => ({ data: {
+    esquema: "vec.bolsa.mi-bolsa.solicitud.v1", referencia: `solicitud-portal:${"b".repeat(64)}`,
+    recibo, registrada_en: "2026-10-01T08:00:00.000000Z", estado: "pendiente_rrhh", repetida: false,
+  } }) });
   assert.equal(await enviarPortalMiBolsa(formulario, { fetchImpl: correcto, datos: new FormData(), alRegistrar: () => { recargado = true; } }), true);
-  assert.match(zona.textContent, /recibo:solicitud-portal:z/u);
+  assert.ok(zona.textContent.includes(recibo));
   assert.ok(recargado);
 });
