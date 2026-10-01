@@ -23,9 +23,9 @@ DECLARE
  f oid:=to_regprocedure('vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
  original text; nuevo text; actual text; fuente text; meta jsonb; deps jsonb; deps_compartidas jsonb; acl aclitem[];
  propietario oid; config text[]; definidora boolean;
- -- Huellas de la preimagen causal: medir tras la SQL anterior en el clon único.
- esperada_def_sha256 text:=NULL;
- esperada_fuente_sha256 text:=NULL;
+ -- Preimagen post-AD129 del clon causal B -> AD136 -> AD127 -> AD128 -> AD131 -> AD129.
+ esperada_def_sha256 text:='70e26e0019bbb135f846b4a26e35850009cda3a8a597e63d35e8eefc5f1bca34';
+ esperada_fuente_sha256 text:='43d8c235a4c8f21810b0fd1f0d2773bc0f3c283a71950bd50f3e0056e73aaed4';
  marca text:=E'       )\n       OR c ->> ''suite'' <> ''VEC-AD-3-COSE-EDDSA-1''';
  extension text:=$x$           OR (
  p_perfil_mutacion IS NOT DISTINCT FROM 'incorporacion_personal_ct'
@@ -114,7 +114,7 @@ END $nucleo$;
 
 LOCK TABLE vec_autorizacion_atestada_v3.clave_capacidad_version IN ACCESS EXCLUSIVE MODE;
 DO $audiencias$
-DECLARE d text; esperada_audiencia_sha256 text:=NULL; a text;
+DECLARE d text; esperada_audiencia_sha256 text:='4e22728340ea408131117cd753e03ad6450325dbde674e1d5e80c73f0b0e895e'; a text;
 BEGIN
  SELECT pg_get_constraintdef(c.oid,true) INTO d
  FROM pg_constraint c WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
