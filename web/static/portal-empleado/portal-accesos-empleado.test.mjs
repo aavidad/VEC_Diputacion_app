@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { cargarTextos } from "../comun/textos.js";
-import { crearTraductorAccesosEmpleado, renderizarAccesosEmpleado } from "./portal-accesos-empleado.js";
+import { crearTraductorAccesosEmpleado, crearTraductorResumenAccesosEmpleado, renderizarAccesosEmpleado } from "./portal-accesos-empleado.js";
+import { resumenAccesosModulos } from "./portal-menu-bolsa.js";
+import { crearTraductorPortal, cargarMensajesPortal } from "./portal-i18n.js";
 
 const escaparHTML = (valor) => String(valor ?? "").replaceAll("&", "&amp;")
   .replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
@@ -77,5 +79,21 @@ test("renderizar no consulta datos ni ejecuta transportes de la composición", (
     assert.match(renderizar({ personal: acceso, cronos: acceso, dietas: acceso }), /Mi espacio/u);
   } finally {
     globalThis.fetch = anterior;
+  }
+});
+
+test("el resumen sin menú remite a Mi espacio y conserva carga, recuento y denegación", async () => {
+  for (const idioma of ["es", "en"]) {
+    const textos = await cargarTextos("accesos-empleado", { idioma });
+    const traducir = crearTraductorPortal(await cargarMensajesPortal(idioma));
+    const propio = crearTraductorResumenAccesosEmpleado({ accesos: { personal: { estado: "diferido" } }, traducir, textos });
+    assert.equal(resumenAccesosModulos([], false, propio), textos.traducir("accesos.consultar_accesos"));
+    for (const [accesos, carga] of [[[], true], [[{ estado: "cargando" }], false], [[{ disponible: true }], false]]) {
+      assert.equal(resumenAccesosModulos(accesos, carga, propio), resumenAccesosModulos(accesos, carga, traducir));
+    }
+    for (const accesos of [{}, { personal: { estado: "denegado" } }, { personal: { estado: "no_disponible" } }]) {
+      const sinPropio = crearTraductorResumenAccesosEmpleado({ accesos, traducir, textos });
+      assert.equal(resumenAccesosModulos([], false, sinPropio), resumenAccesosModulos([], false, traducir));
+    }
   }
 });

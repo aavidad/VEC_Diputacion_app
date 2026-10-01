@@ -18,6 +18,14 @@ const DESTINOS = Object.freeze([
 ]);
 const ESTADOS_NAVEGABLES = new Set(["diferido", "disponible", "cargando"]);
 
+/** Conserva el resumen de gestión y sólo aclara dónde está la navegación propia. */
+export function crearTraductorResumenAccesosEmpleado({ accesos, traducir, textos = TEXTOS }) {
+  const propios = DESTINOS.some(({ vista }) => accesos && Object.hasOwn(accesos, vista)
+    && ESTADOS_NAVEGABLES.has(accesos[vista]?.estado));
+  return (clave, variables) => clave === "resumen_modulos_ninguno" && propios
+    ? textos.traducir("accesos.consultar_accesos") : traducir(clave, variables);
+}
+
 /**
  * accesos: { personal?, cronos?, dietas? }, cada uno con un estado de navegación
  * de composición. Ausentes, denegados, no disponibles y desconocidos se omiten.
