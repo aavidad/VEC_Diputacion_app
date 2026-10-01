@@ -52,6 +52,7 @@ func TestEnsayoLogicoPostgreSQL18Aislado(t *testing.T) {
 		}
 		comprobarLimitesResultado(t, resultado)
 	})
+	t.Run("observador_antes_de_limpieza", func(t *testing.T) { verificarObservadores(t, context.Background(), config, dumpValido, globals) })
 	t.Run("version_distinta_rechazada_antes_de_sql", func(t *testing.T) {
 		otraVersion := config
 		otraVersion.VersionPostgreSQL = "18.3"
