@@ -57,3 +57,37 @@ func TestConfiguracionDefaultYSintetica(t *testing.T) {
 		t.Fatal(v, e)
 	}
 }
+
+// Un año fuera del formato JSON antes podía producir un sello vacío aceptado
+// por Sellar y por la comparación vacío == vacío en Comprobar.
+func TestPropuestaNoSerializableNoProduceSello(t *testing.T) {
+	p := propuesta()
+	n := time.Date(10000, 1, 1, 0, 0, 0, 0, time.UTC)
+	p.Creada = n
+	p.VentanaInicio = n
+	p.Caduca = n.Add(time.Hour)
+	p.VentanaFin = p.Caduca
+	if s, err := Sellar(p); !errors.Is(err, ErrInvalida) || s != (Sellada{}) {
+		t.Fatalf("propuesta no serializable produjo sello: %#v, %v", s, err)
+	}
+	for _, sello := range []string{"", ErrInvalida.Error(), strings.Repeat("a", 64)} {
+		if err := (Sellada{Propuesta: p, SHA256: sello}).Comprobar(n); !errors.Is(err, ErrAlterada) {
+			t.Fatalf("sello de documento no serializable aceptado: %q, %v", sello, err)
+		}
+	}
+}
+func TestHuellaRechazaDocumentosNoSerializablesYNulos(t *testing.T) {
+	var tiempo *time.Time
+	for _, documento := range []any{nil, tiempo, make(chan int), time.Date(10000, 1, 1, 0, 0, 0, 0, time.UTC)} {
+		sello := Huella("vec-restauracion-propuesta-v1", documento)
+		if sello != ErrInvalida.Error() || SHA256Valida(sello) {
+			t.Fatalf("documento no serializable produjo SHA: %q", sello)
+		}
+	}
+	p := propuesta()
+	for _, sello := range []string{"", ErrInvalida.Error()} {
+		if err := (Sellada{Propuesta: p, SHA256: sello}).Comprobar(p.Creada); !errors.Is(err, ErrAlterada) {
+			t.Fatalf("sello no canónico aceptado: %q, %v", sello, err)
+		}
+	}
+}

@@ -87,7 +87,7 @@ func (r *RegistroArchivo) transaccion(ctx context.Context, c p.Concesion, fn fun
 	scanner.Buffer(make([]byte, 4096), 128<<10)
 	for scanner.Scan() {
 		var e evento
-		if json.Unmarshal(scanner.Bytes(), &e) != nil || e.Anterior != anterior || e.SHA256 != d.Huella("vec-restauracion-journal-v1", struct {
+		if json.Unmarshal(scanner.Bytes(), &e) != nil || !d.SHA256Valida(e.SHA256) || !d.SHA256Valida(e.Registro.Propuesta.SHA256) || e.Anterior != anterior || e.SHA256 != d.Huella("vec-restauracion-journal-v1", struct {
 			Anterior string
 			Registro p.Registro
 		}{e.Anterior, e.Registro}) || !d.Valida(e.Registro.Propuesta.Propuesta) || e.Registro.Propuesta.SHA256 != d.Huella("vec-restauracion-propuesta-v1", e.Registro.Propuesta.Propuesta) || e.Registro.Propuesta.Propuesta.Entorno != "sintetico_offline" {
@@ -125,6 +125,9 @@ func (r *RegistroArchivo) transaccion(ctx context.Context, c p.Concesion, fn fun
 		Anterior string
 		Registro p.Registro
 	}{e.Anterior, e.Registro})
+	if !d.SHA256Valida(e.SHA256) {
+		return ErrRegistro
+	}
 	b, err := json.Marshal(e)
 	if err != nil {
 		return ErrRegistro

@@ -69,10 +69,15 @@ type Revision struct {
 }
 
 // Huella encuadra el tipo de documento; acredita integridad, nunca identidad.
+// Un documento nulo o no serializable devuelve el motivo nominal ErrInvalida.
+// Ese motivo nunca es una SHA256 válida ni puede aceptarse como sello.
 func Huella(tipo string, documento any) string {
 	b, err := json.Marshal(documento)
 	if err != nil {
-		return ""
+		return ErrInvalida.Error()
+	}
+	if string(b) == "null" {
+		return ErrInvalida.Error()
 	}
 	sum := sha256.Sum256(append([]byte(tipo+"\x00"), b...))
 	return hex.EncodeToString(sum[:])
@@ -81,8 +86,16 @@ func Sellar(p Propuesta) (Sellada, error) {
 	if !Valida(p) {
 		return Sellada{}, ErrInvalida
 	}
-	return Sellada{p, Huella("vec-restauracion-propuesta-v1", p)}, nil
+	sello := Huella("vec-restauracion-propuesta-v1", p)
+	if !SHA256Valida(sello) {
+		return Sellada{}, ErrInvalida
+	}
+	return Sellada{p, sello}, nil
 }
+
+// SHA256Valida distingue un sello canónico de un motivo nominal o vacío.
+func SHA256Valida(sello string) bool { return shaRE.MatchString(sello) }
+
 func UTC(t time.Time) bool { _, off := t.Zone(); return !t.IsZero() && off == 0 }
 func Valida(p Propuesta) bool {
 	if p.FormatoVersion != 1 {
@@ -94,7 +107,7 @@ func Valida(p Propuesta) bool {
 		}
 	}
 	for _, h := range []string{p.ConjuntoSHA256, p.PreimagenSHA256, p.PoliticaSHA256} {
-		if !shaRE.MatchString(h) {
+		if !SHA256Valida(h) {
 			return false
 		}
 	}
@@ -107,7 +120,7 @@ func Valida(p Propuesta) bool {
 	return p.Entorno == "operativo" && p.DobleControl || p.Entorno == "sintetico_offline"
 }
 func (s Sellada) Comprobar(ahora time.Time) error {
-	if !Valida(s.Propuesta) || s.SHA256 != Huella("vec-restauracion-propuesta-v1", s.Propuesta) {
+	if !Valida(s.Propuesta) || !SHA256Valida(s.SHA256) || s.SHA256 != Huella("vec-restauracion-propuesta-v1", s.Propuesta) {
 		return ErrAlterada
 	}
 	if !UTC(ahora) || ahora.Before(s.Propuesta.Creada) || !ahora.Before(s.Propuesta.Caduca) {
