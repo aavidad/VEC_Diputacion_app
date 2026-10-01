@@ -61,7 +61,7 @@ async function montar(respuestaListado = listado, respuestaDetalle = detalle) {
     },
   });
   const scripts = [...html.matchAll(/<script\b[^>]*src="\/bolsa\/([^"?]+)\?[^" ]+"/gu)].map(([, nombre]) => nombre);
-  for (const script of scripts.filter((nombre) => nombre !== "i18n-publica.js")) vm.runInContext(leer(script), contexto);
+  for (const script of scripts.filter((nombre) => nombre !== "i18n-publica.js" && !nombre.startsWith("preparacion/"))) vm.runInContext(leer(script), contexto);
   await new Promise(setImmediate);
   return { nodos, peticiones };
 }
@@ -70,9 +70,9 @@ function textos(nodo) {
   return typeof nodo === "string" ? nodo : [nodo.textContent, ...nodo.children.map(textos)].join(" ");
 }
 
-test("la página monta exclusivamente V2 antes del controlador con la misma versión de caché", () => {
+test("la página monta exclusivamente V2 antes del controlador renovado", () => {
   const version = "20260930-codexe-publico-v2-v1";
-  assert.ok(html.indexOf(`/bolsa/contrato-v2.js?v=${version}`) < html.indexOf(`/bolsa/bolsa.js?v=${version}`));
+  assert.ok(html.indexOf(`/bolsa/contrato-v2.js?v=${version}`) < html.indexOf("/bolsa/bolsa.js?v=20261001-convoca-preparacion-v1"));
   assert.doesNotMatch(html, /contrato-v1\.js/);
 });
 

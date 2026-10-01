@@ -9,10 +9,11 @@ import {
 import { crearAccionesFirma, fusionarEstadoFirmas } from "./circuito-firma-acciones.js";
 import { crearTraductorCircuitoFirma, MENSAJES_CIRCUITO_FIRMA_ES, MENSAJES_CIRCUITO_FIRMA_EN } from "./i18n-circuito-firma.js";
 import { cargarTextos } from "../../../comun/textos.js";
+import { IDIOMA_POR_DEFECTO } from "../../../comun/idioma.js";
 
 // Los textos de la fase de firma se leen una vez; el gestor los recibe ya
 // cargados para que el montaje no dependa de la lectura del fichero.
-const textosFasePrueba = await cargarTextos("contratacion-temporal-firma");
+const textosFasePrueba = await cargarTextos("contratacion-temporal-firma", { idioma: IDIOMA_POR_DEFECTO });
 const cargarTextosPrueba = async () => textosFasePrueba;
 
 function paso(orden, total, extra = {}) {
@@ -389,4 +390,100 @@ test("sin el campo portafirmas el circuito vale y Firmadoc cuenta como no conect
   assert.ok(valido);
   assert.deepEqual({ ...valido.portafirmas }, { conectado: false, motivo: "conexion_pendiente" });
   assert.equal(validarCircuitoFirma(circuito()).portafirmas.conectado, false);
+});
+
+test("descargar el PDF firmado pide a Documentos la terna exacta y avisa en lenguaje llano", async () => {
+  const ref = "expediente:ct:001";
+  const estado = { vista: "expediente", carga: "listo", expediente_ref: ref,
+    expediente: { expediente_ref: ref, version: 7, demostracion: false }, cuadro: { demostracion: false, expedientes: [] } };
+  const aviso = { textContent: "" };
+  let bloque = null;
+  let manejar = null;
+  const fases = { insertAdjacentHTML: () => {
+    bloque = { querySelector: (s) => s === "[data-ct-firma-aviso]" ? aviso : null,
+      addEventListener: (tipo, f) => { if (tipo === "click") manejar = f; } };
+  } };
+  const raiz = { querySelector: (s) => s === ".ct-exp-progreso" ? fases : s === "[data-ct-circuito-firma]" ? bloque : null };
+  const pedidas = [];
+  let fallo = null;
+  let esperarDescarga = null;
+  const crearDocumentos = ({ expedienteRef }) => ({
+    async descargar(documento, { version, mime, huella }) {
+      pedidas.push({ expedienteRef, documento, version, mime, huella });
+      if (esperarDescarga) await esperarDescarga;
+      if (fallo) throw fallo;
+      return { contenido: new Uint8Array([37, 80, 68, 70]), nombre: "documento-ref.pdf", tipo: "application/pdf" };
+    },
+  });
+  const enlaces = [];
+  const entornoDescarga = {
+    Blob, URL: { createObjectURL: () => "blob:x", revokeObjectURL() {} },
+    document: { body: { append(e) { enlaces.push(e); } }, createElement: () => ({ click() { this.pulsado = true; }, remove() {} }) },
+  };
+  const gestor = crearGestorCircuitoFirma({ cargarTextos: cargarTextosPrueba, raiz, obtenerEstado: () => estado,
+    cliente: { obtenerCircuitoConEstado: async () => ({ estado: "no_disponible" }) }, crearDocumentos, entornoDescarga });
+  gestor.montarSiProcede(estado);
+  await new Promise((r) => setTimeout(r, 0));
+  assert.equal(typeof manejar, "function");
+  const atributos = new Map();
+  const fila = { querySelector: (s) => s === ".ct-fase-firma-documento strong" ? { textContent: "Resolución de nombramiento" } : null };
+  const boton = {
+    disabled: false,
+    setAttribute: (nombre, valor) => atributos.set(nombre, valor),
+    removeAttribute: (nombre) => atributos.delete(nombre),
+    dataset: { ctDescargarFirmado: "", ctFirmadoExpediente: `ref:${"e".repeat(64)}`, ctFirmadoDocumento: `ref:${"d".repeat(64)}`,
+      ctFirmadoVersion: "1", ctFirmadoHuella: "1".repeat(64) },
+    closest: (s) => s === "[data-ct-descargar-firmado]" ? boton : s === "[data-ct-circuito-firma]" ? bloque
+      : s === ".ct-fase-firma-fila" ? fila : null,
+  };
+  const pulsar = async () => { manejar({ target: boton }); for (let i = 0; i < 3; i += 1) await new Promise((r) => setTimeout(r, 0)); };
+  let terminarDescarga;
+  esperarDescarga = new Promise((resolver) => { terminarDescarga = resolver; });
+  await pulsar();
+  assert.equal(atributos.get("aria-disabled"), "true", "la descarga en curso conserva el botón en el orden de foco");
+  assert.equal(atributos.get("aria-describedby"), "ct-firma-aviso");
+  assert.equal(boton.disabled, false);
+  await pulsar();
+  assert.equal(pedidas.length, 1, "un segundo clic durante la descarga no inicia otra petición");
+  terminarDescarga();
+  esperarDescarga = null;
+  await new Promise((r) => setTimeout(r, 0));
+  assert.deepEqual(pedidas[0], { expedienteRef: `ref:${"e".repeat(64)}`, documento: `ref:${"d".repeat(64)}`, version: 1,
+    mime: "application/pdf", huella: "1".repeat(64) });
+  assert.equal(enlaces[0]?.download, "documento-ref.pdf");
+  assert.equal(enlaces[0]?.pulsado, true);
+  assert.match(aviso.textContent, /PDF firmado descargado: Resolución de nombramiento/u);
+  assert.doesNotMatch(aviso.textContent, /documento-ref\.pdf/u);
+  assert.equal(boton.disabled, false);
+  assert.equal(atributos.has("aria-disabled"), false);
+  fallo = Object.assign(new Error("denegado"), { codigo: "denegado", estado: 403 });
+  await pulsar();
+  assert.match(aviso.textContent, /No tiene permiso/u);
+  fallo = Object.assign(new Error("consulta_fallida"), { codigo: "consulta_fallida", estado: 503 });
+  await pulsar();
+  assert.match(aviso.textContent, /No se ha podido descargar el PDF firmado/u);
+  assert.doesNotMatch(aviso.textContent, /503|consulta_fallida/u);
+  gestor.retirar();
+});
+
+test("los importadores locales de la vista y el circuito evitan las URLs immutable anteriores", async () => {
+  const [vista, pruebas] = await Promise.all([
+    readFile(new URL("./vista-expedientes.js", import.meta.url), "utf8"),
+    readFile(new URL("./formulario-llamamiento-pruebas.js", import.meta.url), "utf8"),
+  ]);
+  const versiones = new Map([
+    ["circuito-firma.js", "20260930-custodia-506-e3-v3"],
+    ["vista-expedientes.js", "20261001-e3-b2-v1"],
+  ]);
+  const anterior = "20260929-custodia-506-v1";
+  const importadores = [
+    [vista, "circuito-firma.js"],
+    [pruebas, "vista-expedientes.js"],
+  ];
+  for (const [codigo, modulo] of importadores) {
+    const rutas = [...codigo.matchAll(new RegExp(`\\./${modulo.replace(".", "\\.")}\\?v=([^"']+)`, "gu"))];
+    assert.equal(rutas.length, 1, modulo);
+    assert.equal(rutas[0][1], versiones.get(modulo), modulo);
+    assert.notEqual(`${modulo}?v=${rutas[0][1]}`, `${modulo}?v=${anterior}`);
+  }
 });

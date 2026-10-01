@@ -19,7 +19,7 @@ type seleccionMaterialCTDesarrollo struct {
 	dietas, cronos, documentos, cronosResolucion, cronosAvisos       bool
 	fichaPropiaPersonal, firmaDocumento, seguimientoCese, personalB2 bool
 	cancelacion                                                      bool
-	incorporacionAcreditada                                          bool
+	incorporacionAcreditada, incorporacionB2                         bool
 	reincorporacionTitular                                           bool
 	politicaOfertas                                                  bool
 	plantillasCatalogo                                               bool
@@ -39,6 +39,10 @@ func seleccionMaterialCTDesarrolloDesdeConfig(cfg config.Config) (seleccionMater
 		return s, err
 	}
 	personalB2, err := cfg.PersonalB2GobiernoDesarrolloActivo()
+	if err != nil {
+		return s, err
+	}
+	incorporacionB2, _, err := protocolosIncorporacionConfiguradosDesarrollo(cfg)
 	if err != nil {
 		return s, err
 	}
@@ -78,6 +82,7 @@ func seleccionMaterialCTDesarrolloDesdeConfig(cfg config.Config) (seleccionMater
 		seguimientoCese:         seguimientoCeseSolicitado(cfg),
 		cancelacion:             cancelacionCTSolicitada(cfg),
 		personalB2:              personalB2,
+		incorporacionB2:         incorporacionB2,
 		incorporacionAcreditada: incorporacionAcreditadaSolicitada(cfg),
 		reincorporacionTitular:  reincorporacion,
 		politicaOfertas:         politicaOfertas,
@@ -183,6 +188,9 @@ func descriptoresMaterialSeleccionadosCTDesarrollo(s seleccionMaterialCTDesarrol
 	}
 	if s.personalB2 {
 		d = append(d, descriptoresMaterialPersonalB2Desarrollo()...)
+	}
+	if s.incorporacionB2 {
+		d = append(d, descriptoresMaterialIncorporacionB2()...)
 	}
 	if s.cancelacion {
 		d = append(d, descriptoresMaterialCancelacionCTDesarrollo()...)
