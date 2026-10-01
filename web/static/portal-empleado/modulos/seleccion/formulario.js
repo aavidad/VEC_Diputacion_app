@@ -1,5 +1,5 @@
-import { nodo, panel, boton } from './dom.js?v=20261001-seleccion-v1';
-import { decimalPuntos } from './configuracion.js?v=20261001-seleccion-v1';
+import { nodo, panel, boton } from './dom.js?v=20261001-codexa-selectivos-s0-v2';
+import { decimalPuntos } from './configuracion.js?v=20261001-codexa-selectivos-s0-v2';
 
 function campo(documento, id, texto, valor, tipo = 'text') {
   const etiqueta = nodo(documento, 'label', undefined, 'campo');
