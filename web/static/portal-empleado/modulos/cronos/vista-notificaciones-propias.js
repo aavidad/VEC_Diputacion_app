@@ -38,7 +38,7 @@ function formularioNotificacion(f, datos, envio, t, locale) {
     ? `<p class="cronos-documento-estado" data-cronos-documento-estado data-tono="${f.documento === "documento_error" ? "error" : "exito"}" role="status">${escaparHTML(t(f.documento))}</p>`
     : `<p class="cronos-documento-estado" data-cronos-documento-estado role="status"></p>`;
   const aviso = avisoEnvio(envio?.mensaje);
-  if (!datos.tipos.length) return `<p class="cronos-vacio" role="status">${escaparHTML(t("sin_tipos"))}</p>`;
+  if (!datos.tipos.length) return `<p class="cronos-vacio" data-cronos-notificacion-sin-tipos role="status">${escaparHTML(t("sin_tipos"))}</p>`;
   return `<form class="cronos-notificacion-formulario" data-cronos-notificacion-formulario aria-labelledby="cronos-notificacion-nueva">
     <div class="cronos-notificacion-fila">
       <label class="cronos-campo">${escaparHTML(t("campo_tipo"))}<select name="tipo" required${inactivo}><option value="">${escaparHTML(t("campo_tipo_elegir"))}</option>${opciones}</select></label>
@@ -194,6 +194,12 @@ export function montarNotificacionesPropiasCronos({ raiz, cliente = crearCliente
         // Sólo el catálogo del selector cambia; el fichero y su huella siguen juntos.
         const tipo = contenedor.querySelector?.('[data-cronos-notificacion-formulario] [name="tipo"]');
         if (tipo) tipo.innerHTML = `<option value="">${escaparHTML(t("campo_tipo_elegir"))}</option>` + r.tipos.map((item) => `<option value="${escaparHTML(item.tipo_version_ref)}"${formulario.tipo === item.tipo_version_ref ? " selected" : ""}>${escaparHTML(item.nombre)}</option>`).join("");
+        if (!tipo && r.tipos.length) {
+          // Si antes no había tipos, sustituir sólo ese aviso por el formulario.
+          // Un formulario existente conserva sus nodos, el borrador y el fichero.
+          const sinTipos = contenedor.querySelector?.("[data-cronos-notificacion-sin-tipos]");
+          if (sinTipos) sinTipos.outerHTML = formularioNotificacion(formulario, datos, envio, t, locale);
+        }
         dibujarHistorial(recuperarHistorial ? "[data-cronos-historial-actualizar]" : "");
         anunciar(th("actualizado"));
       } else {

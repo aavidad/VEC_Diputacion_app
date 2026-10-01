@@ -441,3 +441,28 @@ test("una respuesta antigua de refresco no reemplaza el historial vigente tras r
   vista.desmontar(); await vista.recargar();
   assert.equal(consulta, 3);
 });
+
+
+test("tipos inicialmente vacíos: refrescar crea el formulario y permite registrar con el tipo recibido", async () => {
+  const { nodo, nodos, raiz, historial } = historialFalso(); const envios = []; let consultas = 0;
+  const vista = montarNotificacionesPropiasCronos({ raiz, cliente: {
+    consultarPropias: async () => { consultas++; return consultas === 1 ? { ...datos(), tipos: [] } : datos(); },
+    enviar: async (entrada) => { envios.push(entrada); return { replay: false }; },
+  } });
+  await esperar();
+  assert.match(nodo.innerHTML, /data-cronos-notificacion-sin-tipos/);
+  assert.doesNotMatch(nodo.innerHTML, /<form[^>]*data-cronos-notificacion-formulario/);
+  const aviso = { outerHTML: "" };
+  nodos["[data-cronos-notificacion-sin-tipos]"] = aviso;
+  await nodo.eventos.click(clicHistorial("[data-cronos-historial-actualizar]"));
+  assert.match(aviso.outerHTML, /<form[^>]*data-cronos-notificacion-formulario/);
+  assert.match(aviso.outerHTML, /<option value="notificacion:cronos:tipo:incidencia-marcaje:sintetico-1">/);
+  assert.doesNotMatch(aviso.outerHTML, /data-cronos-notificacion-sin-tipos|No hay tipos de notificación disponibles/);
+  assert.match(historial.innerHTML, /Actualizar historial/);
+  await nodo.eventos.submit({ target: formulario({ tipo: TIPO, fecha: "2026-09-24", texto: "Olvidé fichar al salir.", referencia: "" }), preventDefault() {} });
+  assert.equal(envios.length, 1);
+  assert.equal(envios[0].tipo_version_ref, TIPO);
+  assert.equal(consultas, 3, "primera consulta, refresco y consulta tras el registro");
+  assert.match(nodo.innerHTML, /Notificación enviada a RRHH/);
+  vista.desmontar();
+});
