@@ -400,8 +400,8 @@ details p { margin: 0 0 12px; color: var(--ap-muted); }
 
 @media (max-width: 920px) {
   .ap-shell { display: block; }
-  .ap-lateral { position: fixed; left: 0; width: min(86vw, 300px); transform: translateX(-105%); transition: transform .2s ease-out; }
-  body[data-menu-abierto="true"] .ap-lateral { transform: translateX(0); }
+  .ap-lateral { position: fixed; left: 0; width: min(86vw, 300px); visibility: hidden; transform: translateX(-105%); transition: transform .2s ease-out; }
+  body[data-menu-abierto="true"] .ap-lateral { visibility: visible; transform: translateX(0); }
   .boton-menu { display: inline-grid !important; }
   .cabecera-portal { grid-template-columns: auto minmax(0, 1fr) auto; }
   .busqueda-global { grid-column: 1 / -1; grid-row: 2; }
@@ -438,7 +438,7 @@ details p { margin: 0 0 12px; color: var(--ap-muted); }
   .dato-lista { grid-template-columns: 1fr; }
   .dato-lista dt { padding-bottom: 2px; border-bottom: 0; }
   .dato-lista dd { padding-top: 0; }
-  .tabla-administrativa thead { display: none; }
+  .tabla-administrativa thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .tabla-contenedor { overflow: visible; }
   .tabla-administrativa, .tabla-administrativa tbody, .tabla-administrativa tr, .tabla-administrativa td { display: block; width: 100%; }
   .tabla-administrativa tr { padding: 9px 0; border-bottom: 1px solid var(--ap-borde); }
@@ -479,4 +479,14 @@ details p { margin: 0 0 12px; color: var(--ap-muted); }
   .ap-shell { display: block; }
   .contenido-principal { padding: 0; }
   .panel { break-inside: avoid; box-shadow: none; }
+}
+
+/* La delimitación de los campos conserva contraste sin endurecer los paneles. */
+body.area-personal-app :is(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]), select, textarea):not(:disabled) {
+  border-color: var(--portal-borde-control);
+}
+
+.tabla-contenedor:focus-visible {
+  outline: 3px solid var(--portal-foco);
+  outline-offset: -3px;
 }
