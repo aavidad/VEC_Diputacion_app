@@ -475,3 +475,11 @@ static/textos/es/solicitudes-ejemplos.json
 static/textos/en/solicitudes-ejemplos.json
 static/textos/es/solicitudes.json
 static/textos/en/solicitudes.json
+static/portal-empleado/modulos/seleccion/ficha-convocatoria/cliente-http.js
+static/portal-empleado/modulos/seleccion/ficha-convocatoria/contrato.js
+static/portal-empleado/modulos/seleccion/ficha-convocatoria/ficha.css
+static/portal-empleado/modulos/seleccion/ficha-convocatoria/i18n.js
+static/portal-empleado/modulos/seleccion/ficha-convocatoria/montaje.js
+static/portal-empleado/modulos/seleccion/ficha-convocatoria/vista.js
+static/textos/es/seleccion-ficha-convocatoria.json
+static/textos/en/seleccion-ficha-convocatoria.json
