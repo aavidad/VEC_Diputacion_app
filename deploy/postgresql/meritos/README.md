@@ -93,15 +93,45 @@ red ni puertos, con 2 CPU, 2 GiB, 128 procesos y entorno limitado. Esto
 acredita el esquema reversible y los controles estructurales; el recorrido
 positivo con material V3 real queda pendiente de la comprobación conjunta.
 
-Después se confirmó la instalación causal en el mismo clon aislado, con el
-consumidor AD142 definitivo. Méritos UP conserva SHA256
-`f1faf970e2394179caec71d763da9ea8c4d814463b0a6047dc583eb441adcc0b`;
-AD142 UP conserva SHA256
-`2dde7cbfd231ddf2a768a48ed93d6278100b24b250dcfd51afdc72ea5346e7a1`.
-La comprobación posterior confirmó la presencia de `operar_hecho_v1`.
-El clon quedó cedido al controlador de pruebas con el adaptador Go real.
-Este hecho no acredita instalación en la principal ni producción.
+El nuevo ensayo del 1 de octubre restauró una copia fría propia de la base
+sintética, anterior a las candidatas. Conservó sus 82 migraciones y 71
+expedientes. Aplicó una sola vez roles de Méritos → AD141 → AD142 corregida
+(`88a790dcb87d95c4db5d80cd02d7401c1668751d`) → Méritos `000001`.
+La instalación y la comprobación de estructura/ACL terminaron con código 0.
+No se modificó la fuente original ni se reaplicaron sus migraciones.
 
-La presencia de estos archivos no acredita instalación, montaje HTTP,
-recorrido en navegador ni publicación. Dirección reúne las pruebas y las dos
-revisiones sensibles del contenido exacto antes de integrar.
+El driver `internal/modules/meritos/adapters/postgres/ensayo` completó el
+recorrido interno con PostgreSQL 18.4 y los adaptadores comunes reales:
+
+| Operación | Resultado |
+| --- | --- |
+| Declaración propia y replay | `confirmada`, mismo recibo |
+| Rectificación propia | `confirmada`, versión 2 pendiente |
+| Rechazo por otro actor y replay | `confirmada`, versión 3 rechazada, mismo recibo |
+| Rectificación con versión antigua | `conflicto_version`, sin recibo |
+| Clave de declaración con contenido distinto | `clave_reutilizada`, sin recibo |
+
+Cada operación reconstruyó sesión/contexto, decisión registrada, firma COSE
+Ed25519, verificación común y capacidad HMAC V3. El fixture OWNER inicial
+usó ausencia y CAS exactos, perfiles fijos y claves sintéticas privadas;
+comprobó que seguían presentes las 85.787 filas preexistentes. El driver no
+publicó permisos ni alteró el gobierno durante las operaciones.
+
+Después de parar y volver a crear el contenedor PostgreSQL sobre el mismo
+PGDATA, un proceso nuevo repitió las siete operaciones con concesiones nuevas.
+Conservó todos los códigos, recibos, fechas y antecedentes. Las huellas de
+identidad del hecho, tres versiones, tres operaciones y tres eventos de outbox
+permanecieron idénticas. Solo crecieron los accesos de recuperación (2 → 7) y
+las auditorías (7 → 14), con referencias nuevas para cada acceso.
+
+Los contenedores tenían red desactivada, raíz de solo lectura, 2 CPU, 2 GiB,
+128 procesos y tiempo limitado. Las claves, sesiones, entradas y datos del
+fixture quedan fuera de Git. Las pruebas focales Go, race y vet también
+terminaron con código 0. La documentación del driver recoge el procedimiento
+de reproducción y la distinción entre recibo original y auditoría del acceso.
+
+Esto acredita persistencia y recuperación del circuito interno sintético.
+La principal, el canal externo, la composición HTTP, el navegador, la firma
+administrativa y la acreditación de hechos permanecen fuera de este ensayo.
+Dirección reúne las dos revisiones sensibles del contenido exacto antes de
+integrar; estos archivos no acreditan publicación ni producción.

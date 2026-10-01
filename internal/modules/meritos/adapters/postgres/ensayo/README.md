@@ -61,3 +61,38 @@ El recorrido actual usa la familia interna. Los publicadores externos de Bolsa
 y Usuarios limitan sus acciones y no publican permisos de Méritos. Una persona
 externa necesita el contrato común correspondiente antes de acreditar un
 positivo. Persona y relación de empleo conservan sus autoridades respectivas.
+
+## Recorrido y recuperación comprobados
+
+El ensayo del 1 de octubre de 2026 usó dos actores internos sintéticos con
+perfiles separados: uno declaró y rectificó su hecho; el otro lo rechazó.
+La secuencia fue declaración, replay, rectificación, rechazo, replay del
+rechazo, CAS antiguo y clave original con otro contenido. Las primeras cinco
+operaciones devolvieron `confirmada`; las otras devolvieron
+`conflicto_version` y `clave_reutilizada`, sin recibo.
+
+Para repetirlo, dirección debe restaurar su copia fría en un PGDATA nuevo,
+verificar la preimagen y aplicar una sola vez la lista causal de RUM03 con
+AD141/142 corregidas. La provisión OWNER inicial tiene que comprobar ausencia,
+conservar la historia anterior y avanzar el checkpoint por CAS. El material
+se genera y guarda únicamente en un directorio privado; no se proporciona un
+fixture con permisos o claves como configuración de producto.
+
+Registrar las sesiones justo antes de `consume`. Conservar los resultados y
+las huellas de las tablas propias, detener PostgreSQL, volver a arrancarlo
+con el mismo PGDATA y ejecutar `consume` en otro proceso con los mismos
+comandos de negocio. Revalidar la sesión vigente o registrar una nueva por su
+API si caducó. Cada reintento emite y consume una capacidad nueva: no guardar
+una capacidad HMAC para usarla después del reinicio.
+
+Comparar `recibo` y `anterior` completos, incluidos fecha, versión, auditoría
+y evento originales. La `auditoria_ref` del sobre debe cambiar para acreditar
+el acceso nuevo. Comparar también las huellas de `hecho_identidad`,
+`hecho_version`, `operacion` y `outbox`: no deben aparecer versiones,
+operaciones ni eventos nuevos por la recuperación.
+
+El recorrido pasó de 1 hecho, 3 versiones, 3 operaciones y 3 eventos a esos
+mismos registros tras reiniciar PostgreSQL y el proceso. Los accesos crecieron
+de 2 a 7 y las auditorías de 7 a 14. Los siete códigos y todos los recibos,
+fechas, antecedentes y huellas de historia de negocio fueron idénticos.
+El driver y su adaptador no necesitaron un parche para completar el positivo.
