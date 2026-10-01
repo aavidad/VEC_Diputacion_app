@@ -1,4 +1,4 @@
-import { aDecimal } from "./baremo-editor.js?v=20261001-baremo-concursos-v2";
+import { aDecimal } from "./baremo-editor.js?v=20261001-baremo-concursos-v3";
 export function escapar(valor) {
   return String(valor ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
 }
