@@ -205,6 +205,59 @@ los roles reservados conservan cero `USAGE`, `EXECUTE` y DML.
 
 ## Instalacion
 
+### Preparación de borradores V3 (BR4)
+
+`migraciones/000004_gobierno_borradores_v3.up.sql` prepara tres operaciones:
+crear un borrador, consultar una revisión exacta y recuperar el recibo de un
+alta. No concede `USAGE` ni `EXECUTE` a cuentas de aplicación. Es un borrador
+de integración, sin instalación en la principal. La publicación y activación
+formal mantienen sus requisitos de evidencia firmada.
+
+La fachada `operar_borrador_v3` recibe los bytes de
+`MaterialGobiernoV3` y los diez argumentos de consumo V3. Devuelve resultado,
+bytes originales de la versión, recibo, acceso actual y señal de repetición.
+Cada operación requiere una transacción `SERIALIZABLE READ WRITE` y un consumo
+central nuevo. El JSON enviado por el adaptador sirve para cotejar campos;
+la identidad y el permiso los verifica la autoridad V3, nunca ese JSON.
+
+La intención estable liga persona, convocatoria, expediente, conjunto
+canónico, motivo canónico y clave de 128 bits. Su huella no incluye la fecha
+de la propuesta. Una repetición con esa intención devuelve la versión, fecha
+y recibo originales, con un acceso V3 actual separado. Reutilizar la clave con
+otro contenido, versión, actor, ámbito o motivo causa conflicto sin efectos.
+Una nueva intención exige que no exista ese contenido y versión; no adopta
+un alta anterior ajena.
+
+BR4 reutiliza `contenido_reglas_baremo`, `version_reglas_baremo` y
+`estado_actual`. Añade `acceso_borrador_v3`, `recibo_borrador_v3` y
+`outbox_borrador_v3`, con RLS forzada y rechazo de mutaciones. Los enlaces
+V3 quedan separados de las claves foráneas V2 históricas. La auditoría
+conserva la referencia y huella del consumo central actual; el recibo conserva
+el consumo original del alta. No se cambia ni elimina historia anterior.
+
+El orden causal pendiente de aprobar es: almacén propio 000001 → operaciones
+000002 → composición V2 propia 000003, con sus dependencias históricas, y
+consumidor nominal AD144 → BR4. Si la preimagen ya contiene esas piezas,
+se conserva y no se reaplican. El ensayo del DDL cerrado de BR4 puede
+comprobarse sin AD144; cualquier llamada a la fachada falla entonces antes
+de leer o escribir negocio. Eso no acredita autorización ni una operación V3.
+
+El contrato propuesto para AD144 es
+`consumir_gobierno_borrador_reglas_baremo_v3_atestada`, con los diez argumentos
+V3 habituales y la audiencia
+`vec_bolsa_reglas_baremo.gobierno_borrador.v3`. Dirección debe fijar el perfil
+operativo y las membresías de conexión, la preimagen central, las acciones,
+finalidades, ámbitos, campos y obligaciones exactos. La recuperación propone
+el campo `recibo`; sigue pendiente de consenso. No se edita el núcleo V3 en
+BR4 ni se sustituye el consumidor por una puerta V2 o genérica.
+
+Antes de abrir la fachada hacen falta el contrato AD144 aprobado, la lista
+causal que mantiene Dirección, ensayo PostgreSQL 18 en el clon y dos
+revisiones independientes de los hashes exactos. El adaptador debe restaurar
+y validar los bytes mediante el dominio Go antes del efecto y al recuperar.
+El ensayo SQL sintético por sí solo no valida ese canon ni acredita firma,
+instalación, publicación o recorrido de RRHH.
+
 Requiere el nucleo V2 de autorizacion:
 
 1. `autorizacion/roles_up.sql`;
