@@ -9,8 +9,12 @@
 # Cat4 evoluciona publicar instalada con hash exacto; conserva OID/ACL/historia.
 # Propuesta A v1, aprobacion B v2, confirmacion B v3; documento completo siempre.
 # Orden completo requerido: B→A→ContextoActor000021→Autorizacion000025→Cat4→AD134.
-# CTX21/AUT25 pertenecen a D: incorporar sus rutas y hash tras entrega revisada.
+# CTX21/AUT25 pertenecen a D: candidato AUT25 a69a73a6, sin instalar.
+# AUT25 debe cerrar modulo propietario vs consumidor antes del ensayo final.
+# Lista condicionada a incorporar los artefactos D revisados al mismo arbol.
 # Asignacion RRHH RPT funcional: dependencia comun de D/B, no publicada aqui.
 # Ensayo PG18 solo tras postimagen convergente B→A revisada y orden de Direccion.
+deploy/postgresql/contexto_actor_v1/migraciones/000021_vinculo_rpt_rrhh.up.sql
+deploy/postgresql/autorizacion/migraciones/000025_gobierno_categorias_rpt.up.sql
 deploy/postgresql/catalogos_configurables/migraciones/000004_gobierno_categorias_rpt.up.sql
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000134_gobierno_categorias_rpt.up.sql

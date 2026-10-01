@@ -1,9 +1,29 @@
 \set ON_ERROR_STOP on
 -- AD3-134: gobierno nominal del catalogo comun RPT. Requiere
--- catalogos_configurables 000004 y AD3-126. El DBA crea el rol sin miembros.
+-- catalogos_configurables 000004, AD3-126 y AUT25 tras CA21/postA.
+-- Candidata condicionada al contrato final AUT25 (propietario del catalogo).
+-- El DBA crea el rol sin miembros; esta migracion no asigna perfiles.
 BEGIN;
 SET LOCAL search_path=pg_catalog;
 SET LOCAL lock_timeout='5s';
+-- AUT25 es una dependencia común revisada; no se publica autoridad aquí.
+DO $dependencia_nominal$
+DECLARE nominal oid:=pg_catalog.to_regprocedure('vec_autorizacion.revalidar_gobierno_rpt_v1(jsonb,text,text,jsonb)');
+BEGIN
+ IF nominal IS NULL
+ OR NOT EXISTS(SELECT 1 FROM pg_catalog.pg_proc p
+   WHERE p.oid=nominal AND p.proowner='vec_autorizacion_propietario'::regrole
+     AND p.prokind='f' AND p.prorettype='boolean'::regtype AND NOT p.proretset
+     AND p.prosecdef AND p.provolatile='v'
+     AND p.proconfig=ARRAY['search_path=pg_catalog'])
+ OR pg_catalog.has_function_privilege('vec_autorizacion_atestada_v3_propietario',nominal,'EXECUTE') IS NOT TRUE
+ OR EXISTS(SELECT 1 FROM pg_catalog.pg_proc p
+   CROSS JOIN LATERAL pg_catalog.aclexplode(coalesce(p.proacl,pg_catalog.acldefault('f',p.proowner))) a
+   WHERE p.oid=nominal AND (a.grantee=0 OR a.privilege_type<>'EXECUTE' OR a.is_grantable
+     OR a.grantee NOT IN(p.proowner,'vec_autorizacion_atestada_v3_propietario'::regrole))) THEN
+  RAISE EXCEPTION 'AD3-134: contrato nominal AUT25 incompatible' USING ERRCODE='55000';
+ END IF;
+END $dependencia_nominal$;
 DO $dba$
 BEGIN
  IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=current_user AND rolsuper)
@@ -280,6 +300,13 @@ BEGIN
        OR (contenido IS NOT NULL AND contenido->>'motivo_ref' IS DISTINCT FROM motivo_canonico) THEN
         RAISE EXCEPTION 'AD3-134: motivo ajeno' USING ERRCODE='42501';
     END IF;
+    -- d y m proceden de los bytes V3 consumidos y verificados; alcance está
+    -- ligado al material. AUT25 bloquea los punteros nominales hasta commit.
+    -- Cada intento, incluido replay, pasa aquí antes de invocar Cat4.
+    IF vec_autorizacion.revalidar_gobierno_rpt_v1(
+        d,alcance->>'catalogo_id',alcance->>'modulo_id',m) IS NOT TRUE THEN
+        RAISE EXCEPTION 'AD3-134: gobierno nominal no vigente' USING ERRCODE='42501';
+    END IF;
     RETURN QUERY SELECT x.decision_ref,x.efecto_ref,x.huella_efecto_sha256,
         x.consumo_huella_sha256,x.auditoria_ref,
         x.consumida_en,d->>'principal_id',motivo_canonico;
@@ -478,6 +505,24 @@ GRANT EXECUTE ON FUNCTION vec_autorizacion_atestada_v3.proponer_gobierno_categor
     vec_autorizacion_atestada_v3.confirmar_gobierno_categoria_rpt_v3_atestada(
     jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)
     TO vec_catalogos_configurables_gobierno_ejecutor;
+-- AUT25 es una dependencia común revisada; no se publica autoridad aquí.
+DO $postimagen_nominal$
+DECLARE nominal oid:=pg_catalog.to_regprocedure('vec_autorizacion.revalidar_gobierno_rpt_v1(jsonb,text,text,jsonb)');
+BEGIN
+ IF nominal IS NULL
+ OR NOT EXISTS(SELECT 1 FROM pg_catalog.pg_proc p
+   WHERE p.oid=nominal AND p.proowner='vec_autorizacion_propietario'::regrole
+     AND p.prokind='f' AND p.prorettype='boolean'::regtype AND NOT p.proretset
+     AND p.prosecdef AND p.provolatile='v'
+     AND p.proconfig=ARRAY['search_path=pg_catalog'])
+ OR pg_catalog.has_function_privilege('vec_autorizacion_atestada_v3_propietario',nominal,'EXECUTE') IS NOT TRUE
+ OR EXISTS(SELECT 1 FROM pg_catalog.pg_proc p
+   CROSS JOIN LATERAL pg_catalog.aclexplode(coalesce(p.proacl,pg_catalog.acldefault('f',p.proowner))) a
+   WHERE p.oid=nominal AND (a.grantee=0 OR a.privilege_type<>'EXECUTE' OR a.is_grantable
+     OR a.grantee NOT IN(p.proowner,'vec_autorizacion_atestada_v3_propietario'::regrole))) THEN
+  RAISE EXCEPTION 'AD3-134: contrato nominal AUT25 incompatible' USING ERRCODE='55000';
+ END IF;
+END $postimagen_nominal$;
 DO $acl$
 DECLARE f regprocedure;
 BEGIN
