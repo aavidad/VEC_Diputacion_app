@@ -1,0 +1,37 @@
+{
+  "manifiesto": {
+    "organismo_ref": "organismo:ejemplo-sintetico",
+    "tipo": "rpt",
+    "version_ref": "11111111-1111-4111-8111-111111111111",
+    "version_revision": 1,
+    "fuente_ref": "fuente:ejemplo-sintetico",
+    "fuente_version": "v1",
+    "fuente_huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "catalogo_unidades": {
+      "id": "unidades:sinteticas",
+      "version": 1,
+      "revision": 1,
+      "huella_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    "catalogo_clasificaciones": {
+      "id": "clasificaciones:sinteticas",
+      "version": 1,
+      "revision": 1,
+      "huella_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    }
+  },
+  "hechos": [
+    {
+      "clase": "nodo",
+      "hecho_ref": "22222222-2222-4222-8222-222222222222",
+      "revision": 1,
+      "fila_fuente_ref": "fila:1",
+      "organismo_ref": "organismo:ejemplo-sintetico",
+      "unidad_ref": "centro:sintetico",
+      "vigente_desde": "2026-01-01",
+      "catalogo_entrada_clave": "centro:sintetico",
+      "denominacion": "Centro de Servicios Municipales",
+      "tipo_unidad": "centro"
+    }
+  ]
+}

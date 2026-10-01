@@ -42,6 +42,7 @@ var recursos = []string{
 	"/portal-empleado/portal-patrones.css", "/portal-empleado/portal-flujos.css", "/portal-empleado/portal-modulos.css",
 	"/comun/tema-vec.css", "/comun/textos.js", "/comun/idioma.js",
 	"/textos/idiomas.json",
+	"/catalogos/baremo-jornada-v1.json",
 }
 
 var codigoIdioma = regexp.MustCompile(`^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$`)

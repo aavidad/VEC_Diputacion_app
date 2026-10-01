@@ -751,6 +751,42 @@ test("Cronos interno: olvido de marcaje abre el formulario del calendario y falt
   }
 });
 
+test("Cronos propio no ofrece bandejas de gestión ni las consulta; sus rutas directas se conservan", async () => {
+  const reales = await recursosCronosInternos(); const montadas = [];
+  const montar = (nombre) => ({ registrarDesmontar } = {}) => {
+    montadas.push(nombre); const desmontar = () => {}; registrarDesmontar?.(desmontar); return { desmontar };
+  };
+  const recursos = { ...reales,
+    permisosPropios: { montarPermisosPropiosCronos: montar("permisos") },
+    bandejaPermisos: { montarBandejaPermisosCronos: montar("bandeja") },
+    avisosPropios: { montarAvisosPropiosCronos: montar("avisos") },
+    clienteResolucion: { crearClienteResolucionCronosHTTP: () => ({}) },
+    i18nResolucion: { crearTraductorResolucionCronos: () => (clave) => clave },
+    notificacionesPropias: { montarNotificacionesPropiasCronos: montar("notificaciones") },
+    bandejaNotificaciones: { montarBandejaNotificacionesCronos: montar("bandeja-notificaciones") },
+    clienteNotificaciones: { crearClienteNotificacionesCronosHTTP: () => ({}) },
+    i18nNotificaciones: { crearTraductorNotificacionesCronos: () => (clave) => clave },
+  };
+  const coordinador = crearCoordinadorModulosPortal({ escaparHTML: String,
+    entorno: { fetch: () => assert.fail("no debe sondear competencia de RRHH") },
+    cargarCatalogoInterno: async () => [{ clave: "cronos" }],
+    cargadoresInternos: { contratacion_temporal: () => assert.fail("sin CT"), cronos: async () => recursos },
+  });
+  await cargarConDiferidos(coordinador); const raiz = raizDietasFalsa();
+  for (const vista of ["cronos-permisos", "cronos-avisos", "cronos-notificaciones"]) {
+    assert.equal(await coordinador.montarVista(vista, raiz), true);
+    const navegacion = raiz.querySelector("[data-cronos-subvistas]").innerHTML;
+    assert.doesNotMatch(navegacion, /data-vista="cronos-bandeja(?:-notificaciones)?"/);
+  }
+  assert.deepEqual(montadas, ["permisos", "avisos", "notificaciones"]);
+  for (const [vista, montaje] of [["cronos-bandeja", "bandeja"], ["cronos-bandeja-notificaciones", "bandeja-notificaciones"]]) {
+    assert.equal(await coordinador.montarVista(vista, raiz), true);
+    assert.equal(montadas.at(-1), montaje);
+    assert.match(raiz.querySelector("[data-cronos-subvistas]").innerHTML, new RegExp(`data-vista="${vista}" aria-current="page"`));
+  }
+  coordinador.desmontarVistaActual();
+});
+
 test("CT interno se activa solo después de una consulta autorizada", async () => {
   const catalogo = crearCatalogoModulosDesdeManifiestos(
     [manifiestoContratacionTemporal()], TRADUCCIONES_CONTRATACION_TEMPORAL,
