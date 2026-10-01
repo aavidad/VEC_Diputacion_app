@@ -54,11 +54,11 @@ class DB:
             self.on_query(text)
         if f.SNAPSHOT_SQL in text:
             self.snapshot_calls += 1
-            return f.encoded(self.snapshot)
+            return f.encoded(self.snapshot).decode("utf-8")
         if f.RO_SQL in text:
-            return f.encoded({"transaction_read_only": "on", "database": "postgres"})
+            return f.encoded({"transaction_read_only": "on", "database": "postgres"}).decode("utf-8")
         return f.encoded({"derived_account_exists": False, "derived_account_projection_exists": False,
-                          "derived_profile_assignment_exists": False, "derived_profile_context_exists": False})
+                          "derived_profile_assignment_exists": False, "derived_profile_context_exists": False}).decode("utf-8")
 
 
 class SourceTests(unittest.TestCase):
@@ -100,14 +100,15 @@ class SourceTests(unittest.TestCase):
               for x in ("solicitante", "ratificador")]]}}
         self.snapshot = {"ro": "on", "catalog": catalog, "petitions": []}
         for index, function in enumerate(("solicitante", "ratificador"), 1):
+            person_ref = "per_" + str(index) * 32
             row = {"petition": "peticion:scratch", "version": index,
                 "operation": "presentar" if index == 1 else "ratificar",
                 "state": "pendiente_ratificacion" if index == 1 else "ratificada",
-                "actor": "desarrollo:scratch:" + function, "profile": "perfil:" + function,
+                "actor": person_ref, "profile": "perfil:" + function,
                 "center": "centro:scratch", "position": "puesto:" + function,
                 "material_sha256": "e" * 64, "assignment_ref": "asignacion:" + function,
                 "assignment_version": 2, "assignment_sha256": str(index) * 64,
-                "assignment": {"principal_id": "desarrollo:scratch:" + function, "perfil_activo_ref": "perfil:" + function,
+                "assignment": {"principal_id": person_ref, "perfil_activo_ref": "perfil:" + function,
                     "estado": "activa", "ambitos": [{"clave": "centro_ref", "valores": ["centro:scratch"]}]},
                 "role": function + "_centro", "role_version": 2, "role_sha256": "a" * 64,
                 "control_revision": 1, "control_sha256": "b" * 64, "control_state": "habilitada",
@@ -145,16 +146,45 @@ class SourceTests(unittest.TestCase):
         self.assertIsNone(source["acreditacion"])
         self.assertFalse(source["provision_ejecutada"])
         for p in source["personas"][2:]:
+            self.assertRegex(p["persona_ref"], r"^per_[0-9a-f]{32}$")
+            self.assertEqual(p["principal_h6"], p["persona_ref"])
+            self.assertNotIn("sujeto_propuesto_desde_principal_h6", p)
+            self.assertNotIn("sujeto", p)
             self.assertIsNone(p["sujeto_certificado"])
             self.assertIsNone(p["referencias_derivadas_certificado"])
             self.assertEqual(p["certificado"]["estado"], "pendiente")
         self.assertEqual(self.prepare(), output)
         self.assertNotIn(b"autoridad_maestra_acreditada", output[f.SOURCE_NAME])
         self.assertNotIn(b"PRIVATE KEY", output[f.SOURCE_NAME])
+        self.assertEqual(len({p["persona_ref"] for p in source["personas"]}), 4)
 
     def test_same_actor_rejected(self):
         self.snapshot["petitions"][1]["actor"] = self.snapshot["petitions"][0]["actor"]
         with self.assertRaises(f.InternalSourceError): self.prepare()
+
+    def test_subject_cannot_stand_in_for_h6_persona(self):
+        row = self.snapshot["petitions"][0]
+        row["actor"] = row["assignment"]["principal_id"] = "desarrollo:scratch:solicitante"
+        with self.assertRaisesRegex(f.InternalSourceError, "persona_reference"): self.prepare()
+
+    def test_h1_and_h6_persona_collision_rejected(self):
+        identity = f.decoded((self.h1 / "identidad/identidad.json").read_bytes())
+        existing = f.derived(identity["subject"], identity["certificate_sha256"])["persona_ref"]
+        row = self.snapshot["petitions"][0]
+        row["actor"] = row["assignment"]["principal_id"] = existing
+        with self.assertRaisesRegex(f.InternalSourceError, "four_distinct_identities"): self.prepare()
+
+    def test_real_query_text_normalizes_strict_utf8(self):
+        with patch.object(self.db, "query", return_value='{"nombre":"Lucía"}'):
+            self.assertEqual(f.query_json(ReadOnlyDB(self.db), f.RO_SQL), {"nombre": "Lucía"})
+        for wrong, reason in ((b'{}', "query_text_size"), ("", "query_text_size"),
+                              ("x" * (f.MAX_FILE + 1), "query_text_size"),
+                              ('{"nombre":"' + "á" * (f.MAX_FILE // 2) + '"}', "input_size"),
+                              ('{"nombre":"\ud800"}', "query_utf8"),
+                              ('{"nombre":1,"nombre":2}', "duplicate_json_key")):
+            with patch.object(self.db, "query", return_value=wrong):
+                with self.assertRaisesRegex(f.InternalSourceError, reason):
+                    f.query_json(ReadOnlyDB(self.db), f.RO_SQL)
 
     def test_same_position_rejected(self):
         self.snapshot["petitions"][1]["position"] = self.snapshot["petitions"][0]["position"]
@@ -194,8 +224,8 @@ class SourceTests(unittest.TestCase):
         query = self.db.query
         def changed(text):
             if "'account'" in text:
-                value = f.decoded(query(text)); value["derived_profile_assignment_exists"] = True
-                return f.encoded(value)
+                value = f.decoded(query(text).encode("utf-8")); value["derived_profile_assignment_exists"] = True
+                return f.encoded(value).decode("utf-8")
             return query(text)
         self.db.query = changed
         with self.assertRaisesRegex(f.InternalSourceError, "h1_absence_changed"): self.prepare()

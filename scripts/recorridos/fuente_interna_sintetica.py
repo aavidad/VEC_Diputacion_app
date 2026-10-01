@@ -87,7 +87,18 @@ def unique(pairs):
 
 def decoded(data):
     require(isinstance(data, bytes) and 0 < len(data) <= MAX_FILE, "input_size")
-    return json.loads(data, object_pairs_hook=unique)
+    return json.loads(data.decode("utf-8", errors="strict"), object_pairs_hook=unique)
+
+
+def query_json(ro, sql):
+    """The real ReadOnlyDB adapter returns text, not file bytes."""
+    text = ro.query(sql)
+    require(isinstance(text, str) and 0 < len(text) <= MAX_FILE, "query_text_size")
+    try:
+        data = text.encode("utf-8", errors="strict")
+    except UnicodeEncodeError as error:
+        raise InternalSourceError("query_utf8") from error
+    return decoded(data)
 
 
 def read_file(path):
@@ -128,6 +139,11 @@ def ref(value):
 
 def sha(value):
     require(isinstance(value, str) and re.fullmatch(r"[0-9a-f]{64}", value), "sha256")
+    return value
+
+
+def persona_ref(value):
+    require(isinstance(value, str) and re.fullmatch(r"per_[0-9a-f]{32}", value), "persona_reference")
     return value
 
 
@@ -198,6 +214,7 @@ def center_pair(snapshot):
         require(set(row) == expected and row["role"] == role and row["control_state"] == "habilitada", "published_assignment")
         for key in ("petition", "actor", "profile", "center", "position", "assignment_ref"):
             ref(row[key])
+        persona_ref(row["actor"])
         for key in ("material_sha256", "assignment_sha256", "role_sha256", "control_sha256", "policies_sha256"):
             sha(row[key])
         for key in ("assignment_version", "role_version", "control_revision", "policies_revision"):
@@ -226,8 +243,8 @@ def prepare(ro, h1_root, act_path):
     clone = ro.system_identity()
     require(clone == evidence["clone_identity"] and
             ro.database_acl_digest() == evidence["clone_datacl_sha256"], "owned_clone_preimage")
-    require(decoded(ro.query(RO_SQL)) == {"transaction_read_only": "on", "database": "postgres"}, "database_ro")
-    snapshot = decoded(ro.query(SNAPSHOT_SQL))
+    require(query_json(ro, RO_SQL) == {"transaction_read_only": "on", "database": "postgres"}, "database_ro")
+    snapshot = query_json(ro, SNAPSHOT_SQL)
     rows = center_pair(snapshot)
     require(snapshot["catalog"]["sha256"] == evidence["results"]["center_catalog"]["catalog_sha"], "catalog_changed")
     for row in rows:
@@ -262,22 +279,26 @@ def prepare(ro, h1_root, act_path):
         query = template.replace("<CUENTA_DERIVADA_H1>", identity["referencias_derivadas_h1"]["cuenta_ref"]).replace(
             "<PERFIL_DERIVADO_H1>", identity["referencias_derivadas_h1"]["perfil_ref"])
         require(digest(query.encode()) == evidence["dynamic_query_templates"][key]["query_sha256"], "absence_query_preimage")
-        require(decoded(ro.query(query)) == absence, "h1_absence_changed")
+        require(query_json(ro, query) == absence, "h1_absence_changed")
         absences.append((query, absence))
         people.append({"funcion": key, "nombre_visible_sintetico": name, **identity,
+                       "persona_ref": identity["referencias_derivadas_h1"]["persona_ref"],
                        "perfil_publicado_h6": None, "preimagen_ausencia_h6": absence})
     for row, name in zip(rows, ("Marta Cárdenas Vidal", "Pablo Luque Ferrer")):
         people.append({"funcion": row["role"], "nombre_visible_sintetico": name,
-            "sujeto_propuesto_desde_principal_h6": row["actor"], "sujeto_certificado": None,
+            "persona_ref": row["actor"], "principal_h6": row["actor"], "sujeto_certificado": None,
             "certificado": {"estado": "pendiente", "der_sha256": None, "pem_sha256": None},
             "referencias_derivadas_certificado": None, "perfil_publicado_h6": row["profile"],
             "centro_ref": row["center"], "puesto_ref": row["position"], "preimagen_h6": row})
-    subjects = [p.get("sujeto", p.get("sujeto_propuesto_desde_principal_h6")) for p in people]
-    require(len(set(subjects)) == 4 and people[0]["certificado"]["der_sha256"] != people[1]["certificado"]["der_sha256"], "four_distinct_identities")
+    # A persisted actor is a PersonaRef. It cannot be inverted into a subject;
+    # the future certificate-to-person link remains explicitly pending.
+    person_refs = [persona_ref(p["persona_ref"]) for p in people]
+    require(len(set(person_refs)) == 4 and people[0]["sujeto"] != people[1]["sujeto"] and
+            people[0]["certificado"]["der_sha256"] != people[1]["certificado"]["der_sha256"], "four_distinct_identities")
     # Detect concurrent publication before returning bytes. This is a measured
     # proposal preimage, not a transactional CAS guarantee for future effects.
-    require(decoded(ro.query(SNAPSHOT_SQL)) == snapshot, "h6_preimage_changed")
-    require(all(decoded(ro.query(q)) == absence for q, absence in absences), "h1_absence_changed")
+    require(query_json(ro, SNAPSHOT_SQL) == snapshot, "h6_preimage_changed")
+    require(all(query_json(ro, q) == absence for q, absence in absences), "h1_absence_changed")
     require(ro.system_identity() == clone and ro.database_acl_digest() == evidence["clone_datacl_sha256"], "owned_clone_changed")
     require(read_file(act_path) == act_bytes and all(read_file(Path(h1_root) / path) == data for path, data in files.items()), "source_changed")
     source = {"esquema": "vec.fuente.sintetica.interna.propuesta.v1", "version": 1,
@@ -286,9 +307,9 @@ def prepare(ro, h1_root, act_path):
               "source_base_commit": BASE_COMMIT, "acta_preimagen_sha256": ACT_SHA,
               "organizacion_preimagen": snapshot["catalog"], "personas": people,
               "centros_propuestos": {"estado": "propuesta", "version": 1,
-                  "solicitante": {"principal_h6": rows[0]["actor"], "perfil_h6": rows[0]["profile"],
+                  "solicitante": {"persona_ref": rows[0]["actor"], "principal_h6": rows[0]["actor"], "perfil_h6": rows[0]["profile"],
                                   "centro_ref": rows[0]["center"], "puesto_ref": rows[0]["position"]},
-                  "ratificador": {"principal_h6": rows[1]["actor"], "perfil_h6": rows[1]["profile"],
+                  "ratificador": {"persona_ref": rows[1]["actor"], "principal_h6": rows[1]["actor"], "perfil_h6": rows[1]["profile"],
                                   "centro_ref": rows[1]["center"], "puesto_ref": rows[1]["position"]},
                   "ratificador_subject": None, "certificados_cotejados": False},
               "preimagen_ro_sha256": digest(encoded(snapshot)), "consulta_ro_sha256": digest(SNAPSHOT_SQL.encode()),
