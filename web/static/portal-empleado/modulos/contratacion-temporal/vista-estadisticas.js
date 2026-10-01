@@ -13,7 +13,7 @@ import { generarCSVEstadisticas } from "./contrato-estadisticas.js?v=20261001-ct
 import { consultarEstadisticas } from "./cliente-http-estadisticas.js?v=20261001-ct-a-i18n-v1";
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261001-ct-a-i18n-v1";
 
-import { cargarFichaIndicadores, renderizarFichaIndicadores } from "../analitica/ficha-indicadores.js";
+import { cargarFichaIndicadores, renderizarFichaIndicadores } from "../analitica/ficha-indicadores.js?v=20261001-ana001-v1";
 
 const traducirCT = crearTraductorContratacionTemporal();
 
@@ -228,7 +228,7 @@ export function renderizarVistaEstadisticas({ estadoEstadisticas, filtros, ficha
   const encabezado = `
     <header class="cabecera-vista">
       <h2>${textoCT("ct_txt_estadisticas_de_contratacion_temporal")}</h2>
-      ${renderizarAyudaIndicadoresEstadisticas(fichaIndicadores, estadoEstadisticas?.datos ?? null)}
+      <span data-ct-ayuda-indicadores-slot>${renderizarAyudaIndicadoresEstadisticas(fichaIndicadores, estadoEstadisticas?.datos ?? null)}</span>
       <p>${textoCT("ct_txt_cuadro_de_evolucion_temporal_altas_llamamientos")}</p>
     </header>
   `;
@@ -309,7 +309,7 @@ export function renderizarVistaEstadisticas({ estadoEstadisticas, filtros, ficha
   `;
 }
 
-export function montarVistaEstadisticas({ raiz, cliente, anunciar, descargarCSVImpl, fichaIndicadores = null }) {
+export function montarVistaEstadisticas({ raiz, cliente, anunciar, descargarCSVImpl, fichaIndicadores = null, cargarFicha = cargarFichaIndicadores }) {
   let montada = true;
   let ficha = fichaIndicadores;
   let generacionConsulta = 0;
@@ -404,10 +404,13 @@ export function montarVistaEstadisticas({ raiz, cliente, anunciar, descargarCSVI
   raiz.addEventListener("click", manejarClick);
   raiz.addEventListener("submit", manejarSubmit);
 
-  if (!ficha) void cargarFichaIndicadores().then((datos) => {
+  if (!ficha) void cargarFicha().then((datos) => {
     if (!montada) return;
     ficha = datos;
-    renderizar();
+    // La ayuda puede llegar mientras se editan filtros. Actualizar solo su hueco
+    // conserva los valores escritos y el foco del formulario.
+    const hueco = raiz.querySelector?.("[data-ct-ayuda-indicadores-slot]");
+    if (hueco) hueco.innerHTML = renderizarAyudaIndicadoresEstadisticas(ficha, estadoEstadisticas.datos);
   }).catch(() => {});
   void cargar();
 

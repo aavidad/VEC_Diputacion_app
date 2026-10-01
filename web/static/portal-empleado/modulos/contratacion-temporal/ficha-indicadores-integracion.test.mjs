@@ -34,3 +34,20 @@ test("el montaje real pasa su respuesta a la ficha de ayuda", async () => {
   vista.desmontar();
   assert.equal(raiz.innerHTML, "");
 });
+
+test("la ayuda tardía no sustituye el formulario que RRHH está editando", async () => {
+  let entregarFicha;
+  const fichaPendiente = new Promise((resolver) => { entregarFicha = resolver; });
+  const hueco = { innerHTML: "" };
+  const raiz = { innerHTML: "", addEventListener() {}, removeEventListener() {},
+    querySelector: () => hueco };
+  const vista = montarVistaEstadisticas({ raiz,
+    cliente: () => new Promise(() => {}), cargarFicha: () => fichaPendiente });
+  raiz.innerHTML += "valor-escrito-por-rrhh";
+  entregarFicha(ficha);
+  await fichaPendiente;
+  await Promise.resolve();
+  assert.match(raiz.innerHTML, /valor-escrito-por-rrhh/);
+  assert.match(hueco.innerHTML, /data-ct-ayuda-indicadores/);
+  vista.desmontar();
+});

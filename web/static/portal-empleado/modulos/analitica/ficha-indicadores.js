@@ -1,7 +1,7 @@
 import { cargarTextos } from "../../../comun/textos.js";
 import { leerRecursoJSON } from "../../../comun/idioma.js";
 
-const URL_CATALOGO = new URL("./catalogo-indicadores.json", import.meta.url);
+const URL_CATALOGO = new URL("./catalogo-indicadores.json?v=20261001-ana001-v1", import.meta.url);
 const CLAVE = /^[a-z][a-z0-9_]*$/u;
 const ID = /^[A-Za-z][A-Za-z0-9_-]*$/u;
 
