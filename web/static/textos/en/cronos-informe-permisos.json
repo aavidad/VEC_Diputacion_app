@@ -1,0 +1,32 @@
+{
+  "referencia": "cronos-informe-permisos-en",
+  "version": "1",
+  "idioma": "en-GB",
+  "formato_fecha": "02/01/2006 15:04 MST",
+  "zona_horaria": "Europe/Madrid",
+  "titulo": "Annual summary of own leave",
+  "ejercicio": "Year: {{ejercicio}}",
+  "corte": "Data as of {{corte}}",
+  "alcance": "Scope: partial summary of your own leave included in this report.",
+  "fila": "{{etiqueta}}. Unit: {{unidad}}; calculation: {{computo}}. Awaiting decision: {{pendiente}}. Granted: {{concedido}}. Remaining: {{restante}}. Reconciliation: {{estado}}.",
+  "dias": "{{cantidad}}",
+  "duracion": "{{horas}} h {{minutos}} min",
+  "duracion_corta": "{{minutos}} min",
+  "desconocido": "Not available",
+  "vacio": "No rows are available for this report.",
+  "limite": "Each row retains its unit. Unavailable values remain pending; they do not mean zero.",
+  "sintetico": "SYNTHETIC EXAMPLE. Not valid for administrative use. The example rules are not approved. Employee downloads remain pending.",
+  "nombre_sintetico": "Example employee: {{nombre}}",
+  "unidades": {
+    "dia": "Days",
+    "hora": "Hours, expressed in hours and minutes"
+  },
+  "computos": {
+    "laborables": "Working days",
+    "naturales": "Calendar days"
+  },
+  "estados": {
+    "conciliado": "Reconciled",
+    "sin_conciliar": "Awaiting reconciliation"
+  }
+}
