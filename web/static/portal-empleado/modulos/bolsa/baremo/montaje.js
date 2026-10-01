@@ -1,8 +1,11 @@
 import { cargarTextos } from "/comun/textos.js";
-import { crearClienteBaremo } from "../baremo-cliente.js?v=20261001-baremo-concursos-v3";
-import { crearEditorBaremo, leerReglas, aMicropuntos, MAXIMO_ARCHIVO } from "../baremo-editor.js?v=20261001-baremo-concursos-v3";
-import { renderizarPanelesBaremo } from "../baremo-vista.js?v=20261001-baremo-concursos-v3";
-const textos = await cargarTextos("baremo-bolsa");
+import { crearClienteBaremo } from "../baremo-cliente.js?v=20261001-concursos-v4";
+import { crearEditorBaremo, leerReglas, aMicropuntos, MAXIMO_ARCHIVO } from "../baremo-editor.js?v=20261001-concursos-v4";
+import { renderizarPanelesBaremo } from "../baremo-vista.js?v=20261001-concursos-v4";
+import { crearClienteConcursos } from "../concursos-cliente.js?v=20261001-concursos-v4";
+import { renderizarConcursos } from "../concursos-vista.js?v=20261001-concursos-v4";
+import { montarConcursos } from "../concursos-montaje.js?v=20261001-concursos-v4";
+const [textos, textosConcursos] = await Promise.all([cargarTextos("baremo-bolsa"), cargarTextos("baremo-concursos")]);
 const t = (clave) => textos.traducir(`editor.${clave}`);
 document.documentElement.lang = textos.idioma;
 document.title = t("titulo");
@@ -12,24 +15,30 @@ let ejemplos = [], ayuda = false, error = "", filtro = "", panel = "bolsa";
 let carga = null, lecturaId = 0, focoComparacion = false;
 function pintar() {
   const activo = document.activeElement;
-  const identidadFoco = raiz.contains(activo) ? { ruta: activo.dataset.ruta, accion: activo.dataset.accion, name: activo.name, panel: activo.dataset.panel, submit: activo.type === "submit" } : null;
+  const identidadFoco = raiz.contains(activo) ? { ruta: activo.dataset.ruta, accion: activo.dataset.accion, name: activo.name, panel: activo.dataset.panel, concursoRuta: activo.dataset.concursoRuta, concursoAccion: activo.dataset.concursoAccion, submit: activo.type === "submit" } : null;
   document.title = t(panel === "concursos" ? "concursos" : "titulo");
-  raiz.innerHTML = renderizarPanelesBaremo({ ...editor.estado(), ayuda, error: error || editor.estado().error }, { textos, ejemplos, filtro, panel });
+  const concursosHTML = panel === "concursos" ? renderizarConcursos(concursos.estado(), concursos.opciones()) : "";
+  raiz.innerHTML = renderizarPanelesBaremo({ ...editor.estado(), ayuda, error: error || editor.estado().error }, { textos, ejemplos, filtro, panel, concursosHTML });
+  if (panel === "concursos") concursos.alPintar();
   filtrar();
-  for (const control of raiz.querySelectorAll('[aria-invalid="true"]')) control.setCustomValidity(t("puntos_invalidos"));
+  for (const control of raiz.querySelectorAll('#baremo-panel-bolsa [aria-invalid="true"]')) control.setCustomValidity(t("puntos_invalidos"));
   if (panel === "bolsa" && (Object.keys(editor.estado().invalidos).length || error === "validacion")) mostrarErrores();
-  if (!editor.estado().trabajando && focoComparacion && document.activeElement === document.body) raiz.querySelector('[type="submit"]')?.focus({ preventScroll: true });
-  if (!editor.estado().trabajando) focoComparacion = false;
+  const trabajandoActivo = panel === "concursos" ? concursos.estado().trabajando : editor.estado().trabajando;
+  if (!trabajandoActivo && focoComparacion && document.activeElement === document.body) raiz.querySelector(`#baremo-panel-${panel} [type="submit"]`)?.focus({ preventScroll: true });
+  if (!trabajandoActivo) focoComparacion = false;
   if (identidadFoco) {
-    const siguiente = [...raiz.querySelectorAll("input,select,button")].find((c) => identidadFoco.panel ? c.dataset.panel === identidadFoco.panel : identidadFoco.ruta ? c.dataset.ruta === identidadFoco.ruta : identidadFoco.accion ? c.dataset.accion === identidadFoco.accion : identidadFoco.submit ? c.type === "submit" : c.name && c.name === identidadFoco.name);
+    const siguiente = [...raiz.querySelectorAll(`#baremo-panel-${panel} input, #baremo-panel-${panel} select, #baremo-panel-${panel} button, #baremo-panel-${panel} summary, .baremo-navegacion button`)].find((c) => identidadFoco.panel ? c.dataset.panel === identidadFoco.panel : identidadFoco.concursoRuta ? c.dataset.concursoRuta === identidadFoco.concursoRuta : identidadFoco.concursoAccion ? c.dataset.concursoAccion === identidadFoco.concursoAccion : identidadFoco.ruta ? c.dataset.ruta === identidadFoco.ruta : identidadFoco.accion ? c.dataset.accion === identidadFoco.accion : identidadFoco.submit ? c.type === "submit" : c.name && c.name === identidadFoco.name);
     siguiente?.focus({ preventScroll: true });
   }
 }
 const editor = crearEditorBaremo({ cliente, alCambiar: pintar });
+const concursos = montarConcursos({ raiz, cliente: crearClienteConcursos(), textos: textosConcursos,
+  alCambiar: pintar, alComparar: () => { focoComparacion = true; }, activo: () => panel === "concursos" });
 function filtrar() {
-  for (const fila of raiz.querySelectorAll(".baremo-reglas tbody tr:not([data-sin-reglas])")) fila.hidden = !fila.textContent.toLocaleLowerCase(textos.localizacion).includes(filtro.toLocaleLowerCase(textos.localizacion));
+  if (panel !== "bolsa") return;
+  for (const fila of raiz.querySelectorAll("#baremo-panel-bolsa .baremo-reglas tbody tr:not([data-sin-reglas])")) fila.hidden = !fila.textContent.toLocaleLowerCase(textos.localizacion).includes(filtro.toLocaleLowerCase(textos.localizacion));
   const sinReglas = raiz.querySelector("[data-sin-reglas]");
-  if (sinReglas) sinReglas.hidden = [...raiz.querySelectorAll(".baremo-reglas tbody tr:not([data-sin-reglas])")].some((f) => !f.hidden);
+  if (sinReglas) sinReglas.hidden = [...raiz.querySelectorAll("#baremo-panel-bolsa .baremo-reglas tbody tr:not([data-sin-reglas])")].some((f) => !f.hidden);
 }
 function mostrarErrores({ enfocar = false } = {}) {
   const invalidos = [...raiz.querySelectorAll("input[data-ruta]")].filter((c) => !c.checkValidity());
@@ -105,7 +114,8 @@ raiz.addEventListener("click", (evento) => {
   const destino = evento.target.closest("[data-panel]")?.dataset.panel;
   if (["bolsa", "concursos"].includes(destino)) {
     if (destino !== panel) {
-      editor.cancelarSimulacion(); lecturaId++; focoComparacion = false; panel = destino;
+      editor.cancelarSimulacion(); concursos.cancelar(); lecturaId++; focoComparacion = false; panel = destino;
+      if (panel === "concursos" && !concursos.estado().borrador) void concursos.cargar();
       pintar(); raiz.querySelector(`[data-panel="${panel}"]`).focus({ preventScroll: true });
     }
     return;
@@ -121,6 +131,6 @@ raiz.addEventListener("click", (evento) => {
     const enlace = document.createElement("a"); enlace.href = url; enlace.download = t("archivo_borrador"); enlace.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 });
-window.addEventListener("beforeunload", (evento) => { if (editor.estado().cambiado) { evento.preventDefault(); evento.returnValue = ""; } });
-window.addEventListener("pagehide", () => { carga?.abort(); editor.desmontar(); });
+window.addEventListener("beforeunload", (evento) => { if (editor.estado().cambiado || concursos.estado().cambiado) { evento.preventDefault(); evento.returnValue = ""; } });
+window.addEventListener("pagehide", () => { carga?.abort(); editor.desmontar(); concursos.desmontar(); });
 void cargar();

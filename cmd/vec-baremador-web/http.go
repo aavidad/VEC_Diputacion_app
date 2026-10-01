@@ -12,6 +12,7 @@ import (
 	"syscall"
 
 	"vec-diputacion-granada/internal/modules/bolsa/adapters/simuladorlocal"
+	provision "vec-diputacion-granada/internal/modules/provision/adapters/simulacion"
 )
 
 const entradaWeb = "/portal-empleado/modulos/bolsa/baremo/"
@@ -23,6 +24,10 @@ var recursos = []string{
 	"/portal-empleado/modulos/bolsa/baremo-editor.js",
 	"/portal-empleado/modulos/bolsa/baremo-cliente.js",
 	"/portal-empleado/modulos/bolsa/baremo-vista.js",
+	"/portal-empleado/modulos/bolsa/concursos-cliente.js",
+	"/portal-empleado/modulos/bolsa/concursos-editor.js",
+	"/portal-empleado/modulos/bolsa/concursos-vista.js",
+	"/portal-empleado/modulos/bolsa/concursos-montaje.js",
 	"/portal-empleado/portal.css", "/portal-empleado/portal-componentes.css",
 	"/comun/tema-vec.css", "/comun/textos.js", "/comun/idioma.js",
 	"/textos/idiomas.json",
@@ -86,8 +91,10 @@ func cargarRecursos(dir string) (map[string]recurso, error) {
 			return nil, errors.New("indice_idiomas_invalido")
 		}
 		vistos[idioma.Codigo] = true
-		if err := cargar("/textos/" + idioma.Codigo + "/baremo-bolsa.json"); err != nil {
-			return nil, err
+		for _, catalogo := range []string{"baremo-bolsa", "baremo-concursos"} {
+			if err := cargar("/textos/" + idioma.Codigo + "/" + catalogo + ".json"); err != nil {
+				return nil, err
+			}
 		}
 	}
 	salida[entradaWeb] = salida[entradaWeb+"index.html"]
@@ -106,11 +113,16 @@ func nuevoHandler(host string, assets map[string]recurso) http.Handler {
 			responderError(w, http.StatusForbidden, "origen_no_admitido")
 			return
 		}
-		if r.URL.RawQuery != "" && r.URL.Path == "/simular" {
+		if r.URL.RawQuery != "" && (r.URL.Path == "/simular" || r.URL.Path == "/api/provision/v1/simulaciones") {
 			responderError(w, http.StatusBadRequest, "solicitud_invalida")
 			return
 		}
 		switch r.URL.Path {
+		case "/favicon.ico":
+			if !metodo(w, r, http.MethodGet) {
+				return
+			}
+			w.WriteHeader(http.StatusNoContent)
 		case "/":
 			if !metodo(w, r, http.MethodGet) {
 				return
@@ -124,7 +136,20 @@ func nuevoHandler(host string, assets map[string]recurso) http.Handler {
 			_ = json.NewEncoder(w).Encode(struct {
 				Ejemplos []simuladorlocal.Ejemplo `json:"ejemplos"`
 			}{(simuladorlocal.Motor{}).Ejemplos()})
-		case "/simular":
+		case "/api/provision/v1/configuracion-local":
+			if !metodo(w, r, http.MethodGet) {
+				return
+			}
+			ejemplos, err := provision.Ejemplos()
+			if err != nil {
+				responderError(w, http.StatusServiceUnavailable, "configuracion_no_disponible")
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(struct {
+				Ejemplos []provision.Ejemplo `json:"ejemplos"`
+			}{ejemplos})
+		case "/simular", "/api/provision/v1/simulaciones":
 			if !metodo(w, r, http.MethodPost) {
 				return
 			}
@@ -154,6 +179,10 @@ func nuevoHandler(host string, assets map[string]recurso) http.Handler {
 					estado = http.StatusRequestEntityTooLarge
 				}
 				responderError(w, estado, "solicitud_invalida")
+				return
+			}
+			if r.URL.Path == "/api/provision/v1/simulaciones" {
+				simularConcursos(w, b)
 				return
 			}
 			s, err := simuladorlocal.Decodificar(b)

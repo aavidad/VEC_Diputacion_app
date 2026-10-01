@@ -1,6 +1,8 @@
 # Simulador local de baremo
 
-Abre el editor de reglas sobre dos ejemplos sintéticos: experiencia y méritos.
+Abre los editores de Bolsa y Concursos. Bolsa ofrece experiencia y otros méritos;
+Concursos valora grado, trabajo por nivel, antigüedad, permanencia, cursos y títulos
+sobre un puesto y servicios sintéticos.
 El cálculo usa los mismos servicios Go que `vec-baremador`. No consulta personas
 ni registra baremaciones, activa reglas o modifica una convocatoria.
 
@@ -24,17 +26,32 @@ Devuelve el resultado con su huella. Un bloqueo conserva sus motivos y no tiene
 total; una regla inválida devuelve 422. El POST exige el origen y el Host exactos
 de la dirección mostrada al arrancar, con `Content-Type: application/json`.
 
-No admite ficheros, URLs, datos personales ni credenciales. No emite cookies,
+En Concursos, `GET /api/provision/v1/configuracion-local` devuelve configuración e
+instantánea sintética de cada caso. `POST /api/provision/v1/simulaciones` recibe
+`ejemplo_ref` y `configuracion`; liga la entrada al ejemplo embebido, sin admitir
+una entrada enviada por el navegador. Usa `application.Simular` de Provisión y
+responde con `provision.simulacion.v1`: desglose, total y huellas. La fecha de
+corte de Concursos es exclusiva; la de Bolsa conserva su contrato inclusivo.
+
+RRHH puede cambiar coeficientes, tablas de nivel, topes y fechas, comparar los
+resultados y guardar un borrador JSON. Al cargar un borrador de Concursos, Go
+valida antes de sustituirlo. Un archivo rechazado conserva los cambios previos.
+La activación institucional permanece deshabilitada; no hay firma ni SQL.
+
+No admite rutas de ficheros, URLs, datos personales ni credenciales. No emite cookies,
 CORS ni caché. Cada solicitud tiene un máximo de 256 KiB, 128 elementos por
-colección, 32 niveles y 8192 valores; se permiten dos simulaciones simultáneas.
+colección, 32 niveles y 8192 valores para Bolsa. El adaptador de Concursos limita
+a 24 niveles y 10000 elementos por colección; su límite JSON de 2 MiB queda
+subordinado al límite HTTP común de 256 KiB. La importación web de Concursos
+también limita a 256 KiB. Se permiten dos simulaciones simultáneas en total.
 El servidor limita la lectura de cabeceras a dos segundos, la lectura completa
 a cinco y la escritura a diez. Se detiene con Ctrl+C.
 
 Comprobaciones focales:
 
 ```sh
-go test -race ./cmd/vec-baremador-web ./internal/modules/bolsa/adapters/simuladorlocal
-go vet ./cmd/vec-baremador-web ./internal/modules/bolsa/adapters/simuladorlocal
+go test -race ./cmd/vec-baremador-web ./internal/modules/bolsa/adapters/simuladorlocal ./internal/modules/provision/...
+go vet ./cmd/vec-baremador-web ./internal/modules/bolsa/adapters/simuladorlocal ./internal/modules/provision/...
 ```
 
 Las pruebas comparan la salida HTTP con el servicio común y comprueban origen,
