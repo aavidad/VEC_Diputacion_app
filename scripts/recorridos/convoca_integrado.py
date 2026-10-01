@@ -30,19 +30,28 @@ TAMANOS = ((1440, 900), (390, 844))
 # Los validadores pertenecen al consumidor real. No se mantiene aquí otro DTO.
 CONSULTAR_JS = r"""async ({ruta, capacidad}) => {
   let resultado = {http: 0, contrato_valido: false};
-  const moduloMontado = (ruta) => {
+  const moduloMontado = async (ruta, exportacion) => {
     const recurso = performance.getEntriesByType('resource').map(r => r.name).reverse()
-      .find(nombre => new URL(nombre).pathname === ruta);
+      .find(nombre => new URL(nombre).origin === location.origin && new URL(nombre).pathname === ruta);
     if (!recurso) throw new Error('modulo_no_montado');
-    return import(recurso);
+    const modulo = await import(recurso);
+    const version = new URL(recurso).searchParams.get('v');
+    resultado.modulo = {ruta, version: version && /^[A-Za-z0-9_.-]{1,128}$/.test(version) ? version : null,
+      exportacion, tipo: typeof modulo[exportacion]};
+    if (typeof modulo[exportacion] !== 'function') throw new Error('exportacion_no_montada');
+    return modulo[exportacion];
   };
   try {
+    const validarMiBolsa = capacidad === 'externo.mi_bolsa'
+      ? await moduloMontado('/area-personal/contrato.js', 'validarRespuestaMiBolsa') : null;
+    const crearPreferencias = capacidad === 'externo.preferencias'
+      ? await moduloMontado('/area-personal/cliente-http.js', 'crearClientePreferencias') : null;
     const respuesta = await fetch(ruta, {
       method: 'GET', credentials: capacidad.startsWith('publico.') ? 'omit' : 'same-origin',
       cache: 'no-store', redirect: 'error', referrerPolicy: 'no-referrer',
       headers: {Accept: 'application/json'}, signal: AbortSignal.timeout(10000)
     });
-    resultado = {http: respuesta.status, contrato_valido: false};
+    resultado.http = respuesta.status;
     if (!respuesta.headers.get('content-type')?.includes('application/json')) return resultado;
     const lector = respuesta.body.getReader();
     const partes = []; let total = 0;
@@ -76,12 +85,10 @@ CONSULTAR_JS = r"""async ({ruta, capacidad}) => {
         resultado.documentos = datos.documentos.length;
       }
     } else if (capacidad === 'externo.mi_bolsa') {
-      const {validarRespuestaMiBolsa} = await moduloMontado('/area-personal/contrato.js');
-      const consulta = validarRespuestaMiBolsa(datos);
+      const consulta = validarMiBolsa(datos);
       resultado.participaciones = consulta.participaciones.length;
     } else {
-      const {crearClientePreferencias} = await moduloMontado('/area-personal/cliente-http.js');
-      const cliente = crearClientePreferencias({fetchImpl: async () =>
+      const cliente = crearPreferencias({fetchImpl: async () =>
         new Response(JSON.stringify(datos), {status: 200, headers: {'Content-Type': 'application/json'}})});
       await cliente.cargar();
     }
@@ -148,6 +155,11 @@ def resumir_auditoria(page: Any, context: Any) -> dict[str, Any]:
             "estado_navegador": any(bool(almacen.get(c)) for c in ("local", "sesion", "indexeddb", "cache", "cookie_documento", "cookies_contexto"))}
 
 
+def registrar_http(response: Any) -> dict[str, Any]:
+    return {"ruta": urlsplit(response.url).path, "http": response.status,
+            "set_cookie": "set-cookie" in response.all_headers()}
+
+
 def preparar_local(page: Any, identificador: str, detalle: dict[str, Any], navegar: Any, capturar: Any) -> dict[str, Any]:
     navegar(f"/bolsa/preparacion/?convocatoria={identificador}&lang=es")
     page.locator("#paso-revision").wait_for(state="visible")
@@ -209,9 +221,7 @@ def recorrer(superficie: str, base: str, args: argparse.Namespace, expectativas:
                             route.continue_()
 
                     def respuesta(response: Any) -> None:
-                        url = urlsplit(response.url)
-                        red.append({"ruta": url.path, "http": response.status,
-                                    "set_cookie": "set-cookie" in response.headers})
+                        red.append(registrar_http(response))
 
                     context.route("**/*", limitar_red)
                     page = context.new_page()

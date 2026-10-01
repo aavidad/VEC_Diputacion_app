@@ -77,6 +77,20 @@ Este ayudante devuelve 0 si el guion detecta el cierre externo previsto con
 código 2 y conserva las acreditaciones en falso. Ejecútelo en el entorno aislado
 local de pruebas; el fixture solo se usa en este ayudante.
 
+Para probar únicamente las dos consultas externas HTTP 200 y sus importaciones:
+
+```sh
+python3 scripts/recorridos/test_convoca_integrado.py \
+  --ensayar-chrome --escenario externo-200 --salida /ruta/propia/nueva/imports
+```
+
+Este escenario usa el DTO sintético de Mi bolsa ya probado por su adaptador y
+el catálogo v1 de preferencias probado por el cliente. Comprueba las funciones
+exportadas desde las URL que cargó la página, rechaza contratos malformados sin
+perder su HTTP 200 e impide consultar si el módulo no aparece montado. También
+detecta una emisión `Set-Cookie` expirada sin conservar su valor, aunque Chrome
+no retenga la cookie. La detección usa todas las cabeceras de respuesta.
+
 La CLI usa nombres de argumentos y códigos nominales, sin mensajes narrativos.
 `configuracion_invalida` indica que debe revisar URL de loopback, expectativas,
 Chrome, tiempo máximo y directorio nuevo. El informe mantiene los estados HTTP
@@ -91,3 +105,10 @@ con código 2 y conservó registro, persistencia y flujo completo en falso.
 Las doce capturas pasaron las comprobaciones de DOM, almacenamiento y
 desbordamiento. Este ensayo comprueba la herramienta y su contrato de UI;
 no acredita instalación de servidores VEC, permisos o PostgreSQL.
+
+La comprobación focal posterior de HTTP 200 pasó siete casos en Chrome:
+dos contratos válidos, dos contratos malformados rechazados manteniendo HTTP 200,
+dos módulos ausentes sin consulta y una cookie expirada detectada sin retenerla.
+Mi bolsa usó `contrato.js` sin query; preferencias usó la URL observada de
+`cliente-http.js?v=20260930-temas-v2-historico-v1`. El informe identifica ambas
+funciones exportadas y mantiene registro, persistencia y flujo completo en falso.
