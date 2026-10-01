@@ -110,6 +110,14 @@ func extenderPerfilesNominalesB2(p *perfilesNominalesIncorporacion, refs Referen
 				if d.accion == ct.AccionConsultarVinculoCategoriaRPT {
 					concesion.CamposPermitidos = []string{"analisis", "vinculo"}
 				}
+				switch d.clave {
+				case "rpt_publicacion":
+					concesion.CamposPermitidos = []string{"control_actual", "entrada", "publicacion"}
+				case "rpt_uso_consultar":
+					concesion.CamposPermitidos = []string{"uso"}
+				case "rpt_reservar", "rpt_confirmar":
+					concesion.CamposPermitidos = []string{"recibo", "uso"}
+				}
 				roles = append(roles, concesion)
 			}
 		}
