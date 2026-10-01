@@ -15,7 +15,7 @@ test("la vista y sus importadores comparten una URL renovada", async () => {
     readFile(new URL("../arranque.js", import.meta.url), "utf8"),
     readFile(new URL("../aplicacion.js", import.meta.url), "utf8"),
   ]);
-  const version = "20261001-temas-convocatorias-v3";
+  const version = "20261001-codexf-accesibilidad-v1";
   assert.match(html, new RegExp(`/area-personal/arranque\\.js\\?v=${version}`));
   assert.match(arranque, new RegExp(`\\./aplicacion\\.js\\?v=${version}`));
   assert.match(aplicacion, new RegExp(`\\./vistas/inicio-convocatorias\\.js\\?v=${version}`));
