@@ -1,0 +1,8 @@
+{
+  "bandeja": {
+    "error_actualizar_bandeja": "No se pudo actualizar la lista. Pulse «Volver a consultar» para recuperarla.",
+    "detalle_recibo_atencion": "Ver recibo de la atención",
+    "referencia_recibo_atencion": "Referencia del recibo",
+    "fecha_recibo_atencion": "Fecha de registro"
+  }
+}
