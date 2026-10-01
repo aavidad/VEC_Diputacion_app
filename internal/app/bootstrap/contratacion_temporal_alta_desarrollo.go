@@ -148,6 +148,9 @@ type soporteAltaContratacionTemporalDesarrollo struct {
 	motivoAsignacion                   dominiovec.ReferenciaEntradaCatalogo
 	motivoInformeJuridico              dominiovec.ReferenciaEntradaCatalogo
 
+	// Se fija antes de provisionar el perfil; el montaje exige el mismo mapa.
+	custodiaFirmaDocumentos map[string]string
+
 	instantaneaConsultaReciboRespuesta dominiovec.InstantaneaAutorizacion
 	motivoConsultaReciboRespuesta      dominiovec.ReferenciaEntradaCatalogo
 	instantaneaConsultaComunicaciones  dominiovec.InstantaneaAutorizacion
@@ -331,10 +334,14 @@ func nuevasDependenciasAltaContratacionTemporalDesarrollo(
 		return vacias, err
 	}
 	if firmaActiva {
+		soporte.custodiaFirmaDocumentos, err = configuracionCustodiaFirmaCTDesarrollo(cfg)
+		if err != nil {
+			return vacias, err
+		}
 		perfilFirma, err := nuevoPerfilFijoCTDesarrollo(principal, soporte.contexto, ahora, clavePerfilFijoFirmaCTDesarrollo,
 			[]string{httpinterno.RutaFirmaDocumento, httpinterno.RutaConsultaFirmaDocumento},
 			func(principalID, perfilRef string) (dominiovec.InstantaneaAutorizacion, error) {
-				return instantaneaPerfilFijoFirmaDocumentoCTDesarrollo(principalID, perfilRef, ahora)
+				return instantaneaPerfilFijoFirmaDocumentoCTDesarrollo(principalID, perfilRef, ahora, len(soporte.custodiaFirmaDocumentos) != 0)
 			})
 		if err != nil || soporte.registrarPerfilFijoCTDesarrollo(perfilFirma) != nil {
 			return vacias, errAltaContratacionTemporalDesarrolloNoDisponible

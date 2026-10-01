@@ -171,9 +171,12 @@ temporales+=("${compartidos}" "${esperados}")
 LC_ALL=C comm -12 "${publico}" "${interno}" >"${compartidos}"
 printf '%s\n' \
 	static/assets/logo-diputacion-granada.svg \
+	static/comun/idioma.js \
 	static/comun/tema-vec.css \
+	static/comun/textos.js \
 	static/favicon.svg \
-	static/styles.css | LC_ALL=C sort >"${esperados}"
+	static/styles.css \
+	static/textos/idiomas.json | LC_ALL=C sort >"${esperados}"
 if ! cmp -s "${compartidos}" "${esperados}"; then
 	printf 'Interseccion no autorizada entre manifiestos:\n' >&2
 	comm -3 "${esperados}" "${compartidos}" >&2 || true

@@ -5,10 +5,10 @@
  * tiene eficacia administrativa hasta el portafirmas corporativo.
  */
 
-import { escaparHTML, solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js";
+import { escaparHTML, solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js?v=20261001-codexf-ct-catalogos-v1";
 import { crearClienteHTTPBorradorRRHH, PERFILES_BORRADOR_RRHH } from "./cliente-http-informe-definitivo.js";
 import { crearClienteAutoFirma } from "./firma-autofirma.js";
-import { crearClienteFirmaDocumento } from "./firma-documento-cliente.js";
+import { crearClienteFirmaDocumento } from "./firma-documento-cliente.js?v=20260930-custodia-506-e3-v3";
 
 const CLAVE_ERROR = Object.freeze({
   verificacion_no_disponible: "circuito_firma_error_verificacion",
@@ -36,6 +36,7 @@ export function fusionarEstadoFirmas(circuito, estado) {
       pasos: Object.freeze(documento.pasos.map((paso, i) => Object.freeze({
         ...paso, estado: real.pasos[i].estado, motivo_devolucion: real.pasos[i].motivo_devolucion ?? "",
         registrada_en: real.pasos[i].registrada_en ?? "",
+        documento_custodiado: real.pasos[i].documento_custodiado ?? null,
       }))),
     }));
   }
