@@ -100,6 +100,7 @@ static/textos/es/dietas.json
 static/textos/en/dietas.json
 static/portal-empleado/modulos/dietas/borradores-propios.css
 static/portal-empleado/modulos/dietas/calculador-rutas-http.js
+static/portal-empleado/modulos/dietas/catalogo/vista.js
 static/portal-empleado/modulos/dietas/cliente-asignacion-http.js
 static/portal-empleado/modulos/dietas/cliente-borradores-http.js
 static/portal-empleado/modulos/dietas/cliente-circuito-http.js
@@ -115,6 +116,7 @@ static/portal-empleado/modulos/dietas/i18n-rectificacion-admin.js
 static/portal-empleado/modulos/dietas/i18n-rectificacion-dietas.js
 static/portal-empleado/modulos/dietas/i18n-revision.js
 static/portal-empleado/modulos/dietas/i18n.js
+static/portal-empleado/modulos/dietas/informes/vista.js
 static/portal-empleado/modulos/dietas/mapa-ruta.js
 static/portal-empleado/modulos/dietas/texto-dietas.js
 static/portal-empleado/modulos/dietas/vista-bandeja-circuito.js
@@ -454,3 +456,5 @@ static/textos/en/contratacion-temporal-firma-incorporacion-portal.json
 static/textos/en/contratacion-temporal-firma-incorporacion-expedientes.json
 static/textos/en/dietas-catalogo.json
 static/textos/en/dietas-informes.json
+static/textos/es/formacion.json
+static/textos/en/formacion.json

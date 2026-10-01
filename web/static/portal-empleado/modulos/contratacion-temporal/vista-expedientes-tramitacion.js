@@ -1,6 +1,6 @@
 /** Montaje y gestión de estados de las fases de tramitación (alta, análisis, cobertura, asignación, informe, fiscalización y subsanación). */
 
-import { escaparHTML } from "./componentes-expedientes.js?v=20261001-f-ct-busqueda-v1";
+import { escaparHTML } from "./componentes-expedientes.js?v=20261001-f-reconciliacion-325-v1";
 import { montarFormularioAnalisisRRHH } from "./formulario-analisis.js?v=20261001-ct-a-i18n-v1";
 import { montarFormularioAsignacion } from "./formulario-asignacion.js?v=20261001-ct-a-i18n-v1";
 import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261001-ct-a-i18n-v1";
@@ -16,7 +16,7 @@ import {
   contextoAsignacionDesdeEstado, contextoCoberturaDesdeEstado,
   contextoFiscalizacionDesdeEstado, contextoInformeJuridicoDesdeEstado,
   contextoRectificacionAnalisisDesdeEstado, contextoSubsanacionDesdeEstado,
-} from "./vista-expedientes-render.js?v=20261001-f-ct-busqueda-v1";
+} from "./vista-expedientes-render.js?v=20261001-f-reconciliacion-325-v1";
 import { montarAltaContratacionTemporal } from "./vista.js?v=20261001-ct-a-i18n-v1";
 import { montarPestanasPreparacion } from "./vias-preparacion-cobertura.js";
 

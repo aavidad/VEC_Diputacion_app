@@ -13,7 +13,7 @@
  */
 import { finVigenciaBolsaPortal, traducirPortal } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
 import { faseRRHH, FASES_RRHH } from "./modulos/contratacion-temporal/i18n-fases-rrhh.js?v=20261001-ct-a-i18n-v1";
-import { resumirPeticiones } from "./modulos/contratacion-temporal/recuentos-peticiones.js?v=20261001-f-ct-busqueda-v1";
+import { resumirPeticiones } from "./modulos/contratacion-temporal/recuentos-peticiones.js?v=20261001-f-reconciliacion-325-v1";
 import { icono } from "../comun/iconos-vec.js?v=20260925-aspecto-v1";
 import { IDIOMA_ACTUAL } from "../comun/idioma.js";
 

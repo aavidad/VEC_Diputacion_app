@@ -10,7 +10,7 @@
  * etiquetas quitables. HTML puro: los eventos los atiende vista-expedientes.js.
  */
 import { FASES_RRHH, faseRRHH } from "./i18n-fases-rrhh.js?v=20261001-ct-a-i18n-v1";
-import { diaConsulta, diasEntre, filtrarPeticiones, OPCIONES_MOSTRAR, resumirPeticiones, tienePlazoVencido } from "./recuentos-peticiones.js?v=20261001-f-ct-busqueda-v1";
+import { diaConsulta, diasEntre, filtrarPeticiones, OPCIONES_MOSTRAR, resumirPeticiones, tienePlazoVencido } from "./recuentos-peticiones.js?v=20261001-f-reconciliacion-325-v1";
 
 function escapar(valor) {
   return String(valor ?? "")
