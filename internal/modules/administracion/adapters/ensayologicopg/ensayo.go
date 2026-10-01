@@ -140,7 +140,12 @@ func (e Ensayador) esperar(ctx context.Context, nombre string) bool {
 	for {
 		_, err := docker(ctx, nil, 4096, "exec", nombre, "pg_isready", "--host", "/var/run/postgresql", "--username", e.Configuracion.UsuarioBootstrap, "--dbname", "postgres")
 		if err == nil {
-			return true
+			// La imagen inicia un servidor temporal durante initdb. Sólo aceptar
+			// el proceso definitivo, antes de comenzar a restaurar los archivos.
+			b, err := docker(ctx, nil, 4096, "exec", nombre, "cat", "/proc/1/comm")
+			if err == nil && strings.TrimSpace(string(b)) == "postgres" {
+				return true
+			}
 		}
 		select {
 		case <-ctx.Done():
