@@ -110,7 +110,7 @@ func (s *ServicioCorrecciones) actuar(ctx context.Context, orden ports.OrdenCons
 }
 
 func (s *ServicioCorrecciones) RecuperarRecibo(ctx context.Context, orden ports.OrdenConsumoCorreccion, clave ports.ClaveRecuperacionCorreccion) (ports.ReciboCorreccion, error) {
-	actor, _, err := s.actorVigente(ctx, orden)
+	actor, instante, err := s.actorVigente(ctx, orden)
 	if err != nil {
 		return ports.ReciboCorreccion{}, err
 	}
@@ -122,7 +122,7 @@ func (s *ServicioCorrecciones) RecuperarRecibo(ctx context.Context, orden ports.
 			return ports.ReciboCorreccion{}, domain.ErrCorreccionInvalida
 		}
 		empleados, err := actor.Referencias(vecdomain.TipoReferenciaContextoActorEmpleado)
-		if err != nil || len(empleados) != 1 {
+		if err != nil || len(empleados) != 1 || !vinculoEmpleadoCRN11Vigente(actor, empleados[0], instante) {
 			return ports.ReciboCorreccion{}, ports.ErrCorreccionNoAutorizada
 		}
 		if s.lectorVinculo == nil {
@@ -136,9 +136,12 @@ func (s *ServicioCorrecciones) RecuperarRecibo(ctx context.Context, orden ports.
 		if err != nil {
 			return ports.ReciboCorreccion{}, err
 		}
-		_, instante, err := s.actorVigente(ctx, orden)
+		actorActual, instante, err := s.actorVigente(ctx, orden)
 		if err != nil {
 			return ports.ReciboCorreccion{}, err
+		}
+		if !vinculoEmpleadoCRN11Vigente(actorActual, empleados[0], instante) {
+			return ports.ReciboCorreccion{}, ports.ErrCorreccionNoAutorizada
 		}
 		if !vinculoPropioHistoricoCRN11Valido(vinculo, actor.PersonaRef, empleados[0], instante) {
 			return ports.ReciboCorreccion{}, ports.ErrDependenciaNoDisponible
@@ -153,6 +156,15 @@ func (s *ServicioCorrecciones) RecuperarRecibo(ctx context.Context, orden ports.
 		return ports.ReciboCorreccion{}, ports.ErrDependenciaNoDisponible
 	}
 	return recibo, nil
+}
+
+func vinculoEmpleadoCRN11Vigente(actor vecdomain.ContextoActor, empleado string, instante time.Time) bool {
+	for _, vinculo := range actor.Instantanea.Vinculos {
+		if vinculo.Tipo == vecdomain.TipoReferenciaContextoActorEmpleado && vinculo.Referencia == empleado {
+			return vinculo.VigenteEn(instante)
+		}
+	}
+	return false
 }
 
 func (s *ServicioCorrecciones) actorVigente(ctx context.Context, orden ports.OrdenConsumoCorreccion) (vecdomain.ContextoActor, time.Time, error) {

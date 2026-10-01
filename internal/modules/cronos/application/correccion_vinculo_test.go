@@ -235,4 +235,42 @@ func TestCRN11ConstructorExigeDependencias(t *testing.T) {
 	}
 }
 
+func TestCRN11VinculoEmpleadoCaducaAntesQueInstantanea(t *testing.T) {
+	for _, duranteLectura := range []bool{false, true} {
+		t.Run(fmt.Sprint(duranteLectura), func(t *testing.T) {
+			orden := ordenCorreccionPrueba(t)
+			actor, _ := orden.ContextoActor()
+			caducidad := actor.ResueltoEn.Add(time.Second)
+			actor.Instantanea.Vinculos[0].VigenteHasta = caducidad
+			orden, err := ports.NuevaOrdenConsumoCorreccion(actor, proveedorCorreccionVacio{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			reloj := &relojMarcajePrueba{actor.ResueltoEn}
+			if !duranteLectura {
+				reloj.instante = caducidad
+			}
+			if !actor.Instantanea.VigenteEn(caducidad) {
+				t.Fatal("fixture no separa las vigencias")
+			}
+			llamadas := 0
+			repo := &repositorioVinculoCRN11Prueba{}
+			lector := lectorVinculoCRN11Prueba(func(_ context.Context, in ports.InputConsultaVinculoPropioCRN11) (ports.VinculoPropioHistoricoCRN11, error) {
+				llamadas++
+				reloj.instante = caducidad
+				return vinculoCRN11Prueba(in, actor.ResueltoEn), nil
+			})
+			s, _ := NuevoServicioCorreccionesConVinculoHistorico(repo, reloj, lector)
+			recibo, err := s.RecuperarRecibo(context.Background(), orden, claveInicialCRN11())
+			esperadas := 0
+			if duranteLectura {
+				esperadas = 1
+			}
+			if !errors.Is(err, ports.ErrCorreccionNoAutorizada) || recibo != (ports.ReciboCorreccion{}) || llamadas != esperadas || repo.recuperaciones != 0 {
+				t.Fatal("vinculo expirado admitido con contexto general vigente", err)
+			}
+		})
+	}
+}
+
 var _ ports.LectorVinculoPropioHistoricoCRN11 = lectorVinculoCRN11Prueba(nil)
