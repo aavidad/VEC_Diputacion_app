@@ -1,0 +1,168 @@
+-- CRN13 / cronos_v1 000013: recepción y adopción, número ya reservado.
+-- BORRADOR INERTE. TODAS LAS LÍNEAS SON COMENTARIOS. NO INSTALAR NI EJECUTAR.
+-- No es *.up.sql; no entra en listas SQL, ORDEN ni manifiestos.
+-- Base de diseño: origin/main 960795f3090212257d8df92791bf740e3e663c8a.
+-- Contrato: CONTRATO_GOBIERNO.md; DTO #269 en 1230661b91684464dca31cf806f5f1a8cddcfb15.
+-- Son propuestas de tipos y restricciones, sin funciones, permisos ni semillas.
+-- No se crea publicador Cronos ni se reutilizan AD117/AD126 o fachadas RPT.
+-- Fachadas genéricas comunes, autorización D, M3/postimagen y enclave pendientes.
+-- Bases separadas: bloqueado hasta puente durable D, sin validación HTTP/TTL sustitutiva.
+-- La existencia futura de estas tablas por sí sola no habilita acceso o efectos.
+--
+-- 1. Una versión recibida conserva bytes EXACTOS, nunca solo JSONB reserializado.
+-- contenido_sha256 corresponde a contenido_exacto; huella_publicacion_comun es
+-- la huella canónica de la publicación común y tiene un significado distinto.
+-- La autoridad común debe acreditar el vínculo entre ambos y la aprobación.
+-- evidencia_publicacion_exacto conserva esa evidencia por el canal autorizado.
+-- evidencia_fuentes_exacto enlaza CADA regla con fuente_ref, fuente_version_ref,
+-- SHA verificado del documento y referencia/procedencia de verificación externa.
+-- Son envoltorios de evidencia; no añaden campos al DTO de doce campos #269.
+-- Sus límites quedan por fijar en contrato común/D: no se habilitan sin cotas.
+-- Todos los SHA256 usan 64 caracteres hexadecimales canónicos en minúsculas.
+--
+-- CREATE TABLE vec_cronos_v1.efectos_catalogo_version (
+--   catalogo_ref text NOT NULL,
+--   catalogo_version bigint NOT NULL CHECK (catalogo_version > 0),
+--   politica_ref text NOT NULL,
+--   politica_version bigint NOT NULL CHECK (politica_version > 0),
+--   contenido_exacto bytea NOT NULL
+--     CHECK (octet_length(contenido_exacto) BETWEEN 1 AND 1048576),
+--   contenido_sha256 text NOT NULL CHECK (contenido_sha256 ~ '^[0-9a-f]{64}$'),
+--   huella_publicacion_comun text NOT NULL
+--     CHECK (huella_publicacion_comun ~ '^[0-9a-f]{64}$'),
+--   publicacion_ref text NOT NULL,
+--   aprobacion_comun_ref text NOT NULL,
+--   evidencia_publicacion_exacto bytea NOT NULL,
+--   evidencia_fuentes_exacto bytea NOT NULL,
+--   reglas_count smallint NOT NULL CHECK (reglas_count BETWEEN 0 AND 100),
+--   recibido_en timestamptz NOT NULL,
+--   PRIMARY KEY (catalogo_ref, catalogo_version),
+--   UNIQUE (politica_ref, politica_version),
+--   UNIQUE (catalogo_ref, catalogo_version,
+--           contenido_sha256, huella_publicacion_comun)
+-- );
+-- Pendiente: validación de refs; límites de evidencias; comprobación de hashes
+-- de bytes y canon común; prueba autorizada de publicación/aprobación/separación;
+-- enlace publicación-contenido; estado vigente/retirado; integridad de fuentes.
+-- Un formato SHA válido o aprobacion_comun_ref no vacía no acreditan publicación.
+-- No se confunde la versión de política con la versión de catálogo común/C6.
+--
+-- 2. Proyección tipada de los DOCE campos, sin reglas de negocio añadidas.
+-- catalogo_ref/catalogo_version son claves relacionales de la versión recibida.
+-- Las fechas fuente son DATE, como el DTO #269, no instantes de UTC inventados.
+-- La URL registra procedencia: ningún importador/validador la descarga.
+--
+-- CREATE TABLE vec_cronos_v1.efectos_catalogo_regla (
+--   catalogo_ref text NOT NULL,
+--   catalogo_version bigint NOT NULL,
+--   referencia text NOT NULL,
+--   permiso_ref text NOT NULL,
+--   catalogo_version_ref text NOT NULL,
+--   colectivo_ref text NOT NULL,
+--   efecto text NOT NULL CHECK (efecto = 'credito_jornada_completa'),
+--   fuente_ref text NOT NULL,
+--   fuente_url text NOT NULL
+--     CHECK (octet_length(fuente_url) <= 512 AND fuente_url LIKE 'https://%'),
+--   vigente_desde date NOT NULL,
+--   hasta_exclusivo date NOT NULL CHECK (hasta_exclusivo > vigente_desde),
+--   fuente_version_ref text NOT NULL,
+--   fuente_publicada_en date NOT NULL,
+--   fuente_consultada_en date NOT NULL
+--     CHECK (fuente_consultada_en >= fuente_publicada_en),
+--   PRIMARY KEY (catalogo_ref, catalogo_version, referencia),
+--   UNIQUE (catalogo_ref, catalogo_version,
+--           permiso_ref, catalogo_version_ref, colectivo_ref),
+--   FOREIGN KEY (catalogo_ref, catalogo_version)
+--     REFERENCES vec_cronos_v1.efectos_catalogo_version (catalogo_ref, catalogo_version)
+-- );
+-- Pendiente: máximo 100 también en escritura; count/conjunto EXACTO del contenido;
+-- rechazo de faltantes, extras y duplicados; validación de refs #269; ausencia de
+-- campos desconocidos; evidencia externa para todas las fuentes proyectadas.
+-- La unicidad triple rige toda la versión, incluso con vigencias no solapadas.
+-- Personal es la autoridad de colectivo histórico, todavía pendiente.
+--
+-- 3. Adopción append-only: cadena verificable, sin cabecera mutable «actual».
+-- CAS compara secuencia/version/SHAarchivo/SHAcommon anteriores bajo bloqueo.
+-- La FK al anterior y secuencia única modelan un único sucesor por catálogo.
+-- El protocolo deberá comprobar que el anterior sigue siendo cabeza actual;
+-- estas restricciones por sí solas no realizan el consumo ni la revalidación.
+--
+-- CREATE TABLE vec_cronos_v1.efectos_catalogo_adopcion (
+--   catalogo_ref text NOT NULL,
+--   secuencia_adopcion bigint NOT NULL CHECK (secuencia_adopcion > 0),
+--   catalogo_version bigint NOT NULL,
+--   contenido_sha256 text NOT NULL,
+--   huella_publicacion_comun text NOT NULL,
+--   secuencia_anterior bigint,
+--   version_anterior bigint,
+--   sha_anterior text,
+--   huella_anterior_comun text,
+--   actor_ref text NOT NULL,
+--   perfil_ref text NOT NULL,
+--   autenticacion_ref text NOT NULL,
+--   decision_ref text NOT NULL,
+--   consumo_ref text NOT NULL,
+--   clave_operacion text NOT NULL,
+--   material_exacto bytea NOT NULL,
+--   material_sha256 text NOT NULL CHECK (material_sha256 ~ '^[0-9a-f]{64}$'),
+--   finalidad_ref text NOT NULL,
+--   motivo_ref text NOT NULL,
+--   correlacion_ref text NOT NULL,
+--   recibo_ref text NOT NULL UNIQUE,
+--   recibo_exacto bytea NOT NULL,
+--   auditoria_ref text NOT NULL,
+--   outbox_ref text NOT NULL,
+--   adoptado_en timestamptz NOT NULL,
+--   PRIMARY KEY (catalogo_ref, secuencia_adopcion),
+--   UNIQUE (catalogo_ref, actor_ref, clave_operacion),
+--   UNIQUE (catalogo_ref, secuencia_adopcion, catalogo_version,
+--           contenido_sha256, huella_publicacion_comun),
+--   FOREIGN KEY (catalogo_ref, catalogo_version,
+--                contenido_sha256, huella_publicacion_comun)
+--     REFERENCES vec_cronos_v1.efectos_catalogo_version
+--       (catalogo_ref, catalogo_version, contenido_sha256, huella_publicacion_comun),
+--   FOREIGN KEY (catalogo_ref, secuencia_anterior, version_anterior,
+--                sha_anterior, huella_anterior_comun)
+--     REFERENCES vec_cronos_v1.efectos_catalogo_adopcion
+--       (catalogo_ref, secuencia_adopcion, catalogo_version,
+--        contenido_sha256, huella_publicacion_comun),
+--   CHECK (
+--     (secuencia_adopcion = 1 AND secuencia_anterior IS NULL
+--       AND version_anterior IS NULL AND sha_anterior IS NULL
+--       AND huella_anterior_comun IS NULL)
+--     OR
+--     (secuencia_adopcion > 1 AND secuencia_anterior IS NOT NULL
+--       AND secuencia_anterior = secuencia_adopcion - 1
+--       AND version_anterior IS NOT NULL AND sha_anterior IS NOT NULL
+--       AND huella_anterior_comun IS NOT NULL)
+--   )
+-- );
+-- Pendiente: cotas y canon material/recibo; refs resueltas en frontera confiable;
+-- SHA exacto del material; UTC microsegundo; vínculo actual actor/autenticación;
+-- validación V3 exacta/caducidad/revocación tras bloqueo y antes de COMMIT.
+--
+-- Secuencia FUTURA, bloqueada hasta acuerdo de ubicación/transacción con D:
+-- - Resolver actor actual y autorizar operación exacta con recurso/material canónico.
+-- - Abrir transacción nominal; fijar contexto una vez y bloquear la cadena.
+-- - Revalidar autoridad actual con reloj vivo después de cualquier espera.
+-- - Consultar clave del actor/catalogo: cotejar bytes+SHA de material completo.
+-- - Replay: nueva autorización actual; mismo material recupera recibo original.
+--   No añade adopción/recibo/outbox; auditoría de acceso por contrato vigente D.
+--   Recupera evidencia histórica aunque haya otra cabeza o retirada posterior;
+--   no reactiva la política. No se exige CAS de primer uso para el replay.
+--   Distinto material bajo misma clave: conflicto, sin otro efecto de negocio.
+-- - Primer uso: revalidar publicación/fuente y CAS de cabeza exacta; consumo,
+--   versión/proyección completas, adopción, recibo,
+--   auditoría COMÚN y outbox en el mismo COMMIT autorizado.
+-- - Devolver recibo solo tras COMMIT confirmado; incierto recupera misma clave.
+-- La evidencia local no sustituye auditoría segregada ni aprobación común.
+-- Cada lectura CRN12 requiere autoridad actual propia y fija versión/adopción.
+-- No hay escritor de saldos ni reescritura de reglas o cálculos históricos aquí.
+--
+-- Previo a migración REAL: postimagen M3, dependencia CRN13 antes de lector CRN12,
+-- fachadas comunes/D, fuente Personal, firmas/ACL/RLS nominales, guardas append-only
+-- (sin UPDATE/DELETE/TRUNCATE), propietario sin LOGIN/BYPASSRLS, search_path cerrado,
+-- tiempos/límites y dos revisiones independientes del hash final. Dirección ensaya
+-- en clon con PostgreSQL real y negativos de CAS, replay, permisos, hashes,
+-- evidencia, cardinalidad, revocación, auditoría, COMMIT incierto y reinicio.
+-- No se ejecutó SQL, ni se comprobaron ACL/transacción/concurrencia en una base.
