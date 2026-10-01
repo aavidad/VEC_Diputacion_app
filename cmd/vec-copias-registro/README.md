@@ -134,6 +134,24 @@ Este puerto queda fuera del CLI sintético. La transacción SQL de autoridad y
 su publicación exterior son responsabilidad del consumidor; aquí no se promete
 una transacción atómica entre PostgreSQL y ficheros.
 
+`AbandonadorCaptura.AbandonarCaptura` permite cerrar una captura fallida sin
+inventar un manifiesto o ensayo. Recibe operación, clave, versión esperada,
+huella de solicitud, destino y referencia/huella del fallo. Sólo se habilita al
+componer `AbrirConObservadorAbandono` con un proveedor confiable. Ese proveedor
+revalida el actor y la autoridad actuales y observa el efecto detenido, la
+reserva de ejecución cancelada y la ausencia de efectos pendientes de escritura,
+mantenimiento o restauración. Su observación se comprueba bajo el bloqueo del
+diario y queda en el evento, con el recibo y la auditoría nominales.
+
+Un resultado incierto, una reserva vigente o efectos pendientes impiden el
+abandono y conservan ocupado el destino. El estado `abandonada_declarada` sólo
+libera el destino después de esa comprobación; conserva todo el historial.
+Una nueva operación puede reservar ese destino con su propia clave. Repetir el
+abandono original exige revalidar la autoridad y devuelve el mismo recibo.
+La CLI y `Aplicar` genérico no habilitan esta acción por datos declarados.
+`Abrir` sin observador tampoco la autoriza. La comprobación real del ejecutor
+y de su reserva corresponde a la composición operativa, no a este adaptador.
+
 Las propuestas y aprobaciones de restauración pertenecen al contrato CS10.
 Este registro de progreso CS07-A no las sustituye ni emite autorización FULL.
 
