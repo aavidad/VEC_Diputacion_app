@@ -35,6 +35,9 @@ var recursos = []string{
 	"/portal-empleado/modulos/provision/vista.js",
 	"/portal-empleado/modulos/provision/montaje.js",
 	"/portal-empleado/modulos/provision/cliente-local.js",
+	"/portal-empleado/modulos/provision/ensayos-modelo.js",
+	"/portal-empleado/modulos/provision/ensayos-vista.js",
+	"/portal-empleado/modulos/provision/ensayos-cliente.js",
 	"/portal-empleado/portal.css", "/portal-empleado/portal-componentes.css",
 	"/portal-empleado/portal-patrones.css", "/portal-empleado/portal-flujos.css", "/portal-empleado/portal-modulos.css",
 	"/comun/tema-vec.css", "/comun/textos.js", "/comun/idioma.js",
@@ -163,7 +166,12 @@ func nuevoHandler(host string, assets map[string]recurso) http.Handler {
 				return
 			}
 			configurarProcesosLocales(w)
-		case "/simular", "/api/provision/v1/simulaciones", rutaSimulacionProceso:
+		case rutaAdjudicacionesLocales:
+			if !metodo(w, r, http.MethodGet) {
+				return
+			}
+			configurarAdjudicacionesLocales(w)
+		case "/simular", "/api/provision/v1/simulaciones", rutaSimulacionProceso, rutaSimularAdjudicacion:
 			if !metodo(w, r, http.MethodPost) {
 				return
 			}
@@ -201,6 +209,10 @@ func nuevoHandler(host string, assets map[string]recurso) http.Handler {
 			}
 			if r.URL.Path == rutaSimulacionProceso {
 				simularProcesoLocal(w, b)
+				return
+			}
+			if r.URL.Path == rutaSimularAdjudicacion {
+				simularAdjudicacionLocal(w, b)
 				return
 			}
 			s, err := simuladorlocal.Decodificar(b)

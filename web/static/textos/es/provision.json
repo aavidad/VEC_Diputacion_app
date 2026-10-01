@@ -17,7 +17,8 @@
     "puestos": "Puestos",
     "personal": "Mi preparación",
     "valoracion": "Valoración",
-    "tramitacion": "Tramitación"
+    "tramitacion": "Tramitación",
+    "adjudicacion": "Adjudicación"
   },
   "campos": {
     "proceso": "Concurso",
@@ -139,5 +140,73 @@
     "corregir": "Corregir configuración"
   },
   "volver_al_baremador": "Volver al simulador de baremos",
-  "ejemplo_selector": "Caso de ensayo"
+  "ejemplo_selector": "Caso de ensayo",
+  "ensayos": {
+    "limite": "Ensayo sintético. No adjudica puestos ni modifica solicitudes.",
+    "ejemplo_numero": "Caso {numero}",
+    "politica_ref": "Referencia de la política de ensayo",
+    "politica_version": "Versión de la política",
+    "bases_ref": "Referencia de bases del ensayo",
+    "version": "Versión del ensayo",
+    "metodo": "Método configurado",
+    "prioridad": "Prioridad de valoración",
+    "incompatibilidad": "Puestos por persona",
+    "desempates": "Cadena de desempates del ensayo",
+    "sentido": "Orden del criterio",
+    "sin_desempates": "No hay criterios de desempate. Un empate sin resolver dejará la adjudicación pendiente.",
+    "preferencias": "Preferencias y valoraciones de partida",
+    "persona": "Persona",
+    "persona_sin_nombre": "Persona del ensayo",
+    "puesto_sin_nombre": "Puesto del ensayo",
+    "regla_sin_nombre": "Criterio del ensayo",
+    "simular": "Ensayar adjudicación",
+    "asignaciones": "Asignaciones simuladas",
+    "sin_asignaciones": "El ensayo no ha producido asignaciones.",
+    "incidencia_pendiente": "Hay una incidencia pendiente de revisar en el ensayo.",
+    "personas_pendientes": "Sin asignación: {personas}.",
+    "huella_resultado": "Huella del resultado",
+    "bloqueo": "La resolución oficial requiere bases aprobadas, expediente conservado, revisión, firma y registro.",
+    "configuracion_invalida": "Introduzca una referencia o versión de ensayo de entre 1 y 160 caracteres.",
+    "mover_desempate": "{accion} el criterio {orden}",
+    "estados": {
+      "cargando": "Cargando el ensayo…",
+      "listo": "Configuración de ensayo preparada",
+      "calculando": "Calculando el ensayo…",
+      "resultado": "Ensayo obtenido",
+      "vacio": "No hay casos de ensayo disponibles.",
+      "error": "No se ha podido obtener el ensayo. Reintente cuando el servicio esté disponible.",
+      "validacion": "Revise los campos indicados y los criterios antes de ensayar.",
+      "conflicto": "El caso ha cambiado. Recargue el ensayo.",
+      "denegado": "No tiene acceso a este ensayo. Solicite permiso al responsable.",
+      "propuesta_simulada": "Propuesta simulada, sin efectos",
+      "pendiente": "Adjudicación pendiente",
+      "no_soportado": "Configuración no soportada por este ensayo"
+    },
+    "opciones": {
+      "aceptacion_diferida_personas_proponen_ensayo_v1": "Aceptación diferida: propuestas de las personas (ensayo)",
+      "total_descendente": "Mayor puntuación total primero",
+      "un_puesto_por_persona": "Un puesto como máximo",
+      "mayor": "Mayor puntuación primero",
+      "menor": "Menor puntuación primero"
+    },
+    "personas": {
+      "persona_a": "Marina Ortega",
+      "persona_b": "Luis Navarro"
+    },
+    "puestos": {
+      "puesto_a": "Gestión administrativa",
+      "puesto_b": "Coordinación de servicios"
+    },
+    "reglas": {
+      "regla_cursos": "Formación"
+    },
+    "incidencias": {
+      "metodo_no_soportado": "El método configurado no está disponible en este ensayo.",
+      "universo_no_cerrado": "El conjunto de solicitudes no está cerrado.",
+      "admision_pendiente": "Hay una admisión pendiente de revisión.",
+      "valoracion_pendiente": "Hay una valoración pendiente de datos.",
+      "empate_residual": "Los criterios configurados no resuelven el empate. No se han asignado puestos."
+    },
+    "restablecer": "Restablecer caso de ensayo"
+  }
 }
