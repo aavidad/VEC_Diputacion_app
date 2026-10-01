@@ -67,6 +67,29 @@ export function importeACentimos(valor, localizacion) {
   return Number.isSafeInteger(centimos) ? centimos : null;
 }
 
+/** Presenta todos los céntimos seguros sin redondearlos al convertir a Number decimal. */
+export function formatearImporteCentimos(centimos, localizacion, codigo) {
+  if (!Number.isSafeInteger(centimos) || centimos < 0) throw new TypeError("importe no valido");
+  const exacto = BigInt(centimos);
+  const entero = exacto / 100n;
+  const resto = Number(exacto % 100n);
+  const partes = new Intl.NumberFormat(localizacion, {
+    style: "currency", currency: codigo, currencyDisplay: "code",
+    minimumFractionDigits: 0, maximumFractionDigits: 0,
+  }).formatToParts(entero);
+  const separador = new Intl.NumberFormat(localizacion).formatToParts(1.1)
+    .find((parte) => parte.type === "decimal")?.value;
+  if (!separador) throw new TypeError("localizacion no valida");
+  const fraccion = new Intl.NumberFormat(localizacion, {
+    useGrouping: false, minimumIntegerDigits: 2,
+  }).format(resto);
+  const ultimaParteEntera = partes.map((parte) => parte.type).lastIndexOf("integer");
+  if (ultimaParteEntera < 0) throw new TypeError("formato de moneda no valido");
+  partes.splice(ultimaParteEntera + 1, 0,
+    { type: "decimal", value: separador }, { type: "fraction", value: fraccion });
+  return partes.map((parte) => parte.value).join("");
+}
+
 /** Monta una lectura inyectada; no consulta ni publica tarifas por su cuenta. */
 export function montarCatalogoTarifasDietas(contenedor, {
   fuente, traducir, localizacion, anunciar = () => {}, registrarDesmontar,
@@ -85,9 +108,9 @@ export function montarCatalogoTarifasDietas(contenedor, {
     const id = parsed.searchParams.get("id");
     return id && /^BOE-[A-Z]-\d{4}-\d+$/u.test(id) ? id : parsed.hostname;
   };
-  const moneda = (centimos, codigo) => new Intl.NumberFormat(localizacion, {
-    style: "currency", currency: codigo, currencyDisplay: "code",
-  }).format(centimos / 100);
+  const moneda = (centimos, codigo) => formatearImporteCentimos(centimos, localizacion, codigo);
+  const importeTarifa = (centimos, tarifa) =>
+    `${moneda(centimos, tarifa.moneda)}${tarifa.unidad === "kilometro" ? t("por_km") : ""}`;
   const fecha = (valor) => new Intl.DateTimeFormat(localizacion, { dateStyle: "medium", timeZone: "UTC" }).format(new Date(`${valor}T00:00:00Z`));
   const raiz = nodo(d, "section"); raiz.className = "dietas-catalogo panel"; raiz.dataset.dietasCatalogo = "";
   const cabecera = nodo(d, "div"); cabecera.className = "cabecera-panel";
@@ -118,7 +141,6 @@ export function montarCatalogoTarifasDietas(contenedor, {
 
   function pintar() {
     cuerpo.replaceChildren();
-    if (!catalogo.tarifas.length) { cuerpo.append(nodo(d, "p", t("vacio"))); return; }
     const contexto = nodo(d, "dl");
     par(contexto, "version", textoCortable(catalogo.version));
     par(contexto, "version_tarifa", textoCortable(catalogo.version_tarifa_ref));
@@ -128,32 +150,36 @@ export function montarCatalogoTarifasDietas(contenedor, {
     cuerpo.append(contexto);
     const fuentes = nodo(d, "section"); fuentes.append(nodo(d, "h3", t("fuentes")));
     const listaFuentes = nodo(d, "ul");
-    for (const [indice, url] of catalogo.fuentes.entries()) {
+    for (const url of catalogo.fuentes) {
       const li = nodo(d, "li"), enlace = nodo(d, "a", t("consultar_fuente", { referencia: referenciaFuente(url) }));
       enlace.href = url; enlace.rel = "noopener noreferrer"; enlace.target = "_blank"; li.append(enlace); listaFuentes.append(li);
     }
     fuentes.append(listaFuentes); cuerpo.append(fuentes);
 
-    const envoltura = nodo(d, "div"); envoltura.className = "tabla-contenedor";
-    envoltura.tabIndex = 0; envoltura.setAttribute("role", "region");
-    envoltura.setAttribute("aria-label", t("tabla_desplazable"));
-    const tabla = nodo(d, "table"); tabla.className = "tabla-datos"; tabla.setAttribute("aria-label", t("tabla_etiqueta"));
-    const cab = nodo(d, "thead"), filaCab = nodo(d, "tr");
-    for (const clave of ["concepto", "grupo", "pais", "importe", "accion"]) filaCab.append(nodo(d, "th", t(clave)));
-    cab.append(filaCab); tabla.append(cab);
-    const tbody = nodo(d, "tbody");
-    for (const tarifa of catalogo.tarifas) {
-      const tr = nodo(d, "tr"), accion = nodo(d, "td");
-      const boton = nodo(d, "button", t("preparar")); boton.type = "button"; boton.className = "boton-secundario";
-      boton.addEventListener("click", () => pintarEditor(tarifa)); accion.append(boton);
-      tr.append(nodo(d, "td", t(`concepto_${tarifa.concepto}`)),
-        nodo(d, "td", tarifa.grupo === null ? t("sin_grupo") : String(tarifa.grupo)),
-        nodo(d, "td", tarifa.pais),
-        nodo(d, "td", `${moneda(tarifa.importe_centimos, tarifa.moneda)}${tarifa.unidad === "kilometro" ? t("por_km") : ""}`), accion);
-      tbody.append(tr);
+    if (!catalogo.tarifas.length) cuerpo.append(nodo(d, "p", t("vacio")));
+    else {
+      const envoltura = nodo(d, "div"); envoltura.className = "tabla-contenedor";
+      envoltura.tabIndex = 0; envoltura.setAttribute("role", "region");
+      envoltura.setAttribute("aria-label", t("tabla_desplazable"));
+      const tabla = nodo(d, "table"); tabla.className = "tabla-datos"; tabla.setAttribute("aria-label", t("tabla_etiqueta"));
+      const cab = nodo(d, "thead"), filaCab = nodo(d, "tr");
+      for (const clave of ["concepto", "grupo", "pais", "importe", "accion"]) filaCab.append(nodo(d, "th", t(clave)));
+      cab.append(filaCab); tabla.append(cab);
+      const tbody = nodo(d, "tbody");
+      for (const tarifa of catalogo.tarifas) {
+        const tr = nodo(d, "tr"), accion = nodo(d, "td");
+        const boton = nodo(d, "button", t("preparar")); boton.type = "button"; boton.className = "boton-secundario";
+        boton.addEventListener("click", () => pintarEditor(tarifa, true)); accion.append(boton);
+        tr.append(nodo(d, "td", t(`concepto_${tarifa.concepto}`)),
+          nodo(d, "td", tarifa.grupo === null ? t("sin_grupo") : String(tarifa.grupo)),
+          nodo(d, "td", tarifa.pais),
+          nodo(d, "td", importeTarifa(tarifa.importe_centimos, tarifa)), accion);
+        tbody.append(tr);
+      }
+      tabla.append(tbody); envoltura.append(tabla); cuerpo.append(envoltura);
+      const editor = nodo(d, "section"); editor.className = "panel"; editor.dataset.dietasCatalogoEditor = "";
+      editor.hidden = true; cuerpo.append(editor);
     }
-    tabla.append(tbody); envoltura.append(tabla); cuerpo.append(envoltura);
-    const editor = nodo(d, "section"); editor.className = "panel"; editor.dataset.dietasCatalogoEditor = ""; cuerpo.append(editor);
     const historia = nodo(d, "section"); historia.className = "panel";
     const cabHistoria = nodo(d, "div"); cabHistoria.className = "cabecera-panel"; cabHistoria.append(nodo(d, "h3", t("historia")));
     const listaHistoria = nodo(d, "div"); listaHistoria.className = "cuerpo-panel";
@@ -166,16 +192,17 @@ export function montarCatalogoTarifasDietas(contenedor, {
       par(dl, "estado_ejemplo", t("ejemplo")); listaHistoria.append(dl);
     }
     historia.append(cabHistoria, listaHistoria); cuerpo.append(historia);
-    pintarEditor(catalogo.tarifas[0]);
   }
 
-  function pintarEditor(tarifa) {
+  function pintarEditor(tarifa, moverFoco = false) {
     const editor = cuerpo.querySelector("[data-dietas-catalogo-editor]");
     if (!editor) return;
-    editor.replaceChildren();
-    const cab = nodo(d, "div"); cab.className = "cabecera-panel"; cab.append(nodo(d, "h3", t("propuesta_titulo")));
+    editor.replaceChildren(); editor.hidden = false;
+    const cab = nodo(d, "div"); cab.className = "cabecera-panel";
+    const tituloEditor = nodo(d, "h3", t("propuesta_titulo")); tituloEditor.tabIndex = -1; cab.append(tituloEditor);
     const zona = nodo(d, "div"); zona.className = "cuerpo-panel";
-    const referencia = nodo(d, "p", `${t(`concepto_${tarifa.concepto}`)} · ${moneda(tarifa.importe_centimos, tarifa.moneda)}`);
+    const grupo = tarifa.grupo === null ? t("sin_grupo") : String(tarifa.grupo);
+    const referencia = nodo(d, "p", `${t(`concepto_${tarifa.concepto}`)} · ${t("grupo")} ${grupo} · ${tarifa.pais} · ${importeTarifa(tarifa.importe_centimos, tarifa)}`);
     const clavePropuesta = `${catalogo.version}\u0000${tarifa.id}`;
     const previo = propuestas.get(clavePropuesta);
     const form = nodo(d, "form"); form.noValidate = true;
@@ -216,8 +243,8 @@ export function montarCatalogoTarifasDietas(contenedor, {
       if (!catalogo.fuentes.includes(fuente.value)) { validacion.textContent = t("fuente_invalida"); fuente.focus(); return; }
       propuestas.set(clavePropuesta, { texto: importe.value, motivo: razon, vigencia: vigencia.value, fuente: fuente.value, importe_centimos: centimos });
       const dl = nodo(d, "dl");
-      par(dl, "importe_actual", moneda(tarifa.importe_centimos, tarifa.moneda));
-      par(dl, "importe_propuesto", moneda(centimos, tarifa.moneda));
+      par(dl, "importe_actual", importeTarifa(tarifa.importe_centimos, tarifa));
+      par(dl, "importe_propuesto", importeTarifa(centimos, tarifa));
       par(dl, "historia_motivo", razon); par(dl, "version", textoCortable(catalogo.version));
       par(dl, "vigencia_propuesta", fecha(vigencia.value));
       const filaFuente = nodo(d, "div"); filaFuente.append(nodo(d, "dt", t("fuente_propuesta")));
@@ -233,6 +260,10 @@ export function montarCatalogoTarifasDietas(contenedor, {
     }
     form.append(validacion, nodo(d, "br"), revisar); zona.append(referencia, form, resultado, publicar, limite);
     editor.append(cab, zona);
+    if (moverFoco) {
+      tituloEditor.focus({ preventScroll: true });
+      editor.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+    }
   }
 
   async function cargar() {
