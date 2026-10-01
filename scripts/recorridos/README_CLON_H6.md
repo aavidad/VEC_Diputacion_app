@@ -70,6 +70,12 @@ bash scripts/recorridos/preparar_clon.sh verificar-sql "${entradas[@]}" \
 Un fallo o marca de operación incierta exige conservar la evidencia y revisar
 un estado nuevo; no repetir `preparar-sql` sobre ese directorio.
 
+`bash scripts/recorridos/preparar_clon.sh estado` muestra la fase anotada en
+el diario H6 sin requerir el marcador del clon antiguo. Su salida
+`v2_sin_revalidacion_viva` y el número de SQL **declaradas** son informativos:
+para confirmar las instalaciones se necesita `verificar-sql` con su acta fijada.
+`estado` nunca declara `ready:true` por leer el diario.
+
 La ejecución local del guion ya obtuvo acta `sql62-fase.json` SHA
 `b995f8feb72d62eb6f56282d0a3e0fdae8167103aeeb66cb9c4689774f762a40`.
 La verificación devolvió `verified:true` antes y después de reiniciar el mismo
@@ -125,6 +131,11 @@ ocultar el fallo. El binario de arranque final necesitará su propio pin.
   SHA de **RPT6+B6**. Es un plan de lectura pendiente de aprobación y recibos
   previos; no instala SQL. No incorporar SQL descubierta en main por inferencia.
   **U17 queda diferida**.
+
+`origin/main@77ea7a762` añadió AD136 después de RPT6 y B6. El plan v2 la
+detecta como SQL desconocida y bloquea una transición parcial. Está en
+preparación una tercera lista documental con AD136; su instalación exige la
+postimagen B y las definiciones históricas exactas de AD113/Documentos9.
 
 AUT26 y su recibo de extensión preAD132, LOGIN nominal, sesiones CAS vinculadas
 y provisión siguen pendientes. AUT26 no se suma al journal de 62 ni modifica
