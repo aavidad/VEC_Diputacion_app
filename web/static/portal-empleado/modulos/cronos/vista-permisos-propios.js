@@ -1,6 +1,6 @@
 import { crearTraductorSolicitudesCronos, formatearCantidadCronos, MENSAJES_CRONOS_SOLICITUDES } from "./i18n-solicitudes.js";
 import { ErrorClienteSolicitudesCronos, crearClienteSolicitudesCronosHTTP } from "./cliente-solicitudes-http.js";
-import { hoyCivilCronos } from "./vista-movimientos-propios.js?v=20261001-cronos-incidencias-v1";
+import { hoyCivilCronos } from "./vista-movimientos-propios.js?v=20261001-cronos-calendario-v1";
 import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
 
 const ERRORES = new Map([
