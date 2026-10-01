@@ -2,12 +2,19 @@
 const CAMPOS_FECHA = Object.freeze(["fecha_inicio", "fecha_liquidacion", "fecha_fiscalizacion"]);
 const TAMANO_PAGINA = 6;
 const FECHA = /^\d{4}-\d{2}-\d{2}$/u;
+const INSTANTE_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/u;
 const CLAVE = /^[a-z][a-z0-9_]*$/u;
 
 function fechaValida(valor) {
   if (!FECHA.test(valor)) return false;
   const fecha = new Date(`${valor}T00:00:00Z`);
   return !Number.isNaN(fecha.valueOf()) && fecha.toISOString().slice(0, 10) === valor;
+}
+
+function instanteValido(valor) {
+  if (typeof valor !== "string" || !INSTANTE_UTC.test(valor)) return false;
+  const instante = new Date(valor);
+  return Number.isFinite(instante.valueOf()) && instante.toISOString().replace(".000Z", "Z") === valor;
 }
 
 function congelarConfiguracion(configuracion, datos) {
@@ -26,8 +33,8 @@ function congelarConfiguracion(configuracion, datos) {
     throw new TypeError("datos");
   const historia = configuracion.historia.map((entrada, indice) => {
     if (entrada?.version !== indice + 1 || typeof entrada.actor_ref !== "string"
-      || !entrada.actor_ref.startsWith("actor:ejemplo:") || typeof entrada.fecha !== "string"
-      || !Number.isFinite(Date.parse(entrada.fecha)) || typeof entrada.motivo !== "string"
+      || !entrada.actor_ref.startsWith("actor:ejemplo:") || !instanteValido(entrada.fecha)
+      || typeof entrada.motivo !== "string"
       || !entrada.motivo.trim()) throw new TypeError("datos");
     return Object.freeze({ version: entrada.version, actor_ref: entrada.actor_ref,
       fecha: entrada.fecha, motivo: entrada.motivo });
@@ -54,10 +61,13 @@ function congelarDatos(datos, configuracion, localizacion) {
   const registros = datos.registros.map((entrada) => {
     if (!entrada || !["referencia", "persona_ref", "persona", "unidad_ref", "unidad"].every((campo) =>
       typeof entrada[campo] === "string" && entrada[campo].trim())
+      || !fechaValida(entrada.fecha_inicio)
       || CAMPOS_FECHA.some((campo) => !Object.hasOwn(entrada, campo)
         || (entrada[campo] !== null && !fechaValida(entrada[campo])))
       || !Number.isSafeInteger(entrada.version_comision) || entrada.version_comision < 1
       || typeof entrada.situacion !== "string" || !CLAVE.test(entrada.situacion)
+      || (configuracion.estados_incluidos.includes(entrada.situacion)
+        && !fechaValida(entrada[configuracion.campo_fecha]))
       || (entrada.moneda !== undefined && entrada.moneda !== datos.moneda)
       || referencias.has(entrada.referencia)) throw new TypeError("datos");
     referencias.add(entrada.referencia);
@@ -84,7 +94,8 @@ function congelarDatos(datos, configuracion, localizacion) {
 export function resumirInformesDietas(registros, configuracion, filtros = {}) {
   const estados = new Set(configuracion.estados_incluidos);
   const campo = configuracion.campo_fecha;
-  const seleccion = registros.filter((fila) => estados.has(fila.situacion) && fila[campo]
+  if (registros.some((fila) => estados.has(fila.situacion) && !fechaValida(fila[campo]))) throw new TypeError("datos");
+  const seleccion = registros.filter((fila) => estados.has(fila.situacion)
     && (!filtros.persona || fila.persona_ref === filtros.persona)
     && (!filtros.unidad || fila.unidad_ref === filtros.unidad)
     && (!filtros.desde || fila[campo] >= filtros.desde)

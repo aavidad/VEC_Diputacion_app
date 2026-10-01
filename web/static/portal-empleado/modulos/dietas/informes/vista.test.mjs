@@ -223,6 +223,7 @@ test("referencia e historia incoherentes cierran la carga del catálogo", async 
   for (const mutacion of [
     { referencia: "propuesta:otra" },
     { historia: [{ ...configuracion.historia[0], version: 2 }] },
+    { historia: [{ ...configuracion.historia[0], fecha: "2026-02-30T00:00:00Z" }] },
   ]) {
     const contenedor = raiz();
     const vista = montarInformesDietas(contenedor, { cargarDatos: async () => datos,
@@ -230,6 +231,26 @@ test("referencia e historia incoherentes cierran la carga del catálogo", async 
       traducir: t, localizacion: catalogo.localizacion });
     await esperar();
     assert.equal(contenedor.querySelectorAll("tbody").length, 0);
+    assert.match(contenedor.querySelector("[data-dietas-informes-estado]").textContent, /datos incorrectos/u);
+    vista.desmontar();
+  }
+});
+
+test("una fecha obligatoria ausente cierra la carga sin publicar un total parcial", async () => {
+  const casos = [
+    { fuente: { ...datos, registros: [{ ...datos.registros[0], fecha_inicio: null }] },
+      catalogo: configuracion },
+    { fuente: { ...datos, registros: [{ ...datos.registros[1], fecha_liquidacion: null }] },
+      catalogo: { ...configuracion, criterio: { ...configuracion.criterio,
+        campo_fecha: "fecha_liquidacion", estados_incluidos: ["liquidado"] } } },
+  ];
+  for (const caso of casos) {
+    const contenedor = raiz();
+    const vista = montarInformesDietas(contenedor, { cargarDatos: async () => caso.fuente,
+      cargarConfiguracion: async () => caso.catalogo, traducir: t, localizacion: catalogo.localizacion });
+    await esperar();
+    assert.equal(contenedor.querySelectorAll("tbody").length, 0);
+    assert.equal(contenedor.querySelector("[data-dietas-informes-resumen]").hidden, true);
     assert.match(contenedor.querySelector("[data-dietas-informes-estado]").textContent, /datos incorrectos/u);
     vista.desmontar();
   }
