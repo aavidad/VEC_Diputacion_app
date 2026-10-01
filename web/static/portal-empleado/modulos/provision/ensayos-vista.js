@@ -1,4 +1,4 @@
-import { formatearPuntos } from './modelo.js?v=20261001-provision-ensayos-v3';
+import { formatearPuntos } from './modelo.js?v=20261001-provision-ciclo-v4';
 function nodo(d, tag, texto, clase) { const n = d.createElement(tag); if (texto !== undefined) n.textContent = texto; if (clase) n.className = clase; return n; }
 function boton(d, texto, accion, clave, deshabilitado = false) { const b = nodo(d, 'button', texto, 'boton-secundario'); b.type = 'button'; b.dataset.foco = clave; b.disabled = deshabilitado; b.addEventListener('click', accion); return b; }
 function tabla(d, titulo, cabeceras, filas) { const box = nodo(d, 'div', undefined, 'tabla-contenedor'); box.tabIndex = 0; box.setAttribute('role', 'region'); box.setAttribute('aria-label', titulo); const table = nodo(d, 'table', undefined, 'tabla-datos'); table.append(nodo(d, 'caption', titulo)); const head = nodo(d, 'thead'); const tr = nodo(d, 'tr'); cabeceras.forEach(t => { const th = nodo(d, 'th', t); th.scope = 'col'; tr.append(th); }); head.append(tr); const body = nodo(d, 'tbody'); filas.forEach(f => { const row = nodo(d, 'tr'); f.forEach((texto, i) => { const td = nodo(d, i ? 'td' : 'th'); if (!i) td.scope = 'row'; if (texto?.nodeType) td.append(texto); else td.textContent = texto; row.append(td); }); body.append(row); }); table.append(head, body); box.append(table); return box; }
@@ -43,4 +43,35 @@ export function pintarAdjudicacion({ raiz, estado, textos, acciones }) {
     salida.append(referencia(d, t, t('detalle_tecnico'), [['politica_ref', r.politica_ref], ['politica_version', r.politica_version], ['huella_resultado', r.huella_resultado]]));
   }
   const oficial = boton(d, t('acciones.resolver'), () => {}, 'adjudicacion-resolver', true); oficial.setAttribute('aria-describedby', 'adjudicacion-bloqueo'); const bloqueo = nodo(d, 'p', t('ensayos.bloqueo')); bloqueo.id = 'adjudicacion-bloqueo'; pila.append(oficial, bloqueo); raiz.replaceChildren(pila);
+}
+export function pintarCiclo({ raiz, estado, textos, acciones }) {
+  const d = raiz.ownerDocument; const t = textos.traducir; const pila = nodo(d, 'div', undefined, 'pila');
+  pila.append(nodo(d, 'p', t('ciclo.limite')));
+  const aviso = nodo(d, 'p', t(`ensayos.estados.${estado.estado}`)); aviso.setAttribute('role', ['error', 'validacion', 'conflicto', 'denegado'].includes(estado.estado) ? 'alert' : 'status'); aviso.setAttribute('aria-live', 'polite'); pila.append(aviso);
+  if (!estado.casos) { if (estado.estado === 'error') pila.append(boton(d, t('reintentar_preparacion'), acciones.cargar, 'ciclo-recargar')); raiz.replaceChildren(pila); return; }
+  const label = nodo(d, 'label', undefined, 'campo'); label.append(nodo(d, 'span', t('ciclo.elegir'))); const selector = nodo(d, 'select'); selector.dataset.foco = 'ciclo-caso';
+  estado.casos.forEach(c => { let titulo; try { titulo = t(c.titulo_clave); } catch { titulo = t(`ciclo.casos.${Object.hasOwn(textos.mensajes.ciclo.casos, c.decision) ? c.decision : 'pendiente'}`); } const opt = nodo(d, 'option', titulo); opt.value = c.caso_ref; opt.selected = c.caso_ref === estado.caso_ref; selector.append(opt); });
+  selector.addEventListener('change', () => acciones.cambiarCaso(selector.value)); label.append(selector); pila.append(label);
+  const dl = nodo(d, 'dl', undefined, 'resumen-expediente'); dl.append(nodo(d, 'dt', t('campos.version')), nodo(d, 'dd', estado.configuracion.version), nodo(d, 'dt', t('ciclo.catalogo')), nodo(d, 'dd', estado.catalogo_causas.version)); pila.append(dl);
+  const simular = boton(d, t('ciclo.simular'), acciones.simular, 'ciclo-simular', estado.estado === 'calculando'); simular.className = 'boton-primario'; pila.append(simular);
+  if (estado.resultado) {
+    const r = estado.resultado;
+    const filas = r.valoraciones.map(v => { const decision = r.decisiones.find(q => q.referencia === v.decision_ref); return [textos.numero(v.version), decision ? t(`ciclo.decisiones.${decision.tipo}`) : t('ciclo.inicial'), v.resultado.total === null ? t('estados.sin_dato') : formatearPuntos(v.resultado.total, textos.localizacion), t(`estados.${v.resultado.completo ? 'completo' : 'pendiente'}`)]; });
+    pila.append(tabla(d, t('ciclo.cronologia'), [t('campos.version'), t('ciclo.revision'), t('campos.puntos'), t('campos.estado')], filas));
+    pila.append(nodo(d, 'h3', t('ciclo.reclamaciones')));
+    r.reclamaciones.forEach(q => {
+      const causa = Object.hasOwn(textos.mensajes.ciclo.causas, q.causa_codigo) ? t(`ciclo.causas.${q.causa_codigo}`) : t('ciclo.causa_pendiente');
+      pila.append(nodo(d, 'p', t('ciclo.reclamacion', { version: textos.numero(q.version_valoracion), causa }))); const decision = r.decisiones.find(e => e.reclamacion_ref === q.referencia);
+      pila.append(nodo(d, 'p', decision ? t(`ciclo.decisiones.${decision.tipo}`) : t('ciclo.pendiente_revision')));
+      const detalles = nodo(d, 'details', undefined, 'campo'); detalles.append(nodo(d, 'summary', t('detalle_tecnico'))); const refs = nodo(d, 'dl', undefined, 'resumen-expediente');
+      [[t('ciclo.evidencia'), q.evidencia_ref], [t('ciclo.motivacion'), decision?.motivacion_ref ?? t('estados.sin_dato')], [t('ciclo.referencia_reclamacion'), q.referencia]].forEach(([titulo, valor]) => refs.append(nodo(d, 'dt', titulo), textoConCortes(d, 'dd', valor))); detalles.append(refs); pila.append(detalles);
+    });
+    const ultimo = r.valoraciones[r.valoraciones.length - 1]; const detalle = nodo(d, 'details', undefined, 'campo'); detalle.append(nodo(d, 'summary', t('detalle')));
+    detalle.append(tabla(d, t('detalle'), [t('campos.regla'), t('campos.estado'), t('campos.puntos')], ultimo.resultado.desglose.map(g => [t(`familias.${g.familia}`), t(`estados.${g.estado === 'calculado' ? 'completo' : 'pendiente'}`), g.estado === 'pendiente_dato' ? t('estados.sin_dato') : formatearPuntos(g.resultado, textos.localizacion)]))); pila.append(detalle);
+    pila.append(nodo(d, 'h3', t('ciclo.borrador')), nodo(d, 'p', t('ciclo.sin_efectos')), nodo(d, 'p', t('ciclo.version_resolucion', { version: textos.numero(r.resolucion.version_valoracion) })));
+    const pendientes = nodo(d, 'ul'); r.resolucion.pendientes.forEach(codigo => pendientes.append(nodo(d, 'li', Object.hasOwn(textos.mensajes.ciclo.pendientes, codigo) ? t(`ciclo.pendientes.${codigo}`) : t('ciclo.dependencia_pendiente')))); pila.append(pendientes);
+    const refs = nodo(d, 'details', undefined, 'campo'); refs.append(nodo(d, 'summary', t('ciclo.huella_versiones'))); r.valoraciones.forEach(v => refs.append(textoConCortes(d, 'p', t('ciclo.version_huella', { version: textos.numero(v.version), huella: v.huella_revision })))); pila.append(refs);
+  }
+  const presentar = boton(d, t('acciones.alegar'), () => {}, 'ciclo-alegar', true); presentar.setAttribute('aria-describedby', 'ciclo-bloqueo'); const firmar = boton(d, t('acciones.resolver'), () => {}, 'ciclo-resolver', true); firmar.setAttribute('aria-describedby', 'ciclo-bloqueo');
+  const bloqueo = nodo(d, 'p', t('ciclo.bloqueo')); bloqueo.id = 'ciclo-bloqueo'; pila.append(presentar, firmar, bloqueo); raiz.replaceChildren(pila);
 }

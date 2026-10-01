@@ -1,5 +1,5 @@
 /** Preparación efímera: no interpreta reglas ni calcula puntuaciones. */
-export const VISTAS = Object.freeze(['convocatoria', 'puestos', 'personal', 'valoracion', 'adjudicacion', 'tramitacion']);
+export const VISTAS = Object.freeze(['convocatoria', 'puestos', 'personal', 'valoracion', 'adjudicacion', 'ciclo', 'tramitacion']);
 export function crearEstado({ ejemplo_ref, proceso, preferencias = [] }) {
   if (!ejemplo_ref || !proceso?.configuracion || !Array.isArray(proceso.puestos)) throw new TypeError('provision.preparacion');
   const copia = structuredClone(proceso);

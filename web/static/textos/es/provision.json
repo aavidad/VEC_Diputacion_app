@@ -18,7 +18,8 @@
     "personal": "Mi preparación",
     "valoracion": "Valoración",
     "tramitacion": "Tramitación",
-    "adjudicacion": "Adjudicación"
+    "adjudicacion": "Adjudicación",
+    "ciclo": "Reclamación y revisión"
   },
   "campos": {
     "proceso": "Concurso",
@@ -208,5 +209,50 @@
       "empate_residual": "Los criterios configurados no resuelven el empate. No se han asignado puestos."
     },
     "restablecer": "Restablecer caso de ensayo"
+  },
+  "ciclo": {
+    "limite": "Ensayo sintético de reclamación y revisión. No registra alegaciones ni cambia datos administrativos.",
+    "elegir": "Decisión que desea ensayar",
+    "catalogo": "Versión del catálogo de causas",
+    "simular": "Ensayar reclamación y revisión",
+    "cronologia": "Versiones conservadas en el ensayo",
+    "revision": "Revisión",
+    "inicial": "Valoración inicial del ensayo",
+    "reclamaciones": "Reclamaciones incluidas en el ensayo",
+    "reclamacion": "Valoración {version}: {causa}",
+    "pendiente_revision": "Reclamación pendiente de revisión",
+    "causa_pendiente": "Causa pendiente de contraste",
+    "evidencia": "Referencia de la evidencia",
+    "motivacion": "Referencia de la motivación",
+    "referencia_reclamacion": "Referencia de la reclamación",
+    "borrador": "Resolución en borrador",
+    "sin_efectos": "Sin firma, publicación ni efectos oficiales.",
+    "version_resolucion": "El borrador conserva la valoración {version}.",
+    "dependencia_pendiente": "Queda una dependencia por resolver.",
+    "huella_versiones": "Ver referencias de las versiones",
+    "version_huella": "Versión {version}: {huella}",
+    "bloqueo": "Presentar una alegación o firmar una resolución requiere un expediente institucional y el circuito de firma y registro.",
+    "casos": {
+      "pendiente": "Dejar reclamación pendiente",
+      "mantener": "Mantener la valoración",
+      "rectificar": "Rectificar un dato del ensayo"
+    },
+    "decisiones": {
+      "mantener": "Valoración mantenida con revisión motivada",
+      "rectificar": "Valoración recalculada con otra instantánea"
+    },
+    "causas": {
+      "rectificacion_dato_ensayo": "Rectificación de un dato del ensayo"
+    },
+    "pendientes": {
+      "bases_y_catalogo_sin_contraste": "Bases y catálogo pendientes de contraste",
+      "persistencia_institucional_pendiente": "Expediente institucional pendiente",
+      "firma_pendiente": "Firma pendiente",
+      "publicacion_pendiente": "Publicación pendiente",
+      "efectos_personal_pendientes": "Efectos en Personal pendientes",
+      "revision_inicial_pendiente": "Revisión inicial pendiente",
+      "fuentes_pendientes": "Datos de origen pendientes",
+      "reclamaciones_pendientes": "Reclamaciones pendientes de revisión"
+    }
   }
 }

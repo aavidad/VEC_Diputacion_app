@@ -1,4 +1,4 @@
-import { VISTAS, formatearPuntos } from './modelo.js?v=20261001-provision-ensayos-v3';
+import { VISTAS, formatearPuntos } from './modelo.js?v=20261001-provision-ciclo-v4';
 function nodo(d, tag, texto, clase) { const n = d.createElement(tag); if (texto !== undefined) n.textContent = texto; if (clase) n.className = clase; return n; }
 function boton(d, texto, accion, clave, deshabilitado = false) { const b = nodo(d, 'button', texto, 'boton-secundario'); b.type = 'button'; b.disabled = deshabilitado; b.dataset.foco = clave; b.addEventListener('click', accion); return b; }
 function panel(d, titulo) { const n = nodo(d, 'section', undefined, 'panel'); const h = nodo(d, 'header', undefined, 'cabecera-panel'); h.append(nodo(d, 'h2', titulo)); const cuerpo = nodo(d, 'div', undefined, 'cuerpo-panel pila'); n.append(h, cuerpo); return { n, cuerpo }; }
@@ -78,6 +78,7 @@ export function pintarProvision({ raiz, estado, textos, proyeccion = {}, accione
     p.cuerpo.append(nodo(d, 'p', t('resultado_limite')));
   }
   if (estado.vista === 'adjudicacion') { const espacio = nodo(d, 'div'); espacio.dataset.ensayoAdjudicacion = ''; p.cuerpo.append(espacio); }
+  if (estado.vista === 'ciclo') { const espacio = nodo(d, 'div'); espacio.dataset.ensayoCiclo = ''; p.cuerpo.append(espacio); }
   if (estado.vista === 'tramitacion') {
     const filas = ['propuesta', 'alegar', 'resolver'].map(a => { const b = boton(d, t(`acciones.${a}`), () => {}, a, true); const motivo = nodo(d, 'span', t(`bloqueos.${a}`)); motivo.id = `provision-bloqueo-${a}`; b.setAttribute('aria-describedby', motivo.id); return [t(`acciones.${a}`), motivo, b]; });
     p.cuerpo.append(nodo(d, 'p', t('estados.revision')), tabla(d, t, t('tabs.tramitacion'), ['estado', 'motivo', 'acciones'], filas));

@@ -1,7 +1,7 @@
-import { crearControladorAdjudicacion } from './ensayos-modelo.js?v=20261001-provision-ensayos-v3';
-import { pintarAdjudicacion } from './ensayos-vista.js?v=20261001-provision-ensayos-v3';
-import { crearEstado, cambiarPreferencias, peticionSimulacion, validarResultado, actualizarConfiguracion, VISTAS } from './modelo.js?v=20261001-provision-ensayos-v3';
-import { pintarProvision } from './vista.js?v=20261001-provision-ensayos-v3';
+import { crearControladorAdjudicacion, crearControladorCiclo } from './ensayos-modelo.js?v=20261001-provision-ciclo-v4';
+import { pintarAdjudicacion, pintarCiclo } from './ensayos-vista.js?v=20261001-provision-ciclo-v4';
+import { crearEstado, cambiarPreferencias, peticionSimulacion, validarResultado, actualizarConfiguracion, VISTAS } from './modelo.js?v=20261001-provision-ciclo-v4';
+import { pintarProvision } from './vista.js?v=20261001-provision-ciclo-v4';
 import { cargarTextos } from '../../../comun/textos.js';
 export async function montarModuloProvision({ raiz, cliente, clienteEnsayos, preparacion, proyeccion = {}, textos, registrarDesmontar } = {}) {
   if (!raiz?.ownerDocument || !preparacion) throw new TypeError('provision.montaje');
@@ -10,11 +10,12 @@ export async function montarModuloProvision({ raiz, cliente, clienteEnsayos, pre
   const cancelar = () => { turno += 1; controlador?.abort(); controlador = null; };
   const pintar = (foco) => { if (!activa) return; pintarProvision({ raiz, estado, textos, proyeccion, acciones });
     ensayo?.desmontar(); ensayo = null;
-    if (estado.vista === 'adjudicacion') {
-      const espacio = raiz.querySelector('[data-ensayo-adjudicacion]');
-      if (clienteEnsayos?.listarAdjudicaciones && espacio) {
+    if (['adjudicacion', 'ciclo'].includes(estado.vista)) {
+      const esCiclo = estado.vista === 'ciclo'; const crearEnsayo = esCiclo ? crearControladorCiclo : crearControladorAdjudicacion; const pintarEnsayo = esCiclo ? pintarCiclo : pintarAdjudicacion;
+      const espacio = raiz.querySelector(esCiclo ? '[data-ensayo-ciclo]' : '[data-ensayo-adjudicacion]');
+      if (clienteEnsayos?.[esCiclo ? 'listarCiclos' : 'listarAdjudicaciones'] && espacio) {
         let focoEnsayo;
-        ensayo = crearControladorAdjudicacion({ cliente: clienteEnsayos, notificar: vistaEnsayo => { if (!activa || !espacio.isConnected) return; pintarAdjudicacion({ raiz: espacio, estado: vistaEnsayo, textos, acciones: { ...ensayo, repintar: foco => { focoEnsayo = foco; ensayo.repintar(); } } }); if (focoEnsayo) Array.from(espacio.querySelectorAll('[data-foco]')).find(n => n.dataset.foco === focoEnsayo)?.focus(); focoEnsayo = null; } });
+        ensayo = crearEnsayo({ cliente: clienteEnsayos, notificar: vistaEnsayo => { if (!activa || !espacio.isConnected) return; pintarEnsayo({ raiz: espacio, estado: vistaEnsayo, textos, acciones: { ...ensayo, simular: () => { focoEnsayo = esCiclo ? 'ciclo-simular' : 'adjudicacion-simular'; ensayo.simular(); }, cambiarCaso: caso => { focoEnsayo = 'ciclo-caso'; ensayo.cambiarCaso(caso); }, elegir: indice => { focoEnsayo = esCiclo ? 'ciclo-caso' : 'adjudicacion-ejemplo'; ensayo.elegir(indice); }, repintar: foco => { focoEnsayo = foco; ensayo.repintar(); } } }); if (focoEnsayo) { const control = Array.from(espacio.querySelectorAll('[data-foco]')).find(n => n.dataset.foco === focoEnsayo && !n.disabled); if (control) { control.focus(); focoEnsayo = null; } } } });
         ensayo.cargar();
       } else if (espacio) espacio.textContent = textos.traducir('estados.sin_cliente');
     }
