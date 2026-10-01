@@ -45,7 +45,8 @@ BEGIN
   SELECT encode(sha256(convert_to(coalesce(jsonb_agg(jsonb_build_object(
    'grantee',CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END,
    'grantor',pg_get_userbyid(a.grantor),'privilege_type',a.privilege_type,
-   'is_grantable',a.is_grantable) ORDER BY a.grantee,a.grantor,a.privilege_type,a.is_grantable),'[]'::jsonb)::text,'UTF8')),'hex')
+   'is_grantable',a.is_grantable) ORDER BY CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END,
+   pg_get_userbyid(a.grantor),a.privilege_type,a.is_grantable),'[]'::jsonb)::text,'UTF8')),'hex')
   INTO acl_sha FROM aclexplode(coalesce((SELECT proacl FROM pg_proc WHERE oid=p.oid),
                                          acldefault('f',p.proowner))) a;
   SELECT encode(sha256(convert_to(coalesce(jsonb_agg(jsonb_build_object(
