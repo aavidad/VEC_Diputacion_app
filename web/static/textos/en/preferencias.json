@@ -73,7 +73,7 @@
           "inicio": {
             "cuadro": "Dashboard",
             "peticiones": "Temporary staff requests",
-            "bolsas": "Employment pools"
+            "bolsas": "Job pools"
           }
         }
       }
@@ -140,7 +140,7 @@
         "inicio": {
           "cuadro": "Dashboard",
           "peticiones": "Temporary staff requests",
-          "bolsas": "Employment pools"
+          "bolsas": "Job pools"
         }
       },
       "error": {

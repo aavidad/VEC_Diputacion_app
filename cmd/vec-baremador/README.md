@@ -1,4 +1,4 @@
-# Simular el baremo de una bolsa
+# Simular baremos de Bolsa y Concursos
 
 `vec-baremador` calcula experiencia o méritos a partir de una versión
 exacta de reglas y una entrada sintética. El modo predeterminado sigue siendo
@@ -176,4 +176,52 @@ GOCACHE=/dev/shm/go-build go test -race -p 32 \
   ./internal/modules/bolsa/domain/calculomeritos \
   ./internal/modules/bolsa/domain/reglasbaremo \
   ./internal/modules/bolsa/application/simulacionbaremo ./cmd/vec-baremador
+```
+
+
+## Concursos de provisión de puestos
+
+El modo `concursos` valora grado personal, trabajo desarrollado por nivel,
+antigüedad, permanencia, cursos y titulaciones. Las reglas pertenecen a
+Provisión y reutilizan la aritmética exacta común. No suman puntuaciones de
+Bolsa ni consultan su información.
+
+Puede abrir el ejemplo sintético embebido sin preparar archivos:
+
+```sh
+GOCACHE=/dev/shm/go-build go run ./cmd/vec-baremador --modo concursos --listar-ejemplos
+GOCACHE=/dev/shm/go-build go run ./cmd/vec-baremador --modo concursos \
+  --ejemplo ejemplo:concursos:v1
+```
+
+El ejemplo se encuentra en
+`internal/modules/provision/adapters/simulacion/ejemplos/concursos-v1.sintetico.json`.
+Sus valores permiten ensayar reglas; no son bases aprobadas de Diputación.
+La configuración fija convocatoria, versión, bases, fecha de corte, ventana,
+coeficientes, tablas, topes, jornada, conversión y redondeo.
+
+Para una configuración propia, entregue los objetos `configuracion` y
+`entrada` en archivos separados con `--reglas`, `--entrada` y sus respectivas
+huellas SHA256. Cada JSON de Concursos admite hasta 2 MiB; `--limite-bytes` puede
+reducir el límite de lectura. Los archivos sólo pueden contener datos sintéticos. No combine
+estos parámetros con `--ejemplo` o `--listar-ejemplos`.
+
+Los intervalos incluyen su comienzo y excluyen su final. `fecha_corte` es el
+primer día que queda fuera del cálculo. Una regla mensual con `por_periodo`
+descarta los días restantes de cada hecho. V1 rechaza los métodos mensuales y
+anuales con `por_tramo`; este último agrupa días exactos ponderados por jornada
+antes de convertirlos. No presupone que un mes tenga treinta días.
+
+El resultado `provision.simulacion.v1` conserva las versiones del motor y las
+reglas, las huellas y el desglose de unidades, bruto y topes. Compruebe
+`resultado.completo` y `resultado.total`: si falta una fuente necesaria,
+el total queda sin calcular y aparece una incidencia. Un cero exige datos
+conocidos. La simulación no admite, adjudica, firma ni publica una valoración.
+
+CLI y web usan `application.Simular`. Este corte no guarda borradores ni
+puntuaciones institucionales; la activación durable continúa pendiente de su
+cadena de autorización y auditoría.
+
+```sh
+GOCACHE=/dev/shm/go-build go test -p 32 ./internal/modules/provision/... ./cmd/vec-baremador
 ```
