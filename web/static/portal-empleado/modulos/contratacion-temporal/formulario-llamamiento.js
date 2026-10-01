@@ -154,7 +154,7 @@ export function montarFormularioLlamamiento({
     clearTimeout(temporizadorPlazo);
     const restante = Date.parse(estado.contacto.recibo?.plazo?.respuesta_hasta ?? "") - ahora();
     if (Number.isFinite(restante) && restante > 0 && restante < 2 ** 31 - 1) {
-      temporizadorPlazo = setTimeout(() => repintar(), restante + 1000);
+      temporizadorPlazo = setTimeout(repintarVencimiento, restante + 1000);
     }
   }
   // El contacto efectivo abre el plazo; sin él, no hay expiración ni causa.
@@ -382,6 +382,45 @@ export function montarFormularioLlamamiento({
       foco?.scrollIntoView?.({ block: "nearest" });
       try { anunciar(t(paso.mensaje), paso.tono); } catch { /* La región viva permanece. */ }
     }
+  }
+  function repintarVencimiento() {
+    if (!montado) return;
+    const documento = raiz.ownerDocument;
+    const activo = documento?.activeElement;
+    const dentro = activo && raiz.contains(activo);
+    const formulario = dentro ? activo.closest?.("[data-ct-llamamiento-form]") : null;
+    const operacion = formulario?.dataset.ctLlamamientoForm;
+    const indice = formulario ? Array.from(formulario.elements).indexOf(activo) : -1;
+    const nombreControl = dentro ? activo.name : "";
+    const tipoControl = dentro ? activo.type : "";
+    const id = dentro ? activo.id : "";
+    const ancla = dentro ? ["recibo", "estado"].map((tipo) => {
+      const paso = activo.getAttribute?.(`data-ct-llamamiento-${tipo}`);
+      return Object.hasOwn(estado, paso) ? `[data-ct-llamamiento-${tipo}="${paso}"]` : "";
+    }).find(Boolean) : "";
+    const seleccion = dentro && Number.isInteger(activo.selectionStart)
+      ? [activo.selectionStart, activo.selectionEnd, activo.selectionDirection] : null;
+    // Solo el repintado pasivo recoge la edición actual; los envíos conservan
+    // su propio borrado y su foco de resultado.
+    guardarBorradores();
+    repintar();
+    if (!dentro) return;
+    const control = id ? documento.getElementById(id) : ancla ? raiz.querySelector(ancla)
+      : Object.hasOwn(OPERACIONES, operacion) && indice >= 0
+        ? raiz.querySelector(`[data-ct-llamamiento-form="${operacion}"]`)?.elements[indice] : null;
+    if (control && raiz.contains(control) && control.name === nombreControl
+      && control.type === tipoControl && !control.matches(":disabled")) {
+      control.focus({ preventScroll: true });
+      if (documento.activeElement === control) {
+        if (seleccion) control.setSelectionRange?.(...seleccion);
+        control.scrollIntoView?.({ block: "nearest" });
+        return;
+      }
+    }
+    const titulo = raiz.querySelector("#ct-llamamiento-plazo-titulo");
+    titulo?.setAttribute("tabindex", "-1");
+    titulo?.focus({ preventScroll: true });
+    titulo?.scrollIntoView({ block: "nearest" });
   }
   function guardarBorradores() {
     for (const [operacion, contrato] of Object.entries(OPERACIONES)) {
@@ -865,6 +904,6 @@ export function montarFormularioLlamamiento({
     raiz.replaceChildren();
   };
   desmontar.actualizarContexto = actualizarContexto;
-  desmontar.revisarPlazo = () => repintar();
+  desmontar.revisarPlazo = repintarVencimiento;
   return desmontar;
 }

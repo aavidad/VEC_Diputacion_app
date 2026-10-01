@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { CLAVES_SIN_ENTRADA_PORTAL, crearCoordinadorModulosPortal } from "./portal-modulos-coordinador.js?v=20261001-cronos-grafo-bandeja-v5";
+import { CLAVES_SIN_ENTRADA_PORTAL, crearCoordinadorModulosPortal } from "./portal-modulos-coordinador.js?v=20261001-f-reconciliacion-cronos-v1";
 import { traducirPortal } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
 import { versionDe } from "./versiones-cache.test-helper.mjs";
 import { crearVistaInicioPortal } from "./portal-inicio.js?v=20261001-ct-a-i18n-v1";
