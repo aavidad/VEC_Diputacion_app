@@ -76,6 +76,49 @@ node scripts/recorridos-f/recorrer.mjs \
 Para inglés cambie `idioma` a `en` y use otra carpeta nueva. El guion selecciona
 `?lang=` y comprueba el atributo `lang`; no modifica preferencias persistidas.
 
+Para comprobar accesibilidad en esas mismas lecturas:
+
+```sh
+node scripts/recorridos-f/recorrer.mjs \
+  --config /RUTA_PRIVADA/lecturas.json --modo accesibilidad \
+  --salida /RUTA_PRIVADA/lecturas-accesibilidad
+```
+
+El modo `accesibilidad` observa Mi bolsa, su historial, la lista RRHH de bolsas,
+los candidatos de la bolsa, el cuadro CT y el detalle CT. Repite las seis
+superficies a 1440 y 390 px, y a 1440 px con **zoom nativo de Chrome al 200 %**.
+Use una configuración y una salida nueva por idioma, español e inglés.
+Las dos aperturas de lectura usan Tab y Enter. En los demás controles sólo
+recorre Tab y Shift+Tab; no activa acciones ni cambia valores.
+
+Comprueba el nombre accesible calculado por Chrome y la etiqueta visible de
+cada campo habilitado. Recorre los controles habilitados de cada superficie
+con teclado, observa el indicador de foco y comprueba cinco puntos del control
+para detectar recortes u obstáculos. Exige que no haya desbordamiento global.
+El límite es de 256 pasos de Tab por superficie; superarlo corta la comprobación.
+En un grupo de radios comprueba la entrada con Tab, sin cambiar la selección.
+Una superficie sin controles habilitados registra cero controles de teclado.
+
+Chrome aplica el zoom desde su página interna de ajustes. Usa un perfil temporal
+privado para esos ajustes y contextos separados, sin persistencia, para las
+identidades mTLS. Cierra Chrome y elimina el perfil al terminar o al fallar.
+La comprobación verifica ancho CSS, densidad, escala visual y ausencia de zoom
+CSS: 1440 px deben dar 720 px CSS, DPR 2 y escala visual 1 al 200 %.
+No cambia el perfil habitual de Chrome ni añade destinos a las lecturas.
+
+Cada paso añade `accesibilidad`: lectura, zoom, métricas y contadores, sin textos
+de etiquetas, nombres accesibles ni fragmentos de página. Los fallos cortan el
+recorrido; consulte `etiquetas_ausentes`, `nombres_ausentes`,
+`controles_fuera_de_tab`, `teclado_no_alcanzados`, `foco_invisible` y `foco_tapado`.
+El estado final de este modo es `LECTURAS_Y_ACCESIBILIDAD_COMPROBADAS`.
+El modo `lectura` conserva su resultado v1 y su comparación; `accesibilidad`
+no acepta `--comparar` ni sustituye la evidencia del reinicio.
+
+Estas comprobaciones son parciales. El indicador de foco se observa mediante
+estilos y puntos visibles; no mide su contraste ni todo su contorno. No acredita
+orden lógico, interacción con flechas, lector de pantalla, PDF accesible ni
+conformidad global WCAG. La revisión humana sigue siendo necesaria.
+
 Tras un reinicio autorizado de **los mismos procesos y PostgreSQL**, Dirección
 puede volver a consultar y comparar el resumen y la historia CT:
 
@@ -117,8 +160,9 @@ el runner no puede acreditar por sí solo esas operaciones de Dirección.
 ## Comprobación del runner
 
 ```sh
-node --test scripts/recorridos-f/recorrer.test.mjs
+node --test scripts/recorridos-f/recorrer.test.mjs scripts/recorridos-f/a11y.test.mjs
 node scripts/recorridos-f/smoke-chrome.mjs
+VEC_F_TEST_SCRATCH=/RUTA_PRIVADA/TEMPORALES node scripts/recorridos-f/smoke-a11y-chrome.mjs
 semgrep --config scripts/recorridos-f/semgrep-local.yml \
   --metrics off --disable-version-check --no-git-ignore scripts/recorridos-f
 ```
@@ -134,9 +178,13 @@ guiones existentes de altas, llamamiento y recuperación, los recorridos H6 de M
 y el baremador de B. Este corte no acredita las ocho fases, firma, entrega de
 correo, perfiles completos ni conformidad global de accesibilidad.
 
-Verificación del productor: nueve pruebas Node y smoke Chrome aislado verdes.
-Las regresiones cubren los HTTP 200 incompatibles y el resultado terminal
+Verificación de esta extensión: once pruebas Node verdes y once casos de
+accesibilidad en Chrome del sistema aislado, con fixtures propios. Los casos
+cubren español e inglés, 1440 y 390 px y zoom nativo al 200 %; detectan etiqueta
+sólo accesible, nombre ausente, foco invisible, control tapado y exclusión de Tab.
+No hubo escrituras al servidor del fixture y se eliminó el perfil temporal.
+Las regresiones conservadas cubren los HTTP 200 incompatibles y el resultado terminal
 saneado cuando falla Chrome o el contexto mTLS. El smoke de transporte se
-conserva del primer corte; no se repitió tras estas correcciones de contratos.
+conserva del primer corte; no se repitió para esta extensión de accesibilidad.
 Las seis lecturas contra VEC están **pendientes**, porque no se ha entregado un
 servidor con sus dos orígenes y perfiles sintéticos listo para este runner.
