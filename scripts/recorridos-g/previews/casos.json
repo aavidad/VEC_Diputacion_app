@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "paginas": {
+    "informes": "/web/static/portal-empleado/modulos/dietas/informes/index.html",
+    "catalogo": "/web/static/portal-empleado/modulos/dietas/catalogo/index.html"
+  },
+  "datos": [
+    "/data/demo/dietas/informes.json",
+    "/data/demo/dietas/catalogo-rrhh.json",
+    "/data/catalogos/dietas/informes-ejemplo-v1.json"
+  ],
+  "informes": {
+    "persona": "persona-demo-02",
+    "unidad": "unidad-demo-02",
+    "desde": "2026-09-01",
+    "hasta": "2026-09-30",
+    "referencia": "DI-002",
+    "importe_centimos": 4250
+  },
+  "catalogo": {
+    "fila": 0,
+    "importe_es": "42,50",
+    "importe_en": "42.50",
+    "importe_centimos": 4250,
+    "motivo_es": "Corrección de ejemplo",
+    "motivo_en": "Example correction"
+  }
+}
