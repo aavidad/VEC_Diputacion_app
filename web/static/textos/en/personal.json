@@ -527,7 +527,9 @@
     "ficha_no_configurado": "There is no authorised own source connected for this section. The absence of data is not the same as zero.",
     "ficha_denegado": "You do not have permission to view this section.",
     "ficha_excede_limite": "This section has more records than can be shown here. Ask Human Resources for the detail.",
-    "ficha_error": "This section could not be checked. The other sections are still available."
+    "ficha_error": "This section could not be checked. The other sections are still available.",
+    "ficha_reintentar": "Retry query",
+    "ficha_actualizar": "Refresh data"
   },
   "rpt_puestos": {
     "sobrelinea": "Employee Portal → Personnel",
