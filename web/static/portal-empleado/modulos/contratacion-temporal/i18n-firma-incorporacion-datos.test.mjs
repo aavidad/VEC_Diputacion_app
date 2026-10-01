@@ -5,10 +5,7 @@ import test from "node:test";
 import { crearTraductorCircuitoFirma, MENSAJES_CIRCUITO_FIRMA_ES, MENSAJES_CIRCUITO_FIRMA_EN } from "./i18n-circuito-firma.js?v=20261001-ct-firma-verificador-v1";
 import { MENSAJES_FIRMA_REMISION_ES, MENSAJES_FIRMA_REMISION_EN } from "./i18n-firma-remision.js?v=20261001-ct-a-i18n-v1";
 import { MENSAJES_SEGUIMIENTO_CESE, MENSAJES_SEGUIMIENTO_CESE_EN } from "./i18n-seguimiento-cese.js";
-import {
-  MENSAJES_FIRMA_INCORPORACION_PORTAL_ES, MENSAJES_FIRMA_INCORPORACION_PORTAL_EN,
-  MENSAJES_FIRMA_INCORPORACION_EXPEDIENTES_ES, MENSAJES_FIRMA_INCORPORACION_EXPEDIENTES_EN,
-} from "./i18n-firma-incorporacion-datos.js?v=20261001-ct-a-i18n-v1";
+import { MENSAJES_FIRMA_INCORPORACION } from "./i18n-firma-incorporacion-datos.js?v=20261001-ct-a-i18n-v1";
 import { MENSAJES_CONTRATACION_TEMPORAL_ES, MENSAJES_CONTRATACION_TEMPORAL_EN } from "./i18n.js";
 import { MENSAJES_EXPEDIENTES_CONTRATACION_ES, MENSAJES_EXPEDIENTES_CONTRATACION_EN } from "./i18n-expedientes.js";
 import { IDIOMAS_DISPONIBLES } from "../../../comun/idioma.js";
@@ -17,8 +14,8 @@ const conjuntos = [
   ["contratacion-temporal-circuito-firma", MENSAJES_CIRCUITO_FIRMA_ES, MENSAJES_CIRCUITO_FIRMA_EN],
   ["contratacion-temporal-firma-remision", MENSAJES_FIRMA_REMISION_ES, MENSAJES_FIRMA_REMISION_EN],
   ["contratacion-temporal-seguimiento-cese", MENSAJES_SEGUIMIENTO_CESE, MENSAJES_SEGUIMIENTO_CESE_EN],
-  ["contratacion-temporal-firma-incorporacion-portal", MENSAJES_FIRMA_INCORPORACION_PORTAL_ES, MENSAJES_FIRMA_INCORPORACION_PORTAL_EN],
-  ["contratacion-temporal-firma-incorporacion-expedientes", MENSAJES_FIRMA_INCORPORACION_EXPEDIENTES_ES, MENSAJES_FIRMA_INCORPORACION_EXPEDIENTES_EN],
+  ["contratacion-temporal-firma-incorporacion-portal", MENSAJES_FIRMA_INCORPORACION.portal.ES, MENSAJES_FIRMA_INCORPORACION.portal.EN],
+  ["contratacion-temporal-firma-incorporacion-expedientes", MENSAJES_FIRMA_INCORPORACION.expedientes.ES, MENSAJES_FIRMA_INCORPORACION.expedientes.EN],
 ];
 
 const variables = (texto) => [...texto.matchAll(/\{([a-z_]+)\}/gu)].map(([, nombre]) => nombre).sort();
@@ -51,10 +48,10 @@ test("los catálogos conservan claves, exportaciones y variables en ambos idioma
 
 test("los dos agregadores conservan todos los valores extraídos", () => {
   for (const [extraido, actual] of [
-    [MENSAJES_FIRMA_INCORPORACION_PORTAL_ES, MENSAJES_CONTRATACION_TEMPORAL_ES],
-    [MENSAJES_FIRMA_INCORPORACION_PORTAL_EN, MENSAJES_CONTRATACION_TEMPORAL_EN],
-    [MENSAJES_FIRMA_INCORPORACION_EXPEDIENTES_ES, MENSAJES_EXPEDIENTES_CONTRATACION_ES],
-    [MENSAJES_FIRMA_INCORPORACION_EXPEDIENTES_EN, MENSAJES_EXPEDIENTES_CONTRATACION_EN],
+    [MENSAJES_FIRMA_INCORPORACION.portal.ES, MENSAJES_CONTRATACION_TEMPORAL_ES],
+    [MENSAJES_FIRMA_INCORPORACION.portal.EN, MENSAJES_CONTRATACION_TEMPORAL_EN],
+    [MENSAJES_FIRMA_INCORPORACION.expedientes.ES, MENSAJES_EXPEDIENTES_CONTRATACION_ES],
+    [MENSAJES_FIRMA_INCORPORACION.expedientes.EN, MENSAJES_EXPEDIENTES_CONTRATACION_EN],
   ]) {
     for (const [clave, valor] of Object.entries(extraido)) assert.equal(actual[clave], valor, clave);
     assert.deepEqual(Object.keys(extraido), Object.keys(actual).filter((clave) => Object.hasOwn(extraido, clave)));

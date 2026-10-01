@@ -33,6 +33,7 @@ const VALORES_CONTROLADOS = (await cargarTextos("contratacion-temporal-circuito-
 
 /** Traduce únicamente valores conocidos del catálogo; conserva otros como datos. */
 export function traducirValorCircuitoFirma(tipo, valor, t) {
-  const clave = VALORES_CONTROLADOS[tipo]?.[valor];
+  const clave = Object.entries(VALORES_CONTROLADOS[tipo] ?? {})
+    .find(([, origen]) => origen === valor)?.[0];
   return clave ? t(`circuito_firma_${tipo}_${clave}`) : valor;
 }

@@ -1,8 +1,5 @@
 /** Textos castellanos del módulo; las vistas solo consumen claves. */
-import {
-  MENSAJES_FIRMA_INCORPORACION_PORTAL_ES,
-  MENSAJES_FIRMA_INCORPORACION_PORTAL_EN,
-} from "./i18n-firma-incorporacion-datos.js?v=20261001-ct-a-i18n-v1";
+import { MENSAJES_FIRMA_INCORPORACION } from "./i18n-firma-incorporacion-datos.js?v=20261001-ct-a-i18n-v1";
 import { MENSAJES_LLAMAMIENTO_ES } from "./i18n-llamamiento.js?v=20261001-ct-a-i18n-v1";
 import { MENSAJES_SUBSANACION_REPAROS_ES } from "./i18n-subsanacion-reparos.js?v=20261001-ct-a-i18n-v1";
 import { MENSAJES_DOCUMENTACION_FORMALIZACION_ES } from "./i18n-documentacion-formalizacion.js?v=20260926-pulido-tecnico-v1";
@@ -483,7 +480,7 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   cierre_estado_con_preparacion: "Seleccione un motivo publicado por el servidor.", cierre_estado_sin_preparacion: "No hay nueva preparación autorizada; puede cargar una solicitud original.",
   cierre_lectura_error: "No se pudo recuperar la preparación del cierre. El cierre no está habilitado; puede reintentar la lectura.",
   cierre_reintentar_lectura: "Reintentar la lectura de cierre", cierre_detalle_obsoleto: "La anotación se registró en la versión {version}. El detalle mostrado (v{version_anterior}) está obsoleto y el cierre permanece deshabilitado hasta actualizarlo.",
-  ...MENSAJES_FIRMA_INCORPORACION_PORTAL_ES,
+  ...MENSAJES_FIRMA_INCORPORACION.portal.ES,
 });
 
 /** British English messages for the temporary staff requests module. */
@@ -935,7 +932,7 @@ export const MENSAJES_CONTRATACION_TEMPORAL_EN = Object.freeze({
   cierre_lectura_error: "Closure preparation could not be retrieved. Closure is disabled; you can retry the enquiry.",
   cierre_reintentar_lectura: "Retry closure enquiry",
   cierre_detalle_obsoleto: "The note was recorded in version {version}. The displayed details (v{version_anterior}) are out of date and closure remains disabled until they are refreshed.",
-  ...MENSAJES_FIRMA_INCORPORACION_PORTAL_EN,
+  ...MENSAJES_FIRMA_INCORPORACION.portal.EN,
 });
 
 export function crearTraductorContratacionTemporal(sobrescrituras = {}) {

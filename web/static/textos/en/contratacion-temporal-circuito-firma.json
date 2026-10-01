@@ -68,21 +68,21 @@
   },
   "valores_controlados": {
     "documento": {
-      "Informe definitivo": "informe_definitivo",
-      "Resolución de nombramiento o contratación": "resolucion",
-      "Diligencia": "diligencia",
-      "Toma de posesión": "toma_posesion",
-      "Notificación": "notificacion",
-      "Comunicación al centro": "comunicacion_centro"
+      "informe_definitivo": "Informe definitivo",
+      "resolucion": "Resolución de nombramiento o contratación",
+      "diligencia": "Diligencia",
+      "toma_posesion": "Toma de posesión",
+      "notificacion": "Notificación",
+      "comunicacion_centro": "Comunicación al centro"
     },
     "cargo": {
-      "Técnico/a de RRHH responsable del expediente": "tecnico_rrhh",
-      "Jefatura del Servicio de RRHH": "jefatura_rrhh",
-      "Jefatura del Servicio de RRHH (propuesta)": "jefatura_propuesta",
-      "Diputado/a delegado/a de Recursos Humanos": "diputacion_delegada",
-      "Secretaría General (toma de razón)": "secretaria_razon",
-      "Secretaría General (fe pública)": "secretaria_fe",
-      "Persona nombrada": "persona_nombrada"
+      "tecnico_rrhh": "Técnico/a de RRHH responsable del expediente",
+      "jefatura_rrhh": "Jefatura del Servicio de RRHH",
+      "jefatura_propuesta": "Jefatura del Servicio de RRHH (propuesta)",
+      "diputacion_delegada": "Diputado/a delegado/a de Recursos Humanos",
+      "secretaria_razon": "Secretaría General (toma de razón)",
+      "secretaria_fe": "Secretaría General (fe pública)",
+      "persona_nombrada": "Persona nombrada"
     }
   }
 }
