@@ -464,6 +464,13 @@ static/textos/es/formacion.json
 static/textos/en/formacion.json
 static/textos/es/carrera.json
 static/textos/en/carrera.json
+static/portal-empleado/portal-accesos-empleado.js
+static/textos/es/accesos-empleado.json
+static/textos/en/accesos-empleado.json
+static/portal-empleado/modulos/solicitudes/fuente-tramites-propios.js
+static/portal-empleado/modulos/solicitudes/vista-tramites-propios.js
+static/textos/es/tramites-empleado.json
+static/textos/en/tramites-empleado.json
 static/portal-empleado/modulos/analitica/ficha-indicadores.js
 static/portal-empleado/modulos/analitica/catalogo-indicadores.json
 static/textos/es/analitica.json
