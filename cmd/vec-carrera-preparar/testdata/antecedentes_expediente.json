@@ -1,0 +1,88 @@
+{
+  "instantaneas": [
+    {
+      "alcance": "preparacion_sintetica",
+      "caso_ref": "expediente-grado-1",
+      "version": "carrera-preparacion-1",
+      "persona_ref": "persona-sintetica-1",
+      "empleado_ref": "empleado-sintetico-1",
+      "relacion_ref": "relacion-sintetica-1",
+      "corte_efectivo": "2026-10-01",
+      "corte_conocimiento": "2026-10-01T12:00:00Z",
+      "cobertura": "parcial",
+      "regimen": "funcionario_carrera",
+      "grupo_subgrupo": "A2",
+      "grupo_profesional": "",
+      "fuentes": [
+        {
+          "referencia": "fuente-sintetica-carrera",
+          "version": "ensayo-1"
+        }
+      ],
+      "ocupaciones": [
+        {
+          "referencia": "ocupacion-sintetica",
+          "nivel": 24,
+          "periodo": {
+            "inicio": "2020-01-01",
+            "fin": "",
+            "evidencia": {
+              "referencia": "acto-sintetico",
+              "fuente": "fuente-sintetica-carrera",
+              "version": "ensayo-1"
+            }
+          }
+        }
+      ],
+      "grado": {
+        "valor": 20,
+        "evidencia": {
+          "referencia": "acto-sintetico",
+          "fuente": "fuente-sintetica-carrera",
+          "version": "ensayo-1"
+        }
+      },
+      "servicios": [
+        {
+          "referencia": "servicio-sintetico-1",
+          "estado": "reconocido",
+          "periodo": {
+            "inicio": "2020-01-01",
+            "fin": "2022-01-01",
+            "evidencia": {
+              "referencia": "acto-sintetico",
+              "fuente": "fuente-sintetica-carrera",
+              "version": "ensayo-1"
+            }
+          }
+        },
+        {
+          "referencia": "servicio-sintetico-2",
+          "estado": "reconocido",
+          "periodo": {
+            "inicio": "2021-01-01",
+            "fin": "2023-01-01",
+            "evidencia": {
+              "referencia": "acto-sintetico",
+              "fuente": "fuente-sintetica-carrera",
+              "version": "ensayo-1"
+            }
+          }
+        },
+        {
+          "referencia": "servicio-declarado",
+          "estado": "declarado",
+          "periodo": {
+            "inicio": "2024-01-01",
+            "fin": "2024-12-31",
+            "evidencia": {
+              "referencia": "acto-sintetico",
+              "fuente": "fuente-sintetica-carrera",
+              "version": "ensayo-1"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
