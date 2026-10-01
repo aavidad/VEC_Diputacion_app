@@ -180,3 +180,42 @@ func TestAntecedentesCarreraNoResucitaReconocimientoAnterior(t *testing.T) {
 		t.Fatalf("resucitó versión anterior al filtrar por eficacia: %+v %v", p, err)
 	}
 }
+
+func TestAntecedentesCarreraPriorizaConocimientoAntesDeVersion(t *testing.T) {
+	for _, invertir := range []bool{false, true} {
+		f := fichaAntecedentesCarrera()
+		anterior := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
+		posterior := anterior.Add(24 * time.Hour)
+		f.Relaciones[0].Traza.Version = 3
+		f.Relaciones[0].Traza.RegistradaEn = anterior
+		r := f.Relaciones[0]
+		r.Estado = "finalizada"
+		r.Traza.Version = 2
+		r.Traza.RegistradaEn = posterior
+		f.Relaciones = append(f.Relaciones, r)
+		f.Servicios[0].Traza.Version = 3
+		f.Servicios[0].Traza.RegistradaEn = anterior
+		s := f.Servicios[0]
+		s.Estado = "comprobado"
+		s.Traza.Version = 2
+		s.Traza.RegistradaEn = posterior
+		f.Servicios = append(f.Servicios, s)
+		if invertir {
+			slices.Reverse(f.Relaciones)
+			slices.Reverse(f.Servicios)
+		}
+		p, err := PrepararAntecedentesCarrera(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		actual := p.Relaciones[0]
+		if actual.Estado != "finalizada" || actual.Traza.Version != 2 || !actual.Traza.RegistradaEn.Equal(posterior) || !slices.Contains(actual.Pendientes, "servicios_no_reconocidos") {
+			t.Fatalf("priorizó número de versión sobre conocimiento: %+v", actual)
+		}
+		for _, servicio := range actual.Servicios {
+			if servicio.UltimaRevisionConocida != (servicio.Traza.Version == 2) {
+				t.Fatal("último servicio no coincide con la fecha de conocimiento")
+			}
+		}
+	}
+}

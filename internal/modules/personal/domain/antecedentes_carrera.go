@@ -97,7 +97,7 @@ func PrepararAntecedentesCarrera(f FichaEmpleadoB2) (PreparacionAntecedentesCarr
 			for _, clave := range pendientes {
 				actual.Pendientes = agregarPendienteCarrera(actual.Pendientes, clave)
 			}
-			if r.Traza.Version > actual.Traza.Version {
+			if trazaCarreraPosterior(r.Traza, actual.Traza) {
 				actual.Estado = r.Estado
 				actual.RegimenRef = r.RegimenRef
 				actual.Regimen = nombre
@@ -202,7 +202,7 @@ func ultimosServiciosCarrera(servicios []ServicioAntecedentesCarrera) []Servicio
 	indices := make(map[string]int, len(servicios))
 	for _, s := range servicios {
 		if i, existe := indices[s.ServicioRef]; existe {
-			if s.Traza.Version > actuales[i].Traza.Version {
+			if trazaCarreraPosterior(s.Traza, actuales[i].Traza) {
 				actuales[i] = s
 			}
 			continue
@@ -211,4 +211,9 @@ func ultimosServiciosCarrera(servicios []ServicioAntecedentesCarrera) []Servicio
 		actuales = append(actuales, s)
 	}
 	return actuales
+}
+
+// La fecha de conocimiento precede a la versión, como en las consultas B2.
+func trazaCarreraPosterior(a, b TrazaEmpleadoB2) bool {
+	return a.RegistradaEn.After(b.RegistradaEn) || (a.RegistradaEn.Equal(b.RegistradaEn) && a.Version > b.Version)
 }
