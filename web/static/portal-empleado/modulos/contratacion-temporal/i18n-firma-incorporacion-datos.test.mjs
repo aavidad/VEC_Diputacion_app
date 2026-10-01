@@ -28,8 +28,17 @@ test("los catálogos conservan claves, exportaciones y variables en ambos idioma
   assert.ok(es && en, "el índice requiere dos idiomas");
   for (const [modulo, mensajesES, mensajesEN] of conjuntos) {
     const ruta = (codigo) => new URL(`../../../textos/${codigo}/${modulo}.json`, import.meta.url);
-    const datosES = JSON.parse(await readFile(ruta(es.codigo), "utf8")).general;
-    const datosEN = JSON.parse(await readFile(ruta(en.codigo), "utf8")).general;
+    const seccionesES = JSON.parse(await readFile(ruta(es.codigo), "utf8"));
+    const seccionesEN = JSON.parse(await readFile(ruta(en.codigo), "utf8"));
+    assert.deepEqual(Object.keys(seccionesES), Object.keys(seccionesEN), `${modulo}: secciones`);
+    const mensajes = (secciones) => Object.assign({}, ...Object.entries(secciones)
+      .filter(([nombre]) => nombre !== "valores_controlados")
+      .map(([, valores]) => valores));
+    const datosES = mensajes(seccionesES);
+    const datosEN = mensajes(seccionesEN);
+    if (seccionesES.valores_controlados) {
+      assert.deepEqual(seccionesES.valores_controlados, seccionesEN.valores_controlados);
+    }
     assert.deepEqual(mensajesES, datosES, `${modulo}: exportación ES`);
     assert.deepEqual(mensajesEN, datosEN, `${modulo}: exportación EN`);
     assert.deepEqual(Object.keys(datosES).sort(), Object.keys(datosEN).sort(), `${modulo}: claves`);
@@ -48,6 +57,7 @@ test("los dos agregadores conservan todos los valores extraídos", () => {
     [MENSAJES_FIRMA_INCORPORACION_EXPEDIENTES_EN, MENSAJES_EXPEDIENTES_CONTRATACION_EN],
   ]) {
     for (const [clave, valor] of Object.entries(extraido)) assert.equal(actual[clave], valor, clave);
+    assert.deepEqual(Object.keys(extraido), Object.keys(actual).filter((clave) => Object.hasOwn(extraido, clave)));
   }
 });
 
