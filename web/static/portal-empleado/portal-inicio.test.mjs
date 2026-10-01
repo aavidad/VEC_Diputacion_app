@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
-import { crearVistaInicioPortal, resumirBolsasInicio } from "./portal-inicio.js";
-import { crearControladorPortal } from "./portal-eventos.js";
-import { cargarMensajesPortal, crearTraductorPortal, MENSAJES_PORTAL } from "./portal-i18n.js";
+import { crearVistaInicioPortal, resumirBolsasInicio } from "./portal-inicio.js?v=20261001-ct-a-i18n-v1";
+import { crearControladorPortal } from "./portal-eventos.js?v=20261001-ct-a-i18n-v1";
+import { cargarMensajesPortal, crearTraductorPortal, MENSAJES_PORTAL } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
 
 const moduloBolsa = Object.freeze({
   clave: "bolsa",

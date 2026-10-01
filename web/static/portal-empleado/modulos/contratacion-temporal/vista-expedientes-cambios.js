@@ -5,8 +5,8 @@
  * personales llegan como la marca «*protegido»: solo se sabe que cambiaron.
  */
 import { crearClienteHTTPCambiosExpediente } from "./cliente-http-cambios-expediente.js";
-import { MENSAJES_CAMBIOS_EXPEDIENTE_ES, MENSAJES_CAMBIOS_EXPEDIENTE_EN } from "./i18n-cambios-expediente.js";
-import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js";
+import { MENSAJES_CAMBIOS_EXPEDIENTE_ES, MENSAJES_CAMBIOS_EXPEDIENTE_EN } from "./i18n-cambios-expediente.js?v=20261001-ct-a-i18n-v1";
+import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261001-ct-a-i18n-v1";
 import { IDIOMA_ACTUAL, LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
 
 const PROTEGIDO = "*protegido";

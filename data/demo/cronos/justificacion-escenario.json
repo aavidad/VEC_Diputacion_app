@@ -1,0 +1,66 @@
+{
+  "version_esquema": 1,
+  "demostracion": true,
+  "escenarios": [
+    {
+      "referencia": "demo:justificacion:escenario:1",
+      "solicitud": {
+        "solicitud_ref": "permiso:cronos:solicitud:demo-solicitud-0001",
+        "empleado_ref": "emp_demo_empleado_00000001_abcd",
+        "catalogo_version_ref": "demo:catalogo:permisos:v1",
+        "permiso_ref": "demo:permiso:justificante:v1",
+        "expediente_documental_ref": "ref:1111111111111111111111111111111111111111111111111111111111111111",
+        "version": 3,
+        "estado": "concedido",
+        "justificante_exigido": true
+      },
+      "vinculo": {
+        "solicitud_ref": "permiso:cronos:solicitud:demo-solicitud-0001",
+        "empleado_ref": "emp_demo_empleado_00000001_abcd",
+        "catalogo_version_ref": "demo:catalogo:permisos:v1",
+        "permiso_ref": "demo:permiso:justificante:v1",
+        "expediente_documental_ref": "ref:1111111111111111111111111111111111111111111111111111111111111111",
+        "documento": {
+          "id": "ref:3333333333333333333333333333333333333333333333333333333333333333",
+          "version": 1,
+          "sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+          "custodio_id": "deposito_documental_demo",
+          "custodia_ref": "demo.documento:1"
+        }
+      },
+      "version_esperada": 1,
+      "decision": "aceptada",
+      "motivo_ref": "demo:revision:conforme"
+    },
+    {
+      "referencia": "demo:justificacion:escenario:2",
+      "solicitud": {
+        "solicitud_ref": "permiso:cronos:solicitud:demo-solicitud-0002",
+        "empleado_ref": "emp_demo_empleado_00000002_abcd",
+        "catalogo_version_ref": "demo:catalogo:permisos:v1",
+        "permiso_ref": "demo:permiso:justificante:v1",
+        "expediente_documental_ref": "ref:1111111111111111111111111111111111111111111111111111111111111111",
+        "version": 3,
+        "estado": "concedido",
+        "justificante_exigido": true
+      },
+      "vinculo": {
+        "solicitud_ref": "permiso:cronos:solicitud:demo-solicitud-0002",
+        "empleado_ref": "emp_demo_empleado_00000002_abcd",
+        "catalogo_version_ref": "demo:catalogo:permisos:v1",
+        "permiso_ref": "demo:permiso:justificante:v1",
+        "expediente_documental_ref": "ref:1111111111111111111111111111111111111111111111111111111111111111",
+        "documento": {
+          "id": "ref:4444444444444444444444444444444444444444444444444444444444444444",
+          "version": 1,
+          "sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+          "custodio_id": "deposito_documental_demo",
+          "custodia_ref": "demo.documento:2"
+        }
+      },
+      "version_esperada": 1,
+      "decision": "rechazada",
+      "motivo_ref": "demo:revision:insuficiente"
+    }
+  ]
+}

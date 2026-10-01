@@ -56,6 +56,7 @@ func ejecutar(ctx context.Context, args []string, salida, diagnostico io.Writer)
 		}
 	}()
 	fmt.Fprintln(salida, "http://"+host+entradaWeb)
+	fmt.Fprintln(salida, "http://"+host+entradaProvision)
 	if err := servidor.Serve(ln); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		fmt.Fprintln(diagnostico, "servidor_fallido")
 		return 2

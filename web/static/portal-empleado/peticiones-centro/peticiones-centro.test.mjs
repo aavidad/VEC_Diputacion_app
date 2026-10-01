@@ -9,7 +9,7 @@ import {
   validarReciboPeticionCentro,
   registrarOperacionPeticionCentro,
   registrarAltaRRHH,
-} from "./peticiones-centro.js";
+} from "./peticiones-centro.js?v=20261001-ct-a-i18n-v1";
 
 const catalogos = {
   esquema: "vec.contratacion_temporal.catalogos_alta.v1",

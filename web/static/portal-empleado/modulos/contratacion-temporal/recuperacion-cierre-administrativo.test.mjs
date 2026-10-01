@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { montarFormularioCierreAdministrativo } from "./formulario-cierre-administrativo.js";
+import { montarFormularioCierreAdministrativo } from "./formulario-cierre-administrativo.js?v=20261001-ct-a-i18n-v1";
 import { validarDatosRecuperacionCierreAdministrativo } from "./contrato-cierre-administrativo.js";
 const contexto = { expediente_ref: "expediente:1", seguimiento_ref: "seguimiento:1" }, solicitud = { ...contexto, version_esperada: 3, clave_idempotencia: "11111111-1111-4111-8111-111111111111", transicion_clave: "cerrar_administrativamente_sin_cese", motivo_clave: "fin_ejercicio_sintetico" }, datos = { esquema: "v1", solicitud };
 function raiz() { const eventos = new Map(); return { innerHTML: "", addEventListener(tipo, fn) { eventos.set(tipo, fn); }, removeEventListener() {}, replaceChildren() { this.innerHTML = ""; }, evento(tipo, target) { return eventos.get(tipo)({ type: tipo, target, preventDefault() {} }); } }; }

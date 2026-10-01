@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "paginas": {
+    "informes": "/web/static/portal-empleado/modulos/dietas/informes/index.html",
+    "catalogo": "/web/static/portal-empleado/modulos/dietas/catalogo/index.html"
+  },
+  "datos": [
+    "/data/demo/dietas/informes.json",
+    "/data/demo/dietas/catalogo-rrhh.json",
+    "/data/catalogos/dietas/informes-ejemplo-v1.json"
+  ],
+  "informes": {
+    "variante": {
+      "version_configuracion": 2,
+      "criterio": {
+        "campo_fecha": "fecha_liquidacion",
+        "estados_incluidos": ["liquidado"],
+        "conceptos_incluidos": ["manutencion"]
+      },
+      "historia_adicional": {
+        "version": 2,
+        "actor_ref": "actor:ejemplo:rrhh",
+        "actor_nombre": "Marina Torres",
+        "fecha": "2026-10-02T00:00:00Z",
+        "idioma_motivo": "es",
+        "motivo": "Variante sintética de liquidación para comprobar el informe. Sin aprobación administrativa."
+      }
+    },
+    "filtros": {
+      "persona": "persona-demo-02",
+      "unidad": "unidad-demo-02",
+      "desde": "2026-09-01",
+      "hasta": "2026-09-30"
+    },
+    "referencias": ["DI-002", "DI-006"],
+    "total_centimos": 4250
+  },
+  "catalogo": {
+    "fila": 0,
+    "importes": {"es": "42,50", "en": "42.50"},
+    "importe_centimos": 4250,
+    "motivos": {"es": "Corrección de ejemplo", "en": "Example correction"}
+  },
+  "pantalla": {
+    "pc_min_css": 1024,
+    "pc": {"documento": "sin_scroll", "principal": "scroll_si_desborda"},
+    "estrecha": {"documento": "permitido", "principal": "permitido", "contenido_alto": "scroll_alcanzable"}
+  },
+  "reintento": {"pagina": "catalogo", "idioma": "por_defecto", "ancho": 1440, "factor": 1}
+}

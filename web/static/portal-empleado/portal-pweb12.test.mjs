@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { manejarAccionAvisos } from "./portal-bolsas-avisos.js";
-import { crearPresentadorPanelInterno } from "./portal-panel-interno.js";
+import { manejarAccionAvisos } from "./portal-bolsas-avisos.js?v=20261001-ct-a-i18n-v1";
+import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261001-ct-a-i18n-v1";
 
 const directorio = new URL("./", import.meta.url);
 const portal = await readFile(new URL("portal.js", directorio), "utf8");

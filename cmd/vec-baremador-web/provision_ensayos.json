@@ -1,0 +1,9 @@
+{
+  "adjudicacion_ref": "adjudicacion_sintetica_v1",
+  "ciclo_ref": "ciclo_sintetico_v1",
+  "casos": [
+    {"caso_ref": "pendiente", "decision": "pendiente", "titulo_clave": "ciclo.casos.pendiente"},
+    {"caso_ref": "mantener", "decision": "mantener", "titulo_clave": "ciclo.casos.mantener"},
+    {"caso_ref": "rectificar", "decision": "rectificar", "titulo_clave": "ciclo.casos.rectificar"}
+  ]
+}

@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import test from "node:test";
 import { montarFormularioSubsanacionReparos } from "./formulario-subsanacion-reparos.js";
 import { crearClienteSubsanacionReparosHTTP, RUTA_SUBSANACION_REPAROS } from "./cliente-http-subsanacion-reparos.js";
-import { MENSAJES_SUBSANACION_REPAROS_ES as textos } from "./i18n-subsanacion-reparos.js";
+import { MENSAJES_SUBSANACION_REPAROS_ES as textos } from "./i18n-subsanacion-reparos.js?v=20261001-ct-a-i18n-v1";
 
 const contexto = { expediente_ref: "expediente:subsanacion:001", version_esperada: 6 };
 const clave = randomUUID();

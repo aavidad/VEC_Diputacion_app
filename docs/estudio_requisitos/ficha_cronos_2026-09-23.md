@@ -64,6 +64,30 @@ origen real de los fichajes (terminales) y su integración.
 
 ## Estado al 25 de septiembre de 2026
 
+### Inventario de continuación — 1 de octubre de 2026
+
+Revisado sobre `origin/main@460e120c2ec9c2d4953d1e98bdba011403fe17e2`.
+Las PR #36, #40, #46 y #51 ya están integradas. Se reutilizan sus casos de uso,
+adaptadores, rutas y pantallas; las ramas anteriores no aportan una implementación
+completa de los huecos siguientes.
+
+| Orden | Recorrido existente | Trabajo que falta |
+| --- | --- | --- |
+| 1 | Fichaje remoto con disponibilidad y recuperación del recibo | Actualizar la lectura tras confirmar, conservar el recibo y seguir únicamente con los movimientos que autorice el servidor. Integración de terminales pendiente. |
+| 2 | Saldo propio en cinco periodos y calendario anual | Paginar la consulta anual y reintentar lecturas conservando el periodo. El saldo aún no computa permisos concedidos; Calendarios sigue siendo una dependencia distinta. |
+| 3 | Solicitud de olvido, ausencias y correcciones propias | Localizar pendientes por estado. Decisión del responsable, resolución RRHH y aplicación carecen de adaptador durable operativo. Justificar un permiso sigue pendiente. |
+| 4 | Bandejas de permisos y notificaciones de responsable y RRHH | Presencia del equipo, agregados e informes de jornada. Descarga e impresión necesitan permiso y servicio documental propios. |
+
+La autorización actual de correcciones solo permite solicitar el olvido.
+`RegistrarActuacion` y `RecuperarRecibo` fallan cerrados. El borrador CRN11,
+reservado fuera de Git, necesita un consumidor V3 nominal posterior a la cadena
+ordenada por Dirección; no puede reutilizar el permiso de solicitud.
+
+La composición interna existente se usa como referencia de laboratorio. No
+acredita un ejecutable Cronos segregado, una base instalada ni un recorrido real.
+Las mejoras de presentación no cambian el cierre formal **0/12** ni aprueban
+jornadas, catálogo, competencias o reglas laborales.
+
 Contrastado con `origin/main` = `2ad54ce4` (PR #36, #40, #46 y #51) y con
 `web/static/portal-empleado/modulos/cronos/INTEGRACION.md`. «Formal» aplica la definición
 de terminado del consenso de hoja de ruta del 24/09 (recorrido real en PostgreSQL con
@@ -93,3 +117,29 @@ C6 completo (1/12). 000009 y 000010 están pendientes.
 | C10 | Parcial | Absentismos del empleado en movimientos (000008); sin agregados para RRHH | Solo la vista del empleado |
 | C11 | Parcial | Bandejas de resolución y de notificaciones de RRHH; sin presencia del equipo ni informes; pestañas visibles a todos hasta la matriz de roles (dudas 29, 31, 47, 48) | No |
 | C12 | No | `INTEGRACION.md`: sin PDF local; la emisión corresponde al servicio documental (B5) | No |
+
+## Inventario de continuación — 1 de octubre de 2026
+
+El portal interno compone las vistas conectadas de jornada, saldo, movimientos,
+permisos, avisos y bandejas. Las mejoras de fichaje, saldo, incidencias e historial
+están en las PR #251–#254; su publicación no acredita instalación ni recorrido
+con PostgreSQL. Las doce capacidades siguen abiertas en el cierre formal.
+
+| Requisito | Código aprovechable | Hueco que falta cerrar |
+| --- | --- | --- |
+| C1 | Identidad común y resolutor propio, sin tarjeta ni contraseña de Cronos. | Enclave admitido, relaciones vigentes y recorrido con identidades nominales. |
+| C2 | Marcajes con recibo y fichaje remoto condicionado por servidor. | Terminales e integración real; recuperación con aplicación y base. |
+| C3 | Saldo por periodo, programación, fichajes y libro. | Efecto de permisos según catálogo versionado y auditado; lectura conjunta autorizada. |
+| C4 | Calendario anual recibido, consulta por mes y detalle de fecha. | Fuente y versiones del calendario laboral y adscripción histórica de Personal. |
+| C5 | Solicitud de olvido y contrato de recuperación propia CRN11. | Consumidor nominal AD138, recuperación durable y actuaciones de responsable/RRHH/aplicación. |
+| C6 | Catálogo de permisos versionado con cuantías provisionales. | Confirmación y gobierno de reglas por RRHH. |
+| C7 | Solicitud, circuito responsable/RRHH, recibos y avisos. | Fuente nominal de competencias y recorrido completo con reinicio. |
+| C8 | Lista de permisos concedidos pendientes de justificar. | Aportación y revisión con Documentos y sus autorizaciones; no basta referencia declarada. |
+| C9 | Notificaciones y avisos propios con referencia de custodia. | Validar fuentes, conservación y recuperación en el enclave. |
+| C10 | Incidencias propias por periodo y calendario. | Agregados autorizados para RRHH. |
+| C11 | Bandeja de solicitudes autorizadas por paso. | Presencia y equipo vigente con permisos propios; ausencia de fichaje no acredita ausencia laboral. |
+| C12 | Servicio documental común reutilizable. | D debe entregar permiso nominal de exportación y auditoría; impresión y descarga siguen cerradas. |
+
+El calendario permite alternar año y mes, consultar una fecha y leer las marcas
+que devuelve el servidor. No deduce festivos, jornada individual ni presencia.
+Conserva los filtros, el borrador y el recibo de olvido.

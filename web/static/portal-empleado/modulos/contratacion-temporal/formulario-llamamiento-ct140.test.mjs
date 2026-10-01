@@ -4,8 +4,8 @@ import {
   EXPEDIENTE, recibo, raizPrueba, montar, archivoCorreo, declaracion, justificante,
   CLAVE_RESOLUCION, revisionManual, reciboResolucion, continuacionConfirmada,
   PUBLICACIONES_PROPUESTA,
-} from "./formulario-llamamiento-pruebas.js";
-import { MENSAJES_LLAMAMIENTO_EN } from "./i18n-llamamiento.js";
+} from "./formulario-llamamiento-pruebas.js?v=20261001-ct-a-i18n-v1";
+import { MENSAJES_LLAMAMIENTO_EN } from "./i18n-llamamiento.js?v=20261001-ct-a-i18n-v1";
 
 const fila = (n) => ({
   organizacion_ref: recibo.organizacion_ref, expediente_ref: EXPEDIENTE,
