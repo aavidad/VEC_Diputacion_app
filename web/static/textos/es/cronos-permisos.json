@@ -1,0 +1,11 @@
+{
+  "justificacion": {
+    "ver_pendientes": "Ver pendientes de justificar",
+    "estado_pendiente": "Pendiente de justificar",
+    "sin_pendientes": "No tienes permisos pendientes de justificar en este año.",
+    "registro_pendiente": "El registro de justificantes todavía no está disponible en esta pantalla.",
+    "ayuda_titulo": "Ayuda sobre la justificación de permisos",
+    "ayuda_origen": "El sistema marca estos permisos concedidos como pendientes de justificar.",
+    "ayuda_custodia": "Si el documento está custodiado, su referencia y huella permitirán identificarlo sin cargar su contenido."
+  }
+}

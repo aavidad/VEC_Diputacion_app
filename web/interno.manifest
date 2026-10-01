@@ -73,7 +73,13 @@ static/portal-empleado/modulos/cronos/vista-saldo-conectado.js
 static/portal-empleado/modulos/cronos/vista-remoto.js
 static/portal-empleado/modulos/cronos/vista-movimientos-conectado.js
 static/portal-empleado/modulos/cronos/vista-movimientos-propios.js
+static/portal-empleado/modulos/cronos/i18n-incidencias.js
+static/textos/es/cronos-incidencias.json
+static/textos/en/cronos-incidencias.json
 static/portal-empleado/modulos/cronos/vista-permisos-propios.js
+static/portal-empleado/modulos/cronos/i18n-historial.js
+static/textos/es/cronos-historial.json
+static/textos/en/cronos-historial.json
 static/portal-empleado/modulos/cronos/i18n-resolucion.js
 static/portal-empleado/modulos/cronos/cliente-resolucion-http.js
 static/portal-empleado/modulos/cronos/vista-bandeja-permisos.js
@@ -386,3 +392,7 @@ static/portal-empleado/categorias-rpt/cliente.js
 static/portal-empleado/categorias-rpt/i18n.js
 static/textos/es/rpt-categorias-rrhh.json
 static/textos/en/rpt-categorias-rrhh.json
+static/textos/es/cronos-permisos.json
+static/textos/en/cronos-permisos.json
+static/textos/es/cronos-resolucion.json
+static/textos/en/cronos-resolucion.json
