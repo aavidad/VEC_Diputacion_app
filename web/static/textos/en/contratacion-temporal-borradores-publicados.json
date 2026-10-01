@@ -1,7 +1,7 @@
 {
   "general": {
     "bp_titulo": "Drafts from the published catalogue",
-    "bp_subtitulo": "Types available for this case and their current version",
+    "bp_subtitulo": "Types available for this case and its current version",
     "bp_ayuda_boton": "Help with published drafts",
     "bp_ayuda": "Only the types and formats returned by the catalogue published for this case are available. Each download checks permissions again and preserves the original bytes. A downloaded draft has not been signed or sent.",
     "bp_cargando": "Checking published types…",
