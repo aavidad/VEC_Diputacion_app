@@ -10,7 +10,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const propia = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const ayuda = `node scripts/probar_provision_navegador.mjs [--source-root RUTA] [--server-bin RUTA] [--escenarios ID,ID]
+const ayuda = `node scripts/probar_provision_navegador.mjs [--source-root RUTA] [--server-bin RUTA] [--escenarios ID,ID] [--caso es:390]
 --verificar-configuracion comprueba el contrato sin arrancar Go ni Chrome.
 CHROME_BIN, PLAYWRIGHT_MODULE y GO_BIN seleccionan herramientas locales ya instaladas.
 La fuente debe contener vec-baremador-web y la interfaz Provisión agrupados.
@@ -20,7 +20,7 @@ for (let i = 0; i < args.length; i++) {
   const clave = args[i];
   if (["--help", "--verificar-configuracion"].includes(clave)) opciones[clave] = true;
   else {
-    assert(["--source-root", "--server-bin", "--escenarios"].includes(clave), `argumento desconocido: ${clave}`);
+    assert(["--source-root", "--server-bin", "--escenarios", "--caso"].includes(clave), `argumento desconocido: ${clave}`);
     assert(args[i + 1] && !args[i + 1].startsWith("--"), `falta valor: ${clave}`);
     assert(!(clave in opciones), `argumento repetido: ${clave}`);
     opciones[clave] = args[++i];
@@ -28,6 +28,8 @@ for (let i = 0; i < args.length; i++) {
 }
 if (opciones["--help"]) { console.log(ayuda); process.exit(0); }
 const fuente = resolve(opciones["--source-root"] ?? propia);
+const casoUnico = opciones["--caso"];
+assert(!casoUnico || /^(?:es|en):(?:1440|390|720)$/u.test(casoUnico), "caso inválido; use idioma:ancho");
 const contrato = JSON.parse(await readFile(join(propia, "scripts/recorridos/provision_expectativas.json"), "utf8"));
 assert.equal(contrato.schema_version, "vec.recorrido_provision.v1");
 for (const clave of ["pagina", "configuracion", "simulacion", "endpoint_institucional_ausente"]) {
@@ -47,6 +49,7 @@ const escenarios = elegidos.map((id) => {
 if (opciones["--verificar-configuracion"]) { console.log("Contrato Provisión válido; navegador no ejecutado."); process.exit(0); }
 
 const informe = { esquema: contrato.schema_version, inicio: new Date().toISOString(), estado: "en_curso",
+  modo: casoUnico ? "focal" : "matriz", ...(casoUnico ? { casoSolicitado: casoUnico } : {}),
   alcance: "simulador_interno_sintetico_local", transporte: "HTTP real, sin interceptar APIs",
   pendientes: ["portal_institucional", "PostgreSQL", "identidad_y_autorizacion", "firma", "efectos_administrativos",
     "zoom_nativo_200_por_ciento", "revision_visual_independiente"],
@@ -117,7 +120,9 @@ function observar(page, origen) {
   page.on("response", (r) => {
     const tarea = r.allHeaders().then((h) => respuestas.push({ ruta: new URL(r.url()).pathname,
       metodo: r.request().method(), estado: r.status(), cookie: Boolean(h["set-cookie"]) }));
-    pendientes.add(tarea); tarea.then(() => pendientes.delete(tarea), () => pendientes.delete(tarea));
+    pendientes.add(tarea); tarea.then(() => pendientes.delete(tarea), (e) => {
+      pendientes.delete(tarea); errores.push({ tipo: "monitor", texto: e.message });
+    });
   });
   return async (context, caso) => {
     while (pendientes.size) await Promise.all([...pendientes]);
@@ -128,9 +133,15 @@ function observar(page, origen) {
       local: localStorage.length, sesion: sessionStorage.length, bases: await indexedDB.databases(), caches: await caches.keys() }));
     assert.deepEqual(storage, { intentos: [], local: 0, sesion: 0, bases: [], caches: [] }, "almacenamiento web usado");
     const provocados = respuestas.filter((r) => r.ruta === contrato.simulacion && r.estado === 400
-      || r.ruta === contrato.endpoint_institucional_ausente && r.estado === 404);
-    const red = errores.filter((e) => e.tipo === "consola" && /^Failed to load resource:.*(?:400|404)/u.test(e.texto));
-    assert(red.length <= provocados.length, "diagnóstico de red sin rechazo provocado");
+      || r.ruta === contrato.endpoint_institucional_ausente && r.estado === 404
+      || r.estado >= 400 && escenarios.some((e) => e.ruta === r.ruta && e.estado_http === r.estado));
+    const disponibles = provocados.map((r) => r.estado);
+    const red = errores.filter((e) => {
+      const codigo = e.tipo === "consola" && e.texto.match(/^Failed to load resource:.*\b(\d{3})\b/u);
+      const indice = codigo ? disponibles.indexOf(Number(codigo[1])) : -1;
+      if (indice < 0) return false;
+      disponibles.splice(indice, 1); return true;
+    });
     assert.deepEqual(errores.filter((e) => !red.includes(e)), [], "errores JS o consola inesperados");
     assert(respuestas.every((r) => r.estado < 400 || provocados.includes(r)), "respuesta HTTP inesperada");
     caso.vigilancia = { erroresJS: 0, erroresConsolaInesperados: 0, diagnosticosRedProvocados: red.length,
@@ -150,6 +161,10 @@ async function geometria(page) {
 }
 
 async function teclado(page) {
+  const fechas = new Map();
+  for (const campo of await page.locator('input[type="date"]:visible').all()) {
+    fechas.set(await campo.getAttribute("data-foco"), createHash("sha256").update(await campo.screenshot({ caret: "hide" })).digest("hex"));
+  }
   await page.evaluate(() => { document.body.tabIndex = -1; document.body.focus(); document.body.removeAttribute("tabindex"); });
   const vistos = new Set();
   const maximo = await page.locator('button:visible:not([disabled]),input:visible:not([disabled]),select:visible:not([disabled]),summary:visible,a:visible,[tabindex="0"]:visible').count() * 3 + 5;
@@ -158,8 +173,11 @@ async function teclado(page) {
     await page.keyboard.press("Tab");
     // Espera el desplazamiento nativo de foco; no desplaza la página por código.
     await page.waitForFunction(() => {
-      const r = document.activeElement.getBoundingClientRect();
-      return r.width > 0 && r.height > 0 && r.right > 0 && r.left < innerWidth && r.bottom > 0 && r.top < innerHeight;
+      const e = document.activeElement, r = e.getBoundingClientRect();
+      const encima = document.elementFromPoint(Math.max(0, Math.min(innerWidth - 1, r.x + r.width / 2)),
+        Math.max(0, Math.min(innerHeight - 1, r.y + r.height / 2)));
+      return r.width > 0 && r.height > 0 && r.right > 0 && r.left < innerWidth && r.bottom > 0 && r.top < innerHeight
+        && (encima === e || e.contains(encima) || encima?.contains(e));
     }, undefined, { timeout: 1200 }).catch(() => {});
     const foco = await page.evaluate(() => {
       const e = document.activeElement, r = e.getBoundingClientRect(), s = getComputedStyle(e);
@@ -167,11 +185,18 @@ async function teclado(page) {
         Math.max(0, Math.min(innerHeight - 1, r.y + r.height / 2)));
       return { tag: e.tagName, clave: e.dataset.foco || e.id || e.name || e.outerHTML.slice(0, 100),
         rect: { x: r.x, y: r.y, ancho: r.width, alto: r.height },
+        tipo: e.type, focusWithin: e.matches(":focus-within"),
         visible: r.width > 0 && r.height > 0 && r.right > 0 && r.left < innerWidth && r.bottom > 0 && r.top < innerHeight,
         tapado: encima !== e && !e.contains(encima) && !encima?.contains(e),
         indicador: parseFloat(s.outlineWidth) > 0 && s.outlineStyle !== "none" || s.boxShadow !== "none" };
     });
     if (foco.tag === "BODY") continue;
+    if (!foco.indicador && foco.tipo === "date" && foco.focusWithin) {
+      const campo = page.locator(`[data-foco="${foco.clave}"]`);
+      const captura = await campo.screenshot({ caret: "hide" });
+      foco.indicador = createHash("sha256").update(captura).digest("hex") !== fechas.get(foco.clave);
+      foco.indicadorNativo = foco.indicador;
+    }
     assert(foco.visible && !foco.tapado && foco.indicador, `foco invisible, tapado o sin indicador: ${JSON.stringify(foco)}`);
     primero ??= foco.clave;
     if (vistos.size > 1 && foco.clave === primero) break;
@@ -271,10 +296,14 @@ async function recorrer(url, idioma, ancho, reflujo = false) {
     await campo.fill("abc"); await page.keyboard.press("Tab");
     assert.equal(await campo.getAttribute("aria-invalid"), "true", "campo inválido sin indicación accesible");
     assert.equal(await campo.inputValue(), "abc", "validación pierde dato que debe corregirse");
+    const explicaciones = await campo.evaluate((e) => (e.getAttribute("aria-describedby") ?? "").split(/\s+/u)
+      .map((id) => e.ownerDocument.getElementById(id)?.textContent).filter(Boolean));
+    assert(explicaciones.includes(catalogo.configuracion.invalida), "error del campo sin asociación o sin catálogo");
     await page.locator(contrato.selectores.valoracion).click();
     assert(await page.locator(contrato.selectores.simular).isDisabled(), "configuración inválida permite simular");
-    assert.equal(await page.locator('[data-provision-aviso]').textContent(), catalogo.configuracion.invalida,
+    assert.equal(await page.locator('[data-provision-aviso]').textContent(), catalogo.configuracion.errores_pendientes,
       "configuración inválida sin explicación localizada");
+    await page.screenshot({ path: join(artefactos, `${prefijo}-configuracion-invalida.png`), fullPage: false });
     await page.locator(contrato.selectores.convocatoria).click(); await campo.fill(valor); await page.keyboard.press("Tab");
     await page.evaluate(() => new Promise((r) => requestAnimationFrame(r)));
     assert(!(await campo.evaluate((e) => e === document.activeElement)), "editar configuración atrapa Tab en el campo");
@@ -321,6 +350,8 @@ try {
   await mkdir(evidencia, { recursive: true, mode: 0o700 });
   artefactos = await mkdtemp(join(evidencia, "run-")); temporal = await mkdtemp(join(tmpdir(), "vec-provision-proceso-"));
   console.log(`Artefactos: ${artefactos}`);
+  informe.sha256Guion = createHash("sha256").update(await readFile(fileURLToPath(import.meta.url))).digest("hex");
+  informe.sha256Expectativas = createHash("sha256").update(await readFile(join(propia, "scripts/recorridos/provision_expectativas.json"))).digest("hex");
   informe.commitFuente = await proceso("git", ["rev-parse", "HEAD"]);
   informe.cambiosFuente = await proceso("git", ["status", "--short"]);
   const require = createRequire(import.meta.url); let sdk;
@@ -344,8 +375,12 @@ try {
     args: ["--disable-background-networking", "--disable-component-update", "--no-first-run"] });
   informe.chrome = browser.version();
   for (const idioma of contrato.idiomas) {
-    for (const ancho of contrato.anchos) { console.log(`Provisión ${idioma} ${ancho}px`); await recorrer(url, idioma, ancho); }
-    await recorrer(url, idioma, 720, true);
+    for (const ancho of contrato.anchos) {
+      if (!casoUnico || casoUnico === `${idioma}:${ancho}`) {
+        console.log(`Provisión ${idioma} ${ancho}px`); await recorrer(url, idioma, ancho);
+      }
+    }
+    if (!casoUnico || casoUnico === `${idioma}:720`) await recorrer(url, idioma, 720, true);
   }
   informe.estado = "pasado";
 } catch (e) {

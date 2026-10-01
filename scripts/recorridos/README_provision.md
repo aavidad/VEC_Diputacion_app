@@ -27,6 +27,8 @@ node scripts/probar_provision_navegador.mjs \
 `CHROME_BIN`, `PLAYWRIGHT_MODULE` y `GO_BIN` permiten elegir herramientas locales
 ya instaladas. El valor predeterminado de Chrome es `/usr/bin/google-chrome`.
 Si falta una herramienta o dependencia, la ejecución falla y deja constancia.
+`--caso es:390` permite comprobar un fallo concreto sin repetir la matriz. El
+acta identifica ese recorrido como focal; no acredita los demás idiomas o anchos.
 
 El servidor usa un puerto libre en `127.0.0.1`, elegido por él mismo. No se acepta
 una URL de un servidor existente. El guion cierra sus contextos de navegador,
@@ -71,7 +73,7 @@ falla antes de arrancar servicios. Una lista vacía no acredita estos recorridos
 Cada ejecución crea un directorio privado bajo
 `~/.local/state/vec-codexb-provision-20261001/run-*/`. Conserva capturas y
 `resultado.json`, con commit y cambios de la fuente, huella del binario, versión
-de Chrome, peticiones HTTP y estado de cada caso. Un fallo produce salida 1 y
+de Chrome, huellas del guion y expectativas, peticiones HTTP y estado de cada caso. Un fallo produce salida 1 y
 una captura si el navegador ya estaba abierto. Los artefactos quedan fuera de
 Git y deben revisarse antes de adjuntarlos a una PR.
 
@@ -81,6 +83,15 @@ autorización, firmas, publicaciones ni efectos administrativos. Las capturas
 sirven para la revisión visual independiente; el guion no acredita por sí solo
 conformidad WCAG ni contraste de todo el portal.
 
-En esta entrega se prepara el guion. El navegador se ejecutará sobre la fuente
-agrupada y revisada por dirección; una comprobación de sintaxis o contrato no
-equivale a un recorrido pasado.
+El 1 de octubre de 2026 pasaron los seis casos sobre la fuente limpia
+`c7995ca353571d3e533574beffe09f98e83aca46`, con Chrome `149.0.7827.200` y el
+binario construido desde ese árbol. El acta de esa ejecución está en
+`run-AuivdP/resultado.json`, bajo el directorio de evidencia anterior. Se
+comprobaron las preferencias, la validación visible, Tab después de editar,
+los puntos y el desglose localizados, la repetición exacta y los rechazos previstos.
+Los seis casos tuvieron cero errores JavaScript, llamadas externas, cookies y
+uso de almacenamiento web. Chrome, su perfil y el servidor propio se cerraron.
+
+Ese resultado cubre la primera interfaz de preparación y simulación.
+Adjudicación y ciclo necesitan sus propios controles, expectativas y ejecución;
+la lista de escenarios aún está vacía.
