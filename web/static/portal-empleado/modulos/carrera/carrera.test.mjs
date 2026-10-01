@@ -43,7 +43,7 @@ test('catálogos completos y motivos traducidos con el lector i18n común', asyn
 });
 test('el respaldo de catálogo conserva su idioma desde datos y limita el transporte', async () => {
   const { leerErrorCatalogo } = await import('./cliente.js');
-  const datos = JSON.parse(await readFile(new URL('./error-catalogo.json', import.meta.url), 'utf8'));
+  const datos = JSON.parse(await readFile(new URL('../../../textos/es/carrera-error.json', import.meta.url), 'utf8'));
   let opciones;
   const resultado = await leerErrorCatalogo({ fetchImpl: async (url, opts) => { assert.equal(url.pathname.endsWith('/carrera/error-catalogo.json'), true); opciones = opts; return { ok: true, text: async () => JSON.stringify(datos) }; } });
   assert.deepEqual(resultado, datos); assert.equal(opciones.credentials, 'omit'); assert.equal(opciones.redirect, 'error'); assert.equal(opciones.cache, 'no-store'); assert.equal(opciones.referrerPolicy, 'no-referrer');
