@@ -120,3 +120,49 @@ func TestLiquidacionRutasImportadasRechazaIncoherenciasConHuellaCorrecta(t *test
 		})
 	}
 }
+
+func TestLiquidacionRutasImportadasLimiteTotalDocumental(t *testing.T) {
+	for _, caso := range []struct {
+		nombre, segundaDistancia string
+		rechazar                 bool
+	}{
+		{"justo_limite", "5000.0000", false},
+		{"supera_por_una_unidad", "5000.0001", true},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			d, c, revisiones := datosLiquidacionRutaImportada()
+			primera := &d.Lineas[1]
+			primera.KilometrosBase, primera.Kilometros = "5000.0000", "5000.0000"
+			primera.AjusteKilometros, primera.MotivoAjuste = "0.0000", ""
+			segunda := *primera
+			segunda.RutaIndice = 2
+			segunda.KilometrosBase, segunda.Kilometros = caso.segundaDistancia, caso.segundaDistancia
+			d.Lineas = append(d.Lineas, segunda)
+			d.KilometrajeCentimos += segunda.ImporteCentimos
+			d.TotalOrientativoCentimos += segunda.ImporteCentimos
+			revisiones = append(revisiones, RevisionLineaLiquidacion{Indice: 2, ReglaRef: "propuesta:kilometraje", ReconocidoPropuestoCentimos: segunda.ImporteCentimos})
+			antes := clonarDocumentoLiquidacion(d)
+			h, err := HuellaDatosLiquidacion(d)
+			if err != nil {
+				t.Fatal(err)
+			}
+			p, err := PrepararLiquidacion("dco_ejemplo_sintetico_20261001", 2, h, d, c, revisiones)
+			if caso.rechazar {
+				if p != nil || !errors.Is(err, ErrPreparacionLiquidacion) {
+					t.Fatalf("suma superior al límite aceptada: propuesta=%v error=%v", p, err)
+				}
+			} else {
+				if err != nil {
+					t.Fatal(err)
+				}
+				s := p.Instantanea()
+				if !reflect.DeepEqual(s.Documento, antes) || s.DocumentoSHA256 != h || s.Totales.OriginalCentimos != 5870 || s.Lineas[1].OriginalCentimos != 2000 || s.Lineas[2].OriginalCentimos != 2000 || s.Liquidable {
+					t.Fatal("la propuesta alteró el documento o los importes originales")
+				}
+			}
+			if !reflect.DeepEqual(d, antes) {
+				t.Fatal("la validación alteró el documento importado")
+			}
+		})
+	}
+}
