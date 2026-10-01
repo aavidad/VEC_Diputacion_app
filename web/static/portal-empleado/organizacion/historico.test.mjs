@@ -121,6 +121,36 @@ test("el resumen de importación escapa fuente hostil y no muestra denominacione
   assert.doesNotMatch(html, /alert\(2\)/);
 });
 
+test("la preparación rechaza intervalos de efectos y hechos invertidos o vacíos", () => {
+  for (const hasta of ["2026-09-24", "2026-09-25"]) {
+    const manifiesto = importacion();
+    manifiesto.manifiesto.efectos_desde = "2026-09-25";
+    manifiesto.manifiesto.efectos_hasta = hasta;
+    assert.throws(() => validarPaqueteImportacion(manifiesto), /manifiesto de importación no válido/);
+
+    const hecho = importacion();
+    hecho.hechos[0].vigente_hasta = hasta;
+    assert.throws(() => validarPaqueteImportacion(hecho), /hecho de importación no válido/);
+  }
+});
+
+test("la preparación conserva intervalos válidos y abiertos sin completar fechas ni procedencia", () => {
+  for (const hasta of [undefined, "", "2026-09-26"]) {
+    const paquete = importacion();
+    paquete.manifiesto.efectos_desde = "2026-09-25";
+    if (hasta !== undefined) {
+      paquete.manifiesto.efectos_hasta = hasta;
+      paquete.hechos[0].vigente_hasta = hasta;
+    }
+    const original = structuredClone(paquete);
+    assert.deepEqual(validarPaqueteImportacion(paquete), original);
+    assert.deepEqual(paquete, original);
+  }
+  const sinInicioDeclarado = importacion();
+  sinInicioDeclarado.manifiesto.efectos_hasta = "2026-09-26";
+  assert.deepEqual(validarPaqueteImportacion(sinInicioDeclarado), sinInicioDeclarado);
+});
+
 test("los hechos, decisiones y seis clases usan singular, plural y número es-ES", () => {
   const pares = [
     ["importFacts", "hecho tipado", "hechos tipados"],

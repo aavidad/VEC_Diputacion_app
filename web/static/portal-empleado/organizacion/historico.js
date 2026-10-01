@@ -327,6 +327,7 @@ export function validarPaqueteImportacion(valor) {
     !HUELLA.test(m.fuente_huella_sha256) || !catalogoImportacionValido(m.catalogo_unidades) ||
     !catalogoImportacionValido(m.catalogo_clasificaciones) ||
     ["aprobada_en", "publicada_en", "efectos_desde", "efectos_hasta"].some((clave) => m[clave] && !fechaCivilValida(m[clave])) ||
+    (m.efectos_desde && m.efectos_hasta && m.efectos_desde >= m.efectos_hasta) ||
     ["documento_ref", "custodia_ref", "diccionario_ref", "acto_ref"].some((clave) => m[clave] && !cadena(m[clave])) ||
     (m.version_previa_ref && !UUID.test(m.version_previa_ref))) {
     throw new Error("manifiesto de importación no válido");
@@ -337,7 +338,7 @@ export function validarPaqueteImportacion(valor) {
       !UUID.test(hecho.hecho_ref) || !entero(hecho.revision) ||
       !cadena(hecho.fila_fuente_ref) || !cadena(hecho.unidad_ref) ||
       !fechaCivilValida(hecho.vigente_desde) ||
-      (hecho.vigente_hasta && !fechaCivilValida(hecho.vigente_hasta))) {
+      (hecho.vigente_hasta && (!fechaCivilValida(hecho.vigente_hasta) || hecho.vigente_desde >= hecho.vigente_hasta))) {
       throw new Error("hecho de importación no válido");
     }
     const clave = `${hecho.clase}\0${hecho.hecho_ref}`;
