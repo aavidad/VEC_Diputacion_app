@@ -1,11 +1,18 @@
-# CRN11 — Borrador de recuperación del recibo propio de un olvido
+# CRN11: borrador de recuperación del recibo propio de un olvido
 
 Estado: contrato para revisión de Dirección. No es una migración ni una
 capacidad activada. Base: `origin/main` en
 `460e120c2ec9c2d4953d1e98bdba011403fe17e2`.
 
-El número CRN11 está reservado fuera de Git por Dirección. Este directorio no
-entra en las listas SQL ni en el arranque. No contiene un archivo `.sql`, una
+El número CRN11 está reservado fuera de Git por Dirección. El 1 de octubre,
+a las 04:00 CEST, Claude autorizó reservar el consumidor nominal adicional
+para recuperar, decidir, resolver y aplicar. Dirección ha reservado AD138;
+D custodia su orden después del paso 3 de M y debe identificar el enclave
+sintético F1 admitido. La autorización permite preparar el corte, pero no
+define las fachadas, sus dimensiones ni la postimagen del núcleo.
+
+Este directorio no entra en las listas SQL ni en el arranque.
+No contiene un archivo `.sql`, una
 fachada V3, permisos de ejecución, ruta HTTP o cambio en el núcleo. El contrato
 V3 de esta lectura sigue pendiente, después del paso 3M del núcleo. Hasta que
 esa dependencia se entregue y revise, la operación debe seguir devolviendo
@@ -37,6 +44,12 @@ El navegador podrá aportar `solicitud_ref`, `clave_operacion` y
 ContextoActor y proyección de Personal, con exactamente un empleado vigente.
 El servidor rechaza otros pasos antes de pedir autorización. El empleado no
 se obtiene consultando la solicitud: conocer su referencia no concede acceso.
+
+La clave es la de la escritura original. No se sustituye por la referencia
+de solicitud ni se genera una clave de recuperación. El servidor deriva
+`solicitud_ref = 'correccion:cronos:' + clave_operacion` y coteja la referencia
+aportada antes de pedir V3. Aunque ambas identifiquen el mismo agregado, los
+dos campos siguen siendo obligatorios en `ClaveRecuperacionCorreccion`.
 
 El material canónico propuesto es un objeto JSON UTF-8 de hasta 4096 bytes,
 con exactamente siete campos de cadena, sin claves repetidas, nulos ni
@@ -78,6 +91,8 @@ Para acordar con la autoridad V3 se propone:
 | Atributo | `material_sha256`, huella del material anterior |
 
 Tipo y finalidad son una propuesta, no entradas publicadas del catálogo.
+La audiencia general `AudienciaCorreccionMarcaje` de Go no basta para dar
+por aprobada una audiencia de lectura propia.
 La huella de contexto de recurso debe ligar el empleado y el material
 completo, incluidos solicitud, clave, paso y versión. Puede reutilizar la
 codificación de `huella_contexto_empleado_v1` si el contrato V3 aprobado
@@ -213,7 +228,8 @@ La evidencia de lectura propuesta es una tabla CRONOS nueva de solo adición,
 con decisión como PK y referencias únicas de auditoría y huella de consumo.
 Conserva empleado, solicitud, actuación, recibo y versión histórica 1, huella
 del material e instante del acceso. No conserva motivo, hora declarada,
-documentos ni bytes V3. Su diseño DDL queda pendiente del contrato de consumo.
+documentos ni bytes V3. El fragmento DDL siguiente prepara su estructura;
+su aprobación queda pendiente del contrato de consumo.
 Tendrá propietario NOLOGIN, FORCE RLS y políticas propias explícitas, trigger
 inmutable y ninguna concesión directa a cuentas runtime. No se reutiliza
 `solicitud_replay`: esa tabla documenta recuperación de escrituras.
@@ -226,6 +242,123 @@ su versión inmutable 1. La instalación tendrá su bloqueo de migración y
 preimagen. Se revocará EXECUTE de PUBLIC y de todos los roles runtime; la
 activación posterior necesita una entrega expresa con consumidor visible.
 No se añaden privilegios ni tipos de fila al núcleo en este borrador.
+
+## Fragmentos SQL para revisar
+
+Estos bloques no forman una función ni una migración. No se extraen a las
+listas SQL. Falta la fachada AD138 revisada que verifica y consume V3; por eso
+no hay una llamada de consumo ni una función ejecutable de recuperación.
+
+La validación siguiente es un fragmento PL/pgSQL previo al consumo. Usa
+`bruto json`, `m jsonb`, `cantidad bigint`, `distintas bigint` y
+`material_sha256 text` como variables locales. Comprueba claves repetidas
+antes de convertir a `jsonb`; esa conversión por sí sola las ocultaría.
+`material_propio_v1` no sirve aquí: exige `zona_horaria`, que esta lectura
+histórica no necesita.
+
+```sql
+IF p_material IS NULL OR octet_length(p_material) NOT BETWEEN 1 AND 4096 THEN
+  RAISE EXCEPTION 'material Cronos inválido' USING ERRCODE = 'PC001';
+END IF;
+BEGIN
+  bruto := p_material::json;
+EXCEPTION WHEN data_exception THEN
+  RAISE EXCEPTION 'estructura Cronos inválida' USING ERRCODE = 'PC001';
+END;
+IF json_typeof(bruto) IS DISTINCT FROM 'object' THEN
+  RAISE EXCEPTION 'estructura Cronos inválida' USING ERRCODE = 'PC001';
+END IF;
+SELECT count(*), count(DISTINCT e.key) INTO cantidad, distintas
+  FROM json_each(bruto) AS e;
+IF cantidad <> 7 OR distintas <> 7 THEN
+  RAISE EXCEPTION 'estructura Cronos inválida' USING ERRCODE = 'PC001';
+END IF;
+BEGIN
+  m := p_material::jsonb;
+EXCEPTION WHEN data_exception THEN
+  RAISE EXCEPTION 'estructura Cronos inválida' USING ERRCODE = 'PC001';
+END;
+IF m - ARRAY['actor_ref','perfil_ref','empleado_ref','clave_operacion',
+             'solicitud_ref','paso','version_recibo'] <> '{}'::jsonb
+   OR EXISTS (SELECT 1 FROM jsonb_each(m) AS e
+              WHERE jsonb_typeof(e.value) IS DISTINCT FROM 'string')
+   OR m->>'actor_ref' !~ '^per_[-A-Za-z0-9_]{22,128}$'
+   OR m->>'perfil_ref' !~ '^prf_[-A-Za-z0-9_]{22,128}$'
+   OR m->>'empleado_ref' !~ '^emp_[-A-Za-z0-9_]{22,128}$'
+   OR m->>'clave_operacion' !~ '^[A-Za-z0-9][A-Za-z0-9_-]{7,127}$'
+   OR m->>'solicitud_ref' IS DISTINCT FROM
+      'correccion:cronos:' || (m->>'clave_operacion')
+   OR m->>'paso' IS DISTINCT FROM 'solicitud'
+   OR m->>'version_recibo' IS DISTINCT FROM '1' THEN
+  RAISE EXCEPTION 'estructura Cronos inválida' USING ERRCODE = 'PC001';
+END IF;
+material_sha256 := encode(sha256(convert_to(p_material, 'UTF8')), 'hex');
+```
+
+La tabla propuesta conserva el vínculo al consumo central y al recibo leído.
+No reemplaza la auditoría central ni crea una nueva autoridad. Las referencias
+de decisión, auditoría y consumo vienen exclusivamente de AD138, una vez
+validado su contrato. El INSERT usará la única fila histórica recuperada,
+el material validado y el instante vivo del acceso; ninguna referencia se
+genera para fingir un consumo. No se usa `ON CONFLICT DO NOTHING`.
+
+```sql
+CREATE TABLE vec_cronos_v1.correccion_recibo_acceso (
+  decision_ref text PRIMARY KEY,
+  empleado_ref text NOT NULL CHECK (empleado_ref ~ '^emp_[-A-Za-z0-9_]{22,128}$'),
+  solicitud_ref text NOT NULL REFERENCES vec_cronos_v1.correccion_solicitud,
+  actuacion_ref text NOT NULL REFERENCES vec_cronos_v1.correccion_actuacion,
+  recibo_ref text NOT NULL REFERENCES vec_cronos_v1.correccion_actuacion(recibo_ref),
+  version_recibo integer NOT NULL CHECK (version_recibo = 1),
+  material_sha256 text NOT NULL CHECK (material_sha256 ~ '^[0-9a-f]{64}$'),
+  auditoria_ref text NOT NULL UNIQUE,
+  consumo_huella_sha256 text NOT NULL UNIQUE
+    CHECK (consumo_huella_sha256 ~ '^[0-9a-f]{64}$'),
+  consultada_en timestamptz(6) NOT NULL
+);
+ALTER TABLE vec_cronos_v1.correccion_recibo_acceso
+  OWNER TO vec_cronos_v1_propietario;
+ALTER TABLE vec_cronos_v1.correccion_recibo_acceso ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_cronos_v1.correccion_recibo_acceso FORCE ROW LEVEL SECURITY;
+CREATE POLICY lectura_propia ON vec_cronos_v1.correccion_recibo_acceso
+  FOR SELECT TO vec_cronos_v1_propietario
+  USING (empleado_ref = nullif(current_setting('vec.cronos.empleado_ref', true), ''));
+CREATE POLICY adicion_propia ON vec_cronos_v1.correccion_recibo_acceso
+  FOR INSERT TO vec_cronos_v1_propietario
+  WITH CHECK (empleado_ref = nullif(current_setting('vec.cronos.empleado_ref', true), ''));
+CREATE TRIGGER historia_inmutable
+  BEFORE UPDATE OR DELETE OR TRUNCATE ON vec_cronos_v1.correccion_recibo_acceso
+  FOR EACH STATEMENT EXECUTE FUNCTION vec_cronos_v1.rechazar_mutacion_historia();
+REVOKE ALL ON TABLE vec_cronos_v1.correccion_recibo_acceso
+  FROM PUBLIC, vec_cronos_v1_ejecutor, vec_cronos_v1_migrador, vec_cronos_v1_auditor;
+REVOKE ALL ON TYPE vec_cronos_v1.correccion_recibo_acceso
+  FROM PUBLIC, vec_cronos_v1_ejecutor, vec_cronos_v1_migrador, vec_cronos_v1_auditor;
+```
+
+Las tres FK no garantizan por sí solas que solicitud, actuación, recibo y
+empleado correspondan al mismo hecho. Lo exige la consulta conjunta anterior
+y el INSERT de esa fila dentro de la función autorizada. La candidata final
+comprobará también propietario y ACL del tipo de fila nuevo, sin modificar
+las restricciones ni los tipos de las tablas instaladas.
+
+## Corte posterior de escritura
+
+CRN11 sigue siendo lectura propia. Decidir, resolver y aplicar requieren otra
+migración Cronos porque añaden historia de negocio y, al aplicar, un asiento
+compensatorio. Se propone CRN12, pendiente de reserva por Dirección; este
+borrador no la reserva ni contiene su SQL. AD138 puede reunir fachadas
+separadas si D acuerda sus contratos; compartir número no comparte permisos.
+
+Ese corte recibirá la solicitud, una clave de escritura nueva por paso y la
+versión esperada (1, 2 o 3), con el resultado del responsable o RRHH cuando
+corresponda. Debe resolver al empleado gobernado por autoridad vigente, sin
+inferirlo de la identidad del decisor ni de una referencia enviada. Después
+de cualquier espera revalidará competencia, sesión y V3. Una repetición
+exacta recuperará su propio recibo histórico con autorización actual; cambiar
+material o versión con esa clave será conflicto. Historia, recibo, consumo,
+auditoría y outbox confirmarán juntos. La aplicación añadirá compensación y
+afectará la proyección de jornada sin borrar ni cambiar el marcaje original.
+Sin puente durable si hay bases separadas, continuará cerrada.
 
 ## Rechazos y aceptación pendiente
 
