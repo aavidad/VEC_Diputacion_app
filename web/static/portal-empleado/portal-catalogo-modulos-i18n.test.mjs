@@ -70,7 +70,7 @@ test("?lang=en traduce marca y selector; volver a es conserva la ruta y el catá
   aplicarTextosPortal(documento);
   assert.equal(documento.documentElement.lang, "en");
   assert.deepEqual(claves.map((clave) => nodos.get(clave).textContent),
-    ["Human Resources Management", "Interface language", "Español", "English"]);
+    ["Human Resources management", "Interface language", "Español", "English"]);
   assert.equal(traducirPortal("txt_portal_del_empleado"), "Employee Portal");
   assert.equal(traducirPortal("contratacion_temporal_encabezado"), "Temporary staff requests");
   assert.equal(traducirPortal("auditoria_expediente_panel"), "Case audit trail");

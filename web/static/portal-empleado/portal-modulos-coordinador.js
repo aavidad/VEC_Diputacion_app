@@ -92,16 +92,17 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
       notificacionesPropias, bandejaNotificaciones, clienteNotificaciones, i18nNotificaciones });
   },
   contratacion_temporal: async () => {
-    const [contrato, cliente, presentador, vista, adaptador, auditoriaVista, auditoriaCliente] = await Promise.all([
+    const [contrato, cliente, presentador, vista, adaptador, auditoriaVista, auditoriaCliente, incorporacionB2] = await Promise.all([
       import("./modulos/contratacion-temporal/contrato.js"),
       import("./modulos/contratacion-temporal/cliente-http.js"),
       import("./modulos/contratacion-temporal/presentador-expedientes.js"),
-      import("./modulos/contratacion-temporal/vista-expedientes.js?v=20260930-ct-lista-recuperada-v2"),
+      import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261001-e3-b2-v1"),
       import("./modulos/contratacion-temporal/adaptador-http-expedientes.js"),
       import("./modulos/auditoria/vista.js?v=20260930-portales-i18n-integracion-v1"),
       import("./modulos/auditoria/cliente-http.js?v=20260928-usab-auditoria-v2"),
+      import("./modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js?v=20260930-inc-b2-web-v1"),
     ]);
-    return Object.freeze({ contrato, cliente, presentador, vista, adaptador, auditoriaVista, auditoriaCliente });
+    return Object.freeze({ contrato, cliente, presentador, vista, adaptador, auditoriaVista, auditoriaCliente, incorporacionB2 });
   },
   personal: async () => {
     const [contrato, cliente, vista, ficha, registro, clienteRegistro, clienteCatalogosRegistro, i18n, clienteFichaPropia] = await Promise.all([
@@ -307,6 +308,10 @@ export function crearCoordinadorModulosPortal({
       fetchImpl: fetchDelEntorno(),
       HeadersImpl: entorno.Headers,
     });
+    const clienteIncorporacionB2 = typeof recursos.incorporacionB2?.crearClienteIncorporacionPersonalB2HTTP === "function"
+      ? recursos.incorporacionB2.crearClienteIncorporacionPersonalB2HTTP({
+        fetchImpl: fetchDelEntorno(), HeadersImpl: entorno.Headers,
+      }) : null;
     let alta = null;
     // La jornada completa de referencia y las etiquetas de las modalidades
     // llegan con la configuración del análisis.
@@ -409,6 +414,7 @@ export function crearCoordinadorModulosPortal({
     return {
       contratacionTemporal: Object.freeze({
         mensajesExpedientes,
+        clienteIncorporacionB2,
         crearPresentador: () => recursos.presentador
           .crearPresentadorExpedientesContratacionTemporal({
             fuente, capacidades: fuente.capacidades,
@@ -935,6 +941,7 @@ export function crearCoordinadorModulosPortal({
             ? { cliente: composicion.contratacionTemporal.analisis.cliente }
             : null,
           continuidad: composicion.contratacionTemporal.continuidad,
+          incorporacionPersonalB2: composicion.contratacionTemporal.clienteIncorporacionB2,
           subsanacion: composicion.contratacionTemporal.subsanacion,
           auditoriaComun: composicion.contratacionTemporal.auditoriaComun,
           confirmarOperacion,

@@ -1,0 +1,7 @@
+{
+  "respaldo": "es",
+  "disponibles": {
+    "es": { "mensajes": "mensajes.es.json", "locale": "es-ES" },
+    "en": { "mensajes": "mensajes.en.json", "locale": "en-GB" }
+  }
+}
