@@ -4,7 +4,7 @@ import test from "node:test";
 
 import { crearClienteAutoFirma, ErrorAutoFirma, paraPruebas } from "./firma-autofirma.js";
 import { crearClienteFirmaDocumento, ErrorFirmaDocumento, RUTA_CONSULTA_FIRMA_DOCUMENTO, RUTA_FIRMA_DOCUMENTO, validarEstadoFirmas } from "./firma-documento-cliente.js";
-import { crearAccionesFirma, fusionarEstadoFirmas, renderizarAccionesPaso } from "./circuito-firma-acciones.js";
+import { crearAccionesFirma, fusionarEstadoFirmas, renderizarAccionesPaso } from "./circuito-firma-acciones.js?v=20261001-codexf-ct-catalogos-v1";
 import { crearTraductorCircuitoFirma } from "./i18n-circuito-firma.js";
 
 const t = crearTraductorCircuitoFirma();
@@ -209,4 +209,22 @@ test("la ayuda y los textos dicen que la firma no tiene eficacia administrativa"
   const ayuda = await readFile(new URL("../../../textos/es/portal-ayuda.json", import.meta.url), "utf8");
   assert.match(ayuda, /"ayuda_contenido_421": ".*AutoFirma.*sin eficacia administrativa.*portafirmas corporativo/u);
   assert.match(t("circuito_firma_registrada", { recibo: "r" }), /No tiene eficacia administrativa hasta el portafirmas corporativo/u);
+});
+
+test("cliente del registro: el PDF firmado custodiado se valida en estado y recibo", () => {
+  const custodiado = { expediente_ref: `ref:${"e".repeat(64)}`, documento_ref: `ref:${"d".repeat(64)}`, version: 1, huella_sha256: "1".repeat(64) };
+  const estado = (paso) => ({ esquema: "vec.contratacion-temporal.estado-firmas-documento.v1", catalogo_ref: "c:1", huella_sha256: "c".repeat(64),
+    ejemplo: true, firma_eficaz: false, verificacion_disponible: true,
+    documentos: [{ documento: "resolucion", etiqueta: "Resolución", paso_pendiente: 0, completo: true, ultima_secuencia: 1, pasos: [paso] }] });
+  const firmado = { orden: 1, cargo: "Órgano", accion: "firma", devolucion: "vuelve_a_redaccion", estado: "firmado" };
+  const valido = validarEstadoFirmas(estado({ ...firmado, documento_custodiado: custodiado }));
+  assert.deepEqual({ ...valido.documentos[0].pasos[0].documento_custodiado }, custodiado);
+  for (const [nombre, cambio] of Object.entries({
+    "referencia de CT": { expediente_ref: "expediente:ct:001" }, "sin huella": { huella_sha256: "" },
+    "versión cero": { version: 0 }, "campo de más": { nombre: "x" },
+  })) {
+    assert.equal(validarEstadoFirmas(estado({ ...firmado, documento_custodiado: { ...custodiado, ...cambio } })), null, nombre);
+  }
+  assert.equal(validarEstadoFirmas(estado({ ...firmado, estado: "devuelto", documento_custodiado: custodiado })), null,
+    "solo un paso firmado lleva PDF");
 });

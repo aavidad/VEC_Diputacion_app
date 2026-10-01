@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { numeroExpedienteVisible, renderizarCuadro } from "./componentes-expedientes.js";
-import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js";
-import { renderizarCabeceraModulo } from "./vista-expedientes-render.js";
+import { numeroExpedienteVisible, renderizarCuadro } from "./componentes-expedientes.js?v=20261001-codexf-ct-catalogos-v1";
+import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261001-codexf-ct-catalogos-v1";
+import { renderizarCabeceraModulo } from "./vista-expedientes-render.js?v=20261001-codexf-ct-catalogos-v1";
 
 const t = crearTraductorExpedientesContratacion();
 const expediente = (sufijo, estado = "en_curso") => ({
