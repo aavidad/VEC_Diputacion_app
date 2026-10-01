@@ -115,3 +115,56 @@ func TestPreparacionServiciosCERVacioSigueSinCoberturaYNoMutaFuente(t *testing.T
 		t.Fatal("alias de fuente mutable")
 	}
 }
+
+func TestPreparacionServiciosCERUltimaRevisionAntesDeVigencia(t *testing.T) {
+	for _, invertido := range []bool{false, true} {
+		f := fichaServiciosCER()
+		antigua := servicioCER("servicio:uno", "reconocido", "2020-01-01", "2020-02-01")
+		ultima := antigua
+		ultima.Estado = "comprobado"
+		ultima.Traza.Version = 3
+		ultima.Traza.RegistradaEn = time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
+		ultima.Traza.Hasta = f.Corte.VigenteEn
+		otro := servicioCER("servicio:dos", "reconocido", "2020-01-15", "2020-02-10")
+		f.Servicios = []ServicioReconocidoB2{antigua, ultima, otro}
+		if invertido {
+			f.Servicios = []ServicioReconocidoB2{ultima, antigua, otro}
+		}
+		p, err := PrepararServiciosParaCertificados(f)
+		if err != nil || len(p.Servicios) != 3 {
+			t.Fatal("historia perdida", err)
+		}
+		for _, s := range p.Servicios {
+			if s.Solapado {
+				t.Fatal("revisión antigua produjo un solape")
+			}
+			if s.ServicioRef == "servicio:uno" && s.Traza.Version == 2 && s.SeleccionTemporal != "sustituido" {
+				t.Fatal("resucitó el reconocimiento anterior")
+			}
+			if s.ServicioRef == "servicio:uno" && s.Traza.Version == 3 && s.SeleccionTemporal != "fuera_corte" {
+				t.Fatal("la revisión cerrada parece vigente")
+			}
+		}
+	}
+}
+
+func TestPreparacionServiciosCERRevisionFuturaNoCambiaHistoriaConocida(t *testing.T) {
+	f := fichaServiciosCER()
+	antigua := servicioCER("servicio:uno", "reconocido", "2020-01-01", "2020-02-01")
+	futura := antigua
+	futura.Estado = "declarado"
+	futura.Traza.Version = 3
+	futura.Traza.RegistradaEn = f.Corte.ConocidoEn.Add(time.Second)
+	f.Servicios = []ServicioReconocidoB2{futura, antigua}
+	p, err := PrepararServiciosParaCertificados(f)
+	if err != nil || p.Servicios[0].SeleccionTemporal != "fuera_corte" || p.Servicios[1].SeleccionTemporal != "incluido" {
+		t.Fatalf("corte de conocimiento alterado: %+v %v", p, err)
+	}
+	// Una revisión con el mismo instante gana por versión, antes de vigencia.
+	f.Servicios[0].Traza.RegistradaEn = antigua.Traza.RegistradaEn
+	f.Servicios[0].Traza.Hasta = f.Corte.VigenteEn
+	p, err = PrepararServiciosParaCertificados(f)
+	if err != nil || p.Servicios[1].SeleccionTemporal != "sustituido" || p.Servicios[0].SeleccionTemporal != "fuera_corte" {
+		t.Fatal("desempate por versión o fin no aplicado", err)
+	}
+}

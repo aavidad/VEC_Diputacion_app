@@ -3,7 +3,7 @@ import { cargarTextos } from "../../../comun/textos.js";
 
 const TEXTOS = (await cargarTextos("personal-servicios-cer")).seccion("general");
 const ESTADOS = new Set(["declarado", "comprobado", "reconocido"]);
-const SELECCION = new Set(["incluido", "fuera_corte", "pendiente"]);
+const SELECCION = new Set(["incluido", "fuera_corte", "pendiente", "sustituido"]);
 const FALTANTES = new Set(["acto", "fuente", "version_fuente", "version_hecho", "clase", "periodo", "registro"]);
 const fecha = (valor) => typeof valor === "string" && /^\d{4}-\d{2}-\d{2}$/u.test(valor) && Number.isFinite(Date.parse(`${valor}T12:00:00Z`)) && new Date(`${valor}T12:00:00Z`).toISOString().slice(0, 10) === valor;
 const seguro = (valor, limite = 256) => typeof valor === "string" && valor.length > 0 && valor.length <= limite && !/[\p{Cc}\p{Cf}]/u.test(valor);

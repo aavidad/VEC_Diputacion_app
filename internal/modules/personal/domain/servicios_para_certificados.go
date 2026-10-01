@@ -42,7 +42,20 @@ func PrepararServiciosParaCertificados(f FichaEmpleadoB2) (PreparacionServiciosP
 	}
 	p := PreparacionServiciosParaCertificados{Estado: "preparacion_sintetica", EmpleadoRef: f.EmpleadoRef, Corte: f.Corte, Version: f.Version,
 		Cobertura: "no_acreditada", Servicios: make([]ServicioPreparadoParaCertificados, 0, len(f.Servicios))}
-	for _, s := range f.Servicios {
+	// B2 conserva revisiones, también las sustituidas. Elegir primero la última
+	// conocida impide recuperar una revisión antigua porque la nueva ya cesó.
+	ultimas := make(map[string]int)
+	for i, s := range f.Servicios {
+		if !instanteRegistroB2Valido(s.Traza.RegistradaEn) || s.Traza.RegistradaEn.After(f.Corte.ConocidoEn) {
+			continue
+		}
+		anterior, existe := ultimas[s.ServicioRef]
+		if !existe || s.Traza.RegistradaEn.After(f.Servicios[anterior].Traza.RegistradaEn) ||
+			(s.Traza.RegistradaEn.Equal(f.Servicios[anterior].Traza.RegistradaEn) && s.Traza.Version > f.Servicios[anterior].Traza.Version) {
+			ultimas[s.ServicioRef] = i
+		}
+	}
+	for i, s := range f.Servicios {
 		if !patronReferenciaB2.MatchString(s.ServicioRef) || !ReferenciaRelacionValida(s.RelacionRef) ||
 			(s.Estado != "declarado" && s.Estado != "comprobado" && s.Estado != "reconocido") {
 			return vacio, ErrPreparacionServiciosInvalida
@@ -82,6 +95,9 @@ func PrepararServiciosParaCertificados(f FichaEmpleadoB2) (PreparacionServiciosP
 				s.Traza.RegistradaEn.After(f.Corte.ConocidoEn) || f.Corte.VigenteEn.AntesDe(s.PeriodoHasta) {
 				fila.SeleccionTemporal = "fuera_corte"
 			}
+		}
+		if ultima, existe := ultimas[s.ServicioRef]; existe && ultima != i && instanteRegistroB2Valido(s.Traza.RegistradaEn) && !s.Traza.RegistradaEn.After(f.Corte.ConocidoEn) {
+			fila.SeleccionTemporal = "sustituido"
 		}
 		p.Servicios = append(p.Servicios, fila)
 	}

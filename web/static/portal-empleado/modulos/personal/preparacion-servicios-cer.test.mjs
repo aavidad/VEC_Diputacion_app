@@ -35,6 +35,8 @@ test("usa la selección temporal y los solapes del modelo, sin recalcularlos", (
   m.servicios[0].estado = "declarado"; m.servicios[0].seleccion_temporal = "pendiente"; m.servicios[0].faltantes = ["fuente"];
   assert.match(texto(pintar(m)), /Declarado.*Fechas o procedencia incompletas.*Falta la fuente/u);
   assert.doesNotMatch(texto(pintar(m)), /Reconocido en el ejercicio/u);
+  m.servicios[0].seleccion_temporal = "sustituido";
+  assert.match(texto(pintar(m)), /Sustituido por otra revisión/u);
 });
 
 test("seleccionar otra relación no revela sus filas y vacío no acredita cobertura", () => {

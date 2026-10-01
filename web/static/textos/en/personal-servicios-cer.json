@@ -18,6 +18,7 @@
     "reconocido": "Recognised in the exercise",
     "incluido": "Within the query dates",
     "fuera_corte": "Outside the query dates",
+    "sustituido": "Replaced by another revision",
     "pendiente": "Incomplete dates or provenance",
     "solapado": "Overlapping periods; review their recognition.",
     "falta_acto": "Administrative act missing",

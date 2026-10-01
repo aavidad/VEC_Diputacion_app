@@ -18,6 +18,7 @@
     "reconocido": "Reconocido en el ejercicio",
     "incluido": "Dentro de las fechas de consulta",
     "fuera_corte": "Fuera de las fechas de consulta",
+    "sustituido": "Sustituido por otra revisión",
     "pendiente": "Fechas o procedencia incompletas",
     "solapado": "Periodos coincidentes; revise su reconocimiento.",
     "falta_acto": "Falta el acto",
