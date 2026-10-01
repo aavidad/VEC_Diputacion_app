@@ -13,17 +13,21 @@ import (
 	"vec-diputacion-granada/internal/modules/cronos/domain"
 )
 
-func leer(ruta string) ([]byte, error) {
+func leer(ruta string) (b []byte, err error) {
 	f, err := os.OpenFile(ruta, os.O_RDONLY|syscall.O_NONBLOCK|syscall.O_NOFOLLOW, 0) // #nosec G304 -- ruta explícita, fichero regular y SHA exigido.
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() {
+		if fallo := f.Close(); err == nil {
+			err = fallo
+		}
+	}()
 	info, err := f.Stat()
 	if err != nil || !info.Mode().IsRegular() || info.Size() < 1 || info.Size() > catalogoefectos.LimiteJSON {
 		return nil, os.ErrInvalid
 	}
-	b, err := io.ReadAll(io.LimitReader(f, catalogoefectos.LimiteJSON+1))
+	b, err = io.ReadAll(io.LimitReader(f, catalogoefectos.LimiteJSON+1))
 	if err != nil || len(b) != int(info.Size()) {
 		return nil, os.ErrInvalid
 	}
@@ -111,14 +115,24 @@ func ejecutar(args []string, salida io.Writer) error {
 	return err
 }
 
-func run(args []string, salida, errores io.Writer) int {
-	if err := ejecutar(args, salida); err != nil {
-		_ = json.NewEncoder(errores).Encode(struct {
-			Codigo string `json:"codigo"`
-		}{Codigo: "entrada_invalida"})
-		return 2
+func codigoSalida(err error) int {
+	if err == nil {
+		return 0
 	}
-	return 0
+	return 2
+}
+
+func run(args []string, salida, errores io.Writer) int {
+	err := ejecutar(args, salida)
+	if err == nil {
+		return codigoSalida(err)
+	}
+	if fallo := json.NewEncoder(errores).Encode(struct {
+		Codigo string `json:"codigo"`
+	}{Codigo: "entrada_invalida"}); fallo != nil {
+		return codigoSalida(fallo)
+	}
+	return codigoSalida(err)
 }
 
 func main() { os.Exit(run(os.Args[1:], os.Stdout, os.Stderr)) }
