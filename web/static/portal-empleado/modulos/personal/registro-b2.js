@@ -8,6 +8,8 @@ import { crearPanelPreparacionServiciosCER } from "./preparacion-servicios-cer.j
 import { crearPanelRelacionParaRPT } from "./preparacion-relacion-rpt.js?v=20261001-ficha-buffer-v1";
 import { renderizarPreparacionAntecedentesCarrera, validarPreparacionAntecedentesCarrera } from "./preparacion-antecedentes-carrera.js?v=20261001-ficha-buffer-v1";
 
+import { crearVistaVacantesB2 } from "./vacantes-b2-vista.js?v=20261002-b-rpt-vacantes-v1";
+
 const BLOQUES = Object.freeze([
   ["relaciones", "registro_b2_relaciones", "registro_b2_tabla_relaciones", [
     ["estado", "registro_b2_estado"], ["periodo", "registro_b2_periodo"], ["regimen_catalogo", "registro_b2_regimen"], ["modalidad_catalogo", "registro_b2_modalidad"], ["unidad", "registro_b2_unidad"],
@@ -277,13 +279,12 @@ export function montarRegistroB2({ raiz, cliente, clienteCatalogos, empleadoRef 
     contenido.append(p.elemento);
   }
   function pintarVacantes(pagina) {
-    const p = panel(d, t("registro_b2_vacantes"));
-    if (pagina.vacantes.length === 0) p.cuerpo.append(estado(d, t("registro_b2_vacio")));
-    else p.cuerpo.append(tabla(d, t, "registro_b2_tabla_vacantes", [
-      ["puesto", "registro_b2_puesto"], ["plaza", "registro_b2_plaza"], ["unidad", "registro_b2_unidad"], ["cobertura", "registro_b2_estado"],
-    ], pagina.vacantes));
-    p.cuerpo.append(paginacion("vacantes", pagina, "registro_b2_paginacion"));
-    contenido.append(p.elemento);
+    const hoja = crearVistaVacantesB2({ documento: d, pagina,
+      formatos: { fecha: (valor) => formatoFecha(valor, t), instante: (valor) => formatoInstante(valor, t), numero: (valor) => new Intl.NumberFormat(LOCALIZACION_ACTUAL).format(valor) },
+      anadirDatoTraza: (lista, titulo, valor) => datoTraza(d, lista, titulo, valor),
+    });
+    hoja.children[1].append(paginacion("vacantes", pagina, "registro_b2_paginacion"));
+    contenido.append(hoja);
   }
   async function consultar() {
     if (!activo) return;
