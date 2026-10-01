@@ -119,6 +119,10 @@ func nuevoOrigenSintetico(t *testing.T, imagen string) *origenSintetico {
 	if _, err := rand.Read(aleatorio[:]); err != nil {
 		t.Fatal(err)
 	}
+	datos, err := os.MkdirTemp("/dev/shm", "vec-cs06l-fuente-")
+	if err != nil {
+		t.Fatalf("crear PGDATA propio de la fuente: %v", err)
+	}
 	origen := &origenSintetico{
 		contenedor:   "vec-cs06l-fixture-" + hex.EncodeToString(aleatorio[:]),
 		configDocker: t.TempDir(),
@@ -129,19 +133,24 @@ func nuevoOrigenSintetico(t *testing.T, imagen string) *origenSintetico {
 		if _, err := origen.docker(ctx, nil, "rm", "--force", origen.contenedor); err != nil {
 			t.Errorf("limpieza del origen sintético: %v", err)
 		}
+		if err := os.RemoveAll(datos); err != nil { // #nosec G703 -- directorio propio generado por MkdirTemp; no procede del operador.
+			t.Errorf("limpieza del PGDATA propio de la fuente: %v", err)
+		}
 	})
 	ctx, cancelar := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancelar()
-	_, err := origen.docker(ctx, nil,
+	uid, gid := os.Getuid(), os.Getgid()
+	opcionesTmpfs := fmt.Sprintf("rw,nosuid,nodev,uid=%d,gid=%d,mode=700", uid, gid)
+	_, err = origen.docker(ctx, nil,
 		"run", "--detach", "--name", origen.contenedor,
 		"--pull=never", "--network=none", "--read-only", "--rm",
-		"--user", "1000:1000", "--cpus=1", "--memory=512m", "--memory-swap=512m", "--pids-limit=96",
+		"--user", fmt.Sprintf("%d:%d", uid, gid), "--cpus=1", "--memory=512m", "--memory-swap=512m", "--pids-limit=96",
 		"--cap-drop=ALL", "--security-opt=no-new-privileges",
-		"--tmpfs", "/tmp:rw,nosuid,nodev,size=16m,uid=1000,gid=1000,mode=700",
-		"--tmpfs", "/var/run/postgresql:rw,nosuid,nodev,size=8m,uid=1000,gid=1000,mode=700",
-		"--tmpfs", "/var/lib/postgresql:rw,nosuid,nodev,size=8m,uid=1000,gid=1000,mode=700",
-		"--tmpfs", "/dev/shm:rw,nosuid,nodev,size=256m,uid=1000,gid=1000,mode=700",
-		"--env", "PGDATA=/dev/shm/cs06l-fixture-pgdata",
+		"--tmpfs", "/tmp:"+opcionesTmpfs+",size=16m",
+		"--tmpfs", "/var/run/postgresql:"+opcionesTmpfs+",size=8m",
+		"--tmpfs", "/var/lib/postgresql:"+opcionesTmpfs+",size=8m",
+		"-v", datos+":/data:rw",
+		"--env", "PGDATA=/data",
 		"--env", "POSTGRES_USER=cs06l_origen_bootstrap",
 		"--env", "POSTGRES_DB=cs06l_sintetica",
 		"--env", "POSTGRES_HOST_AUTH_METHOD=trust",
