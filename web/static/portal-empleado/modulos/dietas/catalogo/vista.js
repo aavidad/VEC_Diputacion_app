@@ -126,7 +126,7 @@ export function montarCatalogoTarifasDietas(contenedor, {
   const botonAyuda = nodo(d, "summary", "?"); botonAyuda.setAttribute("aria-label", t("ayuda_etiqueta"));
   ayuda.append(botonAyuda, nodo(d, "p", t("ayuda"))); cabecera.append(ayuda);
   const estado = nodo(d, "p"); estado.setAttribute("role", "status"); estado.setAttribute("aria-live", "polite"); estado.tabIndex = -1;
-  const cuerpo = nodo(d, "div"); cuerpo.className = "cuerpo-panel";
+  const cuerpo = nodo(d, "div"); cuerpo.className = "cuerpo-panel modulo-dietas";
   raiz.append(cabecera, estado, cuerpo); contenedor.append(raiz);
   let vivo = true, secuencia = 0, controlador, catalogo;
   const propuestas = new Map();
