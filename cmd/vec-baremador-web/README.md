@@ -58,3 +58,29 @@ Las pruebas comparan la salida HTTP con el servicio común y comprueban origen,
 Host, método, campos desconocidos, exceso de tamaño y escapes del directorio de
 recursos. Esta herramienta local no se monta en el portal ni acredita permisos
 institucionales, aprobación de bases o una valoración oficial.
+
+## Preparación de un concurso interno
+
+La segunda dirección que muestra el programa abre
+`/portal-empleado/modulos/provision/`. Permite revisar dos puestos sintéticos,
+seleccionarlos, cambiar su orden de preferencia y simular la puntuación de cada
+uno con el motor común. La convocatoria conserva referencias y versiones de RPT,
+bases, reglas e instantánea. Una referencia declarada no acredita una vacante ni
+la condición de empleado.
+
+En «Convocatoria» se pueden ajustar fechas, coeficientes y topes del ejercicio.
+Los campos inválidos conservan lo escrito y señalan qué corregir. «Valoración»
+separa los requisitos de acceso de los puntos; una fuente ausente permanece
+pendiente y no tiene total. La preparación sólo dura mientras está abierta la
+página. Presentación, propuesta oficial, reclamación y resolución permanecen
+deshabilitadas hasta conectar sus autoridades y persistencia.
+
+`GET /api/provision/v1/procesos-locales` proyecta oferta, configuración y
+preferencias del ejemplo. `POST /api/provision/v1/procesos-locales/simulaciones`
+admite únicamente `ejemplo_ref`, `configuracion` y `preferencias`. El servidor
+fija los hechos sintéticos y devuelve el resultado del mismo caso de uso que
+consume `vec-simular-provision`, incluida la huella de reproducción local.
+Esta huella no es una firma ni un justificante de presentación.
+
+Los textos están disponibles en español e inglés mediante el selector común.
+No se monta una API institucional ni se añaden conexiones, permisos o SQL.
