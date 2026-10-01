@@ -122,6 +122,9 @@ static/portal-empleado/modulos/cronos/i18n-consulta.js
 static/textos/es/cronos-consulta.json
 static/textos/en/cronos-consulta.json
 static/portal-empleado/modulos/cronos/vista-remoto.js
+static/portal-empleado/modulos/cronos/i18n-fichaje.js
+static/textos/es/cronos-fichaje.json
+static/textos/en/cronos-fichaje.json
 static/portal-empleado/modulos/cronos/vista-movimientos-conectado.js
 static/portal-empleado/modulos/cronos/vista-movimientos-propios.js
 static/portal-empleado/modulos/cronos/vista-permisos-propios.js
