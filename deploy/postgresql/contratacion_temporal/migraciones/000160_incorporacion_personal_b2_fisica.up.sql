@@ -45,27 +45,27 @@ BEGIN
   SELECT encode(sha256(convert_to(coalesce(jsonb_agg(jsonb_build_object(
    'grantee',CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END,
    'grantor',pg_get_userbyid(a.grantor),'privilege_type',a.privilege_type,
-   'is_grantable',a.is_grantable) ORDER BY CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END,
-   pg_get_userbyid(a.grantor),a.privilege_type,a.is_grantable),'[]'::jsonb)::text,'UTF8')),'hex')
+   'is_grantable',a.is_grantable) ORDER BY (CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END) COLLATE "C",
+   pg_get_userbyid(a.grantor) COLLATE "C",a.privilege_type COLLATE "C",a.is_grantable),'[]'::jsonb)::text,'UTF8')),'hex')
   INTO acl_sha FROM aclexplode(coalesce((SELECT proacl FROM pg_proc WHERE oid=p.oid),
                                          acldefault('f',p.proowner))) a;
   SELECT encode(sha256(convert_to(coalesce(jsonb_agg(jsonb_build_object(
    'rolname',r.rolname,'execute',has_function_privilege(r.oid,p.oid,'EXECUTE'),
-   'schema_usage',has_schema_privilege(r.oid,p.pronamespace,'USAGE')) ORDER BY r.rolname),'[]'::jsonb)::text,'UTF8')),'hex')
+   'schema_usage',has_schema_privilege(r.oid,p.pronamespace,'USAGE')) ORDER BY r.rolname COLLATE "C"),'[]'::jsonb)::text,'UTF8')),'hex')
   INTO efectiva_sha FROM pg_roles r
   WHERE has_function_privilege(r.oid,p.oid,'EXECUTE')
      OR has_schema_privilege(r.oid,p.pronamespace,'USAGE');
   SELECT encode(sha256(convert_to(coalesce(jsonb_agg(jsonb_build_object(
    'deptype',d.deptype,'objsubid',d.objsubid,
    'referencia',to_jsonb(pg_identify_object(d.refclassid,d.refobjid,d.refobjsubid)))
-   ORDER BY d.deptype,d.objsubid,d.refclassid::regclass::text,
-            (pg_identify_object(d.refclassid,d.refobjid,d.refobjsubid)).identity),'[]'::jsonb)::text,'UTF8')),'hex')
+   ORDER BY d.deptype,d.objsubid,d.refclassid::regclass::text COLLATE "C",
+            (pg_identify_object(d.refclassid,d.refobjid,d.refobjsubid)).identity COLLATE "C"),'[]'::jsonb)::text,'UTF8')),'hex')
   INTO dep_sha FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=p.oid;
   SELECT encode(sha256(convert_to(coalesce(jsonb_agg(jsonb_build_object(
    'deptype',d.deptype,'objsubid',d.objsubid,
    'referencia',to_jsonb(pg_identify_object(d.refclassid,d.refobjid,0)))
-   ORDER BY d.deptype,d.objsubid,d.refclassid::regclass::text,
-            (pg_identify_object(d.refclassid,d.refobjid,0)).identity),'[]'::jsonb)::text,'UTF8')),'hex')
+   ORDER BY d.deptype,d.objsubid,d.refclassid::regclass::text COLLATE "C",
+            (pg_identify_object(d.refclassid,d.refobjid,0)).identity COLLATE "C"),'[]'::jsonb)::text,'UTF8')),'hex')
   INTO shdep_sha FROM pg_shdepend d WHERE d.dbid=(SELECT oid FROM pg_database WHERE datname=current_database())
    AND d.classid='pg_proc'::regclass AND d.objid=p.oid;
   IF p.proowner IS DISTINCT FROM 'vec_contratacion_temporal_propietario'::regrole
@@ -456,7 +456,7 @@ BEGIN
   AND d.objid=to_regprocedure('vec_contratacion_temporal.'||x.firma);
  SELECT coalesce(jsonb_agg(jsonb_build_object(
   'rolname',r.rolname,'execute',has_function_privilege(r.oid,q.oid,'EXECUTE'),
-  'schema_usage',has_schema_privilege(r.oid,q.pronamespace,'USAGE')) ORDER BY r.rolname),'[]'::jsonb)
+  'schema_usage',has_schema_privilege(r.oid,q.pronamespace,'USAGE')) ORDER BY r.rolname COLLATE "C"),'[]'::jsonb)
  INTO permisos_efectivos FROM pg_roles r CROSS JOIN pg_proc q
  WHERE q.oid=to_regprocedure('vec_contratacion_temporal.'||x.firma)
    AND (has_function_privilege(r.oid,q.oid,'EXECUTE')
@@ -496,7 +496,7 @@ BEGIN
        AND d.objid=to_regprocedure('vec_contratacion_temporal.'||x.firma)) IS DISTINCT FROM compartidas
  OR (SELECT coalesce(jsonb_agg(jsonb_build_object(
      'rolname',r.rolname,'execute',has_function_privilege(r.oid,q.oid,'EXECUTE'),
-     'schema_usage',has_schema_privilege(r.oid,q.pronamespace,'USAGE')) ORDER BY r.rolname),'[]'::jsonb)
+     'schema_usage',has_schema_privilege(r.oid,q.pronamespace,'USAGE')) ORDER BY r.rolname COLLATE "C"),'[]'::jsonb)
      FROM pg_roles r CROSS JOIN pg_proc q
      WHERE q.oid=to_regprocedure('vec_contratacion_temporal.'||x.firma)
        AND (has_function_privilege(r.oid,q.oid,'EXECUTE')
