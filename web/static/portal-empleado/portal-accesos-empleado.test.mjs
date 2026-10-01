@@ -14,6 +14,8 @@ test("ofrece solo los tres destinos propios enumerados, disponibles o diferidos"
   });
   assert.match(html, /<h3[^>]*>Mi espacio<\/h3>/u);
   assert.equal((html.match(/<li\b/gu) ?? []).length, 3);
+  // La fila común reserva 10 px al marcador; el contenido ocupa su segunda columna.
+  assert.equal((html.match(/<li class="elemento-actividad"><span class="marca-actividad" aria-hidden="true"><\/span><div class="acciones-fila">/gu) ?? []).length, 3);
   for (const [vista, etiqueta] of Object.entries({ personal: "Mi carpeta personal", cronos: "Mi jornada", dietas: "Mis dietas" })) {
     assert.match(html, new RegExp(`<a[^>]+href="#${vista}" data-vista="${vista}"[^>]*>[\\s\\S]*?${etiqueta}</a>`, "u"));
   }
@@ -31,6 +33,7 @@ test("el error muestra el destino y recuperación sin ofrecer un enlace", () => 
   const html = renderizar({ dietas: { estado: "error", error: "detalle privado" } });
   assert.match(html, /Mis dietas/u);
   assert.match(html, /role="alert">No se pudo cargar la vista\. Actualice la página para volver a intentarlo\./u);
+  assert.match(html, /Mis dietas<\/strong> <span role="alert">/u);
   assert.doesNotMatch(html, /<a\b|data-vista|detalle privado/u);
 });
 

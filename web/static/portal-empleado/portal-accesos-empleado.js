@@ -37,7 +37,7 @@ export function renderizarAccesosEmpleado({ accesos, escaparHTML, traducir = tra
     const mensaje = estado === "cargando"
       ? `<span role="status">${t("cargando")}</span>`
       : (estado === "error" ? `<span role="alert">${t("error")}</span>` : "");
-    return [`<li class="elemento-actividad"><div class="acciones-fila">${accion}${mensaje}</div></li>`];
+    return [`<li class="elemento-actividad"><span class="marca-actividad" aria-hidden="true"></span><div class="acciones-fila">${accion} ${mensaje}</div></li>`];
   });
   if (filas.length === 0) return "";
   return `<section class="panel" aria-labelledby="portal-accesos-empleado-titulo">
