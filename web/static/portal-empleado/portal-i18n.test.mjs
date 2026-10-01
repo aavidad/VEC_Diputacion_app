@@ -60,7 +60,7 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     // 5.06, segundo corte: el circuito de firma trae el estado de Firmadoc.
     // Reglas vigentes: el detalle de cada regla y sus textos en catálogos renuevan el enlace del panel.
     // Nuevo llamamiento: el campo «Resumen de la preparación» usa la etiqueta encima y el campo a lo ancho.
-    ["portal.js", "20261001-inc-b2-a11y-v1"],
+    ["portal.js", "20261001-e3-b2-a11y-v1"],
     ["portal-vistas-utilidades.js", "20261001-codexf-accesibilidad-v1"],
     ["portal-preferencias-integracion.js", versionTemas],
     ["portal-preferencias.js", versionTemas],
@@ -71,9 +71,9 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     ["portal-bolsas-contrato.js", versionBolsaTurno],
     ["portal-llamamientos-operaciones-api.js", versionBolsaTurno],
     ["reglas/enlace.js", "20260930-portales-i18n-integracion-v1"],
-    ["portal-modulos-coordinador.js", "20261001-inc-b2-main36-v1"],
-    ["modulos/contratacion-temporal/vista-expedientes.js", "20260930-inc-b2-web-v1"],
-    ["modulos/contratacion-temporal/circuito-firma.js", "20260930-portales-i18n-integracion-v1"],
+    ["portal-modulos-coordinador.js", "20261001-e3-b2-main36-v1"],
+    ["modulos/contratacion-temporal/vista-expedientes.js", "20261001-e3-b2-v1"],
+    ["modulos/contratacion-temporal/circuito-firma.js", "20260930-custodia-506-e3-v3"],
   ]);
   const archivos = ["index.html"];
   const pendientes = [""];

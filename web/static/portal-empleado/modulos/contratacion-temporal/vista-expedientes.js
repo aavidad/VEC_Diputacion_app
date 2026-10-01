@@ -20,7 +20,7 @@ import {
 } from "./vista-expedientes-render.js";
 import { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js";
 import { crearGestorDescargaBorradorRRHH } from "./vista-expedientes-borrador.js";
-import { crearGestorCircuitoFirma } from "./circuito-firma.js?v=20260930-portales-i18n-integracion-v1";
+import { crearGestorCircuitoFirma } from "./circuito-firma.js?v=20260930-custodia-506-e3-v3";
 import { crearGestorIncorporacion } from "./vista-expedientes-incorporacion.js?v=20260930-inc-b2-web-v1";
 import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js";
 import { crearGestorInformeTrasSubsanacion } from "./informe-tras-subsanacion.js?v=20260926-huecos-rrhh-v1";
