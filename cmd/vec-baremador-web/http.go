@@ -166,12 +166,16 @@ func nuevoHandler(host string, assets map[string]recurso) http.Handler {
 				return
 			}
 			configurarProcesosLocales(w)
-		case rutaAdjudicacionesLocales:
+		case rutaAdjudicacionesLocales, rutaCiclosLocales:
 			if !metodo(w, r, http.MethodGet) {
 				return
 			}
-			configurarAdjudicacionesLocales(w)
-		case "/simular", "/api/provision/v1/simulaciones", rutaSimulacionProceso, rutaSimularAdjudicacion:
+			if r.URL.Path == rutaAdjudicacionesLocales {
+				configurarAdjudicacionesLocales(w)
+			} else {
+				configurarCiclosLocales(w)
+			}
+		case "/simular", "/api/provision/v1/simulaciones", rutaSimulacionProceso, rutaSimularAdjudicacion, rutaSimularCiclo:
 			if !metodo(w, r, http.MethodPost) {
 				return
 			}
@@ -213,6 +217,10 @@ func nuevoHandler(host string, assets map[string]recurso) http.Handler {
 			}
 			if r.URL.Path == rutaSimularAdjudicacion {
 				simularAdjudicacionLocal(w, b)
+				return
+			}
+			if r.URL.Path == rutaSimularCiclo {
+				simularCicloLocal(w, b)
 				return
 			}
 			s, err := simuladorlocal.Decodificar(b)

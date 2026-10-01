@@ -104,3 +104,21 @@ resumen sintético. El POST de `/simulaciones` recibe sólo `ejemplo_ref` y
 `configuracion`; los resultados de valoración y las solicitudes se fijan en el
 servidor. El [contrato del CLI](../vec-simular-adjudicacion/README.md) explica
 las entradas completas y los límites del método.
+
+## Reclamación, revisión y borrador de resolución
+
+La pestaña «Reclamación y revisión» ofrece tres ejercicios del mismo provisional:
+reclamación pendiente, mantener la puntuación y rectificar un dato sintético.
+Cada decisión motivada añade otra versión. La anterior conserva su puntuación,
+instantánea y huella; la rectificación recalcula con el motor común. La pantalla
+muestra la cronología y las dependencias que siguen pendientes.
+
+El resultado es siempre un borrador de ensayo. No registra reclamaciones,
+modifica Personal/RUM, firma, publica ni dicta una resolución oficial.
+`GET /api/provision/v1/ciclos-locales` proporciona los casos del catálogo.
+`POST /api/provision/v1/ciclos-locales/simulaciones` acepta sólo `ejemplo_ref` y
+`caso_ref`; los hechos, evidencias y decisiones sintéticas los fija el servidor.
+
+La futura persistencia queda descrita en
+[el contrato de Provisión](../../deploy/postgresql/provision/README.md), con la
+reserva `provision 000001`. No contiene SQL ejecutable ni altera el núcleo.
