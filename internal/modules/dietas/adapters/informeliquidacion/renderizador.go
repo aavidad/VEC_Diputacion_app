@@ -38,8 +38,10 @@ func Nuevo(c Configuracion) (*Renderizador, error) {
 }
 
 type fila struct {
-	Concepto, Detalle, Inicial, Propuesto, Diferencia, Motivo, Regla string
-	Numero                                                           int
+	Concepto, Detalle, Inicial, Propuesto, Diferencia, Motivo, Regla          string
+	Descripcion, Fecha, JustificanteRef, JustificanteSHA, CatalogoOtros, Tope string
+	Numero                                                                    int
+	D5                                                                        bool
 }
 type vista struct {
 	Textos                                                                          Textos
@@ -49,6 +51,7 @@ type vista struct {
 	TotalInicial, TotalPropuesto, TotalDiferencia                                   string
 	CatalogoRef, CatalogoVersion, Tarifa, DocumentoSHA, CatalogoSHA, PreparacionSHA string
 	Fuentes                                                                         []string
+	TieneD5                                                                         bool
 }
 
 // Renderizar consume los importes y totales decididos por el dominio opaco.
@@ -68,6 +71,10 @@ func (r *Renderizador) Renderizar(p *domain.PreparacionLiquidacion, t Textos) ([
 		return nil, ErrPreparacion
 	}
 	v := vista{Textos: t, Tema: r.tema, Estilos: template.CSS(estilos), ComisionRef: s.ComisionRef, Version: strconv.FormatInt(s.ComisionVersion, 10), Grupo: strconv.Itoa(int(s.Documento.GrupoDieta)), CatalogoRef: s.CatalogoRef, CatalogoVersion: s.CatalogoVersion, Tarifa: s.Catalogo.VersionTarifaRef, DocumentoSHA: s.DocumentoSHA256, CatalogoSHA: s.CatalogoSHA256, PreparacionSHA: s.SnapshotSHA256, Fuentes: s.Catalogo.Fuentes}
+	reglas := make(map[string]domain.ReglaLiquidacionPropuesta, len(s.Catalogo.Reglas))
+	for _, regla := range s.Catalogo.Reglas {
+		reglas[regla.Referencia] = regla
+	}
 	for _, l := range s.Lineas {
 		if l.Indice < 0 || l.Indice >= len(s.Documento.Lineas) {
 			return nil, ErrPreparacion
@@ -77,6 +84,19 @@ func (r *Renderizador) Renderizar(p *domain.PreparacionLiquidacion, t Textos) ([
 		detalle := ""
 		if d.Tipo == "kilometraje" {
 			concepto = t.Tipos[d.Tipo]
+		} else if d.Tipo == domain.ClaseOtroMedio || d.Tipo == domain.ClaseOtroGasto {
+			concepto = t.TiposGasto[d.TipoGasto]
+			if concepto == "" {
+				return nil, ErrTextos
+			}
+			if d.CatalogoVersion == "" || d.JustificanteRef == nil || d.JustificanteSHA256 == nil || *d.JustificanteRef == "" || *d.JustificanteSHA256 == "" || s.Catalogo.CatalogoOtrosGastosVersionRef != d.CatalogoVersion {
+				return nil, ErrPreparacion
+			}
+			for _, rotulo := range []string{t.Rotulos.FechaGasto, t.Rotulos.DescripcionDeclarada, t.Rotulos.JustificanteRef, t.Rotulos.JustificanteHuella, t.Rotulos.CatalogoOtrosGastos, t.Rotulos.TopeLinea, t.Rotulos.JustificanteLimite} {
+				if rotulo == "" {
+					return nil, ErrTextos
+				}
+			}
 		} else if d.Tipo != "dieta" {
 			return nil, ErrPreparacion
 		}
@@ -97,7 +117,23 @@ func (r *Renderizador) Renderizar(p *domain.PreparacionLiquidacion, t Textos) ([
 				return nil, ErrTextos
 			}
 		}
-		v.Filas = append(v.Filas, fila{concepto, detalle, moneda(l.OriginalCentimos, t.Formato), moneda(l.ReconocidoPropuestoCentimos, t.Formato), moneda(l.RechazadoCentimos, t.Formato), motivo, l.ReglaRef, l.Indice + 1})
+		f := fila{Concepto: concepto, Detalle: detalle, Inicial: moneda(l.OriginalCentimos, t.Formato), Propuesto: moneda(l.ReconocidoPropuestoCentimos, t.Formato), Diferencia: moneda(l.RechazadoCentimos, t.Formato), Motivo: motivo, Regla: l.ReglaRef, Numero: l.Indice + 1}
+		if d.Tipo == domain.ClaseOtroMedio || d.Tipo == domain.ClaseOtroGasto {
+			regla, ok := reglas[l.ReglaRef]
+			if !ok || regla.Tipo != d.Tipo || regla.Concepto != d.TipoGasto || regla.TopeCentimos <= 0 {
+				return nil, ErrPreparacion
+			}
+			f.D5 = true
+			v.TieneD5 = true
+			f.Fecha = detalle
+			f.Detalle = ""
+			f.Descripcion = d.Concepto
+			f.JustificanteRef = *d.JustificanteRef
+			f.JustificanteSHA = *d.JustificanteSHA256
+			f.CatalogoOtros = d.CatalogoVersion
+			f.Tope = moneda(regla.TopeCentimos, t.Formato)
+		}
+		v.Filas = append(v.Filas, f)
 	}
 	v.TotalInicial = moneda(s.Totales.OriginalCentimos, t.Formato)
 	v.TotalPropuesto = moneda(s.Totales.ReconocidoPropuestoCentimos, t.Formato)

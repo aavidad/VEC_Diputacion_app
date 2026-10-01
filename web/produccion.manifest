@@ -173,6 +173,8 @@ static/portal-empleado/modulos/dietas/vista-rectificacion-admin.js
 static/portal-empleado/modulos/dietas/vista-rectificacion-dietas.js
 static/textos/es/personal.json
 static/textos/en/personal.json
+static/textos/es/personal-traza.json
+static/textos/en/personal-traza.json
 static/portal-empleado/modulos/personal/cliente-http-categorias.js
 static/portal-empleado/modulos/personal/cliente-http-rpt-publica.js
 static/portal-empleado/modulos/personal/cliente-http-estructura-organizativa-publica.js
@@ -180,6 +182,7 @@ static/portal-empleado/modulos/personal/contrato.js
 static/portal-empleado/modulos/personal/i18n.js
 static/portal-empleado/modulos/personal/i18n-rpt-puestos.js
 static/portal-empleado/modulos/personal/i18n-ficha-propia.js
+static/portal-empleado/modulos/personal/personal-traza-i18n.js
 static/portal-empleado/modulos/personal/cliente-http-ficha-propia.js
 static/portal-empleado/modulos/personal/ficha-integral.css
 static/portal-empleado/modulos/personal/vista-ficha-integral.js
