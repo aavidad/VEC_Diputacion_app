@@ -47,6 +47,21 @@ también limita a 256 KiB. Se permiten dos simulaciones simultáneas en total.
 El servidor limita la lectura de cabeceras a dos segundos, la lectura completa
 a cinco y la escritura a diez. Se detiene con Ctrl+C.
 
+## Ensayo local de procesos selectivos
+
+La tercera dirección que muestra el programa abre el ensayo de oposición,
+concurso y concurso-oposición. RRHH puede revisar los requisitos, las fases y
+las reglas de un ejemplo sintético, cambiar la configuración y ver cómo se
+obtiene cada resultado. El ejercicio no admite solicitudes, notas ni documentos
+procedentes del navegador. Tampoco registra candidaturas ni calificaciones.
+
+`GET /api/seleccion/v1/ensayos` devuelve tres ejemplos retirables, uno por
+modalidad. `POST /api/seleccion/v1/simulaciones` recibe `ejemplo_ref` y
+`configuracion`; el servidor aporta los hechos sintéticos del ejemplo y usa el
+caso de uso de Selección con el baremador común. La respuesta es un cálculo
+reproducible, sin acto de admisión, aprobación del tribunal ni traspaso a Bolsa
+o Personal. Los textos de la pantalla proceden de catálogos en español e inglés.
+
 Comprobaciones focales:
 
 ```sh
