@@ -584,10 +584,11 @@
     left: 0;
     width: min(310px, 88vw);
     height: 100vh;
+    visibility: hidden;
     transform: translateX(-105%);
     transition: transform 180ms ease;
   }
-  body[data-menu-abierto="true"] .portal-lateral { transform: translateX(0); }
+  body[data-menu-abierto="true"] .portal-lateral { visibility: visible; transform: translateX(0); }
   .boton-menu-movil { display: inline-flex; align-items: center; gap: 6px; }
   .cabecera-portal { min-height: 64px; padding: 8px 12px; }
   .acciones-cabecera .sesion-presentacion > span:last-child { display: none; }

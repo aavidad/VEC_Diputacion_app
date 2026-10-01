@@ -310,7 +310,9 @@
   "vista": {
     "comun": {
       "porcentaje": "{valor} %",
-      "porcentajeLeido": "{valor} por ciento"
+      "porcentajeLeido": "{valor} por ciento",
+      "campoObligatorio": "(obligatorio)",
+      "campoOpcional": "(opcional)"
     },
     "inicio": {
       "consultaBolsa": {

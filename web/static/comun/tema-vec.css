@@ -18,6 +18,7 @@
   --portal-tinta: #10213b;
   --portal-muted: #586985;
   --portal-borde: #dde5ef;
+  --portal-borde-control: #687588;
   --portal-fondo: #f2f5f9;
   --portal-superficie: #ffffff;
   --portal-superficie-alterna: #f7f9fc;
@@ -90,6 +91,7 @@ body[data-modo-color]:not([data-contraste="true"]):not(.alto-contraste) {
 
 /* El modo oscuro cambia solo tokens; la gramática de paneles y controles permanece. */
 body[data-modo-color="oscuro"]:not([data-contraste="true"]):not(.alto-contraste) {
+  --portal-borde-control: var(--portal-muted);
   color-scheme: dark;
   --portal-azul-950: #9ac6ee;
   --portal-azul-900: #8ab9e6;
@@ -134,6 +136,7 @@ body[data-modo-color="oscuro"]:not([data-contraste="true"]):not(.alto-contraste)
 }
 
 html[data-tema="granate"] body[data-modo-color="oscuro"]:not([data-contraste="true"]):not(.alto-contraste) {
+  --portal-borde-control: var(--portal-muted);
   --portal-azul-950: #e1b7ca;
   --portal-azul-900: #d9a9c1;
   --portal-azul-800: #cf9ab4;
@@ -157,6 +160,7 @@ html[data-tema="granate"] body[data-modo-color="oscuro"]:not([data-contraste="tr
 /* Paleta corporativa: el manual oficial fija #173a4e y #accb49.
    El verde claro identifica superficies; las acciones usan tonos oscuros AA. */
 body[data-modo-color="diputacion_granada"]:not([data-contraste="true"]):not(.alto-contraste) {
+  --portal-borde-control: var(--portal-muted);
   --portal-azul-950: #173a4e;
   --portal-azul-900: #20495a;
   --portal-azul-800: #285568;
@@ -179,6 +183,7 @@ body[data-modo-color="diputacion_granada"]:not([data-contraste="true"]):not(.alt
 }
 
 body[data-modo-color="arena"]:not([data-contraste="true"]):not(.alto-contraste) {
+  --portal-borde-control: var(--portal-muted);
   --portal-azul-950: #433626;
   --portal-azul-900: #55412c;
   --portal-azul-800: #674b2f;
@@ -200,6 +205,7 @@ body[data-modo-color="arena"]:not([data-contraste="true"]):not(.alto-contraste) 
 }
 
 body[data-modo-color="salvia"]:not([data-contraste="true"]):not(.alto-contraste) {
+  --portal-borde-control: var(--portal-muted);
   --portal-azul-950: #243f3b;
   --portal-azul-900: #2f5149;
   --portal-azul-800: #35604f;
@@ -221,6 +227,7 @@ body[data-modo-color="salvia"]:not([data-contraste="true"]):not(.alto-contraste)
 }
 
 body[data-modo-color="lavanda"]:not([data-contraste="true"]):not(.alto-contraste) {
+  --portal-borde-control: var(--portal-muted);
   --portal-azul-950: #383453;
   --portal-azul-900: #4b4265;
   --portal-azul-800: #5a4c77;
@@ -242,6 +249,7 @@ body[data-modo-color="lavanda"]:not([data-contraste="true"]):not(.alto-contraste
 }
 
 body[data-modo-color="azul_sereno"]:not([data-contraste="true"]):not(.alto-contraste) {
+  --portal-borde-control: var(--portal-muted);
   --portal-azul-950: #20394e;
   --portal-azul-900: #294a64;
   --portal-azul-800: #315a78;
@@ -263,6 +271,7 @@ body[data-modo-color="azul_sereno"]:not([data-contraste="true"]):not(.alto-contr
 }
 
 body[data-modo-color="noche_suave"]:not([data-contraste="true"]):not(.alto-contraste) {
+  --portal-borde-control: var(--portal-muted);
   color-scheme: dark;
   --portal-azul-950: #b4cad7;
   --portal-azul-900: #a6c2d1;
@@ -328,6 +337,7 @@ body[data-modo-color="noche_suave"]:not([data-contraste="true"]):not(.alto-contr
 
 body[data-contraste="true"],
 body.alto-contraste {
+  --portal-borde-control: var(--portal-muted);
   --portal-azul-950: #001d3b;
   --portal-lateral-fondo: var(--portal-azul-950);
   --portal-azul-900: #002a54;
