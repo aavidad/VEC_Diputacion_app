@@ -5,7 +5,7 @@ import { crearTraductorHistorialCronos, MENSAJES_HISTORIAL_CRONOS } from "./i18n
 import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
 import { crearTraductorJustificacionCronos, MENSAJES_JUSTIFICACION_CRONOS } from "./i18n-permisos.js?v=20261001-cronos-grafo-bandeja-v5";
 
-import { crearTraductorConsultaPermisosCronos, MENSAJES_CONSULTA_PERMISOS_CRONOS } from "./i18n-permisos-consulta.js?v=20261001-cronos-permisos-consulta-v1";
+import { crearTraductorConsultaPermisosCronos, MENSAJES_CONSULTA_PERMISOS_CRONOS } from "./i18n-permisos-consulta.js?v=20261001-cronos-c7-consulta-v1";
 
 const ERRORES = new Map([
   ["peticion_invalida", "error_peticion_invalida"], ["conflicto", "error_conflicto"],
