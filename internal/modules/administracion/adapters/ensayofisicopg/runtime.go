@@ -119,7 +119,7 @@ func (r RuntimeObservacion) ComprobarExclusion(ctx context.Context) (string, err
 	if !i.State.Running || i.ID == "" || i.Config.Image != "sha256:"+r.ImagenSHA256 || i.HostConfig.NetworkMode != "none" || !i.HostConfig.ReadonlyRootfs || i.HostConfig.Privileged {
 		return "", errRuntime
 	}
-	if !contiene(i.HostConfig.CapDrop, "ALL") || !contiene(i.HostConfig.SecurityOpt, "no-new-privileges:true") {
+	if !contiene(i.HostConfig.CapDrop, "ALL") || !sinNuevosPrivilegios(i.HostConfig.SecurityOpt) {
 		return "", errRuntime
 	}
 	raiz := filepath.Clean(r.Raiz)
@@ -196,4 +196,16 @@ func (r RuntimeObservacion) LeerArchivado(ctx context.Context, id string, limite
 		return nil, err
 	}
 	return docker(ctx, nil, limite, "exec", r.Nombre, "cat", "--", ruta)
+}
+
+func sinNuevosPrivilegios(opciones []string) bool {
+	admitida := false
+	for _, s := range opciones {
+		if s == "no-new-privileges:true" || s == "no-new-privileges" {
+			admitida = true
+		} else if strings.HasPrefix(s, "no-new-privileges") {
+			return false
+		}
+	}
+	return admitida
 }
