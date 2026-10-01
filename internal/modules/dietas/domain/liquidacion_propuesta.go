@@ -120,6 +120,7 @@ func PrepararLiquidacion(ref string, version int64, documentoSHA string, d Docum
 	lineas := make([]LineaLiquidacionPropuesta, len(d.Lineas))
 	var totales TotalesLiquidacionPropuesta
 	var manutencion, km, otros int64
+	var kilometrosEscalados int64
 	tramos := make([]int, 0)
 	rutas := 0
 	otrosLineas := 0
@@ -154,9 +155,20 @@ func PrepararLiquidacion(ref string, version int64, documentoSHA string, d Docum
 				return nil, ErrPreparacionLiquidacion
 			}
 			cantidad, err := decimal4(l.Kilometros)
-			if err != nil || cantidad <= 0 || cantidad > (math.MaxInt64-5000)/r.CentimosPorKM {
+			if err != nil || cantidad <= 0 || cantidad > 10000*10000-kilometrosEscalados || cantidad > (math.MaxInt64-5000)/r.CentimosPorKM {
 				return nil, ErrPreparacionLiquidacion
 			}
+			// Cotejar la ruta importada con el contrato documental, sin consultar
+			// el grafo ni recalcular el importe original con otra tarifa.
+			base, err := decimal4(l.KilometrosBase)
+			if err != nil || base <= 0 || !ajusteTextoValido(l.AjusteKilometros, l.MotivoAjuste) {
+				return nil, ErrPreparacionLiquidacion
+			}
+			ajuste, _ := ajusteEscalado(l.AjusteKilometros)
+			if base+ajuste != cantidad {
+				return nil, ErrPreparacionLiquidacion
+			}
+			kilometrosEscalados += cantidad
 			limite = (cantidad*r.CentimosPorKM + 5000) / 10000
 			if !sumarLiquidacion(&km, l.ImporteCentimos) {
 				return nil, ErrPreparacionLiquidacion
