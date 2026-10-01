@@ -1,5 +1,5 @@
 /* Las vistas que cargan solo portal.css comparten la misma autoridad visual. */
-@import url("../comun/tema-vec.css?v=20260930-codexf-temas-v2");
+@import url("../comun/tema-vec.css?v=20261001-codexf-accesibilidad-v1");
 
 * {
   box-sizing: border-box;
@@ -43,6 +43,7 @@ input:focus-visible,
 select:focus-visible,
 textarea:focus-visible,
 a:focus-visible,
+summary:focus-visible,
 [tabindex]:focus-visible {
   outline: 3px solid var(--portal-azul-700);
   outline-offset: 2px;
@@ -731,4 +732,14 @@ a:focus-visible,
   .boton-secundario:hover {
     transform: none;
   }
+}
+
+/* Contraste de controles; los bordes suaves siguen separando las superficies. */
+body.portal-empleado-app :is(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]), select, textarea):not(:disabled) {
+  border-color: var(--portal-borde-control);
+}
+
+.tabla-contenedor:focus-visible {
+  outline: 3px solid var(--portal-foco);
+  outline-offset: -3px;
 }

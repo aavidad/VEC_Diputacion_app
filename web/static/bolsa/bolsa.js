@@ -378,6 +378,11 @@
   function renderizarDetalle(datos) {
     const categoriasResueltas = contratoPublicoV2.validarDetalle(datos);
     const convocatoria = datos.convocatoria;
+    const entradaPreparacion = document.getElementById("preparar-solicitud");
+    if (entradaPreparacion) {
+      entradaPreparacion.dataset.convocatoria = convocatoria.identificador_publico;
+      entradaPreparacion.dataset.demostracion = String(datos.fuente.demostracion);
+    }
     elementos.tituloDetalle.textContent = convocatoria.titulo;
     vaciar(elementos.detalleEtiquetas);
     elementos.detalleEtiquetas.append(etiqueta(convocatoria.tipo), etiqueta(convocatoria.estado));

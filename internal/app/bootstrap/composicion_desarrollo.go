@@ -408,6 +408,11 @@ func nuevoServidorDesarrollo(
 			}
 		}()
 		rutasContratacion = append(rutasContratacion, documentos.rutas...)
+		// Con Documentos compuesto, la firma de CT custodia allí el PDF
+		// firmado de los documentos que declare su material.
+		if err := autoridadContratacion.firmaDocumento.componerCustodia(documentos); err != nil {
+			return nil, nil, err
+		}
 	}
 	personalEmpleado, err := nuevasRutasPersonalEmpleadoDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia, autoridadContratacion.materialPersonalFichaPropia)
 	if err != nil {

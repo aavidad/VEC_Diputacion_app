@@ -1,5 +1,6 @@
 {
   "general": {
+    "inicio_rrhh_categorias_rpt": "Categorías de la RPT",
     "inicio_rrhh_nueva_peticion": "Nueva petición de personal",
     "inicio_rrhh_pendientes_uno": "1 expediente pendiente",
     "inicio_rrhh_pendientes_varios": "{total} expedientes pendientes",
