@@ -179,3 +179,52 @@ test('Concursos tiene panel vacío propio, navegación nativa traducida y Bolsa 
   assert.match(bolsa, /id="baremo-panel-concursos"[^>]* hidden/u);
  }
 });
+
+test('desglosa bruto, máximo y resultado del motor para topes activos, iguales y no alcanzados', async () => {
+ for (const idioma of ['es', 'en']) {
+  const textos = await cargarTextos('baremo-bolsa', { idioma });
+  const editor = crearEditorBaremo({ cliente: {} }); editor.cargar(ejemplo);
+  const antes = resultado('3000000'); antes.resultado.secciones = [
+   { seccion: 'experiencia', antes_tope: '3000000/1', tope: { limite: '1000000/1', aplicado: true }, puntos_finales: '1000000' },
+   { seccion: 'formacion', antes_tope: '1000000/1', tope: { limite: '1000000/1', aplicado: false }, puntos_finales: '1000000' },
+   { seccion: 'otros', antes_tope: '500000/1', tope: { limite: '1000000/1', aplicado: false }, puntos_finales: '500000' },
+  ];
+  const despues = resultado('3000000'); despues.resultado.secciones = [
+   { clave: 'experiencia', suma_reglas: '3000000', maximo_puntos: '1000000', puntos: '1000000' },
+   { clave: 'formacion', suma_reglas: '1000000', maximo_puntos: '1000000', puntos: '1000000' },
+   { clave: 'otros', suma_reglas: '500000', maximo_puntos: '1000000', puntos: '500000' },
+  ];
+  const comparacion = { antes, despues }, preimagen = structuredClone(comparacion);
+  const html = renderizarBaremo({ ...editor.estado(), comparacion }, { textos, ejemplos: [ejemplo] });
+  for (const clave of ['antes_tope', 'maximo_apartado', 'despues_tope']) assert.ok(html.includes(textos.traducir(`editor.${clave}`)));
+  const filas = [...html.matchAll(/<tr><th scope="row">(?:Experiencia|Experience|Formación|Training|Otros méritos|Other merits)<\/th>(.*?)<\/tr>/gu)].map((m) => m[1]);
+  assert.equal(filas.length, 6);
+  for (const offset of [0, 3]) {
+   assert.match(filas[offset], />3<\/td><td class="columna-numero">1<\/td><td class="columna-numero">1<\/td>/u);
+   assert.match(filas[offset + 1], />1<\/td><td class="columna-numero">1<\/td><td class="columna-numero">1<\/td>/u);
+   assert.ok(filas[offset + 2].includes(idioma === 'es' ? '>0,5</td>' : '>0.5</td>'));
+  }
+  assert.deepEqual(comparacion, preimagen);
+ }
+});
+
+test('no aproxima racionales ni transforma datos ausentes o malformados en cero', async () => {
+ for (const idioma of ['es', 'en']) {
+  const textos = await cargarTextos('baremo-bolsa', { idioma });
+  const editor = crearEditorBaremo({ cliente: {} }); editor.cargar(ejemplo);
+  const antes = resultado(); antes.resultado.secciones = [
+   { seccion: 'experiencia', antes_tope: '1000000/3', tope: { limite: '2000000/1' }, puntos_finales: '333333' },
+   { seccion: 'otros', antes_tope: '0/1', tope: { limite: null }, puntos_finales: '0' },
+  ];
+  const despues = resultado(); despues.resultado.secciones = [
+   { clave: 'formacion', suma_reglas: '<img src=x>', maximo_puntos: '1000000/0', puntos: '1' },
+   { clave: 'otros', puntos: '0' },
+  ];
+  const html = renderizarBaremo({ ...editor.estado(), comparacion: { antes, despues } }, { textos, ejemplos: [ejemplo] });
+  assert.match(html, />1 ÷ 3<\/td>/u);
+  assert.doesNotMatch(html, /0[,.]333333333|<img/u);
+  assert.ok(html.includes(textos.traducir('editor.sin_tope')));
+  assert.equal(html.split(textos.traducir('editor.dato_no_disponible')).length - 1, 4);
+  assert.match(html, />0<\/td><td class="columna-numero">(?:Sin tope|No limit)<\/td><td class="columna-numero">0<\/td>/u);
+ }
+});
