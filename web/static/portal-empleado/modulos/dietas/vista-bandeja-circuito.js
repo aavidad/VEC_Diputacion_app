@@ -7,6 +7,13 @@ import { crearTraductorOtrosGastosDietas } from "./i18n-otros-gastos.js?v=202609
 import { describirOtroGasto } from "./formulario-otros-gastos.js?v=20260929-i18n-dietas-v1";
 import { recortarBordes } from "./texto-dietas.js?v=20260925-d5d6-v1";
 
+const codificador = new TextEncoder();
+const errorMotivo = (motivo, decision) => {
+  const bytes = codificador.encode(motivo).byteLength;
+  if (bytes > 600 || /[\x00-\x1f\x7f]/u.test(motivo)) return "circuito_motivo_invalido";
+  return decision === "devolver" && bytes < 3 ? "circuito_motivo_devolucion_incompleto" : "";
+};
+
 const ETAPAS = Object.freeze(["revision", "autorizacion", "liquidacion", "fiscalizacion"]);
 const TONO_ESTADO = Object.freeze({ enviado_pendiente_revision: "info", pendiente_autorizacion: "info", pendiente_liquidacion: "violeta", pendiente_fiscalizacion: "violeta", fiscalizada: "exito", devuelta: "peligro" });
 const nodo = (documento, etiqueta, texto = "") => { const resultado = documento.createElement(etiqueta); if (texto) resultado.textContent = texto; return resultado; };
@@ -147,7 +154,7 @@ export function montarVistaBandejaCircuitoDietas(contenedor, {
   function pintarDetalle() {
     detalle.replaceChildren(); detalle.hidden = !abierto;
     if (!abierto) return;
-    const volver = nodo(documento, "button", t("circuito_volver")); volver.type = "button"; volver.className = "boton-secundario"; volver.dataset.dietasCircuitoVolver = "";
+    const volver = nodo(documento, "button", t("circuito_volver")); volver.disabled = Boolean(pendiente); volver.type = "button"; volver.className = "boton-secundario"; volver.dataset.dietasCircuitoVolver = "";
     if (nivelDetalle === "cargando") { detalle.append(volver, nodo(documento, "p", t("circuito_documento_cargando"))); return; }
     if (!abierto.documento) { detalle.append(volver, nodo(documento, "p", t("circuito_documento_error"))); return; }
     const d = abierto.documento; const lineas = Array.isArray(d.documento?.lineas) ? d.documento.lineas : [];
@@ -190,21 +197,35 @@ export function montarVistaBandejaCircuitoDietas(contenedor, {
     const decision = nodo(documento, "div"); decision.className = "dietas-circuito-decision";
     const motivo = nodo(documento, "textarea"); motivo.maxLength = 600; motivo.rows = 3; motivo.dataset.dietasCircuitoMotivo = ""; motivo.id = `motivo-${abierto.referencia}`;
     motivo.value = abierto.motivo || "";
+    motivo.setAttribute("aria-invalid", String(Boolean(abierto.errorMotivo)));
+    const errorCampo = abierto.errorMotivo ? nodo(documento, "p", t(abierto.errorMotivo)) : null;
+    if (errorCampo) {
+      errorCampo.id = `${motivo.id}-error`; errorCampo.dataset.dietasCircuitoMotivoError = "";
+      motivo.setAttribute("aria-describedby", errorCampo.id);
+    }
     const etiqueta = nodo(documento, "label", t("circuito_motivo")); etiqueta.setAttribute("for", motivo.id);
     const botones = nodo(documento, "div"); botones.className = "dietas-circuito-botones";
     const aprobar = nodo(documento, "button", t(`circuito_aprobar_${consulta.etapa}`)); aprobar.type = "button"; aprobar.className = "boton-primario"; aprobar.dataset.dietasCircuitoDecision = "aprobar";
     const devolver = nodo(documento, "button", t("circuito_devolver")); devolver.type = "button"; devolver.className = "boton-peligro"; devolver.dataset.dietasCircuitoDecision = "devolver";
-    const bloqueado = Boolean(controladorDecision || pendiente); aprobar.disabled = bloqueado; devolver.disabled = bloqueado; motivo.disabled = bloqueado;
+    const bloqueado = Boolean(controladorDecision || pendiente); aprobar.disabled = bloqueado; devolver.disabled = bloqueado; motivo.readOnly = bloqueado;
     botones.append(aprobar, devolver);
-    if (pendiente?.incierta) { const reintento = nodo(documento, "button", t("circuito_reintentar_decision")); reintento.type = "button"; reintento.className = "boton-secundario"; reintento.dataset.dietasCircuitoReintento = ""; botones.append(reintento); }
-    decision.append(etiqueta, motivo, botones);
+    if (pendiente?.incierta) { const reintento = nodo(documento, "button", t("circuito_reintentar_decision")); reintento.disabled = Boolean(controladorDecision); reintento.type = "button"; reintento.className = "boton-secundario"; reintento.dataset.dietasCircuitoReintento = ""; botones.append(reintento); }
+    decision.append(etiqueta, motivo);
+    if (errorCampo) decision.append(errorCampo);
+    decision.append(botones);
     detalle.append(encabezado, resumen, marco, decision);
   }
 
   function pintar() {
     if (!activa || !montada(contenedor, raiz)) return;
     estado.textContent = mensaje; estado.dataset.nivel = nivel;
-    pintarLista(); pintarPaginacion(); pintarDetalle();
+    pintarLista(); pintarPaginacion(); pintarDetalle(); pintarBloqueo();
+  }
+
+  function pintarBloqueo() {
+    const bloqueado = Boolean(controladorDecision || pendiente);
+    [selectorEtapa, desde, hasta, buscar].forEach((campo) => { campo.disabled = bloqueado; });
+    detalle.setAttribute("aria-busy", String(Boolean(controladorDecision)));
   }
 
   async function cargar(indice = indicePagina, enfocar = false) {
@@ -238,6 +259,7 @@ export function montarVistaBandejaCircuitoDietas(contenedor, {
   }
 
   async function abrir(referencia) {
+    if (!activa || controladorDecision || pendiente) return;
     const item = pagina.items.find((entrada) => entrada.referencia === referencia);
     if (!item || pagina.competencia === "sin_fuente" || typeof cliente.documento !== "function") return;
     const disparador = documento.activeElement;
@@ -266,20 +288,25 @@ export function montarVistaBandejaCircuitoDietas(contenedor, {
   async function decidir(reintentar, boton) {
     if (controladorDecision || !activa || !abierto?.documento) return;
     if (!reintentar && pendiente) return;
-    const decision = reintentar ? pendiente?.decision : boton?.dataset?.dietasCircuitoDecision;
+    const decision = reintentar ? pendiente?.entrada.decision : boton?.dataset?.dietasCircuitoDecision;
     if (!["aprobar", "devolver"].includes(decision)) return;
     const campoMotivo = detalle.querySelector?.("[data-dietas-circuito-motivo]");
     // Recorta los mismos blancos de borde que Go rechaza (también U+0085).
-    const motivo = reintentar ? pendiente.motivo : recortarBordes(campoMotivo?.value);
-    if (!reintentar && decision === "devolver" && (motivo.length < 3 || motivo.length > 600)) {
-      mensaje = t("circuito_decision_invalida"); nivel = "error"; abierto = { ...abierto, motivo }; pintar(); publicar(mensaje);
+    const motivo = reintentar ? pendiente.entrada.motivo : recortarBordes(campoMotivo?.value);
+    const claveErrorMotivo = reintentar ? "" : errorMotivo(motivo, decision);
+    if (claveErrorMotivo) {
+      mensaje = t(claveErrorMotivo); nivel = "error"; abierto = { ...abierto, motivo: campoMotivo?.value || "", errorMotivo: claveErrorMotivo }; pintar(); publicar(mensaje);
       detalle.querySelector?.("[data-dietas-circuito-motivo]")?.focus?.(); return;
     }
-    if (!reintentar) pendiente = { referencia: abierto.referencia, decision, motivo, clave: claveNueva(generarClaveIdempotencia), version: abierto.version, incierta: false };
-    abierto = { ...abierto, motivo };
-    controladorDecision = new AbortController(); mensaje = t("circuito_procesando"); nivel = "cargando"; pintarDetalle(); estado.textContent = mensaje;
+    if (!reintentar) pendiente = { referencia: abierto.referencia, entrada: Object.freeze({ etapa: consulta.etapa, decision, motivo,
+      clave_idempotencia: claveNueva(generarClaveIdempotencia), version_esperada: abierto.version }), incierta: false };
+    const disparador = documento.activeElement;
+    abierto = { ...abierto, motivo, errorMotivo: "" };
+    controladorDecision = new AbortController(); mensaje = t("circuito_procesando"); nivel = "cargando";
+    pintarDetalle(); pintarBloqueo(); estado.textContent = mensaje; estado.dataset.nivel = nivel;
+    if (puedeRestaurarFoco(disparador)) estado.focus?.();
     try {
-      const resultado = await cliente.decidir(pendiente.referencia, { etapa: consulta.etapa, decision: pendiente.decision, motivo: pendiente.motivo, clave_idempotencia: pendiente.clave, version_esperada: pendiente.version }, { signal: controladorDecision.signal });
+      const resultado = await cliente.decidir(pendiente.referencia, pendiente.entrada, { signal: controladorDecision.signal });
       if (!activa) return;
       mensaje = t(resultado.recibo.repeticion ? "circuito_recibo_repetido" : "circuito_recibo", { referencia: resultado.recibo.referencia, version: resultado.recibo.version, fecha: instante(resultado.recibo.registrado_en) });
       nivel = "exito"; publicar(mensaje);
@@ -288,9 +315,19 @@ export function montarVistaBandejaCircuitoDietas(contenedor, {
     } catch (error) {
       if (!activa || error?.codigo === "operacion_abortada") return;
       if (error?.resultadoIndeterminado) { pendiente = { ...pendiente, incierta: true }; mensaje = t("circuito_incierto"); }
-      else { mensaje = textoError(error, t, "circuito_error_decision"); pendiente = null; }
-      nivel = "error"; publicar(mensaje);
-    } finally { controladorDecision = null; if (activa) pintar(); }
+      else {
+        mensaje = textoError(error, t, "circuito_error_decision"); pendiente = null;
+        if (error?.codigo === "competencia_sin_fuente") { pagina = { items: [], competencia: "sin_fuente" }; abierto = null; cursores = [undefined]; indicePagina = 0; }
+      }
+      nivel = pagina.competencia === "sin_fuente" ? "" : "error"; publicar(mensaje);
+    } finally {
+      controladorDecision = null;
+      if (activa) {
+        const restaurarFoco = puedeRestaurarFoco(disparador) || documento.activeElement === estado;
+        pintar();
+        if (restaurarFoco) (pendiente?.incierta ? detalle.querySelector?.("[data-dietas-circuito-reintento]") : abierto ? detalle.querySelector?.("[data-dietas-circuito-motivo]") : estado)?.focus?.();
+      }
+    }
   }
 
   async function clic(evento) {
