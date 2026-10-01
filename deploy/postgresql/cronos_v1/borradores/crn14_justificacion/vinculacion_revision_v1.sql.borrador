@@ -1,0 +1,51 @@
+-- CRN14: BORRADOR BLOQUEADO. Todas las líneas son comentarios.
+-- No instalar, extraer para ejecutar ni incluir en listas de instalación.
+-- Fuente C8: 5b51f06338fc4bdfcc1452d724770b1de782ddbc.
+-- Contrato: contrato_v1.json. Sin funciones, DDL, roles ni concesiones nuevas.
+-- Orden causal: después de M paso 3 publicado y ensayado y contratos de D.
+-- D debe registrar el orden; el número reservado no determina ese orden.
+-- Consumidor nominal V3 pendiente de acuerdo con D: no se propone sustituto.
+--
+-- Entrada futura: MaterialJustificacion canónico de la fuente C8, sin bytes
+-- documentales, contenido personal ni motivos libres. Huella SHA256 exacta.
+-- Actor/perfil desde frontera confiable; empleado y solicitud desde fuente
+-- autorizada de Persona/Personal. Enclave interno acreditado, nunca inferido.
+-- Cotejar solicitud_ref, empleado_ref, catalogo_version_ref, permiso_ref,
+-- expediente_documental_ref y solicitud_version contra la preimagen exacta.
+-- Solicitud concedida y justificante exigido; catálogo original inmutable.
+-- Cotejar documento id/version/SHA256/custodio_id/custodia_ref confirmado
+-- por Documentos comunes, para ese expediente y tipo documental autorizado.
+-- Política ref/version/SHA256, custodio y motivos gobernados exactos.
+-- La referencia ni la huella declaradas por el cliente acreditan el documento.
+--
+-- ANEXAR: Documentos confirma mediante su propia transacción independiente.
+-- Si el enlace falla, conservar Documento confirmado y enlace pendiente.
+-- Nunca deshacer su alta, fabricar recibo conjunto o anunciar éxito Cronos.
+-- Confirmar sólo el mismo documento verificado, no sustituir sus metadatos.
+--
+-- CONFIRMAR futuro: una transacción Cronos SERIALIZABLE, con bloqueo acotado
+-- del agregado exacto y CAS de la versión esperada de justificación.
+-- Bajo bloqueo, revalidar versiones, estado, política, vigencia y competencia.
+-- Verificar criptografía y consumir V3 nominal ligada a actor/perfil/acción,
+-- solicitud/ámbito/finalidad/campos/obligaciones, audiencia y huella exactos.
+-- Consumo V3, versión siguiente, historia sólo adición, auditoría central,
+-- outbox y recibo Cronos confirman o revierten juntos. Responder tras commit.
+-- Fallo de serialización: reintento acotado con misma clave/material y
+-- autorización actual; ninguna capacidad vencida gana vigencia al esperar.
+--
+-- REVISAR: sólo vínculo pendiente_revision exacto, misma versión/documento.
+-- Decisión aceptada o rechazada y motivo_ref permitido por política exacta.
+-- Revalidar competencia nominal, relación vigente y separación de funciones.
+-- Añadir versión y hecho histórico; no conceder/revocar permiso ni cambiar saldo.
+--
+-- RECUPERAR: reautorizar en la petición actual lectura del objeto y campos
+-- exactos y auditar el acceso. No reutilizar una concesión histórica.
+-- Buscar por clave original y material completo/huella: cambio es conflicto.
+-- Devolver versión histórica y recibo/fecha UTC originales, no la última fila.
+-- No repetir alta Documentos, historia, outbox ni recibo; auditar nuevo acceso.
+-- Denegaciones se auditan en frontera; no afirmar que sobreviven a un rollback.
+-- Fuente no disponible, ausencia o incoherencia: rechazo sin datos ajenos.
+--
+-- BLOQUEOS: fuente Persona/Personal, enclave, gobierno nominal, conservación,
+-- contrato de consumo D y sus referencias/ACL finales. Sin apertura de rutas.
+-- Revisiones independientes y ensayo PostgreSQL real quedan pendientes.
