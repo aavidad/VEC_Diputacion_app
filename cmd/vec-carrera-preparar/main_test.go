@@ -57,3 +57,39 @@ func TestCLIRechazaMiembrosConMayusculas(t *testing.T) {
 		t.Fatal("permite claves equivalentes por plegado de mayusculas")
 	}
 }
+
+func TestCLIAntecedentesSinteticosConservaDeclaracionYFaltantes(t *testing.T) {
+	in, err := os.ReadFile("testdata/entrada.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out, errs bytes.Buffer
+	if runArgs([]string{"--antecedentes-sinteticos"}, bytes.NewReader(in), &out, &errs) != 0 {
+		t.Fatal(errs.String())
+	}
+	var resultado struct {
+		Preparacion struct {
+			Casos []struct {
+				EstadoGlobal               string `json:"estado_global"`
+				GradoPersonal, NivelPuesto *int   `json:"-"`
+			} `json:"casos"`
+		} `json:"preparacion"`
+	}
+	if json.Unmarshal(out.Bytes(), &resultado) != nil || len(resultado.Preparacion.Casos) != 3 || resultado.Preparacion.Casos[0].EstadoGlobal != "pendiente" {
+		t.Fatal("no prepara los casos existentes")
+	}
+	for _, fragmento := range []string{`"antecedentes_sinteticos"`, `"autorizacion_carrera_h08"`, `"lector_autorizado_personal"`, `"Version": "carrera-preparacion-1"`, `"Estado": "declarado"`, `"grado_personal": null`, `"nivel_puesto": null`} {
+		if !strings.Contains(out.String(), fragmento) {
+			t.Fatalf("falta %s", fragmento)
+		}
+	}
+}
+
+func TestCLIAntecedentesRechazaEntradaYArgumentosSinDatos(t *testing.T) {
+	for _, args := range [][]string{{"--antecedentes-sinteticos"}, {"--produccion"}, {"--antecedentes-sinteticos", "ruta-privada"}} {
+		var out, errs bytes.Buffer
+		if runArgs(args, strings.NewReader(`{"secreto":"dato-privado"}`), &out, &errs) != 1 || out.Len() != 0 || strings.Contains(errs.String(), "dato-privado") || strings.Contains(errs.String(), "ruta-privada") {
+			t.Fatal("rechazo filtra datos o devuelve preparación parcial")
+		}
+	}
+}
