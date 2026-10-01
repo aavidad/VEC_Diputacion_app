@@ -5,8 +5,10 @@ import { cargarTextos } from "../../../../comun/textos.js";
 import { montarInformesDietas, resumirInformesDietas } from "./vista.js";
 
 const datos = JSON.parse(await readFile(new URL("../../../../../../data/demo/dietas/informes.json", import.meta.url), "utf8"));
+const configuracion = JSON.parse(await readFile(new URL("../../../../../../data/catalogos/dietas/informes-ejemplo-v1.json", import.meta.url), "utf8"));
 const catalogo = await cargarTextos("dietas-informes");
 const t = (clave, variables) => catalogo.traducir(`general.${clave}`, variables);
+const cargarConfiguracion = async () => configuracion;
 
 class Nodo {
   constructor(documento, etiqueta) {
@@ -38,22 +40,23 @@ function texto(nodo) { return [nodo.textContent, ...nodo.children.map(texto)].jo
 const esperar = () => new Promise((resolver) => setImmediate(resolver));
 
 test("el informe suma céntimos conservados y combina persona, unidad y período", () => {
-  const todos = resumirInformesDietas(datos.registros);
+  const todos = resumirInformesDietas(datos.registros, configuracion.criterio);
   assert.equal(todos.registros.length, 8);
   assert.equal(todos.total_centimos, 41420);
   assert.deepEqual(todos.conceptos_centimos, { manutencion: 25500, kilometraje: 11720, otros_gastos: 4200 });
-  const filtrado = resumirInformesDietas(datos.registros, {
+  const filtrado = resumirInformesDietas(datos.registros, configuracion.criterio, {
     persona: "persona-demo-01", unidad: "unidad-demo-01", desde: "2026-09-10", hasta: "2026-09-30",
   });
   assert.deepEqual(filtrado.registros.map((fila) => fila.referencia), ["DI-004"]);
   assert.equal(filtrado.total_centimos, 6090);
-  assert.equal(resumirInformesDietas(datos.registros, { persona: "persona-demo-01", unidad: "unidad-demo-02" }).registros.length, 0);
+  assert.equal(resumirInformesDietas(datos.registros, configuracion.criterio,
+    { persona: "persona-demo-01", unidad: "unidad-demo-02" }).registros.length, 0);
 });
 
 test("el montaje consulta el JSON inyectado, pagina y mantiene exportar e imprimir cerrados", async () => {
   const contenedor = raiz(); let lecturas = 0;
   const vista = montarInformesDietas(contenedor, { cargarDatos: async () => { lecturas += 1; return datos; },
-    traducir: t, localizacion: catalogo.localizacion });
+    cargarConfiguracion, traducir: t, localizacion: catalogo.localizacion });
   await esperar();
   assert.equal(lecturas, 1);
   assert.equal(contenedor.querySelectorAll("button").filter((boton) => [t("exportar"), t("imprimir")].includes(boton.textContent)).every((boton) => boton.disabled), true);
@@ -71,7 +74,7 @@ test("el montaje consulta el JSON inyectado, pagina y mantiene exportar e imprim
 
 test("período invertido muestra error y el filtro vacío se puede limpiar", async () => {
   const contenedor = raiz(); const vista = montarInformesDietas(contenedor, {
-    cargarDatos: async () => datos, traducir: t, localizacion: catalogo.localizacion,
+    cargarDatos: async () => datos, cargarConfiguracion, traducir: t, localizacion: catalogo.localizacion,
   });
   await esperar();
   const form = contenedor.querySelector("[data-dietas-informes-filtros]");
@@ -92,7 +95,7 @@ test("datos alterados no producen cifras y una nueva carga válida permite recup
   const vista = montarInformesDietas(contenedor, { cargarDatos: async () => {
     intento += 1;
     return intento === 1 ? { ...datos, registros: [{ ...datos.registros[0], total_centimos: 1 }] } : datos;
-  }, traducir: t, localizacion: catalogo.localizacion });
+  }, cargarConfiguracion, traducir: t, localizacion: catalogo.localizacion });
   await esperar();
   assert.equal(contenedor.querySelectorAll("tbody").length, 0);
   assert.match(contenedor.querySelector("[data-dietas-informes-estado]").textContent, /datos incorrectos/u);
@@ -105,7 +108,7 @@ test("una recarga fallida oculta el informe anterior y cierra los filtros hasta 
   const contenedor = raiz(); let intento = 0;
   const vista = montarInformesDietas(contenedor, { cargarDatos: async () => {
     intento += 1; if (intento === 2) throw new Error("fuente caída"); return datos;
-  }, traducir: t, localizacion: catalogo.localizacion });
+  }, cargarConfiguracion, traducir: t, localizacion: catalogo.localizacion });
   await esperar(); assert.equal(contenedor.querySelectorAll("tbody")[0].children.length, 6);
   await vista.recargar();
   const form = contenedor.querySelector("[data-dietas-informes-filtros]");
@@ -124,7 +127,7 @@ test("el máximo entero seguro conserva sus dos céntimos finales en tarjeta, de
     conceptos_centimos: { manutencion: maximo, kilometraje: 0, otros_gastos: 0 } }] };
   const contenedor = raiz();
   const vista = montarInformesDietas(contenedor, {
-    cargarDatos: async () => fuente, traducir: t, localizacion: catalogo.localizacion,
+    cargarDatos: async () => fuente, cargarConfiguracion, traducir: t, localizacion: catalogo.localizacion,
   });
   await esperar();
   const exacto = "90.071.992.547.409,91";
@@ -139,7 +142,7 @@ test("la moneda procede de la fuente y nunca mezcla divisas de distintas filas",
     total_centimos: maximo, conceptos_centimos: { manutencion: maximo, kilometraje: 0, otros_gastos: 0 } }] };
   const contenedor = raiz();
   const vista = montarInformesDietas(contenedor, {
-    cargarDatos: async () => fuente, traducir: t, localizacion: catalogo.localizacion,
+    cargarDatos: async () => fuente, cargarConfiguracion, traducir: t, localizacion: catalogo.localizacion,
   });
   await esperar();
   const signo = new Intl.NumberFormat(catalogo.localizacion, { style: "currency", currency: fuente.moneda })
@@ -151,7 +154,7 @@ test("la moneda procede de la fuente y nunca mezcla divisas de distintas filas",
 
   const mezcla = raiz();
   const vistaMezcla = montarInformesDietas(mezcla, { cargarDatos: async () => ({ ...fuente,
-    registros: [{ ...fuente.registros[0], moneda: "EUR" }] }), traducir: t, localizacion: catalogo.localizacion });
+    registros: [{ ...fuente.registros[0], moneda: "EUR" }] }), cargarConfiguracion, traducir: t, localizacion: catalogo.localizacion });
   await esperar();
   assert.equal(mezcla.querySelectorAll("tbody").length, 0);
   assert.match(mezcla.querySelector("[data-dietas-informes-estado]").textContent, /datos incorrectos/u);
@@ -159,14 +162,14 @@ test("la moneda procede de la fuente y nunca mezcla divisas de distintas filas",
 
   const sinCentimos = raiz();
   const vistaSinCentimos = montarInformesDietas(sinCentimos, { cargarDatos: async () => ({ ...fuente, moneda: "JPY" }),
-    traducir: t, localizacion: catalogo.localizacion });
+    cargarConfiguracion, traducir: t, localizacion: catalogo.localizacion });
   await esperar();
   assert.match(sinCentimos.querySelector("[data-dietas-informes-estado]").textContent, /datos incorrectos/u);
   vistaSinCentimos.desmontar();
 
   const desconocida = raiz();
   const vistaDesconocida = montarInformesDietas(desconocida, { cargarDatos: async () => ({ ...fuente, moneda: "ZZZ" }),
-    traducir: t, localizacion: catalogo.localizacion });
+    cargarConfiguracion, traducir: t, localizacion: catalogo.localizacion });
   await esperar();
   assert.equal(desconocida.querySelectorAll("tbody").length, 0);
   assert.match(desconocida.querySelector("[data-dietas-informes-estado]").textContent, /datos incorrectos/u);
@@ -179,7 +182,7 @@ test("Reintentar lleva el foco del botón oculto al resumen visible al recuperar
     intento += 1;
     return intento === 1 ? Promise.reject(new Error("fuente caída"))
       : new Promise((resolve) => { resolver = resolve; });
-  }, traducir: t, localizacion: catalogo.localizacion });
+  }, cargarConfiguracion, traducir: t, localizacion: catalogo.localizacion });
   await esperar();
   const reintentar = contenedor.querySelectorAll("button").find((boton) => boton.textContent === t("reintentar"));
   const estado = contenedor.querySelector("[data-dietas-informes-estado]");
@@ -193,4 +196,41 @@ test("Reintentar lleva el foco del botón oculto al resumen visible al recuperar
   assert.equal(resumen.attrs.tabindex, "-1");
   assert.equal(contenedor.ownerDocument.activeElement, resumen);
   vista.desmontar();
+});
+
+test("un catálogo versionado elige fecha, estados y conceptos sin recalcular la comisión", async () => {
+  const variante = { ...configuracion, criterio: { campo_fecha: "fecha_liquidacion",
+    estados_incluidos: ["liquidado"], conceptos_incluidos: ["manutencion"] } };
+  const contenedor = raiz();
+  const vista = montarInformesDietas(contenedor, { cargarDatos: async () => datos,
+    cargarConfiguracion: async () => variante, traducir: t, localizacion: catalogo.localizacion });
+  await esperar();
+  const form = contenedor.querySelector("[data-dietas-informes-filtros]");
+  const fechas = form.querySelectorAll("input"); fechas[0].value = "2026-09-05"; fechas[1].value = "2026-09-20";
+  form.listeners.submit({ preventDefault() {} });
+  const filas = contenedor.querySelectorAll("tbody")[0].children;
+  assert.deepEqual(filas.map((fila) => fila.children[0].textContent), ["DI-002", "DI-006"]);
+  assert.equal(contenedor.querySelectorAll("th").length, 8);
+  assert.equal(contenedor.querySelectorAll("dd").length, 1);
+  assert.match(texto(contenedor.querySelector("[data-dietas-informes-resumen]")), /42,50\s*€/u);
+  assert.match(texto(contenedor.querySelector("details")), /fecha de liquidación/u);
+  assert.match(filas[0].children.at(-1).textContent, /42,50\s*€/u);
+  assert.match(filas[1].children.at(-1).textContent, /0,00\s*€/u);
+  vista.desmontar();
+});
+
+test("referencia e historia incoherentes cierran la carga del catálogo", async () => {
+  for (const mutacion of [
+    { referencia: "propuesta:otra" },
+    { historia: [{ ...configuracion.historia[0], version: 2 }] },
+  ]) {
+    const contenedor = raiz();
+    const vista = montarInformesDietas(contenedor, { cargarDatos: async () => datos,
+      cargarConfiguracion: async () => ({ ...configuracion, ...mutacion }),
+      traducir: t, localizacion: catalogo.localizacion });
+    await esperar();
+    assert.equal(contenedor.querySelectorAll("tbody").length, 0);
+    assert.match(contenedor.querySelector("[data-dietas-informes-estado]").textContent, /datos incorrectos/u);
+    vista.desmontar();
+  }
 });

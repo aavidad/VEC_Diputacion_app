@@ -1,6 +1,8 @@
-const CONCEPTOS = Object.freeze(["manutencion", "kilometraje", "otros_gastos"]);
+// Campos del DTO de comisión que puede usar el informe de ejemplo, no una regla de período.
+const CAMPOS_FECHA = Object.freeze(["fecha_inicio", "fecha_liquidacion", "fecha_fiscalizacion"]);
 const TAMANO_PAGINA = 6;
 const FECHA = /^\d{4}-\d{2}-\d{2}$/u;
+const CLAVE = /^[a-z][a-z0-9_]*$/u;
 
 function fechaValida(valor) {
   if (!FECHA.test(valor)) return false;
@@ -8,9 +10,38 @@ function fechaValida(valor) {
   return !Number.isNaN(fecha.valueOf()) && fecha.toISOString().slice(0, 10) === valor;
 }
 
-function congelarDatos(datos, localizacion) {
+function congelarConfiguracion(configuracion, datos) {
+  const criterio = configuracion?.criterio;
+  const lista = (valores) => Array.isArray(valores) && valores.length > 0 && valores.length <= 20
+    && valores.every((valor) => typeof valor === "string" && CLAVE.test(valor))
+    && new Set(valores).size === valores.length;
+  if (configuracion?.schema !== "dietas-informes-config-demo" || configuracion.naturaleza !== "sintetica"
+    || typeof configuracion.referencia !== "string" || !configuracion.referencia
+    || !Number.isSafeInteger(configuracion.version) || configuracion.version < 1
+    || configuracion.referencia !== datos?.configuracion_ref
+    || configuracion.version !== datos.configuracion_version
+    || !criterio || !CAMPOS_FECHA.includes(criterio.campo_fecha)
+    || !lista(criterio.estados_incluidos) || !lista(criterio.conceptos_incluidos)
+    || !Array.isArray(configuracion.historia) || configuracion.historia.length !== configuracion.version)
+    throw new TypeError("datos");
+  const historia = configuracion.historia.map((entrada, indice) => {
+    if (entrada?.version !== indice + 1 || typeof entrada.actor_ref !== "string"
+      || !entrada.actor_ref.startsWith("actor:ejemplo:") || typeof entrada.fecha !== "string"
+      || !Number.isFinite(Date.parse(entrada.fecha)) || typeof entrada.motivo !== "string"
+      || !entrada.motivo.trim()) throw new TypeError("datos");
+    return Object.freeze({ version: entrada.version, actor_ref: entrada.actor_ref,
+      fecha: entrada.fecha, motivo: entrada.motivo });
+  });
+  return Object.freeze({ referencia: configuracion.referencia, version: configuracion.version,
+    campo_fecha: criterio.campo_fecha,
+    estados_incluidos: Object.freeze([...criterio.estados_incluidos]),
+    conceptos_incluidos: Object.freeze([...criterio.conceptos_incluidos]),
+    historia: Object.freeze(historia) });
+}
+
+function congelarDatos(datos, configuracion, localizacion) {
   if (datos?.naturaleza !== "sintetica" || datos.schema !== "dietas-informes-demo"
-    || datos.version !== 1 || datos.criterio_periodo !== "fecha_inicio"
+    || datos.version !== 1
     || typeof datos.moneda !== "string" || !/^[A-Z]{3}$/u.test(datos.moneda)
     || typeof Intl.supportedValuesOf !== "function" || !Intl.supportedValuesOf("currency").includes(datos.moneda)
     || !fechaValida(datos.fecha_corte) || !Array.isArray(datos.registros)) throw new TypeError("datos");
@@ -22,41 +53,55 @@ function congelarDatos(datos, localizacion) {
   const referencias = new Set();
   const registros = datos.registros.map((entrada) => {
     if (!entrada || !["referencia", "persona_ref", "persona", "unidad_ref", "unidad"].every((campo) =>
-      typeof entrada[campo] === "string" && entrada[campo].trim()) || !fechaValida(entrada.fecha_inicio)
+      typeof entrada[campo] === "string" && entrada[campo].trim())
+      || CAMPOS_FECHA.some((campo) => !Object.hasOwn(entrada, campo)
+        || (entrada[campo] !== null && !fechaValida(entrada[campo])))
       || !Number.isSafeInteger(entrada.version_comision) || entrada.version_comision < 1
-      || !["orientativo", "liquidado", "fiscalizado"].includes(entrada.situacion)
+      || typeof entrada.situacion !== "string" || !CLAVE.test(entrada.situacion)
       || (entrada.moneda !== undefined && entrada.moneda !== datos.moneda)
       || referencias.has(entrada.referencia)) throw new TypeError("datos");
     referencias.add(entrada.referencia);
-    const conceptos = {};
-    for (const clave of CONCEPTOS) {
-      const valor = entrada.conceptos_centimos?.[clave];
-      if (!Number.isSafeInteger(valor) || valor < 0) throw new TypeError("datos");
-      conceptos[clave] = valor;
-    }
-    const total = CONCEPTOS.reduce((suma, clave) => suma + conceptos[clave], 0);
+    if (!entrada.conceptos_centimos || typeof entrada.conceptos_centimos !== "object"
+      || Array.isArray(entrada.conceptos_centimos)) throw new TypeError("datos");
+    const pares = Object.entries(entrada.conceptos_centimos);
+    if (!pares.length || pares.length > 20 || pares.some(([clave, valor]) => !CLAVE.test(clave)
+      || !Number.isSafeInteger(valor) || valor < 0)
+      || configuracion.conceptos_incluidos.some((clave) => !Object.hasOwn(entrada.conceptos_centimos, clave)))
+      throw new TypeError("datos");
+    const conceptos = Object.fromEntries(pares);
+    const total = pares.reduce((suma, [, valor]) => suma + valor, 0);
     if (!Number.isSafeInteger(total) || total !== entrada.total_centimos) throw new TypeError("datos");
     return Object.freeze({ referencia: entrada.referencia, version_comision: entrada.version_comision,
       situacion: entrada.situacion, persona_ref: entrada.persona_ref,
       persona: entrada.persona, unidad_ref: entrada.unidad_ref, unidad: entrada.unidad,
-      fecha_inicio: entrada.fecha_inicio, conceptos_centimos: Object.freeze(conceptos), total_centimos: entrada.total_centimos });
+      fecha_inicio: entrada.fecha_inicio, fecha_liquidacion: entrada.fecha_liquidacion,
+      fecha_fiscalizacion: entrada.fecha_fiscalizacion,
+      conceptos_centimos: Object.freeze(conceptos), total_centimos: entrada.total_centimos });
   });
   return Object.freeze({ registros: Object.freeze(registros), moneda });
 }
 
-export function resumirInformesDietas(registros, filtros = {}) {
-  const seleccion = registros.filter((fila) => (!filtros.persona || fila.persona_ref === filtros.persona)
+export function resumirInformesDietas(registros, configuracion, filtros = {}) {
+  const estados = new Set(configuracion.estados_incluidos);
+  const campo = configuracion.campo_fecha;
+  const seleccion = registros.filter((fila) => estados.has(fila.situacion) && fila[campo]
+    && (!filtros.persona || fila.persona_ref === filtros.persona)
     && (!filtros.unidad || fila.unidad_ref === filtros.unidad)
-    && (!filtros.desde || fila.fecha_inicio >= filtros.desde)
-    && (!filtros.hasta || fila.fecha_inicio <= filtros.hasta));
-  const conceptos = Object.fromEntries(CONCEPTOS.map((clave) => [clave, 0]));
-  for (const fila of seleccion) for (const clave of CONCEPTOS) {
+    && (!filtros.desde || fila[campo] >= filtros.desde)
+    && (!filtros.hasta || fila[campo] <= filtros.hasta));
+  const conceptos = Object.fromEntries(configuracion.conceptos_incluidos.map((clave) => [clave, 0]));
+  for (const fila of seleccion) for (const clave of configuracion.conceptos_incluidos) {
     conceptos[clave] += fila.conceptos_centimos[clave];
     if (!Number.isSafeInteger(conceptos[clave])) throw new TypeError("datos");
   }
-  const total = seleccion.reduce((suma, fila) => suma + fila.total_centimos, 0);
-  if (!Number.isSafeInteger(total) || total !== CONCEPTOS.reduce((suma, clave) => suma + conceptos[clave], 0)) throw new TypeError("datos");
-  return Object.freeze({ registros: Object.freeze(seleccion), conceptos_centimos: Object.freeze(conceptos),
+  const total = configuracion.conceptos_incluidos.reduce((suma, clave) => suma + conceptos[clave], 0);
+  if (!Number.isSafeInteger(total)) throw new TypeError("datos");
+  const filas = seleccion.map((fila) => {
+    const incluido = configuracion.conceptos_incluidos.reduce((suma, clave) => suma + fila.conceptos_centimos[clave], 0);
+    if (!Number.isSafeInteger(incluido)) throw new TypeError("datos");
+    return Object.freeze({ ...fila, importe_incluido_centimos: incluido });
+  });
+  return Object.freeze({ registros: Object.freeze(filas), conceptos_centimos: Object.freeze(conceptos),
     total_centimos: total });
 }
 
@@ -66,10 +111,11 @@ const nodo = (documento, tipo, texto) => {
   return creado;
 };
 
-/** Vista local de datos sintéticos. cargarDatos es la única fuente y se inyecta al montar. */
-export function montarInformesDietas(contenedor, { cargarDatos, traducir, documento = contenedor?.ownerDocument,
+/** Vista local de datos sintéticos. Fuente y configuración se inyectan al montar. */
+export function montarInformesDietas(contenedor, { cargarDatos, cargarConfiguracion, traducir, documento = contenedor?.ownerDocument,
   localizacion, registrarDesmontar } = {}) {
   if (!contenedor?.append || !documento?.createElement || typeof cargarDatos !== "function"
+    || typeof cargarConfiguracion !== "function"
     || typeof traducir !== "function" || typeof localizacion !== "string" || !localizacion)
     throw new TypeError("informes de Dietas no disponibles");
 
@@ -89,10 +135,10 @@ export function montarInformesDietas(contenedor, { cargarDatos, traducir, docume
   const cabecera = nodo(documento, "header"); cabecera.className = "cabecera-panel";
   const titulo = nodo(documento, "h2", t("titulo"));
   const acciones = nodo(documento, "div");
-  const ayuda = nodo(documento, "details");
+  const ayuda = nodo(documento, "details"); ayuda.hidden = true;
   const abrirAyuda = nodo(documento, "summary", "?"); abrirAyuda.className = "boton-secundario";
   abrirAyuda.setAttribute("aria-label", t("ayuda"));
-  ayuda.append(abrirAyuda, nodo(documento, "p", t("criterio_periodo")));
+  const criterioAyuda = nodo(documento, "p"); ayuda.append(abrirAyuda, criterioAyuda);
   acciones.append(ayuda);
   for (const clave of ["exportar", "imprimir"]) {
     const boton = nodo(documento, "button", t(clave)); boton.type = "button";
@@ -140,13 +186,14 @@ export function montarInformesDietas(contenedor, { cargarDatos, traducir, docume
   raiz.append(cabecera, cuerpo); contenedor.append(raiz);
 
   let activa = true; let disponible = false; let controlador; let generacion = 0; let registros = Object.freeze([]);
+  let configuracion;
   let filtros = Object.freeze({}); let pagina = 0;
   const mostrarEstado = (clave, variables) => {
     estado.textContent = clave ? t(clave, variables) : "";
     estado.className = clave === "resultado_filtro" ? "solo-lectura" : "";
   };
   const anunciarResultado = () => mostrarEstado("resultado_filtro", {
-    cuenta: numero.format(resumirInformesDietas(registros, filtros).registros.length),
+    cuenta: numero.format(resumirInformesDietas(registros, configuracion, filtros).registros.length),
   });
   const limpiarErrorFecha = () => {
     desde.removeAttribute("aria-invalid"); hasta.removeAttribute("aria-invalid");
@@ -165,7 +212,7 @@ export function montarInformesDietas(contenedor, { cargarDatos, traducir, docume
 
   function pintar() {
     if (!activa) return;
-    const informe = resumirInformesDietas(registros, filtros);
+    const informe = resumirInformesDietas(registros, configuracion, filtros);
     const filas = informe.registros; const paginas = Math.max(1, Math.ceil(filas.length / TAMANO_PAGINA));
     pagina = Math.min(pagina, paginas - 1);
     resumen.replaceChildren(); listado.replaceChildren();
@@ -183,7 +230,7 @@ export function montarInformesDietas(contenedor, { cargarDatos, traducir, docume
     }
     resumen.append(tarjetas, nodo(documento, "h4", t("desglose")));
     const desglose = nodo(documento, "dl"); desglose.className = "datos-clave";
-    for (const clave of CONCEPTOS) {
+    for (const clave of configuracion.conceptos_incluidos) {
       const fila = nodo(documento, "div");
       fila.append(nodo(documento, "dt", t(clave)), nodo(documento, "dd", importeMonetario(informe.conceptos_centimos[clave])));
       desglose.append(fila);
@@ -197,7 +244,8 @@ export function montarInformesDietas(contenedor, { cargarDatos, traducir, docume
     const tabla = nodo(documento, "table"); tabla.className = "tabla-datos";
     const caption = nodo(documento, "caption", t("listado")); tabla.append(caption);
     const thead = nodo(documento, "thead"); const cabeceras = nodo(documento, "tr");
-    for (const clave of ["referencia", "version_comision", "situacion", "fecha", "persona", "unidad", ...CONCEPTOS, "total"]) {
+    for (const clave of ["referencia", "version_comision", "situacion", "fecha", "persona", "unidad",
+      ...configuracion.conceptos_incluidos, "total"]) {
       const th = nodo(documento, "th", t(clave)); th.scope = "col"; cabeceras.append(th);
     }
     thead.append(cabeceras); tabla.append(thead);
@@ -205,9 +253,9 @@ export function montarInformesDietas(contenedor, { cargarDatos, traducir, docume
     for (const fila of filas.slice(pagina * TAMANO_PAGINA, (pagina + 1) * TAMANO_PAGINA)) {
       const tr = nodo(documento, "tr");
       const valores = [fila.referencia, numero.format(fila.version_comision), t(`situacion_${fila.situacion}`),
-        fecha.format(new Date(`${fila.fecha_inicio}T00:00:00Z`)), fila.persona,
-        fila.unidad, ...CONCEPTOS.map((clave) => importeMonetario(fila.conceptos_centimos[clave])),
-        importeMonetario(fila.total_centimos)];
+        fecha.format(new Date(`${fila[configuracion.campo_fecha]}T00:00:00Z`)), fila.persona,
+        fila.unidad, ...configuracion.conceptos_incluidos.map((clave) => importeMonetario(fila.conceptos_centimos[clave])),
+        importeMonetario(fila.importe_incluido_centimos)];
       valores.forEach((valor, indice) => { const td = nodo(documento, "td", valor);
         if (indice === 1 || indice >= 6) td.dataset.tipo = "numero"; tr.append(td); });
       tbody.append(tr);
@@ -234,20 +282,25 @@ export function montarInformesDietas(contenedor, { cargarDatos, traducir, docume
     controlador?.abort(); const propia = ++generacion;
     controlador = new AbortController(); disponible = false; mostrarEstado("cargando"); reintentar.hidden = true;
     if (focoReintento) estado.focus();
-    form.hidden = true; resumen.hidden = true; listado.hidden = true;
+    form.hidden = true; resumen.hidden = true; listado.hidden = true; ayuda.hidden = true;
     try {
-      const datos = await cargarDatos({ signal: controlador.signal });
+      const [datos, catalogo] = await Promise.all([
+        cargarDatos({ signal: controlador.signal }), cargarConfiguracion({ signal: controlador.signal }),
+      ]);
       if (!activa || propia !== generacion) return;
-      const fuente = congelarDatos(datos, localizacion); registros = fuente.registros; moneda = fuente.moneda;
+      const criterio = congelarConfiguracion(catalogo, datos);
+      const fuente = congelarDatos(datos, criterio, localizacion);
+      registros = fuente.registros; moneda = fuente.moneda; configuracion = criterio;
+      criterioAyuda.textContent = t("criterio_periodo", { fecha: t(`fecha_${criterio.campo_fecha}`) });
       elegir(persona, registros, "persona_ref", "persona");
       elegir(unidad, registros, "unidad_ref", "unidad");
       filtros = Object.freeze({ persona: persona.value, unidad: unidad.value, desde: desde.value, hasta: hasta.value });
-      disponible = true; form.hidden = false; resumen.hidden = false; listado.hidden = false;
+      disponible = true; form.hidden = false; resumen.hidden = false; listado.hidden = false; ayuda.hidden = false;
       pagina = 0; pintar(); anunciarResultado();
       if (focoReintento && documento.activeElement === estado) resumen.focus();
     } catch (error) {
       if (!activa || propia !== generacion || controlador.signal.aborted) return;
-      registros = Object.freeze([]); resumen.replaceChildren(); listado.replaceChildren();
+      registros = Object.freeze([]); configuracion = undefined; resumen.replaceChildren(); listado.replaceChildren();
       mostrarEstado(error instanceof TypeError && error.message === "datos" ? "datos_error" : "carga_error");
       reintentar.hidden = false;
       if (focoReintento && documento.activeElement === estado) reintentar.focus();
@@ -276,7 +329,7 @@ export function montarInformesDietas(contenedor, { cargarDatos, traducir, docume
   function paginar(evento) {
     const destino = evento.target?.dataset?.dietasInformesPagina;
     if (destino === undefined || evento.target.disabled) return;
-    const nueva = Number(destino); const paginas = Math.ceil(resumirInformesDietas(registros, filtros).registros.length / TAMANO_PAGINA);
+    const nueva = Number(destino); const paginas = Math.ceil(resumirInformesDietas(registros, configuracion, filtros).registros.length / TAMANO_PAGINA);
     if (!Number.isInteger(nueva) || nueva < 0 || nueva >= paginas) return;
     pagina = nueva; pintar(); listado.querySelector?.("[data-dietas-informes-cuenta]")?.focus();
   }
