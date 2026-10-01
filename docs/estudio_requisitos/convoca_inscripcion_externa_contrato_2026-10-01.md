@@ -80,7 +80,11 @@ Una evidencia custodiada no acredita por sí sola firma, pago ni asiento registr
    La pantalla puede preparar la solicitud, explicar qué falta y volver al detalle
    público; no anuncia inscripción presentada ni conserva datos en almacenamiento web.
 
-SQL e instalación quedan pendientes de un encargo concreto, revisión independiente
-y ensayo autorizado. Este corte no reserva migraciones, cambia H6 ni trata datos
-reales. La futura aceptación exige navegador hasta recibo y recuperación tras
+Se reserva `bolsa_solicitudes 000001` para el borrador de persistencia externa
+segregada (B15, S2/S4), en el registro de reservas fuera de Git. Todavía no hay SQL
+ejecutable. El diseño e instalación siguen pendientes del formulario gobernado,
+revisión independiente y ensayo autorizado. La cadena va después de H6 y de los
+pasos 0→B→A→M de `ORDEN_SQL_NUCLEO.md`; un consumidor nuevo de autorización requiere
+su propia reserva y turno de Dirección/D. Este corte no cambia H6 ni trata datos
+reales. La aceptación futura exige navegador hasta recibo y recuperación tras
 reinicio, con historia conservada y sin duplicar la inscripción.
