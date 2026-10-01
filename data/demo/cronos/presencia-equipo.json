@@ -1,0 +1,113 @@
+{
+  "version_esquema": 1,
+  "demostracion": true,
+  "referencia": "demo:presencia:snapshot:20261001",
+  "version": 1,
+  "fuente_ref": "demo:presencia:marcajes",
+  "fuente_version": 1,
+  "organizacion_ref": "demo:organizacion:diputacion",
+  "fecha": "2026-10-01",
+  "zona_horaria": "Europe/Madrid",
+  "instante_corte_utc": "2026-10-01T09:00:00Z",
+  "personas_ref": [
+    "demo:persona:001",
+    "demo:persona:002",
+    "demo:persona:003",
+    "demo:persona:004",
+    "demo:persona:005",
+    "demo:persona:006"
+  ],
+  "personas": [
+    {
+      "persona_ref": "demo:persona:001",
+      "completa_hasta_corte": true,
+      "marcajes": [
+        {
+          "referencia": "demo:marcaje:001:1",
+          "version": 1,
+          "fuente_ref": "demo:presencia:marcajes",
+          "movimiento": "entrada",
+          "instante_utc": "2026-10-01T06:00:00Z"
+        }
+      ]
+    },
+    {
+      "persona_ref": "demo:persona:002",
+      "completa_hasta_corte": true,
+      "marcajes": [
+        {
+          "referencia": "demo:marcaje:002:1",
+          "version": 1,
+          "fuente_ref": "demo:presencia:marcajes",
+          "movimiento": "entrada",
+          "instante_utc": "2026-10-01T06:30:00Z"
+        },
+        {
+          "referencia": "demo:marcaje:002:2",
+          "version": 1,
+          "fuente_ref": "demo:presencia:marcajes",
+          "movimiento": "inicio_pausa",
+          "instante_utc": "2026-10-01T08:50:00Z"
+        }
+      ]
+    },
+    {
+      "persona_ref": "demo:persona:003",
+      "completa_hasta_corte": true,
+      "marcajes": [
+        {
+          "referencia": "demo:marcaje:003:1",
+          "version": 1,
+          "fuente_ref": "demo:presencia:marcajes",
+          "movimiento": "entrada",
+          "instante_utc": "2026-10-01T06:00:00Z"
+        },
+        {
+          "referencia": "demo:marcaje:003:2",
+          "version": 1,
+          "fuente_ref": "demo:presencia:marcajes",
+          "movimiento": "salida",
+          "instante_utc": "2026-10-01T08:00:00Z"
+        }
+      ]
+    },
+    {
+      "persona_ref": "demo:persona:004",
+      "completa_hasta_corte": true,
+      "marcajes": []
+    },
+    {
+      "persona_ref": "demo:persona:005",
+      "completa_hasta_corte": true,
+      "marcajes": [
+        {
+          "referencia": "demo:marcaje:005:1",
+          "version": 1,
+          "fuente_ref": "demo:presencia:marcajes",
+          "movimiento": "entrada",
+          "instante_utc": "2026-10-01T06:00:00Z"
+        },
+        {
+          "referencia": "demo:marcaje:005:2",
+          "version": 1,
+          "fuente_ref": "demo:presencia:marcajes",
+          "movimiento": "entrada",
+          "instante_utc": "2026-10-01T07:00:00Z"
+        }
+      ]
+    },
+    {
+      "persona_ref": "demo:persona:006",
+      "completa_hasta_corte": false,
+      "marcajes": [
+        {
+          "referencia": "demo:marcaje:006:1",
+          "version": 1,
+          "fuente_ref": "demo:presencia:marcajes",
+          "movimiento": "entrada",
+          "instante_utc": "2026-10-01T06:00:00Z"
+        }
+      ]
+    }
+  ]
+}
