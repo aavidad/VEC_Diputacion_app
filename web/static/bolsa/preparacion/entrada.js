@@ -23,8 +23,17 @@ if (typeof document !== "undefined") {
       const actualizar = () => actualizarEntrada(enlace, textos, idioma);
       actualizar();
       const observador = new MutationObserver(actualizar);
-      observador.observe(enlace, { attributes: true, attributeFilter: ["data-convocatoria", "data-demostracion"] });
-      window.addEventListener("pagehide", () => observador.disconnect(), { once: true });
+      const observar = () => observador.observe(enlace, {
+        attributes: true, attributeFilter: ["data-convocatoria", "data-demostracion"],
+      });
+      observar();
+      window.addEventListener("pagehide", () => observador.disconnect());
+      window.addEventListener("pageshow", (evento) => {
+        if (evento.persisted) {
+          actualizar();
+          observar();
+        }
+      });
     }).catch((error) => {
       enlace.hidden = true;
       console.error(error);
