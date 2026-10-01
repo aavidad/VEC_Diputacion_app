@@ -225,7 +225,7 @@ END $contrato_publicar$;
 CREATE FUNCTION vec_catalogos_configurables.registrar_propuesta_gobierno(
  p_ref text,p_contenido jsonb,p_huella text,p_actor text,p_decision text,p_recibo text,p_motivo text
 ) RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER
-SET search_path=pg_catalog SET lock_timeout='2s' AS $f$
+SET search_path=pg_catalog, pg_temp SET lock_timeout='2s' AS $f$
 DECLARE previo vec_catalogos_configurables.propuesta_gobierno%ROWTYPE; doc jsonb; item jsonb;
 BEGIN
  IF p_ref IS NULL OR p_ref !~ '^[a-z][a-z0-9_.:-]{2,127}$'
@@ -309,7 +309,7 @@ END $f$;
 CREATE FUNCTION vec_catalogos_configurables.aprobar_propuesta_gobierno(
  p_ref text,p_huella text,p_revision bigint,p_actor text,p_decision text,p_auditoria text,p_consumo_huella text,p_recibo text,p_motivo text
 ) RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER
-SET search_path=pg_catalog SET lock_timeout='2s' AS $f$
+SET search_path=pg_catalog, pg_temp SET lock_timeout='2s' AS $f$
 DECLARE p vec_catalogos_configurables.propuesta_gobierno%ROWTYPE; c vec_catalogos_configurables.control_gobierno%ROWTYPE; a vec_catalogos_configurables.aprobacion_gobierno%ROWTYPE;
 BEGIN
  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('vec_catalogos_configurables:gobierno:'||p_ref,0));
@@ -338,7 +338,7 @@ BEGIN
  RETURN pg_catalog.jsonb_build_object('propuesta_ref',p_ref,'huella_sha256',p_huella,'revision',p_revision+1,'estado','aprobada','recibo_ref',p_recibo);
 END $f$;
 CREATE FUNCTION vec_catalogos_configurables.consultar_aprobaciones_gobierno(p_ref text,p_huella text)
-RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET lock_timeout='2s' AS $f$
+RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog, pg_temp SET lock_timeout='2s' AS $f$
 DECLARE resultado jsonb;
 BEGIN
  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('vec_catalogos_configurables:gobierno:'||p_ref,0));
@@ -351,7 +351,7 @@ BEGIN
 END $f$;
 CREATE FUNCTION vec_catalogos_configurables.confirmar_propuesta_gobierno(
  p_ref text,p_huella text,p_revision bigint,p_actor text,p_decision text,p_auditoria text,p_recibo text,p_motivo text
-) RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET lock_timeout='2s' AS $f$
+) RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog, pg_temp SET lock_timeout='2s' AS $f$
 DECLARE p vec_catalogos_configurables.propuesta_gobierno%ROWTYPE; c vec_catalogos_configurables.control_gobierno%ROWTYPE;
  previo vec_catalogos_configurables.confirmacion_gobierno%ROWTYPE; a text; d jsonb; revision_final bigint; resultado jsonb; modulo_real text;
 BEGIN
@@ -422,9 +422,10 @@ BEGIN
   'vec_catalogos_configurables.consultar_aprobaciones_gobierno(text,text)'::regprocedure,
   'vec_catalogos_configurables.confirmar_propuesta_gobierno(text,text,bigint,text,text,text,text,text)'::regprocedure
  ] LOOP
-  IF NOT EXISTS(SELECT 1 FROM pg_catalog.pg_proc WHERE oid=f AND proowner='vec_catalogos_configurables_propietario'::regrole AND prosecdef AND proconfig=ARRAY['search_path=pg_catalog','lock_timeout=2s'])
+  IF NOT EXISTS(SELECT 1 FROM pg_catalog.pg_proc WHERE oid=f AND proowner='vec_catalogos_configurables_propietario'::regrole AND prosecdef AND proconfig=ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s'])
+  OR NOT pg_catalog.has_function_privilege('vec_autorizacion_atestada_v3_propietario',f,'EXECUTE')
   OR EXISTS(SELECT 1 FROM pg_catalog.pg_proc p CROSS JOIN LATERAL pg_catalog.aclexplode(coalesce(p.proacl,pg_catalog.acldefault('f',p.proowner))) a
-   WHERE p.oid=f AND (a.grantee=0 OR a.privilege_type<>'EXECUTE' OR a.is_grantable OR a.grantee NOT IN(p.proowner,'vec_autorizacion_atestada_v3_propietario'::regrole))) THEN
+   WHERE p.oid=f AND (a.grantor<>p.proowner OR a.grantee=0 OR a.privilege_type<>'EXECUTE' OR a.is_grantable OR a.grantee NOT IN(p.proowner,'vec_autorizacion_atestada_v3_propietario'::regrole))) THEN
    RAISE EXCEPTION 'Cat4: ACL incompatible' USING ERRCODE='55000';
   END IF;
  END LOOP;

@@ -6,6 +6,27 @@ SET LOCAL search_path=pg_catalog;
 SET LOCAL plpgsql.variable_conflict='error';
 SET LOCAL lock_timeout='5s';
 SET LOCAL statement_timeout='30s';
+DO $configuracion$
+DECLARE f regprocedure;
+BEGIN
+ FOREACH f IN ARRAY ARRAY[
+  'vec_catalogos_configurables.registrar_propuesta_gobierno(text,jsonb,text,text,text,text,text)'::regprocedure,
+  'vec_catalogos_configurables.aprobar_propuesta_gobierno(text,text,bigint,text,text,text,text,text,text)'::regprocedure,
+  'vec_catalogos_configurables.consultar_aprobaciones_gobierno(text,text)'::regprocedure,
+  'vec_catalogos_configurables.confirmar_propuesta_gobierno(text,text,bigint,text,text,text,text,text)'::regprocedure
+ ] LOOP
+  IF NOT EXISTS(SELECT 1 FROM pg_catalog.pg_proc WHERE oid=f AND prosecdef
+   AND proowner='vec_catalogos_configurables_propietario'::regrole
+   AND proconfig=ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s'])
+  OR NOT pg_catalog.has_function_privilege('vec_autorizacion_atestada_v3_propietario',f,'EXECUTE')
+  OR EXISTS(SELECT 1 FROM pg_catalog.pg_proc p
+   CROSS JOIN LATERAL pg_catalog.aclexplode(coalesce(p.proacl,pg_catalog.acldefault('f',p.proowner))) a
+   WHERE p.oid=f AND (a.grantor<>p.proowner OR a.privilege_type<>'EXECUTE' OR a.is_grantable
+    OR a.grantee NOT IN(p.proowner,'vec_autorizacion_atestada_v3_propietario'::regrole))) THEN
+   RAISE EXCEPTION 'Cat4: configuracion o ACL incorrecta';
+  END IF;
+ END LOOP;
+END $configuracion$;
 CREATE TEMP TABLE preimagen_legacy AS SELECT * FROM vec_catalogos_configurables.publicacion WHERE circuito='doble_aprobacion';
 SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
 DO $prueba$
