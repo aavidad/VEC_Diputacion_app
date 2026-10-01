@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Plan documental H6+AD132 hacia un commit explícito de origin/main.
 
-Request v2 recibe huellas externas de las listas, SQL y evidencia acompañante.
-El orden documental es RPT#222, después B#243. U17#230 queda diferida.
+Request v3 recibe huellas externas de las listas, SQL y evidencia acompañante.
+El orden documental es RPT#222, B#243 y AD136 de A#219. U17#230 queda diferida.
 Sólo lee objetos Git locales: nunca lee recibos, aplica SQL ni consulta servicios.
 Las huellas comprueban integridad; el resultado siempre necesita aprobación.
 La ejecución futura conserva H6 histórico y emite un segundo recibo postmain.
@@ -21,6 +21,7 @@ import sys
 SOURCE = "73e56c106d12fdda0bd16d6fe573503c42c5495f"
 LIST = "deploy/principal/lista_sql_trabajo_codexd_rpt_escritura_v3_20260930.txt"
 LIST_B = "deploy/principal/lista_sql_codexb_ad133_135_20261001.txt"
+LIST_A = "deploy/principal/lista_sql_codexa_e3_ad136_20260930.txt"
 LIST_DEFERRED = "deploy/principal/lista_sql_trabajo_codexf_temas_sql_20260930.txt"
 CAT = "deploy/postgresql/catalogos_configurables/"
 AD = "deploy/postgresql/autorizacion_atestada_v3/"
@@ -46,6 +47,11 @@ B_COMPANIONS = (
     AD + "pruebas_sql/000133_000135_capturar_preservacion.sql",
     AD + "pruebas_sql/000133_000135_comprobar_preservacion.sql",
     AD + "pruebas_sql/000133_000135_inventario_post_rpt.sql",
+)
+A_SQL_PATHS = (AD + "migraciones/000136_custodia_firmado_nucleo.up.sql",)
+A_COMPANIONS = (
+    AD + "migraciones/000136_custodia_firmado_nucleo.down.sql",
+    AD + "pruebas_sql/ad3_136_custodia_firmado_nucleo.sql",
 )
 DEFERRED_SQL = (
     USERS + "migraciones/000017_temas_preferencias_v2.up.sql",
@@ -87,6 +93,9 @@ class Request:
     expected_b_list_sha256: str
     expected_b_sql_sha256: tuple[str, ...]
     expected_b_companion_sha256: tuple[str, ...]
+    expected_a_list_sha256: str
+    expected_a_sql_sha256: tuple[str, ...]
+    expected_a_companion_sha256: tuple[str, ...]
     expected_deferred_list_sha256: str
     expected_deferred_sql_sha256: tuple[str, ...]
 
@@ -184,13 +193,14 @@ def _diff(repo, target):
         except UnicodeError:
             raise Refused("postmain_invalid_diff_path") from None
         _require(code in {"A", "M", "D", "T"}, "postmain_invalid_diff_status")
-        role = "causal_sql" if path in SQL_PATHS + B_SQL_PATHS else (
-            "companion_non_executable" if path in COMPANIONS or path in B_COMPANIONS else (
+        role = "causal_sql" if path in SQL_PATHS + B_SQL_PATHS + A_SQL_PATHS else (
+            "companion_non_executable" if path in COMPANIONS or path in B_COMPANIONS + A_COMPANIONS else (
                 "deferred" if path in DEFERRED_SQL else "unknown_sql"))
         change = {"path": path, "status": {"A": "added", "M": "modified",
                   "D": "deleted", "T": "type_changed"}[code], "classification": role,
-                  "linked_up": COMPANIONS.get(path),
-                  "linked_ups": list(B_SQL_PATHS[4:]) if path in B_COMPANIONS else [],
+                  "linked_up": A_SQL_PATHS[0] if path in A_COMPANIONS else COMPANIONS.get(path),
+                  "linked_ups": list(B_SQL_PATHS[4:]) if path in B_COMPANIONS else (
+                      list(A_SQL_PATHS) if path in A_COMPANIONS else []),
                   "executable": False, "before": None, "after": None}
         for key, commit, present in (("before", SOURCE, code != "A"),
                                      ("after", target, code != "D")):
@@ -226,7 +236,7 @@ def _deferred_dependencies(repo, target):
              "installation": "not_read_not_validated"} for number in ("000015", "000016")]
 
 
-def receipt_requirements():
+def receipt_requirements(target):
     """Contrato futuro; describe evidencia requerida y no afirma haberla recibido."""
     common = ["package_sha256", "source_commit", "release_sha256", "lock_sha256",
               "plan_sha256", "approval_sha256", "pg_container_id", "cli_sha256",
@@ -242,6 +252,17 @@ def receipt_requirements():
                 "source_ref": SOURCE, "approved_sql_ref": SOURCE,
                 "file_count": 62, "sql_instaladas": 62}},
         "ad132": {"required_fields": common, "expected": {"source_commit": SOURCE}},
+        "postmain": {"required_fields": ["version", "kind", "plan_sha256", "approval_sha256",
+            "h6_receipt_sha256", "ad132_receipt_sha256", "main_commit", "main_tree",
+            "causal_list_count", "operation_count", "causal_lists", "operations",
+            "preimages", "postimages", "pg_container_id", "apply_stdout_sha256"],
+            "expected": {"version": 3, "kind": "clon_postmain_receipt",
+                "main_commit": target["commit"], "main_tree": target["tree"],
+                "causal_list_count": 3, "operation_count": 13},
+            "bindings": ["causal_lists_bind_original_git_bytes_and_external_pins",
+                "operations_bind_order_path_and_original_git_sha256",
+                "preimages_and_postimages_bind_each_operation_and_preserved_sql",
+                "same_pg_container_id_as_h6_and_ad132"]},
         "cross_equal": [["h6.pg_container_id", "ad132.pg_container_id"],
             ["h6.commit", "ad132.source_commit"],
             ["h6.package_sha", "ad132.package_sha256"],
@@ -253,8 +274,10 @@ def receipt_requirements():
         "future_gates": ["external_approval_binds_plan_sha256_and_both_receipt_sha256",
             "h6_live_validation_before_transition", "ad132_live_validation_before_transition",
             "installed_sql_inventory_matches_h6_journal_and_original_package",
-            "no_history_for_twelve_causal_sql", "second_postmain_receipt_binds_h6_and_ad132",
-            "external_approval_binds_both_causal_lists_and_target_commit_tree",
+            "no_history_for_thirteen_causal_sql", "second_postmain_receipt_binds_h6_and_ad132",
+            "external_approval_binds_three_causal_lists_and_target_commit_tree",
+            "ad136_requires_complete_rpt6_then_b6_postimage",
+            "ad136_down_and_probe_never_execute_in_postmain",
             "deferred_u17_never_executes_in_postmain",
             "preserve_h6_historical_receipt_and_live_validator"],
     }
@@ -266,10 +289,13 @@ def build_plan(request: Request) -> dict:
     _require(repo.is_absolute() and ".." not in repo.parts and repo.is_dir() and
              not any(p.is_symlink() for p in (repo, *repo.parents)), "postmain_invalid_repo_path")
     for pin in (request.expected_list_sha256, request.expected_b_list_sha256,
+                request.expected_a_list_sha256,
                 request.expected_deferred_list_sha256):
         _require(isinstance(pin, str) and HEX64.fullmatch(pin), "postmain_invalid_expected_hashes")
     for pins, size in ((request.expected_sql_sha256, 6), (request.expected_b_sql_sha256, 6),
                        (request.expected_b_companion_sha256, 3),
+                       (request.expected_a_sql_sha256, 1),
+                       (request.expected_a_companion_sha256, 2),
                        (request.expected_deferred_sql_sha256, 2)):
         _require(type(pins) is tuple and len(pins) == size and
                  all(isinstance(pin, str) and HEX64.fullmatch(pin) for pin in pins),
@@ -282,7 +308,8 @@ def build_plan(request: Request) -> dict:
     operations, lists = [], []
     for group, list_path, paths, list_pin, sql_pins in (
         ("rpt_222", LIST, SQL_PATHS, request.expected_list_sha256, request.expected_sql_sha256),
-        ("b_243", LIST_B, B_SQL_PATHS, request.expected_b_list_sha256, request.expected_b_sql_sha256)):
+        ("b_243", LIST_B, B_SQL_PATHS, request.expected_b_list_sha256, request.expected_b_sql_sha256),
+        ("a_219", LIST_A, A_SQL_PATHS, request.expected_a_list_sha256, request.expected_a_sql_sha256)):
         data, listing = _blob(repo, target["commit"], list_path, list_pin)
         _list_paths(data, paths)
         lists.append({"group": group, "path": list_path, **listing})
@@ -294,6 +321,10 @@ def build_plan(request: Request) -> dict:
                    "classification": "companion_non_executable", "executable": False,
                    **_blob(repo, target["commit"], path, pin)[1]}
                   for path, pin in zip(B_COMPANIONS, request.expected_b_companion_sha256, strict=True)]
+    companions.extend({"path": path, "linked_up": A_SQL_PATHS[0], "linked_ups": list(A_SQL_PATHS),
+        "classification": "companion_non_executable", "executable": False,
+        **_blob(repo, target["commit"], path, pin)[1]}
+        for path, pin in zip(A_COMPANIONS, request.expected_a_companion_sha256, strict=True))
     data, deferred_list = _blob(repo, target["commit"], LIST_DEFERRED,
                                 request.expected_deferred_list_sha256)
     _list_paths(data, DEFERRED_SQL[:1])
@@ -307,13 +338,13 @@ def build_plan(request: Request) -> dict:
     changes, blockers = _diff(repo, target["commit"])
     _require(_git(repo, "rev-parse", "--verify", "refs/remotes/origin/main").decode("ascii").strip()
              == origin, "postmain_origin_main_changed")
-    return {"version": 2, "kind": "clon_postmain_plan", "plan": "pending_approval",
+    return {"version": 3, "kind": "clon_postmain_plan", "plan": "pending_approval",
         "executable": False, "sql_invoked": False, "source": source, "target": target,
         "origin_main_observed": origin, "causal_lists": lists,
         "operations": operations, "companions": companions, "deferred": deferred,
         "deferred_list": {"path": LIST_DEFERRED, **deferred_list},
         "sql_diff": changes, "blockers": blockers,
-        "receipt_requirements": receipt_requirements()}
+        "receipt_requirements": receipt_requirements(target)}
 
 
 def main(argv=None):
@@ -325,12 +356,17 @@ def main(argv=None):
     parser.add_argument("--expected-b-list-sha256", required=True)
     parser.add_argument("--expected-b-sql-sha256", required=True, action="append")
     parser.add_argument("--expected-b-companion-sha256", required=True, action="append")
+    parser.add_argument("--expected-a-list-sha256", required=True)
+    parser.add_argument("--expected-a-sql-sha256", required=True, action="append")
+    parser.add_argument("--expected-a-companion-sha256", required=True, action="append")
     parser.add_argument("--expected-deferred-list-sha256", required=True)
     parser.add_argument("--expected-deferred-sql-sha256", required=True, action="append")
     args = parser.parse_args(argv)
     value = build_plan(Request(args.repo, args.target_commit, args.expected_list_sha256,
                                tuple(args.expected_sql_sha256), args.expected_b_list_sha256,
                                tuple(args.expected_b_sql_sha256), tuple(args.expected_b_companion_sha256),
+                               args.expected_a_list_sha256, tuple(args.expected_a_sql_sha256),
+                               tuple(args.expected_a_companion_sha256),
                                args.expected_deferred_list_sha256, tuple(args.expected_deferred_sql_sha256)))
     sys.stdout.buffer.write(canonical(value))
     return 2 if value["blockers"] else 0
