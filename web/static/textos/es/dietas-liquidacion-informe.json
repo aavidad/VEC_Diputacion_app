@@ -48,7 +48,10 @@
     "kilometros_finales": "Kilómetros finales declarados (km)",
     "ajuste_kilometros": "Ajuste declarado (km)",
     "motivo_ajuste": "Motivo declarado del ajuste",
-    "no_consta": "No consta en la línea original"
+    "no_consta": "No consta en la línea original",
+    "resumen": "Resumen por tipo de gasto",
+    "familia": "Tipo de gasto",
+    "resumen_ayuda": "Importes de las líneas revisadas, agrupados por tipo de gasto. Los tipos sin líneas muestran cero. Desplace la tabla para ver todas las columnas."
   },
   "conceptos": {
     "manutencion": "Manutención"
@@ -74,5 +77,11 @@
     "revision_documental": "Importe ajustado tras revisar la documentación.",
     "revision_justificante": "Importe reducido en la revisión de la propuesta. El justificante no se conserva aquí.",
     "gasto_no_admitido": "Este gasto no se propone para admisión."
+  },
+  "familias": {
+    "manutencion": "Manutención",
+    "kilometraje": "Kilometraje",
+    "otro_medio": "Otros medios de transporte",
+    "otro_gasto": "Otros gastos"
   }
 }
