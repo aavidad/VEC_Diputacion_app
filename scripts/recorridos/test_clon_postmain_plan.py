@@ -318,6 +318,36 @@ class PlanTest(unittest.TestCase):
             self.assertEqual(changes[path]["after"]["sha256"], pin)
             self.assertIsNone(changes[path]["before"])
 
+    def test_b2_probe_links_include_exact_causal_dependencies(self):
+        expected = {
+            planner.BOLSA + "pruebas_sql/000067_persona_aceptacion_ct.sql": (
+                planner.BOLSA + "migraciones/000067_persona_aceptacion_ct.up.sql",
+                planner.AD + "migraciones/000128_consumidor_consulta_persona_aceptacion_ct_bolsa.up.sql",
+                planner.CTX + "migraciones/000018_persona_candidato_incorporacion.up.sql"),
+            planner.BOLSA + "pruebas_sql/000068_anclaje_aceptacion_incorporacion_ct.sql": (
+                planner.BOLSA + "migraciones/000068_anclaje_aceptacion_incorporacion_ct.up.sql",
+                planner.AD + "migraciones/000131_consumidor_consulta_anclaje_aceptacion_ct_bolsa.up.sql",
+                planner.BOLSA + "migraciones/000067_persona_aceptacion_ct.up.sql"),
+            planner.CT + "pruebas_sql/vinculo_categoria_rpt_ct154_acl.sql": (
+                planner.CT + "migraciones/000154_vinculo_categoria_rpt_prospectivo.up.sql",
+                planner.AD + "migraciones/000127_consumidor_vinculo_categoria_rpt_ct.up.sql"),
+            "personal/pruebas_sql/plan_incorporacion_ct_000023.sql": (
+                planner.PERSONAL + "migraciones/000023_plan_incorporacion_ct.up.sql",
+                planner.AD + "migraciones/000129_consumidor_plan_incorporacion_personal_ct.up.sql"),
+            planner.CT + "pruebas_sql/ct156_cese_incorporacion_personal_b2.sql": (
+                planner.CT + "migraciones/000155_incorporacion_personal_b2.up.sql",
+                planner.CT + "migraciones/000156_cese_incorporacion_personal_b2.up.sql"),
+        }
+        value = planner.build_plan(self.request())
+        for path, ups in expected.items():
+            with self.subTest(path=path):
+                self.assertEqual(planner.B2_COMPANIONS[path], ups)
+                for key in ("companions", "sql_diff"):
+                    record = next(item for item in value[key] if item["path"] == path)
+                    self.assertEqual(record["linked_ups"], list(ups))
+                    self.assertIsNone(record["linked_up"])
+                    self.assertIs(record["executable"], False)
+
     def test_b2_postimage_follows_all_four_complete_stages_not_ad136_probe(self):
         value = planner.build_plan(self.request())
         receipt = value["receipt_requirements"]

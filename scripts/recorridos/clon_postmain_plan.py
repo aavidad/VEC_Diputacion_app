@@ -92,13 +92,15 @@ B2_COMPANIONS = {
     CTX + "pruebas_sql/persona_candidato_incorporacion_000018.sql": (B2_SQL_PATHS[0],),
     AD + "pruebas_sql/ad3_127_131_b2_post136.sql": (
         B2_SQL_PATHS[1], B2_SQL_PATHS[3], B2_SQL_PATHS[5], B2_SQL_PATHS[7], B2_SQL_PATHS[10]),
-    CT + "pruebas_sql/vinculo_categoria_rpt_ct154_acl.sql": (B2_SQL_PATHS[2],),
-    BOLSA + "pruebas_sql/000067_persona_aceptacion_ct.sql": (B2_SQL_PATHS[4],),
-    BOLSA + "pruebas_sql/000068_anclaje_aceptacion_incorporacion_ct.sql": (B2_SQL_PATHS[6],),
-    "personal/pruebas_sql/plan_incorporacion_ct_000023.sql": (B2_SQL_PATHS[8],),
+    CT + "pruebas_sql/vinculo_categoria_rpt_ct154_acl.sql": (B2_SQL_PATHS[2], B2_SQL_PATHS[1]),
+    BOLSA + "pruebas_sql/000067_persona_aceptacion_ct.sql": (
+        B2_SQL_PATHS[4], B2_SQL_PATHS[3], B2_SQL_PATHS[0]),
+    BOLSA + "pruebas_sql/000068_anclaje_aceptacion_incorporacion_ct.sql": (
+        B2_SQL_PATHS[6], B2_SQL_PATHS[5], B2_SQL_PATHS[4]),
+    "personal/pruebas_sql/plan_incorporacion_ct_000023.sql": (B2_SQL_PATHS[8], B2_SQL_PATHS[7]),
     "personal/pruebas_sql/catalogo_clases_multilingue_000024.sql": (B2_SQL_PATHS[9],),
     CT + "pruebas_sql/incorporacion_personal_b2_ct155.sql": (B2_SQL_PATHS[11],),
-    CT + "pruebas_sql/ct156_cese_incorporacion_personal_b2.sql": (B2_SQL_PATHS[12],),
+    CT + "pruebas_sql/ct156_cese_incorporacion_personal_b2.sql": (B2_SQL_PATHS[11], B2_SQL_PATHS[12]),
 }
 B2_PREREQUISITE_CANDIDATES = {
     "b_243": "c6b29fd4aa5d3ed384730796c3fc2a153b219313",
