@@ -92,9 +92,23 @@ aprobación de bases, puntuación oficial, publicación, permisos institucionale
 persistencia, integración con Personal ni cumplimiento global de accesibilidad.
 Las capturas permiten una revisión visual independiente antes de integrar.
 
-Validación del guion: `node --check scripts/probar_baremador_navegador.mjs`,
-`node scripts/probar_baremador_navegador.mjs --help` y `git diff --check`.
-La prueba provisional de Bolsa llegó a los cálculos y a la conservación del
-borrador; no completó la matriz por el 404 del icono solicitado por Chrome.
-La corrección corresponde al transporte web y debe entrar antes de ejecutar
-el recorrido completo. No hay un informe aprobado de la matriz en este commit.
+La matriz completa pasó el 1 de octubre de 2026 sobre el árbol de comprobación
+limpio `28a99e69dc7d69cf257786234cfb57f3e8929d44`, con el guion
+`845a94da969fb1059571174f116cc32bbbd696b8`, web `27508ddb2` y motor `10b883`.
+Comando: `node scripts/probar_baremador_navegador.mjs`. Usó Go 1.26.6 y Chrome
+149.0.7827.200. Los seis recorridos funcionales y las dos visitas de reflujo
+equivalente pasaron. Hubo 120 POST: 96 respuestas 200, 18 rechazos 400 y seis
+rechazos 422 provocados por el guion. No hubo errores JavaScript, errores de
+consola inesperados, cookies, almacenamiento web ni llamadas externas.
+
+El informe de esa ejecución está en
+`/tmp/vec-baremador-evidencia-KAcUFb/resultado.json`, con SHA256
+`5e2c1bbf05d226e79942ef9aafd599bab5443186b69297b24630e39f53a06e1b`.
+El directorio conserva 16 capturas. Son artefactos temporales fuera de Git;
+dirección debe conservar las capturas que use en la entrega.
+
+La revisión visual posterior encontró una explicación que redondeaba a cero
+coeficientes y puntos decimales, pese a que el total y el desglose del motor eran
+correctos. La matriz anterior acredita sus comprobaciones automáticas; no
+aprueba esos textos explicativos. La corrección de los motivos necesita una
+comprobación focal sobre el nuevo hash, sin repetir los 120 POST.
