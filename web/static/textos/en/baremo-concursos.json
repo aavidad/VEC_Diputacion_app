@@ -50,6 +50,8 @@
     "antes": "Initial configuration",
     "despues": "Modified draft",
     "total": "Total",
+    "suma_apartados": "Sum after each category cap",
+    "total_tras_tope": "Total after the overall cap",
     "desglose": "Category breakdown",
     "explicacion": "View calculation",
     "trazabilidad": "View version and fingerprints",

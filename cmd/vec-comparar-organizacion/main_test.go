@@ -190,3 +190,83 @@ func TestFalloDiagnosticoDevuelveErrorDeSalida(t *testing.T) {
 		t.Fatalf("diagnostic write failure: status=%d, output=%d", estado, out.Len())
 	}
 }
+
+func ejemploPaginado(t *testing.T) entrada {
+	t.Helper()
+	datos, err := os.ReadFile("ejemplo-paginado-sintetico.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var e entrada
+	if err := json.Unmarshal(datos, &e); err != nil {
+		t.Fatal(err)
+	}
+	return e
+}
+func TestPaginasSinteticasReutilizanMotorYManifiestoJSONHTML(t *testing.T) {
+	paginado := ejemploPaginado(t)
+	j, fallo, codigo := correr(t, paginado)
+	if codigo != 0 {
+		t.Fatalf("%s", fallo)
+	}
+	plano, _, codigo := correr(t, ejemplo(t))
+	if codigo != 0 {
+		t.Fatal("plain example failed")
+	}
+	var p, d salida
+	if err := json.Unmarshal(j, &p); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(plano, &d); err != nil {
+		t.Fatal(err)
+	}
+	esperado, _ := json.Marshal(d.Manifiesto.Comparacion)
+	actual, _ := json.Marshal(p.Manifiesto.Comparacion)
+	if !bytes.Equal(esperado, actual) {
+		t.Fatal("paginated comparison differs from existing engine")
+	}
+	if len(p.Manifiesto.AntesPaginas) != len(paginado.AntesPaginas) || p.Manifiesto.Antes.Selector.Cursor != "" {
+		t.Fatal("chain lost")
+	}
+	paginado.Formato = "html"
+	h, fallo, codigo := correr(t, paginado)
+	if codigo != 0 {
+		t.Fatalf("%s", fallo)
+	}
+	const inicio = `<pre id="manifiesto">`
+	partes := strings.Split(string(h), inicio)
+	if len(partes) != 2 {
+		t.Fatal("manifest missing")
+	}
+	var m manifiesto
+	if err := json.Unmarshal([]byte(html.UnescapeString(strings.Split(partes[1], "</pre>")[0])), &m); err != nil {
+		t.Fatal(err)
+	}
+	esperado, _ = json.Marshal(p.Manifiesto)
+	actual, _ = json.Marshal(m)
+	if !bytes.Equal(esperado, actual) || !bytes.Contains(h, []byte(p.HuellaSHA256)) {
+		t.Fatal("JSON and HTML manifests differ")
+	}
+	repetido, _, codigo := correr(t, paginado)
+	if codigo != 0 || !bytes.Equal(h, repetido) {
+		t.Fatal("nondeterministic report")
+	}
+}
+func TestPaginasSinteticasRechazanEntradaAmbiguaEIncompleta(t *testing.T) {
+	for _, mutar := range []func(*entrada){
+		func(e *entrada) { e.Sintetico = false },
+		func(e *entrada) { e.Esquema = esquemaEntrada },
+		func(e *entrada) { e.Antes = ejemplo(t).Antes },
+		func(e *entrada) { e.AntesPaginas = nil },
+		func(e *entrada) { e.DespuesPaginas = e.DespuesPaginas[:1] },
+		func(e *entrada) { e.AntesPaginas[1].Instantanea.Selector.Cursor = "pagina_faltante" },
+		func(e *entrada) { e.AntesPaginas[1].Instantanea.Cobertura.Plazas = "parcial" },
+	} {
+		e := ejemploPaginado(t)
+		mutar(&e)
+		out, fallo, codigo := correr(t, e)
+		if codigo == 0 || len(out) != 0 || len(fallo) == 0 {
+			t.Fatal("invalid chain accepted")
+		}
+	}
+}
