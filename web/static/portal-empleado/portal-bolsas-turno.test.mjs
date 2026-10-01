@@ -1,9 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { ESQUEMA_CANDIDATOS_TURNO, validarRespuestaCandidatosBolsa } from "./portal-bolsas-contrato.js";
-import { consultarCandidatosBolsa } from "./portal-bolsas-api.js";
-import { crearPresentadorPanelInterno } from "./portal-panel-interno.js";
-import { cargarMensajesPortal } from "./portal-i18n.js";
+import { ESQUEMA_CANDIDATOS_TURNO, validarRespuestaCandidatosBolsa } from "./portal-bolsas-contrato.js?v=20261001-codexf-ct-catalogos-v1";
+import { consultarCandidatosBolsa } from "./portal-bolsas-api.js?v=20261001-codexf-ct-catalogos-v1";
+import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261001-codexf-ct-catalogos-v1";
+import { cargarMensajesPortal } from "./portal-i18n.js?v=20261001-codexf-ct-catalogos-v1";
 
 const bolsa = {
   bolsa_ref: "bolsa:sintetica:1", categoria_clave: "auxiliar", categoria: "Auxiliar",

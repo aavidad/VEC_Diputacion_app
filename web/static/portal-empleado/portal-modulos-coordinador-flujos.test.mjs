@@ -6,13 +6,13 @@ import {
   cargarCatalogoModulosInterno,
   crearCatalogoModulosDesdeManifiestos,
   extraerModulosEnvelopeCanonico,
-} from "./portal-catalogo-modulos.js";
+} from "./portal-catalogo-modulos.js?v=20261001-codexf-ct-catalogos-v1";
 import {
   CLAVES_MODULOS_VEC_REGISTRADOS,
   crearCoordinadorModulosPortal,
   moduloDeVistaPortal,
   rutaDeVistaPortal,
-} from "./portal-modulos-coordinador.js";
+} from "./portal-modulos-coordinador.js?v=20261001-codexf-ct-catalogos-v1";
 
 function raizFalsa() {
   const eventos = new Map();

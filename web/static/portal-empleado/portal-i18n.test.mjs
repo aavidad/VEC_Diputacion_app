@@ -5,7 +5,7 @@ import {
   cargarMensajesPortal,
   crearTraductorPortal,
   MENSAJES_PORTAL,
-} from "./portal-i18n.js";
+} from "./portal-i18n.js?v=20261001-codexf-ct-catalogos-v1";
 
 import { versionDe } from "./versiones-cache.test-helper.mjs";
 

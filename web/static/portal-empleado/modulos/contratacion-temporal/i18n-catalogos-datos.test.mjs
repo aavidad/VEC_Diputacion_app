@@ -7,13 +7,13 @@ import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import test from "node:test";
-import { cargarCatalogosContratacion } from "./i18n-catalogos.js";
+import { cargarCatalogosContratacion } from "./i18n-catalogos.js?v=20261001-codexf-ct-catalogos-v1";
 import { cargarTextos } from "../../../comun/textos.js";
 import { IDIOMAS_DISPONIBLES } from "../../../comun/idioma.js";
-import { crearTraductorCancelacion } from "./i18n-cancelacion.js";
-import { mensajesTramite, mensajesTramitePortal, rotuloTramite } from "./i18n-fases-rrhh.js";
-import { crearTraductorContratacionTemporal } from "./i18n.js";
-import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js";
+import { crearTraductorCancelacion } from "./i18n-cancelacion.js?v=20261001-codexf-ct-catalogos-v1";
+import { mensajesTramite, mensajesTramitePortal, rotuloTramite } from "./i18n-fases-rrhh.js?v=20261001-codexf-ct-catalogos-v1";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261001-codexf-ct-catalogos-v1";
+import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261001-codexf-ct-catalogos-v1";
 
 // Huellas de las exportaciones originales en 463f7c176, anteriores al traslado.
 // Incluyen nombres, orden de claves, textos completos y marcadores sin duplicar los textos.

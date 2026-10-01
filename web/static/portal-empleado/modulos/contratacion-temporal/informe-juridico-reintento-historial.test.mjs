@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { montarFormularioInformeJuridico } from "./formulario-informe-juridico.js";
+import { montarFormularioInformeJuridico } from "./formulario-informe-juridico.js?v=20261001-codexf-ct-catalogos-v1";
 
 const expediente = "expediente:ct:sintetico:informe-001";
 const recibo = Object.freeze({
