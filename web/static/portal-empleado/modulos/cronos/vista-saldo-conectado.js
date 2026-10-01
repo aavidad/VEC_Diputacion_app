@@ -142,5 +142,5 @@ export function montarVistaSaldoCronos({ raiz, cliente, mensajes = MENSAJES_CRON
     contenedor.remove?.();
   };
   registrarDesmontar?.(desmontar);
-  return Object.freeze({ desmontar, consultar: cargar });
+  return Object.freeze({ desmontar, consultar: cargar, actualizar: () => cargar(consulta) });
 }

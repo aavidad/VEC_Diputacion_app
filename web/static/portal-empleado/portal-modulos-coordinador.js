@@ -15,7 +15,7 @@ import {
   componerDietasInternas,
   componerPersonalVisible,
   componerRegistroPersonal,
-} from "./portal-composicion-empleado.js?v=20260925-cronos-notif-e10-v1";
+} from "./portal-composicion-empleado.js?v=20261001-cronos-fichaje-v1";
 import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260930-portales-i18n-integracion-v1";
 import {
   CLAVES_CARGA_MODULAR,
@@ -69,9 +69,9 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
       clienteSaldo, clienteRemoto, clienteSolicitudes, i18n,
       bandejaPermisos, avisosPropios, clienteResolucion, i18nResolucion,
       notificacionesPropias, bandejaNotificaciones, clienteNotificaciones, i18nNotificaciones] = await Promise.all([
-      import("./modulos/cronos/vista-saldo-conectado.js?v=20260929-i18n-textos-v1"),
-      import("./modulos/cronos/vista-remoto.js?v=20260929-i18n-textos-v1"),
-      import("./modulos/cronos/vista-movimientos-conectado.js?v=20260929-i18n-textos-v1"),
+      import("./modulos/cronos/vista-saldo-conectado.js?v=20261001-cronos-fichaje-v1"),
+      import("./modulos/cronos/vista-remoto.js?v=20261001-cronos-fichaje-v1"),
+      import("./modulos/cronos/vista-movimientos-conectado.js?v=20261001-cronos-fichaje-v1"),
       import("./modulos/cronos/vista-movimientos-propios.js?v=20260929-i18n-textos-v1"),
       import("./modulos/cronos/vista-permisos-propios.js?v=20260929-i18n-textos-v1"),
       import("./modulos/cronos/cliente-saldo-http.js"),
