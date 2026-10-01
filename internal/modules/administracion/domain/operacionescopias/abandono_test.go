@@ -71,6 +71,34 @@ func TestCapturaLegacyConservaJSONYFalloPublicadoRequiereObservacionNueva(t *tes
 	}
 }
 
+func TestCapturandoNoIgnoraVerificadorOVentanaActivosDeclarados(t *testing.T) {
+	o, e := Nueva(solicitud())
+	if e != nil {
+		t.Fatal(e)
+	}
+	o = aplicar(t, o, comando(o, "iniciar_captura"))
+	for _, field := range []string{"verificador_activo", "verificador_incierto", "ventana_activa", "ventana_incierta"} {
+		c := abandono(o)
+		c.Abandono.FalloReferencia = "captura_fallida"
+		switch field {
+		case "verificador_activo":
+			c.Abandono.EstadoVerificador = "activo"
+		case "verificador_incierto":
+			c.Abandono.EstadoVerificador = "incierto"
+		case "ventana_activa":
+			c.Abandono.EstadoVentana = "activa"
+		case "ventana_incierta":
+			c.Abandono.EstadoVentana = "incierta"
+		}
+		if _, _, _, e := o.Aplicar(c); !errors.Is(e, ErrAbandono) {
+			t.Fatal(field, e)
+		}
+	}
+	if o.Estado() != Capturando || o.Version() != 1 {
+		t.Fatal("active observation changed state")
+	}
+}
+
 func TestAbandonoDesdeEstadosActivosSinInventarEnsayo(t *testing.T) {
 	initial, e := Nueva(solicitud())
 	if e != nil {

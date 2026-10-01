@@ -159,6 +159,8 @@ conservado de CS07; no se elige en la solicitud. La referencia gobernada
 `capturando`, si la publicación se adelantó a su confirmación. Una observación omitida, activa o
 incierta mantiene ocupado el destino. Los campos nuevos son opcionales en la
 serialización de una captura anterior para conservar sus bytes y su huella.
+Si se observan como activos o inciertos, se rechaza el abandono en cualquier
+fase y con cualquier referencia de fallo, incluida `captura_fallida`.
 
 Las propuestas y aprobaciones de restauración pertenecen al contrato CS10.
 Este registro de progreso CS07-A no las sustituye ni emite autorización FULL.
