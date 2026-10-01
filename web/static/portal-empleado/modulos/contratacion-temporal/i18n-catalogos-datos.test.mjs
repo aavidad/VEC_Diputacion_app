@@ -27,7 +27,8 @@ const PREIMAGEN = {
     "MENSAJES_AVISOS_VIA_COBERTURA_ES": "6d7de62fde85ab0b5004464ce518235e0c18f7041449414197b419812821dbcb"
   },
   "i18n-borradores-publicados.js": {
-    "MENSAJES_BORRADORES_PUBLICADOS_EN": "b5710531c1e8fbb806aa8222c19e36543ef43e7d4efc1835f42cd9a4d4b50abe",
+    // Excepción a la preimagen: corrección EN de bp_subtitulo posterior al traslado.
+    "MENSAJES_BORRADORES_PUBLICADOS_EN": "595e5671fbc26190164f2b12bbb6a8f6ee52f872443d6a22385a64960a9cb1ef",
     "MENSAJES_BORRADORES_PUBLICADOS_ES": "6c9b8fb8abac09567848e5fbe00c33a54a26d8014032302648af8b6e297997ad"
   },
   "i18n-cambios-expediente.js": {
@@ -53,7 +54,8 @@ const PREIMAGEN = {
     "MENSAJES_INFORME_TRAS_SUBSANACION_ES": "d75febfd37a4cf2265d502bcf2ae5af4ccad05b724433807974fea104abef743"
   },
   "i18n-llamamiento.js": {
-    "MENSAJES_LLAMAMIENTO_EN": "c5bacf48d3726cbba13144eb47132a23383b0cc32f9b7511b5c62c656c4eb26b",
+    // Excepción a la preimagen: cuatro correcciones EN de renuncia posteriores al traslado.
+    "MENSAJES_LLAMAMIENTO_EN": "6d0fd18d0572e0d98000134069e36b44389253c4c6a04cc6579f993697c86399",
     "MENSAJES_LLAMAMIENTO_ES": "d30865364e6e13be558dfd6ae65f7296dd4c5e1f745c37e2e936c89b5d9618fe"
   },
   "i18n-subsanacion-reparos.js": {
