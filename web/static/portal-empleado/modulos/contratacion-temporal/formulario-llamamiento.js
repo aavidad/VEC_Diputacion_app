@@ -1,5 +1,6 @@
 /** Una intención visible por acción; no se guarda nada en el navegador. */
 import { crearTraductorContratacionTemporal } from "./i18n.js";
+import { mensajeValidacionPortal } from "../../portal-idioma.js?v=20260930-portales-i18n-integracion-v1";
 import { renderizarLlamamiento, reciboAntecedenteSiguiente } from "./renderizado-llamamiento.js";
 import { esValidacionRespuestaPendiente, cargarPublicacionesFormalizacionDesarrollo } from "./cliente-http-llamamiento.js";
 import { crearPanelDocumentacionFormalizacion } from "./documentacion-formalizacion.js?v=20260926-integracion-bolsa-ct-v1";
@@ -368,6 +369,7 @@ export function montarFormularioLlamamiento({
   }
   function repintar(operacion = "") {
     if (!montado) return;
+    limpiarValidacion();
     raiz.innerHTML = renderizarLlamamiento(estado, t, fecha, ahora());
     documentacion?.pintar(raiz.querySelector("[data-ct-documentacion-formalizacion]"), {
       aceptadaEn: estado.propuesta.aceptacion?.respuesta === "aceptacion" ? estado.propuesta.aceptacion.resuelta_en : "",
@@ -382,6 +384,83 @@ export function montarFormularioLlamamiento({
       foco?.scrollIntoView?.({ block: "nearest" });
       try { anunciar(t(paso.mensaje), paso.tono); } catch { /* La región viva permanece. */ }
     }
+  }
+  // La validez nativa orienta los campos; el contrato sigue decidiendo la semántica.
+  const marcasValidacion = new Map();
+  const firmasResumen = new WeakMap();
+  function quitarMarca(control) {
+    const marca = marcasValidacion.get(control);
+    if (!marca) return;
+    if (control.getAttribute("aria-invalid") === "true") {
+      if (marca.anterior === null) control.removeAttribute("aria-invalid");
+      else control.setAttribute("aria-invalid", marca.anterior);
+    }
+    const descripciones = (control.getAttribute("aria-describedby") ?? "").split(/\s+/u)
+      .filter((id) => id && id !== marca.id);
+    if (descripciones.length) control.setAttribute("aria-describedby", descripciones.join(" "));
+    else control.removeAttribute("aria-describedby");
+    marcasValidacion.delete(control);
+  }
+  function limpiarValidacion() {
+    for (const control of marcasValidacion.keys()) quitarMarca(control);
+  }
+  function mostrarErroresNativos(formulario, editado = null) {
+    const controles = Array.from(formulario.elements ?? []);
+    const errores = new Map();
+    for (const control of controles) {
+      const revisar = !editado || control === editado || marcasValidacion.has(control)
+        || (control.type === "radio" && control.name === editado.name);
+      if (!revisar) continue;
+      quitarMarca(control);
+      if (control.willValidate !== true || control.validity.valid) continue;
+      const id = `ct-llamamiento-${formulario.dataset.ctLlamamientoForm}-${control.name}-error`;
+      const mensaje = raiz.ownerDocument?.getElementById(id);
+      if (!mensaje || !formulario.contains(mensaje)) continue;
+      marcasValidacion.set(control, { id, anterior: control.getAttribute("aria-invalid") });
+      control.setAttribute("aria-invalid", "true");
+      const descripciones = (control.getAttribute("aria-describedby") ?? "").split(/\s+/u).filter(Boolean);
+      control.setAttribute("aria-describedby", [...new Set([...descripciones, id])].join(" "));
+      if (!errores.has(id)) errores.set(id, { control, mensaje, texto: mensajeValidacionPortal(control) });
+    }
+    formulario.querySelectorAll?.("[data-ct-llamamiento-error-campo]").forEach((mensaje) => {
+      mensaje.hidden = !errores.has(mensaje.id);
+      mensaje.textContent = errores.get(mensaje.id)?.texto ?? "";
+    });
+    const resumen = formulario.querySelector?.("[data-ct-llamamiento-errores]");
+    const lista = resumen?.querySelector("ul");
+    if (lista) {
+      const enlaces = [...errores.values()].map(({ control, texto }) => {
+        const rotulo = control.type === "radio" ? control.closest("fieldset")?.querySelector("legend") : control.labels?.[0];
+        return { control, texto: `${rotulo?.textContent.trim() ?? control.name}: ${texto}` };
+      });
+      const firma = JSON.stringify(enlaces.map(({ control, texto }) => [control.id, texto]));
+      // Conservar los enlaces si no cambia el resumen: salir del campo no cancela un clic.
+      if (firmasResumen.get(lista) !== firma) {
+        lista.replaceChildren();
+        for (const { control, texto } of enlaces) {
+          const enlace = raiz.ownerDocument.createElement("a");
+          enlace.href = `#${control.id}`;
+          enlace.dataset.ctLlamamientoErrorEnlace = control.id;
+          enlace.textContent = texto;
+          const fila = raiz.ownerDocument.createElement("li");
+          fila.append(enlace);
+          lista.append(fila);
+        }
+        firmasResumen.set(lista, firma);
+      }
+      resumen.hidden = errores.size === 0;
+    }
+    return errores.values().next().value?.control;
+  }
+  function alEditarCampo(evento) {
+    const control = evento.target;
+    const formulario = control?.closest?.("[data-ct-llamamiento-form]");
+    if (!formulario || !raiz.contains(formulario) || control.willValidate !== true
+      || estado[formulario.dataset.ctLlamamientoForm]?.solicitud) return;
+    // El envío valida antes de actuar; no desplazar su botón entre pulsación y clic.
+    if (evento.type === "focusout" && evento.relatedTarget?.closest?.("button, a")) return;
+    // Al editar sólo se actualizan errores ya mostrados; al salir se valida el campo.
+    if (evento.type === "focusout" || marcasValidacion.has(control)) mostrarErroresNativos(formulario, control);
   }
   function guardarBorradores() {
     for (const [operacion, contrato] of Object.entries(OPERACIONES)) {
@@ -538,6 +617,14 @@ export function montarFormularioLlamamiento({
     if (operacion === "siguiente" && !puedeContinuar()) return;
     if (operacion === "propuesta" && (!puedeProponer() || !paso.disponible)) return;
     guardarBorradores();
+    if (paso.solicitud === null) {
+      const primero = mostrarErroresNativos(formulario);
+      if (formulario.reportValidity?.() === false) {
+        primero?.focus?.();
+        primero?.scrollIntoView?.({ block: "nearest" });
+        return;
+      }
+    }
     const contrato = OPERACIONES[operacion];
     const recuperandoRespuesta = (esResolucion(operacion) || ["respuesta", "respuesta_siguiente", "siguiente", "comunicacion_siguiente", "propuesta", "contacto", "causa", "expiracion"].includes(operacion)) && paso.solicitud !== null;
     let solicitud;
@@ -751,6 +838,16 @@ export function montarFormularioLlamamiento({
     }
   }
   function alPulsar(evento) {
+    const enlaceError = evento.target?.closest?.("[data-ct-llamamiento-error-enlace]");
+    if (typeof enlaceError?.dataset?.ctLlamamientoErrorEnlace === "string" && raiz.contains(enlaceError)) {
+      evento.preventDefault();
+      const controlError = raiz.ownerDocument?.getElementById(enlaceError.dataset.ctLlamamientoErrorEnlace);
+      if (controlError && raiz.contains(controlError)) {
+        controlError.focus();
+        controlError.scrollIntoView?.({ block: "nearest" });
+      }
+      return;
+    }
     const reintentarComunicaciones = evento.target?.closest?.("[data-ct-comunicaciones-reintentar]");
     if (reintentarComunicaciones?.dataset?.ctComunicacionesReintentar !== undefined
       && raiz.contains(reintentarComunicaciones)) {
@@ -845,6 +942,8 @@ export function montarFormularioLlamamiento({
   raiz.addEventListener("submit", alEnviar);
   raiz.addEventListener("click", alPulsar);
   raiz.addEventListener("change", alCambiarArchivo);
+  raiz.addEventListener("input", alEditarCampo);
+  raiz.addEventListener("focusout", alEditarCampo);
   if (!actualizarContexto(contexto)) repintar();
   const desmontar = () => {
     if (!montado) return;
@@ -862,6 +961,9 @@ export function montarFormularioLlamamiento({
     raiz.removeEventListener("submit", alEnviar);
     raiz.removeEventListener("click", alPulsar);
     raiz.removeEventListener("change", alCambiarArchivo);
+    raiz.removeEventListener("input", alEditarCampo);
+    raiz.removeEventListener("focusout", alEditarCampo);
+    limpiarValidacion();
     raiz.replaceChildren();
   };
   desmontar.actualizarContexto = actualizarContexto;
