@@ -28,6 +28,9 @@ func ejecutar(args []string, salida, diagnostico io.Writer, servicio simulacionb
 	modo := flags.String("modo", "experiencia", "")
 	reglas := flags.String("reglas", "", "")
 	huellaReglas := flags.String("reglas-sha256", "", "")
+	comparar := flags.Bool("comparar-reglas", false, "")
+	reglasNuevas := flags.String("reglas-nuevas", "", "")
+	huellaReglasNuevas := flags.String("reglas-nuevas-sha256", "", "")
 	entrada := flags.String("entrada", "", "")
 	huellaEntrada := flags.String("entrada-sha256", "", "")
 	ejemplo := flags.String("ejemplo", "", "")
@@ -38,6 +41,12 @@ func ejecutar(args []string, salida, diagnostico io.Writer, servicio simulacionb
 			return diagnosticar(diagnostico, "uso", "modo,reglas,reglas-sha256,entrada,entrada-sha256,limite-bytes", 0)
 		}
 		return diagnosticar(diagnostico, "argumentos_invalidos", "", 2)
+	}
+	if *comparar || *reglasNuevas != "" || *huellaReglasNuevas != "" {
+		if !*comparar || *modo != "meritos" || flags.NArg() != 0 || *entrada != "" || *huellaEntrada != "" || *ejemplo != "" || *listar || *reglas == "" || *huellaReglas == "" || *reglasNuevas == "" || *huellaReglasNuevas == "" || *limite <= 0 || *limite > maximoBytesArchivo {
+			return diagnosticar(diagnostico, "argumentos_invalidos", "comparacion", 2)
+		}
+		return ejecutarDiferencia(salida, diagnostico, *reglas, *huellaReglas, *reglasNuevas, *huellaReglasNuevas, *limite)
 	}
 	if *modo == "concursos" {
 		return ejecutarConcursos(salida, diagnostico, *ejemplo, *listar, *reglas, *huellaReglas, *entrada, *huellaEntrada, *limite, flags.NArg())

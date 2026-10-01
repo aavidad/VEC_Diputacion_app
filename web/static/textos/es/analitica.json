@@ -1,0 +1,43 @@
+{
+  "titulo": "Cómo se cuentan los indicadores",
+  "cerrar": "Cerrar ayuda",
+  "version": "Versión de la definición: {version}",
+  "periodo": "Se agrupan por año, mes o semana natural, en la zona horaria de Madrid. El rango incluye los periodos completos que intersectan las fechas elegidas.",
+  "ambito": "Solo se cuentan las peticiones de la organización, centro o unidad que puede consultar su perfil.",
+  "corte": "Los datos llegan hasta el último corte publicado para RRHH. No incluyen cambios que aún no se han publicado.",
+  "calidad": "Los recuentos describen las versiones publicadas de las peticiones. No acreditan por sí solos firma, incorporación ni otros efectos administrativos.",
+  "gobierno": "La asignación del responsable institucional y la aprobación de estas definiciones están pendientes.",
+  "fuente": "Procedencia técnica",
+  "funcion": "Función de lectura",
+  "proyeccion": "Fuente de los datos",
+  "corte_tecnico": "Control del corte",
+  "endpoint": "Consulta utilizada",
+  "migracion": "Definición del cálculo",
+  "indicadores": {
+    "altas": {
+      "nombre": "Altas",
+      "definicion": "Cuenta cada petición una vez, en el periodo de su primera fecha de creación."
+    },
+    "llamamientos": {
+      "nombre": "Llamamientos",
+      "definicion": "Cuenta cada petición una vez, en el periodo de su primera versión en fase de llamamiento."
+    },
+    "formalizaciones": {
+      "nombre": "Formalizaciones",
+      "definicion": "Cuenta cada petición una vez, al llegar por primera vez a la fase de nombramiento. No acredita firma ni nombramiento eficaz."
+    },
+    "cierres": {
+      "nombre": "Cierres",
+      "definicion": "Cuenta cada petición una vez, en el periodo de su primera versión completada o cancelada."
+    },
+    "incidencias": {
+      "nombre": "Incidencias",
+      "definicion": "Cuenta cada entrada en estado de incidencia. Una misma petición puede contar varias veces si sale de ese estado y vuelve a entrar."
+    }
+  },
+  "ayuda": "Ayuda sobre los indicadores",
+  "consulta_pendiente": "Todavía no hay una respuesta compatible de la consulta para vincular estas definiciones a un corte de datos.",
+  "consulta_incompatible": "La respuesta de la consulta no coincide con el formato o el corte que describe esta ficha.",
+  "corte_consultado": "Corte de la respuesta consultada: {corte}",
+  "esquema_consultado": "Formato de la respuesta: {esquema}"
+}
