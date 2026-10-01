@@ -143,3 +143,18 @@ func TestInformePermisosPDFRealYCancelacion(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestInformePermisosParserPropagaErrorCerrado(t *testing.T) {
+	for _, raw := range []string{
+		``, `{"campo":`, `{"campo":"dato"`, `{"campo":"dato",}`, `{"mapa":{"campo":"a","campo":"b"}}`,
+		`{"campo":1}`, `{"campo":null}`, `[]`, `{"campo":"a"} {}`, `{"campo":"a"} !`,
+		strings.Repeat(`{"mapa":`, 10) + `"dato"` + strings.Repeat(`}`, 10),
+	} {
+		if err := validarJSONSinDuplicados([]byte(raw)); !errors.Is(err, ports.ErrExportacionPermisosInvalida) {
+			t.Fatalf("parser sin error cerrado: %v", err)
+		}
+	}
+	if err := validarJSONSinDuplicados([]byte(`{"mapa":{"campo":"dato"}}`)); err != nil {
+		t.Fatal(err)
+	}
+}

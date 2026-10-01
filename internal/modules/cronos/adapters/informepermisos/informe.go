@@ -61,7 +61,10 @@ func Nuevo(renderer vecports.RenderizadorDocumento, datos io.Reader) (*Preparado
 		return nil, ports.ErrExportacionPermisosNoDisponible
 	}
 	raw, err := io.ReadAll(io.LimitReader(datos, 65537))
-	if err != nil || len(raw) > 65536 || !jsonSinDuplicados(raw) {
+	if err != nil || len(raw) > 65536 {
+		return nil, ports.ErrExportacionPermisosInvalida
+	}
+	if err := validarJSONSinDuplicados(raw); err != nil {
 		return nil, ports.ErrExportacionPermisosInvalida
 	}
 	var c Catalogo
@@ -224,44 +227,55 @@ func nulo(v any) bool {
 
 // Rechaza claves repetidas en cualquier objeto del catálogo, además del parseo
 // de estructura estricta. La profundidad está acotada al tamaño del catálogo.
-func jsonSinDuplicados(raw []byte) bool {
+func validarJSONSinDuplicados(raw []byte) error {
 	d := json.NewDecoder(bytes.NewReader(raw))
-	var valor func(int) bool
-	valor = func(profundidad int) bool {
+	var valor func(int) error
+	valor = func(profundidad int) error {
 		if profundidad > 8 {
-			return false
+			return ports.ErrExportacionPermisosInvalida
 		}
 		t, err := d.Token()
 		if err != nil {
-			return false
+			return ports.ErrExportacionPermisosInvalida
 		}
 		delim, ok := t.(json.Delim)
 		if !ok {
-			_, esTexto := t.(string)
-			return esTexto
+			if _, esTexto := t.(string); !esTexto {
+				return ports.ErrExportacionPermisosInvalida
+			}
+			return nil
 		}
 		if delim != '{' {
-			return false
+			return ports.ErrExportacionPermisosInvalida
 		}
 		vistos := map[string]bool{}
 		for d.More() {
 			clave, err := d.Token()
 			if err != nil {
-				return false
+				return ports.ErrExportacionPermisosInvalida
 			}
 			k, ok := clave.(string)
 			if !ok || vistos[k] {
-				return false
+				return ports.ErrExportacionPermisosInvalida
 			}
 			vistos[k] = true
-			if !valor(profundidad + 1) {
-				return false
+			if err := valor(profundidad + 1); err != nil {
+				return err
 			}
 		}
 		fin, err := d.Token()
-		return err == nil && fin == json.Delim('}')
+		if err != nil || fin != json.Delim('}') {
+			return ports.ErrExportacionPermisosInvalida
+		}
+		return nil
 	}
-	return valor(0) && func() bool { _, err := d.Token(); return err == io.EOF }()
+	if err := valor(0); err != nil {
+		return err
+	}
+	if _, err := d.Token(); err != io.EOF {
+		return ports.ErrExportacionPermisosInvalida
+	}
+	return nil
 }
 
 var _ ports.PreparadorInformePermisos = (*Preparador)(nil)
