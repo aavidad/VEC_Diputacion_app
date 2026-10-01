@@ -242,6 +242,32 @@ test("el recibo tardío de un formulario cerrado no modifica otra solicitud", as
   vista.desmontar();
 });
 
+test("cancelar devuelve el foco a Solicitar del permiso que abrió el formulario", async () => {
+  for (const permisoRef of ["permiso:cronos:asuntos-propios", "permiso:cronos:horas-medico"]) {
+    const { nodo, raiz } = raizFalsa(); const documento = raiz.ownerDocument;
+    const body = {}; let html = ""; documento.activeElement = body;
+    Object.defineProperty(nodo, "innerHTML", { get: () => html, set(valor) {
+      html = valor; documento.activeElement = body;
+    } });
+    nodo.querySelectorAll = (selector) => selector !== "[data-cronos-solicitar]" ? []
+      : Array.from(html.matchAll(/data-cronos-solicitar="([^"]+)"/gu), ([, ref]) => ({
+        dataset: { cronosSolicitar: ref }, focus() { documento.activeElement = this; },
+      }));
+    let consultas = 0; let escrituras = 0;
+    const vista = montarPermisosPropiosCronos({ raiz, anio: 2026,
+      cliente: { consultarPermisos: async () => { consultas++; return datos(); },
+        solicitarPermiso: async () => { escrituras++; } } });
+    await esperar(); pulsar(nodo, "[data-cronos-solicitar]", { cronosSolicitar: permisoRef });
+    assert.match(nodo.innerHTML, /data-cronos-permiso-formulario/u);
+    documento.activeElement = {};
+    pulsar(nodo, "[data-cronos-permiso-cerrar]", {});
+    assert.doesNotMatch(nodo.innerHTML, /data-cronos-permiso-formulario/u);
+    assert.equal(documento.activeElement.dataset?.cronosSolicitar, permisoRef);
+    assert.equal(consultas, 1); assert.equal(escrituras, 0);
+    vista.desmontar();
+  }
+});
+
 test("los catálogos del historial contienen los mismos mensajes y variables y la página está acotada", async () => {
   const { crearTraductorHistorialCronos } = await import("./i18n-historial.js");
   const { cargarTextos } = await import("../../../comun/textos.js");
