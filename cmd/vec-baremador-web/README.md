@@ -58,3 +58,67 @@ Las pruebas comparan la salida HTTP con el servicio común y comprueban origen,
 Host, método, campos desconocidos, exceso de tamaño y escapes del directorio de
 recursos. Esta herramienta local no se monta en el portal ni acredita permisos
 institucionales, aprobación de bases o una valoración oficial.
+
+## Preparación de un concurso interno
+
+La segunda dirección que muestra el programa abre
+`/portal-empleado/modulos/provision/`. Permite revisar dos puestos sintéticos,
+seleccionarlos, cambiar su orden de preferencia y simular la puntuación de cada
+uno con el motor común. La convocatoria conserva referencias y versiones de RPT,
+bases, reglas e instantánea. Una referencia declarada no acredita una vacante ni
+la condición de empleado.
+
+En «Convocatoria» se pueden ajustar fechas, coeficientes y topes del ejercicio.
+Los campos inválidos conservan lo escrito y señalan qué corregir. «Valoración»
+separa los requisitos de acceso de los puntos; una fuente ausente permanece
+pendiente y no tiene total. La preparación sólo dura mientras está abierta la
+página. Presentación, propuesta oficial, reclamación y resolución permanecen
+deshabilitadas hasta conectar sus autoridades y persistencia.
+
+`GET /api/provision/v1/procesos-locales` proyecta oferta, configuración y
+preferencias del ejemplo. `POST /api/provision/v1/procesos-locales/simulaciones`
+admite únicamente `ejemplo_ref`, `configuracion` y `preferencias`. El servidor
+fija los hechos sintéticos y devuelve el resultado del mismo caso de uso que
+consume `vec-simular-provision`, incluida la huella de reproducción local.
+Esta huella no es una firma ni un justificante de presentación.
+
+Los textos están disponibles en español e inglés mediante el selector común.
+No se monta una API institucional ni se añaden conexiones, permisos o SQL.
+
+## Ensayo de adjudicación global
+
+La pestaña «Adjudicación» compara tres solicitudes sintéticas para dos puestos.
+Muestra preferencias y puntuaciones de partida. La política del ensayo identifica
+bases, versión, método y cadena de desempates; se pueden reordenar sus criterios y
+cambiar su sentido. El método disponible es experimental y no constituye una
+regla aprobada por RRHH.
+
+«Simular adjudicación» llama al mismo caso de uso que
+`vec-simular-adjudicacion`. Ninguna persona obtiene dos puestos y un puesto
+individual no se oferta dos veces. Un empate sin resolver deja el conjunto
+pendiente, sin asignaciones. La propuesta reproducida no reserva vacantes ni
+firma, publica o ejecuta una resolución.
+
+`GET /api/provision/v1/adjudicaciones-locales` devuelve la configuración y el
+resumen sintético. El POST de `/simulaciones` recibe sólo `ejemplo_ref` y
+`configuracion`; los resultados de valoración y las solicitudes se fijan en el
+servidor. El [contrato del CLI](../vec-simular-adjudicacion/README.md) explica
+las entradas completas y los límites del método.
+
+## Reclamación, revisión y borrador de resolución
+
+La pestaña «Reclamación y revisión» ofrece tres ejercicios del mismo provisional:
+reclamación pendiente, mantener la puntuación y rectificar un dato sintético.
+Cada decisión motivada añade otra versión. La anterior conserva su puntuación,
+instantánea y huella; la rectificación recalcula con el motor común. La pantalla
+muestra la cronología y las dependencias que siguen pendientes.
+
+El resultado es siempre un borrador de ensayo. No registra reclamaciones,
+modifica Personal/RUM, firma, publica ni dicta una resolución oficial.
+`GET /api/provision/v1/ciclos-locales` proporciona los casos del catálogo.
+`POST /api/provision/v1/ciclos-locales/simulaciones` acepta sólo `ejemplo_ref` y
+`caso_ref`; los hechos, evidencias y decisiones sintéticas los fija el servidor.
+
+La futura persistencia queda descrita en
+[el contrato de Provisión](../../deploy/postgresql/provision/README.md), con la
+reserva `provision 000001`. No contiene SQL ejecutable ni altera el núcleo.

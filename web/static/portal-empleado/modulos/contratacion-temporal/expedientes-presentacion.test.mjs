@@ -27,7 +27,7 @@ import {
   crearEjecutorAltaConRefresco,
   montarModuloContratacionTemporal,
   renderizarModuloContratacionTemporal,
-} from "./vista-expedientes.js?v=20261001-ct-firma-verificador-v1";
+} from "./vista-expedientes.js?v=20261001-ct-firma-verificador-v2";
 
 function presentadorDe(fuente, capacidades = fuente.capacidades) {
   return crearPresentadorExpedientesContratacionTemporal({ fuente, capacidades });

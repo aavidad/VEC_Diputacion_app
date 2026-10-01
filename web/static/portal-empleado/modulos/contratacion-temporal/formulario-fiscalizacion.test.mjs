@@ -4,7 +4,7 @@ import test from "node:test";
 import { montarFormularioFiscalizacion } from "./formulario-fiscalizacion.js?v=20261001-ct-a-i18n-v1";
 import { renderizarModuloContratacionTemporal,
   montarModuloContratacionTemporal,
-  montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes.js?v=20261001-ct-firma-verificador-v1";
+  montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes.js?v=20261001-ct-firma-verificador-v2";
 import { contextoFiscalizacionDesdeEstado } from "./vista-expedientes-render.js?v=20261001-ct-a-i18n-v1";
 
 const EXPEDIENTE = "expediente:ct:fiscalizacion:formulario-001";

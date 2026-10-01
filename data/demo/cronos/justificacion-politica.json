@@ -1,0 +1,14 @@
+{
+  "version_esquema": 1,
+  "demostracion": true,
+  "referencia": "demo:politica:justificacion:v1",
+  "version": 1,
+  "catalogo_version_ref": "demo:catalogo:permisos:v1",
+  "permiso_ref": "demo:permiso:justificante:v1",
+  "tipo_documental_ref": "ref:2222222222222222222222222222222222222222222222222222222222222222",
+  "custodio_id": "deposito_documental_demo",
+  "motivos_ref": [
+    "demo:revision:conforme",
+    "demo:revision:insuficiente"
+  ]
+}

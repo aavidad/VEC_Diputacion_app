@@ -4,7 +4,7 @@ import {
   EXPEDIENTE, recibo, raizPrueba, montar, archivoCorreo, declaracion, justificante,
   CLAVE_RESOLUCION, revisionManual, reciboResolucion, continuacionConfirmada,
   PUBLICACIONES_PROPUESTA,
-} from "./formulario-llamamiento-pruebas.js?v=20261001-ct-firma-verificador-v1";
+} from "./formulario-llamamiento-pruebas.js?v=20261001-ct-firma-verificador-v2";
 import { MENSAJES_LLAMAMIENTO_EN } from "./i18n-llamamiento.js?v=20261001-ct-a-i18n-v1";
 
 const fila = (n) => ({
