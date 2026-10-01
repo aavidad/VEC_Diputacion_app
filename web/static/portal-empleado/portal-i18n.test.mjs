@@ -98,6 +98,7 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     ["modulos/contratacion-temporal/vista-expedientes.js", "20261001-ct-firma-verificador-v2"],
     ["modulos/contratacion-temporal/seguimiento-cese.js", vigente],
     ["modulos/contratacion-temporal/circuito-firma.js", "20261001-ct-firma-verificador-v2"],
+    ["modulos/bolsa/baremo/montaje.js", "20261001-f-concursos-foco-v1"],
     ["modulos/contratacion-temporal/formulario-llamamiento.js", "20261001-f-ct-validacion-v1"],
     ["modulos/contratacion-temporal/renderizado-llamamiento.js", "20261001-f-ct-validacion-v1"],
     ["modulos/contratacion-temporal/vista-expedientes-fiscalizacion.js", "20261001-f-ct-validacion-v1"],
