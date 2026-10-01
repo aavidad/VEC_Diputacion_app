@@ -147,9 +147,12 @@ AD113/Documentos9. `origin/main@b79b51e21` añadió después las 13 UP de B2:
 el plan v4 las inventaría en posiciones 14–26, junto a 22 acompañantes no
 ejecutables. La sonda AD136 no reemplaza la postimagen final B2.
 `origin/main@960795f30` añadió un fixture E3 que crea roles y sustituye
-fachadas de autorización con dobles; v4 lo mantiene como SQL desconocida y
-bloquea la transición hasta fijar su exclusión documental por SHA. Nunca se
-instala en el clon causal.
+fachadas de autorización con dobles; v5 lo inventaría como
+`excluded_lab_fixture` solo si coinciden la ruta y el SHA fijo revisado
+`bfaaccaefeea37cca46e4cdef12a03bbad2a8b17bb882234869b885a56f3ece6`.
+Queda fuera de operaciones y acompañantes, con prohibición explícita de
+ejecución en el clon causal. Cualquier cambio en sus bytes u otra SQL nueva
+requiere otra revisión; el plan sigue pendiente de aprobación y no ejecutable.
 
 AUT26 y su recibo de extensión preAD132, LOGIN nominal, sesiones CAS vinculadas
 y provisión siguen pendientes. AUT26 no se suma al journal de 62 ni modifica
