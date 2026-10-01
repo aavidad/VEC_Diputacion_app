@@ -65,7 +65,7 @@ func validarTokens(d *json.Decoder, profundidad int) error {
 				return domain.ErrEntrada
 			}
 			clave, ok := k.(string)
-			if !ok || vistos[clave] {
+			if !ok || !claveCanonica(clave) || vistos[clave] {
 				return domain.ErrEntrada
 			}
 			vistos[clave] = true
@@ -91,6 +91,25 @@ func validarTokens(d *json.Decoder, profundidad int) error {
 		return domain.ErrEntrada
 	}
 	return nil
+}
+
+// Go acepta variantes de mayúsculas para un mismo campo JSON. Exigir claves
+// canónicas evita que una segunda grafía sustituya un valor ya leído.
+func claveCanonica(clave string) bool {
+	if len(clave) == 0 || clave[0] < 'a' || clave[0] > 'z' {
+		return false
+	}
+	for i := 1; i < len(clave); i++ {
+		c := clave[i]
+		if c < 'a' || c > 'z' {
+			if c < '0' || c > '9' {
+				if c != '_' && c != '.' {
+					return false
+				}
+			}
+		}
+	}
+	return true
 }
 
 type FuenteServicios struct{ Ruta string }

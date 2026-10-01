@@ -12,6 +12,7 @@ import (
 func TestJSONCerradoYAcotado(t *testing.T) {
 	for _, b := range []string{
 		`{"esquema":"a","esquema":"b"}`,
+		`{"nombre":"Elena Martín Robles","Nombre":"Lucía Navarro Moreno"}`,
 		`{"secreto":"unwanted"}`,
 		`{} {}`,
 		`{"servicios":[{"inicio":"a","inicio":"b"}]}`,
