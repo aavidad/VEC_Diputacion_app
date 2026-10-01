@@ -123,12 +123,12 @@ func run(args []string, out, fallos io.Writer) int {
 	if err != nil {
 		return fallo(fallos, catalog, *locale, "copias_destino.material")
 	}
-	return emitir(out, resultado{Codigo: "copias_destino." + *accion, Mensaje: catalog.T(*locale, "copias_destino."+*accion), Referencia: &r})
+	return emitir(out, resultado{Codigo: "copias_destino." + *accion, Mensaje: mensajeCodigo(catalog, *locale, "copias_destino."+*accion), Referencia: &r})
 }
 func fallo(out io.Writer, c *i18n.Catalog, locale, key string) int {
 	m := ""
 	if c != nil {
-		m = c.T(locale, key)
+		m = mensajeCodigo(c, locale, key)
 	}
 	_ = emitir(out, resultado{Codigo: key, Mensaje: m})
 	return 1
@@ -163,4 +163,32 @@ func cargarCatalogo(fichero, idioma string) (*i18n.Catalog, error) {
 		return nil, e
 	}
 	return i18n.New(idioma, map[string]map[string]string{idioma: values})
+}
+
+// mensajeCodigo conserva los códigos nominales y adapta únicamente su clave
+// al formato plano del catálogo compartido por web y CLI.
+func mensajeCodigo(c *i18n.Catalog, locale, codigo string) string {
+	var codigoTexto string
+	switch codigo {
+	case "copias_destino.configuracion":
+		codigoTexto = "copias_destino_configuracion"
+	case "copias_destino.catalogo":
+		codigoTexto = "copias_destino_catalogo"
+	case "copias_destino.material":
+		codigoTexto = "copias_destino_material"
+	case "copias_destino.no_disponible":
+		codigoTexto = "copias_destino_no_disponible"
+	case "copias_destino.existe":
+		codigoTexto = "copias_destino_existe"
+	case "copias_destino.almacenar":
+		codigoTexto = "copias_destino_almacenar"
+	case "copias_destino.comprobar":
+		codigoTexto = "copias_destino_comprobar"
+	case "copias_destino.borrar":
+		codigoTexto = "copias_destino_borrar"
+	default:
+		return ""
+	}
+	mensaje, _ := c.Message(locale, codigoTexto)
+	return mensaje
 }
