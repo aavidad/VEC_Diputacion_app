@@ -1,26 +1,28 @@
-# Ensayo sintético de gobierno RPT con V3/COSE
+# Comprobar la fuente del gobierno de categorías RPT
 
-Este directorio contiene una puerta de fuente de solo lectura. Ejecución desde
-la raíz del worktree:
+Desde la raíz de esta rama:
 
 ```bash
 python3 scripts/ensayos/rpt_gobierno_v3/preflight.py
 ```
 
-La salida `bloqueado` y el código 2 son el resultado esperado mientras falte
-la composición ADMIN #211. El guion fija la candidata, la fuente de las 41 SQL
-previas y Cat4/AD134; coteja los bytes de estas dos migraciones y busca un
-ensamblaje real de las rutas. No instala SQL, no toca un clon ni emite una
-concesión. El plan H6 citado solo acredita el inventario previo: omite Cat4 y
-AD134. Cada instalación posterior requiere un clon H1 nuevo, su historial
-transaccional exacto y los dos artefactos SQL revisados.
+El programa lee el árbol y devuelve un inventario JSON. El código de salida 2
+significa **bloqueado**: este inventario nunca autoriza instalar SQL, habilitar
+un perfil ni usar las rutas HTTP. Publica las huellas de Cat4/AD134 y señala
+si faltan las fuentes CA21, AUT25 e IS10, o la composición de las rutas RRHH.
+No usa el antiguo plan de 41 SQL ni la vía ADMIN: el gobierno pertenece a
+RRHH, con personas distintas para proponer y aprobar.
 
-El ensayo completo de servicio/PostgreSQL aún requiere tres identidades de
-prueba con perfil HIGH y capacidades V3 frescas emitidas por la autoridad
-central: editor, segundo aprobador y confirmador ajeno al editor. Debe probar
-propuesta, dos aprobaciones distintas, confirmación, denegaciones de actor,
-huella y capacidad revocada, auditoría central y recuperación tras reinicio
-con igual recibo, fecha y estado. Esas credenciales no pueden deducirse del
-cuerpo HTTP ni de un certificado sintético por sí solo. #211 debe aportar
-listener ADMIN mTLS, fuente de credenciales y política nominal; hasta entonces
-no hay recorrido HTTP autoritativo. Ningún resultado aquí acredita firma legal.
+Antes del ensayo de servicio falta integrar en orden la fuente B y A, CA21,
+AUT25 e IS10, fijar un descriptor de catálogo aprobado por RRHH y su huella,
+y revisar la postimagen de Cat4/AD134 sobre esa cadena exacta. Un descriptor
+de demostración no concede permisos. La política High de IS10 es sintética de
+desarrollo y no acredita identidad corporativa ni firma legal.
+
+El ensayo posterior necesita tres identidades nominales: una persona propone,
+otra aprueba y esta última confirma la versión. Debe comprobar también actor
+incorrecto, concesión revocada, reintento con el mismo recibo, cambio de
+versión, historia y auditoría. En PostgreSQL 18 se ensayarán la secuencia
+causal, dos sesiones concurrentes, reversión y recuperación tras reiniciar.
+Después, el navegador comprobará las rutas montadas y los recibos reales.
+Hasta entonces no hay una operación de gobierno RPT disponible para RRHH.

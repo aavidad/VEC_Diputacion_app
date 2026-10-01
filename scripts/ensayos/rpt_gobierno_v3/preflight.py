@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
-"""Preflight de solo lectura para el ensayo sintético RPT/V3.
-
-No instala SQL ni emite decisiones. La ausencia de composición ADMIN es una
-puerta de parada, no una invitación a simular una identidad HIGH.
-"""
+"""Inventario de fuente RPT: nunca autoriza instalación, identidad ni HTTP."""
 
 from __future__ import annotations
 
@@ -15,61 +11,75 @@ import subprocess
 import sys
 
 
-PREVIAS = "e528c7eaa9a90f1014593521a355746629d74de9"
-SQL_GOBIERNO = "e56f8a302f7d271842479f009f97cee7b45a50d1"
-CANDIDATA = "8e97e24ab255fcc0824c9c4586d5731e411d1616"
-SQL = (
+SQL_PROPIAS = (
     "deploy/postgresql/catalogos_configurables/migraciones/000004_gobierno_categorias_rpt.up.sql",
     "deploy/postgresql/autorizacion_atestada_v3/migraciones/000134_gobierno_categorias_rpt.up.sql",
 )
-PLAN = "scripts/recorridos/sql_main_h6.txt"
+DEPENDENCIAS = (
+    "deploy/postgresql/contexto_actor_v1/migraciones/000021_vinculo_rpt_rrhh.up.sql",
+    "deploy/postgresql/autorizacion/migraciones/000025_gobierno_categorias_rpt.up.sql",
+    "deploy/postgresql/identidad_sesiones_v1/migraciones/000010_politica_high_rrhh_rpt_sintetica.up.sql",
+)
+RUTA_HTTP = "internal/vec/adapters/httpapi/catalogos_rpt_gobierno.go"
+CONSTRUCTOR = "NuevasRutasGobiernoCategoriaRPT"
 
 
 def git(root: pathlib.Path, *args: str) -> bytes:
     return subprocess.check_output(("git", *args), cwd=root, stderr=subprocess.DEVNULL)
 
 
+def inventariar(root: pathlib.Path) -> dict:
+    head = git(root, "rev-parse", "HEAD").decode().strip()
+    hallazgos: list[str] = []
+    huellas: dict[str, str] = {}
+    for ruta in SQL_PROPIAS + DEPENDENCIAS:
+        archivo = root / ruta
+        if not archivo.is_file():
+            hallazgos.append(f"Falta la fuente SQL causal: {ruta}")
+            continue
+        contenido = archivo.read_bytes()
+        if contenido != git(root, "show", f"HEAD:{ruta}"):
+            hallazgos.append(f"La fuente SQL difiere de HEAD: {ruta}")
+        huellas[ruta] = hashlib.sha256(contenido).hexdigest()
+    fuente_http = root / RUTA_HTTP
+    if not fuente_http.is_file() or CONSTRUCTOR not in fuente_http.read_text():
+        hallazgos.append("Falta el contrato HTTP de gobierno RRHH")
+    llamadores = []
+    for base in (root / "cmd", root / "internal"):
+        if not base.is_dir():
+            continue
+        for archivo in base.rglob("*.go"):
+            if archivo.name.endswith("_test.go") or archivo == fuente_http:
+                continue
+            if re.search(rf"\b{CONSTRUCTOR}\s*\(", archivo.read_text()):
+                llamadores.append(str(archivo.relative_to(root)))
+    if not llamadores:
+        hallazgos.append("Las rutas de gobierno RRHH no están compuestas en la aplicación")
+    return {
+        "fuente_head": head,
+        "sql_sha256": huellas,
+        "llamadores_rrhh": sorted(llamadores),
+        "estado": "bloqueado",
+        "hallazgos": hallazgos,
+        "limite": (
+            "Inventario de fuente únicamente; faltan descriptor y recibos nominales, "
+            "ensayo PostgreSQL causal, V3/COSE, HTTP y recuperación tras reinicio"
+        ),
+    }
+
+
 def main() -> int:
     root = pathlib.Path(__file__).resolve().parents[3]
-    findings: list[str] = []
     try:
-        head = git(root, "rev-parse", "HEAD").decode().strip()
-        for ancestor in (CANDIDATA, PREVIAS, SQL_GOBIERNO):
-            subprocess.run(("git", "merge-base", "--is-ancestor", ancestor, "HEAD"),
-                           cwd=root, check=True, stdout=subprocess.DEVNULL,
-                           stderr=subprocess.DEVNULL)
-        plan = git(root, "show", f"{PREVIAS}:{PLAN}").decode()
-        entries = [line for line in plan.splitlines() if line and not line.startswith("#")]
-        if len(entries) != 41 or any(len(line.split("\t")) != 3 for line in entries):
-            findings.append("El plan de 41 SQL previas no tiene la forma fijada")
-        for path in SQL:
-            pinned = git(root, "show", f"{SQL_GOBIERNO}:{path}")
-            current = (root / path).read_bytes()
-            if current != pinned:
-                findings.append(f"La SQL cambió respecto de {SQL_GOBIERNO}: {path}")
-        source = root / "internal/vec/adapters/httpapi/catalogos_rpt_gobierno.go"
-        if "#211 debe crear" not in source.read_text():
-            findings.append("El contrato de composición ADMIN cambió: revisar manualmente")
-        callers = []
-        for base in (root / "cmd", root / "internal"):
-            for path in base.rglob("*.go"):
-                if path.name.endswith("_test.go") or path == source:
-                    continue
-                if re.search(r"\bNuevasRutasGobiernoCategoriaRPT\s*\(", path.read_text()):
-                    callers.append(str(path.relative_to(root)))
-        if not callers:
-            findings.append("#211: ningún ensamblaje llama NuevasRutasGobiernoCategoriaRPT")
-        result = {"candidata": head, "previas": PREVIAS, "sql_gobierno": SQL_GOBIERNO,
-                  "sql_sha256": {p: hashlib.sha256((root / p).read_bytes()).hexdigest() for p in SQL},
-                  "plan_previo_sql": len(entries), "llamadores_admin": callers,
-                  "estado": "bloqueado" if findings else "preflight_fuente_superado",
-                  "hallazgos": findings,
-                  "limite": "Sin lectura PostgreSQL, sin decisión V3/COSE y sin recorrido HTTP"}
+        resultado = inventariar(root)
     except (OSError, subprocess.CalledProcessError, UnicodeError) as exc:
-        result = {"estado": "bloqueado", "hallazgos": [f"Fuente no verificable: {type(exc).__name__}"],
-                  "limite": "Sin lectura PostgreSQL, sin decisión V3/COSE y sin recorrido HTTP"}
-    print(json.dumps(result, ensure_ascii=False, sort_keys=True, indent=2))
-    return 0 if result["estado"] == "preflight_fuente_superado" else 2
+        resultado = {
+            "estado": "bloqueado",
+            "hallazgos": [f"Fuente no verificable: {type(exc).__name__}"],
+            "limite": "Sin ensayo PostgreSQL, decisión V3/COSE ni recorrido HTTP",
+        }
+    print(json.dumps(resultado, ensure_ascii=False, sort_keys=True, indent=2))
+    return 2
 
 
 if __name__ == "__main__":
