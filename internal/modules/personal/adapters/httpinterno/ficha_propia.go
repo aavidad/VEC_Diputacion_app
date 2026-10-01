@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"net/url"
 	"strconv"
 	"time"
 
@@ -16,7 +17,8 @@ import (
 )
 
 // RutaFichaPropia sirve a la persona empleada su propia ficha. No admite
-// parámetros: persona, perfil y empleado los fija la frontera del servidor.
+// referencias: persona, perfil y empleado los fija la frontera del servidor.
+// Solo admite una fecha civil de referencia opcional para los servicios.
 const RutaFichaPropia = "/api/interna/personal/mi-ficha"
 
 // margenConocidoFichaPropia deja fuera de la foto los hechos de los últimos
@@ -60,7 +62,7 @@ func (m *ManejadorFichaPropia) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		responderFichaPropia(w, http.StatusServiceUnavailable, "no_disponible", nil)
 		return
 	}
-	if r.URL.Path != RutaFichaPropia || r.URL.RawPath != "" || r.URL.RawQuery != "" || r.URL.ForceQuery {
+	if r.URL.Path != RutaFichaPropia || r.URL.RawPath != "" {
 		m.denegar(w, r, http.StatusNotFound, "no_encontrada", "")
 		return
 	}
@@ -73,6 +75,15 @@ func (m *ManejadorFichaPropia) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		m.denegar(w, r, http.StatusBadRequest, "peticion_invalida", "")
 		return
 	}
+	referencia, estado := fechaReferenciaFichaPropia(r.URL)
+	if estado != 0 {
+		codigo := "peticion_invalida"
+		if estado == http.StatusNotFound {
+			codigo = "no_encontrada"
+		}
+		m.denegar(w, r, estado, codigo, "")
+		return
+	}
 	actor, err := m.actor.ResolverActorFichaPropia(r.Context())
 	if err != nil || actor.Validar() != nil {
 		m.denegar(w, r, http.StatusServiceUnavailable, "dependencia_no_disponible", "")
@@ -83,6 +94,9 @@ func (m *ManejadorFichaPropia) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	if err != nil {
 		m.denegar(w, r, http.StatusServiceUnavailable, "dependencia_no_disponible", actor.Principal.ID)
 		return
+	}
+	if referencia != "" {
+		vigente = referencia
 	}
 	corte := personaldomain.CorteEmpleadoB2{VigenteEn: vigente, ConocidoEn: ahora.Add(-margenConocidoFichaPropia).Truncate(time.Microsecond)}
 	resultado, err := m.consulta.Consultar(r.Context(), personaldomain.SolicitudFichaPropia{Corte: corte, Actor: actor})
@@ -115,6 +129,27 @@ func (m *ManejadorFichaPropia) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		"recibo_ref":    resultado.Evidencia.ReciboRef,
 		"consultada_en": resultado.Evidencia.ConsultadaEn.UTC().Format("2006-01-02T15:04:05.000000Z"),
 	}})
+}
+
+// La única entrada temporal del navegador es la fecha civil. El instante de
+// conocimiento sigue derivándose del reloj servidor en cada consulta.
+func fechaReferenciaFichaPropia(u *url.URL) (personaldomain.FechaCivil, int) {
+	if u.RawQuery == "" && !u.ForceQuery {
+		return "", 0
+	}
+	if len(u.RawQuery) > 80 {
+		return "", http.StatusNotFound
+	}
+	valores, err := url.ParseQuery(u.RawQuery)
+	if err != nil || len(valores) != 1 || len(valores["fecha_referencia"]) != 1 {
+		return "", http.StatusNotFound
+	}
+	texto := valores.Get("fecha_referencia")
+	fecha, err := personaldomain.NuevaFechaCivil(texto)
+	if err != nil || (len(texto) == 10 && texto[:4] == "0000") || u.RawQuery != "fecha_referencia="+texto {
+		return "", http.StatusBadRequest
+	}
+	return fecha, 0
 }
 
 // denegar registra la denegación antes de responder; si no se confirma,

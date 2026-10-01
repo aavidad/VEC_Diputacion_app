@@ -329,3 +329,63 @@ test("catálogos existentes se montan bajo demanda y se limpian al salir", async
   assert.equal(montajes, 1); assert.match(texto(ficha), /se consultan por separado/);
   tab(ficha, "ficha").listeners.get("click")(); assert.ok(limpiezas >= 1);
 });
+
+
+test("Servicios selecciona fecha, anuncia el corte real y elimina filas durante carga o denegación", async () => {
+  const raiz = raizFalsa(); const llamadas = []; let resolver;
+  montarVistaFichaIntegralPersonal({ raiz, fuentes: { servicios: {
+    seleccionarFecha: true, fechaReferencia: "2026-09-25", actualizar() {},
+    consultarPropios({ fechaReferencia, signal }) {
+      llamadas.push({ fechaReferencia, signal });
+      if (llamadas.length === 1) return { estado: "disponible", fuente: "Personal", actualizado_en: "2026-09-25T08:00:00Z", fecha_referencia: "2026-09-25", items: [{ procedencia: "Servicios propios" }] };
+      return new Promise((r) => { resolver = r; });
+    },
+  } } });
+  const ficha = raiz.querySelector("[data-personal-ficha-integral]");
+  tab(ficha, "servicios").listeners.get("click")(); await completar();
+  assert.match(texto(ficha), /Servicios a fecha de 25 sept 2026/);
+  assert.match(texto(ficha), /Esta fecha se aplica solo a Servicios/);
+  const fecha = ficha.querySelector("[data-personal-ficha-fecha]");
+  assert.equal(fecha.value, "2026-09-25");
+  const form = ficha.querySelector("[data-personal-ficha-corte]");
+  fecha.value = "2020-02-29"; form.listeners.get("submit")({ preventDefault() {} }); await completar();
+  assert.equal(llamadas[1].fechaReferencia, "2020-02-29");
+  assert.doesNotMatch(texto(ficha), /Servicios propios|Servicios a fecha de/);
+  resolver({ estado: "denegado" }); await completar();
+  assert.doesNotMatch(texto(ficha), /Servicios propios|Servicios a fecha de/);
+  assert.equal(ficha.querySelector("[data-personal-ficha-corte]"), null);
+});
+
+test("un nuevo corte cancela el anterior y descarta su respuesta aunque ignore abort", async () => {
+  const raiz = raizFalsa(); const pendientes = [];
+  montarVistaFichaIntegralPersonal({ raiz, fuentes: { servicios: {
+    seleccionarFecha: true, fechaReferencia: "2026-09-25", actualizar() {},
+    consultarPropios({ signal }) { return new Promise((resolver) => pendientes.push({ signal, resolver })); },
+  } } });
+  const ficha = raiz.querySelector("[data-personal-ficha-integral]");
+  tab(ficha, "servicios").listeners.get("click")(); await completar();
+  const fecha = ficha.querySelector("[data-personal-ficha-fecha]"); fecha.value = "2020-02-29";
+  ficha.querySelector("[data-personal-ficha-corte]").listeners.get("submit")({ preventDefault() {} }); await completar();
+  assert.equal(pendientes[0].signal.aborted, true);
+  pendientes[1].resolver({ estado: "error" }); await completar();
+  pendientes[0].resolver({ estado: "disponible", fuente: "Personal", actualizado_en: "2026-09-25T08:00:00Z", fecha_referencia: "2026-09-25", items: [{ procedencia: "Respuesta anterior" }] }); await completar();
+  assert.doesNotMatch(texto(ficha), /Respuesta anterior|Servicios a fecha de/);
+});
+
+
+test("fecha inválida señala el campo y no inicia otra consulta", async () => {
+  const raiz = raizFalsa(); let llamadas = 0;
+  montarVistaFichaIntegralPersonal({ raiz, fuentes: { servicios: {
+    seleccionarFecha: true, fechaReferencia: "2026-09-25", actualizar() {},
+    consultarPropios() { llamadas += 1; return { estado: "vacio", fuente: "Personal", actualizado_en: "2026-09-25T08:00:00Z", fecha_referencia: "2026-09-25", items: [] }; },
+  } } });
+  const ficha = raiz.querySelector("[data-personal-ficha-integral]");
+  tab(ficha, "servicios").listeners.get("click")(); await completar();
+  const fecha = ficha.querySelector("[data-personal-ficha-fecha]"); fecha.value = "2025-02-29";
+  fecha.listeners.get("blur")();
+  assert.equal(fecha.atributos.get("aria-invalid"), "true");
+  assert.match(texto(ficha), /Introduzca una fecha válida/);
+  ficha.querySelector("[data-personal-ficha-corte]").listeners.get("submit")({ preventDefault() {} }); await completar();
+  assert.equal(llamadas, 1);
+  assert.equal(fecha.enfocado, true);
+});
