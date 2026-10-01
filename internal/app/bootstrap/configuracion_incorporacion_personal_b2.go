@@ -79,7 +79,8 @@ func descriptorIncorporacionB2(accion string) (descriptorOperacionIncorporacionB
 }
 func descriptoresMaterialIncorporacionB2() []descriptorMaterialConsumidorV3Desarrollo {
 	resultado := []descriptorMaterialConsumidorV3Desarrollo{}
-	for _, d := range operacionesIncorporacionB2() {
+	operaciones := operacionesIncorporacionB2()
+	for _, d := range operaciones {
 		if (d.modulo == "personal" && d.audiencia != personal.AudienciaPlanIncorporacionCT) || (d.modulo == "bolsa" && d.accion != bolsa.AccionConsultaAnclajeAceptacionCT) || d.modulo == "rpt" || d.accion == ct.AccionConsultarVinculoCategoriaRPT || d.accion == ct.AccionConsultarDetalleRRHH {
 			continue
 		}
@@ -91,6 +92,16 @@ func descriptoresMaterialIncorporacionB2() []descriptorMaterialConsumidorV3Desar
 			continue
 		}
 		resultado = append(resultado, descriptorMaterialConsumidorV3Desarrollo{Audiencia: d.audiencia, Dominio: "vec.incorporacion-b2." + d.clave + ".capacidad-v3", Prefijo: "clave:capacidad:incorporacion-b2-" + d.clave + ":", ProveedorNominal: "proveedor-material-incorporacion-b2-" + d.clave})
+	}
+	// Las cuatro audiencias adicionales comparten el mismo publicador V3.
+	// Mantener primero las cinco existentes conserva sus dominios y orden.
+	for _, clave := range [...]string{"bolsa_persona", "ct_vinculo_consultar", "rpt_publicacion", "rpt_reservar"} {
+		for _, d := range operaciones {
+			if d.clave == clave {
+				resultado = append(resultado, descriptorMaterialConsumidorV3Desarrollo{Audiencia: d.audiencia, Dominio: "vec.incorporacion-b2." + d.clave + ".capacidad-v3", Prefijo: "clave:capacidad:incorporacion-b2-" + d.clave + ":", ProveedorNominal: "proveedor-material-incorporacion-b2-" + d.clave})
+				break
+			}
+		}
 	}
 	return resultado
 }

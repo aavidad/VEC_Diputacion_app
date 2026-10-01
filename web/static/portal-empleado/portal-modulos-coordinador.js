@@ -83,7 +83,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
       import("./modulos/cronos/cliente-resolucion-http.js"),
       import("./modulos/cronos/i18n-resolucion.js?v=20261001-cronos-grafo-bandeja-v5"),
       import("./modulos/cronos/vista-notificaciones-propias.js?v=20261001-cronos-notificaciones-v1"),
-      import("./modulos/cronos/vista-bandeja-notificaciones.js?v=20261001-cronos-c9-recuperacion-v2"),
+      import("./modulos/cronos/vista-bandeja-notificaciones.js?v=20261001-cronos-c9-recuperacion-v3"),
       import("./modulos/cronos/cliente-notificaciones-http.js"),
       import("./modulos/cronos/i18n-notificaciones.js"),
     ]);
@@ -96,7 +96,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
       import("./modulos/contratacion-temporal/contrato.js"),
       import("./modulos/contratacion-temporal/cliente-http.js"),
       import("./modulos/contratacion-temporal/presentador-expedientes.js?v=20261001-ct-a-i18n-v1"),
-      import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261001-f-reconciliacion-317-v1"),
+      import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261001-f-reconciliacion-325-v1"),
       import("./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=20261001-ct-a-i18n-v1"),
       import("./modulos/auditoria/vista.js?v=20261001-ct-a-i18n-v1"),
       import("./modulos/auditoria/cliente-http.js?v=20260928-usab-auditoria-v2"),
