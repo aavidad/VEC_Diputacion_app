@@ -3,8 +3,10 @@
 
 The private fixture core accepts an in-memory driver for bounded tests. CLI and
 run_request always refuse before file acquisition, driver import or connection.
-Nominal ACL/RLS and HBA bytes need independently reviewed external pins; this
-code and fake observations do not accredit a live runtime or authorization.
+Nominal ACL/RLS and HBA bytes need independently reviewed external pins. The
+catalog projection is supplemental; two externally normalized H6 attestations
+bind the full SQL state while all nominal sessions are open. The private
+observer's backend owns hard timeouts; live acquisition remains unaccredited.
 """
 from contextlib import ExitStack
 import os
@@ -146,7 +148,9 @@ def read_inputs(request):
 
 
 # Catalog projections exclude password hashes, rows and provider diagnostics.
-# The independently pinned canonical JSON describes exact ACL and role edges.
+# This projection covers nominal checks, not the complete H6 dump. Function
+# bodies, default/column ACLs, database settings and other SQL state require
+# the independently pinned H6 normalizer bundle's two external observations.
 ACL_SQL = '''SELECT pg_catalog.jsonb_build_object(
  'roles', (SELECT coalesce(jsonb_agg(jsonb_build_object('name',rolname,
  'login',rolcanlogin,'inherit',rolinherit,'super',rolsuper,'createdb',rolcreatedb,
@@ -221,7 +225,7 @@ def session(request, channel, cursor):
 
 
 def access(request, cursors, metadata):
-    # Compare exact projections twice; PUBLIC and extra memberships are included.
+    # Compare the supplemental projections twice; PUBLIC and role edges are included.
     acl = rows(cursors['identidad'], ACL_SQL, (SCHEMAS, SCHEMAS))
     rls = rows(cursors['identidad'], RLS_SQL, (SCHEMAS,))
     require(len(acl) == len(rls) == 1 and len(acl[0]) == len(rls[0]) == 1 and
@@ -249,11 +253,38 @@ def access(request, cursors, metadata):
                 'cas_auth_direct_table_permission')
 
 
-def _fixture_core(request, driver, input_reader):
+def _observe_sql(stage, request, initial_sessions, connections, driver, state_observer):
+    """Private barrier: observe with all three nominal transactions still open.
+
+    Only a backend-owned observer may acquire the H6 state. It must enforce a
+    hard deadline itself; errors and timeouts propagate to the core's cleanup.
+    The normalizer pin covers h6_comun.sh and h6_normalizar_pg_dump.py together.
+    Detached arguments prevent an observer from rewriting the bound request.
+    """
+    require(set(connections) == set(CHANNELS) and all(
+        connection.closed is False and
+        connection.info.transaction_status == driver.pq.TransactionStatus.INTRANS
+        for connection in connections.values()), 'cas_observer_sessions_closed')
+    try:
+        observation = state_observer(stage,
+            contract.decode(contract.canonical(request)),
+            contract.decode(contract.canonical(initial_sessions)))
+    except Exception:
+        raise Refused('cas_sql_observation_not_accredited') from None
+    require(all(connection.closed is False and
+        connection.info.transaction_status == driver.pq.TransactionStatus.INTRANS
+        for connection in connections.values()), 'cas_observer_sessions_closed')
+    return contract.validate_sql_postimage_observation(
+        observation, request, initial_sessions, stage)
+
+
+def _fixture_core(request, driver, input_reader, state_observer):
     """Private preparatory core. Tests supply fake cursors and fake input bytes.
 
     This has no command-line selector and is never used to bypass the real gate.
-    The driver must implement connect/close/cursor/rollback and IDLE state.
+    The driver must implement connect/close/cursor/rollback and IDLE/INTRANS
+    states. The private observer supplies normalized H6 state at two barriers;
+    backend deadlines are mandatory before any operational implementation.
     """
     request = contract.validate_request(contract.decode(contract.canonical(request)))
     owned, cursors, initial = {}, {}, {}
@@ -282,6 +313,7 @@ def _fixture_core(request, driver, input_reader):
                 initial[channel] = session(request, channel, cursor)
             require(len({s['backend_pid'] for s in initial.values()}) == 3, 'cas_sessions_not_distinct')
             access(request, cursors, metadata)
+            sql_before = _observe_sql('before', request, initial, owned, driver, state_observer)
             first = probe.scan(cursors, request['targets'], metadata['aliases'])
             require(contract.canonical(input_reader(request)) == contract.canonical(metadata), 'cas_private_input_changed')
             second = probe.scan(cursors, request['targets'], metadata['aliases'])
@@ -290,6 +322,7 @@ def _fixture_core(request, driver, input_reader):
             require(initial == final, 'cas_session_changed')
             access(request, cursors, metadata)
             require(contract.canonical(input_reader(request)) == contract.canonical(metadata), 'cas_private_input_changed')
+            sql_after = _observe_sql('after', request, initial, owned, driver, state_observer)
             for channel, cursor in cursors.items():
                 cursor.execute('ROLLBACK')
                 require(owned[channel].info.transaction_status == driver.pq.TransactionStatus.IDLE,
@@ -301,7 +334,8 @@ def _fixture_core(request, driver, input_reader):
         result = {**request, 'kind': contract.RESULT_KIND,
                   'sessions': {c: {'before': initial[c], 'after': final[c]} for c in CHANNELS},
                   'cas_sessions_bound': True, 'cas_applied': False, 'rollback_confirmed': True,
-                  'postimage': request['receipt_bindings']['post'],
+                  'sql_postimage_observations': {'before': sql_before, 'after': sql_after},
+                  'postimage': {field: sql_after[field] for field in contract.STATE_FIELDS},
                   'readings_sha256': [probe.digest(probe.canonical(probe.semantic(v))) for v in (first, second)],
                   'observations': {k: {'lectura_1': first[c]['observada_en'], 'lectura_2': second[c]['observada_en']}
                                    for k, c in (('candidato', 'autorizacion'), ('motivos', 'motivos'))},

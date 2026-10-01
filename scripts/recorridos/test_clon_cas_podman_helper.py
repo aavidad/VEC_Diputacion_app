@@ -13,7 +13,7 @@ from unittest.mock import patch
 import clon_cas_podman_helper as h
 import clon_cas_podman_contract as c
 import clon_preimagenes_nominales as p
-from test_clon_cas_podman_contract import request
+from test_clon_cas_podman_contract import request, sql_observation
 from test_clon_preimagenes_nominales import ALIAS, TIME1, TIME2, auth, motives
 
 
@@ -74,6 +74,9 @@ class FakeCursor:
         elif sql == 'ROLLBACK':
             self.c.info.transaction_status = 2 if r.fault == 'rollback' else 0
             self.rows = []
+        elif sql == 'BEGIN ISOLATION LEVEL READ COMMITTED READ ONLY':
+            self.c.info.transaction_status = 2
+            self.rows = []
         else:
             self.rows = []
 
@@ -84,7 +87,7 @@ class FakeCursor:
 class FakeConnection:
     def __init__(self, runtime, channel, user, pid):
         self.runtime, self.channel, self.user, self.pid = runtime, channel, user, pid
-        self.info = SimpleNamespace(transaction_status=2)
+        self.info = SimpleNamespace(transaction_status=0)
         self.session_reads = self.rollbacks = 0
         self.closed = False
         self.cursors = []
@@ -110,7 +113,7 @@ class FakeDriver:
         self.calls, self.connections, self.connect_kwargs = [], [], []
         self.auth_reads = 0
         self.fault = None
-        self.pq = SimpleNamespace(TransactionStatus=SimpleNamespace(IDLE=0))
+        self.pq = SimpleNamespace(TransactionStatus=SimpleNamespace(IDLE=0, INTRANS=2))
 
     def connect(self, **kwargs):
         channel = h.CHANNELS[len(self.connections)]
@@ -133,9 +136,68 @@ class HelperTests(unittest.TestCase):
                          'acl': {'roles': [], 'memberships': [], 'tables': [], 'functions': []},
                          'rls': {'tables': []}}
         self.driver = FakeDriver(self.req, self.metadata)
+        self.observed_state = copy.deepcopy(self.req['receipt_bindings']['post'])
+        self.observer_fault = None
+        self.sql_observations = []
+
+    def observe(self, stage, req, initial_sessions):
+        self.assertEqual(len(self.driver.connections), 3)
+        self.assertTrue(all(not x.closed and not x.rollbacks and
+                            x.info.transaction_status == 2 for x in self.driver.connections))
+        self.assertFalse(any(sql == 'ROLLBACK' for _, sql, _ in self.driver.calls))
+        self.assertEqual(self.driver.auth_reads, 0 if stage == 'before' else 2)
+        self.assertTrue(all(x.session_reads == (1 if stage == 'before' else 2)
+                            for x in self.driver.connections))
+        self.assertEqual(sum(sql == h.ACL_SQL for _, sql, _ in self.driver.calls),
+                         1 if stage == 'before' else 2)
+        self.assertEqual(sum(sql == h.RLS_SQL for _, sql, _ in self.driver.calls),
+                         1 if stage == 'before' else 2)
+        repetitions = 1 if stage == 'before' else 2
+        self.assertEqual(sum(sql == h.TABLE_SQL for _, sql, _ in self.driver.calls), 4 * repetitions)
+        self.assertEqual(sum(sql == h.FUNCTION_SQL for _, sql, _ in self.driver.calls), 3 * repetitions)
+        self.assertEqual(sum(sql == h.AUTH_TABLE_SQL for _, sql, _ in self.driver.calls), 10 * repetitions)
+        self.driver.calls.append((None, 'OBSERVER:' + stage, ()))
+        if self.observer_fault == (stage, 'error'):
+            raise RuntimeError('provider fixture secret')
+        if self.observer_fault == (stage, 'timeout'):
+            raise TimeoutError('provider fixture secret')
+        if self.observer_fault == (stage, 'secret_refusal'):
+            raise h.Refused('provider fixture secret')
+        observation = sql_observation(req, initial_sessions, stage, state=self.observed_state)
+        if self.observer_fault and self.observer_fault[0] == stage:
+            field = self.observer_fault[1]
+            if field in c.STATE_FIELDS or field in (
+                    'nonce', 'request_sha256', 'sessions_sha256', 'pg_container_id', 'normalizer_sha256'):
+                observation[field] = 'b' * 64
+            elif field == 'stage':
+                observation[field] = 'after' if stage == 'before' else 'before'
+            elif field == 'system_identifier':
+                observation[field] = '2'
+            elif field == 'database_oid':
+                observation[field] += 1
+            elif field == 'pg_image_id':
+                observation[field] = 'sha256:' + 'b' * 64
+            elif field == 'normalizer_bundle':
+                observation[field]['h6_comun.sh'] = 'b' * 64
+            elif field == 'postgres_process':
+                observation[field]['starttick'] += 1
+            elif field == 'network_namespace':
+                observation[field]['ino'] += 1
+            elif field == 'mount_inventory_sha256':
+                observation[field] = 'b' * 64
+            elif field == 'missing':
+                del observation['sessions_sha256']
+            elif field == 'extra':
+                observation['private'] = 'provider fixture secret'
+            elif field == 'closed':
+                self.driver.connections[0].closed = True
+            elif field == 'idle':
+                self.driver.connections[0].info.transaction_status = 0
+        self.sql_observations.append(copy.deepcopy(observation))
+        return observation
 
     def collect(self):
-        return h._fixture_core(self.req, self.driver, lambda _: copy.deepcopy(self.metadata))
+        return h._fixture_core(self.req, self.driver, lambda _: copy.deepcopy(self.metadata), self.observe)
 
     def test_gate_refuses_even_approved_before_any_io(self):
         for req in (self.req, {**self.req, 'approved': True}, {'approved': True}):
@@ -157,6 +219,10 @@ class HelperTests(unittest.TestCase):
         self.assertEqual(set(result['preimages']['usuarios']), p.CONTEXT_FIELDS)
         self.assertEqual(set(result['preimages']['candidato']), p.CAS_FIELDS)
         self.assertIs(result['cas_applied'], False)
+        self.assertEqual(result['sql_postimage_observations'],
+                         dict(zip(('before', 'after'), self.sql_observations)))
+        self.assertEqual(result['postimage'], self.observed_state)
+        self.assertIsNot(result['postimage'], self.req['receipt_bindings']['post'])
         self.assertTrue(all(x.closed and x.rollbacks == 1 and all(y.closed for y in x.cursors)
                             for x in self.driver.connections))
         for options in self.driver.connect_kwargs:
@@ -199,8 +265,49 @@ class HelperTests(unittest.TestCase):
                 value['rls']['changed'] = True
             return value
         with self.assertRaisesRegex(h.Refused, 'cas_private_input_changed'):
-            h._fixture_core(self.req, self.driver, read)
+            h._fixture_core(self.req, self.driver, read, self.observe)
         self.assertTrue(all(x.closed and x.rollbacks == 1 for x in self.driver.connections))
+
+    def test_external_full_state_detects_body_acl_and_settings_drift(self):
+        # The nominal catalog and preimages stay identical; only H6 sees the
+        # full function body, column/default ACL and role/database settings.
+        for field in c.STATE_FIELDS:
+            with self.subTest(field=field):
+                self.driver = FakeDriver(self.req, self.metadata)
+                self.observer_fault = ('after', field)
+                with self.assertRaises(h.Refused):
+                    self.collect()
+                self.assertTrue(all(x.closed and x.rollbacks == 1 for x in self.driver.connections))
+                self.assertEqual(self.driver.auth_reads, 2)
+                self.assertFalse(any(sql == 'ROLLBACK' for _, sql, _ in self.driver.calls))
+
+    def test_sql_observer_barrier_binding_errors_and_timeouts_cleanup(self):
+        fields = ('error', 'timeout', 'secret_refusal', 'stage', 'nonce', 'request_sha256', 'sessions_sha256',
+                  'pg_container_id', 'pg_image_id', 'system_identifier', 'database_oid',
+                  'normalizer_sha256', 'normalizer_bundle', 'postgres_process', 'network_namespace',
+                  'mount_inventory_sha256', 'missing', 'extra', 'closed', 'idle')
+        for stage in ('before', 'after'):
+            for field in fields:
+                with self.subTest(stage=stage, field=field):
+                    self.driver = FakeDriver(self.req, self.metadata)
+                    self.observer_fault = (stage, field)
+                    with self.assertRaises(h.Refused) as error:
+                        self.collect()
+                    self.assertNotIn('provider fixture secret', str(error.exception))
+                    self.assertTrue(all(x.closed and x.rollbacks == 1 for x in self.driver.connections))
+                    self.assertFalse(any(sql == 'ROLLBACK' for _, sql, _ in self.driver.calls))
+
+    def test_observer_cannot_rewrite_request_or_session_anchors(self):
+        def observe(stage, req, initial_sessions):
+            observation = self.observe(stage, req, initial_sessions)
+            req['receipt_bindings']['post']['schema_sha256'] = 'b' * 64
+            initial_sessions['identidad']['backend_pid'] += 1
+            return observation
+        original = copy.deepcopy(self.req)
+        result = h._fixture_core(self.req, self.driver, lambda _: copy.deepcopy(self.metadata), observe)
+        self.assertEqual(self.req, original)
+        self.assertEqual(result['postimage'], self.observed_state)
+        self.assertEqual(result['sessions']['identidad']['before']['backend_pid'], 100)
 
     def test_pinned_private_inputs_hba_and_tls_bytes(self):
         targets = self.req['targets']
@@ -217,7 +324,7 @@ class HelperTests(unittest.TestCase):
                        'sql-journal.json': c.canonical({'phase': 'awaiting_ad132', 'installed': [None] * 62}),
                        'pg_hba.conf': b'fixture exact HBA bytes\n',
                        'acl.json': c.canonical(self.metadata['acl']), 'rls.json': c.canonical(self.metadata['rls'])})
-        self.req['pins'] = {pin: c.digest(inputs[name]) for pin, name in h.INPUT_FILES.items()}
+        self.req['pins'].update({pin: c.digest(inputs[name]) for pin, name in h.INPUT_FILES.items()})
         self.req['tls_hashes'] = {name: c.digest(b'fixture tls') for name in self.req['tls_hashes']}
         def read(path, maximum=1 << 20):
             return b'fixture tls' if path.parent == Path('/tls') else inputs[path.name]
