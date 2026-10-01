@@ -97,3 +97,20 @@ test("datos alterados no producen cifras y una nueva carga válida permite recup
   assert.equal(contenedor.querySelectorAll("tbody")[0].children.length, 6);
   vista.desmontar();
 });
+
+test("una recarga fallida oculta el informe anterior y cierra los filtros hasta recuperar", async () => {
+  const contenedor = raiz(); let intento = 0;
+  const vista = montarInformesDietas(contenedor, { cargarDatos: async () => {
+    intento += 1; if (intento === 2) throw new Error("fuente caída"); return datos;
+  }, traducir: t, localizacion: catalogo.localizacion });
+  await esperar(); assert.equal(contenedor.querySelectorAll("tbody")[0].children.length, 6);
+  await vista.recargar();
+  const form = contenedor.querySelector("[data-dietas-informes-filtros]");
+  assert.equal(form.hidden, true); assert.equal(contenedor.querySelectorAll("tbody").length, 0);
+  form.listeners.submit({ preventDefault() {} });
+  assert.equal(contenedor.querySelectorAll("tbody").length, 0);
+  assert.match(contenedor.querySelector("[data-dietas-informes-estado]").textContent, /No se han podido cargar/u);
+  await vista.recargar();
+  assert.equal(form.hidden, false); assert.equal(contenedor.querySelectorAll("tbody")[0].children.length, 6);
+  vista.desmontar();
+});

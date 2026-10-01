@@ -119,10 +119,11 @@ export function montarInformesDietas(contenedor, { cargarDatos, traducir, docume
   accionesFiltro.append(aplicar, limpiar); form.append(accionesFiltro);
   const resumen = nodo(documento, "section"); resumen.dataset.dietasInformesResumen = "";
   const listado = nodo(documento, "section"); listado.dataset.dietasInformesListado = "";
+  form.hidden = true; resumen.hidden = true; listado.hidden = true;
   cuerpo.append(origen, estado, reintentar, subtitulo, form, resumen, listado, limite);
   raiz.append(cabecera, cuerpo); contenedor.append(raiz);
 
-  let activa = true; let controlador; let generacion = 0; let registros = Object.freeze([]);
+  let activa = true; let disponible = false; let controlador; let generacion = 0; let registros = Object.freeze([]);
   let filtros = Object.freeze({}); let pagina = 0;
   const mostrarEstado = (clave, variables) => {
     estado.textContent = clave ? t(clave, variables) : "";
@@ -212,16 +213,19 @@ export function montarInformesDietas(contenedor, { cargarDatos, traducir, docume
   async function cargar() {
     if (!activa) return;
     controlador?.abort(); const propia = ++generacion;
-    controlador = new AbortController(); mostrarEstado("cargando"); reintentar.hidden = true;
+    controlador = new AbortController(); disponible = false; mostrarEstado("cargando"); reintentar.hidden = true;
+    form.hidden = true; resumen.hidden = true; listado.hidden = true;
     try {
       const datos = await cargarDatos({ signal: controlador.signal });
       if (!activa || propia !== generacion) return;
       registros = congelarDatos(datos); elegir(persona, registros, "persona_ref", "persona");
       elegir(unidad, registros, "unidad_ref", "unidad");
+      filtros = Object.freeze({ persona: persona.value, unidad: unidad.value, desde: desde.value, hasta: hasta.value });
+      disponible = true; form.hidden = false; resumen.hidden = false; listado.hidden = false;
       pagina = 0; pintar(); anunciarResultado();
     } catch (error) {
       if (!activa || propia !== generacion || controlador.signal.aborted) return;
-      resumen.replaceChildren(); listado.replaceChildren();
+      registros = Object.freeze([]); resumen.replaceChildren(); listado.replaceChildren();
       mostrarEstado(error instanceof TypeError && error.message === "datos" ? "datos_error" : "carga_error");
       reintentar.hidden = false;
     }
@@ -229,6 +233,7 @@ export function montarInformesDietas(contenedor, { cargarDatos, traducir, docume
 
   function enviar(evento) {
     evento.preventDefault(); limpiarErrorFecha();
+    if (!disponible) return;
     if ((desde.value && !fechaValida(desde.value)) || (hasta.value && !fechaValida(hasta.value))) {
       desde.setAttribute("aria-invalid", "true"); hasta.setAttribute("aria-invalid", "true");
       mostrarEstado("fecha_error"); estado.focus(); return;
@@ -241,6 +246,7 @@ export function montarInformesDietas(contenedor, { cargarDatos, traducir, docume
     pagina = 0; pintar(); anunciarResultado();
   }
   function borrar() {
+    if (!disponible) return;
     persona.value = ""; unidad.value = ""; desde.value = ""; hasta.value = "";
     limpiarErrorFecha(); filtros = Object.freeze({}); pagina = 0; pintar(); anunciarResultado();
   }
