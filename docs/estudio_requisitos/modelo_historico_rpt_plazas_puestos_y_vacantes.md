@@ -482,3 +482,38 @@ La definicion final de vacante, reserva y posibilidad de cobertura debe ser
 validada por RRHH, Intervencion, Secretaria y Asesoria Juridica para cada
 indicador. Este documento fija el modelo tecnico y las salvaguardas; no crea
 por si solo un efecto sobre una plaza o puesto.
+
+## Inventario de implementación — 1 de octubre de 2026
+
+Comprobado en `origin/main@0a62a3ea68e58fbf890885a2f59cc80343107e18`.
+Esta revisión distingue el código integrado de lo que puede recorrer una persona.
+
+| Capacidad | Qué existe | Qué falta |
+| --- | --- | --- |
+| ORG-001 | Catálogo de referencia consultable; tipos, servicio y persistencia históricos. | Composición autorizada de la consulta e importación históricas; delegaciones y suplencias. |
+| RPT-002 | Plazas individuales y versiones de plantilla en el contrato histórico. | Recorrido de gestión por ejercicio, actos y vínculo con la oferta de empleo público. |
+| RPT-003 | Puestos tipo, individuales, dotaciones y vínculos separados. Consulta pública de filas agrupadas. | Inventario individual reconciliado y acceso al histórico. Las 1.714 dotaciones del PDF no son códigos individuales. |
+| RPT-004 | Importación con preparación, conciliación y publicación; fechas de efectos y conocimiento. | Comparación estructural y conexión del recorrido histórico al portal. |
+| RPT-005 | Personal B2 conserva actos de ocupación y reserva, con consumidor interno. | Continuar su circuito desde Personal; RPT consume su proyección mediante un puerto. |
+| RPT-006 | Personal B2 consulta plazas sin ocupación cuando la cobertura es completa. | Separar dotación vacante, puesto sin ocupante y necesidad cubrible, con reservas, presupuesto y actos. |
+
+Los constructores de consulta e importación históricas de Personal no están
+conectados a la raíz. `organizacion/historico.js` mantiene ambas vistas
+inactivas. Las categorías de las PR #222 y #244 ya están integradas; no se
+reimplementan. Las dependencias nominales #249 y #256 siguen pendientes.
+
+Primer corte acordado con revisión de arquitectura: comparar dos instantáneas
+estructurales por clase e identificador técnico. Cada resultado conserva sus
+fechas, versiones, cobertura y trazas. Una ausencia con fuente incompleta
+queda sin verificar. La entrada o salida de una selección completa describe
+ese corte; la amortización o supresión requiere el estado explícito y su acto.
+El primer consumidor será una herramienta local con ejemplos sintéticos e
+informe. La conexión posterior reunirá todas las páginas de las dos consultas
+autorizadas, antes de entregar las instantáneas al mismo dominio.
+
+Contraste de presentación y versiones: [Madrid publica la RPT y datos
+reutilizables](https://transparencia.madrid.es/portales/transparencia/es/Recursos-humanos/Relaciones-de-puestos-de-trabajo/?vgnextchannel=5949508929a56510VgnVCM1000008a4a900aRCRD&vgnextfmt=default);
+[Barcelona distingue plantilla y dotaciones de la RPT](https://transparencia.diba.cat/ca/paraules-clau/plantilla);
+[Berga conserva las modificaciones por acuerdo y año](https://berga-prd.diba.cat/ajuntament/recursos-humans/relacio-de-llocs-de-treball).
+La propuesta conserva documentos y cortes, siguiendo el modelo de VEC ya definido.
+No incorpora ocupantes a la consulta pública ni deduce disponibilidad del PDF.
