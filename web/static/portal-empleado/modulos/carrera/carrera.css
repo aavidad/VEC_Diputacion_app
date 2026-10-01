@@ -1,0 +1,15 @@
+/* Distribución exclusiva de Carrera; superficies y controles del sistema común. */
+.modulo-carrera .carrera-rejilla { display: grid; grid-template-columns: minmax(260px, .8fr) minmax(0, 1.8fr); gap: 20px; align-items: start; }
+.modulo-carrera .cabecera-panel { background: var(--portal-superficie-alterna); }
+.modulo-carrera .carrera-lista { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.modulo-carrera .carrera-caso { width: 100%; display: grid; gap: 4px; text-align: start; white-space: normal; border-left: 4px solid var(--portal-aviso); }
+.modulo-carrera .carrera-caso[aria-pressed="true"] { background: var(--portal-azul-100); border-color: var(--portal-azul-700); }
+.modulo-carrera .carrera-comprobaciones { padding: 0; margin: 0; list-style: none; }
+.modulo-carrera .carrera-comprobaciones li { padding: 12px; display: grid; gap: 8px; }
+.modulo-carrera .carrera-comprobaciones li:nth-child(even) { background: var(--portal-superficie-alterna); }
+.modulo-carrera .carrera-comprobacion-titulo { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.modulo-carrera .carrera-comprobaciones p { margin: 0; }
+.modulo-carrera .carrera-rejilla :is(p, dd, li, button) { overflow-wrap: anywhere; }
+.modulo-carrera #carrera-detalle { scroll-margin-top: 180px; }
+.modulo-carrera #carrera-ayuda-contenido { margin-bottom: 20px; }
+@media (max-width: 1100px) { .modulo-carrera .carrera-rejilla { grid-template-columns: minmax(0, 1fr); } }
