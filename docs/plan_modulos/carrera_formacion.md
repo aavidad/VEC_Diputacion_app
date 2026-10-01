@@ -26,8 +26,9 @@ Orden de dirección 16:15: **VEC consulta y deriva** mientras se aclara qué fun
 | `trabajo/codexh-formacion-plan-20261001` | `17b29f11d6e661a5e660cb086f936d2efcf33cb7` | CLI Go revisa un plan sintético, fechas, necesidades, ediciones, plazas y presupuesto; visor ES/EN con filtro, detalle, pendientes y descarga del JSON original. |
 | `trabajo/codexh-carrera-preparacion-20261001` | `ccd814ba71d64b41c4d4ba707113bc9b8c0c0c8d` | CLI Go revisa integridad de grado, progresión y promoción; conserva antecedentes, fuentes, periodos y referencias. Visor ES/EN y descarga. Todos los casos siguen pendientes. |
 
-Ambas fuentes están verificadas en `origin` en las ramas de la tabla, todavía sin PR
-ni CI. Tienen pruebas focales, revisión independiente y Chrome ES/EN 1440/390 con
+Fuentes verificadas en `origin`: Formación [PR #312](https://github.com/aavidad/VEC_Diputacion_app/pull/312) y Carrera [PR #313](https://github.com/aavidad/VEC_Diputacion_app/pull/313),
+ambas en borrador y con CI en curso. Tienen pruebas focales, revisión independiente
+y Chrome ES/EN 1440/390 con
 filtros, descarga y zoom de presentación 200 %. La calidad global está en comprobación;
 se registrará su resultado y las PR antes de cerrar.
 
