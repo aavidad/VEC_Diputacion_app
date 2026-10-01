@@ -1,0 +1,3 @@
+# Extensión AUT26, con recibo separado, después de H6 SQL62 y antes de CAS/AD132.
+# AUT3 y AUT15/16/19/20 deben estar instaladas; no reaplicarlas.
+deploy/postgresql/autorizacion/migraciones/000026_preimagenes_candidato_externo_ro.up.sql
