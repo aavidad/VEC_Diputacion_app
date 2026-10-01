@@ -1,7 +1,7 @@
-import { crearControladorAdjudicacion } from './ensayos-modelo.js?v=20261001-provision-ensayos-v3';
-import { pintarAdjudicacion } from './ensayos-vista.js?v=20261001-provision-ensayos-v3';
-import { crearEstado, cambiarPreferencias, peticionSimulacion, validarResultado, actualizarConfiguracion, VISTAS } from './modelo.js?v=20261001-provision-ensayos-v3';
-import { pintarProvision } from './vista.js?v=20261001-provision-ensayos-v3';
+import { crearControladorAdjudicacion } from './ensayos-modelo.js?v=20261001-provision-ensayos-v4';
+import { pintarAdjudicacion } from './ensayos-vista.js?v=20261001-provision-ensayos-v4';
+import { crearEstado, cambiarPreferencias, peticionSimulacion, validarResultado, actualizarConfiguracion, VISTAS } from './modelo.js?v=20261001-provision-ensayos-v4';
+import { pintarProvision } from './vista.js?v=20261001-provision-ensayos-v4';
 import { cargarTextos } from '../../../comun/textos.js';
 export async function montarModuloProvision({ raiz, cliente, clienteEnsayos, preparacion, proyeccion = {}, textos, registrarDesmontar } = {}) {
   if (!raiz?.ownerDocument || !preparacion) throw new TypeError('provision.montaje');

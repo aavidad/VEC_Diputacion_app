@@ -190,15 +190,15 @@
       "menor": "Menor puntuación primero"
     },
     "personas": {
-      "persona:a": "Marina Ortega",
-      "persona:b": "Luis Navarro"
+      "persona_a": "Marina Ortega",
+      "persona_b": "Luis Navarro"
     },
     "puestos": {
-      "puesto:a": "Gestión administrativa",
-      "puesto:b": "Coordinación de servicios"
+      "puesto_a": "Gestión administrativa",
+      "puesto_b": "Coordinación de servicios"
     },
     "reglas": {
-      "regla:cursos": "Formación"
+      "regla_cursos": "Formación"
     },
     "incidencias": {
       "metodo_no_soportado": "El método configurado no está disponible en este ensayo.",

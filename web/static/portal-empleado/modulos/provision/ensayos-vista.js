@@ -1,4 +1,4 @@
-import { formatearPuntos } from './modelo.js?v=20261001-provision-ensayos-v3';
+import { formatearPuntos } from './modelo.js?v=20261001-provision-ensayos-v4';
 function nodo(d, tag, texto, clase) { const n = d.createElement(tag); if (texto !== undefined) n.textContent = texto; if (clase) n.className = clase; return n; }
 function boton(d, texto, accion, clave, deshabilitado = false) { const b = nodo(d, 'button', texto, 'boton-secundario'); b.type = 'button'; b.dataset.foco = clave; b.disabled = deshabilitado; b.addEventListener('click', accion); return b; }
 function tabla(d, titulo, cabeceras, filas) { const box = nodo(d, 'div', undefined, 'tabla-contenedor'); box.tabIndex = 0; box.setAttribute('role', 'region'); box.setAttribute('aria-label', titulo); const table = nodo(d, 'table', undefined, 'tabla-datos'); table.append(nodo(d, 'caption', titulo)); const head = nodo(d, 'thead'); const tr = nodo(d, 'tr'); cabeceras.forEach(t => { const th = nodo(d, 'th', t); th.scope = 'col'; tr.append(th); }); head.append(tr); const body = nodo(d, 'tbody'); filas.forEach(f => { const row = nodo(d, 'tr'); f.forEach((texto, i) => { const td = nodo(d, i ? 'td' : 'th'); if (!i) td.scope = 'row'; if (texto?.nodeType) td.append(texto); else td.textContent = texto; row.append(td); }); body.append(row); }); table.append(head, body); box.append(table); return box; }
@@ -6,8 +6,9 @@ function textoConCortes(d, tag, valor) { const n = nodo(d, tag); String(valor ??
 function referencia(d, t, titulo, datos) { const details = nodo(d, 'details', undefined, 'campo'); details.append(nodo(d, 'summary', titulo)); const dl = nodo(d, 'dl', undefined, 'resumen-expediente'); datos.forEach(([clave, valor]) => { dl.append(nodo(d, 'dt', t(`ensayos.${clave}`)), textoConCortes(d, 'dd', valor)); }); details.append(dl); return details; }
 export function pintarAdjudicacion({ raiz, estado, textos, acciones }) {
   const d = raiz.ownerDocument; const t = textos.traducir; const pila = nodo(d, 'div', undefined, 'pila');
-  const nombrePersona = ref => Object.hasOwn(textos.mensajes.ensayos.personas, ref) ? t(`ensayos.personas.${ref}`) : t('ensayos.persona_sin_nombre');
-  const nombrePuesto = ref => Object.hasOwn(textos.mensajes.ensayos.puestos, ref) ? t(`ensayos.puestos.${ref}`) : t('ensayos.puesto_sin_nombre');
+  const claveRef = ref => typeof ref === 'string' ? ref.replaceAll(':', '_') : '';
+  const nombrePersona = ref => Object.hasOwn(textos.mensajes.ensayos.personas, claveRef(ref)) ? t(`ensayos.personas.${claveRef(ref)}`) : t('ensayos.persona_sin_nombre');
+  const nombrePuesto = ref => Object.hasOwn(textos.mensajes.ensayos.puestos, claveRef(ref)) ? t(`ensayos.puestos.${claveRef(ref)}`) : t('ensayos.puesto_sin_nombre');
   const puestoVacante = ref => nombrePuesto(estado.resumen?.vacantes.find(v => v.vacante_ref === ref)?.puesto_ref);
   pila.append(nodo(d, 'p', t('ensayos.limite')));
   const aviso = nodo(d, 'p', t(`ensayos.estados.${estado.estado}`)); aviso.dataset.ensayoAviso = ''; aviso.setAttribute('role', ['error', 'validacion', 'conflicto', 'denegado'].includes(estado.estado) ? 'alert' : 'status'); aviso.setAttribute('aria-live', 'polite'); pila.append(aviso);
@@ -27,7 +28,7 @@ export function pintarAdjudicacion({ raiz, estado, textos, acciones }) {
     const sentidoLabel = nodo(d, 'label', undefined, 'campo'); sentidoLabel.append(nodo(d, 'span', t('ensayos.sentido'))); const sentido = nodo(d, 'select'); sentido.dataset.foco = `desempate-sentido-${i}`;
     ['mayor', 'menor'].forEach(v => { const opt = nodo(d, 'option', t(`ensayos.opciones.${v}`)); opt.value = v; opt.selected = regla.sentido === v; sentido.append(opt); }); sentido.addEventListener('change', () => { acciones.cambiar({ indice: i, sentido: sentido.value }); acciones.repintar(`desempate-sentido-${i}`); }); sentidoLabel.append(sentido);
     const controles = nodo(d, 'div', undefined, 'acciones-vista'); ['arriba', 'abajo', 'quitar'].forEach(accion => { const b = boton(d, t(`acciones.${accion}`), () => { acciones.cambiar({ indice: i, accion }); acciones.repintar('adjudicacion-simular'); }, `desempate-${accion}-${i}`, accion === 'arriba' && i === 0 || accion === 'abajo' && i === c.desempates.length - 1); b.setAttribute('aria-label', t('ensayos.mover_desempate', { accion: t(`acciones.${accion}`), orden: textos.numero(i + 1) })); controles.append(b); });
-    return [textos.numero(i + 1), Object.hasOwn(textos.mensajes.ensayos.reglas, regla.regla_id) ? t(`ensayos.reglas.${regla.regla_id}`) : t('ensayos.regla_sin_nombre'), sentidoLabel, controles];
+    return [textos.numero(i + 1), Object.hasOwn(textos.mensajes.ensayos.reglas, claveRef(regla.regla_id)) ? t(`ensayos.reglas.${claveRef(regla.regla_id)}`) : t('ensayos.regla_sin_nombre'), sentidoLabel, controles];
   });
   pila.append(tabla(d, t('ensayos.desempates'), [t('campos.preferencia'), t('campos.regla'), t('ensayos.sentido'), t('campos.acciones')], filas));
   const resumen = estado.resumen.solicitudes.flatMap(s => s.preferencias.map(p => [nombrePersona(s.persona_ref), puestoVacante(p.vacante_ref), textos.numero(p.orden), p.total === null ? t('estados.sin_dato') : formatearPuntos(p.total, textos.localizacion)]));

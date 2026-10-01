@@ -190,15 +190,15 @@
       "menor": "Lowest score first"
     },
     "personas": {
-      "persona:a": "Marina Ortega",
-      "persona:b": "Luis Navarro"
+      "persona_a": "Marina Ortega",
+      "persona_b": "Luis Navarro"
     },
     "puestos": {
-      "puesto:a": "Administrative management",
-      "puesto:b": "Service coordination"
+      "puesto_a": "Administrative management",
+      "puesto_b": "Service coordination"
     },
     "reglas": {
-      "regla:cursos": "Training"
+      "regla_cursos": "Training"
     },
     "incidencias": {
       "metodo_no_soportado": "The configured method is unavailable in this trial.",
