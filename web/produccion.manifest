@@ -456,3 +456,5 @@ static/bolsa/preparacion/modelo.js
 static/bolsa/preparacion/preparacion.css
 static/textos/es/convoca-preparacion.json
 static/textos/en/convoca-preparacion.json
+static/textos/es/baremo-concursos.json
+static/textos/en/baremo-concursos.json
