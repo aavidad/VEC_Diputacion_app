@@ -1,0 +1,81 @@
+-- CRN12. Esquema comentado, sin sentencias ejecutables ni función instalada.
+-- No convertir a .up.sql hasta acuerdos, preimagen y revisiones del README.
+-- Reserva 000012 existente; consumidor V3 y catálogo durable C3 pendientes.
+--
+-- FIRMA PROPUESTA (E/D deben confirmarla):
+-- vec_cronos_v1.consultar_saldo_permisos_propio_v1(
+--   p_material text,
+--   p_capacidad bytea, p_decision bytea, p_motivo bytea, p_contexto bytea,
+--   p_persona_version numeric, p_perfil_version numeric,
+--   p_payload bytea, p_sobre bytea, p_evidencia bytea, p_raiz bytea
+-- ) -> DTO conjunto versionado acordado, no firmado ni exportable.
+--
+-- MATERIAL PROPUESTO, construido y canonizado por el servidor:
+-- actor_ref, perfil_ref, empleado_ref, desde, hasta, zona_horaria,
+-- politica_efectos_ref, politica_efectos_version, politica_efectos_sha256.
+-- Forma canónica, tipos, límite de bytes y recurso exacto: pendientes de D/E.
+-- No aceptar colectivo, regla, concesión o hechos suministrados por cliente.
+--
+-- PRECONDICIONES DE LA FUTURA FUNCIÓN:
+-- - Transacción SERIALIZABLE READ WRITE desde adaptador, con límites de tiempo.
+-- - Postimagen CRN/AD y ACL exactas aprobadas; ausencia de runtime público.
+-- - Definidor sin LOGIN/BYPASSRLS; search_path=pg_catalog; row_security=on.
+-- - Rechazar GUC empleado o resolutor previamente fijado, sin restablecerlo.
+-- - Material canónico exacto, empleado único vigente ligado al actor/perfil.
+-- - Periodo civil acotado (hasta-desde <= 366, a confirmar) y zona acreditada.
+-- - Política/ref/versión/SHA256 ligadas a la decisión y fuente gobernada.
+--
+-- PASO 1: validar estructura y ligar decisión nominal al material/recurso.
+-- Reutilización candidata: acreditar_empleado_contexto_v1,
+-- huella_contexto_empleado_v1, comprobar_decision_cronos_v1,
+-- vence_autorizacion_v1; verificar firmas/cuerpos de la postimagen primero.
+-- Acción propuesta: cronos.saldo_permisos.propio.consultar.
+-- Audiencia propuesta: vec_cronos_v1.saldo_permisos_propio.consultar.v1.
+-- Tipo, finalidad, campos, obligaciones y recurso: BLOQUEO_CONTRATO_D.
+--
+-- PASO 2: consumir EXACTAMENTE UNA fachada literal nueva acordada con D.
+-- Firma/resultado, número AD y ligadura de efecto: BLOQUEO_CONSUMIDOR_V3.
+-- No llamar consumir_propio_v1 ni consumidores AD53/AD70.
+-- Exigir consumo nuevo y comprobar efecto/huella/auditoría esperados.
+-- Revalidar vínculo y vencimiento con clock_timestamp tras posibles esperas.
+-- Fijar vec.cronos.empleado_ref una sola vez, local a esta transacción.
+--
+-- PASO 3: leer fuentes dentro de LA MISMA instantánea del paso 2.
+-- A. Libro base: consultar_libro_saldo_interno_v1(text,date,date,text),
+--    candidato sin consumidor propio. Mantener programación ambigua/faltante,
+--    bordes nocturnos y secuencias abiertas como incompletitud explícita.
+-- B. Solicitudes que solapan fechas civiles inclusivas:
+--    s.empleado_ref = empleado_ref AND s.desde <= hasta AND s.hasta >= desde.
+--    Último estado por solicitud en esta instantánea, sin filtro de año inicial.
+--    Estado concedido exige permiso_resolucion con misma solicitud/empleado,
+--    version_resultante = estado.version y estado_resultante = concedido.
+--    Una cancelación posterior prevalece; una aprobación parcial no concede.
+--    No proyectar material completo, motivo, adjunto, salud ni resolutor.
+-- C. Fuente gobernada C3 exacta y adscripción histórica por día:
+--    BLOQUEO_FUENTE_C3: no hay tabla, puerto SQL ni esquema acordados.
+--    No crear ni suponer objetos de catálogo; no importar ejemplo como vigente.
+--    La regla debe concordar permiso_ref/catalogo_version_ref/colectivo_ref,
+--    fecha, política/versión/SHA256 y procedencia/retirada acreditadas.
+-- D. Evidencia de jornada completa y ausencia de trabajo/anomalías:
+--    BLOQUEO_DTO_FUENTES: unidad=dia o minutos=0 no bastan por sí solos.
+--    Proyectar datos/evidencia necesarios para probarlo sin redefinir negocio SQL.
+--    Preservar todas las concesiones solapadas; nunca elegir una para ocultar otra.
+--
+-- PASO 4: construir DTO sin calcular/escribir saldo mutable.
+-- Conservar referencias/versiones/fuentes y completitud separadas por fuente.
+-- Conjunto vacío sólo si fuente completa; regla desconocida nunca efecto cero.
+-- Límite de hechos/bytes excedido => error/incompleto explícito sin truncado oculto.
+-- Política y datos viajan juntos: prohibido cargar JSON/política tras COMMIT.
+--
+-- PASO 5: registrar una evidencia conjunta append-only con decisión, consumo,
+-- auditoría central, periodo, zona, huella material, política/version/SHA256
+-- y procedencia/completitud de la proyección acordadas por D/E.
+-- BLOQUEO_EVIDENCIA: nombre/DDL/ACL/RLS nuevos pendientes, no reutilizar saldo_acceso.
+-- Revalidar vencimiento antes de RETURN; errores abortan consumo y evidencia.
+-- Adaptador libera datos sólo tras COMMIT confirmado; error/40001/COMMIT
+-- incierto no genera respuesta parcial ni reutiliza autorización histórica.
+--
+-- INSTALACIÓN FUTURA: migración nueva, preimagen exacta, bloqueo asesor y
+-- tiempos acotados; sin reemplazar SQL instalada ni modificar núcleo V3.
+-- Revocar ACL por defecto en toda función/tipo nuevo, políticas a rol concreto.
+-- EXECUTE y composición quedan cerrados hasta activación expresamente revisada.
