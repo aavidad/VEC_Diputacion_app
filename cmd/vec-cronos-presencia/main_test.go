@@ -10,6 +10,7 @@ import (
 	"strings"
 	"syscall"
 	"testing"
+	"vec-diputacion-granada/internal/modules/cronos/domain"
 	"vec-diputacion-granada/internal/modules/cronos/ports"
 )
 
@@ -34,12 +35,45 @@ func TestCLIRealCatalogosYAgregado(t *testing.T) {
 		if code := correr(argsCLI(t, idioma), &salida, &diagnostico); code != 0 || diagnostico.Len() != 0 {
 			t.Fatalf("code=%d %s", code, diagnostico.String())
 		}
-		var r ports.ResultadoEnsayoPresencia
+		var r struct {
+			ports.ResultadoEnsayoPresencia
+			Idioma string            `json:"idioma"`
+			Textos map[string]string `json:"textos"`
+		}
 		if err := json.Unmarshal(salida.Bytes(), &r); err != nil {
 			t.Fatal(err)
 		}
 		if !r.Demostracion || r.Agregado.Total != 6 || r.Agregado.EntradasRegistradas != 1 || r.Agregado.PausasRegistradas != 1 || r.Agregado.SalidasRegistradas != 1 || r.Agregado.Indeterminado != 3 || len(r.Personas) != 6 {
 			t.Fatalf("%+v", r)
+		}
+		if r.Idioma != idioma {
+			t.Fatal("wrong output locale")
+		}
+		motivos := map[domain.CausaPresencia]bool{}
+		for _, p := range r.Personas {
+			if p.Estado == domain.PresenciaIndeterminada {
+				if p.Motivo == "" || r.Textos[string(p.Motivo)] == "" {
+					t.Fatalf("undetermined state lacks translated reason: %+v", p)
+				}
+				motivos[p.Motivo] = true
+			} else if p.Motivo != "" {
+				t.Fatalf("determined state has reason: %+v", p)
+			}
+		}
+		if len(motivos) != 3 || !motivos[domain.CoberturaIncompleta] || !motivos[domain.SinMarcajes] || !motivos[domain.SecuenciaAmbigua] {
+			t.Fatalf("missing reasons: %+v", motivos)
+		}
+		var raw struct {
+			Personas []map[string]json.RawMessage `json:"personas"`
+		}
+		if err := json.Unmarshal(salida.Bytes(), &raw); err != nil {
+			t.Fatal(err)
+		}
+		for i, p := range raw.Personas {
+			_, presente := p["motivo"]
+			if presente != (r.Personas[i].Estado == domain.PresenciaIndeterminada) {
+				t.Fatalf("reason omission changed: %+v", p)
+			}
 		}
 	}
 }
