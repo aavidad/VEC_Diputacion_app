@@ -119,3 +119,17 @@ La resolución de ensayo mantiene `firmada=false`, `publicada=false` y
 y causas quedan sin contraste institucional; firma, publicación y efectos
 requieren sus autoridades y recibos reales. Sólo se usan ejemplos públicos
 sintéticos; no se copian personas ni archivos del prototipo local.
+
+## Alcance de los ejemplos locales
+
+La preparación multipuesto, la adjudicación global y la revisión de una
+valoración usan ejemplos sintéticos independientes. Comparten motor y
+contratos, pero no forman un expediente institucional único ni acreditan que
+una solicitud presentada haya pasado por todo el procedimiento. Los datos de
+Personas/RPT/RUM y las decisiones de RRHH se incorporarán por sus puertos;
+conectar esas versiones y conservarlas pertenece al corte durable pendiente.
+
+Las preguntas sobre bases y puestos ofertados, método global y desempates,
+fuentes y fecha de corte, revisión y publicación se entregan a dirección para
+su numeración en `dudas.md` durante el turno compartido. Las opciones del
+ejercicio no constituyen una aprobación de RRHH.
