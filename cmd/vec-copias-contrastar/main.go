@@ -9,6 +9,8 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"reflect"
+	"strings"
 	"syscall"
 	"time"
 
@@ -34,9 +36,12 @@ type diagnostico struct {
 var errEntrada = errors.New("copias_contraste_error_entrada")
 
 // JSON duplicado no tiene una interpretación única entre lectores.
-func unico(dec *json.Decoder, nivel int) error {
+func unico(dec *json.Decoder, nivel int, tipo reflect.Type) error {
 	if nivel > 32 {
 		return errEntrada
+	}
+	for tipo != nil && tipo.Kind() == reflect.Pointer {
+		tipo = tipo.Elem()
 	}
 	t, err := dec.Token()
 	if err != nil {
@@ -49,6 +54,24 @@ func unico(dec *json.Decoder, nivel int) error {
 	switch delim {
 	case '{':
 		keys := map[string]bool{}
+		var campos map[string]reflect.Type
+		if tipo != nil && tipo.Kind() == reflect.Struct {
+			campos = map[string]reflect.Type{}
+			for i := 0; i < tipo.NumField(); i++ {
+				f := tipo.Field(i)
+				if !f.IsExported() {
+					continue
+				}
+				nombre := strings.Split(f.Tag.Get("json"), ",")[0]
+				if nombre == "-" {
+					continue
+				}
+				if nombre == "" {
+					nombre = f.Name
+				}
+				campos[nombre] = f.Type
+			}
+		}
 		for dec.More() {
 			k, e := dec.Token()
 			if e != nil {
@@ -59,13 +82,27 @@ func unico(dec *json.Decoder, nivel int) error {
 				return errEntrada
 			}
 			keys[key] = true
-			if unico(dec, nivel+1) != nil {
+			var valor reflect.Type
+			if campos != nil {
+				var existe bool
+				valor, existe = campos[key]
+				if !existe {
+					return errEntrada
+				}
+			} else if tipo != nil && tipo.Kind() == reflect.Map {
+				valor = tipo.Elem()
+			}
+			if unico(dec, nivel+1, valor) != nil {
 				return errEntrada
 			}
 		}
 	case '[':
+		var elemento reflect.Type
+		if tipo != nil && (tipo.Kind() == reflect.Slice || tipo.Kind() == reflect.Array) {
+			elemento = tipo.Elem()
+		}
 		for dec.More() {
-			if unico(dec, nivel+1) != nil {
+			if unico(dec, nivel+1, elemento) != nil {
 				return errEntrada
 			}
 		}
@@ -91,7 +128,7 @@ func leer(ruta string, destino any, limite int64) error {
 		return errEntrada
 	}
 	dec := json.NewDecoder(bytes.NewReader(b))
-	if unico(dec, 0) != nil {
+	if unico(dec, 0, reflect.TypeOf(destino)) != nil {
 		return errEntrada
 	}
 	if _, err = dec.Token(); err != io.EOF {

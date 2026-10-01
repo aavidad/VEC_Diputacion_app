@@ -130,6 +130,9 @@ func TestInventarioPG18Aislado(t *testing.T) {
 	fixture := `CREATE ROLE cs06_lector_sintetico;
 CREATE TABLE public.datos (id int4, valor text, CONSTRAINT dato_positivo CHECK (id>0));
 CREATE SEQUENCE public.numero START 1 INCREMENT 1 CACHE 1;
+CREATE TABLE public.padre(id int4 PRIMARY KEY);
+CREATE TABLE public.hija(id int4 REFERENCES public.padre(id));
+INSERT INTO public.padre VALUES(1); INSERT INTO public.hija VALUES(1);
 INSERT INTO public.datos VALUES(2,''),(1,NULL),(2,''),(3,'á');
 CREATE TABLE public."nombre$1"("columna$2" text); INSERT INTO public."nombre$1" VALUES('literal$3');`
 	sqlEnsayo(t, x, fixture)
@@ -165,6 +168,7 @@ CREATE TABLE public."nombre$1"("columna$2" text); INSERT INTO public."nombre$1" 
 		{"secuencia", `SELECT setval('public.numero',17,true)`, `SELECT setval('public.numero',1,false)`, "secuencias"},
 		{"acl", `GRANT SELECT ON public.datos TO cs06_lector_sintetico`, `REVOKE SELECT ON public.datos FROM cs06_lector_sintetico`, "acl"},
 		{"privilegios_defecto", `ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO cs06_lector_sintetico`, `ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE SELECT ON TABLES FROM cs06_lector_sintetico`, "privilegios_defecto"},
+		{"privilegios_defecto_vacios", `ALTER DEFAULT PRIVILEGES FOR ROLE cs06_lector_sintetico REVOKE ALL ON TABLES FROM cs06_lector_sintetico`, `ALTER DEFAULT PRIVILEGES FOR ROLE cs06_lector_sintetico GRANT ALL ON TABLES TO cs06_lector_sintetico`, "privilegios_defecto"},
 		{"roles", `ALTER ROLE cs06_lector_sintetico NOINHERIT`, `ALTER ROLE cs06_lector_sintetico INHERIT`, "roles"},
 	} {
 		t.Run(scenario.name, func(t *testing.T) {
@@ -186,6 +190,29 @@ CREATE TABLE public."nombre$1"("columna$2" text); INSERT INTO public."nombre$1" 
 			sqlEnsayo(t, x, scenario.restore)
 		})
 	}
+	t.Run("fk_disparadores_desactivados", func(t *testing.T) {
+		sqlEnsayo(t, x, `ALTER TABLE public.hija DISABLE TRIGGER ALL`)
+		s, e := l.CapturarEjecutor(context.Background(), x, "postgres", x)
+		if e != nil {
+			t.Fatal(e)
+		}
+		if s.Completo || domain.Comparar(first, s).Estado != domain.NoComprobable {
+			t.Fatal("FK sin disparadores admitida como equivalente")
+		}
+		found := false
+		for _, m := range s.Motivos {
+			if m == "disparadores_internos_no_admitidos" {
+				found = true
+			}
+		}
+		if !found {
+			t.Fatal("estado de disparadores internos omitido")
+		}
+		sqlEnsayo(t, x, `ALTER TABLE public.hija ENABLE TRIGGER ALL`)
+		if r := domain.Comparar(first, capture()); r.Estado != domain.Igual {
+			t.Fatalf("restauración de FK no recupera evidencia: %v", r.Razones)
+		}
+	})
 	sqlEnsayo(t, x, `CREATE VIEW public.vista AS SELECT * FROM public.datos`)
 	incomplete, e := l.CapturarEjecutor(context.Background(), x, "postgres", x)
 	if e != nil || incomplete.Completo {
@@ -214,7 +241,7 @@ CREATE TABLE public."nombre$1"("columna$2" text); INSERT INTO public."nombre$1" 
 	}
 	// La primaria directa conserva la separación: sin guard observado, no completa.
 	// La ruta externa se probó con evidencia runtime real, nunca con booleano libre.
-	t.Log("PG18.4 real: orden y OID iguales; celda/CHECK/secuencia/ACL/roles/privilegios_defecto divergentes; advanced/LO y límites denegados")
+	t.Log("PG18.4 real: orden y OID iguales; celda/CHECK/secuencia/ACL/roles/privilegios_defecto divergentes; ACL vacío distinguido de ausencia, FK desactivada no_comprobable; advanced/LO y límites denegados")
 }
 
 type dockerEnsayo struct{ name string }
