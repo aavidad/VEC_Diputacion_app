@@ -272,6 +272,31 @@ def process_identity(pid: int) -> tuple[int, int, int]:
     return start, namespace.st_dev, namespace.st_ino
 
 
+def verify_volume(pg: PGID) -> None:
+    """Observe H1's UID999 directory without requesting read permission.
+
+    O_PATH retains the physical directory even when PGDATA is 999:999/0700.
+    The canonical parent is traversed without links; no contents are read and
+    no owner, permissions or configuration are changed. A substituted name,
+    symlink or mismatching externally pinned device/inode refuses the probe.
+    """
+    require(hasattr(os, 'O_PATH'), 'namespace_volume_observation_unavailable')
+    with relay.directory(pg.volume.parent) as parent:
+        fd = os.open(pg.volume.name, os.O_PATH | os.O_DIRECTORY | os.O_NOFOLLOW |
+                     os.O_CLOEXEC, dir_fd=parent)
+        try:
+            info = os.fstat(fd)
+            require(stat.S_ISDIR(info.st_mode) and info.st_uid == info.st_gid == 999
+                    and stat.S_IMODE(info.st_mode) == 0o700
+                    and (info.st_dev, info.st_ino) == (pg.volume_device, pg.volume_inode),
+                    'namespace_volume_identity_drift')
+            named = os.stat(pg.volume.name, dir_fd=parent, follow_symlinks=False)
+            require(installer.identity(info) == installer.identity(named),
+                    'namespace_volume_name_changed')
+        finally:
+            os.close(fd)
+
+
 class Docker:
     """Concrete local Docker only. No caller-supplied executor or shell."""
     def __init__(self, config: Path):
@@ -394,10 +419,7 @@ def verify_pg(request: Request, docker: Docker) -> tuple:
             and mounts[0].get('Type') == 'bind' and mounts[0].get('Source') == str(pg.volume)
             and mounts[0].get('Destination') == '/var/lib/postgresql'
             and mounts[0].get('RW') is True, 'namespace_volume_mount_drift')
-    with relay.directory(pg.volume) as fd:
-        info = os.fstat(fd)
-        require((info.st_dev, info.st_ino) == (pg.volume_device, pg.volume_inode),
-                'namespace_volume_identity_drift')
+    verify_volume(pg)
     return state['Pid'], state['StartedAt'], *process_identity(state['Pid'])
 
 

@@ -5,6 +5,7 @@ import io
 import json
 import os
 from pathlib import Path
+import stat
 import tempfile
 from types import SimpleNamespace
 import unittest
@@ -18,7 +19,7 @@ class NamespaceTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory(dir=os.environ['TMPDIR'], prefix='namespace-')
         self.addCleanup(self.temp.cleanup)
         root = Path(self.temp.name)
-        self.state, self.tls, self.volume = (root / n for n in ('state', 'tls', 'volume'))
+        self.state, self.tls, self.volume = (root / n for n in ('state', 'tls', 'vec-recorridos-fixture'))
         for p in (self.state, self.tls, self.volume):
             p.mkdir(mode=0o700)
         self.cid, self.helper_cid = 'c' * 64, 'd' * 64
@@ -69,7 +70,9 @@ class NamespaceTests(unittest.TestCase):
         self.pg_obj = {'Id': self.cid, 'Image': self.pg_image,
                 'Config': {'Image': self.pg_image, 'Labels': {ns.clon_sql.OWNER_LABEL: 'Codex-M',
                                                           'vec.recorridos.state': str(self.state)}},
-                'HostConfig': {'NetworkMode': 'none', 'Privileged': False, 'PortBindings': {}},
+                'HostConfig': {'NetworkMode': 'none', 'Privileged': False, 'PortBindings': {},
+                    'Tmpfs': {'/var/run/postgresql': 'rw,noexec,nosuid,size=8m,uid=999,gid=999,mode=0700',
+                              '/tmp': 'rw,noexec,nosuid,size=16m,uid=999,gid=999,mode=0700'}},
                 'State': {'Running': True, 'Pid': 71, 'StartedAt': 'fixture-start'},
                 'Mounts': [{'Type': 'bind', 'Source': str(self.pg.volume),
                            'Destination': '/var/lib/postgresql', 'RW': True}],
@@ -97,7 +100,39 @@ class NamespaceTests(unittest.TestCase):
         self.remove_output = None
         self.net = {71: (100, 1, 42), 72: (200, 1, 42)}
         directory = ns.relay.directory
-        self.patch(ns.relay, 'directory', side_effect=lambda p: directory(self.volume if p == self.pg.volume else p))
+        self.patch(ns.relay, 'directory', side_effect=lambda p: directory(self.volume.parent
+                   if p == self.pg.volume.parent else p))
+        self.volume_owner = self.volume_group = 999
+        self.volume_permissions = None
+        self.volume_open_flags = []
+        original_stat, original_fstat, original_open = os.stat, os.fstat, os.open
+        def volume_metadata(info):
+            # A rootless user namespace cannot chown to an unmapped host UID999.
+            # Simulate that ownership only for this synthetic volume, retaining
+            # its real kernel dev/ino/mode and exercising the actual O_PATH open.
+            try:
+                current = original_stat(self.volume, follow_symlinks=False)
+            except FileNotFoundError:
+                return info
+            if (info.st_dev, info.st_ino) != (current.st_dev, current.st_ino):
+                return info
+            return SimpleNamespace(**{name: self.volume_owner if name == 'st_uid' else
+                                           self.volume_group if name == 'st_gid' else
+                                           stat.S_IFDIR | self.volume_permissions
+                                           if name == 'st_mode' and self.volume_permissions is not None
+                                           else getattr(info, name)
+                                      for name in dir(info) if name.startswith('st_')})
+        def fixture_open(path, flags, *args, **kwargs):
+            if path == self.pg.volume.name and kwargs.get('dir_fd') is not None:
+                self.volume_open_flags.append(flags)
+                self.assertTrue(flags & os.O_DIRECTORY)
+                self.assertTrue(flags & os.O_NOFOLLOW)
+                if not flags & os.O_PATH:
+                    raise PermissionError('fixture PGDATA is UID999:999/0700')
+            return original_open(path, flags, *args, **kwargs)
+        self.patch(ns.os, 'open', side_effect=fixture_open)
+        self.patch(ns.os, 'stat', side_effect=lambda *a, **kw: volume_metadata(original_stat(*a, **kw)))
+        self.patch(ns.os, 'fstat', side_effect=lambda *a: volume_metadata(original_fstat(*a)))
         self.physical_process_identity = ns.process_identity
         self.patch(ns, 'process_identity', side_effect=lambda p: self.net[p])
         self.runner = self.patch(ns.clon_sql, '_probe_command', side_effect=self.docker_command)
@@ -174,6 +209,27 @@ class NamespaceTests(unittest.TestCase):
         self.assertNotIn('preimagen', json.dumps(result))
         self.assertNotIn('pg_volume', result)
         self.assertEqual(len([c for c in self.calls if c[0][0] == 'run']), 1)
+
+    def test_uid999_pgdata_is_observed_with_opath_without_read_permission(self):
+        self.assertNotEqual(os.getuid(), self.volume_owner)
+        self.run_attest()
+        self.assertTrue(self.volume_open_flags)
+        self.assertTrue(all(flags & os.O_PATH and flags & os.O_DIRECTORY
+                            and flags & os.O_NOFOLLOW for flags in self.volume_open_flags))
+        # Every fixture open without O_PATH raises PermissionError, so a fallback
+        # to O_RDONLY would fail this otherwise valid H1 attestation.
+        self.assertEqual(len(self.pg_obj['Mounts']), 1)
+        self.assertEqual(set(self.pg_obj['HostConfig']['Tmpfs']), {'/var/run/postgresql', '/tmp'})
+
+    def test_volume_owner_group_or_mode_drift_is_refused_before_helper(self):
+        for field, value in (('volume_owner', 1000), ('volume_group', 1000), ('volume_permissions', 0o755)):
+            previous = getattr(self, field)
+            setattr(self, field, value)
+            with self.subTest(field=field), self.assertRaisesRegex(ns.Refused, 'namespace_volume_identity_drift'):
+                self.run_attest()
+            self.assertFalse(any(a[0] == 'run' for a, _, _ in self.calls))
+            setattr(self, field, previous)
+            self.calls.clear()
 
     def test_run_is_no_host_port_nonroot_readonly_no_capabilities_minimal_bind(self):
         self.run_attest()
