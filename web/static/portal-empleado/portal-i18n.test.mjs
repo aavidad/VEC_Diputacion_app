@@ -60,12 +60,17 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   const coordinador = await readFile(new URL("portal-modulos-coordinador.js", raiz), "utf8");
   const recorridosDietas = await readFile(new URL("modulos/dietas/vista-recorridos.js", raiz), "utf8");
   const versionesEspeciales = new Map([
+    ["portal-composicion-empleado.js", "20261001-cronos-grafo-fichaje-v3"],
+    ["modulos/cronos/vista-saldo-conectado.js", "20261001-cronos-grafo-fichaje-v3"],
+    ["modulos/cronos/vista-remoto.js", "20261001-cronos-grafo-fichaje-v3"],
+    ["modulos/cronos/vista-movimientos-conectado.js", "20261001-cronos-grafo-fichaje-v3"],
+    ["modulos/cronos/i18n-fichaje.js", "20261001-cronos-grafo-fichaje-v3"],
     ["modulos/bolsa/rrhh-plazos-ui.js", "20261001-codexf-ct-catalogos-v1"],
     ["portal-inicio.js", "20261001-codexf-ct-catalogos-v1"],
     // 5.06, segundo corte: el circuito de firma trae el estado de Firmadoc.
     // Reglas vigentes: el detalle de cada regla y sus textos en catálogos renuevan el enlace del panel.
     // Nuevo llamamiento: el campo «Resumen de la preparación» usa la etiqueta encima y el campo a lo ancho.
-    ["portal.js", "20261001-codexf-ct-catalogos-v1"],
+    ["portal.js", "20261001-cronos-grafo-fichaje-v3"],
     ["portal-vistas-utilidades.js", "20261001-codexf-ct-catalogos-v1"],
     ["portal-preferencias-integracion.js", "20261001-codexf-ct-catalogos-v1"],
     ["portal-preferencias.js", "20261001-codexf-ct-catalogos-v1"],
@@ -76,7 +81,7 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     ["portal-bolsas-contrato.js", "20261001-codexf-ct-catalogos-v1"],
     ["portal-llamamientos-operaciones-api.js", "20261001-codexf-ct-catalogos-v1"],
     ["reglas/enlace.js", "20261001-codexf-ct-catalogos-v1"],
-    ["portal-modulos-coordinador.js", "20261001-codexf-ct-catalogos-v1"],
+    ["portal-modulos-coordinador.js", "20261001-cronos-grafo-fichaje-v3"],
     ["modulos/dietas/vista-recorridos.js", "20261001-codexf-ct-catalogos-v1"],
     ["modulos/dietas/vista-bandeja-circuito.js", "20261001-codexf-ct-catalogos-v1"],
     ["modulos/contratacion-temporal/vista-expedientes.js", "20261001-codexf-ct-catalogos-v1"],
