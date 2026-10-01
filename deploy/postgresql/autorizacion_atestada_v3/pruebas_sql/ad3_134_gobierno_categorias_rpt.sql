@@ -1,9 +1,11 @@
 \set ON_ERROR_STOP on
--- Solo clon desechable con postA, CA21, AUT25 final, IS10, Cat4 y AD3-134.
+-- Preparada, no ejecutada: AD134 mantiene NO-GO por huellas PG18 pendientes.
+-- Solo clon desechable con AD133/135/136, CTX21, AUT25 final, Cat4 y AD134.
+-- IS10 es posterior para el emisor nominal del recorrido; no se instala aqui.
 -- Sondas negativas del helper real y del orden antes del efecto; no fabrican V3.
 -- Pendiente: positivo emitido, revocacion concurrente y ausencia de efectos por
 -- denegacion nominal atravesando toda AD134. Requiere asignaciones nominales
--- y el arnes real de D (AUT25@a69a73a6 es candidato; propietario aun pendiente).
+-- y el arnes real de D. Ninguna sonda estructural acredita consumo V3 positivo.
 BEGIN ISOLATION LEVEL SERIALIZABLE;
 -- Métrica mínima de efectos: no contiene documentos ni material de sesiones.
 CREATE TEMP TABLE preimagen_ad134_nominal AS
@@ -23,8 +25,29 @@ SET LOCAL idle_in_transaction_session_timeout='25s';
 DO $prueba$
 DECLARE f regprocedure;
  nominal oid:=pg_catalog.to_regprocedure('vec_autorizacion.revalidar_gobierno_rpt_v1(jsonb,text,text,jsonb)');
- autorizar text; ejecutar text; inicio_nominal integer; resultado boolean;
+ autorizar text; ejecutar text; nucleo text; inicio_nominal integer;
+ core oid:='vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure;
 BEGIN
+ nucleo:=pg_catalog.pg_get_functiondef(core);
+ -- La configuración postconvergencia y el camino custodia deben sobrevivir.
+ -- La migración coteja además las huellas medidas y la sustitución inversa.
+ IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_proc p WHERE p.oid=core
+      AND p.proowner='vec_autorizacion_atestada_v3_propietario'::regrole
+      AND p.prokind='f' AND p.provolatile='v' AND p.proparallel='u' AND p.prosecdef
+      AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s'])
+ OR pg_catalog.strpos(nucleo,'documentos.firmado.custodiar')=0
+ OR pg_catalog.strpos(nucleo,'lectura_categorias')=0
+ OR pg_catalog.strpos(nucleo,'usos_categorias')=0
+ OR pg_catalog.strpos(nucleo,'gobierno_categorias')=0
+ OR EXISTS (SELECT 1 FROM pg_catalog.pg_proc p
+      CROSS JOIN LATERAL pg_catalog.aclexplode(coalesce(p.proacl,pg_catalog.acldefault('f',p.proowner))) a
+      WHERE p.oid=core AND (a.grantee<>p.proowner OR a.grantor<>p.proowner
+        OR a.privilege_type<>'EXECUTE' OR a.is_grantable))
+ OR EXISTS (SELECT 1 FROM pg_catalog.pg_database db
+      CROSS JOIN LATERAL pg_catalog.aclexplode(coalesce(db.datacl,pg_catalog.acldefault('d',db.datdba))) a
+      WHERE db.datname=pg_catalog.current_database() AND a.grantee=0 AND a.privilege_type='TEMPORARY') THEN
+  RAISE EXCEPTION 'nucleo post-AD136 o ACL incompatibles';
+ END IF;
  IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname='vec_catalogos_configurables_gobierno_ejecutor'
     AND NOT rolcanlogin AND NOT rolsuper AND NOT rolbypassrls)
     OR EXISTS (SELECT 1 FROM pg_catalog.pg_auth_members WHERE member='vec_catalogos_configurables_gobierno_ejecutor'::regrole
@@ -51,10 +74,6 @@ BEGIN
  OR vec_autorizacion.revalidar_gobierno_rpt_v1('{}'::jsonb,'rpt-demo','personal','{}'::jsonb) IS NOT FALSE THEN
   RAISE EXCEPTION 'helper real concede con material nominal ausente';
  END IF;
- -- Sonda del criterio booleano, no una decisión V3 ni una autoridad sustituta.
- FOREACH resultado IN ARRAY ARRAY[false,NULL::boolean] LOOP
-  IF resultado IS TRUE THEN RAISE EXCEPTION 'criterio nominal concede FALSE o NULL'; END IF;
- END LOOP;
  autorizar:=pg_catalog.pg_get_functiondef(
   'vec_autorizacion_atestada_v3.autorizar_gobierno_categoria_rpt_v3_interna(jsonb,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure);
  ejecutar:=pg_catalog.pg_get_functiondef(
@@ -80,7 +99,10 @@ BEGIN
   'vec_autorizacion_atestada_v3.aprobar_gobierno_categoria_rpt_v3_atestada(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure,
   'vec_autorizacion_atestada_v3.confirmar_gobierno_categoria_rpt_v3_atestada(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure
  ] LOOP
-  IF NOT pg_catalog.has_function_privilege('vec_catalogos_configurables_gobierno_ejecutor',f,'EXECUTE')
+  IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_proc p WHERE p.oid=f
+       AND p.proowner='vec_autorizacion_atestada_v3_propietario'::regrole
+       AND p.prosecdef AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s'])
+     OR NOT pg_catalog.has_function_privilege('vec_catalogos_configurables_gobierno_ejecutor',f,'EXECUTE')
      OR pg_catalog.has_function_privilege('vec_personal_ejecutor',f,'EXECUTE')
      OR EXISTS (SELECT 1 FROM pg_catalog.pg_proc p
        CROSS JOIN LATERAL pg_catalog.aclexplode(coalesce(p.proacl,pg_catalog.acldefault('f',p.proowner))) a

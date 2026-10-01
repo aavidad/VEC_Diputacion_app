@@ -1,11 +1,14 @@
 \set ON_ERROR_STOP on
 -- AD3-134: gobierno nominal del catalogo comun RPT. Requiere
--- catalogos_configurables 000004, AD3-126 y AUT25 tras CA21/postA.
--- Candidata condicionada al contrato final AUT25 (propietario del catalogo).
+-- catalogos_configurables 000004 y AUT25 tras CA21 y AD3-133/135/136.
+-- Fuente preparada, NO-GO: faltan las huellas PG18 de la postimagen AD3-136.
+-- Las guardas NULL cierran la instalacion hasta medir la cadena causal de D
+-- y recibir dos revisiones del hash final. No admiten huellas del llamador.
 -- El DBA crea el rol sin miembros; esta migracion no asigna perfiles.
 BEGIN;
 SET LOCAL search_path=pg_catalog;
 SET LOCAL lock_timeout='5s';
+SET LOCAL statement_timeout='2min';
 -- AUT25 es una dependencia común revisada; no se publica autoridad aquí.
 DO $dependencia_nominal$
 DECLARE nominal oid:=pg_catalog.to_regprocedure('vec_autorizacion.revalidar_gobierno_rpt_v1(jsonb,text,text,jsonb)');
@@ -63,8 +66,13 @@ END $pre$;
 DO $nucleo$
 DECLARE
     f oid := 'vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure;
-    original text; nuevo text; actual text; meta jsonb; deps jsonb; acl aclitem[];
-    propietario oid; config text[]; definidora boolean;
+    original text; fuente text; nuevo text; actual text; meta jsonb; deps jsonb;
+    deps_compartidas jsonb; catalogo_antes jsonb; historica jsonb; acl aclitem[];
+    propietario oid; config text[]; definidora boolean; f_inicial oid;
+    -- Pendientes de inventario PG18 causal post-AD3-136, incluido AUT25 final.
+    -- No sustituir por las huellas anteriores a custodia ni por calculo literal.
+    esperada_def_sha256 text := NULL;
+    esperada_fuente_sha256 text := NULL;
     exclusor text := E'               AND p_perfil_mutacion IS DISTINCT FROM ''alta_personal_ejercicio'' AND p_perfil_mutacion IS DISTINCT FROM ''lectura_registro_personal_incorporacion'' AND p_perfil_mutacion IS DISTINCT FROM ''lectura_registro_personal_incorporacion_v2'' AND p_perfil_mutacion IS DISTINCT FROM ''lectura_categorias'' AND p_perfil_mutacion IS DISTINCT FROM ''usos_categorias''';
     cierre_roles text := E'           )\n       ) THEN\n        RAISE EXCEPTION USING\n            ERRCODE = ''42501'',\n            MESSAGE = ''consumo VEC-AD-3 rechazado'';';
     rol_nuevo text := $x$           OR (
@@ -96,18 +104,59 @@ $x$;
  AND d->'obligaciones' IS NOT DISTINCT FROM '[]'::jsonb)
 $x$;
 BEGIN
-    SELECT pg_catalog.pg_get_functiondef(f),pg_catalog.to_jsonb(p)-'prosrc',p.proacl,p.proowner,p.proconfig,p.prosecdef
-      INTO STRICT original,meta,acl,propietario,config,definidora FROM pg_catalog.pg_proc AS p WHERE p.oid=f;
+    IF esperada_def_sha256 IS NULL OR esperada_fuente_sha256 IS NULL THEN
+        RAISE EXCEPTION 'AD3-134: NO-GO, faltan huellas PG18 causales post-AD3-136'
+            USING ERRCODE='55000';
+    END IF;
+    SELECT pg_catalog.jsonb_agg(pg_catalog.to_jsonb(p) ORDER BY p.oid)
+      INTO catalogo_antes FROM pg_catalog.pg_proc p
+     WHERE p.pronamespace='vec_autorizacion_atestada_v3'::regnamespace;
+    SELECT pg_catalog.pg_get_functiondef(f),p.prosrc,pg_catalog.to_jsonb(p)-'prosrc',p.proacl,p.proowner,p.proconfig,p.prosecdef
+      INTO STRICT original,fuente,meta,acl,propietario,config,definidora FROM pg_catalog.pg_proc AS p WHERE p.oid=f;
     SELECT coalesce(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
       INTO deps FROM pg_catalog.pg_depend AS d WHERE d.classid='pg_catalog.pg_proc'::regclass AND d.objid=f;
-    IF propietario <> 'vec_autorizacion_atestada_v3_propietario'::regrole OR NOT definidora
-       OR config IS DISTINCT FROM ARRAY['search_path=pg_catalog','lock_timeout=2s']
+    f_inicial:=f;
+    SELECT coalesce(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(d) ORDER BY d.dbid,d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype),'[]'::jsonb)
+      INTO deps_compartidas FROM pg_catalog.pg_shdepend d
+     WHERE d.dbid=(SELECT oid FROM pg_catalog.pg_database WHERE datname=pg_catalog.current_database())
+       AND d.classid='pg_catalog.pg_proc'::regclass AND d.objid=f;
+    IF pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(original,'UTF8')),'hex') IS DISTINCT FROM esperada_def_sha256
+       OR pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(fuente,'UTF8')),'hex') IS DISTINCT FROM esperada_fuente_sha256
+       OR propietario <> 'vec_autorizacion_atestada_v3_propietario'::regrole OR NOT definidora
+       OR config IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s']
+       OR NOT EXISTS (SELECT 1 FROM pg_catalog.pg_proc p WHERE p.oid=f
+            AND p.prokind='f' AND p.provolatile='v' AND p.proparallel='u')
+       OR NOT EXISTS (SELECT 1 FROM pg_catalog.aclexplode(coalesce(acl,pg_catalog.acldefault('f',propietario))) a
+            WHERE a.grantee=propietario AND a.privilege_type='EXECUTE' AND NOT a.is_grantable)
+       OR EXISTS (SELECT 1 FROM pg_catalog.aclexplode(coalesce(acl,pg_catalog.acldefault('f',propietario))) a
+            WHERE a.grantee<>propietario OR a.grantor<>propietario OR a.privilege_type<>'EXECUTE' OR a.is_grantable)
+       OR EXISTS (SELECT 1 FROM pg_catalog.pg_database db
+            CROSS JOIN LATERAL pg_catalog.aclexplode(coalesce(db.datacl,pg_catalog.acldefault('d',db.datdba))) a
+            WHERE db.datname=pg_catalog.current_database() AND a.grantee=0 AND a.privilege_type='TEMPORARY')
+       OR pg_catalog.jsonb_array_length(deps)<>2
+       OR NOT EXISTS (SELECT 1 FROM pg_catalog.pg_depend d
+            WHERE d.classid='pg_catalog.pg_proc'::regclass AND d.objid=f AND d.objsubid=0
+              AND d.refclassid='pg_catalog.pg_language'::regclass
+              AND d.refobjid=(SELECT oid FROM pg_catalog.pg_language WHERE lanname='plpgsql')
+              AND d.refobjsubid=0 AND d.deptype='n')
+       OR NOT EXISTS (SELECT 1 FROM pg_catalog.pg_depend d
+            WHERE d.classid='pg_catalog.pg_proc'::regclass AND d.objid=f AND d.objsubid=0
+              AND d.refclassid='pg_catalog.pg_namespace'::regclass
+              AND d.refobjid='vec_autorizacion_atestada_v3'::regnamespace
+              AND d.refobjsubid=0 AND d.deptype='n')
+       OR pg_catalog.jsonb_array_length(deps_compartidas)<>1
+       OR NOT EXISTS (SELECT 1 FROM pg_catalog.pg_shdepend d
+            WHERE d.dbid=(SELECT oid FROM pg_catalog.pg_database WHERE datname=pg_catalog.current_database())
+              AND d.classid='pg_catalog.pg_proc'::regclass AND d.objid=f AND d.objsubid=0
+              AND d.refclassid='pg_catalog.pg_authid'::regclass
+              AND d.refobjid=propietario AND d.deptype='o')
        OR pg_catalog.length(original)-pg_catalog.length(pg_catalog.replace(original,exclusor,''))<>pg_catalog.length(exclusor)
        OR pg_catalog.length(original)-pg_catalog.length(pg_catalog.replace(original,cierre_roles,''))<>pg_catalog.length(cierre_roles)
        OR pg_catalog.length(original)-pg_catalog.length(pg_catalog.replace(original,marca_capacidad,''))<>pg_catalog.length(marca_capacidad)
        OR pg_catalog.strpos(original,'lectura_categorias')=0
        OR pg_catalog.strpos(original,'gobierno_categorias')<>0
-       OR pg_catalog.strpos(original,'usos_categorias')=0 THEN
+       OR pg_catalog.strpos(original,'usos_categorias')=0
+       OR pg_catalog.strpos(original,'documentos.firmado.custodiar')=0 THEN
         RAISE EXCEPTION 'AD3-134: núcleo V3 incompatible' USING ERRCODE='55000';
     END IF;
     nuevo := pg_catalog.replace(original,exclusor,exclusor||E' AND p_perfil_mutacion IS DISTINCT FROM ''gobierno_categorias''');
@@ -116,6 +165,10 @@ BEGIN
     EXECUTE nuevo;
     SELECT pg_catalog.pg_get_functiondef(f) INTO STRICT actual;
     IF actual IS DISTINCT FROM nuevo
+       OR pg_catalog.replace(pg_catalog.replace(pg_catalog.replace(actual,
+            capacidad_nueva||marca_capacidad,marca_capacidad),rol_nuevo||cierre_roles,cierre_roles),
+            exclusor||E' AND p_perfil_mutacion IS DISTINCT FROM ''gobierno_categorias''',exclusor) IS DISTINCT FROM original
+       OR pg_catalog.to_regprocedure('vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS DISTINCT FROM f_inicial
        OR (SELECT pg_catalog.to_jsonb(p)-'prosrc' FROM pg_catalog.pg_proc AS p WHERE p.oid=f) IS DISTINCT FROM meta
        OR (SELECT proacl FROM pg_catalog.pg_proc WHERE oid=f) IS DISTINCT FROM acl
        OR (SELECT proowner FROM pg_catalog.pg_proc WHERE oid=f) IS DISTINCT FROM propietario
@@ -125,6 +178,20 @@ BEGIN
              FROM pg_catalog.pg_depend AS d WHERE d.classid='pg_catalog.pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps THEN
         RAISE EXCEPTION 'AD3-134: núcleo V3 alterado fuera de contrato' USING ERRCODE='55000';
     END IF;
+    IF (SELECT coalesce(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(d) ORDER BY d.dbid,d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype),'[]'::jsonb)
+          FROM pg_catalog.pg_shdepend d
+         WHERE d.dbid=(SELECT oid FROM pg_catalog.pg_database WHERE datname=pg_catalog.current_database())
+           AND d.classid='pg_catalog.pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps_compartidas THEN
+        RAISE EXCEPTION 'AD3-134: dependencias compartidas del nucleo alteradas' USING ERRCODE='55000';
+    END IF;
+    FOR historica IN SELECT x FROM pg_catalog.jsonb_array_elements(catalogo_antes) x LOOP
+        IF (historica->>'oid')::oid<>f THEN
+            IF (SELECT pg_catalog.to_jsonb(p) FROM pg_catalog.pg_proc p
+                  WHERE p.oid=(historica->>'oid')::oid) IS DISTINCT FROM historica THEN
+                RAISE EXCEPTION 'AD3-134: funcion o ACL historica alterada' USING ERRCODE='55000';
+            END IF;
+        END IF;
+    END LOOP;
 END $nucleo$;
 
 LOCK TABLE vec_autorizacion_atestada_v3.clave_capacidad_version IN ACCESS EXCLUSIVE MODE;
@@ -156,7 +223,7 @@ CREATE FUNCTION vec_autorizacion_atestada_v3.autorizar_gobierno_categoria_rpt_v3
 ) RETURNS TABLE(decision_ref text,efecto_ref text,huella_efecto_sha256 text,
     consumo_huella_sha256 text,auditoria_ref text,
     consumida_en timestamptz,actor_ref text,motivo_ref text)
-LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET lock_timeout='2s' AS $f$
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog, pg_temp SET lock_timeout='2s' AS $f$
 DECLARE c jsonb; d jsonb; m jsonb; ca jsonb; x record; contenido jsonb; alcance jsonb;
     material_h text; contexto_h text; ambitos text; motivo_canonico text;
 BEGIN
@@ -317,7 +384,7 @@ END $f$;
 CREATE FUNCTION vec_autorizacion_atestada_v3.acreditar_aprobacion_historica_gobierno_categoria_rpt_v3_interna(
     p_aprobacion jsonb,p_propuesta_ref text,p_huella text,p_catalogo_id text,p_modulo_id text
 ) RETURNS void LANGUAGE plpgsql VOLATILE SECURITY DEFINER
-SET search_path=pg_catalog SET lock_timeout='2s' AS $f$
+SET search_path=pg_catalog, pg_temp SET lock_timeout='2s' AS $f$
 DECLARE t record; c jsonb; d jsonb; material jsonb; material_h text; ambitos text; contexto_h text;
 BEGIN
     IF pg_catalog.jsonb_typeof(p_aprobacion) IS DISTINCT FROM 'object'
@@ -375,7 +442,7 @@ CREATE FUNCTION vec_autorizacion_atestada_v3.ejecutar_gobierno_categoria_rpt_v3_
     p_contexto bytea,p_persona_version numeric,p_perfil_version numeric,
     p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea
 ) RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER
-SET search_path=pg_catalog SET lock_timeout='2s' AS $f$
+SET search_path=pg_catalog, pg_temp SET lock_timeout='2s' AS $f$
 DECLARE a record; r jsonb; consulta jsonb; contenido jsonb; aprobaciones jsonb; aprobacion jsonb;
     actor_a text; actor_b text; esperado text; revision bigint;
 BEGIN
@@ -457,7 +524,7 @@ CREATE FUNCTION vec_autorizacion_atestada_v3.proponer_gobierno_categoria_rpt_v3_
     p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,
     p_evidencia bytea,p_raiz bytea
 ) RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER
-SET search_path=pg_catalog SET lock_timeout='2s' AS $f$
+SET search_path=pg_catalog, pg_temp SET lock_timeout='2s' AS $f$
 BEGIN
     RETURN vec_autorizacion_atestada_v3.ejecutar_gobierno_categoria_rpt_v3_interna(
         'vec.catalogos.categorias.gobierno.proponer',p_material,p_capacidad,p_decision,
@@ -468,7 +535,7 @@ CREATE FUNCTION vec_autorizacion_atestada_v3.aprobar_gobierno_categoria_rpt_v3_a
     p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,
     p_evidencia bytea,p_raiz bytea
 ) RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER
-SET search_path=pg_catalog SET lock_timeout='2s' AS $f$
+SET search_path=pg_catalog, pg_temp SET lock_timeout='2s' AS $f$
 BEGIN
     RETURN vec_autorizacion_atestada_v3.ejecutar_gobierno_categoria_rpt_v3_interna(
         'vec.catalogos.categorias.gobierno.aprobar',p_material,p_capacidad,p_decision,
@@ -479,7 +546,7 @@ CREATE FUNCTION vec_autorizacion_atestada_v3.confirmar_gobierno_categoria_rpt_v3
     p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,
     p_evidencia bytea,p_raiz bytea
 ) RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER
-SET search_path=pg_catalog SET lock_timeout='2s' AS $f$
+SET search_path=pg_catalog, pg_temp SET lock_timeout='2s' AS $f$
 BEGIN
     RETURN vec_autorizacion_atestada_v3.ejecutar_gobierno_categoria_rpt_v3_interna(
         'vec.catalogos.categorias.gobierno.confirmar',p_material,p_capacidad,p_decision,
@@ -536,7 +603,7 @@ BEGIN
  ] LOOP
   IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_proc WHERE oid=f
       AND proowner='vec_autorizacion_atestada_v3_propietario'::regrole AND prosecdef
-      AND proconfig=ARRAY['search_path=pg_catalog','lock_timeout=2s'])
+      AND proconfig=ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s'])
      OR EXISTS (SELECT 1 FROM pg_catalog.pg_proc p
        CROSS JOIN LATERAL pg_catalog.aclexplode(coalesce(p.proacl,pg_catalog.acldefault('f',p.proowner))) a
        WHERE p.oid=f AND (a.grantee=0 OR a.privilege_type<>'EXECUTE' OR a.is_grantable

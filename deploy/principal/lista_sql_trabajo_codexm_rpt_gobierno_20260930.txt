@@ -1,19 +1,18 @@
-# Requiere AD3-126 y Catálogos000003 instaladas una sola vez.
-# En clon fresco H1: primeras35 SQL de scripts/recorridos/sql_main_h6.txt
-# hasta AD3-114, luego roles/Cat1/Cat2/AD117/Cat3/AD126 coherentes.
-# Preimagen focal modulo v2: previas 2085c5981 con Cat1 reforzada.
-# Nucleo AD126 search_path=pg_catalog; sin modificar ACL ni perfiles previos.
-# AD133@af68c20b despues de AD126: NO-GO 55000 preimagen global incompatible.
-# AD133/135 requieren convergencia revisada antes de componer ese linaje.
-# Cat1/2/3 y AD117/126 ya instaladas: no reaplicar ni DOWN.
-# Cat4 evoluciona publicar instalada con hash exacto; conserva OID/ACL/historia.
-# Propuesta A v1, aprobacion B v2, confirmacion B v3; documento completo siempre.
-# Orden completo requerido: B→A→ContextoActor000021→Autorizacion000025→Cat4→AD134.
-# CTX21/AUT25 pertenecen a D: candidato AUT25 a69a73a6, sin instalar.
-# AUT25 debe cerrar modulo propietario vs consumidor antes del ensayo final.
-# Lista condicionada a incorporar los artefactos D revisados al mismo arbol.
-# Asignacion RRHH RPT funcional: dependencia comun de D/B, no publicada aqui.
-# Ensayo PG18 solo tras postimagen convergente B→A revisada y orden de Direccion.
+# Fuente preparada, NO-GO: AD134 deniega hasta fijar huellas PG18 medidas.
+# Orden requerido: B→A(AD133/135/136)→CTX21→AUT25→Cat4→AD134.
+# A publicada en main@105c537e2 no acredita instalacion en ningun clon.
+# Cat1/2/3 y AD117/126 conservan OID/ACL/historia: no reaplicar ni DOWN.
+# D posee CTX21/AUT25 e IS10; sus SQL deben estar en el arbol causal revisado.
+# AUT25: helper revalidar_gobierno_rpt_v1(jsonb,text,text,jsonb), boolean,
+# SECURITY DEFINER, search_path=pg_catalog; EXECUTE solo propietario y AD3.
+# AD134 consume V3 y exige helper nominal IS TRUE antes de Cat4 en cada intento.
+# Ensayo PG18 solo tras la cadena causal D completa y orden de Direccion.
+# Sin SQL en clon M H6 ni DOWN/UP sobre historia conservada.
+# IS10 es requisito posterior del emisor nominal y recorrido RPT completo;
+# no lo instala esta lista ni se copia dentro de migraciones de M.
+# Pendientes: positivo V3 emitido, FALSE/NULL/revocacion, replay y rollback
+# sin consumo, auditoria, propuesta, aprobacion, confirmacion ni outbox nuevo.
+# Dos revisiones sensibles del hash final antes de integrar; sin push ni PR.
 deploy/postgresql/contexto_actor_v1/migraciones/000021_vinculo_rpt_rrhh.up.sql
 deploy/postgresql/autorizacion/migraciones/000025_gobierno_categorias_rpt.up.sql
 deploy/postgresql/catalogos_configurables/migraciones/000004_gobierno_categorias_rpt.up.sql
