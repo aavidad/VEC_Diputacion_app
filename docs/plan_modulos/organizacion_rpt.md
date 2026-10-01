@@ -99,6 +99,9 @@ No cubre por sí solo importación, autorización, ocupación ni vacantes reales
   acordada. Si hace falta migración nueva, reservar número y justificarla antes de crearla.
 - Cierre: preparación no autoritativa → conciliación → aprobación/publicación,
   sin sobrescribir versiones, y lectura recuperable del mismo corte.
+  Verificar ejercicio y presupuesto, creación/amortización y vínculo con OEP;
+  requisitos, funciones, provisión, nivel y complementos del puesto; acuerdos,
+  BOP, incidencias y comparación de versiones desde lecturas autorizadas.
 
 ### 5. Completar ocupación, reserva y vacantes con Personal B
 
@@ -109,6 +112,19 @@ No cubre por sí solo importación, autorización, ocupación ni vacantes reales
 - SQL/servidor: revisión y ensayo por B/D sobre su propia candidata; sin tablas cruzadas.
 - Cierre: historia privada preservada y las tres proyecciones separadas,
   sin convertir ausencia de datos en plaza vacante ni en necesidad cubrible.
+
+### 6. Completar tipos y relaciones de organización
+
+- Propietario: M, tipos y relaciones históricas; B, referencias personales y actos
+  por puertos; D, autorización y persistencia; RRHH, fuente y alcance.
+- Archivos previstos: dominio, puertos y aplicación de organización de Personal;
+  adaptadores actuales. Reservar contratos y archivos concretos antes de escribir.
+- Dependencias: organismos, áreas, servicios, centros, unidades y jerarquías;
+  significado, vigencia y alcance de delegaciones de competencia y suplencias.
+- SQL/servidor: aprovechar historia existente; si requiere otro modelo o circuito,
+  reservar migración y reestimar antes de ampliarlo. No conceder permiso por cargo.
+- Cierre: consultar una relación y su rectificación por efectos y conocimiento,
+  con acto, procedencia, permiso propio y acceso minimizado a referencias de personas.
 
 ## Decisiones pendientes de RRHH y Sistemas
 
@@ -144,12 +160,44 @@ D prepara la intervención del servidor mediante copia fría; ese trabajo no
 es el clon H6b. AD132 queda aparte. Este plan no acredita instalación nueva.
 Solo Dirección integra en main; se conservan las ramas pendientes/rechazadas.
 
+## Estimación
+
+Horquilla de trabajo con un equipo Codex y varios subagentes, cortes de PR de
+1–3 horas, revisión independiente y CI. Incluye recorridos y recuperación;
+las revisiones de SQL o permisos requieren dos lectores.
+
+| Minitarea | Horas de un equipo |
+| --- | ---: |
+| 1. Cerrar búsqueda, caché y PR | 1–3 |
+| 2. Precondiciones, autorización y consulta histórica montada | 16–28 |
+| 3. Gobierno de categorías conservado, convergencia y ensayo | 20–36 |
+| 4. Fuente/importación y recorrido de plantilla y puestos | 48–80 |
+| 5. Consumir estructura y comprobar las tres proyecciones con Personal B | 24–40 |
+| 6. Tipos, jerarquías, delegaciones y suplencias | 20–36 |
+| **Total técnico estimado** | **129–223** |
+
+A ocho horas por jornada: **17–28 días de un equipo**. Con dos equipos y
+archivos disjuntos: **12–20 días**, porque fuentes, autorización y publicación
+siguen condicionando el orden. Esta horquilla es planificación; no acredita
+que las capacidades estén cerradas ni promete una fecha de entrega.
+
+Fuera del equipo M: D/Sistemas aporta instalación y perfiles; Personal B,
+relaciones, actos y reservas; RRHH, diccionario, fuentes y decisiones de
+cobertura. Si entregan esos contratos y datos al comenzar, prever **3–8 jornadas
+adicionales de coordinación y validación**. Pueden solaparse con tareas
+independientes; no se suman automáticamente al total. Sin fuentes o respuestas
+no puede fecharse la espera institucional. Una migración o un conector no
+previstos exige revisar esta estimación antes de ampliar el corte.
+
 ## Consenso Astra
 
 Astra dio GO arquitectónico al reparto y orden del borrador `eb7f7739`.
 Se incorporaron sus precisiones: precondiciones antes del montaje; publicación
 mínima de fuente antes de consulta si falta; IS10 explícita; ruta correcta de
 aplicación y tareas independientes de categorías separadas del gobierno pendiente.
+La segunda ronda añadió la tarea 6 y su margen: las cinco tareas iniciales
+no cubrían los tipos, delegaciones de competencia y suplencias de ORG-001.
+La estimación queda condicionada a las fuentes, contratos y circuito acordados.
 
 Acuerdos: cerrar primero la búsqueda conservada; reutilizar historia e
 importación con concesión V3 propia; Personal B conserva ocupaciones y reservas;
