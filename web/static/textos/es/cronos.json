@@ -611,7 +611,7 @@
     "sin_tipos": "No hay tipos de notificación disponibles.",
     "error_datos": "Revise el tipo, la fecha y el mensaje.",
     "error_documento": "Indique la referencia y elija el documento, o deje ambos vacíos.",
-    "error_tipo_no_vigente": "Ese tipo ya no está disponible. La lista se ha actualizado.",
+    "error_tipo_no_vigente": "Ese tipo ya no está disponible. Elija otro tipo.",
     "error_conflicto_notificacion": "Ya existe otra notificación con esa referencia. Vuelva a enviarla.",
     "error_envio": "No se pudo enviar la notificación. Puede reintentarlo sin duplicarla.",
     "mis_notificaciones": "Mis notificaciones",
