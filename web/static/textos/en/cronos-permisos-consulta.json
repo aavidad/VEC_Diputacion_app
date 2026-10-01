@@ -1,0 +1,8 @@
+{
+  "consulta": {
+    "actualizar": "Refresh",
+    "reintentar": "Retry",
+    "cargando": "Loading your leave…",
+    "error": "Your leave could not be loaded. Check your connection and select Retry."
+  }
+}
