@@ -153,8 +153,11 @@ El nombre del clon se genera dentro del puente. La operación técnica sólo adm
 CREATE, marca de propiedad y DROP cambia temporalmente su propia lectura; la
 configuración global sigue en lectura. La retirada compara OID, propietario y
 marca, conserva bases preexistentes y rechaza una identidad sustituida o renombrada.
-Una respuesta perdida tras CREATE se concilia con el mismo nombre y retira el clon
-propio antes de devolver el fallo. La memoria y el registro privados de este puente
+Cuando la relectura confirma la propiedad, una respuesta perdida tras CREATE se
+concilia con el mismo nombre y retira el clon propio antes de devolver el fallo.
+Si la marca o la relectura fallan, no se afirma una retirada individual: el ensayo
+devuelve error y su cierre destruye el runtime completo.
+La memoria y el registro privados de este puente
 no sustituyen al catálogo durable CS07 ni permiten recuperar una operación productiva.
 
 Ambos ensayos montan passwd/group sintéticos de sólo lectura para el UID/GID sin
