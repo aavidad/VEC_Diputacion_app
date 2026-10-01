@@ -1,6 +1,6 @@
 import { crearTraductorDietas, MENSAJES_DIETAS } from "./i18n.js?v=20260929-i18n-dietas-v1";
 import { montarVistaBorradoresPropios } from "./vista-borradores-propios.js?v=20261001-dietas-solicitud-v4";
-import { montarVistaBandejaCircuitoDietas } from "./vista-bandeja-circuito.js?v=20260930-portales-i18n-integracion-v1";
+import { montarVistaBandejaCircuitoDietas } from "./vista-bandeja-circuito.js?v=20261001-dietas-bandejas-v4";
 import { montarVistaRectificacionAdminDietas } from "./vista-rectificacion-admin.js?v=20260929-i18n-dietas-v1";
 
 const ETAPAS_CIRCUITO = Object.freeze(["revision", "autorizacion", "liquidacion", "fiscalizacion"]);
