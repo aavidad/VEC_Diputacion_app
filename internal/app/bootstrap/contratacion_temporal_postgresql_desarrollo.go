@@ -603,6 +603,15 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 			return vacias, falloPostgreSQLCTDesarrollo(err)
 		}
 	}
+	etapa = "publicar_gobierno_incorporacion_b2"
+	if seleccion.incorporacionB2 {
+		if err := publicarMaterialIncorporacionB2Desarrollo(ctx, gobierno, material, catalogoMaterial); err != nil {
+			registrarFalloPostgreSQLContratacionTemporalDesarrollo(
+				"publicar_gobierno_incorporacion_b2", codigoFalloGobiernoPostgreSQLContratacionTemporalDesarrollo(err),
+			)
+			return vacias, falloPostgreSQLCTDesarrollo(err)
+		}
+	}
 	etapa = "proveedor_material_alta"
 	proveedor, err := nuevoProveedorMaterialAltaContratacionTemporalDesarrollo(
 		material, soporte, reloj,
