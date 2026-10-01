@@ -59,6 +59,42 @@ test('importa solo configuración acotada y rechaza rutas que alteran prototipos
  assert.equal(editor.exportar(), JSON.stringify(reglas));
 });
 
+test('rechaza criterios malformados antes de publicar la carga y conserva el borrador y su comparación', async () => {
+ const textos = await cargarTextos('baremo-bolsa');
+ let editor; let publicaciones = 0;
+ editor = crearEditorBaremo({ cliente: { simular: async () => resultado() }, alCambiar: () => {
+  publicaciones++;
+  renderizarBaremo(editor.estado(), { textos, ejemplos: [ejemplo] });
+ } });
+ editor.cargar(ejemplo);
+ editor.editar(['reglas_experiencia', 0, 'puntos_por_unidad'], '200000');
+ await editor.comparar();
+ const preimagen = editor.estado(); const exportado = editor.exportar(); const avisos = publicaciones;
+ for (const criterios of [{}, 'ambito', null, [null], [{ valores: {} }], [{ valores: [null] }]]) {
+  const malformadas = structuredClone(reglas); malformadas.reglas_experiencia[0].criterios = criterios;
+  assert.throws(() => leerReglas(JSON.stringify(malformadas)), /archivo_invalido/u);
+  assert.throws(() => editor.cargar(ejemplo, malformadas), /archivo_invalido/u);
+  assert.deepEqual(editor.estado(), preimagen);
+  assert.equal(editor.exportar(), exportado);
+  assert.equal(publicaciones, avisos);
+ }
+});
+
+test('una carga inválida no cancela ni borra la comparación que sigue en curso', async () => {
+ const retraso = pendiente(); let signal; let llamadas = 0;
+ const editor = crearEditorBaremo({ cliente: { simular: (_s, opciones) => {
+  signal = opciones.signal;
+  return llamadas++ === 0 ? retraso.promise : Promise.resolve(resultado());
+ } } });
+ editor.cargar(ejemplo); const trabajo = editor.comparar(); const preimagen = editor.estado();
+ assert.throws(() => editor.cargar(ejemplo, { foo: 1 }), /archivo_invalido/u);
+ assert.deepEqual(editor.estado(), preimagen);
+ assert.equal(signal.aborted, false);
+ retraso.resolver(resultado()); await trabajo;
+ assert.ok(editor.estado().comparacion);
+ assert.equal(editor.estado().trabajando, false);
+});
+
 test('transporta sin credenciales ni redirecciones y acepta un bloqueo sin total', async () => {
  const llamadas = [];
  const bloqueado = { ...resultado(), resultado: { estado: 'bloqueado', bloqueos: [] } };

@@ -14,6 +14,9 @@ export function leerReglas(texto) {
     if (!regla || typeof regla.seccion_clave !== "string" || !puntos(regla.puntos_por_unidad)
       || !["dia", "mes", "ano", "hora", "titulo", "unidad"].includes(regla.unidad_temporal?.unidad_puntuable ?? regla.unidad)
       || !(puntos(regla.maximo_puntos) || regla.maximo_puntos?.modo === "sin_limite" || regla.maximo_puntos?.modo === "limitado" && puntos(regla.maximo_puntos.valor))) throw new Error("archivo_invalido");
+    if (Object.hasOwn(regla, "criterios") && (!Array.isArray(regla.criterios)
+      || regla.criterios.some((criterio) => !criterio || !Array.isArray(criterio.valores)
+        || criterio.valores.some((valor) => typeof valor !== "string")))) throw new Error("archivo_invalido");
   }
   if (Object.hasOwn(reglas, "maximo_total") && !puntos(reglas.maximo_total)) throw new Error("archivo_invalido");
   return reglas;
@@ -39,11 +42,13 @@ export function crearEditorBaremo({ cliente, alCambiar = () => {} }) {
     estado.comparacion = null; estado.error = ""; estado.trabajando = false;
   }
   function cargar(ejemplo, reglas = ejemplo.reglas) {
-    invalidar();
     const cargadas = leerReglas(JSON.stringify(reglas));
-    estado.ejemplo = copia(ejemplo); estado.original = copia(ejemplo.reglas); estado.borrador = cargadas;
+    const caso = copia(ejemplo); const original = copia(ejemplo.reglas);
+    const cambiado = JSON.stringify(cargadas) !== JSON.stringify(original);
+    invalidar();
+    estado.ejemplo = caso; estado.original = original; estado.borrador = cargadas;
     estado.invalidos = {};
-    estado.cambiado = JSON.stringify(cargadas) !== JSON.stringify(estado.original); alCambiar();
+    estado.cambiado = cambiado; alCambiar();
   }
   function editar(ruta, valor) {
     if (!estado.borrador) return;
