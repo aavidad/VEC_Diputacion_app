@@ -388,4 +388,9 @@ test("fecha inválida señala el campo y no inicia otra consulta", async () => {
   ficha.querySelector("[data-personal-ficha-corte]").listeners.get("submit")({ preventDefault() {} }); await completar();
   assert.equal(llamadas, 1);
   assert.equal(fecha.enfocado, true);
+  fecha.value = "2020-06-30"; fecha.listeners.get("input")();
+  assert.equal(fecha.atributos.get("aria-invalid"), "false");
+  assert.doesNotMatch(texto(ficha), /Introduzca una fecha válida/);
+  ficha.querySelector("[data-personal-ficha-corte]").listeners.get("submit")({ preventDefault() {} }); await completar();
+  assert.equal(llamadas, 2, "corregir la fecha permite enviar a la primera");
 });

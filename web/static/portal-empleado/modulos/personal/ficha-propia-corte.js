@@ -26,6 +26,7 @@ export function crearSelectorCorteServicios(d, referencia, consultar) {
     return valida;
   };
   fecha.addEventListener("blur", validar);
+  fecha.addEventListener("input", () => { if (esFechaCorteServicios(fecha.value)) validar(); });
   form.addEventListener("submit", (evento) => { evento.preventDefault(); if (validar()) consultar(fecha.value); else fecha.focus(); });
   const aplicar = d.createElement("button"); aplicar.type = "submit"; aplicar.className = "boton-primario";
   aplicar.textContent = t("consultar"); aplicar.dataset.personalFichaConsultarCorte = "";
