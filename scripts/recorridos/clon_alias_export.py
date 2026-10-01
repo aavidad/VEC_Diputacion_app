@@ -3,6 +3,10 @@
 
 An interrupted attempt is never resumed. A completed attempt is verified with
 its externally recorded receipt digest; replay never launches a process.
+Direction must preserve the receipt digest emitted by the first successful
+invocation in a separate act/channel. Replay requires that observed digest,
+never a digest recomputed from files in the output package.
+The material and output locations are pinned for this specific approved cut.
 This receipt proves only the local export, not provisioning or runtime startup.
 """
 from __future__ import annotations
@@ -18,6 +22,7 @@ import json
 import os
 from pathlib import Path
 import resource
+import re
 import selectors
 import signal
 import stat
@@ -38,6 +43,10 @@ BINARY_BYTES = 53263525
 BUILD_ACT_SHA = "a448fcbe4c57aa5a26dd467ad99ee188fb5560ce71ac5e470f63f0ad840056da"
 ACK_SHA = "a5bb87b1cc25cbf9bfd21d6a6eaa9d0e22c3675c7c2b33b443125a1bfe4ce30d"
 MATERIAL_SHA = "d2f7c6b5e7253f1c300f4c34428e05e4c8f7099526ecaa322c285d3768b653a4"
+# SHA256 of the canonical absolute locations agreed with Direction. Paths are
+# private; a copied material tree or another output location cannot start an attempt.
+MATERIAL_PATH_SHA = "42ff20c733761ddc80ba2acf75bd8c520284bc01cf7fb6d0c851a03eb4732a18"
+OUTPUT_PATH_SHA = "fbab4fe36295b88d680dcea99022777d365cf7f6294698c913aec0e74e58759c"
 COMMAND = "exportar-seudonimos-portal-externo"
 PENDING = "alias-export.pending.json"
 OUTPUT = "seudonimos-portal-externo.json"
@@ -93,7 +102,9 @@ def binary_bytes(path: Path):
                 remaining -= len(data)
             data = b"".join(chunks)
             after = os.fstat(fd)
-            require(before == after and len(data) == BINARY_BYTES and material.digest(data) == BINARY_SHA, "binary_pin_changed")
+            fields = ("st_dev", "st_ino", "st_mode", "st_uid", "st_nlink", "st_size", "st_mtime_ns", "st_ctime_ns")
+            require(all(getattr(before, field) == getattr(after, field) for field in fields) and
+                    len(data) == BINARY_BYTES and material.digest(data) == BINARY_SHA, "binary_pin_changed")
             material.revalidate(path.parent, identities)
             return data
         finally:
@@ -243,11 +254,35 @@ def execute(argv: list, fds: tuple, output_fd: int, timeout: float):
         proc.wait()
 
 
+def validate_process(value: object):
+    require(isinstance(value, dict) and set(value) == {
+        "pid", "exit_code", "iniciado_en", "terminado_en", "stderr_bytes", "stderr"}, "replay_process_invalid")
+    require(type(value["pid"]) is int and 0 < value["pid"] < 1 << 31 and
+            type(value["exit_code"]) is int and value["exit_code"] == 0 and
+            type(value["stderr_bytes"]) is int and 0 <= value["stderr_bytes"] <= MAX_STDERR and
+            value["stderr"] == "redacted", "replay_process_invalid")
+    dates = []
+    for key in ("iniciado_en", "terminado_en"):
+        stamp = value[key]
+        require(isinstance(stamp, str) and re.fullmatch(
+            r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]{6})?\+00:00", stamp) is not None,
+            "replay_process_timestamp_invalid")
+        try:
+            dates.append(datetime.fromisoformat(stamp))
+        except ValueError:
+            raise ExportError("replay_process_timestamp_invalid") from None
+    require(dates[0] <= dates[1], "replay_process_time_order_invalid")
+
+
 def export(repo: Path, binary: Path, source: Path, ack: Path, root: Path, output: Path,
            *, receipt_sha: str | None = None, timeout: float = 30, now: datetime | None = None):
     now = now or datetime.now(timezone.utc)
     require(now.tzinfo == timezone.utc and type(timeout) in (int, float) and 0 < timeout <= 60, "execution_limits_invalid")
     require(all(p.is_absolute() and ".." not in p.parts for p in (repo, binary, source, ack, root, output)), "path_invalid")
+    require(material.digest(str(root).encode()) == MATERIAL_PATH_SHA and
+            str(root) == str(root.resolve(strict=True)), "material_route_pin_changed")
+    require(material.digest(str(output).encode()) == OUTPUT_PATH_SHA and
+            str(output) == str(output.resolve(strict=False)), "output_route_pin_changed")
     for protected in (repo, binary.parent, source.parent, ack.parent, root):
         require(output != protected and output not in protected.parents and protected not in output.parents, "output_overlaps_input")
     executable, files, bound = preflight(repo, binary, source, ack, root, now)
@@ -263,16 +298,19 @@ def export(repo: Path, binary: Path, source: Path, ack: Path, root: Path, output
         names = set(os.listdir(fd))
         if names:
             require(names == {PENDING, OUTPUT, RECEIPT}, "attempt_incomplete_or_unexpected")
-            require(isinstance(receipt_sha, str) and len(receipt_sha) == 64, "replay_receipt_pin_required")
+            require(isinstance(receipt_sha, str) and re.fullmatch(r"[0-9a-f]{64}", receipt_sha) is not None, "replay_receipt_pin_required")
             raw_receipt = material.read_at(fd, RECEIPT)
             require(material.digest(raw_receipt) == receipt_sha, "replay_receipt_changed")
             receipt = material.decoded(raw_receipt)
             require(set(receipt) == {"version", "kind", "binding", "pending_sha256", "salida_sha256", "salida_bytes", "proceso", "entorno"} and
                     type(receipt["version"]) is int and receipt["version"] == 1 and receipt["kind"] == "exportacion_seudonimos_externos_ejecutada_v1" and
                     receipt["binding"] == binding and receipt["entorno"] == environment, "replay_binding_changed")
+            validate_process(receipt["proceso"])
+            require(type(receipt["salida_bytes"]) is int and 0 < receipt["salida_bytes"] <= MAX_OUTPUT, "replay_stdout_size_invalid")
             pending_data = material.read_at(fd, PENDING)
             pending = material.decoded(pending_data)
-            require(set(pending) == {"version", "kind", "binding", "nonce"} and pending["version"] == 1 and
+            require(set(pending) == {"version", "kind", "binding", "nonce"} and type(pending["version"]) is int and pending["version"] == 1 and
+                    isinstance(pending["nonce"], str) and re.fullmatch(r"[0-9a-f]{64}", pending["nonce"]) is not None and
                     pending["kind"] == "exportacion_seudonimos_externos_pending_v1" and pending["binding"] == binding and
                     material.digest(pending_data) == receipt["pending_sha256"], "replay_pending_changed")
             data = material.read_at(fd, OUTPUT)
@@ -291,6 +329,7 @@ def export(repo: Path, binary: Path, source: Path, ack: Path, root: Path, output
         os.fsync(fd)
         try:
             result = execute(argv, fds, out_fd, timeout)
+            validate_process(result)
         finally:
             os.fsync(out_fd)
         material.revalidate(output, identities)
@@ -315,7 +354,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ("binario", "fuente", "acuse", "material", "salida"):
         parser.add_argument("--" + name, type=Path, required=True)
-    parser.add_argument("--replay-receipt-sha256")
+    parser.add_argument("--replay-receipt-sha256", help="Digest emitted on first success and preserved by Direction in a separate act/channel; never recompute from the package.")
     args = parser.parse_args()
     try:
         result = export(Path(__file__).resolve().parents[2], args.binario, args.fuente, args.acuse, args.material, args.salida,

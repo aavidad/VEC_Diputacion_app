@@ -9,7 +9,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
-import socket
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -38,6 +38,9 @@ class AliasExportTests(unittest.TestCase):
         self.binary = self.binary_dir / "vec-server"
         self.root = self.base / "material"
         self.output = self.base / "output"
+        self.output_pin = patch.object(alias, "OUTPUT_PATH_SHA", m.digest(str(self.output).encode()))
+        self.output_pin.start()
+        patch.object(alias, "MATERIAL_PATH_SHA", m.digest(str(self.root).encode())).start()
         self.refs = {name: prefix + hashlib.sha256(("fixture:" + name).encode()).hexdigest()[:32] for name, prefix in
                      (("cuenta", "cta_"), ("persona", "per_"), ("perfil", "prf_"), ("contexto", "vca_"),
                       ("vinculo", "vin_"), ("candidato", "can_"), ("procedencia", "prc_"))}
@@ -133,7 +136,7 @@ sock.close()
         self.assertEqual(receipt['salida_sha256'], m.digest(self.expected))
         self.assertEqual(receipt['binding']['binary_sha256'], m.digest(self.binary.read_bytes()))
         self.assertEqual(receipt['pending_sha256'], m.digest((self.output / alias.PENDING).read_bytes()))
-        pin = m.digest((self.output / alias.RECEIPT).read_bytes())
+        pin = m.digest(m.encoded(receipt))
         output_before = {p.name: (p.stat().st_ino, p.stat().st_mtime_ns, p.read_bytes()) for p in self.output.iterdir()}
         with patch.object(alias, 'execute', side_effect=AssertionError('replay must never execute')):
             self.assertEqual(receipt, self.run_export(receipt_sha=pin))
@@ -150,6 +153,79 @@ sock.close()
         self.assertGreater(self.binary.stat().st_size, alias.MAX_OUTPUT)
         receipt = self.run_export()
         self.assertEqual(receipt["salida_bytes"], len(self.expected))
+
+    def test_binary_read_accepts_atime_update_and_preserves_stable_fields(self):
+        expected = self.binary.read_bytes()
+        info = self.binary.stat()
+        os.utime(self.binary, ns=(0, info.st_mtime_ns))
+        before = self.binary.stat()
+        self.assertEqual(before.st_atime_ns, 0)
+        self.assertEqual(alias.binary_bytes(self.binary), expected)
+        after = self.binary.stat()
+        self.assertGreater(after.st_atime_ns, before.st_atime_ns)
+        for field in ("st_dev", "st_ino", "st_mode", "st_uid", "st_nlink", "st_size", "st_mtime_ns", "st_ctime_ns"):
+            self.assertEqual(getattr(before, field), getattr(after, field))
+
+    def test_other_output_and_copied_material_cannot_reserve_or_execute(self):
+        alternative = self.base / "other-output"
+        with patch.object(alias, "preflight", side_effect=AssertionError("routing must precede preflight")):
+            with self.assertRaisesRegex(alias.ExportError, "output_route_pin_changed"):
+                alias.export(Path(__file__).resolve().parents[2], self.binary, self.source, self.ack,
+                             self.root, alternative, now=NOW)
+        self.assertFalse(alternative.exists())
+        copied = self.base / "copied-material"
+        shutil.copytree(self.root, copied)
+        with patch.object(alias, "preflight", side_effect=AssertionError("copied root must be rejected")):
+            with self.assertRaisesRegex(alias.ExportError, "material_route_pin_changed"):
+                alias.export(Path(__file__).resolve().parents[2], self.binary, self.source, self.ack,
+                             copied, self.output, now=NOW)
+        self.assertFalse(self.output.exists())
+        receipt = self.run_export()
+        with patch.object(alias, "execute", side_effect=AssertionError("no second route launch")):
+            with self.assertRaisesRegex(alias.ExportError, "output_route_pin_changed"):
+                alias.export(Path(__file__).resolve().parents[2], self.binary, self.source, self.ack,
+                             self.root, alternative, now=NOW)
+        self.assertFalse(alternative.exists())
+        self.assertEqual(receipt, m.decoded((self.output / alias.RECEIPT).read_bytes()))
+
+    def test_replay_rejects_closed_process_schema_and_malformed_pending(self):
+        receipt = self.run_export()
+        # Trusted replay pin is captured from the first producer return, outside
+        # the mutable package; package modifications never replace that evidence.
+        observed_pin = m.digest(m.encoded(receipt))
+        process = receipt["proceso"]
+        changes = [{"pid": 0}, {"pid": True}, {"exit_code": False}, {"exit_code": 1},
+                   {"stderr_bytes": -1}, {"stderr_bytes": True}, {"stderr_bytes": alias.MAX_STDERR + 1},
+                   {"stderr": "raw secret"}, {"extra": "field"}, {"iniciado_en": "2026-10-01T00:00:00+02:00"},
+                   {"iniciado_en": "2026-99-01T00:00:00+00:00"}, {"terminado_en": "1900-01-01T00:00:00+00:00"}]
+        for changed in changes:
+            with self.subTest(changed=changed):
+                with self.assertRaises(alias.ExportError):
+                    alias.validate_process(process | changed)
+        pending_path = self.output / alias.PENDING
+        pending = m.decoded(pending_path.read_bytes())
+        for changed in ({"version": True}, {"nonce": "short"}, {"nonce": "Z" * 64}, {"nonce": 1}):
+            with self.subTest(changed=changed):
+                modified_pending = m.encoded(pending | changed)
+                forged_receipt = receipt | {"pending_sha256": m.digest(modified_pending)}
+                self.write(pending_path, modified_pending)
+                self.write(self.output / alias.RECEIPT, m.encoded(forged_receipt))
+                with patch.object(alias, "execute", side_effect=AssertionError("no forged replay launch")):
+                    with self.assertRaisesRegex(alias.ExportError, "replay_receipt_changed"):
+                        self.run_export(receipt_sha=observed_pin)
+                    # Even a caller incorrectly trusting a newly self-consistent
+                    # forged package cannot bypass the closed pending schema.
+                    with self.assertRaisesRegex(alias.ExportError, "replay_pending_changed"):
+                        self.run_export(receipt_sha=m.digest(m.encoded(forged_receipt)))
+        self.write(pending_path, m.encoded(pending))
+        self.write(self.output / alias.RECEIPT, m.encoded(receipt))
+        for changed in changes:
+            with self.subTest(changed=changed):
+                forged_receipt = receipt | {"proceso": process | changed}
+                self.write(self.output / alias.RECEIPT, m.encoded(forged_receipt))
+                with patch.object(alias, "execute", side_effect=AssertionError("no malformed process replay launch")):
+                    with self.assertRaisesRegex(alias.ExportError, "replay_process"):
+                        self.run_export(receipt_sha=m.digest(m.encoded(forged_receipt)))
 
     def test_preflight_pin_failures_have_no_output_effect(self):
         cases = [('binary', self.binary, b'changed', 'binary'), ('act', self.binary.with_name('ACTA.txt'), b'changed', 'act'),
@@ -173,6 +249,8 @@ sock.close()
         for action in ('partial', 'nonzero', 'timeout', 'overflow', 'stderr_overflow'):
             with self.subTest(action=action):
                 self.output = self.base / ('output-' + action)
+                # Independent invented fixtures each have their own pinned cut.
+                alias.OUTPUT_PATH_SHA = m.digest(str(self.output).encode())
                 self.fixture(action)
                 with self.assertRaises((alias.ExportError, ValueError, subprocess.SubprocessError)):
                     self.run_export(timeout=0.7 if action == 'timeout' else 10)
@@ -200,8 +278,8 @@ sock.close()
                     alias.validate_stdout(data, self.files, self.bound)
 
     def test_replay_output_receipt_pending_and_material_changes_never_execute(self):
-        self.run_export()
-        pin = m.digest((self.output / alias.RECEIPT).read_bytes())
+        receipt = self.run_export()
+        pin = m.digest(m.encoded(receipt))
         for name in (alias.OUTPUT, alias.RECEIPT, alias.PENDING):
             with self.subTest(name=name):
                 path = self.output / name
@@ -234,7 +312,7 @@ sock.close()
             self.run_export()
         self.assertFalse(self.output.exists())
         self.output = self.root / 'alias'
-        with self.assertRaisesRegex(alias.ExportError, 'overlaps'):
+        with self.assertRaisesRegex(alias.ExportError, 'output_route_pin_changed'):
             self.run_export()
 
     def test_postflight_changed_material_does_not_seal_execution(self):
