@@ -3,6 +3,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"os"
 
@@ -20,43 +21,46 @@ type salida struct {
 	Mensajes                 []string         `json:"mensajes,omitempty"`
 }
 
-func diagnosticar(w io.Writer, key string) {
-	_ = json.NewEncoder(w).Encode(struct {
+func diagnosticar(w io.Writer, key string) error {
+	return json.NewEncoder(w).Encode(struct {
 		ErrorClave string `json:"error_clave"`
 	}{key})
+}
+
+func fallar(w io.Writer, key string) int {
+	if diagnosticar(w, key) != nil {
+		return 4
+	}
+	return 3
 }
 
 func run(args []string, in io.Reader, out, diag io.Writer) int {
 	var catalogo map[string]string
 	if len(args) > 0 {
 		if len(args) != 2 || args[0] != "-catalogo" {
-			diagnosticar(diag, "copias_seguridad_error_argumentos")
-			return 3
+			return fallar(diag, "copias_seguridad_error_argumentos")
 		}
 		// G304/G703: lectura local solicitada explícitamente por el operador; no ejecuta
 		// el contenido ni publica la ruta o errores del sistema de archivos.
 		f, err := os.Open(args[1]) // #nosec G304 G703 -- catálogo local indicado por el operador, sin frontera HTTP.
 		if err != nil {
-			diagnosticar(diag, "copias_seguridad_error_catalogo")
-			return 3
+			return fallar(diag, "copias_seguridad_error_catalogo")
 		}
 		info, statErr := f.Stat()
 		if statErr != nil || !info.Mode().IsRegular() {
-			_ = f.Close()
-			diagnosticar(diag, "copias_seguridad_error_catalogo")
-			return 3
+			if closeErr := f.Close(); closeErr != nil {
+				return fallar(diag, "copias_seguridad_error_catalogo")
+			}
+			return fallar(diag, "copias_seguridad_error_catalogo")
 		}
-		err = leerEstricto(f, &catalogo)
-		_ = f.Close()
+		err = errors.Join(leerEstricto(f, &catalogo), f.Close())
 		if err != nil {
-			diagnosticar(diag, "copias_seguridad_error_catalogo")
-			return 3
+			return fallar(diag, "copias_seguridad_error_catalogo")
 		}
 	}
 	var e entrada
 	if leerEstricto(in, &e) != nil {
-		diagnosticar(diag, "copias_seguridad_error_entrada")
-		return 3
+		return fallar(diag, "copias_seguridad_error_entrada")
 	}
 	var resultado copias.Resultado
 	if e.FormatoVersion != copias.FormatoVersion {
@@ -69,22 +73,19 @@ func run(args []string, in io.Reader, out, diag io.Writer) int {
 		var ok bool
 		s.Mensaje, ok = catalogo[s.EstadoClave]
 		if !ok {
-			diagnosticar(diag, "copias_seguridad_error_catalogo")
-			return 3
+			return fallar(diag, "copias_seguridad_error_catalogo")
 		}
 		for _, r := range resultado.Razones {
 			texto, ok := catalogo["copias_seguridad_razon_"+r.Codigo]
 			accion, okAccion := catalogo["copias_seguridad_accion_"+r.Accion]
 			if !ok || !okAccion {
-				diagnosticar(diag, "copias_seguridad_error_catalogo")
-				return 3
+				return fallar(diag, "copias_seguridad_error_catalogo")
 			}
 			s.Mensajes = append(s.Mensajes, texto+" "+accion)
 		}
 	}
 	if json.NewEncoder(out).Encode(s) != nil {
-		diagnosticar(diag, "copias_seguridad_error_salida")
-		return 3
+		return fallar(diag, "copias_seguridad_error_salida")
 	}
 	switch resultado.Estado {
 	case copias.Compatible:
