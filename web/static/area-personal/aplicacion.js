@@ -3,11 +3,11 @@ import { IDIOMAS_DISPONIBLES } from "../comun/idioma.js";
 import { MOTIVOS_PAUSA_DISPONIBILIDAD } from "./contrato.js";
 import { iniciarI18nAreaPersonal, textosErrorCargaAreaPersonal, traducir } from "./i18n.js";
 import { alternarVisualSesion, crearOperacionPreferencias, montarUsuariosAreaPersonal, pintarInicialesSesion, renderizarPreferencias,
-  sincronizarAtajosVisuales, valoresDelFormulario } from "./preferencias.js?v=20260929-imagen-508c-v2";
+  sincronizarAtajosVisuales, valoresDelFormulario } from "./preferencias.js?v=20260930-codexf-temas-v2";
 import { montarVistaOportunidades } from "../comun/oportunidades/vista.js?v=20260924-f2-b15-area-v1";
 import {
   renderizarConvocatorias, renderizarDetalleConvocatoria, renderizarInicio,
-} from "./vistas/inicio-convocatorias.js?v=20260930-candidato-convocatorias-v2";
+} from "./vistas/inicio-convocatorias.js?v=20261001-temas-convocatorias-v3";
 import {
   renderizarAutobaremacion, renderizarMeritos, renderizarPerfil, renderizarSolicitud,
 } from "./vistas/perfil-meritos-solicitud.js";
@@ -15,7 +15,7 @@ import {
   renderizarAlegaciones, renderizarLlamamientos, renderizarSeguimiento, renderizarSubsanaciones,
 } from "./vistas/seguimiento-tramites.js";
 import { renderizarAyuda, renderizarCertificados, renderizarMensajes } from "./vistas/comunicaciones-ayuda.js";
-import { crearControladorContactoPropio, montarContactoPropio } from "./contacto-propio.js";
+import { crearControladorContactoPropio, montarContactoPropio } from "./contacto-propio.js?v=20260930-temas-v2-historico-v1";
 import { montarFichaAspirante } from "./ficha-aspirante.js?v=20260930-portales-i18n-integracion-v1";
 import { enviarPortalMiBolsa } from "./mi-bolsa-portal.js";
 import { montarHistorialMiBolsa } from "./mi-bolsa-historial.js";
