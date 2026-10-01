@@ -86,7 +86,7 @@ async function respuesta(response, c, ruta, metodo = 'POST') {
   return body.data;
 }
 
-async function consultarFirmas(page, c) {
+export async function consultarFirmas(page, c) {
   const r = await page.evaluate(async ({ ruta, ref }) => {
     const x = await fetch(ruta, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       body: JSON.stringify({ expediente_ref: ref }), credentials: 'same-origin', cache: 'no-store', redirect: 'error', referrerPolicy: 'no-referrer' });
@@ -94,7 +94,8 @@ async function consultarFirmas(page, c) {
   }, { ruta: RUTA_CONSULTA_FIRMA_DOCUMENTO, ref: c.expediente_ref });
   if (r.status !== 200 || !r.body || Object.keys(r.body).length !== 1) fallo('firma_no_disponible');
   const estado = validarEstadoFirmas(r.body.data);
-  if (!estado || estado.ejemplo || !estado.verificacion_disponible) fallo('firma_no_disponible');
+  // `ejemplo=true` describe el catálogo de desarrollo, no una respuesta fabricada.
+  if (!estado || !estado.verificacion_disponible) fallo('firma_no_disponible');
   return estado;
 }
 

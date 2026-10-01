@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { seleccionarOpciones, resumirRecuperacionFirmas, interceptarHTTP, aplicarReconciliacionFirma, esRespuesta } from './recorrer.mjs';
+import { seleccionarOpciones, resumirRecuperacionFirmas, interceptarHTTP, aplicarReconciliacionFirma, esRespuesta, consultarFirmas } from './recorrer.mjs';
 import { validarReciboFirma, origen } from './config.mjs';
 
 test('B2 selecciona referencias del expediente consultado y corta ambigüedades', () => {
@@ -92,4 +92,14 @@ test('una respuesta auxiliar con la misma ruta nunca acredita un POST de VEC', (
   const r = { url: () => 'https://127.0.0.1:63117/api/vec/contratacion-temporal/firmas-documento',
     request: () => ({ method: () => 'POST' }) };
   assert.equal(esRespuesta(r, c, '/api/vec/contratacion-temporal/firmas-documento'), false);
+});
+
+test('el catálogo E3 de ejemplo admite una consulta real verificada', async () => {
+  const pagina = { evaluate: async () => ({ status: 200, body: { data: {
+    esquema: 'vec.contratacion-temporal.estado-firmas-documento.v1', catalogo_ref: 'catalogo:ejemplo',
+    huella_sha256: 'a'.repeat(64), ejemplo: true, firma_eficaz: false,
+    verificacion_disponible: true, documentos: [],
+  } } }) };
+  const estado = await consultarFirmas(pagina, { expediente_ref: 'expediente:b2:1' });
+  assert.equal(estado.ejemplo, true);
 });
