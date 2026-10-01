@@ -527,7 +527,9 @@
     "ficha_no_configurado": "No hay una fuente propia autorizada conectada para este apartado. La ausencia de datos no equivale a cero.",
     "ficha_denegado": "No tiene permiso para consultar este apartado.",
     "ficha_excede_limite": "Este apartado tiene más registros de los que se pueden mostrar aquí. Solicite el detalle a Recursos Humanos.",
-    "ficha_error": "No se pudo consultar este apartado. Los demás apartados siguen disponibles."
+    "ficha_error": "No se pudo consultar este apartado. Los demás apartados siguen disponibles.",
+    "ficha_reintentar": "Reintentar consulta",
+    "ficha_actualizar": "Actualizar datos"
   },
   "rpt_puestos": {
     "sobrelinea": "Portal del Empleado → Personal",
