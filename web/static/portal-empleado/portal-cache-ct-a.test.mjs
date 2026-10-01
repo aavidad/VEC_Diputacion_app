@@ -1,8 +1,8 @@
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { exigirVersiones } from "./versiones-cache.test-helper.mjs";
+import { exigirVersiones, posterior } from "./versiones-cache.test-helper.mjs";
 
-const versionEntrada = "20261001-b-org-sync-v3";
+const versionEntradaAnterior = "20261001-b-org-sync-v3";
 const raiz = new URL("./", import.meta.url);
 
 test("la extracción CT renueva cada padre hasta la entrada del portal", async () => {
@@ -11,7 +11,7 @@ test("la extracción CT renueva cada padre hasta la entrada del portal", async (
     readFile(new URL("portal.js", raiz), "utf8"),
     readFile(new URL("modulos/contratacion-temporal/vista-expedientes.js", raiz), "utf8"),
   ]);
-  exigirVersiones(html, "/portal-empleado/portal.js", versionEntrada);
+  const versionEntrada = exigirVersiones(html, "/portal-empleado/portal.js", posterior(versionEntradaAnterior));
   exigirVersiones(html, "/portal-empleado/portal-modulos-coordinador.js", versionEntrada);
   exigirVersiones(portal, "./portal-modulos-coordinador.js", versionEntrada);
   exigirVersiones(expediente, "./seguimiento-cese.js", "20261001-ct-a-i18n-v1");

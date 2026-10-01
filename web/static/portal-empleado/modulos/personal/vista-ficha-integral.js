@@ -1,7 +1,7 @@
 import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
 import { crearTraductorPersonal } from "./i18n.js?v=20260925-personal-e10-v1";
 
-import { crearSelectorCorteServicios, esFechaCorteServicios, presentarFechaCorteServicios, traducirCorteServicios } from "./ficha-propia-corte.js?v=20261001-personal-corte-propio-v1";
+import { crearSelectorCorteServicios, esFechaCorteServicios, presentarFechaCorteServicios, traducirCorteServicios } from "./ficha-propia-corte.js?v=20261001-b-personal-corte-propio-cache-v2";
 
 const PESTANAS = Object.freeze([
   ["ficha", "ficha_tab_ficha"], ["relaciones", "ficha_tab_relaciones"],
