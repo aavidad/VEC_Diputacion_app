@@ -1,0 +1,5 @@
+{
+  "alcance": "Physical rehearsal with synthetic data. This result does not validate the full backup or authorize restoration.",
+  "restauracion_fisica_completada": "PostgreSQL was recovered in an isolated environment. Review the comparison and VEC startup before validating the complete set.",
+  "restauracion_fisica_fallida": "The physical rehearsal did not complete. Review the reported stage and reasons."
+}

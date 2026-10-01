@@ -1,4 +1,4 @@
-package ensayologicopg
+package ensayofisicopg
 
 import (
 	"bytes"
@@ -33,7 +33,7 @@ type salidaAcotada struct {
 
 func (s *salidaAcotada) Write(p []byte) (int, error) {
 	if len(p) > s.limite-s.Len() {
-		return 0, fmt.Errorf("ensayo_logico_salida_excedida")
+		return 0, fmt.Errorf("ensayo_fisico_salida_excedida")
 	}
 	return s.Buffer.Write(p)
 }

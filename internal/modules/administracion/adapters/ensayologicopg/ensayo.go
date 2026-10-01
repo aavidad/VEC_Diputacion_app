@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"vec-diputacion-granada/internal/modules/administracion/adapters/ensayofisicopg"
+	puertos "vec-diputacion-granada/internal/modules/administracion/ports/ensayofisicopg"
 )
 
 var versionHerramienta = regexp.MustCompile(`\(PostgreSQL\) ([0-9]+\.[0-9]+)(?:[ \r\n]|$)`)
@@ -63,10 +65,28 @@ func (e Ensayador) ensayar(ctx context.Context, s Solicitud, r Resultado) (resul
 	if !e.comprobarVersiones(ctx, nombre, entrada, &resultado) {
 		return
 	}
+	var componentes []puertos.Componente
+	var montajes []string
+	if e.Observador != nil {
+		componentes, montajes, err = ensayofisicopg.PrepararArchivados(ctx, raiz, e.ComponentesArchivados, e.Configuracion.LimiteArchivoBytes)
+		if err != nil {
+			fallo(&resultado, "entrada", "archivados", "verificados", "no_comprobable")
+			return
+		}
+	}
 	cmd := append(e.opcionesAisladas(nombre), "-d", "-v", filepath.Join(raiz, "pgdata")+":/data:rw",
 		"-v", entrada+":/entrada:ro", "-e", "PGDATA=/data", "-e", "POSTGRES_USER="+e.Configuracion.UsuarioBootstrap,
 		"-e", "POSTGRES_DB=postgres", "-e", "POSTGRES_HOST_AUTH_METHOD=trust",
 		"sha256:"+e.Configuracion.ImagenSHA256, "postgres", "-c", "listen_addresses=", "-c", "unix_socket_directories=/var/run/postgresql")
+	// Los montajes archivados van antes de la imagen y del comando cerrado.
+	if len(montajes) > 0 {
+		for i, a := range cmd {
+			if a == "sha256:"+e.Configuracion.ImagenSHA256 {
+				cmd = append(cmd[:i], append(montajes, cmd[i:]...)...)
+				break
+			}
+		}
+	}
 	if _, err = docker(ctx, nil, 4096, cmd...); err != nil || !e.esperar(ctx, nombre) {
 		fallo(&resultado, "inicio", "postgresql_aislado", "disponible", "no_disponible")
 		return
@@ -89,6 +109,28 @@ func (e Ensayador) ensayar(ctx context.Context, s Solicitud, r Resultado) (resul
 	if _, err = docker(ctx, nil, 4096, cmd...); err != nil {
 		fallo(&resultado, "restauracion", "restauracion_logica", "completada", "fallida")
 		return
+	}
+	if e.Observador != nil {
+		if _, err := docker(ctx, nil, 4096, append(e.psql(nombre), "-c", "ALTER SYSTEM SET default_transaction_read_only='on'")...); err != nil {
+			fallo(&resultado, "observacion", "solo_lectura", "comprobado", "no_comprobable")
+			return
+		}
+		if _, err := docker(ctx, nil, 4096, append(e.psql(nombre), "-c", "SELECT pg_reload_conf()")...); err != nil {
+			fallo(&resultado, "observacion", "solo_lectura", "comprobado", "no_comprobable")
+			return
+		}
+		runtime := ensayofisicopg.RuntimeObservacion{Nombre: nombre, Raiz: raiz, ImagenSHA256: e.Configuracion.ImagenSHA256, UsuarioBootstrap: e.Configuracion.UsuarioBootstrap, Componentes: componentes, ConfiguracionOrigenExcluida: true}
+		entorno, err := runtime.Entorno(ctx)
+		if err != nil {
+			fallo(&resultado, "observacion", "aislamiento", "comprobado", "no_comprobable")
+			return
+		}
+		o, err := e.Observador.Observar(ctx, entorno)
+		if err != nil || !ensayofisicopg.ObservacionValida(o) {
+			fallo(&resultado, "observacion", "contraste_arranque", "comprobado", "no_comprobable")
+			return
+		}
+		resultado.Observacion = o
 	}
 	resultado.Estado, resultado.Etapa = "restauracion_logica_completada", "completado"
 	return
