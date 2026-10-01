@@ -1,7 +1,7 @@
 {
   "general": {
     "titulo": "Relación para Organización",
-    "pendiente": "Ocupación y reserva pendientes de la fuente de Organización.",
+    "pendiente": "Preparación con datos sintéticos y cobertura no acreditada. Ocupación y reserva pendientes de la fuente de Organización.",
     "seleccione": "Seleccione una relación de servicio para consultar su preparación.",
     "vacio": "No hay relaciones de servicio en esta consulta.",
     "relacion_no_disponible": "La relación seleccionada no está disponible en esta consulta.",
