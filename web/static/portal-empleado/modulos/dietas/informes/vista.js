@@ -220,8 +220,8 @@ export function montarInformesDietas(contenedor, { cargarDatos, cargarConfigurac
   const limpiarErrorFecha = () => {
     desde.removeAttribute("aria-invalid"); hasta.removeAttribute("aria-invalid");
   };
-  const elegir = (select, filas, referencia, nombre) => {
-    const anterior = select.value;
+  const elegir = (select, filas, referencia, nombre, aplicado) => {
+    const opcionAnterior = [...select.children].find((opcion) => opcion.value === aplicado);
     select.replaceChildren();
     const inicial = nodo(documento, "option", t(referencia === "persona_ref" ? "todas_personas" : "todas_unidades"));
     inicial.value = ""; select.append(inicial);
@@ -229,7 +229,9 @@ export function montarInformesDietas(contenedor, { cargarDatos, cargarConfigurac
     for (const [valor, etiqueta] of [...opciones].sort((a, b) => a[1].localeCompare(b[1], localizacion))) {
       const opcion = nodo(documento, "option", etiqueta); opcion.value = valor; select.append(opcion);
     }
-    select.value = opciones.has(anterior) ? anterior : "";
+    // Una selección aplicada que desaparece sigue filtrando: quitarla mostraría otros informes.
+    if (aplicado && !opciones.has(aplicado) && opcionAnterior) select.append(opcionAnterior);
+    select.value = aplicado;
   };
 
   function pintarAyuda(criterio) {
@@ -360,9 +362,10 @@ export function montarInformesDietas(contenedor, { cargarDatos, cargarConfigurac
       const fuente = congelarDatos(datos, criterio, localizacion);
       registros = fuente.registros; moneda = fuente.moneda; configuracion = criterio;
       pintarAyuda(criterio);
-      elegir(persona, registros, "persona_ref", "persona");
-      elegir(unidad, registros, "unidad_ref", "unidad");
-      filtros = Object.freeze({ persona: persona.value, unidad: unidad.value, desde: desde.value, hasta: hasta.value });
+      elegir(persona, registros, "persona_ref", "persona", filtros.persona || "");
+      elegir(unidad, registros, "unidad_ref", "unidad", filtros.unidad || "");
+      desde.value = filtros.desde || ""; hasta.value = filtros.hasta || "";
+      limpiarErrorFecha();
       disponible = true; form.hidden = false; resumen.hidden = false; listado.hidden = false; abrirAyuda.hidden = false;
       pagina = 0; pintar(); anunciarResultado();
       if (focoReintento && documento.activeElement === estado) resumen.focus();

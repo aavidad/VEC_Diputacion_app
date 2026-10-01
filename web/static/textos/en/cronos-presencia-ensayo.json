@@ -11,6 +11,9 @@
     "entrada_invalida": "The trial could not be read. Check the files, their hashes and the language.",
     "entrada_registrada": "Open workday according to punches",
     "pausa_registrada": "Pause recorded",
-    "salida_registrada": "Exit recorded"
+    "salida_registrada": "Exit recorded",
+    "cobertura_incompleta": "The source does not cover the full period up to the cutoff. Check its coverage.",
+    "sin_marcajes": "The source covers the period but contains no punches. Check the records for that date.",
+    "secuencia_ambigua": "Punches have identical times or an inconsistent sequence. Check their order and type."
   }
 }
