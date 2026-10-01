@@ -24,11 +24,21 @@ function pintar() {
   for (const control of raiz.querySelectorAll('#baremo-panel-bolsa [aria-invalid="true"]')) control.setCustomValidity(t("puntos_invalidos"));
   if (panel === "bolsa" && (Object.keys(editor.estado().invalidos).length || error === "validacion")) mostrarErrores();
   const trabajandoActivo = panel === "concursos" ? concursos.estado().trabajando : editor.estado().trabajando;
-  if (!trabajandoActivo && focoComparacion && document.activeElement === document.body) raiz.querySelector(`#baremo-panel-${panel} [type="submit"]`)?.focus({ preventScroll: true });
+  let siguiente = !trabajandoActivo && focoComparacion && document.activeElement === document.body ? raiz.querySelector(`#baremo-panel-${panel} [type="submit"]`) : null;
   if (!trabajandoActivo) focoComparacion = false;
   if (identidadFoco) {
-    const siguiente = [...raiz.querySelectorAll(`#baremo-panel-${panel} input, #baremo-panel-${panel} select, #baremo-panel-${panel} button, #baremo-panel-${panel} summary, .baremo-navegacion button`)].find((c) => identidadFoco.panel ? c.dataset.panel === identidadFoco.panel : identidadFoco.concursoRuta ? c.dataset.concursoRuta === identidadFoco.concursoRuta : identidadFoco.concursoAccion ? c.dataset.concursoAccion === identidadFoco.concursoAccion : identidadFoco.ruta ? c.dataset.ruta === identidadFoco.ruta : identidadFoco.accion ? c.dataset.accion === identidadFoco.accion : identidadFoco.submit ? c.type === "submit" : c.name && c.name === identidadFoco.name);
-    siguiente?.focus({ preventScroll: true });
+    siguiente = [...raiz.querySelectorAll(`#baremo-panel-${panel} input, #baremo-panel-${panel} select, #baremo-panel-${panel} button, #baremo-panel-${panel} summary, .baremo-navegacion button`)].find((c) => identidadFoco.panel ? c.dataset.panel === identidadFoco.panel : identidadFoco.concursoRuta ? c.dataset.concursoRuta === identidadFoco.concursoRuta : identidadFoco.concursoAccion ? c.dataset.concursoAccion === identidadFoco.concursoAccion : identidadFoco.ruta ? c.dataset.ruta === identidadFoco.ruta : identidadFoco.accion ? c.dataset.accion === identidadFoco.accion : identidadFoco.submit ? c.type === "submit" : c.name && c.name === identidadFoco.name);
+  }
+  if (siguiente) {
+    const caja = siguiente.getBoundingClientRect();
+    const x = (caja.left + caja.right) / 2, y = (caja.top + caja.bottom) / 2;
+    const dx = Math.min(1, (caja.right - caja.left) / 4), dy = Math.min(1, (caja.bottom - caja.top) / 4);
+    const puntos = [[x, y], [caja.left + dx, y], [caja.right - dx, y], [x, caja.top + dy], [x, caja.bottom - dy]];
+    const visible = caja.top >= 0 && caja.left >= 0 && caja.bottom <= window.innerHeight && caja.right <= window.innerWidth && puntos.every(([px, py]) => {
+      const encima = document.elementFromPoint(px, py);
+      return encima === siguiente || siguiente.contains(encima);
+    });
+    siguiente.focus({ preventScroll: visible });
   }
 }
 const editor = crearEditorBaremo({ cliente, alCambiar: pintar });
