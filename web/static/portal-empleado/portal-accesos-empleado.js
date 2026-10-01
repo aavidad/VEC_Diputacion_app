@@ -12,6 +12,7 @@ export const traducirAccesosEmpleado = crearTraductorAccesosEmpleado();
 // La composición entrega navegación propia, no concesiones de lectura. Cada
 // destino conserva la autorización del servidor y la propiedad de sus datos.
 const DESTINOS = Object.freeze([
+  { vista: "mis-tramites", icono: "expediente" },
   { vista: "personal", icono: "expediente" },
   { vista: "cronos", icono: "reloj" },
   { vista: "dietas", icono: "euro" },

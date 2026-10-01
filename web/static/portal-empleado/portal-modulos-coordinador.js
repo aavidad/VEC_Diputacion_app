@@ -15,7 +15,7 @@ import {
   componerDietasInternas,
   componerPersonalVisible,
   componerRegistroPersonal,
-} from "./portal-composicion-empleado.js?v=20261001-cronos-grafo-bandeja-v5";
+} from "./portal-composicion-empleado.js?v=20261001-codexg-i03-v1";
 import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20261001-ct-a-i18n-v1";
 import {
   CLAVES_CARGA_MODULAR,
@@ -158,12 +158,12 @@ export const VISTAS_MODULOS_PERSONALES = Object.freeze(new Set(["cronos", "crono
   "cronos-notificaciones", "cronos-bandeja-notificaciones", "dietas", "personal", "personal-registro"]));
 // Navegación propia: no incluye vistas de gestión ni acredita permisos.
 export const VISTAS_AUTOSERVICIO_EMPLEADO = Object.freeze(new Set([
-  "personal", "cronos", "cronos-permisos", "cronos-avisos", "cronos-notificaciones", "dietas",
+  "personal", "cronos", "cronos-permisos", "cronos-avisos", "cronos-notificaciones", "dietas", "mis-tramites",
 ]));
 const SUBVISTAS_CRONOS = Object.freeze(new Set(["cronos-permisos", "cronos-avisos", "cronos-bandeja", "cronos-notificaciones", "cronos-bandeja-notificaciones"]));
 const VISTAS_MODULO_BOLSA = Object.freeze(new Set(VISTAS_INTERNAS_BOLSA));
 export const VISTAS_MODULOS_CONECTADOS = Object.freeze(new Set([
-  "contratacion-temporal", VISTA_PLANTILLAS_RRHH, VISTA_DOCUMENTOS_EXPEDIENTE, ...VISTAS_MODULOS_PERSONALES,
+  "contratacion-temporal", VISTA_PLANTILLAS_RRHH, VISTA_DOCUMENTOS_EXPEDIENTE, ...VISTAS_MODULOS_PERSONALES, "mis-tramites",
 ]));
 
 // Estado de un módulo autorizado sin entrada en el portal que aún no se ha
@@ -177,7 +177,7 @@ function errorCargaSustituida() {
 }
 
 export function moduloDeVistaPortal(vista) {
-  if (vista === "portal") return "portal";
+  if (vista === "portal" || vista === "mis-tramites") return "portal";
   if (vista === "contratacion-temporal" || vista === VISTA_PLANTILLAS_RRHH) return "contratacion_temporal";
   if (vista === "personal" || vista === "personal-registro") return CLAVE_PERSONAL;
   if (SUBVISTAS_CRONOS.has(vista)) return "cronos";
@@ -194,6 +194,7 @@ export function vistaConEntradaPortal(vista) {
 
 export function rutaDeVistaPortal(vista) {
   if (vista === "portal") return "#portal";
+  if (vista === "mis-tramites") return "#mis-tramites";
   if (vista === "contratacion-temporal") return "#contratacion-temporal";
   if (vista === "ofertas-sae") return "#ofertas-sae";
   if (vista === VISTA_PLANTILLAS_RRHH) return "#contratacion-temporal/plantillas-rrhh";
@@ -213,6 +214,13 @@ export function crearCoordinadorModulosPortal({
   locale = LOCALIZACION_PORTAL,
   cargarCatalogoInterno = null,
   cargadoresInternos = CARGADORES_INTERNOS_PREDETERMINADOS,
+  cargarTramitesPropios = async () => {
+    const [fuente, vista] = await Promise.all([
+      import("./modulos/solicitudes/fuente-tramites-propios.js?v=20261001-codexg-i03-v1"),
+      import("./modulos/solicitudes/vista-tramites-propios.js?v=20261001-codexg-i03-v1"),
+    ]);
+    return { fuente, vista };
+  },
   consultarSesion = null,
   limiteCargaModularMs = LIMITE_CARGA_MODULAR_MS,
   temporizadores = globalThis,
@@ -225,7 +233,7 @@ export function crearCoordinadorModulosPortal({
     || (consultarSesion !== null && typeof consultarSesion !== "function")
     || (montajeBolsa !== null && (typeof montajeBolsa?.montar !== "function"
       || typeof montajeBolsa?.disponible !== "function"))
-    || typeof cargadoresInternos?.contratacion_temporal !== "function"
+    || typeof cargadoresInternos?.contratacion_temporal !== "function" || typeof cargarTramitesPropios !== "function"
     || !["es-ES", "en-GB"].includes(locale)
     || !Number.isSafeInteger(limiteCargaModularMs)
     || limiteCargaModularMs < 1 || limiteCargaModularMs > 10_000
@@ -254,6 +262,10 @@ export function crearCoordinadorModulosPortal({
   let registroPersonalServido = null;
   // Arranca un módulo diferido dentro de la carga vigente (null sin carga).
   let cargaDiferida = null;
+  let recursosTramites = null;
+  let cargaTramites = null;
+  let estadoTramites = ESTADO_DIFERIDO;
+  let notificarTramites = () => {};
   let sondaRegistro = null;
 
   // Invalida siempre la carga en curso, también entre dos consultas (cuando no
@@ -602,6 +614,7 @@ export function crearCoordinadorModulosPortal({
     cancelarCargaInterna();
     const carga = ++secuenciaCarga;
     composicion = null;
+    recursosTramites = null; cargaTramites = null; estadoTramites = ESTADO_DIFERIDO;
     catalogo = Object.freeze([]);
     catalogoOfrecido = catalogo;
     cargaEnCurso = true;
@@ -619,6 +632,7 @@ export function crearCoordinadorModulosPortal({
       if (!vigente() || typeof alCambiar !== "function") return;
       try { alCambiar(clave); } catch { /* un fallo al pintar no detiene la carga */ }
     };
+    notificarTramites = () => notificar("mis-tramites");
 
     let catalogoInterno;
     try {
@@ -674,16 +688,22 @@ export function crearCoordinadorModulosPortal({
       publicar();
       notificar(clave);
     };
-    cargaDiferida = (clave) => {
-      if (!vigente() || estados[clave] !== ESTADO_DIFERIDO) return null;
+    const promesasModulos = new Map();
+    const iniciarModulo = (clave) => {
+      const promesa = cargarModulo(clave); promesasModulos.set(clave, promesa); return promesa;
+    };
+    cargaDiferida = (clave, esperarEnCurso = false) => {
+      if (!vigente()) return null;
+      if (esperarEnCurso && estados[clave] === "cargando") return promesasModulos.get(clave) ?? null;
+      if (estados[clave] !== ESTADO_DIFERIDO) return null;
       estados[clave] = "cargando";
       publicar();
-      return cargarModulo(clave);
+      return iniciarModulo(clave);
     };
     publicar();
     notificar("catalogo");
 
-    await Promise.allSettled(cargables.map(cargarModulo));
+    await Promise.allSettled(cargables.map(iniciarModulo));
     exigirVigente();
     cargaEnCurso = false;
   }
@@ -695,6 +715,22 @@ export function crearCoordinadorModulosPortal({
    * catálogo todavía).
    */
   function prepararVista(vista) {
+    if (vista === "mis-tramites") {
+      const claves = ["cronos", "dietas"].filter((clave) => catalogo.some((modulo) => modulo.clave === clave));
+      if (!claves.length || cargaTramites || typeof cargaDiferida !== "function") return null;
+      const carga = secuenciaCarga;
+      estadoTramites = "cargando";
+      cargaTramites = Promise.all([cargarModuloConLimite(cargarTramitesPropios, "mis-tramites", limiteCargaModularMs, temporizadores),
+        ...claves.map((clave) => cargaDiferida(clave, true))])
+        .then(([recursos]) => {
+          if (carga !== secuenciaCarga) return;
+          if (typeof recursos?.fuente?.crearFuenteTramitesPropios !== "function"
+            || typeof recursos?.vista?.montarVistaTramitesPropios !== "function") throw new TypeError("trámites propios no disponibles");
+          recursosTramites = recursos; estadoTramites = "disponible";
+        }).catch(() => { if (carga === secuenciaCarga) estadoTramites = "no_disponible"; })
+        .finally(() => { if (carga === secuenciaCarga) notificarTramites(); });
+      return cargaTramites;
+    }
     const modulo = moduloDeVistaPortal(vista);
     if (!modulosDiferidos.includes(modulo) || typeof cargaDiferida !== "function") return null;
     return cargaDiferida(modulo);
@@ -729,6 +765,8 @@ export function crearCoordinadorModulosPortal({
   function vistaPendiente(vista) {
     if (!vistaGestionada(vista) || vistaDisponible(vista)) return false;
     if (catalogoPendiente()) return true;
+    if (vista === "mis-tramites") return catalogo.some((modulo) => ["cronos", "dietas"].includes(modulo.clave))
+      && [ESTADO_DIFERIDO, "cargando"].includes(estadoTramites);
     const modulo = moduloDeVistaPortal(vista);
     if (["cargando", ESTADO_DIFERIDO].includes(estadoCargaModulo(modulo))) return true;
     // El registro RRHH depende también de conocer el perfil.
@@ -740,12 +778,16 @@ export function crearCoordinadorModulosPortal({
   }
 
   function obtenerAccesosEmpleado() {
-    return Object.freeze(Object.fromEntries(["personal", "cronos", "dietas"]
+    const accesos = Object.fromEntries(["personal", "cronos", "dietas"]
       .filter((clave) => catalogo.some((modulo) => modulo.clave === clave))
-      .map((clave) => [clave, Object.freeze({ estado: estadoCargaModulo(clave) })])));
+      .map((clave) => [clave, Object.freeze({ estado: estadoCargaModulo(clave) })]));
+    if (catalogo.some((modulo) => ["cronos", "dietas"].includes(modulo.clave)))
+      accesos["mis-tramites"] = Object.freeze({ estado: estadoTramites });
+    return Object.freeze(accesos);
   }
 
   function vistaDisponible(vista) {
+    if (vista === "mis-tramites") return estadoTramites === "disponible" && recursosTramites !== null;
     if (VISTAS_MODULO_BOLSA.has(vista)) {
       return montajeBolsa !== null && montajeBolsa.disponible(vista) === true;
     }
@@ -888,6 +930,16 @@ export function crearCoordinadorModulosPortal({
         return false;
       }
       desmontarVista = typeof limpiar === "function" ? limpiar : null;
+      return true;
+    }
+
+    if (vista === "mis-tramites") {
+      const fuente = recursosTramites.fuente.crearFuenteTramitesPropios({
+        consultarPermisos: composicion?.cronos?.consultarPermisos,
+        listarComisiones: composicion?.dietas?.clienteBorradores?.listar?.bind(composicion.dietas.clienteBorradores),
+      });
+      const vistaTramites = recursosTramites.vista.montarVistaTramitesPropios({ raiz, fuente, anunciar });
+      desmontarVista = vistaTramites.desmontar;
       return true;
     }
 
