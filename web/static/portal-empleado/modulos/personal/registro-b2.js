@@ -5,6 +5,7 @@ import { accionesRegistroB2Disponibles, montarActosRegistroB2 } from "./registro
 import { cargarOpcionesPublicadasCatalogoB2, montarCatalogosRegistroB2 } from "./registro-b2-catalogos.js?v=20260929-i18n-personal-v1";
 import { crearTraductorTraza } from "./personal-traza-i18n.js?v=20261001-personal-expediente-v2";
 import { crearPanelPreparacionServiciosCER } from "./preparacion-servicios-cer.js?v=20261001-servicios-cer-v1";
+import { crearPanelRelacionParaRPT } from "./preparacion-relacion-rpt.js?v=20261001-relacion-rpt-v1";
 
 const BLOQUES = Object.freeze([
   ["relaciones", "registro_b2_relaciones", "registro_b2_tabla_relaciones", [
@@ -126,6 +127,10 @@ function validarFicha(respuesta) {
       !BLOQUES.every(([clave]) => Array.isArray(f[clave]) && f[clave].length <= 200 && f[clave].every((fila) => fila && typeof fila === "object" && fila.traza && fechaValida(fila.traza.desde) && (!fila.traza.hasta || fechaValida(fila.traza.hasta)) && Number.isSafeInteger(fila.traza.version) && fila.traza.version > 0 && (clave !== "servicios" || (fechaValida(fila.periodo_desde) && fechaValida(fila.periodo_hasta)))))) throw new TypeError("ficha de empleado incompatible");
   return f;
 }
+function validarVinculoPreparacion(ficha, modelo, campoVersion = "version") {
+  if (modelo !== undefined && (!modelo || modelo.empleado_ref !== ficha.empleado_ref || modelo[campoVersion] !== ficha.version || modelo.corte?.vigente_en !== ficha.corte.vigente_en || !instanteValido(modelo.corte?.conocido_en) || Date.parse(modelo.corte.conocido_en) !== Date.parse(ficha.corte.conocido_en))) throw new TypeError("personal.preparacion.ficha_incompatible");
+  return modelo;
+}
 function validarPagina(respuesta) {
   const p = respuesta?.pagina;
   if (!p || typeof p !== "object" || !p.corte || !fechaValida(p.corte.vigente_en) || !instanteValido(p.corte.conocido_en) ||
@@ -172,11 +177,11 @@ export function montarRegistroB2({ raiz, cliente, clienteCatalogos, empleadoRef 
   s.append(cabecera, pestañas, contenido); raiz.append(s);
   let activo = true; let vista = "ficha"; let vuelo; let empleado = empleadoRef; let turno = 0; let ultimaFicha; let montajeActos; let montajeCatalogos;
   let vigenteEn = hoyMadrid(reloj); let conocidoEnLocal = localFechaHora(reloj());
-  let seleccionRelacion = ""; let preparacionServicios;
+  let seleccionRelacion = ""; let preparacionServicios; let preparacionRPT;
   const paginas = { vacantes: { cursor: "", anteriores: [] }, empleados: { cursor: "", anteriores: [] } };
   const botones = new Map();
   const limpiarVuelo = () => { turno += 1; vuelo?.abort(); vuelo = undefined; };
-  const desmontar = () => { if (!activo) return; activo = false; limpiarVuelo(); ultimaFicha = undefined; preparacionServicios = undefined; montajeActos?.desmontar(); montajeCatalogos?.desmontar(); s.remove?.(); };
+  const desmontar = () => { if (!activo) return; activo = false; limpiarVuelo(); ultimaFicha = undefined; preparacionServicios = undefined; preparacionRPT = undefined; montajeActos?.desmontar(); montajeCatalogos?.desmontar(); s.remove?.(); };
   registrarDesmontar?.(desmontar);
 
   function pintarFicha(ficha) {
@@ -208,6 +213,7 @@ export function montarRegistroB2({ raiz, cliente, clienteCatalogos, empleadoRef 
     }
     contenido.append(rejilla);
     if (preparacionServicios) contenido.append(crearPanelPreparacionServiciosCER({ documento: d, modelo: preparacionServicios, relacionRef: seleccionRelacion }));
+    if (preparacionRPT) contenido.append(crearPanelRelacionParaRPT({ documento: d, modelo: preparacionRPT, relacionRef: seleccionRelacion }));
   }
   function paginacion(clave, pagina, etiqueta) {
     const estadoPagina = paginas[clave];
@@ -280,7 +286,7 @@ export function montarRegistroB2({ raiz, cliente, clienteCatalogos, empleadoRef 
   async function consultar() {
     if (!activo) return;
     limpiarVuelo();
-    ultimaFicha = undefined; preparacionServicios = undefined;
+    ultimaFicha = undefined; preparacionServicios = undefined; preparacionRPT = undefined;
     const conocidoEn = conocidoUTC(conocidoEnLocal);
     if (!fechaValida(vigenteEn) || !conocidoEn) { contenido.replaceChildren(estado(d, t("registro_b2_fecha_invalida"), true)); return; }
     if (vista === "ficha" && !empleado) {
@@ -302,9 +308,8 @@ export function montarRegistroB2({ raiz, cliente, clienteCatalogos, empleadoRef 
       if (vista === "ficha") {
         const ficha = validarFicha(respuesta);
         if (ficha.empleado_ref !== empleado || ficha.corte.vigente_en !== vigenteEn || Date.parse(ficha.corte.conocido_en) !== Date.parse(conocidoEn)) throw new TypeError("ficha de otro empleado o corte");
-        const modelo = respuesta.preparacion_servicios;
-        if (modelo !== undefined && (!modelo || modelo.empleado_ref !== ficha.empleado_ref || modelo.version !== ficha.version || modelo.corte?.vigente_en !== ficha.corte.vigente_en || !instanteValido(modelo.corte?.conocido_en) || Date.parse(modelo.corte.conocido_en) !== Date.parse(ficha.corte.conocido_en))) throw new TypeError("personal.servicios_certificados.ficha_incompatible");
-        preparacionServicios = modelo;
+        preparacionServicios = validarVinculoPreparacion(ficha, respuesta.preparacion_servicios);
+        preparacionRPT = validarVinculoPreparacion(ficha, respuesta.preparacion_rpt, "version_ficha");
         ultimaFicha = ficha; pintarFicha(ficha);
       } else {
         const pagina = vista === "empleados" ? validarPaginaEmpleados(respuesta) : validarPagina(respuesta);
@@ -313,7 +318,7 @@ export function montarRegistroB2({ raiz, cliente, clienteCatalogos, empleadoRef 
       }
     } catch (error) {
       if (!activo || vuelo !== actual || actual.signal.aborted || secuencia !== turno) return;
-      ultimaFicha = undefined; preparacionServicios = undefined;
+      ultimaFicha = undefined; preparacionServicios = undefined; preparacionRPT = undefined;
       const errorCliente = error instanceof ErrorRegistroB2 || error?.name === "ErrorRegistroB2";
       const reintentable = vista === "vacantes" && errorCliente && error.estado === 503;
       const clave = reintentable && error.codigo === "cobertura_no_acreditada" ? "registro_b2_no_determinable" : errorCliente && [401, 403].includes(error.estado) ? "registro_b2_denegado" : "registro_b2_error";
@@ -350,7 +355,7 @@ export function montarRegistroB2({ raiz, cliente, clienteCatalogos, empleadoRef 
         const opciones = { ...catalogos, regimenes: publicadas.regimenes, modalidades: publicadas.modalidades, situaciones: publicadas.situaciones, clasesServicio: publicadas.clasesServicio };
         contenido.replaceChildren();
         if (!accionesRegistroB2Disponibles({ cliente, catalogos: opciones, personaRef, empleadoRef: empleado })) { contenido.append(estado(d, t("registro_b2_actos_no_disponibles"))); return; }
-        montajeActos = montarActosRegistroB2({ raiz: contenido, cliente, catalogos: opciones, personaRef, empleadoRef: empleado, ficha: ultimaFicha, anunciar, alRegistrar: (recibo) => { empleado = recibo.empleado_ref; ultimaFicha = undefined; preparacionServicios = undefined; seleccionRelacion = recibo.relacion_ref; } });
+        montajeActos = montarActosRegistroB2({ raiz: contenido, cliente, catalogos: opciones, personaRef, empleadoRef: empleado, ficha: ultimaFicha, anunciar, alRegistrar: (recibo) => { empleado = recibo.empleado_ref; ultimaFicha = undefined; preparacionServicios = undefined; preparacionRPT = undefined; seleccionRelacion = recibo.relacion_ref; } });
       }).catch(() => {
         if (!activo || vista !== "actos" || vuelo !== actual || actual.signal.aborted || secuencia !== turno) return;
         contenido.replaceChildren(estado(d, t("registro_b2_catalogos_error"), true));
@@ -374,10 +379,10 @@ export function montarRegistroB2({ raiz, cliente, clienteCatalogos, empleadoRef 
   });
   function elegirEmpleado(ref) {
     if (!activo || typeof ref !== "string" || !/^emp_[A-Za-z0-9_-]{22,128}$/u.test(ref)) return;
-    empleado = ref; ultimaFicha = undefined; preparacionServicios = undefined; seleccionRelacion = "";
+    empleado = ref; ultimaFicha = undefined; preparacionServicios = undefined; preparacionRPT = undefined; seleccionRelacion = "";
     cambiarVista("ficha"); botones.get("ficha")?.focus?.();
   }
-  const cambiarEmpleado = (ref) => { if (ref !== "" && (typeof ref !== "string" || !/^emp_[A-Za-z0-9_-]{22,128}$/u.test(ref))) throw new TypeError("referencia de empleado no válida"); empleado = ref; ultimaFicha = undefined; preparacionServicios = undefined; seleccionRelacion = ""; if (vista === "ficha") consultar(); else if (vista === "actos") cambiarVista("actos"); };
+  const cambiarEmpleado = (ref) => { if (ref !== "" && (typeof ref !== "string" || !/^emp_[A-Za-z0-9_-]{22,128}$/u.test(ref))) throw new TypeError("referencia de empleado no válida"); empleado = ref; ultimaFicha = undefined; preparacionServicios = undefined; preparacionRPT = undefined; seleccionRelacion = ""; if (vista === "ficha") consultar(); else if (vista === "actos") cambiarVista("actos"); };
   cambiarVista(empleado || !botones.has("empleados") ? "ficha" : "empleados");
   return Object.freeze({ desmontar, cambiarEmpleado });
 }

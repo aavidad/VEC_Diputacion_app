@@ -58,6 +58,11 @@ func (s *ServicioRegistroEmpleadoB2) ConsultarFicha(ctx context.Context, solicit
 		return vacio, domain.ErrRegistroEmpleadoB2NoDisponible
 	}
 	resultado.PreparacionServicios = &preparacion
+	preparacionRPT, err := domain.PrepararRelacionParaRPT(resultado.Ficha)
+	if err != nil {
+		return vacio, domain.ErrRegistroEmpleadoB2NoDisponible
+	}
+	resultado.PreparacionRPT = &preparacionRPT
 	return resultado, nil
 }
 
