@@ -14,6 +14,7 @@ BEGIN
  OR current_setting('server_version_num')::integer/10000<>18
  OR current_setting('server_encoding')<>'UTF8'
  OR pg_catalog.to_regprocedure('vec_contexto_actor_v1.revalidar_vinculo_corporativo_rrhh_v1(text,text,text,text,numeric)') IS NULL
+ OR pg_catalog.to_regclass('vec_contexto_actor_v1.control_generacion_punteros_actuales_v2') IS NULL
  OR pg_catalog.to_regrole('vec_autorizacion_propietario') IS NULL
  OR pg_catalog.to_regclass('vec_contexto_actor_v1.vinculo_rpt_versiones') IS NOT NULL
  OR NOT EXISTS(SELECT 1 FROM pg_catalog.pg_namespace WHERE nspname='vec_contexto_actor_v1'
@@ -224,8 +225,17 @@ CREATE FUNCTION vec_contexto_actor_v1.acreditar_rpt_rrhh_v1(
  p_principal_id text,p_perfil_ref text,p_catalogo_id text,p_modulo_id text,
  p_rol_ref text,p_rol_version numeric,p_rol_huella_sha256 text
 ) RETURNS boolean LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog AS $f$
-DECLARE r record; n integer:=0; valido boolean:=false;
+DECLARE r record; n integer:=0; valido boolean:=false; generacion_observada numeric;
 BEGIN
+ IF current_setting('transaction_isolation')<>'serializable'
+ OR current_setting('transaction_read_only')<>'off' THEN RETURN false; END IF;
+ PERFORM pg_catalog.pg_advisory_xact_lock_shared(pg_catalog.hashtextextended('vec_contexto_actor_v1:mutacion_punteros_actuales:v2',0));
+ -- La generación también cambia al insertar otra cuenta. FOR SHARE rechaza
+ -- una instantánea anterior incluso cuando ninguna fila leída se actualizó.
+ SELECT generacion INTO generacion_observada
+ FROM vec_contexto_actor_v1.control_generacion_punteros_actuales_v2
+ WHERE control_id=true FOR SHARE;
+ IF NOT FOUND THEN RETURN false; END IF;
  -- Un perfil activo no suma vínculos de cuentas distintas.
  FOR r IN SELECT v.* FROM vec_contexto_actor_v1.vinculo_rpt_actual a
  JOIN vec_contexto_actor_v1.vinculo_rpt_versiones v USING(vinculo_rpt_ref,version)

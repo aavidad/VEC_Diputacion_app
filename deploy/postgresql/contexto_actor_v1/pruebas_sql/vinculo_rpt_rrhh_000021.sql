@@ -1,5 +1,73 @@
 \set ON_ERROR_STOP on
--- Prueba focal únicamente en clon sintético desechable. Todo queda en ROLLBACK.
+-- Solo clon sintético desechable: conserva la fixture válida para negativas
+-- de aislamiento y la carrera. Desechar el clon al terminar; no usar historia real.
+-- Ejecutar primero sin variables. Después, abrir T1 con -f este archivo
+-- -v ca21_fase=t1 e stdin abierto; esperar CA21_T1_SNAPSHOT_LISTO, ejecutar
+-- otra sesión con -v ca21_fase=t2 y esperar COMMIT. Enviar una línea a stdin
+-- de T1: debe observar 40001. Sincronización explícita, sin espera temporal.
+\if :{?ca21_fase}
+\else
+\set ca21_fase focal
+\endif
+SELECT :'ca21_fase'='t1' AS ca21_t1, :'ca21_fase'='t2' AS ca21_t2 \gset
+\if :ca21_t1
+BEGIN ISOLATION LEVEL SERIALIZABLE;
+SET LOCAL search_path=pg_catalog;
+SET LOCAL lock_timeout='5s';
+SET LOCAL statement_timeout='30s';
+DO $snapshot$
+BEGIN
+ IF (SELECT count(*) FROM vec_contexto_actor_v1.vinculo_rpt_actual
+     WHERE perfil_ref='prf_sintetico_ca21_rpt_00000000000001'
+     AND catalogo_id='personal.categorias' AND modulo_id='contratacion_temporal')<>1
+ THEN RAISE EXCEPTION 'T1 requiere una sola cuenta RPT'; END IF;
+END $snapshot$;
+SELECT generacion AS ca21_generacion_t1
+ FROM vec_contexto_actor_v1.control_generacion_punteros_actuales_v2 WHERE control_id=true \gset
+\prompt 'CA21_T1_SNAPSHOT_LISTO ' ca21_continuar
+SET LOCAL ROLE vec_autorizacion_propietario;
+DO $snapshot_obsoleto$
+BEGIN
+ BEGIN
+  PERFORM vec_contexto_actor_v1.acreditar_rpt_rrhh_v1('per_sintetica_ca21_000000000000000001','prf_sintetico_ca21_rpt_00000000000001','personal.categorias','contratacion_temporal','rol:rrhh_gobierno_categorias_rpt:v1',1,repeat('b',64));
+  RAISE EXCEPTION 'T1 no rechazó la inserción posterior al snapshot';
+ EXCEPTION WHEN serialization_failure THEN
+  RAISE NOTICE 'CA21_T1_40001_OK';
+ END;
+END $snapshot_obsoleto$;
+ROLLBACK;
+\elif :ca21_t2
+BEGIN ISOLATION LEVEL SERIALIZABLE;
+SET LOCAL search_path=pg_catalog;
+SET LOCAL timezone='UTC';
+SET LOCAL lock_timeout='5s';
+SET LOCAL statement_timeout='30s';
+SET LOCAL ROLE vec_contexto_actor_v1_propietario;
+DO $segunda_cuenta$
+DECLARE d jsonb; g numeric;
+BEGIN
+ SELECT generacion INTO STRICT g FROM vec_contexto_actor_v1.control_generacion_punteros_actuales_v2 WHERE control_id=true;
+ SELECT documento||jsonb_build_object(
+  'vinculo_rpt_ref','vcr_sintetico_ca21_rpt_00000000000002',
+  'cuenta_ref','cta_sintetica_ca21_000000000000000002',
+  'vinculo_contexto_ref','vca_sintetico_ca21_rpt_00000000000002') INTO STRICT d
+ FROM vec_contexto_actor_v1.vinculo_rpt_versiones
+ WHERE vinculo_rpt_ref='vcr_sintetico_ca21_rpt_00000000000001' AND version=1;
+ PERFORM vec_contexto_actor_v1.publicar_vinculo_rpt_rrhh_v1(d,0,NULL,
+  encode(sha256(convert_to(jsonb_build_array(d,1)::text,'UTF8')),'hex'),
+  'operador_sintetico_ca21','evidencia_sintetica_ca21');
+ IF (SELECT generacion FROM vec_contexto_actor_v1.control_generacion_punteros_actuales_v2 WHERE control_id=true)<=g
+ THEN RAISE EXCEPTION 'T2 no avanzó la generación CA2'; END IF;
+END $segunda_cuenta$;
+SET LOCAL ROLE vec_autorizacion_propietario;
+DO $ambiguedad$
+BEGIN
+ IF vec_contexto_actor_v1.acreditar_rpt_rrhh_v1('per_sintetica_ca21_000000000000000001','prf_sintetico_ca21_rpt_00000000000001','personal.categorias','contratacion_temporal','rol:rrhh_gobierno_categorias_rpt:v1',1,repeat('b',64)) IS NOT FALSE
+ THEN RAISE EXCEPTION 'T2 concedió con dos cuentas'; END IF;
+END $ambiguedad$;
+COMMIT;
+\echo CA21_T2_INSERT_COMMIT_OK
+\else
 BEGIN ISOLATION LEVEL SERIALIZABLE;
 SET LOCAL search_path=pg_catalog;
 SET LOCAL timezone='UTC';
@@ -29,6 +97,17 @@ INSERT INTO vec_contexto_actor_v1.vinculo_corporativo_versiones VALUES
  ('vcr_sintetico_ca21_ct_000000000000001',1,'cta_sintetica_ca21_000000000000000001',1,'per_sintetica_ca21_000000000000000001',1,'prf_sintetico_ca21_ct_000000000000001',1,'vca_sintetico_ca21_ct_000000000000001',1,'org_sinteticaca210000000001',1,'prc_sintetica_ca21_000000000000000001',1,repeat('a',64),'autoridad_maestra_acreditada','interna_corporativa','consulta_rrhh','prc_sintetica_ca21_000000000000000001',1,repeat('a',64),'autoridad_maestra_acreditada','activo',clock_timestamp()-interval '1 hour',clock_timestamp()+interval '1 hour');
 INSERT INTO vec_contexto_actor_v1.vinculo_corporativo_actual VALUES
  ('cta_sintetica_ca21_000000000000000001','interna_corporativa','consulta_rrhh','vcr_sintetico_ca21_ct_000000000000001',1);
+
+-- Fuentes de la segunda cuenta ya comprometidas antes del snapshot T1.
+-- T2 insertará solo el vínculo RPT, sin cambiar las filas leídas del primero.
+INSERT INTO vec_contexto_actor_v1.proyeccion_cuenta_versiones
+ SELECT 'cta_sintetica_ca21_000000000000000002',version,procedencia_ref,procedencia_version,procedencia_huella_sha256,procedencia_autoridad,estado,vigente_desde,vigente_hasta
+ FROM vec_contexto_actor_v1.proyeccion_cuenta_versiones WHERE cuenta_ref='cta_sintetica_ca21_000000000000000001' AND version=1;
+INSERT INTO vec_contexto_actor_v1.proyeccion_cuenta_actual VALUES('cta_sintetica_ca21_000000000000000002',1);
+INSERT INTO vec_contexto_actor_v1.vinculo_contexto_versiones
+ SELECT 'vca_sintetico_ca21_rpt_00000000000002',version,'cta_sintetica_ca21_000000000000000002',perfil_ref,persona_ref,procedencia_ref,procedencia_version,procedencia_huella_sha256,procedencia_autoridad,estado,vigente_desde,vigente_hasta
+ FROM vec_contexto_actor_v1.vinculo_contexto_versiones WHERE vinculo_ref='vca_sintetico_ca21_rpt_00000000000001' AND version=1;
+INSERT INTO vec_contexto_actor_v1.vinculo_contexto_actual VALUES('vca_sintetico_ca21_rpt_00000000000002',1);
 
 SET LOCAL ROLE vec_autorizacion_propietario;
 DO $ausencia$
@@ -86,6 +165,13 @@ BEGIN
  THEN RAISE EXCEPTION 'vínculo/ámbito/rol no exacto'; END IF;
 END $ambitos_y_roles$;
 
+-- Conservar una preimagen nominal válida para READ COMMITTED y T1/T2.
+COMMIT;
+BEGIN ISOLATION LEVEL SERIALIZABLE;
+SET LOCAL search_path=pg_catalog;
+SET LOCAL timezone='UTC';
+SET LOCAL lock_timeout='5s';
+SET LOCAL statement_timeout='30s';
 SET LOCAL ROLE vec_contexto_actor_v1_propietario;
 SAVEPOINT antes_cambio_fuente;
 INSERT INTO vec_contexto_actor_v1.persona_versiones
@@ -141,7 +227,7 @@ BEGIN
  THEN RAISE EXCEPTION 'ACL RPT abrió otra autoridad'; END IF;
 END $acl$;
 ROLLBACK;
-BEGIN;
+BEGIN ISOLATION LEVEL READ COMMITTED;
 SET LOCAL ROLE vec_autorizacion_propietario;
 DO $aislamiento$
 BEGIN
@@ -150,4 +236,22 @@ BEGIN
  END IF;
 END $aislamiento$;
 ROLLBACK;
-\echo CA21 pruebas focales OK (ROLLBACK)
+BEGIN ISOLATION LEVEL SERIALIZABLE;
+SET LOCAL ROLE vec_contexto_actor_v1_propietario;
+SAVEPOINT antes_ausencia_generacion;
+DELETE FROM vec_contexto_actor_v1.control_generacion_punteros_actuales_v2 WHERE control_id=true;
+SET LOCAL ROLE vec_autorizacion_propietario;
+DO $generacion_ausente$
+BEGIN
+ IF vec_contexto_actor_v1.acreditar_rpt_rrhh_v1('per_sintetica_ca21_000000000000000001','prf_sintetico_ca21_rpt_00000000000001','personal.categorias','contratacion_temporal','rol:rrhh_gobierno_categorias_rpt:v1',1,repeat('b',64)) IS NOT FALSE
+ THEN RAISE EXCEPTION 'ausencia de generación concedió'; END IF;
+END $generacion_ausente$;
+ROLLBACK TO antes_ausencia_generacion;
+DO $preimagen_valida$
+BEGIN
+ IF vec_contexto_actor_v1.acreditar_rpt_rrhh_v1('per_sintetica_ca21_000000000000000001','prf_sintetico_ca21_rpt_00000000000001','personal.categorias','contratacion_temporal','rol:rrhh_gobierno_categorias_rpt:v1',1,repeat('b',64)) IS NOT TRUE
+ THEN RAISE EXCEPTION 'fixture válida no conservada'; END IF;
+END $preimagen_valida$;
+ROLLBACK;
+\echo CA21 pruebas focales OK; fixture válida conservada en clon desechable
+\endif
