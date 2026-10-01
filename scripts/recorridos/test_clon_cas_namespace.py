@@ -515,5 +515,297 @@ class NamespaceTests(unittest.TestCase):
         self.assertFalse((self.state / ns.RECEIPT).exists())
 
 
+class MeasurementTests(unittest.TestCase):
+    """Host orchestration fixtures; the production D authority gate stays shut."""
+
+    patch = NamespaceTests.patch
+    canonical = staticmethod(NamespaceTests.canonical)
+    write = staticmethod(NamespaceTests.write)
+    mutate = staticmethod(NamespaceTests.mutate)
+
+    def setUp(self):
+        NamespaceTests.setUp(self)
+        root = Path(self.temp.name)
+        self.inputs, self.modules = root / 'inputs', root / 'modules'
+        self.inputs.mkdir(mode=0o700)
+        self.modules.mkdir(mode=0o700)
+        sources = {name[:-3]: '# inert synthetic module\n' + 'fixture=' + repr(name) + '\n'
+                   for name in ns.CAS_MODULES}
+        for name in ns.CAS_MODULES:
+            self.write(self.modules / name, sources[name[:-3]].encode())
+        # Fixed root is replaced only inside this test's no-network fixture.
+        self.patch(ns, '__file__', new=str(self.modules / 'clon_cas_namespace.py'))
+        self.program = ns._program(sources)
+        nominal = tuple(replace(n, user='vec_externo_v3_fuente_autorizacion_desarrollo'
+                                if n.channel == 'autorizacion' else n.user)
+                        for n in self.nominal if n.channel != 'motivos')
+        (self.tls / 'motivos.crt').unlink()
+        (self.tls / 'motivos.key').unlink()
+        self.nominal = nominal
+        namespace = replace(self.request, nominal=nominal,
+                            helper_sha256=ns.digest((ns.BOOT + '\n' + self.program).encode()))
+        records = {name: ns.digest((self.state / name).read_bytes()) for name in
+                   ('h1-restore.json', 'h1-restore-pending.json', 'h1-volume.json', 'h1-container.json')}
+        for name in ns.CAS_INPUTS:
+            data = (self.state / name).read_bytes() if (self.state / name).exists() else self.canonical(
+                records if name == 'h1-records.json' else {'fixture': name})
+            self.write(self.inputs / name, data)
+        self.measurement = ns.MeasurementRequest(namespace,
+            tuple(ns.FilePin(name, ns.digest((self.modules / name).read_bytes())) for name in ns.CAS_MODULES),
+            self.inputs, tuple(ns.FilePin(name, ns.digest((self.inputs / name).read_bytes())) for name in ns.CAS_INPUTS),
+            tuple(ns.Target(population, 'cta_' + 'a' * 32, 'per_' + 'b' * 32, 'prf_' + 'c' * 32,
+                            ('pce_' if population == 'candidato' else 'pue_') + 'd' * 32)
+                  for population in ('candidato', 'usuarios')))
+        self.helper_obj['Mounts'] = [{'Type': 'bind', 'Source': source, 'Destination': destination,
+                                     'RW': False, 'Propagation': 'rprivate'}
+                                    for source, destination in ns.measurement_mounts(self.measurement).items()]
+        self.hba = [dict(row, user_name=[nominal[i].user]) for i, row in enumerate(self.hba[:3])]
+        self.measure_effect = None
+        self.measure_output = None
+
+    def docker_command(self, argv, data=None, **kwargs):
+        if argv[-1] == self.program:
+            args = argv[5:]
+            self.calls.append((args, data, kwargs))
+            self.assertEqual(args[:3], ['exec', '-i', '--user'])
+            self.assertEqual(args[4:8], [self.helper_cid, '/usr/bin/python3', '-I', '-c'])
+            payload = json.loads(data)
+            self.assertEqual(set(payload['users']), set(ns.CAS_CHANNELS))
+            value = self.result(payload)
+            if self.measure_effect:
+                self.measure_effect(value)
+            return self.measure_output if self.measure_output is not None else self.canonical(value)
+        return NamespaceTests.docker_command(self, argv, data, **kwargs)
+
+    @staticmethod
+    def result(payload):
+        sessions = {}
+        for i, (channel, user) in enumerate(payload['users'].items()):
+            role = ns.CAS_ROLES[channel]
+            row = {'session_user': user, 'current_user': user if role == 'none' else role,
+                'role': role, 'transaction_read_only': 'on', 'transaction_isolation': 'read committed',
+                'backend_pid': 1000 + i, 'database_name': 'postgres', 'database_oid': payload['pgid']['database_oid'],
+                'system_identifier': payload['pgid']['system_identifier'], 'client_addr': '127.0.0.1',
+                'server_addr': '127.0.0.1', 'server_port': 5432, 'login_safe': True,
+                'ssl': True, 'tls_version': 'TLSv1.3', 'client_certificate': True}
+            sessions[channel] = {'before': row, 'after': copy.deepcopy(row)}
+        return {'version': 1, 'kind': 'cas_helper_result_v1',
+            **{key: copy.deepcopy(payload[key]) for key in ('nonce', 'pgid', 'pins', 'tls_hashes')},
+            'sessions': sessions, 'cas_sessions_bound': True, 'cas_applied': False, 'rollback_confirmed': True,
+            'readings_sha256': ['a' * 64, 'a' * 64],
+            'observations': {population: {'lectura_1': '2026-10-01T02:00:00Z',
+                            'lectura_2': '2026-10-01T02:00:01Z'} for population in ('candidato', 'motivos')},
+            'preimages': {'candidato': {'revision_control_rol': 0, 'huella_control_rol': '',
+                'version_asignacion': 0, 'huella_asignacion': '', 'version_contexto': 0,
+                'huella_contexto': '', 'secuencia_motivos': 0},
+                'usuarios': {'version_contexto': 0, 'huella_contexto': ''}}}
+
+    def synthetic_measure(self, request=None):
+        # Only this fixture bypasses the missing D contract; no runtime knob.
+        with patch.object(ns, '_require_measurement_authority', return_value=None):
+            return ns.measure(request or self.measurement)
+
+    def clear_measurement(self):
+        for name in (ns.CAS_ATTEMPT, ns.CAS_RECEIPT):
+            (self.state / name).unlink(missing_ok=True)
+        self.calls.clear()
+
+    def test_missing_d_authority_cannot_be_enabled_by_caller_files_or_placeholder(self):
+        for authority in (None, True, {'approved': True}):
+            with self.subTest(authority=authority), patch.object(ns, 'D_RECEIPT_CONTRACT', authority):
+                with self.assertRaisesRegex(ns.Refused, 'cas_execution_authority_pending'):
+                    ns.measure(self.measurement)
+            self.assertEqual(self.calls, [])
+            self.assertFalse((self.state / ns.CAS_ATTEMPT).exists())
+            self.assertFalse((self.state / ns.CAS_RECEIPT).exists())
+
+    def test_separate_success_receipt_pins_entire_helper_and_keeps_historical_false(self):
+        historical = self.canonical({'kind': 'nominal_ro_namespace_sessions', 'cas_sessions_bound': False})
+        self.write(self.state / ns.RECEIPT, historical)
+        originals = {p.name: p.read_bytes() for p in self.state.iterdir() if p.is_file()}
+        receipt = self.synthetic_measure()
+        self.assertIs(receipt['cas_sessions_bound'], True)
+        self.assertIs(receipt['cas_applied'], False)
+        self.assertEqual((self.state / ns.RECEIPT).read_bytes(), historical)
+        for name, data in originals.items():
+            self.assertEqual((self.state / name).read_bytes(), data)
+        self.assertEqual(receipt['helper_sha256'], self.measurement.namespace.helper_sha256)
+        self.assertEqual(set(receipt['module_sha256']), set(ns.CAS_MODULES))
+        self.assertEqual(receipt['helper_container_id'], self.helper_cid)
+        self.assertEqual(set(receipt['result']['sessions']), set(ns.CAS_CHANNELS))
+        self.assertEqual(len({v['before']['backend_pid'] for v in receipt['result']['sessions'].values()}), 3)
+        self.assertEqual(receipt, json.loads((self.state / ns.CAS_RECEIPT).read_bytes()))
+        run = next(args for args, _, _ in self.calls if args[0] == 'run')
+        self.assertEqual(run[run.index('--network') + 1], 'container:' + self.cid)
+        self.assertFalse(set(run) & {'-p', '--publish', '--privileged', '--net=host'})
+        mounts = [run[i + 1] for i, arg in enumerate(run) if arg == '--mount']
+        self.assertEqual(len(mounts), 14)
+        self.assertTrue(all('readonly' in value and 'rprivate' in value for value in mounts))
+        self.assertFalse(any(str(self.modules) in value for value in mounts))
+        self.assertEqual(len([a for a, _, _ in self.calls if a[0] == 'exec' and a[-1] == self.program]), 1)
+
+    def test_replayed_success_or_uncertain_attempt_never_opens_new_helper(self):
+        self.synthetic_measure()
+        self.calls.clear()
+        with self.assertRaisesRegex(ns.Refused, 'cas_attempt_exists'):
+            self.synthetic_measure()
+        self.assertEqual(self.calls, [])
+        self.clear_measurement()
+        self.measure_output = b'incomplete fixture-secret'
+        with self.assertRaises(ns.Refused) as caught:
+            self.synthetic_measure()
+        self.assertNotIn('fixture-secret', str(caught.exception))
+        self.assertTrue((self.state / ns.CAS_ATTEMPT).exists())
+        self.assertFalse((self.state / ns.CAS_RECEIPT).exists())
+        self.calls.clear()
+        with self.assertRaisesRegex(ns.Refused, 'cas_attempt_exists'):
+            self.synthetic_measure()
+        self.assertEqual(self.calls, [])
+
+    def test_pending_is_durable_before_any_helper_creation(self):
+        original = self.runner.side_effect
+        def command(argv, data=None, **kwargs):
+            if 'run' in argv:
+                marker = json.loads((self.state / ns.CAS_ATTEMPT).read_bytes())
+                self.assertEqual(marker['kind'], 'cas_measurement_pending_v1')
+                self.assertEqual(marker['helper_sha256'], self.measurement.namespace.helper_sha256)
+                self.assertEqual((self.state / ns.CAS_ATTEMPT).stat().st_mode & 0o777, 0o600)
+            return original(argv, data, **kwargs)
+        self.runner.side_effect = command
+        self.start_output = b'partial-id'
+        with self.assertRaisesRegex(ns.Refused, 'namespace_helper_creation_uncertain'):
+            self.synthetic_measure()
+        self.assertTrue((self.state / ns.CAS_ATTEMPT).exists())
+        self.assertFalse(any(args[:2] == ['container', 'rm'] for args, _, _ in self.calls))
+
+    def test_module_and_complete_program_hash_drift_refuse_before_docker(self):
+        for pin in ns.CAS_MODULES:
+            path = self.modules / pin
+            original = path.read_bytes()
+            self.write(path, original + b'# altered\n')
+            with self.assertRaisesRegex(ns.Refused, 'cas_helper_module_drift'):
+                self.synthetic_measure()
+            self.assertEqual(self.calls, [])
+            self.write(path, original)
+        bad = replace(self.measurement, namespace=replace(self.measurement.namespace, helper_sha256='0' * 64))
+        with self.assertRaisesRegex(ns.Refused, 'cas_helper_bundle_drift'):
+            self.synthetic_measure(bad)
+        self.assertEqual(self.calls, [])
+
+    def test_module_bytes_or_inode_substitution_during_reader_refuse_receipt(self):
+        path = self.modules / ns.CAS_MODULES[0]
+        original = path.read_bytes()
+        for same_bytes in (False, True):
+            def mutate_module(value):
+                path.rename(path.with_suffix('.old'))
+                self.write(path, original if same_bytes else original + b'changed\n')
+            self.measure_effect = mutate_module
+            with self.subTest(same_bytes=same_bytes), self.assertRaises(ns.Refused):
+                self.synthetic_measure()
+            self.assertFalse((self.state / ns.CAS_RECEIPT).exists())
+            path.unlink()
+            path.with_suffix('.old').rename(path)
+            self.clear_measurement()
+
+    def test_three_login_roles_and_closed_output_are_required(self):
+        effects = [lambda v: v['sessions'].update(motivos=v['sessions']['autorizacion']),
+                   lambda v: v.update(rollback_confirmed=False), lambda v: v.update(cas_applied=True),
+                   lambda v: v.update(cas_sessions_bound=False), lambda v: v.update(extra='private'),
+                   lambda v: v['pins'].update(login_receipt_sha256='f' * 64),
+                   lambda v: v['readings_sha256'].__setitem__(1, 'b' * 64),
+                   lambda v: v['preimages']['usuarios'].update(alias='private')]
+        for field, replacement in (('role', 'postgres'), ('current_user', 'postgres'),
+                                   ('session_user', 'vec_foreign'), ('ssl', False),
+                                   ('login_safe', False), ('transaction_read_only', 'off'),
+                                   ('transaction_isolation', 'repeatable read'), ('backend_pid', 1001)):
+            effects.append(lambda v, f=field, r=replacement:
+                           v['sessions']['identidad']['after'].__setitem__(f, r))
+        for effect in effects:
+            self.measure_effect = effect
+            with self.subTest(effect=effect), self.assertRaises(ns.Refused):
+                self.synthetic_measure()
+            self.assertFalse((self.state / ns.CAS_RECEIPT).exists())
+            self.assertTrue((self.state / ns.CAS_ATTEMPT).exists())
+            self.clear_measurement()
+
+    def test_same_backend_pid_on_two_channels_is_refused(self):
+        def shared(value):
+            pid = value['sessions']['identidad']['before']['backend_pid']
+            for row in value['sessions']['contexto'].values():
+                row['backend_pid'] = pid
+        self.measure_effect = shared
+        with self.assertRaisesRegex(ns.Refused, 'cas_sessions_not_distinct'):
+            self.synthetic_measure()
+
+    def test_pg_helper_restart_or_namespace_change_refuses_output(self):
+        effects = [lambda _: self.pg_obj['State'].update(StartedAt='restarted'),
+                   lambda _: self.helper_obj['State'].update(StartedAt='restarted'),
+                   lambda _: self.net.update({71: (101, 1, 42)}),
+                   lambda _: self.net.update({72: (201, 1, 42)}),
+                   lambda _: self.net.update({72: (200, 1, 99)}),
+                   lambda _: self.helper_obj.update(Id='e' * 64),
+                   lambda _: self.helper_obj['HostConfig'].update(NetworkMode='container:' + 'e' * 64)]
+        for effect in effects:
+            pg, helper, net = copy.deepcopy(self.pg_obj), copy.deepcopy(self.helper_obj), dict(self.net)
+            self.measure_effect = effect
+            with self.subTest(effect=effect), self.assertRaises(ns.Refused):
+                self.synthetic_measure()
+            self.assertFalse((self.state / ns.CAS_RECEIPT).exists())
+            self.pg_obj, self.helper_obj, self.net = pg, helper, net
+            self.clear_measurement()
+
+    def test_hba_permission_mount_and_input_pin_fail_closed(self):
+        self.hba[0]['auth_method'] = 'trust'
+        with self.assertRaises(ns.Refused):
+            self.synthetic_measure()
+        self.assertFalse(any(a[0] == 'run' for a, _, _ in self.calls))
+        self.calls.clear()
+        self.hba[0]['auth_method'] = 'cert'
+        self.helper_obj['HostConfig']['CapAdd'] = ['SYS_ADMIN']
+        with self.assertRaises(ns.Refused):
+            self.synthetic_measure()
+        self.assertFalse(any(a[0] == 'exec' and a[-1] == self.program for a, _, _ in self.calls))
+        self.clear_measurement()
+        self.helper_obj['HostConfig']['CapAdd'] = None
+        for name in ('source.json', 'aut26-receipt.json', 'login-receipt.json'):
+            path = self.inputs / name
+            data = path.read_bytes()
+            self.write(path, b'{}')
+            with self.assertRaisesRegex(ns.Refused, 'cas_input_pin_drift'):
+                self.synthetic_measure()
+            self.assertEqual(self.calls, [])
+            self.write(path, data)
+
+    def test_input_substitution_and_incomplete_output_preserve_uncertain_pending(self):
+        path = self.inputs / 'alias.json'
+        def replacement(value):
+            path.rename(path.with_suffix('.old'))
+            self.write(path, path.with_suffix('.old').read_bytes())
+        self.measure_effect = replacement
+        with self.assertRaises(ns.Refused):
+            self.synthetic_measure()
+        self.assertFalse((self.state / ns.CAS_RECEIPT).exists())
+        self.assertTrue((self.state / ns.CAS_ATTEMPT).exists())
+        self.clear_measurement()
+        path.with_suffix('.old').unlink()
+        self.measure_effect = None
+        for output in (b'{}', b'[]', b'{"version":1,"version":1}', b'partial'):
+            self.measure_output = output
+            with self.subTest(output=output), self.assertRaises(ns.Refused):
+                self.synthetic_measure()
+            self.assertFalse((self.state / ns.CAS_RECEIPT).exists())
+            self.clear_measurement()
+
+    def test_typed_api_has_no_sql_command_callback_or_caller_module_path(self):
+        with self.assertRaises(TypeError):
+            ns.measure(self.measurement, lambda: True)
+        for altered in (replace(self.measurement, targets=()),
+                        replace(self.measurement, module_pins=(ns.FilePin('/tmp/user.py', 'a' * 64),)),
+                        replace(self.measurement, namespace=replace(self.measurement.namespace, nominal=self.request.nominal))):
+            with self.assertRaises(ns.Refused):
+                self.synthetic_measure(altered)
+            self.assertEqual(self.calls, [])
+
+
 if __name__ == '__main__':
     unittest.main()

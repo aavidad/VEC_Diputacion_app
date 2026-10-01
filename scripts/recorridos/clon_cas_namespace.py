@@ -1,4 +1,4 @@
-"""One-shot nominal RO session attestation in the approved PG network namespace.
+"""Historical RO attestation and separate physical CAS measurement operation.
 
 No CAS, arbitrary query/callback, host PostgreSQL socket, relay, provisioning or
 configuration is exposed. Missing nominal certificate HBA or TLS is a blocker.
@@ -6,12 +6,15 @@ The external request pins original RESTORE, SQL62 journal, physical PG identity,
 H1 records and helper image/code. A failed attempt is preserved, never replayed.
 Live use requires the two independent sensitive reviews of this exact source.
 Sessions close before receipt publication. This receipt cannot bind subsequent
-DB-API connections passed to medir(); cas_sessions_bound remains false.
+DB-API connections passed to medir(); its cas_sessions_bound remains false.
+The new measure() captures a full helper/module pin and retains three nominal
+sessions for attestation and readings. Its D receipt contract remains closed.
 """
 from __future__ import annotations
 
 from contextlib import ExitStack
 from dataclasses import dataclass
+from datetime import datetime
 import hashlib
 import json
 import os
@@ -167,6 +170,9 @@ class Request:
     nominal: tuple[Nominal, ...]
 
     def validate(self) -> None:
+        self._validate(CHANNELS, HELPER_SHA256)
+
+    def _validate(self, channels: tuple[str, ...], helper_sha256: str) -> None:
         require(type(self.pg) is PGID and type(self.nominal) is tuple
                 and all(type(n) is Nominal for n in self.nominal), 'namespace_typed_request')
         hashes = (self.pg.container_id, self.restore_sha256, self.journal_sha256,
@@ -177,9 +183,9 @@ class Request:
                         for v in (self.pg.image_id, self.helper_image_id)), 'namespace_pin_invalid')
         require(re.fullmatch(r'[a-z0-9][a-z0-9./_-]{0,180}@sha256:[a-f0-9]{64}',
                              self.helper_image_digest or '') is not None
-                and self.helper_sha256 == HELPER_SHA256, 'namespace_helper_pin_invalid')
-        require(len(self.nominal) == 4 and tuple(n.channel for n in self.nominal) == CHANNELS
-                and len({n.user for n in self.nominal}) == 4
+                and self.helper_sha256 == helper_sha256, 'namespace_helper_pin_invalid')
+        require(len(self.nominal) == len(channels) and tuple(n.channel for n in self.nominal) == channels
+                and len({n.user for n in self.nominal}) == len(channels)
                 and all(re.fullmatch(r'vec_[a-z0-9_]{1,100}', n.user or '') for n in self.nominal),
                 'namespace_nominal_users_invalid')
         require(re.fullmatch(r'[a-z][a-z0-9.-]{0,120}', self.server_name or '') is not None
@@ -361,7 +367,7 @@ class Docker:
         require(isinstance(hba, list) and all(isinstance(r, dict) and r.get('error') is None
                 for r in hba), 'namespace_hba_invalid')
         host = [r for r in hba if r.get('type') != 'local']
-        require(len(host) == 4, 'namespace_nominal_hba_missing')
+        require(len(host) == len(request.nominal), 'namespace_nominal_hba_missing')
         for n in request.nominal:
             matches = [r for r in host if r.get('user_name') == [n.user]]
             require(len(matches) == 1 and matches[0].get('type') == 'hostssl'
@@ -374,14 +380,17 @@ class Docker:
         return digest(installer.clon_h6_kit.canonical(value))
 
     def start(self, request: Request, name: str) -> str:
+        return self._start(request, name, tls_mounts(request))
+
+    def _start(self, request: Request, name: str, mounts: dict[str, str]) -> str:
         args = ['run', '--detach', '--pull=never', '--name', name,
                 '--network', 'container:' + request.pg.container_id,
                 '--user', f'{os.getuid()}:{os.getgid()}', '--read-only', '--cap-drop', 'ALL',
                 '--security-opt', 'no-new-privileges:true', '--pids-limit', '32',
                 '--memory', '128m', '--cpus', '0.5', '--log-driver', 'none',
                 '--label', 'vec.recorridos.owner=Codex-M', '--entrypoint', '/usr/bin/python3']
-        for filename in tls_hashes(request):
-            args += ['--mount', f'type=bind,src={request.tls_directory / filename},dst=/tls/{filename},readonly,bind-propagation=rprivate']
+        for source, destination in mounts.items():
+            args += ['--mount', f'type=bind,src={source},dst={destination},readonly,bind-propagation=rprivate']
         args += [request.helper_image_digest, '-I', '-c', BOOT]
         raw = self.command(*args, limit=65)
         require(re.fullmatch(rb'[a-f0-9]{64}\n?', raw) is not None, 'namespace_helper_creation_uncertain')
@@ -424,6 +433,15 @@ def verify_pg(request: Request, docker: Docker) -> tuple:
 
 
 def verify_helper(request: Request, docker: Docker, cid: str, pg_identity: tuple) -> tuple:
+    return _verify_helper(request, docker, cid, pg_identity, tls_mounts(request))
+
+
+def tls_mounts(request: Request) -> dict[str, str]:
+    return {str(request.tls_directory / name): '/tls/' + name for name in tls_hashes(request)}
+
+
+def _verify_helper(request: Request, docker: Docker, cid: str, pg_identity: tuple,
+                   expected: dict[str, str]) -> tuple:
     obj = docker.inspect(cid)
     host, state, net = (obj[k] for k in ('HostConfig', 'State', 'NetworkSettings'))
     require(obj['Image'] == request.helper_image_id and state.get('Running') is True
@@ -441,7 +459,6 @@ def verify_helper(request: Request, docker: Docker, cid: str, pg_identity: tuple
     require(host.get('PidsLimit') == 32 and host.get('Memory') == 128 * 1024**2
             and host.get('NanoCpus') == 500_000_000
             and host.get('LogConfig', {}).get('Type') == 'none', 'namespace_helper_limits_drift')
-    expected = {str(request.tls_directory / name): '/tls/' + name for name in tls_hashes(request)}
     mounts = obj.get('Mounts')
     require(isinstance(mounts, list) and len(mounts) == len(expected)
             and len({m.get('Destination') for m in mounts}) == len(expected)
@@ -542,3 +559,340 @@ def attest(request: Request) -> dict:
         if isinstance(error, Refused):
             raise
         raise Refused('namespace_attestation_not_accredited') from None
+
+
+# New operation. The historical attestation and its receipt remain independent.
+CAS_CHANNELS = ('identidad', 'contexto', 'autorizacion')
+CAS_MODULES = ('clon_cas_helper.py', 'clon_preimagenes_nominales.py')
+CAS_INPUTS = ('source.json', 'alias.json', 'h1-restore.json', 'sql-journal.json',
+              'h1-records.json', 'aut26-receipt.json', 'login-receipt.json')
+CAS_ATTEMPT = 'cas-measurement-pending.json'
+CAS_RECEIPT = 'cas-measurement-receipt.json'
+# No execution authority has been published for D's AUT26 extension/LOGIN/TLS.
+# A caller, file, certificate or matching hash cannot enable this gate. Replacing
+# it requires a reviewed source change implementing D's exact receipt contract.
+D_RECEIPT_CONTRACT = None
+CAS_BOOTSTRAP = r'''
+import importlib.abc,importlib.util,json,sys
+class PinnedLoader(importlib.abc.MetaPathFinder,importlib.abc.Loader):
+    def find_spec(self,fullname,path=None,target=None):
+        if fullname in SOURCES: return importlib.util.spec_from_loader(fullname,self)
+    def create_module(self,spec): return None
+    def exec_module(self,module):
+        # The complete source is part of the externally pinned host program.
+        code=compile(SOURCES[module.__name__],'<pinned-'+module.__name__+'>','exec')
+        exec(code,module.__dict__)
+try:
+    sys.meta_path.insert(0,PinnedLoader())
+    import clon_cas_helper
+    raw=sys.stdin.buffer.read(65537)
+    if len(raw)>65536: raise ValueError()
+    def unique(pairs):
+        result={}
+        for key,value in pairs:
+            if key in result: raise ValueError()
+            result[key]=value
+        return result
+    request=json.loads(raw,object_pairs_hook=unique,
+        parse_constant=lambda value: (_ for _ in ()).throw(ValueError()))
+    result=clon_cas_helper.run_request(request)
+    print(json.dumps(result,sort_keys=True,separators=(',',':')))
+except Exception:
+    sys.exit(1)
+'''
+CAS_SESSION_FIELDS = {'session_user', 'current_user', 'role', 'transaction_read_only',
+    'transaction_isolation', 'backend_pid', 'database_name', 'database_oid',
+    'system_identifier', 'client_addr', 'server_addr', 'server_port', 'login_safe',
+    'ssl', 'tls_version', 'client_certificate'}
+CAS_RESULT_FIELDS = {'version', 'kind', 'nonce', 'pgid', 'pins', 'tls_hashes',
+    'sessions', 'cas_sessions_bound', 'cas_applied', 'rollback_confirmed',
+    'readings_sha256', 'observations', 'preimages'}
+CAS_ROLES = {'identidad': 'vec_identidad_sesiones_v1_propietario',
+             'contexto': 'vec_contexto_actor_v1_propietario', 'autorizacion': 'none'}
+
+
+@dataclass(frozen=True)
+class FilePin:
+    name: str
+    sha256: str
+
+
+@dataclass(frozen=True)
+class Target:
+    population: str
+    cuenta_ref: str
+    persona_ref: str
+    perfil_ref: str
+    provision_ref: str
+
+
+@dataclass(frozen=True)
+class MeasurementRequest:
+    namespace: Request
+    module_pins: tuple[FilePin, ...]
+    inputs_directory: Path
+    input_pins: tuple[FilePin, ...]
+    targets: tuple[Target, ...]
+
+    def validate(self) -> None:
+        require(type(self.namespace) is Request, 'cas_typed_request')
+        n = self.namespace
+        n._validate(CAS_CHANNELS, n.helper_sha256)
+        require(n.nominal[-1].user == 'vec_externo_v3_fuente_autorizacion_desarrollo',
+                'cas_aut_login_invalid')
+        require(not any(t.user in CAS_ROLES.values() for t in n.nominal), 'cas_nominal_owner_login')
+        for pins, names in ((self.module_pins, CAS_MODULES), (self.input_pins, CAS_INPUTS)):
+            require(type(pins) is tuple and all(type(p) is FilePin for p in pins)
+                    and tuple(p.name for p in pins) == names
+                    and all(isinstance(p.sha256, str) and relay.HEX64.fullmatch(p.sha256) for p in pins),
+                    'cas_file_pins_invalid')
+        p = self.inputs_directory
+        require(type(p) is type(Path()) and p.is_absolute() and '..' not in p.parts
+                and not any(c in str(p) for c in ',\n\r')
+                and all(p != q and not p.is_relative_to(q) and not q.is_relative_to(p)
+                        for q in (n.state, n.tls_directory, n.pg.volume)), 'cas_inputs_path_invalid')
+        require(type(self.targets) is tuple and len(self.targets) == 2
+                and all(type(t) is Target for t in self.targets)
+                and tuple(t.population for t in self.targets) == ('candidato', 'usuarios'),
+                'cas_targets_invalid')
+        for t in self.targets:
+            require(all(isinstance(v, str) and re.fullmatch(pattern, v) for v, pattern in (
+                (t.cuenta_ref, r'cta_[A-Za-z0-9_-]{16,128}'), (t.persona_ref, r'per_[A-Za-z0-9_-]{16,128}'),
+                (t.perfil_ref, r'prf_[A-Za-z0-9_-]{16,128}'),
+                (t.provision_ref, ('pce' if t.population == 'candidato' else 'pue') +
+                 r'_[A-Za-z0-9_-]{16,128}'))),
+                'cas_target_reference_invalid')
+        c, u = self.targets
+        require(c.cuenta_ref != u.cuenta_ref or (c.persona_ref, c.perfil_ref) ==
+                (u.persona_ref, u.perfil_ref), 'cas_target_population_mismatch')
+
+
+def _program(sources: dict[str, str]) -> str:
+    # repr is Python literal encoding; no shell or caller supplied code/path.
+    return 'SOURCES=' + repr(sources) + '\n' + CAS_BOOTSTRAP
+
+
+def helper_bundle(request: MeasurementRequest) -> tuple[str, dict[str, tuple]]:
+    """Capture the complete fixed module closure; never import mutable sources."""
+    sources, identities = {}, {}
+    for pin in request.module_pins:
+        path = Path(__file__).absolute().parent / pin.name
+        data = relay.read_file(path, 256 * 1024)
+        require(digest(data) == pin.sha256, 'cas_helper_module_drift')
+        sources[pin.name[:-3]] = data.decode('utf-8')
+        identities[pin.name] = relay.signature(os.stat(path, follow_symlinks=False))
+    program = _program(sources)
+    require(len(program.encode()) <= 120000, 'cas_helper_program_limit')
+    require(digest((BOOT + '\n' + program).encode()) == request.namespace.helper_sha256,
+            'cas_helper_bundle_drift')
+    return program, identities
+
+
+def measurement_inputs(request: MeasurementRequest, directory: int) -> tuple[dict, dict]:
+    n = request.namespace
+    snapshots = {'tls': private_inputs(n, directory)}
+    raw = {}
+    with installer.private_state(request.inputs_directory) as (inputs, retained):
+        require(set(os.listdir(inputs)) == set(CAS_INPUTS), 'cas_input_mounts_not_minimal')
+        snapshots['inputs'] = {}
+        for pin in request.input_pins:
+            data = installer.read_owned(inputs, pin.name, 256 * 1024)
+            require(digest(data) == pin.sha256, 'cas_input_pin_drift')
+            raw[pin.name] = data
+            snapshots['inputs'][pin.name] = installer.identity(
+                os.stat(pin.name, dir_fd=inputs, follow_symlinks=False))
+        installer.stable_state(request.inputs_directory, retained)
+    require(digest(raw['h1-restore.json']) == n.restore_sha256
+            and digest(raw['sql-journal.json']) == n.journal_sha256
+            and digest(raw['h1-records.json']) == n.h1_records_sha256,
+            'cas_input_restore_binding_invalid')
+    records = {name: digest(installer.read_owned(directory, name, clon_sql.MAX_JOURNAL))
+               for name in ('h1-restore.json', 'h1-restore-pending.json',
+                            'h1-volume.json', 'h1-container.json')}
+    require(raw['h1-records.json'] == installer.clon_h6_kit.canonical(records),
+            'cas_input_h1_binding_invalid')
+    return snapshots, raw
+
+
+def helper_request(request: MeasurementRequest, nonce: str) -> dict:
+    n, pg = request.namespace, request.namespace.pg
+    hashes = {p.name: p.sha256 for p in request.input_pins}
+    return {'version': 1, 'kind': 'cas_helper_request_v1', 'nonce': nonce,
+        'server_name': n.server_name,
+        'pgid': {'pg_container_id': pg.container_id, 'pg_image': 'postgres:18.4',
+                 'pg_image_id': pg.image_id, 'pg_volume': str(pg.volume),
+                 'system_identifier': pg.system_identifier, 'database_name': 'postgres',
+                 'database_oid': pg.database_oid},
+        'pins': {'restore_sha256': n.restore_sha256, 'journal_sha256': n.journal_sha256,
+                 'h1_records_sha256': n.h1_records_sha256, 'source_sha256': hashes['source.json'],
+                 'alias_sha256': hashes['alias.json'], 'aut26_receipt_sha256': hashes['aut26-receipt.json'],
+                 'login_receipt_sha256': hashes['login-receipt.json']},
+        'users': {t.channel: t.user for t in n.nominal}, 'tls_hashes': tls_hashes(n),
+        'targets': {t.population: {'cuenta_ref': t.cuenta_ref, 'persona_ref': t.persona_ref,
+                   'perfil_ref': t.perfil_ref, 'provision_ref': t.provision_ref} for t in request.targets}}
+
+
+def measurement_mounts(request: MeasurementRequest) -> dict[str, str]:
+    return {**tls_mounts(request.namespace), **{str(request.inputs_directory / name):
+            '/inputs/' + name for name in CAS_INPUTS}}
+
+
+def _preimages(value: dict) -> None:
+    require(isinstance(value, dict) and set(value) == {'candidato', 'usuarios'},
+            'cas_preimages_invalid')
+    pairs = (('revision_control_rol', 'huella_control_rol'),
+             ('version_asignacion', 'huella_asignacion'), ('version_contexto', 'huella_contexto'))
+    for population in ('candidato', 'usuarios'):
+        fields = pairs if population == 'candidato' else pairs[-1:]
+        expected = {f for pair in fields for f in pair}
+        if population == 'candidato':
+            expected.add('secuencia_motivos')
+        row = value[population]
+        require(isinstance(row, dict) and set(row) == expected, 'cas_preimages_invalid')
+        for version, fingerprint in fields:
+            maximum = 2**64 if version == 'version_contexto' else 2**63
+            require(type(row[version]) is int and 0 <= row[version] < maximum
+                    and ((row[version] == 0 and row[fingerprint] == '') or
+                         (row[version] > 0 and isinstance(row[fingerprint], str)
+                          and relay.HEX64.fullmatch(row[fingerprint]))), 'cas_preimages_invalid')
+        if population == 'candidato':
+            require(type(row['secuencia_motivos']) is int and 0 <= row['secuencia_motivos'] < 2**62,
+                    'cas_preimages_invalid')
+
+
+def validate_measurement(value: dict, payload: dict) -> None:
+    require(isinstance(value, dict) and set(value) == CAS_RESULT_FIELDS
+            and type(value['version']) is int and value['version'] == 1
+            and value['kind'] == 'cas_helper_result_v1'
+            and all(value[k] == payload[k] for k in ('nonce', 'pgid', 'pins', 'tls_hashes'))
+            and value['cas_sessions_bound'] is True and value['cas_applied'] is False
+            and value['rollback_confirmed'] is True, 'cas_output_uncertain')
+    sessions = value['sessions']
+    require(isinstance(sessions, dict) and set(sessions) == set(CAS_CHANNELS), 'cas_sessions_invalid')
+    pids = set()
+    for channel, user in payload['users'].items():
+        pair = sessions[channel]
+        require(isinstance(pair, dict) and set(pair) == {'before', 'after'}
+                and pair['before'] == pair['after'] and isinstance(pair['before'], dict)
+                and set(pair['before']) == CAS_SESSION_FIELDS, 'cas_sessions_invalid')
+        row = pair['before']
+        role = CAS_ROLES[channel]
+        require(row['session_user'] == user and row['current_user'] == (user if role == 'none' else role)
+                and row['role'] == role and row['transaction_read_only'] == 'on'
+                and row['transaction_isolation'] == 'read committed'
+                and type(row['backend_pid']) is int and 0 < row['backend_pid'] < 2**31
+                and row['database_name'] == 'postgres'
+                and type(row['database_oid']) is int and row['database_oid'] == payload['pgid']['database_oid']
+                and row['system_identifier'] == payload['pgid']['system_identifier']
+                and row['client_addr'] == row['server_addr'] == '127.0.0.1'
+                and type(row['server_port']) is int and row['server_port'] == 5432
+                and row['login_safe'] is True and row['ssl'] is True
+                and row['client_certificate'] is True
+                and row['tls_version'] in ('TLSv1.2', 'TLSv1.3'), 'cas_sessions_invalid')
+        pids.add(row['backend_pid'])
+    require(len(pids) == 3, 'cas_sessions_not_distinct')
+    readings = value['readings_sha256']
+    require(isinstance(readings, list) and len(readings) == 2 and readings[0] == readings[1]
+            and all(isinstance(v, str) and relay.HEX64.fullmatch(v) for v in readings),
+            'cas_readings_invalid')
+    observations = value['observations']
+    require(isinstance(observations, dict) and set(observations) == {'candidato', 'motivos'},
+            'cas_observations_invalid')
+    for row in observations.values():
+        require(isinstance(row, dict) and set(row) == {'lectura_1', 'lectura_2'}, 'cas_observations_invalid')
+        times = []
+        for key in ('lectura_1', 'lectura_2'):
+            raw = row[key]
+            require(isinstance(raw, str) and re.fullmatch(
+                r'\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d{1,6})?(?:Z|\+00:00)', raw),
+                'cas_observations_invalid')
+            times.append(datetime.fromisoformat(raw.replace('Z', '+00:00')))
+        require(times[0] <= times[1], 'cas_observations_invalid')
+    _preimages(value['preimages'])
+
+
+def _require_measurement_authority(request: MeasurementRequest, raw: dict) -> None:
+    require(D_RECEIPT_CONTRACT is not None, 'cas_execution_authority_pending')
+    # Also closed if a non-authoritative value is assigned to the placeholder.
+    # D's exact contract must be implemented and independently reviewed here.
+    raise Refused('cas_execution_authority_pending')
+
+
+def measure(request: MeasurementRequest) -> dict:
+    """One physical helper measures CAS with three retained nominal sessions.
+
+    Pending is durable before helper creation. Any uncertainty preserves it and
+    the owned helper, never adopts/removes a named container, and never retries.
+    The independent receipt records measurements only, not an applied CAS.
+    """
+    try:
+        require(type(request) is MeasurementRequest, 'cas_typed_request')
+        request.validate()
+        n = request.namespace
+        with ExitStack() as stack:
+            directory, retained = stack.enter_context(installer.private_state(n.state))
+            stack.enter_context(installer.installer_lock(directory))
+            require(not installer.present(directory, CAS_ATTEMPT)
+                    and not installer.present(directory, CAS_RECEIPT), 'cas_attempt_exists')
+            snapshots, raw_inputs = measurement_inputs(request, directory)
+            # Deliberately closed: no invented JSON act can stand in for D's
+            # absent receipt contract. Tests isolate this seam with fixtures.
+            _require_measurement_authority(request, raw_inputs)
+            program, modules = helper_bundle(request)
+            config_name = 'cas-docker-' + secrets.token_hex(16)
+            os.mkdir(config_name, 0o700, dir_fd=directory)
+            docker = Docker(n.state / config_name)
+            stack.callback(docker.close)
+            docker.image(n)
+            pg_identity = verify_pg(n, docker)
+            preflight_seal = docker.preflight(n)
+            require(verify_pg(n, docker) == pg_identity, 'namespace_pg_process_drift')
+            nonce = secrets.token_hex(32)
+            payload = helper_request(request, nonce)
+            marker = {'version': 1, 'kind': 'cas_measurement_pending_v1', 'nonce': nonce,
+                'restore_sha256': n.restore_sha256, 'journal_sha256': n.journal_sha256,
+                'helper_sha256': n.helper_sha256, 'helper_image_id': n.helper_image_id,
+                'pg_container_id': n.pg.container_id,
+                'request_sha256': digest(installer.clon_h6_kit.canonical(payload)),
+                'helper_name': 'vec-cas-measurement-' + nonce[:32]}
+            publish(directory, CAS_ATTEMPT, marker)
+            mounts = measurement_mounts(request)
+            helper = docker._start(n, marker['helper_name'], mounts)
+            helper_identity = _verify_helper(n, docker, helper, pg_identity, mounts)
+
+            def stable() -> None:
+                require(verify_pg(n, docker) == pg_identity, 'namespace_pg_process_drift')
+                require(_verify_helper(n, docker, helper, pg_identity, mounts) == helper_identity,
+                        'namespace_helper_process_drift')
+                require(measurement_inputs(request, directory)[0] == snapshots, 'cas_inputs_identity_drift')
+                require(helper_bundle(request) == (program, modules), 'cas_helper_identity_drift')
+                installer.stable_state(n.state, retained)
+
+            stable()
+            raw = docker.command('exec', '-i', '--user', f'{os.getuid()}:{os.getgid()}', helper,
+                '/usr/bin/python3', '-I', '-c', program,
+                data=installer.clon_h6_kit.canonical(payload), limit=65536)
+            value = decode(raw)
+            validate_measurement(value, payload)
+            stable()
+            require(docker.preflight(n) == preflight_seal, 'namespace_configuration_changed')
+            stable()
+            docker.remove(helper)
+            require(verify_pg(n, docker) == pg_identity, 'namespace_pg_process_drift')
+            require(measurement_inputs(request, directory)[0] == snapshots, 'cas_inputs_identity_drift')
+            require(helper_bundle(request) == (program, modules), 'cas_helper_identity_drift')
+            installer.stable_state(n.state, retained)
+            receipt = {'version': 1, 'kind': 'cas_namespace_measurement_v1',
+                'cas_sessions_bound': True, 'cas_applied': False, 'rollback_confirmed': True,
+                'helper_sha256': n.helper_sha256, 'helper_image_id': n.helper_image_id,
+                'helper_image_digest': n.helper_image_digest, 'helper_container_id': helper,
+                'module_sha256': {p.name: p.sha256 for p in request.module_pins},
+                'request_sha256': marker['request_sha256'], 'pg_process': list(pg_identity),
+                'helper_process': list(helper_identity), 'preflight_sha256': preflight_seal,
+                'result': value}
+            publish(directory, CAS_RECEIPT, receipt)
+            return receipt
+    except Exception as error:
+        if isinstance(error, Refused):
+            raise
+        raise Refused('cas_measurement_not_accredited') from None
