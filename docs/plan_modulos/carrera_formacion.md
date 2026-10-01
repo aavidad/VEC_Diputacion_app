@@ -26,14 +26,16 @@ Orden de dirección 16:15: **VEC consulta y deriva** mientras se aclara qué fun
 
 | Rama propia | Fuente congelada | Resultado |
 | --- | --- | --- |
-| `trabajo/codexh-formacion-plan-20261001` | `17b29f11d6e661a5e660cb086f936d2efcf33cb7` | CLI Go revisa un plan sintético, fechas, necesidades, ediciones, plazas y presupuesto; visor ES/EN con filtro, detalle, pendientes y descarga del JSON original. |
-| `trabajo/codexh-carrera-preparacion-20261001` | `5b52d460d5ef9e44c6e8b17eac37deb6781c59b9` | CLI Go revisa integridad de grado, progresión y promoción; conserva antecedentes, fuentes, periodos y referencias. Visor ES/EN y descarga. Todos los casos siguen pendientes. |
+| `trabajo/codexh-formacion-plan-20261001` | `6e7b0138a95abd9ef24f592f1c36df68c389afbd` | CLI Go revisa un plan sintético, fechas, necesidades, ediciones, plazas y presupuesto; visor ES/EN con filtro, detalle, pendientes y descarga del JSON original. |
+| `trabajo/codexh-carrera-preparacion-20261001` | `e39f32f48786174c6c5adc65a613e27fa5a0226a` | CLI Go revisa integridad de grado, progresión y promoción; conserva antecedentes, fuentes, periodos y referencias. Visor ES/EN y descarga. Todos los casos siguen pendientes. |
 
 Fuentes verificadas en `origin`: Formación [PR #312](https://github.com/aavidad/VEC_Diputacion_app/pull/312) y Carrera [PR #313](https://github.com/aavidad/VEC_Diputacion_app/pull/313),
 ambas en borrador y con CI en curso. Tienen pruebas focales, revisión independiente
 y Chrome ES/EN 1440/390 con
-filtros, descarga y zoom de presentación 200 %. Go/race/vet/build globales pasaron; el cierre de web requiere las rutas de textos
-en los dos manifiestos en turno H. CI sigue en curso; no declarar LISTA en rojo.
+filtros, descarga y zoom de presentación 200 %. Go/race/vet/build y cierre de web/i18n/manifiestos se comprobaron por fases;
+2492 pruebas web y el sufijo literal de calidad pasaron en cada candidata. Revisión
+independiente final GO y fuentes remotas verificadas. CI sigue en curso; no declarar
+LISTA hasta su verde. El turno H se liberó sin publicar páginas o ejemplos.
 
 Las CLI son herramientas de preparación y vista previa para RRHH, reutilizables en
 el circuito de trabajo; no un motor desechable de demostración. El paquete de datos
