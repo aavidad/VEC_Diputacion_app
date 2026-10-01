@@ -96,7 +96,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
       import("./modulos/contratacion-temporal/contrato.js"),
       import("./modulos/contratacion-temporal/cliente-http.js"),
       import("./modulos/contratacion-temporal/presentador-expedientes.js?v=20261001-ct-a-i18n-v1"),
-      import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261001-ana001-v3"),
+      import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261001-ana001-v4"),
       import("./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=20261001-ct-a-i18n-v1"),
       import("./modulos/auditoria/vista.js?v=20261001-ct-a-i18n-v1"),
       import("./modulos/auditoria/cliente-http.js?v=20260928-usab-auditoria-v2"),
@@ -127,7 +127,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
       import("./modulos/personal/cliente-http-rpt-publica.js?v=20260925-portal-integrado-v1"),
       import("./modulos/personal/vista-rpt-publica.js?v=20260929-i18n-personal-v1"),
       import("./modulos/personal/cliente-http-estructura-organizativa-publica.js?v=20260925-portal-integrado-v1"),
-      import("./modulos/personal/vista-estructura-organizativa-publica.js?v=20260929-i18n-personal-v1"),
+      import("./modulos/personal/vista-estructura-organizativa-publica.js?v=20261001-b-org-sync-v3"),
     ]);
     return Object.freeze({ clienteRPT, vistaRPT, clienteEstructura, vistaEstructura });
   },

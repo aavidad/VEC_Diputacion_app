@@ -285,6 +285,8 @@
     "organizacion_status": "Estado",
     "organizacion_tableTitle": "Unidades organizativas",
     "organizacion_filterText": "Filtrar por texto",
+    "estructura_buscar": "Buscar por nombre o adscripción",
+    "estructura_limpiar_filtros": "Limpiar filtros",
     "organizacion_filterType": "Filtrar por tipo",
     "organizacion_allTypes": "Todos los tipos",
     "organizacion_delegacion": "Agrupación",
