@@ -1,5 +1,5 @@
 import { crearEditorConcursos, MAXIMO_CONFIGURACION } from "./concursos-editor.js?v=20261001-concursos-v6";
-import { aMicropuntos } from "./baremo-editor.js?v=20261001-concursos-v6";
+import { aMicropuntos } from "./baremo-editor.js?v=20261001-baremo-jornada-editor-v1";
 
 export function montarConcursos({ raiz, cliente, textos, alCambiar, alComparar = () => {}, activo }) {
   const t = (clave) => textos.traducir(`concursos.${clave}`);
