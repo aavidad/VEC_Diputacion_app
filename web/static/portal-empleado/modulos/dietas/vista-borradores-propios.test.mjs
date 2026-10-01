@@ -1713,6 +1713,65 @@ async function abrirEdicionD5(documentoComision, ejecutarEdicion) {
   return { contenedor, vista, panel, form, peticiones };
 }
 
+test("las paradas de una ruta conservan el foco al añadir, mover y quitar sin tomar el foco externo", async () => {
+  const { contenedor, vista, panel, form, peticiones } = await abrirEdicionD5();
+  const vehiculo = form.querySelector("[data-dietas-vehiculo-propio]");
+  vehiculo.value = "si"; panel.listeners.change({ target: vehiculo });
+  await panel.listeners.click({ target: form.querySelector("[data-dietas-ruta-anadir]") });
+  const fila = form.querySelector("[data-dietas-ruta-linea]");
+  const anadir = fila.querySelector("[data-dietas-ruta-parada-anadir]");
+  const selectores = () => fila.querySelectorAll("select").filter((control) => control.name === "ruta_parada_codigo");
+  const activar = async (boton) => { boton.focus(); await panel.listeners.click({ target: boton }); };
+  await activar(anadir);
+  assert.equal(contenedor.ownerDocument.activeElement, selectores()[0]);
+  selectores()[0].value = "18061";
+  await activar(anadir); selectores()[1].value = "18175";
+  await activar(fila.querySelector("[data-dietas-ruta-parada-bajar]"));
+  assert.deepEqual(selectores().map((control) => control.value), ["18175", "18061"]);
+  assert.equal(contenedor.ownerDocument.activeElement, selectores()[1]);
+  await activar(fila.querySelectorAll("[data-dietas-ruta-parada-subir]")[1]);
+  assert.equal(contenedor.ownerDocument.activeElement, selectores()[0]);
+  const externo = new Nodo(contenedor.ownerDocument, "button"); contenedor.append(externo); externo.focus();
+  await panel.listeners.click({ target: fila.querySelector("[data-dietas-ruta-parada-bajar]") });
+  assert.equal(contenedor.ownerDocument.activeElement, externo);
+  await activar(fila.querySelectorAll("[data-dietas-ruta-parada-quitar]")[1]);
+  assert.equal(contenedor.ownerDocument.activeElement, selectores()[0]);
+  await activar(fila.querySelector("[data-dietas-ruta-parada-quitar]"));
+  assert.equal(contenedor.ownerDocument.activeElement, anadir);
+  assert.equal(peticiones.length, 0);
+  vista.desmontar();
+});
+
+for (const tipo of ["ruta", "otro"]) {
+  test(`quitar una línea de ${tipo} enfoca la vecina o Añadir y respeta el foco externo`, async () => {
+    const { contenedor, vista, panel, form, peticiones } = await abrirEdicionD5();
+    if (tipo === "ruta") {
+      const vehiculo = form.querySelector("[data-dietas-vehiculo-propio]");
+      vehiculo.value = "si"; panel.listeners.change({ target: vehiculo });
+    }
+    const anadir = form.querySelector(`[data-dietas-${tipo}-anadir]`);
+    const filas = () => form.querySelectorAll(`[data-dietas-${tipo}-linea]`);
+    const quitar = async (fila) => {
+      const boton = fila.querySelector(`[data-dietas-${tipo}-quitar]`);
+      boton.focus(); await panel.listeners.click({ target: boton });
+    };
+    for (let i = 0; i < 3; i++) await panel.listeners.click({ target: anadir });
+    const [primera, intermedia, ultima] = filas();
+    await quitar(intermedia);
+    assert.equal(contenedor.ownerDocument.activeElement, ultima.querySelector("select"));
+    await quitar(ultima);
+    assert.equal(contenedor.ownerDocument.activeElement, primera.querySelector("select"));
+    await quitar(primera);
+    assert.equal(contenedor.ownerDocument.activeElement, anadir);
+    await panel.listeners.click({ target: anadir });
+    const externo = new Nodo(contenedor.ownerDocument, "button"); contenedor.append(externo); externo.focus();
+    await panel.listeners.click({ target: filas()[0].querySelector(`[data-dietas-${tipo}-quitar]`) });
+    assert.equal(contenedor.ownerDocument.activeElement, externo);
+    assert.equal(peticiones.length, 0);
+    vista.desmontar();
+  });
+}
+
 test("editar conserva tramos, rutas, ajustes y justificantes tras resultado incierto y reintenta la misma operación", async () => {
   let rechazar; let intentos = 0;
   const { contenedor, vista, panel, form, peticiones } = await abrirEdicionD5(undefined, async (calculado) => {
