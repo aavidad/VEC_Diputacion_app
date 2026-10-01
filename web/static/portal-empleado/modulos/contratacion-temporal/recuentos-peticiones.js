@@ -127,8 +127,8 @@ function cumpleMostrar(expediente, mostrar, hoy) {
   return true;
 }
 
-/** Aplica los filtros de pantalla y ordena por plazo (lo más urgente, arriba). */
-export function filtrarPeticiones(expedientes, filtro = FILTRO_LISTA_INICIAL, generadoEn = "") {
+/** Aplica los filtros y ordena por plazo; la vista puede aportar etiquetas buscables. */
+export function filtrarPeticiones(expedientes, filtro = FILTRO_LISTA_INICIAL, generadoEn = "", valoresBusqueda = () => []) {
   const hoy = diaConsulta(generadoEn);
   const texto = normalizar(filtro.texto);
   return (Array.isArray(expedientes) ? expedientes : []).filter((expediente) => (
@@ -136,7 +136,7 @@ export function filtrarPeticiones(expedientes, filtro = FILTRO_LISTA_INICIAL, ge
     && (!filtro.fase || faseRRHH(expediente.fase_clave)?.clave === filtro.fase)
     && (!filtro.centro || expediente.centro === filtro.centro)
     && (!filtro.categoria || expediente.categoria === filtro.categoria)
-    && (!texto || [expediente.numero_visible, expediente.centro, expediente.categoria]
+    && (!texto || [expediente.numero_visible, expediente.centro, expediente.categoria, ...valoresBusqueda(expediente)]
       .some((valor) => normalizar(valor).includes(texto)))
   )).sort(compararPorPlazo);
 }
