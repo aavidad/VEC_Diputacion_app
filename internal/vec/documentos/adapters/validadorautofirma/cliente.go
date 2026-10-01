@@ -196,7 +196,7 @@ type dictamenAutofirma struct {
 	Contrato                string              `json:"contrato"`
 	Estado                  string              `json:"estado"`
 	Motivo                  string              `json:"motivo"`
-	Formato                 json.RawMessage     `json:"formato"`
+	Formato                 string              `json:"formato"`
 	ComprobadoEn            json.RawMessage     `json:"comprobadoEn"`
 	Integridad              aspectoAutofirma    `json:"integridad"`
 	Cadena                  aspectoAutofirma    `json:"cadena"`
@@ -475,6 +475,7 @@ func traducir(r ports.ResultadoVerificacionFirma, d *dictamenAutofirma) ports.Ve
 	}
 	sinAdoptar := r
 	r.VinculoOriginal = d.VinculoOriginal.Estado == "acreditado"
+	r.Formato = d.Formato
 	r.RevocacionEstado = d.Revocacion.Estado
 	r.SelloTiempoEstado = d.SelloTiempo.Estado
 	if len(d.Firmantes) == 1 && d.CertificadoHuellaSHA256 != "" {

@@ -11,9 +11,10 @@ Principio: **la verificación no depende de otras aplicaciones**. Anclas de
 confianza y CRL son ficheros locales; el sello de tiempo (TSA) y OCSP quedan
 preparados como extensiones, pero no son imprescindibles.
 
-Este documento describe el despliegue previsto. **No está desplegado ni
-probado en Cidonia**, ni con certificados, CRL o sellos de prestadores reales,
-y ningún flujo de negocio de VEC lo usa todavía.
+Este documento describe el despliegue previsto. El circuito de firma de prueba
+de Contratación temporal ya consume el verificador por la composición de
+Documentos. **No está desplegado ni probado en Cidonia** con certificados,
+CRL o sellos de prestadores reales. El circuito no acredita firma oficial.
 
 ## Política de verificación de firma
 
@@ -140,7 +141,7 @@ una decisión de despliegue y tampoco se versiona aquí.
 
 ## Configuración de VEC
 
-Cuando exista un consumidor compuesto, la composición leerá de la
+La composición del consumidor de Contratación temporal lee de la
 configuración privada (nunca de Git ni del navegador) los campos de
 `validadorautofirma.Configuracion`:
 

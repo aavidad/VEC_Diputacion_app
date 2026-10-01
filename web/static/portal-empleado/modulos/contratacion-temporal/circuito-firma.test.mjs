@@ -345,6 +345,16 @@ test("un rechazo del verificador no muestra sus códigos internos", async () => 
   await acciones.manejarClic({ target: { closest: () => boton } });
   assert.match(salida.textContent, /could not be verified/u);
   assert.doesNotMatch(salida.textContent, /firma_no_verificada|revocacion_no_acreditada/u);
+
+  for (const motivo of ["validador_no_disponible", "credencial_rechazada"]) {
+    const servicioCaido = crearAccionesFirma({ obtenerEstado: () => estado, t: (clave) => clave,
+      clienteBorrador: { descargarBorrador: async () => new Blob(["%PDF-1.7"]) },
+      autofirma: { firmarPDF: async () => new Uint8Array([1]) },
+      clienteFirma: { registrar: async () => { throw { codigo: "servicio_no_disponible", motivo }; } },
+      aleatorio: (n) => new Uint8Array(n) });
+    await servicioCaido.manejarClic({ target: { closest: () => boton } });
+    assert.equal(salida.textContent, "circuito_firma_error_validador_no_disponible");
+  }
 });
 
 test("la ayuda explica el circuito de ejemplo y la falta de eficacia sin portafirmas", async () => {

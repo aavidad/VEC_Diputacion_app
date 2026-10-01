@@ -13,6 +13,7 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	docports "vec-diputacion-granada/internal/vec/documentos/ports"
 )
 
 // Rutas del registro de firmas de prueba de los borradores. La firma llega
@@ -269,7 +270,11 @@ func (h *manejadorFirmaDocumento) responderError(w http.ResponseWriter, r *http.
 	case errors.Is(err, application.ErrVerificacionFirmaApagada):
 		responderErrorFirmaDocumento(w, r, http.StatusServiceUnavailable, "verificacion_no_disponible", "")
 	case errors.As(err, &rechazo):
-		responderErrorFirmaDocumento(w, r, http.StatusUnprocessableEntity, "firma_no_verificada", string(rechazo.Motivo))
+		if rechazo.Motivo == docports.MotivoValidadorNoDisponible || rechazo.Motivo == docports.MotivoCredencialRechazada {
+			responderErrorFirmaDocumento(w, r, http.StatusServiceUnavailable, "servicio_no_disponible", string(rechazo.Motivo))
+		} else {
+			responderErrorFirmaDocumento(w, r, http.StatusUnprocessableEntity, "firma_no_verificada", string(rechazo.Motivo))
+		}
 	case errors.Is(err, application.ErrPasoFirmaNoPendiente):
 		responderErrorFirmaDocumento(w, r, http.StatusConflict, "paso_no_pendiente", "")
 	case errors.Is(err, ports.ErrCadenaFirmaDocumentoRota):

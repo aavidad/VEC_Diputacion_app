@@ -100,9 +100,22 @@ func TestFirmaDocumentoNoRegistraSiLaCustodiaFalla(t *testing.T) {
 		caso.preparar(custodio)
 		borrador := []byte("%PDF-1.7 borrador")
 		_, err := s.Firmar(context.Background(), solicitudFirmaPrueba(1, borrador, append(append([]byte{}, borrador...), 'f'), "clave-firma-000000001"))
-		if !errors.Is(err, caso.esperado) || len(registro.registrado) != 0 || len(autorizador.visto) != 0 {
+		if !errors.Is(err, caso.esperado) || len(registro.registrado) != 0 || len(autorizador.visto) != 1 {
 			t.Errorf("%s: %v (registros %d, autorizaciones %d)", nombre, err, len(registro.registrado), len(autorizador.visto))
 		}
+	}
+}
+
+func TestFirmaDocumentoDenegadaNoCustodia(t *testing.T) {
+	s, registro, autorizador, custodio := servicioConCustodia(t)
+	autorizador.denegar = true
+	original := []byte("%PDF-1.7 borrador")
+	firmado := append(append([]byte(nil), original...), []byte(" firma")...)
+	_, err := s.Firmar(context.Background(), solicitudFirmaPrueba(1, original, firmado, "clave-firma-denegada-001"))
+	if !errors.Is(err, ports.ErrFirmaDocumentoDenegada) || len(autorizador.visto) != 1 ||
+		len(custodio.ordenes) != 0 || len(registro.registrado) != 0 {
+		t.Fatalf("denegación tras custodiar o registrar: %v, autorización=%d custodia=%d registro=%d",
+			err, len(autorizador.visto), len(custodio.ordenes), len(registro.registrado))
 	}
 }
 
@@ -188,7 +201,7 @@ func TestMaterialFirmaDocumentoCanonicoConEnlace(t *testing.T) {
 // Reintento de una firma ya registrada (respuesta perdida): el paso ya no está
 // pendiente, pero se recupera el recibo original sin registrar otra firma.
 func TestFirmaDocumentoReintentoDeUnaFirmaYaRegistrada(t *testing.T) {
-	s, registro, _, custodio := servicioConCustodia(t)
+	s, registro, autorizador, custodio := servicioConCustodia(t)
 	borrador := []byte("%PDF-1.7 borrador")
 	firmado := append(append([]byte{}, borrador...), []byte(" firma1")...)
 	sol := solicitudFirmaPrueba(1, borrador, firmado, "clave-firma-000000001")
@@ -198,7 +211,7 @@ func TestFirmaDocumentoReintentoDeUnaFirmaYaRegistrada(t *testing.T) {
 	}
 	r, err := s.Firmar(context.Background(), sol)
 	if err != nil || !r.Recibo.YaRegistrada || r.Recibo.Secuencia != primero.Recibo.Secuencia ||
-		r.Recibo.DocumentoCustodiaRef != primero.Recibo.DocumentoCustodiaRef || len(registro.registrado) != 1 {
+		r.Recibo.DocumentoCustodiaRef != primero.Recibo.DocumentoCustodiaRef || len(registro.registrado) != 1 || len(autorizador.visto) != 2 {
 		t.Fatalf("reintento: %v %+v (registros %d)", err, r.Recibo, len(registro.registrado))
 	}
 	// La custodia se vuelve a pedir con la misma orden: Documentos devuelve el

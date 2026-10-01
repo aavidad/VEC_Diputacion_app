@@ -89,6 +89,10 @@ export function crearAccionesFirma({
   }
 
   function textoError(error) {
+    if (error?.codigo === "servicio_no_disponible" &&
+      ["validador_no_disponible", "credencial_rechazada"].includes(error?.motivo)) {
+      return t("circuito_firma_error_validador_no_disponible");
+    }
     const clave = CLAVE_ERROR[error?.codigo] ?? "circuito_firma_error_generico";
     return t(clave);
   }
