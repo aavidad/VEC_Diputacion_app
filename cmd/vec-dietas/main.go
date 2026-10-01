@@ -17,7 +17,7 @@ func main() {
 }
 func ejecutarConArgumentos(args []string, in io.Reader, out io.Writer) int {
 	if len(args) != 0 {
-		if err := json.NewEncoder(out).Encode(fallo{"argumentos_no_admitidos"}); err != nil {
+		if json.NewEncoder(out).Encode(fallo{"argumentos_no_admitidos"}) != nil {
 			return 1
 		}
 		return 2
@@ -27,7 +27,7 @@ func ejecutarConArgumentos(args []string, in io.Reader, out io.Writer) int {
 func ejecutar(in io.Reader, out io.Writer) int {
 	entrada, err := leerEntrada(in)
 	if err != nil {
-		if json.NewEncoder(out).Encode(fallo{"entrada_json_invalida"}) != nil {
+		if json.NewEncoder(out).Encode(fallo{err.Error()}) != nil {
 			return 1
 		}
 		return 2

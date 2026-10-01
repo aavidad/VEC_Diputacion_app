@@ -95,8 +95,8 @@ func Simular(e Entrada) (*Salida, error) {
 	if err != nil || !fin.After(inicio) {
 		return nil, ErrEntrada
 	}
-	if !vigente(r.VigenteDesde, r.VigenteHasta, e.Inicio.Fecha, e.Fin.Fecha) {
-		return nil, ErrVigencia
+	if err := validarVigencia(r.VigenteDesde, r.VigenteHasta, e.Inicio.Fecha, e.Fin.Fecha); err != nil {
+		return nil, err
 	}
 	grupos := map[int]bool{}
 	var elegido *domain.CalculoDietasProvisional
@@ -133,16 +133,19 @@ func Simular(e Entrada) (*Salida, error) {
 	}
 	return &Salida{Esquema: Esquema, Procedencia: "propuesta_sin_publicar", Liquidable: false, Entrada: e, Resultado: resultado, Huellas: Huellas{Namespace: Esquema, EntradaSHA256: entradaSHA256, ResultadoSHA256: resultadoSHA256, ConfiguracionSHA256: configuracionSHA256, ReglaImportadaDeclaradaSHA256: r.HuellaSHA256}}, nil
 }
-func vigente(desde, hasta, inicio, fin string) bool {
+func validarVigencia(desde, hasta, inicio, fin string) error {
 	d, err := time.Parse("2006-01-02", desde)
 	if err != nil || d.Format("2006-01-02") != desde || inicio < desde {
-		return false
+		return ErrVigencia
 	}
 	if hasta == "" {
-		return true
+		return nil
 	}
 	h, err := time.Parse("2006-01-02", hasta)
-	return err == nil && h.Format("2006-01-02") == hasta && h.After(d) && fin < hasta
+	if err != nil || h.Format("2006-01-02") != hasta || !h.After(d) || fin >= hasta {
+		return ErrVigencia
+	}
+	return nil
 }
 
 // huella usa la serialización JSON de los DTO tipados, no jsonb::text de PostgreSQL.
