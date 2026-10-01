@@ -1,13 +1,14 @@
 import { cargarTextos } from "/comun/textos.js";
 import { leerRecursoJSON } from "/comun/idioma.js";
 import { crearClienteBaremo } from "../baremo-cliente.js?v=20261001-concursos-v6";
-import { crearEditorBaremo, leerReglas, aMicropuntos, MAXIMO_ARCHIVO, comprobarCatalogoJornada, normalizarMinimoFormacion } from "../baremo-editor.js?v=20261001-g-curso-minimo-v1";
-import { renderizarPanelesBaremo } from "../baremo-vista.js?v=20261001-g-curso-minimo-v2";
+import { crearEditorBaremo, leerReglas, aMicropuntos, MAXIMO_ARCHIVO, comprobarCatalogoJornada, normalizarMinimoFormacion, comprobarCatalogoRestos, errorRestosRegla } from "../baremo-editor.js?v=20261002-g-restos-v1";
+import { renderizarPanelesBaremo } from "../baremo-vista.js?v=20261002-g-restos-v1";
 import { crearClienteConcursos } from "../concursos-cliente.js?v=20261001-g-concursos-topes-v2";
-import { renderizarConcursos } from "../concursos-vista.js?v=20261001-g-curso-minimo-v2";
-import { montarConcursos } from "../concursos-montaje.js?v=20261001-g-curso-minimo-v1";
-const [textos, textosConcursos, datosJornada] = await Promise.all([cargarTextos("baremo-bolsa"), cargarTextos("baremo-concursos"),
-  leerRecursoJSON(new URL("/catalogos/baremo-jornada-v1.json", import.meta.url)).catch(() => null)]);
+import { renderizarConcursos } from "../concursos-vista.js?v=20261002-g-restos-v1";
+import { montarConcursos } from "../concursos-montaje.js?v=20261002-g-restos-v1";
+const [textos, textosConcursos, datosJornada, datosRestos] = await Promise.all([cargarTextos("baremo-bolsa"), cargarTextos("baremo-concursos"),
+  leerRecursoJSON(new URL("/catalogos/baremo-jornada-v1.json", import.meta.url)).catch(() => null),
+  leerRecursoJSON(new URL("/catalogos/baremo-restos-v1.json", import.meta.url)).catch(() => null)]);
 let catalogoJornada = null;
 try {
   const candidato = comprobarCatalogoJornada(datosJornada);
@@ -17,6 +18,15 @@ try {
   }
   catalogoJornada = candidato;
 } catch { /* Conserva las demás reglas; no habilita edición de jornada. */ }
+let catalogoRestos = null;
+try {
+  const candidato = comprobarCatalogoRestos(datosRestos);
+  for (const opcion of candidato.opciones) {
+    textos.traducir(`editor.${opcion.etiqueta}`);
+    textos.traducir(`editor.${opcion.explicacion}`);
+  }
+  catalogoRestos = candidato;
+} catch { /* Sin catálogo positivo se conserva el consumidor y se cierra la nueva edición. */ }
 const t = (clave) => textos.traducir(`editor.${clave}`);
 document.documentElement.lang = textos.idioma;
 document.title = t("titulo");
@@ -52,7 +62,7 @@ function pintar() {
     siguiente.focus({ preventScroll: visible });
   }
 }
-const editor = crearEditorBaremo({ cliente, catalogoJornada, alCambiar: pintar });
+const editor = crearEditorBaremo({ cliente, catalogoJornada, catalogoRestos, alCambiar: pintar });
 const concursos = montarConcursos({ raiz, cliente: crearClienteConcursos(), textos: textosConcursos,
   alCambiar: pintar, alComparar: () => { focoComparacion = true; }, activo: () => panel === "concursos" });
 function filtrar() {
@@ -61,7 +71,17 @@ function filtrar() {
   const sinReglas = raiz.querySelector("[data-sin-reglas]");
   if (sinReglas) sinReglas.hidden = [...raiz.querySelectorAll("#baremo-panel-bolsa .baremo-reglas tbody tr:not([data-sin-reglas])")].some((f) => !f.hidden);
 }
+function falloRestosBorrador() {
+  const estado = editor.estado();
+  if (!estado.catalogoRestos) return "";
+  return (estado.borrador?.reglas_experiencia ?? []).map((regla, indice) => {
+    const ruta = JSON.stringify(["reglas_experiencia", indice, "restos", "modo"]);
+    return errorRestosRegla(regla, estado.catalogoRestos, estado.invalidos[ruta] ?? regla.restos?.modo);
+  }).find(Boolean) ?? "";
+}
+function exportacionBloqueada() { return Object.keys(editor.estado().invalidos).length > 0 || Boolean(falloRestosBorrador()); }
 function claveErrorCampo(control) {
+  if (control.hasAttribute("data-restos-modo")) return control.dataset.restosError || "restos_no_disponibles";
   return control.hasAttribute("data-minimo-formacion") ? "minimo_formacion_invalido"
     : control.hasAttribute("data-umbral") ? "umbral_invalido"
     : control.hasAttribute("data-puntos") ? "puntos_invalidos" : "fecha_invalida";
@@ -71,8 +91,15 @@ function mostrarErrores({ enfocar = false } = {}) {
     try { normalizarMinimoFormacion(control.value); control.setCustomValidity(""); }
     catch { control.setCustomValidity(t("minimo_formacion_invalido")); }
   }
-  const invalidos = [...raiz.querySelectorAll("input[data-ruta]")].filter((c) => !c.checkValidity());
-  for (const control of raiz.querySelectorAll("input[data-ruta]")) {
+  const estado = editor.estado();
+  for (const control of raiz.querySelectorAll("select[data-restos-modo]:not([disabled])")) {
+    const regla = estado.borrador?.reglas_experiencia?.[Number(control.dataset.indice)];
+    const fallo = errorRestosRegla(regla, estado.catalogoRestos, control.value);
+    control.dataset.restosError = fallo; control.setCustomValidity(fallo ? t(fallo) : "");
+  }
+  const controles = [...raiz.querySelectorAll("input[data-ruta], select[data-restos-modo]:not([disabled])")];
+  const invalidos = controles.filter((c) => !c.checkValidity());
+  for (const control of controles) {
     const invalido = invalidos.includes(control), pista = control.closest("label")?.querySelector("[data-error-campo]");
     control.setAttribute("aria-invalid", String(invalido));
     if (pista) { pista.hidden = !invalido; pista.textContent = invalido ? t(claveErrorCampo(control)) : ""; }
@@ -103,14 +130,14 @@ raiz.addEventListener("input", (evento) => {
   if (panel !== "bolsa") return;
   const control = evento.target;
   if (control.name === "filtro") { filtro = control.value; filtrar(); return; }
-  if (!control.dataset.ruta || control.hasAttribute("data-jornada-modo")) return;
+  if (!control.dataset.ruta || control.hasAttribute("data-jornada-modo") || control.hasAttribute("data-restos-modo")) return;
   lecturaId++;
   try {
     const valor = control.hasAttribute("data-puntos") ? aMicropuntos(control.value) : control.value;
     if (control.hasAttribute("data-umbral")) editor.editarUmbralJornada(Number(control.dataset.indice), valor);
     else if (control.hasAttribute("data-minimo-formacion")) editor.editarMinimoFormacion(Number(control.dataset.indice), valor);
     else editor.editar(JSON.parse(control.dataset.ruta), valor);
-    error = ""; control.removeAttribute("aria-invalid"); control.setCustomValidity(""); raiz.querySelector('[data-accion="exportar"]').disabled = Object.keys(editor.estado().invalidos).length > 0;
+    error = ""; control.removeAttribute("aria-invalid"); control.setCustomValidity(""); raiz.querySelector('[data-accion="exportar"]').disabled = exportacionBloqueada();
     // No sustituir el control durante escritura: conserva foco y selección.
     const resultado = raiz.querySelector(".baremo-resultados"); if (resultado) { resultado.textContent = t("pendiente"); resultado.setAttribute("aria-busy", "false"); }
     const boton = raiz.querySelector('[type="submit"]'); boton.disabled = false; boton.textContent = t("comparar");
@@ -121,6 +148,12 @@ raiz.addEventListener("input", (evento) => {
 raiz.addEventListener("change", async (evento) => {
   if (panel !== "bolsa") return;
   const control = evento.target;
+  if (control.hasAttribute("data-restos-modo")) {
+    lecturaId++; focoComparacion = false;
+    try { error = ""; editor.editarRestos(Number(control.dataset.indice), control.value); }
+    catch { error = falloRestosBorrador() || "restos_no_disponibles"; pintar(); }
+    return;
+  }
   if (control.hasAttribute("data-jornada-modo")) {
     lecturaId++;
     try { error = ""; editor.editarPoliticaJornada(Number(control.dataset.indice), control.value); }
@@ -165,9 +198,11 @@ raiz.addEventListener("click", (evento) => {
   if (accion === "recargar") void cargar();
   if (accion === "restablecer" && descartar()) { lecturaId++; error = ""; editor.cargar(editor.estado().ejemplo); }
   if (accion === "exportar") {
-    if (!mostrarErrores({ enfocar: true }) || Object.keys(editor.estado().invalidos).length) return;
-    const url = URL.createObjectURL(new Blob([editor.exportar()], { type: "application/json" }));
-    const enlace = document.createElement("a"); enlace.href = url; enlace.download = t("archivo_borrador"); enlace.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+    if (!mostrarErrores({ enfocar: true }) || exportacionBloqueada()) return;
+    try {
+      const url = URL.createObjectURL(new Blob([editor.exportar()], { type: "application/json" }));
+      const enlace = document.createElement("a"); enlace.href = url; enlace.download = t("archivo_borrador"); enlace.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch { error = falloRestosBorrador() || "validacion"; pintar(); mostrarErrores({ enfocar: true }); }
   }
 });
 window.addEventListener("beforeunload", (evento) => { if (editor.estado().cambiado || concursos.estado().cambiado) { evento.preventDefault(); evento.returnValue = ""; } });

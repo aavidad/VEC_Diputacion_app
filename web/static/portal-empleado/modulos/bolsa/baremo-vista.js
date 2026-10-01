@@ -1,4 +1,4 @@
-import { aDecimal, errorRestosRegla } from "./baremo-editor.js?v=20261001-g-curso-minimo-v1";
+import { aDecimal, errorRestosRegla } from "./baremo-editor.js?v=20261002-g-restos-v1";
 export function escapar(valor) {
   return String(valor ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
 }
