@@ -91,14 +91,20 @@ test('editar reglas o desmontar aborta la petición y descarta respuestas tardí
 
 // DOM mínimo para verificar controles y foco con el traductor real.
 class Elemento {
-  constructor(d, tag) { this.ownerDocument = d; this.tagName = tag.toUpperCase(); this.children = []; this.attrs = {}; this.listeners = {}; this._text = ''; }
+  constructor(d, tag) { this.ownerDocument = d; this.tagName = tag.toUpperCase(); this.children = []; this.attrs = {}; this.listeners = {}; this._text = ''; this.scrollTop = 0; this.scrollLeft = 0; this.clientHeight = tag === 'div' ? 60 : 480; this.clientTop = 1; this.scrollHeight = tag === 'section' ? 1100 : this.clientHeight; }
   set textContent(v) { this._text = String(v); this.children = []; }
   get textContent() { return this._text + this.children.map(c => c.textContent).join(' '); }
-  append(...items) { this.children.push(...items); }
-  replaceChildren(...items) { this.children = items; this._text = ''; }
+  append(...items) { items.forEach(e => { e.parentNode = this; }); this.children.push(...items); }
+  replaceChildren(...items) { this.children = []; this.append(...items); this._text = ''; }
   setAttribute(k, v) { this.attrs[k] = String(v); }
   getAttribute(k) { return this.attrs[k]; }
   addEventListener(k, f) { this.listeners[k] = f; }
+  closest(selector) { return selector === '.panel' ? (this.className?.split(' ').includes('panel') ? this : this.parentNode?.closest(selector)) : null; }
+  getBoundingClientRect() {
+    if (this.className === 'panel') return { top: 400, bottom: 880 };
+    const top = 1100 + (this.ownerDocument.desplazamientoControl ?? 0) - (this.closest('.panel')?.scrollTop ?? 0);
+    return { top, bottom: top + 24 };
+  }
   focus() { this.ownerDocument.activeElement = this; }
   setSelectionRange(a, b) { this.selectionStart = a; this.selectionEnd = b; }
   get firstChild() { return this.children[0]; }
@@ -151,4 +157,28 @@ test('carga vacía, denegación, error recuperable y cálculo pendiente conserva
   assert.ok(elementos(d.raiz).find(e => e.type === 'submit').disabled);
   assert.ok(elementos(d.raiz).some(e => e.getAttribute('aria-busy') === 'true'));
   resolver(); await pendiente; m.desmontar();
+});
+
+
+test('editar una fase inferior conserva scroll de ambos paneles, foco visible y cursor', async () => {
+  const d = dom();
+  const montaje = montarSeleccion({ raiz: d.raiz, textos: traductores[0], cliente: { listar: async () => ({ ejemplos: [ejemplo()] }), simular: async datos => resultado(datos) } });
+  await terminarCarga();
+  const reglas = d.getElementById('seleccion-panel-configuracion'); reglas.scrollTop = 350; reglas.scrollLeft = 12;
+  const resultados = d.getElementById('seleccion-panel-resultado'); resultados.scrollTop = 120;
+  const casilla = d.getElementById('seleccion-desempate-1'); casilla.focus(); casilla.checked = true; await casilla.emitir('change');
+  assert.equal(d.activeElement.id, 'seleccion-desempate-1');
+  assert.equal(d.getElementById('seleccion-panel-configuracion').scrollTop, 350);
+  assert.equal(d.getElementById('seleccion-panel-configuracion').scrollLeft, 12);
+  assert.equal(d.getElementById('seleccion-panel-resultado').scrollTop, 120);
+  const minimo = d.getElementById('seleccion-minimo-1'); minimo.focus(); minimo.value = '0,5'; minimo.setSelectionRange(3, 3);
+  // El contenido insertado desplaza el campo: se ajusta solo su marco.
+  d.desplazamientoControl = 300; await minimo.emitir('input');
+  assert.equal(d.activeElement.id, 'seleccion-minimo-1');
+  assert.equal(d.activeElement.selectionStart, 3); assert.equal(d.activeElement.selectionEnd, 3);
+  const marco = d.getElementById('seleccion-panel-configuracion'); const posicion = d.activeElement.getBoundingClientRect();
+  assert.ok(marco.scrollTop > 350); assert.ok(posicion.top >= 465 && posicion.bottom <= 877);
+  assert.equal(d.getElementById('seleccion-panel-resultado').scrollTop, 120);
+  assert.equal(montaje.obtenerEstado().configuracion.fases[1].minimo_micropuntos, 500000);
+  montaje.desmontar();
 });

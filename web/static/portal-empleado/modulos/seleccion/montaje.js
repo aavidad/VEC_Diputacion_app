@@ -15,10 +15,28 @@ export function montarSeleccion({ raiz, textos, cliente = crearClienteSeleccion(
   } });
   const entrada = () => ({ ...ejemplo, ejemplo_ref: ejemplo.referencia, configuracion: structuredClone(configuracion) });
   function invalidar() { estado.invalidar(); errores = []; }
+  const paneles = ['seleccion-panel-ejemplo', 'seleccion-panel-configuracion', 'seleccion-panel-resultado'];
+  function enfocarVisible(control) {
+    if (!control) return;
+    control.focus({ preventScroll: true });
+    const marco = control.closest?.('.panel');
+    if (!marco || marco.scrollHeight <= marco.clientHeight) return;
+    const limite = marco.getBoundingClientRect();
+    const posicion = control.getBoundingClientRect();
+    const cabecera = marco.children[0]?.clientHeight ?? 0;
+    const arriba = limite.top + marco.clientTop + cabecera + 4;
+    const abajo = limite.top + marco.clientTop + marco.clientHeight - 4;
+    if (posicion.top < arriba) marco.scrollTop += posicion.top - arriba;
+    else if (posicion.bottom > abajo) marco.scrollTop += posicion.bottom - abajo;
+  }
   function pintar() {
     if (!activo) return;
     const foco = d.activeElement?.id;
     const seleccion = d.activeElement?.type === 'text' ? [d.activeElement.selectionStart, d.activeElement.selectionEnd] : null;
+    const desplazamientos = paneles.map(id => {
+      const marco = d.getElementById(id);
+      return { id, arriba: marco?.scrollTop ?? 0, izquierda: marco?.scrollLeft ?? 0 };
+    });
     raiz.replaceChildren();
     if (!ejemplos.length) {
       const { elemento, cuerpo } = panel(d, t('titulo'));
@@ -30,6 +48,7 @@ export function montarSeleccion({ raiz, textos, cliente = crearClienteSeleccion(
       raiz.append(elemento); return;
     }
     const selectorPanel = panel(d, t('ejemplo_titulo'));
+    selectorPanel.elemento.id = 'seleccion-panel-ejemplo';
     selectorPanel.cuerpo.append(nodo(d, 'p', t('limite'), 'texto-secundario'));
     const etiqueta = nodo(d, 'label', undefined, 'campo'); etiqueta.htmlFor = 'seleccion-ejemplo';
     etiqueta.append(nodo(d, 'span', t('ejemplo_etiqueta')));
@@ -66,8 +85,10 @@ export function montarSeleccion({ raiz, textos, cliente = crearClienteSeleccion(
       },
     };
     pintarFormulario(formulario, configuracion, textos, acciones, errores, valores, situacion === 'cargando');
+    formulario.firstChild.id = 'seleccion-panel-configuracion';
     raiz.append(formulario);
     const resultadoPanel = panel(d, t('resultado_titulo'));
+    resultadoPanel.elemento.id = 'seleccion-panel-resultado';
     resultadoPanel.cuerpo.setAttribute('aria-live', 'polite');
     resultadoPanel.cuerpo.setAttribute('aria-busy', situacion === 'cargando' ? 'true' : 'false');
     const mensajeClave = ({ inicial: 'sin_resultado', cargando: 'calculando', error: 'error_simulacion',
@@ -75,14 +96,18 @@ export function montarSeleccion({ raiz, textos, cliente = crearClienteSeleccion(
     if (situacion === 'resultado' && resultado) mostrarResultado(resultadoPanel.cuerpo, resultado, configuracion, textos);
     else resultadoPanel.cuerpo.append(nodo(d, 'p', t(mensajeClave ?? 'sin_resultado')));
     raiz.append(resultadoPanel.elemento);
+    for (const { id, arriba, izquierda } of desplazamientos) {
+      const marco = d.getElementById(id);
+      if (marco) { marco.scrollTop = arriba; marco.scrollLeft = izquierda; }
+    }
     if (foco) {
-      const control = d.getElementById(foco); control?.focus({ preventScroll: true });
+      const control = d.getElementById(foco); enfocarVisible(control);
       if (seleccion) control?.setSelectionRange?.(...seleccion);
     }
   }
   function cambiar(id, valor, aplicar) {
     aplicar(); valores[id] = valor; invalidar(); errores = validarConfiguracion(configuracion);
-    pintar(); d.getElementById(id)?.focus({ preventScroll: true });
+    pintar(); enfocarVisible(d.getElementById(id));
   }
   async function cargar() {
     carga?.abort(); const actual = ++turno; carga = new AbortController(); situacion = 'cargando'; pintar();
