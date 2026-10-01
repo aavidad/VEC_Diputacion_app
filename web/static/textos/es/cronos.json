@@ -1,5 +1,12 @@
 {
   "general": {
+    "saldo_fichajes_calculo": "Fichajes y cálculo",
+    "saldo_calculo_detalle": "Detalle del cálculo",
+    "saldo_sin_jornada_prevista": "No consta jornada prevista para este día.",
+    "saldo_calculo_incompleto": "Cálculo incompleto.",
+    "saldo_detalle_tecnico": "Detalle técnico",
+    "saldo_turno_ref": "Referencia del turno",
+    "saldo_politica_version_ref": "Versión de la política de cálculo",
     "accion_entrada": "Registrar entrada",
     "accion_salida": "Registrar salida",
     "accion_inicio_pausa": "Iniciar pausa",
@@ -592,6 +599,7 @@
     "error_archivar": "No se pudo archivar el aviso. Puede reintentarlo."
   },
   "notificaciones": {
+    "notificaciones_reintentar_consulta": "Volver a consultar",
     "notificaciones_titulo": "Notificaciones a RRHH",
     "nueva_titulo": "Nueva notificación",
     "campo_tipo": "Tipo",
@@ -611,7 +619,7 @@
     "sin_tipos": "No hay tipos de notificación disponibles.",
     "error_datos": "Revise el tipo, la fecha y el mensaje.",
     "error_documento": "Indique la referencia y elija el documento, o deje ambos vacíos.",
-    "error_tipo_no_vigente": "Ese tipo ya no está disponible. La lista se ha actualizado.",
+    "error_tipo_no_vigente": "Ese tipo ya no está disponible. Elija otro tipo.",
     "error_conflicto_notificacion": "Ya existe otra notificación con esa referencia. Vuelva a enviarla.",
     "error_envio": "No se pudo enviar la notificación. Puede reintentarlo sin duplicarla.",
     "mis_notificaciones": "Mis notificaciones",
