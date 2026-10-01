@@ -1,4 +1,4 @@
-import { cargarCatalogosContratacion } from "./i18n-catalogos.js";
+import { cargarCatalogosContratacion } from "./i18n-catalogos.js?v=20261001-codexf-ct-catalogos-v1";
 
 const catalogos = await cargarCatalogosContratacion("contratacion-temporal-borradores-publicados");
 

@@ -9,8 +9,8 @@
  * manifiesto config/contratacion_temporal_flujo_visual_rrhh_v1.json. No
  * deduce responsables ni tareas: eso solo lo dice el servidor.
  */
-import { cargarCatalogosContratacion } from "./i18n-catalogos.js";
-import { IDIOMA_ACTUAL } from "../../../comun/idioma.js";
+import { cargarTextos } from "../../../comun/textos.js";
+import { IDIOMA_ACTUAL, IDIOMA_POR_DEFECTO, IDIOMAS_DISPONIBLES } from "../../../comun/idioma.js";
 
 export const FASES_RRHH = Object.freeze([
   "solicitud", "analisis_rrhh", "gestion_bolsa", "fiscalizacion",
@@ -36,12 +36,15 @@ const ESTADO_UNICO = Object.freeze({
 });
 
 
-const catalogos = await cargarCatalogosContratacion("contratacion-temporal-fases-rrhh");
-const ROTULOS = catalogos.porIdioma;
+const ROTULOS = Object.freeze(Object.fromEntries(await Promise.all(
+  IDIOMAS_DISPONIBLES.map(async ({ codigo }) => [codigo,
+    (await cargarTextos("portal", { idioma: codigo })).seccion("fases_rrhh"),
+  ]),
+)));
 
 /** Rótulo del catálogo en el idioma de la interfaz. */
 export function rotuloTramite(clave, variables = {}, idioma = IDIOMA_ACTUAL) {
-  const catalogo = ROTULOS[idioma] ?? catalogos.exportaciones.ES;
+  const catalogo = ROTULOS[idioma] ?? ROTULOS[IDIOMA_POR_DEFECTO];
   if (!Object.hasOwn(catalogo, clave)) throw new Error(`falta el rótulo ${clave}`);
   return Object.entries(variables).reduce(
     (texto, [nombre, valor]) => texto.replaceAll(`{${nombre}}`, String(valor)), catalogo[clave],
@@ -107,6 +110,6 @@ export function mensajesTramite(idioma = IDIOMA_ACTUAL) {
 
 /** Las mismas claves para el catálogo del portal (portada), con prefijo propio. */
 export function mensajesTramitePortal(idioma = IDIOMA_ACTUAL) {
-  const catalogo = ROTULOS[idioma] ?? catalogos.exportaciones.ES;
+  const catalogo = ROTULOS[idioma] ?? ROTULOS[IDIOMA_POR_DEFECTO];
   return Object.freeze(Object.fromEntries(Object.entries(catalogo).map(([clave, texto]) => [`tramite_${clave}`, texto])));
 }

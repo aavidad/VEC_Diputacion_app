@@ -102,11 +102,11 @@ test("los catálogos y los traductores conservan marcadores, sobrescrituras y cl
       assert.throws(() => crear({ titulo: "" }));
       assert.throws(() => crear(null));
     }
-    const fases = await cargarCatalogosContratacion("contratacion-temporal-fases-rrhh");
-    for (const [clave, texto] of Object.entries(fases.exportaciones[nombre])) assert.equal(rotuloTramite(clave, {}, codigo), texto);
+    const fases = (await cargarTextos("portal", { idioma: codigo })).seccion("fases_rrhh");
+    for (const [clave, texto] of Object.entries(fases)) assert.equal(rotuloTramite(clave, {}, codigo), texto);
     const tramite = mensajesTramite(codigo);
-    assert.equal(tramite.fase_rrhh_orden_nombre, fases.exportaciones[nombre].fase_de_nombre);
-    assert.equal(tramite.etiqueta_fase_incorporacion, fases.exportaciones[nombre].fase_incorporacion);
+    assert.equal(tramite.fase_rrhh_orden_nombre, fases.fase_de_nombre);
+    assert.equal(tramite.etiqueta_fase_incorporacion, fases.fase_incorporacion);
   }
   const traducir = crearTraductorCancelacion({ "cancelacion.titulo": "{uno} {dos}" });
   assert.equal(traducir("titulo", { uno: 0 }), "0 {dos}");
