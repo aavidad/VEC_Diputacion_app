@@ -32,10 +32,10 @@ function formulario(r, s, paso, t, locale) {
   const aviso = r.mensaje ? `<p class="cronos-solicitud-aviso" data-tono="error" role="alert">${escaparHTML(r.mensaje)}</p>` : "";
   return `<section class="panel cronos-panel" aria-labelledby="cronos-resolucion-titulo"><div class="cabecera-panel"><h3 id="cronos-resolucion-titulo">${escaparHTML(titulo)}</h3>
     <span class="cronos-circuito">${escaparHTML(periodoSolicitudCronos(s, t, locale))} · ${escaparHTML(formatearCantidadCronos(s.cantidad, s.unidad, t, locale))}</span></div>
-    <div class="cuerpo-panel"><form class="cronos-resolucion-formulario" data-cronos-resolucion-formulario aria-label="${escaparHTML(titulo)}">
+    <div class="cuerpo-panel"><form class="cronos-resolucion-formulario" data-cronos-resolucion-formulario tabindex="-1" aria-label="${escaparHTML(titulo)}">
     <fieldset class="cronos-resolucion-decision"><legend>${escaparHTML(t("decision"))}</legend>${opcion("aprobar", paso === "responsable" ? "decision_aprobar_responsable" : "decision_aprobar_administracion")}${opcion("denegar", "decision_denegar")}</fieldset>
     <label class="cronos-resolucion-motivo">${escaparHTML(t("motivo"))}<textarea name="motivo" rows="3" maxlength="${MAXIMO_MOTIVO_RESOLUCION_CRONOS}"${r.decision === "denegar" ? " required" : ""}${inactivo}>${escaparHTML(r.motivo ?? "")}</textarea></label>
-    <div class="cronos-solicitud-acciones"><button type="submit" class="boton-primario"${inactivo}>${escaparHTML(t(enviando ? "resolucion_enviando" : "resolucion_enviar"))}</button>
+    <div class="cronos-solicitud-acciones"><button type="submit" class="boton-primario" data-cronos-resolucion-enviar${inactivo}>${escaparHTML(t(enviando ? "resolucion_enviando" : "resolucion_enviar"))}</button>
     <button type="button" class="boton-secundario" data-cronos-resolucion-cerrar>${escaparHTML(t("cancelar"))}</button></div>${aviso}</form></div></section>`;
 }
 
@@ -102,11 +102,11 @@ export function renderizarBandejaPermisosCronos({ estado = "cargando", paso = "r
     `<button type="button" class="boton-secundario" data-cronos-paso="${p}" aria-pressed="${p === paso}">${escaparHTML(t(`paso_${p}`))}</button>`).join("")}</div>`;
   const cabeceraPanel = `<div class="cabecera-panel"><h3 id="cronos-bandeja-paso">${escaparHTML(t(`paso_${paso}`))}</h3>${selector}</div>`;
   const tono = tonoMensaje === "error" ? "error" : "exito";
-  const aviso = mensaje ? `<p class="cronos-solicitud-aviso" data-tono="${tono}" role="${tono === "error" ? "alert" : "status"}">${escaparHTML(mensaje)}</p>` : "";
+  const aviso = mensaje ? `<p class="cronos-solicitud-aviso" data-cronos-bandeja-resultado tabindex="-1" data-tono="${tono}" role="${tono === "error" ? "alert" : "status"}">${escaparHTML(mensaje)}</p>` : "";
   if (estado !== "listo") {
     const clave = { denegado: "denegado", sin_empleado: "sin_empleado", error: "error" }[estado] ?? "cargando";
     return `<section class="cronos-area cronos-bandeja-permisos" aria-labelledby="cronos-bandeja-titulo" data-estado="${escaparHTML(estado)}">${cabecera}
-      <section class="panel cronos-panel" aria-labelledby="cronos-bandeja-paso">${cabeceraPanel}<div class="cuerpo-panel"><p class="cronos-${estado === "cargando" ? "vacio" : "acceso-denegado"}" role="${estado === "error" ? "alert" : "status"}">${escaparHTML(t(clave))}</p></div></section></section>`;
+      <section class="panel cronos-panel" aria-labelledby="cronos-bandeja-paso">${cabeceraPanel}<div class="cuerpo-panel"><p class="cronos-${estado === "cargando" ? "vacio" : "acceso-denegado"}" data-cronos-bandeja-estado tabindex="-1" role="${estado === "error" ? "alert" : "status"}">${escaparHTML(t(clave))}</p></div></section></section>`;
   }
   const seleccion = seleccionarPendientes(datos, filtros, pagina, t);
   const enviando = resolucion?.estado === "enviando";
@@ -142,8 +142,46 @@ export function montarBandejaPermisosCronos({ raiz, cliente = crearClienteResolu
   let activa = true; let secuencia = 0; let controlador = null; let envio = null;
   let pasoVisible = paso; let estado = "cargando"; let datos = null; let resolucion = null; let mensaje = ""; let tonoMensaje = "exito";
   let filtros = { busqueda: "", estado: "todos" }; let pagina = 1;
-  const dibujar = () => { if (activa) contenedor.innerHTML = renderizarBandejaPermisosCronos({ estado, paso: pasoVisible, datos, resolucion, mensaje, tonoMensaje, mensajes, locale, zonaHoraria, filtros, pagina }); };
+  let focoPendiente = null;
+  const selectorFoco = (foco) => {
+    const paso = foco?.getAttribute?.("data-cronos-paso");
+    if (PASOS_RESOLUCION_CRONOS.includes(paso)) return `[data-cronos-paso="${paso}"]`;
+    const nombre = foco?.getAttribute?.("name");
+    if (nombre === "decision" && ["aprobar", "denegar"].includes(foco.value)) return `[name="decision"][value="${foco.value}"]`;
+    if (["busqueda", "estado", "motivo"].includes(nombre)) return `[name="${nombre}"]`;
+    for (const atributo of ["data-cronos-resolucion-enviar", "data-cronos-resolucion-cerrar", "data-cronos-bandeja-aplicar", "data-cronos-bandeja-limpiar", "data-cronos-bandeja-paginacion"]) {
+      if (foco?.hasAttribute?.(atributo)) return `[${atributo}]`;
+    }
+    const paginaFoco = foco?.getAttribute?.("data-cronos-bandeja-pagina");
+    if (["anterior", "siguiente"].includes(paginaFoco)) return `[data-cronos-bandeja-pagina="${paginaFoco}"]`;
+    const solicitud = foco?.getAttribute?.("data-cronos-resolver");
+    if (typeof solicitud === "string" && /^[A-Za-z0-9:._-]{1,200}$/u.test(solicitud)) return `[data-cronos-resolver="${solicitud}"]`;
+    return foco?.getAttribute?.("data-accion") === "ayuda" ? '[data-accion="ayuda"]' : null;
+  };
+  const dibujar = () => {
+    if (!activa) return;
+    const documento = raiz.ownerDocument;
+    const foco = documento.activeElement;
+    const dentro = contenedor.contains?.(foco) === true;
+    const documentoActivo = documento.hasFocus?.() !== false;
+    // Un destino provisional conserva el control hasta terminar la lectura o
+    // el envío. Salir del módulo cancela esa intención antes de responder.
+    if ((foco && foco !== documento.body && !dentro) || !documentoActivo) focoPendiente = null;
+    const selectorActual = dentro && documentoActivo ? selectorFoco(foco) : null;
+    if (selectorActual) focoPendiente = selectorActual;
+    const restaurar = documentoActivo && (dentro || (foco === documento.body && focoPendiente));
+    contenedor.innerHTML = renderizarBandejaPermisosCronos({ estado, paso: pasoVisible, datos, resolucion, mensaje, tonoMensaje, mensajes, locale, zonaHoraria, filtros, pagina });
+    if (!restaurar || !focoPendiente) return;
+    const control = contenedor.querySelector?.(focoPendiente);
+    const destino = control && !control.disabled ? control
+      : contenedor.querySelector?.("[data-cronos-bandeja-estado]")
+        ?? contenedor.querySelector?.("[data-cronos-bandeja-resultado]")
+        ?? contenedor.querySelector?.("[data-cronos-resolucion-formulario]");
+    destino?.focus?.();
+    if (destino === control && !control.disabled) focoPendiente = null;
+  };
   const cargar = async () => {
+    conservarBorrador();
     controlador?.abort(); controlador = new AbortController(); const turno = ++secuencia;
     estado = "cargando"; datos = null; dibujar();
     try {
