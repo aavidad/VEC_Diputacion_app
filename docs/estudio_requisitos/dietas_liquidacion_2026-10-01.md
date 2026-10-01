@@ -96,6 +96,53 @@ El ensayo de devengo anterior sigue disponible sin argumentos. Los catálogos
 de idioma y el tema se eligen mediante rutas explícitas del operador; los
 errores no muestran esas rutas ni el contenido de los archivos.
 
+## Comparar dos propuestas locales
+
+`--comparar-liquidaciones` recibe dos instantáneas completas en un objeto
+con las claves `esquema`, `anterior` y `propuesta`. El esquema es
+`vec_dietas_comparacion_liquidacion_v1`. Ambas deben corresponder a la misma
+comisión, versión y huella documental. El comando recupera y comprueba cada
+instantánea antes de emitir la comparación.
+
+Este ejemplo restituye los 3,00 euros reducidos del billete de tren:
+
+```sh
+go run ./cmd/vec-dietas --preparar-liquidacion \
+  < cmd/vec-dietas/testdata/preparacion_liquidacion_gastos.json \
+  > propuesta-anterior.json
+
+jq '.revisiones[2].reconocido_propuesto_centimos = 1800 |
+    .revisiones[2].motivo_codigo = ""' \
+  cmd/vec-dietas/testdata/preparacion_liquidacion_gastos.json |
+  go run ./cmd/vec-dietas --preparar-liquidacion > propuesta-nueva.json
+
+jq -n --slurpfile anterior propuesta-anterior.json \
+  --slurpfile propuesta propuesta-nueva.json \
+  '{esquema:"vec_dietas_comparacion_liquidacion_v1",
+    anterior:$anterior[0], propuesta:$propuesta[0]}' |
+  go run ./cmd/vec-dietas --comparar-liquidaciones
+```
+
+La salida conserva cada índice documental y muestra el importe original,
+el reconocido y el rechazado de cada propuesta, con sus diferencias en
+céntimos. La diferencia se calcula como propuesta menos anterior: en el
+ejemplo, el reconocido aumenta 300 y el rechazado disminuye 300. Los totales
+reconocidos pasan de 5970 a 6270 céntimos y los rechazados de 700 a 400.
+Los motivos y las reglas aparecen con sus códigos anteriores y propuestos,
+incluso cuando el importe no cambia.
+
+Se admite comparar catálogos distintos; `catalogos_distintos` lo indica y las
+referencias, versiones y huellas de ambos quedan en la salida, junto con las
+huellas de las instantáneas. Estas huellas comprueban coherencia local, sin
+acreditar autenticidad ni aprobación. La salida conserva `liquidable:false`
+y la procedencia `comparacion_local_sin_registrar`.
+
+La entrada completa tiene un límite de 1 MiB. Las claves duplicadas, campos
+desconocidos, valores nulos y documentos adicionales se rechazan. Un error
+devuelve únicamente un código JSON y termina con estado 2; no incluye datos
+de las propuestas ni una comparación parcial. El comando no admite informe
+HTML, no publica tarifas y no registra una liquidación.
+
 ## Contraste con fuentes públicas
 
 | Fuente | Consecuencia para VEC |

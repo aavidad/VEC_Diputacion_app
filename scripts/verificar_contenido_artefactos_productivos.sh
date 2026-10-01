@@ -158,6 +158,9 @@ fi
 # lectura, almacenamiento o inclusion entre origenes. (grep en vez de ripgrep:
 # el ejecutor de CI no trae rg.)
 transportes_mtls_revisados=(
+	# Consulta exacta de Selección: POST interno fijo, same-origin, no-store,
+	# redirect error y no-referrer; contexto y permiso se derivan en servidor.
+	static/portal-empleado/modulos/seleccion/ficha-convocatoria/cliente-http.js
 	static/portal-empleado/portal-catalogo-modulos.js
 	# Usuarios 5.08a: GET/PUT a ruta interna fija, mTLS del mismo origen,
 	# no-store, redirect error, sin referente ni cookies accesibles en JS.

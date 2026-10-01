@@ -38,7 +38,7 @@ func TestCLISyntheticStoreCheckDeleteAndRedactedErrors(t *testing.T) {
 		t.Fatalf("store: %s", errors.String())
 	}
 	var r resultado
-	if e = json.Unmarshal(out.Bytes(), &r); e != nil || r.Referencia == nil {
+	if e = json.Unmarshal(out.Bytes(), &r); e != nil || r.Referencia == nil || r.Mensaje == "" || r.Mensaje == r.Codigo {
 		t.Fatalf("reference: %v", e)
 	}
 	ref, _ := json.Marshal(r.Referencia)
@@ -67,5 +67,19 @@ func TestCLIDeniesWithoutSyntheticFlag(t *testing.T) {
 	var out, errors bytes.Buffer
 	if run([]string{"-accion", "almacenar"}, &out, &errors) == 0 {
 		t.Fatal("synthetic guard missing")
+	}
+}
+
+func TestCatalogosDestinoTraduceCodigosNominales(t *testing.T) {
+	for _, idioma := range []string{"es", "en"} {
+		catalogo, err := cargarCatalogo("../../web/static/textos/"+idioma+"/copias_destino.json", idioma)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, codigo := range []string{"copias_destino.configuracion", "copias_destino.catalogo", "copias_destino.material", "copias_destino.no_disponible", "copias_destino.existe", "copias_destino.almacenar", "copias_destino.comprobar", "copias_destino.borrar"} {
+			if mensaje := mensajeCodigo(catalogo, idioma, codigo); mensaje == "" || mensaje == codigo {
+				t.Fatalf("sin traducción: %s %s", idioma, codigo)
+			}
+		}
 	}
 }

@@ -1,0 +1,33 @@
+{
+  "demo": true,
+  "nombre": "Carmen Molina Ortega",
+  "periodo": {
+    "tipo": "hoy",
+    "desde": "2026-10-25",
+    "hasta": "2026-10-25"
+  },
+  "zona_horaria": "Europe/Madrid",
+  "completo": false,
+  "marcajes": [
+    {
+      "instante_utc": "2026-10-25T01:30:00Z",
+      "movimiento": "salida",
+      "origen": "remoto"
+    },
+    {
+      "instante_utc": "2026-10-25T00:30:00Z",
+      "movimiento": "entrada",
+      "origen": "terminal"
+    },
+    {
+      "instante_utc": "2026-10-25T00:30:00Z",
+      "movimiento": "entrada",
+      "origen": null
+    },
+    {
+      "instante_utc": "2026-10-25T00:45:00Z",
+      "movimiento": "inicio_pausa",
+      "origen": null
+    }
+  ]
+}
