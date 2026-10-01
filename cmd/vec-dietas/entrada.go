@@ -17,14 +17,18 @@ const limiteEntrada = 1 << 20
 var errJSON = errors.New("entrada_json_invalida")
 
 func leerEntrada(in io.Reader) (simulaciondevengo.Entrada, error) {
-	var e simulaciondevengo.Entrada
+	return leerEntradaTipada[simulaciondevengo.Entrada](in)
+}
+
+func leerEntradaTipada[T any](in io.Reader) (T, error) {
+	var e T
 	b, err := io.ReadAll(io.LimitReader(in, limiteEntrada+1))
 	if err != nil || len(b) > limiteEntrada || !utf8.Valid(b) {
 		return e, errJSON
 	}
 	d := json.NewDecoder(bytes.NewReader(b))
 	d.UseNumber()
-	if err := validarForma(d, reflect.TypeFor[simulaciondevengo.Entrada](), 0); err != nil {
+	if err := validarForma(d, reflect.TypeFor[T](), 0); err != nil {
 		return e, errJSON
 	}
 	if _, err := d.Token(); err != io.EOF {
@@ -33,7 +37,8 @@ func leerEntrada(in io.Reader) (simulaciondevengo.Entrada, error) {
 	d = json.NewDecoder(bytes.NewReader(b))
 	d.DisallowUnknownFields()
 	if d.Decode(&e) != nil {
-		return simulaciondevengo.Entrada{}, errJSON
+		var vacio T
+		return vacio, errJSON
 	}
 	return e, nil
 }

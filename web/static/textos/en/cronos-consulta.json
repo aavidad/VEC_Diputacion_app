@@ -1,0 +1,12 @@
+{
+  "consulta": {
+    "actualizar": "Refresh",
+    "reintentar": "Retry",
+    "pagina_anterior": "Previous days",
+    "pagina_siguiente": "Next days",
+    "paginacion": "Balance days",
+    "recuento": "Days {desde}–{hasta} of {total}. Page {pagina} of {paginas}.",
+    "periodo_completo": "The summary covers the whole period: {desde} to {hasta}.",
+    "consulta_lista": "Balance updated."
+  }
+}

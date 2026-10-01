@@ -1,6 +1,6 @@
 /** Textos castellanos de la superficie de expedientes de contratación temporal. */
-import { mensajesTramite } from "./i18n-fases-rrhh.js";
-import { MENSAJES_FICHA_LISTA_EN, MENSAJES_FICHA_LISTA_ES } from "./i18n-ficha-lista.js";
+import { mensajesTramite } from "./i18n-fases-rrhh.js?v=20261001-codexf-ct-catalogos-v1";
+import { MENSAJES_FICHA_LISTA_EN, MENSAJES_FICHA_LISTA_ES } from "./i18n-ficha-lista.js?v=20261001-codexf-ct-catalogos-v1";
 
 export const MENSAJES_EXPEDIENTES_CONTRATACION_ES = Object.freeze({
   ...mensajesTramite("es"),

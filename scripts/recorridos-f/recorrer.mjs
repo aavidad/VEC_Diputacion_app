@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { cargarConfig, rutaExterna, prepararSalida, solicitudPermitida, huella, idiomas, CUADRO, DETALLE, BORRADORES, FIRMAS } from './config.mjs';
+import { chromeAccesible, comprobarAccesibilidad, activarLectura } from './a11y.mjs';
 import { validarRespuestaMiBolsa } from '../../web/static/area-personal/contrato.js';
 import { validarHistorialMiBolsa, RUTA_HISTORIAL_MI_BOLSA } from '../../web/static/area-personal/mi-bolsa-historial.js';
 import { validarRespuestaBolsas, validarRespuestaCandidatosBolsa } from '../../web/static/portal-empleado/portal-bolsas-contrato.js';
@@ -107,20 +108,23 @@ async function tecladoMovil(page, nombre) {
   if (!(await page.locator(boton).evaluate(el => document.activeElement === el))) throw new Error('teclado');
 }
 
-export async function recorrer(c, chromium, salida, anterior) {
+export async function recorrer(c, chromium, salida, anterior, accesibilidad = false) {
   const resultado = { version: 1, estado: 'EN_CURSO', servidor_instalado_verificado: false,
     commit_servido_declarado: c.commit_servido, escenario_sha256: huella(JSON.stringify([c.origenes, c.bolsa_ref, c.expediente_ref, c.idioma])),
     pasos: [], reinicio_verificado: false };
   const guardar = () => fs.writeFileSync(path.join(salida, 'resultado.json'), JSON.stringify(resultado, null, 2), { mode: 0o600 });
   guardar();
-  let browser;
+  let browser, chrome;
   try {
-    browser = await chromium.launch({ executablePath: '/usr/bin/google-chrome', headless: true });
-    for (const width of [1440, 390]) {
+    if (accesibilidad) { chrome = await chromeAccesible(chromium, salida); browser = chrome.browser; }
+    else browser = await chromium.launch({ executablePath: '/usr/bin/google-chrome', headless: true });
+    for (const [width, factor] of (accesibilidad ? [[1440, 1], [390, 1], [1440, 2]] : [[1440, 1], [390, 1]])) {
+      if (accesibilidad) await chrome.zoom(factor);
       for (const nombre of ['mi_bolsa', 'bolsa_rrhh', 'contratacion']) {
         const identidad = c.identidades[nombre === 'mi_bolsa' ? 'candidato' : 'rrhh'];
         const origen = c.origenes[nombre === 'mi_bolsa' ? 'externo' : 'interno'];
         const datos = { nombre, ancho: width, estado: 'ENTRADA', errores_js: 0, bloqueadas: 0, red_fallida: 0 };
+        if (accesibilidad) { datos.zoom_porcentaje = factor * 100; datos.accesibilidad = []; }
         resultado.pasos.push(datos);
         let page, context;
         try {
@@ -134,6 +138,13 @@ export async function recorrer(c, chromium, salida, anterior) {
           page = await context.newPage();
           page.on('pageerror', () => { datos.errores_js += 1; });
           page.on('dialog', dialog => dialog.dismiss());
+          const verificar = async (lectura, selector = '#espacio-trabajo') => {
+            if (!accesibilidad) return;
+            await page.waitForLoadState('networkidle', { timeout: 20000 });
+            const prueba = await comprobarAccesibilidad(page, selector, lectura, width, factor);
+            datos.accesibilidad.push(prueba);
+            if (prueba.estado !== 'COMPROBADO') throw new Error('accesibilidad');
+          };
           datos.estado = 'LECTURA';
           if (nombre === 'mi_bolsa') {
             const historial = page.waitForResponse(r => new URL(r.url()).pathname === '/api/vec/bolsa/mi-bolsa/historial', { timeout: 20000 });
@@ -151,21 +162,28 @@ export async function recorrer(c, chromium, salida, anterior) {
             });
             if (await page.locator('#historial-mi-bolsa [data-historial-accion="reintentar"]').count()) throw new Error('historial');
             datos.mi_bolsa_http = 200; datos.historial_http = 200;
+            await verificar('mi_bolsa');
+            await verificar('historial_mi_bolsa', '#historial-mi-bolsa');
           } else if (nombre === 'bolsa_rrhh') {
             const data = await respuesta(page, '/api/vec/bolsa/bolsas', () => abrir(page, `${origen}/portal-empleado/?lang=${c.idioma}#bolsa/resumen`));
             if (!data.bolsas?.some(b => b.bolsa_ref === c.bolsa_ref)) throw new Error('bolsa');
             const boton = page.locator(`tr[data-bolsa-ref="${c.bolsa_ref}"] button[data-accion="ver-bolsa"]`).first();
             await boton.waitFor({ state: 'visible' });
-            const candidatos = await respuesta(page, `/api/vec/bolsa/bolsas/${c.bolsa_ref}/candidatos`, () => boton.click());
+            datos.bolsas_http = 200;
+            await verificar('bolsas_rrhh');
+            const candidatos = await respuesta(page, `/api/vec/bolsa/bolsas/${c.bolsa_ref}/candidatos`, () => accesibilidad ? activarLectura(page, boton) : boton.click());
             if (candidatos.bolsa?.bolsa_ref !== c.bolsa_ref || !Array.isArray(candidatos.candidatos)) throw new Error('candidatos');
             await page.locator('[data-bolsa-accion="iniciar-b7"]').waitFor({ state: 'visible' });
             datos.bolsas_http = 200; datos.candidatos_http = 200;
+            await verificar('candidatos_bolsa');
           } else {
             const data = await respuesta(page, CUADRO, () => abrir(page, `${origen}/portal-empleado/?lang=${c.idioma}#contratacion-temporal`));
             if (!data.expedientes?.some(e => e.expediente_ref === c.expediente_ref)) throw new Error('expediente_no_visible');
             const boton = page.locator(`[data-ct-exp-abrir="${c.expediente_ref}"]`).first();
             await boton.waitFor({ state: 'visible' });
-            const detalle = await respuesta(page, DETALLE, () => boton.click());
+            datos.cuadro_http = 200;
+            await verificar('cuadro_ct', '[data-modulo="contratacion-temporal"]');
+            const detalle = await respuesta(page, DETALLE, () => accesibilidad ? activarLectura(page, boton) : boton.click());
             if (detalle.resumen?.expediente_ref !== c.expediente_ref || !Number.isSafeInteger(detalle.resumen.version)
                 || detalle.resumen.version < 1 || !Array.isArray(detalle.hitos)) throw new Error('detalle');
             await page.locator('[data-modulo="contratacion-temporal"] .ct-exp-ficha-cabecera').waitFor({ state: 'visible' });
@@ -173,10 +191,11 @@ export async function recorrer(c, chromium, salida, anterior) {
             datos.cuadro_http = 200; datos.detalle_http = 200;
             datos.version_expediente = detalle.resumen.version;
             datos.detalle_sha256 = huella(JSON.stringify([detalle.resumen, detalle.hitos]));
+            await verificar('detalle_ct', '[data-modulo="contratacion-temporal"]');
           }
           await page.waitForLoadState('networkidle', { timeout: 20000 });
           if (!(await page.locator('html').getAttribute('lang'))?.startsWith(c.idioma)) throw new Error('idioma');
-          if (width === 390) { await tecladoMovil(page, nombre); datos.teclado_menu = true; }
+          if (width === 390 || (accesibilidad && factor === 2)) { await tecladoMovil(page, nombre); datos.teclado_menu = true; }
           await controles(page, context, datos);
           datos.estado = 'COMPROBADO';
           if (anterior) {
@@ -188,7 +207,7 @@ export async function recorrer(c, chromium, salida, anterior) {
         } catch (e) {
           datos.estado = 'CORTADO';
           // Solo códigos internos controlados; los errores Playwright contienen URL/identidad.
-          datos.corte = ['http', 'contrato', 'entrada', 'historial', 'bolsa', 'candidatos', 'expediente_no_visible', 'detalle', 'controles', 'comparacion', 'idioma', 'teclado'].includes(e.message) ? e.message : 'navegador';
+          datos.corte = ['http', 'contrato', 'entrada', 'historial', 'bolsa', 'candidatos', 'expediente_no_visible', 'detalle', 'controles', 'comparacion', 'idioma', 'teclado', 'accesibilidad', 'teclado_accesibilidad', 'zoom_nativo'].includes(e.message) ? e.message : 'navegador';
           resultado.estado = 'CORTADO';
           throw e;
         } finally {
@@ -197,16 +216,16 @@ export async function recorrer(c, chromium, salida, anterior) {
         }
       }
     }
-    resultado.estado = 'LECTURAS_COMPROBADAS';
+    resultado.estado = accesibilidad ? 'LECTURAS_Y_ACCESIBILIDAD_COMPROBADAS' : 'LECTURAS_COMPROBADAS';
     guardar();
     return resultado;
   } catch (e) {
     resultado.estado = 'CORTADO';
-    resultado.corte = 'navegador';
+    resultado.corte = ['accesibilidad', 'teclado_accesibilidad', 'zoom_nativo'].includes(e.message) ? e.message : 'navegador';
     guardar();
     throw e;
   } finally {
-    try { await browser?.close(); }
+    try { if (chrome) await chrome.cerrar(); else await browser?.close(); }
     catch (e) { resultado.estado = 'CORTADO'; resultado.corte = 'navegador'; guardar(); throw e; }
   }
 }
@@ -218,7 +237,7 @@ async function main() {
       if (!['--config', '--modo', '--salida', '--comparar'].includes(args[i]) || !args[i + 1] || Object.hasOwn(opciones, args[i])) throw new Error();
       opciones[args[i]] = args[i + 1];
     }
-    if (!opciones['--config'] || !['preflight', 'lectura'].includes(opciones['--modo'])) throw new Error();
+    if (!opciones['--config'] || !['preflight', 'lectura', 'accesibilidad'].includes(opciones['--modo'])) throw new Error();
     const c = cargarConfig(opciones['--config']);
     // Ruta de una instalación existente. No descarga paquetes ni navegadores.
     const modulo = rutaExterna(process.env.VEC_PLAYWRIGHT_MODULE);
@@ -231,17 +250,18 @@ async function main() {
     }
     let anterior;
     if (opciones['--comparar']) {
+      if (opciones['--modo'] !== 'lectura') throw new Error();
       anterior = JSON.parse(fs.readFileSync(rutaExterna(opciones['--comparar'], { privado: true }), 'utf8'));
       if (anterior.estado !== 'LECTURAS_COMPROBADAS' || !Array.isArray(anterior.pasos)
           || anterior.commit_servido_declarado !== c.commit_servido
           || anterior.escenario_sha256 !== huella(JSON.stringify([c.origenes, c.bolsa_ref, c.expediente_ref, c.idioma]))) throw new Error();
     }
     const salida = prepararSalida(opciones['--salida']);
-    try { await recorrer(c, chromium, salida, anterior); }
+    try { await recorrer(c, chromium, salida, anterior, opciones['--modo'] === 'accesibilidad'); }
     catch { console.error(mensajes.fallo); return 1; }
-    console.log(mensajes.exito);
+    console.log(opciones['--modo'] === 'accesibilidad' ? idiomas.disponibles[c.idioma].accesibilidad_exito : mensajes.exito);
     return 0;
-  } catch { console.error(mensajes.entrada); console.error(mensajes.uso); return 2; }
+  } catch { console.error(mensajes.entrada); console.error(idiomas.disponibles[idioma].accesibilidad_uso); return 2; }
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) process.exitCode = await main();

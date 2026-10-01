@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { iniciarPeticionCentro, iniciarPeticionesCentroRRHH, pedir } from "./peticiones-centro.js";
+import { iniciarPeticionCentro, iniciarPeticionesCentroRRHH, pedir } from "./peticiones-centro.js?v=20261001-codexf-ct-catalogos-v1";
 
 const catalogos = {
   esquema: "vec.contratacion_temporal.catalogos_alta.v1",
