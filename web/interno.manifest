@@ -72,6 +72,9 @@ static/portal-empleado/modulos/cronos/vista-remoto.js
 static/portal-empleado/modulos/cronos/vista-movimientos-conectado.js
 static/portal-empleado/modulos/cronos/vista-movimientos-propios.js
 static/portal-empleado/modulos/cronos/vista-permisos-propios.js
+static/portal-empleado/modulos/cronos/i18n-historial.js
+static/textos/es/cronos-historial.json
+static/textos/en/cronos-historial.json
 static/portal-empleado/modulos/cronos/i18n-resolucion.js
 static/portal-empleado/modulos/cronos/cliente-resolucion-http.js
 static/portal-empleado/modulos/cronos/vista-bandeja-permisos.js

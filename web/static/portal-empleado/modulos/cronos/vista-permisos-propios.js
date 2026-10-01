@@ -1,7 +1,7 @@
 import { crearTraductorSolicitudesCronos, formatearCantidadCronos, MENSAJES_CRONOS_SOLICITUDES } from "./i18n-solicitudes.js";
 import { ErrorClienteSolicitudesCronos, crearClienteSolicitudesCronosHTTP, validarPermisosPropiosCronos, validarEntradaPermisoCronos } from "./cliente-solicitudes-http.js";
 import { hoyCivilCronos } from "./vista-movimientos-propios.js?v=20260929-i18n-textos-v1";
-import { crearTraductorHistorialCronos, MENSAJES_HISTORIAL_CRONOS } from "./i18n-historial.js";
+import { crearTraductorHistorialCronos, MENSAJES_HISTORIAL_CRONOS } from "./i18n-historial.js?v=20261001-cronos-historial-v1";
 import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
 
 const ERRORES = new Map([
@@ -113,11 +113,11 @@ function formularioSolicitud(f, permiso, t) {
   if (!f || !permiso) return "";
   const enviando = f.estado === "enviando";
   const campos = permiso.unidad === "hora"
-    ? `<label>${escaparHTML(t("fecha"))}<input type="date" name="desde" required value="${escaparHTML(f.desde ?? "")}"${enviando ? " disabled" : ""}></label>
-       <label>${escaparHTML(t("hora_inicio"))}<input type="time" name="hora_inicio" required value="${escaparHTML(f.hora_inicio ?? "")}"${enviando ? " disabled" : ""}></label>
-       <label>${escaparHTML(t("hora_fin"))}<input type="time" name="hora_fin" required value="${escaparHTML(f.hora_fin ?? "")}"${enviando ? " disabled" : ""}></label>`
-    : `<label>${escaparHTML(t("desde"))}<input type="date" name="desde" required value="${escaparHTML(f.desde ?? "")}"${enviando ? " disabled" : ""}></label>
-       <label>${escaparHTML(t("hasta"))}<input type="date" name="hasta" required value="${escaparHTML(f.hasta ?? "")}"${enviando ? " disabled" : ""}></label>`;
+    ? `<label>${escaparHTML(t("fecha"))}<input class="control-formulario" type="date" name="desde" required value="${escaparHTML(f.desde ?? "")}"${enviando ? " disabled" : ""}></label>
+       <label>${escaparHTML(t("hora_inicio"))}<input class="control-formulario" type="time" name="hora_inicio" required value="${escaparHTML(f.hora_inicio ?? "")}"${enviando ? " disabled" : ""}></label>
+       <label>${escaparHTML(t("hora_fin"))}<input class="control-formulario" type="time" name="hora_fin" required value="${escaparHTML(f.hora_fin ?? "")}"${enviando ? " disabled" : ""}></label>`
+    : `<label>${escaparHTML(t("desde"))}<input class="control-formulario" type="date" name="desde" required value="${escaparHTML(f.desde ?? "")}"${enviando ? " disabled" : ""}></label>
+       <label>${escaparHTML(t("hasta"))}<input class="control-formulario" type="date" name="hasta" required value="${escaparHTML(f.hasta ?? "")}"${enviando ? " disabled" : ""}></label>`;
   const aviso = f.mensaje ? `<p class="cronos-solicitud-aviso" data-tono="${f.estado === "hecho" ? "exito" : "error"}" role="${f.estado === "hecho" ? "status" : "alert"}">${escaparHTML(f.mensaje)}</p>` : "";
   const titulo = t("solicitar_permiso", { permiso: permiso.nombre });
   return `<section class="panel cronos-panel" aria-labelledby="cronos-permiso-form-titulo"><div class="cabecera-panel"><h3 id="cronos-permiso-form-titulo">${escaparHTML(titulo)}</h3></div>
@@ -159,7 +159,7 @@ export function renderizarPermisosPropiosCronos({ estado = "cargando", anio, dat
     const p = porRef.get(s.permiso_ref);
     return `<tr><th scope="row">${escaparHTML(p?.nombre ?? th("permiso_sin_nombre"))}</th><td>${escaparHTML(periodo(s, t, locale))}</td><td class="numero">${escaparHTML(formatearCantidadCronos(s.cantidad, s.unidad, t, locale))}</td><td><span class="cronos-estado" data-estado="${escaparHTML(s.estado)}">${escaparHTML(t(estadoSolicitudPermisoCronos(s)))}</span></td></tr>`;
   };
-  const filtros = `<label for="cronos-historial-filtro">${escaparHTML(th("filtro"))}</label><select id="cronos-historial-filtro" data-cronos-historial-filtro>${FILTROS_HISTORIAL.map((f) =>
+  const filtros = `<label for="cronos-historial-filtro">${escaparHTML(th("filtro"))}</label><select class="control-formulario" id="cronos-historial-filtro" data-cronos-historial-filtro>${FILTROS_HISTORIAL.map((f) =>
     `<option value="${f}"${f === filtro ? " selected" : ""}>${escaparHTML(th(f))} (${new Intl.NumberFormat(locale).format(filtrarSolicitudes(datos.solicitudes, f).length)})</option>`).join("")}</select>`;
   const paginacion = `<nav class="cronos-navegacion" aria-label="${escaparHTML(th("titulo"))}"><button type="button" class="boton-secundario" data-cronos-historial-pagina="anterior"${historial.actual === 1 ? " disabled" : ""}>${escaparHTML(th("anterior"))}</button>
     <p data-cronos-historial-recuento tabindex="-1" role="status" aria-live="polite" aria-atomic="true">${escaparHTML(recuentoHistorial(historial, th, locale))}</p>
