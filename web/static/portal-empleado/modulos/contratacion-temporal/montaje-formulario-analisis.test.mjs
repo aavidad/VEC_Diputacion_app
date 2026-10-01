@@ -8,7 +8,7 @@ import {
   CAPACIDADES_CONTRATACION_TEMPORAL as CAP,
   validarExpedienteContratacionTemporal,
 } from "./contrato-expedientes.js";
-import { montarModuloContratacionTemporal } from "./vista-expedientes.js";
+import { montarModuloContratacionTemporal } from "./vista-expedientes.js?v=20261001-codexf-ct-catalogos-v1";
 
 const HUELLA = "a".repeat(64);
 const FORM_DATA_ORIGINAL = globalThis.FormData;

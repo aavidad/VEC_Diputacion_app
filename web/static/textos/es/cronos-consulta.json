@@ -1,0 +1,12 @@
+{
+  "consulta": {
+    "actualizar": "Actualizar",
+    "reintentar": "Reintentar",
+    "pagina_anterior": "Días anteriores",
+    "pagina_siguiente": "Días siguientes",
+    "paginacion": "Días del saldo",
+    "recuento": "Días {desde}–{hasta} de {total}. Página {pagina} de {paginas}.",
+    "periodo_completo": "El resumen incluye todo el periodo: del {desde} al {hasta}.",
+    "consulta_lista": "Saldo actualizado."
+  }
+}

@@ -1,0 +1,5 @@
+{
+  "entrada_invalida": "No se ha iniciado Chrome: revise el caso, las dependencias y los archivos privados.",
+  "recorrido_cortado": "El recorrido de Dietas se ha cortado. Consulte el resultado privado; no hay conformidad del escenario.",
+  "recorrido_comprobado": "El escenario sintético indicado terminó en Chrome. Falta la comprobación de persistencia tras reinicio por Dirección."
+}

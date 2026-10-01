@@ -1,0 +1,49 @@
+{
+  "idioma": "es",
+  "formato": {
+    "decimal": ",",
+    "agrupacion": ".",
+    "moneda": "€",
+    "fecha": "02/01/2006"
+  },
+  "rotulos": {
+    "titulo": "Preparación de liquidación de dietas",
+    "estado": "Propuesta pendiente de aprobación",
+    "limite": "Esta propuesta no está registrada. No acredita aprobación, fiscalización ni pago.",
+    "comision": "Comisión de servicio",
+    "version": "Versión",
+    "conceptos": "Detalle de importes",
+    "concepto": "Concepto",
+    "inicial": "Importe inicial",
+    "propuesto": "Importe propuesto",
+    "diferencia": "Diferencia",
+    "motivo": "Motivo de la diferencia",
+    "total": "Total",
+    "sin_reduccion": "Sin reducción",
+    "detalle": "Ver catálogo, fuentes y huellas",
+    "catalogo": "Catálogo de propuesta",
+    "tarifa": "Versión de tarifa de referencia",
+    "fuentes": "Fuentes del catálogo",
+    "documento_huella": "Huella del documento de la comisión",
+    "catalogo_huella": "Huella del catálogo",
+    "preparacion_huella": "Huella de esta preparación",
+    "huella_limite": "Las huellas permiten comparar los datos. No acreditan aprobación, autenticidad ni custodia de documentos.",
+    "reglas": "Reglas aplicadas a cada concepto",
+    "linea": "Línea",
+    "regla": "Referencia de regla",
+    "tabla_ayuda": "La diferencia es el importe que esta propuesta no reconoce. En pantallas pequeñas, desplace la tabla para ver todas las columnas.",
+    "grupo": "Grupo de dieta declarado",
+    "referencia_comision": "Referencia de la comisión"
+  },
+  "conceptos": {
+    "manutencion": "Manutención"
+  },
+  "tipos": {
+    "dieta": "Dieta",
+    "kilometraje": "Kilometraje"
+  },
+  "motivos": {
+    "revision_tarifa_importada": "Importe ajustado tras revisar la tarifa importada.",
+    "revision_documental": "Importe ajustado tras revisar la documentación."
+  }
+}

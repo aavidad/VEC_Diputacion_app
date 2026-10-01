@@ -1,0 +1,27 @@
+{
+  "general": {
+    "bp_titulo": "Drafts from the published catalogue",
+    "bp_subtitulo": "Types available for this case and its current version",
+    "bp_ayuda_boton": "Help with published drafts",
+    "bp_ayuda": "Only the types and formats returned by the catalogue published for this case are available. Each download checks permissions again and preserves the original bytes. A downloaded draft has not been signed or sent.",
+    "bp_cargando": "Checking published types…",
+    "bp_vacio": "No published types are available for this case.",
+    "bp_denegado": "This session does not have permission to view these drafts.",
+    "bp_error": "The published drafts could not be retrieved.",
+    "bp_conflicto": "The case or catalogue has changed. Refresh the details before downloading.",
+    "bp_reintentar": "Try again",
+    "bp_tipo": "Document type",
+    "bp_formatos": "Formats",
+    "bp_pdf": "Download PDF",
+    "bp_docx": "Download DOCX",
+    "bp_descargando": "Downloading and verifying the document…",
+    "bp_cancelar": "Cancel wait",
+    "bp_cancelada": "The download has been cancelled.",
+    "bp_listo": "Draft downloaded and fingerprint verified: {nombre}",
+    "bp_huella": "SHA-256: {huella}",
+    "bp_descarga_error": "The download could not be verified. No document has been saved.",
+    "bp_catalogo": "Published catalogue",
+    "bp_publicacion": "Publication verified:",
+    "bp_publicacion_recibo": "Publication receipt: {recibo}"
+  }
+}
