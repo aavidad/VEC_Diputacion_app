@@ -24,6 +24,7 @@ estos ejemplos son sintéticos. No hay claves ni contenido de copias reales.
 | 1 | Versiones declaradas incompatibles. |
 | 2 | Información insuficiente o inventario inválido. |
 | 3 | Entrada, argumentos, catálogo o salida inválidos. |
+| 4 | No se ha podido escribir el diagnóstico del fallo. |
 
 La salida mantiene siempre `habilita_restauracion: false`,
 `autenticidad: no_comprobada` y `verificacion_restauracion: no_comprobada`.

@@ -141,6 +141,29 @@ func TestErroresLocalesNoRevelanRutaNiContenido(t *testing.T) {
 	}
 }
 
+func TestFalloAlEscribirDiagnosticoDevuelveCuatro(t *testing.T) {
+	for _, tt := range []struct {
+		nombre  string
+		args    []string
+		entrada io.Reader
+		salida  io.Writer
+	}{
+		{"argumentos", []string{"-forzar"}, strings.NewReader(""), io.Discard},
+		{"catalogo", []string{"-catalogo", "ruta_privada_no_imprimir"}, strings.NewReader(""), io.Discard},
+		{"entrada", nil, strings.NewReader(`{"secreto":"no_imprimir"}`), io.Discard},
+		{"salida", nil, bytes.NewReader(datosEjemplo(t, "compatible")), escritorFallido{}},
+	} {
+		t.Run(tt.nombre, func(t *testing.T) {
+			if code := run(tt.args, tt.entrada, tt.salida, escritorFallido{}); code != 4 {
+				t.Fatalf("código %d; esperado 4", code)
+			}
+		})
+	}
+	if diagnosticar(escritorFallido{}, "copias_seguridad_error_entrada") == nil {
+		t.Fatal("descarta el error de escritura")
+	}
+}
+
 func TestParserRechazaLectorFallido(t *testing.T) {
 	if leerEstricto(io.LimitReader(lectorFallido{}, 10), new(entrada)) == nil {
 		t.Fatal("acepta error")
