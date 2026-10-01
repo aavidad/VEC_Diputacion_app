@@ -6,9 +6,9 @@ import { resolverSolicitudPropuestaLlamamiento } from "./portal-llamamientos-flu
 import { AYUDA_PORTAL_RRHH, detectarContextoContratacionTemporal, obtenerAyudaContratacionTemporal, renderizarAyudaContratacionTemporal, TRAMITES_AYUDANTE_PORTAL } from "./ayuda-contenido.js?v=20260930-portales-i18n-integracion-v1";
 import { crearAyudanteTramites } from "./ayudante-tramites.js?v=20260930-portales-i18n-integracion-v1";
 import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20260930-portales-i18n-integracion-v1";
-import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20260930-portales-i18n-integracion-v1";
+import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20261001-codexf-accesibilidad-v1";
 import { crearVistasOperaciones } from "./portal-vistas-operaciones.js?v=20260930-portales-i18n-integracion-v1";
-import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES } from "./portal-modulos-coordinador.js?v=20260930-ct-lista-recuperada-v2";
+import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES } from "./portal-modulos-coordinador.js?v=20261001-e3-b2-main36-v1";
 import { crearClientePlantillasRRHH } from "./modulos/contratacion-temporal/rrhh-plantillas-cliente.js";
 import { crearTraductorDocumentos } from "./modulos/documentos/i18n.js?v=20260928-ppt-v2";
 import { consultarSesionPortal, presentarSesionPortal } from "./portal-catalogo-modulos.js?v=20260930-portales-i18n-integracion-v1";

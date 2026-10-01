@@ -1,0 +1,60 @@
+# Simulador local de baremo
+
+Abre los editores de Bolsa y Concursos. Bolsa ofrece experiencia y otros méritos;
+Concursos valora grado, trabajo por nivel, antigüedad, permanencia, cursos y títulos
+sobre un puesto y servicios sintéticos.
+El cálculo usa los mismos servicios Go que `vec-baremador`. No consulta personas
+ni registra baremaciones, activa reglas o modifica una convocatoria.
+
+Desde la raíz del repositorio:
+
+```sh
+go run ./cmd/vec-baremador-web --web-dir web/static
+```
+
+El programa muestra la dirección que debe abrirse en Chrome. Escucha solo en
+`127.0.0.1`; por defecto el sistema asigna un puerto libre. Para elegirlo, añadir
+`--puerto 49153`. La ruta de los recursos la fija el operador con `--web-dir`.
+Solo se cargan los recursos del editor enumerados en `http.go`; el servidor no
+publica el directorio completo. Los catálogos del editor se cargan para los
+idiomas declarados en `textos/idiomas.json`.
+
+`GET /ejemplos` devuelve las reglas de cada ejemplo. `POST /simular` recibe
+`modo`, `ejemplo_ref` y el objeto `reglas`. El servidor fija los datos sintéticos
+de entrada, valida las reglas y calcula su representación canónica en Go.
+Devuelve el resultado con su huella. Un bloqueo conserva sus motivos y no tiene
+total; una regla inválida devuelve 422. El POST exige el origen y el Host exactos
+de la dirección mostrada al arrancar, con `Content-Type: application/json`.
+
+En Concursos, `GET /api/provision/v1/configuracion-local` devuelve configuración e
+instantánea sintética de cada caso. `POST /api/provision/v1/simulaciones` recibe
+`ejemplo_ref` y `configuracion`; liga la entrada al ejemplo embebido, sin admitir
+una entrada enviada por el navegador. Usa `application.Simular` de Provisión y
+responde con `provision.simulacion.v1`: desglose, total y huellas. La fecha de
+corte de Concursos es exclusiva; la de Bolsa conserva su contrato inclusivo.
+
+RRHH puede cambiar coeficientes, tablas de nivel, topes y fechas, comparar los
+resultados y guardar un borrador JSON. Al cargar un borrador de Concursos, Go
+valida antes de sustituirlo. Un archivo rechazado conserva los cambios previos.
+La activación institucional permanece deshabilitada; no hay firma ni SQL.
+
+No admite rutas de ficheros, URLs, datos personales ni credenciales. No emite cookies,
+CORS ni caché. Cada solicitud tiene un máximo de 256 KiB, 128 elementos por
+colección, 32 niveles y 8192 valores para Bolsa. El adaptador de Concursos limita
+a 24 niveles y 10000 elementos por colección; su límite JSON de 2 MiB queda
+subordinado al límite HTTP común de 256 KiB. La importación web de Concursos
+también limita a 256 KiB. Se permiten dos simulaciones simultáneas en total.
+El servidor limita la lectura de cabeceras a dos segundos, la lectura completa
+a cinco y la escritura a diez. Se detiene con Ctrl+C.
+
+Comprobaciones focales:
+
+```sh
+go test -race ./cmd/vec-baremador-web ./internal/modules/bolsa/adapters/simuladorlocal ./internal/modules/provision/...
+go vet ./cmd/vec-baremador-web ./internal/modules/bolsa/adapters/simuladorlocal ./internal/modules/provision/...
+```
+
+Las pruebas comparan la salida HTTP con el servicio común y comprueban origen,
+Host, método, campos desconocidos, exceso de tamaño y escapes del directorio de
+recursos. Esta herramienta local no se monta en el portal ni acredita permisos
+institucionales, aprobación de bases o una valoración oficial.
