@@ -1,0 +1,71 @@
+{
+  "version_esquema": 1,
+  "demostracion": true,
+  "ref": "demo:snapshot:ensayo:incidencias:20261001",
+  "version": 1,
+  "persona_ref": "demo:persona:demo:cronos:empleada-01",
+  "fuente": {
+    "referencia": "demo:fuente:demo:registros:20261001",
+    "version": 1,
+    "sha256": "35b16d08eb46e7c928413ffbccaa8fb589051a9aaec084ce914561f036ef6494"
+  },
+  "consulta": {
+    "desde": "2026-09-28",
+    "hasta": "2026-10-04",
+    "zona": "Europe/Madrid",
+    "corte_utc": "2026-10-01T10:00:00Z",
+    "antecedentes_completos": true,
+    "cobertura": [
+      {
+        "fecha": "2026-09-28",
+        "estado": "complete"
+      },
+      {
+        "fecha": "2026-09-29",
+        "estado": "complete"
+      },
+      {
+        "fecha": "2026-09-30",
+        "estado": "complete"
+      },
+      {
+        "fecha": "2026-10-01",
+        "estado": "complete"
+      },
+      {
+        "fecha": "2026-10-02",
+        "estado": "complete"
+      },
+      {
+        "fecha": "2026-10-03",
+        "estado": "complete"
+      }
+    ],
+    "hechos": [
+      {
+        "ref": "demo:registro:demo:incidencias:1",
+        "version": 1,
+        "movimiento": "entrada",
+        "instante_utc": "2026-09-28T06:00:00Z"
+      },
+      {
+        "ref": "demo:registro:demo:incidencias:2",
+        "version": 1,
+        "movimiento": "salida",
+        "instante_utc": "2026-09-28T13:00:00Z"
+      },
+      {
+        "ref": "demo:registro:demo:incidencias:3",
+        "version": 1,
+        "movimiento": "salida",
+        "instante_utc": "2026-09-29T13:00:00Z"
+      },
+      {
+        "ref": "demo:registro:demo:incidencias:4",
+        "version": 1,
+        "movimiento": "entrada",
+        "instante_utc": "2026-10-01T06:00:00Z"
+      }
+    ]
+  }
+}
