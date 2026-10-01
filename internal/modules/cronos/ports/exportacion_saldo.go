@@ -9,8 +9,8 @@ import (
 )
 
 var (
-	ErrExportacionSaldoNoDisponible = errors.New("cronos exportacion de saldo no disponible")
-	ErrExportacionSaldoInvalida     = errors.New("cronos exportacion de saldo invalida")
+	ErrExportacionSaldoNoDisponible = errors.New("cronos_exportacion_saldo_no_disponible")
+	ErrExportacionSaldoInvalida     = errors.New("cronos_exportacion_saldo_invalida")
 )
 
 // OrdenExportacionSaldo contiene exclusivamente la identidad resuelta por el

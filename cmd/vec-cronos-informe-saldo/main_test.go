@@ -3,9 +3,11 @@ package main
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
+	"vec-diputacion-granada/internal/modules/cronos/ports"
 )
 
 func TestCLISoloEscenarioSinteticoEIdiomaReal(t *testing.T) {
@@ -28,5 +30,26 @@ func TestCLISoloEscenarioSinteticoEIdiomaReal(t *testing.T) {
 	salida.Reset()
 	if err := ejecutar(context.Background(), args, &salida); err == nil || salida.Len() != 0 {
 		t.Fatal("datos sin marca sintetica aceptados")
+	}
+}
+
+func TestCLIErrorEmiteCodigoSinMensajeOriginal(t *testing.T) {
+	casos := []struct {
+		fallo  error
+		codigo string
+	}{
+		{fmt.Errorf("detalle_sensible_sintetico: %w", ports.ErrExportacionSaldoInvalida), "cronos_exportacion_saldo_invalida"},
+		{fmt.Errorf("detalle_sensible_sintetico: %w", context.Canceled), "cronos_exportacion_saldo_cancelada"},
+		{fmt.Errorf("detalle_sensible_sintetico: %w", context.DeadlineExceeded), "cronos_exportacion_saldo_tiempo_agotado"},
+		{fmt.Errorf("detalle_sensible_sintetico"), "cronos_exportacion_saldo_no_disponible"},
+	}
+	for _, c := range casos {
+		var salida bytes.Buffer
+		if err := informarError(&salida, c.fallo); err != nil {
+			t.Fatal(err)
+		}
+		if salida.String() != c.codigo+"\n" {
+			t.Fatalf("stderr: %q", salida.String())
+		}
 	}
 }

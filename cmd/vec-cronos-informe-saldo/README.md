@@ -11,7 +11,8 @@ TMPDIR=/tmp GOCACHE=/dev/shm/go-build go run ./cmd/vec-cronos-informe-saldo \
 El PDF muestra el saldo de Carmen Molina Ortega, persona sintética. Lleva una
 marca visible de ejemplo y conserva «No disponible» cuando falta un valor.
 El programa exige `demo: true` y emite el documento completo después de validar
-la salida del renderer común. Un fallo previo deja stdout vacío.
+la salida del renderer común. Un fallo previo deja stdout vacío. `stderr` sólo emite un código técnico estable;
+nunca imprime el mensaje original del renderer ni rutas o datos del documento.
 
 C12 está preparado, pendiente de autoridad productiva. La CLI no usa el caso de
 uso `ExportarSaldoPropio`, no consulta servicios ni confirma auditoría. Ese caso

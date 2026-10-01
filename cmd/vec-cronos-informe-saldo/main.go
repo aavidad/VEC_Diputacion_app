@@ -5,6 +5,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -58,11 +59,27 @@ func ejecutar(ctx context.Context, args []string, salida io.Writer) error {
 	return err
 }
 
+// informarError emite sólo un código cerrado. Nunca imprime el error original,
+// que puede contener texto del renderer, rutas o datos del documento.
+func informarError(salida io.Writer, fallo error) error {
+	codigo := ports.ErrExportacionSaldoNoDisponible.Error()
+	switch {
+	case errors.Is(fallo, ports.ErrExportacionSaldoInvalida):
+		codigo = ports.ErrExportacionSaldoInvalida.Error()
+	case errors.Is(fallo, context.Canceled):
+		codigo = "cronos_exportacion_saldo_cancelada"
+	case errors.Is(fallo, context.DeadlineExceeded):
+		codigo = "cronos_exportacion_saldo_tiempo_agotado"
+	}
+	_, err := fmt.Fprintln(salida, codigo)
+	return err
+}
+
 func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	if err := ejecutar(ctx, os.Args[1:], os.Stdout); err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		_ = informarError(os.Stderr, err)
 		os.Exit(1)
 	}
 }
