@@ -92,10 +92,10 @@ La base publicada incluye la preparación local de liquidación y su informe
 HTML, los informes sintéticos por persona, unidad y periodo, el catálogo de
 tarifas de ejemplo y los guiones de navegador. Esas piezas ya están entregadas.
 
-Los huecos independientes siguientes son revisar los otros medios y gastos
-justificados en la propuesta local, y conservar los filtros confirmados al
-recargar un informe. La preparación actual rechaza las líneas D5 y la recarga
-aplica campos editados aunque el usuario no haya confirmado el filtro.
+Esta entrega amplía la propuesta local para revisar otros medios y gastos
+justificados D5. Antes, la preparación rechazaba esas líneas. La corrección
+independiente de informes conserva los filtros confirmados al recargar; hasta
+que se integre, la recarga aplica campos editados sin confirmar el filtro.
 
 D6 y D9 efectivos siguen pendientes de Personal y Autorización. Personal
 000014 acredita asignaciones de administrativo y responsable; falta la
