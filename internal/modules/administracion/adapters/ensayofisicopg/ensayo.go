@@ -3,6 +3,7 @@ package ensayofisicopg
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -176,12 +177,14 @@ func (e Ensayador) versiones(ctx context.Context, nombre string) bool {
 	image := "sha256:" + e.Configuracion.ImagenSHA256
 	b, err := docker(ctx, nil, 4096, "image", "inspect", "--format", "{{.Id}}", image)
 	if err != nil || strings.TrimSpace(string(b)) != image {
+		slog.Error("cs06_imagen_runtime_no_verificada")
 		return false
 	}
 	for _, h := range []string{"postgres", "psql"} {
 		b, err = e.herramienta(ctx, nombre+"-"+h, h, "--version")
 		m := versionHerramienta.FindSubmatch(b)
 		if err != nil || len(m) != 2 || string(m[1]) != e.Configuracion.VersionPostgreSQL {
+			slog.Error("cs06_version_herramienta_no_verificada")
 			return false
 		}
 	}

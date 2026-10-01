@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"io"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -56,6 +57,7 @@ func ManejarModoInterno(args []string, in io.Reader, out io.Writer) (int, bool) 
 		}
 		r, err := sondarDentro(context.Background(), s)
 		if err != nil {
+			slog.Error("cs06_sonda_fallida")
 			return 1, true
 		}
 		if json.NewEncoder(out).Encode(r) != nil {
@@ -69,6 +71,7 @@ func entornoInterno() bool {
 	// Docker montaje read-only del verificador y raíz control propia deben existir.
 	for _, p := range []string{"/verificador", "/control", "/data/PG_VERSION"} {
 		if _, err := os.Stat(p); err != nil {
+			slog.Error("cs06_entorno_interno_no_disponible")
 			return false
 		}
 	}
@@ -77,6 +80,7 @@ func entornoInterno() bool {
 func iniciarDentro() int {
 	b, err := os.ReadFile("/control/inicio.json")
 	if err != nil || len(b) > 65536 {
+		slog.Error("cs06_inicio_no_disponible")
 		return 2
 	}
 	var s inicioArchivado
@@ -101,10 +105,12 @@ func iniciarDentro() int {
 func detenerDentro() int {
 	b, err := os.ReadFile("/control/proceso.pid")
 	if err != nil {
+		slog.Error("cs06_pid_no_disponible")
 		return 1
 	}
 	pid, err := strconv.Atoi(string(b))
 	if err != nil || pid < 2 {
+		slog.Error("cs06_pid_no_admitido")
 		return 1
 	}
 	// PID sólo procede de inicio propio y nunca atraviesa namespaces al host.
@@ -113,6 +119,7 @@ func detenerDentro() int {
 	}
 	p, err := os.FindProcess(pid)
 	if err != nil {
+		slog.Error("cs06_proceso_no_disponible")
 		return 1
 	}
 	if p.Signal(syscall.SIGTERM) != nil {
