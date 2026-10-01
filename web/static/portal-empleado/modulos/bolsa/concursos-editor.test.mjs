@@ -78,3 +78,19 @@ test('catálogos reales es/en muestran tablas, fecha exclusiva, incidencias y ac
     assert.deepEqual(textos.faltantes, []);
   }
 });
+
+test('explica exclusiones y agregaciones sin inventar una ecuación en detalles de entrada', async () => {
+  const motivos = ['computado', 'posterior_corte', 'no_acreditado', 'usado_requisito', 'tipo_no_admitido', 'no_relacionado', 'caducado', 'horas_insuficientes', 'limite_elementos', 'fuera_ventana', 'suma_horas', 'conversion_y_coeficiente', 'tope_tramo'];
+  for (const idioma of ['es', 'en']) {
+    const textos = await cargarTextos('baremo-concursos', { idioma });
+    const respuesta = pendiente();
+    respuesta.resultado.desglose = [{ familia: 'cursos', estado: 'calculado', bruto: '480000', maximo: '9000000', resultado: '480000', detalles: motivos.map((motivo) => ({ motivo, unidades: '40/1', coeficiente: '12000', bruto: '0', maximo: '0', resultado: '0' })) }];
+    const editor = crearEditorConcursos({ cliente: { simular: async () => respuesta } }); editor.cargar(ejemplo); await editor.comparar();
+    const html = renderizarConcursos(editor.estado(), { textos, ejemplos: [ejemplo] });
+    assert.doesNotMatch(html, /×|= 0|40\s*\/\s*1.*×.*0[.,]012.*=/u);
+    for (const motivo of motivos.filter((v) => !['computado', 'suma_horas', 'conversion_y_coeficiente', 'tope_tramo'].includes(v))) {
+      assert.ok(html.includes(textos.traducir(`concursos.motivo_${motivo}`)), `${idioma}: ${motivo}`);
+    }
+    assert.ok(html.includes(textos.traducir('concursos.motivo_computado', { unidades: '40/1' })));
+  }
+});

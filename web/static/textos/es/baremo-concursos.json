@@ -52,7 +52,6 @@
     "total": "Total",
     "desglose": "Desglose por apartado",
     "explicacion": "Ver cálculo",
-    "motivo_calculo": "{unidades} unidades × {coeficiente} puntos = {bruto}. Tope: {tope}. Resultado: {neto}.",
     "trazabilidad": "Ver versión y huellas",
     "huella_reglas": "Huella de las reglas",
     "huella_entrada": "Huella de los datos",
@@ -104,6 +103,20 @@
     "conversion_meses_completos": "Meses civiles completos · {agrupacion}",
     "conversion_anos_desde_meses": "Meses ÷ {divisor}; añadir un año si el resto supera {umbral} · {agrupacion}",
     "agrupacion_por_periodo": "por período",
-    "agrupacion_por_tramo": "por tramo"
+    "agrupacion_por_tramo": "por tramo",
+    "motivo_computado": "Dato computable: {unidades} unidades. La puntuación consta en el desglose del apartado.",
+    "motivo_conversion_y_coeficiente": "Unidades puntuables: {unidades}. Puntos por unidad: {coeficiente}. Antes del tope: {bruto}. Tope: {tope}. Resultado: {neto}.",
+    "motivo_suma_horas": "Horas computables: {unidades}. Puntos por hora: {coeficiente}. Antes del tope: {bruto}. Tope: {tope}. Resultado: {neto}.",
+    "motivo_tope_tramo": "Tope del tramo. Antes del tope: {bruto}. Tope: {tope}. Resultado: {neto}.",
+    "motivo_fuera_ventana": "Fuera del período computable. No se puntúa.",
+    "motivo_posterior_corte": "Fecha igual o posterior a la fecha de corte. No se computa.",
+    "motivo_no_acreditado": "Mérito sin acreditar. No se puntúa.",
+    "motivo_usado_requisito": "Se utiliza como requisito de acceso. Esta regla excluye su puntuación.",
+    "motivo_tipo_no_admitido": "Tipo de mérito no admitido por esta regla. No se puntúa.",
+    "motivo_no_relacionado": "Curso sin relación acreditada con el puesto. No se puntúa.",
+    "motivo_caducado": "La vigencia termina antes de la fecha de corte. No se puntúa.",
+    "motivo_horas_insuficientes": "El curso no alcanza las horas mínimas de la regla. No se puntúa.",
+    "motivo_limite_elementos": "Se ha alcanzado el máximo de méritos de esta regla. No se puntúa.",
+    "motivo_desconocido": "No hay una explicación disponible para este detalle. Revise el desglose del apartado."
   }
 }

@@ -52,7 +52,6 @@
     "total": "Total",
     "desglose": "Category breakdown",
     "explicacion": "View calculation",
-    "motivo_calculo": "{unidades} units × {coeficiente} points = {bruto}. Cap: {tope}. Result: {neto}.",
     "trazabilidad": "View version and fingerprints",
     "huella_reglas": "Rules fingerprint",
     "huella_entrada": "Input fingerprint",
@@ -104,6 +103,20 @@
     "conversion_meses_completos": "Complete calendar months · {agrupacion}",
     "conversion_anos_desde_meses": "Months ÷ {divisor}; add a year if the remainder exceeds {umbral} · {agrupacion}",
     "agrupacion_por_periodo": "per period",
-    "agrupacion_por_tramo": "per range"
+    "agrupacion_por_tramo": "per range",
+    "motivo_computado": "Eligible data: {unidades} units. The score is shown in the category breakdown.",
+    "motivo_conversion_y_coeficiente": "Scoring units: {unidades}. Points per unit: {coeficiente}. Before cap: {bruto}. Cap: {tope}. Result: {neto}.",
+    "motivo_suma_horas": "Eligible hours: {unidades}. Points per hour: {coeficiente}. Before cap: {bruto}. Cap: {tope}. Result: {neto}.",
+    "motivo_tope_tramo": "Range cap. Before cap: {bruto}. Cap: {tope}. Result: {neto}.",
+    "motivo_fuera_ventana": "Outside the eligible period. Not scored.",
+    "motivo_posterior_corte": "Date on or after the cut-off date. Not counted.",
+    "motivo_no_acreditado": "Unverified merit. Not scored.",
+    "motivo_usado_requisito": "Used as an entry requirement. This rule excludes its score.",
+    "motivo_tipo_no_admitido": "Merit type not accepted by this rule. Not scored.",
+    "motivo_no_relacionado": "Course without a verified relationship to the position. Not scored.",
+    "motivo_caducado": "Validity ends before the cut-off date. Not scored.",
+    "motivo_horas_insuficientes": "The course does not meet the rule’s minimum hours. Not scored.",
+    "motivo_limite_elementos": "This rule’s maximum number of merits has been reached. Not scored.",
+    "motivo_desconocido": "No explanation is available for this detail. Review the category breakdown."
   }
 }
