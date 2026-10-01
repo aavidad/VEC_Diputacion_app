@@ -2,7 +2,6 @@ package httpcopias
 
 import (
 	"context"
-	"strings"
 	"time"
 	p "vec-diputacion-granada/internal/modules/administracion/ports/httpcopias"
 )
@@ -17,12 +16,12 @@ func RevisionPreparada(v p.Propuesta, now time.Time) bool {
 		m.DestinoRef != v.DestinoRef || m.PreimagenSHA256 != v.PreimagenSHA256 {
 		return false
 	}
-	for _, ref := range []string{v.PropuestaRef, v.ConjuntoRef, v.DestinoRef} {
+	for _, ref := range []string{v.PropuestaRef, v.ConjuntoRef, v.DestinoRef, v.PoliticaRef, v.MotivoRef, v.VentanaRef} {
 		if !referenciaSegura(ref) {
 			return false
 		}
 	}
-	for _, hash := range []string{v.HuellaSHA256, v.ConjuntoHuellaSHA256, v.PreimagenSHA256} {
+	for _, hash := range []string{v.HuellaSHA256, v.ConjuntoHuellaSHA256, v.PreimagenSHA256, v.PoliticaHuellaSHA256} {
 		if !sha256Valida(hash) {
 			return false
 		}
@@ -42,7 +41,9 @@ func RevisionPreparada(v p.Propuesta, now time.Time) bool {
 		return false
 	}
 	for _, key := range m.Compatibilidad.Razones {
-		if !referenciaSegura(key) || len(key) > 160 || !strings.HasPrefix(key, "api.admin.copias.") {
+		switch key {
+		case "api.admin.copias.compatibilidad.compatible", "api.admin.copias.compatibilidad.comprobacion_conjunto_compatible":
+		default:
 			return false
 		}
 	}
