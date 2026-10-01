@@ -81,6 +81,7 @@ test("período invertido muestra error y el filtro vacío se puede limpiar", asy
   const fechas = form.querySelectorAll("input"); fechas[0].value = "2026-09-30"; fechas[1].value = "2026-09-01";
   form.listeners.submit({ preventDefault() {} });
   assert.equal(fechas[0].attrs["aria-invalid"], "true");
+  assert.equal(fechas[1].attrs["aria-invalid"], "true");
   assert.match(contenedor.querySelector("[data-dietas-informes-estado]").textContent, /fecha inicial/u);
   fechas[0].value = "2027-01-01"; fechas[1].value = "2027-01-31";
   form.listeners.submit({ preventDefault() {} });
@@ -88,6 +89,53 @@ test("período invertido muestra error y el filtro vacío se puede limpiar", asy
   const limpiar = form.querySelectorAll("button")[1]; limpiar.listeners.click();
   assert.equal(contenedor.querySelectorAll("tbody")[0].children.length, 6);
   vista.desmontar();
+});
+
+test("cada fecha inválida se marca por separado, con error traducido y filtros confirmados conservados", async () => {
+  for (const idioma of ["es", "en"]) {
+    const textos = await cargarTextos("dietas-informes", { idioma });
+    assert.deepEqual(textos.faltantes, []);
+    const traducir = (clave, variables) => textos.traducir(`general.${clave}`, variables);
+    const contenedor = raiz();
+    const vista = montarInformesDietas(contenedor, { cargarDatos: async () => datos, cargarConfiguracion,
+      traducir, localizacion: textos.localizacion });
+    await esperar();
+    const form = contenedor.querySelector("[data-dietas-informes-filtros]");
+    const [persona, unidad] = form.querySelectorAll("select");
+    const [desde, hasta] = form.querySelectorAll("input");
+    const estado = contenedor.querySelector("[data-dietas-informes-estado]");
+    persona.value = "persona-demo-01"; unidad.value = "unidad-demo-01";
+    desde.value = "2026-09-10"; hasta.value = "2026-09-30";
+    form.listeners.submit({ preventDefault() {} });
+
+    for (const [inicio, fin, invalidas] of [
+      ["2026-02-30", "2026-09-30", [true, false]],
+      ["2026-09-10", "10000-01-01", [false, true]],
+      ["2026-02-30", "10000-01-01", [true, true]],
+      ["", "2026-02-30", [false, true]],
+    ]) {
+      desde.value = inicio; hasta.value = fin;
+      form.listeners.submit({ preventDefault() {} });
+      assert.deepEqual([desde, hasta].map((campo) => campo.attrs["aria-invalid"] === "true"), invalidas);
+      assert.equal(estado.textContent, traducir("fecha_error"));
+      assert.equal(estado.attrs["aria-live"], "polite");
+      assert.equal(contenedor.ownerDocument.activeElement, estado);
+      assert.deepEqual(contenedor.querySelectorAll("tbody")[0].children.map((fila) => fila.children[0].textContent), ["DI-004"]);
+    }
+
+    await vista.recargar();
+    assert.deepEqual([persona.value, unidad.value, desde.value, hasta.value],
+      ["persona-demo-01", "unidad-demo-01", "2026-09-10", "2026-09-30"]);
+    assert.deepEqual([desde, hasta].map((campo) => campo.attrs["aria-invalid"]), [undefined, undefined]);
+    assert.deepEqual(contenedor.querySelectorAll("tbody")[0].children.map((fila) => fila.children[0].textContent), ["DI-004"]);
+    desde.value = "2026-02-30";
+    form.listeners.submit({ preventDefault() {} });
+    form.querySelectorAll("button")[1].listeners.click();
+    assert.deepEqual([desde, hasta].map((campo) => campo.attrs["aria-invalid"]), [undefined, undefined]);
+    assert.deepEqual([desde.value, hasta.value], ["", ""]);
+    assert.equal(contenedor.querySelectorAll("tbody")[0].children.length, 6);
+    vista.desmontar();
+  }
 });
 
 test("recargar conserva solo los filtros aplicados y descarta un período editado inválido", async () => {
