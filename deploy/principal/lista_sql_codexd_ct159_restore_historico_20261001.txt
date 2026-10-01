@@ -1,0 +1,1 @@
+deploy/postgresql/contratacion_temporal/migraciones/000159_restore_detalle_rrhh_historico.up.sql
