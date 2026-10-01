@@ -98,7 +98,7 @@ test("404 de la API: «no disponible» neutro, sin alerta; incrustada sin sobrel
   const vista = montarMovimientosPropiosCronos({ raiz, anio: 2026, incrustada: true, cliente: {
     consultarMovimientos: async () => { throw new ErrorClienteSolicitudesCronos("servicio_no_disponible", 404); }, solicitarCorreccion: async () => ({}) } });
   await esperar();
-  assert.match(nodo.innerHTML, /<p class="cronos-vacio" role="status">Esta consulta no está disponible\.<\/p>/u);
+  assert.match(nodo.innerHTML, /<p class="cronos-vacio"[^>]* role="status">Esta consulta no está disponible\.<\/p>/u);
   assert.doesNotMatch(nodo.innerHTML, /role="alert"|No se pudieron consultar|sobrelinea|<h2/u);
   assert.match(nodo.innerHTML, /<h3 id="cronos-movpropios-titulo">/u);
   vista.desmontar();
