@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"time"
 
 	"vec-diputacion-granada/internal/modules/cronos/adapters/informesaldo"
@@ -24,6 +25,12 @@ type escenarioSintetico struct {
 }
 
 func ejecutar(ctx context.Context, args []string, salida io.Writer) error {
+	if len(args) > 0 && strings.HasPrefix(args[0], "--vista=") {
+		if args[0] != "--vista=movimientos" {
+			return ports.ErrExportacionSaldoInvalida
+		}
+		return ejecutarMovimientos(ctx, args[1:], salida)
+	}
 	if len(args) != 2 || salida == nil {
 		return ports.ErrExportacionSaldoInvalida
 	}
