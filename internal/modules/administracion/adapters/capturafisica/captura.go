@@ -242,7 +242,11 @@ func (c *Capturador) validar(inv copias.Inventario) error {
 	return nil
 }
 func solapan(a, b string) bool {
-	return a == b || strings.HasPrefix(a, b+string(os.PathSeparator)) || strings.HasPrefix(b, a+string(os.PathSeparator))
+	contiene := func(raiz, ruta string) bool {
+		relativa, err := filepath.Rel(raiz, ruta)
+		return err == nil && relativa != ".." && !strings.HasPrefix(relativa, ".."+string(os.PathSeparator))
+	}
+	return contiene(a, b) || contiene(b, a)
 }
 func sinEnlaces(r string) error {
 	for p := r; ; p = filepath.Dir(p) {

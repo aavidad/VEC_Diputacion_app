@@ -5,6 +5,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -77,7 +78,7 @@ func run(args []string, out, diagnostico io.Writer) int {
 		e = fisica.ErrControl
 	}
 	if e != nil {
-		fmt.Fprintln(diagnostico, e)
+		informarError(diagnostico, e)
 		return 1
 	}
 	if json.NewEncoder(out).Encode(struct {
@@ -112,4 +113,30 @@ func leer(ruta string) (configuracion, error) {
 		return cfg, fisica.ErrConfiguracion
 	}
 	return cfg, nil
+}
+
+// La frontera CLI emite solo códigos conocidos, incluso si un adaptador devuelve
+// un PathError de Sync/Close o un error unido con detalles privados.
+func informarError(destino io.Writer, err error) {
+	fmt.Fprintln(destino, codigoError(err))
+}
+
+func codigoError(err error) string {
+	for _, caso := range []struct {
+		err    error
+		codigo string
+	}{
+		{fisica.ErrControl, "captura_fisica_control"},
+		{fisica.ErrConfiguracion, "captura_fisica_configuracion"},
+		{fisica.ErrTablespaces, "captura_fisica_tablespaces_no_soportados"},
+		{fisica.ErrCambio, "captura_fisica_cambio"},
+		{fisica.ErrLimite, "captura_fisica_limite"},
+		{context.Canceled, "captura_fisica_cancelada"},
+		{context.DeadlineExceeded, "captura_fisica_tiempo_agotado"},
+	} {
+		if errors.Is(err, caso.err) {
+			return caso.codigo
+		}
+	}
+	return "captura_fisica_origen"
 }

@@ -8,5 +8,7 @@
   "captura_fisica_bloqueo": "Another capture holds the lock, or the lock is unavailable.",
   "captura_fisica_tablespaces_no_soportados": "This version does not capture external tablespaces. Capture has stopped.",
   "captura_fisica_salida": "The capture result could not be returned.",
-  "pendiente_cifrado_y_verificacion": "Capture completed. Encryption and both restore checks are still required."
+  "pendiente_cifrado_y_verificacion": "Capture completed. Encryption and both restore checks are still required.",
+  "captura_fisica_cancelada": "Capture was cancelled. Check service status.",
+  "captura_fisica_tiempo_agotado": "Capture exceeded the configured time limit. Check service status."
 }

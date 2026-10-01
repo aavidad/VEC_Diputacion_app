@@ -199,3 +199,23 @@ func TestPrecondicionNoTocaPlataforma(t *testing.T) {
 		t.Fatal(e)
 	}
 }
+
+func TestSolapamientoIncluyeRaizSinConfundirPrefijos(t *testing.T) {
+	for _, caso := range []struct {
+		a, b     string
+		esperado bool
+	}{
+		{"/", "/synthetic", true}, {"/synthetic", "/", true},
+		{"/synthetic/pg", "/synthetic/pg/subdir", true},
+		{"/synthetic/pg", "/synthetic/pg-other", false},
+	} {
+		if solapan(caso.a, caso.b) != caso.esperado {
+			t.Fatalf("solapamiento %q %q", caso.a, caso.b)
+		}
+	}
+	c, inv := preparar(t)
+	c.Config.PGDATA = "/"
+	if _, e := c.Capturar(context.Background(), inv); !errors.Is(e, ErrConfiguracion) || len(c.Control.(*controlPrueba).pasos) != 0 {
+		t.Fatal("root source reached platform", e)
+	}
+}
