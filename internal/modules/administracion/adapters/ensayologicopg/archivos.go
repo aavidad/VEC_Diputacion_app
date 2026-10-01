@@ -49,27 +49,31 @@ var metaRestriccion = regexp.MustCompile(`^\\(un)?restrict [A-Za-z0-9]+$`)
 // Los globals de pg_dumpall pueden llevar restrict/unrestrict. No se admite
 // ningún otro metacomando psql, incluidos shell, includes o reconexiones. Los
 // roles/ACL se restauran completos; no se filtran sentencias de negocio.
-func globalsAdmitidos(ctx context.Context, ruta string, limite int64) bool {
+func validarGlobals(ctx context.Context, ruta string, limite int64) error {
 	if ctx == nil || ctx.Err() != nil {
-		return false
+		return errEntrada
 	}
 	f, err := os.Open(ruta) // #nosec G304 G703 -- copia privada creada por este adaptador, nunca un destino externo.
 	if err != nil {
-		return false
+		// Propagar un error cerrado impide divulgar rutas o contenido SQL.
+		return errEntrada
 	}
 	defer f.Close()
 	s := bufio.NewScanner(io.LimitReader(lectorContexto{ctx, f}, limite+1))
 	s.Buffer(make([]byte, 4096), 1<<20)
 	for s.Scan() {
 		if ctx.Err() != nil {
-			return false
+			return errEntrada
 		}
 		linea := s.Text()
 		if strings.ContainsRune(linea, '\\') && !metaRestriccion.MatchString(linea) {
-			return false
+			return errEntrada
 		}
 	}
-	return s.Err() == nil && ctx.Err() == nil
+	if s.Err() != nil || ctx.Err() != nil {
+		return errEntrada
+	}
+	return nil
 }
 
 // La lectura de entradas también pertenece al plazo del ensayo. Un contexto
@@ -86,13 +90,16 @@ func (l lectorContexto) Read(p []byte) (int, error) {
 	return l.lector.Read(p)
 }
 
-func dumpAdmitido(ruta string) bool {
+func validarDump(ruta string) error {
 	f, err := os.Open(ruta) // #nosec G304 G703 -- copia privada creada por este adaptador.
 	if err != nil {
-		return false
+		return errEntrada
 	}
 	defer f.Close()
 	var cabecera [5]byte
 	_, err = io.ReadFull(f, cabecera[:])
-	return err == nil && bytes.Equal(cabecera[:], []byte("PGDMP"))
+	if err != nil || !bytes.Equal(cabecera[:], []byte("PGDMP")) {
+		return errEntrada
+	}
+	return nil
 }

@@ -2,10 +2,10 @@ package ensayologicopg
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -56,7 +56,7 @@ func (e Ensayador) ensayar(ctx context.Context, s Solicitud, r Resultado) (resul
 	dump, globals := filepath.Join(entrada, "copia.dump"), filepath.Join(entrada, "globals.sql")
 	if copiarArchivo(ctx, s.Dump, dump, e.Configuracion.LimiteArchivoBytes) != nil ||
 		copiarArchivo(ctx, s.Globals, globals, e.Configuracion.LimiteArchivoBytes) != nil ||
-		!dumpAdmitido(dump) || !globalsAdmitidos(ctx, globals, e.Configuracion.LimiteArchivoBytes) {
+		validarDump(dump) != nil || validarGlobals(ctx, globals, e.Configuracion.LimiteArchivoBytes) != nil {
 		fallo(&resultado, "entrada", "archivos", "huellas_y_formatos_admitidos", "no_admitidos")
 		return
 	}
@@ -98,22 +98,19 @@ func (e Ensayador) comprobarVersiones(ctx context.Context, nombre, entrada strin
 	image := "sha256:" + e.Configuracion.ImagenSHA256
 	b, err := docker(ctx, nil, 4096, "image", "inspect", "--format", "{{.Id}}", image)
 	if err != nil || strings.TrimSpace(string(b)) != image {
-		fallo(r, "versiones", "runtime_sha256", e.Configuracion.ImagenSHA256, "no_disponible")
-		return false
+		return fallo(r, "versiones", "runtime_sha256", e.Configuracion.ImagenSHA256, "no_disponible")
 	}
 	for _, herramienta := range []string{"postgres", "psql", "pg_restore"} {
 		b, err = e.herramienta(ctx, nombre+"-"+strings.ReplaceAll(herramienta, "pg_", ""), herramienta, "--version")
 		observado := version(b, versionHerramienta)
 		if err != nil || observado != e.Configuracion.VersionPostgreSQL {
-			fallo(r, "versiones", herramienta+"_version", e.Configuracion.VersionPostgreSQL, observado)
-			return false
+			return fallo(r, "versiones", herramienta+"_version", e.Configuracion.VersionPostgreSQL, observado)
 		}
 	}
 	cmd := append(e.opcionesAisladas(nombre+"-toc"), "-v", entrada+":/entrada:ro", "--entrypoint", "pg_restore", image, "--list", "/entrada/copia.dump")
 	b, err = docker(ctx, nil, 8<<20, cmd...)
 	if err != nil {
-		fallo(r, "versiones", "dump_version", e.Configuracion.VersionPostgreSQL, "no_comprobable")
-		return false
+		return fallo(r, "versiones", "dump_version", e.Configuracion.VersionPostgreSQL, "no_comprobable")
 	}
 	for _, dato := range []struct {
 		clave  string
@@ -155,10 +152,21 @@ func (e Ensayador) esperar(ctx context.Context, nombre string) bool {
 	}
 }
 
+const MotivoVersionNoComprobable = "no_comprobable"
+
 func numeroVersion(s string) string {
-	var mayor, menor int
-	if _, err := fmt.Sscanf(s, "%d.%d", &mayor, &menor); err != nil {
-		return "no_comprobable"
+	partes := strings.Split(s, ".")
+	if len(partes) != 2 {
+		return MotivoVersionNoComprobable
 	}
-	return fmt.Sprint(mayor*10000 + menor)
+	mayor, err := strconv.ParseUint(partes[0], 10, 32)
+	if err != nil {
+		return MotivoVersionNoComprobable
+	}
+	menor, err := strconv.ParseUint(partes[1], 10, 32)
+	if err != nil {
+		return MotivoVersionNoComprobable
+	}
+	// Ambos operandos están acotados a 32 bits; su combinación cabe en uint64.
+	return strconv.FormatUint(mayor*10000+menor, 10)
 }

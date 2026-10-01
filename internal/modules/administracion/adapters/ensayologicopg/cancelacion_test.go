@@ -42,7 +42,7 @@ func TestContextoCanceladoNoAbreEntradas(t *testing.T) {
 	if _, err := os.Stat(ruta); !os.IsNotExist(err) {
 		t.Fatal("la copia cancelada creó un archivo")
 	}
-	if globalsAdmitidos(ctx, globals.Ruta, 1024) {
+	if validarGlobals(ctx, globals.Ruta, 1024) == nil {
 		t.Fatal("la lectura de globals ignoró la cancelación")
 	}
 }

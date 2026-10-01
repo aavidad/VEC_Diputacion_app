@@ -55,10 +55,11 @@ func (c Configuracion) validar() bool {
 		c.TiempoLimite >= time.Second && c.TiempoLimite <= 30*time.Minute
 }
 
-func fallo(r *Resultado, etapa, clave, esperado, obtenido string) {
+func fallo(r *Resultado, etapa, clave, esperado, obtenido string) bool {
 	r.Estado, r.Etapa = "restauracion_logica_fallida", etapa
 	r.Razones = append(r.Razones, copias.Razon{Codigo: "ensayo_logico_fallido", Clave: clave,
 		Esperado: esperado, Obtenido: obtenido, Accion: "revisar_ensayo_sintetico"})
+	return false
 }
 
 // Ensayar sólo acepta archivos locales explícitamente sintéticos. La marca del
