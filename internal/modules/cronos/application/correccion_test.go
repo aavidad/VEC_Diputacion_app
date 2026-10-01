@@ -75,6 +75,13 @@ func TestCorreccionRecuperaSoloReciboDelPasoPedido(t *testing.T) {
 	if !errors.Is(err, ports.ErrDependenciaNoDisponible) {
 		t.Fatal("recibo de otro paso aceptado", err)
 	}
+	forjado = recibo
+	forjado.Replay = false
+	repo.recuperado = &forjado
+	resultado, err := servicio.RecuperarRecibo(context.Background(), ordenCorreccionPrueba(t), clave)
+	if !errors.Is(err, ports.ErrDependenciaNoDisponible) || resultado != (ports.ReciboCorreccion{}) {
+		t.Fatal("recuperacion inicial sin marca de replay aceptada", err)
+	}
 }
 
 func ordenCorreccionPrueba(t *testing.T) ports.OrdenConsumoCorreccion {

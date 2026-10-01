@@ -222,7 +222,7 @@ func reciboRecuperadoValido(r ports.ReciboCorreccion, clave ports.ClaveRecuperac
 	}
 	switch clave.Paso {
 	case domain.PasoSolicitudCorreccion:
-		return r.Version == 1 && r.Estado == domain.CorreccionPendienteResponsable
+		return r.Replay && r.Version == 1 && r.Estado == domain.CorreccionPendienteResponsable
 	case domain.PasoDecisionResponsable:
 		return r.Version == 2 && (r.Estado == domain.CorreccionPendienteRRHH || r.Estado == domain.CorreccionDenegadaResponsable)
 	case domain.PasoResolucionRRHH:
