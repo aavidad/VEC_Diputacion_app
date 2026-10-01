@@ -14,7 +14,7 @@ export async function montarModuloProvision({ raiz, cliente, clienteEnsayos, pre
       const espacio = raiz.querySelector('[data-ensayo-adjudicacion]');
       if (clienteEnsayos?.listarAdjudicaciones && espacio) {
         let focoEnsayo;
-        ensayo = crearControladorAdjudicacion({ cliente: clienteEnsayos, notificar: vistaEnsayo => { if (!activa || !espacio.isConnected) return; pintarAdjudicacion({ raiz: espacio, estado: vistaEnsayo, textos, acciones: { ...ensayo, repintar: foco => { focoEnsayo = foco; ensayo.repintar(); } } }); if (focoEnsayo) Array.from(espacio.querySelectorAll('[data-foco]')).find(n => n.dataset.foco === focoEnsayo)?.focus(); focoEnsayo = null; } });
+        ensayo = crearControladorAdjudicacion({ cliente: clienteEnsayos, notificar: vistaEnsayo => { if (!activa || !espacio.isConnected) return; pintarAdjudicacion({ raiz: espacio, estado: vistaEnsayo, textos, acciones: { ...ensayo, simular: () => { focoEnsayo = 'adjudicacion-simular'; ensayo.simular(); }, elegir: indice => { focoEnsayo = 'adjudicacion-ejemplo'; ensayo.elegir(indice); }, repintar: foco => { focoEnsayo = foco; ensayo.repintar(); } } }); if (focoEnsayo) { const control = Array.from(espacio.querySelectorAll('[data-foco]')).find(n => n.dataset.foco === focoEnsayo && !n.disabled); if (control) { control.focus(); focoEnsayo = null; } } } });
         ensayo.cargar();
       } else if (espacio) espacio.textContent = textos.traducir('estados.sin_cliente');
     }
