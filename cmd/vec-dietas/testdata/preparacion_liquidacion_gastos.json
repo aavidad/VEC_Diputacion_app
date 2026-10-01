@@ -1,0 +1,138 @@
+{
+  "esquema": "vec_dietas_preparacion_liquidacion_v1",
+  "comision_ref": "dco_ejemplo_sintetico_20261001",
+  "comision_version": 2,
+  "documento_sha256": "3e97125985720db20d9f54b8b8c9ce0ad71c529a23f050b76d98d52fc32a66e6",
+  "documento": {
+    "vehiculo_propio": true,
+    "grupo_dieta": 2,
+    "version_tarifa_aceptada": "provisional:ejemplo:20261001",
+    "tramos_aceptados": [
+      0
+    ],
+    "lineas": [
+      {
+        "tipo": "dieta",
+        "grupo": 2,
+        "indice_tramo": 0,
+        "fecha": "2026-10-01",
+        "concepto": "manutencion",
+        "importe_centimos": 1870,
+        "version_tarifa_ref": "provisional:ejemplo:20261001",
+        "rotulo": "PROVISIONAL · pendiente de confirmación por RRHH"
+      },
+      {
+        "tipo": "kilometraje",
+        "importe_centimos": 2600,
+        "version_tarifa_ref": "provisional:ejemplo:20261001",
+        "rotulo": "PROVISIONAL · pendiente de confirmación por RRHH",
+        "origen_codigo": "18087",
+        "destino_codigo": "18153",
+        "kilometros": "100.0000",
+        "ruta_indice": 1,
+        "kilometros_base": "100.0000",
+        "ajuste_kilometros": "0.0000",
+        "version_grafo": "sintetico:distancia:no-osrm"
+      },
+      {
+        "tipo": "otro_medio",
+        "fecha": "2026-10-01",
+        "concepto": "Billete de tren sintético",
+        "importe_centimos": 1800,
+        "justificante_ref": "justificante:tren:ejemplo",
+        "justificante_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "tipo_gasto": "tren",
+        "catalogo_version": "provisional:otros-gastos:20260925"
+      },
+      {
+        "tipo": "otro_gasto",
+        "fecha": "2026-10-01",
+        "concepto": "Peaje sintético",
+        "importe_centimos": 400,
+        "justificante_ref": "justificante:peaje:ejemplo",
+        "justificante_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "tipo_gasto": "peaje",
+        "catalogo_version": "provisional:otros-gastos:20260925"
+      }
+    ],
+    "manutencion_centimos": 1870,
+    "alojamiento_tope_centimos": 0,
+    "kilometraje_centimos": 2600,
+    "otros_centimos": 2200,
+    "total_orientativo_centimos": 6670
+  },
+  "catalogo": {
+    "referencia": "propuesta:catalogo:dietas:gastos:ejemplo",
+    "version": "propuesta:liquidacion:gastos:ejemplo:v1",
+    "version_tarifa_ref": "provisional:ejemplo:20261001",
+    "pais_iso2": "ES",
+    "ambito": "nacional_ordinario_sin_alojamiento",
+    "procedencia": "ejemplo_retirable_sin_aprobacion",
+    "fuentes": [
+      "https://www.boe.es/buscar/act.php?id=BOE-A-2002-10337#a10",
+      "https://www.boe.es/buscar/doc.php?id=BOE-A-2005-19988",
+      "https://www.boe.es/buscar/doc.php?id=BOE-A-2023-16462"
+    ],
+    "reglas": [
+      {
+        "referencia": "propuesta:regla:manutencion:grupo2",
+        "tipo": "dieta",
+        "concepto": "manutencion",
+        "grupo": 2,
+        "tope_centimos": 3740,
+        "centimos_por_km": 0
+      },
+      {
+        "referencia": "propuesta:regla:km:vehiculo-propio",
+        "tipo": "kilometraje",
+        "concepto": "vehiculo_propio",
+        "grupo": 0,
+        "tope_centimos": 0,
+        "centimos_por_km": 26
+      },
+      {
+        "referencia": "propuesta:regla:otro-medio:tren",
+        "tipo": "otro_medio",
+        "concepto": "tren",
+        "grupo": 0,
+        "tope_centimos": 2000,
+        "centimos_por_km": 0
+      },
+      {
+        "referencia": "propuesta:regla:otro-gasto:peaje",
+        "tipo": "otro_gasto",
+        "concepto": "peaje",
+        "grupo": 0,
+        "tope_centimos": 500,
+        "centimos_por_km": 0
+      }
+    ],
+    "catalogo_otros_gastos_version_ref": "provisional:otros-gastos:20260925"
+  },
+  "revisiones": [
+    {
+      "indice": 0,
+      "regla_ref": "propuesta:regla:manutencion:grupo2",
+      "reconocido_propuesto_centimos": 1870,
+      "motivo_codigo": ""
+    },
+    {
+      "indice": 1,
+      "regla_ref": "propuesta:regla:km:vehiculo-propio",
+      "reconocido_propuesto_centimos": 2600,
+      "motivo_codigo": ""
+    },
+    {
+      "indice": 2,
+      "regla_ref": "propuesta:regla:otro-medio:tren",
+      "reconocido_propuesto_centimos": 1500,
+      "motivo_codigo": "revision_justificante"
+    },
+    {
+      "indice": 3,
+      "regla_ref": "propuesta:regla:otro-gasto:peaje",
+      "reconocido_propuesto_centimos": 0,
+      "motivo_codigo": "gasto_no_admitido"
+    }
+  ]
+}

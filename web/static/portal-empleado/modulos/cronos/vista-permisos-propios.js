@@ -268,7 +268,12 @@ export function montarPermisosPropiosCronos({ raiz, cliente = crearClienteSolici
       dibujar(); contenedor.querySelector?.("[data-cronos-permiso-formulario] [name=desde]")?.focus?.();
       return;
     }
-    if (evento.target?.closest?.("[data-cronos-permiso-cerrar]")) { envio?.abort(); solicitud = null; dibujar(); }
+    if (evento.target?.closest?.("[data-cronos-permiso-cerrar]")) {
+      const permisoRef = solicitud?.permisoRef;
+      envio?.abort(); solicitud = null; dibujar();
+      if (permisoRef) Array.from(contenedor.querySelectorAll?.("[data-cronos-solicitar]") ?? [])
+        .find((boton) => boton.dataset.cronosSolicitar === permisoRef)?.focus?.();
+    }
   };
   const alEnviar = async (evento) => {
     if (!evento.target?.matches?.("[data-cronos-permiso-formulario]") || !solicitud || solicitud.estado === "enviando") return;

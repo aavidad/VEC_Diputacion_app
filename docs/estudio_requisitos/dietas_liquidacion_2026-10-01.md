@@ -47,6 +47,26 @@ El total propuesto es 44,70 euros.
 Las excepciones, los anticipos, los viajes fuera de España y el alojamiento
 quedan fuera de este paquete.
 
+El segundo ejemplo añade un billete de tren y un peaje sintéticos. Cada línea
+conserva el tipo y la versión del catálogo D5, la fecha, la referencia y la
+huella del justificante. La revisión propone reconocer 15,00 de los 18,00 euros
+del tren y rechazar los 4,00 euros del peaje; ambos cambios llevan un motivo.
+El total original es 66,70 euros, el reconocido propuesto 59,70 euros y el
+rechazado 7,00 euros. Se puede preparar con:
+
+```sh
+go run ./cmd/vec-dietas --preparar-liquidacion \
+  < cmd/vec-dietas/testdata/preparacion_liquidacion_gastos.json
+```
+
+Los topes de este catálogo son valores de ensayo por línea, sin valor
+normativo. Falta determinar con RRHH si ciertos límites se aplican por día,
+trayecto o comisión y cómo se tratan los gastos fraccionados. El preparador
+comprueba que el importe reconocido no supere el tope configurado y que todo
+recorte o rechazo tenga motivo. No conoce el intervalo temporal de la comisión;
+solo comprueba que la fecha del gasto sea válida. El justificante sigue en su
+custodia, fuera de esta propuesta.
+
 ## Comprobar la propuesta y su informe
 
 Desde la raíz del repositorio, el comando produce la preparación como JSON:
