@@ -1,0 +1,28 @@
+{
+  "version": "1",
+  "formato_fecha": "02/01/2006",
+  "formato_hora": "15:04:05 -07:00 MST",
+  "referencia": "cronos-informe-movimientos-es",
+  "idioma": "es-ES",
+  "titulo": "Fichajes del periodo",
+  "sintetico": "Ejemplo sintético. No consulta el registro real y no tiene validez administrativa. La descarga para empleados sigue pendiente.",
+  "nombre_sintetico": "Persona del ejemplo: {{nombre}}",
+  "periodo": "Periodo: {{desde}} a {{hasta}}",
+  "zona": "Zona horaria: {{zona}}",
+  "fuente_completa": "La fuente del ejemplo se declara completa. No acredita el registro real.",
+  "fuente_incompleta": "La fuente del ejemplo es incompleta. Puede faltar información.",
+  "fila": "{{fecha}} {{hora}}. {{movimiento}}. Origen: {{origen}}.",
+  "origen_sin_verificar": "Sin verificar",
+  "vacio": "No hay fichajes en la lista del ejemplo. Esto no acredita una ausencia laboral.",
+  "limite": "Este documento lista los hechos aportados al ejemplo. No calcula horas trabajadas, saldo ni ausencias.",
+  "movimientos": {
+    "entrada": "Entrada",
+    "salida": "Salida",
+    "inicio_pausa": "Inicio de pausa",
+    "fin_pausa": "Fin de pausa"
+  },
+  "origenes": {
+    "terminal": "Terminal (declarado)",
+    "remoto": "Remoto (declarado)"
+  }
+}
