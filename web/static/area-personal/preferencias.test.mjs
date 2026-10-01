@@ -55,6 +55,38 @@ test("GET y PUT usan el contrato único, usan credenciales de mismo origen y con
   assert.equal(llamadas[1].opciones.headers["X-Idempotency-Key"], undefined);
 });
 
+test("catálogo v2 carga estado v1 y guarda los seis temas con la versión vigente", async () => {
+  const nuevos = ["diputacion_granada", "arena", "salvia", "lavanda", "azul_sereno", "noche_suave"];
+  const catalogoV2 = { ...catalogo, version_ref: "usuarios-preferencias-v2",
+    temas: [...catalogo.temas, ...nuevos.map((codigo) => ({ codigo, nombre_key: `ui.usuarios.preferencias.tema.${codigo}` }))] };
+  const solicitudes = [];
+  const cliente = crearClientePreferencias({ fetchImpl: async (_ruta, opciones) => {
+    solicitudes.push(opciones);
+    if (opciones.method === "GET") return json({ catalogo: catalogoV2, estado });
+    const peticion = JSON.parse(opciones.body);
+    return json({ ...estado, version: 1, catalogo_version_ref: "usuarios-preferencias-v2",
+      valores: peticion.valores, recibo_ref: "recibo:tema", fecha_utc: "2026-09-30T00:00:00Z", replay: false }, 201);
+  } });
+  const leido = await cliente.cargar();
+  assert.equal(leido.estado.catalogo_version_ref, "usuarios-preferencias-v1");
+  assert.equal(leido.catalogo.version_ref, "usuarios-preferencias-v2");
+  for (const tema of nuevos) {
+    const valoresNuevos = { ...valores, tema };
+    const operacion = crearOperacionPreferencias(leido, valoresNuevos, { randomUUID: () => "clave-v2" });
+    const recibo = await cliente.guardar(operacion);
+    assert.equal(recibo.valores.tema, tema);
+    assert.equal(JSON.parse(solicitudes.at(-1).body).catalogo_version_ref, "usuarios-preferencias-v2");
+    await assert.rejects(cliente.guardar({ ...operacion, catalogo_version_ref: "usuarios-preferencias-v1" }),
+      (error) => error.codigo === "validacion");
+  }
+  const inverso = crearClientePreferencias({ fetchImpl: async () => json({ catalogo,
+    estado: { ...estado, catalogo_version_ref: "usuarios-preferencias-v2" } }) });
+  await assert.rejects(inverso.cargar(), (error) => error.codigo === "respuesta");
+  const falsoHistorico = crearClientePreferencias({ fetchImpl: async () => json({ catalogo: catalogoV2,
+    estado: { ...estado, valores: { ...valores, tema: "salvia" } } }) });
+  await assert.rejects(falsoHistorico.cargar(), (error) => error.codigo === "respuesta");
+});
+
 test("rechaza cuerpo directo, respuesta sin recibo y errores HTTP sin confirmar guardado", async () => {
   await assert.rejects(crearClientePreferencias({ fetchImpl: async () => ({ status: 200,
     headers: { get: () => "application/json" }, text: async () => JSON.stringify({ catalogo, estado }) }) }).cargar(),
@@ -88,6 +120,18 @@ test("la vista distingue error de lectura y confirmación con recibo; URL preval
   assert.match(html, /name="filas"/u);
   assert.equal(idiomaAreaPersonal(["es-ES"], { href: "https://vec.example/area-personal/?lang=es" }, "en"), "es");
   assert.equal(idiomaAreaPersonal(["es-ES"], { href: "https://vec.example/area-personal/" }, "en"), "en");
+});
+
+test("la vista ofrece únicamente los nuevos temas incluidos en el catálogo v2", async () => {
+  await iniciarI18nAreaPersonal({ querySelectorAll: () => [] }, { leer: lectorCatalogos(), ubicacion: { href: "https://vec.example/area-personal/?lang=es" } });
+  const nuevos = ["diputacion_granada", "arena", "salvia", "lavanda", "azul_sereno", "noche_suave"];
+  const catalogoV2 = { ...catalogo, version_ref: "usuarios-preferencias-v2",
+    temas: [...catalogo.temas, ...nuevos.map((codigo) => ({ codigo, nombre_key: `ui.usuarios.preferencias.tema.${codigo}` }))] };
+  const html = renderizarPreferencias({ catalogo: catalogoV2, estado: { ...estado, valores: { ...valores, tema: "salvia" } } });
+  for (const codigo of nuevos) assert.match(html, new RegExp(`value="${codigo}"`, "u"));
+  assert.match(html, /value="salvia" selected>Salvia/u);
+  const reducido = renderizarPreferencias({ catalogo: { ...catalogoV2, temas: catalogoV2.temas.slice(0, -1) }, estado });
+  assert.doesNotMatch(reducido, /value="noche_suave"/u);
 });
 
 test("la lista local respeta 20, 50 o 100 filas sin cambiar el transporte remoto", async () => {

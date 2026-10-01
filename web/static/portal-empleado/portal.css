@@ -1,5 +1,5 @@
 /* Las vistas que cargan solo portal.css comparten la misma autoridad visual. */
-@import url("../comun/tema-vec.css");
+@import url("../comun/tema-vec.css?v=20260930-codexf-temas-v2");
 
 * {
   box-sizing: border-box;
@@ -125,8 +125,8 @@ a:focus-visible,
   height: 100vh;
   flex-direction: column;
   overflow-y: auto;
-  background: var(--portal-azul-950);
-  color: #fff;
+  background: var(--portal-lateral-fondo);
+  color: var(--portal-lateral-texto);
   scrollbar-color: var(--portal-lateral-muted) transparent;
   scrollbar-width: thin;
 }
@@ -144,13 +144,13 @@ a:focus-visible,
   min-height: 116px;
   padding: 18px 20px 16px;
   border-bottom: 1px solid var(--portal-lateral-separador);
-  background: var(--portal-azul-950);
-  color: #fff;
+  background: var(--portal-lateral-fondo);
+  color: var(--portal-lateral-texto);
   text-decoration: none;
 }
 
 .marca-portal:focus-visible {
-  outline: 3px solid #fff;
+  outline: 3px solid var(--portal-lateral-texto);
   outline-offset: -5px;
 }
 
@@ -241,7 +241,7 @@ a:focus-visible,
   border-bottom: 1px solid var(--portal-lateral-separador);
   border-radius: 0;
   background: transparent;
-  color: var(--portal-texto-inverso);
+  color: var(--portal-lateral-texto);
   cursor: pointer;
   font-size: 0.92rem;
   line-height: 1.3;
@@ -251,7 +251,7 @@ a:focus-visible,
 
 .enlace-lateral:hover:not(:disabled) {
   background: var(--portal-lateral-hover);
-  color: var(--portal-texto-inverso);
+  color: var(--portal-lateral-texto);
 }
 
 .enlace-lateral[aria-current="page"]:hover,
@@ -274,9 +274,13 @@ a:focus-visible,
   place-items: center;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.14);
-  color: #fff;
+  color: var(--portal-lateral-texto);
   font-size: 0.8rem;
   font-weight: 600;
+}
+
+.numero-menu {
+  color: var(--portal-texto-inverso);
 }
 
 .tono-azul { background: var(--portal-azul-700); }
@@ -426,7 +430,7 @@ a:focus-visible,
   border: 2px solid var(--portal-superficie);
   border-radius: 999px;
   background: var(--portal-peligro);
-  color: #fff;
+  color: var(--portal-texto-inverso);
   font-size: 0.66rem;
   font-weight: 600;
   line-height: 1;
@@ -469,7 +473,7 @@ a:focus-visible,
   place-items: center;
   border-radius: 50%;
   background: var(--portal-azul-950);
-  color: #fff;
+  color: var(--portal-texto-inverso);
   font-size: 0.82rem;
   font-weight: 600;
 }
