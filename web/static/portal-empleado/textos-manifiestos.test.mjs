@@ -21,7 +21,11 @@ function catalogosCargados(fuente, archivo, { lectorDelegado = false, delegacion
   const constantes = new Map();
   for (let i = 0; i < t.length - 2; i += 1) {
     if (t[i].texto === "cargarTextos" && ["as", ":"].includes(t[i + 1].texto)) lectores.add(t[i + 2].texto);
-    if (t[i + 1].texto === "=" && lectores.has(t[i + 2].texto)) lectores.add(t[i].texto);
+    if (t[i + 1].texto === "=" && lectores.has(t[i + 2].texto)) {
+      assert.ok(!(lectorDelegado && t[i + 2].texto === "cargarCatalogosContratacion"),
+        `${archivo}: alias indirecto del lector delegado sin origen comprobado`);
+      lectores.add(t[i].texto);
+    }
     if (t[i - 1]?.texto === "const" && t[i + 1].texto === "=" && t[i + 2].literal) constantes.set(t[i].texto, t[i + 2].valor);
   }
   const modulos = new Set();
@@ -257,6 +261,8 @@ test("el helper sólo delega catálogos con consumidores y procedencia comprobad
     'cargarCatalogosContratacion("catalogo-prueba" + datos.sufijo);',
     "const otro = { leer: cargarCatalogosContratacion }; otro.leer(datos.catalogo);",
     'otro.cargarCatalogosContratacion("catalogo-prueba");',
+    'const leer = cargarCatalogosContratacion; leer("catalogo-prueba" + datos.sufijo);',
+    'const leer = cargarCatalogosContratacion; leer("catalogo-prueba");',
   ]) assert.throws(() => validar(importacion + llamada), /delegado|indirecta/u);
   assert.throws(() => validar(importacion + 'catalogos["cargarCatalogosContratacion"]("catalogo-prueba");'), /lector calculado/u);
   assert.throws(() => validar('cargarCatalogosContratacion("catalogo-prueba");'), /origen/u);
