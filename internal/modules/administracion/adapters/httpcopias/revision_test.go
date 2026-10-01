@@ -52,7 +52,7 @@ func propuestaInformada() p.Propuesta {
 	hash := strings.Repeat("a", 64)
 	v := p.Propuesta{PropuestaRef: "propuesta_aaaaaaaa", ConjuntoRef: "conjunto_aaaaaaaa", DestinoRef: "destino_aaaaaaaa", Estado: "pendiente", Version: 5, HuellaSHA256: hash, ConjuntoHuellaSHA256: hash, PreimagenSHA256: hash, PoliticaRef: "politica_aaaaaaaa", PoliticaHuellaSHA256: hash, MotivoRef: "motivo_aaaaaaaa", VentanaRef: "ventana_aaaaaaaa", DobleControl: true, CopiaPreviaRequerida: true, CaducaEn: now.Add(time.Hour), VentanaInicio: now.Add(-time.Hour), VentanaFin: now.Add(2 * time.Hour)}
 	version := p.VersionObservada{ReleaseRef: "release_aaaaaaaa", AppVersion: "1.0.0", PostgreSQLVersion: "18.4", EsquemaRef: "esquema_aaaaaaaa", DescriptorHuellaSHA256: hash}
-	v.MetadatosRevision = &p.MetadatosRevision{PropuestaRef: v.PropuestaRef, PropuestaHuellaSHA256: hash, ConjuntoRef: v.ConjuntoRef, ConjuntoHuellaSHA256: hash, DestinoRef: v.DestinoRef, PreimagenSHA256: hash, FechaCopia: now.Add(-24 * time.Hour), PerdidaDesde: now.Add(-24 * time.Hour), Actual: version, Resultante: version, Compatibilidad: p.CompatibilidadRevision{Estado: "compatible", Razones: []string{"api.admin.copias.compatibilidad.verificada"}}, ObservadaEn: now}
+	v.MetadatosRevision = &p.MetadatosRevision{PropuestaRef: v.PropuestaRef, PropuestaHuellaSHA256: hash, ConjuntoRef: v.ConjuntoRef, ConjuntoHuellaSHA256: hash, DestinoRef: v.DestinoRef, PreimagenSHA256: hash, FechaCopia: now.Add(-24 * time.Hour), PerdidaDesde: now.Add(-24 * time.Hour), Actual: version, Resultante: version, Compatibilidad: p.CompatibilidadRevision{Estado: "compatible", Razones: []string{"api.admin.copias.compatibilidad.comprobacion_conjunto_compatible"}}, ObservadaEn: now}
 	return v
 }
 func revisionBody(v p.Propuesta) string {
@@ -68,6 +68,25 @@ func TestRevisionExigeMetadataCanonicaAntesDelEfecto(t *testing.T) {
 		status    int
 	}{
 		{"sin fuente", func(*p.Propuesta) {}, true, 503},
+		{"politica ausente", func(v *p.Propuesta) { v.PoliticaRef = "" }, false, 503},
+		{"politica huella ausente", func(v *p.Propuesta) { v.PoliticaHuellaSHA256 = "" }, false, 503},
+		{"motivo ausente", func(v *p.Propuesta) { v.MotivoRef = "" }, false, 503},
+		{"referencia ventana ausente", func(v *p.Propuesta) { v.VentanaRef = "" }, false, 503},
+		{"razon desconocida", func(v *p.Propuesta) {
+			v.MetadatosRevision.Compatibilidad.Razones = []string{"api.admin.copias.compatibilidad.desconocida"}
+		}, false, 503},
+		{"razon prefijo ajeno", func(v *p.Propuesta) {
+			v.MetadatosRevision.Compatibilidad.Razones = []string{"api.admin.otro.compatible"}
+		}, false, 503},
+		{"razon fuera compatibilidad", func(v *p.Propuesta) {
+			v.MetadatosRevision.Compatibilidad.Razones = []string{"api.admin.copias.error.acceso_denegado"}
+		}, false, 503},
+		{"razon negativa incompatible", func(v *p.Propuesta) {
+			v.MetadatosRevision.Compatibilidad.Razones = []string{"api.admin.copias.compatibilidad.incompatible"}
+		}, false, 503},
+		{"razon negativa no comprobable", func(v *p.Propuesta) {
+			v.MetadatosRevision.Compatibilidad.Razones = []string{"api.admin.copias.compatibilidad.no_comprobable"}
+		}, false, 503},
 		{"historia sin metadata", func(v *p.Propuesta) { v.MetadatosRevision = nil }, false, 503},
 		{"fecha copia ausente", func(v *p.Propuesta) { v.MetadatosRevision.FechaCopia = time.Time{} }, false, 503},
 		{"perdida ausente", func(v *p.Propuesta) { v.MetadatosRevision.PerdidaDesde = time.Time{} }, false, 503},
@@ -100,6 +119,18 @@ func TestRevisionExigeMetadataCanonicaAntesDelEfecto(t *testing.T) {
 			if w.Code != tc.status || c.efectos != 0 {
 				t.Fatalf("status=%d effects=%d", w.Code, c.efectos)
 			}
+			if tc.status == 503 {
+				h.servicio.Lecturas = &consultasRevisionTest{propuesta: v}
+				capWriter := httptest.NewRecorder()
+				h.ServeHTTP(capWriter, peticion("GET", PrefijoV1+"/capacidades", ""))
+				var result struct {
+					Capacidades p.Capacidades `json:"capacidades"`
+				}
+				if capWriter.Code != 200 || json.Unmarshal(capWriter.Body.Bytes(), &result) != nil || result.Capacidades.Revisar {
+					t.Fatal("incomplete or unknown canonical source still enabled review")
+				}
+			}
+
 		})
 	}
 }
@@ -202,6 +233,22 @@ func TestPropuestaExponeMetadataCanonicaYConservaHistoriaIncompleta(t *testing.T
 			if !strings.Contains(w.Body.String(), field) {
 				t.Fatalf("missing UI schema field %s", field)
 			}
+		}
+	}
+}
+
+func TestRevisionAdmiteSoloRazonesPositivasConocidas(t *testing.T) {
+	for _, key := range []string{"api.admin.copias.compatibilidad.compatible", "api.admin.copias.compatibilidad.comprobacion_conjunto_compatible"} {
+		v := propuestaInformada()
+		v.MetadatosRevision.Compatibilidad.Razones = []string{key}
+		h, _, _ := preparar(t)
+		c := &controlRevisionTest{propuesta: v}
+		h.servicio.Control = c
+		h.servicio.FuenteRevision = &fuenteRevisionTest{propuesta: v}
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, peticion("POST", PrefijoV1+"/propuestas/"+v.PropuestaRef+"/revision", revisionBody(v)))
+		if w.Code != 200 || c.efectos != 1 {
+			t.Fatalf("known positive %s rejected: status=%d effects=%d", key, w.Code, c.efectos)
 		}
 	}
 }
