@@ -55,7 +55,8 @@ normalizar_manifiesto() {
 						static/acceso/locales/en.json | \
 						static/area-personal/locales/es.json | \
 						static/area-personal/locales/en.json | \
-						static/portal-empleado/modulos/contratacion-temporal/formalizacion-desarrollo.json)
+						static/portal-empleado/modulos/contratacion-temporal/formalizacion-desarrollo.json | \
+						static/portal-empleado/modulos/analitica/catalogo-indicadores.json)
 						;;
 					# Catálogos de textos por idioma (datos i18n) y su índice.
 					static/textos/idiomas.json | static/textos/*/*.json)
