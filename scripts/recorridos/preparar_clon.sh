@@ -16,8 +16,14 @@ puerto_smtp=${VEC_RECORRIDOS_PUERTO_SMTP:-11025}
 puerto_correo_web=${VEC_RECORRIDOS_PUERTO_CORREO_WEB:-18532}
 accion=${1:-preparar}
 if (( $# )); then shift; fi
-case "$accion" in preparar|estado|reiniciar|parar|retirar|plan|plan-postmain|preparar-sql|verificar-sql|preparar-material-externo|exportar-alias|verificar-alias) ;;
-  *) echo 'Uso: preparar_clon.sh [preparar|preparar-sql|verificar-sql|preparar-material-externo|exportar-alias|verificar-alias|plan|plan-postmain|estado|reiniciar|parar|retirar]' >&2; exit 2;; esac
+case "$accion" in preparar|estado|reiniciar|parar|retirar|plan|plan-postmain|preparar-sql|verificar-sql|canario-archivo|preparar-material-externo|exportar-alias|verificar-alias) ;;
+  *) echo 'Uso: preparar_clon.sh [preparar|preparar-sql|verificar-sql|canario-archivo|preparar-material-externo|exportar-alias|verificar-alias|plan|plan-postmain|estado|reiniciar|parar|retirar]' >&2; exit 2;; esac
+
+# Acción explícita; la autoridad definitiva ausente deniega en el controlador
+# antes de crear estado, bloqueo o recursos. No habilita preparar/reiniciar.
+if [[ "$accion" == canario-archivo ]]; then
+  exec python3 -B "$guiones/clon_h6_archive_controller.py" "$@"
+fi
 
 # Fases offline independientes. Rutas absolutas explícitas, fuera de Git y
 # canónicas según la autoridad delegada; sus pines permanecen en cada herramienta.

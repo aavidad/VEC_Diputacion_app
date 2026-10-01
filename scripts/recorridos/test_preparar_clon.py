@@ -216,6 +216,25 @@ os.execv('/usr/bin/python3', ['/usr/bin/python3', *args])
                 self.assertFalse(self.state.exists())
                 self.assert_no_services()
 
+    def test_canario_archivo_autoridad_ausente_deniega_sin_estado_o_servicios(self):
+        self.state.rmdir()
+        files = ('arr', 'reference', 'ca', 'inspector', 'connections', 'resolver',
+                 'promoter', 'receipt-helper', 'guiones', 'lock', 'package')
+        trees = ('material', 'incorporacion', 'public-data', 'communications', 'imports')
+        args = ['--state', str(self.state), '--pgid', 'a' * 64,
+                '--pg-image', 'sha256:' + 'b' * 64, '--image', 'sha256:' + 'c' * 64]
+        for name in files + trees:
+            args.extend(['--' + name, '/absent/' + name])
+        for name in files:
+            args.extend(['--' + name + '-sha256', 'd' * 64])
+        p = self.run_action('canario-archivo', *args, VEC_H6_APPROVED='true',
+                            VEC_H6_DEFINITIVE_AUTHORITY='synthetic')
+        self.assertEqual(p.returncode, 1)
+        self.assertEqual(p.stdout, '')
+        self.assertEqual(json.loads(p.stderr)['code'], 'fresh_definitive_material_authority_missing')
+        self.assertFalse(self.state.exists())
+        self.assert_no_services()
+
     def test_plan_sin_entradas_externas_deniega_sin_historia45_estado_o_servicios(self):
         self.state.rmdir()
         p = self.run_action('plan', VEC_RECORRIDOS_ARCHIVO='/no-existe')
