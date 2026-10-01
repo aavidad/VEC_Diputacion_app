@@ -20,6 +20,7 @@ alias = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(alias)
 m = alias.material
 NOW = datetime.now(timezone.utc)
+REAL_GIT_PINS = alias.git_pins
 
 
 class AliasExportTests(unittest.TestCase):
@@ -122,6 +123,85 @@ sock.close()
     def run_export(self, **kwargs):
         return alias.export(Path(__file__).resolve().parents[2], self.binary, self.source, self.ack, self.root, self.output,
                             now=NOW, **kwargs)
+
+    def synthetic_git_history(self):
+        repo = self.base / "git-history"
+        repo.mkdir(mode=0o700)
+        env = {"HOME": str(self.base), "PATH": "/usr/bin:/bin", "GIT_CONFIG_NOSYSTEM": "1", "GIT_CONFIG_GLOBAL": "/dev/null"}
+        def git(*args):
+            result = subprocess.run(["/usr/bin/git", "-c", "core.fsmonitor=false", "-c", "core.hooksPath=/dev/null",
+                                     "-c", "user.name=fixture", "-c", "user.email=fixture@example.invalid",
+                                     "-c", "commit.gpgsign=false", "-C", str(repo), *args], env=env,
+                                    stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                    timeout=10, check=True)
+            return result.stdout.strip().decode("ascii")
+        git("init", "--quiet")
+        scripts = repo / "scripts/recorridos"
+        scripts.mkdir(mode=0o700, parents=True)
+        for name in ("clon_material_externo_offline.py", "clon_fuente_acreditada.py"):
+            self.write(scripts / name, Path(__file__).with_name(name).read_bytes())
+        git("add", "--", "scripts/recorridos")
+        git("commit", "--quiet", "-m", "fixture validators")
+        base = git("rev-parse", "HEAD")
+        self.write(repo / "source-marker", b"pinned-source-fixture")
+        git("add", "--", "source-marker")
+        git("commit", "--quiet", "-m", "fixture pinned exporter")
+        commit, tree = git("rev-parse", "HEAD"), git("rev-parse", "HEAD^{tree}")
+        git("update-ref", "refs/remotes/origin/main", commit)
+        for key, value in (("BASE", base), ("COMMIT", commit), ("TREE", tree)):
+            patch.object(alias, key, value).start()
+        # Keep the fixture binary act bound to the synthetic source commit.
+        self.fixture()
+        return repo, git, base, commit
+
+    def test_git_source_pin_accepts_main_advance_but_rejects_rewritten_branch(self):
+        repo, git, base, source = self.synthetic_git_history()
+        REAL_GIT_PINS(repo)
+        git("commit", "--quiet", "--allow-empty", "-m", "fixture main advance")
+        advanced = git("rev-parse", "HEAD")
+        self.assertNotEqual(advanced, source)
+        git("update-ref", "refs/remotes/origin/main", advanced)
+        REAL_GIT_PINS(repo)
+        # A sibling branch retains BASE and validator bytes but removes COMMIT.
+        git("checkout", "--quiet", "--detach", base)
+        git("commit", "--quiet", "--allow-empty", "-m", "fixture divergent main")
+        git("update-ref", "refs/remotes/origin/main", git("rev-parse", "HEAD"))
+        with self.assertRaises(alias.ExportError):
+            REAL_GIT_PINS(repo)
+
+    def test_git_tree_and_validator_pins_remain_exact_after_main_advance(self):
+        repo, git, base, source = self.synthetic_git_history()
+        git("commit", "--quiet", "--allow-empty", "-m", "fixture main advance")
+        git("update-ref", "refs/remotes/origin/main", git("rev-parse", "HEAD"))
+        with patch.object(alias, "TREE", "0" * 40):
+            with self.assertRaisesRegex(alias.ExportError, "git_tree_pin_changed"):
+                REAL_GIT_PINS(repo)
+        # Model an unexpected validator preimage via its pinned object, leaving
+        # actual shared repository files intact.
+        validator = repo / "scripts/recorridos/clon_fuente_acreditada.py"
+        self.write(validator, validator.read_bytes() + b"\n# changed fixture validator\n")
+        git("add", "--", "scripts/recorridos/clon_fuente_acreditada.py")
+        git("commit", "--quiet", "-m", "fixture altered validator")
+        with patch.object(alias, "BASE", git("rev-parse", "HEAD")):
+            with self.assertRaisesRegex(alias.ExportError, "validator_pin_changed"):
+                REAL_GIT_PINS(repo)
+
+    def test_replay_after_git_main_advance_preserves_bytes_and_never_executes(self):
+        repo, git, base, source = self.synthetic_git_history()
+        with patch.object(alias, "git_pins", wraps=REAL_GIT_PINS):
+            receipt = alias.export(repo, self.binary, self.source, self.ack, self.root, self.output, now=NOW)
+            external_pin = m.digest(m.encoded(receipt))
+            before = {p.name: (p.stat().st_ino, p.stat().st_mtime_ns, p.read_bytes()) for p in self.output.iterdir()}
+            git("commit", "--quiet", "--allow-empty", "-m", "fixture main advance after export")
+            git("update-ref", "refs/remotes/origin/main", git("rev-parse", "HEAD"))
+            with patch.object(alias, "execute", side_effect=AssertionError("replay must never launch exporter")):
+                self.assertEqual(receipt, alias.export(repo, self.binary, self.source, self.ack, self.root,
+                                                      self.output, receipt_sha=external_pin, now=NOW))
+                git("update-ref", "refs/remotes/origin/main", base)
+                with self.assertRaises(alias.ExportError):
+                    alias.export(repo, self.binary, self.source, self.ack, self.root,
+                                 self.output, receipt_sha=external_pin, now=NOW)
+            self.assertEqual(before, {p.name: (p.stat().st_ino, p.stat().st_mtime_ns, p.read_bytes()) for p in self.output.iterdir()})
 
     def test_real_fixture_process_receipt_and_replay_are_bound_to_bytes(self):
         before = {str(p.relative_to(self.root)): (p.stat().st_ino, p.stat().st_mtime_ns, p.read_bytes())

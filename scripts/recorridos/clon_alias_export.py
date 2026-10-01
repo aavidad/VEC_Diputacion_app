@@ -74,7 +74,12 @@ def git_pins(repo: Path):
                                 stderr=subprocess.DEVNULL, timeout=10, check=False)
         require(result.returncode == 0 and len(result.stdout) <= 1 << 20, "git_pin_unavailable")
         return result.stdout
-    require(git("rev-parse", "origin/main").strip() == COMMIT.encode(), "git_main_pin_changed")
+    # The build and validators remain pinned to their original objects. Main
+    # may advance while a completed export is replayed, but it must retain the
+    # accredited source commit. Resolve once so ancestry checks use one snapshot.
+    main = git("rev-parse", "--verify", "origin/main^{commit}").strip()
+    require(re.fullmatch(rb"[0-9a-f]{40}", main) is not None, "git_main_pin_changed")
+    git("merge-base", "--is-ancestor", COMMIT, main.decode("ascii"))
     require(git("rev-parse", COMMIT + "^{tree}").strip() == TREE.encode(), "git_tree_pin_changed")
     git("merge-base", "--is-ancestor", BASE, "HEAD")
     # The validators are trusted only as the exact reviewed siblings of this cut.
