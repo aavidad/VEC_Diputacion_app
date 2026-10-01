@@ -244,6 +244,20 @@
   font-weight: 400;
 }
 
+[data-b2-incorporacion] .ct-b2-valor-solo-lectura {
+  display: block;
+  min-width: 0;
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio);
+  background: var(--portal-superficie);
+  color: var(--portal-tinta);
+  font-size: 0.875rem;
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+
 .ct-campo textarea {
   min-height: 86px;
   resize: vertical;

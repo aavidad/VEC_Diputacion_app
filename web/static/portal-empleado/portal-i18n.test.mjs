@@ -7,6 +7,8 @@ import {
   MENSAJES_PORTAL,
 } from "./portal-i18n.js";
 
+import { versionDe } from "./versiones-cache.test-helper.mjs";
+
 const MENSAJES_PORTAL_INGLES = await cargarMensajesPortal("en");
 
 test("la auditoría del expediente tiene textos simétricos ES y EN", async () => {
@@ -54,13 +56,17 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   const vigente = "20260930-portales-i18n-integracion-v1";
   const versionBolsaTurno = "20260930-bolsa-turno-v2";
   const versionTemas = "20260930-codexf-temas-v2";
+  const entrada = await readFile(new URL("index.html", raiz), "utf8");
+  const coordinador = await readFile(new URL("portal-modulos-coordinador.js", raiz), "utf8");
+  const recorridosDietas = await readFile(new URL("modulos/dietas/vista-recorridos.js", raiz), "utf8");
   const versionesEspeciales = new Map([
     ["modulos/bolsa/rrhh-plazos-ui.js", "20260930-ofertas-reglas-integradas-v4"],
     ["portal-inicio.js", "20261001-rpt-categorias-v1"],
     // 5.06, segundo corte: el circuito de firma trae el estado de Firmadoc.
     // Reglas vigentes: el detalle de cada regla y sus textos en catálogos renuevan el enlace del panel.
     // Nuevo llamamiento: el campo «Resumen de la preparación» usa la etiqueta encima y el campo a lo ancho.
-    ["portal.js", "20261001-rpt-temas-v2"],
+    ["portal.js", versionDe(entrada, "/portal-empleado/portal.js")],
+    ["portal-vistas-utilidades.js", "20261001-codexf-accesibilidad-v1"],
     ["portal-preferencias-integracion.js", versionTemas],
     ["portal-preferencias.js", versionTemas],
     ["portal-preferencias-api.js", versionTemas],
@@ -70,9 +76,11 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     ["portal-bolsas-contrato.js", versionBolsaTurno],
     ["portal-llamamientos-operaciones-api.js", versionBolsaTurno],
     ["reglas/enlace.js", "20260930-portales-i18n-integracion-v1"],
-    ["portal-modulos-coordinador.js", "20260930-ct-lista-recuperada-v2"],
-    ["modulos/contratacion-temporal/vista-expedientes.js", "20260930-ct-lista-recuperada-v2"],
-    ["modulos/contratacion-temporal/circuito-firma.js", "20260930-portales-i18n-integracion-v1"],
+    ["portal-modulos-coordinador.js", versionDe(entrada, "/portal-empleado/portal-modulos-coordinador.js")],
+    ["modulos/dietas/vista-recorridos.js", versionDe(coordinador, "./modulos/dietas/vista-recorridos.js")],
+    ["modulos/dietas/vista-bandeja-circuito.js", versionDe(recorridosDietas, "./vista-bandeja-circuito.js")],
+    ["modulos/contratacion-temporal/vista-expedientes.js", "20261001-e3-b2-v1"],
+    ["modulos/contratacion-temporal/circuito-firma.js", "20260930-custodia-506-e3-v3"],
   ]);
   const archivos = ["index.html"];
   const pendientes = [""];

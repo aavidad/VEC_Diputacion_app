@@ -476,7 +476,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaPerfilFijoParaCon
 			valida = ok && solicitudAutorizacionAnalisisContratacionTemporalDesarrolloValida(ruta, datos, fase)
 		case rutaFirmaDocumentoCTDesarrollo(ruta):
 			valida = solicitudAutorizacionConsultaFirmasDocumentoCTDesarrolloValida(ctx, datos) ||
-				ruta == httpinterno.RutaFirmaDocumento && solicitudAutorizacionFirmaDocumentoCTDesarrolloValida(ctx, datos)
+				ruta == httpinterno.RutaFirmaDocumento && (solicitudAutorizacionFirmaDocumentoCTDesarrolloValida(ctx, datos) || solicitudAutorizacionCustodiaFirmadoCTDesarrolloValida(ctx, datos))
 		case rutaReincorporacionTitularDesarrollo(ruta):
 			valida = solicitudAutorizacionReincorporacionTitularValida(ruta, datos)
 		case rutaAsignacionContratacionTemporalDesarrollo(ruta):
