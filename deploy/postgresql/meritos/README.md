@@ -134,6 +134,21 @@ fixture quedan fuera de Git. Las pruebas focales Go, race y vet también
 terminaron con código 0. La documentación del driver recoge el procedimiento
 de reproducción y la distinción entre recibo original y auditoría del acceso.
 
+El cierre causal se repitió en una copia fría posterior a S1, con AD141 y
+Bolsa7 ya instaladas. Allí se aplicaron una sola vez roles de Méritos → AD142 →
+Méritos1, sin reaplicar los dos antecedentes. El nuevo fixture OWNER conservó
+los registros anteriores y avanzó configuración, raíz y checkpoint por CAS.
+Las siete operaciones y su recuperación tras reiniciar PostgreSQL y el driver
+volvieron a pasar con recibos, fechas e historia de negocio idénticos.
+
+También se comprobó la lectura S1 después del reinicio conjunto, con sesiones
+nuevas por su API y la configuración de confianza vigente. Conservó la clave
+HMAC S1 original y sus concesiones: devolvió `obtenida`, y denegó al actor y a
+la versión sin concesión. La fuente y los once accesos anteriores se
+conservaron; la lectura autorizada añadió el acceso número doce. La definición
+de la fachada AD141 mantuvo su huella y los 71 expedientes previos siguieron
+presentes. No se publicaron nuevos roles, concesiones ni claves para S1.
+
 Esto acredita persistencia y recuperación del circuito interno sintético.
 La principal, el canal externo, la composición HTTP, el navegador, la firma
 administrativa y la acreditación de hechos permanecen fuera de este ensayo.
