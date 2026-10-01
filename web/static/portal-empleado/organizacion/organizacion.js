@@ -8,7 +8,7 @@ export const LIMITE_RESPUESTA = 512 * 1024;
 import { crearTraductorPersonal } from "../modulos/personal/i18n.js";
 import { IDIOMA_ACTUAL } from "../../comun/idioma.js";
 import { iniciarHistorico, iniciarPreparacionLocal, iniciarPestanasOrganizacion,
-  PREPARACION_LOCAL_ORGANIZACION } from "./historico.js?v=20261001-org-preparacion-local-v1";
+  PREPARACION_LOCAL_ORGANIZACION } from "./historico.js?v=20261001-org-local-sync-v2";
 const traducirOrganizacion = crearTraductorPersonal();
 
 const TYPES = new Set(["delegacion", "centro", "puesto_responsabilidad"]);
