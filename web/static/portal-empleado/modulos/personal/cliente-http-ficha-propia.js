@@ -156,43 +156,50 @@ function presentarServicios(ficha, t) {
 
 /**
  * Crea las fuentes de los apartados de la ficha para una vista montada.
- * `preparar({signal})` hace la consulta una vez, cancelable por quien monta
- * la vista: con una ficha válida devuelve los apartados, que se pintan desde
- * esa misma respuesta; con más filas de las que se muestran los devuelve con
- * el estado «excede_limite»; si la superficie no la sirve, la persona no
- * tiene acceso o la consulta falla, devuelve `{}` y no se ofrecen.
+ * `preparar({signal})` hace una consulta cancelable. Solo 401, 403 y 404
+ * retiran los apartados; un fallo temporal se presenta en ambos para que la
+ * persona pueda reintentar sin confundirlo con ausencia de fuente.
  */
 export function crearFuentesFichaPropia({ fetchImpl = globalThis.fetch, traducir = crearTraductorFichaPropia(), plazoMs = PLAZO_POR_DEFECTO_MS } = {}) {
   if (typeof fetchImpl !== "function" || typeof traducir !== "function" ||
       !Number.isSafeInteger(plazoMs) || plazoMs < 1 || plazoMs > 30_000) throw new TypeError("fuentes de la ficha propia no disponibles");
   let resultado;
+  let revision = 0;
   const obtener = async (signal) => {
+    if (signal?.aborted) throw error("operacion_abortada");
     if (resultado) return resultado;
-    const consulta = await consultar(fetchImpl, plazoMs, signal);
-    if (!consulta.sinFuente) resultado = consulta;
-    return consulta;
+    const vigente = revision;
+    try {
+      const consulta = await consultar(fetchImpl, plazoMs, signal);
+      if (signal?.aborted) throw error("operacion_abortada");
+      if (vigente === revision && !consulta.sinFuente) resultado = consulta;
+      return consulta;
+    } catch (causa) {
+      if (signal?.aborted || causa?.codigo === "operacion_abortada") throw error("operacion_abortada");
+      const fallo = Object.freeze({ error: true });
+      if (vigente === revision) resultado = fallo;
+      return fallo;
+    }
   };
+  const grupoActualizacion = Object.freeze({});
   const bloque = (presentar) => Object.freeze({
+    grupoActualizacion,
+    get estadoInicial() { return resultado?.error ? "error" : "sin_consulta"; },
     async consultarPropios({ signal } = {}) {
       const consulta = await obtener(signal);
+      if (consulta.error) return { estado: "error" };
       if (consulta.excedeLimite) return { estado: "excede_limite" };
       if (consulta.sinFuente) return { estado: consulta.estado === 404 ? "no_configurado" : "denegado" };
       const items = presentar(consulta.ficha, traducir);
       return { estado: items.length ? "disponible" : "vacio", fuente: traducir("fuente_registro"), actualizado_en: consulta.consultadaEn, items };
     },
+    actualizar() { revision += 1; resultado = undefined; },
   });
   const fuentes = Object.freeze({ relaciones: bloque(presentarRelaciones), servicios: bloque(presentarServicios) });
   return Object.freeze({
     async preparar({ signal } = {}) {
-      try {
-        const consulta = await obtener(signal);
-        return consulta.sinFuente ? {} : fuentes;
-      } catch (causa) {
-        // Sin una respuesta válida no hay fuente acreditada para esta vista:
-        // los apartados no se ofrecen y se volverá a consultar al entrar.
-        if (causa?.codigo === "operacion_abortada") throw causa;
-        return {};
-      }
+      const consulta = await obtener(signal);
+      return consulta.sinFuente ? {} : fuentes;
     },
   });
 }
