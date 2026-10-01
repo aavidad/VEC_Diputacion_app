@@ -44,7 +44,8 @@ fallen la lectura o los argumentos. Los códigos de salida son:
 | --- | --- |
 | 0 | Coinciden los bytes y las versiones declaradas. |
 | 1 | Hay diferencias o faltan datos/archivos para comprobarlas. |
-| 2 | No se pueden leer o interpretar las entradas, los argumentos son incorrectos o falla la salida. |
+| 2 | No se pueden leer o interpretar las entradas o los argumentos son incorrectos. |
+| 4 | No se puede escribir la salida. |
 
 Esta pieza no autentica descriptores, no demuestra la relación entre commit y binario,
 no consulta PostgreSQL ni compara roles, ACL o contenido de tablas. Tampoco crea o
