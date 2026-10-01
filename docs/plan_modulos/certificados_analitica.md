@@ -20,6 +20,22 @@ Estado comprobado sobre `origin/main` `0a62a3ea6` el 1 de octubre de 2026. El ca
 | 4 | **CER-001, emisión:** obtener hechos de servicios autorizados de Personal por un puerto, revisión RRHH, documento original, firma/sello, registro, código seguro de verificación (CSV), entrega y conservación. | Personal B posee servicios; Certificados J posee plantilla/expediente; Documentos/firma aporta capacidades de PDF, firma y custodia por puertos nuevos o adaptados. Requiere permisos fijos, SQL nuevo **solo en borrador**, número reservado y orden en `ORDEN_SQL_NUCLEO.md` por D, clon y doble revisión antes de integrar. La verificación por código no abre la ficha Personal; RRHH debe aprobar sus datos visibles. | Navegador → identidad/permiso → datos de oficio → revisión → firma real → documento y código verificables → recibo e historia conservados tras reinicio. |
 | 5 | **ANA-005:** registrar consulta y exportación nominales antes de entregar resultados. | Propietario CT F, con J para el consumidor y D para orden SQL; puerto de consulta atestada y exportación separada con `corte_esperado`. SQL 000107 solo lee el corte actual; el archivo CSV de hoy se genera en el navegador y carece de registro de descarga. SQL nuevo queda en borrador hasta reserva, ensayo y revisiones. Alertas de uso anómalo quedan pendientes de regla aprobada. | Revalidar identidad, permiso y corte; confirmar antes de devolver datos un registro durable mínimo de actor, finalidad, ámbito, versión, corte, campos, filas y resultado, sin contenidos de certificados ni filas nominales. Cambio de corte rechaza exportar lo visto antes; la traza acredita la puesta a disposición o el intento de respuesta, no recepción ni guardado. |
 
+## Estimación
+
+Trabajo restante con un equipo Codex y varios subagentes, PR pequeñas de 1–3 horas, revisión independiente y CI; jornada de referencia de ocho horas. Las horquillas incluyen integración y pruebas del equipo dueño, **suponiendo disponibles** fuentes, decisiones y servicios externos.
+
+| Minitarea | Horas de un equipo |
+| --- | ---: |
+| 1. ANA-001: montaje, Chrome, revisión y CI restantes | 3–5 h |
+| 2. CER-001: revisión final, calidad y PR del borrador ya preparado | 3–5 h |
+| 3. ANA-002: contexto visible del cuadro existente | 5–8 h |
+| 4. CER-001: emisión por cortes de fuente, permisos, revisión, firma, verificación y recuperación | 48–72 h |
+| 5. ANA-005: permiso, registro atómico, exportación separada, pantalla y recuperación | 40–64 h |
+
+**Total de implementación pendiente:** 99–154 horas, unas **13–20 jornadas de un equipo**. Con dos equipos que trabajen en paralelo en Certificados y Analítica, con D/Personal/F como dueños de sus contratos y una integración final, **8–13 jornadas de calendario de trabajo**. No se ganan todas las horas en paralelo: ANA-005 depende de la frontera CT y CER emisión depende de Personal y Documentos.
+
+**Fuera de nuestro control:** Personal B debe aportar servicios autorizados (8–16 h de su equipo tras acordar el contrato); D/F deben fijar perfiles, orden SQL y transacción de estadísticas (16–24 h de sus equipos, coordinadas con la minitarea 5); Documentos/firma y servidor deben aportar el circuito de firma/verificación (16–32 h de sus equipos si faltan adaptadores); RRHH debe decidir fuentes, plantillas, firmantes, gobierno y finalidades. Estas dependencias pueden añadir **5–9 jornadas de trabajo ajeno** si no están hechas y pueden solaparse parcialmente con las nuestras. La espera de decisiones institucionales y de disponibilidad del servidor no tiene fecha acreditada; no cabe convertirla en días de calendario cerrados.
+
 ## Decisiones pendientes de RRHH
 
 Se trasladarán a `dudas.md` con números consecutivos **solo en el turno J**, después de las preguntas que añadan los equipos precedentes:
