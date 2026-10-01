@@ -1,11 +1,11 @@
 import { cargarTextos } from "/comun/textos.js";
 import { leerRecursoJSON } from "/comun/idioma.js";
 import { crearClienteBaremo } from "../baremo-cliente.js?v=20261001-concursos-v6";
-import { crearEditorBaremo, leerReglas, aMicropuntos, MAXIMO_ARCHIVO, comprobarCatalogoJornada } from "../baremo-editor.js?v=20261001-g373-reconciliar-v1";
-import { renderizarPanelesBaremo } from "../baremo-vista.js?v=20261001-g373-reconciliar-v1";
+import { crearEditorBaremo, leerReglas, aMicropuntos, MAXIMO_ARCHIVO, comprobarCatalogoJornada, normalizarMinimoFormacion } from "../baremo-editor.js?v=20261001-g-curso-minimo-v1";
+import { renderizarPanelesBaremo } from "../baremo-vista.js?v=20261001-g-curso-minimo-v1";
 import { crearClienteConcursos } from "../concursos-cliente.js?v=20261001-g-concursos-topes-v2";
-import { renderizarConcursos } from "../concursos-vista.js?v=20261001-g-concursos-topes-v2";
-import { montarConcursos } from "../concursos-montaje.js?v=20261001-g373-reconciliar-v1";
+import { renderizarConcursos } from "../concursos-vista.js?v=20261001-g-curso-minimo-v1";
+import { montarConcursos } from "../concursos-montaje.js?v=20261001-g-curso-minimo-v1";
 const [textos, textosConcursos, datosJornada] = await Promise.all([cargarTextos("baremo-bolsa"), cargarTextos("baremo-concursos"),
   leerRecursoJSON(new URL("/catalogos/baremo-jornada-v1.json", import.meta.url)).catch(() => null)]);
 let catalogoJornada = null;
@@ -32,7 +32,7 @@ function pintar() {
   raiz.innerHTML = renderizarPanelesBaremo({ ...editor.estado(), ayuda, error: error || editor.estado().error }, { textos, ejemplos, filtro, panel, concursosHTML });
   if (panel === "concursos") concursos.alPintar();
   filtrar();
-  for (const control of raiz.querySelectorAll('#baremo-panel-bolsa [aria-invalid="true"]')) control.setCustomValidity(t(control.hasAttribute("data-umbral") ? "umbral_invalido" : "puntos_invalidos"));
+  for (const control of raiz.querySelectorAll('#baremo-panel-bolsa [aria-invalid="true"]')) control.setCustomValidity(t(claveErrorCampo(control)));
   if (panel === "bolsa" && (Object.values(editor.estado().invalidos).some((valor) => valor !== "") || error === "validacion")) mostrarErrores();
   const trabajandoActivo = panel === "concursos" ? concursos.estado().trabajando : editor.estado().trabajando;
   let siguiente = !trabajandoActivo && focoComparacion && document.activeElement === document.body ? raiz.querySelector(`#baremo-panel-${panel} [type="submit"]`) : null;
@@ -61,12 +61,21 @@ function filtrar() {
   const sinReglas = raiz.querySelector("[data-sin-reglas]");
   if (sinReglas) sinReglas.hidden = [...raiz.querySelectorAll("#baremo-panel-bolsa .baremo-reglas tbody tr:not([data-sin-reglas])")].some((f) => !f.hidden);
 }
+function claveErrorCampo(control) {
+  return control.hasAttribute("data-minimo-formacion") ? "minimo_formacion_invalido"
+    : control.hasAttribute("data-umbral") ? "umbral_invalido"
+    : control.hasAttribute("data-puntos") ? "puntos_invalidos" : "fecha_invalida";
+}
 function mostrarErrores({ enfocar = false } = {}) {
+  for (const control of raiz.querySelectorAll("input[data-minimo-formacion]")) {
+    try { normalizarMinimoFormacion(control.value); control.setCustomValidity(""); }
+    catch { control.setCustomValidity(t("minimo_formacion_invalido")); }
+  }
   const invalidos = [...raiz.querySelectorAll("input[data-ruta]")].filter((c) => !c.checkValidity());
   for (const control of raiz.querySelectorAll("input[data-ruta]")) {
     const invalido = invalidos.includes(control), pista = control.closest("label")?.querySelector("[data-error-campo]");
     control.setAttribute("aria-invalid", String(invalido));
-    if (pista) { pista.hidden = !invalido; pista.textContent = invalido ? t(control.hasAttribute("data-umbral") ? "umbral_invalido" : control.hasAttribute("data-puntos") ? "puntos_invalidos" : "fecha_invalida") : ""; }
+    if (pista) { pista.hidden = !invalido; pista.textContent = invalido ? t(claveErrorCampo(control)) : ""; }
   }
   const resumen = raiz.querySelector("#baremo-error");
   if (invalidos.length && resumen) {
@@ -99,6 +108,7 @@ raiz.addEventListener("input", (evento) => {
   try {
     const valor = control.hasAttribute("data-puntos") ? aMicropuntos(control.value) : control.value;
     if (control.hasAttribute("data-umbral")) editor.editarUmbralJornada(Number(control.dataset.indice), valor);
+    else if (control.hasAttribute("data-minimo-formacion")) editor.editarMinimoFormacion(Number(control.dataset.indice), valor);
     else editor.editar(JSON.parse(control.dataset.ruta), valor);
     error = ""; control.removeAttribute("aria-invalid"); control.setCustomValidity(""); raiz.querySelector('[data-accion="exportar"]').disabled = Object.keys(editor.estado().invalidos).length > 0;
     // No sustituir el control durante escritura: conserva foco y selección.
@@ -106,7 +116,7 @@ raiz.addEventListener("input", (evento) => {
     const boton = raiz.querySelector('[type="submit"]'); boton.disabled = false; boton.textContent = t("comparar");
     raiz.querySelector(".baremo-cabecera [role='status']").textContent = t("sin_guardar");
     if (raiz.querySelector("#baremo-error")?.dataset.validacion) mostrarErrores();
-  } catch { editor.registrarInvalido(JSON.parse(control.dataset.ruta), control.value); raiz.querySelector(".baremo-cabecera [role='status']").textContent = t("sin_guardar"); raiz.querySelector('[data-accion="exportar"]').disabled = true; const resultado = raiz.querySelector(".baremo-resultados"); if (resultado) { resultado.textContent = t("pendiente"); resultado.setAttribute("aria-busy", "false"); } const boton = raiz.querySelector('[type="submit"]'); boton.disabled = false; boton.textContent = t("comparar"); control.setAttribute("aria-invalid", "true"); control.setCustomValidity(t(control.hasAttribute("data-umbral") ? "umbral_invalido" : "puntos_invalidos")); }
+  } catch { editor.registrarInvalido(JSON.parse(control.dataset.ruta), control.value); raiz.querySelector(".baremo-cabecera [role='status']").textContent = t("sin_guardar"); raiz.querySelector('[data-accion="exportar"]').disabled = true; const resultado = raiz.querySelector(".baremo-resultados"); if (resultado) { resultado.textContent = t("pendiente"); resultado.setAttribute("aria-busy", "false"); } const boton = raiz.querySelector('[type="submit"]'); boton.disabled = false; boton.textContent = t("comparar"); control.setAttribute("aria-invalid", "true"); control.setCustomValidity(t(claveErrorCampo(control))); }
 });
 raiz.addEventListener("change", async (evento) => {
   if (panel !== "bolsa") return;
