@@ -50,3 +50,21 @@ y VEC `3796cf010dd93de07c1a83a443ff15a76b889ee1` usó `curl -k` contra
 `POST /verify`: tres dictámenes HTTP 200, PDF alterado HTTP 400, `/sign`
 HTTP 404 y `/health` HTTP 200. No ejercitó el cliente VEC ni la confianza TLS
 del consumidor. Esa evidencia se conserva con su alcance original.
+
+## Comprobación con cliente real, 01/10/2026
+
+Ejecutada sobre VEC `acc1898aae63167dc16a24219df1d7ab7c56baee`, con
+AutofirmaV2 `97b2739e98f745a55918df854faad7eb71fd2d03` sin cambios,
+cliente real y servicio separado. Pasaron los siete casos de la tabla, las
+huellas de ambos contenidos, TLS 1.3, CA local, nombre TLS y `/sign → 404`.
+El primer intento terminó durante la compilación por el límite de 128
+descriptores. El intento corregido, con 1024 y los demás controles iguales,
+terminó con código 0. Se retiró todo el material y los procesos propios.
+
+Contratación exige el mismo certificado de la captura autenticada antes de
+custodiar y registrar. Esta restricción corresponde al canal de desarrollo;
+no establece equivalencia entre certificados distintos de una persona.
+La primera firma se vincula al original aportado por el cliente. Falta el
+cotejo en backend con el borrador exacto generado por VEC y su versión de
+plantilla. La prueba local no resuelve ese límite ni acredita el recorrido
+del expediente en navegador o una firma con eficacia administrativa.
