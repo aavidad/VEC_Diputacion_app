@@ -15,7 +15,7 @@ import {
   componerDietasInternas,
   componerPersonalVisible,
   componerRegistroPersonal,
-} from "./portal-composicion-empleado.js?v=20261001-g364-reconciliar-v1";
+} from "./portal-composicion-empleado.js?v=20261001-g364-reconciliar-v2";
 import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20261001-ct-a-i18n-v1";
 import {
   CLAVES_CARGA_MODULAR,
@@ -96,7 +96,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
       import("./modulos/contratacion-temporal/contrato.js"),
       import("./modulos/contratacion-temporal/cliente-http.js"),
       import("./modulos/contratacion-temporal/presentador-expedientes.js?v=20261001-ct-a-i18n-v1"),
-      import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261001-f-reconciliacion-325-v1"),
+      import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261001-ana002-v4"),
       import("./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=20261001-ct-a-i18n-v1"),
       import("./modulos/auditoria/vista.js?v=20261001-ct-a-i18n-v1"),
       import("./modulos/auditoria/cliente-http.js?v=20260928-usab-auditoria-v2"),
@@ -216,8 +216,8 @@ export function crearCoordinadorModulosPortal({
   cargadoresInternos = CARGADORES_INTERNOS_PREDETERMINADOS,
   cargarTramitesPropios = async () => {
     const [fuente, vista] = await Promise.all([
-      import("./modulos/solicitudes/fuente-tramites-propios.js?v=20261001-g364-reconciliar-v1"),
-      import("./modulos/solicitudes/vista-tramites-propios.js?v=20261001-g364-reconciliar-v1"),
+      import("./modulos/solicitudes/fuente-tramites-propios.js?v=20261001-g364-reconciliar-v2"),
+      import("./modulos/solicitudes/vista-tramites-propios.js?v=20261001-g364-reconciliar-v2"),
     ]);
     return { fuente, vista };
   },

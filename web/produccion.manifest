@@ -529,6 +529,10 @@ static/portal-empleado/modulos/solicitudes/fuente-tramites-propios.js
 static/portal-empleado/modulos/solicitudes/vista-tramites-propios.js
 static/textos/es/tramites-empleado.json
 static/textos/en/tramites-empleado.json
+static/portal-empleado/modulos/analitica/ficha-indicadores.js
+static/portal-empleado/modulos/analitica/catalogo-indicadores.json
+static/textos/es/analitica.json
+static/textos/en/analitica.json
 static/textos/es/solicitudes-ejemplos.json
 static/textos/en/solicitudes-ejemplos.json
 static/textos/es/solicitudes.json
