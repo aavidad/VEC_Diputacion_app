@@ -1,0 +1,102 @@
+# Portal del empleado: inventario y continuación
+
+Estado a 1 de octubre de 2026. Equipo I. Base comprobada:
+`origin/main@0a62a3ea68e58fbf890885a2f59cc80343107e18`.
+La orden de dirección de las 16:50 y 16:55 es conservar el trabajo, entregar
+este plan y parar el módulo. No se han modificado padres, manifiestos, permisos,
+SQL ni servicios. Ninguna de las tres capacidades EMP está cerrada.
+
+Fuentes: [catálogo funcional](../estudio_requisitos/catalogo_funcional_rrhh_y_hoja_ruta.md#6-portal-del-empleado-cronos-y-dietas),
+[análisis integral, apartados 17–21](../estudio_requisitos/analisis_integral_rrhh.md),
+[petición de RRHH](../estudio_requisitos/peticion_rrhh_transcripcion_y_lectura.md),
+[matriz normativa](../estudio_requisitos/matriz_normativa_rrhh_2026.md) y
+[modelo histórico de organización y RPT](../estudio_requisitos/modelo_historico_rpt_plazas_puestos_y_vacantes.md).
+
+## Lo que ya está en main
+
+| Pieza y rutas | Estado real |
+| --- | --- |
+| Personal: `internal/modules/personal/adapters/httpinterno/ficha_propia.go`, `internal/app/bootstrap/personal_empleado.go`; web `modulos/personal/cliente-http-ficha-propia.js` y `vista-ficha-integral.js` | Consulta propia `GET /api/interna/personal/mi-ficha`, sin referencia de persona en la petición. Relaciones, puesto, unidad y servicios con procedencia. Identidad, autorización y auditoría en servidor. Código compuesto; la configuración y el recorrido del empleado concreto requieren validación. |
+| Shell: `portal-composicion-empleado.js` y `portal-modulos-coordinador.js` en `web/static/portal-empleado/` | Monta Personal, Cronos y Dietas y conserva sus rutas directas. Los tres se cargan al abrirlos, pero están ocultos en menú e Inicio por la presentación histórica de Bolsa/Contratación. La ficha personal ya enlaza Cronos y Dietas. |
+| Cronos: `modulos/cronos/cliente-solicitudes-http.js`, `vista-permisos-propios.js`, `vista-avisos-propios.js` | Solicitudes, historial, circuito, justificación pendiente y avisos propios. Consulta de permisos por año, sin cursor; las escrituras devuelven recibo, pero el listado no lo incluye. No duplicar sus formularios ni presentar un aviso como notificación legal. |
+| Dietas: `modulos/dietas/cliente-borradores-http.js`, `vista-borradores-propios.js`, `vista-recorridos.js` | Comisiones propias paginadas, borrador, envío y corrección; la lista devuelve comisión y recibo. Una relación ambigua exige resolverla en el recorrido existente. Fiscalizada no significa pagada. |
+| Solicitudes genéricas: `modulos/solicitudes/vista.js`, `i18n.js`, `solicitudes.css` | Componente sin consumidor productivo ni API común. Nueva solicitud, aportar documentación y certificados permanecen deshabilitados. Su i18n y fechas todavía necesitan adaptación al sistema común. No conectarlo a `datos-presentacion.js` como fuente real. |
+| Responsables: `personal/application/competencias_asignacion_dietas.go`, `dietas/ports/circuito_comision.go`, `cronos/application/resolucion_permiso.go` | Existen asignaciones y circuitos específicos. La asignación de responsable en Personal no concede competencia. Dietas usa `FuenteCompetenciaCircuitoSinCatalogo`; Cronos conserva resolutores con vigencia para permisos. No hay autoridad general de delegación temporal ni cobertura real de unidad. |
+
+Las PR históricas [#44](https://github.com/aavidad/VEC_Diputacion_app/pull/44),
+[#48](https://github.com/aavidad/VEC_Diputacion_app/pull/48) y
+[#31](https://github.com/aavidad/VEC_Diputacion_app/pull/31) están incorporadas.
+Las ramas históricas de solicitudes y `demo-jefes-20260929` no aportan una
+implementación pendiente que deba reconstruirse.
+
+## Huecos del catálogo
+
+| Capacidad | Lo que falta |
+| --- | --- |
+| EMP-001 · Carpeta personal | Hacer localizable la ficha propia desde Inicio. Actos, documentos y solicitudes necesitan proyecciones propias de sus módulos, con procedencia y permisos; no reutilizar la lectura RRHH. Tiempo, formación y economía sin fuente no se ofrecen como datos disponibles. |
+| EMP-002 · Bandeja y solicitudes | Una consulta propia localizable que reutilice Cronos/Dietas. La bandeja común no tiene todavía formularios gobernados, plazos administrativos, tareas, subsanaciones, decisiones ni notificaciones generales. El recibo interno de operación no sustituye un asiento de registro oficial. |
+| EMP-003 · Responsable de unidad | Fuente acreditada de competencia por unidad y procedimiento, titular y suplente temporal; después tareas y cobertura mínimas. Queda cerrada por orden de dirección hasta la autoridad común de D. Nunca expediente completo, diagnóstico, nómina ni méritos de Bolsa. |
+
+## Minitareas, por orden de valor
+
+| Orden | Responsabilidad y archivos previstos | Dependencia y criterio de cierre |
+| --- | --- | --- |
+| I-01 | Montar la hoja de accesos propios ya preparada. `portal-accesos-empleado.js`, `portal-inicio.js`, `portal-modulos-coordinador.js`, `portal.js`, `index.html` y manifiestos internos. | Turno I tras LIBERO de H. Separar ruta navegable registrada/diferida de vista montada y de operación autorizada. Lista explícita de autoservicio: no usar `VISTAS_MODULOS_PERSONALES`, que incluye gestión. Al abrir Cronos, omitir bandejas de RRHH mientras no haya señal positiva específica del servidor, coordinado con E. Cierre: enlaces desde una sesión nueva, sin consultas propias al abrir Inicio, carga al clicar, errores/denegación, volver e historial, ES/EN, teclado y escritorio/móvil. Renovar `?v=` de toda la cadena afectada. |
+| I-02 | Verificar y corregir la vista WIP de trámites. `modulos/solicitudes/vista-tramites-propios.js`, su prueba y `textos/{es,en}/tramites-empleado.json`. | Fuente I-03 preparada; antes de ampliar, ejecutar las 13 pruebas ya escritas y comprobar foco del año frente a una respuesta tardía. Cierre: dos paneles independientes, error parcial, relación ambigua, año, páginas/cursor, cancelación y Chrome. No formularios ni datos sintéticos en composición real. |
+| I-03 | Componer fuente y vista de trámites, solo al abrir la nueva vista. `fuente-tramites-propios.js`, vista anterior y padres del portal. | I-01/I-02 y turno de compartidos. Inyectar únicamente lecturas propias existentes: Cronos `consultarPermisos({anio},{signal})`; Dietas `listar({limit:20,cursor},{signal})`. Cronos pagina en pantalla el resultado anual; Dietas conserva su cursor. Sin total ni cronología conjunta. Ante relación ambigua, remitir a Mis dietas sin seleccionar la primera. Cierre: montaje alcanzable, solo GET propios, recibo Dietas idéntico al recibido, denegación sin datos y dos revisiones independientes del hash final por datos personales. |
+| I-04 | Consultar actos y documentos propios dentro de la carpeta existente. Previsión: contratos/proyecciones de Personal y Documentos y consumidor `vista-ficha-integral.js`. | Equipo B y autoridad de Documentos. Las PR B [#298](https://github.com/aavidad/VEC_Diputacion_app/pull/298)/[#299](https://github.com/aavidad/VEC_Diputacion_app/pull/299) mejoran ficha propia y trazas RRHH; [#300](https://github.com/aavidad/VEC_Diputacion_app/pull/300) es borrador, no una proyección propia montada. Cierre: documentos/actos del actor autorizado con fuente, versión y descarga real, sin campos RRHH prestados. |
+| I-05 | Mostrar tarea y plazo administrativo de cada solicitud cuando su módulo los publique. Previsión: fuente/vista de trámites y puertos propietarios. | E/G/F y reglas aprobadas por RRHH. No deducir vencimiento de fechas de permiso o comisión. Cierre: cada fecha tiene hecho inicial, calendario, regla/versiones y siguiente actuación definidos; un dato ausente se muestra como no disponible. |
+| I-06 | Recuperar justificantes conservados y separar avisos de notificaciones. Previsión: lectura propia de recibos/documentos en el módulo dueño y enlaces desde trámites. | Cronos/Dietas, Documentos, Registro y Notificaciones comunes. Cierre: consulta posterior devuelve bytes o referencia acreditada, sin repetir una escritura; no llamar registro, firma, notificación o entrega a lo que no lo acredita. |
+| I-07 | Conectar espacio de responsable de unidad a la autoridad común. Previsión: puerto de consulta de competencia/tareas y vista propia del portal; adaptadores de los módulos dueños. | D, Organización/Personal B/M y circuitos E/G. Sin esta fuente no se ofrece gestión por etiqueta de puesto ni existencia de una función. Cierre: unidad, procedimiento, acciones, acto, vigencia y revocación acreditados; delegación expirada o retirada denegada, auditoría y campos mínimos; dos revisiones sensibles. |
+
+Los cambios previstos en varios padres de I-01/I-03 son la cadena de montaje y
+caché de una misma función visible; no abren módulos paralelos. No hay SQL nuevo
+de I. Si B/D requieren SQL para proyecciones o competencia, su dueño reserva el
+número y fija su dependencia en `ORDEN_SQL_NUCLEO.md`. Solo borrador; ensayo en
+clon y revisiones antes de instalar. El portal no consulta tablas ajenas.
+
+## Decisiones pendientes de RRHH
+
+Se conservan aquí para llevarlas a `dudas.md` con los siguientes números libres
+en el turno I. No están numeradas ni aprobadas todavía; no tocar compartidos al
+cerrar este plan.
+
+- Fuente de responsables y suplentes: quién acredita unidad/procedimiento,
+  acciones, titular, sustituto, inicio, fin, acto y retirada. D mantiene la autoridad.
+- Qué actos y documentos oficiales puede consultar o descargar cada empleado,
+  y cómo solicita una corrección sin reescribir el dato histórico.
+- Para cada tipo de solicitud: quién actúa, qué hecho inicia el plazo, qué
+  calendario/regla aplica y dónde se conservan decisión, justificante y notificación.
+- Qué cobertura y tareas necesita la jefatura y qué campos admite el DPD.
+  No se habilita una ficha completa por ocupar un puesto de responsabilidad.
+
+## Por dónde empezar mañana
+
+**I-01: montar los accesos existentes**, retomando
+`trabajo/codexi-emp001-accesos-20261001@d5fac944c2d927c2fd4993daa3308f00b5523d51`.
+Leer antes el último FIN de Codex-I, las PR abiertas y el LIBERO de compartidos;
+partir de la postimagen vigente sin repetir inventario ni reescribir hojas B/E/G.
+La navegación fue aprobada por dirección el 01/10 a las 16:10, conservando carga
+diferida y autorización. EMP-003 sigue esperando a D.
+
+## Trabajo conservado y comprobaciones
+
+| Rama remota y hash | Qué hay y qué queda |
+| --- | --- |
+| `trabajo/codexi-emp001-accesos-20261001` · `d5fac944c2d927c2fd4993daa3308f00b5523d51` | Hoja y textos ES/EN. Siete Node verdes, Semgrep local e Impeccable sin hallazgos. Revisión estática favorable anterior al ajuste de estructura; Chrome confirmó la estructura final del componente a 1440/390, teclado y ampliación CSS al 200 %. No zoom nativo ni lector de pantalla. Falta consumidor, revisión de integración y puerta final; no PR de producto. |
+| `trabajo/codexi-emp002-fuente-20261001` · `2668e0bd1c7348050e950b785624bc6c822d567c` | Fuente de lecturas inyectadas, doce Node verdes, Semgrep local sin hallazgos y dos GO estáticos independientes exactos. Minimiza el modelo en JavaScript; la API Dietas existente devuelve más campos. No acredita minimización servidor, montaje ni recorrido real. No PR de producto. |
+| `trabajo/codexi-emp002-vista-20261001` · `7ce0bcfc11f5c8cd34466a19573c980659dd0f77` | Vista, textos ES/EN y trece pruebas escritas. WIP sin ejecutar Node, Semgrep, navegador ni revisión independiente por la orden de parada. Revisar antes de componer; no GO ni PR de producto. |
+
+Los tres hashes se han subido; las ramas remotas conservan el trabajo para
+mañana. Los worktrees y ramas locales propios se retiran al entregar. No hubo
+contenedores, SQL, lectura de datos reales ni escritura en cidonia.
+
+Skills utilizadas: interfaz, usabilidad, aspecto, sistema visual, prioridad VEC
+de Impeccable, Humanizer, pruebas, revisión, entrega y seguridad focal. Consenso
+de arquitectura de solo lectura: el shell organiza tareas; cada módulo conserva
+datos y autorización. Los patrones de
+[Junta de Andalucía](https://ws45.juntadeandalucia.es/empleadopublico/),
+[Xunta](https://manualdeacollida.xunta.gal/portal-do-empregado-publico),
+[Generalitat Valenciana](https://sede.gva.es/es/detall-tramit?id_proc=22564) y
+[Madrid](https://www.comunidad.madrid/hospital/atencionprimaria/file/3022/download?token=_XdT6PH5)
+orientan navegación y separación del espacio responsable; no fijan reglas para VEC.
