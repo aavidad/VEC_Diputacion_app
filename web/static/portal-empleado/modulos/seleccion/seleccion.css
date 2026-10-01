@@ -1,0 +1,35 @@
+.seleccion-pila { display: grid; gap: 20px; min-width: 0; }
+.seleccion-pila .pila { display: grid; gap: 16px; }
+.seleccion-pila .campo { display: grid; gap: 6px; max-width: 32rem; }
+.seleccion-pila .campo input,
+.seleccion-pila .campo select { min-height: 40px; width: 100%; max-width: 100%; }
+.seleccion-pila .datos-resumen { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; margin: 16px 0 0; }
+.seleccion-pila .datos-resumen dt { color: var(--portal-muted); }
+.seleccion-pila .datos-resumen dd { margin: 0; }
+.seleccion-pila .grupo-campos { min-width: 0; padding: 16px; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio); }
+.seleccion-pila .grupo-campos legend { padding: 0 5px; font-weight: 600; }
+.seleccion-pila .rejilla-campos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.seleccion-pila .opcion-casilla { display: flex; align-items: center; gap: 8px; min-height: 36px; }
+.seleccion-pila .acciones-formulario { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 12px; }
+.seleccion-pila .texto-secundario { color: var(--portal-muted); }
+.seleccion-pila .error-campo,
+.seleccion-pila .aviso-error { color: var(--portal-peligro); }
+.seleccion-pila .tabla-contenedor { max-width: 100%; overflow-x: auto; }
+.seleccion-pila .tabla-contenedor table { width: 100%; }
+.seleccion-pila .tabla-contenedor caption { text-align: left; font-weight: 600; padding-bottom: 8px; }
+.seleccion-pila .envuelve { overflow-wrap: anywhere; }
+.seleccion-pila details { min-width: 12rem; }
+.seleccion-pila details h4 { margin-bottom: 4px; }
+.seleccion-pila .columna-numero { text-align: right; font-variant-numeric: tabular-nums; }
+.seleccion-pila :is(button, input, select, summary, a):focus-visible { outline: 3px solid var(--portal-azul-700); outline-offset: 2px; }
+@media (min-width: 1024px) {
+  .seleccion-pila { grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); align-items: start; }
+  .seleccion-pila > .panel:first-child { grid-column: 1 / -1; }
+  .seleccion-pila > div > .panel,
+  .seleccion-pila > .panel:last-child { max-height: calc(100vh - 360px); overflow-y: auto; }
+}
+@media (max-width: 600px) {
+  .seleccion-pila .rejilla-campos { grid-template-columns: 1fr; }
+  .seleccion-pila .acciones-formulario { justify-content: stretch; }
+  .seleccion-pila .acciones-formulario button { flex: 1 1 100%; }
+}
