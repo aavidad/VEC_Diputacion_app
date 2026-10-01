@@ -1,0 +1,10 @@
+{
+  "alcance": "Ensayo local con datos sintéticos. Comprueba que el volcado lógico y los roles se restauran sin errores. No compara contenidos, recuentos ni huellas de esquema y permisos; tampoco prueba la copia física ni el arranque de VEC. No declara válida una copia ni habilita una restauración operativa.",
+  "restauracion_logica_completada": "La restauración lógica sintética ha terminado y se han retirado sus recursos temporales.",
+  "restauracion_logica_fallida": "El ensayo lógico no ha terminado correctamente. Revise la etapa y la comprobación indicadas; los datos y errores internos no se muestran.",
+  "uso": "Indique -configuracion archivo.json -solicitud archivo.json -catalogo archivo.json. Use únicamente archivos sintéticos. El ensayo crea y elimina su propio PostgreSQL aislado.",
+  "error_argumentos": "Indique los archivos de configuración, solicitud y catálogo.",
+  "error_catalogo": "No se ha podido leer el catálogo de mensajes del ensayo.",
+  "error_entrada": "Revise los archivos y límites de configuración de la muestra sintética.",
+  "error_salida": "No se ha podido escribir el resultado del ensayo."
+}
