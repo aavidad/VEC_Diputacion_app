@@ -39,7 +39,35 @@ La versión nueva debe ser mayor, aunque no necesariamente consecutiva.
 Comparar una versión consigo misma devuelve una lista vacía. La misma versión
 con contenido distinto, las huellas contradictorias y el orden inverso se
 rechazan. Este informe no publica reglas ni acredita aprobación, firma o
-sucesión administrativa. La comparación de experiencia sigue pendiente.
+sucesión administrativa.
+
+## Comparar reglas de experiencia
+
+Use `--modo experiencia` con las mismas opciones de comparación. La salida
+tiene el esquema `vec.bolsa.diferencia_reglas_experiencia.v1` y valores tipados:
+puntos, fechas, referencias, criterios y políticas. Cada valor activa una sola
+variante; el cero se conserva y una ausencia se representa como `null`.
+
+```sh
+GOCACHE=/dev/shm/go-build go run -p 8 ./cmd/vec-baremador \
+  --modo experiencia --comparar-reglas \
+  --reglas cmd/vec-baremador/testdata/comparacion_experiencia_v1.json \
+  --reglas-sha256 8fdcca0bce51606a680364997d1d232de22d7ba5957cfc5bcf8a4538e5d9bc1d \
+  --reglas-nuevas cmd/vec-baremador/testdata/comparacion_experiencia_v2.json \
+  --reglas-nuevas-sha256 5ef04e7a8beac1563e85905da2ccebc9fe42e8a314bbf45fbbd246288ea99f09
+```
+
+El ejemplo devuelve diez cambios sintéticos. Incluye coeficiente, topes,
+fecha de corte, jornada con umbral `1/2`, conversión `365/12` y solape.
+El comparador también conserva orden, prioridad, reparto del exceso, desempate,
+restos y redondeo. Distingue un límite concreto de `sin_limite`.
+
+Los criterios se muestran completos, con claves, valores y referencias de
+catálogo. Su orden canónico evita diferencias por una reordenación equivalente;
+todavía no hay detalle por criterio. Cambiar la clave de una sección, grupo o
+regla produce baja y alta. Cada archivo de experiencia queda limitado a 4 MiB.
+Se aplican las mismas restricciones de identidad, versiones y huellas de la
+comparación de méritos. No se calcula puntuación ni se aprueba una regla.
 
 ## Probar los ejemplos
 
