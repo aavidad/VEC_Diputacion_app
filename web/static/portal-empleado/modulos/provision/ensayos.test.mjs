@@ -48,7 +48,11 @@ test('vista ES/EN presenta nombres de catálogo, empate real y resolución desha
     pintarAdjudicacion({ raiz, estado, textos, acciones: {} });
     assert.equal(nodos(raiz).find(n => n.dataset.foco === 'adjudicacion-resolver').disabled, true);
     assert.equal(nodos(raiz).some(n => n.textContent === textos.traducir('ensayos.incidencias.empate_residual')), true);
-    assert.equal(nodos(raiz).some(n => n.textContent === textos.traducir('ensayos.personas.persona:a')), true);
+    assert.equal(nodos(raiz).some(n => n.textContent === textos.traducir('ensayos.personas.persona_a')), true);
+    assert.equal(nodos(raiz).some(n => n.textContent === textos.traducir('ensayos.puestos.puesto_a')), true);
+    assert.equal(nodos(raiz).some(n => n.textContent === textos.traducir('ensayos.reglas.regla_cursos')), true);
+    assert.equal(nodos(raiz).some(n => typeof n.textContent === 'string' && /ensayos\.(personas|puestos|reglas)\./u.test(n.textContent)), false);
+    assert.deepEqual(textos.faltantes, []);
   }
 });
 
