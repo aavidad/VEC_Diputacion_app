@@ -81,16 +81,41 @@ export function montarVistaBandejaCircuitoDietas(contenedor, {
   const buscar = nodo(documento, "button", t("circuito_buscar")); buscar.type = "submit"; buscar.className = "boton-secundario";
   const campo = (clave, control) => { const etiqueta = nodo(documento, "label", t(clave)); etiqueta.append(control); return etiqueta; };
   filtros.append(campo("circuito_etapa", selectorEtapa), campo("circuito_fecha_desde", desde), campo("circuito_fecha_hasta", hasta), buscar);
-  const estado = nodo(documento, "p"); estado.dataset.dietasCircuitoEstado = ""; estado.setAttribute("role", "status"); estado.className = "dietas-bandeja-circuito-estado";
+  const estado = nodo(documento, "p"); estado.dataset.dietasCircuitoEstado = ""; estado.setAttribute("role", "status"); estado.setAttribute("aria-live", "polite"); estado.setAttribute("tabindex", "-1"); estado.className = "dietas-bandeja-circuito-estado";
   const contenido = nodo(documento, "div"); contenido.className = "cuerpo-panel"; contenido.dataset.dietasCircuitoContenido = "";
+  const piePagina = nodo(documento, "div"); piePagina.className = "paginacion-marco";
+  const cuentaPagina = nodo(documento, "p"); cuentaPagina.dataset.dietasCircuitoPagina = ""; cuentaPagina.setAttribute("role", "status"); cuentaPagina.setAttribute("aria-live", "polite"); cuentaPagina.setAttribute("aria-atomic", "true"); cuentaPagina.setAttribute("tabindex", "-1");
+  const navegacion = nodo(documento, "nav"); navegacion.className = "paginacion-marco__paginas"; navegacion.setAttribute("aria-label", t("circuito_paginacion"));
+  piePagina.append(cuentaPagina, navegacion);
   const detalle = nodo(documento, "div"); detalle.className = "dietas-circuito-detalle"; detalle.dataset.dietasCircuitoDetalle = ""; detalle.hidden = true;
-  raiz.append(cabecera, filtros, estado, contenido, detalle); contenedor.append(raiz);
+  raiz.append(cabecera, filtros, estado, contenido, piePagina, detalle); contenedor.append(raiz);
 
   let activa = true; let controladorLectura; let controladorDocumento; let controladorDecision; let generacion = 0;
   let consulta = { etapa: etapaInicial, limit: 20 }; let pagina = { items: [], competencia: "acreditada" };
+  // Solo cursores de la consulta activa: las páginas anteriores se consultan de nuevo.
+  let cursores = [undefined]; let indicePagina = 0; let generacionDocumento = 0;
   let pendiente = null; let abierto = null; let mensaje = ""; let nivel = ""; let nivelDetalle = "";
   const publicar = (texto) => { if (activa) anunciar(texto); };
   const filtrada = () => Boolean(consulta.fecha_desde || consulta.fecha_hasta);
+  const puedeRestaurarFoco = (disparador) => {
+    const foco = documento.activeElement;
+    return !foco || foco === documento.body || foco === disparador
+      || [contenido, navegacion, detalle].some((region) => region.contains?.(foco));
+  };
+  const resumenPagina = () => t(pagina.items.length === 1 ? "circuito_pagina_una_fila" : "circuito_pagina_filas", {
+    pagina: new Intl.NumberFormat(LOCALIZACION_PORTAL).format(indicePagina + 1),
+    filas: new Intl.NumberFormat(LOCALIZACION_PORTAL).format(pagina.items.length),
+  });
+
+  function pintarPaginacion() {
+    piePagina.hidden = Boolean(abierto) || nivel === "cargando" || pagina.competencia === "sin_fuente";
+    cuentaPagina.textContent = nivel === "error" ? "" : resumenPagina();
+    navegacion.replaceChildren();
+    if (piePagina.hidden) return;
+    const boton = (clave, atributo) => { const control = nodo(documento, "button", t(clave)); control.type = "button"; control.className = "boton-secundario"; control.dataset[atributo] = ""; navegacion.append(control); };
+    if (indicePagina > 0) { boton("circuito_primera_pagina", "dietasCircuitoPrimera"); boton("circuito_anterior", "dietasCircuitoAnterior"); }
+    if (pagina.siguiente_cursor) boton("circuito_siguiente_pagina", "dietasCircuitoSiguiente");
+  }
 
   function pintarLista() {
     titulo.textContent = control ? t("circuito_control") : t(`circuito_bandeja_${consulta.etapa}`);
@@ -99,7 +124,7 @@ export function montarVistaBandejaCircuitoDietas(contenedor, {
     if (nivel === "error" && !pendiente?.incierta && !pagina.items.length) {
       const reintentar = nodo(documento, "button", t("circuito_reintentar_consulta")); reintentar.type = "button"; reintentar.className = "boton-secundario"; reintentar.dataset.dietasCircuitoReintentar = ""; contenido.append(reintentar); return;
     }
-    if (pagina.competencia === "sin_fuente") { const linea = nodo(documento, "p", t("circuito_sin_fuente")); linea.dataset.dietasCircuitoSinFuente = ""; contenido.append(linea); return; }
+    if (pagina.competencia === "sin_fuente") { const linea = nodo(documento, "p", t("circuito_sin_fuente")); linea.dataset.dietasCircuitoSinFuente = ""; linea.setAttribute("tabindex", "-1"); contenido.append(linea); return; }
     if (!pagina.items.length) { contenido.append(nodo(documento, "p", t(filtrada() ? "circuito_vacio_filtros" : "circuito_vacio"))); return; }
     const marco = nodo(documento, "div"); marco.className = "tabla-contenedor";
     const tabla = nodo(documento, "table"); tabla.className = "tabla-datos dietas-bandeja-circuito-tabla";
@@ -117,7 +142,6 @@ export function montarVistaBandejaCircuitoDietas(contenedor, {
       cuerpo.append(fila);
     });
     tabla.append(cabeza, cuerpo); marco.append(tabla); contenido.append(marco);
-    if (pagina.siguiente_cursor) { const siguiente = nodo(documento, "button", t("circuito_siguiente")); siguiente.type = "button"; siguiente.className = "boton-secundario"; siguiente.dataset.dietasCircuitoSiguiente = ""; contenido.append(siguiente); }
   }
 
   function pintarDetalle() {
@@ -180,40 +204,64 @@ export function montarVistaBandejaCircuitoDietas(contenedor, {
   function pintar() {
     if (!activa || !montada(contenedor, raiz)) return;
     estado.textContent = mensaje; estado.dataset.nivel = nivel;
-    pintarLista(); pintarDetalle();
+    pintarLista(); pintarPaginacion(); pintarDetalle();
   }
 
-  async function cargar(siguiente = false) {
+  async function cargar(indice = indicePagina, enfocar = false) {
+    if (!activa || pendiente || !Number.isInteger(indice) || indice < 0 || indice >= cursores.length) return;
+    const disparador = documento.activeElement;
     controladorLectura?.abort(); controladorLectura = new AbortController(); const actual = ++generacion;
-    const nuevaConsulta = siguiente ? { ...consulta, cursor: pagina.siguiente_cursor } : { ...consulta };
-    if (!siguiente) { mensaje = ""; nivel = "cargando"; pintar(); }
+    controladorDocumento?.abort(); ++generacionDocumento; abierto = null;
+    const nuevaConsulta = { ...consulta, ...(cursores[indice] ? { cursor: cursores[indice] } : {}) };
+    indicePagina = indice; pagina = { items: [], competencia: "acreditada" };
+    mensaje = t("circuito_cargando"); nivel = "cargando"; contenido.setAttribute("aria-busy", "true"); pintar();
     try {
       const recibida = await cliente.listar(nuevaConsulta, { signal: controladorLectura.signal });
       if (!activa || actual !== generacion) return;
-      pagina = siguiente ? { ...recibida, items: [...pagina.items, ...recibida.items] } : recibida;
-      if (nivel === "cargando") nivel = "";
+      pagina = recibida;
+      cursores = cursores.slice(0, indice + 1);
+      if (pagina.competencia === "sin_fuente") { pagina = { items: [], competencia: "sin_fuente" }; cursores = [undefined]; indicePagina = 0; }
+      else if (pagina.siguiente_cursor) cursores.push(pagina.siguiente_cursor);
+      mensaje = ""; nivel = "";
     } catch (error) {
       if (!activa || actual !== generacion || error?.codigo === "operacion_abortada") return;
-      mensaje = textoError(error, t, "circuito_error"); nivel = "error"; publicar(mensaje);
-    } finally { if (activa && actual === generacion) pintar(); }
+      mensaje = textoError(error, t, "circuito_error"); nivel = "error";
+      if (error?.codigo === "competencia_sin_fuente") { pagina = { items: [], competencia: "sin_fuente" }; cursores = [undefined]; indicePagina = 0; nivel = ""; }
+      publicar(mensaje);
+    } finally {
+      if (activa && actual === generacion) {
+        const restaurarFoco = enfocar && puedeRestaurarFoco(disparador);
+        contenido.setAttribute("aria-busy", "false"); pintar();
+        if (restaurarFoco) (pagina.competencia === "sin_fuente" ? contenido.querySelector?.("[data-dietas-circuito-sin-fuente]") : nivel === "error" ? estado : cuentaPagina)?.focus?.();
+      }
+    }
   }
 
   async function abrir(referencia) {
     const item = pagina.items.find((entrada) => entrada.referencia === referencia);
-    if (!item || typeof cliente.documento !== "function") return;
+    if (!item || pagina.competencia === "sin_fuente" || typeof cliente.documento !== "function") return;
+    const disparador = documento.activeElement;
     controladorDocumento?.abort(); controladorDocumento = new AbortController();
+    const actual = ++generacionDocumento;
     abierto = { referencia, version: item.version, documento: null }; nivelDetalle = "cargando"; mensaje = ""; pintar();
+    detalle.querySelector?.("[data-dietas-circuito-volver]")?.focus?.();
     try {
       const documentoLeido = await cliente.documento(referencia, consulta.etapa, { signal: controladorDocumento.signal });
-      if (!activa || abierto?.referencia !== referencia) return;
+      if (!activa || actual !== generacionDocumento || abierto?.referencia !== referencia) return;
       abierto = { ...abierto, documento: documentoLeido, version: documentoLeido.version };
     } catch (error) {
-      if (!activa || error?.codigo === "operacion_abortada") return;
+      if (!activa || actual !== generacionDocumento || error?.codigo === "operacion_abortada") return;
       mensaje = textoError(error, t, "circuito_documento_error"); nivel = "error"; publicar(mensaje);
-    } finally { nivelDetalle = ""; if (activa) pintar(); }
+    } finally {
+      if (activa && actual === generacionDocumento) {
+        const restaurarFoco = puedeRestaurarFoco(disparador);
+        nivelDetalle = ""; pintar();
+        if (restaurarFoco) detalle.querySelector?.("[data-dietas-circuito-volver]")?.focus?.();
+      }
+    }
   }
 
-  function cerrar() { controladorDocumento?.abort(); if (pendiente) return; abierto = null; pintar(); }
+  function cerrar() { if (pendiente) return; controladorDocumento?.abort(); ++generacionDocumento; const referencia = abierto?.referencia; abierto = null; pintar(); contenido.querySelector?.(`[data-dietas-circuito-abrir="${referencia}"]`)?.focus?.(); }
 
   async function decidir(reintentar, boton) {
     if (controladorDecision || !activa || !abierto?.documento) return;
@@ -253,19 +301,23 @@ export function montarVistaBandejaCircuitoDietas(contenedor, {
     if (decision) { await decidir(false, decision); return; }
     if (objetivo?.closest?.("[data-dietas-circuito-reintento]")) { await decidir(true); return; }
     if (objetivo?.closest?.("[data-dietas-circuito-volver]")) { cerrar(); return; }
-    if (objetivo?.closest?.("[data-dietas-circuito-reintentar]")) { await cargar(); return; }
-    if (objetivo?.closest?.("[data-dietas-circuito-siguiente]")) await cargar(true);
+    if (objetivo?.closest?.("[data-dietas-circuito-reintentar]")) { await cargar(indicePagina, true); return; }
+    if (objetivo?.closest?.("[data-dietas-circuito-primera]") && indicePagina > 0) { await cargar(0, true); return; }
+    if (objetivo?.closest?.("[data-dietas-circuito-anterior]") && indicePagina > 0) { await cargar(indicePagina - 1, true); return; }
+    if (objetivo?.closest?.("[data-dietas-circuito-siguiente]") && pagina.siguiente_cursor) await cargar(indicePagina + 1, true);
   }
   async function enviarFiltros(evento) {
     evento?.preventDefault?.();
     if (pendiente) return;
     abierto = null;
     consulta = { etapa: selectorEtapa.value, limit: 20, ...(desde.value ? { fecha_desde: desde.value } : {}), ...(hasta.value ? { fecha_hasta: hasta.value } : {}) };
-    await cargar();
+    cursores = [undefined]; indicePagina = 0;
+    await cargar(0, true);
   }
   function desmontar() {
     if (!activa) return; activa = false;
     controladorLectura?.abort(); controladorDocumento?.abort(); controladorDecision?.abort();
+    pagina = { items: [], competencia: "acreditada" }; cursores = []; abierto = null; pendiente = null;
     raiz.removeEventListener("click", clic); filtros.removeEventListener("submit", enviarFiltros); raiz.remove();
   }
   raiz.addEventListener("click", clic); filtros.addEventListener("submit", enviarFiltros); registrarDesmontar?.(desmontar); cargar();
