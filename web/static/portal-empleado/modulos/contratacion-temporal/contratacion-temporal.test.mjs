@@ -13,12 +13,12 @@ import {
   validarComandoAlta,
   validarReciboAlta,
 } from "./contrato.js";
-import { MENSAJES_CONTRATACION_TEMPORAL_ES } from "./i18n.js?v=20261001-codexf-ct-catalogos-v1";
+import { MENSAJES_CONTRATACION_TEMPORAL_ES } from "./i18n.js?v=20261001-ct-a-i18n-v1";
 import { crearPresentadorAltaContratacionTemporal } from "./presentador.js";
 import {
   montarAltaContratacionTemporal,
   renderizarAltaContratacionTemporal,
-} from "./vista.js?v=20261001-codexf-ct-catalogos-v1";
+} from "./vista.js?v=20261001-ct-a-i18n-v1";
 
 const directorio = new URL("./", import.meta.url);
 const [contratoFuente, vistaFuente] = await Promise.all([

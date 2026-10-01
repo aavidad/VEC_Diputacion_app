@@ -4,11 +4,11 @@ import {
   validarSolicitudEventoPlazo, validarReciboEventoPlazo, validarSolicitudResolucionLlamamiento,
   validarReciboResolucionLlamamiento, situacionPlazoRespuesta, respuestaFueraDePlazo,
 } from "./contrato-llamamiento.js";
-import { MENSAJES_LLAMAMIENTO_ES } from "./i18n-llamamiento.js?v=20261001-codexf-ct-catalogos-v1";
+import { MENSAJES_LLAMAMIENTO_ES } from "./i18n-llamamiento.js?v=20261001-ct-a-i18n-v1";
 import {
   CLAVE, EXPEDIENTE, recibo, raizPrueba, montar, seleccion, comunicacionRegistrada, declaracion,
   justificante, archivoCorreo, revisionManual,
-} from "./formulario-llamamiento-pruebas.js?v=20261001-codexf-ct-catalogos-v1";
+} from "./formulario-llamamiento-pruebas.js?v=20261001-ct-a-i18n-v1";
 
 const CLAVE_CONTACTO = "123e4567-e89b-42d3-a456-426614174011";
 const CLAVE_CAUSA = "123e4567-e89b-42d3-a456-426614174012";

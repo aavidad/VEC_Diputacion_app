@@ -1,4 +1,4 @@
-import { traducirPortal } from "../../portal-i18n.js?v=20261001-codexf-ct-catalogos-v1";
+import { traducirPortal } from "../../portal-i18n.js?v=20261001-ct-a-i18n-v1";
 import { crearClientePoliticaOfertas, validarPoliticaEditable, cargarEjemploPlazas, plazasCompletas,
   LLAMADAS_PLAZAS, TRAS_RENUNCIA_PLAZAS, MAXIMO_HORAS_RESPUESTA } from "./rrhh-plazos-api.js";
 

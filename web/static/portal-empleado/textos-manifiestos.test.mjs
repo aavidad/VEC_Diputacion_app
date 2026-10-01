@@ -247,7 +247,7 @@ test("el helper sólo delega catálogos con consumidores y procedencia comprobad
   const helper = path.join(raiz, "portal-empleado/modulos/contratacion-temporal/i18n-catalogos.js");
   const consumidor = path.join(path.dirname(helper), "consumidor.js");
   const fuenteHelper = await readFile(helper, "utf8");
-  const importacion = 'import { cargarCatalogosContratacion } from "./i18n-catalogos.js";\n';
+  const importacion = 'import { cargarCatalogosContratacion } from "./i18n-catalogos.js?v=20261001-ct-a-i18n-v1";\n';
   const resolver = (archivo, referencia) => path.resolve(path.dirname(archivo), referencia);
   const fuentes = (fuente, cargador = fuenteHelper) => new Map([[helper, cargador], [consumidor, fuente]]);
   const validar = (fuente, cargador) => comprobarDelegacion(fuentes(fuente, cargador), helper, resolver);
@@ -266,7 +266,7 @@ test("el helper sólo delega catálogos con consumidores y procedencia comprobad
   ]) assert.throws(() => validar(importacion + llamada), /delegado|indirecta/u);
   assert.throws(() => validar(importacion + 'catalogos["cargarCatalogosContratacion"]("catalogo-prueba");'), /lector calculado/u);
   assert.throws(() => validar('cargarCatalogosContratacion("catalogo-prueba");'), /origen/u);
-  assert.throws(() => validar(correcto.replace("./i18n-catalogos.js", "../otro/i18n-catalogos.js")), /otro origen/u);
+  assert.throws(() => validar(correcto.replace("./i18n-catalogos.js?v=20261001-ct-a-i18n-v1", "../otro/i18n-catalogos.js")), /otro origen/u);
   assert.throws(() => validar(correcto.replace("{ cargarCatalogosContratacion }", "* as catalogos")), /importación indirecta/u);
   assert.throws(() => validar(correcto, fuenteHelper.replace("cargarTextos(modulo,", "cargarTextos(datos.catalogo,")), /paso directo/u);
   assert.throws(() => validar(correcto, fuenteHelper + "\nmodulo = datos.catalogo;"), /fuera del paso/u);

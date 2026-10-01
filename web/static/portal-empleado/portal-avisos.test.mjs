@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { obtenerDatosPresentacion } from "./datos-presentacion.js";
-import { instalarDeeplinkAvisosBorradores } from "./portal-borradores-ui.js?v=20261001-codexf-ct-catalogos-v1";
+import { instalarDeeplinkAvisosBorradores } from "./portal-borradores-ui.js?v=20261001-ct-a-i18n-v1";
 import { exigirRenovado } from "./versiones-cache.test-helper.mjs";
 
 const [portal, estilos, html] = await Promise.all([

@@ -6,17 +6,17 @@ import {
   renderizarCuadro,
   renderizarEstadoCarga,
   renderizarExpediente,
-} from "./componentes-expedientes.js?v=20261001-codexf-ct-catalogos-v1";
+} from "./componentes-expedientes.js?v=20261001-ct-a-i18n-v1";
 import {
   crearCuadroContratacionTemporalPresentacion,
   crearExpedienteContratacionTemporalPresentacion,
 } from "./datos-presentacion.js";
-import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261001-codexf-ct-catalogos-v1";
-import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js?v=20261001-codexf-ct-catalogos-v1";
+import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261001-ct-a-i18n-v1";
+import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js?v=20261001-ct-a-i18n-v1";
 import {
   montarModuloContratacionTemporal,
   renderizarModuloContratacionTemporal,
-} from "./vista-expedientes.js?v=20261001-codexf-ct-catalogos-v1";
+} from "./vista-expedientes.js?v=20261001-ct-a-i18n-v1";
 
 const t = crearTraductorExpedientesContratacion();
 

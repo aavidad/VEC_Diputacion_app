@@ -6,7 +6,7 @@ import {
   cargarCatalogoModulosInterno,
   crearCatalogoModulosDesdeManifiestos,
   extraerModulosEnvelopeCanonico,
-} from "./portal-catalogo-modulos.js?v=20261001-codexf-ct-catalogos-v1";
+} from "./portal-catalogo-modulos.js?v=20261001-ct-a-i18n-v1";
 import {
   CLAVES_MODULOS_VEC_REGISTRADOS,
   crearCoordinadorModulosPortal,

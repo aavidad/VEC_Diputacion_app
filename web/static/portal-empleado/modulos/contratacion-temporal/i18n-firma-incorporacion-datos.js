@@ -1,5 +1,5 @@
 /** Textos pendientes de incorporar a los agregadores del portal y expedientes. */
-import { cargarCatalogosContratacion } from "./i18n-catalogos.js";
+import { cargarCatalogosContratacion } from "./i18n-catalogos.js?v=20261001-ct-a-i18n-v1";
 
 const GRUPOS_EXPEDIENTES = Object.freeze([
   "incorporacion", "hito", "continuidad", "firma", "borrador", "firma_pendiente",
