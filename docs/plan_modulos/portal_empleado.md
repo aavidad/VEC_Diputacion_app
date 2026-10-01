@@ -35,14 +35,14 @@ implementación pendiente que deba reconstruirse.
 | --- | --- |
 | EMP-001 · Carpeta personal | Hacer localizable la ficha propia desde Inicio. Actos, documentos y solicitudes necesitan proyecciones propias de sus módulos, con procedencia y permisos; no reutilizar la lectura RRHH. Tiempo, formación y economía sin fuente no se ofrecen como datos disponibles. |
 | EMP-002 · Bandeja y solicitudes | Una consulta propia localizable que reutilice Cronos/Dietas. La bandeja común no tiene todavía formularios gobernados, plazos administrativos, tareas, subsanaciones, decisiones ni notificaciones generales. El recibo interno de operación no sustituye un asiento de registro oficial. |
-| EMP-003 · Responsable de unidad | Fuente acreditada de competencia por unidad y procedimiento, titular y suplente temporal; después tareas y cobertura mínimas. Queda cerrada por orden de dirección hasta la autoridad común de D. Nunca expediente completo, diagnóstico, nómina ni méritos de Bolsa. |
+| EMP-003 · Responsable de unidad | Fuente acreditada de competencia por unidad y procedimiento, titular y suplente temporal; después tareas y cobertura mínimas. Su implementación permanece detenida hasta disponer de la autoridad común de D. Nunca expediente completo, diagnóstico, nómina ni méritos de Bolsa. |
 
 ## Minitareas, por orden de valor
 
 | Orden | Responsabilidad y archivos previstos | Dependencia y criterio de cierre |
 | --- | --- | --- |
 | I-01 | Montar la hoja de accesos propios ya preparada. `portal-accesos-empleado.js`, `portal-inicio.js`, `portal-modulos-coordinador.js`, `portal.js`, `index.html` y manifiestos internos. | Turno I tras LIBERO de H. Separar ruta navegable registrada/diferida de vista montada y de operación autorizada. Lista explícita de autoservicio: no usar `VISTAS_MODULOS_PERSONALES`, que incluye gestión. Al abrir Cronos, omitir bandejas de RRHH mientras no haya señal positiva específica del servidor, coordinado con E. Cierre: enlaces desde una sesión nueva, sin consultas propias al abrir Inicio, carga al clicar, errores/denegación, volver e historial, ES/EN, teclado y escritorio/móvil. Renovar `?v=` de toda la cadena afectada. |
-| I-02 | Verificar y corregir la vista WIP de trámites. `modulos/solicitudes/vista-tramites-propios.js`, su prueba y `textos/{es,en}/tramites-empleado.json`. | Fuente I-03 preparada; antes de ampliar, ejecutar las 13 pruebas ya escritas y comprobar foco del año frente a una respuesta tardía. Cierre: dos paneles independientes, error parcial, relación ambigua, año, páginas/cursor, cancelación y Chrome. No formularios ni datos sintéticos en composición real. |
+| I-02 | Verificar y corregir la vista WIP de trámites. `modulos/solicitudes/vista-tramites-propios.js`, su prueba y `textos/{es,en}/tramites-empleado.json`. | Fuente WIP `2668e0bd1c7348050e950b785624bc6c822d567c` ya revisada, sin montaje; antes de ampliar, ejecutar las 13 pruebas ya escritas y comprobar foco del año frente a una respuesta tardía. Cierre: dos paneles independientes, error parcial, relación ambigua, año, páginas/cursor, cancelación y Chrome. No formularios ni datos sintéticos en composición real. |
 | I-03 | Componer fuente y vista de trámites, solo al abrir la nueva vista. `fuente-tramites-propios.js`, vista anterior y padres del portal. | I-01/I-02 y turno de compartidos. Inyectar únicamente lecturas propias existentes: Cronos `consultarPermisos({anio},{signal})`; Dietas `listar({limit:20,cursor},{signal})`. Cronos pagina en pantalla el resultado anual; Dietas conserva su cursor. Sin total ni cronología conjunta. Ante relación ambigua, remitir a Mis dietas sin seleccionar la primera. Cierre: montaje alcanzable, solo GET propios, recibo Dietas idéntico al recibido, denegación sin datos y dos revisiones independientes del hash final por datos personales. |
 | I-04 | Consultar actos y documentos propios dentro de la carpeta existente. Previsión: contratos/proyecciones de Personal y Documentos y consumidor `vista-ficha-integral.js`. | Equipo B y autoridad de Documentos. Las PR B [#298](https://github.com/aavidad/VEC_Diputacion_app/pull/298)/[#299](https://github.com/aavidad/VEC_Diputacion_app/pull/299) siguen abiertas en borrador, sin fusionar, y preparan ficha propia y trazas RRHH; [#300](https://github.com/aavidad/VEC_Diputacion_app/pull/300) también está abierta en borrador, no es una proyección propia montada. Cierre: documentos/actos del actor autorizado con fuente, versión y descarga real, sin campos RRHH prestados. |
 | I-05 | Mostrar tarea y plazo administrativo de cada solicitud cuando su módulo los publique. Previsión: fuente/vista de trámites y puertos propietarios. | E/G/F y reglas aprobadas por RRHH. No deducir vencimiento de fechas de permiso o comisión. Cierre: cada fecha tiene hecho inicial, calendario, regla/versiones y siguiente actuación definidos; un dato ausente se muestra como no disponible. |
@@ -100,3 +100,22 @@ datos y autorización. Los patrones de
 [Generalitat Valenciana](https://sede.gva.es/es/detall-tramit?id_proc=22564) y
 [Madrid](https://www.comunidad.madrid/hospital/atencionprimaria/file/3022/download?token=_XdT6PH5)
 orientan navegación y separación del espacio responsable; no fijan reglas para VEC.
+
+## Consenso Astra
+
+Arquitectura acordada en revisión de solo lectura. La ronda documental sobre
+`41587ed570dae93ae898701bc783bcbe91ef152c` pidió aclarar el orden de dependencias,
+distinguir la parada de EMP-003 de un cierre funcional y registrar este consenso.
+Los tres puntos están incorporados. Falta el GO de dirección para entregar el plan.
+
+- Primero I-01, sobre la postimagen vigente y en turno I: accesos propios,
+  carga diferida y lista explícita de autoservicio.
+- Después, fuente WIP ya revisada → verificar/corregir vista → montaje I-03.
+  No existe dependencia de I-02 respecto al futuro montaje.
+- Cronos conserva consulta anual y Dietas su cursor, sin cronología ni total
+  conjuntos. Omitir `relacion_ref` no consulta todas las relaciones: el servidor
+  resuelve o rechaza; ante ambigüedad, se abre Mis dietas.
+- Inicio no consulta datos propios. Las nuevas hojas no escriben ni conceden
+  competencias; las bandejas RRHH requieren señal positiva específica.
+- EMP-003 espera a D. Ningún cargo o asignación de Personal crea delegación.
+  Los tres WIP siguen separados de una capacidad montada y comprobada.
