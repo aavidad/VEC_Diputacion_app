@@ -10,7 +10,9 @@ static/comun/correos-propios.css
 static/comun/imagen-propia.js
 static/comun/imagen-propia.css
 static/textos/idiomas.json
+static/textos/es/baremo-bolsa.json
 static/textos/es/preferencias.json
+static/textos/en/baremo-bolsa.json
 static/textos/en/preferencias.json
 static/textos/es/cronos.json
 static/textos/en/cronos.json
