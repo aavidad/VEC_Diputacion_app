@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -21,6 +22,20 @@ func TestCLIConDatosSinteticos(t *testing.T) {
 	}
 	if codigo != 0 || informe.Resultado.Estado != copias.Compatible || informe.AutorizaCopia || informe.AutorizaRestauracion {
 		t.Fatalf("codigo=%d salida=%s", codigo, salida.String())
+	}
+}
+
+type salidaFallida struct{}
+
+func (salidaFallida) Write([]byte) (int, error) {
+	return 0, errors.New("salida_sintetica_no_disponible")
+}
+
+func TestCLIPublicaCodigoDeFalloSiNoPuedeEscribir(t *testing.T) {
+	for _, argumentos := range [][]string{nil, {"-descriptor", "testdata/descriptor.json", "-observado", "testdata/observado.json", "-raiz", "testdata/instalacion"}} {
+		if codigo := ejecutar(argumentos, salidaFallida{}); codigo != 4 {
+			t.Fatalf("codigo=%d", codigo)
+		}
 	}
 }
 

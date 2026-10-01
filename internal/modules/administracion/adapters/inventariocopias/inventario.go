@@ -3,6 +3,7 @@
 package inventariocopias
 
 import (
+	"errors"
 	"os"
 	"strconv"
 
@@ -51,8 +52,7 @@ func Inventariar(raiz string, descriptor Descriptor, observado copias.Inventario
 	}
 	raizAbierta, err := os.OpenRoot(raiz)
 	if err != nil {
-		anadirRazon(&informe, copias.NoComprobable, "raiz_no_disponible", "raiz", "disponible", "no_disponible", "revisar_raiz_autorizada")
-		return informe
+		return anadirRazon(&informe, copias.NoComprobable, "raiz_no_disponible", "raiz", "disponible", "no_disponible", "revisar_raiz_autorizada")
 	}
 	defer raizAbierta.Close()
 	medido := observado
@@ -74,7 +74,7 @@ func Inventariar(raiz string, descriptor Descriptor, observado copias.Inventario
 		}
 		if err != nil {
 			medido.Completo = false
-			anadirRazon(&informe, copias.NoComprobable, "archivo_no_comprobable", clave, "regular_legible", "ausente_o_no_legible", "completar_paquete_instalado")
+			anadirFalloArchivo(&informe, clave, err)
 			continue
 		}
 		if tamano != artefacto.TamanoBytes {
@@ -123,9 +123,18 @@ func reconciliarRutas(esperados []copias.Artefacto, entradas []Ruta) (map[string
 	return rutas, nil
 }
 
-func anadirRazon(informe *Informe, estado copias.Estado, codigo, clave, esperado, obtenido, accion string) {
+func anadirFalloArchivo(informe *Informe, campo string, err error) Informe {
+	obtenido := "fallo_lectura_no_clasificado"
+	if errors.Is(err, errArchivo) {
+		obtenido = "ausente_o_no_legible"
+	}
+	return anadirRazon(informe, copias.NoComprobable, "archivo_no_comprobable", campo, "regular_legible", obtenido, "completar_paquete_instalado")
+}
+
+func anadirRazon(informe *Informe, estado copias.Estado, codigo, clave, esperado, obtenido, accion string) Informe {
 	if estado == copias.NoComprobable || informe.Resultado.Estado == copias.Compatible {
 		informe.Resultado.Estado = estado
 	}
 	informe.Resultado.Razones = append(informe.Resultado.Razones, copias.Razon{Codigo: codigo, Clave: clave, Esperado: esperado, Obtenido: obtenido, Accion: accion})
+	return *informe
 }
