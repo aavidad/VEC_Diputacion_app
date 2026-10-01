@@ -25,6 +25,13 @@ const RutaFichaPropia = "/api/interna/personal/mi-ficha"
 // instantes para que el corte nunca supere el reloj de la base de datos.
 const margenConocidoFichaPropia = time.Second
 
+// Estos motivos de transporte se propagan como estados cerrados. ServeHTTP
+// registra cada denegación con denegar antes de responder, sin guardar la query.
+const (
+	MotivoFichaPropiaQueryNoEncontrada = http.StatusNotFound
+	MotivoFichaPropiaQueryInvalida     = http.StatusBadRequest
+)
+
 var ErrManejadorFichaPropiaNoDisponible = errors.New("personal: ficha propia HTTP no disponible")
 
 // ResolutorActorFichaPropia devuelve el contexto de actor que la frontera
@@ -138,16 +145,16 @@ func fechaReferenciaFichaPropia(u *url.URL) (personaldomain.FechaCivil, int) {
 		return "", 0
 	}
 	if len(u.RawQuery) > 80 {
-		return "", http.StatusNotFound
+		return "", MotivoFichaPropiaQueryNoEncontrada
 	}
 	valores, err := url.ParseQuery(u.RawQuery)
 	if err != nil || len(valores) != 1 || len(valores["fecha_referencia"]) != 1 {
-		return "", http.StatusNotFound
+		return "", MotivoFichaPropiaQueryNoEncontrada
 	}
 	texto := valores.Get("fecha_referencia")
 	fecha, err := personaldomain.NuevaFechaCivil(texto)
 	if err != nil || (len(texto) == 10 && texto[:4] == "0000") || u.RawQuery != "fecha_referencia="+texto {
-		return "", http.StatusBadRequest
+		return "", MotivoFichaPropiaQueryInvalida
 	}
 	return fecha, 0
 }
