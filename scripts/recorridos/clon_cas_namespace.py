@@ -826,6 +826,9 @@ def measure(request: MeasurementRequest) -> dict:
     The independent receipt records measurements only, not an applied CAS.
     """
     try:
+        # Availability is checked before any private state, lock or path read.
+        # Exact receipt validation remains at its later, separately closed gate.
+        require(D_RECEIPT_CONTRACT is not None, 'cas_execution_authority_pending')
         require(type(request) is MeasurementRequest, 'cas_typed_request')
         request.validate()
         n = request.namespace

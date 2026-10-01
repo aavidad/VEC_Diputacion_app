@@ -602,7 +602,8 @@ class MeasurementTests(unittest.TestCase):
 
     def synthetic_measure(self, request=None):
         # Only this fixture bypasses the missing D contract; no runtime knob.
-        with patch.object(ns, '_require_measurement_authority', return_value=None):
+        with patch.object(ns, 'D_RECEIPT_CONTRACT', {'synthetic_fixture': True}), \
+             patch.object(ns, '_require_measurement_authority', return_value=None):
             return ns.measure(request or self.measurement)
 
     def clear_measurement(self):
@@ -618,6 +619,23 @@ class MeasurementTests(unittest.TestCase):
             self.assertEqual(self.calls, [])
             self.assertFalse((self.state / ns.CAS_ATTEMPT).exists())
             self.assertFalse((self.state / ns.CAS_RECEIPT).exists())
+
+    def test_absent_d_contract_refuses_before_any_private_io_or_lock(self):
+        missing = replace(self.measurement, namespace=replace(self.measurement.namespace,
+                          state=Path(self.temp.name) / 'absent-state'))
+        with patch.object(ns, 'D_RECEIPT_CONTRACT', None), \
+             patch.object(ns.installer, 'private_state') as private_state, \
+             patch.object(ns.installer, 'installer_lock') as lock, \
+             patch.object(ns.installer, 'read_owned') as read_owned, \
+             patch.object(ns.relay, 'read_file') as read_module, \
+             patch.object(ns, 'Docker') as docker:
+            with self.assertRaisesRegex(ns.Refused, 'cas_execution_authority_pending'):
+                ns.measure(missing)
+            for boundary in (private_state, lock, read_owned, read_module, docker):
+                boundary.assert_not_called()
+        self.assertFalse(missing.namespace.state.exists())
+        self.assertFalse((self.state / 'sql62-instalar.lock').exists())
+        self.assertEqual(self.calls, [])
 
     def test_separate_success_receipt_pins_entire_helper_and_keeps_historical_false(self):
         historical = self.canonical({'kind': 'nominal_ro_namespace_sessions', 'cas_sessions_bound': False})
