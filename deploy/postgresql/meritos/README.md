@@ -111,8 +111,9 @@ recorrido interno con PostgreSQL 18.4 y los adaptadores comunes reales:
 | Rectificación con versión antigua | `conflicto_version`, sin recibo |
 | Clave de declaración con contenido distinto | `clave_reutilizada`, sin recibo |
 
-Cada operación reconstruyó sesión/contexto, decisión registrada, firma COSE
-Ed25519, verificación común y capacidad HMAC V3. El fixture OWNER inicial
+Cada operación revalidó la sesión y reconstruyó el contexto y la decisión
+registrada. Firmó COSE con Ed25519, verificó la firma con el servicio común
+y emitió y consumió una capacidad HMAC V3 nueva. El fixture OWNER inicial
 usó ausencia y CAS exactos, perfiles fijos y claves sintéticas privadas;
 comprobó que seguían presentes las 85.787 filas preexistentes. El driver no
 publicó permisos ni alteró el gobierno durante las operaciones.
