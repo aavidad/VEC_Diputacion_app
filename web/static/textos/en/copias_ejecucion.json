@@ -1,0 +1,15 @@
+{
+  "copias_ejecutar_alcance": "Local test with synthetic data. This does not enable restoration in production.",
+  "copias_ejecutar_argumentos": "Provide the private configuration file for the test.",
+  "copias_ejecutar_configuracion": "The private configuration could not be checked. Review the file and its permissions.",
+  "copias_ejecutar_origen": "The test database could not be prepared. Check the local environment and try again.",
+  "copias_ejecutar_preparada": "The local synthetic database is ready. Measure its components before requesting a backup.",
+  "copias_ejecutar_medida": "The local database and files were measured. Prepare the descriptor and check that it matches before copying.",
+  "copias_ejecutar_exclusion": "The test database could not be reserved for verification. Check the test processes.",
+  "copias_ejecutar_inventario": "The inventory does not match the observed database and files. Review the private descriptor.",
+  "copias_ejecutar_contraste": "The full contents of the test database could not be read. Review the test permissions.",
+  "copias_ejecutar_observada": "The synthetic source was checked while changes were excluded. You can now request the backup.",
+  "copias_ejecutar_dependencia": "A component needed to verify the backup is missing. Review the test configuration.",
+  "copias_ejecutar_fallida": "The backup could not be verified. Check the private test log before trying again.",
+  "copias_ejecutar_completada": "The synthetic backup was verified with physical and logical restores and an application startup check."
+}

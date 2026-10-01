@@ -1,0 +1,15 @@
+{
+  "copias_ejecutar_alcance": "Ensayo local con datos sintéticos. No habilita la restauración en producción.",
+  "copias_ejecutar_argumentos": "Indique el archivo privado de configuración del ensayo.",
+  "copias_ejecutar_configuracion": "No se pudo comprobar la configuración privada. Revise el archivo y sus permisos.",
+  "copias_ejecutar_origen": "No se pudo preparar la base de prueba. Revise el entorno local y vuelva a intentarlo.",
+  "copias_ejecutar_preparada": "La base sintética local está preparada. Mida sus componentes antes de solicitar la copia.",
+  "copias_ejecutar_medida": "Se midieron la base y los archivos locales. Prepare el descriptor y compruebe que coincide antes de copiar.",
+  "copias_ejecutar_exclusion": "No se pudo reservar la base de prueba para comprobarla. Revise los procesos del ensayo.",
+  "copias_ejecutar_inventario": "El inventario no coincide con la base y los archivos observados. Revise el descriptor privado.",
+  "copias_ejecutar_contraste": "No se pudo leer el contenido completo de la base de prueba. Revise los permisos del ensayo.",
+  "copias_ejecutar_observada": "Se comprobó la fuente sintética bajo exclusión de cambios. Ya puede solicitar la copia.",
+  "copias_ejecutar_dependencia": "Falta una pieza necesaria para comprobar la copia. Revise la configuración del ensayo.",
+  "copias_ejecutar_fallida": "La copia no se ha podido comprobar. Consulte el registro privado del ensayo antes de reintentarlo.",
+  "copias_ejecutar_completada": "La copia sintética se ha comprobado con restauraciones física y lógica y con el arranque de la aplicación."
+}
