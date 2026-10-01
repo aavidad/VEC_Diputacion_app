@@ -121,11 +121,10 @@ ocultar el fallo. El binario de arranque final necesitará su propio pin.
   H1/SQL62; la composición completa conserva bloqueos explícitos.
 - [Material externo](clon_material_externo_offline.py) y [alias](clon_alias_export.py):
   productores offline con recibos separados, sin aprobación AD132 ni READY.
-- [Plan postmain](clon_postmain_plan.py): lectura de commit/tree, lista causal y
-  SHA de seis SQL RPT. La ampliación **RPT6+B6** está en una candidata separada;
-  ambas listas siguen siendo un plan de lectura, pendiente de revisión/aprobación
-  y recibos previos, sin instalación. No incorporar SQL descubierta en main por
-  inferencia. **U17 queda diferida**.
+- [Plan postmain](clon_postmain_plan.py): lee commit, árbol, dos listas causales y
+  SHA de **RPT6+B6**. Es un plan de lectura pendiente de aprobación y recibos
+  previos; no instala SQL. No incorporar SQL descubierta en main por inferencia.
+  **U17 queda diferida**.
 
 AUT26 y su recibo de extensión preAD132, LOGIN nominal, sesiones CAS vinculadas
 y provisión siguen pendientes. AUT26 no se suma al journal de 62 ni modifica
