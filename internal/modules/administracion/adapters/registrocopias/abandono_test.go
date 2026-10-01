@@ -230,3 +230,90 @@ func TestAbandonoCanceladoTrasObservacionNoEscribe(t *testing.T) {
 		t.Fatal("cancelled command changed state", e)
 	}
 }
+
+func TestAbandonoPostCapturaExigeVentanaYVerificadorPropiosInactivos(t *testing.T) {
+	for _, phase := range []string{"capturando_publicada", "capturada", "verificando"} {
+		for _, mode := range []string{"sin_observador", "verificador_omitido", "verificador_activo", "verificador_incierto", "ventana_omitida", "ventana_activa", "ventana_incierta", "confirmado"} {
+			t.Run(phase+"/"+mode, func(t *testing.T) {
+				cfg := pruebaConfig(t)
+				var provider port.ObservadorAbandono
+				if mode != "sin_observador" {
+					provider = observadorFunc(func(_ context.Context, _ port.Declaracion, p port.SolicitudAbandono) (operacionescopias.ObservacionAbandono, error) {
+						a := observacionConfirmada(p)
+						a.EstadoVerificador = "detenido"
+						a.EstadoVentana = "inactiva"
+						switch mode {
+						case "verificador_omitido":
+							a.EstadoVerificador = ""
+						case "verificador_activo":
+							a.EstadoVerificador = "activo"
+						case "verificador_incierto":
+							a.EstadoVerificador = "incierto"
+						case "ventana_omitida":
+							a.EstadoVentana = ""
+						case "ventana_activa":
+							a.EstadoVentana = "activa"
+						case "ventana_incierta":
+							a.EstadoVentana = "incierta"
+						}
+						return a, nil
+					})
+				}
+				f := abrirObservado(t, cfg, provider)
+				r := iniciar(t, f)
+				s := solicitud()
+				h := strings.Repeat("b", 64)
+				var e error
+				if phase != "capturando_publicada" {
+					r, e = f.Aplicar(context.Background(), declaracion, s.Operacion, operacionescopias.Comando{Clave: "captura:confirmada", VersionEsperada: 1, SolicitudSHA256: s.SHA256, Accion: "confirmar_captura", ManifiestoSHA256: h})
+					if e != nil {
+						t.Fatal(e)
+					}
+				}
+				if phase == "verificando" {
+					r, e = f.Aplicar(context.Background(), declaracion, s.Operacion, operacionescopias.Comando{Clave: "verificacion:inicio", VersionEsperada: 2, SolicitudSHA256: s.SHA256, Accion: "iniciar_verificacion", ManifiestoSHA256: h, Ejecucion: "ensayo:propio"})
+					if e != nil {
+						t.Fatal(e)
+					}
+				}
+				before := r
+				p := pedidoAbandono()
+				p.Clave, p.FalloReferencia, p.VersionEsperada = "abandono:verificacion", "verificacion_fallida", r.Recibo.Version
+				abort, e := f.AbandonarCaptura(context.Background(), declaracion, p)
+				if mode != "confirmado" {
+					if e == nil || abort.Recibo.Referencia != "" {
+						t.Fatal("released verification", mode, e)
+					}
+					q, e := abrir(t, cfg).Consultar(context.Background(), declaracion, s.Operacion)
+					if e != nil || q.Recibo != before.Recibo || len(q.Historia) != len(before.Historia) {
+						t.Fatal("history changed", e)
+					}
+					s.Operacion, s.Clave = "op:retry", "reserva:retry"
+					if _, e := f.Reservar(context.Background(), declaracion, s); !errors.Is(e, port.ErrDestinoOcupado) {
+						t.Fatal("destination released", e)
+					}
+					return
+				}
+				if e != nil || abort.Recibo.Estado != operacionescopias.AbandonadaDeclarada || abort.Recibo.Version != before.Recibo.Version+1 {
+					t.Fatal("confirmed abort", e)
+				}
+				last := abort.Historia[len(abort.Historia)-1]
+				if last.Comando.Evidencia != nil || last.Comando.ManifiestoSHA256 != "" || last.Comando.Ejecucion != "" || last.Comando.Abandono.EstadoVerificador != "detenido" || last.Comando.Abandono.EstadoVentana != "inactiva" {
+					t.Fatal("fabricated evidence")
+				}
+				q, e := abrir(t, cfg).Consultar(context.Background(), declaracion, s.Operacion)
+				if e != nil || q.Recibo != abort.Recibo {
+					t.Fatal("reopen", e)
+				}
+				replay, e := abrirObservado(t, cfg, provider).AbandonarCaptura(context.Background(), declaracion, p)
+				if e != nil || !replay.Replay || replay.Recibo != abort.Recibo || len(replay.Historia) != len(abort.Historia) {
+					t.Fatal("replay", e)
+				}
+				s.Operacion, s.Clave, s.Conjunto = "op:retry", "reserva:retry", "conjunto:retry"
+				if _, e := f.Reservar(context.Background(), declaracion, s); e != nil {
+					t.Fatal("confirmed destination still busy", e)
+				}
+			})
+		}
+	}
+}

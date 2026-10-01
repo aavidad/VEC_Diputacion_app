@@ -38,7 +38,7 @@ func (f *Fichero) confirmarAbandono(ctx context.Context, p peticion) (peticion, 
 }
 
 func observacionSegura(a operacionescopias.ObservacionAbandono) bool {
-	return referencia.MatchString(a.Operacion) && referencia.MatchString(a.Destino) && referencia.MatchString(a.FalloReferencia) && huella.MatchString(a.FalloSHA256) && (a.Lease == "" || referencia.MatchString(a.Lease)) && estadoSeguro(a.EstadoEfecto, "", "inactivo", "activo", "incierto", "pendiente") && estadoSeguro(a.EstadoLease, "", "cancelada", "vigente", "incierta") && estadoSeguro(a.EstadoPlataforma, "", "sin_efectos_pendientes", "escribiendo", "mantenimiento", "restaurando", "incierta")
+	return referencia.MatchString(a.Operacion) && referencia.MatchString(a.Destino) && referencia.MatchString(a.FalloReferencia) && huella.MatchString(a.FalloSHA256) && (a.Lease == "" || referencia.MatchString(a.Lease)) && estadoSeguro(a.EstadoEfecto, "", "inactivo", "activo", "incierto", "pendiente") && estadoSeguro(a.EstadoLease, "", "cancelada", "vigente", "incierta") && estadoSeguro(a.EstadoPlataforma, "", "sin_efectos_pendientes", "escribiendo", "mantenimiento", "restaurando", "incierta") && estadoSeguro(a.EstadoVerificador, "", "detenido", "activo", "incierto") && estadoSeguro(a.EstadoVentana, "", "inactiva", "activa", "incierta")
 }
 
 func estadoSeguro(s string, admitidos ...string) bool {
