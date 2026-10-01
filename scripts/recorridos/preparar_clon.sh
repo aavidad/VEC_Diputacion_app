@@ -16,8 +16,49 @@ puerto_smtp=${VEC_RECORRIDOS_PUERTO_SMTP:-11025}
 puerto_correo_web=${VEC_RECORRIDOS_PUERTO_CORREO_WEB:-18532}
 accion=${1:-preparar}
 if (( $# )); then shift; fi
-case "$accion" in preparar|estado|reiniciar|parar|retirar|plan|preparar-sql|verificar-sql) ;;
-  *) echo 'Uso: preparar_clon.sh [preparar|preparar-sql|verificar-sql|plan|estado|reiniciar|parar|retirar]' >&2; exit 2;; esac
+case "$accion" in preparar|estado|reiniciar|parar|retirar|plan|preparar-sql|verificar-sql|preparar-material-externo|exportar-alias|verificar-alias) ;;
+  *) echo 'Uso: preparar_clon.sh [preparar|preparar-sql|verificar-sql|preparar-material-externo|exportar-alias|verificar-alias|plan|estado|reiniciar|parar|retirar]' >&2; exit 2;; esac
+
+# Fases offline independientes. Rutas absolutas explícitas, fuera de Git y
+# canónicas según la autoridad delegada; sus pines permanecen en cada herramienta.
+# Material: --fuente RUTA --acuse RUTA --directorio RUTA.
+# Alias: --binario RUTA --fuente RUTA --acuse RUTA --material RUTA --salida RUTA.
+# Verificación: además --replay-receipt-sha256 SHA observado en la primera salida
+# y conservado por Dirección fuera del paquete; nunca calcularlo aquí.
+if [[ "$accion" == preparar-material-externo || "$accion" == exportar-alias || "$accion" == verificar-alias ]]; then
+  offline_rechazar() { echo 'H6-OFFLINE arguments_invalid' >&2; exit 2; }
+  declare -A entradas=()
+  opciones=(--fuente --acuse --directorio)
+  herramienta=clon_material_externo_offline.py
+  if [[ "$accion" != preparar-material-externo ]]; then
+    opciones=(--binario --fuente --acuse --material --salida)
+    herramienta=clon_alias_export.py
+  fi
+  while (( $# )); do
+    opcion=$1
+    (( $# >= 2 )) || offline_rechazar
+    case "$opcion" in
+      --fuente|--acuse) ;;
+      --directorio) [[ "$accion" == preparar-material-externo ]] || offline_rechazar;;
+      --binario|--material|--salida) [[ "$accion" != preparar-material-externo ]] || offline_rechazar;;
+      --replay-receipt-sha256) [[ "$accion" == verificar-alias ]] || offline_rechazar;;
+      *) offline_rechazar;;
+    esac
+    [[ ! -v 'entradas[$opcion]' ]] || offline_rechazar
+    entradas[$opcion]=$2
+    shift 2
+  done
+  argumentos=()
+  for opcion in "${opciones[@]}"; do
+    [[ "${entradas[$opcion]:-}" == /* ]] || offline_rechazar
+    argumentos+=("$opcion" "${entradas[$opcion]}")
+  done
+  if [[ "$accion" == verificar-alias ]]; then
+    [[ "${entradas[--replay-receipt-sha256]:-}" =~ ^[0-9a-f]{64}$ ]] || offline_rechazar
+    argumentos+=(--replay-receipt-sha256 "${entradas[--replay-receipt-sha256]}")
+  fi
+  exec python3 -B "$guiones/$herramienta" "${argumentos[@]}"
+fi
 
 # SQL62 requires nominal external pins; no historical45 fallback or inferred approval.
 if [[ "$accion" == plan ]]; then

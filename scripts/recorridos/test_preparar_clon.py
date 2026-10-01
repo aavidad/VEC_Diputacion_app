@@ -38,8 +38,8 @@ class OrquestadorTests(unittest.TestCase):
             'VEC_RECORRIDOS_CONTENEDOR': 'vec-fixture',
             'VEC_RECORRIDOS_PUERTO_PG': '55531'}
 
-    def run_action(self, action, **environment):
-        return subprocess.run(['bash', str(SCRIPT), action],
+    def run_action(self, action, *arguments, **environment):
+        return subprocess.run(['bash', str(SCRIPT), action, *arguments],
             env=self.environment | environment, capture_output=True, text=True, timeout=20)
 
     def write_json(self, name, value):
@@ -62,6 +62,149 @@ class OrquestadorTests(unittest.TestCase):
         self.assertFalse(self.calls.exists())
         self.assertFalse((self.state / 'runtime-process.json').exists())
         self.assertFalse((self.state / 'DB_READY.json').exists())
+
+    def offline_fixture(self):
+        """Sustituir sólo el ejecutable Python de las dos autoridades offline."""
+        python = self.root / 'tools/python3'
+        python.write_text('''#!/usr/bin/python3
+import json, os, sys
+from pathlib import Path
+args = sys.argv[1:]
+if len(args) > 1 and Path(args[1]).name in {
+        'clon_material_externo_offline.py', 'clon_alias_export.py'}:
+    with open(os.environ['VEC_TEST_OFFLINE_CALLS'], 'a') as log:
+        log.write(json.dumps(args) + '\\n')
+    if Path(args[1]).name == 'clon_alias_export.py' and '--replay-receipt-sha256' not in args:
+        with open(os.environ['VEC_TEST_BINARY_CALLS'], 'a') as log:
+            log.write('exportador-simulado\\n')
+    # Una verificación lleva siempre el pin externo: simular rechazo si no hay
+    # intento previo, sin crear salida ni ejecutar el exportador.
+    if '--replay-receipt-sha256' in args and os.environ.get('VEC_TEST_ATTEMPT_ABSENT'):
+        sys.exit(2)
+    sys.exit(int(os.environ.get('VEC_TEST_OFFLINE_EXIT', '0')))
+os.execv('/usr/bin/python3', ['/usr/bin/python3', *args])
+''')
+        python.chmod(0o700)
+        self.offline_calls = self.root / 'offline-called'
+        self.binary_calls = self.root / 'binary-called'
+        self.environment['VEC_TEST_OFFLINE_CALLS'] = str(self.offline_calls)
+        self.environment['VEC_TEST_BINARY_CALLS'] = str(self.binary_calls)
+        # Espacios y metacaracteres deben viajar en un argumento literal.
+        self.fixture_paths = {name: str(self.root / ('privado ' + name + ' $(touch NO)'))
+                              for name in ('fuente', 'acuse', 'directorio', 'binario', 'material', 'salida')}
+        self.write_json('READY.json', {'legado': True})
+        self.write_json('sql-journal.json', {'conservar': True})
+        self.offline_preimage = {p.name: p.read_bytes() for p in self.state.iterdir()}
+
+    def offline_arguments(self, action):
+        names = ('fuente', 'acuse', 'directorio') if action == 'preparar-material-externo' else (
+            'binario', 'fuente', 'acuse', 'material', 'salida')
+        return [part for name in names for part in ('--' + name, self.fixture_paths[name])]
+
+    def assert_offline_preserves_state(self):
+        self.assertEqual({p.name: p.read_bytes() for p in self.state.iterdir()}, self.offline_preimage)
+        self.assertFalse((self.root / 'NO').exists())
+        self.assert_no_services()
+
+    def test_offline_despacha_cli_exacta_y_rutas_literales_sin_servicios(self):
+        self.offline_fixture()
+        for action, authority in (
+                ('preparar-material-externo', 'clon_material_externo_offline.py'),
+                ('exportar-alias', 'clon_alias_export.py'),
+                ('verificar-alias', 'clon_alias_export.py')):
+            with self.subTest(action=action):
+                arguments = self.offline_arguments(action)
+                if action == 'verificar-alias':
+                    arguments += ['--replay-receipt-sha256', 'a' * 64]
+                p = self.run_action(action, *arguments)
+                self.assertEqual(p.returncode, 0, p.stderr)
+                call = json.loads(self.offline_calls.read_text().splitlines()[-1])
+                self.assertEqual(call, ['-B', str(SCRIPT.with_name(authority)), *arguments])
+                self.assertEqual(p.stdout + p.stderr, '')
+                self.assert_offline_preserves_state()
+
+    def test_offline_faltan_rutas_rechaza_antes_del_ejecutable(self):
+        self.offline_fixture()
+        for action in ('preparar-material-externo', 'exportar-alias', 'verificar-alias'):
+            with self.subTest(action=action):
+                arguments = self.offline_arguments(action)
+                if action == 'verificar-alias':
+                    arguments += ['--replay-receipt-sha256', 'a' * 64]
+                for index in range(0, len(arguments), 2):
+                    p = self.run_action(action, *(arguments[:index] + arguments[index + 2:]))
+                    self.assertEqual(p.returncode, 2)
+                    self.assertEqual(p.stdout, '')
+                    self.assertEqual(p.stderr, 'H6-OFFLINE arguments_invalid\n')
+                    self.assertFalse(self.offline_calls.exists())
+        self.assert_offline_preserves_state()
+
+    def test_verificar_alias_exige_pin_externo_sin_inferir_del_paquete(self):
+        self.offline_fixture()
+        output = Path(self.fixture_paths['salida'])
+        output.mkdir(mode=0o700)
+        receipt = output / 'alias-export.receipt.json'
+        receipt.write_text('recibo-fixture-no-observado')
+        arguments = self.offline_arguments('verificar-alias')
+        for pin in (None, '', 'A' * 64, 'a' * 63, 'a' * 65, 'no-es-SHA'):
+            with self.subTest(pin=pin):
+                supplied = [] if pin is None else ['--replay-receipt-sha256', pin]
+                p = self.run_action('verificar-alias', *arguments, *supplied)
+                self.assertEqual(p.returncode, 2)
+                self.assertFalse(self.offline_calls.exists())
+                self.assertEqual(receipt.read_text(), 'recibo-fixture-no-observado')
+        self.assert_offline_preserves_state()
+
+    def test_offline_rechaza_opciones_duplicadas_abreviadas_ajenas_y_rutas_relativas(self):
+        self.offline_fixture()
+        for action in ('preparar-material-externo', 'exportar-alias', 'verificar-alias'):
+            base = self.offline_arguments(action)
+            if action == 'verificar-alias':
+                base += ['--replay-receipt-sha256', 'a' * 64]
+            invalid = [base + ['--fuente', '/otra'], base + ['--fu', '/otra'],
+                       base + ['--approved', 'true'], base + ['--steps', '62'],
+                       base + ['--fuente'], ['--fuente', 'relativa', *base[2:]]]
+            wrong = '--binario' if action == 'preparar-material-externo' else '--directorio'
+            invalid += [base + [wrong, '/otra']]
+            if action != 'verificar-alias':
+                invalid += [base + ['--replay-receipt-sha256', 'a' * 64]]
+            for arguments in invalid:
+                with self.subTest(action=action, arguments=arguments):
+                    p = self.run_action(action, *arguments)
+                    self.assertEqual(p.returncode, 2)
+                    self.assertEqual(p.stderr, 'H6-OFFLINE arguments_invalid\n')
+                    self.assertFalse(self.offline_calls.exists())
+        self.assert_offline_preserves_state()
+
+    def test_offline_propaga_rechazo_y_verificacion_no_se_convierte_en_exportacion(self):
+        self.offline_fixture()
+        for action in ('preparar-material-externo', 'exportar-alias'):
+            p = self.run_action(action, *self.offline_arguments(action), VEC_TEST_OFFLINE_EXIT='17')
+            self.assertEqual(p.returncode, 17)
+        for _ in range(2):
+            p = self.run_action('verificar-alias', *self.offline_arguments('verificar-alias'),
+                                '--replay-receipt-sha256', 'b' * 64, VEC_TEST_ATTEMPT_ABSENT='1')
+            self.assertEqual(p.returncode, 2)
+            call = json.loads(self.offline_calls.read_text().splitlines()[-1])
+            self.assertEqual(call[-2:], ['--replay-receipt-sha256', 'b' * 64])
+        self.assertFalse(Path(self.fixture_paths['salida']).exists())
+        self.assert_offline_preserves_state()
+
+    def test_verificar_alias_con_recibo_conservado_no_repite_el_exportador(self):
+        self.offline_fixture()
+        p = self.run_action('exportar-alias', *self.offline_arguments('exportar-alias'))
+        self.assertEqual(p.returncode, 0, p.stderr)
+        output = Path(self.fixture_paths['salida'])
+        output.mkdir(mode=0o700)
+        receipt = output / 'alias-export.receipt.json'
+        receipt.write_bytes(b'recibo-primera-ejecucion-simulada')
+        before = (receipt.stat().st_ino, receipt.stat().st_mtime_ns, receipt.read_bytes())
+        for _ in range(2):
+            p = self.run_action('verificar-alias', *self.offline_arguments('verificar-alias'),
+                                '--replay-receipt-sha256', 'c' * 64)
+            self.assertEqual(p.returncode, 0, p.stderr)
+            self.assertEqual((receipt.stat().st_ino, receipt.stat().st_mtime_ns, receipt.read_bytes()), before)
+        self.assertEqual(self.binary_calls.read_text().splitlines(), ['exportador-simulado'])
+        self.assert_offline_preserves_state()
 
     def test_preparar_y_reiniciar_rechazan_antes_de_servicios_y_estado(self):
         self.state.rmdir()
