@@ -82,7 +82,7 @@ func TestAbandonoDurableReintentoOtroConjuntoYReplay(t *testing.T) {
 }
 
 func TestAbandonoDenegadoInciertoActivoOMantenimientoConservaDestino(t *testing.T) {
-	for _, mode := range []string{"sin_observador", "denegado", "incierto", "activo", "lease_vigente", "restaurando", "datos_privados", "estado_privado"} {
+	for _, mode := range []string{"sin_observador", "denegado", "incierto", "activo", "lease_vigente", "restaurando", "datos_privados", "estado_privado", "verificador_activo", "verificador_incierto", "ventana_activa", "ventana_incierta"} {
 		t.Run(mode, func(t *testing.T) {
 			cfg := pruebaConfig(t)
 			var observer port.ObservadorAbandono
@@ -104,6 +104,14 @@ func TestAbandonoDenegadoInciertoActivoOMantenimientoConservaDestino(t *testing.
 						a.Lease = "/private/not-allowed"
 					case "estado_privado":
 						a.EstadoEfecto = "secret-must-not-be-logged"
+					case "verificador_activo":
+						a.EstadoVerificador = "activo"
+					case "verificador_incierto":
+						a.EstadoVerificador = "incierto"
+					case "ventana_activa":
+						a.EstadoVentana = "activa"
+					case "ventana_incierta":
+						a.EstadoVentana = "incierta"
 					}
 					return a, nil
 				})

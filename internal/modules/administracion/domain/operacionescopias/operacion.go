@@ -188,7 +188,10 @@ func (o *Operacion) transicion(c Comando) error {
 		if !referencia(a.Lease) || a.EstadoEfecto != "inactivo" || a.EstadoLease != "cancelada" || a.EstadoPlataforma != "sin_efectos_pendientes" {
 			return ErrAbandono
 		}
-		if (o.estado == Capturada || o.estado == Verificando || a.FalloReferencia == "verificacion_fallida") && (a.EstadoVerificador != "detenido" || a.EstadoVentana != "inactiva") {
+		if (a.EstadoVerificador != "" && a.EstadoVerificador != "detenido") || (a.EstadoVentana != "" && a.EstadoVentana != "inactiva") {
+			return ErrAbandono
+		}
+		if (o.estado == Capturada || o.estado == Verificando || a.FalloReferencia == "verificacion_fallida") && (a.EstadoVerificador == "" || a.EstadoVentana == "") {
 			return ErrAbandono
 		}
 		o.estado = AbandonadaDeclarada
