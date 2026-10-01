@@ -12,13 +12,15 @@ import { fileURLToPath } from "node:url";
 const raiz = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const argumentos = process.argv.slice(2);
 if (argumentos.includes("--help")) {
-  console.log("node scripts/probar_baremador_navegador.mjs [--solo-bolsa]\nCHROME_BIN: Chrome del sistema. PLAYWRIGHT_MODULE: módulo ya instalado. GO_BIN: toolchain local.\nEl recorrido completo exige Bolsa y Concursos integrados. Los artefactos quedan en un directorio temporal único.");
+  console.log("node scripts/probar_baremador_navegador.mjs [--solo-bolsa | --explicaciones]\nCHROME_BIN: Chrome del sistema. PLAYWRIGHT_MODULE: módulo ya instalado. GO_BIN: toolchain local.\nEl recorrido completo exige Bolsa y Concursos integrados. --explicaciones comprueba únicamente motivos y corte en es/en a 1440/390. Los artefactos quedan en un directorio temporal único.");
   process.exit(0);
 }
-assert(argumentos.every((a) => a === "--solo-bolsa"), "argumento no admitido");
+assert(argumentos.every((a) => ["--solo-bolsa", "--explicaciones"].includes(a)) && argumentos.length <= 1, "argumento no admitido");
 const soloBolsa = argumentos.includes("--solo-bolsa");
+const soloExplicaciones = argumentos.includes("--explicaciones");
 const informe = { esquema: "vec.recorrido_baremador_local.v1", inicio: new Date().toISOString(),
   alcance: "simulacion_sintetica_local", modulos: soloBolsa ? ["bolsa"] : ["bolsa", "concursos"],
+  modo: soloExplicaciones ? "explicaciones" : "matriz",
   transporte: "HTTP real, sin sustitución de respuestas", casos: [], estado: "en_curso" };
 let temporal, artefactos, browser, servidor;
 const procesos = new Set();
@@ -165,6 +167,25 @@ async function geometria(page, nombre) {
   return medidas;
 }
 
+async function fotografiar(page, nombre, destino) {
+  await page.evaluate(async () => {
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+    for (const e of document.querySelectorAll("main,.tabla-contenedor,.baremo-resultados,.baremo-topes .cuerpo-panel")) {
+      e.scrollTo({ top: 0, left: 0, behavior: "instant" });
+    }
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  });
+  if (destino) await destino.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: join(artefactos, nombre), fullPage: false });
+}
+
+function presentarPuntos(valor, idioma) {
+  const formato = new Intl.NumberFormat(idioma);
+  const decimal = formato.formatToParts(1.5).find((p) => p.type === "decimal").value;
+  const fraccion = String(BigInt(valor) % 1000000n).padStart(6, "0").replace(/0+$/u, "");
+  return formato.format(BigInt(valor) / 1000000n) + (fraccion ? decimal + fraccion : "");
+}
+
 async function teclado(page) {
   await page.evaluate(() => { document.body.tabIndex = -1; document.body.focus(); document.body.removeAttribute("tabindex"); });
   const fechas = new Map();
@@ -248,10 +269,7 @@ async function comparar(page, monitor, formulario, resultado, ruta, antes, despu
         r.datos.resultado.huella_resultado, "huella propia de Provisión no reproducida");
     }
     const idioma = await page.locator("html").getAttribute("lang");
-    const formato = new Intl.NumberFormat(idioma);
-    const decimal = formato.formatToParts(1.5).find((p) => p.type === "decimal").value;
-    const fraccion = String(BigInt(esperado) % 1000000n).padStart(6, "0").replace(/0+$/u, "");
-    const texto = formato.format(BigInt(esperado) / 1000000n) + (fraccion ? decimal + fraccion : "");
+    const texto = presentarPuntos(esperado, idioma);
     const total = ruta === "/simular" ? page.locator(resultado).nth(i).locator("dd") : page.locator(resultado).nth(i);
     assert.equal((await total.textContent()).trim(), texto, "total visible distinto a Go o idioma incorrecto");
   }
@@ -375,6 +393,65 @@ async function concursos(page, monitor, caso) {
     borradorConservado: true, resultadoReproducido: true, errores: ["json_roto", "archivo_excesivo", "familia_distinta", "Go_rechaza", "campo_invalido", "HTTP_400"] };
 }
 
+async function explicaciones(page, monitor, caso) {
+  const prefijo = `${caso.idioma}-${caso.anchoCSS}-explicaciones`;
+  await fotografiar(page, `${prefijo}-bolsa-inicio.png`);
+  await page.locator('[data-panel="concursos"]').click();
+  await page.locator("#concursos-formulario").waitFor();
+  caso.geometriaConcursos = await geometria(page, "Concursos inicial");
+  await fotografiar(page, `${prefijo}-concursos-inicio.png`);
+  const form = "#concursos-formulario", resultado = "[data-concurso-total]", ruta = "/api/provision/v1/simulaciones";
+  const recibos = await comparar(page, monitor, form, resultado, ruta, "28386027", "28386027");
+  const catalogo = JSON.parse(await readFile(join(raiz, `web/static/textos/${caso.idioma}/baremo-concursos.json`), "utf8")).concursos;
+  const fila = (familia, lado = 0) => page.locator(".concursos-resultados .baremo-resultado").nth(lado)
+    .locator("tbody > tr").filter({ hasText: catalogo[`familia_${familia}`] });
+  const abrir = async (f) => {
+    const resumen = f.locator("details > summary");
+    await resumen.focus(); await page.keyboard.press("Enter");
+    assert(await f.locator("details").evaluate((e) => e.open), "explicación no abre por teclado");
+  };
+  const motivos = [];
+  for (const d of recibos[0].datos.resultado.desglose) {
+    const f = fila(d.familia); await abrir(f);
+    const lineas = await f.locator("details li").allTextContents();
+    assert.equal(lineas.length, d.detalles.length);
+    for (const [i, detalle] of d.detalles.entries()) {
+      const plantilla = catalogo[`motivo_${detalle.motivo}`];
+      assert(plantilla, `motivo sin catálogo propio: ${detalle.motivo}`);
+      const u = detalle.unidades;
+      const variables = { unidades: typeof u === "object" ? `${u.numerador ?? u.n} / ${u.denominador ?? u.d}` : u,
+        coeficiente: presentarPuntos(detalle.coeficiente, caso.idioma), bruto: presentarPuntos(detalle.bruto, caso.idioma),
+        tope: presentarPuntos(detalle.maximo, caso.idioma), neto: presentarPuntos(detalle.resultado, caso.idioma) };
+      assert.equal(lineas[i], plantilla.replace(/\{([^}]+)\}/gu, (_m, clave) => variables[clave]), "motivo visible pierde precisión o significado");
+      motivos.push({ familia: d.familia, motivo: detalle.motivo, texto: lineas[i] });
+    }
+  }
+  const curso = recibos[0].datos.resultado.desglose.find((d) => d.familia === "cursos");
+  assert.equal(curso.resultado, "480000");
+  assert(curso.detalles.some((d) => d.coeficiente === "12000" && d.motivo === "suma_horas"));
+  await fotografiar(page, `${prefijo}-curso.png`, fila("cursos").locator("details"));
+  const tablaGrado = page.locator("#concurso-reglas-0-tramos-0-coeficiente");
+  const resumenGrado = page.locator("[data-concurso-regla]").first().locator("details > summary");
+  await resumenGrado.focus(); await page.keyboard.press("Enter");
+  assert.equal(await tablaGrado.inputValue(), "19");
+  assert.equal(await page.locator("#concurso-reglas-0-tramos-0-maximo").inputValue(), "19");
+  assert.equal(await page.locator("#concurso-reglas-0-tramos-0-min_diferencia").inputValue(), "-999");
+  assert.equal(await page.locator("#concurso-reglas-0-tramos-0-max_diferencia").inputValue(), "-1");
+  const grado = recibos[0].datos.resultado.desglose.find((d) => d.familia === "grado");
+  assert.equal(grado.resultado, "19000000");
+  await fotografiar(page, `${prefijo}-tabla-grado.png`, tablaGrado);
+  await page.locator("#concurso-fecha_corte").fill("2024-05-01");
+  const cortados = await comparar(page, monitor, form, resultado, ruta, "28386027", "23129315");
+  const excluido = cortados[1].datos.resultado.desglose.find((d) => d.familia === "cursos");
+  assert.equal(excluido.resultado, "0");
+  assert(excluido.detalles.some((d) => d.motivo === "posterior_corte"));
+  const f = fila("cursos", 1); await abrir(f);
+  assert((await f.locator("details li").allTextContents()).includes(catalogo.motivo_posterior_corte), "falta explicar corte exclusivo");
+  await fotografiar(page, `${prefijo}-corte-excluido.png`, f.locator("details"));
+  caso.explicaciones = { motivos, grado: "19000000", curso: "480000", coeficienteCurso: "12000",
+    corte: "2024-05-01", cursoCortado: "0", totalCortado: "23129315", corteExclusivo: true };
+}
+
 async function recorrer(url, idioma, ancho, escala = 1) {
   cancelacion.signal.throwIfAborted();
   const caso = { idioma, anchoCSS: ancho, escalaDispositivo: escala,
@@ -394,16 +471,19 @@ async function recorrer(url, idioma, ancho, escala = 1) {
     await page.locator("#baremo-formulario").waitFor();
     assert.equal(await page.locator("html").getAttribute("lang"), idioma);
     caso.geometriaInicial = await geometria(page, "inicial");
-    caso.teclado = await teclado(page);
-    if (escala === 1) await bolsa(page, monitor, caso);
-    await page.screenshot({ path: join(artefactos, `${idioma}-${ancho}-${escala}-bolsa.png`), fullPage: true });
-    caso.geometriaBolsa = await geometria(page, "Bolsa");
-    if (!soloBolsa) {
-      if (escala === 1) await concursos(page, monitor, caso);
-      else { await page.locator('[data-panel="concursos"]').click(); await page.locator("#concursos-formulario").waitFor(); }
-      caso.geometriaConcursos = await geometria(page, "Concursos");
-      caso.tecladoConcursos = await teclado(page);
-      await page.screenshot({ path: join(artefactos, `${idioma}-${ancho}-${escala}-concursos.png`), fullPage: true });
+    if (soloExplicaciones) await explicaciones(page, monitor, caso);
+    else {
+      caso.teclado = await teclado(page);
+      if (escala === 1) await bolsa(page, monitor, caso);
+      await fotografiar(page, `${idioma}-${ancho}-${escala}-bolsa.png`);
+      caso.geometriaBolsa = await geometria(page, "Bolsa");
+      if (!soloBolsa) {
+        if (escala === 1) await concursos(page, monitor, caso);
+        else { await page.locator('[data-panel="concursos"]').click(); await page.locator("#concursos-formulario").waitFor(); }
+        caso.geometriaConcursos = await geometria(page, "Concursos");
+        caso.tecladoConcursos = await teclado(page);
+        await fotografiar(page, `${idioma}-${ancho}-${escala}-concursos.png`);
+      }
     }
     await monitor.comprobar(context);
     caso.estado = "pasado";
@@ -439,12 +519,14 @@ try {
     args: ["--disable-background-networking", "--disable-component-update", "--no-first-run"] });
   informe.chrome = browser.version();
   for (const idioma of ["es", "en"]) {
-    for (const ancho of [1440, 1024, 390]) {
+    for (const ancho of soloExplicaciones ? [1440, 390] : [1440, 1024, 390]) {
       console.log(`Recorrido ${idioma}, ${ancho}px…`);
       await recorrer(url, idioma, ancho);
     }
-    console.log(`Reflujo equivalente 200%, ${idioma}…`);
-    await recorrer(url, idioma, 720, 2);
+    if (!soloExplicaciones) {
+      console.log(`Reflujo equivalente 200%, ${idioma}…`);
+      await recorrer(url, idioma, 720, 2);
+    }
   }
   informe.estado = "pasado";
 } catch (error) {

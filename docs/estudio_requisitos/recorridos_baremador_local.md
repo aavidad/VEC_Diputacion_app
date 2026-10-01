@@ -19,6 +19,20 @@ node scripts/probar_baremador_navegador.mjs --solo-bolsa
 
 Esta opción queda registrada en el informe; no acredita Concursos.
 
+Para revisar solo las explicaciones de Concursos después de una corrección de
+textos o formato:
+
+```sh
+node scripts/probar_baremador_navegador.mjs --explicaciones
+```
+
+Esta comprobación visita español e inglés a 1440 y 390 píxeles. Abre los
+desgloses por teclado y contrasta los motivos visibles con los datos que
+devuelve Go, conservando los decimales. Comprueba las tablas de grado y sus
+topes. Cambia el corte a `2024-05-01`, fecha exacta del curso, y comprueba su
+exclusión y explicación. Ejecuta 16 POST en total; no repite la matriz de 120.
+El informe distingue este modo de la matriz completa.
+
 El script reutiliza Playwright instalado y `/usr/bin/google-chrome`. Puede fijar
 otros ejecutables locales mediante `PLAYWRIGHT_MODULE`, `CHROME_BIN` y `GO_BIN`.
 No descarga navegador, SDK, toolchain ni dependencias Go. Si no indica `GO_BIN`,
@@ -105,7 +119,10 @@ El informe de esa ejecución está en
 `/tmp/vec-baremador-evidencia-KAcUFb/resultado.json`, con SHA256
 `5e2c1bbf05d226e79942ef9aafd599bab5443186b69297b24630e39f53a06e1b`.
 El directorio conserva 16 capturas. Son artefactos temporales fuera de Git;
-dirección debe conservar las capturas que use en la entrega.
+dirección debe conservar las capturas que use en la entrega. Aquellas capturas
+se tomaron después del teclado, con posición de desplazamiento variable. El
+guion ahora encuadra el inicio de los paneles y tablas en capturas de la ventana;
+los detalles tienen capturas propias al desplazarse hasta ellos.
 
 La revisión visual posterior encontró una explicación que redondeaba a cero
 coeficientes y puntos decimales, pese a que el total y el desglose del motor eran
