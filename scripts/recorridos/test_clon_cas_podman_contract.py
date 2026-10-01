@@ -25,6 +25,7 @@ def request():
                    'rw': True, 'dev': 20, 'ino': 201}}
     maps = [{'container_id': 0, 'host_id': 1000, 'size': 1},
             {'container_id': 1, 'host_id': 100000, 'size': 65536}]
+    normalizer_bundle = {'h6_comun.sh': '3' * 64, 'h6_normalizar_pg_dump.py': '4' * 64}
     return {
         'version': 2, 'kind': contract.REQUEST_KIND, 'nonce': H,
         'server_name': 'postgres.fixture',
@@ -34,7 +35,9 @@ def request():
                  'pgdata_bind_source': '/fixture/h6-pgdata',
                  'pgdata_bind_destination': '/var/lib/postgresql/18/docker',
                  'system_identifier': '10000000001', 'database_name': 'postgres', 'database_oid': 5},
-        'pins': {k: H for k in contract.PIN_FIELDS},
+        'pins': {k: contract.digest(contract.canonical(normalizer_bundle)) if k == 'normalizer_sha256'
+                 else H for k in contract.PIN_FIELDS},
+        'normalizer_bundle': normalizer_bundle,
         'users': {'identidad': 'vec_identidad_fixture', 'contexto': 'vec_contexto_fixture',
                   'autorizacion': contract.AUTH_USER},
         'tls_hashes': {k: H for k in {'ca.pem'} | {c + ext for c in contract.CHANNELS
@@ -60,9 +63,24 @@ def request():
                              'post': {k: H for k in contract.STATE_FIELDS}}}
 
 
+def sql_observation(req, initial_sessions, stage, state=None):
+    """Synthetic external-observer fixture, without reading any SQL state."""
+    return {'stage': stage, 'nonce': req['nonce'],
+            'request_sha256': contract.digest(contract.canonical(req)),
+            'sessions_sha256': contract.digest(contract.canonical(initial_sessions)),
+            'normalizer_sha256': req['pins']['normalizer_sha256'],
+            'normalizer_bundle': deepcopy(req['normalizer_bundle']),
+            **{k: req['pgid'][k] for k in ('pg_container_id', 'pg_image_id',
+                                         'system_identifier', 'database_oid')},
+            **{k: deepcopy(req['runtime'][k]) for k in
+               ('postgres_process', 'network_namespace', 'mount_inventory_sha256')},
+            **deepcopy(req['receipt_bindings']['post'] if state is None else state)}
+
+
 def result(req=None):
     """Fresh helper result, synthetically bound to req; never a real receipt."""
-    value = deepcopy(request() if req is None else req)
+    req = deepcopy(request() if req is None else req)
+    value = deepcopy(req)
     value['kind'] = contract.RESULT_KIND
     value.update({'cas_sessions_bound': True, 'cas_applied': False, 'rollback_confirmed': True,
                   'readings_sha256': [H, H], 'observations': {
@@ -73,7 +91,7 @@ def result(req=None):
                                                'version_contexto': 0, 'huella_contexto': '',
                                                'secuencia_motivos': 0},
                                 'usuarios': {'version_contexto': 0, 'huella_contexto': ''}},
-                  'postimage': deepcopy(value['receipt_bindings']['post']), 'sessions': {}})
+                  'sessions': {}})
     for index, channel in enumerate(contract.CHANNELS):
         role = contract.ROLES[channel]
         row = {'session_user': value['users'][channel],
@@ -84,6 +102,11 @@ def result(req=None):
                'client_addr': '127.0.0.1', 'server_addr': '127.0.0.1', 'server_port': 5432,
                'login_safe': True, 'ssl': True, 'tls_version': 'TLSv1.3', 'client_certificate': True}
         value['sessions'][channel] = {'before': deepcopy(row), 'after': deepcopy(row)}
+    initial = {channel: pair['before'] for channel, pair in value['sessions'].items()}
+    value['sql_postimage_observations'] = {
+        stage: sql_observation(req, initial, stage) for stage in ('before', 'after')}
+    value['postimage'] = {k: value['sql_postimage_observations']['after'][k]
+                         for k in contract.STATE_FIELDS}
     return value
 
 
@@ -297,6 +320,99 @@ class ContractTests(unittest.TestCase):
                                   (('physical', 'before', 'uid_map', 1, 'host_id'), 200000),
                                   (('physical', 'before', 'mounts', 'pgdata', 'ino'), 999)]:
             self.rejects(value, path, replacement)
+
+    def test_sql_state_changes_even_with_matching_before_after(self):
+        # Schema body/ACL, role inventory and database ACL each have their own
+        # H6 state hash; a consistently altered pair cannot match original L.
+        for field in contract.STATE_FIELDS:
+            value = result()
+            for stage in ('before', 'after'):
+                value['sql_postimage_observations'][stage][field] = '0' * 64
+            value['postimage'][field] = '0' * 64
+            with self.subTest(field=field), self.assertRaises(contract.Refused):
+                contract.validate_result(value, request())
+
+    def test_sql_observation_nonce_session_request_and_identity_binding(self):
+        value = result()
+        for field, changed in [('nonce', '0' * 64), ('request_sha256', '0' * 64),
+                               ('sessions_sha256', '0' * 64), ('pg_container_id', '0' * 64),
+                               ('pg_image_id', 'sha256:' + '0' * 64),
+                               ('system_identifier', '999999999'), ('database_oid', 99),
+                               ('normalizer_sha256', '0' * 64),
+                               ('normalizer_bundle', {'h6_comun.sh': '0' * 64,
+                                                      'h6_normalizar_pg_dump.py': '4' * 64})]:
+            for stage in ('before', 'after'):
+                self.rejects(value, ('sql_postimage_observations', stage, field), changed)
+
+    def test_sql_stage_order_missing_and_swap(self):
+        value = result()
+        self.rejects(value, ('sql_postimage_observations', 'before', 'stage'), 'after')
+        self.rejects(value, ('sql_postimage_observations', 'after', 'stage'), 'before')
+        changed = deepcopy(value)
+        changed['sql_postimage_observations'] = {
+            'before': value['sql_postimage_observations']['after'],
+            'after': value['sql_postimage_observations']['before']}
+        with self.assertRaises(contract.Refused):
+            contract.validate_result(changed)
+        req = request()
+        initial = {channel: pair['before'] for channel, pair in value['sessions'].items()}
+        for stage in ('unknown', None, True, 1):
+            with self.subTest(stage=stage), self.assertRaises(contract.Refused):
+                contract.validate_sql_postimage_observation(
+                    value['sql_postimage_observations']['before'], req, initial, stage)
+
+    def test_normalizer_bundle_is_pinned_before_observation(self):
+        req = request()
+        self.rejects(req, ('normalizer_bundle', 'h6_comun.sh'), '0' * 64)
+        self.rejects(req, ('normalizer_bundle', 'h6_normalizar_pg_dump.py'), '0' * 64)
+        self.rejects(req, ('pins', 'normalizer_sha256'), '0' * 64)
+        value = result(req)
+        initial = {channel: pair['before'] for channel, pair in value['sessions'].items()}
+        observation = value['sql_postimage_observations']['before']
+        self.assertEqual(contract.validate_sql_postimage_observation(observation, req, initial, 'before'),
+                         observation)
+        # A digest of the entire paired-session envelope is not the initial
+        # retained-session map required by the fixed barrier.
+        forged = deepcopy(observation)
+        forged['sessions_sha256'] = contract.digest(contract.canonical(value['sessions']))
+        with self.assertRaises(contract.Refused):
+            contract.validate_sql_postimage_observation(forged, req, initial, 'before')
+
+    def test_sql_observations_cannot_rewrite_independent_request(self):
+        req = request()
+        forged_request = deepcopy(req)
+        forged_request['receipt_bindings']['post']['schema_sha256'] = '0' * 64
+        # This altered JSON can pass internal structural consistency, but
+        # binding to the original independently pinned request rejects it.
+        forged = result(forged_request)
+        with self.assertRaises(contract.Refused):
+            contract.bind_result(req, forged)
+
+    def test_sql_observation_process_namespace_and_mount_binding(self):
+        value = result()
+        for stage in ('before', 'after'):
+            for field in contract.PROCESS_FIELDS:
+                original = value['sql_postimage_observations'][stage]['postgres_process'][field]
+                changed = '2026-10-01T00:00:01Z' if field == 'StartedAt' else original + 1
+                self.rejects(value, ('sql_postimage_observations', stage, 'postgres_process', field),
+                             changed)
+            for field in ('dev', 'ino'):
+                self.rejects(value, ('sql_postimage_observations', stage, 'network_namespace', field), 999)
+            self.rejects(value, ('sql_postimage_observations', stage, 'mount_inventory_sha256'), '0' * 64)
+
+    def test_body_and_acl_changes_preserve_names_but_change_h6_hash(self):
+        # Synthetic normalized pg_dump-like bytes, never passed to PostgreSQL.
+        original = b'CREATE FUNCTION f() RETURNS int AS $$ SELECT 1 $$ LANGUAGE sql;\nGRANT EXECUTE ON FUNCTION f() TO reader;\n'
+        for changed in (original.replace(b'SELECT 1', b'SELECT 2'),
+                        original.replace(b'TO reader', b'TO PUBLIC')):
+            req = request()
+            req['receipt_bindings']['post']['schema_sha256'] = contract.digest(original)
+            value = result(req)
+            for stage in ('before', 'after'):
+                value['sql_postimage_observations'][stage]['schema_sha256'] = contract.digest(changed)
+            value['postimage']['schema_sha256'] = contract.digest(changed)
+            with self.subTest(changed=changed), self.assertRaises(contract.Refused):
+                contract.bind_result(req, value)
 
 
 if __name__ == '__main__':

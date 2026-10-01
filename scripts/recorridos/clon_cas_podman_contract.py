@@ -14,6 +14,13 @@ a two-entry projection whose completeness the acquisition layer must prove.
 Anonymous tree_sha256 pins independently acquired directory-tree evidence.
 receipt_bindings pins original P/A/L receipt bytes and P/L intentions; A has no
 invented intention. post is the independently pinned SQL state after L.
+SQL observations bracket the CAS readings on the retained nominal sessions.
+Their state is acquired externally using the independently pinned H6 bundle:
+normalizer_bundle contains original h6_comun.sh and h6_normalizar_pg_dump.py
+hashes, and pins.normalizer_sha256 is its canonical aggregate hash. The shell
+defines dump commands and datacl SQL; the Python file alone is insufficient.
+validate_sql_postimage_observation checks binding and expected state only;
+even matching observations do not prove trusted acquisition or grant authority.
 Measurement result_bytes_sha256 pins the original helper output separately from
 result_canonical_sha256. Pass result_raw to validate_measurement to verify the
 original-byte pin; without it validation proves only structure and consistency.
@@ -36,17 +43,25 @@ ROLES = {'identidad': 'vec_identidad_sesiones_v1_propietario',
          'contexto': 'vec_contexto_actor_v1_propietario', 'autorizacion': 'none'}
 PIN_FIELDS = {'source_sha256', 'alias_sha256', 'restore_sha256', 'journal_sha256',
               'h1_records_sha256', 'aut26_receipt_sha256', 'login_receipt_sha256',
-              'hba_sha256', 'acl_sha256', 'rls_sha256'}
+              'hba_sha256', 'acl_sha256', 'rls_sha256', 'normalizer_sha256'}
 REQUEST_FIELDS = {'version', 'kind', 'nonce', 'server_name', 'pgid', 'pins',
-                  'users', 'tls_hashes', 'targets', 'runtime', 'helper', 'receipt_bindings'}
+                  'users', 'tls_hashes', 'targets', 'runtime', 'helper', 'receipt_bindings',
+                  'normalizer_bundle'}
 RESULT_FIELDS = REQUEST_FIELDS | {'sessions', 'cas_sessions_bound', 'cas_applied',
                                  'rollback_confirmed', 'readings_sha256',
-                                 'observations', 'preimages', 'postimage'}
+                                 'observations', 'preimages', 'postimage',
+                                 'sql_postimage_observations'}
 SESSION_FIELDS = {'session_user', 'current_user', 'role', 'transaction_read_only',
                   'transaction_isolation', 'backend_pid', 'database_name',
                   'database_oid', 'system_identifier', 'client_addr', 'server_addr',
                   'server_port', 'login_safe', 'ssl', 'tls_version', 'client_certificate'}
 STATE_FIELDS = {'schema_sha256', 'roles_sha256', 'datacl_sha256'}
+NORMALIZER_FILES = {'h6_comun.sh', 'h6_normalizar_pg_dump.py'}
+SQL_POSTIMAGE_FIELDS = STATE_FIELDS | {'stage', 'nonce', 'request_sha256', 'sessions_sha256',
+                                      'pg_container_id', 'pg_image_id', 'system_identifier',
+                                      'database_oid', 'normalizer_sha256', 'normalizer_bundle',
+                                      'postgres_process', 'network_namespace',
+                                      'mount_inventory_sha256'}
 PROCESS_FIELDS = {'pid', 'StartedAt', 'starttick', 'dev', 'ino'}
 PHYSICAL_FIELDS = {'postgres_process', 'helper_process', 'network_namespace',
                    'postgres_mount_namespace', 'helper_mount_namespace',
@@ -253,6 +268,11 @@ def _common(value):
     keys(value['pins'], PIN_FIELDS)
     for pin in value['pins'].values():
         fingerprint(pin)
+    keys(value['normalizer_bundle'], NORMALIZER_FILES)
+    for pin in value['normalizer_bundle'].values():
+        fingerprint(pin)
+    require(value['pins']['normalizer_sha256'] == digest(canonical(value['normalizer_bundle'])),
+            'cas_v2_normalizer_bundle')
     keys(value['users'], CHANNELS)
     users = value['users']
     require(all(type(user) is str and re.fullmatch(r'vec_[a-z0-9_]{1,59}', user) is not None
@@ -357,6 +377,56 @@ def _preimages(value):
             number(row['secuencia_motivos'], 2**62)
 
 
+def validate_sql_postimage_observation(observation, request, initial_sessions, stage):
+    """Pure typed binding of an external observation; no SQL or acquisition.
+
+stage is a fixed caller barrier, before or after. initial_sessions is the
+channel -> initial SESSION_FIELDS map, not the result's before/after pairs.
+The acquisition layer must hold those exact three sessions across both barriers
+and obtain each observation externally before rollback; JSON is not authority.
+"""
+    request = validate_request(request)
+    observation = decode(canonical(observation))
+    initial_sessions = decode(canonical(initial_sessions))
+    require(type(stage) is str and stage in ('before', 'after'), 'cas_v2_sql_stage')
+    keys(initial_sessions, CHANNELS)
+    for channel, session in initial_sessions.items():
+        _session(session, request, channel)
+    require(len({session['backend_pid'] for session in initial_sessions.values()}) == 3,
+            'cas_v2_distinct_sessions')
+    keys(observation, SQL_POSTIMAGE_FIELDS)
+    require(observation['stage'] == stage, 'cas_v2_sql_stage')
+    for field in ('nonce', 'request_sha256', 'sessions_sha256', 'normalizer_sha256',
+                  'pg_container_id'):
+        fingerprint(observation[field])
+    _image_id(observation['pg_image_id'])
+    number(observation['database_oid'], 2**32, 1)
+    require(observation['nonce'] == request['nonce']
+            and observation['request_sha256'] == digest(canonical(request))
+            and observation['sessions_sha256'] == digest(canonical(initial_sessions)),
+            'cas_v2_sql_observation_binding')
+    require(all(observation[field] == request['pgid'][field] for field in
+                ('pg_container_id', 'pg_image_id', 'system_identifier', 'database_oid')),
+            'cas_v2_sql_observation_identity')
+    _process(observation['postgres_process'])
+    _namespace(observation['network_namespace'])
+    fingerprint(observation['mount_inventory_sha256'])
+    require(all(canonical({'value': observation[field]}) ==
+                canonical({'value': request['runtime'][field]}) for field in
+                ('postgres_process', 'network_namespace', 'mount_inventory_sha256')),
+            'cas_v2_sql_observation_physical')
+    keys(observation['normalizer_bundle'], NORMALIZER_FILES)
+    for pin in observation['normalizer_bundle'].values():
+        fingerprint(pin)
+    require(observation['normalizer_bundle'] == request['normalizer_bundle']
+            and observation['normalizer_sha256'] == request['pins']['normalizer_sha256'],
+            'cas_v2_sql_normalizer')
+    state = {field: observation[field] for field in STATE_FIELDS}
+    _state(state)
+    require(state == request['receipt_bindings']['post'], 'cas_v2_sql_postimage_drift')
+    return observation
+
+
 def validate_result(value, request=None):
     value = decode(canonical(value))
     keys(value, RESULT_FIELDS)
@@ -383,8 +453,19 @@ def validate_result(value, request=None):
         keys(pair, ('lectura_1', 'lectura_2'))
         require(instant(pair['lectura_1']) <= instant(pair['lectura_2']), 'cas_v2_observation_order')
     _preimages(value['preimages'])
+    keys(value['sql_postimage_observations'], ('before', 'after'))
+    embedded_request = {field: value[field] for field in REQUEST_FIELDS}
+    embedded_request['kind'] = REQUEST_KIND
+    initial_sessions = {channel: pair['before'] for channel, pair in value['sessions'].items()}
+    sql_pair = value['sql_postimage_observations']
+    for stage, observation in sql_pair.items():
+        validate_sql_postimage_observation(observation, embedded_request, initial_sessions, stage)
+    require({field: v for field, v in sql_pair['before'].items() if field != 'stage'} ==
+            {field: v for field, v in sql_pair['after'].items() if field != 'stage'},
+            'cas_v2_sql_postimage_changed')
     _state(value['postimage'])
-    require(value['postimage'] == value['receipt_bindings']['post'], 'cas_v2_postimage_drift')
+    require(value['postimage'] == {field: sql_pair['after'][field] for field in STATE_FIELDS},
+            'cas_v2_postimage_drift')
     if request is not None:
         request = validate_request(request)
         require(all(value[k] == request[k] for k in REQUEST_FIELDS - {'kind'}), 'cas_v2_request_drift')
