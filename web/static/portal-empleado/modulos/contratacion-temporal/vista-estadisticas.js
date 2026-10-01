@@ -14,7 +14,7 @@ import { consultarEstadisticas } from "./cliente-http-estadisticas.js?v=20261001
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261001-ct-a-i18n-v1";
 import { IDIOMA_ACTUAL, localizacionDe } from "../../../comun/idioma.js";
 
-import { cargarFichaIndicadores, renderizarFichaIndicadores } from "../analitica/ficha-indicadores.js?v=20261001-ana002-v1";
+import { cargarFichaIndicadores, renderizarFichaIndicadores } from "../analitica/ficha-indicadores.js?v=20261001-ana001-v2";
 
 const traducirCT = crearTraductorContratacionTemporal();
 
