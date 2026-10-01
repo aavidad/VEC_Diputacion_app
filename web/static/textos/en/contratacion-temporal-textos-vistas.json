@@ -1,5 +1,10 @@
 {
   "general": {
+    "ct_txt_contexto_fechas_consulta": "Query dates",
+    "ct_txt_contexto_agrupacion": "Grouping",
+    "ct_txt_contexto_zona_horaria": "Time zone",
+    "ct_txt_contexto_corte_publicado": "Published snapshot",
+    "ct_txt_contexto_no_comunicado": "Not provided",
     "ct_txt_acceso_denegado": "Access denied",
     "ct_txt_accion": "Action",
     "ct_txt_altas": "New cases",

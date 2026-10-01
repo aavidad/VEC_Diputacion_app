@@ -525,6 +525,10 @@ static/textos/en/carrera.json
 static/portal-empleado/portal-accesos-empleado.js
 static/textos/es/accesos-empleado.json
 static/textos/en/accesos-empleado.json
+static/portal-empleado/modulos/analitica/ficha-indicadores.js
+static/portal-empleado/modulos/analitica/catalogo-indicadores.json
+static/textos/es/analitica.json
+static/textos/en/analitica.json
 static/textos/es/solicitudes-ejemplos.json
 static/textos/en/solicitudes-ejemplos.json
 static/textos/es/solicitudes.json
