@@ -381,8 +381,9 @@ export function montarInformesDietas(contenedor, { cargarDatos, cargarConfigurac
   function enviar(evento) {
     evento.preventDefault(); limpiarErrorFecha();
     if (!disponible) return;
-    if ((desde.value && !fechaValida(desde.value)) || (hasta.value && !fechaValida(hasta.value))) {
-      desde.setAttribute("aria-invalid", "true"); hasta.setAttribute("aria-invalid", "true");
+    const fechasInvalidas = [desde, hasta].filter((campo) => campo.value && !fechaValida(campo.value));
+    if (fechasInvalidas.length) {
+      for (const campo of fechasInvalidas) campo.setAttribute("aria-invalid", "true");
       mostrarEstado("fecha_error"); estado.focus(); return;
     }
     if (desde.value && hasta.value && desde.value > hasta.value) {
