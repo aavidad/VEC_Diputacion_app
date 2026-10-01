@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"io"
+	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 )
 
@@ -34,10 +34,15 @@ func TestContextoCanceladoNoAbreEntradas(t *testing.T) {
 	ctx, cancelar := context.WithCancel(context.Background())
 	cancelar()
 	ruta := filepath.Join(t.TempDir(), "no-creado.dump")
-	if copiarArchivo(ctx, Archivo{Ruta: "entrada-no-existe", SHA256: strings.Repeat("a", 64)}, ruta, 1024) == nil {
+	entrada := archivoFixture(t, "entrada.dump", []byte("PGDMPensayo"))
+	globals := archivoFixture(t, "globals.sql", []byte("-- ensayo sintetico\n"))
+	if copiarArchivo(ctx, entrada, ruta, 1024) == nil {
 		t.Fatal("la copia ignoró la cancelación")
 	}
-	if globalsAdmitidos(ctx, "entrada-no-existe", 1024) {
+	if _, err := os.Stat(ruta); !os.IsNotExist(err) {
+		t.Fatal("la copia cancelada creó un archivo")
+	}
+	if globalsAdmitidos(ctx, globals.Ruta, 1024) {
 		t.Fatal("la lectura de globals ignoró la cancelación")
 	}
 }
