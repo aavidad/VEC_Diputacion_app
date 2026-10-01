@@ -23,7 +23,7 @@ test("?lang=en presenta toda la ayuda contextual RRHH en inglés con el traducto
     ...AYUDA_PORTAL_RRHH.pasos, ...AYUDA_PORTAL_RRHH.preguntas.flatMap((item) => [item.pregunta, item.respuesta]),
     AYUDA_PORTAL_RRHH.transcripcion].join(" ");
   assert.match(visible, /Cases|cases/u);
-  assert.match(visible, /Employment pools/u);
+  assert.match(visible, /Job pools/u);
   assert.match(visible, /Offers to SAE/u);
   assert.match(visible, /does not record/u);
   assert.doesNotMatch(visible, /Ayuda|expedientes|Bolsas de trabajo|Ofertas al SAE|llamamiento/u);
