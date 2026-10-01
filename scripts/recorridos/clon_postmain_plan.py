@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Plan documental H6+AD132 hacia un commit explícito de origin/main.
 
-Request v3 recibe huellas externas de las listas, SQL y evidencia acompañante.
-El orden documental es RPT#222, B#243 y AD136 de A#219. U17#230 queda diferida.
+Request v4 recibe huellas externas de las listas, SQL y evidencia acompañante.
+El orden documental es RPT#222, B#243, AD136 de A#219 y B2#226.
+U17#230 queda diferida; cualquier SQL ajena, incluida E3#218, bloquea el plan.
 Sólo lee objetos Git locales: nunca lee recibos, aplica SQL ni consulta servicios.
 Las huellas comprueban integridad; el resultado siempre necesita aprobación.
 La ejecución futura conserva H6 histórico y emite un segundo recibo postmain.
@@ -22,6 +23,7 @@ SOURCE = "73e56c106d12fdda0bd16d6fe573503c42c5495f"
 LIST = "deploy/principal/lista_sql_trabajo_codexd_rpt_escritura_v3_20260930.txt"
 LIST_B = "deploy/principal/lista_sql_codexb_ad133_135_20261001.txt"
 LIST_A = "deploy/principal/lista_sql_codexa_e3_ad136_20260930.txt"
+LIST_B2 = "deploy/principal/lista_sql_codexa_b2_post222_20261001.txt"
 LIST_DEFERRED = "deploy/principal/lista_sql_trabajo_codexf_temas_sql_20260930.txt"
 CAT = "deploy/postgresql/catalogos_configurables/"
 AD = "deploy/postgresql/autorizacion_atestada_v3/"
@@ -53,6 +55,55 @@ A_COMPANIONS = (
     AD + "migraciones/000136_custodia_firmado_nucleo.down.sql",
     AD + "pruebas_sql/ad3_136_custodia_firmado_nucleo.sql",
 )
+CTX = "deploy/postgresql/contexto_actor_v1/"
+CT = "deploy/postgresql/contratacion_temporal/"
+BOLSA = "deploy/postgresql/bolsa_llamamientos/"
+PERSONAL = "deploy/postgresql/personal/"
+B2_SQL_PATHS = (
+    CTX + "migraciones/000018_persona_candidato_incorporacion.up.sql",
+    AD + "migraciones/000127_consumidor_vinculo_categoria_rpt_ct.up.sql",
+    CT + "migraciones/000154_vinculo_categoria_rpt_prospectivo.up.sql",
+    AD + "migraciones/000128_consumidor_consulta_persona_aceptacion_ct_bolsa.up.sql",
+    BOLSA + "migraciones/000067_persona_aceptacion_ct.up.sql",
+    AD + "migraciones/000131_consumidor_consulta_anclaje_aceptacion_ct_bolsa.up.sql",
+    BOLSA + "migraciones/000068_anclaje_aceptacion_incorporacion_ct.up.sql",
+    AD + "migraciones/000129_consumidor_plan_incorporacion_personal_ct.up.sql",
+    PERSONAL + "migraciones/000023_plan_incorporacion_ct.up.sql",
+    PERSONAL + "migraciones/000024_catalogo_clases_multilingue.up.sql",
+    AD + "migraciones/000130_consumidor_incorporacion_personal_b2.up.sql",
+    CT + "migraciones/000155_incorporacion_personal_b2.up.sql",
+    CT + "migraciones/000156_cese_incorporacion_personal_b2.up.sql",
+)
+# Lista cerrada: trece DOWN y nueve pruebas, también las dos de Personal.
+B2_COMPANIONS = {
+    CTX + "migraciones/000018_persona_candidato_incorporacion.down.sql": (B2_SQL_PATHS[0],),
+    AD + "migraciones/000127_consumidor_vinculo_categoria_rpt_ct.down.sql": (B2_SQL_PATHS[1],),
+    CT + "migraciones/000154_vinculo_categoria_rpt_prospectivo.down.sql": (B2_SQL_PATHS[2],),
+    AD + "migraciones/000128_consumidor_consulta_persona_aceptacion_ct_bolsa.down.sql": (B2_SQL_PATHS[3],),
+    BOLSA + "migraciones/000067_persona_aceptacion_ct.down.sql": (B2_SQL_PATHS[4],),
+    AD + "migraciones/000131_consumidor_consulta_anclaje_aceptacion_ct_bolsa.down.sql": (B2_SQL_PATHS[5],),
+    BOLSA + "migraciones/000068_anclaje_aceptacion_incorporacion_ct.down.sql": (B2_SQL_PATHS[6],),
+    AD + "migraciones/000129_consumidor_plan_incorporacion_personal_ct.down.sql": (B2_SQL_PATHS[7],),
+    PERSONAL + "migraciones/000023_plan_incorporacion_ct.down.sql": (B2_SQL_PATHS[8],),
+    PERSONAL + "migraciones/000024_catalogo_clases_multilingue.down.sql": (B2_SQL_PATHS[9],),
+    AD + "migraciones/000130_consumidor_incorporacion_personal_b2.down.sql": (B2_SQL_PATHS[10],),
+    CT + "migraciones/000155_incorporacion_personal_b2.down.sql": (B2_SQL_PATHS[11],),
+    CT + "migraciones/000156_cese_incorporacion_personal_b2.down.sql": (B2_SQL_PATHS[12],),
+    CTX + "pruebas_sql/persona_candidato_incorporacion_000018.sql": (B2_SQL_PATHS[0],),
+    AD + "pruebas_sql/ad3_127_131_b2_post136.sql": (
+        B2_SQL_PATHS[1], B2_SQL_PATHS[3], B2_SQL_PATHS[5], B2_SQL_PATHS[7], B2_SQL_PATHS[10]),
+    CT + "pruebas_sql/vinculo_categoria_rpt_ct154_acl.sql": (B2_SQL_PATHS[2],),
+    BOLSA + "pruebas_sql/000067_persona_aceptacion_ct.sql": (B2_SQL_PATHS[4],),
+    BOLSA + "pruebas_sql/000068_anclaje_aceptacion_incorporacion_ct.sql": (B2_SQL_PATHS[6],),
+    "personal/pruebas_sql/plan_incorporacion_ct_000023.sql": (B2_SQL_PATHS[8],),
+    "personal/pruebas_sql/catalogo_clases_multilingue_000024.sql": (B2_SQL_PATHS[9],),
+    CT + "pruebas_sql/incorporacion_personal_b2_ct155.sql": (B2_SQL_PATHS[11],),
+    CT + "pruebas_sql/ct156_cese_incorporacion_personal_b2.sql": (B2_SQL_PATHS[12],),
+}
+B2_PREREQUISITE_CANDIDATES = {
+    "b_243": "c6b29fd4aa5d3ed384730796c3fc2a153b219313",
+    "a_219": "74b2f4764689dd1fac3f29468be1c778fd4006c2",
+}
 DEFERRED_SQL = (
     USERS + "migraciones/000017_temas_preferencias_v2.up.sql",
     USERS + "pruebas_sql/temas_preferencias_v2.sql",
@@ -96,6 +147,9 @@ class Request:
     expected_a_list_sha256: str
     expected_a_sql_sha256: tuple[str, ...]
     expected_a_companion_sha256: tuple[str, ...]
+    expected_b2_list_sha256: str
+    expected_b2_sql_sha256: tuple[str, ...]
+    expected_b2_companion_sha256: tuple[str, ...]
     expected_deferred_list_sha256: str
     expected_deferred_sql_sha256: tuple[str, ...]
 
@@ -193,14 +247,16 @@ def _diff(repo, target):
         except UnicodeError:
             raise Refused("postmain_invalid_diff_path") from None
         _require(code in {"A", "M", "D", "T"}, "postmain_invalid_diff_status")
-        role = "causal_sql" if path in SQL_PATHS + B_SQL_PATHS + A_SQL_PATHS else (
-            "companion_non_executable" if path in COMPANIONS or path in B_COMPANIONS + A_COMPANIONS else (
+        role = "causal_sql" if path in SQL_PATHS + B_SQL_PATHS + A_SQL_PATHS + B2_SQL_PATHS else (
+            "companion_non_executable" if path in COMPANIONS or path in B_COMPANIONS + A_COMPANIONS or path in B2_COMPANIONS else (
                 "deferred" if path in DEFERRED_SQL else "unknown_sql"))
         change = {"path": path, "status": {"A": "added", "M": "modified",
                   "D": "deleted", "T": "type_changed"}[code], "classification": role,
-                  "linked_up": A_SQL_PATHS[0] if path in A_COMPANIONS else COMPANIONS.get(path),
+                  "linked_up": A_SQL_PATHS[0] if path in A_COMPANIONS else (
+                      B2_COMPANIONS[path][0] if path in B2_COMPANIONS and
+                      len(B2_COMPANIONS[path]) == 1 else COMPANIONS.get(path)),
                   "linked_ups": list(B_SQL_PATHS[4:]) if path in B_COMPANIONS else (
-                      list(A_SQL_PATHS) if path in A_COMPANIONS else []),
+                      list(A_SQL_PATHS) if path in A_COMPANIONS else list(B2_COMPANIONS.get(path, ()))),
                   "executable": False, "before": None, "after": None}
         for key, commit, present in (("before", SOURCE, code != "A"),
                                      ("after", target, code != "D")):
@@ -255,14 +311,25 @@ def receipt_requirements(target):
         "postmain": {"required_fields": ["version", "kind", "plan_sha256", "approval_sha256",
             "h6_receipt_sha256", "ad132_receipt_sha256", "main_commit", "main_tree",
             "causal_list_count", "operation_count", "causal_lists", "operations",
-            "preimages", "postimages", "pg_container_id", "apply_stdout_sha256"],
-            "expected": {"version": 3, "kind": "clon_postmain_receipt",
+            "preimages", "postimages", "stage_postimages", "pg_container_id", "apply_stdout_sha256"],
+            "expected": {"version": 4, "kind": "clon_postmain_receipt",
                 "main_commit": target["commit"], "main_tree": target["tree"],
-                "causal_list_count": 3, "operation_count": 13},
+                "causal_list_count": 4, "operation_count": 26},
             "bindings": ["causal_lists_bind_original_git_bytes_and_external_pins",
                 "operations_bind_order_path_and_original_git_sha256",
                 "preimages_and_postimages_bind_each_operation_and_preserved_sql",
-                "same_pg_container_id_as_h6_and_ad132"]},
+                "same_pg_container_id_as_h6_and_ad132",
+                "stage_postimages_bind_complete_causal_prefix_and_target_commit_tree"],
+            "stage_postimages": [
+                {"group": group, "operation_positions": list(range(first, last + 1)),
+                 "completed_prefix_positions": list(range(1, last + 1)),
+                 "required_fields": ["group", "operation_positions", "completed_prefix_positions",
+                     "operations_sha256", "postimage_sha256", "preserved_sql_sha256",
+                     "installed_anchors", "main_commit", "main_tree", "pg_container_id"],
+                 "status": "not_read_not_validated"}
+                for group, first, last in (("rpt_222", 1, 6), ("b_243", 7, 12),
+                    ("a_219", 13, 13), ("b2_226", 14, 26))],
+            "b2_prerequisite_candidates": B2_PREREQUISITE_CANDIDATES.copy()},
         "cross_equal": [["h6.pg_container_id", "ad132.pg_container_id"],
             ["h6.commit", "ad132.source_commit"],
             ["h6.package_sha", "ad132.package_sha256"],
@@ -274,10 +341,14 @@ def receipt_requirements(target):
         "future_gates": ["external_approval_binds_plan_sha256_and_both_receipt_sha256",
             "h6_live_validation_before_transition", "ad132_live_validation_before_transition",
             "installed_sql_inventory_matches_h6_journal_and_original_package",
-            "no_history_for_thirteen_causal_sql", "second_postmain_receipt_binds_h6_and_ad132",
-            "external_approval_binds_three_causal_lists_and_target_commit_tree",
+            "no_history_for_twenty_six_causal_sql", "second_postmain_receipt_binds_h6_and_ad132",
+            "external_approval_binds_four_causal_lists_and_target_commit_tree",
             "ad136_requires_complete_rpt6_then_b6_postimage",
             "ad136_down_and_probe_never_execute_in_postmain",
+            "b2_requires_complete_rpt6_b6_ad136_postimages_in_causal_order",
+            "b2_ad127_requires_nucleus_post136_preimage",
+            "ad136_probe_is_not_final_b2_postimage",
+            "b2_down_and_probes_never_execute_in_postmain",
             "deferred_u17_never_executes_in_postmain",
             "preserve_h6_historical_receipt_and_live_validator"],
     }
@@ -289,13 +360,15 @@ def build_plan(request: Request) -> dict:
     _require(repo.is_absolute() and ".." not in repo.parts and repo.is_dir() and
              not any(p.is_symlink() for p in (repo, *repo.parents)), "postmain_invalid_repo_path")
     for pin in (request.expected_list_sha256, request.expected_b_list_sha256,
-                request.expected_a_list_sha256,
+                request.expected_a_list_sha256, request.expected_b2_list_sha256,
                 request.expected_deferred_list_sha256):
         _require(isinstance(pin, str) and HEX64.fullmatch(pin), "postmain_invalid_expected_hashes")
     for pins, size in ((request.expected_sql_sha256, 6), (request.expected_b_sql_sha256, 6),
                        (request.expected_b_companion_sha256, 3),
                        (request.expected_a_sql_sha256, 1),
                        (request.expected_a_companion_sha256, 2),
+                       (request.expected_b2_sql_sha256, 13),
+                       (request.expected_b2_companion_sha256, 22),
                        (request.expected_deferred_sql_sha256, 2)):
         _require(type(pins) is tuple and len(pins) == size and
                  all(isinstance(pin, str) and HEX64.fullmatch(pin) for pin in pins),
@@ -309,7 +382,8 @@ def build_plan(request: Request) -> dict:
     for group, list_path, paths, list_pin, sql_pins in (
         ("rpt_222", LIST, SQL_PATHS, request.expected_list_sha256, request.expected_sql_sha256),
         ("b_243", LIST_B, B_SQL_PATHS, request.expected_b_list_sha256, request.expected_b_sql_sha256),
-        ("a_219", LIST_A, A_SQL_PATHS, request.expected_a_list_sha256, request.expected_a_sql_sha256)):
+        ("a_219", LIST_A, A_SQL_PATHS, request.expected_a_list_sha256, request.expected_a_sql_sha256),
+        ("b2_226", LIST_B2, B2_SQL_PATHS, request.expected_b2_list_sha256, request.expected_b2_sql_sha256)):
         data, listing = _blob(repo, target["commit"], list_path, list_pin)
         _list_paths(data, paths)
         lists.append({"group": group, "path": list_path, **listing})
@@ -325,6 +399,10 @@ def build_plan(request: Request) -> dict:
         "classification": "companion_non_executable", "executable": False,
         **_blob(repo, target["commit"], path, pin)[1]}
         for path, pin in zip(A_COMPANIONS, request.expected_a_companion_sha256, strict=True))
+    companions.extend({"path": path, "linked_up": ups[0] if len(ups) == 1 else None,
+        "linked_ups": list(ups), "classification": "companion_non_executable", "executable": False,
+        **_blob(repo, target["commit"], path, pin)[1]}
+        for (path, ups), pin in zip(B2_COMPANIONS.items(), request.expected_b2_companion_sha256, strict=True))
     data, deferred_list = _blob(repo, target["commit"], LIST_DEFERRED,
                                 request.expected_deferred_list_sha256)
     _list_paths(data, DEFERRED_SQL[:1])
@@ -338,7 +416,7 @@ def build_plan(request: Request) -> dict:
     changes, blockers = _diff(repo, target["commit"])
     _require(_git(repo, "rev-parse", "--verify", "refs/remotes/origin/main").decode("ascii").strip()
              == origin, "postmain_origin_main_changed")
-    return {"version": 3, "kind": "clon_postmain_plan", "plan": "pending_approval",
+    return {"version": 4, "kind": "clon_postmain_plan", "plan": "pending_approval",
         "executable": False, "sql_invoked": False, "source": source, "target": target,
         "origin_main_observed": origin, "causal_lists": lists,
         "operations": operations, "companions": companions, "deferred": deferred,
@@ -359,6 +437,9 @@ def main(argv=None):
     parser.add_argument("--expected-a-list-sha256", required=True)
     parser.add_argument("--expected-a-sql-sha256", required=True, action="append")
     parser.add_argument("--expected-a-companion-sha256", required=True, action="append")
+    parser.add_argument("--expected-b2-list-sha256", required=True)
+    parser.add_argument("--expected-b2-sql-sha256", required=True, action="append")
+    parser.add_argument("--expected-b2-companion-sha256", required=True, action="append")
     parser.add_argument("--expected-deferred-list-sha256", required=True)
     parser.add_argument("--expected-deferred-sql-sha256", required=True, action="append")
     args = parser.parse_args(argv)
@@ -367,6 +448,8 @@ def main(argv=None):
                                tuple(args.expected_b_sql_sha256), tuple(args.expected_b_companion_sha256),
                                args.expected_a_list_sha256, tuple(args.expected_a_sql_sha256),
                                tuple(args.expected_a_companion_sha256),
+                               args.expected_b2_list_sha256, tuple(args.expected_b2_sql_sha256),
+                               tuple(args.expected_b2_companion_sha256),
                                args.expected_deferred_list_sha256, tuple(args.expected_deferred_sql_sha256)))
     sys.stdout.buffer.write(canonical(value))
     return 2 if value["blockers"] else 0

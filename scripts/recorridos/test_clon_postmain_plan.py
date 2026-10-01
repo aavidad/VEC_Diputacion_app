@@ -38,9 +38,11 @@ class PlanTest(unittest.TestCase):
         self.write(planner.LIST, self.list_bytes())
         self.write(planner.LIST_B, self.list_bytes(planner.B_SQL_PATHS))
         self.write(planner.LIST_A, self.list_bytes(planner.A_SQL_PATHS))
+        self.write(planner.LIST_B2, self.list_bytes(planner.B2_SQL_PATHS))
         self.write(planner.LIST_DEFERRED, self.list_bytes(planner.DEFERRED_SQL[:1]))
         for path in (planner.B_SQL_PATHS + planner.B_COMPANIONS + planner.A_SQL_PATHS +
-                     planner.A_COMPANIONS + planner.DEFERRED_SQL):
+                     planner.A_COMPANIONS + planner.B2_SQL_PATHS + tuple(planner.B2_COMPANIONS) +
+                     planner.DEFERRED_SQL):
             self.write(path, ("-- synthetic target " + path + "\n").encode())
         self.target = self.commit()
         self.point_origin()
@@ -77,7 +79,9 @@ class PlanTest(unittest.TestCase):
             self.pin(planner.LIST_B), tuple(self.pin(path) for path in planner.B_SQL_PATHS),
             tuple(self.pin(path) for path in planner.B_COMPANIONS),
             self.pin(planner.LIST_A), tuple(self.pin(path) for path in planner.A_SQL_PATHS),
-            tuple(self.pin(path) for path in planner.A_COMPANIONS), self.pin(planner.LIST_DEFERRED),
+            tuple(self.pin(path) for path in planner.A_COMPANIONS),
+            self.pin(planner.LIST_B2), tuple(self.pin(path) for path in planner.B2_SQL_PATHS),
+            tuple(self.pin(path) for path in planner.B2_COMPANIONS), self.pin(planner.LIST_DEFERRED),
             tuple(self.pin(path) for path in planner.DEFERRED_SQL))
 
     def test_plan_uses_commit_bytes_and_classifies_modified_and_companions(self):
@@ -85,29 +89,31 @@ class PlanTest(unittest.TestCase):
         self.write(planner.LIST, b"cwd is untrusted and ignored\n")
         self.write(planner.LIST_B, b"cwd second list is also ignored\n")
         self.write(planner.LIST_A, b"cwd third list is also ignored\n")
-        for path in planner.A_SQL_PATHS + planner.A_COMPANIONS:
+        self.write(planner.LIST_B2, b"cwd fourth list is also ignored\n")
+        for path in planner.A_SQL_PATHS + planner.A_COMPANIONS + planner.B2_SQL_PATHS + tuple(planner.B2_COMPANIONS):
             original = (self.repo / path).read_bytes()
             self.write(path, bytes([original[0] ^ 1]) + original[1:])
         self.write(planner.SQL_PATHS[1], b"cwd SQL must be ignored\n")
         value = planner.build_plan(request)
         self.assertEqual(value["plan"], "pending_approval")
-        self.assertEqual(value["version"], 3)
+        self.assertEqual(value["version"], 4)
         self.assertIs(value["executable"], False)
         self.assertFalse(value["sql_invoked"])
         self.assertEqual(value["blockers"], [])
         self.assertEqual(value["target"], {"commit": self.target,
             "tree": self.git("rev-parse", self.target + "^{tree}").decode().strip()})
         self.assertEqual([item["path"] for item in value["operations"]],
-                         list(planner.SQL_PATHS + planner.B_SQL_PATHS + planner.A_SQL_PATHS))
-        self.assertEqual([item["position"] for item in value["operations"]], list(range(1, 14)))
-        self.assertEqual(value["operations"][-1]["group"], "a_219")
+                         list(planner.SQL_PATHS + planner.B_SQL_PATHS + planner.A_SQL_PATHS + planner.B2_SQL_PATHS))
+        self.assertEqual([item["position"] for item in value["operations"]], list(range(1, 27)))
+        self.assertEqual(value["operations"][12]["group"], "a_219")
+        self.assertEqual(value["operations"][-1]["group"], "b2_226")
         self.assertEqual([item["path"] for item in value["causal_lists"]],
-                         [planner.LIST, planner.LIST_B, planner.LIST_A])
+                         [planner.LIST, planner.LIST_B, planner.LIST_A, planner.LIST_B2])
         self.assertEqual([item["sha256"] for item in value["causal_lists"]],
                          [request.expected_list_sha256, request.expected_b_list_sha256,
-                          request.expected_a_list_sha256])
+                          request.expected_a_list_sha256, request.expected_b2_list_sha256])
         self.assertEqual([item["path"] for item in value["companions"]],
-                         list(planner.B_COMPANIONS + planner.A_COMPANIONS))
+                         list(planner.B_COMPANIONS + planner.A_COMPANIONS + tuple(planner.B2_COMPANIONS)))
         self.assertTrue(all(item["linked_ups"] == list(planner.B_SQL_PATHS[4:]) and
                             item["executable"] is False for item in value["companions"][:3]))
         changes = {item["path"]: item for item in value["sql_diff"]}
@@ -120,9 +126,9 @@ class PlanTest(unittest.TestCase):
             b"-- synthetic target DOWN\n").hexdigest())
         self.assertEqual(value["receipt_requirements"]["status"], "not_read_not_validated")
         future = value["receipt_requirements"]["postmain"]
-        self.assertEqual(future["expected"], {"version": 3, "kind": "clon_postmain_receipt",
+        self.assertEqual(future["expected"], {"version": 4, "kind": "clon_postmain_receipt",
             "main_commit": self.target, "main_tree": value["target"]["tree"],
-            "causal_list_count": 3, "operation_count": 13})
+            "causal_list_count": 4, "operation_count": 26})
         self.assertTrue({"preimages", "postimages", "h6_receipt_sha256", "ad132_receipt_sha256"}
                         <= set(future["required_fields"]))
         self.assertIn("h6_live_validation_before_transition",
@@ -138,7 +144,7 @@ class PlanTest(unittest.TestCase):
         self.assertEqual(changes[up]["classification"], "causal_sql")
         self.assertIsNone(changes[up]["before"])
         self.assertEqual(changes[up]["after"]["sha256"], request.expected_a_sql_sha256[0])
-        self.assertEqual(value["operations"][-1]["sha256"], request.expected_a_sql_sha256[0])
+        self.assertEqual(value["operations"][12]["sha256"], request.expected_a_sql_sha256[0])
         operation_paths = {item["path"] for item in value["operations"]}
         for path, pin in zip(planner.A_COMPANIONS, request.expected_a_companion_sha256, strict=True):
             with self.subTest(path=path):
@@ -151,7 +157,7 @@ class PlanTest(unittest.TestCase):
                 self.assertNotIn(path, operation_paths)
         self.assertTrue(all(item["executable"] is False for item in value["sql_diff"]))
 
-    def test_cli_v3_pins_and_unknown_sql_exit_status(self):
+    def test_cli_v4_pins_and_unknown_sql_exit_status(self):
         argv = ["--repo", str(self.repo), "--target-commit", self.target]
         request = self.request()
         for name in request.__dataclass_fields__:
@@ -164,9 +170,9 @@ class PlanTest(unittest.TestCase):
         with patch.object(planner.sys, "stdout", output):
             self.assertEqual(planner.main(argv), 0)
         value = json.loads(output.buffer.getvalue())
-        self.assertEqual(value["version"], 3)
-        self.assertEqual(len(value["operations"]), 13)
-        self.write("deploy/postgresql/other/unknown_b2.up.sql", b"-- unrelated synthetic SQL\n")
+        self.assertEqual(value["version"], 4)
+        self.assertEqual(len(value["operations"]), 26)
+        self.write("deploy/postgresql/contratacion_temporal/pruebas_sql/custodia_firmado_e2e_dobles.sql", b"-- unrelated synthetic SQL\n")
         self.target = self.commit()
         self.point_origin()
         argv[3] = self.target
@@ -174,7 +180,7 @@ class PlanTest(unittest.TestCase):
         with patch.object(planner.sys, "stdout", output):
             self.assertEqual(planner.main(argv), 2)
         value = json.loads(output.buffer.getvalue())
-        self.assertIn({"code": "unknown_sql_path", "path": "deploy/postgresql/other/unknown_b2.up.sql"},
+        self.assertIn({"code": "unknown_sql_path", "path": "deploy/postgresql/contratacion_temporal/pruebas_sql/custodia_firmado_e2e_dobles.sql"},
                       value["blockers"])
         self.assertIs(value["executable"], False)
 
@@ -272,6 +278,74 @@ class PlanTest(unittest.TestCase):
                 with self.assertRaises(planner.Refused):
                     planner.build_plan(self.request())
 
+    def test_fourth_causal_list_reorder_duplicate_traversal_and_extra_up_block(self):
+        paths = planner.B2_SQL_PATHS
+        cases = (tuple(reversed(paths)), paths[:-1] + paths[:1],
+                 ("../escape.up.sql",) + paths[1:], ("/absolute.sql",) + paths[1:],
+                 paths + planner.A_SQL_PATHS)
+        for entries in cases:
+            with self.subTest(entries=entries):
+                self.write(planner.LIST_B2, self.list_bytes(entries))
+                self.target = self.commit()
+                self.point_origin()
+                with self.assertRaises(planner.Refused):
+                    planner.build_plan(self.request())
+
+    def test_b2_companions_have_closed_nominal_links_and_never_are_operations(self):
+        request = self.request()
+        value = planner.build_plan(request)
+        changes = {item["path"]: item for item in value["sql_diff"]}
+        companions = {item["path"]: item for item in value["companions"]}
+        operation_paths = {item["path"] for item in value["operations"]}
+        self.assertEqual(len(planner.B2_COMPANIONS), 22)
+        self.assertEqual(sum(path.endswith(".down.sql") for path in planner.B2_COMPANIONS), 13)
+        self.assertEqual(sum("pruebas_sql/" in path for path in planner.B2_COMPANIONS), 9)
+        self.assertEqual(sum(path.startswith("personal/") for path in planner.B2_COMPANIONS), 2)
+        for (path, ups), pin in zip(planner.B2_COMPANIONS.items(),
+                                   request.expected_b2_companion_sha256, strict=True):
+            with self.subTest(path=path):
+                self.assertNotIn(path, operation_paths)
+                self.assertEqual(companions[path]["linked_ups"], list(ups))
+                self.assertTrue(set(ups) <= set(planner.B2_SQL_PATHS))
+                self.assertEqual(companions[path]["sha256"], pin)
+                self.assertEqual(changes[path]["classification"], "companion_non_executable")
+                self.assertEqual(changes[path]["linked_ups"], list(ups))
+                self.assertEqual(companions[path]["linked_up"], ups[0] if len(ups) == 1 else None)
+                self.assertIs(companions[path]["executable"], False)
+                self.assertIs(changes[path]["executable"], False)
+        for path, pin in zip(planner.B2_SQL_PATHS, request.expected_b2_sql_sha256, strict=True):
+            self.assertEqual(changes[path]["classification"], "causal_sql")
+            self.assertEqual(changes[path]["after"]["sha256"], pin)
+            self.assertIsNone(changes[path]["before"])
+
+    def test_b2_postimage_follows_all_four_complete_stages_not_ad136_probe(self):
+        value = planner.build_plan(self.request())
+        receipt = value["receipt_requirements"]
+        stages = receipt["postmain"]["stage_postimages"]
+        self.assertEqual([item["group"] for item in stages], ["rpt_222", "b_243", "a_219", "b2_226"])
+        self.assertEqual([item["operation_positions"] for item in stages],
+                         [list(range(1, 7)), list(range(7, 13)), [13], list(range(14, 27))])
+        self.assertEqual(stages[-1]["completed_prefix_positions"], list(range(1, 27)))
+        self.assertTrue(all(item["status"] == "not_read_not_validated" for item in stages))
+        for item in stages:
+            self.assertTrue({"main_commit", "main_tree", "pg_container_id", "postimage_sha256",
+                             "preserved_sql_sha256"} <= set(item["required_fields"]))
+        self.assertEqual(receipt["postmain"]["b2_prerequisite_candidates"], {
+            "b_243": "c6b29fd4aa5d3ed384730796c3fc2a153b219313",
+            "a_219": "74b2f4764689dd1fac3f29468be1c778fd4006c2"})
+        self.assertIn("stage_postimages", receipt["postmain"]["required_fields"])
+        self.assertIn("ad136_probe_is_not_final_b2_postimage", receipt["future_gates"])
+        self.assertIn("b2_ad127_requires_nucleus_post136_preimage", receipt["future_gates"])
+
+    def test_unlisted_personal_probe_still_blocks_despite_companion_directory(self):
+        path = "personal/pruebas_sql/unapproved_extra_b2.sql"
+        self.write(path, b"-- extra synthetic probe\n")
+        self.target = self.commit()
+        self.point_origin()
+        value = planner.build_plan(self.request())
+        self.assertIn({"code": "unknown_sql_path", "path": path}, value["blockers"])
+        self.assertNotIn(path, {item["path"] for item in value["companions"]})
+
     def test_u17_deferred_with_absent_u15_u16_never_becomes_operation(self):
         value = planner.build_plan(self.request())
         self.assertEqual([item["path"] for item in value["deferred"]], list(planner.DEFERRED_SQL))
@@ -346,6 +420,18 @@ class PlanTest(unittest.TestCase):
             with self.assertRaisesRegex(planner.Refused, "expected_sha_mismatch"):
                 planner.build_plan(changed)
 
+    def test_each_b2_external_pin_must_match_original_blob(self):
+        request = self.request()
+        cases = [replace(request, expected_b2_list_sha256="0" * 64)]
+        for field in ("expected_b2_sql_sha256", "expected_b2_companion_sha256"):
+            pins = getattr(request, field)
+            for index in range(len(pins)):
+                altered = pins[:index] + ("0" * 64,) + pins[index + 1:]
+                cases.append(replace(request, **{field: altered}))
+        for changed in cases:
+            with self.subTest(changed=changed), self.assertRaisesRegex(planner.Refused, "expected_sha_mismatch"):
+                planner.build_plan(changed)
+
     def test_show_bytes_must_match_git_blob(self):
         request = self.request()
         original = planner._git
@@ -398,6 +484,10 @@ class PlanTest(unittest.TestCase):
                         replace(request, expected_sql_sha256=("0" * 64,)),
                         replace(request, expected_b_sql_sha256=("0" * 64,)),
                         replace(request, expected_b_companion_sha256=("0" * 64,)),
+                        replace(request, expected_b2_list_sha256=None),
+                        replace(request, expected_b2_sql_sha256=()),
+                        replace(request, expected_b2_sql_sha256=list(request.expected_b2_sql_sha256)),
+                        replace(request, expected_b2_companion_sha256=request.expected_b2_companion_sha256[:-1]),
                         replace(request, expected_a_list_sha256=None),
                         replace(request, expected_a_sql_sha256=()),
                         replace(request, expected_a_sql_sha256=list(request.expected_a_sql_sha256)),
