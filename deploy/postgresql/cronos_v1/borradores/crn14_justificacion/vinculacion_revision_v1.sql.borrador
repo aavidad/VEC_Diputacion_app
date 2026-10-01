@@ -8,8 +8,8 @@
 --
 -- Entrada futura: MaterialJustificacion canónico de la fuente C8, sin bytes
 -- documentales, contenido personal ni motivos libres. Huella SHA256 exacta.
--- Actor/perfil desde frontera confiable; empleado y solicitud desde fuente
--- autorizada de Persona/Personal. Enclave interno acreditado, nunca inferido.
+-- Actor/perfil desde frontera confiable; empleado desde Persona/Personal.
+-- Solicitud y catálogo desde fuente autorizada Cronos; enclave acreditado.
 -- Cotejar solicitud_ref, empleado_ref, catalogo_version_ref, permiso_ref,
 -- expediente_documental_ref y solicitud_version contra la preimagen exacta.
 -- Solicitud concedida y justificante exigido; catálogo original inmutable.
