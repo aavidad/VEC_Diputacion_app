@@ -1,4 +1,4 @@
-import { VISTAS, formatearPuntos } from './modelo.js?v=20261001-provision-v1';
+import { VISTAS, formatearPuntos } from './modelo.js?v=20261001-provision-validacion-v2';
 function nodo(d, tag, texto, clase) { const n = d.createElement(tag); if (texto !== undefined) n.textContent = texto; if (clase) n.className = clase; return n; }
 function boton(d, texto, accion, clave, deshabilitado = false) { const b = nodo(d, 'button', texto, 'boton-secundario'); b.type = 'button'; b.disabled = deshabilitado; b.dataset.foco = clave; b.addEventListener('click', accion); return b; }
 function panel(d, titulo) { const n = nodo(d, 'section', undefined, 'panel'); const h = nodo(d, 'header', undefined, 'cabecera-panel'); h.append(nodo(d, 'h2', titulo)); const cuerpo = nodo(d, 'div', undefined, 'cuerpo-panel pila'); n.append(h, cuerpo); return { n, cuerpo }; }
@@ -11,19 +11,31 @@ export function pintarProvision({ raiz, estado, textos, proyeccion = {}, accione
   const ayuda = nodo(d, 'details'); ayuda.append(nodo(d, 'summary', t('ayuda_signo')), nodo(d, 'p', t('ayuda_texto'))); ayuda.firstChild.setAttribute('aria-label', t('ayuda')); cabecera.append(ayuda); pila.append(cabecera);
   const nav = nodo(d, 'nav', undefined, 'acciones-vista'); nav.setAttribute('aria-label', t('titulo'));
   VISTAS.forEach(v => { const b = boton(d, t(`tabs.${v}`), () => acciones.vista(v), `vista-${v}`); b.setAttribute('aria-current', estado.vista === v ? 'page' : 'false'); if (estado.vista === v) b.className = 'boton-primario'; nav.append(b); }); pila.append(nav);
-  const live = nodo(d, 'p', estado.mensaje || t('limite'), 'texto-secundario'); live.dataset.provisionAviso = ''; live.setAttribute('role', 'status'); live.setAttribute('aria-live', 'polite'); pila.append(live);
+  const live = nodo(d, 'p', estado.mensaje || t('limite'), 'texto-secundario'); live.dataset.provisionAviso = ''; live.setAttribute('role', Object.keys(estado.invalidos ?? {}).length > 0 ? 'alert' : 'status'); live.setAttribute('aria-live', 'polite'); pila.append(live);
   const p = panel(d, t(`tabs.${estado.vista}`)); pila.append(p.n);
+  const enlazarValidacion = (label, input, cambio, clave) => {
+    const error = nodo(d, 'p', estado.errores?.[clave] ? t(estado.errores[clave]) : '', 'texto-secundario');
+    error.id = `provision-error-${clave}`; error.hidden = !estado.errores?.[clave];
+    input.setAttribute('aria-describedby', error.id);
+    input.addEventListener('change', () => {
+      const validacion = acciones.configuracion({ ...cambio, valor: input.value });
+      input.setAttribute('aria-invalid', String(!validacion.valido));
+      error.textContent = validacion.mensaje; error.hidden = validacion.valido;
+    });
+    label.append(input, error);
+  };
+
   if (estado.vista === 'convocatoria') {
     p.cuerpo.append(datos(d, t, [['proceso', proyectar(proyeccion, 'denominacion', t('datos.concurso'))], ['version', estado.proceso.configuracion.version], ['estado', t('estados.borrador')]]));
     p.cuerpo.append(nodo(d, 'p', t('estados.sin_bases')), nodo(d, 'p', t('estados.sin_plazo')));
     const siguiente = nodo(d, 'section', undefined, 'siguiente-paso'); siguiente.append(nodo(d, 'h3', t('siguiente')), nodo(d, 'p', t('siguiente_texto')), boton(d, t('acciones.ver_puestos'), () => acciones.vista('puestos'), 'ver-puestos')); p.cuerpo.append(siguiente);
     const form = nodo(d, 'form', undefined, 'pila');
     const campos = nodo(d, 'div', undefined, 'rejilla-dos');
-    ['ventana_desde', 'fecha_corte'].forEach(campo => { const label = nodo(d, 'label', undefined, 'campo'); label.append(nodo(d, 'span', t(`configuracion.${campo}`))); const input = nodo(d, 'input'); input.type = 'date'; input.value = estado.invalidos?.[campo] ?? estado.proceso.configuracion[campo]; input.setAttribute('aria-invalid', String(Object.hasOwn(estado.invalidos ?? {}, campo))); input.dataset.foco = campo; input.required = true; input.addEventListener('change', () => acciones.configuracion({ campo, valor: input.value })); label.append(input); campos.append(label); });
+    ['ventana_desde', 'fecha_corte'].forEach(campo => { const label = nodo(d, 'label', undefined, 'campo'); label.append(nodo(d, 'span', t(`configuracion.${campo}`))); const input = nodo(d, 'input'); input.type = 'date'; input.value = estado.invalidos?.[campo] ?? estado.proceso.configuracion[campo]; input.setAttribute('aria-invalid', String(Object.hasOwn(estado.invalidos ?? {}, campo))); input.dataset.foco = campo; input.required = true; enlazarValidacion(label, input, { campo }, campo); campos.append(label); });
     form.addEventListener('submit', e => e.preventDefault()); form.append(campos); p.cuerpo.append(form);
     const reglas = estado.proceso.configuracion.reglas ?? [];
     const filasReglas = reglas.map((r, i) => {
-      const controles = ['coeficiente', 'maximo'].map(campo => { const label = nodo(d, 'label', undefined, 'campo'); label.append(nodo(d, 'span', t(`configuracion.${campo}`))); const input = nodo(d, 'input'); input.type = 'text'; input.inputMode = 'decimal'; input.value = estado.invalidos?.[`${campo}-${i}`] ?? formatearPuntos(r[campo], textos.localizacion).replaceAll(new Intl.NumberFormat(textos.localizacion).formatToParts(1000).find(p => p.type === 'group')?.value ?? '\uFFFF', ''); input.dataset.foco = `${campo}-${i}`; input.setAttribute('aria-invalid', String(Object.hasOwn(estado.invalidos ?? {}, `${campo}-${i}`))); if (campo === 'coeficiente' && r.tramos?.length) { input.disabled = true; input.value = t('configuracion.por_tramos'); } input.setAttribute('aria-label', t('configuracion.etiqueta', { campo: t(`configuracion.${campo}`), familia: t(`familias.${r.familia}`) })); input.addEventListener('change', () => acciones.configuracion({ campo, regla: i, valor: input.value })); label.append(input); return label; });
+      const controles = ['coeficiente', 'maximo'].map(campo => { const label = nodo(d, 'label', undefined, 'campo'); label.append(nodo(d, 'span', t(`configuracion.${campo}`))); const input = nodo(d, 'input'); input.type = 'text'; input.inputMode = 'decimal'; input.value = estado.invalidos?.[`${campo}-${i}`] ?? formatearPuntos(r[campo], textos.localizacion).replaceAll(new Intl.NumberFormat(textos.localizacion).formatToParts(1000).find(p => p.type === 'group')?.value ?? '\uFFFF', ''); input.dataset.foco = `${campo}-${i}`; input.setAttribute('aria-invalid', String(Object.hasOwn(estado.invalidos ?? {}, `${campo}-${i}`))); if (campo === 'coeficiente' && r.tramos?.length) { input.disabled = true; input.value = t('configuracion.por_tramos'); } input.setAttribute('aria-label', t('configuracion.etiqueta', { campo: t(`configuracion.${campo}`), familia: t(`familias.${r.familia}`) })); enlazarValidacion(label, input, { campo, regla: i }, `${campo}-${i}`); return label; });
       return [t(`familias.${r.familia}`), ...controles];
     });
     p.cuerpo.append(tabla(d, t, t('configuracion.titulo'), ['regla', 'coeficiente', 'maximo'], filasReglas));
@@ -49,9 +61,10 @@ export function pintarProvision({ raiz, estado, textos, proyeccion = {}, accione
   }
   if (estado.vista === 'valoracion') {
     const simular = boton(d, t('acciones.simular'), acciones.simular, 'simular', !acciones.puedeSimular || !estado.preferencias.length || estado.estado === 'cargando' || Object.keys(estado.invalidos ?? {}).length > 0); simular.className = 'boton-primario'; p.cuerpo.append(simular);
+    if (Object.keys(estado.invalidos ?? {}).length > 0 || estado.estado === 'validacion') p.cuerpo.append(nodo(d, 'p', t('configuracion.errores_pendientes')), boton(d, t('configuracion.corregir'), () => acciones.vista('convocatoria', Object.keys(estado.invalidos ?? {})[0]), 'corregir-configuracion'));
     if (!acciones.puedeSimular) p.cuerpo.append(nodo(d, 'p', t('estados.sin_cliente')));
     if (estado.estado === 'cargando') p.cuerpo.append(nodo(d, 'p', t('estados.cargando')));
-    if (['error', 'denegado', 'conflicto'].includes(estado.estado)) { const error = nodo(d, 'p', t(`estados.${estado.estado}`)); error.setAttribute('role', 'alert'); p.cuerpo.append(error); }
+    if (['error', 'denegado', 'conflicto', 'validacion'].includes(estado.estado)) { const error = nodo(d, 'p', t(`estados.${estado.estado}`)); error.setAttribute('role', 'alert'); p.cuerpo.append(error); }
     if (!estado.resultado && estado.estado !== 'cargando') p.cuerpo.append(nodo(d, 'p', t('estados.sin_resultado')));
     (estado.resultado?.valoraciones ?? []).forEach(v => {
       const r = v.resultado; const detalles = nodo(d, 'details'); detalles.open = true; const summary = nodo(d, 'summary', nombre(v.puesto_ref)); detalles.append(summary);

@@ -55,14 +55,20 @@ export function puntosDesdeDecimal(valor) {
   if (!m) throw new TypeError('provision.decimal');
   return (BigInt(m[1]) * 1000000n + BigInt((m[2] ?? '').padEnd(6, '0'))).toString();
 }
+function fechaCivilValida(valor) {
+  if (typeof valor !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(valor)) return false;
+  const fecha = new Date(`${valor}T00:00:00.000Z`);
+  return Number.isFinite(fecha.getTime()) && fecha.toISOString().slice(0, 10) === valor;
+}
 export function actualizarConfiguracion(estado, { campo, valor, regla }) {
   const proceso = structuredClone(estado.proceso);
   if (regla !== undefined) {
     if (!['coeficiente', 'maximo'].includes(campo) || !proceso.configuracion.reglas[regla]) throw new TypeError('provision.configuracion');
     proceso.configuracion.reglas[regla][campo] = puntosDesdeDecimal(valor);
   } else {
-    if (!['fecha_corte', 'ventana_desde'].includes(campo) || !/^\d{4}-\d{2}-\d{2}$/.test(valor)) throw new TypeError('provision.configuracion');
+    if (!['fecha_corte', 'ventana_desde'].includes(campo) || !fechaCivilValida(valor)) throw new TypeError('provision.fecha');
     proceso.configuracion[campo] = valor;
+    if (proceso.configuracion.ventana_desde >= proceso.configuracion.fecha_corte) throw new TypeError('provision.fecha');
   }
   return { ...estado, proceso, resultado: null, estado: 'pendiente', revision: estado.revision + 1 };
 }

@@ -57,7 +57,8 @@
     "sin_dato": "Pending",
     "sin_bases": "Official rules have not been linked",
     "sin_plazo": "No application deadline has been published",
-    "revision": "HR review and approval of the rules are still pending."
+    "revision": "HR review and approval of the rules are still pending.",
+    "validacion": "Review the configuration and preferences. The competition rejected these values for simulation."
   },
   "acciones": {
     "seleccionar": "Add to preferences",
@@ -131,8 +132,11 @@
     "maximo": "Point cap",
     "etiqueta": "{campo}: {familia}",
     "actualizada": "Trial configuration updated. Simulate again to obtain the assessment.",
-    "invalida": "Check the value: enter a valid date or non-negative points with up to six decimal places.",
-    "por_tramos": "According to rule bands"
+    "invalida": "Enter non-negative points with up to six decimal places.",
+    "por_tramos": "According to rule bands",
+    "fecha_invalida": "Enter a valid date. The window start must precede the cut-off date.",
+    "errores_pendientes": "Some values need correction. Review the marked fields in Competition before simulating.",
+    "corregir": "Correct configuration"
   },
   "volver_al_baremador": "Back to the scoring simulator",
   "ejemplo_selector": "Trial scenario"

@@ -57,7 +57,8 @@
     "sin_dato": "Pendiente",
     "sin_bases": "Bases oficiales pendientes de vincular",
     "sin_plazo": "Sin plazo de presentación publicado",
-    "revision": "La revisión de RRHH y la aprobación de las bases siguen pendientes."
+    "revision": "La revisión de RRHH y la aprobación de las bases siguen pendientes.",
+    "validacion": "Revise la configuración y las preferencias. El concurso no ha admitido estos valores para la simulación."
   },
   "acciones": {
     "seleccionar": "Añadir a preferencias",
@@ -131,8 +132,11 @@
     "maximo": "Tope de puntos",
     "etiqueta": "{campo}: {familia}",
     "actualizada": "Configuración del ensayo actualizada. Vuelva a simular para obtener la valoración.",
-    "invalida": "Revise el valor: introduzca una fecha válida o puntos positivos con hasta seis decimales.",
-    "por_tramos": "Según tramos de las bases"
+    "invalida": "Introduzca puntos iguales o mayores que cero, con hasta seis decimales.",
+    "por_tramos": "Según tramos de las bases",
+    "fecha_invalida": "Introduzca una fecha válida. El inicio de la ventana debe ser anterior a la fecha de corte.",
+    "errores_pendientes": "Hay valores por corregir. Revise los campos indicados en Convocatoria antes de simular.",
+    "corregir": "Corregir configuración"
   },
   "volver_al_baremador": "Volver al simulador de baremos",
   "ejemplo_selector": "Caso de ensayo"

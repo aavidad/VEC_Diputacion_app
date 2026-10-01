@@ -1,7 +1,7 @@
 import { cargarTextos } from '../../../comun/textos.js';
 import { INDICE_IDIOMAS } from '../../../comun/idioma.js';
-import { crearClienteProvisionLocal } from './cliente-local.js?v=20261001-provision-v1';
-import { montarModuloProvision } from './montaje.js?v=20261001-provision-v1';
+import { crearClienteProvisionLocal } from './cliente-local.js?v=20261001-provision-validacion-v2';
+import { montarModuloProvision } from './montaje.js?v=20261001-provision-validacion-v2';
 const textos = await cargarTextos('provision'); const t = textos.traducir;
 document.documentElement.lang = textos.idioma; document.title = t('titulo');
 document.querySelectorAll('[data-texto]').forEach(n => { n.textContent = t(n.dataset.texto); });

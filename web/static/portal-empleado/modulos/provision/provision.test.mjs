@@ -18,6 +18,7 @@ function dom() {
     get firstChild() { return this.children[0]; }
     setAttribute(k, v) { this.atributos[k] = v; }
     addEventListener(k, f) { this.listeners[k] = f; }
+    querySelector(selector) { return nodos(this).find(n => selector === '[data-provision-aviso]' && n.dataset.provisionAviso !== undefined) ?? null; }
     querySelectorAll() { return this.children.flatMap(n => [n, ...n.querySelectorAll()]).filter(n => n.dataset.foco); }
     focus() { d.activeElement = this; }
   }
@@ -62,5 +63,31 @@ test('render ES/EN sin HTML inyectado y estados pendientes distintos de puntuaci
     const raiz = dom(); const tx = crearTextos({ modulo: 'provision', idioma, localizacion, respaldo: es, propio });
     const m = await montarModuloProvision({ raiz, textos: tx, preparacion: preparacion(), proyeccion: { puestos: { 'puesto:1': { denominacion: '<img onerror=alert(1)>' } } }, cliente: { simular: async () => resultado(m.obtenerEstado()) } });
     click(raiz, 'vista-valoracion'); await click(raiz, 'simular'); assert.equal(nodos(raiz).some(n => n.tagName === 'img'), false); assert.equal(nodos(raiz).some(n => n.textContent === tx.traducir('estados.sin_dato')), true);
+  }
+});
+test('calendario civil rechaza fechas inexistentes e intervalo vacío o invertido', () => {
+  const estado = crearEstado(preparacion());
+  for (const valor of ['2025-02-29', '2025-02-30', '2025-13-01', '']) assert.throws(() => actualizarConfiguracion(estado, { campo: 'fecha_corte', valor }));
+  assert.throws(() => actualizarConfiguracion(estado, { campo: 'ventana_desde', valor: '2025-01-01' }));
+  assert.throws(() => actualizarConfiguracion(estado, { campo: 'ventana_desde', valor: '2026-01-01' }));
+  assert.equal(actualizarConfiguracion(estado, { campo: 'fecha_corte', valor: '2024-02-29' }).proceso.configuracion.fecha_corte, '2024-02-29');
+});
+test('errores de configuración conservan campo, descriptor y foco sin sustituir controles al salir', async () => {
+  const raiz = dom(); const p = preparacion(); p.proceso.configuracion.reglas = [{ familia: 'grado', coeficiente: '0', maximo: '1000000' }];
+  const m = await montarModuloProvision({ raiz, textos, preparacion: p, cliente: { simular: async () => ({}) } });
+  const maximo = nodos(raiz).find(n => n.dataset.foco === 'maximo-0'); maximo.focus(); maximo.value = 'abc'; maximo.listeners.change();
+  assert.equal(maximo.atributos['aria-invalid'], 'true'); assert.equal(maximo.atributos['aria-describedby'], 'provision-error-maximo-0');
+  assert.equal(nodos(raiz).find(n => n.dataset.foco === 'maximo-0'), maximo); assert.equal(raiz.ownerDocument.activeElement, maximo);
+  const fecha = nodos(raiz).find(n => n.dataset.foco === 'fecha_corte'); fecha.value = '2024-12-01'; fecha.listeners.change();
+  assert.equal(m.obtenerEstado().mensaje, textos.traducir('configuracion.errores_pendientes'));
+  click(raiz, 'vista-valoracion'); assert.equal(nodos(raiz).find(n => n.dataset.foco === 'simular').disabled, true);
+  click(raiz, 'corregir-configuracion'); assert.equal(raiz.ownerDocument.activeElement.dataset.foco, 'maximo-0');
+  const corregir = nodos(raiz).find(n => n.dataset.foco === 'maximo-0'); assert.equal(corregir.value, 'abc'); corregir.value = '0'; corregir.listeners.change();
+  assert.equal(corregir.atributos['aria-invalid'], 'false'); assert.equal(Object.keys(m.obtenerEstado().invalidos).length, 0);
+});
+test('rechazo 400/422 distingue validación de servicio indisponible', async () => {
+  for (const status of [400, 422]) {
+    const cliente = crearClienteProvisionLocal({ fetchImpl: async () => ({ ok: false, status }) });
+    await assert.rejects(cliente.simular({}), e => e.codigo === 'validacion');
   }
 });
