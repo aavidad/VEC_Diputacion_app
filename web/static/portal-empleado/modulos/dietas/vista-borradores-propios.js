@@ -1707,8 +1707,17 @@ export function montarVistaBorradoresPropios(
     }
     const quitarRuta = evento.target?.closest?.("[data-dietas-ruta-quitar]");
     if (quitarRuta && edicion && !controlador) {
-      quitarRuta.closest("[data-dietas-ruta-linea]")?.remove();
-      renumerarRutas(formularioPersistente); pintar(); return;
+      const fila = quitarRuta.closest("[data-dietas-ruta-linea]");
+      const indice = todos(formularioPersistente, "[data-dietas-ruta-linea]").indexOf(fila);
+      const restaurarFoco = documento.activeElement?.closest?.("[data-dietas-ruta-linea]") === fila;
+      fila?.remove();
+      renumerarRutas(formularioPersistente); pintar();
+      if (restaurarFoco) {
+        const restantes = todos(formularioPersistente, "[data-dietas-ruta-linea]");
+        enfocar(restantes[Math.min(indice, restantes.length - 1)]?.querySelector("select")
+          || formularioPersistente.querySelector("[data-dietas-ruta-anadir]"));
+      }
+      return;
     }
     const accionParadaRuta = ["dietasRutaParadaAnadir", "dietasRutaParadaSubir", "dietasRutaParadaBajar", "dietasRutaParadaQuitar"]
       .map((atributo) => [atributo, evento.target?.closest?.(`[data-${atributo.replace(/[A-Z]/gu, (letra) => `-${letra.toLowerCase()}`)}]`)])
@@ -1718,13 +1727,23 @@ export function montarVistaBorradoresPropios(
       const valores = todos(fila, "select").filter((selector) => selector.name === "ruta_parada_codigo").map((selector) => selector.value || "");
       const [accion, boton] = accionParadaRuta;
       const indice = Number(boton.dataset[accion]);
-      if (accion === "dietasRutaParadaAnadir" && valores.length < 10) valores.push("");
-      else if (accion === "dietasRutaParadaSubir" && indice > 0 && indice < valores.length) [valores[indice - 1], valores[indice]] = [valores[indice], valores[indice - 1]];
-      else if (accion === "dietasRutaParadaBajar" && indice >= 0 && indice < valores.length - 1) [valores[indice], valores[indice + 1]] = [valores[indice + 1], valores[indice]];
-      else if (accion === "dietasRutaParadaQuitar" && indice >= 0 && indice < valores.length) valores.splice(indice, 1);
-      else return;
+      const lista = fila.querySelector("[data-dietas-ruta-paradas-lista]");
+      const restaurarFoco = documento.activeElement === boton
+        || documento.activeElement?.closest?.("[data-dietas-ruta-paradas-lista]") === lista;
+      let focoIndice;
+      if (accion === "dietasRutaParadaAnadir" && valores.length < 10) {
+        valores.push(""); focoIndice = valores.length - 1;
+      } else if (accion === "dietasRutaParadaSubir" && indice > 0 && indice < valores.length) {
+        [valores[indice - 1], valores[indice]] = [valores[indice], valores[indice - 1]]; focoIndice = indice - 1;
+      } else if (accion === "dietasRutaParadaBajar" && indice >= 0 && indice < valores.length - 1) {
+        [valores[indice], valores[indice + 1]] = [valores[indice + 1], valores[indice]]; focoIndice = indice + 1;
+      } else if (accion === "dietasRutaParadaQuitar" && indice >= 0 && indice < valores.length) {
+        valores.splice(indice, 1); focoIndice = Math.min(indice, valores.length - 1);
+      } else return;
       pintarParadasRuta(fila, valores);
       fila.querySelector("[data-dietas-ruta-estado]").textContent = tBorradores("comision_ruta_pendiente");
+      if (restaurarFoco) enfocar(lista.querySelectorAll("select")[focoIndice]
+        || fila.querySelector("[data-dietas-ruta-parada-anadir]"));
       return;
     }
     const calcularRutaVehiculo = evento.target?.closest?.("[data-dietas-ruta-calcular]");
@@ -1767,7 +1786,18 @@ export function montarVistaBorradoresPropios(
       return;
     }
     const quitarOtro = evento.target?.closest?.("[data-dietas-otro-quitar]");
-    if (quitarOtro && edicion && !controlador) { quitarOtro.closest("[data-dietas-otro-linea]")?.remove(); pintar(); return; }
+    if (quitarOtro && edicion && !controlador) {
+      const fila = quitarOtro.closest("[data-dietas-otro-linea]");
+      const indice = todos(formularioPersistente, "[data-dietas-otro-linea]").indexOf(fila);
+      const restaurarFoco = documento.activeElement?.closest?.("[data-dietas-otro-linea]") === fila;
+      fila?.remove(); pintar();
+      if (restaurarFoco) {
+        const restantes = todos(formularioPersistente, "[data-dietas-otro-linea]");
+        enfocar(restantes[Math.min(indice, restantes.length - 1)]?.querySelector("select")
+          || formularioPersistente.querySelector("[data-dietas-otro-anadir]"));
+      }
+      return;
+    }
     if (evento.target?.closest?.("[data-dietas-borrador-editar]") && !controlador) { abrirEdicion(); return; }
     if (evento.target?.closest?.("[data-dietas-borrador-eliminar]")) { await ejecutarAccionComision("eliminar"); return; }
     if (evento.target?.closest?.("[data-dietas-borrador-enviar]")) { await ejecutarAccionComision("enviar"); return; }
