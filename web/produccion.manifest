@@ -54,7 +54,9 @@ static/comun/correos-propios.css
 static/comun/imagen-propia.js
 static/comun/imagen-propia.css
 static/textos/idiomas.json
+static/textos/es/baremo-bolsa.json
 static/textos/es/preferencias.json
+static/textos/en/baremo-bolsa.json
 static/textos/en/preferencias.json
 static/textos/es/cronos.json
 static/textos/en/cronos.json
@@ -123,6 +125,9 @@ static/textos/en/cronos-fichaje.json
 static/portal-empleado/modulos/cronos/vista-movimientos-conectado.js
 static/portal-empleado/modulos/cronos/vista-movimientos-propios.js
 static/portal-empleado/modulos/cronos/vista-permisos-propios.js
+static/portal-empleado/modulos/cronos/i18n-historial.js
+static/textos/es/cronos-historial.json
+static/textos/en/cronos-historial.json
 static/portal-empleado/modulos/cronos/i18n-resolucion.js
 static/portal-empleado/modulos/cronos/cliente-resolucion-http.js
 static/portal-empleado/modulos/cronos/vista-bandeja-permisos.js
