@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"strconv"
 
 	bolsaports "vec-diputacion-granada/internal/modules/bolsa/ports"
 	"vec-diputacion-granada/internal/modules/seleccion/ports"
@@ -45,6 +46,7 @@ func PrepararConsultaConvocatoria(s ports.SolicitudConsultaConvocatoria) (Prepar
 	}
 	h := sha256.Sum256(canon)
 	recurso := vecdomain.RecursoAutorizable{Referencia: s.Selector.Referencia(), ModuloID: bolsaports.ModuloGobiernoConvocatorias, Tipo: bolsaports.TipoRecursoVersionConvocatoriaGobernada,
+		Ambitos:   map[string]string{"convocatoria_id": s.Selector.ID, "secuencia": strconv.Itoa(s.Selector.Secuencia)},
 		Atributos: map[string]string{"material_sha256": hex.EncodeToString(h[:])}}
 	if recurso.Validar() != nil {
 		return cero, ports.ErrConsultaConvocatoriaInvalida

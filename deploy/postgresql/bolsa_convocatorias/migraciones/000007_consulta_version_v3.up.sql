@@ -129,7 +129,7 @@ BEGIN
   RAISE EXCEPTION 'material V3 no canónico' USING ERRCODE='22023';
  END IF;
  material_sha:=encode(sha256(convert_to(p_material,'UTF8')),'hex');
- recurso_canon:='{"ambitos":{},"atributos":{"material_sha256":"'||material_sha||'"}}';
+ recurso_canon:='{"ambitos":{"convocatoria_id":'||to_jsonb(id)::text||',"secuencia":'||to_jsonb(sec::text)::text||'},"atributos":{"material_sha256":"'||material_sha||'"}}';
  recurso_sha:=encode(sha256(convert_to(recurso_canon,'UTF8')),'hex');
  IF d->>'recurso_ref' IS DISTINCT FROM referencia
  OR c->>'efecto_ref' IS DISTINCT FROM referencia

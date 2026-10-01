@@ -7,10 +7,45 @@ import (
 	"encoding/json"
 	"errors"
 	"testing"
+	"time"
 
 	"vec-diputacion-granada/internal/modules/seleccion/ports"
+	vecdomain "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
+
+func TestConsultaExactaTieneCoberturaNominalSinCubrirOtraVersion(t *testing.T) {
+	s := solicitudConvocatoriaPrueba(t)
+	p, err := PrepararConsultaConvocatoria(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := s.Actor.ResueltoEn
+	a := vecdomain.AsignacionPerfil{AsignacionID: "fixture_s1", Version: 1, PerfilActivoRef: s.Actor.PerfilActivoRef,
+		PrincipalID: s.Actor.PersonaRef, VersionRolRef: "rol:fixture_s1:v1", Estado: vecdomain.EstadoAsignacionPerfilActiva,
+		Ambitos:      []vecdomain.AmbitoPerfil{{Clave: "convocatoria_id", Valores: []string{s.Selector.ID}}, {Clave: "secuencia", Valores: []string{"2"}}},
+		VigenteDesde: now, VigenteHasta: now.Add(time.Hour), EmitidaPor: "fixture:s1:owner", EmitidaEn: now}
+	if a.Validar() != nil || !a.Cubre(p.Recurso) {
+		t.Fatal("una asignación exacta válida no cubre el recurso")
+	}
+	previous := p.Recurso
+	previous.Ambitos = nil
+	if a.Cubre(previous) {
+		t.Fatal("el recurso sin ámbitos obtuvo cobertura")
+	}
+	other := s
+	other.Selector.Secuencia++
+	p2, err := PrepararConsultaConvocatoria(other)
+	if err != nil || a.Cubre(p2.Recurso) {
+		t.Fatal("la concesión cubre otra versión")
+	}
+	other = s
+	other.Selector.ID = "convocatoria:ajena"
+	p2, err = PrepararConsultaConvocatoria(other)
+	if err != nil || a.Cubre(p2.Recurso) {
+		t.Fatal("la concesión cubre otra convocatoria")
+	}
+}
 
 func TestMaterialConsultaLigaSelectorContextoYCorrelacion(t *testing.T) {
 	s := solicitudConvocatoriaPrueba(t)

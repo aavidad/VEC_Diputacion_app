@@ -73,6 +73,9 @@ func run() error {
 		}
 		return json.NewEncoder(os.Stdout).Encode(map[string]any{"spki": spki, "spki_sha256": hex.EncodeToString(h[:]), "configuration_sha256": configSHA})
 	}
+	if c.Mode == "serve" {
+		return serve(c)
+	}
 	if c.Mode != "consume" || len(c.Operations) == 0 || len(c.Operations) > 32 {
 		return errors.New("mode_invalid")
 	}
