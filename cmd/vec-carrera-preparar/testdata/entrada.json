@@ -1,0 +1,163 @@
+{
+  "alcance": "preparacion_sintetica",
+  "version": "carrera-preparacion-1",
+  "fuente": {
+    "referencia": "fuente-sintetica-carrera",
+    "version": "ensayo-1"
+  },
+  "casos": [
+    {
+      "referencia": "expediente-grado-1",
+      "via": "grado",
+      "persona_nombre": "Clara Montoya Salas",
+      "regimen": "funcionario_carrera",
+      "nivel_puesto": 22,
+      "grado_personal": 20,
+      "grupo_subgrupo": "A2",
+      "grupo_profesional": "",
+      "fuentes": [
+        {
+          "referencia": "fuente-sintetica-carrera",
+          "version": "ensayo-1"
+        }
+      ],
+      "periodos": [
+        {
+          "inicio": "2021-02-01",
+          "fin": "2022-01-31",
+          "evidencia": {
+            "referencia": "periodo-sintetico-1",
+            "fuente": "fuente-sintetica-carrera",
+            "version": "ensayo-1"
+          }
+        }
+      ],
+      "evidencias": [
+        {
+          "referencia": "expediente-sintetico",
+          "fuente": "fuente-sintetica-carrera",
+          "version": "ensayo-1"
+        }
+      ],
+      "politica": {
+        "referencia": "politica-sintetica-grado",
+        "version": "ensayo-1",
+        "fuente": "fuente-sintetica-carrera",
+        "aprobacion_referencia": "",
+        "regimenes": [
+          "funcionario_carrera"
+        ]
+      }
+    },
+    {
+      "referencia": "expediente-progresion-1",
+      "via": "progresion",
+      "persona_nombre": "Miguel Valverde Ríos",
+      "regimen": "laboral_fijo",
+      "nivel_puesto": null,
+      "grado_personal": null,
+      "grupo_subgrupo": "",
+      "grupo_profesional": "grupo-sintetico-3",
+      "fuentes": [
+        {
+          "referencia": "fuente-sintetica-carrera",
+          "version": "ensayo-1"
+        }
+      ],
+      "periodos": [
+        {
+          "inicio": "2021-02-01",
+          "fin": "2022-01-31",
+          "evidencia": {
+            "referencia": "periodo-sintetico-1",
+            "fuente": "fuente-sintetica-carrera",
+            "version": "ensayo-1"
+          }
+        },
+        {
+          "inicio": "2021-12-01",
+          "fin": "2022-06-30",
+          "evidencia": {
+            "referencia": "periodo-sintetico-2",
+            "fuente": "fuente-sintetica-carrera",
+            "version": "ensayo-1"
+          }
+        }
+      ],
+      "evidencias": [
+        {
+          "referencia": "expediente-sintetico",
+          "fuente": "fuente-sintetica-carrera",
+          "version": "ensayo-1"
+        }
+      ],
+      "politica": {
+        "referencia": "politica-sintetica-progresion",
+        "version": "ensayo-1",
+        "fuente": "fuente-sintetica-carrera",
+        "aprobacion_referencia": "",
+        "regimenes": [
+          "laboral_fijo"
+        ]
+      },
+      "convenio": {
+        "referencia": "convenio-sintetico-sin-consolidar",
+        "fuente": "fuente-sintetica-carrera",
+        "version": "ensayo-1"
+      },
+      "curso": {},
+      "prueba": {},
+      "curso_aprobacion": "",
+      "prueba_aprobacion": "",
+      "convenio_consolidado": false
+    },
+    {
+      "referencia": "expediente-promocion-1",
+      "via": "promocion",
+      "persona_nombre": "Elena Ferrer Casas",
+      "regimen": "funcionario_carrera",
+      "nivel_puesto": null,
+      "grado_personal": null,
+      "grupo_subgrupo": "A2",
+      "grupo_profesional": "",
+      "fuentes": [
+        {
+          "referencia": "fuente-sintetica-carrera",
+          "version": "ensayo-1"
+        }
+      ],
+      "periodos": [
+        {
+          "inicio": "2021-02-01",
+          "fin": "2022-01-31",
+          "evidencia": {
+            "referencia": "periodo-sintetico-1",
+            "fuente": "fuente-sintetica-carrera",
+            "version": "ensayo-1"
+          }
+        }
+      ],
+      "evidencias": [
+        {
+          "referencia": "expediente-sintetico",
+          "fuente": "fuente-sintetica-carrera",
+          "version": "ensayo-1"
+        }
+      ],
+      "politica": {
+        "referencia": "politica-sintetica-promocion",
+        "version": "ensayo-1",
+        "fuente": "fuente-sintetica-carrera",
+        "aprobacion_referencia": "",
+        "regimenes": [
+          "funcionario_carrera"
+        ]
+      },
+      "convocatoria": {
+        "referencia": "convocatoria-sintetica-modulo-selectivos-A",
+        "fuente": "fuente-sintetica-carrera",
+        "version": "ensayo-1"
+      }
+    }
+  ]
+}

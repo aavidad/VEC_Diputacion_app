@@ -1,0 +1,397 @@
+{
+  "alcance": "preparacion_sintetica",
+  "version": "carrera-preparacion-1",
+  "fuente": {
+    "referencia": "fuente-sintetica-carrera",
+    "version": "ensayo-1"
+  },
+  "casos": [
+    {
+      "referencia": "expediente-grado-1",
+      "via": "grado",
+      "persona_nombre": "Clara Montoya Salas",
+      "regimen": "funcionario_carrera",
+      "estado_global": "pendiente",
+      "nivel_puesto": 22,
+      "grado_personal": 20,
+      "fuentes": [
+        {
+          "referencia": "fuente-sintetica-carrera",
+          "version": "ensayo-1"
+        }
+      ],
+      "antecedentes": {
+        "grupo_subgrupo": "A2",
+        "grupo_profesional": "",
+        "periodos": [
+          {
+            "inicio": "2021-02-01",
+            "fin": "2022-01-31",
+            "evidencia": {
+              "referencia": "periodo-sintetico-1",
+              "fuente": "fuente-sintetica-carrera",
+              "version": "ensayo-1"
+            }
+          }
+        ],
+        "evidencias": [
+          {
+            "referencia": "expediente-sintetico",
+            "fuente": "fuente-sintetica-carrera",
+            "version": "ensayo-1"
+          }
+        ],
+        "politica": {
+          "referencia": "politica-sintetica-grado",
+          "version": "ensayo-1",
+          "fuente": "fuente-sintetica-carrera",
+          "aprobacion_referencia": "",
+          "regimenes": [
+            "funcionario_carrera"
+          ]
+        },
+        "convenio": {
+          "referencia": "",
+          "fuente": "",
+          "version": ""
+        },
+        "convenio_consolidado": false,
+        "curso": {
+          "referencia": "",
+          "fuente": "",
+          "version": ""
+        },
+        "prueba": {
+          "referencia": "",
+          "fuente": "",
+          "version": ""
+        },
+        "convocatoria": {
+          "referencia": "",
+          "fuente": "",
+          "version": ""
+        },
+        "curso_aprobacion": "",
+        "prueba_aprobacion": ""
+      },
+      "comprobaciones": [
+        {
+          "clave": "carrera.comprobacion.datos",
+          "estado": "disponible",
+          "motivo_clave": "carrera.motivo.disponible"
+        },
+        {
+          "clave": "carrera.comprobacion.fuentes",
+          "estado": "disponible",
+          "motivo_clave": "carrera.motivo.disponible"
+        },
+        {
+          "clave": "carrera.comprobacion.compatibilidad",
+          "estado": "pendiente",
+          "motivo_clave": "carrera.motivo.regimen_pendiente"
+        },
+        {
+          "clave": "carrera.comprobacion.periodos",
+          "estado": "disponible",
+          "motivo_clave": "carrera.motivo.disponible"
+        },
+        {
+          "clave": "carrera.comprobacion.evidencias",
+          "estado": "disponible",
+          "motivo_clave": "carrera.motivo.disponible"
+        },
+        {
+          "clave": "carrera.comprobacion.politica",
+          "estado": "pendiente",
+          "motivo_clave": "carrera.motivo.politica_pendiente"
+        },
+        {
+          "clave": "carrera.comprobacion.reconocimiento",
+          "estado": "pendiente",
+          "motivo_clave": "carrera.motivo.resolucion_necesaria"
+        },
+        {
+          "clave": "carrera.comprobacion.registro",
+          "estado": "pendiente",
+          "motivo_clave": "carrera.motivo.registro_necesario"
+        }
+      ],
+      "pendientes": [
+        "carrera.pendiente.compatibilidad",
+        "carrera.pendiente.politica",
+        "carrera.pendiente.reconocimiento",
+        "carrera.pendiente.registro"
+      ]
+    },
+    {
+      "referencia": "expediente-progresion-1",
+      "via": "progresion",
+      "persona_nombre": "Miguel Valverde Ríos",
+      "regimen": "laboral_fijo",
+      "estado_global": "pendiente",
+      "nivel_puesto": null,
+      "grado_personal": null,
+      "fuentes": [
+        {
+          "referencia": "fuente-sintetica-carrera",
+          "version": "ensayo-1"
+        }
+      ],
+      "antecedentes": {
+        "grupo_subgrupo": "",
+        "grupo_profesional": "grupo-sintetico-3",
+        "periodos": [
+          {
+            "inicio": "2021-02-01",
+            "fin": "2022-01-31",
+            "evidencia": {
+              "referencia": "periodo-sintetico-1",
+              "fuente": "fuente-sintetica-carrera",
+              "version": "ensayo-1"
+            }
+          },
+          {
+            "inicio": "2021-12-01",
+            "fin": "2022-06-30",
+            "evidencia": {
+              "referencia": "periodo-sintetico-2",
+              "fuente": "fuente-sintetica-carrera",
+              "version": "ensayo-1"
+            }
+          }
+        ],
+        "evidencias": [
+          {
+            "referencia": "expediente-sintetico",
+            "fuente": "fuente-sintetica-carrera",
+            "version": "ensayo-1"
+          }
+        ],
+        "politica": {
+          "referencia": "politica-sintetica-progresion",
+          "version": "ensayo-1",
+          "fuente": "fuente-sintetica-carrera",
+          "aprobacion_referencia": "",
+          "regimenes": [
+            "laboral_fijo"
+          ]
+        },
+        "convenio": {
+          "referencia": "convenio-sintetico-sin-consolidar",
+          "fuente": "fuente-sintetica-carrera",
+          "version": "ensayo-1"
+        },
+        "convenio_consolidado": false,
+        "curso": {
+          "referencia": "",
+          "fuente": "",
+          "version": ""
+        },
+        "prueba": {
+          "referencia": "",
+          "fuente": "",
+          "version": ""
+        },
+        "convocatoria": {
+          "referencia": "",
+          "fuente": "",
+          "version": ""
+        },
+        "curso_aprobacion": "",
+        "prueba_aprobacion": ""
+      },
+      "comprobaciones": [
+        {
+          "clave": "carrera.comprobacion.datos",
+          "estado": "disponible",
+          "motivo_clave": "carrera.motivo.disponible"
+        },
+        {
+          "clave": "carrera.comprobacion.fuentes",
+          "estado": "disponible",
+          "motivo_clave": "carrera.motivo.disponible"
+        },
+        {
+          "clave": "carrera.comprobacion.compatibilidad",
+          "estado": "pendiente",
+          "motivo_clave": "carrera.motivo.regimen_pendiente"
+        },
+        {
+          "clave": "carrera.comprobacion.periodos",
+          "estado": "pendiente",
+          "motivo_clave": "carrera.motivo.periodos_solapados"
+        },
+        {
+          "clave": "carrera.comprobacion.evidencias",
+          "estado": "disponible",
+          "motivo_clave": "carrera.motivo.disponible"
+        },
+        {
+          "clave": "carrera.comprobacion.politica",
+          "estado": "pendiente",
+          "motivo_clave": "carrera.motivo.politica_pendiente"
+        },
+        {
+          "clave": "carrera.comprobacion.convenio",
+          "estado": "pendiente",
+          "motivo_clave": "carrera.motivo.convenio_pendiente"
+        },
+        {
+          "clave": "carrera.comprobacion.curso_prueba",
+          "estado": "pendiente",
+          "motivo_clave": "carrera.motivo.curso_prueba_pendiente"
+        },
+        {
+          "clave": "carrera.comprobacion.reconocimiento",
+          "estado": "pendiente",
+          "motivo_clave": "carrera.motivo.resolucion_necesaria"
+        },
+        {
+          "clave": "carrera.comprobacion.registro",
+          "estado": "pendiente",
+          "motivo_clave": "carrera.motivo.registro_necesario"
+        }
+      ],
+      "pendientes": [
+        "carrera.pendiente.compatibilidad",
+        "carrera.pendiente.periodos",
+        "carrera.pendiente.politica",
+        "carrera.pendiente.convenio",
+        "carrera.pendiente.curso_prueba",
+        "carrera.pendiente.reconocimiento",
+        "carrera.pendiente.registro"
+      ]
+    },
+    {
+      "referencia": "expediente-promocion-1",
+      "via": "promocion",
+      "persona_nombre": "Elena Ferrer Casas",
+      "regimen": "funcionario_carrera",
+      "estado_global": "pendiente",
+      "nivel_puesto": null,
+      "grado_personal": null,
+      "fuentes": [
+        {
+          "referencia": "fuente-sintetica-carrera",
+          "version": "ensayo-1"
+        }
+      ],
+      "antecedentes": {
+        "grupo_subgrupo": "A2",
+        "grupo_profesional": "",
+        "periodos": [
+          {
+            "inicio": "2021-02-01",
+            "fin": "2022-01-31",
+            "evidencia": {
+              "referencia": "periodo-sintetico-1",
+              "fuente": "fuente-sintetica-carrera",
+              "version": "ensayo-1"
+            }
+          }
+        ],
+        "evidencias": [
+          {
+            "referencia": "expediente-sintetico",
+            "fuente": "fuente-sintetica-carrera",
+            "version": "ensayo-1"
+          }
+        ],
+        "politica": {
+          "referencia": "politica-sintetica-promocion",
+          "version": "ensayo-1",
+          "fuente": "fuente-sintetica-carrera",
+          "aprobacion_referencia": "",
+          "regimenes": [
+            "funcionario_carrera"
+          ]
+        },
+        "convenio": {
+          "referencia": "",
+          "fuente": "",
+          "version": ""
+        },
+        "convenio_consolidado": false,
+        "curso": {
+          "referencia": "",
+          "fuente": "",
+          "version": ""
+        },
+        "prueba": {
+          "referencia": "",
+          "fuente": "",
+          "version": ""
+        },
+        "convocatoria": {
+          "referencia": "convocatoria-sintetica-modulo-selectivos-A",
+          "fuente": "fuente-sintetica-carrera",
+          "version": "ensayo-1"
+        },
+        "curso_aprobacion": "",
+        "prueba_aprobacion": ""
+      },
+      "comprobaciones": [
+        {
+          "clave": "carrera.comprobacion.datos",
+          "estado": "disponible",
+          "motivo_clave": "carrera.motivo.disponible"
+        },
+        {
+          "clave": "carrera.comprobacion.fuentes",
+          "estado": "disponible",
+          "motivo_clave": "carrera.motivo.disponible"
+        },
+        {
+          "clave": "carrera.comprobacion.compatibilidad",
+          "estado": "pendiente",
+          "motivo_clave": "carrera.motivo.regimen_pendiente"
+        },
+        {
+          "clave": "carrera.comprobacion.periodos",
+          "estado": "disponible",
+          "motivo_clave": "carrera.motivo.disponible"
+        },
+        {
+          "clave": "carrera.comprobacion.evidencias",
+          "estado": "disponible",
+          "motivo_clave": "carrera.motivo.disponible"
+        },
+        {
+          "clave": "carrera.comprobacion.politica",
+          "estado": "pendiente",
+          "motivo_clave": "carrera.motivo.politica_pendiente"
+        },
+        {
+          "clave": "carrera.comprobacion.convocatoria",
+          "estado": "disponible",
+          "motivo_clave": "carrera.motivo.disponible"
+        },
+        {
+          "clave": "carrera.comprobacion.reconocimiento",
+          "estado": "pendiente",
+          "motivo_clave": "carrera.motivo.resolucion_necesaria"
+        },
+        {
+          "clave": "carrera.comprobacion.registro",
+          "estado": "pendiente",
+          "motivo_clave": "carrera.motivo.registro_necesario"
+        }
+      ],
+      "pendientes": [
+        "carrera.pendiente.compatibilidad",
+        "carrera.pendiente.politica",
+        "carrera.pendiente.reconocimiento",
+        "carrera.pendiente.registro"
+      ]
+    }
+  ],
+  "pendientes": [
+    "carrera.pendiente.compatibilidad",
+    "carrera.pendiente.politica",
+    "carrera.pendiente.reconocimiento",
+    "carrera.pendiente.registro",
+    "carrera.pendiente.periodos",
+    "carrera.pendiente.convenio",
+    "carrera.pendiente.curso_prueba"
+  ]
+}
