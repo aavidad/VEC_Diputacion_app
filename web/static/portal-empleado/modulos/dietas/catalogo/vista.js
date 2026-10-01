@@ -130,6 +130,12 @@ export function montarCatalogoTarifasDietas(contenedor, {
   raiz.append(cabecera, estado, cuerpo); contenedor.append(raiz);
   let vivo = true, secuencia = 0, controlador, catalogo;
   const propuestas = new Map();
+  let tarifaEditada;
+  const claveDe = (tarifa) => `${catalogo.version}\u0000${tarifa.id}`;
+  const nombreTarifa = (tarifa) => t("tarifa_resumen", {
+    concepto: t(`concepto_${tarifa.concepto}`),
+    grupo: tarifa.grupo === null ? t("sin_grupo") : String(tarifa.grupo), pais: tarifa.pais,
+  });
   const ponerEstado = (clave) => { estado.textContent = t(clave); anunciar(estado.textContent); };
 
   function textoCortable(valor) {
@@ -184,7 +190,7 @@ export function montarCatalogoTarifasDietas(contenedor, {
       for (const tarifa of catalogo.tarifas) {
         const tr = nodo(d, "tr"), accion = nodo(d, "td");
         const boton = nodo(d, "button", t("preparar")); boton.type = "button"; boton.className = "boton-secundario";
-        boton.addEventListener("click", () => pintarEditor(tarifa, true)); accion.append(boton);
+        boton.addEventListener("click", () => { pintarEditor(tarifa, true); pintarPropuestas(); }); accion.append(boton);
         tr.append(nodo(d, "td", t(`concepto_${tarifa.concepto}`)),
           nodo(d, "td", tarifa.grupo === null ? t("sin_grupo") : String(tarifa.grupo)),
           nodo(d, "td", tarifa.pais),
@@ -192,6 +198,9 @@ export function montarCatalogoTarifasDietas(contenedor, {
         tbody.append(tr);
       }
       tabla.append(tbody); envoltura.append(tabla); cuerpo.append(envoltura);
+      const resumen = nodo(d, "section"); resumen.className = "panel";
+      resumen.dataset.dietasCatalogoPropuestas = ""; cuerpo.append(resumen);
+      pintarPropuestas();
       const editor = nodo(d, "section"); editor.className = "panel"; editor.dataset.dietasCatalogoEditor = "";
       editor.hidden = true; cuerpo.append(editor);
     }
@@ -210,16 +219,80 @@ export function montarCatalogoTarifasDietas(contenedor, {
     historia.append(cabHistoria, listaHistoria); cuerpo.append(historia);
   }
 
+  function pintarPropuestas(focoTrasRetirada) {
+    const resumen = cuerpo.querySelector("[data-dietas-catalogo-propuestas]");
+    if (!resumen) return;
+    resumen.replaceChildren();
+    const cab = nodo(d, "div"); cab.className = "cabecera-panel";
+    const titulo = nodo(d, "h3", t("propuestas_titulo")); titulo.tabIndex = -1; cab.append(titulo);
+    const zona = nodo(d, "div"); zona.className = "cuerpo-panel";
+    zona.append(nodo(d, "p", t("propuestas_limite")));
+    const revisadas = catalogo.tarifas.filter((tarifa) => Number.isSafeInteger(propuestas.get(claveDe(tarifa))?.importe_centimos));
+    const botones = [];
+    if (!revisadas.length) zona.append(nodo(d, "p", t("propuestas_vacias")));
+    else {
+      const envoltura = nodo(d, "div"); envoltura.className = "tabla-contenedor";
+      envoltura.tabIndex = 0; envoltura.setAttribute("role", "region");
+      envoltura.setAttribute("aria-label", t("propuestas_desplazable"));
+      const tabla = nodo(d, "table"); tabla.className = "tabla-datos";
+      tabla.setAttribute("aria-label", t("propuestas_titulo"));
+      const cabTabla = nodo(d, "thead"), filaCab = nodo(d, "tr");
+      for (const clave of ["tarifa_acciones", "importe_actual", "propuesto", "diferencia", "historia_motivo", "fecha_propuesta", "fuentes"]) {
+        const th = nodo(d, "th", t(clave)); th.setAttribute("scope", "col"); filaCab.append(th);
+      }
+      cabTabla.append(filaCab); tabla.append(cabTabla);
+      const filas = nodo(d, "tbody");
+      for (const tarifa of revisadas) {
+        const propuesta = propuestas.get(claveDe(tarifa));
+        const fila = nodo(d, "tr");
+        const nombre = nodo(d, "th", nombreTarifa(tarifa)); nombre.setAttribute("scope", "row");
+        const diferencia = propuesta.importe_centimos - tarifa.importe_centimos;
+        const delta = diferencia === 0 ? t("sin_cambio") : t(diferencia > 0 ? "aumento" : "reduccion", {
+          importe: importeTarifa(Math.abs(diferencia), tarifa),
+        });
+        const motivo = nodo(d, "td", propuesta.motivo); motivo.setAttribute("lang", propuesta.idioma_motivo);
+        const referencia = nodo(d, "td"), enlace = nodo(d, "a", t("consultar_fuente", { referencia: referenciaFuente(propuesta.fuente) }));
+        enlace.href = propuesta.fuente; enlace.rel = "noopener noreferrer"; enlace.target = "_blank"; referencia.append(enlace);
+        const grupoAcciones = nodo(d, "div"); grupoAcciones.className = "acciones-vista";
+        const elegir = nodo(d, "button", t("corregir_propuesta")); elegir.type = "button"; elegir.className = "boton-secundario";
+        elegir.setAttribute("aria-label", t("corregir_tarifa", { tarifa: nombreTarifa(tarifa) }));
+        if (tarifaEditada === tarifa.id) elegir.setAttribute("aria-current", "true");
+        elegir.addEventListener("click", () => { pintarEditor(tarifa, true); pintarPropuestas(); }); botones.push(elegir);
+        const retirar = nodo(d, "button", t("retirar_propuesta")); retirar.type = "button"; retirar.className = "boton-secundario";
+        retirar.setAttribute("aria-label", t("retirar_tarifa", { tarifa: nombreTarifa(tarifa) }));
+        retirar.addEventListener("click", () => {
+          const indice = revisadas.indexOf(tarifa);
+          propuestas.delete(claveDe(tarifa));
+          if (tarifaEditada === tarifa.id) {
+            const editor = cuerpo.querySelector("[data-dietas-catalogo-editor]");
+            editor.replaceChildren(); editor.hidden = true; tarifaEditada = undefined;
+          }
+          pintarPropuestas(indice);
+          anunciar(t("propuesta_retirada", { tarifa: nombreTarifa(tarifa) }));
+        });
+        grupoAcciones.append(elegir, retirar); nombre.append(grupoAcciones);
+        fila.append(nombre, nodo(d, "td", importeTarifa(tarifa.importe_centimos, tarifa)),
+          nodo(d, "td", importeTarifa(propuesta.importe_centimos, tarifa)), nodo(d, "td", delta),
+          motivo, nodo(d, "td", fecha(propuesta.vigencia)), referencia); filas.append(fila);
+      }
+      tabla.append(filas); envoltura.append(tabla); zona.append(envoltura);
+    }
+    resumen.append(cab, zona);
+    if (focoTrasRetirada !== undefined) {
+      (botones[Math.min(focoTrasRetirada, botones.length - 1)] || titulo).focus({ preventScroll: true });
+    }
+  }
+
   function pintarEditor(tarifa, moverFoco = false) {
     const editor = cuerpo.querySelector("[data-dietas-catalogo-editor]");
     if (!editor) return;
-    editor.replaceChildren(); editor.hidden = false;
+    editor.replaceChildren(); editor.hidden = false; tarifaEditada = tarifa.id;
     const cab = nodo(d, "div"); cab.className = "cabecera-panel";
     const tituloEditor = nodo(d, "h3", t("propuesta_titulo")); tituloEditor.tabIndex = -1; cab.append(tituloEditor);
     const zona = nodo(d, "div"); zona.className = "cuerpo-panel";
     const grupo = tarifa.grupo === null ? t("sin_grupo") : String(tarifa.grupo);
     const referencia = nodo(d, "p", `${t(`concepto_${tarifa.concepto}`)} · ${t("grupo")} ${grupo} · ${tarifa.pais} · ${importeTarifa(tarifa.importe_centimos, tarifa)}`);
-    const clavePropuesta = `${catalogo.version}\u0000${tarifa.id}`;
+    const clavePropuesta = claveDe(tarifa);
     const previo = propuestas.get(clavePropuesta);
     const form = nodo(d, "form"); form.noValidate = true;
     const importeLabel = nodo(d, "label", t("importe_propuesto"));
@@ -245,7 +318,7 @@ export function montarCatalogoTarifasDietas(contenedor, {
     const publicar = nodo(d, "button", t("publicar")); publicar.type = "button"; publicar.disabled = true;
     publicar.title = t("publicacion_pendiente"); publicar.setAttribute("aria-describedby", idLimite);
     const limite = nodo(d, "p", t("publicacion_pendiente")); limite.id = idLimite;
-    const conservar = () => { propuestas.set(clavePropuesta, { texto: importe.value, motivo: motivo.value, vigencia: vigencia.value, fuente: fuente.value }); resultado.replaceChildren(); };
+    const conservar = () => { propuestas.set(clavePropuesta, { texto: importe.value, motivo: motivo.value, vigencia: vigencia.value, fuente: fuente.value }); resultado.replaceChildren(); pintarPropuestas(); };
     for (const control of [importe, motivo, vigencia, fuente]) control.addEventListener("input", conservar);
     form.addEventListener("submit", (evento) => {
       evento.preventDefault(); validacion.textContent = ""; resultado.replaceChildren();
@@ -257,7 +330,8 @@ export function montarCatalogoTarifasDietas(contenedor, {
       }
       if (!fechaValida(vigencia.value)) { validacion.textContent = t("vigencia_invalida"); vigencia.focus(); return; }
       if (!catalogo.fuentes.includes(fuente.value)) { validacion.textContent = t("fuente_invalida"); fuente.focus(); return; }
-      propuestas.set(clavePropuesta, { texto: importe.value, motivo: razon, vigencia: vigencia.value, fuente: fuente.value, importe_centimos: centimos });
+      propuestas.set(clavePropuesta, { texto: importe.value, motivo: razon, vigencia: vigencia.value, fuente: fuente.value, importe_centimos: centimos, idioma_motivo: localizacion });
+      pintarPropuestas();
       const dl = nodo(d, "dl");
       par(dl, "importe_actual", importeTarifa(tarifa.importe_centimos, tarifa));
       par(dl, "importe_propuesto", importeTarifa(centimos, tarifa));
@@ -292,7 +366,7 @@ export function montarCatalogoTarifasDietas(contenedor, {
       const dato = await fuente({ signal: controlador.signal });
       if (!vivo || turno !== secuencia) return;
       if (!catalogoTarifasDietasValido(dato)) throw new TypeError("catalogo invalido");
-      catalogo = dato; ponerEstado("ejemplo"); pintar();
+      catalogo = structuredClone(dato); ponerEstado("ejemplo"); pintar();
       if (recuperarFoco && focoLibre()) {
         estado.focus({ preventScroll: true });
         estado.scrollIntoView?.({ block: "nearest", inline: "nearest" });
