@@ -1,0 +1,114 @@
+{
+  "version_esquema": 1,
+  "demo": true,
+  "referencia": "demo:snapshot:incidencias:periodo",
+  "version": 1,
+  "organizacion_ref": "demo:organizacion:1",
+  "desde": "2026-09-28",
+  "hasta_exclusiva": "2026-09-30",
+  "zona_horaria": "Europe/Madrid",
+  "instante_corte_utc": "2026-09-30T08:00:00Z",
+  "personas_ref": [
+    "demo:persona:101",
+    "demo:persona:102",
+    "demo:persona:103"
+  ],
+  "catalogo": {
+    "referencia": "demo:catalogo:incidencias:1",
+    "version": 1,
+    "codigos": [
+      "registro_incompleto"
+    ],
+    "estados": [
+      "pendiente",
+      "resuelta"
+    ]
+  },
+  "fuentes": [
+    {
+      "referencia": "demo:fuente:incidencias:periodo",
+      "version": 3,
+      "sha256": "be7d6e2868ef485ef1c328dbca51a999b84fd7394b85662e6b4005408facae2f",
+      "estado": "disponible"
+    }
+  ],
+  "cobertura": [
+    {
+      "persona_ref": "demo:persona:101",
+      "fecha": "2026-09-28",
+      "fuente_ref": "demo:fuente:incidencias:periodo",
+      "fuente_version": 3,
+      "estado": "completa"
+    },
+    {
+      "persona_ref": "demo:persona:101",
+      "fecha": "2026-09-29",
+      "fuente_ref": "demo:fuente:incidencias:periodo",
+      "fuente_version": 3,
+      "estado": "completa"
+    },
+    {
+      "persona_ref": "demo:persona:102",
+      "fecha": "2026-09-28",
+      "fuente_ref": "demo:fuente:incidencias:periodo",
+      "fuente_version": 3,
+      "estado": "completa"
+    },
+    {
+      "persona_ref": "demo:persona:102",
+      "fecha": "2026-09-29",
+      "fuente_ref": "demo:fuente:incidencias:periodo",
+      "fuente_version": 3,
+      "estado": "completa"
+    },
+    {
+      "persona_ref": "demo:persona:103",
+      "fecha": "2026-09-28",
+      "fuente_ref": "demo:fuente:incidencias:periodo",
+      "fuente_version": 3,
+      "estado": "completa"
+    },
+    {
+      "persona_ref": "demo:persona:103",
+      "fecha": "2026-09-29",
+      "fuente_ref": "demo:fuente:incidencias:periodo",
+      "fuente_version": 3,
+      "estado": "incompleta"
+    }
+  ],
+  "incidencias": [
+    {
+      "referencia": "demo:incidencia:1",
+      "version": 1,
+      "persona_ref": "demo:persona:101",
+      "fecha": "2026-09-28",
+      "codigo": "registro_incompleto",
+      "estado": "pendiente",
+      "fuente_ref": "demo:fuente:incidencias:periodo",
+      "fuente_version": 3,
+      "registrada_utc": "2026-09-28T17:00:00Z"
+    },
+    {
+      "referencia": "demo:incidencia:2",
+      "version": 1,
+      "persona_ref": "demo:persona:101",
+      "fecha": "2026-09-28",
+      "codigo": "registro_incompleto",
+      "estado": "resuelta",
+      "fuente_ref": "demo:fuente:incidencias:periodo",
+      "fuente_version": 3,
+      "registrada_utc": "2026-09-28T17:00:00Z"
+    },
+    {
+      "referencia": "demo:incidencia:3",
+      "version": 1,
+      "persona_ref": "demo:persona:102",
+      "fecha": "2026-09-29",
+      "codigo": "registro_incompleto",
+      "estado": "pendiente",
+      "fuente_ref": "demo:fuente:incidencias:periodo",
+      "fuente_version": 3,
+      "registrada_utc": "2026-09-29T17:00:00Z"
+    }
+  ]
+}
