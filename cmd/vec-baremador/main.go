@@ -43,8 +43,11 @@ func ejecutar(args []string, salida, diagnostico io.Writer, servicio simulacionb
 		return diagnosticar(diagnostico, "argumentos_invalidos", "", 2)
 	}
 	if *comparar || *reglasNuevas != "" || *huellaReglasNuevas != "" {
-		if !*comparar || (*modo != "meritos" && *modo != "experiencia") || flags.NArg() != 0 || *entrada != "" || *huellaEntrada != "" || *ejemplo != "" || *listar || *reglas == "" || *huellaReglas == "" || *reglasNuevas == "" || *huellaReglasNuevas == "" || *limite <= 0 || *limite > maximoBytesArchivo {
+		if !*comparar || (*modo != "meritos" && *modo != "experiencia" && *modo != "concursos") || flags.NArg() != 0 || *entrada != "" || *huellaEntrada != "" || *ejemplo != "" || *listar || *reglas == "" || *huellaReglas == "" || *reglasNuevas == "" || *huellaReglasNuevas == "" || *limite <= 0 || *limite > maximoBytesArchivo {
 			return diagnosticar(diagnostico, "argumentos_invalidos", "comparacion", 2)
+		}
+		if *modo == "concursos" {
+			return ejecutarDiferenciaConcursos(salida, diagnostico, *reglas, *huellaReglas, *reglasNuevas, *huellaReglasNuevas, *limite)
 		}
 		if *modo == "experiencia" {
 			return ejecutarDiferenciaExperiencia(salida, diagnostico, *reglas, *huellaReglas, *reglasNuevas, *huellaReglasNuevas, *limite)
