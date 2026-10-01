@@ -1,10 +1,15 @@
 \set ON_ERROR_STOP on
 -- Ejecutar solo sobre clon desechable tras AD3-127 y CT-154.
 -- Comprueba firma, canon de entrada y denegación previa al acceso a datos.
+BEGIN ISOLATION LEVEL SERIALIZABLE READ WRITE;
+DO $pre$
+BEGIN
+ IF pg_catalog.to_regrole('vec_ct154_ensayo_login') IS NOT NULL
+ THEN RAISE EXCEPTION 'CT154: identidad de ensayo ya existente' USING ERRCODE='55000'; END IF;
+END $pre$;
 CREATE ROLE vec_ct154_ensayo_login LOGIN INHERIT NOBYPASSRLS;
 GRANT vec_contratacion_temporal_ejecutor TO vec_ct154_ensayo_login WITH INHERIT TRUE, SET FALSE;
 SET SESSION AUTHORIZATION vec_ct154_ensayo_login;
-BEGIN ISOLATION LEVEL SERIALIZABLE READ WRITE;
 DO $prueba$
 DECLARE
  consulta text:='{"esquema":"vec.ct.vinculo-categoria-rpt.consulta.v1","organizacion_ref":"organizacion:desarrollo:dipgra","expediente_ref":"expediente:ensayo"}';
@@ -23,7 +28,7 @@ BEGIN
 	  IF entorno IS DISTINCT FROM (CASE
 	    WHEN fachada='vec_contratacion_temporal.anclaje_vinculo_categoria_rpt_ct154(text,text)'::regprocedure
 	    THEN ARRAY['search_path=pg_catalog, pg_temp','row_security=on']
-	    ELSE ARRAY['search_path=pg_catalog, pg_temp','row_security=on','timezone=UTC','lock_timeout=2s'] END)
+	    ELSE ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s'] END)
 	  THEN RAISE EXCEPTION 'CT154: search_path inseguro: %',fachada; END IF;
 	 END LOOP;
 	 IF has_table_privilege(current_user,'vec_contratacion_temporal.vinculo_categoria_rpt_ct_v1','SELECT')
@@ -65,6 +70,3 @@ BEGIN
  END;
 END $prueba$;
 ROLLBACK;
-RESET SESSION AUTHORIZATION;
-REVOKE vec_contratacion_temporal_ejecutor FROM vec_ct154_ensayo_login;
-DROP ROLE vec_ct154_ensayo_login;

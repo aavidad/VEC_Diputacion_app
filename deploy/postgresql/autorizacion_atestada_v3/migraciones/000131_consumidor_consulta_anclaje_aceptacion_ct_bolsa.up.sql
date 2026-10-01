@@ -26,9 +26,12 @@ END $pre$;
 
 DO $nucleo$
 DECLARE
- f oid:='vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure;
- original text; nuevo text; actual text; meta jsonb; deps jsonb; acl aclitem[];
+ f oid:=to_regprocedure('vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
+ original text; nuevo text; actual text; fuente text; meta jsonb; deps jsonb; deps_compartidas jsonb; acl aclitem[];
  propietario oid; config text[]; definidora boolean;
+ -- Preimagen post-AD128 del clon causal B -> AD136 -> AD127 -> AD128.
+ esperada_def_sha256 text:='ae97811282c9e811a0400764d3a1888210bfcce1f475e73727ff4f6006c5314d';
+ esperada_fuente_sha256 text:='5950eeb847478b1b000a3232c8b7baa7e9fc9ba049f43f2bc9255effac6915c7';
  marca text:=E'       )\n       OR c ->> ''suite'' <> ''VEC-AD-3-COSE-EDDSA-1''';
  excl text:=E'               AND p_perfil_mutacion IS DISTINCT FROM ''consulta_persona_aceptacion_ct_bolsa''\n';
  excl_nuevo text:=excl||E'               AND p_perfil_mutacion IS DISTINCT FROM ''consulta_anclaje_aceptacion_ct_bolsa''\n';
@@ -48,14 +51,52 @@ DECLARE
  AND d->'obligaciones' IS NOT DISTINCT FROM '[]'::jsonb)
 $x$;
 BEGIN
- SELECT pg_get_functiondef(f),to_jsonb(p)-'prosrc',p.proacl,p.proowner,p.proconfig,p.prosecdef
- INTO STRICT original,meta,acl,propietario,config,definidora FROM pg_proc p WHERE p.oid=f;
+ IF f IS NULL THEN RAISE EXCEPTION 'AD3-131: núcleo ausente' USING ERRCODE='55000'; END IF;
+ SELECT pg_get_functiondef(f),p.prosrc,to_jsonb(p)-'prosrc',p.proacl,p.proowner,p.proconfig,p.prosecdef
+ INTO original,fuente,meta,acl,propietario,config,definidora FROM pg_proc p WHERE p.oid=f;
+ IF NOT FOUND OR original IS NULL OR fuente IS NULL OR meta IS NULL
+    OR propietario IS NULL OR config IS NULL OR definidora IS NULL
+ THEN RAISE EXCEPTION 'AD3-131: metadatos de núcleo ausentes' USING ERRCODE='55000'; END IF;
  SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
  INTO deps FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f;
+ SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.dbid,d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype),'[]'::jsonb)
+ INTO deps_compartidas FROM pg_shdepend d
+ WHERE d.dbid=(SELECT oid FROM pg_database WHERE datname=current_database())
+   AND d.classid='pg_proc'::regclass AND d.objid=f;
  -- Perfil nuevo en las dos listas del núcleo: exclusión del bloque general y
  -- selección de la guarda de sesión miembro del ejecutor Bolsa.
  IF propietario<>'vec_autorizacion_atestada_v3_propietario'::regrole OR NOT definidora
     OR config IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s']
+    OR encode(sha256(convert_to(original,'UTF8')),'hex') IS DISTINCT FROM esperada_def_sha256
+    OR encode(sha256(convert_to(fuente,'UTF8')),'hex') IS DISTINCT FROM esperada_fuente_sha256
+    OR NOT EXISTS (SELECT 1 FROM pg_proc p WHERE p.oid=f
+         AND p.proowner='vec_autorizacion_atestada_v3_propietario'::regrole
+         AND p.prokind='f' AND p.provolatile='v' AND p.proparallel='u'
+         AND p.prosecdef AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s'])
+    OR EXISTS (SELECT 1 FROM pg_database db
+         CROSS JOIN LATERAL aclexplode(coalesce(db.datacl,acldefault('d',db.datdba))) a
+         WHERE db.datname=current_database() AND a.grantee=0 AND a.privilege_type='TEMPORARY')
+    OR EXISTS (SELECT 1 FROM pg_roles r WHERE left(r.rolname,4)='vec_' AND r.rolcanlogin
+         AND has_database_privilege(r.oid,current_database(),'TEMPORARY'))
+    OR NOT EXISTS (SELECT 1 FROM aclexplode(coalesce(acl,acldefault('f',propietario))) a
+         WHERE a.grantee=propietario AND a.grantor=propietario
+           AND a.privilege_type='EXECUTE' AND NOT a.is_grantable)
+    OR EXISTS (SELECT 1 FROM aclexplode(coalesce(acl,acldefault('f',propietario))) a
+         WHERE a.grantee<>propietario OR a.grantor<>propietario
+            OR a.privilege_type<>'EXECUTE' OR a.is_grantable)
+    OR deps IS DISTINCT FROM jsonb_build_array(
+         jsonb_build_object('classid','pg_proc'::regclass::oid,'objid',f::oid,'objsubid',0,
+           'refclassid','pg_language'::regclass::oid,
+           'refobjid',(SELECT oid FROM pg_language WHERE lanname='plpgsql'),
+           'refobjsubid',0,'deptype','n'),
+         jsonb_build_object('classid','pg_proc'::regclass::oid,'objid',f::oid,'objsubid',0,
+           'refclassid','pg_namespace'::regclass::oid,
+           'refobjid','vec_autorizacion_atestada_v3'::regnamespace::oid,
+           'refobjsubid',0,'deptype','n'))
+    OR deps_compartidas IS DISTINCT FROM jsonb_build_array(
+         jsonb_build_object('dbid',(SELECT oid FROM pg_database WHERE datname=current_database()),
+           'classid','pg_proc'::regclass::oid,'objid',f::oid,'objsubid',0,
+           'refclassid','pg_authid'::regclass::oid,'refobjid',propietario,'deptype','o'))
     OR length(original)-length(replace(original,marca,''))<>length(marca)
     OR length(original)-length(replace(original,excl,''))<>length(excl)
     OR length(original)-length(replace(original,runtime,''))<>length(runtime)
@@ -78,16 +119,23 @@ BEGIN
     OR (SELECT prosecdef FROM pg_proc WHERE oid=f) IS DISTINCT FROM definidora
     OR (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
         FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps
+    OR (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.dbid,d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype),'[]'::jsonb)
+        FROM pg_shdepend d WHERE d.dbid=(SELECT oid FROM pg_database WHERE datname=current_database())
+          AND d.classid='pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps_compartidas
  THEN RAISE EXCEPTION 'AD3-131: núcleo alterado fuera del contrato' USING ERRCODE='55000'; END IF;
 END $nucleo$;
 
 LOCK TABLE vec_autorizacion_atestada_v3.clave_capacidad_version IN ACCESS EXCLUSIVE MODE;
 DO $audiencias$
-DECLARE d text; audiencia text:='vec_bolsa_llamamientos.aceptacion_ct.anclaje.v1';
+DECLARE d text; esperada_audiencia_sha256 text:='f04a6ec6b751fc6abecc4c858a321659014f12abc002718092f4ca61b43bf8fc'; audiencia text:='vec_bolsa_llamamientos.aceptacion_ct.anclaje.v1';
 BEGIN
- SELECT regexp_replace(pg_get_constraintdef(c.oid,true),'\s+',' ','g') INTO STRICT d
+ SELECT pg_get_constraintdef(c.oid,true) INTO d
  FROM pg_constraint c WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
  AND c.conname='clave_capacidad_version_audiencia_consumo_check' AND c.contype='c' AND c.convalidated;
+ IF NOT FOUND OR d IS NULL
+    OR encode(sha256(convert_to(d,'UTF8')),'hex') IS DISTINCT FROM esperada_audiencia_sha256
+ THEN RAISE EXCEPTION 'AD3-131: CHECK de audiencias incompatible' USING ERRCODE='55000'; END IF;
+ d:=regexp_replace(d,'\s+',' ','g');
  IF strpos(d,'CHECK (audiencia_consumo = ANY (ARRAY[')<>1 OR right(d,3)<>']))'
     OR strpos(d,'vec_bolsa_llamamientos.aceptacion_ct.persona.v1')=0
     OR strpos(d,quote_literal(audiencia))<>0

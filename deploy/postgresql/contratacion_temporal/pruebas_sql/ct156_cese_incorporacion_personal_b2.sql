@@ -8,6 +8,7 @@ SET LOCAL lock_timeout='5s';
 SET LOCAL statement_timeout='30s';
 CREATE FUNCTION pg_temp.exigir_ct156(ok boolean,caso text) RETURNS void LANGUAGE plpgsql AS $$
 BEGIN IF ok IS DISTINCT FROM true THEN RAISE EXCEPTION 'CT156: %',caso;END IF;END $$;
+REVOKE ALL ON FUNCTION pg_temp.exigir_ct156(boolean,text) FROM PUBLIC;
 
 -- Una cuenta por capacidad; no conceder combinaciones CT/Bolsa.
 CREATE ROLE vec_ct156_feed_prueba LOGIN INHERIT;
@@ -16,6 +17,8 @@ CREATE ROLE vec_ct156_relevo_prueba LOGIN INHERIT;
 GRANT vec_bolsa_llamamientos_relevo_cese TO vec_ct156_relevo_prueba;
 CREATE ROLE vec_ct156_ajeno_prueba LOGIN INHERIT;
 GRANT vec_bolsa_llamamientos_ejecutor TO vec_ct156_ajeno_prueba;
+GRANT EXECUTE ON FUNCTION pg_temp.exigir_ct156(boolean,text)
+ TO vec_ct156_feed_prueba,vec_ct156_relevo_prueba,vec_ct156_ajeno_prueba;
 CREATE SCHEMA prueba_ct156 AUTHORIZATION vec_bolsa_llamamientos_propietario;
 SET LOCAL ROLE vec_bolsa_llamamientos_propietario;
 CREATE FUNCTION prueba_ct156.verificar(origen text,huella text,posicion bigint) RETURNS jsonb
@@ -28,6 +31,13 @@ GRANT EXECUTE ON FUNCTION prueba_ct156.verificar(text,text,bigint) TO vec_bolsa_
 RESET ROLE;
 
 CREATE TEMP TABLE ct156_esperado(protocolo text,origen text,incorporacion text,relacion text,inicio text,recibo text);
+CREATE TEMP TABLE ct156_feed(evento_ref text,evento jsonb,huella_sha256 text,
+ origen_ref text,origen_posicion bigint,origen_creada_en timestamptz);
+CREATE TEMP TABLE ct156_ceses(evento_ref text,evento jsonb,huella_sha256 text,
+ origen_ref text,origen_posicion bigint,origen_creada_en timestamptz);
+GRANT INSERT,SELECT ON ct156_feed,ct156_ceses TO vec_ct156_feed_prueba;
+GRANT SELECT ON ct156_feed,ct156_ceses TO vec_ct156_relevo_prueba,vec_ct156_ajeno_prueba;
+GRANT SELECT ON ct156_esperado TO vec_ct156_relevo_prueba;
 -- B2 se siembra sobre un expediente existente sin incorporación. El agregado
 -- y su cadena histórica se conservan; el outbox se escribe con su helper real.
 DO $fixture_b2$
@@ -90,9 +100,8 @@ BEGIN
 END $ceses$;
 
 SET SESSION AUTHORIZATION vec_ct156_feed_prueba;
-CREATE TEMP TABLE ct156_feed AS SELECT * FROM vec_contratacion_temporal.leer_contratos_bolsa_v1(NULL,NULL,100);
-CREATE TEMP TABLE ct156_ceses AS SELECT * FROM vec_contratacion_temporal.leer_ceses_bolsa_v1(NULL,NULL,100);
-GRANT SELECT ON ct156_feed,ct156_ceses TO PUBLIC;
+INSERT INTO ct156_feed SELECT * FROM vec_contratacion_temporal.leer_contratos_bolsa_v1(NULL,NULL,100);
+INSERT INTO ct156_ceses SELECT * FROM vec_contratacion_temporal.leer_ceses_bolsa_v1(NULL,NULL,100);
 SELECT pg_temp.exigir_ct156((SELECT count(*) FROM ct156_ceses WHERE origen_ref LIKE 'evento:ct156:%')=2,'ambos ceses visibles');
 SELECT pg_temp.exigir_ct156((SELECT count(*) FROM ct156_feed WHERE origen_ref='evento:ct156:b2:incorporacion' AND evento->>'tipo'='incorporacion' AND evento->>'inicio'='2026-09-01T00:00:00.000000Z')=1,'incorporación B2 inicial');
 SELECT pg_temp.exigir_ct156(NOT EXISTS(SELECT 1 FROM ct156_ceses c LEFT JOIN ct156_feed f USING(origen_ref) WHERE c.origen_ref LIKE 'evento:ct156:%' AND (f.evento IS DISTINCT FROM c.evento OR f.huella_sha256 IS DISTINCT FROM c.huella_sha256 OR f.origen_posicion IS DISTINCT FROM c.origen_posicion)),'feeds mixto y exclusivo idénticos');
@@ -110,7 +119,6 @@ SELECT pg_temp.exigir_ct156(NOT EXISTS(
 -- timestamptz original y el formato UTC sin convertirlo a fecha civil.
 SELECT pg_temp.exigir_ct156(vec_contratacion_temporal.instante_contrato_bolsa_v1('2026-09-01T23:41:12.987654+02'::timestamptz)='2026-09-01T21:41:12.987654Z'
  AND strpos(pg_get_functiondef('vec_contratacion_temporal.origen_publicacion_bolsa_ct156(text,text,text,text)'::regprocedure),$marca$(i.material_json#>>'{Confirmacion,PeriodoIncorporacion,desde}')::timestamptz$marca$)>0,'instante CT75 con hora/zona/microsegundos');
-GRANT SELECT ON ct156_esperado TO PUBLIC;
 SET SESSION AUTHORIZATION vec_ct156_relevo_prueba;
 SELECT pg_temp.exigir_ct156(NOT EXISTS(SELECT 1 FROM ct156_ceses f JOIN ct156_esperado x ON x.origen=f.origen_ref WHERE prueba_ct156.verificar(f.origen_ref,f.huella_sha256,f.origen_posicion)->>'relacion_ref' IS DISTINCT FROM x.relacion OR prueba_ct156.verificar(f.origen_ref,f.huella_sha256,f.origen_posicion)->>'incorporacion_ref' IS DISTINCT FROM x.incorporacion),'origen/relación nativos de ambos protocolos');
 SELECT pg_temp.exigir_ct156(NOT EXISTS(SELECT 1 FROM ct156_ceses f WHERE prueba_ct156.verificar(f.origen_ref,repeat('0',64),f.origen_posicion) IS NOT NULL OR prueba_ct156.verificar(f.origen_ref,f.huella_sha256,f.origen_posicion+1) IS NOT NULL),'huella y posición forjadas denegadas');
@@ -121,5 +129,17 @@ SELECT pg_temp.exigir_ct156(NOT EXISTS(SELECT 1 FROM ct156_ceses f WHERE prueba_
 RESET SESSION AUTHORIZATION;
 SELECT pg_temp.exigir_ct156(NOT has_function_privilege('public','vec_contratacion_temporal.origen_publicacion_bolsa_ct156(text,text,text,text)','EXECUTE') AND NOT has_function_privilege('vec_contratacion_temporal_ejecutor','vec_contratacion_temporal.origen_publicacion_bolsa_ct156(text,text,text,text)','EXECUTE'),'auxiliar cerrado');
 SELECT pg_temp.exigir_ct156((SELECT proconfig FROM pg_proc WHERE oid='prueba_ct156.verificar(text,text,bigint)'::regprocedure) IS NOT DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp'],'helper SECURITY DEFINER con entorno fijo');
+SELECT pg_temp.exigir_ct156(NOT EXISTS (
+ SELECT 1 FROM (VALUES
+  ('leer_contratos_bolsa_v1(bigint,text,integer)',ARRAY['search_path=pg_catalog, pg_temp','timezone=utc']),
+  ('leer_ceses_bolsa_v1(bigint,text,integer)',ARRAY['search_path=pg_catalog, pg_temp','row_security=on','timezone=utc']),
+  ('verificar_cese_publicado_bolsa_v1(text,text,bigint)',ARRAY['search_path=pg_catalog, pg_temp','row_security=on','timezone=utc']),
+  ('registrar_incorporacion_ejercicio_v2(jsonb,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea,bytea,bytea,bigint,bigint,bytea,bytea,bytea,bytea,jsonb)',
+   ARRAY['search_path=pg_catalog, pg_temp','row_security=on','lock_timeout=2s','statement_timeout=5s'])
+ ) v(firma,config) LEFT JOIN pg_proc p ON p.oid=to_regprocedure('vec_contratacion_temporal.'||v.firma)
+ WHERE p.oid IS NULL OR NOT p.prosecdef OR p.proowner<>'vec_contratacion_temporal_propietario'::regrole
+    OR ARRAY(SELECT lower(c) FROM unnest(p.proconfig) WITH ORDINALITY AS u(c,n) ORDER BY n)
+       IS DISTINCT FROM v.config
+),'funciones heredadas con entorno exacto y propietario conservado');
 ROLLBACK;
 SELECT 'CT156 OK';

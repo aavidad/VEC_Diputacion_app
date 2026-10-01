@@ -18,6 +18,55 @@ BEGIN
  THEN RAISE EXCEPTION 'CT155: dependencias incompatibles' USING ERRCODE='55000'; END IF;
 END $pre$;
 
+-- Rellenar SOLO con la preimagen final posterior a P23/CT130. Los NULL
+-- impiden instalar esta migración con las huellas provisionales postAD131.
+DO $preimagen_consumidores$
+DECLARE x record;p record;acl_sha text;efectiva_sha text;dep_sha text;shdep_sha text;
+BEGIN
+ FOR x IN SELECT * FROM (VALUES
+  ('incorporacion_expediente_ct115(text,text)',false,'d9c103e638c97217803fac97c63a3f851b97032ecd26a01a4c175fb7a04d5060','6ce41dac491c4bad54fe6e71cd2f8a1ea21a1ae8b731e98a15c54dda9c09d8b9',ARRAY['search_path=pg_catalog']::text[],'bb292b36c6a0704ee9476dc9d0170093420eba24a503c6bfd30fc3c15a5512de','a80b2ec0aa2d2df2d426481d95e8f665a8f388deecdc74def71011f3d8bb0566','6d286e28cd336d2af53e945281f00406184134175ede49c5de1d2bfdd5eb31bb','e587f58f8c5335b5bdb34243a22749449549371082cf2d9aecaac3c90f09f165'),
+  ('resultado_cese_ct115(vec_contratacion_temporal.cese_nombramiento_v1)',false,'bf55468cbbf940aa5fc12390b7714d0e523c655317fa555bb949f3e0fd9900fb','e750349774fd31a65adc070f7fd96016b453ba5b21069e73842931e652a74d60',ARRAY['search_path=pg_catalog']::text[],'bb292b36c6a0704ee9476dc9d0170093420eba24a503c6bfd30fc3c15a5512de','a80b2ec0aa2d2df2d426481d95e8f665a8f388deecdc74def71011f3d8bb0566','53cbfc730df7ec4b4dcecd4c43318c463307461cf112a1da02c6802906e6f123','ee929f1324ae183a649b219aa4fc76349ef908f7a7c98c028522ea77b2a86ed2'),
+  ('resultado_ginpix_ct124(vec_contratacion_temporal.confirmacion_ginpix_v1)',false,'cafcf1a91da1a003405a32ce1ea1d1c1c9c48866ad9b9f2e1ff238591a4c2b4e','deb6c92426528c6a73c7cddf0f27ad534e4c89628a311c30633616b39f821dc1',ARRAY['search_path=pg_catalog']::text[],'bb292b36c6a0704ee9476dc9d0170093420eba24a503c6bfd30fc3c15a5512de','a80b2ec0aa2d2df2d426481d95e8f665a8f388deecdc74def71011f3d8bb0566','ee6f0f055918fc4e7a8d681273d5622053e6f2a471c7a4a4571deb38eb35c463','303a8f0a5f0a13d71351cd97f5b8beccdfa0d875546ddcc4fd64a0ac2703c884'),
+  ('ginpix_confirmado_ct124(text,text)',false,'631a2573ac303016501357966f4b32451d6c9a02d3b031d72c705f8100b93b3f','72bde6ac566ad7a784995c2c389dddc8f9c5c4e07d568c8af9d77597bc444fab',ARRAY['search_path=pg_catalog']::text[],'bb292b36c6a0704ee9476dc9d0170093420eba24a503c6bfd30fc3c15a5512de','a80b2ec0aa2d2df2d426481d95e8f665a8f388deecdc74def71011f3d8bb0566','96d38bbd46d954c567683858a03b9e1c8ffebb46895e8e1b2e22787cab919f98','3dab34881c7a31e8e7916c756d73c75f9dc6f141388f41d801902f561ba17983'),
+  ('confirmar_confirmacion_ginpix_v1(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',true,'8d237b59e7dd2dee3ad0b151ac20dece8536d9f76fd6ac2e7ca1db18155e8071','5fa395b4d8a86c3c6a783d7ab2f6d64a1cbba480a0770ebf7294c4f65256a6a6',ARRAY['search_path=pg_catalog','row_security=on','TimeZone=UTC','lock_timeout=2s']::text[],'dcf5f8d75fd8215c95882934ba547ceac7633a0bfa6abbbf529168f90c162cda','7ad94585991db40b728799f4c3730af4f1ee6479c77324644660f0f6a7d27b8f','1ee57b386daf022129098a812cc635623eb1cdf70de1e0891d77c4de7c2d7a25','32bc04bcfd957b06c3ded20c1f5e30167d3538fca2e5ccdc917bc0066cf4f433'),
+  ('origen_reincorporacion_ct130(jsonb)',false,'e4e7aac037419fce5dc5687c023af1208969576db995c7b30c70a68d88f67380','cdb0337060700bab4fcca32cd4750c0f3de2b9514323ca21457a0a738cb23e99',ARRAY['search_path=pg_catalog','row_security=on']::text[],'bb292b36c6a0704ee9476dc9d0170093420eba24a503c6bfd30fc3c15a5512de','a80b2ec0aa2d2df2d426481d95e8f665a8f388deecdc74def71011f3d8bb0566','1f6d6babd22cecc3ce89846226943509659486392ef7dfe212f4a75d05ac91f3','7347dfcb20e9485dcbf41538187f8d4ec73f0ced74e011492ac8eb71ba97afc3'),
+  ('leer_antecedente_reincorporacion_titular_atestada_v1(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',true,'923baa922f986747e03eac73816bff10709267575319edaf9ff00b96b363c49e','570e9652dc6ff181230b08a708f7535053ccd59316e447bc8610b3d71b0aef88',ARRAY['search_path=pg_catalog','row_security=on','TimeZone=UTC','lock_timeout=2s']::text[],'dcf5f8d75fd8215c95882934ba547ceac7633a0bfa6abbbf529168f90c162cda','7ad94585991db40b728799f4c3730af4f1ee6479c77324644660f0f6a7d27b8f','a7f0e1dec1f34ff0c90c9cf8e31bcae470293bb66985e4eb4b0e6e2dd7419e00','85f6351729eaba3ccbcc285808347975dc19f7e5045d972d4356f1d8e8c3918f')
+ ) v(firma,es_definer,def_sha,src_sha,config,acl_sha,efectiva_sha,dep_sha,shdep_sha) LOOP
+  IF x.def_sha IS NULL OR x.src_sha IS NULL OR x.config IS NULL OR x.acl_sha IS NULL
+     OR x.efectiva_sha IS NULL OR x.dep_sha IS NULL OR x.shdep_sha IS NULL THEN
+   RAISE EXCEPTION 'CT155: falta preimagen final de %',x.firma USING ERRCODE='55000';
+  END IF;
+  SELECT q.oid,q.pronamespace,q.proowner,q.prosecdef,q.proconfig,
+         pg_get_functiondef(q.oid) AS def,q.prosrc INTO STRICT p
+  FROM pg_proc q WHERE q.oid=to_regprocedure('vec_contratacion_temporal.'||x.firma);
+  SELECT encode(sha256(convert_to(coalesce(jsonb_agg(jsonb_build_object(
+   'grantee',CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END,
+   'grantor',pg_get_userbyid(a.grantor),'privilege_type',a.privilege_type,
+   'is_grantable',a.is_grantable) ORDER BY a.grantee,a.grantor,a.privilege_type,a.is_grantable),'[]'::jsonb)::text,'UTF8')),'hex')
+  INTO acl_sha FROM aclexplode(coalesce((SELECT proacl FROM pg_proc WHERE oid=p.oid),
+                                         acldefault('f',p.proowner))) a;
+  SELECT encode(sha256(convert_to(coalesce(jsonb_agg(jsonb_build_object(
+   'rolname',r.rolname,'execute',has_function_privilege(r.oid,p.oid,'EXECUTE'),
+   'schema_usage',has_schema_privilege(r.oid,p.pronamespace,'USAGE')) ORDER BY r.rolname),'[]'::jsonb)::text,'UTF8')),'hex')
+  INTO efectiva_sha FROM pg_roles r;
+  SELECT encode(sha256(convert_to(coalesce(jsonb_agg(to_jsonb(d) ORDER BY
+   d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)::text,'UTF8')),'hex')
+  INTO dep_sha FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=p.oid;
+  SELECT encode(sha256(convert_to(coalesce(jsonb_agg(to_jsonb(d) ORDER BY
+   d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype,d.dbid),'[]'::jsonb)::text,'UTF8')),'hex')
+  INTO shdep_sha FROM pg_shdepend d WHERE d.dbid=(SELECT oid FROM pg_database WHERE datname=current_database())
+   AND d.classid='pg_proc'::regclass AND d.objid=p.oid;
+  IF p.proowner IS DISTINCT FROM 'vec_contratacion_temporal_propietario'::regrole
+     OR p.prosecdef IS DISTINCT FROM x.es_definer OR p.proconfig IS DISTINCT FROM x.config
+     OR encode(sha256(convert_to(p.def,'UTF8')),'hex') IS DISTINCT FROM x.def_sha
+     OR encode(sha256(convert_to(p.prosrc,'UTF8')),'hex') IS DISTINCT FROM x.src_sha
+     OR acl_sha IS DISTINCT FROM x.acl_sha OR efectiva_sha IS DISTINCT FROM x.efectiva_sha
+     OR dep_sha IS DISTINCT FROM x.dep_sha OR shdep_sha IS DISTINCT FROM x.shdep_sha THEN
+   RAISE EXCEPTION 'CT155: preimagen incompatible: %',x.firma USING ERRCODE='55000';
+  END IF;
+ END LOOP;
+END $preimagen_consumidores$;
+
 -- Gramática JSON de material propio: claves ordenadas recursivamente, cadenas
 -- escapadas como Go. No confundir jsonb::text con la huella de la intención.
 CREATE FUNCTION vec_contratacion_temporal.canon_plan_personal_ct155(v jsonb)
@@ -343,7 +392,8 @@ BEGIN
 END $triggers$;
 
 DO $consumidores$
-DECLARE x record;p record;def text;meta jsonb;paso jsonb;
+DECLARE x record;p record;def text;meta jsonb;paso jsonb;config_esperada text[];
+        dependencias jsonb;compartidas jsonb;permisos_efectivos jsonb;
 BEGIN
  FOR x IN SELECT firma,jsonb_agg(jsonb_build_object('anterior',anterior,'nuevo',nuevo)) AS pasos FROM (VALUES
 ('incorporacion_expediente_ct115(text,text)',$old$    SELECT r.recibo_ref, vec_contratacion_temporal.inicio_incorporacion_ct115(r.material_json),
@@ -379,14 +429,63 @@ BEGIN
    AND r.relacion_ref=p_material->>'relacion_ref'$old$,$new$   AND i.protocolo=c.incorporacion_protocolo
    AND i.relacion_ref=p_material->>'relacion_ref'$new$)
  ) v(firma,anterior,nuevo) GROUP BY firma LOOP
- SELECT pg_get_functiondef(oid) AS def,to_jsonb(q)-'prosrc' AS meta INTO STRICT p FROM pg_proc q WHERE oid=to_regprocedure('vec_contratacion_temporal.'||x.firma) AND proowner=current_user::regrole;
- def:=p.def;
+ SELECT pg_get_functiondef(oid) AS def,to_jsonb(q)-'prosrc' AS meta,
+        q.proconfig,q.prosecdef INTO STRICT p FROM pg_proc q
+ WHERE oid=to_regprocedure('vec_contratacion_temporal.'||x.firma) AND proowner=current_user::regrole;
+ meta:=p.meta;
+ SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY
+  d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
+ INTO dependencias FROM pg_depend d WHERE d.classid='pg_proc'::regclass
+  AND d.objid=to_regprocedure('vec_contratacion_temporal.'||x.firma);
+ SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY
+  d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype,d.dbid),'[]'::jsonb)
+ INTO compartidas FROM pg_shdepend d WHERE d.dbid=(SELECT oid FROM pg_database WHERE datname=current_database())
+   AND d.classid='pg_proc'::regclass
+  AND d.objid=to_regprocedure('vec_contratacion_temporal.'||x.firma);
+ SELECT coalesce(jsonb_agg(jsonb_build_object(
+  'rolname',r.rolname,'execute',has_function_privilege(r.oid,q.oid,'EXECUTE'),
+  'schema_usage',has_schema_privilege(r.oid,q.pronamespace,'USAGE')) ORDER BY r.rolname),'[]'::jsonb)
+ INTO permisos_efectivos FROM pg_roles r CROSS JOIN pg_proc q
+ WHERE q.oid=to_regprocedure('vec_contratacion_temporal.'||x.firma);
+ IF x.firma IN (
+  'confirmar_confirmacion_ginpix_v1(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
+  'leer_antecedente_reincorporacion_titular_atestada_v1(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') THEN
+  IF NOT p.prosecdef OR p.proconfig IS NULL
+     OR (SELECT count(*) FROM unnest(p.proconfig) c WHERE c LIKE 'search_path=%')<>1
+     OR NOT p.proconfig @> ARRAY['search_path=pg_catalog'] THEN
+   RAISE EXCEPTION 'CT155: entorno heredado incompatible: %',x.firma USING ERRCODE='55000';
+  END IF;
+  config_esperada:=array_replace(p.proconfig,'search_path=pg_catalog','search_path=pg_catalog, pg_temp');
+  meta:=jsonb_set(meta,'{proconfig}',to_jsonb(config_esperada));
+  EXECUTE format('ALTER FUNCTION %s SET search_path TO pg_catalog, pg_temp',
+                 to_regprocedure('vec_contratacion_temporal.'||x.firma));
+  SELECT pg_get_functiondef(q.oid) INTO STRICT def FROM pg_proc q
+   WHERE q.oid=to_regprocedure('vec_contratacion_temporal.'||x.firma)
+     AND q.proconfig IS NOT DISTINCT FROM config_esperada;
+ ELSE def:=p.def;
+ END IF;
  FOR paso IN SELECT value FROM jsonb_array_elements(x.pasos) LOOP
  IF length(def)-length(replace(def,paso->>'anterior',''))<>length(paso->>'anterior') THEN RAISE EXCEPTION 'CT155: preimagen incompatible: %',x.firma USING ERRCODE='55000';END IF;
  def:=replace(def,paso->>'anterior',paso->>'nuevo');
  END LOOP;
  EXECUTE def;
- IF (SELECT pg_get_functiondef(oid) FROM pg_proc WHERE oid=to_regprocedure('vec_contratacion_temporal.'||x.firma)) IS DISTINCT FROM def OR (SELECT to_jsonb(q)-'prosrc' FROM pg_proc q WHERE oid=to_regprocedure('vec_contratacion_temporal.'||x.firma)) IS DISTINCT FROM p.meta THEN RAISE EXCEPTION 'CT155: metadatos alterados' USING ERRCODE='55000';END IF;
+ IF (SELECT pg_get_functiondef(oid) FROM pg_proc WHERE oid=to_regprocedure('vec_contratacion_temporal.'||x.firma)) IS DISTINCT FROM def
+ OR (SELECT to_jsonb(q)-'prosrc' FROM pg_proc q WHERE oid=to_regprocedure('vec_contratacion_temporal.'||x.firma)) IS DISTINCT FROM meta
+ OR (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY
+     d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
+     FROM pg_depend d WHERE d.classid='pg_proc'::regclass
+       AND d.objid=to_regprocedure('vec_contratacion_temporal.'||x.firma)) IS DISTINCT FROM dependencias
+ OR (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY
+     d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype,d.dbid),'[]'::jsonb)
+     FROM pg_shdepend d WHERE d.dbid=(SELECT oid FROM pg_database WHERE datname=current_database())
+   AND d.classid='pg_proc'::regclass
+       AND d.objid=to_regprocedure('vec_contratacion_temporal.'||x.firma)) IS DISTINCT FROM compartidas
+ OR (SELECT coalesce(jsonb_agg(jsonb_build_object(
+     'rolname',r.rolname,'execute',has_function_privilege(r.oid,q.oid,'EXECUTE'),
+     'schema_usage',has_schema_privilege(r.oid,q.pronamespace,'USAGE')) ORDER BY r.rolname),'[]'::jsonb)
+     FROM pg_roles r CROSS JOIN pg_proc q
+     WHERE q.oid=to_regprocedure('vec_contratacion_temporal.'||x.firma)) IS DISTINCT FROM permisos_efectivos
+ THEN RAISE EXCEPTION 'CT155: metadatos/dependencias alterados: %',x.firma USING ERRCODE='55000';END IF;
  END LOOP;
 END $consumidores$;
 

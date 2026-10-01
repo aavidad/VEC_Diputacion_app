@@ -22,6 +22,17 @@ BEGIN
 	 THEN RAISE EXCEPTION 'CT155: entorno SECURITY DEFINER incompatible: %',f.proname; END IF;
  IF f.proname LIKE '%ct155' AND has_function_privilege('vec_contratacion_temporal_ejecutor',f.oid,'EXECUTE') THEN RAISE EXCEPTION 'CT155: auxiliar alcanzable: %',f.proname;END IF;
  END LOOP;
+ IF EXISTS (
+  SELECT 1 FROM (VALUES
+   ('confirmar_confirmacion_ginpix_v1(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
+    ARRAY['search_path=pg_catalog, pg_temp','row_security=on','timezone=utc','lock_timeout=2s']),
+   ('leer_antecedente_reincorporacion_titular_atestada_v1(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
+    ARRAY['search_path=pg_catalog, pg_temp','row_security=on','timezone=utc','lock_timeout=2s'])
+  ) v(firma,config) LEFT JOIN pg_proc p ON p.oid=to_regprocedure('vec_contratacion_temporal.'||v.firma)
+  WHERE p.oid IS NULL OR NOT p.prosecdef OR p.proowner<>'vec_contratacion_temporal_propietario'::regrole
+     OR ARRAY(SELECT lower(c) FROM unnest(p.proconfig) WITH ORDINALITY AS u(c,n) ORDER BY n)
+        IS DISTINCT FROM v.config
+ ) THEN RAISE EXCEPTION 'CT155: entorno heredado o metadatos de consumidor alterados'; END IF;
  IF vec_contratacion_temporal.canon_plan_personal_ct155('{"z":9007199254740991,"a":{"z":"<&>","a":"fecha"}}'::jsonb) IS DISTINCT FROM '{"a":{"a":"fecha","z":"\u003c\u0026\u003e"},"z":9007199254740991}' THEN RAISE EXCEPTION 'CT155: codec Go/SQL divergente';END IF;
  BEGIN PERFORM vec_contratacion_temporal.canon_plan_personal_ct155('{"z":9007199254740992}'::jsonb);RAISE EXCEPTION 'CT155: entero fuera de rango admitido';EXCEPTION WHEN invalid_parameter_value THEN NULL;END;
 END $prueba$;
