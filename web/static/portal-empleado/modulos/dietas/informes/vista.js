@@ -93,7 +93,8 @@ export function montarInformesDietas(contenedor, { cargarDatos, traducir, docume
   }
   cabecera.append(titulo, acciones);
   const cuerpo = nodo(documento, "div"); cuerpo.className = "cuerpo-panel";
-  const origen = nodo(documento, "p", t("origen_sintetico")); origen.className = "estado-chip aviso";
+  const origen = nodo(documento, "p", t("origen_sintetico")); origen.className = "nota-integracion";
+  origen.setAttribute("role", "note");
   const limite = nodo(documento, "p", t("acciones_pendientes"));
   const estado = nodo(documento, "p"); estado.setAttribute("role", "status");
   estado.setAttribute("aria-live", "polite"); estado.setAttribute("tabindex", "-1");

@@ -58,6 +58,9 @@ test("el montaje consulta el JSON inyectado, pagina y mantiene exportar e imprim
   assert.equal(lecturas, 1);
   assert.equal(contenedor.querySelectorAll("button").filter((boton) => [t("exportar"), t("imprimir")].includes(boton.textContent)).every((boton) => boton.disabled), true);
   assert.match(texto(contenedor), /Datos de ejemplo/u);
+  const nota = contenedor.querySelectorAll("p").find((parrafo) => parrafo.textContent === t("origen_sintetico"));
+  assert.equal(nota.className, "nota-integracion");
+  assert.equal(nota.attrs.role, "note");
   assert.equal(contenedor.querySelectorAll("tbody")[0].children.length, 6);
   const listado = contenedor.querySelector("[data-dietas-informes-listado]");
   listado.listeners.click({ target: listado.querySelectorAll("[data-dietas-informes-pagina]")[1] });
