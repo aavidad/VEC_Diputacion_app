@@ -13,7 +13,7 @@ var agregados = []consulta{
 	{"roles", rolesSQL},
 	{"acl", aclSQL},
 	{"extensiones", `SELECT jsonb_build_array(e.extname,e.extversion,pg_get_userbyid(e.extowner),n.nspname,e.extrelocatable)::text FROM pg_extension e JOIN pg_namespace n ON n.oid=e.extnamespace`},
-	{"privilegios_defecto", `SELECT jsonb_build_array(pg_get_userbyid(d.defaclrole),CASE WHEN d.defaclnamespace=0 THEN '' ELSE n.nspname END,d.defaclobjtype,pg_get_userbyid(a.grantor),CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END,a.privilege_type,a.is_grantable)::text FROM pg_default_acl d LEFT JOIN pg_namespace n ON n.oid=d.defaclnamespace CROSS JOIN LATERAL aclexplode(d.defaclacl) a`},
+	{"privilegios_defecto", `SELECT jsonb_build_array(pg_get_userbyid(d.defaclrole),CASE WHEN d.defaclnamespace=0 THEN '' ELSE n.nspname END,d.defaclobjtype,coalesce((SELECT jsonb_agg(jsonb_build_array(pg_get_userbyid(a.grantor),CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END,a.privilege_type,a.is_grantable) ORDER BY pg_get_userbyid(a.grantor),CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END,a.privilege_type,a.is_grantable) FROM aclexplode(d.defaclacl) a),'[]'::jsonb))::text FROM pg_default_acl d LEFT JOIN pg_namespace n ON n.oid=d.defaclnamespace`},
 }
 
 const esquemaSQL = `
@@ -58,6 +58,7 @@ var comprobaciones = []comprobacion{
 	{"tipo_columna_no_admitido", `SELECT EXISTS(SELECT 1 FROM pg_attribute a JOIN pg_class r ON r.oid=a.attrelid JOIN pg_namespace n ON n.oid=r.relnamespace JOIN pg_type t ON t.oid=a.atttypid JOIN pg_namespace tn ON tn.oid=t.typnamespace WHERE ` + userNamespace + ` AND r.relkind='r' AND a.attnum>0 AND NOT a.attisdropped AND (a.attgenerated='v' OR tn.nspname<>'pg_catalog' OR t.typname NOT IN('bool','int2','int4','int8','float4','float8','numeric','text','varchar','bpchar','bytea','uuid','date','time','timetz','timestamp','timestamptz','interval','json','jsonb')))`},
 	{"funciones_no_admitidas", `SELECT EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE ` + userNamespace + `)`},
 	{"tipos_no_admitidos", `SELECT EXISTS(SELECT 1 FROM pg_type t JOIN pg_namespace n ON n.oid=t.typnamespace WHERE ` + userNamespace + ` AND t.typrelid=0 AND t.typelem=0)`},
+	{"disparadores_internos_no_admitidos", `SELECT EXISTS(SELECT 1 FROM pg_trigger t JOIN pg_class r ON r.oid=t.tgrelid JOIN pg_namespace n ON n.oid=r.relnamespace WHERE ` + userNamespace + ` AND t.tgisinternal AND t.tgenabled<>'O')`},
 	{"disparadores_no_admitidos", `SELECT EXISTS(SELECT 1 FROM pg_trigger t JOIN pg_class r ON r.oid=t.tgrelid JOIN pg_namespace n ON n.oid=r.relnamespace WHERE ` + userNamespace + ` AND NOT t.tgisinternal)`},
 	{"herencia_no_admitida", `SELECT EXISTS(SELECT 1 FROM pg_inherits)`},
 	{"reglas_no_admitidas", `SELECT EXISTS(SELECT 1 FROM pg_rewrite t JOIN pg_class r ON r.oid=t.ev_class JOIN pg_namespace n ON n.oid=r.relnamespace WHERE ` + userNamespace + `)`},

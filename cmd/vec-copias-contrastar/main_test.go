@@ -83,7 +83,7 @@ func TestCLISinErroresPrivados(t *testing.T) {
 }
 
 func TestLecturaEstricta(t *testing.T) {
-	for _, texto := range []string{`{"version":1,"version":1}`, `{"extra":1}`, `{} {}`, `[]`, strings.Repeat("[", 34) + strings.Repeat("]", 34)} {
+	for _, texto := range []string{`{"version":1,"version":1}`, `{"completo":false,"Completo":true}`, `{"Completo":true}`, `{"objetos":[{"clase":"tablas","Clase":"roles"}]}`, `{"objetos":[{"ſha256":"oculto"}]}`, `{"extra":1}`, `{} {}`, `[]`, strings.Repeat("[", 34) + strings.Repeat("]", 34)} {
 		p := filepath.Join(t.TempDir(), "entrada")
 		if err := os.WriteFile(p, []byte(texto), 0600); err != nil {
 			t.Fatal(err)

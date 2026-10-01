@@ -37,7 +37,7 @@ por una referencia opaca. El catálogo inglés está en `textos/en`.
 | `2` | Error de argumentos, configuración, lectura o escritura. |
 
 `--ayuda --catalogo ARCHIVO` muestra la ayuda del idioma elegido. La lectura
-rechaza campos desconocidos, claves repetidas, JSON adicional, archivos no
+rechaza campos desconocidos, alias de nombres, claves repetidas, JSON adicional, archivos no
 regulares y tamaños superiores a 32 MiB por inventario o 1 MiB de configuración.
 
 ## Capturar PostgreSQL
@@ -110,6 +110,10 @@ tras reordenar filas y recrear una tabla con OID nuevo. Detectó diferencias de
 celda, CHECK, secuencia, ACL, opción de rol y privilegios por defecto. También
 comprobó nombres con `$n`, captura de contenido LO con vínculos pendientes,
 estructuras avanzadas y presupuesto de bytes. El contenedor propio se eliminó.
+
+Las regresiones de revisión conservan ACL predeterminadas vacías como reglas
+explícitas y rechazan FK con triggers internos desactivados. Los nombres de
+campo JSON deben coincidir exactamente con el formato publicado.
 
 Para repetir las pruebas que no abren PostgreSQL:
 
