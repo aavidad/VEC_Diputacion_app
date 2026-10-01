@@ -89,7 +89,7 @@ errores no muestran esas rutas ni el contenido de los archivos.
 ## Cuestiones para RRHH
 
 Estas cuestiones completan las preguntas 23–26 de `dudas.md` y deben
-incorporarse allí en la edición coordinada del fichero:
+se han incorporado allí como preguntas 104–107:
 
 1. Las bases de Granada, apartado 30.4.3, remiten al artículo 12.4 del RD
    462/2002 al tratar la justificación de alojamiento. Ese precepto regula
