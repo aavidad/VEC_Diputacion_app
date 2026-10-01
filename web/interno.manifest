@@ -463,3 +463,7 @@ static/textos/en/carrera.json
 static/portal-empleado/portal-accesos-empleado.js
 static/textos/es/accesos-empleado.json
 static/textos/en/accesos-empleado.json
+static/textos/es/solicitudes-ejemplos.json
+static/textos/en/solicitudes-ejemplos.json
+static/textos/es/solicitudes.json
+static/textos/en/solicitudes.json

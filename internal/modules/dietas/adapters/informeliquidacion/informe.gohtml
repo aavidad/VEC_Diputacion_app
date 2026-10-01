@@ -36,7 +36,7 @@
 <th scope="col">{{.Textos.Rotulos.Motivo}}</th>
 </tr></thead>
 <tbody>{{range .Filas}}<tr>
-<th scope="row">{{.Concepto}}{{if .Detalle}}<span class="detalle-linea">{{.Detalle}}</span>{{end}}{{if .D5}}<span class="detalle-linea">{{$.Textos.Rotulos.DescripcionDeclarada}}: {{.Descripcion}}</span><span class="detalle-linea">{{$.Textos.Rotulos.FechaGasto}}: {{.Fecha}}</span>{{end}}</th>
+<th scope="row">{{.Concepto}}{{if .Detalle}}<span class="detalle-linea">{{.Detalle}}</span>{{end}}{{if .Kilometraje}}<span class="detalle-linea">{{$.Textos.Rotulos.Ruta}} {{.RutaNumero}}</span><span class="detalle-linea">{{$.Textos.Rotulos.OrigenCodigo}}: {{.OrigenCodigo}}</span><span class="detalle-linea">{{$.Textos.Rotulos.DestinoCodigo}}: {{.DestinoCodigo}}</span><span class="detalle-linea">{{$.Textos.Rotulos.KilometrosBase}}: {{.KilometrosBase}}</span><span class="detalle-linea">{{$.Textos.Rotulos.KilometrosFinales}}: {{.KilometrosFinales}}</span><span class="detalle-linea">{{$.Textos.Rotulos.AjusteKilometros}}: {{.AjusteKilometros}}</span><span class="detalle-linea">{{$.Textos.Rotulos.MotivoAjuste}}: {{.MotivoAjuste}}</span>{{end}}{{if .D5}}<span class="detalle-linea">{{$.Textos.Rotulos.DescripcionDeclarada}}: {{.Descripcion}}</span><span class="detalle-linea">{{$.Textos.Rotulos.FechaGasto}}: {{.Fecha}}</span>{{end}}</th>
 <td class="importe">{{.Inicial}}</td><td class="importe">{{.Propuesto}}</td><td class="importe">{{.Diferencia}}</td><td>{{.Motivo}}</td>
 </tr>{{end}}</tbody>
 <tfoot><tr><th scope="row">{{.Textos.Rotulos.Total}}</th><td class="importe">{{.TotalInicial}}</td><td class="importe">{{.TotalPropuesto}}</td><td class="importe">{{.TotalDiferencia}}</td><td></td></tr></tfoot>

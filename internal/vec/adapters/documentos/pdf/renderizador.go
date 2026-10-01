@@ -13,23 +13,37 @@ import (
 	"codeberg.org/go-pdf/fpdf"
 	"golang.org/x/image/font/gofont/gobold"
 	"golang.org/x/image/font/gofont/goregular"
+	"golang.org/x/text/language"
 
 	"vec-diputacion-granada/internal/vec/domain"
 )
 
 var ErrTextoInvalido = errors.New("pdf: texto invalido")
 
+var ErrIdiomaInvalido = errors.New("pdf: idioma invalido")
+
 // Renderizador implementa el puerto PDF sin introducir la libreria en el
 // dominio ni en los casos de uso.
-type Renderizador struct{}
+type Renderizador struct {
+	// Idioma procede del catálogo. Vacío conserva el español de los consumidores anteriores.
+	Idioma string
+}
 
 func (Renderizador) Formato() domain.FormatoDocumento {
 	return domain.FormatoDocumentoPDF
 }
 
-func (Renderizador) Renderizar(ctx context.Context, contenido domain.ContenidoDocumento) ([]byte, error) {
+func (r Renderizador) Renderizar(ctx context.Context, contenido domain.ContenidoDocumento) ([]byte, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
+	}
+	idioma := r.Idioma
+	if idioma == "" {
+		idioma = "es-ES"
+	}
+	etiqueta, err := language.Parse(idioma)
+	if err != nil || etiqueta.String() != idioma {
+		return nil, ErrIdiomaInvalido
 	}
 	if !textoValido(contenido.Titulo) {
 		return nil, fmt.Errorf("%w: titulo", ErrTextoInvalido)
@@ -53,7 +67,7 @@ func (Renderizador) Renderizar(ctx context.Context, contenido domain.ContenidoDo
 	documento.SetAuthor("Portal VEC Diputacion de Granada", true)
 	documento.SetCreator("Portal VEC Diputacion de Granada", true)
 	documento.SetProducer("Portal VEC Diputacion de Granada", true)
-	documento.SetLang("es-ES")
+	documento.SetLang(etiqueta.String())
 	documento.AddUTF8FontFromBytes("vec", "", goregular.TTF)
 	documento.AddUTF8FontFromBytes("vec", "B", gobold.TTF)
 	documento.AddPage()

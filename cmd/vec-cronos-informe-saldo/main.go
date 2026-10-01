@@ -3,6 +3,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -32,7 +33,16 @@ func ejecutar(ctx context.Context, args []string, salida io.Writer) error {
 		return ports.ErrExportacionSaldoInvalida
 	}
 	defer catalogo.Close()
-	preparador, err := informesaldo.Nuevo(pdf.Renderizador{}, catalogo)
+	raw, err := io.ReadAll(io.LimitReader(catalogo, 65537))
+	if err != nil || len(raw) > 65536 {
+		return ports.ErrExportacionSaldoInvalida
+	}
+	var textos informesaldo.Catalogo
+	if json.Unmarshal(raw, &textos) != nil {
+		return ports.ErrExportacionSaldoInvalida
+	}
+	// El idioma y el preparador consumen los mismos bytes del catálogo.
+	preparador, err := informesaldo.Nuevo(pdf.Renderizador{Idioma: textos.Idioma}, bytes.NewReader(raw))
 	if err != nil {
 		return err
 	}
