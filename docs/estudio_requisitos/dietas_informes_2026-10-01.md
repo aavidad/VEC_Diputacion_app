@@ -9,13 +9,29 @@ liquidación, una fiscalización o un pago.
 
 Los importes se suman en céntimos enteros y por moneda. Se conserva la unidad
 vinculada a cada documento; no se sustituye por la adscripción actual de la
-persona. El periodo toma la fecha de inicio de la comisión, indicada en los
-datos del ejemplo. Ese criterio permite revisar el filtro, pero no es una
-regla contable aprobada por RRHH.
+persona. El catálogo de ejemplo elige la fecha de inicio de la comisión. Ese criterio
+permite revisar el filtro; no fija una regla contable aprobada por RRHH.
 
 El informe usa importes conservados. No vuelve a calcular comisiones antiguas
 con el catálogo actual ni reparte el mismo total entre varios meses. Las
 etiquetas distinguen estados sintéticos y no acreditan efectos administrativos.
+
+## Configuración del ensayo
+
+`data/catalogos/dietas/informes-ejemplo-v1.json` elige la fecha del periodo,
+los estados y los conceptos incluidos. Conserva referencia, versión e historia
+sintética. La vista recibe ese catálogo y los registros por separado; rechaza
+referencias o versiones que no coincidan. Una historia de ejemplo no acredita
+publicación ni auditoría administrativa.
+
+La configuración inicial conserva ocho registros y 414,20 euros. Una variante
+por fecha de liquidación, solo con estado liquidado y manutención, incluye dos
+registros y 42,50 euros. Los importes originales se conservan; la vista rotula
+el resultado como «Importe incluido».
+
+El gobierno operativo del catálogo, su autorización y su auditoría durable
+siguen esperando el contrato nominal. La pregunta sobre fecha, unidad, estados
+e importes se remite a RRHH en `dudas.md` durante el turno de E.
 
 ## Fuente y decisión
 
