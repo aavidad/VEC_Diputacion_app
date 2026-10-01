@@ -2,6 +2,7 @@ import { formatearCantidadCronos, MENSAJES_CRONOS_SOLICITUDES } from "./i18n-sol
 import { ErrorClienteSolicitudesCronos, crearClienteSolicitudesCronosHTTP, validarMovimientosPropiosCronos, validarEntradaCorreccionCronos } from "./cliente-solicitudes-http.js";
 import { crearTraductorIncidenciasCronos } from "./i18n-incidencias.js?v=20261001-cronos-grafo-bandeja-v5";
 import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
+import { icono } from "../../../comun/iconos-vec.js?v=20260925-aspecto-v1";
 
 const MOVIMIENTOS = ["entrada", "salida", "inicio_pausa", "fin_pausa"];
 const ESTADOS_CORRECCION = ["pendiente_responsable", "pendiente_rrhh", "denegada_responsable", "denegada_rrhh", "pendiente_aplicacion", "aplicada"];
@@ -123,11 +124,11 @@ function formularioOlvido(f, t, hoy) {
   const enviando = f.estado === "enviando";
   const opciones = MOVIMIENTOS.map((m) => `<option value="${m}"${f.movimiento === m ? " selected" : ""}>${escaparHTML(t(`movimiento_${m}`))}</option>`).join("");
   const aviso = f.mensaje ? `<p class="cronos-solicitud-aviso" data-tono="${f.estado === "hecho" ? "exito" : "error"}" role="${f.estado === "hecho" ? "status" : "alert"}">${escaparHTML(f.mensaje)}</p>` : "";
-  return `<form class="cronos-solicitud-formulario" data-cronos-olvido-formulario aria-label="${escaparHTML(t("olvido_formulario"))}">
+  return `<form class="cronos-solicitud-formulario" data-cronos-olvido-formulario tabindex="-1" aria-label="${escaparHTML(t("olvido_formulario"))}">
     <label>${escaparHTML(t("fecha"))}<input class="control-formulario" type="date" name="fecha_civil" required max="${hoy}" value="${escaparHTML(f.fecha ?? "")}"${enviando ? " disabled" : ""}></label>
     <label>${escaparHTML(t("hora"))}<input class="control-formulario" type="time" name="hora_pretendida" required value="${escaparHTML(f.hora ?? "")}"${enviando ? " disabled" : ""}></label>
     <label>${escaparHTML(t("olvido_movimiento"))}<select class="control-formulario" name="movimiento"${enviando ? " disabled" : ""}>${opciones}</select></label>
-    <div class="cronos-solicitud-acciones"><button type="submit" class="boton-primario"${enviando ? " disabled" : ""}>${escaparHTML(t(enviando ? "olvido_enviando" : "olvido_enviar"))}</button>
+    <div class="cronos-solicitud-acciones"><button type="submit" class="boton-primario" data-cronos-olvido-enviar${enviando ? " disabled" : ""}>${escaparHTML(t(enviando ? "olvido_enviando" : "olvido_enviar"))}</button>
     <button type="button" class="boton-secundario" data-cronos-olvido="cerrar"${enviando ? " disabled" : ""}>${escaparHTML(t("cancelar"))}</button></div>${aviso}</form>`;
 }
 
@@ -157,9 +158,9 @@ function filtrosHTML(datos, filtros, t, locale) {
   const opcion = (valor, etiqueta, actual) => `<option value="${valor}"${actual === valor ? " selected" : ""}>${escaparHTML(t(etiqueta))}</option>`;
   const n = (valor) => new Intl.NumberFormat(locale).format(valor);
   const estados = ESTADOS_CORRECCION.map((e) => `<option value="${e}"${filtros.estado === e ? " selected" : ""}>${escaparHTML(t(`correccion_${e}`))} (${n(datos.correcciones.filter((c) => c.estado === e).length)})</option>`).join("");
-  const resumen = [["correcciones_total", datos.correcciones.length, "correcciones"], ["ausencias_total", datos.absentismos.length, "ausencias"], ["justificaciones_total", datos.absentismos.filter((a) => a.pendiente_justificar).length, "pendiente"]]
-    .map(([clave, cantidad, filtro]) => `<div class="tarjeta-kpi"><strong>${n(cantidad)}</strong><button type="button" class="boton-secundario" data-cronos-recuento="${filtro}">${escaparHTML(t(clave))}</button></div>`).join("");
-  return `<section class="panel cronos-panel" aria-labelledby="cronos-incidencias-titulo"><div class="cabecera-panel"><h3 id="cronos-incidencias-titulo">${escaparHTML(t("incidencias"))}</h3></div><div class="cuerpo-panel"><div class="rejilla-kpi">${resumen}</div><div class="cronos-solicitud-formulario">
+  const resumen = [["correcciones_total", datos.correcciones.length, "correcciones", "reloj"], ["ausencias_total", datos.absentismos.length, "ausencias", "calendario"], ["justificaciones_total", datos.absentismos.filter((a) => a.pendiente_justificar).length, "pendiente", "documento"]]
+    .map(([clave, cantidad, filtro, nombreIcono]) => `<button type="button" class="tarjeta-kpi" data-cronos-recuento="${filtro}"><span class="icono-kpi" aria-hidden="true">${icono(nombreIcono)}</span><span><strong class="valor-kpi">${n(cantidad)}</strong><span class="etiqueta-kpi">${escaparHTML(t(clave))}</span></span></button>`).join("");
+  return `<section class="panel cronos-panel" aria-labelledby="cronos-incidencias-titulo"><div class="cabecera-panel"><h3 id="cronos-incidencias-titulo">${escaparHTML(t("incidencias"))}</h3></div><div class="cuerpo-panel"><div class="rejilla-kpi rejilla-kpi--compacta">${resumen}</div><div class="cronos-solicitud-formulario">
     <label>${escaparHTML(t("desde_filtro"))}<input class="control-formulario" type="date" data-cronos-filtro="desde" value="${escaparHTML(filtros.desde || "")}"></label>
     <label>${escaparHTML(t("hasta_filtro"))}<input class="control-formulario" type="date" data-cronos-filtro="hasta" value="${escaparHTML(filtros.hasta || "")}"></label>
     <label>${escaparHTML(t("filtrar_estado"))}<select class="control-formulario" data-cronos-filtro="estado">${opcion("", "todos_estados", filtros.estado || "")}${estados}</select></label>
@@ -202,7 +203,7 @@ export function renderizarMovimientosPropiosCronos({ estado = "cargando", anio, 
   let cuerpo;
   if (estado !== "listo") {
     const clave = { denegado: "denegado", sin_empleado: "sin_empleado", error: "error", no_disponible: "no_disponible" }[estado] ?? "cargando";
-    cuerpo = `<section class="panel cronos-panel"><div class="cuerpo-panel"><p class="cronos-${["cargando", "no_disponible"].includes(estado) ? "vacio" : "acceso-denegado"}" role="${estado === "error" ? "alert" : "status"}">${escaparHTML(t(clave))}</p></div></section>`;
+    cuerpo = `<section class="panel cronos-panel"><div class="cuerpo-panel"><p class="cronos-${["cargando", "no_disponible"].includes(estado) ? "vacio" : "acceso-denegado"}" data-cronos-movimientos-estado tabindex="-1" role="${estado === "error" ? "alert" : "status"}">${escaparHTML(t(clave))}</p></div></section>`;
   } else {
     const marcas = marcasPorDiaCronos(datos);
     const aviso = datos.calendario.disponible ? "" : `<p class="cronos-calendario-falta" role="status">${escaparHTML(t("calendario_sin_publicar", { anio }))}</p>`;
@@ -252,7 +253,15 @@ export function montarMovimientosPropiosCronos({ raiz, cliente = crearClienteSol
   const dibujar = () => {
     if (!activa) return;
     const foco = contenedor.querySelector?.(":focus");
-    const selectorActual = foco?.name && ["fecha_civil", "hora_pretendida", "movimiento"].includes(foco.name) ? `[name="${foco.name}"]`
+    const documento = contenedor.ownerDocument ?? raiz.ownerDocument;
+    const documentoActivo = documento.hasFocus?.() !== false;
+    const selectorActual = !documentoActivo ? null
+      : foco?.name && ["fecha_civil", "hora_pretendida", "movimiento"].includes(foco.name) ? `[name="${foco.name}"]`
+      : foco?.hasAttribute?.("data-cronos-olvido-enviar") ? "[data-cronos-olvido-enviar]"
+      : foco?.dataset?.cronosOlvido ? `[data-cronos-olvido="${foco.dataset.cronosOlvido}"]`
+      : foco?.dataset?.cronosRecuento ? `[data-cronos-recuento="${foco.dataset.cronosRecuento}"]`
+      : foco?.hasAttribute?.("data-cronos-quitar-filtros") ? "[data-cronos-quitar-filtros]"
+      : foco?.getAttribute?.("data-accion") === "ayuda" ? '[data-accion="ayuda"]'
       : foco?.hasAttribute?.("data-cronos-cal-vista") ? "[data-cronos-cal-vista]"
       : foco?.hasAttribute?.("data-cronos-cal-mes-elegido") ? "[data-cronos-cal-mes-elegido]"
       : foco?.hasAttribute?.("data-cronos-cal-fecha") ? "[data-cronos-cal-fecha]"
@@ -262,17 +271,22 @@ export function montarMovimientosPropiosCronos({ raiz, cliente = crearClienteSol
       : foco?.hasAttribute?.("data-cronos-actualizar") ? "[data-cronos-actualizar]"
       : foco?.dataset?.cronosAnio ? `[data-cronos-anio="${foco.dataset.cronosAnio}"]`
       : foco?.dataset?.cronosPagina ? `[data-cronos-pagina="${foco.dataset.cronosPagina}"][data-pagina="${foco.dataset.pagina}"]` : null;
-    const activoDocumento = contenedor.ownerDocument?.activeElement;
-    if (activoDocumento && activoDocumento !== contenedor.ownerDocument.body && !contenedor.contains?.(activoDocumento)) focoPendiente = null;
+    const activoDocumento = documento.activeElement;
+    if (!documentoActivo || (activoDocumento && activoDocumento !== documento.body && !contenedor.contains?.(activoDocumento))) focoPendiente = null;
     const selector = selectorActual || focoPendiente;
     focoPendiente = selector;
     contenedor.innerHTML = renderizarMovimientosPropiosCronos({ estado, anio: anioVisible, datos, formulario, mensajes, locale, zonaHoraria, hoy, incrustada, filtros, paginas, tamanoPagina, vistaCalendario: vista, fechaSeleccionada: seleccionada });
     if (selector) {
-      const destino = contenedor.querySelector?.(selector);
-      if (destino?.disabled && selector.startsWith("[data-cronos-cal-mes=")) contenedor.querySelector?.("[data-cronos-cal-fecha]")?.focus?.();
-      else destino?.focus?.();
+      const control = contenedor.querySelector?.(selector);
+      const destino = control && !control.disabled ? control
+        : control?.disabled && selector.startsWith("[data-cronos-cal-mes=") ? contenedor.querySelector?.("[data-cronos-cal-fecha]")
+          : contenedor.querySelector?.("[data-cronos-movimientos-estado]")
+            ?? contenedor.querySelector?.("[data-cronos-olvido-formulario]");
+      destino?.focus?.();
+      // El formulario y el mensaje son destinos provisionales mientras el
+      // control está deshabilitado u oculto por la lectura.
+      if (estado !== "cargando" && formulario?.estado !== "enviando" && destino === control && !control?.disabled) focoPendiente = null;
     }
-    if (estado !== "cargando") focoPendiente = null;
   };
   const cargar = async () => {
     if (!activa) return;
