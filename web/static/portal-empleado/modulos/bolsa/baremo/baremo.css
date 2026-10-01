@@ -50,6 +50,10 @@
  .baremo-reglas .tabla-contenedor { flex: 1; min-height: 0; max-height: none; overflow: auto; }
  .baremo-topes .cuerpo-panel { min-height: 0; overflow: auto; }
  .baremo-editor form > section:last-of-type { flex: 0 1 250px; display: flex; flex-direction: column; min-height: 120px; }
+ /* Jornada necesita espacio para el selector y el umbral, dentro del mismo marco. */
+ .baremo-editor:has([data-jornada-modo]) form > section:last-of-type { flex-basis: 200px; }
+ .baremo-editor:has([data-jornada-modo]) .baremo-reglas tbody th,
+ .baremo-editor:has([data-jornada-modo]) .baremo-reglas td { vertical-align: top; }
  .baremo-resultados { flex: 1; min-height: 0; max-height: none; padding-block: 12px; }
  .baremo-resultado h3 { margin-block: 0 12px; }
  .baremo-cabecera, .baremo-controles { padding-block: 12px; }
