@@ -172,6 +172,9 @@ BEGIN
     EXCEPTION WHEN check_violation THEN
         GET STACKED DIAGNOSTICS v_restriccion = CONSTRAINT_NAME;
         v_error := v_restriccion = 'prueba_resultado_recibo_rrhh_v2_check1';
+    WHEN invalid_parameter_value THEN
+        -- El canon rechaza hay_mas/cursor incoherentes antes del CHECK.
+        v_error := true;
     END;
     IF NOT v_error THEN RAISE EXCEPTION 'CT159: aceptó un cuadro nuevo alterado'; END IF;
     SELECT pg_catalog.count(*) INTO v_cantidad FROM pg_temp.ct159_prueba;
