@@ -530,3 +530,12 @@ static/textos/es/solicitudes-ejemplos.json
 static/textos/en/solicitudes-ejemplos.json
 static/textos/es/solicitudes.json
 static/textos/en/solicitudes.json
+static/portal-empleado/modulos/personal/preparacion-servicios-cer.js
+static/portal-empleado/modulos/personal/preparacion-relacion-rpt.js
+static/portal-empleado/modulos/personal/preparacion-antecedentes-carrera.js
+static/textos/es/personal-servicios-cer.json
+static/textos/en/personal-servicios-cer.json
+static/textos/es/preparacion-relacion-rpt.json
+static/textos/en/preparacion-relacion-rpt.json
+static/textos/es/personal-antecedentes-carrera.json
+static/textos/en/personal-antecedentes-carrera.json
