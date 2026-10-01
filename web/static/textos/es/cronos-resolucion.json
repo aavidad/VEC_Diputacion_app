@@ -1,5 +1,6 @@
 {
   "bandeja": {
+    "avisos_reintentar_consulta": "Volver a consultar",
     "resumen_alcance": "El resumen cuenta solo las solicitudes de esta bandeja para {paso}.",
     "resumen_total": "Solicitudes en esta bandeja",
     "resumen_resolubles": "Solicitudes que puede revisar",
