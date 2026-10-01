@@ -307,7 +307,14 @@ func (c *Cliente) VerificarMotivado(ctx context.Context, s ports.SolicitudVerifi
 	if motivo != "" {
 		return motivar(base, motivo), nil
 	}
-	return traducir(base, recibida), nil
+	resultado := traducir(base, recibida)
+	if s.FormatoEsperado != "" && resultado.Motivo == ports.MotivoFirmaVerificada &&
+		resultado.Resultado.Formato != s.FormatoEsperado {
+		// El dictamen puede ser positivo para otro formato, pero ese positivo
+		// no satisface el contrato de este consumidor. No adoptar sus aspectos.
+		return motivar(base, ports.MotivoRespuestaNoInterpretable), nil
+	}
+	return resultado, nil
 }
 
 func (c *Cliente) llamar(ctx context.Context, peticion peticionAutofirma) (*dictamenAutofirma, ports.MotivoVerificacionFirma) {
