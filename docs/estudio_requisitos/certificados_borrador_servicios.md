@@ -80,9 +80,9 @@ PDF etiquetado ni PDF/UA. Su corrección pertenece al generador común.
 ## Verificación focal
 
 ```sh
-GOCACHE=/dev/shm/go-build TMPDIR=/tmp go test -race -p 32 \
+GOCACHE=/dev/shm/go-build TMPDIR=/tmp go test -race -p 8 \
   ./cmd/vec-certificados-borrador ./internal/modules/certificados/...
-GOCACHE=/dev/shm/go-build go vet -p 32 \
+GOCACHE=/dev/shm/go-build go vet -p 8 \
   ./cmd/vec-certificados-borrador ./internal/modules/certificados/...
 GOCACHE=/dev/shm/go-build ~/go/bin/gosec -quiet -fmt text \
   ./cmd/vec-certificados-borrador/... ./internal/modules/certificados/...
