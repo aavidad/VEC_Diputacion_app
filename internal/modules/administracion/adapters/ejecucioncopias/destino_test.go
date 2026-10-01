@@ -81,6 +81,8 @@ func TestDestinoConjuntoAutenticadoRecuperaTrasReabrirYRechazaTamper(t *testing.
 	}
 	d := DestinoCS03{Destino: storage, Fuente: fuentePrueba{material}, Catalogo: catalogo, ProteccionEsperada: m.Proteccion}
 	origen := fixture.Manifiesto.Verificacion.Fisica
+	// La medida de origen no es un ensayo de arranque del binario archivado.
+	origen.ArranqueRef = ""
 	publicado, e := d.Publicar(ctx, ej.Captura{Manifiesto: m, Origen: origen})
 	if e != nil {
 		t.Fatal(e)

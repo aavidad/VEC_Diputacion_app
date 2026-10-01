@@ -186,6 +186,38 @@ func (r *RegistroCS07) CAS(ctx context.Context, ref, esperada, preimagen, etapa 
 	return operacionDesde(estado), nil
 }
 
+func (r *RegistroCS07) ConciliarRestauracion(ctx context.Context, o ej.ObservacionRestauracion) error {
+	if r == nil || r.diario == nil || r.destino == nil {
+		return errRegistroConfiguracion
+	}
+	return r.diario.actualizar(ctx, o.OperacionRef, "observar_restauracion", func(e estadoExterior) (estadoExterior, error) {
+		if e.PreimagenSHA256 == "" || e.PlanRef == "" || e.CopiaPreviaRef == "" ||
+			e.SolicitudSHA256 != huellaSemantica(o.Peticion) || e.Actor != o.ActorRef || e.DestinoRef != o.DestinoRef ||
+			e.ConjuntoRef != o.ConjuntoRef || e.PoliticaRef != o.PoliticaRef || e.HuellaPropuesta != o.HuellaPropuesta ||
+			e.PreimagenSHA256 != o.PreimagenSHA256 || e.ConjuntoPreviaPlaneadaRef != o.ConjuntoPreviaRef || e.CopiaPreviaRef != o.ConjuntoPreviaRef ||
+			fmtVersion(e.Version) != o.VersionRef || (o.InstaladoRef != e.ConjuntoRef && o.InstaladoRef != e.CopiaPreviaRef) {
+			return e, errRegistroVinculo
+		}
+		switch e.Estado {
+		case "sustitucion_iniciada", "reversion_iniciada", "pendiente_conciliacion", "instalado_pendiente_conciliacion", "revertida":
+		default:
+			return e, errRegistroTransicion
+		}
+		c, err := r.destino.Recuperar(ctx, o.InstaladoRef)
+		if err != nil || c.Ref != o.InstaladoRef || c.Manifiesto.ConjuntoRef != o.InstaladoRef ||
+			c.Manifiesto.PoliticaRef != e.PoliticaRef || c.Manifiesto.Verificacion.Estado != "valida" ||
+			o.IndiceAutenticadoRef == "" || c.IndiceAutenticadoRef != o.IndiceAutenticadoRef {
+			return e, errRegistroVinculo
+		}
+		e.Estado = "revertida"
+		if o.InstaladoRef == e.ConjuntoRef {
+			e.Estado = "instalado_pendiente_conciliacion"
+		}
+		e.ConjuntoObservadoRef, e.IndiceObservadoRef = o.InstaladoRef, o.IndiceAutenticadoRef
+		return e, nil
+	})
+}
+
 func (r *RegistroCS07) Leer(ctx context.Context, ref string) (ej.Operacion, error) {
 	if r == nil || r.diario == nil || r.registro == nil {
 		return ej.Operacion{}, errRegistroConfiguracion
@@ -307,3 +339,4 @@ var (
 )
 
 var _ ej.Registro = (*RegistroCS07)(nil)
+var _ ej.RegistroConciliacion = (*RegistroCS07)(nil)

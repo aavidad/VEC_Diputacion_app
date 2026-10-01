@@ -4,11 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
+	ejadapter "vec-diputacion-granada/internal/modules/administracion/adapters/ejecucioncopias"
+	cs07 "vec-diputacion-granada/internal/modules/administracion/adapters/registrocopias"
 	"vec-diputacion-granada/internal/modules/administracion/domain/copias"
 	puertos "vec-diputacion-granada/internal/modules/administracion/ports/ejecucioncopias"
 )
@@ -131,6 +134,13 @@ func (r *registroPrueba) Anotar(_ context.Context, _ string, estado, detalle str
 	return nil
 }
 func (r *registroPrueba) AplicarCopia(context.Context, puertos.EventoCopia) error { return nil }
+func (r *registroPrueba) ConciliarRestauracion(ctx context.Context, o puertos.ObservacionRestauracion) error {
+	estado := "revertida"
+	if o.InstaladoRef == r.op.ConjuntoRef {
+		estado = "instalado_pendiente_conciliacion"
+	}
+	return r.Anotar(ctx, o.OperacionRef, estado, o.InstaladoRef)
+}
 func (r *registroPrueba) CAS(_ context.Context, _ string, version, preimagen, estado string) (puertos.Operacion, error) {
 	*r.eventos = append(*r.eventos, "cas")
 	if version != r.op.VersionRef || preimagen != r.op.PreimagenSHA256 {
@@ -284,6 +294,18 @@ func TestEnsayosValidosRechazaContenidoDistintoConMismoRecuento(t *testing.T) {
 	logico := fisico
 	logico.Modo = puertos.Logico
 	logico.Evidencia.ContenidoSHA256 = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+	origen := previa.Origen
+	origen.ArranqueRef = ""
+	controlLogico := fisico
+	controlLogico.Modo = puertos.Logico
+	if !ensayosValidos(origen, fisico, controlLogico) {
+		t.Fatal("exigió al origen un arranque reservado a los ensayos")
+	}
+	sinArranque := controlLogico
+	sinArranque.ArranqueRef, sinArranque.Evidencia.ArranqueRef = "", ""
+	if ensayosValidos(origen, fisico, sinArranque) {
+		t.Fatal("aceptó ensayo sin arranque comprobado")
+	}
 	if !ensayosValidos(previa.Origen, fisico, puertos.Ensayo{Modo: puertos.Logico, Evidencia: previa.Origen, VerificadorVersion: "v1", ArranqueRef: previa.Origen.ArranqueRef}) {
 		t.Fatal("el caso de control debe ser válido")
 	}
@@ -528,6 +550,131 @@ func TestConciliarNoRepiteSustitucion(t *testing.T) {
 	}
 	if r.ConjuntoRef != objetivo.Ref || r.Estado != "instalado_pendiente_conciliacion" || plataforma.sustituciones != 0 {
 		t.Fatalf("recibo=%+v sustituciones=%d", r, plataforma.sustituciones)
+	}
+}
+
+func TestConciliarConDiarioRealReabreObservacionSinDuplicados(t *testing.T) {
+	for _, inicial := range []string{"sustitucion_iniciada", "pendiente_conciliacion", "instalado_pendiente_conciliacion", "reversion_iniciada", "revertida"} {
+		for _, anterior := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/previa=%t", inicial, anterior), func(t *testing.T) {
+				ctx := context.Background()
+				p, lectura, objetivo, captura := propuestaPrueba(t)
+				previa := objetivo
+				previa.Ref, previa.Manifiesto, previa.IndiceAutenticadoRef = p.ConjuntoPreviaRef, captura.Manifiesto, "indice:previa"
+				previa.Manifiesto.Verificacion = objetivo.Manifiesto.Verificacion
+				var eventos []string
+				destino := &destinoPrueba{conjuntos: map[string]puertos.Conjunto{objetivo.Ref: objetivo, previa.Ref: previa}, eventos: &eventos}
+				base := t.TempDir()
+				dirCS07, exterior, restaurada := filepath.Join(base, "cs07"), filepath.Join(base, "exterior"), filepath.Join(base, "restaurada")
+				for _, dir := range []string{dirCS07, exterior, restaurada} {
+					if err := os.Mkdir(dir, 0700); err != nil {
+						t.Fatal(err)
+					}
+				}
+				journal, err := cs07.Abrir(cs07.Config{Directorio: dirCS07, RaicesRestauradas: []string{restaurada}})
+				if err != nil {
+					t.Fatal(err)
+				}
+				cfg := ejadapter.ConfigRegistroCS07{Registro: journal, Destino: destino, DirectorioExterior: exterior, RaicesRestauradas: []string{restaurada}}
+				registro, err := ejadapter.AbrirRegistroCS07(cfg)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if _, err = registro.ReservarRestauracion(ctx, p); err != nil {
+					t.Fatal(err)
+				}
+				for _, etapa := range []struct{ estado, valor string }{{"exclusion_solicitada", p.PreimagenSHA256}, {"copia_previa_verificada", previa.Ref}, {"plan_preparado", "plan:prueba"}} {
+					if err = registro.Anotar(ctx, p.OperacionRef, etapa.estado, etapa.valor); err != nil {
+						t.Fatal(err)
+					}
+				}
+				op, err := registro.Leer(ctx, p.OperacionRef)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if _, err = registro.CAS(ctx, op.Ref, op.VersionRef, p.PreimagenSHA256, "sustitucion_iniciada"); err != nil {
+					t.Fatal(err)
+				}
+				if inicial == "reversion_iniciada" || inicial == "revertida" {
+					if err = registro.Anotar(ctx, op.Ref, "reversion_iniciada", previa.Ref); err != nil {
+						t.Fatal(err)
+					}
+				}
+				if inicial != "sustitucion_iniciada" && inicial != "reversion_iniciada" {
+					valor := objetivo.Ref
+					if inicial == "revertida" {
+						valor = previa.Ref
+					}
+					if err = registro.Anotar(ctx, op.Ref, inicial, valor); err != nil {
+						t.Fatal(err)
+					}
+				}
+				instalado := objetivo.Ref
+				if anterior {
+					instalado = previa.Ref
+				}
+				plataforma := &plataformaPrueba{instalado: instalado, eventos: &eventos}
+				s, err := Nuevo(Dependencias{Inventario: inventarioPrueba{lectura}, Autorizador: autorizadorPrueba{}, Registro: registro, Ventana: ventanaPrueba{eventos: &eventos}, Destino: destino, Ensayador: ensayadorPrueba{eventos: &eventos}, Plataforma: plataforma})
+				if err != nil {
+					t.Fatal(err)
+				}
+				op, err = registro.Leer(ctx, p.OperacionRef)
+				if err != nil {
+					t.Fatal(err)
+				}
+				alterada := p
+				alterada.MotivoRef = "motivo:otro"
+				if _, err = s.Conciliar(ctx, alterada); !errors.Is(err, ErrConciliacion) {
+					t.Fatalf("propuesta distinta: %v", err)
+				}
+				if err = registro.ConciliarRestauracion(ctx, puertos.ObservacionRestauracion{Propuesta: p, VersionRef: "version:obsoleta", InstaladoRef: instalado, IndiceAutenticadoRef: destino.conjuntos[instalado].IndiceAutenticadoRef}); err == nil {
+					t.Fatal("aceptó observación de versión obsoleta")
+				}
+				if err = registro.ConciliarRestauracion(ctx, puertos.ObservacionRestauracion{Propuesta: p, VersionRef: op.VersionRef, InstaladoRef: instalado, IndiceAutenticadoRef: "indice:ajeno"}); err == nil {
+					t.Fatal("aceptó índice ajeno")
+				}
+				sinCambio, err := registro.Leer(ctx, p.OperacionRef)
+				if err != nil || sinCambio != op {
+					t.Fatalf("denegación cambió diario: %+v %v", sinCambio, err)
+				}
+				r, err := s.Conciliar(ctx, p)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if r.ConjuntoRef != instalado || r.IndiceAutenticadoRef != destino.conjuntos[instalado].IndiceAutenticadoRef {
+					t.Fatalf("resultado ajeno: %+v", r)
+				}
+				confirmada, err := registro.Leer(ctx, op.Ref)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err = registro.Close(); err != nil {
+					t.Fatal(err)
+				}
+				registro, err = ejadapter.AbrirRegistroCS07(cfg)
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer registro.Close()
+				s.d.Registro = registro
+				replay, err := s.Conciliar(ctx, p)
+				if err != nil || replay != r {
+					t.Fatalf("recuperación: %+v %v", replay, err)
+				}
+				final, err := registro.Leer(ctx, op.Ref)
+				if err != nil || final != confirmada {
+					t.Fatalf("replay añadió versión: %+v %v", final, err)
+				}
+				if plataforma.sustituciones != 0 {
+					t.Fatal("conciliación repitió sustitución")
+				}
+				for _, evento := range eventos {
+					if evento == "abrir_exclusion" || evento == "capturar" || evento == "preparar" || evento == "sustituir" || evento == "arrancar" {
+						t.Fatalf("efecto durante observación: %s", evento)
+					}
+				}
+			})
+		}
 	}
 }
 

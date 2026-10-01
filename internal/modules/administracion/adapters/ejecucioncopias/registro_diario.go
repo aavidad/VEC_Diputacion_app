@@ -23,6 +23,8 @@ type estadoExterior struct {
 	Estado                                                                                               string
 	Version                                                                                              uint64
 	CopiaPreviaRef, ConjuntoPreviaPlaneadaRef, PlanRef, PreimagenSHA256, HuellaPropuesta, IndiceFinalRef string
+	ConjuntoObservadoRef                                                                                 string `json:",omitempty"`
+	IndiceObservadoRef                                                                                   string `json:",omitempty"`
 }
 type tramaExterior struct {
 	Secuencia uint64         `json:"secuencia"`
@@ -169,6 +171,9 @@ func (d *diarioExterior) actualizar(ctx context.Context, ref, accion string, fn 
 		if siguiente.Ref != previo.Ref || siguiente.Version != previo.Version {
 			return errRegistroTransicion
 		}
+		if siguiente == previo {
+			return nil
+		}
 		siguiente.Version++
 		return anexar(ctx, accion, siguiente, secuencia, anterior)
 	})
@@ -306,6 +311,17 @@ func leerExterior(f *os.File) (map[string]estadoExterior, uint64, string, []byte
 	return estados, seq, anterior, huellas, nil
 }
 func transicionExteriorValida(anterior, siguiente, accion string) bool {
+	if accion == "observar_restauracion" {
+		if siguiente != "revertida" && siguiente != "instalado_pendiente_conciliacion" {
+			return false
+		}
+		switch anterior {
+		case "sustitucion_iniciada", "reversion_iniciada", "pendiente_conciliacion", "instalado_pendiente_conciliacion", "revertida":
+			return true
+		default:
+			return false
+		}
+	}
 	if accion == "aplicar_copia" {
 		return (anterior == "solicitada" && siguiente == "capturando") || (anterior == "capturando" && siguiente == "capturada") || (anterior == "capturada" && siguiente == "verificando") || (anterior == "verificando" && (siguiente == "verificando" || siguiente == "verificada_declarada" || siguiente == "no_valida_declarada"))
 	}

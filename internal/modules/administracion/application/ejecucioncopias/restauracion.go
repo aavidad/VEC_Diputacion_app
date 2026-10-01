@@ -261,7 +261,7 @@ func (s *Servicio) Conciliar(ctx context.Context, p puertos.Propuesta) (Recibo, 
 	if op.Ref != p.OperacionRef || op.ConjuntoRef != p.ConjuntoRef || op.ConjuntoPreviaPlaneadaRef != p.ConjuntoPreviaRef || op.CopiaPreviaRef != p.ConjuntoPreviaRef || op.PoliticaRef != p.PoliticaRef || op.HuellaPropuesta != p.HuellaPropuesta || op.PreimagenSHA256 != p.PreimagenSHA256 || op.PlanRef == "" {
 		return Recibo{}, denegar("diario_no_conciliable")
 	}
-	if op.Estado != "pendiente_conciliacion" && op.Estado != "instalado_pendiente_conciliacion" && op.Estado != "sustitucion_iniciada" {
+	if op.Estado != "pendiente_conciliacion" && op.Estado != "instalado_pendiente_conciliacion" && op.Estado != "sustitucion_iniciada" && op.Estado != "reversion_iniciada" && op.Estado != "revertida" {
 		return Recibo{}, denegar("estado_no_conciliable")
 	}
 	instalado, err := s.d.Plataforma.IdentificarInstalado(ctx, p.DestinoRef)
@@ -282,7 +282,11 @@ func (s *Servicio) Conciliar(ctx context.Context, p puertos.Propuesta) (Recibo, 
 	if instalado == op.ConjuntoRef {
 		estado = "instalado_pendiente_conciliacion"
 	}
-	if err := s.d.Registro.Anotar(ctx, op.Ref, estado, instalado); err != nil {
+	registro, ok := s.d.Registro.(puertos.RegistroConciliacion)
+	if !ok {
+		return Recibo{}, ErrConciliacion
+	}
+	if err := registro.ConciliarRestauracion(ctx, puertos.ObservacionRestauracion{Propuesta: p, VersionRef: op.VersionRef, InstaladoRef: instalado, IndiceAutenticadoRef: c.IndiceAutenticadoRef}); err != nil {
 		return Recibo{}, ErrConciliacion
 	}
 	return Recibo{op.Ref, instalado, estado, c.IndiceAutenticadoRef}, nil

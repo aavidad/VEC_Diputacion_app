@@ -200,7 +200,7 @@ func mismaProteccion(a, b copias.Proteccion) bool {
 }
 
 func evidenciaOrigenValida(e copias.Evidencia) bool {
-	if e.Ref == "" || e.ArranqueRef == "" {
+	if e.Ref == "" {
 		return false
 	}
 	for _, v := range []string{e.RecuentosSHA256, e.ContenidoSHA256, e.EsquemaSHA256, e.RolesSHA256, e.ACLSHA256, e.SecuenciasSHA256, e.ObjetosGrandesSHA256, e.FicherosSHA256} {

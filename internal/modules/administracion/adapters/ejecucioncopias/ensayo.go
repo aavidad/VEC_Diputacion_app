@@ -115,12 +115,24 @@ func (e EnsayadorCS06) Ensayar(ctx context.Context, c p.Conjunto, modo p.ModoEns
 			return resultado, ErrEnsayoEnsemble
 		}
 	} else {
-		r := (logica.Ensayador{Configuracion: e.Logico, Observador: observador, ComponentesArchivados: tar}).Ensayar(ctx, logica.Solicitud{Sintetica: true, Dump: dump, Globals: globals})
+		r := (logica.Ensayador{Configuracion: e.Logico, Observador: observador, ComponentesArchivados: archivadosLogicos(tar)}).Ensayar(ctx, logica.Solicitud{Sintetica: true, Dump: dump, Globals: globals})
 		if r.Estado != "restauracion_logica_completada" || !r.LimpiezaCompletada {
 			return resultado, ErrEnsayoEnsemble
 		}
 	}
 	return observador.resultado()
+}
+
+// El cluster lógico nace vacío; sólo recupera los complementos archivados.
+// CS06 conserva su rechazo de PGDATA y de cualquier otra base física.
+func archivadosLogicos(componentes []fisica.Componente) []fisica.Componente {
+	archivados := make([]fisica.Componente, 0, len(componentes))
+	for _, c := range componentes {
+		if c.ID != "fisica:pgdata" && c.Tipo != "base_fisica" {
+			archivados = append(archivados, c)
+		}
+	}
+	return archivados
 }
 
 func mismoDatos(a, b copias.Evidencia) bool {

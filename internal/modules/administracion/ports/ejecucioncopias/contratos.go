@@ -62,6 +62,17 @@ type Registro interface {
 	Leer(context.Context, string) (Operacion, error)
 }
 
+// RegistroConciliacion conserva una observación de plataforma ligada al CAS
+// original. Su replay no añade versiones ni autoriza efectos destructivos.
+type RegistroConciliacion interface {
+	ConciliarRestauracion(context.Context, ObservacionRestauracion) error
+}
+
+type ObservacionRestauracion struct {
+	Propuesta
+	VersionRef, InstaladoRef, IndiceAutenticadoRef string
+}
+
 type EventoCopia struct {
 	OperacionRef, Transicion, ConjuntoRef, ManifiestoSHA256, EjecucionRef string
 	Ensayo                                                                *EnsayoRegistrado
