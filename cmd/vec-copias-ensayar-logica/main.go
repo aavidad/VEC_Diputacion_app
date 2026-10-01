@@ -7,6 +7,7 @@ import (
 	"flag"
 	"io"
 	"os"
+	"os/signal"
 	"syscall"
 	"time"
 
@@ -58,6 +59,10 @@ func diagnosticar(w io.Writer, clave string) {
 }
 
 func run(args []string, out, diag io.Writer) int {
+	return runContext(context.Background(), args, out, diag)
+}
+
+func runContext(ctx context.Context, args []string, out, diag io.Writer) int {
 	flags := flag.NewFlagSet("vec-copias-ensayar-logica", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
 	var config, solicitud, catalogo string
@@ -84,7 +89,7 @@ func run(args []string, out, diag io.Writer) int {
 		LimiteArchivoBytes: c.LimiteArchivoBytes, CPUs: c.CPUs, MemoriaBytes: c.MemoriaBytes,
 		TiempoLimite: time.Duration(c.TiempoLimiteSegundos) * time.Second,
 	}}
-	r := e.Ensayar(context.Background(), s)
+	r := e.Ensayar(ctx, s)
 	if json.NewEncoder(out).Encode(salida{Alcance: textos["alcance"], Mensaje: textos[r.Estado], Resultado: r}) != nil {
 		diagnosticar(diag, "copias_ensayo_logico_error_salida")
 		return 2
@@ -95,4 +100,9 @@ func run(args []string, out, diag io.Writer) int {
 	return 0
 }
 
-func main() { os.Exit(run(os.Args[1:], os.Stdout, os.Stderr)) }
+func main() {
+	ctx, cancelar := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	codigo := runContext(ctx, os.Args[1:], os.Stdout, os.Stderr)
+	cancelar()
+	os.Exit(codigo)
+}
