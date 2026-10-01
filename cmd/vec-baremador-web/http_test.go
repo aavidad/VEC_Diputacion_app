@@ -107,6 +107,9 @@ func TestRecursosCerradosYSinEscape(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "textos/zz/baremo-bolsa.json"), []byte(`{}`), 0600); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.WriteFile(filepath.Join(dir, "textos/zz/baremo-concursos.json"), []byte(`{}`), 0600); err != nil {
+		t.Fatal(err)
+	}
 	assets, err := cargarRecursos(dir)
 	if err != nil {
 		t.Fatal(err)
