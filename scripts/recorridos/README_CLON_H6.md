@@ -85,6 +85,13 @@ La segunda copia del ensayo se retiró; estas huellas no corresponden a una nuev
 reconstrucción. La recuperación acredita SQL local, sin aplicación ni navegador.
 `preparar` completo y `reiniciar` continúan bloqueados en el orquestador.
 
+El paquete H6 canónico conserva una lista propia de 45 rutas, SHA
+`18f977413a431fb4e112577ac989e8c80cc1f678002494902e6394adebf8b0b2`.
+Un cotejo de solo lectura encontró las 45 rutas y huellas, en el mismo orden,
+en las posiciones 18–62 del diario local y en el commit fuente fijado. Las
+primeras 17 entradas son H3/H4. Esta comparación de bytes no sustituye el
+recibo físico del kit D ni la validación de historia y permisos.
+
 ## Material externo y alias offline
 
 Son fases separadas de PostgreSQL. Las rutas deben corresponder a las ubicaciones
@@ -127,18 +134,22 @@ ocultar el fallo. El binario de arranque final necesitará su propio pin.
   H1/SQL62; la composición completa conserva bloqueos explícitos.
 - [Material externo](clon_material_externo_offline.py) y [alias](clon_alias_export.py):
   productores offline con recibos separados, sin aprobación AD132 ni READY.
-- [Plan postmain](clon_postmain_plan.py): lee commit, árbol, tres listas causales y
-  SHA de **RPT6+B6+AD136**. Es un plan de lectura pendiente de aprobación y
+- [Plan postmain](clon_postmain_plan.py): lee commit, árbol, cuatro listas causales y
+  SHA de **RPT6+B6+AD136+B2**. Es un plan de lectura pendiente de aprobación y
   recibos previos; no instala SQL. No incorporar SQL descubierta en main por
   inferencia.
   **U17 queda diferida**.
 
 `origin/main@77ea7a762` añadió AD136 después de RPT6 y B6. El plan v3 la
-inventaría como operación 13, con DOWN y sonda no ejecutables. Su instalación
+inventariaba como operación 13, con DOWN y sonda no ejecutables. Su instalación
 exige la postimagen B y las definiciones históricas exactas de
 AD113/Documentos9. `origin/main@b79b51e21` añadió después las 13 UP de B2:
-siguen clasificadas como SQL desconocidas y bloquean una transición parcial
-hasta que su lista causal y sus acompañantes se revisen por separado.
+el plan v4 las inventaría en posiciones 14–26, junto a 22 acompañantes no
+ejecutables. La sonda AD136 no reemplaza la postimagen final B2.
+`origin/main@960795f30` añadió un fixture E3 que crea roles y sustituye
+fachadas de autorización con dobles; v4 lo mantiene como SQL desconocida y
+bloquea la transición hasta fijar su exclusión documental por SHA. Nunca se
+instala en el clon causal.
 
 AUT26 y su recibo de extensión preAD132, LOGIN nominal, sesiones CAS vinculadas
 y provisión siguen pendientes. AUT26 no se suma al journal de 62 ni modifica
