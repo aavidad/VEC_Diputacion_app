@@ -50,6 +50,36 @@ type ReciboCorreccion struct {
 	Replay                                bool
 }
 
+// InputConsultaVinculoPropioCRN11 procede del contexto resuelto en el servidor.
+// No admite referencias elegidas por el navegador ni consultas de otras personas.
+type InputConsultaVinculoPropioCRN11 struct {
+	Actor       vecdomain.ContextoActor
+	EmpleadoRef string
+}
+
+type EvidenciaLecturaVinculoCRN11 struct {
+	ReciboRef, DecisionRef, AuditoriaRef string
+	ConsultadaEn                         time.Time
+}
+
+// VinculoPropioHistoricoCRN11 acredita el vínculo histórico persona-empleado.
+// No afirma una relación laboral vigente ni incorpora fechas sin fuente.
+type VinculoPropioHistoricoCRN11 struct {
+	PersonaRef, EmpleadoRef, VinculoRef, FuenteRef string
+	Version                                        uint64
+	Evidencia                                      EvidenciaLecturaVinculoCRN11
+}
+
+// LectorVinculoPropioHistoricoCRN11 requiere autorización central nominal de
+// lectura propia para esta finalidad, consumo y auditoría real confirmados antes
+// de devolver datos. La identidad o titularidad solas no conceden esa lectura.
+// Cada llamada exige autoridad nueva; una fuente ausente o ambigua devuelve
+// resultado vacío y error. Su evidencia no concede autorización V3 de CRN11,
+// que el repositorio debe obtener y consumir por separado para recuperar.
+type LectorVinculoPropioHistoricoCRN11 interface {
+	ConsultarVinculoPropioCRN11(context.Context, InputConsultaVinculoPropioCRN11) (VinculoPropioHistoricoCRN11, error)
+}
+
 // ProveedorMaterialCorreccion es nominal para cada paso. Su implementación
 // consulta la autoridad V3; no se deriva del rol, sesión ni identidad solos.
 type ProveedorMaterialCorreccion interface {
@@ -59,8 +89,10 @@ type ProveedorMaterialCorreccion interface {
 // OrdenConsumoCorreccion sólo puede crearse con contexto V2 y proveedor V3
 // válidos. El adaptador durable debe usar ambos en el mismo paso.
 type OrdenConsumoCorreccion struct {
-	actor     vecdomain.ContextoActor
-	proveedor ProveedorMaterialCorreccion
+	actor                 vecdomain.ContextoActor
+	proveedor             ProveedorMaterialCorreccion
+	vinculoHistorico      VinculoPropioHistoricoCRN11
+	tieneVinculoHistorico bool
 }
 
 func NuevaOrdenConsumoCorreccion(actor vecdomain.ContextoActor, proveedor ProveedorMaterialCorreccion) (OrdenConsumoCorreccion, error) {
@@ -82,6 +114,18 @@ func (o OrdenConsumoCorreccion) ContextoActor() (vecdomain.ContextoActor, error)
 }
 
 func (o OrdenConsumoCorreccion) ProveedorMaterial() ProveedorMaterialCorreccion { return o.proveedor }
+
+// ConVinculoPropioHistoricoCRN11 transporta por valor la prueba cotejada por
+// aplicación. No la valida ni concede autorización; el repositorio conserva
+// todas sus comprobaciones de autoridad, vigencia y consumo transaccional.
+func (o OrdenConsumoCorreccion) ConVinculoPropioHistoricoCRN11(v VinculoPropioHistoricoCRN11) OrdenConsumoCorreccion {
+	o.vinculoHistorico, o.tieneVinculoHistorico = v, true
+	return o
+}
+
+func (o OrdenConsumoCorreccion) VinculoPropioHistoricoCRN11() (VinculoPropioHistoricoCRN11, bool) {
+	return o.vinculoHistorico, o.tieneVinculoHistorico
+}
 
 // RepositorioCorrecciones debe hacer append-only, versión optimista e
 // idempotencia semántica. Para cada efecto: resolver empleado propio o sujeto

@@ -528,9 +528,15 @@ static/textos/es/formacion.json
 static/textos/en/formacion.json
 static/textos/es/carrera.json
 static/textos/en/carrera.json
+static/textos/es/seleccion.json
+static/textos/en/seleccion.json
 static/portal-empleado/portal-accesos-empleado.js
 static/textos/es/accesos-empleado.json
 static/textos/en/accesos-empleado.json
+static/portal-empleado/modulos/solicitudes/fuente-tramites-propios.js
+static/portal-empleado/modulos/solicitudes/vista-tramites-propios.js
+static/textos/es/tramites-empleado.json
+static/textos/en/tramites-empleado.json
 static/portal-empleado/modulos/analitica/ficha-indicadores.js
 static/portal-empleado/modulos/analitica/catalogo-indicadores.json
 static/textos/es/analitica.json
@@ -539,3 +545,11 @@ static/textos/es/solicitudes-ejemplos.json
 static/textos/en/solicitudes-ejemplos.json
 static/textos/es/solicitudes.json
 static/textos/en/solicitudes.json
+static/portal-empleado/modulos/seleccion/ficha-convocatoria/cliente-http.js
+static/portal-empleado/modulos/seleccion/ficha-convocatoria/contrato.js
+static/portal-empleado/modulos/seleccion/ficha-convocatoria/ficha.css
+static/portal-empleado/modulos/seleccion/ficha-convocatoria/i18n.js
+static/portal-empleado/modulos/seleccion/ficha-convocatoria/montaje.js
+static/portal-empleado/modulos/seleccion/ficha-convocatoria/vista.js
+static/textos/es/seleccion-ficha-convocatoria.json
+static/textos/en/seleccion-ficha-convocatoria.json

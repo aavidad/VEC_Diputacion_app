@@ -82,7 +82,7 @@ test("Mi espacio publica navegación diferida sin cargar ni consultar módulos p
     },
   });
   await coordinador.cargarInterno();
-  assert.deepEqual(coordinador.obtenerAccesosEmpleado(), { personal: { estado: "diferido" }, cronos: { estado: "diferido" }, dietas: { estado: "diferido" } });
+  assert.deepEqual(coordinador.obtenerAccesosEmpleado(), { personal: { estado: "diferido" }, cronos: { estado: "diferido" }, dietas: { estado: "diferido" }, "mis-tramites": { estado: "diferido" } });
   assert.deepEqual(cargados, []);
   for (const vista of ["personal-registro", "cronos-bandeja", "cronos-bandeja-notificaciones"]) assert.equal(VISTAS_AUTOSERVICIO_EMPLEADO.has(vista), false);
   assert.match(crearVistaInicioPortal({ encabezadoVista: () => "", escaparHTML: String,
