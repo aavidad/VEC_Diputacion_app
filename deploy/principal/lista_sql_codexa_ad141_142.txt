@@ -1,0 +1,5 @@
+# Requiere baseline actual main y roles_up.sql de Méritos antes de esta lista.
+# AD141 necesita Bolsa Convocatorias 000001..000006 y sus roles actuales.
+# Después: Bolsa Convocatorias 000007 y Méritos 000001, en sus listas propias.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000141_consumidor_version_convocatoria_bolsa.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000142_consumidor_operacion_meritos.up.sql
