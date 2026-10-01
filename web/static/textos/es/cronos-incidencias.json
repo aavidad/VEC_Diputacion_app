@@ -27,6 +27,21 @@
     "pagina_anterior": "Página anterior",
     "pagina_siguiente": "Página siguiente",
     "mostrando": "Mostrando {desde} a {hasta} de {total}",
-    "resultados": "{correcciones} olvidos y {ausencias} ausencias en el periodo filtrado."
+    "resultados": "{correcciones} olvidos y {ausencias} ausencias en el periodo filtrado.",
+    "calendario_vista": "Vista del calendario",
+    "calendario_vista_anio": "Año completo",
+    "calendario_vista_mes": "Mes",
+    "calendario_elegir_mes": "Mes",
+    "calendario_mes_anterior": "Mes anterior",
+    "calendario_mes_siguiente": "Mes siguiente",
+    "calendario_fecha": "Consultar fecha",
+    "calendario_hoy": "Ir a hoy",
+    "calendario_disponible": "Calendario disponible",
+    "calendario_no_configurado": "Calendario laboral no disponible",
+    "calendario_detalle_dia": "Detalle del día",
+    "calendario_sin_datos_dia": "No hay datos registrados para esta fecha.",
+    "calendario_marcajes_dia": "Marcajes: {cantidad}",
+    "calendario_dato_dia": "{tipo}: {nombre}",
+    "calendario_olvido_dia": "{tipo}: {hora} · {movimiento} · {estado}"
   }
 }
