@@ -335,7 +335,7 @@ test("el espacio operativo separa tareas y distribución en paneles legibles", a
     /\.ct-exp-mis-tareas,\s*\n\.ct-exp-distribucion\s*\{[\s\S]*border:[^;]+;[\s\S]*background:/u,
   );
   assert.match(estilos, /\.ct-exp-operativo\s*\{[\s\S]*grid-template-columns:/u);
-  assert.match(portal, /^\s*@import\s+url\(\s*["']\.\.\/comun\/tema-vec\.css\?v=20260930-codexf-temas-v2["']\s*\)\s*;/mu);
+  assert.match(portal, /^\s*@import\s+url\(\s*["']\.\.\/comun\/tema-vec\.css\?v=20261001-codexf-accesibilidad-v1["']\s*\)\s*;/mu);
   const base = tema.match(/:root\s*\{([^}]*)\}/u)?.[1];
   assert.ok(base, "el tema común debe declarar sus tokens base en :root");
   for (const token of [

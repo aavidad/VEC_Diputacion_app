@@ -7,6 +7,7 @@ import (
 	ctapplication "vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	ctdomain "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	ctports "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	docports "vec-diputacion-granada/internal/vec/documentos/ports"
 )
 
 const (
@@ -174,6 +175,12 @@ func descriptoresAutorizacionContratacionTemporalDesarrollo(
 		// perfil activo, sin sumar perfiles ni reutilizar el permiso de escritura.
 		descriptores = append(descriptores, descriptorAutorizacionComunDesarrollo{
 			Accion: ctports.AccionConsultarFirmasDocumento, ClavePolitica: clavePoliticaContratacionTemporalDesarrollo,
+			ClaveCapacidad: ctports.AccionFirmarDocumento, Fronteras: []string{"ct-documento-firmar"}, Politica: politica,
+		})
+		// La custodia es otra decisión nominal de la misma petición y perfil de
+		// firma. Su predicado exige el documento, el PDF y la decisión exactos.
+		descriptores = append(descriptores, descriptorAutorizacionComunDesarrollo{
+			Accion: docports.AccionCustodiarFirmado, ClavePolitica: clavePoliticaContratacionTemporalDesarrollo,
 			ClaveCapacidad: ctports.AccionFirmarDocumento, Fronteras: []string{"ct-documento-firmar"}, Politica: politica,
 		})
 	}

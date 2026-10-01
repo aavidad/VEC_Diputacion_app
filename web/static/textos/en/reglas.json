@@ -243,6 +243,18 @@
             }
           }
         }
+      },
+      "c24": {
+        "sustitucion_reserva_retorno_ejemplo": {
+          "descripcion": {
+            "original": "Una persona se incorpora para sustituir temporalmente a quien conserva su puesto. RRHH debe confirmar la modalidad y los documentos que acreditan la ocupación, la reserva y el retorno. Esta regla de prueba se puede cambiar o retirar; no registra ninguno de esos actos.",
+            "texto": "One person temporarily replaces someone who retains their post. HR must confirm the form of temporary cover and which documents evidence the substitute's occupancy of the post, the original postholder's reservation of that post, and their return. This example can be changed or removed; it records none of those events."
+          },
+          "duda": {
+            "original": "Duda 99.",
+            "texto": "Question 99."
+          }
+        }
       }
     }
   }

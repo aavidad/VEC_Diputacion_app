@@ -279,6 +279,11 @@
 
 .ct-circuito-aviso {
   padding: 8px 24px 0;
+  overflow-wrap: anywhere;
+}
+
+.ct-fase-firma-firmado .boton-secundario[aria-disabled="true"] {
+  cursor: wait;
 }
 
 /* Fase de firma: una fila por documento, con acento de color según su estado. */
@@ -355,6 +360,14 @@
   color: var(--ct-tono, var(--portal-muted));
   font-size: 0.78rem;
   font-weight: 600;
+}
+
+.ct-fase-firma-firmado {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  grid-column: 1 / -1;
 }
 
 .ct-fase-firma-estado::before {

@@ -107,6 +107,8 @@ func inventarioRutasCTDesarrollo() map[string][]metodoRutaCTDesarrollo {
 		httpinterno.RutaDocumentacionFormalizacion:              {nominalCT(http.MethodGet, "contratacion_temporal_documentacion_formalizacion_desarrollo.go:nuevaRutaDocumentacionFormalizacionDesarrollo")},
 		httpinterno.RutaFirmaDocumento:                          {pdpCT(http.MethodPost)},
 		httpinterno.RutaConsultaFirmaDocumento:                  {pdpCT(http.MethodPost)},
+		httpinterno.RutaPlanB2:                                  {pdpCT(http.MethodGet), pdpCT(http.MethodPost)},
+		httpinterno.RutaConfirmacionB2:                          {pdpCT(http.MethodPost)},
 	}
 }
 
@@ -169,7 +171,7 @@ func (m manejadorMetodosInventariadosCTDesarrollo) ServeHTTP(w http.ResponseWrit
 }
 
 func esPrefijoRutaCTDesarrollo(ruta string) bool {
-	return ruta == "/api/vec/contratacion-temporal" || strings.HasPrefix(ruta, "/api/vec/contratacion-temporal/")
+	return ruta == "/api/vec/contratacion-temporal" || strings.HasPrefix(ruta, "/api/vec/contratacion-temporal/") || strings.HasPrefix(ruta, "/api/interno/contratacion-temporal/")
 }
 
 func validarMetodoRutaCTDesarrollo(ruta string, metodo metodoRutaCTDesarrollo, fronteras catalogoFronterasComunDesarrollo) error {
@@ -206,7 +208,7 @@ func esRutaContratacionTemporalDesarrollo(r *http.Request) bool {
 	if _, noCompuesta := rutasCapacidadNoCompuestaContratacionTemporal[r.URL.Path]; noCompuesta {
 		return true
 	}
-	return rutaContinuidadNominal(r.URL.Path) || r.URL.Path == httpinterno.RutaConsultaSeguimientoV2 || r.URL.Path == httpinterno.RutaFichaGINPIXV2 || r.URL.Path == httpinterno.RutaIncorporacionEjercicioV2 || r.URL.Path == httpinterno.RutaResolucionFormalizacion || r.URL.Path == rutaEntregaPeticionCentro || rutaPeticionCentroDesarrollo(r.URL.Path) || rutaAnalisisContratacionTemporalDesarrollo(r.URL.Path) ||
+	return rutaContinuidadNominal(r.URL.Path) || r.URL.Path == httpinterno.RutaPlanB2 || r.URL.Path == httpinterno.RutaConfirmacionB2 || r.URL.Path == httpinterno.RutaConsultaSeguimientoV2 || r.URL.Path == httpinterno.RutaFichaGINPIXV2 || r.URL.Path == httpinterno.RutaIncorporacionEjercicioV2 || r.URL.Path == httpinterno.RutaResolucionFormalizacion || r.URL.Path == rutaEntregaPeticionCentro || rutaPeticionCentroDesarrollo(r.URL.Path) || rutaAnalisisContratacionTemporalDesarrollo(r.URL.Path) ||
 		rutaPlantillasCatalogoCTDesarrollo(r.URL.Path) ||
 		rutaPlantillasDocumentalCTDesarrollo(r.URL.Path) ||
 		r.URL.Path == httpinterno.RutaResolucionComunicacionLlamamiento ||
