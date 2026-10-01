@@ -1,5 +1,6 @@
 {
   "general": {
+    "inicio_rrhh_categorias_rpt": "Job categories",
     "inicio_rrhh_nueva_peticion": "New staff request",
     "inicio_rrhh_pendientes_uno": "1 case needs attention",
     "inicio_rrhh_pendientes_varios": "{total} cases need attention",

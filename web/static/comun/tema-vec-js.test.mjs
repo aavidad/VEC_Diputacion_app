@@ -180,3 +180,14 @@ test("modo explícito no escucha al sistema y entrada inválida no altera el DOM
   assert.throws(() => validarPreferenciasVisuales({ tema: "claro", alto_contraste: "false", tamano_texto: "normal" }),
     (error) => error.codigo === "contraste_invalido");
 });
+
+test("los seis modos nuevos se aplican sin cambiar el alto contraste", () => {
+  const d = documento();
+  const ventana = { matchMedia() { throw Error("un modo explícito no consulta el dispositivo"); } };
+  const controlador = aplicarPreferenciasVisuales({ tema: "diputacion_granada", alto_contraste: true, tamano_texto: "normal" }, { documento: d, ventana });
+  for (const modo of ["diputacion_granada", "arena", "salvia", "lavanda", "azul_sereno", "noche_suave"]) {
+    controlador.aplicarPreferenciasServidor({ tema: modo, alto_contraste: true, tamano_texto: "normal" });
+    assert.equal(d.body.dataset.modoColor, modo);
+    assert.equal(d.body.dataset.contraste, "true");
+  }
+});
