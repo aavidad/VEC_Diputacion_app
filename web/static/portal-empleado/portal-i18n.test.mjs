@@ -104,8 +104,10 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     ["modulos/contratacion-temporal/vista-expedientes-fiscalizacion.js", "20261001-f-ct-validacion-v1"],
     ["modulos/contratacion-temporal/vista-expedientes.js", "20261001-f-ct-validacion-v1"],
     ["modulos/cronos/vista-permisos-propios.js", "20261001-f-cronos-cancelar-v1"],
-    ["portal-modulos-coordinador.js", "20261001-f-cronos-cancelar-v1"],
-    ["portal.js", "20261001-f-cronos-cancelar-v1"],
+    ["modulos/dietas/vista-borradores-propios.js", "20261001-f-dietas-foco-v1"],
+    ["modulos/dietas/vista-recorridos.js", "20261001-f-dietas-foco-v1"],
+    ["portal-modulos-coordinador.js", "20261001-f-dietas-foco-v1"],
+    ["portal.js", "20261001-f-dietas-foco-v1"],
   ]);
   const archivos = ["index.html"];
   const pendientes = [""];
