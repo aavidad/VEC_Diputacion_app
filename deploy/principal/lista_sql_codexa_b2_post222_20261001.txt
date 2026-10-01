@@ -1,0 +1,20 @@
+# Orden causal de las trece UP propias de B2, cada una una sola vez.
+# Fuente base: main f63c393befbd7508aa5cded7efabd97460359713 (#222, etapa 0).
+# Preceden B c6b29fd4aa5d3ed384730796c3fc2a153b219313 y AD136
+# 74b2f4764689dd1fac3f29468be1c778fd4006c2; sus listas son separadas.
+# CTX12/13/14/15/17 y roles ya pertenecen al prefijo H6; no repetirlos.
+# El ensayo PG18 causal con datos sintéticos no acredita instalación en la principal.
+# Cotejar historial, ACL y SHA antes de cualquier instalación autorizada.
+deploy/postgresql/contexto_actor_v1/migraciones/000018_persona_candidato_incorporacion.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000127_consumidor_vinculo_categoria_rpt_ct.up.sql
+deploy/postgresql/contratacion_temporal/migraciones/000154_vinculo_categoria_rpt_prospectivo.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000128_consumidor_consulta_persona_aceptacion_ct_bolsa.up.sql
+deploy/postgresql/bolsa_llamamientos/migraciones/000067_persona_aceptacion_ct.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000131_consumidor_consulta_anclaje_aceptacion_ct_bolsa.up.sql
+deploy/postgresql/bolsa_llamamientos/migraciones/000068_anclaje_aceptacion_incorporacion_ct.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000129_consumidor_plan_incorporacion_personal_ct.up.sql
+deploy/postgresql/personal/migraciones/000023_plan_incorporacion_ct.up.sql
+deploy/postgresql/personal/migraciones/000024_catalogo_clases_multilingue.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000130_consumidor_incorporacion_personal_b2.up.sql
+deploy/postgresql/contratacion_temporal/migraciones/000155_incorporacion_personal_b2.up.sql
+deploy/postgresql/contratacion_temporal/migraciones/000156_cese_incorporacion_personal_b2.up.sql

@@ -8,15 +8,15 @@
 import {
   cargarCatalogoModulosInterno,
   renderizarNavegacionModulos,
-} from "./portal-catalogo-modulos.js?v=20260930-portales-i18n-integracion-v1";
-import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL, traducirPortal } from "./portal-i18n.js?v=20260930-portales-i18n-integracion-v1";
+} from "./portal-catalogo-modulos.js?v=20261001-codexf-ct-catalogos-v1";
+import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL, traducirPortal } from "./portal-i18n.js?v=20261001-codexf-ct-catalogos-v1";
 import {
   componerCronosInterno,
   componerDietasInternas,
   componerPersonalVisible,
   componerRegistroPersonal,
-} from "./portal-composicion-empleado.js?v=20261001-cronos-fichaje-v2";
-import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260930-portales-i18n-integracion-v1";
+} from "./portal-composicion-empleado.js?v=20261001-cronos-grafo-fichaje-v3";
+import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20261001-codexf-ct-catalogos-v1";
 import {
   CLAVES_CARGA_MODULAR,
   LIMITE_CARGA_MODULAR_MS,
@@ -69,9 +69,9 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
       clienteSaldo, clienteRemoto, clienteSolicitudes, i18n,
       bandejaPermisos, avisosPropios, clienteResolucion, i18nResolucion,
       notificacionesPropias, bandejaNotificaciones, clienteNotificaciones, i18nNotificaciones] = await Promise.all([
-      import("./modulos/cronos/vista-saldo-conectado.js?v=20261001-cronos-fichaje-v2"),
-      import("./modulos/cronos/vista-remoto.js?v=20261001-cronos-fichaje-v2"),
-      import("./modulos/cronos/vista-movimientos-conectado.js?v=20261001-cronos-fichaje-v2"),
+      import("./modulos/cronos/vista-saldo-conectado.js?v=20261001-cronos-grafo-fichaje-v3"),
+      import("./modulos/cronos/vista-remoto.js?v=20261001-cronos-grafo-fichaje-v3"),
+      import("./modulos/cronos/vista-movimientos-conectado.js?v=20261001-cronos-grafo-fichaje-v3"),
       import("./modulos/cronos/vista-movimientos-propios.js?v=20260929-i18n-textos-v1"),
       import("./modulos/cronos/vista-permisos-propios.js?v=20261001-cronos-historial-v1"),
       import("./modulos/cronos/cliente-saldo-http.js"),
@@ -92,16 +92,17 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
       notificacionesPropias, bandejaNotificaciones, clienteNotificaciones, i18nNotificaciones });
   },
   contratacion_temporal: async () => {
-    const [contrato, cliente, presentador, vista, adaptador, auditoriaVista, auditoriaCliente] = await Promise.all([
+    const [contrato, cliente, presentador, vista, adaptador, auditoriaVista, auditoriaCliente, incorporacionB2] = await Promise.all([
       import("./modulos/contratacion-temporal/contrato.js"),
       import("./modulos/contratacion-temporal/cliente-http.js"),
-      import("./modulos/contratacion-temporal/presentador-expedientes.js"),
-      import("./modulos/contratacion-temporal/vista-expedientes.js?v=20260930-ct-lista-recuperada-v2"),
-      import("./modulos/contratacion-temporal/adaptador-http-expedientes.js"),
-      import("./modulos/auditoria/vista.js?v=20260930-portales-i18n-integracion-v1"),
+      import("./modulos/contratacion-temporal/presentador-expedientes.js?v=20261001-codexf-ct-catalogos-v1"),
+      import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261001-codexf-ct-catalogos-v1"),
+      import("./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=20261001-codexf-ct-catalogos-v1"),
+      import("./modulos/auditoria/vista.js?v=20261001-codexf-ct-catalogos-v1"),
       import("./modulos/auditoria/cliente-http.js?v=20260928-usab-auditoria-v2"),
+      import("./modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js?v=20260930-inc-b2-web-v1"),
     ]);
-    return Object.freeze({ contrato, cliente, presentador, vista, adaptador, auditoriaVista, auditoriaCliente });
+    return Object.freeze({ contrato, cliente, presentador, vista, adaptador, auditoriaVista, auditoriaCliente, incorporacionB2 });
   },
   personal: async () => {
     const [contrato, cliente, vista, ficha, registro, clienteRegistro, clienteCatalogosRegistro, i18n, clienteFichaPropia] = await Promise.all([
@@ -133,12 +134,12 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   dietas: async () => {
     const [contrato, recorridos, clienteBorradores, clienteAsignacion, calculador, mapa, clienteCircuito] = await Promise.all([
       import("./modulos/dietas/contrato.js"),
-      import("./modulos/dietas/vista-recorridos.js?v=20260930-portales-i18n-integracion-v1"),
+      import("./modulos/dietas/vista-recorridos.js?v=20261001-codexf-ct-catalogos-v1"),
       import("./modulos/dietas/cliente-borradores-http.js?v=20260925-d5d6-v2"),
       import("./modulos/dietas/cliente-asignacion-http.js?v=20260925-d5d6-v1"),
       import("./modulos/dietas/calculador-rutas-http.js?v=20260925-d5d6-v1"),
       import("./modulos/dietas/mapa-ruta.js?v=20260929-i18n-dietas-v1"),
-      import("./modulos/dietas/cliente-circuito-http.js?v=20260925-d5d6-v1"),
+      import("./modulos/dietas/cliente-circuito-http.js?v=20261001-dietas-decision-v1"),
     ]);
     return Object.freeze({ contrato, recorridos, clienteBorradores, clienteAsignacion, calculador, mapa, clienteCircuito });
   },
@@ -300,13 +301,17 @@ export function crearCoordinadorModulosPortal({
     );
     exigirVigente();
     const mensajesExpedientes = locale === "en-GB"
-      ? (await import("./modulos/contratacion-temporal/i18n-expedientes.js")).MENSAJES_EXPEDIENTES_CONTRATACION_EN
+      ? (await import("./modulos/contratacion-temporal/i18n-expedientes.js?v=20261001-codexf-ct-catalogos-v1")).MENSAJES_EXPEDIENTES_CONTRATACION_EN
       : {};
     exigirVigente();
     const cliente = recursos.cliente.crearClienteHTTPContratacionTemporal({
       fetchImpl: fetchDelEntorno(),
       HeadersImpl: entorno.Headers,
     });
+    const clienteIncorporacionB2 = typeof recursos.incorporacionB2?.crearClienteIncorporacionPersonalB2HTTP === "function"
+      ? recursos.incorporacionB2.crearClienteIncorporacionPersonalB2HTTP({
+        fetchImpl: fetchDelEntorno(), HeadersImpl: entorno.Headers,
+      }) : null;
     let alta = null;
     // La jornada completa de referencia y las etiquetas de las modalidades
     // llegan con la configuración del análisis.
@@ -409,6 +414,7 @@ export function crearCoordinadorModulosPortal({
     return {
       contratacionTemporal: Object.freeze({
         mensajesExpedientes,
+        clienteIncorporacionB2,
         crearPresentador: () => recursos.presentador
           .crearPresentadorExpedientesContratacionTemporal({
             fuente, capacidades: fuente.capacidades,
@@ -876,7 +882,7 @@ export function crearCoordinadorModulosPortal({
     }
 
     if (vista === VISTA_PLANTILLAS_RRHH) {
-      const { montarRRHHPlantillas } = await import("./modulos/contratacion-temporal/rrhh-plantillas-vista.js?v=20260928-ppt-503-v5");
+      const { montarRRHHPlantillas } = await import("./modulos/contratacion-temporal/rrhh-plantillas-vista.js?v=20261001-codexf-ct-catalogos-v1");
       if (montaje !== secuenciaMontaje) return false;
       const modulo = montarRRHHPlantillas({ raiz, anunciar });
       if (montaje !== secuenciaMontaje) { modulo.desmontar(); return false; }
@@ -935,6 +941,7 @@ export function crearCoordinadorModulosPortal({
             ? { cliente: composicion.contratacionTemporal.analisis.cliente }
             : null,
           continuidad: composicion.contratacionTemporal.continuidad,
+          incorporacionPersonalB2: composicion.contratacionTemporal.clienteIncorporacionB2,
           subsanacion: composicion.contratacionTemporal.subsanacion,
           auditoriaComun: composicion.contratacionTemporal.auditoriaComun,
           confirmarOperacion,
