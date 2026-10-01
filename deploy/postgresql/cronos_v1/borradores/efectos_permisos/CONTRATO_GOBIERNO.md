@@ -94,7 +94,9 @@ y el conjunto completo se cotejan dentro de la operación, incluida la lista vac
 
 Adoptar exige concesión central positiva, exacta y vigente para actor, perfil,
 acción, catálogo/versión, ámbito, finalidad, campos y obligaciones. El servidor
-resuelve actor y autenticación; el cliente no aporta autoridad. D debe fijar
+resuelve actor, autenticación y el perfil fijo de RRHH que entregue D; rechaza
+cualquier perfil distinto y no admite un selector de perfil del cliente.
+El identificador de ese perfil queda pendiente de D. D debe fijar
 la acción, audiencia, consumidor y forma canónica de recurso/material antes
 de implementar. Una aprobación común histórica no concede permiso para adoptar.
 
@@ -109,7 +111,8 @@ destino, versión/huellas esperadas, contenido/versión/huellas a adoptar, evide
 de publicación y fuente, finalidad y motivo. Conserva bytes y SHA del material;
 no incluye secretos ni credenciales efímeras como contenido de negocio.
 Misma clave y material recuperan el recibo original solo tras autorización
-actual para esa operación. Material distinto produce conflicto sin escrituras.
+actual para esa operación y el mismo perfil fijo de RRHH resuelto por la frontera.
+Material distinto produce conflicto sin escrituras.
 Un replay autorizado no crea otra adopción, recibo ni evento; su acceso requiere
 la auditoría vigente acordada con D. Un permiso revocado deniega el replay.
 Se busca la clave antes del CAS de primer uso: un recibo histórico se recupera
@@ -146,7 +149,8 @@ Estas garantías están pendientes y no se atribuyen al esquema comentado.
 Casos del ensayo futuro en el clon: publicación sin aprobación o retirada,
 publicador creador/editor, huella común o de bytes cambiada, fuente sin verificar,
 regla desconocida/duplicada, 101 reglas, proyección incompleta, vigencia límite,
-colectivo ausente, permiso insuficiente/revocado, revocación/publicación concurrente,
+colectivo ausente, perfil distinto del fijo RRHH o selector de perfil del cliente
+en adopción y recuperación, permiso insuficiente/revocado, revocación/publicación concurrente,
 replay autorizado/denegado, conflicto de clave, dos avances con el mismo CAS,
 fallo de auditoría/outbox, serialización, COMMIT incierto y reinicio sin duplicados.
 Se requieren dos revisiones sensibles independientes del hash final antes de

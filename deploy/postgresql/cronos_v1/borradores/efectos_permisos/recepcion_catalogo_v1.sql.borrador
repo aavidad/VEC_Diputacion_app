@@ -143,10 +143,13 @@
 --
 -- Secuencia FUTURA, bloqueada hasta acuerdo de ubicación/transacción con D:
 -- - Resolver actor actual y autorizar operación exacta con recurso/material canónico.
+--   La frontera resuelve el perfil fijo RRHH entregado por D, rechaza cualquier
+--   perfil distinto y no admite selector de perfil del cliente. ID pendiente de D.
 -- - Abrir transacción nominal; fijar contexto una vez y bloquear la cadena.
 -- - Revalidar autoridad actual con reloj vivo después de cualquier espera.
 -- - Consultar clave del actor/catalogo: cotejar bytes+SHA de material completo.
 -- - Replay: nueva autorización actual; mismo material recupera recibo original.
+--   Exige también el perfil fijo RRHH resuelto por la frontera, sin selector cliente.
 --   No añade adopción/recibo/outbox; auditoría de acceso por contrato vigente D.
 --   Recupera evidencia histórica aunque haya otra cabeza o retirada posterior;
 --   no reactiva la política. No se exige CAS de primer uso para el replay.
@@ -164,5 +167,6 @@
 -- (sin UPDATE/DELETE/TRUNCATE), propietario sin LOGIN/BYPASSRLS, search_path cerrado,
 -- tiempos/límites y dos revisiones independientes del hash final. Dirección ensaya
 -- en clon con PostgreSQL real y negativos de CAS, replay, permisos, hashes,
+-- perfil distinto del fijo RRHH y selector cliente en adopción y recuperación,
 -- evidencia, cardinalidad, revocación, auditoría, COMMIT incierto y reinicio.
 -- No se ejecutó SQL, ni se comprobaron ACL/transacción/concurrencia en una base.
