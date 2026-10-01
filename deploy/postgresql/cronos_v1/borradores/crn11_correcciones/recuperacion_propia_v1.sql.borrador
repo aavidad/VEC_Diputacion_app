@@ -1,0 +1,147 @@
+-- CRN11 000011: plantilla bloqueada, TODO EL ARCHIVO ES COMENTARIO.
+-- NO INSTALAR, NO INCLUIR EN LISTAS SQL, NO EXTRAER PARA EJECUTAR.
+-- Fuente: 0d54c4d64c3d26de9ab331a5f305dd21d76f7ef7 y ../README.md.
+-- AD138 no tiene todavía contrato nominal publicado/revisado.
+-- No hay CREATE FUNCTION, consumo ficticio, GRANT runtime ni núcleo V3 nuevo.
+-- El orden causal es posterior al paso 3 de M, con postimagen exacta de D.
+-- Ver CONTRATO_DURABLE.md para atomicidad, bloqueos y corte posterior.
+--
+-- Firma PROPUESTA por el contrato; no se crea:
+-- vec_cronos_v1.recuperar_recibo_correccion_propia_v1(
+--   p_material text, p_capacidad bytea, p_decision bytea,
+--   p_motivo bytea, p_contexto bytea,
+--   p_persona_version numeric, p_perfil_version numeric,
+--   p_payload bytea, p_sobre bytea, p_evidencia bytea, p_raiz bytea
+-- ) RETURNS jsonb
+-- Seguridad futura: propietario NOLOGIN/NOBYPASSRLS; SECURITY DEFINER;
+-- search_path=pg_catalog,pg_temp; row_security=on; timezone=UTC;
+-- lock_timeout=2s; statement_timeout=5s; nombres cualificados;
+-- revocar ejecución PUBLIC y todos los roles runtime antes de cualquier commit.
+-- Aún faltan límites/verificación V3 de argumentos 2 a 11 acordados con D.
+--
+-- Fragmento PL/pgSQL previo a consumo; no forma un cuerpo de función.
+-- Variables locales: bruto json; m jsonb; cantidad bigint; distintas bigint;
+-- material_sha256 text. Comprobar duplicados en json, antes de jsonb.
+-- IF p_material IS NULL OR octet_length(p_material) NOT BETWEEN 1 AND 4096 THEN
+--   RAISE EXCEPTION 'material Cronos inválido' USING ERRCODE = 'PC001';
+-- END IF;
+-- BEGIN
+--   bruto := p_material::json;
+--   IF json_typeof(bruto) IS DISTINCT FROM 'object' THEN
+--     RAISE EXCEPTION 'estructura Cronos inválida' USING ERRCODE = 'PC001';
+--   END IF;
+--   SELECT count(*), count(DISTINCT e.key) INTO cantidad, distintas
+--     FROM json_each(bruto) AS e;
+-- EXCEPTION WHEN data_exception THEN
+--   RAISE EXCEPTION 'estructura Cronos inválida' USING ERRCODE = 'PC001';
+-- END;
+-- IF cantidad <> 7 OR distintas <> 7 THEN
+--   RAISE EXCEPTION 'estructura Cronos inválida' USING ERRCODE = 'PC001';
+-- END IF;
+-- BEGIN
+--   m := p_material::jsonb;
+-- EXCEPTION WHEN data_exception THEN
+--   RAISE EXCEPTION 'estructura Cronos inválida' USING ERRCODE = 'PC001';
+-- END;
+-- IF m - ARRAY['actor_ref','perfil_ref','empleado_ref','clave_operacion',
+--              'solicitud_ref','paso','version_recibo'] <> '{}'::jsonb
+--    OR EXISTS (SELECT 1 FROM jsonb_each(m) AS e
+--               WHERE jsonb_typeof(e.value) IS DISTINCT FROM 'string')
+--    OR m->>'actor_ref' !~ '^per_[-A-Za-z0-9_]{22,128}$'
+--    OR m->>'perfil_ref' !~ '^prf_[-A-Za-z0-9_]{22,128}$'
+--    OR m->>'empleado_ref' !~ '^emp_[-A-Za-z0-9_]{22,128}$'
+--    OR m->>'clave_operacion' !~ '^[A-Za-z0-9][A-Za-z0-9_-]{7,127}$'
+--    OR m->>'solicitud_ref' IS DISTINCT FROM
+--       'correccion:cronos:' || (m->>'clave_operacion')
+--    OR m->>'paso' IS DISTINCT FROM 'solicitud'
+--    OR m->>'version_recibo' IS DISTINCT FROM '1' THEN
+--   RAISE EXCEPTION 'estructura Cronos inválida' USING ERRCODE = 'PC001';
+-- END IF;
+-- material_sha256 := encode(sha256(convert_to(p_material, 'UTF8')), 'hex');
+--
+-- BLOQUEO AD138: aquí falta verificar y consumir la concesión nominal nueva.
+-- No hay llamada de ejemplo ni sustitución por consumir_propio_v1.
+-- Debe comprobar firma/raíz/emisor/audiencia, dimensiones y bytes exactos,
+-- consumo_nuevo=true, contexto propio y vigencia, en la misma transacción.
+-- Sólo entonces se fija vec.cronos.empleado_ref mediante set_config local.
+-- Rechazar contexto de empleado/resolutor preexistente y revalidar tras esperas.
+--
+-- Consulta de fila histórica conjunta, después del consumo autorizado.
+-- Parámetros de fragmento, no firma de llamada:
+-- $1 empleado acreditado; $2 solicitud ligada a V3; $3 clave original cotejada.
+-- SELECT jsonb_build_object(
+--   'solicitud_ref', s.solicitud_ref,
+--   'actuacion_ref', a.actuacion_ref,
+--   'recibo_ref', a.recibo_ref,
+--   'estado', a.estado,
+--   'version', a.version,
+--   'instante_utc', a.registrada_en,
+--   'replay', true
+-- )
+-- FROM vec_cronos_v1.correccion_solicitud AS s
+-- JOIN vec_cronos_v1.correccion_actuacion AS a
+--   ON a.solicitud_ref = s.solicitud_ref
+--  AND a.empleado_ref = s.empleado_ref
+-- WHERE s.empleado_ref = $1
+--   AND s.empleado_ref = nullif(
+--     current_setting('vec.cronos.empleado_ref', true), '')
+--   AND s.solicitud_ref = $2
+--   AND s.clave_operacion = $3
+--   AND s.solicitud_ref = 'correccion:cronos:' || $3
+--   AND a.version = 1
+--   AND a.paso = 'solicitud'
+--   AND a.estado = 'pendiente_responsable';
+--
+-- Exigir exactamente una fila; cero: rechazo uniforme, más: inconsistencia.
+-- No ORDER BY última versión, no UPDATE original, no bloqueo de solicitud.
+-- Conservar la fila conjunta para el acceso; no reconstruirla de datos cliente.
+--
+-- DDL PROPUESTO, no instalable: depende del contrato final de AD138.
+-- Las formas canónicas de decision_ref/auditoria_ref proceden de D.
+-- CREATE TABLE vec_cronos_v1.correccion_recibo_acceso (
+--   decision_ref text PRIMARY KEY,
+--   empleado_ref text NOT NULL CHECK (empleado_ref ~ '^emp_[-A-Za-z0-9_]{22,128}$'),
+--   solicitud_ref text NOT NULL REFERENCES vec_cronos_v1.correccion_solicitud,
+--   actuacion_ref text NOT NULL REFERENCES vec_cronos_v1.correccion_actuacion,
+--   recibo_ref text NOT NULL REFERENCES vec_cronos_v1.correccion_actuacion(recibo_ref),
+--   version_recibo integer NOT NULL CHECK (version_recibo = 1),
+--   material_sha256 text NOT NULL CHECK (material_sha256 ~ '^[0-9a-f]{64}$'),
+--   auditoria_ref text NOT NULL UNIQUE,
+--   consumo_huella_sha256 text NOT NULL UNIQUE
+--     CHECK (consumo_huella_sha256 ~ '^[0-9a-f]{64}$'),
+--   consultada_en timestamptz(6) NOT NULL
+-- );
+-- ALTER TABLE vec_cronos_v1.correccion_recibo_acceso
+--   OWNER TO vec_cronos_v1_propietario;
+-- ALTER TABLE vec_cronos_v1.correccion_recibo_acceso ENABLE ROW LEVEL SECURITY;
+-- ALTER TABLE vec_cronos_v1.correccion_recibo_acceso FORCE ROW LEVEL SECURITY;
+-- CREATE POLICY lectura_propia ON vec_cronos_v1.correccion_recibo_acceso
+--   FOR SELECT TO vec_cronos_v1_propietario
+--   USING (empleado_ref = nullif(current_setting('vec.cronos.empleado_ref', true), ''));
+-- CREATE POLICY adicion_propia ON vec_cronos_v1.correccion_recibo_acceso
+--   FOR INSERT TO vec_cronos_v1_propietario
+--   WITH CHECK (empleado_ref = nullif(current_setting('vec.cronos.empleado_ref', true), ''));
+-- CREATE TRIGGER historia_inmutable
+--   BEFORE UPDATE OR DELETE OR TRUNCATE ON vec_cronos_v1.correccion_recibo_acceso
+--   FOR EACH STATEMENT EXECUTE FUNCTION vec_cronos_v1.rechazar_mutacion_historia();
+-- REVOKE ALL ON TABLE vec_cronos_v1.correccion_recibo_acceso
+--   FROM PUBLIC, vec_cronos_v1_ejecutor, vec_cronos_v1_migrador, vec_cronos_v1_auditor;
+-- REVOKE ALL ON TYPE vec_cronos_v1.correccion_recibo_acceso
+--   FROM PUBLIC, vec_cronos_v1_ejecutor, vec_cronos_v1_migrador, vec_cronos_v1_auditor;
+--
+-- BLOQUEO INSERT: sólo con referencias canónicas del consumo AD138 nuevo,
+-- empleado acreditado y solicitud/actuación/recibo/version de la fila conjunta.
+-- Las FK separadas no garantizan ese conjunto. No ON CONFLICT DO NOTHING.
+-- El acceso no guarda motivos, documentos, material V3 ni hora declarada.
+-- Revalidar antes del retorno; la respuesta sólo sale después de commit.
+-- Delta de solicitudes/actuaciones/recibos/outbox/marcajes: cero.
+-- Consumo + auditoría central + acceso confirman o revierten juntos.
+-- La evidencia de denegación corresponde a la frontera; no sobrevive automáticamente
+-- al rollback de esta operación.
+--
+-- BLOQUEO POSTERIOR C5: decisión, resolución y aplicación no son CRN11.
+-- Requieren número Cronos posterior, registro idempotente por paso,
+-- relación/competencia y separación de funciones publicadas, V3 nominal,
+-- versión/estado bajo bloqueo y historia+recibo+auditoría+outbox atómicos.
+-- Aplicar requiere contrato de compensación y proyección derivada reproducible.
+-- Nunca borrar o cambiar marcaje_original ni insertar otro original como atajo.
