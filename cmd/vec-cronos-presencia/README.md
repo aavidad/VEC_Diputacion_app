@@ -12,12 +12,12 @@ go run ./cmd/vec-cronos-presencia \
   --snapshot data/demo/cronos/presencia-equipo.json \
   --snapshot-sha256 3bff2e709dbc868843cc3d1f9e235a70cf2e384ca2b22a70bc3621cfc92a6c36 \
   --textos web/static/textos/es/cronos-presencia-ensayo.json \
-  --textos-sha256 5abc3fcdea8c9e2c5a309b914cd43f81c0e20753b1e9362bc5f9eeb1ddda64a7 \
+  --textos-sha256 f2c4e495cfbc693cc37464046e6af22de895d5a0c12db8b4d982a1d10bc78366 \
   --idioma es
 ```
 
 Para inglés, use `web/static/textos/en/cronos-presencia-ensayo.json`, huella
-`e4516dd62b37c5d6ffe2e7a055b66755eb160e542c6984828614532be332559b` e idioma `en`.
+`346e27b1acf85c865fc9ce4cec6ede803ec27df39f2374378a1d2bc67165a254` e idioma `en`.
 El idioma debe coincidir con el archivo cargado. La zona es un dato de la instantánea;
 el ejemplo utiliza Europe/Madrid. Se rechaza `Local`, porque depende del equipo. Los instantes son UTC y conservan precisión de microsegundos.
 

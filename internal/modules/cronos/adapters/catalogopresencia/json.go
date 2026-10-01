@@ -10,7 +10,7 @@ import (
 const LimiteJSON = catalogoefectos.LimiteJSON
 
 type CatalogoTextos struct {
-	VersionEsquema int               `json:"version_esquema"`
+	VersionEsquema string            `json:"version_esquema"`
 	Idioma         string            `json:"idioma"`
 	Textos         map[string]string `json:"textos"`
 }
@@ -27,7 +27,7 @@ func CargarSnapshot(b []byte, sha string) (ports.SnapshotEnsayoPresencia, error)
 }
 func CargarTextos(b []byte, sha, idioma string) (CatalogoTextos, error) {
 	var c CatalogoTextos
-	if catalogoefectos.DecodificarEstricto(b, sha, &c) != nil || c.VersionEsquema != 1 || (idioma == "" || strings.TrimSpace(idioma) != idioma || len(idioma) > 64) || c.Idioma != idioma || len(c.Textos) != 10 {
+	if catalogoefectos.DecodificarEstricto(b, sha, &c) != nil || c.VersionEsquema != "1" || (idioma == "" || strings.TrimSpace(idioma) != idioma || len(idioma) > 64) || c.Idioma != idioma || len(c.Textos) != 10 {
 		return CatalogoTextos{}, domain.ErrPresenciaInvalida
 	}
 	for _, k := range []string{"titulo", "aviso", "entrada_registrada", "pausa_registrada", "salida_registrada", "indeterminado", "agregado", "cobertura", "limites", "entrada_invalida"} {
