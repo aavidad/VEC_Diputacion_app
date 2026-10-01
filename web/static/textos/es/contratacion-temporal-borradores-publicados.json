@@ -1,0 +1,27 @@
+{
+  "general": {
+    "bp_titulo": "Borradores del catálogo publicado",
+    "bp_subtitulo": "Tipos disponibles para este expediente y su versión actual",
+    "bp_ayuda_boton": "Ayuda sobre los borradores publicados",
+    "bp_ayuda": "Se ofrecen únicamente los tipos y formatos que devolvió el catálogo publicado para este expediente. Cada descarga consulta de nuevo los permisos y conserva los bytes originales. Un borrador descargado no es un documento firmado ni enviado.",
+    "bp_cargando": "Comprobando tipos publicados…",
+    "bp_vacio": "No hay tipos publicados disponibles para este expediente.",
+    "bp_denegado": "La sesión no dispone de permiso para consultar estos borradores.",
+    "bp_error": "No se pudieron consultar los borradores publicados.",
+    "bp_conflicto": "El expediente o el catálogo cambió. Actualice el detalle antes de descargar.",
+    "bp_reintentar": "Reintentar consulta",
+    "bp_tipo": "Tipo de documento",
+    "bp_formatos": "Formatos",
+    "bp_pdf": "Descargar PDF",
+    "bp_docx": "Descargar DOCX",
+    "bp_descargando": "Descargando y comprobando el documento…",
+    "bp_cancelar": "Cancelar espera",
+    "bp_cancelada": "La descarga se ha cancelado.",
+    "bp_listo": "Borrador descargado y huella comprobada: {nombre}",
+    "bp_huella": "SHA-256: {huella}",
+    "bp_descarga_error": "No se pudo comprobar la descarga. No se ha guardado ningún documento.",
+    "bp_catalogo": "Catálogo publicado",
+    "bp_publicacion": "Publicación comprobada:",
+    "bp_publicacion_recibo": "Recibo de publicación: {recibo}"
+  }
+}
