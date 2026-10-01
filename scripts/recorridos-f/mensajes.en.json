@@ -1,0 +1,7 @@
+{
+  "preflight": "Inputs ready. Browser and server have not been checked.",
+  "exito": "Chrome reads checked. See resultado.json in the private output directory.",
+  "entrada": "Not run: check the private JSON, Chrome, Playwright and synthetic credentials.",
+  "fallo": "Walkthrough stopped. See the step and counters in resultado.json; do not repeat writes.",
+  "uso": "Usage: node scripts/recorridos-f/recorrer.mjs --config /PRIVATE_PATH/reads.json --modo preflight|lectura [--salida /PRIVATE_PATH/NEW_DIRECTORY] [--comparar /PRIVATE_PATH/previous-result.json]"
+}
