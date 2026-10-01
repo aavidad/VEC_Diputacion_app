@@ -359,3 +359,127 @@ test("un documento demorado conserva el foco que la persona ha movido a un filtr
     vista.desmontar();
   }
 });
+
+test("al autorizar o devolver conserva todo el envío incierto, bloquea la navegación y evita dobles envíos", async () => {
+  for (const decision of ["aprobar", "devolver"]) {
+    const contenedor = raiz(); const primera = aplazada(); const segunda = aplazada();
+    const entradas = []; const consultas = []; const documentos = []; let claves = 0;
+    const vista = montarVistaBandejaCircuitoDietas(contenedor, { control: true, etapas: ["autorizacion", "revision"], etapaInicial: "autorizacion",
+      generarClaveIdempotencia: () => { claves++; return "decision-responsable-0001"; }, cliente: {
+        listar: async (consulta) => { consultas.push(consulta); return { items: [fila, filaPagina(2)], competencia: "acreditada", siguiente_cursor: "pagina-2" }; },
+        documento: async (ref, etapa) => { documentos.push([ref, etapa]); return documentoLeido; },
+        decidir: (ref, entrada) => { entradas.push([ref, entrada]); return entradas.length === 1 ? primera.promise : segunda.promise; },
+      } });
+    await esperar(); const panel = contenedor.querySelector("[data-dietas-bandeja-circuito]");
+    const otroDocumento = panel.querySelectorAll("[data-dietas-circuito-abrir]")[1];
+    const paginaSiguiente = panel.querySelector("[data-dietas-circuito-siguiente]");
+    await clic(panel, "abrir");
+    const motivo = "Falta el justificante del taxi";
+    panel.querySelector("[data-dietas-circuito-motivo]").value = motivo;
+    const boton = panel.querySelector(`[data-dietas-circuito-decision="${decision}"]`); boton.focus();
+    const envio = panel.listeners.click({ target: boton });
+    assert.equal(contenedor.ownerDocument.activeElement, panel.querySelector("[data-dietas-circuito-estado]"));
+    const comprobarBloqueo = async () => {
+      for (const atributo of ["etapa", "desde", "hasta"]) assert.equal(panel.querySelector(`[data-dietas-circuito-${atributo}]`).disabled, true);
+      assert.equal(panel.querySelector('[data-dietas-circuito-decision="aprobar"]').disabled, true);
+      assert.equal(panel.querySelector('[data-dietas-circuito-decision="devolver"]').disabled, true);
+      assert.equal(panel.querySelector("[data-dietas-circuito-volver]").disabled, true);
+      assert.equal(panel.querySelector("[data-dietas-circuito-motivo]").readOnly, true);
+      assert.equal(panel.querySelector("[data-dietas-circuito-motivo]").value, motivo);
+      // Incluso eventos de controles retirados o enviados por código quedan cerrados.
+      panel.querySelector("[data-dietas-circuito-etapa]").value = "revision";
+      await panel.querySelector("[data-dietas-circuito-filtros]").listeners.submit({ preventDefault() {} });
+      for (const target of [otroDocumento, paginaSiguiente, boton]) await panel.listeners.click({ target });
+      await clic(panel, "volver"); await vista.recargar();
+      assert.equal(consultas.length, 1); assert.equal(documentos.length, 1);
+    };
+    await comprobarBloqueo(); assert.equal(entradas.length, 1);
+    primera.reject({ resultadoIndeterminado: true }); await envio;
+    const reintento = panel.querySelector("[data-dietas-circuito-reintento]");
+    assert.equal(contenedor.ownerDocument.activeElement, reintento);
+    await comprobarBloqueo();
+    const repeticion = panel.listeners.click({ target: reintento });
+    assert.equal(panel.querySelector("[data-dietas-circuito-reintento]").disabled, true);
+    await panel.listeners.click({ target: reintento });
+    assert.equal(entradas.length, 2); assert.equal(claves, 1);
+    assert.deepEqual(entradas[1], [referencia, { etapa: "autorizacion", decision, motivo, clave_idempotencia: "decision-responsable-0001", version_esperada: 3 }]);
+    assert.deepEqual(entradas[1], entradas[0]);
+    segunda.resolve({ comision: { referencia, estado: "pendiente_liquidacion", version: 4 }, recibo: { ...recibo, repeticion: true } }); await repeticion;
+    assert.match(panel.querySelector("[data-dietas-circuito-estado]").textContent, /Ya estaba registrado/u);
+    assert.equal(contenedor.ownerDocument.activeElement, panel.querySelector("[data-dietas-circuito-estado]"));
+    assert.equal(panel.querySelector("[data-dietas-circuito-etapa]").disabled, false);
+    vista.desmontar();
+  }
+});
+
+test("rechaza motivos inválidos antes de decidir también al aprobar y conserva el campo para corregir", async () => {
+  const contenedor = raiz(); let llamadas = 0; let claves = 0;
+  const vista = montarVistaBandejaCircuitoDietas(contenedor, { generarClaveIdempotencia: () => { claves++; return "decision-responsable-0002"; }, cliente: {
+    listar: async () => ({ items: [fila], competencia: "acreditada" }), documento: async () => documentoLeido,
+    decidir: async () => { llamadas++; throw { codigo: "conflicto_estado" }; },
+  } });
+  await esperar(); const panel = contenedor.querySelector("[data-dietas-bandeja-circuito]"); await clic(panel, "abrir");
+  for (const decision of ["aprobar", "devolver"]) {
+    for (const motivo of ["é".repeat(301), "😀".repeat(151), "a".repeat(601), "Falta\njustificante", "Falta\u0000justificante", "Falta\u007fjustificante", ...(decision === "devolver" ? ["", "é", "\ufeff\u0085 "] : [])]) {
+      panel.querySelector("[data-dietas-circuito-motivo]").value = motivo;
+      await panel.listeners.click({ target: panel.querySelector(`[data-dietas-circuito-decision="${decision}"]`) });
+      const campo = panel.querySelector("[data-dietas-circuito-motivo]");
+      assert.equal(campo.value, motivo); assert.equal(contenedor.ownerDocument.activeElement, campo);
+      assert.equal(campo.attrs["aria-invalid"], "true");
+      const errorCampo = panel.querySelector("[data-dietas-circuito-motivo-error]");
+      assert.equal(campo.attrs["aria-describedby"], errorCampo.id);
+      assert.equal(errorCampo.textContent, panel.querySelector("[data-dietas-circuito-estado]").textContent);
+      assert.match(panel.querySelector("[data-dietas-circuito-estado]").textContent, /motivo/u);
+      assert.equal(llamadas, 0); assert.equal(claves, 0);
+    }
+  }
+  for (const motivo of ["漢", "😀", "é".repeat(300)]) {
+    panel.querySelector("[data-dietas-circuito-motivo]").value = motivo;
+    await panel.listeners.click({ target: panel.querySelector('[data-dietas-circuito-decision="devolver"]') });
+    assert.equal(panel.querySelector("[data-dietas-circuito-motivo]").value, motivo);
+  }
+  assert.equal(llamadas, 3); vista.desmontar();
+});
+
+test("la retirada de la fuente en la decisión cierra documento y acciones", async () => {
+  const contenedor = raiz();
+  const vista = montarVistaBandejaCircuitoDietas(contenedor, { generarClaveIdempotencia: () => "decision-responsable-0003", cliente: {
+    listar: async () => ({ items: [fila], competencia: "acreditada" }), documento: async () => documentoLeido,
+    decidir: async () => { throw { codigo: "competencia_sin_fuente" }; },
+  } });
+  await esperar(); const panel = contenedor.querySelector("[data-dietas-bandeja-circuito]"); await clic(panel, "abrir");
+  await panel.listeners.click({ target: panel.querySelector('[data-dietas-circuito-decision="aprobar"]') });
+  assert.ok(panel.querySelector("[data-dietas-circuito-sin-fuente]"));
+  assert.equal(panel.querySelector("[data-dietas-circuito-decision]"), null); assert.equal(panel.querySelector("[data-dietas-circuito-abrir]"), null);
+  vista.desmontar();
+});
+
+
+test("el error junto al motivo distingue aprobación inválida de devolución incompleta en ambos catálogos", async () => {
+  for (const idioma of ["es", "en"]) {
+    const textos = await cargarTextos("dietas", { idioma }); const contenedor = raiz(); let llamadas = 0;
+    const vista = montarVistaBandejaCircuitoDietas(contenedor, { traducir: (clave, variables) => textos.traducir(`circuito.${clave}`, variables),
+      generarClaveIdempotencia: () => "decision-responsable-0004", cliente: {
+        listar: async () => ({ items: [fila], competencia: "acreditada" }), documento: async () => documentoLeido,
+        decidir: async () => { llamadas++; throw { codigo: "conflicto_estado" }; },
+      } });
+    await esperar(); const panel = contenedor.querySelector("[data-dietas-bandeja-circuito]"); await clic(panel, "abrir");
+    for (const motivo of ["é".repeat(301), "Falta\njustificante"]) {
+      panel.querySelector("[data-dietas-circuito-motivo]").value = motivo;
+      await panel.listeners.click({ target: panel.querySelector('[data-dietas-circuito-decision="aprobar"]') });
+      assert.equal(panel.querySelector("[data-dietas-circuito-motivo-error]").textContent, textos.traducir("circuito.circuito_motivo_invalido"));
+      assert.equal(llamadas, 0);
+    }
+    panel.querySelector("[data-dietas-circuito-motivo]").value = "";
+    await panel.listeners.click({ target: panel.querySelector('[data-dietas-circuito-decision="devolver"]') });
+    assert.equal(panel.querySelector("[data-dietas-circuito-motivo-error]").textContent, textos.traducir("circuito.circuito_motivo_devolucion_incompleto"));
+    assert.equal(llamadas, 0);
+    // Una aprobación válida limpia el error anterior aunque el servidor devuelva conflicto.
+    await panel.listeners.click({ target: panel.querySelector('[data-dietas-circuito-decision="aprobar"]') });
+    assert.equal(llamadas, 1);
+    assert.equal(panel.querySelector("[data-dietas-circuito-motivo]").attrs["aria-invalid"], "false");
+    assert.equal(panel.querySelector("[data-dietas-circuito-motivo]").attrs["aria-describedby"], undefined);
+    assert.equal(panel.querySelector("[data-dietas-circuito-motivo-error]"), null);
+    vista.desmontar();
+  }
+});

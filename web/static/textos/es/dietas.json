@@ -302,6 +302,8 @@
     "circuito_aprobar_fiscalizacion": "Dejar lista para liquidación",
     "circuito_devolver": "Devolver",
     "circuito_procesando": "Registrando…",
+    "circuito_motivo_invalido": "El motivo es demasiado largo o contiene caracteres no admitidos. Acórtelo y use una sola línea.",
+    "circuito_motivo_devolucion_incompleto": "Escriba un motivo más completo para devolver el documento.",
     "circuito_decision_invalida": "Indique el motivo de la devolución (entre 3 y 600 caracteres).",
     "circuito_conflicto": "El documento ha cambiado o ya no está pendiente. Actualice la bandeja.",
     "circuito_no_encontrada": "El documento ya no está en esta bandeja.",

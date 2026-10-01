@@ -302,6 +302,8 @@
     "circuito_aprobar_fiscalizacion": "Mark ready for settlement",
     "circuito_devolver": "Return",
     "circuito_procesando": "Registering…",
+    "circuito_motivo_invalido": "The reason is too long or contains unsupported characters. Shorten it and use a single line.",
+    "circuito_motivo_devolucion_incompleto": "Write a fuller reason to return the document.",
     "circuito_decision_invalida": "State the reason for the return (between 3 and 600 characters).",
     "circuito_conflicto": "The document has changed or is no longer pending. Refresh the inbox.",
     "circuito_no_encontrada": "The document is no longer in this inbox.",
