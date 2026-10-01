@@ -172,6 +172,14 @@ necesitan sus autoridades y recibos exactos; después se podrá revisar READY,
 la transición postmain y runtime. Este README no aporta un comando AD132 ni
 una aprobación para esas fases.
 
+[Validador puro P/A/L](clon_fuente_autorizacion_login.py): comprueba bytes de
+recibos candidatos, pines externos previos y los cambios nominales de roles,
+sin leer archivos ni PostgreSQL. Su puerta operativa está ausente. Los guiones
+P/A/L actuales de D esperan un volumen anónimo, mientras este clon local
+conserva PostgreSQL en un bind de `/dev/shm`; no se usarán sus recibos remotos
+como prueba de este clon. D debe entregar una variante física local revisada
+y M deberá atestarla antes de conectar este validador al CAS.
+
 Las huellas y evidencias proceden de las notas de Codex-M del canal compartido
 `CANAL_CLAUDE_CODEX.md`, conservado fuera del árbol de esta candidata. Consultar
 las notas vigentes antes de reconstruir; los manuales finales esperan el
