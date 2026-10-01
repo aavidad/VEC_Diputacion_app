@@ -24,7 +24,7 @@ test("la vista y sus importadores comparten una URL renovada", async () => {
 test("la consulta real de Mi bolsa no presenta ceros como plazos o solicitudes confirmados", async () => {
   const datos = datosMinimosMiBolsa({ consultada_en: "2026-09-30T10:00:00Z" });
   assert.equal(datos.meta.origen, "GET /api/vec/bolsa/mi-bolsa");
-  for (const [idioma, visible] of [["es", "Ver Mi bolsa"], ["en", "View my employment pool"]]) {
+  for (const [idioma, visible] of [["es", "Ver Mi bolsa"], ["en", "View my job pool"]]) {
     await iniciarI18nAreaPersonal({ querySelectorAll: () => [], documentElement: {} }, {
       leer: lectorCatalogos(), ubicacion: { href: `https://vec.example/area-personal/?lang=${idioma}` },
     });
@@ -44,7 +44,7 @@ test("la consulta real de Mi bolsa no presenta ceros como plazos o solicitudes c
       assert.doesNotMatch(convocatorias, /Consulte bases, requisitos, plazos y estado/u);
     } else {
       assert.match(inicio, /View the details of your participation that are already available/u);
-      assert.match(convocatorias, /The list of recruitment notices is not yet available/u);
+      assert.match(convocatorias, /The list of calls for applications is not yet available/u);
       assert.doesNotMatch(inicio, /Deadlines, actions and the status of your processes/u);
       assert.doesNotMatch(convocatorias, /Check the terms, requirements, deadlines and status/u);
     }
