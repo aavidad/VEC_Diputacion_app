@@ -69,14 +69,16 @@ type Comando struct {
 // ObservacionAbandono binds a known stopped effect and cancelled lease supplied
 // by the trusted executor. The model records it without issuing authority.
 type ObservacionAbandono struct {
-	Operacion        string `json:"operacion"`
-	Destino          string `json:"destino"`
-	FalloReferencia  string `json:"fallo_referencia"`
-	FalloSHA256      string `json:"fallo_sha256"`
-	Lease            string `json:"lease"`
-	EstadoEfecto     string `json:"estado_efecto"`
-	EstadoLease      string `json:"estado_lease"`
-	EstadoPlataforma string `json:"estado_plataforma"`
+	Operacion         string `json:"operacion"`
+	Destino           string `json:"destino"`
+	FalloReferencia   string `json:"fallo_referencia"`
+	FalloSHA256       string `json:"fallo_sha256"`
+	Lease             string `json:"lease"`
+	EstadoEfecto      string `json:"estado_efecto"`
+	EstadoLease       string `json:"estado_lease"`
+	EstadoPlataforma  string `json:"estado_plataforma"`
+	EstadoVerificador string `json:"estado_verificador,omitempty"`
+	EstadoVentana     string `json:"estado_ventana,omitempty"`
 }
 
 // Evento is a model receipt; it is not an audit record or durable receipt.
@@ -184,6 +186,9 @@ func (o *Operacion) transicion(c Comando) error {
 			return ErrEntrada
 		}
 		if !referencia(a.Lease) || a.EstadoEfecto != "inactivo" || a.EstadoLease != "cancelada" || a.EstadoPlataforma != "sin_efectos_pendientes" {
+			return ErrAbandono
+		}
+		if (o.estado == Capturada || o.estado == Verificando || a.FalloReferencia == "verificacion_fallida") && (a.EstadoVerificador != "detenido" || a.EstadoVentana != "inactiva") {
 			return ErrAbandono
 		}
 		o.estado = AbandonadaDeclarada

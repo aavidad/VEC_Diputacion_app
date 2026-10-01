@@ -1,6 +1,7 @@
 package operacionescopias
 
 import (
+	"encoding/json"
 	"errors"
 	"reflect"
 	"strings"
@@ -10,7 +11,64 @@ import (
 func abandono(o Operacion) Comando {
 	c := comando(o, "abandonar_captura")
 	c.Abandono = &ObservacionAbandono{Operacion: o.solicitud.Operacion, Destino: o.solicitud.Destino, FalloReferencia: "fallo:captura", FalloSHA256: strings.Repeat("a", 64), Lease: "lease:captura", EstadoEfecto: "inactivo", EstadoLease: "cancelada", EstadoPlataforma: "sin_efectos_pendientes"}
+	if o.Estado() == Capturada || o.Estado() == Verificando {
+		c.Abandono.FalloReferencia = "verificacion_fallida"
+		c.Abandono.EstadoVerificador = "detenido"
+		c.Abandono.EstadoVentana = "inactiva"
+	}
 	return c
+}
+
+func TestAbandonoVerificacionExigeVerificadorDetenidoYVentanaInactiva(t *testing.T) {
+	o := verificando(t)
+	for _, field := range []string{"verificador_omitido", "verificador_activo", "verificador_incierto", "ventana_omitida", "ventana_activa", "ventana_incierta"} {
+		c := abandono(o)
+		switch field {
+		case "verificador_omitido":
+			c.Abandono.EstadoVerificador = ""
+		case "verificador_activo":
+			c.Abandono.EstadoVerificador = "activo"
+		case "verificador_incierto":
+			c.Abandono.EstadoVerificador = "incierto"
+		case "ventana_omitida":
+			c.Abandono.EstadoVentana = ""
+		case "ventana_activa":
+			c.Abandono.EstadoVentana = "activa"
+		case "ventana_incierta":
+			c.Abandono.EstadoVentana = "incierta"
+		}
+		if _, _, _, e := o.Aplicar(c); !errors.Is(e, ErrAbandono) {
+			t.Fatal(field, e)
+		}
+	}
+	if o.Estado() != Verificando || o.Version() != 3 {
+		t.Fatal("phase changed")
+	}
+}
+
+func TestCapturaLegacyConservaJSONYFalloPublicadoRequiereObservacionNueva(t *testing.T) {
+	o, e := Nueva(solicitud())
+	if e != nil {
+		t.Fatal(e)
+	}
+	o = aplicar(t, o, comando(o, "iniciar_captura"))
+	c := abandono(o)
+	b, e := json.Marshal(c.Abandono)
+	if e != nil {
+		t.Fatal(e)
+	}
+	legacy := `{"operacion":"operacion:1","destino":"destino:1","fallo_referencia":"fallo:captura","fallo_sha256":"` + strings.Repeat("a", 64) + `","lease":"lease:captura","estado_efecto":"inactivo","estado_lease":"cancelada","estado_plataforma":"sin_efectos_pendientes"}`
+	if string(b) != legacy {
+		t.Fatal("legacy serialization changed", string(b))
+	}
+	c.Abandono.FalloReferencia = "verificacion_fallida"
+	if _, _, _, e = o.Aplicar(c); !errors.Is(e, ErrAbandono) {
+		t.Fatal("publication bypassed observation", e)
+	}
+	c.Abandono.EstadoVerificador, c.Abandono.EstadoVentana = "detenido", "inactiva"
+	if _, _, _, e = o.Aplicar(c); e != nil {
+		t.Fatal("confirmed published failure", e)
+	}
 }
 
 func TestAbandonoDesdeEstadosActivosSinInventarEnsayo(t *testing.T) {

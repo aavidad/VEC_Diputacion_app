@@ -21,6 +21,9 @@ type SolicitudAbandono struct {
 // ObservadorAbandono must revalidate the real current actor/authority and observe
 // the executor's stopped effect, cancelled lease and absence of pending platform
 // writes, maintenance or restoration effects, including on a replay.
+// After capture it must also observe the owned verifier stopped and the window
+// inactive. The current domain state or governed verificacion_fallida reference
+// requires those proofs, even if publication preceded the capture confirmation.
 // It is wired by trusted composition, never chosen by a JSON caller or CLI.
 type ObservadorAbandono interface {
 	ConfirmarAbandono(context.Context, Declaracion, SolicitudAbandono) (operacionescopias.ObservacionAbandono, error)

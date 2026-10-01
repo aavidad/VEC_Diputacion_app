@@ -152,6 +152,14 @@ La CLI y `Aplicar` genérico no habilitan esta acción por datos declarados.
 `Abrir` sin observador tampoco la autoriza. La comprobación real del ejecutor
 y de su reserva corresponde a la composición operativa, no a este adaptador.
 
+Desde `capturada` o `verificando`, el abandono exige además observar el
+verificador propio `detenido` y la ventana `inactiva`. La fase procede del estado
+conservado de CS07; no se elige en la solicitud. La referencia gobernada
+`verificacion_fallida` exige esas mismas observaciones aunque CS07 siga en
+`capturando`, si la publicación se adelantó a su confirmación. Una observación omitida, activa o
+incierta mantiene ocupado el destino. Los campos nuevos son opcionales en la
+serialización de una captura anterior para conservar sus bytes y su huella.
+
 Las propuestas y aprobaciones de restauración pertenecen al contrato CS10.
 Este registro de progreso CS07-A no las sustituye ni emite autorización FULL.
 
