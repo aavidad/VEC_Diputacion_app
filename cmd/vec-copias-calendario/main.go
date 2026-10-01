@@ -40,7 +40,9 @@ func ejecutar(args []string, in io.Reader, out, errout io.Writer) int {
 	flags.SetOutput(io.Discard)
 	dir := flags.String("registro", "", "")
 	textos := flags.String("textos", "", "")
-	if flags.Parse(args) != nil || flags.NArg() != 0 || *dir == "" || *textos == "" {
+	var roots []string
+	flags.Func("raiz-restaurada", "", func(v string) error { roots = append(roots, v); return nil })
+	if flags.Parse(args) != nil || flags.NArg() != 0 || *dir == "" || *textos == "" || len(roots) == 0 {
 		return fallo(errout, nil, "argumentos_invalidos")
 	}
 	cat, e := catalogo(*textos)
@@ -51,7 +53,7 @@ func ejecutar(args []string, in io.Reader, out, errout io.Writer) int {
 	if a.Decodificar(in, &input) != nil || !input.Sintetica {
 		return fallo(errout, cat, "politica_entrada_invalida")
 	}
-	store, e := a.Abrir(*dir)
+	store, e := a.AbrirExterno(a.ConfigExterna{Directorio: *dir, RaicesRestauradas: roots})
 	if e != nil {
 		return fallo(errout, cat, "politica_dependencia_pendiente")
 	}
@@ -96,14 +98,25 @@ func ejecutar(args []string, in io.Reader, out, errout io.Writer) int {
 	if e != nil {
 		return fallo(errout, cat, e.Error())
 	}
+	type explicacion struct {
+		Referencia string `json:"referencia"`
+		Mensaje    string `json:"mensaje"`
+	}
+	var motivos []explicacion
+	if plan, ok := result.(d.PlanRetencion); ok {
+		for _, x := range plan.Decisiones {
+			motivos = append(motivos, explicacion{x.Referencia, cat.T(i18n.DefaultLocale, x.Motivo)})
+		}
+	}
 	response := struct {
-		Alcance           string `json:"alcance"`
-		Aviso             string `json:"aviso"`
-		AutorizacionADMIN bool   `json:"autorizacion_admin"`
-		HabilitaCopia     bool   `json:"habilita_copia"`
-		HabilitaBorrado   bool   `json:"habilita_borrado"`
-		Resultado         any    `json:"resultado"`
-	}{Alcance: "configuracion_sintetica_local", Aviso: cat.T(i18n.DefaultLocale, "aviso_sintetico"), Resultado: result}
+		Alcance           string        `json:"alcance"`
+		Aviso             string        `json:"aviso"`
+		AutorizacionADMIN bool          `json:"autorizacion_admin"`
+		HabilitaCopia     bool          `json:"habilita_copia"`
+		HabilitaBorrado   bool          `json:"habilita_borrado"`
+		Resultado         any           `json:"resultado"`
+		Motivos           []explicacion `json:"motivos,omitempty"`
+	}{Alcance: "configuracion_sintetica_local", Aviso: cat.T(i18n.DefaultLocale, "aviso_sintetico"), Resultado: result, Motivos: motivos}
 	if json.NewEncoder(out).Encode(response) != nil {
 		return fallo(errout, cat, "salida_fallida")
 	}

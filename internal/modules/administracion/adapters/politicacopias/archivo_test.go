@@ -156,3 +156,31 @@ func TestStrictExternalJSON(t *testing.T) {
 		}
 	}
 }
+
+func TestDeletionOfCompleteLastVersionBlocksJournal(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "control")
+	a, e := Abrir(dir)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer func() { _ = a.Cerrar() }()
+	ctx := context.Background()
+	now := time.Now().UTC()
+	if _, e = a.Guardar(ctx, 0, politica(), attribution(), now, accept); e != nil {
+		t.Fatal(e)
+	}
+	q := politica()
+	q.CadaDias = 2
+	if _, e = a.Guardar(ctx, 1, q, attribution(), now.Add(time.Second), accept); e != nil {
+		t.Fatal(e)
+	}
+	if e = os.Remove(filepath.Join(dir, "00000000000000000002.json")); e != nil {
+		t.Fatal(e)
+	}
+	if _, e = a.Historia(ctx); !errors.Is(e, d.ErrHistoria) {
+		t.Fatal("shortened history accepted", e)
+	}
+	if _, e = a.Guardar(ctx, 1, q, attribution(), now.Add(time.Minute), accept); !errors.Is(e, d.ErrHistoria) {
+		t.Fatal("lost history overwritten", e)
+	}
+}

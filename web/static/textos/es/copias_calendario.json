@@ -1,6 +1,6 @@
 {
   "aviso_sintetico": "Configuración local de ensayo. Las identidades y copias son declaradas. No concede permisos ni ejecuta copias o borrados.",
-  "argumentos_invalidos": "Indique el directorio del registro y el catálogo de textos. Consulte los ejemplos del manual.",
+  "argumentos_invalidos": "Indique el registro, las raíces que se restaurarán y el catálogo de textos. Consulte los ejemplos del manual.",
   "catalogo_invalido": "No se pudo leer el catálogo. Seleccione un catálogo completo y vuelva a intentarlo.",
   "politica_entrada_invalida": "Revise las fechas, la zona horaria y los valores de la política. La ventana debe terminar el mismo día.",
   "politica_version_distinta": "La política cambió. Consulte la versión actual y revise su propuesta antes de guardarla.",
@@ -18,5 +18,6 @@
   "dentro_retencion": "Se conserva dentro del periodo configurado.",
   "borrado_no_permitido": "La política no permite proponer el borrado.",
   "candidata_revision": "Puede revisarse para borrado. Requiere autorización vigente y el control configurado antes de cualquier efecto.",
-  "fuera_destino": "La copia pertenece a otro destino; esta política no se aplica."
+  "fuera_destino": "La copia pertenece a otro destino; esta política no se aplica.",
+  "politica_aviso_fallido": "La ejecución falló y no se pudo emitir el aviso. Consulte el registro con Sistemas antes de reintentar."
 }

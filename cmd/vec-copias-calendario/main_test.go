@@ -11,7 +11,7 @@ import (
 
 func TestCLIReopensExternalJournalAndPlansOnly(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "control")
-	args := []string{"--registro", dir, "--textos", "../../web/static/textos/es/copias_calendario.json"}
+	args := []string{"--registro", dir, "--raiz-restaurada", t.TempDir(), "--textos", "../../web/static/textos/es/copias_calendario.json"}
 	var out, diag bytes.Buffer
 	input, e := os.ReadFile("testdata/configurar.json")
 	if e != nil {
@@ -61,7 +61,7 @@ func TestCLIReopensExternalJournalAndPlansOnly(t *testing.T) {
 	}
 }
 func TestCLIDeniesOperationalActionsAndAmbiguousInput(t *testing.T) {
-	args := []string{"--registro", filepath.Join(t.TempDir(), "control"), "--textos", "../../web/static/textos/en/copias_calendario.json"}
+	args := []string{"--registro", filepath.Join(t.TempDir(), "control"), "--raiz-restaurada", t.TempDir(), "--textos", "../../web/static/textos/en/copias_calendario.json"}
 	for _, input := range []string{`{"sintetica":false,"accion":"consultar"}`, `{"sintetica":true,"accion":"borrar"}`, `{"sintetica":true,"accion":"capturar"}`, `{"sintetica":true,"sintetica":true,"accion":"consultar"}`, `{"Sintetica":true,"accion":"consultar"}`} {
 		var out, diag bytes.Buffer
 		if n := ejecutar(args, strings.NewReader(input), &out, &diag); n != 2 {

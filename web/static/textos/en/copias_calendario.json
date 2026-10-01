@@ -1,6 +1,6 @@
 {
   "aviso_sintetico": "Local test configuration. Identities and backups are declared. This does not grant permissions or run backups or deletions.",
-  "argumentos_invalidos": "Specify the register directory and text catalogue. See the examples in the manual.",
+  "argumentos_invalidos": "Specify the register, all roots to be restored and the text catalogue. See the examples in the manual.",
   "catalogo_invalido": "The catalogue could not be read. Select a complete catalogue and try again.",
   "politica_entrada_invalida": "Check the dates, time zone and policy values. The window must end on the same day.",
   "politica_version_distinta": "The policy changed. Read the current version and review your proposal before saving it.",
@@ -18,5 +18,6 @@
   "dentro_retencion": "Kept within the configured retention period.",
   "borrado_no_permitido": "The policy does not allow deletion proposals.",
   "candidata_revision": "May be reviewed for deletion. Current authorization and the configured control are required before any effect.",
-  "fuera_destino": "The backup belongs to another destination; this policy does not apply."
+  "fuera_destino": "The backup belongs to another destination; this policy does not apply.",
+  "politica_aviso_fallido": "Execution failed and the notification could not be emitted. Ask Systems to review the register before retrying."
 }

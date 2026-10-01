@@ -21,11 +21,15 @@ Elija un directorio de control que quede fuera del conjunto que se restaurará.
 Debe pertenecer a la cuenta operadora y tener permisos `0700`. La herramienta solo
 crea el último directorio; sus padres deben existir. Use un directorio nuevo dedicado
 a una sola política. No use una carpeta de copias o de documentos como registro.
+Declare todas las raíces que se restaurarán con `--raiz-restaurada`, repetible.
+El CLI rechaza un registro contenido en cualquiera de esas raíces, también con alias.
+En el ejemplo, ambas carpetas vacías están separadas y representan un alcance sintético.
 
 ```sh
+ambito_ensayo=$(mktemp -d)
 registro_ensayo=$(mktemp -d)
 chmod 700 "$registro_ensayo"
-/tmp/vec-copias-calendario --registro "$registro_ensayo" \
+/tmp/vec-copias-calendario --registro "$registro_ensayo" --raiz-restaurada "$ambito_ensayo" \
   --textos web/static/textos/es/copias_calendario.json \
   < cmd/vec-copias-calendario/testdata/configurar.json
 ```
@@ -39,12 +43,12 @@ Consulte el mismo registro desde una nueva ejecución:
 
 ```sh
 printf '%s\n' '{"sintetica":true,"accion":"consultar"}' |
-  /tmp/vec-copias-calendario --registro "$registro_ensayo" \
+  /tmp/vec-copias-calendario --registro "$registro_ensayo" --raiz-restaurada "$ambito_ensayo" \
     --textos web/static/textos/es/copias_calendario.json
-/tmp/vec-copias-calendario --registro "$registro_ensayo" \
+/tmp/vec-copias-calendario --registro "$registro_ensayo" --raiz-restaurada "$ambito_ensayo" \
   --textos web/static/textos/es/copias_calendario.json \
   < cmd/vec-copias-calendario/testdata/agenda.json
-/tmp/vec-copias-calendario --registro "$registro_ensayo" \
+/tmp/vec-copias-calendario --registro "$registro_ensayo" --raiz-restaurada "$ambito_ensayo" \
   --textos web/static/textos/es/copias_calendario.json \
   < cmd/vec-copias-calendario/testdata/retencion.json
 ```
@@ -91,7 +95,9 @@ el catálogo autenticado y revalidar sus datos al aplicar un plan; este CLI no l
   anterior o la nueva lo exige; no permite desactivar ese control unilateralmente.
 - `adapters/politicacopias.Archivo`: diario Linux de una política, lock entre procesos,
   escritura temporal sincronizada, renombrado atómico, sincronización del directorio
-  y lectura completa del historial. Cada versión enlaza la huella anterior.
+  y lectura completa del historial. Cada versión enlaza la huella anterior. Un marcador
+  independiente detecta la pérdida de la última versión completa. Una interrupción
+  entre ambos registros bloquea nuevas escrituras para revisión, sin acortar historia.
 
 La agenda utiliza una clave estable por política, destino y fecha civil. Cambiar la
 versión durante ese día conserva la clave y exige conciliación si cambia la solicitud.
@@ -114,5 +120,7 @@ externa, catálogo autenticado y ejecución real de captura/verificación. El pu
 aviso y su adaptador al emisor común conservan el fallo de ejecución; distinguen
 `fallido`, `no_configurado` y `emitido_sin_acuse`, que no acredita entrega. El dueño
 de la operación debe conservar ese resultado en CS07 y conectar el aviso operativo.
-La reserva global y la exclusión por destino corresponden a CS07. Este corte no instala
+`ReservadorCS07` conecta la reserva global y la exclusión por destino de CS07
+sin duplicar su diario. Su prueba reabre el registro real de ficheros, conserva
+una sola reserva y rechaza un destino ocupado o una solicitud alterada. Este corte no instala
 servicios, permisos ni SQL; no acredita una copia válida, restauración o E2E ADMIN.

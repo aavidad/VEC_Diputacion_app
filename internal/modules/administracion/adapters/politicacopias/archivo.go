@@ -116,7 +116,7 @@ func (a *Archivo) leer() ([]p.Registro, error) {
 		if name != fmt.Sprintf("%020d.json", i+1) {
 			return nil, d.ErrHistoria
 		}
-		f, e := a.root.OpenFile(name, os.O_RDONLY|syscall.O_NOFOLLOW, 0)
+		f, e := a.root.OpenFile(name, os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0)
 		if e != nil {
 			return nil, d.ErrHistoria
 		}
@@ -142,6 +142,9 @@ func (a *Archivo) leer() ([]p.Registro, error) {
 		history = append(history, r)
 		previous = r.RegistroSHA256
 		old = r.Politica
+	}
+	if e = a.comprobarConfirmacion(history); e != nil {
+		return nil, e
 	}
 	return history, nil
 }
@@ -248,6 +251,9 @@ func (a *Archivo) Guardar(ctx context.Context, expected uint64, policy d.Politic
 	_ = dir.Close()
 	if e != nil {
 		return p.Registro{}, d.ErrDependencia
+	}
+	if e = a.confirmar(r); e != nil {
+		return p.Registro{}, e
 	}
 	return r, nil
 }
