@@ -140,5 +140,5 @@ export function montarVistaMovimientosCronos({ raiz, cliente = crearClienteSaldo
     contenedor.removeEventListener("click", alPulsar); contenedor.removeEventListener("submit", alEnviar); contenedor.remove?.();
   };
   registrarDesmontar?.(desmontar);
-  return Object.freeze({ desmontar, consultar: cargar });
+  return Object.freeze({ desmontar, consultar: cargar, actualizar: () => cargar(consulta) });
 }

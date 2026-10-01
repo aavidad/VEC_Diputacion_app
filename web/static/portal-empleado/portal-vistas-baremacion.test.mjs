@@ -3,7 +3,7 @@ import test from "node:test";
 import { readFileSync } from "node:fs";
 import { crearVistasBaremacion } from "./portal-vistas-baremacion.js";
 import { crearTraductorBaremacion, traducirBaremacion } from "./portal-i18n-baremacion.js";
-import { crearUtilidadesVista } from "./portal-vistas-utilidades.js";
+import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20261001-ct-a-i18n-v1";
 
 test("la vista carga el catálogo i18n con URL nueva y el módulo resuelve", async () => {
   const codigo = readFileSync(new URL("./portal-vistas-baremacion.js", import.meta.url), "utf8");

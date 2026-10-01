@@ -1,0 +1,325 @@
+{
+  "listado": {
+    "esquema": "vec.bolsa.publico.convocatorias.v2",
+    "fuente": {
+      "revision": "sintetica-v2",
+      "actualizada_en": "2026-09-30T10:00:00Z",
+      "demostracion": false
+    },
+    "facetas": {
+      "tipos": [
+        {
+          "clave": "bolsa",
+          "version": 1,
+          "etiqueta": "Bolsa",
+          "semantica": "informacion"
+        }
+      ],
+      "categorias": [
+        {
+          "clave": "auxiliar-administrativo",
+          "version": 1,
+          "etiqueta": "Categoria sintetica",
+          "semantica": "informacion",
+          "catalogo_categorias": {
+            "catalogo_id": "categorias-profesionales",
+            "version": 1,
+            "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "huella_proyeccion_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "numero_resultados": 1
+        }
+      ],
+      "estados": [
+        {
+          "clave": "bolsa",
+          "version": 1,
+          "etiqueta": "Bolsa",
+          "semantica": "informacion"
+        }
+      ]
+    },
+    "diccionario_categorias": [
+      {
+        "clave": "auxiliar-administrativo",
+        "version": 1,
+        "etiqueta": "Categoria sintetica",
+        "semantica": "informacion",
+        "catalogo_categorias": {
+          "catalogo_id": "categorias-profesionales",
+          "version": 1,
+          "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "huella_proyeccion_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      }
+    ],
+    "paginacion": {
+      "pagina": 1,
+      "tamano": 12,
+      "total": 1,
+      "paginas": 1
+    },
+    "convocatorias": [
+      {
+        "identificador_publico": "sintetica-2026",
+        "version": "v2",
+        "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "titulo": "Bolsa sintetica",
+        "resumen": "Solo prueba del guion",
+        "tipo": {
+          "clave": "bolsa",
+          "version": 1,
+          "etiqueta": "Bolsa",
+          "semantica": "informacion"
+        },
+        "estado": {
+          "clave": "bolsa",
+          "version": 1,
+          "etiqueta": "Bolsa",
+          "semantica": "informacion"
+        },
+        "catalogo_categorias": {
+          "catalogo_id": "categorias-profesionales",
+          "version": 1,
+          "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "huella_proyeccion_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "categorias": [
+          {
+            "clave": "auxiliar-administrativo",
+            "version": 1
+          }
+        ],
+        "numero_requisitos": 0,
+        "numero_documentos": 0,
+        "numero_ayudas": 0,
+        "publicada_en": "2026-09-30T10:00:00Z"
+      }
+    ]
+  },
+  "detalle": {
+    "esquema": "vec.bolsa.publico.convocatoria.v2",
+    "fuente": {
+      "revision": "sintetica-v2",
+      "actualizada_en": "2026-09-30T10:00:00Z",
+      "demostracion": false
+    },
+    "convocatoria": {
+      "identificador_publico": "sintetica-2026",
+      "version": "v2",
+      "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "titulo": "Bolsa sintetica",
+      "resumen": "Solo prueba del guion",
+      "tipo": {
+        "clave": "bolsa",
+        "version": 1,
+        "etiqueta": "Bolsa",
+        "semantica": "informacion"
+      },
+      "estado": {
+        "clave": "bolsa",
+        "version": 1,
+        "etiqueta": "Bolsa",
+        "semantica": "informacion"
+      },
+      "catalogo_categorias": {
+        "catalogo_id": "categorias-profesionales",
+        "version": 1,
+        "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "huella_proyeccion_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "categorias": [
+        {
+          "clave": "auxiliar-administrativo",
+          "version": 1
+        }
+      ],
+      "numero_requisitos": 0,
+      "numero_documentos": 0,
+      "numero_ayudas": 0,
+      "publicada_en": "2026-09-30T10:00:00Z"
+    },
+    "diccionario_categorias": [
+      {
+        "clave": "auxiliar-administrativo",
+        "version": 1,
+        "etiqueta": "Categoria sintetica",
+        "semantica": "informacion",
+        "catalogo_categorias": {
+          "catalogo_id": "categorias-profesionales",
+          "version": 1,
+          "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "huella_proyeccion_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      }
+    ],
+    "descripcion": "Prueba sintetica",
+    "plazos": [],
+    "requisitos": [],
+    "documentos": [],
+    "ayuda": []
+  },
+  "categorias": {
+    "esquema": "vec.bolsa.publico.categorias.v1",
+    "fuente": {
+      "revision": "sintetica-v2",
+      "actualizada_en": "2026-09-30T10:00:00Z",
+      "demostracion": false
+    },
+    "catalogo": {
+      "catalogo_id": "categorias-profesionales",
+      "version": 1,
+      "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "huella_proyeccion_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "total": 1
+    },
+    "categorias": [
+      {
+        "clave": "auxiliar-administrativo",
+        "version": 1,
+        "etiqueta": "Categoria sintetica",
+        "semantica": "informacion",
+        "catalogo_categorias": {
+          "catalogo_id": "categorias-profesionales",
+          "version": 1,
+          "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "huella_proyeccion_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "numero_convocatorias": 1
+      }
+    ]
+  },
+  "externo_200": {
+    "mi_bolsa": {
+      "data": {
+        "esquema": "vec.bolsa.mi-bolsa.v1",
+        "aviso_desarrollo_clave_i18n": "areaPersonal.miBolsa.avisoDesarrollo",
+        "consultada_en": "2026-09-20T11:00:00.000000Z",
+        "campos_visibles": [
+          "bolsa",
+          "posicion",
+          "estado",
+          "ultimo_llamamiento",
+          "contratos",
+          "fecha_disponible"
+        ],
+        "participaciones": [
+          {
+            "bolsa": "bolsa:01",
+            "categoria": "Auxiliar",
+            "version": 3,
+            "orden_inicial": 2,
+            "total_instantanea": 4,
+            "estado_bolsa": "vigente",
+            "vigente_desde": "2026-09-20T09:00:00.000000Z",
+            "vigente_hasta": null,
+            "situacion_actual": {
+              "estado": "no_disponible",
+              "desde": "2026-09-20T10:00:00.000000Z",
+              "hasta": null,
+              "fecha_disponible": null
+            },
+            "ultimo_llamamiento": {
+              "emitido_en": "2026-09-20T10:00:00.000000Z",
+              "canal": "correo",
+              "resultado": "enviado"
+            }
+          }
+        ]
+      }
+    },
+    "preferencias": {
+      "data": {
+        "catalogo": {
+          "version_ref": "usuarios-preferencias-v1",
+          "idiomas": [
+            {
+              "codigo": "navegador",
+              "nombre_key": "navegador"
+            },
+            {
+              "codigo": "es",
+              "nombre_key": "es"
+            },
+            {
+              "codigo": "en",
+              "nombre_key": "en"
+            }
+          ],
+          "tamanos_texto": [
+            {
+              "codigo": "normal",
+              "nombre_key": "normal"
+            },
+            {
+              "codigo": "grande",
+              "nombre_key": "grande"
+            },
+            {
+              "codigo": "muy_grande",
+              "nombre_key": "muy_grande"
+            }
+          ],
+          "temas": [
+            {
+              "codigo": "sistema",
+              "nombre_key": "sistema"
+            },
+            {
+              "codigo": "claro",
+              "nombre_key": "claro"
+            },
+            {
+              "codigo": "oscuro",
+              "nombre_key": "oscuro"
+            }
+          ],
+          "inicios": [
+            {
+              "codigo": "cuadro",
+              "nombre_key": "cuadro"
+            },
+            {
+              "codigo": "peticiones",
+              "nombre_key": "peticiones"
+            },
+            {
+              "codigo": "bolsas",
+              "nombre_key": "bolsas"
+            }
+          ],
+          "filas": [
+            20,
+            50,
+            100
+          ],
+          "predeterminados": {
+            "idioma": "en",
+            "tamano_texto": "grande",
+            "alto_contraste": true,
+            "tema": "oscuro",
+            "inicio": "bolsas",
+            "filas": 50,
+            "aviso_correo_tareas": true,
+            "aviso_correo_plazos": false
+          }
+        },
+        "estado": {
+          "persona_ref": "persona:fixture:convoca",
+          "version": 0,
+          "catalogo_version_ref": "usuarios-preferencias-v1",
+          "valores": {
+            "idioma": "en",
+            "tamano_texto": "grande",
+            "alto_contraste": true,
+            "tema": "oscuro",
+            "inicio": "bolsas",
+            "filas": 50,
+            "aviso_correo_tareas": true,
+            "aviso_correo_plazos": false
+          }
+        }
+      }
+    }
+  }
+}

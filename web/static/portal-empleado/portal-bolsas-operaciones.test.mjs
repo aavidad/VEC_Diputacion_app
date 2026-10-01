@@ -8,7 +8,7 @@ import {
   renderizarOperacionesSituacion,
   rutaOperacionesSituacion,
   operacionesDisponibles,
-} from "./portal-bolsas-operaciones.js";
+} from "./portal-bolsas-operaciones.js?v=20261001-ct-a-i18n-v1";
 
 test("P-WEB-14 rechaza DNI, NIE y etiquetas de identidad antes del POST B8", async () => {
   for (const referencia of ["12345678Z", "REG/X1234567L", "exp:12.34.56.78-Z", "dni:123", "nie-ref"] ) {

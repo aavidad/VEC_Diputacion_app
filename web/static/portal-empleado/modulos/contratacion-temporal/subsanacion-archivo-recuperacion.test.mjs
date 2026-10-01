@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import test from "node:test";
 import { montarFormularioSubsanacionReparos } from "./formulario-subsanacion-reparos.js";
 import { ESQUEMA_RECUPERACION_SUBSANACION, MAXIMO_ARCHIVO_RECUPERACION_SUBSANACION, serializarDatosRecuperacionSubsanacion, validarDatosRecuperacionSubsanacion } from "./cliente-http-subsanacion-reparos.js";
-import { MENSAJES_SUBSANACION_REPAROS_ES as textos } from "./i18n-subsanacion-reparos.js";
+import { MENSAJES_SUBSANACION_REPAROS_ES as textos } from "./i18n-subsanacion-reparos.js?v=20261001-ct-a-i18n-v1";
 
 const contexto = { expediente_ref: "expediente:subsanacion:archivo", version_esperada: 6 };
 const solicitud = { ...contexto, clave_idempotencia: randomUUID(), observaciones: "Justificación corregida." };
