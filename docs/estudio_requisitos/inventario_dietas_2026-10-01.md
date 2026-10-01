@@ -1,6 +1,7 @@
 # Inventario de Dietas — 1 de octubre de 2026
 
-Base examinada: `origin/main@460e120c2ec9c2d4953d1e98bdba011403fe17e2`.
+Base de la primera inspección: `origin/main@460e120c2ec9c2d4953d1e98bdba011403fe17e2`.
+Retoma contrastada con `origin/main@0a62a3ea68e58fbf890885a2f59cc80343107e18`.
 La fuente funcional es la [ficha D1–D9](ficha_dietas_2026-09-23.md). Este
 inventario distingue el código disponible de su autoridad y de su comprobación.
 La presencia de una migración en Git no acredita su instalación, ni una prueba
@@ -84,3 +85,27 @@ actual conserva su finalidad.
 El corte SQL se reserva cuando Base publique el contrato y dirección fije su
 lugar en la cola del núcleo V3. No se preparan funciones ejecutables con firmas
 de autoridad supuestas, ni se modifican las migraciones Dietas 000001–000011.
+
+## Retoma de la tarde
+
+La base publicada incluye la preparación local de liquidación y su informe
+HTML, los informes sintéticos por persona, unidad y periodo, el catálogo de
+tarifas de ejemplo y los guiones de navegador. Esas piezas ya están entregadas.
+
+Esta entrega amplía la propuesta local para revisar otros medios y gastos
+justificados D5. Antes, la preparación rechazaba esas líneas. La corrección
+independiente de informes conserva los filtros confirmados al recargar; hasta
+que se integre, la recarga aplica campos editados sin confirmar el filtro.
+
+D6 y D9 efectivos siguen pendientes de Personal y Autorización. Personal
+000014 acredita asignaciones de administrativo y responsable; falta la
+competencia para decidir por etapa, con acto, versión, huella y vigencia,
+revalidada dentro de la transacción de Dietas. AUT27 conserva su parada por
+contrato pendiente. Se mantienen cerradas las decisiones y la exportación.
+
+D7c tiene servicios, manejador y clientes de solicitud de rectificación, pero
+falta su composición en el servidor y la inyección web. Ese cableado requiere
+verificar sus concesiones y ACL; no se abre en este corte. La rama histórica
+`440dccc47` permanece conservada hasta comparar sus tres mejoras con la vista
+actual. Los manuales esperan la confirmación de dirección sobre la petición de
+RRHH y el recorrido instalado.

@@ -11,6 +11,9 @@
     "entrada_invalida": "No se ha podido leer el ensayo. Revise los archivos, sus huellas y el idioma.",
     "entrada_registrada": "Jornada abierta según marcajes",
     "pausa_registrada": "Pausa registrada",
-    "salida_registrada": "Salida registrada"
+    "salida_registrada": "Salida registrada",
+    "cobertura_incompleta": "La fuente no cubre todo el periodo hasta el corte. Revise su cobertura.",
+    "sin_marcajes": "La fuente cubre el periodo, pero no contiene marcajes. Revise los registros de la fecha.",
+    "secuencia_ambigua": "Los marcajes tienen horas iguales o una secuencia incoherente. Revise su orden y tipo."
   }
 }
