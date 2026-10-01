@@ -9,6 +9,11 @@ emitió aquel recibo pertenecía a otro contenedor y ya se retiró; su recibo no
 puede usarse para esta. La [guía del clon](../../scripts/recorridos/README_CLON_H6.md)
 explica cómo preparar una copia fresca cuando se aprueben sus entradas.
 
+Una copia desechable posterior sí emitió su propio recibo de las 62
+instalaciones y lo recuperó tras reiniciar PostgreSQL. Después se retiraron
+su contenedor y sus datos temporales, tal como se había aprobado. Ese ensayo
+acredita la preparación de la base; no abrió el portal ni completó trámites.
+
 Por ello **no se han repetido los ocho recorridos en Chrome contra el main
 actual**. Los resultados fechados a continuación corresponden a sus propias
 copias y versiones. Ningún proceso nuevo está confirmado de principio a fin;

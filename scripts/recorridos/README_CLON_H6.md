@@ -89,9 +89,19 @@ El clon local conservado con sufijo `-b` tiene diario SQL62 y preimagen
 comprobada, pero se creó antes de emitir el recibo `sql62-fase.json` de este
 guion. No debe construirse ese recibo a posteriori ni copiarse el del ensayo
 retirado: identifica otra copia física. Para usar el contrato P/A/L local hace
-falta una copia nueva con `preparar-sql` y pines de lock/guiones aprobados.
-Hasta que Dirección fije esos pines, la copia `-b` se conserva solo como
-evidencia y no se reaplican sus SQL.
+falta una copia viva nueva con `preparar-sql` y pines de lock/guiones aprobados
+**para ese fin**. La copia `-b` se conserva solo como evidencia y no se
+reaplican sus SQL.
+
+Dirección aprobó después una copia desechable `-c` con lock
+`b85359675b20367d204342352db66ff76806e026a82d96c26fa63eae875fc9d1`
+y manifiesto de guiones `b6b580f6530c0f35863310dc8bdc0fef8a12b1c3cdf5832b546eda980f06f7ff`.
+Su recibo SQL62 SHA
+`1707793ca68bed3e21e23f3459a2fc04e90f5576e7192ca040b5c169ffac5077`
+se verificó antes y después de reiniciar el mismo PostgreSQL. Esa copia se
+retiró según la aprobación: contenedor y PGDATA de `/dev/shm` ya no existen;
+el recibo y el acta de retiro permanecen como evidencia privada. `-c` no
+acredita AD132 ni sirve como clon vivo para P/A/L o Chrome. `-b` sigue intacta.
 
 El paquete H6 canónico conserva una lista propia de 45 rutas, SHA
 `18f977413a431fb4e112577ac989e8c80cc1f678002494902e6394adebf8b0b2`.
