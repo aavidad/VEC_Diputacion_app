@@ -1,4 +1,4 @@
-import { VISTAS, formatearPuntos } from './modelo.js?v=20261001-provision-ciclo-v4';
+import { VISTAS, formatearPuntos } from './modelo.js?v=20261001-provision-ciclo-v5';
 function nodo(d, tag, texto, clase) { const n = d.createElement(tag); if (texto !== undefined) n.textContent = texto; if (clase) n.className = clase; return n; }
 function boton(d, texto, accion, clave, deshabilitado = false) { const b = nodo(d, 'button', texto, 'boton-secundario'); b.type = 'button'; b.disabled = deshabilitado; b.dataset.foco = clave; b.addEventListener('click', accion); return b; }
 function panel(d, titulo) { const n = nodo(d, 'section', undefined, 'panel'); const h = nodo(d, 'header', undefined, 'cabecera-panel'); h.append(nodo(d, 'h2', titulo)); const cuerpo = nodo(d, 'div', undefined, 'cuerpo-panel pila'); n.append(h, cuerpo); return { n, cuerpo }; }
