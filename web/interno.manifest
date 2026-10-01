@@ -73,6 +73,9 @@ static/portal-empleado/modulos/cronos/vista-saldo-conectado.js
 static/portal-empleado/modulos/cronos/vista-remoto.js
 static/portal-empleado/modulos/cronos/vista-movimientos-conectado.js
 static/portal-empleado/modulos/cronos/vista-movimientos-propios.js
+static/portal-empleado/modulos/cronos/i18n-incidencias.js
+static/textos/es/cronos-incidencias.json
+static/textos/en/cronos-incidencias.json
 static/portal-empleado/modulos/cronos/vista-permisos-propios.js
 static/portal-empleado/modulos/cronos/i18n-resolucion.js
 static/portal-empleado/modulos/cronos/cliente-resolucion-http.js
