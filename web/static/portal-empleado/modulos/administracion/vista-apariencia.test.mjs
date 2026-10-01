@@ -182,13 +182,13 @@ test("tras una sustitución externa, otra preview toma como base el tema nuevo",
 
 test("el import versionado es distinto y la carga real permite previsualizar", async () => {
   const sinVersion = new URL("../../../comun/tema-vec.js", import.meta.url);
-  const versionada = new URL("../../../comun/tema-vec.js?v=20260929-pref-508a-v1", import.meta.url);
+  const versionada = new URL("../../../comun/tema-vec.js?v=20260930-codexf-temas-v2", import.meta.url);
   assert.notEqual(versionada.href, sinVersion.href);
-  const rutaNavegador = new URL("../../../comun/tema-vec.js?v=20260929-pref-508a-v1", "https://vec.example/portal-empleado/modulos/administracion/vista-apariencia.js");
+  const rutaNavegador = new URL("../../../comun/tema-vec.js?v=20260930-codexf-temas-v2", "https://vec.example/portal-empleado/modulos/administracion/vista-apariencia.js");
   assert.equal(rutaNavegador.pathname, "/comun/tema-vec.js");
-  assert.equal(rutaNavegador.search, "?v=20260929-pref-508a-v1");
+  assert.equal(rutaNavegador.search, "?v=20260930-codexf-temas-v2");
   const fuente = await readFile(new URL("./vista-apariencia.js", import.meta.url), "utf8");
-  assert.match(fuente, /import\("\.\.\/\.\.\/\.\.\/comun\/tema-vec\.js\?v=20260929-pref-508a-v1"\)/u);
+  assert.match(fuente, /import\("\.\.\/\.\.\/\.\.\/comun\/tema-vec\.js\?v=20260930-codexf-temas-v2"\)/u);
 
   const documento = documentoFalso();
   const raiz = documento.createElement("div");

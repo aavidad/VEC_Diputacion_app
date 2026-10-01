@@ -17,7 +17,8 @@ const CAMPOS = Object.freeze([
 ]);
 const OPCIONES = Object.freeze({
   idioma: ["navegador", ...IDIOMAS_DISPONIBLES.map(({ codigo }) => codigo)], tamano_texto: ["normal", "grande", "muy_grande"],
-  tema: ["sistema", "claro", "oscuro"], inicio: ["cuadro", "peticiones", "bolsas"],
+  tema: ["sistema", "claro", "oscuro", "diputacion_granada", "arena", "salvia", "lavanda", "azul_sereno", "noche_suave"],
+  inicio: ["cuadro", "peticiones", "bolsas"],
 });
 
 export function errorPreferencias(error) {

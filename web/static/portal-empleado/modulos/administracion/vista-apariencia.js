@@ -9,7 +9,7 @@ function nodo(documento, etiqueta, texto = "", clase = "") {
 }
 
 /** Vista previa efímera: el controlador común es la única autoridad que cambia el tema. */
-export function montarVistaApariencia({ raiz, anunciar = () => {}, t, cargarControlador = () => import("../../../comun/tema-vec.js?v=20260929-pref-508a-v1") } = {}) {
+export function montarVistaApariencia({ raiz, anunciar = () => {}, t, cargarControlador = () => import("../../../comun/tema-vec.js?v=20260930-codexf-temas-v2") } = {}) {
   if (!raiz?.replaceChildren || !raiz.ownerDocument?.createElement || typeof t !== "function" || typeof anunciar !== "function") {
     throw new TypeError("vista de Apariencia no disponible");
   }
