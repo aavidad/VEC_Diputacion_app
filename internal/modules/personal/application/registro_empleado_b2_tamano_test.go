@@ -83,7 +83,8 @@ func TestFichaB2TamanoConTresPreparaciones(t *testing.T) {
 		t.Fatalf("el caso no reproduce un cruce nuevo de 512 KiB: %d -> %d", len(anterior), len(nueva))
 	}
 	// Recorrer el cliente actual con los bytes realmente producidos por Go,
-	// tanto con Content-Length como mediante su lectura incremental.
+	// con Content-Length, sin él y en fragmentos de 2048 bytes (294 fragmentos
+	// para la respuesta ampliada, por encima del antiguo límite de 256).
 	entrada, err := json.Marshal([]string{string(anterior), string(nueva)})
 	if err != nil {
 		t.Fatal(err)
@@ -96,10 +97,13 @@ import {crearClienteRegistroB2} from '../../../../web/static/portal-empleado/mod
 let stdin=''; for await (const c of process.stdin) stdin+=c;
 const [anterior,nueva]=JSON.parse(stdin);
 const consulta={empleadoRef:'emp_'+ 'e'.repeat(24),vigenteEn:'2026-09-20',conocidoEn:'2026-09-20T10:00:00.000000Z'};
-for (const declarada of [true,false]) {
-  const cliente=(body)=>crearClienteRegistroB2({fetchImpl:async()=>new Response(body,{status:200,headers:{'content-type':'application/json; charset=utf-8',...(declarada?{'content-length':String(Buffer.byteLength(body))}:{})}})});
-  await cliente(anterior).consultarFicha(consulta);
-  await assert.rejects(()=>cliente(nueva).consultarFicha(consulta),(e)=>e.codigo==='respuesta_excesiva');
+for (const declarada of [true,false]) for (const fragmentada of [true,false]) for (const contenido of [anterior,nueva]) {
+  const bytes=new TextEncoder().encode(contenido);
+  const body=fragmentada?new ReadableStream({start(c){for(let i=0;i<bytes.length;i+=2048)c.enqueue(bytes.subarray(i,i+2048));c.close();}}):contenido;
+  const cliente=crearClienteRegistroB2({fetchImpl:async()=>new Response(body,{status:200,headers:{'content-type':'application/json; charset=utf-8',...(declarada?{'content-length':String(bytes.length)}:{})}})});
+  const resultado=await cliente.consultarFicha(consulta);
+  assert.equal(resultado.ficha.empleado_ref,consulta.empleadoRef);
+  if(contenido===nueva) assert.ok(resultado.preparacion_servicios&&resultado.preparacion_rpt&&resultado.preparacion_carrera);
 }
 `)
 	cmd.Stdin = bytes.NewReader(entrada)
