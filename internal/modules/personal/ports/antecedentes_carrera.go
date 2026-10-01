@@ -30,9 +30,15 @@ type RelacionAntecedenteCarreraV1 struct {
 	Procedencia        ProcedenciaPersonalNominalV1
 }
 
+// CodigoRef/CodigoVersion identifican la entrada del catálogo de situaciones
+// de Personal que conserva el hecho fuente. Si la fuente no acredita esa versión,
+// CodigoVersion queda cero y Procedencia.Certeza pendiente; nunca se inventa.
+// Estado conserva el estado del hecho fuente, incluida su rectificación.
 type SituacionAntecedenteCarreraV1 struct {
 	SituacionRef, RelacionRef string
 	Version                   int64
+	CodigoRef, Estado         string
+	CodigoVersion             int64
 	Periodo                   PeriodoPersonalNominalV1
 	Procedencia               ProcedenciaPersonalNominalV1
 }
