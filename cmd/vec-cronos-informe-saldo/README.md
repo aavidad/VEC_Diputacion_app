@@ -20,9 +20,9 @@ exige una fuente nominal propia y un registro durable que revalide el permiso
 de exportación y confirme su consumo y auditoría antes de devolver bytes. No
 hay adaptador de esas autoridades, ruta HTTP ni descarga habilitada.
 
-El catálogo inglés queda preparado. El renderer común fija `es-ES` en el PDF;
-si el catálogo pide otro idioma, la preparación falla sin devolver bytes.
-Falta extender el renderer común para seleccionar idioma y validar PDF/UA.
+Los catálogos castellano e inglés generan sus textos con el idioma correspondiente
+en el PDF: `es-ES` o `en-GB`. La muestra inglesa ya se ha ensayado.
+El PDF etiquetado y la validación PDF/UA siguen pendientes.
 La muestra permite comprobar legibilidad; no acredita accesibilidad PDF/UA,
 instalación, permiso, auditoría durable, firma ni validez administrativa.
 
