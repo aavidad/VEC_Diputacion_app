@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="/bolsa/bolsa.css?v=20260925-aspecto-v1">
   <link rel="stylesheet" href="/bolsa/bolsa_adaptable.css?v=20260924-bolsa-publica-final">
   <link rel="stylesheet" href="/bolsa/preparacion/preparacion.css?v=20261001-preparacion-v1">
-  <script type="module" src="/bolsa/preparacion/arranque.js?v=20261001-preparacion-v1"></script>
+  <script type="module" src="/bolsa/preparacion/arranque.js?v=20261001-codexf-lectura-accesible-v1"></script>
 </head>
 <body class="portal-bolsa-publico">
   <a class="salto-contenido" href="#preparacion" data-texto="pagina.titulo_pantalla"></a>
@@ -44,7 +44,7 @@
               <h2 data-texto="convocatoria.plazos"></h2><ul id="plazos" class="lista-detalle"></ul>
               <h2 data-texto="convocatoria.requisitos"></h2><p data-texto="convocatoria.pendiente"></p><ul id="requisitos" class="lista-detalle"></ul>
               <h2 data-texto="convocatoria.documentos"></h2><ul id="documentos" class="lista-detalle"></ul>
-              <label class="casilla-plazo" for="lectura-confirmada"><input type="checkbox" id="lectura-confirmada"><span data-texto="convocatoria.lectura"></span></label>
+              <label class="casilla-plazo" for="lectura-confirmada"><input type="checkbox" id="lectura-confirmada" required aria-describedby="error-lectura" aria-invalid="false"><span data-texto="convocatoria.lectura"></span></label>
               <p id="error-lectura" role="alert"></p>
             </div>
             <div id="paso-archivos" hidden>
