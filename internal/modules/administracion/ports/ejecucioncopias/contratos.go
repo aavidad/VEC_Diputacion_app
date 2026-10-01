@@ -68,6 +68,12 @@ type RegistroConciliacion interface {
 	ConciliarRestauracion(context.Context, ObservacionRestauracion) error
 }
 
+// RegistroAbandono termina la captura sólo cuando el proveedor confiable
+// confirma que no quedan efectos activos ni reservas de ejecución vigentes.
+type RegistroAbandono interface {
+	AbandonarCaptura(context.Context, string, string) error
+}
+
 type ObservacionRestauracion struct {
 	Propuesta
 	VersionRef, InstaladoRef, IndiceAutenticadoRef string
@@ -86,6 +92,7 @@ type EnsayoRegistrado struct {
 
 type Operacion struct {
 	Ref, VersionRef, Estado, ConjuntoRef, ConjuntoPreviaPlaneadaRef, PoliticaRef, IndiceAutenticadoRef, CopiaPreviaRef, PlanRef, PreimagenSHA256, HuellaPropuesta string
+	FalloCapturaRef                                                                                                                                               string
 }
 
 // Ventana excluye todos los escritores, despachos y migradores; conserva la

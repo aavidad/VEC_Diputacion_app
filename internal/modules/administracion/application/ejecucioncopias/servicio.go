@@ -141,12 +141,10 @@ func (s *Servicio) Copiar(ctx context.Context, p puertos.Peticion) (resultado Re
 		}
 		captura, err := s.d.Ventana.Capturar(ctx, p, l)
 		if err != nil {
-			_ = s.d.Registro.Anotar(context.WithoutCancel(ctx), op.Ref, "no_valida", "captura_fallida")
-			return Recibo{}, err
+			return Recibo{}, s.capturaFallida(ctx, op.Ref, "captura_fallida", err)
 		}
 		if err := validarCaptura(captura, l, p); err != nil {
-			_ = s.d.Registro.Anotar(context.WithoutCancel(ctx), op.Ref, "no_valida", "captura_no_comprobable")
-			return Recibo{}, err
+			return Recibo{}, s.capturaFallida(ctx, op.Ref, "captura_no_comprobable", err)
 		}
 		c, err = s.d.Destino.Publicar(ctx, captura)
 		if err != nil {
@@ -166,6 +164,8 @@ func (s *Servicio) Copiar(ctx context.Context, p puertos.Peticion) (resultado Re
 		if err != nil {
 			return Recibo{}, ErrConciliacion
 		}
+	case "captura_pendiente_conciliacion":
+		return Recibo{}, s.capturaFallida(ctx, op.Ref, op.FalloCapturaRef, denegar("captura_fallida"))
 	default:
 		return Recibo{}, denegar("operacion_no_reanudable")
 	}
@@ -186,6 +186,22 @@ func (s *Servicio) Copiar(ctx context.Context, p puertos.Peticion) (resultado Re
 		return Recibo{}, ErrConciliacion
 	}
 	return recibo(op.Ref, c), nil
+}
+
+func (s *Servicio) capturaFallida(ctx context.Context, ref, fallo string, causa error) error {
+	if fallo != "captura_fallida" && fallo != "captura_no_comprobable" {
+		return errors.Join(causa, ErrConciliacion)
+	}
+	ctx = context.WithoutCancel(ctx)
+	if r, ok := s.d.Registro.(puertos.RegistroAbandono); ok {
+		if err := r.AbandonarCaptura(ctx, ref, fallo); err == nil {
+			return causa
+		}
+	}
+	if err := s.d.Registro.Anotar(ctx, ref, "captura_pendiente_conciliacion", fallo); err != nil {
+		return errors.Join(causa, ErrConciliacion, err)
+	}
+	return errors.Join(causa, ErrConciliacion)
 }
 
 func (s *Servicio) copiaRestaurable(ctx context.Context, c puertos.Conjunto) error {

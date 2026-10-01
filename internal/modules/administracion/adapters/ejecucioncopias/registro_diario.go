@@ -25,6 +25,7 @@ type estadoExterior struct {
 	CopiaPreviaRef, ConjuntoPreviaPlaneadaRef, PlanRef, PreimagenSHA256, HuellaPropuesta, IndiceFinalRef string
 	ConjuntoObservadoRef                                                                                 string `json:",omitempty"`
 	IndiceObservadoRef                                                                                   string `json:",omitempty"`
+	FalloCapturaRef                                                                                      string `json:",omitempty"`
 }
 type tramaExterior struct {
 	Secuencia uint64         `json:"secuencia"`
@@ -311,6 +312,9 @@ func leerExterior(f *os.File) (map[string]estadoExterior, uint64, string, []byte
 	return estados, seq, anterior, huellas, nil
 }
 func transicionExteriorValida(anterior, siguiente, accion string) bool {
+	if accion == "abandono_captura" {
+		return (anterior == "capturando" || anterior == "captura_pendiente_conciliacion") && siguiente == "abandonada_declarada"
+	}
 	if accion == "observar_restauracion" {
 		if siguiente != "revertida" && siguiente != "instalado_pendiente_conciliacion" {
 			return false

@@ -170,6 +170,8 @@ func (r *RegistroCS07) Anotar(ctx context.Context, ref, etapa, valor string) err
 			estado.PlanRef = valor
 		case "valida":
 			estado.IndiceFinalRef = valor
+		case "captura_pendiente_conciliacion":
+			estado.FalloCapturaRef = valor
 		}
 		return estado, nil
 	})
@@ -300,7 +302,7 @@ func validarPeticion(p ej.Peticion) error {
 	return nil
 }
 func operacionDesde(e estadoExterior) ej.Operacion {
-	return ej.Operacion{Ref: e.Ref, VersionRef: fmt.Sprintf("%d", e.Version), Estado: e.Estado, ConjuntoRef: e.ConjuntoRef, ConjuntoPreviaPlaneadaRef: e.ConjuntoPreviaPlaneadaRef, PoliticaRef: e.PoliticaRef, CopiaPreviaRef: e.CopiaPreviaRef, PlanRef: e.PlanRef, PreimagenSHA256: e.PreimagenSHA256, HuellaPropuesta: e.HuellaPropuesta, IndiceAutenticadoRef: e.IndiceFinalRef}
+	return ej.Operacion{Ref: e.Ref, VersionRef: fmt.Sprintf("%d", e.Version), Estado: e.Estado, ConjuntoRef: e.ConjuntoRef, ConjuntoPreviaPlaneadaRef: e.ConjuntoPreviaPlaneadaRef, PoliticaRef: e.PoliticaRef, CopiaPreviaRef: e.CopiaPreviaRef, PlanRef: e.PlanRef, PreimagenSHA256: e.PreimagenSHA256, HuellaPropuesta: e.HuellaPropuesta, IndiceAutenticadoRef: e.IndiceFinalRef, FalloCapturaRef: e.FalloCapturaRef}
 }
 func etapaPermitida(estado, etapa, valor string, e estadoExterior) bool {
 	if valor == "" {
@@ -327,6 +329,9 @@ func etapaPermitida(estado, etapa, valor string, e estadoExterior) bool {
 		// Only a copy may be declared invalid by the capture path. A restoration
 		// has a preimage and must remain reconcilable rather than being relabelled.
 		return e.PreimagenSHA256 == "" && estado != "valida" && estado != "no_valida"
+	case "captura_pendiente_conciliacion":
+		return e.PreimagenSHA256 == "" && (estado == "capturando" || estado == "captura_pendiente_conciliacion") &&
+			(valor == "captura_fallida" || valor == "captura_no_comprobable") && (e.FalloCapturaRef == "" || e.FalloCapturaRef == valor)
 	}
 	return false
 }
