@@ -7,7 +7,7 @@
     "activacion_pendiente": "Activation requires the version register and its permissions to be connected.",
     "activar": "Activate rules",
     "ayuda": "Help",
-    "ayuda_texto": "Select a synthetic case or load its rules. Edit the date, scores and limits. Choose Validate and compare to see the effect on the same case. Export the draft before leaving: closing the page discards changes. Imported rules are not approved call terms. The breakdown shows points before the limit, the section maximum and the resulting points. Fractions are shown as exact divisions. When the result includes an overall limit, the summary shows the section sum, maximum and total.",
+    "ayuda_texto": "Select a synthetic case or load its rules. Edit the date, scores and limits. Choose Validate and compare to see the effect on the same case. Export the draft before leaving: closing the page discards changes. Imported rules are not approved call terms. The breakdown shows points before the limit, the section maximum and the resulting points. Fractions are shown as exact divisions. When the result includes an overall limit, the summary shows the section sum, maximum and total. For experience, you can propose another working-time policy for the synthetic case. Write the threshold as a fraction: 1/2 represents 50% and 1/3 an exact third. These examples explain the format; they do not set a threshold for the call terms. Full-time calculation with attestation remains proportional when the case has none.",
     "ejemplo": "Synthetic case",
     "caso_experiencia": "Experience · case {n}",
     "caso_meritos": "Merits · case {n}",
@@ -101,6 +101,18 @@
     "dato_no_disponible": "Data unavailable",
     "puntos_fraccion": "{numerador} ÷ {denominador}",
     "suma_apartados": "Section sum",
-    "tope_global": "Overall limit"
+    "tope_global": "Overall limit",
+    "jornada": "Working-time calculation",
+    "jornada_proporcional": "Proportional to working time",
+    "jornada_integra": "Count as full-time",
+    "jornada_integra_desde_umbral": "Full-time from a threshold",
+    "jornada_protegida_integra": "Full-time when attested",
+    "jornada_por_horas": "By hours (unavailable)",
+    "jornada_por_horas_no_disponible": "Calculation by hours is unavailable in this simulator.",
+    "jornada_umbral": "Threshold (fraction, required)",
+    "jornada_formato": "Format: numerator/denominator.",
+    "umbral_invalido": "Use a positive fraction up to one, such as 1/2. Reduced components can be up to one billion.",
+    "jornada_no_disponible": "The imported working-time policy is unavailable. Choose a supported policy to compare.",
+    "catalogo_jornada_no_disponible": "The working-time catalog could not be loaded. Reload the page to edit this policy."
   }
 }
