@@ -1,5 +1,6 @@
 import { crearTraductorPersonal } from "../modulos/personal/i18n.js";
 import { ZONA_MADRID, instanteDesdeHoraMadrid, localMadrid } from "../hora-madrid.js";
+import { LOCALIZACION_ACTUAL } from "../../comun/idioma.js";
 
 export { instanteDesdeHoraMadrid };
 
@@ -123,22 +124,23 @@ const columnas = {
 /**
  * Rutas compuestas en la raíz para esta pantalla. Solo el montaje las activa:
  * una prueba Go de `internal/app/server` exige que cada bandera coincida con la
- * composición real de su handler. Mientras sean `false`, el catálogo es la
- * única vista y las pestañas de histórico e importación no se ofrecen, porque
- * abrirían contra una ruta inexistente.
+ * composición real de su handler. Mientras sean `false`, las pestañas de
+ * histórico e importación no se ofrecen. La preparación local tiene una
+ * capacidad separada y no requiere ninguna de esas rutas.
  */
 export const MONTAJE_ORGANIZACION_HISTORICA = Object.freeze({ consulta: false, importacion: false });
+export const PREPARACION_LOCAL_ORGANIZACION = Object.freeze({ habilitada: true });
 
 /**
  * Prepara las pestañas: el catálogo es la vista por defecto y cada pestaña
- * adicional solo aparece si su ruta está montada. Con una sola vista la barra
- * de pestañas no se muestra.
+ * adicional aparece con su ruta montada o su capacidad local declarada.
+ * Con una sola vista la barra de pestañas no se muestra.
  */
-export function iniciarPestanasOrganizacion(montaje = MONTAJE_ORGANIZACION_HISTORICA) {
+export function iniciarPestanasOrganizacion(montaje = MONTAJE_ORGANIZACION_HISTORICA, preparacionLocal = false) {
   const buscar = (selector) => document.querySelector(selector);
   const barra = buscar(".org-tabs");
   if (!barra) return null;
-  const opcionales = { history: montaje.consulta === true, import: montaje.importacion === true };
+  const opcionales = { local: preparacionLocal === true, history: montaje.consulta === true, import: montaje.importacion === true };
   const pestanas = ["catalog", ...Object.keys(opcionales).filter((clave) => opcionales[clave])];
   for (const [clave, activa] of Object.entries(opcionales)) {
     buscar(`#tab-${clave}`).hidden = !activa;
@@ -326,19 +328,30 @@ export function validarPaqueteImportacion(valor) {
     typeof m.fuente_version !== "string" || !m.fuente_version.trim() || m.fuente_version.length > 160 ||
     !HUELLA.test(m.fuente_huella_sha256) || !catalogoImportacionValido(m.catalogo_unidades) ||
     !catalogoImportacionValido(m.catalogo_clasificaciones) ||
-    ["aprobada_en", "publicada_en", "efectos_desde", "efectos_hasta"].some((clave) => m[clave] && !fechaCivilValida(m[clave])) ||
     ["documento_ref", "custodia_ref", "diccionario_ref", "acto_ref"].some((clave) => m[clave] && !cadena(m[clave])) ||
     (m.version_previa_ref && !UUID.test(m.version_previa_ref))) {
     throw new Error("manifiesto de importación no válido");
   }
+  if (["aprobada_en", "publicada_en", "efectos_desde", "efectos_hasta"].some((clave) =>
+    m[clave] !== undefined && m[clave] !== "" && !fechaCivilValida(m[clave]))) {
+    throw Object.assign(new Error("manifiesto de importación no válido"), { codigoLocal: "localManifestDate" });
+  }
+  if (m.efectos_desde && m.efectos_hasta && m.efectos_desde >= m.efectos_hasta) {
+    throw Object.assign(new Error("manifiesto de importación no válido"), { codigoLocal: "localManifestInterval" });
+  }
   const vistos = new Set();
-  for (const hecho of valor.hechos) {
+  for (const [indice, hecho] of valor.hechos.entries()) {
     if (!objetoExacto(hecho, CLAVES_HECHO) || !CLASES_HECHO.has(hecho.clase) ||
       !UUID.test(hecho.hecho_ref) || !entero(hecho.revision) ||
-      !cadena(hecho.fila_fuente_ref) || !cadena(hecho.unidad_ref) ||
-      !fechaCivilValida(hecho.vigente_desde) ||
-      (hecho.vigente_hasta && !fechaCivilValida(hecho.vigente_hasta))) {
+      !cadena(hecho.fila_fuente_ref) || !cadena(hecho.unidad_ref)) {
       throw new Error("hecho de importación no válido");
+    }
+    if (!fechaCivilValida(hecho.vigente_desde) ||
+      (hecho.vigente_hasta !== undefined && hecho.vigente_hasta !== "" && !fechaCivilValida(hecho.vigente_hasta))) {
+      throw Object.assign(new Error("hecho de importación no válido"), { codigoLocal: "localRowDate", fila: indice + 1 });
+    }
+    if (hecho.vigente_hasta && hecho.vigente_desde >= hecho.vigente_hasta) {
+      throw Object.assign(new Error("hecho de importación no válido"), { codigoLocal: "localRowInterval", fila: indice + 1 });
     }
     const clave = `${hecho.clase}\0${hecho.hecho_ref}`;
     if (vistos.has(clave)) throw new Error("hecho repetido");
@@ -427,24 +440,24 @@ const claseTexto = Object.freeze({
   nodo: "importClassNode", puesto_tipo: "importClassType", dotacion: "importClassAllocation",
   plaza: "importClassPlaza", puesto_individual: "importClassPost", vinculo: "importClassLink",
 });
-const RECUENTOS_IMPORTACION = new Set(["importFacts", "importDecisions", ...Object.values(claseTexto)]);
+const RECUENTOS_IMPORTACION = new Set(["importFacts", "importDecisions", "localFacts", ...Object.values(claseTexto)]);
 export function formatearRecuentoImportacion(clave, total) {
   if (!RECUENTOS_IMPORTACION.has(clave) || !Number.isSafeInteger(total) || total < 0) {
     throw new TypeError("recuento de importación no válido");
   }
-  const forma = new Intl.PluralRules("es-ES").select(total) === "one" ? "One" : "Many";
-  return t(`${clave}${forma}`, { total: new Intl.NumberFormat("es-ES", { useGrouping: true }).format(total) });
+  const forma = new Intl.PluralRules(LOCALIZACION_ACTUAL).select(total) === "one" ? "One" : "Many";
+  return t(`${clave}${forma}`, { total: new Intl.NumberFormat(LOCALIZACION_ACTUAL, { useGrouping: true }).format(total) });
 }
-export function renderizarResumenImportacion(m, hashPaquete, hechos) {
-  const frases = [
+export function renderizarResumenImportacion(m, hashPaquete, hechos, soloRecuentos = false) {
+  const frases = soloRecuentos ? [] : [
     t("importSource", { fuente: m.fuente_ref }),
     t("importVersion", { version: `${m.tipo} · ${m.version_ref} · r${m.version_revision}` }),
     t("importSourceHash", { huella: m.fuente_huella_sha256 }),
     t("importPackageHash", { huella: hashPaquete }),
     t("importCatalogUnits", { ...m.catalogo_unidades, huella: m.catalogo_unidades.huella_sha256 }),
     t("importCatalogClasses", { ...m.catalogo_clasificaciones, huella: m.catalogo_clasificaciones.huella_sha256 }),
-    formatearRecuentoImportacion("importFacts", hechos.length),
   ];
+  frases.push(formatearRecuentoImportacion(soloRecuentos ? "localFacts" : "importFacts", hechos.length));
   const conteos = new Map();
   for (const h of hechos) conteos.set(h.clase, (conteos.get(h.clase) ?? 0) + 1);
   for (const [clase, total] of conteos) frases.push(formatearRecuentoImportacion(claseTexto[clase], total));
@@ -453,12 +466,74 @@ export function renderizarResumenImportacion(m, hashPaquete, hechos) {
 async function leerArchivoImportacion(archivo) {
   if (!archivo || archivo.size > LIMITE_ARCHIVO_IMPORTACION) throw new Error("archivo demasiado grande");
   const bytes = await archivo.arrayBuffer();
+  if (bytes.byteLength > LIMITE_ARCHIVO_IMPORTACION) throw new Error("archivo demasiado grande");
   const texto = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
   const hash = await crypto.subtle.digest("SHA-256", bytes);
   return {
     valor: JSON.parse(texto),
     huella: [...new Uint8Array(hash)].map((v) => v.toString(16).padStart(2, "0")).join(""),
   };
+}
+
+// Solo lee el archivo seleccionado en memoria. No construye un cliente HTTP
+// ni enlaza las acciones del circuito gobernado de importación.
+export function iniciarPreparacionLocal(capacidad = PREPARACION_LOCAL_ORGANIZACION, documento = globalThis.document) {
+  if (capacidad?.habilitada !== true || !documento?.getElementById("local-panel")) return null;
+  const q = (selector) => documento.querySelector(selector);
+  const archivoInput = q("#local-file"), nombre = q("#local-file-name"), estado = q("#local-state");
+  const resultado = q("#local-results"), resumen = q("#local-summary"), detalles = q("#local-details");
+  const tecnico = q("#local-technical"), vaciar = q("#local-clear");
+  let secuencia = 0, lectura = Promise.resolve();
+  const limpiar = () => {
+    nombre.textContent = "";
+    resumen.innerHTML = "";
+    tecnico.innerHTML = "";
+    resultado.hidden = true;
+    detalles.open = false;
+    vaciar.disabled = true;
+    estado.className = "org-state";
+    estado.textContent = t("localReady");
+  };
+  limpiar();
+  q("#local-help").hidden = false;
+  q("#local-choose").onclick = () => archivoInput.click();
+  vaciar.onclick = () => { secuencia += 1; archivoInput.value = ""; limpiar(); q("#local-choose").focus(); };
+  archivoInput.onchange = () => {
+    const actual = ++secuencia, archivo = archivoInput.files?.[0];
+    limpiar();
+    if (!archivo) return Promise.resolve();
+    estado.textContent = t("localLoading");
+    vaciar.disabled = false;
+    // Una lectura en curso puede terminar, pero no pinta sobre una selección
+    // posterior. Las lecturas esperan su turno para limitar la memoria usada.
+    lectura = lectura.then(async () => {
+      if (actual !== secuencia) return;
+      try {
+        const { valor, huella } = await leerArchivoImportacion(archivo);
+        if (actual !== secuencia) return;
+        const paquete = validarPaqueteImportacion(valor);
+        resumen.innerHTML = renderizarResumenImportacion(paquete.manifiesto, huella, paquete.hechos, true);
+        tecnico.innerHTML = renderizarResumenImportacion(paquete.manifiesto, huella, paquete.hechos);
+        nombre.textContent = archivo.name;
+        resultado.hidden = false;
+        estado.className = "org-state success";
+        estado.textContent = t("localCompleted");
+      } catch (error) {
+        if (actual !== secuencia) return;
+        archivoInput.value = "";
+        limpiar();
+        estado.className = "org-state error";
+        const clave = error.message === "archivo demasiado grande" ? "localTooLarge" :
+          error.codigoLocal === "localManifestInterval" ? "localManifestInterval" :
+          error.codigoLocal === "localRowInterval" ? "localRowInterval" :
+          error.codigoLocal === "localManifestDate" ? "localManifestDate" :
+          error.codigoLocal === "localRowDate" ? "localRowDate" : "localBadPackage";
+        estado.textContent = t(clave, { fila: error.fila });
+      }
+    });
+    return lectura;
+  };
+  return Object.freeze({ limpiar: () => { secuencia += 1; archivoInput.value = ""; limpiar(); } });
 }
 
 export function iniciarImportacion(cliente = crearClienteImportacion(), montaje = MONTAJE_ORGANIZACION_HISTORICA) {
