@@ -71,7 +71,9 @@ func (s *Servicio) CustodiarFirmado(ctx context.Context, in ports.CustodiaFirmad
 	persistente.Autorizacion = autorizacion
 	contexto, err := s.ContextosCustodia.ContextoCustodiaFirmado(ctx, persistente)
 	if err != nil {
-		return domain.Documento{}, ports.ErrCapacidadNoDisponible
+		// El productor distingue una denegación confirmada de una fuente caída.
+		// La fábrica conserva ambas causas; no borrar aquí la del PDP.
+		return domain.Documento{}, err
 	}
 	proyeccion, err := contexto.Proyeccion()
 	if err != nil || proyeccion.AccionNegocio != vecports.AccionNegocioCustodiarDocumentoFirmadoExpediente ||

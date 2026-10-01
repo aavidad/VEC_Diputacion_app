@@ -1,0 +1,76 @@
+{
+  "esquema": "vec_dietas_simulacion_v1",
+  "inicio": {
+    "fecha": "2026-10-01",
+    "hora": "11:00"
+  },
+  "fin": {
+    "fecha": "2026-10-01",
+    "hora": "17:00"
+  },
+  "seleccion": {
+    "grupo": 2,
+    "version_tarifa_ref": "provisional:ensayo:20261001",
+    "regla_ref": "provisional:regla:ensayo-nacional:20261001",
+    "regla_huella_declarada_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "catalogo": [
+    {
+      "version_ref": "provisional:ensayo:20261001",
+      "rotulo": "PROVISIONAL · pendiente de confirmación por RRHH",
+      "pais_iso2": "ES",
+      "grupo": 1,
+      "vigente_desde": "2026-01-01",
+      "vigente_hasta": "2027-01-01",
+      "manutencion_centimos": 5001,
+      "alojamiento_tope_centimos": 8000
+    },
+    {
+      "version_ref": "provisional:ensayo:20261001",
+      "rotulo": "PROVISIONAL · pendiente de confirmación por RRHH",
+      "pais_iso2": "ES",
+      "grupo": 2,
+      "vigente_desde": "2026-01-01",
+      "vigente_hasta": "2027-01-01",
+      "manutencion_centimos": 3741,
+      "alojamiento_tope_centimos": 6597
+    },
+    {
+      "version_ref": "provisional:ensayo:20261001",
+      "rotulo": "PROVISIONAL · pendiente de confirmación por RRHH",
+      "pais_iso2": "ES",
+      "grupo": 3,
+      "vigente_desde": "2026-01-01",
+      "vigente_hasta": "2027-01-01",
+      "manutencion_centimos": 2821,
+      "alojamiento_tope_centimos": 5000
+    }
+  ],
+  "regla": {
+    "regla_ref": "provisional:regla:ensayo-nacional:20261001",
+    "version_tarifa_ref": "provisional:ensayo:20261001",
+    "pais_iso2": "ES",
+    "variante": "nacional_ordinaria",
+    "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "vigente_desde": "2026-01-01",
+    "vigente_hasta": "2027-01-01",
+    "configuracion": {
+      "regla": "nacional_ordinaria_provisional_v1",
+      "zona": "Europe/Madrid",
+      "duracion_minima_mismo_dia_horas": 5,
+      "hora_salida_100_antes_de": 14,
+      "hora_salida_50_antes_de": 22,
+      "hora_regreso_50_despues_de": 14,
+      "hora_regreso_mismo_dia_despues_de": 16,
+      "dias_maximos": 31,
+      "alojamiento": "tope_pendiente_justificante",
+      "liquidable": false,
+      "porcentaje_mismo_dia": 50,
+      "porcentaje_salida_temprana": 100,
+      "porcentaje_salida_media": 50,
+      "porcentaje_regreso": 50,
+      "porcentaje_intermedio": 100,
+      "porcentaje_alojamiento_tope": 100
+    }
+  }
+}
