@@ -1,4 +1,5 @@
-# Fuente preparada, NO-GO: AD134 deniega hasta fijar huellas PG18 medidas.
+# Fuente preparada, NO-GO: AD134 deniega antes de DDL/locks por huellas ausentes.
+# Mantiene el cotejo interno; ambas guardas requieren huellas PG18 medidas.
 # Orden requerido: B→A(AD133/135/136)→CTX21→AUT25→Cat4→AD134.
 # A publicada en main@105c537e2 no acredita instalacion en ningun clon.
 # Cat1/2/3 y AD117/126 conservan OID/ACL/historia: no reaplicar ni DOWN.

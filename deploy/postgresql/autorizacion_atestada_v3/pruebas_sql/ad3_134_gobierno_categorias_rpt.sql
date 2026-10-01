@@ -7,6 +7,30 @@
 -- denegacion nominal atravesando toda AD134. Requiere asignaciones nominales
 -- y el arnes real de D. Ninguna sonda estructural acredita consumo V3 positivo.
 BEGIN ISOLATION LEVEL SERIALIZABLE;
+-- Prueba estructural opcional: Direccion pasa la fuente completa UP con
+-- psql -v ad134_fuente. Se examina como texto; nunca se ejecuta esa fuente.
+\if :{?ad134_fuente}
+CREATE TEMP TABLE fuente_ad134_orden AS SELECT :'ad134_fuente'::text AS fuente;
+DO $orden_preflight$
+DECLARE fuente text; inicio integer; fin integer; efecto integer; guardas text;
+BEGIN
+ SELECT pg_catalog.regexp_replace(s.fuente,'--[^\n]*','','g')
+   INTO STRICT fuente FROM pg_temp.fuente_ad134_orden s;
+ inicio:=pg_catalog.strpos(fuente,'DO $preflight_huellas$');
+ fin:=pg_catalog.strpos(fuente,'END $preflight_huellas$;');
+ efecto:=pg_catalog.regexp_instr(fuente,
+   '(?i)\m(CREATE|ALTER|DROP|GRANT|REVOKE|LOCK)\M|pg_advisory_xact_lock');
+ guardas:=CASE WHEN inicio>0 AND fin>inicio
+    THEN pg_catalog.substr(fuente,inicio,fin-inicio) ELSE '' END;
+ IF inicio=0 OR fin<=inicio OR efecto=0 OR fin>=efecto
+    OR pg_catalog.strpos(guardas,'esperada_def_sha256 text := NULL;')=0
+    OR pg_catalog.strpos(guardas,'esperada_fuente_sha256 text := NULL;')=0
+    OR pg_catalog.strpos(guardas,'IF esperada_def_sha256 IS NULL OR esperada_fuente_sha256 IS NULL THEN')=0
+    OR pg_catalog.strpos(guardas,'USING ERRCODE=''55000''')=0 THEN
+  RAISE EXCEPTION 'NO-GO de huellas no precede DDL y locks';
+ END IF;
+END $orden_preflight$;
+\endif
 -- Métrica mínima de efectos: no contiene documentos ni material de sesiones.
 CREATE TEMP TABLE preimagen_ad134_nominal AS
  SELECT (SELECT count(*) FROM vec_catalogos_configurables.propuesta_gobierno) AS propuestas,

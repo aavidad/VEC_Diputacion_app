@@ -7,6 +7,18 @@
 -- El DBA crea el rol sin miembros; esta migracion no asigna perfiles.
 BEGIN;
 SET LOCAL search_path=pg_catalog;
+-- Cierre previo a cualquier DDL, membresia o lock. Las mismas huellas se
+-- cotejan de nuevo en $nucleo$; ambos puntos requieren la medida PG18 final.
+DO $preflight_huellas$
+DECLARE
+    esperada_def_sha256 text := NULL;
+    esperada_fuente_sha256 text := NULL;
+BEGIN
+    IF esperada_def_sha256 IS NULL OR esperada_fuente_sha256 IS NULL THEN
+        RAISE EXCEPTION 'AD3-134: NO-GO, faltan huellas PG18 causales post-AD3-136'
+            USING ERRCODE='55000';
+    END IF;
+END $preflight_huellas$;
 SET LOCAL lock_timeout='5s';
 SET LOCAL statement_timeout='2min';
 -- AUT25 es una dependencia común revisada; no se publica autoridad aquí.
