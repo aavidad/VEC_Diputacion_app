@@ -5,11 +5,45 @@ import path from 'node:path';
 import os from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
-import { argumentos, plan, paginaConCamposNativos } from './recorrer.mjs';
+import { argumentos, plan, paginaConCamposNativos, html } from './recorrer.mjs';
 import { comprobarAccesibilidad } from '../../recorridos-f/a11y.mjs';
 import { recursoPermitido, leerEstatico, entregar } from './guardas.mjs';
 const casos = await plan();
 const ORIGEN = casos.origen;
+
+test('host usa el scroll de espacio-trabajo cuando el documento está cerrado en escritorio',
+  { skip: !process.argv.includes('--ensayar-host') }, async () => {
+    const { chromium } = await import(pathToFileURL(process.env.VEC_PLAYWRIGHT_MODULE).href);
+    const browser = await chromium.launch({ executablePath: '/usr/bin/google-chrome', headless: true });
+    try {
+      const contexto = await browser.newContext({ viewport: { width: 1440, height: 900 }, serviceWorkers: 'block' });
+      const red = { entregadas: 0, bloqueadas: 0 };
+      const raiz = path.resolve(new URL('../../../web/static/', import.meta.url).pathname);
+      await contexto.route('**/*', route => entregar(route, raiz, html(casos.idiomas[0], casos), red, casos));
+      await contexto.routeWebSocket('**/*', route => route.close());
+      const page = await contexto.newPage();
+      await page.goto(`${casos.origen}/fixture?lang=${casos.idiomas[0]}`);
+      await page.locator('#lectura').evaluate((el, titulo) => {
+        const espacio = document.createElement('div'); espacio.style.height = '150vh'; espacio.setAttribute('aria-hidden', 'true');
+        const boton = document.createElement('button'); boton.id = 'control-prueba'; boton.textContent = titulo;
+        el.append(espacio, boton);
+      }, casos.textos[casos.idiomas[0]].titulo);
+      assert.deepEqual(await page.evaluate(() => ({ documento: getComputedStyle(document.documentElement).overflow,
+        cuerpo: getComputedStyle(document.body).overflow, marco: getComputedStyle(document.querySelector('main')).overflow,
+        altura: document.querySelector('main').clientHeight })),
+      { documento: 'hidden', cuerpo: 'hidden', marco: 'auto', altura: 900 });
+      await paginaConCamposNativos(page).keyboard.press('Tab');
+      assert.equal(await page.locator('#control-prueba').evaluate(el => el === document.activeElement), true);
+      assert.ok(await page.locator('#espacio-trabajo').evaluate(el => el.scrollTop) > 0);
+      const medicion = await comprobarAccesibilidad(paginaConCamposNativos(page), '#lectura', 'contrato_host', 1440, 1);
+      assert.equal(medicion.foco_tapado, 0, 'el scroll real revela los cinco puntos del control');
+      assert.equal(medicion.desbordamiento, false);
+      await page.locator('main').evaluate(el => { el.removeAttribute('id'); el.scrollTop = 0; });
+      assert.equal(await page.locator('main').evaluate(el => getComputedStyle(el).overflow), 'visible', 'el mutante pierde la autoridad del scroll');
+      assert.equal(red.bloqueadas, 0);
+      await contexto.close();
+    } finally { await browser.close(); }
+  });
 
 test('plan funciona con módulo Playwright inexistente y no abre Chrome', async () => {
   const r = spawnSync(process.execPath, [new URL('./recorrer.mjs', import.meta.url).pathname, '--plan'],

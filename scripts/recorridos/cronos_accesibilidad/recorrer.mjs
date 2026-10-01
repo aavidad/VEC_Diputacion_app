@@ -28,8 +28,8 @@ async function prepararSalida(salida) {
   await fs.mkdir(salida, { mode: 0o700 }); // EEXIST corta: no pisa evidencia previa.
 }
 
-function html(lang, casos) {
-  return `<!doctype html><html lang="${lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${casos.textos[lang].titulo}</title>${css.map(s => `<link rel="stylesheet" href="/portal-empleado/${s}">`).join('')}</head><body class="portal-empleado-app"><main style="padding:16px;min-width:0"><h1>${casos.textos[lang].titulo}</h1><div id="lectura"></div></main></body></html>`;
+export function html(lang, casos) {
+  return `<!doctype html><html lang="${lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${casos.textos[lang].titulo}</title>${css.map(s => `<link rel="stylesheet" href="/portal-empleado/${s}">`).join('')}</head><body class="portal-empleado-app"><main id="espacio-trabajo" style="padding:16px;min-width:0"><h1>${casos.textos[lang].titulo}</h1><div id="lectura"></div></main></body></html>`;
 }
 
 // Chrome recorre por Tab los segmentos de fecha/hora. El helper F cuenta
@@ -94,7 +94,8 @@ export async function recorrer(salida, casos) {
   const resultados = [];
   const informe = { version: 1, alcance: casos.alcance, e2e: false, autenticacion: false,
     autorizacion: false, persistencia: false, reinicio: false,
-    medicion: { campos_nativos: 'agrupados', max_segmentos: 12, frames_estables: 3, max_frames: 60 }, resultados };
+    medicion: { campos_nativos: 'agrupados', max_segmentos: 12, frames_estables: 3, max_frames: 60,
+      foco: 'cinco_puntos_conservador', conformidad_wcag: false }, resultados };
   let chrome, etapa = 'chrome';
   try {
     const { chromium } = await import(pathToFileURL(process.env.VEC_PLAYWRIGHT_MODULE).href);
