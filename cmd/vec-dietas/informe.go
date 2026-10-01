@@ -8,6 +8,7 @@ import (
 
 	"vec-diputacion-granada/internal/modules/dietas/adapters/informeliquidacion"
 	"vec-diputacion-granada/internal/modules/dietas/application/preparacionliquidacion"
+	"vec-diputacion-granada/internal/modules/dietas/domain"
 )
 
 var errArchivoInforme = errors.New("catalogo_informe_no_disponible")
@@ -40,6 +41,18 @@ func ejecutarInformePreparacion(in io.Reader, out io.Writer, rutaTextos, rutaTem
 	if err != nil {
 		return escribirFalloPreparacion(out, err)
 	}
+	return escribirInformePreparacion(preparacion, out, rutaTextos, rutaTema)
+}
+
+func ejecutarInformeRecuperacion(in io.Reader, out io.Writer, rutaTextos, rutaTema string) int {
+	p, err := leerRecuperacion(in)
+	if err != nil {
+		return escribirFalloPreparacion(out, err)
+	}
+	return escribirInformePreparacion(p, out, rutaTextos, rutaTema)
+}
+
+func escribirInformePreparacion(preparacion *domain.PreparacionLiquidacion, out io.Writer, rutaTextos, rutaTema string) int {
 	datos, err := leerArchivoInforme(rutaTextos)
 	if err != nil {
 		return escribirFalloPreparacion(out, err)
