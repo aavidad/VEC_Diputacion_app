@@ -20,7 +20,7 @@
 .copias-aviso:empty, .copias-resultado:empty { display: none; }
 .copias-aviso { padding: 12px 16px; background: var(--portal-info-suave); color: var(--portal-tinta); border-radius: var(--portal-radio); }
 .copias-aviso[data-tipo="error"] { background: var(--portal-peligro-suave); color: var(--portal-peligro); }
-.copias-trabajo { overflow: auto; min-height: 0; min-width: 0; padding: 2px 4px 12px 2px; }
+.copias-trabajo { position: relative; overflow: auto; min-height: 0; min-width: 0; padding: 2px 4px 12px 2px; }
 .copias-rejilla { display: grid; grid-template-columns: minmax(0, 1fr) minmax(17rem, 24rem); gap: 16px; }
 .copias-lista, .copias-detalle { min-width: 0; }
 .copias-detalle { align-self: start; border-inline-start: 3px solid var(--portal-azul-700); }

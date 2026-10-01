@@ -1,9 +1,9 @@
-import { crearClienteCopias, ErrorCopias } from "./cliente-http.js?v=20261001-cs09-copias-v1";
-import { TEXTOS_COPIAS, traducirCopias as t, traducirCodigo as tc } from "./i18n.js?v=20261001-cs09-copias-v1";
+import { crearClienteCopias, ErrorCopias } from "./cliente-http.js?v=20261001-cs09-copias-ux-v2";
+import { TEXTOS_COPIAS, traducirCopias as t, traducirCodigo as tc } from "./i18n.js?v=20261001-cs09-copias-ux-v2";
 import { icono } from "../../comun/iconos-vec.js";
-import { soporte } from "./vista-soporte.js?v=20261001-cs09-copias-v1";
-import { pintarConfiguracion } from "./vista-configuracion.js?v=20261001-cs09-copias-v1";
-import { pintarRecuperacion } from "./vista-recuperacion.js?v=20261001-cs09-copias-v1";
+import { soporte } from "./vista-soporte.js?v=20261001-cs09-copias-ux-v2";
+import { pintarConfiguracion } from "./vista-configuracion.js?v=20261001-cs09-copias-ux-v2";
+import { pintarRecuperacion } from "./vista-recuperacion.js?v=20261001-cs09-copias-ux-v2";
 
 let secuencia = 0;
 /** Subpágina de la superficie ADMIN; el shell y su frontera permanecen en su propietario. */
@@ -68,11 +68,13 @@ export function montarVistaCopias({ raiz, cliente = crearClienteCopias(), anunci
     finally { if (estado.activa) { estado.busy = false; pintar(); } peticiones.delete("efecto"); }
   }
   function pintarNav() {
-    nav.replaceChildren();
-    for (const clave of ["catalogo", "calendario", "restauracion"]) {
+    if (!nav.children.length) for (const clave of ["catalogo", "calendario", "restauracion"]) {
       const b = boton(clave, () => cambiarTab(clave));
-      if (estado.tab === clave) b.setAttribute("aria-current", "page");
-      b.disabled = estado.busy; nav.append(b);
+      b.dataset.copiasTab = clave; nav.append(b);
+    }
+    for (const b of nav.children) {
+      if (estado.tab === b.dataset.copiasTab) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current");
+      b.disabled = estado.busy;
     }
   }
   function cambiarTab(clave) {
@@ -130,7 +132,7 @@ export function montarVistaCopias({ raiz, cliente = crearClienteCopias(), anunci
     }
     const { p, h, c } = panel("catalogo");
     const puedeLanzar = estado.capacidades.lanzar && Number.isSafeInteger(pagina?.version);
-    h.append(boton("lanzar", () => { estado.lanzamiento = { operacion_ref: "operacion:" + globalThis.crypto.randomUUID(), version_esperada: pagina.version, tipo: "completa" }; pintar(); }, { clase: "boton-primario", disabled: !puedeLanzar || estado.busy }), boton("actualizar", () => cargarCatalogo(estado.cursores[estado.indice]), { disabled: estado.busy }));
+    h.append(boton("lanzar", () => { estado.lanzamiento = { operacion_ref: "operacion:" + globalThis.crypto.randomUUID(), version_esperada: pagina.version, tipo: "completa" }; pintar(); cuerpo.querySelector("button")?.focus(); }, { clase: "boton-primario", disabled: !puedeLanzar || estado.busy }), boton("actualizar", () => cargarCatalogo(estado.cursores[estado.indice]), { disabled: estado.busy }));
     if (!puedeLanzar) c.append(crear("p", t(estado.capacidades.lanzar === false ? "sin_permiso" : "fuente_pendiente"), "copias-nota"));
     if (!pagina) c.append(crear("p", estado.errorCatalogo ? tc("errores", estado.errorCatalogo) : t("cargando")));
     else if (!pagina.copias.length) c.append(crear("p", t("vacio")));
@@ -149,7 +151,13 @@ export function montarVistaCopias({ raiz, cliente = crearClienteCopias(), anunci
         fila.append(crear("td", fecha(copia.iniciada_en)), crear("td", copia.tamano_bytes === undefined ? t("no_dato") : t("tamano_bytes", { cuenta: numero(copia.tamano_bytes) })));
         fila.children[1].className = "columna-numero";
         const e = crear("td"), compat = crear("td"), acciones = crear("td"); e.append(chip(copia.estado)); compat.append(chip(copia.compatibilidad.estado));
-        acciones.append(boton("detalle", () => consultar("detalle", signal => cliente.detalle(copia.copia_ref, { signal }), detalle => { estado.seleccion = detalle; pintar(); cuerpo.querySelector(".copias-detalle h3")?.focus(); })));
+        const abrir = boton("detalle", () => {
+          const origen = d.activeElement;
+          consultar("detalle", signal => cliente.detalle(copia.copia_ref, { signal }), detalle => {
+            const enfocar = d.activeElement === origen; estado.seleccion = detalle; pintar();
+            if (enfocar) cuerpo.querySelector(".copias-detalle h3")?.focus();
+          });
+        }); abrir.dataset.copiasFoco = "detalle:" + copia.copia_ref; acciones.append(abrir);
         fila.append(e, compat, acciones); body.append(fila);
       }
       tabla.append(head, body); marco.append(tabla); c.append(marco);
@@ -158,20 +166,34 @@ export function montarVistaCopias({ raiz, cliente = crearClienteCopias(), anunci
     }
     zona.append(kpis, p); grid.append(zona, pintarDetalle()); cuerpo.append(grid);
     if (estado.lanzamiento) {
-      const { p: revision, c: contenido } = panel("revisar_copia"); contenido.append(crear("p", t("copia_efecto")), boton("confirmar_copia", () => operar(signal => cliente.lanzar(estado.lanzamiento, { signal }), recibo => { recibido(recibo); estado.lanzamiento = null; cargarCatalogo(estado.cursores[estado.indice]); }), { clase: "boton-primario", disabled: estado.busy }), boton("cancelar", () => { estado.lanzamiento = null; pintar(); }, { disabled: estado.busy })); cuerpo.replaceChildren(revision); contenido.querySelector("button")?.focus();
+      const { p: revision, c: contenido } = panel("revisar_copia"); contenido.append(crear("p", t("copia_efecto")), boton("confirmar_copia", () => operar(signal => cliente.lanzar(estado.lanzamiento, { signal }), recibo => { recibido(recibo); estado.lanzamiento = null; cargarCatalogo(estado.cursores[estado.indice]); }), { clase: "boton-primario", disabled: estado.busy }), boton("cancelar", () => { estado.lanzamiento = null; pintar(); }, { disabled: estado.busy })); cuerpo.replaceChildren(revision);
     }
   }
   function pintar() {
-    if (!estado.activa) return; pintarNav(); cuerpo.replaceChildren();
+    if (!estado.activa) return;
+    const anterior = d.activeElement;
+    estado.propuestasAbiertas ??= new Set();
+    for (const n of cuerpo.querySelectorAll("details[data-propuesta-ref]")) {
+      if (n.open) estado.propuestasAbiertas.add(n.dataset.propuestaRef); else estado.propuestasAbiertas.delete(n.dataset.propuestaRef);
+    }
+    const foco = cuerpo.contains(anterior) ? { clave: anterior.dataset?.copiasFoco, nombre: anterior.name, tag: anterior.tagName, texto: anterior.textContent } : null;
+    pintarNav(); cuerpo.replaceChildren();
     if (estado.capacidades.consultar !== true) {
       cuerpo.append(crear("p", estado.denegado || estado.capacidades.consultar === false ? t("sin_permiso") : t("cargando")));
       cuerpo.append(boton("actualizar", () => { cargarCapacidades(); cargarCatalogo(estado.cursores[estado.indice]); }));
+      if (foco && !anterior.isConnected && d.activeElement === d.body) cuerpo.querySelector("button")?.focus();
       return;
     }
     if (estado.tab === "catalogo") pintarCatalogo();
     else if (estado.tab === "calendario") pintarConfiguracion({ cuerpo, estado, cliente, s, operar, recibido, pintar, cargarConfiguracion });
     else pintarRecuperacion({ cuerpo, estado, cliente, s, operar, recibido, pintar, cargarRestauracion });
     for (const h of cuerpo.querySelectorAll("h3")) h.tabIndex = -1;
+    if (foco && !anterior.isConnected && (d.activeElement === d.body || d.activeElement === anterior)) {
+      const elementos = [...cuerpo.querySelectorAll("button,input,select,summary,h3,h4")];
+      const destino = elementos.find(n => !n.disabled && (foco.clave ? n.dataset.copiasFoco === foco.clave
+        : foco.nombre ? n.name === foco.nombre && n.tagName === foco.tag : n.tagName === foco.tag && n.textContent === foco.texto));
+      (destino ?? cuerpo.querySelector("h3"))?.focus();
+    }
   }
   function cargarCapacidades() {
     return consultar("capacidades", signal => cliente.capacidades({ signal }), capacidades => { estado.capacidades = capacidades; estado.denegado = false; pintar(); });

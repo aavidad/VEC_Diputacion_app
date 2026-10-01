@@ -1,4 +1,4 @@
-import { traducirCopias as t } from "./i18n.js?v=20261001-cs09-copias-v1";
+import { traducirCopias as t } from "./i18n.js?v=20261001-cs09-copias-ux-v2";
 
 const DIAS = ["domingo", "lunes", "martes", "miercoles", "jueves", "viernes", "sabado"];
 export function pintarConfiguracion({ cuerpo, estado, cliente, s, operar, recibido, pintar, cargarConfiguracion }) {
@@ -46,7 +46,7 @@ export function pintarConfiguracion({ cuerpo, estado, cliente, s, operar, recibi
   const zona = crear("dl", "", "copias-datos"); dato(zona, "zona_horaria", politica.zona_horaria);
   const semana = crear("fieldset", "", "copias-checks"); semana.append(crear("legend", t("dias_semana")));
   DIAS.forEach((clave, indice) => {
-    const label = crear("label", t(clave), "copias-check"), input = crear("input"); input.type = "checkbox"; input.checked = draft.dias_semana.includes(indice);
+    const label = crear("label", t(clave), "copias-check"), input = crear("input"); input.type = "checkbox"; input.name = "dia_" + indice; input.checked = draft.dias_semana.includes(indice);
     input.disabled = estado.busy || !estado.capacidades.configurar_calendario;
     input.addEventListener("change", () => { draft.dias_semana = input.checked ? [...draft.dias_semana, indice].sort() : draft.dias_semana.filter(d => d !== indice); });
     label.prepend(input); semana.append(label);
@@ -61,7 +61,7 @@ export function pintarConfiguracion({ cuerpo, estado, cliente, s, operar, recibi
   }
   retencion.append(retenCampos);
   for (const clave of ["borrado_permitido", "doble_control"]) {
-    const label = crear("label", t(clave), "copias-check"), input = crear("input"); input.type = "checkbox"; input.checked = draft.retencion[clave];
+    const label = crear("label", t(clave), "copias-check"), input = crear("input"); input.type = "checkbox"; input.name = clave; input.checked = draft.retencion[clave];
     input.disabled = estado.busy || !estado.capacidades.configurar_retencion;
     input.addEventListener("change", () => { draft.retencion[clave] = input.checked; }); label.prepend(input); retencion.append(label);
   }

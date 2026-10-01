@@ -82,7 +82,7 @@
     "revisar_propuesta": "Revisar propuesta",
     "confirmar_propuesta": "Registrar propuesta",
     "aprobar": "Registrar segunda revisión",
-    "confirmar_revision": "He revisado el destino, la pérdida de cambios y la copia previa.",
+    "confirmar_revision": "He revisado el destino y la pérdida de cambios. Confirmo que se debe crear y verificar una copia completa del estado actual antes de sustituirlo.",
     "ejecutar_bloqueado": "La sustitución permanece bloqueada hasta completar las comprobaciones y disponer de un ejecutor autorizado.",
     "resumen_incompleto": "Faltan datos necesarios para revisar la recuperación. Actualice la consulta o avise a Informática.",
     "errores": "Revise los campos indicados.",
@@ -114,7 +114,25 @@
     "ejecutar": "Solicitar sustitución del destino",
     "perdida_desde": "Cambios posteriores a",
     "perdida_hasta": "Cambios hasta",
-    "copia_no_recuperable": "Esta copia no puede recuperarse. Debe ser válida y compatible con el destino."
+    "copia_no_recuperable": "Esta copia no puede recuperarse. Debe ser válida y compatible con el destino.",
+    "resumen_conjunto": "Copia del {fecha} · Aplicación {version}",
+    "inicio_recuperacion": "Inicio de la recuperación",
+    "fin_recuperacion": "Fin de la ventana",
+    "fecha_copia": "Fecha de la copia",
+    "comparacion_versiones": "Versiones actuales y tras la recuperación",
+    "componente_version": "Componente",
+    "estado_actual": "Estado actual del destino",
+    "estado_resultante": "Estado tras la recuperación",
+    "app_version": "Aplicación",
+    "postgresql_version": "PostgreSQL",
+    "esquema_ref": "Versión del esquema",
+    "observada_en": "Comprobación del destino",
+    "release_actual": "Paquete actual",
+    "release_resultante": "Paquete tras la recuperación",
+    "descriptor_actual": "Huella del descriptor actual",
+    "descriptor_resultante": "Huella del descriptor resultante",
+    "huella_conjunto": "Huella del conjunto a recuperar",
+    "huella_propuesta": "Huella de la propuesta"
   },
   "estados": {
     "valida": "Válida",
@@ -162,9 +180,9 @@
     "logica": "Base lógica"
   },
   "opciones": {
-    "api.admin.copias.opcion.destino_local_aislado": "Destino local aislado",
-    "api.admin.copias.opcion.motivo_ensayo": "Ensayo de recuperación",
-    "api.admin.copias.opcion.ventana_programada": "Ventana de mantenimiento programada"
+    "destino_local_aislado": "Destino local aislado",
+    "motivo_ensayo": "Ensayo de recuperación",
+    "ventana_programada": "Ventana de mantenimiento programada"
   },
   "formato": {
     "zona_horaria": "Europe/Madrid"
@@ -172,6 +190,7 @@
   "compatibilidad": {
     "compatible": "El conjunto es compatible con el destino comprobado.",
     "incompatible": "El conjunto no es compatible con el destino. Prepare un procedimiento separado.",
-    "no_comprobable": "Faltan datos para comprobar la compatibilidad. No se puede recuperar este conjunto."
+    "no_comprobable": "Faltan datos para comprobar la compatibilidad. No se puede recuperar este conjunto.",
+    "comprobacion_conjunto_compatible": "La comprobación del conjunto con el destino confirma su compatibilidad."
   }
 }

@@ -82,7 +82,7 @@
     "revisar_propuesta": "Review proposal",
     "confirmar_propuesta": "Record proposal",
     "aprobar": "Record second review",
-    "confirmar_revision": "I have reviewed the destination, loss of changes and backup of the current state.",
+    "confirmar_revision": "I have reviewed the destination and loss of changes. I confirm that a complete backup of the current state must be created and verified before replacement.",
     "ejecutar_bloqueado": "Replacement remains blocked until checks are complete and an authorised executor is available.",
     "resumen_incompleto": "Information needed to review recovery is missing. Refresh or contact IT.",
     "errores": "Check the highlighted fields.",
@@ -114,7 +114,25 @@
     "ejecutar": "Request destination replacement",
     "perdida_desde": "Changes after",
     "perdida_hasta": "Changes until",
-    "copia_no_recuperable": "This backup cannot be recovered. It must be valid and compatible with the destination."
+    "copia_no_recuperable": "This backup cannot be recovered. It must be valid and compatible with the destination.",
+    "resumen_conjunto": "Backup from {fecha} · Application {version}",
+    "inicio_recuperacion": "Recovery starts",
+    "fin_recuperacion": "Window ends",
+    "fecha_copia": "Backup date",
+    "comparacion_versiones": "Current and post-recovery versions",
+    "componente_version": "Component",
+    "estado_actual": "Current destination state",
+    "estado_resultante": "State after recovery",
+    "app_version": "Application",
+    "postgresql_version": "PostgreSQL",
+    "esquema_ref": "Schema version",
+    "observada_en": "Destination checked",
+    "release_actual": "Current release",
+    "release_resultante": "Post-recovery release",
+    "descriptor_actual": "Current descriptor digest",
+    "descriptor_resultante": "Post-recovery descriptor digest",
+    "huella_conjunto": "Digest of the backup to recover",
+    "huella_propuesta": "Proposal digest"
   },
   "estados": {
     "valida": "Valid",
@@ -162,9 +180,9 @@
     "logica": "Logical database"
   },
   "opciones": {
-    "api.admin.copias.opcion.destino_local_aislado": "Isolated local destination",
-    "api.admin.copias.opcion.motivo_ensayo": "Recovery rehearsal",
-    "api.admin.copias.opcion.ventana_programada": "Scheduled maintenance window"
+    "destino_local_aislado": "Isolated local destination",
+    "motivo_ensayo": "Recovery rehearsal",
+    "ventana_programada": "Scheduled maintenance window"
   },
   "formato": {
     "zona_horaria": "Europe/Madrid"
@@ -172,6 +190,7 @@
   "compatibilidad": {
     "compatible": "The complete backup is compatible with the checked destination.",
     "incompatible": "The backup is incompatible with the destination. Prepare a separate procedure.",
-    "no_comprobable": "Information needed to check compatibility is missing. This backup cannot be recovered."
+    "no_comprobable": "Information needed to check compatibility is missing. This backup cannot be recovered.",
+    "comprobacion_conjunto_compatible": "Checking the backup against the destination confirms compatibility."
   }
 }
