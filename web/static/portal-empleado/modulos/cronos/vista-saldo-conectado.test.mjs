@@ -210,6 +210,10 @@ test("un fichaje confirmado sustituye una lectura anterior pendiente del mismo p
     llamadas.push({ consulta, signal });
     return llamadas.length === 1 ? anterior.promesa : posterior.promesa;
   } });
+  nodo.eventos.click({ target: { closest(selector) {
+    return selector === "[data-cronos-saldo-actualizar]" ? {} : null;
+  } } });
+  assert.equal(llamadas.length, 1, "el control de actualización no actúa mientras carga");
   const refresco = vista.actualizar();
   assert.equal(llamadas.length, 2);
   assert.equal(llamadas[0].signal.aborted, true);

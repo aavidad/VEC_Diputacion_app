@@ -159,7 +159,10 @@ export function montarVistaSaldoCronos({ raiz, cliente, mensajes = MENSAJES_CRON
   const actualizar = () => ["listo", "error", "cargando"].includes(estado) ? cargar(consulta, true) : Promise.resolve();
   const alPulsar = (evento) => {
     const accion = evento.target?.closest?.("[data-cronos-saldo-actualizar]");
-    if (accion) { void actualizar(); return; }
+    if (accion) {
+      if (estado !== "cargando") void actualizar();
+      return;
+    }
     const cambio = evento.target?.closest?.("[data-cronos-saldo-pagina]");
     if (cambio && estado === "listo" && !cambio.disabled) {
       const paso = cambio.dataset.cronosSaldoPagina;
