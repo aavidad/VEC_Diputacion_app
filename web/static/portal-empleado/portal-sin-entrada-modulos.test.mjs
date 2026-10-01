@@ -6,7 +6,7 @@ import {
   CLAVES_SIN_ENTRADA_PORTAL,
   crearCoordinadorModulosPortal,
   vistaConEntradaPortal,
-} from "./portal-modulos-coordinador.js?v=20261001-cronos-grafo-bandeja-v4";
+} from "./portal-modulos-coordinador.js?v=20261001-cronos-grafo-bandeja-v5";
 import { crearVistaInicioPortal } from "./portal-inicio.js?v=20261001-codexf-ct-catalogos-v1";
 
 // El portal solo ofrece Bolsa y la contratación temporal: Personal, Cronos y

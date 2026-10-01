@@ -60,24 +60,24 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   const coordinador = await readFile(new URL("portal-modulos-coordinador.js", raiz), "utf8");
   const recorridosDietas = await readFile(new URL("modulos/dietas/vista-recorridos.js", raiz), "utf8");
   const versionesEspeciales = new Map([
-    ["modulos/cronos/vista-bandeja-permisos.js", "20261001-cronos-grafo-bandeja-v4"],
-    ["modulos/cronos/i18n-resolucion.js", "20261001-cronos-grafo-bandeja-v4"],
-    ["modulos/cronos/i18n-permisos.js", "20261001-cronos-grafo-bandeja-v4"],
-    ["modulos/cronos/vista-permisos-propios.js", "20261001-cronos-grafo-bandeja-v4"],
-    ["modulos/cronos/vista-movimientos-propios.js", "20261001-cronos-grafo-bandeja-v4"],
-    ["modulos/cronos/i18n-incidencias.js", "20261001-cronos-grafo-bandeja-v4"],
-    ["modulos/cronos/i18n-consulta.js", "20261001-cronos-grafo-bandeja-v4"],
-    ["portal-composicion-empleado.js", "20261001-cronos-grafo-bandeja-v4"],
-    ["modulos/cronos/vista-saldo-conectado.js", "20261001-cronos-grafo-bandeja-v4"],
-    ["modulos/cronos/vista-remoto.js", "20261001-cronos-grafo-bandeja-v4"],
-    ["modulos/cronos/vista-movimientos-conectado.js", "20261001-cronos-grafo-bandeja-v4"],
-    ["modulos/cronos/i18n-fichaje.js", "20261001-cronos-grafo-bandeja-v4"],
+    ["modulos/cronos/vista-bandeja-permisos.js", "20261001-cronos-grafo-bandeja-v5"],
+    ["modulos/cronos/i18n-resolucion.js", "20261001-cronos-grafo-bandeja-v5"],
+    ["modulos/cronos/i18n-permisos.js", "20261001-cronos-grafo-bandeja-v5"],
+    ["modulos/cronos/vista-permisos-propios.js", "20261001-cronos-grafo-bandeja-v5"],
+    ["modulos/cronos/vista-movimientos-propios.js", "20261001-cronos-grafo-bandeja-v5"],
+    ["modulos/cronos/i18n-incidencias.js", "20261001-cronos-grafo-bandeja-v5"],
+    ["modulos/cronos/i18n-consulta.js", "20261001-cronos-grafo-bandeja-v5"],
+    ["portal-composicion-empleado.js", "20261001-cronos-grafo-bandeja-v5"],
+    ["modulos/cronos/vista-saldo-conectado.js", "20261001-cronos-grafo-bandeja-v5"],
+    ["modulos/cronos/vista-remoto.js", "20261001-cronos-grafo-bandeja-v5"],
+    ["modulos/cronos/vista-movimientos-conectado.js", "20261001-cronos-grafo-bandeja-v5"],
+    ["modulos/cronos/i18n-fichaje.js", "20261001-cronos-grafo-bandeja-v5"],
     ["modulos/bolsa/rrhh-plazos-ui.js", "20261001-codexf-ct-catalogos-v1"],
     ["portal-inicio.js", "20261001-codexf-ct-catalogos-v1"],
     // 5.06, segundo corte: el circuito de firma trae el estado de Firmadoc.
     // Reglas vigentes: el detalle de cada regla y sus textos en catálogos renuevan el enlace del panel.
     // Nuevo llamamiento: el campo «Resumen de la preparación» usa la etiqueta encima y el campo a lo ancho.
-    ["portal.js", "20261001-cronos-grafo-bandeja-v4"],
+    ["portal.js", "20261001-cronos-grafo-bandeja-v5"],
     ["portal-vistas-utilidades.js", "20261001-codexf-ct-catalogos-v1"],
     ["portal-preferencias-integracion.js", "20261001-codexf-ct-catalogos-v1"],
     ["portal-preferencias.js", "20261001-codexf-ct-catalogos-v1"],
@@ -88,7 +88,7 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     ["portal-bolsas-contrato.js", "20261001-codexf-ct-catalogos-v1"],
     ["portal-llamamientos-operaciones-api.js", "20261001-codexf-ct-catalogos-v1"],
     ["reglas/enlace.js", "20261001-codexf-ct-catalogos-v1"],
-    ["portal-modulos-coordinador.js", "20261001-cronos-grafo-bandeja-v4"],
+    ["portal-modulos-coordinador.js", "20261001-cronos-grafo-bandeja-v5"],
     ["modulos/dietas/vista-recorridos.js", "20261001-codexf-ct-catalogos-v1"],
     ["modulos/dietas/vista-bandeja-circuito.js", "20261001-codexf-ct-catalogos-v1"],
     ["modulos/contratacion-temporal/vista-expedientes.js", "20261001-codexf-ct-catalogos-v1"],
@@ -206,4 +206,23 @@ test("B24 traduce desde el catálogo común los eventos del recurso", async () =
   for (const clave of ["b24_recurso_historial", "b24_recurso_evento", "b24_recurso_documento"]) {
     assert.equal(typeof MENSAJES_BOLSA_INTERNA[clave], "string");
   }
+});
+
+
+test("Cronos renueva los traductores de permisos y resolución y todos sus padres", async () => {
+  const [coordinador, bandeja, avisos, permisos, portal, html] = await Promise.all([
+    "portal-modulos-coordinador.js", "modulos/cronos/vista-bandeja-permisos.js",
+    "modulos/cronos/vista-avisos-propios.js", "modulos/cronos/vista-permisos-propios.js", "portal.js", "index.html",
+  ].map((ruta) => readFile(new URL(ruta, import.meta.url), "utf8")));
+  const version = versionDe(coordinador, "./modulos/cronos/i18n-resolucion.js");
+  assert.notEqual(version, "20260929-i18n-textos-v1");
+  for (const fuente of [bandeja, avisos]) {
+    assert.equal(versionDe(fuente, "./i18n-resolucion.js"), version);
+    assert.doesNotMatch(fuente, /i18n-resolucion\.js["']/u);
+  }
+  assert.equal(versionDe(permisos, "./i18n-permisos.js"), version);
+  for (const recurso of ["vista-avisos-propios.js", "vista-bandeja-permisos.js", "vista-permisos-propios.js"])
+    assert.equal(versionDe(coordinador, `./modulos/cronos/${recurso}`), version);
+  assert.equal(versionDe(portal, "./portal-modulos-coordinador.js"), version);
+  assert.equal(versionDe(html, "/portal-empleado/portal.js"), version);
 });

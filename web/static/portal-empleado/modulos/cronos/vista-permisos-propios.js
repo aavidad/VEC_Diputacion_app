@@ -1,9 +1,9 @@
 import { crearTraductorSolicitudesCronos, formatearCantidadCronos, MENSAJES_CRONOS_SOLICITUDES } from "./i18n-solicitudes.js";
 import { ErrorClienteSolicitudesCronos, crearClienteSolicitudesCronosHTTP, validarPermisosPropiosCronos, validarEntradaPermisoCronos } from "./cliente-solicitudes-http.js";
-import { hoyCivilCronos } from "./vista-movimientos-propios.js?v=20261001-cronos-grafo-bandeja-v4";
+import { hoyCivilCronos } from "./vista-movimientos-propios.js?v=20261001-cronos-grafo-bandeja-v5";
 import { crearTraductorHistorialCronos, MENSAJES_HISTORIAL_CRONOS } from "./i18n-historial.js?v=20261001-cronos-historial-v1";
 import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
-import { crearTraductorJustificacionCronos, MENSAJES_JUSTIFICACION_CRONOS } from "./i18n-permisos.js";
+import { crearTraductorJustificacionCronos, MENSAJES_JUSTIFICACION_CRONOS } from "./i18n-permisos.js?v=20261001-cronos-grafo-bandeja-v5";
 
 const ERRORES = new Map([
   ["peticion_invalida", "error_peticion_invalida"], ["conflicto", "error_conflicto"],

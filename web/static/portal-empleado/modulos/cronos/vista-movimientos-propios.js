@@ -1,6 +1,6 @@
 import { formatearCantidadCronos, MENSAJES_CRONOS_SOLICITUDES } from "./i18n-solicitudes.js";
 import { ErrorClienteSolicitudesCronos, crearClienteSolicitudesCronosHTTP, validarMovimientosPropiosCronos, validarEntradaCorreccionCronos } from "./cliente-solicitudes-http.js";
-import { crearTraductorIncidenciasCronos } from "./i18n-incidencias.js?v=20261001-cronos-grafo-bandeja-v4";
+import { crearTraductorIncidenciasCronos } from "./i18n-incidencias.js?v=20261001-cronos-grafo-bandeja-v5";
 import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
 
 const MOVIMIENTOS = ["entrada", "salida", "inicio_pausa", "fin_pausa"];

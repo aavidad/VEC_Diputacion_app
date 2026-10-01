@@ -12,7 +12,7 @@ import {
   moduloDeVistaPortal,
   rutaDeVistaPortal,
   VISTA_PLANTILLAS_RRHH,
-} from "./portal-modulos-coordinador.js?v=20261001-cronos-grafo-bandeja-v4";
+} from "./portal-modulos-coordinador.js?v=20261001-cronos-grafo-bandeja-v5";
 import { crearPresentadorExpedientesContratacionTemporal } from "./modulos/contratacion-temporal/presentador-expedientes.js?v=20261001-codexf-ct-catalogos-v1";
 import {
   crearCuadroContratacionTemporalPresentacion,
