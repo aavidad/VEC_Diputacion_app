@@ -142,3 +142,14 @@ El focal `run-oDO61e/resultado.json`, sobre la misma fuente a ES/390, comprobó 
 aserción añadida de foco tras respuesta y los valores exactos del fixture.
 Estas actas corresponden al montaje combinado; una rama aislada necesita
 comprobar sus diferencias de montaje antes de atribuirle la misma evidencia.
+
+El focal de adjudicación aislada pasó sobre la fuente limpia
+`28f296a90067b7109d91cde2691de2cefff70d5a`, tras portar la restauración de foco.
+Su acta es `run-6oqONX/resultado.json`, ES/390, con dos POST de adjudicación y
+ninguno de preparación. El resultado tiene la misma huella que el ensayo
+combinado; conserva foco, referencias abiertas, límites del panel y validación.
+
+La rama de ciclo `0a634b8fe` conserva los mismos blobs que `52ee6585` en la
+interfaz Provisión, sus catálogos ES/EN y los handlers de proceso, adjudicación,
+ciclo y catálogo de ensayos examinados. Esa comparación de fuentes no es otra
+ejecución del navegador; la matriz registrada se ejecutó sobre `52ee6585`.
