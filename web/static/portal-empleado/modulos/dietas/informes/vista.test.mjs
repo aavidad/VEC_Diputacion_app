@@ -114,3 +114,40 @@ test("una recarga fallida oculta el informe anterior y cierra los filtros hasta 
   assert.equal(form.hidden, false); assert.equal(contenedor.querySelectorAll("tbody")[0].children.length, 6);
   vista.desmontar();
 });
+
+test("el máximo entero seguro conserva sus dos céntimos finales en tarjeta, desglose y las dos columnas de tabla", async () => {
+  const maximo = Number.MAX_SAFE_INTEGER;
+  const fuente = { ...datos, registros: [{ ...datos.registros[0], total_centimos: maximo,
+    conceptos_centimos: { manutencion: maximo, kilometraje: 0, otros_gastos: 0 } }] };
+  const contenedor = raiz();
+  const vista = montarInformesDietas(contenedor, {
+    cargarDatos: async () => fuente, traducir: t, localizacion: catalogo.localizacion,
+  });
+  await esperar();
+  const exacto = "90.071.992.547.409,91";
+  assert.equal(texto(contenedor).split(exacto).length - 1, 4);
+  assert.doesNotMatch(texto(contenedor), /90\.071\.992\.547\.409,90/u);
+  vista.desmontar();
+});
+
+test("Reintentar lleva el foco del botón oculto al resumen visible al recuperar", async () => {
+  const contenedor = raiz(); let resolver; let intento = 0;
+  const vista = montarInformesDietas(contenedor, { cargarDatos: () => {
+    intento += 1;
+    return intento === 1 ? Promise.reject(new Error("fuente caída"))
+      : new Promise((resolve) => { resolver = resolve; });
+  }, traducir: t, localizacion: catalogo.localizacion });
+  await esperar();
+  const reintentar = contenedor.querySelectorAll("button").find((boton) => boton.textContent === t("reintentar"));
+  const estado = contenedor.querySelector("[data-dietas-informes-estado]");
+  const resumen = contenedor.querySelector("[data-dietas-informes-resumen]");
+  reintentar.focus();
+  const carga = reintentar.listeners.click();
+  assert.equal(reintentar.hidden, true);
+  assert.equal(contenedor.ownerDocument.activeElement, estado);
+  resolver(datos); await carga;
+  assert.equal(resumen.hidden, false);
+  assert.equal(resumen.attrs.tabindex, "-1");
+  assert.equal(contenedor.ownerDocument.activeElement, resumen);
+  vista.desmontar();
+});

@@ -69,7 +69,13 @@ export function montarInformesDietas(contenedor, { cargarDatos, traducir, docume
   const moneda = new Intl.NumberFormat(localizacion, { style: "currency", currency: "EUR" });
   const numero = new Intl.NumberFormat(localizacion);
   const fecha = new Intl.DateTimeFormat(localizacion, { dateStyle: "medium", timeZone: "UTC" });
-  const euros = (centimos) => moneda.format(centimos / 100);
+  const euros = (centimos) => {
+    // Intl recibe el entero como BigInt: convertir los céntimos a Number perdería precisión.
+    const importe = BigInt(centimos);
+    const fraccion = (importe % 100n).toString().padStart(2, "0");
+    return moneda.formatToParts(importe / 100n)
+      .map((parte) => parte.type === "fraction" ? fraccion : parte.value).join("");
+  };
 
   const raiz = nodo(documento, "section"); raiz.className = "panel"; raiz.dataset.dietasInformes = "";
   const cabecera = nodo(documento, "header"); cabecera.className = "cabecera-panel";
@@ -118,6 +124,7 @@ export function montarInformesDietas(contenedor, { cargarDatos, traducir, docume
   const accionesFiltro = nodo(documento, "div"); accionesFiltro.className = "acciones-filtro";
   accionesFiltro.append(aplicar, limpiar); form.append(accionesFiltro);
   const resumen = nodo(documento, "section"); resumen.dataset.dietasInformesResumen = "";
+  resumen.setAttribute("tabindex", "-1");
   const listado = nodo(documento, "section"); listado.dataset.dietasInformesListado = "";
   form.hidden = true; resumen.hidden = true; listado.hidden = true;
   cuerpo.append(origen, estado, reintentar, subtitulo, form, resumen, listado, limite);
@@ -212,8 +219,10 @@ export function montarInformesDietas(contenedor, { cargarDatos, traducir, docume
 
   async function cargar() {
     if (!activa) return;
+    const focoReintento = documento.activeElement === reintentar;
     controlador?.abort(); const propia = ++generacion;
     controlador = new AbortController(); disponible = false; mostrarEstado("cargando"); reintentar.hidden = true;
+    if (focoReintento) estado.focus();
     form.hidden = true; resumen.hidden = true; listado.hidden = true;
     try {
       const datos = await cargarDatos({ signal: controlador.signal });
@@ -223,11 +232,13 @@ export function montarInformesDietas(contenedor, { cargarDatos, traducir, docume
       filtros = Object.freeze({ persona: persona.value, unidad: unidad.value, desde: desde.value, hasta: hasta.value });
       disponible = true; form.hidden = false; resumen.hidden = false; listado.hidden = false;
       pagina = 0; pintar(); anunciarResultado();
+      if (focoReintento && documento.activeElement === estado) resumen.focus();
     } catch (error) {
       if (!activa || propia !== generacion || controlador.signal.aborted) return;
       registros = Object.freeze([]); resumen.replaceChildren(); listado.replaceChildren();
       mostrarEstado(error instanceof TypeError && error.message === "datos" ? "datos_error" : "carga_error");
       reintentar.hidden = false;
+      if (focoReintento && documento.activeElement === estado) reintentar.focus();
     }
   }
 
