@@ -1,0 +1,32 @@
+{
+  "incidencias": {
+    "actualizar": "Refresh",
+    "actualizando": "Refreshing…",
+    "actualizado": "Time records refreshed.",
+    "incidencias": "Incidents this year",
+    "correcciones_total": "Reported missed clockings",
+    "ausencias_total": "Recorded absences",
+    "justificaciones_total": "Awaiting evidence",
+    "filtrar_estado": "Correction status",
+    "filtrar_justificante": "Evidence",
+    "todos_estados": "All statuses",
+    "todos_justificantes": "All",
+    "quitar_filtros": "Clear filters",
+    "desde_filtro": "From (optional)",
+    "hasta_filtro": "To (optional)",
+    "periodo_invalido": "Check the period: the start date must be on or before the end date.",
+    "siguiente_paso": "Next step",
+    "paso_pendiente_responsable": "The manager must review the missed clocking.",
+    "paso_pendiente_rrhh": "HR must review the missed clocking.",
+    "paso_denegada_responsable": "The manager has rejected the correction. No application is pending.",
+    "paso_denegada_rrhh": "HR has rejected the correction. No application is pending.",
+    "paso_pendiente_aplicacion": "Authorized staff must apply the correction.",
+    "paso_aplicada": "The correction has been applied. No application is pending.",
+    "justificacion_no_conectada": "Submitting supporting evidence is not available on this screen.",
+    "paginacion": "{tabla} pages",
+    "pagina_anterior": "Previous page",
+    "pagina_siguiente": "Next page",
+    "mostrando": "Showing {desde} to {hasta} of {total}",
+    "resultados": "{correcciones} corrections and {ausencias} absences in the filtered period."
+  }
+}
