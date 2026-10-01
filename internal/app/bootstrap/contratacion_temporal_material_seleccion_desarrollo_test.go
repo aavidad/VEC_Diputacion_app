@@ -47,13 +47,17 @@ func TestAudienciasSeleccionCompletaPublicablesPorElGobiernoCT(t *testing.T) {
 	}
 }
 
-func TestIncorporacionB2PublicaSoloCincoAudienciasNominales(t *testing.T) {
+func TestIncorporacionB2SeleccionaNueveAudienciasNominales(t *testing.T) {
 	esperadas := map[string]bool{
-		bolsa.AudienciaConsultaAnclajeAceptacionCT: true,
-		personal.AudienciaPlanIncorporacionCT:      true,
-		ct.AudienciaRegistrarPlanNominalB2:         true,
-		ct.AudienciaLeerPlanNominalB2:              true,
-		ct.AudienciaConfirmarOrigenB2:              true,
+		bolsa.AudienciaConsultaAnclajeAceptacionCT:       true,
+		personal.AudienciaPlanIncorporacionCT:            true,
+		ct.AudienciaRegistrarPlanNominalB2:               true,
+		ct.AudienciaLeerPlanNominalB2:                    true,
+		ct.AudienciaConfirmarOrigenB2:                    true,
+		bolsa.AudienciaConsultaPersonaAceptacionCT:       true,
+		ct.AudienciaConsultarVinculoCategoriaRPT:         true,
+		ct.AudienciaConsultarPublicacionCategoriaRPT:     true,
+		"vec_catalogos_configurables.usos_categorias.v1": true,
 	}
 	nuevas := descriptoresMaterialIncorporacionB2()
 	if len(nuevas) != len(esperadas) {
@@ -67,6 +71,18 @@ func TestIncorporacionB2PublicaSoloCincoAudienciasNominales(t *testing.T) {
 	}
 	if len(esperadas) != 0 || audienciaConsumoGobiernoPostgreSQLContratacionTemporalDesarrolloEsPropia("vec_contratacion_temporal.incorporacion_personal.ajena.v1") {
 		t.Fatal("lista de audiencias B2 abierta o incompleta")
+	}
+	apagada := descriptoresMaterialSeleccionadosCTDesarrollo(seleccionMaterialCTDesarrollo{})
+	encendida := descriptoresMaterialSeleccionadosCTDesarrollo(seleccionMaterialCTDesarrollo{incorporacionB2: true})
+	if len(encendida) != len(apagada)+len(nuevas) {
+		t.Fatal("el selector B2 no añade exactamente nueve audiencias")
+	}
+	for _, d := range nuevas {
+		for _, anterior := range apagada {
+			if anterior.Audiencia == d.Audiencia {
+				t.Fatalf("B2 publicado con selector apagado: %s", d.Audiencia)
+			}
+		}
 	}
 }
 
