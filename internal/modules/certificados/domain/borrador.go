@@ -125,8 +125,8 @@ type Textos struct {
 
 var claves = []string{"titulo", "limite", "persona", "corte", "fuente", "plantilla", "criterio",
 	"declarado", "comprobado", "reconocido", "servicio", "vacio", "revision", "sin_servicios",
-	"cli.indice_idiomas", "cli.uso", "cli.fuente", "cli.plantilla", "cli.version", "cli.idioma", "cli.textos", "cli.salida", "cli.ensayo", "cli.ok",
-	"error.argumentos", "error.entrada", "error.catalogo", "error.salida", "error.no_disponible"}
+	"cli_indice_idiomas", "cli_uso", "cli_fuente", "cli_plantilla", "cli_version", "cli_idioma", "cli_textos", "cli_salida", "cli_ensayo", "cli_ok",
+	"error_argumentos", "error_entrada", "error_catalogo", "error_salida", "error_no_disponible"}
 
 func (t Textos) Validar() error {
 	if t.Esquema != "vec.certificados.textos.v1" || !IdiomaValido(t.Idioma) || len(t.Mensajes) != len(claves) || !TextoValido(t.FormatoFecha, 80) || !TextoValido(t.FormatoInstante, 80) {

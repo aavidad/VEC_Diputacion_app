@@ -75,34 +75,34 @@ func ejecutar(args []string, salida, diagnostico io.Writer) int {
 	fs := flag.NewFlagSet("vec-certificados-borrador", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
 	fs.Usage = func() {
-		fmt.Fprintln(salida, textos.Mensaje("cli.uso"))
+		fmt.Fprintln(salida, textos.Mensaje("cli_uso"))
 		fs.VisitAll(func(f *flag.Flag) { fmt.Fprintln(salida, "-"+f.Name+": "+f.Usage) })
 	}
 	var fuente, plantilla, destino string
 	var version int
 	var ensayo bool
-	fs.StringVar(&fuente, "fuente", "", textos.Mensaje("cli.fuente"))
-	fs.StringVar(&plantilla, "plantilla", "data/certificados/plantillas/servicios.v1.json", textos.Mensaje("cli.plantilla"))
-	fs.IntVar(&version, "version", 0, textos.Mensaje("cli.version"))
-	fs.StringVar(&idioma, "idioma", idioma, textos.Mensaje("cli.idioma"))
-	fs.StringVar(&rutaTextos, "textos", rutaTextos, textos.Mensaje("cli.textos"))
-	fs.StringVar(&rutaIndice, "indice-idiomas", rutaIndice, textos.Mensaje("cli.indice_idiomas"))
-	fs.StringVar(&destino, "salida", "", textos.Mensaje("cli.salida"))
-	fs.BoolVar(&ensayo, "ensayo-sintetico", false, textos.Mensaje("cli.ensayo"))
+	fs.StringVar(&fuente, "fuente", "", textos.Mensaje("cli_fuente"))
+	fs.StringVar(&plantilla, "plantilla", "data/certificados/plantillas/servicios.v1.json", textos.Mensaje("cli_plantilla"))
+	fs.IntVar(&version, "version", 0, textos.Mensaje("cli_version"))
+	fs.StringVar(&idioma, "idioma", idioma, textos.Mensaje("cli_idioma"))
+	fs.StringVar(&rutaTextos, "textos", rutaTextos, textos.Mensaje("cli_textos"))
+	fs.StringVar(&rutaIndice, "indice-idiomas", rutaIndice, textos.Mensaje("cli_indice_idiomas"))
+	fs.StringVar(&destino, "salida", "", textos.Mensaje("cli_salida"))
+	fs.BoolVar(&ensayo, "ensayo-sintetico", false, textos.Mensaje("cli_ensayo"))
 	if e := fs.Parse(args); e != nil {
 		if errors.Is(e, flag.ErrHelp) {
 			return 0
 		}
-		fmt.Fprintln(diagnostico, textos.Mensaje("error.argumentos"))
+		fmt.Fprintln(diagnostico, textos.Mensaje("error_argumentos"))
 		return 2
 	}
 	if !ensayo || !domain.TextoValido(fuente, 1024) || !domain.TextoValido(destino, 1024) || fs.NArg() != 0 || idioma != textos.Idioma {
-		fmt.Fprintln(diagnostico, textos.Mensaje("error.argumentos"))
+		fmt.Fprintln(diagnostico, textos.Mensaje("error_argumentos"))
 		return 2
 	}
 	var definicion domain.Plantilla
 	if fichero.LeerJSON(plantilla, &definicion) != nil {
-		fmt.Fprintln(diagnostico, textos.Mensaje("error.catalogo"))
+		fmt.Fprintln(diagnostico, textos.Mensaje("error_catalogo"))
 		return 1
 	}
 	if version == 0 {
@@ -114,21 +114,21 @@ func ejecutar(args []string, salida, diagnostico io.Writer) int {
 		Catalogo: fichero.CatalogoPlantillas{RutaPlantilla: plantilla, RutaTextos: rutaTextos}, Renderizador: pdf.Renderizador{}}
 	r, e := preparador.PrepararEnsayo(ctx, application.Orden{PlantillaID: definicion.ID, Version: version, Idioma: idioma})
 	if e != nil {
-		mensajeID := "error.no_disponible"
+		mensajeID := "error_no_disponible"
 		if errors.Is(e, domain.ErrEntrada) {
-			mensajeID = "error.entrada"
+			mensajeID = "error_entrada"
 		}
 		if errors.Is(e, domain.ErrCatalogo) {
-			mensajeID = "error.catalogo"
+			mensajeID = "error_catalogo"
 		}
 		fmt.Fprintln(diagnostico, textos.Mensaje(mensajeID))
 		return 1
 	}
 	if guardar(destino, r) != nil {
-		fmt.Fprintln(diagnostico, textos.Mensaje("error.salida"))
+		fmt.Fprintln(diagnostico, textos.Mensaje("error_salida"))
 		return 1
 	}
-	fmt.Fprintln(salida, textos.Mensaje("cli.ok", "salida", destino))
+	fmt.Fprintln(salida, textos.Mensaje("cli_ok", "salida", destino))
 	return 0
 }
 
