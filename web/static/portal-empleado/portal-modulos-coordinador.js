@@ -96,7 +96,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
       import("./modulos/contratacion-temporal/contrato.js"),
       import("./modulos/contratacion-temporal/cliente-http.js"),
       import("./modulos/contratacion-temporal/presentador-expedientes.js?v=20261001-ct-a-i18n-v1"),
-      import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261001-f-reconciliacion-325-v1"),
+      import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261001-ana002-v4"),
       import("./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=20261001-ct-a-i18n-v1"),
       import("./modulos/auditoria/vista.js?v=20261001-ct-a-i18n-v1"),
       import("./modulos/auditoria/cliente-http.js?v=20260928-usab-auditoria-v2"),
@@ -109,12 +109,12 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
       import("./modulos/personal/contrato.js?v=20260920-personal-catalogo-v1"),
       import("./modulos/personal/cliente-http-categorias.js?v=20260925-portal-integrado-v1"),
       import("./modulos/personal/vista.js?v=20260929-i18n-personal-v1"),
-      import("./modulos/personal/vista-ficha-integral.js?v=20261001-b-personal-corte-propio-cache-v3"),
+      import("./modulos/personal/vista-ficha-integral.js?v=20261001-b-personal-corte-propio-main-v4"),
       import("./modulos/personal/registro-b2.js?v=20261001-personal-expediente-v2"),
       import("./modulos/personal/registro-b2-cliente.js?v=20260925-b2-selector-v1"),
       import("./modulos/personal/registro-b2-catalogos-cliente.js?v=20260925-b2-mtls-v1"),
       import("./modulos/personal/i18n.js?v=20260925-personal-e10-v1"),
-      import("./modulos/personal/cliente-http-ficha-propia.js?v=20261001-b-personal-corte-propio-cache-v2"),
+      import("./modulos/personal/cliente-http-ficha-propia.js?v=20261001-b-personal-corte-propio-main-v4"),
     ]);
     return Object.freeze({ contrato, cliente, vista, clienteCategorias: cliente, vistaCategorias: vista,
       ficha, registro, clienteRegistro, clienteCatalogosRegistro, i18n, clienteFichaPropia });

@@ -62,7 +62,7 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   const coordinador = await readFile(new URL("portal-modulos-coordinador.js", raiz), "utf8");
   const recorridosDietas = await readFile(new URL("modulos/dietas/vista-recorridos.js", raiz), "utf8");
   const versionesEspeciales = new Map([
-    ["modulos/contratacion-temporal/formulario-llamamiento-pruebas.js", "20261001-ct-firma-verificador-v2"],
+    ["modulos/contratacion-temporal/formulario-llamamiento-pruebas.js", "20261001-ana002-v4"],
     ["modulos/contratacion-temporal/circuito-firma-acciones.js", "20261001-f-reconciliacion-325-v1"],
     ["portal-modulos-coordinador.js", versionEntrada],
     ["portal.js", versionEntrada],
@@ -98,13 +98,13 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     ["portal-modulos-coordinador.js", versionEntrada],
     ["modulos/dietas/vista-recorridos.js", "20261001-f-reconciliacion-320-v1"],
     ["modulos/dietas/vista-bandeja-circuito.js", "20261001-ct-a-i18n-v1"],
-    ["modulos/contratacion-temporal/vista-expedientes.js", "20261001-f-reconciliacion-325-v1"],
+    ["modulos/contratacion-temporal/vista-expedientes.js", "20261001-ana002-v4"],
     ["modulos/contratacion-temporal/seguimiento-cese.js", vigente],
     ["modulos/contratacion-temporal/circuito-firma.js", "20261001-f-reconciliacion-325-v1"],
     ["modulos/contratacion-temporal/formulario-llamamiento.js", "20261001-f-reconciliacion-325-v1"],
     ["modulos/contratacion-temporal/renderizado-llamamiento.js", "20261001-f-reconciliacion-325-v1"],
     ["modulos/contratacion-temporal/vista-expedientes-fiscalizacion.js", "20261001-f-reconciliacion-325-v1"],
-    ["modulos/contratacion-temporal/vista-expedientes.js", "20261001-f-reconciliacion-325-v1"],
+    ["modulos/contratacion-temporal/vista-expedientes.js", "20261001-ana002-v4"],
     ["portal-modulos-coordinador.js", versionEntrada],
     ["modulos/bolsa/baremo/montaje.js", "20261001-f-reconciliacion-319-v1"],
     ["modulos/cronos/vista-permisos-propios.js", "20261001-f-reconciliacion-322-v1"],
@@ -135,6 +135,7 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     ["modulos/contratacion-temporal/vista-expedientes-lista.js", "20261001-f-reconciliacion-325-v1"],
     ["portal.js", versionEntrada],
   ]);
+  versionesEspeciales.set("modulos/contratacion-temporal/vista-estadisticas.js", "20261001-ana002-v4");
   const archivos = ["index.html"];
   const pendientes = [""];
   while (pendientes.length) {
