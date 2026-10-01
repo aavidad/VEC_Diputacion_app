@@ -74,8 +74,26 @@ func TestIncorporacionB2ConfiguracionPuraSinFuentesDelEjercicio(t *testing.T) {
 }
 func TestIncorporacionB2AudienciasNuevasSinColisiones(t *testing.T) {
 	nuevos := descriptoresMaterialIncorporacionB2()
-	if len(nuevos) != 5 {
+	claves := []string{"bolsa_anclaje", "personal_clases", "ct_plan_preparar", "ct_plan_consultar", "ct_origen_confirmar", "bolsa_persona", "ct_vinculo_consultar", "rpt_publicacion", "rpt_reservar"}
+	if len(nuevos) != len(claves) {
 		t.Fatalf("audiencias nuevas: %d", len(nuevos))
+	}
+	operaciones := operacionesIncorporacionB2()
+	for i, clave := range claves {
+		var audiencia string
+		for _, operacion := range operaciones {
+			if operacion.clave == clave {
+				audiencia = operacion.audiencia
+				break
+			}
+		}
+		d := nuevos[i]
+		if audiencia == "" || d.Audiencia != audiencia || d.Dominio != "vec.incorporacion-b2."+clave+".capacidad-v3" || d.Prefijo != "clave:capacidad:incorporacion-b2-"+clave+":" || d.ProveedorNominal != "proveedor-material-incorporacion-b2-"+clave {
+			t.Fatalf("descriptor %d no corresponde a %s: %+v", i, clave, d)
+		}
+		if !audienciaConsumoGobiernoPostgreSQLContratacionTemporalDesarrolloEsPropia(d.Audiencia) {
+			t.Fatalf("audiencia no publicable: %s", d.Audiencia)
+		}
 	}
 	todos := append(descriptoresPreviosPersonalB2Prueba(), descriptoresMaterialPersonalB2Desarrollo()...)
 	todos = append(todos, nuevos...)
