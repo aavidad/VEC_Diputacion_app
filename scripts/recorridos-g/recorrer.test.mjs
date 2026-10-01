@@ -4,7 +4,10 @@ import { catalogo, main, plan, solicitudPermitida, interceptar, validarCaso, val
   validarPuertaCompetencias, validarRecibo, validarRuta, validarDesglose } from './recorrer.mjs';
 
 const origen = 'https://127.0.0.1:8443';
-const req = (ruta, metodo = 'GET', cuerpo = '{}') => ({ url: () => origen + ruta, method: () => metodo, postData: () => cuerpo });
+const cuerpoAlta = JSON.stringify({ clave_idempotencia: 'clave_0123456789abcdef', fecha_inicio: '2026-10-01' });
+const req = (ruta, metodo = 'GET', cuerpo = cuerpoAlta) => ({ url: () => origen + ruta, method: () => metodo, postData: () => cuerpo });
+const recibo = (repeticion = false) => ({ comision: { referencia: 'dco_1234567890123456789012', estado: 'borrador', version: 1 },
+  recibo: { referencia: 'rcd_1234567890123456789012', version: 1, registrado_en: '2026-10-01T10:00:00.000000Z', repeticion } });
 
 test('plan puro enumera D1–D9 sin pedir configuración ni activar Chrome', () => {
   assert.equal(plan().length, 10);
@@ -48,6 +51,10 @@ test('pasos vacíos, efecto ajeno o desglose sin ruta no pueden terminar verdes'
     { tipo: 'visible', selector: '[data-dietas-recorridos]' },
     { tipo: 'efecto', selector: '[data-dietas-borrador-guardar]', metodo: 'PUT', ruta: '/api/vec/dietas/comisiones/dco_1', estado_esperado: 'borrador' },
   ]));
+  assert.throws(() => validarPasos('revision', [
+    { tipo: 'visible', selector: '[data-dietas-recorridos]' },
+    { tipo: 'efecto', selector: '[data-dietas-circuito-decision="devolver"]', metodo: 'POST', ruta: '/api/vec/dietas/comisiones/circuito/dco_123/decisiones', etapa: 'revision', decision: 'devolver', estado_esperado: 'devuelta' },
+  ]));
 });
 
 test('solo admite la petición exacta mientras espera el efecto declarado', () => {
@@ -60,6 +67,39 @@ test('solo admite la petición exacta mientras espera el efecto declarado', () =
   assert.equal(solicitudPermitida(req('/api/vec/dietas/road-route', 'POST'), origen, 'liquidacion'), false);
   assert.equal(solicitudPermitida(req('/api/vec/dietas/comisiones', 'DELETE'), origen, 'empleado_solicitud'), false);
   assert.equal(solicitudPermitida({ ...req(alta), url: () => 'https://127.0.0.1:8444' + alta }, origen, 'empleado_solicitud'), false);
+});
+
+test('D6 comprueba etapa y decisión del cuerpo, incluida la etapa ajena', () => {
+  const ruta = '/api/vec/dietas/comisiones/circuito/dco_123/decisiones';
+  const esperado = { metodo: 'POST', ruta, etapa: 'revision', decision: 'aprobar', consumida: false };
+  const cuerpo = (etapa, decision) => JSON.stringify({ etapa, decision, motivo: '', clave_idempotencia: 'clave_0123456789abcdef', version_esperada: 2 });
+  assert.equal(solicitudPermitida(req(ruta, 'POST', cuerpo('revision', 'aprobar')), origen, 'revision', esperado), true);
+  assert.equal(solicitudPermitida(req(ruta, 'POST', cuerpo('autorizacion', 'aprobar')), origen, 'revision', esperado), false);
+  assert.equal(solicitudPermitida(req(ruta, 'POST', cuerpo('revision', 'devolver')), origen, 'revision', esperado), false);
+  esperado.consumida = true;
+  assert.equal(solicitudPermitida(req(ruta, 'POST', cuerpo('revision', 'aprobar')), origen, 'revision', esperado), false);
+});
+
+test('cuota consumida antes de fetch bloquea un segundo POST real', async () => {
+  const ruta = '/api/vec/dietas/comisiones';
+  const datos = { bloqueadas: 0, red_fallida: 0, http_fallidos: 0, mutaciones_enviadas: 0,
+    efectoEsperado: { metodo: 'POST', ruta, consumida: false } };
+  let fetches = 0, abortos = 0, entregas = 0;
+  const route = () => ({ request: () => req(ruta, 'POST'), fetch: async () => {
+    fetches++;
+    return { status: () => 201, url: () => origen + ruta, headersArray: async () => [] };
+  }, abort: async () => { abortos++; }, fulfill: async () => { entregas++; } });
+  await Promise.all([interceptar(route(), origen, 'empleado_solicitud', datos), interceptar(route(), origen, 'empleado_solicitud', datos)]);
+  assert.deepEqual([fetches, abortos, entregas, datos.mutaciones_enviadas, datos.bloqueadas], [1, 1, 1, 1, 1]);
+});
+
+test('recibo nuevo y recuperación se distinguen; referencias y fecha permanecen privadas en el resultado', () => {
+  const nuevo = validarRecibo(recibo(false), 'borrador', 'nuevo', 201);
+  assert.deepEqual([nuevo.comision_ref, nuevo.recibo_ref, nuevo.registrado_en, nuevo.version, nuevo.repeticion],
+    ['dco_1234567890123456789012', 'rcd_1234567890123456789012', '2026-10-01T10:00:00.000000Z', 1, false]);
+  assert.equal(validarRecibo(recibo(true), 'borrador', 'recuperacion', 200).repeticion, true);
+  assert.throws(() => validarRecibo(recibo(true), 'borrador', 'nuevo', 200));
+  assert.throws(() => validarRecibo(recibo(false), 'borrador', 'recuperacion', 201));
 });
 
 test('un 200 sin autoridad Personal, competencia o recibo compatible no acredita escenario', () => {

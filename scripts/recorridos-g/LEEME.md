@@ -65,7 +65,7 @@ antes de marcarla `true`:
         { "tipo": "select", "selector": "[name=\"origen_codigo\"]", "valor": "CODIGO_CATALOGO" },
         { "tipo": "select", "selector": "[name=\"destino_codigo\"]", "valor": "OTRO_CODIGO_CATALOGO" },
         { "tipo": "ruta", "selector": "[data-dietas-calcular-ruta]" },
-        { "tipo": "efecto", "selector": "[data-dietas-borrador-guardar]", "metodo": "POST", "ruta": "/api/vec/dietas/comisiones", "estado_esperado": "borrador" }
+        { "tipo": "efecto", "selector": "[data-dietas-borrador-guardar]", "metodo": "POST", "ruta": "/api/vec/dietas/comisiones", "estado_esperado": "borrador", "modo": "nuevo" }
       ]
     }
   }
@@ -75,8 +75,17 @@ antes de marcarla `true`:
 Cada caso lleva pasos propios en ese JSON privado. Los pasos admitidos son
 `visible`, `click`, `fill`, `select`, `ruta` y `efecto`. `ruta` comprueba la
 respuesta del mediador OSRM; `efecto` pulsa un botón y exige
-la petición, HTTP 200/201, recibo, versión y estado declarados. El guion solo
-admite los efectos de `casos.json` y solo durante el paso que los espera. Las
+la petición, recibo, versión y estado declarados. Por defecto `modo` es
+`nuevo`: exige HTTP 201 y `repeticion:false`. Solo `modo:"recuperacion"`
+acepta HTTP 200 y `repeticion:true`, para recuperar una intención sintética
+conservada con la misma clave. Cada paso admite una sola petición de negocio;
+una segunda se bloquea antes de salir a la red y corta el resultado. En las
+decisiones del circuito, el paso declara `etapa` y `decision:"aprobar"`; el
+cuerpo HTTP debe coincidir con ambos. Revisión, autorización, liquidación y
+fiscalización comprueban exclusivamente su siguiente estado de aprobación. La
+devolución no se ejecuta con estos cuatro casos: `retorno_reenvio` parte de
+una devolución sintética preparada y autorizada fuera de este guion. El guion
+solo admite los efectos de `casos.json` durante el paso que los espera. Las
 referencias de una comisión existente se toman de un escenario sintético
 preparado y recuperable; no se generan datos nuevos para superar un fallo. La
 secuencia de retorno exige primero `PUT` con estado `borrador` y después `POST
@@ -93,8 +102,9 @@ Cada caso se ejecuta una sola vez por intención preparada. El guion visita
 1440 y 390 px: escribe solo en escritorio y vuelve a abrir la vista en móvil.
 Comprueba idioma, ausencia de desbordamiento global, errores JavaScript,
 cookies, almacenamiento web, respuestas API fallidas y peticiones externas.
-Las respuestas y recibos se guardan como estado, versión y huella en
-`resultado.json`, sin cuerpos, nombres ni certificados. Código `0` indica que
+`resultado.json` guarda las referencias opacas de comisión y recibo, fecha
+exacta, versión, repetición, estado y huella en un archivo privado `0600`.
+No guarda cuerpos HTTP, nombres ni certificados. Código `0` indica que
 **ese** caso sintético terminó; `2`, que no arrancó por entradas o puertas;
 `1`, que Chrome empezó y el recorrido se cortó. `servidor_instalado_verificado`
 y `reinicio_verificado` permanecen `false`: Dirección contrasta después el

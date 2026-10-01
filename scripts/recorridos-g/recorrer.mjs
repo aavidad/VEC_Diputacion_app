@@ -27,12 +27,13 @@ const patrones = Object.freeze({
 const estados = Object.freeze({
   empleado_solicitud: ['borrador'], empleado_gastos_km: ['borrador'],
   empleado_calculo_envio: ['enviado_pendiente_revision'],
-  revision: ['pendiente_autorizacion', 'devuelta'],
-  autorizacion: ['pendiente_liquidacion', 'devuelta'],
-  liquidacion: ['pendiente_fiscalizacion', 'devuelta'],
-  fiscalizacion: ['fiscalizada', 'devuelta'],
+  revision: ['pendiente_autorizacion'],
+  autorizacion: ['pendiente_liquidacion'],
+  liquidacion: ['pendiente_fiscalizacion'],
+  fiscalizacion: ['fiscalizada'],
   retorno_reenvio: ['borrador', 'enviado_pendiente_revision'],
 });
+const etapasDecision = Object.freeze({ revision: 'revision', autorizacion: 'autorizacion', liquidacion: 'liquidacion', fiscalizacion: 'fiscalizacion' });
 
 function exigir(ok) { if (!ok) throw new Error('entrada'); }
 export function plan() {
@@ -70,7 +71,8 @@ export function validarPasos(casoId, pasos) {
   if (casoId === 'empleado_calculo_envio') exigir(pasos.some(p => p.tipo === 'visible' && p.selector === '[data-dietas-borrador-preparacion]'));
   exigir(efectos.length === patrones[casoId].length);
   exigir(efectos.every((p, i) => p.metodo === patrones[casoId][i].metodo && patrones[casoId][i].ruta.test(p.ruta)
-    && (casoId === 'retorno_reenvio' ? p.estado_esperado === estados[casoId][i] : estados[casoId].includes(p.estado_esperado))));
+    && (casoId === 'retorno_reenvio' ? p.estado_esperado === estados[casoId][i] : p.estado_esperado === estados[casoId][0])
+    && (etapasDecision[casoId] ? p.etapa === etapasDecision[casoId] && p.decision === 'aprobar' : p.etapa === undefined && p.decision === undefined)));
   return pasos;
 }
 
@@ -79,7 +81,8 @@ function validarPaso(p) {
   if (p.tipo === 'visible' || p.tipo === 'click') return selectorValido(p.selector);
   if (p.tipo === 'ruta') return selectorValido(p.selector);
   if (p.tipo === 'fill' || p.tipo === 'select') return selectorValido(p.selector) && typeof p.valor === 'string' && p.valor.length > 0 && p.valor.length <= 500;
-  if (p.tipo === 'efecto') return selectorValido(p.selector) && ['POST', 'PUT'].includes(p.metodo) && typeof p.ruta === 'string' && !p.ruta.includes('?');
+  if (p.tipo === 'efecto') return selectorValido(p.selector) && ['POST', 'PUT'].includes(p.metodo) && typeof p.ruta === 'string' && !p.ruta.includes('?')
+    && (p.modo === undefined || ['nuevo', 'recuperacion'].includes(p.modo));
   return false;
 }
 function selectorValido(s) { return typeof s === 'string' && s.length > 0 && s.length <= 160 && (/^\[data-dietas-[a-z0-9-]+(?:="[A-Za-z0-9:_-]+")?\]$/.test(s) || /^\[name="[a-z_]+"\]$/.test(s)); }
@@ -92,16 +95,29 @@ export function solicitudPermitida(request, origen, casoId, efectoEsperado) {
     if (metodo === 'GET') return true;
     if (metodo === 'POST' && u.pathname === '/api/vec/dietas/road-route' && !u.search
         && ['empleado_solicitud', 'empleado_gastos_km'].includes(casoId)) return true;
-    if (u.search || !efectoEsperado || efectoEsperado.metodo !== metodo || efectoEsperado.ruta !== u.pathname
+    if (u.search || !efectoEsperado || efectoEsperado.consumida === true || efectoEsperado.metodo !== metodo || efectoEsperado.ruta !== u.pathname
         || !patrones[casoId]?.some(p => p.metodo === metodo && p.ruta.test(u.pathname))) return false;
     const body = request.postData();
-    return typeof body === 'string' && Buffer.byteLength(body) <= 65536 && !!JSON.parse(body) && typeof JSON.parse(body) === 'object';
+    if (typeof body !== 'string' || Buffer.byteLength(body) > 65536) return false;
+    const datos = JSON.parse(body);
+    if (!datos || typeof datos !== 'object' || Array.isArray(datos)
+        || typeof datos.clave_idempotencia !== 'string' || !/^[A-Za-z0-9:_-]{16,128}$/.test(datos.clave_idempotencia)) return false;
+    if (etapasDecision[casoId]) return Object.keys(datos).sort().join(',') === 'clave_idempotencia,decision,etapa,motivo,version_esperada'
+      && datos.etapa === efectoEsperado.etapa && datos.decision === efectoEsperado.decision
+      && Number.isSafeInteger(datos.version_esperada) && datos.version_esperada >= 1
+      && typeof datos.motivo === 'string' && datos.motivo.length <= 600;
+    if (casoId !== 'empleado_solicitud' && (!Number.isSafeInteger(datos.version_esperada) || datos.version_esperada < 1)) return false;
+    return true;
   } catch { return false; }
 }
 
 export async function interceptar(route, origen, casoId, datos) {
   const request = route.request();
   if (!solicitudPermitida(request, origen, casoId, datos.efectoEsperado)) { datos.bloqueadas++; await route.abort(); return; }
+  if (datos.efectoEsperado && request.method() !== 'GET' && new URL(request.url()).pathname !== '/api/vec/dietas/road-route') {
+    datos.efectoEsperado.consumida = true;
+    datos.mutaciones_enviadas = (datos.mutaciones_enviadas || 0) + 1;
+  }
   try {
     const response = await route.fetch({ maxRedirects: 0, maxRetries: 0, timeout: 20000 });
     if (new URL(response.url()).origin !== origen || (response.status() >= 300 && response.status() < 400)
@@ -113,16 +129,22 @@ export async function interceptar(route, origen, casoId, datos) {
   } catch { datos.red_fallida++; await route.abort(); }
 }
 
-export function validarRecibo(body, estadoEsperado) {
+export function validarRecibo(body, estadoEsperado, modo = 'nuevo', http) {
   const recibo = body?.recibo;
   const comision = body?.comision;
-  exigir(recibo && typeof recibo.referencia === 'string' && Number.isSafeInteger(recibo.version) && recibo.version > 0
-    && typeof recibo.registrado_en === 'string' && Number.isFinite(Date.parse(recibo.registrado_en)));
+  exigir(recibo && typeof recibo.referencia === 'string' && /^rcd_[A-Za-z0-9_-]{3,159}$/.test(recibo.referencia)
+    && Number.isSafeInteger(recibo.version) && recibo.version > 0
+    && typeof recibo.registrado_en === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/.test(recibo.registrado_en)
+    && Number.isFinite(Date.parse(recibo.registrado_en)) && typeof recibo.repeticion === 'boolean');
   exigir(comision && typeof comision.referencia === 'string' && Number.isSafeInteger(comision.version)
     && comision.version === recibo.version);
+  exigir((modo === 'nuevo' && http === 201 && recibo.repeticion === false)
+    || (modo === 'recuperacion' && http === 200 && recibo.repeticion === true));
   exigir(comision.estado === estadoEsperado);
   if (estadoEsperado === 'enviado_pendiente_revision') exigir(comision.documento && Array.isArray(comision.documento.tramos_aceptados));
-  return { version: recibo.version, huella: huella(JSON.stringify([recibo.referencia, recibo.version, recibo.registrado_en, comision.referencia, comision.estado])) };
+  return { comision_ref: comision.referencia, recibo_ref: recibo.referencia, registrado_en: recibo.registrado_en,
+    version: recibo.version, repeticion: recibo.repeticion, estado: comision.estado,
+    huella: huella(JSON.stringify([recibo.referencia, recibo.version, recibo.registrado_en, comision.referencia, comision.estado])) };
 }
 
 export function validarRuta(body) {
@@ -173,7 +195,7 @@ export async function recorrer(c, casoId, chromium, salida) {
   try {
     browser = await chromium.launch({ executablePath: '/usr/bin/google-chrome', headless: true });
     for (const width of [1440, 390]) {
-      const datos = { ancho: width, bloqueadas: 0, red_fallida: 0, http_fallidos: 0, errores_js: 0, estado: 'EN_CURSO' };
+      const datos = { ancho: width, bloqueadas: 0, red_fallida: 0, http_fallidos: 0, errores_js: 0, mutaciones_enviadas: 0, estado: 'EN_CURSO' };
       resultado.pasos.push(datos); guardar();
       const context = await browser.newContext({ clientCertificates: [{ origin: c.origen,
         certPath: identidad.certificado, keyPath: identidad.clave }], ignoreHTTPSErrors: false,
@@ -186,7 +208,7 @@ export async function recorrer(c, casoId, chromium, salida) {
         page.on('pageerror', () => { datos.errores_js++; });
         page.on('dialog', dialog => dialog.dismiss());
         const personalPendiente = page.waitForResponse(r => new URL(r.url()).pathname === '/api/vec/personal/relaciones-dietas', { timeout: 20000 });
-        const etapa = ({ revision: 'revision', autorizacion: 'autorizacion', liquidacion: 'liquidacion', fiscalizacion: 'fiscalizacion' })[casoId];
+        const etapa = etapasDecision[casoId];
         const competenciasPendiente = etapa ? page.waitForResponse(r => new URL(r.url()).pathname === `${CIRCUITO}/competencias`, { timeout: 20000 }) : null;
         const [entrada, personal, competencias] = await Promise.all([
           page.goto(`${c.origen}/portal-empleado/?lang=${c.idioma}#dietas`, { waitUntil: 'domcontentloaded', timeout: 20000 }),
@@ -210,13 +232,14 @@ export async function recorrer(c, casoId, chromium, salida) {
               exigir(response.status() === 200); validarRuta(await response.json());
             }
             else {
-              datos.efectoEsperado = { metodo: paso.metodo, ruta: paso.ruta };
+              const antes = datos.mutaciones_enviadas;
+              datos.efectoEsperado = { metodo: paso.metodo, ruta: paso.ruta, etapa: paso.etapa, decision: paso.decision, consumida: false };
               try {
                 const pendiente = page.waitForResponse(r => r.request().method() === paso.metodo && new URL(r.url()).pathname === paso.ruta, { timeout: 20000 });
                 const [response] = await Promise.all([pendiente, loc.click()]);
-                exigir([200, 201].includes(response.status()));
+                exigir(datos.efectoEsperado.consumida === true && datos.mutaciones_enviadas === antes + 1);
                 const body = await response.json();
-                const recibo = validarRecibo(body, paso.estado_esperado);
+                const recibo = validarRecibo(body, paso.estado_esperado, paso.modo ?? 'nuevo', response.status());
                 if (casoId === 'empleado_gastos_km') validarDesglose(body);
                 if (casoId === 'retorno_reenvio') {
                   if (referenciaRetorno) exigir(referenciaRetorno === body.comision.referencia && recibo.version > resultado.efectos.at(-1).version);
@@ -232,7 +255,7 @@ export async function recorrer(c, casoId, chromium, salida) {
             }
             guardar();
           }
-          exigir(resultado.efectos.length === patrones[casoId].length);
+          exigir(resultado.efectos.length === patrones[casoId].length && datos.mutaciones_enviadas === patrones[casoId].length);
         }
         await page.waitForLoadState('networkidle', { timeout: 20000 });
         await controles(page, context, datos);
