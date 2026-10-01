@@ -1,9 +1,9 @@
-import { crearClienteSeleccion } from './cliente.js?v=20261001-codexa-selectivos-s0-v4';
-import { validarEjemplos, validarConfiguracion, validarResultado, aMicropuntos } from './configuracion.js?v=20261001-codexa-selectivos-s0-v4';
-import { crearEstadoEnsayo } from './estado.js?v=20261001-codexa-selectivos-s0-v4';
-import { nodo, panel, boton } from './dom.js?v=20261001-codexa-selectivos-s0-v4';
-import { pintarFormulario } from './formulario.js?v=20261001-codexa-selectivos-s0-v4';
-import { mostrarResultado } from './resultado.js?v=20261001-codexa-selectivos-s0-v4';
+import { crearClienteSeleccion } from './cliente.js?v=20261001-codexa-selectivos-s0-n2-v5';
+import { validarEjemplos, validarConfiguracion, validarResultado, aMicropuntos } from './configuracion.js?v=20261001-codexa-selectivos-s0-n2-v5';
+import { crearEstadoEnsayo } from './estado.js?v=20261001-codexa-selectivos-s0-n2-v5';
+import { nodo, panel, boton } from './dom.js?v=20261001-codexa-selectivos-s0-n2-v5';
+import { pintarFormulario } from './formulario.js?v=20261001-codexa-selectivos-s0-n2-v5';
+import { mostrarResultado } from './resultado.js?v=20261001-codexa-selectivos-s0-n2-v5';
 
 export function montarSeleccion({ raiz, textos, cliente = crearClienteSeleccion() } = {}) {
   if (!raiz?.ownerDocument || !textos || !cliente?.listar || !cliente?.simular) throw new TypeError('seleccion.montaje');

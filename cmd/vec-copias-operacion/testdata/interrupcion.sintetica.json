@@ -1,0 +1,19 @@
+{
+  "sintetica": true,
+  "solicitud": {
+    "operacion": "operacion:sintetica:1",
+    "clave": "solicitud:1",
+    "solicitud_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+    "conjunto": "conjunto:sintetico:1",
+    "destino": "destino:ensayo",
+    "politica": "politica:ensayo:1"
+  },
+  "comandos": [
+    {
+      "clave": "paso:1",
+      "version_esperada": 0,
+      "solicitud_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "accion": "iniciar_captura"
+    }
+  ]
+}
