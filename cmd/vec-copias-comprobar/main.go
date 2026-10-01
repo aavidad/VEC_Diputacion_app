@@ -30,32 +30,32 @@ func run(args []string, in io.Reader, out, diag io.Writer) int {
 	var catalogo map[string]string
 	if len(args) > 0 {
 		if len(args) != 2 || args[0] != "-catalogo" {
-			diagnosticar(diag, "copias_seguridad.error.argumentos")
+			diagnosticar(diag, "copias_seguridad_error_argumentos")
 			return 3
 		}
 		// G304/G703: lectura local solicitada explícitamente por el operador; no ejecuta
 		// el contenido ni publica la ruta o errores del sistema de archivos.
 		f, err := os.Open(args[1]) // #nosec G304 G703 -- catálogo local indicado por el operador, sin frontera HTTP.
 		if err != nil {
-			diagnosticar(diag, "copias_seguridad.error.catalogo")
+			diagnosticar(diag, "copias_seguridad_error_catalogo")
 			return 3
 		}
 		info, statErr := f.Stat()
 		if statErr != nil || !info.Mode().IsRegular() {
 			_ = f.Close()
-			diagnosticar(diag, "copias_seguridad.error.catalogo")
+			diagnosticar(diag, "copias_seguridad_error_catalogo")
 			return 3
 		}
 		err = leerEstricto(f, &catalogo)
 		_ = f.Close()
 		if err != nil {
-			diagnosticar(diag, "copias_seguridad.error.catalogo")
+			diagnosticar(diag, "copias_seguridad_error_catalogo")
 			return 3
 		}
 	}
 	var e entrada
 	if leerEstricto(in, &e) != nil {
-		diagnosticar(diag, "copias_seguridad.error.entrada")
+		diagnosticar(diag, "copias_seguridad_error_entrada")
 		return 3
 	}
 	var resultado copias.Resultado
@@ -64,26 +64,26 @@ func run(args []string, in io.Reader, out, diag io.Writer) int {
 	} else {
 		resultado = copias.CompararVersiones(e.Manifiesto, e.Destino, e.Politica, e.Modo)
 	}
-	s := salida{Alcance: "comparacion_offline_declarada", HabilitaRestauracion: false, Autenticidad: "no_comprobada", VerificacionRestauracion: "no_comprobada", Resultado: resultado, EstadoClave: "copias_seguridad.estado." + string(resultado.Estado)}
+	s := salida{Alcance: "comparacion_offline_declarada", HabilitaRestauracion: false, Autenticidad: "no_comprobada", VerificacionRestauracion: "no_comprobada", Resultado: resultado, EstadoClave: "copias_seguridad_estado_" + string(resultado.Estado)}
 	if catalogo != nil {
 		var ok bool
 		s.Mensaje, ok = catalogo[s.EstadoClave]
 		if !ok {
-			diagnosticar(diag, "copias_seguridad.error.catalogo")
+			diagnosticar(diag, "copias_seguridad_error_catalogo")
 			return 3
 		}
 		for _, r := range resultado.Razones {
-			texto, ok := catalogo["copias_seguridad.razon."+r.Codigo]
-			accion, okAccion := catalogo["copias_seguridad.accion."+r.Accion]
+			texto, ok := catalogo["copias_seguridad_razon_"+r.Codigo]
+			accion, okAccion := catalogo["copias_seguridad_accion_"+r.Accion]
 			if !ok || !okAccion {
-				diagnosticar(diag, "copias_seguridad.error.catalogo")
+				diagnosticar(diag, "copias_seguridad_error_catalogo")
 				return 3
 			}
 			s.Mensajes = append(s.Mensajes, texto+" "+accion)
 		}
 	}
 	if json.NewEncoder(out).Encode(s) != nil {
-		diagnosticar(diag, "copias_seguridad.error.salida")
+		diagnosticar(diag, "copias_seguridad_error_salida")
 		return 3
 	}
 	switch resultado.Estado {

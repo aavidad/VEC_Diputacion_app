@@ -24,7 +24,7 @@ type entrada struct {
 	Modo           copias.ModoRestauracion `json:"modo"`
 }
 
-var errEntrada = errors.New("copias_seguridad.error.entrada")
+var errEntrada = errors.New("copias_seguridad_error_entrada")
 
 func leerEstricto(r io.Reader, dst any) error {
 	b, err := io.ReadAll(io.LimitReader(r, maxEntradaBytes+1))

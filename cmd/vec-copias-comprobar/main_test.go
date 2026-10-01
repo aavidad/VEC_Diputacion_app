@@ -104,7 +104,7 @@ func TestEntradaEstrictoSinFiltrarContenido(t *testing.T) {
 			if run(nil, strings.NewReader(tt.dato), &out, &diag) != 3 || out.Len() != 0 || strings.Contains(diag.String(), "no_imprimir") {
 				t.Fatalf("%s / %s", out.String(), diag.String())
 			}
-			if diag.String() != "{\"error_clave\":\"copias_seguridad.error.entrada\"}\n" {
+			if diag.String() != "{\"error_clave\":\"copias_seguridad_error_entrada\"}\n" {
 				t.Fatal("diagnóstico inesperado")
 			}
 		})
