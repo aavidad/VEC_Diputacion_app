@@ -9,7 +9,7 @@
  * - Totales agregados coherentes.
  */
 
-import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261001-codexf-ct-catalogos-v1";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261001-ct-a-i18n-v1";
 
 const traducirCT = crearTraductorContratacionTemporal();
 

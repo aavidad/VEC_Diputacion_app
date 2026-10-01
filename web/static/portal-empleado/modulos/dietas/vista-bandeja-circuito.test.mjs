@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { montarVistaBandejaCircuitoDietas } from "./vista-bandeja-circuito.js?v=20261001-codexf-ct-catalogos-v1";
+import { montarVistaBandejaCircuitoDietas } from "./vista-bandeja-circuito.js?v=20261001-ct-a-i18n-v1";
 import { cargarTextos } from "../../../comun/textos.js";
 
 const dato = (atributo) => atributo.slice(5).replace(/-([a-z])/g, (_m, letra) => letra.toUpperCase());

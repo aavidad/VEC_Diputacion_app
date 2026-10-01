@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { montarVistaAuditoria, renderizarVistaAuditoria, validarRespuestaAuditoria } from "./vista.js?v=20261001-codexf-ct-catalogos-v1";
+import { montarVistaAuditoria, renderizarVistaAuditoria, validarRespuestaAuditoria } from "./vista.js?v=20261001-ct-a-i18n-v1";
 
 const registro = {
   id: "aud_1", modulo_id: "personal", accion: "relacion.actualizada", actor_ref: "per_1",

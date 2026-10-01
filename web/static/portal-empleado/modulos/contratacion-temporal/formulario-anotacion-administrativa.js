@@ -1,6 +1,6 @@
 import { validarReciboAnotacionAdministrativa, validarSolicitudAnotacionAdministrativa, validarRecuperacionAnotacionAdministrativa } from "./contrato-anotacion-administrativa.js";
-import { escaparHTML as e } from "./componentes-expedientes.js?v=20261001-codexf-ct-catalogos-v1";
-import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261001-codexf-ct-catalogos-v1";
+import { escaparHTML as e } from "./componentes-expedientes.js?v=20261001-ct-a-i18n-v1";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261001-ct-a-i18n-v1";
 import { claveRecuperacionTraducida, justificanteTraducido } from "../../portal-justificante.js";
 
 const referencia = /^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/u;

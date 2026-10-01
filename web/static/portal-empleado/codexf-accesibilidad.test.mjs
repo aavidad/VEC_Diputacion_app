@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20261001-codexf-ct-catalogos-v1";
+import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20261001-ct-a-i18n-v1";
 import { tabla as tablaPersonal } from "../area-personal/vistas/comunes.js";
 
 const escaparHTML = (valor) => String(valor).replaceAll("&", "&amp;").replaceAll('"', "&quot;").replaceAll("<", "&lt;");

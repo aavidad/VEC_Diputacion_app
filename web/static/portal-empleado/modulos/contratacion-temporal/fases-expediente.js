@@ -1,4 +1,4 @@
-import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261001-codexf-ct-catalogos-v1";
+import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261001-ct-a-i18n-v1";
 
 /**
  * Pantalla de cada fase del expediente. Al pulsar una fase del raíl se muestra

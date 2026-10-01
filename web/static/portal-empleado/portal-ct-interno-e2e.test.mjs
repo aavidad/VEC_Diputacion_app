@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { crearCatalogoModulosDesdeManifiestos } from "./portal-catalogo-modulos.js?v=20261001-codexf-ct-catalogos-v1";
+import { crearCatalogoModulosDesdeManifiestos } from "./portal-catalogo-modulos.js?v=20261001-ct-a-i18n-v1";
 import { crearCoordinadorModulosPortal } from "./portal-modulos-coordinador.js?v=20261001-cronos-grafo-bandeja-v5";
 
 function raizFalsa() {

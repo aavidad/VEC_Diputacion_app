@@ -1,7 +1,7 @@
 import { validarSolicitudIncorporacionEjercicio, validarReciboIncorporacionEjercicio,
   validarPreparacionIncorporacionEjercicio } from "./contrato-incorporacion-ejercicio.js";
-import { escaparHTML as e } from "./componentes-expedientes.js?v=20261001-codexf-ct-catalogos-v1";
-import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261001-codexf-ct-catalogos-v1";
+import { escaparHTML as e } from "./componentes-expedientes.js?v=20261001-ct-a-i18n-v1";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261001-ct-a-i18n-v1";
 import { justificanteTraducido } from "../../portal-justificante.js";
 
 // Catálogo local de esta pieza: admite las mismas sobrescrituras que el módulo.

@@ -5,7 +5,7 @@ import {
   cargarMensajesPortal,
   crearTraductorPortal,
   MENSAJES_PORTAL,
-} from "./portal-i18n.js?v=20261001-codexf-ct-catalogos-v1";
+} from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
 
 import { versionDe } from "./versiones-cache.test-helper.mjs";
 
@@ -53,7 +53,7 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   const raiz = new URL("./", import.meta.url);
   const anteriores = ["20260928-ppt-503-v6", "20260928-auditoria-expediente-en-v1", "20260928-auditoria-expediente-en-v2", "20260929-pref-508a-v2", "20260929-firma-506-v1", "20260929-firma-506-v2", "20260929-auditoria-legible-v1", "20260929-sondeo-opcional-507", "20260929-plazas-306-v1", "20260929-i18n-shell-v1"];
   // El shell pasó sus textos a `textos/<idioma>/portal*.json` (integrado con 5.06, 5.07, 3.06 y 4.11): todo su grafo renueva URL.
-  const vigente = "20261001-codexf-ct-catalogos-v1";
+  const vigente = "20261001-ct-a-i18n-v1";
   const versionBolsaTurno = "20260930-bolsa-turno-v2";
   const versionTemas = "20260930-codexf-temas-v2";
   const entrada = await readFile(new URL("index.html", raiz), "utf8");
@@ -72,27 +72,28 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     ["modulos/cronos/vista-remoto.js", "20261001-cronos-grafo-bandeja-v5"],
     ["modulos/cronos/vista-movimientos-conectado.js", "20261001-cronos-grafo-bandeja-v5"],
     ["modulos/cronos/i18n-fichaje.js", "20261001-cronos-grafo-bandeja-v5"],
-    ["modulos/bolsa/rrhh-plazos-ui.js", "20261001-codexf-ct-catalogos-v1"],
-    ["portal-inicio.js", "20261001-codexf-ct-catalogos-v1"],
+    ["modulos/bolsa/rrhh-plazos-ui.js", "20261001-ct-a-i18n-v1"],
+    ["portal-inicio.js", "20261001-ct-a-i18n-v1"],
     // 5.06, segundo corte: el circuito de firma trae el estado de Firmadoc.
     // Reglas vigentes: el detalle de cada regla y sus textos en catálogos renuevan el enlace del panel.
     // Nuevo llamamiento: el campo «Resumen de la preparación» usa la etiqueta encima y el campo a lo ancho.
-    ["portal.js", "20261001-cronos-grafo-bandeja-v5"],
-    ["portal-vistas-utilidades.js", "20261001-codexf-ct-catalogos-v1"],
-    ["portal-preferencias-integracion.js", "20261001-codexf-ct-catalogos-v1"],
-    ["portal-preferencias.js", "20261001-codexf-ct-catalogos-v1"],
+    ["portal.js", vigente],
+    ["portal-vistas-utilidades.js", "20261001-ct-a-i18n-v1"],
+    ["portal-preferencias-integracion.js", "20261001-ct-a-i18n-v1"],
+    ["portal-preferencias.js", "20261001-ct-a-i18n-v1"],
     ["portal-preferencias-api.js", versionTemas],
-    ["portal-borrador-llamamiento-ui.js", "20261001-codexf-ct-catalogos-v1"],
-    ["portal-panel-interno.js", "20261001-codexf-ct-catalogos-v1"],
-    ["portal-bolsas-api.js", "20261001-codexf-ct-catalogos-v1"],
-    ["portal-bolsas-contrato.js", "20261001-codexf-ct-catalogos-v1"],
-    ["portal-llamamientos-operaciones-api.js", "20261001-codexf-ct-catalogos-v1"],
-    ["reglas/enlace.js", "20261001-codexf-ct-catalogos-v1"],
-    ["portal-modulos-coordinador.js", "20261001-cronos-grafo-bandeja-v5"],
-    ["modulos/dietas/vista-recorridos.js", "20261001-codexf-ct-catalogos-v1"],
-    ["modulos/dietas/vista-bandeja-circuito.js", "20261001-codexf-ct-catalogos-v1"],
-    ["modulos/contratacion-temporal/vista-expedientes.js", "20261001-codexf-ct-catalogos-v1"],
-    ["modulos/contratacion-temporal/circuito-firma.js", "20261001-codexf-ct-catalogos-v1"],
+    ["portal-borrador-llamamiento-ui.js", "20261001-ct-a-i18n-v1"],
+    ["portal-panel-interno.js", "20261001-ct-a-i18n-v1"],
+    ["portal-bolsas-api.js", "20261001-ct-a-i18n-v1"],
+    ["portal-bolsas-contrato.js", "20261001-ct-a-i18n-v1"],
+    ["portal-llamamientos-operaciones-api.js", "20261001-ct-a-i18n-v1"],
+    ["reglas/enlace.js", "20261001-ct-a-i18n-v1"],
+    ["portal-modulos-coordinador.js", vigente],
+    ["modulos/dietas/vista-recorridos.js", "20261001-ct-a-i18n-v1"],
+    ["modulos/dietas/vista-bandeja-circuito.js", "20261001-ct-a-i18n-v1"],
+    ["modulos/contratacion-temporal/vista-expedientes.js", "20261001-ct-a-i18n-v1"],
+    ["modulos/contratacion-temporal/seguimiento-cese.js", vigente],
+    ["modulos/contratacion-temporal/circuito-firma.js", "20261001-ct-a-i18n-v1"],
   ]);
   const archivos = ["index.html"];
   const pendientes = [""];
@@ -223,6 +224,8 @@ test("Cronos renueva los traductores de permisos y resolución y todos sus padre
   assert.equal(versionDe(permisos, "./i18n-permisos.js"), version);
   for (const recurso of ["vista-avisos-propios.js", "vista-bandeja-permisos.js", "vista-permisos-propios.js"])
     assert.equal(versionDe(coordinador, `./modulos/cronos/${recurso}`), version);
-  assert.equal(versionDe(portal, "./portal-modulos-coordinador.js"), version);
-  assert.equal(versionDe(html, "/portal-empleado/portal.js"), version);
+  const versionPortal = versionDe(portal, "./portal-modulos-coordinador.js");
+  assert.notEqual(versionPortal, "20261001-cronos-grafo-bandeja-v5");
+  assert.equal(versionDe(html, "/portal-empleado/portal-modulos-coordinador.js"), versionPortal);
+  assert.equal(versionDe(html, "/portal-empleado/portal.js"), versionPortal);
 });

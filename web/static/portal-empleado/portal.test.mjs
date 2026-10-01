@@ -7,10 +7,10 @@ import {
   validarPanelBolsa,
 } from "./portal-contrato.js";
 import { obtenerDatosPresentacion } from "./datos-presentacion.js";
-import { AYUDA_PORTAL_BOLSA } from "./ayuda-contenido.js?v=20261001-codexf-ct-catalogos-v1";
-import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261001-codexf-ct-catalogos-v1";
-import { MENSAJES_PORTAL, traducirPortal } from "./portal-i18n.js?v=20261001-codexf-ct-catalogos-v1";
-import { accesoBolsaEfectivo } from "./portal-menu-bolsa.js?v=20261001-codexf-ct-catalogos-v1";
+import { AYUDA_PORTAL_BOLSA } from "./ayuda-contenido.js?v=20261001-ct-a-i18n-v1";
+import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261001-ct-a-i18n-v1";
+import { MENSAJES_PORTAL, traducirPortal } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
+import { accesoBolsaEfectivo } from "./portal-menu-bolsa.js?v=20261001-ct-a-i18n-v1";
 import { exigirRenovado } from "./versiones-cache.test-helper.mjs";
 
 const directorio = new URL("./", import.meta.url);

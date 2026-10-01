@@ -9,9 +9,9 @@
  * - Sin uso de la palabra "demo".
  */
 
-import { generarCSVEstadisticas } from "./contrato-estadisticas.js?v=20261001-codexf-ct-catalogos-v1";
-import { consultarEstadisticas } from "./cliente-http-estadisticas.js?v=20261001-codexf-ct-catalogos-v1";
-import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261001-codexf-ct-catalogos-v1";
+import { generarCSVEstadisticas } from "./contrato-estadisticas.js?v=20261001-ct-a-i18n-v1";
+import { consultarEstadisticas } from "./cliente-http-estadisticas.js?v=20261001-ct-a-i18n-v1";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261001-ct-a-i18n-v1";
 
 const traducirCT = crearTraductorContratacionTemporal();
 

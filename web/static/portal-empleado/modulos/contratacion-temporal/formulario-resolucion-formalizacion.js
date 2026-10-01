@@ -1,7 +1,7 @@
 import { validarSolicitudResolucionFormalizacion, validarReciboResolucionFormalizacion,
   validarPreparacionResolucionFormalizacion } from "./contrato-resolucion-formalizacion.js";
-import { escaparHTML as e } from "./componentes-expedientes.js?v=20261001-codexf-ct-catalogos-v1";
-import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261001-codexf-ct-catalogos-v1";
+import { escaparHTML as e } from "./componentes-expedientes.js?v=20261001-ct-a-i18n-v1";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261001-ct-a-i18n-v1";
 import { claveRecuperacionTraducida, justificanteTraducido } from "../../portal-justificante.js";
 
 const textosRecibo = Object.freeze({
