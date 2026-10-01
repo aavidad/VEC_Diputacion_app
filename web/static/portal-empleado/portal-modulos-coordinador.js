@@ -15,7 +15,7 @@ import {
   componerDietasInternas,
   componerPersonalVisible,
   componerRegistroPersonal,
-} from "./portal-composicion-empleado.js?v=20261001-codexg-i03-v3";
+} from "./portal-composicion-empleado.js?v=20261001-g364-reconciliar-v1";
 import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20261001-ct-a-i18n-v1";
 import {
   CLAVES_CARGA_MODULAR,
@@ -216,8 +216,8 @@ export function crearCoordinadorModulosPortal({
   cargadoresInternos = CARGADORES_INTERNOS_PREDETERMINADOS,
   cargarTramitesPropios = async () => {
     const [fuente, vista] = await Promise.all([
-      import("./modulos/solicitudes/fuente-tramites-propios.js?v=20261001-codexg-i03-v3"),
-      import("./modulos/solicitudes/vista-tramites-propios.js?v=20261001-codexg-i03-v3"),
+      import("./modulos/solicitudes/fuente-tramites-propios.js?v=20261001-g364-reconciliar-v1"),
+      import("./modulos/solicitudes/vista-tramites-propios.js?v=20261001-g364-reconciliar-v1"),
     ]);
     return { fuente, vista };
   },
