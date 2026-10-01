@@ -343,7 +343,7 @@ BEGIN
 END $triggers$;
 
 DO $consumidores$
-DECLARE x record;p record;def text;meta jsonb;paso jsonb;
+DECLARE x record;p record;def text;meta jsonb;paso jsonb;config_esperada text[];
 BEGIN
  FOR x IN SELECT firma,jsonb_agg(jsonb_build_object('anterior',anterior,'nuevo',nuevo)) AS pasos FROM (VALUES
 ('incorporacion_expediente_ct115(text,text)',$old$    SELECT r.recibo_ref, vec_contratacion_temporal.inicio_incorporacion_ct115(r.material_json),
@@ -379,14 +379,33 @@ BEGIN
    AND r.relacion_ref=p_material->>'relacion_ref'$old$,$new$   AND i.protocolo=c.incorporacion_protocolo
    AND i.relacion_ref=p_material->>'relacion_ref'$new$)
  ) v(firma,anterior,nuevo) GROUP BY firma LOOP
- SELECT pg_get_functiondef(oid) AS def,to_jsonb(q)-'prosrc' AS meta INTO STRICT p FROM pg_proc q WHERE oid=to_regprocedure('vec_contratacion_temporal.'||x.firma) AND proowner=current_user::regrole;
- def:=p.def;
+ SELECT pg_get_functiondef(oid) AS def,to_jsonb(q)-'prosrc' AS meta,
+        q.proconfig,q.prosecdef INTO STRICT p FROM pg_proc q
+ WHERE oid=to_regprocedure('vec_contratacion_temporal.'||x.firma) AND proowner=current_user::regrole;
+ meta:=p.meta;
+ IF x.firma IN (
+  'confirmar_confirmacion_ginpix_v1(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
+  'leer_antecedente_reincorporacion_titular_atestada_v1(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') THEN
+  IF NOT p.prosecdef OR p.proconfig IS NULL
+     OR (SELECT count(*) FROM unnest(p.proconfig) c WHERE c LIKE 'search_path=%')<>1
+     OR NOT p.proconfig @> ARRAY['search_path=pg_catalog'] THEN
+   RAISE EXCEPTION 'CT155: entorno heredado incompatible: %',x.firma USING ERRCODE='55000';
+  END IF;
+  config_esperada:=array_replace(p.proconfig,'search_path=pg_catalog','search_path=pg_catalog, pg_temp');
+  meta:=jsonb_set(meta,'{proconfig}',to_jsonb(config_esperada));
+  EXECUTE format('ALTER FUNCTION %s SET search_path TO pg_catalog, pg_temp',
+                 to_regprocedure('vec_contratacion_temporal.'||x.firma));
+  SELECT pg_get_functiondef(q.oid) INTO STRICT def FROM pg_proc q
+   WHERE q.oid=to_regprocedure('vec_contratacion_temporal.'||x.firma)
+     AND q.proconfig IS NOT DISTINCT FROM config_esperada;
+ ELSE def:=p.def;
+ END IF;
  FOR paso IN SELECT value FROM jsonb_array_elements(x.pasos) LOOP
  IF length(def)-length(replace(def,paso->>'anterior',''))<>length(paso->>'anterior') THEN RAISE EXCEPTION 'CT155: preimagen incompatible: %',x.firma USING ERRCODE='55000';END IF;
  def:=replace(def,paso->>'anterior',paso->>'nuevo');
  END LOOP;
  EXECUTE def;
- IF (SELECT pg_get_functiondef(oid) FROM pg_proc WHERE oid=to_regprocedure('vec_contratacion_temporal.'||x.firma)) IS DISTINCT FROM def OR (SELECT to_jsonb(q)-'prosrc' FROM pg_proc q WHERE oid=to_regprocedure('vec_contratacion_temporal.'||x.firma)) IS DISTINCT FROM p.meta THEN RAISE EXCEPTION 'CT155: metadatos alterados' USING ERRCODE='55000';END IF;
+ IF (SELECT pg_get_functiondef(oid) FROM pg_proc WHERE oid=to_regprocedure('vec_contratacion_temporal.'||x.firma)) IS DISTINCT FROM def OR (SELECT to_jsonb(q)-'prosrc' FROM pg_proc q WHERE oid=to_regprocedure('vec_contratacion_temporal.'||x.firma)) IS DISTINCT FROM meta THEN RAISE EXCEPTION 'CT155: metadatos alterados' USING ERRCODE='55000';END IF;
  END LOOP;
 END $consumidores$;
 

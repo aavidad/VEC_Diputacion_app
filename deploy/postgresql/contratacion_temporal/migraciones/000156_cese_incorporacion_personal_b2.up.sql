@@ -54,7 +54,7 @@ BEGIN
  END LOOP;
 END $acl$;
 DO $parches$
-DECLARE x record; p record; def text;
+DECLARE x record; p record; def text; meta jsonb; config_esperada text[];
 BEGIN
  FOR x IN SELECT * FROM (VALUES
 ('leer_contratos_bolsa_v1(bigint,text,integer)',$old$          JOIN vec_contratacion_temporal.incorporacion_registro_v2 r ON r.recibo_ref = c.incorporacion_ref$old$,$new$          CROSS JOIN LATERAL vec_contratacion_temporal.origen_publicacion_bolsa_ct156(c.organizacion_ref,c.expediente_ref,coalesce(c.incorporacion_ref,c.incorporacion_b2_ref),c.incorporacion_protocolo) r$new$),
@@ -117,13 +117,28 @@ BEGIN
    WHERE b.organizacion_ref=preparacion->>'OrganizacionRef' AND b.expediente_ref=s->>'expediente_ref')
  THEN RAISE EXCEPTION 'CT156: expediente con origen B2' USING ERRCODE='55000'; END IF;$new$)
  ) v(firma,anterior,nuevo) LOOP
- SELECT pg_get_functiondef(q.oid) AS def,to_jsonb(q)-'prosrc' AS meta INTO STRICT p
+ SELECT pg_get_functiondef(q.oid) AS def,to_jsonb(q)-'prosrc' AS meta,
+        q.proconfig,q.prosecdef INTO STRICT p
  FROM pg_proc q WHERE q.oid=to_regprocedure('vec_contratacion_temporal.'||x.firma) AND q.proowner=current_user::regrole;
- IF length(p.def)-length(replace(p.def,x.anterior,''))<>length(x.anterior)
+ IF NOT p.prosecdef OR p.proconfig IS NULL
+    OR (SELECT count(*) FROM unnest(p.proconfig) c WHERE c LIKE 'search_path=%')<>1
+    OR NOT p.proconfig && ARRAY['search_path=pg_catalog','search_path=pg_catalog, pg_temp'] THEN
+  RAISE EXCEPTION 'CT156: entorno heredado incompatible: %',x.firma USING ERRCODE='55000';
+ END IF;
+ config_esperada:=array_replace(p.proconfig,'search_path=pg_catalog','search_path=pg_catalog, pg_temp');
+ meta:=jsonb_set(p.meta,'{proconfig}',to_jsonb(config_esperada));
+ IF p.proconfig @> ARRAY['search_path=pg_catalog'] THEN
+  EXECUTE format('ALTER FUNCTION %s SET search_path TO pg_catalog, pg_temp',
+                 to_regprocedure('vec_contratacion_temporal.'||x.firma));
+ END IF;
+ SELECT pg_get_functiondef(q.oid) INTO STRICT def FROM pg_proc q
+  WHERE q.oid=to_regprocedure('vec_contratacion_temporal.'||x.firma)
+    AND q.proconfig IS NOT DISTINCT FROM config_esperada;
+ IF length(def)-length(replace(def,x.anterior,''))<>length(x.anterior)
  THEN RAISE EXCEPTION 'CT156: preimagen incompatible: %',x.firma USING ERRCODE='55000'; END IF;
- def:=replace(p.def,x.anterior,x.nuevo); EXECUTE def;
+ def:=replace(def,x.anterior,x.nuevo); EXECUTE def;
  IF (SELECT pg_get_functiondef(q.oid) FROM pg_proc q WHERE q.oid=to_regprocedure('vec_contratacion_temporal.'||x.firma)) IS DISTINCT FROM def
- OR (SELECT to_jsonb(q)-'prosrc' FROM pg_proc q WHERE q.oid=to_regprocedure('vec_contratacion_temporal.'||x.firma)) IS DISTINCT FROM p.meta
+ OR (SELECT to_jsonb(q)-'prosrc' FROM pg_proc q WHERE q.oid=to_regprocedure('vec_contratacion_temporal.'||x.firma)) IS DISTINCT FROM meta
  THEN RAISE EXCEPTION 'CT156: firma/OID/ACL/metadatos alterados: %',x.firma USING ERRCODE='55000'; END IF;
  END LOOP;
 END $parches$;
