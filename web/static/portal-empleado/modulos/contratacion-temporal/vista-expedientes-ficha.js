@@ -61,6 +61,12 @@ export function renderizarSiguientePasoFicha(expediente, estado, t) {
     ?? expediente.tareas.find(({ estado_clave: e }) => e === "pendiente");
   const bloqueado = estado.carga !== "listo" || estado.ocupado || estado.actualizacion_pendiente
     || estado.resultado_indeterminado;
+  const mensajeBloqueo = estado.resultado_indeterminado ? "estado_resultado_indeterminado"
+    : (estado.ocupado ? "estado_registrando_actuacion"
+      : (estado.actualizacion_pendiente ? "estado_actualizacion_pendiente"
+        : (estado.carga === "denegado" ? "estado_denegado_expediente"
+          : (estado.carga === "error" ? "estado_error_expediente"
+            : (estado.carga === "cargando" ? "estado_cargando_expediente" : "estado_actualizacion_pendiente")))));
   const accion = bloqueado ? null
     : tarea?.acciones?.find(({ tipo, disponible }) => tipo === "efecto" && disponible === true);
   const actorLegible = (valor) => typeof valor === "string" && valor.trim() !== ""
@@ -92,8 +98,9 @@ export function renderizarSiguientePasoFicha(expediente, estado, t) {
         ${tarea ? `<div><dt>${escapar(t("siguiente_paso_quien"))}</dt><dd>${escapar(actor || t("siguiente_paso_quien_desconocido"))}</dd></div>` : ""}
         <div><dt>${escapar(t("siguiente_paso_hasta"))}</dt><dd>${escapar(plazo)}</dd></div>
       </dl>
+      <p id="ct-exp-siguiente-paso-estado" role="status" aria-live="polite" aria-atomic="true">${bloqueado ? escapar(t(mensajeBloqueo)) : ""}</p>
     </div>
-    ${terminado || espera ? "" : `<button type="button" class="boton-primario" data-ct-exp-accion="ir-tramite">${escapar(t("ficha_ir_tramite"))}</button>`}
+    ${terminado || espera ? "" : `<button type="button" class="boton-primario" data-ct-exp-accion="ir-tramite"${bloqueado ? ' disabled aria-disabled="true" aria-describedby="ct-exp-siguiente-paso-estado"' : ""}>${escapar(t("ficha_ir_tramite"))}</button>`}
   </section>`;
 }
 
