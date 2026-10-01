@@ -38,13 +38,15 @@ cp -- "$script_dir/fixture/main.go.tmpl" "$scratch/src/cmd/vecfixture/main.go"
 cp -- "$script_dir/cliente_vec/main.go.tmpl" "$scratch/vec/cmd/clientevec/main.go"
 cp -- "$script_dir/validador_runtime.sh" "$scratch/runtime.sh"
 
-# El proceso ensayado solo ve el árbol temporal, herramientas y caché Go de lectura.
-# Namespace de red aislado: únicamente loopback. Entorno reconstruido por bwrap.
+# Las copias de fuente se montan de lectura. Solo /work es escribible y su
+# tmpfs tiene una cuota total de 4 GiB. La red queda reducida a loopback.
 prlimit --cpu=570 --as=8589934592 --nproc=4096 --nofile=128 --fsize=67108864 -- \
   timeout --kill-after=5s 600s bwrap --unshare-all --new-session --cap-drop ALL --clearenv \
     --ro-bind /usr /usr --ro-bind /bin /bin --ro-bind /lib /lib --ro-bind /lib64 /lib64 \
-    --ro-bind "$cache" /modcache --bind "$scratch" /work \
-    --proc /proc --dev /dev --dir /tmp --bind "$scratch/tmp" /tmp --dir /home --chdir /work/src \
+    --ro-bind "$cache" /modcache --size 4294967296 --tmpfs /work \
+    --ro-bind "$scratch/src" /work/src --ro-bind "$scratch/vec" /work/vec \
+    --ro-bind "$scratch/runtime.sh" /work/runtime.sh \
+    --proc /proc --dev /dev --remount-ro /dev --symlink /work/tmp /tmp --dir /home --chdir /work/src \
     --setenv PATH "$sandbox_toolchain/bin:/usr/bin:/bin" --setenv GOROOT "$sandbox_toolchain" --setenv HOME /work/home \
     --setenv TMPDIR /work/tmp --setenv GOCACHE /work/cache --setenv GOMODCACHE /modcache \
     --setenv GOPROXY off --setenv GOSUMDB off --setenv GOTOOLCHAIN local --setenv GOFLAGS '-p=32' \

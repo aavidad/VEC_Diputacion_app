@@ -23,17 +23,19 @@ El ensayo exige estos resultados de `Cliente.VerificarMotivado`:
 En todos los casos comprueba las huellas calculadas por VEC sobre ambos
 contenidos. El positivo exige el formato PAdES, vínculo con el original, certificado,
 firmante y revocación vigentes; los otros resultados no pueden acreditar una
-firma. La ruta `/health` sirve solo para esperar al servicio. El ensayo no
-invoca operaciones de firma ni acepta rutas de fichero como entrada del
-cliente.
+firma. La ruta `/health` sirve solo para esperar al servicio. El ensayo
+comprueba que `/sign` responde 404 en este modo; no realiza una firma ni
+acepta rutas de fichero como entrada del cliente.
 
 Hace falta la fuente local en `~/Trabajo/AutofirmaV2-vec-verificacion`, la
 caché Go poblada y `bwrap`, `rsync`, `go`, `jq`, `curl`, `base64`, `prlimit` y
 `timeout`. `AUTOFIRMAV2_SOURCE` permite elegir otra copia local.
 `VEC_E3_SCRATCH_PARENT` permite elegir otro directorio desechable; por defecto
 usa `/dev/shm/go-build`. El proceso queda en un espacio de nombres sin red
-externa, con solo loopback, entorno mínimo, fuente y toolchain de lectura,
-escritura limitada a `/work` y un máximo de 600 segundos. Al salir se eliminan
+externa, con solo loopback y entorno mínimo. Las copias desechables de ambas
+fuentes se montan de lectura en `/work/src` y `/work/vec`; el proceso escribe
+en una tmpfs privada `/work` con tope total de 4 GiB y dispone de un máximo
+de 600 segundos. El toolchain y la caché de módulos son de lectura. Al salir se eliminan
 PDF, claves, certificados, CRL, tokens, respuestas, registros y binarios.
 
 La prueba usa material sintético. Acredita el contrato técnico local entre

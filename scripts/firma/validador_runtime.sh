@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-mkdir -p /work/datos/crl
+mkdir -p /work/datos/crl /work/home /work/tmp /work/cache /work/bin
 
 (
   cd /work/src
@@ -50,4 +50,9 @@ cliente nombre_incorrecto
 cliente credencial_incorrecta
 cliente firmado_alterado
 
-echo 'Ensayo real VEC→GrxFirma: siete casos, TLS 1.3 y CA local verificados'
+# El servicio de solo verificación no monta la ruta de firma.
+status="$(curl -sS --tlsv1.3 --tls-max 1.3 --max-time 5 -o /work/ruta.json -w '%{http_code}' \
+  --cacert "$tls_ca" -H "Authorization: Bearer $(cat /work/datos/token)" \
+  -d '{}' https://127.0.0.1:63118/sign)"
+[[ "$status" == 404 ]] || { echo "La ruta /sign respondió $status" >&2; exit 1; }
+echo 'Ensayo real VEC→GrxFirma: siete casos, TLS 1.3, CA local y /sign=404 verificados'
