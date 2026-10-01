@@ -24,6 +24,9 @@ func TestCLICotejoESENDeterministaYHuellaLocal(t *testing.T) {
 		if !bytes.Equal(a.Bytes(), otra.Bytes()) || !strings.Contains(a.String(), `"estado_global": "pendiente"`) || !strings.Contains(a.String(), `"bases_verificadas": false`) {
 			t.Fatal("exportación incoherente")
 		}
+		if !strings.Contains(a.String(), `"etiqueta_clave": "carrera.cotejo.dictamen_ensayo"`) || !strings.Contains(a.String(), `"carrera.cotejo.estado.no_cumple"`) {
+			t.Fatal("renombra referencias técnicas del sobre")
+		}
 		if !strings.Contains(a.String(), map[string]string{"es": "Dictamen aportado de ensayo", "en": "Supplied trial opinion"}[locale]) {
 			t.Fatal("no traduce límite")
 		}

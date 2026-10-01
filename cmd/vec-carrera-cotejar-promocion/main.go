@@ -14,6 +14,50 @@ import (
 	"vec-diputacion-granada/internal/shared/i18n"
 )
 
+// El catálogo usa claves simples; los códigos técnicos del sobre conservan
+// sus referencias originales para mantener el contrato de entrada y salida.
+func claveTexto(codigo string) string {
+	switch codigo {
+	case "carrera.cotejo.dictamen_ensayo":
+		return "dictamenensayo"
+	case "carrera.cotejo.huella_local":
+		return "huellalocal"
+	case "carrera.cotejo.error.no_disponible":
+		return "errornodisponible"
+	case "carrera.cotejo.error.consulta_invalida":
+		return "errorconsultainvalida"
+	case "carrera.cotejo.error.json_invalido":
+		return "errorjsoninvalido"
+	case "carrera.cotejo.motivo.cumple_aportado":
+		return "motivocumpleaportado"
+	case "carrera.cotejo.motivo.no_cumple_aportado":
+		return "motivonocumpleaportado"
+	case "carrera.cotejo.motivo.pendiente_aportado":
+		return "motivopendienteaportado"
+	case "carrera.cotejo.guarda.texto_libre":
+		return "guardatextolibre"
+	case "carrera.cotejo.guarda.regla_ausente":
+		return "guardareglaausente"
+	case "carrera.cotejo.guarda.soporte_ausente":
+		return "guardasoporteausente"
+	case "carrera.cotejo.pendiente.seleccion_nominal":
+		return "pendienteseleccionnominal"
+	case "carrera.cotejo.pendiente.lector_personal_rum":
+		return "pendientelectorpersonalrum"
+	case "carrera.cotejo.pendiente.h08":
+		return "pendienteh08"
+	case "carrera.cotejo.pendiente.admision":
+		return "pendienteadmision"
+	case "carrera.cotejo.estado.cumple":
+		return "estadocumple"
+	case "carrera.cotejo.estado.no_cumple":
+		return "estadonocumple"
+	case "carrera.cotejo.estado.pendiente":
+		return "estadopendiente"
+	}
+	return codigo
+}
+
 var localeValido = regexp.MustCompile(`^[a-z]{2}$`)
 
 func catalogo(dir, locale string) (*i18n.Catalog, error) {
@@ -50,7 +94,7 @@ func catalogo(dir, locale string) (*i18n.Catalog, error) {
 		return nil, adapter.ErrEntrada
 	}
 	for _, clave := range []string{"carrera.cotejo.dictamen_ensayo", "carrera.cotejo.huella_local"} {
-		if texto, ok := c.Message(locale, clave); !ok || texto == "" {
+		if texto, ok := c.Message(locale, claveTexto(clave)); !ok || texto == "" {
 			return nil, adapter.ErrEntrada
 		}
 	}
@@ -84,7 +128,7 @@ func run(args []string, in io.Reader, out, errOut io.Writer) int {
 				EstadoGlobal string `json:"estado_global"`
 				Etiqueta     string `json:"etiqueta"`
 				Huella       string `json:"huella_consulta_sha256"`
-			}{"pendiente", c.T(*locale, "carrera.cotejo.huella_local"), h}
+			}{"pendiente", c.T(*locale, claveTexto("carrera.cotejo.huella_local")), h}
 		}
 	} else if err == nil {
 		r, fallo := (application.Servicio{}).CotejarPromocionSintetica(context.Background(), e.Consulta, adapter.Lector{Dictamen: e.Dictamen})
@@ -92,7 +136,7 @@ func run(args []string, in io.Reader, out, errOut io.Writer) int {
 		if err == nil {
 			motivos := []string{}
 			for _, comprobacion := range r.Dictamen.Comprobaciones {
-				texto, ok := c.Message(*locale, comprobacion.MotivoClave)
+				texto, ok := c.Message(*locale, claveTexto(comprobacion.MotivoClave))
 				if !ok {
 					err = adapter.ErrEntrada
 					break
@@ -104,7 +148,7 @@ func run(args []string, in io.Reader, out, errOut io.Writer) int {
 				for _, fila := range r.Resultados {
 					for _, clave := range []string{"carrera.cotejo.estado." + fila.EstadoMostrado, fila.MotivoGuardaClave} {
 						if clave != "" {
-							texto, ok := c.Message(*locale, clave)
+							texto, ok := c.Message(*locale, claveTexto(clave))
 							if !ok {
 								err = adapter.ErrEntrada
 								break
@@ -114,7 +158,7 @@ func run(args []string, in io.Reader, out, errOut io.Writer) int {
 					}
 				}
 				for _, clave := range r.Pendientes {
-					texto, ok := c.Message(*locale, clave)
+					texto, ok := c.Message(*locale, claveTexto(clave))
 					if !ok {
 						err = adapter.ErrEntrada
 						break
@@ -127,7 +171,7 @@ func run(args []string, in io.Reader, out, errOut io.Writer) int {
 					Resultado application.CotejoPromocionSintetico `json:"resultado"`
 					Motivos   []string                             `json:"motivos"`
 					Textos    map[string]string                    `json:"textos"`
-				}{c.T(*locale, r.EtiquetaClave), r, motivos, textos}
+				}{c.T(*locale, claveTexto(r.EtiquetaClave)), r, motivos, textos}
 			}
 		}
 	}
@@ -141,7 +185,7 @@ func run(args []string, in io.Reader, out, errOut io.Writer) int {
 	if err != nil {
 		mensaje := ""
 		if c != nil {
-			mensaje = c.T(*locale, err.Error())
+			mensaje = c.T(*locale, claveTexto(err.Error()))
 		}
 		if json.NewEncoder(errOut).Encode(struct {
 			Clave   string `json:"error_clave"`
