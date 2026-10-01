@@ -872,8 +872,8 @@ fecha de efectos y fecha hasta la que se conocían los hechos. La historia se
 consulta por apartado y periodo acotado, con páginas de tamaño limitado y
 orden estable. Cada página exige comprobar de nuevo el permiso y el vínculo
 entre la persona autenticada y su único empleado canónico. El cursor queda
-ligado a empleado, perfil, consulta, periodo y corte; no permite cambiar de
-ficha. El navegador no elige empleado ni organismo para una consulta propia.
+ligado a empleado, perfil, consulta, apartado, periodo, corte y orden; no
+permite cambiar de ficha. El navegador no elige empleado ni organismo para una consulta propia.
 
 Personal conserva relaciones, ocupaciones, situaciones y servicios, incluidas
 las revisiones y rectificaciones como hechos nuevos enlazados. RPT conserva
