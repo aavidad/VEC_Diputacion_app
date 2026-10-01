@@ -10,7 +10,7 @@ test("la vista existente ofrece ayuda nativa ligada al esquema y corte recibido 
   const estado = { carga: "listo", datos };
   const antes = structuredClone(datos);
   const html = renderizarVistaEstadisticas({ estadoEstadisticas: estado, filtros: {}, fichaIndicadores: ficha });
-  assert.match(html, /<details data-ct-ayuda-indicadores><summary aria-label=/);
+  assert.match(html, /<details data-ct-ayuda-indicadores><summary class="boton-secundario boton-icono" aria-label=/);
   assert.match(html, /Corte de la respuesta consultada: 73/);
   assert.match(html, /vec.ct.estadisticas.v1/);
   assert.doesNotMatch(html, /data-analitica-cerrar/);

@@ -220,7 +220,7 @@ export function renderizarFormularioFiltros({ periodo = "mensual", desde = "", h
 export function renderizarAyudaIndicadoresEstadisticas(ficha, respuesta = null) {
   if (!ficha) return "";
   const titulo = escaparHTML(ficha.textos.traducir("ayuda"));
-  return `<details data-ct-ayuda-indicadores><summary aria-label="${titulo}">?</summary>
+  return `<details data-ct-ayuda-indicadores><summary class="boton-secundario boton-icono" aria-label="${titulo}">?</summary>
     ${renderizarFichaIndicadores({ ...ficha, respuesta, conCierre: false })}</details>`;
 }
 
