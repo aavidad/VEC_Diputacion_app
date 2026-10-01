@@ -64,6 +64,30 @@ origen real de los fichajes (terminales) y su integración.
 
 ## Estado al 25 de septiembre de 2026
 
+### Inventario de continuación — 1 de octubre de 2026
+
+Revisado sobre `origin/main@460e120c2ec9c2d4953d1e98bdba011403fe17e2`.
+Las PR #36, #40, #46 y #51 ya están integradas. Se reutilizan sus casos de uso,
+adaptadores, rutas y pantallas; las ramas anteriores no aportan una implementación
+completa de los huecos siguientes.
+
+| Orden | Recorrido existente | Trabajo que falta |
+| --- | --- | --- |
+| 1 | Fichaje remoto con disponibilidad y recuperación del recibo | Actualizar la lectura tras confirmar, conservar el recibo y seguir únicamente con los movimientos que autorice el servidor. Integración de terminales pendiente. |
+| 2 | Saldo propio en cinco periodos y calendario anual | Paginar la consulta anual y reintentar lecturas conservando el periodo. El saldo aún no computa permisos concedidos; Calendarios sigue siendo una dependencia distinta. |
+| 3 | Solicitud de olvido, ausencias y correcciones propias | Localizar pendientes por estado. Decisión del responsable, resolución RRHH y aplicación carecen de adaptador durable operativo. Justificar un permiso sigue pendiente. |
+| 4 | Bandejas de permisos y notificaciones de responsable y RRHH | Presencia del equipo, agregados e informes de jornada. Descarga e impresión necesitan permiso y servicio documental propios. |
+
+La autorización actual de correcciones solo permite solicitar el olvido.
+`RegistrarActuacion` y `RecuperarRecibo` fallan cerrados. El borrador CRN11,
+reservado fuera de Git, necesita un consumidor V3 nominal posterior a la cadena
+ordenada por Dirección; no puede reutilizar el permiso de solicitud.
+
+La composición interna existente se usa como referencia de laboratorio. No
+acredita un ejecutable Cronos segregado, una base instalada ni un recorrido real.
+Las mejoras de presentación no cambian el cierre formal **0/12** ni aprueban
+jornadas, catálogo, competencias o reglas laborales.
+
 Contrastado con `origin/main` = `2ad54ce4` (PR #36, #40, #46 y #51) y con
 `web/static/portal-empleado/modulos/cronos/INTEGRACION.md`. «Formal» aplica la definición
 de terminado del consenso de hoja de ruta del 24/09 (recorrido real en PostgreSQL con
