@@ -115,6 +115,29 @@ func comprobarPlantillasReales(ctx context.Context, e puertos.Entorno, t *testin
 	if err != nil || string(after) != string(original) {
 		return errors.New("template0_modificada")
 	}
+	// Renombrado real entre comprobación y DROP: el nombre desaparece, el OID
+	// continúa vivo. Una respuesta ambigua no acredita retirada individual.
+	if err = p.CrearClonPlantilla(ctx, "template0", p.NombreClon()); err != nil {
+		return err
+	}
+	renombrado := p.NombreClon() + "_renombrado"
+	p.antesTecnico = func(sql string) error {
+		if strings.HasPrefix(sql, "DROP DATABASE") {
+			p.antesTecnico = nil
+			return p.tecnico(ctx, `ALTER DATABASE "`+p.NombreClon()+`" RENAME TO "`+renombrado+`"`)
+		}
+		return nil
+	}
+	if p.RetirarClonPlantilla(ctx, p.NombreClon()) == nil || p.propiedad == nil {
+		return errors.New("renombrado_durante_drop_acreditado_como_retirada")
+	}
+	// Reconciliación/teardown de la fixture propia, sin ampliar la API del puente.
+	if err = p.tecnico(ctx, `ALTER DATABASE "`+renombrado+`" RENAME TO "`+p.NombreClon()+`"`); err != nil {
+		return err
+	}
+	if err = p.RetirarClonPlantilla(ctx, p.NombreClon()); err != nil {
+		return err
+	}
 	// Revalidación de ventana/imagen/artefacto: no se sustituye por un booleano.
 	fuente.d.VentanaRef = "ventana:otra"
 	if _, err = p.ObservarProcedenciaFisica(ctx); err == nil {

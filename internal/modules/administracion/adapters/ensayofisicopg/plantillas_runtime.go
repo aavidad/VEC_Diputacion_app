@@ -43,6 +43,7 @@ type RuntimePlantillas struct {
 	propiedad      *metadatosClon
 	pendiente      bool
 	despuesTecnico func(string, error) error
+	antesTecnico   func(string) error
 }
 type metadatosClon struct {
 	OID         string `json:"oid"`
@@ -167,6 +168,11 @@ func (p *RuntimePlantillas) propietarioActual(ctx context.Context) (string, erro
 func (p *RuntimePlantillas) tecnico(ctx context.Context, sql string) error {
 	if _, err := p.runtime.ComprobarExclusion(ctx); err != nil {
 		return falloPlantilla("exclusion_tecnica")
+	}
+	if p.antesTecnico != nil {
+		if err := p.antesTecnico(sql); err != nil {
+			return falloPlantilla("preimagen_tecnica")
+		}
 	}
 	_, err := docker(ctx, nil, 4096, "exec", p.runtime.Nombre, "env", "-i", "PATH=/usr/bin:/bin", "LANG=C", "LC_ALL=C", "PGHOST=/var/run/postgresql", "PGOPTIONS=-c default_transaction_read_only=off", "psql", "-X", "-At", "-v", "ON_ERROR_STOP=1", "-U", p.runtime.UsuarioBootstrap, "-d", "postgres", "-c", sql)
 	if p.despuesTecnico != nil {
@@ -310,6 +316,9 @@ func (p *RuntimePlantillas) retirar(ctx context.Context, clon string) error {
 			return dropErr
 		}
 		return falloPlantilla("retirada_no_comprobable")
+	}
+	if err := p.confirmarOIDRetirado(revisar, p.propiedad.OID); err != nil {
+		return err
 	}
 	p.propiedad = nil
 	p.pendiente = false
