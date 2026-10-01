@@ -1,0 +1,44 @@
+{
+  "version": "propuesta:liquidacion:ejemplo:v1",
+  "estado": "ejemplo",
+  "vigente_desde": "2026-10-01",
+  "vigente_hasta": null,
+  "referencia_catalogo": "propuesta:catalogo:dietas:ejemplo",
+  "version_tarifa_ref": "provisional:ejemplo:20261001",
+  "fuentes": [
+    "https://www.boe.es/buscar/act.php?id=BOE-A-2002-10337#a10",
+    "https://www.boe.es/buscar/doc.php?id=BOE-A-2005-19988",
+    "https://www.boe.es/buscar/doc.php?id=BOE-A-2023-16462"
+  ],
+  "tarifas": [
+    {
+      "id": "propuesta:regla:manutencion:grupo2",
+      "concepto": "manutencion",
+      "grupo": 2,
+      "pais": "ES",
+      "moneda": "EUR",
+      "importe_centimos": 3740,
+      "unidad": "importe"
+    },
+    {
+      "id": "propuesta:regla:km:vehiculo-propio",
+      "concepto": "vehiculo_propio",
+      "grupo": null,
+      "pais": "ES",
+      "moneda": "EUR",
+      "importe_centimos": 26,
+      "unidad": "kilometro"
+    }
+  ],
+  "historia": [
+    {
+      "fecha": "2026-10-01",
+      "actor": "Elena Martín",
+      "accion": "preparacion_ejemplo",
+      "motivo": "Preparación sintética del catálogo de ejemplo para revisar su presentación.",
+      "idioma_motivo": "es",
+      "version": "propuesta:liquidacion:ejemplo:v1",
+      "estado": "ejemplo"
+    }
+  ]
+}
