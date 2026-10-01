@@ -230,6 +230,8 @@ test("el traductor real carga ambas lenguas y exige catálogo completo", async (
     const extension = (await cargarTextos("cronos-incidencias", { idioma })).seccion("incidencias");
     const html = renderizarMovimientosPropiosCronos({ estado: "listo", anio: 2026, datos: datos(), mensajes: { ...base, ...extension }, locale: idioma });
     assert.match(html, idioma === "en" ? /Next step/ : /Siguiente paso/);
+    assert.match(html, idioma === "en" ? /Calendar view/ : /Vista del calendario/);
+    assert.match(html, idioma === "en" ? /Day details/ : /Detalle del día/);
     assert.doesNotMatch(html, /undefined/);
   }
   assert.throws(() => crearTraductorIncidenciasCronos({ siguiente_paso: "" }), /incompleto/);
@@ -261,4 +263,105 @@ test("Actualizar restaura el foco del teclado después de la carga sin robar foc
   assert.equal(enfocado, n + 1, "un control externo conserva el foco");
   assert.equal(nodo.ownerDocument.activeElement, externo);
   vista.desmontar();
+});
+
+function cambiarCalendario(nodo, atributo, value) {
+  nodo.eventos.change({ type: "change", target: { value, hasAttribute: (nombre) => nombre === atributo } });
+}
+function datosAnio(consulta) {
+  const anio = consulta.desde?.slice(0, 4) || String(new Date().getFullYear());
+  const d = JSON.parse(JSON.stringify(datos()).replaceAll("2026", anio));
+  d.periodo.tipo = consulta.periodo;
+  return d;
+}
+
+test("año/mes muestran sólo el periodo elegido y el detalle contiene únicamente marcas recibidas", () => {
+  const anual = renderizarMovimientosPropiosCronos({ estado: "listo", anio: 2026, datos: datos(), fechaSeleccionada: "2026-09-22" });
+  const mensual = renderizarMovimientosPropiosCronos({ estado: "listo", anio: 2026, datos: datos(), vistaCalendario: "mes", fechaSeleccionada: "2026-09-22" });
+  assert.equal((anual.match(/data-fecha=/g) || []).length, 365);
+  assert.equal((mensual.match(/data-fecha=/g) || []).length, 30);
+  assert.match(mensual, /data-calendario-vista="mes"/);
+  assert.doesNotMatch(mensual, /data-fecha="2026-01-06"/);
+  assert.match(mensual, /Detalle del día/);
+  assert.match(mensual, /Ausencia: Traslado de domicilio/);
+  assert.match(mensual, /data-calendario-estado="disponible"/);
+  const vacio = renderizarMovimientosPropiosCronos({ estado: "listo", anio: 2026, datos: datos(false), vistaCalendario: "mes", fechaSeleccionada: "2026-09-26" });
+  assert.match(vacio, /data-calendario-estado="no_configurado"/);
+  assert.match(vacio, /No hay datos registrados para esta fecha/);
+  assert.doesNotMatch(vacio, /data-fecha="2026-09-26" data-tipos/);
+  const d = datos(); d.calendario.dias[0].nombre = '<img src=x onerror="1">';
+  const seguro = renderizarMovimientosPropiosCronos({ estado: "listo", anio: 2026, datos: d, fechaSeleccionada: "2026-01-06" });
+  assert.match(seguro, /Festivo: &lt;img/); assert.doesNotMatch(seguro, /<img/);
+  for (const fechaSeleccionada of ["2026-02-29", "2025-12-31", "2101-01-01"]) {
+    assert.throws(() => renderizarMovimientosPropiosCronos({ anio: 2026, fechaSeleccionada }), /vista de calendario/);
+  }
+  d.periodo.desde = "2026-01-02";
+  assert.match(renderizarMovimientosPropiosCronos({ estado: "listo", anio: 2026, datos: d }), /data-estado="error"/);
+});
+
+test("navegar dentro del año reutiliza la consulta y conserva filtros y borrador", async () => {
+  const { nodo, raiz } = raizFalsa(); let consultas = 0;
+  const vista = montarMovimientosPropiosCronos({ raiz, anio: 2026, fechaSeleccionada: "2026-01-31", abrirOlvido: true, cliente: {
+    ...clienteConsulta(), consultarMovimientos: async (c) => { consultas++; return datosConsulta(c); },
+  } });
+  await esperar();
+  editar(nodo, "hora_pretendida", "07:35"); cambiar(nodo, "estado", "pendiente_responsable");
+  cambiarCalendario(nodo, "data-cronos-cal-vista", "mes");
+  pulsar(nodo, "[data-cronos-cal-mes]", { cronosCalMes: "1" });
+  assert.equal((nodo.innerHTML.match(/data-fecha=/g) || []).length, 28);
+  assert.match(nodo.innerHTML, /data-cronos-cal-fecha[^>]*value="2026-02-28"/);
+  cambiarCalendario(nodo, "data-cronos-cal-mes-elegido", "9");
+  cambiarCalendario(nodo, "data-cronos-cal-fecha", "2026-09-21");
+  assert.match(nodo.innerHTML, /Marcajes: 4/);
+  assert.match(nodo.innerHTML, /value="pendiente_responsable" selected/);
+  assert.match(nodo.innerHTML, /name="hora_pretendida" required value="07:35"/);
+  assert.equal(consultas, 1);
+  await vista.actualizar();
+  assert.match(nodo.innerHTML, /data-calendario-vista="mes"/);
+  assert.match(nodo.innerHTML, /data-cronos-cal-fecha[^>]*value="2026-09-21"/);
+  assert.equal(consultas, 2);
+  cambiarCalendario(nodo, "data-cronos-cal-fecha", "2026-02-30");
+  cambiarCalendario(nodo, "data-cronos-cal-mes-elegido", "13");
+  assert.equal(consultas, 2);
+  assert.match(nodo.innerHTML, /data-cronos-cal-fecha[^>]*value="2026-09-21"/);
+  vista.desmontar();
+});
+
+test("salto mensual de año cancela la lectura anterior y nunca pinta otro año", async () => {
+  const { nodo, raiz } = raizFalsa(); const vieja = diferido(); const lecturas = []; const avisos = [];
+  const vista = montarMovimientosPropiosCronos({ raiz, anio: 2025, fechaSeleccionada: "2025-12-31", vistaCalendario: "mes", anunciar: (v) => avisos.push(v), cliente: {
+    ...clienteConsulta(), consultarMovimientos: async (consulta, { signal }) => {
+      lecturas.push({ consulta, signal });
+      return lecturas.length === 1 ? vieja.promesa : datosAnio(consulta);
+    },
+  } });
+  // Durante carga el salto anual sigue disponible; la antigua queda cancelada.
+  pulsar(nodo, "[data-cronos-anio]", { cronosAnio: "1" });
+  await esperar();
+  assert.equal(lecturas[0].signal.aborted, true);
+  vieja.resolver(datosAnio(lecturas[0].consulta)); await esperar();
+  assert.match(nodo.innerHTML, /data-estado="listo"/);
+  assert.match(nodo.innerHTML, /data-cronos-cal-fecha[^>]*value="2026-12-31"/);
+  pulsar(nodo, "[data-cronos-cal-mes]", { cronosCalMes: "1" }); await esperar();
+  assert.deepEqual(lecturas[2].consulta, { periodo: "rango", desde: "2027-01-01", hasta: "2027-12-31" });
+  assert.match(nodo.innerHTML, /data-cronos-cal-fecha[^>]*value="2027-01-31"/);
+  assert.doesNotMatch(nodo.innerHTML, /data-fecha="2026-/);
+  const n = avisos.length;
+  vista.desmontar(); assert.equal(lecturas[2].signal.aborted, true);
+  await vista.actualizar(); assert.equal(lecturas.length, 3); assert.equal(avisos.length, n);
+});
+
+test("límites de calendario no generan lecturas ni fechas fuera de contrato", async () => {
+  for (const [anio, fecha, paso] of [[2000, "2000-01-01", "-1"], [2100, "2100-12-31", "1"]]) {
+    const { nodo, raiz } = raizFalsa(); let consultas = 0;
+    const vista = montarMovimientosPropiosCronos({ raiz, anio, fechaSeleccionada: fecha, vistaCalendario: "mes", cliente: {
+      ...clienteConsulta(), consultarMovimientos: async (c) => { consultas++; return datosAnio(c); },
+    } });
+    await esperar();
+    assert.match(nodo.innerHTML, new RegExp(`data-cronos-cal-mes="${paso}" disabled`));
+    pulsar(nodo, "[data-cronos-cal-mes]", { cronosCalMes: paso });
+    assert.equal(consultas, 1);
+    assert.match(nodo.innerHTML, new RegExp(`value="${fecha}"`));
+    vista.desmontar();
+  }
 });

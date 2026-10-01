@@ -27,6 +27,21 @@
     "pagina_anterior": "Previous page",
     "pagina_siguiente": "Next page",
     "mostrando": "Showing {desde} to {hasta} of {total}",
-    "resultados": "{correcciones} corrections and {ausencias} absences in the filtered period."
+    "resultados": "{correcciones} corrections and {ausencias} absences in the filtered period.",
+    "calendario_vista": "Calendar view",
+    "calendario_vista_anio": "Full year",
+    "calendario_vista_mes": "Month",
+    "calendario_elegir_mes": "Month",
+    "calendario_mes_anterior": "Previous month",
+    "calendario_mes_siguiente": "Next month",
+    "calendario_fecha": "View date",
+    "calendario_hoy": "Go to today",
+    "calendario_disponible": "Calendar available",
+    "calendario_no_configurado": "Work calendar not available",
+    "calendario_detalle_dia": "Day details",
+    "calendario_sin_datos_dia": "There are no records for this date.",
+    "calendario_marcajes_dia": "Clockings: {cantidad}",
+    "calendario_dato_dia": "{tipo}: {nombre}",
+    "calendario_olvido_dia": "{tipo}: {hora} · {movimiento} · {estado}"
   }
 }
