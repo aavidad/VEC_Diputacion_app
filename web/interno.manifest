@@ -460,6 +460,14 @@ static/textos/es/formacion.json
 static/textos/en/formacion.json
 static/textos/es/carrera.json
 static/textos/en/carrera.json
+static/portal-empleado/modulos/analitica/ficha-indicadores.js
+static/portal-empleado/modulos/analitica/catalogo-indicadores.json
+static/textos/es/analitica.json
+static/textos/en/analitica.json
+static/textos/es/solicitudes-ejemplos.json
+static/textos/en/solicitudes-ejemplos.json
+static/textos/es/solicitudes.json
+static/textos/en/solicitudes.json
 static/portal-empleado/modulos/cronos/i18n-bandeja-notificaciones.js
 static/textos/es/cronos-bandeja-notificaciones.json
 static/textos/en/cronos-bandeja-notificaciones.json
