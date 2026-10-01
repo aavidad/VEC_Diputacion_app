@@ -43,6 +43,7 @@ type LectorSnapshotEnsayoPresencia interface {
 type EstadoPersonaEnsayoPresencia struct {
 	PersonaRef        string                 `json:"persona_ref"`
 	Estado            domain.EstadoPresencia `json:"estado"`
+	Motivo            domain.CausaPresencia  `json:"motivo,omitempty"`
 	CoberturaCompleta bool                   `json:"cobertura_completa"`
 }
 type AgregadoEnsayoPresencia struct {

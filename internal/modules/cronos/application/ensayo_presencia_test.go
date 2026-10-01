@@ -29,7 +29,7 @@ func TestEnsayoPresenciaSeleccionExactaYAgregadoCoherente(t *testing.T) {
 	s.Personas[0], s.Personas[1] = s.Personas[1], s.Personas[0]
 	llamadas := 0
 	r, err := EnsayarPresencia(context.Background(), lectorPresenciaTest{s, &llamadas})
-	if err != nil || llamadas != 1 || r.Personas[0].PersonaRef != s.PersonasRef[0] || r.Personas[0].Estado != domain.PresenciaRegistrada || r.Personas[1].Estado != domain.PresenciaIndeterminada || r.Agregado.Total != 2 || r.Agregado.EntradasRegistradas != 1 || r.Agregado.Indeterminado != 1 || r.SnapshotSHA256 != s.SHA256 || r.FuenteVersion != s.FuenteVersion {
+	if err != nil || llamadas != 1 || r.Personas[0].PersonaRef != s.PersonasRef[0] || r.Personas[0].Estado != domain.PresenciaRegistrada || r.Personas[1].Estado != domain.PresenciaIndeterminada || r.Personas[0].Motivo != "" || r.Personas[1].Motivo != domain.SinMarcajes || r.Agregado.Total != 2 || r.Agregado.EntradasRegistradas != 1 || r.Agregado.Indeterminado != 1 || r.SnapshotSHA256 != s.SHA256 || r.FuenteVersion != s.FuenteVersion {
 		t.Fatalf("%+v %v", r, err)
 	}
 }
@@ -86,7 +86,7 @@ func TestEnsayoCoberturaParcialNuncaAfirmaEstado(t *testing.T) {
 	parcial := false
 	s.Personas[0].CompletaHastaCorte = &parcial
 	r, err := EnsayarPresencia(context.Background(), lectorPresenciaTest{s, nil})
-	if err != nil || r.Personas[0].Estado != domain.PresenciaIndeterminada || r.Personas[0].CoberturaCompleta || r.Agregado.Indeterminado != 2 {
+	if err != nil || r.Personas[0].Estado != domain.PresenciaIndeterminada || r.Personas[0].Motivo != domain.CoberturaIncompleta || r.Personas[0].CoberturaCompleta || r.Agregado.Indeterminado != 2 {
 		t.Fatalf("%+v %v", r, err)
 	}
 }

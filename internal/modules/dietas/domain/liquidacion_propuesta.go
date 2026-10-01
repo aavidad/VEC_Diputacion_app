@@ -19,14 +19,15 @@ var codigoMotivoLiquidacion = regexp.MustCompile(`^[a-z][a-z0-9_]{2,79}$`)
 
 // El catálogo importado restringe propuestas; no publica tarifas ni concede competencias.
 type CatalogoLiquidacionPropuesta struct {
-	Referencia       string                      `json:"referencia"`
-	Version          string                      `json:"version"`
-	VersionTarifaRef string                      `json:"version_tarifa_ref"`
-	PaisISO2         string                      `json:"pais_iso2"`
-	Ambito           string                      `json:"ambito"`
-	Procedencia      string                      `json:"procedencia"`
-	Fuentes          []string                    `json:"fuentes"`
-	Reglas           []ReglaLiquidacionPropuesta `json:"reglas"`
+	Referencia                    string                      `json:"referencia"`
+	Version                       string                      `json:"version"`
+	VersionTarifaRef              string                      `json:"version_tarifa_ref"`
+	CatalogoOtrosGastosVersionRef string                      `json:"catalogo_otros_gastos_version_ref,omitempty"`
+	PaisISO2                      string                      `json:"pais_iso2"`
+	Ambito                        string                      `json:"ambito"`
+	Procedencia                   string                      `json:"procedencia"`
+	Fuentes                       []string                    `json:"fuentes"`
+	Reglas                        []ReglaLiquidacionPropuesta `json:"reglas"`
 }
 type ReglaLiquidacionPropuesta struct {
 	Referencia    string `json:"referencia"`
@@ -118,9 +119,10 @@ func PrepararLiquidacion(ref string, version int64, documentoSHA string, d Docum
 	indices := map[int]bool{}
 	lineas := make([]LineaLiquidacionPropuesta, len(d.Lineas))
 	var totales TotalesLiquidacionPropuesta
-	var manutencion, km int64
+	var manutencion, km, otros int64
 	tramos := make([]int, 0)
 	rutas := 0
+	otrosLineas := 0
 	for _, v := range revisiones {
 		if v.Indice < 0 || v.Indice >= len(d.Lineas) || indices[v.Indice] {
 			return nil, ErrPreparacionLiquidacion
@@ -159,6 +161,15 @@ func PrepararLiquidacion(ref string, version int64, documentoSHA string, d Docum
 			if !sumarLiquidacion(&km, l.ImporteCentimos) {
 				return nil, ErrPreparacionLiquidacion
 			}
+		case ClaseOtroMedio, ClaseOtroGasto:
+			otrosLineas++
+			if otrosLineas > 32 || l.TipoGasto != r.Concepto || l.CatalogoVersion != c.CatalogoOtrosGastosVersionRef || l.JustificanteRef == nil || l.JustificanteSHA256 == nil {
+				return nil, ErrPreparacionLiquidacion
+			}
+			gasto := OtroGastoDeclarado{Tipo: l.Tipo, Concepto: l.Concepto, ImporteCentimos: l.ImporteCentimos, JustificanteRef: *l.JustificanteRef, JustificanteSHA256: *l.JustificanteSHA256, TipoGasto: l.TipoGasto, CatalogoVersion: l.CatalogoVersion, Fecha: l.Fecha}
+			if gasto.validarComun() != nil || !sumarLiquidacion(&otros, l.ImporteCentimos) {
+				return nil, ErrPreparacionLiquidacion
+			}
 		default:
 			return nil, ErrPreparacionLiquidacion
 		}
@@ -185,7 +196,7 @@ func PrepararLiquidacion(ref string, version int64, documentoSHA string, d Docum
 			}
 		}
 	}
-	if len(tramos) != len(d.TramosAceptados) || d.AlojamientoTopeCentimos != 0 || manutencion != d.ManutencionCentimos || km != d.KilometrajeCentimos || d.OtrosCentimos != 0 || totales.OriginalCentimos != d.TotalOrientativoCentimos || totales.ReconocidoPropuestoCentimos > math.MaxInt64-totales.RechazadoCentimos || totales.ReconocidoPropuestoCentimos+totales.RechazadoCentimos != totales.OriginalCentimos {
+	if len(tramos) != len(d.TramosAceptados) || d.AlojamientoTopeCentimos != 0 || manutencion != d.ManutencionCentimos || km != d.KilometrajeCentimos || otros != d.OtrosCentimos || totales.OriginalCentimos != d.TotalOrientativoCentimos || totales.ReconocidoPropuestoCentimos > math.MaxInt64-totales.RechazadoCentimos || totales.ReconocidoPropuestoCentimos+totales.RechazadoCentimos != totales.OriginalCentimos {
 		return nil, ErrPreparacionLiquidacion
 	}
 	for i, n := range tramos {
@@ -217,6 +228,7 @@ func validarCatalogoLiquidacion(c CatalogoLiquidacionPropuesta) error {
 	}
 	refs := map[string]bool{}
 	claves := map[string]bool{}
+	hayD5 := false
 	for _, r := range c.Reglas {
 		if !referenciaJustificante.MatchString(r.Referencia) || refs[r.Referencia] || r.TopeCentimos < 0 || r.CentimosPorKM < 0 {
 			return ErrPreparacionLiquidacion
@@ -236,9 +248,18 @@ func validarCatalogoLiquidacion(c CatalogoLiquidacionPropuesta) error {
 			if r.Concepto != "vehiculo_propio" || r.Grupo != 0 || r.TopeCentimos != 0 || r.CentimosPorKM < 1 || r.CentimosPorKM > 10000 {
 				return ErrPreparacionLiquidacion
 			}
+		case ClaseOtroMedio, ClaseOtroGasto:
+			hayD5 = true
+			clase, ok := ClaseDeTipoOtroGasto(c.CatalogoOtrosGastosVersionRef, r.Concepto)
+			if !ok || clase != r.Tipo || r.Grupo != 0 || r.TopeCentimos < 1 || r.CentimosPorKM != 0 {
+				return ErrPreparacionLiquidacion
+			}
 		default:
 			return ErrPreparacionLiquidacion
 		}
+	}
+	if !hayD5 && c.CatalogoOtrosGastosVersionRef != "" {
+		return ErrPreparacionLiquidacion
 	}
 	return nil
 }
