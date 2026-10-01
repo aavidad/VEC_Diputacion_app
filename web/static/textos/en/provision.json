@@ -18,7 +18,8 @@
     "personal": "My preparation",
     "valoracion": "Assessment",
     "tramitacion": "Procedure",
-    "adjudicacion": "Allocation"
+    "adjudicacion": "Allocation",
+    "ciclo": "Objection and review"
   },
   "campos": {
     "proceso": "Competition",
@@ -208,5 +209,50 @@
       "empate_residual": "The configured criteria do not resolve the tie. No posts have been allocated."
     },
     "restablecer": "Reset trial scenario"
+  },
+  "ciclo": {
+    "limite": "Synthetic objection and review trial. It does not register objections or change administrative data.",
+    "elegir": "Decision to trial",
+    "catalogo": "Cause catalogue version",
+    "simular": "Run objection and review trial",
+    "cronologia": "Versions retained in the trial",
+    "revision": "Review",
+    "inicial": "Initial trial assessment",
+    "reclamaciones": "Objections included in the trial",
+    "reclamacion": "Assessment {version}: {causa}",
+    "pendiente_revision": "Objection awaiting review",
+    "causa_pendiente": "Cause awaiting verification",
+    "evidencia": "Evidence reference",
+    "motivacion": "Reasoning reference",
+    "referencia_reclamacion": "Objection reference",
+    "borrador": "Draft decision",
+    "sin_efectos": "No signature, publication or official effects.",
+    "version_resolucion": "The draft retains assessment {version}.",
+    "dependencia_pendiente": "A dependency remains unresolved.",
+    "huella_versiones": "View version references",
+    "version_huella": "Version {version}: {huella}",
+    "bloqueo": "Submitting an objection or signing a decision requires an institutional case and the signature and registration procedure.",
+    "casos": {
+      "pendiente": "Leave objection pending",
+      "mantener": "Maintain the assessment",
+      "rectificar": "Correct a trial datum"
+    },
+    "decisiones": {
+      "mantener": "Assessment maintained with a reasoned review",
+      "rectificar": "Assessment recalculated from another snapshot"
+    },
+    "causas": {
+      "rectificacion_dato_ensayo": "Correction of a trial datum"
+    },
+    "pendientes": {
+      "bases_y_catalogo_sin_contraste": "Rules and catalogue awaiting verification",
+      "persistencia_institucional_pendiente": "Institutional case pending",
+      "firma_pendiente": "Signature pending",
+      "publicacion_pendiente": "Publication pending",
+      "efectos_personal_pendientes": "Effects in Personnel pending",
+      "revision_inicial_pendiente": "Initial review pending",
+      "fuentes_pendientes": "Source data pending",
+      "reclamaciones_pendientes": "Objections awaiting review"
+    }
   }
 }

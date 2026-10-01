@@ -6,6 +6,8 @@ export function crearClienteEnsayosLocal({ fetchImpl = globalThis.fetch } = {}) 
     const bytes = await respuesta.text(); if (bytes.length > 1024 * 1024) throw new Error('provision.limite'); return JSON.parse(bytes);
   }
   return Object.freeze({
+    listarCiclos: ({ signal } = {}) => enviar('/api/provision/v1/ciclos-locales', { signal }),
+    simularCiclo: ({ ejemplo_ref, caso_ref }, { signal } = {}) => enviar('/api/provision/v1/ciclos-locales/simulaciones', { method: 'POST', signal, body: JSON.stringify({ ejemplo_ref, caso_ref }) }),
     listarAdjudicaciones: ({ signal } = {}) => enviar('/api/provision/v1/adjudicaciones-locales', { signal }),
     simularAdjudicacion: ({ ejemplo_ref, configuracion }, { signal } = {}) => enviar('/api/provision/v1/adjudicaciones-locales/simulaciones', { method: 'POST', signal, body: JSON.stringify({ ejemplo_ref, configuracion }) }),
   });
