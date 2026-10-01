@@ -9,7 +9,8 @@
  * manifiesto config/contratacion_temporal_flujo_visual_rrhh_v1.json. No
  * deduce responsables ni tareas: eso solo lo dice el servidor.
  */
-import { IDIOMA_ACTUAL } from "../../../comun/idioma.js";
+import { cargarTextos } from "../../../comun/textos.js";
+import { IDIOMA_ACTUAL, IDIOMA_POR_DEFECTO, IDIOMAS_DISPONIBLES } from "../../../comun/idioma.js";
 
 export const FASES_RRHH = Object.freeze([
   "solicitud", "analisis_rrhh", "gestion_bolsa", "fiscalizacion",
@@ -35,56 +36,15 @@ const ESTADO_UNICO = Object.freeze({
 });
 
 
-const ROTULOS = Object.freeze({
-  es: Object.freeze({
-    fase_solicitud: "Solicitud",
-    fase_analisis_rrhh: "Análisis RRHH",
-    fase_gestion_bolsa: "Gestión de bolsa",
-    fase_fiscalizacion: "Fiscalización",
-    fase_obtencion_candidato: "Obtención del candidato",
-    fase_nombramiento: "Nombramiento",
-    fase_incorporacion: "Incorporación",
-    fase_seguimiento: "Seguimiento",
-    fase_de: "Fase {orden} de {total}",
-    fase_de_nombre: "Fase {orden} de {total}: {fase}",
-    estado_pendiente: "Pendiente",
-    estado_en_curso: "En trámite",
-    estado_espera: "Esperando a otra unidad",
-    estado_incidencia: "Con incidencia",
-    estado_completado: "Terminado",
-    estado_cancelado: "Cancelado",
-    linea_hecho: "Hecho",
-    linea_ahora: "Ahora",
-    linea_falta: "Falta",
-    linea_incidencia: "Incidencia",
-  }),
-  en: Object.freeze({
-    fase_solicitud: "Request",
-    fase_analisis_rrhh: "HR review",
-    fase_gestion_bolsa: "Recruitment pool",
-    fase_fiscalizacion: "Financial review",
-    fase_obtencion_candidato: "Candidate selection",
-    fase_nombramiento: "Appointment",
-    fase_incorporacion: "Start of service",
-    fase_seguimiento: "Follow-up",
-    fase_de: "Stage {orden} of {total}",
-    fase_de_nombre: "Stage {orden} of {total}: {fase}",
-    estado_pendiente: "Pending",
-    estado_en_curso: "In progress",
-    estado_espera: "Waiting for another unit",
-    estado_incidencia: "Needs attention",
-    estado_completado: "Finished",
-    estado_cancelado: "Cancelled",
-    linea_hecho: "Done",
-    linea_ahora: "Now",
-    linea_falta: "To do",
-    linea_incidencia: "Issue",
-  }),
-});
+const ROTULOS = Object.freeze(Object.fromEntries(await Promise.all(
+  IDIOMAS_DISPONIBLES.map(async ({ codigo }) => [codigo,
+    (await cargarTextos("portal", { idioma: codigo })).seccion("fases_rrhh"),
+  ]),
+)));
 
 /** Rótulo del catálogo en el idioma de la interfaz. */
 export function rotuloTramite(clave, variables = {}, idioma = IDIOMA_ACTUAL) {
-  const catalogo = ROTULOS[idioma] ?? ROTULOS.es;
+  const catalogo = ROTULOS[idioma] ?? ROTULOS[IDIOMA_POR_DEFECTO];
   if (!Object.hasOwn(catalogo, clave)) throw new Error(`falta el rótulo ${clave}`);
   return Object.entries(variables).reduce(
     (texto, [nombre, valor]) => texto.replaceAll(`{${nombre}}`, String(valor)), catalogo[clave],
@@ -150,6 +110,6 @@ export function mensajesTramite(idioma = IDIOMA_ACTUAL) {
 
 /** Las mismas claves para el catálogo del portal (portada), con prefijo propio. */
 export function mensajesTramitePortal(idioma = IDIOMA_ACTUAL) {
-  const catalogo = ROTULOS[idioma] ?? ROTULOS.es;
+  const catalogo = ROTULOS[idioma] ?? ROTULOS[IDIOMA_POR_DEFECTO];
   return Object.freeze(Object.fromEntries(Object.entries(catalogo).map(([clave, texto]) => [`tramite_${clave}`, texto])));
 }

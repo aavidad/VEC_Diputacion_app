@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { ErrorAPIBorradores } from "./portal-borradores-api.js?v=20260930-portales-i18n-integracion-v1";
-import { crearControlAccesoBorradores } from "./portal-borradores-acceso.js";
+import { ErrorAPIBorradores } from "./portal-borradores-api.js?v=20261001-codexf-ct-catalogos-v1";
+import { crearControlAccesoBorradores } from "./portal-borradores-acceso.js?v=20261001-codexf-ct-catalogos-v1";
 import { opciones } from "./portal-borradores-fixtures.test-helper.mjs";
 
 function diferida() {
