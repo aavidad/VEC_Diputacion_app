@@ -10,6 +10,26 @@ INDICE_IDIOMAS.idiomas.forEach(i => { const opt = document.createElement('option
 selector.addEventListener('change', () => { const url = new URL(location.href); url.searchParams.set('lang', selector.value); location.assign(url); });
 const raiz = document.querySelector('#espacio-trabajo'); const cliente = crearClienteProvisionLocal(); let montaje = null; let controlador = null;
 function mensaje(clave) { const p = document.createElement('p'); p.textContent = t(clave); p.setAttribute('role', 'status'); raiz.replaceChildren(p); }
+
+// El encabezado móvil es fijo; conserva el foco visible al recorrer con teclado.
+const focoActivo = new AbortController(); let frameFoco = null;
+function mantenerFocoVisible(evento) {
+  const elemento = evento.target;
+  if (!raiz.contains(elemento)) return;
+  if (frameFoco !== null) cancelAnimationFrame(frameFoco);
+  frameFoco = requestAnimationFrame(() => {
+    frameFoco = null;
+    if (focoActivo.signal.aborted || document.activeElement !== elemento || !elemento.isConnected) return;
+    const caja = elemento.getBoundingClientRect(); const espacio = raiz.getBoundingClientRect();
+    const cabecera = document.querySelector('.cabecera-portal').getBoundingClientRect();
+    const limiteSuperior = Math.max(0, cabecera.bottom, espacio.top);
+    const limiteInferior = Math.min(window.innerHeight, espacio.bottom);
+    if (caja.top < limiteSuperior || caja.bottom > limiteInferior) elemento.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' });
+  });
+}
+document.addEventListener('focusin', mantenerFocoVisible, { signal: focoActivo.signal });
+window.addEventListener('pagehide', () => { focoActivo.abort(); if (frameFoco !== null) cancelAnimationFrame(frameFoco); });
+
 async function cargar() {
   controlador?.abort(); controlador = new AbortController(); mensaje('carga_preparacion');
   try { const dto = await cliente.listar({ signal: controlador.signal }); if (!Array.isArray(dto.ejemplos) || !dto.ejemplos.length) { mensaje('estados.sin_puestos'); return; } const label = document.createElement('label'); label.className = 'campo';
