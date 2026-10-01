@@ -1,5 +1,5 @@
 import { crearTraductorDietas, MENSAJES_DIETAS } from "./i18n.js?v=20260929-i18n-dietas-v1";
-import { montarVistaBorradoresPropios } from "./vista-borradores-propios.js?v=20261001-dietas-solicitud-v4";
+import { montarVistaBorradoresPropios } from "./vista-borradores-propios.js?v=20261001-f-reconciliacion-320-v1";
 import { montarVistaBandejaCircuitoDietas } from "./vista-bandeja-circuito.js?v=20261001-ct-a-i18n-v1";
 import { montarVistaRectificacionAdminDietas } from "./vista-rectificacion-admin.js?v=20260929-i18n-dietas-v1";
 
