@@ -17,7 +17,8 @@
     "puestos": "Posts",
     "personal": "My preparation",
     "valoracion": "Assessment",
-    "tramitacion": "Procedure"
+    "tramitacion": "Procedure",
+    "adjudicacion": "Allocation"
   },
   "campos": {
     "proceso": "Competition",
@@ -139,5 +140,73 @@
     "corregir": "Correct configuration"
   },
   "volver_al_baremador": "Back to the scoring simulator",
-  "ejemplo_selector": "Trial scenario"
+  "ejemplo_selector": "Trial scenario",
+  "ensayos": {
+    "limite": "Synthetic trial. It does not allocate posts or change applications.",
+    "ejemplo_numero": "Scenario {numero}",
+    "politica_ref": "Trial policy reference",
+    "politica_version": "Policy version",
+    "bases_ref": "Trial rules reference",
+    "version": "Trial version",
+    "metodo": "Configured method",
+    "prioridad": "Assessment priority",
+    "incompatibilidad": "Posts per person",
+    "desempates": "Trial tie-break sequence",
+    "sentido": "Criterion order",
+    "sin_desempates": "There are no tie-break criteria. An unresolved tie will leave the allocation pending.",
+    "preferencias": "Starting preferences and assessments",
+    "persona": "Person",
+    "persona_sin_nombre": "Trial person",
+    "puesto_sin_nombre": "Trial post",
+    "regla_sin_nombre": "Trial criterion",
+    "simular": "Run allocation trial",
+    "asignaciones": "Simulated allocations",
+    "sin_asignaciones": "The trial did not produce allocations.",
+    "incidencia_pendiente": "An issue in this trial needs review.",
+    "personas_pendientes": "Unallocated: {personas}.",
+    "huella_resultado": "Result fingerprint",
+    "bloqueo": "An official decision requires approved rules, a stored case, review, signature and registration.",
+    "configuracion_invalida": "Enter a trial reference or version of between 1 and 160 characters.",
+    "mover_desempate": "{accion} criterion {orden}",
+    "estados": {
+      "cargando": "Loading trial…",
+      "listo": "Trial configuration ready",
+      "calculando": "Calculating trial…",
+      "resultado": "Trial result obtained",
+      "vacio": "No trial scenarios are available.",
+      "error": "The trial could not be retrieved. Try again when the service is available.",
+      "validacion": "Review the marked fields and criteria before running the trial.",
+      "conflicto": "The scenario has changed. Reload the trial.",
+      "denegado": "You do not have access to this trial. Contact the person responsible for access.",
+      "propuesta_simulada": "Simulated proposal, without effects",
+      "pendiente": "Allocation pending",
+      "no_soportado": "Configuration not supported by this trial"
+    },
+    "opciones": {
+      "aceptacion_diferida_personas_proponen_ensayo_v1": "Deferred acceptance: person-proposing trial",
+      "total_descendente": "Highest total score first",
+      "un_puesto_por_persona": "At most one post",
+      "mayor": "Highest score first",
+      "menor": "Lowest score first"
+    },
+    "personas": {
+      "persona:a": "Marina Ortega",
+      "persona:b": "Luis Navarro"
+    },
+    "puestos": {
+      "puesto:a": "Administrative management",
+      "puesto:b": "Service coordination"
+    },
+    "reglas": {
+      "regla:cursos": "Training"
+    },
+    "incidencias": {
+      "metodo_no_soportado": "The configured method is unavailable in this trial.",
+      "universo_no_cerrado": "The set of applications is not closed.",
+      "admision_pendiente": "An admission needs review.",
+      "valoracion_pendiente": "An assessment is awaiting data.",
+      "empate_residual": "The configured criteria do not resolve the tie. No posts have been allocated."
+    },
+    "restablecer": "Reset trial scenario"
+  }
 }

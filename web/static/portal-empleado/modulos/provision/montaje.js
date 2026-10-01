@@ -1,12 +1,24 @@
-import { crearEstado, cambiarPreferencias, peticionSimulacion, validarResultado, actualizarConfiguracion, VISTAS } from './modelo.js?v=20261001-provision-validacion-v2';
-import { pintarProvision } from './vista.js?v=20261001-provision-validacion-v2';
+import { crearControladorAdjudicacion } from './ensayos-modelo.js?v=20261001-provision-ensayos-v3';
+import { pintarAdjudicacion } from './ensayos-vista.js?v=20261001-provision-ensayos-v3';
+import { crearEstado, cambiarPreferencias, peticionSimulacion, validarResultado, actualizarConfiguracion, VISTAS } from './modelo.js?v=20261001-provision-ensayos-v3';
+import { pintarProvision } from './vista.js?v=20261001-provision-ensayos-v3';
 import { cargarTextos } from '../../../comun/textos.js';
-export async function montarModuloProvision({ raiz, cliente, preparacion, proyeccion = {}, textos, registrarDesmontar } = {}) {
+export async function montarModuloProvision({ raiz, cliente, clienteEnsayos, preparacion, proyeccion = {}, textos, registrarDesmontar } = {}) {
   if (!raiz?.ownerDocument || !preparacion) throw new TypeError('provision.montaje');
   textos ??= await cargarTextos('provision');
-  let estado = crearEstado(preparacion); let activa = true; let controlador = null; let turno = 0;
+  let estado = crearEstado(preparacion); let activa = true; let controlador = null; let turno = 0; let ensayo = null;
   const cancelar = () => { turno += 1; controlador?.abort(); controlador = null; };
-  const pintar = (foco) => { if (!activa) return; pintarProvision({ raiz, estado, textos, proyeccion, acciones }); if (foco) (Array.from(raiz.querySelectorAll('[data-foco]')).find(n => n.dataset.foco === foco && !n.disabled) ?? Array.from(raiz.querySelectorAll('[data-foco]')).find(n => n.dataset.foco === foco.replace(/^abajo-/, 'arriba-').replace(/^arriba-/, foco.startsWith('arriba-') ? 'abajo-' : 'arriba-') && !n.disabled) ?? Array.from(raiz.querySelectorAll('[data-foco]')).find(n => n.dataset.foco === `vista-${estado.vista}`))?.focus(); };
+  const pintar = (foco) => { if (!activa) return; pintarProvision({ raiz, estado, textos, proyeccion, acciones });
+    ensayo?.desmontar(); ensayo = null;
+    if (estado.vista === 'adjudicacion') {
+      const espacio = raiz.querySelector('[data-ensayo-adjudicacion]');
+      if (clienteEnsayos?.listarAdjudicaciones && espacio) {
+        let focoEnsayo;
+        ensayo = crearControladorAdjudicacion({ cliente: clienteEnsayos, notificar: vistaEnsayo => { if (!activa || !espacio.isConnected) return; pintarAdjudicacion({ raiz: espacio, estado: vistaEnsayo, textos, acciones: { ...ensayo, repintar: foco => { focoEnsayo = foco; ensayo.repintar(); } } }); if (focoEnsayo) Array.from(espacio.querySelectorAll('[data-foco]')).find(n => n.dataset.foco === focoEnsayo)?.focus(); focoEnsayo = null; } });
+        ensayo.cargar();
+      } else if (espacio) espacio.textContent = textos.traducir('estados.sin_cliente');
+    }
+    if (foco) (Array.from(raiz.querySelectorAll('[data-foco]')).find(n => n.dataset.foco === foco && !n.disabled) ?? Array.from(raiz.querySelectorAll('[data-foco]')).find(n => n.dataset.foco === foco.replace(/^abajo-/, 'arriba-').replace(/^arriba-/, foco.startsWith('arriba-') ? 'abajo-' : 'arriba-') && !n.disabled) ?? Array.from(raiz.querySelectorAll('[data-foco]')).find(n => n.dataset.foco === `vista-${estado.vista}`))?.focus(); };
   const acciones = {
     puedeSimular: typeof cliente?.simular === 'function',
     vista(vista, foco) { if (!VISTAS.includes(vista)) return; cancelar(); estado = { ...estado, vista, estado: estado.estado === 'cargando' ? 'pendiente' : estado.estado }; pintar(foco ?? `vista-${vista}`); },
@@ -45,7 +57,7 @@ export async function montarModuloProvision({ raiz, cliente, preparacion, proyec
       pintar('simular');
     },
   };
-  const desmontar = () => { if (!activa) return; activa = false; cancelar(); raiz.replaceChildren(); };
+  const desmontar = () => { if (!activa) return; activa = false; cancelar(); ensayo?.desmontar(); raiz.replaceChildren(); };
   registrarDesmontar?.(desmontar); pintar();
   return { desmontar, obtenerEstado: () => structuredClone(estado) };
 }
