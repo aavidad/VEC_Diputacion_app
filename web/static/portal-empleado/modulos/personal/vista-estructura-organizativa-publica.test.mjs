@@ -74,6 +74,9 @@ test("la ayuda y la advertencia quedan detrás de ?; en pantalla solo la pastill
   assert.match(boton.atributos.get("aria-label"), /Consulta pública/u);
   assert.equal(boton.atributos.get("aria-expanded"), "false");
   assert.equal(contenido.hidden, true);
+  assert.equal(contenido.children.at(-1).className, "rpt-huella");
+  const css = readFileSync(new URL("../../portal-modulos.css", import.meta.url), "utf8");
+  assert.match(css, /\.modulo-personal \.rpt-huella\s*\{[^}]*overflow-wrap:\s*anywhere/u);
   assert.match(textoVisible(vista), /En preparación/u);
   assert.doesNotMatch(textoVisible(vista), /no acredita vigencia administrativa|Portal del Empleado → Personal/u);
   assert.match(textoVisible(vista), /14 delegaciones/u);
@@ -182,4 +185,116 @@ test("error y desmontaje abortan sin pintar respuesta tardía", async () => {
   modulo.desmontar();
   assert.equal(signal.aborted, true);
   assert.equal(otraRaiz.querySelector("[data-personal-estructura-organizativa-publica]"), null);
+});
+
+function buscar(r, texto) {
+  const entrada = r.querySelector("[data-personal-estructura-buscar]");
+  entrada.value = texto;
+  entrada.listeners.input();
+  return entrada;
+}
+function filtrarTipo(r, valor) {
+  const tipo = r.querySelector("[data-personal-estructura-tipo]");
+  tipo.value = valor;
+  tipo.listeners.change();
+  return tipo;
+}
+
+test("busca nombres y adscripciones sin acentos y conserva el nombre del padre filtrado", async () => {
+  const r = raiz();
+  const datos = estructura();
+  datos.unidades[0].etiqueta = "Área de Gestión";
+  datos.unidades[14].etiqueta = "Centro de Atención";
+  const modulo = await montarModuloEstructuraOrganizativaPublica({ raiz: r, cliente: { async obtener() { return datos; } } });
+  buscar(r, "  ATENCION  ");
+  filtrarTipo(r, "centro");
+  assert.equal(r.querySelector("tbody").children.length, 1);
+  assert.equal(r.querySelector("tbody").children[0].children[2].textContent, "Área de Gestión");
+  assert.equal(r.querySelector("[data-personal-estructura-recuento]").textContent, "1 de 66 unidades");
+  buscar(r, "area de gestion");
+  filtrarTipo(r, "centro");
+  assert.equal(r.querySelector("tbody").children.length, 10);
+  assert.equal(r.querySelector("[data-personal-estructura-recuento]").textContent, "41 de 66 unidades");
+  assert.equal(r.querySelector("tbody").children[0].children[2].textContent, "Área de Gestión");
+  assert.doesNotMatch(textoVisible(r.querySelector("tbody")), /delegacion-0/u);
+  modulo.desmontar();
+});
+
+test("reinicia la página con los filtros y mantiene campo, selección, foco y ayuda", async () => {
+  const r = raiz();
+  const modulo = await montarModuloEstructuraOrganizativaPublica({ raiz: r, cliente: { async obtener() { return estructura(); } } });
+  const ayuda = r.querySelector("[data-personal-estructura-ayuda]");
+  const contenido = r.querySelector("[data-personal-estructura-ayuda-contenido]");
+  ayuda.listeners.click();
+  r.querySelector("[data-personal-estructura-siguiente]").listeners.click();
+  assert.match(textoVisible(r), /2 \/ 7/u);
+  const entrada = r.querySelector("[data-personal-estructura-buscar]");
+  entrada.focus();
+  entrada.value = "centro";
+  entrada.selectionStart = 3;
+  entrada.selectionEnd = 5;
+  entrada.listeners.input();
+  assert.equal(r.querySelector("[data-personal-estructura-buscar]"), entrada);
+  assert.equal(r.ownerDocument.activeElement, entrada);
+  assert.equal(entrada.selectionStart, 3);
+  assert.equal(entrada.selectionEnd, 5);
+  assert.equal(r.querySelector("[data-personal-estructura-ayuda]"), ayuda);
+  assert.equal(r.querySelector("[data-personal-estructura-ayuda-contenido]"), contenido);
+  assert.equal(contenido.hidden, false);
+  assert.match(textoVisible(r), /1 \/ 6/u);
+  filtrarTipo(r, "centro");
+  assert.match(textoVisible(r), /1 \/ 5/u);
+  r.querySelector("[data-personal-estructura-siguiente]").listeners.click();
+  assert.match(textoVisible(r), /2 \/ 5/u);
+  buscar(r, "");
+  filtrarTipo(r, "");
+  assert.match(textoVisible(r), /1 \/ 7/u);
+  assert.equal(r.querySelector("[data-personal-estructura-recuento]").textContent, "66 de 66 unidades");
+  modulo.desmontar();
+});
+
+test("el vacío ofrece recuento cero y navegación deshabilitada; desmontar cierra los filtros", async () => {
+  const r = raiz();
+  const modulo = await montarModuloEstructuraOrganizativaPublica({ raiz: r, cliente: { async obtener() { return estructura(); } } });
+  const entrada = buscar(r, "unidad inexistente");
+  const tipo = filtrarTipo(r, "centro");
+  const vista = r.querySelector("[data-personal-estructura-organizativa-publica]");
+  assert.equal(r.querySelector("tbody"), null);
+  assert.equal(r.querySelector("[data-personal-estructura-recuento]").textContent, "0 de 66 unidades");
+  assert.match(textoVisible(r), /No hay unidades que coincidan con los filtros/u);
+  assert.match(textoVisible(r), /0 \/ 0/u);
+  assert.equal(r.querySelector("[data-personal-estructura-anterior]").disabled, true);
+  assert.equal(r.querySelector("[data-personal-estructura-siguiente]").disabled, true);
+  buscar(r, "");
+  assert.equal(r.querySelector("tbody").children.length, 10);
+  const tablaAnterior = vista.querySelector("[data-personal-estructura-tabla]");
+  modulo.desmontar();
+  entrada.value = "inexistente";
+  entrada.listeners.input();
+  tipo.value = "puesto_responsabilidad";
+  tipo.listeners.change();
+  assert.equal(vista.querySelector("[data-personal-estructura-tabla]"), tablaAnterior);
+  assert.equal(r.querySelector("[data-personal-estructura-organizativa-publica]"), null);
+});
+
+test("limpiar ambos filtros recupera la primera página y devuelve el foco al buscador", async () => {
+  const r = raiz();
+  const modulo = await montarModuloEstructuraOrganizativaPublica({ raiz: r, cliente: { async obtener() { return estructura(); } } });
+  const limpiar = r.querySelector("[data-personal-estructura-limpiar]");
+  assert.equal(limpiar.disabled, true);
+  const entrada = buscar(r, "centro");
+  const tipo = filtrarTipo(r, "centro");
+  r.querySelector("[data-personal-estructura-siguiente]").listeners.click();
+  assert.equal(limpiar.disabled, false);
+  limpiar.listeners.click();
+  assert.equal(entrada.value, "");
+  assert.equal(tipo.value, "");
+  assert.equal(limpiar.disabled, true);
+  assert.equal(r.ownerDocument.activeElement, entrada);
+  assert.equal(r.querySelector("[data-personal-estructura-recuento]").textContent, "66 de 66 unidades");
+  assert.match(textoVisible(r), /1 \/ 7/u);
+  assert.match(textoVisible(r), /Buscar por nombre o adscripción/u);
+  modulo.desmontar();
+  limpiar.listeners.click();
+  assert.equal(r.querySelector("[data-personal-estructura-organizativa-publica]"), null);
 });
