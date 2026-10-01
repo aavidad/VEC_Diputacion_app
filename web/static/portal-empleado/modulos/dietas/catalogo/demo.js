@@ -1,6 +1,6 @@
 import { cargarTextos } from "../../../../comun/textos.js";
 import { leerRecursoJSON } from "../../../../comun/idioma.js";
-import { montarCatalogoTarifasDietas } from "./vista.js";
+import { montarCatalogoTarifasDietas } from "./vista.js?v=20261001-dietas-catalogo-propuestas-v1";
 
 // Previsualización aislada: el servidor local debe exponer la raíz del repositorio.
 const textos = await cargarTextos("dietas-catalogo");
