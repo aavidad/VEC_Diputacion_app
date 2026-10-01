@@ -15,7 +15,8 @@ Recibe un único JSON por la entrada estándar, sin argumentos. Escribe el
 resultado JSON en la salida estándar y los errores en la salida de diagnóstico.
 El código de salida es `0` cuando produce un resultado, incluso si hay tramos
 indeterminados; es `1` cuando la entrada es inválida o no puede reproducir la
-consulta. No escribe archivos ni requiere servicios.
+consulta. Devuelve `2` si no puede cargar los textos o escribir el resultado o el diagnóstico.
+No escribe archivos ni requiere servicios.
 
 ## Casos disponibles
 

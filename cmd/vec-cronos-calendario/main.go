@@ -37,11 +37,16 @@ func main() { os.Exit(ejecutar(os.Stdin, os.Stdout, os.Stderr, len(os.Args)-1)) 
 func ejecutar(in io.Reader, out, diagnostico io.Writer, argumentos int) int {
 	catalogo, mensajes, err := web.CatalogoCronosCalendarioEnsayo()
 	if err != nil {
-		return 1
+		return codigoErrorCLI(err)
 	}
 	fallar := func(codigo, idioma string) int {
 		mensaje := catalogo.T(idioma, codigo)
-		_ = json.NewEncoder(diagnostico).Encode(map[string]any{"demostracion": true, "error": map[string]string{"codigo": codigo, "mensaje": mensaje}})
+		if err := json.NewEncoder(diagnostico).Encode(map[string]any{"demostracion": true, "error": map[string]string{"codigo": codigo, "mensaje": mensaje}}); err != nil {
+			return codigoErrorCLI(err)
+		}
+		if codigo == "salida_no_disponible" {
+			return 2
+		}
 		return 1
 	}
 	if argumentos != 0 {
@@ -93,6 +98,17 @@ func ejecutar(in io.Reader, out, diagnostico io.Writer, argumentos int) int {
 		return fallar("salida_no_disponible", e.Idioma)
 	}
 	return 0
+}
+
+// Los errores técnicos se propagan al proceso que invoca la CLI mediante su
+// código de salida, incluso cuando no se puede escribir ningún diagnóstico.
+func codigoErrorCLI(err error) int {
+	switch err {
+	case nil:
+		return 0
+	default:
+		return 2
+	}
 }
 
 func huella(b []byte) string { h := sha256.Sum256(b); return hex.EncodeToString(h[:]) }

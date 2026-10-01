@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"os"
 	"strings"
 	"testing"
@@ -290,5 +291,37 @@ func TestCatalogoEnsayoUsaIndiceComunYDefault(t *testing.T) {
 	var out, diag bytes.Buffer
 	if ejecutar(bytes.NewReader(b), &out, &diag, 0) == 0 || out.Len() != 0 {
 		t.Fatal(diag.String())
+	}
+}
+
+type escritorCLIFallido struct{}
+
+func (escritorCLIFallido) Write([]byte) (int, error) {
+	return 0, io.ErrClosedPipe
+}
+
+func TestCLIPropagaFalloDeDiagnostico(t *testing.T) {
+	var out bytes.Buffer
+	if codigo := ejecutar(strings.NewReader("{"), &out, escritorCLIFallido{}, 0); codigo != 2 || out.Len() != 0 {
+		t.Fatalf("codigo=%d out=%s", codigo, out.Bytes())
+	}
+}
+
+func TestCLIPropagaFalloDeSalida(t *testing.T) {
+	var diagnostico bytes.Buffer
+	codigo := ejecutar(bytes.NewReader(fixture(t, "cambio-centro")), escritorCLIFallido{}, &diagnostico, 0)
+	var fallo struct {
+		Error struct {
+			Codigo string `json:"codigo"`
+		} `json:"error"`
+	}
+	if codigo != 2 || json.Unmarshal(diagnostico.Bytes(), &fallo) != nil || fallo.Error.Codigo != "salida_no_disponible" {
+		t.Fatalf("codigo=%d diagnostico=%s", codigo, diagnostico.Bytes())
+	}
+}
+
+func TestCLIPropagaFalloDeAmbasSalidas(t *testing.T) {
+	if codigo := ejecutar(bytes.NewReader(fixture(t, "cambio-centro")), escritorCLIFallido{}, escritorCLIFallido{}, 0); codigo != 2 {
+		t.Fatalf("codigo=%d", codigo)
 	}
 }
