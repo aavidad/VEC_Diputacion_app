@@ -321,8 +321,8 @@ async function recorrerEnsayo(page, escenario, caso, prefijo, catalogo, idioma) 
     assert.equal(new Set(r.datos.asignaciones.map(a => a.vacante_ref)).size, r.datos.asignaciones.length);
     assert.equal(await filas.count(), r.datos.asignaciones.length);
     for (const [i, a] of r.datos.asignaciones.entries()) {
-      assert.equal(await filas.nth(i).locator("th").textContent(), catalogo.ensayos.personas[a.persona_ref]);
-      assert.equal(await filas.nth(i).locator("td").first().textContent(), catalogo.ensayos.puestos[a.puesto_ref]);
+      assert.equal(await filas.nth(i).locator("th").textContent(), catalogo.ensayos.personas[a.persona_ref.replaceAll(":", "_")]);
+      assert.equal(await filas.nth(i).locator("td").first().textContent(), catalogo.ensayos.puestos[a.puesto_ref.replaceAll(":", "_")]);
     }
     assert(await page.locator('[data-foco="adjudicacion-resolver"]').isDisabled());
   }
