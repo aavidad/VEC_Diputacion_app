@@ -58,6 +58,42 @@ func (r *runtimePlantillaInvalido) RetirarClonPlantilla(context.Context, string)
 	return errPlantilla
 }
 
+func TestLimpiezaPlantillaConservaRecursosPendientes(t *testing.T) {
+	r := &runtimePlantillaFisicaEnsayo{source: "source-propio", target: "target-propio", scratch: "scratch-propio", madeSource: true, madeTarget: true}
+	var names []string
+	var contexts []context.Context
+	removeContainer := func(ctx context.Context, name string) error {
+		names = append(names, name)
+		contexts = append(contexts, ctx)
+		deadline, ok := ctx.Deadline()
+		if !ok || time.Until(deadline) > 5*time.Second {
+			t.Error("retirada sin plazo independiente")
+		}
+		if name == r.source {
+			return errors.New("detalle_privado_no_publicable")
+		}
+		return nil
+	}
+	removeDirectory := func(ctx context.Context, name string) error {
+		contexts = append(contexts, ctx)
+		if _, ok := ctx.Deadline(); !ok {
+			t.Error("directorio sin plazo")
+		}
+		return errors.New("detalle_privado_no_publicable")
+	}
+	e := r.retirarRecursos(removeContainer, removeDirectory)
+	if e == nil || strings.Contains(e.Error(), "detalle_privado") || !r.madeSource || r.madeTarget || r.scratch != "scratch-propio" {
+		t.Fatal("fallo de limpieza perdió propiedad o divulgó el error")
+	}
+	if len(names) != 2 || names[0] != r.source || names[1] != r.target || len(contexts) != 3 || contexts[0] == contexts[1] || contexts[1] == contexts[2] {
+		t.Fatal("un fallo impidió las otras retiradas")
+	}
+	names = nil
+	if e = r.retirarRecursos(func(_ context.Context, name string) error { names = append(names, name); return nil }, func(context.Context, string) error { return nil }); e != nil || r.madeSource || r.madeTarget || r.scratch != "" || len(names) != 1 || names[0] != r.source {
+		t.Fatal("reintento no retiró únicamente recursos pendientes propios")
+	}
+}
+
 // El ensayo autentica por custodia local privada y verifica un archivo físico
 // real obtenido tras parada limpia. No demuestra autenticación criptográfica de
 // un conjunto externo; ese contrato corresponde al constructor de plataforma.
@@ -234,18 +270,56 @@ func (r *runtimePlantillaFisicaEnsayo) arrancar(t *testing.T, name string, reado
 }
 func (r *runtimePlantillaFisicaEnsayo) cerrar(t *testing.T) {
 	t.Helper()
+	err := r.retirarRecursos(func(ctx context.Context, name string) error {
+		_, e := cmdPlantillaEnsayo(ctx, []string{"rm", "-f", name}, nil)
+		return e
+	}, func(_ context.Context, path string) error { return os.RemoveAll(path) })
+	if err != nil {
+		t.Error("limpieza_recursos_sinteticos_no_confirmada")
+	}
+}
+
+// Un fallo no borra el registro de propiedad: t.Cleanup puede reintentarlo y
+// ninguna retirada pendiente impide intentar las otras. Los errores son nominales.
+func (r *runtimePlantillaFisicaEnsayo) retirarRecursos(removeContainer, removeDirectory func(context.Context, string) error) error {
+	failed := false
+	remove := func(action func(context.Context, string) error, name string) error {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		result := make(chan error, 1)
+		go func() { result <- action(ctx, name) }()
+		select {
+		case e := <-result:
+			return e
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
 	if r.madeSource {
-		_, _ = cmdPlantillaEnsayo(context.Background(), []string{"rm", "-f", r.source}, nil)
-		r.madeSource = false
+		if e := remove(removeContainer, r.source); e != nil {
+			failed = true
+		} else {
+			r.madeSource = false
+		}
 	}
 	if r.madeTarget {
-		_, _ = cmdPlantillaEnsayo(context.Background(), []string{"rm", "-f", r.target}, nil)
-		r.madeTarget = false
+		if e := remove(removeContainer, r.target); e != nil {
+			failed = true
+		} else {
+			r.madeTarget = false
+		}
 	}
 	if r.scratch != "" {
-		_ = os.RemoveAll(r.scratch)
-		r.scratch = ""
+		if e := remove(removeDirectory, r.scratch); e != nil {
+			failed = true
+		} else {
+			r.scratch = ""
+		}
 	}
+	if failed {
+		return errors.New("limpieza_recursos_sinteticos_no_confirmada")
+	}
+	return nil
 }
 
 func (r *runtimePlantillaFisicaEnsayo) sqlDirecto(t *testing.T, name, base, sql string) {
