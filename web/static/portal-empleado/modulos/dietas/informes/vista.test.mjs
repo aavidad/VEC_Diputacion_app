@@ -211,9 +211,10 @@ test("un catálogo versionado elige fecha, estados y conceptos sin recalcular la
   const filas = contenedor.querySelectorAll("tbody")[0].children;
   assert.deepEqual(filas.map((fila) => fila.children[0].textContent), ["DI-002", "DI-006"]);
   assert.equal(contenedor.querySelectorAll("th").length, 8);
-  assert.equal(contenedor.querySelectorAll("dd").length, 1);
+  assert.equal(contenedor.querySelector("[data-dietas-informes-resumen]").querySelectorAll("dd").length, 1);
   assert.match(texto(contenedor.querySelector("[data-dietas-informes-resumen]")), /42,50\s*€/u);
-  assert.match(texto(contenedor.querySelector("details")), /fecha de liquidación/u);
+  assert.match(texto(contenedor.querySelector("[data-dietas-informes-ayuda]")), /fecha de liquidación/u);
+  assert.equal(contenedor.querySelectorAll("th")[3].textContent, "Liquidación");
   assert.match(filas[0].children.at(-1).textContent, /42,50\s*€/u);
   assert.match(filas[1].children.at(-1).textContent, /0,00\s*€/u);
   vista.desmontar();
@@ -224,6 +225,7 @@ test("referencia e historia incoherentes cierran la carga del catálogo", async 
     { referencia: "propuesta:otra" },
     { historia: [{ ...configuracion.historia[0], version: 2 }] },
     { historia: [{ ...configuracion.historia[0], fecha: "2026-02-30T00:00:00Z" }] },
+    { historia: [{ ...configuracion.historia[0], actor_nombre: "" }] },
   ]) {
     const contenedor = raiz();
     const vista = montarInformesDietas(contenedor, { cargarDatos: async () => datos,
@@ -234,6 +236,30 @@ test("referencia e historia incoherentes cierran la carga del catálogo", async 
     assert.match(contenedor.querySelector("[data-dietas-informes-estado]").textContent, /datos incorrectos/u);
     vista.desmontar();
   }
+});
+
+test("Ayuda muestra configuración e historia sintética sin abrir referencias", async () => {
+  const contenedor = raiz();
+  const vista = montarInformesDietas(contenedor, { cargarDatos: async () => datos,
+    cargarConfiguracion, traducir: t, localizacion: catalogo.localizacion });
+  await esperar();
+  const boton = contenedor.querySelectorAll("button").find((n) => n.attrs["aria-label"] === t("ayuda"));
+  const ayuda = contenedor.querySelector("[data-dietas-informes-ayuda]");
+  assert.equal(ayuda.hidden, true);
+  boton.listeners.click();
+  assert.equal(boton.attrs["aria-expanded"], "true");
+  assert.equal(ayuda.hidden, false);
+  assert.match(texto(ayuda), /Configuración de este ejemplo/u);
+  assert.match(texto(ayuda), /Marina Torres/u);
+  assert.match(texto(ayuda), /Preparación de un informe sintético/u);
+  assert.match(texto(ayuda), /No acredita aprobación administrativa/u);
+  const referencias = ayuda.querySelector("details");
+  assert.equal(referencias.querySelector("summary").textContent, t("detalle_referencias"));
+  assert.notEqual(referencias.open, true);
+  boton.listeners.click();
+  assert.equal(ayuda.hidden, true);
+  assert.equal(boton.attrs["aria-expanded"], "false");
+  vista.desmontar();
 });
 
 test("una fecha obligatoria ausente cierra la carga sin publicar un total parcial", async () => {

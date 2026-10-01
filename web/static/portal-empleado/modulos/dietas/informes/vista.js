@@ -34,10 +34,11 @@ function congelarConfiguracion(configuracion, datos) {
   const historia = configuracion.historia.map((entrada, indice) => {
     if (entrada?.version !== indice + 1 || typeof entrada.actor_ref !== "string"
       || !entrada.actor_ref.startsWith("actor:ejemplo:") || !instanteValido(entrada.fecha)
+      || typeof entrada.actor_nombre !== "string" || !entrada.actor_nombre.trim()
       || typeof entrada.motivo !== "string"
       || !entrada.motivo.trim()) throw new TypeError("datos");
     return Object.freeze({ version: entrada.version, actor_ref: entrada.actor_ref,
-      fecha: entrada.fecha, motivo: entrada.motivo });
+      actor_nombre: entrada.actor_nombre, fecha: entrada.fecha, motivo: entrada.motivo });
   });
   return Object.freeze({ referencia: configuracion.referencia, version: configuracion.version,
     campo_fecha: criterio.campo_fecha,
@@ -133,7 +134,10 @@ export function montarInformesDietas(contenedor, { cargarDatos, cargarConfigurac
   const t = (clave, variables) => traducir(clave, variables);
   let moneda;
   const numero = new Intl.NumberFormat(localizacion);
+  const listaTextos = new Intl.ListFormat(localizacion, { style: "long", type: "conjunction" });
   const fecha = new Intl.DateTimeFormat(localizacion, { dateStyle: "medium", timeZone: "UTC" });
+  const fechaHistoria = new Intl.DateTimeFormat(localizacion,
+    { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" });
   const importeMonetario = (centimos) => {
     // Intl recibe el entero como BigInt: convertir los céntimos a Number perdería precisión.
     const importe = BigInt(centimos);
@@ -146,11 +150,12 @@ export function montarInformesDietas(contenedor, { cargarDatos, cargarConfigurac
   const cabecera = nodo(documento, "header"); cabecera.className = "cabecera-panel";
   const titulo = nodo(documento, "h2", t("titulo"));
   const acciones = nodo(documento, "div");
-  const ayuda = nodo(documento, "details"); ayuda.hidden = true;
-  const abrirAyuda = nodo(documento, "summary", "?"); abrirAyuda.className = "boton-secundario";
+  const ayuda = nodo(documento, "section"); ayuda.hidden = true; ayuda.className = "cuerpo-panel";
+  ayuda.dataset.dietasInformesAyuda = "";
+  const abrirAyuda = nodo(documento, "button", "?"); abrirAyuda.className = "boton-secundario";
+  abrirAyuda.type = "button"; abrirAyuda.hidden = true;
   abrirAyuda.setAttribute("aria-label", t("ayuda"));
-  const criterioAyuda = nodo(documento, "p"); ayuda.append(abrirAyuda, criterioAyuda);
-  acciones.append(ayuda);
+  abrirAyuda.setAttribute("aria-expanded", "false"); acciones.append(abrirAyuda);
   for (const clave of ["exportar", "imprimir"]) {
     const boton = nodo(documento, "button", t(clave)); boton.type = "button";
     boton.className = "boton-secundario"; boton.disabled = true;
@@ -194,7 +199,7 @@ export function montarInformesDietas(contenedor, { cargarDatos, cargarConfigurac
   const listado = nodo(documento, "section"); listado.dataset.dietasInformesListado = "";
   form.hidden = true; resumen.hidden = true; listado.hidden = true;
   cuerpo.append(origen, estado, reintentar, subtitulo, form, resumen, listado, limite);
-  raiz.append(cabecera, cuerpo); contenedor.append(raiz);
+  raiz.append(cabecera, ayuda, cuerpo); contenedor.append(raiz);
 
   let activa = true; let disponible = false; let controlador; let generacion = 0; let registros = Object.freeze([]);
   let configuracion;
@@ -220,6 +225,46 @@ export function montarInformesDietas(contenedor, { cargarDatos, cargarConfigurac
     }
     select.value = opciones.has(anterior) ? anterior : "";
   };
+
+  function pintarAyuda(criterio) {
+    const dato = (lista, clave, valor) => {
+      const fila = nodo(documento, "div");
+      fila.append(nodo(documento, "dt", t(clave)), nodo(documento, "dd", valor)); lista.append(fila);
+    };
+    const etiquetaFecha = t(`fecha_${criterio.campo_fecha}`);
+    const resumenCriterio = nodo(documento, "dl"); resumenCriterio.className = "datos-clave";
+    dato(resumenCriterio, "version_configuracion", numero.format(criterio.version));
+    dato(resumenCriterio, "fecha_configuracion", etiquetaFecha);
+    dato(resumenCriterio, "estados_incluidos", listaTextos.format(
+      criterio.estados_incluidos.map((clave) => t(`situacion_${clave}`))));
+    dato(resumenCriterio, "conceptos_incluidos", listaTextos.format(
+      criterio.conceptos_incluidos.map((clave) => t(clave))));
+    const historia = nodo(documento, "ol");
+    for (const entrada of criterio.historia) {
+      const linea = nodo(documento, "li");
+      const datosHistoria = nodo(documento, "dl"); datosHistoria.className = "datos-clave";
+      dato(datosHistoria, "version_comision", numero.format(entrada.version));
+      dato(datosHistoria, "preparado_por", entrada.actor_nombre);
+      dato(datosHistoria, "fecha_historia", fechaHistoria.format(new Date(entrada.fecha)));
+      dato(datosHistoria, "motivo_historia", entrada.motivo);
+      const referencias = nodo(documento, "details");
+      referencias.append(nodo(documento, "summary", t("detalle_referencias")));
+      const datosReferencia = nodo(documento, "dl"); datosReferencia.className = "datos-clave";
+      dato(datosReferencia, "referencia_configuracion", criterio.referencia);
+      dato(datosReferencia, "referencia_preparador", entrada.actor_ref);
+      referencias.append(datosReferencia); linea.append(datosHistoria, referencias); historia.append(linea);
+    }
+    ayuda.replaceChildren(nodo(documento, "h3", t("configuracion")),
+      nodo(documento, "p", t("criterio_periodo", { fecha: etiquetaFecha })), resumenCriterio,
+      nodo(documento, "h4", t("historia_configuracion")), historia,
+      nodo(documento, "p", t("limite_configuracion")));
+  }
+
+  function cambiarAyuda() {
+    if (abrirAyuda.hidden) return;
+    ayuda.hidden = !ayuda.hidden;
+    abrirAyuda.setAttribute("aria-expanded", String(!ayuda.hidden));
+  }
 
   function pintar() {
     if (!activa) return;
@@ -255,9 +300,12 @@ export function montarInformesDietas(contenedor, { cargarDatos, cargarConfigurac
     const tabla = nodo(documento, "table"); tabla.className = "tabla-datos";
     const caption = nodo(documento, "caption", t("listado")); tabla.append(caption);
     const thead = nodo(documento, "thead"); const cabeceras = nodo(documento, "tr");
-    for (const clave of ["referencia", "version_comision", "situacion", "fecha", "persona", "unidad",
+    for (const clave of ["referencia", "version_comision", "situacion", "fecha_configuracion", "persona", "unidad",
       ...configuracion.conceptos_incluidos, "total"]) {
-      const th = nodo(documento, "th", t(clave)); th.scope = "col"; cabeceras.append(th);
+      const etiqueta = clave === "fecha_configuracion" ? t(`fecha_${configuracion.campo_fecha}`) : t(clave);
+      const th = nodo(documento, "th", clave === "fecha_configuracion"
+        ? etiqueta.charAt(0).toLocaleUpperCase(localizacion) + etiqueta.slice(1) : etiqueta);
+      th.scope = "col"; cabeceras.append(th);
     }
     thead.append(cabeceras); tabla.append(thead);
     const tbody = nodo(documento, "tbody");
@@ -294,6 +342,7 @@ export function montarInformesDietas(contenedor, { cargarDatos, cargarConfigurac
     controlador = new AbortController(); disponible = false; mostrarEstado("cargando"); reintentar.hidden = true;
     if (focoReintento) estado.focus();
     form.hidden = true; resumen.hidden = true; listado.hidden = true; ayuda.hidden = true;
+    abrirAyuda.hidden = true; abrirAyuda.setAttribute("aria-expanded", "false");
     try {
       const [datos, catalogo] = await Promise.all([
         cargarDatos({ signal: controlador.signal }), cargarConfiguracion({ signal: controlador.signal }),
@@ -302,11 +351,11 @@ export function montarInformesDietas(contenedor, { cargarDatos, cargarConfigurac
       const criterio = congelarConfiguracion(catalogo, datos);
       const fuente = congelarDatos(datos, criterio, localizacion);
       registros = fuente.registros; moneda = fuente.moneda; configuracion = criterio;
-      criterioAyuda.textContent = t("criterio_periodo", { fecha: t(`fecha_${criterio.campo_fecha}`) });
+      pintarAyuda(criterio);
       elegir(persona, registros, "persona_ref", "persona");
       elegir(unidad, registros, "unidad_ref", "unidad");
       filtros = Object.freeze({ persona: persona.value, unidad: unidad.value, desde: desde.value, hasta: hasta.value });
-      disponible = true; form.hidden = false; resumen.hidden = false; listado.hidden = false; ayuda.hidden = false;
+      disponible = true; form.hidden = false; resumen.hidden = false; listado.hidden = false; abrirAyuda.hidden = false;
       pagina = 0; pintar(); anunciarResultado();
       if (focoReintento && documento.activeElement === estado) resumen.focus();
     } catch (error) {
@@ -345,11 +394,13 @@ export function montarInformesDietas(contenedor, { cargarDatos, cargarConfigurac
     pagina = nueva; pintar(); listado.querySelector?.("[data-dietas-informes-cuenta]")?.focus();
   }
   form.addEventListener("submit", enviar); limpiar.addEventListener("click", borrar);
+  abrirAyuda.addEventListener("click", cambiarAyuda);
   reintentar.addEventListener("click", cargar); listado.addEventListener("click", paginar);
   cargar();
   function desmontar() {
     if (!activa) return; activa = false; generacion += 1; controlador?.abort();
     form.removeEventListener("submit", enviar); limpiar.removeEventListener("click", borrar);
+    abrirAyuda.removeEventListener("click", cambiarAyuda);
     reintentar.removeEventListener("click", cargar); listado.removeEventListener("click", paginar); raiz.remove();
   }
   registrarDesmontar?.(desmontar);
