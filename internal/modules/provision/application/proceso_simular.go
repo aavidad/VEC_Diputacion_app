@@ -1,6 +1,7 @@
 package application
 
 import (
+	"slices"
 	"vec-diputacion-granada/internal/modules/provision/domain"
 	"vec-diputacion-granada/internal/modules/provision/ports"
 )
@@ -11,7 +12,7 @@ func PrepararProceso(p domain.ProcesoProvision) (domain.ProcesoProvision, error)
 	if err := domain.ValidarProceso(p); err != nil {
 		return domain.ProcesoProvision{}, err
 	}
-	return p, nil
+	return domain.CopiarProceso(p), nil
 }
 
 // SimularProceso valora cada preferencia contra el mismo conjunto versionado
@@ -20,6 +21,8 @@ func SimularProceso(p ports.PeticionProceso) (domain.ResultadoProceso, error) {
 	if err := domain.ValidarSolicitud(p.Proceso, p.Solicitud); err != nil {
 		return domain.ResultadoProceso{}, err
 	}
+	p.Proceso = domain.CopiarProceso(p.Proceso)
+	p.Solicitud = domain.CopiarSolicitud(p.Solicitud)
 	salida := domain.ResultadoProceso{SchemaVersion: domain.VersionProceso, Alcance: "simulacion", Estado: "borrador", Proceso: p.Proceso, Solicitud: p.Solicitud, Valoraciones: []domain.ValoracionPuesto{}}
 	entradas := map[string]domain.EntradaValoracionPuesto{}
 	for _, v := range p.Solicitud.Valoraciones {
@@ -31,7 +34,7 @@ func SimularProceso(p ports.PeticionProceso) (domain.ResultadoProceso, error) {
 		if err != nil {
 			return domain.ResultadoProceso{}, err
 		}
-		salida.Valoraciones = append(salida.Valoraciones, domain.ValoracionPuesto{PuestoRef: pref.PuestoRef, Orden: pref.Orden, RequisitosEstado: domain.EstadoRequisitos(v.Requisitos), Requisitos: v.Requisitos, Resultado: r})
+		salida.Valoraciones = append(salida.Valoraciones, domain.ValoracionPuesto{PuestoRef: pref.PuestoRef, Orden: pref.Orden, RequisitosEstado: domain.EstadoRequisitos(v.Requisitos), Requisitos: slices.Clone(v.Requisitos), Resultado: r})
 	}
 	salida.HuellaSimulacion = domain.HuellaSimulacionProceso(salida)
 	return salida, nil
