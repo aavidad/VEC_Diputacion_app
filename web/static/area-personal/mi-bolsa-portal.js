@@ -177,6 +177,13 @@ export async function cuerpoPortalMiBolsa(formulario, datos = new FormData(formu
 const peticionesInciertas = new WeakMap();
 const enviosEnCurso = new WeakSet();
 
+function instanteRecibo(valor, nombre) {
+  instante(valor, nombre);
+  // Date.parse normaliza días inexistentes y 24:00. El recibo exige la fecha
+  // civil exacta; comparar hasta el segundo conserva los microsegundos recibidos.
+  if (new Date(valor).toISOString().slice(0, 19) !== valor.slice(0, 19)) throw new TypeError();
+}
+
 // Este recibo es el de httppersonal/reciboPortal; el recibo del panel del área
 // personal usa otro esquema. Solo contacto y disposición devuelven el recurso
 // de la petición: solicitudes y respuestas devuelven una referencia opaca nueva.
@@ -196,10 +203,10 @@ function validarReciboPortal(entrada, peticion, estadoHTTP) {
       !(referencia instanceof RegExp ? referencia.test(recibo.referencia) : recibo.referencia === referencia) ||
       typeof recibo.recibo !== "string" || !new RegExp(`^recibo:${prefijo}:[a-f0-9]{64}$`, "u").test(recibo.recibo) ||
       !estados.includes(recibo.estado) || typeof recibo.repetida !== "boolean" || recibo.repetida !== (estadoHTTP === 200)) throw new TypeError();
-  instante(recibo.registrada_en, "registrada_en");
+  instanteRecibo(recibo.registrada_en, "registrada_en");
   if (recibo.vence_antes_de !== undefined) {
     if (tipo !== "respuesta") throw new TypeError();
-    instante(recibo.vence_antes_de, "vence_antes_de");
+    instanteRecibo(recibo.vence_antes_de, "vence_antes_de");
   }
   return recibo;
 }

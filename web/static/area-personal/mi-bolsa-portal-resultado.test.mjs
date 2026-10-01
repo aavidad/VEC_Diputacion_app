@@ -108,6 +108,26 @@ test("el reintento explícito conserva bolsa, versión y clave después de un re
   assert.equal(confirmaciones, 1);
 });
 
+test("el recibo rechaza fechas civiles imposibles y horas normalizadas en sus dos instantes", async () => {
+  for (const campo of ["registrada_en", "vence_antes_de"]) {
+    for (const valor of ["2026-02-30T08:00:00Z", "2025-02-29T08:00:00Z", "2026-10-01T24:00:00Z", "2026-10-01T08:60:00Z", "2026-10-01T08:00:60Z"]) {
+      const formulario = formularioDe(escenarios[1]);
+      const recibo = reciboDe(escenarios[1]);
+      recibo.data[campo] = valor;
+      let confirmaciones = 0;
+      assert.equal(await enviarPortalMiBolsa(formulario, { datos: datosDe(), alRegistrar: () => confirmaciones++,
+        fetchImpl: async () => ({ status: 201, json: async () => recibo }) }), false, `${campo}: ${valor}`);
+      assert.equal(confirmaciones, 0);
+      assert.equal(formulario.zona.textContent, traducir("areaPersonal.portal.error.servicio_no_disponible"));
+    }
+  }
+  const recibo = reciboDe(escenarios[1]);
+  recibo.data.registrada_en = "2024-02-29T23:59:59.123456Z";
+  recibo.data.vence_antes_de = "2024-03-01T23:59:59.999999Z";
+  assert.equal(await enviarPortalMiBolsa(formularioDe(escenarios[1]), { datos: datosDe(),
+    fetchImpl: async () => ({ status: 201, json: async () => recibo }) }), true);
+});
+
 test("un corte conserva respuesta y justificante originales sin un segundo envío concurrente", async () => {
   const formulario = formularioDe(escenarios[1]);
   const datos = new FormData();
