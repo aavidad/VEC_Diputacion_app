@@ -122,3 +122,23 @@ func TestInformeSaldoRechazaSaldoFalsoYCatalogoIncomplete(t *testing.T) {
 		t.Fatal("catalogo pierde dato sin marcador")
 	}
 }
+
+func TestInformeSaldoVersionDecimalCanonica(t *testing.T) {
+	var catalogo Catalogo
+	if err := json.Unmarshal(catalogoPrueba(t, "es"), &catalogo); err != nil {
+		t.Fatal(err)
+	}
+	for _, version := range []string{"", "0", "-1", "01", "+1", "1.0", "1e0", " 1", "9223372036854775808"} {
+		t.Run(version, func(t *testing.T) {
+			c := catalogo
+			c.Version = version
+			datos, err := json.Marshal(c)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if p, err := Nuevo(&rendererPrueba{}, bytes.NewReader(datos)); p != nil || !errors.Is(err, ports.ErrExportacionSaldoInvalida) {
+				t.Fatalf("version=%q preparador=%v err=%v", version, p, err)
+			}
+		})
+	}
+}

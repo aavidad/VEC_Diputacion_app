@@ -25,7 +25,7 @@ import (
 
 type Catalogo struct {
 	Referencia      string            `json:"referencia"`
-	Version         int64             `json:"version"`
+	Version         string            `json:"version"`
 	Idioma          string            `json:"idioma"`
 	FormatoFecha    string            `json:"formato_fecha"`
 	Titulo          string            `json:"titulo"`
@@ -44,10 +44,11 @@ type Catalogo struct {
 }
 
 type Preparador struct {
-	renderer vecports.RenderizadorDocumento
-	catalogo Catalogo
-	huella   string
-	impresor *message.Printer
+	renderer        vecports.RenderizadorDocumento
+	catalogo        Catalogo
+	catalogoVersion int64
+	huella          string
+	impresor        *message.Printer
 }
 
 func Nuevo(renderer vecports.RenderizadorDocumento, datos io.Reader) (*Preparador, error) {
@@ -64,8 +65,12 @@ func Nuevo(renderer vecports.RenderizadorDocumento, datos io.Reader) (*Preparado
 	if decoder.Decode(&c) != nil || decoder.Decode(new(any)) != io.EOF {
 		return nil, ports.ErrExportacionSaldoInvalida
 	}
+	version, err := strconv.ParseInt(c.Version, 10, 64)
+	if err != nil || version < 1 || strconv.FormatInt(version, 10) != c.Version {
+		return nil, ports.ErrExportacionSaldoInvalida
+	}
 	idioma, err := language.Parse(c.Idioma)
-	if err != nil || idioma.String() != c.Idioma || !texto(c.Referencia, 512) || c.Version < 1 || c.FormatoFecha == "" || len(c.FormatoFecha) > 32 {
+	if err != nil || idioma.String() != c.Idioma || !texto(c.Referencia, 512) || c.FormatoFecha == "" || len(c.FormatoFecha) > 32 {
 		return nil, ports.ErrExportacionSaldoInvalida
 	}
 	for _, valor := range []string{c.Titulo, c.Periodo, c.Previsto, c.Trabajado, c.Saldo, c.Duracion, c.DuracionCorta, c.Desconocido, c.Estado, c.Limite, c.Sintetico, c.NombreSintetico} {
@@ -102,7 +107,7 @@ func Nuevo(renderer vecports.RenderizadorDocumento, datos io.Reader) (*Preparado
 		}
 	}
 	sum := sha256.Sum256(raw)
-	return &Preparador{renderer: renderer, catalogo: c, huella: hex.EncodeToString(sum[:]), impresor: message.NewPrinter(idioma)}, nil
+	return &Preparador{renderer: renderer, catalogo: c, catalogoVersion: version, huella: hex.EncodeToString(sum[:]), impresor: message.NewPrinter(idioma)}, nil
 }
 
 func (p *Preparador) PrepararInformeSaldo(ctx context.Context, s ports.SaldoExportable) (ports.DocumentoSaldoPreparado, error) {
@@ -180,7 +185,7 @@ func (p *Preparador) preparar(ctx context.Context, s ports.SaldoExportable, nomb
 	if err := ctx.Err(); err != nil {
 		return cero, err
 	}
-	return ports.DocumentoSaldoPreparado{Contenido: contenido, CatalogoRef: c.Referencia, CatalogoVersion: c.Version, CatalogoSHA256: p.huella}, nil
+	return ports.DocumentoSaldoPreparado{Contenido: contenido, CatalogoRef: c.Referencia, CatalogoVersion: p.catalogoVersion, CatalogoSHA256: p.huella}, nil
 }
 
 func (p *Preparador) duracion(minutos *int64) string {
