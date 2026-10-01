@@ -3,6 +3,7 @@ package ensayologicopg
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -17,7 +18,10 @@ var errEntrada = errors.New("ensayo_logico_entrada_no_admitida")
 
 // El archivo abierto se comprueba por resultado y se copia a un directorio
 // exclusivo. La herramienta de restauración sólo monta esa copia de lectura.
-func copiarArchivo(a Archivo, destino string, limite int64) error {
+func copiarArchivo(ctx context.Context, a Archivo, destino string, limite int64) error {
+	if ctx == nil || ctx.Err() != nil {
+		return errEntrada
+	}
 	f, err := os.OpenFile(a.Ruta, os.O_RDONLY|syscall.O_NONBLOCK, 0) // #nosec G304 G703 -- ruta offline explícita; modo no bloqueante permite rechazar FIFO/dispositivos tras fstat.
 	if err != nil {
 		return errEntrada
@@ -32,7 +36,7 @@ func copiarArchivo(a Archivo, destino string, limite int64) error {
 		return errEntrada
 	}
 	h := sha256.New()
-	n, escribir := io.Copy(io.MultiWriter(g, h), io.LimitReader(f, limite+1))
+	n, escribir := io.Copy(io.MultiWriter(g, h), io.LimitReader(lectorContexto{ctx, f}, limite+1))
 	cerrar := g.Close()
 	if escribir != nil || cerrar != nil || n != info.Size() || n > limite || hex.EncodeToString(h.Sum(nil)) != a.SHA256 {
 		return errEntrada
@@ -45,21 +49,41 @@ var metaRestriccion = regexp.MustCompile(`^\\(un)?restrict [A-Za-z0-9]+$`)
 // Los globals de pg_dumpall pueden llevar restrict/unrestrict. No se admite
 // ningún otro metacomando psql, incluidos shell, includes o reconexiones. Los
 // roles/ACL se restauran completos; no se filtran sentencias de negocio.
-func globalsAdmitidos(ruta string, limite int64) bool {
+func globalsAdmitidos(ctx context.Context, ruta string, limite int64) bool {
+	if ctx == nil || ctx.Err() != nil {
+		return false
+	}
 	f, err := os.Open(ruta) // #nosec G304 G703 -- copia privada creada por este adaptador, nunca un destino externo.
 	if err != nil {
 		return false
 	}
 	defer f.Close()
-	s := bufio.NewScanner(io.LimitReader(f, limite+1))
+	s := bufio.NewScanner(io.LimitReader(lectorContexto{ctx, f}, limite+1))
 	s.Buffer(make([]byte, 4096), 1<<20)
 	for s.Scan() {
+		if ctx.Err() != nil {
+			return false
+		}
 		linea := s.Text()
 		if strings.ContainsRune(linea, '\\') && !metaRestriccion.MatchString(linea) {
 			return false
 		}
 	}
-	return s.Err() == nil
+	return s.Err() == nil && ctx.Err() == nil
+}
+
+// La lectura de entradas también pertenece al plazo del ensayo. Un contexto
+// cancelado no inicia otro bloque de lectura ni sigue calculando la huella.
+type lectorContexto struct {
+	ctx    context.Context
+	lector io.Reader
+}
+
+func (l lectorContexto) Read(p []byte) (int, error) {
+	if err := l.ctx.Err(); err != nil {
+		return 0, err
+	}
+	return l.lector.Read(p)
 }
 
 func dumpAdmitido(ruta string) bool {

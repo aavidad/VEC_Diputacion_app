@@ -74,5 +74,9 @@ func (e Ensayador) Ensayar(ctx context.Context, s Solicitud) (r Resultado) {
 	}
 	ctx, cancelar := context.WithTimeout(ctx, e.Configuracion.TiempoLimite)
 	defer cancelar()
+	if ctx.Err() != nil {
+		fallo(&r, "entrada", "plazo_ensayo", "vigente", "cancelado")
+		return r
+	}
 	return e.ensayar(ctx, s, r)
 }

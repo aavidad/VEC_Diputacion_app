@@ -54,9 +54,9 @@ func (e Ensayador) ensayar(ctx context.Context, s Solicitud, r Resultado) (resul
 		return
 	}
 	dump, globals := filepath.Join(entrada, "copia.dump"), filepath.Join(entrada, "globals.sql")
-	if copiarArchivo(s.Dump, dump, e.Configuracion.LimiteArchivoBytes) != nil ||
-		copiarArchivo(s.Globals, globals, e.Configuracion.LimiteArchivoBytes) != nil ||
-		!dumpAdmitido(dump) || !globalsAdmitidos(globals, e.Configuracion.LimiteArchivoBytes) {
+	if copiarArchivo(ctx, s.Dump, dump, e.Configuracion.LimiteArchivoBytes) != nil ||
+		copiarArchivo(ctx, s.Globals, globals, e.Configuracion.LimiteArchivoBytes) != nil ||
+		!dumpAdmitido(dump) || !globalsAdmitidos(ctx, globals, e.Configuracion.LimiteArchivoBytes) {
 		fallo(&resultado, "entrada", "archivos", "huellas_y_formatos_admitidos", "no_admitidos")
 		return
 	}
