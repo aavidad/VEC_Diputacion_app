@@ -8,7 +8,7 @@ import {
   VISTAS_MODULOS_PERSONALES,
   moduloDeVistaPortal,
   rutaDeVistaPortal,
-} from "../../portal-modulos-coordinador.js?v=20261001-cronos-grafo-justificacion-v3";
+} from "../../portal-modulos-coordinador.js?v=20261001-cronos-grafo-bandeja-v5";
 
 const directorio = new URL("./", import.meta.url);
 const [

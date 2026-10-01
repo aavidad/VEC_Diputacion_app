@@ -1,4 +1,4 @@
-import { crearTraductorResolucionCronos, periodoSolicitudCronos } from "./i18n-resolucion.js";
+import { crearTraductorResolucionCronos, periodoSolicitudCronos } from "./i18n-resolucion.js?v=20261001-cronos-grafo-bandeja-v5";
 import { formatearCantidadCronos } from "./i18n-solicitudes.js";
 import { ErrorClienteResolucionCronos, crearClienteResolucionCronosHTTP } from "./cliente-resolucion-http.js";
 import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";

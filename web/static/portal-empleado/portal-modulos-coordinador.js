@@ -15,7 +15,7 @@ import {
   componerDietasInternas,
   componerPersonalVisible,
   componerRegistroPersonal,
-} from "./portal-composicion-empleado.js?v=20261001-cronos-grafo-justificacion-v3";
+} from "./portal-composicion-empleado.js?v=20261001-cronos-grafo-bandeja-v5";
 import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20261001-codexf-ct-catalogos-v1";
 import {
   CLAVES_CARGA_MODULAR,
@@ -69,19 +69,19 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
       clienteSaldo, clienteRemoto, clienteSolicitudes, i18n,
       bandejaPermisos, avisosPropios, clienteResolucion, i18nResolucion,
       notificacionesPropias, bandejaNotificaciones, clienteNotificaciones, i18nNotificaciones] = await Promise.all([
-      import("./modulos/cronos/vista-saldo-conectado.js?v=20261001-cronos-grafo-justificacion-v3"),
-      import("./modulos/cronos/vista-remoto.js?v=20261001-cronos-grafo-justificacion-v3"),
-      import("./modulos/cronos/vista-movimientos-conectado.js?v=20261001-cronos-grafo-justificacion-v3"),
-      import("./modulos/cronos/vista-movimientos-propios.js?v=20261001-cronos-grafo-justificacion-v3"),
-      import("./modulos/cronos/vista-permisos-propios.js?v=20261001-cronos-grafo-justificacion-v3"),
+      import("./modulos/cronos/vista-saldo-conectado.js?v=20261001-cronos-grafo-bandeja-v5"),
+      import("./modulos/cronos/vista-remoto.js?v=20261001-cronos-grafo-bandeja-v5"),
+      import("./modulos/cronos/vista-movimientos-conectado.js?v=20261001-cronos-grafo-bandeja-v5"),
+      import("./modulos/cronos/vista-movimientos-propios.js?v=20261001-cronos-grafo-bandeja-v5"),
+      import("./modulos/cronos/vista-permisos-propios.js?v=20261001-cronos-grafo-bandeja-v5"),
       import("./modulos/cronos/cliente-saldo-http.js"),
       import("./modulos/cronos/cliente-remoto-http.js"),
       import("./modulos/cronos/cliente-solicitudes-http.js"),
       import("./modulos/cronos/i18n.js?v=20260929-i18n-textos-v1"),
-      import("./modulos/cronos/vista-bandeja-permisos.js?v=20260929-i18n-textos-v1"),
-      import("./modulos/cronos/vista-avisos-propios.js?v=20260929-i18n-textos-v1"),
+      import("./modulos/cronos/vista-bandeja-permisos.js?v=20261001-cronos-grafo-bandeja-v5"),
+      import("./modulos/cronos/vista-avisos-propios.js?v=20261001-cronos-grafo-bandeja-v5"),
       import("./modulos/cronos/cliente-resolucion-http.js"),
-      import("./modulos/cronos/i18n-resolucion.js"),
+      import("./modulos/cronos/i18n-resolucion.js?v=20261001-cronos-grafo-bandeja-v5"),
       import("./modulos/cronos/vista-notificaciones-propias.js?v=20260929-i18n-textos-v1"),
       import("./modulos/cronos/vista-bandeja-notificaciones.js?v=20260929-i18n-textos-v1"),
       import("./modulos/cronos/cliente-notificaciones-http.js"),

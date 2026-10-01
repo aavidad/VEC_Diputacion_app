@@ -1,5 +1,5 @@
 import { crearTraductorCronos, MENSAJES_CRONOS } from "./i18n.js?v=20260929-i18n-textos-v1";
-import { crearTraductorFichajeCronos, MENSAJES_FICHAJE_CRONOS } from "./i18n-fichaje.js?v=20261001-cronos-grafo-justificacion-v3";
+import { crearTraductorFichajeCronos, MENSAJES_FICHAJE_CRONOS } from "./i18n-fichaje.js?v=20261001-cronos-grafo-bandeja-v5";
 import { validarDisponibilidadRemota, validarReciboMarcajeRemoto } from "./cliente-remoto-http.js";
 import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
 
