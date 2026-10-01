@@ -5,7 +5,7 @@ import { crearAdaptadorHTTPExpedientesContratacionTemporal, etiquetaCatalogo } f
 import { renderizarExpediente, solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js?v=20261001-ct-a-i18n-v1";
 import { crearTraductorExpedientesContratacion, MENSAJES_EXPEDIENTES_CONTRATACION_EN } from "./i18n-expedientes.js?v=20261001-ct-a-i18n-v1";
 import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js?v=20261001-ct-a-i18n-v1";
-import { renderizarModuloContratacionTemporal } from "./vista-expedientes.js?v=20261001-ct-a-i18n-v1";
+import { renderizarModuloContratacionTemporal } from "./vista-expedientes.js?v=20261001-ct-firma-verificador-v1";
 
 const resumen = Object.freeze({
   expediente_ref: "expediente:ct:001",

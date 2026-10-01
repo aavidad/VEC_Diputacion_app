@@ -16,7 +16,7 @@ import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-e
 import {
   montarModuloContratacionTemporal,
   renderizarModuloContratacionTemporal,
-} from "./vista-expedientes.js?v=20261001-ct-a-i18n-v1";
+} from "./vista-expedientes.js?v=20261001-ct-firma-verificador-v1";
 
 const t = crearTraductorExpedientesContratacion();
 

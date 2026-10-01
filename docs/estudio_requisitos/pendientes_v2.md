@@ -16,3 +16,14 @@ Los coeficientes y fechas de los ejemplos sintéticos no aprueban bases instituc
 ## Contraste que guía el corte
 
 La [Bolsa Única de Andalucía](https://www.juntadeandalucia.es/boja/2019/240/18.html) fija coeficientes y topes en su convocatoria. La [Ventanilla Electrónica del SAS](https://www.sspa.juntadeandalucia.es/servicioandaluzdesalud/profesionales/ventanilla-electronica-de-profesionales/como-cumplimento-una-solicitud-de-autobaremo) separa cálculo, revisión y presentación. [SAP SuccessFactors](https://help.sap.com/docs/successfactors-performance-and-goals/implementing-and-managing-performance-management/rating-calculation) y [Odoo](https://www.odoo.com/documentation/17.0/applications/hr/appraisals.html) muestran criterios y escalas configurables por proceso. Se adopta la separación entre regla, cálculo y decisión; ninguno de esos productos aporta una fórmula aplicable por defecto a VEC.
+
+## Original de la primera firma local de Contratación
+
+El verificador acredita que la firma cubre el original aportado por el cliente.
+Falta cotejarlo en backend con el borrador exacto de VEC por expediente, versión,
+tipo documental y versión de plantilla antes de verificar y custodiar. Resolver
+o conservar ese original por su autoridad; regenerar desde el catálogo vigente
+no basta. La firma local mantiene `firma_eficaz=false` y no sustituye al circuito
+corporativo. Los certificados distintos de una misma persona necesitan una
+relación nominal aprobada; el canal de desarrollo exige el mismo certificado
+para autenticarse y firmar.

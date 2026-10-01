@@ -60,6 +60,10 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   const coordinador = await readFile(new URL("portal-modulos-coordinador.js", raiz), "utf8");
   const recorridosDietas = await readFile(new URL("modulos/dietas/vista-recorridos.js", raiz), "utf8");
   const versionesEspeciales = new Map([
+    ["modulos/contratacion-temporal/formulario-llamamiento-pruebas.js", "20261001-ct-firma-verificador-v1"],
+    ["modulos/contratacion-temporal/circuito-firma-acciones.js", "20261001-ct-firma-verificador-v1"],
+    ["portal-modulos-coordinador.js", "20261001-ct-firma-verificador-v1"],
+    ["portal.js", "20261001-ct-firma-verificador-v1"],
     ["modulos/cronos/vista-bandeja-permisos.js", "20261001-cronos-grafo-bandeja-v5"],
     ["modulos/cronos/i18n-resolucion.js", "20261001-cronos-grafo-bandeja-v5"],
     ["modulos/cronos/i18n-permisos.js", "20261001-cronos-grafo-bandeja-v5"],
@@ -91,8 +95,8 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     ["portal-modulos-coordinador.js", "20261001-cronos-grafo-bandeja-v5"],
     ["modulos/dietas/vista-recorridos.js", "20261001-ct-a-i18n-v1"],
     ["modulos/dietas/vista-bandeja-circuito.js", "20261001-ct-a-i18n-v1"],
-    ["modulos/contratacion-temporal/vista-expedientes.js", "20261001-ct-a-i18n-v1"],
-    ["modulos/contratacion-temporal/circuito-firma.js", "20261001-ct-a-i18n-v1"],
+    ["modulos/contratacion-temporal/vista-expedientes.js", "20261001-ct-firma-verificador-v1"],
+    ["modulos/contratacion-temporal/circuito-firma.js", "20261001-ct-firma-verificador-v1"],
   ]);
   const archivos = ["index.html"];
   const pendientes = [""];
