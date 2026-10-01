@@ -262,14 +262,14 @@ IF p_material IS NULL OR octet_length(p_material) NOT BETWEEN 1 AND 4096 THEN
 END IF;
 BEGIN
   bruto := p_material::json;
+  IF json_typeof(bruto) IS DISTINCT FROM 'object' THEN
+    RAISE EXCEPTION 'estructura Cronos inválida' USING ERRCODE = 'PC001';
+  END IF;
+  SELECT count(*), count(DISTINCT e.key) INTO cantidad, distintas
+    FROM json_each(bruto) AS e;
 EXCEPTION WHEN data_exception THEN
   RAISE EXCEPTION 'estructura Cronos inválida' USING ERRCODE = 'PC001';
 END;
-IF json_typeof(bruto) IS DISTINCT FROM 'object' THEN
-  RAISE EXCEPTION 'estructura Cronos inválida' USING ERRCODE = 'PC001';
-END IF;
-SELECT count(*), count(DISTINCT e.key) INTO cantidad, distintas
-  FROM json_each(bruto) AS e;
 IF cantidad <> 7 OR distintas <> 7 THEN
   RAISE EXCEPTION 'estructura Cronos inválida' USING ERRCODE = 'PC001';
 END IF;
@@ -345,8 +345,8 @@ las restricciones ni los tipos de las tablas instaladas.
 
 CRN11 sigue siendo lectura propia. Decidir, resolver y aplicar requieren otra
 migración Cronos porque añaden historia de negocio y, al aplicar, un asiento
-compensatorio. Se propone CRN12, pendiente de reserva por Dirección; este
-borrador no la reserva ni contiene su SQL. AD138 puede reunir fachadas
+compensatorio. Su número queda por reservar por Dirección; este borrador no
+reserva la migración posterior ni contiene su SQL. AD138 puede reunir fachadas
 separadas si D acuerda sus contratos; compartir número no comparte permisos.
 
 Ese corte recibirá la solicitud, una clave de escritura nueva por paso y la
