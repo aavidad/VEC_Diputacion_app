@@ -14,7 +14,7 @@ function sigue(raiz, contenedor) {
   return raiz.querySelector?.("[data-personal-estructura-organizativa-publica]") === contenedor;
 }
 const FILAS_POR_PAGINA = 10;
-function tabla(documento, estructura, t, pagina) {
+function tabla(documento, estructura, unidades, t, pagina) {
   const tabla = nodo(documento, "table");
   tabla.className = "tabla-datos";
   tabla.append(nodo(documento, "caption", t("estructura_tabla")));
@@ -29,7 +29,7 @@ function tabla(documento, estructura, t, pagina) {
   tabla.append(thead);
   const etiquetas = new Map(estructura.unidades.map((unidad) => [unidad.clave, unidad.etiqueta]));
   const cuerpo = nodo(documento, "tbody");
-  estructura.unidades.slice(pagina * FILAS_POR_PAGINA, (pagina + 1) * FILAS_POR_PAGINA).forEach((unidad) => {
+  unidades.slice(pagina * FILAS_POR_PAGINA, (pagina + 1) * FILAS_POR_PAGINA).forEach((unidad) => {
     const fila = nodo(documento, "tr");
     const etiqueta = nodo(documento, "th", unidad.etiqueta);
     etiqueta.setAttribute("scope", "row");
@@ -65,12 +65,14 @@ function ayuda(documento, fuente, t) {
   contenido.hidden = true;
   contenido.append(nodo(documento, "p", t("estructura_ayuda")), nodo(documento, "p", t("estructura_aviso")));
   if (fuente) {
+    const huella = nodo(documento, "p", t("estructura_huella", { huella: fuente.huella_sha256 }));
+    huella.className = "rpt-huella";
     contenido.append(
       nodo(documento, "p", t("estructura_fuente", {
         ...fuente,
         actualizada_en: formatearFechaEstructuraOrganizativa(fuente.actualizada_en),
       })),
-      nodo(documento, "p", t("estructura_huella", { huella: fuente.huella_sha256 })),
+      huella,
     );
   }
   boton.addEventListener("click", () => {
@@ -79,15 +81,124 @@ function ayuda(documento, fuente, t) {
   });
   return { boton, contenido };
 }
-function pintar(raiz, contenedor, estado, t, pagina, cambiarPagina) {
+const normalizarBusqueda = (valor) => valor.normalize("NFD").replace(/[\u0300-\u036f]/gu, "").toLocaleLowerCase(LOCALIZACION_ACTUAL);
+
+function listado(documento, estructura, t, vigente) {
+  const salida = nodo(documento, "div");
+  const filtros = nodo(documento, "div");
+  filtros.className = "barra-filtros";
+  const texto = nodo(documento, "input");
+  texto.type = "search";
+  texto.value = "";
+  texto.maxLength = 128;
+  texto.autocomplete = "off";
+  texto.dataset.personalEstructuraBuscar = "";
+  const tipo = nodo(documento, "select");
+  tipo.dataset.personalEstructuraTipo = "";
+  for (const valor of ["", "delegacion", "centro", "puesto_responsabilidad"]) {
+    const opcion = nodo(documento, "option", t(valor ? `estructura_tipo_${valor}` : "organizacion_allTypes"));
+    opcion.value = valor;
+    tipo.append(opcion);
+  }
+  tipo.value = "";
+  for (const [clave, control] of [["estructura_buscar", texto], ["organizacion_filterType", tipo]]) {
+    const etiqueta = nodo(documento, "label");
+    etiqueta.className = "campo";
+    etiqueta.append(nodo(documento, "span", t(clave)), control);
+    filtros.append(etiqueta);
+  }
+  const limpiar = nodo(documento, "button", t("estructura_limpiar_filtros"));
+  limpiar.type = "button";
+  limpiar.dataset.personalEstructuraLimpiar = "";
+  limpiar.disabled = true;
+  filtros.append(limpiar);
+  const recuento = nodo(documento, "p");
+  recuento.dataset.personalEstructuraRecuento = "";
+  recuento.setAttribute("role", "status");
+  const marco = nodo(documento, "div");
+  marco.className = "marco-tabla-paginado";
+  const numero = new Intl.NumberFormat(LOCALIZACION_ACTUAL);
+  // Las etiquetas de los padres proceden del catálogo completo, aunque el
+  // filtro deje visible solo a sus hijos.
+  const padres = new Map(estructura.unidades.map((unidad) => [unidad.clave, unidad.etiqueta]));
+  let pagina = 0;
+  let unidades = estructura.unidades;
+  const actualizarTabla = () => {
+    if (!vigente()) return;
+    const focoPaginacion = ["anterior", "siguiente"].find((direccion) =>
+      documento.activeElement === marco.querySelector(`[data-personal-estructura-${direccion}]`));
+    const paginas = Math.ceil(unidades.length / FILAS_POR_PAGINA);
+    const navegacion = nodo(documento, "nav");
+    navegacion.className = "paginacion-marco";
+    navegacion.setAttribute("aria-label", t("estructura_tabla"));
+    const anterior = nodo(documento, "button", t("catalogo_anterior"));
+    anterior.type = "button";
+    anterior.dataset.personalEstructuraAnterior = "";
+    anterior.disabled = pagina === 0;
+    anterior.addEventListener("click", () => {
+      if (!vigente() || pagina === 0) return;
+      pagina -= 1;
+      actualizarTabla();
+    });
+    const siguiente = nodo(documento, "button", t("catalogo_siguiente"));
+    siguiente.type = "button";
+    siguiente.dataset.personalEstructuraSiguiente = "";
+    siguiente.disabled = pagina >= paginas - 1;
+    siguiente.addEventListener("click", () => {
+      if (!vigente() || pagina >= paginas - 1) return;
+      pagina += 1;
+      actualizarTabla();
+    });
+    const posicion = nodo(documento, "span", `${numero.format(unidades.length ? pagina + 1 : 0)} / ${numero.format(paginas)}`);
+    posicion.setAttribute("aria-live", "polite");
+    navegacion.append(anterior, posicion, siguiente);
+    if (unidades.length) {
+      marco.replaceChildren(tabla(documento, estructura, unidades, t, pagina), navegacion);
+    } else {
+      const vacio = nodo(documento, "p", t("organizacion_empty"));
+      vacio.setAttribute("role", "status");
+      marco.replaceChildren(vacio, navegacion);
+    }
+    recuento.textContent = t("organizacion_count", { visible: numero.format(unidades.length), total: numero.format(estructura.unidades.length) });
+    if (focoPaginacion) {
+      const mismaDireccion = focoPaginacion === "anterior" ? anterior : siguiente;
+      const alternativa = focoPaginacion === "anterior" ? siguiente : anterior;
+      (!mismaDireccion.disabled ? mismaDireccion : alternativa).focus?.();
+    }
+  };
+  const filtrar = () => {
+    if (!vigente()) return;
+    const busqueda = normalizarBusqueda(texto.value.trim());
+    limpiar.disabled = !texto.value && !tipo.value;
+    unidades = estructura.unidades.filter((unidad) =>
+      (!tipo.value || unidad.tipo === tipo.value) && (!busqueda ||
+        [unidad.etiqueta, padres.get(unidad.adscripcion_clave) ?? ""].some((valor) => normalizarBusqueda(valor).includes(busqueda))));
+    pagina = 0;
+    // Solo cambia el resultado: los controles, el foco, la selección y la
+    // ayuda siguen siendo los mismos nodos durante la escritura.
+    actualizarTabla();
+  };
+  texto.addEventListener("input", filtrar);
+  tipo.addEventListener("change", filtrar);
+  limpiar.addEventListener("click", () => {
+    if (!vigente()) return;
+    texto.value = "";
+    tipo.value = "";
+    filtrar();
+    texto.focus();
+  });
+  salida.append(filtros, recuento, marco);
+  actualizarTabla();
+  return salida;
+}
+
+function pintar(raiz, contenedor, estado, t) {
   if (!sigue(raiz, contenedor)) return;
   const documento = contenedor.ownerDocument;
   const botonAnterior = contenedor.querySelector("[data-personal-estructura-ayuda]");
   const contenidoAnterior = contenedor.querySelector("[data-personal-estructura-ayuda-contenido]");
   const ayudaAbierta = contenidoAnterior ? !contenidoAnterior.hidden : false;
   const focoAyuda = documento.activeElement === botonAnterior;
-  const focoPaginacion = ["anterior", "siguiente"].find((direccion) =>
-    documento.activeElement === contenedor.querySelector(`[data-personal-estructura-${direccion}]`));
   contenedor.replaceChildren();
   const cabecera = nodo(documento, "header");
   cabecera.className = "cabecera-vista";
@@ -104,11 +215,6 @@ function pintar(raiz, contenedor, estado, t, pagina, cambiarPagina) {
       contextual.boton.focus?.();
       return;
     }
-    if (!focoPaginacion) return;
-    const mismaDireccion = contenedor.querySelector(`[data-personal-estructura-${focoPaginacion}]`);
-    const alternativa = contenedor.querySelector(`[data-personal-estructura-${focoPaginacion === "siguiente" ? "anterior" : "siguiente"}]`);
-    const destino = !mismaDireccion?.disabled ? mismaDireccion : alternativa;
-    destino?.focus?.();
   };
   if (estado.tipo === "cargando") {
     const carga = nodo(documento, "p", t("estructura_cargando"));
@@ -132,28 +238,8 @@ function pintar(raiz, contenedor, estado, t, pagina, cambiarPagina) {
   pastilla.className = "estado-chip";
   pastilla.dataset.personalEstructuraAviso = "";
   aviso.append(pastilla);
-  const paginas = Math.ceil(estructura.unidades.length / FILAS_POR_PAGINA);
-  const marco = nodo(documento, "div");
-  marco.className = "marco-tabla-paginado";
-  const navegacion = nodo(documento, "nav");
-  navegacion.className = "paginacion-marco";
-  navegacion.setAttribute("aria-label", t("estructura_tabla"));
-  const anterior = nodo(documento, "button", t("catalogo_anterior"));
-  anterior.type = "button";
-  anterior.dataset.personalEstructuraAnterior = "";
-  anterior.disabled = pagina === 0;
-  anterior.addEventListener("click", () => cambiarPagina(pagina - 1));
-  const siguiente = nodo(documento, "button", t("catalogo_siguiente"));
-  siguiente.type = "button";
-  siguiente.dataset.personalEstructuraSiguiente = "";
-  siguiente.disabled = pagina >= paginas - 1;
-  siguiente.addEventListener("click", () => cambiarPagina(pagina + 1));
-  const numero = new Intl.NumberFormat(LOCALIZACION_ACTUAL);
-  const posicion = nodo(documento, "span", `${numero.format(pagina + 1)} / ${numero.format(paginas)}`);
-  posicion.setAttribute("aria-live", "polite");
-  navegacion.append(anterior, posicion, siguiente);
-  marco.append(tabla(documento, estructura, t, pagina), navegacion);
-  contenedor.append(aviso, nodo(documento, "p", formatearRecuentoEstructura(estructura.unidades.length)), marco);
+  contenedor.append(aviso, nodo(documento, "p", formatearRecuentoEstructura(estructura.unidades.length)),
+    listado(documento, estructura, t, () => sigue(raiz, contenedor)));
   restaurarFoco();
 }
 export async function montarModuloEstructuraOrganizativaPublica({ raiz, cliente, anunciar = () => {}, registrarDesmontar } = {}) {
@@ -168,16 +254,8 @@ export async function montarModuloEstructuraOrganizativaPublica({ raiz, cliente,
   contenedor.dataset.personalEstructuraOrganizativaPublica = "";
   raiz.append(contenedor);
   let activa = true;
-  let pagina = 0;
   let estado = { tipo: "cargando" };
-  const cambiarPagina = (siguiente) => {
-    if (!activa || estado.tipo !== "disponible" || !sigue(raiz, contenedor)) return;
-    const paginas = Math.ceil(estado.estructura.unidades.length / FILAS_POR_PAGINA);
-    if (!Number.isSafeInteger(siguiente) || siguiente < 0 || siguiente >= paginas) return;
-    pagina = siguiente;
-    pintar(raiz, contenedor, estado, t, pagina, cambiarPagina);
-  };
-  const repintar = () => pintar(raiz, contenedor, estado, t, pagina, cambiarPagina);
+  const repintar = () => pintar(raiz, contenedor, estado, t);
   const controlador = new AbortController();
   const desmontar = () => {
     if (!activa) return;
