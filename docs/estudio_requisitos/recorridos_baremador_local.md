@@ -127,5 +127,24 @@ los detalles tienen capturas propias al desplazarse hasta ellos.
 La revisión visual posterior encontró una explicación que redondeaba a cero
 coeficientes y puntos decimales, pese a que el total y el desglose del motor eran
 correctos. La matriz anterior acredita sus comprobaciones automáticas; no
-aprueba esos textos explicativos. La corrección de los motivos necesita una
-comprobación focal sobre el nuevo hash, sin repetir los 120 POST.
+aprueba aquellos textos explicativos.
+
+La comprobación focal de la corrección pasó sobre la candidata limpia
+`5536d3c1e13215ef16148562788f5e2fd8789a54`, que incluye el renderer y catálogos
+de web `f5a0ba308b38f7975a06f4a23dee3ad0a4117cb5`. Comando:
+`node scripts/probar_baremador_navegador.mjs --explicaciones`. Los cuatro casos
+de español e inglés a 1440 y 390 píxeles pasaron, con 16 POST que devolvieron
+200. Los motivos de las seis familias conservan las cantidades que devuelve
+Go. El curso muestra un coeficiente de 0,012 y 0,48 puntos; el grado conserva
+19 puntos y su tabla. El corte `2024-05-01` excluye el curso obtenido ese mismo
+día, muestra la explicación traducida y devuelve un total de `23129315`
+micropuntos. No hubo errores JavaScript, errores de consola, cookies,
+almacenamiento web ni llamadas externas.
+
+El informe focal está en `/tmp/vec-baremador-evidencia-FL99Aj/resultado.json`,
+con SHA256 `32126ba2a423974f27cda7110440955945bf7828c27f02cfe11ec0ab468db319`.
+Conserva 20 capturas de ventana: inicio de Bolsa y Concursos, curso abierto,
+tabla de grado y curso excluido. La revisión visual independiente recibe estas
+capturas. No se repitió la matriz de 120 POST ni las visitas de reflujo.
+La corrección web afecta únicamente a textos, representación y versiones de
+recursos; no cambia el transporte HTTP ni el motor acreditados por esa matriz.
