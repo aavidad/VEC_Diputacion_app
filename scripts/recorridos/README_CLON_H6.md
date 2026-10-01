@@ -134,6 +134,11 @@ ocultar el fallo. El binario de arranque final necesitará su propio pin.
   H1/SQL62; la composición completa conserva bloqueos explícitos.
 - [Material externo](clon_material_externo_offline.py) y [alias](clon_alias_export.py):
   productores offline con recibos separados, sin aprobación AD132 ni READY.
+- [Canario por archivo](clon_h6_archive_controller.py): la acción explícita
+  `canario-archivo` ya tiene controlador de intento único y publicación
+  conjunta del plan/recibo. Su autoridad de material definitivo está ausente:
+  deniega antes de leer estado, bloquear o llamar a Docker. Las pruebas con
+  dobles no acreditan ejecución real ni habilitan `preparar`/`reiniciar`.
 - [Plan postmain](clon_postmain_plan.py): lee commit, árbol, cuatro listas causales y
   SHA de **RPT6+B6+AD136+B2**. Es un plan de lectura pendiente de aprobación y
   recibos previos; no instala SQL. No incorporar SQL descubierta en main por
