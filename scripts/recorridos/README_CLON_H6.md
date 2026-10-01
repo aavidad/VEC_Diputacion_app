@@ -127,15 +127,18 @@ ocultar el fallo. El binario de arranque final necesitará su propio pin.
   H1/SQL62; la composición completa conserva bloqueos explícitos.
 - [Material externo](clon_material_externo_offline.py) y [alias](clon_alias_export.py):
   productores offline con recibos separados, sin aprobación AD132 ni READY.
-- [Plan postmain](clon_postmain_plan.py): lee commit, árbol, dos listas causales y
-  SHA de **RPT6+B6**. Es un plan de lectura pendiente de aprobación y recibos
-  previos; no instala SQL. No incorporar SQL descubierta en main por inferencia.
+- [Plan postmain](clon_postmain_plan.py): lee commit, árbol, tres listas causales y
+  SHA de **RPT6+B6+AD136**. Es un plan de lectura pendiente de aprobación y
+  recibos previos; no instala SQL. No incorporar SQL descubierta en main por
+  inferencia.
   **U17 queda diferida**.
 
-`origin/main@77ea7a762` añadió AD136 después de RPT6 y B6. El plan v2 la
-detecta como SQL desconocida y bloquea una transición parcial. Está en
-preparación una tercera lista documental con AD136; su instalación exige la
-postimagen B y las definiciones históricas exactas de AD113/Documentos9.
+`origin/main@77ea7a762` añadió AD136 después de RPT6 y B6. El plan v3 la
+inventaría como operación 13, con DOWN y sonda no ejecutables. Su instalación
+exige la postimagen B y las definiciones históricas exactas de
+AD113/Documentos9. `origin/main@b79b51e21` añadió después las 13 UP de B2:
+siguen clasificadas como SQL desconocidas y bloquean una transición parcial
+hasta que su lista causal y sus acompañantes se revisen por separado.
 
 AUT26 y su recibo de extensión preAD132, LOGIN nominal, sesiones CAS vinculadas
 y provisión siguen pendientes. AUT26 no se suma al journal de 62 ni modifica
