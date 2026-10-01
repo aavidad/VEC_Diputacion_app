@@ -20,7 +20,7 @@ func ejecutar(entrada io.Reader, salida, diagnostico io.Writer) int {
 		return informarError(diagnostico, err)
 	}
 	if err := json.NewEncoder(salida).Encode(r); err != nil {
-		return 1
+		return informarError(diagnostico, &domain.Error{Codigo: "adjudicacion_salida_no_disponible", Campo: "documento"})
 	}
 	return 0
 }
