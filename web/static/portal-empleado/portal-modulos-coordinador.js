@@ -109,12 +109,12 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
       import("./modulos/personal/contrato.js?v=20260920-personal-catalogo-v1"),
       import("./modulos/personal/cliente-http-categorias.js?v=20260925-portal-integrado-v1"),
       import("./modulos/personal/vista.js?v=20260929-i18n-personal-v1"),
-      import("./modulos/personal/vista-ficha-integral.js?v=20261001-b-personal-corte-propio-main-v4"),
+      import("./modulos/personal/vista-ficha-integral.js?v=20261002-b381-reconciliar-v1"),
       import("./modulos/personal/registro-b2.js?v=20261001-personal-expediente-v2"),
       import("./modulos/personal/registro-b2-cliente.js?v=20260925-b2-selector-v1"),
       import("./modulos/personal/registro-b2-catalogos-cliente.js?v=20260925-b2-mtls-v1"),
       import("./modulos/personal/i18n.js?v=20260925-personal-e10-v1"),
-      import("./modulos/personal/cliente-http-ficha-propia.js?v=20261001-b-personal-corte-propio-main-v4"),
+      import("./modulos/personal/cliente-http-ficha-propia.js?v=20261002-b381-reconciliar-v1"),
     ]);
     return Object.freeze({ contrato, cliente, vista, clienteCategorias: cliente, vistaCategorias: vista,
       ficha, registro, clienteRegistro, clienteCatalogosRegistro, i18n, clienteFichaPropia });
@@ -156,6 +156,10 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
 
 export const VISTAS_MODULOS_PERSONALES = Object.freeze(new Set(["cronos", "cronos-permisos", "cronos-avisos", "cronos-bandeja",
   "cronos-notificaciones", "cronos-bandeja-notificaciones", "dietas", "personal", "personal-registro"]));
+// Navegación propia: no incluye vistas de gestión ni acredita permisos.
+export const VISTAS_AUTOSERVICIO_EMPLEADO = Object.freeze(new Set([
+  "personal", "cronos", "cronos-permisos", "cronos-avisos", "cronos-notificaciones", "dietas",
+]));
 const SUBVISTAS_CRONOS = Object.freeze(new Set(["cronos-permisos", "cronos-avisos", "cronos-bandeja", "cronos-notificaciones", "cronos-bandeja-notificaciones"]));
 const VISTAS_MODULO_BOLSA = Object.freeze(new Set(VISTAS_INTERNAS_BOLSA));
 export const VISTAS_MODULOS_CONECTADOS = Object.freeze(new Set([
@@ -735,6 +739,12 @@ export function crearCoordinadorModulosPortal({
     return catalogoOfrecido;
   }
 
+  function obtenerAccesosEmpleado() {
+    return Object.freeze(Object.fromEntries(["personal", "cronos", "dietas"]
+      .filter((clave) => catalogo.some((modulo) => modulo.clave === clave))
+      .map((clave) => [clave, Object.freeze({ estado: estadoCargaModulo(clave) })])));
+  }
+
   function vistaDisponible(vista) {
     if (VISTAS_MODULO_BOLSA.has(vista)) {
       return montajeBolsa !== null && montajeBolsa.disponible(vista) === true;
@@ -969,9 +979,9 @@ export function crearCoordinadorModulosPortal({
             <button type="button" class="boton-secundario" data-vista="cronos"${vista === "cronos" ? ' aria-current="page"' : ""}>${escaparHTML(t("jornada_titulo"))}</button>
             <button type="button" class="boton-secundario" data-vista="cronos-permisos"${vista === "cronos-permisos" ? ' aria-current="page"' : ""}>${escaparHTML(t("navegacion_permisos"))}</button>
             ${typeof composicion.cronos.montarAvisos === "function" ? `<button type="button" class="boton-secundario" data-vista="cronos-avisos"${vista === "cronos-avisos" ? ' aria-current="page"' : ""}>${escaparHTML(composicion.cronos.etiquetas.avisos)}</button>
-            <button type="button" class="boton-secundario" data-vista="cronos-bandeja"${vista === "cronos-bandeja" ? ' aria-current="page"' : ""}>${escaparHTML(composicion.cronos.etiquetas.bandeja)}</button>` : ""}
+            ${vista === "cronos-bandeja" ? `<button type="button" class="boton-secundario" data-vista="cronos-bandeja" aria-current="page">${escaparHTML(composicion.cronos.etiquetas.bandeja)}</button>` : ""}` : ""}
             ${typeof composicion.cronos.montarNotificaciones === "function" ? `<button type="button" class="boton-secundario" data-vista="cronos-notificaciones"${vista === "cronos-notificaciones" ? ' aria-current="page"' : ""}>${escaparHTML(composicion.cronos.etiquetas.notificaciones)}</button>
-            <button type="button" class="boton-secundario" data-vista="cronos-bandeja-notificaciones"${vista === "cronos-bandeja-notificaciones" ? ' aria-current="page"' : ""}>${escaparHTML(composicion.cronos.etiquetas.bandejaNotificaciones)}</button>` : ""}
+            ${vista === "cronos-bandeja-notificaciones" ? `<button type="button" class="boton-secundario" data-vista="cronos-bandeja-notificaciones" aria-current="page">${escaparHTML(composicion.cronos.etiquetas.bandejaNotificaciones)}</button>` : ""}` : ""}
           </div>`;
         raiz.append(navegacion);
         desmontarVista = () => navegacion?.remove();
@@ -1183,6 +1193,7 @@ export function crearCoordinadorModulosPortal({
     montarVista,
     obtenerTramitesInicio,
     obtenerCatalogo,
+    obtenerAccesosEmpleado,
     obtenerCuadroInicio,
     renderizarNavegacion,
     resolverAcceso,

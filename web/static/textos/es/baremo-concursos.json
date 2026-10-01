@@ -50,6 +50,8 @@
     "antes": "Configuración inicial",
     "despues": "Borrador modificado",
     "total": "Total",
+    "suma_apartados": "Suma tras los topes de cada apartado",
+    "total_tras_tope": "Total tras el tope global",
     "desglose": "Desglose por apartado",
     "explicacion": "Ver cálculo",
     "trazabilidad": "Ver versión y huellas",
