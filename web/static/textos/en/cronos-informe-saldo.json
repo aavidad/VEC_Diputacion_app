@@ -1,0 +1,23 @@
+{
+  "referencia": "cronos-informe-saldo-en",
+  "version": "1",
+  "idioma": "en-GB",
+  "formato_fecha": "02/01/2006",
+  "titulo": "My working time balance",
+  "periodo": "Period: {{desde}} to {{hasta}}",
+  "previsto": "Scheduled time: {{valor}}",
+  "trabajado": "Time worked: {{valor}}",
+  "saldo": "Balance: {{valor}}",
+  "duracion": "{{horas}} h {{minutos}} min",
+  "desconocido": "Unavailable",
+  "estado": "Balance status: {{valor}}",
+  "estados": {
+    "disponible": "Available",
+    "no_disponible": "Scheduled working time is missing",
+    "incompleto": "Incomplete data"
+  },
+  "limite": "This report summarises the requested period. Missing data may change the balance when completed.",
+  "sintetico": "SYNTHETIC EXAMPLE. No administrative validity. Employee downloads are not enabled yet.",
+  "nombre_sintetico": "Example person: {{nombre}}",
+  "duracion_corta": "{{minutos}} min"
+}

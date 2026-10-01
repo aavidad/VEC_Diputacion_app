@@ -100,6 +100,7 @@ static/textos/es/dietas.json
 static/textos/en/dietas.json
 static/portal-empleado/modulos/dietas/borradores-propios.css
 static/portal-empleado/modulos/dietas/calculador-rutas-http.js
+static/portal-empleado/modulos/dietas/catalogo/vista.js
 static/portal-empleado/modulos/dietas/cliente-asignacion-http.js
 static/portal-empleado/modulos/dietas/cliente-borradores-http.js
 static/portal-empleado/modulos/dietas/cliente-circuito-http.js
@@ -115,6 +116,7 @@ static/portal-empleado/modulos/dietas/i18n-rectificacion-admin.js
 static/portal-empleado/modulos/dietas/i18n-rectificacion-dietas.js
 static/portal-empleado/modulos/dietas/i18n-revision.js
 static/portal-empleado/modulos/dietas/i18n.js
+static/portal-empleado/modulos/dietas/informes/vista.js
 static/portal-empleado/modulos/dietas/mapa-ruta.js
 static/portal-empleado/modulos/dietas/texto-dietas.js
 static/portal-empleado/modulos/dietas/vista-bandeja-circuito.js
@@ -125,6 +127,8 @@ static/portal-empleado/modulos/dietas/vista-rectificacion-admin.js
 static/portal-empleado/modulos/dietas/vista-rectificacion-dietas.js
 static/textos/es/personal.json
 static/textos/en/personal.json
+static/textos/es/personal-traza.json
+static/textos/en/personal-traza.json
 static/portal-empleado/modulos/personal/cliente-http-categorias.js
 static/portal-empleado/modulos/personal/cliente-http-rpt-publica.js
 static/portal-empleado/modulos/personal/cliente-http-estructura-organizativa-publica.js
@@ -132,6 +136,7 @@ static/portal-empleado/modulos/personal/contrato.js
 static/portal-empleado/modulos/personal/i18n.js
 static/portal-empleado/modulos/personal/i18n-rpt-puestos.js
 static/portal-empleado/modulos/personal/i18n-ficha-propia.js
+static/portal-empleado/modulos/personal/personal-traza-i18n.js
 static/portal-empleado/modulos/personal/cliente-http-ficha-propia.js
 static/portal-empleado/modulos/personal/ficha-integral.css
 static/portal-empleado/modulos/personal/vista-ficha-integral.js
@@ -451,5 +456,7 @@ static/textos/en/contratacion-temporal-firma-incorporacion-portal.json
 static/textos/en/contratacion-temporal-firma-incorporacion-expedientes.json
 static/textos/en/dietas-catalogo.json
 static/textos/en/dietas-informes.json
+static/textos/es/formacion.json
+static/textos/en/formacion.json
 static/textos/es/carrera.json
 static/textos/en/carrera.json

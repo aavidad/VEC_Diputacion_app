@@ -278,7 +278,7 @@
       "alta_seguridad_social": "Registered with Social Security",
       "matrimonio_union_hecho": "Marriage or civil partnership"
     },
-    "justificante": "Supporting document",
+    "justificante": "Supporting document (the file is not sent)",
     "justificanteRef": "Supporting document reference",
     "responder": "Send response",
     "modo": {
@@ -304,7 +304,7 @@
       "datos_no_validos": "Check the form data.",
       "acceso_denegado": "You do not have permission for this action.",
       "autenticacion_requerida": "Identify yourself again to continue.",
-      "servicio_no_disponible": "Service unavailable. Nothing has been recorded; you can try again."
+      "servicio_no_disponible": "The outcome could not be confirmed. Check My job pool before sending the request again."
     }
   },
   "vista": {

@@ -1,5 +1,12 @@
 {
   "general": {
+    "saldo_fichajes_calculo": "Fichajes y cálculo",
+    "saldo_calculo_detalle": "Detalle del cálculo",
+    "saldo_sin_jornada_prevista": "No consta jornada prevista para este día.",
+    "saldo_calculo_incompleto": "Cálculo incompleto.",
+    "saldo_detalle_tecnico": "Detalle técnico",
+    "saldo_turno_ref": "Referencia del turno",
+    "saldo_politica_version_ref": "Versión de la política de cálculo",
     "accion_entrada": "Registrar entrada",
     "accion_salida": "Registrar salida",
     "accion_inicio_pausa": "Iniciar pausa",
