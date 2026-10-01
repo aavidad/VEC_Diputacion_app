@@ -35,6 +35,10 @@ class PlanTest(unittest.TestCase):
                 self.write(path, ("-- target " + path + "\n").encode())
         self.write(self.companion, b"-- synthetic target DOWN\n")
         self.write(planner.LIST, self.list_bytes())
+        self.write(planner.LIST_B, self.list_bytes(planner.B_SQL_PATHS))
+        self.write(planner.LIST_DEFERRED, self.list_bytes(planner.DEFERRED_SQL[:1]))
+        for path in planner.B_SQL_PATHS + planner.B_COMPANIONS + planner.DEFERRED_SQL:
+            self.write(path, ("-- synthetic target " + path + "\n").encode())
         self.target = self.commit()
         self.point_origin()
 
@@ -61,24 +65,36 @@ class PlanTest(unittest.TestCase):
     def point_origin(self):
         self.git("update-ref", "refs/remotes/origin/main", self.target)
 
+    def pin(self, path):
+        return hashlib.sha256(self.git("show", self.target + ":" + path)).hexdigest()
+
     def request(self):
         return planner.Request(self.repo, self.target,
-            hashlib.sha256(self.git("show", self.target + ":" + planner.LIST)).hexdigest(),
-            tuple(hashlib.sha256(self.git("show", self.target + ":" + path)).hexdigest()
-                  for path in planner.SQL_PATHS))
+            self.pin(planner.LIST), tuple(self.pin(path) for path in planner.SQL_PATHS),
+            self.pin(planner.LIST_B), tuple(self.pin(path) for path in planner.B_SQL_PATHS),
+            tuple(self.pin(path) for path in planner.B_COMPANIONS), self.pin(planner.LIST_DEFERRED),
+            tuple(self.pin(path) for path in planner.DEFERRED_SQL))
 
     def test_plan_uses_commit_bytes_and_classifies_modified_and_companions(self):
         request = self.request()
         self.write(planner.LIST, b"cwd is untrusted and ignored\n")
+        self.write(planner.LIST_B, b"cwd second list is also ignored\n")
         self.write(planner.SQL_PATHS[1], b"cwd SQL must be ignored\n")
         value = planner.build_plan(request)
-        self.assertEqual(value["plan"], "pendiente_aprobacion")
+        self.assertEqual(value["plan"], "pending_approval")
         self.assertIs(value["executable"], False)
         self.assertFalse(value["sql_invoked"])
         self.assertEqual(value["blockers"], [])
         self.assertEqual(value["target"], {"commit": self.target,
             "tree": self.git("rev-parse", self.target + "^{tree}").decode().strip()})
-        self.assertEqual([item["path"] for item in value["operations"]], list(planner.SQL_PATHS))
+        self.assertEqual([item["path"] for item in value["operations"]],
+                         list(planner.SQL_PATHS + planner.B_SQL_PATHS))
+        self.assertEqual([item["path"] for item in value["causal_lists"]], [planner.LIST, planner.LIST_B])
+        self.assertEqual([item["sha256"] for item in value["causal_lists"]],
+                         [request.expected_list_sha256, request.expected_b_list_sha256])
+        self.assertEqual([item["path"] for item in value["companions"]], list(planner.B_COMPANIONS))
+        self.assertTrue(all(item["linked_ups"] == list(planner.B_SQL_PATHS[4:]) and
+                            item["executable"] is False for item in value["companions"]))
         changes = {item["path"]: item for item in value["sql_diff"]}
         self.assertEqual(changes[planner.SQL_PATHS[1]]["status"], "modified")
         self.assertEqual(changes[planner.SQL_PATHS[4]]["status"], "added")
@@ -102,7 +118,7 @@ class PlanTest(unittest.TestCase):
         value = planner.build_plan(self.request())
         self.assertEqual(len(value["blockers"]), 2)
         self.assertTrue(all(item["code"] == "unknown_sql_path" for item in value["blockers"]))
-        self.assertEqual(value["plan"], "pendiente_aprobacion")
+        self.assertEqual(value["plan"], "pending_approval")
 
     def test_installed_sql_modified_blocks(self):
         self.write(self.installed, b"-- installation cannot be rewritten\n")
@@ -154,7 +170,7 @@ class PlanTest(unittest.TestCase):
                 self.assertIn({"code": "unknown_sql_path", "path": path}, value["blockers"])
         self.assertIn({"code": "deleted_or_type_changed_sql", "path": paths["deleted"]},
                       value["blockers"])
-        self.assertEqual(value["plan"], "pendiente_aprobacion")
+        self.assertEqual(value["plan"], "pending_approval")
         self.assertIs(value["executable"], False)
 
     def test_reordered_list_blocks(self):
@@ -163,6 +179,53 @@ class PlanTest(unittest.TestCase):
         self.point_origin()
         with self.assertRaisesRegex(planner.Refused, "causal_order_mismatch"):
             planner.build_plan(self.request())
+
+    def test_second_causal_list_order_traversal_and_duplicate_block(self):
+        for paths in (tuple(reversed(planner.B_SQL_PATHS)),
+                      ("../escape.up.sql",) + planner.B_SQL_PATHS[1:],
+                      planner.B_SQL_PATHS[:-1] + planner.B_SQL_PATHS[:1]):
+            with self.subTest(paths=paths):
+                self.write(planner.LIST_B, self.list_bytes(paths))
+                self.target = self.commit()
+                self.point_origin()
+                with self.assertRaises(planner.Refused):
+                    planner.build_plan(self.request())
+
+    def test_u17_deferred_with_absent_u15_u16_never_becomes_operation(self):
+        value = planner.build_plan(self.request())
+        self.assertEqual([item["path"] for item in value["deferred"]], list(planner.DEFERRED_SQL))
+        self.assertTrue(all(item["reason"] == "usuarios_15_16_absent_from_target" and
+                            item["classification"] == "deferred" and item["executable"] is False
+                            for item in value["deferred"]))
+        self.assertTrue(all(item["absent_from_target"] for item in value["deferred"][0]["dependencies"]))
+        self.assertFalse(set(planner.DEFERRED_SQL) & {item["path"] for item in value["operations"]})
+        self.assertTrue(all(item["classification"] == "deferred" for item in value["sql_diff"]
+                            if item["path"] in planner.DEFERRED_SQL))
+        self.assertEqual(value["blockers"], [])
+
+    def test_unapproved_u15_u16_presence_does_not_promote_u17(self):
+        for number in ("000015", "000016"):
+            self.write(planner.USERS + "migraciones/" + number + "_unapproved.up.sql", b"-- synthetic\n")
+        self.target = self.commit()
+        self.point_origin()
+        value = planner.build_plan(self.request())
+        self.assertTrue(all(item["classification"] == "deferred" and item["executable"] is False
+                            for item in value["deferred"]))
+        self.assertFalse(any(item["absent_from_target"] for item in value["deferred"][0]["dependencies"]))
+        self.assertTrue(value["blockers"])
+        self.assertEqual(value["plan"], "pending_approval")
+
+    def test_main_non_sql_change_updates_commit_tree_keeps_sql_inventory(self):
+        before = planner.build_plan(self.request())
+        self.write("notes.txt", b"-- synthetic code-only main change\n")
+        self.target = self.commit()
+        self.point_origin()
+        after = planner.build_plan(self.request())
+        self.assertNotEqual(before["target"], after["target"])
+        for key in ("causal_lists", "operations", "companions", "deferred", "sql_diff", "blockers"):
+            self.assertEqual(before[key], after[key])
+        self.assertEqual(after["plan"], "pending_approval")
+        self.assertIs(after["executable"], False)
 
     def test_path_traversal_and_duplicate_list_block(self):
         for replacement in ("../escape.up.sql", "/absolute.sql", "a/../b.sql",
@@ -189,7 +252,12 @@ class PlanTest(unittest.TestCase):
     def test_altered_external_hashes_block(self):
         request = self.request()
         for changed in (replace(request, expected_list_sha256="0" * 64),
-                        replace(request, expected_sql_sha256=("0" * 64,) + request.expected_sql_sha256[1:])):
+                        replace(request, expected_sql_sha256=("0" * 64,) + request.expected_sql_sha256[1:]),
+                        replace(request, expected_b_list_sha256="0" * 64),
+                        replace(request, expected_b_sql_sha256=("0" * 64,) + request.expected_b_sql_sha256[1:]),
+                        replace(request, expected_b_companion_sha256=("0" * 64,) + request.expected_b_companion_sha256[1:]),
+                        replace(request, expected_deferred_list_sha256="0" * 64),
+                        replace(request, expected_deferred_sql_sha256=("0" * 64,) + request.expected_deferred_sql_sha256[1:])):
             with self.assertRaisesRegex(planner.Refused, "expected_sha_mismatch"):
                 planner.build_plan(changed)
 
@@ -243,6 +311,11 @@ class PlanTest(unittest.TestCase):
                         replace(request, repo=Path("../repo")),
                         replace(request, expected_sql_sha256=list(request.expected_sql_sha256)),
                         replace(request, expected_sql_sha256=("0" * 64,)),
+                        replace(request, expected_b_sql_sha256=("0" * 64,)),
+                        replace(request, expected_b_companion_sha256=("0" * 64,)),
+                        replace(request, expected_deferred_sql_sha256=("0" * 64,)),
+                        replace(request, expected_b_list_sha256=None),
+                        replace(request, expected_deferred_list_sha256=None),
                         replace(request, expected_list_sha256=None), {}):
             with self.subTest(changed=changed), patch.object(planner, "_git") as git:
                 with self.assertRaises(planner.Refused):

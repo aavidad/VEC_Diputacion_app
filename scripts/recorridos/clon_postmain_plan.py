@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Plan documental H6+AD132 hacia un commit explícito de origin/main.
 
-Request recibe las huellas esperadas de la lista y las seis SQL en orden causal.
+Request v2 recibe huellas externas de las listas, SQL y evidencia acompañante.
+El orden documental es RPT#222, después B#243. U17#230 queda diferida.
 Sólo lee objetos Git locales: nunca lee recibos, aplica SQL ni consulta servicios.
 Las huellas comprueban integridad; el resultado siempre necesita aprobación.
 La ejecución futura conserva H6 histórico y emite un segundo recibo postmain.
@@ -19,8 +20,12 @@ import sys
 
 SOURCE = "73e56c106d12fdda0bd16d6fe573503c42c5495f"
 LIST = "deploy/principal/lista_sql_trabajo_codexd_rpt_escritura_v3_20260930.txt"
+LIST_B = "deploy/principal/lista_sql_codexb_ad133_135_20261001.txt"
+LIST_DEFERRED = "deploy/principal/lista_sql_trabajo_codexf_temas_sql_20260930.txt"
 CAT = "deploy/postgresql/catalogos_configurables/"
 AD = "deploy/postgresql/autorizacion_atestada_v3/"
+AUT = "deploy/postgresql/autorizacion/migraciones/"
+USERS = "deploy/postgresql/usuarios_vec/"
 SQL_PATHS = (
     CAT + "roles_up.sql",
     CAT + "migraciones/000001_autoridad_categorias.up.sql",
@@ -28,6 +33,23 @@ SQL_PATHS = (
     AD + "migraciones/000117_lecturas_categorias_rpt.up.sql",
     CAT + "migraciones/000003_usos_nominales.up.sql",
     AD + "migraciones/000126_usos_categorias_rpt.up.sql",
+)
+B_SQL_PATHS = (
+    AUT + "000017_perfil_usuarios_externo.up.sql",
+    AUT + "000018_usuarios_externo_fechas_cero_canonicas.up.sql",
+    AD + "migraciones/000118_consumo_usuarios_externo.up.sql",
+    AUT + "000021_clausura_externa_tipos_temporales.up.sql",
+    AD + "migraciones/000133_convergencia_post_rpt.up.sql",
+    AD + "migraciones/000135_raiz_externa_post_convergencia.up.sql",
+)
+B_COMPANIONS = (
+    AD + "pruebas_sql/000133_000135_capturar_preservacion.sql",
+    AD + "pruebas_sql/000133_000135_comprobar_preservacion.sql",
+    AD + "pruebas_sql/000133_000135_inventario_post_rpt.sql",
+)
+DEFERRED_SQL = (
+    USERS + "migraciones/000017_temas_preferencias_v2.up.sql",
+    USERS + "pruebas_sql/temas_preferencias_v2.sql",
 )
 # Cada acompañante tiene un vínculo nominal cerrado con su UP. Nunca se ejecuta.
 COMPANIONS = {
@@ -62,6 +84,11 @@ class Request:
     target_commit: str
     expected_list_sha256: str
     expected_sql_sha256: tuple[str, ...]
+    expected_b_list_sha256: str
+    expected_b_sql_sha256: tuple[str, ...]
+    expected_b_companion_sha256: tuple[str, ...]
+    expected_deferred_list_sha256: str
+    expected_deferred_sql_sha256: tuple[str, ...]
 
 
 def _require(condition, code):
@@ -129,7 +156,7 @@ def _blob(repo, commit, path, expected=None):
     return data, {"blob": oid, "mode": mode, "bytes": len(data), "sha256": digest}
 
 
-def _list_paths(data):
+def _list_paths(data, expected_paths):
     try:
         lines = data.decode("utf-8").splitlines()
     except UnicodeError:
@@ -139,7 +166,7 @@ def _list_paths(data):
         if not line or line.startswith("#"):
             continue
         result.append(_path(line))
-    _require(tuple(result) == SQL_PATHS, "postmain_causal_order_mismatch")
+    _require(tuple(result) == expected_paths, "postmain_causal_order_mismatch")
     return result
 
 
@@ -157,11 +184,14 @@ def _diff(repo, target):
         except UnicodeError:
             raise Refused("postmain_invalid_diff_path") from None
         _require(code in {"A", "M", "D", "T"}, "postmain_invalid_diff_status")
-        role = "causal_sql" if path in SQL_PATHS else (
-            "companion_non_executable" if path in COMPANIONS else "unknown_sql")
+        role = "causal_sql" if path in SQL_PATHS + B_SQL_PATHS else (
+            "companion_non_executable" if path in COMPANIONS or path in B_COMPANIONS else (
+                "deferred" if path in DEFERRED_SQL else "unknown_sql"))
         change = {"path": path, "status": {"A": "added", "M": "modified",
                   "D": "deleted", "T": "type_changed"}[code], "classification": role,
-                  "linked_up": COMPANIONS.get(path), "before": None, "after": None}
+                  "linked_up": COMPANIONS.get(path),
+                  "linked_ups": list(B_SQL_PATHS[4:]) if path in B_COMPANIONS else [],
+                  "executable": False, "before": None, "after": None}
         for key, commit, present in (("before", SOURCE, code != "A"),
                                      ("after", target, code != "D")):
             if present:
@@ -179,6 +209,21 @@ def _diff(repo, target):
         changes.append(change)
     _require(len(changes) <= 4096, "postmain_diff_size")
     return changes, blockers
+
+
+def _deferred_dependencies(repo, target):
+    """Inventario del commit, sin inferir instalación ni promover U17."""
+    raw = _git(repo, "ls-tree", "-r", "--name-only", "-z", target, "--",
+               USERS + "migraciones/")
+    _require(not raw or raw.endswith(b"\0"), "postmain_invalid_dependencies_tree")
+    try:
+        paths = [_path(item.decode("ascii")) for item in raw.split(b"\0") if item]
+    except UnicodeError:
+        raise Refused("postmain_invalid_dependencies_tree") from None
+    return [{"dependency": "usuarios_vec:" + number,
+             "absent_from_target": not any(Path(path).name.startswith(number + "_") and
+                                            path.endswith(".up.sql") for path in paths),
+             "installation": "not_read_not_validated"} for number in ("000015", "000016")]
 
 
 def receipt_requirements():
@@ -208,7 +253,9 @@ def receipt_requirements():
         "future_gates": ["external_approval_binds_plan_sha256_and_both_receipt_sha256",
             "h6_live_validation_before_transition", "ad132_live_validation_before_transition",
             "installed_sql_inventory_matches_h6_journal_and_original_package",
-            "no_history_for_six_causal_sql", "second_postmain_receipt_binds_h6_and_ad132",
+            "no_history_for_twelve_causal_sql", "second_postmain_receipt_binds_h6_and_ad132",
+            "external_approval_binds_both_causal_lists_and_target_commit_tree",
+            "deferred_u17_never_executes_in_postmain",
             "preserve_h6_historical_receipt_and_live_validator"],
     }
 
@@ -218,29 +265,54 @@ def build_plan(request: Request) -> dict:
     repo = request.repo
     _require(repo.is_absolute() and ".." not in repo.parts and repo.is_dir() and
              not any(p.is_symlink() for p in (repo, *repo.parents)), "postmain_invalid_repo_path")
-    _require(isinstance(request.expected_list_sha256, str) and
-             HEX64.fullmatch(request.expected_list_sha256) and
-             type(request.expected_sql_sha256) is tuple and len(request.expected_sql_sha256) == 6 and
-             all(isinstance(pin, str) and HEX64.fullmatch(pin) for pin in request.expected_sql_sha256),
-             "postmain_invalid_expected_hashes")
+    for pin in (request.expected_list_sha256, request.expected_b_list_sha256,
+                request.expected_deferred_list_sha256):
+        _require(isinstance(pin, str) and HEX64.fullmatch(pin), "postmain_invalid_expected_hashes")
+    for pins, size in ((request.expected_sql_sha256, 6), (request.expected_b_sql_sha256, 6),
+                       (request.expected_b_companion_sha256, 3),
+                       (request.expected_deferred_sql_sha256, 2)):
+        _require(type(pins) is tuple and len(pins) == size and
+                 all(isinstance(pin, str) and HEX64.fullmatch(pin) for pin in pins),
+                 "postmain_invalid_expected_hashes")
     source = _commit(repo, SOURCE)
     target = _commit(repo, request.target_commit)
     origin = _git(repo, "rev-parse", "--verify", "refs/remotes/origin/main").decode("ascii").strip()
     _require(origin == target["commit"], "postmain_target_not_origin_main")
     _git(repo, "merge-base", "--is-ancestor", SOURCE, target["commit"])
-    data, listing = _blob(repo, target["commit"], LIST, request.expected_list_sha256)
-    paths = _list_paths(data)
-    operations = []
-    for position, (path, expected) in enumerate(zip(paths, request.expected_sql_sha256, strict=True), 1):
-        _, record = _blob(repo, target["commit"], path, expected)
-        operations.append({"position": position, "path": path, **record})
+    operations, lists = [], []
+    for group, list_path, paths, list_pin, sql_pins in (
+        ("rpt_222", LIST, SQL_PATHS, request.expected_list_sha256, request.expected_sql_sha256),
+        ("b_243", LIST_B, B_SQL_PATHS, request.expected_b_list_sha256, request.expected_b_sql_sha256)):
+        data, listing = _blob(repo, target["commit"], list_path, list_pin)
+        _list_paths(data, paths)
+        lists.append({"group": group, "path": list_path, **listing})
+        for path, expected in zip(paths, sql_pins, strict=True):
+            _, record = _blob(repo, target["commit"], path, expected)
+            operations.append({"position": len(operations) + 1, "group": group,
+                               "path": path, "executable": False, **record})
+    companions = [{"path": path, "linked_ups": list(B_SQL_PATHS[4:]),
+                   "classification": "companion_non_executable", "executable": False,
+                   **_blob(repo, target["commit"], path, pin)[1]}
+                  for path, pin in zip(B_COMPANIONS, request.expected_b_companion_sha256, strict=True)]
+    data, deferred_list = _blob(repo, target["commit"], LIST_DEFERRED,
+                                request.expected_deferred_list_sha256)
+    _list_paths(data, DEFERRED_SQL[:1])
+    dependencies = _deferred_dependencies(repo, target["commit"])
+    reason = ("usuarios_15_16_absent_from_target" if all(item["absent_from_target"] for item in dependencies)
+              else "usuarios_15_16_not_validated_outside_postmain_scope")
+    deferred = [{"path": path, "classification": "deferred", "executable": False,
+                 "reason": reason,
+                 "dependencies": dependencies, **_blob(repo, target["commit"], path, pin)[1]}
+                for path, pin in zip(DEFERRED_SQL, request.expected_deferred_sql_sha256, strict=True)]
     changes, blockers = _diff(repo, target["commit"])
     _require(_git(repo, "rev-parse", "--verify", "refs/remotes/origin/main").decode("ascii").strip()
              == origin, "postmain_origin_main_changed")
-    return {"version": 1, "kind": "clon_postmain_plan", "plan": "pendiente_aprobacion",
+    return {"version": 2, "kind": "clon_postmain_plan", "plan": "pending_approval",
         "executable": False, "sql_invoked": False, "source": source, "target": target,
-        "origin_main_observed": origin, "causal_list": {"path": LIST, **listing},
-        "operations": operations, "sql_diff": changes, "blockers": blockers,
+        "origin_main_observed": origin, "causal_lists": lists,
+        "operations": operations, "companions": companions, "deferred": deferred,
+        "deferred_list": {"path": LIST_DEFERRED, **deferred_list},
+        "sql_diff": changes, "blockers": blockers,
         "receipt_requirements": receipt_requirements()}
 
 
@@ -250,9 +322,16 @@ def main(argv=None):
     parser.add_argument("--target-commit", required=True)
     parser.add_argument("--expected-list-sha256", required=True)
     parser.add_argument("--expected-sql-sha256", required=True, action="append")
+    parser.add_argument("--expected-b-list-sha256", required=True)
+    parser.add_argument("--expected-b-sql-sha256", required=True, action="append")
+    parser.add_argument("--expected-b-companion-sha256", required=True, action="append")
+    parser.add_argument("--expected-deferred-list-sha256", required=True)
+    parser.add_argument("--expected-deferred-sql-sha256", required=True, action="append")
     args = parser.parse_args(argv)
     value = build_plan(Request(args.repo, args.target_commit, args.expected_list_sha256,
-                               tuple(args.expected_sql_sha256)))
+                               tuple(args.expected_sql_sha256), args.expected_b_list_sha256,
+                               tuple(args.expected_b_sql_sha256), tuple(args.expected_b_companion_sha256),
+                               args.expected_deferred_list_sha256, tuple(args.expected_deferred_sql_sha256)))
     sys.stdout.buffer.write(canonical(value))
     return 2 if value["blockers"] else 0
 
