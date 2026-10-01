@@ -108,6 +108,8 @@ B2_PREREQUISITE_CANDIDATES = {
     "a_219": "74b2f4764689dd1fac3f29468be1c778fd4006c2",
 }
 E3_FIXTURE = CT + "pruebas_sql/custodia_firmado_e2e_dobles.sql"
+# Sólo estos bytes recibieron la revisión de exclusión; un pin nuevo no la amplía.
+E3_FIXTURE_REVIEWED_SHA256 = "bfaaccaefeea37cca46e4cdef12a03bbad2a8b17bb882234869b885a56f3ece6"
 DEFERRED_SQL = (
     USERS + "migraciones/000017_temas_preferencias_v2.up.sql",
     USERS + "pruebas_sql/temas_preferencias_v2.sql",
@@ -376,6 +378,8 @@ def build_plan(request: Request) -> dict:
                 request.expected_a_list_sha256, request.expected_b2_list_sha256,
                 request.expected_deferred_list_sha256, request.expected_e3_fixture_sha256):
         _require(isinstance(pin, str) and HEX64.fullmatch(pin), "postmain_invalid_expected_hashes")
+    _require(request.expected_e3_fixture_sha256 == E3_FIXTURE_REVIEWED_SHA256,
+             "postmain_fixture_unreviewed")
     for pins, size in ((request.expected_sql_sha256, 6), (request.expected_b_sql_sha256, 6),
                        (request.expected_b_companion_sha256, 3),
                        (request.expected_a_sql_sha256, 1),
