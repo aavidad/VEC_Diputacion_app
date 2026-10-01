@@ -1,0 +1,139 @@
+{
+  "schema_version": "provision.v1",
+  "convocatoria_ref": "convocatoria:sintetica:concursos:v1",
+  "version": "revision:alfa",
+  "bases_ref": "bases:sinteticas:comparacion:v2",
+  "fecha_corte": "2025-01-01",
+  "ventana_desde": "2020-01-01",
+  "maximo_total": "99000000",
+  "reglas": [
+    {
+      "id": "grado",
+      "familia": "grado",
+      "referencia_base": "bases:sinteticas:concursos:v1#grado",
+      "coeficiente": "0",
+      "maximo": "19000000",
+      "redondeo": "mitad_al_par",
+      "excluir_requisito": false,
+      "tramos": [
+        {
+          "id": "tramo:comparacion:nuevo",
+          "min_diferencia": -999,
+          "max_diferencia": -1,
+          "coeficiente": "19000000",
+          "maximo": "19000000"
+        },
+        {
+          "id": "igual",
+          "min_diferencia": 0,
+          "max_diferencia": 0,
+          "coeficiente": "4500001",
+          "maximo": "19000000"
+        },
+        {
+          "id": "inferior",
+          "min_diferencia": 1,
+          "max_diferencia": 999,
+          "coeficiente": "15000000",
+          "maximo": "19000000"
+        }
+      ],
+      "diferencia": "puesto_menos_hecho",
+      "min_diferencia": -999,
+      "max_diferencia": 999
+    },
+    {
+      "id": "trabajo",
+      "familia": "valoracion_trabajo",
+      "referencia_base": "bases:sinteticas:concursos:v1#trabajo",
+      "coeficiente": "0",
+      "maximo": "22000000",
+      "redondeo": "mitad_al_par",
+      "excluir_requisito": false,
+      "tramos": [
+        {
+          "id": "todos",
+          "min_diferencia": -999,
+          "max_diferencia": 999,
+          "coeficiente": "2200000",
+          "maximo": "22000000"
+        }
+      ],
+      "diferencia": "puesto_menos_hecho",
+      "min_diferencia": -999,
+      "max_diferencia": 999,
+      "conversion": {
+        "metodo": "dias_racionales",
+        "divisor": 365,
+        "umbral_resto": 0
+      },
+      "agrupacion": "por_tramo",
+      "jornada": "proporcional",
+      "solapes": "rechazar"
+    },
+    {
+      "id": "antiguedad",
+      "familia": "antiguedad",
+      "referencia_base": "bases:sinteticas:concursos:v1#antiguedad",
+      "coeficiente": "123456",
+      "maximo": "12000000",
+      "redondeo": "mitad_al_par",
+      "excluir_requisito": false,
+      "conversion": {
+        "metodo": "dias_completos",
+        "divisor": 365,
+        "umbral_resto": 0
+      },
+      "agrupacion": "por_tramo",
+      "jornada": "integra",
+      "solapes": "rechazar"
+    },
+    {
+      "id": "permanencia",
+      "familia": "permanencia",
+      "referencia_base": "bases:sinteticas:concursos:v1#permanencia",
+      "coeficiente": "2500000",
+      "maximo": "20000000",
+      "redondeo": "mitad_al_par",
+      "excluir_requisito": false,
+      "tipos": [
+        "titular"
+      ],
+      "conversion": {
+        "metodo": "anos_desde_meses",
+        "divisor": 12,
+        "umbral_resto": 6
+      },
+      "agrupacion": "por_periodo",
+      "jornada": "integra",
+      "solapes": "rechazar"
+    },
+    {
+      "id": "cursos",
+      "familia": "cursos",
+      "referencia_base": "bases:sinteticas:concursos:v1#cursos",
+      "coeficiente": "12000",
+      "maximo": "9000000",
+      "redondeo": "mitad_al_par",
+      "excluir_requisito": false,
+      "horas_minimas": "20/1",
+      "tipos": [
+        "funciones_puesto"
+      ]
+    },
+    {
+      "id": "regla:comparacion:titulaciones:nueva",
+      "familia": "titulaciones",
+      "referencia_base": "bases:sinteticas:concursos:v1#titulos",
+      "coeficiente": "3000000",
+      "maximo": "12000000",
+      "redondeo": "mitad_al_par",
+      "excluir_requisito": true,
+      "tipos": [
+        "grado"
+      ],
+      "maximo_elementos": 1,
+      "seleccion_elementos": "mismo_coeficiente"
+    }
+  ]
+}
