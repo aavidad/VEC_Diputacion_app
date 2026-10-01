@@ -140,6 +140,12 @@ ocultar el fallo. El binario de arranque final necesitará su propio pin.
   inferencia.
   **U17 queda diferida**.
 
+La acción `bash scripts/recorridos/preparar_clon.sh plan-postmain --help`
+enumera los pines externos requeridos. Para inventariar un corte hay que pasar
+el commit completo de `origin/main` y cada SHA aprobado; sin ellos deniega
+antes de consultar el estado del clon. Esta acción solo lee objetos Git y no
+crea un recibo de instalación.
+
 `origin/main@77ea7a762` añadió AD136 después de RPT6 y B6. El plan v3 la
 inventariaba como operación 13, con DOWN y sonda no ejecutables. Su instalación
 exige la postimagen B y las definiciones históricas exactas de

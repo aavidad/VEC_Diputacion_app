@@ -16,8 +16,8 @@ puerto_smtp=${VEC_RECORRIDOS_PUERTO_SMTP:-11025}
 puerto_correo_web=${VEC_RECORRIDOS_PUERTO_CORREO_WEB:-18532}
 accion=${1:-preparar}
 if (( $# )); then shift; fi
-case "$accion" in preparar|estado|reiniciar|parar|retirar|plan|preparar-sql|verificar-sql|preparar-material-externo|exportar-alias|verificar-alias) ;;
-  *) echo 'Uso: preparar_clon.sh [preparar|preparar-sql|verificar-sql|preparar-material-externo|exportar-alias|verificar-alias|plan|estado|reiniciar|parar|retirar]' >&2; exit 2;; esac
+case "$accion" in preparar|estado|reiniciar|parar|retirar|plan|plan-postmain|preparar-sql|verificar-sql|preparar-material-externo|exportar-alias|verificar-alias) ;;
+  *) echo 'Uso: preparar_clon.sh [preparar|preparar-sql|verificar-sql|preparar-material-externo|exportar-alias|verificar-alias|plan|plan-postmain|estado|reiniciar|parar|retirar]' >&2; exit 2;; esac
 
 # Fases offline independientes. Rutas absolutas explícitas, fuera de Git y
 # canónicas según la autoridad delegada; sus pines permanecen en cada herramienta.
@@ -63,6 +63,10 @@ fi
 # SQL62 requires nominal external pins; no historical45 fallback or inferred approval.
 if [[ "$accion" == plan ]]; then
   exec python3 -B "$guiones/clon_h6_orquestador.py" plan --source-ref "$referencia" "$@"
+fi
+if [[ "$accion" == plan-postmain ]]; then
+  # Inventario Git únicamente; exige commit/pines externos y nunca instala.
+  exec python3 -B "$guiones/clon_postmain_plan.py" "$@"
 fi
 if [[ "$accion" == preparar-sql || "$accion" == verificar-sql ]]; then
   exec python3 -B "$guiones/clon_h6_orquestador.py" "$accion" --source-ref "$referencia" --state-dir "$estado" "$@"

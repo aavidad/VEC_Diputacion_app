@@ -228,6 +228,18 @@ os.execv('/usr/bin/python3', ['/usr/bin/python3', *args])
         self.assertFalse(self.state.exists())
         self.assert_no_services()
 
+    def test_plan_postmain_es_solo_lectura_y_exige_pines(self):
+        self.state.rmdir()
+        ayuda = self.run_action('plan-postmain', '--help')
+        self.assertEqual(ayuda.returncode, 0, ayuda.stderr)
+        self.assertIn('--expected-e3-fixture-sha256', ayuda.stdout)
+        sin_pines = self.run_action('plan-postmain')
+        self.assertEqual(sin_pines.returncode, 2)
+        self.assertIn('--target-commit', sin_pines.stderr)
+        self.assertEqual(sin_pines.stdout, '')
+        self.assertFalse(self.state.exists())
+        self.assert_no_services()
+
     def test_sql_phase_without_nominal_external_pins_rejects_before_Docker(self):
         before = sorted(self.state.iterdir())
         for action in ('preparar-sql', 'verificar-sql'):
