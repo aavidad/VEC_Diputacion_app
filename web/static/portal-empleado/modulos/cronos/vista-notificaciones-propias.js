@@ -5,7 +5,7 @@ import {
   ErrorClienteNotificacionesCronos, MAXIMO_TEXTO_NOTIFICACION_CRONOS, adjuntoNotificacionValido, calcularHuellaDocumentoCronos,
   crearClienteNotificacionesCronosHTTP, textoNotificacionValido,
 } from "./cliente-notificaciones-http.js";
-import { crearTraductorNotificacionesHistorialCronos } from "./i18n-notificaciones-historial.js?v=20261001-cronos-c9-historial-v1";
+import { crearTraductorNotificacionesHistorialCronos } from "./i18n-notificaciones-historial.js?v=20261001-cronos-c9-historial-v2";
 import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
 
 const ERRORES_ENVIO = new Map([
