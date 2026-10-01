@@ -460,3 +460,6 @@ static/textos/es/formacion.json
 static/textos/en/formacion.json
 static/textos/es/carrera.json
 static/textos/en/carrera.json
+static/portal-empleado/portal-accesos-empleado.js
+static/textos/es/accesos-empleado.json
+static/textos/en/accesos-empleado.json
