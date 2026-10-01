@@ -1,0 +1,107 @@
+# Registro Único de Méritos: persistencia RUM03
+
+La migración `000001_registro_hechos_v1` conserva declaraciones propias,
+rectificaciones pendientes y rechazos por un revisor distinto del declarante.
+No acredita hechos, consulta Documentos, concede puntos ni exige empleo a la
+persona. Persona y Documentos conservan la autoridad sobre sus referencias.
+Estos registros no acreditan firma de una decisión administrativa. La
+reautenticación reciente y la firma exigidas por la fuente de acceso interno
+deben acreditarse en el circuito admitido antes de atribuirles eficacia real.
+
+## Dependencias y orden
+
+La instalación requiere roles propios, el consumidor nominal V3 de Méritos y
+la migración `000001`, en ese orden. El consumidor común se instala por su
+propietario en una migración nueva reservada. La lista causal de esta entrega
+está en `deploy/principal/lista_sql_codexa_rum03.txt`.
+
+Los cinco roles son `NOLOGIN`, sin privilegios elevados. Cada identidad de
+conexión tiene exactamente dos concesiones directas: `vec_meritos_ejecutor` y
+uno de `vec_meritos_externo` o `vec_meritos_interno`, con `INHERIT TRUE`,
+`SET FALSE` y `ADMIN FALSE`. Las cuentas se provisionan por el circuito central;
+no se crean ni reciben permisos como consecuencia de una petición.
+
+## Contrato del adaptador
+
+`vec_meritos.operar_hecho_v1` recibe once parámetros: bytes exactos del comando
+canónico y los diez parámetros del material atestado V3 común. Devuelve `jsonb`.
+Se llama dentro de una transacción `SERIALIZABLE`, de escritura, con UTC y
+límites de tiempo. El adaptador coteja el resultado antes de confirmar el commit.
+Un resultado incierto o commit fallido no permite devolver un recibo.
+
+El comando usa `domain.ComandoHecho`, esquema
+`vec.meritos.hecho.operacion.v1`. La huella SHA256 se calcula sobre los bytes
+recibidos, nunca sobre una nueva representación textual de `jsonb`. El recurso
+V3 liga persona, versión esperada y esa huella. El motivo conserva catálogo,
+versión, huella y entrada; la evidencia conserva ID y versión opacos.
+
+La función revalida y consume V3 antes de leer negocio. Después bloquea actor y
+clave, referencia del hecho y origen, y compara la idempotencia antes del CAS.
+La declaración crea versión 1; la rectificación conserva declarante, persona,
+fuente, origen y tipo, pasa a pendiente y elimina cualquier revisión anterior.
+El rechazo conserva el contenido anterior, cambia a rechazado y añade una
+revisión derivada del actor autorizado, motivo y fecha del servidor.
+
+Una operación confirmada devuelve:
+
+```json
+{"codigo":"confirmada","auditoria_ref":"auditoria:nueva","anterior":null,"recibo":{}}
+```
+
+`recibo` contiene los campos de `ports.Recibo`: referencia, acción, actor, clave,
+huella del comando, versión esperada, registro, fecha, auditoría y evento.
+`anterior` es el registro de la versión esperada de la operación original.
+En recuperación se consume una concesión nueva, se añade auditoría de acceso
+y se devuelven el mismo recibo, fecha y antecedente histórico. No se añaden otra
+versión ni evento de negocio. `auditoria_ref` del sobre corresponde al acceso
+nuevo; la del recibo sigue siendo la original.
+
+Los rechazos de negocio devuelven `codigo` igual a `conflicto_version`,
+`clave_reutilizada` o `denegada`, con una referencia de auditoría conservada,
+y `anterior` y `recibo` nulos. El adaptador confirma esa auditoría y traduce el
+código a su error nominal. Un error de autoridad o integridad aborta la
+transacción: no devuelve este sobre ni un recibo.
+
+## Historia y comprobación
+
+La escritura incluye versión, operación, auditoría minimizada, evento y recibo
+en la misma transacción que el consumo V3. Las tablas propias fuerzan RLS y
+carecen de privilegios de negocio para los roles runtime. La única función
+runtime concedida es `operar_hecho_v1`. La historia impide UPDATE, DELETE y
+TRUNCATE. La unicidad persona/fuente/origen/tipo evita duplicar el mismo hecho.
+La clave de idempotencia se restringe al actor.
+
+`pruebas_sql/estructura_acl_v1.sql` comprueba validación, ACL, RLS y ausencia de
+acreditación por referencia documental. No fabrica material V3 ni demuestra
+por sí sola el circuito criptográfico. Los ensayos de declaración, rechazo,
+rectificación, reintento, revocación, CAS y rollback usan el emisor y consumidor
+V3 reales sobre el clon aislado autorizado.
+
+El DOWN exige superusuario, base desechable y todas las tablas sin historia.
+Bloquea las tablas antes de comprobarlas. Una declaración o una auditoría de
+rechazo basta para impedirlo. No se ejecuta sobre la historia conservada.
+`roles_down.sql` requiere que el SQL propio y el consumidor AD hayan sido
+revertidos y que no queden cuentas runtime provisionadas. Ningún DOWN usa
+CASCADE ni borra dependencias ajenas.
+
+El ensayo del 1 de octubre de 2026 en PostgreSQL 18.4 pasó la secuencia
+roles UP → AD141 → AD142 → Méritos UP → estructura/ACL → Méritos DOWN sin
+historia → Méritos UP, dentro de ROLLBACK. Devolvió
+`MERITOS-ESTRUCTURA-ACL-OK` y `MERITOS-ROUNDTRIP-OK`, con código 0.
+Se ejecutó por entrada estándar en el clon sintético aislado asignado, sin
+red ni puertos, con 2 CPU, 2 GiB, 128 procesos y entorno limitado. Esto
+acredita el esquema reversible y los controles estructurales; el recorrido
+positivo con material V3 real queda pendiente de la comprobación conjunta.
+
+Después se confirmó la instalación causal en el mismo clon aislado, con el
+consumidor AD142 definitivo. Méritos UP conserva SHA256
+`f1faf970e2394179caec71d763da9ea8c4d814463b0a6047dc583eb441adcc0b`;
+AD142 UP conserva SHA256
+`2dde7cbfd231ddf2a768a48ed93d6278100b24b250dcfd51afdc72ea5346e7a1`.
+La comprobación posterior confirmó la presencia de `operar_hecho_v1`.
+El clon quedó cedido al controlador de pruebas con el adaptador Go real.
+Este hecho no acredita instalación en la principal ni producción.
+
+La presencia de estos archivos no acredita instalación, montaje HTTP,
+recorrido en navegador ni publicación. Dirección reúne las pruebas y las dos
+revisiones sensibles del contenido exacto antes de integrar.
