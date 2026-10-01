@@ -1,5 +1,10 @@
 {
   "general": {
+    "ct_txt_contexto_fechas_consulta": "Fechas de consulta",
+    "ct_txt_contexto_agrupacion": "Agrupación",
+    "ct_txt_contexto_zona_horaria": "Zona horaria",
+    "ct_txt_contexto_corte_publicado": "Corte publicado",
+    "ct_txt_contexto_no_comunicado": "No comunicado",
     "ct_txt_acceso_denegado": "Acceso denegado",
     "ct_txt_accion": "Acción",
     "ct_txt_altas": "Altas",
