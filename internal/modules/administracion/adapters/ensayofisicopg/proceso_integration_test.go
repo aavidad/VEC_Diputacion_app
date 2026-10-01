@@ -30,6 +30,9 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 func servirTestigo() int {
+	if comprobarNSSDentro() != nil {
+		return 1
+	}
 	certificado := os.Getenv("VEC_TESTIGO_CERTIFICADO")
 	clave := os.Getenv("VEC_TESTIGO_CLAVE")
 	ca, err := os.ReadFile(certificado)

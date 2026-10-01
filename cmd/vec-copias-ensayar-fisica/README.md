@@ -139,3 +139,30 @@ go test -race ./internal/modules/administracion/adapters/ensayofisicopg \
 
 Sin esas variables, las pruebas de PostgreSQL real se omiten de forma explícita.
 Este corte no ejecuta el kit del hito 6, no toca cidonia ni instala SQL real.
+
+## Puente de template0 y NSS
+
+`NuevoRuntimePlantillas` sólo admite un entorno creado por la restauración física
+real. Comprueba el anclaje privado del runtime, vuelve a leer el TAR y compara su
+SHA256 con el contexto que la aplicación revalida después de CS03. Ese contexto
+conserva operación, conjunto, ventana, manifiesto, artefacto e imagen. El adaptador
+no crea otra firma ni convierte esos datos en una autorización administrativa.
+
+El nombre del clon se genera dentro del puente. La operación técnica sólo admite
+`template0` y ese nombre: no activa conexiones en la base original. La sesión de
+CREATE, marca de propiedad y DROP cambia temporalmente su propia lectura; la
+configuración global sigue en lectura. La retirada compara OID, propietario y
+marca, conserva bases preexistentes y rechaza una identidad sustituida o renombrada.
+Una respuesta perdida tras CREATE se concilia con el mismo nombre y retira el clon
+propio antes de devolver el fallo. La memoria y el registro privados de este puente
+no sustituyen al catálogo durable CS07 ni permiten recuperar una operación productiva.
+
+Ambos ensayos montan passwd/group sintéticos de sólo lectura para el UID/GID sin
+privilegios que ejecuta Docker. El directorio personal es el tmpfs `/tmp` del ensayo.
+No se lee ni se monta passwd/group del host y no se cambia el usuario a root.
+
+La prueba usa PostgreSQL 18.4 físico real: lee el clon, retira sólo su recurso,
+conserva una base preexistente y confirma los metadatos originales de `template0`.
+La pérdida de respuesta se inyecta después de un CREATE real confirmado, no mediante
+un doble que dé por hecha la creación. El testigo HTTPS consulta NSS dentro del
+contenedor; sigue sin ser un arranque de VEC ni una prueba de autenticación CS03.

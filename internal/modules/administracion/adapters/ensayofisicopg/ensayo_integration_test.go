@@ -51,6 +51,10 @@ func (o *observadorReal) Observar(ctx context.Context, entorno puertos.Entorno) 
 		o.t.Logf("sello runtime: before %s after %s error %v", antes, despues, err)
 		return puertos.Observacion{}, fmt.Errorf("exclusion_cambiada")
 	}
+	if err := comprobarPlantillasReales(ctx, entorno, o.t); err != nil {
+		o.t.Logf("plantillas error %v", err)
+		return puertos.Observacion{}, err
+	}
 	if err := comprobarProceso(ctx, entorno); err != nil {
 		o.t.Logf("testigo proceso error %v", err)
 		return puertos.Observacion{}, err

@@ -122,6 +122,7 @@ func (e Ensayador) ensayar(ctx context.Context, s Solicitud, r Resultado) (resul
 		return
 	}
 	cmd := append(e.opcionesAisladas(nombre), "-d", "-v", filepath.Join(raiz, "verificador")+":/verificador:ro", "-v", filepath.Join(raiz, "control")+":/control:rw", "-v", pgdata+":/data:rw", "-v", config+":/configuracion:ro")
+	cmd = append(cmd, montajesNSS(raiz)...)
 	for i := 1; i < len(destinos); i++ {
 		cmd = append(cmd, "-v", destinos[i]+fmt.Sprintf(":/componentes/%04d:ro", i))
 	}
@@ -131,6 +132,10 @@ func (e Ensayador) ensayar(ctx context.Context, s Solicitud, r Resultado) (resul
 		return
 	}
 	runtime := RuntimeObservacion{Nombre: nombre, Raiz: raiz, ImagenSHA256: e.Configuracion.ImagenSHA256, UsuarioBootstrap: e.Configuracion.UsuarioBootstrap, Componentes: componentes, ConfiguracionOrigenExcluida: true}
+	if err := runtime.anclarFisico(ctx, s.Componentes[0].Tar.SHA256); err != nil {
+		fallo(&resultado, "aislamiento", "procedencia_fisica")
+		return
+	}
 	entorno, err := runtime.Entorno(ctx)
 	if err != nil {
 		fallo(&resultado, "aislamiento", "runtime")

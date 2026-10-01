@@ -21,6 +21,7 @@ var argumentoEnv = regexp.MustCompile(`^[A-Z][A-Z0-9_]{0,95}$`)
 // RuntimeObservacion sólo recibe nombres generados por el ensayador y una raíz
 // privada. Se exporta para reutilizar el mismo hook en el restaurador lógico.
 type RuntimeObservacion struct {
+	fisico                      *anclajeFisicoRuntime
 	Nombre                      string
 	Raiz                        string
 	ImagenSHA256                string
