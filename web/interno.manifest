@@ -403,6 +403,8 @@ static/portal-empleado/categorias-rpt/cliente.js
 static/portal-empleado/categorias-rpt/i18n.js
 static/textos/es/rpt-categorias-rrhh.json
 static/textos/en/rpt-categorias-rrhh.json
+static/textos/es/cronos-permisos.json
+static/textos/en/cronos-permisos.json
 static/textos/es/baremo-concursos.json
 static/textos/en/baremo-concursos.json
 static/portal-empleado/modulos/contratacion-temporal/i18n-catalogos.js

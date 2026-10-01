@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { crearCoordinadorModulosPortal, rutaDeVistaPortal } from "./portal-modulos-coordinador.js?v=20261001-cronos-grafo-calendario-v3";
+import { crearCoordinadorModulosPortal, rutaDeVistaPortal } from "./portal-modulos-coordinador.js?v=20261001-cronos-grafo-justificacion-v3";
 import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20261001-codexf-ct-catalogos-v1";
 
 const vistasSeleccion = ["seleccion-inscripciones", "seleccion-pruebas", "seleccion-comunicaciones"];
