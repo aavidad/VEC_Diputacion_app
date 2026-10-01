@@ -93,14 +93,14 @@ func TestInformeKilometrajeDistingueTrayectosLocalizaSinCambiarPreparacion(t *te
 	}
 }
 
-func TestInformeKilometrajeAusenciasCeroYEscape(t *testing.T) {
+func TestInformeKilometrajeCeroMotivoAusenteYEscape(t *testing.T) {
 	r, err := Nuevo(Configuracion{TemaCSS: temaPrueba(t)})
 	if err != nil {
 		t.Fatal(err)
 	}
 	p := preparacionKilometrajeInforme(t, func(d *domain.DocumentoComision) {
-		d.Lineas[1].KilometrosBase, d.Lineas[1].AjusteKilometros, d.Lineas[1].MotivoAjuste = "", "", ""
-		d.Lineas[2].AjusteKilometros = "0.0000"
+		d.Lineas[1].KilometrosBase, d.Lineas[1].Kilometros = "100.0000", "100.0000"
+		d.Lineas[1].AjusteKilometros, d.Lineas[1].MotivoAjuste = "0.0000", ""
 		d.Lineas[2].MotivoAjuste = `<img src=x onerror=alert(1)> & motivo declarado`
 	})
 	for _, idioma := range []string{"es", "en"} {
@@ -110,9 +110,9 @@ func TestInformeKilometrajeAusenciasCeroYEscape(t *testing.T) {
 			t.Fatal(err)
 		}
 		s := string(b)
-		for _, valor := range []string{textos.Rotulos.KilometrosBase + ": " + textos.Rotulos.NoConsta, textos.Rotulos.AjusteKilometros + ": " + textos.Rotulos.NoConsta, textos.Rotulos.MotivoAjuste + ": " + textos.Rotulos.NoConsta, textos.Rotulos.AjusteKilometros + ": 0" + textos.Formato.Decimal + "0000", "&lt;img src=x onerror=alert(1)&gt; &amp; motivo declarado"} {
+		for _, valor := range []string{textos.Rotulos.KilometrosBase + ": 100" + textos.Formato.Decimal + "0000", textos.Rotulos.KilometrosFinales + ": 100" + textos.Formato.Decimal + "0000", textos.Rotulos.MotivoAjuste + ": " + textos.Rotulos.NoConsta, textos.Rotulos.AjusteKilometros + ": 0" + textos.Formato.Decimal + "0000", "&lt;img src=x onerror=alert(1)&gt; &amp; motivo declarado"} {
 			if !strings.Contains(s, valor) {
-				t.Errorf("valor ausente, cero o escape incorrecto: %q", valor)
+				t.Errorf("motivo ausente, cero o escape incorrecto: %q", valor)
 			}
 		}
 		if strings.Contains(s, "<img") {
