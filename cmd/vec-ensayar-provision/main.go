@@ -54,7 +54,9 @@ func emitir(salida, diagnostico io.Writer, v any) int {
 func fallarNominal(w io.Writer, err error) int {
 	var nominal *domain.Error
 	if errors.As(err, &nominal) {
-		return fallar(w, nominal.Codigo, nominal.Campo)
+		// El motor puede usar un ID aportado como Campo. El diagnóstico del
+		// transporte conserva sólo el código nominal y un campo fijo.
+		return fallar(w, nominal.Codigo, "ciclo")
 	}
 	return fallar(w, "ensayo_fallido", "ciclo")
 }
