@@ -176,7 +176,7 @@ export function renderizarPermisosPropiosCronos({ estado = "cargando", anio, dat
     <div class="rejilla-kpi">${kpi("kpi_pendientes_conceder", pendientes.length, "naranja")}${kpi("kpi_pendientes_justificar", justificar.length, "violeta")}${kpi("kpi_concedidos", concedidos.length, "verde")}</div>
     <section class="panel cronos-panel" aria-labelledby="cronos-permisos-anio"><div class="cabecera-panel"><h3 id="cronos-permisos-anio">${escaparHTML(t("permisos_anio", { anio }))}</h3>${sintetico ? `<span class="cronos-estado cronos-estado-aviso">${escaparHTML(t("permisos_a_confirmar"))}</span>` : ""}${navegacion}</div>
       ${tabla(["permiso", "col_maximo", "col_minimo", "col_solicitado", "col_concedido", "col_resta", "col_accion"], filas, t)}</section>
-    ${formularioSolicitud(solicitud, elegido, t)}
+    ${solicitud && !elegido?.solicitable ? `<section class="panel cronos-panel"><div class="cuerpo-panel"><p role="status">${escaparHTML(tc("no_solicitable"))}</p><button type="button" class="boton-secundario" data-cronos-permiso-cerrar>${escaparHTML(t("cancelar"))}</button></div></section>` : formularioSolicitud(solicitud, elegido, t)}
     <section class="panel cronos-panel" aria-labelledby="cronos-historial-titulo"><div class="cabecera-panel"><h3 id="cronos-historial-titulo">${escaparHTML(th("titulo"))}</h3></div>
       <div class="cuerpo-panel">${filtros}</div>${tabla(["permiso", "periodo", "duracion", "estado"], historial.filas.map((s) => fila(s)), t, th("sin_resultados"))}<div class="cuerpo-panel">${paginacion}</div></section>
     <section class="panel cronos-panel" id="cronos-permisos-just-panel" aria-labelledby="cronos-permisos-just"><div class="cabecera-panel"><h3 id="cronos-permisos-just" tabindex="-1">${escaparHTML(t("pendientes_justificar_titulo"))}</h3>
@@ -290,7 +290,7 @@ export function montarPermisosPropiosCronos({ raiz, cliente = crearClienteSolici
     if (!evento.target?.matches?.("[data-cronos-permiso-formulario]") || !solicitud || solicitud.estado === "enviando" || estado !== "listo") return;
     evento.preventDefault();
     const permiso = datos?.permisos.find((p) => p.permiso_ref === solicitud.permisoRef);
-    if (!permiso) return;
+    if (!permiso?.solicitable) return;
     const valor = (n) => evento.target.elements?.namedItem?.(n)?.value ?? "";
     const horas = permiso.unidad === "hora";
     const campos = horas ? { desde: valor("desde"), hasta: valor("desde"), hora_inicio: valor("hora_inicio"), hora_fin: valor("hora_fin") } : { desde: valor("desde"), hasta: valor("hasta") };

@@ -535,3 +535,25 @@ test("Actualizar no interrumpe ni repite una solicitud que está enviándose", a
   assert.equal(consultas, 2); assert.equal(escrituras, 1); assert.match(nodo.innerHTML, /recibo:cronos:conservado/u);
   vista.desmontar();
 });
+
+test("el catálogo actualizado bloquea un permiso no solicitable y conserva borrador y clave", async () => {
+  for (const retirar of [false, true]) {
+    const { nodo, raiz } = raizFalsa(); let disponible = true; const envios = [];
+    const vista = montarPermisosPropiosCronos({ raiz, anio: 2026,
+      cliente: { consultarPermisos: async () => { const d = datos();
+        if (!disponible) { if (retirar) d.permisos.shift(); else d.permisos[0].solicitable = false; }
+        return d; }, solicitarPermiso: async (entrada) => { envios.push(entrada); throw new ErrorClienteSolicitudesCronos("servicio_no_disponible", 503); } } });
+    await esperar(); pulsar(nodo, "[data-cronos-solicitar]", { cronosSolicitar: "permiso:cronos:asuntos-propios" });
+    editar(nodo, "desde", "2026-10-20"); editar(nodo, "hasta", "2026-10-21");
+    await enviar(nodo, { desde: "2026-10-20", hasta: "2026-10-21" });
+    const clave = envios[0].clave_operacion; envios.length = 0;
+    disponible = false; pulsar(nodo, "[data-cronos-permisos-actualizar]", {}); await esperar();
+    assert.match(nodo.innerHTML, /El permiso seleccionado ya no admite solicitudes/u);
+    assert.doesNotMatch(nodo.innerHTML, /data-cronos-permiso-formulario/u);
+    await enviar(nodo, { desde: "2026-10-20", hasta: "2026-10-21" }); assert.equal(envios.length, 0);
+    disponible = true; pulsar(nodo, "[data-cronos-permisos-actualizar]", {}); await esperar();
+    assert.match(nodo.innerHTML, /value="2026-10-20"/u); assert.match(nodo.innerHTML, /value="2026-10-21"/u);
+    await enviar(nodo, { desde: "2026-10-20", hasta: "2026-10-21" }); assert.equal(envios[0].clave_operacion, clave);
+    vista.desmontar();
+  }
+});
