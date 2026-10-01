@@ -92,10 +92,14 @@ Las dos aperturas de lectura usan Tab y Enter. En los demás controles sólo
 recorre Tab y Shift+Tab; no activa acciones ni cambia valores.
 
 Comprueba el nombre accesible calculado por Chrome y la etiqueta visible de
-cada campo habilitado. Recorre los controles habilitados de cada superficie
-con teclado, observa el indicador de foco y comprueba cinco puntos del control
-para detectar recortes u obstáculos. Exige que no haya desbordamiento global.
-El límite es de 256 pasos de Tab por superficie; superarlo corta la comprobación.
+cada campo habilitado, incluida la opacidad de sus antecesores. Recorre los controles habilitados de cada superficie
+con teclado y exige un cambio visible del indicador al recibir el foco.
+Comprueba el centro y los cuatro puntos medios de los bordes del control para
+detectar obstáculos sin tomar las esquinas de un botón redondeado por zonas
+tapadas. También exige salir y volver con Tab y Shift+Tab, incluido el último
+control. Exige que no haya desbordamiento global.
+La búsqueda admite 256 iteraciones por superficie, además de las pruebas de
+ida y vuelta; superarlas corta la comprobación.
 En un grupo de radios comprueba la entrada con Tab, sin cambiar la selección.
 Una superficie sin controles habilitados registra cero controles de teclado.
 
@@ -109,7 +113,8 @@ No cambia el perfil habitual de Chrome ni añade destinos a las lecturas.
 Cada paso añade `accesibilidad`: lectura, zoom, métricas y contadores, sin textos
 de etiquetas, nombres accesibles ni fragmentos de página. Los fallos cortan el
 recorrido; consulte `etiquetas_ausentes`, `nombres_ausentes`,
-`controles_fuera_de_tab`, `teclado_no_alcanzados`, `foco_invisible` y `foco_tapado`.
+`controles_fuera_de_tab`, `teclado_no_alcanzados`, `trampas_teclado`,
+`foco_invisible` y `foco_tapado`.
 El estado final de este modo es `LECTURAS_Y_ACCESIBILIDAD_COMPROBADAS`.
 El modo `lectura` conserva su resultado v1 y su comparación; `accesibilidad`
 no acepta `--comparar` ni sustituye la evidencia del reinicio.
@@ -163,6 +168,8 @@ el runner no puede acreditar por sí solo esas operaciones de Dirección.
 node --test scripts/recorridos-f/recorrer.test.mjs scripts/recorridos-f/a11y.test.mjs
 node scripts/recorridos-f/smoke-chrome.mjs
 VEC_F_TEST_SCRATCH=/RUTA_PRIVADA/TEMPORALES node scripts/recorridos-f/smoke-a11y-chrome.mjs
+# Sólo las regresiones de la revisión de usabilidad:
+VEC_F_TEST_SCRATCH=/RUTA_PRIVADA/TEMPORALES node scripts/recorridos-f/smoke-a11y-chrome.mjs --regresiones-ux
 semgrep --config scripts/recorridos-f/semgrep-local.yml \
   --metrics off --disable-version-check --no-git-ignore scripts/recorridos-f
 ```
@@ -178,11 +185,19 @@ guiones existentes de altas, llamamiento y recuperación, los recorridos H6 de M
 y el baremador de B. Este corte no acredita las ocho fases, firma, entrega de
 correo, perfiles completos ni conformidad global de accesibilidad.
 
-Verificación de esta extensión: once pruebas Node verdes y once casos de
+El primer corte (`9f33eb4f7`) verificó once pruebas Node y once casos de
 accesibilidad en Chrome del sistema aislado, con fixtures propios. Los casos
 cubren español e inglés, 1440 y 390 px y zoom nativo al 200 %; detectan etiqueta
 sólo accesible, nombre ausente, foco invisible, control tapado y exclusión de Tab.
 No hubo escrituras al servidor del fixture y se eliminó el perfil temporal.
+
+El correctivo de la revisión repite las once pruebas Node y ejecuta sólo seis
+regresiones nuevas en Chrome: botón redondeado visible, etiqueta con opacidad
+cero, antecesor con opacidad cero, contorno permanente y trampa en el último
+control en ambas direcciones o sólo hacia delante. Los seis casos pasan, sin
+escrituras y con el perfil eliminado. Este correctivo no repite los once casos
+Chrome anteriores ni el zoom nativo al 200 %.
+
 Las regresiones conservadas cubren los HTTP 200 incompatibles y el resultado terminal
 saneado cuando falla Chrome o el contexto mTLS. El smoke de transporte se
 conserva del primer corte; no se repitió para esta extensión de accesibilidad.
