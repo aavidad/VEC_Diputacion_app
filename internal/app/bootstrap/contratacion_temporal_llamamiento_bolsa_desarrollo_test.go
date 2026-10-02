@@ -182,6 +182,23 @@ func TestPuenteBolsaLlamamientoDesarrolloReferenciasYFuenteEstables(t *testing.T
 	}
 }
 
+func TestPuenteBolsaSinFinPrevistoConservaCausaCatalogada(t *testing.T) {
+	p, ctx, preparacion, _ := puenteBolsaPrueba(t)
+	preparacion.expediente.Fiscalizado.Analisis.Periodo.Fin = time.Time{}
+	preparacion.expediente.Fiscalizado.Analisis.Periodo.CausaFin = "reincorporacion_titular"
+	fuente, documento, err := p.fuente(preparacion)
+	if err != nil || !documento.Datos.Necesidad.FinPrevisto.IsZero() ||
+		documento.Datos.Necesidad.CausaFinClave != "reincorporacion_titular" {
+		t.Fatalf("fin por causa no conservado en Bolsa: %v, %+v", err, documento.Datos.Necesidad)
+	}
+	contenido, _, err := fuente.ExportarFuenteFirmada(ctx, preparacion.necesidad)
+	if err != nil || !bytes.Contains(contenido, []byte(`"fin_previsto":null`)) ||
+		!bytes.Contains(contenido, []byte(`"causa_fin_clave":"reincorporacion_titular"`)) ||
+		bytes.Contains(contenido, []byte("0001-")) {
+		t.Fatalf("fuente con horizonte inventado: %v, %s", err, contenido)
+	}
+}
+
 func TestPuenteBolsaLlamamientoDesarrolloConsultaCanonicaMACYFalloSinRecibo(t *testing.T) {
 	p, ctx, d, reloj := puenteBolsaPrueba(t)
 	// El reloj avanza entre cada lectura: detecta comparación con el instante
