@@ -1151,15 +1151,15 @@ BEGIN
    JOIN LATERAL jsonb_array_elements(fuente->'perfiles') p ON p->>'perfil_ref'=a.perfil_activo_ref
    WHERE a.principal_id=m->>'persona_ref' ORDER BY a.perfil_activo_ref LIMIT 50) t;
   SELECT coalesce(jsonb_agg(to_jsonb(t) ORDER BY t.confirmado_en DESC,t.acto_ref),'[]'::jsonb) INTO historia
-  FROM (SELECT rr->>'acto_ref' AS acto_ref,coalesce(material->>'operacion',propuesta.operacion) AS operacion,
+  FROM (SELECT rr->>'acto_ref' AS acto_ref,coalesce(proyeccion.material->>'operacion',propuesta.operacion) AS operacion,
    rr->>'estado_posterior' AS estado,(rr->>'confirmado_en')::timestamptz AS confirmado_en
    FROM vec_autorizacion.registro_acto_admin_v1 a
    CROSS JOIN LATERAL (SELECT convert_from(a.material,'UTF8')::jsonb AS material,
     CASE WHEN jsonb_typeof(a.resultado->'recibo')='object' THEN a.resultado->'recibo' ELSE a.resultado END AS rr) proyeccion
    LEFT JOIN vec_autorizacion.propuesta_perfil_sensible propuesta
-    ON propuesta.propuesta_ref=material->>'propuesta_ref'
+    ON propuesta.propuesta_ref=proyeccion.material->>'propuesta_ref'
    WHERE rr->>'objetivo_persona_ref'=m->>'persona_ref' AND rr ? 'acto_ref'
-   AND coalesce(material->>'operacion',propuesta.operacion) IN ('otorgar','revocar')
+   AND coalesce(proyeccion.material->>'operacion',propuesta.operacion) IN ('otorgar','revocar')
    ORDER BY (rr->>'confirmado_en')::timestamptz DESC,rr->>'acto_ref' LIMIT 50) t;
   RETURN jsonb_build_object('persona_ref',m->>'persona_ref','nombre','','unidad_nombre','',
    'perfiles',datos,'actos_disponibles','[]'::jsonb,'historia',historia);
