@@ -110,7 +110,9 @@ BEGIN
         ),
         (
           'vec_contratacion_temporal.confirmar_alta_atestada_v1(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea)',
-          $antiguo$OR NOT ((a #> '{solicitud,periodo}') ?& ARRAY['inicio', 'fin'])
+          $antiguo$OR (SELECT pg_catalog.count(*) FROM pg_catalog.jsonb_object_keys(
+               a #> '{solicitud,periodo}')) <> 2
+       OR NOT ((a #> '{solicitud,periodo}') ?& ARRAY['inicio', 'fin'])
        OR pg_catalog.jsonb_typeof(a #> '{solicitud,periodo,inicio}')
           <> 'string'
        OR pg_catalog.jsonb_typeof(a #> '{solicitud,periodo,fin}')

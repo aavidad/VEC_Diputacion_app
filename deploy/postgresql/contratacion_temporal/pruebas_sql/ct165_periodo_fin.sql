@@ -9,7 +9,9 @@ DECLARE
     cerrado jsonb := '{"inicio":"2026-10-02T00:00:00Z","fin":"2026-10-31T00:00:00Z"}';
     abierto jsonb := '{"inicio":"2026-10-02T00:00:00Z","causa_fin":"reincorporacion_titular","politica_fin":{"regla_ref":"regla:modalidad:sustitucion","catalogo_version":2,"catalogo_huella_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","fecha_fin":"no_aplica","causa_fin":"reincorporacion_titular"}}';
     solicitud jsonb;
+    analisis jsonb;
     canon text;
+    huella text;
 BEGIN
     IF vec_contratacion_temporal.periodo_previsto_analisis_valido_v1(cerrado) IS NOT TRUE
        OR vec_contratacion_temporal.periodo_previsto_analisis_valido_v1(abierto) IS NOT TRUE
@@ -44,6 +46,29 @@ BEGIN
        OR pg_catalog.strpos(canon,'"politica_fin":{"regla_ref":"regla:modalidad:sustitucion","catalogo_version":2')=0
        OR pg_catalog.strpos(canon,'"fin"')<>0 THEN
         RAISE EXCEPTION 'CT165 canon con causa incorrecto';
+    END IF;
+    analisis := pg_catalog.jsonb_build_object(
+      'modalidad_clave','sustitucion','categoria_ref','categoria:sintetica',
+      'grupo_subgrupo','C2','causa_clave','reincorporacion_titular',
+      'periodo',abierto,'porcentaje_jornada',10000,
+      'entrada_rc_esperada',pg_catalog.jsonb_build_object(
+        'referencia','entrada:rc:sintetica','huella_sha256',repeat('4',64)),
+      'actuacion_registro',pg_catalog.jsonb_build_object(
+        'secuencia',2,'version_expediente',2,
+        'accion_clave','contratacion_temporal.analisis.registrar',
+        'fase_destino','solicitud','recibo_ref','recibo:analisis:sintetico'),
+      'validacion_rc',pg_catalog.jsonb_build_object(
+        'resultado','no_requerida','entrada_ref','entrada:rc:sintetica',
+        'huella_entrada_sha256',repeat('4',64),
+        'fuente_ref','fuente:presupuestaria:sintetica',
+        'recibo_ref','recibo:fuente:rc:sintetico',
+        'validada_en','2026-10-02T00:00:00Z','motivo','tramite_ordinario')
+    );
+    huella := vec_contratacion_temporal.huella_analisis_derivado_v2(analisis);
+    IF huella IS NULL OR huella !~ '^[0-9a-f]{64}$'
+       OR huella=vec_contratacion_temporal.huella_analisis_derivado_v2(
+          pg_catalog.jsonb_set(analisis,'{periodo,politica_fin,catalogo_version}','3'::jsonb,false)) THEN
+        RAISE EXCEPTION 'CT165 huella no vincula versión de política';
     END IF;
 END
 $prueba$;
