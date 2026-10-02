@@ -45,6 +45,7 @@ export async function montarPreparacion(documento = globalThis.document, ubicaci
   let carga = 0;
   let cerrado = false;
   let urlDescarga;
+  let resumenActual = null;
   const fecha = (valor) => textos.fecha(valor, { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Europe/Madrid' });
   const nodo = (tag, valor, clase) => {
     const elemento = documento.createElement(tag);
@@ -84,9 +85,11 @@ export async function montarPreparacion(documento = globalThis.document, ubicaci
     porId('anterior').hidden = !detalle || paso === 1;
     porId('siguiente').hidden = !detalle || paso === 3;
     porId('descargar').hidden = !detalle || paso !== 3;
+    porId('descargar-json').hidden = !detalle || paso !== 3;
+    resumenActual = null;
     if (detalle && paso === 3) {
-      const resumen = crearResumen(detalle, { archivos, lectura: porId('lectura-confirmada').checked, limites });
-      const elemento = nodo('pre', textoResumen(resumen, textos), 'resumen-local');
+      resumenActual = crearResumen(detalle, { archivos, lectura: porId('lectura-confirmada').checked, limites });
+      const elemento = nodo('pre', textoResumen(resumenActual, textos), 'resumen-local');
       porId('revision-resumen').replaceChildren(elemento);
     }
     porId('cuerpo-preparacion').scrollTop = 0;
@@ -190,17 +193,20 @@ export async function montarPreparacion(documento = globalThis.document, ubicaci
   });
   porId('anterior').addEventListener('click', () => { if (detalle) { paso = Math.max(1, paso - 1); pintarPaso(true); } });
   porId('reintentar').addEventListener('click', cargar);
-  porId('descargar').addEventListener('click', () => {
-    if (!detalle || paso !== 3) return;
-    const resumen = crearResumen(detalle, { archivos, lectura: porId('lectura-confirmada').checked, limites });
+  function descargarResumen(json = false) {
+    if (!detalle || paso !== 3 || !resumenActual) return;
     if (urlDescarga) URL.revokeObjectURL(urlDescarga);
-    urlDescarga = URL.createObjectURL(new Blob([textoResumen(resumen, textos)], { type: 'text/plain;charset=utf-8' }));
+    const contenido = json ? JSON.stringify(resumenActual, null, 2) : textoResumen(resumenActual, textos);
+    const tipo = json ? 'application/json;charset=utf-8' : 'text/plain;charset=utf-8';
+    urlDescarga = URL.createObjectURL(new Blob([contenido], { type: tipo }));
     const enlaceDescarga = documento.createElement('a');
     enlaceDescarga.href = urlDescarga;
-    enlaceDescarga.download = t('resumen.archivo_descarga', { identificador });
+    enlaceDescarga.download = t(json ? 'resumen.archivo_descarga_json' : 'resumen.archivo_descarga', { identificador });
     enlaceDescarga.click();
     porId('estado-preparacion').textContent = t('pagina.descargado');
-  });
+  }
+  porId('descargar').addEventListener('click', () => descargarResumen());
+  porId('descargar-json').addEventListener('click', () => descargarResumen(true));
   const avisarSalida = (evento) => {
     if (!porId('lectura-confirmada').checked && archivos.length === 0) return;
     evento.preventDefault();

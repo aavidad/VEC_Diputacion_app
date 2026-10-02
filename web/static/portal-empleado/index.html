@@ -30,13 +30,13 @@
     <link rel="stylesheet" href="/portal-empleado/modulos/cronos/vista-catalogo-permisos.css?v=20260925-tanda-v1">
     <link rel="stylesheet" href="/portal-empleado/modulos/cronos/vista-notificaciones.css?v=20260925-tanda-v1">
     <link rel="stylesheet" href="/portal-empleado/modulos/cronos/cronos-conectado.css?v=20260925-tanda2-v1">
-    <link rel="stylesheet" href="/portal-empleado/modulos/cronos/vista-solicitudes.css?v=20260925-tanda2-v1">
+    <link rel="stylesheet" href="/portal-empleado/modulos/cronos/vista-solicitudes.css?v=20261001-cronos-calendario-seleccion-v1">
     <link rel="stylesheet" href="/portal-empleado/modulos/cronos/vista-resolucion.css?v=20260925-cronos-notif-e10-v1">
     <link rel="stylesheet" href="/portal-empleado/modulos/cronos/vista-notificaciones-rrhh.css?v=20260925-cronos-notif-e10-v1">
     <link rel="stylesheet" href="/portal-empleado/modulos/dietas/dietas.css?v=20260925-tanda-v1">
     <link rel="stylesheet" href="/portal-empleado/modulos/dietas/borradores-propios.css?v=20260925-d5d6-v1">
     <link rel="stylesheet" href="/portal-empleado/modulos/personal/ficha-integral.css?v=20260924-f2-shell-v1">
-    <link rel="stylesheet" href="/portal-empleado/modulos/personal/registro-b2.css?v=20261001-antecedentes-carrera-v2">
+    <link rel="stylesheet" href="/portal-empleado/modulos/personal/registro-b2.css?v=20261001-b-servicios-sync-v3">
     <link rel="stylesheet" href="/portal-empleado/modulos/documentos/documentos.css?v=20260925-documentos-web-v3">
     <link rel="stylesheet" href="/portal-empleado/modulos/contratacion-temporal/contratacion-temporal.css?v=20260929-demo-ficha-v1">
     <link rel="stylesheet" href="/portal-empleado/modulos/contratacion-temporal/expedientes.css?v=20260929-demo-ficha-v2">
@@ -59,9 +59,10 @@
          paralelo con la entrada, sin esperar a leer cada nivel de import. Primero
          la cadena que carga el catálogo y los módulos. Deben coincidir exactamente
          con las URL que importa el código (lo comprueba portal-carga-rapida.test.mjs). -->
-    <link rel="modulepreload" href="/portal-empleado/portal-modulos-coordinador.js?v=20261001-antecedentes-carrera-v2">
+    <link rel="modulepreload" href="/portal-empleado/portal-modulos-coordinador.js?v=20261002-b-carrera-360-retoma-v1">
     <link rel="modulepreload" href="/comun/correos-propios.js?v=20260929-correos-508b-v1">
     <link rel="modulepreload" href="/comun/iconos-vec.js?v=20260925-aspecto-v1">
+    <link rel="modulepreload" href="/portal-empleado/portal-accesos-empleado.js?v=20261001-g364-reconciliar-v2">
     <link rel="modulepreload" href="/comun/idioma.js">
     <link rel="modulepreload" href="/comun/imagen-propia.js?v=20260929-imagen-508c-v2">
     <link rel="modulepreload" href="/comun/tema-vec.js?v=20260930-codexf-temas-v2">
@@ -106,7 +107,7 @@
     <link rel="modulepreload" href="/portal-empleado/portal-borradores-ui.js?v=20261001-ct-a-i18n-v1">
     <link rel="modulepreload" href="/portal-empleado/portal-borradores-vista.js?v=20261001-ct-a-i18n-v1">
     <link rel="modulepreload" href="/portal-empleado/portal-catalogo-modulos.js?v=20261001-ct-a-i18n-v1">
-    <link rel="modulepreload" href="/portal-empleado/portal-composicion-empleado.js?v=20261001-cronos-grafo-bandeja-v5">
+    <link rel="modulepreload" href="/portal-empleado/portal-composicion-empleado.js?v=20261001-g364-reconciliar-v2">
     <link rel="modulepreload" href="/portal-empleado/portal-contrato.js?v=20260925-sin-demo2-v1">
     <link rel="modulepreload" href="/portal-empleado/portal-enlaces-i18n.js?v=20260930-portales-i18n-integracion-v1">
     <link rel="modulepreload" href="/portal-empleado/portal-eventos.js?v=20261001-ct-a-i18n-v1">
@@ -117,7 +118,7 @@
     <link rel="modulepreload" href="/portal-empleado/portal-i18n-intentos.js?v=20260930-portales-i18n-integracion-v1">
     <link rel="modulepreload" href="/portal-empleado/portal-i18n.js?v=20261001-ct-a-i18n-v1">
     <link rel="modulepreload" href="/portal-empleado/portal-idioma.js?v=20261001-ct-a-i18n-v1">
-    <link rel="modulepreload" href="/portal-empleado/portal-inicio.js?v=20261001-f-reconciliacion-325-v1">
+    <link rel="modulepreload" href="/portal-empleado/portal-inicio.js?v=20261001-g364-reconciliar-v2">
     <link rel="modulepreload" href="/portal-empleado/portal-justificante.js">
     <link rel="modulepreload" href="/portal-empleado/portal-llamamientos-api.js?v=20261001-ct-a-i18n-v1">
     <link rel="modulepreload" href="/portal-empleado/portal-llamamientos-contrato.js?v=20260926-integracion-bolsa-ct-v1">
@@ -136,7 +137,7 @@
     <link rel="modulepreload" href="/portal-empleado/reglas/enlace.js?v=20261001-ct-a-i18n-v1">
     <!-- Carga clásica y síncrona: globalThis.L existe antes de evaluar cualquier módulo. -->
     <script src="/portal-empleado/vendor/leaflet-1.9.4/leaflet.js?v=1.9.4" integrity="sha384-tM1WyRnQZLXgeuR/dXHqqQcD5jN9+bgKmZW55OJtM9Bv7zCG4VFwmgdJudAtzIni"></script>
-    <script type="module" src="/portal-empleado/portal.js?v=20261001-antecedentes-carrera-v2"></script>
+    <script type="module" src="/portal-empleado/portal.js?v=20261002-b-carrera-360-retoma-v1"></script>
   </head>
   <body class="portal-empleado-app">
     <a class="salto-contenido" href="#contenido-principal" data-i18n-portal="txt_saltar_al_contenido_principal">Saltar al contenido principal</a>

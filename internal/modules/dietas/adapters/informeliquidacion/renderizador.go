@@ -41,18 +41,24 @@ type fila struct {
 	Concepto, Detalle, Inicial, Propuesto, Diferencia, Motivo, Regla          string
 	Descripcion, Fecha, JustificanteRef, JustificanteSHA, CatalogoOtros, Tope string
 	Numero                                                                    int
-	D5                                                                        bool
+	D5, Kilometraje                                                           bool
+	OrigenCodigo, DestinoCodigo, KilometrosBase, KilometrosFinales            string
+	AjusteKilometros, MotivoAjuste                                            string
+	RutaNumero                                                                int
 }
 type vista struct {
 	Textos                                                                          Textos
 	Tema, Estilos                                                                   template.CSS
 	ComisionRef, Version, Grupo                                                     string
 	Filas                                                                           []fila
+	Resumen                                                                         []fila
 	TotalInicial, TotalPropuesto, TotalDiferencia                                   string
 	CatalogoRef, CatalogoVersion, Tarifa, DocumentoSHA, CatalogoSHA, PreparacionSHA string
 	Fuentes                                                                         []string
 	TieneD5                                                                         bool
 }
+
+var familiasInforme = [...]string{"manutencion", "kilometraje", domain.ClaseOtroMedio, domain.ClaseOtroGasto}
 
 // Renderizar consume los importes y totales decididos por el dominio opaco.
 // Sólo transforma presentación; no concede aprobación ni registra una liquidación.
@@ -75,11 +81,28 @@ func (r *Renderizador) Renderizar(p *domain.PreparacionLiquidacion, t Textos) ([
 	for _, regla := range s.Catalogo.Reglas {
 		reglas[regla.Referencia] = regla
 	}
+	subtotales := make(map[string]*domain.TotalesLiquidacionPropuesta, len(familiasInforme))
+	for _, codigo := range familiasInforme {
+		subtotales[codigo] = &domain.TotalesLiquidacionPropuesta{}
+	}
 	for _, l := range s.Lineas {
 		if l.Indice < 0 || l.Indice >= len(s.Documento.Lineas) {
 			return nil, ErrPreparacion
 		}
 		d := s.Documento.Lineas[l.Indice]
+		familia := d.Tipo
+		if d.Tipo == "dieta" {
+			familia = d.Concepto
+		}
+		subtotal, ok := subtotales[familia]
+		if !ok {
+			return nil, ErrPreparacion
+		}
+		// El dominio ya validó importes no negativos y totales sin desbordamiento.
+		// Agrupar esos céntimos no aplica tarifas ni vuelve a decidir la propuesta.
+		subtotal.OriginalCentimos += l.OriginalCentimos
+		subtotal.ReconocidoPropuestoCentimos += l.ReconocidoPropuestoCentimos
+		subtotal.RechazadoCentimos += l.RechazadoCentimos
 		concepto := t.Conceptos[d.Concepto]
 		detalle := ""
 		if d.Tipo == "kilometraje" {
@@ -118,6 +141,24 @@ func (r *Renderizador) Renderizar(p *domain.PreparacionLiquidacion, t Textos) ([
 			}
 		}
 		f := fila{Concepto: concepto, Detalle: detalle, Inicial: moneda(l.OriginalCentimos, t.Formato), Propuesto: moneda(l.ReconocidoPropuestoCentimos, t.Formato), Diferencia: moneda(l.RechazadoCentimos, t.Formato), Motivo: motivo, Regla: l.ReglaRef, Numero: l.Indice + 1}
+		if d.Tipo == "kilometraje" {
+			for _, rotulo := range []string{t.Rotulos.Ruta, t.Rotulos.OrigenCodigo, t.Rotulos.DestinoCodigo, t.Rotulos.KilometrosBase, t.Rotulos.KilometrosFinales, t.Rotulos.AjusteKilometros, t.Rotulos.MotivoAjuste, t.Rotulos.NoConsta} {
+				if !texto(rotulo) {
+					return nil, ErrTextos
+				}
+			}
+			f.Kilometraje = true
+			f.RutaNumero = d.RutaIndice
+			f.OrigenCodigo = d.OrigenCodigo
+			f.DestinoCodigo = d.DestinoCodigo
+			f.KilometrosBase = distancia(d.KilometrosBase, t)
+			f.KilometrosFinales = distancia(d.Kilometros, t)
+			f.AjusteKilometros = distancia(d.AjusteKilometros, t)
+			f.MotivoAjuste = d.MotivoAjuste
+			if f.MotivoAjuste == "" {
+				f.MotivoAjuste = t.Rotulos.NoConsta
+			}
+		}
 		if d.Tipo == domain.ClaseOtroMedio || d.Tipo == domain.ClaseOtroGasto {
 			regla, ok := reglas[l.ReglaRef]
 			if !ok || regla.Tipo != d.Tipo || regla.Concepto != d.TipoGasto || regla.TopeCentimos <= 0 {
@@ -134,6 +175,17 @@ func (r *Renderizador) Renderizar(p *domain.PreparacionLiquidacion, t Textos) ([
 			f.Tope = moneda(regla.TopeCentimos, t.Formato)
 		}
 		v.Filas = append(v.Filas, f)
+	}
+	var comprobacion domain.TotalesLiquidacionPropuesta
+	for _, codigo := range familiasInforme {
+		subtotal := subtotales[codigo]
+		v.Resumen = append(v.Resumen, fila{Concepto: t.Familias[codigo], Inicial: moneda(subtotal.OriginalCentimos, t.Formato), Propuesto: moneda(subtotal.ReconocidoPropuestoCentimos, t.Formato), Diferencia: moneda(subtotal.RechazadoCentimos, t.Formato)})
+		comprobacion.OriginalCentimos += subtotal.OriginalCentimos
+		comprobacion.ReconocidoPropuestoCentimos += subtotal.ReconocidoPropuestoCentimos
+		comprobacion.RechazadoCentimos += subtotal.RechazadoCentimos
+	}
+	if comprobacion != s.Totales {
+		return nil, ErrPreparacion
 	}
 	v.TotalInicial = moneda(s.Totales.OriginalCentimos, t.Formato)
 	v.TotalPropuesto = moneda(s.Totales.ReconocidoPropuestoCentimos, t.Formato)
@@ -165,3 +217,27 @@ func moneda(n int64, f Formato) string {
 	}
 	return entero + f.Decimal + decimal + "\u00a0" + f.Moneda
 }
+
+// distancia localiza el decimal declarado sin calcular ni completar datos ausentes.
+func distancia(s string, t Textos) string {
+	if s == "" {
+		return t.Rotulos.NoConsta
+	}
+	if !distanciaDecimal.MatchString(s) {
+		return s
+	}
+	entero, decimal, _ := strings.Cut(s, ".")
+	negativo := strings.HasPrefix(entero, "-")
+	if negativo {
+		entero = entero[1:]
+	}
+	for i := len(entero) - 3; i > 0; i -= 3 {
+		entero = entero[:i] + t.Formato.Agrupacion + entero[i:]
+	}
+	if negativo {
+		entero = "-" + entero
+	}
+	return entero + t.Formato.Decimal + decimal
+}
+
+var distanciaDecimal = regexp.MustCompile(`^-?[0-9]+\.[0-9]{4}$`)

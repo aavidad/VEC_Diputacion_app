@@ -113,6 +113,9 @@ func TestRecursosCerradosYSinEscape(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "textos/zz/provision.json"), []byte(`{}`), 0600); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.WriteFile(filepath.Join(dir, "textos/zz/seleccion.json"), []byte(`{}`), 0600); err != nil {
+		t.Fatal(err)
+	}
 	assets, err := cargarRecursos(dir)
 	if err != nil {
 		t.Fatal(err)
@@ -121,8 +124,19 @@ func TestRecursosCerradosYSinEscape(t *testing.T) {
 	if w.Code != 200 {
 		t.Fatal(w.Code)
 	}
+	w = request(nuevoHandler(hostPrueba, assets), "GET", entradaSeleccion, "", nil)
+	if w.Code != 200 || w.Header().Get("Cache-Control") != "no-store" {
+		t.Fatal("entrada del ensayo de selección no disponible")
+	}
 	if _, ok := assets["/textos/zz/baremo-bolsa.json"]; !ok {
 		t.Fatal("idioma del índice omitido")
+	}
+	w = request(nuevoHandler(hostPrueba, assets), "GET", "/catalogos/baremo-jornada-v1.json", "", nil)
+	if w.Code != 200 || w.Body.String() != "asset" || !strings.HasPrefix(w.Header().Get("Content-Type"), "application/json") {
+		t.Fatal("catalogo tecnico de jornada no disponible")
+	}
+	if request(nuevoHandler(hostPrueba, assets), "GET", "/catalogos/no-declarado.json", "", nil).Code != 404 {
+		t.Fatal("catalogo ajeno a la lista positiva disponible")
 	}
 	if err := os.WriteFile(filepath.Join(dir, "textos/idiomas.json"), []byte(`{"idiomas":[{"codigo":"../../etc"}]}`), 0600); err != nil {
 		t.Fatal(err)

@@ -22,6 +22,23 @@
 <div><dt>{{.Textos.Rotulos.Version}}</dt><dd>{{.Version}}</dd></div>
 </dl>
 </section>
+<section class="panel" aria-labelledby="resumen">
+<div class="cabecera-panel"><h2 id="resumen">{{.Textos.Rotulos.Resumen}}</h2></div>
+<p id="resumen-ayuda" class="tabla-ayuda">{{.Textos.Rotulos.ResumenAyuda}}</p>
+<div class="tabla-scroll" tabindex="0" role="region" aria-labelledby="resumen" aria-describedby="resumen-ayuda">
+<table>
+<caption class="solo-lectura">{{.Textos.Rotulos.Resumen}}</caption>
+<thead><tr>
+<th scope="col">{{.Textos.Rotulos.Familia}}</th>
+<th scope="col" class="importe">{{.Textos.Rotulos.Inicial}}</th>
+<th scope="col" class="importe">{{.Textos.Rotulos.Propuesto}}</th>
+<th scope="col" class="importe">{{.Textos.Rotulos.Diferencia}}</th>
+</tr></thead>
+<tbody>{{range .Resumen}}<tr><th scope="row">{{.Concepto}}</th><td class="importe">{{.Inicial}}</td><td class="importe">{{.Propuesto}}</td><td class="importe">{{.Diferencia}}</td></tr>{{end}}</tbody>
+<tfoot><tr><th scope="row">{{.Textos.Rotulos.Total}}</th><td class="importe">{{.TotalInicial}}</td><td class="importe">{{.TotalPropuesto}}</td><td class="importe">{{.TotalDiferencia}}</td></tr></tfoot>
+</table>
+</div>
+</section>
 <section class="panel" aria-labelledby="conceptos">
 <div class="cabecera-panel"><h2 id="conceptos">{{.Textos.Rotulos.Conceptos}}</h2></div>
 <p id="tabla-ayuda" class="tabla-ayuda">{{.Textos.Rotulos.TablaAyuda}}</p>
@@ -36,7 +53,7 @@
 <th scope="col">{{.Textos.Rotulos.Motivo}}</th>
 </tr></thead>
 <tbody>{{range .Filas}}<tr>
-<th scope="row">{{.Concepto}}{{if .Detalle}}<span class="detalle-linea">{{.Detalle}}</span>{{end}}{{if .D5}}<span class="detalle-linea">{{$.Textos.Rotulos.DescripcionDeclarada}}: {{.Descripcion}}</span><span class="detalle-linea">{{$.Textos.Rotulos.FechaGasto}}: {{.Fecha}}</span>{{end}}</th>
+<th scope="row">{{.Concepto}}{{if .Detalle}}<span class="detalle-linea">{{.Detalle}}</span>{{end}}{{if .Kilometraje}}<span class="detalle-linea">{{$.Textos.Rotulos.Ruta}} {{.RutaNumero}}</span><span class="detalle-linea">{{$.Textos.Rotulos.OrigenCodigo}}: {{.OrigenCodigo}}</span><span class="detalle-linea">{{$.Textos.Rotulos.DestinoCodigo}}: {{.DestinoCodigo}}</span><span class="detalle-linea">{{$.Textos.Rotulos.KilometrosBase}}: {{.KilometrosBase}}</span><span class="detalle-linea">{{$.Textos.Rotulos.KilometrosFinales}}: {{.KilometrosFinales}}</span><span class="detalle-linea">{{$.Textos.Rotulos.AjusteKilometros}}: {{.AjusteKilometros}}</span><span class="detalle-linea">{{$.Textos.Rotulos.MotivoAjuste}}: {{.MotivoAjuste}}</span>{{end}}{{if .D5}}<span class="detalle-linea">{{$.Textos.Rotulos.DescripcionDeclarada}}: {{.Descripcion}}</span><span class="detalle-linea">{{$.Textos.Rotulos.FechaGasto}}: {{.Fecha}}</span>{{end}}</th>
 <td class="importe">{{.Inicial}}</td><td class="importe">{{.Propuesto}}</td><td class="importe">{{.Diferencia}}</td><td>{{.Motivo}}</td>
 </tr>{{end}}</tbody>
 <tfoot><tr><th scope="row">{{.Textos.Rotulos.Total}}</th><td class="importe">{{.TotalInicial}}</td><td class="importe">{{.TotalPropuesto}}</td><td class="importe">{{.TotalDiferencia}}</td><td></td></tr></tfoot>

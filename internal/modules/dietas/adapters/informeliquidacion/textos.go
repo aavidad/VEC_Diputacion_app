@@ -20,6 +20,7 @@ type Textos struct {
 	Conceptos  map[string]string `json:"conceptos"`
 	Tipos      map[string]string `json:"tipos"`
 	TiposGasto map[string]string `json:"tipos_gasto,omitempty"`
+	Familias   map[string]string `json:"familias"`
 	Motivos    map[string]string `json:"motivos"`
 }
 
@@ -58,6 +59,9 @@ type Rotulos struct {
 	Linea                string `json:"linea"`
 	Regla                string `json:"regla"`
 	TablaAyuda           string `json:"tabla_ayuda"`
+	Resumen              string `json:"resumen"`
+	Familia              string `json:"familia"`
+	ResumenAyuda         string `json:"resumen_ayuda"`
 	FechaGasto           string `json:"fecha_gasto,omitempty"`
 	DescripcionDeclarada string `json:"descripcion_declarada,omitempty"`
 	JustificanteRef      string `json:"justificante_ref,omitempty"`
@@ -65,6 +69,14 @@ type Rotulos struct {
 	CatalogoOtrosGastos  string `json:"catalogo_otros_gastos,omitempty"`
 	TopeLinea            string `json:"tope_linea,omitempty"`
 	JustificanteLimite   string `json:"justificante_limite,omitempty"`
+	Ruta                 string `json:"ruta,omitempty"`
+	OrigenCodigo         string `json:"origen_codigo,omitempty"`
+	DestinoCodigo        string `json:"destino_codigo,omitempty"`
+	KilometrosBase       string `json:"kilometros_base,omitempty"`
+	KilometrosFinales    string `json:"kilometros_finales,omitempty"`
+	AjusteKilometros     string `json:"ajuste_kilometros,omitempty"`
+	MotivoAjuste         string `json:"motivo_ajuste,omitempty"`
+	NoConsta             string `json:"no_consta,omitempty"`
 }
 
 var idiomaValido = regexp.MustCompile(`^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$`)
@@ -91,12 +103,22 @@ func (t Textos) validar() error {
 		return ErrTextos
 	}
 	r := t.Rotulos
+	for _, s := range []string{r.Resumen, r.Familia, r.ResumenAyuda} {
+		if !texto(s) {
+			return ErrTextos
+		}
+	}
+	for _, codigo := range familiasInforme {
+		if !texto(t.Familias[codigo]) {
+			return ErrTextos
+		}
+	}
 	for _, s := range []string{r.Titulo, r.Estado, r.Limite, r.Comision, r.Grupo, r.ReferenciaComision, r.Version, r.Conceptos, r.Concepto, r.Inicial, r.Propuesto, r.Diferencia, r.Motivo, r.Total, r.SinReduccion, r.Detalle, r.Catalogo, r.Tarifa, r.Fuentes, r.DocumentoHuella, r.CatalogoHuella, r.PreparacionHuella, r.HuellaLimite, r.Reglas, r.Linea, r.Regla, r.TablaAyuda} {
 		if !texto(s) {
 			return ErrTextos
 		}
 	}
-	for _, dic := range []map[string]string{t.Conceptos, t.Tipos, t.Motivos} {
+	for _, dic := range []map[string]string{t.Conceptos, t.Tipos, t.Motivos, t.Familias} {
 		if len(dic) == 0 || len(dic) > 128 {
 			return ErrTextos
 		}
@@ -114,7 +136,7 @@ func (t Textos) validar() error {
 			return ErrTextos
 		}
 	}
-	for _, s := range []string{r.FechaGasto, r.DescripcionDeclarada, r.JustificanteRef, r.JustificanteHuella, r.CatalogoOtrosGastos, r.TopeLinea, r.JustificanteLimite} {
+	for _, s := range []string{r.FechaGasto, r.DescripcionDeclarada, r.JustificanteRef, r.JustificanteHuella, r.CatalogoOtrosGastos, r.TopeLinea, r.JustificanteLimite, r.Ruta, r.OrigenCodigo, r.DestinoCodigo, r.KilometrosBase, r.KilometrosFinales, r.AjusteKilometros, r.MotivoAjuste, r.NoConsta} {
 		if s != "" && !texto(s) {
 			return ErrTextos
 		}

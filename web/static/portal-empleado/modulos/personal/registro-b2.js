@@ -4,8 +4,8 @@ import { ErrorRegistroB2 } from "./registro-b2-cliente.js?v=20260925-b2-selector
 import { accionesRegistroB2Disponibles, montarActosRegistroB2 } from "./registro-b2-actos.js?v=20260929-i18n-personal-v1";
 import { cargarOpcionesPublicadasCatalogoB2, montarCatalogosRegistroB2 } from "./registro-b2-catalogos.js?v=20260929-i18n-personal-v1";
 import { crearTraductorTraza } from "./personal-traza-i18n.js?v=20261001-personal-expediente-v2";
-import { crearPanelPreparacionServiciosCER } from "./preparacion-servicios-cer.js?v=20261001-antecedentes-carrera-v2";
-import { crearPanelRelacionParaRPT } from "./preparacion-relacion-rpt.js?v=20261001-antecedentes-carrera-v2";
+import { crearPanelPreparacionServiciosCER } from "./preparacion-servicios-cer.js?v=20261002-b-servicios-351-main-v1";
+import { crearPanelRelacionParaRPT } from "./preparacion-relacion-rpt.js?v=20261002-b-carrera-360-retoma-v1";
 import { renderizarPreparacionAntecedentesCarrera, validarPreparacionAntecedentesCarrera } from "./preparacion-antecedentes-carrera.js?v=20261001-antecedentes-carrera-v2";
 
 const BLOQUES = Object.freeze([

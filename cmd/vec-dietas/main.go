@@ -7,6 +7,7 @@ import (
 
 	"vec-diputacion-granada/internal/modules/dietas/application/preparacionliquidacion"
 	"vec-diputacion-granada/internal/modules/dietas/application/simulaciondevengo"
+	"vec-diputacion-granada/internal/modules/dietas/domain"
 )
 
 type fallo struct {
@@ -17,6 +18,15 @@ func main() {
 	os.Exit(ejecutarConArgumentos(os.Args[1:], os.Stdin, os.Stdout))
 }
 func ejecutarConArgumentos(args []string, in io.Reader, out io.Writer) int {
+	if len(args) == 1 && args[0] == "--comparar-liquidaciones" {
+		return ejecutarComparacion(in, out)
+	}
+	if len(args) == 7 && args[0] == "--preparar-liquidacion" && args[1] == "--desde-instantanea" && args[2] == "--informe" && args[3] == "--textos" && args[5] == "--tema" {
+		return ejecutarInformeRecuperacion(in, out, args[4], args[6])
+	}
+	if len(args) == 2 && args[0] == "--preparar-liquidacion" && args[1] == "--desde-instantanea" {
+		return ejecutarRecuperacion(in, out)
+	}
 	if len(args) == 6 && args[0] == "--preparar-liquidacion" && args[1] == "--informe" && args[2] == "--textos" && args[4] == "--tema" {
 		return ejecutarInformePreparacion(in, out, args[3], args[5])
 	}
@@ -71,4 +81,23 @@ func escribirFalloPreparacion(out io.Writer, err error) int {
 		return 1
 	}
 	return 2
+}
+
+func leerRecuperacion(in io.Reader) (*domain.PreparacionLiquidacion, error) {
+	s, err := leerEntradaTipada[domain.InstantaneaLiquidacionPropuesta](in)
+	if err != nil {
+		return nil, err
+	}
+	return preparacionliquidacion.Recuperar(s)
+}
+
+func ejecutarRecuperacion(in io.Reader, out io.Writer) int {
+	p, err := leerRecuperacion(in)
+	if err != nil {
+		return escribirFalloPreparacion(out, err)
+	}
+	if json.NewEncoder(out).Encode(p.Instantanea()) != nil {
+		return 1
+	}
+	return 0
 }

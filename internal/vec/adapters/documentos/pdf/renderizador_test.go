@@ -55,3 +55,44 @@ func TestValidadorPDFRechazaContenidoActivo(t *testing.T) {
 		t.Fatalf("ValidarSalida() error = %v", err)
 	}
 }
+
+func TestRenderizadorIdiomaDelCatalogoYCompatibilidad(t *testing.T) {
+	contenido := domain.ContenidoDocumento{Titulo: "Documento", Parrafos: []string{"Carmen Molina Ortega"}}
+	anterior, err := (Renderizador{}).Renderizar(context.Background(), contenido)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, idioma := range []string{"es-ES", "en-GB", "fr-FR"} {
+		t.Run(idioma, func(t *testing.T) {
+			r := Renderizador{Idioma: idioma}
+			datos, err := r.Renderizar(context.Background(), contenido)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !bytes.Contains(datos, []byte("/Lang ("+idioma+")")) {
+				t.Fatal("idioma del PDF discordante")
+			}
+			if idioma == "es-ES" && !bytes.Equal(anterior, datos) {
+				t.Fatal("el idioma explícito alteró el PDF anterior")
+			}
+			repetido, err := r.Renderizar(context.Background(), contenido)
+			if err != nil || !bytes.Equal(datos, repetido) {
+				t.Fatal("salida no determinista", err)
+			}
+		})
+	}
+}
+
+func TestRenderizadorRechazaIdiomaInvalidoSinBytes(t *testing.T) {
+	for _, idioma := range []string{"en_GB", "en-gb", " EN-GB", "en-GB ", "en-GB\n", "en-GB\x00", "en-GB) /OpenAction (", "zz-ZZ", "en--GB"} {
+		t.Run(idioma, func(t *testing.T) {
+			datos, err := (Renderizador{Idioma: idioma}).Renderizar(context.Background(), domain.ContenidoDocumento{Titulo: "Documento"})
+			if !errors.Is(err, ErrIdiomaInvalido) || len(datos) != 0 {
+				t.Fatalf("salida=%d error=%v", len(datos), err)
+			}
+			if err.Error() != ErrIdiomaInvalido.Error() {
+				t.Fatal("el error filtró el idioma recibido")
+			}
+		})
+	}
+}

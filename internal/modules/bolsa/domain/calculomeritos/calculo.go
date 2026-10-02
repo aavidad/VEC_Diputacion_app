@@ -62,12 +62,6 @@ func (r Resultado) HuellaSHA256() (string, error) {
 	}
 	return HuellaSHA256(b), nil
 }
-func minimo(p, q baremacion.Puntos) baremacion.Puntos {
-	if p.Micropuntos() < q.Micropuntos() {
-		return p
-	}
-	return q
-}
 
 // Calcular valida ambas instantáneas. La política de corte es inclusiva y los
 // duplicados de hecho/evidencia se bloquean incluso si usan distintas clases.
@@ -205,7 +199,11 @@ func Calcular(c Conjunto, e Entrada) (Resultado, error) {
 		if err != nil {
 			return Resultado{}, err
 		}
-		puntos := minimo(bruto, *regla.MaximoPuntos)
+		tope, err := baremacion.AplicarTope(bruto, *regla.MaximoPuntos)
+		if err != nil {
+			return Resultado{}, err
+		}
+		puntos := tope.Resultado()
 		r.Reglas = append(r.Reglas, DetalleRegla{regla.Clave, regla.SeccionClave, regla.Definicion, admitidos, unidades, computadas, *regla.PuntosPorUnidad, regla.Redondeo, bruto, *regla.MaximoPuntos, puntos})
 		puntosSeccion[regla.SeccionClave], err = puntosSeccion[regla.SeccionClave].Sumar(puntos)
 		if err != nil {
@@ -215,14 +213,22 @@ func Calcular(c Conjunto, e Entrada) (Resultado, error) {
 	suma := baremacion.Puntos{}
 	for _, s := range c.Secciones {
 		bruto := puntosSeccion[s.Clave]
-		puntos := minimo(bruto, *s.MaximoPuntos)
+		tope, err := baremacion.AplicarTope(bruto, *s.MaximoPuntos)
+		if err != nil {
+			return Resultado{}, err
+		}
+		puntos := tope.Resultado()
 		r.Secciones = append(r.Secciones, DetalleSeccion{s.Clave, s.Definicion, bruto, *s.MaximoPuntos, puntos})
 		suma, err = suma.Sumar(puntos)
 		if err != nil {
 			return Resultado{}, err
 		}
 	}
-	total := minimo(suma, *c.MaximoTotal)
+	tope, err := baremacion.AplicarTope(suma, *c.MaximoTotal)
+	if err != nil {
+		return Resultado{}, err
+	}
+	total := tope.Resultado()
 	r.SumaSecciones = &suma
 	r.Total = &total
 	return r, nil
