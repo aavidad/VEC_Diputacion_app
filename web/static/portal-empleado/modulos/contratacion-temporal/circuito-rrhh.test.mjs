@@ -49,15 +49,19 @@ test("el carril usa el estado acreditado del circuito tras alta y primer anális
 test("el panel se inserta solo en fichas del flujo nuevo", () => {
   const inserciones = [];
   let consultas = 0;
-  const raiz = { querySelector: (selector) => selector === "[data-ct-exp-ancla-firma]"
-    ? { insertAdjacentHTML: (...args) => inserciones.push(args), previousElementSibling: {
+  const panelFases = { hidden: false };
+  const raiz = { querySelector: (selector) => selector === "[data-ct-exp-rail]"
+    ? { closest: () => panelFases }
+    : selector === "[data-ct-exp-ancla-firma]"
+      ? { insertAdjacentHTML: (...args) => inserciones.push(args), previousElementSibling: {
       querySelector: () => ({ click: () => { consultas += 1; } }),
-    } } : null };
+      } } : null };
   assert.equal(insertarConsultaCircuitoRRHH(raiz, { expediente_ref: consulta.expediente_ref,
     version: 1, fases: [{ fase_ref: "fase:ct:solicitud" }] }), false);
   assert.equal(insertarConsultaCircuitoRRHH(raiz, { expediente_ref: consulta.expediente_ref,
     version: 1, fases: [{ fase_ref: "fase:ct:circuito_solicitud" }] }), true);
   assert.equal(inserciones.length, 1);
+  assert.equal(panelFases.hidden, true);
   assert.equal(consultas, 1);
   assert.equal(inserciones[0][0], "beforebegin");
   assert.match(inserciones[0][1], /data-ct-circuito-expediente="expediente:prueba:rrhh"/u);
