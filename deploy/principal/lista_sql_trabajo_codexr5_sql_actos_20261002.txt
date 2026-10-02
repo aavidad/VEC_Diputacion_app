@@ -1,6 +1,6 @@
-# Sobre un clon completo de la preimagen real post-AD142.
-# Comprobar huellas por objeto: el número AD150 no impone una dependencia.
-# CT164 requiere reconciliar las funciones compartidas con el corte Fin vigente.
+# BLOQUEADA: esta lista indica el orden causal, pero no está lista para instalar.
+# AD151 exige la postimagen AD149 y sus dependencias; falta el ensayo causal.
+# CT164 requiere CT163 exacta y conserva cerrados los actos sin fuente nominal.
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000151_circuito_rrhh_atestado.up.sql
 deploy/postgresql/contratacion_temporal/migraciones/000163_circuito_rrhh_versionado.up.sql
 deploy/postgresql/contratacion_temporal/migraciones/000164_actos_circuito_rrhh.up.sql
