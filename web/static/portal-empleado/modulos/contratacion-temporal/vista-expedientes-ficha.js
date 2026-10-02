@@ -8,6 +8,7 @@
  * deduce responsables o plazos que el servidor no haya dado.
  */
 import { faseRRHH } from "./i18n-fases-rrhh.js?v=20261001-ct-a-i18n-v1";
+import { renderizarConsultaCircuitoRRHH } from "./vista-circuito-rrhh.js?v=20261002-rrhh-circuito-v2";
 
 function escapar(valor) {
   return String(valor ?? "")
@@ -151,6 +152,8 @@ export function renderizarDocumentosFicha(estado, t) {
       ${indice ? `<p class="texto-secundario">${escapar(t("ficha_documentos_recuento", { total: indice.documentos.length }))}</p>` : ""}</div>
     ${cuerpo}
   </section>
+  ${expediente.fases.some(({ fase_ref: referencia }) =>
+    String(referencia).split(":").at(-1)?.startsWith("circuito_")) ? renderizarConsultaCircuitoRRHH(expediente) : ""}
   <div data-ct-exp-ancla-firma hidden></div>`;
 }
 

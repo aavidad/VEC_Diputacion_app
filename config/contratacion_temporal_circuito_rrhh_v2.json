@@ -2,7 +2,7 @@
   "flujo": {
     "definicion_ref": "flujo:ct:rrhh:20261002",
     "version": 2,
-    "huella_sha256": "cef350219992780dea73d490b86a9355400dcf42e28671b0ad9bba701494242a"
+    "huella_sha256": "f9b83c1291fdf96f339233b9e7a2036b67803388cea8568b4d2b02b6bcd4e9fc"
   },
   "estado_inicial": "solicitud",
   "transiciones": [
@@ -13,7 +13,11 @@
       "destino": "autorizacion_rrhh",
       "requiere_documento": true,
       "requiere_firma": true,
-      "perfil_clave": "centro_solicitante"
+      "perfil_clave": "tecnico_rrhh",
+      "firmas_requeridas": [
+        "tecnico_solicitante",
+        "delegacion_solicitante"
+      ]
     },
     {
       "clave": "contratacion_temporal.circuito.autorizacion_rrhh",
@@ -21,8 +25,9 @@
       "origen": "autorizacion_rrhh",
       "destino": "credito",
       "requiere_documento": true,
-      "requiere_firma": true,
-      "perfil_clave": "direccion_rrhh"
+      "requiere_firma": false,
+      "perfil_clave": "tecnico_rrhh",
+      "autorizante_cargo_clave": "direccion_rrhh"
     },
     {
       "clave": "contratacion_temporal.circuito.credito_comprobado",
@@ -58,7 +63,10 @@
       "destino": "intervencion",
       "requiere_documento": true,
       "requiere_firma": true,
-      "perfil_clave": "jefatura_servicio_rrhh"
+      "perfil_clave": "jefatura_servicio_rrhh",
+      "firmas_requeridas": [
+        "jefatura_servicio_rrhh"
+      ]
     },
     {
       "clave": "contratacion_temporal.circuito.intervencion_favorable",
@@ -66,7 +74,7 @@
       "origen": "intervencion",
       "destino": "resolucion",
       "requiere_documento": true,
-      "requiere_firma": true,
+      "requiere_firma": false,
       "perfil_clave": "intervencion"
     },
     {
@@ -75,7 +83,7 @@
       "origen": "intervencion",
       "destino": "subsanacion_servicio",
       "requiere_documento": true,
-      "requiere_firma": true,
+      "requiere_firma": false,
       "perfil_clave": "intervencion"
     },
     {
@@ -85,7 +93,10 @@
       "destino": "intervencion",
       "requiere_documento": true,
       "requiere_firma": true,
-      "perfil_clave": "jefatura_servicio_rrhh"
+      "perfil_clave": "jefatura_servicio_rrhh",
+      "firmas_requeridas": [
+        "jefatura_servicio_rrhh"
+      ]
     },
     {
       "clave": "contratacion_temporal.circuito.resolucion_firmada",
@@ -94,7 +105,11 @@
       "destino": "ginpix",
       "requiere_documento": true,
       "requiere_firma": true,
-      "perfil_clave": "diputacion_delegada_rrhh"
+      "perfil_clave": "diputacion_delegada_rrhh",
+      "firmas_requeridas": [
+        "jefatura_servicio_rrhh",
+        "diputacion_delegada_rrhh"
+      ]
     },
     {
       "clave": "contratacion_temporal.circuito.ginpix_manual",
@@ -112,7 +127,10 @@
       "destino": "incorporacion",
       "requiere_documento": true,
       "requiere_firma": true,
-      "perfil_clave": "interesado"
+      "perfil_clave": "interesado",
+      "firmas_requeridas": [
+        "interesado"
+      ]
     },
     {
       "clave": "contratacion_temporal.circuito.incorporacion",
@@ -157,7 +175,10 @@
       "destino": "intervencion",
       "requiere_documento": true,
       "requiere_firma": true,
-      "perfil_clave": "jefatura_servicio_rrhh"
+      "perfil_clave": "jefatura_servicio_rrhh",
+      "firmas_requeridas": [
+        "jefatura_servicio_rrhh"
+      ]
     },
     {
       "clave": "contratacion_temporal.circuito.resolucion_sin_cambio",
@@ -166,7 +187,11 @@
       "destino": "ginpix",
       "requiere_documento": true,
       "requiere_firma": true,
-      "perfil_clave": "diputacion_delegada_rrhh"
+      "perfil_clave": "diputacion_delegada_rrhh",
+      "firmas_requeridas": [
+        "jefatura_servicio_rrhh",
+        "diputacion_delegada_rrhh"
+      ]
     },
     {
       "clave": "contratacion_temporal.circuito.reinicio",

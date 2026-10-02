@@ -241,6 +241,15 @@ func nuevasDependenciasAltaContratacionTemporalDesarrollo(
 		UnidadInicialRef: "unidad:desarrollo:rrhh",
 		AccionInicial:    domain.ClaveCatalogo("alta"),
 	}
+	if cfg.CTCircuitoRRHHSourcePath != "" {
+		definicion, err := cargarDefinicionCircuitoRRHH(cfg.CTCircuitoRRHHSourcePath)
+		if err != nil {
+			return vacias, err
+		}
+		flujo.Flujo = definicion.Flujo
+		flujo.FaseInicial = definicion.EstadoInicial
+		flujo.DefinicionCircuito = &definicion
+	}
 	motivo := dominiovec.ReferenciaEntradaCatalogo{
 		CatalogoID:           "motivos_autorizacion",
 		CatalogoVersion:      1,

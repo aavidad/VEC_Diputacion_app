@@ -37,6 +37,7 @@ const (
 	EnvTLSCertFile                                 = "VEC_TLS_CERT_FILE"
 	EnvTLSKeyFile                                  = "VEC_TLS_KEY_FILE"
 	EnvCTNumeroExpedienteSourcePath                = "VEC_CT_NUMERO_EXPEDIENTE_SOURCE_PATH"
+	EnvCTCircuitoRRHHSourcePath                    = "VEC_CT_CIRCUITO_RRHH_SOURCE_PATH"
 	EnvPersonalCatalogPath                         = "VEC_PERSONAL_CATALOG_PATH"
 	EnvIncorporacionV2File                         = "VEC_CT_INCORPORACION_V2_FILE"
 	EnvContratacionTemporalSubsanacionPoliticaFile = "VEC_CT_SUBSANACION_POLITICA_FILE"
@@ -147,6 +148,7 @@ type Config struct {
 	TLSCertFile                                 string
 	TLSKeyFile                                  string
 	CTNumeroExpedienteSourcePath                string
+	CTCircuitoRRHHSourcePath                    string
 	PersonalCatalogPath                         string
 	PersonalCatalogInMemory                     bool
 	PersonalOrganizacionSourcePath              string
@@ -258,6 +260,7 @@ func Load() Config {
 		TLSCertFile:                            envFirst(EnvTLSCertFile),
 		TLSKeyFile:                             envFirst(EnvTLSKeyFile),
 		CTNumeroExpedienteSourcePath:           envFirst(EnvCTNumeroExpedienteSourcePath),
+		CTCircuitoRRHHSourcePath:               envFirst(EnvCTCircuitoRRHHSourcePath),
 		PersonalCatalogPath:                    envFirst(EnvPersonalCatalogPath),
 		PersonalOrganizacionSourcePath:         envFirst(EnvPersonalOrganizacionSourcePath),
 		RPTCatalogoPath:                        envFirst(EnvRPTCatalogoPath),
@@ -421,6 +424,7 @@ func (c Config) Normalize() Config {
 	c.PersonalOrganizacionSourcePath = strings.TrimSpace(c.PersonalOrganizacionSourcePath)
 	c.RPTCatalogoPath = strings.TrimSpace(c.RPTCatalogoPath)
 	c.CTNumeroExpedienteSourcePath = strings.TrimSpace(c.CTNumeroExpedienteSourcePath)
+	c.CTCircuitoRRHHSourcePath = strings.TrimSpace(c.CTCircuitoRRHHSourcePath)
 	if c.PersonalOrganizacionVersion == 0 {
 		c.PersonalOrganizacionVersion = 1
 	}
