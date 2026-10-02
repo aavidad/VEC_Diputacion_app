@@ -18,6 +18,7 @@ import (
 )
 
 const funcionPrepararEntregaConOriginal = "vec_contratacion_temporal.preparar_entrega_peticion_centro_con_original_v1"
+const maximoVersionEnteraPostgreSQL = uint64(1<<63 - 1)
 
 type verificadorOriginalAltaEntrega interface {
 	VerificarOriginalAltaEntrega(context.Context, ports.EntregaPeticionCentro, ports.OriginalAltaEntrega) error
@@ -263,6 +264,11 @@ func (r *RepositorioEntregasPeticionCentroPostgreSQL) ejecutarConOriginal(
 	if err != nil || a.ValidarEstructura() != nil || resumen.Operacion() != AccionEntregaPeticionCentro(m) || resumen.EfectoRef() != recurso.Referencia || resumen.EfectoHuellaSHA256() != h || resumen.AudienciaConsumo() != audienciaPeticionCentro {
 		return ports.ErrAutorizacionDenegada
 	}
+	if a.PersonaVersion() > maximoVersionEnteraPostgreSQL || a.PerfilVersion() > maximoVersionEnteraPostgreSQL {
+		return ports.ErrPeticionCentroNoDisponible
+	}
+	personaVersion := int64(a.PersonaVersion()) // #nosec G115 -- comprobada frente a MaxInt64 arriba.
+	perfilVersion := int64(a.PerfilVersion())   // #nosec G115 -- comprobada frente a MaxInt64 arriba.
 	b, err := json.Marshal(m)
 	if err != nil {
 		return err
@@ -282,9 +288,9 @@ func (r *RepositorioEntregasPeticionCentroPostgreSQL) ejecutarConOriginal(
 	var salida []byte
 	var original []byte
 	if conOriginal {
-		err = tx.QueryRow(ctx, "SELECT entrega::text,original_alta::text FROM "+funcionPrepararEntregaConOriginal+"($1::text,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)", string(b), secretos[0], secretos[1], secretos[2], secretos[3], int64(a.PersonaVersion()), int64(a.PerfilVersion()), secretos[4], secretos[5], secretos[6], secretos[7]).Scan(&salida, &original)
+		err = tx.QueryRow(ctx, "SELECT entrega::text,original_alta::text FROM "+funcionPrepararEntregaConOriginal+"($1::text,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)", string(b), secretos[0], secretos[1], secretos[2], secretos[3], personaVersion, perfilVersion, secretos[4], secretos[5], secretos[6], secretos[7]).Scan(&salida, &original)
 	} else {
-		err = tx.QueryRow(ctx, "SELECT vec_contratacion_temporal.gestionar_entrega_peticion_centro_v1($1::text,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)::text", string(b), secretos[0], secretos[1], secretos[2], secretos[3], int64(a.PersonaVersion()), int64(a.PerfilVersion()), secretos[4], secretos[5], secretos[6], secretos[7]).Scan(&salida)
+		err = tx.QueryRow(ctx, "SELECT vec_contratacion_temporal.gestionar_entrega_peticion_centro_v1($1::text,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)::text", string(b), secretos[0], secretos[1], secretos[2], secretos[3], personaVersion, perfilVersion, secretos[4], secretos[5], secretos[6], secretos[7]).Scan(&salida)
 	}
 	if err != nil {
 		return errorEntregaPeticionSQL(ctx, err)
