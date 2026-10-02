@@ -160,3 +160,26 @@ func TestFiscalizacionCircuitoRRHHExigeFirmaJefaturaAcreditada(t *testing.T) {
 		t.Fatal("fiscalización nueva avanzó sin firma y cargo de Jefatura acreditados")
 	}
 }
+
+func TestFirmasCircuitoRRHHExigeAlternativaExactaYOrden(t *testing.T) {
+	const huella = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	firma := func(cargo ClaveCatalogo) FirmaCircuitoRRHH {
+		return FirmaCircuitoRRHH{CargoClave: cargo, FirmaRef: "firma:rrhh:sintetica",
+			FirmanteRef: "actor:rrhh:sintetico", HuellaDocumentoSHA256: huella}
+	}
+	paraJefatura := []ClaveCatalogo{"jefatura_servicio_rrhh", "diputacion_delegada_rrhh"}
+	paraDireccion := []ClaveCatalogo{"direccion_rrhh", "diputacion_delegada_rrhh"}
+	if !firmasCircuitoCoinciden(paraJefatura, []FirmaCircuitoRRHH{firma(paraJefatura[0]), firma(paraJefatura[1])}) ||
+		!firmasCircuitoCoinciden(paraDireccion, []FirmaCircuitoRRHH{firma(paraDireccion[0]), firma(paraDireccion[1])}) {
+		t.Fatal("ambos vistos buenos alternativos deben preceder a la firma de la Diputada")
+	}
+	for nombre, firmas := range map[string][]FirmaCircuitoRRHH{
+		"tres firmas":   {firma(paraJefatura[0]), firma(paraDireccion[0]), firma(paraJefatura[1])},
+		"orden inverso": {firma(paraJefatura[1]), firma(paraJefatura[0])},
+		"cargo ajeno":   {firma("intervencion"), firma(paraJefatura[1])},
+	} {
+		if firmasCircuitoCoinciden(paraJefatura, firmas) || firmasCircuitoCoinciden(paraDireccion, firmas) {
+			t.Fatalf("%s no debe habilitar la resolución", nombre)
+		}
+	}
+}

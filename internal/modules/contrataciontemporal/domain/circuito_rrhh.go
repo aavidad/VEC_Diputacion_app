@@ -397,18 +397,8 @@ func firmasCircuitoCoinciden(requeridas []ClaveCatalogo, firmas []FirmaCircuitoR
 	if len(requeridas) != len(firmas) {
 		return false
 	}
-	vistas := make(map[ClaveCatalogo]struct{}, len(firmas))
-	for _, firma := range firmas {
-		if firma.validar() != nil {
-			return false
-		}
-		if _, repetida := vistas[firma.CargoClave]; repetida {
-			return false
-		}
-		vistas[firma.CargoClave] = struct{}{}
-	}
-	for _, cargo := range requeridas {
-		if _, existe := vistas[cargo]; !existe {
+	for i, firma := range firmas {
+		if firma.validar() != nil || firma.CargoClave != requeridas[i] {
 			return false
 		}
 	}

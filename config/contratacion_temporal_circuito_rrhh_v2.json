@@ -2,7 +2,7 @@
   "flujo": {
     "definicion_ref": "flujo:ct:rrhh:20261002",
     "version": 2,
-    "huella_sha256": "f9b83c1291fdf96f339233b9e7a2036b67803388cea8568b4d2b02b6bcd4e9fc"
+    "huella_sha256": "1721c3a66576b21163b590602589f1627095bd6b6bfa37c79862af62775146e2"
   },
   "estado_inicial": "solicitud",
   "transiciones": [
@@ -112,6 +112,19 @@
       ]
     },
     {
+      "clave": "contratacion_temporal.circuito.resolucion_firmada_visto_bueno_direccion",
+      "tipo": "resolucion_firmada",
+      "origen": "resolucion",
+      "destino": "ginpix",
+      "requiere_documento": true,
+      "requiere_firma": true,
+      "perfil_clave": "diputacion_delegada_rrhh",
+      "firmas_requeridas": [
+        "direccion_rrhh",
+        "diputacion_delegada_rrhh"
+      ]
+    },
+    {
       "clave": "contratacion_temporal.circuito.ginpix_manual",
       "tipo": "ginpix_registrado",
       "origen": "ginpix",
@@ -190,6 +203,19 @@
       "perfil_clave": "diputacion_delegada_rrhh",
       "firmas_requeridas": [
         "jefatura_servicio_rrhh",
+        "diputacion_delegada_rrhh"
+      ]
+    },
+    {
+      "clave": "contratacion_temporal.circuito.resolucion_sin_cambio_visto_bueno_direccion",
+      "tipo": "resolucion_firmada",
+      "origen": "intervencion",
+      "destino": "ginpix",
+      "requiere_documento": true,
+      "requiere_firma": true,
+      "perfil_clave": "diputacion_delegada_rrhh",
+      "firmas_requeridas": [
+        "direccion_rrhh",
         "diputacion_delegada_rrhh"
       ]
     },
