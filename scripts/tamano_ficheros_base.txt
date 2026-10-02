@@ -127,3 +127,4 @@
 1004 scripts/recorridos/clon_runtime.py
 1283 scripts/recorridos/clon_material.py
 891 scripts/recorridos/test_clon_runtime.py
+864 internal/modules/bolsa/adapters/xlsconvoca/xlsx.go
