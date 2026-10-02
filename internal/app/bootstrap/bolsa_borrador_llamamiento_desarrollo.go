@@ -103,7 +103,7 @@ func (p *preparadorBorradorLlamamientoDesarrollo) PrepararSolicitudRegistrarCont
 	if err != nil {
 		return puertosbolsa.SolicitudRegistrarContactoParticipacion{}, err
 	}
-	return puertosbolsa.SolicitudRegistrarContactoParticipacion{Vinculo: contexto.Vinculo, ResultadoContexto: contexto.Resultado, BolsaRef: entrada.BolsaRef, ParticipacionRef: entrada.ParticipacionRef, LlamamientoRef: entrada.LlamamientoRef, Canal: entrada.Canal, Instante: entrada.Instante, Resultado: entrada.Resultado, Anotacion: entrada.Anotacion, ClaveIdempotencia: entrada.ClaveIdempotencia, Correlacion: correlacion, MotivoAutorizacion: motivoRegistrarContactoParticipacionBolsaDesarrollo()}, nil
+	return puertosbolsa.SolicitudRegistrarContactoParticipacion{Vinculo: contexto.Vinculo, ResultadoContexto: contexto.Resultado, BolsaRef: entrada.BolsaRef, ParticipacionRef: entrada.ParticipacionRef, LlamamientoRef: entrada.LlamamientoRef, OfertaRef: entrada.OfertaRef, EvidenciaRef: entrada.EvidenciaRef, EvidenciaHuellaSHA256: entrada.EvidenciaHuellaSHA256, Canal: entrada.Canal, Instante: entrada.Instante, Resultado: entrada.Resultado, Anotacion: entrada.Anotacion, ClaveIdempotencia: entrada.ClaveIdempotencia, Correlacion: correlacion, MotivoAutorizacion: motivoRegistrarContactoParticipacionBolsaDesarrollo()}, nil
 }
 
 func (p *preparadorBorradorLlamamientoDesarrollo) PrepararSolicitudRegistrarDatosContacto(ctx context.Context, entrada bolsahttp.EntradaRegistrarDatosContactoParticipacion) (puertosbolsa.SolicitudRegistrarDatosContactoParticipacion, error) {
@@ -782,7 +782,7 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 		}
 	}
 	completa = true
-	rutas := []vechttp.RutaExacta{{Ruta: bolsahttp.RutaBorradoresLlamamiento, Manejador: handler}, {Ruta: bolsahttp.RutaEmisionesLlamamiento, Manejador: handlerEmision}, {Ruta: bolsahttp.RutaOfertasPublicadas, Manejador: handlerOfertas}, {Ruta: bolsahttp.RutaResolucionesOferta, Manejador: handlerOfertas}, {Ruta: bolsahttp.RutaPlantillaCorreoLlamamiento, Manejador: handlerCorreo}, {Ruta: bolsahttp.RutaVistaPreviaCorreoLlamamiento, Manejador: handlerCorreo}}
+	rutas := []vechttp.RutaExacta{{Ruta: bolsahttp.RutaBorradoresLlamamiento, Manejador: handler}, {Ruta: bolsahttp.RutaEmisionesLlamamiento, Manejador: handlerEmision}, {Ruta: bolsahttp.RutaOfertasPublicadas, Manejador: handlerOfertas}, {Ruta: bolsahttp.RutaResolucionesOferta, Manejador: handlerOfertas}, {Ruta: bolsahttp.RutaContactosOferta, Manejador: handlerContacto}, {Ruta: bolsahttp.RutaPlantillaCorreoLlamamiento, Manejador: handlerCorreo}, {Ruta: bolsahttp.RutaVistaPreviaCorreoLlamamiento, Manejador: handlerCorreo}}
 	if politicaOfertasActiva {
 		rutas = append(rutas, rutaPoliticaOfertas, rutaCapacidadPoliticaOfertas)
 	}
