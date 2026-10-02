@@ -329,7 +329,8 @@ BEGIN
      SELECT apf.* INTO prev FROM vec_autorizacion.asignacion_perfil_actual x JOIN vec_autorizacion.asignacion_perfil apf USING(perfil_activo_ref,asignacion_ref)
      WHERE x.perfil_activo_ref=a->>'perfil_activo_ref';
      IF FOUND THEN
-      IF prev.principal_id<>a->>'principal_id' OR prev.asignacion_id<>a->>'asignacion_id'
+      IF prev.documento->>'estado' IS DISTINCT FROM 'activa'
+       OR prev.principal_id<>a->>'principal_id' OR prev.asignacion_id<>a->>'asignacion_id'
        OR prev.version+1<>(a->>'version')::bigint OR prev.version_rol_ref<>a->>'version_rol_ref'
       THEN RAISE EXCEPTION 'cargo_ct_rechazado' USING ERRCODE='23514'; END IF;
      ELSIF (a->>'version')::bigint<>1 THEN RAISE EXCEPTION 'cargo_ct_rechazado' USING ERRCODE='23514'; END IF;
