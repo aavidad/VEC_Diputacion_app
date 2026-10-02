@@ -100,8 +100,9 @@ function formularioRespuesta(bolsa, acciones) {
 function formularioDocumental(bolsa) {
   const id = (s) => idSeguro(bolsa, s);
   const obligatorio = `<span>${escaparHTML(traducir("areaPersonal.vista.comun.campoObligatorio"))}</span>`;
+  const opcional = `<span>${escaparHTML(traducir("areaPersonal.vista.comun.campoOpcional"))}</span>`;
   return `<form class="portal-mi-bolsa__formulario" data-portal-mi-bolsa="documental" data-bolsa="${escaparAtributo(bolsa)}">
-    <div class="campo"><label for="${id("fin-causa")}">${escaparHTML(textoPortal("documental.fechaFinCausa"))} ${obligatorio}</label><input id="${id("fin-causa")}" name="fecha_fin_causa" type="date" required></div>
+    <div class="campo"><label for="${id("fin-causa")}">${escaparHTML(textoPortal("documental.fechaFinCausa"))} ${opcional}</label><input id="${id("fin-causa")}" name="fecha_fin_causa" type="date"></div>
     <div class="campo"><label for="${id("documento-ref")}">${escaparHTML(textoPortal("documental.documentoRef"))} ${obligatorio}</label><input id="${id("documento-ref")}" name="documento_ref" maxlength="255" pattern="[A-Za-z0-9][A-Za-z0-9._:/#-]*" required aria-describedby="${id("documento-ref-ayuda")}"><small id="${id("documento-ref-ayuda")}">${escaparHTML(textoPortal("documental.documentoRefAyuda"))}</small></div>
     <div class="campo"><label for="${id("documento")}">${escaparHTML(textoPortal("documental.documento"))} ${obligatorio}</label><input id="${id("documento")}" name="documento" type="file" required aria-describedby="${id("documento-aviso")}"><small id="${id("documento-aviso")}">${escaparHTML(textoPortal("documental.documentoAviso"))}</small></div>
     <button type="submit" class="boton-primario">${escaparHTML(textoPortal("documental.enviar"))}</button>
@@ -124,7 +125,7 @@ export function renderizarPortalMiBolsa(participaciones, portal, acciones) {
       partes.push(listaDatos([[textoPortal("documental.ultima"), `${escaparHTML(textoPortal(`documental.estado.${s.estado}`))} · ${escaparHTML(fecha(s.registrada_en))} · ${escaparHTML(textoPortal("recibo"))} ${escaparHTML(s.recibo)}`],
         ...(s.recibo_resolucion_ref ? [[textoPortal("documental.reciboResolucion"), escaparHTML(s.recibo_resolucion_ref)]] : [])]));
     }
-    if (p.situacion_actual?.estado === "en_revision" && !estado.solicitud_pendiente && !estado.solicitud_documental_pendiente) {
+    if ((!p.vigente_hasta || Date.parse(p.vigente_hasta) > Date.now()) && !estado.solicitud_pendiente && !estado.solicitud_documental_pendiente) {
       partes.push(formularioDocumental(p.bolsa));
     }
     if (estado.llamamiento_abierto) {
@@ -165,14 +166,16 @@ export async function cuerpoPortalMiBolsa(formulario, datos = new FormData(formu
     const documento = datos.get("documento");
     const documentoRef = String(datos.get("documento_ref") || "").trim();
     const fechaFinCausa = String(datos.get("fecha_fin_causa") || "");
-    if (!/^[A-Za-z0-9][A-Za-z0-9._:/#-]{0,254}$/u.test(documentoRef) || !/^\d{4}-\d{2}-\d{2}$/u.test(fechaFinCausa) ||
-        Number.isNaN(Date.parse(`${fechaFinCausa}T00:00:00Z`)) || new Date(`${fechaFinCausa}T00:00:00Z`).toISOString().slice(0, 10) !== fechaFinCausa ||
+    if (!/^[A-Za-z0-9][A-Za-z0-9._:/#-]{0,254}$/u.test(documentoRef) || (fechaFinCausa && (!/^\d{4}-\d{2}-\d{2}$/u.test(fechaFinCausa) ||
+        Number.isNaN(Date.parse(`${fechaFinCausa}T00:00:00Z`)) || new Date(`${fechaFinCausa}T00:00:00Z`).toISOString().slice(0, 10) !== fechaFinCausa)) ||
         !(documento instanceof Blob) || documento.size === 0) return null;
-    return { ruta: RUTAS_PORTAL_MI_BOLSA.documental, cuerpo: {
+    const cuerpo = {
       tipo: "documental_rrhh", bolsa, documento_ref: documentoRef,
-      documento_sha256: await huellaSHA256(documento), fecha_fin_causa: fechaFinCausa,
+      documento_sha256: await huellaSHA256(documento),
       clave: claveIdempotencia(formulario),
-    } };
+    };
+    if (fechaFinCausa) cuerpo.fecha_fin_causa = fechaFinCausa;
+    return { ruta: RUTAS_PORTAL_MI_BOLSA.documental, cuerpo };
   }
   if (formulario.dataset.portalMiBolsa !== "responder") return null;
   const respuesta = String(datos.get("respuesta") || "");

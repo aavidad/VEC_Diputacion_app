@@ -177,7 +177,7 @@
     "titulo": "Respuestas y solicitudes a RRHH",
     "subtitulo": "Por bolsa",
     "documental": {
-      "fechaFinCausa": "Fecha en que terminó la causa",
+      "fechaFinCausa": "Fecha de fin de causa, si el documento la acredita",
       "documentoRef": "Referencia del justificante",
       "documentoRefAyuda": "Use la referencia que figura en el justificante, sin espacios ni tildes.",
       "documento": "Seleccionar justificante",

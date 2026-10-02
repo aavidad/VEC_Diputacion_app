@@ -13,19 +13,24 @@ test("sin acciones compuestas no se exige nada y con ellas se valida todo", () =
   assert.throws(() => validarPortalMiBolsa({ ...datos, acciones_portal: { ...acciones, modo_respuesta: "automatico" } }), /no son válidas/u);
 });
 
-test("muestra la respuesta y reserva la solicitud documental para en revisión", () => {
+test("muestra la respuesta y admite solicitud pendiente desde toda participación propia", () => {
   const html = renderizarPortalMiBolsa(participaciones, [{ bolsa: "bolsa:demo:1", llamamiento_abierto: { contacto_en: "2026-09-25T08:00:00.000000Z", vence_antes_de: "2026-09-26T21:59:59.000000Z" } }], acciones);
   assert.doesNotMatch(html, /data-portal-mi-bolsa="solicitar"|data-tipo="pausa"|data-tipo="reactivacion"/u);
-  assert.doesNotMatch(html, /data-portal-mi-bolsa="documental"/u);
+  assert.match(html, /data-portal-mi-bolsa="documental"/u);
   const revision = renderizarPortalMiBolsa([{ ...participaciones[0], situacion_actual: { estado: "en_revision" } }], [{ bolsa: "bolsa:demo:1" }], acciones);
   assert.match(revision, /data-portal-mi-bolsa="documental"/u);
   assert.match(revision, /Enviar solicitud a RRHH/u);
+  const excluida = renderizarPortalMiBolsa([{ ...participaciones[0], situacion_actual: { estado: "excluido" } }], [{ bolsa: "bolsa:demo:1" }], acciones);
+  assert.match(excluida, /data-portal-mi-bolsa="documental"/u);
+  const cerrada = renderizarPortalMiBolsa([{ ...participaciones[0], vigente_hasta: "2026-10-01T00:00:00Z" }], [{ bolsa: "bolsa:demo:1" }], acciones);
+  assert.doesNotMatch(cerrada, /data-portal-mi-bolsa="documental"/u);
   assert.match(html, /data-portal-mi-bolsa="responder"/u);
   assert.match(html, /Matrimonio o unión de hecho/u);
   assert.match(html, /Respuesta firme/u);
   const pendiente = renderizarPortalMiBolsa(participaciones, [{ bolsa: "bolsa:demo:1", solicitud_pendiente: { tipo: "pausa", recibo: "recibo:solicitud-portal:x", registrada_en: "2026-09-25T08:00:00.000000Z" } }], acciones);
   assert.match(pendiente, /pendiente de RRHH/u);
   assert.doesNotMatch(pendiente, /data-tipo="pausa"/u);
+  assert.doesNotMatch(pendiente, /data-portal-mi-bolsa="documental"/u);
 });
 
 test("la solicitud documental envía referencia, huella y fin de causa con clave estable", async () => {
@@ -41,6 +46,10 @@ test("la solicitud documental envía referencia, huella y fin de causa con clave
   assert.equal((await cuerpoPortalMiBolsa(formulario, datos)).cuerpo.clave, primera.cuerpo.clave);
   datos.set("fecha_fin_causa", "2026-02-30");
   assert.equal(await cuerpoPortalMiBolsa(formulario, datos), null);
+  datos.delete("fecha_fin_causa");
+  const sinFecha = await cuerpoPortalMiBolsa(formulario, datos);
+  assert.equal(Object.hasOwn(sinFecha.cuerpo, "fecha_fin_causa"), false);
+  assert.equal(sinFecha.cuerpo.clave, primera.cuerpo.clave);
 });
 
 test("la consulta conserva recibo y resolución sin permitir duplicar una pendiente", () => {

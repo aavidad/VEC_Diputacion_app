@@ -33,11 +33,13 @@ func (r *RepositorioSituacionParticipacionPostgreSQL) ListarSolicitudesDocumenta
 	items := make([]ports.SolicitudDocumentalPendienteRRHH, 0)
 	for rows.Next() {
 		var item ports.SolicitudDocumentalPendienteRRHH
-		var fin time.Time
+		var fin *time.Time
 		if err := rows.Scan(&item.SolicitudRef, &item.Version, &item.ContenidoSHA256, &item.DocumentoRef, &item.DocumentoSHA256, &fin, &item.Estado, &item.ReciboRef, &item.RegistradaEn); err != nil {
 			return nil, errorSituacionParticipacion(err)
 		}
-		item.FechaFinCausa = fin.Format(time.DateOnly)
+		if fin != nil {
+			item.FechaFinCausa = fin.Format(time.DateOnly)
+		}
 		item.RegistradaEn = item.RegistradaEn.UTC()
 		items = append(items, item)
 	}

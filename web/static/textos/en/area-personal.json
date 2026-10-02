@@ -255,7 +255,7 @@
     "titulo": "Responses and requests to HR",
     "subtitulo": "By job pool",
     "documental": {
-      "fechaFinCausa": "Date the reason ended",
+      "fechaFinCausa": "End date of the reason, if the document establishes it",
       "documentoRef": "Supporting document reference",
       "documentoRefAyuda": "Use the reference shown on the document, without spaces or accents.",
       "documento": "Select supporting document",

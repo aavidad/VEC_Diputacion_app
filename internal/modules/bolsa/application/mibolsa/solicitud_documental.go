@@ -26,9 +26,11 @@ func (p *Portal) PresentarSolicitudDocumental(ctx context.Context, orden Orden, 
 		!huellaSHA256Portal.MatchString(c.DocumentoSHA256) || !claveIdempotenciaPortal.MatchString(c.Clave) {
 		return vacio, puertosbolsa.ErrPortalCandidatoInvalido
 	}
-	fecha, err := time.Parse(time.DateOnly, c.FechaFinCausa)
-	if err != nil || fecha.Format(time.DateOnly) != c.FechaFinCausa {
-		return vacio, puertosbolsa.ErrPortalCandidatoInvalido
+	if c.FechaFinCausa != "" {
+		fecha, err := time.Parse(time.DateOnly, c.FechaFinCausa)
+		if err != nil || fecha.Format(time.DateOnly) != c.FechaFinCausa {
+			return vacio, puertosbolsa.ErrPortalCandidatoInvalido
+		}
 	}
 	material, candidato, ahora, err := p.autorizar(ctx, orden, puertosbolsa.AccionPresentarSolicitudDocumentalPropia, puertosbolsa.AudienciaPresentarSolicitudDocumentalPropia, c.Bolsa)
 	if err != nil {

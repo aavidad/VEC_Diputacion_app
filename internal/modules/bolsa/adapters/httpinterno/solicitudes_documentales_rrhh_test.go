@@ -54,6 +54,14 @@ func TestSolicitudesDocumentalesRRHHFiltraYSoloMuestraPendientes(t *testing.T) {
 			t.Fatalf("filtro alterado admitido: %d", w.Code)
 		}
 	}
+	consulta.items[0].FechaFinCausa = ""
+	w = httptest.NewRecorder()
+	r = httptest.NewRequest(http.MethodGet, ruta, nil)
+	r.Header.Set("Accept", "application/json")
+	h.ServeHTTP(w, r)
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `"fecha_fin_causa":null`) {
+		t.Fatalf("fecha no acreditada inventada: %d %s", w.Code, w.Body.String())
+	}
 	consulta.err = dominiovec.ErrAutorizacionDenegada
 	w = httptest.NewRecorder()
 	r = httptest.NewRequest(http.MethodGet, ruta, nil)

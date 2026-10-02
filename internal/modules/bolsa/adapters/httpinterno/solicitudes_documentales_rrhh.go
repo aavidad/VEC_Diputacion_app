@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"time"
 
 	"vec-diputacion-granada/internal/modules/bolsa/domain"
 	"vec-diputacion-granada/internal/modules/bolsa/ports"
@@ -65,25 +66,34 @@ func (h *HandlerSolicitudesDocumentalesRRHH) ServeHTTP(w http.ResponseWriter, r 
 		return
 	}
 	type itemHTTP struct {
-		SolicitudRef    string `json:"solicitud_ref"`
-		Version         int64  `json:"version"`
-		ContenidoSHA256 string `json:"contenido_sha256"`
-		DocumentoRef    string `json:"documento_ref"`
-		DocumentoSHA256 string `json:"documento_sha256"`
-		FechaFinCausa   string `json:"fecha_fin_causa"`
-		Estado          string `json:"estado"`
-		ReciboRef       string `json:"recibo_ref"`
-		RegistradaEn    string `json:"registrada_en"`
+		SolicitudRef    string  `json:"solicitud_ref"`
+		Version         int64   `json:"version"`
+		ContenidoSHA256 string  `json:"contenido_sha256"`
+		DocumentoRef    string  `json:"documento_ref"`
+		DocumentoSHA256 string  `json:"documento_sha256"`
+		FechaFinCausa   *string `json:"fecha_fin_causa"`
+		Estado          string  `json:"estado"`
+		ReciboRef       string  `json:"recibo_ref"`
+		RegistradaEn    string  `json:"registrada_en"`
 	}
 	salida := make([]itemHTTP, 0, len(items))
 	for _, item := range items {
 		if item.SolicitudRef == "" || item.Version != 1 || item.ContenidoSHA256 == "" || item.DocumentoRef == "" || item.DocumentoSHA256 == "" ||
-			item.FechaFinCausa == "" || item.Estado != "pendiente_rrhh" || item.ReciboRef == "" || item.RegistradaEn.IsZero() {
+			item.Estado != "pendiente_rrhh" || item.ReciboRef == "" || item.RegistradaEn.IsZero() {
 			responderOperacion(w, http.StatusServiceUnavailable, "servicio_no_disponible")
 			return
 		}
+		var fin *string
+		if item.FechaFinCausa != "" {
+			fecha, err := time.Parse(time.DateOnly, item.FechaFinCausa)
+			if err != nil || fecha.Format(time.DateOnly) != item.FechaFinCausa {
+				responderOperacion(w, http.StatusServiceUnavailable, "servicio_no_disponible")
+				return
+			}
+			fin = &item.FechaFinCausa
+		}
 		salida = append(salida, itemHTTP{item.SolicitudRef, item.Version, item.ContenidoSHA256, item.DocumentoRef, item.DocumentoSHA256,
-			item.FechaFinCausa, item.Estado, item.ReciboRef, item.RegistradaEn.UTC().Format("2006-01-02T15:04:05.000000Z07:00")})
+			fin, item.Estado, item.ReciboRef, item.RegistradaEn.UTC().Format("2006-01-02T15:04:05.000000Z07:00")})
 	}
 	responderSituacion(w, http.StatusOK, map[string]any{"data": map[string]any{"esquema": "vec.bolsa.rrhh.solicitudes_documentales.v1", "items": salida}})
 }

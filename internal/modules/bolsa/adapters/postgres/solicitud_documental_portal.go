@@ -24,7 +24,7 @@ func (r *RegistroPortalCandidatoPostgreSQL) SolicitarDocumentalPortal(ctx contex
 	m := s.Material
 	var recibo puertosbolsa.ReciboSolicitudDocumentalPortal
 	err = tx.QueryRow(ctx, `SELECT reutilizada, solicitud_ref, recibo_ref, contenido_sha256, registrada_en, version, estado FROM `+funcionSolicitarDocumentalPortalV1+`($1::text,$2::text,$3::text,$4::text,$5::text,$6::text,$7::text,$8::date,$9::text,$10::timestamptz,$11::bytea,$12::bytea,$13::bytea,$14::bytea,$15::numeric,$16::numeric,$17::bytea,$18::bytea,$19::bytea,$20::bytea)`,
-		s.SolicitudRef, s.ReciboRef, s.ContenidoSHA256, s.CandidatoRef, s.Bolsa, s.DocumentoRef, s.DocumentoSHA256, s.FechaFinCausa, s.Clave, s.RegistradaEn.UTC(),
+		s.SolicitudRef, s.ReciboRef, s.ContenidoSHA256, s.CandidatoRef, s.Bolsa, s.DocumentoRef, s.DocumentoSHA256, textoOpcional(s.FechaFinCausa), s.Clave, s.RegistradaEn.UTC(),
 		m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), m.PersonaVersion(), m.PerfilVersion(), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI(),
 	).Scan(&recibo.Reutilizada, &recibo.SolicitudRef, &recibo.ReciboRef, &recibo.ContenidoSHA256, &recibo.RegistradaEn, &recibo.Version, &recibo.Estado)
 	if err != nil {

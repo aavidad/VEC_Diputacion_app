@@ -123,12 +123,26 @@ func TestPortalSolicitudDocumentalPropiaPendiente(t *testing.T) {
 	if _, err := p.portal.PresentarSolicitudDocumental(context.Background(), p.orden, comando); !errors.Is(err, bolsa.ErrPortalCandidatoInvalido) || len(p.registro.documentales) != 1 {
 		t.Fatalf("fecha civil imposible admitida: %v", err)
 	}
+	comando.FechaFinCausa = ""
+	comando.Clave = "clave-documental-sin-fecha"
+	sinFecha, err := p.portal.PresentarSolicitudDocumental(context.Background(), p.orden, comando)
+	if err != nil || sinFecha.Estado != "pendiente_rrhh" || p.registro.documentales[len(p.registro.documentales)-1].FechaFinCausa != "" {
+		t.Fatalf("solicitud sin fecha inventó fin de causa: %+v, %v", sinFecha, err)
+	}
 	for _, estado := range []string{"validada", "rechazada"} {
 		p.registro.estadoDocumental, p.registro.reutilizadaDocumental = estado, true
 		repetida, err := p.portal.PresentarSolicitudDocumental(context.Background(), p.orden, ComandoSolicitudDocumentalPortal{Bolsa: "bolsa:auxiliar", DocumentoRef: "documento:parte-1", DocumentoSHA256: strings.Repeat("a", 64), FechaFinCausa: "2026-10-02", Clave: "clave-documental-1"})
 		if err != nil || !repetida.Reutilizada || repetida.Estado != estado || repetida.ReciboRef != recibo.ReciboRef || repetida.ContenidoSHA256 != recibo.ContenidoSHA256 {
 			t.Fatalf("replay %s no conserva recibo: %+v, %v", estado, repetida, err)
 		}
+	}
+}
+
+func TestHuellaSolicitudDocumentalSinFechaCoincideConSQLB77(t *testing.T) {
+	got := huellaPortal("contenido-solicitud-documental", "can_"+strings.Repeat("A", 22),
+		"bolsa:sintetica:rrhh17", "documento:sintetico:rrhh17", strings.Repeat("a", 64), "")
+	if got != "9bff03e2c2b23f401a5208d2073851a14dcf26094f57539c07cc6e10b9e7fff2" {
+		t.Fatalf("canon documental sin fecha no coincide con B77: %s", got)
 	}
 }
 
