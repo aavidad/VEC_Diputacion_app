@@ -62,7 +62,7 @@ BEGIN
   aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a WHERE p.oid=f155
   AND (a.grantee NOT IN (p.proowner,'vec_bolsa_llamamientos_propietario'::regrole)
    OR a.grantor<>p.proowner OR a.privilege_type<>'EXECUTE' OR a.is_grantable))
- THEN RAISE EXCEPTION 'PARO clave=AD161.fachada_POST155, observado_def=%/ACL_count=%, esperado_def=6cbc471ddab55e56b97d4c7c4b75149ffc09992fc735ccca461d1372000d1197/ACL_count=2', encode(sha256(convert_to(pg_get_functiondef(f155),'UTF8')),'hex'), (SELECT count(*) FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a WHERE p.oid=f155) USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'PARO clave=AD161.fachada_POST155, observado_def=%/ACL_count=%/ACL_incompatible=%, esperado_def=6cbc471ddab55e56b97d4c7c4b75149ffc09992fc735ccca461d1372000d1197/ACL_count=2/ACL_incompatible=false', encode(sha256(convert_to(pg_get_functiondef(f155),'UTF8')),'hex'), (SELECT count(*) FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a WHERE p.oid=f155), EXISTS (SELECT 1 FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a WHERE p.oid=f155 AND (a.grantee NOT IN (p.proowner,'vec_bolsa_llamamientos_propietario'::regrole) OR a.grantor<>p.proowner OR a.privilege_type<>'EXECUTE' OR a.is_grantable)) USING ERRCODE='55000'; END IF;
 END $pre$;
 DO $nucleo$
 DECLARE
@@ -298,7 +298,7 @@ BEGIN
     OR (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.dbid,d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype),'[]'::jsonb)
         FROM pg_shdepend d WHERE d.dbid=(SELECT oid FROM pg_database WHERE datname=current_database())
           AND d.classid='pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps_compartidas
- THEN RAISE EXCEPTION 'PARO clave=AD161.nucleo_postimagen, observado_def=%/metadata=%, esperado_def=%/metadata=%', encode(sha256(convert_to(actual,'UTF8')),'hex'), (SELECT encode(sha256(convert_to((to_jsonb(p)-'prosrc')::text,'UTF8')),'hex') FROM pg_proc p WHERE p.oid=f), encode(sha256(convert_to(nuevo,'UTF8')),'hex'), encode(sha256(convert_to(meta::text,'UTF8')),'hex') USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'PARO clave=AD161.nucleo_postimagen, observado_def=%/metadata=%/dependencias_iguales=%, esperado_def=%/metadata=%/dependencias_iguales=true', encode(sha256(convert_to(actual,'UTF8')),'hex'), (SELECT encode(sha256(convert_to((to_jsonb(p)-'prosrc')::text,'UTF8')),'hex') FROM pg_proc p WHERE p.oid=f), ((SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb) FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f) IS NOT DISTINCT FROM deps AND (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.dbid,d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype),'[]'::jsonb) FROM pg_shdepend d WHERE d.dbid=(SELECT oid FROM pg_database WHERE datname=current_database()) AND d.classid='pg_proc'::regclass AND d.objid=f) IS NOT DISTINCT FROM deps_compartidas), encode(sha256(convert_to(nuevo,'UTF8')),'hex'), encode(sha256(convert_to(meta::text,'UTF8')),'hex') USING ERRCODE='55000'; END IF;
 END $nucleo$;
 
 LOCK TABLE vec_autorizacion_atestada_v3.clave_capacidad_version IN ACCESS EXCLUSIVE MODE;
