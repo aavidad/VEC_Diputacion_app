@@ -122,3 +122,19 @@ func TestPrepararIncorporacionMotivoRechazadoIndicaClaveSinDatos(t *testing.T) {
 	}
 	e.sinResiduos(t)
 }
+
+func TestPrepararIncorporacionRechazaMaterialNoPublicadoPostgreSQL18(t *testing.T) {
+	if os.Getenv("VEC_KITB2_TEST_DESECHABLE") != "si" {
+		t.Skip("requiere clon PostgreSQL 18 desechable de main")
+	}
+	e, ruta, _ := escenarioIncorporacion(t)
+	d := dependencias{abrirGobierno: abrirGobiernoPostgreSQL, reloj: func() time.Time { return ahoraPrueba }}
+	p := preparacion{opciones: opciones{inventarioCT: e.inventarioCT, idempotencia: e.idempotencia, incorporacionConfig: ruta, salida: e.salida}, dsnEntorno: os.Getenv("VEC_KITB2_TEST_GOBIERNO_DSN"), dep: d}
+	ctx, cancelar := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancelar()
+	_, err := p.prepararIncorporacion(ctx)
+	if err == nil || !strings.Contains(mensajeSeguro(err), "clave B2 bolsa_anclaje:") {
+		t.Fatalf("material sin publicación aceptado o fallo ajeno: %v", err)
+	}
+	e.sinResiduos(t)
+}
