@@ -2,6 +2,7 @@ package httpcopias
 
 import (
 	"context"
+	"log/slog"
 	"time"
 	p "vec-diputacion-granada/internal/modules/administracion/ports/httpcopias"
 )
@@ -119,7 +120,11 @@ func (s *Servicio) revisarDisponible(ctx context.Context, ses p.Sesion) bool {
 		return false
 	}
 	propuestas, err := s.Lecturas.Propuestas(ctx, ses)
-	if err != nil || len(propuestas) > 100 {
+	if err != nil {
+		slog.Warn("copias_revision_no_disponible", "causa", "consulta_propuestas_fallida")
+		return false
+	}
+	if len(propuestas) > 100 {
 		return false
 	}
 	for _, v := range propuestas {
