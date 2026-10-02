@@ -72,10 +72,13 @@ func (d *competenciaExternaPrueba) AcreditarCompetenciaFirmante(_ context.Contex
 	e := ports.EvidenciaCompetenciaFirmante{
 		Solicitud: q, Vigente: true, FirmantePrincipalRef: firmante,
 		PerfilFirmanteRef: q.PerfilFirmanteRef, CargoFirmante: q.CargoFirmante,
-		UnidadFirmanteRef: "unidad:rrhh", PuestoFirmanteRef: "puesto:firma",
+		UnidadFirmanteRef: "unidad:rrhh", PerfilActivoFirmanteRef: "perfil-activo:firmante:001", PuestoFirmanteRef: "puesto:firma",
 		AmbitoFirmanteRef: "ambito:provincial", AsignacionFirmanteRef: "asignacion:firma:001",
 		AsignacionFirmanteVersion: 4, AsignacionFirmanteHuella: strings.Repeat("b", 64),
-		AsignacionVigenteDesde: "2026-09-01T00:00:00Z", AsignacionVigenteHasta: "2026-12-01T00:00:00Z",
+		VersionRolFirmanteRef: "rol:ct:firmante:v1", VersionRolFirmanteHuella: strings.Repeat("c", 64),
+		ControlVigenciaFirmanteRef: "rol:ct:firmante:v1", ControlVigenciaFirmanteRevision: 3,
+		ControlVigenciaFirmanteHuella: strings.Repeat("d", 64),
+		AsignacionVigenteDesde:        "2026-09-01T00:00:00Z", AsignacionVigenteHasta: "2026-12-01T00:00:00Z",
 		CompetenciaComprobadaEn: "2026-10-02T10:00:00Z", ActoCompetenciaRef: "acto:competencia:001",
 	}
 	if d.alterar != nil {
@@ -266,9 +269,12 @@ func TestFirmaExternaRechazaOriginalAjenoOFuenteCaida(t *testing.T) {
 
 func TestFirmaExternaRechazaFirmanteOCargoNoAcreditados(t *testing.T) {
 	for nombre, alterar := range map[string]func(*ports.EvidenciaCompetenciaFirmante){
-		"cargo distinto":  func(e *ports.EvidenciaCompetenciaFirmante) { e.CargoFirmante = "Otro cargo" },
-		"perfil distinto": func(e *ports.EvidenciaCompetenciaFirmante) { e.PerfilFirmanteRef = "perfil:ajeno" },
-		"no vigente":      func(e *ports.EvidenciaCompetenciaFirmante) { e.Vigente = false },
+		"cargo distinto":        func(e *ports.EvidenciaCompetenciaFirmante) { e.CargoFirmante = "Otro cargo" },
+		"perfil distinto":       func(e *ports.EvidenciaCompetenciaFirmante) { e.PerfilFirmanteRef = "perfil:ajeno" },
+		"no vigente":            func(e *ports.EvidenciaCompetenciaFirmante) { e.Vigente = false },
+		"perfil activo ausente": func(e *ports.EvidenciaCompetenciaFirmante) { e.PerfilActivoFirmanteRef = "" },
+		"rol sin huella":        func(e *ports.EvidenciaCompetenciaFirmante) { e.VersionRolFirmanteHuella = "" },
+		"control de otro rol":   func(e *ports.EvidenciaCompetenciaFirmante) { e.ControlVigenciaFirmanteRef = "rol:ct:otro:v1" },
 	} {
 		t.Run(nombre, func(t *testing.T) {
 			s, registro, original, competencia, autorizador, custodio := servicioFirmaExternaPrueba(t)

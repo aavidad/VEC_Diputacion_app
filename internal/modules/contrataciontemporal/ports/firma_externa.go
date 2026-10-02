@@ -65,10 +65,15 @@ type EvidenciaCompetenciaFirmante struct {
 	Solicitud                                                               SolicitudCompetenciaFirmante
 	FirmantePrincipalRef                                                    string
 	PerfilFirmanteRef, CargoFirmante, UnidadFirmanteRef                     string
+	PerfilActivoFirmanteRef                                                 string
 	PuestoFirmanteRef, AmbitoFirmanteRef                                    string
 	AsignacionFirmanteRef                                                   string
 	AsignacionFirmanteVersion                                               uint64
 	AsignacionFirmanteHuella                                                string
+	VersionRolFirmanteRef, VersionRolFirmanteHuella                         string
+	ControlVigenciaFirmanteRef                                              string
+	ControlVigenciaFirmanteRevision                                         uint64
+	ControlVigenciaFirmanteHuella                                           string
 	AsignacionVigenteDesde, AsignacionVigenteHasta, CompetenciaComprobadaEn string
 	ActoCompetenciaRef, DelegacionRef                                       string
 	Vigente                                                                 bool
@@ -90,10 +95,15 @@ type MaterialFirmaExterna struct {
 	OriginalVersion                                                           uint64
 	OriginalHuella, FirmadoHuella, CertificadoHuella, FirmanteRef             string
 	FirmantePrincipalRef, PerfilFirmanteRef, CargoFirmante, UnidadFirmanteRef string
+	PerfilActivoFirmanteRef                                                   string
 	PuestoFirmanteRef, AmbitoFirmanteRef                                      string
 	AsignacionFirmanteRef                                                     string
 	AsignacionFirmanteVersion                                                 uint64
 	AsignacionFirmanteHuella                                                  string
+	VersionRolFirmanteRef, VersionRolFirmanteHuella                           string
+	ControlVigenciaFirmanteRef                                                string
+	ControlVigenciaFirmanteRevision                                           uint64
+	ControlVigenciaFirmanteHuella                                             string
 	AsignacionVigenteDesde, AsignacionVigenteHasta, CompetenciaComprobadaEn   string
 	ActoCompetenciaRef, DelegacionRef                                         string
 	PoliticaVerificacion, RevocacionEstado, SelloTiempoEstado                 string
@@ -152,12 +162,18 @@ func (m MaterialFirmaExterna) validarComun() error {
 		m.FirmanteRef != "ref:"+m.CertificadoHuella ||
 		!domain.ReferenciaOpacaValida(m.FirmantePrincipalRef) || !strings.HasPrefix(m.FirmantePrincipalRef, "per_") ||
 		!domain.ReferenciaOpacaValida(m.PerfilFirmanteRef) || !ReferenciaPortafirmasDeclaradaValida(m.CargoFirmante) ||
-		!domain.ReferenciaOpacaValida(m.UnidadFirmanteRef) ||
+		!domain.ReferenciaOpacaValida(m.UnidadFirmanteRef) || !domain.ReferenciaOpacaValida(m.PerfilActivoFirmanteRef) ||
 		(m.PuestoFirmanteRef != "" && !domain.ReferenciaOpacaValida(m.PuestoFirmanteRef)) ||
 		(m.AmbitoFirmanteRef != "" && !domain.ReferenciaOpacaValida(m.AmbitoFirmanteRef)) ||
 		!domain.ReferenciaOpacaValida(m.AsignacionFirmanteRef) ||
 		m.AsignacionFirmanteVersion == 0 || m.AsignacionFirmanteVersion > 9007199254740991 ||
 		!domain.HuellaSHA256FirmaValida(m.AsignacionFirmanteHuella) ||
+		!domain.ReferenciaOpacaValida(m.VersionRolFirmanteRef) ||
+		!domain.HuellaSHA256FirmaValida(m.VersionRolFirmanteHuella) ||
+		!domain.ReferenciaOpacaValida(m.ControlVigenciaFirmanteRef) ||
+		m.ControlVigenciaFirmanteRef != m.VersionRolFirmanteRef ||
+		m.ControlVigenciaFirmanteRevision == 0 || m.ControlVigenciaFirmanteRevision > 9007199254740991 ||
+		!domain.HuellaSHA256FirmaValida(m.ControlVigenciaFirmanteHuella) ||
 		!okDesde || !okHasta || !okComprobada || comprobada.Before(desde) || !comprobada.Before(hasta) ||
 		(m.ActoCompetenciaRef != "" && !domain.ReferenciaOpacaValida(m.ActoCompetenciaRef)) ||
 		(m.DelegacionRef != "" && !domain.ReferenciaOpacaValida(m.DelegacionRef)) ||
@@ -195,10 +211,15 @@ func canonicoFirmaVerificada(m MaterialFirmaExterna, declarada bool) ([]byte, er
 		OriginalVersion                                                           uint64
 		OriginalHuella, FirmadoHuella, CertificadoHuella, FirmanteRef             string
 		FirmantePrincipalRef, PerfilFirmanteRef, CargoFirmante, UnidadFirmanteRef string
+		PerfilActivoFirmanteRef                                                   string
 		PuestoFirmanteRef, AmbitoFirmanteRef                                      *string
 		AsignacionFirmanteRef                                                     string
 		AsignacionFirmanteVersion                                                 uint64
 		AsignacionFirmanteHuella                                                  string
+		VersionRolFirmanteRef, VersionRolFirmanteHuella                           string
+		ControlVigenciaFirmanteRef                                                string
+		ControlVigenciaFirmanteRevision                                           uint64
+		ControlVigenciaFirmanteHuella                                             string
 		AsignacionVigenteDesde, AsignacionVigenteHasta, CompetenciaComprobadaEn   string
 		ActoCompetenciaRef, DelegacionRef                                         *string
 		PoliticaVerificacion, RevocacionEstado, SelloTiempoEstado                 string
@@ -210,9 +231,11 @@ func canonicoFirmaVerificada(m MaterialFirmaExterna, declarada bool) ([]byte, er
 		m.Via, m.OrganizacionRef, m.ExpedienteRef, m.VersionExpediente,
 		m.Documento, m.CatalogoRef, m.CatalogoHuella, m.PasoRef, m.PasoOrden, m.Secuencia,
 		m.OriginalRef, m.OriginalVersion, m.OriginalHuella, m.FirmadoHuella, m.CertificadoHuella, m.FirmanteRef,
-		m.FirmantePrincipalRef, m.PerfilFirmanteRef, m.CargoFirmante, m.UnidadFirmanteRef,
+		m.FirmantePrincipalRef, m.PerfilFirmanteRef, m.CargoFirmante, m.UnidadFirmanteRef, m.PerfilActivoFirmanteRef,
 		nulo(m.PuestoFirmanteRef), nulo(m.AmbitoFirmanteRef), m.AsignacionFirmanteRef,
-		m.AsignacionFirmanteVersion, m.AsignacionFirmanteHuella, m.AsignacionVigenteDesde,
+		m.AsignacionFirmanteVersion, m.AsignacionFirmanteHuella,
+		m.VersionRolFirmanteRef, m.VersionRolFirmanteHuella, m.ControlVigenciaFirmanteRef,
+		m.ControlVigenciaFirmanteRevision, m.ControlVigenciaFirmanteHuella, m.AsignacionVigenteDesde,
 		m.AsignacionVigenteHasta, m.CompetenciaComprobadaEn, nulo(m.ActoCompetenciaRef),
 		nulo(m.DelegacionRef), m.PoliticaVerificacion, m.RevocacionEstado, m.SelloTiempoEstado,
 		referencia, fecha, m.ClaveIdempotencia,
