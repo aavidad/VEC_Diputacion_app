@@ -21,6 +21,7 @@ func cargarDefinicionCircuitoRRHH(ruta string) (domain.DefinicionCircuitoRRHH, e
 	if strings.TrimSpace(ruta) == "" {
 		return vacia, errDefinicionCircuitoRRHHNoDisponible
 	}
+	// #nosec G304 -- Ruta de configuración local del operador, ajena al cuerpo HTTP; lectura y JSON acotados.
 	archivo, err := os.Open(ruta)
 	if err != nil {
 		return vacia, errDefinicionCircuitoRRHHNoDisponible

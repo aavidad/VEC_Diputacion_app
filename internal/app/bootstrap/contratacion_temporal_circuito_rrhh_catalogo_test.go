@@ -17,7 +17,8 @@ func TestCargarDefinicionCircuitoRRHHExigePublicacionIntacta(t *testing.T) {
 			Clave: "peticion_firmada", Tipo: domain.HitoPeticionFirmada,
 			Origen: "solicitud", Destino: "peticion_firmada",
 			RequiereDocumento: true, RequiereFirma: true,
-			PerfilClave: "tecnico_solicitante",
+			PerfilClave:      "tecnico_solicitante",
+			FirmasRequeridas: []domain.ClaveCatalogo{"tecnico_solicitante", "delegacion"},
 		}},
 	)
 	if err != nil {
