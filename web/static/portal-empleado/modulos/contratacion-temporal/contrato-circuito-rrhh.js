@@ -30,7 +30,7 @@ export function validarCircuitoRRHH(datos, consulta) {
   validarConsultaCircuitoRRHH(consulta);
   if (!exacto(datos, ["flujo", "circuito", "version_expediente", "transiciones_permitidas"])
     || !flujo(datos.flujo) || !version(datos.version_expediente)
-    || datos.version_expediente < consulta.version_observada
+    || datos.version_expediente !== consulta.version_observada
     || !exacto(datos.circuito, ["definicion", "estado_actual", "hitos"])
     || !flujo(datos.circuito.definicion)
     || Object.keys(datos.flujo).some((clave) => datos.flujo[clave] !== datos.circuito.definicion[clave])

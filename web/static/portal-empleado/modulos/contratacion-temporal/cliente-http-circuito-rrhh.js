@@ -42,8 +42,7 @@ export function crearClienteCircuitoRRHH({ fetchImpl = globalThis.fetch } = {}) 
         if (respuesta.redirected || respuesta.status !== 200
           || !/^application\/json(?:;\s*charset=utf-8)?$/iu.test(respuesta.headers.get("Content-Type") ?? "")) {
           void respuesta.body?.cancel?.().catch(() => {});
-          return Object.freeze({ estado: [401, 403].includes(respuesta.status) ? "denegado"
-            : (respuesta.status === 404 ? "sin_circuito" : "no_disponible") });
+          return Object.freeze({ estado: [401, 403].includes(respuesta.status) ? "denegado" : "no_disponible" });
         }
         const envoltorio = await leerRespuesta(respuesta);
         if (!envoltorio || Object.keys(envoltorio).length !== 1 || !Object.hasOwn(envoltorio, "data")) {

@@ -5,6 +5,7 @@ import (
 	"maps"
 	"testing"
 
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	postgresct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
@@ -41,5 +42,13 @@ func TestConsultaCircuitoRRHHV3LigaSolicitudYRecursoExactos(t *testing.T) {
 	datos.Accion = ports.AccionConsultarDetalleRRHH
 	if solicitudAutorizacionConsultaCircuitoRRHHValida(ctx, datos) {
 		t.Fatal("se aceptó un permiso de consulta del detalle antiguo")
+	}
+}
+
+func TestConsultaCircuitoRRHHResuelveMotivoNominal(t *testing.T) {
+	soporte := &soporteAltaContratacionTemporalDesarrollo{}
+	motivo, ok := soporte.motivoAutorizacionParaRuta(httpinterno.RutaConsultaCircuitoRRHH)
+	if !ok || motivo != motivoConsultaCircuitoRRHHDesarrollo() {
+		t.Fatal("la ruta de consulta debe resolver su motivo nominal")
 	}
 }

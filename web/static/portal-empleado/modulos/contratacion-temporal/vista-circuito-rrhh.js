@@ -19,14 +19,12 @@ export function renderizarCircuitoRRHH(datos) {
   return `<div class="cuerpo-panel">
     <p class="estado-linea"><strong>${escapar(texto("fase_actual"))}</strong> ${escapar(fase)}</p>
     ${hitos.length ? `<ol class="lista-documentos">${hitos.map((hito) => `<li>
-      <span class="simbolo" aria-hidden="true">✓</span>
+      <span class="simbolo" aria-hidden="true">•</span>
       <div><strong>${escapar(actuaciones[hito.tipo] ?? texto("actuacion_registrada"))}</strong>
-        <time datetime="${escapar(hito.registrado_en)}">${escapar(mensajes.fecha(hito.registrado_en, {
+        <time class="texto-secundario" datetime="${escapar(hito.registrado_en)}">${escapar(mensajes.fecha(hito.registrado_en, {
     dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Madrid",
   }))}</time></div>
     </li>`).join("")}</ol>` : `<p>${escapar(texto("sin_hitos"))}</p>`}
-    ${datos.transiciones_permitidas.length ? `<p>${escapar(texto("tramite_disponible"))}</p>`
-      : `<p>${escapar(texto("pendiente_evidencia"))}</p>`}
   </div>`;
 }
 
