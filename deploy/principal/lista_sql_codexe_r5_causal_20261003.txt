@@ -1,0 +1,4 @@
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000151_circuito_rrhh_atestado.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000156_firma_externa_ct.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000157_firma_vec_original_ct.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000158_original_firmable_documentos.up.sql
