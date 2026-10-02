@@ -679,7 +679,7 @@ for n in ('rpt27_ensayo_fuente','rpt27_ensayo_revision'):
  m=re.search(r'CREATE FUNCTION public\.'+n+r'\(.*?\$f\$;',s,re.S)
  assert m is not None
  partes.append(m[0].replace('CREATE FUNCTION','CREATE OR REPLACE FUNCTION',1))
-pathlib.Path(sys.argv[2]).write_text('\set ON_ERROR_STOP on\nBEGIN;\n'+'\n'.join(partes)+'\nCOMMIT;\n')
+pathlib.Path(sys.argv[2]).write_text(chr(92)+'set ON_ERROR_STOP on\nBEGIN;\n'+'\n'.join(partes)+'\nCOMMIT;\n')
 PYFIXTURE
  archivo "$scratch/fixture_corregida.sql"
  captura "$scratch/reanudacion.json"
