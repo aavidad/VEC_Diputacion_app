@@ -689,7 +689,7 @@ func nuevasComisionesDietasDesarrollo(cfg config.Config, resolvedor vechttp.Demo
 	if err != nil {
 		return nil, errComposicionDietasEn()
 	}
-	fuenteCompetencia, err := fuenteCompetenciaCircuitoDietas(catalogoValidadoresCompetentesAsignacionDietas)
+	fuenteCompetencia, err := fuenteCompetenciaCircuitoDietas(fuente, reloj)
 	if err != nil {
 		return nil, errComposicionDietasEn()
 	}

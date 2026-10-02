@@ -127,6 +127,8 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	materialUsuariosImagen                           proveedoresMaterialImagenUsuarios
 	materialAspirantes                               proveedoresMaterialAspirantes
 	materialPersonalB2                               [8]CapacidadPublicadaPersonalB2V3
+	materialOrganizacionHistorica                    CapacidadPublicadaOrganizacionHistoricaV3
+	errMaterialOrganizacionHistorica                 error
 	detenerRenovacion                                func()
 	detenerEntregaContratos                          func()
 	detenerEntregaCeses                              func()
@@ -805,6 +807,19 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		if err != nil {
 			return vacias, err
 		}
+	}
+	// Organización histórica es opcional e independiente de B2. La selección
+	// y la publicación usan el gobierno central, pero su fallo sólo deja esta
+	// capacidad sin material; no interrumpe las capacidades anteriores.
+	catalogoOH, activoOH, falloOH := seleccionarMaterialOrganizacionHistorica(cfg, descriptoresMaterial)
+	if falloOH == nil && activoOH {
+		dependencias.materialOrganizacionHistorica, falloOH = publicarMaterialOrganizacionHistorica(ctx, gobierno, material, catalogoOH)
+	}
+	dependencias.errMaterialOrganizacionHistorica = falloOH
+	if falloOH != nil {
+		registrarFalloPostgreSQLContratacionTemporalDesarrollo(
+			"material_organizacion_historica", "capacidad_no_disponible",
+		)
 	}
 	completa = true
 	return dependencias, nil

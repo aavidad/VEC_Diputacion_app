@@ -174,7 +174,9 @@ static/portal-empleado/modulos/dietas/vista-recorridos.js
 static/portal-empleado/modulos/dietas/vista-rectificacion-admin.js
 static/portal-empleado/modulos/dietas/vista-rectificacion-dietas.js
 static/textos/es/personal.json
+static/textos/es/personal-corte-propio.json
 static/textos/en/personal.json
+static/textos/en/personal-corte-propio.json
 static/textos/es/personal-traza.json
 static/textos/en/personal-traza.json
 static/portal-empleado/modulos/personal/cliente-http-categorias.js
@@ -188,6 +190,7 @@ static/portal-empleado/modulos/personal/personal-traza-i18n.js
 static/portal-empleado/modulos/personal/cliente-http-ficha-propia.js
 static/portal-empleado/modulos/personal/ficha-integral.css
 static/portal-empleado/modulos/personal/vista-ficha-integral.js
+static/portal-empleado/modulos/personal/ficha-propia-corte.js
 static/portal-empleado/modulos/personal/registro-b2.js
 static/portal-empleado/modulos/personal/registro-b2.css
 static/portal-empleado/modulos/personal/registro-b2-cliente.js
@@ -530,6 +533,9 @@ static/textos/es/carrera.json
 static/textos/en/carrera.json
 static/textos/es/seleccion.json
 static/textos/en/seleccion.json
+static/portal-empleado/modulos/personal/preparacion-servicios-cer.js
+static/textos/es/personal-servicios-cer.json
+static/textos/en/personal-servicios-cer.json
 static/portal-empleado/portal-accesos-empleado.js
 static/textos/es/accesos-empleado.json
 static/textos/en/accesos-empleado.json
@@ -562,3 +568,10 @@ static/textos/en/cronos-notificaciones-historial.json
 static/portal-empleado/modulos/cronos/i18n-permisos-consulta.js
 static/textos/es/cronos-permisos-consulta.json
 static/textos/en/cronos-permisos-consulta.json
+static/portal-empleado/modulos/personal/servicios-descarga.js
+static/textos/es/personal-servicios-descarga.json
+static/textos/en/personal-servicios-descarga.json
+static/textos/es/seleccion-bases-preparacion.json
+static/textos/en/seleccion-bases-preparacion.json
+static/textos/es/seleccion-bases-preparacion-error.json
+static/textos/en/seleccion-bases-preparacion-error.json
