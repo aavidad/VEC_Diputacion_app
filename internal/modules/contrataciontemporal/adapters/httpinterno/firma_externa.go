@@ -1,12 +1,10 @@
 package httpinterno
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -22,7 +20,8 @@ import (
 const (
 	RutaRegistroFirmaExterna         = "/api/vec/contratacion-temporal/firmas-documento/registro-externo"
 	EsquemaRegistroFirmaExterna      = "vec.contratacion-temporal.registro-firma-externa.v1"
-	maximoCuerpoRegistroFirmaExterna = 2 << 20
+	EsquemaRegistroFirmaExternaV2    = "vec.contratacion-temporal.registro-firma-externa.v2"
+	maximoCuerpoRegistroFirmaExterna = ((ports.MaximoDocumentoFirmaBytes+2)/3)*4 + (64 << 10)
 )
 
 // La autoridad obtiene la organización del canal interno autenticado. Nunca
@@ -69,7 +68,11 @@ func responderErrorRegistroFirmaExterna(w http.ResponseWriter, r *http.Request, 
 }
 
 func rutaRegistroFirmaExternaExacta(r *http.Request) bool {
-	return r != nil && r.URL != nil && r.URL.Path == RutaRegistroFirmaExterna &&
+	return rutaRegistroFirmaNominalExacta(r, RutaRegistroFirmaExterna)
+}
+
+func rutaRegistroFirmaNominalExacta(r *http.Request, ruta string) bool {
+	return r != nil && r.URL != nil && r.URL.Path == ruta &&
 		r.URL.RawPath == "" && r.URL.RawQuery == "" && !r.URL.ForceQuery &&
 		r.URL.Scheme == "" && r.URL.Host == "" && r.URL.User == nil &&
 		r.URL.Opaque == "" && r.URL.Fragment == "" && r.URL.RawFragment == "" &&
@@ -90,40 +93,34 @@ func (h *manejadorRegistroFirmaExterna) ServeHTTP(w http.ResponseWriter, r *http
 		responderErrorRegistroFirmaExterna(w, r, http.StatusServiceUnavailable, "servicio_no_disponible", r.Context().Err())
 		return
 	}
-	if r.Body == nil || r.Body == http.NoBody || r.ContentLength == 0 || r.ContentLength > maximoCuerpoRegistroFirmaExterna ||
-		len(r.Trailer) != 0 || !transferenciaAltaPermitida(r.TransferEncoding) ||
-		!cabecerasPropuestaFormalizacionPermitidas(r) || !tipoContenidoJSON(r.Header) || !acceptCompatibleJSON(r.Header) {
+	contenido, ok := leerCuerpoRegistroFirma(w, r)
+	if !ok {
 		responderErrorRegistroFirmaExterna(w, r, http.StatusBadRequest, "peticion_no_valida")
 		return
 	}
-	contenido, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maximoCuerpoRegistroFirmaExterna+1))
-	if err != nil || len(contenido) == 0 || len(contenido) > maximoCuerpoRegistroFirmaExterna ||
-		(r.ContentLength >= 0 && r.ContentLength != int64(len(contenido))) ||
-		validarJSONPropuestaFormalizacionSinDuplicados(contenido) != nil {
-		responderErrorRegistroFirmaExterna(w, r, http.StatusBadRequest, "peticion_no_valida")
-		return
-	}
+	defer clear(contenido)
 	var entrada entradaRegistroFirmaExterna
-	if !decodificarCerradoFirma(contenido, &entrada) {
+	if !camposRegistroFirmaExactos(contenido, true) || !decodificarCerradoFirma(contenido, &entrada) {
 		responderErrorRegistroFirmaExterna(w, r, http.StatusBadRequest, "peticion_no_valida")
 		return
 	}
-	var campos map[string]json.RawMessage
-	if json.Unmarshal(contenido, &campos) != nil || len(campos) != 10 || !entrada.valida() {
+	if !entrada.valida() {
 		responderErrorRegistroFirmaExterna(w, r, http.StatusUnprocessableEntity, "contenido_no_valido")
 		return
 	}
-	firmado, err := base64.StdEncoding.Strict().DecodeString(entrada.FirmadoBase64)
-	if err != nil || len(firmado) == 0 || len(firmado) > ports.MaximoDocumentoFirmaBytes ||
-		!bytes.HasPrefix(firmado, []byte("%PDF-")) || !bytes.Contains(firmado, []byte("%%EOF")) {
-		clear(firmado)
+	firmado, ok := decodificarPDFRegistroFirma(entrada.FirmadoBase64)
+	if !ok {
 		responderErrorRegistroFirmaExterna(w, r, http.StatusUnprocessableEntity, "contenido_no_valido")
 		return
 	}
+	defer clear(firmado)
 	organizacion, err := h.autoridad.ResolverOrganizacionFirmaExterna(r.Context())
 	if err != nil || !domain.ReferenciaOpacaValida(organizacion) {
-		clear(firmado)
 		responderErrorAutoridadFirmaExterna(w, r, err)
+		return
+	}
+	if r.Context().Err() != nil {
+		responderErrorRegistroFirmaExterna(w, r, http.StatusServiceUnavailable, "servicio_no_disponible", r.Context().Err())
 		return
 	}
 	solicitud := application.SolicitudFirmaExterna{
@@ -135,9 +132,8 @@ func (h *manejadorRegistroFirmaExterna) ServeHTTP(w http.ResponseWriter, r *http
 		FechaPortafirmasDeclarada:      entrada.FechaPortafirmasDeclarada,
 		ClaveIdempotencia:              entrada.ClaveIdempotencia,
 	}
-	resultado, err := h.servicio.Registrar(r.Context(), solicitud)
 	huellaFirmado := sha256.Sum256(firmado)
-	clear(firmado)
+	resultado, err := h.servicio.Registrar(r.Context(), solicitud)
 	if r.Context().Err() != nil {
 		responderErrorRegistroFirmaExterna(w, r, http.StatusServiceUnavailable, "servicio_no_disponible", r.Context().Err())
 		return
@@ -146,25 +142,22 @@ func (h *manejadorRegistroFirmaExterna) ServeHTTP(w http.ResponseWriter, r *http
 		responderErrorServicioFirmaExterna(w, r, err)
 		return
 	}
-	if !resultadoRegistroFirmaExternaConfiable(resultado, solicitud) || resultado.Material.FirmadoHuella != hex.EncodeToString(huellaFirmado[:]) {
+	m := resultado.Material
+	if resultado.MaterialMultiple != nil {
+		m = resultado.MaterialMultiple.MaterialFirmaExterna
+	}
+	if !resultadoRegistroFirmaExternaConfiable(resultado, solicitud) || m.FirmadoHuella != hex.EncodeToString(huellaFirmado[:]) {
 		responderErrorRegistroFirmaExterna(w, r, http.StatusBadGateway, "resultado_no_confiable")
 		return
 	}
-	rec, m, c := resultado.Recibo, resultado.Material, resultado.Custodiado
-	data := map[string]any{
-		"esquema":    EsquemaRegistroFirmaExterna,
-		"recibo_ref": rec.ReciboRef, "firma_ref": rec.FirmaRef, "ya_registrada": rec.YaRegistrada,
-		"expediente_ref": m.ExpedienteRef, "version_expediente": rec.ExpedienteVersion,
-		"documento": m.Documento, "paso_orden": m.PasoOrden, "paso_ref": m.PasoRef,
-		"secuencia": rec.Secuencia, "registrada_en": rec.RegistradaEn.UTC().Format(time.RFC3339Nano),
-		"documento_custodiado": documentoCustodiado(organizacion, m.ExpedienteRef, c.Ref, c.Version, c.HuellaSHA256),
-		"verificacion_tecnica": map[string]any{"estado": "valida", "motivo": string(resultado.MotivoVerificacion),
-			"politica": m.PoliticaVerificacion, "revocacion": m.RevocacionEstado,
-			"sello_tiempo": m.SelloTiempoEstado, "original_sha256": m.OriginalHuella, "firmado_sha256": m.FirmadoHuella},
-		"procedencia_portafirmas": map[string]any{"estado": "declarada_por_rrhh",
-			"referencia_declarada": m.ReferenciaPortafirmasDeclarada,
-			"fecha_declarada":      m.FechaPortafirmasDeclarada},
-		"firma_eficaz": false,
+	rec := resultado.Recibo
+	data := vistaRegistroFirmaVerificada(m, rec, resultado.Custodiado, resultado.MotivoVerificacion)
+	data["esquema"] = EsquemaRegistroFirmaExterna
+	data["procedencia_portafirmas"] = map[string]any{"estado": "declarada_por_rrhh",
+		"referencia_declarada": m.ReferenciaPortafirmasDeclarada, "fecha_declarada": m.FechaPortafirmasDeclarada}
+	if resultado.MaterialMultiple != nil {
+		data["esquema"] = EsquemaRegistroFirmaExternaV2
+		completarVistaRegistroFirmaV2(data, resultado.MaterialMultiple)
 	}
 	estado := http.StatusCreated
 	if rec.YaRegistrada {
@@ -198,56 +191,84 @@ func (e entradaRegistroFirmaExterna) valida() bool {
 }
 
 func resultadoRegistroFirmaExternaConfiable(r application.ResultadoFirmaExterna, s application.SolicitudFirmaExterna) bool {
-	m, rec, c := r.Material, r.Recibo, r.Custodiado
-	return m.Validar() == nil && m.OrganizacionRef == s.OrganizacionRef && m.ExpedienteRef == s.ExpedienteRef &&
+	m := r.Material
+	if r.MaterialMultiple != nil {
+		if r.Material != (ports.MaterialFirmaExterna{}) || r.MaterialMultiple.Validar() != nil ||
+			!resultadoRegistroFirmaV2Confiable(r.MaterialMultiple, r.Recibo, r.Custodiado, r.MotivoVerificacion, len(s.PDFFirmado)) {
+			return false
+		}
+		m = r.MaterialMultiple.MaterialFirmaExterna
+	} else if m.Validar() != nil {
+		return false
+	}
+	return m.Via == ports.ViaFirmaExternaPortafirmas && m.OrganizacionRef == s.OrganizacionRef && m.ExpedienteRef == s.ExpedienteRef &&
 		m.VersionExpediente == s.VersionExpediente && m.Documento == s.Documento && m.PasoOrden == s.PasoOrden &&
-		m.OriginalRef == s.OriginalRef && m.OriginalVersion == s.OriginalVersion &&
-		m.ClaveIdempotencia == s.ClaveIdempotencia &&
-		m.ReferenciaPortafirmasDeclarada == s.ReferenciaPortafirmasDeclarada &&
-		m.FechaPortafirmasDeclarada == s.FechaPortafirmasDeclarada &&
-		c.Ref == m.DocumentoCustodiaRef && c.Version == m.DocumentoCustodiaVersion && c.HuellaSHA256 == m.FirmadoHuella &&
-		rec.FirmaRef != "" && rec.ReciboRef != "" && rec.Secuencia == m.Secuencia &&
-		rec.Resultado == domain.ResultadoFirmaFirmado && rec.ExpedienteVersion == m.VersionExpediente &&
-		rec.DocumentoCustodiaRef == m.DocumentoCustodiaRef && rec.DocumentoCustodiaVersion == m.DocumentoCustodiaVersion &&
-		!rec.RegistradaEn.IsZero() && r.MotivoVerificacion == docports.MotivoFirmaVerificada
+		m.OriginalRef == s.OriginalRef && m.OriginalVersion == s.OriginalVersion && m.ClaveIdempotencia == s.ClaveIdempotencia &&
+		m.ReferenciaPortafirmasDeclarada == s.ReferenciaPortafirmasDeclarada && m.FechaPortafirmasDeclarada == s.FechaPortafirmasDeclarada &&
+		resultadoRegistroFirmaComunConfiable(m, r.Recibo, r.Custodiado, r.MotivoVerificacion)
 }
 
+type respuestaErrorRegistroFirma func(http.ResponseWriter, *http.Request, int, string, ...error)
+
 func responderErrorAutoridadFirmaExterna(w http.ResponseWriter, r *http.Request, err error) {
+	responderErrorAutoridadRegistroFirma(w, r, err, responderErrorRegistroFirmaExterna)
+}
+
+func responderErrorAutoridadRegistroFirma(w http.ResponseWriter, r *http.Request, err error, responder respuestaErrorRegistroFirma) {
 	switch {
 	case errors.Is(err, ErrContextoCanalAusente), errors.Is(err, ErrContextoCanalCaducado):
-		responderErrorRegistroFirmaExterna(w, r, http.StatusUnauthorized, "autenticacion_requerida", err)
+		responder(w, r, http.StatusUnauthorized, "autenticacion_requerida", err)
 	case errors.Is(err, ErrContextoCanalOrganizacionDenegada), errors.Is(err, ports.ErrAutorizacionDenegada):
-		responderErrorRegistroFirmaExterna(w, r, http.StatusForbidden, "acceso_denegado", err)
+		responder(w, r, http.StatusForbidden, "acceso_denegado", err)
 	default:
-		responderErrorRegistroFirmaExterna(w, r, http.StatusServiceUnavailable, "servicio_no_disponible", err)
+		responder(w, r, http.StatusServiceUnavailable, "servicio_no_disponible", err)
 	}
 }
 
 func responderErrorServicioFirmaExterna(w http.ResponseWriter, r *http.Request, err error) {
+	responderErrorServicioRegistroFirma(w, r, err, responderErrorRegistroFirmaExterna)
+}
+
+func responderErrorServicioRegistroFirma(w http.ResponseWriter, r *http.Request, err error, responder respuestaErrorRegistroFirma) {
 	var rechazo application.DictamenRechazado
 	switch {
 	case errors.Is(err, ports.ErrFirmaDocumentoDenegada), errors.Is(err, ports.ErrAutorizacionDenegada),
 		errors.Is(err, ports.ErrOriginalFirmaNoAutorizado), errors.Is(err, ports.ErrCompetenciaFirmanteNoAcreditada),
 		errors.Is(err, ports.ErrCustodiaFirmadoDenegada):
-		responderErrorRegistroFirmaExterna(w, r, http.StatusForbidden, "acceso_denegado", err)
+		responder(w, r, http.StatusForbidden, "acceso_denegado", err)
 	case errors.Is(err, ports.ErrSolicitudFirmaDocumentoInvalida), errors.Is(err, ports.ErrCustodiaFirmadoInvalida):
-		responderErrorRegistroFirmaExterna(w, r, http.StatusUnprocessableEntity, "contenido_no_valido", err)
+		responder(w, r, http.StatusUnprocessableEntity, "contenido_no_valido", err)
 	case errors.Is(err, ports.ErrClaveFirmaDocumentoUsada), errors.Is(err, ports.ErrFirmaDocumentoEnConflicto),
 		errors.Is(err, ports.ErrCustodiaFirmadoEnConflicto), errors.Is(err, ports.ErrCadenaFirmaDocumentoRota),
 		errors.Is(err, ports.ErrAntecedenteFirmaR5NoAcreditado), errors.Is(err, ports.ErrOriginalTrasReparoNoNuevo),
 		errors.Is(err, ports.ErrMismaPersonaEnOtroPasoR5), errors.Is(err, application.ErrPasoFirmaNoPendiente):
-		responderErrorRegistroFirmaExterna(w, r, http.StatusConflict, "conflicto", err)
+		responder(w, r, http.StatusConflict, "conflicto", err)
 	case errors.As(err, &rechazo):
 		if rechazo.Motivo == docports.MotivoValidadorNoDisponible || rechazo.Motivo == docports.MotivoCredencialRechazada {
-			responderErrorRegistroFirmaExterna(w, r, http.StatusServiceUnavailable, "verificacion_no_disponible", err)
+			responder(w, r, http.StatusServiceUnavailable, "verificacion_no_disponible", err)
 		} else {
-			responderErrorRegistroFirmaExterna(w, r, http.StatusUnprocessableEntity, "firma_no_verificada", err)
+			responder(w, r, http.StatusUnprocessableEntity, "firma_no_verificada", err)
 		}
 	case errors.Is(err, application.ErrFirmaNoVerificada):
-		responderErrorRegistroFirmaExterna(w, r, http.StatusUnprocessableEntity, "firma_no_verificada", err)
+		responder(w, r, http.StatusUnprocessableEntity, "firma_no_verificada", err)
 	case errors.Is(err, application.ErrVerificacionFirmaApagada):
-		responderErrorRegistroFirmaExterna(w, r, http.StatusServiceUnavailable, "verificacion_no_disponible", err)
+		responder(w, r, http.StatusServiceUnavailable, "verificacion_no_disponible", err)
 	default:
-		responderErrorRegistroFirmaExterna(w, r, http.StatusServiceUnavailable, "servicio_no_disponible", err)
+		responder(w, r, http.StatusServiceUnavailable, "servicio_no_disponible", err)
 	}
+}
+
+func leerCuerpoRegistroFirma(w http.ResponseWriter, r *http.Request) ([]byte, bool) {
+	if r.Body == nil || r.Body == http.NoBody || r.ContentLength == 0 || r.ContentLength > maximoCuerpoRegistroFirmaExterna ||
+		len(r.Trailer) != 0 || !transferenciaAltaPermitida(r.TransferEncoding) ||
+		!cabecerasPropuestaFormalizacionPermitidas(r) || !tipoContenidoJSON(r.Header) || !acceptCompatibleJSON(r.Header) {
+		return nil, false
+	}
+	contenido, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maximoCuerpoRegistroFirmaExterna+1))
+	if err != nil || len(contenido) == 0 || len(contenido) > maximoCuerpoRegistroFirmaExterna ||
+		(r.ContentLength >= 0 && r.ContentLength != int64(len(contenido))) || validarJSONPropuestaFormalizacionSinDuplicados(contenido) != nil {
+		clear(contenido)
+		return nil, false
+	}
+	return contenido, true
 }

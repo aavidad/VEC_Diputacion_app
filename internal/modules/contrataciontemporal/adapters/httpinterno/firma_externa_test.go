@@ -201,3 +201,67 @@ func TestRegistroFirmaExternaRechazaCanalYRespuestaNoConfiable(t *testing.T) {
 		t.Fatalf("dependencia: %d %s", w.Code, w.Body)
 	}
 }
+
+func TestRegistroFirmaExternaV2PreservaOriginalYRevisionAnterior(t *testing.T) {
+	for _, paso := range []int{1, 2} {
+		r := resultadoRegistroFirmaExternaPrueba()
+		m := materialRegistroFirmaV2Prueba(ports.ViaFirmaExternaPortafirmas, []byte("%PDF-1.7\n%%EOF"))
+		cuerpo := cuerpoRegistroFirmaExternaPrueba
+		if paso == 2 {
+			m.PasoOrden, m.OrdenFirmaPDF, m.Secuencia = 2, 2, 2
+			m.FirmaAnteriorRef, m.ReciboAnteriorRef = "firma:previa:001", "recibo:previo:001"
+			m.EntradaDocumentoRef, m.EntradaDocumentoVersion = "documento:firmado:previo", 1
+			m.EntradaDocumentoHuella = strings.Repeat("e", 64)
+			m.EvidenciaFirmasCanonica = json.RawMessage(`[{},{}]`)
+			huella := sha256.Sum256(m.EvidenciaFirmasCanonica)
+			m.EvidenciaFirmasHuellaSHA256 = hex.EncodeToString(huella[:])
+			r.Recibo.Secuencia = 2
+			cuerpo = strings.Replace(cuerpo, `"paso_orden":1`, `"paso_orden":2`, 1)
+		}
+		r.Material = ports.MaterialFirmaExterna{}
+		r.MaterialMultiple = &m
+		var err error
+		r.Recibo.SolicitudHuella, err = m.HuellaSHA256()
+		if err != nil {
+			t.Fatal(err)
+		}
+		s := &servicioRegistroFirmaExternaPrueba{respuesta: r}
+		h, _ := NuevoManejadorRegistroFirmaExterna(autoridadRegistroFirmaExternaPrueba{organizacion: "organizacion:desarrollo:dipgra"}, s)
+		for _, estado := range []int{http.StatusCreated, http.StatusOK} {
+			w := httptest.NewRecorder()
+			h.ServeHTTP(w, peticionRegistroFirmaExterna(cuerpo))
+			var salida struct {
+				Data map[string]any `json:"data"`
+			}
+			if w.Code != estado || json.Unmarshal(w.Body.Bytes(), &salida) != nil {
+				t.Fatalf("paso %d: %d %s", paso, w.Code, w.Body)
+			}
+			d := salida.Data
+			v := d["verificacion_tecnica"].(map[string]any)
+			revision := d["revision_pdf"].(map[string]any)
+			if d["esquema"] != EsquemaRegistroFirmaExternaV2 || d["firma_eficaz"] != false || d["material_root_sha256"] != r.Recibo.SolicitudHuella ||
+				v["original_sha256"] != m.OriginalHuella || revision["entrada_sha256"] != m.EntradaDocumentoHuella || revision["orden_firma"] != float64(paso) {
+				t.Fatalf("original o revisión alterados: %s", w.Body)
+			}
+		}
+	}
+}
+
+func TestRegistroFirmaExternaV2RechazaMaterialAmbiguoYReciboAjeno(t *testing.T) {
+	for _, ambiguo := range []bool{false, true} {
+		r := resultadoRegistroFirmaExternaPrueba()
+		m := materialRegistroFirmaV2Prueba(ports.ViaFirmaExternaPortafirmas, []byte("%PDF-1.7\n%%EOF"))
+		r.MaterialMultiple = &m
+		if !ambiguo {
+			r.Material = ports.MaterialFirmaExterna{}
+		}
+		r.Recibo.SolicitudHuella = strings.Repeat("a", 64)
+		s := &servicioRegistroFirmaExternaPrueba{respuesta: r}
+		h, _ := NuevoManejadorRegistroFirmaExterna(autoridadRegistroFirmaExternaPrueba{organizacion: "organizacion:desarrollo:dipgra"}, s)
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, peticionRegistroFirmaExterna(cuerpoRegistroFirmaExternaPrueba))
+		if w.Code != http.StatusBadGateway {
+			t.Fatalf("material ambiguo %v: %d %s", ambiguo, w.Code, w.Body)
+		}
+	}
+}
