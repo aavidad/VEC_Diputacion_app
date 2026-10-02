@@ -16,6 +16,7 @@ import (
 
 	reglasapp "vec-diputacion-granada/internal/modules/bolsa/application/gobiernoreglasbaremo"
 	bolsapuertos "vec-diputacion-granada/internal/modules/bolsa/ports"
+	ctports "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	seguridad "vec-diputacion-granada/internal/vec/adapters/seguridad"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
@@ -108,9 +109,14 @@ func (p *ProveedorGobiernoReglasBaremoV3) contexto(ctx context.Context, operacio
 			operativo.Vinculo.ValidarPara(operativo.Resultado) == nil &&
 			mismoContextoEsperadoRegistradoDesarrollo(p.perfil.soporte.contextoEsperadoRegistrado, operativo.Resultado) {
 			holder.contexto.Vinculo, holder.contexto.Resultado = operativo.Vinculo, operativo.Resultado
+		} else if errors.Is(err, ctports.ErrConsultaRRHHNoDisponible) || ctx.Err() != nil {
+			holder.err = reglasapp.ErrGobiernoV3NoDisponible
 		} else {
-			holder.err = reglasapp.ErrGobiernoV3NoAutenticado
+			holder.err = reglasapp.ErrGobiernoV3Prohibido
 		}
+	}
+	if holder.err != nil {
+		return vacio, holder.err
 	}
 	ahora := p.reloj.Ahora()
 	if holder.soporte != p.perfil.soporte || holder.err != nil ||
