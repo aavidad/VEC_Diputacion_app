@@ -144,7 +144,7 @@ func (l *Lector) capturarSQLAcotada(ctx context.Context, tx consultaSQL, guard E
 		presupuesto = &presupuestoCaptura{objetos: 8}
 	}
 	var e error
-	c := &captura{tx: tx, l: l, guard: guard, presupuesto: presupuesto, baseMetadatos: baseMetadatos, bytes: presupuesto.bytes, filas: presupuesto.filas, s: domain.Snapshot{Version: 1, PostgreSQL: l.limites.VersionPostgreSQL, Completo: true, Motivos: []string{}, Objetos: []domain.Objeto{}}}
+	c := &captura{tx: tx, l: l, guard: guard, presupuesto: presupuesto, baseMetadatos: baseMetadatos, bytes: presupuesto.bytes, filas: presupuesto.filas, s: domain.Snapshot{Version: domain.VersionCanonica, PostgreSQL: l.limites.VersionPostgreSQL, Completo: true, Motivos: []string{}, Objetos: []domain.Objeto{}}}
 	defer func() { presupuesto.bytes = c.bytes; presupuesto.filas = c.filas }()
 	paused, e := c.exclusion(ctx)
 	if e != nil {
@@ -163,7 +163,25 @@ func (l *Lector) capturarSQLAcotada(ctx context.Context, tx consultaSQL, guard E
 		c.s.PostgreSQL = actual
 		return c.s, nil
 	}
-	for _, check := range comprobaciones {
+	for _, q := range []string{comprobaciones[0].sql, `SELECT (` + hooksTipoNoSegurosSQL + `)`} {
+		var unsafe bool
+		if e = tx.QueryRow(ctx, q).Scan(&unsafe); e != nil {
+			return domain.Snapshot{}, errCaptura
+		}
+		if unsafe {
+			c.motivo("salida_tipo_no_admitida")
+			return c.s, nil
+		}
+	}
+	ct, e := c.prepararTipos(ctx)
+	if e != nil {
+		return domain.Snapshot{}, e
+	}
+	if ct.NoDeparseSeguro() {
+		c.motivo("salida_tipo_no_admitida")
+		return c.s, nil
+	}
+	for _, check := range append(append([]comprobacion{}, comprobaciones...), comprobacionesAvanzadas...) {
 		if ambitoCompleto && check.motivo == "otras_bases_no_inventariadas" {
 			continue
 		}
@@ -187,7 +205,7 @@ func (l *Lector) capturarSQLAcotada(ctx context.Context, tx consultaSQL, guard E
 	if e = c.validarReferencias(ctx); e != nil {
 		return domain.Snapshot{}, e
 	}
-	if e = c.tablas(ctx); e != nil {
+	if e = c.tablas(ctx, ct); e != nil {
 		return domain.Snapshot{}, e
 	}
 	seq, e := c.secuencias(ctx)
@@ -361,8 +379,8 @@ func (c *captura) exclusion(ctx context.Context) (bool, error) {
 	return paused == "paused" && *replay == c.sello, nil
 }
 
-func (c *captura) tablas(ctx context.Context) error {
-	names, e := c.leer(ctx, `SELECT jsonb_build_array(n.nspname,r.relname)::text FROM pg_class r JOIN pg_namespace n ON n.oid=r.relnamespace JOIN pg_am am ON am.oid=r.relam WHERE n.nspname !~ '^pg_' AND n.nspname<>'information_schema' AND r.relkind='r' AND am.amname='heap' ORDER BY n.nspname,r.relname`)
+func (c *captura) tablas(ctx context.Context, ct *canonTipos) error {
+	names, e := c.leer(ctx, `SELECT jsonb_build_array(n.nspname,r.relname)::text FROM pg_class r JOIN pg_namespace n ON n.oid=r.relnamespace JOIN pg_am am ON am.oid=r.relam WHERE n.nspname !~ '^pg_' AND n.nspname<>'information_schema' AND r.relkind IN('r','m') AND am.amname='heap' ORDER BY n.nspname,r.relname`)
 	if e != nil {
 		return e
 	}
@@ -371,7 +389,7 @@ func (c *captura) tablas(ctx context.Context) error {
 		if json.Unmarshal([]byte(name), &parts) != nil || len(parts) != 2 {
 			return errCaptura
 		}
-		cols, e := c.leer(ctx, `SELECT jsonb_build_array(a.attname,t.typname,tn.nspname,a.attgenerated)::text FROM pg_attribute a JOIN pg_type t ON t.oid=a.atttypid JOIN pg_namespace tn ON tn.oid=t.typnamespace WHERE a.attrelid=to_regclass($1) AND a.attnum>0 AND NOT a.attisdropped ORDER BY a.attnum`, pgx.Identifier(parts).Sanitize())
+		cols, e := c.leer(ctx, `SELECT jsonb_build_array(a.attname,a.atttypid::text,a.attgenerated)::text FROM pg_attribute a JOIN pg_type t ON t.oid=a.atttypid JOIN pg_namespace tn ON tn.oid=t.typnamespace WHERE a.attrelid=to_regclass($1) AND a.attnum>0 AND NOT a.attisdropped ORDER BY a.attnum`, pgx.Identifier(parts).Sanitize())
 		if e != nil {
 			return e
 		}
@@ -381,15 +399,22 @@ func (c *captura) tablas(ctx context.Context) error {
 		unsupported := false
 		for _, col := range cols {
 			var p []string
-			if json.Unmarshal([]byte(col), &p) != nil || len(p) != 4 {
+			if json.Unmarshal([]byte(col), &p) != nil || len(p) != 3 {
 				return errCaptura
 			}
-			oidAdmitido := p[1] == "oid" && c.l.limites.ObjetosGrandesSemanticos && c.referenciaDeclarada(parts[0], parts[1], p[0])
-			if p[2] != "pg_catalog" || p[3] == "v" || (!tipos[p[1]] && !oidAdmitido) {
+			oid, e := strconv.ParseUint(p[1], 10, 32)
+			if e != nil {
+				return errCaptura
+			}
+			frame, admitted, e := ct.canonColumna(parts[0], parts[1], p[0], uint32(oid), p[2])
+			if e != nil {
+				return e
+			}
+			if !admitted {
 				unsupported = true
 				continue
 			}
-			expr = append(expr, `jsonb_build_array(`+literal(p[0])+`,`+literal(p[1])+`,`+pgx.Identifier{p[0]}.Sanitize()+`::text)`)
+			expr = append(expr, frame)
 		}
 		if unsupported {
 			c.motivo("tipo_columna_no_admitido")

@@ -122,7 +122,7 @@ los inventarios de conjunto producidos por ese ejecutor.
 
 ## Formato y alcance
 
-`Snapshot` versión 1 contiene versión exacta de PostgreSQL, `completo`, motivos
+`Snapshot` versión 2 contiene versión exacta de PostgreSQL, `completo`, motivos
 y objetos con clase, clave privada, cantidad y SHA256. Las ocho clases tienen
 inventario obligatorio, incluso cuando no hay secuencias u objetos grandes.
 Tablas, secuencias y objetos grandes incluyen entradas individuales y una raíz
@@ -134,12 +134,39 @@ inserción no interviene. Los nombres y propietarios sustituyen los OID internos
 en los metadatos. Los objetos grandes se comparan por contenido y metadatos,
 conservando objetos idénticos duplicados.
 
-Este lector admite árboles sintéticos simples. Las funciones, tipos propios,
-vistas, triggers, políticas RLS, tablas externas y otras estructuras avanzadas
-no cubiertas producen `no_comprobable`. No acredita todavía el inventario
-completo del esquema de VEC. Un objeto desconocido nunca se omite para afirmar
-igualdad. Los OID que identifican otros objetos internos siguen fuera del
-alcance admitido; no se reinterpretan como referencias a objetos grandes.
+El perfil 2 captura definiciones de funciones y procedimientos, atributos de
+rutinas, tipos enumerados, dominios, compuestos y arrays. Conserva políticas RLS,
+triggers internos y de usuario, constraints, comentarios, collations, definiciones
+de estadísticas extendidas y búsqueda textual, lenguajes, extensiones y sus
+miembros admitidos. Las referencias usan nombres y firmas. El orden de etiquetas
+de un enum y la posición viva de columnas se conservan sin sellar OID ni números
+internos que cambian al restaurar.
+
+Los compuestos se leen por campos y los arrays por dimensiones, límites y
+subíndices ordenados. Un compuesto NULL se distingue de un compuesto cuyos
+campos son todos NULL. El lector exige una cuenta técnica con lectura completa,
+usando `row_security=off`; conserva y contrasta las políticas y los indicadores
+RLS sin alterarlos. Captura el contenido almacenado de las vistas materializadas.
+Para una vista ordinaria captura su definición, sin ejecutar la consulta ni sus
+funciones.
+
+Los tipos opacos con conversores propios, casts propios, columnas generadas
+virtuales, tablas externas, herencia/particiones y métodos de acceso no admitidos
+mantienen `no_comprobable`. La guarda de conversores precede a los decompiladores
+y a la lectura de valores: una transacción de solo lectura no basta para contener
+los efectos externos de una función C. Un objeto desconocido nunca se omite para
+afirmar igualdad. Los OID internos no se reinterpretan como referencias LO.
+
+PostgreSQL sella juntos los verificadores almacenados de todos los roles. El
+cliente recibe un digest de conjunto que se incorpora al agregado privado de
+roles; no recibe contraseñas ni verificadores individuales y no los publica en
+los motivos. Los inventarios permanecen privados y deben conservarse dentro del
+conjunto autenticado y cifrado.
+
+El formato de campos no cambia. La versión 1 sigue admitida para comparar dos
+inventarios legados, pero una comparación entre versiones 1 y 2 devuelve
+`no_comprobable`. No mezcle perfiles ni releases del verificador; la fuente de
+una base no conectable debe aportar el perfil 2 para una captura actual.
 
 Los archivos offline son declaraciones privadas: SHA256 prueba integridad del
 contenido, pero no identifica al emisor. Su procedencia y autenticación deben

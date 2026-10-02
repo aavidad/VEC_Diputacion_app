@@ -196,17 +196,8 @@ CREATE TABLE public."nombre$1"("columna$2" text); INSERT INTO public."nombre$1" 
 		if e != nil {
 			t.Fatal(e)
 		}
-		if s.Completo || domain.Comparar(first, s).Estado != domain.NoComprobable {
-			t.Fatal("FK sin disparadores admitida como equivalente")
-		}
-		found := false
-		for _, m := range s.Motivos {
-			if m == "disparadores_internos_no_admitidos" {
-				found = true
-			}
-		}
-		if !found {
-			t.Fatal("estado de disparadores internos omitido")
+		if !s.Completo || !claseDifiere(domain.Comparar(first, s), "esquema") {
+			t.Fatal("estado distinto de los disparadores internos no contrastado")
 		}
 		sqlEnsayo(t, x, `ALTER TABLE public.hija ENABLE TRIGGER ALL`)
 		if r := domain.Comparar(first, capture()); r.Estado != domain.Igual {
@@ -215,8 +206,8 @@ CREATE TABLE public."nombre$1"("columna$2" text); INSERT INTO public."nombre$1" 
 	})
 	sqlEnsayo(t, x, `CREATE VIEW public.vista AS SELECT * FROM public.datos`)
 	incomplete, e := l.CapturarEjecutor(context.Background(), x, "postgres", x)
-	if e != nil || incomplete.Completo {
-		t.Fatal("vista avanzada no denegada")
+	if e != nil || !incomplete.Completo || !claseDifiere(domain.Comparar(first, incomplete), "esquema") {
+		t.Fatal("definición de vista no contrastada")
 	}
 	sqlEnsayo(t, x, `DROP VIEW public.vista; SELECT lo_from_bytea(0,decode('010200ff','hex'));`)
 	incomplete, e = l.CapturarEjecutor(context.Background(), x, "postgres", x)
@@ -241,7 +232,7 @@ CREATE TABLE public."nombre$1"("columna$2" text); INSERT INTO public."nombre$1" 
 	}
 	// La primaria directa conserva la separación: sin guard observado, no completa.
 	// La ruta externa se probó con evidencia runtime real, nunca con booleano libre.
-	t.Log("PG18.4 real: orden y OID iguales; celda/CHECK/secuencia/ACL/roles/privilegios_defecto divergentes; ACL vacío distinguido de ausencia, FK desactivada no_comprobable; advanced/LO y límites denegados")
+	t.Log("PG18.4 real: orden y OID iguales; celda/CHECK/secuencia/ACL/roles/privilegios_defecto divergentes; ACL vacío distinguido de ausencia, FK desactivada y definición de vista diferentes; advanced/LO y límites denegados")
 }
 
 type dockerEnsayo struct{ name string }

@@ -69,7 +69,7 @@ func TestFallaCerradoInventario(t *testing.T) {
 		"duplicado":     func(s *Snapshot) { s.Objetos = append(s.Objetos, s.Objetos[0]) },
 		"hash":          func(s *Snapshot) { s.Objetos[0].SHA256 = strings.Repeat("f", 63) },
 		"cantidad":      func(s *Snapshot) { s.Objetos[0].Cantidad = -1 },
-		"version":       func(s *Snapshot) { s.Version = 2 },
+		"version":       func(s *Snapshot) { s.Version = 3 },
 		"postgresql":    func(s *Snapshot) { s.PostgreSQL = "17.6" },
 	}
 	for nombre, mutar := range casos {
@@ -107,5 +107,21 @@ func TestDiferenciasPorClase(t *testing.T) {
 				t.Fatalf("%+v", r)
 			}
 		})
+	}
+}
+
+func TestVersionCanonicaCompatibleSoloMismoPerfil(t *testing.T) {
+	a, b := evidencia(), evidencia()
+	if Comparar(a, b).Estado != Igual {
+		t.Fatal("perfil legado no admitido")
+	}
+	a.Version = VersionCanonica
+	b.Version = VersionCanonica
+	if Comparar(a, b).Estado != Igual {
+		t.Fatal("perfil canónico actual no admitido")
+	}
+	a.Version = 1
+	if Comparar(a, b).Estado != NoComprobable || Comparar(b, a).Estado != NoComprobable {
+		t.Fatal("perfiles cruzados declarados comparables")
 	}
 }

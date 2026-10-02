@@ -103,7 +103,7 @@ func TestBaseNoConectableSinProcedenciaNoSeAsume(t *testing.T) {
 	}
 }
 func snapshotMinimoBases() domain.Snapshot {
-	s := domain.Snapshot{Version: 1, PostgreSQL: "18.4", Completo: true, Motivos: []string{}, Objetos: []domain.Objeto{}}
+	s := domain.Snapshot{Version: domain.VersionCanonica, PostgreSQL: "18.4", Completo: true, Motivos: []string{}, Objetos: []domain.Objeto{}}
 	for _, clase := range []string{"esquema", "roles", "acl", "extensiones", "privilegios_defecto"} {
 		s.Objetos = append(s.Objetos, domain.Objeto{Clase: clase, Clave: "inventario", SHA256: huella(nil)})
 	}

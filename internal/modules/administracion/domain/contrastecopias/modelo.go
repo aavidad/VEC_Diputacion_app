@@ -10,9 +10,10 @@ import (
 )
 
 const (
-	Igual         = "igual"
-	Diferente     = "diferente"
-	NoComprobable = "no_comprobable"
+	VersionCanonica = 2
+	Igual           = "igual"
+	Diferente       = "diferente"
+	NoComprobable   = "no_comprobable"
 )
 
 // Snapshot es evidencia privada. Sus nombres y huellas no son una vista ADMIN.
@@ -91,7 +92,7 @@ func referencia(o Objeto) string {
 // Una declaración offline no sustituye procedencia y autenticación externas.
 func Validar(s Snapshot) []Razon {
 	var rs []Razon
-	if s.Version != 1 || !versionPG.MatchString(s.PostgreSQL) {
+	if (s.Version != 1 && s.Version != VersionCanonica) || !versionPG.MatchString(s.PostgreSQL) {
 		rs = append(rs, Razon{Codigo: "formato_no_admitido"})
 	}
 	if !s.Completo || len(s.Motivos) != 0 {
@@ -152,6 +153,9 @@ func ordenar(rs []Razon) []Razon {
 // Comparar conserva duplicados de datos a través de la huella por tabla.
 // La igualdad se limita al contenido y objetos descritos por este contrato.
 func Comparar(a, b Snapshot) Resultado {
+	if a.Version != b.Version {
+		return Resultado{NoComprobable, []Razon{{Codigo: "formato_no_admitido"}}}
+	}
 	rs := append(Validar(a), Validar(b)...)
 	if len(rs) > 0 {
 		return Resultado{NoComprobable, ordenar(rs)}

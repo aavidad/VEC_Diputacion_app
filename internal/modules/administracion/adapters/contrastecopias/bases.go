@@ -67,6 +67,12 @@ func validarBases(c Configuracion) error {
 }
 func shaBytes(b []byte) string { h := sha256.Sum256(b); return hex.EncodeToString(h[:]) }
 func (c *captura) consultaAgregado(q consulta) string {
+	if q.clase == "esquema" {
+		q.sql = `SELECT * FROM (` + q.sql + `) cs_base UNION ALL SELECT * FROM (` + esquemaAvanzadoSQL + `) cs_adv`
+	}
+	if q.clase == "roles" {
+		q.sql = `SELECT * FROM (` + q.sql + `) cs_roles UNION ALL SELECT * FROM (` + rolesSelladosSQL + `) cs_credentials`
+	}
 	if c.baseMetadatos != "" && (q.clase == "esquema" || q.clase == "acl") {
 		return strings.Replace(q.sql, "d.datname=current_database()", "d.datname="+literal(c.baseMetadatos), 1)
 	}
@@ -116,7 +122,7 @@ func observarSello(ctx context.Context, guard ExclusionObservada, esperado strin
 }
 
 func (l *Lector) capturarBases(ctx context.Context, exec EjecutorPostgreSQL, base string, guard ExclusionObservada, fuente FuenteBaseNoConectable) (domain.Snapshot, error) {
-	incomplete := domain.Snapshot{Version: 1, PostgreSQL: l.limites.VersionPostgreSQL, Completo: false, Objetos: []domain.Objeto{}, Motivos: []string{"bases_no_inventariadas"}}
+	incomplete := domain.Snapshot{Version: domain.VersionCanonica, PostgreSQL: l.limites.VersionPostgreSQL, Completo: false, Objetos: []domain.Objeto{}, Motivos: []string{"bases_no_inventariadas"}}
 	if !contieneBase(l.limites.BasesInventariadas, base) {
 		return incomplete, nil
 	}
@@ -189,7 +195,7 @@ func (l *Lector) capturarBases(ctx context.Context, exec EjecutorPostgreSQL, bas
 }
 
 func (l *Lector) capturarNoConectable(ctx context.Context, base, props, sello string, p *presupuestoCaptura, fuente FuenteBaseNoConectable) (domain.Snapshot, error) {
-	unknown := domain.Snapshot{Version: 1, PostgreSQL: l.limites.VersionPostgreSQL, Completo: false, Objetos: []domain.Objeto{}, Motivos: []string{"base_no_conectable_sin_evidencia"}}
+	unknown := domain.Snapshot{Version: domain.VersionCanonica, PostgreSQL: l.limites.VersionPostgreSQL, Completo: false, Objetos: []domain.Objeto{}, Motivos: []string{"base_no_conectable_sin_evidencia"}}
 	if fuente == nil {
 		return unknown, nil
 	}
@@ -198,7 +204,7 @@ func (l *Lector) capturarNoConectable(ctx context.Context, base, props, sello st
 	if e != nil {
 		return unknown, nil
 	}
-	if evidence.Nombre != base || evidence.PropiedadesSHA256 != props || evidence.SelloExclusion != sello || !selloValido.MatchString(evidence.InicializacionSHA256) || evidence.Snapshot.PostgreSQL != l.limites.VersionPostgreSQL || len(domain.Validar(evidence.Snapshot)) != 0 {
+	if evidence.Nombre != base || evidence.PropiedadesSHA256 != props || evidence.SelloExclusion != sello || !selloValido.MatchString(evidence.InicializacionSHA256) || evidence.Snapshot.Version != domain.VersionCanonica || evidence.Snapshot.PostgreSQL != l.limites.VersionPostgreSQL || len(domain.Validar(evidence.Snapshot)) != 0 {
 		return unknown, nil
 	}
 	encoded, e := json.Marshal(evidence.Snapshot)
@@ -228,12 +234,16 @@ func (l *Lector) capturarNoConectable(ctx context.Context, base, props, sello st
 }
 
 func (l *Lector) combinarBases(bases []baseCapturada) (domain.Snapshot, error) {
-	s := domain.Snapshot{Version: 1, PostgreSQL: l.limites.VersionPostgreSQL, Completo: true, Objetos: []domain.Objeto{}, Motivos: []string{}}
+	s := domain.Snapshot{Version: domain.VersionCanonica, PostgreSQL: l.limites.VersionPostgreSQL, Completo: true, Objetos: []domain.Objeto{}, Motivos: []string{}}
 	globals := map[string][]string{}
 	cantidades := map[string]int64{}
 	sort.Slice(bases, func(i, j int) bool { return bases[i].base < bases[j].base })
 	motivos := map[string]bool{}
 	for _, b := range bases {
+		if b.snapshot.Version != domain.VersionCanonica {
+			s.Completo = false
+			motivos["formato_no_admitido"] = true
+		}
 		if !b.snapshot.Completo {
 			s.Completo = false
 		}
