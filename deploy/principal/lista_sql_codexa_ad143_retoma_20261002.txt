@@ -1,0 +1,6 @@
+# BORRADOR AD143: perfiles ADMIN pendientes; no instalar esta preparación.
+# Requisito E04/E05/E06/E10 y orden de dirección del 02/10/2026, 13:45.
+# Orden causal medido: AD141/Bolsa7, roles Méritos/AD142/Méritos1, AD144/BR4.
+# El número reservado no establece dependencia. La extensión comparte el núcleo
+# ya modificado por AD144; debe conservar esa postimagen real y sus ACL.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000143_consumidor_orden_copias.up.sql
