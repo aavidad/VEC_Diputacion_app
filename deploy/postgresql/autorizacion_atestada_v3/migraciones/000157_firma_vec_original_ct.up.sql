@@ -64,14 +64,17 @@ BEGIN
   RAISE EXCEPTION 'AD3-157: material inválido' USING ERRCODE='22023'; END;
  IF jsonb_typeof(s) IS DISTINCT FROM 'object' OR jsonb_typeof(c) IS DISTINCT FROM 'object'
     OR jsonb_typeof(d) IS DISTINCT FROM 'object'
-    OR (SELECT count(*) FROM jsonb_object_keys(s))<>36
+    OR (SELECT count(*) FROM jsonb_object_keys(s))<>43
     OR NOT (s ?& ARRAY[
      'Via','OrganizacionRef','ExpedienteRef','VersionExpediente','Documento','CatalogoRef','CatalogoHuella',
-     'PasoRef','PasoOrden','Secuencia','OriginalRef','OriginalVersion','OriginalHuella','FirmadoHuella',
+     'PasoRef','PasoOrden','Secuencia','HistoriaRevision','HistoriaHuella',
+     'OriginalRef','OriginalVersion','OriginalHuella','FirmadoHuella',
      'CertificadoHuella','FirmanteRef','FirmantePrincipalRef','PerfilFirmanteRef','CargoFirmante',
-     'UnidadFirmanteRef','PuestoFirmanteRef','AmbitoFirmanteRef','AsignacionFirmanteRef',
-     'AsignacionFirmanteVersion','AsignacionFirmanteHuella','AsignacionVigenteDesde','AsignacionVigenteHasta',
-     'CompetenciaComprobadaEn','ActoCompetenciaRef','DelegacionRef','PoliticaVerificacion',
+     'UnidadFirmanteRef','PerfilActivoFirmanteRef','PuestoFirmanteRef','AmbitoFirmanteRef','AsignacionFirmanteRef',
+     'AsignacionFirmanteVersion','AsignacionFirmanteHuella','VersionRolFirmanteRef',
+     'VersionRolFirmanteHuella','ControlVigenciaFirmanteRef','ControlVigenciaFirmanteRevision',
+     'ControlVigenciaFirmanteHuella','AsignacionVigenteDesde','AsignacionVigenteHasta',
+     'ActoCompetenciaRef','DelegacionRef','PoliticaVerificacion',
      'RevocacionEstado','SelloTiempoEstado','ClaveIdempotencia','DocumentoCustodiaRef','DocumentoCustodiaVersion'])
     OR s->>'Via' IS DISTINCT FROM 'certificado_vec'
     OR s->>'PoliticaVerificacion' IS DISTINCT FROM 'politica:vec:firma:verificacion-autonoma:v1'
@@ -87,10 +90,23 @@ BEGIN
     OR s->>'OriginalHuella' IS NULL OR s->>'OriginalHuella' !~ '^[0-9a-f]{64}$'
     OR s->>'FirmadoHuella' IS NULL OR s->>'FirmadoHuella' !~ '^[0-9a-f]{64}$'
     OR s->>'CatalogoHuella' IS NULL OR s->>'CatalogoHuella' !~ '^[0-9a-f]{64}$'
+    OR jsonb_typeof(s->'HistoriaRevision') IS DISTINCT FROM 'number'
+    OR s->>'HistoriaRevision' !~ '^(0|[1-9][0-9]{0,15})$'
+    OR (s->>'HistoriaRevision')::numeric>9007199254740991::numeric
+    OR s->>'HistoriaHuella' IS NULL OR s->>'HistoriaHuella' !~ '^[0-9a-f]{64}$'
+    OR s->>'HistoriaHuella' = repeat('0',64)
     OR s->>'AsignacionFirmanteHuella' IS NULL OR s->>'AsignacionFirmanteHuella' !~ '^[0-9a-f]{64}$'
+    OR s->>'VersionRolFirmanteHuella' IS NULL OR s->>'VersionRolFirmanteHuella' !~ '^[0-9a-f]{64}$'
+    OR s->>'ControlVigenciaFirmanteHuella' IS NULL OR s->>'ControlVigenciaFirmanteHuella' !~ '^[0-9a-f]{64}$'
+    OR jsonb_typeof(s->'ControlVigenciaFirmanteRevision') IS DISTINCT FROM 'number'
+    OR s->>'ControlVigenciaFirmanteRevision' !~ '^[1-9][0-9]{0,15}$'
+    OR (s->>'ControlVigenciaFirmanteRevision')::numeric>9007199254740991::numeric
+    OR s->>'ControlVigenciaFirmanteRef' IS DISTINCT FROM s->>'VersionRolFirmanteRef'
     OR nullif(s->>'PerfilFirmanteRef','') IS NULL
     OR nullif(s->>'CargoFirmante','') IS NULL
     OR nullif(s->>'UnidadFirmanteRef','') IS NULL
+    OR nullif(s->>'PerfilActivoFirmanteRef','') IS NULL
+    OR nullif(s->>'VersionRolFirmanteRef','') IS NULL
     OR nullif(s->>'AsignacionFirmanteRef','') IS NULL
     OR nullif(s->>'DocumentoCustodiaRef','') IS NULL THEN
   RAISE EXCEPTION 'AD3-157: material VEC inválido' USING ERRCODE='22023'; END IF;
@@ -110,7 +126,8 @@ BEGIN
     OR c->>'huella_decision_sha256' IS DISTINCT FROM encode(sha256(p_decision),'hex')
     OR d#>>'{vinculo_autenticacion_actor,superficie}' IS DISTINCT FROM 'interna_corporativa'
     OR d->>'principal_id' IS DISTINCT FROM s->>'FirmantePrincipalRef'
-    OR nullif(d->>'version_rol_ref','') IS NULL
+    OR d->>'perfil_activo_ref' IS DISTINCT FROM s->>'PerfilActivoFirmanteRef'
+    OR d->>'version_rol_ref' IS DISTINCT FROM s->>'VersionRolFirmanteRef'
     OR d->'campos_permitidos' IS DISTINCT FROM '[]'::jsonb
     OR d->'obligaciones' IS DISTINCT FROM '[]'::jsonb THEN
   RAISE EXCEPTION 'AD3-157: firma VEC denegada' USING ERRCODE='42501'; END IF;
