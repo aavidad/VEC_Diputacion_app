@@ -40,6 +40,9 @@ const (
 	AccionNegocioCustodiarDocumentoFirmado     = "bolsa.decision.firma.documento.custodiar"
 	AccionNegocioRetenerDocumentoFirmado       = "bolsa.decision.firma.documento.retener"
 	AccionNegocioLeerOriginalDocumentoGenerado = "documentos.original.descargar"
+	// La escritura del original firmable tiene concesión propia de almacén.
+	// Reservar o confirmar en Documentos no concede por sí mismo acceso al objeto.
+	AccionNegocioEscribirOriginalFirmable = "documentos.original_firmable.almacen.escribir"
 	// AccionNegocioCustodiarDocumentoFirmadoExpediente escribe en el almacén
 	// de Documentos el documento firmado de un expediente de otro módulo
 	// (p. ej. la resolución firmada de Contratación temporal) tras verificar
@@ -67,16 +70,17 @@ const (
 type PasoOperacionAlmacen = almacencanonico.PasoOperacionAlmacen
 
 const (
-	PasoAlmacenPrepararCargaDirecta  = almacencanonico.PasoPrepararCargaDirecta
-	PasoAlmacenAbandonarCargaDirecta = almacencanonico.PasoAbandonarCargaDirecta
-	PasoAlmacenConfirmarCargaDirecta = almacencanonico.PasoConfirmarCargaDirecta
-	PasoAlmacenLeerParaAnalisis      = almacencanonico.PasoLeerParaAnalisis
-	PasoAlmacenLeerOriginalDocumento = almacencanonico.PasoLeerOriginalDocumento
-	PasoAlmacenAnalizarContenido     = almacencanonico.PasoAnalizarContenido
-	PasoAlmacenPromover              = almacencanonico.PasoPromover
-	PasoAlmacenCustodiarDecision     = almacencanonico.PasoCustodiarDecision
-	PasoAlmacenCustodiarFirmado      = almacencanonico.PasoCustodiarFirmado
-	PasoAlmacenRetenerFirmado        = almacencanonico.PasoRetenerFirmado
+	PasoAlmacenPrepararCargaDirecta                          = almacencanonico.PasoPrepararCargaDirecta
+	PasoAlmacenAbandonarCargaDirecta                         = almacencanonico.PasoAbandonarCargaDirecta
+	PasoAlmacenConfirmarCargaDirecta                         = almacencanonico.PasoConfirmarCargaDirecta
+	PasoAlmacenLeerParaAnalisis                              = almacencanonico.PasoLeerParaAnalisis
+	PasoAlmacenLeerOriginalDocumento                         = almacencanonico.PasoLeerOriginalDocumento
+	PasoAlmacenAnalizarContenido                             = almacencanonico.PasoAnalizarContenido
+	PasoAlmacenPromover                                      = almacencanonico.PasoPromover
+	PasoAlmacenCustodiarDecision                             = almacencanonico.PasoCustodiarDecision
+	PasoAlmacenCustodiarFirmado                              = almacencanonico.PasoCustodiarFirmado
+	PasoAlmacenRetenerFirmado                                = almacencanonico.PasoRetenerFirmado
+	PasoAlmacenEscribirOriginalFirmable PasoOperacionAlmacen = "01_escribir_original_firmable"
 )
 
 // VinculosOperacionAlmacen contiene datos no autoritativos que el constructor
@@ -403,6 +407,16 @@ func especificacionCustodiarDocumentoFirmadoExpediente() especificacionAutorizac
 		camposExactos: []string{"documento_firmado.custodia", "evidencia_custodia"},
 		pasos: []pasoPlanOperacionAlmacen{{
 			referencia: PasoAlmacenCustodiarFirmado, accion: AccionAlmacenEscribir,
+		}},
+	}
+}
+
+func especificacionEscribirOriginalFirmable() especificacionAutorizacionAlmacen {
+	return especificacionAutorizacionAlmacen{
+		accionNegocio: AccionNegocioEscribirOriginalFirmable,
+		camposExactos: []string{"original_firmable.contenido", "evidencia_almacen"},
+		pasos: []pasoPlanOperacionAlmacen{{
+			referencia: PasoAlmacenEscribirOriginalFirmable, accion: AccionAlmacenEscribir,
 		}},
 	}
 }

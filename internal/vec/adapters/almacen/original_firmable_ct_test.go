@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	ctapp "vec-diputacion-granada/internal/modules/contrataciontemporal/application"
+	almacencanonico "vec-diputacion-granada/internal/vec/canonico/almacen"
 	docdomain "vec-diputacion-granada/internal/vec/documentos/domain"
 	docports "vec-diputacion-granada/internal/vec/documentos/ports"
 	"vec-diputacion-granada/internal/vec/ports"
@@ -22,14 +24,15 @@ type servicioDocumentosOriginalCTPrueba struct {
 	expediente string
 	altas      int
 	lecturas   int
+	documento  docdomain.Documento
 }
 
-func (f *servicioDocumentosOriginalCTPrueba) AltaGenerado(_ context.Context, alta docports.AltaGenerado) (docdomain.Documento, error) {
+func (f *servicioDocumentosOriginalCTPrueba) CustodiarOriginalFirmable(_ context.Context, alta docports.OrdenCustodiarOriginalFirmable, _ docports.AutorizarOriginalFirmable) (docports.IntentoOriginalFirmable, error) {
 	f.altas++
 	f.contenido = bytes.Clone(alta.Contenido)
 	f.referencia, f.version, f.tipoRef, f.expediente = alta.ID, alta.Version, alta.TipoRef, alta.ExpedienteRef
 	suma := sha256.Sum256(f.contenido)
-	return docdomain.Documento{
+	f.documento = docdomain.Documento{
 		ID: alta.ID, NumeroVEC: "VEC-2026-1", ModuloID: alta.ModuloID,
 		ExpedienteRef: alta.ExpedienteRef, TipoRef: alta.TipoRef, Version: alta.Version,
 		MIME: alta.MIME, HuellaSHA256: hex.EncodeToString(suma[:]), Tamano: int64(len(f.contenido)),
@@ -41,19 +44,23 @@ func (f *servicioDocumentosOriginalCTPrueba) AltaGenerado(_ context.Context, alt
 		EstadoPolitica: docdomain.EstadoPoliticaAprobada,
 		EstadoFirma:    docdomain.EstadoFirmaPendienteProveedor, CreadoEn: time.Now().UTC(),
 		Custodia: docdomain.CustodiaVEC,
-	}, nil
+	}
+	suma = sha256.Sum256(f.contenido)
+	return docports.IntentoOriginalFirmable{Estado: "confirmado", DocumentoID: alta.ID,
+		HuellaSHA256: hex.EncodeToString(suma[:]), ReservaRef: "ref:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+		ClaveAlmacenRef: "ref:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", Numero: 1}, nil
 }
 
-func (f *servicioDocumentosOriginalCTPrueba) DescargarOriginal(_ context.Context, q docports.ConsultaDocumento) (docports.Original, error) {
+func (f *servicioDocumentosOriginalCTPrueba) DescargarOriginalConDocumento(_ context.Context, q docports.ConsultaDocumento) (docports.Original, docdomain.Documento, error) {
 	f.lecturas++
 	if f.referencia == "" {
-		return docports.Original{}, docports.ErrNoEncontrado
+		return docports.Original{}, docdomain.Documento{}, docports.ErrNoEncontrado
 	}
 	if q.DocumentoID != f.referencia || q.Version != f.version || q.Autorizacion.AmbitoRef != f.expediente {
-		return docports.Original{}, docports.ErrAccesoDenegado
+		return docports.Original{}, docdomain.Documento{}, docports.ErrAccesoDenegado
 	}
 	suma := sha256.Sum256(f.contenido)
-	return docports.Original{Contenido: bytes.Clone(f.contenido), MIME: "application/pdf", HuellaSHA256: hex.EncodeToString(suma[:])}, nil
+	return docports.Original{Contenido: bytes.Clone(f.contenido), MIME: "application/pdf", HuellaSHA256: hex.EncodeToString(suma[:])}, f.documento, nil
 }
 
 type autorizacionesOriginalCTPrueba struct{ permitir bool }
@@ -62,34 +69,48 @@ func (a *autorizacionesOriginalCTPrueba) AutorizarLecturaOriginalCT(_ context.Co
 	if !a.permitir {
 		return docports.ConsultaDocumento{}, docports.ErrAccesoDenegado
 	}
+	expedienteDocumental, _ := ctapp.ReferenciaExpedienteDocumentalFormalizacion(s.ExpedienteRef)
 	return docports.ConsultaDocumento{DocumentoID: ref, Version: s.OriginalVersion,
-		Autorizacion: docports.AutorizacionV3{RecursoRef: ref, AmbitoRef: s.ExpedienteRef}}, nil
+		Autorizacion: docports.AutorizacionV3{RecursoRef: ref, AmbitoRef: expedienteDocumental}}, nil
 }
 
-func (a *autorizacionesOriginalCTPrueba) AutorizarAltaOriginalCT(_ context.Context, s ports.SolicitudOriginalFirmableCT, pdf ports.PDFOriginalCT, ref string) (docports.AltaGenerado, error) {
+func (a *autorizacionesOriginalCTPrueba) PrepararCustodiaOriginalCT(_ context.Context, s ports.SolicitudOriginalFirmableCT, pdf ports.PDFOriginalCT, ref string) (docports.OrdenCustodiarOriginalFirmable, docports.AutorizarOriginalFirmable, error) {
 	if !a.permitir {
-		return docports.AltaGenerado{}, docports.ErrAccesoDenegado
+		return docports.OrdenCustodiarOriginalFirmable{}, nil, docports.ErrAccesoDenegado
 	}
-	return docports.AltaGenerado{ID: ref, ClaveIdempotencia: ports.ClaveAltaOriginalFirmableCT(s),
-		ModuloID: moduloOriginalFirmableCT, ExpedienteRef: s.ExpedienteRef,
-		TipoRef: pdf.TipoRef, Version: s.OriginalVersion, MIME: "application/pdf", Contenido: bytes.Clone(pdf.Contenido),
-		Autorizacion: docports.AutorizacionV3{RecursoRef: ref, AmbitoRef: s.ExpedienteRef}}, nil
+	identidad := almacencanonico.IdentidadOriginalCT{OrganizacionRef: s.OrganizacionRef, ExpedienteRef: s.ExpedienteRef, Documento: s.Documento, Version: s.OriginalVersion}
+	expedienteDocumental, _ := ctapp.ReferenciaExpedienteDocumentalFormalizacion(s.ExpedienteRef)
+	return docports.OrdenCustodiarOriginalFirmable{ID: ref, ClaveIdempotencia: identidad.ClaveLogica(),
+		ModuloID: moduloOriginalFirmableCT, ExpedienteRef: expedienteDocumental,
+		TipoRef: pdf.TipoRef, Version: s.OriginalVersion, MIME: "application/pdf", Contenido: bytes.Clone(pdf.Contenido)}, a, nil
+}
+
+func (*autorizacionesOriginalCTPrueba) AutorizarReservaOriginal(context.Context, []byte, string, string) (docports.AutorizacionV3, error) {
+	return docports.AutorizacionV3{}, nil
+}
+
+func (*autorizacionesOriginalCTPrueba) AutorizarConfirmacionOriginal(context.Context, []byte, string, string) (docports.AutorizacionV3, error) {
+	return docports.AutorizacionV3{}, nil
+}
+
+func (*autorizacionesOriginalCTPrueba) ContextoEscrituraOriginal(context.Context, docports.ReservaOriginalFirmable, docports.IntentoOriginalFirmable) (ports.ContextoOperacionAlmacen, error) {
+	return ports.ContextoOperacionAlmacen{}, nil
 }
 
 func TestCustodiaDocumentosOriginalCTAltaUnicaConflictoYPermiso(t *testing.T) {
 	s := ports.SolicitudOriginalFirmableCT{
-		OrganizacionRef: "ref:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-		ExpedienteRef:   "ref:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+		OrganizacionRef: "organizacion:desarrollo:dipgra",
+		ExpedienteRef:   "expediente:ct:001",
 		Documento:       "informe_definitivo", OriginalVersion: 7,
 	}
-	s.OriginalRef = ports.ReferenciaOriginalFirmableCT(s)
+	s.OriginalRef = almacencanonico.IdentidadOriginalCT{OrganizacionRef: s.OrganizacionRef, ExpedienteRef: s.ExpedienteRef, Documento: s.Documento, Version: s.OriginalVersion}.Referencia()
 	contenidos := []byte("%PDF-1.7\noriginal custodiado\n%%EOF")
 	pdf := ports.PDFOriginalCT{TipoRef: "ref:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", Contenido: contenidos}
 	suma := sha256.Sum256(contenidos)
 	huella := hex.EncodeToString(suma[:])
 	f := &servicioDocumentosOriginalCTPrueba{}
 	auth := &autorizacionesOriginalCTPrueba{permitir: true}
-	a, err := NuevaCustodiaDocumentosOriginalCT(f, auth)
+	a, err := NuevaCustodiaDocumentosOriginalCT(f, auth, FuncionMapeoExpedienteOriginalCT(ctapp.ReferenciaExpedienteDocumentalFormalizacion))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,6 +121,11 @@ func TestCustodiaDocumentosOriginalCTAltaUnicaConflictoYPermiso(t *testing.T) {
 	_, err = a.GuardarUnaVez(context.Background(), s, pdf, s.OriginalRef, huella)
 	if err != nil || f.altas != 1 {
 		t.Fatalf("replay reescribio: err=%v altas=%d", err, f.altas)
+	}
+	otroTipo := pdf
+	otroTipo.TipoRef = "ref:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+	if _, err := a.GuardarUnaVez(context.Background(), s, otroTipo, s.OriginalRef, huella); !errors.Is(err, ports.ErrOriginalFirmableCTConflicto) || f.altas != 1 {
+		t.Fatalf("tipo cambiado no rechazado: err=%v altas=%d", err, f.altas)
 	}
 	alterado := ports.PDFOriginalCT{TipoRef: pdf.TipoRef, Contenido: []byte("%PDF-1.7\notros bytes\n%%EOF")}
 	suma = sha256.Sum256(alterado.Contenido)
@@ -112,7 +138,7 @@ func TestCustodiaDocumentosOriginalCTAltaUnicaConflictoYPermiso(t *testing.T) {
 		t.Fatalf("permiso revocado: err=%v lecturas=%d", err, f.lecturas)
 	}
 	ajena := s
-	ajena.ExpedienteRef = "ref:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+	ajena.ExpedienteRef = "expediente:ct:otro"
 	if _, err := a.LeerOriginal(context.Background(), ajena, s.OriginalRef); !errors.Is(err, ports.ErrOriginalFirmableCTInvalido) {
 		t.Fatalf("ref de otro expediente: %v", err)
 	}

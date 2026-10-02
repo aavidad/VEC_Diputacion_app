@@ -8,6 +8,7 @@ import (
 	"errors"
 	"testing"
 
+	almacencanonico "vec-diputacion-granada/internal/vec/canonico/almacen"
 	"vec-diputacion-granada/internal/vec/ports"
 )
 
@@ -51,19 +52,19 @@ func (c *custodiaOriginalCTPrueba) LeerOriginal(_ context.Context, s ports.Solic
 		return ports.OriginalFirmableCT{}, errors.New("pdp: acceso denegado")
 	}
 	if c.guardado.Referencia != ref {
-		return ports.OriginalFirmableCT{}, ports.ErrOriginalFirmableCTNoDisponible
+		return ports.OriginalFirmableCT{}, ports.ErrOriginalFirmableCTNoEncontrado
 	}
 	return c.guardado, nil
 }
 
 func solicitudOriginalCTPrueba() ports.SolicitudOriginalFirmableCT {
 	s := ports.SolicitudOriginalFirmableCT{
-		OrganizacionRef: "ref:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-		ExpedienteRef:   "ref:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+		OrganizacionRef: "organizacion:desarrollo:dipgra",
+		ExpedienteRef:   "expediente:ct:001",
 		Documento:       "informe_definitivo",
 		OriginalVersion: 7,
 	}
-	s.OriginalRef = ports.ReferenciaOriginalFirmableCT(s)
+	s.OriginalRef = almacencanonico.IdentidadOriginalCT{OrganizacionRef: s.OrganizacionRef, ExpedienteRef: s.ExpedienteRef, Documento: s.Documento, Version: s.OriginalVersion}.Referencia()
 	return s
 }
 
@@ -85,8 +86,12 @@ func TestOriginalFirmableCTAltaUnicaReplayConflictoYLecturaSinRegenerar(t *testi
 		t.Fatalf("replay cambió el original: err=%v altas=%d", err, custodia.altas)
 	}
 	fuente.pdf.Contenido = []byte("%PDF-1.7\noriginal alterado\n%%EOF")
-	if _, err := servicio.Preparar(context.Background(), s); !errors.Is(err, ports.ErrOriginalFirmableCTConflicto) || custodia.altas != 1 {
-		t.Fatalf("cambio de bytes no rechazado: err=%v altas=%d", err, custodia.altas)
+	if _, err := servicio.Preparar(context.Background(), s); err != nil || custodia.altas != 1 || fuente.llamadas != 1 {
+		t.Fatalf("replay regenero el PDF: err=%v altas=%d fuente=%d", err, custodia.altas, fuente.llamadas)
+	}
+	sumaAlterada := sha256.Sum256(fuente.pdf.Contenido)
+	if _, err := custodia.GuardarUnaVez(context.Background(), s, fuente.pdf, s.OriginalRef, hex.EncodeToString(sumaAlterada[:])); !errors.Is(err, ports.ErrOriginalFirmableCTConflicto) {
+		t.Fatalf("alta explicita con otros bytes no rechazada: %v", err)
 	}
 	antes := fuente.llamadas
 	leido, err := servicio.Leer(context.Background(), s)
@@ -111,8 +116,8 @@ func TestOriginalFirmableCTDeniegaLecturaAjenaPermisoCortadoYRefAlterada(t *test
 		t.Fatal(err)
 	}
 	ajena := s
-	ajena.ExpedienteRef = "ref:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
-	ajena.OriginalRef = ports.ReferenciaOriginalFirmableCT(ajena)
+	ajena.ExpedienteRef = "expediente:ct:otro"
+	ajena.OriginalRef = almacencanonico.IdentidadOriginalCT{OrganizacionRef: ajena.OrganizacionRef, ExpedienteRef: ajena.ExpedienteRef, Documento: ajena.Documento, Version: ajena.OriginalVersion}.Referencia()
 	if _, err := servicio.Leer(context.Background(), ajena); err == nil {
 		t.Fatal("lectura ajena autorizada")
 	}
