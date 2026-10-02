@@ -2,8 +2,8 @@
 
 Borrador de trabajo. No instalar ni incluir en listas de despliegue.
 
-Las reservas AUT24 y AD150 pertenecen al trabajo de F del 30/09. No se reserva
-otro número ni se altera una migración instalada. Base revisada:
+AUT24 fue reservada por F el 30/09 y cedida a E. AD137 queda sin usar. Dirección
+reservó AD150 antes de escribir el consumidor. No se altera una migración instalada. Base revisada:
 `d49e6adfcac7a1a68752c239efc6c68a4679191d` (#232). Mantener bootstrap de dos
 personas, baja aprobada 2→1 y denegación de 1→0; el HTTP anterior no fija el umbral.
 
@@ -65,3 +65,10 @@ CA23 y devuelve versiones exactas sin conceder otro perfil. Su audiencia procede
 del catálogo auditado `audiencia_administrativa`, cotejada con configuración
 privada por el proveedor de sesión. El bootstrap debe conservar `cuenta_ref`,
 `vinculo_ref` y `rol_huella_sha256` en las asignaciones.
+
+Comprobaciones del borrador: `git diff --check` y Semgrep local sobre los dos
+SQL, con métricas y comprobación de versión desactivadas. Las tres reglas
+comprobaron concesiones a PUBLIC y pertenencia del runtime a propietarios:
+cero hallazgos. Esta comprobación no acredita ACL efectivas, ejecución de
+PL/pgSQL, transacciones, concurrencia ni recuperación. No se ejecutaron SQL
+en un clon ni se abrió una PR.
