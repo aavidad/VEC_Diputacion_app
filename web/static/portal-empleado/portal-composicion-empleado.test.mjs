@@ -190,6 +190,27 @@ test("Dietas interna compone el circuito de revisión solo con su cliente HTTP s
   assert.notEqual(sinCircuito, undefined);
 });
 
+test("Dietas entrega el cliente de rectificación propia solo tras consultar relaciones a Personal", async () => {
+  const llamadas = [];
+  const relaciones = [{ relacion_ref: `rel_${"a".repeat(22)}`, unidad_ref: "U1", version: 1 }];
+  const asignacion = { async obtenerRelaciones() { llamadas.push(["relaciones"]); return {
+    relaciones_autorizadas: relaciones, fecha_referencia: "2026-10-02",
+  }; } };
+  const clienteRectificacion = Object.freeze({ consultar() {}, solicitar() {} });
+  const recursos = { ...recursosDietas(llamadas, { cliente: {}, asignacion, calculador: {}, visor: {} }),
+    clienteRectificacion: { crearClienteRectificacionDietasHTTP({ fetchImpl }) {
+      assert.equal(typeof fetchImpl, "function");
+      llamadas.push(["rectificacion"]);
+      return clienteRectificacion;
+    } } };
+  const dietas = componerDietasInternas(recursos, { fetch() {} });
+  await dietas.montar({ raiz: "raiz", anunciar() {}, registrarDesmontar() {} });
+  const [, , opciones] = llamadas.at(-1);
+  assert.deepEqual(opciones.relacionesAutorizadas, relaciones);
+  assert.strictEqual(opciones.clienteRectificacion, clienteRectificacion);
+  assert.equal(Object.hasOwn(opciones, "clienteRectificacionAdmin"), false);
+});
+
 function domFalso() {
   class Nodo {
     constructor(etiqueta) { this.tagName = etiqueta; this.children = []; this.dataset = {}; this.atributos = {}; this.textContent = ""; this.parent = null; }

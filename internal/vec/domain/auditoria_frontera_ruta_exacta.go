@@ -7,6 +7,7 @@ import (
 )
 
 const SuperficieAuditoriaFronteraRutaExactaContratacionTemporal = "api.contratacion_temporal.ruta_exacta"
+const SuperficieAuditoriaFronteraRutaExactaOrganizacionHistoricaPersonal = "organizacion_historica_personal"
 const SuperficieAuditoriaFronteraRutaExactaPersonal = "api.personal.registro_empleado.ruta_exacta"
 const SuperficieAuditoriaFronteraRutaExactaAuditoria = "api.auditoria.ruta_exacta"
 const SuperficieAuditoriaFronteraRutaExactaUsuariosPreferencias = "api.usuarios.preferencias.ruta_exacta"
@@ -60,6 +61,8 @@ func rutaAuditoriaFronteraRutaExactaValidaParaSuperficie(superficie, ruta string
 	switch superficie {
 	case SuperficieAuditoriaFronteraRutaExactaContratacionTemporal:
 		return rutaAuditoriaFronteraRutaExactaValida(ruta)
+	case SuperficieAuditoriaFronteraRutaExactaOrganizacionHistoricaPersonal:
+		return ruta == "/api/vec/personal/organizacion-historica"
 	case SuperficieAuditoriaFronteraRutaExactaPersonal:
 		if ruta == "/api/vec/personal/vacantes" || ruta == "/api/vec/personal/empleados" ||
 			ruta == "/api/vec/personal/empleados-organismo" ||
