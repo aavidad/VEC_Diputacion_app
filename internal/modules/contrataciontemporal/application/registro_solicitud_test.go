@@ -770,4 +770,8 @@ func TestRegistroSolicitudIniciaCircuitoNuevoSinAfirmarFirma(t *testing.T) {
 		orden.Expediente.Validar() != nil {
 		t.Fatalf("alta publicó una firma inexistente o perdió el circuito: %v", err)
 	}
+	serializado, err := json.Marshal(orden.Expediente)
+	if err != nil || !bytes.Contains(serializado, []byte(`"hitos":[]`)) {
+		t.Fatalf("alta debe conservar un array de hitos vacío: %v", err)
+	}
 }

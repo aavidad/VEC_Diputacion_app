@@ -160,6 +160,9 @@ type HitoCircuitoRRHH struct {
 	UnidadRef                string               `json:"unidad_ref"`
 	DocumentoRef             string               `json:"documento_ref,omitempty"`
 	HuellaDocumentoSHA256    string               `json:"huella_documento_sha256,omitempty"`
+	ActoAutorizacionRef      string               `json:"acto_autorizacion_ref,omitempty"`
+	AutorizanteRef           string               `json:"autorizante_ref,omitempty"`
+	CargoAutorizanteClave    ClaveCatalogo        `json:"cargo_autorizante_clave,omitempty"`
 	Firmas                   []FirmaCircuitoRRHH  `json:"firmas,omitempty"`
 	CreditoRef               string               `json:"credito_ref,omitempty"`
 	OfertaRef                string               `json:"oferta_ref,omitempty"`
@@ -176,11 +179,13 @@ type HitoCircuitoRRHH struct {
 type FirmaCircuitoRRHH struct {
 	CargoClave            ClaveCatalogo `json:"cargo_clave"`
 	FirmaRef              string        `json:"firma_ref"`
+	FirmanteRef           string        `json:"firmante_ref"`
 	HuellaDocumentoSHA256 string        `json:"huella_documento_sha256"`
 }
 
 func (f FirmaCircuitoRRHH) validar() error {
 	if !f.CargoClave.Valida() || !referenciaValida(f.FirmaRef) ||
+		!referenciaValida(f.FirmanteRef) ||
 		!huellaValida(f.HuellaDocumentoSHA256) {
 		return ErrCircuitoRRHHInvalido
 	}
@@ -198,7 +203,8 @@ func (h HitoCircuitoRRHH) validar() error {
 		!instanteCanonico(h.RegistradoEn) {
 		return ErrCircuitoRRHHInvalido
 	}
-	for _, ref := range []string{h.DocumentoRef, h.CreditoRef, h.OfertaRef,
+	for _, ref := range []string{h.DocumentoRef, h.ActoAutorizacionRef,
+		h.AutorizanteRef, h.CreditoRef, h.OfertaRef,
 		h.AdjudicacionRef, h.RetornoRef, h.ActoIncorporacionRef} {
 		if ref != "" && !referenciaValida(ref) {
 			return ErrCircuitoRRHHInvalido
@@ -223,6 +229,11 @@ func (h HitoCircuitoRRHH) validar() error {
 		cargos[firma.CargoClave] = struct{}{}
 	}
 	switch h.Tipo {
+	case HitoAutorizacionRRHH:
+		if h.ActoAutorizacionRef == "" || h.AutorizanteRef == "" ||
+			!h.CargoAutorizanteClave.Valida() {
+			return ErrCircuitoRRHHInvalido
+		}
 	case HitoCreditoComprobado:
 		if h.CreditoRef == "" {
 			return ErrCircuitoRRHHInvalido
@@ -265,7 +276,9 @@ func NuevoCircuitoAdministrativo(d DefinicionCircuitoRRHH) (CircuitoAdministrati
 }
 
 func (c CircuitoAdministrativo) clonar() CircuitoAdministrativo {
-	c.Hitos = append([]HitoCircuitoRRHH(nil), c.Hitos...)
+	hitos := make([]HitoCircuitoRRHH, len(c.Hitos))
+	copy(hitos, c.Hitos)
+	c.Hitos = hitos
 	for i := range c.Hitos {
 		c.Hitos[i].Firmas = append([]FirmaCircuitoRRHH(nil), c.Hitos[i].Firmas...)
 	}
@@ -275,6 +288,7 @@ func (c CircuitoAdministrativo) clonar() CircuitoAdministrativo {
 func (e Expediente) circuitoValido() bool {
 	c := e.Circuito
 	if c == nil || c.Definicion != e.Flujo || c.Definicion.Validar() != nil ||
+		c.Hitos == nil ||
 		len(c.Hitos) > 128 {
 		return false
 	}

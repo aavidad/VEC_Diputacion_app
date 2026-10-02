@@ -39,8 +39,8 @@ func TestCircuitoRRHHLigaDosHitosAlActoSinVersionArtificial(t *testing.T) {
 		PerfilClave: "tecnico", PerfilRef: "perfil:tecnico:sintetico",
 		UnidadRef: act.UnidadRef, DocumentoRef: "documento:peticion:sintetica", HuellaDocumentoSHA256: strings.Repeat("a", 64),
 		Firmas: []FirmaCircuitoRRHH{
-			{CargoClave: "tecnico", FirmaRef: "firma:tecnico:sintetica", HuellaDocumentoSHA256: strings.Repeat("a", 64)},
-			{CargoClave: "delegacion", FirmaRef: "firma:delegacion:sintetica", HuellaDocumentoSHA256: strings.Repeat("a", 64)},
+			{CargoClave: "tecnico", FirmaRef: "firma:tecnico:sintetica", FirmanteRef: "actor:tecnico:sintetico", HuellaDocumentoSHA256: strings.Repeat("a", 64)},
+			{CargoClave: "delegacion", FirmaRef: "firma:delegacion:sintetica", FirmanteRef: "actor:delegacion:sintetico", HuellaDocumentoSHA256: strings.Repeat("a", 64)},
 		},
 		ReciboRef: act.ReciboRef, AuditoriaRef: "auditoria:peticion:sintetica",
 		EventoRef: "evento:peticion:sintetica", RegistradoEn: ahora,
@@ -49,7 +49,9 @@ func TestCircuitoRRHHLigaDosHitosAlActoSinVersionArtificial(t *testing.T) {
 		Clave: "autorizacion_rrhh", ActuacionClave: act.AccionClave, ActorRef: act.ActorRef,
 		PerfilClave: "direccion_rrhh", PerfilRef: "perfil:direccion_rrhh:sintetico",
 		UnidadRef: act.UnidadRef, DocumentoRef: "documento:autorizacion:sintetica", HuellaDocumentoSHA256: strings.Repeat("b", 64),
-		ReciboRef: act.ReciboRef, AuditoriaRef: "auditoria:autorizacion:sintetica",
+		ActoAutorizacionRef: "acto:autorizacion:sintetico", AutorizanteRef: "actor:direccion:sintetico",
+		CargoAutorizanteClave: "direccion_rrhh",
+		ReciboRef:             act.ReciboRef, AuditoriaRef: "auditoria:autorizacion:sintetica",
 		EventoRef: "evento:autorizacion:sintetica", RegistradoEn: ahora,
 	}
 	conHitos, err := base.AdjuntarHitosCircuito(definicion, base.Version, []HitoCircuitoRRHH{peticion, autorizacion})
