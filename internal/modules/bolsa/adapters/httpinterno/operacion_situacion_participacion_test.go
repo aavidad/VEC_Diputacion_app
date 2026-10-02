@@ -19,11 +19,35 @@ type operadorOperacionesHTTPPrueba struct {
 	recibida  *ports.SolicitudOperacionSituacion
 }
 
+type operadorHistorialOperacionHTTPPrueba struct {
+	operadorOperacionesHTTPPrueba
+	vigente ports.SituacionParticipacion
+}
+
+func (o operadorHistorialOperacionHTTPPrueba) ListarHistorial(context.Context, ports.SolicitudCambiarSituacionParticipacion) (ports.HistorialParticipacion, error) {
+	return ports.HistorialParticipacion{Operaciones: []ports.RegistroOperacionSituacion{}, Vigente: o.vigente}, nil
+}
+
 func (o operadorOperacionesHTTPPrueba) Operar(_ context.Context, q ports.SolicitudOperacionSituacion) (ports.RegistroSituacionParticipacion, error) {
 	if o.recibida != nil {
 		*o.recibida = q
 	}
 	return o.resultado, o.err
+}
+
+func TestHistorialOperacionEntregaSituacionVigenteParaCAS(t *testing.T) {
+	ruta := RutaBolsasGestion + "/bolsa:01/candidatos/participacion:01/operaciones"
+	desde := time.Date(2026, 10, 2, 9, 0, 0, 0, time.UTC)
+	h, _ := NuevoHandlerOperacionesSituacion(preparadorSituacionHTTPPrueba{}, operadorHistorialOperacionHTTPPrueba{
+		vigente: ports.SituacionParticipacion{ParticipacionRef: "participacion:01", Situacion: "en_revision", Desde: desde},
+	})
+	r := httptest.NewRequest(http.MethodGet, ruta, nil)
+	r.Header.Set("Accept", "application/json")
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, r)
+	if w.Code != 200 || !strings.Contains(w.Body.String(), `"situacion_vigente":{"desde":"2026-10-02T09:00:00Z","fecha_disponible":null,"situacion":"en_revision"}`) {
+		t.Fatalf("CAS de historial: status=%d body=%s", w.Code, w.Body.String())
+	}
 }
 func (o operadorOperacionesHTTPPrueba) ListarOperaciones(context.Context, ports.SolicitudCambiarSituacionParticipacion) ([]ports.RegistroOperacionSituacion, error) {
 	return o.items, o.err
