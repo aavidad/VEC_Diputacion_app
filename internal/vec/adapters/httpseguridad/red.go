@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/netip"
 	"strings"
+	"time"
 )
 
 var ErrRedNoAutorizada = errors.New("red no autorizada")
@@ -40,7 +41,10 @@ func NuevaPoliticaRed(configuracion ConfiguracionSuperficie) (PoliticaRed, error
 			}
 			prefijo = netip.PrefixFrom(prefijo.Addr().Unmap(), bitsIPv4).Masked()
 		}
-		if configuracion.ZonaRed != ZonaRedPublica && prefijo.Bits() == 0 {
+		if configuracion.ZonaRed != ZonaRedPublica && prefijo.Bits() == 0 &&
+			!(configuracion.Superficie == SuperficieAdministracionPrivilegiada &&
+				configuracion.PoliticaAdministracion == PoliticaAdministracionCertificadoTemporal &&
+				time.Now().Before(configuracion.RetiradaPoliticaAdministracionEn)) {
 			return PoliticaRed{}, fmt.Errorf("%w: una zona protegida no admite una red universal", ErrConfiguracionSuperficie)
 		}
 		if _, existe := vistos[prefijo]; existe {
