@@ -1,0 +1,2304 @@
+{
+  "ejemplos": [
+    {
+      "referencia": "seleccion_oposicion_v1",
+      "titulo_clave": "seleccion.ejemplo.oposicion",
+      "convocatoria_ref": "con_00000000000000000000000000000002",
+      "bases_version": 1,
+      "configuracion": {
+        "version": 1,
+        "modalidad": "oposicion",
+        "turno_acceso": "libre",
+        "destino": "plaza",
+        "plazas": 1,
+        "fases": [
+          {
+            "referencia": "ejercicio_1",
+            "tipo": "prueba",
+            "minimo_micropuntos": 5000000,
+            "maximo_micropuntos": 10000000,
+            "peso": 50
+          },
+          {
+            "referencia": "ejercicio_2",
+            "tipo": "prueba",
+            "minimo_micropuntos": 5000000,
+            "maximo_micropuntos": 10000000,
+            "peso": 50
+          }
+        ],
+        "desempates": [
+          "ejercicio_1"
+        ]
+      },
+      "entrada": {
+        "convocatoria_ref": "con_00000000000000000000000000000002",
+        "bases_version": 1,
+        "solicitudes": [
+          {
+            "referencia": "solicitud_1",
+            "nombre": "María Torres Ruiz",
+            "requisitos": [
+              {
+                "referencia": "titulacion_acceso",
+                "estado": "cumple",
+                "causa": "",
+                "fuente_ref": "evidencia_acceso_1"
+              }
+            ],
+            "notas": {
+              "ejercicio_1": 8000000,
+              "ejercicio_2": 7000000
+            }
+          },
+          {
+            "referencia": "solicitud_2",
+            "nombre": "José Martín López",
+            "requisitos": [
+              {
+                "referencia": "titulacion_acceso",
+                "estado": "cumple",
+                "causa": "",
+                "fuente_ref": "evidencia_acceso_2"
+              }
+            ],
+            "notas": {
+              "ejercicio_1": 7000000,
+              "ejercicio_2": 6000000
+            }
+          },
+          {
+            "referencia": "solicitud_3",
+            "nombre": "Carmen Vega Serrano",
+            "requisitos": [
+              {
+                "referencia": "titulacion_acceso",
+                "estado": "cumple",
+                "causa": "",
+                "fuente_ref": "evidencia_acceso_3"
+              }
+            ],
+            "notas": {
+              "ejercicio_1": 4000000,
+              "ejercicio_2": 9000000
+            }
+          },
+          {
+            "referencia": "solicitud_4",
+            "nombre": "Antonio Molina Castro",
+            "requisitos": [
+              {
+                "referencia": "titulacion_acceso",
+                "estado": "no_cumple",
+                "causa": "requisito_no_cumplido",
+                "fuente_ref": "evidencia_acceso_4"
+              }
+            ],
+            "notas": {
+              "ejercicio_1": 9000000,
+              "ejercicio_2": 9000000
+            }
+          }
+        ]
+      },
+      "baremo": {
+        "esquema": "vec.bolsa.reglas_meritos.v1",
+        "referencia": "rgl_00000000000000000000000000000001",
+        "version": 1,
+        "convocatoria_ref": "con_00000000000000000000000000000002",
+        "expediente_ref": "exp_00000000000000000000000000000003",
+        "bases": {
+          "referencia": "bas_00000000000000000000000000000004",
+          "version": 1,
+          "huella_sha256": "adfa7a09af78430010e2101fa3709039d2de5bccff8557856f3ab2fedf1095bc"
+        },
+        "fecha_corte_inclusiva": "2026-09-30",
+        "duplicados": "bloquear",
+        "momento_redondeo": "por_regla",
+        "seleccion_elementos": "mayor_unidad",
+        "maximo_total": "4000000",
+        "secciones": [
+          {
+            "clave": "formacion",
+            "definicion": {
+              "referencia": "sec_0000000000000000000000000000000a",
+              "version": 1,
+              "huella_sha256": "0b40a5bd58085098465cc73fb9416843e4944391c245f1eb962f0b3f03d3adb2"
+            },
+            "maximo_puntos": "1200000"
+          },
+          {
+            "clave": "otros",
+            "definicion": {
+              "referencia": "sec_0000000000000000000000000000000b",
+              "version": 1,
+              "huella_sha256": "b2c881fc16f8bba21aca17f3f0227e4996756f27323cdf682b9223bfdec9857c"
+            },
+            "maximo_puntos": "1100000"
+          },
+          {
+            "clave": "titulacion",
+            "definicion": {
+              "referencia": "sec_0000000000000000000000000000000c",
+              "version": 1,
+              "huella_sha256": "ba0609f366163a42c4629086926ba65345f6ba5c6e8ac7f85241c632acbcd9cd"
+            },
+            "maximo_puntos": "3000000"
+          }
+        ],
+        "reglas": [
+          {
+            "clave": "curso",
+            "definicion": {
+              "referencia": "def_00000000000000000000000000000014",
+              "version": 1,
+              "huella_sha256": "c268a9c4aec3caf8f28cf109dae69a42d23eb6ce83bcad2d6abeae8a5af9def0"
+            },
+            "seccion_clave": "formacion",
+            "familia": "formacion",
+            "clase": "curso_relacionado",
+            "catalogo": {
+              "referencia": "cat_00000000000000000000000000000014",
+              "version": 1,
+              "huella_sha256": "12e2c56bdfab70e145f86cf6c0b5349e137ee1182a2aaeea70351a7b2609a996"
+            },
+            "unidad": "hora",
+            "minimo_unidades": "20/1",
+            "maximo_unidades": "100/1",
+            "maximo_elementos": 100,
+            "puntos_por_unidad": "20000",
+            "maximo_puntos": "1500000",
+            "redondeo": "mitad_arriba"
+          },
+          {
+            "clave": "otro",
+            "definicion": {
+              "referencia": "def_00000000000000000000000000000015",
+              "version": 1,
+              "huella_sha256": "4ab51d03473e4239c552b9dce308e228bfc0d075b2bd404530f033178ec3684b"
+            },
+            "seccion_clave": "otros",
+            "familia": "otros",
+            "clase": "merito_catalogado",
+            "catalogo": {
+              "referencia": "cat_00000000000000000000000000000015",
+              "version": 1,
+              "huella_sha256": "1e7154e071dbcb85ad647b330bce6bdb6f097f4637d2ebca2daca56684d2f1e1"
+            },
+            "unidad": "unidad",
+            "minimo_unidades": "0/1",
+            "maximo_unidades": "1000/1",
+            "maximo_elementos": 10,
+            "puntos_por_unidad": "600000",
+            "maximo_puntos": "1100000",
+            "redondeo": "mitad_arriba"
+          },
+          {
+            "clave": "titulo",
+            "definicion": {
+              "referencia": "def_00000000000000000000000000000016",
+              "version": 1,
+              "huella_sha256": "fba421e91652feeaffb4ead197c4bf69c4f33c6fa4e3f361ce106c33ab1f3c42"
+            },
+            "seccion_clave": "titulacion",
+            "familia": "titulacion",
+            "clase": "titulo_adicional",
+            "catalogo": {
+              "referencia": "cat_00000000000000000000000000000016",
+              "version": 1,
+              "huella_sha256": "1fb49f36713084839deb9992e1e2ad5934170c6f380b900ad11c41ce3084c2a6"
+            },
+            "unidad": "titulo",
+            "minimo_unidades": "0/1",
+            "maximo_unidades": "1000/1",
+            "maximo_elementos": 1,
+            "puntos_por_unidad": "2000000",
+            "maximo_puntos": "4000000",
+            "redondeo": "mitad_arriba"
+          }
+        ]
+      },
+      "meritos": {
+        "solicitud_1": {
+          "esquema": "vec.bolsa.entrada_meritos.v1",
+          "referencia": "ent_00000000000000000000000000000001",
+          "version": 1,
+          "meritos": [
+            {
+              "referencia": "mer_00000000000000000000000000000001",
+              "hecho": {
+                "referencia": "hec_00000000000000000000000000000001",
+                "version": 1,
+                "huella_sha256": "d2b14e32475bdc9f31db79b32f1fd8d0d6653efcc7cfbf7a77a282af5b20ba41"
+              },
+              "evidencia": {
+                "referencia": "evi_00000000000000000000000000000001",
+                "version": 1,
+                "huella_sha256": "60c9ad117689de8339c929d3624fd88727cca49b98540ba333961f7a45e17b34"
+              },
+              "familia": "formacion",
+              "clase": "curso_relacionado",
+              "catalogo": {
+                "referencia": "cat_00000000000000000000000000000014",
+                "version": 1,
+                "huella_sha256": "12e2c56bdfab70e145f86cf6c0b5349e137ee1182a2aaeea70351a7b2609a996"
+              },
+              "uso": "merito",
+              "estado": "acreditado",
+              "aplicabilidad": "si",
+              "fecha_obtencion": "2026-09-30",
+              "vigente_hasta": null,
+              "unidades": "50/1"
+            },
+            {
+              "referencia": "mer_00000000000000000000000000000002",
+              "hecho": {
+                "referencia": "hec_00000000000000000000000000000002",
+                "version": 1,
+                "huella_sha256": "6878ac1cfc469ae26683caf3c57d5dfebf147a389f1ee5c0698b268b03d7d402"
+              },
+              "evidencia": {
+                "referencia": "evi_00000000000000000000000000000002",
+                "version": 1,
+                "huella_sha256": "77c69e83a37695e4824d8db063ee55dc148744dde51eb7b90e53062e2ab0aeb2"
+              },
+              "familia": "formacion",
+              "clase": "curso_relacionado",
+              "catalogo": {
+                "referencia": "cat_00000000000000000000000000000014",
+                "version": 1,
+                "huella_sha256": "12e2c56bdfab70e145f86cf6c0b5349e137ee1182a2aaeea70351a7b2609a996"
+              },
+              "uso": "merito",
+              "estado": "acreditado",
+              "aplicabilidad": "si",
+              "fecha_obtencion": "2026-09-30",
+              "vigente_hasta": null,
+              "unidades": "30/1"
+            },
+            {
+              "referencia": "mer_00000000000000000000000000000003",
+              "hecho": {
+                "referencia": "hec_00000000000000000000000000000003",
+                "version": 1,
+                "huella_sha256": "795aff5f62e439c4f12e45f74eb13f3c05f220093b4013334cb9fff64b8bb002"
+              },
+              "evidencia": {
+                "referencia": "evi_00000000000000000000000000000003",
+                "version": 1,
+                "huella_sha256": "ee6047f434f9256982e3125dacacfdb4530476a1a7f79369c042f961d9aaf8a5"
+              },
+              "familia": "formacion",
+              "clase": "curso_relacionado",
+              "catalogo": {
+                "referencia": "cat_00000000000000000000000000000014",
+                "version": 1,
+                "huella_sha256": "12e2c56bdfab70e145f86cf6c0b5349e137ee1182a2aaeea70351a7b2609a996"
+              },
+              "uso": "merito",
+              "estado": "acreditado",
+              "aplicabilidad": "si",
+              "fecha_obtencion": "2026-09-30",
+              "vigente_hasta": null,
+              "unidades": "19/1"
+            },
+            {
+              "referencia": "mer_00000000000000000000000000000004",
+              "hecho": {
+                "referencia": "hec_00000000000000000000000000000004",
+                "version": 1,
+                "huella_sha256": "a13e620d7658220c31fdb07124c1a81d959da244298905b9d94ae12ac57a83b2"
+              },
+              "evidencia": {
+                "referencia": "evi_00000000000000000000000000000004",
+                "version": 1,
+                "huella_sha256": "8583092ef7cf096bebc2bed0cbe471bff574a429d8c8de50c0629cfc5939219a"
+              },
+              "familia": "titulacion",
+              "clase": "titulo_adicional",
+              "catalogo": {
+                "referencia": "cat_00000000000000000000000000000016",
+                "version": 1,
+                "huella_sha256": "1fb49f36713084839deb9992e1e2ad5934170c6f380b900ad11c41ce3084c2a6"
+              },
+              "uso": "merito",
+              "estado": "acreditado",
+              "aplicabilidad": "si",
+              "fecha_obtencion": "2026-09-30",
+              "vigente_hasta": null,
+              "unidades": "1/1"
+            },
+            {
+              "referencia": "mer_00000000000000000000000000000005",
+              "hecho": {
+                "referencia": "hec_00000000000000000000000000000005",
+                "version": 1,
+                "huella_sha256": "73f41e2b7edb9a3cfce35e08bafe001d32f478528266b97fb3adbf95d367ba79"
+              },
+              "evidencia": {
+                "referencia": "evi_00000000000000000000000000000005",
+                "version": 1,
+                "huella_sha256": "1613cc3d4263a3c2520c8ce0cdb5b10beaa7621988603c66b57d481aff3147d4"
+              },
+              "familia": "titulacion",
+              "clase": "titulo_adicional",
+              "catalogo": {
+                "referencia": "cat_00000000000000000000000000000016",
+                "version": 1,
+                "huella_sha256": "1fb49f36713084839deb9992e1e2ad5934170c6f380b900ad11c41ce3084c2a6"
+              },
+              "uso": "merito",
+              "estado": "acreditado",
+              "aplicabilidad": "si",
+              "fecha_obtencion": "2026-09-30",
+              "vigente_hasta": null,
+              "unidades": "1/1"
+            },
+            {
+              "referencia": "mer_00000000000000000000000000000006",
+              "hecho": {
+                "referencia": "hec_00000000000000000000000000000006",
+                "version": 1,
+                "huella_sha256": "22511bdd95f95c00fa02d1ca8050c6a7513de56a345650e45e82ac536c0ecbe3"
+              },
+              "evidencia": {
+                "referencia": "evi_00000000000000000000000000000006",
+                "version": 1,
+                "huella_sha256": "70c76b76e9ff2217a05f1a01af55eeb7606eefab8e97abe560ff7a33f8170d1b"
+              },
+              "familia": "titulacion",
+              "clase": "requisito_acceso",
+              "catalogo": {
+                "referencia": "cat_00000000000000000000000000000063",
+                "version": 1,
+                "huella_sha256": "89aa51f52e0f2b78fc05850826d700a26f878d9b3cd436da32430e90920ffe49"
+              },
+              "uso": "requisito",
+              "estado": "acreditado",
+              "aplicabilidad": "si",
+              "fecha_obtencion": "2026-09-30",
+              "vigente_hasta": null,
+              "unidades": "1/1"
+            },
+            {
+              "referencia": "mer_00000000000000000000000000000007",
+              "hecho": {
+                "referencia": "hec_00000000000000000000000000000007",
+                "version": 1,
+                "huella_sha256": "31f9842e50cff17f94be206b4b5912d9be4893fd20677f9d6ac34e4e67687e26"
+              },
+              "evidencia": {
+                "referencia": "evi_00000000000000000000000000000007",
+                "version": 1,
+                "huella_sha256": "4313ddfd16f5083d2cb43280b7b16f8435c092a9d9f556b64e3f1d8c9c492250"
+              },
+              "familia": "otros",
+              "clase": "merito_catalogado",
+              "catalogo": {
+                "referencia": "cat_00000000000000000000000000000015",
+                "version": 1,
+                "huella_sha256": "1e7154e071dbcb85ad647b330bce6bdb6f097f4637d2ebca2daca56684d2f1e1"
+              },
+              "uso": "merito",
+              "estado": "acreditado",
+              "aplicabilidad": "si",
+              "fecha_obtencion": "2026-09-30",
+              "vigente_hasta": null,
+              "unidades": "3/2"
+            },
+            {
+              "referencia": "mer_00000000000000000000000000000008",
+              "hecho": {
+                "referencia": "hec_00000000000000000000000000000008",
+                "version": 1,
+                "huella_sha256": "b9d0e500077a23888494719cd9484fd7acd17e6b2041ddc5068eb5d2be3091a4"
+              },
+              "evidencia": {
+                "referencia": "evi_00000000000000000000000000000008",
+                "version": 1,
+                "huella_sha256": "cc350164c6085fa0b5802392b27002efa17f4463fb39fa9f444a171dce815634"
+              },
+              "familia": "formacion",
+              "clase": "curso_relacionado",
+              "catalogo": {
+                "referencia": "cat_00000000000000000000000000000014",
+                "version": 1,
+                "huella_sha256": "12e2c56bdfab70e145f86cf6c0b5349e137ee1182a2aaeea70351a7b2609a996"
+              },
+              "uso": "merito",
+              "estado": "acreditado",
+              "aplicabilidad": "si",
+              "fecha_obtencion": "2026-10-01",
+              "vigente_hasta": null,
+              "unidades": "200/1"
+            },
+            {
+              "referencia": "mer_00000000000000000000000000000009",
+              "hecho": {
+                "referencia": "hec_00000000000000000000000000000009",
+                "version": 1,
+                "huella_sha256": "cfdbae7315fd005e257b19a531cb00393ee587fd43b0d470453fe274fcd01ced"
+              },
+              "evidencia": {
+                "referencia": "evi_00000000000000000000000000000009",
+                "version": 1,
+                "huella_sha256": "d705aacd1c8866a536730ba7434a31921c862040d8d468dd506c5de2c6527eca"
+              },
+              "familia": "formacion",
+              "clase": "curso_relacionado",
+              "catalogo": {
+                "referencia": "cat_00000000000000000000000000000014",
+                "version": 1,
+                "huella_sha256": "12e2c56bdfab70e145f86cf6c0b5349e137ee1182a2aaeea70351a7b2609a996"
+              },
+              "uso": "merito",
+              "estado": "acreditado",
+              "aplicabilidad": "si",
+              "fecha_obtencion": "2026-01-01",
+              "vigente_hasta": "2026-09-29",
+              "unidades": "200/1"
+            }
+          ]
+        },
+        "solicitud_2": {
+          "esquema": "vec.bolsa.entrada_meritos.v1",
+          "referencia": "ent_00000000000000000000000000000002",
+          "version": 1,
+          "meritos": [
+            {
+              "referencia": "mer_00000000000000000000000000000001",
+              "hecho": {
+                "referencia": "hec_00000000000000000000000000000001",
+                "version": 1,
+                "huella_sha256": "d2b14e32475bdc9f31db79b32f1fd8d0d6653efcc7cfbf7a77a282af5b20ba41"
+              },
+              "evidencia": {
+                "referencia": "evi_00000000000000000000000000000001",
+                "version": 1,
+                "huella_sha256": "60c9ad117689de8339c929d3624fd88727cca49b98540ba333961f7a45e17b34"
+              },
+              "familia": "formacion",
+              "clase": "curso_relacionado",
+              "catalogo": {
+                "referencia": "cat_00000000000000000000000000000014",
+                "version": 1,
+                "huella_sha256": "12e2c56bdfab70e145f86cf6c0b5349e137ee1182a2aaeea70351a7b2609a996"
+              },
+              "uso": "merito",
+              "estado": "acreditado",
+              "aplicabilidad": "si",
+              "fecha_obtencion": "2026-09-30",
+              "vigente_hasta": null,
+              "unidades": "50/1"
+            }
+          ]
+        },
+        "solicitud_3": {
+          "esquema": "vec.bolsa.entrada_meritos.v1",
+          "referencia": "ent_00000000000000000000000000000003",
+          "version": 1,
+          "meritos": [
+            {
+              "referencia": "mer_00000000000000000000000000000004",
+              "hecho": {
+                "referencia": "hec_00000000000000000000000000000004",
+                "version": 1,
+                "huella_sha256": "a13e620d7658220c31fdb07124c1a81d959da244298905b9d94ae12ac57a83b2"
+              },
+              "evidencia": {
+                "referencia": "evi_00000000000000000000000000000004",
+                "version": 1,
+                "huella_sha256": "8583092ef7cf096bebc2bed0cbe471bff574a429d8c8de50c0629cfc5939219a"
+              },
+              "familia": "titulacion",
+              "clase": "titulo_adicional",
+              "catalogo": {
+                "referencia": "cat_00000000000000000000000000000016",
+                "version": 1,
+                "huella_sha256": "1fb49f36713084839deb9992e1e2ad5934170c6f380b900ad11c41ce3084c2a6"
+              },
+              "uso": "merito",
+              "estado": "acreditado",
+              "aplicabilidad": "si",
+              "fecha_obtencion": "2026-09-30",
+              "vigente_hasta": null,
+              "unidades": "1/1"
+            }
+          ]
+        },
+        "solicitud_4": {
+          "esquema": "vec.bolsa.entrada_meritos.v1",
+          "referencia": "ent_00000000000000000000000000000004",
+          "version": 1,
+          "meritos": [
+            {
+              "referencia": "mer_00000000000000000000000000000001",
+              "hecho": {
+                "referencia": "hec_00000000000000000000000000000001",
+                "version": 1,
+                "huella_sha256": "d2b14e32475bdc9f31db79b32f1fd8d0d6653efcc7cfbf7a77a282af5b20ba41"
+              },
+              "evidencia": {
+                "referencia": "evi_00000000000000000000000000000001",
+                "version": 1,
+                "huella_sha256": "60c9ad117689de8339c929d3624fd88727cca49b98540ba333961f7a45e17b34"
+              },
+              "familia": "formacion",
+              "clase": "curso_relacionado",
+              "catalogo": {
+                "referencia": "cat_00000000000000000000000000000014",
+                "version": 1,
+                "huella_sha256": "12e2c56bdfab70e145f86cf6c0b5349e137ee1182a2aaeea70351a7b2609a996"
+              },
+              "uso": "merito",
+              "estado": "acreditado",
+              "aplicabilidad": "si",
+              "fecha_obtencion": "2026-09-30",
+              "vigente_hasta": null,
+              "unidades": "50/1"
+            },
+            {
+              "referencia": "mer_00000000000000000000000000000002",
+              "hecho": {
+                "referencia": "hec_00000000000000000000000000000002",
+                "version": 1,
+                "huella_sha256": "6878ac1cfc469ae26683caf3c57d5dfebf147a389f1ee5c0698b268b03d7d402"
+              },
+              "evidencia": {
+                "referencia": "evi_00000000000000000000000000000002",
+                "version": 1,
+                "huella_sha256": "77c69e83a37695e4824d8db063ee55dc148744dde51eb7b90e53062e2ab0aeb2"
+              },
+              "familia": "formacion",
+              "clase": "curso_relacionado",
+              "catalogo": {
+                "referencia": "cat_00000000000000000000000000000014",
+                "version": 1,
+                "huella_sha256": "12e2c56bdfab70e145f86cf6c0b5349e137ee1182a2aaeea70351a7b2609a996"
+              },
+              "uso": "merito",
+              "estado": "acreditado",
+              "aplicabilidad": "si",
+              "fecha_obtencion": "2026-09-30",
+              "vigente_hasta": null,
+              "unidades": "30/1"
+            },
+            {
+              "referencia": "mer_00000000000000000000000000000003",
+              "hecho": {
+                "referencia": "hec_00000000000000000000000000000003",
+                "version": 1,
+                "huella_sha256": "795aff5f62e439c4f12e45f74eb13f3c05f220093b4013334cb9fff64b8bb002"
+              },
+              "evidencia": {
+                "referencia": "evi_00000000000000000000000000000003",
+                "version": 1,
+                "huella_sha256": "ee6047f434f9256982e3125dacacfdb4530476a1a7f79369c042f961d9aaf8a5"
+              },
+              "familia": "formacion",
+              "clase": "curso_relacionado",
+              "catalogo": {
+                "referencia": "cat_00000000000000000000000000000014",
+                "version": 1,
+                "huella_sha256": "12e2c56bdfab70e145f86cf6c0b5349e137ee1182a2aaeea70351a7b2609a996"
+              },
+              "uso": "merito",
+              "estado": "acreditado",
+              "aplicabilidad": "si",
+              "fecha_obtencion": "2026-09-30",
+              "vigente_hasta": null,
+              "unidades": "19/1"
+            },
+            {
+              "referencia": "mer_00000000000000000000000000000004",
+              "hecho": {
+                "referencia": "hec_00000000000000000000000000000004",
+                "version": 1,
+                "huella_sha256": "a13e620d7658220c31fdb07124c1a81d959da244298905b9d94ae12ac57a83b2"
+              },
+              "evidencia": {
+                "referencia": "evi_00000000000000000000000000000004",
+                "version": 1,
+                "huella_sha256": "8583092ef7cf096bebc2bed0cbe471bff574a429d8c8de50c0629cfc5939219a"
+              },
+              "familia": "titulacion",
+              "clase": "titulo_adicional",
+              "catalogo": {
+                "referencia": "cat_00000000000000000000000000000016",
+                "version": 1,
+                "huella_sha256": "1fb49f36713084839deb9992e1e2ad5934170c6f380b900ad11c41ce3084c2a6"
+              },
+              "uso": "merito",
+              "estado": "acreditado",
+              "aplicabilidad": "si",
+              "fecha_obtencion": "2026-09-30",
+              "vigente_hasta": null,
+              "unidades": "1/1"
+            },
+            {
+              "referencia": "mer_00000000000000000000000000000005",
+              "hecho": {
+                "referencia": "hec_00000000000000000000000000000005",
+                "version": 1,
+                "huella_sha256": "73f41e2b7edb9a3cfce35e08bafe001d32f478528266b97fb3adbf95d367ba79"
+              },
+              "evidencia": {
+                "referencia": "evi_00000000000000000000000000000005",
+                "version": 1,
+                "huella_sha256": "1613cc3d4263a3c2520c8ce0cdb5b10beaa7621988603c66b57d481aff3147d4"
+              },
+              "familia": "titulacion",
+              "clase": "titulo_adicional",
+              "catalogo": {
+                "referencia": "cat_00000000000000000000000000000016",
+                "version": 1,
+                "huella_sha256": "1fb49f36713084839deb9992e1e2ad5934170c6f380b900ad11c41ce3084c2a6"
+              },
+              "uso": "merito",
+              "estado": "acreditado",
+              "aplicabilidad": "si",
+              "fecha_obtencion": "2026-09-30",
+              "vigente_hasta": null,
+              "unidades": "1/1"
+            },
+            {
+              "referencia": "mer_00000000000000000000000000000006",
+              "hecho": {
+                "referencia": "hec_00000000000000000000000000000006",
+                "version": 1,
+                "huella_sha256": "22511bdd95f95c00fa02d1ca8050c6a7513de56a345650e45e82ac536c0ecbe3"
+              },
+              "evidencia": {
+                "referencia": "evi_00000000000000000000000000000006",
+                "version": 1,
+                "huella_sha256": "70c76b76e9ff2217a05f1a01af55eeb7606eefab8e97abe560ff7a33f8170d1b"
+              },
+              "familia": "titulacion",
+              "clase": "requisito_acceso",
+              "catalogo": {
+                "referencia": "cat_00000000000000000000000000000063",
+                "version": 1,
+                "huella_sha256": "89aa51f52e0f2b78fc05850826d700a26f878d9b3cd436da32430e90920ffe49"
+              },
+              "uso": "requisito",
+              "estado": "acreditado",
+              "aplicabilidad": "si",
+              "fecha_obtencion": "2026-09-30",
+              "vigente_hasta": null,
+              "unidades": "1/1"
+            },
+            {
+              "referencia": "mer_00000000000000000000000000000007",
+              "hecho": {
+                "referencia": "hec_00000000000000000000000000000007",
+                "version": 1,
+                "huella_sha256": "31f9842e50cff17f94be206b4b5912d9be4893fd20677f9d6ac34e4e67687e26"
+              },
+              "evidencia": {
+                "referencia": "evi_00000000000000000000000000000007",
+                "version": 1,
+                "huella_sha256": "4313ddfd16f5083d2cb43280b7b16f8435c092a9d9f556b64e3f1d8c9c492250"
+              },
+              "familia": "otros",
+              "clase": "merito_catalogado",
+              "catalogo": {
+                "referencia": "cat_00000000000000000000000000000015",
+                "version": 1,
+                "huella_sha256": "1e7154e071dbcb85ad647b330bce6bdb6f097f4637d2ebca2daca56684d2f1e1"
+              },
+              "uso": "merito",
+              "estado": "acreditado",
+              "aplicabilidad": "si",
+              "fecha_obtencion": "2026-09-30",
+              "vigente_hasta": null,
+              "unidades": "3/2"
+            },
+            {
+              "referencia": "mer_00000000000000000000000000000008",
+              "hecho": {
+                "referencia": "hec_00000000000000000000000000000008",
+                "version": 1,
+                "huella_sha256": "b9d0e500077a23888494719cd9484fd7acd17e6b2041ddc5068eb5d2be3091a4"
+              },
+              "evidencia": {
+                "referencia": "evi_00000000000000000000000000000008",
+                "version": 1,
+                "huella_sha256": "cc350164c6085fa0b5802392b27002efa17f4463fb39fa9f444a171dce815634"
+              },
+              "familia": "formacion",
+              "clase": "curso_relacionado",
+              "catalogo": {
+                "referencia": "cat_00000000000000000000000000000014",
+                "version": 1,
+                "huella_sha256": "12e2c56bdfab70e145f86cf6c0b5349e137ee1182a2aaeea70351a7b2609a996"
+              },
+              "uso": "merito",
+              "estado": "acreditado",
+              "aplicabilidad": "si",
+              "fecha_obtencion": "2026-10-01",
+              "vigente_hasta": null,
+              "unidades": "200/1"
+            },
+            {
+              "referencia": "mer_00000000000000000000000000000009",
+              "hecho": {
+                "referencia": "hec_00000000000000000000000000000009",
+                "version": 1,
+                "huella_sha256": "cfdbae7315fd005e257b19a531cb00393ee587fd43b0d470453fe274fcd01ced"
+              },
+              "evidencia": {
+                "referencia": "evi_00000000000000000000000000000009",
+                "version": 1,
+                "huella_sha256": "d705aacd1c8866a536730ba7434a31921c862040d8d468dd506c5de2c6527eca"
+              },
+              "familia": "formacion",
+              "clase": "curso_relacionado",
+              "catalogo": {
+                "referencia": "cat_00000000000000000000000000000014",
+                "version": 1,
+                "huella_sha256": "12e2c56bdfab70e145f86cf6c0b5349e137ee1182a2aaeea70351a7b2609a996"
+              },
+              "uso": "merito",
+              "estado": "acreditado",
+              "aplicabilidad": "si",
+              "fecha_obtencion": "2026-01-01",
+              "vigente_hasta": "2026-09-29",
+              "unidades": "200/1"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "referencia": "seleccion_concurso_v1",
+      "titulo_clave": "seleccion.ejemplo.concurso",
+      "convocatoria_ref": "con_00000000000000000000000000000003",
+      "bases_version": 1,
+      "configuracion": {
+        "version": 1,
+        "modalidad": "concurso",
+        "turno_acceso": "libre",
+        "destino": "bolsa",
+        "plazas": 1,
+        "fases": [
+          {
+            "referencia": "meritos",
+            "tipo": "meritos",
+            "minimo_micropuntos": 0,
+            "maximo_micropuntos": 4000000,
+            "peso": 100
+          }
+        ],
+        "desempates": [
+          "meritos"
+        ]
+      },
+      "entrada": {
+        "convocatoria_ref": "con_00000000000000000000000000000003",
+        "bases_version": 1,
+        "solicitudes": [
+          {
+            "referencia": "solicitud_1",
+            "nombre": "María Torres Ruiz",
+            "requisitos": [
+              {
+                "referencia": "titulacion_acceso",
+                "estado": "cumple",
+                "causa": "",
+                "fuente_ref": "evidencia_acceso_1"
+              }
+            ],
+            "notas": {
+              "ejercicio_1": 8000000,
+              "ejercicio_2": 7000000
+            }
+          },
+          {
+            "referencia": "solicitud_2",
+            "nombre": "José Martín López",
+            "requisitos": [
+              {
+                "referencia": "titulacion_acceso",
+                "estado": "cumple",
+                "causa": "",
+                "fuente_ref": "evidencia_acceso_2"
+              }
+            ],
+            "notas": {
+              "ejercicio_1": 7000000,
+              "ejercicio_2": 6000000
+            }
+          },
+          {
+            "referencia": "solicitud_3",
+            "nombre": "Carmen Vega Serrano",
+            "requisitos": [
+              {
+                "referencia": "titulacion_acceso",
+                "estado": "cumple",
+                "causa": "",
+                "fuente_ref": "evidencia_acceso_3"
+              }
+            ],
+            "notas": {
+              "ejercicio_1": 4000000,
+              "ejercicio_2": 9000000
+            }
+          },
+          {
+            "referencia": "solicitud_4",
+            "nombre": "Antonio Molina Castro",
+            "requisitos": [
+              {
+                "referencia": "titulacion_acceso",
+                "estado": "no_cumple",
+                "causa": "requisito_no_cumplido",
+                "fuente_ref": "evidencia_acceso_4"
+              }
+            ],
+            "notas": {
+              "ejercicio_1": 9000000,
+              "ejercicio_2": 9000000
+            }
+          }
+        ]
+      },
+      "baremo": {
+        "esquema": "vec.bolsa.reglas_meritos.v1",
+        "referencia": "rgl_00000000000000000000000000000001",
+        "version": 1,
+        "convocatoria_ref": "con_00000000000000000000000000000003",
+        "expediente_ref": "exp_00000000000000000000000000000003",
+        "bases": {
+          "referencia": "bas_00000000000000000000000000000004",
+          "version": 1,
+          "huella_sha256": "adfa7a09af78430010e2101fa3709039d2de5bccff8557856f3ab2fedf1095bc"
+        },
+        "fecha_corte_inclusiva": "2026-09-30",
+        "duplicados": "bloquear",
+        "momento_redondeo": "por_regla",
+        "seleccion_elementos": "mayor_unidad",
+        "maximo_total": "4000000",
+        "secciones": [
+          {
+            "clave": "formacion",
+            "definicion": {
+              "referencia": "sec_0000000000000000000000000000000a",
+              "version": 1,
+              "huella_sha256": "0b40a5bd58085098465cc73fb9416843e4944391c245f1eb962f0b3f03d3adb2"
+            },
+            "maximo_puntos": "1200000"
+          },
+          {
+            "clave": "otros",
+            "definicion": {
+              "referencia": "sec_0000000000000000000000000000000b",
+              "version": 1,
+              "huella_sha256": "b2c881fc16f8bba21aca17f3f0227e4996756f27323cdf682b9223bfdec9857c"
+            },
+            "maximo_puntos": "1100000"
+          },
+          {
+            "clave": "titulacion",
+            "definicion": {
+              "referencia": "sec_0000000000000000000000000000000c",
+              "version": 1,
+              "huella_sha256": "ba0609f366163a42c4629086926ba65345f6ba5c6e8ac7f85241c632acbcd9cd"
+            },
+            "maximo_puntos": "3000000"
+          }
+        ],
+        "reglas": [
+          {
+            "clave": "curso",
+            "definicion": {
+              "referencia": "def_00000000000000000000000000000014",
+              "version": 1,
+              "huella_sha256": "c268a9c4aec3caf8f28cf109dae69a42d23eb6ce83bcad2d6abeae8a5af9def0"
+            },
+            "seccion_clave": "formacion",
+            "familia": "formacion",
+            "clase": "curso_relacionado",
+            "catalogo": {
+              "referencia": "cat_00000000000000000000000000000014",
+              "version": 1,
+              "huella_sha256": "12e2c56bdfab70e145f86cf6c0b5349e137ee1182a2aaeea70351a7b2609a996"
+            },
+            "unidad": "hora",
+            "minimo_unidades": "20/1",
+            "maximo_unidades": "100/1",
+            "maximo_elementos": 100,
+            "puntos_por_unidad": "20000",
+            "maximo_puntos": "1500000",
+            "redondeo": "mitad_arriba"
+          },
+          {
+            "clave": "otro",
+            "definicion": {
+              "referencia": "def_00000000000000000000000000000015",
+              "version": 1,
+              "huella_sha256": "4ab51d03473e4239c552b9dce308e228bfc0d075b2bd404530f033178ec3684b"
+            },
+            "seccion_clave": "otros",
+            "familia": "otros",
+            "clase": "merito_catalogado",
+            "catalogo": {
+              "referencia": "cat_00000000000000000000000000000015",
+              "version": 1,
+              "huella_sha256": "1e7154e071dbcb85ad647b330bce6bdb6f097f4637d2ebca2daca56684d2f1e1"
+            },
+            "unidad": "unidad",
+            "minimo_unidades": "0/1",
+            "maximo_unidades": "1000/1",
+            "maximo_elementos": 10,
+            "puntos_por_unidad": "600000",
+            "maximo_puntos": "1100000",
+            "redondeo": "mitad_arriba"
+          },
+          {
+            "clave": "titulo",
+            "definicion": {
+              "referencia": "def_00000000000000000000000000000016",
+              "version": 1,
+              "huella_sha256": "fba421e91652feeaffb4ead197c4bf69c4f33c6fa4e3f361ce106c33ab1f3c42"
+            },
+            "seccion_clave": "titulacion",
+            "familia": "titulacion",
+            "clase": "titulo_adicional",
+            "catalogo": {
+              "referencia": "cat_00000000000000000000000000000016",
+              "version": 1,
+              "huella_sha256": "1fb49f36713084839deb9992e1e2ad5934170c6f380b900ad11c41ce3084c2a6"
+            },
+            "unidad": "titulo",
+            "minimo_unidades": "0/1",
+            "maximo_unidades": "1000/1",
+            "maximo_elementos": 1,
+            "puntos_por_unidad": "2000000",
+            "maximo_puntos": "4000000",
+            "redondeo": "mitad_arriba"
+          }
+        ]
+      },
+      "meritos": {
+        "solicitud_1": {
+          "esquema": "vec.bolsa.entrada_meritos.v1",
+          "referencia": "ent_00000000000000000000000000000001",
+          "version": 1,
+          "meritos": [
+            {
+              "referencia": "mer_00000000000000000000000000000001",
+              "hecho": {
+                "referencia": "hec_00000000000000000000000000000001",
+                "version": 1,
+                "huella_sha256": "d2b14e32475bdc9f31db79b32f1fd8d0d6653efcc7cfbf7a77a282af5b20ba41"
+              },
+              "evidencia": {
+                "referencia": "evi_00000000000000000000000000000001",
+                "version": 1,
+                "huella_sha256": "60c9ad117689de8339c929d3624fd88727cca49b98540ba333961f7a45e17b34"
+              },
+              "familia": "formacion",
+              "clase": "curso_relacionado",
+              "catalogo": {
+                "referencia": "cat_00000000000000000000000000000014",
+                "version": 1,
+                "huella_sha256": "12e2c56bdfab70e145f86cf6c0b5349e137ee1182a2aaeea70351a7b2609a996"
+              },
+              "uso": "merito",
+              "estado": "acreditado",
+              "aplicabilidad": "si",
+              "fecha_obtencion": "2026-09-30",
+              "vigente_hasta": null,
+              "unidades": "50/1"
+            },
+            {
+              "referencia": "mer_00000000000000000000000000000002",
+              "hecho": {
+                "referencia": "hec_00000000000000000000000000000002",
+                "version": 1,
+                "huella_sha256": "6878ac1cfc469ae26683caf3c57d5dfebf147a389f1ee5c0698b268b03d7d402"
+              },
+              "evidencia": {
+                "referencia": "evi_00000000000000000000000000000002",
+                "version": 1,
+                "huella_sha256": "77c69e83a37695e4824d8db063ee55dc148744dde51eb7b90e53062e2ab0aeb2"
+              },
+              "familia": "formacion",
+              "clase": "curso_relacionado",
+              "catalogo": {
+                "referencia": "cat_00000000000000000000000000000014",
+                "version": 1,
+                "huella_sha256": "12e2c56bdfab70e145f86cf6c0b5349e137ee1182a2aaeea70351a7b2609a996"
+              },
+              "uso": "merito",
+              "estado": "acreditado",
+              "aplicabilidad": "si",
+              "fecha_obtencion": "2026-09-30",
+              "vigente_hasta": null,
+              "unidades": "30/1"
+            },
+            {
+              "referencia": "mer_00000000000000000000000000000003",
+              "hecho": {
+                "referencia": "hec_00000000000000000000000000000003",
+                "version": 1,
+                "huella_sha256": "795aff5f62e439c4f12e45f74eb13f3c05f220093b4013334cb9fff64b8bb002"
+              },
+              "evidencia": {
+                "referencia": "evi_00000000000000000000000000000003",
+                "version": 1,
+                "huella_sha256": "ee6047f434f9256982e3125dacacfdb4530476a1a7f79369c042f961d9aaf8a5"
+              },
+              "familia": "formacion",
+              "clase": "curso_relacionado",
+              "catalogo": {
+                "referencia": "cat_00000000000000000000000000000014",
+                "version": 1,
+                "huella_sha256": "12e2c56bdfab70e145f86cf6c0b5349e137ee1182a2aaeea70351a7b2609a996"
+              },
+              "uso": "merito",
+              "estado": "acreditado",
+              "aplicabilidad": "si",
+              "fecha_obtencion": "2026-09-30",
+              "vigente_hasta": null,
+              "unidades": "19/1"
+            },
+            {
+              "referencia": "mer_00000000000000000000000000000004",
+              "hecho": {
+                "referencia": "hec_00000000000000000000000000000004",
+                "version": 1,
+                "huella_sha256": "a13e620d7658220c31fdb07124c1a81d959da244298905b9d94ae12ac57a83b2"
+              },
+              "evidencia": {
+                "referencia": "evi_00000000000000000000000000000004",
+                "version": 1,
+                "huella_sha256": "8583092ef7cf096bebc2bed0cbe471bff574a429d8c8de50c0629cfc5939219a"
+              },
+              "familia": "titulacion",
+              "clase": "titulo_adicional",
+              "catalogo": {
+                "referencia": "cat_00000000000000000000000000000016",
+                "version": 1,
+                "huella_sha256": "1fb49f36713084839deb9992e1e2ad5934170c6f380b900ad11c41ce3084c2a6"
+              },
+              "uso": "merito",
+              "estado": "acreditado",
+              "aplicabilidad": "si",
+              "fecha_obtencion": "2026-09-30",
+              "vigente_hasta": null,
+              "unidades": "1/1"
+            },
+            {
+              "referencia": "mer_00000000000000000000000000000005",
+              "hecho": {
+                "referencia": "hec_00000000000000000000000000000005",
+                "version": 1,
+                "huella_sha256": "73f41e2b7edb9a3cfce35e08bafe001d32f478528266b97fb3adbf95d367ba79"
+              },
+              "evidencia": {
+                "referencia": "evi_00000000000000000000000000000005",
+                "version": 1,
+                "huella_sha256": "1613cc3d4263a3c2520c8ce0cdb5b10beaa7621988603c66b57d481aff3147d4"
+              },
+              "familia": "titulacion",
+              "clase": "titulo_adicional",
+              "catalogo": {
+                "referencia": "cat_00000000000000000000000000000016",
+                "version": 1,
+                "huella_sha256": "1fb49f36713084839deb9992e1e2ad5934170c6f380b900ad11c41ce3084c2a6"
+              },
+              "uso": "merito",
+              "estado": "acreditado",
+              "aplicabilidad": "si",
+              "fecha_obtencion": "2026-09-30",
+              "vigente_hasta": null,
+              "unidades": "1/1"
+            },
+            {
+              "referencia": "mer_00000000000000000000000000000006",
+              "hecho": {
+                "referencia": "hec_00000000000000000000000000000006",
+                "version": 1,
+                "huella_sha256": "22511bdd95f95c00fa02d1ca8050c6a7513de56a345650e45e82ac536c0ecbe3"
+              },
+              "evidencia": {
+                "referencia": "evi_00000000000000000000000000000006",
+                "version": 1,
+                "huella_sha256": "70c76b76e9ff2217a05f1a01af55eeb7606eefab8e97abe560ff7a33f8170d1b"
+              },
+              "familia": "titulacion",
+              "clase": "requisito_acceso",
+              "catalogo": {
+                "referencia": "cat_00000000000000000000000000000063",
+                "version": 1,
+                "huella_sha256": "89aa51f52e0f2b78fc05850826d700a26f878d9b3cd436da32430e90920ffe49"
+              },
+              "uso": "requisito",
+              "estado": "acreditado",
+              "aplicabilidad": "si",
+              "fecha_obtencion": "2026-09-30",
+              "vigente_hasta": null,
+              "unidades": "1/1"
+            },
+            {
+              "referencia": "mer_00000000000000000000000000000007",
+              "hecho": {
+                "referencia": "hec_00000000000000000000000000000007",
+                "version": 1,
+                "huella_sha256": "31f9842e50cff17f94be206b4b5912d9be4893fd20677f9d6ac34e4e67687e26"
+              },
+              "evidencia": {
+                "referencia": "evi_00000000000000000000000000000007",
+                "version": 1,
+                "huella_sha256": "4313ddfd16f5083d2cb43280b7b16f8435c092a9d9f556b64e3f1d8c9c492250"
+              },
+              "familia": "otros",
+              "clase": "merito_catalogado",
+              "catalogo": {
+                "referencia": "cat_00000000000000000000000000000015",
+                "version": 1,
+                "huella_sha256": "1e7154e071dbcb85ad647b330bce6bdb6f097f4637d2ebca2daca56684d2f1e1"
+              },
+              "uso": "merito",
+              "estado": "acreditado",
+              "aplicabilidad": "si",
+              "fecha_obtencion": "2026-09-30",
+              "vigente_hasta": null,
+              "unidades": "3/2"
+            },
+            {
+              "referencia": "mer_00000000000000000000000000000008",
+              "hecho": {
+                "referencia": "hec_00000000000000000000000000000008",
+                "version": 1,
+                "huella_sha256": "b9d0e500077a23888494719cd9484fd7acd17e6b2041ddc5068eb5d2be3091a4"
+              },
+              "evidencia": {
+                "referencia": "evi_00000000000000000000000000000008",
+                "version": 1,
+                "huella_sha256": "cc350164c6085fa0b5802392b27002efa17f4463fb39fa9f444a171dce815634"
+              },
+              "familia": "formacion",
+              "clase": "curso_relacionado",
+              "catalogo": {
+                "referencia": "cat_00000000000000000000000000000014",
+                "version": 1,
+                "huella_sha256": "12e2c56bdfab70e145f86cf6c0b5349e137ee1182a2aaeea70351a7b2609a996"
+              },
+              "uso": "merito",
+              "estado": "acreditado",
+              "aplicabilidad": "si",
+              "fecha_obtencion": "2026-10-01",
+              "vigente_hasta": null,
+              "unidades": "200/1"
+            },
+            {
+              "referencia": "mer_00000000000000000000000000000009",
+              "hecho": {
+                "referencia": "hec_00000000000000000000000000000009",
+                "version": 1,
+                "huella_sha256": "cfdbae7315fd005e257b19a531cb00393ee587fd43b0d470453fe274fcd01ced"
+              },
+              "evidencia": {
+                "referencia": "evi_00000000000000000000000000000009",
+                "version": 1,
+                "huella_sha256": "d705aacd1c8866a536730ba7434a31921c862040d8d468dd506c5de2c6527eca"
+              },
+              "familia": "formacion",
+              "clase": "curso_relacionado",
+              "catalogo": {
+                "referencia": "cat_00000000000000000000000000000014",
+                "version": 1,
+                "huella_sha256": "12e2c56bdfab70e145f86cf6c0b5349e137ee1182a2aaeea70351a7b2609a996"
+              },
+              "uso": "merito",
+              "estado": "acreditado",
+              "aplicabilidad": "si",
+              "fecha_obtencion": "2026-01-01",
+              "vigente_hasta": "2026-09-29",
+              "unidades": "200/1"
+            }
+          ]
+        },
+        "solicitud_2": {
+          "esquema": "vec.bolsa.entrada_meritos.v1",
+          "referencia": "ent_00000000000000000000000000000002",
+          "version": 1,
+          "meritos": [
+            {
+              "referencia": "mer_00000000000000000000000000000001",
+              "hecho": {
+                "referencia": "hec_00000000000000000000000000000001",
+                "version": 1,
+                "huella_sha256": "d2b14e32475bdc9f31db79b32f1fd8d0d6653efcc7cfbf7a77a282af5b20ba41"
+              },
+              "evidencia": {
+                "referencia": "evi_00000000000000000000000000000001",
+                "version": 1,
+                "huella_sha256": "60c9ad117689de8339c929d3624fd88727cca49b98540ba333961f7a45e17b34"
+              },
+              "familia": "formacion",
+              "clase": "curso_relacionado",
+              "catalogo": {
+                "referencia": "cat_00000000000000000000000000000014",
+                "version": 1,
+                "huella_sha256": "12e2c56bdfab70e145f86cf6c0b5349e137ee1182a2aaeea70351a7b2609a996"
+              },
+              "uso": "merito",
+              "estado": "acreditado",
+              "aplicabilidad": "si",
+              "fecha_obtencion": "2026-09-30",
+              "vigente_hasta": null,
+              "unidades": "50/1"
+            }
+          ]
+        },
+        "solicitud_3": {
+          "esquema": "vec.bolsa.entrada_meritos.v1",
+          "referencia": "ent_00000000000000000000000000000003",
+          "version": 1,
+          "meritos": [
+            {
+              "referencia": "mer_00000000000000000000000000000004",
+              "hecho": {
+                "referencia": "hec_00000000000000000000000000000004",
+                "version": 1,
+                "huella_sha256": "a13e620d7658220c31fdb07124c1a81d959da244298905b9d94ae12ac57a83b2"
+              },
+              "evidencia": {
+                "referencia": "evi_00000000000000000000000000000004",
+                "version": 1,
+                "huella_sha256": "8583092ef7cf096bebc2bed0cbe471bff574a429d8c8de50c0629cfc5939219a"
+              },
+              "familia": "titulacion",
+              "clase": "titulo_adicional",
+              "catalogo": {
+                "referencia": "cat_00000000000000000000000000000016",
+                "version": 1,
+                "huella_sha256": "1fb49f36713084839deb9992e1e2ad5934170c6f380b900ad11c41ce3084c2a6"
+              },
+              "uso": "merito",
+              "estado": "acreditado",
+              "aplicabilidad": "si",
+              "fecha_obtencion": "2026-09-30",
+              "vigente_hasta": null,
+              "unidades": "1/1"
+            }
+          ]
+        },
+        "solicitud_4": {
+          "esquema": "vec.bolsa.entrada_meritos.v1",
+          "referencia": "ent_00000000000000000000000000000004",
+          "version": 1,
+          "meritos": [
+            {
+              "referencia": "mer_00000000000000000000000000000001",
+              "hecho": {
+                "referencia": "hec_00000000000000000000000000000001",
+                "version": 1,
+                "huella_sha256": "d2b14e32475bdc9f31db79b32f1fd8d0d6653efcc7cfbf7a77a282af5b20ba41"
+              },
+              "evidencia": {
+                "referencia": "evi_00000000000000000000000000000001",
+                "version": 1,
+                "huella_sha256": "60c9ad117689de8339c929d3624fd88727cca49b98540ba333961f7a45e17b34"
+              },
+              "familia": "formacion",
+              "clase": "curso_relacionado",
+              "catalogo": {
+                "referencia": "cat_00000000000000000000000000000014",
+                "version": 1,
+                "huella_sha256": "12e2c56bdfab70e145f86cf6c0b5349e137ee1182a2aaeea70351a7b2609a996"
+              },
+              "uso": "merito",
+              "estado": "acreditado",
+              "aplicabilidad": "si",
+              "fecha_obtencion": "2026-09-30",
+              "vigente_hasta": null,
+              "unidades": "50/1"
+            },
+            {
+              "referencia": "mer_00000000000000000000000000000002",
+              "hecho": {
+                "referencia": "hec_00000000000000000000000000000002",
+                "version": 1,
+                "huella_sha256": "6878ac1cfc469ae26683caf3c57d5dfebf147a389f1ee5c0698b268b03d7d402"
+              },
+              "evidencia": {
+                "referencia": "evi_00000000000000000000000000000002",
+                "version": 1,
+                "huella_sha256": "77c69e83a37695e4824d8db063ee55dc148744dde51eb7b90e53062e2ab0aeb2"
+              },
+              "familia": "formacion",
+              "clase": "curso_relacionado",
+              "catalogo": {
+                "referencia": "cat_00000000000000000000000000000014",
+                "version": 1,
+                "huella_sha256": "12e2c56bdfab70e145f86cf6c0b5349e137ee1182a2aaeea70351a7b2609a996"
+              },
+              "uso": "merito",
+              "estado": "acreditado",
+              "aplicabilidad": "si",
+              "fecha_obtencion": "2026-09-30",
+              "vigente_hasta": null,
+              "unidades": "30/1"
+            },
+            {
+              "referencia": "mer_00000000000000000000000000000003",
+              "hecho": {
+                "referencia": "hec_00000000000000000000000000000003",
+                "version": 1,
+                "huella_sha256": "795aff5f62e439c4f12e45f74eb13f3c05f220093b4013334cb9fff64b8bb002"
+              },
+              "evidencia": {
+                "referencia": "evi_00000000000000000000000000000003",
+                "version": 1,
+                "huella_sha256": "ee6047f434f9256982e3125dacacfdb4530476a1a7f79369c042f961d9aaf8a5"
+              },
+              "familia": "formacion",
+              "clase": "curso_relacionado",
+              "catalogo": {
+                "referencia": "cat_00000000000000000000000000000014",
+                "version": 1,
+                "huella_sha256": "12e2c56bdfab70e145f86cf6c0b5349e137ee1182a2aaeea70351a7b2609a996"
+              },
+              "uso": "merito",
+              "estado": "acreditado",
+              "aplicabilidad": "si",
+              "fecha_obtencion": "2026-09-30",
+              "vigente_hasta": null,
+              "unidades": "19/1"
+            },
+            {
+              "referencia": "mer_00000000000000000000000000000004",
+              "hecho": {
+                "referencia": "hec_00000000000000000000000000000004",
+                "version": 1,
+                "huella_sha256": "a13e620d7658220c31fdb07124c1a81d959da244298905b9d94ae12ac57a83b2"
+              },
+              "evidencia": {
+                "referencia": "evi_00000000000000000000000000000004",
+                "version": 1,
+                "huella_sha256": "8583092ef7cf096bebc2bed0cbe471bff574a429d8c8de50c0629cfc5939219a"
+              },
+              "familia": "titulacion",
+              "clase": "titulo_adicional",
+              "catalogo": {
+                "referencia": "cat_00000000000000000000000000000016",
+                "version": 1,
+                "huella_sha256": "1fb49f36713084839deb9992e1e2ad5934170c6f380b900ad11c41ce3084c2a6"
+              },
+              "uso": "merito",
+              "estado": "acreditado",
+              "aplicabilidad": "si",
+              "fecha_obtencion": "2026-09-30",
+              "vigente_hasta": null,
+              "unidades": "1/1"
+            },
+            {
+              "referencia": "mer_00000000000000000000000000000005",
+              "hecho": {
+                "referencia": "hec_00000000000000000000000000000005",
+                "version": 1,
+                "huella_sha256": "73f41e2b7edb9a3cfce35e08bafe001d32f478528266b97fb3adbf95d367ba79"
+              },
+              "evidencia": {
+                "referencia": "evi_00000000000000000000000000000005",
+                "version": 1,
+                "huella_sha256": "1613cc3d4263a3c2520c8ce0cdb5b10beaa7621988603c66b57d481aff3147d4"
+              },
+              "familia": "titulacion",
+              "clase": "titulo_adicional",
+              "catalogo": {
+                "referencia": "cat_00000000000000000000000000000016",
+                "version": 1,
+                "huella_sha256": "1fb49f36713084839deb9992e1e2ad5934170c6f380b900ad11c41ce3084c2a6"
+              },
+              "uso": "merito",
+              "estado": "acreditado",
+              "aplicabilidad": "si",
+              "fecha_obtencion": "2026-09-30",
+              "vigente_hasta": null,
+              "unidades": "1/1"
+            },
+            {
+              "referencia": "mer_00000000000000000000000000000006",
+              "hecho": {
+                "referencia": "hec_00000000000000000000000000000006",
+                "version": 1,
+                "huella_sha256": "22511bdd95f95c00fa02d1ca8050c6a7513de56a345650e45e82ac536c0ecbe3"
+              },
+              "evidencia": {
+                "referencia": "evi_00000000000000000000000000000006",
+                "version": 1,
+                "huella_sha256": "70c76b76e9ff2217a05f1a01af55eeb7606eefab8e97abe560ff7a33f8170d1b"
+              },
+              "familia": "titulacion",
+              "clase": "requisito_acceso",
+              "catalogo": {
+                "referencia": "cat_00000000000000000000000000000063",
+                "version": 1,
+                "huella_sha256": "89aa51f52e0f2b78fc05850826d700a26f878d9b3cd436da32430e90920ffe49"
+              },
+              "uso": "requisito",
+              "estado": "acreditado",
+              "aplicabilidad": "si",
+              "fecha_obtencion": "2026-09-30",
+              "vigente_hasta": null,
+              "unidades": "1/1"
+            },
+            {
+              "referencia": "mer_00000000000000000000000000000007",
+              "hecho": {
+                "referencia": "hec_00000000000000000000000000000007",
+                "version": 1,
+                "huella_sha256": "31f9842e50cff17f94be206b4b5912d9be4893fd20677f9d6ac34e4e67687e26"
+              },
+              "evidencia": {
+                "referencia": "evi_00000000000000000000000000000007",
+                "version": 1,
+                "huella_sha256": "4313ddfd16f5083d2cb43280b7b16f8435c092a9d9f556b64e3f1d8c9c492250"
+              },
+              "familia": "otros",
+              "clase": "merito_catalogado",
+              "catalogo": {
+                "referencia": "cat_00000000000000000000000000000015",
+                "version": 1,
+                "huella_sha256": "1e7154e071dbcb85ad647b330bce6bdb6f097f4637d2ebca2daca56684d2f1e1"
+              },
+              "uso": "merito",
+              "estado": "acreditado",
+              "aplicabilidad": "si",
+              "fecha_obtencion": "2026-09-30",
+              "vigente_hasta": null,
+              "unidades": "3/2"
+            },
+            {
+              "referencia": "mer_00000000000000000000000000000008",
+              "hecho": {
+                "referencia": "hec_00000000000000000000000000000008",
+                "version": 1,
+                "huella_sha256": "b9d0e500077a23888494719cd9484fd7acd17e6b2041ddc5068eb5d2be3091a4"
+              },
+              "evidencia": {
+                "referencia": "evi_00000000000000000000000000000008",
+                "version": 1,
+                "huella_sha256": "cc350164c6085fa0b5802392b27002efa17f4463fb39fa9f444a171dce815634"
+              },
+              "familia": "formacion",
+              "clase": "curso_relacionado",
+              "catalogo": {
+                "referencia": "cat_00000000000000000000000000000014",
+                "version": 1,
+                "huella_sha256": "12e2c56bdfab70e145f86cf6c0b5349e137ee1182a2aaeea70351a7b2609a996"
+              },
+              "uso": "merito",
+              "estado": "acreditado",
+              "aplicabilidad": "si",
+              "fecha_obtencion": "2026-10-01",
+              "vigente_hasta": null,
+              "unidades": "200/1"
+            },
+            {
+              "referencia": "mer_00000000000000000000000000000009",
+              "hecho": {
+                "referencia": "hec_00000000000000000000000000000009",
+                "version": 1,
+                "huella_sha256": "cfdbae7315fd005e257b19a531cb00393ee587fd43b0d470453fe274fcd01ced"
+              },
+              "evidencia": {
+                "referencia": "evi_00000000000000000000000000000009",
+                "version": 1,
+                "huella_sha256": "d705aacd1c8866a536730ba7434a31921c862040d8d468dd506c5de2c6527eca"
+              },
+              "familia": "formacion",
+              "clase": "curso_relacionado",
+              "catalogo": {
+                "referencia": "cat_00000000000000000000000000000014",
+                "version": 1,
+                "huella_sha256": "12e2c56bdfab70e145f86cf6c0b5349e137ee1182a2aaeea70351a7b2609a996"
+              },
+              "uso": "merito",
+              "estado": "acreditado",
+              "aplicabilidad": "si",
+              "fecha_obtencion": "2026-01-01",
+              "vigente_hasta": "2026-09-29",
+              "unidades": "200/1"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "referencia": "seleccion_concurso_oposicion_v1",
+      "titulo_clave": "seleccion.ejemplo.concurso_oposicion",
+      "convocatoria_ref": "con_00000000000000000000000000000004",
+      "bases_version": 1,
+      "configuracion": {
+        "version": 1,
+        "modalidad": "concurso_oposicion",
+        "turno_acceso": "libre",
+        "destino": "bolsa",
+        "plazas": 1,
+        "fases": [
+          {
+            "referencia": "ejercicio_1",
+            "tipo": "prueba",
+            "minimo_micropuntos": 5000000,
+            "maximo_micropuntos": 10000000,
+            "peso": 60
+          },
+          {
+            "referencia": "meritos",
+            "tipo": "meritos",
+            "minimo_micropuntos": 0,
+            "maximo_micropuntos": 4000000,
+            "peso": 40
+          }
+        ],
+        "desempates": [
+          "ejercicio_1"
+        ]
+      },
+      "entrada": {
+        "convocatoria_ref": "con_00000000000000000000000000000004",
+        "bases_version": 1,
+        "solicitudes": [
+          {
+            "referencia": "solicitud_1",
+            "nombre": "María Torres Ruiz",
+            "requisitos": [
+              {
+                "referencia": "titulacion_acceso",
+                "estado": "cumple",
+                "causa": "",
+                "fuente_ref": "evidencia_acceso_1"
+              }
+            ],
+            "notas": {
+              "ejercicio_1": 8000000,
+              "ejercicio_2": 7000000
+            }
+          },
+          {
+            "referencia": "solicitud_2",
+            "nombre": "José Martín López",
+            "requisitos": [
+              {
+                "referencia": "titulacion_acceso",
+                "estado": "cumple",
+                "causa": "",
+                "fuente_ref": "evidencia_acceso_2"
+              }
+            ],
+            "notas": {
+              "ejercicio_1": 7000000,
+              "ejercicio_2": 6000000
+            }
+          },
+          {
+            "referencia": "solicitud_3",
+            "nombre": "Carmen Vega Serrano",
+            "requisitos": [
+              {
+                "referencia": "titulacion_acceso",
+                "estado": "cumple",
+                "causa": "",
+                "fuente_ref": "evidencia_acceso_3"
+              }
+            ],
+            "notas": {
+              "ejercicio_1": 4000000,
+              "ejercicio_2": 9000000
+            }
+          },
+          {
+            "referencia": "solicitud_4",
+            "nombre": "Antonio Molina Castro",
+            "requisitos": [
+              {
+                "referencia": "titulacion_acceso",
+                "estado": "no_cumple",
+                "causa": "requisito_no_cumplido",
+                "fuente_ref": "evidencia_acceso_4"
+              }
+            ],
+            "notas": {
+              "ejercicio_1": 9000000,
+              "ejercicio_2": 9000000
+            }
+          }
+        ]
+      },
+      "baremo": {
+        "esquema": "vec.bolsa.reglas_meritos.v1",
+        "referencia": "rgl_00000000000000000000000000000001",
+        "version": 1,
+        "convocatoria_ref": "con_00000000000000000000000000000004",
+        "expediente_ref": "exp_00000000000000000000000000000003",
+        "bases": {
+          "referencia": "bas_00000000000000000000000000000004",
+          "version": 1,
+          "huella_sha256": "adfa7a09af78430010e2101fa3709039d2de5bccff8557856f3ab2fedf1095bc"
+        },
+        "fecha_corte_inclusiva": "2026-09-30",
+        "duplicados": "bloquear",
+        "momento_redondeo": "por_regla",
+        "seleccion_elementos": "mayor_unidad",
+        "maximo_total": "4000000",
+        "secciones": [
+          {
+            "clave": "formacion",
+            "definicion": {
+              "referencia": "sec_0000000000000000000000000000000a",
+              "version": 1,
+              "huella_sha256": "0b40a5bd58085098465cc73fb9416843e4944391c245f1eb962f0b3f03d3adb2"
+            },
+            "maximo_puntos": "1200000"
+          },
+          {
+            "clave": "otros",
+            "definicion": {
+              "referencia": "sec_0000000000000000000000000000000b",
+              "version": 1,
+              "huella_sha256": "b2c881fc16f8bba21aca17f3f0227e4996756f27323cdf682b9223bfdec9857c"
+            },
+            "maximo_puntos": "1100000"
+          },
+          {
+            "clave": "titulacion",
+            "definicion": {
+              "referencia": "sec_0000000000000000000000000000000c",
+              "version": 1,
+              "huella_sha256": "ba0609f366163a42c4629086926ba65345f6ba5c6e8ac7f85241c632acbcd9cd"
+            },
+            "maximo_puntos": "3000000"
+          }
+        ],
+        "reglas": [
+          {
+            "clave": "curso",
+            "definicion": {
+              "referencia": "def_00000000000000000000000000000014",
+              "version": 1,
+              "huella_sha256": "c268a9c4aec3caf8f28cf109dae69a42d23eb6ce83bcad2d6abeae8a5af9def0"
+            },
+            "seccion_clave": "formacion",
+            "familia": "formacion",
+            "clase": "curso_relacionado",
+            "catalogo": {
+              "referencia": "cat_00000000000000000000000000000014",
+              "version": 1,
+              "huella_sha256": "12e2c56bdfab70e145f86cf6c0b5349e137ee1182a2aaeea70351a7b2609a996"
+            },
+            "unidad": "hora",
+            "minimo_unidades": "20/1",
+            "maximo_unidades": "100/1",
+            "maximo_elementos": 100,
+            "puntos_por_unidad": "20000",
+            "maximo_puntos": "1500000",
+            "redondeo": "mitad_arriba"
+          },
+          {
+            "clave": "otro",
+            "definicion": {
+              "referencia": "def_00000000000000000000000000000015",
+              "version": 1,
+              "huella_sha256": "4ab51d03473e4239c552b9dce308e228bfc0d075b2bd404530f033178ec3684b"
+            },
+            "seccion_clave": "otros",
+            "familia": "otros",
+            "clase": "merito_catalogado",
+            "catalogo": {
+              "referencia": "cat_00000000000000000000000000000015",
+              "version": 1,
+              "huella_sha256": "1e7154e071dbcb85ad647b330bce6bdb6f097f4637d2ebca2daca56684d2f1e1"
+            },
+            "unidad": "unidad",
+            "minimo_unidades": "0/1",
+            "maximo_unidades": "1000/1",
+            "maximo_elementos": 10,
+            "puntos_por_unidad": "600000",
+            "maximo_puntos": "1100000",
+            "redondeo": "mitad_arriba"
+          },
+          {
+            "clave": "titulo",
+            "definicion": {
+              "referencia": "def_00000000000000000000000000000016",
+              "version": 1,
+              "huella_sha256": "fba421e91652feeaffb4ead197c4bf69c4f33c6fa4e3f361ce106c33ab1f3c42"
+            },
+            "seccion_clave": "titulacion",
+            "familia": "titulacion",
+            "clase": "titulo_adicional",
+            "catalogo": {
+              "referencia": "cat_00000000000000000000000000000016",
+              "version": 1,
+              "huella_sha256": "1fb49f36713084839deb9992e1e2ad5934170c6f380b900ad11c41ce3084c2a6"
+            },
+            "unidad": "titulo",
+            "minimo_unidades": "0/1",
+            "maximo_unidades": "1000/1",
+            "maximo_elementos": 1,
+            "puntos_por_unidad": "2000000",
+            "maximo_puntos": "4000000",
+            "redondeo": "mitad_arriba"
+          }
+        ]
+      },
+      "meritos": {
+        "solicitud_1": {
+          "esquema": "vec.bolsa.entrada_meritos.v1",
+          "referencia": "ent_00000000000000000000000000000001",
+          "version": 1,
+          "meritos": [
+            {
+              "referencia": "mer_00000000000000000000000000000001",
+              "hecho": {
+                "referencia": "hec_00000000000000000000000000000001",
+                "version": 1,
+                "huella_sha256": "d2b14e32475bdc9f31db79b32f1fd8d0d6653efcc7cfbf7a77a282af5b20ba41"
+              },
+              "evidencia": {
+                "referencia": "evi_00000000000000000000000000000001",
+                "version": 1,
+                "huella_sha256": "60c9ad117689de8339c929d3624fd88727cca49b98540ba333961f7a45e17b34"
+              },
+              "familia": "formacion",
+              "clase": "curso_relacionado",
+              "catalogo": {
+                "referencia": "cat_00000000000000000000000000000014",
+                "version": 1,
+                "huella_sha256": "12e2c56bdfab70e145f86cf6c0b5349e137ee1182a2aaeea70351a7b2609a996"
+              },
+              "uso": "merito",
+              "estado": "acreditado",
+              "aplicabilidad": "si",
+              "fecha_obtencion": "2026-09-30",
+              "vigente_hasta": null,
+              "unidades": "50/1"
+            },
+            {
+              "referencia": "mer_00000000000000000000000000000002",
+              "hecho": {
+                "referencia": "hec_00000000000000000000000000000002",
+                "version": 1,
+                "huella_sha256": "6878ac1cfc469ae26683caf3c57d5dfebf147a389f1ee5c0698b268b03d7d402"
+              },
+              "evidencia": {
+                "referencia": "evi_00000000000000000000000000000002",
+                "version": 1,
+                "huella_sha256": "77c69e83a37695e4824d8db063ee55dc148744dde51eb7b90e53062e2ab0aeb2"
+              },
+              "familia": "formacion",
+              "clase": "curso_relacionado",
+              "catalogo": {
+                "referencia": "cat_00000000000000000000000000000014",
+                "version": 1,
+                "huella_sha256": "12e2c56bdfab70e145f86cf6c0b5349e137ee1182a2aaeea70351a7b2609a996"
+              },
+              "uso": "merito",
+              "estado": "acreditado",
+              "aplicabilidad": "si",
+              "fecha_obtencion": "2026-09-30",
+              "vigente_hasta": null,
+              "unidades": "30/1"
+            },
+            {
+              "referencia": "mer_00000000000000000000000000000003",
+              "hecho": {
+                "referencia": "hec_00000000000000000000000000000003",
+                "version": 1,
+                "huella_sha256": "795aff5f62e439c4f12e45f74eb13f3c05f220093b4013334cb9fff64b8bb002"
+              },
+              "evidencia": {
+                "referencia": "evi_00000000000000000000000000000003",
+                "version": 1,
+                "huella_sha256": "ee6047f434f9256982e3125dacacfdb4530476a1a7f79369c042f961d9aaf8a5"
+              },
+              "familia": "formacion",
+              "clase": "curso_relacionado",
+              "catalogo": {
+                "referencia": "cat_00000000000000000000000000000014",
+                "version": 1,
+                "huella_sha256": "12e2c56bdfab70e145f86cf6c0b5349e137ee1182a2aaeea70351a7b2609a996"
+              },
+              "uso": "merito",
+              "estado": "acreditado",
+              "aplicabilidad": "si",
+              "fecha_obtencion": "2026-09-30",
+              "vigente_hasta": null,
+              "unidades": "19/1"
+            },
+            {
+              "referencia": "mer_00000000000000000000000000000004",
+              "hecho": {
+                "referencia": "hec_00000000000000000000000000000004",
+                "version": 1,
+                "huella_sha256": "a13e620d7658220c31fdb07124c1a81d959da244298905b9d94ae12ac57a83b2"
+              },
+              "evidencia": {
+                "referencia": "evi_00000000000000000000000000000004",
+                "version": 1,
+                "huella_sha256": "8583092ef7cf096bebc2bed0cbe471bff574a429d8c8de50c0629cfc5939219a"
+              },
+              "familia": "titulacion",
+              "clase": "titulo_adicional",
+              "catalogo": {
+                "referencia": "cat_00000000000000000000000000000016",
+                "version": 1,
+                "huella_sha256": "1fb49f36713084839deb9992e1e2ad5934170c6f380b900ad11c41ce3084c2a6"
+              },
+              "uso": "merito",
+              "estado": "acreditado",
+              "aplicabilidad": "si",
+              "fecha_obtencion": "2026-09-30",
+              "vigente_hasta": null,
+              "unidades": "1/1"
+            },
+            {
+              "referencia": "mer_00000000000000000000000000000005",
+              "hecho": {
+                "referencia": "hec_00000000000000000000000000000005",
+                "version": 1,
+                "huella_sha256": "73f41e2b7edb9a3cfce35e08bafe001d32f478528266b97fb3adbf95d367ba79"
+              },
+              "evidencia": {
+                "referencia": "evi_00000000000000000000000000000005",
+                "version": 1,
+                "huella_sha256": "1613cc3d4263a3c2520c8ce0cdb5b10beaa7621988603c66b57d481aff3147d4"
+              },
+              "familia": "titulacion",
+              "clase": "titulo_adicional",
+              "catalogo": {
+                "referencia": "cat_00000000000000000000000000000016",
+                "version": 1,
+                "huella_sha256": "1fb49f36713084839deb9992e1e2ad5934170c6f380b900ad11c41ce3084c2a6"
+              },
+              "uso": "merito",
+              "estado": "acreditado",
+              "aplicabilidad": "si",
+              "fecha_obtencion": "2026-09-30",
+              "vigente_hasta": null,
+              "unidades": "1/1"
+            },
+            {
+              "referencia": "mer_00000000000000000000000000000006",
+              "hecho": {
+                "referencia": "hec_00000000000000000000000000000006",
+                "version": 1,
+                "huella_sha256": "22511bdd95f95c00fa02d1ca8050c6a7513de56a345650e45e82ac536c0ecbe3"
+              },
+              "evidencia": {
+                "referencia": "evi_00000000000000000000000000000006",
+                "version": 1,
+                "huella_sha256": "70c76b76e9ff2217a05f1a01af55eeb7606eefab8e97abe560ff7a33f8170d1b"
+              },
+              "familia": "titulacion",
+              "clase": "requisito_acceso",
+              "catalogo": {
+                "referencia": "cat_00000000000000000000000000000063",
+                "version": 1,
+                "huella_sha256": "89aa51f52e0f2b78fc05850826d700a26f878d9b3cd436da32430e90920ffe49"
+              },
+              "uso": "requisito",
+              "estado": "acreditado",
+              "aplicabilidad": "si",
+              "fecha_obtencion": "2026-09-30",
+              "vigente_hasta": null,
+              "unidades": "1/1"
+            },
+            {
+              "referencia": "mer_00000000000000000000000000000007",
+              "hecho": {
+                "referencia": "hec_00000000000000000000000000000007",
+                "version": 1,
+                "huella_sha256": "31f9842e50cff17f94be206b4b5912d9be4893fd20677f9d6ac34e4e67687e26"
+              },
+              "evidencia": {
+                "referencia": "evi_00000000000000000000000000000007",
+                "version": 1,
+                "huella_sha256": "4313ddfd16f5083d2cb43280b7b16f8435c092a9d9f556b64e3f1d8c9c492250"
+              },
+              "familia": "otros",
+              "clase": "merito_catalogado",
+              "catalogo": {
+                "referencia": "cat_00000000000000000000000000000015",
+                "version": 1,
+                "huella_sha256": "1e7154e071dbcb85ad647b330bce6bdb6f097f4637d2ebca2daca56684d2f1e1"
+              },
+              "uso": "merito",
+              "estado": "acreditado",
+              "aplicabilidad": "si",
+              "fecha_obtencion": "2026-09-30",
+              "vigente_hasta": null,
+              "unidades": "3/2"
+            },
+            {
+              "referencia": "mer_00000000000000000000000000000008",
+              "hecho": {
+                "referencia": "hec_00000000000000000000000000000008",
+                "version": 1,
+                "huella_sha256": "b9d0e500077a23888494719cd9484fd7acd17e6b2041ddc5068eb5d2be3091a4"
+              },
+              "evidencia": {
+                "referencia": "evi_00000000000000000000000000000008",
+                "version": 1,
+                "huella_sha256": "cc350164c6085fa0b5802392b27002efa17f4463fb39fa9f444a171dce815634"
+              },
+              "familia": "formacion",
+              "clase": "curso_relacionado",
+              "catalogo": {
+                "referencia": "cat_00000000000000000000000000000014",
+                "version": 1,
+                "huella_sha256": "12e2c56bdfab70e145f86cf6c0b5349e137ee1182a2aaeea70351a7b2609a996"
+              },
+              "uso": "merito",
+              "estado": "acreditado",
+              "aplicabilidad": "si",
+              "fecha_obtencion": "2026-10-01",
+              "vigente_hasta": null,
+              "unidades": "200/1"
+            },
+            {
+              "referencia": "mer_00000000000000000000000000000009",
+              "hecho": {
+                "referencia": "hec_00000000000000000000000000000009",
+                "version": 1,
+                "huella_sha256": "cfdbae7315fd005e257b19a531cb00393ee587fd43b0d470453fe274fcd01ced"
+              },
+              "evidencia": {
+                "referencia": "evi_00000000000000000000000000000009",
+                "version": 1,
+                "huella_sha256": "d705aacd1c8866a536730ba7434a31921c862040d8d468dd506c5de2c6527eca"
+              },
+              "familia": "formacion",
+              "clase": "curso_relacionado",
+              "catalogo": {
+                "referencia": "cat_00000000000000000000000000000014",
+                "version": 1,
+                "huella_sha256": "12e2c56bdfab70e145f86cf6c0b5349e137ee1182a2aaeea70351a7b2609a996"
+              },
+              "uso": "merito",
+              "estado": "acreditado",
+              "aplicabilidad": "si",
+              "fecha_obtencion": "2026-01-01",
+              "vigente_hasta": "2026-09-29",
+              "unidades": "200/1"
+            }
+          ]
+        },
+        "solicitud_2": {
+          "esquema": "vec.bolsa.entrada_meritos.v1",
+          "referencia": "ent_00000000000000000000000000000002",
+          "version": 1,
+          "meritos": [
+            {
+              "referencia": "mer_00000000000000000000000000000001",
+              "hecho": {
+                "referencia": "hec_00000000000000000000000000000001",
+                "version": 1,
+                "huella_sha256": "d2b14e32475bdc9f31db79b32f1fd8d0d6653efcc7cfbf7a77a282af5b20ba41"
+              },
+              "evidencia": {
+                "referencia": "evi_00000000000000000000000000000001",
+                "version": 1,
+                "huella_sha256": "60c9ad117689de8339c929d3624fd88727cca49b98540ba333961f7a45e17b34"
+              },
+              "familia": "formacion",
+              "clase": "curso_relacionado",
+              "catalogo": {
+                "referencia": "cat_00000000000000000000000000000014",
+                "version": 1,
+                "huella_sha256": "12e2c56bdfab70e145f86cf6c0b5349e137ee1182a2aaeea70351a7b2609a996"
+              },
+              "uso": "merito",
+              "estado": "acreditado",
+              "aplicabilidad": "si",
+              "fecha_obtencion": "2026-09-30",
+              "vigente_hasta": null,
+              "unidades": "50/1"
+            }
+          ]
+        },
+        "solicitud_3": {
+          "esquema": "vec.bolsa.entrada_meritos.v1",
+          "referencia": "ent_00000000000000000000000000000003",
+          "version": 1,
+          "meritos": [
+            {
+              "referencia": "mer_00000000000000000000000000000004",
+              "hecho": {
+                "referencia": "hec_00000000000000000000000000000004",
+                "version": 1,
+                "huella_sha256": "a13e620d7658220c31fdb07124c1a81d959da244298905b9d94ae12ac57a83b2"
+              },
+              "evidencia": {
+                "referencia": "evi_00000000000000000000000000000004",
+                "version": 1,
+                "huella_sha256": "8583092ef7cf096bebc2bed0cbe471bff574a429d8c8de50c0629cfc5939219a"
+              },
+              "familia": "titulacion",
+              "clase": "titulo_adicional",
+              "catalogo": {
+                "referencia": "cat_00000000000000000000000000000016",
+                "version": 1,
+                "huella_sha256": "1fb49f36713084839deb9992e1e2ad5934170c6f380b900ad11c41ce3084c2a6"
+              },
+              "uso": "merito",
+              "estado": "acreditado",
+              "aplicabilidad": "si",
+              "fecha_obtencion": "2026-09-30",
+              "vigente_hasta": null,
+              "unidades": "1/1"
+            }
+          ]
+        },
+        "solicitud_4": {
+          "esquema": "vec.bolsa.entrada_meritos.v1",
+          "referencia": "ent_00000000000000000000000000000004",
+          "version": 1,
+          "meritos": [
+            {
+              "referencia": "mer_00000000000000000000000000000001",
+              "hecho": {
+                "referencia": "hec_00000000000000000000000000000001",
+                "version": 1,
+                "huella_sha256": "d2b14e32475bdc9f31db79b32f1fd8d0d6653efcc7cfbf7a77a282af5b20ba41"
+              },
+              "evidencia": {
+                "referencia": "evi_00000000000000000000000000000001",
+                "version": 1,
+                "huella_sha256": "60c9ad117689de8339c929d3624fd88727cca49b98540ba333961f7a45e17b34"
+              },
+              "familia": "formacion",
+              "clase": "curso_relacionado",
+              "catalogo": {
+                "referencia": "cat_00000000000000000000000000000014",
+                "version": 1,
+                "huella_sha256": "12e2c56bdfab70e145f86cf6c0b5349e137ee1182a2aaeea70351a7b2609a996"
+              },
+              "uso": "merito",
+              "estado": "acreditado",
+              "aplicabilidad": "si",
+              "fecha_obtencion": "2026-09-30",
+              "vigente_hasta": null,
+              "unidades": "50/1"
+            },
+            {
+              "referencia": "mer_00000000000000000000000000000002",
+              "hecho": {
+                "referencia": "hec_00000000000000000000000000000002",
+                "version": 1,
+                "huella_sha256": "6878ac1cfc469ae26683caf3c57d5dfebf147a389f1ee5c0698b268b03d7d402"
+              },
+              "evidencia": {
+                "referencia": "evi_00000000000000000000000000000002",
+                "version": 1,
+                "huella_sha256": "77c69e83a37695e4824d8db063ee55dc148744dde51eb7b90e53062e2ab0aeb2"
+              },
+              "familia": "formacion",
+              "clase": "curso_relacionado",
+              "catalogo": {
+                "referencia": "cat_00000000000000000000000000000014",
+                "version": 1,
+                "huella_sha256": "12e2c56bdfab70e145f86cf6c0b5349e137ee1182a2aaeea70351a7b2609a996"
+              },
+              "uso": "merito",
+              "estado": "acreditado",
+              "aplicabilidad": "si",
+              "fecha_obtencion": "2026-09-30",
+              "vigente_hasta": null,
+              "unidades": "30/1"
+            },
+            {
+              "referencia": "mer_00000000000000000000000000000003",
+              "hecho": {
+                "referencia": "hec_00000000000000000000000000000003",
+                "version": 1,
+                "huella_sha256": "795aff5f62e439c4f12e45f74eb13f3c05f220093b4013334cb9fff64b8bb002"
+              },
+              "evidencia": {
+                "referencia": "evi_00000000000000000000000000000003",
+                "version": 1,
+                "huella_sha256": "ee6047f434f9256982e3125dacacfdb4530476a1a7f79369c042f961d9aaf8a5"
+              },
+              "familia": "formacion",
+              "clase": "curso_relacionado",
+              "catalogo": {
+                "referencia": "cat_00000000000000000000000000000014",
+                "version": 1,
+                "huella_sha256": "12e2c56bdfab70e145f86cf6c0b5349e137ee1182a2aaeea70351a7b2609a996"
+              },
+              "uso": "merito",
+              "estado": "acreditado",
+              "aplicabilidad": "si",
+              "fecha_obtencion": "2026-09-30",
+              "vigente_hasta": null,
+              "unidades": "19/1"
+            },
+            {
+              "referencia": "mer_00000000000000000000000000000004",
+              "hecho": {
+                "referencia": "hec_00000000000000000000000000000004",
+                "version": 1,
+                "huella_sha256": "a13e620d7658220c31fdb07124c1a81d959da244298905b9d94ae12ac57a83b2"
+              },
+              "evidencia": {
+                "referencia": "evi_00000000000000000000000000000004",
+                "version": 1,
+                "huella_sha256": "8583092ef7cf096bebc2bed0cbe471bff574a429d8c8de50c0629cfc5939219a"
+              },
+              "familia": "titulacion",
+              "clase": "titulo_adicional",
+              "catalogo": {
+                "referencia": "cat_00000000000000000000000000000016",
+                "version": 1,
+                "huella_sha256": "1fb49f36713084839deb9992e1e2ad5934170c6f380b900ad11c41ce3084c2a6"
+              },
+              "uso": "merito",
+              "estado": "acreditado",
+              "aplicabilidad": "si",
+              "fecha_obtencion": "2026-09-30",
+              "vigente_hasta": null,
+              "unidades": "1/1"
+            },
+            {
+              "referencia": "mer_00000000000000000000000000000005",
+              "hecho": {
+                "referencia": "hec_00000000000000000000000000000005",
+                "version": 1,
+                "huella_sha256": "73f41e2b7edb9a3cfce35e08bafe001d32f478528266b97fb3adbf95d367ba79"
+              },
+              "evidencia": {
+                "referencia": "evi_00000000000000000000000000000005",
+                "version": 1,
+                "huella_sha256": "1613cc3d4263a3c2520c8ce0cdb5b10beaa7621988603c66b57d481aff3147d4"
+              },
+              "familia": "titulacion",
+              "clase": "titulo_adicional",
+              "catalogo": {
+                "referencia": "cat_00000000000000000000000000000016",
+                "version": 1,
+                "huella_sha256": "1fb49f36713084839deb9992e1e2ad5934170c6f380b900ad11c41ce3084c2a6"
+              },
+              "uso": "merito",
+              "estado": "acreditado",
+              "aplicabilidad": "si",
+              "fecha_obtencion": "2026-09-30",
+              "vigente_hasta": null,
+              "unidades": "1/1"
+            },
+            {
+              "referencia": "mer_00000000000000000000000000000006",
+              "hecho": {
+                "referencia": "hec_00000000000000000000000000000006",
+                "version": 1,
+                "huella_sha256": "22511bdd95f95c00fa02d1ca8050c6a7513de56a345650e45e82ac536c0ecbe3"
+              },
+              "evidencia": {
+                "referencia": "evi_00000000000000000000000000000006",
+                "version": 1,
+                "huella_sha256": "70c76b76e9ff2217a05f1a01af55eeb7606eefab8e97abe560ff7a33f8170d1b"
+              },
+              "familia": "titulacion",
+              "clase": "requisito_acceso",
+              "catalogo": {
+                "referencia": "cat_00000000000000000000000000000063",
+                "version": 1,
+                "huella_sha256": "89aa51f52e0f2b78fc05850826d700a26f878d9b3cd436da32430e90920ffe49"
+              },
+              "uso": "requisito",
+              "estado": "acreditado",
+              "aplicabilidad": "si",
+              "fecha_obtencion": "2026-09-30",
+              "vigente_hasta": null,
+              "unidades": "1/1"
+            },
+            {
+              "referencia": "mer_00000000000000000000000000000007",
+              "hecho": {
+                "referencia": "hec_00000000000000000000000000000007",
+                "version": 1,
+                "huella_sha256": "31f9842e50cff17f94be206b4b5912d9be4893fd20677f9d6ac34e4e67687e26"
+              },
+              "evidencia": {
+                "referencia": "evi_00000000000000000000000000000007",
+                "version": 1,
+                "huella_sha256": "4313ddfd16f5083d2cb43280b7b16f8435c092a9d9f556b64e3f1d8c9c492250"
+              },
+              "familia": "otros",
+              "clase": "merito_catalogado",
+              "catalogo": {
+                "referencia": "cat_00000000000000000000000000000015",
+                "version": 1,
+                "huella_sha256": "1e7154e071dbcb85ad647b330bce6bdb6f097f4637d2ebca2daca56684d2f1e1"
+              },
+              "uso": "merito",
+              "estado": "acreditado",
+              "aplicabilidad": "si",
+              "fecha_obtencion": "2026-09-30",
+              "vigente_hasta": null,
+              "unidades": "3/2"
+            },
+            {
+              "referencia": "mer_00000000000000000000000000000008",
+              "hecho": {
+                "referencia": "hec_00000000000000000000000000000008",
+                "version": 1,
+                "huella_sha256": "b9d0e500077a23888494719cd9484fd7acd17e6b2041ddc5068eb5d2be3091a4"
+              },
+              "evidencia": {
+                "referencia": "evi_00000000000000000000000000000008",
+                "version": 1,
+                "huella_sha256": "cc350164c6085fa0b5802392b27002efa17f4463fb39fa9f444a171dce815634"
+              },
+              "familia": "formacion",
+              "clase": "curso_relacionado",
+              "catalogo": {
+                "referencia": "cat_00000000000000000000000000000014",
+                "version": 1,
+                "huella_sha256": "12e2c56bdfab70e145f86cf6c0b5349e137ee1182a2aaeea70351a7b2609a996"
+              },
+              "uso": "merito",
+              "estado": "acreditado",
+              "aplicabilidad": "si",
+              "fecha_obtencion": "2026-10-01",
+              "vigente_hasta": null,
+              "unidades": "200/1"
+            },
+            {
+              "referencia": "mer_00000000000000000000000000000009",
+              "hecho": {
+                "referencia": "hec_00000000000000000000000000000009",
+                "version": 1,
+                "huella_sha256": "cfdbae7315fd005e257b19a531cb00393ee587fd43b0d470453fe274fcd01ced"
+              },
+              "evidencia": {
+                "referencia": "evi_00000000000000000000000000000009",
+                "version": 1,
+                "huella_sha256": "d705aacd1c8866a536730ba7434a31921c862040d8d468dd506c5de2c6527eca"
+              },
+              "familia": "formacion",
+              "clase": "curso_relacionado",
+              "catalogo": {
+                "referencia": "cat_00000000000000000000000000000014",
+                "version": 1,
+                "huella_sha256": "12e2c56bdfab70e145f86cf6c0b5349e137ee1182a2aaeea70351a7b2609a996"
+              },
+              "uso": "merito",
+              "estado": "acreditado",
+              "aplicabilidad": "si",
+              "fecha_obtencion": "2026-01-01",
+              "vigente_hasta": "2026-09-29",
+              "unidades": "200/1"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

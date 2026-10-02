@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { CLAVES_SIN_ENTRADA_PORTAL, crearCoordinadorModulosPortal, VISTAS_AUTOSERVICIO_EMPLEADO } from "./portal-modulos-coordinador.js?v=20261001-f-reconciliacion-325-v1";
+import { CLAVES_SIN_ENTRADA_PORTAL, crearCoordinadorModulosPortal, VISTAS_AUTOSERVICIO_EMPLEADO } from "./portal-modulos-coordinador.js?v=20261002-b-servicios-351-main-v1";
 import { traducirPortal } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
 import { versionDe } from "./versiones-cache.test-helper.mjs";
 import { crearVistaInicioPortal } from "./portal-inicio.js?v=20261001-f-reconciliacion-325-v1";
@@ -82,7 +82,7 @@ test("Mi espacio publica navegación diferida sin cargar ni consultar módulos p
     },
   });
   await coordinador.cargarInterno();
-  assert.deepEqual(coordinador.obtenerAccesosEmpleado(), { personal: { estado: "diferido" }, cronos: { estado: "diferido" }, dietas: { estado: "diferido" } });
+  assert.deepEqual(coordinador.obtenerAccesosEmpleado(), { personal: { estado: "diferido" }, cronos: { estado: "diferido" }, dietas: { estado: "diferido" }, "mis-tramites": { estado: "diferido" } });
   assert.deepEqual(cargados, []);
   for (const vista of ["personal-registro", "cronos-bandeja", "cronos-bandeja-notificaciones"]) assert.equal(VISTAS_AUTOSERVICIO_EMPLEADO.has(vista), false);
   assert.match(crearVistaInicioPortal({ encabezadoVista: () => "", escaparHTML: String,
@@ -570,7 +570,7 @@ test("ningún módulo del portal se pide con dos URL distintas (una sola descarg
   const codigoPortal = await readFile(new URL("./portal.js", import.meta.url), "utf8");
   const versionCoordinador = versionDe(codigoPortal, "./portal-modulos-coordinador.js");
   for (const url of [
-    "/portal-empleado/portal-bolsas-api.js?v=20261002-g-b13-i18n-v2",
+    "/portal-empleado/portal-bolsas-api.js?v=20261002-a-recuperar-379-v1",
     "/portal-empleado/portal-bolsas-contrato.js?v=20261001-ct-a-i18n-v1",
     `/portal-empleado/portal-modulos-coordinador.js?v=${versionCoordinador}`,
     "/portal-empleado/modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js?v=20260930-inc-b2-web-v1",

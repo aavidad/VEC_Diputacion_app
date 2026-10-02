@@ -65,6 +65,8 @@ export function componerCronosInterno(recursos, entorno) {
   });
   return Object.freeze({
     traducir,
+    ...(typeof cliente.solicitudes.consultarPermisos === "function"
+      ? { consultarPermisos: cliente.solicitudes.consultarPermisos.bind(cliente.solicitudes) } : {}),
     ...(resolucion || notificaciones ? { etiquetas } : {}),
     ...subvistasResolucion,
     ...subvistasNotificaciones,

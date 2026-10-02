@@ -45,7 +45,7 @@ func (e Ensayador) opcionesAisladas(nombre string) []string {
 		"--security-opt", "no-new-privileges:true", "--cpus", strconv.Itoa(c.CPUs),
 		"--memory", strconv.FormatInt(c.MemoriaBytes, 10), "--memory-swap", strconv.FormatInt(c.MemoriaBytes, 10),
 		"--pids-limit", "128", "--tmpfs", "/tmp:rw,nosuid,nodev,size=67108864",
-		"--tmpfs", "/var/run/postgresql:rw,nosuid,nodev,size=16777216,mode=1777"}
+		"--tmpfs", "/var/run/postgresql:rw,nosuid,nodev,size=16777216,mode=1777", "--tmpfs", "/var/lib/postgresql:rw,nosuid,nodev,size=16777216,mode=1777"}
 }
 
 func (e Ensayador) herramienta(ctx context.Context, nombre, programa string, args ...string) ([]byte, error) {
