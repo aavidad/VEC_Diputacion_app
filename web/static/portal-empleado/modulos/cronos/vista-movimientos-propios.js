@@ -53,7 +53,7 @@ export function marcasPorDiaCronos(datos) {
 
 function nombreTipo(tipo, t) { return t(`tipo_${tipo}`); }
 
-function mesHTML(anio, mes, marcas, t, locale) {
+function mesHTML(anio, mes, marcas, t, locale, seleccionada) {
   const dias = new Date(Date.UTC(anio, mes, 0)).getUTCDate();
   const huecos = (new Date(Date.UTC(anio, mes - 1, 1)).getUTCDay() + 6) % 7;
   const celdas = Array.from({ length: huecos }, () => '<td aria-hidden="true"></td>');
@@ -61,7 +61,7 @@ function mesHTML(anio, mes, marcas, t, locale) {
     const fecha = iso(anio, mes, dia);
     const tipos = ORDEN_TIPOS.filter((tipo) => marcas.get(fecha)?.has(tipo));
     const etiqueta = tipos.length ? t("dia_con", { fecha: fechaVisible(fecha, locale, "full"), tipos: tipos.map((x) => nombreTipo(x, t)).join(", ") }) : fechaVisible(fecha, locale, "full");
-    celdas.push(`<td><span class="cronos-dia" data-fecha="${fecha}"${tipos.length ? ` data-tipos="${tipos.join(" ")}"` : ""} title="${escaparHTML(etiqueta)}"><span class="cronos-sr">${escaparHTML(etiqueta)}</span><span aria-hidden="true">${dia}</span></span></td>`);
+    celdas.push(`<td><button type="button" class="cronos-dia" data-fecha="${fecha}"${tipos.length ? ` data-tipos="${tipos.join(" ")}"` : ""} data-cronos-cal-dia aria-pressed="${fecha === seleccionada}" aria-controls="cronos-movpropios-detalle" title="${escaparHTML(etiqueta)}"><span class="cronos-sr">${escaparHTML(etiqueta)}</span><span aria-hidden="true">${dia}</span></button></td>`);
   }
   while (celdas.length % 7) celdas.push('<td aria-hidden="true"></td>');
   const filas = [];
@@ -111,7 +111,7 @@ function detalleDiaHTML(datos, fecha, t, locale) {
   if (marcajes) poner(t("calendario_marcajes_dia", { cantidad: new Intl.NumberFormat(locale).format(marcajes) }));
   for (const a of datos.absentismos.filter((a) => a.desde <= fecha && a.hasta >= fecha)) poner(t("calendario_dato_dia", { tipo: nombreTipo("ausencia", t), nombre: a.nombre }));
   for (const c of datos.correcciones.filter((c) => c.fecha_civil === fecha)) poner(t("calendario_olvido_dia", { tipo: nombreTipo("olvido", t), hora: c.hora_pretendida, movimiento: t(`movimiento_${c.movimiento}`), estado: t(`correccion_${c.estado}`) }));
-  return `<section class="panel cronos-panel" aria-labelledby="cronos-movpropios-dia"><div class="cabecera-panel"><h3 id="cronos-movpropios-dia">${escaparHTML(t("calendario_detalle_dia"))}</h3></div><div class="cuerpo-panel" role="status" aria-live="polite"><strong>${escaparHTML(fechaVisible(fecha, locale, "full"))}</strong>${detalles.length ? `<ul>${detalles.join("")}</ul>` : `<p>${escaparHTML(t("calendario_sin_datos_dia"))}</p>`}</div></section>`;
+  return `<section class="panel cronos-panel" id="cronos-movpropios-detalle" aria-labelledby="cronos-movpropios-dia"><div class="cabecera-panel"><h3 id="cronos-movpropios-dia">${escaparHTML(t("calendario_detalle_dia"))}</h3></div><div class="cuerpo-panel" role="status" aria-live="polite"><strong>${escaparHTML(fechaVisible(fecha, locale, "full"))}</strong>${detalles.length ? `<ul>${detalles.join("")}</ul>` : `<p>${escaparHTML(t("calendario_sin_datos_dia"))}</p>`}</div></section>`;
 }
 
 function tabla(cabeceras, filas, t) {
@@ -209,7 +209,7 @@ export function renderizarMovimientosPropiosCronos({ estado = "cargando", anio, 
     const aviso = datos.calendario.disponible ? "" : `<p class="cronos-calendario-falta" role="status">${escaparHTML(t("calendario_sin_publicar", { anio }))}</p>`;
     const leyenda = `<ul class="cronos-leyenda" aria-label="${escaparHTML(t("leyenda"))}">${ORDEN_TIPOS.map((tipo) => `<li><span class="cronos-leyenda-muestra" data-tipos="${tipo}" aria-hidden="true"></span>${escaparHTML(nombreTipo(tipo, t))}</li>`).join("")}</ul>`;
     const indices = vistaCalendario === "mes" ? [Number(seleccionada.slice(5, 7))] : Array.from({ length: 12 }, (_, i) => i + 1);
-    const meses = indices.map((mes) => mesHTML(anio, mes, marcas, t, locale)).join("");
+    const meses = indices.map((mes) => mesHTML(anio, mes, marcas, t, locale, seleccionada)).join("");
     const calendarioEstado = datos.calendario.disponible ? "disponible" : "no_configurado";
     const indicador = `<span class="cronos-estado${datos.calendario.disponible ? "" : " cronos-estado-aviso"}" data-calendario-estado="${calendarioEstado}">${escaparHTML(t(`calendario_${calendarioEstado}`))}</span>`;
     const filtrados = filtrarIncidenciasPropiasCronos(datos, filtros);
@@ -262,6 +262,7 @@ export function montarMovimientosPropiosCronos({ raiz, cliente = crearClienteSol
       : foco?.dataset?.cronosRecuento ? `[data-cronos-recuento="${foco.dataset.cronosRecuento}"]`
       : foco?.hasAttribute?.("data-cronos-quitar-filtros") ? "[data-cronos-quitar-filtros]"
       : foco?.getAttribute?.("data-accion") === "ayuda" ? '[data-accion="ayuda"]'
+      : foco?.hasAttribute?.("data-cronos-cal-dia") && fechaCivilValida(foco.dataset?.fecha) ? `[data-cronos-cal-dia][data-fecha="${foco.dataset.fecha}"]`
       : foco?.hasAttribute?.("data-cronos-cal-vista") ? "[data-cronos-cal-vista]"
       : foco?.hasAttribute?.("data-cronos-cal-mes-elegido") ? "[data-cronos-cal-mes-elegido]"
       : foco?.hasAttribute?.("data-cronos-cal-fecha") ? "[data-cronos-cal-fecha]"
@@ -316,6 +317,12 @@ export function montarMovimientosPropiosCronos({ raiz, cliente = crearClienteSol
   };
   const alPulsar = (evento) => {
     if (!activa) return;
+    const dia = evento.target?.closest?.("[data-cronos-cal-dia]");
+    if (dia) {
+      const fecha = dia.dataset.fecha;
+      if (!dia.disabled && estado === "listo" && fechaCivilValida(fecha) && fecha >= datos.periodo.desde && fecha <= datos.periodo.hasta) seleccionarFecha(fecha, false);
+      return;
+    }
     if (evento.target?.closest?.("[data-cronos-cal-hoy]")) { seleccionarFecha(hoy); return; }
     const mesBoton = evento.target?.closest?.("[data-cronos-cal-mes]");
     if (mesBoton && !mesBoton.disabled && vista === "mes") {

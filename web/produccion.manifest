@@ -472,6 +472,12 @@ static/bolsa/preparacion/entrada.js
 static/bolsa/preparacion/index.html
 static/bolsa/preparacion/modelo.js
 static/bolsa/preparacion/preparacion.css
+static/bolsa/preparacion/recuperacion/index.html
+static/bolsa/preparacion/recuperacion/material.js
+static/bolsa/preparacion/recuperacion/recuperacion.css
+static/bolsa/preparacion/recuperacion/vista.js
+static/textos/es/seleccion-recuperacion.json
+static/textos/en/seleccion-recuperacion.json
 static/textos/es/convoca-preparacion.json
 static/textos/en/convoca-preparacion.json
 static/textos/es/baremo-concursos.json
@@ -553,3 +559,6 @@ static/textos/en/cronos-bandeja-notificaciones.json
 static/portal-empleado/modulos/cronos/i18n-notificaciones-historial.js
 static/textos/es/cronos-notificaciones-historial.json
 static/textos/en/cronos-notificaciones-historial.json
+static/portal-empleado/modulos/cronos/i18n-permisos-consulta.js
+static/textos/es/cronos-permisos-consulta.json
+static/textos/en/cronos-permisos-consulta.json
