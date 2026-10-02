@@ -83,7 +83,7 @@ func lotePerfilesAplicacionPrueba(t *testing.T) (*ServicioAdministracionPerfiles
 	if err != nil {
 		t.Fatal(err)
 	}
-	c := catalogoPerfilesLotePrueba{e.instantanea.VersionRol.Referencia(): {VersionRef: e.instantanea.VersionRol.Referencia(), Clase: domain.ClaseControlPerfilAdministrador,
+	c := catalogoPerfilesLotePrueba{e.instantanea.VersionRol.Referencia(): {VersionRef: e.instantanea.VersionRol.Referencia(), Clase: domain.ClaseControlPerfilAdministrador, CategoriaAdmin: "aplicacion",
 		HuellaSHA256: huella, VigenteDesde: e.ahora.Add(-time.Hour), VigenteHasta: e.ahora.Add(2 * time.Hour)}}
 	for _, cambio := range s.Cambios {
 		c[cambio.RolVersionRef] = domain.RolAdministrable{VersionRef: cambio.RolVersionRef, Clase: domain.ClaseControlPerfilOrdinario,
@@ -122,7 +122,7 @@ func TestAdministracionPerfilesLoteDeniegaAntesDelPuerto(t *testing.T) {
 				}
 			case "sistemas":
 				r := c[s.InstantaneaAutorizacion.VersionRol.Referencia()]
-				r.Clase = domain.ClaseControlPerfilOrdinario
+				r.CategoriaAdmin = "sistemas"
 				c[r.VersionRef] = r
 			case "duplicado":
 				s.Cambios[1] = s.Cambios[0]
@@ -133,6 +133,7 @@ func TestAdministracionPerfilesLoteDeniegaAntesDelPuerto(t *testing.T) {
 			case "sensible":
 				r := c[s.Cambios[1].RolVersionRef]
 				r.Clase = domain.ClaseControlPerfilAdministrador
+				r.CategoriaAdmin = "aplicacion"
 				c[r.VersionRef] = r
 			case "evidencia":
 				s.Evidencia = domain.EvidenciaSesionAdministracionPerfiles{}
