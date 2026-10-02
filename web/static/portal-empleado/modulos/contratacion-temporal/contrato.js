@@ -218,19 +218,33 @@ function validarOpcionClave(opcion, nombre, patron = PATRON_CLAVE_CATALOGO) {
 function validarMotivoConFin(opcion, nombre) {
   const tieneRegla = esRegistro(opcion) && Object.hasOwn(opcion, "fecha_fin");
   const tieneCausa = esRegistro(opcion) && Object.hasOwn(opcion, "causa_fin");
+  const tieneReferencia = esRegistro(opcion) && Object.hasOwn(opcion, "regla_ref");
+  const tieneVersion = esRegistro(opcion) && Object.hasOwn(opcion, "catalogo_version");
+  const tieneHuella = esRegistro(opcion) && Object.hasOwn(opcion, "catalogo_huella_sha256");
   exigirCamposExactos(opcion, ["clave", "etiqueta", ...(tieneRegla ? ["fecha_fin"] : []),
-    ...(tieneCausa ? ["causa_fin"] : [])], nombre);
+    ...(tieneCausa ? ["causa_fin"] : []), ...(tieneReferencia ? ["regla_ref"] : []),
+    ...(tieneVersion ? ["catalogo_version"] : []),
+    ...(tieneHuella ? ["catalogo_huella_sha256"] : [])], nombre);
   if (typeof opcion.clave !== "string" || !PATRON_CLAVE_CATALOGO.test(opcion.clave)
     || !etiquetaValida(opcion.etiqueta)
     || (tieneRegla && !["obligatoria", "opcional", "no_aplica"].includes(opcion.fecha_fin))
     || (tieneCausa && (typeof opcion.causa_fin !== "string"
       || !PATRON_CLAVE_CATALOGO.test(opcion.causa_fin)))
-    || (opcion.fecha_fin === "no_aplica" && !tieneCausa)) {
+    || (opcion.fecha_fin === "no_aplica" && !tieneCausa)
+    || (tieneReferencia !== tieneVersion || tieneVersion !== tieneHuella)
+    || (tieneReferencia && (!tieneRegla || !referenciaValida(opcion.regla_ref)
+      || !Number.isSafeInteger(opcion.catalogo_version) || opcion.catalogo_version < 1
+      || typeof opcion.catalogo_huella_sha256 !== "string"
+      || !/^[0-9a-f]{64}$/u.test(opcion.catalogo_huella_sha256)
+      || /^0{64}$/u.test(opcion.catalogo_huella_sha256)))) {
     throw new TypeError(`${nombre} no válido`);
   }
   return { clave: opcion.clave, etiqueta: opcion.etiqueta,
     fecha_fin: opcion.fecha_fin ?? "obligatoria",
-    ...(tieneCausa ? { causa_fin: opcion.causa_fin } : {}) };
+    ...(tieneCausa ? { causa_fin: opcion.causa_fin } : {}),
+    ...(tieneReferencia ? { regla_ref: opcion.regla_ref,
+      catalogo_version: opcion.catalogo_version,
+      catalogo_huella_sha256: opcion.catalogo_huella_sha256 } : {}) };
 }
 
 function exigirUnicos(opciones, campo, nombre) {

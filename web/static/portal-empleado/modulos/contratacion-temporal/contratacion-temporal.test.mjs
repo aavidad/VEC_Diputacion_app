@@ -88,13 +88,16 @@ function reciboValido(cambios = {}) {
 test("la modalidad catalogada permite fin vacío con causa y rechaza fechas indebidas", () => {
   const catalogos = catalogosPrueba();
   catalogos.motivos[0] = { ...catalogos.motivos[0],
-    fecha_fin: "no_aplica", causa_fin: "reincorporacion_titular" };
+    fecha_fin: "no_aplica", causa_fin: "reincorporacion_titular",
+    regla_ref: "regla:ct:fin:001", catalogo_version: 2,
+    catalogo_huella_sha256: "a".repeat(64) };
   const sinFecha = borradorValido({ fin: "" });
   assert.equal(validarBorradorAlta(sinFecha, catalogos).valido, true);
   const comando = crearComandoAlta(sinFecha, catalogos, CLAVE_PRUEBA);
   assert.deepEqual(comando.solicitud.periodo, {
     inicio: "2026-08-01T00:00:00Z", causa_fin: "reincorporacion_titular",
   });
+  assert.equal(Object.hasOwn(comando.solicitud.periodo, "regla_ref"), false);
   assert.equal(validarBorradorAlta(borradorValido(), catalogos).valido, false);
   catalogos.motivos[0].fecha_fin = "opcional";
   assert.equal(validarBorradorAlta(borradorValido(), catalogos).valido, true);

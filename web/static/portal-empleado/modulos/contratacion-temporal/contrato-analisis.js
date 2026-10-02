@@ -102,19 +102,32 @@ export function normalizarModalidadesAnalisis(lista) {
   return Object.freeze(valoresListaCerrada(lista, "modalidades").map((opcion) => {
     const tieneRegla = esRegistro(opcion) && Object.hasOwn(opcion, "fecha_fin");
     const tieneCausa = esRegistro(opcion) && Object.hasOwn(opcion, "causa_fin");
+    const tieneReferencia = esRegistro(opcion) && Object.hasOwn(opcion, "regla_ref");
+    const tieneVersion = esRegistro(opcion) && Object.hasOwn(opcion, "catalogo_version");
+    const tieneHuella = esRegistro(opcion) && Object.hasOwn(opcion, "catalogo_huella_sha256");
     exigirCamposExactos(opcion, ["clave", "etiqueta",
-      ...(tieneRegla ? ["fecha_fin"] : []), ...(tieneCausa ? ["causa_fin"] : [])], "modalidades");
+      ...(tieneRegla ? ["fecha_fin"] : []), ...(tieneCausa ? ["causa_fin"] : []),
+      ...(tieneReferencia ? ["regla_ref"] : []),
+      ...(tieneVersion ? ["catalogo_version"] : []),
+      ...(tieneHuella ? ["catalogo_huella_sha256"] : [])], "modalidades");
     if (!claveValida(opcion.clave) || vistas.has(opcion.clave)
       || !etiquetaValida(opcion.etiqueta)
       || (tieneRegla && !REGLAS_FIN.has(opcion.fecha_fin))
       || (tieneCausa && !claveValida(opcion.causa_fin))
-      || (opcion.fecha_fin === "no_aplica" && !tieneCausa)) {
+      || (opcion.fecha_fin === "no_aplica" && !tieneCausa)
+      || (tieneReferencia !== tieneVersion || tieneVersion !== tieneHuella)
+      || (tieneReferencia && (!tieneRegla || !referenciaValida(opcion.regla_ref)
+        || !Number.isSafeInteger(opcion.catalogo_version) || opcion.catalogo_version < 1
+        || !huellaValida(opcion.catalogo_huella_sha256)))) {
       throw new TypeError("modalidades no válidas");
     }
     vistas.add(opcion.clave);
     return Object.freeze({ clave: opcion.clave, etiqueta: opcion.etiqueta,
       fecha_fin: opcion.fecha_fin ?? "obligatoria",
-      ...(tieneCausa ? { causa_fin: opcion.causa_fin } : {}) });
+      ...(tieneCausa ? { causa_fin: opcion.causa_fin } : {}),
+      ...(tieneReferencia ? { regla_ref: opcion.regla_ref,
+        catalogo_version: opcion.catalogo_version,
+        catalogo_huella_sha256: opcion.catalogo_huella_sha256 } : {}) });
   }));
 }
 

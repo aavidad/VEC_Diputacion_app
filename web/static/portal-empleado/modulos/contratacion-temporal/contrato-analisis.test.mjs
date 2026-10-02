@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  normalizarModalidadesAnalisis,
   validarConfiguracionAnalisis,
   validarDatosPreviosAnalisis,
   validarSolicitudRectificacionAnalisis,
@@ -9,6 +10,16 @@ import {
 } from "./contrato-analisis.js";
 
 const HUELLA = "9".repeat(64);
+
+test("configuración de análisis acepta versión y huella de la regla sin enviarlas en el periodo", () => {
+  const modalidad = { clave: "sustitucion", etiqueta: "Sustitución",
+    fecha_fin: "no_aplica", causa_fin: "reincorporacion_titular",
+    regla_ref: "regla:ct:fin:001", catalogo_version: 2,
+    catalogo_huella_sha256: HUELLA };
+  assert.deepEqual(normalizarModalidadesAnalisis([modalidad])[0], modalidad);
+  assert.throws(() => normalizarModalidadesAnalisis([{ ...modalidad,
+    catalogo_version: undefined }]), TypeError);
+});
 
 function solicitudBase(analisisExtra = {}) {
   return {
