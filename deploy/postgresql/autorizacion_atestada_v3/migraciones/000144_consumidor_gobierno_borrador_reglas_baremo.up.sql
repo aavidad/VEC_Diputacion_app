@@ -1,7 +1,7 @@
 \set ON_ERROR_STOP on
 -- AD3-144: fachada nominal de consumo V3 para el gobierno de borradores de baremo.
--- Borrador: sólo después de AD3-143 exacta. Hashes vacíos bloquean la
--- instalación hasta el ensayo causal y las revisiones de la preimagen real.
+-- Preimagen real PostgreSQL18.4 post-AD142, medida en el clon sintético.
+-- No depende de Copias AD143; conservar el orden de fusión del despliegue.
 -- Sólo vec_bolsa_reglas_baremo_propietario puede invocarla; la autorización
 -- real sigue en V3 y la operación de Bolsa la consume en su transacción.
 BEGIN;
@@ -17,7 +17,7 @@ DO $pre$
 DECLARE nucleo oid:=to_regprocedure('vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
 BEGIN
  IF current_user<>'vec_autorizacion_atestada_v3_propietario'
- OR to_regprocedure('vec_autorizacion_atestada_v3.consumir_orden_copias_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
+ OR to_regprocedure('vec_autorizacion_atestada_v3.consumir_operacion_meritos_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
  OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_gobierno_borrador_reglas_baremo_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
  OR nucleo IS NULL
  OR NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='vec_bolsa_reglas_baremo_propietario' AND NOT rolcanlogin AND NOT rolsuper AND NOT rolcreaterole AND NOT rolcreatedb AND NOT rolbypassrls)
@@ -36,9 +36,9 @@ DECLARE
  f oid:=to_regprocedure('vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
  original text; nuevo text; actual text; fuente text; meta jsonb; deps jsonb; deps_compartidas jsonb; acl aclitem[];
  propietario oid; config text[]; definidora boolean;
- -- BORRADOR: hashes vacíos hasta medir la postimagen real AD143; instalación denegada.
- esperada_def_sha256 text:=$esperada_def_sha256$$esperada_def_sha256$;
- esperada_fuente_sha256 text:=$esperada_fuente_sha256$$esperada_fuente_sha256$;
+ -- Huellas reales de la definición y fuente post-AD142, antes de este delta.
+ esperada_def_sha256 text:=$esperada_def_sha256$202b1580f00e1618e0fb311dcf0911992e56d9eb5f17bc642d58c73768f360f1$esperada_def_sha256$;
+ esperada_fuente_sha256 text:=$esperada_fuente_sha256$4a98b94be7e198a6c1e364949e60f35f39b2e5bf931bc361b1adb52a12a94905$esperada_fuente_sha256$;
  marca text:=$marca$       )
        OR c ->> 'suite' <> 'VEC-AD-3-COSE-EDDSA-1'$marca$;
  excl text:=$excl$               p_perfil_mutacion IS DISTINCT FROM 'bolsa_llamamiento'
@@ -48,7 +48,7 @@ $excl$;
 $excl_nuevo$;
  runtime text:=$runtime$       OR NOT (
            (
-               p_perfil_mutacion IN ('admin_copias_orden','admin_copias_propuesta','admin_copias_revision')
+               p_perfil_mutacion IN ('meritos_hecho_propio_interno','meritos_hecho_rechazar')
 $runtime$;
  runtime_nuevo text:=$runtime_nuevo$       OR NOT (
            (
@@ -63,7 +63,7 @@ $runtime$;
                AND NOT EXISTS (SELECT 1 FROM pg_auth_members m WHERE m.member='vec_bolsa_reglas_baremo_ejecutor_gobierno'::regrole)
            )
            OR (
-               p_perfil_mutacion IN ('admin_copias_orden','admin_copias_propuesta','admin_copias_revision')
+               p_perfil_mutacion IN ('meritos_hecho_propio_interno','meritos_hecho_rechazar')
 $runtime_nuevo$;
  extension text:=$extension$           OR (
  p_perfil_mutacion IS NOT DISTINCT FROM 'gobierno_borrador_reglas_baremo'
@@ -171,7 +171,7 @@ BEGIN
  SELECT pg_get_constraintdef(c.oid,true) INTO STRICT d FROM pg_constraint c
  WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
  AND c.conname='clave_capacidad_version_audiencia_consumo_check' AND c.contype='c' AND c.convalidated;
- IF encode(sha256(convert_to(d,'UTF8')),'hex') IS DISTINCT FROM ''
+ IF encode(sha256(convert_to(d,'UTF8')),'hex') IS DISTINCT FROM 'd5c8048786b283485016af29fba41ff68b93076ba4f37f2badfa6bb7d5532fd9'
  OR strpos(d,'CHECK (audiencia_consumo = ANY (ARRAY[')<>1 OR right(d,3)<>']))'
  OR strpos(d,'vec_bolsa_reglas_baremo.gobierno_borrador.v3')<>0
  THEN RAISE EXCEPTION 'AD3-144: preimagen de audiencias incompatible' USING ERRCODE='55000'; END IF;

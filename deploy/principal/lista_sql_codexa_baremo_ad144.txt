@@ -1,5 +1,8 @@
-# Borrador: sólo después de main con AD143 integrada y huellas reales.
-# Los roles propios de Baremo y su historia BR1/BR2/BR3 deben existir;
-# Dirección inventaría e instala sólo los prerrequisitos ausentes en el clon.
+# Borrador: main post-AD142 y huellas reales. AD143 no es dependencia.
+# Lista de despliegue en orden de fusión, según dirección 02/10 13:50.
+# Los roles propios de Baremo deben existir; su prefijo BR1/BR2/BR3 es
+# requisito de BR4. Dirección instala sólo prerrequisitos ausentes en el clon:
+# bolsa_reglas_baremo/roles_up.sql -> migraciones_autorizacion/000001
+# -> BR1 -> BR2 -> migraciones_atestacion/000001 -> BR3.
 # No reaplicar SQL instalado ni ejecutar DOWN sobre historia.
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000144_consumidor_gobierno_borrador_reglas_baremo.up.sql
