@@ -2,8 +2,8 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { exigirVersiones } from "./versiones-cache.test-helper.mjs";
 
-const versionEntrada = "20261002-a-recuperar-379-v1";
-const versionCoordinador = "20261002-b-servicios-351-main-v1";
+const versionEntrada = "20261002-codexe-d7c-ux-v3";
+const versionCoordinador = "20261002-codexe-d7c-ux-v3";
 const raiz = new URL("./", import.meta.url);
 
 test("la extracción CT renueva cada padre hasta la entrada del portal", async () => {
