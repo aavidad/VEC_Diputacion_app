@@ -59,16 +59,23 @@ func (s SolicitudResolverFlujo) Validar() error {
 }
 
 type ConfiguracionAltaFlujo struct {
-	Flujo            domain.ReferenciaFlujo
-	FaseInicial      domain.ClaveFase
-	UnidadInicialRef string
-	AccionInicial    domain.ClaveCatalogo
+	Flujo              domain.ReferenciaFlujo
+	DefinicionCircuito *domain.DefinicionCircuitoRRHH
+	FaseInicial        domain.ClaveFase
+	UnidadInicialRef   string
+	AccionInicial      domain.ClaveCatalogo
 }
 
 func (c ConfiguracionAltaFlujo) Validar() error {
 	if c.Flujo.Validar() != nil || !c.FaseInicial.Valida() ||
 		!domain.ReferenciaOpacaValida(c.UnidadInicialRef) ||
 		!c.AccionInicial.Valida() {
+		return ErrFlujoNoDisponible
+	}
+	if c.DefinicionCircuito != nil &&
+		(c.DefinicionCircuito.Validar() != nil ||
+			c.DefinicionCircuito.Flujo != c.Flujo ||
+			c.DefinicionCircuito.EstadoInicial != c.FaseInicial) {
 		return ErrFlujoNoDisponible
 	}
 	return nil

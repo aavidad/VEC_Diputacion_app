@@ -1,0 +1,10 @@
+/* Las entradas independientes del shell dejan crecer el documento y usan su scroll. */
+html:has(> body.portal-pagina-larga) {
+  height: auto;
+  overflow: auto;
+}
+
+body.portal-empleado-app.portal-pagina-larga {
+  height: auto;
+  overflow: visible;
+}

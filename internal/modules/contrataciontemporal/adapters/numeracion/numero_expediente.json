@@ -1,0 +1,6 @@
+{
+  "referencia": "catalogo:ct:numero-expediente-moad",
+  "version": 1,
+  "patron": "^[0-9]{4}/[1-9][0-9]{0,9}$",
+  "ejemplo": "2026/5487"
+}

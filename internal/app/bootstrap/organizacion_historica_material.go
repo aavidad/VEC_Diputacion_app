@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -58,6 +59,33 @@ type CapacidadPublicadaOrganizacionHistoricaV3 struct {
 	Version, RevisionGobierno, OrdenPuntero uint64
 	HuellaGobierno, SHA256, EmisorID        string
 	Desde, Hasta                            time.Time
+}
+
+// ClaveCapacidadOrganizacionHistoricaV3 conserva la clave propia de OH sólo
+// durante la preparación privada. No acredita gobierno ni concede acceso.
+type ClaveCapacidadOrganizacionHistoricaV3 struct {
+	CapacidadPublicadaOrganizacionHistoricaV3
+	secreto []byte
+}
+
+func (ClaveCapacidadOrganizacionHistoricaV3) String() string {
+	return "[clave Organización histórica privada]"
+}
+func (c ClaveCapacidadOrganizacionHistoricaV3) GoString() string { return c.String() }
+func (ClaveCapacidadOrganizacionHistoricaV3) MarshalJSON() ([]byte, error) {
+	return json.Marshal("[clave Organización histórica privada]")
+}
+func (c *ClaveCapacidadOrganizacionHistoricaV3) CopiarSecreto() []byte {
+	if c == nil {
+		return nil
+	}
+	return append([]byte(nil), c.secreto...)
+}
+func (c *ClaveCapacidadOrganizacionHistoricaV3) Borrar() {
+	if c != nil {
+		borrarBytes(c.secreto)
+		c.secreto = nil
+	}
 }
 
 func publicarMaterialOrganizacionHistorica(ctx context.Context, gobierno *pgxpool.Pool, material materialAtestacionContratacionTemporalDesarrollo, catalogo catalogoMaterialAutorizacionComunDesarrollo) (CapacidadPublicadaOrganizacionHistoricaV3, error) {

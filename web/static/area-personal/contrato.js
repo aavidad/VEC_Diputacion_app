@@ -1,5 +1,5 @@
 import { campoVisibleMiBolsa, validarCamposMiBolsa } from "./mi-bolsa-campos.js";
-import { validarPortalMiBolsa } from "./mi-bolsa-portal.js";
+import { validarPortalMiBolsa } from "./mi-bolsa-portal.js?v=20261002-rrhh17-v1";
 
 const ESQUEMA_PANEL = "vec.bolsa.area-personal.v1";
 export const ESQUEMA_MI_BOLSA = "vec.bolsa.mi-bolsa.v1";
@@ -16,7 +16,7 @@ export const SITUACIONES_PARTICIPACION_BOLSA = Object.freeze([
 
 const SITUACIONES_ACTUALES_MI_BOLSA = Object.freeze([
   "disponible", "no_disponible", "trabajando", "pendiente_incorporacion",
-  "renuncia", "excluido", "disponible_desde",
+  "renuncia", "excluido", "disponible_desde", "en_revision",
 ]);
 
 export const RESULTADOS_LLAMAMIENTO = Object.freeze([

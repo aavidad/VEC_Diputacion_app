@@ -35,15 +35,31 @@ type SolicitudRectificarAnalisis struct {
 }
 
 type ServicioOperacionAnalisis struct {
-	contextos     ports.ResolutorContextoAutorizacionAltaV3
-	artefactos    ports.PreparadorArtefactoAnalisisO3
-	sellador      ports.SelladorOperacionAnalisis
-	preparaciones ports.PreparadorOperacionAnalisisIdempotente
-	politicas     ports.ResolutorPoliticaOperacionAnalisis
-	correlaciones puertosvec.GeneradorReferenciasAutorizacionV2
-	autorizador   puertosvec.AutorizadorSolicitudLigadaV3
-	reloj         ports.Reloj
-	transaccion   ports.TransaccionOperacionesAnalisis
+	contextos          ports.ResolutorContextoAutorizacionAltaV3
+	artefactos         ports.PreparadorArtefactoAnalisisO3
+	sellador           ports.SelladorOperacionAnalisis
+	preparaciones      ports.PreparadorOperacionAnalisisIdempotente
+	politicas          ports.ResolutorPoliticaOperacionAnalisis
+	correlaciones      puertosvec.GeneradorReferenciasAutorizacionV2
+	autorizador        puertosvec.AutorizadorSolicitudLigadaV3
+	reloj              ports.Reloj
+	transaccion        ports.TransaccionOperacionesAnalisis
+	periodos           ports.PreparadorPeriodoModalidad
+	recuperacion       ports.RecuperadorPoliticaFinConfirmada
+	evidenciasCircuito ports.FuenteEvidenciasCircuitoRRHH
+}
+
+// ConfigurarRecuperacionPoliticaFin se usa una vez durante la composición.
+// Los periodos sin fecha requieren esta dependencia para impedir que un
+// cambio de c12 altere la identidad de una operación ya confirmada.
+func (s *ServicioOperacionAnalisis) ConfigurarRecuperacionPoliticaFin(
+	recuperacion ports.RecuperadorPoliticaFinConfirmada,
+) error {
+	if s == nil || dependenciaNula(recuperacion) || s.recuperacion != nil {
+		return ErrServicioOperacionAnalisisInvalido
+	}
+	s.recuperacion = recuperacion
+	return nil
 }
 
 func NuevoServicioOperacionAnalisis(
@@ -56,15 +72,16 @@ func NuevoServicioOperacionAnalisis(
 	autorizador puertosvec.AutorizadorSolicitudLigadaV3,
 	reloj ports.Reloj,
 	transaccion ports.TransaccionOperacionesAnalisis,
+	periodos ...ports.PreparadorPeriodoModalidad,
 ) (*ServicioOperacionAnalisis, error) {
 	if dependenciaNula(contextos) || dependenciaNula(artefactos) ||
 		dependenciaNula(sellador) || dependenciaNula(preparaciones) ||
 		dependenciaNula(politicas) || dependenciaNula(correlaciones) ||
 		dependenciaNula(autorizador) || dependenciaNula(reloj) ||
-		dependenciaNula(transaccion) {
+		dependenciaNula(transaccion) || len(periodos) > 1 {
 		return nil, ErrServicioOperacionAnalisisInvalido
 	}
-	return &ServicioOperacionAnalisis{
+	servicio := &ServicioOperacionAnalisis{
 		contextos:     contextos,
 		artefactos:    artefactos,
 		sellador:      sellador,
@@ -74,7 +91,11 @@ func NuevoServicioOperacionAnalisis(
 		autorizador:   autorizador,
 		reloj:         reloj,
 		transaccion:   transaccion,
-	}, nil
+	}
+	if len(periodos) == 1 {
+		servicio.periodos = periodos[0]
+	}
+	return servicio, nil
 }
 
 func (s *ServicioOperacionAnalisis) Registrar(
@@ -177,6 +198,57 @@ func (s *ServicioOperacionAnalisis) ejecutar(
 		return ports.ReciboOperacionAnalisis{},
 			nuevoErrorOperacionAnalisis(tipoErrorDenegacion, nil)
 	}
+	if solicitud.datosFuncionales.Periodo.PoliticaFin != (domain.PoliticaFin{}) {
+		return ports.ReciboOperacionAnalisis{}, nuevoErrorOperacionAnalisis(tipoErrorSolicitud, nil)
+	}
+	if solicitud.datosFuncionales.Periodo.Fin.IsZero() {
+		if dependenciaNula(s.periodos) {
+			return ports.ReciboOperacionAnalisis{}, ErrServicioOperacionAnalisisInvalido
+		}
+		if dependenciaNula(s.recuperacion) {
+			return ports.ReciboOperacionAnalisis{}, ErrServicioOperacionAnalisisInvalido
+		}
+		// El ámbito HMAC se obtiene sin los datos funcionales; sólo tras
+		// recuperar la política original se sella la semántica completa.
+		preimagenesAmbito, err := ports.AmbitoPoliticaFinAnalisis(
+			solicitud.claveIdempotencia, solicitud.organizacionRef,
+			solicitud.expedienteRef, vinculo.PrincipalID, vinculo.PerfilActivoRef,
+		)
+		if err != nil {
+			return ports.ReciboOperacionAnalisis{}, nuevoErrorOperacionAnalisis(tipoErrorSolicitud, nil)
+		}
+		sellosAmbito, err := s.sellador.SellarOperacionAnalisis(ctxOperacion, preimagenesAmbito)
+		if err != nil || sellosAmbito.Validar() != nil {
+			return ports.ReciboOperacionAnalisis{}, errorDependenciaOperacionAnalisis(ctxOperacion)
+		}
+		politicaAnterior, confirmada, err := s.recuperacion.ConsultarPoliticaFinAnalisisConfirmada(
+			ctxOperacion, ports.ConsultaPoliticaFinAnalisisConfirmada{
+				AmbitosHMAC:     sellosAmbito.AmbitosIdempotenciaHMAC,
+				OrganizacionRef: solicitud.organizacionRef, ExpedienteRef: solicitud.expedienteRef,
+				ActorRef: vinculo.PrincipalID, PerfilRef: vinculo.PerfilActivoRef,
+				Operacion: solicitud.operacion, VersionExpediente: solicitud.versionEsperada,
+			},
+		)
+		if err != nil {
+			return ports.ReciboOperacionAnalisis{}, clasificarFalloPersistencia(ctxOperacion, err)
+		}
+		if confirmada {
+			if politicaAnterior != (domain.PoliticaFin{}) && politicaAnterior.Validar() != nil {
+				return ports.ReciboOperacionAnalisis{}, nuevoErrorOperacionAnalisis(tipoErrorResultado, nil)
+			}
+			// NULL histórico conserva el canon anterior a c12.
+			solicitud.datosFuncionales.Periodo.PoliticaFin = politicaAnterior
+		} else {
+			periodo, err := s.periodos.PrepararPeriodoModalidad(ctxOperacion, solicitud.datosFuncionales.ModalidadClave, solicitud.datosFuncionales.Periodo)
+			if err != nil {
+				return ports.ReciboOperacionAnalisis{}, nuevoErrorOperacionAnalisis(tipoErrorSolicitud, nil)
+			}
+			solicitud.datosFuncionales.Periodo = periodo
+		}
+		if solicitud.datosFuncionales.Validar() != nil {
+			return ports.ReciboOperacionAnalisis{}, nuevoErrorOperacionAnalisis(tipoErrorSolicitud, nil)
+		}
+	}
 	datosConsulta := ports.DatosPreimagenesConsultaOperacionAnalisis{
 		Operacion:           solicitud.operacion,
 		OrganizacionRef:     solicitud.organizacionRef,
@@ -227,6 +299,11 @@ func (s *ServicioOperacionAnalisis) ejecutar(
 				nuevoErrorOperacionAnalisis(tipoErrorResultado, nil)
 		}
 		return reciboConfirmado, nil
+	}
+	if !solicitud.datosFuncionales.Periodo.Fin.IsZero() && s.periodos != nil {
+		if _, err := s.periodos.PrepararPeriodoModalidad(ctxOperacion, solicitud.datosFuncionales.ModalidadClave, solicitud.datosFuncionales.Periodo); err != nil {
+			return ports.ReciboOperacionAnalisis{}, nuevoErrorOperacionAnalisis(tipoErrorSolicitud, nil)
+		}
 	}
 
 	solicitudArtefacto := ports.SolicitudPrepararArtefactoAnalisis{
@@ -319,6 +396,12 @@ func (s *ServicioOperacionAnalisis) ejecutar(
 	}
 
 	anterior := datosPreparacion.ExpedienteAnterior.Clonar()
+	if anterior.Circuito != nil &&
+		(solicitud.operacion != ports.OperacionRegistrarAnalisis ||
+			dependenciaNula(s.evidenciasCircuito)) {
+		return ports.ReciboOperacionAnalisis{},
+			errorDependenciaOperacionAnalisis(ctxOperacion)
+	}
 	actorAnterior, err := actorAnalisisAnterior(
 		anterior,
 		solicitud.operacion,
@@ -465,6 +548,16 @@ func (s *ServicioOperacionAnalisis) ejecutar(
 		}
 		return ports.ReciboOperacionAnalisis{},
 			nuevoErrorOperacionAnalisis(tipo, nil)
+	}
+	if anterior.Circuito != nil {
+		siguiente, err = s.adjuntarHitosAnalisisCircuitoRRHH(
+			ctxOperacion, anterior, siguiente,
+			vinculo.PrincipalID, vinculo.PerfilActivoRef,
+		)
+		if err != nil {
+			return ports.ReciboOperacionAnalisis{},
+				errorDependenciaOperacionAnalisis(ctxOperacion)
+		}
 	}
 	orden, err := ports.NuevaOrdenConfirmarOperacionAnalisis(
 		ports.DatosOrdenConfirmarOperacionAnalisis{

@@ -254,7 +254,7 @@ func asegurarPerfilMiBolsaDesarrollo(
 		// soloInicial rechaza en vez de sobrescribir.
 		inicial := *autoridad
 		inicial.soloInicial = true
-		preparada, errAlta := publicarPerfilMiBolsaDesarrollo(ctx, &inicial, identidad, ahora, portal)
+		preparada, errAlta := publicarPerfilMiBolsaDesarrollo(ctx, &inicial, identidad, ahora, portal, false)
 		if errAlta == nil {
 			return preparada, perfilMiBolsaPublicado, nil
 		}
@@ -278,12 +278,22 @@ func asegurarPerfilMiBolsaDesarrollo(
 		// exacta de la consulta; cualquier otro estado lo rechaza el CAS.
 		if portal && operativaDeEsteCircuitoMiBolsa(vigente, semilla, autoridad, ahora) &&
 			vigente.instantanea.VersionRol.RolID == rolConsultaMiBolsaDesarrollo {
-			if preparada, err := publicarPerfilMiBolsaDesarrollo(ctx, autoridad, identidad, ahora, portal); err == nil {
+			if preparada, err := publicarPerfilMiBolsaDesarrollo(ctx, autoridad, identidad, ahora, portal, false); err == nil {
 				return preparada, perfilMiBolsaPublicado, nil
 			}
 		}
 		if aprobacion.aprueba(vigente.huella) && restaurableMiBolsa(vigente, semilla, autoridad, ahora) {
 			return provisionarMiBolsaDesarrollo(ctx, autoridad, semilla, vigente, aprobacion)
+		}
+		if portal {
+			anterior, err := nuevaInstantaneaMiBolsaDesarrollo(identidad, ahora, true, false)
+			if err == nil {
+				if exacta, ok := miBolsaVigenteExacta(vigente, anterior, autoridad, ahora); ok {
+					slog.Warn("solicitud documental Mi Bolsa pendiente de provisión; consulta anterior conservada",
+						"perfil_ref", perfilRef, "asignacion_vigente_huella_sha256", vigente.huella, "estado", string(perfilMiBolsaPendienteProvision))
+					return exacta, perfilMiBolsaVigente, nil
+				}
+			}
 		}
 	}
 	slog.Warn("Mi Bolsa sin asignación consumible: sus peticiones se deniegan hasta la provisión",

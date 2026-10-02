@@ -5,13 +5,16 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+	"time"
 
 	"vec-diputacion-granada/config"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/portafirmasapagado"
 )
 
 const rutaCircuitoFirmaCTEjemploPrueba = "../../../data/demo/reglas/ct_circuito_firma.ejemplo.demo.json"
+const rutaCircuitoFirmaCTAlternativaPrueba = "../../../data/demo/reglas/ct_circuito_firma.rrhh.v2.json"
 
 func configuracionCircuitoFirmaPrueba(ruta string) config.Config {
 	cfg := configuracionDesarrolloReglasEjemplo("", "")
@@ -43,6 +46,12 @@ func TestCircuitoFirmaEjemploSeConsultaConEstadoSinFirmas(t *testing.T) {
 		len(datos.Documentos) != 2 {
 		t.Fatalf("circuito inesperado: %+v", datos)
 	}
+	if strings.Contains(respuesta.Body.String(), "perfiles_ref_alternativos") {
+		t.Fatal("un catálogo antiguo no debe declarar alternativas ni cambiar el contrato v1")
+	}
+	if strings.Contains(respuesta.Body.String(), "misma_persona_en_dos_pasos") {
+		t.Fatal("la política de firma no forma parte de la consulta v1")
+	}
 	// Firmadoc apagado: no conectado, con motivo, y nada que parezca envío.
 	if datos.Portafirmas.Conectado || datos.Portafirmas.Motivo != "conexion_pendiente" {
 		t.Fatalf("portafirmas inesperado: %+v", datos.Portafirmas)
@@ -56,6 +65,73 @@ func TestCircuitoFirmaEjemploSeConsultaConEstadoSinFirmas(t *testing.T) {
 			if paso.Estado != esperado {
 				t.Fatalf("%s paso %d en %q; sin firmas registradas debe estar %q", documento.Documento, paso.Orden, paso.Estado, esperado)
 			}
+		}
+	}
+}
+
+func TestCircuitoFirmaRRHHExponeAlternativaVersionada(t *testing.T) {
+	relojRRHH := relojReglasEjemploPrueba{ahora: time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC)}
+	compuestas, err := nuevasReglasEjemploDesarrollo(configuracionCircuitoFirmaPrueba(rutaCircuitoFirmaCTAlternativaPrueba), nil, relojRRHH)
+	if err != nil {
+		t.Fatal(err)
+	}
+	respuesta := httptest.NewRecorder()
+	nuevaRutaCircuitoFirmaContratacionTemporalDesarrollo(compuestas.circuitoFirmaCT, portafirmasapagado.Conector{}).Manejador.ServeHTTP(
+		respuesta, httptest.NewRequest(http.MethodGet, rutaCircuitoFirmaContratacionTemporalDesarrollo, nil))
+	if respuesta.Code != http.StatusOK {
+		t.Fatalf("consulta: %d %s", respuesta.Code, respuesta.Body.String())
+	}
+	var cuerpo struct {
+		Data circuitoFirmaDesarrollo `json:"data"`
+	}
+	if err := json.Unmarshal(respuesta.Body.Bytes(), &cuerpo); err != nil {
+		t.Fatal(err)
+	}
+	datos := cuerpo.Data
+	if datos.Esquema != esquemaCircuitoFirmaAlternativasDesarrollo || datos.CatalogoRef != "vec.contratacion_temporal.circuito_firma:2" ||
+		!datos.Ejemplo || datos.FirmaEficaz || len(datos.Documentos) != 2 {
+		t.Fatalf("circuito RRHH inesperado: %+v", datos)
+	}
+	if strings.Contains(respuesta.Body.String(), "misma_persona_en_dos_pasos") {
+		t.Fatal("la política de firma no debe salir en la consulta v2")
+	}
+	configurado, err := compuestas.circuitoFirmaCT.CircuitoFirma(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if configurado.PermiteMismaPersonaEnPasos ||
+		configurado.HuellaCatalogo != datos.HuellaSHA256 ||
+		configurado.Version != 2 {
+		t.Fatalf("la política interna debe denegar por defecto y conservar la procedencia v2: %+v", configurado)
+	}
+	configurado.PermiteMismaPersonaEnPasos = true
+	conPolitica, err := json.Marshal(vistaCircuitoFirmaDesarrollo(configurado))
+	if err != nil || strings.Contains(string(conPolitica), "misma_persona_en_dos_pasos") {
+		t.Fatalf("la política interna no debe aparecer aun si el catálogo la admite: %s, %v", conPolitica, err)
+	}
+	informe, resolucion := datos.Documentos[0], datos.Documentos[1]
+	if informe.Documento != "informe_definitivo" || len(informe.Pasos) != 1 ||
+		informe.Pasos[0].PerfilRef != "perfil:ct:jefatura_servicio_rrhh" || len(informe.Pasos[0].PerfilesAlternativos) != 0 ||
+		resolucion.Documento != "resolucion" || len(resolucion.Pasos) != 2 ||
+		resolucion.Pasos[0].PerfilRef != "perfil:ct:jefatura_servicio_rrhh" ||
+		len(resolucion.Pasos[0].PerfilesAlternativos) != 1 || resolucion.Pasos[0].PerfilesAlternativos[0] != "perfil:ct:direccion_rrhh" ||
+		resolucion.Pasos[0].Accion != "visto_bueno" || resolucion.Pasos[1].PerfilRef != "perfil:ct:diputacion_delegada_rrhh" ||
+		len(resolucion.Pasos[1].PerfilesAlternativos) != 0 || resolucion.Pasos[1].Accion != "firma" {
+		t.Fatalf("visto bueno alternativo y firma de Diputación: %+v %+v", informe, resolucion)
+	}
+	var bruto struct {
+		Data struct {
+			Documentos []struct {
+				Pasos []map[string]json.RawMessage `json:"pasos"`
+			} `json:"documentos"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(respuesta.Body.Bytes(), &bruto); err != nil {
+		t.Fatal(err)
+	}
+	for _, paso := range []map[string]json.RawMessage{bruto.Data.Documentos[0].Pasos[0], bruto.Data.Documentos[1].Pasos[1]} {
+		if _, presente := paso["perfiles_ref_alternativos"]; presente {
+			t.Fatalf("paso sin alternativa expuesto con campo nuevo: %v", paso)
 		}
 	}
 }
