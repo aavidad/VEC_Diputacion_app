@@ -18,7 +18,7 @@ container="vec-cronos-000014-${RANDOM}${RANDOM}"
 cleanup() { docker rm -f "$container" >/dev/null 2>&1 || true; }
 trap cleanup EXIT
 
-docker run -d --network none --name "$container" \
+docker run -d --pull=never --network none --name "$container" \
   -e POSTGRES_HOST_AUTH_METHOD=trust postgres:18.4-alpine >/dev/null
 
 esperar() {
@@ -71,10 +71,74 @@ done
 
 m14="$crn14_borrador/000014_justificacion.sql.borrador"
 if run < "$m14" >/dev/null 2>&1; then
-  echo 'FALLO 000014 aceptada sin las fachadas AD146' >&2
+  echo 'FALLO 000014 aceptada sin DOC12/AD148' >&2
   exit 1
 fi
-printf 'OK 000014 rechazada sin consumidores nominales AD146\n'
+comprobar "SELECT to_regclass('vec_cronos_v1.justificacion_operacion') IS NULL AND to_regclass('vec_cronos_v1.justificacion_politica') IS NULL" t 'preimagen sin DOC12 no deja tablas CRN14'
+printf 'OK 000014 rechazada sin DOC12/AD148\n'
+if [ "${CRN14_SOLO_NEGATIVO_DOC12:-0}" = 1 ]; then
+  exit 0
+fi
+
+if [ "${CRN14_ESTRUCTURAL_DOC12:-0}" = 1 ]; then
+  : "${CRN14_DOC12_UP:?falta CRN14_DOC12_UP con DOC12 real}"
+  if [ ! -f "$CRN14_DOC12_UP" ]; then
+    echo 'Ruta DOC12 no disponible para el ensayo estructural' >&2
+    exit 2
+  fi
+  # Base Documentos sintética mínima para comprobar sintaxis, DDL y ACL de
+  # DOC12/CRN14. No contiene alta documental, no invoca C8 y no representa
+  # V3 ni una cadena de migraciones real.
+  run <<'SQL' >/dev/null
+CREATE ROLE vec_documentos_propietario NOLOGIN NOINHERIT NOBYPASSRLS;
+CREATE ROLE vec_autorizacion_atestada_v3_propietario NOLOGIN NOINHERIT NOBYPASSRLS;
+CREATE SCHEMA vec_documentos AUTHORIZATION vec_documentos_propietario;
+SET ROLE vec_documentos_propietario;
+CREATE TABLE vec_documentos.referencia_externa(id text PRIMARY KEY, expediente_ref text NOT NULL);
+ALTER TABLE vec_documentos.referencia_externa ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_documentos.referencia_externa FORCE ROW LEVEL SECURITY;
+CREATE FUNCTION vec_documentos.referencia_opaca_v1(text) RETURNS boolean LANGUAGE sql IMMUTABLE SET search_path=pg_catalog AS $$ SELECT $1 ~ '^ref:[0-9a-f]{64}$' $$;
+CREATE FUNCTION vec_documentos.principal_ref_v1(text) RETURNS boolean LANGUAGE sql IMMUTABLE SET search_path=pg_catalog AS $$ SELECT $1 ~ '^per_[-A-Za-z0-9_]{22,128}$' $$;
+CREATE FUNCTION vec_documentos.referencia_custodio_v1(text) RETURNS boolean LANGUAGE sql IMMUTABLE SET search_path=pg_catalog AS $$ SELECT $1 ~ '^[A-Za-z0-9][A-Za-z0-9._:#-]{2,159}$' $$;
+CREATE FUNCTION vec_documentos.registro_externo_equivalente_v1(vec_documentos.referencia_externa,jsonb) RETURNS boolean LANGUAGE sql STABLE SET search_path=pg_catalog AS $$ SELECT false $$;
+CREATE FUNCTION vec_documentos.huella_efecto_v1(bytea) RETURNS text LANGUAGE sql IMMUTABLE SET search_path=pg_catalog AS $$ SELECT encode(sha256($1),'hex') $$;
+RESET ROLE;
+CREATE FUNCTION vec_autorizacion_atestada_v3.consumir_alta_externa_enlace_documentos_v3_atestada(
+ p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea
+) RETURNS TABLE(decision_ref text,efecto_ref text,huella_efecto_sha256 text,consumo_huella_sha256 text,auditoria_ref text,consumida_en timestamptz,consumo_nuevo boolean)
+LANGUAGE sql VOLATILE SECURITY DEFINER SET search_path=pg_catalog AS $$ SELECT NULL::text,NULL::text,NULL::text,NULL::text,NULL::text,clock_timestamp(),false $$;
+GRANT USAGE ON SCHEMA vec_autorizacion_atestada_v3 TO vec_documentos_propietario;
+GRANT EXECUTE ON FUNCTION vec_autorizacion_atestada_v3.consumir_alta_externa_enlace_documentos_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) TO vec_documentos_propietario;
+SQL
+  run < "$CRN14_DOC12_UP" >/dev/null
+  run < "$base_dir/cronos_justificacion_000014_stub_ad146.sql" >/dev/null
+  run < "$m14" >/dev/null
+  comprobar "SELECT to_regprocedure('vec_documentos.confirmar_alta_externa_para_enlace_v1(bytea,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL AND has_function_privilege('vec_cronos_v1_propietario','vec_documentos.confirmar_alta_externa_para_enlace_v1(bytea,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')" t 'DOC12 estructural: fachada y ACL nominal'
+  comprobar "SELECT to_regclass('vec_cronos_v1.justificacion_operacion') IS NOT NULL AND NOT has_table_privilege('public','vec_cronos_v1.justificacion_operacion','SELECT')" t 'CRN14 estructural: DDL y ACL cerrada'
+  printf 'PG18 estructural sintético: DOC12 real y borrador CRN14 aplicados; no se ejecutó C8 ni se acreditó V3/Documentos.\n'
+  exit 0
+fi
+
+# El positivo sólo será válido con DOC12 y AD148 reales, de hashes revisados,
+# en este mismo contenedor. No se acepta una fachada simulada de Documentos.
+# Las rutas se reciben por entorno para no acoplar el arnés al worktree de
+# Documentos ni ejecutar WIP con placeholders.
+if [ "${CRN14_EJECUTAR_POSITIVO_DOC12:-0}" != 1 ]; then
+  printf 'PENDIENTE: positivo DOC12/AD148 real no habilitado; no se usa stub Documentos.\n'
+  exit 0
+fi
+: "${CRN14_DOC12_UP:?falta CRN14_DOC12_UP con la migración DOC12 revisada}"
+: "${CRN14_AD148_UP:?falta CRN14_AD148_UP con la migración AD148 revisada}"
+if [ ! -f "$CRN14_DOC12_UP" ] || [ ! -f "$CRN14_AD148_UP" ]; then
+  echo 'Rutas DOC12/AD148 no disponibles para el positivo real' >&2
+  exit 2
+fi
+# Orden causal previsto, pendiente de hashes definitivos y de completar las
+# llamadas de 24 argumentos de anexar: AD148 debe seguir a DOC12 y ambas
+# preceden a la carga del borrador CRN14.
+echo 'PENDIENTE: faltan hashes/fachadas AD148 definitivos; positivo no ejecutado.' >&2
+exit 2
+
 run < "$base_dir/cronos_justificacion_000014_stub_ad146.sql" >/dev/null
 
 # La migración debe conservar la posibilidad de rollback transaccional en el
