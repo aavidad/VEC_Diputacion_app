@@ -25,15 +25,19 @@ func (r *resolverJustificacionPrueba) ResolverOrdenJustificacion(*http.Request) 
 }
 
 type casoJustificacionPrueba struct {
-	anexos           int
-	consulta         int
-	revisiones       int
-	pendiente        bool
-	sinDocumento     bool
-	errAnexo         error
-	replay           bool
-	preparacion      ports.PreparacionJustificacion
-	revisionRecibida ports.PeticionRevisionJustificacion
+	anexos               int
+	consulta             int
+	revisiones           int
+	recuperaciones       int
+	pendiente            bool
+	sinDocumento         bool
+	errAnexo             error
+	replay               bool
+	preparacion          ports.PreparacionJustificacion
+	revisionRecibida     ports.PeticionRevisionJustificacion
+	recuperacionRecibida ports.PeticionRecuperacionRevisionJustificacion
+	errRecuperacion      error
+	historico            *ports.ReciboJustificacion
 }
 
 func (c *casoJustificacionPrueba) Consultar(context.Context, ports.OrdenJustificacion, string) (ports.PreparacionJustificacion, error) {
@@ -56,6 +60,22 @@ func (c *casoJustificacionPrueba) Revisar(_ context.Context, _ ports.OrdenJustif
 	c.revisionRecibida = p
 	return ports.ReciboJustificacion{ReciboRef: "recibo:cronos:justificacion:abcdefgh", FechaUTC: time.Date(2026, 10, 2, 0, 0, 0, 0, time.UTC),
 		Justificacion: domain.Justificacion{Version: 2, Estado: domain.JustificacionAceptada}, Replay: c.replay}, nil
+}
+
+func (c *casoJustificacionPrueba) RecuperarRevision(_ context.Context, _ ports.OrdenJustificacion, p ports.PeticionRecuperacionRevisionJustificacion) (ports.ReciboJustificacion, error) {
+	c.recuperaciones++
+	c.recuperacionRecibida = p
+	if c.errRecuperacion != nil {
+		return ports.ReciboJustificacion{}, c.errRecuperacion
+	}
+	if c.historico != nil {
+		return *c.historico, nil
+	}
+	if !c.replay {
+		return ports.ReciboJustificacion{}, ports.ErrJustificacionNoEncontrada
+	}
+	return ports.ReciboJustificacion{ReciboRef: "recibo:cronos:justificacion:abcdefgh", FechaUTC: time.Date(2026, 10, 2, 0, 0, 0, 0, time.UTC),
+		Justificacion: domain.Justificacion{Version: 2, Estado: domain.JustificacionAceptada, MotivoRef: "motivo:uno"}, Replay: true}, nil
 }
 
 func TestJustificacionHTTPRechazaEntradaAntesDeResolver(t *testing.T) {
@@ -88,7 +108,7 @@ func TestJustificacionHTTPRechazaEntradaAntesDeResolver(t *testing.T) {
 			}
 			w := httptest.NewRecorder()
 			m.ServeHTTP(w, req)
-			if w.Code != tc.estado || resolutor.llamadas != 0 || caso.anexos != 0 || caso.consulta != 0 || caso.revisiones != 0 {
+			if w.Code != tc.estado || resolutor.llamadas != 0 || caso.anexos != 0 || caso.consulta != 0 || caso.revisiones != 0 || caso.recuperaciones != 0 {
 				t.Fatalf("estado=%d resolutor=%d caso=%+v", w.Code, resolutor.llamadas, caso)
 			}
 		})
@@ -155,7 +175,7 @@ func TestJustificacionHTTPRevisionUsaVinculoDeLecturaAutorizada(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	m.ServeHTTP(w, req)
-	if w.Code != http.StatusCreated || caso.consulta != 1 || caso.revisiones != 1 || caso.revisionRecibida.Vinculo != vinculo {
+	if w.Code != http.StatusCreated || caso.recuperaciones != 1 || caso.consulta != 1 || caso.revisiones != 1 || caso.revisionRecibida.Vinculo != vinculo {
 		t.Fatalf("estado=%d consulta=%d revision=%d vinculo=%+v", w.Code, caso.consulta, caso.revisiones, caso.revisionRecibida.Vinculo)
 	}
 	if strings.Contains(w.Body.String(), "emp_autorizado") || strings.Contains(w.Body.String(), vinculo.Documento.ID) {
@@ -167,15 +187,73 @@ func TestJustificacionHTTPReplayReautorizaLecturaSinExigirVersionActual(t *testi
 	ref := "permiso:cronos:solicitud:abcdefgh"
 	resolutor := &resolverJustificacionPrueba{}
 	caso := &casoJustificacionPrueba{replay: true, preparacion: ports.PreparacionJustificacion{
-		Actual: &domain.Justificacion{Version: 2, Vinculo: domain.VinculoJustificacion{SolicitudRef: ref}}}}
+		Actual: &domain.Justificacion{Version: 3, Vinculo: domain.VinculoJustificacion{SolicitudRef: ref,
+			Documento: domain.DocumentoJustificacion{ID: "ref:" + strings.Repeat("b", 64), Version: 1}}}}}
 	m, _ := NuevoManejadorJustificaciones(caso, resolutor)
 	cuerpo := `{"solicitud_ref":"` + ref + `","clave_operacion":"clave_1","version_esperada":1,"decision":"aceptada","motivo_ref":"motivo:uno"}`
 	req := httptest.NewRequest(http.MethodPost, RutaRevisarJustificacion, strings.NewReader(cuerpo))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	m.ServeHTTP(w, req)
-	if w.Code != http.StatusOK || caso.consulta != 1 || caso.revisiones != 1 || caso.revisionRecibida.VersionEsperada != 1 {
+	if w.Code != http.StatusOK || caso.recuperaciones != 1 || caso.consulta != 0 || caso.revisiones != 0 || caso.recuperacionRecibida.VersionEsperada != 1 {
 		t.Fatalf("replay: estado=%d consulta=%d revision=%d", w.Code, caso.consulta, caso.revisiones)
+	}
+	if !strings.Contains(w.Body.String(), `"version":2`) || !strings.Contains(w.Body.String(), `"replay":true`) ||
+		!strings.Contains(w.Body.String(), `"recibo_ref":"recibo:cronos:justificacion:abcdefgh"`) || strings.Contains(w.Body.String(), "documento") {
+		t.Fatalf("se sustituyó el recibo A por el anexo B: %s", w.Body.String())
+	}
+}
+
+func TestJustificacionHTTPErrorDeRecuperacionNoCreaRevision(t *testing.T) {
+	for nombre, err := range map[string]error{
+		"conflicto":   domain.ErrJustificacionConflicto,
+		"dependencia": ports.ErrJustificacionNoDisponible,
+	} {
+		t.Run(nombre, func(t *testing.T) {
+			caso := &casoJustificacionPrueba{errRecuperacion: err}
+			m, _ := NuevoManejadorJustificaciones(caso, &resolverJustificacionPrueba{})
+			cuerpo := `{"solicitud_ref":"permiso:cronos:solicitud:abcdefgh","clave_operacion":"clave_1","version_esperada":1,"decision":"aceptada","motivo_ref":"motivo:uno"}`
+			req := httptest.NewRequest(http.MethodPost, RutaRevisarJustificacion, strings.NewReader(cuerpo))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+			m.ServeHTTP(w, req)
+			esperado := http.StatusServiceUnavailable
+			if errors.Is(err, domain.ErrJustificacionConflicto) {
+				esperado = http.StatusConflict
+			}
+			if w.Code != esperado || caso.recuperaciones != 1 || caso.consulta != 0 || caso.revisiones != 0 || strings.Contains(w.Body.String(), "recibo") {
+				t.Fatalf("recuperación fallida produjo efectos: estado=%d caso=%+v", w.Code, caso)
+			}
+		})
+	}
+}
+
+func TestJustificacionHTTPRechazaReciboHistoricoIncoherente(t *testing.T) {
+	for _, cambio := range []string{"replay", "version", "decision", "motivo"} {
+		t.Run(cambio, func(t *testing.T) {
+			recibo := ports.ReciboJustificacion{ReciboRef: "recibo:cronos:justificacion:abcdefgh", FechaUTC: time.Date(2026, 10, 2, 0, 0, 0, 0, time.UTC),
+				Justificacion: domain.Justificacion{Version: 2, Estado: domain.JustificacionAceptada, MotivoRef: "motivo:uno"}, Replay: true}
+			switch cambio {
+			case "replay":
+				recibo.Replay = false
+			case "version":
+				recibo.Justificacion.Version = 3
+			case "decision":
+				recibo.Justificacion.Estado = domain.JustificacionRechazada
+			case "motivo":
+				recibo.Justificacion.MotivoRef = "motivo:otro"
+			}
+			caso := &casoJustificacionPrueba{historico: &recibo}
+			m, _ := NuevoManejadorJustificaciones(caso, &resolverJustificacionPrueba{})
+			cuerpo := `{"solicitud_ref":"permiso:cronos:solicitud:abcdefgh","clave_operacion":"clave_1","version_esperada":1,"decision":"aceptada","motivo_ref":"motivo:uno"}`
+			req := httptest.NewRequest(http.MethodPost, RutaRevisarJustificacion, strings.NewReader(cuerpo))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+			m.ServeHTTP(w, req)
+			if w.Code != http.StatusServiceUnavailable || caso.consulta != 0 || caso.revisiones != 0 || strings.Contains(w.Body.String(), "recibo") {
+				t.Fatalf("recibo incoherente presentado: estado=%d cuerpo=%s", w.Code, w.Body.String())
+			}
+		})
 	}
 }
 

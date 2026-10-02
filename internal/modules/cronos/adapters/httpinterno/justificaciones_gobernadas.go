@@ -31,6 +31,7 @@ type CasoUsoJustificacionHTTP interface {
 	Consultar(context.Context, ports.OrdenJustificacion, string) (ports.PreparacionJustificacion, error)
 	Anexar(context.Context, ports.OrdenJustificacion, ports.PeticionAnexoJustificacion) (ports.ResultadoAnexoJustificacion, error)
 	Revisar(context.Context, ports.OrdenJustificacion, ports.PeticionRevisionJustificacion) (ports.ReciboJustificacion, error)
+	RecuperarRevision(context.Context, ports.OrdenJustificacion, ports.PeticionRecuperacionRevisionJustificacion) (ports.ReciboJustificacion, error)
 }
 
 type ManejadorJustificaciones struct {
@@ -170,6 +171,26 @@ func (m *ManejadorJustificaciones) revisar(w http.ResponseWriter, r *http.Reques
 	orden, err := m.resolver.ResolverOrdenJustificacion(r)
 	if err != nil {
 		responderErrorAccesoCronos(w, err)
+		return
+	}
+	// Antes de tomar el vínculo actual, recuperar la revisión original bajo
+	// una lectura nueva. Otro anexo puede haber cambiado el vínculo mostrado.
+	historico, err := m.casoUso.RecuperarRevision(r.Context(), orden, ports.PeticionRecuperacionRevisionJustificacion{
+		SolicitudRef: cuerpo.SolicitudRef, ClaveOperacion: cuerpo.ClaveOperacion,
+		VersionEsperada: cuerpo.VersionEsperada, Decision: cuerpo.Decision, MotivoRef: cuerpo.MotivoRef,
+	})
+	if err == nil {
+		if !reciboJustificacionHTTPValido(historico) || !historico.Replay ||
+			historico.Justificacion.Version != cuerpo.VersionEsperada+1 || historico.Justificacion.Estado != cuerpo.Decision ||
+			historico.Justificacion.MotivoRef != cuerpo.MotivoRef {
+			responderErrorAccesoCronos(w, ports.ErrDependenciaNoDisponible)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"recibo": proyectarReciboJustificacion(historico)})
+		return
+	}
+	if !errors.Is(err, ports.ErrJustificacionNoEncontrada) {
+		responderErrorJustificacion(w, err)
 		return
 	}
 	preparacion, err := m.casoUso.Consultar(r.Context(), orden, cuerpo.SolicitudRef)
