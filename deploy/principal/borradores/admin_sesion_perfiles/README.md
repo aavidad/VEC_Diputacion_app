@@ -21,9 +21,9 @@ Dependencia exacta requerida de AUT24: `vec_autorizacion.consultar_asignacion_ad
 
 ## Procedencia del acto
 
-AUT24 llama al registrador después de consumir V3 e IS12 y validar la preimagen, antes de revocar por CA20 y avanzar la continuidad. Todo ocurre en una transacción. El registro `procedencia_acto_admin_v1` conserva acto, operación, material, decisión, auditoría, perfil y vínculo con sus versiones previas. Tiene FK a las versiones históricas, RLS forzado y rechazo de UPDATE, DELETE y TRUNCATE. Misma operación y material recuperan la procedencia conservada; el material diferente colisiona y una versión obsoleta falla CAS.
+La conexión pendiente de AUT24 debe llamar al registrador después de consumir V3 e IS12 y validar la preimagen, antes de revocar por CA20 y avanzar la continuidad, todo en una transacción. AUT24@`53b2ed6412` aún no contiene esa llamada. El registro `procedencia_acto_admin_v1` conserva acto, operación, material, decisión, auditoría, perfil y vínculo con sus versiones previas. Tiene FK a las versiones históricas, RLS forzado y rechazo de UPDATE, DELETE y TRUNCATE. Misma operación y material recuperan la procedencia conservada; el material diferente colisiona y una versión obsoleta falla CAS.
 
-La procedencia satisface el contrato de revocación CA20 del ciclo de perfil. No registra altas, versión cero, personas, cuentas ni procedencia maestra humana. Cuenta y persona conservan sus fuentes anteriores. El registrador no revoca por sí solo: AUT24 consume la procedencia devuelta en la llamada CA20 y conserva el efecto y auditoría en el mismo COMMIT. DOWN rechaza retirar CA23 si existe cualquier acto conservado.
+La procedencia satisface el contrato de revocación CA20 del ciclo de perfil. No registra altas, versión cero, personas, cuentas ni procedencia maestra humana. Cuenta y persona conservan sus fuentes anteriores. El registrador no revoca por sí solo: AUT24 deberá consumir la procedencia devuelta en la llamada CA20 y conservar el efecto y auditoría en el mismo COMMIT. DOWN rechaza retirar CA23 si existe cualquier acto conservado.
 
 ## Validación pendiente
 
