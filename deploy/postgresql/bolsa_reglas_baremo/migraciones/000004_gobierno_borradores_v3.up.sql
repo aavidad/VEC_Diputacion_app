@@ -217,7 +217,7 @@ CREATE FUNCTION vec_bolsa_reglas_baremo.operar_borrador_v3(
  p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea
 ) RETURNS TABLE(resultado text,version_canonica bytea,recibo jsonb,acceso jsonb,replay boolean)
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER
-SET search_path=pg_catalog SET row_security=on SET timezone='UTC' SET lock_timeout='2s' SET statement_timeout='30s'
+SET search_path=pg_catalog SET row_security=on SET timezone='UTC' SET lock_timeout='2s' SET statement_timeout='15s'
 AS $fn$
 DECLARE m jsonb; d jsonb; c jsonb; consumo record; acceso_actual jsonb; codigo text;
  material_sha text; recurso_sha text; recurso_canon text; ref_recurso text; campos jsonb;

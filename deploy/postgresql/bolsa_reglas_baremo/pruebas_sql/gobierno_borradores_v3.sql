@@ -98,6 +98,18 @@ BEGIN
 END
 $estructura$;
 
+-- El consumo central admite 1..15000 ms. La configuración propia de la
+-- fachada no puede elevar los 15s que fija el adaptador al abrir la TX.
+DO $limite_consumo$
+DECLARE f oid:='vec_bolsa_reglas_baremo.operar_borrador_v3(bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure;
+        config text[];
+BEGIN
+ SELECT proconfig INTO STRICT config FROM pg_proc WHERE oid=f;
+ IF config IS NULL OR NOT config @> ARRAY['statement_timeout=15s','lock_timeout=2s']
+ OR (SELECT count(*) FROM unnest(config) c(valor) WHERE c.valor LIKE 'statement_timeout=%')<>1
+ THEN RAISE EXCEPTION 'BR4: límite de fachada incompatible con el consumo V3'; END IF;
+END $limite_consumo$;
+
 SET LOCAL ROLE vec_bolsa_reglas_baremo_propietario;
 DO $entrada_invalida$
 BEGIN
