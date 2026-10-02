@@ -58,8 +58,9 @@ runner ejecuta adicionalmente las pruebas del paquete de dominio.
 Las tablas historicas rechazan `UPDATE`, `DELETE` y `TRUNCATE`. Los dos
 punteros mutables rechazan borrado y truncado. Todas las tablas tienen RLS
 habilitada y forzada; su unica politica positiva exige al propietario
-`NOLOGIN`. Los roles runtime no reciben privilegios de tabla, secuencia, tipo,
-esquema o funcion.
+`NOLOGIN`. Los roles runtime no reciben privilegios de tabla, secuencia o tipo;
+las puertas V1/V2 permanecen cerradas. El acceso V3 se limita a la fachada
+nominal descrita en el apartado de BR4.
 
 ## Operaciones cerradas
 
@@ -204,6 +205,84 @@ Estas barreras se prueban como negativas de despliegue: aunque V2 ya existe,
 los roles reservados conservan cero `USAGE`, `EXECUTE` y DML.
 
 ## Instalacion
+
+### Preparación de borradores V3 (BR4)
+
+`migraciones/000004_gobierno_borradores_v3.up.sql` prepara tres operaciones:
+crear un borrador, consultar una revisión exacta y recuperar el recibo de un
+alta. Concede `USAGE` y `EXECUTE` sólo al ejecutor nominal de gobierno, sin
+acceso a tablas, núcleo central o puertas V1/V2. El LOGIN debe heredar ese
+único ejecutor con `INHERIT TRUE`, `SET FALSE` y `ADMIN FALSE`; AD144 vuelve a
+comprobarlo en cada consumo. Es un borrador de integración, sin instalación
+en la principal. Su disponibilidad se limita
+a `disponible_para_preparacion`; el estado canónico conserva `borrador`.
+La publicación y activación formal mantienen sus requisitos de evidencia
+firmada, según la orden de dirección del 2 de octubre a las 01:25.
+
+La fachada `operar_borrador_v3` recibe los bytes de
+`MaterialGobiernoV3` y los diez argumentos de consumo V3. Devuelve resultado,
+bytes originales de la versión, recibo, acceso actual y señal de repetición.
+Cada operación requiere una transacción `SERIALIZABLE READ WRITE` y un consumo
+central nuevo. El JSON enviado por el adaptador sirve para cotejar campos;
+la identidad y el permiso los verifica la autoridad V3, nunca ese JSON.
+
+La intención estable liga persona, convocatoria, expediente, conjunto
+canónico, motivo canónico y clave de 128 bits. Su huella no incluye la fecha
+de la propuesta. El alta usa el tipo de recurso
+`intencion_gobierno_reglas_baremo` y la referencia
+`intencion-reglas-baremo:<huella_solicitud_sha256>`. Las lecturas mantienen
+`version_reglas_baremo_gobernada` y `reglas-baremo:<huella_estado_sha256>`.
+Una repetición con esa intención devuelve la versión, fecha
+y recibo originales, con un acceso V3 actual separado. Reutilizar la clave con
+otro contenido, versión, actor, ámbito o motivo causa conflicto sin efectos.
+Una nueva intención exige que no exista ese contenido y versión; no adopta
+un alta anterior ajena.
+
+BR4 reutiliza `contenido_reglas_baremo`, `version_reglas_baremo` y
+`estado_actual`. Añade `acceso_borrador_v3`, `recibo_borrador_v3` y
+`outbox_borrador_v3`, con RLS forzada y rechazo de mutaciones. Los enlaces
+V3 quedan separados de las claves foráneas V2 históricas. La auditoría
+conserva la referencia y huella del consumo central actual; el recibo conserva
+el consumo original del alta. No se cambia ni elimina historia anterior.
+
+El prefijo mínimo V3 es: roles propios → revalidación propia de autorización
+000001 → almacén BR1 → operaciones BR2. Después se instala AD144 sobre la
+preimagen real de main AD142 y, finalmente, BR4. Copias AD143 y la composición
+V2 no son dependencias de estas operaciones. El despliegue sigue la lista
+explícita en orden de fusión, según dirección del 2 de octubre a las 13:50.
+Si la preimagen ya contiene las piezas del prefijo, se conservan y no se
+reaplican. La historia y las puertas V2 existentes se conservan sin cambios.
+El ensayo del DDL de BR4 puede
+comprobarse sin AD144; cualquier llamada a la fachada falla entonces antes
+de leer o escribir negocio. Eso no acredita autorización ni una operación V3.
+
+El contrato propuesto para AD144 es
+`registrar_y_consumir_gobierno_borrador_reglas_baremo_v3_atestada`, con los diez argumentos
+V3 habituales y la audiencia
+`vec_bolsa_reglas_baremo.gobierno_borrador.v3`. El perfil fijo RRHH conserva
+tres concesiones por convocatoria y expediente:
+
+| Acción | Campos exactos |
+|---|---|
+| `bolsa.reglas_baremo.borrador.crear` | `auditoria`, `estado_reglas_baremo`, `salida_eventos` |
+| `bolsa.reglas_baremo.version.consultar` | `estado_reglas_baremo` |
+| `bolsa.reglas_baremo.recibo.consultar` | `estado_reglas_baremo`, `recibo` |
+
+La recuperación necesita el estado canónico para validar el recibo original.
+Las dos lecturas conservan finalidad `consulta_gobierno_reglas_baremo` y el
+tipo de recurso `version_reglas_baremo_gobernada`. La provisión del perfil
+se realiza fuera de las peticiones, por huella y CAS. Falta medir la preimagen
+central posterior a AD142, medida en PostgreSQL18. No se aprovisionan LOGIN
+ni perfiles por petición.
+No se edita el núcleo V3 en BR4 ni se sustituye el consumidor por una puerta
+V2 o genérica.
+
+Antes de abrir la fachada hacen falta el contrato AD144 aprobado, la lista
+causal que mantiene Dirección, ensayo PostgreSQL 18 en el clon y dos
+revisiones independientes de los hashes exactos. El adaptador debe restaurar
+y validar los bytes mediante el dominio Go antes del efecto y al recuperar.
+El ensayo SQL sintético por sí solo no valida ese canon ni acredita firma,
+instalación, publicación o recorrido de RRHH.
 
 Requiere el nucleo V2 de autorizacion:
 

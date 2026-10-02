@@ -1,6 +1,10 @@
 import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
 import { crearTraductorPersonal } from "./i18n.js?v=20260925-personal-e10-v1";
 
+import { crearSelectorCorteServicios, esFechaCorteServicios, presentarFechaCorteServicios, traducirCorteServicios } from "./ficha-propia-corte.js?v=20261002-personal-servicios-csv-v1";
+
+import { descargarResumenServicios, traducirDescargaServicios } from "./servicios-descarga.js?v=20261002-personal-servicios-csv-v2";
+
 const PESTANAS = Object.freeze([
   ["ficha", "ficha_tab_ficha"], ["relaciones", "ficha_tab_relaciones"],
   ["servicios", "ficha_tab_servicios"], ["tiempo", "ficha_tab_tiempo"],
@@ -36,9 +40,9 @@ function ayuda(d, t) {
   const detalles = nodo(d, "details"); detalles.className = "ayuda-contextual"; detalles.dataset.personalFichaAyuda = "";
   const abrir = nodo(d, "summary", "?"); abrir.setAttribute("aria-label", t("ficha_abrir_ayuda"));
   abrir.setAttribute("tabindex", "0");
-  const contexto = nodo(d, "p");
-  detalles.append(abrir, nodo(d, "p", t("ficha_ayuda")), contexto);
-  return { elemento: detalles, mostrar(clave) { detalles.open = false; contexto.textContent = clave ? t(clave) : ""; } };
+  const contexto = nodo(d, "p"); const corte = nodo(d, "p");
+  detalles.append(abrir, nodo(d, "p", t("ficha_ayuda")), contexto, corte);
+  return { elemento: detalles, mostrar(clave) { detalles.open = false; contexto.textContent = clave ? t(clave) : ""; corte.textContent = clave === "ficha_servicios_ayuda" ? traducirCorteServicios("ayuda") : ""; } };
 }
 function accesos(d, t, navegarModulo, destinosDisponibles) {
   const acciones = nodo(d, "div"); acciones.className = "acciones-fila personal-ficha-accesos";
@@ -86,7 +90,9 @@ function validarResultado(resultado, bloque) {
     if (!Object.values(visible).some((valor) => valor.trim())) throw new TypeError("fila de ficha sin datos visibles");
     return visible;
   });
-  return { estado: resultado.estado, fuente: resultado.fuente, actualizado_en: resultado.actualizado_en, items };
+  if (resultado.fecha_referencia !== undefined && (bloque !== "servicios" || !esFechaCorteServicios(resultado.fecha_referencia))) throw new TypeError("fecha de referencia no válida");
+  return { estado: resultado.estado, fuente: resultado.fuente, actualizado_en: resultado.actualizado_en, items,
+    ...(resultado.fecha_referencia ? { fecha_referencia: resultado.fecha_referencia } : {}) };
 }
 function formatearFecha(iso) {
   return new Intl.DateTimeFormat(LOCALIZACION_ACTUAL, { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Madrid" }).format(new Date(iso));
@@ -120,8 +126,13 @@ function tabla(d, t, bloque, items) {
   const indicacion = nodo(d, "p", t("ficha_desplazar_tabla")); indicacion.className = "personal-ficha-desplazar";
   conjunto.append(indicacion, region); return conjunto;
 }
-function pintarBloque(d, principal, t, bloque, resultado, actualizar) {
+function pintarBloque(d, principal, t, bloque, resultado, actualizar, corte, descargar) {
   const definicion = BLOQUES[bloque]; const piezas = [];
+  if (corte && !["denegado", "no_configurado"].includes(resultado.estado)) {
+    piezas.push(crearSelectorCorteServicios(d, corte.referencia(), corte.consultar));
+    piezas.push(mensaje(d, traducirCorteServicios("alcance")));
+  }
+  if (resultado.fecha_referencia) piezas.push(mensaje(d, traducirCorteServicios("al_corte", { fecha: presentarFechaCorteServicios(resultado.fecha_referencia) })));
   if (resultado.estado === "disponible" || resultado.estado === "vacio") {
     const metadatos = nodo(d, "p", t("ficha_procedencia", { fuente: resultado.fuente, fecha: formatearFecha(resultado.actualizado_en) }));
     metadatos.className = "personal-ficha-procedencia"; piezas.push(metadatos);
@@ -129,6 +140,14 @@ function pintarBloque(d, principal, t, bloque, resultado, actualizar) {
   } else {
     const clave = { cargando: "ficha_cargando", no_configurado: "ficha_no_configurado", denegado: "ficha_denegado", excede_limite: "ficha_excede_limite", error: "ficha_error" }[resultado.estado];
     piezas.push(mensaje(d, t(clave), resultado.estado === "error" ? "alert" : "status"));
+  }
+  if (bloque === "servicios" && typeof descargar === "function" && ["disponible", "vacio"].includes(resultado.estado)) {
+    const resumen = nodo(d, "div"); resumen.className = "acciones-fila";
+    const boton = nodo(d, "button", traducirDescargaServicios("descargar"));
+    boton.type = "button"; boton.className = "boton-secundario";
+    boton.dataset.personalServiciosDescargar = "";
+    boton.addEventListener("click", descargar); resumen.append(boton);
+    piezas.push(mensaje(d, traducirDescargaServicios("alcance")), resumen);
   }
   if (typeof actualizar === "function" && ["disponible", "vacio", "excede_limite", "error"].includes(resultado.estado)) {
     const accion = nodo(d, "button", t(resultado.estado === "error" ? "ficha_reintentar" : "ficha_actualizar"));
@@ -160,9 +179,9 @@ export function montarVistaFichaIntegralPersonal({ raiz, anunciar = () => {}, re
   const visibles = Object.keys(BLOQUES).filter((clave) => !ocultarSinFuente || estados[clave] !== "no_configurado");
   const pestanas = PESTANAS.filter(([clave]) => clave === "ficha" || visibles.includes(clave) || (clave === "catalogos" && (!ocultarSinFuente || montarCatalogos)));
   let activa = true; let actual = ocultarSinFuente && visibles.length === 0 && montarCatalogos ? "catalogos" : "ficha";
-  let vuelo; let limpiarCatalogos; let secuencia = 0;
+  let vuelo; let limpiarCatalogos; let secuencia = 0; let referenciaServicios = ""; let serviciosDescargables;
   const limpiar = () => { const fn = limpiarCatalogos; limpiarCatalogos = undefined; fn?.(); };
-  const desmontar = () => { if (!activa) return; activa = false; secuencia += 1; vuelo?.abort(); limpiar(); contenedor.remove?.(); };
+  const desmontar = () => { if (!activa) return; activa = false; serviciosDescargables = undefined; secuencia += 1; vuelo?.abort(); limpiar(); contenedor.remove?.(); };
   registrarDesmontar?.(desmontar);
   const cabecera = nodo(d, "header"); cabecera.className = "cabecera-vista";
   const ayudaFicha = ayuda(d, t);
@@ -174,6 +193,7 @@ export function montarVistaFichaIntegralPersonal({ raiz, anunciar = () => {}, re
     if (!activa) return;
     if (actual === "catalogos") limpiar();
     if (vuelo && Object.hasOwn(estados, actual) && estados[actual] === "cargando") estados[actual] = "sin_consulta";
+    serviciosDescargables = undefined;
     secuencia += 1; vuelo?.abort(); vuelo = undefined; actual = clave;
     ayudaFicha.mostrar(clave === "ficha" ? "ficha_accesos_ayuda" : BLOQUES[clave]?.ayuda);
     for (const [valor] of pestanas) {
@@ -207,23 +227,42 @@ export function montarVistaFichaIntegralPersonal({ raiz, anunciar = () => {}, re
       }
       pintar(clave, true);
     } : undefined;
+    const corte = clave === "servicios" && fuentes[clave]?.seleccionarFecha === true && actualizar ? {
+      referencia: () => referenciaServicios || fuentes[clave].fechaReferencia || "",
+      consultar: (referencia) => { referenciaServicios = referencia; actualizar(); },
+    } : undefined;
     const enfocar = () => {
       if (!enfocarAccion || d.activeElement !== principal || (typeof d.hasFocus === "function" && !d.hasFocus())) return;
-      (principal.querySelector?.(`[data-personal-ficha-actualizar="${clave}"]`) || principal).focus?.();
+      (principal.querySelector?.(corte ? "[data-personal-ficha-consultar-corte]" : `[data-personal-ficha-actualizar="${clave}"]`) || principal).focus?.();
+    };
+    const pintarResultado = (resultado) => {
+      const previo = corte ? principal.querySelector?.("[data-personal-ficha-fecha]") : undefined;
+      const borrador = previo?.value; const teniaFoco = previo && d.activeElement === previo;
+      const descargar = clave === "servicios" ? () => {
+        if (!activa || actual !== "servicios" || turno !== secuencia || serviciosDescargables !== resultado) return;
+        try { descargarResumenServicios(d, resultado); }
+        catch { anunciar(traducirDescargaServicios("error"), "error"); }
+      } : undefined;
+      pintarBloque(d, principal, t, clave, resultado, actualizar, corte, descargar);
+      const nuevo = corte ? principal.querySelector?.("[data-personal-ficha-fecha]") : undefined;
+      if (nuevo && teniaFoco) { nuevo.value = borrador; nuevo.focus?.(); }
+      enfocar();
     };
     const turno = secuencia; const controlador = new AbortController(); vuelo = controlador;
     estados[clave] = "cargando";
-    pintarBloque(d, principal, t, clave, { estado: "cargando" });
+    pintarBloque(d, principal, t, clave, { estado: "cargando" }, undefined, corte);
     if (enfocarAccion) principal.focus?.();
-    Promise.resolve().then(() => consultar({ signal: controlador.signal })).then((resultado) => {
+    Promise.resolve().then(() => consultar({ signal: controlador.signal, ...(corte ? { fechaReferencia: referenciaServicios } : {}) })).then((resultado) => {
       if (!activa || actual !== clave || turno !== secuencia || controlador.signal.aborted) return;
       const validado = validarResultado(resultado, clave); estados[clave] = validado.estado;
-      pintarBloque(d, principal, t, clave, validado, actualizar); enfocar();
+      serviciosDescargables = clave === "servicios" && ["disponible", "vacio"].includes(validado.estado) ? validado : undefined;
+      pintarResultado(validado);
       if (validado.estado === "error") anunciar(t("ficha_error"), "error");
     }).catch(() => {
       if (!activa || actual !== clave || turno !== secuencia || controlador.signal.aborted) return;
+      serviciosDescargables = undefined;
       estados[clave] = "error";
-      pintarBloque(d, principal, t, clave, { estado: "error" }, actualizar); enfocar(); anunciar(t("ficha_error"), "error");
+      pintarResultado({ estado: "error" }); anunciar(t("ficha_error"), "error");
     }).finally(() => { if (vuelo === controlador) vuelo = undefined; });
   };
   pestanas.forEach(([clave, texto], indice) => {

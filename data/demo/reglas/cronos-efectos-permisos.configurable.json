@@ -1,0 +1,59 @@
+{
+  "version_esquema": 1,
+  "politica": {
+    "referencia": "demo:cronos:efectos-permisos:v1",
+    "version": 1,
+    "reglas": [
+      {
+        "referencia": "demo:regla:ebep49a:v1",
+        "permiso_ref": "demo:permiso:ebep49a",
+        "catalogo_version_ref": "demo:catalogo:ebep49a:v1",
+        "colectivo_ref": "demo:colectivo:funcionario",
+        "efecto": "credito_jornada_completa",
+        "fuente_ref": "fuente:BOE-A-2015-11719:art49a",
+        "fuente_url": "https://www.boe.es/buscar/act.php?id=BOE-A-2015-11719#a49",
+        "vigente_desde": "2026-01-01",
+        "hasta_exclusivo": "2027-01-01",
+        "fuente_version_ref": "fuente:BOE-A-2015-11719:consolidada:2025-07-30",
+        "fuente_publicada_en": "2025-07-30",
+        "fuente_consultada_en": "2026-10-01"
+      },
+      {
+        "referencia": "demo:regla:ebep49b:v1",
+        "permiso_ref": "demo:permiso:ebep49b",
+        "catalogo_version_ref": "demo:catalogo:ebep49b:v1",
+        "colectivo_ref": "demo:colectivo:funcionario",
+        "efecto": "credito_jornada_completa",
+        "fuente_ref": "fuente:BOE-A-2015-11719:art49b",
+        "fuente_url": "https://www.boe.es/buscar/act.php?id=BOE-A-2015-11719#a49",
+        "vigente_desde": "2026-01-01",
+        "hasta_exclusivo": "2027-01-01",
+        "fuente_version_ref": "fuente:BOE-A-2015-11719:consolidada:2025-07-30",
+        "fuente_publicada_en": "2025-07-30",
+        "fuente_consultada_en": "2026-10-01"
+      },
+      {
+        "referencia": "demo:regla:ebep49c:v1",
+        "permiso_ref": "demo:permiso:ebep49c",
+        "catalogo_version_ref": "demo:catalogo:ebep49c:v1",
+        "colectivo_ref": "demo:colectivo:funcionario",
+        "efecto": "credito_jornada_completa",
+        "fuente_ref": "fuente:BOE-A-2015-11719:art49c",
+        "fuente_url": "https://www.boe.es/buscar/act.php?id=BOE-A-2015-11719#a49",
+        "vigente_desde": "2026-01-01",
+        "hasta_exclusivo": "2027-01-01",
+        "fuente_version_ref": "fuente:BOE-A-2015-11719:consolidada:2025-07-30",
+        "fuente_publicada_en": "2025-07-30",
+        "fuente_consultada_en": "2026-10-01"
+      }
+    ]
+  },
+  "textos": {
+    "es": {
+      "aviso": "cronos.reglas.propuesta_sin_aprobar"
+    },
+    "en": {
+      "aviso": "cronos.reglas.propuesta_sin_aprobar"
+    }
+  }
+}
