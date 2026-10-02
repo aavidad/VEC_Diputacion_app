@@ -11,14 +11,15 @@ import (
 var patronGrupoDetalleRRHH = regexp.MustCompile(`^[A-Z][A-Z0-9/+.-]{0,19}$`)
 
 type SolicitudOperativaRRHH struct {
-	GrupoSubgrupo string               `json:"grupo_subgrupo"`
-	MotivoClave   domain.ClaveCatalogo `json:"motivo_clave"`
-	PeriodoInicio time.Time            `json:"periodo_inicio"`
-	PeriodoFin    time.Time            `json:"periodo_fin"`
+	GrupoSubgrupo   string               `json:"grupo_subgrupo"`
+	MotivoClave     domain.ClaveCatalogo `json:"motivo_clave"`
+	PeriodoInicio   time.Time            `json:"periodo_inicio"`
+	PeriodoFin      time.Time            `json:"periodo_fin,omitzero"`
+	PeriodoCausaFin domain.ClaveCatalogo `json:"periodo_causa_fin,omitempty"`
 }
 
 func (s SolicitudOperativaRRHH) validar() error {
-	periodo := domain.PeriodoPrevisto{Inicio: s.PeriodoInicio, Fin: s.PeriodoFin}
+	periodo := domain.PeriodoPrevisto{Inicio: s.PeriodoInicio, Fin: s.PeriodoFin, CausaFin: s.PeriodoCausaFin}
 	if !patronGrupoDetalleRRHH.MatchString(s.GrupoSubgrupo) ||
 		!s.MotivoClave.Valida() || periodo.Validar() != nil {
 		return ErrResultadoConsultaRRHHNoConfiable
@@ -43,7 +44,8 @@ type AnalisisOperativoRRHH struct {
 	CategoriaRef      string                       `json:"categoria_ref"`
 	CausaClave        domain.ClaveCatalogo         `json:"causa_clave"`
 	PeriodoInicio     time.Time                    `json:"periodo_inicio"`
-	PeriodoFin        time.Time                    `json:"periodo_fin"`
+	PeriodoFin        time.Time                    `json:"periodo_fin,omitzero"`
+	PeriodoCausaFin   domain.ClaveCatalogo         `json:"periodo_causa_fin,omitempty"`
 	PorcentajeJornada domain.JornadaDiezmilesimas  `json:"porcentaje_jornada"`
 	ResultadoRC       domain.ResultadoValidacionRC `json:"resultado_rc"`
 	CostePrevisto     *ImporteOperativoRRHH        `json:"coste_previsto,omitempty"`
@@ -53,7 +55,7 @@ type AnalisisOperativoRRHH struct {
 }
 
 func (a AnalisisOperativoRRHH) validar() error {
-	periodo := domain.PeriodoPrevisto{Inicio: a.PeriodoInicio, Fin: a.PeriodoFin}
+	periodo := domain.PeriodoPrevisto{Inicio: a.PeriodoInicio, Fin: a.PeriodoFin, CausaFin: a.PeriodoCausaFin}
 	resultadoValido := a.ResultadoRC == domain.RCValidada ||
 		a.ResultadoRC == domain.RCNoRequerida ||
 		a.ResultadoRC == domain.RCRechazada

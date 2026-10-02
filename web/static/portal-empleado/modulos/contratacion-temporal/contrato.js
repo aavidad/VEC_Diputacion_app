@@ -1,5 +1,5 @@
 /** Contrato neutral y cerrado del alta de contratación temporal. */
-import { validarCatalogoPreparacion } from "./contrato-cobertura.js";
+import { validarCatalogoPreparacion } from "./contrato-cobertura.js?v=20261002-ct-fin-modalidad-v1";
 
 export const CAPACIDAD_CREAR_SOLICITUD = "contratacion_temporal.solicitud.crear";
 
@@ -215,6 +215,38 @@ function validarOpcionClave(opcion, nombre, patron = PATRON_CLAVE_CATALOGO) {
   return { clave: opcion.clave, etiqueta: opcion.etiqueta };
 }
 
+function validarMotivoConFin(opcion, nombre) {
+  const tieneRegla = esRegistro(opcion) && Object.hasOwn(opcion, "fecha_fin");
+  const tieneCausa = esRegistro(opcion) && Object.hasOwn(opcion, "causa_fin");
+  const tieneReferencia = esRegistro(opcion) && Object.hasOwn(opcion, "regla_ref");
+  const tieneVersion = esRegistro(opcion) && Object.hasOwn(opcion, "catalogo_version");
+  const tieneHuella = esRegistro(opcion) && Object.hasOwn(opcion, "catalogo_huella_sha256");
+  exigirCamposExactos(opcion, ["clave", "etiqueta", ...(tieneRegla ? ["fecha_fin"] : []),
+    ...(tieneCausa ? ["causa_fin"] : []), ...(tieneReferencia ? ["regla_ref"] : []),
+    ...(tieneVersion ? ["catalogo_version"] : []),
+    ...(tieneHuella ? ["catalogo_huella_sha256"] : [])], nombre);
+  if (typeof opcion.clave !== "string" || !PATRON_CLAVE_CATALOGO.test(opcion.clave)
+    || !etiquetaValida(opcion.etiqueta)
+    || (tieneRegla && !["obligatoria", "opcional", "no_aplica"].includes(opcion.fecha_fin))
+    || (tieneCausa && (typeof opcion.causa_fin !== "string"
+      || !PATRON_CLAVE_CATALOGO.test(opcion.causa_fin)))
+    || (opcion.fecha_fin === "no_aplica" && !tieneCausa)
+    || (tieneReferencia !== tieneVersion || tieneVersion !== tieneHuella)
+    || (tieneReferencia && (!tieneRegla || !referenciaValida(opcion.regla_ref)
+      || !Number.isSafeInteger(opcion.catalogo_version) || opcion.catalogo_version < 1
+      || typeof opcion.catalogo_huella_sha256 !== "string"
+      || !/^[0-9a-f]{64}$/u.test(opcion.catalogo_huella_sha256)
+      || /^0{64}$/u.test(opcion.catalogo_huella_sha256)))) {
+    throw new TypeError(`${nombre} no válido`);
+  }
+  return { clave: opcion.clave, etiqueta: opcion.etiqueta,
+    fecha_fin: opcion.fecha_fin ?? "obligatoria",
+    ...(tieneCausa ? { causa_fin: opcion.causa_fin } : {}),
+    ...(tieneReferencia ? { regla_ref: opcion.regla_ref,
+      catalogo_version: opcion.catalogo_version,
+      catalogo_huella_sha256: opcion.catalogo_huella_sha256 } : {}) };
+}
+
 function exigirUnicos(opciones, campo, nombre) {
   const valores = opciones.map((opcion) => opcion[campo]);
   if (new Set(valores).size !== valores.length) throw new TypeError(`${nombre} contiene duplicados`);
@@ -281,7 +313,7 @@ export function validarCatalogosAlta(catalogos) {
   }
   const centros = validarLista(catalogos.centros, "centros", validarCentro);
   const categorias = validarLista(catalogos.categorias, "categorias", validarCategoria);
-  const motivos = validarLista(catalogos.motivos, "motivos", validarOpcionClave);
+  const motivos = validarLista(catalogos.motivos, "motivos", validarMotivoConFin);
   const documentos = validarLista(
     catalogos.documentos,
     "documentos",
@@ -380,7 +412,8 @@ export function validarBorradorAlta(borrador, catalogosSinValidar) {
   if (!categoria?.grupos_subgrupos.some((opcion) => opcion.clave === borrador.grupo_subgrupo)) {
     agregarError(errores, "grupo_subgrupo", "opcion_catalogo");
   }
-  if (!catalogos.motivos.some((opcion) => opcion.clave === borrador.motivo_clave)) {
+  const motivo = catalogos.motivos.find((opcion) => opcion.clave === borrador.motivo_clave);
+  if (!motivo) {
     agregarError(errores, "motivo_clave", "opcion_catalogo");
   }
   if (!textoValido(borrador.detalle, LIMITES_ALTA_CONTRATACION.texto, false)) {
@@ -390,7 +423,11 @@ export function validarBorradorAlta(borrador, catalogosSinValidar) {
     agregarError(errores, "observaciones", "texto_opcional");
   }
   if (!fechaCivilValida(borrador.inicio)) agregarError(errores, "inicio", "fecha");
-  if (!fechaCivilValida(borrador.fin)) agregarError(errores, "fin", "fecha");
+  if (motivo?.fecha_fin === "no_aplica" && borrador.fin !== "") agregarError(errores, "fin", "fecha_no_aplica");
+  else if (borrador.fin === "" && motivo?.fecha_fin === "obligatoria") agregarError(errores, "fin", "fecha");
+  else if (borrador.fin !== "" && !fechaCivilValida(borrador.fin)) agregarError(errores, "fin", "fecha");
+  if (borrador.fin === "" && motivo && motivo.fecha_fin !== "obligatoria"
+    && !motivo.causa_fin) agregarError(errores, "fin", "causa_fin");
   if (fechaCivilValida(borrador.inicio) && fechaCivilValida(borrador.fin)
     && borrador.fin < borrador.inicio) {
     agregarError(errores, "fin", "periodo");
@@ -463,7 +500,10 @@ export function validarComandoAlta(comando) {
   }
   const solicitud = comando.solicitud;
   exigirCamposExactos(solicitud, CAMPOS_SOLICITUD, "solicitud de centro");
-  exigirCamposExactos(solicitud.periodo, ["inicio", "fin"], "periodo");
+  const tieneFin = esRegistro(solicitud.periodo) && Object.hasOwn(solicitud.periodo, "fin");
+  const tieneCausa = esRegistro(solicitud.periodo) && Object.hasOwn(solicitud.periodo, "causa_fin");
+  exigirCamposExactos(solicitud.periodo, ["inicio", ...(tieneFin ? ["fin"] : []),
+    ...(tieneCausa ? ["causa_fin"] : [])], "periodo");
   if (!referenciaValida(solicitud.centro_ref)
     || !referenciaValida(solicitud.contacto_ref)
     || !referenciaValida(solicitud.categoria_ref)
@@ -474,12 +514,13 @@ export function validarComandoAlta(comando) {
     || !textoValido(solicitud.detalle, LIMITES_ALTA_CONTRATACION.texto, false)
     || !textoValido(solicitud.observaciones, LIMITES_ALTA_CONTRATACION.texto, true)
     || !instanteCivilValido(solicitud.periodo.inicio)
-    || !instanteCivilValido(solicitud.periodo.fin)
-    || solicitud.periodo.fin < solicitud.periodo.inicio
-    || !periodoNoSuperaMaximo(
+    || (tieneFin ? !instanteCivilValido(solicitud.periodo.fin)
+      || tieneCausa || solicitud.periodo.fin < solicitud.periodo.inicio
+      || !periodoNoSuperaMaximo(
       solicitud.periodo.inicio.slice(0, 10),
       solicitud.periodo.fin.slice(0, 10),
-    )
+      ) : !tieneCausa || typeof solicitud.periodo.causa_fin !== "string"
+        || !PATRON_CLAVE_CATALOGO.test(solicitud.periodo.causa_fin))
     || !validarRC(solicitud.rc)
     || !referenciasAdjuntasValidas(solicitud.documentos_adjuntos)) {
     throw new TypeError("solicitud de centro no válida");
@@ -508,10 +549,10 @@ export function crearComandoAlta(borrador, catalogos, claveIdempotencia) {
       grupo_subgrupo: borrador.grupo_subgrupo,
       motivo_clave: borrador.motivo_clave,
       detalle: borrador.detalle,
-      periodo: {
-        inicio: instanteCivilUTC(borrador.inicio),
-        fin: instanteCivilUTC(borrador.fin),
-      },
+      periodo: { inicio: instanteCivilUTC(borrador.inicio),
+        ...(borrador.fin ? { fin: instanteCivilUTC(borrador.fin) }
+          : { causa_fin: validarCatalogosAlta(catalogos).motivos.find(
+            ({ clave }) => clave === borrador.motivo_clave).causa_fin }) },
       rc,
       documentos_adjuntos: [...borrador.documentos_adjuntos],
       observaciones: borrador.observaciones,

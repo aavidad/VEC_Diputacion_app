@@ -99,6 +99,9 @@ type DatosCandidaturaAlta struct {
 	ActorRef               string
 	PerfilRef              string
 	InstanteEfecto         time.Time
+	// Recuperada la fija exclusivamente el adaptador durable al devolver una
+	// reserva previa. No forma parte del canon ni de una petición externa.
+	Recuperada bool
 }
 
 // CandidaturaAlta estabiliza las coordenadas del efecto antes de cualquier

@@ -208,7 +208,8 @@ func costeEstimadoAnalisisDesarrollo(
 	periodo domain.PeriodoPrevisto,
 	jornada domain.JornadaDiezmilesimas,
 ) (domain.Importe, bool) {
-	if jornada == 0 || jornada > domain.JornadaCompletaDiezmilesimas || periodo.Fin.Before(periodo.Inicio) {
+	if jornada == 0 || jornada > domain.JornadaCompletaDiezmilesimas ||
+		periodo.Inicio.IsZero() || periodo.Fin.IsZero() || periodo.Fin.Before(periodo.Inicio) {
 		return domain.Importe{}, false
 	}
 	dias := int64(periodo.Fin.Sub(periodo.Inicio).Hours()/24) + 1

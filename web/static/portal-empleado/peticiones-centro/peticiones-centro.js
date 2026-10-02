@@ -3,12 +3,12 @@ import {
   crearComandoAlta,
   validarBorradorAlta,
   validarCatalogosAlta,
-} from "../modulos/contratacion-temporal/contrato.js";
+} from "../modulos/contratacion-temporal/contrato.js?v=20261002-ct-fin-modalidad-v1";
 import {
   extraerBorradorPeticionCentro,
   renderizarFormularioPeticionCentro,
   renderizarRevisionPeticionCentro,
-} from "../modulos/contratacion-temporal/vista.js?v=20261001-ct-a-i18n-v1";
+} from "../modulos/contratacion-temporal/vista.js?v=20261002-ct-fin-modalidad-v1";
 import { MENSAJES_CONTRATACION_TEMPORAL_ES, crearTraductorContratacionTemporal } from "../modulos/contratacion-temporal/i18n.js?v=20261001-ct-a-i18n-v1";
 import { IDIOMA_ACTUAL } from "../../comun/idioma.js";
 import { aplicarIdiomaDocumento, aplicarTextosPortal, instalarValidacionI18n } from "../portal-idioma.js?v=20261001-ct-a-i18n-v1";
@@ -246,6 +246,9 @@ function estadoPeticion(estado) {
 function periodoLegible(periodo) {
   const inicio = fechaValida(periodo?.inicio); const fin = fechaValida(periodo?.fin);
   if (inicio && fin) return traducirCentro("pc_periodo_desde_hasta", { inicio: fecha(periodo.inicio), fin: fecha(periodo.fin) });
+  if (inicio && periodo?.causa_fin) return traducirCentro("pc_periodo_con_causa", {
+    inicio: fecha(periodo.inicio), causa: traducirCentro(`causa_fin_${periodo.causa_fin}`),
+  });
   if (inicio) return traducirCentro("pc_periodo_desde", { inicio: fecha(periodo.inicio) });
   if (fin) return traducirCentro("pc_periodo_hasta", { fin: fecha(periodo.fin) });
   return traducirCentro("pc_sin_fechas");
@@ -275,13 +278,14 @@ function detallePeticion(peticion, contexto) {
   const catalogos = contexto?.catalogos;
   const centro = catalogos?.centros?.find((v) => v.referencia === s.centro_ref);
   const etiqueta = (opciones, referencia) => opciones?.find((v) => v.referencia === referencia)?.etiqueta || referencia || "—";
+  const etiquetaMotivo = catalogos?.motivos?.find((v) => v.clave === s.motivo_clave)?.etiqueta || "—";
   const rc = s.rc?.existe
     ? `${s.rc.numero} · ${fecha(s.rc.fecha)} · ${new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(s.rc.importe.centimos / 100)} · ${s.rc.documento_ref}`
     : traducirCentro("ct_txt_sin_retencion_de_credito_aportada");
   const filas = [...(contexto ? [] : [[TEXTO.peticionRef, peticion.referencia], [TEXTO.version, peticion.version]]),
     [TEXTO.estado, contexto ? estadoPeticion(peticion.estado) : peticion.estado],
     [traducirCentro("ct_txt_centro"), nombreCentro(s.centro_ref, contexto)], [traducirCentro("ct_txt_contacto"), etiqueta(centro?.contactos, s.contacto_ref)],
-    [traducirCentro("ct_txt_categoria"), etiqueta(catalogos?.categorias, s.categoria_ref)], [traducirCentro("ct_txt_grupo_o_subgrupo"), s.grupo_subgrupo], [traducirCentro("ct_txt_motivo"), s.motivo_clave],
+    [traducirCentro("ct_txt_categoria"), etiqueta(catalogos?.categorias, s.categoria_ref)], [traducirCentro("ct_txt_grupo_o_subgrupo"), s.grupo_subgrupo], [traducirCentro("ct_txt_motivo"), etiquetaMotivo],
     [traducirCentro("ct_txt_detalle"), s.detalle], [traducirCentro("ct_txt_periodo"), periodoLegible(s.periodo)], [traducirCentro("ct_txt_observaciones"), s.observaciones || "—"],
     [traducirCentro("ct_txt_retencion_de_credito"), rc], [traducirCentro("ct_txt_documentos_aportados"), (s.documentos_adjuntos || []).map((ref) => etiqueta(catalogos?.documentos, ref)).join(" · ") || traducirCentro("ct_txt_ninguno")],
     [TEXTO.solicitanteDatos, solicitante?.puesto_ref === c?.puesto_ref
@@ -641,10 +645,12 @@ export async function iniciarPeticionCentro({ raiz = document.querySelector("#ap
     const campo = event.target.name;
     const formulario = event.target.closest?.("[data-ct-form]");
     if (ocupado || operacionPendiente || resultadoIncierto || !contexto || ["denegado", "sin_verificar"].includes(modo)
-      || !formulario || !["centro_ref", "categoria_ref", "rc_existe"].includes(campo)) return;
+      || !formulario || !["centro_ref", "categoria_ref", "rc_existe", "motivo_clave", "fin"].includes(campo)) return;
     const borrador = extraerBorradorPeticionCentro(formulario);
     if (campo === "centro_ref") borrador.contacto_ref = "";
     if (campo === "categoria_ref") borrador.grupo_subgrupo = "";
+    if (campo === "motivo_clave" && contexto.catalogos.motivos.find(
+      ({ clave }) => clave === borrador.motivo_clave)?.fecha_fin === "no_aplica") borrador.fin = "";
     estado = estadoBase(contexto.catalogos, borrador); dibujar();
     raiz.querySelector(campo === "rc_existe" ? `[name="rc_existe"][value="${borrador.rc_existe ? "si" : "no"}"]` : `#ct-${campo}`)?.focus();
   });
