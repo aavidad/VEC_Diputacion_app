@@ -23,17 +23,53 @@ import (
 )
 
 const operarGobiernoReglasV3SQL = `SELECT resultado,version_canonica,recibo,acceso,replay FROM vec_bolsa_reglas_baremo.operar_borrador_v3($1::bytea,$2::bytea,$3::bytea,$4::bytea,$5::bytea,$6::numeric,$7::numeric,$8::bytea,$9::bytea,$10::bytea,$11::bytea)`
-const acreditarGobiernoReglasV3SQL = `SELECT session_user=current_user AND l.rolcanlogin AND l.rolinherit
+
+// La fachada central se inspecciona por OID de catálogo: resolver su nombre
+// con regprocedure exige USAGE de un esquema que el LOGIN no debe alcanzar.
+// ::name aplica exactamente el límite de identificadores de PostgreSQL, sin
+// coincidencias parciales ni variantes del nombre nominal.
+// #nosec G101 -- Consulta estática de metadatos del catálogo, sin credenciales ni secretos.
+const acreditarGobiernoReglasV3SQL = `WITH tipos AS (
+ SELECT 'pg_catalog.bytea'::pg_catalog.regtype::oid AS b,
+        'pg_catalog.numeric'::pg_catalog.regtype::oid AS n,
+        'pg_catalog.text'::pg_catalog.regtype::oid AS t,
+        'pg_catalog.timestamptz'::pg_catalog.regtype::oid AS z,
+        'pg_catalog.bool'::pg_catalog.regtype::oid AS v,
+        'pg_catalog.record'::pg_catalog.regtype::oid AS r
+)
+ SELECT session_user=current_user AND l.rolcanlogin AND l.rolinherit
  AND NOT(l.rolsuper OR l.rolcreatedb OR l.rolcreaterole OR l.rolreplication OR l.rolbypassrls)
  AND NOT g.rolcanlogin AND NOT(g.rolsuper OR g.rolcreatedb OR g.rolcreaterole OR g.rolreplication OR g.rolbypassrls)
  AND (SELECT count(*)=1 FROM pg_catalog.pg_auth_members WHERE member=l.oid)
  AND EXISTS(SELECT 1 FROM pg_catalog.pg_auth_members m WHERE m.member=l.oid AND m.roleid=g.oid AND m.inherit_option AND NOT m.admin_option AND NOT m.set_option)
  AND NOT EXISTS(SELECT 1 FROM pg_catalog.pg_auth_members WHERE member=g.oid OR roleid=l.oid)
- AND pg_catalog.has_function_privilege(session_user,'vec_bolsa_reglas_baremo.operar_borrador_v3(bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
- AND EXISTS(SELECT 1 FROM pg_catalog.pg_proc p WHERE p.oid=pg_catalog.to_regprocedure('vec_bolsa_reglas_baremo.operar_borrador_v3(bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') AND p.prosecdef AND p.proowner='vec_bolsa_reglas_baremo_propietario'::regrole AND ARRAY(SELECT lower(split_part(cfg,'=',1))||'='||split_part(cfg,'=',2) FROM unnest(p.proconfig) cfg) @> ARRAY['search_path=pg_catalog','row_security=on','timezone=UTC'])
- AND EXISTS(SELECT 1 FROM pg_catalog.pg_proc p WHERE p.oid=pg_catalog.to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_gobierno_borrador_reglas_baremo_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') AND p.prosecdef AND p.proowner='vec_autorizacion_atestada_v3_propietario'::regrole)
- AND NOT EXISTS(SELECT 1 FROM pg_catalog.pg_class c WHERE c.relnamespace='vec_bolsa_reglas_baremo'::regnamespace AND c.relkind IN ('r','p') AND pg_catalog.has_table_privilege(session_user,c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER'))
- FROM pg_catalog.pg_roles l JOIN pg_catalog.pg_roles g ON g.rolname=$1 WHERE l.rolname=session_user`
+ AND EXISTS(SELECT 1 FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace ns ON ns.oid=p.pronamespace
+  JOIN pg_catalog.pg_roles o ON o.oid=p.proowner
+  WHERE ns.nspname='vec_bolsa_reglas_baremo' AND p.proname='operar_borrador_v3'::pg_catalog.name
+   AND p.proargtypes=ARRAY[t.b,t.b,t.b,t.b,t.b,t.n,t.n,t.b,t.b,t.b,t.b]::pg_catalog.oidvector
+   AND pg_catalog.has_function_privilege(session_user,p.oid,'EXECUTE')
+   AND p.prosecdef AND o.rolname='vec_bolsa_reglas_baremo_propietario'
+   AND ARRAY(SELECT lower(split_part(cfg,'=',1))||'='||split_part(cfg,'=',2) FROM unnest(p.proconfig) cfg) @> ARRAY['search_path=pg_catalog','row_security=on','timezone=UTC'])
+ AND EXISTS(SELECT 1 FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace ns ON ns.oid=p.pronamespace
+  JOIN pg_catalog.pg_roles o ON o.oid=p.proowner
+  WHERE ns.nspname='vec_autorizacion_atestada_v3'
+   AND p.proname='registrar_y_consumir_gobierno_borrador_reglas_baremo_v3_atestada'::pg_catalog.name
+   AND p.pronargs=10 AND p.pronargdefaults=0
+   AND p.proargtypes=ARRAY[t.b,t.b,t.b,t.b,t.n,t.n,t.b,t.b,t.b,t.b]::pg_catalog.oidvector
+   AND p.proretset AND p.prorettype=t.r
+   AND p.proallargtypes=ARRAY[t.b,t.b,t.b,t.b,t.n,t.n,t.b,t.b,t.b,t.b,t.t,t.t,t.t,t.t,t.t,t.z,t.v]::oid[]
+   AND p.proargmodes=ARRAY['i','i','i','i','i','i','i','i','i','i','t','t','t','t','t','t','t']::"char"[]
+   AND p.proargnames[11:17]=ARRAY['decision_ref','efecto_ref','huella_efecto_sha256','consumo_huella_sha256','auditoria_ref','consumida_en','consumo_nuevo']
+   AND p.prosecdef AND o.rolname='vec_autorizacion_atestada_v3_propietario'
+   AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s']
+   AND NOT pg_catalog.has_function_privilege(session_user,p.oid,'EXECUTE')
+   AND (SELECT count(*)=2 FROM pg_catalog.aclexplode(coalesce(p.proacl,pg_catalog.acldefault('f',p.proowner))))
+   AND NOT EXISTS(SELECT 1 FROM pg_catalog.aclexplode(coalesce(p.proacl,pg_catalog.acldefault('f',p.proowner))) a
+    WHERE a.privilege_type<>'EXECUTE' OR a.is_grantable OR a.grantor<>p.proowner
+     OR a.grantee NOT IN (p.proowner,(SELECT oid FROM pg_catalog.pg_roles WHERE rolname='vec_bolsa_reglas_baremo_propietario'))))
+ AND NOT EXISTS(SELECT 1 FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace ns ON ns.oid=c.relnamespace
+  WHERE ns.nspname='vec_bolsa_reglas_baremo' AND c.relkind IN ('r','p') AND pg_catalog.has_table_privilege(session_user,c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER'))
+ FROM pg_catalog.pg_roles l JOIN pg_catalog.pg_roles g ON g.rolname=$1 CROSS JOIN tipos t WHERE l.rolname=session_user`
 
 // Una respuesta de COMMIT fallida puede haber confirmado el alta. Resolverla
 // reintentando la MISMA intención; nunca inventar otra clave ni hacer un POST

@@ -34,6 +34,7 @@ type txGobiernoV3Prueba struct {
 	commits, rollbacks, operaciones int
 	args                            []any
 	falloCommit, falloOperacion     error
+	falloAcreditacion               error
 }
 
 func (t *txGobiernoV3Prueba) Exec(context.Context, string, ...any) (pgconn.CommandTag, error) {
@@ -41,7 +42,13 @@ func (t *txGobiernoV3Prueba) Exec(context.Context, string, ...any) (pgconn.Comma
 }
 func (t *txGobiernoV3Prueba) QueryRow(_ context.Context, q string, args ...any) pgx.Row {
 	if q == acreditarGobiernoReglasV3SQL {
-		return filaGobiernoV3Prueba{func(d ...any) error { *d[0].(*bool) = t.acreditado; return nil }}
+		return filaGobiernoV3Prueba{func(d ...any) error {
+			if t.falloAcreditacion != nil {
+				return t.falloAcreditacion
+			}
+			*d[0].(*bool) = t.acreditado
+			return nil
+		}}
 	}
 	t.operaciones++
 	t.args = args
@@ -56,6 +63,45 @@ func (t *txGobiernoV3Prueba) QueryRow(_ context.Context, q string, args ...any) 
 		*d[4].(*bool) = t.replay
 		return nil
 	}}
+}
+
+func TestGobiernoReglasV3PreflightNoResuelveNamespacePrivado(t *testing.T) {
+	// La resolución regprocedure/regnamespace fuerza USAGE aunque sólo se
+	// quiera observar metadatos. El LOGIN sólo ejecuta la operación de Bolsa.
+	for _, prohibido := range []string{"to_regprocedure", "::regprocedure", "::regnamespace", " LIKE ", " ILIKE "} {
+		if strings.Contains(acreditarGobiernoReglasV3SQL, prohibido) {
+			t.Fatalf("preflight depende de resolución o coincidencia parcial: %s", prohibido)
+		}
+	}
+	for _, requerido := range []string{
+		"JOIN pg_catalog.pg_namespace ns ON ns.oid=p.pronamespace",
+		"ns.nspname='vec_autorizacion_atestada_v3'",
+		"p.proname='registrar_y_consumir_gobierno_borrador_reglas_baremo_v3_atestada'::pg_catalog.name",
+		"p.proargtypes=ARRAY[t.b,t.b,t.b,t.b,t.n,t.n,t.b,t.b,t.b,t.b]::pg_catalog.oidvector",
+		"p.proargnames[11:17]=ARRAY['decision_ref','efecto_ref','huella_efecto_sha256','consumo_huella_sha256','auditoria_ref','consumida_en','consumo_nuevo']",
+		"o.rolname='vec_autorizacion_atestada_v3_propietario'",
+		"NOT pg_catalog.has_function_privilege(session_user,p.oid,'EXECUTE')",
+	} {
+		if !strings.Contains(acreditarGobiernoReglasV3SQL, requerido) {
+			t.Fatalf("preflight perdió comprobación nominal: %s", requerido)
+		}
+	}
+}
+
+func TestGobiernoReglasV3PreflightDeniegaAntesDelNegocio(t *testing.T) {
+	for _, caso := range []string{"metadata_incompatible", "error_catalogo"} {
+		t.Run(caso, func(t *testing.T) {
+			tx := &txGobiernoV3Prueba{}
+			if caso == "error_catalogo" {
+				tx.falloAcreditacion = &pgconn.PgError{Code: "42501", Message: "detalle privado de esquema"}
+			}
+			_, err := repoPGGobiernoPrueba(tx).abrirGobiernoReglasV3(context.Background())
+			if !errors.Is(err, app.ErrGobiernoV3NoDisponible) || strings.Contains(fmt.Sprint(err), "privado") ||
+				tx.operaciones != 0 || tx.commits != 0 || tx.rollbacks != 1 {
+				t.Fatalf("preflight incompatible no cerró la transacción: %v", err)
+			}
+		})
+	}
 }
 func (t *txGobiernoV3Prueba) Commit(context.Context) error   { t.commits++; return t.falloCommit }
 func (t *txGobiernoV3Prueba) Rollback(context.Context) error { t.rollbacks++; return nil }
