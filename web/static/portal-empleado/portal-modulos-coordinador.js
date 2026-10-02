@@ -71,7 +71,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
       notificacionesPropias, bandejaNotificaciones, clienteNotificaciones, i18nNotificaciones] = await Promise.all([
       import("./modulos/cronos/vista-saldo-conectado.js?v=20261001-cronos-saldo-explicado-v1"),
       import("./modulos/cronos/vista-remoto.js?v=20261001-cronos-grafo-bandeja-v5"),
-      import("./modulos/cronos/vista-movimientos-conectado.js?v=20261001-cronos-grafo-bandeja-v5"),
+      import("./modulos/cronos/vista-movimientos-conectado.js?v=20261001-cronos-movimientos-consulta-v1"),
       import("./modulos/cronos/vista-movimientos-propios.js?v=20261001-f-reconciliacion-322-v1"),
       import("./modulos/cronos/vista-permisos-propios.js?v=20261001-cronos-c7-consulta-v2"),
       import("./modulos/cronos/cliente-saldo-http.js"),
