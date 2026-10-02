@@ -35,6 +35,30 @@ function verificarSinDatos(raiz) {
   assert.doesNotMatch(raiz.innerHTML, /data-accion="(?:nueva|abrir-alta-rrhh|confirmar-alta-rrhh|confirmar-presentar|confirmar-ratificar|reintentar(?:-alta-rrhh)?)"/);
 }
 
+test("RRHH puede corregir el número MOAD rechazado por el formato del catálogo", async () => {
+  const raiz = raizFalsa();
+  let numero = "2026/OTRO";
+  raiz.querySelector = (selector) => ({ checked: true, value: selector === "[name=numero_expediente_moad]" ? numero : "" });
+  const comandos = [];
+  const cliente = async (ruta, opciones) => {
+    if (ruta.endsWith("/catalogos-alta")) return catalogos;
+    if (opciones?.method !== "POST") return { limite: 50, peticiones: [entrega] };
+    comandos.push(opciones.cuerpo);
+    if (comandos.length === 1) throw { status: 422 };
+    return { peticion, estado_entrega: "confirmada", recibo_alta: { ...entrega.recibo_alta, numero_visible: numero } };
+  };
+  await iniciarPeticionesCentroRRHH({ raiz, cliente });
+  await raiz.pulsar({ accion: "abrir-alta-rrhh" });
+  await raiz.pulsar({ accion: "confirmar-alta-rrhh" });
+  assert.match(raiz.innerHTML, /Revise el número de MOAD/);
+  assert.match(raiz.innerHTML, /value="2026\/OTRO"/);
+  assert.match(raiz.innerHTML, /data-accion="confirmar-alta-rrhh"/);
+  assert.doesNotMatch(raiz.innerHTML, /data-accion="reintentar-alta-rrhh"/);
+  numero = "2026/12345";
+  await raiz.pulsar({ accion: "confirmar-alta-rrhh" });
+  assert.deepEqual(comandos.map((c) => c.numero_expediente_moad), ["2026/OTRO", "2026/12345"]);
+});
+
 for (const status of [401, 403]) {
   test(`centro descarta contexto nuevo si la bandeja responde ${status}`, async () => {
     const raiz = raizFalsa();

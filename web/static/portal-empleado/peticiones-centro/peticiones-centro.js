@@ -376,7 +376,7 @@ export async function registrarAltaRRHH(cliente, comando) {
       || !Number.isFinite(Date.parse(recibo.confirmada_en))) throw new Error(TEXTO.rrhhError);
     return resultado;
   } catch (error) {
-    if ([400, 401, 403, 409].includes(error?.status)) throw error;
+    if ([400, 401, 403, 409, 422].includes(error?.status)) throw error;
     throw Object.assign(new Error(TEXTO.estadoPendiente), { indeterminado: true });
   }
 }
@@ -480,6 +480,10 @@ export async function iniciarPeticionesCentroRRHH({ raiz = document.querySelecto
     } catch (error) {
       if (esDenegacion(error)) retirarDatos(error);
       else if (error.indeterminado) { operacionPendiente = comando; modo = "pendiente"; mensaje = TEXTO.estadoPendiente; }
+      else if (error.status === 422) {
+        operacionPendiente = null; modo = "confirmar"; errorNumero = true;
+        mensaje = traducirCentro("numero_moad_formato_no_valido", { ejemplo: politicaNumero?.ejemplo ?? "" });
+      }
       else { modo = "bandeja"; mensaje = error.status === 409 ? TEXTO.conflicto : TEXTO.rrhhError; }
     } finally { ocupado = false; dibujar(); }
   };
