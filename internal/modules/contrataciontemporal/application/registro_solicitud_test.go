@@ -754,3 +754,38 @@ func TestRegistroSolicitudRechazaConfirmacionV3CruzadaAntesDeConfirmar(t *testin
 		t.Fatalf("confirmación V3 cruzada produjo efecto: %v", err)
 	}
 }
+
+func TestRegistroSolicitudIniciaCircuitoNuevoSinAfirmarFirma(t *testing.T) {
+	escenario := nuevoEscenarioRegistro(t)
+	definicion, err := domain.NuevaDefinicionCircuitoRRHH(
+		"flujo:ct:rrhh:sintetico", 2, escenario.configuracion.FaseInicial,
+		[]domain.TransicionCircuitoRRHH{{
+			Clave: "contratacion_temporal.circuito.peticion_firmada",
+			Tipo:  domain.HitoPeticionFirmada, Origen: escenario.configuracion.FaseInicial,
+			Destino: "autorizacion_rrhh", RequiereDocumento: true,
+			RequiereFirma: true, PerfilClave: "centro_solicitante",
+			FirmasRequeridas: []domain.ClaveCatalogo{"tecnico_solicitante", "delegacion_solicitante"},
+		}},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	escenario.configuracion.Flujo = definicion.Flujo
+	escenario.configuracion.DefinicionCircuito = &definicion
+	servicio, dobles := construirServicioRegistro(t, escenario)
+	if _, err := servicio.Registrar(context.Background(), escenario.solicitud); err != nil {
+		t.Fatalf("alta de circuito RRHH: %v", err)
+	}
+	orden, err := dobles.transaccion.orden.Datos()
+	if err != nil || orden.Expediente.Circuito == nil ||
+		orden.Expediente.Circuito.Definicion != definicion.Flujo ||
+		orden.Expediente.Circuito.EstadoActual != escenario.configuracion.FaseInicial ||
+		len(orden.Expediente.Circuito.Hitos) != 0 ||
+		orden.Expediente.Validar() != nil {
+		t.Fatalf("alta publicó una firma inexistente o perdió el circuito: %v", err)
+	}
+	serializado, err := json.Marshal(orden.Expediente)
+	if err != nil || !bytes.Contains(serializado, []byte(`"hitos":[]`)) {
+		t.Fatalf("alta debe conservar un array de hitos vacío: %v", err)
+	}
+}
