@@ -203,6 +203,22 @@ func TestJustificacionGateAntesDocumentos(t *testing.T) {
 		t.Fatal("proveedor typed nil")
 	}
 }
+
+func TestConsultarJustificacionUsaFuenteAutorizadaSinEfectos(t *testing.T) {
+	s, o, f, d, r, _, in := escenarioJustificacion(t)
+	p, err := s.Consultar(context.Background(), o, in.SolicitudRef)
+	if err != nil || f.lecturas != 1 || d.preflight != 0 || d.llamadas != 0 || r.lecturas != 0 || r.efectos != 0 || p.Solicitud.SolicitudRef != in.SolicitudRef {
+		t.Fatal("consulta con efecto o sin fuente", err, p)
+	}
+	p.Politica.MotivosRef[0] = "motivo:alterado"
+	if f.p.Politica.MotivosRef[0] == "motivo:alterado" {
+		t.Fatal("consulta expone slice de la fuente")
+	}
+	f.err = ports.ErrJustificacionNoDisponible
+	if _, err := s.Consultar(context.Background(), o, in.SolicitudRef); !errors.Is(err, ports.ErrJustificacionNoDisponible) {
+		t.Fatal("consulta sin autoridad actual", err)
+	}
+}
 func TestJustificacionDosEfectosFalloYReplay(t *testing.T) {
 	s, o, f, d, r, _, in := escenarioJustificacion(t)
 	r.err = ports.ErrJustificacionNoDisponible

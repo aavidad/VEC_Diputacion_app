@@ -53,6 +53,21 @@ func (s *ServicioJustificacion) preparar(ctx context.Context, o ports.OrdenJusti
 	}
 	return a, p, nil
 }
+
+// Consultar prepara la solicitud exacta con una lectura V3 actual. El
+// adaptador de salida decide qué campos puede presentar a ese actor.
+func (s *ServicioJustificacion) Consultar(ctx context.Context, o ports.OrdenJustificacion, ref string) (ports.PreparacionJustificacion, error) {
+	_, p, err := s.preparar(ctx, o, ref)
+	if err != nil {
+		return ports.PreparacionJustificacion{}, err
+	}
+	p.Politica.MotivosRef = append([]string(nil), p.Politica.MotivosRef...)
+	if p.Actual != nil {
+		actual := *p.Actual
+		p.Actual = &actual
+	}
+	return p, nil
+}
 func materialJustificacion(a vecdomain.ContextoActor, p ports.PreparacionJustificacion, v domain.VinculoJustificacion, key, accion string, version int64) domain.MaterialJustificacion {
 	return domain.MaterialJustificacion{ActorRef: a.PersonaRef, PerfilRef: a.PerfilActivoRef, ClaveOperacion: key, Accion: accion, SolicitudVersion: p.Solicitud.Version, VersionEsperada: version, PoliticaRef: p.Politica.Referencia, PoliticaVersion: p.Politica.Version, PoliticaSHA256: p.Politica.SHA256, Vinculo: v}
 }
