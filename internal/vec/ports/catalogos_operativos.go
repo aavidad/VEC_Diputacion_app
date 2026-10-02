@@ -33,7 +33,9 @@ type ConsultaCabezaCatalogoOperativo interface {
 // ConfirmacionCatalogoOperativo procede de ServicioCatalogos. La clave
 // semántica es independiente de la correlación de cada intento. El adaptador
 // añade desde su configuración confiable la identidad de fuente y su versión;
-// esos datos no se aceptan como autoridad del cliente.
+// esos datos no se aceptan como autoridad del cliente. MaterialCanonico es
+// una copia de los bytes semánticos exactos cuya SHA256 se declara; el adaptador
+// conserva los bytes y coteja además su significado contra el efecto.
 type ConfirmacionCatalogoOperativo struct {
 	ClaveIdempotencia    string
 	HuellaMaterialSHA256 string
