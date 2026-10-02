@@ -36,10 +36,20 @@ En el ensamblaje de ensayo, `audit_login` conecta el adaptador real cuando direc
 
 No se puede convertir cualquier rechazo SQL en una consulta confirmada: la tabla actual exige un consumo válido y admite únicamente obtención o ausencia. Si SQL rechaza la firma o la ligadura de actor, el material recibido tampoco sirve como identidad validada para una auditoría nueva.
 
+## Cierre ordenado del 2 de octubre, 18:00
+
+El driver único instaló una vez roles propios → AUT29 → AD145 → Méritos000002, con cuatro códigos 0, sobre POST144 del clon. Las huellas reales de POST145 coincidieron con las propuestas y conservaron propietario, ACL y configuración. No se reaplicaron AD142 ni Méritos000001.
+
+El fixture creó el hecho mediante `Servicio.Declarar`, con las autoridades y el repositorio reales. Resultado `confirmada`, recibo `recibo:7ba8fdcb-554e-4220-b46a-3d0cf1d483b1`, versión 1, estado `declarado`, fecha `2026-10-02T15:58:24.217223Z`. Fuente del helper `ebbcce4bb51e3ca1a82d56bb5376d4c3fc9f58eb`; no se insertó negocio directamente por SQL.
+
+La consulta propia y la referencia ausente devolvieron HTTP 200/200, con `PASS` del driver real. Fuente `0ba3d791f9fdcb9530cd90b9ea88487bbe52ec39`; binario SHA256 `66dd264d961c678277269aa731289549af3f1eb9154de3e1481c523c5839b0dd`. El primer fallo quedó antes del PDP positivo, sin concesión ni consumo de lectura; tras renovar las sesiones por la API real se completaron ambos casos. La normalización privada de fechas UTC de `+00:00` a `Z` conservó los mismos instantes, SPKI y huella de configuración; no se cambiaron claves ni gobierno.
+
+La orden de cierre detuvo los casos ajeno, rechazo SQL con PDP positivo y auditor segregado, 503 sin auditoría, replay, Chrome y reinicio. Estaban preparados y siguen sin acreditar. La PR #435 permanece en borrador. AD149 entró después en main: AD145 de esta fuente protege POST144 y necesita reanclaje a POST149 real y nuevo ensayo causal antes de entregarse sobre esa base. El núcleo instalado del clon se conserva; no se ejecuta DOWN ni se sustituye para adaptar la evidencia.
+
 ## TODO antes de cerrar el corte
 
 - Conservar las reservas propias AD000145, AUT000029 y Méritos000002. La orden del 2 de octubre a las 13:50 permite avanzar por dependencias de objetos: AD144 se aplicó en el clon sobre POST142, sin AD143. Copias no es prerrequisito de RUM04. Para esta pieza, el orden de instalación es roles de consulta/registro de intentos → AUT29 → AD145 sobre POST144 → Méritos000002.
-- AD145 protege ahora la definición, fuente y constraint reales de POST144. Sus marcas son únicas y el delta se invierte exactamente sobre esa fuente, conservando Gobierno y Méritos anteriores. Esta comprobación estática no acredita instalación de AD145: faltan las dos ratificaciones del nuevo hash y el ensayo dirigido en el mismo clon. No relajar las guardas ni reaplicar UP/DOWN de migraciones con historia.
+- Conservar la evidencia de AD145 sobre POST144 ya instalada en este clon. Para la entrega siguiente, obtener POST149 real, reanclar el delta con conservación exacta, repetir las dos revisiones afectadas y ensayarlo en una copia causal mínima. No relajar guardas ni reaplicar UP/DOWN de migraciones con historia.
 - Completar el recorrido con Chrome del sistema y la revisión independiente de usabilidad.
 - Obtener dos revisiones del hash exacto, incluida SQL, autorización y seguridad, y ejecutar la puerta de calidad de cierre correspondiente.
 - Completar la auditoría común persistente de la denegación SQL posterior a la emisión y probarla después del rollback en el clon autorizado. Las regresiones focales de la retoma sólo acreditan propagación, cierre y ausencia de exposición.
