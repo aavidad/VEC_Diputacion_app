@@ -30,18 +30,13 @@ type CatalogoRolesAdministrables interface {
 // transaccion SERIALIZABLE que el CAS CA20/AUT24, la auditoria, historia y
 // recibo. Debe comprobar que el aprobador sigue siendo administrador activo,
 // distinto por persona del proponente y del afectado, y que revocar deja al
-// menos una persona administradora efectiva. El proponente puede ser el
-// afectado solo al revocar su propio perfil administrador. Si queda una sola
-// persona, nuevos actos sensibles quedan cerrados por falta de doble control
-// hasta la recuperacion autorizada. Intervencion usa el mismo doble control;
-// su rol exacto sigue cerrado hasta publicarlo en catalogo.
+// menos dos personas administradoras efectivas. Intervencion usa el mismo
+// doble control; su rol exacto sigue cerrado hasta publicarlo en catalogo.
 // Una revocacion no puede reactivar el mismo perfil/vinculo historico.
 //
 // Las referencias de operacion son idempotentes: mismo contenido recupera el
 // mismo recibo, contenido distinto falla; incluso al recuperar se revalida
 // autorizacion vigente. Las propuestas sensibles no mutan el perfil.
-// Clase y operacion del cierre se reconstruyen de la propuesta almacenada;
-// ningun campo del cliente puede alterar esa clasificacion.
 type AutoridadActosAdministracionPerfiles interface {
 	AplicarActoOrdinario(context.Context, domain.SolicitudActoAdministracionPerfiles) (domain.ReciboAdministracionPerfiles, error)
 	ProponerActoSensible(context.Context, domain.SolicitudActoAdministracionPerfiles) (PropuestaAdministracionPerfiles, error)

@@ -6,11 +6,13 @@ import "time"
 // editable de concesiones. La autoridad durable coteja otra vez referencia,
 // clase, huella y vigencia dentro de la transaccion que consume la decision.
 type RolAdministrable struct {
-	VersionRef   string
-	Clase        ClaseControlAdministracionPerfiles
-	HuellaSHA256 string
-	VigenteDesde time.Time
-	VigenteHasta time.Time
+	// UnidadRequerida procede del catálogo administrable publicado.
+	UnidadRequerida bool
+	VersionRef      string
+	Clase           ClaseControlAdministracionPerfiles
+	HuellaSHA256    string
+	VigenteDesde    time.Time
+	VigenteHasta    time.Time
 }
 
 func (r RolAdministrable) ValidarEn(instante time.Time) error {
