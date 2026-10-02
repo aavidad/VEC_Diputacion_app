@@ -37,6 +37,7 @@ BEGIN
  END LOOP;
  IF has_function_privilege('vec_contratacion_temporal_ejecutor',f,'EXECUTE')
     OR NOT has_function_privilege('vec_contratacion_temporal_propietario',f,'EXECUTE')
+    OR NOT has_function_privilege(current_user,f,'EXECUTE')
  THEN RAISE EXCEPTION 'AD159 prueba: ACL de CT divergente'; END IF;
  IF NOT EXISTS (SELECT 1 FROM pg_constraint c WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
     AND c.conname='clave_capacidad_version_audiencia_consumo_check' AND c.convalidated
@@ -56,7 +57,8 @@ BEGIN
   EXCEPTION WHEN SQLSTATE '42501' THEN
    GET STACKED DIAGNOSTICS mensaje=MESSAGE_TEXT;
   END;
-  IF mensaje IS NULL THEN RAISE EXCEPTION 'AD159 prueba: consulta sin capacidad aceptada'; END IF;
+  IF mensaje IS DISTINCT FROM 'AD3-159: consulta de firmas denegada' THEN
+   RAISE EXCEPTION 'AD159 prueba: guarda nominal no ejecutada'; END IF;
   IF anterior IS NOT NULL AND mensaje IS DISTINCT FROM anterior THEN
    RAISE EXCEPTION 'AD159 prueba: rechazo revela referencia'; END IF;
   anterior:=mensaje;
