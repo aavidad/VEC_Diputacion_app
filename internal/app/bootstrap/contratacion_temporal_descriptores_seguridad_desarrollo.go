@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	cthttp "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
+	ctpostgres "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
 	ctapplication "vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	ctdomain "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	ctports "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
@@ -168,6 +169,16 @@ func descriptoresAutorizacionContratacionTemporalDesarrollo(
 			ClaveCapacidad: frontera.ClaveCapacidad,
 			Fronteras:      []string{frontera.Clave},
 			Politica:       politica,
+		})
+	}
+	// El circuito solo recibe entrada PDP cuando su perfil fijo ya quedó
+	// compuesto. La frontera se declara en la raíz y se enlaza por clave exacta.
+	if len(reincorporacion) > 2 && reincorporacion[2] {
+		descriptores = append(descriptores, descriptorAutorizacionComunDesarrollo{
+			Accion:         ctpostgres.AccionConsultaCircuitoRRHH,
+			ClavePolitica:  clavePoliticaContratacionTemporalDesarrollo,
+			ClaveCapacidad: ctpostgres.AccionConsultaCircuitoRRHH,
+			Fronteras:      []string{"ct-circuito-rrhh-consultar"}, Politica: politica,
 		})
 	}
 	if len(reincorporacion) > 1 && reincorporacion[1] {
