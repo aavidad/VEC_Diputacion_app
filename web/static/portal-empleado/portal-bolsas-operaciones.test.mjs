@@ -69,9 +69,13 @@ test("RRHH17 enlaza una solicitud documental pendiente sin cambiar estado al con
     solicitud_contenido_sha256: solicitud.contenido_sha256 };
   const post = await registrarOperacionSituacion("bolsa:uno", "participacion:dos", comando, "clave", { fetchImpl: async (_ruta, opciones) => {
     assert.equal(JSON.parse(opciones.body).solicitud_ref, solicitud.solicitud_ref);
-    return response(201, { data: { recibo_ref: "recibo:regularizacion", situacion: "disponible", desde, reutilizada: false } });
+    return response(201, { data: { recibo_ref: "recibo:regularizacion", recibo_resolucion_ref: "recibo:solicitud-documental-resolucion:uno", resuelta_en: desde,
+      situacion: "disponible", desde, reutilizada: false } });
   } });
   assert.equal(post.ok, true);
+  const incompleto = await registrarOperacionSituacion("bolsa:uno", "participacion:dos", comando, "clave", { fetchImpl: async () =>
+    response(201, { data: { recibo_ref: "recibo:regularizacion", situacion: "disponible", desde, reutilizada: false } }) });
+  assert.equal(incompleto.codigo, "respuesta_invalida");
 });
 
 test("RRHH18 solo ofrece revisión y regularización con catálogo nuevo y situación vigente", () => {

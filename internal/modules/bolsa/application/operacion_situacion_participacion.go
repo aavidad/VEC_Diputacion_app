@@ -27,10 +27,6 @@ func (s *ServicioSituacionParticipacion) Operar(ctx context.Context, q ports.Sol
 	if !ok {
 		return ports.RegistroSituacionParticipacion{}, ErrCambioSituacionParticipacionNoDisponible
 	}
-	auth, decision, confirmacion, material, err := s.autorizarOperacion(ctx, q.SolicitudCambiarSituacionParticipacion)
-	if err != nil {
-		return ports.RegistroSituacionParticipacion{}, err
-	}
 	actor := q.ResultadoContexto.Contexto.PersonaRef
 	ahora := s.reloj().UTC().Truncate(time.Microsecond)
 	accionNueva := q.Operacion == dominiobolsa.OperacionRevisar || q.Operacion == dominiobolsa.OperacionRegularizar
@@ -46,7 +42,7 @@ func (s *ServicioSituacionParticipacion) Operar(ctx context.Context, q ports.Sol
 	if q.SolicitudRef != "" || q.SolicitudVersionEsperada != 0 || q.SolicitudContenidoSHA256 != "" {
 		if q.Operacion != dominiobolsa.OperacionRegularizar || q.Justificante.Tipo != dominiobolsa.JustificanteSolicitudCandidato ||
 			!referenciaSolicitudDocumentalValida(q.SolicitudRef) ||
-			q.SolicitudVersionEsperada < 1 || !huellaSolicitudDocumentalValida(q.SolicitudContenidoSHA256) {
+			q.SolicitudVersionEsperada != 1 || !huellaSolicitudDocumentalValida(q.SolicitudContenidoSHA256) {
 			return ports.RegistroSituacionParticipacion{}, dominiobolsa.ErrOperacionSituacionParticipacionInvalida
 		}
 	}
@@ -55,6 +51,21 @@ func (s *ServicioSituacionParticipacion) Operar(ctx context.Context, q ports.Sol
 	// base de datos vuelve a comprobarlo con la misma versión.
 	if q.Validador == "" || strings.TrimSpace(q.Validador) != q.Validador || len(q.Validador) > 256 {
 		return ports.RegistroSituacionParticipacion{}, dominiobolsa.ErrOperacionSituacionParticipacionInvalida
+	}
+	h := sha256.Sum256([]byte(q.ParticipacionRef + "\x1f" + q.ClaveIdempotencia))
+	recibo := "recibo:situacion:" + hex.EncodeToString(h[:])
+	var atributo string
+	var contextoRecurso []byte
+	if q.SolicitudRef != "" {
+		var err error
+		atributo, err = huellaRegularizacionDocumental(q, actor, recibo)
+		if err != nil {
+			return ports.RegistroSituacionParticipacion{}, err
+		}
+	}
+	auth, decision, confirmacion, material, err := s.autorizarOperacionConAtributo(ctx, q.SolicitudCambiarSituacionParticipacion, atributo, &contextoRecurso)
+	if err != nil {
+		return ports.RegistroSituacionParticipacion{}, err
 	}
 	politica, err := s.politicaSegregacion(ctx)
 	if err != nil {
@@ -93,9 +104,7 @@ func (s *ServicioSituacionParticipacion) Operar(ctx context.Context, q ports.Sol
 			return ports.RegistroSituacionParticipacion{}, dominiobolsa.ErrCambioSituacionParticipacionInvalido
 		}
 	}
-	h := sha256.Sum256([]byte(q.ParticipacionRef + "\x1f" + q.ClaveIdempotencia))
-	recibo := "recibo:situacion:" + hex.EncodeToString(h[:])
-	return repo.RegistrarOperacion(ctx, ports.ComandoOperacionSituacion{ComandoCambiarSituacionParticipacion: ports.ComandoCambiarSituacionParticipacion{Cambio: cambio, Actor: actor, BolsaRef: q.BolsaRef, ClaveIdempotencia: q.ClaveIdempotencia, ReciboRef: recibo, SolicitudAutorizacion: auth, Decision: decision, Confirmacion: confirmacion, Material: material}, Operacion: q.Operacion, Justificante: q.Justificante, Validador: q.Validador, ValidadaEn: ahora, SituacionEsperadaDesde: q.SituacionEsperadaDesde, CausaFinalizadaEn: q.CausaFinalizadaEn, SolicitudRef: q.SolicitudRef, SolicitudVersionEsperada: q.SolicitudVersionEsperada, SolicitudContenidoSHA256: q.SolicitudContenidoSHA256})
+	return repo.RegistrarOperacion(ctx, ports.ComandoOperacionSituacion{ComandoCambiarSituacionParticipacion: ports.ComandoCambiarSituacionParticipacion{Cambio: cambio, Actor: actor, BolsaRef: q.BolsaRef, ClaveIdempotencia: q.ClaveIdempotencia, ReciboRef: recibo, SolicitudAutorizacion: auth, Decision: decision, Confirmacion: confirmacion, Material: material}, Operacion: q.Operacion, Justificante: q.Justificante, Validador: q.Validador, ValidadaEn: ahora, SituacionEsperadaDesde: q.SituacionEsperadaDesde, CausaFinalizadaEn: q.CausaFinalizadaEn, SolicitudRef: q.SolicitudRef, SolicitudVersionEsperada: q.SolicitudVersionEsperada, SolicitudContenidoSHA256: q.SolicitudContenidoSHA256, ContextoRecursoCanonico: contextoRecurso})
 }
 
 func referenciaSolicitudDocumentalValida(ref string) bool {
@@ -142,6 +151,10 @@ func (s *ServicioSituacionParticipacion) ListarOperaciones(ctx context.Context, 
 }
 
 func (s *ServicioSituacionParticipacion) autorizarOperacion(ctx context.Context, q ports.SolicitudCambiarSituacionParticipacion) (dominiovec.SolicitudAutorizacionLigadaV3, dominiovec.DecisionAutorizacionLigadaV3, puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3, puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
+	return s.autorizarOperacionConAtributo(ctx, q, "", nil)
+}
+
+func (s *ServicioSituacionParticipacion) autorizarOperacionConAtributo(ctx context.Context, q ports.SolicitudCambiarSituacionParticipacion, atributo string, contextoRecurso *[]byte) (dominiovec.SolicitudAutorizacionLigadaV3, dominiovec.DecisionAutorizacionLigadaV3, puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3, puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
 	var a dominiovec.SolicitudAutorizacionLigadaV3
 	var d dominiovec.DecisionAutorizacionLigadaV3
 	var c puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3
@@ -161,6 +174,14 @@ func (s *ServicioSituacionParticipacion) autorizarOperacion(ctx context.Context,
 		return a, d, c, m, dominiovec.ErrAutorizacionDenegada
 	}
 	recurso := dominiovec.RecursoAutorizable{Referencia: q.ParticipacionRef, ModuloID: ports.ModuloSituacionParticipacion, Tipo: ports.TipoRecursoSituacionParticipacion, Ambitos: map[string]string{"unidad_ref": resuelto.UnidadRef, "ambito_ref": resuelto.AmbitoRef}}
+	if atributo != "" {
+		recurso.Atributos = map[string]string{"regularizacion_documental_sha256": atributo}
+		canon, canonErr := contextoRecursoRegularizacionCanonico(recurso)
+		if contextoRecurso == nil || canonErr != nil {
+			return a, d, c, m, dominiovec.ErrAutorizacionDenegada
+		}
+		*contextoRecurso = canon
+	}
 	a, err = dominiovec.NuevaSolicitudAutorizacionLigadaV3(dominiovec.DatosSolicitudAutorizacionLigadaV3{VinculoAutenticacionActor: q.Vinculo, ReferenciaMotivo: q.MotivoAutorizacion, Accion: ports.AccionCambiarSituacionParticipacion, Recurso: recurso, Finalidad: ports.FinalidadCambiarSituacionParticipacion, Correlacion: q.Correlacion})
 	if err != nil {
 		return a, d, c, m, dominiovec.ErrAutorizacionDenegada

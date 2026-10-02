@@ -166,7 +166,16 @@ func (h *HandlerOperacionesSituacion) ServeHTTP(w http.ResponseWriter, r *http.R
 	if res.Reutilizada {
 		status = 200
 	}
-	responderSituacion(w, status, map[string]any{"data": map[string]any{"recibo_ref": res.ReciboRef, "situacion": res.Situacion, "desde": res.Desde.UTC().Format(time.RFC3339Nano), "reutilizada": res.Reutilizada}})
+	datos := map[string]any{"recibo_ref": res.ReciboRef, "situacion": res.Situacion, "desde": res.Desde.UTC().Format(time.RFC3339Nano), "reutilizada": res.Reutilizada}
+	if cuerpo.SolicitudRef != "" || res.ReciboResolucionRef != "" {
+		if res.ReciboResolucionRef == "" || res.ResueltaEn == nil {
+			responderOperacion(w, 503, "servicio_no_disponible")
+			return
+		}
+		datos["recibo_resolucion_ref"] = res.ReciboResolucionRef
+		datos["resuelta_en"] = res.ResueltaEn.UTC().Format(time.RFC3339Nano)
+	}
+	responderSituacion(w, status, map[string]any{"data": datos})
 }
 
 func responderOperacion(w http.ResponseWriter, status int, codigo string) {

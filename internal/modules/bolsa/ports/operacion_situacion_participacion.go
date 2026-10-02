@@ -34,6 +34,7 @@ type ComandoOperacionSituacion struct {
 	SolicitudRef             string
 	SolicitudVersionEsperada int64
 	SolicitudContenidoSHA256 string
+	ContextoRecursoCanonico  []byte
 }
 
 type RegistroOperacionSituacion struct {

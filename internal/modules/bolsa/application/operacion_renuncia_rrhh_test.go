@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -108,9 +109,11 @@ func TestRegularizarSolicitudDocumentalEntregaVinculoAlRepositorio(t *testing.T)
 	}
 	q.SolicitudContenidoSHA256 = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
 	res, err := servicio.Operar(context.Background(), q)
+	atributo, errCanon := huellaRegularizacionDocumental(q, q.ResultadoContexto.Contexto.PersonaRef, res.ReciboRef)
 	if err != nil || res.Situacion != domain.SituacionDisponible || repo.comando.SolicitudRef != q.SolicitudRef ||
 		repo.comando.SolicitudVersionEsperada != 1 || repo.comando.SolicitudContenidoSHA256 != q.SolicitudContenidoSHA256 ||
-		repo.comando.Justificante != q.Justificante {
+		repo.comando.Justificante != q.Justificante || errCanon != nil ||
+		!strings.Contains(string(repo.comando.ContextoRecursoCanonico), atributo) {
 		t.Fatalf("vínculo documental: resultado=%+v error=%v comando=%+v", res, err, repo.comando)
 	}
 }

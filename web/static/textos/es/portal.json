@@ -157,7 +157,10 @@
     "txt_b8_solicitud_pendiente": "Solicitud de regularización recibida el {fecha}.",
     "txt_b8_validar_solicitud": "Validar solicitud y regularizar estado",
     "txt_b8_documento_solicitud_distinto": "El documento o la fecha no coincide con la solicitud. Revíselo antes de continuar.",
-    "txt_b8_solicitud_documental": "Solicitud documental validada"
+    "txt_b8_solicitud_documental": "Solicitud documental validada",
+    "txt_solicitud_documental_rrhh": "Solicitud documental",
+    "txt_solicitud_documental_rrhh_pendiente": "RRHH debe comprobar el justificante y resolver la solicitud; aún no cambia la situación.",
+    "txt_b8_resolucion_solicitud": "Solicitud resuelta:"
   },
   "textos": {
     "reincorporacion_titulo": "Reincorporación de la persona titular",

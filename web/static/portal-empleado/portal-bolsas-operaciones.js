@@ -147,7 +147,9 @@ export async function registrarOperacionSituacion(bolsa, participacion, comando,
     if ((respuesta.status === 200 || respuesta.status === 201) && respuesta.ok
       && typeof cuerpo?.data?.recibo_ref === "string" && cuerpo.data.recibo_ref.trim()
       && cuerpo.data.situacion === DESTINO_OPERACION[comando.operacion]
-      && instanteValido(cuerpo.data.desde) && typeof cuerpo.data.reutilizada === "boolean") {
+      && instanteValido(cuerpo.data.desde) && typeof cuerpo.data.reutilizada === "boolean"
+      && (!comando.solicitud_ref || (typeof cuerpo.data.recibo_resolucion_ref === "string" && cuerpo.data.recibo_resolucion_ref.trim()
+        && instanteValido(cuerpo.data.resuelta_en)))) {
       return { ok: true, datos: cuerpo.data };
     }
     if (respuesta.ok) return respuestaInvalida(traducirPortal("txt_la_respuesta_de_la_operacion_no_contiene_un_reci"));
@@ -233,7 +235,7 @@ export function renderizarOperacionesSituacion({ candidato, estado = {}, escapar
   const pendiente = actual === "listo" && ["renuncia", "en_revision", "excluido"].includes(candidato.estado_clave)
     && !disponibles.some((operacion) => ["revisar", "regularizar"].includes(operacion))
     ? `<p role="status">${textoPortal("txt_b8_regularizacion_no_disponible")}</p>` : "";
-  return `<section class="panel panel-separado" data-b8-raiz="true"><div class="cabecera-panel"><div><h4>${textoPortal("txt_b8_gestion_estado")}</h4></div><details><summary aria-label="${escaparHTML(traducirHuellaArchivo("ayuda_aria"))}">?</summary><p>${escaparHTML(ayudaHuellaArchivo())}</p><p>${textoPortal("txt_b8_ayuda_llamamiento_directo")}</p></details></div><div class="cuerpo-panel"><div class="acciones-vista">${botones}</div>${solicitudesVista}${pendiente}${estado.recibo ? `<p class="mensaje-exito" role="status">${textoPortal("txt_operacion_registrada")} ${justificanteTraducido(estado.recibo, escaparHTML, (clave) => traducirPortal(`panel_${clave}`))}${estado.reutilizada ? traducirPortal("txt_respuesta_recuperada") : ""}</p>` : ""}${estado.errorOperacion ? `<p class="mensaje-error" role="alert">${escaparHTML(estado.errorOperacion)}</p>` : ""}${flujo}<h4>${textoPortal("txt_historial_de_operaciones")}</h4>${contenido}${actual === "listo" ? renderizarTrazaValores({ cambios: estado.cambios || [], pagina: estado.paginaTraza, escaparHTML }) : ""}</div></section>`;
+  return `<section class="panel panel-separado" data-b8-raiz="true"><div class="cabecera-panel"><div><h4>${textoPortal("txt_b8_gestion_estado")}</h4></div><details><summary aria-label="${escaparHTML(traducirHuellaArchivo("ayuda_aria"))}">?</summary><p>${escaparHTML(ayudaHuellaArchivo())}</p><p>${textoPortal("txt_b8_ayuda_llamamiento_directo")}</p></details></div><div class="cuerpo-panel"><div class="acciones-vista">${botones}</div>${solicitudesVista}${pendiente}${estado.recibo ? `<p class="mensaje-exito" role="status">${textoPortal("txt_operacion_registrada")} ${justificanteTraducido(estado.recibo, escaparHTML, (clave) => traducirPortal(`panel_${clave}`))}${estado.reutilizada ? traducirPortal("txt_respuesta_recuperada") : ""}</p>` : ""}${estado.reciboResolucion ? `<p class="mensaje-exito" role="status">${textoPortal("txt_b8_resolucion_solicitud")} ${justificanteTraducido(estado.reciboResolucion, escaparHTML, (clave) => traducirPortal(`panel_${clave}`))}</p>` : ""}${estado.errorOperacion ? `<p class="mensaje-error" role="alert">${escaparHTML(estado.errorOperacion)}</p>` : ""}${flujo}<h4>${textoPortal("txt_historial_de_operaciones")}</h4>${contenido}${actual === "listo" ? renderizarTrazaValores({ cambios: estado.cambios || [], pagina: estado.paginaTraza, escaparHTML }) : ""}</div></section>`;
 }
 
 // El historial llega con instantes ISO, claves de situación y referencias de
@@ -400,6 +402,7 @@ export function crearControladorOperacionesSituacion({ estado, renderizar, recar
       return;
     }
     flujo.recibo = respuesta.datos.recibo_ref;
+    flujo.reciboResolucion = respuesta.datos.recibo_resolucion_ref || "";
     flujo.reutilizada = respuesta.datos.reutilizada;
     modal.candidato = { ...modal.candidato, estado_clave: respuesta.datos.situacion, estado_desde: respuesta.datos.desde };
     delete flujo.operacion; delete flujo.paso; delete flujo.formulario; delete flujo.clave; delete flujo.huella; delete flujo.solicitudSeleccionada;

@@ -33,7 +33,9 @@ func TestOperacionDocumentalHTTPConservaSolicitudYFechaCivil(t *testing.T) {
 	ruta := RutaBolsasGestion + "/bolsa:01/candidatos/participacion:01/operaciones"
 	var recibida ports.SolicitudOperacionSituacion
 	o := operadorOperacionesHTTPPrueba{recibida: &recibida, resultado: ports.RegistroSituacionParticipacion{
-		ReciboRef: "recibo:regularizacion", SituacionParticipacion: ports.SituacionParticipacion{
+		ReciboRef: "recibo:regularizacion", ReciboResolucionRef: "recibo:solicitud-documental-resolucion:uno",
+		ResueltaEn: func() *time.Time { t := time.Date(2026, 10, 2, 9, 0, 0, 0, time.UTC); return &t }(),
+		SituacionParticipacion: ports.SituacionParticipacion{
 			Situacion: "disponible", Desde: time.Date(2026, 10, 2, 9, 0, 0, 0, time.UTC)}}}
 	h, _ := NuevoHandlerOperacionesSituacion(preparadorSituacionHTTPPrueba{}, o)
 	cuerpo := `{"operacion":"regularizar","motivo":"Documento validado","validador":"persona:rrhh",` +
@@ -51,7 +53,8 @@ func TestOperacionDocumentalHTTPConservaSolicitudYFechaCivil(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if w.Code != 201 || recibida.SolicitudVersionEsperada != 1 || recibida.SolicitudRef != "solicitud-documental:"+strings.Repeat("b", 64) ||
+	if w.Code != 201 || !strings.Contains(w.Body.String(), `"recibo_resolucion_ref":"recibo:solicitud-documental-resolucion:uno"`) ||
+		recibida.SolicitudVersionEsperada != 1 || recibida.SolicitudRef != "solicitud-documental:"+strings.Repeat("b", 64) ||
 		recibida.CausaFinalizadaEn == nil || recibida.CausaFinalizadaEn.In(madrid).Format("2006-01-02") != "2026-10-01" {
 		t.Fatalf("solicitud documental: status=%d recibida=%+v", w.Code, recibida)
 	}
