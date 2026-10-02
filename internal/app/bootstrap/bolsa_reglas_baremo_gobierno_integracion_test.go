@@ -259,7 +259,7 @@ func componerEnsayoBaremoReal(t *testing.T, ctx context.Context, cfg configuraci
 	if err != nil {
 		t.Fatal("proveedor común no disponible")
 	}
-	broker, err := NuevoProveedorGobiernoReglasBaremoV3(perfil, identidad, pdp, proveedor, fuentePool, cfg.Rutas, dependencias.reloj)
+	broker, err := NuevoProveedorGobiernoReglasBaremoV3(perfil, identidad, pdp, proveedor, alta.postgresql.gobierno, cfg.Rutas, dependencias.reloj)
 	if err != nil {
 		t.Fatal("broker nominal no disponible")
 	}
