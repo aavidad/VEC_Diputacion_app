@@ -100,7 +100,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		lista := PerfilesPropios{Revision: propios.Revision, PerfilActivoRef: propios.PerfilActivoRef}
 		for _, p := range propios.Perfiles {
-			lista.Perfiles = append(lista.Perfiles, PerfilPropio{PerfilRef: p.PerfilRef, RolVersionRef: p.RolVersionRef, ClaveI18N: p.ClaveI18N})
+			lista.Perfiles = append(lista.Perfiles, PerfilPropio{PerfilRef: p.PerfilRef, RolVersionRef: p.RolVersionRef,
+				ClaveI18N: p.ClaveI18N, CategoriaADMIN: p.CategoriaADMIN})
 		}
 		if !lista.valida() {
 			fallo(w, http.StatusServiceUnavailable, "servicio_no_disponible")
@@ -285,7 +286,8 @@ func (p PerfilesPropios) valida() bool {
 	activo := p.PerfilActivoRef == ""
 	for _, perfil := range p.Perfiles {
 		if !referencia(perfil.PerfilRef, "prf_") || vistos[perfil.PerfilRef] || !codigoOpaco(perfil.RolVersionRef) ||
-			!codigoOpaco(perfil.ClaveI18N) || len(perfil.ClaveI18N) > 256 {
+			!codigoOpaco(perfil.ClaveI18N) || len(perfil.ClaveI18N) > 256 ||
+			(perfil.CategoriaADMIN != "aplicacion" && perfil.CategoriaADMIN != "sistemas") {
 			return false
 		}
 		vistos[perfil.PerfilRef] = true

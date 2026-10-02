@@ -18,7 +18,8 @@ const (
 
 // FuenteObservacion solo se conecta a la frontera ADMIN del servidor. Debe
 // verificar mTLS directo, certificado, CA, revocación, host y política de canal
-// para esta petición; nunca reconstruye identidad desde cabeceras libres.
+// y cuenta para esta petición, antes de resolver un perfil activo. No depende
+// del proveedor de Aplicación ni reconstruye identidad desde cabeceras libres.
 type FuenteObservacion interface {
 	ObservarADMIN(context.Context, *http.Request) (adminperfiles.ObservacionADMIN, error)
 }
@@ -34,9 +35,10 @@ type Seleccionador interface {
 }
 
 type PerfilPropio struct {
-	PerfilRef     string `json:"perfil_ref"`
-	RolVersionRef string `json:"rol_version_ref"`
-	ClaveI18N     string `json:"clave_i18n,omitempty"`
+	PerfilRef      string `json:"perfil_ref"`
+	RolVersionRef  string `json:"rol_version_ref"`
+	ClaveI18N      string `json:"clave_i18n"`
+	CategoriaADMIN string `json:"categoria_admin"`
 }
 
 type PerfilesPropios struct {

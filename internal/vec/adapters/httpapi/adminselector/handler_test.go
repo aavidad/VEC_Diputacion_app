@@ -2,6 +2,7 @@ package adminselector
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -75,8 +76,8 @@ func escenario(t *testing.T) (*Handler, *observadorPrueba, *selectorPrueba, *aud
 	}}
 	s := &selectorPrueba{
 		lista: adminperfiles.PerfilesPropios{Revision: 3, Perfiles: []adminperfiles.PerfilPropio{
-			{PerfilRef: perfilA, RolVersionRef: "rol:administracion:v1", ClaveI18N: "admin.rol.administracion"},
-			{PerfilRef: perfilB, RolVersionRef: "rol:plataforma:v1", ClaveI18N: "admin.rol.plataforma"},
+			{PerfilRef: perfilA, RolVersionRef: "rol:administracion:v1", ClaveI18N: "admin.rol.administracion", CategoriaADMIN: "aplicacion"},
+			{PerfilRef: perfilB, RolVersionRef: "rol:plataforma:v1", ClaveI18N: "admin.rol.plataforma", CategoriaADMIN: "sistemas"},
 		}},
 		recibo: adminperfiles.SeleccionPerfil{PerfilActivoRef: perfilB, Revision: 4, SeleccionadaEn: ahora, AuditoriaRef: "auditoria_seleccion_admin:" + strings.Repeat("c", 64)},
 	}
@@ -131,8 +132,71 @@ func TestDosPerfilesNoSeSeleccionanDesdeHTTP(t *testing.T) {
 	}
 }
 
+func TestPerfilSistemasActivoPuedeConsultarYSeleccionarAplicacion(t *testing.T) {
+	h, o, s, _ := escenario(t)
+	s.lista.PerfilActivoRef = perfilB
+	s.recibo.PerfilActivoRef = perfilA
+	// Solo están inyectados el observador base y la autoridad central. No se
+	// construye ni conecta el proveedor del perfil de Aplicación.
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, peticion(http.MethodGet, RutaPropios, ""))
+	if w.Code != http.StatusOK || s.lecturas != 1 || s.escrituras != 0 {
+		t.Fatalf("Sistemas no pudo consultar el selector: %d", w.Code)
+	}
+	w = httptest.NewRecorder()
+	body := fmt.Sprintf(`{"perfil_ref":%q,"revision_esperada":3}`, perfilA)
+	h.ServeHTTP(w, peticion(http.MethodPost, RutaSeleccion, body))
+	if w.Code != http.StatusOK || s.escrituras != 1 || s.perfil != perfilA || o.llamadas != 2 {
+		t.Fatalf("selección desde Sistemas no delegada en la autoridad central: %d", w.Code)
+	}
+}
+
+func TestCuentaSoloSistemasPuedeRecuperarSuSeleccion(t *testing.T) {
+	h, o, s, _ := escenario(t)
+	s.lista.Perfiles = s.lista.Perfiles[1:]
+	s.lista.PerfilActivoRef = perfilB
+	s.recibo.Revision = s.lista.Revision
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, peticion(http.MethodGet, RutaPropios, ""))
+	if w.Code != http.StatusOK || s.lecturas != 1 {
+		t.Fatalf("cuenta solo Sistemas denegada: %d", w.Code)
+	}
+	w = httptest.NewRecorder()
+	h.ServeHTTP(w, peticion(http.MethodPost, RutaSeleccion, cuerpoValido()))
+	if w.Code != http.StatusOK || s.revision != 3 || o.llamadas != 2 {
+		t.Fatalf("selección vigente no recuperable: %d", w.Code)
+	}
+}
+
+func TestCategoriaYClaveI18NProcedenDelCatalogoSinInferirRol(t *testing.T) {
+	h, _, s, _ := escenario(t)
+	// Mantener el identificador de rol y cambiar el dato de catálogo prueba
+	// que la proyección HTTP no clasifica mediante nombres de rol.
+	s.lista.Perfiles[0].CategoriaADMIN = "sistemas"
+	s.lista.Perfiles[0].ClaveI18N = "catalogo.sistemas.publicado"
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, peticion(http.MethodGet, RutaPropios, ""))
+	var dto PerfilesPropios
+	if err := json.Unmarshal(w.Body.Bytes(), &dto); err != nil {
+		t.Fatal(err)
+	}
+	if w.Code != http.StatusOK || len(dto.Perfiles) != 2 || dto.Perfiles[0].CategoriaADMIN != "sistemas" ||
+		dto.Perfiles[0].ClaveI18N != s.lista.Perfiles[0].ClaveI18N || dto.Perfiles[0].RolVersionRef != s.lista.Perfiles[0].RolVersionRef {
+		t.Fatalf("catálogo alterado: %d %+v", w.Code, dto)
+	}
+	for _, categoria := range []string{"", "administrador", "Sistemas"} {
+		s.lista.Perfiles[0].CategoriaADMIN = categoria
+		w = httptest.NewRecorder()
+		h.ServeHTTP(w, peticion(http.MethodGet, RutaPropios, ""))
+		if w.Code != http.StatusServiceUnavailable || strings.Contains(w.Body.String(), "categoria_admin") {
+			t.Fatalf("categoría no aprobada publicada: %q %d", categoria, w.Code)
+		}
+	}
+}
+
 func TestPayloadAmbiguoNuncaLlegaALaAutoridad(t *testing.T) {
 	casos := map[string]string{
+		"categoria cliente":      strings.TrimSuffix(cuerpoValido(), "}") + `,"categoria_admin":"sistemas"}`,
 		"extra":                  strings.TrimSuffix(cuerpoValido(), "}") + `,"rol":"administrador"}`,
 		"duplicado":              strings.TrimSuffix(cuerpoValido(), "}") + `,"perfil_ref":"` + perfilA + `"}`,
 		"duplicado escapado":     strings.TrimSuffix(cuerpoValido(), "}") + `,"perfil_\u0072ef":"` + perfilA + `"}`,
