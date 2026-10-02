@@ -152,7 +152,12 @@
     "paginacion_marco_siguiente": "Next",
     "selector_idioma_etiqueta": "Interface language",
     "selector_idioma_es": "Español",
-    "selector_idioma_en": "English"
+    "selector_idioma_en": "English",
+    "txt_b8_solicitudes_documentales_error": "Could not load the requests. Reload this record to try again.",
+    "txt_b8_solicitud_pendiente": "Regularisation request received on {fecha}.",
+    "txt_b8_validar_solicitud": "Validate request and update status",
+    "txt_b8_documento_solicitud_distinto": "The document or date does not match the request. Check it before continuing.",
+    "txt_b8_solicitud_documental": "Validated document request"
   },
   "textos": {
     "reincorporacion_titulo": "Return of the post holder",

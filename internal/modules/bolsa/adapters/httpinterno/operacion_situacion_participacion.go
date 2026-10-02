@@ -102,12 +102,15 @@ func (h *HandlerOperacionesSituacion) ServeHTTP(w http.ResponseWriter, r *http.R
 		return
 	}
 	var cuerpo struct {
-		Operacion              string `json:"operacion"`
-		Motivo                 string `json:"motivo"`
-		Validador              string `json:"validador"`
-		SituacionEsperadaDesde string `json:"situacion_esperada_desde"`
-		CausaFinalizadaEn      string `json:"causa_finalizada_en"`
-		Justificante           struct {
+		Operacion                string `json:"operacion"`
+		Motivo                   string `json:"motivo"`
+		Validador                string `json:"validador"`
+		SituacionEsperadaDesde   string `json:"situacion_esperada_desde"`
+		CausaFinalizadaEn        string `json:"causa_finalizada_en"`
+		SolicitudRef             string `json:"solicitud_ref"`
+		SolicitudVersionEsperada int64  `json:"solicitud_version_esperada"`
+		SolicitudContenidoSHA256 string `json:"solicitud_contenido_sha256"`
+		Justificante             struct {
 			Tipo       string `json:"tipo"`
 			Referencia string `json:"referencia"`
 			SHA256     string `json:"sha256"`
@@ -154,7 +157,7 @@ func (h *HandlerOperacionesSituacion) ServeHTTP(w http.ResponseWriter, r *http.R
 		responderErrorOperacion(w, err)
 		return
 	}
-	res, err := h.operador.Operar(r.Context(), ports.SolicitudOperacionSituacion{SolicitudCambiarSituacionParticipacion: q, Operacion: cuerpo.Operacion, Justificante: j, Validador: cuerpo.Validador, SituacionEsperadaDesde: esperada, CausaFinalizadaEn: finCausa})
+	res, err := h.operador.Operar(r.Context(), ports.SolicitudOperacionSituacion{SolicitudCambiarSituacionParticipacion: q, Operacion: cuerpo.Operacion, Justificante: j, Validador: cuerpo.Validador, SituacionEsperadaDesde: esperada, CausaFinalizadaEn: finCausa, SolicitudRef: cuerpo.SolicitudRef, SolicitudVersionEsperada: cuerpo.SolicitudVersionEsperada, SolicitudContenidoSHA256: cuerpo.SolicitudContenidoSHA256})
 	if err != nil {
 		responderErrorOperacion(w, err)
 		return

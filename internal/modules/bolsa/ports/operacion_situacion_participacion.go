@@ -13,21 +13,27 @@ var ErrClaveOperacionReutilizada = errors.New("bolsa: clave de operacion reutili
 
 type SolicitudOperacionSituacion struct {
 	SolicitudCambiarSituacionParticipacion
-	Operacion              string
-	Justificante           dominiobolsa.JustificanteOperacionSituacion
-	Validador              string
-	SituacionEsperadaDesde time.Time
-	CausaFinalizadaEn      *time.Time
+	Operacion                string
+	Justificante             dominiobolsa.JustificanteOperacionSituacion
+	Validador                string
+	SituacionEsperadaDesde   time.Time
+	CausaFinalizadaEn        *time.Time
+	SolicitudRef             string
+	SolicitudVersionEsperada int64
+	SolicitudContenidoSHA256 string
 }
 
 type ComandoOperacionSituacion struct {
 	ComandoCambiarSituacionParticipacion
-	Operacion              string
-	Justificante           dominiobolsa.JustificanteOperacionSituacion
-	Validador              string
-	ValidadaEn             time.Time
-	SituacionEsperadaDesde time.Time
-	CausaFinalizadaEn      *time.Time
+	Operacion                string
+	Justificante             dominiobolsa.JustificanteOperacionSituacion
+	Validador                string
+	ValidadaEn               time.Time
+	SituacionEsperadaDesde   time.Time
+	CausaFinalizadaEn        *time.Time
+	SolicitudRef             string
+	SolicitudVersionEsperada int64
+	SolicitudContenidoSHA256 string
 }
 
 type RegistroOperacionSituacion struct {

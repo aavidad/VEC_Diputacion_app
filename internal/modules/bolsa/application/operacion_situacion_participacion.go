@@ -43,6 +43,13 @@ func (s *ServicioSituacionParticipacion) Operar(ctx context.Context, q ports.Sol
 			return ports.RegistroSituacionParticipacion{}, dominiobolsa.ErrOperacionSituacionParticipacionInvalida
 		}
 	}
+	if q.SolicitudRef != "" || q.SolicitudVersionEsperada != 0 || q.SolicitudContenidoSHA256 != "" {
+		if q.Operacion != dominiobolsa.OperacionRegularizar || q.Justificante.Tipo != dominiobolsa.JustificanteSolicitudCandidato ||
+			!referenciaSolicitudDocumentalValida(q.SolicitudRef) ||
+			q.SolicitudVersionEsperada < 1 || !huellaSolicitudDocumentalValida(q.SolicitudContenidoSHA256) {
+			return ports.RegistroSituacionParticipacion{}, dominiobolsa.ErrOperacionSituacionParticipacionInvalida
+		}
+	}
 	// El validador es una identidad declarada por RRHH, no un firmante. Qué
 	// operaciones exigen otra persona lo fija la política configurable; la
 	// base de datos vuelve a comprobarlo con la misma versión.
@@ -88,7 +95,20 @@ func (s *ServicioSituacionParticipacion) Operar(ctx context.Context, q ports.Sol
 	}
 	h := sha256.Sum256([]byte(q.ParticipacionRef + "\x1f" + q.ClaveIdempotencia))
 	recibo := "recibo:situacion:" + hex.EncodeToString(h[:])
-	return repo.RegistrarOperacion(ctx, ports.ComandoOperacionSituacion{ComandoCambiarSituacionParticipacion: ports.ComandoCambiarSituacionParticipacion{Cambio: cambio, Actor: actor, BolsaRef: q.BolsaRef, ClaveIdempotencia: q.ClaveIdempotencia, ReciboRef: recibo, SolicitudAutorizacion: auth, Decision: decision, Confirmacion: confirmacion, Material: material}, Operacion: q.Operacion, Justificante: q.Justificante, Validador: q.Validador, ValidadaEn: ahora, SituacionEsperadaDesde: q.SituacionEsperadaDesde, CausaFinalizadaEn: q.CausaFinalizadaEn})
+	return repo.RegistrarOperacion(ctx, ports.ComandoOperacionSituacion{ComandoCambiarSituacionParticipacion: ports.ComandoCambiarSituacionParticipacion{Cambio: cambio, Actor: actor, BolsaRef: q.BolsaRef, ClaveIdempotencia: q.ClaveIdempotencia, ReciboRef: recibo, SolicitudAutorizacion: auth, Decision: decision, Confirmacion: confirmacion, Material: material}, Operacion: q.Operacion, Justificante: q.Justificante, Validador: q.Validador, ValidadaEn: ahora, SituacionEsperadaDesde: q.SituacionEsperadaDesde, CausaFinalizadaEn: q.CausaFinalizadaEn, SolicitudRef: q.SolicitudRef, SolicitudVersionEsperada: q.SolicitudVersionEsperada, SolicitudContenidoSHA256: q.SolicitudContenidoSHA256})
+}
+
+func referenciaSolicitudDocumentalValida(ref string) bool {
+	const prefijo = "solicitud-documental:"
+	return strings.HasPrefix(ref, prefijo) && huellaSolicitudDocumentalValida(strings.TrimPrefix(ref, prefijo))
+}
+
+func huellaSolicitudDocumentalValida(valor string) bool {
+	if len(valor) != 64 {
+		return false
+	}
+	bytes, err := hex.DecodeString(valor)
+	return err == nil && hex.EncodeToString(bytes) == valor
 }
 
 // politicaSegregacion lee la política vigente del repositorio. Sin consulta

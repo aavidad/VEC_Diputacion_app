@@ -152,7 +152,12 @@
     "paginacion_marco_siguiente": "Siguiente",
     "selector_idioma_etiqueta": "Idioma de la interfaz",
     "selector_idioma_es": "Español",
-    "selector_idioma_en": "Inglés"
+    "selector_idioma_en": "Inglés",
+    "txt_b8_solicitudes_documentales_error": "No se pudieron consultar las solicitudes. Recargue la ficha para intentarlo de nuevo.",
+    "txt_b8_solicitud_pendiente": "Solicitud de regularización recibida el {fecha}.",
+    "txt_b8_validar_solicitud": "Validar solicitud y regularizar estado",
+    "txt_b8_documento_solicitud_distinto": "El documento o la fecha no coincide con la solicitud. Revíselo antes de continuar.",
+    "txt_b8_solicitud_documental": "Solicitud documental validada"
   },
   "textos": {
     "reincorporacion_titulo": "Reincorporación de la persona titular",

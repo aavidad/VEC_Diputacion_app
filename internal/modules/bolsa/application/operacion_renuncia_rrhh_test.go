@@ -85,6 +85,36 @@ func TestRevisionDocumentalExigeCASYRecuperaTrasAvance(t *testing.T) {
 	}
 }
 
+func TestRegularizarSolicitudDocumentalEntregaVinculoAlRepositorio(t *testing.T) {
+	servicio, repo, ahora := servicioDesdeRenunciaPrueba(t, nil)
+	repo.vigente.Situacion = domain.SituacionEnRevision
+	q := ports.SolicitudOperacionSituacion{
+		SolicitudCambiarSituacionParticipacion: solicitudSituacionPrueba(t, ahora),
+		Operacion:                              domain.OperacionRegularizar,
+		Justificante: domain.JustificanteOperacionSituacion{Tipo: domain.JustificanteSolicitudCandidato,
+			Referencia: "documento:fin-causa", SHA256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+		Validador: "persona:rrhh", SituacionEsperadaDesde: ahora,
+		SolicitudRef:             "solicitud-documental:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+		SolicitudVersionEsperada: 1,
+		SolicitudContenidoSHA256: "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+	}
+	q.Destino = domain.SituacionDisponible
+	q.Motivo = "Documento de fin de causa validado"
+	fin := ahora.Add(-24 * time.Hour)
+	q.CausaFinalizadaEn = &fin
+	q.SolicitudContenidoSHA256 = "mal"
+	if _, err := servicio.Operar(context.Background(), q); !errors.Is(err, domain.ErrOperacionSituacionParticipacionInvalida) || repo.escrituras != 0 {
+		t.Fatalf("contenido inválido: err=%v escrituras=%d", err, repo.escrituras)
+	}
+	q.SolicitudContenidoSHA256 = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+	res, err := servicio.Operar(context.Background(), q)
+	if err != nil || res.Situacion != domain.SituacionDisponible || repo.comando.SolicitudRef != q.SolicitudRef ||
+		repo.comando.SolicitudVersionEsperada != 1 || repo.comando.SolicitudContenidoSHA256 != q.SolicitudContenidoSHA256 ||
+		repo.comando.Justificante != q.Justificante {
+		t.Fatalf("vínculo documental: resultado=%+v error=%v comando=%+v", res, err, repo.comando)
+	}
+}
+
 func TestOperacionRenunciaRRHHNoReincorporaSinValidacionNiPoliticaPublicada(t *testing.T) {
 	for _, caso := range []string{"sin_justificante", "sin_validador", "exclusion_adoptada"} {
 		t.Run(caso, func(t *testing.T) {

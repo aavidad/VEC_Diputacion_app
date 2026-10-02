@@ -78,6 +78,30 @@ export async function consultarOperacionesSituacion(bolsa, participacion, { fetc
   }
 }
 
+export async function consultarSolicitudesDocumentalesRRHH(bolsa, participacion, { fetchImpl = fetch, signal } = {}) {
+  const query = new URLSearchParams({ bolsa_ref: bolsa, participacion_ref: participacion });
+  try {
+    const respuesta = await fetchImpl(`/api/vec/bolsa/solicitudes-documentales/pendientes?${query}`, {
+      method: "GET", credentials: "same-origin", mode: "same-origin", cache: "no-store", redirect: "error", signal,
+      headers: { Accept: "application/json" },
+    });
+    if (!respuesta.ok) return { ok: false, status: respuesta.status, mensaje: traducirPortal("txt_b8_solicitudes_documentales_error") };
+    const cuerpo = await respuesta.json();
+    const items = cuerpo?.data?.items;
+    const valido = cuerpo?.data?.esquema === "vec.bolsa.rrhh.solicitudes_documentales.v1" && Array.isArray(items)
+      && items.every((item) => /^solicitud-documental:[a-f0-9]{64}$/.test(item?.solicitud_ref || "")
+        && Number.isSafeInteger(item.version) && item.version > 0 && HEX_SHA256.test(item.contenido_sha256)
+        && typeof item.documento_ref === "string" && item.documento_ref.length > 0 && item.documento_ref.length <= 256
+        && !referenciaContieneDocumentoIdentidad(item.documento_ref) && HEX_SHA256.test(item.documento_sha256)
+        && /^\d{4}-\d{2}-\d{2}$/.test(item.fecha_fin_causa) && Number.isFinite(Date.parse(item.fecha_fin_causa))
+        && item.estado === "pendiente_rrhh" && typeof item.recibo_ref === "string" && item.recibo_ref.length > 0
+        && instanteValido(item.registrada_en));
+    return valido ? { ok: true, datos: items } : respuestaInvalida(traducirPortal("txt_b8_solicitudes_documentales_error"));
+  } catch {
+    return { ok: false, status: 0, mensaje: traducirPortal("txt_b8_solicitudes_documentales_error") };
+  }
+}
+
 function errorHttp(status, codigoServidor = "") {
   const errores = {
     400: ["solicitud_invalida", traducirPortal("txt_la_solicitud_no_es_valida_revise_los_campos_del")],
@@ -93,6 +117,7 @@ function errorHttp(status, codigoServidor = "") {
 }
 
 export async function registrarOperacionSituacion(bolsa, participacion, comando, clave, { fetchImpl = fetch } = {}) {
+  const vinculada = Boolean(comando?.solicitud_ref || comando?.solicitud_version_esperada || comando?.solicitud_contenido_sha256);
   if (referenciaContieneDocumentoIdentidad(comando?.justificante?.referencia)) {
     return { ok: false, status: 400, codigo: "referencia_identidad", mensaje: MENSAJE_REFERENCIA_IDENTIDAD };
   }
@@ -101,6 +126,10 @@ export async function registrarOperacionSituacion(bolsa, participacion, comando,
     || (["revisar", "regularizar"].includes(comando.operacion) && !instanteValido(comando.situacion_esperada_desde))
     || (comando.operacion === "excluir" && comando.situacion_esperada_desde !== undefined && !instanteValido(comando.situacion_esperada_desde))
     || (comando.operacion === "regularizar" && !fechaCausaValida(comando.causa_finalizada_en))
+    || (vinculada && (comando.operacion !== "regularizar" || comando.justificante?.tipo !== "solicitud_candidato"
+      || !/^solicitud-documental:[a-f0-9]{64}$/.test(comando.solicitud_ref || "")
+      || !Number.isSafeInteger(comando.solicitud_version_esperada) || comando.solicitud_version_esperada < 1
+      || !HEX_SHA256.test(comando.solicitud_contenido_sha256 || "")))
     || typeof comando.motivo !== "string" || !comando.motivo.trim()
     || typeof comando.validador !== "string" || !comando.validador.trim()
     || !TIPOS_JUSTIFICANTE.includes(comando.justificante?.tipo)
@@ -173,10 +202,20 @@ function etiquetaOperacion(operacion, candidato) {
   return OPERACIONES[operacion];
 }
 
+function justificanteVisible(item) {
+  if (item.justificante.tipo === "solicitud_candidato" && /^solicitud-documental:[a-f0-9]{64}$/.test(item.justificante.referencia)) {
+    return traducirPortal("txt_b8_solicitud_documental");
+  }
+  return `${TIPOS_ETIQUETA[item.justificante.tipo] || item.justificante.tipo} · ${item.justificante.referencia}`;
+}
+
 export function renderizarOperacionesSituacion({ candidato, estado = {}, escaparHTML = html }) {
   const actual = estado.carga || "cargando";
   const disponibles = operacionesAdmitidasCandidato(candidato, estado);
-  const acciones = disponibles.map((operacion) => `<button type="button" class="boton-secundario" data-b8-accion="seleccionar" data-operacion="${operacion}">${escaparHTML(etiquetaOperacion(operacion, candidato))}</button>`).join("");
+  const solicitudes = estado.solicitudesDocumentales || [];
+  const acciones = disponibles.filter((operacion) => operacion !== "regularizar" || (!solicitudes.length && !estado.solicitudesError))
+    .map((operacion) => `<button type="button" class="boton-secundario" data-b8-accion="seleccionar" data-operacion="${operacion}">${escaparHTML(etiquetaOperacion(operacion, candidato))}</button>`).join("");
+  const solicitudesVista = actual === "listo" ? `${estado.solicitudesError ? `<p class="mensaje-error" role="alert">${escaparHTML(estado.solicitudesError)}</p>` : ""}${solicitudes.map((solicitud) => `<div class="panel-separado"><p>${textoPortal("txt_b8_solicitud_pendiente", { fecha: instanteLegible(solicitud.registrada_en) })}</p><button type="button" class="boton-secundario" data-b8-accion="seleccionar-solicitud" data-solicitud-ref="${escaparHTML(solicitud.solicitud_ref)}" ${disponibles.includes("regularizar") && fechaCausaValida(solicitud.fecha_fin_causa) ? "" : "disabled"}>${textoPortal("txt_b8_validar_solicitud")}</button></div>`).join("")}` : "";
   const botones = estado.paso > 0 ? `<button type="button" class="boton-secundario" data-b8-accion="cancelar" ${estado.enviando ? "disabled" : ""}>${textoPortal("txt_cancelar")}</button>`
     : estado.noDisponible ? "" : acciones;
   let contenido = "";
@@ -188,13 +227,13 @@ export function renderizarOperacionesSituacion({ candidato, estado = {}, escapar
     const paginas = Math.max(1, Math.ceil(total / 6));
     const pagina = Math.min(Math.max(0, Number(estado.paginaHistorial) || 0), paginas - 1);
     const visibles = estado.items.slice(pagina * 6, (pagina + 1) * 6);
-    contenido = `<div class="tabla-contenedor" tabindex="0" role="region" aria-label="${textoPortal("txt_historial_de_operaciones")}"><table class="tabla-datos"><caption>${textoPortal("txt_historial_de_operaciones")}</caption><thead><tr><th>${textoPortal("txt_desde")}</th><th>${textoPortal("txt_operacion")}</th><th>${textoPortal("txt_situacion")}</th><th>${textoPortal("txt_motivo")}</th><th>${textoPortal("txt_justificante")}</th><th>${textoPortal("txt_actor_validador")}</th></tr></thead><tbody>${visibles.map((item) => `<tr><td>${escaparHTML(instanteLegible(item.desde))}</td><td>${escaparHTML(OPERACIONES[item.operacion] || item.operacion)}</td><td>${escaparHTML(situacionLegible(item.situacion))}</td><td>${escaparHTML(item.motivo)}</td><td>${escaparHTML(TIPOS_ETIQUETA[item.justificante.tipo] || item.justificante.tipo)} · ${escaparHTML(item.justificante.referencia)}</td><td>${personaLegible(item.actor, escaparHTML)} / ${personaLegible(item.validador, escaparHTML)}<br>${escaparHTML(instanteLegible(item.validada_en))}</td></tr>`).join("")}</tbody></table></div>${paginas > 1 ? `<nav class="paginacion-bolsa" aria-label="${textoPortal("txt_paginacion_del_historial_de_operaciones")}"><span>${textoPortal("txt_mostrando_desde_hasta_total", { desde: pagina * 6 + 1, hasta: Math.min((pagina + 1) * 6, total), total })}</span><button type="button" class="boton-secundario" data-b8-accion="pagina" data-pagina="${pagina - 1}" ${pagina === 0 ? "disabled" : ""}>${textoPortal("txt_anterior")}</button><button type="button" class="boton-secundario" data-b8-accion="pagina" data-pagina="${pagina + 1}" ${pagina + 1 >= paginas ? "disabled" : ""}>${textoPortal("txt_siguiente")}</button></nav>` : `<p>${textoPortal("txt_mostrando_desde_hasta_total", { desde: 1, hasta: total, total })}</p>`}`;
+    contenido = `<div class="tabla-contenedor" tabindex="0" role="region" aria-label="${textoPortal("txt_historial_de_operaciones")}"><table class="tabla-datos"><caption>${textoPortal("txt_historial_de_operaciones")}</caption><thead><tr><th>${textoPortal("txt_desde")}</th><th>${textoPortal("txt_operacion")}</th><th>${textoPortal("txt_situacion")}</th><th>${textoPortal("txt_motivo")}</th><th>${textoPortal("txt_justificante")}</th><th>${textoPortal("txt_actor_validador")}</th></tr></thead><tbody>${visibles.map((item) => `<tr><td>${escaparHTML(instanteLegible(item.desde))}</td><td>${escaparHTML(OPERACIONES[item.operacion] || item.operacion)}</td><td>${escaparHTML(situacionLegible(item.situacion))}</td><td>${escaparHTML(item.motivo)}</td><td>${escaparHTML(justificanteVisible(item))}</td><td>${personaLegible(item.actor, escaparHTML)} / ${personaLegible(item.validador, escaparHTML)}<br>${escaparHTML(instanteLegible(item.validada_en))}</td></tr>`).join("")}</tbody></table></div>${paginas > 1 ? `<nav class="paginacion-bolsa" aria-label="${textoPortal("txt_paginacion_del_historial_de_operaciones")}"><span>${textoPortal("txt_mostrando_desde_hasta_total", { desde: pagina * 6 + 1, hasta: Math.min((pagina + 1) * 6, total), total })}</span><button type="button" class="boton-secundario" data-b8-accion="pagina" data-pagina="${pagina - 1}" ${pagina === 0 ? "disabled" : ""}>${textoPortal("txt_anterior")}</button><button type="button" class="boton-secundario" data-b8-accion="pagina" data-pagina="${pagina + 1}" ${pagina + 1 >= paginas ? "disabled" : ""}>${textoPortal("txt_siguiente")}</button></nav>` : `<p>${textoPortal("txt_mostrando_desde_hasta_total", { desde: 1, hasta: total, total })}</p>`}`;
   }
   const flujo = estado.paso > 0 && disponibles.includes(estado.operacion) ? renderizarPaso(estado, escaparHTML, candidato) : "";
   const pendiente = actual === "listo" && ["renuncia", "en_revision", "excluido"].includes(candidato.estado_clave)
     && !disponibles.some((operacion) => ["revisar", "regularizar"].includes(operacion))
     ? `<p role="status">${textoPortal("txt_b8_regularizacion_no_disponible")}</p>` : "";
-  return `<section class="panel panel-separado" data-b8-raiz="true"><div class="cabecera-panel"><div><h4>${textoPortal("txt_b8_gestion_estado")}</h4></div><details><summary aria-label="${escaparHTML(traducirHuellaArchivo("ayuda_aria"))}">?</summary><p>${escaparHTML(ayudaHuellaArchivo())}</p><p>${textoPortal("txt_b8_ayuda_llamamiento_directo")}</p></details></div><div class="cuerpo-panel"><div class="acciones-vista">${botones}</div>${pendiente}${estado.recibo ? `<p class="mensaje-exito" role="status">${textoPortal("txt_operacion_registrada")} ${justificanteTraducido(estado.recibo, escaparHTML, (clave) => traducirPortal(`panel_${clave}`))}${estado.reutilizada ? traducirPortal("txt_respuesta_recuperada") : ""}</p>` : ""}${estado.errorOperacion ? `<p class="mensaje-error" role="alert">${escaparHTML(estado.errorOperacion)}</p>` : ""}${flujo}<h4>${textoPortal("txt_historial_de_operaciones")}</h4>${contenido}${actual === "listo" ? renderizarTrazaValores({ cambios: estado.cambios || [], pagina: estado.paginaTraza, escaparHTML }) : ""}</div></section>`;
+  return `<section class="panel panel-separado" data-b8-raiz="true"><div class="cabecera-panel"><div><h4>${textoPortal("txt_b8_gestion_estado")}</h4></div><details><summary aria-label="${escaparHTML(traducirHuellaArchivo("ayuda_aria"))}">?</summary><p>${escaparHTML(ayudaHuellaArchivo())}</p><p>${textoPortal("txt_b8_ayuda_llamamiento_directo")}</p></details></div><div class="cuerpo-panel"><div class="acciones-vista">${botones}</div>${solicitudesVista}${pendiente}${estado.recibo ? `<p class="mensaje-exito" role="status">${textoPortal("txt_operacion_registrada")} ${justificanteTraducido(estado.recibo, escaparHTML, (clave) => traducirPortal(`panel_${clave}`))}${estado.reutilizada ? traducirPortal("txt_respuesta_recuperada") : ""}</p>` : ""}${estado.errorOperacion ? `<p class="mensaje-error" role="alert">${escaparHTML(estado.errorOperacion)}</p>` : ""}${flujo}<h4>${textoPortal("txt_historial_de_operaciones")}</h4>${contenido}${actual === "listo" ? renderizarTrazaValores({ cambios: estado.cambios || [], pagina: estado.paginaTraza, escaparHTML }) : ""}</div></section>`;
 }
 
 // El historial llega con instantes ISO, claves de situación y referencias de
@@ -241,7 +280,7 @@ function renderizarPaso(estado, escaparHTML, candidato) {
   return `<form data-b8-form="operacion" data-b8-paso="${etapa}"><p><strong>${textoPortal("txt_operacion_seleccionada")}</strong> ${escaparHTML(etiqueta)}</p><h5>${textoPortal("txt_paso_de_tres", { etapa, nombre: traducirPortal(etapa === 1 ? "txt_motivo" : etapa === 2 ? "txt_justificante" : "txt_validacion") })}</h5>${revision}${campos}<p class="mensaje-error" role="alert">${escaparHTML(estado.errorFormulario || "")}</p><div class="acciones-vista"><button type="button" class="boton-secundario" data-b8-accion="anterior" ${etapa === 1 || estado.enviando ? "disabled" : ""}>${textoPortal("txt_anterior")}</button><button type="submit" class="boton-primario" ${estado.enviando ? "disabled" : ""}>${estado.enviando ? traducirPortal("txt_registrando") : etapa < 3 ? traducirPortal("txt_continuar") : validarDisponibilidad ? traducirPortal("txt_b8_confirmar_disponibilidad") : traducirPortal("txt_confirmar_operacion_nombre", { operacion: etiqueta })}</button></div></form>`;
 }
 
-export function crearControladorOperacionesSituacion({ estado, renderizar, recargar, consultarReglas = consultarReglasSituacion }) {
+export function crearControladorOperacionesSituacion({ estado, renderizar, recargar, consultarReglas = consultarReglasSituacion, consultarDocumentales = consultarSolicitudesDocumentalesRRHH }) {
   async function cargar(modalFicha) {
     // B13: el histórico de contratos se carga junto a la ficha, en paralelo.
     void cargarContratosFicha(modalFicha, { estado, renderizar, renderizarAlIniciar: false });
@@ -254,9 +293,10 @@ export function crearControladorOperacionesSituacion({ estado, renderizar, recar
     // Sin catálogo o situación vigente del servidor, las acciones nuevas
     // quedan cerradas; nunca se deduce el CAS del último registro histórico.
     const finRelacion = modalFicha.candidato.estado_clave === "trabajando" ? hoyCivil() : "";
-    const [res, reglas] = await Promise.all([
+    const [res, reglas, solicitudes] = await Promise.all([
       consultarOperacionesSituacion(estado.bolsaSeleccionada, modalFicha.candidato.participacion_ref, { signal: controlador.signal }),
       consultarReglas({ finRelacion, signal: controlador.signal }),
+      consultarDocumentales(estado.bolsaSeleccionada, modalFicha.candidato.participacion_ref, { signal: controlador.signal }),
     ]);
     if (controlador.signal.aborted || estado.modalFicha !== modalFicha) return;
     modalFicha.reglasSituacion = reglas.ok ? reglas.datos : null;
@@ -265,8 +305,10 @@ export function crearControladorOperacionesSituacion({ estado, renderizar, recar
     const causas = causasBaja(modalFicha.reglasSituacion);
     const transiciones = modalFicha.reglasSituacion?.transiciones ?? null;
     modalFicha.operacionesB8 = res.ok
-      ? { ...modalFicha.operacionesB8, carga: "listo", noDisponible: false, items: res.datos, cambios: res.cambios, causasBaja: causas, transiciones }
-      : { ...modalFicha.operacionesB8, carga: "error", noDisponible: res.status === 404, error: res.mensaje, items: [], cambios: [], causasBaja: causas, transiciones };
+      ? { ...modalFicha.operacionesB8, carga: "listo", noDisponible: false, items: res.datos, cambios: res.cambios, causasBaja: causas, transiciones,
+        solicitudesDocumentales: solicitudes.ok ? solicitudes.datos : [], solicitudesError: solicitudes.ok ? "" : solicitudes.mensaje }
+      : { ...modalFicha.operacionesB8, carga: "error", noDisponible: res.status === 404, error: res.mensaje, items: [], cambios: [], causasBaja: causas, transiciones,
+        solicitudesDocumentales: [], solicitudesError: solicitudes.ok ? "" : solicitudes.mensaje };
     renderizar();
   }
 
@@ -286,8 +328,21 @@ export function crearControladorOperacionesSituacion({ estado, renderizar, recar
       flujo.formulario = {};
       flujo.errorFormulario = "";
       flujo.errorOperacion = "";
+      delete flujo.solicitudSeleccionada;
+    } else if (control.dataset.b8Accion === "seleccionar-solicitud") {
+      const solicitud = flujo.solicitudesDocumentales?.find((item) => item.solicitud_ref === control.dataset.solicitudRef);
+      if (!solicitud || !fechaCausaValida(solicitud.fecha_fin_causa) || !operacionAdmitida(modal, flujo, "regularizar")) {
+        flujo.errorOperacion = traducirPortal("txt_b8_regularizacion_no_disponible"); renderizar(); return true;
+      }
+      flujo.operacion = "regularizar";
+      flujo.solicitudSeleccionada = solicitud;
+      flujo.paso = 1;
+      flujo.formulario = { tipo: "solicitud_candidato", referencia: solicitud.documento_ref,
+        sha256: solicitud.documento_sha256, causa_finalizada_en: solicitud.fecha_fin_causa };
+      flujo.errorFormulario = "";
+      flujo.errorOperacion = "";
     } else if (control.dataset.b8Accion === "cancelar") {
-      delete flujo.operacion; delete flujo.paso; delete flujo.formulario; delete flujo.clave; delete flujo.huella;
+      delete flujo.operacion; delete flujo.paso; delete flujo.formulario; delete flujo.clave; delete flujo.huella; delete flujo.solicitudSeleccionada;
     } else if (control.dataset.b8Accion === "anterior") {
       const formulario = control.closest?.('[data-b8-form="operacion"]');
       if (formulario) {
@@ -320,6 +375,11 @@ export function crearControladorOperacionesSituacion({ estado, renderizar, recar
       justificante: { tipo: flujo.formulario.tipo, referencia: flujo.formulario.referencia, sha256: flujo.formulario.sha256 } };
     if (["revisar", "regularizar"].includes(flujo.operacion) || (flujo.operacion === "excluir" && modal.candidato.estado_clave === "en_revision")) comando.situacion_esperada_desde = modal.candidato.estado_desde;
     if (flujo.operacion === "regularizar") comando.causa_finalizada_en = flujo.formulario.causa_finalizada_en;
+    if (flujo.solicitudSeleccionada) {
+      comando.solicitud_ref = flujo.solicitudSeleccionada.solicitud_ref;
+      comando.solicitud_version_esperada = flujo.solicitudSeleccionada.version;
+      comando.solicitud_contenido_sha256 = flujo.solicitudSeleccionada.contenido_sha256;
+    }
     const huella = JSON.stringify(comando);
     if (flujo.huella !== huella) {
       flujo.huella = huella;
@@ -332,7 +392,7 @@ export function crearControladorOperacionesSituacion({ estado, renderizar, recar
     if (!respuesta.ok) {
       flujo.errorOperacion = respuesta.mensaje;
       if (respuesta.status === 409) {
-        delete flujo.operacion; delete flujo.paso; delete flujo.formulario; delete flujo.clave; delete flujo.huella;
+        delete flujo.operacion; delete flujo.paso; delete flujo.formulario; delete flujo.clave; delete flujo.huella; delete flujo.solicitudSeleccionada;
         await recargar(modal.candidato.participacion_ref);
         if (estado.modalFicha === modal) void cargar(modal);
       }
@@ -342,18 +402,10 @@ export function crearControladorOperacionesSituacion({ estado, renderizar, recar
     flujo.recibo = respuesta.datos.recibo_ref;
     flujo.reutilizada = respuesta.datos.reutilizada;
     modal.candidato = { ...modal.candidato, estado_clave: respuesta.datos.situacion, estado_desde: respuesta.datos.desde };
-    delete flujo.operacion; delete flujo.paso; delete flujo.formulario; delete flujo.clave; delete flujo.huella;
+    delete flujo.operacion; delete flujo.paso; delete flujo.formulario; delete flujo.clave; delete flujo.huella; delete flujo.solicitudSeleccionada;
     await recargar(modal.candidato.participacion_ref);
     if (estado.modalFicha !== modal) return;
-    modal.operacionesB8 = { ...modal.operacionesB8, carga: "cargando", items: [] };
-    renderizar();
-    const controlador = new AbortController(); modal.controladorOperaciones = controlador;
-    const historial = await consultarOperacionesSituacion(estado.bolsaSeleccionada, modal.candidato.participacion_ref, { signal: controlador.signal });
-    if (controlador.signal.aborted || estado.modalFicha !== modal) return;
-    modal.operacionesB8 = historial.ok
-      ? { ...modal.operacionesB8, carga: "listo", items: historial.datos }
-      : { ...modal.operacionesB8, carga: "error", error: historial.mensaje, items: [] };
-    renderizar();
+    void cargar(modal);
   }
 
   function manejarSubmit(evento) {
@@ -380,6 +432,11 @@ export function crearControladorOperacionesSituacion({ estado, renderizar, recar
       flujo.errorFormulario = flujo.paso === 2 && referenciaContieneDocumentoIdentidad(flujo.formulario.referencia)
         ? MENSAJE_REFERENCIA_IDENTIDAD : "";
       if (flujo.paso === 2 && flujo.operacion === "regularizar" && !fechaCausaValida(flujo.formulario.causa_finalizada_en)) flujo.errorFormulario = traducirPortal("txt_b8_fecha_fin_causa_invalida");
+      if (flujo.paso === 2 && flujo.solicitudSeleccionada &&
+          (flujo.formulario.tipo !== "solicitud_candidato" || flujo.formulario.referencia !== flujo.solicitudSeleccionada.documento_ref ||
+            flujo.formulario.sha256 !== flujo.solicitudSeleccionada.documento_sha256 || flujo.formulario.causa_finalizada_en !== flujo.solicitudSeleccionada.fecha_fin_causa)) {
+        flujo.errorFormulario = traducirPortal("txt_b8_documento_solicitud_distinto");
+      }
       if (!flujo.errorFormulario) flujo.paso += 1;
       renderizar(); return true;
     }

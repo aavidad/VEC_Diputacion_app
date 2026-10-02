@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   crearControladorOperacionesSituacion,
   consultarOperacionesSituacion,
+  consultarSolicitudesDocumentalesRRHH,
   registrarOperacionSituacion,
   referenciaContieneDocumentoIdentidad,
   renderizarOperacionesSituacion,
@@ -44,6 +45,34 @@ const cuerpo = {
 };
 const transicionesRRHH18 = { renuncia: ["en_revision", "disponible", "excluido"], en_revision: ["disponible", "excluido"], excluido: ["disponible"] };
 const desde = "2026-09-23T08:00:00Z";
+
+test("RRHH17 enlaza una solicitud documental pendiente sin cambiar estado al consultarla", async () => {
+  const solicitud = { solicitud_ref: `solicitud-documental:${"b".repeat(64)}`, version: 1,
+    contenido_sha256: "c".repeat(64), documento_ref: "documento:fin-causa", documento_sha256: "a".repeat(64),
+    fecha_fin_causa: "2026-09-22", estado: "pendiente_rrhh", recibo_ref: "recibo:solicitud", registrada_en: desde };
+  const respuesta = (items) => async (_ruta, opciones) => {
+    assert.equal(opciones.method, "GET");
+    return response(200, { data: { esquema: "vec.bolsa.rrhh.solicitudes_documentales.v1", items } });
+  };
+  const bien = await consultarSolicitudesDocumentalesRRHH("bolsa:uno", "participacion:dos", { fetchImpl: respuesta([solicitud]) });
+  assert.equal(bien.ok, true);
+  const vista = renderizarOperacionesSituacion({ candidato: { estado_clave: "en_revision", estado_desde: desde },
+    estado: { carga: "listo", items: [], transiciones: transicionesRRHH18, solicitudesDocumentales: bien.datos } });
+  assert.match(vista, /data-b8-accion="seleccionar-solicitud"/);
+  assert.doesNotMatch(vista, /data-b8-accion="seleccionar" data-operacion="regularizar"/);
+  const mal = await consultarSolicitudesDocumentalesRRHH("bolsa:uno", "participacion:dos", { fetchImpl: respuesta([{ ...solicitud, documento_sha256: "mal" }]) });
+  assert.equal(mal.codigo, "respuesta_invalida");
+  const comando = { operacion: "regularizar", motivo: "Fin de causa validado", validador: "persona:rrhh",
+    justificante: { tipo: "solicitud_candidato", referencia: solicitud.documento_ref, sha256: solicitud.documento_sha256 },
+    situacion_esperada_desde: desde, causa_finalizada_en: solicitud.fecha_fin_causa,
+    solicitud_ref: solicitud.solicitud_ref, solicitud_version_esperada: solicitud.version,
+    solicitud_contenido_sha256: solicitud.contenido_sha256 };
+  const post = await registrarOperacionSituacion("bolsa:uno", "participacion:dos", comando, "clave", { fetchImpl: async (_ruta, opciones) => {
+    assert.equal(JSON.parse(opciones.body).solicitud_ref, solicitud.solicitud_ref);
+    return response(201, { data: { recibo_ref: "recibo:regularizacion", situacion: "disponible", desde, reutilizada: false } });
+  } });
+  assert.equal(post.ok, true);
+});
 
 test("RRHH18 solo ofrece revisión y regularización con catálogo nuevo y situación vigente", () => {
   assert.deepEqual(operacionesDisponibles("renuncia", transicionesRRHH18), ["revisar", "regularizar", "excluir"]);
