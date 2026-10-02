@@ -1,6 +1,7 @@
 \set ON_ERROR_STOP on
 -- Ejecutar solo después de instalar AD159 y CT170 en un clon PG18 desechable.
--- Comprueba la frontera nueva y la supervivencia de AD125/CT152. Sin datos.
+-- Comprueba la frontera nueva, los 29 campos concedidos y AD125/CT152.
+-- Incluye rechazo uniforme de dos referencias sin capacidad. Sin datos.
 BEGIN;
 SET LOCAL search_path=pg_catalog,pg_temp;
 SET LOCAL statement_timeout='30s';
@@ -8,8 +9,8 @@ DO $prueba$
 DECLARE
  f regprocedure:=to_regprocedure('vec_autorizacion_atestada_v3.consumir_consulta_firmas_r5_ct_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
  legado regprocedure:=to_regprocedure('vec_autorizacion_atestada_v3.consumir_consulta_firmas_documento_ct_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
- proyeccion text:='["CatalogoHuella","CatalogoRef","ClaveIdempotencia","ConMotivoDevolucion","Documento","DocumentoCustodiaRef","DocumentoCustodiaVersion","ExpedienteVersion","FechaPortafirmasDeclarada","FirmaRef","FirmadoHuella","FirmantePrincipalAcreditado","OriginalHuella","OriginalRef","OriginalVersion","PasoOrden","PasoRef","ReciboRef","ReferenciaPortafirmasDeclarada","RegistradaEn","Resultado","Secuencia","SelloTiempoEstado","Via"]';
- nucleo text; fachada text; a record;
+ proyeccion text:='["CatalogoHuella","CatalogoRef","ClaveIdempotencia","CoincideFirmanteCandidato","CoincideFirmanteEnOtroPaso","ConMotivoDevolucion","Documento","DocumentoCustodiaRef","DocumentoCustodiaVersion","ExpedienteVersion","FechaPortafirmasDeclarada","FirmaRef","FirmadoHuella","FirmantePrincipalAcreditado","HistoriaHuella","HistoriaRevision","HistoriaSeparacionAcreditada","OriginalHuella","OriginalRef","OriginalVersion","PasoOrden","PasoRef","ReciboRef","ReferenciaPortafirmasDeclarada","RegistradaEn","Resultado","Secuencia","SelloTiempoEstado","Via"]';
+ nucleo text; fachada text; a record; referencia text; anterior text; mensaje text;
 BEGIN
  IF f IS NULL OR legado IS NULL THEN
   RAISE EXCEPTION 'AD159 prueba: fachada nueva o legado ausentes'; END IF;
@@ -41,5 +42,24 @@ BEGIN
     AND c.conname='clave_capacidad_version_audiencia_consumo_check' AND c.convalidated
     AND strpos(pg_get_constraintdef(c.oid,true),'''vec_contratacion_temporal.firmas_r5.consultar.v1''')>0)
  THEN RAISE EXCEPTION 'AD159 prueba: audiencia no inscrita'; END IF;
+ -- El consumidor deniega de modo indistinguible dos referencias opacas
+ -- carentes de decisión. CT170 cubre la ausencia autorizada en su prueba.
+ FOR referencia IN SELECT unnest(ARRAY['expediente:ad159:a','expediente:ad159:b']) LOOP
+  mensaje:=NULL;
+  BEGIN
+   PERFORM 1 FROM vec_autorizacion_atestada_v3.consumir_consulta_firmas_r5_ct_v3_atestada(
+    convert_to(jsonb_build_object('operacion','contratacion_temporal.documento.firmas_r5.consultar',
+     'audiencia_consumo','vec_contratacion_temporal.firmas_r5.consultar.v1',
+     'efecto_ref',referencia)::text,'UTF8'),
+    convert_to('{}','UTF8'),convert_to('{}','UTF8'),convert_to('{}','UTF8'),
+    1,1,convert_to('{}','UTF8'),convert_to('{}','UTF8'),convert_to('{}','UTF8'),decode(repeat('00',44),'hex'));
+  EXCEPTION WHEN SQLSTATE '42501' THEN
+   GET STACKED DIAGNOSTICS mensaje=MESSAGE_TEXT;
+  END;
+  IF mensaje IS NULL THEN RAISE EXCEPTION 'AD159 prueba: consulta sin capacidad aceptada'; END IF;
+  IF anterior IS NOT NULL AND mensaje IS DISTINCT FROM anterior THEN
+   RAISE EXCEPTION 'AD159 prueba: rechazo revela referencia'; END IF;
+  anterior:=mensaje;
+ END LOOP;
 END $prueba$;
 ROLLBACK;

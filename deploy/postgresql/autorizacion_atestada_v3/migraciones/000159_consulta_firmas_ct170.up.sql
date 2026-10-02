@@ -1,6 +1,10 @@
 \set ON_ERROR_STOP on
 -- AD3-159: consumidor nominal de la consulta CT170 R5 de firmas por
--- expediente, versión y documento. No concede registro ni lectura bruta.
+-- expediente, versión, documento, candidato verificado, clave y paso.
+-- El material canónico de ocho campos queda ligado por la huella del recurso
+-- que CT170 valida antes de consumir esta fachada de diez argumentos.
+-- La proyección concede 27 campos por fila y dos indicadores de cabecera;
+-- no concede registro ni lectura bruta de identidad o certificado.
 -- La fachada exige consumo nuevo incluso en replay y solo la invoca el propietario de CT.
 -- La decisión liga operación, recurso, finalidad, campos y efecto exactos.
 -- Se instala en serie con cualquier otra reescritura del núcleo: toma el
@@ -80,7 +84,7 @@ DECLARE
  AND d#>>'{vinculo_autenticacion_actor,superficie}' IS NOT DISTINCT FROM 'interna_corporativa'
  AND d->>'recurso_ref' IS NOT DISTINCT FROM c->>'efecto_ref'
  AND d->>'contexto_recurso_huella_sha256' IS NOT DISTINCT FROM c->>'huella_efecto_sha256'
- AND d->'campos_permitidos' IS NOT DISTINCT FROM '["CatalogoHuella","CatalogoRef","ClaveIdempotencia","ConMotivoDevolucion","Documento","DocumentoCustodiaRef","DocumentoCustodiaVersion","ExpedienteVersion","FechaPortafirmasDeclarada","FirmaRef","FirmadoHuella","FirmantePrincipalAcreditado","OriginalHuella","OriginalRef","OriginalVersion","PasoOrden","PasoRef","ReciboRef","ReferenciaPortafirmasDeclarada","RegistradaEn","Resultado","Secuencia","SelloTiempoEstado","Via"]'::jsonb
+ AND d->'campos_permitidos' IS NOT DISTINCT FROM '["CatalogoHuella","CatalogoRef","ClaveIdempotencia","CoincideFirmanteCandidato","CoincideFirmanteEnOtroPaso","ConMotivoDevolucion","Documento","DocumentoCustodiaRef","DocumentoCustodiaVersion","ExpedienteVersion","FechaPortafirmasDeclarada","FirmaRef","FirmadoHuella","FirmantePrincipalAcreditado","HistoriaHuella","HistoriaRevision","HistoriaSeparacionAcreditada","OriginalHuella","OriginalRef","OriginalVersion","PasoOrden","PasoRef","ReciboRef","ReferenciaPortafirmasDeclarada","RegistradaEn","Resultado","Secuencia","SelloTiempoEstado","Via"]'::jsonb
  AND d->'obligaciones' IS NOT DISTINCT FROM '[]'::jsonb)
 $x$;
 BEGIN
@@ -146,8 +150,9 @@ BEGIN
   ||left(d,length(d)-3)||', '||quote_literal(audiencia)||'::text]))';
 END $audiencias$;
 
--- Fachada única: la lectura queda ligada al expediente, campos exactos y
--- decisión sin obligaciones. CT170 consume antes de leer incluso si no hay filas.
+-- Fachada única: la lectura queda ligada al expediente, 29 campos exactos y
+-- decisión sin obligaciones. CT170 liga los ocho campos del material a la
+-- capacidad y consume antes de leer, también en ausencia y replay.
 CREATE FUNCTION vec_autorizacion_atestada_v3.consumir_consulta_firmas_r5_ct_v3_atestada(
  p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea)
 RETURNS TABLE(decision_ref text,efecto_ref text,huella_efecto_sha256 text,consumo_huella_sha256 text,auditoria_ref text,consumida_en timestamptz,consumo_nuevo boolean)
@@ -165,7 +170,7 @@ BEGIN
     OR d#>>'{vinculo_autenticacion_actor,superficie}' IS DISTINCT FROM 'interna_corporativa'
     OR d->>'recurso_ref' IS DISTINCT FROM c->>'efecto_ref'
     OR d->>'contexto_recurso_huella_sha256' IS DISTINCT FROM c->>'huella_efecto_sha256'
-    OR d->'campos_permitidos' IS DISTINCT FROM '["CatalogoHuella","CatalogoRef","ClaveIdempotencia","ConMotivoDevolucion","Documento","DocumentoCustodiaRef","DocumentoCustodiaVersion","ExpedienteVersion","FechaPortafirmasDeclarada","FirmaRef","FirmadoHuella","FirmantePrincipalAcreditado","OriginalHuella","OriginalRef","OriginalVersion","PasoOrden","PasoRef","ReciboRef","ReferenciaPortafirmasDeclarada","RegistradaEn","Resultado","Secuencia","SelloTiempoEstado","Via"]'::jsonb
+    OR d->'campos_permitidos' IS DISTINCT FROM '["CatalogoHuella","CatalogoRef","ClaveIdempotencia","CoincideFirmanteCandidato","CoincideFirmanteEnOtroPaso","ConMotivoDevolucion","Documento","DocumentoCustodiaRef","DocumentoCustodiaVersion","ExpedienteVersion","FechaPortafirmasDeclarada","FirmaRef","FirmadoHuella","FirmantePrincipalAcreditado","HistoriaHuella","HistoriaRevision","HistoriaSeparacionAcreditada","OriginalHuella","OriginalRef","OriginalVersion","PasoOrden","PasoRef","ReciboRef","ReferenciaPortafirmasDeclarada","RegistradaEn","Resultado","Secuencia","SelloTiempoEstado","Via"]'::jsonb
     OR d->'obligaciones' IS DISTINCT FROM '[]'::jsonb
  THEN RAISE EXCEPTION 'AD3-159: consulta de firmas denegada' USING ERRCODE='42501'; END IF;
  SELECT * INTO STRICT x FROM vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(
