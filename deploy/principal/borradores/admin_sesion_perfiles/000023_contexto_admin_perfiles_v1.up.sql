@@ -151,9 +151,6 @@ BEGIN
  IF b.persona_ref IS DISTINCT FROM p_persona OR b.perfil_ref IS DISTINCT FROM p_perfil OR b.audiencia IS DISTINCT FROM p_audiencia THEN RAISE EXCEPTION 'CA23: perfil ajeno o audiencia divergente' USING ERRCODE='42501'; END IF;
  PERFORM vec_contexto_actor_v1.bloquear_contexto_admin_v1(p_cuenta,b.persona_ref,b.perfil_ref,b.vinculo_ref,b.cuenta_version,b.persona_version,b.perfil_version,b.vinculo_version);
  IF p_causa='autoseleccion_unica' THEN RAISE EXCEPTION 'CA23: unicidad ADMIN no acreditada entre fuentes' USING ERRCODE='42501'; END IF;
-  SELECT count(*) INTO n FROM vec_contexto_actor_v1.listar_perfiles_admin_propios_v1(p_cuenta,p_persona,p_audiencia);
-  IF n<>1 THEN RAISE EXCEPTION 'CA23: elección explícita necesaria' USING ERRCODE='42501'; END IF;
- END IF;
  ahora:=pg_catalog.clock_timestamp();
  IF ahora<p_autenticada OR ahora>=p_observacion_hasta OR b.vigente_hasta IS NULL OR ahora>=b.vigente_hasta THEN RAISE EXCEPTION 'CA23: selección sin observación vigente' USING ERRCODE='42501'; END IF;
  IF rev>0 THEN
