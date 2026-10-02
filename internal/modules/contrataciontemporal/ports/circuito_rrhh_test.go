@@ -31,7 +31,7 @@ func TestResultadoConsultaCircuitoRRHHAceptaDosHitosDeUnaActuacion(t *testing.T)
 	}
 	r := ResultadoConsultaCircuitoRRHH{
 		ExpedienteRef: s.ExpedienteRef, VersionExpediente: 2, Flujo: d.Flujo,
-		Circuito: domain.CircuitoAdministrativo{Definicion: d.Flujo, EstadoActual: "credito", Hitos: hitos},
+		Circuito:               domain.CircuitoAdministrativo{Definicion: d.Flujo, EstadoActual: "credito", Hitos: hitos},
 		TransicionesPermitidas: []domain.TransicionCircuitoRRHH{},
 	}
 	if err := r.ValidarPara(s); err != nil {
