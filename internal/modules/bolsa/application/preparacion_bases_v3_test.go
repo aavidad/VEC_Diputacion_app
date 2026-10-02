@@ -198,6 +198,16 @@ func TestPreparacionBasesV3ValidaTiempoSQLYReciboHistoricoSeparado(t *testing.T)
 	if ValidarResultadoGuardarPreparacionBasesV3(o, r) != nil {
 		t.Fatal("instante SQL posterior rechazado")
 	}
+	r.Estado = "guardada"
+	r.Acceso.AuditoriaRef = r.Recibo.AuditoriaRef
+	if ValidarResultadoGuardarPreparacionBasesV3(o, r) != nil {
+		t.Fatal("una auditoria real inicial de efecto y acceso rechazada")
+	}
+	r.Estado = "recuperada"
+	if ValidarResultadoGuardarPreparacionBasesV3(o, r) == nil {
+		t.Fatal("replay acepta auditoria historica como acceso nuevo")
+	}
+	r.Acceso.AuditoriaRef = "auditoria:acceso"
 	r.Recibo.ConfirmadaEn = r.Acceso.AccedidaEn.Add(time.Second)
 	if ValidarResultadoGuardarPreparacionBasesV3(o, r) == nil {
 		t.Fatal("recibo futuro aceptado")
