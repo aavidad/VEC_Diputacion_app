@@ -58,7 +58,7 @@
     "aprobar": "Approve proposal",
     "rechazar": "Reject proposal",
     "recargar": "Refresh",
-    "motivo_etiqueta": "Catalogue reason",
+    "motivo_etiqueta": "Reason (required)",
     "motivo_elegir": "Select a reason",
     "motivo_generico": "Authorised reason",
     "decision_titulo": "Review the change",

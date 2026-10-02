@@ -58,7 +58,7 @@
     "aprobar": "Aprobar propuesta",
     "rechazar": "Rechazar propuesta",
     "recargar": "Actualizar",
-    "motivo_etiqueta": "Motivo de catálogo",
+    "motivo_etiqueta": "Motivo (obligatorio)",
     "motivo_elegir": "Seleccione un motivo",
     "motivo_generico": "Motivo autorizado",
     "decision_titulo": "Revise el cambio",

@@ -8,8 +8,8 @@
   <link rel="stylesheet" href="/portal-empleado/portal.css?v=20261001-codexf-accesibilidad-v1">
   <link rel="stylesheet" href="/comun/tema-vec.css?v=20261001-codexf-accesibilidad-v1">
   <link rel="stylesheet" href="/portal-empleado/portal-componentes.css?v=20261001-f-cronos-movimientos-v1">
-  <link rel="stylesheet" href="/administracion-perfiles/administracion-perfiles.css?v=20261002-admin-perfiles-v2">
-  <script type="module" src="/administracion-perfiles/administracion-perfiles.js?v=20261002-admin-perfiles-v2"></script>
+  <link rel="stylesheet" href="/administracion-perfiles/administracion-perfiles.css?v=20261002-admin-perfiles-v3">
+  <script type="module" src="/administracion-perfiles/administracion-perfiles.js?v=20261002-admin-perfiles-v3"></script>
 </head>
 <body class="portal-empleado-app admin-perfiles-app">
   <a class="salto-contenido" href="#contenido" data-t="saltar"></a>
@@ -77,7 +77,8 @@
       <dl id="decision-resumen"></dl>
       <p id="decision-error" class="admin-dialogo-error" role="alert" tabindex="-1" hidden></p>
       <label for="decision-motivo" data-t="motivo_etiqueta"></label>
-      <select id="decision-motivo" required></select>
+      <select id="decision-motivo" required aria-describedby="decision-motivo-descripcion"></select>
+ <p id="decision-motivo-descripcion"></p>
       <div id="decision-acto-grupo" class="admin-acto-grupo">
  <label for="decision-acto" data-t="acto_etiqueta"></label>
  <input id="decision-acto" type="text" maxlength="256" autocomplete="off" aria-describedby="decision-acto-ayuda">

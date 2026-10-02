@@ -1,6 +1,6 @@
 import { IDIOMAS_DISPONIBLES, leerRecursoJSON } from "../comun/idioma.js";
 import { cargarTextos, crearTextos, urlCatalogo } from "../comun/textos.js";
-import { crearClienteAdministracion, nuevaOperacionRef, ErrorAdministracionPerfiles } from "./cliente.js?v=20261002-admin-perfiles-v2";
+import { crearClienteAdministracion, nuevaOperacionRef, ErrorAdministracionPerfiles } from "./cliente.js?v=20261002-admin-perfiles-v3";
 
 const FECHA = { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Madrid" };
 const CLASE_DOBLE = new Set(["administrador", "intervencion"]);
@@ -78,7 +78,7 @@ export function montarAdministracionPerfiles({ documento = globalThis.document, 
     ayuda: $("ayuda-contenido"), ayudaBoton: $("ayuda-boton"), dialogo: $("decision-dialogo"),
     decision: $("decision-form"), tituloDecision: $("decision-titulo"), descripcionDecision: $("decision-descripcion"),
     resumenDecision: $("decision-resumen"), errorDecision: $("decision-error"), motivo: $("decision-motivo"), confirmar: $("decision-confirmar"),
-    cancelar: $("decision-cancelar"), acto: $("decision-acto"), actoGrupo: $("decision-acto-grupo"),
+    motivoDescripcion: $("decision-motivo-descripcion"), cancelar: $("decision-cancelar"), acto: $("decision-acto"), actoGrupo: $("decision-acto-grupo"),
   };
   if (Object.values(elementos).some((nodo) => !nodo)) throw new TypeError("pantalla incompleta");
   documento.documentElement.lang = textos.idioma;
@@ -299,6 +299,7 @@ export function montarAdministracionPerfiles({ documento = globalThis.document, 
       elementos.motivo.append(opcion);
     });
     elementos.motivo.value = "";
+    elementos.motivoDescripcion.textContent = "";
     elementos.motivo.disabled = false;
     elementos.acto.value = "";
     elementos.acto.disabled = false;
@@ -486,6 +487,10 @@ export function montarAdministracionPerfiles({ documento = globalThis.document, 
   });
   elementos.cancelar.addEventListener("click", cerrarDialogo);
   elementos.dialogo.addEventListener("cancel", (evento) => { if (peticionDecision) evento.preventDefault(); else decisionPendiente = null; });
+  elementos.motivo.addEventListener("change", () => {
+    const motivo = decisionPendiente?.motivos?.[Number(elementos.motivo.value)];
+    elementos.motivoDescripcion.textContent = elementos.motivo.value && motivoValido(motivo) ? motivo.etiqueta : "";
+  });
   elementos.decision.addEventListener("submit", registrarDecision);
   iniciar();
   return Object.freeze({
