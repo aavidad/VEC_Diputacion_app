@@ -16,6 +16,8 @@ export function leerReglas(texto) {
       || !(puntos(regla.maximo_puntos) || regla.maximo_puntos?.modo === "sin_limite" || regla.maximo_puntos?.modo === "limitado" && puntos(regla.maximo_puntos.valor))) throw new Error("archivo_invalido");
     if (reglas.reglas_experiencia && (!regla.jornada || typeof regla.jornada !== "object" || Array.isArray(regla.jornada)
       || typeof regla.jornada.modo !== "string" || !/^[a-z_]+$/u.test(regla.jornada.modo))) throw new Error("archivo_invalido");
+    if (reglas.reglas_experiencia && (!regla.restos || typeof regla.restos !== "object" || Array.isArray(regla.restos)
+      || typeof regla.restos.modo !== "string" || !/^[a-z_]+$/u.test(regla.restos.modo))) throw new Error("archivo_invalido");
     if (reglas.esquema === "vec.bolsa.reglas_meritos.v1" && regla.familia === "formacion" && regla.unidad === "hora") {
       try { if (normalizarMinimoFormacion(regla.minimo_unidades) !== regla.minimo_unidades) throw new Error(); }
       catch { throw new Error("archivo_invalido"); }
@@ -77,12 +79,45 @@ export function comprobarCatalogoJornada(datos) {
   if (datos.opciones.filter((o) => o.disponible).length !== 4 || datos.opciones.filter((o) => o.requiere_umbral).length !== 1) throw new Error("catalogo_jornada_no_disponible");
   return copia(datos);
 }
-export function crearEditorBaremo({ cliente, catalogoJornada = null, alCambiar = () => {} }) {
+/** Catálogo técnico de restos del simulador; no aprueba políticas de unas bases. */
+export function comprobarCatalogoRestos(datos) {
+  if (!datos || datos.esquema !== "vec.bolsa.catalogo_restos.v1" || datos.version !== 1
+    || datos.contrato_reglas !== "vec.bolsa.conjunto_reglas_baremo.v1" || datos.motor !== "vec.bolsa.motor_experiencia.v1"
+    || datos.unidad_base !== "dia" || datos.tope_unidades_por_periodo !== false
+    || !Array.isArray(datos.opciones) || datos.opciones.length !== 4) throw new Error("catalogo_restos_no_disponible");
+  const matriz = new Map([
+    ["conservar_exactos", ["periodo", "regla"]], ["acumular_por_regla", ["regla"]],
+    ["descartar_por_periodo", ["periodo", "regla"]], ["descartar_por_regla", ["regla"]],
+  ]);
+  const modos = new Set();
+  for (const opcion of datos.opciones) {
+    if (!opcion || typeof opcion.modo !== "string" || !/^[a-z_]+$/u.test(opcion.modo) || modos.has(opcion.modo)
+      || opcion.etiqueta !== `restos_${opcion.modo}` || opcion.explicacion !== `restos_${opcion.modo}_explicacion`
+      || !Array.isArray(opcion.momentos_redondeo) || !opcion.momentos_redondeo.length || opcion.momentos_redondeo.length > 2
+      || new Set(opcion.momentos_redondeo).size !== opcion.momentos_redondeo.length
+      || !matriz.has(opcion.modo) || JSON.stringify(opcion.momentos_redondeo) !== JSON.stringify(matriz.get(opcion.modo))) throw new Error("catalogo_restos_no_disponible");
+    modos.add(opcion.modo);
+  }
+  return copia(datos);
+}
+/** Sólo valida compatibilidad de preparación; Go sigue siendo la autoridad de cálculo. */
+export function errorRestosRegla(regla, catalogo, modo = regla?.restos?.modo) {
+  if (!catalogo) return "catalogo_restos_no_disponible";
+  const opcion = catalogo.opciones.find((o) => o.modo === modo);
+  if (!opcion) return "restos_no_disponibles";
+  if (regla?.unidad_temporal?.unidad_base !== catalogo.unidad_base) return "restos_unidad_incompatible";
+  if (!opcion.momentos_redondeo.includes(regla?.redondeo?.momento)) return "restos_redondeo_incompatible";
+  if (regla.redondeo.momento === "periodo" && regla.maximo_unidades?.modo === "limitado" && !catalogo.tope_unidades_por_periodo) return "restos_tope_incompatible";
+  return "";
+}
+export function crearEditorBaremo({ cliente, catalogoJornada = null, catalogoRestos = null, alCambiar = () => {} }) {
   let solicitud = null;
   let generacion = 0;
   let catalogo = null;
   try { catalogo = comprobarCatalogoJornada(catalogoJornada); } catch { /* Edición de jornada cerrada si no hay catálogo compatible. */ }
-  const estado = { catalogoJornada: catalogo, ejemplo: null, original: null, borrador: null, cambiado: false, trabajando: false, comparacion: null, error: "", invalidos: {} };
+  let restos = null;
+  try { restos = comprobarCatalogoRestos(catalogoRestos); } catch { /* Sin catálogo compatible se cierra la nueva edición de restos. */ }
+  const estado = { catalogoRestos: restos, catalogoJornada: catalogo, ejemplo: null, original: null, borrador: null, cambiado: false, trabajando: false, comparacion: null, error: "", invalidos: {} };
   function invalidar() {
     generacion++; solicitud?.abort(); solicitud = null;
     estado.comparacion = null; estado.error = ""; estado.trabajando = false;
@@ -147,8 +182,22 @@ export function crearEditorBaremo({ cliente, catalogoJornada = null, alCambiar =
     try { editar(ruta, normalizarMinimoFormacion(valor)); }
     catch (error) { invalidar(); estado.cambiado = true; estado.invalidos[JSON.stringify(ruta)] = valor; throw error; }
   }
+  function editarRestos(indice, modo) {
+    if (!Number.isInteger(indice) || indice < 0 || estado.borrador?.esquema !== "vec.bolsa.conjunto_reglas_baremo.v1"
+      || !estado.borrador.reglas_experiencia?.[indice]) throw new Error("campo_invalido");
+    if (!estado.catalogoRestos) throw new Error("catalogo_restos_no_disponible");
+    const regla = estado.borrador.reglas_experiencia[indice], ruta = ["reglas_experiencia", indice, "restos", "modo"];
+    const error = errorRestosRegla(regla, estado.catalogoRestos, modo);
+    if (error) { invalidar(); estado.cambiado = true; estado.invalidos[JSON.stringify(ruta)] = modo; alCambiar(); throw new Error(error); }
+    editar(ruta, modo); alCambiar();
+  }
+  function errorRestosBorrador() {
+    return estado.catalogoRestos ? (estado.borrador?.reglas_experiencia ?? []).map((r) => errorRestosRegla(r, estado.catalogoRestos)).find(Boolean) ?? "" : "";
+  }
   async function comparar() {
     if (!estado.ejemplo || estado.trabajando || Object.keys(estado.invalidos).length) return;
+    const falloRestos = errorRestosBorrador();
+    if (falloRestos) { invalidar(); estado.error = falloRestos; alCambiar(); return; }
     if (estado.catalogoJornada && (estado.borrador.reglas_experiencia ?? []).some((r) => !estado.catalogoJornada.opciones.find((o) => o.modo === r.jornada?.modo)?.disponible)) {
       invalidar(); estado.error = "jornada_no_disponible"; alCambiar(); return;
     }
@@ -168,12 +217,12 @@ export function crearEditorBaremo({ cliente, catalogoJornada = null, alCambiar =
       if (turno === generacion) { estado.trabajando = false; solicitud = null; alCambiar(); }
     }
   }
-  return Object.freeze({ cargar, editar, editarPoliticaJornada, editarUmbralJornada, editarMinimoFormacion, comparar, invalidar,
+  return Object.freeze({ cargar, editar, editarPoliticaJornada, editarUmbralJornada, editarMinimoFormacion, editarRestos, comparar, invalidar,
     cancelarSimulacion() {
       // Cambiar de panel no equivale a descartar el borrador ni su último error.
       generacion++; solicitud?.abort(); solicitud = null; estado.trabajando = false;
     },
     registrarInvalido(ruta, valor) { invalidar(); estado.cambiado = true; estado.invalidos[JSON.stringify(ruta)] = valor; }, estado: () => copia(estado),
-    exportar: () => { if (Object.keys(estado.invalidos).length) throw new Error("campo_invalido"); return JSON.stringify(estado.borrador); },
+    exportar: () => { if (Object.keys(estado.invalidos).length) throw new Error("campo_invalido"); const fallo = errorRestosBorrador(); if (fallo) throw new Error(fallo); return JSON.stringify(estado.borrador); },
     desmontar() { invalidar(); estado.ejemplo = null; } });
 }

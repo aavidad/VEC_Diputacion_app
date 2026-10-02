@@ -568,3 +568,7 @@ static/textos/en/cronos-notificaciones-historial.json
 static/portal-empleado/modulos/cronos/i18n-permisos-consulta.js
 static/textos/es/cronos-permisos-consulta.json
 static/textos/en/cronos-permisos-consulta.json
+static/textos/es/seleccion-bases-preparacion.json
+static/textos/en/seleccion-bases-preparacion.json
+static/textos/es/seleccion-bases-preparacion-error.json
+static/textos/en/seleccion-bases-preparacion-error.json
