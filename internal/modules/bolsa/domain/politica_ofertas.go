@@ -5,9 +5,10 @@ import (
 	"regexp"
 )
 
-// PoliticaOfertas es deliberadamente de ejemplo mientras RRHH no ratifique
-// plazo, inicio y efectos (dudas 1-3, 14, 33 y 43). La edición crea una nueva
-// versión; las ofertas anteriores conservan la versión que las gobernó.
+// PoliticaOfertas conserva el plazo y el calendario configurables de cada
+// bolsa. RRHH ha fijado dos días desde la notificación (02/10/2026); la
+// unidad y el calendario siguen siendo configurables. La edición crea una
+// nueva versión; las ofertas anteriores conservan la que las gobernó.
 type PoliticaOfertas struct {
 	Plazo        PlazoPoliticaOfertas        `json:"plazo"`
 	Adjudicacion AdjudicacionPoliticaOfertas `json:"adjudicacion"`
