@@ -123,23 +123,29 @@ const DESTINO_OPERACION = Object.freeze({ pausar: "no_disponible", reactivar: "d
  * Operaciones que se ofrecen desde la situación vigente. Sin reglas del
  * servidor, la selección de siempre. Con ellas, solo las que el servidor
  * admitirá, incluida la vuelta a disponible de una renuncia cuyo
- * justificante valida RRHH. Una exclusión requiere su circuito de revisión.
+ * justificante valida RRHH. La reincorporación desde excluido requiere que
+ * la política publicada admita volver a disponible.
  */
 export function operacionesDisponibles(estadoClave, transiciones) {
-  if (estadoClave === "excluido") return [];
   const base = estadoClave === "disponible" ? ["pausar", "excluir"]
     : ["no_disponible", "trabajando"].includes(estadoClave) ? ["reactivar", "excluir"]
       : estadoClave === "excluido" ? [] : ["excluir"];
   const destinos = transiciones?.[estadoClave];
   if (!Array.isArray(destinos)) return base;
   return Object.keys(DESTINO_OPERACION)
-    .filter((operacion) => destinos.includes(DESTINO_OPERACION[operacion]));
+    .filter((operacion) => destinos.includes(DESTINO_OPERACION[operacion]) && (estadoClave !== "excluido" || operacion === "reactivar"));
+}
+
+function etiquetaOperacion(operacion, candidato) {
+  if (operacion === "reactivar" && candidato.estado_clave === "renuncia") return traducirPortal("txt_b8_validar_renuncia");
+  if (operacion === "reactivar" && candidato.estado_clave === "excluido") return traducirPortal("txt_b8_reincorporar");
+  return OPERACIONES[operacion];
 }
 
 export function renderizarOperacionesSituacion({ candidato, estado = {}, escaparHTML = html }) {
   const actual = estado.carga || "cargando";
   const disponibles = operacionesDisponibles(candidato.estado_clave, estado.transiciones);
-  const acciones = disponibles.map((operacion) => `<button type="button" class="boton-secundario" data-b8-accion="seleccionar" data-operacion="${operacion}">${candidato.estado_clave === "renuncia" && operacion === "reactivar" ? textoPortal("txt_b8_validar_renuncia") : OPERACIONES[operacion]}</button>`).join("");
+  const acciones = disponibles.map((operacion) => `<button type="button" class="boton-secundario" data-b8-accion="seleccionar" data-operacion="${operacion}">${escaparHTML(etiquetaOperacion(operacion, candidato))}</button>`).join("");
   const botones = estado.paso > 0 ? `<button type="button" class="boton-secundario" data-b8-accion="cancelar" ${estado.enviando ? "disabled" : ""}>${textoPortal("txt_cancelar")}</button>`
     : estado.noDisponible ? "" : acciones;
   let contenido = "";
@@ -153,7 +159,7 @@ export function renderizarOperacionesSituacion({ candidato, estado = {}, escapar
     const visibles = estado.items.slice(pagina * 6, (pagina + 1) * 6);
     contenido = `<div class="tabla-contenedor" tabindex="0" role="region" aria-label="${textoPortal("txt_historial_de_operaciones")}"><table class="tabla-datos"><caption>${textoPortal("txt_historial_de_operaciones")}</caption><thead><tr><th>${textoPortal("txt_desde")}</th><th>${textoPortal("txt_operacion")}</th><th>${textoPortal("txt_situacion")}</th><th>${textoPortal("txt_motivo")}</th><th>${textoPortal("txt_justificante")}</th><th>${textoPortal("txt_actor_validador")}</th></tr></thead><tbody>${visibles.map((item) => `<tr><td>${escaparHTML(instanteLegible(item.desde))}</td><td>${escaparHTML(OPERACIONES[item.operacion] || item.operacion)}</td><td>${escaparHTML(situacionLegible(item.situacion))}</td><td>${escaparHTML(item.motivo)}</td><td>${escaparHTML(TIPOS_ETIQUETA[item.justificante.tipo] || item.justificante.tipo)} · ${escaparHTML(item.justificante.referencia)}</td><td>${personaLegible(item.actor, escaparHTML)} / ${personaLegible(item.validador, escaparHTML)}<br>${escaparHTML(instanteLegible(item.validada_en))}</td></tr>`).join("")}</tbody></table></div>${paginas > 1 ? `<nav class="paginacion-bolsa" aria-label="${textoPortal("txt_paginacion_del_historial_de_operaciones")}"><span>${textoPortal("txt_mostrando_desde_hasta_total", { desde: pagina * 6 + 1, hasta: Math.min((pagina + 1) * 6, total), total })}</span><button type="button" class="boton-secundario" data-b8-accion="pagina" data-pagina="${pagina - 1}" ${pagina === 0 ? "disabled" : ""}>${textoPortal("txt_anterior")}</button><button type="button" class="boton-secundario" data-b8-accion="pagina" data-pagina="${pagina + 1}" ${pagina + 1 >= paginas ? "disabled" : ""}>${textoPortal("txt_siguiente")}</button></nav>` : `<p>${textoPortal("txt_mostrando_desde_hasta_total", { desde: 1, hasta: total, total })}</p>`}`;
   }
-  const flujo = estado.paso > 0 ? renderizarPaso(estado, escaparHTML) : "";
+  const flujo = estado.paso > 0 ? renderizarPaso(estado, escaparHTML, candidato) : "";
   return `<section class="panel panel-separado" data-b8-raiz="true"><div class="cabecera-panel"><div><h4>${textoPortal("txt_pausa_reactivacion_y_exclusion")}</h4></div><details><summary aria-label="${escaparHTML(traducirHuellaArchivo("ayuda_aria"))}">?</summary><p>${escaparHTML(ayudaHuellaArchivo())}</p><p>${textoPortal("txt_b8_ayuda_llamamiento_directo")}</p></details></div><div class="cuerpo-panel"><div class="acciones-vista">${botones}</div>${estado.recibo ? `<p class="mensaje-exito" role="status">${textoPortal("txt_operacion_registrada")} ${justificanteTraducido(estado.recibo, escaparHTML, (clave) => traducirPortal(`panel_${clave}`))}${estado.reutilizada ? traducirPortal("txt_respuesta_recuperada") : ""}</p>` : ""}${estado.errorOperacion ? `<p class="mensaje-error" role="alert">${escaparHTML(estado.errorOperacion)}</p>` : ""}${flujo}<h4>${textoPortal("txt_historial_de_operaciones")}</h4>${contenido}${actual === "listo" ? renderizarTrazaValores({ cambios: estado.cambios || [], pagina: estado.paginaTraza, escaparHTML }) : ""}</div></section>`;
 }
 
@@ -174,14 +180,16 @@ function personaLegible(valor, escaparHTML) {
   return actorTraducido(valor, escaparHTML, traducirReferencia);
 }
 
-function renderizarPaso(estado, escaparHTML) {
+function renderizarPaso(estado, escaparHTML, candidato) {
   const datos = estado.formulario || {};
   const operacion = estado.operacion;
+  const etiqueta = etiquetaOperacion(operacion, candidato);
+  const validarDisponibilidad = operacion === "reactivar" && ["renuncia", "excluido"].includes(candidato.estado_clave);
   const exclusiones = operacion === "excluir" ? `<label><input type="checkbox" name="confirma_validador_distinto" required ${datos.confirma_validador_distinto ? "checked" : ""}> ${textoPortal("txt_confirmo_que_el_validador_es_otra_persona")}</label>` : "";
   const etapa = estado.paso;
   const causas = operacion === "excluir" ? estado.causasBaja || [] : [];
   const revision = etapa === 3 ? `<fieldset class="grupo-campo"><legend>${textoPortal("txt_revision")}</legend><dl class="resumen-expediente">
-    <div class="fila-resumen"><dt>${textoPortal("txt_operacion_seleccionada")}</dt><dd>${escaparHTML(OPERACIONES[operacion] || "")}</dd></div>
+    <div class="fila-resumen"><dt>${textoPortal("txt_operacion_seleccionada")}</dt><dd>${escaparHTML(etiqueta || "")}</dd></div>
     <div class="fila-resumen"><dt>${textoPortal("txt_motivo")}</dt><dd>${escaparHTML(datos.motivo || "")}</dd></div>
     <div class="fila-resumen"><dt>${textoPortal("txt_tipo_de_justificante")}</dt><dd>${escaparHTML(TIPOS_ETIQUETA[datos.tipo] || "")}</dd></div>
     <div class="fila-resumen"><dt>${textoPortal("txt_referencia_del_documento_en_su_custodia")}</dt><dd>${escaparHTML(datos.referencia || "")}</dd></div>
@@ -192,8 +200,8 @@ function renderizarPaso(estado, escaparHTML) {
     ? `<label>${textoPortal("txt_motivo")} <textarea name="motivo" required minlength="2" maxlength="1000">${escaparHTML(datos.motivo || "")}</textarea></label>`
     : etapa === 2
       ? `<label>${textoPortal("txt_tipo_de_justificante")} <select name="tipo" required><option value="">${textoPortal("txt_seleccione_un_tipo")}</option>${TIPOS_JUSTIFICANTE.map((tipo) => `<option value="${tipo}" ${datos.tipo === tipo ? "selected" : ""}>${TIPOS_ETIQUETA[tipo]}</option>`).join("")}</select></label><label>${textoPortal("txt_referencia_del_documento_en_su_custodia")} <input name="referencia" required minlength="2" maxlength="240" value="${escaparHTML(datos.referencia || "")}"></label>${renderizarCampoHuellaArchivo({ id: "b8-justificante-archivo", nombre: "sha256", huella: datos.sha256, escapar: escaparHTML })}`
-        : `<label>${textoPortal("txt_persona_validadora")} <input name="validador" required minlength="2" maxlength="200" value="${escaparHTML(datos.validador || "")}"></label>${exclusiones}`;
-  return `<form data-b8-form="operacion" data-b8-paso="${etapa}"><p><strong>${textoPortal("txt_operacion_seleccionada")}</strong> ${OPERACIONES[operacion]}</p><h5>${textoPortal("txt_paso_de_tres", { etapa, nombre: traducirPortal(etapa === 1 ? "txt_motivo" : etapa === 2 ? "txt_justificante" : "txt_validacion") })}</h5>${revision}${campos}<p class="mensaje-error" role="alert">${escaparHTML(estado.errorFormulario || "")}</p><div class="acciones-vista"><button type="button" class="boton-secundario" data-b8-accion="anterior" ${etapa === 1 || estado.enviando ? "disabled" : ""}>${textoPortal("txt_anterior")}</button><button type="submit" class="boton-primario" ${estado.enviando ? "disabled" : ""}>${estado.enviando ? traducirPortal("txt_registrando") : etapa < 3 ? traducirPortal("txt_continuar") : traducirPortal("txt_confirmar_operacion_nombre", { operacion: OPERACIONES[operacion] })}</button></div></form>`;
+        : `<label>${textoPortal(validarDisponibilidad ? "txt_b8_validador_rrhh" : "txt_persona_validadora")} <input name="validador" required minlength="2" maxlength="200" value="${escaparHTML(datos.validador || "")}"></label>${exclusiones}`;
+  return `<form data-b8-form="operacion" data-b8-paso="${etapa}"><p><strong>${textoPortal("txt_operacion_seleccionada")}</strong> ${escaparHTML(etiqueta)}</p><h5>${textoPortal("txt_paso_de_tres", { etapa, nombre: traducirPortal(etapa === 1 ? "txt_motivo" : etapa === 2 ? "txt_justificante" : "txt_validacion") })}</h5>${revision}${campos}<p class="mensaje-error" role="alert">${escaparHTML(estado.errorFormulario || "")}</p><div class="acciones-vista"><button type="button" class="boton-secundario" data-b8-accion="anterior" ${etapa === 1 || estado.enviando ? "disabled" : ""}>${textoPortal("txt_anterior")}</button><button type="submit" class="boton-primario" ${estado.enviando ? "disabled" : ""}>${estado.enviando ? traducirPortal("txt_registrando") : etapa < 3 ? traducirPortal("txt_continuar") : validarDisponibilidad ? traducirPortal("txt_b8_confirmar_disponibilidad") : traducirPortal("txt_confirmar_operacion_nombre", { operacion: etiqueta })}</button></div></form>`;
 }
 
 export function crearControladorOperacionesSituacion({ estado, renderizar, recargar, consultarReglas = consultarReglasSituacion }) {

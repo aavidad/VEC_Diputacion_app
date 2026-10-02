@@ -41,7 +41,7 @@ func TestOperacionRenunciaJustificadaRRHHConservaJustificanteYRecibo(t *testing.
 	}
 }
 
-func TestOperacionRenunciaRRHHNoReincorporaSinValidacionNiRevierteExclusion(t *testing.T) {
+func TestOperacionRenunciaRRHHNoReincorporaSinValidacionNiPoliticaPublicada(t *testing.T) {
 	for _, caso := range []string{"sin_justificante", "sin_validador", "exclusion_adoptada"} {
 		t.Run(caso, func(t *testing.T) {
 			servicio, repo, ahora := servicioDesdeRenunciaPrueba(t, nil)
@@ -68,5 +68,46 @@ func TestOperacionRenunciaRRHHNoReincorporaSinValidacionNiRevierteExclusion(t *t
 				t.Fatalf("operación rechazada: error=%v escrituras=%d", err, repo.escrituras)
 			}
 		})
+	}
+}
+
+type repositorioPoliticaReincorporacionPrueba struct {
+	*repositorioOperacionPrueba
+	politica domain.PoliticaTransicionesSituacion
+}
+
+func (r *repositorioPoliticaReincorporacionPrueba) PoliticaTransicionesSituacion(context.Context) (ports.PoliticaTransicionesVigente, error) {
+	return ports.PoliticaTransicionesVigente{Version: 2, CatalogoRef: "vec.bolsa.reglas:2:b28.transiciones", Politica: r.politica}, nil
+}
+
+func TestOperacionRenunciaRRHHReincorporaExclusionConPoliticaPublicadaYJustificante(t *testing.T) {
+	servicio, repo, ahora := servicioDesdeRenunciaPrueba(t, nil)
+	repo.vigente.Situacion = domain.SituacionExcluido
+	tabla := make(map[string][]string)
+	for _, origen := range domain.SituacionesParticipacion() {
+		tabla[origen] = domain.DestinosSituacionParticipacion(origen)
+	}
+	tabla[domain.SituacionExcluido] = []string{domain.SituacionDisponible}
+	politica, err := domain.NuevaPoliticaTransicionesSituacion(tabla)
+	if err != nil {
+		t.Fatal(err)
+	}
+	servicio.repositorio = &repositorioPoliticaReincorporacionPrueba{repositorioOperacionPrueba: repo, politica: politica}
+	q := ports.SolicitudOperacionSituacion{
+		SolicitudCambiarSituacionParticipacion: solicitudSituacionPrueba(t, ahora),
+		Operacion:                              domain.OperacionReactivar,
+		Justificante: domain.JustificanteOperacionSituacion{
+			Tipo: domain.JustificanteSolicitudCandidato, Referencia: "justificante:renuncia", SHA256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		},
+		Validador: "persona:rrhh",
+	}
+	q.Destino = domain.SituacionDisponible
+	q.Motivo = "Reincorporación tras validar el justificante de la renuncia"
+	res, err := servicio.Operar(context.Background(), q)
+	if err != nil || res.Situacion != domain.SituacionDisponible || res.ReciboRef == "" || repo.escrituras != 1 {
+		t.Fatalf("reincorporación: resultado=%+v error=%v escrituras=%d", res, err, repo.escrituras)
+	}
+	if repo.operacion.Justificante != q.Justificante || repo.operacion.Validador != q.Validador {
+		t.Fatal("reincorporación sin conservar justificante y validador")
 	}
 }

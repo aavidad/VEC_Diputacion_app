@@ -174,9 +174,23 @@ test("B8 ofrece validar una renuncia y devolver a disponible solo si el servidor
   assert.deepEqual(botones(renderizarOperacionesSituacion({ candidato: renuncia, estado: { carga: "listo", items: [], transiciones: publicada } })), ["pausar", "excluir"]);
   assert.deepEqual(operacionesDisponibles("disponible", publicada), ["pausar", "excluir"]);
   assert.deepEqual(operacionesDisponibles("excluido", publicada), []);
-  assert.deepEqual(operacionesDisponibles("excluido", { excluido: ["disponible"] }), []);
+  assert.deepEqual(operacionesDisponibles("excluido", { excluido: ["disponible"] }), ["reactivar"]);
+  assert.deepEqual(operacionesDisponibles("excluido", null), []);
+  assert.deepEqual(operacionesDisponibles("excluido", { excluido: ["no_disponible", "excluido"] }), []);
   // El servidor cierra una transición: el botón desaparece.
   assert.deepEqual(operacionesDisponibles("trabajando", { trabajando: ["excluido"] }), ["excluir"]);
+});
+
+test("B8 reincorpora una exclusión solo por la política vigente y conserva la acción en la revisión", () => {
+  const candidato = { estado_clave: "excluido" };
+  const estado = { carga: "listo", items: [], transiciones: { excluido: ["disponible"] } };
+  const ficha = renderizarOperacionesSituacion({ candidato, estado });
+  assert.match(ficha, /data-operacion="reactivar">Reincorporar con justificante validado<\/button>/);
+  assert.match(ficha, /Si la exclusión procede de una sanción, use Sanciones/);
+  const revision = renderizarOperacionesSituacion({ candidato, estado: { ...estado, paso: 3, operacion: "reactivar", formulario: { motivo: "Justificante validado", tipo: "solicitud_candidato", referencia: "REG-2026/15" } } });
+  assert.match(revision, /<dt>Operación seleccionada:<\/dt><dd>Reincorporar con justificante validado<\/dd>/);
+  assert.match(revision, /Personal de RRHH que valida el justificante/);
+  assert.match(revision, /Confirmar vuelta a Disponible/);
 });
 
 test("una referencia con huella del sistema no se toma por un documento de identidad", () => {

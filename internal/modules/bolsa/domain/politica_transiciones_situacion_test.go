@@ -59,7 +59,7 @@ func TestPoliticaTransicionesRechazaLasQueRompenLasInvariantes(t *testing.T) {
 		return tabla
 	}
 	casos := map[string]func(map[string][]string){
-		"salir de excluido":   func(t map[string][]string) { t[SituacionExcluido] = []string{SituacionDisponible} },
+		"excluido a pausa":    func(t map[string][]string) { t[SituacionExcluido] = []string{SituacionNoDisponible} },
 		"a sí misma":          func(t map[string][]string) { t[SituacionRenuncia] = append(t[SituacionRenuncia], SituacionRenuncia) },
 		"sin baja definitiva": func(t map[string][]string) { t[SituacionRenuncia] = []string{SituacionNoDisponible} },
 		"destino desconocido": func(t map[string][]string) { t[SituacionRenuncia] = append(t[SituacionRenuncia], "readmitido") },
@@ -76,6 +76,30 @@ func TestPoliticaTransicionesRechazaLasQueRompenLasInvariantes(t *testing.T) {
 	for _, pares := range [][]string{nil, {"renuncia"}, {"a>b>c"}, {"renuncia>excluido"}} {
 		if _, err := PoliticaTransicionesDesdePares(pares); !errors.Is(err, ErrPoliticaTransicionesInvalida) {
 			t.Errorf("%v: %v", pares, err)
+		}
+	}
+}
+
+func TestPoliticaTransicionesReincorporacionRRHHSoloPublicadaADisponible(t *testing.T) {
+	tabla := map[string][]string{}
+	for _, origen := range SituacionesParticipacion() {
+		tabla[origen] = DestinosSituacionParticipacion(origen)
+	}
+	tabla[SituacionExcluido] = []string{SituacionDisponible}
+	politica, err := NuevaPoliticaTransicionesSituacion(tabla)
+	if err != nil || !politica.Admite(SituacionExcluido, SituacionDisponible) {
+		t.Fatalf("política de reincorporación: %v", err)
+	}
+	leida, err := PoliticaTransicionesDesdePares(politica.Pares())
+	if err != nil || !slices.Equal(leida.Pares(), politica.Pares()) {
+		t.Fatalf("política publicada: %v", err)
+	}
+	if PoliticaTransicionesSituacionCompilada().Admite(SituacionExcluido, SituacionDisponible) {
+		t.Fatal("sin publicación no se habilita la reincorporación")
+	}
+	for _, destino := range SituacionesParticipacion() {
+		if destino != SituacionDisponible && politica.Admite(SituacionExcluido, destino) {
+			t.Fatalf("salida de excluido distinta de disponible: %s", destino)
 		}
 	}
 }
