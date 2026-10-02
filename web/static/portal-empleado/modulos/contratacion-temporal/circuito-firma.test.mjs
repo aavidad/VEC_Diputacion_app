@@ -201,74 +201,28 @@ test("dos pasos CT118 firmados no acreditan registro en Portafirmas", () => {
   assert.equal(fusionarEstadoFirmas(catalogo, { ...estado, huella_sha256: "b".repeat(64) }), null);
 });
 
-test("las acciones activas de AutoFirma indican que son PRUEBA", () => {
+test("sin preflight R5 las acciones CT118 permanecen cerradas aunque haya verificador", async () => {
   const catalogo = validarCircuitoFirma(circuito());
-  const real = fusionarEstadoFirmas(catalogo, {
-    huella_sha256: catalogo.huella_sha256, verificacion_disponible: true,
-    documentos: [{ documento: "informe_definitivo", paso_pendiente: 1,
-      pasos: [{ estado: "pendiente_firma" }, { estado: "en_espera" }] }],
-  });
-  const html = renderizarCircuitoFirma(real, crearTraductorCircuitoFirma());
-  assert.match(html, /<details class="ct-circuito-prueba" data-ct-firma-detalles>/u);
-  assert.match(html, />Firmar en PRUEBA<\/button>/u);
-  assert.match(html, />Devolver en PRUEBA<\/button>/u);
-  assert.match(html, />Registrar devolución de PRUEBA<\/button>/u);
-  assert.match(html, /Pendiente de firma de prueba por/u);
-});
-
-test("verificación apagada mantiene Firmar enfocable y explica por qué no puede usarse", () => {
-  const catalogo = validarCircuitoFirma(circuito());
-  const estado = (disponible) => fusionarEstadoFirmas(catalogo, {
-    huella_sha256: catalogo.huella_sha256, verificacion_disponible: disponible,
-    documentos: [{ documento: "informe_definitivo", paso_pendiente: 1,
-      pasos: [{ estado: "pendiente_firma" }, { estado: "en_espera" }] }],
-  });
-  const t = crearTraductorCircuitoFirma();
-  const apagado = estado(false);
-  const html = renderizarAccionesPaso(apagado, apagado.documentos[0], apagado.documentos[0].pasos[0], t);
-  assert.match(html, /data-ct-firma-accion="firmar"[^>]*aria-disabled="true" aria-describedby="ct-firma-resultado-informe_definitivo-1"/u);
-  assert.match(html, /id="ct-firma-resultado-informe_definitivo-1"[^>]*>La verificación de firmas no está activada/u);
-  assert.match(html, /data-ct-firma-accion="devolver"/u);
-  assert.doesNotMatch(html, /data-ct-firma-accion="firmar"[^>]*\sdisabled(?:\s|>)/u);
-  const activo = estado(true);
-  const disponible = renderizarAccionesPaso(activo, activo.documentos[0], activo.documentos[0].pasos[0], t);
-  assert.doesNotMatch(disponible, /aria-disabled="true"|La verificación de firmas no está activada/u);
-  assert.match(disponible, /data-ct-firma-accion="firmar"/u);
-});
-
-test("al activar firma conocida imposible no descarga ni lanza AutoFirma; devolución sigue disponible", async () => {
-  const ref = "expediente:ct:001";
-  const estado = { vista: "expediente", carga: "listo", expediente_ref: ref,
-    expediente: { expediente_ref: ref, version: 7, demostracion: false },
-    cuadro: { demostracion: false, expedientes: [{ expediente_ref: ref, version: 7,
-      fase_clave: "nombramiento", estado_clave: "en_curso" }] } };
-  const salida = { textContent: "" };
-  const contenedor = { querySelector: (selector) => selector === "[data-ct-firma-resultado]" ? salida
-    : selector === "[data-ct-firma-motivo]" ? { value: "Falta la fecha de efectos" } : null,
-  querySelectorAll: () => [] };
-  const boton = { dataset: { ctFirmaAccion: "firmar", ctFirmaDocumento: "informe_definitivo", ctFirmaOrden: "1" },
-    getAttribute: () => "true", disabled: false,
-    closest: (selector) => selector === "[data-ct-firma-accion]" ? boton : contenedor };
-  let descargas = 0; let lanzamientos = 0; const registros = [];
-  const acciones = crearAccionesFirma({ obtenerEstado: () => estado, t: crearTraductorCircuitoFirma(),
-    clienteBorrador: { descargarBorrador: async () => { descargas += 1; return new Blob(["%PDF-1.7"]); } },
-    autofirma: { firmarPDF: async () => { lanzamientos += 1; return new Uint8Array([1]); } },
-    clienteFirma: { registrar: async (orden) => { registros.push(orden); return { recibo_ref: "recibo:firma:1" }; } },
-    aleatorio: (n) => new Uint8Array(n) });
-  await acciones.manejarClic({ target: { closest: () => boton } });
-  assert.match(salida.textContent, /verificación de firmas no está activada/u);
-  assert.equal(descargas, 0); assert.equal(lanzamientos, 0); assert.equal(registros.length, 0);
-  assert.equal(boton.disabled, false, "el botón conserva el foco posible");
-
-  boton.getAttribute = () => null;
-  await acciones.manejarClic({ target: { closest: () => boton } });
-  assert.equal(descargas, 1); assert.equal(lanzamientos, 1); assert.equal(registros[0].resultado, "firmado");
-
-  boton.getAttribute = () => "true";
-  boton.dataset.ctFirmaAccion = "confirmar-devolucion";
-  await acciones.manejarClic({ target: { closest: () => boton } });
-  assert.equal(descargas, 1); assert.equal(lanzamientos, 1);
-  assert.equal(registros[1].resultado, "devuelto");
+  for (const verificacion of [false, true]) {
+    const real = fusionarEstadoFirmas(catalogo, {
+      huella_sha256: catalogo.huella_sha256, verificacion_disponible: verificacion,
+      documentos: [{ documento: "informe_definitivo", paso_pendiente: 1,
+        pasos: [{ estado: "pendiente_firma" }, { estado: "en_espera" }] }],
+    });
+    const html = renderizarCircuitoFirma(real, crearTraductorCircuitoFirma());
+    assert.match(html, /Firma con certificado en VEC/u);
+    assert.match(html, /Firmado en Portafirmas \(registrado por RRHH\)/u);
+    assert.match(html, /<button[^>]*disabled[^>]*>Firmar en PRUEBA<\/button>/u);
+    assert.match(html, /<button[^>]*disabled[^>]*>Devolver en PRUEBA<\/button>/u);
+    assert.match(html, /La firma con certificado en VEC aún no está disponible: falta comprobar el PDF original custodiado y el permiso nominal/u);
+    assert.doesNotMatch(html, /data-ct-firma-accion=|Registrar devolución de PRUEBA/u);
+  }
+  let efectos = 0;
+  const acciones = crearAccionesFirma({ clienteFirma: { registrar: async () => { efectos++; } },
+    clienteBorrador: { descargarBorrador: async () => { efectos++; } },
+    autofirma: { firmarPDF: async () => { efectos++; } } });
+  await acciones.manejarClic({ target: { closest: () => ({ dataset: { ctFirmaAccion: "firmar" } }) } });
+  assert.equal(efectos, 0);
 });
 
 test("todas las claves de vocabulario tienen traducción", () => {
@@ -391,86 +345,12 @@ test("el gestor distingue denegación 403 de indisponibilidad 503 de CT118", asy
   }
 });
 
-test("tras registrar una firma, el repintado conserva el detalle abierto y devuelve el foco al aviso", async () => {
-  const ref = "expediente:ct:001";
-  const estado = { vista: "expediente", carga: "listo", expediente_ref: ref,
-    expediente: { expediente_ref: ref, version: 7, demostracion: false },
-    cuadro: { demostracion: false, expedientes: [{ expediente_ref: ref, version: 7,
-      fase_clave: "nombramiento", estado_clave: "en_curso" }] } };
-  let actual = null;
-  let focoRestaurado = false;
-  function seccion() {
-    const detalles = { open: true };
-    const limite = { open: false };
-    const aviso = { textContent: "", focus: () => { focoRestaurado = true; } };
-    return {
-      detalles, aviso,
-      set outerHTML(html) { assert.match(html, /Firma con certificado en VEC · Firma de prueba, sin eficacia administrativa/u); actual = seccion(); actual.detalles.open = false; },
-      querySelector: (selector) => selector === "[data-ct-firma-detalles]" ? detalles
-        : selector === ".ct-circuito-limite" ? limite
-          : selector === "[data-ct-firma-aviso]" ? aviso : null,
-      addEventListener: (tipo, callback) => { if (tipo === "click") actual.manejar = callback; },
-    };
-  }
-  const fases = { insertAdjacentHTML: () => { actual = seccion(); } };
-  const raiz = { querySelector: (selector) => selector === ".ct-exp-progreso" ? fases
-    : selector === "[data-ct-circuito-firma]" ? actual : null };
-  const catalogo = validarCircuitoFirma(circuito());
-  const registro = { huella_sha256: catalogo.huella_sha256, verificacion_disponible: true,
-    documentos: [{ documento: "informe_definitivo", paso_pendiente: 1,
-      pasos: [{ estado: "pendiente_firma" }, { estado: "en_espera" }] }] };
-  const gestor = crearGestorCircuitoFirma({ cargarTextos: cargarTextosPrueba, raiz, obtenerEstado: () => estado,
-    cliente: { obtenerCircuitoConEstado: async () => ({ estado: "disponible", circuito: catalogo }) },
-    clienteFirma: { consultarConEstado: async () => ({ estado: "disponible", datos: registro }),
-      registrar: async () => ({ recibo_ref: "recibo:firma:1" }) },
-    dependenciasAcciones: { clienteBorrador: { descargarBorrador: async () => new Blob(["%PDF-1.7"]) },
-      autofirma: { firmarPDF: async () => new Uint8Array([1, 2, 3]) },
-      aleatorio: (n) => new Uint8Array(n).fill(1) },
-  });
-  gestor.montarSiProcede(estado);
-  await new Promise((resolver) => setTimeout(resolver, 0));
-  const salida = { textContent: "" };
-  const contenedor = { querySelector: (selector) => selector === "[data-ct-firma-resultado]" ? salida : null,
-    querySelectorAll: () => [] };
-  const boton = { dataset: { ctFirmaAccion: "firmar", ctFirmaDocumento: "informe_definitivo", ctFirmaOrden: "1" },
-    closest: (selector) => selector === "[data-ct-firma-accion]" ? boton : contenedor };
-  actual.manejar({ target: { closest: () => boton } });
-  await new Promise((resolver) => setTimeout(resolver, 0));
-  assert.equal(actual.detalles.open, true);
-  assert.equal(focoRestaurado, true);
-  assert.match(actual.aviso.textContent, /recibo:firma:1/u);
-  gestor.retirar();
-});
-
-test("un rechazo del verificador no muestra sus códigos internos", async () => {
-  const ref = "expediente:ct:001";
-  const estado = { vista: "expediente", carga: "listo", expediente_ref: ref,
-    expediente: { expediente_ref: ref, version: 7, demostracion: false },
-    cuadro: { demostracion: false, expedientes: [{ expediente_ref: ref, version: 7,
-      fase_clave: "nombramiento", estado_clave: "en_curso" }] } };
-  const salida = { textContent: "" };
-  const contenedor = { querySelector: (selector) => selector === "[data-ct-firma-resultado]" ? salida : null,
-    querySelectorAll: () => [] };
-  const boton = { dataset: { ctFirmaAccion: "firmar", ctFirmaDocumento: "informe_definitivo", ctFirmaOrden: "1" },
-    closest: (selector) => selector === "[data-ct-firma-accion]" ? boton : contenedor };
-  const acciones = crearAccionesFirma({ obtenerEstado: () => estado, t: crearTraductorCircuitoFirma({}, "en-GB"),
-    clienteBorrador: { descargarBorrador: async () => new Blob(["%PDF-1.7"]) },
-    autofirma: { firmarPDF: async () => new Uint8Array([1]) },
-    clienteFirma: { registrar: async () => { throw { codigo: "firma_no_verificada", motivo: "revocacion_no_acreditada" }; } },
-    aleatorio: (n) => new Uint8Array(n) });
-  await acciones.manejarClic({ target: { closest: () => boton } });
-  assert.match(salida.textContent, /could not be verified/u);
-  assert.doesNotMatch(salida.textContent, /firma_no_verificada|revocacion_no_acreditada/u);
-
-  for (const motivo of ["validador_no_disponible", "credencial_rechazada"]) {
-    const servicioCaido = crearAccionesFirma({ obtenerEstado: () => estado, t: (clave) => clave,
-      clienteBorrador: { descargarBorrador: async () => new Blob(["%PDF-1.7"]) },
-      autofirma: { firmarPDF: async () => new Uint8Array([1]) },
-      clienteFirma: { registrar: async () => { throw { codigo: "servicio_no_disponible", motivo }; } },
-      aleatorio: (n) => new Uint8Array(n) });
-    await servicioCaido.manejarClic({ target: { closest: () => boton } });
-    assert.equal(salida.textContent, "circuito_firma_error_validador_no_disponible");
-  }
+test("el montaje no ejecuta CT118 ni entrega un recibo aparente", async () => {
+  let efectos = 0;
+  const acciones = crearAccionesFirma({ clienteFirma: { registrar: async () => { efectos++; } },
+    autofirma: { firmarPDF: async () => { efectos++; } } });
+  await acciones.manejarClic({ target: { closest: () => ({ dataset: { ctFirmaAccion: "confirmar-devolucion" } }) } });
+  assert.equal(efectos, 0);
 });
 
 test("la ayuda explica el circuito de ejemplo y la falta de eficacia sin portafirmas", async () => {
