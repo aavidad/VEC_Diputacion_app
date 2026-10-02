@@ -146,7 +146,10 @@ func TestDescriptoresR5NoCruzanRegistroNiPreflight(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, frontera := range fronteras {
-		if _, ok := catalogo.politicaPara(ports.AccionConsultarFirmasR5, frontera.Clave, frontera.ClavePolitica, frontera.ClaveCapacidad); !ok {
+		if _, ok := catalogo.politicaPara(ports.AccionConsultarFirmasR5, frontera.Clave, frontera.ClavePolitica, frontera.ClaveCapacidad); ok {
+			t.Fatal("una frontera V2 concedió la consulta V1")
+		}
+		if _, ok := catalogo.politicaPara(ports.AccionConsultarFirmasR5V2, frontera.Clave, frontera.ClavePolitica, frontera.ClaveCapacidad); !ok {
 			t.Fatal("consulta R5 anidada sin política")
 		}
 		for _, accion := range []string{ports.AccionRegistrarFirmaVec, ports.AccionRegistrarFirmaExterna} {

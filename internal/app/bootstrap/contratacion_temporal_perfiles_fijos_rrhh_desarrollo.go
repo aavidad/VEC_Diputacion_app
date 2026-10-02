@@ -14,7 +14,6 @@ import (
 	"vec-diputacion-granada/config"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
-	ctapp "vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	ctdomain "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	docports "vec-diputacion-granada/internal/vec/documentos/ports"
@@ -862,8 +861,8 @@ func concesionesPerfilFirmaR5CTDesarrollo(ruta string) ([]dominiovec.ConcesionRo
 	switch ruta {
 	case httpinterno.RutaPreflightFirmaR5:
 		return []dominiovec.ConcesionRol{
-			{Accion: ports.AccionConsultarFirmasR5, ModuloID: ports.ModuloContratacion, TipoRecurso: ports.TipoRecursoConsultaFirmasR5,
-				Finalidades: []string{ports.FinalidadFirmaDocumento}, GarantiaMinima: dominiovec.AuthAssuranceHigh, CamposPermitidos: ctapp.CamposConsultaFirmasR5()},
+			{Accion: ports.AccionConsultarFirmasR5V2, ModuloID: ports.ModuloContratacion, TipoRecurso: ports.TipoRecursoConsultaFirmasR5,
+				Finalidades: []string{ports.FinalidadFirmaDocumento}, GarantiaMinima: dominiovec.AuthAssuranceHigh, CamposPermitidos: ports.CamposConsultaFirmasR5V2()},
 			{Accion: docports.AccionDescargar, ModuloID: "documentos", TipoRecurso: "documento_original",
 				Finalidades: []string{"descargar_documento_original"}, GarantiaMinima: dominiovec.AuthAssuranceHigh, CamposPermitidos: []string{"contenido", "documento"}},
 		}, nil
@@ -877,9 +876,9 @@ func concesionesPerfilFirmaR5CTDesarrollo(ruta string) ([]dominiovec.ConcesionRo
 	return []dominiovec.ConcesionRol{
 		{Accion: accion, ModuloID: ports.ModuloContratacion, TipoRecurso: tipo,
 			Finalidades: []string{ports.FinalidadFirmaDocumento}, GarantiaMinima: dominiovec.AuthAssuranceHigh},
-		{Accion: ports.AccionConsultarFirmasR5, ModuloID: ports.ModuloContratacion, TipoRecurso: ports.TipoRecursoConsultaFirmasR5,
+		{Accion: ports.AccionConsultarFirmasR5V2, ModuloID: ports.ModuloContratacion, TipoRecurso: ports.TipoRecursoConsultaFirmasR5,
 			Finalidades: []string{ports.FinalidadFirmaDocumento}, GarantiaMinima: dominiovec.AuthAssuranceHigh,
-			CamposPermitidos: ctapp.CamposConsultaFirmasR5()},
+			CamposPermitidos: ports.CamposConsultaFirmasR5V2()},
 		{Accion: docports.AccionDescargar, ModuloID: "documentos", TipoRecurso: "documento_original",
 			Finalidades: []string{"descargar_documento_original"}, GarantiaMinima: dominiovec.AuthAssuranceHigh,
 			CamposPermitidos: []string{"contenido", "documento"}},
