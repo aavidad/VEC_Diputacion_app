@@ -174,6 +174,61 @@ func validarPartesXLSX(partes map[string][]byte) error {
 			}
 		}
 	}
+	return verificarRelacionesPartesLibroXLSX(partes)
+}
+
+func verificarRelacionesPartesLibroXLSX(partes map[string][]byte) error {
+	dec := xml.NewDecoder(bytes.NewReader(partes["xl/_rels/workbook.xml.rels"]))
+	var estilos, compartidas bool
+	for {
+		token, err := siguienteTokenXLSX(dec)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return ErrXLSInvalido
+		}
+		inicio, ok := token.(xml.StartElement)
+		if !ok || inicio.Name.Local != "Relationship" {
+			continue
+		}
+		tipo, destino := atributo(inicio.Attr, "Type"), atributo(inicio.Attr, "Target")
+		switch {
+		case strings.HasSuffix(tipo, "/styles"):
+			if estilos || destino != "styles.xml" || atributo(inicio.Attr, "TargetMode") != "" {
+				return ErrXLSInvalido
+			}
+			estilos = true
+		case strings.HasSuffix(tipo, "/sharedStrings"):
+			if compartidas || destino != "sharedStrings.xml" || atributo(inicio.Attr, "TargetMode") != "" {
+				return ErrXLSInvalido
+			}
+			compartidas = true
+		}
+	}
+	_, hayEstilos := partes["xl/styles.xml"]
+	_, hayCompartidas := partes["xl/sharedStrings.xml"]
+	if estilos != hayEstilos || compartidas != hayCompartidas {
+		return ErrXLSInvalido
+	}
+	if estilos {
+		if partes["xl/styles.xml"] == nil {
+			return ErrXLSInvalido
+		}
+		if err := verificarTipoParteXLSX(partes["[Content_Types].xml"], "/xl/styles.xml",
+			"application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"); err != nil {
+			return err
+		}
+	}
+	if compartidas {
+		if partes["xl/sharedStrings.xml"] == nil {
+			return ErrXLSInvalido
+		}
+		if err := verificarTipoParteXLSX(partes["[Content_Types].xml"], "/xl/sharedStrings.xml",
+			"application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
