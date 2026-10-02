@@ -17,6 +17,13 @@ BEGIN
    OR NOT has_function_privilege(current_user,'vec_autorizacion.revalidar_competencia_firmante_ct_v2(text)','EXECUTE') THEN
   RAISE EXCEPTION 'CT172 preimagen incompatible' USING ERRCODE='55000'; END IF;
 END $pre$;
+DO $politica_pre$
+BEGIN
+ IF NOT EXISTS(SELECT 1 FROM pg_constraint c WHERE c.conrelid='vec_contratacion_temporal.firma_documento_v1'::regclass
+  AND c.conname='firma_documento_v1_politica_verificacion_check' AND c.contype='c' AND c.convalidated
+  AND pg_get_constraintdef(c.oid,true)='CHECK (politica_verificacion = ''politica:vec:firma:verificacion-autonoma:v1''::text)') THEN
+  RAISE EXCEPTION 'CT172 política previa incompatible' USING ERRCODE='55000'; END IF;
+END $politica_pre$;
 ALTER TABLE vec_contratacion_temporal.firma_documento_v1
  DROP CONSTRAINT firma_documento_v1_politica_verificacion_check,
  ADD CONSTRAINT firma_documento_v1_politica_verificacion_check CHECK(politica_verificacion IN(
@@ -517,8 +524,7 @@ BEGIN
    'Documento','FirmantePrincipalCandidatoRef','ClaveIdempotencia','PasoOrden','CatalogoHuella','Via','UnidadRef']) IS NOT TRUE
   OR (SELECT count(*) FROM json_each(p_solicitud::json))<>(SELECT count(*) FROM jsonb_each(s))
   OR jsonb_typeof(s->'Via') IS DISTINCT FROM 'string' OR s->>'Via' NOT IN('certificado_vec','portafirmas_registro_rrhh')
-  OR (s->>'Via'='certificado_vec' AND (jsonb_typeof(s->'UnidadRef') IS DISTINCT FROM 'string' OR s->>'UnidadRef' !~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$'))
-  OR (s->>'Via'='portafirmas_registro_rrhh' AND s->'UnidadRef' IS DISTINCT FROM 'null'::jsonb)
+  OR s->'UnidadRef' IS DISTINCT FROM 'null'::jsonb
   OR jsonb_typeof(s->'OrganizacionRef') IS DISTINCT FROM 'string'
   OR s->>'OrganizacionRef' !~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$'
   OR jsonb_typeof(s->'ExpedienteRef') IS DISTINCT FROM 'string'
@@ -574,6 +580,11 @@ BEGIN
   RAISE EXCEPTION 'historia V2 no representable' USING ERRCODE='P1525'; END IF;
  -- El lector privado común produce la proyección mínima, sin identidad de tercero.
  firmas:=vec_contratacion_temporal.consultar_firmas_documento_v3(s->>'OrganizacionRef',s->>'ExpedienteRef',s->>'Documento',s->>'FirmantePrincipalCandidatoRef',NULL);
+ -- Recuperar una operación histórica no revela actos posteriores al propio recibo.
+ SELECT coalesce(jsonb_agg(x.value ORDER BY f.secuencia),'[]'::jsonb) INTO firmas
+ FROM jsonb_array_elements(firmas) x JOIN vec_contratacion_temporal.firma_documento_v1 f ON f.firma_ref=x.value->>'FirmaRef'
+ WHERE f.expediente_version<=(s->>'VersionExpediente')::numeric
+   AND (exacta.firma_ref IS NULL OR f.secuencia<=exacta.secuencia);
  SELECT coalesce(jsonb_agg(x.value||jsonb_build_object('FirmanteRef',f.firmante_ref,'CertificadoHuella',f.certificado_huella_sha256,
    'FirmaAnteriorRef',r.firma_anterior_ref,'ReciboAnteriorRef',r.recibo_anterior_ref,
    'EntradaDocumentoRef',r.entrada_documento_ref,'EntradaDocumentoVersion',r.entrada_documento_version,

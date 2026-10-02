@@ -206,6 +206,7 @@ BEGIN
  RAISE NOTICE 'CT172 guardas SQL cadena/replay/CAS OK; autorización/crípto no acreditadas';
 END $cadena$;
 RESET SESSION AUTHORIZATION;
+SET CONSTRAINTS ALL IMMEDIATE;
 DO $historia$
 DECLARE f1 text:=current_setting('ct172.firma1');f2 text:=current_setting('ct172.firma2');
 BEGIN

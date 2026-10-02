@@ -193,8 +193,8 @@ type LecturaFirmasR5V2 struct {
 	RevisionesPDF []FirmaRegistradaRevisionPDFV2
 }
 
-// La unidad de consulta VEC procede de la relación gobernada expediente/documento.
-// El registrador RRHH conserva su ámbito organizativo nominal independiente.
+// La consulta usa el perfil operativo y su organización. La unidad del cargo
+// se revalida separadamente al registrar; UnidadRef permanece vacía.
 type MaterialConsultaFirmasR5V2 struct {
 	MaterialConsultaFirmasR5
 	Via       string
@@ -207,8 +207,7 @@ func (m MaterialConsultaFirmasR5V2) Canonico() ([]byte, error) {
 		return nil, e
 	}
 	if m.PasoOrden < 1 || m.PasoOrden > 2 || (m.Via != ViaFirmaCertificadoVEC && m.Via != ViaFirmaExternaPortafirmas) ||
-		(m.Via == ViaFirmaCertificadoVEC && !domain.ReferenciaOpacaValida(m.UnidadRef)) ||
-		(m.Via == ViaFirmaExternaPortafirmas && m.UnidadRef != "") {
+		m.UnidadRef != "" {
 		return nil, ErrSolicitudFirmaDocumentoInvalida
 	}
 	var fields map[string]json.RawMessage

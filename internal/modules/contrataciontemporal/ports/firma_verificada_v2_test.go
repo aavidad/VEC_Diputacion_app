@@ -59,22 +59,16 @@ func TestMaterialFirmaV2NoAceptaCadenaParcial(t *testing.T) {
 		})
 	}
 }
-func TestConsultaV2ExigeUnidadVECYConservaRRHH(t *testing.T) {
+func TestConsultaV2MantieneAmbitoOperativoOrganizativo(t *testing.T) {
 	base := MaterialConsultaFirmasR5{OrganizacionRef: "organizacion:prueba", ExpedienteRef: "expediente:prueba", VersionExpediente: 7, Documento: "resolucion", FirmantePrincipalCandidatoRef: "per_firmante_prueba", ClaveIdempotencia: "clave-firma-prueba-000001", PasoOrden: 1, CatalogoHuella: strings.Repeat("a", 64)}
-	m := MaterialConsultaFirmasR5V2{MaterialConsultaFirmasR5: base, Via: ViaFirmaCertificadoVEC}
-	if _, e := m.Canonico(); e == nil {
-		t.Fatal("VEC consultó sin unidad del recurso")
-	}
-	m.UnidadRef = "unidad:rrhh"
-	if _, e := m.Canonico(); e != nil {
-		t.Fatal(e)
-	}
-	m.Via = ViaFirmaExternaPortafirmas
-	if _, e := m.Canonico(); e == nil {
-		t.Fatal("se amplió en silencio el ámbito RRHH")
-	}
-	m.UnidadRef = ""
-	if _, e := m.Canonico(); e != nil {
-		t.Fatal(e)
+	for _, via := range []string{ViaFirmaCertificadoVEC, ViaFirmaExternaPortafirmas} {
+		m := MaterialConsultaFirmasR5V2{MaterialConsultaFirmasR5: base, Via: via}
+		if _, e := m.Canonico(); e != nil {
+			t.Fatal(e)
+		}
+		m.UnidadRef = "unidad:rrhh"
+		if _, e := m.Canonico(); e == nil {
+			t.Fatal("consulta operativa aceptó unidad sin autoridad")
+		}
 	}
 }
