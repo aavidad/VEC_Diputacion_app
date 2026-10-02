@@ -57,7 +57,7 @@ func (s *ServicioPreparacionBasesV3) Guardar(ctx context.Context, q ports.Solici
 	if r.Estado == "clave_reutilizada" {
 		return r, ports.ErrPreparacionBasesClaveReutilizada
 	}
-	return r, nil
+	return clonarResultadoPreparacionBasesV3(r)
 }
 
 func (s *ServicioPreparacionBasesV3) Consultar(ctx context.Context, q ports.SolicitudConsultarPreparacionBasesV3) (ports.ResultadoPreparacionBasesV3, error) {
@@ -92,7 +92,7 @@ func (s *ServicioPreparacionBasesV3) Consultar(ctx context.Context, q ports.Soli
 	if r.Estado == "no_encontrada" {
 		return r, ports.ErrPreparacionBasesNoEncontrada
 	}
-	return r, nil
+	return clonarResultadoPreparacionBasesV3(r)
 }
 
 func (s *ServicioPreparacionBasesV3) validarContextoV3(ctx context.Context) error {

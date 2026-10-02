@@ -82,3 +82,12 @@ func versionPreparacionV3Valida(r ports.ResultadoPreparacionBasesV3, a bolsa.Amb
 func resultadoPreparacionSinMaterial(r ports.ResultadoPreparacionBasesV3) bool {
 	return reflect.DeepEqual(r.Version, prep.Version{}) && r.Recibo == (ports.ReciboPreparacionBases{})
 }
+
+func clonarResultadoPreparacionBasesV3(r ports.ResultadoPreparacionBasesV3) (ports.ResultadoPreparacionBasesV3, error) {
+	m, err := r.Version.Material.Canonico()
+	if err != nil {
+		return ports.ResultadoPreparacionBasesV3{}, ports.ErrResultadoPreparacionBasesInvalido
+	}
+	r.Version.Material = m
+	return r, nil
+}

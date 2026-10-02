@@ -95,7 +95,7 @@ func TestPreparacionHTTPNoPermiteIdentidadAliasNiDuplicadosEnJSON(t *testing.T) 
 
 func TestPreparacionHTTPFronteraAntesDeConsumirYErroresNominales(t *testing.T) {
 	p := &preparadorHTTPPrueba{}
-	h := handlerPreparacionPrueba(t, p, func(*http.Request) error { return errors.New("origen_denegado_prueba") })
+	h := handlerPreparacionPrueba(t, p, func(*http.Request) error { return ports.ErrPreparacionBasesDenegada })
 	r := httptest.NewRequest(http.MethodPost, RutaGuardarPreparacionBases, strings.NewReader(cuerpoGuardarPrueba))
 	r.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -123,5 +123,37 @@ func TestPreparacionHTTPConstructorRechazaDependenciasVacias(t *testing.T) {
 	var p *preparadorHTTPPrueba
 	if _, err := NuevaPreparacionBasesHandler(ConfigPreparacionBases{Preparador: p}); !errors.Is(err, ports.ErrPreparacionBasesNoDisponible) {
 		t.Fatal(err)
+	}
+}
+
+func TestPreparacionHTTPDistingueDenegacionDeTimeoutOFalloContexto(t *testing.T) {
+	for _, frontera := range []bool{true, false} {
+		for _, caso := range []struct {
+			err    error
+			estado int
+		}{
+			{ports.ErrPreparacionBasesDenegada, 403}, {ports.ErrPreparacionBasesNoDisponible, 503},
+			{context.DeadlineExceeded, 503}, {context.Canceled, 503}, {errors.New("dependencia_prueba"), 503},
+			{errors.Join(ports.ErrPreparacionBasesDenegada, ports.ErrPreparacionBasesNoDisponible), 503},
+		} {
+			p := &preparadorHTTPPrueba{}
+			c := ConfigPreparacionBases{Preparador: p, ValidarFrontera: func(*http.Request) error { return nil }, ResolverContexto: func(*http.Request) (ContextoPreparacionBases, error) { return ContextoPreparacionBases{}, nil }}
+			if frontera {
+				c.ValidarFrontera = func(*http.Request) error { return caso.err }
+			} else {
+				c.ResolverContexto = func(*http.Request) (ContextoPreparacionBases, error) { return ContextoPreparacionBases{}, caso.err }
+			}
+			h, err := NuevaPreparacionBasesHandler(c)
+			if err != nil {
+				t.Fatal(err)
+			}
+			r := httptest.NewRequest(http.MethodPost, RutaGuardarPreparacionBases, strings.NewReader(cuerpoGuardarPrueba))
+			r.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+			h.ServeHTTP(w, r)
+			if w.Code != caso.estado || p.llamadas != 0 || strings.Contains(w.Body.String(), `"preparacion"`) || strings.Contains(w.Body.String(), `"acceso"`) {
+				t.Fatalf("frontera=%t HTTP=%d llamadas=%d cuerpo=%s", frontera, w.Code, p.llamadas, w.Body.String())
+			}
+		}
 	}
 }
