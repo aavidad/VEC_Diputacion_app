@@ -1,0 +1,7 @@
+# Base física sintética ensayada: main 4617f08c y prefijo causal acreditado.
+# Prerrequisito: entrega S1 y su consumidor AD141 ya instalados.
+# AD141 no se reaplica con esta lista.
+# Roles propios preceden al consumidor V3; no provisionan cuentas runtime.
+deploy/postgresql/meritos/roles_up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000142_consumidor_operacion_meritos.up.sql
+deploy/postgresql/meritos/migraciones/000001_registro_hechos_v1.up.sql

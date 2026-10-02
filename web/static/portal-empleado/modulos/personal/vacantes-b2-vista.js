@@ -1,5 +1,5 @@
 import { cargarTextos } from "../../../comun/textos.js";
-import { proyectarPaginaVacantesB2 } from "./vacantes-b2-proyeccion.js?v=20261002-b-rpt-vacantes-main-v3";
+import { proyectarPaginaVacantesB2 } from "./vacantes-b2-proyeccion.js?v=20261002-b-vacantes-401-retoma-v1";
 
 const catalogo = await cargarTextos("personal-vacantes");
 const traducirPorDefecto = (codigoMensaje, variables) => catalogo.traducir(`general.${codigoMensaje}`, variables);
