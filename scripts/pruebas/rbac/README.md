@@ -3,6 +3,9 @@
 `ensayar.sh` restaura una copia fría física PG18. Conserva los roles y ACL de la
 fuente. El contenedor usa `--rm`, datos propios en `/dev/shm` y ninguna red.
 No publica puertos. Los comandos SQL acceden por el socket del contenedor.
+Antes de usarlos, el runner exige el ID registrado al crear el contenedor,
+los mismos montajes registrados al crearlo, un único montaje enlazado al
+directorio propio y el directorio de datos esperado.
 
 ```bash
 scripts/pruebas/rbac/ensayar.sh /dev/shm/vec-rbac-mi-ensayo init /ruta/privada/copia.tgz

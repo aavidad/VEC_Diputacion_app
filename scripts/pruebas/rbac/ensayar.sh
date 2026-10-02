@@ -8,12 +8,19 @@ root=$(realpath -m -- "$1"); action=$2; shift 2
 [[ $root == /dev/shm/vec-rbac-* || $root == /dev/shm/vec-codexk-rbac-* ]] || fail 'ROOT debe ser un directorio propio vec-rbac-* en /dev/shm'
 name=$(basename -- "$root")
 [[ $name =~ ^[a-z0-9-]+$ ]] || fail 'Nombre de clon inválido'
-psql_clone() { docker exec -i "$name" psql -X -q -h /tmp -U postgres -d postgres -At -v ON_ERROR_STOP=1 "$@"; }
+psql_clone() { docker exec -i "$expected_id" psql -X -q -h /tmp -U postgres -d postgres -At -v ON_ERROR_STOP=1 "$@"; }
 probe_clone() { { printf 'BEGIN READ ONLY;\n'; cat -- "$1"; printf '\nCOMMIT;\n'; } | psql_clone; }
 verify_clone() {
-  [[ $(docker inspect -f '{{.HostConfig.NetworkMode}}' "$name") == none ]] || fail 'El clon tiene red'
-  [[ $(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/ensayo"}}{{.Source}}{{end}}{{end}}' "$name") == "$root" ]] || fail 'Montaje distinto del clon propio'
-  [[ $(docker inspect -f '{{.HostConfig.AutoRemove}}' "$name") == true ]] || fail 'Contenedor sin --rm'
+  [[ -d $root && $(stat -c '%u' -- "$root") == "$(id -u)" ]] || fail 'ROOT no pertenece al ejecutor'
+  [[ -f $root/container.id ]] || fail 'Falta el ID del contenedor creado'
+  expected_id=$(cat -- "$root/container.id")
+  [[ $expected_id =~ ^[a-f0-9]{64}$ ]] || fail 'ID registrado inválido'
+  [[ $(docker inspect -f '{{.Id}}' "$name") == "$expected_id" ]] || fail 'Contenedor distinto del creado para este clon'
+  [[ $(docker inspect -f '{{.HostConfig.NetworkMode}}' "$expected_id") == none ]] || fail 'El clon tiene red'
+  [[ -f $root/mounts.json && $(docker inspect -f '{{json .Mounts}}' "$expected_id") == "$(cat -- "$root/mounts.json")" ]] || fail 'Los montajes difieren de los registrados al crear el clon'
+  [[ $(docker inspect -f '{{range .Mounts}}{{if eq .Type "bind"}}{{.Type}}|{{.Source}}|{{.Destination}}|{{.RW}}{{end}}{{end}}' "$expected_id") == "bind|$root|/ensayo|true" ]] || fail 'Montaje distinto del clon propio'
+  [[ $(docker inspect -f '{{.HostConfig.AutoRemove}}' "$expected_id") == true ]] || fail 'Contenedor sin --rm'
+  [[ $(psql_clone -c 'SHOW data_directory') == /ensayo/vec-desarrollo-20260906/pgdata ]] || fail 'Directorio de datos distinto del clon propio'
   [[ $(psql_clone -c "SELECT current_setting('server_version_num')::integer / 10000") == 18 ]] || fail 'Se requiere PostgreSQL 18'
 }
 case $action in
@@ -43,7 +50,8 @@ for filename in ('postgresql.conf','pg_hba.conf','pg_ident.conf'):
 PY
   docker run -d --rm --name "$name" --network none --memory 2g --cpus 2 --pids-limit 128 \
     -v "$root:/ensayo" --entrypoint sh postgres:18.4 \
-    -c 'chown -R 999:999 /ensayo/vec-desarrollo-20260906/pgdata && exec gosu postgres postgres -D /ensayo/vec-desarrollo-20260906/pgdata -c config_file=/ensayo/postgresql.conf' >/dev/null
+    -c 'chown -R 999:999 /ensayo/vec-desarrollo-20260906/pgdata && exec gosu postgres postgres -D /ensayo/vec-desarrollo-20260906/pgdata -c config_file=/ensayo/postgresql.conf' > "$root/container.id"
+  docker inspect -f '{{json .Mounts}}' "$(cat -- "$root/container.id")" > "$root/mounts.json"
   for ((i=0;i<30;i++)); do
     if docker exec "$name" pg_isready -h /tmp >/dev/null 2>&1; then verify_clone; printf 'CLON-OK\n'; exit; fi
     sleep 1
