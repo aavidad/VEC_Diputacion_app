@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"vec-diputacion-granada/internal/modules/personal/domain"
+	vecdomain "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
@@ -23,4 +24,27 @@ type OrdenLectorRelacionRPT struct {
 // La fuente B2 conserva certeza no_acreditado y cobertura no_acreditada.
 type RepositorioLectorRelacionRPT interface {
 	ConsultarRelacionParaRPT(context.Context, OrdenLectorRelacionRPT) (ResultadoRelacionParaRPTV1, error)
+}
+
+// IntentoLectorRelacionRPT no confía en Actor para escribir actor_ref: el
+// registrador de composición lo coteja con la identidad registrada actual.
+// El motivo es cerrado; no contiene mensajes SQL ni datos laborales.
+type IntentoLectorRelacionRPT struct {
+	Actor       vecdomain.ContextoActor
+	RelacionRef string
+	Motivo      string
+}
+type RegistroIntentosLectorRelacionRPT interface {
+	VerificarRegistroRelacionRPT(context.Context) error
+	RegistrarIntentoRelacionRPT(context.Context, IntentoLectorRelacionRPT) error
+}
+
+// EventoIntentoLectorRelacionRPT contiene sólo metadatos minimizados del
+// registrador confiable. El instante lo pone la fachada nominal de Personal.
+type EventoIntentoLectorRelacionRPT struct {
+	CorrelacionRef, Motivo, ActorRef, RelacionRef string
+}
+type DestinoIntentosLectorRelacionRPT interface {
+	VerificarDestinoRelacionRPT(context.Context) error
+	RegistrarEventoRelacionRPT(context.Context, EventoIntentoLectorRelacionRPT) error
 }
