@@ -106,7 +106,7 @@ func (r *RepositorioGobiernoModulosPostgreSQL) leerUna(ctx context.Context, id s
 		return cero, ports.ErrLimitesConsultaCatalogosInvalidos
 	}
 	c, err := comprobarCatalogoGobiernoModulos(canon, huella)
-	if err != nil || c.ID != id || c.ModuloID != administracion.ModuleID || (!cabeza && c.Version != version) || (cabeza && c.Estado != domain.EstadoCatalogoPublicado) || validarEntradasGobiernoModulos(c, cfg) != nil {
+	if err != nil || !catalogoLeidoGobiernoModulosValido(c, cfg, id, version, cabeza) {
 		return cero, ports.ErrReciboCatalogoOperativoInvalido
 	}
 	uso, ok := ports.MedirCatalogoConfigurable(c)
@@ -122,9 +122,19 @@ func (r *RepositorioGobiernoModulosPostgreSQL) leerUna(ctx context.Context, id s
 	}
 	return ports.ResultadoConsultaCatalogoAcotado{Catalogo: c}, nil
 }
+
+func catalogoLeidoGobiernoModulosValido(c domain.CatalogoConfigurable, cfg ports.ConfiguracionGobiernoModulosAprobada, id string, version int, cabeza bool) bool {
+	if c.ID != id || c.ModuloID != administracion.ModuleID {
+		return false
+	}
+	if !cabeza {
+		return c.Version == version
+	}
+	return c.Estado == domain.EstadoCatalogoPublicado && validarEntradasGobiernoModulos(c, cfg) == nil
+}
 func (r *RepositorioGobiernoModulosPostgreSQL) ListarVersionesCatalogoAcotado(ctx context.Context, id string, l ports.LimitesConsultaCatalogosAcotada) (ports.ResultadoConsultaCatalogosAcotada, error) {
 	var cero ports.ResultadoConsultaCatalogosAcotada
-	tx, cfg, err := r.iniciarLectura(ctx, id, l)
+	tx, _, err := r.iniciarLectura(ctx, id, l)
 	if err != nil {
 		return cero, err
 	}
@@ -154,7 +164,7 @@ func (r *RepositorioGobiernoModulosPostgreSQL) ListarVersionesCatalogoAcotado(ct
 		}
 		c, err := comprobarCatalogoGobiernoModulos(canon, huella)
 		clear(canon)
-		if err != nil || c.ID != id || c.ModuloID != administracion.ModuleID || c.Version <= anterior || validarEntradasGobiernoModulos(c, cfg) != nil {
+		if err != nil || c.ID != id || c.ModuloID != administracion.ModuleID || c.Version <= anterior {
 			return cero, ports.ErrReciboCatalogoOperativoInvalido
 		}
 		uso, ok := ports.MedirCatalogoConfigurable(c)

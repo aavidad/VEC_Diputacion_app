@@ -110,6 +110,48 @@ func TestGobiernoModulosReciboOriginalYManipulaciones(t *testing.T) {
 	}
 }
 
+func TestGobiernoModulosLecturaHistoricaConConfiguracionPosterior(t *testing.T) {
+	canon, _, _, _ := catalogoGobiernoModulosPrueba(t)
+	var borrador domain.CatalogoConfigurable
+	if err := json.Unmarshal(canon, &borrador); err != nil {
+		t.Fatal(err)
+	}
+	publicado, err := borrador.Publicar("actor:publicador", "aprobacion:sintetica", "Publicación sintética", borrador.CreadoEn.Add(time.Minute))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := configGobiernoModulosPrueba()
+	cfg.Registrados = append(cfg.Registrados, "vec.module.personal")
+	cfg.Gobernados = []string{"vec.module.personal"}
+	if !catalogoLeidoGobiernoModulosValido(publicado, cfg, publicado.ID, publicado.Version, false) {
+		t.Fatal("la configuración actual invalidó una publicación histórica")
+	}
+	if catalogoLeidoGobiernoModulosValido(publicado, cfg, publicado.ID, 0, true) {
+		t.Fatal("la cabeza actual aceptó entradas ajenas al registro aprobado")
+	}
+}
+
+func TestGobiernoModulosRecuperacionLigaRevisionYEstadoCAT6(t *testing.T) {
+	cfg := configGobiernoModulosPrueba()
+	orden := ports.RecuperacionCatalogoOperativo{ClaveIdempotencia: "clave:sintetica", CatalogoID: cfg.CatalogoID, Version: 2, HuellaMaterialSHA256: strings.Repeat("a", 64)}
+	for _, tc := range []struct {
+		operacion string
+		estado    domain.EstadoCatalogoConfigurable
+	}{
+		{"crear", domain.EstadoCatalogoBorrador},
+		{"publicar", domain.EstadoCatalogoPublicado},
+	} {
+		bruto, err := materialRecuperacionGobiernoModulos(orden, cfg, tc.estado, tc.operacion, []byte(`{"Esquema":"vec.catalogos.operacion.v1"}`))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var wire map[string]any
+		if err := json.Unmarshal(bruto, &wire); err != nil || wire["revision"] != float64(1) || wire["estado"] != string(tc.estado) {
+			t.Fatalf("contrato CAT6 de recuperación incompleto: %s, %v", bruto, err)
+		}
+	}
+}
+
 type txGobiernoModulosPrueba struct {
 	pgx.Tx
 	canon, recibo               []byte

@@ -61,16 +61,18 @@ func leerSemanticoGobiernoModulos(bruto []byte, huella string) (semanticoGobiern
 }
 
 type recuperarGobiernoModulosWire struct {
-	Clave                string `json:"clave_operacion"`
-	HuellaMaterial       string `json:"huella_material_sha256"`
-	MaterialSemantico    []byte `json:"material_semantico_base64"`
-	Operacion            string `json:"operacion"`
-	CatalogoID           string `json:"catalogo_id"`
-	Version              int    `json:"version"`
-	ConfiguracionVersion int64  `json:"configuracion_version"`
-	ConfiguracionHuella  string `json:"configuracion_huella_sha256"`
-	RegistroSHA256       string `json:"registro_sha256"`
-	RegistroVersionRef   string `json:"registro_version_ref"`
+	Clave                string                            `json:"clave_operacion"`
+	HuellaMaterial       string                            `json:"huella_material_sha256"`
+	MaterialSemantico    []byte                            `json:"material_semantico_base64"`
+	Operacion            string                            `json:"operacion"`
+	CatalogoID           string                            `json:"catalogo_id"`
+	Version              int                               `json:"version"`
+	Revision             int                               `json:"revision"`
+	Estado               domain.EstadoCatalogoConfigurable `json:"estado"`
+	ConfiguracionVersion int64                             `json:"configuracion_version"`
+	ConfiguracionHuella  string                            `json:"configuracion_huella_sha256"`
+	RegistroSHA256       string                            `json:"registro_sha256"`
+	RegistroVersionRef   string                            `json:"registro_version_ref"`
 }
 
 func (r *RepositorioGobiernoModulosPostgreSQL) RecuperarOperacionCatalogoOperativo(ctx context.Context, c ports.RecuperacionCatalogoOperativo) (ports.ResultadoOperacionCatalogoOperativo, error) {
@@ -101,7 +103,7 @@ func (r *RepositorioGobiernoModulosPostgreSQL) RecuperarOperacionCatalogoOperati
 	}
 	semBytes := bytes.Clone(c.MaterialCanonico)
 	defer clear(semBytes)
-	bruto, err := json.Marshal(recuperarGobiernoModulosWire{Clave: c.ClaveIdempotencia, HuellaMaterial: c.HuellaMaterialSHA256, MaterialSemantico: semBytes, Operacion: operacion, CatalogoID: c.CatalogoID, Version: c.Version, ConfiguracionVersion: cfg.Version, ConfiguracionHuella: cfg.HuellaSHA256, RegistroSHA256: cfg.RegistroSHA256, RegistroVersionRef: cfg.RegistroVersionRef})
+	bruto, err := materialRecuperacionGobiernoModulos(c, cfg, estado, operacion, semBytes)
 	if err != nil {
 		return cero, errGobiernoModulos
 	}
@@ -111,6 +113,10 @@ func (r *RepositorioGobiernoModulosPostgreSQL) RecuperarOperacionCatalogoOperati
 		return cero, err
 	}
 	return r.ejecutar(ctx, consultaRecuperarGobiernoModulos, bruto, exportacion, expectativaReciboGobiernoModulos{clave: c.ClaveIdempotencia, material: c.HuellaMaterialSHA256, accion: c.Accion, id: c.CatalogoID, version: c.Version, actor: actor, recuperacion: true})
+}
+
+func materialRecuperacionGobiernoModulos(c ports.RecuperacionCatalogoOperativo, cfg ports.ConfiguracionGobiernoModulosAprobada, estado domain.EstadoCatalogoConfigurable, operacion string, semantico []byte) ([]byte, error) {
+	return json.Marshal(recuperarGobiernoModulosWire{Clave: c.ClaveIdempotencia, HuellaMaterial: c.HuellaMaterialSHA256, MaterialSemantico: semantico, Operacion: operacion, CatalogoID: c.CatalogoID, Version: c.Version, Revision: 1, Estado: estado, ConfiguracionVersion: cfg.Version, ConfiguracionHuella: cfg.HuellaSHA256, RegistroSHA256: cfg.RegistroSHA256, RegistroVersionRef: cfg.RegistroVersionRef})
 }
 
 type expectativaReciboGobiernoModulos struct {
