@@ -93,7 +93,7 @@ export async function consultarSolicitudesDocumentalesRRHH(bolsa, participacion,
         && Number.isSafeInteger(item.version) && item.version > 0 && HEX_SHA256.test(item.contenido_sha256)
         && typeof item.documento_ref === "string" && item.documento_ref.length > 0 && item.documento_ref.length <= 256
         && !referenciaContieneDocumentoIdentidad(item.documento_ref) && HEX_SHA256.test(item.documento_sha256)
-        && /^\d{4}-\d{2}-\d{2}$/.test(item.fecha_fin_causa) && Number.isFinite(Date.parse(item.fecha_fin_causa))
+        && (item.fecha_fin_causa === null || (/^\d{4}-\d{2}-\d{2}$/.test(item.fecha_fin_causa) && Number.isFinite(Date.parse(item.fecha_fin_causa))))
         && item.estado === "pendiente_rrhh" && typeof item.recibo_ref === "string" && item.recibo_ref.length > 0
         && instanteValido(item.registrada_en));
     return valido ? { ok: true, datos: items } : respuestaInvalida(traducirPortal("txt_b8_solicitudes_documentales_error"));
@@ -217,7 +217,7 @@ export function renderizarOperacionesSituacion({ candidato, estado = {}, escapar
   const solicitudes = estado.solicitudesDocumentales || [];
   const acciones = disponibles.filter((operacion) => operacion !== "regularizar" || (!solicitudes.length && !estado.solicitudesError))
     .map((operacion) => `<button type="button" class="boton-secundario" data-b8-accion="seleccionar" data-operacion="${operacion}">${escaparHTML(etiquetaOperacion(operacion, candidato))}</button>`).join("");
-  const solicitudesVista = actual === "listo" && !(estado.paso > 0) ? `${estado.solicitudesError ? `<p class="mensaje-error" role="alert">${escaparHTML(estado.solicitudesError)}</p><button type="button" class="boton-secundario" data-b8-accion="reintentar">${textoPortal("txt_reintentar_historial")}</button>` : ""}${solicitudes.map((solicitud) => `<div class="panel-separado"><p>${textoPortal("txt_b8_solicitud_pendiente", { fecha: instanteLegible(solicitud.registrada_en) })}</p><button type="button" class="boton-secundario" data-b8-accion="seleccionar-solicitud" data-solicitud-ref="${escaparHTML(solicitud.solicitud_ref)}" ${disponibles.includes("regularizar") && fechaCausaValida(solicitud.fecha_fin_causa) ? "" : "disabled"}>${textoPortal("txt_b8_validar_solicitud")}</button></div>`).join("")}` : "";
+  const solicitudesVista = actual === "listo" && !(estado.paso > 0) ? `${estado.solicitudesError ? `<p class="mensaje-error" role="alert">${escaparHTML(estado.solicitudesError)}</p><button type="button" class="boton-secundario" data-b8-accion="reintentar">${textoPortal("txt_reintentar_historial")}</button>` : ""}${solicitudes.map((solicitud) => `<div class="panel-separado"><p>${textoPortal("txt_b8_solicitud_pendiente", { fecha: instanteLegible(solicitud.registrada_en) })}</p><button type="button" class="boton-secundario" data-b8-accion="seleccionar-solicitud" data-solicitud-ref="${escaparHTML(solicitud.solicitud_ref)}" ${disponibles.includes("regularizar") && (solicitud.fecha_fin_causa === null || fechaCausaValida(solicitud.fecha_fin_causa)) ? "" : "disabled"}>${textoPortal("txt_b8_validar_solicitud")}</button></div>`).join("")}` : "";
   const botones = estado.paso > 0 ? `<button type="button" class="boton-secundario" data-b8-accion="cancelar" ${estado.enviando ? "disabled" : ""}>${textoPortal("txt_cancelar")}</button>`
     : estado.noDisponible ? "" : acciones;
   let contenido = "";
@@ -333,14 +333,14 @@ export function crearControladorOperacionesSituacion({ estado, renderizar, recar
       delete flujo.solicitudSeleccionada;
     } else if (control.dataset.b8Accion === "seleccionar-solicitud") {
       const solicitud = flujo.solicitudesDocumentales?.find((item) => item.solicitud_ref === control.dataset.solicitudRef);
-      if (!solicitud || !fechaCausaValida(solicitud.fecha_fin_causa) || !operacionAdmitida(modal, flujo, "regularizar")) {
+      if (!solicitud || (solicitud.fecha_fin_causa !== null && !fechaCausaValida(solicitud.fecha_fin_causa)) || !operacionAdmitida(modal, flujo, "regularizar")) {
         flujo.errorOperacion = traducirPortal("txt_b8_regularizacion_no_disponible"); renderizar(); return true;
       }
       flujo.operacion = "regularizar";
       flujo.solicitudSeleccionada = solicitud;
       flujo.paso = 1;
       flujo.formulario = { tipo: "solicitud_candidato", referencia: solicitud.documento_ref,
-        sha256: solicitud.documento_sha256, causa_finalizada_en: solicitud.fecha_fin_causa };
+        sha256: solicitud.documento_sha256, causa_finalizada_en: solicitud.fecha_fin_causa || "" };
       flujo.errorFormulario = "";
       flujo.errorOperacion = "";
     } else if (control.dataset.b8Accion === "cancelar") {
@@ -437,7 +437,8 @@ export function crearControladorOperacionesSituacion({ estado, renderizar, recar
       if (flujo.paso === 2 && flujo.operacion === "regularizar" && !fechaCausaValida(flujo.formulario.causa_finalizada_en)) flujo.errorFormulario = traducirPortal("txt_b8_fecha_fin_causa_invalida");
       if (flujo.paso === 2 && flujo.solicitudSeleccionada &&
           (flujo.formulario.tipo !== "solicitud_candidato" || flujo.formulario.referencia !== flujo.solicitudSeleccionada.documento_ref ||
-            flujo.formulario.sha256 !== flujo.solicitudSeleccionada.documento_sha256 || flujo.formulario.causa_finalizada_en !== flujo.solicitudSeleccionada.fecha_fin_causa)) {
+            flujo.formulario.sha256 !== flujo.solicitudSeleccionada.documento_sha256 ||
+            (flujo.solicitudSeleccionada.fecha_fin_causa !== null && flujo.formulario.causa_finalizada_en !== flujo.solicitudSeleccionada.fecha_fin_causa))) {
         flujo.errorFormulario = traducirPortal("txt_b8_documento_solicitud_distinto");
       }
       if (!flujo.errorFormulario) flujo.paso += 1;

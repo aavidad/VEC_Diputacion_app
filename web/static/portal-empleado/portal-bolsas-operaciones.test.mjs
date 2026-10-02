@@ -60,6 +60,12 @@ test("RRHH17 enlaza una solicitud documental pendiente sin cambiar estado al con
     estado: { carga: "listo", items: [], transiciones: transicionesRRHH18, solicitudesDocumentales: bien.datos } });
   assert.match(vista, /data-b8-accion="seleccionar-solicitud"/);
   assert.doesNotMatch(vista, /data-b8-accion="seleccionar" data-operacion="regularizar"/);
+	const sinFecha = await consultarSolicitudesDocumentalesRRHH("bolsa:uno", "participacion:dos", { fetchImpl: respuesta([{ ...solicitud, fecha_fin_causa: null }]) });
+	assert.equal(sinFecha.ok, true);
+	const vistaSinFecha = renderizarOperacionesSituacion({ candidato: { estado_clave: "en_revision", estado_desde: desde },
+		estado: { carga: "listo", items: [], transiciones: transicionesRRHH18, solicitudesDocumentales: sinFecha.datos } });
+	assert.match(vistaSinFecha, /data-b8-accion="seleccionar-solicitud"/);
+	assert.doesNotMatch(vistaSinFecha, /data-b8-accion="seleccionar-solicitud"[^>]*disabled/);
   const mal = await consultarSolicitudesDocumentalesRRHH("bolsa:uno", "participacion:dos", { fetchImpl: respuesta([{ ...solicitud, documento_sha256: "mal" }]) });
   assert.equal(mal.codigo, "respuesta_invalida");
   const comando = { operacion: "regularizar", motivo: "Fin de causa validado", validador: "persona:rrhh",
