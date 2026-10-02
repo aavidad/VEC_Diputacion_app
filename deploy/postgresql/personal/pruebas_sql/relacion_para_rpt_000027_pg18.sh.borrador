@@ -1,0 +1,776 @@
+#!/usr/bin/env bash
+# BORRADOR reproducible RPT27/AD154. Ningún resultado acreditado.
+# Reutiliza el emisor público y transporte del harness CRN11@9a58bcb9.
+# Dirección congela fuente y preimagen; sólo después de dos GO cede un clon.
+set -euo pipefail
+umask 077
+base_dir=$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+repo_dir=$(CDPATH='' cd -- "$base_dir/../../../.." && pwd)
+fallo() { printf 'RPT27 FALLO: %s\n' "$1" >&2; exit 1; }
+if [[ ${VEC_RPT27_ACTIVACION:-} != dos_go_y_preimagen_verificada ]]; then
+ printf '%s\n' 'PARO RPT27: faltan fuente congelada, dos GO exactos y preimagen real del clon.' >&2
+ exit 78
+fi
+# Pendiente de provisión: Dirección debe establecer una cota REAL de disco
+# para scratch y cache. LimitFSIZE no es una cuota total; no se afirma tal control.
+[[ ${VEC_RPT27_COTA_DISCO_CONFIRMADA:-} == 1 ]] || fallo 'falta cota real de disco provisionada por Dirección'
+head_sha=$(git -C "$repo_dir" rev-parse HEAD)
+[[ ${VEC_RPT27_DOS_GO_SHA:-} == "$head_sha" && ${VEC_RPT27_BASE_CEDIDA:-} == 1 ]] || fallo 'faltan revisión y cesión del hash exacto'
+container=${VEC_RPT27_CLONE_CONTAINER:?clon privado autorizado requerido}
+scratch=${VEC_RPT27_SCRATCH:?scratch propio externo requerido}
+modcache=${VEC_RPT27_MODCACHE:?módulos locales sin descargas requeridos}
+cache=${VEC_RPT27_CACHE_SSD:?cache de compilación privada requerida}
+ad154=${VEC_RPT27_UP_AD154:?UP154 activado y revisado requerido}
+personal27=${VEC_RPT27_UP_PERSONAL27:?UP27 activado y revisado requerido}
+pre_sha=${VEC_RPT27_PREIMAGEN_SHA256:?SHA de captura real requerida}
+helper="$scratch/generate_overlay.py"
+[[ $container =~ ^vec-codexb-rpt27-(sql-clon-)?[0-9]{8}$ ]] || fallo 'clon nominal propio requerido'
+[[ $scratch == /dev/shm/vec-rpt27-* && -d $scratch && ! -L $scratch && -O $scratch && $(stat -c %a "$scratch") == 700 ]] || fallo 'scratch propio0700 requerido'
+[[ -d $cache && ! -L $cache && -O $cache && $(stat -c %a "$cache") == 700 && $cache != "$repo_dir"/* ]] || fallo 'cache propia0700 fuera de Git requerida'
+[[ -d $modcache && ! -L $modcache && $pre_sha =~ ^[0-9a-f]{64}$ ]] || fallo 'faltan módulos o huella real'
+[[ $ad154 == "$repo_dir"/deploy/postgresql/autorizacion_atestada_v3/migraciones/000154_*.up.sql && -f $ad154 && ! -L $ad154 ]] || fallo 'no aplicar borrador ni otra AD'
+[[ $personal27 == "$repo_dir"/deploy/postgresql/personal/migraciones/000027_*.up.sql && -f $personal27 && ! -L $personal27 ]] || fallo 'no aplicar borrador ni otra Personal'
+[[ $(docker inspect --format '{{.HostConfig.NetworkMode}} {{.HostConfig.Memory}} {{.HostConfig.NanoCpus}} {{.HostConfig.PidsLimit}}' "$container") == 'none 2147483648 2000000000 256' ]] || fallo 'clon fuera de límites aislados'
+psql_run() { local user=$1; shift; docker exec -i "$container" /usr/bin/env -i PATH=/usr/local/bin:/usr/bin:/bin psql -X -qAt -v ON_ERROR_STOP=1 -v VERBOSITY=verbose -U "$user" -d postgres "$@"; }
+valor() { psql_run postgres -c "$1"; }
+archivo() { psql_run postgres -v rpt27_ensayo_autorizado=on < "$1" > "$scratch/sql.log" 2>&1 || fallo 'SQL falló: diagnóstico privado'; }
+[[ $(valor "SELECT current_setting('server_version_num')") == 180004 ]] || fallo 'PG18.4 requerido'
+[[ ! -e $scratch/overlay.json && ! -e $scratch/capacidad_v3_vector_sql_test.go ]] || fallo 'scratch ya usado: conservarlo'
+[[ $(valor "SELECT to_regprocedure('vec_personal.consultar_relacion_para_rpt_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL AND to_regprocedure('vec_autorizacion_atestada_v3.consumir_relacion_para_rpt_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL") == t ]] || fallo 'RPT27/154 ya presentes: no reaplicar'
+# Snapshot de todas las fachadas A previas y CHECK. El núcleo se normaliza con
+# el inverso textual del delta154 congelado, jamás ejecutando DOWN. El contrato
+# de segmentos debe coincidir con AD154; su ausencia detiene antes de aplicar.
+python3 - "$ad154" "$scratch/preservacion.sql" <<'PYPRESERVACION'
+import pathlib,re,sys
+s=pathlib.Path(sys.argv[1]).read_text()
+def literal(n):
+ a=re.findall(r'\b'+n+r' text:=\$'+n+r'\$(.*?)\$'+n+r'\$;',s,re.S)
+ assert len(a)==1, 'delta154 debe declarar cada segmento una vez'
+ t='$rpt27'+n+'$';assert t not in a[0];return t+a[0]+t
+inv='replace(replace(replace(pg_get_functiondef(p.oid),'+literal('extension')+'||'+literal('marca')+','+literal('marca')+'),'+literal('excl_nuevo')+','+literal('excl')+'),'+literal('runtime_nuevo')+','+literal('runtime')+')'
+q="""SELECT jsonb_build_object('funciones',(SELECT jsonb_agg(jsonb_build_object('oid',p.oid,'metadatos',to_jsonb(p)-'prosrc',
+ 'definicion_sha256',encode(sha256(convert_to(CASE WHEN p.proname='consumir_decision_mutacion_v3_interna' THEN __INV__ ELSE pg_get_functiondef(p.oid) END,'UTF8')),'hex'),
+ 'dependencias',coalesce((SELECT jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype) FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=p.oid),'[]'::jsonb),
+ 'dependencias_compartidas',coalesce((SELECT jsonb_agg(to_jsonb(d) ORDER BY d.dbid,d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype) FROM pg_shdepend d WHERE d.dbid=(SELECT oid FROM pg_database WHERE datname=current_database()) AND d.classid='pg_proc'::regclass AND d.objid=p.oid),'[]'::jsonb)) ORDER BY p.oid)
+ FROM pg_proc p WHERE p.pronamespace='vec_autorizacion_atestada_v3'::regnamespace AND p.oid IS DISTINCT FROM to_regprocedure('vec_autorizacion_atestada_v3.consumir_relacion_para_rpt_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)')),
+ 'fuente17',jsonb_build_object(
+ 'filas',(__FILAS17__),
+ 'tabla',(SELECT jsonb_build_object('owner',c.relowner,'acl',c.relacl,'rls',c.relrowsecurity,'forzada',c.relforcerowsecurity) FROM pg_class c WHERE c.oid='vec_personal.relacion_servicio_historia'::regclass),
+ 'triggers',(SELECT jsonb_agg(to_jsonb(t) ORDER BY t.oid) FROM pg_trigger t WHERE t.tgrelid='vec_personal.relacion_servicio_historia'::regclass AND NOT(t.tgname='relacion_rpt_generacion_insertada' AND t.tgtype=5 AND t.tgfoid=to_regprocedure('vec_personal.avanzar_generacion_relacion_rpt_v1()'))),
+ 'validador_sha256',(SELECT encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex') FROM pg_proc p WHERE p.oid='vec_personal.validar_revision_registro_empleado_v1()'::regprocedure)),
+ 'audiencias',(SELECT jsonb_build_object('validada',c.convalidated,'definicion',pg_get_constraintdef(c.oid,true)) FROM pg_constraint c WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass AND c.conname='clave_capacidad_version_audiencia_consumo_check'));"""
+q=q.replace('__INV__',inv)
+filas="SELECT coalesce(jsonb_agg(to_jsonb(h) ORDER BY h.relacion_ref,h.revision),'[]'::jsonb) FROM vec_personal.relacion_servicio_historia h"
+pathlib.Path(sys.argv[2]+'.plantilla').write_text(q)
+pathlib.Path(sys.argv[2]).write_text(q.replace('__FILAS17__',filas))
+PYPRESERVACION
+captura() { psql_run postgres < "$scratch/preservacion.sql" > "$1"; }
+captura "$scratch/preimagen.json"
+[[ $(sha256sum "$scratch/preimagen.json" | cut -d' ' -f1) == "$pre_sha" ]] || fallo 'preimagen distinta de la aprobada'
+# Fijar los identificadores originales de17: añadir fixtures después no altera
+# la comparación; cambiar o borrar una fila previa sí debe hacerla fallar.
+python3 - "$scratch/preimagen.json" "$scratch/preservacion.sql" <<'PYCLAVES17'
+import json,pathlib,sys
+p=pathlib.Path(sys.argv[2]);j=json.loads(pathlib.Path(sys.argv[1]).read_text())
+claves=[{'relacion_ref':h['relacion_ref'],'revision':h['revision']} for h in j['fuente17']['filas']]
+v=json.dumps(claves,separators=(',',':'));assert '$rpt27claves17$' not in v
+filas="SELECT coalesce(jsonb_agg(to_jsonb(h) ORDER BY h.relacion_ref,h.revision),'[]'::jsonb) FROM vec_personal.relacion_servicio_historia h WHERE(h.relacion_ref,h.revision) IN(SELECT x->>'relacion_ref',(x->>'revision')::int FROM jsonb_array_elements($rpt27claves17$"+v+"$rpt27claves17$::jsonb) x)"
+p.write_text(pathlib.Path(str(p)+'.plantilla').read_text().replace('__FILAS17__',filas))
+PYCLAVES17
+sha256sum "$ad154" "$personal27" > "$scratch/migraciones_journal.txt"
+archivo "$ad154"; archivo "$personal27"
+captura "$scratch/post154.json"
+cmp -s "$scratch/preimagen.json" "$scratch/post154.json" || fallo 'delta154 alteró autoridades previas'
+archivo "$base_dir/relacion_para_rpt_000027.sql.borrador"
+valor "CREATE ROLE vec_rpt27_ensayo_runtime LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE INHERIT NOREPLICATION NOBYPASSRLS;
+ GRANT vec_personal_ejecutor TO vec_rpt27_ensayo_runtime WITH ADMIN FALSE,INHERIT TRUE,SET FALSE;
+ GRANT CONNECT ON DATABASE postgres TO vec_rpt27_ensayo_runtime;
+ CREATE ROLE vec_rpt27_ensayo_registrador LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE INHERIT NOREPLICATION NOBYPASSRLS;
+ GRANT vec_personal_registrador_intento_relacion_rpt TO vec_rpt27_ensayo_registrador WITH ADMIN FALSE,INHERIT TRUE,SET FALSE;
+ CREATE ROLE vec_rpt27_ensayo_ca LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE INHERIT NOREPLICATION NOBYPASSRLS;
+ GRANT vec_contexto_actor_v1_runtime TO vec_rpt27_ensayo_ca WITH ADMIN FALSE,INHERIT TRUE,SET FALSE;
+ GRANT USAGE ON SCHEMA public TO vec_rpt27_ensayo_runtime;
+ GRANT SELECT ON public.rpt27_ensayo_vector TO vec_rpt27_ensayo_runtime;
+ GRANT EXECUTE ON FUNCTION public.rpt27_ensayo_consultar(text,text) TO vec_rpt27_ensayo_runtime;" > /dev/null
+head -c32 /dev/urandom > "$scratch/hmac.bin"
+python3 - "$scratch/hmac.bin" "$scratch/gobierno.sql" <<'PYGOBIERNO'
+import pathlib,sys
+h=pathlib.Path(sys.argv[1]).read_bytes().hex()
+pathlib.Path(sys.argv[2]).write_text("BEGIN; SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario; INSERT INTO vec_autorizacion_atestada_v3.clave_capacidad_version(clave_id,version,revision_gobierno,huella_gobierno_sha256,secreto_hmac,huella_secreto_sha256,emisor_id,audiencia_consumo,valida_desde,valida_hasta,acto_ref) SELECT 'clave:rpt27:ensayo',max(version)+1,max(revision_gobierno)+1,repeat('f',64),decode('"+h+"','hex'),encode(sha256(decode('"+h+"','hex')),'hex'),'broker-rpt27-sintetico','vec_personal.relacion_rpt.v1',clock_timestamp()-interval '1 hour',clock_timestamp()+interval '2 hours','acto:rpt27:clave' FROM vec_autorizacion_atestada_v3.clave_capacidad_version; INSERT INTO vec_autorizacion_atestada_v3.puntero_clave_emision(orden,clave_id,version,establecida_en,acto_ref) SELECT (SELECT max(orden)+1 FROM vec_autorizacion_atestada_v3.puntero_clave_emision),clave_id,version,clock_timestamp(),'acto:rpt27:puntero-clave' FROM vec_autorizacion_atestada_v3.clave_capacidad_version WHERE clave_id='clave:rpt27:ensayo'; COMMIT;")
+PYGOBIERNO
+archivo "$scratch/gobierno.sql"
+secuencia=$(valor 'SELECT ultima_secuencia+1 FROM vec_autorizacion.motivo_v2_checkpoint_origen WHERE control_id')
+valor "BEGIN; SET LOCAL ROLE vec_autorizacion_motivos_proyector; SELECT vec_autorizacion.publicar_motivos_autorizacion_v2('evento_1111111111111111111111111111a027',$secuencia,repeat('e',64),'motivos_rpt27_ensayo',1,repeat('e',64),clock_timestamp()-interval '1 minute',jsonb_build_array(jsonb_build_object('clave','motivo_11111111111111111111111111111111','vigente_desde',to_char(clock_timestamp()-interval '2 minutes','YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"'),'vigente_hasta',NULL))); COMMIT;" > "$scratch/motivo.log" 2>&1 || fallo 'publicación de motivo nominal falló'
+# Generación de overlay con fuente original de sólo lectura.
+cat > "$helper" <<'RPT27_GENERADOR_PY'
+#!/usr/bin/env python3
+# Generates an ephemeral Go test overlay without changing the target worktree.
+import json
+import os
+import pathlib
+import sys
+
+if len(sys.argv) != 3:
+    raise SystemExit('usage: generate_overlay.py WORKTREE SCRATCH')
+root = pathlib.Path(sys.argv[1]).resolve(strict=True)
+scratch = pathlib.Path(sys.argv[2]).resolve(strict=True)
+source = root / 'internal/vec/adapters/seguridad/confianzaatestacion/capacidad_v3_vector_sql_test.go'
+original = source.read_text()
+original = original.replace('"crypto/rand"', '"crypto/rand"\n\t"crypto/sha256"\n\t"fmt"\n\t"io"')
+original = original.replace('"vec-diputacion-granada/internal/vec/domain"', '"vec-diputacion-granada/internal/vec/application"\n\t"vec-diputacion-granada/internal/vec/domain"')
+extra = r'''
+// RPT27 is an ephemeral synthetic PDP fixture. Neither this test nor its
+// import bridge establishes production identity, PDP governance or database I/O.
+// The parent SQL runner must register the exact preparation before importing
+// its receipt; SQL consumers revalidate that durable state before any effect.
+const rpt27Accion = "personal.relacion_rpt.consultar"
+const rpt27Audiencia = "vec_personal.relacion_rpt.v1"
+const rpt27Finalidad = "conciliar_relacion_laboral_para_rpt"
+const rpt27Operacion = "relacion_para_rpt"
+const rpt27Tipo = "relacion_para_rpt"
+const rpt27FormatoTiempo = "2006-01-02T15:04:05.000000Z"
+
+var rpt27Campos = []string{"cobertura", "corte", "estado", "periodo", "procedencia", "version"}
+
+type rpt27Confirmacion struct {
+	DecisionRef          string `json:"decision_ref"`
+	DecisionHuellaSHA256 string `json:"decision_huella_sha256"`
+	EmitidaEn            string `json:"emitida_en"`
+	ValidaHasta          string `json:"valida_hasta"`
+	RegistradaEn         string `json:"registrada_en"`
+}
+type rpt27Entrada struct {
+	entradaVectorSQLO205
+	Fase                string             `json:"fase"`
+	EmpleadoRef         string             `json:"empleado_ref"`
+	RelacionRef         string             `json:"relacion_ref"`
+	OrganismoRef        string             `json:"organismo_ref"`
+	VersionEsperada     int64              `json:"version_esperada"`
+	VigenteEn           string             `json:"vigente_en"`
+	ConocidoEn          string             `json:"conocido_en"`
+	MaterialCanonicoB64 string             `json:"material_canonico_b64"`
+	ClaveHMACArchivo    string             `json:"clave_hmac_archivo"`
+	Confirmacion        *rpt27Confirmacion `json:"confirmacion,omitempty"`
+}
+type rpt27Salida struct {
+	bundleVectorO205
+	Fase                 string                       `json:"fase"`
+	MaterialCanonicoB64  string                       `json:"material_canonico_b64"`
+	MaterialHuellaSHA256 string                       `json:"material_huella_sha256"`
+	DecisionHuellaSHA256 string                       `json:"decision_huella_sha256"`
+	Confirmacion         *rpt27Confirmacion           `json:"confirmacion,omitempty"`
+	Campos               []string                     `json:"campos"`
+	Obligaciones         []string                     `json:"obligaciones"`
+	Politicas            []domain.PoliticaRestrictiva `json:"politicas"`
+	RevisionCatalogo     uint64                       `json:"revision_catalogo"`
+	HuellaCatalogoSHA256 string                       `json:"huella_catalogo_sha256"`
+	PDP                  string                       `json:"pdp"`
+}
+
+func TestGenerarVectorRPT27ParaSQL(t *testing.T) {
+	input, output := os.Getenv("VEC_RPT27_VECTOR_ENTRADA"), os.Getenv("VEC_RPT27_VECTOR_SALIDA")
+	if input == "" || output == "" {
+		t.Skip("ephemeral RPT27 runner only")
+	}
+	contenido, err := os.ReadFile(input)
+	if err != nil || len(contenido) > 2*1024*1024 {
+		t.Fatal("RPT27 input unavailable or oversized")
+	}
+	var e rpt27Entrada
+	d := json.NewDecoder(bytes.NewReader(contenido))
+	d.DisallowUnknownFields()
+	if d.Decode(&e) != nil || d.Decode(new(any)) != io.EOF {
+		t.Fatal("RPT27 input invalid")
+	}
+	if (e.Fase != "preparar" && e.Fase != "emitir") || e.Caso == "" || strings.ContainsAny(e.Caso, "/\\") {
+		t.Fatal("RPT27 phase/case invalid")
+	}
+	if e.ClaveHMACB64 != "" {
+		t.Fatal("HMAC must be supplied in a private file")
+	}
+	salida := rpt27Generar(t, e)
+	canon, err := json.Marshal(salida)
+	if err != nil {
+		t.Fatal("RPT27 output encoding failed")
+	}
+	rpt27EscribirPrivado(t, output, canon)
+}
+
+func rpt27EscribirPrivado(t *testing.T, ruta string, contenido []byte) {
+	t.Helper()
+	f, err := os.OpenFile(ruta, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if err != nil {
+		t.Fatal("RPT27 private output unavailable")
+	}
+	if _, err := f.Write(contenido); err != nil {
+		f.Close()
+		t.Fatal("RPT27 private output write failed")
+	}
+	if f.Close() != nil {
+		t.Fatal("RPT27 output close failed")
+	}
+}
+
+func rpt27Generar(t *testing.T, e rpt27Entrada) rpt27Salida {
+	t.Helper()
+	ahora := rpt27Instante(t, e.Ahora)
+	resuelto := rpt27Instante(t, e.ResueltoEn)
+	contexto := exigirBase64O205(t, e.ContextoB64)
+	manifiesto := exigirBase64O205(t, e.ManifiestoB64)
+	material := exigirBase64O205(t, e.MaterialCanonicoB64)
+	if len(material) == 0 || len(material) > 128*1024 || !json.Valid(material) {
+		t.Fatal("RPT27 material invalid")
+	}
+	// Canonical PostgreSQL JSONB text is supplied by the parent. It is hashed
+	// byte-for-byte; Go must not reserialize it or alter ordering/whitespace.
+	var objeto map[string]json.RawMessage
+	if json.Unmarshal(material, &objeto) != nil || len(objeto) != 17 {
+		t.Fatal("RPT27 material requires exactly 17 keys")
+	}
+	claves := []string{"esquema", "operacion", "empleado_ref", "relacion_ref", "organismo_ref", "version_esperada", "vigente_en", "conocido_en", "actor_ref", "contexto_actor_ref", "contexto_version", "cuenta_ref", "cuenta_version", "perfil_ref", "perfil_version", "persona_ref", "persona_version"}
+	for _, clave := range claves {
+		if _, ok := objeto[clave]; !ok {
+			t.Fatal("RPT27 material key missing")
+		}
+	}
+	rpt27ExigirCampo(t, objeto, "esquema", "vec.personal.relacion-rpt.consulta.v1")
+	rpt27ExigirCampo(t, objeto, "empleado_ref", e.EmpleadoRef)
+	suma := sha256.Sum256(material)
+	huellaMaterial := fmt.Sprintf("%x", suma)
+	var plantilla decisionPlantillaO205
+	var motivo motivoCanonicoO205
+	if json.Unmarshal(exigirBase64O205(t, e.DecisionPlantillaB64), &plantilla) != nil ||
+		json.Unmarshal(exigirBase64O205(t, e.MotivoB64), &motivo) != nil {
+		t.Fatal("RPT27 decision/motive invalid")
+	}
+	if plantilla.Accion != rpt27Accion || plantilla.ModuloID != "personal" || plantilla.TipoRecurso != rpt27Tipo || plantilla.Finalidad != rpt27Finalidad || plantilla.RecursoRef != e.RelacionRef || e.AudienciaConsumo != rpt27Audiencia {
+		t.Fatal("RPT27 nominal authority mismatch")
+	}
+	if e.EmpleadoRef == "" {
+		t.Fatal("RPT27 employee reference missing")
+	}
+	motivoCanon, err := domain.RepresentacionCanonicaMotivoAutorizacionV2(motivo.Referencia)
+	if err != nil || !bytes.Equal(motivoCanon, exigirBase64O205(t, e.MotivoB64)) {
+		t.Fatal("RPT27 motive is not canonical")
+	}
+	actor, err := domain.RehidratarContextoActorVinculadoV2(contexto)
+	if err != nil {
+		t.Fatal("RPT27 actor invalid")
+	}
+	rpt27ExigirCampo(t, objeto, "actor_ref", actor.Principal.ID)
+	rpt27ExigirCampo(t, objeto, "contexto_actor_ref", actor.Instantanea.VinculoRef)
+	rpt27ExigirCampo(t, objeto, "cuenta_ref", actor.Instantanea.CuentaRef)
+	rpt27ExigirCampo(t, objeto, "cuenta_version", actor.Instantanea.CuentaVersion)
+	rpt27ExigirCampo(t, objeto, "perfil_ref", actor.PerfilActivoRef)
+	rpt27ExigirCampo(t, objeto, "perfil_version", actor.Instantanea.PerfilVersion)
+	rpt27ExigirCampo(t, objeto, "persona_ref", actor.Instantanea.PersonaRef)
+	rpt27ExigirCampo(t, objeto, "persona_version", actor.Instantanea.PersonaVersion)
+	if actor.Instantanea.PersonaVersion != e.PersonaVersion || actor.Instantanea.PerfilVersion != e.PerfilVersion {
+		t.Fatal("RPT27 actor versions mismatch")
+	}
+	// Concesión nominal de la terna objetivo; no convierte al actor en titular.
+	rpt27ExigirCampo(t, objeto, "operacion", "relacion_para_rpt")
+	rpt27ExigirCampo(t, objeto, "relacion_ref", e.RelacionRef)
+	rpt27ExigirCampo(t, objeto, "organismo_ref", e.OrganismoRef)
+	rpt27ExigirCampo(t, objeto, "version_esperada", e.VersionEsperada)
+	rpt27ExigirCampo(t, objeto, "vigente_en", e.VigenteEn)
+	rpt27ExigirCampo(t, objeto, "conocido_en", e.ConocidoEn)
+	resultado := domain.ResultadoContextoActorRegistradoV2{
+		RegistroContextoRef: plantilla.VinculoAutenticacionActor.RegistroContextoRef,
+		Contexto:            actor, RepresentacionCanonica: contexto,
+		HuellaSHA256:                      plantilla.VinculoAutenticacionActor.ContextoActorHuellaSHA256,
+		ManifiestoProcedenciaCanonico:     manifiesto,
+		ManifiestoProcedenciaHuellaSHA256: e.ManifiestoHuellaSHA256,
+		AutoridadEfectiva:                 domain.AutoridadProcedenciaContextoActorV1(e.AutoridadEfectiva),
+		ResueltoEnAutoritativo:            resuelto,
+	}
+	if resultado.Validar() != nil {
+		t.Fatal("RPT27 registered context invalid")
+	}
+	vinculo, err := domain.CrearVinculoAutenticacionActorV2(context.Background(),
+		revalidadorConfianzaAtestacionV3Prueba{resultado: plantilla.VinculoAutenticacionActor.Autenticacion()},
+		domain.SolicitudRevalidacionAutenticacionActorV1{AutenticacionRef: plantilla.VinculoAutenticacionActor.AutenticacionRef, SesionRef: plantilla.VinculoAutenticacionActor.SesionRef},
+		resolutorConfianzaAtestacionV3Prueba{resultado: resultado},
+		domain.SolicitudContextoActor{Cuenta: domain.CuentaAutenticadaContextoActor{CuentaRef: actor.Instantanea.CuentaRef, Metodo: actor.Principal.AuthMethod, Garantia: actor.Principal.AuthAssurance}, PerfilActivoRef: actor.PerfilActivoRef},
+		&relojConfianzaAtestacionV3Prueba{ahora: ahora})
+	if err != nil {
+		t.Fatal("RPT27 nominal authentication binding failed")
+	}
+	correlacion, err := domain.GenerarReferenciaCorrelacionAutorizacionV2(context.Background(), generadorCorrelacionConfianzaAtestacionV3Prueba{valor: plantilla.CorrelacionRef})
+	if err != nil {
+		t.Fatal("RPT27 correlation failed")
+	}
+	solicitud, err := domain.NuevaSolicitudAutorizacionLigadaV3(domain.DatosSolicitudAutorizacionLigadaV3{
+		VinculoAutenticacionActor: vinculo, ReferenciaMotivo: motivo.Referencia,
+		Accion: rpt27Accion, Finalidad: rpt27Finalidad, Correlacion: correlacion,
+		Recurso: domain.RecursoAutorizable{Referencia: e.RelacionRef, ModuloID: "personal", Tipo: rpt27Tipo,
+			Ambitos:   map[string]string{"empleado_ref": e.EmpleadoRef, "organismo_ref": e.OrganismoRef, "relacion_ref": e.RelacionRef},
+			Atributos: map[string]string{"conocido_en": e.ConocidoEn, "material_sha256": huellaMaterial, "operacion": rpt27Operacion, "version_esperada": strconv.FormatInt(e.VersionEsperada, 10), "vigente_en": e.VigenteEn}},
+	})
+	if err != nil {
+		t.Fatal("RPT27 nominal request failed")
+	}
+	id := strings.ReplaceAll(e.Caso, "-", "_")
+	rol := domain.VersionRol{
+		RolID: "rpt27_go_" + id, Version: 1, Nombre: "RPT27 synthetic nominal fixture", Estado: domain.EstadoVersionRolPublicada,
+		Concesiones:  []domain.ConcesionRol{{Accion: rpt27Accion, ModuloID: "personal", TipoRecurso: rpt27Tipo, Finalidades: []string{rpt27Finalidad}, GarantiaMinima: domain.AuthAssuranceHigh, CamposPermitidos: append([]string(nil), rpt27Campos...), Obligaciones: []string{}}},
+		PublicadaPor: "autoridad-rpt27-go-sintetica", PublicadaEn: ahora.Add(-10 * time.Minute),
+	}
+	control := domain.ControlVigenciaVersionRol{VersionRolRef: rol.Referencia(), Revision: 1, Estado: domain.EstadoControlVigenciaVersionRolHabilitada, ActualizadoPor: rol.PublicadaPor, ActualizadoEn: ahora.Add(-5 * time.Minute)}
+	asignacion := domain.AsignacionPerfil{AsignacionID: e.AsignacionID, Version: e.AsignacionVersion, PerfilActivoRef: actor.PerfilActivoRef, PrincipalID: actor.Principal.ID, VersionRolRef: rol.Referencia(), Estado: domain.EstadoAsignacionPerfilActiva,
+		Ambitos: []domain.AmbitoPerfil{{Clave: "empleado_ref", Valores: []string{e.EmpleadoRef}}, {Clave: "organismo_ref", Valores: []string{e.OrganismoRef}}, {Clave: "relacion_ref", Valores: []string{e.RelacionRef}}}, EmitidaPor: rol.PublicadaPor, EmitidaEn: ahora.Add(-10 * time.Minute), VigenteDesde: ahora.Add(-5 * time.Minute), VigenteHasta: ahora.Add(30 * time.Minute)}
+	huellaCatalogo, err := domain.HuellaCatalogoPoliticasAutorizacion(e.Politicas)
+	if err != nil || huellaCatalogo != e.HuellaCatalogoSHA256 || e.RevisionCatalogo == 0 {
+		t.Fatal("RPT27 policy catalog mismatch")
+	}
+	instantanea := domain.InstantaneaAutorizacion{AsignacionPerfil: asignacion, VersionRol: rol, ControlVigenciaVersionRol: control, Politicas: e.Politicas, RevisionCatalogoPoliticas: e.RevisionCatalogo, CatalogoPoliticasHuellaSHA256: e.HuellaCatalogoSHA256}
+	evidencia, err := domain.NuevaEvidenciaEvaluacionAutorizacionV3(solicitud, instantanea, plantilla.DecisionRef, ahora, ahora.Add(90*time.Second))
+	if err != nil {
+		t.Fatal("RPT27 nominal evaluation failed")
+	}
+	decision, err := domain.NuevaDecisionAutorizacionLigadaV3(solicitud, evidencia)
+	if err != nil {
+		t.Fatal("RPT27 nominal decision failed")
+	}
+	concedida, codigo, err := decision.Resultado()
+	if err != nil || !concedida || codigo != "concedida" {
+		t.Fatal("RPT27 policy fixture denied")
+	}
+	decisionCanon, err := domain.RepresentacionCanonicaDecisionAutorizacionV3(decision)
+	if err != nil {
+		t.Fatal("RPT27 decision serialization failed")
+	}
+	huellaDecision, err := domain.HuellaSHA256DecisionAutorizacionV3(decision)
+	if err != nil {
+		t.Fatal("RPT27 decision hash failed")
+	}
+	salida := rpt27Salida{Fase: e.Fase, MaterialCanonicoB64: e.MaterialCanonicoB64, MaterialHuellaSHA256: huellaMaterial, DecisionHuellaSHA256: huellaDecision, Campos: append([]string(nil), rpt27Campos...), Obligaciones: []string{}, Politicas: e.Politicas, RevisionCatalogo: e.RevisionCatalogo, HuellaCatalogoSHA256: e.HuellaCatalogoSHA256, PDP: "fixture_nominal_sintetica_sin_proveedor_operativo"}
+	salida.DecisionB64 = base64.StdEncoding.EncodeToString(decisionCanon)
+	salida.MotivoB64 = base64.StdEncoding.EncodeToString(motivoCanon)
+	salida.ContextoB64 = e.ContextoB64
+	salida.PersonaVersion = e.PersonaVersion
+	salida.PerfilVersion = e.PerfilVersion
+	salida.VersionRolDocumento = exigirJSONO205(t, rol)
+	salida.ControlRolDocumento = exigirJSONO205(t, control)
+	salida.AsignacionDocumento = exigirJSONO205(t, asignacion)
+	if e.Fase == "preparar" {
+		if e.Confirmacion != nil {
+			t.Fatal("RPT27 preparation must not import a receipt")
+		}
+		return salida
+	}
+	if e.Confirmacion == nil {
+		t.Fatal("RPT27 emission requires SQL receipt")
+	}
+	registradaEn := rpt27Instante(t, e.Confirmacion.RegistradaEn)
+	if registradaEn.Before(ahora) {
+		t.Fatal("RPT27 registration precedes decision")
+	}
+	instanteCripto := time.Now().UTC().Truncate(time.Microsecond)
+	if instanteCripto.Before(registradaEn) {
+		instanteCripto = registradaEn
+	}
+	puente := &rpt27PDP{t: t, decision: decision, confirmacion: *e.Confirmacion}
+	publica, privada, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal("RPT27 ephemeral root generation failed")
+	}
+	defer borrarBytesConfianzaAtestacion(privada)
+	raiz, err := NuevaRaizPublicaAtestacionAutorizacionV3EdDSA(e.RaizClaveID, e.RaizVersion, publica, e.AudienciaDespliegue, EstadoClaveAtestacionAutorizacionV3Activa, ahora.Add(-10*time.Minute), ahora.Add(time.Hour), time.Time{})
+	if err != nil {
+		t.Fatal("RPT27 ephemeral root invalid")
+	}
+	config, err := NuevaConfiguracionConfianzaAtestacionAutorizacionV3(e.RevisionConfianza, e.SecuenciaConfianza, ahora.Add(-5*time.Minute), ahora.Add(30*time.Minute), raiz)
+	if err != nil {
+		t.Fatal("RPT27 trust fixture invalid")
+	}
+	reloj := &relojConfianzaAtestacionV3Prueba{ahora: instanteCripto}
+	confianza, err := NuevoServicioConfianzaAtestacionAutorizacionV3(config, reloj)
+	if err != nil {
+		t.Fatal("RPT27 trust service failed")
+	}
+	cabecera := domain.CabeceraAtestacionAutorizacionV3{FormatoVersion: domain.VersionFormatoAtestacionAutorizacionV3, Suite: SuiteAtestacionAutorizacionV3COSEEdDSA, ClaveID: e.RaizClaveID, Audiencia: e.AudienciaDespliegue}
+	firmante := rpt27Firmante{t: t, privada: privada, cabecera: cabecera, ahora: instanteCripto}
+	atestador, err := application.NuevoServicioAtestacionesAutorizacionV3(cabecera, firmante)
+	if err != nil {
+		t.Fatal("RPT27 attestation service failed")
+	}
+	claveBytes := rpt27LeerHMAC(t, e.ClaveHMACArchivo)
+	defer borrarBytesConfianzaAtestacion(claveBytes)
+	clave, err := NuevaClaveHMACCapacidadAtestacionAutorizacionV3(e.ClaveID, e.ClaveVersion, claveBytes, e.EmisorID, rpt27Audiencia, EstadoClaveHMACCapacidadAtestacionV3Emision, rpt27Instante(t, e.ClaveValidaDesde), rpt27Instante(t, e.ClaveValidaHasta), time.Time{}, e.RevisionGobierno, e.HuellaGobiernoSHA256)
+	if err != nil {
+		t.Fatal("RPT27 ephemeral HMAC invalid")
+	}
+	capacidades, err := NuevoEmisorCapacidadesAtestacionAutorizacionV3(clave, reloj)
+	if err != nil {
+		t.Fatal("RPT27 capability emitter failed")
+	}
+	emisor, err := NuevoEmisorMaterialAutorizacionAtestadaV3(puente, atestador, confianza, capacidades)
+	if err != nil {
+		t.Fatal("RPT27 nominal material emitter failed")
+	}
+	_, confirmacion, exportador, err := emisor.EmitirMaterialAutorizacionAtestadaV3(context.Background(), solicitud, resultado)
+	if err != nil {
+		t.Fatal("RPT27 public nominal emission failed")
+	}
+	exportacion, err := exportador.ExportarMaterialParaConsumidor()
+	if err != nil {
+		t.Fatal("RPT27 public nominal material export failed")
+	}
+	cd, err := confirmacion.Datos()
+	if err != nil {
+		t.Fatal("RPT27 confirmation invalid")
+	}
+	salida.Confirmacion = &rpt27Confirmacion{DecisionRef: cd.DecisionRef, DecisionHuellaSHA256: cd.DecisionHuellaSHA256, EmitidaEn: cd.EmitidaEn.Format(rpt27FormatoTiempo), ValidaHasta: cd.ValidaHasta.Format(rpt27FormatoTiempo), RegistradaEn: cd.RegistradaEn.Format(rpt27FormatoTiempo)}
+	salida.CapacidadB64 = base64.StdEncoding.EncodeToString(exportacion.CapacidadCanonica())
+	salida.DecisionB64 = base64.StdEncoding.EncodeToString(exportacion.DecisionCanonica())
+	salida.MotivoB64 = base64.StdEncoding.EncodeToString(exportacion.MotivoCanonico())
+	salida.ContextoB64 = base64.StdEncoding.EncodeToString(exportacion.ContextoActorCanonico())
+	salida.PayloadB64 = base64.StdEncoding.EncodeToString(exportacion.PayloadVECAD3())
+	salida.COSEB64 = base64.StdEncoding.EncodeToString(exportacion.SobreCOSESign1())
+	salida.EvidenciaB64 = base64.StdEncoding.EncodeToString(exportacion.EvidenciaVerificacion())
+	salida.SPKIB64 = base64.StdEncoding.EncodeToString(exportacion.RaizPublicaSPKI())
+	return salida
+}
+
+func rpt27ExigirCampo(t *testing.T, objeto map[string]json.RawMessage, clave string, esperado any) {
+	t.Helper()
+	canon, err := json.Marshal(esperado)
+	if err != nil || !bytes.Equal(objeto[clave], canon) {
+		t.Fatal("RPT27 material context mismatch")
+	}
+}
+func rpt27ParsearInstante(valor string) (time.Time, error) {
+	instante, err := time.Parse(time.RFC3339Nano, valor)
+	if err != nil || instante.IsZero() || instante.Year() < 1 || instante.Year() > 9999 || instante.Nanosecond()%1000 != 0 {
+		return time.Time{}, errors.New("RPT27 timestamp invalid")
+	}
+	_, desplazamiento := instante.Zone()
+	if desplazamiento != 0 {
+		return time.Time{}, errors.New("RPT27 timestamp must be UTC")
+	}
+	return instante.UTC(), nil
+}
+func rpt27Instante(t *testing.T, valor string) time.Time {
+	t.Helper()
+	instante, err := rpt27ParsearInstante(valor)
+	if err != nil {
+		t.Fatal("RPT27 timestamp invalid")
+	}
+	return instante
+}
+
+func rpt27LeerHMAC(t *testing.T, ruta string) []byte {
+	t.Helper()
+	info, err := os.Lstat(ruta)
+	if err != nil || !info.Mode().IsRegular() || info.Mode().Perm() != 0600 || info.Size() != 32 {
+		t.Fatal("RPT27 HMAC file must be regular, 0600 and 32 raw bytes")
+	}
+	f, err := os.Open(ruta)
+	if err != nil {
+		t.Fatal("RPT27 HMAC file unavailable")
+	}
+	defer f.Close()
+	actual, err := f.Stat()
+	if err != nil || !os.SameFile(info, actual) {
+		t.Fatal("RPT27 HMAC file changed")
+	}
+	clave, err := io.ReadAll(io.LimitReader(f, 33))
+	if err != nil || len(clave) != 32 {
+		t.Fatal("RPT27 HMAC file invalid")
+	}
+	return clave
+}
+
+type rpt27PDP struct {
+	t            *testing.T
+	decision     domain.DecisionAutorizacionLigadaV3
+	confirmacion rpt27Confirmacion
+}
+
+func (p *rpt27PDP) ExigirSolicitudLigadaV3(ctx context.Context, s domain.SolicitudAutorizacionLigadaV3, r domain.ResultadoContextoActorRegistradoV2) (domain.DecisionAutorizacionLigadaV3, ports.ConfirmacionRegistroConcesionAutorizacionLigadaV3, error) {
+	d, err := s.Datos()
+	if err != nil {
+		return domain.DecisionAutorizacionLigadaV3{}, ports.ConfirmacionRegistroConcesionAutorizacionLigadaV3{}, err
+	}
+	orden, err := ports.NuevaOrdenRegistroConcesionCandidataAutorizacionLigadaV3(s, p.decision, d.ReferenciaMotivo, r)
+	if err != nil {
+		return domain.DecisionAutorizacionLigadaV3{}, ports.ConfirmacionRegistroConcesionAutorizacionLigadaV3{}, err
+	}
+	confirmada, err := ports.RegistrarConcesionCandidataAutorizacionLigadaV3SiInstantaneaVigente(ctx, p, orden)
+	return p.decision, confirmada, err
+}
+func (p *rpt27PDP) RegistrarConcesionCandidataAutorizacionLigadaV3SiInstantaneaVigente(_ context.Context, orden ports.OrdenRegistroConcesionCandidataAutorizacionLigadaV3) (time.Time, error) {
+	d, err := orden.Datos()
+	if err != nil {
+		return time.Time{}, err
+	}
+	canon, err := domain.RepresentacionCanonicaDecisionAutorizacionV3(d.Decision)
+	if err != nil {
+		return time.Time{}, err
+	}
+	var esperada rpt27Confirmacion
+	if json.Unmarshal(canon, &esperada) != nil {
+		return time.Time{}, errors.New("RPT27 decision invalid")
+	}
+	esperada.DecisionHuellaSHA256, err = domain.HuellaSHA256DecisionAutorizacionV3(d.Decision)
+	if err != nil {
+		return time.Time{}, err
+	}
+	// Only the registered timestamp comes from SQL; identity, decision hash
+	// and validity must match the prepared nominal exactly.
+	if esperada.DecisionRef != p.confirmacion.DecisionRef || esperada.DecisionHuellaSHA256 != p.confirmacion.DecisionHuellaSHA256 {
+		return time.Time{}, errors.New("RPT27 durable receipt mismatch")
+	}
+	for _, par := range [][2]string{{esperada.EmitidaEn, p.confirmacion.EmitidaEn}, {esperada.ValidaHasta, p.confirmacion.ValidaHasta}} {
+		a, ea := rpt27ParsearInstante(par[0])
+		b, eb := rpt27ParsearInstante(par[1])
+		if ea != nil || eb != nil || !a.Equal(b) {
+			return time.Time{}, errors.New("RPT27 durable receipt time mismatch")
+		}
+	}
+	return rpt27ParsearInstante(p.confirmacion.RegistradaEn)
+}
+
+type rpt27Firmante struct {
+	t        *testing.T
+	privada  ed25519.PrivateKey
+	cabecera domain.CabeceraAtestacionAutorizacionV3
+	ahora    time.Time
+}
+
+func (f rpt27Firmante) FirmarAtestacionAutorizacionV3(ctx context.Context, solicitud ports.SolicitudFirmaAtestacionAutorizacionV3) (ports.ResultadoFirmaAtestacionAutorizacionV3, error) {
+	if ctx.Err() != nil {
+		return ports.ResultadoFirmaAtestacionAutorizacionV3{}, ctx.Err()
+	}
+	payload, err := solicitud.Mensaje()
+	if err != nil {
+		return ports.ResultadoFirmaAtestacionAutorizacionV3{}, err
+	}
+	aad, err := AADExternoAtestacionAutorizacionV3(f.cabecera.Audiencia)
+	if err != nil {
+		return ports.ResultadoFirmaAtestacionAutorizacionV3{}, err
+	}
+	sobre := firmarSobreConfianzaAtestacionV3Prueba(f.t, f.privada, []byte(f.cabecera.ClaveID), payload, aad)
+	return ports.NuevoResultadoFirmaAtestacionAutorizacionV3(solicitud, sobre, "evidencia:rpt27:fixture:crypto-real", f.ahora)
+}
+
+'''
+output = scratch / 'capacidad_v3_vector_sql_test.go'
+with output.open('x') as f:
+    os.chmod(output, 0o600)
+    f.write(original + extra)
+with (scratch / 'overlay.json').open('x') as f:
+    os.chmod(scratch / 'overlay.json', 0o600)
+    json.dump({'Replace': {str(source): str(output)}}, f)
+print('overlay prepared')
+RPT27_GENERADOR_PY
+python3 "$helper" "$repo_dir" "$scratch" > "$scratch/generador.log" 2>&1 || fallo 'generador falló'
+python3 - "$scratch/overlay.json" "$repo_dir" "$scratch" <<'PY'
+import json,pathlib,sys
+p=pathlib.Path(sys.argv[1]); o=json.loads(p.read_text()); o['Replace']={k.replace(sys.argv[2],'/src',1):v.replace(sys.argv[3],'/scratch',1) for k,v in o['Replace'].items()};p.write_text(json.dumps(o))
+PY
+toolchain=/modcache/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64
+sandbox() {
+ systemd-run --user --quiet --wait --pipe --collect -p MemoryMax=2G -p TasksMax=256 -p CPUQuota=200% -p LimitFSIZE=268435456 -p LimitNOFILE=256 \
+ /usr/bin/env -i PATH=/usr/bin:/bin /usr/bin/timeout 1800 /usr/bin/bwrap --unshare-all --die-with-parent \
+ --ro-bind /usr /usr --ro-bind /bin /bin --ro-bind /lib /lib --ro-bind /lib64 /lib64 --proc /proc --dev /dev --tmpfs /tmp \
+ --ro-bind "$repo_dir" /src --ro-bind "$modcache" /modcache --bind "$scratch" /scratch --bind "$cache" /buildcache --chdir /src \
+ /usr/bin/env -i PATH="$toolchain/bin:/usr/bin:/bin" HOME=/scratch GOROOT="$toolchain" GOTOOLCHAIN=local GOPATH=/scratch/gopath GOMODCACHE=/modcache GOCACHE=/buildcache GOPROXY=off GOSUMDB=off CGO_ENABLED=0 GOMAXPROCS=2 \
+ VEC_RPT27_VECTOR_ENTRADA=/scratch/entrada.json VEC_RPT27_VECTOR_SALIDA=/scratch/salida.json "$@"
+}
+sandbox "$toolchain/bin/go" test -c -p 8 -overlay /scratch/overlay.json -o /scratch/rpt27.test ./internal/vec/adapters/seguridad/confianzaatestacion > "$scratch/compilar.log" 2>&1 || fallo 'compilación focal aislada falló'
+
+normalizar() { # entrada exportadaSQL; fase; confirmación opcional
+ python3 - "$scratch" "$1" "${2:-}" <<'PY'
+import base64,datetime,json,pathlib,sys
+s=pathlib.Path(sys.argv[1]);p=s/'entrada.json';j=json.loads(p.read_text())
+def tiempo(x):
+    return datetime.datetime.fromisoformat(x.replace('Z','+00:00')).astimezone(datetime.timezone.utc).isoformat(timespec='microseconds').replace('+00:00','Z')
+for k in ('ahora','resuelto_en','clave_valida_desde','clave_valida_hasta'):j[k]=tiempo(j[k])
+t=json.loads(base64.b64decode(j['decision_plantilla_b64']));v=t['vinculo_autenticacion_actor']
+for k in ('autenticacion_verificada_en','sesion_emitida_en','sesion_valida_hasta','sesion_revalidada_en'):v[k]=tiempo(v[k])
+j['decision_plantilla_b64']=base64.b64encode(json.dumps(t,separators=(',',':')).encode()).decode()
+j['fase']=sys.argv[2];j['clave_hmac_archivo']='/scratch/hmac.bin'
+if sys.argv[3]:
+    c=json.loads((s/'confirmacion.json').read_text());c['registrada_en']=tiempo(c['registrada_en']);j['confirmacion']=c
+p.write_text(json.dumps(j,separators=(',',':')))
+PY
+}
+importar() { # función de ensayo; caso
+ python3 - "$scratch" "$1" "$2" <<'PY'
+import pathlib,sys
+s=pathlib.Path(sys.argv[1]);b=(s/'salida.json').read_text()
+assert '$rpt27bundle$' not in b
+(s/'importar.sql').write_text("BEGIN ISOLATION LEVEL SERIALIZABLE; SET LOCAL timezone='UTC'; SELECT public."+sys.argv[2]+"('"+sys.argv[3]+"',$rpt27bundle$"+b+"$rpt27bundle$::jsonb); COMMIT;\n")
+PY
+ psql_run postgres < "$scratch/importar.sql" > "$scratch/confirmacion.json" 2> "$scratch/importar.log" || fallo 'importación/registro durable falló'
+}
+preparar() {
+ local caso=$1 familia=${2:-$1} estado=${3:-vigente} s
+ s=$(printf '%s' "$caso" | sha256sum | cut -c1-32)
+ valor "SELECT public.rpt27_ensayo_actor('$caso'); SELECT public.rpt27_ensayo_fuente('$caso','$familia','$estado');" > /dev/null
+ psql_run vec_rpt27_ensayo_ca -c "BEGIN ISOLATION LEVEL SERIALIZABLE;
+ SELECT count(*) FROM vec_contexto_actor_v1.resolver_y_registrar_contexto_actor_v2('oca_rpt27_$s','rca_rpt27_$s','cta_rpt27_$s','prf_rpt27_$s','certificado','alto',clock_timestamp(),ARRAY['empleado']); COMMIT;" > "$scratch/contexto.log" 2>&1 || fallo 'registroCA7 nominal falló'
+ if [[ -n ${corte_fijado:-} ]]; then valor "UPDATE public.rpt27_ensayo_vector SET conocido_en='$corte_fijado'::timestamptz WHERE caso='$caso'" > /dev/null; fi
+ valor "SELECT public.rpt27_ensayo_entrada('$caso')" > "$scratch/entrada.json"
+ normalizar preparar
+ python3 - "$scratch/salida.json" <<'PYSALIDA'
+import pathlib,sys
+p=pathlib.Path(sys.argv[1])
+if p.is_file() and not p.is_symlink():p.unlink()
+PYSALIDA
+ sandbox /scratch/rpt27.test -test.run '^TestGenerarVectorRPT27ParaSQL$' -test.count=1 > "$scratch/preparar.log" 2>&1 || fallo 'preparaciónGo nominal falló'
+ importar rpt27_ensayo_preparado "$caso"
+ normalizar emitir confirmada
+ python3 - "$scratch/salida.json" <<'PYSALIDA'
+import pathlib,sys
+p=pathlib.Path(sys.argv[1])
+if p.is_file() and not p.is_symlink():p.unlink()
+PYSALIDA
+ sandbox /scratch/rpt27.test -test.run '^TestGenerarVectorRPT27ParaSQL$' -test.count=1 > "$scratch/emitir.log" 2>&1 || fallo 'emisiónCOSE/HMAC real falló'
+ importar rpt27_ensayo_firmado "$caso"
+}
+
+contadores() { valor "SELECT (SELECT count(*) FROM vec_personal.recibo_relacion_para_rpt)||'|'||(SELECT count(*) FROM vec_autorizacion_atestada_v3.consumo_decision_v3)||'|'||(SELECT count(*) FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3)||'|'||(SELECT count(*) FROM vec_personal.denegacion_relacion_para_rpt)"; }
+preflight_registro() {
+ # Catálogo solamente: no SELECT laboral en el pool exclusivo de escritura.
+ [[ $(psql_run vec_rpt27_ensayo_registrador -c "SELECT has_function_privilege('vec_personal.registrar_denegacion_relacion_para_rpt_v1(text,text,text,text)','EXECUTE')" 2> "$scratch/preflight.log") == t ]]
+}
+consultar() {
+ preflight_registro || { printf '%s\n' 'no_disponible: registrador obligatorio ausente' >&2; return 75; }
+ psql_run vec_rpt27_ensayo_runtime -c "BEGIN ISOLATION LEVEL SERIALIZABLE; SET LOCAL timezone='UTC'; SET LOCAL statement_timeout='15s'; SET LOCAL idle_in_transaction_session_timeout='20s'; SELECT public.rpt27_ensayo_consultar('$1','${2:-valida}'); COMMIT;"
+}
+registrar_intento() { # caso, motivo; actor sólo tras acreditación actual CA7
+ local caso=$1 motivo=$2 s actor correlacion rel
+ s=$(printf '%s' "$caso" | sha256sum | cut -c1-32)
+ correlacion="correlacion_$s"
+ rel=$(valor "SELECT relacion_ref FROM public.rpt27_ensayo_vector WHERE caso='$caso'")
+ actor=$(valor "BEGIN ISOLATION LEVEL SERIALIZABLE; SELECT CASE WHEN EXISTS(SELECT 1 FROM vec_autorizacion.control_sesion_actual_v1 actual JOIN vec_autorizacion.control_sesion_v1 control
+ ON control.sesion_ref=actual.sesion_ref AND control.control_sesion_ref=actual.control_sesion_ref AND control.revision=actual.revision
+ WHERE actual.sesion_ref='ses_rpt27_$s' AND control.estado='activa' AND clock_timestamp()<control.sesion_valida_hasta)
+ AND vec_contexto_actor_v1.acreditar_uso_registro_contexto_actor_v2(r.registro_contexto_ref,
+ 'vec.contexto-actor.vinculado.v2',r.huella_sha256,r.manifiesto_procedencia_huella_sha256,r.autoridad_efectiva,r.cuenta_ref,
+ (d->>'cuenta_version')::numeric,d->>'persona_ref',(d->>'persona_version')::numeric,r.perfil_ref,(d->>'perfil_version')::numeric,
+ d->>'contexto_actor_ref',(d->>'contexto_version')::numeric,r.metodo,r.garantia,clock_timestamp(),clock_timestamp()+interval '1 second') IS NOT NULL
+ THEN quote_literal(d->>'persona_ref') ELSE 'NULL' END FROM vec_contexto_actor_v1.registros_contexto r,
+ LATERAL(SELECT convert_from(r.representacion_canonica,'UTF8')::jsonb) x(d) WHERE r.operacion_ref='oca_rpt27_$s'; COMMIT;")
+ [[ -n $actor ]] || actor=NULL
+ [[ $rel =~ ^rel_[A-Za-z0-9_-]{22,128}$ ]] && rel="'$rel'" || rel=NULL
+ # Autocommit en OTRO LOGIN/conexión después del rollback anterior. El reloj
+ # y la adición durable pertenecen a la fachada27, no a esta envoltura.
+ [[ $(psql_run vec_rpt27_ensayo_registrador -c "SELECT vec_personal.registrar_denegacion_relacion_para_rpt_v1('$correlacion','$motivo',$actor,$rel)" 2> "$scratch/intento.log") == t ]] || return 75
+}
+rechazar() {
+ local caso=$1 variante=${2:-valida} antes despues motivo=denegado
+ antes=$(contadores)
+ if consultar "$caso" "$variante" > "$scratch/denegada.out" 2> "$scratch/denegada.log"; then fallo 'negativa devolvió datos'; fi
+ [[ ! -s $scratch/denegada.out && $(contadores) == "$antes" ]] || fallo 'rollback dejó datos/recibo/consumo/auditoría'
+ [[ $(cat "$scratch/denegada.log") == *42501* || $(cat "$scratch/denegada.log") == *22023* || $(cat "$scratch/denegada.log") == *40001* ]] || fallo 'negativa inesperada o fixture sin mutación'
+ [[ $(cat "$scratch/denegada.log") == *40001* ]] && motivo=no_disponible
+ [[ $(cat "$scratch/denegada.log") == *22023* ]] && motivo=entrada_invalida
+ registrar_intento "$caso" "$motivo" || fallo 'no_disponible: intento no confirmado'
+ despues=$(contadores)
+ python3 - "$antes" "$despues" <<'PYCONTADORES'
+import sys
+a=list(map(int,sys.argv[1].split('|')));b=list(map(int,sys.argv[2].split('|')))
+assert b==a[:3]+[a[3]+1], 'intento fuera del rollback sin confirmar'
+PYCONTADORES
+ printf 'RPT27 negativo: %s/%s; rollback completo e intento durable.\n' "$caso" "$variante"
+}
+positivo() { # caso, estado esperado; fuente_version se conserva como decimalSTRING
+ local antes despues
+ antes=$(contadores)
+ consultar "$1" > "$scratch/positivo_$1.json" 2> "$scratch/positivo.log" || fallo 'positivo nominal falló'
+ python3 - "$scratch/positivo_$1.json" "$scratch/entrada.json" "$2" <<'PYRESULTADO'
+import base64,json,pathlib,sys
+r=json.loads(pathlib.Path(sys.argv[1]).read_text());e=json.loads(pathlib.Path(sys.argv[2]).read_text());m=json.loads(base64.b64decode(e['material_canonico_b64']))
+assert set(r)=={'relacion','corte','cobertura','evidencia'}
+x=r['relacion'];assert set(x)=={'empleado_ref','relacion_ref','organismo_ref','version','estado','periodo','procedencia'}
+assert (x['empleado_ref'],x['relacion_ref'],x['organismo_ref'],x['version'])==(m['empleado_ref'],m['relacion_ref'],m['organismo_ref'],m['version_esperada'])
+assert x['estado']==sys.argv[3] and r['cobertura']=='no_acreditada'
+assert set(x['periodo'])=={'desde','hasta'} and isinstance(x['periodo']['hasta'],str)
+assert set(x['procedencia'])=={'acto_ref','fuente_ref','fuente_version','certeza'}
+assert x['procedencia']['certeza']=='no_acreditado' and isinstance(x['procedencia']['fuente_version'],str)
+assert x['procedencia']['fuente_version'].isdigit() and int(x['procedencia']['fuente_version'])>0
+assert r['corte']=={'vigente_en':m['vigente_en'],'conocido_en':m['conocido_en']}
+assert set(r['evidencia'])=={'recibo_ref','decision_ref','efecto_ref','consumo_huella_sha256','auditoria_ref','consultada_en'}
+assert r['evidencia']['recibo_ref'].startswith('relacionrpt:') and r['evidencia']['efecto_ref']==m['relacion_ref']
+# El actor de la solicitud es el original acreditado, distinto del objetivo.
+c=json.loads(base64.b64decode(e['contexto_b64']))
+assert m['actor_ref']==c['principal_ref'] and all(v['referencia']!=m['empleado_ref'] for v in c['vinculos'] if v['tipo']=='empleado')
+PYRESULTADO
+ despues=$(contadores)
+ python3 - "$antes" "$despues" <<'PYPOSITIVO'
+import sys
+a=list(map(int,sys.argv[1].split('|')));b=list(map(int,sys.argv[2].split('|')))
+assert b==[a[0]+1,a[1]+1,a[2]+1,a[3]]
+PYPOSITIVO
+}
+# Casos futuros, todos con actores/contextos CA registrados y permiso RPT propio.
+for estado in vigente suspendida finalizada; do preparar "positivo_$estado" "positivo_$estado" "$estado"; positivo "positivo_$estado" "$estado"; done
+rechazar positivo_vigente
+for variante in actor perfil ambito relacion organismo campos cose; do preparar "$variante"; rechazar "$variante" "$variante"; done
+# Revocación actual de la sesión después de emitir: no se transforma la
+# identidad ni se rescata control1. El intento se registra en el pool separado.
+preparar sesion_revocada
+s=$(printf '%s' sesion_revocada | sha256sum | cut -c1-32)
+valor "BEGIN; SET LOCAL ROLE vec_autorizacion_propietario;
+ INSERT INTO vec_autorizacion.control_sesion_v1(control_sesion_ref,revision,sesion_ref,estado,huella_sha256,sesion_revalidada_en,sesion_valida_hasta)
+ SELECT control_sesion_ref,2,sesion_ref,'revocada',repeat('f',64),clock_timestamp(),sesion_valida_hasta
+ FROM vec_autorizacion.control_sesion_v1 WHERE control_sesion_ref='cse_rpt27_$s' AND revision=1;
+ UPDATE vec_autorizacion.control_sesion_actual_v1 SET revision=2,actualizada_en=clock_timestamp(),acto_ref='acto:rpt27:revocacion-sintetica'
+ WHERE sesion_ref='ses_rpt27_$s'; COMMIT;" > /dev/null
+rechazar sesion_revocada
+[[ $(valor "SELECT actor_ref IS NULL FROM vec_personal.denegacion_relacion_para_rpt WHERE correlacion_ref='correlacion_$s' ORDER BY evento_id DESC LIMIT 1") == t ]] || fallo 'intento atribuyó actor sin sesión acreditada'
+# Última revisión conocida primero: ni estado ni fechas rescatan la revisión1.
+preparar original_historia familia_historia
+corte_historico=$(valor "SELECT date_trunc('microseconds',clock_timestamp())")
+rel=$(valor "SELECT relacion_ref FROM public.rpt27_ensayo_vector WHERE caso='original_historia'")
+valor "SELECT public.rpt27_ensayo_revision('$rel','finalizada','2028-01-01','2029-01-01')" > "$scratch/revision2.txt"
+preparar revision_vieja familia_historia
+rechazar revision_vieja
+corte_fijado=$corte_historico
+preparar corte_historico familia_historia
+unset corte_fijado
+positivo corte_historico vigente
+# El registrador no puede leer historia, control, recibos ni intentos, ni invocar
+# la lectura o consumidores54/74/149. Esta comprobación no le presta autoridad.
+[[ $(valor "SELECT NOT has_table_privilege('vec_rpt27_ensayo_registrador','vec_personal.relacion_servicio_historia','SELECT')
+ AND NOT has_table_privilege('vec_rpt27_ensayo_registrador','vec_personal.control_generacion_relacion_rpt','SELECT')
+ AND NOT has_table_privilege('vec_rpt27_ensayo_registrador','vec_personal.recibo_relacion_para_rpt','SELECT')
+ AND NOT has_table_privilege('vec_rpt27_ensayo_registrador','vec_personal.denegacion_relacion_para_rpt','SELECT')
+ AND NOT has_function_privilege('vec_rpt27_ensayo_registrador','vec_personal.consultar_relacion_para_rpt_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')") == t ]] || fallo 'registrador tiene lectura'
+# Falla el permiso del LOGIN/pool propio, no se modifica una ACL de producto.
+preparar registro_caido
+antes=$(contadores)
+valor 'REVOKE vec_personal_registrador_intento_relacion_rpt FROM vec_rpt27_ensayo_registrador' > /dev/null
+if consultar registro_caido > "$scratch/registro_caido.out" 2> "$scratch/registro_caido.log"; then fallo 'lectura sin registrador'; fi
+[[ $(cat "$scratch/registro_caido.log") == *no_disponible* && ! -s $scratch/registro_caido.out && $(contadores) == "$antes" ]] || fallo 'preflight sin registro produjo efecto'
+if registrar_intento registro_caido denegado; then fallo 'registrador sin permiso confirmó'; fi
+valor 'GRANT vec_personal_registrador_intento_relacion_rpt TO vec_rpt27_ensayo_registrador WITH ADMIN FALSE,INHERIT TRUE,SET FALSE' > /dev/null
+# Snapshot SERIALIZABLE anterior al COMMIT del escritor: barrera27 tras V3
+# fuerza40001 y todo el consumo se revierte; el intento se confirma aparte.
+preparar concurrente
+rel=$(valor "SELECT relacion_ref FROM public.rpt27_ensayo_vector WHERE caso='concurrente'")
+antes=$(contadores)
+psql_run postgres -c "SET application_name='rpt27_publicador_lento'; BEGIN;
+ SELECT public.rpt27_ensayo_revision('$rel','suspendida','2026-01-01',NULL); SELECT pg_sleep(2); COMMIT;" > "$scratch/publicador.out" 2> "$scratch/publicador.log" &
+publicador_pid=$!
+lista=false
+for _ in {1..80}; do
+ if [[ $(valor "SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE application_name='rpt27_publicador_lento' AND wait_event='PgSleep')") == t ]]; then lista=true; break; fi
+ sleep 0.02
+done
+[[ $lista == true ]] || fallo 'escritor no alcanzó barrera'
+if consultar concurrente > "$scratch/concurrente.out" 2> "$scratch/concurrente.log"; then fallo 'snapshot obsoleto entregó datos'; fi
+wait "$publicador_pid" || fallo 'escritor falló'
+[[ $(cat "$scratch/concurrente.log") == *40001* && ! -s $scratch/concurrente.out && $(contadores) == "$antes" ]] || fallo 'barrera no produjo40001 limpio'
+registrar_intento concurrente no_disponible || fallo '40001 sin intento durable'
+captura "$scratch/final.json"
+cmp -s "$scratch/preimagen.json" "$scratch/final.json" || fallo 'ensayo alteró extensiones previas de A'
+# Queda por exigir en la candidata final la prueba focal del lector Go integrado
+# con ambos pools reales: debe devolver ErrNoDisponible, nunca un DTO, ante
+# fachada ausente, registro fallido o revocación actual del actor. Este borrador
+# acredita sólo un plan SQL/crypto; hoy no se ha ejecutado ningún caso.
+printf '%s\n' 'RPT27 plan SQL/COSE completado; comprobar además lector Go/pools antes de declarar ENSAYO-OK integral.'
