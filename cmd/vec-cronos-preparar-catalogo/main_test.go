@@ -6,8 +6,10 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -54,3 +56,18 @@ func TestPreparacionNoEmiteResumenParaEntradaRechazada(t *testing.T) {
 type escritorFallido struct{}
 
 func (escritorFallido) Write([]byte) (int, error) { return 0, errors.New("fallo_sintetico") }
+
+func TestRechazoRegistraEtapaSinRutaNiContenido(t *testing.T) {
+	var registro bytes.Buffer
+	anterior := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&registro, nil)))
+	t.Cleanup(func() { slog.SetDefault(anterior) })
+	var salida bytes.Buffer
+	ruta := filepath.Join(t.TempDir(), "dato_privado_sintetico.json")
+	if codigo := ejecutar([]string{ruta}, &salida); codigo != 1 || salida.Len() != 0 {
+		t.Fatalf("rechazo: codigo=%d resumen=%s", codigo, salida.String())
+	}
+	if !strings.Contains(registro.String(), "etapa=entrada") || strings.Contains(registro.String(), ruta) || strings.Contains(registro.String(), "dato_privado_sintetico") {
+		t.Fatal("el registro no minimizó el rechazo")
+	}
+}
