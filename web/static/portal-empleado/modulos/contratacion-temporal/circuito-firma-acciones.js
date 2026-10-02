@@ -5,8 +5,8 @@
  * tiene eficacia administrativa hasta el portafirmas corporativo.
  */
 
-import { escaparHTML, solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js?v=20261001-f-reconciliacion-325-v1";
-import { crearClienteHTTPBorradorRRHH, PERFILES_BORRADOR_RRHH } from "./cliente-http-informe-definitivo.js";
+import { escaparHTML, solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js?v=20261002-ct-fin-modalidad-v1";
+import { crearClienteHTTPBorradorRRHH, PERFILES_BORRADOR_RRHH } from "./cliente-http-informe-definitivo.js?v=20261002-ct-fin-modalidad-v1";
 import { crearClienteAutoFirma } from "./firma-autofirma.js";
 import { crearClienteFirmaDocumento } from "./firma-documento-cliente.js?v=20260930-custodia-506-e3-v3";
 

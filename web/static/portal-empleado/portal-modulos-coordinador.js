@@ -93,11 +93,11 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   },
   contratacion_temporal: async () => {
     const [contrato, cliente, presentador, vista, adaptador, auditoriaVista, auditoriaCliente, incorporacionB2] = await Promise.all([
-      import("./modulos/contratacion-temporal/contrato.js"),
-      import("./modulos/contratacion-temporal/cliente-http.js"),
-      import("./modulos/contratacion-temporal/presentador-expedientes.js?v=20261001-ct-a-i18n-v1"),
-      import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261001-ana002-v4"),
-      import("./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=20261001-ct-a-i18n-v1"),
+      import("./modulos/contratacion-temporal/contrato.js?v=20261002-ct-fin-modalidad-v1"),
+      import("./modulos/contratacion-temporal/cliente-http.js?v=20261002-ct-fin-modalidad-v1"),
+      import("./modulos/contratacion-temporal/presentador-expedientes.js?v=20261002-ct-fin-modalidad-v1"),
+      import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261002-ct-fin-modalidad-v1"),
+      import("./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=20261002-ct-fin-modalidad-v1"),
       import("./modulos/auditoria/vista.js?v=20261001-ct-a-i18n-v1"),
       import("./modulos/auditoria/cliente-http.js?v=20260928-usab-auditoria-v2"),
       import("./modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js?v=20260930-inc-b2-web-v1"),
@@ -318,7 +318,7 @@ export function crearCoordinadorModulosPortal({
     );
     exigirVigente();
     const mensajesExpedientes = locale === "en-GB"
-      ? (await import("./modulos/contratacion-temporal/i18n-expedientes.js?v=20261001-ct-a-i18n-v1")).MENSAJES_EXPEDIENTES_CONTRATACION_EN
+      ? (await import("./modulos/contratacion-temporal/i18n-expedientes.js?v=20261002-ct-fin-modalidad-v1")).MENSAJES_EXPEDIENTES_CONTRATACION_EN
       : {};
     exigirVigente();
     const cliente = recursos.cliente.crearClienteHTTPContratacionTemporal({

@@ -34,8 +34,13 @@ type opcionReferenciaCatalogosAltaContratacionTemporalDesarrollo struct {
 }
 
 type opcionClaveCatalogosAltaContratacionTemporalDesarrollo struct {
-	Clave    string `json:"clave"`
-	Etiqueta string `json:"etiqueta"`
+	Clave                string `json:"clave"`
+	Etiqueta             string `json:"etiqueta"`
+	FechaFin             string `json:"fecha_fin,omitempty"`
+	CausaFin             string `json:"causa_fin,omitempty"`
+	ReglaRef             string `json:"regla_ref,omitempty"`
+	CatalogoVersion      uint64 `json:"catalogo_version,omitempty"`
+	CatalogoHuellaSHA256 string `json:"catalogo_huella_sha256,omitempty"`
 }
 
 type centroCatalogosAltaContratacionTemporalDesarrollo struct {

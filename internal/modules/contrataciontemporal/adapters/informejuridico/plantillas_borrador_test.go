@@ -16,6 +16,7 @@ import (
 )
 
 const rutaCatalogoPlantillasPrueba = "../../../../../data/demo/plantillas/ct_plantillas_documentos.ejemplo.demo.json"
+const rutaCatalogoPlantillasFinAbiertoPrueba = "../../../../../data/demo/plantillas/ct_plantillas_documentos.ejemplo.v2.demo.json"
 
 var instantePlantillasPrueba = time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC)
 
@@ -39,6 +40,42 @@ func plantillasPrueba(t *testing.T) *PlantillasBorrador {
 		t.Fatal(err)
 	}
 	return plantillas
+}
+
+func TestBorradorConFinPorCausaUsaEtiquetaCatalogada(t *testing.T) {
+	consulta, err := fichero.NuevaConsultaCatalogos(rutaCatalogoPlantillasFinAbiertoPrueba)
+	if err != nil {
+		t.Fatal(err)
+	}
+	catalogo, err := consulta.ObtenerCatalogo(context.Background(), CatalogoPlantillasBorradorID, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plantillas, err := NuevasPlantillasBorrador(catalogo, time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatal(err)
+	}
+	detalle := detalleInformeDefinitivoPrueba()
+	detalle.Solicitud.PeriodoFin = time.Time{}
+	detalle.Solicitud.PeriodoCausaFin = "reincorporacion_titular"
+	detalle.Analisis.PeriodoFin = time.Time{}
+	detalle.Analisis.PeriodoCausaFin = "reincorporacion_titular"
+	contenido, err := contenidoBorradorDesarrollo(ports.BorradorResolucion, detalle, nil, plantillas)
+	if err != nil {
+		t.Fatal(err)
+	}
+	texto := strings.Join(contenido.Parrafos, "\n")
+	if !strings.Contains(texto, "la reincorporación del titular") || strings.Contains(texto, "01/01/0001") || strings.Contains(texto, "reincorporacion_titular") {
+		t.Fatalf("fin sin fecha mal representado: %q", texto)
+	}
+	informe, err := contenidoBorradorDesarrollo(ports.BorradorInformeDefinitivo, detalle, nil, plantillas)
+	if err != nil || !strings.Contains(strings.Join(informe.Parrafos, "\n"), "Sin fecha de finalización no se puede calcular un coste total") {
+		t.Fatalf("informe sin explicación del coste sin horizonte: %v", err)
+	}
+	delete(plantillas.etiquetas, "fin.reincorporacion_titular")
+	if _, err := contenidoBorradorDesarrollo(ports.BorradorResolucion, detalle, nil, plantillas); !errors.Is(err, ports.ErrBorradorRRHHNoDisponible) {
+		t.Fatalf("sin etiqueta de fin debe cerrarse el borrador: %v", err)
+	}
 }
 
 func TestCatalogoDeEjemploTieneLosDiezDocumentos(t *testing.T) {

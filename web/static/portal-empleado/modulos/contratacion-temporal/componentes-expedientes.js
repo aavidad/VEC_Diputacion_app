@@ -1,10 +1,10 @@
 /** Componentes HTML puros de la superficie de expedientes. */
 
 import "./atajos-incidencia.js";
-import "./fases-expediente.js?v=20261001-ct-a-i18n-v1";
-import { CAPACIDADES_CONTRATACION_TEMPORAL, versionPropuestaDocumentalValida } from "./contrato-expedientes.js";
-import { renderizarCambiosExpediente } from "./vista-expedientes-cambios.js?v=20261001-ct-a-i18n-v1";
-import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261001-ct-a-i18n-v1";
+import "./fases-expediente.js?v=20261002-ct-fin-modalidad-v1";
+import { CAPACIDADES_CONTRATACION_TEMPORAL, versionPropuestaDocumentalValida } from "./contrato-expedientes.js?v=20261002-ct-fin-modalidad-v1";
+import { renderizarCambiosExpediente } from "./vista-expedientes-cambios.js?v=20261002-ct-fin-modalidad-v1";
+import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261002-ct-fin-modalidad-v1";
 import { justificanteTraducido } from "../../portal-justificante.js";
 import { FILTRO_LISTA_INICIAL, filtroListaValido } from "./recuentos-peticiones.js?v=20261001-f-reconciliacion-325-v1";
 import { renderizarListaPeticiones, renderizarResultadosLista } from "./vista-expedientes-lista.js?v=20261001-f-reconciliacion-325-v1";
