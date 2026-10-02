@@ -168,7 +168,10 @@ type CircuitoFirma struct {
 	CatalogoRef    string
 	HuellaCatalogo string
 	Ejemplo        bool
-	Documentos     []CircuitoFirmaDocumento
+	// PermiteMismaPersonaEnPasos conserva la política del catálogo para el
+	// servicio de firma. Cada paso sigue necesitando autorización propia.
+	PermiteMismaPersonaEnPasos bool
+	Documentos                 []CircuitoFirmaDocumento
 }
 
 // Documento devuelve el circuito de un documento del catálogo.

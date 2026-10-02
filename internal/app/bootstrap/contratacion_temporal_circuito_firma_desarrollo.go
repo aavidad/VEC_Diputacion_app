@@ -51,6 +51,8 @@ type portafirmasCircuitoFirmaDesarrollo struct {
 }
 
 type circuitoFirmaDesarrollo struct {
+	// La política sobre una misma persona en dos pasos es interna al servicio
+	// de firma: esta consulta no concede competencias ni decide firmantes.
 	Esquema      string                             `json:"esquema"`
 	CatalogoRef  string                             `json:"catalogo_ref"`
 	HuellaSHA256 string                             `json:"huella_sha256"`

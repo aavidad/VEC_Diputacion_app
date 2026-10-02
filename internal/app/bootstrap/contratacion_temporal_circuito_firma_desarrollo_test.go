@@ -49,6 +49,9 @@ func TestCircuitoFirmaEjemploSeConsultaConEstadoSinFirmas(t *testing.T) {
 	if strings.Contains(respuesta.Body.String(), "perfiles_ref_alternativos") {
 		t.Fatal("un catálogo antiguo no debe declarar alternativas ni cambiar el contrato v1")
 	}
+	if strings.Contains(respuesta.Body.String(), "misma_persona_en_dos_pasos") {
+		t.Fatal("la política de firma no forma parte de la consulta v1")
+	}
 	// Firmadoc apagado: no conectado, con motivo, y nada que parezca envío.
 	if datos.Portafirmas.Conectado || datos.Portafirmas.Motivo != "conexion_pendiente" {
 		t.Fatalf("portafirmas inesperado: %+v", datos.Portafirmas)
@@ -88,6 +91,18 @@ func TestCircuitoFirmaRRHHExponeAlternativaVersionada(t *testing.T) {
 	if datos.Esquema != esquemaCircuitoFirmaAlternativasDesarrollo || datos.CatalogoRef != "vec.contratacion_temporal.circuito_firma:2" ||
 		!datos.Ejemplo || datos.FirmaEficaz || len(datos.Documentos) != 2 {
 		t.Fatalf("circuito RRHH inesperado: %+v", datos)
+	}
+	if strings.Contains(respuesta.Body.String(), "misma_persona_en_dos_pasos") {
+		t.Fatal("la política de firma no debe salir en la consulta v2")
+	}
+	configurado, err := compuestas.circuitoFirmaCT.CircuitoFirma(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	configurado.PermiteMismaPersonaEnPasos = true
+	conPolitica, err := json.Marshal(vistaCircuitoFirmaDesarrollo(configurado))
+	if err != nil || strings.Contains(string(conPolitica), "misma_persona_en_dos_pasos") {
+		t.Fatalf("la política interna no debe aparecer aun si el catálogo la admite: %s, %v", conPolitica, err)
 	}
 	informe, resolucion := datos.Documentos[0], datos.Documentos[1]
 	if informe.Documento != "informe_definitivo" || len(informe.Pasos) != 1 ||
