@@ -1,0 +1,2 @@
+# Aplicar sólo después de Bolsa 000071 (plazo) y 000070 (adjudicación).
+deploy/postgresql/bolsa_llamamientos/migraciones/000072_historial_ofrecimientos.up.sql
