@@ -54,7 +54,9 @@ export function actualizarRailCircuitoRRHH(bloque, datos) {
     if (!boton || !estado) continue;
     const nombre = boton.querySelector(".nombre")?.textContent ?? "";
     const textoEstado = boton.querySelector("small");
+    const marca = boton.querySelector(".marca");
     if (textoEstado) textoEstado.textContent = estado;
+    if (marca) marca.textContent = paso === "hecho" ? "✓" : elemento.dataset.ctExpOrden;
     boton.setAttribute("aria-label", plantilla("ver_fase_estado", { fase: nombre, estado }));
   }
   const resumen = rail.closest("nav")?.querySelector(".cabecera-panel .texto-secundario");
@@ -63,6 +65,8 @@ export function actualizarRailCircuitoRRHH(bloque, datos) {
     ahora: pasos.filter((paso) => paso === "ahora").length,
     faltan: pasos.filter((paso) => paso === "falta").length,
   });
+  const panel = rail.closest("nav");
+  if (panel) panel.hidden = false;
   return true;
 }
 
@@ -108,6 +112,9 @@ export function instalarConsultaCircuitoRRHH(documento = globalThis.document, cl
     const controlador = new AbortController();
     pendientes.add(controlador);
     boton.setAttribute("aria-busy", "true");
+    const rail = bloque.closest(".ct-expedientes")?.querySelector("[data-ct-exp-rail]");
+    const panelFases = rail?.closest("nav");
+    if (panelFases) panelFases.hidden = true;
     resultado.textContent = texto("consultando");
     try {
       const respuesta = await cliente.consultar({

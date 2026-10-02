@@ -37,6 +37,8 @@ export function insertarConsultaCircuitoRRHH(raiz, expediente) {
   const ancla = raiz?.querySelector?.("[data-ct-exp-ancla-firma]");
   if (!ancla?.insertAdjacentHTML) return false;
   ancla.insertAdjacentHTML("beforebegin", renderizarConsultaCircuitoRRHH(expediente));
+  const panelFases = raiz?.querySelector?.("[data-ct-exp-rail]")?.closest?.("nav");
+  if (panelFases) panelFases.hidden = true;
   ancla.previousElementSibling?.querySelector?.("[data-ct-circuito-consultar]")?.click?.();
   return true;
 }
