@@ -220,7 +220,7 @@ export function renderizarCircuitoFirma(circuito, t, estadoConsulta = circuito ?
       </details>
     </section>
     ${circuito ? `<details class="ct-circuito-prueba" data-ct-firma-detalles>
-      <summary>${escaparHTML(t("circuito_firma_autofirma_prueba"))} · ${escaparHTML(t("circuito_firma_ver_pasos"))}</summary>
+      <summary>${escaparHTML(t("circuito_firma_autofirma_prueba"))} · ${escaparHTML(t("circuito_firma_sin_eficacia"))} · ${escaparHTML(t("circuito_firma_ver_pasos"))}</summary>
       <div class="ct-circuito-documentos">${circuito.documentos.map((documento) => {
     const etiqueta = traducirValorCircuitoFirma("documento", documento.etiqueta, t);
     return `<article class="ct-circuito-documento" data-ct-circuito-documento="${escaparHTML(documento.documento)}">
