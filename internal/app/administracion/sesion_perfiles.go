@@ -25,7 +25,7 @@ type resolvedorSesionPerfiles struct {
 
 // NuevoResolverSesionPerfiles reutiliza la frontera ADMIN directa de F. La
 // cuenta y el perfil se resuelven después en las autoridades centrales.
-func NuevoResolverSesionPerfiles(cfg Configuracion, deps adminperfiles.Dependencias) (api.ResolvedorSesion, error) {
+func NuevoResolverSesionPerfiles(cfg Configuracion, deps adminperfiles.Dependencias) (*resolvedorSesionPerfiles, error) {
 	if (cfg.Entorno != "desarrollo" && cfg.Entorno != "cidonia") || deps.Reloj == nil {
 		return nil, ErrConfiguracion
 	}
@@ -58,7 +58,17 @@ func NuevoResolverSesionPerfiles(cfg Configuracion, deps adminperfiles.Dependenc
 }
 
 func (s *resolvedorSesionPerfiles) ResolverSesionADMIN(ctx context.Context, r *http.Request) (api.SesionConfiable, error) {
-	var vacia api.SesionConfiable
+	o, err := s.ObservarADMIN(ctx, r)
+	if err != nil {
+		return api.SesionConfiable{}, err
+	}
+	return s.proveedor.Resolver(ctx, r, o)
+}
+
+// ObservarADMIN se comparte con el selector de perfil activo. Devuelve solo
+// hechos del canal verificado; no resuelve ni concede un perfil de negocio.
+func (s *resolvedorSesionPerfiles) ObservarADMIN(ctx context.Context, r *http.Request) (adminperfiles.ObservacionADMIN, error) {
+	var vacia adminperfiles.ObservacionADMIN
 	if s == nil || ctx == nil || ctx.Err() != nil || r == nil || r.TLS == nil ||
 		!r.TLS.HandshakeComplete || r.TLS.DidResume || r.Host != s.cfg.Host ||
 		len(r.TLS.VerifiedChains) != 1 || len(r.TLS.VerifiedChains[0]) != 2 ||
@@ -98,12 +108,12 @@ func (s *resolvedorSesionPerfiles) ResolverSesionADMIN(ctx context.Context, r *h
 		return vacia, api.ErrAutenticacionRequerida
 	}
 	certSHA, caSHA := sha256.Sum256(hoja.Raw), sha256.Sum256(ca.Raw)
-	return s.proveedor.Resolver(ctx, r, adminperfiles.ObservacionADMIN{
+	return adminperfiles.ObservacionADMIN{
 		Entorno: s.cfg.Entorno, Host: s.cfg.Host, Audiencia: s.cfg.Audiencia,
 		CertificadoSHA256: hex.EncodeToString(certSHA[:]), CASHA256: hex.EncodeToString(caSHA[:]),
 		AutenticacionVerificadaEn: autenticada, RevocacionVerificadaEn: ahora,
 		CRLVigenteHasta: crlHasta.UTC().Truncate(time.Microsecond), CertificadoVigenteHasta: hoja.NotAfter.UTC().Truncate(time.Microsecond),
-	})
+	}, nil
 }
 
 func bytesIguales(a, b []byte) bool {
