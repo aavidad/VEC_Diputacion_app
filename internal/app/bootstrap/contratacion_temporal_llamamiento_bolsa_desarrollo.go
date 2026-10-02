@@ -288,7 +288,7 @@ func (p *puenteBolsaLlamamientoDesarrollo) fuente(preparacion preparacionLlamami
 		UnidadRef: preparacion.unidad, TipoCoberturaRef: string(e.Analisis.ModalidadClave), NumeroPuestos: 1,
 		InicioPrevisto: e.Analisis.Periodo.Inicio, FinPrevisto: finPrevisto,
 		CausaFinClave: string(e.Analisis.Periodo.CausaFin),
-		CreadaEn: e.Fiscalizacion.FiscalizadaEn,
+		CreadaEn:      e.Fiscalizacion.FiscalizadaEn,
 	})
 	if err != nil {
 		return nil, vacio, err
