@@ -93,7 +93,7 @@ BEGIN
  SELECT * INTO STRICT b FROM vec_contexto_actor_v1.consultar_perfil_admin_perfiles_v1(r.cuenta_ref);
  ahora:=pg_catalog.clock_timestamp();
  IF b.persona_ref IS DISTINCT FROM r.persona_ref OR b.audiencia IS DISTINCT FROM p_audiencia OR ahora>=LEAST(r.vigente_hasta,b.vigente_hasta) THEN RETURN; END IF;
- RETURN QUERY SELECT 'admin-persona-v1:'||r.persona_ref,'admin-cuenta-v1:'||pg_catalog.lower(r.cuenta_ref),'admin-cuenta-v1:'||pg_catalog.lower(r.cuenta_ordinaria_ref),r.persona_ref,r.cuenta_ref,r.cuenta_ordinaria_ref,b.perfil_ref,'administracion_perfiles'::text,r.vinculo_ref,r.vinculo_version,r.politica_ref,r.politica_huella_sha256,'alto'::text,LEAST(r.vigente_hasta,b.vigente_hasta),b.seleccion_revision;
+ RETURN QUERY SELECT 'admin-persona-v1:'||r.persona_ref,'admin-cuenta-v1:'||pg_catalog.lower(r.cuenta_ref),'admin-cuenta-v1:'||pg_catalog.lower(r.cuenta_ordinaria_ref),r.persona_ref,r.cuenta_ref,r.cuenta_ordinaria_ref,b.perfil_ref,b.rol_id,r.vinculo_ref,r.vinculo_version,r.politica_ref,r.politica_huella_sha256,'alto'::text,LEAST(r.vigente_hasta,b.vigente_hasta),b.seleccion_revision;
 EXCEPTION WHEN no_data_found OR too_many_rows OR data_exception THEN RETURN;
 END $f$;
 REVOKE ALL ON FUNCTION vec_identidad_sesiones_v1.resolver_cuenta_admin_perfiles_propietaria_v1(text,text,text,text,text,timestamptz,timestamptz) FROM PUBLIC;
@@ -109,7 +109,7 @@ REVOKE ALL ON FUNCTION vec_identidad_sesiones_v1.resolver_cuenta_admin_perfiles_
 -- El listado es propio de la cuenta derivada de la observación F, sin perfil
 -- solicitado como autoridad y sin credencial expuesta al cliente.
 CREATE FUNCTION vec_identidad_sesiones_v1.listar_perfiles_admin_v1(p_entorno text,p_host text,p_audiencia text,p_certificado text,p_ca text,p_autenticada timestamptz,p_revocada timestamptz,p_crl_vigente_hasta timestamptz,p_certificado_vigente_hasta timestamptz)
-RETURNS TABLE(persona_ref text,cuenta_ref text,perfil_ref text,vinculo_ref text,audiencia text,vigente_hasta timestamptz,seleccionado boolean,seleccion_revision numeric,rol_version_ref text,clave_i18n text)
+RETURNS TABLE(persona_ref text,cuenta_ref text,perfil_ref text,vinculo_ref text,audiencia text,vigente_hasta timestamptz,seleccionado boolean,seleccion_revision numeric,rol_version_ref text,clave_i18n text,categoria_admin text)
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp SET timezone='UTC' AS $f$
 DECLARE r record;b record;sel record;hasta timestamptz;
 BEGIN
@@ -123,7 +123,7 @@ BEGIN
  IF sel.persona_ref IS NOT NULL AND sel.persona_ref IS DISTINCT FROM r.persona_ref THEN RETURN; END IF;
  FOR b IN SELECT x.* FROM vec_contexto_actor_v1.listar_perfiles_admin_propios_reconciliacion_v1(r.cuenta_ref,r.persona_ref,p_audiencia) x ORDER BY x.perfil_ref LOOP
   IF pg_catalog.clock_timestamp()>=LEAST(hasta,b.vigente_hasta) THEN CONTINUE; END IF;
-  RETURN QUERY SELECT r.persona_ref,r.cuenta_ref,b.perfil_ref,b.vinculo_ref,b.audiencia,LEAST(hasta,b.vigente_hasta),COALESCE(sel.perfil_ref=b.perfil_ref AND sel.fuente=b.fuente,false),COALESCE(sel.seleccion_revision,0::numeric),b.rol_version_ref,b.clave_i18n;
+  RETURN QUERY SELECT r.persona_ref,r.cuenta_ref,b.perfil_ref,b.vinculo_ref,b.audiencia,LEAST(hasta,b.vigente_hasta),COALESCE(sel.perfil_ref=b.perfil_ref AND sel.fuente=b.fuente,false),COALESCE(sel.seleccion_revision,0::numeric),b.rol_version_ref,b.clave_i18n,b.categoria_admin;
  END LOOP;
 EXCEPTION WHEN no_data_found OR too_many_rows OR data_exception THEN RETURN;
 END $f$;

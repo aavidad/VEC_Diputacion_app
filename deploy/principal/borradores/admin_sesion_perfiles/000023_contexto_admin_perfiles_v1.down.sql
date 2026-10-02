@@ -26,7 +26,6 @@ DROP FUNCTION vec_contexto_actor_v1.seleccionar_perfil_admin_propietaria_v1(text
 DROP FUNCTION vec_contexto_actor_v1.listar_perfiles_admin_propios_v1(text,text,text);
 DROP FUNCTION vec_contexto_actor_v1.listar_perfiles_admin_propios_reconciliacion_v1(text,text,text);
 DROP FUNCTION vec_contexto_actor_v1.consultar_seleccion_perfil_admin_v1(text);
-DROP FUNCTION vec_contexto_actor_v1.consultar_perfil_admin_sistemas_seleccion_v1(text,text);
 DROP TABLE vec_contexto_actor_v1.seleccion_perfil_admin_actual_v1;
 DROP FUNCTION vec_contexto_actor_v1.validar_avance_seleccion_perfil_admin_v1();
 DROP TABLE vec_contexto_actor_v1.seleccion_perfil_admin_v1;
