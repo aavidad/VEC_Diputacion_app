@@ -1,8 +1,9 @@
 /** Una intención visible por acción; no se guarda nada en el navegador. */
-import { crearTraductorContratacionTemporal } from "./i18n.js";
-import { renderizarLlamamiento, reciboAntecedenteSiguiente } from "./renderizado-llamamiento.js";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261001-ct-a-i18n-v1";
+import { renderizarLlamamiento, reciboAntecedenteSiguiente } from "./renderizado-llamamiento.js?v=20261001-f-reconciliacion-325-v1";
+import { mensajeValidacionPortal } from "../../portal-idioma.js?v=20261001-ct-a-i18n-v1";
 import { esValidacionRespuestaPendiente, cargarPublicacionesFormalizacionDesarrollo } from "./cliente-http-llamamiento.js";
-import { crearPanelDocumentacionFormalizacion } from "./documentacion-formalizacion.js?v=20260926-integracion-bolsa-ct-v1";
+import { crearPanelDocumentacionFormalizacion } from "./documentacion-formalizacion.js?v=20261001-f-reconciliacion-325-v1";
 import { crearFuenteDocumentacionFormalizacionHTTP } from "./cliente-http-documentacion-formalizacion.js?v=20260926-integracion-bolsa-ct-v1";
 import {
   CAMPOS_SELECCION, CAMPOS_COMUNICACION, referenciaLlamamientoValida,
@@ -19,7 +20,7 @@ import {
   CAMPOS_EVENTO_PLAZO, CAMPOS_EVENTO_PLAZO_EDITABLES, validarSolicitudEventoPlazo, validarReciboEventoPlazo,
   RESPUESTA_EXPIRACION,
 } from "./contrato-llamamiento.js";
-import { lecturaPlazoLlamamiento } from "./renderizado-plazo-llamamiento.js";
+import { lecturaPlazoLlamamiento } from "./renderizado-plazo-llamamiento.js?v=20261001-f-reconciliacion-325-v1";
 import { validarConsultaReciboRespuesta, validarReciboRespuestaConsultado } from "./cliente-http-consulta-recibo-respuesta.js";
 import { LIMITE_TOTAL_COMUNICACIONES, instanteOrdenComunicacion, validarPaginaComunicacionesExpediente } from "./cliente-http-consulta-comunicaciones-expediente.js";
 
@@ -154,7 +155,7 @@ export function montarFormularioLlamamiento({
     clearTimeout(temporizadorPlazo);
     const restante = Date.parse(estado.contacto.recibo?.plazo?.respuesta_hasta ?? "") - ahora();
     if (Number.isFinite(restante) && restante > 0 && restante < 2 ** 31 - 1) {
-      temporizadorPlazo = setTimeout(() => repintar(), restante + 1000);
+      temporizadorPlazo = setTimeout(repintarVencimiento, restante + 1000);
     }
   }
   // El contacto efectivo abre el plazo; sin él, no hay expiración ni causa.
@@ -368,6 +369,7 @@ export function montarFormularioLlamamiento({
   }
   function repintar(operacion = "") {
     if (!montado) return;
+    limpiarValidacion();
     raiz.innerHTML = renderizarLlamamiento(estado, t, fecha, ahora());
     documentacion?.pintar(raiz.querySelector("[data-ct-documentacion-formalizacion]"), {
       aceptadaEn: estado.propuesta.aceptacion?.respuesta === "aceptacion" ? estado.propuesta.aceptacion.resuelta_en : "",
@@ -382,6 +384,122 @@ export function montarFormularioLlamamiento({
       foco?.scrollIntoView?.({ block: "nearest" });
       try { anunciar(t(paso.mensaje), paso.tono); } catch { /* La región viva permanece. */ }
     }
+  }
+  function repintarVencimiento() {
+    if (!montado) return;
+    const documento = raiz.ownerDocument;
+    const activo = documento?.activeElement;
+    const dentro = activo && raiz.contains(activo);
+    const formulario = dentro ? activo.closest?.("[data-ct-llamamiento-form]") : null;
+    const operacion = formulario?.dataset.ctLlamamientoForm;
+    const indice = formulario ? Array.from(formulario.elements).indexOf(activo) : -1;
+    const nombreControl = dentro ? activo.name : "";
+    const tipoControl = dentro ? activo.type : "";
+    const id = dentro ? activo.id : "";
+    const ancla = dentro ? ["recibo", "estado"].map((tipo) => {
+      const paso = activo.getAttribute?.(`data-ct-llamamiento-${tipo}`);
+      return Object.hasOwn(estado, paso) ? `[data-ct-llamamiento-${tipo}="${paso}"]` : "";
+    }).find(Boolean) : "";
+    const seleccion = dentro && Number.isInteger(activo.selectionStart)
+      ? [activo.selectionStart, activo.selectionEnd, activo.selectionDirection] : null;
+    // Solo el repintado pasivo recoge la edición actual; los envíos conservan
+    // su propio borrado y su foco de resultado.
+    guardarBorradores();
+    repintar();
+    if (!dentro) return;
+    const control = id ? documento.getElementById(id) : ancla ? raiz.querySelector(ancla)
+      : Object.hasOwn(OPERACIONES, operacion) && indice >= 0
+        ? raiz.querySelector(`[data-ct-llamamiento-form="${operacion}"]`)?.elements[indice] : null;
+    if (control && raiz.contains(control) && control.name === nombreControl
+      && control.type === tipoControl && !control.matches(":disabled")) {
+      control.focus({ preventScroll: true });
+      if (documento.activeElement === control) {
+        if (seleccion) control.setSelectionRange?.(...seleccion);
+        control.scrollIntoView?.({ block: "nearest" });
+        return;
+      }
+    }
+    const titulo = raiz.querySelector("#ct-llamamiento-plazo-titulo");
+    titulo?.setAttribute("tabindex", "-1");
+    titulo?.focus({ preventScroll: true });
+    titulo?.scrollIntoView({ block: "nearest" });
+  }
+  // La validez nativa orienta los campos; el contrato sigue decidiendo la semántica.
+  const marcasValidacion = new Map();
+  const firmasResumen = new WeakMap();
+  function quitarMarca(control) {
+    const marca = marcasValidacion.get(control);
+    if (!marca) return;
+    if (control.getAttribute("aria-invalid") === "true") {
+      if (marca.anterior === null) control.removeAttribute("aria-invalid");
+      else control.setAttribute("aria-invalid", marca.anterior);
+    }
+    const descripciones = (control.getAttribute("aria-describedby") ?? "").split(/\s+/u)
+      .filter((id) => id && id !== marca.id);
+    if (descripciones.length) control.setAttribute("aria-describedby", descripciones.join(" "));
+    else control.removeAttribute("aria-describedby");
+    marcasValidacion.delete(control);
+  }
+  function limpiarValidacion() {
+    for (const control of marcasValidacion.keys()) quitarMarca(control);
+  }
+  function mostrarErroresNativos(formulario, editado = null) {
+    const controles = Array.from(formulario.elements ?? []);
+    const errores = new Map();
+    for (const control of controles) {
+      const revisar = !editado || control === editado || marcasValidacion.has(control)
+        || (control.type === "radio" && control.name === editado.name);
+      if (!revisar) continue;
+      quitarMarca(control);
+      if (control.willValidate !== true || control.validity.valid) continue;
+      const id = `ct-llamamiento-${formulario.dataset.ctLlamamientoForm}-${control.name}-error`;
+      const mensaje = raiz.ownerDocument?.getElementById(id);
+      if (!mensaje || !formulario.contains(mensaje)) continue;
+      marcasValidacion.set(control, { id, anterior: control.getAttribute("aria-invalid") });
+      control.setAttribute("aria-invalid", "true");
+      const descripciones = (control.getAttribute("aria-describedby") ?? "").split(/\s+/u).filter(Boolean);
+      control.setAttribute("aria-describedby", [...new Set([...descripciones, id])].join(" "));
+      if (!errores.has(id)) errores.set(id, { control, mensaje, texto: mensajeValidacionPortal(control) });
+    }
+    formulario.querySelectorAll?.("[data-ct-llamamiento-error-campo]").forEach((mensaje) => {
+      mensaje.hidden = !errores.has(mensaje.id);
+      mensaje.textContent = errores.get(mensaje.id)?.texto ?? "";
+    });
+    const resumen = formulario.querySelector?.("[data-ct-llamamiento-errores]");
+    const lista = resumen?.querySelector("ul");
+    if (lista) {
+      const enlaces = [...errores.values()].map(({ control, texto }) => {
+        const rotulo = control.type === "radio" ? control.closest("fieldset")?.querySelector("legend") : control.labels?.[0];
+        return { control, texto: `${rotulo?.textContent.trim() ?? control.name}: ${texto}` };
+      });
+      const firma = JSON.stringify(enlaces.map(({ control, texto }) => [control.id, texto]));
+      // Conservar los enlaces si no cambia el resumen: salir del campo no cancela un clic.
+      if (firmasResumen.get(lista) !== firma) {
+        lista.replaceChildren();
+        for (const { control, texto } of enlaces) {
+          const enlace = raiz.ownerDocument.createElement("a");
+          enlace.href = `#${control.id}`;
+          enlace.dataset.ctLlamamientoErrorEnlace = control.id;
+          enlace.textContent = texto;
+          const fila = raiz.ownerDocument.createElement("li");
+          fila.append(enlace);
+          lista.append(fila);
+        }
+        firmasResumen.set(lista, firma);
+      }
+      resumen.hidden = errores.size === 0;
+    }
+    return controles.find((control) => control.willValidate === true && !control.validity.valid);
+  }
+  function alEditarCampo(evento) {
+    const control = evento.target;
+    const formulario = control?.closest?.("[data-ct-llamamiento-form]");
+    if (!formulario || !raiz.contains(formulario) || control.willValidate !== true
+      || estado[formulario.dataset.ctLlamamientoForm]?.solicitud) return;
+    // El envío valida antes de actuar; no desplazar su botón entre pulsación y clic.
+    if (evento.type === "focusout" && evento.relatedTarget?.closest?.("button, a")) return;
+    // Al editar sólo se actualizan errores ya mostrados; al salir se valida el campo.
+    if (evento.type === "focusout" || marcasValidacion.has(control)) mostrarErroresNativos(formulario, control);
   }
   function guardarBorradores() {
     for (const [operacion, contrato] of Object.entries(OPERACIONES)) {
@@ -538,6 +656,15 @@ export function montarFormularioLlamamiento({
     if (operacion === "siguiente" && !puedeContinuar()) return;
     if (operacion === "propuesta" && (!puedeProponer() || !paso.disponible)) return;
     guardarBorradores();
+    if (paso.solicitud === null) {
+      const primero = mostrarErroresNativos(formulario);
+      // Consultar validity evita que invalid global deje mensajes propios en otros radios.
+      if (primero) {
+        primero?.focus?.();
+        primero?.scrollIntoView?.({ block: "nearest" });
+        return;
+      }
+    }
     const contrato = OPERACIONES[operacion];
     const recuperandoRespuesta = (esResolucion(operacion) || ["respuesta", "respuesta_siguiente", "siguiente", "comunicacion_siguiente", "propuesta", "contacto", "causa", "expiracion"].includes(operacion)) && paso.solicitud !== null;
     let solicitud;
@@ -751,6 +878,16 @@ export function montarFormularioLlamamiento({
     }
   }
   function alPulsar(evento) {
+    const enlaceError = evento.target?.closest?.("[data-ct-llamamiento-error-enlace]");
+    if (typeof enlaceError?.dataset?.ctLlamamientoErrorEnlace === "string" && raiz.contains(enlaceError)) {
+      evento.preventDefault();
+      const controlError = raiz.ownerDocument?.getElementById(enlaceError.dataset.ctLlamamientoErrorEnlace);
+      if (controlError && raiz.contains(controlError)) {
+        controlError.focus();
+        controlError.scrollIntoView?.({ block: "nearest" });
+      }
+      return;
+    }
     const reintentarComunicaciones = evento.target?.closest?.("[data-ct-comunicaciones-reintentar]");
     if (reintentarComunicaciones?.dataset?.ctComunicacionesReintentar !== undefined
       && raiz.contains(reintentarComunicaciones)) {
@@ -845,6 +982,8 @@ export function montarFormularioLlamamiento({
   raiz.addEventListener("submit", alEnviar);
   raiz.addEventListener("click", alPulsar);
   raiz.addEventListener("change", alCambiarArchivo);
+  raiz.addEventListener("input", alEditarCampo);
+  raiz.addEventListener("focusout", alEditarCampo);
   if (!actualizarContexto(contexto)) repintar();
   const desmontar = () => {
     if (!montado) return;
@@ -862,9 +1001,12 @@ export function montarFormularioLlamamiento({
     raiz.removeEventListener("submit", alEnviar);
     raiz.removeEventListener("click", alPulsar);
     raiz.removeEventListener("change", alCambiarArchivo);
+    raiz.removeEventListener("input", alEditarCampo);
+    raiz.removeEventListener("focusout", alEditarCampo);
+    limpiarValidacion();
     raiz.replaceChildren();
   };
   desmontar.actualizarContexto = actualizarContexto;
-  desmontar.revisarPlazo = () => repintar();
+  desmontar.revisarPlazo = repintarVencimiento;
   return desmontar;
 }

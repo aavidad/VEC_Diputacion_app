@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { MENSAJES_PORTAL } from "./portal-i18n.js";
+import { MENSAJES_PORTAL } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
 
 // Toda clave data-i18n-portal del HTML del portal debe existir en el catálogo:
 // una clave ausente hace que el portal deje de arrancar.

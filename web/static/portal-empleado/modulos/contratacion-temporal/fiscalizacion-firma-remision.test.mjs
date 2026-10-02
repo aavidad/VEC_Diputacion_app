@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { montarFormularioFiscalizacion } from "./formulario-fiscalizacion.js";
+import { montarFormularioFiscalizacion } from "./formulario-fiscalizacion.js?v=20261001-ct-a-i18n-v1";
 import { RUTA_RESULTADOS_FISCALIZACION } from "./cliente-http-fiscalizacion.js";
 import { claveI18nValida, codigoValidoParaRuta } from "./cliente-http-transporte.js";
 import { RUTAS_HTTP_CONTRATACION_TEMPORAL } from "./cliente-http.js";
-import { MENSAJES_FIRMA_REMISION_ES } from "./i18n-firma-remision.js";
+import { MENSAJES_FIRMA_REMISION_ES } from "./i18n-firma-remision.js?v=20261001-ct-a-i18n-v1";
 
 function raizFalsa() {
   const eventos = new Map();

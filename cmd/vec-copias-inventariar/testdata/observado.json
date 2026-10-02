@@ -1,0 +1,116 @@
+{
+  "formato_version": 1,
+  "ref": "inventario:sintetico",
+  "completo": true,
+  "postgresql": {
+    "version": "18.0",
+    "runtime_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "plataforma": "linux-amd64",
+    "herramientas": [
+      {
+        "id": "pg_dump",
+        "version": "18.0",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "id": "pg_restore",
+        "version": "18.0",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "id": "psql",
+        "version": "18.0",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "id": "postgres",
+        "version": "18.0",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    ],
+    "extensiones": [],
+    "cluster_ref": "cluster:sintetico",
+    "bases": [
+      "base:sintetica"
+    ],
+    "almacenes": [],
+    "ambito_completo": true
+  },
+  "release": {
+    "id": "release:sintetica",
+    "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "plataforma": "linux-amd64",
+    "binarios": [
+      {
+        "id": "binario",
+        "tipo": "binario",
+        "sha256": "42d0c08bc11c9ce44df732c62728bfb50f3d6ce8edf3486954d548cd8a7fb6be",
+        "tamano_bytes": 28
+      }
+    ],
+    "componentes": [
+      {
+        "id": "web",
+        "tipo": "web",
+        "sha256": "832685a0870bffcab134a3962f31778174ce67ef3a6decd2f5ba8ed95423e01a",
+        "tamano_bytes": 24
+      },
+      {
+        "id": "catalogos",
+        "tipo": "catalogos",
+        "sha256": "6cf985dd9e5a398f8e4ba1438fc18b9168a8a2d2ff35d2d50010219057862682",
+        "tamano_bytes": 30
+      },
+      {
+        "id": "material",
+        "tipo": "material",
+        "sha256": "23299a409f73e9c9a08ccf9a4df75290a5b0c13b43b3989677dd713d50abfecc",
+        "tamano_bytes": 29
+      },
+      {
+        "id": "configuracion",
+        "tipo": "configuracion",
+        "sha256": "ebea010fca0ad5150660c9685bd6737cd5dc6f4c7b16ab47c26c295e86577cb8",
+        "tamano_bytes": 34
+      },
+      {
+        "id": "ficheros",
+        "tipo": "ficheros",
+        "sha256": "59449f290df9ab9b51abc28ad069c7317ed1d5965deb7b62edaaa96fbe6d10d5",
+        "tamano_bytes": 29
+      }
+    ],
+    "esquema_esperado": [
+      {
+        "id": "administracion",
+        "esquema_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "migraciones": [
+          {
+            "id": "000001",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          {
+            "id": "000002",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ]
+      }
+    ]
+  },
+  "modulos": [
+    {
+      "id": "administracion",
+      "esquema_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "migraciones": [
+        {
+          "id": "000001",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        {
+          "id": "000002",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ]
+    }
+  ]
+}

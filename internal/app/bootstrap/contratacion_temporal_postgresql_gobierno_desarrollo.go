@@ -322,6 +322,18 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		personal.AudienciaPublicarCatalogoEmpleadoB2,
 		personal.AudienciaRetirarCatalogoEmpleadoB2,
 		personal.AudienciaEmpleadosB2,
+		// B2 de incorporación: cinco audiencias anteriores y cuatro lecturas o
+		// usos nominales añadidos por AD3-128/127/117/126. El catálogo las
+		// selecciona únicamente con la configuración privada.
+		puertosbolsa.AudienciaConsultaAnclajeAceptacionCT,
+		personal.AudienciaPlanIncorporacionCT,
+		ports.AudienciaRegistrarPlanNominalB2,
+		ports.AudienciaLeerPlanNominalB2,
+		ports.AudienciaConfirmarOrigenB2,
+		puertosbolsa.AudienciaConsultaPersonaAceptacionCT,
+		ports.AudienciaConsultarVinculoCategoriaRPT,
+		ports.AudienciaConsultarPublicacionCategoriaRPT,
+		"vec_catalogos_configurables.usos_categorias.v1",
 		// Consumidores del catálogo común sin entrada previa en la lista:
 		// Mi bolsa (AD3-43), Documentos (AD3-60) y ficha propia (AD3-74).
 		puertosbolsa.AudienciaMiBolsa,

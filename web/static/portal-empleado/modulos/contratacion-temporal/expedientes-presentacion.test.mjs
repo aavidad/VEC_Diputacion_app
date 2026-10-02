@@ -3,9 +3,9 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { exigirRenovado } from "../../versiones-cache.test-helper.mjs";
 
-import { crearAdaptadorHTTPExpedientesContratacionTemporal } from "./adaptador-http-expedientes.js";
+import { crearAdaptadorHTTPExpedientesContratacionTemporal } from "./adaptador-http-expedientes.js?v=20261001-ct-a-i18n-v1";
 import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js";
-import { renderizarCuadro, renderizarDocumentos, renderizarExpediente } from "./componentes-expedientes.js";
+import { renderizarCuadro, renderizarDocumentos, renderizarExpediente } from "./componentes-expedientes.js?v=20261001-ct-a-i18n-v1";
 import {
   CAPACIDADES_CONTRATACION_TEMPORAL as CAP,
   validarAuditoriaContratacionTemporal,
@@ -21,13 +21,13 @@ import {
   crearDocumentosContratacionTemporalPresentacion,
   crearExpedienteContratacionTemporalPresentacion,
 } from "./datos-presentacion.js";
-import { crearTraductorExpedientesContratacion, MENSAJES_EXPEDIENTES_CONTRATACION_EN } from "./i18n-expedientes.js";
-import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js";
+import { crearTraductorExpedientesContratacion, MENSAJES_EXPEDIENTES_CONTRATACION_EN } from "./i18n-expedientes.js?v=20261001-ct-a-i18n-v1";
+import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js?v=20261001-ct-a-i18n-v1";
 import {
   crearEjecutorAltaConRefresco,
   montarModuloContratacionTemporal,
   renderizarModuloContratacionTemporal,
-} from "./vista-expedientes.js";
+} from "./vista-expedientes.js?v=20261001-ct-firma-verificador-v2";
 
 function presentadorDe(fuente, capacidades = fuente.capacidades) {
   return crearPresentadorExpedientesContratacionTemporal({ fuente, capacidades });
@@ -335,7 +335,7 @@ test("el espacio operativo separa tareas y distribución en paneles legibles", a
     /\.ct-exp-mis-tareas,\s*\n\.ct-exp-distribucion\s*\{[\s\S]*border:[^;]+;[\s\S]*background:/u,
   );
   assert.match(estilos, /\.ct-exp-operativo\s*\{[\s\S]*grid-template-columns:/u);
-  assert.match(portal, /^\s*@import\s+url\(\s*["']\.\.\/comun\/tema-vec\.css["']\s*\)\s*;/mu);
+  assert.match(portal, /^\s*@import\s+url\(\s*["']\.\.\/comun\/tema-vec\.css\?v=20261001-codexf-accesibilidad-v1["']\s*\)\s*;/mu);
   const base = tema.match(/:root\s*\{([^}]*)\}/u)?.[1];
   assert.ok(base, "el tema común debe declarar sus tokens base en :root");
   for (const token of [

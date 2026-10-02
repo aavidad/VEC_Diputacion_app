@@ -1,7 +1,13 @@
 package validadorautofirma
 
 import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"encoding/pem"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -21,7 +27,7 @@ func dictamenPrueba() *dictamenAutofirma {
 		Revocacion: aspectoAutofirma{Estado: "vigente"}, SelloTiempo: aspectoAutofirma{Estado: "no_presente"},
 	}
 	return &dictamenAutofirma{
-		Contrato: ContratoDictamen, Estado: "valida", Motivo: "verificada",
+		Contrato: ContratoDictamen, Estado: "valida", Motivo: "verificada", Formato: "PAdES",
 		Integridad: aspectoAutofirma{Estado: "valida"}, Cadena: aspectoAutofirma{Estado: "valida"},
 		Certificado: aspectoAutofirma{Estado: "vigente"}, Revocacion: aspectoAutofirma{Estado: "vigente"},
 		SelloTiempo: aspectoAutofirma{Estado: "no_presente"}, VinculoOriginal: aspectoAutofirma{Estado: "acreditado"},
@@ -41,7 +47,7 @@ func resultadoBase() ports.ResultadoVerificacionFirma {
 
 func TestDictamenValidoSeTraduceAVerificada(t *testing.T) {
 	r := traducir(resultadoBase(), dictamenPrueba())
-	if r.Motivo != ports.MotivoFirmaVerificada || r.Resultado.FirmanteRef != "ref:"+huellaCertPrueba ||
+	if r.Motivo != ports.MotivoFirmaVerificada || r.Resultado.Formato != "PAdES" || r.Resultado.FirmanteRef != "ref:"+huellaCertPrueba ||
 		!r.Resultado.VinculoOriginal || r.Resultado.RevocacionEstado != "vigente" {
 		t.Fatalf("dictamen valido: %+v", r)
 	}
@@ -50,6 +56,61 @@ func TestDictamenValidoSeTraduceAVerificada(t *testing.T) {
 	d.Extensiones = extensionesDictamen{"activa", "activa"}
 	if r := traducir(resultadoBase(), d); r.Motivo != ports.MotivoFirmaVerificada {
 		t.Fatalf("extensiones activas: %+v", r)
+	}
+}
+
+func TestClienteRespetaFormatoEsperadoSinAdoptarPositivoAjeno(t *testing.T) {
+	original, firmado := []byte("%PDF-1.7 original"), []byte("%PDF-1.7 firmado")
+	hOriginal, hFirmado := sha256.Sum256(original), sha256.Sum256(firmado)
+	for _, caso := range []struct {
+		nombre, esperado, recibido string
+		positivo                   bool
+	}{
+		{"PAdES coincide", "PAdES", "PAdES", true},
+		{"CAdES ajeno", "PAdES", "CAdES", false},
+		{"formato ausente", "PAdES", "", false},
+		{"consumidor generico", "", "CAdES", true},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			d := dictamenPrueba()
+			d.Formato = caso.recibido
+			d.HuellaOriginalSHA256, d.HuellaFirmadoSHA256 = hex.EncodeToString(hOriginal[:]), hex.EncodeToString(hFirmado[:])
+			servidor := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != http.MethodPost || r.URL.Path != RutaVerificacion || r.Header.Get("Authorization") != "Bearer "+strings.Repeat("t", 40) {
+					http.Error(w, "solicitud inesperada", http.StatusForbidden)
+					return
+				}
+				w.Header().Set("Content-Type", "application/json")
+				_ = json.NewEncoder(w).Encode(map[string]any{"dictamen": d})
+			}))
+			defer servidor.Close()
+			ca := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: servidor.Certificate().Raw})
+			cliente, err := Nuevo(Configuracion{URL: servidor.URL, CAPEM: ca, Token: []byte(strings.Repeat("t", 40))})
+			if err != nil {
+				t.Fatal(err)
+			}
+			solicitud := ports.SolicitudVerificacionFirma{
+				DocumentoID: "ref:" + strings.Repeat("1", 64), Version: 1, FormatoEsperado: caso.esperado,
+				HuellaOriginalSHA256: hex.EncodeToString(hOriginal[:]), ContenidoOriginal: original, ContenidoFirmado: firmado,
+			}
+			respuesta, err := cliente.VerificarMotivado(context.Background(), solicitud)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if caso.positivo {
+				if respuesta.Motivo != ports.MotivoFirmaVerificada || respuesta.Resultado.Formato != caso.recibido ||
+					respuesta.ValidarContra(solicitud) != nil {
+					t.Fatalf("positivo correcto rechazado: %+v", respuesta)
+				}
+				return
+			}
+			if respuesta.Motivo != ports.MotivoRespuestaNoInterpretable ||
+				respuesta.Resultado.Estado != ports.EstadoVerificacionIndeterminada ||
+				respuesta.Resultado.Formato != "" || respuesta.Resultado.FirmanteRef != "" ||
+				respuesta.Resultado.RevocacionEstado != estadoNoInformado || respuesta.Resultado.VinculoOriginal {
+				t.Fatalf("formato ajeno adoptado: %+v", respuesta)
+			}
+		})
 	}
 }
 

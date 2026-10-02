@@ -1,33 +1,33 @@
-import { crearControladorPortal } from "./portal-eventos.js?v=20260930-portales-i18n-integracion-v1";
-import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20260930-portales-i18n-integracion-v1";
+import { crearControladorPortal } from "./portal-eventos.js?v=20261001-ct-a-i18n-v1";
+import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261001-f-reconciliacion-323-v1";
 import { extraerDatosEnvelopeCanonico } from "./portal-contrato.js?v=20260925-sin-demo2-v1";
-import { crearClientePropuestasLlamamiento } from "./portal-llamamientos-api.js?v=20260930-portales-i18n-integracion-v1";
-import { resolverSolicitudPropuestaLlamamiento } from "./portal-llamamientos-flujo.js?v=20260930-portales-i18n-integracion-v1";
-import { AYUDA_PORTAL_RRHH, detectarContextoContratacionTemporal, obtenerAyudaContratacionTemporal, renderizarAyudaContratacionTemporal, TRAMITES_AYUDANTE_PORTAL } from "./ayuda-contenido.js?v=20260930-portales-i18n-integracion-v1";
-import { crearAyudanteTramites } from "./ayudante-tramites.js?v=20260930-portales-i18n-integracion-v1";
-import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20260930-portales-i18n-integracion-v1";
-import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20260930-portales-i18n-integracion-v1";
+import { crearClientePropuestasLlamamiento } from "./portal-llamamientos-api.js?v=20261001-ct-a-i18n-v1";
+import { resolverSolicitudPropuestaLlamamiento } from "./portal-llamamientos-flujo.js?v=20261001-ct-a-i18n-v1";
+import { AYUDA_PORTAL_RRHH, detectarContextoContratacionTemporal, obtenerAyudaContratacionTemporal, renderizarAyudaContratacionTemporal, TRAMITES_AYUDANTE_PORTAL } from "./ayuda-contenido.js?v=20261001-ct-a-i18n-v1";
+import { crearAyudanteTramites } from "./ayudante-tramites.js?v=20261001-ct-a-i18n-v1";
+import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20261001-ct-a-i18n-v1";
+import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20261001-ct-a-i18n-v1";
 import { crearVistasOperaciones } from "./portal-vistas-operaciones.js?v=20260930-portales-i18n-integracion-v1";
-import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES } from "./portal-modulos-coordinador.js?v=20260930-ct-lista-recuperada-v2";
-import { crearClientePlantillasRRHH } from "./modulos/contratacion-temporal/rrhh-plantillas-cliente.js";
+import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES, VISTAS_AUTOSERVICIO_EMPLEADO } from "./portal-modulos-coordinador.js?v=20261002-b-servicios-351-main-v1";
 import { crearTraductorDocumentos } from "./modulos/documentos/i18n.js?v=20260928-ppt-v2";
-import { consultarSesionPortal, presentarSesionPortal } from "./portal-catalogo-modulos.js?v=20260930-portales-i18n-integracion-v1";
+import { consultarSesionPortal, presentarSesionPortal } from "./portal-catalogo-modulos.js?v=20261001-ct-a-i18n-v1";
 import { crearTraductorPersonal } from "./modulos/personal/i18n.js?v=20260925-personal-e10-v1";
-import { crearVistaInicioPortal } from "./portal-inicio.js?v=20260930-ct-lista-recuperada-v2";
-import { accesoBolsaEfectivo, aplicarDisponibilidadMenuBolsa, instalarMenuBolsa, resumenAccesosModulos, sincronizarMenuBolsa, vistaBolsaNavegable, VISTA_CANDIDATOS_BOLSA, VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260930-portales-i18n-integracion-v1";
-import { LOCALIZACION_PORTAL, textoPortal, traducirPortal } from "./portal-i18n.js?v=20260930-portales-i18n-integracion-v1";
+import { crearVistaInicioPortal } from "./portal-inicio.js?v=20261001-g364-reconciliar-v2";
+import { crearTraductorResumenAccesosEmpleado, traducirAccesosEmpleado } from "./portal-accesos-empleado.js?v=20261001-g364-reconciliar-v2";
+import { accesoBolsaEfectivo, aplicarDisponibilidadMenuBolsa, instalarMenuBolsa, resumenAccesosModulos, sincronizarMenuBolsa, vistaBolsaNavegable, VISTA_CANDIDATOS_BOLSA, VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20261001-ct-a-i18n-v1";
+import { LOCALIZACION_PORTAL, textoPortal, traducirPortal } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
 import { instalarCopiaJustificantes } from "./portal-justificante.js";
-import { aplicarIdiomaDocumento, aplicarTextosPortal, instalarSelectorIdiomaPortal, instalarValidacionI18n } from "./portal-idioma.js?v=20260930-portales-i18n-integracion-v1";
-import { crearControladorBolsas } from "./portal-bolsas-api.js?v=20260930-portales-i18n-integracion-v1";
-import { crearSuperficieBorradorLlamamiento } from "./portal-borrador-llamamiento-ui.js?v=20260930-bolsa-resumen-llamamiento-v1";
-import { consultarAvisosBolsa, manejarAccionAvisos } from "./portal-bolsas-avisos.js?v=20260930-portales-i18n-integracion-v1";
-import { crearSuperficieOfertasBolsa } from "./portal-bolsas-ofertas.js?v=20260930-portales-i18n-integracion-v1";
-import { crearSuperficieRRHHPlazos } from "./modulos/bolsa/rrhh-plazos-ui.js?v=20260930-ofertas-reglas-integradas-v4";
+import { aplicarIdiomaDocumento, aplicarTextosPortal, instalarSelectorIdiomaPortal, instalarValidacionI18n } from "./portal-idioma.js?v=20261001-ct-a-i18n-v1";
+import { crearControladorBolsas } from "./portal-bolsas-api.js?v=20261001-f-reconciliacion-323-v1";
+import { crearSuperficieBorradorLlamamiento } from "./portal-borrador-llamamiento-ui.js?v=20261001-ct-a-i18n-v1";
+import { consultarAvisosBolsa, manejarAccionAvisos } from "./portal-bolsas-avisos.js?v=20261001-ct-a-i18n-v1";
+import { crearSuperficieOfertasBolsa } from "./portal-bolsas-ofertas.js?v=20261001-ct-a-i18n-v1";
+import { crearSuperficieRRHHPlazos } from "./modulos/bolsa/rrhh-plazos-ui.js?v=20261001-ct-a-i18n-v1";
 import { crearFuenteAuditoriaHTTP } from "./modulos/auditoria/cliente-http.js?v=20260928-usab-auditoria-v2";
-import { montarVistaAuditoria } from "./modulos/auditoria/vista.js?v=20260930-portales-i18n-integracion-v1";
+import { montarVistaAuditoria } from "./modulos/auditoria/vista.js?v=20261001-ct-a-i18n-v1";
 import { crearClientePoliticaCeseRRHH } from "./modulos/bolsa/rrhh-politica-cese-api.js?v=20260928-rrhh-politica-cese-v1";
-import { montarVistaPoliticaCeseRRHH } from "./modulos/bolsa/rrhh-politica-cese-vista.js?v=20260930-portales-i18n-integracion-v1";
-import { crearIntegracionPreferenciasPortal } from "./portal-preferencias-integracion.js?v=20260930-portales-i18n-integracion-v1";
+import { montarVistaPoliticaCeseRRHH } from "./modulos/bolsa/rrhh-politica-cese-vista.js?v=20261001-ct-a-i18n-v1";
+import { crearIntegracionPreferenciasPortal } from "./portal-preferencias-integracion.js?v=20261001-ct-a-i18n-v1";
 let tamanoPaginaMarco = 6; const tablasPaginadas = new WeakMap(); export function calcularPaginaMarco(total, paginaSolicitada, tamano = tamanoPaginaMarco) { const cantidad = Number.isSafeInteger(total) && total > 0 ? total : 0; const medida = Number.isSafeInteger(tamano) && tamano > 0 ? tamano : tamanoPaginaMarco; const paginas = Math.max(1, Math.ceil(cantidad / medida)); const pagina = Math.min(Math.max(Number.isSafeInteger(paginaSolicitada) ? paginaSolicitada : 1, 1), paginas); const inicio = cantidad === 0 ? 0 : ((pagina - 1) * medida) + 1; const fin = Math.min(pagina * medida, cantidad); return Object.freeze({ total: cantidad, tamano: medida, paginas, pagina, inicio, fin }); } function navegadorRemotoDeTabla(contenedor) { const padre = contenedor.parentElement; return padre?.querySelector(":scope > .ct-exp-paginacion, :scope > .paginacion-bolsa, :scope > nav[aria-label*='aginación'], :scope > nav[aria-label*='aginacion']") || null; } function botonesPaginaMarco(calculo) {
   const paginas = [1, calculo.pagina - 1, calculo.pagina, calculo.pagina + 1, calculo.paginas]
     .filter((pagina) => pagina >= 1 && pagina <= calculo.paginas)
@@ -105,6 +105,7 @@ const DATOS_PANEL = DATOS_VACIOS;
 const clientePropuestasLlamamiento = crearClientePropuestasLlamamiento();
 const TITULOS = Object.freeze({
   portal: [traducirPortal("menu_inicio"), traducirPortal("menu_inicio")],
+  "mis-tramites": [traducirPortal("txt_portal_del_empleado"), traducirAccesosEmpleado("mis_tramites")],
   "ofertas-sae": [traducirPortal("ofertas_sae_miga"), traducirPortal("ofertas_sae_titulo")],
   resumen: [traducirPortal("txt_portal_del_empleado_bolsas_de_trabajo"), traducirPortal("txt_bolsas_de_trabajo")],
   elaboracion: [traducirPortal("txt_portal_del_empleado_bolsas_de_trabajo"), traducirPortal("txt_borradores_de_convocatorias")],
@@ -245,6 +246,7 @@ const renderizarPortal = crearVistaInicioPortal({
   esPerfilRRHH,
   obtenerCuadroInicio: () => coordinadorModulos.obtenerCuadroInicio?.() || null,
   obtenerBolsasInicio: () => estado.datosBolsas,
+  obtenerAccesosEmpleado: coordinadorModulos.obtenerAccesosEmpleado,
   locale: LOCALIZACION_PORTAL,
   catalogoFallido: () => estado.errorFuente !== "",
   inicioPendiente: () => coordinadorModulos.inicioPendiente?.() === true,
@@ -315,8 +317,9 @@ function vistaPermitida(vista) {
   if (vista === VISTA_PLANTILLAS_RRHH) return estado.plantillasAutorizadas === true;
   if (vista.startsWith("seleccion-")) return false;
   if (moduloDeVistaPortal(vista) === "bolsa") return vistaBolsaNavegable(vista, capacidadesBolsa());
-  if (VISTAS_MODULOS_PERSONALES.has(vista)) {
-    return !estado.fuenteLista || coordinadorModulos.vistaDisponible(vista);
+  if (VISTAS_MODULOS_PERSONALES.has(vista) || VISTAS_AUTOSERVICIO_EMPLEADO.has(vista)) {
+    return !estado.fuenteLista || coordinadorModulos.vistaDisponible(vista)
+      || (VISTAS_AUTOSERVICIO_EMPLEADO.has(vista) && coordinadorModulos.vistaPendiente(vista));
   }
   return true;
 }
@@ -531,6 +534,8 @@ async function comprobarAccesoPlantillas() {
   const controlador = new AbortController();
   consultaAccesoPlantillas = controlador;
   try {
+    const { crearClientePlantillasRRHH } = await import("./modulos/contratacion-temporal/rrhh-plantillas-cliente.js?v=20261001-ct-a-i18n-v1");
+    if (consultaAccesoPlantillas !== controlador || controlador.signal.aborted) return;
     await crearClientePlantillasRRHH().consultar({ signal: controlador.signal });
     if (consultaAccesoPlantillas !== controlador || controlador.signal.aborted) return;
     estado.plantillasAutorizadas = true;
@@ -638,7 +643,9 @@ function actualizarNavegacionModulos() {
     }));
     if (enlaceSAE && !enlaceSAE.hidden) accesos.push({ disponible: true, estado: "" });
     fase.textContent = estado.errorFuente || resumenAccesosModulos(accesos,
-      estado.datosBolsas?.carga === "cargando");
+      estado.datosBolsas?.carga === "cargando", crearTraductorResumenAccesosEmpleado({
+        accesos: coordinadorModulos.obtenerAccesosEmpleado(), traducir: traducirPortal,
+      }));
   }
 }
 

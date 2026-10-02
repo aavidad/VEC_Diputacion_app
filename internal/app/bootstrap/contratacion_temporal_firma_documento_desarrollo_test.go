@@ -333,6 +333,39 @@ func TestPredicadoFirmaDocumentoLigadoAlMaterial(t *testing.T) {
 	}
 }
 
+func TestFirmaDocumentoDesarrolloRechazaCertificadoDistintoDelCanal(t *testing.T) {
+	s, base, principal := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
+	ahora := s.reloj.Ahora()
+	perfil, err := nuevoPerfilFijoCTDesarrollo(principal, s.contexto, ahora, clavePerfilFijoFirmaCTDesarrollo,
+		[]string{httpinterno.RutaFirmaDocumento, httpinterno.RutaConsultaFirmaDocumento},
+		func(actor, ref string) (dominiovec.InstantaneaAutorizacion, error) {
+			return instantaneaPerfilFijoFirmaDocumentoCTDesarrollo(actor, ref, ahora)
+		})
+	if err != nil || s.registrarPerfilFijoCTDesarrollo(perfil) != nil {
+		t.Fatal("perfil de firma no compuesto", err)
+	}
+	perfil.contextoEsperadoRegistrado, perfil.sesionOperativa = perfil.contexto.Resultado, proveedorSesionOperativaCTPrueba{contexto: perfil.contexto}
+	m := materialFirmaDesarrolloPrueba()
+	m.Resultado, m.MotivoDevolucion = ctdomain.ResultadoFirmaFirmado, ""
+	m.OriginalHuella, m.FirmadoHuella = strings.Repeat("a", 64), strings.Repeat("b", 64)
+	m.CertificadoHuella, m.FirmanteRef = strings.Repeat("c", 64), "ref:"+strings.Repeat("c", 64)
+	m.PoliticaVerificacion, m.RevocacionEstado, m.SelloTiempoEstado = ports.PoliticaVerificacionFirma, "vigente", "no_presente"
+	if m.Validar() != nil || m.CertificadoHuella == s.certificadoSHA256 {
+		t.Fatal("material de certificado ajeno inválido")
+	}
+	f := &firmaDocumentoCTDesarrollo{alta: &dependenciasAltaContratacionTemporalDesarrollo{soporte: s,
+		autorizador: base.autorizador.(autorizadorLigadoContratacionTemporalDesarrollo),
+		postgresql:  dependenciasPostgreSQLContratacionTemporalDesarrollo{proveedorMaterialFirmaDocumento: new(proveedorMaterialAltaContratacionTemporalDesarrollo)}}}
+	ctx := contextoRutaCoberturaDesarrolloPrueba(s, principal, httpinterno.RutaFirmaDocumento)
+	if _, err := f.AutorizarFirmaDocumento(ctx, m); !errors.Is(err, ports.ErrFirmaDocumentoDenegada) {
+		t.Fatalf("certificado ajeno admitido: %v", err)
+	}
+	a := s.autoridadAsignaciones.(*autoridadAsignacionesContratacionTemporalDesarrolloPrueba)
+	if a.preparadas != 0 || a.publicadas != 0 {
+		t.Fatal("el certificado ajeno alcanzó la autorización V3")
+	}
+}
+
 func TestFirmaDocumentoCTApagadaNoCompone(t *testing.T) {
 	f, err := nuevaFirmaDocumentoCTDesarrollo(config.Config{}, nil, relojContratacionTemporalDesarrollo{}, nil)
 	if f != nil || err != nil {

@@ -4,9 +4,9 @@
 // los datos, se calcula la huella del justificante y se muestra el recibo.
 import { localizacionAreaPersonal, traducir } from "./i18n.js";
 import { escaparAtributo, escaparHTML, listaDatos } from "./vistas/comunes.js";
-import { cuerpoDisposicion, validarOfertasMiBolsa } from "./mi-bolsa-ofertas.js";
+import { cuerpoDisposicion, RUTA_DISPOSICION_MI_BOLSA, validarOfertasMiBolsa } from "./mi-bolsa-ofertas.js";
 import { nombreCategoria } from "./mi-bolsa-campos.js";
-import { cuerpoConfirmacionContacto, validarContactosMiBolsa } from "./mi-bolsa-contacto.js";
+import { cuerpoConfirmacionContacto, RUTA_CONTACTO_MI_BOLSA, validarContactosMiBolsa } from "./mi-bolsa-contacto.js";
 
 export const RUTAS_PORTAL_MI_BOLSA = Object.freeze({
   solicitar: "/api/vec/bolsa/mi-bolsa/solicitudes",
@@ -174,37 +174,83 @@ export async function cuerpoPortalMiBolsa(formulario, datos = new FormData(formu
   return { ruta: RUTAS_PORTAL_MI_BOLSA.responder, cuerpo };
 }
 
+const peticionesInciertas = new WeakMap();
+const enviosEnCurso = new WeakSet();
+
+function instanteRecibo(valor, nombre) {
+  instante(valor, nombre);
+  // Date.parse normaliza días inexistentes y 24:00. El recibo exige la fecha
+  // civil exacta; comparar hasta el segundo conserva los microsegundos recibidos.
+  if (new Date(valor).toISOString().slice(0, 19) !== valor.slice(0, 19)) throw new TypeError();
+}
+
+// Este recibo es el de httppersonal/reciboPortal; el recibo del panel del área
+// personal usa otro esquema. Solo contacto y disposición devuelven el recurso
+// de la petición: solicitudes y respuestas devuelven una referencia opaca nueva.
+function validarReciboPortal(entrada, peticion, estadoHTTP) {
+  const contratos = {
+    [RUTAS_PORTAL_MI_BOLSA.solicitar]: ["solicitud", /^solicitud-portal:[a-f0-9]{64}$/u, "solicitud-portal", ["pendiente_rrhh"]],
+    [RUTAS_PORTAL_MI_BOLSA.responder]: ["respuesta", /^respuesta-portal:[a-f0-9]{64}$/u, "respuesta-portal", ["firme", "propuesta_rrhh"]],
+    [RUTA_DISPOSICION_MI_BOLSA]: ["disposicion", peticion.cuerpo.oferta, "disposicion", ["manifestada"]],
+    [RUTA_CONTACTO_MI_BOLSA]: ["contacto", peticion.cuerpo.bolsa, "confirmacion-contacto", ["confirmado"]],
+  };
+  const contrato = contratos[peticion.ruta];
+  const recibo = entrada?.data;
+  if (!contrato || !recibo || typeof recibo !== "object" || Array.isArray(recibo)) throw new TypeError();
+  const [tipo, referencia, prefijo, estados] = contrato;
+  if (recibo.esquema !== `vec.bolsa.mi-bolsa.${tipo}.v1` ||
+      typeof recibo.referencia !== "string" ||
+      !(referencia instanceof RegExp ? referencia.test(recibo.referencia) : recibo.referencia === referencia) ||
+      typeof recibo.recibo !== "string" || !new RegExp(`^recibo:${prefijo}:[a-f0-9]{64}$`, "u").test(recibo.recibo) ||
+      !estados.includes(recibo.estado) || typeof recibo.repetida !== "boolean" || recibo.repetida !== (estadoHTTP === 200)) throw new TypeError();
+  instanteRecibo(recibo.registrada_en, "registrada_en");
+  if (recibo.vence_antes_de !== undefined) {
+    if (tipo !== "respuesta") throw new TypeError();
+    instanteRecibo(recibo.vence_antes_de, "vence_antes_de");
+  }
+  return recibo;
+}
+
 // enviarPortalMiBolsa envía el formulario y deja el resultado en su zona de
 // estado; tras un registro correcto pide recargar «Mi bolsa».
 export async function enviarPortalMiBolsa(formulario, { fetchImpl = globalThis.fetch, alRegistrar = () => {}, datos } = {}) {
+  if (enviosEnCurso.has(formulario)) return false;
+  enviosEnCurso.add(formulario);
   const zona = formulario.querySelector("[data-portal-resultado]");
   const boton = formulario.querySelector('button[type="submit"]');
   const mostrar = (texto) => { if (zona) zona.textContent = texto; };
-  const peticion = await cuerpoPortalMiBolsa(formulario, datos);
-  if (!peticion) {
-    mostrar(textoPortal("error.datos_no_validos"));
-    return false;
-  }
-  if (boton) boton.disabled = true;
-  mostrar(textoPortal("enviando"));
   try {
+    // Un resultado incierto puede haber persistido: un reintento explícito usa
+    // el mismo cuerpo, incluida la versión, aunque se hayan editado los campos.
+    const peticion = peticionesInciertas.get(formulario) || await cuerpoPortalMiBolsa(formulario, datos);
+    if (!peticion) {
+      mostrar(textoPortal("error.datos_no_validos"));
+      return false;
+    }
+    peticionesInciertas.set(formulario, peticion);
+    if (boton) boton.disabled = true;
+    mostrar(textoPortal("enviando"));
     const respuesta = await fetchImpl(peticion.ruta, {
       method: "POST", credentials: "same-origin", cache: "no-store", redirect: "error", referrerPolicy: "no-referrer",
       headers: { Accept: "application/json", "Content-Type": "application/json" }, body: JSON.stringify(peticion.cuerpo),
     });
-    const datos = await respuesta.json().catch(() => null);
+    const resultado = await respuesta.json().catch(() => null);
     if (respuesta.status === 200 || respuesta.status === 201) {
-      mostrar(textoPortal("hecho", { recibo: String(datos?.data?.recibo || "") }));
+      const recibo = validarReciboPortal(resultado, peticion, respuesta.status);
+      peticionesInciertas.delete(formulario);
+      mostrar(textoPortal("hecho", { recibo: recibo.recibo }));
       alRegistrar();
       return true;
     }
-    const codigo = String(datos?.error?.codigo || "servicio_no_disponible");
+    const codigo = String(resultado?.error?.codigo || "servicio_no_disponible");
+    if (respuesta.status >= 400 && respuesta.status < 500 && CODIGOS_ERROR.has(codigo)) peticionesInciertas.delete(formulario);
     mostrar(textoPortal(`error.${CODIGOS_ERROR.has(codigo) ? codigo : "servicio_no_disponible"}`));
     return false;
   } catch {
     mostrar(textoPortal("error.servicio_no_disponible"));
     return false;
   } finally {
+    enviosEnCurso.delete(formulario);
     if (boton) boton.disabled = false;
   }
 }

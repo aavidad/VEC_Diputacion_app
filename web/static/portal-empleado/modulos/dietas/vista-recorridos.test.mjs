@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { montarVistaRecorridosDietas } from "./vista-recorridos.js";
+import { montarVistaRecorridosDietas } from "./vista-recorridos.js?v=20261001-ct-a-i18n-v1";
 
 const claveDato = (atributo) => atributo.slice(5).replace(/-([a-z])/gu, (_todo, letra) => letra.toUpperCase());
 class Nodo {

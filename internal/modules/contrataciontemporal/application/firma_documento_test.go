@@ -38,13 +38,35 @@ func (r *registroFirmaPrueba) RegistrarFirma(_ context.Context, m ports.Material
 		return ports.ReciboFirmaDocumento{}, ports.ErrFirmaDocumentoDenegada
 	}
 	h, _ := m.HuellaSHA256()
+	// Como CT145: la misma clave con el mismo material devuelve el recibo.
+	for _, f := range r.firmas {
+		if f.ClaveIdempotencia == m.ClaveIdempotencia {
+			previo, _ := r.materialDe(m.ClaveIdempotencia).HuellaSHA256()
+			if previo != h {
+				return ports.ReciboFirmaDocumento{}, ports.ErrClaveFirmaDocumentoUsada
+			}
+			return ports.ReciboFirmaDocumento{FirmaRef: "firma-ct:x", ReciboRef: "recibo-firma-ct:x", Secuencia: f.Secuencia, Resultado: m.Resultado,
+				ExpedienteVersion: m.VersionExpediente, SolicitudHuella: h, RegistradaEn: instanteFirmaPrueba, YaRegistrada: true,
+				DocumentoCustodiaRef: m.DocumentoCustodiaRef, DocumentoCustodiaVersion: m.DocumentoCustodiaVersion}, nil
+		}
+	}
 	r.registrado = append(r.registrado, m)
 	r.firmas = append(r.firmas, ports.FirmaRegistrada{Documento: m.Documento, Secuencia: m.Secuencia, CatalogoHuella: m.CatalogoHuella,
 		PasoOrden: m.PasoOrden, Resultado: m.Resultado, ConMotivoDevolucion: m.MotivoDevolucion != "", OriginalHuella: m.OriginalHuella, FirmadoHuella: m.FirmadoHuella,
-		ExpedienteVersion: m.VersionExpediente, DocumentoCustodiaRef: m.DocumentoCustodiaRef, DocumentoCustodiaVersion: m.DocumentoCustodiaVersion})
+		ExpedienteVersion: m.VersionExpediente, ClaveIdempotencia: m.ClaveIdempotencia,
+		DocumentoCustodiaRef: m.DocumentoCustodiaRef, DocumentoCustodiaVersion: m.DocumentoCustodiaVersion})
 	return ports.ReciboFirmaDocumento{FirmaRef: "firma-ct:x", ReciboRef: "recibo-firma-ct:x", Secuencia: m.Secuencia, Resultado: m.Resultado,
 		ExpedienteVersion: m.VersionExpediente, SolicitudHuella: h, RegistradaEn: instanteFirmaPrueba,
 		DocumentoCustodiaRef: m.DocumentoCustodiaRef, DocumentoCustodiaVersion: m.DocumentoCustodiaVersion}, nil
+}
+
+func (r *registroFirmaPrueba) materialDe(clave string) ports.MaterialFirmaDocumento {
+	for _, m := range r.registrado {
+		if m.ClaveIdempotencia == clave {
+			return m
+		}
+	}
+	return ports.MaterialFirmaDocumento{}
 }
 
 func (r *registroFirmaPrueba) ConsultarFirmas(context.Context, string, string) ([]ports.FirmaRegistrada, error) {
@@ -96,13 +118,18 @@ func materialFirmaPrueba(m ports.MaterialFirmaDocumento) vecports.ExportacionMat
 // verificadorPrueba acredita una firma PAdES simulada: el firmado empieza
 // por el original. Solo es un doble del puerto, no una verificación.
 type verificadorPrueba struct {
-	motivo docports.MotivoVerificacionFirma
+	motivo  docports.MotivoVerificacionFirma
+	formato string
 }
 
 func (v verificadorPrueba) VerificarMotivado(_ context.Context, s docports.SolicitudVerificacionFirma) (docports.VerificacionFirmaMotivada, error) {
 	suma := sha256.Sum256(s.ContenidoFirmado)
 	r := docports.ResultadoVerificacionFirma{Estado: v.motivo.EstadoAsociado(), HuellaOriginalSHA256: s.HuellaOriginalSHA256,
-		HuellaFirmadoSHA256: hex.EncodeToString(suma[:]), SelloTiempoEstado: docports.SelloTiempoNoPresente, RevocacionEstado: docports.RevocacionNoComprobada}
+		HuellaFirmadoSHA256: hex.EncodeToString(suma[:]), SelloTiempoEstado: docports.SelloTiempoNoPresente, RevocacionEstado: docports.RevocacionNoComprobada,
+		Formato: "PAdES"}
+	if v.formato != "" {
+		r.Formato = v.formato
+	}
 	if v.motivo == docports.MotivoFirmaVerificada && bytes.HasPrefix(s.ContenidoFirmado, s.ContenidoOriginal) {
 		r.VinculoOriginal, r.FirmanteRef, r.CertificadoHuellaSHA256, r.RevocacionEstado = true, "ref:"+strings.Repeat("f", 64), strings.Repeat("e", 64), docports.RevocacionVigente
 	}
@@ -164,6 +191,21 @@ func TestFirmaDocumentoNuncaSinVerificacion(t *testing.T) {
 	}
 	if len(registro.registrado) != 0 || len(autorizador.visto) != 0 {
 		t.Fatal("una firma no verificada llegó a autorizarse o registrarse")
+	}
+}
+
+func TestFirmaDocumentoRechazaFormatoAjenoSinEfectos(t *testing.T) {
+	registro, autorizador := &registroFirmaPrueba{}, &autorizadorFirmaPrueba{}
+	s, err := NuevoServicioFirmaDocumento(circuitoFirmaPrueba{}, registro, autorizador,
+		verificadorPrueba{motivo: docports.MotivoFirmaVerificada, formato: "CAdES"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	original := []byte("%PDF-1.7 borrador")
+	firmado := append(append([]byte(nil), original...), []byte(" firma")...)
+	_, err = s.Firmar(context.Background(), solicitudFirmaPrueba(1, original, firmado, "clave-firma-formato-ajeno"))
+	if !errors.Is(err, ErrFirmaNoVerificada) || len(registro.registrado) != 0 || len(autorizador.visto) != 0 {
+		t.Fatalf("formato CAdES admitido para PDF CT: %v, registros=%d, autorizaciones=%d", err, len(registro.registrado), len(autorizador.visto))
 	}
 }
 

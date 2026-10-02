@@ -6,7 +6,7 @@ import {
   detectarContextoContratacionTemporal,
   obtenerAyudaContratacionTemporal,
   renderizarAyudaContratacionTemporal,
-} from "./ayuda-contenido.js";
+} from "./ayuda-contenido.js?v=20261001-ct-a-i18n-v1";
 
 test("la ayuda del portal de bolsa preexistente permanece intacta y conforme", () => {
   assert.equal(AYUDA_PORTAL_BOLSA.esquema, "vec.portal.ayuda.v1");

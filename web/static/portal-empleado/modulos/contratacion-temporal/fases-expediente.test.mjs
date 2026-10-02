@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { cerrarFase, construirPanelFase, instalarPantallasFase } from "./fases-expediente.js";
-import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js";
+import { cerrarFase, construirPanelFase, instalarPantallasFase } from "./fases-expediente.js?v=20261001-ct-a-i18n-v1";
+import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261001-ct-a-i18n-v1";
 
 test("construirPanelFase conserva la cabecera accesible del historial", () => {
   const originalDocument = globalThis.document;

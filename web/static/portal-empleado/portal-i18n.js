@@ -1,6 +1,6 @@
 import { IDIOMA_ACTUAL, LOCALIZACION_ACTUAL } from "../comun/idioma.js";
 import { cargarTextos } from "../comun/textos.js";
-import { mensajesTramitePortal } from "./modulos/contratacion-temporal/i18n-fases-rrhh.js";
+import { mensajesTramitePortal } from "./modulos/contratacion-temporal/i18n-fases-rrhh.js?v=20261001-ct-a-i18n-v1";
 
 /**
  * Textos del shell del portal: viven en `textos/<idioma>/portal.json`

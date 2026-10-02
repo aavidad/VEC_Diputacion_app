@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { montarFormularioIncorporacionEjercicio } from "./formulario-incorporacion-ejercicio.js";
+import { montarFormularioIncorporacionEjercicio } from "./formulario-incorporacion-ejercicio.js?v=20261001-ct-a-i18n-v1";
 
 const periodo = { desde: "2026-09-09T00:00:00Z", hasta: "2026-10-09T00:00:00Z" };
 const expedienteRef = "expediente:ejercicio:fechas";

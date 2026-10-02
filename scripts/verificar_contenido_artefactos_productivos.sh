@@ -158,6 +158,9 @@ fi
 # lectura, almacenamiento o inclusion entre origenes. (grep en vez de ripgrep:
 # el ejecutor de CI no trae rg.)
 transportes_mtls_revisados=(
+	# Consulta exacta de Selección: POST interno fijo, same-origin, no-store,
+	# redirect error y no-referrer; contexto y permiso se derivan en servidor.
+	static/portal-empleado/modulos/seleccion/ficha-convocatoria/cliente-http.js
 	static/portal-empleado/portal-catalogo-modulos.js
 	# Usuarios 5.08a: GET/PUT a ruta interna fija, mTLS del mismo origen,
 	# no-store, redirect error, sin referente ni cookies accesibles en JS.
@@ -170,6 +173,9 @@ transportes_mtls_revisados=(
 	static/comun/imagen-propia.js
 	static/portal-empleado/modulos/contratacion-temporal/cliente-http.js
 	static/portal-empleado/modulos/contratacion-temporal/cliente-http-llamamiento.js
+	# B2: GET del plan y POST de preparación/confirmación a rutas internas
+	# fijas; mTLS del mismo origen, no-store, redirect error y no-referrer.
+	static/portal-empleado/modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js
 	# Descarga de los borradores PDF/Word: POST a ruta interna fija, same-origin,
 	# no-store, redirect error y no-referrer, como cliente-http.js (revisado 23/09).
 	static/portal-empleado/modulos/contratacion-temporal/cliente-http-informe-definitivo.js

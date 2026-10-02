@@ -1,0 +1,29 @@
+rules:
+  - id: vec-f-no-dynamic-evaluation
+    languages: [javascript]
+    message: Revisar evaluación dinámica.
+    severity: ERROR
+    pattern-either:
+      - pattern: eval(...)
+      - pattern: new Function(...)
+  - id: vec-f-no-browser-persistence
+    languages: [javascript]
+    message: No escribir cookies ni almacenamiento del navegador.
+    severity: ERROR
+    pattern-either:
+      - pattern: localStorage.setItem(...)
+      - pattern: sessionStorage.setItem(...)
+      - pattern: indexedDB.open(...)
+      - pattern: document.cookie = $VALUE
+  - id: vec-f-tls-validation-required
+    languages: [javascript]
+    message: Mantener la validación TLS.
+    severity: ERROR
+    pattern: 'ignoreHTTPSErrors: true'
+  - id: vec-f-no-shell-input
+    languages: [javascript]
+    message: No ejecutar órdenes desde la configuración.
+    severity: ERROR
+    pattern-either:
+      - pattern: exec(...)
+      - pattern: execSync(...)

@@ -65,6 +65,8 @@ export function componerCronosInterno(recursos, entorno) {
   });
   return Object.freeze({
     traducir,
+    ...(typeof cliente.solicitudes.consultarPermisos === "function"
+      ? { consultarPermisos: cliente.solicitudes.consultarPermisos.bind(cliente.solicitudes) } : {}),
     ...(resolucion || notificaciones ? { etiquetas } : {}),
     ...subvistasResolucion,
     ...subvistasNotificaciones,
@@ -103,16 +105,23 @@ export function componerCronosInterno(recursos, entorno) {
           return null;
         }
       };
-      colgar("saldo", (nodo) => saldo.montarVistaSaldoCronos({ raiz: nodo, cliente: cliente.saldo, anunciar, incrustada: true }));
-      colgar("remoto", (nodo) => remoto.montarVistaRemotoCronos({ raiz: nodo, cliente: cliente.remoto }));
+      const parteSaldo = colgar("saldo", (nodo) => saldo.montarVistaSaldoCronos({ raiz: nodo, cliente: cliente.saldo, anunciar, incrustada: true }));
       // El calendario se monta antes que los movimientos del día: «olvido de
       // marcaje» solo se ofrece si hay un formulario de olvido al que llevar.
       const propios = colgar("calendario", (nodo) => movimientosPropios.montarMovimientosPropiosCronos({
         raiz: nodo, cliente: cliente.solicitudes, anunciar, incrustada: true }));
       const abrirOlvido = typeof propios?.abrirOlvido === "function" ? propios.abrirOlvido : undefined;
-      colgar("movimientos", (nodo) => movimientos.montarVistaMovimientosCronos({ raiz: nodo, cliente: cliente.saldo, anunciar,
+      const parteMovimientos = colgar("movimientos", (nodo) => movimientos.montarVistaMovimientosCronos({ raiz: nodo, cliente: cliente.saldo, anunciar,
         incrustada: true, ...(abrirOlvido ? { abrirCorreccion: () => abrirOlvido() } : {}) }));
       let activo = true;
+      colgar("remoto", (nodo) => remoto.montarVistaRemotoCronos({ raiz: nodo, cliente: cliente.remoto,
+        onRegistrado: () => {
+          if (!activo) return;
+          // Cada lectura conserva su periodo y muestra su propio error. El
+          // recibo confirmado no se vuelve a enviar si una lectura falla.
+          return Promise.all([parteSaldo, parteMovimientos, propios].map((parte) => parte?.actualizar?.()));
+        },
+      }));
       const desmontar = () => {
         if (!activo) return;
         activo = false;

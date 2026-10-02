@@ -86,10 +86,16 @@ func TestManejadorFirmaDocumentoErrores(t *testing.T) {
 	}{
 		{application.ErrVerificacionFirmaApagada, http.StatusServiceUnavailable, "verificacion_no_disponible"},
 		{application.DictamenRechazado{Estado: docports.EstadoVerificacionNoValida, Motivo: docports.MotivoIntegridadNoValida}, http.StatusUnprocessableEntity, "firma_no_verificada"},
+		{application.DictamenRechazado{Estado: docports.EstadoVerificacionIndeterminada, Motivo: docports.MotivoValidadorNoDisponible}, http.StatusServiceUnavailable, "servicio_no_disponible"},
+		{application.DictamenRechazado{Estado: docports.EstadoVerificacionIndeterminada, Motivo: docports.MotivoCredencialRechazada}, http.StatusServiceUnavailable, "servicio_no_disponible"},
 		{application.ErrPasoFirmaNoPendiente, http.StatusConflict, "paso_no_pendiente"},
 		{ports.ErrCadenaFirmaDocumentoRota, http.StatusConflict, "cadena_rota"},
 		{ports.ErrFirmaDocumentoDenegada, http.StatusForbidden, "acceso_denegado"},
 		{ports.ErrExpedienteConsultaFirmasNoEncontrado, http.StatusNotFound, "recurso_no_encontrado"},
+		{ports.ErrCustodiaFirmadoDenegada, http.StatusForbidden, "acceso_denegado"},
+		{ports.ErrCustodiaFirmadoInvalida, http.StatusUnprocessableEntity, "contenido_no_valido"},
+		{ports.ErrCustodiaFirmadoEnConflicto, http.StatusConflict, "conflicto"},
+		{ports.ErrCustodiaFirmadoNoDisponible, http.StatusServiceUnavailable, "servicio_no_disponible"},
 		{errors.New("otro"), http.StatusServiceUnavailable, "servicio_no_disponible"},
 	}
 	for _, c := range casos {
@@ -146,5 +152,66 @@ func TestManejadorConsultaFirmasDocumento(t *testing.T) {
 	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `"firma_eficaz":false`) ||
 		!strings.Contains(w.Body.String(), `"verificacion_disponible":false`) || !strings.Contains(w.Body.String(), `"estado":"pendiente_firma"`) {
 		t.Fatalf("consulta: %d %s", w.Code, w.Body)
+	}
+}
+
+// La firma enlazada con un PDF custodiado lo expone para la descarga, con la
+// referencia del expediente en Documentos (nunca la de CT) y la huella.
+func TestManejadorFirmaDocumentoExponeElDocumentoCustodiado(t *testing.T) {
+	huella := strings.Repeat("1", 64)
+	s := &servicioFirmaPrueba{resultado: application.ResultadoFirmaDocumento{
+		Recibo: ports.ReciboFirmaDocumento{FirmaRef: "firma-ct:1", ReciboRef: "recibo-firma-ct:1", Secuencia: 1, Resultado: domain.ResultadoFirmaFirmado,
+			ExpedienteVersion: 7, PerfilRef: "perfil:x", RegistradaEn: time.Date(2026, 9, 25, 10, 0, 0, 0, time.UTC),
+			DocumentoCustodiaRef: "ref:" + strings.Repeat("d", 64), DocumentoCustodiaVersion: 1},
+		Material: ports.MaterialFirmaDocumento{ExpedienteRef: "expediente:ct:001", Documento: "resolucion", PasoOrden: 1,
+			PoliticaVerificacion: ports.PoliticaVerificacionFirma, FirmadoHuella: huella},
+		MotivoVerificacion: docports.MotivoFirmaVerificada,
+	}}
+	h, _ := NuevoManejadorFirmaDocumento(autoridadFirmaPrueba{}, s)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, peticionFirma(RutaFirmaDocumento, cuerpoFirmaPrueba))
+	var salida struct {
+		Data struct {
+			Custodiado map[string]any `json:"documento_custodiado"`
+		} `json:"data"`
+	}
+	esperado := ports.ExpedienteDocumentalRef("organizacion:desarrollo:dipgra", "expediente:ct:001")
+	if w.Code != http.StatusCreated || json.Unmarshal(w.Body.Bytes(), &salida) != nil ||
+		salida.Data.Custodiado["expediente_ref"] != esperado || salida.Data.Custodiado["documento_ref"] != "ref:"+strings.Repeat("d", 64) ||
+		salida.Data.Custodiado["version"] != float64(1) || salida.Data.Custodiado["huella_sha256"] != huella ||
+		strings.Contains(w.Body.String(), `"expediente_ref":"expediente:ct:001","documento_ref"`) {
+		t.Fatalf("recibo con documento custodiado: %d %s", w.Code, w.Body)
+	}
+	// Sin enlace, el recibo no lleva el campo.
+	s.resultado.Recibo.DocumentoCustodiaRef, s.resultado.Recibo.DocumentoCustodiaVersion = "", 0
+	w = httptest.NewRecorder()
+	h.ServeHTTP(w, peticionFirma(RutaFirmaDocumento, cuerpoFirmaPrueba))
+	if strings.Contains(w.Body.String(), "documento_custodiado") {
+		t.Fatalf("recibo sin enlace: %s", w.Body)
+	}
+}
+
+type servicioFirmaConEnlace struct{ servicioFirmaPrueba }
+
+func (s *servicioFirmaConEnlace) Consultar(context.Context, string, string) (application.EstadoFirmasExpediente, error) {
+	c := domain.CircuitoFirmaDocumento{Documento: "resolucion", Etiqueta: "Resolución", Pasos: []domain.PasoCircuitoFirma{
+		{Orden: 1, Cargo: "Órgano", Accion: "firma", Devolucion: domain.DevolucionVuelveARedaccion, Referencia: "c:1:p1"}}}
+	return application.EstadoFirmasExpediente{
+		Circuito: domain.CircuitoFirma{CatalogoRef: "circuito:1", HuellaCatalogo: strings.Repeat("c", 64), Documentos: []domain.CircuitoFirmaDocumento{c}},
+		Documentos: []domain.EstadoCircuitoDocumento{{Documento: "resolucion", Completo: true, UltimaSecuencia: 1,
+			Pasos: []domain.EstadoPasoCalculado{{Orden: 1, Estado: domain.EstadoPasoFirmado, ReciboRef: "recibo-firma-ct:1"}}}},
+		Firmas: []ports.FirmaRegistrada{{Documento: "resolucion", ReciboRef: "recibo-firma-ct:1", FirmadoHuella: strings.Repeat("1", 64),
+			DocumentoCustodiaRef: "ref:" + strings.Repeat("d", 64), DocumentoCustodiaVersion: 1}},
+	}, nil
+}
+
+func TestManejadorConsultaFirmasExponeElDocumentoCustodiado(t *testing.T) {
+	h, _ := NuevoManejadorFirmaDocumento(autoridadFirmaPrueba{}, &servicioFirmaConEnlace{})
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, peticionFirma(RutaConsultaFirmaDocumento, `{"expediente_ref":"expediente:ct:001"}`))
+	esperado := `"documento_custodiado":{"expediente_ref":"` + ports.ExpedienteDocumentalRef("organizacion:desarrollo:dipgra", "expediente:ct:001") +
+		`","documento_ref":"ref:` + strings.Repeat("d", 64) + `","version":1,"huella_sha256":"` + strings.Repeat("1", 64) + `"}`
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), esperado) {
+		t.Fatalf("consulta con enlace: %d %s", w.Code, w.Body)
 	}
 }

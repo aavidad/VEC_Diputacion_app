@@ -11,10 +11,12 @@
  * los indicadores y el reparto por fase. Cuenta con los mismos criterios que la
  * lista (recuentos-peticiones.js) y no deduce responsables ni tareas.
  */
-import { finVigenciaBolsaPortal, traducirPortal } from "./portal-i18n.js?v=20260930-portales-i18n-integracion-v1";
-import { faseRRHH, FASES_RRHH } from "./modulos/contratacion-temporal/i18n-fases-rrhh.js";
-import { resumirPeticiones } from "./modulos/contratacion-temporal/recuentos-peticiones.js";
+import { finVigenciaBolsaPortal, traducirPortal } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
+import { faseRRHH, FASES_RRHH } from "./modulos/contratacion-temporal/i18n-fases-rrhh.js?v=20261001-ct-a-i18n-v1";
+import { resumirPeticiones } from "./modulos/contratacion-temporal/recuentos-peticiones.js?v=20261001-f-reconciliacion-325-v1";
 import { icono } from "../comun/iconos-vec.js?v=20260925-aspecto-v1";
+import { IDIOMA_ACTUAL } from "../comun/idioma.js";
+import { renderizarAccesosEmpleado } from "./portal-accesos-empleado.js?v=20261001-g364-reconciliar-v2";
 
 const DESTINO_LISTA = 'data-vista="contratacion-temporal" data-ct-exp-vista="cuadro"';
 
@@ -242,7 +244,9 @@ export function crearVistaInicioPortal({
   numero = (v) => String(v ?? 0),
   obtenerCuadroInicio = () => null,
   obtenerBolsasInicio = () => null,
+  obtenerAccesosEmpleado = () => ({}),
   locale = "es-ES",
+  idioma = IDIOMA_ACTUAL,
   ahora = () => new Date(),
   catalogoFallido = () => false,
   inicioPendiente = () => false,
@@ -291,9 +295,11 @@ export function crearVistaInicioPortal({
       <section class="portal-rrhh-inicio" aria-label="${t("menu_inicio")}">
         <header class="cabeza-pagina">
           <div><h2 class="portal-rrhh-fecha">${escaparHTML(fecha.charAt(0).toLocaleUpperCase(locale) + fecha.slice(1))}</h2></div>
-          ${disponibleCT ? `<button type="button" class="boton-primario" data-vista="contratacion-temporal" data-ct-exp-vista="alta">${t("inicio_rrhh_nueva_peticion")}</button>` : ""}
+          <div class="fila-acciones"><a class="boton-secundario" href="/portal-empleado/categorias-rpt/?lang=${encodeURIComponent(idioma)}">${t("inicio_rrhh_categorias_rpt")}</a>
+          ${disponibleCT ? `<button type="button" class="boton-primario" data-vista="contratacion-temporal" data-ct-exp-vista="alta">${t("inicio_rrhh_nueva_peticion")}</button>` : ""}</div>
         </header>
         ${estadoCT}
+        ${renderizarAccesosEmpleado({ accesos: obtenerAccesosEmpleado(), escaparHTML })}
         ${resumen ? renderizarPendientes(resumen, escaparHTML, traducir, locale) : ""}
         <div class="rejilla-kpi cuatro">${indicadores}${sae}</div>
         <div class="rejilla-dos">
@@ -325,9 +331,10 @@ export function crearVistaInicioPortal({
     const catalogo = obtenerCatalogo();
     if (!Array.isArray(catalogo)) throw new TypeError("catálogo de módulos no válido");
     const modulos = renderizarModulosOfrecidos(catalogo, resolverAcceso, escaparHTML, traducir);
+    const accesosPropios = renderizarAccesosEmpleado({ accesos: obtenerAccesosEmpleado(), escaparHTML });
     // Sin ningún módulo que ofrecer (y sin fallo del catálogo, que ya tiene su
     // aviso), Inicio dice que no hay módulos en lugar de quedar en blanco.
-    const contenido = modulos === "" && avisoCatalogo === ""
+    const contenido = modulos === "" && avisoCatalogo === "" && accesosPropios === ""
       ? `<section class="panel portal-inicio-empleado-vacio"><div class="cuerpo-panel vacio-controlado" role="status" data-inicio-sin-modulos>
           <p>${escaparHTML(traducir("inicio_empleado_sin_modulos"))}</p>
         </div></section>`
@@ -337,6 +344,7 @@ export function crearVistaInicioPortal({
     return `
       ${encabezadoVista("", traducir("txt_portal_del_empleado"), "")}
       ${avisoCatalogo}
+      ${accesosPropios}
       ${contenido}`;
   };
 }

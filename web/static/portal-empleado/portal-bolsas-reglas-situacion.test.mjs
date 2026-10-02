@@ -10,7 +10,7 @@ import {
   renderizarCamposReposicion,
   textoProcedenciaReposicion,
 } from "./portal-bolsas-reglas-situacion.js";
-import { crearControladorOperacionesSituacion, renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js";
+import { crearControladorOperacionesSituacion, renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20261001-ct-a-i18n-v1";
 
 const procedencia = (articulo) => ({ clave: "b24.sancion.x", referencia: "vec.bolsa.reglas:1:x", articulo, norma: "Reglamento", ejemplo: false });
 

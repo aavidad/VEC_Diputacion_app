@@ -6,13 +6,13 @@
     <meta name="color-scheme" content="light">
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <title data-i18n="areaPersonal.html.titulo">Mi área personal · Bolsas de trabajo</title>
-    <link rel="stylesheet" href="/comun/tema-vec.css?v=20260930-portales-i18n-integracion-v1">
-    <link rel="stylesheet" href="/area-personal/area-personal.css?v=20260930-b11-main-union-v2">
+    <link rel="stylesheet" href="/comun/tema-vec.css?v=20261001-codexf-accesibilidad-v1">
+    <link rel="stylesheet" href="/area-personal/area-personal.css?v=20261001-codexf-accesibilidad-v1">
     <link rel="stylesheet" href="/area-personal/preferencias.css?v=20260929-demo-jefes-v1">
     <link rel="stylesheet" href="/comun/correos-propios.css?v=20260929-correos-508b-v1">
     <link rel="stylesheet" href="/comun/imagen-propia.css?v=20260929-imagen-508c-v2">
     <link rel="stylesheet" href="/comun/oportunidades/oportunidades.css?v=20260924-f2-b15-area-v1">
-    <script type="module" src="/area-personal/arranque.js?v=20260930-portales-i18n-integracion-v1"></script>
+    <script type="module" src="/area-personal/arranque.js?v=20261001-codexf-accesibilidad-v1"></script>
   </head>
   <body class="area-personal-app">
     <a class="salto-contenido" href="#contenido-principal" data-i18n="areaPersonal.html.saltar">Saltar al contenido principal</a>
@@ -28,7 +28,7 @@
 
         <nav class="ap-navegacion" data-i18n-aria-label="areaPersonal.html.opciones" aria-label="Opciones del área personal">
           <p data-i18n="areaPersonal.html.grupoResumen">Resumen</p>
-          <a href="?vista=inicio" data-ruta="inicio"><svg aria-hidden="true"><use href="#icono-inicio"></use></svg><span data-i18n="areaPersonal.rutas.inicio">Inicio y plazos</span></a>
+          <a href="?vista=inicio" data-ruta="inicio"><svg aria-hidden="true"><use href="#icono-inicio"></use></svg><span data-i18n="areaPersonal.rutas.inicio">Inicio</span></a>
           <a href="?vista=convocatorias" data-ruta="convocatorias"><svg aria-hidden="true"><use href="#icono-convocatoria"></use></svg><span data-i18n="areaPersonal.rutas.convocatorias">Convocatorias</span></a>
           <a href="?vista=oportunidades" data-ruta="oportunidades"><svg aria-hidden="true"><use href="#icono-convocatoria"></use></svg><span data-i18n="areaPersonal.rutas.oportunidades">Oportunidades para ti</span></a>
 
@@ -62,7 +62,7 @@
             <nav class="migas" id="migas-pan" data-i18n="areaPersonal.app.migas" data-i18n-aria-label="areaPersonal.html.migas" aria-label="Migas de pan">Mi área personal</nav>
             <h1 id="titulo-vista" data-i18n="areaPersonal.html.cargando">Cargando área personal…</h1>
           </div>
-          <form class="busqueda-global" id="busqueda-global" role="search">
+          <form class="busqueda-global" id="busqueda-global" role="search" hidden>
             <label class="solo-lectura" for="consulta-global" data-i18n="areaPersonal.html.buscarEtiqueta">Buscar en convocatorias y ayuda</label>
             <input id="consulta-global" name="consulta" type="search" data-i18n-placeholder="areaPersonal.html.buscarEjemplo" placeholder="Buscar convocatoria o ayuda" autocomplete="off">
             <button type="submit" class="boton-icono" data-i18n-aria-label="areaPersonal.html.buscar" aria-label="Buscar"><svg aria-hidden="true"><use href="#icono-buscar"></use></svg></button>

@@ -1,4 +1,4 @@
-import { crearTraductorResolucionCronos, periodoSolicitudCronos } from "./i18n-resolucion.js";
+import { crearTraductorResolucionCronos, periodoSolicitudCronos } from "./i18n-resolucion.js?v=20261001-cronos-grafo-bandeja-v5";
 import { formatearCantidadCronos } from "./i18n-solicitudes.js";
 import { ErrorClienteResolucionCronos, crearClienteResolucionCronosHTTP } from "./cliente-resolucion-http.js";
 import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
@@ -37,13 +37,14 @@ export function renderizarAvisosPropiosCronos({ estado = "cargando", filtro = "r
   const selector = `<div class="cronos-selector-paso" role="group" aria-label="${escaparHTML(t("avisos_titulo"))}">${FILTROS.map((f) =>
     `<button type="button" class="boton-secundario" data-cronos-filtro="${f}" aria-pressed="${f === filtro}">${escaparHTML(t(`avisos_${f}`))}</button>`).join("")}</div>`;
   const cabeceraPanel = `<div class="cabecera-panel"><h3 id="cronos-avisos-filtro">${escaparHTML(t(`avisos_${filtro}`))}</h3>${selector}</div>`;
-  if (estado !== "listo") {
-    const clave = { denegado: "denegado", sin_empleado: "sin_empleado", error: "error" }[estado] ?? "cargando";
-    return `<section class="cronos-area cronos-avisos-propios" aria-labelledby="cronos-avisos-titulo" data-estado="${escaparHTML(estado)}">${cabecera}
-      <section class="panel cronos-panel" aria-labelledby="cronos-avisos-filtro">${cabeceraPanel}<div class="cuerpo-panel"><p class="cronos-${estado === "cargando" ? "vacio" : "acceso-denegado"}" role="${estado === "error" ? "alert" : "status"}">${escaparHTML(t(clave))}</p></div></section></section>`;
-  }
   const tono = tonoMensaje === "error" ? "error" : "exito";
   const avisoMensaje = mensaje ? `<p class="cronos-solicitud-aviso" data-tono="${tono}" role="${tono === "error" ? "alert" : "status"}">${escaparHTML(mensaje)}</p>` : "";
+  if (estado !== "listo") {
+    const clave = { denegado: "denegado", sin_empleado: "sin_empleado", error: "error" }[estado] ?? "cargando";
+    const reintentar = estado === "error" ? `<button type="button" class="boton-secundario" data-cronos-reintentar-consulta>${escaparHTML(t("avisos_reintentar_consulta"))}</button>` : "";
+    return `<section class="cronos-area cronos-avisos-propios" aria-labelledby="cronos-avisos-titulo" data-estado="${escaparHTML(estado)}">${cabecera}
+      <section class="panel cronos-panel" aria-labelledby="cronos-avisos-filtro">${cabeceraPanel}<div class="cuerpo-panel">${avisoMensaje}<p class="cronos-${estado === "cargando" ? "vacio" : "acceso-denegado"}" role="${estado === "error" ? "alert" : "status"}">${escaparHTML(t(clave))}</p>${reintentar}</div></section></section>`;
+  }
   const visibles = datos.avisos.filter((a) => a.archivado === (filtro === "archivados"));
   const lista = visibles.length ? `<ul class="cronos-avisos-lista">${visibles.map((a) => aviso(a, filtro, archivando === a.aviso_ref, t, locale, zonaHoraria)).join("")}</ul>`
     : `<p class="cronos-vacio" role="status">${escaparHTML(t("avisos_vacio"))}</p>`;
@@ -72,16 +73,20 @@ export function montarAvisosPropiosCronos({ raiz, cliente = crearClienteResoluci
   const dibujar = () => {
     if (activa) contenedor.innerHTML = renderizarAvisosPropiosCronos({ estado, filtro, datos, mensaje, tonoMensaje, archivando: archivo?.enCurso ? archivo.avisoRef : "", mensajes, locale, zonaHoraria });
   };
-  const cargar = async () => {
+  const cargar = async ({ restaurarFoco = false } = {}) => {
+    if (!activa) return;
     controlador?.abort(); controlador = new AbortController(); const turno = ++secuencia;
+    const signal = controlador.signal;
     estado = "cargando"; datos = null; dibujar();
     try {
-      const r = await cliente.consultarAvisos({ signal: controlador.signal });
+      const r = await cliente.consultarAvisos({ signal });
       if (!activa || turno !== secuencia) return;
       estado = "listo"; datos = r; dibujar();
+      if (restaurarFoco) contenedor.querySelector?.(`[data-cronos-filtro="${filtro}"]`)?.focus?.();
     } catch (error) {
-      if (!activa || turno !== secuencia || controlador.signal.aborted) return;
+      if (!activa || turno !== secuencia || signal.aborted) return;
       estado = estadoError(error); dibujar(); anunciar(t(estado));
+      if (restaurarFoco) contenedor.querySelector?.(estado === "error" ? "[data-cronos-reintentar-consulta]" : `[data-cronos-filtro="${filtro}"]`)?.focus?.();
     }
   };
   const archivar = async (avisoRef) => {
@@ -104,7 +109,9 @@ export function montarAvisosPropiosCronos({ raiz, cliente = crearClienteResoluci
   };
   const alPulsar = (evento) => {
     const botonFiltro = evento.target?.closest?.("[data-cronos-filtro]");
-    if (botonFiltro && FILTROS.includes(botonFiltro.dataset.cronosFiltro)) { filtro = botonFiltro.dataset.cronosFiltro; mensaje = ""; dibujar(); return; }
+    if (botonFiltro && FILTROS.includes(botonFiltro.dataset.cronosFiltro)) { filtro = botonFiltro.dataset.cronosFiltro; if (estado === "listo") mensaje = ""; dibujar(); return; }
+    const botonReintentar = evento.target?.closest?.("[data-cronos-reintentar-consulta]");
+    if (botonReintentar && estado === "error") { void cargar({ restaurarFoco: true }); return; }
     const botonArchivar = evento.target?.closest?.("[data-cronos-archivar]");
     if (botonArchivar && !botonArchivar.disabled) void archivar(botonArchivar.dataset.cronosArchivar);
   };

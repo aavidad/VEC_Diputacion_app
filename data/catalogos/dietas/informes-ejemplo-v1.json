@@ -1,0 +1,21 @@
+{
+  "schema": "dietas-informes-config-demo",
+  "naturaleza": "sintetica",
+  "referencia": "propuesta:catalogo:dietas:informes:ejemplo",
+  "version": 1,
+  "criterio": {
+    "campo_fecha": "fecha_inicio",
+    "estados_incluidos": ["orientativo", "liquidado", "fiscalizado"],
+    "conceptos_incluidos": ["manutencion", "kilometraje", "otros_gastos"]
+  },
+  "historia": [
+    {
+      "version": 1,
+      "actor_ref": "actor:ejemplo:rrhh",
+      "actor_nombre": "Marina Torres",
+      "fecha": "2026-10-01T00:00:00Z",
+      "idioma_motivo": "es",
+      "motivo": "Preparación de un informe sintético para revisión. Sin aprobación administrativa."
+    }
+  ]
+}

@@ -1,0 +1,106 @@
+// Ensayo desechable del cliente real de VEC contra el validador autónomo.
+// Se copia a un módulo VEC temporal; no pertenece al binario productivo.
+package main
+
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
+
+	"vec-diputacion-granada/internal/vec/documentos/adapters/validadorautofirma"
+	"vec-diputacion-granada/internal/vec/documentos/ports"
+)
+
+func exigir(ok bool, mensaje string) {
+	if !ok {
+		fmt.Fprintln(os.Stderr, mensaje)
+		os.Exit(1)
+	}
+}
+
+func leer(ruta string) []byte {
+	contenido, err := os.ReadFile(ruta)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "No se pudo leer un dato temporal del ensayo")
+		os.Exit(1)
+	}
+	return contenido
+}
+
+func main() {
+	exigir(len(os.Args) == 4, "Uso: clientevec CASO DATOS CA_TLS")
+	caso, datos, caTLS := os.Args[1], os.Args[2], os.Args[3]
+	original := leer(filepath.Join(datos, "original.pdf"))
+	firmado := leer(filepath.Join(datos, "firmado.pdf"))
+	if caso == "firmado_alterado" {
+		firmado = leer(filepath.Join(datos, "alterado.pdf"))
+	}
+	huellaOriginal := sha256.Sum256(original)
+	huellaFirmado := sha256.Sum256(firmado)
+	solicitud := ports.SolicitudVerificacionFirma{
+		DocumentoID: "ref:" + strings.Repeat("a", 64), Version: 1,
+		HuellaOriginalSHA256: hex.EncodeToString(huellaOriginal[:]),
+		FormatoEsperado:      "PAdES",
+		ContenidoOriginal:    original, ContenidoFirmado: firmado,
+	}
+	exigir(solicitud.Validar() == nil, "Solicitud VEC sintética inválida")
+
+	ca := leer(caTLS)
+	nombreTLS := "localhost"
+	token := leer(filepath.Join(datos, "token"))
+	switch caso {
+	case "ca_incorrecta":
+		ca = leer(filepath.Join(datos, "ancla.pem"))
+	case "nombre_incorrecto":
+		nombreTLS = "otro.invalid"
+	case "credencial_incorrecta":
+		token = []byte(strings.Repeat("x", 64))
+	}
+	cliente, err := validadorautofirma.Nuevo(validadorautofirma.Configuracion{
+		URL: "https://127.0.0.1:63118", CAPEM: ca,
+		NombreServidorTLS: nombreTLS, Token: token, Timeout: 20 * time.Second,
+	})
+	exigir(err == nil, "No se pudo construir el cliente real de VEC")
+	ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
+	defer cancel()
+	respuesta, err := cliente.VerificarMotivado(ctx, solicitud)
+	exigir(err == nil, "El cliente devolvió un error en vez de resultado motivado")
+	exigir(respuesta.ValidarContra(solicitud) == nil, "Estado y motivo VEC incoherentes")
+	exigir(respuesta.Resultado.HuellaOriginalSHA256 == solicitud.HuellaOriginalSHA256 &&
+		respuesta.Resultado.HuellaFirmadoSHA256 == hex.EncodeToString(huellaFirmado[:]),
+		"El cliente no vinculó las huellas a los bytes enviados")
+
+	esperado := map[string]struct {
+		estado ports.EstadoVerificacionFirma
+		motivo ports.MotivoVerificacionFirma
+	}{
+		"valida":                {ports.EstadoVerificacionValida, ports.MotivoFirmaVerificada},
+		"revocado":              {ports.EstadoVerificacionNoValida, ports.MotivoCertificadoNoValido},
+		"crl_incompleta":        {ports.EstadoVerificacionIndeterminada, ports.MotivoRevocacionNoAcreditada},
+		"ca_incorrecta":         {ports.EstadoVerificacionIndeterminada, ports.MotivoValidadorNoDisponible},
+		"nombre_incorrecto":     {ports.EstadoVerificacionIndeterminada, ports.MotivoValidadorNoDisponible},
+		"credencial_incorrecta": {ports.EstadoVerificacionIndeterminada, ports.MotivoCredencialRechazada},
+		"firmado_alterado":      {ports.EstadoVerificacionIndeterminada, ports.MotivoRechazadaPorValidador},
+	}
+	e, existe := esperado[caso]
+	exigir(existe, "Caso de ensayo desconocido")
+	exigir(respuesta.Resultado.Estado == e.estado && respuesta.Motivo == e.motivo,
+		fmt.Sprintf("%s: resultado inesperado: %s/%s", caso, respuesta.Resultado.Estado, respuesta.Motivo))
+	if caso == "valida" {
+		exigir(respuesta.Resultado.Formato == solicitud.FormatoEsperado &&
+			respuesta.Resultado.VinculoOriginal && respuesta.Resultado.ValidarContra(solicitud) == nil &&
+			respuesta.Resultado.RevocacionEstado == ports.RevocacionVigente &&
+			respuesta.Resultado.FirmanteRef == "ref:"+respuesta.Resultado.CertificadoHuellaSHA256,
+			"El positivo carece de vínculo, certificado o revocación acreditada")
+	} else {
+		exigir(respuesta.Resultado.Estado != ports.EstadoVerificacionValida &&
+			respuesta.Resultado.ValidarContra(solicitud) != nil,
+			"Un resultado negativo se aceptó como firma")
+	}
+	fmt.Printf("%s: %s/%s, huellas vinculadas\n", caso, respuesta.Resultado.Estado, respuesta.Motivo)
+}

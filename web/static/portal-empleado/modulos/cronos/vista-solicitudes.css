@@ -108,9 +108,30 @@
   place-items: center;
   width: 100%;
   min-height: 26px;
+  border: 2px solid transparent;
   border-radius: 6px;
+  padding: 0;
+  background: var(--portal-superficie);
+  color: var(--portal-tinta);
+  cursor: pointer;
+  font: inherit;
   font-size: .8125rem;
   font-variant-numeric: tabular-nums;
+}
+
+.cronos-dia:hover,
+.cronos-dia[aria-pressed="true"] {
+  border-color: var(--portal-azul-700);
+}
+
+.cronos-dia[aria-pressed="true"] {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.cronos-dia:focus-visible {
+  outline: 3px solid var(--portal-azul-700);
+  outline-offset: 2px;
 }
 
 /* Un color por tipo; la ausencia prevalece sobre el marcaje y el festivo sobre ambos. */
@@ -179,5 +200,7 @@
 
 @media (max-width: 640px) {
   .cronos-permisos-propios .rejilla-kpi { grid-template-columns: 1fr; }
+  .cronos-permisos-propios .cabecera-panel { flex-wrap: wrap; }
+  .cronos-permisos-propios .cabecera-panel > h3 { flex: 1 1 100%; }
   .cronos-anio-navegacion { margin-left: 0; }
 }

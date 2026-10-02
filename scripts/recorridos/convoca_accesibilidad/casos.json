@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "descripcion": "Consultar listado y ficha pública con teclado, nombres accesibles, foco visible y zoom nativo de Chrome.",
+  "dependencias": ["Servidor público autorizado con datos sintéticos", "Convocatoria gobernada presente en la primera página", "TLS de confianza", "Chrome del sistema y Playwright local"],
+  "visitas": [{"ancho":1440,"zoom":1},{"ancho":390,"zoom":1},{"ancho":1440,"zoom":2}],
+  "idiomas": ["es", "en"],
+  "superficies": ["listado", "detalle"],
+  "limites": "No registra solicitudes, firma, instala SQL ni acredita persistencia o cumplimiento global WCAG."
+}

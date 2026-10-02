@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { readdir, readFile } from "node:fs/promises";
 import test from "node:test";
-import { MENSAJES_PORTAL } from "./portal-i18n.js";
-import { MENSAJES_CONTRATACION_TEMPORAL_ES, MENSAJES_CONTRATACION_TEMPORAL_EN, crearTraductorContratacionTemporal } from "./modulos/contratacion-temporal/i18n.js";
-import { aplicarIdiomaDocumento, aplicarTextosPortal, instalarValidacionI18n, mensajeValidacionPortal } from "./portal-idioma.js";
+import { MENSAJES_PORTAL } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
+import { MENSAJES_CONTRATACION_TEMPORAL_ES, MENSAJES_CONTRATACION_TEMPORAL_EN, crearTraductorContratacionTemporal } from "./modulos/contratacion-temporal/i18n.js?v=20261001-ct-a-i18n-v1";
+import { aplicarIdiomaDocumento, aplicarTextosPortal, instalarValidacionI18n, mensajeValidacionPortal } from "./portal-idioma.js?v=20261001-ct-a-i18n-v1";
 import { cadenasHumanas, hallazgosHTML, hallazgosTextosLiterales } from "./textos-literales.test-helper.mjs";
 
 // Todo texto visible de Bolsa y Contratación temporal sale de un catálogo i18n:

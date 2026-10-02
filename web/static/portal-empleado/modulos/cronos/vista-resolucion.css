@@ -115,3 +115,10 @@
   .cronos-aviso { grid-template-columns: auto minmax(0, 1fr); }
   .cronos-aviso button { grid-column: 2; justify-self: start; }
 }
+
+/* Resumen de esta bandeja, con los componentes comunes del portal. */
+.cronos-bandeja-permisos .rejilla-kpi { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.cronos-bandeja-permisos .tarjeta-kpi { min-width: 0; }
+@media (max-width: 640px) {
+  .cronos-bandeja-permisos .rejilla-kpi { grid-template-columns: minmax(0, 1fr); }
+}

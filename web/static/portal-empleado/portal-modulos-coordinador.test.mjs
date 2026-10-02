@@ -5,21 +5,21 @@ import {
   cargarCatalogoModulosInterno,
   crearCatalogoModulosDesdeManifiestos,
   extraerModulosEnvelopeCanonico,
-} from "./portal-catalogo-modulos.js";
+} from "./portal-catalogo-modulos.js?v=20261001-ct-a-i18n-v1";
 import {
   CLAVES_MODULOS_VEC_REGISTRADOS,
   crearCoordinadorModulosPortal,
   moduloDeVistaPortal,
   rutaDeVistaPortal,
   VISTA_PLANTILLAS_RRHH,
-} from "./portal-modulos-coordinador.js";
-import { crearPresentadorExpedientesContratacionTemporal } from "./modulos/contratacion-temporal/presentador-expedientes.js";
+} from "./portal-modulos-coordinador.js?v=20261001-cronos-grafo-bandeja-v5";
+import { crearPresentadorExpedientesContratacionTemporal } from "./modulos/contratacion-temporal/presentador-expedientes.js?v=20261001-ct-a-i18n-v1";
 import {
   crearCuadroContratacionTemporalPresentacion,
   crearExpedienteContratacionTemporalPresentacion,
 } from "./modulos/contratacion-temporal/datos-presentacion.js";
-import { renderizarModuloContratacionTemporal } from "./modulos/contratacion-temporal/vista-expedientes-render.js";
-import { MENSAJES_EXPEDIENTES_CONTRATACION_EN } from "./modulos/contratacion-temporal/i18n-expedientes.js";
+import { renderizarModuloContratacionTemporal } from "./modulos/contratacion-temporal/vista-expedientes-render.js?v=20261001-ct-a-i18n-v1";
+import { MENSAJES_EXPEDIENTES_CONTRATACION_EN } from "./modulos/contratacion-temporal/i18n-expedientes.js?v=20261001-ct-a-i18n-v1";
 
 test("plantillas RRHH conserva la autoridad CT y una ruta interna propia", () => {
   assert.equal(moduloDeVistaPortal(VISTA_PLANTILLAS_RRHH), "contratacion_temporal");
@@ -370,6 +370,7 @@ test("el portal real de Personal no ofrece apartados sin fuente y abre los catá
     escaparHTML: String,
     entorno: { fetch: async (ruta) => {
       llamadas.push(ruta);
+      if (ruta === "/api/interna/personal/mi-ficha") return new Response(null, { status: 404 });
       return ruta.startsWith("/api/vec/personal/categories?") ? respuestaPersonalJSON(CATEGORIAS_PERSONAL_VACIAS)
         : new Response(JSON.stringify({ error: "no_disponible" }), { status: 503, headers: { "Content-Type": "application/json; charset=utf-8" } });
     } },
@@ -472,7 +473,8 @@ test("Personal monta solo los catálogos públicos que el servidor sirve", async
   ]) {
     const coordinador = crearCoordinadorModulosPortal({
       escaparHTML: String,
-      entorno: { fetch: async () => respuestaPersonalJSON(CATEGORIAS_PERSONAL_VACIAS) },
+      entorno: { fetch: async (ruta) => ruta === "/api/interna/personal/mi-ficha"
+        ? new Response(null, { status: 404 }) : respuestaPersonalJSON(CATEGORIAS_PERSONAL_VACIAS) },
       cargarCatalogoInterno: async () => Object.freeze([{ clave: "personal" }, { clave: "dietas" }]),
       cargadoresInternos: {
         contratacion_temporal: async () => { throw new Error("no debe cargar CT"); },
@@ -747,6 +749,42 @@ test("Cronos interno: olvido de marcaje abre el formulario del calendario y falt
     await cargarConDiferidos(incompleto);
     assert.equal(incompleto.resolverAcceso("cronos").disponible, false, falta);
   }
+});
+
+test("Cronos propio no ofrece bandejas de gestión ni las consulta; sus rutas directas se conservan", async () => {
+  const reales = await recursosCronosInternos(); const montadas = [];
+  const montar = (nombre) => ({ registrarDesmontar } = {}) => {
+    montadas.push(nombre); const desmontar = () => {}; registrarDesmontar?.(desmontar); return { desmontar };
+  };
+  const recursos = { ...reales,
+    permisosPropios: { montarPermisosPropiosCronos: montar("permisos") },
+    bandejaPermisos: { montarBandejaPermisosCronos: montar("bandeja") },
+    avisosPropios: { montarAvisosPropiosCronos: montar("avisos") },
+    clienteResolucion: { crearClienteResolucionCronosHTTP: () => ({}) },
+    i18nResolucion: { crearTraductorResolucionCronos: () => (clave) => clave },
+    notificacionesPropias: { montarNotificacionesPropiasCronos: montar("notificaciones") },
+    bandejaNotificaciones: { montarBandejaNotificacionesCronos: montar("bandeja-notificaciones") },
+    clienteNotificaciones: { crearClienteNotificacionesCronosHTTP: () => ({}) },
+    i18nNotificaciones: { crearTraductorNotificacionesCronos: () => (clave) => clave },
+  };
+  const coordinador = crearCoordinadorModulosPortal({ escaparHTML: String,
+    entorno: { fetch: () => assert.fail("no debe sondear competencia de RRHH") },
+    cargarCatalogoInterno: async () => [{ clave: "cronos" }],
+    cargadoresInternos: { contratacion_temporal: () => assert.fail("sin CT"), cronos: async () => recursos },
+  });
+  await cargarConDiferidos(coordinador); const raiz = raizDietasFalsa();
+  for (const vista of ["cronos-permisos", "cronos-avisos", "cronos-notificaciones"]) {
+    assert.equal(await coordinador.montarVista(vista, raiz), true);
+    const navegacion = raiz.querySelector("[data-cronos-subvistas]").innerHTML;
+    assert.doesNotMatch(navegacion, /data-vista="cronos-bandeja(?:-notificaciones)?"/);
+  }
+  assert.deepEqual(montadas, ["permisos", "avisos", "notificaciones"]);
+  for (const [vista, montaje] of [["cronos-bandeja", "bandeja"], ["cronos-bandeja-notificaciones", "bandeja-notificaciones"]]) {
+    assert.equal(await coordinador.montarVista(vista, raiz), true);
+    assert.equal(montadas.at(-1), montaje);
+    assert.match(raiz.querySelector("[data-cronos-subvistas]").innerHTML, new RegExp(`data-vista="${vista}" aria-current="page"`));
+  }
+  coordinador.desmontarVistaActual();
 });
 
 test("CT interno se activa solo después de una consulta autorizada", async () => {

@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
-import { crearVistaInicioPortal, resumirBolsasInicio } from "./portal-inicio.js";
-import { crearControladorPortal } from "./portal-eventos.js";
-import { cargarMensajesPortal, crearTraductorPortal, MENSAJES_PORTAL } from "./portal-i18n.js";
+import { crearVistaInicioPortal, resumirBolsasInicio } from "./portal-inicio.js?v=20261001-ct-a-i18n-v1";
+import { crearControladorPortal } from "./portal-eventos.js?v=20261001-ct-a-i18n-v1";
+import { cargarMensajesPortal, crearTraductorPortal, MENSAJES_PORTAL } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
 
 const moduloBolsa = Object.freeze({
   clave: "bolsa",
@@ -27,6 +27,23 @@ function renderizar(acceso) {
     resolverAcceso: () => acceso,
   })();
 }
+
+test("Inicio ofrece Mi espacio al empleado y a RRHH sin consultar los destinos", () => {
+  const anterior = globalThis.fetch;
+  globalThis.fetch = () => assert.fail("Inicio no debe consultar datos propios");
+  try {
+    for (const esPerfilRRHH of [() => false, () => true]) {
+      const vista = crearVistaInicioPortal({
+        encabezadoVista: () => "<header>Portal</header>", escaparHTML, esPerfilRRHH,
+        obtenerCatalogo: () => [], resolverAcceso: () => ({ disponible: false }),
+        obtenerAccesosEmpleado: () => ({ personal: { estado: "diferido" }, cronos: { estado: "diferido" }, dietas: { estado: "diferido" } }),
+      });
+      const html = vista();
+      for (const destino of ["personal", "cronos", "dietas"]) assert.match(html, new RegExp(`href="#${destino}" data-vista="${destino}"`));
+      assert.doesNotMatch(html, /data-inicio-sin-modulos|cronos-bandeja|personal-registro|datos-presentacion/);
+    }
+  } finally { globalThis.fetch = anterior; }
+});
 
 test("la portada sin catálogo ofrece reintento y el clic activa la recarga existente", async () => {
   const estado = { errorFuente: "error anterior", fuenteLista: true };

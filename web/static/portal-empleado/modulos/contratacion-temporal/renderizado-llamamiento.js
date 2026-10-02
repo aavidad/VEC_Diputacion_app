@@ -1,7 +1,7 @@
-import { escaparHTML as e } from "./componentes-expedientes.js";
+import { escaparHTML as e } from "./componentes-expedientes.js?v=20261001-f-reconciliacion-325-v1";
 import { claveRecuperacionTraducida, justificanteTraducido } from "../../portal-justificante.js";
-import { renderizarResumenPropuestaFormalizacion } from "./formulario-propuesta-formalizacion.js";
-import { lecturaPlazoLlamamiento, renderizarPlazoLlamamiento } from "./renderizado-plazo-llamamiento.js";
+import { renderizarResumenPropuestaFormalizacion } from "./formulario-propuesta-formalizacion.js?v=20261001-f-reconciliacion-325-v1";
+import { lecturaPlazoLlamamiento, renderizarPlazoLlamamiento } from "./renderizado-plazo-llamamiento.js?v=20261001-f-reconciliacion-325-v1";
 import { CAMPOS_SELECCION, CAMPOS_COMUNICACION,
   CAMPOS_RESPUESTA_RECIBIDA, CAMPOS_RESPUESTA_EDITABLES, CAMPOS_RESOLUCION,
   CAMPOS_REVISION_RESOLUCION, RESPUESTAS_RESOLUCION,
@@ -147,6 +147,7 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
   }
   function campo(operacion, nombre, valor, bloqueado) {
     const id = `ct-llamamiento-${operacion}-${nombre}`;
+    const error = `<p id="${id}-error" class="ct-error-campo" data-ct-llamamiento-error-campo hidden></p>`;
     if (esRespuesta(operacion) && nombre === "correo_sha256") {
       return `<input id="${id}" name="${nombre}" type="hidden" value="${e(valor)}" readonly>`;
     }
@@ -168,7 +169,7 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
         type="radio" name="respuesta" value="${opcion}"${valor === opcion ? " checked" : ""}${bloqueado ? " disabled" : ""} required
         aria-describedby="${id}-${opcion}-despues">
         <span><strong>${e(t("llamamiento_opcion_" + opcion))}</strong>
-        <span id="${id}-${opcion}-despues">${e(t("llamamiento_opcion_" + opcion + "_despues"))}</span></span></label>`).join("")}</fieldset>`;
+        <span id="${id}-${opcion}-despues">${e(t("llamamiento_opcion_" + opcion + "_despues"))}</span></span></label>`).join("")}${error}</fieldset>`;
     if (nombre === "respuesta") return `<div class="ct-campo">
       <label for="${id}">${e(t(esResolucion(operacion)
         ? "llamamiento_respuesta_solicitada" : "llamamiento_respuesta_declarada"))} *</label>
@@ -177,7 +178,7 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
         ${RESPUESTAS_RESOLUCION.map((opcion) => `<option value="${opcion}"
           ${valor === opcion ? "selected" : ""}>${e(t(esResolucion(operacion)
             ? "llamamiento_resolucion_" + opcion : "llamamiento_respuesta_" + opcion))}</option>`).join("")}
-      </select></div>`;
+      </select>${error}</div>`;
     // Referencias, claves, versiones y huellas ya fijadas viajan ocultas; en pantalla
     // solo lo útil: copiar el justificante o la clave y la versión en palabras.
     const clave = nombre === "clave_idempotencia";
@@ -205,7 +206,7 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
       <input id="${id}" name="${nombre}" value="${e(recepcion ? fechaMadrid : valor)}"
         ${tipo}
         required autocomplete="off" spellcheck="false"${bloqueado ? " readonly" : ""}>
-      </div>`;
+        ${error}</div>`;
   }
   function recibo(operacion, datos) {
     if (!datos) return `<p class="ct-ayuda">${e(t("llamamiento_sin_recibo"))}</p>`;
@@ -263,6 +264,7 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
       <h3 id="ct-llamamiento-${operacion}-titulo">${e(titulo)}</h3>
       ${paso.recibo ? `<details data-ct-llamamiento-datos-registrados="${operacion}"><summary>${e(t("llamamiento_datos_registrados"))}</summary>` : ""}
       <form data-ct-llamamiento-form="${operacion}" novalidate aria-busy="${paso.ocupado || paso.calculando}">
+        <div class="ct-resumen-errores" data-ct-llamamiento-errores role="alert" hidden><ul></ul></div>
         <fieldset${paso.ocupado || paso.calculando ? " disabled" : ""}>
           <legend>${e(t("llamamiento_contexto"))}</legend>
           <div class="ct-campos">${campos.map((nombre) => campo(

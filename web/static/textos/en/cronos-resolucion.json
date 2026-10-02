@@ -1,0 +1,23 @@
+{
+  "bandeja": {
+    "avisos_reintentar_consulta": "Refresh notices",
+    "resumen_alcance": "The summary counts only requests in this inbox for {paso}.",
+    "resumen_total": "Requests in this inbox",
+    "resumen_resolubles": "Requests you can review",
+    "resumen_asignacion": "Awaiting a line manager assignment",
+    "buscar_persona": "Search by person",
+    "filtrar_estado": "Filter by status",
+    "filtro_todos": "All statuses",
+    "filtro_jefatura": "Awaiting line manager",
+    "filtro_rrhh": "Awaiting HR",
+    "filtro_asignacion": "No line manager assigned",
+    "aplicar_filtros": "Apply filters",
+    "limpiar_filtros": "Clear filters",
+    "sin_resultados_filtro": "No request matches these filters. Clear them to see the inbox.",
+    "resultados_pagina": "Showing {desde}–{hasta} of {total} matching requests; {bandeja} in this inbox.",
+    "pagina_indicador": "Page {pagina} of {paginas}",
+    "pagina_anterior": "Previous page",
+    "pagina_siguiente": "Next page",
+    "paginas_etiqueta": "Request pages"
+  }
+}

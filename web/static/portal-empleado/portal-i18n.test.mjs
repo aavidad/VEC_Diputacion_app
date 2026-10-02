@@ -5,7 +5,9 @@ import {
   cargarMensajesPortal,
   crearTraductorPortal,
   MENSAJES_PORTAL,
-} from "./portal-i18n.js";
+} from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
+
+import { versionDe } from "./versiones-cache.test-helper.mjs";
 
 const MENSAJES_PORTAL_INGLES = await cargarMensajesPortal("en");
 
@@ -51,21 +53,92 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   const raiz = new URL("./", import.meta.url);
   const anteriores = ["20260928-ppt-503-v6", "20260928-auditoria-expediente-en-v1", "20260928-auditoria-expediente-en-v2", "20260929-pref-508a-v2", "20260929-firma-506-v1", "20260929-firma-506-v2", "20260929-auditoria-legible-v1", "20260929-sondeo-opcional-507", "20260929-plazas-306-v1", "20260929-i18n-shell-v1"];
   // El shell pasó sus textos a `textos/<idioma>/portal*.json` (integrado con 5.06, 5.07, 3.06 y 4.11): todo su grafo renueva URL.
-  const vigente = "20260930-portales-i18n-integracion-v1";
+  const vigente = "20261001-ct-a-i18n-v1";
+  const versionBolsaTurno = "20260930-bolsa-turno-v2";
+  const versionTemas = "20260930-codexf-temas-v2";
+  const entrada = await readFile(new URL("index.html", raiz), "utf8");
+  const coordinador = await readFile(new URL("portal-modulos-coordinador.js", raiz), "utf8");
+  const recorridosDietas = await readFile(new URL("modulos/dietas/vista-recorridos.js", raiz), "utf8");
   const versionesEspeciales = new Map([
-    ["modulos/bolsa/rrhh-plazos-ui.js", "20260930-ofertas-reglas-integradas-v4"],
-    ["portal-inicio.js", "20260930-ct-lista-recuperada-v2"],
+    ["modulos/solicitudes/vista-tramites-propios.js", "20261001-g364-reconciliar-v2"],
+    ["modulos/contratacion-temporal/formulario-llamamiento-pruebas.js", "20261001-ana002-v4"],
+    ["modulos/contratacion-temporal/circuito-firma-acciones.js", "20261001-f-reconciliacion-325-v1"],
+    ["portal-modulos-coordinador.js", "20261002-b-servicios-351-main-v1"],
+    ["portal.js", "20261002-b-servicios-351-main-v1"],
+    ["modulos/cronos/vista-bandeja-permisos.js", "20261001-f-reconciliacion-321-v1"],
+    ["modulos/cronos/i18n-resolucion.js", "20261001-cronos-grafo-bandeja-v5"],
+    ["modulos/cronos/i18n-permisos.js", "20261001-cronos-grafo-bandeja-v5"],
+    ["modulos/cronos/vista-permisos-propios.js", "20261001-cronos-calendario-seleccion-v1"],
+    ["modulos/cronos/vista-movimientos-propios.js", "20261001-cronos-calendario-seleccion-v1"],
+    ["modulos/cronos/i18n-incidencias.js", "20261001-cronos-grafo-bandeja-v5"],
+    ["modulos/cronos/i18n-consulta.js", "20261001-cronos-grafo-bandeja-v5"],
+    ["portal-composicion-empleado.js", "20261001-g364-reconciliar-v2"],
+    ["modulos/cronos/vista-saldo-conectado.js", "20261001-cronos-saldo-explicado-v1"],
+    ["modulos/cronos/vista-notificaciones-propias.js", "20261001-cronos-c9-historial-v2"],
+    ["modulos/cronos/vista-remoto.js", "20261001-cronos-grafo-bandeja-v5"],
+    ["modulos/cronos/vista-movimientos-conectado.js", "20261001-cronos-movimientos-consulta-v1"],
+    ["modulos/cronos/i18n-fichaje.js", "20261001-cronos-grafo-bandeja-v5"],
+    ["modulos/bolsa/rrhh-plazos-ui.js", "20261001-ct-a-i18n-v1"],
+    ["portal-inicio.js", "20261001-g364-reconciliar-v2"],
     // 5.06, segundo corte: el circuito de firma trae el estado de Firmadoc.
     // Reglas vigentes: el detalle de cada regla y sus textos en catálogos renuevan el enlace del panel.
     // Nuevo llamamiento: el campo «Resumen de la preparación» usa la etiqueta encima y el campo a lo ancho.
-    ["portal.js", "20260930-bolsa-resumen-llamamiento-v1"],
-    ["portal-borrador-llamamiento-ui.js", "20260930-bolsa-resumen-llamamiento-v1"],
-    ["portal-panel-interno.js", "20260930-portales-i18n-integracion-v1"],
-    ["reglas/enlace.js", "20260930-portales-i18n-integracion-v1"],
-    ["portal-modulos-coordinador.js", "20260930-ct-lista-recuperada-v2"],
-    ["modulos/contratacion-temporal/vista-expedientes.js", "20260930-ct-lista-recuperada-v2"],
-    ["modulos/contratacion-temporal/circuito-firma.js", "20260930-portales-i18n-integracion-v1"],
+    ["portal.js", "20261002-b-servicios-351-main-v1"],
+    ["portal-vistas-utilidades.js", "20261001-ct-a-i18n-v1"],
+    ["portal-preferencias-integracion.js", "20261001-ct-a-i18n-v1"],
+    ["portal-preferencias.js", "20261001-ct-a-i18n-v1"],
+    ["portal-preferencias-api.js", versionTemas],
+    ["portal-borrador-llamamiento-ui.js", "20261001-ct-a-i18n-v1"],
+    ["portal-panel-interno.js", "20261001-f-reconciliacion-323-v1"],
+    ["portal-bolsas-api.js", "20261001-f-reconciliacion-323-v1"],
+    ["portal-bolsas-contrato.js", "20261001-ct-a-i18n-v1"],
+    ["portal-llamamientos-operaciones-api.js", "20261001-ct-a-i18n-v1"],
+    ["reglas/enlace.js", "20261001-ct-a-i18n-v1"],
+    ["portal-modulos-coordinador.js", "20261002-b-servicios-351-main-v1"],
+    ["modulos/dietas/vista-recorridos.js", "20261001-f-reconciliacion-320-v1"],
+    ["modulos/dietas/vista-bandeja-circuito.js", "20261001-ct-a-i18n-v1"],
+    ["modulos/contratacion-temporal/vista-expedientes.js", "20261001-ana002-v4"],
+    ["modulos/contratacion-temporal/seguimiento-cese.js", vigente],
+    ["modulos/contratacion-temporal/circuito-firma.js", "20261001-f-reconciliacion-325-v1"],
+    ["modulos/contratacion-temporal/formulario-llamamiento.js", "20261001-f-reconciliacion-325-v1"],
+    ["modulos/contratacion-temporal/renderizado-llamamiento.js", "20261001-f-reconciliacion-325-v1"],
+    ["modulos/contratacion-temporal/vista-expedientes-fiscalizacion.js", "20261001-f-reconciliacion-325-v1"],
+    ["modulos/contratacion-temporal/vista-expedientes.js", "20261001-ana002-v4"],
+    ["portal-modulos-coordinador.js", "20261002-b-servicios-351-main-v1"],
+    ["modulos/bolsa/baremo/montaje.js", "20261001-f-reconciliacion-319-v1"],
+    ["modulos/cronos/vista-permisos-propios.js", "20261001-cronos-calendario-seleccion-v1"],
+    ["modulos/dietas/vista-borradores-propios.js", "20261001-f-reconciliacion-320-v1"],
+    ["modulos/cronos/vista-bandeja-permisos.js", "20261001-f-reconciliacion-321-v1"],
+    ["portal-bolsas-operaciones.js", "20261001-f-reconciliacion-323-v1"],
+    ["portal-bolsas-sanciones.js", "20261001-f-reconciliacion-323-v1"],
+    ["modulos/contratacion-temporal/componentes-expedientes.js", "20261001-f-reconciliacion-325-v1"],
+    ["modulos/contratacion-temporal/consulta-seguimiento.js", "20261001-f-reconciliacion-325-v1"],
+    ["modulos/contratacion-temporal/documentacion-formalizacion.js", "20261001-f-reconciliacion-325-v1"],
+    ["modulos/contratacion-temporal/fase-firma.js", "20261001-f-reconciliacion-325-v1"],
+    ["modulos/contratacion-temporal/ficha-ginpix.js", "20261001-f-reconciliacion-325-v1"],
+    ["modulos/contratacion-temporal/formulario-anotacion-administrativa.js", "20261001-f-reconciliacion-325-v1"],
+    ["modulos/contratacion-temporal/formulario-cierre-administrativo.js", "20261001-f-reconciliacion-325-v1"],
+    ["modulos/contratacion-temporal/formulario-incorporacion-ejercicio.js", "20261001-f-reconciliacion-325-v1"],
+    ["modulos/contratacion-temporal/formulario-propuesta-formalizacion.js", "20261001-f-reconciliacion-325-v1"],
+    ["modulos/contratacion-temporal/formulario-resolucion-formalizacion.js", "20261001-f-reconciliacion-325-v1"],
+    ["modulos/contratacion-temporal/incorporacion-personal-b2.js", "20261001-f-reconciliacion-325-v1"],
+    ["modulos/contratacion-temporal/informe-tras-subsanacion.js", "20261001-f-reconciliacion-325-v1"],
+    ["modulos/contratacion-temporal/renderizado-plazo-llamamiento.js", "20261001-f-reconciliacion-325-v1"],
+    ["modulos/contratacion-temporal/seguimiento-incorporacion.js", "20261001-f-reconciliacion-325-v1"],
+    ["modulos/contratacion-temporal/vista-expedientes-borrador.js", "20261001-f-reconciliacion-325-v1"],
+    ["modulos/contratacion-temporal/vista-expedientes-ficha.js", "20261001-f-reconciliacion-324-v1"],
+    ["modulos/contratacion-temporal/vista-expedientes-incorporacion.js", "20261001-f-reconciliacion-325-v1"],
+    ["modulos/contratacion-temporal/vista-expedientes-render.js", "20261001-f-reconciliacion-325-v1"],
+    ["modulos/contratacion-temporal/vista-expedientes-tramitacion.js", "20261001-f-reconciliacion-325-v1"],
+    ["modulos/contratacion-temporal/recuentos-peticiones.js", "20261001-f-reconciliacion-325-v1"],
+    ["modulos/contratacion-temporal/vista-expedientes-lista.js", "20261001-f-reconciliacion-325-v1"],
+    ["portal.js", "20261002-b-servicios-351-main-v1"],
   ]);
+  versionesEspeciales.set("modulos/contratacion-temporal/vista-estadisticas.js", "20261001-ana002-v4");
+  versionesEspeciales.set("modulos/cronos/vista-bandeja-notificaciones.js", "20261001-cronos-c9-recuperacion-v3");
+  versionesEspeciales.set("modulos/cronos/i18n-bandeja-notificaciones.js", "20261001-cronos-c9-recuperacion-v3");
+  versionesEspeciales.set("modulos/cronos/i18n-notificaciones-historial.js", "20261001-cronos-c9-historial-v2");
+  versionesEspeciales.set("modulos/cronos/i18n-permisos-consulta.js", "20261001-cronos-c7-consulta-v2");
   const archivos = ["index.html"];
   const pendientes = [""];
   while (pendientes.length) {
@@ -178,4 +251,26 @@ test("B24 traduce desde el catálogo común los eventos del recurso", async () =
   for (const clave of ["b24_recurso_historial", "b24_recurso_evento", "b24_recurso_documento"]) {
     assert.equal(typeof MENSAJES_BOLSA_INTERNA[clave], "string");
   }
+});
+
+
+test("Cronos renueva los traductores de permisos y resolución y todos sus padres", async () => {
+  const [coordinador, bandeja, avisos, permisos, portal, html] = await Promise.all([
+    "portal-modulos-coordinador.js", "modulos/cronos/vista-bandeja-permisos.js",
+    "modulos/cronos/vista-avisos-propios.js", "modulos/cronos/vista-permisos-propios.js", "portal.js", "index.html",
+  ].map((ruta) => readFile(new URL(ruta, import.meta.url), "utf8")));
+  const version = versionDe(coordinador, "./modulos/cronos/i18n-resolucion.js");
+  assert.notEqual(version, "20260929-i18n-textos-v1");
+  for (const fuente of [bandeja, avisos]) {
+    assert.equal(versionDe(fuente, "./i18n-resolucion.js"), version);
+    assert.doesNotMatch(fuente, /i18n-resolucion\.js["']/u);
+  }
+  assert.equal(versionDe(permisos, "./i18n-permisos.js"), version);
+  assert.equal(versionDe(coordinador, "./modulos/cronos/vista-avisos-propios.js"), "20261001-cronos-avisos-confirmados-v1");
+  assert.equal(versionDe(coordinador, "./modulos/cronos/vista-bandeja-permisos.js"), "20261001-f-reconciliacion-321-v1");
+  assert.equal(versionDe(coordinador, "./modulos/cronos/vista-permisos-propios.js"), "20261001-cronos-calendario-seleccion-v1");
+  const versionPortal = versionDe(portal, "./portal-modulos-coordinador.js");
+  assert.notEqual(versionPortal, "20261001-cronos-grafo-bandeja-v5");
+  assert.equal(versionDe(html, "/portal-empleado/portal-modulos-coordinador.js"), versionPortal);
+  assert.equal(versionDe(html, "/portal-empleado/portal.js"), versionPortal);
 });

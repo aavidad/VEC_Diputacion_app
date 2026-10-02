@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { actorTraducido, claveRecuperacionTraducida, esReferenciaInterna, instalarCopiaJustificantes, justificanteTraducido, referenciaCopiableTraducida, renderizarJustificante } from "./portal-justificante.js";
-import { traducirReferencia } from "./portal-referencias-i18n.js";
+import { traducirReferencia } from "./portal-referencias-i18n.js?v=20261001-ct-a-i18n-v1";
 
 const escapar = (valor) => String(valor).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll('"', "&quot;");
 

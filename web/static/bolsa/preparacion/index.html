@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="es" data-tema="institucional">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title data-texto="pagina.titulo"></title>
+  <link rel="icon" href="/bolsa/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/styles.css?v=20260715-theme">
+  <link rel="stylesheet" href="/comun/tema-vec.css?v=20260930-codexf-temas-v2">
+  <link rel="stylesheet" href="/bolsa/bolsa.css?v=20260925-aspecto-v1">
+  <link rel="stylesheet" href="/bolsa/bolsa_adaptable.css?v=20260924-bolsa-publica-final">
+  <link rel="stylesheet" href="/bolsa/preparacion/preparacion.css?v=20261001-preparacion-v1">
+  <script type="module" src="/bolsa/preparacion/arranque.js?v=20261002-codexa-preparacion-json-v1"></script>
+</head>
+<body class="portal-bolsa-publico">
+  <a class="salto-contenido" href="#preparacion" data-texto="pagina.titulo_pantalla"></a>
+  <div class="portal-publico-shell">
+    <aside class="menu-lateral-publico">
+      <a class="marca-publica" href="/bolsa/" id="inicio-preparacion">
+        <img class="marca-publica__logo" src="/assets/logo-diputacion-granada.svg" width="250" height="84" alt="">
+        <strong data-texto="pagina.inicio"></strong>
+      </a>
+      <div class="alcance-zona-publica"><strong data-texto="pagina.local"></strong><span data-texto="pagina.alcance"></span></div>
+      <nav class="navegacion-publica"><a id="volver-convocatoria" href="/bolsa/" data-texto="pagina.volver"></a></nav>
+    </aside>
+    <div class="portal-publico-superficie">
+      <header class="cabecera-publica">
+        <strong data-texto="pagina.titulo_pantalla"></strong>
+        <div class="acciones-accesibilidad"><label for="idioma-preparacion" data-texto="pagina.idioma"></label><select id="idioma-preparacion"></select></div>
+      </header>
+      <main id="preparacion" class="contenido-publico" tabindex="-1">
+        <div class="detalle-cabecera"><h1 data-texto="pagina.titulo_pantalla"></h1><details id="ayuda-preparacion"><summary data-aria="pagina.ayuda">?</summary><p data-texto="pagina.ayuda_texto"></p></details></div>
+        <div id="pasos-preparacion" data-aria="pagina.pasos">
+          <span class="etiqueta" data-paso="1" data-texto="pagina.revisar"></span>
+          <span class="etiqueta" data-paso="2" data-texto="pagina.archivos"></span>
+          <span class="etiqueta" data-paso="3" data-texto="pagina.resumen"></span>
+        </div>
+        <p id="estado-preparacion" role="status" aria-live="polite"></p>
+        <section id="trabajo-preparacion" class="panel-listado" aria-busy="true">
+          <header><strong id="titulo-convocatoria"></strong><p id="numero-paso"></p></header>
+          <div id="cuerpo-preparacion">
+            <div id="paso-revision" hidden>
+              <p id="descripcion-convocatoria"></p>
+              <h2 data-texto="convocatoria.plazos"></h2><ul id="plazos" class="lista-detalle"></ul>
+              <h2 data-texto="convocatoria.requisitos"></h2><p data-texto="convocatoria.pendiente"></p><ul id="requisitos" class="lista-detalle"></ul>
+              <h2 data-texto="convocatoria.documentos"></h2><ul id="documentos" class="lista-detalle"></ul>
+              <label class="casilla-plazo" for="lectura-confirmada"><input type="checkbox" id="lectura-confirmada" required aria-describedby="error-lectura" aria-invalid="false"><span data-texto="convocatoria.lectura"></span></label>
+              <p id="error-lectura" role="alert"></p>
+            </div>
+            <div id="paso-archivos" hidden>
+              <h2 data-texto="archivos.titulo"></h2><p data-texto="archivos.ayuda"></p><p id="limites-archivos"></p>
+              <div class="campo"><label for="archivos-locales" data-texto="archivos.seleccionar"></label><input id="archivos-locales" type="file" multiple aria-describedby="limites-archivos error-archivos"></div>
+              <p id="error-archivos" role="alert"></p><p id="cantidad-archivos" role="status"></p><ul id="lista-archivos" class="lista-detalle"></ul>
+            </div>
+            <div id="paso-resumen" hidden>
+              <h2 data-texto="resumen.titulo"></h2><span class="etiqueta" data-semantica="aviso" data-texto="resumen.estado"></span>
+              <p data-texto="resumen.verificacion"></p><p data-texto="resumen.contenido"></p><p data-texto="archivos.descarga_aviso"></p>
+              <div id="revision-resumen"></div>
+            </div>
+            <details id="version-convocatoria" hidden><summary data-texto="pagina.datos_tecnicos"></summary><p id="version"></p><p id="huella"></p></details>
+          </div>
+          <footer id="acciones-preparacion">
+            <button id="reintentar" class="boton-secundario" type="button" hidden data-texto="pagina.reintentar"></button>
+            <button id="anterior" class="boton-secundario" type="button" hidden data-texto="pagina.atras"></button>
+            <button id="siguiente" class="boton-primario" type="button" hidden data-texto="pagina.siguiente"></button>
+            <button id="descargar" class="boton-primario" type="button" hidden data-texto="pagina.descargar"></button>
+            <button id="descargar-json" class="boton-secundario" type="button" hidden data-texto="pagina.descargar_json"></button>
+            <button id="presentar" class="boton-secundario" type="button" disabled aria-describedby="motivo-presentacion" data-texto="pagina.presentar"></button>
+            <p id="motivo-presentacion" data-texto="pagina.cerrado"></p>
+          </footer>
+        </section>
+      </main>
+    </div>
+  </div>
+</body>
+</html>

@@ -19,7 +19,6 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	seguridadvec "vec-diputacion-granada/internal/vec/adapters/seguridad"
-	docports "vec-diputacion-granada/internal/vec/documentos/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
 	"vec-diputacion-granada/internal/vec/reglas"
@@ -30,7 +29,7 @@ import (
 // y CT118 instaladas) y el circuito de firma de ejemplo. La autorización es
 // un rol nominal propio publicado para la identidad del canal CT: no se
 // infiere del cargo del catálogo, cuyo perfil_ref sigue siendo informativo.
-// La verificación la hace el validador de AutoFirma; apagado, toda firma se
+// La verificación la hace GrxFirma como servicio separado; apagado, toda firma se
 // rechaza. Ninguna firma registrada tiene eficacia administrativa.
 
 var errFirmaDocumentoCTDesarrolloNoDisponible = errors.New("contratacion temporal: registro de firmas de desarrollo no disponible")
@@ -78,8 +77,7 @@ func instantaneaPerfilFijoFirmaDocumentoCTDesarrollo(principalID, perfilRef stri
 		return dominiovec.InstantaneaAutorizacion{}, errFirmaDocumentoCTDesarrolloNoDisponible
 	}
 	if len(custodia) == 1 && custodia[0] {
-		concesiones = append(concesiones, dominiovec.ConcesionRol{Accion: docports.AccionCustodiarFirmado, ModuloID: "documentos", TipoRecurso: "documento_firmado",
-			Finalidades: []string{docports.FinalidadCustodiarFirmado}, GarantiaMinima: dominiovec.AuthAssuranceHigh})
+		concesiones = append(concesiones, concesionCustodiaFirmadoCTDesarrollo())
 	}
 	return nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(principalID, perfilRef, ahora,
 		"firma_documento_ct_desarrollo", "Firma de prueba de borradores CT de desarrollo", "asignacion-firma-documento-ct-desarrollo-no-autoritativa",
@@ -145,6 +143,9 @@ type firmaDocumentoCTDesarrollo struct {
 	// informeTrasSubsanacion es nil salvo que el catálogo exija informe
 	// nuevo tras subsanar: entonces su documento se firma en otra ronda.
 	informeTrasSubsanacion ports.FuenteInformeTrasSubsanacion
+	// servicio queda al componer las rutas: la custodia en Documentos se le
+	// añade después, cuando Documentos ya está compuesto.
+	servicio *ctapplication.ServicioFirmaDocumento
 }
 
 var (
@@ -212,6 +213,13 @@ func (f *firmaDocumentoCTDesarrollo) AutorizarFirmaDocumento(ctx context.Context
 	s := f.alta.soporte
 	capacidad, valida := s.capacidadValida(ctx)
 	if !valida || capacidad.ruta != httpinterno.RutaFirmaDocumento || s.perfilFijoParaContexto(ctx, capacidad.ruta) == nil || m.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo {
+		return vacia, ports.ErrFirmaDocumentoDenegada
+	}
+	// Esta rama de desarrollo solo admite una firma de prueba cuyo
+	// certificado sea exactamente el ya verificado para el canal actual.
+	// La huella se toma del contexto sellado, nunca del cuerpo HTTP.
+	if m.Resultado == ctdomain.ResultadoFirmaFirmado &&
+		(m.CertificadoHuella == "" || m.CertificadoHuella != capacidad.principal.Attributes["certificate_sha256"]) {
 		return vacia, ports.ErrFirmaDocumentoDenegada
 	}
 	recurso, err := ctapplication.RecursoFirmaDocumento(m)
@@ -444,6 +452,7 @@ func (f *firmaDocumentoCTDesarrollo) rutas(cfg config.Config, circuito *reglas.R
 	if f.informeTrasSubsanacion != nil && servicio.AbrirRondaInformeNuevo(f.informeTrasSubsanacion, f.registro) != nil {
 		return nil, errFirmaDocumentoCTDesarrolloNoDisponible
 	}
+	f.servicio = servicio
 	h, err := httpinterno.NuevoManejadorFirmaDocumento(f, servicio)
 	if err != nil {
 		return nil, errFirmaDocumentoCTDesarrolloNoDisponible

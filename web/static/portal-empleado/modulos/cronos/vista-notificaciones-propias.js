@@ -5,6 +5,7 @@ import {
   ErrorClienteNotificacionesCronos, MAXIMO_TEXTO_NOTIFICACION_CRONOS, adjuntoNotificacionValido, calcularHuellaDocumentoCronos,
   crearClienteNotificacionesCronosHTTP, textoNotificacionValido,
 } from "./cliente-notificaciones-http.js";
+import { crearTraductorNotificacionesHistorialCronos } from "./i18n-notificaciones-historial.js?v=20261001-cronos-c9-historial-v2";
 import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
 
 const ERRORES_ENVIO = new Map([
@@ -37,7 +38,7 @@ function formularioNotificacion(f, datos, envio, t, locale) {
     ? `<p class="cronos-documento-estado" data-cronos-documento-estado data-tono="${f.documento === "documento_error" ? "error" : "exito"}" role="status">${escaparHTML(t(f.documento))}</p>`
     : `<p class="cronos-documento-estado" data-cronos-documento-estado role="status"></p>`;
   const aviso = avisoEnvio(envio?.mensaje);
-  if (!datos.tipos.length) return `<p class="cronos-vacio" role="status">${escaparHTML(t("sin_tipos"))}</p>`;
+  if (!datos.tipos.length) return `<p class="cronos-vacio" data-cronos-notificacion-sin-tipos role="status">${escaparHTML(t("sin_tipos"))}</p>`;
   return `<form class="cronos-notificacion-formulario" data-cronos-notificacion-formulario aria-labelledby="cronos-notificacion-nueva">
     <div class="cronos-notificacion-fila">
       <label class="cronos-campo">${escaparHTML(t("campo_tipo"))}<select name="tipo" required${inactivo}><option value="">${escaparHTML(t("campo_tipo_elegir"))}</option>${opciones}</select></label>
@@ -68,29 +69,70 @@ function filaNotificacion(n, t, locale, zonaHoraria) {
     <td>${documento}</td><td><span class="cronos-estado" data-estado="${escaparHTML(n.estado)}">${escaparHTML(estado)}</span></td></tr>`;
 }
 
+function paginaHistorial(notificaciones, historial, tamanoPagina) {
+  if (!Number.isSafeInteger(tamanoPagina) || tamanoPagina < 1 || tamanoPagina > 100) throw new RangeError("tamaño de página Cronos no válido");
+  const filtro = ["registrada", "atendida"].includes(historial.filtro) ? historial.filtro : "";
+  const filtradas = notificaciones.filter((n) => !filtro || n.estado === filtro);
+  const paginas = Math.max(1, Math.ceil(filtradas.length / tamanoPagina));
+  const pagina = Math.max(1, Math.min(Number.isSafeInteger(historial.pagina) ? historial.pagina : 1, paginas));
+  const inicio = (pagina - 1) * tamanoPagina;
+  return { filtro, pagina, paginas, inicio, total: filtradas.length, filas: filtradas.slice(inicio, inicio + tamanoPagina) };
+}
+
+/** Filtra y pagina únicamente la respuesta ya consultada; no solicita otras filas. */
+export function renderizarHistorialNotificacionesCronos({ datos, historial = {}, estado = "listo", mensajes, mensajesHistorial,
+  tamanoPagina = 10, locale = LOCALIZACION_ACTUAL, zonaHoraria = "Europe/Madrid" } = {}) {
+  const t = crearTraductorNotificacionesCronos(mensajes);
+  const th = crearTraductorNotificacionesHistorialCronos(mensajesHistorial);
+  const cargando = estado === "cargando";
+  const cabecera = `<div class="cabecera-panel"><h3 id="cronos-mis-notificaciones">${escaparHTML(t("mis_notificaciones"))}</h3>
+    <button type="button" class="boton-secundario" data-cronos-historial-actualizar${cargando ? " disabled" : ""}>${escaparHTML(th(cargando ? "actualizando" : "actualizar"))}</button></div>`;
+  if (estado !== "listo") return `${cabecera}<div class="cuerpo-panel" aria-busy="${cargando}"><p data-cronos-historial-resumen tabindex="-1" role="${estado === "error" ? "alert" : "status"}">${escaparHTML(th(cargando ? "actualizando" : "error_consulta"))}</p></div>`;
+  const p = paginaHistorial(datos.notificaciones, historial, tamanoPagina);
+  const n = (v) => numeroVisibleCronos(v, locale);
+  const opciones = [["", "todos"], ["registrada", "registradas"], ["atendida", "atendidas"]]
+    .map(([valor, clave]) => `<option value="${valor}"${p.filtro === valor ? " selected" : ""}>${escaparHTML(th(clave))}</option>`).join("");
+  const cabeceras = ["col_enviada", "col_tipo", "col_fecha", "col_mensaje", "col_documento", "col_estado"];
+  const filas = p.filas.map((fila) => filaNotificacion(fila, t, locale, zonaHoraria)).join("");
+  const resumen = th("mostrando", { desde: n(p.total ? p.inicio + 1 : 0), hasta: n(p.inicio + p.filas.length), total: n(p.total) });
+  const filtro = th(p.filtro === "registrada" ? "registradas" : p.filtro === "atendida" ? "atendidas" : "todos");
+  return `${cabecera}<div class="cuerpo-panel">
+    <p>${escaparHTML(th("alcance"))}</p>
+    <form class="cronos-notificacion-formulario" data-cronos-historial-filtros>
+      <label class="cronos-campo">${escaparHTML(th("estado"))}<select class="control-formulario" name="estado_historial" data-cronos-historial-estado>${opciones}</select></label>
+      <div class="cronos-solicitud-acciones"><button type="submit" class="boton-secundario">${escaparHTML(th("aplicar"))}</button>
+        <button type="button" class="boton-secundario" data-cronos-historial-quitar${p.filtro ? "" : " disabled"}>${escaparHTML(th("quitar"))}</button></div>
+    </form>
+    <p data-cronos-historial-resumen tabindex="-1" role="status" aria-live="polite">${escaparHTML(th("filtro_activo", { estado: filtro }))} ${escaparHTML(resumen)}</p>
+  </div><div class="cronos-tabla-contenedor"><table class="cronos-tabla" aria-labelledby="cronos-mis-notificaciones"><thead><tr>${cabeceras.map((c) => `<th scope="col">${escaparHTML(t(c))}</th>`).join("")}</tr></thead>
+    <tbody>${filas || `<tr><td colspan="${cabeceras.length}">${escaparHTML(p.filtro && datos.notificaciones.length ? th("sin_resultados") : t("sin_notificaciones"))}</td></tr>`}</tbody></table></div>
+    <nav class="cronos-solicitud-acciones cuerpo-panel" aria-label="${escaparHTML(th("paginacion"))}">
+      <span>${escaparHTML(th("pagina", { actual: n(p.pagina), total: n(p.paginas) }))}</span>
+      <button type="button" class="boton-secundario" data-cronos-historial-pagina="${p.pagina - 1}"${p.pagina === 1 ? " disabled" : ""}>${escaparHTML(th("anterior"))}</button>
+      <button type="button" class="boton-secundario" data-cronos-historial-pagina="${p.pagina + 1}"${p.pagina === p.paginas ? " disabled" : ""}>${escaparHTML(th("siguiente"))}</button></nav>`;
+}
+
 /** Notificaciones propias a RRHH: formulario de envío y lista con su estado. */
 export function renderizarNotificacionesPropiasCronos({ estado = "cargando", datos = null, formulario = null, envio = null, mensaje = "", tonoMensaje = "exito",
-  mensajes, locale = LOCALIZACION_ACTUAL, zonaHoraria = "Europe/Madrid", hoy = hoyCivilCronos(new Date(), zonaHoraria) } = {}) {
+  mensajes, mensajesHistorial, historial = {}, estadoHistorial = "listo", tamanoPagina = 10, locale = LOCALIZACION_ACTUAL, zonaHoraria = "Europe/Madrid", hoy = hoyCivilCronos(new Date(), zonaHoraria) } = {}) {
   const t = crearTraductorNotificacionesCronos(mensajes);
   const ayuda = t("abrir_ayuda", { asunto: t("notificaciones_titulo") });
   const cabecera = `<header class="cronos-encabezado"><div><p class="sobrelinea">${escaparHTML(t("sobrelinea"))}</p><h2 id="cronos-notificaciones-propias-titulo">${escaparHTML(t("notificaciones_titulo"))}</h2></div>
     <button type="button" class="cronos-boton-ayuda" data-accion="ayuda" aria-label="${escaparHTML(ayuda)}" title="${escaparHTML(ayuda)}"><span aria-hidden="true">?</span></button></header>`;
+  const tono = tonoMensaje === "error" ? "error" : "exito";
+  const aviso = mensaje ? `<p class="cronos-solicitud-aviso" data-cronos-notificacion-mensaje data-tono="${tono}" role="${tono === "error" ? "alert" : "status"}" tabindex="-1">${escaparHTML(mensaje)}</p>` : "";
   if (estado !== "listo") {
     const clave = { denegado: "denegado", sin_empleado: "sin_empleado", error: "error" }[estado] ?? "cargando";
+    const reintento = estado === "error" ? `<div class="cronos-solicitud-acciones"><button type="button" class="boton-secundario" data-cronos-notificacion-reintentar>${escaparHTML(t("notificaciones_reintentar_consulta"))}</button></div>` : "";
     return `<section class="cronos-area cronos-notificaciones-propias" aria-labelledby="cronos-notificaciones-propias-titulo" data-estado="${escaparHTML(estado)}">${cabecera}
-      <section class="panel cronos-panel"><div class="cuerpo-panel"><p class="cronos-${estado === "cargando" ? "vacio" : "acceso-denegado"}" role="${estado === "error" ? "alert" : "status"}">${escaparHTML(t(clave))}</p></div></section></section>`;
+      <section class="panel cronos-panel"><div class="cuerpo-panel">${aviso}<p class="cronos-${estado === "cargando" ? "vacio" : "acceso-denegado"}" role="${estado === "error" ? "alert" : "status"}">${escaparHTML(t(clave))}</p>${reintento}</div></section></section>`;
   }
-  const tono = tonoMensaje === "error" ? "error" : "exito";
-  const aviso = mensaje ? `<p class="cronos-solicitud-aviso" data-cronos-notificacion-mensaje data-tono="${tono}" role="${tono === "error" ? "alert" : "status"}">${escaparHTML(mensaje)}</p>` : "";
   const f = formulario ?? formularioVacio(hoy);
-  const cabeceras = ["col_enviada", "col_tipo", "col_fecha", "col_mensaje", "col_documento", "col_estado"];
-  const filas = datos.notificaciones.map((n) => filaNotificacion(n, t, locale, zonaHoraria)).join("");
-  const cuerpo = filas || `<tr><td colspan="${cabeceras.length}">${escaparHTML(t("sin_notificaciones"))}</td></tr>`;
+  const contenidoHistorial = renderizarHistorialNotificacionesCronos({ datos, historial, estado: estadoHistorial, tamanoPagina, mensajes, mensajesHistorial, locale, zonaHoraria });
   return `<section class="cronos-area cronos-notificaciones-propias" aria-labelledby="cronos-notificaciones-propias-titulo" data-estado="listo">${cabecera}
     <section class="panel cronos-panel" aria-labelledby="cronos-notificacion-nueva"><div class="cabecera-panel"><h3 id="cronos-notificacion-nueva">${escaparHTML(t("nueva_titulo"))}</h3></div>
       <div class="cuerpo-panel">${aviso}${formularioNotificacion(f, datos, envio, t, locale)}</div></section>
-    <section class="panel cronos-panel" aria-labelledby="cronos-mis-notificaciones"><div class="cabecera-panel"><h3 id="cronos-mis-notificaciones">${escaparHTML(t("mis_notificaciones"))}</h3></div>
-      <div class="cronos-tabla-contenedor"><table class="cronos-tabla"><thead><tr>${cabeceras.map((c) => `<th scope="col">${escaparHTML(t(c))}</th>`).join("")}</tr></thead><tbody>${cuerpo}</tbody></table></div></section>
+    <section class="panel cronos-panel" data-cronos-historial aria-labelledby="cronos-mis-notificaciones">${contenidoHistorial}</section>
   </section>`;
 }
 
@@ -102,35 +144,95 @@ function estadoError(error) {
   return "error";
 }
 
-export function montarNotificacionesPropiasCronos({ raiz, cliente = crearClienteNotificacionesCronosHTTP(), mensajes, anunciar = () => {}, registrarDesmontar,
+export function montarNotificacionesPropiasCronos({ raiz, cliente = crearClienteNotificacionesCronosHTTP(), mensajes, mensajesHistorial, tamanoPagina = 10, anunciar = () => {}, registrarDesmontar,
   locale = LOCALIZACION_ACTUAL, zonaHoraria = "Europe/Madrid", cripto = globalThis.crypto, ahora = () => new Date() } = {}) {
   if (!raiz?.append || !raiz.ownerDocument?.createElement || typeof cliente?.consultarPropias !== "function" || typeof cliente?.enviar !== "function"
     || typeof anunciar !== "function" || (registrarDesmontar !== undefined && typeof registrarDesmontar !== "function") || typeof ahora !== "function") {
     throw new TypeError("montaje de las notificaciones de Cronos no disponible");
   }
   const t = crearTraductorNotificacionesCronos(mensajes);
+  const th = crearTraductorNotificacionesHistorialCronos(mensajesHistorial);
+  paginaHistorial([], {}, tamanoPagina);
   const contenedor = raiz.ownerDocument.createElement("section"); contenedor.dataset.cronosNotificacionesPropias = ""; raiz.append(contenedor);
   let activa = true; let secuencia = 0; let controlador = null; let peticion = null; let lecturaDocumento = 0;
   let estado = "cargando"; let datos = null; let mensaje = ""; let tonoMensaje = "exito";
   let formulario = formularioVacio(hoyCivilCronos(ahora(), zonaHoraria));
   // Un reintento del mismo contenido conserva la clave; otro contenido, otra.
   let envio = null;
+  let historial = { filtro: "", pagina: 1 }; let estadoHistorial = "listo";
   const dibujar = () => {
-    if (activa) contenedor.innerHTML = renderizarNotificacionesPropiasCronos({ estado, datos, formulario, envio, mensaje, tonoMensaje, mensajes, locale, zonaHoraria });
+    if (activa) contenedor.innerHTML = renderizarNotificacionesPropiasCronos({ estado, datos, formulario, envio, mensaje, tonoMensaje, mensajes, mensajesHistorial, historial, estadoHistorial, tamanoPagina, locale, zonaHoraria });
   };
-  const cargar = async () => {
-    controlador?.abort(); controlador = new AbortController(); const turno = ++secuencia;
-    estado = "cargando"; datos = null; dibujar();
+  const dibujarHistorial = (foco = "") => {
+    if (!activa) return;
+    const region = contenedor.querySelector?.("[data-cronos-historial]");
+    if (region) region.innerHTML = renderizarHistorialNotificacionesCronos({ datos, historial, estado: estadoHistorial, mensajes, mensajesHistorial, tamanoPagina, locale, zonaHoraria });
+    else dibujar();
+    if (foco) contenedor.querySelector?.(foco)?.focus?.();
+  };
+  const cargar = async ({ recuperarFoco = false, conservarFormulario = true } = {}) => {
+    if (!activa) return;
+    const parcial = conservarFormulario && estado === "listo";
+    controlador?.abort(); controlador = new AbortController(); const signal = controlador.signal; const turno = ++secuencia;
+    estadoHistorial = "cargando";
+    if (parcial) dibujarHistorial(recuperarFoco ? "[data-cronos-historial-resumen]" : "");
+    else { estado = "cargando"; datos = null; dibujar(); }
+    const enfocarHistorial = () => {
+      const documento = contenedor.ownerDocument;
+      const region = contenedor.querySelector?.("[data-cronos-historial]");
+      // Si la persona siguió escribiendo durante la consulta, conservar su foco.
+      return recuperarFoco && (!documento?.activeElement || documento.activeElement === documento.body || region?.contains?.(documento.activeElement));
+    };
     try {
-      const r = await cliente.consultarPropias({ signal: controlador.signal });
-      if (!activa || turno !== secuencia) return;
-      estado = "listo"; datos = r;
+      const r = await cliente.consultarPropias({ signal });
+      if (!activa || turno !== secuencia || signal.aborted) return;
+      const recuperarHistorial = parcial && enfocarHistorial();
+      estado = "listo"; estadoHistorial = "listo"; datos = r;
+      historial = { ...historial, pagina: paginaHistorial(r.notificaciones, historial, tamanoPagina).pagina };
       if (formulario.tipo && !r.tipos.some((tipo) => tipo.tipo_version_ref === formulario.tipo)) formulario = { ...formulario, tipo: "" };
-      dibujar();
+      if (parcial) {
+        // Sólo el catálogo del selector cambia; el fichero y su huella siguen juntos.
+        const tipo = contenedor.querySelector?.('[data-cronos-notificacion-formulario] [name="tipo"]');
+        if (tipo) tipo.innerHTML = `<option value="">${escaparHTML(t("campo_tipo_elegir"))}</option>` + r.tipos.map((item) => `<option value="${escaparHTML(item.tipo_version_ref)}"${formulario.tipo === item.tipo_version_ref ? " selected" : ""}>${escaparHTML(item.nombre)}</option>`).join("");
+        if (!tipo && r.tipos.length) {
+          // Si antes no había tipos, sustituir sólo ese aviso por el formulario.
+          // Un formulario existente conserva sus nodos, el borrador y el fichero.
+          const sinTipos = contenedor.querySelector?.("[data-cronos-notificacion-sin-tipos]");
+          if (sinTipos) sinTipos.outerHTML = formularioNotificacion(formulario, datos, envio, t, locale);
+        }
+        dibujarHistorial(recuperarHistorial ? "[data-cronos-historial-actualizar]" : "");
+        anunciar(th("actualizado"));
+      } else {
+        dibujar();
+        if (recuperarFoco) contenedor.querySelector?.(mensaje ? "[data-cronos-notificacion-mensaje]" : "[data-cronos-notificacion-formulario] [name=tipo]")?.focus?.();
+      }
     } catch (error) {
-      if (!activa || turno !== secuencia || controlador.signal.aborted) return;
-      estado = estadoError(error); dibujar(); anunciar(t(estado));
+      if (!activa || turno !== secuencia || signal.aborted) return;
+      const errorEstado = estadoError(error);
+      if (parcial && errorEstado === "error") {
+        const recuperarHistorial = enfocarHistorial();
+        estadoHistorial = "error"; dibujarHistorial(recuperarHistorial ? "[data-cronos-historial-actualizar]" : ""); anunciar(th("error_consulta"));
+      } else {
+        estado = errorEstado; datos = null; dibujar(); anunciar(t(estado));
+        if (recuperarFoco) contenedor.querySelector?.("[data-cronos-notificacion-reintentar]")?.focus?.();
+      }
     }
+  };
+  const alConsultar = (evento) => {
+    if (!activa) return;
+    if (estado === "error" && evento.target?.closest?.("[data-cronos-notificacion-reintentar]")) return cargar({ recuperarFoco: true });
+    if (estado !== "listo") return;
+    if (evento.target?.closest?.("[data-cronos-historial-actualizar]") && estadoHistorial !== "cargando") return cargar({ recuperarFoco: true });
+    if (estadoHistorial !== "listo") return;
+    if (evento.target?.closest?.("[data-cronos-historial-quitar]")) {
+      historial = { filtro: "", pagina: 1 }; dibujarHistorial("[data-cronos-historial-estado]"); return;
+    }
+    const boton = evento.target?.closest?.("[data-cronos-historial-pagina]");
+    if (!boton || boton.disabled) return;
+    const pagina = Number(boton.dataset?.cronosHistorialPagina);
+    const p = paginaHistorial(datos.notificaciones, historial, tamanoPagina);
+    if (!Number.isSafeInteger(pagina) || pagina < 1 || pagina > p.paginas) return;
+    historial = { ...historial, pagina }; dibujarHistorial("[data-cronos-historial-resumen]");
   };
   const estadoDocumento = (clave) => {
     formulario = { ...formulario, documento: clave };
@@ -191,7 +293,14 @@ export function montarNotificacionesPropiasCronos({ raiz, cliente = crearCliente
     }
   };
   const alEnviar = async (evento) => {
-    if (!evento.target?.matches?.("[data-cronos-notificacion-formulario]") || envio?.enviando) return;
+    if (activa && evento.target?.matches?.("[data-cronos-historial-filtros]")) {
+      evento.preventDefault();
+      if (estado !== "listo" || estadoHistorial !== "listo") return;
+      const filtro = String(evento.target.elements?.namedItem?.("estado_historial")?.value ?? "");
+      if (!["", "registrada", "atendida"].includes(filtro)) return;
+      historial = { filtro, pagina: 1 }; dibujarHistorial("[data-cronos-historial-estado]"); return;
+    }
+    if (!activa || estado !== "listo" || !evento.target?.matches?.("[data-cronos-notificacion-formulario]") || envio?.enviando) return;
     evento.preventDefault();
     const elementos = evento.target.elements;
     const valor = (nombre, previo) => String(elementos?.namedItem?.(nombre)?.value ?? previo);
@@ -216,7 +325,7 @@ export function montarNotificacionesPropiasCronos({ raiz, cliente = crearCliente
       if (!activa) return;
       envio = null; formulario = formularioVacio(hoyCivilCronos(ahora(), zonaHoraria));
       mensaje = t(recibo.replay ? "ya_enviada" : "enviada"); tonoMensaje = "exito"; anunciar(mensaje);
-      await cargar();
+      await cargar({ recuperarFoco: true, conservarFormulario: false });
     } catch (error) {
       if (!activa || peticion.signal.aborted) return;
       const codigo = error instanceof ErrorClienteNotificacionesCronos ? error.codigo : error instanceof TypeError ? "peticion_invalida" : "";
@@ -226,18 +335,20 @@ export function montarNotificacionesPropiasCronos({ raiz, cliente = crearCliente
         // La lista se repinta: el campo del fichero vuelve vacío, así que
         // tampoco se conserva su huella.
         envio = null; mensaje = texto; tonoMensaje = "error"; formulario = { ...formulario, tipo: "", huella: "", documento: "" };
-        await cargar(); contenedor.querySelector?.('[data-cronos-notificacion-formulario] [name="tipo"]')?.focus?.(); return;
+        await cargar({ conservarFormulario: false }); contenedor.querySelector?.('[data-cronos-notificacion-formulario] [name="tipo"]')?.focus?.(); return;
       }
       envio = { ...envio, enviando: false, mensaje: texto };
       reflejarEnvio(codigo === "peticion_invalida" ? "tipo" : "enviar");
     }
   };
   contenedor.addEventListener("change", alCambiar); contenedor.addEventListener("input", alCambiar); contenedor.addEventListener("submit", alEnviar);
+  contenedor.addEventListener("click", alConsultar);
   void cargar();
   const desmontar = () => {
     if (!activa) return;
     activa = false; ++secuencia; ++lecturaDocumento; controlador?.abort(); peticion?.abort();
     contenedor.removeEventListener("change", alCambiar); contenedor.removeEventListener("input", alCambiar); contenedor.removeEventListener("submit", alEnviar);
+    contenedor.removeEventListener("click", alConsultar);
     contenedor.remove?.();
   };
   registrarDesmontar?.(desmontar);

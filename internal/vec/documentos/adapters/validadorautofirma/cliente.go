@@ -196,7 +196,7 @@ type dictamenAutofirma struct {
 	Contrato                string              `json:"contrato"`
 	Estado                  string              `json:"estado"`
 	Motivo                  string              `json:"motivo"`
-	Formato                 json.RawMessage     `json:"formato"`
+	Formato                 string              `json:"formato"`
 	ComprobadoEn            json.RawMessage     `json:"comprobadoEn"`
 	Integridad              aspectoAutofirma    `json:"integridad"`
 	Cadena                  aspectoAutofirma    `json:"cadena"`
@@ -307,7 +307,14 @@ func (c *Cliente) VerificarMotivado(ctx context.Context, s ports.SolicitudVerifi
 	if motivo != "" {
 		return motivar(base, motivo), nil
 	}
-	return traducir(base, recibida), nil
+	resultado := traducir(base, recibida)
+	if s.FormatoEsperado != "" && resultado.Motivo == ports.MotivoFirmaVerificada &&
+		resultado.Resultado.Formato != s.FormatoEsperado {
+		// El dictamen puede ser positivo para otro formato, pero ese positivo
+		// no satisface el contrato de este consumidor. No adoptar sus aspectos.
+		return motivar(base, ports.MotivoRespuestaNoInterpretable), nil
+	}
+	return resultado, nil
 }
 
 func (c *Cliente) llamar(ctx context.Context, peticion peticionAutofirma) (*dictamenAutofirma, ports.MotivoVerificacionFirma) {
@@ -475,6 +482,7 @@ func traducir(r ports.ResultadoVerificacionFirma, d *dictamenAutofirma) ports.Ve
 	}
 	sinAdoptar := r
 	r.VinculoOriginal = d.VinculoOriginal.Estado == "acreditado"
+	r.Formato = d.Formato
 	r.RevocacionEstado = d.Revocacion.Estado
 	r.SelloTiempoEstado = d.SelloTiempo.Estado
 	if len(d.Firmantes) == 1 && d.CertificadoHuellaSHA256 != "" {

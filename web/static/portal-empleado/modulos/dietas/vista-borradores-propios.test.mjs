@@ -53,13 +53,17 @@ class Nodo {
   setAttribute(nombre, valor) {
     this.attrs[nombre] = String(valor);
   }
+  removeAttribute(nombre) {
+    delete this.attrs[nombre];
+  }
   focus() {
     this.ownerDocument.activeElement = this;
   }
   matches(selector) {
     if (!selector.startsWith("[")) return this.tagName === selector;
     const coincidencia = selector.match(/^\[([^=\]]+)(?:="([^"]*)")?\]$/u);
-    const valor = this.dataset[claveDatos(coincidencia[1])];
+    const valor = coincidencia[1].startsWith("data-")
+      ? this.dataset[claveDatos(coincidencia[1])] : this[coincidencia[1]] ?? this.attrs[coincidencia[1]];
     return (
       valor !== undefined &&
       (coincidencia[2] === undefined || valor === coincidencia[2])
@@ -91,6 +95,28 @@ function raiz() {
 }
 function textoVisible(nodo) {
   return [nodo.textContent, ...nodo.children.map(textoVisible)].join(" ");
+}
+function entradasFormulario(form) {
+  return [...form.querySelectorAll("input"), ...form.querySelectorAll("select")];
+}
+function entradaFormulario(form, nombre) {
+  return entradasFormulario(form).find((campo) => campo.name === nombre);
+}
+class DatosFormulario {
+  constructor(form) {
+    this.datos = new Map();
+    for (const campo of entradasFormulario(form)) {
+      if (campo.name && !campo.disabled && !this.datos.has(campo.name))
+        this.datos.set(campo.name, campo.value || "");
+    }
+  }
+  get(nombre) { return this.datos.get(nombre) ?? null; }
+}
+function rellenarSolicitud(form) {
+  const valores = { fecha_inicio: "2026-09-20", fecha_fin: "2026-09-21", motivo: "  Visita conservada  ",
+    hora_inicio: "09:00", hora_fin: "18:00", origen_codigo: "18087", destino_codigo: "18003",
+    pais: "ES", pais_otro: "Destino escrito", nivel_detalle: "alto" };
+  for (const [nombre, valor] of Object.entries(valores)) entradaFormulario(form, nombre).value = valor;
 }
 const item = Object.freeze({
   comision: {
@@ -164,6 +190,114 @@ test("conserva el formulario y sus datos al recuperar la lista y la ficha", asyn
   await contenedor.querySelector("[data-dietas-borradores-propios]").listeners.click({ target: boton });
   assert.equal(contenedor.querySelector("[data-dietas-borrador-form]"), form);
   assert.equal(motivo.value, "Visita conservada");
+  vista.desmontar();
+});
+
+test("conserva todos los controles y la misma solicitud al recuperar un alta incierta", async () => {
+  const contenedor = raiz();
+  const solicitudes = [];
+  let rechazar;
+  let siguienteClave = 0;
+  const vista = montarVistaBorradoresPropios(contenedor, {
+    generarClaveIdempotencia: () => `clave-conservada-${++siguienteClave}`,
+    cliente: { listar: async () => ({ items: [] }), obtener: async () => item,
+      crear: async (solicitud) => {
+        solicitudes.push(structuredClone(solicitud));
+        if (solicitudes.length === 1) return new Promise((_resolver, rechazo) => { rechazar = rechazo; });
+        return { ...item, recibo: { ...item.recibo, repeticion: true } };
+      } },
+  });
+  await Promise.resolve(); await Promise.resolve();
+  const panel = contenedor.querySelector("[data-dietas-borradores-propios]");
+  const form = contenedor.querySelector("[data-dietas-borrador-form]");
+  form.checkValidity = () => true;
+  rellenarSolicitud(form);
+  await panel.listeners.click({ target: form.querySelector("[data-dietas-parada-anadir]") });
+  entradaFormulario(form, "parada_codigo").value = "18175";
+  const controles = entradasFormulario(form);
+  const antes = controles.map((campo) => [campo, campo.value, campo.disabled]);
+  const original = globalThis.FormData;
+  globalThis.FormData = DatosFormulario;
+  try {
+    const pendiente = panel.listeners.submit({ target: form, preventDefault() {} });
+    assert.equal(form.attrs["aria-busy"], "true");
+    assert.ok([...controles, ...form.querySelectorAll("button")].every((campo) => campo.disabled));
+    await panel.listeners.submit({ target: form, preventDefault() {} });
+    assert.equal(solicitudes.length, 1);
+    const error = new Error("conexión interrumpida"); error.resultadoIndeterminado = true;
+    rechazar(error);
+    await pendiente;
+    assert.equal(form.attrs["aria-busy"], "false");
+    assert.equal(contenedor.ownerDocument.activeElement, contenedor.querySelector("[data-dietas-borradores-estado]"));
+    assert.match(textoVisible(contenedor), /No se ha podido confirmar/u);
+    assert.equal(contenedor.querySelector("[data-dietas-borrador-form]"), form);
+    assert.deepEqual(controles.map((campo) => [campo, campo.value, campo.disabled]), antes);
+    assert.equal(contenedor.querySelector("[data-dietas-borrador-recibo]"), null);
+    await panel.listeners.submit({ target: form, preventDefault() {} });
+    assert.equal(siguienteClave, 1);
+    assert.deepEqual(solicitudes[1], solicitudes[0]);
+    assert.deepEqual(solicitudes[0].codigos_ruta, ["18087", "18175", "18003"]);
+    assert.deepEqual(controles.map((campo) => [campo, campo.value, campo.disabled]), antes);
+    assert.match(textoVisible(contenedor), /recuperado sin crear otro borrador/u);
+  } finally { globalThis.FormData = original; vista.desmontar(); }
+});
+
+test("fecha, hora y ruta inválidas conservan la entrada y enfocan el campo que hay que corregir", async () => {
+  const contenedor = raiz(); let escrituras = 0;
+  const vista = montarVistaBorradoresPropios(contenedor, {
+    cliente: { listar: async () => ({ items: [] }), obtener: async () => item,
+      crear: async () => { escrituras++; return item; } },
+  });
+  await Promise.resolve(); await Promise.resolve();
+  const panel = contenedor.querySelector("[data-dietas-borradores-propios]");
+  const form = contenedor.querySelector("[data-dietas-borrador-form]");
+  form.checkValidity = () => true;
+  rellenarSolicitud(form);
+  const original = globalThis.FormData;
+  globalThis.FormData = DatosFormulario;
+  try {
+    for (const [nombre, valor, revisar] of [["fecha_fin", "2026-09-19", false], ["hora_fin", "09:00", true],
+      ["destino_codigo", "18087", false]]) {
+      rellenarSolicitud(form);
+      if (nombre === "hora_fin") entradaFormulario(form, "fecha_fin").value = "2026-09-20";
+      const campo = entradaFormulario(form, nombre);
+      campo.value = valor;
+      const antes = entradasFormulario(form).map((entrada) => [entrada, entrada.value]);
+      if (revisar) await panel.listeners.click({ target: form.querySelector("[data-dietas-borrador-revisar]") });
+      else await panel.listeners.submit({ target: form, preventDefault() {} });
+      assert.equal(escrituras, 0);
+      assert.equal(contenedor.ownerDocument.activeElement, campo);
+      assert.equal(campo.attrs["aria-invalid"], "true");
+      assert.equal(campo.attrs["aria-describedby"], contenedor.querySelector("[data-dietas-borradores-estado]").id);
+      assert.deepEqual(entradasFormulario(form).map((entrada) => [entrada, entrada.value]), antes);
+      panel.listeners.input({ target: campo });
+      assert.equal(campo.attrs["aria-invalid"], undefined);
+      assert.equal(campo.attrs["aria-describedby"], undefined);
+    }
+  } finally { globalThis.FormData = original; vista.desmontar(); }
+});
+
+test("la consulta pendiente conserva los campos y restaura la disponibilidad propia tras un error", async () => {
+  const contenedor = raiz(); let rechazar; let consultas = 0;
+  const vista = montarVistaBorradoresPropios(contenedor, {
+    cliente: { listar: async () => {
+      if (++consultas === 1) return { items: [] };
+      return new Promise((_resuelve, rechazo) => { rechazar = rechazo; });
+    }, obtener: async () => item, crear: async () => item },
+  });
+  await Promise.resolve(); await Promise.resolve();
+  const panel = contenedor.querySelector("[data-dietas-borradores-propios]");
+  const form = contenedor.querySelector("[data-dietas-borrador-form]");
+  rellenarSolicitud(form);
+  const controles = entradasFormulario(form);
+  const antes = controles.map((campo) => [campo, campo.value, campo.disabled]);
+  const consulta = panel.listeners.click({ target: contenedor.querySelector("[data-dietas-borrador-consultar-registrados]") });
+  assert.ok(controles.every((campo) => campo.disabled));
+  rechazar(new Error("sin conexión")); await consulta;
+  assert.deepEqual(controles.map((campo) => [campo, campo.value, campo.disabled]), antes);
+  assert.equal(form.querySelector("[data-dietas-vehiculo-propio]").disabled, true);
+  assert.equal(form.querySelector("[data-dietas-otro-anadir]").disabled, true);
+  assert.equal(form.querySelector("[data-dietas-borrador-guardar]").disabled, false);
   vista.desmontar();
 });
 
@@ -471,6 +605,10 @@ test("no escoge la primera relación cuando la composición aporta varias autori
       "rel_1234567890123456789012",
       "rel_abcdefghijklmnopqrstuv",
     ],
+    etiquetasRelaciones: [
+      { referencia: "rel_1234567890123456789012", etiqueta: "Centro de muestra · Unidad técnica" },
+      { referencia: "rel_abcdefghijklmnopqrstuv", etiqueta: "Centro de ensayo · Unidad administrativa" },
+    ],
     cliente: {
       listar: async () => { listas += 1; return { items: [] }; },
       obtener: async () => item,
@@ -481,7 +619,95 @@ test("no escoge la primera relación cuando la composición aporta varias autori
   assert.equal(listas, 0);
   const selectorRelacion = contenedor.querySelectorAll("select").find((selector) => selector.name === "relacion_ref");
   assert.deepEqual(selectorRelacion.children.map((opcion) => opcion.value), ["", "rel_1234567890123456789012", "rel_abcdefghijklmnopqrstuv"]);
+  assert.deepEqual(selectorRelacion.children.slice(1).map((opcion) => opcion.textContent),
+    ["Centro de muestra · Unidad técnica", "Centro de ensayo · Unidad administrativa"]);
+  assert.doesNotMatch(textoVisible(selectorRelacion), /rel_/u);
+  assert.equal(contenedor.querySelector("[data-dietas-borrador-guardar]").disabled, true);
+  selectorRelacion.value = "rel_abcdefghijklmnopqrstuv";
+  contenedor.querySelector("[data-dietas-borradores-propios]").listeners.change({ target: selectorRelacion });
+  await Promise.resolve(); await Promise.resolve();
+  assert.equal(listas, 1);
+  assert.equal(contenedor.querySelector("[data-dietas-borrador-guardar]").disabled, false);
+  assert.equal(contenedor.querySelector("[data-dietas-borrador-revisar]").disabled, false);
   vista.desmontar();
+});
+
+test("una relación única se envía como campo oculto sin rótulo de referencia técnica", async () => {
+  const contenedor = raiz();
+  const vista = montarVistaBorradoresPropios(contenedor, { relacionesAutorizadas: [item.comision.relacion_ref],
+    cliente: { listar: async () => ({ items: [] }), obtener: async () => item, crear: async () => item } });
+  await Promise.resolve(); await Promise.resolve();
+  const form = contenedor.querySelector("[data-dietas-borrador-form]");
+  const relacion = entradaFormulario(form, "relacion_ref");
+  assert.equal(relacion.type, "hidden");
+  assert.equal(relacion.value, item.comision.relacion_ref);
+  assert.equal(relacion.closest("label"), null);
+  assert.doesNotMatch(textoVisible(form), /rel_|Referencia/u);
+  vista.desmontar();
+});
+
+test("varias relaciones sin nombres completos cierran acciones incluso al forzar botones y permiten el GET explícito", async () => {
+  const relaciones = [item.comision.relacion_ref, "rel_abcdefghijklmnopqrstuv"];
+  for (const etiquetasRelaciones of [undefined, [], [{ referencia: relaciones[0], etiqueta: "Centro de muestra · Unidad técnica" }]]) {
+    const contenedor = raiz(); let escrituras = 0; let listas = 0; const lecturas = [];
+    const vista = montarVistaBorradoresPropios(contenedor, {
+      relacionesAutorizadas: relaciones.map((relacion_ref) => ({ relacion_ref, unidad_ref: "unidad:ensayo" })),
+      etiquetasRelaciones, fechaReferenciaPersonal: "2026-09-24",
+      clienteAsignacion: { obtener: async () => ({ verificada: true,
+        relacion_ref: item.comision.relacion_ref, unidad_ref: "unidad:ensayo", centro_ref: "centro:ensayo",
+        administrativo_persona_ref: "per_aaaaaaaaaaaaaaaaaaaaaa", responsable_persona_ref: "per_bbbbbbbbbbbbbbbbbbbbbb",
+        grupo_dieta: 2 }) },
+      cliente: { listar: async () => { listas++; return { items: [] }; },
+        obtener: async (ref, opciones) => {
+          lecturas.push([ref, opciones.relacion_ref]);
+          return { ...item, comision: { ...item.comision, documento: {} } };
+        },
+        crear: async () => { escrituras++; return item; }, enviar: async () => { escrituras++; return item; } } });
+    await Promise.resolve(); await Promise.resolve();
+    const panel = contenedor.querySelector("[data-dietas-borradores-propios]");
+    const form = contenedor.querySelector("[data-dietas-borrador-form]");
+    assert.equal(entradaFormulario(form, "relacion_ref"), undefined);
+    assert.doesNotMatch(textoVisible(form), /rel_/u);
+    assert.match(contenedor.querySelector("[data-dietas-borradores-estado]").textContent, /No se puede determinar una relación/u);
+    const guardar = form.querySelector("[data-dietas-borrador-guardar]");
+    const revisar = form.querySelector("[data-dietas-borrador-revisar]");
+    assert.equal(guardar.disabled, true); assert.equal(revisar.disabled, true);
+    form.checkValidity = () => true;
+    guardar.disabled = false; revisar.disabled = false;
+    await panel.listeners.submit({ target: form, preventDefault() {} });
+    await panel.listeners.click({ target: revisar });
+    assert.equal(escrituras, 0); assert.equal(listas, 0);
+    assert.equal(form.querySelector("[data-dietas-borrador-preparacion]").hidden, true);
+    // El identificador explícito de una consulta sigue pasando por el cliente
+    // autorizado; los nombres no crean ni revocan una concesión del servidor.
+    const consultar = contenedor.ownerDocument.createElement("button");
+    consultar.dataset.dietasBorradorDetalle = item.comision.referencia;
+    consultar.dataset.dietasBorradorRelacion = item.comision.relacion_ref;
+    panel.append(consultar);
+    await panel.listeners.click({ target: consultar });
+    assert.deepEqual(lecturas, [[item.comision.referencia, item.comision.relacion_ref]]);
+    const enviar = contenedor.querySelector("[data-dietas-borrador-enviar]");
+    assert.equal(enviar.disabled, true);
+    enviar.disabled = false;
+    await panel.listeners.click({ target: enviar });
+    assert.equal(escrituras, 0);
+    vista.desmontar();
+  }
+});
+
+test("las etiquetas no añaden referencias autorizadas ni aceptan duplicados o códigos opacos como nombres", () => {
+  const referencias = [item.comision.relacion_ref, "rel_abcdefghijklmnopqrstuv"];
+  for (const etiquetasRelaciones of [null,
+    [{ referencia: "rel_zzzzzzzzzzzzzzzzzzzzzz", etiqueta: "Centro de muestra" }],
+    [{ referencia: referencias[0], etiqueta: "Centro de muestra" }, { referencia: referencias[0], etiqueta: "Centro de ensayo" }],
+    [{ referencia: referencias[0], etiqueta: referencias[0] }],
+    [{ referencia: referencias[0], etiqueta: "" }],
+    [{ referencia: referencias[0], etiqueta: "Centro de muestra\nUnidad" }],
+    [{ referencia: referencias[0], etiqueta: "Centro de muestra" }, { referencia: referencias[1], etiqueta: "Centro de muestra" }]]) {
+    const contenedor = raiz();
+    assert.throws(() => montarVistaBorradoresPropios(contenedor, { relacionesAutorizadas: referencias, etiquetasRelaciones }), TypeError);
+    assert.equal(contenedor.querySelector("[data-dietas-borradores-propios]"), null);
+  }
 });
 
 test("ante resultado incierto conserva una salida comprensible sin fabricar recibo", async () => {
@@ -1448,7 +1674,7 @@ test("A incierta conserva su clave tras un 403 posterior y no duplica B al reaut
   } finally { globalThis.FormData = FormDataOriginal; vista.desmontar(); }
 });
 
-async function abrirEdicionD5(documentoComision) {
+async function abrirEdicionD5(documentoComision, ejecutarEdicion) {
   const calculado = { ...item, comision: { ...item.comision, ...(documentoComision ? { documento: documentoComision } : {}),
     codigos_ruta: ["18087", "18003"], calculo: {
       rotulo: "PROVISIONAL · pendiente de confirmación por RRHH", version_tarifa: "provisional:rd462:20260923",
@@ -1468,7 +1694,9 @@ async function abrirEdicionD5(documentoComision) {
       centro_ref: "centro:uno", administrativo_persona_ref: "per_aaaaaaaaaaaaaaaaaaaaaa",
       responsable_persona_ref: "per_bbbbbbbbbbbbbbbbbbbbbb", grupo_dieta: 2, version: 1 }) },
     cliente: { listar: async () => ({ items: [calculado] }), obtener: async () => calculado,
-      crear: async () => calculado, editar: async (_ref, entrada) => { peticiones.push(entrada); return calculado; } },
+      crear: async () => calculado, editar: async (ref, entrada) => {
+        peticiones.push(entrada); return ejecutarEdicion ? ejecutarEdicion(calculado, ref, entrada) : calculado;
+      } },
     generarClaveIdempotencia: () => "editar-comision-aceptada-20260924",
     catalogoOtrosGastos: { version: "provisional:otros-gastos:20260925", tipos: [
       { codigo: "taxi", clase: "otro_medio" }, { codigo: "aparcamiento", clase: "otro_gasto" }] },
@@ -1484,6 +1712,109 @@ async function abrirEdicionD5(documentoComision) {
   form.querySelector("[data-dietas-vehiculo-propio]").value = "no";
   return { contenedor, vista, panel, form, peticiones };
 }
+
+test("las paradas de una ruta conservan el foco al añadir, mover y quitar sin tomar el foco externo", async () => {
+  const { contenedor, vista, panel, form, peticiones } = await abrirEdicionD5();
+  const vehiculo = form.querySelector("[data-dietas-vehiculo-propio]");
+  vehiculo.value = "si"; panel.listeners.change({ target: vehiculo });
+  await panel.listeners.click({ target: form.querySelector("[data-dietas-ruta-anadir]") });
+  const fila = form.querySelector("[data-dietas-ruta-linea]");
+  const anadir = fila.querySelector("[data-dietas-ruta-parada-anadir]");
+  const selectores = () => fila.querySelectorAll("select").filter((control) => control.name === "ruta_parada_codigo");
+  const activar = async (boton) => { boton.focus(); await panel.listeners.click({ target: boton }); };
+  await activar(anadir);
+  assert.equal(contenedor.ownerDocument.activeElement, selectores()[0]);
+  selectores()[0].value = "18061";
+  await activar(anadir); selectores()[1].value = "18175";
+  await activar(fila.querySelector("[data-dietas-ruta-parada-bajar]"));
+  assert.deepEqual(selectores().map((control) => control.value), ["18175", "18061"]);
+  assert.equal(contenedor.ownerDocument.activeElement, selectores()[1]);
+  await activar(fila.querySelectorAll("[data-dietas-ruta-parada-subir]")[1]);
+  assert.equal(contenedor.ownerDocument.activeElement, selectores()[0]);
+  const externo = new Nodo(contenedor.ownerDocument, "button"); contenedor.append(externo); externo.focus();
+  await panel.listeners.click({ target: fila.querySelector("[data-dietas-ruta-parada-bajar]") });
+  assert.equal(contenedor.ownerDocument.activeElement, externo);
+  await activar(fila.querySelectorAll("[data-dietas-ruta-parada-quitar]")[1]);
+  assert.equal(contenedor.ownerDocument.activeElement, selectores()[0]);
+  await activar(fila.querySelector("[data-dietas-ruta-parada-quitar]"));
+  assert.equal(contenedor.ownerDocument.activeElement, anadir);
+  assert.equal(peticiones.length, 0);
+  vista.desmontar();
+});
+
+for (const tipo of ["ruta", "otro"]) {
+  test(`quitar una línea de ${tipo} enfoca la vecina o Añadir y respeta el foco externo`, async () => {
+    const { contenedor, vista, panel, form, peticiones } = await abrirEdicionD5();
+    if (tipo === "ruta") {
+      const vehiculo = form.querySelector("[data-dietas-vehiculo-propio]");
+      vehiculo.value = "si"; panel.listeners.change({ target: vehiculo });
+    }
+    const anadir = form.querySelector(`[data-dietas-${tipo}-anadir]`);
+    const filas = () => form.querySelectorAll(`[data-dietas-${tipo}-linea]`);
+    const quitar = async (fila) => {
+      const boton = fila.querySelector(`[data-dietas-${tipo}-quitar]`);
+      boton.focus(); await panel.listeners.click({ target: boton });
+    };
+    for (let i = 0; i < 3; i++) await panel.listeners.click({ target: anadir });
+    const [primera, intermedia, ultima] = filas();
+    await quitar(intermedia);
+    assert.equal(contenedor.ownerDocument.activeElement, ultima.querySelector("select"));
+    await quitar(ultima);
+    assert.equal(contenedor.ownerDocument.activeElement, primera.querySelector("select"));
+    await quitar(primera);
+    assert.equal(contenedor.ownerDocument.activeElement, anadir);
+    await panel.listeners.click({ target: anadir });
+    const externo = new Nodo(contenedor.ownerDocument, "button"); contenedor.append(externo); externo.focus();
+    await panel.listeners.click({ target: filas()[0].querySelector(`[data-dietas-${tipo}-quitar]`) });
+    assert.equal(contenedor.ownerDocument.activeElement, externo);
+    assert.equal(peticiones.length, 0);
+    vista.desmontar();
+  });
+}
+
+test("editar conserva tramos, rutas, ajustes y justificantes tras resultado incierto y reintenta la misma operación", async () => {
+  let rechazar; let intentos = 0;
+  const { contenedor, vista, panel, form, peticiones } = await abrirEdicionD5(undefined, async (calculado) => {
+    if (++intentos === 1) return new Promise((_resolver, rechazo) => { rechazar = rechazo; });
+    return calculado;
+  });
+  rellenarSolicitud(form);
+  const vehiculo = form.querySelector("[data-dietas-vehiculo-propio]");
+  vehiculo.value = "si";
+  panel.listeners.change({ target: vehiculo });
+  await panel.listeners.click({ target: form.querySelector("[data-dietas-ruta-anadir]") });
+  const ruta = form.querySelector("[data-dietas-ruta-linea]");
+  for (const [nombre, valor] of Object.entries({ ruta_origen_codigo: "18087", ruta_destino_codigo: "18003",
+    ajuste_kilometros: "1.0000", motivo_ajuste: "Desvío conservado" })) entradaFormulario(ruta, nombre).value = valor;
+  // Una ruta oculta también conserva lo escrito si cambia el vehículo.
+  vehiculo.value = "no";
+  panel.listeners.change({ target: vehiculo });
+  entradaFormulario(form, "modo_tramos").value = "uno";
+  entradaFormulario(form, "tramo_indice").value = "1";
+  await panel.listeners.click({ target: form.querySelector("[data-dietas-otro-anadir]") });
+  const gasto = form.querySelector("[data-dietas-otro-linea]");
+  for (const [nombre, valor] of Object.entries({ tipo_gasto: "aparcamiento", fecha: "2026-09-21",
+    concepto: "Aparcamiento conservado", importe: "2,50", justificante_ref: "ticket:conservado",
+    justificante_sha256: "a".repeat(64) })) entradaFormulario(gasto, nombre).value = valor;
+  const controles = entradasFormulario(form);
+  const antes = controles.map((campo) => [campo, campo.value, campo.disabled]);
+  const original = globalThis.FormData;
+  globalThis.FormData = DatosFormulario;
+  try {
+    const pendiente = panel.listeners.submit({ target: form, preventDefault() {} });
+    assert.equal(peticiones.length, 1);
+    assert.ok([...controles, ...form.querySelectorAll("button")].every((campo) => campo.disabled));
+    const error = new Error("respuesta incierta"); error.resultadoIndeterminado = true;
+    rechazar(error); await pendiente;
+    assert.deepEqual(controles.map((campo) => [campo, campo.value, campo.disabled]), antes);
+    assert.equal(contenedor.ownerDocument.activeElement, contenedor.querySelector("[data-dietas-borradores-estado]"));
+    await panel.listeners.submit({ target: form, preventDefault() {} });
+    assert.deepEqual(peticiones[1], peticiones[0]);
+    assert.deepEqual(peticiones[0].tramos_aceptados, [1]);
+    assert.equal(peticiones[0].otros[0].justificante_ref, "ticket:conservado");
+    assert.deepEqual(controles.map((campo) => [campo, campo.value]), antes.map(([campo, valor]) => [campo, valor]));
+  } finally { globalThis.FormData = original; vista.desmontar(); }
+});
 
 test("editar D3 usa grupo acreditado para aceptar tramos y D4 sin vehículo envía otros gastos D5 con justificante", async () => {
   const { contenedor, vista, panel, form, peticiones } = await abrirEdicionD5();

@@ -1,0 +1,87 @@
+{
+  "idioma": "es",
+  "formato": {
+    "decimal": ",",
+    "agrupacion": ".",
+    "moneda": "€",
+    "fecha": "02/01/2006"
+  },
+  "rotulos": {
+    "titulo": "Preparación de liquidación de dietas",
+    "estado": "Borrador de ensayo · pendiente de aprobación",
+    "limite": "Esta propuesta no está registrada. No acredita aprobación, fiscalización ni pago.",
+    "comision": "Comisión de servicio",
+    "version": "Versión",
+    "conceptos": "Detalle de importes",
+    "concepto": "Concepto",
+    "inicial": "Importe declarado",
+    "propuesto": "Propuesto como admitido",
+    "diferencia": "Reducido o rechazado",
+    "motivo": "Motivo de la reducción o rechazo",
+    "total": "Total",
+    "sin_reduccion": "Sin reducción",
+    "detalle": "Ver catálogo, fuentes y huellas",
+    "catalogo": "Catálogo de propuesta",
+    "tarifa": "Versión de tarifa de referencia",
+    "fuentes": "Fuentes del catálogo",
+    "documento_huella": "Huella del documento de la comisión",
+    "catalogo_huella": "Huella del catálogo",
+    "preparacion_huella": "Huella de esta preparación",
+    "huella_limite": "Las huellas permiten comparar los datos. No acreditan aprobación, autenticidad ni custodia de documentos.",
+    "reglas": "Reglas aplicadas a cada concepto",
+    "linea": "Línea",
+    "regla": "Referencia de regla",
+    "tabla_ayuda": "El importe reducido o rechazado no se propone para admisión. En pantallas pequeñas, desplace la tabla para ver todas las columnas.",
+    "grupo": "Grupo de dieta declarado",
+    "referencia_comision": "Referencia de la comisión",
+    "fecha_gasto": "Fecha del gasto",
+    "descripcion_declarada": "Descripción declarada",
+    "justificante_ref": "Referencia declarada del justificante",
+    "justificante_huella": "Huella SHA-256 declarada del justificante",
+    "catalogo_otros_gastos": "Versión del catálogo de otros gastos",
+    "tope_linea": "Tope por línea del catálogo de ejemplo",
+    "justificante_limite": "La referencia y la huella del justificante son datos declarados. Este informe no acredita su comprobación ni su custodia.",
+    "ruta": "Ruta",
+    "origen_codigo": "Origen (código)",
+    "destino_codigo": "Destino (código)",
+    "kilometros_base": "Kilómetros base (km)",
+    "kilometros_finales": "Kilómetros finales declarados (km)",
+    "ajuste_kilometros": "Ajuste declarado (km)",
+    "motivo_ajuste": "Motivo declarado del ajuste",
+    "no_consta": "No consta en la línea original",
+    "resumen": "Resumen por tipo de gasto",
+    "familia": "Tipo de gasto",
+    "resumen_ayuda": "Importes de las líneas revisadas, agrupados por tipo de gasto. Los tipos sin líneas muestran cero. Desplace la tabla para ver todas las columnas."
+  },
+  "conceptos": {
+    "manutencion": "Manutención"
+  },
+  "tipos": {
+    "dieta": "Dieta",
+    "kilometraje": "Kilometraje"
+  },
+  "tipos_gasto": {
+    "tren": "Tren",
+    "autobus": "Autobús",
+    "metro_tranvia": "Metro o tranvía",
+    "taxi": "Taxi",
+    "avion": "Avión",
+    "barco": "Barco",
+    "vehiculo_alquiler": "Vehículo de alquiler",
+    "aparcamiento": "Aparcamiento",
+    "peaje": "Peaje",
+    "consigna": "Consigna"
+  },
+  "motivos": {
+    "revision_tarifa_importada": "Importe ajustado tras revisar la tarifa importada.",
+    "revision_documental": "Importe ajustado tras revisar la documentación.",
+    "revision_justificante": "Importe reducido en la revisión de la propuesta. El justificante no se conserva aquí.",
+    "gasto_no_admitido": "Este gasto no se propone para admisión."
+  },
+  "familias": {
+    "manutencion": "Manutención",
+    "kilometraje": "Kilometraje",
+    "otro_medio": "Otros medios de transporte",
+    "otro_gasto": "Otros gastos"
+  }
+}

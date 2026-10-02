@@ -200,7 +200,7 @@
       "alta_seguridad_social": "Alta en la Seguridad Social",
       "matrimonio_union_hecho": "Matrimonio o unión de hecho"
     },
-    "justificante": "Justificante",
+    "justificante": "Justificante (el archivo no se envía)",
     "justificanteRef": "Referencia del justificante",
     "responder": "Enviar respuesta",
     "modo": {
@@ -226,11 +226,11 @@
       "datos_no_validos": "Revise los datos del formulario.",
       "acceso_denegado": "No tiene permiso para esta acción.",
       "autenticacion_requerida": "Identifíquese de nuevo para continuar.",
-      "servicio_no_disponible": "Servicio no disponible. No se ha registrado nada; puede volver a intentarlo."
+      "servicio_no_disponible": "No se ha podido confirmar el resultado. Consulte Mi bolsa antes de volver a enviar la petición."
     }
   },
   "rutas": {
-    "inicio": "Inicio y plazos",
+    "inicio": "Inicio",
     "convocatorias": "Convocatorias",
     "oportunidades": "Oportunidades para ti",
     "convocatoria": "Detalle de convocatoria",
@@ -303,16 +303,25 @@
       "titulo": "Guía de uso",
       "subtitulo": "Texto completo de la ayuda",
       "encabezado": "Leer esta ayuda",
-      "texto": "Esta guía explica el área personal de Bolsa. En Inicio aparecen plazos y acciones pendientes. En Convocatorias puede revisar bases y comenzar una solicitud. El inventario de Méritos permite reutilizar títulos, experiencia y documentos. La Autobaremación es provisional y será revisada por Recursos Humanos. Las acciones de pago, firma, registro, llamamiento, subsanación y alegación necesitan confirmación y recibo.",
+      "texto": "Esta guía explica el área personal de Bolsa. Ahora puede consultar la información de Mi bolsa que el servicio haya recuperado. Las convocatorias, los plazos, las solicitudes, los méritos y la autobaremación todavía no están disponibles en esta consulta. Una actuación solo queda registrada cuando el servicio confirma su recibo.",
       "limiteServicio": "Cada operación real depende de la confirmación del servicio autorizado."
     }
   },
   "vista": {
     "comun": {
       "porcentaje": "{valor} %",
-      "porcentajeLeido": "{valor} por ciento"
+      "porcentajeLeido": "{valor} por ciento",
+      "campoObligatorio": "(obligatorio)",
+      "campoOpcional": "(opcional)"
     },
     "inicio": {
+      "consultaBolsa": {
+        "titulo": "Su participación en Bolsa",
+        "descripcion": "Consulte los datos de su participación que ya están disponibles.",
+        "subtitulo": "Información disponible en esta consulta",
+        "detalle": "Aquí puede consultar su participación en Bolsa. Los plazos y las solicitudes de convocatorias aún no están disponibles en esta área.",
+        "abrir": "Ver Mi bolsa"
+      },
       "cifras": {
         "pendientes": "Acciones pendientes",
         "pendientesAyuda": "Revise plazos y comunicaciones",
@@ -334,6 +343,8 @@
       "plazos": {
         "titulo": "Próximos plazos",
         "subtitulo": "Fechas calculadas para sus procesos",
+        "vacioTitulo": "Sin plazos comunicados",
+        "vacioDetalle": "No constan plazos en esta consulta. Revise las bases de cada convocatoria cuando estén disponibles.",
         "cuenta": {
           "one": "{cuenta} plazo",
           "other": "{cuenta} plazos"
@@ -361,10 +372,19 @@
       },
       "actividad": {
         "titulo": "Actividad reciente",
-        "subtitulo": "Trazabilidad visible para la persona interesada"
+        "subtitulo": "Trazabilidad visible para la persona interesada",
+        "vacioTitulo": "Sin actividad registrada",
+        "vacioDetalle": "Todavía no constan actuaciones para mostrar en esta consulta."
       }
     },
     "convocatorias": {
+      "consultaBolsa": {
+        "titulo": "Convocatorias no disponibles aquí",
+        "descripcion": "El listado de convocatorias aún no está disponible en esta área.",
+        "subtitulo": "Esta consulta muestra su participación en Bolsa",
+        "detalle": "El listado de convocatorias no está conectado a esta área. Puede consultar la información disponible de su bolsa.",
+        "abrir": "Ver Mi bolsa"
+      },
       "todas": "Todas",
       "publicada": "Publicada el {fecha}",
       "verDetalle": "Ver detalle y requisitos",
@@ -380,7 +400,14 @@
       },
       "sinResultados": "Sin resultados",
       "sinResultadosDetalle": "Modifique los filtros para ver otras convocatorias.",
+      "sinConvocatorias": "Sin convocatorias en esta consulta",
+      "sinConvocatoriasDetalle": "No se han recibido convocatorias para mostrar. Vuelva a consultar más tarde.",
       "detalle": {
+        "noEncontradaTitulo": "Convocatoria no disponible",
+        "noEncontradaDetalle": "No se puede abrir el detalle solicitado.",
+        "noEncontradaEstado": "No se muestra ninguna convocatoria",
+        "noEncontradaAyuda": "Vuelva al listado y elija una convocatoria disponible.",
+        "noEncontradaAyudaBolsa": "Las convocatorias aún no están disponibles aquí. Consulte su participación en Mi bolsa.",
         "documentoPublico": "Documento público de la convocatoria",
         "abrir": "Abrir {formato}",
         "documento": "documento",

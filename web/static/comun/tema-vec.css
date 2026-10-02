@@ -10,12 +10,15 @@
   --portal-acento: var(--portal-azul-700);
   --portal-foco: var(--portal-azul-700);
   --portal-texto-inverso: #ffffff;
+  --portal-lateral-fondo: var(--portal-azul-950);
+  --portal-lateral-texto: #ffffff;
   /* El logotipo institucional se imprime siempre sobre blanco, también en oscuro. */
   --portal-fondo-logo: #ffffff;
   --portal-lateral-muted: #b7cde0;
   --portal-tinta: #10213b;
   --portal-muted: #586985;
   --portal-borde: #dde5ef;
+  --portal-borde-control: #687588;
   --portal-fondo: #f2f5f9;
   --portal-superficie: #ffffff;
   --portal-superficie-alterna: #f7f9fc;
@@ -81,8 +84,14 @@ html[data-tema="granate"] {
   --portal-sombra-color: rgb(69 26 50 / 15%);
 }
 
+/* Resolver el alias en body evita heredar el azul base ya calculado en :root. */
+body[data-modo-color]:not([data-contraste="true"]):not(.alto-contraste) {
+  --portal-lateral-fondo: var(--portal-azul-950);
+}
+
 /* El modo oscuro cambia solo tokens; la gramática de paneles y controles permanece. */
 body[data-modo-color="oscuro"]:not([data-contraste="true"]):not(.alto-contraste) {
+  --portal-borde-control: var(--portal-muted);
   color-scheme: dark;
   --portal-azul-950: #9ac6ee;
   --portal-azul-900: #8ab9e6;
@@ -93,6 +102,7 @@ body[data-modo-color="oscuro"]:not([data-contraste="true"]):not(.alto-contraste)
   --portal-acento: var(--portal-azul-700);
   --portal-foco: var(--portal-azul-700);
   --portal-texto-inverso: #10263b;
+  --portal-lateral-texto: var(--portal-texto-inverso);
   --portal-lateral-muted: #1b354e;
   --portal-lateral-separador: rgb(16 38 59 / 24%);
   --portal-lateral-hover: rgb(16 38 59 / 12%);
@@ -126,6 +136,7 @@ body[data-modo-color="oscuro"]:not([data-contraste="true"]):not(.alto-contraste)
 }
 
 html[data-tema="granate"] body[data-modo-color="oscuro"]:not([data-contraste="true"]):not(.alto-contraste) {
+  --portal-borde-control: var(--portal-muted);
   --portal-azul-950: #e1b7ca;
   --portal-azul-900: #d9a9c1;
   --portal-azul-800: #cf9ab4;
@@ -146,6 +157,165 @@ html[data-tema="granate"] body[data-modo-color="oscuro"]:not([data-contraste="tr
   --portal-sombra-color: rgb(0 0 0 / 45%);
 }
 
+/* Paleta corporativa: el manual oficial fija #173a4e y #accb49.
+   El verde claro identifica superficies; las acciones usan tonos oscuros AA. */
+body[data-modo-color="diputacion_granada"]:not([data-contraste="true"]):not(.alto-contraste) {
+  --portal-borde-control: var(--portal-muted);
+  --portal-azul-950: #173a4e;
+  --portal-azul-900: #20495a;
+  --portal-azul-800: #285568;
+  --portal-azul-700: #285568;
+  --portal-azul-600: #315e54;
+  --portal-azul-100: #edf3d7;
+  --portal-acento: #4d641b;
+  --portal-foco: var(--portal-azul-700);
+  --portal-texto-inverso: #ffffff;
+  --portal-lateral-muted: #e0e9df;
+  --portal-lateral-hover: rgb(172 203 73 / 22%);
+  --portal-tinta: #172d38;
+  --portal-muted: #53616a;
+  --portal-borde: #81918b;
+  --portal-fondo: #edf2ee;
+  --portal-superficie: #ffffff;
+  --portal-superficie-alterna: #f6f9ef;
+  --portal-cabecera-panel: #eaf1d9;
+  --portal-sombra-color: rgb(23 58 78 / 15%);
+}
+
+body[data-modo-color="arena"]:not([data-contraste="true"]):not(.alto-contraste) {
+  --portal-borde-control: var(--portal-muted);
+  --portal-azul-950: #433626;
+  --portal-azul-900: #55412c;
+  --portal-azul-800: #674b2f;
+  --portal-azul-700: #674b2f;
+  --portal-azul-600: #705334;
+  --portal-azul-100: #f7eddb;
+  --portal-acento: var(--portal-azul-700);
+  --portal-foco: var(--portal-azul-700);
+  --portal-texto-inverso: #ffffff;
+  --portal-lateral-muted: #eee0c9;
+  --portal-tinta: #33291e;
+  --portal-muted: #625a4f;
+  --portal-borde: #918374;
+  --portal-fondo: #f5f0e8;
+  --portal-superficie: #fffefa;
+  --portal-superficie-alterna: #fbf6ec;
+  --portal-cabecera-panel: #f4ebdc;
+  --portal-sombra-color: rgb(67 54 38 / 14%);
+}
+
+body[data-modo-color="salvia"]:not([data-contraste="true"]):not(.alto-contraste) {
+  --portal-borde-control: var(--portal-muted);
+  --portal-azul-950: #243f3b;
+  --portal-azul-900: #2f5149;
+  --portal-azul-800: #35604f;
+  --portal-azul-700: #35604f;
+  --portal-azul-600: #3b6654;
+  --portal-azul-100: #e8f1e7;
+  --portal-acento: var(--portal-azul-700);
+  --portal-foco: var(--portal-azul-700);
+  --portal-texto-inverso: #ffffff;
+  --portal-lateral-muted: #d7e9e0;
+  --portal-tinta: #20352e;
+  --portal-muted: #52665d;
+  --portal-borde: #7f9488;
+  --portal-fondo: #edf3ee;
+  --portal-superficie: #ffffff;
+  --portal-superficie-alterna: #f5faf5;
+  --portal-cabecera-panel: #e8f2e8;
+  --portal-sombra-color: rgb(36 63 59 / 14%);
+}
+
+body[data-modo-color="lavanda"]:not([data-contraste="true"]):not(.alto-contraste) {
+  --portal-borde-control: var(--portal-muted);
+  --portal-azul-950: #383453;
+  --portal-azul-900: #4b4265;
+  --portal-azul-800: #5a4c77;
+  --portal-azul-700: #5a4c77;
+  --portal-azul-600: #62547e;
+  --portal-azul-100: #f0ebfa;
+  --portal-acento: var(--portal-azul-700);
+  --portal-foco: var(--portal-azul-700);
+  --portal-texto-inverso: #ffffff;
+  --portal-lateral-muted: #e1daf3;
+  --portal-tinta: #2c2940;
+  --portal-muted: #5c5870;
+  --portal-borde: #948aa0;
+  --portal-fondo: #f2eff7;
+  --portal-superficie: #ffffff;
+  --portal-superficie-alterna: #faf7fd;
+  --portal-cabecera-panel: #eee9f6;
+  --portal-sombra-color: rgb(56 52 83 / 14%);
+}
+
+body[data-modo-color="azul_sereno"]:not([data-contraste="true"]):not(.alto-contraste) {
+  --portal-borde-control: var(--portal-muted);
+  --portal-azul-950: #20394e;
+  --portal-azul-900: #294a64;
+  --portal-azul-800: #315a78;
+  --portal-azul-700: #315a78;
+  --portal-azul-600: #366281;
+  --portal-azul-100: #e7f1f7;
+  --portal-acento: var(--portal-azul-700);
+  --portal-foco: var(--portal-azul-700);
+  --portal-texto-inverso: #ffffff;
+  --portal-lateral-muted: #d7e8f3;
+  --portal-tinta: #1b3144;
+  --portal-muted: #516776;
+  --portal-borde: #8193a4;
+  --portal-fondo: #edf4f7;
+  --portal-superficie: #ffffff;
+  --portal-superficie-alterna: #f4f9fb;
+  --portal-cabecera-panel: #e7f1f6;
+  --portal-sombra-color: rgb(32 57 78 / 14%);
+}
+
+body[data-modo-color="noche_suave"]:not([data-contraste="true"]):not(.alto-contraste) {
+  --portal-borde-control: var(--portal-muted);
+  color-scheme: dark;
+  --portal-azul-950: #b4cad7;
+  --portal-azul-900: #a6c2d1;
+  --portal-azul-800: #91b9cf;
+  --portal-azul-700: #a7d0e5;
+  --portal-azul-600: #afd7e8;
+  --portal-azul-100: #29404c;
+  --portal-acento: var(--portal-azul-700);
+  --portal-foco: var(--portal-azul-700);
+  --portal-texto-inverso: #152631;
+  --portal-lateral-fondo: #142b38;
+  --portal-lateral-texto: #ffffff;
+  --portal-lateral-muted: #c7d9e3;
+  --portal-lateral-separador: rgb(255 255 255 / 17%);
+  --portal-lateral-hover: rgb(255 255 255 / 12%);
+  --portal-tinta: #edf3f4;
+  --portal-muted: #c5d6d9;
+  --portal-borde: #839ba1;
+  --portal-fondo: #172329;
+  --portal-superficie: #23323a;
+  --portal-superficie-alterna: #2b3d46;
+  --portal-cabecera-panel: #344851;
+  --portal-exito: #91dba7;
+  --portal-exito-suave: #1b4030;
+  --portal-aviso: #f9ce85;
+  --portal-aviso-suave: #4a3821;
+  --portal-peligro: #ffabb1;
+  --portal-peligro-suave: #492830;
+  --portal-violeta: #cfbbf3;
+  --portal-violeta-suave: #39324d;
+  --portal-neutro-suave: #374a50;
+  --portal-cian: #9bdee5;
+  --portal-cian-fuerte: #9bdee5;
+  --portal-cian-suave: #1d4247;
+  --portal-naranja: #ffc59f;
+  --portal-naranja-suave: #4c3326;
+  --portal-oliva: #c8dca1;
+  --portal-turquesa: #9ce0d1;
+  --portal-morado: #d5bef3;
+  --portal-sombra-color: rgb(0 0 0 / 45%);
+  --portal-sombra: 0 4px 16px rgb(0 0 0 / 28%);
+  --portal-sombra-sm: 0 1px 4px rgb(0 0 0 / 32%);
+}
+
 /* Escala explícita de Usuarios, por encima del control legado del portal. */
 html[data-tamano-texto="normal"]:root { font-size: 100%; }
 html[data-tamano-texto="grande"]:root { font-size: 125%; }
@@ -156,9 +326,20 @@ body[data-modo-color="oscuro"]:not([data-contraste="true"]):not(.alto-contraste)
   outline-color: var(--portal-texto-inverso);
 }
 
+body[data-modo-color="noche_suave"]:not([data-contraste="true"]):not(.alto-contraste) .portal-lateral :focus-visible {
+  outline-color: var(--portal-lateral-texto);
+}
+
+body[data-modo-color="noche_suave"]:not([data-contraste="true"]):not(.alto-contraste) .portal-lateral .enlace-submenu[aria-current="page"]:focus-visible,
+body[data-modo-color="noche_suave"]:not([data-contraste="true"]):not(.alto-contraste) .portal-lateral .categoria-menu-bolsa[data-categoria-activa="true"]:focus-visible {
+  outline-color: var(--portal-texto-inverso);
+}
+
 body[data-contraste="true"],
 body.alto-contraste {
+  --portal-borde-control: var(--portal-muted);
   --portal-azul-950: #001d3b;
+  --portal-lateral-fondo: var(--portal-azul-950);
   --portal-azul-900: #002a54;
   --portal-azul-800: #003c78;
   --portal-azul-100: #d7e6fc;

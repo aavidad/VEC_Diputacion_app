@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { createHash, webcrypto } from "node:crypto";
-import { renderizarModuloContratacionTemporal } from "./vista-expedientes.js";
+import { renderizarModuloContratacionTemporal } from "./vista-expedientes.js?v=20261001-ct-firma-verificador-v2";
 import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js";
 import {
   validarSolicitudSeleccionLlamamiento, validarReciboSeleccionLlamamiento,

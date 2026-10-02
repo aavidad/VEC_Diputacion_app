@@ -1,0 +1,87 @@
+{
+  "idioma": "en",
+  "formato": {
+    "decimal": ".",
+    "agrupacion": ",",
+    "moneda": "€",
+    "fecha": "02 Jan 2006"
+  },
+  "rotulos": {
+    "titulo": "Travel expense settlement preparation",
+    "estado": "Test draft · pending approval",
+    "limite": "This proposal has not been registered. It does not confirm approval, financial review or payment.",
+    "comision": "Business trip",
+    "version": "Version",
+    "conceptos": "Expense breakdown",
+    "concepto": "Expense",
+    "inicial": "Declared amount",
+    "propuesto": "Proposed for acceptance",
+    "diferencia": "Reduced or rejected",
+    "motivo": "Reason for reduction or rejection",
+    "total": "Total",
+    "sin_reduccion": "No reduction",
+    "detalle": "View catalogue, sources and fingerprints",
+    "catalogo": "Proposal catalogue",
+    "tarifa": "Reference rate version",
+    "fuentes": "Catalogue sources",
+    "documento_huella": "Trip document fingerprint",
+    "catalogo_huella": "Catalogue fingerprint",
+    "preparacion_huella": "Preparation fingerprint",
+    "huella_limite": "Fingerprints allow data to be compared. They do not confirm approval, authenticity or document custody.",
+    "reglas": "Rules applied to each expense",
+    "linea": "Line",
+    "regla": "Rule reference",
+    "tabla_ayuda": "The reduced or rejected amount is excluded from the proposed acceptance. On small screens, scroll the table to view all columns.",
+    "grupo": "Declared allowance group",
+    "referencia_comision": "Trip reference",
+    "fecha_gasto": "Expense date",
+    "descripcion_declarada": "Declared description",
+    "justificante_ref": "Declared supporting document reference",
+    "justificante_huella": "Declared supporting document SHA-256 fingerprint",
+    "catalogo_otros_gastos": "Other expenses catalogue version",
+    "tope_linea": "Per-line cap in the example catalogue",
+    "justificante_limite": "The supporting document reference and fingerprint were declared. This report does not confirm verification or custody.",
+    "ruta": "Route",
+    "origen_codigo": "Origin (code)",
+    "destino_codigo": "Destination (code)",
+    "kilometros_base": "Base distance (km)",
+    "kilometros_finales": "Declared final distance (km)",
+    "ajuste_kilometros": "Declared adjustment (km)",
+    "motivo_ajuste": "Declared reason for adjustment",
+    "no_consta": "Not provided in the original line",
+    "resumen": "Summary by expense category",
+    "familia": "Expense category",
+    "resumen_ayuda": "Amounts from the reviewed lines, grouped by expense category. Categories without lines show zero. Scroll the table to view all columns."
+  },
+  "conceptos": {
+    "manutencion": "Meals"
+  },
+  "tipos": {
+    "dieta": "Subsistence allowance",
+    "kilometraje": "Mileage"
+  },
+  "tipos_gasto": {
+    "tren": "Train",
+    "autobus": "Bus",
+    "metro_tranvia": "Metro or tram",
+    "taxi": "Taxi",
+    "avion": "Plane",
+    "barco": "Boat",
+    "vehiculo_alquiler": "Rental vehicle",
+    "aparcamiento": "Parking",
+    "peaje": "Toll",
+    "consigna": "Luggage storage"
+  },
+  "motivos": {
+    "revision_tarifa_importada": "Amount adjusted after reviewing the imported rate.",
+    "revision_documental": "Amount adjusted after reviewing the supporting documents.",
+    "revision_justificante": "Amount reduced during proposal review. The supporting document is not held here.",
+    "gasto_no_admitido": "This expense is not proposed for acceptance."
+  },
+  "familias": {
+    "manutencion": "Meals",
+    "kilometraje": "Mileage",
+    "otro_medio": "Other transport",
+    "otro_gasto": "Other expenses"
+  }
+}
