@@ -91,13 +91,14 @@
 13086 web/static/app.js
 962 web/static/area-personal/aplicacion.js
 863 web/static/portal-empleado/modulos/contratacion-temporal/componentes-expedientes.js
-914 web/static/portal-empleado/modulos/contratacion-temporal/cliente-http.test.mjs
+916 web/static/portal-empleado/modulos/contratacion-temporal/cliente-http.test.mjs
+850 web/static/portal-empleado/modulos/contratacion-temporal/contratacion-temporal.test.mjs
 1012 web/static/portal-empleado/modulos/contratacion-temporal/formulario-llamamiento.js
 1194 web/static/portal-empleado/modulos/contratacion-temporal/expedientes.css
 960 web/static/portal-empleado/modulos/contratacion-temporal/expedientes-presentacion.test.mjs
 848 web/static/bolsa/bolsa.css
 969 web/static/bolsa/lista-bolsas.test.mjs
-1069 web/static/portal-empleado/modulos/contratacion-temporal/montaje-formulario-analisis.test.mjs
+1071 web/static/portal-empleado/modulos/contratacion-temporal/montaje-formulario-analisis.test.mjs
 973 web/static/portal-empleado/modulos/contratacion-temporal/formulario-analisis.js
 1719 web/static/portal-empleado/modulos/dietas/dietas.css
 1879 web/static/portal-empleado/modulos/dietas/vista-borradores-propios.test.mjs
@@ -116,7 +117,7 @@
 1255 deploy/postgresql/contexto_actor_v1/migraciones/000007_alcance_proyecciones_empleado.up.sql
 1274 deploy/postgresql/dietas_borradores/migraciones/000006_documento_comision.up.sql
 815 deploy/postgresql/personal/migraciones/000015_solicitud_rectificacion_dietas.up.sql
-1367 internal/app/bootstrap/contratacion_temporal_desarrollo.go
+1373 internal/app/bootstrap/contratacion_temporal_desarrollo.go
 988 internal/app/bootstrap/contratacion_temporal_seguimiento_cese_desarrollo.go
 892 internal/app/bootstrap/bolsa_borrador_llamamiento_desarrollo.go
 973 internal/app/bootstrap/contratacion_temporal_postgresql_desarrollo.go
