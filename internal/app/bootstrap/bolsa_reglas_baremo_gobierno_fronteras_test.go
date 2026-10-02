@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 	"vec-diputacion-granada/config"
 
 	app "vec-diputacion-granada/internal/modules/bolsa/application/gobiernoreglasbaremo"
@@ -138,6 +139,30 @@ func TestGobiernoBaremoHTTPBrokerConservaErrorCacheadoSinRecrearSesion(t *testin
 		ligado := context.WithValue(ctx, claveCapacidadConsultasContratacionTemporalDesarrollo{}, capacidad)
 		if _, recibido := proveedor.Credenciales(ligado); !errors.Is(recibido, err) {
 			t.Fatalf("broker mezcló503/403: %v", recibido)
+		}
+	}
+}
+
+func TestGobiernoBaremoHTTPBrokerCancelacionAutenticada503YAnonima401(t *testing.T) {
+	for _, par := range paresGobiernoReglasBaremoHTTPV3() {
+		sesion, autenticado := contextoSesionGobiernoBaremoHTTPPrueba(t, par.ruta)
+		proveedor := &ProveedorGobiernoReglasBaremoV3{sesion: sesion,
+			rutas: RutasGobiernoReglasBaremoV3{paresGobiernoReglasBaremoHTTPV3()[0].ruta, paresGobiernoReglasBaremoHTTPV3()[1].ruta, paresGobiernoReglasBaremoHTTPV3()[2].ruta}}
+		for _, base := range []context.Context{autenticado, context.Background()} {
+			esperado := app.ErrGobiernoV3NoAutenticado
+			if base == autenticado {
+				esperado = app.ErrGobiernoV3NoDisponible
+			}
+			cancelado, cancelar := context.WithCancel(base)
+			cancelar()
+			if _, err := proveedor.Credenciales(cancelado); !errors.Is(err, esperado) {
+				t.Fatalf("cancelación perdió categoría: %v", err)
+			}
+			vencido, detener := context.WithDeadline(base, time.Now().Add(-time.Second))
+			defer detener()
+			if _, err := proveedor.Credenciales(vencido); !errors.Is(err, esperado) {
+				t.Fatalf("deadline perdió categoría: %v", err)
+			}
 		}
 	}
 }

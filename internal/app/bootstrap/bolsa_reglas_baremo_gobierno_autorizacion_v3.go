@@ -77,8 +77,18 @@ func (p *ProveedorGobiernoReglasBaremoV3) Credenciales(ctx context.Context) (reg
 
 func (p *ProveedorGobiernoReglasBaremoV3) contexto(ctx context.Context, operacion string) (contextoSeguridadComunDesarrollo, error) {
 	vacio := contextoSeguridadComunDesarrollo{}
+	if ctx != nil && ctx.Err() != nil {
+		// Una cancelación no invalida la identidad ya acreditada por la raíz.
+		// Sólo la frontera nominal sellada permite conservar esa categoría.
+		capacidad, ok := ctx.Value(claveCapacidadConsultasContratacionTemporalDesarrollo{}).(capacidadConsultaContratacionTemporalDesarrollo)
+		if p != nil && p.sesion != nil && ok && p.rutaOperacion(capacidad.ruta, operacion) &&
+			p.sesion.sesionGobiernoReglasBaremoHTTPV3(ctx, capacidad.ruta) {
+			return vacio, reglasapp.ErrGobiernoV3NoDisponible
+		}
+		return vacio, reglasapp.ErrGobiernoV3NoAutenticado
+	}
 	if p == nil || p.perfil == nil || p.sesion == nil || p.pdp == nil ||
-		p.perfil.soporte == nil || ctx == nil || ctx.Err() != nil {
+		p.perfil.soporte == nil || ctx == nil {
 		return vacio, reglasapp.ErrGobiernoV3NoAutenticado
 	}
 	capacidad, ok := p.perfil.soporte.capacidadValida(ctx)
