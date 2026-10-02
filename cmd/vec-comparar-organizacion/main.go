@@ -1,4 +1,4 @@
-// vec-comparar-organizacion consumes only synthetic preparation from standard input.
+// vec-comparar-organizacion compares synthetic preparations or explicit nominal queries.
 package main
 
 import (
@@ -53,6 +53,9 @@ type salida struct {
 func main() { os.Exit(ejecutar(os.Args[1:], os.Stdin, os.Stdout, os.Stderr)) }
 
 func ejecutar(args []string, input io.Reader, output, errors io.Writer) int {
+	if len(args) == 2 && args[0] == "-consulta-nominal" {
+		return ejecutarConsultaNominal(args[1], input, output, errors, nuevaConsultaNominal)
+	}
 	catalogo, mensajes, err := web.CatalogoComparacionOrganizacion()
 	if err != nil {
 		return codigoErrorSalida(err)

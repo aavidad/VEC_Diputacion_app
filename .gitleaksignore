@@ -70,3 +70,7 @@ f2fd58e53da6d7eaf8c8b76d58d5118f7b2fecda:deploy/postgresql/bolsa_llamamientos/pr
 18610ca23a99cc0ce5d9d518094acf8d32278f0c:web/static/portal-empleado/portal-i18n.test.mjs:generic-api-key:63
 # Referencia pública de caché Bolsa, no credencial
 2a84532885f56ff267e6ed1d8c52f80b4c11302d:web/static/portal-empleado/portal-i18n.test.mjs:generic-api-key:93
+
+# Identificador público de clave sintética CRN11, no secreto
+dcfb876c98a9d674b24efee1884f3d06dd82916c:deploy/postgresql/personal/pruebas_sql/vinculo_propio_historico_crn11_000026.sql:vep-clave-castellana-asignada:51
+dcfb876c98a9d674b24efee1884f3d06dd82916c:deploy/postgresql/personal/pruebas_sql/vinculo_propio_historico_crn11_000026_pg18.sh:vep-clave-castellana-asignada:58

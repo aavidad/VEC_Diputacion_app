@@ -1,0 +1,27 @@
+{
+  "general": {
+    "titulo": "Relationship for Organisation",
+    "pendiente": "Preparation with synthetic data and unverified coverage. Occupancy and reservation await the Organisation source.",
+    "seleccione": "Select a service relationship to view its preparation.",
+    "vacio": "There are no service relationships in this query.",
+    "relacion_no_disponible": "The selected relationship is unavailable in this query.",
+    "estado": "Relationship status",
+    "periodo": "Effective period",
+    "intervalo": "Query date within the period",
+    "si": "Yes",
+    "no": "No",
+    "sin_fin": "No end date",
+    "fuente": "Source",
+    "sin_denominacion": "Source name unavailable",
+    "version": "Record version",
+    "conocido": "Information known as of",
+    "detalle_tecnico": "View references",
+    "relacion_ref": "Relationship reference",
+    "fuente_ref": "Source reference",
+    "fuente_version": "Source version",
+    "acto_ref": "Act reference",
+    "vigente": "Active",
+    "suspendida": "Suspended",
+    "finalizada": "Ended"
+  }
+}
