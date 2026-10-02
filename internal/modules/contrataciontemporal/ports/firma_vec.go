@@ -75,5 +75,5 @@ type AutorizadorFirmaVec interface {
 
 type RegistroFirmasVec interface {
 	RegistrarFirmaVec(context.Context, MaterialFirmaVec, CapacidadFirmaVec) (ReciboFirmaDocumento, error)
-	ConsultarFirmas(context.Context, string, string) ([]FirmaRegistrada, error)
+	ConsultarFirmasAutorizadas(context.Context, MaterialConsultaFirmasR5, CapacidadConsultaFirmasR5) (LecturaFirmasR5, error)
 }

@@ -5,7 +5,9 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/x509"
+	"encoding/json"
 	"errors"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -55,9 +57,11 @@ func (d *originalExternoPrueba) ObtenerOriginalFirma(_ context.Context, q ports.
 }
 
 type competenciaExternaPrueba struct {
-	err     error
-	alterar func(*ports.EvidenciaCompetenciaFirmante)
-	vistas  []ports.SolicitudCompetenciaFirmante
+	err                 error
+	alterar             func(*ports.EvidenciaCompetenciaFirmante)
+	avanzarComprobacion bool
+	vistas              []ports.SolicitudCompetenciaFirmante
+	competenciasVistas  []string
 }
 
 func (d *competenciaExternaPrueba) AcreditarCompetenciaFirmante(_ context.Context, q ports.SolicitudCompetenciaFirmante) (ports.EvidenciaCompetenciaFirmante, error) {
@@ -81,9 +85,13 @@ func (d *competenciaExternaPrueba) AcreditarCompetenciaFirmante(_ context.Contex
 		AsignacionVigenteDesde:        "2026-09-01T00:00:00Z", AsignacionVigenteHasta: "2026-12-01T00:00:00Z",
 		CompetenciaComprobadaEn: "2026-10-02T10:00:00Z", ActoCompetenciaRef: "acto:competencia:001",
 	}
+	if d.avanzarComprobacion {
+		e.CompetenciaComprobadaEn = "2026-10-02T10:00:0" + strconv.Itoa(len(d.vistas)-1) + "Z"
+	}
 	if d.alterar != nil {
 		d.alterar(&e)
 	}
+	d.competenciasVistas = append(d.competenciasVistas, e.CompetenciaComprobadaEn)
 	return e, nil
 }
 
@@ -122,13 +130,79 @@ func (d *autorizadorExternoPrueba) AutorizarRegistroFirmaExterna(_ context.Conte
 	return ports.TransportarMaterialFirmaExterna(material), nil
 }
 
-type registroExternoPrueba struct {
-	firmas     []ports.FirmaRegistrada
-	registrado []ports.MaterialFirmaExterna
+type autorizadorConsultaFirmasR5Prueba struct {
+	err       error
+	audiencia string
+	alterar   func(*ports.MaterialConsultaFirmasR5)
+	vistas    []ports.MaterialConsultaFirmasR5
 }
 
-func (d *registroExternoPrueba) ConsultarFirmas(_ context.Context, _, _ string) ([]ports.FirmaRegistrada, error) {
-	return append([]ports.FirmaRegistrada(nil), d.firmas...), nil
+func (d *autorizadorConsultaFirmasR5Prueba) AutorizarConsultaFirmasR5(_ context.Context, m ports.MaterialConsultaFirmasR5) (ports.CapacidadConsultaFirmasR5, error) {
+	d.vistas = append(d.vistas, m)
+	if d.err != nil {
+		return ports.CapacidadConsultaFirmasR5{}, d.err
+	}
+	materialAutorizado := m
+	if d.alterar != nil {
+		d.alterar(&materialAutorizado)
+	}
+	r, err := RecursoConsultaFirmasR5(materialAutorizado)
+	if err != nil {
+		return ports.CapacidadConsultaFirmasR5{}, err
+	}
+	contexto, err := r.HuellaContextoAutorizacionSHA256()
+	if err != nil {
+		return ports.CapacidadConsultaFirmasR5{}, err
+	}
+	audiencia := ports.AudienciaConsultaFirmasR5V3
+	if d.audiencia != "" {
+		audiencia = d.audiencia
+	}
+	hasta := instanteFirmaPrueba.Add(time.Minute)
+	resumen, err := vecports.NuevoResumenCapacidadAtestacionAutorizacionV3(
+		"decision-consulta-firmas-r5-001", strings.Repeat("a", 64), strings.Repeat("a", 64),
+		"contexto-consulta-firmas-r5-001", strings.Repeat("a", 64), ports.AccionConsultarFirmasR5,
+		r.Referencia, contexto, audiencia, hasta.Add(-5*time.Second), hasta,
+	)
+	if err != nil {
+		return ports.CapacidadConsultaFirmasR5{}, err
+	}
+	clave := ed25519.NewKeyFromSeed(bytes.Repeat([]byte{5}, ed25519.SeedSize))
+	raiz, err := x509.MarshalPKIXPublicKey(clave.Public())
+	if err != nil {
+		return ports.CapacidadConsultaFirmasR5{}, err
+	}
+	material, err := vecports.NuevaExportacionMaterialConsumoAutorizacionAtestadaV3(
+		bytes.Repeat([]byte{4}, vecports.TamanoMinimoCapacidadCanonicaV3), resumen,
+		[]byte("decision"), []byte("motivo"), []byte("contexto"), 1, 1,
+		[]byte("payload"), []byte("cose"), []byte("evidencia"), raiz,
+	)
+	if err != nil {
+		return ports.CapacidadConsultaFirmasR5{}, err
+	}
+	return ports.TransportarMaterialConsultaFirmasR5(material), nil
+}
+
+type registroExternoPrueba struct {
+	firmas               []ports.FirmaRegistrada
+	firmantesPrincipales []string
+	registrado           []ports.MaterialFirmaExterna
+	consultas            []ports.MaterialConsultaFirmasR5
+	historiaRevision     uint64
+	historiaHuella       string
+}
+
+func (d *registroExternoPrueba) ConsultarFirmasAutorizadas(_ context.Context, m ports.MaterialConsultaFirmasR5, c ports.CapacidadConsultaFirmasR5) (ports.LecturaFirmasR5, error) {
+	if err := ValidarCapacidadConsultaFirmasR5(c, m); err != nil {
+		return ports.LecturaFirmasR5{}, err
+	}
+	d.consultas = append(d.consultas, m)
+	firmas := append([]ports.FirmaRegistrada(nil), d.firmas...)
+	for i := range firmas {
+		firmas[i].CoincideFirmanteCandidato = i < len(d.firmantesPrincipales) &&
+			d.firmantesPrincipales[i] == m.FirmantePrincipalCandidatoRef
+	}
+	return ports.LecturaFirmasR5{Firmas: firmas, HistoriaRevision: d.historiaRevision, HistoriaHuella: d.historiaHuella}, nil
 }
 
 func (d *registroExternoPrueba) RegistrarFirmaExterna(_ context.Context, m ports.MaterialFirmaExterna, c ports.CapacidadFirmaExterna) (ports.ReciboFirmaDocumento, error) {
@@ -145,16 +219,28 @@ func (d *registroExternoPrueba) RegistrarFirmaExterna(_ context.Context, m ports
 			return reciboFirmaExternaPrueba(m, h, true), nil
 		}
 	}
+	if m.HistoriaRevision != d.historiaRevision || m.HistoriaHuella != d.historiaHuella {
+		return ports.ReciboFirmaDocumento{}, ports.ErrFirmaDocumentoEnConflicto
+	}
 	d.registrado = append(d.registrado, m)
-	d.firmas = append(d.firmas, ports.FirmaRegistrada{Via: m.Via, Documento: m.Documento, Secuencia: m.Secuencia,
-		ExpedienteVersion: m.VersionExpediente, CatalogoHuella: m.CatalogoHuella, PasoOrden: m.PasoOrden,
+	recibo := reciboFirmaExternaPrueba(m, h, false)
+	d.firmas = append(d.firmas, ports.FirmaRegistrada{Via: m.Via, FirmaRef: recibo.FirmaRef, ReciboRef: recibo.ReciboRef,
+		Documento: m.Documento, Secuencia: m.Secuencia, ExpedienteVersion: m.VersionExpediente,
+		CatalogoRef: m.CatalogoRef, CatalogoHuella: m.CatalogoHuella, PasoRef: m.PasoRef, PasoOrden: m.PasoOrden,
 		Resultado: domain.ResultadoFirmaFirmado, OriginalHuella: m.OriginalHuella, FirmadoHuella: m.FirmadoHuella,
+		OriginalRef: m.OriginalRef, OriginalVersion: m.OriginalVersion, FirmantePrincipalAcreditado: true,
+		ReferenciaPortafirmasDeclarada: m.ReferenciaPortafirmasDeclarada, FechaPortafirmasDeclarada: m.FechaPortafirmasDeclarada,
+		HistoriaRevision: m.HistoriaRevision, HistoriaHuella: m.HistoriaHuella,
 		ClaveIdempotencia: m.ClaveIdempotencia, DocumentoCustodiaRef: m.DocumentoCustodiaRef, DocumentoCustodiaVersion: m.DocumentoCustodiaVersion})
-	return reciboFirmaExternaPrueba(m, h, false), nil
+	d.firmantesPrincipales = append(d.firmantesPrincipales, m.FirmantePrincipalRef)
+	d.historiaRevision++
+	d.historiaHuella = h
+	return recibo, nil
 }
 
 func reciboFirmaExternaPrueba(m ports.MaterialFirmaExterna, huellaSolicitud string, repetido bool) ports.ReciboFirmaDocumento {
-	return ports.ReciboFirmaDocumento{FirmaRef: "firma:externa:001", ReciboRef: "recibo:firma:externa:001", Secuencia: m.Secuencia,
+	return ports.ReciboFirmaDocumento{FirmaRef: "firma:externa:" + strconv.Itoa(m.Secuencia),
+		ReciboRef: "recibo:firma:externa:" + strconv.Itoa(m.Secuencia), Secuencia: m.Secuencia,
 		Resultado: domain.ResultadoFirmaFirmado, ExpedienteVersion: m.VersionExpediente, ActorRef: "per_registrador_rrhh_001",
 		PerfilRef: "perfil:rrhh", RegistradaEn: instanteFirmaPrueba, SolicitudHuella: huellaSolicitud, YaRegistrada: repetido,
 		DocumentoCustodiaRef: m.DocumentoCustodiaRef, DocumentoCustodiaVersion: m.DocumentoCustodiaVersion}
@@ -175,8 +261,10 @@ func servicioFirmaExternaPrueba(t *testing.T) (*ServicioFirmaExterna, *registroE
 	if err := base.ComponerCustodia(custodio, map[string]string{"informe_definitivo": tipoCustodiaPrueba}); err != nil {
 		t.Fatal(err)
 	}
-	registro, competencia, autorizador := &registroExternoPrueba{}, &competenciaExternaPrueba{}, &autorizadorExternoPrueba{}
-	s, err := NuevoServicioFirmaExterna(base, registro, autorizador, competencia)
+	registro := &registroExternoPrueba{historiaHuella: strings.Repeat("1", 64)}
+	consulta := &autorizadorConsultaFirmasR5Prueba{}
+	competencia, autorizador := &competenciaExternaPrueba{}, &autorizadorExternoPrueba{}
+	s, err := NuevoServicioFirmaExterna(base, registro, consulta, autorizador, competencia)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -190,6 +278,46 @@ func solicitudFirmaExternaPrueba(original []byte, clave string) SolicitudFirmaEx
 		ReferenciaPortafirmasDeclarada: "PF-SINTETICO-001", FechaPortafirmasDeclarada: "2026-10-02T10:00:00Z", ClaveIdempotencia: clave}
 }
 
+func firmaLegadaPasoUnoPrueba(original []byte) ports.FirmaRegistrada {
+	return ports.FirmaRegistrada{
+		FirmaRef: "firma:legada:001", ReciboRef: "recibo:firma:legada:001",
+		Documento: "informe_definitivo", Secuencia: 1, ExpedienteVersion: 7,
+		CatalogoHuella: strings.Repeat("c", 64), PasoOrden: 1, Resultado: domain.ResultadoFirmaFirmado,
+		OriginalHuella: huella(original), FirmadoHuella: strings.Repeat("e", 64),
+		RegistradaEn: instanteFirmaPrueba, ClaveIdempotencia: "clave-firma-legada-0001",
+	}
+}
+
+func comprobarCanonFirmaR5Prueba(t *testing.T, canon []byte, clavesEsperadas int, externa bool) {
+	t.Helper()
+	var campos map[string]json.RawMessage
+	if err := json.Unmarshal(canon, &campos); err != nil {
+		t.Fatal(err)
+	}
+	if len(campos) != clavesEsperadas {
+		t.Fatalf("canon R5 con %d claves, esperadas %d: %s", len(campos), clavesEsperadas, canon)
+	}
+	for _, clave := range []string{"Secuencia", "HistoriaRevision", "HistoriaHuella"} {
+		if _, ok := campos[clave]; !ok {
+			t.Fatalf("canon R5 sin %s: %s", clave, canon)
+		}
+	}
+	posSecuencia := bytes.Index(canon, []byte(`"Secuencia"`))
+	posRevision := bytes.Index(canon, []byte(`"HistoriaRevision"`))
+	posHuella := bytes.Index(canon, []byte(`"HistoriaHuella"`))
+	if posSecuencia < 0 || posRevision <= posSecuencia || posHuella <= posRevision {
+		t.Fatalf("cabeza de historia fuera de orden tras Secuencia: %s", canon)
+	}
+	if _, existe := campos["CompetenciaComprobadaEn"]; existe {
+		t.Fatalf("el instante de comprobación entró en material idempotente: %s", canon)
+	}
+	_, tieneReferencia := campos["ReferenciaPortafirmasDeclarada"]
+	_, tieneFecha := campos["FechaPortafirmasDeclarada"]
+	if externa != (tieneReferencia && tieneFecha) {
+		t.Fatalf("declaraciones Portafirmas inesperadas, externa=%v: %s", externa, canon)
+	}
+}
+
 func TestFirmaExternaRegistraSoloPDFVerificadoConOriginalYCompetencia(t *testing.T) {
 	s, registro, original, competencia, autorizador, custodio := servicioFirmaExternaPrueba(t)
 	sol := solicitudFirmaExternaPrueba(original.contenido, "clave-firma-externa-0001")
@@ -198,9 +326,37 @@ func TestFirmaExternaRegistraSoloPDFVerificadoConOriginalYCompetencia(t *testing
 		t.Fatal(err)
 	}
 	if len(registro.registrado) != 1 || len(competencia.vistas) != 1 || len(autorizador.vistas) != 1 || len(custodio.ordenes) != 1 ||
+		len(registro.consultas) != 1 || registro.consultas[0].FirmantePrincipalCandidatoRef != r.Material.FirmantePrincipalRef ||
 		r.Material.FirmantePrincipalRef != "per_firmante_sintetico_001" || r.Recibo.ActorRef == r.Material.FirmantePrincipalRef ||
 		r.Custodiado.HuellaSHA256 != huella(sol.PDFFirmado) || r.MotivoVerificacion != docports.MotivoFirmaVerificada {
 		t.Fatalf("registro externo incompleto: %+v, registros=%d competencia=%d autorizacion=%d custodia=%d", r, len(registro.registrado), len(competencia.vistas), len(autorizador.vistas), len(custodio.ordenes))
+	}
+}
+
+func TestFirmaExternaDeniegaConsultaAntesDeLeerHistoria(t *testing.T) {
+	s, registro, original, competencia, autorizador, custodio := servicioFirmaExternaPrueba(t)
+	consulta := s.consulta.(*autorizadorConsultaFirmasR5Prueba)
+	consulta.err = errors.New("consulta denegada de prueba")
+
+	_, err := s.Registrar(context.Background(), solicitudFirmaExternaPrueba(original.contenido, "clave-firma-externa-consulta-denegada"))
+	if !errors.Is(err, ports.ErrFirmaDocumentoDenegada) || len(consulta.vistas) != 1 ||
+		consulta.vistas[0].FirmantePrincipalCandidatoRef != "per_firmante_sintetico_001" || len(registro.consultas) != 0 ||
+		len(registro.registrado) != 0 || len(competencia.vistas) != 1 || len(autorizador.vistas) != 0 || len(custodio.ordenes) != 0 {
+		t.Fatalf("la consulta denegada alcanzó historia o efectos: %v", err)
+	}
+}
+
+func TestFirmaExternaRechazaCapacidadDeConsultaLigadaAOtroCandidato(t *testing.T) {
+	s, registro, original, competencia, autorizador, custodio := servicioFirmaExternaPrueba(t)
+	consulta := s.consulta.(*autorizadorConsultaFirmasR5Prueba)
+	consulta.alterar = func(m *ports.MaterialConsultaFirmasR5) {
+		m.FirmantePrincipalCandidatoRef = "per_candidato_adulterado_999"
+	}
+
+	_, err := s.Registrar(context.Background(), solicitudFirmaExternaPrueba(original.contenido, "clave-firma-externa-candidato-adulterado"))
+	if !errors.Is(err, ports.ErrFirmaDocumentoDenegada) || len(consulta.vistas) != 1 || len(registro.consultas) != 0 ||
+		len(registro.registrado) != 0 || len(competencia.vistas) != 1 || len(autorizador.vistas) != 0 || len(custodio.ordenes) != 0 {
+		t.Fatalf("capacidad ligada a otro candidato alcanzó historia o efectos: %v", err)
 	}
 }
 
@@ -231,9 +387,47 @@ func TestFirmaExternaDosPasosConservaOriginalYSeparaFirmantes(t *testing.T) {
 	}
 	if r1.Material.OriginalRef != r2.Material.OriginalRef || r1.Material.OriginalVersion != r2.Material.OriginalVersion ||
 		r1.Material.OriginalHuella != r2.Material.OriginalHuella || r1.Material.FirmadoHuella == r2.Material.FirmadoHuella ||
-		r1.Material.FirmanteRef == r2.Material.FirmanteRef || r1.Material.FirmantePrincipalRef == r2.Material.FirmantePrincipalRef ||
+		r1.Material.CertificadoHuella == r2.Material.CertificadoHuella || r1.Material.FirmanteRef == r2.Material.FirmanteRef ||
+		r1.Material.FirmantePrincipalRef == r2.Material.FirmantePrincipalRef ||
 		r1.Material.CargoFirmante != "Técnico" || r2.Material.CargoFirmante != "Jefatura" || len(registro.registrado) != 2 || len(competencia.vistas) != 2 || len(custodio.ordenes) != 2 {
 		t.Fatalf("ronda externa no conserva/separa los datos exigidos: p1=%+v p2=%+v", r1.Material, r2.Material)
+	}
+}
+
+func TestFirmaExternaAntecedenteLegadoNoAcreditaPasoR5(t *testing.T) {
+	s, registro, original, competencia, autorizador, custodio := servicioFirmaExternaPrueba(t)
+	registro.firmas = append(registro.firmas, firmaLegadaPasoUnoPrueba(original.contenido))
+	sol := solicitudFirmaExternaPrueba(original.contenido, "clave-firma-externa-paso-legacy")
+	sol.PasoOrden = 2
+
+	_, err := s.Registrar(context.Background(), sol)
+	if !errors.Is(err, ports.ErrAntecedenteFirmaR5NoAcreditado) || len(registro.registrado) != 0 ||
+		len(competencia.vistas) != 1 || len(autorizador.vistas) != 0 || len(custodio.ordenes) != 0 {
+		t.Fatalf("la firma legada acreditó indebidamente el paso R5: %v", err)
+	}
+}
+
+func TestFirmaExternaPasoDosRechazaOtroOriginalAunqueConserveLosBytes(t *testing.T) {
+	variantes := map[string]func(*SolicitudFirmaExterna){
+		"referencia": func(s *SolicitudFirmaExterna) { s.OriginalRef = "ref:" + strings.Repeat("9", 64) },
+		"version":    func(s *SolicitudFirmaExterna) { s.OriginalVersion++ },
+	}
+	for nombre, variar := range variantes {
+		t.Run(nombre, func(t *testing.T) {
+			s, registro, original, competencia, autorizador, custodio := servicioFirmaExternaPrueba(t)
+			if _, err := s.Registrar(context.Background(), solicitudFirmaExternaPrueba(original.contenido, "clave-firma-externa-original-p1")); err != nil {
+				t.Fatal(err)
+			}
+			segunda := solicitudFirmaExternaPrueba(original.contenido, "clave-firma-externa-original-p2")
+			segunda.PasoOrden = 2
+			variar(&segunda)
+
+			_, err := s.Registrar(context.Background(), segunda)
+			if !errors.Is(err, ports.ErrAntecedenteFirmaR5NoAcreditado) || len(registro.registrado) != 1 ||
+				len(competencia.vistas) != 2 || len(autorizador.vistas) != 1 || len(custodio.ordenes) != 1 {
+				t.Fatalf("otro original con los mismos bytes heredó el antecedente R5: %v", err)
+			}
+		})
 	}
 }
 
@@ -297,15 +491,39 @@ func TestFirmaExternaRechazaFuenteCompetenciaCaidaSinEfectos(t *testing.T) {
 }
 
 func TestFirmaExternaReintentoIgualRecuperaYMaterialDistintoFalla(t *testing.T) {
-	s, registro, original, _, _, custodio := servicioFirmaExternaPrueba(t)
+	s, registro, original, competencia, autorizador, custodio := servicioFirmaExternaPrueba(t)
+	competencia.avanzarComprobacion = true
 	sol := solicitudFirmaExternaPrueba(original.contenido, "clave-firma-externa-0005")
 	primero, err := s.Registrar(context.Background(), sol)
 	if err != nil {
 		t.Fatal(err)
 	}
+	registro.historiaRevision++
+	registro.historiaHuella = strings.Repeat("9", 64)
+	cabezaAvanzadaRevision, cabezaAvanzadaHuella := registro.historiaRevision, registro.historiaHuella
 	reintento, err := s.Registrar(context.Background(), sol)
-	if err != nil || !reintento.Recibo.YaRegistrada || reintento.Recibo.Secuencia != primero.Recibo.Secuencia || len(registro.registrado) != 1 || len(custodio.ordenes) != 2 {
+	hPrimero, errHuellaPrimero := primero.Material.HuellaSHA256()
+	hReintento, errHuellaReintento := reintento.Material.HuellaSHA256()
+	if err != nil || errHuellaPrimero != nil || errHuellaReintento != nil || hPrimero != hReintento ||
+		!reintento.Recibo.YaRegistrada || reintento.Recibo.Secuencia != primero.Recibo.Secuencia || len(registro.registrado) != 1 ||
+		len(custodio.ordenes) != 2 || len(competencia.competenciasVistas) != 2 ||
+		competencia.competenciasVistas[0] != "2026-10-02T10:00:00Z" || competencia.competenciasVistas[1] != "2026-10-02T10:00:01Z" {
 		t.Fatalf("reintento no recuperado: %+v, %v", reintento, err)
+	}
+	if reintento.Material.HistoriaRevision != primero.Material.HistoriaRevision ||
+		reintento.Material.HistoriaHuella != primero.Material.HistoriaHuella ||
+		registro.historiaRevision != cabezaAvanzadaRevision || registro.historiaHuella != cabezaAvanzadaHuella {
+		t.Fatalf("el replay no conservó la cabeza original: primero=%+v replay=%+v", primero.Material, reintento.Material)
+	}
+	conflicto := primero.Material
+	conflicto.ClaveIdempotencia = "clave-firma-externa-cabeza-obsoleta"
+	conflicto.DocumentoCustodiaRef = ports.DocumentoCustodiaRef(conflicto.OrganizacionRef, conflicto.ExpedienteRef, conflicto.ClaveIdempotencia)
+	capacidadConflicto, err := autorizador.AutorizarRegistroFirmaExterna(context.Background(), conflicto)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := registro.RegistrarFirmaExterna(context.Background(), conflicto, capacidadConflicto); !errors.Is(err, ports.ErrFirmaDocumentoEnConflicto) {
+		t.Fatalf("una clave nueva con cabeza obsoleta no produjo conflicto: %v", err)
 	}
 	for nombre, alterar := range map[string]func(*SolicitudFirmaExterna){
 		"pdf":                    func(s *SolicitudFirmaExterna) { s.PDFFirmado = append(bytes.Clone(s.PDFFirmado), 'x') },
@@ -322,4 +540,17 @@ func TestFirmaExternaReintentoIgualRecuperaYMaterialDistintoFalla(t *testing.T) 
 			}
 		})
 	}
+}
+
+func TestMaterialFirmaExternaCanonicoConservaContratoCT170(t *testing.T) {
+	s, _, original, _, _, _ := servicioFirmaExternaPrueba(t)
+	r, err := s.Registrar(context.Background(), solicitudFirmaExternaPrueba(original.contenido, "clave-firma-externa-canon-r5"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	canon, err := r.Material.Canonico()
+	if err != nil {
+		t.Fatal(err)
+	}
+	comprobarCanonFirmaR5Prueba(t, canon, 45, true)
 }

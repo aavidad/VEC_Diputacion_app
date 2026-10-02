@@ -35,10 +35,13 @@ type ResultadoFirmaExterna struct {
 }
 
 // ServicioFirmaExterna utiliza el mismo catálogo/ronda/custodia/verificador de
-// la firma VEC. Su registro consulta una historia unificada CT118+CT170.
+// la firma VEC. Su registro consulta una historia unificada CT118+CT170. Es
+// preparatorio: el montaje espera el alcance aprobado de la política de
+// coincidencia de persona, AD159 y la autoridad nominal de competencia.
 type ServicioFirmaExterna struct {
 	base        *ServicioFirmaDocumento
 	registro    ports.RegistroFirmasExternas
+	consulta    ports.AutorizadorConsultaFirmasR5
 	autorizador ports.AutorizadorRegistroFirmaExterna
 	competencia ports.FuenteCompetenciaFirmante
 }
@@ -46,15 +49,16 @@ type ServicioFirmaExterna struct {
 func NuevoServicioFirmaExterna(
 	base *ServicioFirmaDocumento,
 	registro ports.RegistroFirmasExternas,
+	consulta ports.AutorizadorConsultaFirmasR5,
 	autorizador ports.AutorizadorRegistroFirmaExterna,
 	competencia ports.FuenteCompetenciaFirmante,
 ) (*ServicioFirmaExterna, error) {
-	if base == nil || nula(registro) || nula(autorizador) || nula(competencia) ||
+	if base == nil || nula(registro) || nula(consulta) || nula(autorizador) || nula(competencia) ||
 		base.original == nil || base.verificador == nil || base.custodio == nil ||
 		len(base.tiposCustodia) == 0 {
 		return nil, ports.ErrRegistroFirmaExternaNoDisponible
 	}
-	return &ServicioFirmaExterna{base: base, registro: registro, autorizador: autorizador, competencia: competencia}, nil
+	return &ServicioFirmaExterna{base: base, registro: registro, consulta: consulta, autorizador: autorizador, competencia: competencia}, nil
 }
 
 func obtenerOriginalFirmaAutorizado(
@@ -84,26 +88,87 @@ func obtenerOriginalFirmaAutorizado(
 	return o, nil
 }
 
+// El instante de esta lectura acredita que la fuente evaluó una asignación
+// dentro de su ventana; no forma parte del material idempotente. AUT30
+// revalidará vigencia y revocación con su propio reloj al confirmar el efecto.
+func competenciaTemporalValida(e ports.EvidenciaCompetenciaFirmante) bool {
+	desde, okDesde := ports.FechaFirmaExternaCanonica(e.AsignacionVigenteDesde)
+	hasta, okHasta := ports.FechaFirmaExternaCanonica(e.AsignacionVigenteHasta)
+	comprobada, okComprobada := ports.FechaFirmaExternaCanonica(e.CompetenciaComprobadaEn)
+	return e.Vigente && okDesde && okHasta && okComprobada &&
+		!comprobada.Before(desde) && comprobada.Before(hasta)
+}
+
+// Una fila CT118 legada no contiene persona acreditada ni vía R5. El estado
+// visual del circuito puede incluirla, pero no habilita un paso R5 posterior.
+func antecedentesR5Acreditados(estado domain.EstadoCircuitoDocumento, firmas []ports.FirmaRegistrada, documento string, pasoOrden int, originalRef string, originalVersion uint64) bool {
+	for orden := 1; orden < pasoOrden; orden++ {
+		var recibo string
+		for _, p := range estado.Pasos {
+			if p.Orden == orden && p.Estado == domain.EstadoPasoFirmado {
+				recibo = p.ReciboRef
+				break
+			}
+		}
+		if recibo == "" {
+			return false
+		}
+		coincidencias := 0
+		for _, f := range firmas {
+			if f.Documento != documento || f.ReciboRef != recibo || f.PasoOrden != orden {
+				continue
+			}
+			if f.Resultado != domain.ResultadoFirmaFirmado ||
+				(f.Via != ports.ViaFirmaCertificadoVEC && f.Via != ports.ViaFirmaExternaPortafirmas) ||
+				!f.FirmantePrincipalAcreditado ||
+				f.OriginalRef != originalRef || f.OriginalVersion != originalVersion ||
+				f.OriginalHuella != estado.OriginalEsperadoHuella {
+				return false
+			}
+			coincidencias++
+		}
+		if coincidencias != 1 {
+			return false
+		}
+	}
+	return true
+}
+
 func (s *ServicioFirmaExterna) estado(
-	ctx context.Context, org, exp, documento string,
-) (domain.CircuitoFirma, domain.CircuitoFirmaDocumento, domain.EstadoCircuitoDocumento, []ports.FirmaRegistrada, error) {
+	ctx context.Context, org, exp, documento string, version uint64, candidato string,
+) (domain.CircuitoFirma, domain.CircuitoFirmaDocumento, domain.EstadoCircuitoDocumento, ports.LecturaFirmasR5, error) {
 	circuito, err := s.base.circuitoValido(ctx)
 	if err != nil {
-		return domain.CircuitoFirma{}, domain.CircuitoFirmaDocumento{}, domain.EstadoCircuitoDocumento{}, nil, err
+		return domain.CircuitoFirma{}, domain.CircuitoFirmaDocumento{}, domain.EstadoCircuitoDocumento{}, ports.LecturaFirmasR5{}, err
 	}
 	doc, ok := circuito.Documento(documento)
 	if !ok {
-		return domain.CircuitoFirma{}, domain.CircuitoFirmaDocumento{}, domain.EstadoCircuitoDocumento{}, nil, ports.ErrSolicitudFirmaDocumentoInvalida
+		return domain.CircuitoFirma{}, domain.CircuitoFirmaDocumento{}, domain.EstadoCircuitoDocumento{}, ports.LecturaFirmasR5{}, ports.ErrSolicitudFirmaDocumentoInvalida
 	}
-	firmas, err := s.registro.ConsultarFirmas(ctx, org, exp)
+	lectura := ports.MaterialConsultaFirmasR5{OrganizacionRef: org, ExpedienteRef: exp, VersionExpediente: version,
+		Documento: documento, FirmantePrincipalCandidatoRef: candidato}
+	capacidad, err := s.consulta.AutorizarConsultaFirmasR5(ctx, lectura)
 	if err != nil {
-		return domain.CircuitoFirma{}, domain.CircuitoFirmaDocumento{}, domain.EstadoCircuitoDocumento{}, nil, err
+		if ctx.Err() != nil {
+			return domain.CircuitoFirma{}, domain.CircuitoFirmaDocumento{}, domain.EstadoCircuitoDocumento{}, ports.LecturaFirmasR5{}, ctx.Err()
+		}
+		return domain.CircuitoFirma{}, domain.CircuitoFirmaDocumento{}, domain.EstadoCircuitoDocumento{}, ports.LecturaFirmasR5{}, ports.ErrFirmaDocumentoDenegada
+	}
+	if err := ValidarCapacidadConsultaFirmasR5(capacidad, lectura); err != nil {
+		return domain.CircuitoFirma{}, domain.CircuitoFirmaDocumento{}, domain.EstadoCircuitoDocumento{}, ports.LecturaFirmasR5{}, err
+	}
+	firmas, err := s.registro.ConsultarFirmasAutorizadas(ctx, lectura, capacidad)
+	if err != nil {
+		return domain.CircuitoFirma{}, domain.CircuitoFirmaDocumento{}, domain.EstadoCircuitoDocumento{}, ports.LecturaFirmasR5{}, err
+	}
+	if err := validarProyeccionFirmasR5(lectura, firmas); err != nil {
+		return domain.CircuitoFirma{}, domain.CircuitoFirmaDocumento{}, domain.EstadoCircuitoDocumento{}, ports.LecturaFirmasR5{}, err
 	}
 	rondas, err := s.base.inicioRonda(ctx, org, exp)
 	if err != nil {
-		return domain.CircuitoFirma{}, domain.CircuitoFirmaDocumento{}, domain.EstadoCircuitoDocumento{}, nil, err
+		return domain.CircuitoFirma{}, domain.CircuitoFirmaDocumento{}, domain.EstadoCircuitoDocumento{}, ports.LecturaFirmasR5{}, err
 	}
-	estado, err := domain.CalcularEstadoCircuitoFirmaEnRonda(doc, circuito.HuellaCatalogo, eventosDocumento(firmas, documento), rondas[documento])
+	estado, err := domain.CalcularEstadoCircuitoFirmaEnRonda(doc, circuito.HuellaCatalogo, eventosDocumento(firmas.Firmas, documento), rondas[documento])
 	return circuito, doc, estado, firmas, err
 }
 
@@ -125,15 +190,36 @@ func (s *ServicioFirmaExterna) Registrar(ctx context.Context, sol SolicitudFirma
 	if err := ctx.Err(); err != nil {
 		return cero, err
 	}
-	circuito, doc, estado, firmas, err := s.estado(ctx, sol.OrganizacionRef, sol.ExpedienteRef, sol.Documento)
+	previoCircuito, err := s.base.circuitoValido(ctx)
 	if err != nil {
 		return cero, err
+	}
+	previoDoc, existe := previoCircuito.Documento(sol.Documento)
+	if !existe || sol.PasoOrden > len(previoDoc.Pasos) {
+		return cero, ports.ErrSolicitudFirmaDocumentoInvalida
+	}
+	preparacion, err := prepararFirmaR5(ctx, s.base, s.competencia,
+		sol.OrganizacionRef, sol.ExpedienteRef, sol.Documento, sol.OriginalRef, sol.OriginalVersion,
+		sol.PDFFirmado, previoCircuito, previoDoc.Pasos[sol.PasoOrden-1])
+	if err != nil {
+		return cero, err
+	}
+	circuito, doc, estado, lectura, err := s.estado(ctx, sol.OrganizacionRef, sol.ExpedienteRef,
+		sol.Documento, sol.VersionExpediente, preparacion.competencia.FirmantePrincipalRef)
+	if err != nil {
+		return cero, err
+	}
+	if circuito.CatalogoRef != previoCircuito.CatalogoRef || circuito.HuellaCatalogo != previoCircuito.HuellaCatalogo ||
+		sol.PasoOrden > len(doc.Pasos) || doc.Pasos[sol.PasoOrden-1].Referencia != previoDoc.Pasos[sol.PasoOrden-1].Referencia {
+		return cero, ErrCircuitoFirmaNoDisponible
 	}
 	tipo, custodiar := s.base.tiposCustodia[sol.Documento]
 	if !custodiar || tipo == "" {
 		return cero, ports.ErrCustodiaFirmadoNoDisponible
 	}
+	firmas := lectura.Firmas
 	secuencia, originalEsperado := estado.UltimaSecuencia+1, estado.OriginalEsperadoHuella
+	historiaRevision, historiaHuella := lectura.HistoriaRevision, lectura.HistoriaHuella
 	previa, repetida := firmaConClave(firmas, sol.Documento, sol.ClaveIdempotencia)
 	switch {
 	case repetida:
@@ -143,65 +229,25 @@ func (s *ServicioFirmaExterna) Registrar(ctx context.Context, sol SolicitudFirma
 			return cero, ports.ErrClaveFirmaDocumentoUsada
 		}
 		secuencia, originalEsperado = previa.Secuencia, previa.OriginalHuella
+		historiaRevision, historiaHuella = previa.HistoriaRevision, previa.HistoriaHuella
 	case estado.Completo || estado.PasoPendiente != sol.PasoOrden:
 		return cero, ErrPasoFirmaNoPendiente
 	}
-	paso := doc.Pasos[sol.PasoOrden-1]
-	original, err := obtenerOriginalFirmaAutorizado(ctx, s.base.original, ports.SolicitudOriginalFirma{
-		OrganizacionRef: sol.OrganizacionRef, ExpedienteRef: sol.ExpedienteRef,
-		Documento: sol.Documento, OriginalRef: sol.OriginalRef, OriginalVersion: sol.OriginalVersion,
-	})
-	if err != nil {
-		return cero, err
+	if !antecedentesR5Acreditados(estado, firmas, sol.Documento, sol.PasoOrden, sol.OriginalRef, sol.OriginalVersion) {
+		return cero, ports.ErrAntecedenteFirmaR5NoAcreditado
 	}
+	paso := doc.Pasos[sol.PasoOrden-1]
+	original, dictamen, evidencia := preparacion.original, preparacion.dictamen, preparacion.competencia
 	if originalEsperado != "" && original.HuellaSHA256 != originalEsperado {
 		return cero, ports.ErrCadenaFirmaDocumentoRota
 	}
-	peticion := docports.SolicitudVerificacionFirma{
-		DocumentoID: sol.OriginalRef, Version: sol.OriginalVersion, FormatoEsperado: "PAdES",
-		HuellaOriginalSHA256: original.HuellaSHA256, ContenidoOriginal: original.Contenido,
-		ContenidoFirmado: sol.PDFFirmado,
-	}
-	dictamen, err := s.base.verificador.VerificarMotivado(ctx, peticion)
-	if err != nil {
-		if ctx.Err() != nil {
-			return cero, ctx.Err()
-		}
-		return cero, DictamenRechazado{Estado: docports.EstadoVerificacionIndeterminada, Motivo: docports.MotivoRespuestaNoInterpretable}
-	}
-	if dictamen.ValidarContra(peticion) != nil || dictamen.Motivo != docports.MotivoFirmaVerificada {
-		motivo := dictamen.Motivo
-		if motivo.EstadoAsociado() == "" || motivo == docports.MotivoFirmaVerificada {
-			motivo = docports.MotivoRespuestaNoInterpretable
-		}
-		return cero, DictamenRechazado{Estado: dictamen.Resultado.Estado, Motivo: motivo}
-	}
 	r := dictamen.Resultado
-	competenciaQ := ports.SolicitudCompetenciaFirmante{
-		OrganizacionRef: sol.OrganizacionRef, ExpedienteRef: sol.ExpedienteRef, Documento: sol.Documento,
-		CatalogoRef: circuito.CatalogoRef, CatalogoHuella: circuito.HuellaCatalogo,
-		PasoRef: paso.Referencia, PasoOrden: paso.Orden, CargoFirmante: paso.Cargo,
-		PerfilFirmanteRef: paso.PerfilRef, FirmanteRef: r.FirmanteRef, CertificadoHuella: r.CertificadoHuellaSHA256,
-	}
-	evidencia, err := s.competencia.AcreditarCompetenciaFirmante(ctx, competenciaQ)
-	if err != nil {
-		if ctx.Err() != nil {
-			return cero, ctx.Err()
-		}
-		if errors.Is(err, ports.ErrCompetenciaFirmanteNoAcreditada) {
-			return cero, ports.ErrCompetenciaFirmanteNoAcreditada
-		}
-		return cero, ports.ErrCompetenciaFirmanteNoDisponible
-	}
-	if evidencia.Solicitud != competenciaQ || !evidencia.Vigente ||
-		evidencia.CargoFirmante != paso.Cargo || evidencia.PerfilFirmanteRef != paso.PerfilRef {
-		return cero, ports.ErrCompetenciaFirmanteNoAcreditada
-	}
 	m := ports.MaterialFirmaExterna{
 		Via:             ports.ViaFirmaExternaPortafirmas,
 		OrganizacionRef: sol.OrganizacionRef, ExpedienteRef: sol.ExpedienteRef, VersionExpediente: sol.VersionExpediente,
 		Documento: sol.Documento, CatalogoRef: circuito.CatalogoRef, CatalogoHuella: circuito.HuellaCatalogo,
 		PasoRef: paso.Referencia, PasoOrden: paso.Orden, Secuencia: secuencia,
+		HistoriaRevision: historiaRevision, HistoriaHuella: historiaHuella,
 		OriginalRef: sol.OriginalRef, OriginalVersion: sol.OriginalVersion, OriginalHuella: original.HuellaSHA256,
 		FirmadoHuella: r.HuellaFirmadoSHA256, CertificadoHuella: r.CertificadoHuellaSHA256, FirmanteRef: r.FirmanteRef,
 		FirmantePrincipalRef: evidencia.FirmantePrincipalRef, PerfilFirmanteRef: evidencia.PerfilFirmanteRef,
@@ -215,8 +261,7 @@ func (s *ServicioFirmaExterna) Registrar(ctx context.Context, sol SolicitudFirma
 		ControlVigenciaFirmanteRevision: evidencia.ControlVigenciaFirmanteRevision,
 		ControlVigenciaFirmanteHuella:   evidencia.ControlVigenciaFirmanteHuella,
 		AsignacionVigenteDesde:          evidencia.AsignacionVigenteDesde, AsignacionVigenteHasta: evidencia.AsignacionVigenteHasta,
-		CompetenciaComprobadaEn: evidencia.CompetenciaComprobadaEn,
-		ActoCompetenciaRef:      evidencia.ActoCompetenciaRef, DelegacionRef: evidencia.DelegacionRef,
+		ActoCompetenciaRef: evidencia.ActoCompetenciaRef, DelegacionRef: evidencia.DelegacionRef,
 		PoliticaVerificacion: ports.PoliticaVerificacionFirma,
 		RevocacionEstado:     r.RevocacionEstado, SelloTiempoEstado: r.SelloTiempoEstado,
 		ReferenciaPortafirmasDeclarada: sol.ReferenciaPortafirmasDeclarada,

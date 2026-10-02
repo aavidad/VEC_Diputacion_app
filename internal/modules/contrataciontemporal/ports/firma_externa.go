@@ -32,6 +32,7 @@ var (
 	ErrCompetenciaFirmanteNoDisponible  = errors.New("contratacion temporal: competencia del firmante no disponible")
 	ErrCompetenciaFirmanteNoAcreditada  = errors.New("contratacion temporal: competencia del firmante no acreditada")
 	ErrRegistroFirmaExternaNoDisponible = errors.New("contratacion temporal: registro de firma externa no disponible")
+	ErrAntecedenteFirmaR5NoAcreditado   = errors.New("contratacion temporal: el paso anterior no tiene firma R5 acreditada")
 )
 
 // SolicitudOriginalFirma identifica una revisión concreta. La fuente es la
@@ -91,6 +92,8 @@ type MaterialFirmaExterna struct {
 	VersionExpediente                                                         uint64
 	Documento, CatalogoRef, CatalogoHuella, PasoRef                           string
 	PasoOrden, Secuencia                                                      int
+	HistoriaRevision                                                          uint64
+	HistoriaHuella                                                            string
 	OriginalRef                                                               string
 	OriginalVersion                                                           uint64
 	OriginalHuella, FirmadoHuella, CertificadoHuella, FirmanteRef             string
@@ -104,7 +107,7 @@ type MaterialFirmaExterna struct {
 	ControlVigenciaFirmanteRef                                                string
 	ControlVigenciaFirmanteRevision                                           uint64
 	ControlVigenciaFirmanteHuella                                             string
-	AsignacionVigenteDesde, AsignacionVigenteHasta, CompetenciaComprobadaEn   string
+	AsignacionVigenteDesde, AsignacionVigenteHasta                            string
 	ActoCompetenciaRef, DelegacionRef                                         string
 	PoliticaVerificacion, RevocacionEstado, SelloTiempoEstado                 string
 	ReferenciaPortafirmasDeclarada, FechaPortafirmasDeclarada                 string
@@ -149,13 +152,13 @@ func (m MaterialFirmaExterna) Validar() error {
 func (m MaterialFirmaExterna) validarComun() error {
 	desde, okDesde := FechaFirmaExternaCanonica(m.AsignacionVigenteDesde)
 	hasta, okHasta := FechaFirmaExternaCanonica(m.AsignacionVigenteHasta)
-	comprobada, okComprobada := FechaFirmaExternaCanonica(m.CompetenciaComprobadaEn)
 	if !domain.ReferenciaOpacaValida(m.OrganizacionRef) || !domain.ReferenciaOpacaValida(m.ExpedienteRef) ||
 		m.VersionExpediente == 0 || m.VersionExpediente > 9007199254740991 ||
 		!domain.ClaveDocumentoFirmaValida(m.Documento) || !domain.ReferenciaOpacaValida(m.CatalogoRef) ||
 		!domain.HuellaSHA256FirmaValida(m.CatalogoHuella) || m.PasoRef == "" || len(m.PasoRef) > 256 ||
 		m.PasoOrden < 1 || m.PasoOrden > domain.MaximoPasosCircuitoFirma ||
 		m.Secuencia < 1 || m.Secuencia > 100000 ||
+		m.HistoriaRevision > 9007199254740991 || !domain.HuellaSHA256FirmaValida(m.HistoriaHuella) ||
 		!domain.ReferenciaOpacaValida(m.OriginalRef) || m.OriginalVersion == 0 || m.OriginalVersion > 9007199254740991 ||
 		!domain.HuellaSHA256FirmaValida(m.OriginalHuella) || !domain.HuellaSHA256FirmaValida(m.FirmadoHuella) ||
 		m.OriginalHuella == m.FirmadoHuella || !domain.HuellaSHA256FirmaValida(m.CertificadoHuella) ||
@@ -174,7 +177,7 @@ func (m MaterialFirmaExterna) validarComun() error {
 		m.ControlVigenciaFirmanteRef != m.VersionRolFirmanteRef ||
 		m.ControlVigenciaFirmanteRevision == 0 || m.ControlVigenciaFirmanteRevision > 9007199254740991 ||
 		!domain.HuellaSHA256FirmaValida(m.ControlVigenciaFirmanteHuella) ||
-		!okDesde || !okHasta || !okComprobada || comprobada.Before(desde) || !comprobada.Before(hasta) ||
+		!okDesde || !okHasta || !desde.Before(hasta) ||
 		(m.ActoCompetenciaRef != "" && !domain.ReferenciaOpacaValida(m.ActoCompetenciaRef)) ||
 		(m.DelegacionRef != "" && !domain.ReferenciaOpacaValida(m.DelegacionRef)) ||
 		m.PoliticaVerificacion != PoliticaVerificacionFirma || m.RevocacionEstado != "vigente" ||
@@ -207,6 +210,8 @@ func canonicoFirmaVerificada(m MaterialFirmaExterna, declarada bool) ([]byte, er
 		VersionExpediente                                                         uint64
 		Documento, CatalogoRef, CatalogoHuella, PasoRef                           string
 		PasoOrden, Secuencia                                                      int
+		HistoriaRevision                                                          uint64
+		HistoriaHuella                                                            string
 		OriginalRef                                                               string
 		OriginalVersion                                                           uint64
 		OriginalHuella, FirmadoHuella, CertificadoHuella, FirmanteRef             string
@@ -220,7 +225,7 @@ func canonicoFirmaVerificada(m MaterialFirmaExterna, declarada bool) ([]byte, er
 		ControlVigenciaFirmanteRef                                                string
 		ControlVigenciaFirmanteRevision                                           uint64
 		ControlVigenciaFirmanteHuella                                             string
-		AsignacionVigenteDesde, AsignacionVigenteHasta, CompetenciaComprobadaEn   string
+		AsignacionVigenteDesde, AsignacionVigenteHasta                            string
 		ActoCompetenciaRef, DelegacionRef                                         *string
 		PoliticaVerificacion, RevocacionEstado, SelloTiempoEstado                 string
 		ReferenciaPortafirmasDeclarada                                            *string `json:"ReferenciaPortafirmasDeclarada,omitempty"`
@@ -230,13 +235,14 @@ func canonicoFirmaVerificada(m MaterialFirmaExterna, declarada bool) ([]byte, er
 	}{
 		m.Via, m.OrganizacionRef, m.ExpedienteRef, m.VersionExpediente,
 		m.Documento, m.CatalogoRef, m.CatalogoHuella, m.PasoRef, m.PasoOrden, m.Secuencia,
+		m.HistoriaRevision, m.HistoriaHuella,
 		m.OriginalRef, m.OriginalVersion, m.OriginalHuella, m.FirmadoHuella, m.CertificadoHuella, m.FirmanteRef,
 		m.FirmantePrincipalRef, m.PerfilFirmanteRef, m.CargoFirmante, m.UnidadFirmanteRef, m.PerfilActivoFirmanteRef,
 		nulo(m.PuestoFirmanteRef), nulo(m.AmbitoFirmanteRef), m.AsignacionFirmanteRef,
 		m.AsignacionFirmanteVersion, m.AsignacionFirmanteHuella,
 		m.VersionRolFirmanteRef, m.VersionRolFirmanteHuella, m.ControlVigenciaFirmanteRef,
 		m.ControlVigenciaFirmanteRevision, m.ControlVigenciaFirmanteHuella, m.AsignacionVigenteDesde,
-		m.AsignacionVigenteHasta, m.CompetenciaComprobadaEn, nulo(m.ActoCompetenciaRef),
+		m.AsignacionVigenteHasta, nulo(m.ActoCompetenciaRef),
 		nulo(m.DelegacionRef), m.PoliticaVerificacion, m.RevocacionEstado, m.SelloTiempoEstado,
 		referencia, fecha, m.ClaveIdempotencia,
 		m.DocumentoCustodiaRef, m.DocumentoCustodiaVersion,
@@ -272,8 +278,11 @@ type AutorizadorRegistroFirmaExterna interface {
 	AutorizarRegistroFirmaExterna(context.Context, MaterialFirmaExterna) (CapacidadFirmaExterna, error)
 }
 
-// ConsultarFirmas debe unir CT118 y CT170 en una sola secuencia por documento.
+// ConsultarFirmasAutorizadas une CT118 y CT170 para la secuencia de un
+// documento. La lectura interna consume autorización V3 nominal y audita; la
+// capacidad CT152 actual no liga versión/documento ni el indicador de
+// acreditación; AD159 concede esta proyección mínima antes del montaje.
 type RegistroFirmasExternas interface {
 	RegistrarFirmaExterna(context.Context, MaterialFirmaExterna, CapacidadFirmaExterna) (ReciboFirmaDocumento, error)
-	ConsultarFirmas(context.Context, string, string) ([]FirmaRegistrada, error)
+	ConsultarFirmasAutorizadas(context.Context, MaterialConsultaFirmasR5, CapacidadConsultaFirmasR5) (LecturaFirmasR5, error)
 }
