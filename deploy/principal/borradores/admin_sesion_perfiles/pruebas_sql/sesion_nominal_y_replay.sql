@@ -3,6 +3,7 @@
 -- El llamador abre SERIALIZABLE y revierte; LOGIN nominal debe existir sin privilegios directos.
 \set ON_ERROR_STOP on
 SET SESSION AUTHORIZATION :login_perfiles;
+-- El fixture debe incluir selección explícita vigente: auto está cerrada sin fuente total de Sistemas.
 SELECT vec_identidad_sesiones_v1.vincular_sesion_admin_perfiles_v1(:'entorno',:'host',:'audiencia',:'certificado_sha256',:'ca_sha256',:'autenticada',:'revocada',:'crl_hasta',:'certificado_hasta',:'autenticacion_ref',:'sesion_ref') AS vinculada \gset
 \if :vinculada
 \else

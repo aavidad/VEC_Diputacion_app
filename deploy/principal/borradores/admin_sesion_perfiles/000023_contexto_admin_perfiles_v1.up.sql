@@ -13,7 +13,10 @@ BEGIN
  OR pg_catalog.to_regprocedure('vec_contexto_actor_v1.resolver_y_registrar_contexto_actor_v2_propietaria_admin_v1(text,text,text,text,text,text,timestamptz,text[])') IS NULL
  OR pg_catalog.to_regprocedure('vec_contexto_actor_v1.reconciliar_contexto_actor_v2_propietaria_admin_v1(text,text,text,text,text,text,timestamptz,text[])') IS NULL
  OR pg_catalog.to_regprocedure('vec_autorizacion.consultar_asignacion_admin_perfiles_v1(text)') IS NULL
- OR pg_catalog.to_regprocedure('vec_autorizacion.consultar_asignacion_admin_perfiles_reconciliacion_v1(text)') IS NULL
+ OR pg_catalog.to_regprocedure('vec_autorizacion.consultar_asignacion_admin_perfiles_v1(text,text)') IS NULL
+ OR pg_catalog.to_regprocedure('vec_autorizacion.listar_asignaciones_admin_perfiles_propias_v1(text)') IS NULL
+ OR pg_catalog.to_regprocedure('vec_autorizacion.listar_asignaciones_admin_perfiles_propias_reconciliacion_v1(text)') IS NULL
+ OR pg_catalog.to_regprocedure('vec_autorizacion.consultar_asignacion_admin_perfiles_reconciliacion_v1(text,text)') IS NULL
  OR pg_catalog.to_regclass('vec_contexto_actor_v1.procedencia_acto_admin_v1') IS NOT NULL
  OR pg_catalog.to_regrole('vec_identidad_sesiones_v1_admin_perfiles') IS NOT NULL
  THEN RAISE EXCEPTION 'CA23: preimagen incompatible' USING ERRCODE='55000'; END IF;
@@ -26,40 +29,191 @@ SET LOCAL ROLE vec_contexto_actor_v1_propietario;
 
 -- Solo consume la asignación central nominal de AUT24. Nunca crea perfiles,
 -- asignaciones ni vínculos, ni toma un perfil solicitado como autoridad.
-CREATE FUNCTION vec_contexto_actor_v1.consultar_perfil_admin_perfiles_v1(p_cuenta text)
+-- Elección de un único perfil, propia de la cuenta autenticada. No concede roles.
+CREATE TABLE vec_contexto_actor_v1.seleccion_perfil_admin_v1(
+ cuenta_ref text NOT NULL, revision numeric(20,0) NOT NULL CHECK(revision BETWEEN 1 AND 18446744073709551615),
+ persona_ref text NOT NULL,perfil_ref text NOT NULL,vinculo_ref text NOT NULL,
+ fuente text NOT NULL CHECK(fuente='vec_autorizacion.administracion_perfiles'),
+ causa text NOT NULL CHECK(causa IN('eleccion_explicita','autoseleccion_unica')),
+ autenticacion_verificada_en timestamptz(6) NOT NULL,
+ seleccionada_en timestamptz(6) NOT NULL,
+ auditoria_ref text NOT NULL UNIQUE,
+ documento jsonb NOT NULL,huella_sha256 text NOT NULL,
+ PRIMARY KEY(cuenta_ref,revision),
+ CHECK(vec_contexto_actor_v1.referencia_valida(cuenta_ref,'cta_') IS TRUE AND vec_contexto_actor_v1.referencia_valida(persona_ref,'per_') IS TRUE AND vec_contexto_actor_v1.referencia_valida(perfil_ref,'prf_') IS TRUE AND vec_contexto_actor_v1.referencia_valida(vinculo_ref,'vca_') IS TRUE),
+ CHECK(pg_catalog.isfinite(autenticacion_verificada_en) AND pg_catalog.isfinite(seleccionada_en) AND seleccionada_en>=autenticacion_verificada_en),
+ CHECK(huella_sha256=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(documento::text,'UTF8')),'hex')),
+ CHECK((documento->>'cuenta_ref',documento->>'actor_persona_ref',documento->>'perfil_ref',documento->>'vinculo_ref') IS NOT DISTINCT FROM (cuenta_ref,persona_ref,perfil_ref,vinculo_ref) AND (documento->>'revision')::numeric IS NOT DISTINCT FROM revision)
+);
+REVOKE ALL ON TABLE vec_contexto_actor_v1.seleccion_perfil_admin_v1 FROM PUBLIC;
+REVOKE ALL ON TYPE vec_contexto_actor_v1.seleccion_perfil_admin_v1 FROM PUBLIC;
+CREATE TABLE vec_contexto_actor_v1.seleccion_perfil_admin_actual_v1(
+ cuenta_ref text PRIMARY KEY,revision numeric(20,0) NOT NULL,
+ FOREIGN KEY(cuenta_ref,revision) REFERENCES vec_contexto_actor_v1.seleccion_perfil_admin_v1(cuenta_ref,revision)
+);
+REVOKE ALL ON TABLE vec_contexto_actor_v1.seleccion_perfil_admin_actual_v1 FROM PUBLIC;
+REVOKE ALL ON TYPE vec_contexto_actor_v1.seleccion_perfil_admin_actual_v1 FROM PUBLIC;
+ALTER TABLE vec_contexto_actor_v1.seleccion_perfil_admin_v1 ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_contexto_actor_v1.seleccion_perfil_admin_v1 FORCE ROW LEVEL SECURITY;
+CREATE POLICY propietario_exacto ON vec_contexto_actor_v1.seleccion_perfil_admin_v1 FOR ALL TO vec_contexto_actor_v1_propietario USING(current_user='vec_contexto_actor_v1_propietario') WITH CHECK(current_user='vec_contexto_actor_v1_propietario');
+ALTER TABLE vec_contexto_actor_v1.seleccion_perfil_admin_actual_v1 ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_contexto_actor_v1.seleccion_perfil_admin_actual_v1 FORCE ROW LEVEL SECURITY;
+CREATE POLICY propietario_exacto ON vec_contexto_actor_v1.seleccion_perfil_admin_actual_v1 FOR ALL TO vec_contexto_actor_v1_propietario USING(current_user='vec_contexto_actor_v1_propietario') WITH CHECK(current_user='vec_contexto_actor_v1_propietario');
+CREATE TRIGGER seleccion_perfil_admin_historia BEFORE UPDATE OR DELETE ON vec_contexto_actor_v1.seleccion_perfil_admin_v1 FOR EACH ROW EXECUTE FUNCTION vec_contexto_actor_v1.rechazar_mutacion_historia();
+CREATE TRIGGER seleccion_perfil_admin_no_truncar BEFORE TRUNCATE ON vec_contexto_actor_v1.seleccion_perfil_admin_v1 FOR EACH STATEMENT EXECUTE FUNCTION vec_contexto_actor_v1.rechazar_truncado();
+CREATE TRIGGER seleccion_perfil_admin_actual_no_truncar BEFORE TRUNCATE ON vec_contexto_actor_v1.seleccion_perfil_admin_actual_v1 FOR EACH STATEMENT EXECUTE FUNCTION vec_contexto_actor_v1.rechazar_truncado();
+CREATE FUNCTION vec_contexto_actor_v1.validar_avance_seleccion_perfil_admin_v1()
+RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,pg_temp AS $f$
+BEGIN
+ IF TG_OP='DELETE' THEN RAISE EXCEPTION 'CA23: selección no eliminable' USING ERRCODE='23514'; END IF;
+ IF (TG_OP='INSERT' AND NEW.revision<>1) OR (TG_OP='UPDATE' AND (NEW.cuenta_ref IS DISTINCT FROM OLD.cuenta_ref OR NEW.revision IS DISTINCT FROM OLD.revision+1)) THEN RAISE EXCEPTION 'CA23: avance de selección inválido' USING ERRCODE='23514'; END IF;
+ RETURN NEW;
+END $f$;
+REVOKE ALL ON FUNCTION vec_contexto_actor_v1.validar_avance_seleccion_perfil_admin_v1() FROM PUBLIC;
+CREATE TRIGGER seleccion_perfil_admin_actual_avance BEFORE INSERT OR UPDATE OR DELETE ON vec_contexto_actor_v1.seleccion_perfil_admin_actual_v1 FOR EACH ROW EXECUTE FUNCTION vec_contexto_actor_v1.validar_avance_seleccion_perfil_admin_v1();
+
+-- Puerto reservado: K ha confirmado que aún no existe una fuente nominal
+-- de Sistemas publicada. Ningún string de rol, certificado o menú la sustituye.
+CREATE FUNCTION vec_contexto_actor_v1.consultar_perfil_admin_sistemas_seleccion_v1(p_cuenta text,p_perfil text)
 RETURNS TABLE(persona_ref text,perfil_ref text,vinculo_ref text,cuenta_version numeric,persona_version numeric,perfil_version numeric,vinculo_version numeric,audiencia text,vigente_hasta timestamptz)
+LANGUAGE sql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $f$
+ SELECT NULL::text,NULL::text,NULL::text,NULL::numeric,NULL::numeric,NULL::numeric,NULL::numeric,NULL::text,NULL::timestamptz WHERE false
+$f$;
+REVOKE ALL ON FUNCTION vec_contexto_actor_v1.consultar_perfil_admin_sistemas_seleccion_v1(text,text) FROM PUBLIC;
+
+CREATE FUNCTION vec_contexto_actor_v1.consultar_seleccion_perfil_admin_v1(p_cuenta text)
+RETURNS TABLE(persona_ref text,perfil_ref text,fuente text,seleccion_revision numeric,seleccionada_en timestamptz,auditoria_ref text)
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $f$
+DECLARE rev numeric;r record;
+BEGIN
+ IF current_setting('transaction_read_only')<>'off' OR current_setting('transaction_isolation') NOT IN('serializable','read committed') THEN RETURN; END IF;
+ PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('vec:admin:continuidad:v1',0));
+ SELECT a.revision INTO rev FROM vec_contexto_actor_v1.seleccion_perfil_admin_actual_v1 a WHERE a.cuenta_ref=p_cuenta FOR SHARE;
+ IF NOT FOUND THEN RETURN; END IF;
+ SELECT x.* INTO STRICT r FROM vec_contexto_actor_v1.seleccion_perfil_admin_v1 x WHERE x.cuenta_ref=p_cuenta AND x.revision=rev;
+ RETURN QUERY SELECT r.persona_ref,r.perfil_ref,r.fuente,r.revision,r.seleccionada_en,r.auditoria_ref;
+END $f$;
+REVOKE ALL ON FUNCTION vec_contexto_actor_v1.consultar_seleccion_perfil_admin_v1(text) FROM PUBLIC;
+
+CREATE FUNCTION vec_contexto_actor_v1.listar_perfiles_admin_propios_v1(p_cuenta text,p_persona text,p_audiencia text)
+RETURNS TABLE(persona_ref text,perfil_ref text,vinculo_ref text,cuenta_version numeric,persona_version numeric,perfil_version numeric,vinculo_version numeric,audiencia text,vigente_hasta timestamptz,fuente text,rol_version_ref text,clave_i18n text)
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $f$
 DECLARE b record;ahora timestamptz;
 BEGIN
+ IF current_setting('transaction_isolation')<>'serializable' OR current_setting('transaction_read_only')<>'off' THEN RAISE EXCEPTION 'CA23: perfiles propios requieren SERIALIZABLE de escritura' USING ERRCODE='25000'; END IF;
+ PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('vec:admin:continuidad:v1',0));
+ FOR b IN SELECT x.* FROM vec_autorizacion.listar_asignaciones_admin_perfiles_propias_v1(p_cuenta) x ORDER BY x.perfil_ref LOOP
+  IF b.persona_ref IS DISTINCT FROM p_persona OR b.audiencia IS DISTINCT FROM p_audiencia THEN CONTINUE; END IF;
+  PERFORM vec_contexto_actor_v1.bloquear_contexto_admin_v1(p_cuenta,b.persona_ref,b.perfil_ref,b.vinculo_ref,b.cuenta_version,b.persona_version,b.perfil_version,b.vinculo_version);
+  ahora:=pg_catalog.clock_timestamp();
+  IF b.vigente_hasta IS NULL OR NOT pg_catalog.isfinite(b.vigente_hasta) OR ahora>=b.vigente_hasta THEN CONTINUE; END IF;
+  RETURN QUERY SELECT b.persona_ref,b.perfil_ref,b.vinculo_ref,b.cuenta_version,b.persona_version,b.perfil_version,b.vinculo_version,b.audiencia,b.vigente_hasta,'vec_autorizacion.administracion_perfiles'::text,b.rol_version_ref,b.clave_i18n;
+ END LOOP;
+ -- Sistemas cerrado hasta disponer de una fuente nominal central y su puerto.
+END $f$;
+REVOKE ALL ON FUNCTION vec_contexto_actor_v1.listar_perfiles_admin_propios_v1(text,text,text) FROM PUBLIC;
+
+CREATE FUNCTION vec_contexto_actor_v1.listar_perfiles_admin_propios_reconciliacion_v1(p_cuenta text,p_persona text,p_audiencia text)
+RETURNS TABLE(persona_ref text,perfil_ref text,vinculo_ref text,cuenta_version numeric,persona_version numeric,perfil_version numeric,vinculo_version numeric,audiencia text,vigente_hasta timestamptz,fuente text,rol_version_ref text,clave_i18n text)
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $f$
+DECLARE b record;ahora timestamptz;
+BEGIN
+ IF current_setting('transaction_isolation')<>'read committed' OR current_setting('transaction_read_only')<>'off' THEN RAISE EXCEPTION 'CA23: listado propio requiere READ COMMITTED de escritura' USING ERRCODE='25000'; END IF;
+ PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('vec:admin:continuidad:v1',0));
+ FOR b IN SELECT x.* FROM vec_autorizacion.listar_asignaciones_admin_perfiles_propias_reconciliacion_v1(p_cuenta) x ORDER BY x.perfil_ref LOOP
+  IF b.persona_ref IS DISTINCT FROM p_persona OR b.audiencia IS DISTINCT FROM p_audiencia THEN CONTINUE; END IF;
+  PERFORM vec_contexto_actor_v1.bloquear_contexto_admin_v1(p_cuenta,b.persona_ref,b.perfil_ref,b.vinculo_ref,b.cuenta_version,b.persona_version,b.perfil_version,b.vinculo_version);
+  ahora:=pg_catalog.clock_timestamp();
+  IF b.vigente_hasta IS NULL OR NOT pg_catalog.isfinite(b.vigente_hasta) OR ahora>=b.vigente_hasta THEN CONTINUE; END IF;
+  RETURN QUERY SELECT b.persona_ref,b.perfil_ref,b.vinculo_ref,b.cuenta_version,b.persona_version,b.perfil_version,b.vinculo_version,b.audiencia,b.vigente_hasta,'vec_autorizacion.administracion_perfiles'::text,b.rol_version_ref,b.clave_i18n;
+ END LOOP;
+ -- Sistemas cerrado hasta disponer de una fuente nominal central y su puerto.
+END $f$;
+REVOKE ALL ON FUNCTION vec_contexto_actor_v1.listar_perfiles_admin_propios_reconciliacion_v1(text,text,text) FROM PUBLIC;
+
+CREATE FUNCTION vec_contexto_actor_v1.seleccionar_perfil_admin_propietaria_v1(p_cuenta text,p_persona text,p_perfil text,p_revision_esperada numeric,p_audiencia text,p_autenticada timestamptz,p_observacion_hasta timestamptz,p_causa text)
+RETURNS TABLE(perfil_ref text,seleccion_revision numeric,seleccionada_en timestamptz,auditoria_ref text)
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp SET timezone='UTC' AS $f$
+DECLARE b record;r record;rev numeric:=0;ahora timestamptz;doc jsonb;huella text;audit text;
+BEGIN
+ IF current_setting('transaction_isolation')<>'serializable' OR current_setting('transaction_read_only')<>'off' THEN RAISE EXCEPTION 'CA23: selección requiere SERIALIZABLE de escritura' USING ERRCODE='25000'; END IF;
+ IF vec_contexto_actor_v1.referencia_valida(p_cuenta,'cta_') IS NOT TRUE OR vec_contexto_actor_v1.referencia_valida(p_persona,'per_') IS NOT TRUE OR vec_contexto_actor_v1.referencia_valida(p_perfil,'prf_') IS NOT TRUE
+ OR p_revision_esperada IS NULL OR p_revision_esperada NOT BETWEEN 0 AND 18446744073709551614::numeric OR p_revision_esperada<>pg_catalog.trunc(p_revision_esperada)
+ OR p_autenticada IS NULL OR p_observacion_hasta IS NULL OR NOT pg_catalog.isfinite(p_autenticada) OR NOT pg_catalog.isfinite(p_observacion_hasta)
+ OR p_causa IS NULL OR p_causa NOT IN('eleccion_explicita','autoseleccion_unica') THEN RAISE EXCEPTION 'CA23: selección inválida' USING ERRCODE='22023'; END IF;
+ PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('vec:admin:continuidad:v1',0));
+ SELECT a.revision INTO rev FROM vec_contexto_actor_v1.seleccion_perfil_admin_actual_v1 a WHERE a.cuenta_ref=p_cuenta FOR UPDATE;
+ IF NOT FOUND THEN rev:=0; END IF;
+ IF rev IS DISTINCT FROM p_revision_esperada THEN RAISE EXCEPTION 'CA23: revisión de selección obsoleta' USING ERRCODE='40001'; END IF;
+ -- Perfil del body es solo una referencia técnica: AUT24 debe acreditar cuenta,
+ -- persona, rol, ámbito, huella y vigencia antes de cambiar la elección.
+ SELECT * INTO STRICT b FROM vec_autorizacion.consultar_asignacion_admin_perfiles_v1(p_cuenta,p_perfil);
+ IF b.persona_ref IS DISTINCT FROM p_persona OR b.perfil_ref IS DISTINCT FROM p_perfil OR b.audiencia IS DISTINCT FROM p_audiencia THEN RAISE EXCEPTION 'CA23: perfil ajeno o audiencia divergente' USING ERRCODE='42501'; END IF;
+ PERFORM vec_contexto_actor_v1.bloquear_contexto_admin_v1(p_cuenta,b.persona_ref,b.perfil_ref,b.vinculo_ref,b.cuenta_version,b.persona_version,b.perfil_version,b.vinculo_version);
+ IF p_causa='autoseleccion_unica' THEN RAISE EXCEPTION 'CA23: unicidad ADMIN no acreditada entre fuentes' USING ERRCODE='42501'; END IF;
+  SELECT count(*) INTO n FROM vec_contexto_actor_v1.listar_perfiles_admin_propios_v1(p_cuenta,p_persona,p_audiencia);
+  IF n<>1 THEN RAISE EXCEPTION 'CA23: elección explícita necesaria' USING ERRCODE='42501'; END IF;
+ END IF;
+ ahora:=pg_catalog.clock_timestamp();
+ IF ahora<p_autenticada OR ahora>=p_observacion_hasta OR b.vigente_hasta IS NULL OR ahora>=b.vigente_hasta THEN RAISE EXCEPTION 'CA23: selección sin observación vigente' USING ERRCODE='42501'; END IF;
+ IF rev>0 THEN
+  SELECT x.* INTO STRICT r FROM vec_contexto_actor_v1.seleccion_perfil_admin_v1 x WHERE x.cuenta_ref=p_cuenta AND x.revision=rev;
+  IF r.persona_ref IS DISTINCT FROM p_persona THEN RAISE EXCEPTION 'CA23: titular de selección divergente' USING ERRCODE='42501'; END IF;
+  IF r.perfil_ref=p_perfil AND r.fuente='vec_autorizacion.administracion_perfiles' THEN RETURN QUERY SELECT r.perfil_ref,r.revision,r.seleccionada_en,r.auditoria_ref; RETURN; END IF;
+ END IF;
+ rev:=rev+1;
+ doc:=pg_catalog.jsonb_build_object('esquema','vec.admin.seleccion-perfil.v1','actor_persona_ref',p_persona,'cuenta_ref',p_cuenta,'perfil_ref',p_perfil,'vinculo_ref',b.vinculo_ref,'fuente','vec_autorizacion.administracion_perfiles','revision',rev,'causa',p_causa,'autenticacion_verificada_en',p_autenticada,'seleccionada_en',ahora);
+ huella:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(doc::text,'UTF8')),'hex');
+ audit:='auditoria_seleccion_admin:'||huella;
+ INSERT INTO vec_contexto_actor_v1.seleccion_perfil_admin_v1 VALUES(p_cuenta,rev,p_persona,p_perfil,b.vinculo_ref,'vec_autorizacion.administracion_perfiles',p_causa,p_autenticada,ahora,audit,doc,huella);
+ IF rev=1 THEN INSERT INTO vec_contexto_actor_v1.seleccion_perfil_admin_actual_v1 VALUES(p_cuenta,rev);
+ ELSE UPDATE vec_contexto_actor_v1.seleccion_perfil_admin_actual_v1 a SET revision=rev WHERE a.cuenta_ref=p_cuenta AND a.revision=p_revision_esperada;
+  IF NOT FOUND THEN RAISE EXCEPTION 'CA23: CAS de selección perdido' USING ERRCODE='40001'; END IF;
+ END IF;
+ RETURN QUERY SELECT p_perfil,rev,ahora,audit;
+EXCEPTION WHEN no_data_found OR too_many_rows THEN RAISE EXCEPTION 'CA23: perfil propio no acreditado' USING ERRCODE='42501';
+END $f$;
+REVOKE ALL ON FUNCTION vec_contexto_actor_v1.seleccionar_perfil_admin_propietaria_v1(text,text,text,numeric,text,timestamptz,timestamptz,text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION vec_contexto_actor_v1.consultar_seleccion_perfil_admin_v1(text),vec_contexto_actor_v1.listar_perfiles_admin_propios_v1(text,text,text),vec_contexto_actor_v1.listar_perfiles_admin_propios_reconciliacion_v1(text,text,text),vec_contexto_actor_v1.seleccionar_perfil_admin_propietaria_v1(text,text,text,numeric,text,timestamptz,timestamptz,text) TO vec_identidad_sesiones_v1_propietario;
+
+CREATE FUNCTION vec_contexto_actor_v1.consultar_perfil_admin_perfiles_v1(p_cuenta text)
+RETURNS TABLE(persona_ref text,perfil_ref text,vinculo_ref text,cuenta_version numeric,persona_version numeric,perfil_version numeric,vinculo_version numeric,audiencia text,vigente_hasta timestamptz,seleccion_revision numeric)
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $f$
+DECLARE b record;sel record;ahora timestamptz;
+BEGIN
  IF current_setting('transaction_read_only')<>'off' OR current_setting('transaction_isolation')<>'serializable' THEN RETURN; END IF;
  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('vec:admin:continuidad:v1',0));
- SELECT * INTO STRICT b FROM vec_autorizacion.consultar_asignacion_admin_perfiles_v1(p_cuenta);
- IF b.persona_ref IS NULL OR b.perfil_ref IS NULL OR b.vinculo_ref IS NULL
+ SELECT * INTO STRICT sel FROM vec_contexto_actor_v1.consultar_seleccion_perfil_admin_v1(p_cuenta);
+ IF sel.fuente IS DISTINCT FROM 'vec_autorizacion.administracion_perfiles' THEN RETURN; END IF;
+ SELECT * INTO STRICT b FROM vec_autorizacion.consultar_asignacion_admin_perfiles_v1(p_cuenta,sel.perfil_ref);
+ IF b.persona_ref IS DISTINCT FROM sel.persona_ref OR b.perfil_ref IS DISTINCT FROM sel.perfil_ref OR b.vinculo_ref IS NULL
  OR b.cuenta_version IS NULL OR b.persona_version IS NULL OR b.perfil_version IS NULL OR b.vinculo_version IS NULL
  OR b.audiencia IS NULL OR b.audiencia !~ '^[a-z0-9][a-z0-9._:-]{3,255}$' OR b.vigente_hasta IS NULL OR NOT pg_catalog.isfinite(b.vigente_hasta) THEN RETURN; END IF;
  PERFORM vec_contexto_actor_v1.bloquear_contexto_admin_v1(p_cuenta,b.persona_ref,b.perfil_ref,b.vinculo_ref,b.cuenta_version,b.persona_version,b.perfil_version,b.vinculo_version);
  ahora:=pg_catalog.clock_timestamp();
  IF ahora>=b.vigente_hasta THEN RETURN; END IF;
- RETURN QUERY SELECT b.persona_ref,b.perfil_ref,b.vinculo_ref,b.cuenta_version,b.persona_version,b.perfil_version,b.vinculo_version,b.audiencia,b.vigente_hasta;
+ RETURN QUERY SELECT b.persona_ref,b.perfil_ref,b.vinculo_ref,b.cuenta_version,b.persona_version,b.perfil_version,b.vinculo_version,b.audiencia,b.vigente_hasta,sel.seleccion_revision;
 EXCEPTION WHEN no_data_found OR too_many_rows THEN RETURN;
 END $f$;
 REVOKE ALL ON FUNCTION vec_contexto_actor_v1.consultar_perfil_admin_perfiles_v1(text) FROM PUBLIC;
 
 CREATE FUNCTION vec_contexto_actor_v1.consultar_perfil_admin_perfiles_reconciliacion_v1(p_cuenta text)
-RETURNS TABLE(persona_ref text,perfil_ref text,vinculo_ref text,cuenta_version numeric,persona_version numeric,perfil_version numeric,vinculo_version numeric,audiencia text,vigente_hasta timestamptz)
+RETURNS TABLE(persona_ref text,perfil_ref text,vinculo_ref text,cuenta_version numeric,persona_version numeric,perfil_version numeric,vinculo_version numeric,audiencia text,vigente_hasta timestamptz,seleccion_revision numeric)
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $f$
-DECLARE b record;ahora timestamptz;
+DECLARE b record;sel record;ahora timestamptz;
 BEGIN
  IF current_setting('transaction_read_only')<>'off' OR current_setting('transaction_isolation')<>'read committed' THEN RETURN; END IF;
  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('vec:admin:continuidad:v1',0));
- SELECT * INTO STRICT b FROM vec_autorizacion.consultar_asignacion_admin_perfiles_reconciliacion_v1(p_cuenta);
- IF b.persona_ref IS NULL OR b.perfil_ref IS NULL OR b.vinculo_ref IS NULL
+ SELECT * INTO STRICT sel FROM vec_contexto_actor_v1.consultar_seleccion_perfil_admin_v1(p_cuenta);
+ IF sel.fuente IS DISTINCT FROM 'vec_autorizacion.administracion_perfiles' THEN RETURN; END IF;
+ SELECT * INTO STRICT b FROM vec_autorizacion.consultar_asignacion_admin_perfiles_reconciliacion_v1(p_cuenta,sel.perfil_ref);
+ IF b.persona_ref IS DISTINCT FROM sel.persona_ref OR b.perfil_ref IS DISTINCT FROM sel.perfil_ref OR b.vinculo_ref IS NULL
  OR b.cuenta_version IS NULL OR b.persona_version IS NULL OR b.perfil_version IS NULL OR b.vinculo_version IS NULL
  OR b.audiencia IS NULL OR b.audiencia !~ '^[a-z0-9][a-z0-9._:-]{3,255}$' OR b.vigente_hasta IS NULL OR NOT pg_catalog.isfinite(b.vigente_hasta) THEN RETURN; END IF;
  PERFORM vec_contexto_actor_v1.bloquear_contexto_admin_v1(p_cuenta,b.persona_ref,b.perfil_ref,b.vinculo_ref,b.cuenta_version,b.persona_version,b.perfil_version,b.vinculo_version);
  ahora:=pg_catalog.clock_timestamp();
  IF ahora>=b.vigente_hasta THEN RETURN; END IF;
- RETURN QUERY SELECT b.persona_ref,b.perfil_ref,b.vinculo_ref,b.cuenta_version,b.persona_version,b.perfil_version,b.vinculo_version,b.audiencia,b.vigente_hasta;
+ RETURN QUERY SELECT b.persona_ref,b.perfil_ref,b.vinculo_ref,b.cuenta_version,b.persona_version,b.perfil_version,b.vinculo_version,b.audiencia,b.vigente_hasta,sel.seleccion_revision;
 EXCEPTION WHEN no_data_found OR too_many_rows THEN RETURN;
 END $f$;
 REVOKE ALL ON FUNCTION vec_contexto_actor_v1.consultar_perfil_admin_perfiles_reconciliacion_v1(text) FROM PUBLIC;
@@ -142,7 +296,7 @@ BEGIN
  SELECT * INTO l FROM pg_catalog.pg_roles WHERE rolname=session_user;
  SELECT * INTO g FROM pg_catalog.pg_roles WHERE rolname='vec_identidad_sesiones_v1_admin_perfiles';
  SELECT oid INTO base FROM pg_catalog.pg_database WHERE datname=current_database();
- fs:=ARRAY[pg_catalog.to_regprocedure('vec_contexto_actor_v1.acreditar_runtime_admin_perfiles_v1()'),pg_catalog.to_regprocedure('vec_contexto_actor_v1.resolver_y_registrar_contexto_admin_perfiles_v1(text,text,text,timestamptz)'),pg_catalog.to_regprocedure('vec_contexto_actor_v1.reconciliar_contexto_admin_perfiles_v1(text,text,text,timestamptz)'),pg_catalog.to_regprocedure('vec_identidad_sesiones_v1.resolver_cuenta_admin_perfiles_v1(text,text,text,text,text,timestamptz,timestamptz)'),pg_catalog.to_regprocedure('vec_identidad_sesiones_v1.vincular_sesion_admin_perfiles_v1(text,text,text,text,text,timestamptz,timestamptz,timestamptz,timestamptz,text,text)')];
+ fs:=ARRAY[pg_catalog.to_regprocedure('vec_contexto_actor_v1.acreditar_runtime_admin_perfiles_v1()'),pg_catalog.to_regprocedure('vec_contexto_actor_v1.resolver_y_registrar_contexto_admin_perfiles_v1(text,text,text,timestamptz)'),pg_catalog.to_regprocedure('vec_contexto_actor_v1.reconciliar_contexto_admin_perfiles_v1(text,text,text,timestamptz)'),pg_catalog.to_regprocedure('vec_identidad_sesiones_v1.resolver_cuenta_admin_perfiles_v1(text,text,text,text,text,timestamptz,timestamptz)'),pg_catalog.to_regprocedure('vec_identidad_sesiones_v1.vincular_sesion_admin_perfiles_v1(text,text,text,text,text,timestamptz,timestamptz,timestamptz,timestamptz,text,text)'),pg_catalog.to_regprocedure('vec_identidad_sesiones_v1.listar_perfiles_admin_v1(text,text,text,text,text,timestamptz,timestamptz,timestamptz,timestamptz)'),pg_catalog.to_regprocedure('vec_identidad_sesiones_v1.seleccionar_perfil_admin_v1(text,text,text,text,text,timestamptz,timestamptz,timestamptz,timestamptz,text,numeric)'),pg_catalog.to_regprocedure('vec_identidad_sesiones_v1.autoseleccionar_perfil_admin_unico_v1(text,text,text,text,text,timestamptz,timestamptz,timestamptz,timestamptz)')];
  ns:=ARRAY[pg_catalog.to_regnamespace('vec_contexto_actor_v1'),pg_catalog.to_regnamespace('vec_identidad_sesiones_v1')];
  IF l.oid IS NULL OR g.oid IS NULL OR array_position(fs,NULL) IS NOT NULL OR array_position(ns,NULL) IS NOT NULL
  OR NOT l.rolcanlogin OR NOT l.rolinherit OR l.rolsuper OR l.rolcreaterole OR l.rolcreatedb OR l.rolreplication OR l.rolbypassrls OR l.rolconfig IS NOT NULL
@@ -158,12 +312,12 @@ BEGIN
  OR EXISTS(SELECT 1 FROM pg_catalog.pg_policy p WHERE l.oid=ANY(p.polroles) OR g.oid=ANY(p.polroles))
  OR NOT COALESCE((SELECT count(*)=1 AND bool_and(a.privilege_type='CONNECT' AND NOT a.is_grantable) FROM pg_catalog.pg_database d CROSS JOIN LATERAL pg_catalog.aclexplode(COALESCE(d.datacl,pg_catalog.acldefault('d',d.datdba))) a WHERE d.oid=base AND a.grantee=g.oid),false)
  OR NOT COALESCE((SELECT count(*)=2 AND bool_and(a.privilege_type='USAGE' AND NOT a.is_grantable) FROM pg_catalog.pg_namespace n CROSS JOIN LATERAL pg_catalog.aclexplode(COALESCE(n.nspacl,pg_catalog.acldefault('n',n.nspowner))) a WHERE n.oid=ANY(ns) AND a.grantee=g.oid),false)
- OR NOT COALESCE((SELECT count(*)=5 AND bool_and(a.privilege_type='EXECUTE' AND NOT a.is_grantable) FROM pg_catalog.pg_proc p CROSS JOIN LATERAL pg_catalog.aclexplode(COALESCE(p.proacl,pg_catalog.acldefault('f',p.proowner))) a WHERE p.oid=ANY(fs) AND a.grantee=g.oid),false)
+ OR NOT COALESCE((SELECT count(*)=8 AND bool_and(a.privilege_type='EXECUTE' AND NOT a.is_grantable) FROM pg_catalog.pg_proc p CROSS JOIN LATERAL pg_catalog.aclexplode(COALESCE(p.proacl,pg_catalog.acldefault('f',p.proowner))) a WHERE p.oid=ANY(fs) AND a.grantee=g.oid),false)
  OR EXISTS(SELECT 1 FROM pg_catalog.pg_namespace n CROSS JOIN LATERAL pg_catalog.aclexplode(COALESCE(n.nspacl,pg_catalog.acldefault('n',n.nspowner))) a WHERE n.oid=ANY(ns) AND a.grantee=0)
  OR EXISTS(SELECT 1 FROM pg_catalog.pg_proc p CROSS JOIN LATERAL pg_catalog.aclexplode(COALESCE(p.proacl,pg_catalog.acldefault('f',p.proowner))) a WHERE p.pronamespace=ANY(ns) AND a.grantee=0 AND p.prosecdef)
  OR EXISTS(SELECT 1 FROM pg_catalog.pg_class c WHERE c.relnamespace=ANY(ns) AND c.relkind IN('r','p','v','m','S') AND (pg_catalog.has_table_privilege(l.oid,c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') OR pg_catalog.has_any_column_privilege(l.oid,c.oid,'SELECT,INSERT,UPDATE,REFERENCES')))
 
- OR NOT COALESCE((SELECT count(*)=8 AND bool_and(deptype='a' AND objsubid=0 AND ((classid='pg_catalog.pg_database'::regclass AND objid=base) OR (classid='pg_catalog.pg_namespace'::regclass AND objid=ANY(ns)) OR (classid='pg_catalog.pg_proc'::regclass AND objid=ANY(fs)))) FROM pg_catalog.pg_shdepend WHERE refclassid='pg_catalog.pg_authid'::regclass AND refobjid=g.oid),false)
+ OR NOT COALESCE((SELECT count(*)=11 AND bool_and(deptype='a' AND objsubid=0 AND ((classid='pg_catalog.pg_database'::regclass AND objid=base) OR (classid='pg_catalog.pg_namespace'::regclass AND objid=ANY(ns)) OR (classid='pg_catalog.pg_proc'::regclass AND objid=ANY(fs)))) FROM pg_catalog.pg_shdepend WHERE refclassid='pg_catalog.pg_authid'::regclass AND refobjid=g.oid),false)
  THEN RAISE EXCEPTION 'CA23: LOGIN ADMIN no acreditado' USING ERRCODE='42501'; END IF;
  RETURN session_user;
 END $f$;

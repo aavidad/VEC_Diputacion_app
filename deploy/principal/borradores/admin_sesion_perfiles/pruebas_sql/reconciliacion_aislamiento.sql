@@ -34,3 +34,14 @@ DO $sin_reconciliacion$ DECLARE n integer; BEGIN
 END $sin_reconciliacion$;
 RESET ROLE;
 ROLLBACK;
+-- El listado propio público tiene su conexión READ COMMITTED independiente.
+BEGIN ISOLATION LEVEL READ COMMITTED;
+CREATE ROLE vec_fixture_is12_lista LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+GRANT vec_identidad_sesiones_v1_admin_perfiles TO vec_fixture_is12_lista WITH INHERIT TRUE, SET FALSE, ADMIN FALSE;
+SET SESSION AUTHORIZATION vec_fixture_is12_lista;
+DO $lista_sin_identidad$ DECLARE n integer; BEGIN
+ SELECT count(*) INTO n FROM vec_identidad_sesiones_v1.listar_perfiles_admin_v1('desarrollo','admin.test.invalid','fixture_is12',repeat('0',64),repeat('0',64),clock_timestamp(),clock_timestamp(),clock_timestamp()+interval '1 minute',clock_timestamp()+interval '1 minute');
+ IF n<>0 THEN RAISE EXCEPTION 'IS12: listado sin identidad nominal'; END IF;
+END $lista_sin_identidad$;
+RESET SESSION AUTHORIZATION;
+ROLLBACK;

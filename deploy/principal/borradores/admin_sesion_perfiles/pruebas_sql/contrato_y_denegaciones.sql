@@ -9,7 +9,7 @@ DECLARE f record; t record;
 BEGIN
  FOR f IN SELECT p.* FROM pg_catalog.pg_proc p WHERE p.proname IN
  ('revalidar_sesion_admin_perfiles_v1','vincular_sesion_admin_perfiles_v1','resolver_cuenta_admin_perfiles_v1','resolver_cuenta_admin_perfiles_propietaria_v1',
- 'consultar_perfil_admin_perfiles_v1','exigir_runtime_admin_perfiles_v1','acreditar_runtime_admin_perfiles_v1','resolver_y_registrar_contexto_admin_perfiles_v1','reconciliar_contexto_admin_perfiles_v1') LOOP
+ 'consultar_perfil_admin_perfiles_v1','listar_perfiles_admin_v1','seleccionar_perfil_admin_v1','autoseleccionar_perfil_admin_unico_v1','exigir_runtime_admin_perfiles_v1','acreditar_runtime_admin_perfiles_v1','resolver_y_registrar_contexto_admin_perfiles_v1','reconciliar_contexto_admin_perfiles_v1') LOOP
   IF NOT f.prosecdef OR NOT (f.proconfig @> ARRAY['search_path=pg_catalog'] OR f.proconfig @> ARRAY['search_path=pg_catalog, pg_temp'])
   OR EXISTS(SELECT 1 FROM pg_catalog.aclexplode(COALESCE(f.proacl,pg_catalog.acldefault('f',f.proowner))) a WHERE a.grantee=0)
   THEN RAISE EXCEPTION 'contrato ADMIN: definidor, search_path o ACL incompatible'; END IF;
@@ -34,6 +34,7 @@ BEGIN
  THEN RAISE EXCEPTION 'contrato ADMIN: privilegio fuera de propósito'; END IF;
  SELECT count(*) INTO n FROM vec_identidad_sesiones_v1.resolver_cuenta_admin_perfiles_v1('desarrollo','admin.test.invalid','fixture_is12',repeat('0',64),repeat('0',64),clock_timestamp(),clock_timestamp());
  IF n<>0 THEN RAISE EXCEPTION 'contrato ADMIN: certificado nulo admitido'; END IF;
+
  IF vec_identidad_sesiones_v1.vincular_sesion_admin_perfiles_v1('desarrollo','admin.test.invalid','fixture_is12',repeat('a',64),repeat('b',64),clock_timestamp(),clock_timestamp(),clock_timestamp()-interval '1 second',clock_timestamp()+interval '1 minute','aut_fixture_is12','ses_fixture_is12') IS DISTINCT FROM false THEN RAISE EXCEPTION 'contrato ADMIN: CRL vencida admitida'; END IF;
  IF vec_identidad_sesiones_v1.vincular_sesion_admin_perfiles_v1('desarrollo','admin.test.invalid','fixture_is12',repeat('a',64),repeat('b',64),clock_timestamp(),clock_timestamp(),'infinity',clock_timestamp()+interval '1 minute','aut_fixture_is12','ses_fixture_is12') IS DISTINCT FROM false THEN RAISE EXCEPTION 'contrato ADMIN: CRL infinita admitida'; END IF;
 END $runtime$;

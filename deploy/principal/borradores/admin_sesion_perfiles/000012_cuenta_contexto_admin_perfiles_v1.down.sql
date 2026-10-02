@@ -14,6 +14,10 @@ DROP FUNCTION vec_identidad_sesiones_v1.revalidar_sesion_admin_perfiles_v1(text,
 DROP FUNCTION vec_identidad_sesiones_v1.vincular_sesion_admin_perfiles_v1(text,text,text,text,text,timestamptz,timestamptz,timestamptz,timestamptz,text,text);
 DROP FUNCTION vec_identidad_sesiones_v1.resolver_cuenta_admin_perfiles_v1(text,text,text,text,text,timestamptz,timestamptz);
 DROP FUNCTION vec_identidad_sesiones_v1.resolver_cuenta_admin_perfiles_propietaria_v1(text,text,text,text,text,timestamptz,timestamptz);
+DROP FUNCTION vec_identidad_sesiones_v1.listar_perfiles_admin_v1(text,text,text,text,text,timestamptz,timestamptz,timestamptz,timestamptz);
+DROP FUNCTION vec_identidad_sesiones_v1.seleccionar_perfil_admin_v1(text,text,text,text,text,timestamptz,timestamptz,timestamptz,timestamptz,text,numeric);
+DROP FUNCTION vec_identidad_sesiones_v1.autoseleccionar_perfil_admin_unico_v1(text,text,text,text,text,timestamptz,timestamptz,timestamptz,timestamptz);
+DROP FUNCTION vec_identidad_sesiones_v1.resolver_identidad_admin_perfiles_propietaria_v1(text,text,text,text,text,timestamptz,timestamptz);
 DROP TABLE vec_identidad_sesiones_v1.sesion_admin_perfiles_v1;
 REVOKE USAGE ON SCHEMA vec_identidad_sesiones_v1 FROM vec_identidad_sesiones_v1_admin_perfiles;
 DO $acl$ BEGIN IF EXISTS(SELECT 1 FROM vec_identidad_sesiones_v1.preimagen_acl_admin_perfiles_v1 WHERE NOT uso_ad3_previo) THEN REVOKE USAGE ON SCHEMA vec_identidad_sesiones_v1 FROM vec_autorizacion_atestada_v3_propietario; END IF; END $acl$;
