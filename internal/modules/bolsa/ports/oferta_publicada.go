@@ -123,6 +123,9 @@ type OfertaPublicada struct {
 	DisposicionesTotal int                      `json:"disposiciones_total"`
 	Propuesta          *PropuestaOferta         `json:"propuesta"`
 	Resolucion         *ResolucionOferta        `json:"resolucion"`
+	// ConfirmacionAdjudicacion procede de la versión de política inmovilizada
+	// por la oferta. Vacía en políticas anteriores a la aceptación previa.
+	ConfirmacionAdjudicacion string `json:"confirmacion_adjudicacion,omitempty"`
 	// NumeroPlazas, la política de plazas aplicada (nula si la versión no la
 	// tiene) y el estado de cada plaza.
 	NumeroPlazas   int                                 `json:"numero_plazas"`
