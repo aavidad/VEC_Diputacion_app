@@ -1,33 +1,33 @@
-# Preparar el plan de los dos primeros administradores
+# Preparar y aplicar el alta de los dos primeros administradores
 
-`vec-preparar-admin-bootstrap` prepara un documento privado y muestra **solo su
-huella SHA-256**. No conecta con la base, no da perfiles y no acredita por sí
-solo que las cuentas o los certificados declarados sean auténticos. El operador
-debe cotejar las fuentes por su canal privado y aprobar la huella exacta antes
-de cualquier alta. La futura AUT24 tendrá que repetir esas comprobaciones y el
-CAS dentro de una única transacción; este programa no invoca AUT24.
+El comando existente prepara un plan privado y muestra su huella SHA-256. La
+opción `-aplicar` usa el proveedor nominal de AUT24 por un canal de operador
+separado. No existe una ruta HTTP de bootstrap ni se presta el permiso del
+operador a la aplicación ADMIN.
 
-La fuente JSON de versión 1 contiene `preparado_en`, `caduca_en`,
-`control_continuidad_revision_esperada` igual a 1 y
-`bootstrap_estado_esperado` igual a `pendiente`; `rol` con
-`version_ref` exacta `rol:administracion_perfiles:v2`, su huella publicada,
-`control_revision` y `control_huella_sha256`; `fuente_identidad` y
-`fuente_ca_admin` con `referencia`, `version` y `huella_sha256`; y `personas`
-con **dos** entradas ordenadas por `persona_ref` ascendente. Cada entrada
-incluye `cuenta_ref`, `cuenta_version`, `persona_ref`, `persona_version`,
-`perfil_ref` y `vinculo_ref` nuevos, `preimagen_huella_sha256`,
-`procedencia` (referencia, versión y huella), `vigente_hasta`, y
-`certificado_admin` con `persona_ref`, `cuenta_ref`, `huella_sha256`,
-`ca_huella_sha256` y `acreditacion` (referencia, versión y huella). La huella
-de CA del certificado debe coincidir con `fuente_ca_admin.huella_sha256`.
-Las fechas son UTC, sin fracciones de segundo; la vigencia de cada perfil debe
-cubrir al menos la caducidad del plan. No se incluyen nombres, DNI, PEM, claves
-ni credenciales. Los identificadores y huellas deben venir de sus autoridades;
-el operador no debe inventarlos para superar la validación.
+El formato 2 conserva las dos personas de F y añade `gobierno`. El plan reúne
+las referencias, versiones y huellas de cuentas, personas, certificados, CA,
+procedencia y rol administrativo publicado. Contiene también la revisión de
+continuidad esperada y la caducidad. Las personas deben ser distintas y estar
+ordenadas por referencia. No incluye nombres, DNI, PEM ni claves.
 
-La fuente y el plan viven fuera de Git, en un directorio propio `0700`, con
-rutas absolutas sin enlaces. La fuente es un fichero `0600` de hasta 64 KiB.
-El programa exige campos exactos y únicos, y rechaza datos adicionales.
+`gobierno` contiene la audiencia administrativa admitida, la referencia y
+huella de la política de certificado, y una lista finita de roles publicados.
+Cada entrada fija referencia y huella del rol, clase de control, necesidad de
+unidad, ámbitos permitidos, vigencia y duración de las propuestas. No admite
+comodines ni duplicados; ADMIN debe tener ámbitos explícitos. Un descriptor
+que requiere unidad puede dejar vacía su lista de ámbitos fijos: al asignarlo,
+la autoridad deberá comprobar la unidad y que pertenece al ámbito del
+administrador. Esa posibilidad no concede un alcance global.
+
+Todos esos valores forman parte de la huella aprobada. No hay valores de
+negocio por defecto. Un plan del formato 1 no se convierte automáticamente ni
+permite aplicar altas: debe prepararse el formato 2 con su configuración
+expresa. Los roles y huellas se cotejan con sus fuentes actuales en SQL; el
+archivo no acredita por sí mismo una cuenta, certificado o permiso.
+
+Fuente, plan, conexión, aprobación y recibo viven fuera de Git, en directorios
+propios `0700` y ficheros `0600`, sin enlaces. Se exigen campos exactos y únicos.
 
 ```sh
 go run ./cmd/vec-preparar-admin-bootstrap \
@@ -39,17 +39,35 @@ go run ./cmd/vec-preparar-admin-bootstrap \
   -plan /ruta/privada/plan-admin.json -cotejar
 ```
 
-El plan se crea exclusivamente como `0600`. Repetir con el mismo material
-devuelve la misma huella sin sobrescribir; un plan diferente se rechaza.
-`-cotejar` exige que el plan ya exista. La huella se calcula sobre el JSON
-compacto del campo `plan`, en el orden de campos del formato v1, sin incluir
-`huella_plan_sha256`; el archivo añade esa huella como campo separado. La
-fecha de preparación es parte del material: cambiarla cambia la huella.
+El operador coteja las fuentes y aprueba la huella exacta por su canal privado.
+La aprobación es un JSON con `huella_plan_sha256`. La conexión privada contiene
+`dsn` y `timeout_segundos`; el plazo de conexión debe estar indicado, entre 1 y
+60 segundos. Se admite socket local o TLS con verificación del servidor. Nunca
+se pasan credenciales por argumentos ni se muestran errores de PostgreSQL.
 
-AUT23 crea un control global con revisión 1 y estado pendiente. El dominio
-exige revisión de continuidad **cero en cada preimagen individual**. Son dos
-precondiciones distintas y AUT24 debe cotejar ambas, además de la publicación
-real del rol, sus asignaciones, la identidad nominal, la CA y la no revocación.
-El archivo ordinario puede ser alterado por su propietario; su huella y el
-cotejo detectan cambios, pero no sustituyen la aprobación externa ni un recibo
-durable de alta. Hasta ese recibo no hay administradores dados de alta.
+```sh
+go run ./cmd/vec-preparar-admin-bootstrap \
+  -fuente /ruta/privada/fuente-admin.json \
+  -plan /ruta/privada/plan-admin.json -cotejar -aplicar \
+  -conexion /ruta/privada/conexion.json \
+  -aprobacion /ruta/privada/aprobacion.json \
+  -recibo /ruta/privada/recibo-admin.json
+```
+
+El LOGIN del operador pertenece únicamente a
+`vec_admin_perfiles_bootstrap_ejecutor`, con herencia, sin `SET ROLE` ni
+administración de miembros. Carece de propiedad y acceso directo a los datos;
+solo ejecuta la función nominal de bootstrap. Es distinto del LOGIN de la
+aplicación. La función debe cotejar la aprobación y las dos identidades, hacer
+el CAS y guardar perfiles, configuración, historia, auditoría y recibo en una
+transacción SERIALIZABLE. El comando valida el recibo antes del COMMIT.
+
+Repetir el mismo plan aprobado recupera el mismo recibo según el contrato SQL.
+Otro contenido no reescribe el plan ni el recibo. Si falla la escritura del
+recibo local después del COMMIT, se informa `recibo_no_guardado`: no se afirma
+que el alta haya fallado. Se recupera con el mismo plan y aprobación.
+
+La implementación Go está preparada contra la función AUT24 en borrador.
+La aplicación real exige instalar y ensayar esa fuente por el canal autorizado,
+con sus dependencias de identidad, contexto y autorización. Las pruebas con
+dobles verifican el transporte y el COMMIT; no acreditan altas en PostgreSQL.

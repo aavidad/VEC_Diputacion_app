@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"vec-diputacion-granada/internal/vec/domain"
 )
 
 type salidaFallida struct{}
@@ -38,12 +40,21 @@ func materialSintetico() material {
 	segunda.Certificado.HuellaSHA256 = h("f")
 	segunda.Certificado.Acreditacion = e("atestacion:admin:dos", "f")
 	return material{
-		Version: 1, PreparadoEn: time.Date(2026, 9, 30, 20, 0, 0, 0, time.UTC),
+		Version: 2, PreparadoEn: time.Date(2026, 9, 30, 20, 0, 0, 0, time.UTC),
 		CaducaEn:                           time.Date(2026, 10, 1, 20, 0, 0, 0, time.UTC),
 		ControlContinuidadRevisionEsperada: 1, BootstrapEstadoEsperado: "pendiente",
-		Rol:             rol{VersionRef: "rol:administracion_perfiles:v2", HuellaSHA256: h("1"), ControlRevision: 1, ControlHuellaSHA256: h("2")},
+		Rol:             rol{VersionRef: "rol:administracion_perfiles:v3", HuellaSHA256: h("1"), ControlRevision: 1, ControlHuellaSHA256: h("2")},
 		FuenteIdentidad: e("autoridad:identidad:declarada", "3"), FuenteCA: e("autoridad:ca-admin:declarada", "d"),
 		Personas: [2]persona{primera, segunda},
+		Gobierno: domain.GobiernoBootstrapAdministracion{
+			AudienciaAdministrativa: "admin:ensayo:v1", PoliticaCertificadoRef: "politica:admin:ejemplo",
+			PoliticaCertificadoHuellaSHA256: h("4"),
+			Roles: []domain.RolGobernadoBootstrapAdministracion{{VersionRef: "rol:administracion_perfiles:v3", HuellaSHA256: h("1"),
+				Clase: domain.ClaseControlPerfilAdministrador, UnidadRequerida: false,
+				AmbitosFijos: []domain.AmbitoFijoBootstrapAdministracion{{Clave: "unidad", Valores: []string{"unidad:ejemplo"}}},
+				VigenteDesde: time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC), VigenteHasta: time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC),
+				DuracionPropuestaSegundos: 300}},
+		},
 	}
 }
 
@@ -163,5 +174,32 @@ func TestFalloAlEntregarHuellaTieneCodigoNominal(t *testing.T) {
 	}
 	if _, err := os.Stat(plan); err != nil {
 		t.Fatal("el fallo de salida no debe borrar el plan preparado")
+	}
+}
+
+func TestGobiernoObligatorioYBooleanoExplicito(t *testing.T) {
+	b, err := json.Marshal(materialSintetico())
+	if err != nil {
+		t.Fatal(err)
+	}
+	b = bytes.Replace(b, []byte(`"unidad_requerida":false,`), nil, 1)
+	if decodificarEstricto(b, &material{}) == nil {
+		t.Fatal("booleano omitido se convierte en alcance sin unidad")
+	}
+	m := materialSintetico()
+	m.Gobierno.Roles[0].AmbitosFijos[0].Valores = []string{"*"}
+	if validar(m) == nil {
+		t.Fatal("comodín administrativo aceptado")
+	}
+}
+
+func TestAplicarExigeCotejoYAprobacionPrivada(t *testing.T) {
+	fuente, plan := prepararFuente(t, materialSintetico())
+	var salida, errores bytes.Buffer
+	if ejecutar([]string{"-fuente", fuente, "-plan", plan, "-aplicar"}, &salida, &errores) == 0 || salida.Len() != 0 {
+		t.Fatal("aplicación sin aprobación aceptada")
+	}
+	if _, err := os.Stat(plan); !os.IsNotExist(err) {
+		t.Fatal("el uso inválido modifica el plan")
 	}
 }

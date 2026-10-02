@@ -84,6 +84,7 @@ func (c CierrePropuestaAdministracionPerfiles) ValidarPara(s SolicitudCierreProp
 // cuentas ya acreditadas por la autoridad maestra. No contiene nombres,
 // documento de identidad ni facultad de crear personas o cuentas.
 type PreimagenBootstrapAdministracionPerfiles struct {
+	PlanV2           *PlanBootstrapAdministracionV2
 	Primera          PreimagenAdministracionPerfiles
 	Segunda          PreimagenAdministracionPerfiles
 	HuellaPlanSHA256 string
@@ -94,6 +95,12 @@ func (p PreimagenBootstrapAdministracionPerfiles) Validar() error {
 		p.Primera.PersonaRef == p.Segunda.PersonaRef || p.Primera.CuentaRef == p.Segunda.CuentaRef ||
 		!HuellaAdministracionPerfilesValida(p.HuellaPlanSHA256) {
 		return ErrControlAdministracionPerfilesInvalido
+	}
+	if p.PlanV2 != nil {
+		_, huella, err := p.PlanV2.CanonicoYHuella()
+		if err != nil || huella != p.HuellaPlanSHA256 || p.PlanV2.Personas[0].Preimagen() != p.Primera || p.PlanV2.Personas[1].Preimagen() != p.Segunda {
+			return ErrControlAdministracionPerfilesInvalido
+		}
 	}
 	return nil
 }

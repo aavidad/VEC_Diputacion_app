@@ -1,4 +1,5 @@
-// Command vec-preparar-admin-bootstrap prepara un plan privado; nunca concede perfiles.
+// Command vec-preparar-admin-bootstrap prepara un plan privado y permite aplicarlo
+// exclusivamente por el canal de operador con aprobación y proveedor nominal.
 package main
 
 import (
@@ -22,53 +23,11 @@ import (
 
 const limiteDocumento = 64 << 10
 
-type evidencia struct {
-	Referencia   string `json:"referencia"`
-	Version      uint64 `json:"version"`
-	HuellaSHA256 string `json:"huella_sha256"`
-}
-
-type certificado struct {
-	PersonaRef     string    `json:"persona_ref"`
-	CuentaRef      string    `json:"cuenta_ref"`
-	HuellaSHA256   string    `json:"huella_sha256"`
-	CAHuellaSHA256 string    `json:"ca_huella_sha256"`
-	Acreditacion   evidencia `json:"acreditacion"`
-}
-
-type persona struct {
-	CuentaRef             string      `json:"cuenta_ref"`
-	CuentaVersion         uint64      `json:"cuenta_version"`
-	PersonaRef            string      `json:"persona_ref"`
-	PersonaVersion        uint64      `json:"persona_version"`
-	PerfilRef             string      `json:"perfil_ref"`
-	VinculoRef            string      `json:"vinculo_ref"`
-	PreimagenHuellaSHA256 string      `json:"preimagen_huella_sha256"`
-	Procedencia           evidencia   `json:"procedencia"`
-	VigenteHasta          time.Time   `json:"vigente_hasta"`
-	Certificado           certificado `json:"certificado_admin"`
-}
-
-type rol struct {
-	VersionRef          string `json:"version_ref"`
-	HuellaSHA256        string `json:"huella_sha256"`
-	ControlRevision     uint64 `json:"control_revision"`
-	ControlHuellaSHA256 string `json:"control_huella_sha256"`
-}
-
-// material es una declaración privada de fuentes y preimágenes. AUT24 deberá
-// cotejarla con las autoridades originales dentro de su transacción.
-type material struct {
-	Version                            uint64     `json:"version"`
-	PreparadoEn                        time.Time  `json:"preparado_en"`
-	CaducaEn                           time.Time  `json:"caduca_en"`
-	ControlContinuidadRevisionEsperada uint64     `json:"control_continuidad_revision_esperada"`
-	BootstrapEstadoEsperado            string     `json:"bootstrap_estado_esperado"`
-	Rol                                rol        `json:"rol"`
-	FuenteIdentidad                    evidencia  `json:"fuente_identidad"`
-	FuenteCA                           evidencia  `json:"fuente_ca_admin"`
-	Personas                           [2]persona `json:"personas"`
-}
+type evidencia = domain.EvidenciaBootstrapAdministracion
+type certificado = domain.CertificadoBootstrapAdministracion
+type persona = domain.PersonaBootstrapAdministracion
+type rol = domain.RolBootstrapAdministracion
+type material = domain.PlanBootstrapAdministracionV2
 
 type documento struct {
 	Plan             material `json:"plan"`
@@ -80,12 +39,20 @@ func main() { os.Exit(ejecutar(os.Args[1:], os.Stdout, os.Stderr)) }
 func ejecutar(args []string, salida, errores io.Writer) int {
 	f := flag.NewFlagSet("vec-preparar-admin-bootstrap", flag.ContinueOnError)
 	f.SetOutput(io.Discard)
-	var fuente, destino string
-	var cotejar bool
+	var fuente, destino, conexion, aprobacion, recibo string
+	var cotejar, aplicar bool
 	f.StringVar(&fuente, "fuente", "", "")
 	f.StringVar(&destino, "plan", "", "")
 	f.BoolVar(&cotejar, "cotejar", false, "")
+	f.BoolVar(&aplicar, "aplicar", false, "")
+	f.StringVar(&conexion, "conexion", "", "")
+	f.StringVar(&aprobacion, "aprobacion", "", "")
+	f.StringVar(&recibo, "recibo", "", "")
 	if f.Parse(args) != nil || f.NArg() != 0 || fuente == "" || destino == "" || fuente == destino {
+		return fallar(errores, "uso_invalido")
+	}
+	if aplicar && (!cotejar || conexion == "" || aprobacion == "" || recibo == "" || recibo == fuente || recibo == destino || recibo == conexion || recibo == aprobacion) ||
+		!aplicar && (conexion != "" || aprobacion != "" || recibo != "") {
 		return fallar(errores, "uso_invalido")
 	}
 	b, err := leerPrivado(fuente)
@@ -103,10 +70,8 @@ func ejecutar(args []string, salida, errores io.Writer) int {
 	}
 	h := sha256.Sum256(contenido)
 	huella := hex.EncodeToString(h[:])
-	p := domain.PreimagenBootstrapAdministracionPerfiles{
-		Primera: preimagen(m.Personas[0]), Segunda: preimagen(m.Personas[1]), HuellaPlanSHA256: huella,
-	}
-	if p.Validar() != nil {
+	p, err := m.Preimagen()
+	if err != nil || p.Validar() != nil || p.HuellaPlanSHA256 != huella {
 		return fallar(errores, "plan_invalido")
 	}
 	doc, err := json.Marshal(documento{Plan: m, HuellaPlanSHA256: huella})
@@ -127,6 +92,25 @@ func ejecutar(args []string, salida, errores io.Writer) int {
 	} else if err = crearOComparar(destino, doc); err != nil {
 		return fallar(errores, "plan_divergente_o_destino_inseguro")
 	}
+	if aplicar {
+		r, err := aplicarPlan(m, conexion, aprobacion)
+		if err != nil {
+			return fallar(errores, "provision_no_confirmada")
+		}
+		b, err := json.Marshal(r)
+		if err != nil {
+			return fallar(errores, "recibo_invalido")
+		}
+		b = append(b, '\n')
+		defer clear(b)
+		if crearOComparar(recibo, b) != nil {
+			return fallar(errores, "recibo_no_guardado")
+		}
+		if _, err = fmt.Fprintln(salida, r.ReciboRef); err != nil {
+			return fallar(errores, "plan_salida_fallida")
+		}
+		return 0
+	}
 	if _, err = fmt.Fprintln(salida, huella); err != nil {
 		return fallar(errores, "plan_salida_fallida")
 	}
@@ -135,43 +119,8 @@ func ejecutar(args []string, salida, errores io.Writer) int {
 
 func fallar(w io.Writer, codigo string) int { _, _ = fmt.Fprintln(w, codigo); return 1 }
 
-func preimagen(p persona) domain.PreimagenAdministracionPerfiles {
-	return domain.PreimagenAdministracionPerfiles{
-		CuentaRef: p.CuentaRef, CuentaVersion: p.CuentaVersion, PersonaRef: p.PersonaRef,
-		PersonaVersion: p.PersonaVersion, PerfilRef: p.PerfilRef, VinculoRef: p.VinculoRef,
-		HuellaSHA256: p.PreimagenHuellaSHA256, ProcedenciaRef: p.Procedencia.Referencia,
-		ProcedenciaVersion: p.Procedencia.Version, ProcedenciaHuellaSHA256: p.Procedencia.HuellaSHA256,
-		VigenteHasta: p.VigenteHasta,
-	}
-}
-
-func validar(m material) error {
-	if m.Version != 1 || m.Rol.VersionRef != "rol:administracion_perfiles:v2" ||
-		m.ControlContinuidadRevisionEsperada != 1 || m.BootstrapEstadoEsperado != "pendiente" ||
-		!instanteCanonico(m.PreparadoEn) || !instanteCanonico(m.CaducaEn) || !m.CaducaEn.After(m.PreparadoEn) ||
-		!domain.HuellaAdministracionPerfilesValida(m.Rol.HuellaSHA256) ||
-		m.Rol.ControlRevision == 0 || !domain.HuellaAdministracionPerfilesValida(m.Rol.ControlHuellaSHA256) ||
-		!evidenciaValida(m.FuenteIdentidad) || !evidenciaValida(m.FuenteCA) ||
-		m.Personas[0].PerfilRef == m.Personas[1].PerfilRef ||
-		m.Personas[0].VinculoRef == m.Personas[1].VinculoRef ||
-		m.Personas[0].Certificado.HuellaSHA256 == m.Personas[1].Certificado.HuellaSHA256 {
-		return errors.New("material invalido")
-	}
-	for _, p := range m.Personas {
-		if preimagen(p).ValidarBootstrap() != nil || !evidenciaValida(p.Procedencia) ||
-			!evidenciaValida(p.Certificado.Acreditacion) ||
-			p.Certificado.PersonaRef != p.PersonaRef || p.Certificado.CuentaRef != p.CuentaRef ||
-			!domain.HuellaAdministracionPerfilesValida(p.Certificado.HuellaSHA256) ||
-			p.Certificado.CAHuellaSHA256 != m.FuenteCA.HuellaSHA256 ||
-			!instanteCanonico(p.VigenteHasta) || p.VigenteHasta.Before(m.CaducaEn) {
-			return errors.New("persona invalida")
-		}
-	}
-	if m.Personas[0].PersonaRef >= m.Personas[1].PersonaRef {
-		return errors.New("orden no canonico")
-	}
-	return nil
-}
+func preimagen(p persona) domain.PreimagenAdministracionPerfiles { return p.Preimagen() }
+func validar(m material) error                                   { return m.Validar() }
 
 func evidenciaValida(e evidencia) bool {
 	return len(e.Referencia) > 0 && len(e.Referencia) <= 256 &&
@@ -207,9 +156,9 @@ func clavesExactas(b []byte, tipo reflect.Type) error {
 		return nil
 	}
 	switch tipo.Kind() {
-	case reflect.Array:
+	case reflect.Array, reflect.Slice:
 		var elementos []json.RawMessage
-		if err := json.Unmarshal(b, &elementos); err != nil || len(elementos) != tipo.Len() {
+		if err := json.Unmarshal(b, &elementos); err != nil || elementos == nil || tipo.Kind() == reflect.Array && len(elementos) != tipo.Len() {
 			return errors.New("longitud invalida")
 		}
 		for _, x := range elementos {
