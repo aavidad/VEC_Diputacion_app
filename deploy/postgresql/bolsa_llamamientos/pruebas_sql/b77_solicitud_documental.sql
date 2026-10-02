@@ -65,7 +65,7 @@ BEGIN
   'clave:sintetica:rrhh17','decision:sintetica:rrhh17','auditoria:sintetica:rrhh17','2026-10-02T12:00:00Z');
  IF (SELECT pg_catalog.count(*) FROM vec_bolsa_llamamientos.consultar_avisos_portal_rrhh_v1('2026-10-02T13:00:00Z') a
      WHERE a.referencia=prueba_b77.referencia AND a.detalle->>'solicitud'='documental_rrhh'
-       AND a.detalle->>'contenido_sha256'=contenido)=0 THEN
+       AND (a.detalle ? 'documento_ref') IS FALSE AND (a.detalle ? 'contenido_sha256') IS FALSE)=0 THEN
   RAISE EXCEPTION 'B77 aviso documental pendiente ausente'; END IF;
  BEGIN
   PERFORM * FROM vec_bolsa_llamamientos.registrar_operacion_situacion_participacion_v2(

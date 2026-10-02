@@ -56,7 +56,12 @@ BEGIN
  IF pg_catalog.to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_portal_candidato_bolsa_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
     OR pg_catalog.to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_situacion_participacion_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
     OR pg_catalog.to_regprocedure('vec_autorizacion_atestada_v3.consumir_solicitud_documental_bolsa_v3_atestada(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL THEN
-  RAISE EXCEPTION 'AD155 preimagen incompatible' USING ERRCODE='55000';
+  RAISE EXCEPTION 'PARO clave=AD155.preimagen, actual=%/%/%/%, esperado=true/true/true/false',
+   current_user='vec_autorizacion_atestada_v3_propietario',
+   pg_catalog.to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_portal_candidato_bolsa_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL,
+   pg_catalog.to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_situacion_participacion_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL,
+   pg_catalog.to_regprocedure('vec_autorizacion_atestada_v3.consumir_solicitud_documental_bolsa_v3_atestada(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
+   USING ERRCODE='55000';
  END IF;
  SELECT pg_catalog.pg_get_functiondef(f),pg_catalog.to_jsonb(p)-'prosrc',p.proacl,p.proowner,p.proconfig,p.prosecdef
  INTO STRICT original,meta,acl,propietario,config,definidora FROM pg_catalog.pg_proc p WHERE p.oid=f;
@@ -68,7 +73,11 @@ BEGIN
     OR pg_catalog.strpos(original,'portal_candidato_bolsa')=0
     OR pg_catalog.strpos(original,'situacion_participacion_bolsa')=0
     OR pg_catalog.strpos(original,'presentar_solicitud_documental')<>0 THEN
-  RAISE EXCEPTION 'AD155 núcleo incompatible' USING ERRCODE='55000';
+  RAISE EXCEPTION 'PARO clave=AD155.nucleo, actual=%/%/%/%, esperado=true/true/1/false',
+   propietario='vec_autorizacion_atestada_v3_propietario'::pg_catalog.regrole,
+   definidora,
+   (pg_catalog.length(original)-pg_catalog.length(pg_catalog.replace(original,marca,'')))/pg_catalog.length(marca),
+   pg_catalog.strpos(original,'presentar_solicitud_documental')<>0 USING ERRCODE='55000';
  END IF;
  nuevo:=pg_catalog.replace(original,marca,extension||marca);
  EXECUTE nuevo;
@@ -81,7 +90,12 @@ BEGIN
     OR (SELECT prosecdef FROM pg_catalog.pg_proc WHERE oid=f) IS DISTINCT FROM definidora
     OR (SELECT coalesce(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
         FROM pg_catalog.pg_depend d WHERE d.classid='pg_catalog.pg_proc'::pg_catalog.regclass AND d.objid=f) IS DISTINCT FROM deps THEN
-  RAISE EXCEPTION 'AD155 núcleo alterado fuera del contrato' USING ERRCODE='55000';
+  RAISE EXCEPTION 'PARO clave=AD155.definicion_y_metadata, actual=%, esperado=%',
+   pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(actual||
+     coalesce((SELECT proacl::text FROM pg_catalog.pg_proc WHERE oid=f),'')||
+     coalesce((SELECT proconfig::text FROM pg_catalog.pg_proc WHERE oid=f),''),'UTF8')),'hex'),
+   pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(nuevo||coalesce(acl::text,'')||coalesce(config::text,''),'UTF8')),'hex')
+   USING ERRCODE='55000';
  END IF;
 END $nucleo$;
 
@@ -93,14 +107,17 @@ BEGIN
  FROM pg_catalog.pg_constraint c WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::pg_catalog.regclass
  AND c.conname='clave_capacidad_version_audiencia_consumo_check' AND c.contype='c' AND c.convalidated;
  IF pg_catalog.strpos(d,'CHECK (audiencia_consumo = ANY (ARRAY[')<>1 OR pg_catalog.right(d,3)<>']))' THEN
-  RAISE EXCEPTION 'AD155 audiencias incompatibles' USING ERRCODE='55000';
+  RAISE EXCEPTION 'PARO clave=AD155.forma_audiencias, actual=%/%, esperado=true/true',
+   pg_catalog.strpos(d,'CHECK (audiencia_consumo = ANY (ARRAY[')=1,
+   pg_catalog.right(d,3)=']))' USING ERRCODE='55000';
  END IF;
  FOREACH a IN ARRAY ARRAY[
   'vec_bolsa_llamamientos.participaciones_propias.presentar_solicitud_documental.v1',
   'vec_bolsa_llamamientos.solicitudes_documentales.resolver.v1',
   'vec_bolsa_llamamientos.solicitudes_documentales.consultar_rrhh.v1'
  ] LOOP
-  IF pg_catalog.strpos(d,pg_catalog.quote_literal(a))<>0 THEN RAISE EXCEPTION 'AD155 audiencia reservada' USING ERRCODE='55000'; END IF;
+  IF pg_catalog.strpos(d,pg_catalog.quote_literal(a))<>0 THEN
+   RAISE EXCEPTION 'PARO clave=audiencia_AD155_%, actual=presente, esperado=ausente',a USING ERRCODE='55000'; END IF;
   d:=pg_catalog.left(d,pg_catalog.length(d)-3)||', '||pg_catalog.quote_literal(a)||'::text]))';
  END LOOP;
  ALTER TABLE vec_autorizacion_atestada_v3.clave_capacidad_version DROP CONSTRAINT clave_capacidad_version_audiencia_consumo_check;
@@ -157,6 +174,6 @@ BEGIN
  GRANT EXECUTE ON FUNCTION vec_autorizacion_atestada_v3.consumir_solicitud_documental_bolsa_v3_atestada(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)
   TO vec_bolsa_llamamientos_propietario;
  IF NOT pg_catalog.has_function_privilege('vec_bolsa_llamamientos_propietario',f,'EXECUTE') THEN
-  RAISE EXCEPTION 'AD155 concesión ausente' USING ERRCODE='55000'; END IF;
+  RAISE EXCEPTION 'PARO clave=AD155.ejecutor_Bolsa, actual=false, esperado=true' USING ERRCODE='55000'; END IF;
 END $acl$;
 COMMIT;

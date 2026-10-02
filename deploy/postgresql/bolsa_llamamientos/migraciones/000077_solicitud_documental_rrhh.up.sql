@@ -10,13 +10,17 @@ SET LOCAL statement_timeout='30s';
 SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('vec_bolsa_llamamientos:migracion:000077',0));
 
 DO $precondicion$
+DECLARE actual jsonb; esperado jsonb:=pg_catalog.jsonb_build_object(
+ 'rol',true,'ad155',true,'b76',true,'tabla_libre',true,'avisos',true);
 BEGIN
- IF current_user<>'vec_bolsa_llamamientos_propietario'
-    OR pg_catalog.to_regprocedure('vec_autorizacion_atestada_v3.consumir_solicitud_documental_bolsa_v3_atestada(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
-    OR pg_catalog.to_regprocedure('vec_bolsa_llamamientos.registrar_operacion_situacion_participacion_v2(text,text,text,timestamp with time zone,timestamp with time zone,text,text,text,text,timestamp with time zone,text,text,text,text,timestamp with time zone,timestamp with time zone,timestamp with time zone,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
-    OR pg_catalog.to_regclass('vec_bolsa_llamamientos.solicitud_documental_rrhh') IS NOT NULL
-    OR pg_catalog.to_regprocedure('vec_bolsa_llamamientos.consultar_avisos_portal_rrhh_v1(timestamp with time zone)') IS NULL THEN
-  RAISE EXCEPTION 'B77 preimagen incompatible' USING ERRCODE='55000';
+ actual:=pg_catalog.jsonb_build_object(
+  'rol',current_user='vec_bolsa_llamamientos_propietario',
+  'ad155',pg_catalog.to_regprocedure('vec_autorizacion_atestada_v3.consumir_solicitud_documental_bolsa_v3_atestada(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL,
+  'b76',pg_catalog.to_regprocedure('vec_bolsa_llamamientos.registrar_operacion_situacion_participacion_v2(text,text,text,timestamp with time zone,timestamp with time zone,text,text,text,text,timestamp with time zone,text,text,text,text,timestamp with time zone,timestamp with time zone,timestamp with time zone,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL,
+  'tabla_libre',pg_catalog.to_regclass('vec_bolsa_llamamientos.solicitud_documental_rrhh') IS NULL,
+  'avisos',pg_catalog.to_regprocedure('vec_bolsa_llamamientos.consultar_avisos_portal_rrhh_v1(timestamp with time zone)') IS NOT NULL);
+ IF actual IS DISTINCT FROM esperado THEN
+  RAISE EXCEPTION 'PARO clave=B77.preimagen, actual=%, esperado=%',actual,esperado USING ERRCODE='55000';
  END IF;
 END $precondicion$;
 
@@ -108,7 +112,9 @@ BEGIN
  INTO STRICT original,acl,propietario,config FROM pg_catalog.pg_proc p WHERE p.oid=firma;
  IF pg_catalog.length(original)-pg_catalog.length(pg_catalog.replace(original,marca,''))<>pg_catalog.length(marca)
     OR pg_catalog.strpos(original,'regularización documental exige CAS')<>0 THEN
-  RAISE EXCEPTION 'B77 B76 preimagen incompatible' USING ERRCODE='55000'; END IF;
+  RAISE EXCEPTION 'PARO clave=B76.marca, actual=%/%, esperado=1/false',
+   (pg_catalog.length(original)-pg_catalog.length(pg_catalog.replace(original,marca,'')))/pg_catalog.length(marca),
+   pg_catalog.strpos(original,'regularización documental exige CAS')<>0 USING ERRCODE='55000'; END IF;
  nuevo:=pg_catalog.replace(original,marca,insercion||marca);
  EXECUTE nuevo;
  SELECT pg_catalog.pg_get_functiondef(firma) INTO STRICT actual;
@@ -116,7 +122,11 @@ BEGIN
     OR (SELECT proacl FROM pg_catalog.pg_proc WHERE oid=firma) IS DISTINCT FROM acl
     OR (SELECT proowner FROM pg_catalog.pg_proc WHERE oid=firma) IS DISTINCT FROM propietario
     OR (SELECT proconfig FROM pg_catalog.pg_proc WHERE oid=firma) IS DISTINCT FROM config THEN
-  RAISE EXCEPTION 'B77 alteró B76 fuera de guarda' USING ERRCODE='55000'; END IF;
+  RAISE EXCEPTION 'PARO clave=B76.definicion_y_ACL, actual=%, esperado=%',
+   pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(actual||coalesce((SELECT proacl::text FROM pg_catalog.pg_proc WHERE oid=firma),'')||
+    (SELECT proowner::text FROM pg_catalog.pg_proc WHERE oid=firma)||coalesce((SELECT proconfig::text FROM pg_catalog.pg_proc WHERE oid=firma),''),'UTF8')),'hex'),
+   pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(nuevo||coalesce(acl::text,'')||propietario::text||coalesce(config::text,''),'UTF8')),'hex')
+   USING ERRCODE='55000'; END IF;
 END $guardia_b76$;
 
 -- RRHH17 retira nuevas pausas y reactivaciones del integrante. La función
@@ -134,7 +144,9 @@ BEGIN
  INTO STRICT original,acl,propietario,config FROM pg_catalog.pg_proc p WHERE p.oid=firma;
  IF pg_catalog.length(original)-pg_catalog.length(pg_catalog.replace(original,marca,''))<>pg_catalog.length(marca)
     OR pg_catalog.strpos(original,'solicitud histórica sin efecto nuevo')<>0 THEN
-  RAISE EXCEPTION 'B77 B30 preimagen incompatible' USING ERRCODE='55000'; END IF;
+  RAISE EXCEPTION 'PARO clave=B30.marca, actual=%/%, esperado=1/false',
+   (pg_catalog.length(original)-pg_catalog.length(pg_catalog.replace(original,marca,'')))/pg_catalog.length(marca),
+   pg_catalog.strpos(original,'solicitud histórica sin efecto nuevo')<>0 USING ERRCODE='55000'; END IF;
  nuevo:=pg_catalog.replace(original,marca,insercion||marca);
  EXECUTE nuevo;
  SELECT pg_catalog.pg_get_functiondef(firma) INTO STRICT actual;
@@ -142,7 +154,11 @@ BEGIN
     OR (SELECT proacl FROM pg_catalog.pg_proc WHERE oid=firma) IS DISTINCT FROM acl
     OR (SELECT proowner FROM pg_catalog.pg_proc WHERE oid=firma) IS DISTINCT FROM propietario
     OR (SELECT proconfig FROM pg_catalog.pg_proc WHERE oid=firma) IS DISTINCT FROM config THEN
-  RAISE EXCEPTION 'B77 alteró B30 fuera de guarda' USING ERRCODE='55000'; END IF;
+  RAISE EXCEPTION 'PARO clave=B30.definicion_y_ACL, actual=%, esperado=%',
+   pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(actual||coalesce((SELECT proacl::text FROM pg_catalog.pg_proc WHERE oid=firma),'')||
+    (SELECT proowner::text FROM pg_catalog.pg_proc WHERE oid=firma)||coalesce((SELECT proconfig::text FROM pg_catalog.pg_proc WHERE oid=firma),''),'UTF8')),'hex'),
+   pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(nuevo||coalesce(acl::text,'')||propietario::text||coalesce(config::text,''),'UTF8')),'hex')
+   USING ERRCODE='55000'; END IF;
 END $guardia_b30$;
 
 -- El acto B76 consume la decisión V3 y registra la situación. Esta fachada
@@ -458,9 +474,7 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog SET timezone='UT
  UNION ALL
  SELECT 'solicitud_portal'::text,s.bolsa_ref,s.solicitud_ref,
   pg_catalog.jsonb_build_object('solicitud','documental_rrhh','participacion_ref',s.participacion_ref,
-   'documento_ref',s.documento_ref,'documento_sha256',s.documento_sha256,
-   'fecha_fin_causa',s.fecha_fin_causa,'recibo_ref',s.recibo_ref,
-   'contenido_sha256',s.contenido_sha256,'version',s.version,'estado','pendiente_rrhh'),s.registrada_en
+   'estado','pendiente_rrhh'),s.registrada_en
  FROM vec_bolsa_llamamientos.solicitud_documental_rrhh s
  WHERE s.registrada_en<=p_corte AND NOT EXISTS
   (SELECT 1 FROM vec_bolsa_llamamientos.resolucion_solicitud_documental_rrhh r WHERE r.solicitud_ref=s.solicitud_ref)
@@ -477,7 +491,10 @@ BEGIN
  IF pg_catalog.strpos(v_def,'exigir_consumo_candidato_v1')=0
     OR pg_catalog.strpos(v_def,'ultima_respuesta')=0
     OR pg_catalog.strpos(v_def,'ultima_solicitud_documental')<>0 THEN
-  RAISE EXCEPTION 'B77 lector propio incompatible' USING ERRCODE='55000'; END IF;
+  RAISE EXCEPTION 'PARO clave=lector_propio_marcas, actual=%/%/%, esperado=true/true/false',
+   pg_catalog.strpos(v_def,'exigir_consumo_candidato_v1')<>0,
+   pg_catalog.strpos(v_def,'ultima_respuesta')<>0,
+   pg_catalog.strpos(v_def,'ultima_solicitud_documental')<>0 USING ERRCODE='55000'; END IF;
 END $preimagen_lector$;
 CREATE OR REPLACE FUNCTION vec_bolsa_llamamientos.leer_portal_candidato_v1(
  p_candidato_ref text,p_corte timestamptz,p_resultados_efectivos text[])
@@ -543,13 +560,22 @@ BEGIN
   IF p.publica THEN
    EXECUTE pg_catalog.format('GRANT EXECUTE ON FUNCTION %s TO vec_bolsa_llamamientos_ejecutor',f::text);
   END IF;
+  IF p.nombre='solicitar_documental_portal_v1' THEN
+   IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname='vec_bolsa_llamamientos_portal_externo'
+      AND NOT rolcanlogin AND NOT rolbypassrls) THEN
+    RAISE EXCEPTION 'PARO clave=rol_portal_externo, actual=false, esperado=true' USING ERRCODE='55000'; END IF;
+   EXECUTE pg_catalog.format('GRANT EXECUTE ON FUNCTION %s TO vec_bolsa_llamamientos_portal_externo',f::text);
+  END IF;
   IF (SELECT proowner FROM pg_catalog.pg_proc WHERE oid=f) IS DISTINCT FROM 'vec_bolsa_llamamientos_propietario'::pg_catalog.regrole
      OR (SELECT prosecdef FROM pg_catalog.pg_proc WHERE oid=f) IS DISTINCT FROM p.publica THEN
-   RAISE EXCEPTION 'B77 función o autoridad incompatible: %',p.nombre USING ERRCODE='55000';
+   RAISE EXCEPTION 'PARO clave=funcion_%, actual=%/%, esperado=%/%',p.nombre,
+    (SELECT proowner::text FROM pg_catalog.pg_proc WHERE oid=f),
+    (SELECT prosecdef FROM pg_catalog.pg_proc WHERE oid=f),
+    'vec_bolsa_llamamientos_propietario',p.publica USING ERRCODE='55000';
   END IF;
  END LOOP;
  f:='vec_bolsa_llamamientos.consultar_avisos_portal_rrhh_v1(timestamp with time zone)'::pg_catalog.regprocedure;
  IF NOT pg_catalog.has_function_privilege('vec_bolsa_llamamientos_ejecutor',f,'EXECUTE') THEN
-  RAISE EXCEPTION 'B77 bandeja RRHH sin permiso previo' USING ERRCODE='55000'; END IF;
+  RAISE EXCEPTION 'PARO clave=bandeja_RRHH_EXECUTE, actual=false, esperado=true' USING ERRCODE='55000'; END IF;
 END $acl$;
 COMMIT;
