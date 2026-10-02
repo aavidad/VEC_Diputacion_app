@@ -10,6 +10,8 @@ La provisión del perfil, las concesiones y las claves se realiza separadamente,
 
 La pantalla y el receptor loopback están preparados para el ensayo interno con identidades sintéticas y las autoridades reales del clon. El receptor no se monta en la raíz institucional. La superficie externa y la verificación de méritos continúan cerradas. Una ficha consultada no acredita el mérito ni sustituye una revisión o firma.
 
+El receptor de ensayo fija el actor en su configuración privada y revalida cuenta, contexto y sesión mediante las autoridades PostgreSQL. El transporte de Chrome no observa un certificado de cliente ni autentica por mTLS. El recorrido acredita handler, interfaz y PostgreSQL reales en el clon; la frontera de autenticación del portal institucional queda pendiente. Un fallo 503 devuelve un JSON con código de error saneado, sin ficha ni recibo, no un cuerpo vacío.
+
 ## Estado comprobado
 
 En un clon privado nuevo, las migraciones nuevas se instalaron una vez tras AD142 y Méritos000001. La consulta nominal real recuperó el hecho propio en versión 3 y una ausencia; la consulta de otra persona al mismo hecho devolvió ausencia. Tras reiniciar PostgreSQL y ejecutar otro proceso, la consulta propia volvió a recuperar la versión 3 y la ausencia. Las cuatro tablas de negocio conservaron sus huellas y sus recuentos: un hecho, tres versiones, tres operaciones y tres eventos de outbox. Los recibos de consulta pasaron de cuatro a seis por las dos nuevas lecturas.
