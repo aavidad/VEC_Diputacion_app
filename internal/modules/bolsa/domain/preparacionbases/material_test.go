@@ -1,12 +1,48 @@
 package preparacionbases
 
 import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
 	"reflect"
 	"strings"
 	"testing"
 
 	bolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
 )
+
+func TestMaterialCanonicoConservaHuellaYRechazaOtraRepresentacion(t *testing.T) {
+	m := Material{Contenido: bolsa.ContenidoPublicableConvocatoria{Titulo: "Propuesta sintética"}}
+	b, err := m.RepresentacionCanonica()
+	if err != nil {
+		t.Fatal(err)
+	}
+	suma := sha256.Sum256(b)
+	huella, _ := m.HuellaSHA256()
+	if hex.EncodeToString(suma[:]) != huella {
+		t.Fatal("persistencia altera preimagen de huella")
+	}
+	recuperado, err := DecodificarMaterialCanonico(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	recodificado, _ := recuperado.RepresentacionCanonica()
+	if !bytes.Equal(b, recodificado) {
+		t.Fatal("recuperacion cambia bytes")
+	}
+	for _, entrada := range [][]byte{
+		append(append([]byte{}, b...), ' '),
+		bytes.Replace(b, []byte(`"material":`), []byte(`"extra":0,"material":`), 1),
+		bytes.Replace(b, []byte(`"titulo":"Propuesta sintética"`), []byte(`"titulo":"otra","titulo":"Propuesta sintética"`), 1),
+		[]byte(`{"esquema":"bolsa.preparacion_bases.material.v0","material":{}}`),
+		bytes.Repeat([]byte("x"), MaximoBytesMaterial+129),
+	} {
+		if _, err := DecodificarMaterialCanonico(entrada); !errors.Is(err, ErrMaterialInvalido) {
+			t.Fatalf("bytes no canonicos aceptados: %v", err)
+		}
+	}
+}
 
 func TestEvaluacionVaciaConservaLos23ParesOrdenados(t *testing.T) {
 	evaluacion, err := EvaluarMaterialBases(Material{})
