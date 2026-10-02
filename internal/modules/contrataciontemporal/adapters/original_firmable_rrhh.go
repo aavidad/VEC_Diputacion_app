@@ -7,6 +7,7 @@ import (
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	almacencanonico "vec-diputacion-granada/internal/vec/canonico/almacen"
+	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
 var ErrTiposOriginalFirmableRRHHNoDisponibles = errors.New("contratacion temporal: tipos de original firmable no disponibles")
@@ -26,6 +27,7 @@ type TiposOriginalFirmableRRHH struct {
 }
 
 var _ ports.TiposOriginalFirmableRRHH = (*TiposOriginalFirmableRRHH)(nil)
+var _ vecports.ResolutorTipoOriginalCT = (*TiposOriginalFirmableRRHH)(nil)
 
 var clavesOriginalFirmableRRHH = map[ports.TipoBorradorRRHH]string{
 	ports.BorradorInformeDefinitivo:  "contratacion_temporal.borrador.informe_definitivo.v1",
@@ -69,4 +71,10 @@ func (t *TiposOriginalFirmableRRHH) ResolverTipoOriginalRRHH(ctx context.Context
 		return "", ErrTiposOriginalFirmableRRHHNoDisponibles
 	}
 	return referencia, nil
+}
+
+// ResolverTipoOriginalCT reutiliza la misma instantánea gobernada de seis
+// tipos que consume la fuente RRHH; no interpreta cargos ni datos del cliente.
+func (t *TiposOriginalFirmableRRHH) ResolverTipoOriginalCT(ctx context.Context, documento string) (string, error) {
+	return t.ResolverTipoOriginalRRHH(ctx, ports.TipoBorradorRRHH(documento))
 }

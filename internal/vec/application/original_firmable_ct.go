@@ -18,13 +18,14 @@ import (
 type ServicioOriginalFirmableCT struct {
 	fuente   ports.FuentePDFOriginalCT
 	custodia ports.CustodiaOriginalFirmableCT
+	tipos    ports.ResolutorTipoOriginalCT
 }
 
-func NuevoServicioOriginalFirmableCT(fuente ports.FuentePDFOriginalCT, custodia ports.CustodiaOriginalFirmableCT) (*ServicioOriginalFirmableCT, error) {
-	if dependenciaOriginalCTNula(fuente) || dependenciaOriginalCTNula(custodia) {
+func NuevoServicioOriginalFirmableCT(fuente ports.FuentePDFOriginalCT, custodia ports.CustodiaOriginalFirmableCT, tipos ports.ResolutorTipoOriginalCT) (*ServicioOriginalFirmableCT, error) {
+	if dependenciaOriginalCTNula(fuente) || dependenciaOriginalCTNula(custodia) || dependenciaOriginalCTNula(tipos) {
 		return nil, ports.ErrOriginalFirmableCTNoDisponible
 	}
-	return &ServicioOriginalFirmableCT{fuente: fuente, custodia: custodia}, nil
+	return &ServicioOriginalFirmableCT{fuente: fuente, custodia: custodia, tipos: tipos}, nil
 }
 
 func dependenciaOriginalCTNula(v any) bool {
@@ -46,13 +47,17 @@ func (s *ServicioOriginalFirmableCT) Preparar(ctx context.Context, solicitud por
 		(solicitud.OriginalRef != "" && solicitud.OriginalRef != identidad.Referencia()) {
 		return ports.OriginalFirmableCT{}, ports.ErrOriginalFirmableCTInvalido
 	}
-	if dependenciaOriginalCTNula(s.fuente) || dependenciaOriginalCTNula(s.custodia) {
+	if dependenciaOriginalCTNula(s.fuente) || dependenciaOriginalCTNula(s.custodia) || dependenciaOriginalCTNula(s.tipos) {
 		return ports.OriginalFirmableCT{}, ports.ErrOriginalFirmableCTNoDisponible
+	}
+	tipoEsperado, err := s.tipoOriginalEsperado(ctx, solicitud.Documento)
+	if err != nil {
+		return ports.OriginalFirmableCT{}, err
 	}
 	ref := identidad.Referencia()
 	previo, err := s.custodia.LeerOriginal(ctx, solicitud, ref)
 	if err == nil {
-		if cotejarOriginalFirmableCT(solicitud, previo) != nil {
+		if cotejarOriginalFirmableCT(solicitud, previo, tipoEsperado) != nil {
 			return ports.OriginalFirmableCT{}, ports.ErrOriginalFirmableCTNoDisponible
 		}
 		previo.Contenido = bytes.Clone(previo.Contenido)
@@ -65,7 +70,7 @@ func (s *ServicioOriginalFirmableCT) Preparar(ctx context.Context, solicitud por
 	if err != nil {
 		return ports.OriginalFirmableCT{}, err
 	}
-	if !almacencanonico.ReferenciaDocumentoValida(pdf.TipoRef) || !pdfOriginalCTValido(pdf.Contenido) {
+	if pdf.TipoRef != tipoEsperado || !pdfOriginalCTValido(pdf.Contenido) {
 		return ports.OriginalFirmableCT{}, ports.ErrOriginalFirmableCTInvalido
 	}
 	// La fuente puede reutilizar su buffer. La custodia recibe una copia
@@ -77,7 +82,7 @@ func (s *ServicioOriginalFirmableCT) Preparar(ctx context.Context, solicitud por
 	if err != nil {
 		return ports.OriginalFirmableCT{}, err
 	}
-	if err := cotejarOriginalFirmableCT(solicitud, original); err != nil ||
+	if err := cotejarOriginalFirmableCT(solicitud, original, tipoEsperado); err != nil ||
 		original.TipoRef != pdf.TipoRef ||
 		original.HuellaSHA256 != huella || !bytes.Equal(original.Contenido, pdf.Contenido) {
 		return ports.OriginalFirmableCT{}, ports.ErrOriginalFirmableCTConflicto
@@ -92,14 +97,18 @@ func (s *ServicioOriginalFirmableCT) Leer(ctx context.Context, solicitud ports.S
 		solicitud.OriginalRef == "" || solicitud.OriginalRef != identidad.Referencia() {
 		return ports.OriginalFirmableCT{}, ports.ErrOriginalFirmableCTInvalido
 	}
-	if dependenciaOriginalCTNula(s.custodia) {
+	if dependenciaOriginalCTNula(s.custodia) || dependenciaOriginalCTNula(s.tipos) {
 		return ports.OriginalFirmableCT{}, ports.ErrOriginalFirmableCTNoDisponible
+	}
+	tipoEsperado, err := s.tipoOriginalEsperado(ctx, solicitud.Documento)
+	if err != nil {
+		return ports.OriginalFirmableCT{}, err
 	}
 	original, err := s.custodia.LeerOriginal(ctx, solicitud, solicitud.OriginalRef)
 	if err != nil {
 		return ports.OriginalFirmableCT{}, err
 	}
-	if err := cotejarOriginalFirmableCT(solicitud, original); err != nil {
+	if err := cotejarOriginalFirmableCT(solicitud, original, tipoEsperado); err != nil {
 		return ports.OriginalFirmableCT{}, err
 	}
 	original.Contenido = bytes.Clone(original.Contenido)
@@ -111,9 +120,18 @@ func pdfOriginalCTValido(contenido []byte) bool {
 		bytes.HasPrefix(contenido, []byte("%PDF-"))
 }
 
-func cotejarOriginalFirmableCT(s ports.SolicitudOriginalFirmableCT, original ports.OriginalFirmableCT) error {
+func (s *ServicioOriginalFirmableCT) tipoOriginalEsperado(ctx context.Context, documento string) (string, error) {
+	tipo, err := s.tipos.ResolverTipoOriginalCT(ctx, documento)
+	if err != nil || !almacencanonico.ReferenciaDocumentoValida(tipo) {
+		return "", ports.ErrOriginalFirmableCTNoDisponible
+	}
+	return tipo, nil
+}
+
+func cotejarOriginalFirmableCT(s ports.SolicitudOriginalFirmableCT, original ports.OriginalFirmableCT, tipoEsperado string) error {
 	if original.Referencia != identidadOriginalFirmableCT(s).Referencia() ||
-		original.Version != s.OriginalVersion || !pdfOriginalCTValido(original.Contenido) ||
+		original.Version != s.OriginalVersion || original.TipoRef != tipoEsperado ||
+		!pdfOriginalCTValido(original.Contenido) ||
 		!almacencanonico.HuellaSHA256Valida(original.HuellaSHA256) {
 		return ports.ErrOriginalFirmableCTNoDisponible
 	}
