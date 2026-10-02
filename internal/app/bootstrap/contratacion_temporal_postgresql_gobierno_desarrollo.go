@@ -322,6 +322,7 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		personal.AudienciaPublicarCatalogoEmpleadoB2,
 		personal.AudienciaRetirarCatalogoEmpleadoB2,
 		personal.AudienciaEmpleadosB2,
+		personal.AudienciaConsultaOrganizacionHistorica,
 		// B2 de incorporación: cinco audiencias anteriores y cuatro lecturas o
 		// usos nominales añadidos por AD3-128/127/117/126. El catálogo las
 		// selecciona únicamente con la configuración privada.
