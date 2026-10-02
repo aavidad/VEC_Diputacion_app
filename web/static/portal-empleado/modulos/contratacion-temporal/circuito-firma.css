@@ -259,6 +259,25 @@
   font: inherit;
 }
 
+.ct-circuito-externo {
+  min-width: 0;
+  max-width: 42rem;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.ct-circuito-externo > *,
+.ct-circuito-externo input {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-wrap: anywhere;
+}
+
+.ct-circuito-externo input {
+  width: 100%;
+  font: inherit;
+}
+
 .ct-circuito-devolucion-botones {
   display: flex;
   flex-wrap: wrap;

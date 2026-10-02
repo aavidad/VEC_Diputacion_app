@@ -205,7 +205,9 @@ test("las acciones activas de AutoFirma indican que son PRUEBA", () => {
   });
   const html = renderizarCircuitoFirma(real, crearTraductorCircuitoFirma());
   assert.match(html, /<details class="ct-circuito-prueba" data-ct-firma-detalles>/u);
-  assert.match(html, />Firmar en PRUEBA<\/button>/u);
+  assert.match(html, />Firma con certificado en VEC<\/button>/u);
+  assert.match(html, />Firmado en Portafirmas \(registrado por RRHH\)<\/button>/u);
+  assert.match(html, /Falta que VEC indique el documento original autorizado/u);
   assert.match(html, />Devolver en PRUEBA<\/button>/u);
   assert.match(html, />Registrar devolución de PRUEBA<\/button>/u);
   assert.match(html, /Pendiente de firma de prueba por/u);
@@ -227,7 +229,8 @@ test("verificación apagada mantiene Firmar enfocable y explica por qué no pued
   assert.doesNotMatch(html, /data-ct-firma-accion="firmar"[^>]*\sdisabled(?:\s|>)/u);
   const activo = estado(true);
   const disponible = renderizarAccionesPaso(activo, activo.documentos[0], activo.documentos[0].pasos[0], t);
-  assert.doesNotMatch(disponible, /aria-disabled="true"|La verificación de firmas no está activada/u);
+  assert.doesNotMatch(disponible, /data-ct-firma-accion="firmar"[^>]*aria-disabled="true"|La verificación de firmas no está activada/u);
+  assert.match(disponible, /data-ct-firma-accion="abrir-externo"[^>]* disabled /u);
   assert.match(disponible, /data-ct-firma-accion="firmar"/u);
 });
 
@@ -295,7 +298,8 @@ test("la fase Firmadoc usa el idioma del portal", () => {
   assert.match(html, /If returned, goes back to drafting/u);
   assert.doesNotMatch(html, /Pendiente de firma|Permite remitir|Si se devuelve/u);
   assert.match(html, /AutoFirma · TEST with no administrative effect/u);
-  assert.match(MENSAJES_CIRCUITO_FIRMA_EN.circuito_firma_firmar, /TEST/u);
+  assert.equal(MENSAJES_CIRCUITO_FIRMA_EN.circuito_firma_firmar, "Sign with a certificate in VEC");
+  assert.equal(MENSAJES_CIRCUITO_FIRMA_EN.circuito_firma_externa_abrir, "Signed in Portafirmas (recorded by HR)");
   assert.match(MENSAJES_CIRCUITO_FIRMA_EN.circuito_firma_devolver, /TEST/u);
 });
 
