@@ -41,6 +41,7 @@ type consultaIntegracionConfig struct {
 	Crypto      consultaCryptoConfig           `json:"crypto"`
 	Actors      map[string]consultaActorConfig `json:"actors"`
 	Keys        map[string]consultaClaveConfig `json:"keys"`
+	Passwords   map[string]string              `json:"passwords"`
 	SocketDir   string                         `json:"socket_dir"`
 	HechoRefs   []consultaCasoReal             `json:"hecho_refs"`
 	Motivo      vd.ReferenciaEntradaCatalogo   `json:"motivo"`
@@ -181,10 +182,81 @@ func consultaLeerConfig(ruta, repo string) (consultaIntegracionConfig, error) {
 			return c, errors.New("consulta_integracion.config_caso")
 		}
 	}
+	if err := consultaValidarCredenciales(c); err != nil {
+		return c, err
+	}
 	return c, nil
 }
 
-func consultaAbrirPool(ctx context.Context, socket, login string) (*pgxpool.Pool, error) {
+func consultaPasswordValida(password string) bool {
+	return len(password) > 0 && len(password) <= 1024 && !strings.ContainsAny(password, "\x00\r\n")
+}
+
+func consultaValidarCredenciales(c consultaIntegracionConfig) error {
+	a, ok := c.Actors["lector"]
+	logins := []string{a.ContextLogin, a.RevalidationLogin, a.SourceLogin, a.RegisterLogin, a.ReasonLogin, a.RuntimeLogin}
+	if a.AuditLogin != "" {
+		logins = append(logins, a.AuditLogin)
+	}
+	if !ok || len(c.Passwords) != len(logins) {
+		return errors.New("consulta_integracion.credenciales_no_disponibles")
+	}
+	vistos := make(map[string]bool, len(logins))
+	for _, login := range logins {
+		if vistos[login] || !regexp.MustCompile(`^vec_rum0[34]_[a-z0-9_]{1,40}$`).MatchString(login) || !consultaPasswordValida(c.Passwords[login]) {
+			return errors.New("consulta_integracion.credenciales_no_disponibles")
+		}
+		vistos[login] = true
+	}
+	return nil
+}
+
+func TestConsultaCredencialesNominalesConErrorSaneado(t *testing.T) {
+	actor := consultaActorConfig{ContextLogin: "vec_rum03_contexto", RevalidationLogin: "vec_rum03_reval",
+		SourceLogin: "vec_rum03_fuente", RegisterLogin: "vec_rum03_registro", ReasonLogin: "vec_rum03_motivos",
+		RuntimeLogin: "vec_rum04_lector", AuditLogin: "vec_rum04_auditor"}
+	for _, caso := range []string{"valida", "desconocida", "ausente", "vacia", "login_duplicado", "login_ajeno"} {
+		t.Run(caso, func(t *testing.T) {
+			c := consultaIntegracionConfig{Actors: map[string]consultaActorConfig{"lector": actor}, Passwords: map[string]string{}}
+			for _, login := range []string{actor.ContextLogin, actor.RevalidationLogin, actor.SourceLogin, actor.RegisterLogin, actor.ReasonLogin, actor.RuntimeLogin, actor.AuditLogin} {
+				c.Passwords[login] = "fixture_password_not_for_runtime"
+			}
+			switch caso {
+			case "desconocida":
+				delete(c.Passwords, actor.AuditLogin)
+				c.Passwords["login_no_admitido"] = "fixture_password_not_for_runtime"
+			case "ausente":
+				delete(c.Passwords, actor.RuntimeLogin)
+			case "vacia":
+				c.Passwords[actor.RuntimeLogin] = ""
+			case "login_duplicado":
+				a := actor
+				a.SourceLogin = a.ContextLogin
+				c.Actors["lector"] = a
+			case "login_ajeno":
+				a := actor
+				a.SourceLogin = "postgres"
+				c.Actors["lector"] = a
+			}
+			err := consultaValidarCredenciales(c)
+			if caso == "valida" {
+				if err != nil {
+					t.Fatal("rechaza el catálogo nominal de prueba")
+				}
+			} else if err == nil || err.Error() != "consulta_integracion.credenciales_no_disponibles" {
+				t.Fatal("acepta una credencial no nominal o expone su contenido")
+			}
+		})
+	}
+	if _, err := consultaAbrirPool(context.Background(), "/socket_no_utilizado", actor.RuntimeLogin, ""); err == nil || err.Error() != "consulta_integracion.credenciales_no_disponibles" {
+		t.Fatal("intenta conectar sin credencial o expone un diagnóstico")
+	}
+}
+
+func consultaAbrirPool(ctx context.Context, socket, login, password string) (*pgxpool.Pool, error) {
+	if !consultaPasswordValida(password) {
+		return nil, errors.New("consulta_integracion.credenciales_no_disponibles")
+	}
 	if !regexp.MustCompile(`^vec_rum0[34]_[a-z0-9_]{1,40}$`).MatchString(login) || !filepath.IsAbs(socket) || filepath.Clean(socket) != socket {
 		return nil, errors.New("consulta_integracion.pool_alcance")
 	}
@@ -200,7 +272,7 @@ func consultaAbrirPool(ctx context.Context, socket, login string) (*pgxpool.Pool
 	// Fija cada entrada de conexión; no hereda hosts alternativos, contraseñas,
 	// TLS o base desde el entorno. El único destino es el socket privado dado.
 	cfg.ConnConfig.Host, cfg.ConnConfig.Port, cfg.ConnConfig.Database, cfg.ConnConfig.User = socket, 5432, "postgres", login
-	cfg.ConnConfig.Password, cfg.ConnConfig.TLSConfig, cfg.ConnConfig.Fallbacks = "", nil, nil
+	cfg.ConnConfig.Password, cfg.ConnConfig.TLSConfig, cfg.ConnConfig.Fallbacks = password, nil, nil
 	cfg.ConnConfig.RuntimeParams = map[string]string{}
 	cfg.ConnConfig.ConnectTimeout = 3 * time.Second
 	cfg.MaxConns, cfg.MinConns = 1, 0
@@ -232,7 +304,7 @@ func consultaComponerReal(ctx context.Context, c consultaIntegracionConfig, audi
 		return fallo("consulta_integracion.actor")
 	}
 	abrir := func(login string) (*pgxpool.Pool, error) {
-		p, err := consultaAbrirPool(ctx, c.SocketDir, login)
+		p, err := consultaAbrirPool(ctx, c.SocketDir, login, c.Passwords[login])
 		if err == nil {
 			pools = append(pools, p)
 		}
@@ -573,6 +645,7 @@ func TestConsultaIntegracionReal(t *testing.T) {
 	}
 	defer clear(c.Crypto.Seed)
 	defer clear(c.Crypto.HMAC)
+	defer clear(c.Passwords)
 	defer func() {
 		for _, k := range c.Keys {
 			clear(k.HMAC)
