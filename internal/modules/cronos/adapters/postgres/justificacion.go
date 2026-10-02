@@ -13,6 +13,7 @@ import (
 	"vec-diputacion-granada/internal/modules/cronos/application"
 	"vec-diputacion-granada/internal/modules/cronos/domain"
 	"vec-diputacion-granada/internal/modules/cronos/ports"
+	docports "vec-diputacion-granada/internal/vec/documentos/ports"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
@@ -20,7 +21,7 @@ const (
 	consultaResolverEmpleadoJustificacion = `SELECT vec_cronos_v1.resolver_empleado_justificacion_v1($1)`
 	consultaPrepararJustificacion         = `SELECT vec_cronos_v1.consultar_justificacion_v1($1,$2,$3,$4,$5,$6::numeric,$7::numeric,$8,$9,$10,$11)`
 	consultaReciboJustificacion           = `SELECT vec_cronos_v1.recuperar_recibo_justificacion_v1($1,$2,$3,$4,$5,$6::numeric,$7::numeric,$8,$9,$10,$11)`
-	consultaAnexarJustificacion           = `SELECT vec_cronos_v1.anexar_justificacion_v1($1,$2,$3,$4,$5,$6,$7::numeric,$8::numeric,$9,$10,$11,$12)`
+	consultaAnexarJustificacion           = `SELECT vec_cronos_v1.anexar_justificacion_v1($1,$2,$3::jsonb,$4,$5,$6,$7,$8::numeric,$9::numeric,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19::numeric,$20::numeric,$21,$22,$23,$24)`
 	consultaRevisarJustificacion          = `SELECT vec_cronos_v1.revisar_justificacion_v1($1,$2,$3,$4,$5,$6::numeric,$7::numeric,$8,$9,$10,$11)`
 )
 
@@ -85,15 +86,16 @@ func (f *FuenteJustificacion) PrepararJustificacion(ctx context.Context, orden p
 }
 
 type RepositorioJustificacion struct {
-	db       iniciadorMarcaje
-	lecturas ports.ProveedorLecturaJustificacion
+	db             iniciadorMarcaje
+	lecturas       ports.ProveedorLecturaJustificacion
+	docConfirmador docports.ProveedorConfirmacionAltaExternaEnlace
 }
 
-func NuevoRepositorioJustificacion(pool *pgxpool.Pool, lecturas ports.ProveedorLecturaJustificacion) (*RepositorioJustificacion, error) {
-	if pool == nil || dependenciaPostgresNula(lecturas) {
+func NuevoRepositorioJustificacion(pool *pgxpool.Pool, lecturas ports.ProveedorLecturaJustificacion, docConfirmador docports.ProveedorConfirmacionAltaExternaEnlace) (*RepositorioJustificacion, error) {
+	if pool == nil || dependenciaPostgresNula(lecturas) || dependenciaPostgresNula(docConfirmador) {
 		return nil, ports.ErrJustificacionNoDisponible
 	}
-	return &RepositorioJustificacion{db: pool, lecturas: lecturas}, nil
+	return &RepositorioJustificacion{db: pool, lecturas: lecturas, docConfirmador: docConfirmador}, nil
 }
 
 func errorJustificacion(ctx context.Context, err error) error {
@@ -193,14 +195,42 @@ func (r *RepositorioJustificacion) ConfirmarJustificacion(ctx context.Context, m
 	var bruto []byte
 	switch m.Accion {
 	case domain.AccionAnexarJustificacion:
-		if registro == nil || registro.Documento != m.Vinculo.Documento || registro.ModuloID != "cronos" || registro.ExpedienteRef != m.Vinculo.ExpedienteDocumentalRef {
+		if registro == nil || dependenciaPostgresNula(r.docConfirmador) || registro.Documento != m.Vinculo.Documento || registro.ModuloID != "cronos" || registro.ExpedienteRef != m.Vinculo.ExpedienteDocumentalRef {
 			return ports.ReciboJustificacion{}, ports.ErrJustificacionNoDisponible
 		}
 		registrado, e := json.Marshal(registro)
 		if e != nil {
 			return ports.ReciboJustificacion{}, ports.ErrJustificacionNoDisponible
 		}
-		bruto, err = ejecutarAnexoJustificacionV3(ctx, r.db, registrado, b, v3)
+		huella, e := m.Huella()
+		if e != nil {
+			return ports.ReciboJustificacion{}, ports.ErrJustificacionNoDisponible
+		}
+		solicitudDoc := docports.SolicitudConfirmacionAltaExternaEnlace{
+			DocumentoID: registro.Documento.ID, ExpedienteRef: registro.ExpedienteRef, TipoRef: registro.TipoRef,
+			Version: registro.Documento.Version, ContenidoSHA256: registro.Documento.SHA256,
+			CustodioID: registro.Documento.CustodioID, CustodiaRef: registro.Documento.CustodiaRef,
+			ClaveAlta: m.ClaveOperacion, ActorAltaRef: m.ActorRef, SolicitudRef: m.Vinculo.SolicitudRef,
+			MaterialEnlaceSHA256: huella,
+		}
+		preimagenDoc, e := solicitudDoc.Preimagen()
+		if e != nil {
+			return ports.ReciboJustificacion{}, ports.ErrJustificacionNoDisponible
+		}
+		defer clear(preimagenDoc)
+		autorizacionDoc, e := r.docConfirmador.AutorizarConfirmacionAltaExternaEnlace(ctx, solicitudDoc)
+		if e != nil {
+			return ports.ReciboJustificacion{}, errorProveedorV3(ctx, e)
+		}
+		if autorizacionDoc.PrincipalID != m.ActorRef || autorizacionDoc.Validar(solicitudDoc, time.Now().UTC()) != nil {
+			return ports.ReciboJustificacion{}, ports.ErrJustificacionNoDisponible
+		}
+		authDoc, e := autorizacionDoc.AuthJSON(solicitudDoc)
+		if e != nil {
+			return ports.ReciboJustificacion{}, ports.ErrJustificacionNoDisponible
+		}
+		defer clear(authDoc)
+		bruto, err = ejecutarAnexoJustificacionV3(ctx, r.db, registrado, preimagenDoc, authDoc, autorizacionDoc.Material, b, v3)
 	case domain.AccionRevisarJustificacion:
 		if registro != nil {
 			return ports.ReciboJustificacion{}, ports.ErrJustificacionNoDisponible
@@ -232,14 +262,18 @@ func mismoRegistroSQL(a, b ports.RegistroDocumentalConfirmado) bool {
 		a.ConservacionHastaUTC.Equal(b.ConservacionHastaUTC) && a.Proteccion == b.Proteccion && a.EstadoPolitica == b.EstadoPolitica
 }
 
-// Anexar transporta la confirmación de Documentos como primer parámetro; la
-// huella del efecto V3 sigue ligada únicamente al MaterialJustificacion.
-func ejecutarAnexoJustificacionV3(ctx context.Context, db iniciadorMarcaje, registro, material []byte, v3 vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3) ([]byte, error) {
-	if db == nil || ctx == nil || len(registro) == 0 || len(material) == 0 || v3.ValidarEstructura() != nil {
+// Anexar transporta una V3 Documentos nueva y la V3 Cronos propia. Ambas se
+// consumen por fachadas nominales dentro de la misma transacción.
+func ejecutarAnexoJustificacionV3(ctx context.Context, db iniciadorMarcaje, registro, preimagenDoc, authDoc []byte, docV3 vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, material []byte, v3 vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3) ([]byte, error) {
+	if db == nil || ctx == nil || len(registro) == 0 || len(preimagenDoc) == 0 || len(authDoc) == 0 || len(material) == 0 || docV3.ValidarEstructura() != nil || v3.ValidarEstructura() != nil {
 		return nil, ports.ErrJustificacionNoDisponible
 	}
+	secretosDoc := [][]byte{docV3.CapacidadCanonica(), docV3.DecisionCanonica(), docV3.MotivoCanonico(), docV3.ContextoActorCanonico(), docV3.PayloadVECAD3(), docV3.SobreCOSESign1(), docV3.EvidenciaVerificacion(), docV3.RaizPublicaSPKI()}
 	secretos := [][]byte{v3.CapacidadCanonica(), v3.DecisionCanonica(), v3.MotivoCanonico(), v3.ContextoActorCanonico(), v3.PayloadVECAD3(), v3.SobreCOSESign1(), v3.EvidenciaVerificacion(), v3.RaizPublicaSPKI()}
 	defer func() {
+		for _, b := range secretosDoc {
+			clear(b)
+		}
 		for _, b := range secretos {
 			clear(b)
 		}
@@ -257,7 +291,10 @@ func ejecutarAnexoJustificacionV3(ctx context.Context, db iniciadorMarcaje, regi
 		return nil, errorSeguro(ctx, err)
 	}
 	var bruto []byte
-	if err := tx.QueryRow(ctx, consultaAnexarJustificacion, string(registro), string(material), secretos[0], secretos[1], secretos[2], secretos[3], v3.PersonaVersion(), v3.PerfilVersion(), secretos[4], secretos[5], secretos[6], secretos[7]).Scan(&bruto); err != nil {
+	if err := tx.QueryRow(ctx, consultaAnexarJustificacion,
+		string(registro), preimagenDoc, string(authDoc),
+		secretosDoc[0], secretosDoc[1], secretosDoc[2], secretosDoc[3], docV3.PersonaVersion(), docV3.PerfilVersion(), secretosDoc[4], secretosDoc[5], secretosDoc[6], secretosDoc[7],
+		string(material), secretos[0], secretos[1], secretos[2], secretos[3], v3.PersonaVersion(), v3.PerfilVersion(), secretos[4], secretos[5], secretos[6], secretos[7]).Scan(&bruto); err != nil {
 		return nil, errorJustificacion(ctx, err)
 	}
 	if err := tx.Commit(ctx); err != nil {

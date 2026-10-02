@@ -14,8 +14,67 @@ import (
 	"vec-diputacion-granada/internal/modules/cronos/application"
 	"vec-diputacion-granada/internal/modules/cronos/domain"
 	"vec-diputacion-granada/internal/modules/cronos/ports"
+	docports "vec-diputacion-granada/internal/vec/documentos/ports"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
+
+type proveedorConfirmacionDocPrueba struct {
+	t                 *testing.T
+	principalCambiado bool
+	audienciaCambiada bool
+}
+
+func (p proveedorConfirmacionDocPrueba) AutorizarConfirmacionAltaExternaEnlace(_ context.Context, s docports.SolicitudConfirmacionAltaExternaEnlace) (docports.AutorizacionConfirmacionAltaExternaEnlace, error) {
+	p.t.Helper()
+	if _, err := s.Preimagen(); err != nil {
+		p.t.Fatal("solicitud Doc alterada", err)
+	}
+	r, err := s.RecursoV3()
+	if err != nil {
+		p.t.Fatal(err)
+	}
+	audiencia := docports.AudienciaConfirmarAltaExternaEnlace
+	if p.audienciaCambiada {
+		audiencia = application.AudienciaJustificacion
+	}
+	principal := s.ActorAltaRef
+	if p.principalCambiado {
+		principal = "per_ZZZZZZZZZZZZZZZZZZZZZZ"
+	}
+	return docports.AutorizacionConfirmacionAltaExternaEnlace{
+		Material:    exportacionPrueba(p.t, docports.AccionConfirmarAltaExternaEnlace, audiencia, r),
+		PrincipalID: principal, PerfilActivoRef: "prf_ZZZZZZZZZZZZZZZZZZZZZZ", CorrelacionRef: "ref:" + strings.Repeat("3", 64),
+	}, nil
+}
+
+type txAnexoJustificacionPrueba struct {
+	*txLecturaPrueba
+	argumentos []any
+}
+
+func (t *txAnexoJustificacionPrueba) QueryRow(ctx context.Context, q string, args ...any) pgx.Row {
+	t.argumentos = make([]any, len(args))
+	for i, v := range args {
+		if b, ok := v.([]byte); ok {
+			t.argumentos[i] = append([]byte(nil), b...)
+		} else {
+			t.argumentos[i] = v
+		}
+	}
+	return t.txLecturaPrueba.QueryRow(ctx, q, args...)
+}
+
+type dbAnexoJustificacionPrueba struct {
+	t  *testing.T
+	tx *txAnexoJustificacionPrueba
+}
+
+func (d dbAnexoJustificacionPrueba) BeginTx(_ context.Context, o pgx.TxOptions) (pgx.Tx, error) {
+	if d.tx == nil || o.IsoLevel != pgx.Serializable || o.AccessMode != pgx.ReadWrite {
+		d.t.Fatal("transacción anexo no serializable")
+	}
+	return d.tx, nil
+}
 
 func materialYRegistroJustificacion(t *testing.T) (domain.MaterialJustificacion, domain.Justificacion, ports.RegistroDocumentalConfirmado) {
 	t.Helper()
@@ -59,8 +118,8 @@ func TestRepositorioJustificacionAnexoTransportaConfirmacionYMaterialSeparados(t
 		ReciboRef: "recibo:cronos:0b9f3c2e-1d4a-4c6b-9e8f-0a1b2c3d4e5f", FechaUTC: time.Date(2026, 10, 2, 8, 1, 0, 0, time.UTC)}
 	salida, _ := json.Marshal(recibo)
 	salida = []byte(strings.ReplaceAll(string(salida), `Z"`, `+00:00"`))
-	tx := &txLecturaPrueba{respuestas: [][]byte{salida}}
-	r := &RepositorioJustificacion{db: dbLecturaPrueba{t: t, tx: tx}}
+	tx := &txAnexoJustificacionPrueba{txLecturaPrueba: &txLecturaPrueba{respuestas: [][]byte{salida}}}
+	r := &RepositorioJustificacion{db: dbAnexoJustificacionPrueba{t: t, tx: tx}, docConfirmador: proveedorConfirmacionDocPrueba{t: t}}
 	got, err := r.ConfirmarJustificacion(context.Background(), m, j, &registro, v3)
 	if err != nil || tx.commits != 1 || len(tx.consultas) != 1 || tx.consultas[0] != consultaAnexarJustificacion || got.ReciboRef != recibo.ReciboRef ||
 		got.FechaUTC.Location() != time.UTC || got.Registro == nil || got.Registro.CreadoEnUTC.Location() != time.UTC || got.Registro.ConservacionHastaUTC.Location() != time.UTC {
@@ -70,11 +129,46 @@ func TestRepositorioJustificacionAnexoTransportaConfirmacionYMaterialSeparados(t
 	if json.Unmarshal([]byte(tx.materiales[0]), &enviado) != nil || !mismoRegistroSQL(enviado, registro) {
 		t.Fatal("no se transportó la confirmación exacta")
 	}
+	if len(tx.argumentos) != 24 || tx.argumentos[13] != string(mustCanonicoJustificacion(t, m)) {
+		t.Fatal("anexo no transportó ambas V3 y material exacto", len(tx.argumentos))
+	}
+	var preimagen struct {
+		ActorRef             string `json:"actor_ref"`
+		SolicitudRef         string `json:"solicitud_ref"`
+		MaterialEnlaceSHA256 string `json:"material_enlace_sha256"`
+	}
+	if json.Unmarshal(tx.argumentos[1].([]byte), &preimagen) != nil || preimagen.ActorRef != m.ActorRef || preimagen.SolicitudRef != m.Vinculo.SolicitudRef || preimagen.MaterialEnlaceSHA256 != h {
+		t.Fatal("preimagen Doc no liga material Cronos")
+	}
+	var auth struct {
+		PrincipalID     string `json:"principal_id"`
+		PerfilActivoRef string `json:"perfil_activo_ref"`
+	}
+	if json.Unmarshal([]byte(tx.argumentos[2].(string)), &auth) != nil || auth.PrincipalID != m.ActorRef || auth.PerfilActivoRef == m.PerfilRef {
+		t.Fatal("perfil Doc derivado indebidamente de Cronos")
+	}
 	ajena := exportacionPrueba(t, domain.AccionRevisarJustificacion, application.AudienciaJustificacion, recurso)
 	fallo := &RepositorioJustificacion{db: dbLecturaPrueba{t: t}}
 	if _, err := fallo.ConfirmarJustificacion(context.Background(), m, j, &registro, ajena); !errors.Is(err, ports.ErrJustificacionNoDisponible) {
 		t.Fatal("acepta V3 de otra acción", err)
 	}
+	for _, caso := range []string{"principal ajeno", "audiencia ajena"} {
+		t.Run(caso, func(t *testing.T) {
+			fallo.docConfirmador = proveedorConfirmacionDocPrueba{t: t, principalCambiado: caso == "principal ajeno", audienciaCambiada: caso == "audiencia ajena"}
+			if _, err := fallo.ConfirmarJustificacion(context.Background(), m, j, &registro, v3); !errors.Is(err, ports.ErrJustificacionNoDisponible) {
+				t.Fatal("acepta material Doc ajeno", err)
+			}
+		})
+	}
+}
+
+func mustCanonicoJustificacion(t *testing.T, m domain.MaterialJustificacion) []byte {
+	t.Helper()
+	b, err := m.Canonico()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return b
 }
 
 type proveedorLecturaJustificacionPrueba struct {
