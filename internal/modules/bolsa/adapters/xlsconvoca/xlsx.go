@@ -683,9 +683,9 @@ func leerHojaXLSX(ctx context.Context, datos []byte, compartidas []string, estil
 				columna := ultimaColumna + 1
 				if ref := atributo(t.Attr, "r"); ref != "" {
 					var filaRef int
-					columna, filaRef = coordenadaXLSX(ref)
-					if columna > maximoColumnasXLS {
-						return nil, nil, ErrLimiteXLSExcedido
+					columna, filaRef, err = coordenadaXLSX(ref)
+					if err != nil {
+						return nil, nil, err
 					}
 					if columna < 1 || filaRef != numero || columna <= ultimaColumna {
 						return nil, nil, ErrXLSInvalido
@@ -772,23 +772,23 @@ func leerCeldaXLSX(dec *xml.Decoder, inicio xml.StartElement) (celdaXLSX, error)
 	}
 }
 
-func coordenadaXLSX(referencia string) (int, int) {
+func coordenadaXLSX(referencia string) (int, int, error) {
 	columna, i := 0, 0
 	for i < len(referencia) && referencia[i] >= 'A' && referencia[i] <= 'Z' {
 		columna = columna*26 + int(referencia[i]-'A') + 1
 		i++
 		if columna > maximoColumnasXLS {
-			return columna, 0
+			return 0, 0, ErrLimiteXLSExcedido
 		}
 	}
 	if i == 0 || i == len(referencia) {
-		return 0, 0
+		return 0, 0, ErrXLSInvalido
 	}
 	fila, err := strconv.Atoi(referencia[i:])
 	if err != nil || fila < 1 {
-		return 0, 0
+		return 0, 0, ErrXLSInvalido
 	}
-	return columna, fila
+	return columna, fila, nil
 }
 
 func convertirCeldaXLSX(c celdaXLSX, compartidas []string, estilos []bool) (dominio.CeldaStaging, error) {
