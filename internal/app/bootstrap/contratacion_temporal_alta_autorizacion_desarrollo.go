@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"context"
+	"errors"
 	"time"
 	bolsapersonal "vec-diputacion-granada/internal/modules/bolsa/adapters/httppersonal"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
@@ -251,22 +252,22 @@ func (s *soporteAltaContratacionTemporalDesarrollo) motivoDeCatalogo(clave domai
 // consultar para que el marcador privado coincida con actor y perfil vigentes.
 func (s *soporteAltaContratacionTemporalDesarrollo) motivoAltaAdmitido(
 	ctx context.Context, organizacionRef string, clave domain.ClaveCatalogo,
-) bool {
+) (bool, error) {
 	if s.motivoDeCatalogo(clave) {
-		return true
+		return true, nil
 	}
 	operativo, err := s.contextoOperativoDesarrollo(ctx)
 	if err != nil {
-		return false
+		return false, err
 	}
 	vinculo, err := operativo.Vinculo.Datos()
 	if err != nil {
-		return false
+		return false, err
 	}
 	if application.PoliticaFinAltaConfirmadaPara(
 		ctx, organizacionRef, vinculo.PrincipalID, vinculo.PerfilActivoRef, clave,
 	) {
-		return true
+		return true, nil
 	}
 	// La petición ratificada conserva su propia instantánea c12. El
 	// contexto privado de entrega liga actor, perfil, clave y solicitud;
@@ -277,7 +278,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) motivoAltaAdmitido(
 		entrega.ActorRef == vinculo.PrincipalID && entrega.PerfilRef == vinculo.PerfilActivoRef &&
 		entrega.Peticion.Solicitud.MotivoClave == clave && periodo.Fin.IsZero() &&
 		periodo.PoliticaFin.Validar() == nil &&
-		ports.SelloHMACSHA256Valido(entrega.AmbitoAltaHMAC)
+		ports.SelloHMACSHA256Valido(entrega.AmbitoAltaHMAC), nil
 }
 
 // PrepararPeriodoModalidad añade al periodo la publicación exacta de c12.
@@ -311,8 +312,14 @@ func (s *soporteAltaContratacionTemporalDesarrollo) ResolverFlujoAlta(
 	if !s.capacidadAltaValida(ctx) || solicitud.Validar() != nil ||
 		solicitud.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo ||
 		!centroValido ||
-		!s.categoriaDeCatalogo(solicitud.CategoriaRef) ||
-		!s.motivoAltaAdmitido(ctx, solicitud.OrganizacionRef, solicitud.MotivoClave) {
+		!s.categoriaDeCatalogo(solicitud.CategoriaRef) {
+		return ports.ConfiguracionAltaFlujo{}, ports.ErrFlujoNoDisponible
+	}
+	admitido, err := s.motivoAltaAdmitido(ctx, solicitud.OrganizacionRef, solicitud.MotivoClave)
+	if err != nil {
+		return ports.ConfiguracionAltaFlujo{}, errors.Join(ports.ErrFlujoNoDisponible, err)
+	}
+	if !admitido {
 		return ports.ConfiguracionAltaFlujo{}, ports.ErrFlujoNoDisponible
 	}
 	return s.flujo, nil
@@ -324,8 +331,14 @@ func (s *soporteAltaContratacionTemporalDesarrollo) ResolverMotivoAutorizacionAl
 ) (dominiovec.ReferenciaEntradaCatalogo, error) {
 	if !s.capacidadAltaValida(ctx) || solicitud.Validar() != nil ||
 		solicitud.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo ||
-		solicitud.Flujo != s.flujo.Flujo ||
-		!s.motivoAltaAdmitido(ctx, solicitud.OrganizacionRef, solicitud.MotivoClave) {
+		solicitud.Flujo != s.flujo.Flujo {
+		return dominiovec.ReferenciaEntradaCatalogo{}, ports.ErrMotivoAutorizacionNoDisponible
+	}
+	admitido, err := s.motivoAltaAdmitido(ctx, solicitud.OrganizacionRef, solicitud.MotivoClave)
+	if err != nil {
+		return dominiovec.ReferenciaEntradaCatalogo{}, errors.Join(ports.ErrMotivoAutorizacionNoDisponible, err)
+	}
+	if !admitido {
 		return dominiovec.ReferenciaEntradaCatalogo{}, ports.ErrMotivoAutorizacionNoDisponible
 	}
 	return s.motivo, nil
