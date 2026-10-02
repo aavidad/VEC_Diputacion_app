@@ -177,7 +177,7 @@ func consultaLeerConfig(ruta, repo string) (consultaIntegracionConfig, error) {
 	}
 	for _, h := range c.HechoRefs {
 		if !merdom.ReferenciaValida(h.HechoRef) || h.Version < 0 ||
-			(h.Expected != "obtenida" && h.Expected != "no_encontrada" && h.Expected != "denegada") || h.Expected == "obtenida" && h.Version == 0 || h.Expected != "obtenida" && h.Version != 0 {
+			(h.Expected != "obtenida" && h.Expected != "no_encontrada" && h.Expected != "denegada" && h.Expected != "no_disponible") || h.Expected == "obtenida" && h.Version == 0 || h.Expected != "obtenida" && h.Version != 0 {
 			return c, errors.New("consulta_integracion.config_caso")
 		}
 	}
@@ -593,8 +593,12 @@ func TestConsultaIntegracionReal(t *testing.T) {
 		r.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 		handler.ServeHTTP(w, r)
-		if h.Expected == "denegada" {
-			if w.Code != http.StatusForbidden || bytes.Contains(w.Body.Bytes(), []byte("hecho_actual")) || bytes.Contains(w.Body.Bytes(), []byte("recibo_consulta")) {
+		if h.Expected == "denegada" || h.Expected == "no_disponible" {
+			estado := http.StatusForbidden
+			if h.Expected == "no_disponible" {
+				estado = http.StatusServiceUnavailable
+			}
+			if w.Code != estado || bytes.Contains(w.Body.Bytes(), []byte("hecho_actual")) || bytes.Contains(w.Body.Bytes(), []byte("recibo_consulta")) {
 				t.Fatal("consulta_integracion.denegacion")
 			}
 		} else {
