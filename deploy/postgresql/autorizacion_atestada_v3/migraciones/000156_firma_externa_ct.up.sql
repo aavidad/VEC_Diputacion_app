@@ -202,13 +202,15 @@ BEGIN
  EXCEPTION WHEN data_exception THEN RAISE EXCEPTION 'AD3-156: material inválido' USING ERRCODE='22023'; END;
  IF jsonb_typeof(s) IS DISTINCT FROM 'object' OR jsonb_typeof(c) IS DISTINCT FROM 'object'
     OR jsonb_typeof(d) IS DISTINCT FROM 'object'
-    OR (SELECT count(*) FROM jsonb_object_keys(s))<>38
+    OR (SELECT count(*) FROM jsonb_object_keys(s))<>44
     OR NOT (s ?& ARRAY[
      'Via','OrganizacionRef','ExpedienteRef','VersionExpediente','Documento','CatalogoRef','CatalogoHuella',
      'PasoRef','PasoOrden','Secuencia','OriginalRef','OriginalVersion','OriginalHuella','FirmadoHuella',
      'CertificadoHuella','FirmanteRef','FirmantePrincipalRef','PerfilFirmanteRef','CargoFirmante',
-     'UnidadFirmanteRef','PuestoFirmanteRef','AmbitoFirmanteRef','AsignacionFirmanteRef',
-     'AsignacionFirmanteVersion','AsignacionFirmanteHuella','AsignacionVigenteDesde','AsignacionVigenteHasta',
+     'UnidadFirmanteRef','PerfilActivoFirmanteRef','PuestoFirmanteRef','AmbitoFirmanteRef','AsignacionFirmanteRef',
+     'AsignacionFirmanteVersion','AsignacionFirmanteHuella','VersionRolFirmanteRef','VersionRolFirmanteHuella',
+     'ControlVigenciaFirmanteRef','ControlVigenciaFirmanteRevision','ControlVigenciaFirmanteHuella',
+     'AsignacionVigenteDesde','AsignacionVigenteHasta',
      'CompetenciaComprobadaEn','ActoCompetenciaRef','DelegacionRef','PoliticaVerificacion',
      'RevocacionEstado','SelloTiempoEstado','ReferenciaPortafirmasDeclarada','FechaPortafirmasDeclarada',
      'ClaveIdempotencia','DocumentoCustodiaRef','DocumentoCustodiaVersion'])
