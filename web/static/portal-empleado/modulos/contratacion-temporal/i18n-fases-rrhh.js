@@ -42,12 +42,6 @@ const ROTULOS = Object.freeze(Object.fromEntries(await Promise.all(
   ]),
 )));
 
-const ROTULOS_CIRCUITO = Object.freeze(Object.fromEntries(await Promise.all(
-  IDIOMAS_DISPONIBLES.map(async ({ codigo }) => [codigo,
-    (await cargarTextos("contratacion-temporal-circuito-rrhh", { idioma: codigo })).seccion("fases"),
-  ]),
-)));
-
 /** Rótulo del catálogo en el idioma de la interfaz. */
 export function rotuloTramite(clave, variables = {}, idioma = IDIOMA_ACTUAL) {
   const catalogo = ROTULOS[idioma] ?? ROTULOS[IDIOMA_POR_DEFECTO];
@@ -59,11 +53,7 @@ export function rotuloTramite(clave, variables = {}, idioma = IDIOMA_ACTUAL) {
 
 /** Rótulos de las ocho fases en la forma de claves i18n de otros catálogos. */
 export function rotulosFasesComoMensajes(prefijo, idioma = IDIOMA_ACTUAL) {
-  const circuito = ROTULOS_CIRCUITO[idioma] ?? ROTULOS_CIRCUITO[IDIOMA_POR_DEFECTO];
-  return {
-    ...Object.fromEntries(FASES_RRHH.map((fase) => [`${prefijo}${fase}`, rotuloTramite(`fase_${fase}`, {}, idioma)])),
-    ...Object.fromEntries(Object.entries(circuito).map(([fase, etiqueta]) => [`${prefijo}circuito_${fase}`, etiqueta])),
-  };
+  return Object.fromEntries(FASES_RRHH.map((fase) => [`${prefijo}${fase}`, rotuloTramite(`fase_${fase}`, {}, idioma)]));
 }
 
 /** Fase de RRHH (clave, orden y total) de una fase del servidor; null si no tiene. */

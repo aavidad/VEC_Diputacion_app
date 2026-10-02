@@ -837,6 +837,13 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	}
 	rutas = append(rutas, rutaCatalogosAlta, rutaConfiguracionAnalisis)
 	if consultaCircuitoRRHH != nil {
+		if dependenciaEsNulaContratacionTemporalDesarrollo(alta.postgresql.registradorAuditoriaFrontera) {
+			return nil, nil, nil, ports.ErrConsultaCircuitoRRHHNoDisponible
+		}
+		consultaCircuitoRRHH = auditorConsultaCircuitoRRHHDenegada{
+			siguiente: consultaCircuitoRRHH, registrador: alta.postgresql.registradorAuditoriaFrontera,
+			soporte: alta.soporte, reloj: reloj,
+		}
 		rutas = append(rutas, vechttp.RutaExacta{Ruta: httpinterno.RutaConsultaCircuitoRRHH, Manejador: consultaCircuitoRRHH})
 	}
 	if len(incorporacion) == 1 && incorporacion[0].nominales != nil && incorporacion[0].nominales.montajeB2 != nil {

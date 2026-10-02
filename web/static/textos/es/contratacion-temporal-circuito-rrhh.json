@@ -3,6 +3,8 @@
     "titulo": "Circuito de contratación",
     "consultar": "Consultar el circuito",
     "fase_actual": "Trámite actual:",
+    "ver_fase_estado": "{fase}: {estado}",
+    "resumen_fases": "{hechas} hechas · {ahora} actuales · {faltan} pendientes",
     "sin_hitos": "Todavía no constan actuaciones en este circuito.",
     "continuar": "Para continuar, consulte las tareas del expediente.",
     "consultando": "Consultando el circuito…",

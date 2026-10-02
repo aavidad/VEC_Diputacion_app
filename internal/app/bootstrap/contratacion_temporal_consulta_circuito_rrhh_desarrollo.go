@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"context"
+	"encoding/json"
 	"maps"
 	"net/http"
 	"time"
@@ -13,9 +14,89 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	seguridadvec "vec-diputacion-granada/internal/vec/adapters/seguridad"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
+	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
 
 const clavePerfilFijoConsultaCircuitoRRHHDesarrollo = "consulta_circuito_rrhh"
+
+// La denegación SQL revierte su propia transacción. La bitácora de frontera
+// usa otra conexión y debe quedar confirmada antes de emitir el rechazo.
+type auditorConsultaCircuitoRRHHDenegada struct {
+	siguiente   http.Handler
+	registrador puertosvec.RegistradorAuditoriaFronteraRutaExacta
+	soporte     *soporteAltaContratacionTemporalDesarrollo
+	reloj       relojContratacionTemporalDesarrollo
+}
+
+func (a auditorConsultaCircuitoRRHHDenegada) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if w == nil {
+		return
+	}
+	if r == nil || r.URL == nil || a.siguiente == nil ||
+		dependenciaEsNulaContratacionTemporalDesarrollo(a.registrador) ||
+		dependenciaEsNulaContratacionTemporalDesarrollo(a.reloj) ||
+		r.URL.Path != httpinterno.RutaConsultaCircuitoRRHH {
+		responderConsultaCircuitoAuditoriaNoDisponible(w)
+		return
+	}
+	respuesta := &respuestaConsultaReciboDiferida{cabeceras: make(http.Header)}
+	a.siguiente.ServeHTTP(respuesta, r)
+	estado := respuesta.estado
+	if estado == 0 {
+		estado = http.StatusOK
+	}
+	if estado == http.StatusNotFound || estado == http.StatusForbidden || estado == http.StatusUnauthorized {
+		var cuerpo struct {
+			Error struct {
+				CorrelacionRef string `json:"correlacion_ref"`
+			} `json:"error"`
+		}
+		if json.Unmarshal(respuesta.cuerpo.Bytes(), &cuerpo) != nil {
+			responderConsultaCircuitoAuditoriaNoDisponible(w)
+			return
+		}
+		motivo := puertosvec.MotivoAuditoriaFronteraRutaExactaAccesoDenegado
+		if estado == http.StatusUnauthorized {
+			motivo = puertosvec.MotivoAuditoriaFronteraRutaExactaAutenticacionRequerida
+		}
+		orden := puertosvec.OrdenAuditoriaFronteraRutaExacta{
+			CorrelacionRef: cuerpo.Error.CorrelacionRef, Motivo: motivo,
+			Superficie: puertosvec.SuperficieAuditoriaFronteraRutaExactaContratacionTemporal,
+			Ruta:       httpinterno.RutaConsultaCircuitoRRHH,
+		}
+		if motivo == puertosvec.MotivoAuditoriaFronteraRutaExactaAccesoDenegado && a.soporte != nil {
+			if capacidad, valida := a.soporte.capacidadValida(r.Context()); valida &&
+				capacidad.ruta == httpinterno.RutaConsultaCircuitoRRHH &&
+				certificadoConsultaReciboRespuestaVigente(capacidad, a.reloj.Ahora()) {
+				orden.ActorRef = capacidad.principal.ID
+			}
+		}
+		if orden.Validar() != nil {
+			responderConsultaCircuitoAuditoriaNoDisponible(w)
+			return
+		}
+		ctx, cancelar := context.WithTimeout(context.WithoutCancel(r.Context()), 250*time.Millisecond)
+		err := a.registrador.RegistrarAuditoriaFronteraRutaExacta(ctx, orden)
+		cancelar()
+		if err != nil {
+			responderConsultaCircuitoAuditoriaNoDisponible(w)
+			return
+		}
+	}
+	for clave, valores := range respuesta.cabeceras {
+		for _, valor := range valores {
+			w.Header().Add(clave, valor)
+		}
+	}
+	w.WriteHeader(estado)
+	_, _ = w.Write(respuesta.cuerpo.Bytes())
+}
+
+func responderConsultaCircuitoAuditoriaNoDisponible(w http.ResponseWriter) {
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.WriteHeader(http.StatusServiceUnavailable)
+}
 
 type claveConsultaCircuitoRRHHDesarrollo struct{}
 
