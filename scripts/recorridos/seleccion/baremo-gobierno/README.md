@@ -19,6 +19,11 @@ El ensayo no arranca el caso de alta de CT ni su lector de cobertura O4-05:
 el gobierno de baremos no los consume. Las guardas y la composición de CT en
 producción permanecen en sus constructores originales.
 
+La cuenta y el alias se preparan desde el soporte base. La sesión del broker
+usa el contexto registrado del perfil propio de baremo y los mismos puertos
+nominales de registro y revalidación. Se conserva el patrón de las rutas de
+Plantillas CT; el perfil de baremo no sustituye el perfil base al crear la cuenta.
+
 ## Configuración privada
 
 Crear el JSON fuera de cualquier árbol Git, con permisos `0600`, en un directorio

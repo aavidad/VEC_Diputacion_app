@@ -188,6 +188,9 @@ func componerEnsayoBaremoReal(t *testing.T, ctx context.Context, cfg configuraci
 	}
 	fronteras := fronterasEnsayoBaremo(t, perfil, cfg.Rutas)
 	if preparar {
+		if publicarContextoPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno, alta.soporte) != nil {
+			t.Fatal("contexto base real no publicado")
+		}
 		operacion := referenciaAltaContratacionTemporalDesarrollo("oca_", perfil.soporte.principalID+"\x00"+perfil.soporte.certificadoSHA256+"\x00registro-contexto-baremo-v3")
 		if publicarResultadoContextoPostgreSQLDesarrollo(ctx, alta.postgresql.gobierno, perfil.soporte.contexto.Resultado, operacion) != nil ||
 			AsegurarPerfilGobiernoReglasBaremoV3(ctx, alta.postgresql.gobierno, perfil, "", "", dependencias.reloj.Ahora()) != nil {
@@ -198,11 +201,27 @@ func componerEnsayoBaremoReal(t *testing.T, ctx context.Context, cfg configuraci
 			t.Fatal("motivo gobernado no publicado")
 		}
 	}
-	identidad, cerrar, err := nuevasDependenciasIdentidadConsultasDesarrollo(ctx, c.ContratacionTemporalPostgreSQL, &alta, composicion.derivadorIdempotencia, dependencias.reloj, perfil.soporte, fronteras)
+	identidadBase, cerrar, err := nuevasDependenciasIdentidadConsultasDesarrollo(ctx, c.ContratacionTemporalPostgreSQL, &alta, composicion.derivadorIdempotencia, dependencias.reloj, alta.soporte, fronteras)
 	if err != nil {
-		t.Fatal("sesión nominal PostgreSQL no disponible")
+		t.Fatal("cuenta y sesión base nominal PostgreSQL no disponibles")
 	}
 	t.Cleanup(cerrar)
+	// Mismo patrón de composición que las rutas de Plantillas CT: la cuenta
+	// pertenece al contexto base; la sesión del broker conserva perfil propio.
+	esperado, err := contextoEsperadoRegistradoDesarrollo(ctx, identidadBase.resolutor, perfil.soporte)
+	if err != nil {
+		t.Fatal("contexto registrado del perfil de baremo no disponible")
+	}
+	perfil.soporte.mu.Lock()
+	perfil.soporte.contextoEsperadoRegistrado = esperado
+	perfil.soporte.mu.Unlock()
+	identidad, err := nuevoProveedorSesionConsultaRRHHConCatalogoDesarrollo(perfil.soporte, identidadBase.registro, identidadBase.revalidador, dependencias.reloj, identidadBase.resolutor, fronteras)
+	if err != nil {
+		t.Fatal("sesión nominal del perfil de baremo no disponible")
+	}
+	perfil.soporte.mu.Lock()
+	perfil.soporte.sesionOperativa = identidad
+	perfil.soporte.mu.Unlock()
 	fuenteDSN, motivosDSN, err := c.DSNAutoridadesAutorizacionRRHH()
 	if err != nil {
 		t.Fatal("autoridades nominales RRHH incompletas")
