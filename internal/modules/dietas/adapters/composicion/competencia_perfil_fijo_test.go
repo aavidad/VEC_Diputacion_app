@@ -122,7 +122,7 @@ func TestCompetenciaPerfilFijoNoSumaPerfilesYRespetaCancelacion(t *testing.T) {
 		t.Fatal(err)
 	}
 	fuente.err = errors.New("fuente caída")
-	if _, err := f.EstadoCompetencias(context.Background(), base.Contexto); !errors.Is(err, dietasports.ErrAccesoCircuitoDenegado) {
+	if _, err := f.EstadoCompetencias(context.Background(), base.Contexto); !errors.Is(err, dietasports.ErrAccesoCircuitoDenegado) || !errors.Is(err, fuente.err) {
 		t.Fatal(err)
 	}
 	previas := fuente.llamadas
