@@ -1,14 +1,14 @@
 import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
 import { crearTraductorPersonal } from "./i18n.js?v=20260925-personal-e10-v1";
-import { ErrorRegistroB2 } from "./registro-b2-cliente.js?v=20261002-b-vacantes-401-retoma-v1";
-import { accionesRegistroB2Disponibles, montarActosRegistroB2 } from "./registro-b2-actos.js?v=20261002-b-vacantes-401-retoma-v1";
+import { ErrorRegistroB2 } from "./registro-b2-cliente.js?v=20261002-b-vacantes-401-retoma-v2";
+import { accionesRegistroB2Disponibles, montarActosRegistroB2 } from "./registro-b2-actos.js?v=20261002-b-vacantes-401-retoma-v2";
 import { cargarOpcionesPublicadasCatalogoB2, montarCatalogosRegistroB2 } from "./registro-b2-catalogos.js?v=20260929-i18n-personal-v1";
 import { crearTraductorTraza } from "./personal-traza-i18n.js?v=20261001-personal-expediente-v2";
-import { crearPanelPreparacionServiciosCER } from "./preparacion-servicios-cer.js?v=20261002-b-vacantes-401-retoma-v1";
-import { crearPanelRelacionParaRPT } from "./preparacion-relacion-rpt.js?v=20261002-b-vacantes-401-retoma-v1";
-import { renderizarPreparacionAntecedentesCarrera, validarPreparacionAntecedentesCarrera } from "./preparacion-antecedentes-carrera.js?v=20261002-b-vacantes-401-retoma-v1";
+import { crearPanelPreparacionServiciosCER } from "./preparacion-servicios-cer.js?v=20261002-b-vacantes-401-retoma-v2";
+import { crearPanelRelacionParaRPT } from "./preparacion-relacion-rpt.js?v=20261002-b-vacantes-401-retoma-v2";
+import { renderizarPreparacionAntecedentesCarrera, validarPreparacionAntecedentesCarrera } from "./preparacion-antecedentes-carrera.js?v=20261002-b-vacantes-401-retoma-v2";
 
-import { crearVistaVacantesB2 } from "./vacantes-b2-vista.js?v=20261002-b-vacantes-401-retoma-v1";
+import { crearVistaVacantesB2 } from "./vacantes-b2-vista.js?v=20261002-b-vacantes-401-retoma-v2";
 
 const BLOQUES = Object.freeze([
   ["relaciones", "registro_b2_relaciones", "registro_b2_tabla_relaciones", [
