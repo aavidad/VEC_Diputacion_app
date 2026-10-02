@@ -111,6 +111,37 @@ func TestEntregaPeticionCentroFalloAltaNoConfirmaYFalloEnlacePermiteReintento(t 
 	})
 }
 
+func TestEntregaPeticionCentroEnlazaAltaHistoricaSinNumeroMOAD(t *testing.T) {
+	repo, registro, servicio, comando, _ := entregaPeticionCentroPrueba(t)
+	// La reserva ya existía y el alta antigua hizo COMMIT; falló solamente
+	// ConfirmarEntrega. El nuevo intento conserva la clave y no atribuye MOAD.
+	repo.preparaciones = 1
+	comando.NumeroExpedienteMOAD = ""
+	primera, err := servicio.Entregar(context.Background(), comando)
+	if err != nil || primera.EstadoEntrega != "confirmada" || primera.ReservaCreadaAhora ||
+		primera.ReciboAlta.NumeroVisible != registro.recibo.NumeroVisible ||
+		registro.recibido.ClaveAlta != repo.preparada.ClaveAlta ||
+		repo.ultimaComando.NumeroExpedienteMOAD != "" {
+		t.Fatalf("no se enlazó el alta histórica: entrega=%#v error=%v", primera, err)
+	}
+}
+
+func TestEntregaConfirmadaSinNumeroCompruebaOrigenHistorico(t *testing.T) {
+	repo, registro, servicio, comando, _ := entregaPeticionCentroPrueba(t)
+	recibo := reciboAltaPeticionCentroPruebaApplication()
+	repo.preparada.EstadoEntrega = "confirmada"
+	repo.preparada.ReciboAlta = &recibo
+	comando.NumeroExpedienteMOAD = ""
+	confirmada, err := servicio.Entregar(context.Background(), comando)
+	if err != nil || confirmada.ReciboAlta == nil || registro.llamadas != 1 || repo.confirmaciones != 0 {
+		t.Fatalf("no se acreditó el origen del recibo histórico: entrega=%#v error=%v", confirmada, err)
+	}
+	registro.err = ports.ErrClaveIdempotenciaUsada
+	if _, err := servicio.Entregar(context.Background(), comando); !errors.Is(err, ports.ErrClaveIdempotenciaUsada) || repo.confirmaciones != 0 {
+		t.Fatalf("un alta MOAD se recuperó omitiendo su número: %v", err)
+	}
+}
+
 func TestEntregaPeticionCentroDeniegaDivergentesYCancelacion(t *testing.T) {
 	repo, registro, servicio, comando, _ := entregaPeticionCentroPrueba(t)
 	divergente := comando

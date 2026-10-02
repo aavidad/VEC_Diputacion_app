@@ -118,7 +118,7 @@ func (r *RepositorioEntregasPeticionCentroPostgreSQL) PrepararEntrega(ctx contex
 	if err != nil {
 		return ports.EntregaPeticionCentro{}, err
 	}
-	return r.entrega(ctx, m)
+	return r.entrega(ctx, m, c.NumeroExpedienteMOAD == "")
 }
 
 func (r *RepositorioEntregasPeticionCentroPostgreSQL) ConfirmarEntrega(ctx context.Context, c ports.ComandoEntregarPeticionCentro, alta ports.AltaDePeticionCentro) (ports.EntregaPeticionCentro, error) {
@@ -127,7 +127,7 @@ func (r *RepositorioEntregasPeticionCentroPostgreSQL) ConfirmarEntrega(ctx conte
 		return ports.EntregaPeticionCentro{}, err
 	}
 	m.ReciboAlta, m.AmbitoAltaHMAC = &alta.Recibo, alta.AmbitoHMAC
-	return r.entrega(ctx, m)
+	return r.entrega(ctx, m, false)
 }
 
 // Las dos señales proceden de la transacción SQL que decide cada inserción.
@@ -139,7 +139,7 @@ type resultadoEntregaPeticionCentroSQL struct {
 	ConfirmacionCreadaAhora *bool `json:"confirmacion_creada_ahora"`
 }
 
-func (s resultadoEntregaPeticionCentroSQL) entregaPara(modo string) (ports.EntregaPeticionCentro, error) {
+func (s resultadoEntregaPeticionCentroSQL) entregaPara(modo string, soloExistente bool) (ports.EntregaPeticionCentro, error) {
 	if s.ReservaCreadaAhora == nil || s.ConfirmacionCreadaAhora == nil ||
 		(*s.ReservaCreadaAhora && *s.ConfirmacionCreadaAhora) ||
 		(*s.ReservaCreadaAhora && (modo != "preparar" || s.EstadoEntrega != "preparada")) ||
@@ -147,13 +147,16 @@ func (s resultadoEntregaPeticionCentroSQL) entregaPara(modo string) (ports.Entre
 		(modo == "confirmar" && s.EstadoEntrega != "confirmada") {
 		return ports.EntregaPeticionCentro{}, ports.ErrReciboPeticionCentroNoConfiable
 	}
+	if soloExistente && *s.ReservaCreadaAhora {
+		return ports.EntregaPeticionCentro{}, ports.ErrNumeroMOADAusente
+	}
 	e := s.EntregaPeticionCentro
 	e.ReservaCreadaAhora = *s.ReservaCreadaAhora
 	e.ConfirmadaAhora = *s.ConfirmacionCreadaAhora
 	return e, nil
 }
 
-func (r *RepositorioEntregasPeticionCentroPostgreSQL) entrega(ctx context.Context, m ports.MaterialEntregaPeticionCentro) (ports.EntregaPeticionCentro, error) {
+func (r *RepositorioEntregasPeticionCentroPostgreSQL) entrega(ctx context.Context, m ports.MaterialEntregaPeticionCentro, soloExistente bool) (ports.EntregaPeticionCentro, error) {
 	var e ports.EntregaPeticionCentro
 	err := r.ejecutar(ctx, m, func(b []byte) error {
 		var resultado resultadoEntregaPeticionCentroSQL
@@ -161,7 +164,7 @@ func (r *RepositorioEntregasPeticionCentroPostgreSQL) entrega(ctx context.Contex
 			return ports.ErrReciboPeticionCentroNoConfiable
 		}
 		var err error
-		e, err = resultado.entregaPara(m.Modo)
+		e, err = resultado.entregaPara(m.Modo, soloExistente)
 		if err != nil {
 			return err
 		}

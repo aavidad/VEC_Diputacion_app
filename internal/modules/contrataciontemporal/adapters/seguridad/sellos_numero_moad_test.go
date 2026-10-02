@@ -21,4 +21,10 @@ func TestHuellaAltaLigaNumeroMOADYConservaCanonHistorico(t *testing.T) {
 	if err != nil || bytes.Equal(a, b) {
 		t.Fatalf("otro número produce misma huella: %v", err)
 	}
+	m.NumeroExpedienteMOAD = ""
+	m.Solicitud.MotivoClave = "causa_sintetica_distinta"
+	otraCausa, err := materialCanonicoHuellaAlta(m)
+	if err != nil || bytes.Equal(historico, otraCausa) {
+		t.Fatalf("una causa distinta conserva la huella histórica: %v", err)
+	}
 }

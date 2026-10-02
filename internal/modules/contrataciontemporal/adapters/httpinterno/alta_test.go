@@ -245,6 +245,23 @@ func TestManejadorAltaConfirmaYMinimizaRecibo(t *testing.T) {
 	comprobarCabecerasSegurasPrueba(t, respuesta)
 }
 
+func TestManejadorAltaSinNumeroSoloSirveRecuperacionAcreditada(t *testing.T) {
+	cuerpo := bytes.Replace(cuerpoValidoPrueba(), []byte(`"numero_expediente_moad":"2026/5487",`), nil, 1)
+	manejador, _, ejecutor := nuevoEscenarioPrueba(t)
+	ejecutor.recibo.NumeroVisible = "2026/CT-0001"
+	ejecutor.err = application.ErrSolicitudRegistroInvalida
+	rechazada := ejecutarPeticionPrueba(t, manejador, nuevaPeticionPrueba(t, cuerpo))
+	if rechazada.Code != http.StatusUnprocessableEntity || codigoErrorPrueba(t, rechazada) != "contenido_no_valido" {
+		t.Fatalf("alta nueva sin MOAD: estado=%d", rechazada.Code)
+	}
+	ejecutor.err = nil
+	recuperada := ejecutarPeticionPrueba(t, manejador, nuevaPeticionPrueba(t, cuerpo))
+	if recuperada.Code != http.StatusCreated || !bytes.Contains(recuperada.Body.Bytes(), []byte(`"numero_visible":"2026/CT-0001"`)) ||
+		bytes.Contains(recuperada.Body.Bytes(), []byte("numero_expediente_moad")) {
+		t.Fatalf("recibo histórico presentado como MOAD: estado=%d cuerpo=%s", recuperada.Code, recuperada.Body.String())
+	}
+}
+
 func TestManejadorAltaConservaExitoConfirmadoTrasCancelacion(t *testing.T) {
 	manejador, _, ejecutor := nuevoEscenarioPrueba(t)
 	ejecutor.err = context.Canceled

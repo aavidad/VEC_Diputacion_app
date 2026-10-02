@@ -6,7 +6,7 @@ import {
   validarSolicitudDecisionCobertura,
   validarSolicitudPropuestaCobertura,
 } from "./contrato-cobertura.js?v=20261002-ct-fin-modalidad-v1";
-import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261001-ct-a-i18n-v1";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261002-ct-fin-moad-v1";
 import { ACCION_AYUDA_AVISOS_VIA, renderizarAvisosViaCobertura } from "./avisos-via-cobertura.js?v=20261002-ct-fin-modalidad-v1";
 import { justificanteTraducido } from "../../portal-justificante.js";
 import { cargarEtiquetasViasCobertura } from "./etiquetas-vias-cobertura.js?v=20260930-reglas-recuperacion-v2";

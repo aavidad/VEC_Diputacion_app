@@ -32,7 +32,7 @@ function raizFalsa() {
 
 function verificarSinDatos(raiz) {
   assert.doesNotMatch(raiz.innerHTML, /Actor anterior sintético|Cargo anterior|Centro anterior|Dato personal previo sintético|peticion:centro:sintetica|recibo:sintetico:anterior|expediente:sintetico:anterior/);
-  assert.doesNotMatch(raiz.innerHTML, /data-accion="(?:nueva|abrir-alta-rrhh|confirmar-alta-rrhh|confirmar-presentar|confirmar-ratificar|reintentar(?:-alta-rrhh)?)"/);
+  assert.doesNotMatch(raiz.innerHTML, /data-accion="(?:nueva|abrir-alta-rrhh|recuperar-alta-anterior|confirmar-alta-rrhh|confirmar-presentar|confirmar-ratificar|reintentar(?:-alta-rrhh)?)"/);
 }
 
 test("RRHH puede corregir el número MOAD rechazado por el formato del catálogo", async () => {
@@ -57,6 +57,24 @@ test("RRHH puede corregir el número MOAD rechazado por el formato del catálogo
   numero = "2026/12345";
   await raiz.pulsar({ accion: "confirmar-alta-rrhh" });
   assert.deepEqual(comandos.map((c) => c.numero_expediente_moad), ["2026/OTRO", "2026/12345"]);
+});
+
+test("RRHH recupera una alta anterior preparada sin atribuirle número MOAD", async () => {
+  const raiz = raizFalsa();
+  const anterior = { ...entrega, recibo_alta: { ...entrega.recibo_alta, numero_visible: "2026/CT-0001" } };
+  const comandos = [];
+  const cliente = async (_ruta, opciones) => {
+    if (opciones?.method !== "POST") return { limite: 50, peticiones: [anterior] };
+    comandos.push(opciones.cuerpo);
+    return { peticion, estado_entrega: "confirmada", recibo_alta: anterior.recibo_alta };
+  };
+  await iniciarPeticionesCentroRRHH({ raiz, cliente });
+  assert.match(raiz.innerHTML, /data-accion="recuperar-alta-anterior"/);
+  await raiz.pulsar({ accion: "recuperar-alta-anterior" });
+  assert.equal(comandos.length, 1);
+  assert.equal(Object.hasOwn(comandos[0], "numero_expediente_moad"), false);
+  assert.match(raiz.innerHTML, /2026\/CT-0001/);
+  assert.doesNotMatch(raiz.innerHTML, /Número de expediente MOAD/);
 });
 
 for (const status of [401, 403]) {

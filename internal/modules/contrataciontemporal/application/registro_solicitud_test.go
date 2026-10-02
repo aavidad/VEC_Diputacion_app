@@ -161,6 +161,20 @@ func (d *resolutorCandidaturaDoble) ResolverCandidaturaAlta(
 	return d.candidatura, d.err
 }
 
+func (d *resolutorCandidaturaDoble) RecuperarCandidaturaAlta(
+	ctx context.Context, solicitud ports.SolicitudResolverCandidaturaAlta,
+) (ports.CandidaturaAlta, error) {
+	candidatura, err := d.ResolverCandidaturaAlta(ctx, solicitud)
+	if err != nil {
+		return candidatura, err
+	}
+	datos, err := candidatura.Datos()
+	if err != nil || !datos.Recuperada {
+		return ports.CandidaturaAlta{}, ports.ErrClaveIdempotenciaUsada
+	}
+	return candidatura, nil
+}
+
 type derivadorHuellaEfectoDoble struct {
 	huella      string
 	err         error

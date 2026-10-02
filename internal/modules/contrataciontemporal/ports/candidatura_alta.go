@@ -274,6 +274,12 @@ type ResolutorCandidaturaAlta interface {
 	) (CandidaturaAlta, error)
 }
 
+// RecuperadorCandidaturaAlta solo devuelve coordenadas existentes. Si CT47
+// estabiliza una propuesta nueva, el adaptador revierte la transacción.
+type RecuperadorCandidaturaAlta interface {
+	RecuperarCandidaturaAlta(context.Context, SolicitudResolverCandidaturaAlta) (CandidaturaAlta, error)
+}
+
 // Los métodos directos de reconstrucción mantienen seguro un receptor nil
 // tipado. La emisión y la redacción de valores se heredan del bloqueo.
 func (*DatosCandidaturaAlta) UnmarshalJSON([]byte) error {

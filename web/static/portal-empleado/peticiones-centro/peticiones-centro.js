@@ -4,13 +4,13 @@ import {
   validarBorradorAlta,
   validarCatalogosAlta,
   numeroExpedienteMOADValido,
-} from "../modulos/contratacion-temporal/contrato.js?v=20261002-ct-fin-modalidad-v1";
+} from "../modulos/contratacion-temporal/contrato.js?v=20261002-ct-fin-moad-v1";
 import {
   extraerBorradorPeticionCentro,
   renderizarFormularioPeticionCentro,
   renderizarRevisionPeticionCentro,
-} from "../modulos/contratacion-temporal/vista.js?v=20261002-ct-fin-modalidad-v1";
-import { MENSAJES_CONTRATACION_TEMPORAL_ES, crearTraductorContratacionTemporal } from "../modulos/contratacion-temporal/i18n.js?v=20261001-ct-a-i18n-v1";
+} from "../modulos/contratacion-temporal/vista.js?v=20261002-ct-fin-moad-v1";
+import { MENSAJES_CONTRATACION_TEMPORAL_ES, crearTraductorContratacionTemporal } from "../modulos/contratacion-temporal/i18n.js?v=20261002-ct-fin-moad-v1";
 import { IDIOMA_ACTUAL } from "../../comun/idioma.js";
 import { aplicarIdiomaDocumento, aplicarTextosPortal, instalarValidacionI18n } from "../portal-idioma.js?v=20261001-ct-a-i18n-v1";
 
@@ -362,7 +362,7 @@ export function renderizarPeticionesCentroRRHH({ peticiones = [], entrega = null
   if (["denegado", "sin_verificar", "resultado_incierto"].includes(modo)) return vistaSinDatos(cabecera, modo, mensaje, "recargar-rrhh");
   if (modo === "confirmar") return `${cabecera}${error}<section class="pc-panel pc-detalle"><h2>${esc(TEXTO.rrhhConfirmar)}</h2>${detallePeticion(peticion, null)}<div class="ct-campo"><label for="pc-numero-moad">${textoCT("numero_moad_obligatorio")}</label><input id="pc-numero-moad" name="numero_expediente_moad" type="text" required maxlength="45" autocomplete="off" value="${esc(numeroMOAD)}" ${politicaNumero?.ejemplo ? `placeholder="${textoCT("numero_moad_ejemplo", { ejemplo: politicaNumero.ejemplo })}"` : ""}${errorNumero ? ' aria-invalid="true" aria-describedby="pc-numero-moad-error"' : ""}>${errorNumero ? `<span class="ct-error-campo" id="pc-numero-moad-error">${textoCT("error_numero_moad")}</span>` : ""}</div><p class="pc-aviso">${esc(TEXTO.rrhhAviso)}</p><label class="pc-confirmacion"><input type="checkbox" name="confirmacion-alta-rrhh"${confirmado ? " checked" : ""}> ${esc(TEXTO.rrhhConfirmacion)}</label><div class="pc-acciones"><button type="button" class="boton-secundario" data-accion="cancelar-alta-rrhh">${esc(TEXTO.cancelar)}</button><button type="button" class="boton-primario" data-accion="confirmar-alta-rrhh">${esc(TEXTO.rrhhConfirmar)}</button></div></section>`;
   if (modo === "pendiente") return `${cabecera}<section class="pc-panel pc-pendiente" role="status"><h2>${esc(TEXTO.estadoPendiente)}</h2><p>${esc(TEXTO.rrhhAviso)}</p><div class="pc-acciones"><button type="button" class="boton-primario" data-accion="reintentar-alta-rrhh">${esc(traducirCentro("ct_txt_reintentar_la_misma_operacion"))}</button></div></section>`;
-  const detalle = `<aside class="pc-panel pc-detalle"><h2>${esc(TEXTO.detalle)}</h2>${detallePeticion(peticion, null)}${entrega?.recibo_alta && !recibo ? reciboAltaRRHHHTML(entrega.recibo_alta) : ""}${["pendiente", "preparada"].includes(entrega?.estado_entrega) ? `<div class="pc-acciones"><button type="button" class="boton-primario" data-accion="abrir-alta-rrhh">${esc(entrega.estado_entrega === "preparada" ? TEXTO.rrhhCompletar : TEXTO.rrhhConfirmar)}</button></div>` : ""}</aside>`;
+  const detalle = `<aside class="pc-panel pc-detalle"><h2>${esc(TEXTO.detalle)}</h2>${detallePeticion(peticion, null)}${entrega?.recibo_alta && !recibo ? reciboAltaRRHHHTML(entrega.recibo_alta) : ""}${["pendiente", "preparada"].includes(entrega?.estado_entrega) ? `<div class="pc-acciones"><button type="button" class="boton-primario" data-accion="abrir-alta-rrhh">${esc(entrega.estado_entrega === "preparada" ? TEXTO.rrhhCompletar : TEXTO.rrhhConfirmar)}</button>${entrega.estado_entrega === "preparada" ? `<button type="button" class="boton-secundario" data-accion="recuperar-alta-anterior">${textoCT("numero_moad_recuperar_alta_anterior")}</button>` : ""}</div>` : ""}</aside>`;
   return `${cabecera}${error}${recibo ? reciboAltaRRHHHTML(recibo) : ""}<div class="pc-layout"><section class="pc-panel"><h2>${esc(TEXTO.rrhhTitulo)}</h2>${tablaRRHH(peticiones, peticion?.referencia)}<p>${textoCT("ct_txt_ultimas_50_peticiones_visibles_para_recursos_hum")}</p><div class="pc-acciones"><button type="button" class="boton-secundario" data-accion="recargar-rrhh">${esc(TEXTO.recargar)}</button><a class="boton-secundario" href="/portal-empleado/#contratacion-temporal">${esc(TEXTO.volver)}</a></div></section>${detalle}</div>`;
 }
 
@@ -480,6 +480,10 @@ export async function iniciarPeticionesCentroRRHH({ raiz = document.querySelecto
     } catch (error) {
       if (esDenegacion(error)) retirarDatos(error);
       else if (error.indeterminado) { operacionPendiente = comando; modo = "pendiente"; mensaje = TEXTO.estadoPendiente; }
+      else if (error.status === 422 && !Object.hasOwn(comando, "numero_expediente_moad")) {
+        operacionPendiente = null; modo = "bandeja";
+        mensaje = traducirCentro("numero_moad_recuperacion_no_disponible");
+      }
       else if (error.status === 422) {
         operacionPendiente = null; modo = "confirmar"; errorNumero = true;
         mensaje = traducirCentro("numero_moad_formato_no_valido", { ejemplo: politicaNumero?.ejemplo ?? "" });
@@ -495,6 +499,10 @@ export async function iniciarPeticionesCentroRRHH({ raiz = document.querySelecto
     event.preventDefault();
     if (control.dataset.seleccionarRrhh) { entrega = peticiones.find((item) => item.peticion.referencia === control.dataset.seleccionarRrhh) || null; recibo = null; dibujar(); return; }
     if (control.dataset.accion === "recargar-rrhh") { await cargar(); return; }
+    if (control.dataset.accion === "recuperar-alta-anterior" && entrega?.estado_entrega === "preparada") {
+      await ejecutar({ peticion_ref: entrega.peticion.referencia, version_esperada: 2 });
+      return;
+    }
     if (control.dataset.accion === "abrir-alta-rrhh" && ["pendiente", "preparada"].includes(entrega?.estado_entrega)) {
       ocupado = true; mensaje = ""; dibujar();
       try {

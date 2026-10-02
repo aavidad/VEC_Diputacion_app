@@ -93,11 +93,11 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   },
   contratacion_temporal: async () => {
     const [contrato, cliente, presentador, vista, adaptador, auditoriaVista, auditoriaCliente, incorporacionB2] = await Promise.all([
-      import("./modulos/contratacion-temporal/contrato.js?v=20261002-ct-fin-modalidad-v1"),
-      import("./modulos/contratacion-temporal/cliente-http.js?v=20261002-ct-fin-modalidad-v1"),
-      import("./modulos/contratacion-temporal/presentador-expedientes.js?v=20261002-ct-fin-modalidad-v1"),
-      import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261002-ct-fin-modalidad-v1"),
-      import("./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=20261002-ct-fin-modalidad-v1"),
+      import("./modulos/contratacion-temporal/contrato.js?v=20261002-ct-fin-moad-v1"),
+      import("./modulos/contratacion-temporal/cliente-http.js?v=20261002-ct-fin-moad-v1"),
+      import("./modulos/contratacion-temporal/presentador-expedientes.js?v=20261002-ct-fin-moad-v1"),
+      import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261002-ct-fin-moad-v1"),
+      import("./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=20261002-ct-fin-moad-v1"),
       import("./modulos/auditoria/vista.js?v=20261001-ct-a-i18n-v1"),
       import("./modulos/auditoria/cliente-http.js?v=20260928-usab-auditoria-v2"),
       import("./modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js?v=20260930-inc-b2-web-v1"),
@@ -945,7 +945,7 @@ export function crearCoordinadorModulosPortal({
     }
 
     if (vista === VISTA_PLANTILLAS_RRHH) {
-      const { montarRRHHPlantillas } = await import("./modulos/contratacion-temporal/rrhh-plantillas-vista.js?v=20261001-ct-a-i18n-v1");
+      const { montarRRHHPlantillas } = await import("./modulos/contratacion-temporal/rrhh-plantillas-vista.js?v=20261002-ct-fin-moad-v1");
       if (montaje !== secuenciaMontaje) return false;
       const modulo = montarRRHHPlantillas({ raiz, anunciar });
       if (montaje !== secuenciaMontaje) { modulo.desmontar(); return false; }

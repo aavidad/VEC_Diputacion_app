@@ -4,7 +4,6 @@ import (
 	"context"
 	"reflect"
 
-	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
 
@@ -44,13 +43,22 @@ func (s *ServicioEntregaPeticionCentro) Entregar(ctx context.Context, c ports.Co
 		if c.NumeroExpedienteMOAD != "" && c.NumeroExpedienteMOAD != e.ReciboAlta.NumeroVisible {
 			return vacia, ports.ErrEntregaPeticionEnConflicto
 		}
+		if c.NumeroExpedienteMOAD == "" {
+			// Una confirmación por sí sola no prueba que el número sea anterior
+			// a MOAD. El alta original debe recuperarse con su canon sin MOAD.
+			alta, err := s.registro.RegistrarExpedientePeticion(ctx, e, "")
+			if err != nil {
+				return vacia, err
+			}
+			if alta.Recibo.ValidarEstructura() != nil || alta.AmbitoHMAC != e.AmbitoAltaHMAC ||
+				!reflect.DeepEqual(alta.Recibo, *e.ReciboAlta) {
+				return vacia, ports.ErrReciboPeticionCentroNoConfiable
+			}
+		}
 		return e, nil
 	}
 	if err := ctx.Err(); err != nil {
 		return vacia, err
-	}
-	if !domain.NumeroExpedienteValido(c.NumeroExpedienteMOAD) {
-		return vacia, domain.ErrPeticionCentroInvalida
 	}
 	// Copia defensiva: el adaptador no puede modificar el original ratificado.
 	copia := e

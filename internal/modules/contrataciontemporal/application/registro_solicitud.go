@@ -173,7 +173,7 @@ func (s *ServicioRegistroSolicitud) Registrar(
 			ErrSolicitudRegistroInvalida,
 		)
 	}
-	if !domain.NumeroExpedienteValido(solicitud.NumeroExpedienteMOAD) || s.politicaNumero != nil && s.politicaNumero.ValidarNumero(solicitud.NumeroExpedienteMOAD) != nil {
+	if solicitud.NumeroExpedienteMOAD != "" && !domain.NumeroExpedienteValido(solicitud.NumeroExpedienteMOAD) {
 		return ports.ReciboAlta{}, ErrSolicitudRegistroInvalida
 	}
 	solicitudCentro, err := solicitud.Solicitud.Clonar()
@@ -227,12 +227,21 @@ func (s *ServicioRegistroSolicitud) Registrar(
 	if err := ctx.Err(); err != nil {
 		return ports.ReciboAlta{}, err
 	}
-	ctxFlujo := ctx
-	if solicitudCentro.Periodo.Fin.IsZero() {
+	sinNumeroMOAD := solicitud.NumeroExpedienteMOAD == ""
+	formatoRetirado := !sinNumeroMOAD && s.politicaNumero != nil &&
+		s.politicaNumero.ValidarNumero(solicitud.NumeroExpedienteMOAD) != nil
+	soloRecuperacion := sinNumeroMOAD || formatoRetirado
+	consultarConfirmacion := soloRecuperacion || solicitudCentro.Periodo.Fin.IsZero()
+	var politicaAnterior domain.PoliticaFin
+	var confirmada bool
+	if consultarConfirmacion {
 		if dependenciaNula(s.recuperacion) {
+			if soloRecuperacion {
+				return ports.ReciboAlta{}, ErrSolicitudRegistroInvalida
+			}
 			return ports.ReciboAlta{}, ErrServicioRegistroInvalido
 		}
-		politicaAnterior, confirmada, err := s.recuperacion.ConsultarPoliticaFinAltaConfirmada(
+		politicaAnterior, confirmada, err = s.recuperacion.ConsultarPoliticaFinAltaConfirmada(
 			ctx, ports.ConsultaPoliticaFinAltaConfirmada{
 				AmbitosHMAC: ambitosHMAC, OrganizacionRef: solicitud.OrganizacionRef,
 				ActorRef: vinculo.PrincipalID, PerfilRef: vinculo.PerfilActivoRef,
@@ -241,6 +250,12 @@ func (s *ServicioRegistroSolicitud) Registrar(
 		if err != nil {
 			return ports.ReciboAlta{}, errors.Join(ports.ErrPersistenciaNoDisponible, err)
 		}
+		if soloRecuperacion && !confirmada {
+			return ports.ReciboAlta{}, ErrSolicitudRegistroInvalida
+		}
+	}
+	ctxFlujo := ctx
+	if solicitudCentro.Periodo.Fin.IsZero() {
 		if confirmada {
 			if politicaAnterior != (domain.PoliticaFin{}) && politicaAnterior.Validar() != nil {
 				return ports.ReciboAlta{}, ErrResultadoRegistroNoConfiable
@@ -329,11 +344,20 @@ func (s *ServicioRegistroSolicitud) Registrar(
 	if err != nil {
 		return ports.ReciboAlta{}, err
 	}
-	referencias, err := s.referencias.GenerarReferenciasAlta(ctx, solicitud.NumeroExpedienteMOAD)
+	numeroPropuesto := solicitud.NumeroExpedienteMOAD
+	if sinNumeroMOAD {
+		if s.politicaNumero == nil || s.politicaNumero.Validar() != nil {
+			return ports.ReciboAlta{}, ErrServicioRegistroInvalido
+		}
+		// CT47 exige una propuesta técnica válida incluso al recuperar. Esta
+		// muestra del catálogo nunca puede confirmarse ni presentarse como MOAD.
+		numeroPropuesto = s.politicaNumero.Ejemplo
+	}
+	referencias, err := s.referencias.GenerarReferenciasAlta(ctx, numeroPropuesto)
 	if err != nil {
 		return ports.ReciboAlta{}, err
 	}
-	if referencias.NumeroVisible != solicitud.NumeroExpedienteMOAD {
+	if referencias.NumeroVisible != numeroPropuesto {
 		return ports.ReciboAlta{}, ErrResultadoRegistroNoConfiable
 	}
 	if err := ctx.Err(); err != nil {
@@ -376,10 +400,16 @@ func (s *ServicioRegistroSolicitud) Registrar(
 	if err != nil {
 		return ports.ReciboAlta{}, err
 	}
-	candidatura, err := s.candidaturas.ResolverCandidaturaAlta(
-		ctx,
-		solicitudCandidatura,
-	)
+	var candidatura ports.CandidaturaAlta
+	if soloRecuperacion {
+		recuperador, ok := s.candidaturas.(ports.RecuperadorCandidaturaAlta)
+		if !ok || dependenciaNula(recuperador) {
+			return ports.ReciboAlta{}, ErrServicioRegistroInvalido
+		}
+		candidatura, err = recuperador.RecuperarCandidaturaAlta(ctx, solicitudCandidatura)
+	} else {
+		candidatura, err = s.candidaturas.ResolverCandidaturaAlta(ctx, solicitudCandidatura)
+	}
 	if err != nil {
 		return ports.ReciboAlta{}, err
 	}
@@ -393,13 +423,16 @@ func (s *ServicioRegistroSolicitud) Registrar(
 	if err != nil {
 		return ports.ReciboAlta{}, ports.ErrPreparacionAltaInvalida
 	}
+	if soloRecuperacion && !datosCandidatura.Recuperada {
+		return ports.ReciboAlta{}, ErrResultadoRegistroNoConfiable
+	}
 	if !datosCandidatura.Recuperada && !solicitudCentro.Periodo.Fin.IsZero() && s.periodos != nil {
 		if _, err := s.periodos.PrepararPeriodoModalidad(ctx, solicitudCentro.MotivoClave, solicitudCentro.Periodo); err != nil {
 			return ports.ReciboAlta{}, ErrSolicitudRegistroInvalida
 		}
 	}
 
-	if datosCandidatura.Referencias.NumeroVisible != solicitud.NumeroExpedienteMOAD {
+	if !sinNumeroMOAD && datosCandidatura.Referencias.NumeroVisible != solicitud.NumeroExpedienteMOAD {
 		return ports.ReciboAlta{}, ports.ErrClaveIdempotenciaUsada
 	}
 	expediente, err := domain.NuevoExpediente(domain.AltaExpediente{

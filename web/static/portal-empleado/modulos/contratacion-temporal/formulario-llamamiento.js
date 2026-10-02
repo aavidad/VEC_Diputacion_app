@@ -1,5 +1,5 @@
 /** Una intención visible por acción; no se guarda nada en el navegador. */
-import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261001-ct-a-i18n-v1";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261002-ct-fin-moad-v1";
 import { renderizarLlamamiento, reciboAntecedenteSiguiente } from "./renderizado-llamamiento.js?v=20261002-ct-fin-modalidad-v1";
 import { mensajeValidacionPortal } from "../../portal-idioma.js?v=20261001-ct-a-i18n-v1";
 import { esValidacionRespuestaPendiente, cargarPublicacionesFormalizacionDesarrollo } from "./cliente-http-llamamiento.js";

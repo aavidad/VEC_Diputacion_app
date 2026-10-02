@@ -318,7 +318,8 @@ func solicitudAltaDesdePeticion(
 		return "", "", domain.SolicitudCentro{}, errEntradaAltaInvalida
 	}
 	if !ports.ClaveIdempotenciaValida(entrada.ClaveIdempotencia) ||
-		entrada.Solicitud == nil || !domain.NumeroExpedienteValido(entrada.NumeroExpedienteMOAD) {
+		entrada.Solicitud == nil ||
+		(entrada.NumeroExpedienteMOAD != "" && !domain.NumeroExpedienteValido(entrada.NumeroExpedienteMOAD)) {
 		return "", "", domain.SolicitudCentro{}, errContenidoAltaNoValido
 	}
 	solicitud, err := entrada.Solicitud.dominio()

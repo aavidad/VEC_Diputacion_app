@@ -15,6 +15,7 @@ const (
 )
 
 var ErrEntregaPeticionEnConflicto = errors.New("contratacion temporal: entrega de peticion en conflicto")
+var ErrNumeroMOADAusente = errors.New("contratacion temporal: numero MOAD ausente para entrega nueva")
 
 // La referencia de petición identifica la operación. El servidor reserva una
 // sola clave de alta; el navegador nunca elige una clave, un actor o los datos.

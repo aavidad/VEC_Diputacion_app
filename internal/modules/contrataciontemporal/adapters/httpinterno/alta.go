@@ -119,7 +119,8 @@ func (h *manejadorAlta) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	recibo, err := h.ejecutor.Registrar(r.Context(), comando)
-	if recibo.NumeroVisible == numeroMOAD && reciboAltaSeguro(recibo, instanteRelojCanonico(h.reloj.Ahora())) {
+	if (recibo.NumeroVisible == numeroMOAD || numeroMOAD == "" && err == nil) &&
+		reciboAltaSeguro(recibo, instanteRelojCanonico(h.reloj.Ahora())) {
 		// Un recibo válido confirma el COMMIT. Una cancelación observada a la
 		// vez no degrada el éxito a un resultado ambiguo ni induce reintento.
 		responderExitoAlta(w, r, recibo)
