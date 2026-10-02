@@ -137,6 +137,17 @@ func TestLectorDiarioRealMinimizaYSoloRecuperaConjuntoAutenticado(t *testing.T) 
 		t.Fatal("sin permiso recupera contenido")
 	}
 	autoridad.err = nil
+	original := destino.conjunto
+	destino.conjunto.Manifiesto.Inicio = time.Date(10000, 1, 1, 0, 0, 0, 0, time.UTC)
+	destino.conjunto.Manifiesto.Fin = destino.conjunto.Manifiesto.Inicio.Add(time.Hour)
+	destino.conjunto.ManifiestoSHA256 = ""
+	if huellaManifiestoADMIN(destino.conjunto.Manifiesto) != "" {
+		t.Fatal("manifiesto no serializable tiene huella")
+	}
+	if _, err = lector.Listar(context.Background(), ses, "", 25); !errors.Is(err, p.ErrNoDisponible) {
+		t.Fatal("huellas vacias permiten manifiesto no serializable")
+	}
+	destino.conjunto = original
 	destino.err = errors.New("fallo_sintetico")
 	if _, err = lector.Listar(context.Background(), ses, "", 25); !errors.Is(err, p.ErrNoDisponible) {
 		t.Fatal("fallo autenticacion no bloquea")

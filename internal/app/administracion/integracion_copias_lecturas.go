@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"time"
 
 	app "vec-diputacion-granada/internal/modules/administracion/application/httpcopias"
@@ -85,14 +86,17 @@ func (l *LecturasCopias) Listar(ctx context.Context, s p.Sesion, cursor string, 
 	for _, item := range r.Operaciones {
 		// El listado del diario no es concesión para un conjunto individual.
 		if err = l.Autoridad.AutorizarCopias(ctx, s, p.Consultar, item.Solicitud.Conjunto); err != nil {
+			slog.Warn("copias_listado_no_disponible", "causa", "autorizacion_conjunto_rechazada")
 			break
 		}
 		var c p.Copia
 		c, err = l.copia(ctx, s, item)
 		if err != nil {
+			slog.Warn("copias_listado_no_disponible", "causa", "consulta_conjunto_fallida")
 			break
 		}
 		if err = l.finalizar(ctx, s, "listar_copia", item.Solicitud.Conjunto, nil); err != nil {
+			slog.Warn("copias_listado_no_disponible", "causa", "auditoria_conjunto_fallida")
 			break
 		}
 		v.Copias = append(v.Copias, c)
@@ -151,9 +155,10 @@ func (l *LecturasCopias) copia(ctx context.Context, s p.Sesion, item reg.Vista) 
 	}
 	c, err := l.Destino.Recuperar(ctx, item.Solicitud.Conjunto)
 	m := c.Manifiesto
+	huella := huellaManifiestoADMIN(m)
 	// El resultado se liga también a la operación persistida. Una huella correcta
 	// sin recuperación autenticada de CS03 nunca se acepta como conjunto válido.
-	if err != nil || c.Ref != item.Solicitud.Conjunto || m.ConjuntoRef != c.Ref || m.OperacionRef != item.Solicitud.Operacion || c.IndiceAutenticadoRef == "" || c.ManifiestoSHA256 != huellaManifiestoADMIN(m) || m.Inicio.IsZero() || m.Fin.IsZero() || m.TamanoBytes < 0 || len(copias.ValidarManifiesto(m)) != 0 {
+	if err != nil || huella == "" || c.Ref != item.Solicitud.Conjunto || m.ConjuntoRef != c.Ref || m.OperacionRef != item.Solicitud.Operacion || c.IndiceAutenticadoRef == "" || c.ManifiestoSHA256 != huella || m.Inicio.IsZero() || m.Fin.IsZero() || m.TamanoBytes < 0 || len(copias.ValidarManifiesto(m)) != 0 {
 		return p.Copia{}, p.ErrNoDisponible
 	}
 	estado = "verificando"
@@ -219,6 +224,7 @@ var _ p.Consultas = (*LecturasCopias)(nil)
 func huellaManifiestoADMIN(m copias.Manifiesto) string {
 	b, err := json.Marshal(m)
 	if err != nil {
+		slog.Warn("copias_manifiesto_no_disponible", "causa", "serializacion_fallida")
 		return ""
 	}
 	h := sha256.Sum256(b)
