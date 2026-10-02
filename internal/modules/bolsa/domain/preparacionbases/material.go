@@ -57,7 +57,7 @@ func (m Material) Canonico() (Material, error) {
 	}
 	vistos := make(map[string]bool, len(m.Referencias))
 	for _, ref := range m.Referencias {
-		if !campos[ref.Campo] || vistos[ref.Campo] || ref.Referencia.Version < 0 || ref.Referencia.Version > 1_000_000 {
+		if !campos[ref.Campo] || vistos[ref.Campo] {
 			return Material{}, ErrMaterialInvalido
 		}
 		vistos[ref.Campo] = true
@@ -102,16 +102,45 @@ func (m Material) HuellaSHA256() (string, error) {
 // Pendientes se deriva del material; el consumidor nunca declara una
 // referencia como aprobada. Un baremo requiere lectura exacta con estado
 // disponible_para_preparacion antes de usarlo en el siguiente circuito.
+type EvaluacionMaterialBases struct {
+	ContenidoCanonico *bolsa.ContenidoPublicableConvocatoria
+	Pendientes        []Pendiente
+}
+
 func (m Material) Pendientes() ([]Pendiente, error) {
-	c, err := m.Canonico()
+	canonico, err := m.Canonico()
 	if err != nil {
 		return nil, err
 	}
+	evaluacion, err := EvaluarMaterialBases(canonico)
+	return evaluacion.Pendientes, err
+}
+
+// EvaluarMaterialBases es la unica politica de preparacion incompleta.
+// Canoniza con el dominio Bolsa existente y conserva cada dependencia pendiente.
+func EvaluarMaterialBases(m Material) (EvaluacionMaterialBases, error) {
+	// La evaluacion conserva referencias propuestas invalidas como pendientes.
+	// Los limites del almacenamiento se aplican aparte en Material.Canonico;
+	// no convierten aqui un aviso de la CLI existente en un fallo de entrada.
+	c := m
+	if len(c.Referencias) > len(camposReferencia) {
+		return EvaluacionMaterialBases{}, ErrMaterialInvalido
+	}
 	refs := map[string]bolsa.ReferenciaConfiguracionConvocatoria{}
 	for _, ref := range c.Referencias {
+		permitido := false
+		for _, campo := range camposReferencia {
+			if ref.Campo == campo {
+				permitido = true
+				break
+			}
+		}
+		if _, repetida := refs[ref.Campo]; !permitido || repetida {
+			return EvaluacionMaterialBases{}, ErrMaterialInvalido
+		}
 		refs[ref.Campo] = ref.Referencia
 	}
-	resultado := make([]Pendiente, 0, 20)
+	resultado := make([]Pendiente, 0, 23)
 	for _, campo := range camposReferencia {
 		ref := refs[campo]
 		codigo := "referencia_no_verificada"
@@ -122,13 +151,35 @@ func (m Material) Pendientes() ([]Pendiente, error) {
 		}
 		resultado = append(resultado, Pendiente{campo, codigo})
 	}
-	if c.Contenido.Validar() != nil {
+	contenido := c.Contenido
+	for _, campo := range []struct {
+		clave   string
+		ausente bool
+	}{
+		{"identificador_publico", contenido.IdentificadorPublico == ""}, {"tipo", contenido.Tipo == ""},
+		{"titulo", contenido.Titulo == ""}, {"resumen", contenido.Resumen == ""},
+		{"catalogo_categorias", contenido.CatalogoCategorias == (bolsa.ReferenciaCatalogoCategorias{})},
+		{"categorias", len(contenido.Categorias) == 0}, {"plazos", len(contenido.Plazos) == 0},
+		{"documentos_propuestos", len(contenido.Documentos) == 0},
+	} {
+		if campo.ausente {
+			resultado = append(resultado, Pendiente{campo.clave, "material_ausente"})
+		}
+	}
+	canonico, errCanonico := c.Contenido.ClonarCanonico()
+	if errors.Is(errCanonico, bolsa.ErrVersionConvocatoriaGobernadaInvalida) {
 		resultado = append(resultado, Pendiente{"contenido", "contenido_no_validado"})
+	} else if errCanonico != nil {
+		return EvaluacionMaterialBases{}, errCanonico
 	}
 	for _, campo := range []string{"documentos_admitidos", "firma_y_custodia", "acto_aprobacion", "publicacion_oficial"} {
 		resultado = append(resultado, Pendiente{campo, "circuito_pendiente"})
 	}
-	return resultado, nil
+	evaluacion := EvaluacionMaterialBases{Pendientes: resultado}
+	if errCanonico == nil {
+		evaluacion.ContenidoCanonico = &canonico
+	}
+	return evaluacion, nil
 }
 
 func IdentificadorValido(s string) bool {
