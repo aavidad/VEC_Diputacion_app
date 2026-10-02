@@ -27,7 +27,8 @@
     "ayuda_texto": "Revise las bases, los requisitos y los plazos publicados. Puede elegir archivos opcionales y descargar un resumen. Al salir se pierde la preparación. El resumen no acredita presentación, firma ni registro.",
     "datos_tecnicos": "Versión de la convocatoria",
     "version": "Versión {version}",
-    "huella": "Huella SHA-256: {huella}"
+    "huella": "Huella SHA-256: {huella}",
+    "descargar_json": "Descargar borrador JSON"
   },
   "convocatoria": {
     "descripcion": "Información publicada",
@@ -76,7 +77,8 @@
     "fecha": "Generado localmente: {fecha}",
     "separador": " · ",
     "limite": "Este borrador no es un justificante ni un recibo. No acredita firma, registro o presentación.",
-    "archivo_descarga": "borrador-solicitud-{identificador}.txt"
+    "archivo_descarga": "borrador-solicitud-{identificador}.txt",
+    "archivo_descarga_json": "borrador-solicitud-{identificador}.json"
   },
   "limites": {
     "maximo_archivos": "8",

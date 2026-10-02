@@ -462,6 +462,9 @@ static/textos/es/carrera.json
 static/textos/en/carrera.json
 static/textos/es/seleccion.json
 static/textos/en/seleccion.json
+static/portal-empleado/modulos/personal/preparacion-servicios-cer.js
+static/textos/es/personal-servicios-cer.json
+static/textos/en/personal-servicios-cer.json
 static/portal-empleado/portal-accesos-empleado.js
 static/textos/es/accesos-empleado.json
 static/textos/en/accesos-empleado.json
@@ -491,3 +494,6 @@ static/textos/en/cronos-bandeja-notificaciones.json
 static/portal-empleado/modulos/cronos/i18n-notificaciones-historial.js
 static/textos/es/cronos-notificaciones-historial.json
 static/textos/en/cronos-notificaciones-historial.json
+static/portal-empleado/modulos/cronos/i18n-permisos-consulta.js
+static/textos/es/cronos-permisos-consulta.json
+static/textos/en/cronos-permisos-consulta.json

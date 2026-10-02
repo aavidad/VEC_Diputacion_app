@@ -28,24 +28,53 @@ type documentosJustificacionPrueba struct {
 	preflightErr, err   error
 	llamadas, preflight int
 	cambiada            bool
+	sinNumero           bool
 }
 
 func (d *documentosJustificacionPrueba) PrepararRegistro(context.Context, ports.OrdenJustificacion, domain.SolicitudJustificable, domain.PoliticaJustificacion) error {
 	d.preflight++
 	return d.preflightErr
 }
-func (d *documentosJustificacionPrueba) RegistrarJustificante(_ context.Context, _ ports.OrdenJustificacion, _ domain.SolicitudJustificable, _ domain.PoliticaJustificacion, v domain.DocumentoJustificacion, _ string) (domain.DocumentoJustificacion, error) {
+func (d *documentosJustificacionPrueba) RegistrarJustificante(_ context.Context, _ ports.OrdenJustificacion, s domain.SolicitudJustificable, p domain.PoliticaJustificacion, v domain.DocumentoJustificacion, _ string) (ports.RegistroDocumentalConfirmado, error) {
 	d.llamadas++
 	if d.cambiada {
 		v.Version++
 	}
-	return v, d.err
+	numero := "VEC-2026-14"
+	if d.sinNumero {
+		numero = ""
+	}
+	return ports.RegistroDocumentalConfirmado{Documento: v, ModuloID: "cronos", ExpedienteRef: s.ExpedienteDocumentalRef, TipoRef: p.TipoDocumentalRef,
+		NumeroVEC: numero, CreadoEnUTC: time.Now().UTC(), PoliticaRef: "ref:" + strings.Repeat("1", 64),
+		PoliticaVersion: 1, PoliticaSHA256: strings.Repeat("2", 64), ConservacionHastaUTC: time.Now().UTC().AddDate(1, 0, 0),
+		Proteccion: "conservacion", EstadoPolitica: "aprobada"}, d.err
 }
 
 type repoJustificacionPrueba struct {
-	recibo            *ports.ReciboJustificacion
+	recibo     *ports.ReciboJustificacion
+	registro   *ports.RegistroDocumentalConfirmado
+	historicos map[string]struct {
+		material domain.MaterialJustificacion
+		recibo   ports.ReciboJustificacion
+	}
 	err, errorLectura error
 	lecturas, efectos int
+	alterarRegistro   bool
+	sustituirRegistro bool
+}
+
+func (r *repoJustificacionPrueba) RecuperarRevisionPorClave(_ context.Context, _ ports.OrdenJustificacion, m domain.MaterialReciboPorClaveJustificacion) (ports.ReciboJustificacion, bool, error) {
+	h, ok := r.historicos[m.ClaveOperacion]
+	if !ok {
+		return ports.ReciboJustificacion{}, false, nil
+	}
+	if h.material.ActorRef != m.ActorRef || h.material.PerfilRef != m.PerfilRef ||
+		h.material.Vinculo.SolicitudRef != m.SolicitudRef || h.material.Vinculo.EmpleadoRef != m.EmpleadoRef ||
+		h.material.Accion != domain.AccionRevisarJustificacion || h.material.VersionEsperada != m.VersionEsperada ||
+		h.material.Decision != m.Decision || h.material.MotivoRef != m.MotivoRef {
+		return ports.ReciboJustificacion{}, false, domain.ErrJustificacionConflicto
+	}
+	return h.recibo, true, nil
 }
 
 func (r *repoJustificacionPrueba) RecuperarJustificacion(_ context.Context, _ ports.OrdenJustificacion, m domain.MaterialJustificacion) (ports.ReciboJustificacion, bool, error) {
@@ -62,14 +91,40 @@ func (r *repoJustificacionPrueba) RecuperarJustificacion(_ context.Context, _ po
 	}
 	return *r.recibo, true, nil
 }
-func (r *repoJustificacionPrueba) ConfirmarJustificacion(_ context.Context, m domain.MaterialJustificacion, j domain.Justificacion, _ vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ports.ReciboJustificacion, error) {
+func (r *repoJustificacionPrueba) ConfirmarJustificacion(_ context.Context, m domain.MaterialJustificacion, j domain.Justificacion, registro *ports.RegistroDocumentalConfirmado, _ vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ports.ReciboJustificacion, error) {
 	r.efectos++
 	if r.err != nil {
 		return ports.ReciboJustificacion{}, r.err
 	}
+	if m.Accion == domain.AccionAnexarJustificacion {
+		if registro == nil || registro.Documento != m.Vinculo.Documento {
+			return ports.ReciboJustificacion{}, ports.ErrJustificacionNoDisponible
+		}
+		r.registro = registro
+		if r.alterarRegistro {
+			registro.NumeroVEC = "VEC-2026-15"
+		}
+		if r.sustituirRegistro {
+			copia := *registro
+			copia.NumeroVEC = "VEC-2026-15"
+			r.registro = &copia
+		}
+	} else if registro != nil || r.registro == nil {
+		return ports.ReciboJustificacion{}, ports.ErrJustificacionNoDisponible
+	}
 	h, _ := m.Huella()
-	recibo := ports.ReciboJustificacion{Justificacion: j, HuellaMaterial: h, ReciboRef: "recibo:ensayo", FechaUTC: time.Now().UTC().Truncate(time.Microsecond)}
+	recibo := ports.ReciboJustificacion{Justificacion: j, Registro: r.registro, HuellaMaterial: h, ReciboRef: "recibo:ensayo", FechaUTC: time.Now().UTC().Truncate(time.Microsecond)}
 	r.recibo = &recibo
+	if r.historicos == nil {
+		r.historicos = make(map[string]struct {
+			material domain.MaterialJustificacion
+			recibo   ports.ReciboJustificacion
+		})
+	}
+	r.historicos[m.ClaveOperacion] = struct {
+		material domain.MaterialJustificacion
+		recibo   ports.ReciboJustificacion
+	}{m, recibo}
 	return recibo, nil
 }
 
@@ -84,7 +139,11 @@ func (p *proveedorJustificacionPrueba) ProveerMaterialJustificacion(_ context.Co
 	if p.err != nil || p.vacio {
 		return vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, p.err
 	}
-	h, e := m.Huella()
+	recurso, e := RecursoJustificacion(m)
+	if e != nil {
+		return vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, e
+	}
+	h, e := recurso.HuellaContextoAutorizacionSHA256()
 	if e != nil {
 		return vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, e
 	}
@@ -103,7 +162,8 @@ func escenarioJustificacion(t *testing.T) (*ServicioJustificacion, ports.OrdenJu
 	t.Helper()
 	p := domain.PoliticaJustificacion{Referencia: "politica:justificacion:v1", Version: 1, SHA256: strings.Repeat("a", 64), CatalogoVersionRef: "catalogo:permiso:v1", PermisoRef: "permiso:neutral", TipoDocumentalRef: "ref:" + strings.Repeat("b", 64), CustodioID: "custodia.interna", MotivosRef: []string{"motivo:documentacion:conforme", "motivo:documentacion:incompleta"}}
 	solicitud := domain.SolicitudJustificable{SolicitudRef: "permiso:cronos:solicitud:ensayo001", EmpleadoRef: "emp_0123456789abcdefghijkl", CatalogoVersionRef: p.CatalogoVersionRef, PermisoRef: p.PermisoRef, ExpedienteDocumentalRef: "ref:" + strings.Repeat("c", 64), Version: 3, Estado: domain.EstadoPermisoConcedido, JustificanteExigido: true}
-	f := &fuenteJustificacionPrueba{p: ports.PreparacionJustificacion{Solicitud: solicitud, Politica: p}}
+	sintetica := true
+	f := &fuenteJustificacionPrueba{p: ports.PreparacionJustificacion{Solicitud: solicitud, Politica: p, PoliticaVigente: true, PoliticaSintetica: &sintetica}}
 	d := &documentosJustificacionPrueba{}
 	r := &repoJustificacionPrueba{}
 	prov := &proveedorJustificacionPrueba{}
@@ -121,7 +181,7 @@ func escenarioJustificacion(t *testing.T) (*ServicioJustificacion, ports.OrdenJu
 	return s, o, f, d, r, prov, in
 }
 func TestJustificacionGateAntesDocumentos(t *testing.T) {
-	for _, caso := range []string{"enclave", "personal", "politica", "orden", "proveedor", "material_vacio", "material_cambiado", "documental", "lectura"} {
+	for _, caso := range []string{"enclave", "personal", "politica", "sintetica_desconocida", "orden", "proveedor", "material_vacio", "material_cambiado", "documental", "lectura"} {
 		t.Run(caso, func(t *testing.T) {
 			s, o, f, d, r, p, in := escenarioJustificacion(t)
 			switch caso {
@@ -129,6 +189,8 @@ func TestJustificacionGateAntesDocumentos(t *testing.T) {
 				f.err = ports.ErrJustificacionNoDisponible
 			case "politica":
 				f.p.Politica.SHA256 = ""
+			case "sintetica_desconocida":
+				f.p.PoliticaSintetica = nil
 			case "orden":
 				o = ports.OrdenJustificacion{}
 			case "proveedor":
@@ -172,16 +234,36 @@ func TestJustificacionGateAntesDocumentos(t *testing.T) {
 		t.Fatal("proveedor typed nil")
 	}
 }
+
+func TestConsultarJustificacionUsaFuenteAutorizadaSinEfectos(t *testing.T) {
+	s, o, f, d, r, _, in := escenarioJustificacion(t)
+	p, err := s.Consultar(context.Background(), o, in.SolicitudRef)
+	if err != nil || f.lecturas != 1 || d.preflight != 0 || d.llamadas != 0 || r.lecturas != 0 || r.efectos != 0 || p.Solicitud.SolicitudRef != in.SolicitudRef {
+		t.Fatal("consulta con efecto o sin fuente", err, p)
+	}
+	p.Politica.MotivosRef[0] = "motivo:alterado"
+	*p.PoliticaSintetica = false
+	if f.p.Politica.MotivosRef[0] == "motivo:alterado" {
+		t.Fatal("consulta expone slice de la fuente")
+	}
+	if !*f.p.PoliticaSintetica {
+		t.Fatal("consulta expone estado provisional mutable")
+	}
+	f.err = ports.ErrJustificacionNoDisponible
+	if _, err := s.Consultar(context.Background(), o, in.SolicitudRef); !errors.Is(err, ports.ErrJustificacionNoDisponible) {
+		t.Fatal("consulta sin autoridad actual", err)
+	}
+}
 func TestJustificacionDosEfectosFalloYReplay(t *testing.T) {
 	s, o, f, d, r, _, in := escenarioJustificacion(t)
 	r.err = ports.ErrJustificacionNoDisponible
 	res, e := s.Anexar(context.Background(), o, in)
-	if !errors.Is(e, ports.ErrEnlaceJustificacionPendiente) || !res.EnlacePendiente || res.Documento == nil || res.ReciboCronos != nil || d.llamadas != 1 {
+	if !errors.Is(e, ports.ErrEnlaceJustificacionPendiente) || !res.EnlacePendiente || res.Documento == nil || res.Registro == nil || res.ReciboCronos != nil || d.llamadas != 1 {
 		t.Fatal("oculta alta parcial", e, res)
 	}
 	r.err = nil
 	res, e = s.Anexar(context.Background(), o, in)
-	if e != nil || res.EnlacePendiente || res.ReciboCronos == nil || d.llamadas != 2 {
+	if e != nil || res.EnlacePendiente || res.ReciboCronos == nil || res.ReciboCronos.Registro == nil || res.ReciboCronos.Registro.NumeroVEC != "VEC-2026-14" || d.llamadas != 2 {
 		t.Fatal(e, res)
 	}
 	original := *res.ReciboCronos
@@ -207,6 +289,7 @@ func TestRevisionJustificacionSeparadaYRefsExactas(t *testing.T) {
 		t.Fatal(e)
 	}
 	f.p.Actual = &res.ReciboCronos.Justificacion
+	f.p.PoliticaVigente = false // La revisión usa la versión original, no una política nueva.
 	r.recibo = nil
 	p := ports.PeticionRevisionJustificacion{SolicitudRef: in.SolicitudRef, ClaveOperacion: "ref:" + strings.Repeat("a", 64), VersionEsperada: 1, Vinculo: f.p.Actual.Vinculo, Decision: domain.JustificacionRechazada, MotivoRef: f.p.Politica.MotivosRef[1]}
 	original := f.p.Solicitud
@@ -235,5 +318,120 @@ func TestJustificacionFalloDocumentosNoConfirmaCronos(t *testing.T) {
 	d.cambiada = true
 	if res, e := s.Anexar(context.Background(), o, in); !errors.Is(e, ports.ErrEnlaceJustificacionPendiente) || r.efectos != 0 || res.ReciboCronos != nil {
 		t.Fatal("enlace de documento incoherente")
+	}
+	d.cambiada = false
+	d.sinNumero = true
+	if res, e := s.Anexar(context.Background(), o, in); !errors.Is(e, ports.ErrEnlaceJustificacionPendiente) || r.efectos != 0 || res.ReciboCronos != nil {
+		t.Fatal("enlace sin confirmacion registral")
+	}
+}
+func TestJustificacionNoAceptaReciboConRegistroDistinto(t *testing.T) {
+	for _, caso := range []string{"mutar argumento", "sustituir recibo"} {
+		t.Run(caso, func(t *testing.T) {
+			s, o, _, _, r, _, in := escenarioJustificacion(t)
+			r.alterarRegistro = caso == "mutar argumento"
+			r.sustituirRegistro = caso == "sustituir recibo"
+			res, err := s.Anexar(context.Background(), o, in)
+			if !errors.Is(err, ports.ErrEnlaceJustificacionPendiente) || !res.EnlacePendiente || res.Registro == nil || res.Registro.NumeroVEC != "VEC-2026-14" || res.ReciboCronos != nil {
+				t.Fatal("recibo aceptado con registro distinto al confirmado", err, res)
+			}
+		})
+	}
+}
+
+func TestJustificacionRecuperaHistoricoConPoliticaVencida(t *testing.T) {
+	s, o, f, d, r, _, in := escenarioJustificacion(t)
+	primero, err := s.Anexar(context.Background(), o, in)
+	if err != nil || primero.ReciboCronos == nil {
+		t.Fatal("no se preparó recibo histórico", err)
+	}
+	desdeDocumentos := d.llamadas
+	f.p.PoliticaVigente = false
+	f.p.Actual = &primero.ReciboCronos.Justificacion
+	replay, err := s.Anexar(context.Background(), o, in)
+	if err != nil || replay.ReciboCronos == nil || !replay.ReciboCronos.Replay || d.llamadas != desdeDocumentos || d.preflight != desdeDocumentos {
+		t.Fatal("recibo histórico depende de poder registrar otra vez", err, replay)
+	}
+	r.recibo = nil
+	in.ClaveOperacion = "ref:" + strings.Repeat("9", 64)
+	in.VersionEsperada = 1
+	in.Documento.ID = "ref:" + strings.Repeat("8", 64)
+	if _, err := s.Anexar(context.Background(), o, in); !errors.Is(err, ports.ErrPoliticaJustificacionNoVigente) || d.llamadas != desdeDocumentos || d.preflight != desdeDocumentos {
+		t.Fatal("alta nueva con política vencida", err)
+	}
+}
+
+func TestRevisionRecuperaMaterialOriginalTrasOtroAnexo(t *testing.T) {
+	s, o, f, d, r, _, in := escenarioJustificacion(t)
+	anexoA, err := s.Anexar(context.Background(), o, in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.p.Actual = &anexoA.ReciboCronos.Justificacion
+	r.recibo = nil
+	revision := ports.PeticionRevisionJustificacion{SolicitudRef: in.SolicitudRef, ClaveOperacion: "ref:" + strings.Repeat("7", 64),
+		VersionEsperada: 1, Vinculo: f.p.Actual.Vinculo, Decision: domain.JustificacionAceptada, MotivoRef: f.p.Politica.MotivosRef[0]}
+	reciboRevision, err := s.Revisar(context.Background(), o, revision)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.p.Actual = &reciboRevision.Justificacion
+	r.recibo = nil
+	inB := in
+	inB.ClaveOperacion = "ref:" + strings.Repeat("8", 64)
+	inB.VersionEsperada = 2
+	inB.Documento.ID = "ref:" + strings.Repeat("9", 64)
+	anexoB, err := s.Anexar(context.Background(), o, inB)
+	if err != nil || anexoB.ReciboCronos == nil || anexoB.ReciboCronos.Justificacion.Version != 3 {
+		t.Fatal("segundo anexo", err)
+	}
+	f.p.Actual = &anexoB.ReciboCronos.Justificacion
+	efectos, altas := r.efectos, d.llamadas
+	consulta := ports.PeticionRecuperacionRevisionJustificacion{SolicitudRef: revision.SolicitudRef, ClaveOperacion: revision.ClaveOperacion,
+		VersionEsperada: revision.VersionEsperada, Decision: revision.Decision, MotivoRef: revision.MotivoRef}
+	replay, err := s.RecuperarRevision(context.Background(), o, consulta)
+	if err != nil || !replay.Replay || replay.ReciboRef != reciboRevision.ReciboRef || replay.Justificacion.Vinculo != revision.Vinculo || r.efectos != efectos || d.llamadas != altas {
+		t.Fatal("revisión A no recuperable tras documento B", err, replay)
+	}
+	for _, campo := range []string{"motivo", "decision", "version"} {
+		alterada := consulta
+		switch campo {
+		case "motivo":
+			alterada.MotivoRef = f.p.Politica.MotivosRef[1]
+		case "decision":
+			alterada.Decision = domain.JustificacionRechazada
+		case "version":
+			alterada.VersionEsperada++
+		}
+		if _, err := s.RecuperarRevision(context.Background(), o, alterada); !errors.Is(err, domain.ErrJustificacionConflicto) || r.efectos != efectos || d.llamadas != altas {
+			t.Fatal("clave histórica aceptó otro campo", campo, err)
+		}
+	}
+}
+
+func TestRecursoJustificacionLigaHuellaDelMaterialAlContextoV3(t *testing.T) {
+	_, o, f, _, _, _, in := escenarioJustificacion(t)
+	actor, err := o.ContextoActor()
+	if err != nil {
+		t.Fatal(err)
+	}
+	v := domain.VinculoJustificacion{SolicitudRef: f.p.Solicitud.SolicitudRef, EmpleadoRef: f.p.Solicitud.EmpleadoRef,
+		CatalogoVersionRef: f.p.Solicitud.CatalogoVersionRef, PermisoRef: f.p.Solicitud.PermisoRef,
+		ExpedienteDocumentalRef: f.p.Solicitud.ExpedienteDocumentalRef, Documento: in.Documento}
+	m := materialJustificacion(actor, f.p, v, in.ClaveOperacion, domain.AccionAnexarJustificacion, 0)
+	recurso, err := RecursoJustificacion(m)
+	if err != nil || recurso.Referencia != in.SolicitudRef || recurso.Ambitos["empleado_ref"] != f.p.Solicitud.EmpleadoRef {
+		t.Fatal("recurso C8 incoherente", err)
+	}
+	contexto, err := recurso.HuellaContextoAutorizacionSHA256()
+	bruta, _ := m.Huella()
+	if err != nil || contexto == bruta || recurso.Atributos["material_sha256"] != bruta {
+		t.Fatal("huella V3 confundida con material bruto", err)
+	}
+	m.Vinculo.Documento.SHA256 = strings.Repeat("9", 64)
+	cambiado, err := RecursoJustificacion(m)
+	huellaCambiada, e := cambiado.HuellaContextoAutorizacionSHA256()
+	if err != nil || e != nil || contexto == huellaCambiada {
+		t.Fatal("material alterado conserva recurso V3", err, e)
 	}
 }
