@@ -3,6 +3,7 @@ package ports
 import (
 	"context"
 	"errors"
+	"reflect"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 )
@@ -15,15 +16,20 @@ const (
 )
 
 var ErrEntregaPeticionEnConflicto = errors.New("contratacion temporal: entrega de peticion en conflicto")
+var ErrNumeroMOADAusente = errors.New("contratacion temporal: numero MOAD ausente para entrega nueva")
 
 // La referencia de petición identifica la operación. El servidor reserva una
 // sola clave de alta; el navegador nunca elige una clave, un actor o los datos.
 type ComandoEntregarPeticionCentro struct {
-	PeticionRef     string `json:"peticion_ref"`
-	VersionEsperada uint64 `json:"version_esperada"`
+	NumeroExpedienteMOAD string `json:"numero_expediente_moad,omitempty"`
+	PeticionRef          string `json:"peticion_ref"`
+	VersionEsperada      uint64 `json:"version_esperada"`
 }
 
 func (c ComandoEntregarPeticionCentro) Validar() error {
+	if c.NumeroExpedienteMOAD != "" && !domain.NumeroExpedienteValido(c.NumeroExpedienteMOAD) {
+		return domain.ErrPeticionCentroInvalida
+	}
 	if !domain.ReferenciaOpacaValida(c.PeticionRef) || c.VersionEsperada != 2 {
 		return domain.ErrPeticionCentroInvalida
 	}
@@ -38,6 +44,9 @@ type EntregaPeticionCentro struct {
 	ActorRef       string                     `json:"actor_ref,omitempty"`
 	PerfilRef      string                     `json:"perfil_ref,omitempty"`
 	ReciboAlta     *ReciboAlta                `json:"recibo_alta,omitempty"`
+	// AltaAnterior sólo la fija el adaptador tras contrastar el original en la
+	// misma transacción de entrega. Nunca sale en JSON ni procede del cliente.
+	AltaAnterior *AltaDePeticionCentro `json:"-"`
 	// Estas señales describen las inserciones de esta solicitud HTTP. No forman
 	// parte de la petición, la reserva ni el recibo conservado.
 	ReservaCreadaAhora bool `json:"-"`
@@ -62,6 +71,37 @@ func (e EntregaPeticionCentro) Validar() error {
 			return ErrReciboPeticionCentroNoConfiable
 		}
 	default:
+		return ErrReciboPeticionCentroNoConfiable
+	}
+	if e.AltaAnterior != nil && (e.AltaAnterior.Recibo.ValidarEstructura() != nil ||
+		e.AltaAnterior.AmbitoHMAC != e.AmbitoAltaHMAC ||
+		e.EstadoEntrega == "confirmada" && !reflect.DeepEqual(e.ReciboAlta, &e.AltaAnterior.Recibo)) {
+		return ErrReciboPeticionCentroNoConfiable
+	}
+	return nil
+}
+
+// OriginalAltaEntrega contiene sólo las coordenadas que permiten cotejar el
+// canon previo a MOAD con la historia confirmada, sin exponerla por HTTP.
+type OriginalAltaEntrega struct {
+	Esquema            string                 `json:"esquema"`
+	OrganizacionRef    string                 `json:"organizacion_ref"`
+	ActorRef           string                 `json:"actor_ref"`
+	PerfilRef          string                 `json:"perfil_ref"`
+	Flujo              domain.ReferenciaFlujo `json:"flujo"`
+	PoliticaFin        *domain.PoliticaFin    `json:"politica_fin"`
+	AmbitoHMAC         string                 `json:"ambito_hmac"`
+	HuellaPeticionHMAC string                 `json:"huella_peticion_hmac"`
+	ReciboAlta         ReciboAlta             `json:"recibo_alta"`
+}
+
+func (o OriginalAltaEntrega) Validar() error {
+	if o.Esquema != "vec.contratacion-temporal.original-alta-entrega.v1" ||
+		!domain.ReferenciaOpacaValida(o.OrganizacionRef) ||
+		!domain.ReferenciaOpacaValida(o.ActorRef) || !domain.ReferenciaOpacaValida(o.PerfilRef) ||
+		o.Flujo.Validar() != nil || o.ReciboAlta.ValidarEstructura() != nil ||
+		!SelloHMACSHA256Valido(o.AmbitoHMAC) || !SelloHMACSHA256Valido(o.HuellaPeticionHMAC) ||
+		o.PoliticaFin != nil && o.PoliticaFin.Validar() != nil {
 		return ErrReciboPeticionCentroNoConfiable
 	}
 	return nil
@@ -100,7 +140,7 @@ func (m MaterialEntregaPeticionCentro) Validar() error {
 		}
 		return nil
 	}
-	if (ComandoEntregarPeticionCentro{m.PeticionRef, m.VersionEsperada}).Validar() != nil {
+	if (ComandoEntregarPeticionCentro{PeticionRef: m.PeticionRef, VersionEsperada: m.VersionEsperada}).Validar() != nil {
 		return domain.ErrPeticionCentroInvalida
 	}
 	if !domain.ReferenciaOpacaValida(m.CentroRef) || !domain.ReferenciaOpacaValida(m.CategoriaRef) {
@@ -129,5 +169,5 @@ type RepositorioEntregasPeticionCentro interface {
 // El adaptador de composición llama al registro de solicitudes existente,
 // conservando su autorización, cifrado, idempotencia y transacción de alta.
 type RegistradorExpedientePeticionCentro interface {
-	RegistrarExpedientePeticion(context.Context, EntregaPeticionCentro) (AltaDePeticionCentro, error)
+	RegistrarExpedientePeticion(context.Context, EntregaPeticionCentro, string) (AltaDePeticionCentro, error)
 }

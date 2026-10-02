@@ -13,13 +13,18 @@ type ServicioPeticionCentro struct {
 	autoridad   ports.AutoridadPeticionCentro
 	repositorio ports.RepositorioPeticionesCentro
 	reloj       ports.Reloj
+	periodos    ports.PreparadorPeriodoModalidad
 }
 
-func NuevoServicioPeticionCentro(a ports.AutoridadPeticionCentro, r ports.RepositorioPeticionesCentro, reloj ports.Reloj) (*ServicioPeticionCentro, error) {
-	if dependenciaNula(a) || dependenciaNula(r) || dependenciaNula(reloj) {
+func NuevoServicioPeticionCentro(a ports.AutoridadPeticionCentro, r ports.RepositorioPeticionesCentro, reloj ports.Reloj, periodos ...ports.PreparadorPeriodoModalidad) (*ServicioPeticionCentro, error) {
+	if dependenciaNula(a) || dependenciaNula(r) || dependenciaNula(reloj) || len(periodos) > 1 {
 		return nil, ports.ErrPeticionCentroNoDisponible
 	}
-	return &ServicioPeticionCentro{autoridad: a, repositorio: r, reloj: reloj}, nil
+	s := &ServicioPeticionCentro{autoridad: a, repositorio: r, reloj: reloj}
+	if len(periodos) == 1 {
+		s.periodos = periodos[0]
+	}
+	return s, nil
 }
 
 func (s *ServicioPeticionCentro) Ejecutar(ctx context.Context, entrada ports.ComandoPeticionCentro) (ports.ReciboPeticionCentro, error) {
@@ -33,6 +38,9 @@ func (s *ServicioPeticionCentro) Ejecutar(ctx context.Context, entrada ports.Com
 	comando, err := entrada.Clonar()
 	if err != nil {
 		return vacio, err
+	}
+	if comando.Solicitud != nil && comando.Solicitud.Periodo.PoliticaFin != (domain.PoliticaFin{}) {
+		return vacio, domain.ErrPeticionCentroInvalida
 	}
 	actor, err := s.autoridad.ActorPeticionCentro(ctx)
 	if err != nil {
@@ -51,6 +59,15 @@ func (s *ServicioPeticionCentro) Ejecutar(ctx context.Context, entrada ports.Com
 	} else {
 		var peticion domain.PeticionCentro
 		if comando.Operacion == ports.OperacionPresentarPeticionCentro {
+			if s.periodos != nil {
+				periodo, err := s.periodos.PrepararPeriodoModalidad(ctx, comando.Solicitud.MotivoClave, comando.Solicitud.Periodo)
+				if err != nil {
+					return vacio, domain.ErrPeticionCentroInvalida
+				}
+				comando.Solicitud.Periodo = periodo
+			} else if comando.Solicitud.Periodo.Fin.IsZero() {
+				return vacio, ports.ErrPeticionCentroNoDisponible
+			}
 			configuracion, err := s.autoridad.ConfiguracionPeticionCentro(ctx, actor)
 			if err != nil {
 				return vacio, err

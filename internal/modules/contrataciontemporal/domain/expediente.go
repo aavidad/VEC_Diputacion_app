@@ -64,6 +64,7 @@ type Expediente struct {
 	Asignacion          *AsignacionUnidad                       `json:"asignacion,omitempty"`
 	InformeJuridico     *InformeJuridicoEmitido                 `json:"informe_juridico,omitempty"`
 	Fiscalizacion       *FiscalizacionRegistrada                `json:"fiscalizacion,omitempty"`
+	Circuito            *CircuitoAdministrativo                 `json:"circuito,omitempty"`
 	CreadoEn            time.Time                               `json:"creado_en"`
 	ActualizadoEn       time.Time                               `json:"actualizado_en"`
 	Actuaciones         []Actuacion                             `json:"actuaciones"`
@@ -74,6 +75,7 @@ type AltaExpediente struct {
 	OrganizacionRef string
 	NumeroVisible   string
 	Flujo           ReferenciaFlujo
+	Circuito        *CircuitoAdministrativo
 	FaseInicial     ClaveFase
 	Solicitud       SolicitudCentro
 	Actuacion       DatosActuacion
@@ -95,6 +97,10 @@ func NuevoExpediente(alta AltaExpediente) (Expediente, error) {
 		Flujo: alta.Flujo, FaseActual: alta.FaseInicial, EstadoActual: EstadoEnCurso,
 		Solicitud: alta.Solicitud.clonar(), CreadoEn: alta.Actuacion.RealizadaEn,
 		ActualizadoEn: alta.Actuacion.RealizadaEn,
+	}
+	if alta.Circuito != nil {
+		clon := alta.Circuito.clonar()
+		expediente.Circuito = &clon
 	}
 	expediente.Actuaciones = []Actuacion{expediente.nuevaActuacion(
 		"", EstadoPendiente, alta.Actuacion, 1,

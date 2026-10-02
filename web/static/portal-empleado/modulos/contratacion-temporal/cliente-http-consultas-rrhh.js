@@ -180,10 +180,13 @@ function validarPagina(entrada) {
 function validarSolicitudProyectada(entrada) {
   if (!camposCerrados(
     entrada,
-    ["grupo_subgrupo", "motivo_clave", "periodo_inicio", "periodo_fin"],
+    ["grupo_subgrupo", "motivo_clave", "periodo_inicio"],
+    ["periodo_fin", "periodo_causa_fin"],
   ) || !cadena(entrada.grupo_subgrupo, { maximo: 80 })
     || !clave(entrada.motivo_clave) || !instante(entrada.periodo_inicio)
-    || !instante(entrada.periodo_fin)) {
+    || (entrada.periodo_fin ? !instante(entrada.periodo_fin)
+      || Object.hasOwn(entrada, "periodo_causa_fin")
+      : !clave(entrada.periodo_causa_fin))) {
     throw new TypeError("solicitud proyectada RRHH no válida");
   }
   return structuredClone(entrada);
@@ -192,15 +195,18 @@ function validarSolicitudProyectada(entrada) {
 function validarAnalisis(entrada) {
   const obligatorios = [
     "modalidad_clave", "categoria_ref", "causa_clave", "periodo_inicio",
-    "periodo_fin", "porcentaje_jornada", "resultado_rc",
+    "porcentaje_jornada", "resultado_rc",
   ];
-  if (!camposCerrados(entrada, obligatorios, ["coste_previsto", "fuente_coste_ref", "observaciones"])
+  if (!camposCerrados(entrada, obligatorios, ["periodo_fin", "periodo_causa_fin",
+    "coste_previsto", "fuente_coste_ref", "observaciones"])
     || !clave(entrada.modalidad_clave) || !referencia(entrada.categoria_ref)
     || (Object.hasOwn(entrada, "observaciones")
       && (typeof entrada.observaciones !== "string" || entrada.observaciones === ""
         || [...entrada.observaciones].length > 4000))
     || !clave(entrada.causa_clave) || !instante(entrada.periodo_inicio)
-    || !instante(entrada.periodo_fin)
+    || (entrada.periodo_fin ? !instante(entrada.periodo_fin)
+      || Object.hasOwn(entrada, "periodo_causa_fin")
+      : !clave(entrada.periodo_causa_fin))
     || !entero(entrada.porcentaje_jornada, 1) || entrada.porcentaje_jornada > 10_000
     || !clave(entrada.resultado_rc)
     || (Object.hasOwn(entrada, "fuente_coste_ref")

@@ -18,6 +18,8 @@ import (
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/informejuridico"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/numeracion"
+	postgresct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
 	plantillasapp "vec-diputacion-granada/internal/modules/contrataciontemporal/application/plantillascatalogo"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
@@ -351,6 +353,11 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	politicaNumero, err := numeracion.Cargar(cfg.CTNumeroExpedienteSourcePath)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	catalogoDesarrollo.NumeroExpedienteMOAD = &politicaNumero
 	origen := nuevoOrigenConsultasConCatalogoDesarrollo(catalogoDesarrollo)
 	sello := dependencias.sello
 	reloj := dependencias.reloj
@@ -374,6 +381,16 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			alta.cerrar()
 		}
 	}()
+	var consultaCircuitoRRHH http.Handler
+	if cfg.CTCircuitoRRHHSourcePath != "" {
+		if err := preflightCircuitoRRHHDesarrollo(alta.postgresql.ejecucion); err != nil {
+			return nil, nil, nil, err
+		}
+		consultaCircuitoRRHH, err = nuevoManejadorConsultaCircuitoRRHHDesarrollo(cfg, &alta, derivador, reloj)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+	}
 	for _, descriptor := range descriptoresMaterialIncorporacionB2() {
 		_, seleccionada := alta.postgresql.catalogoMaterial.descriptorPara(descriptor.Audiencia)
 		if seleccionada != b2Configurada {
@@ -596,6 +613,12 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	if consultaCircuitoRRHH != nil {
+		declaracionesFrontera = append(declaracionesFrontera,
+			fronteraContratacionTemporalDesarrollo("ct-circuito-rrhh-consultar",
+				postgresct.AccionConsultaCircuitoRRHH, httpinterno.RutaConsultaCircuitoRRHH,
+				[]string{perfilCTCatalogo}))
+	}
 	declaracionesFrontera, err = asignarPerfilesFijosEnFronterasCTDesarrollo(alta.soporte, perfilCTCatalogo, declaracionesFrontera)
 	if err != nil {
 		return nil, nil, nil, err
@@ -644,10 +667,11 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		})
 		if debeComponerPortalCandidatoDesarrollo(cfg) {
 			for clave, ruta := range map[string]string{
-				"bolsa-mi-bolsa-solicitar":   bolsapersonal.RutaMiBolsaSolicitudes,
-				"bolsa-mi-bolsa-responder":   bolsapersonal.RutaMiBolsaRespuestas,
-				"bolsa-mi-bolsa-disposicion": bolsapersonal.RutaMiBolsaDisposiciones,
-				"bolsa-mi-bolsa-contacto":    bolsapersonal.RutaMiBolsaContacto,
+				"bolsa-mi-bolsa-solicitar":            bolsapersonal.RutaMiBolsaSolicitudes,
+				"bolsa-mi-bolsa-solicitud-documental": bolsapersonal.RutaMiBolsaSolicitudesDocumentales,
+				"bolsa-mi-bolsa-responder":            bolsapersonal.RutaMiBolsaRespuestas,
+				"bolsa-mi-bolsa-disposicion":          bolsapersonal.RutaMiBolsaDisposiciones,
+				"bolsa-mi-bolsa-contacto":             bolsapersonal.RutaMiBolsaContacto,
 			} {
 				declaracionesFrontera = append(declaracionesFrontera, descriptorFronteraComunDesarrollo{
 					Clave: clave, Superficie: superficieExternaPersonalSeguridadComunDesarrollo,
@@ -749,9 +773,23 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			}
 		}
 	}
-	presentacionFlujoRRHH, err := LeerLectorFlujoVisualRRHH(
+	lectorVisualLegado, err := LeerLectorFlujoVisualRRHH(
 		strings.NewReader(config.PresentacionFlujoRRHHDesarrollo()),
 	)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	lectoresVisuales := []*LectorFlujoVisualRRHH{lectorVisualLegado}
+	if cfg.CTCircuitoRRHHSourcePath != "" {
+		lectorVisualCircuito, err := LeerLectorFlujoVisualRRHH(
+			strings.NewReader(config.PresentacionCircuitoRRHH()),
+		)
+		if err != nil || lectorVisualCircuito.origen != alta.soporte.flujo.Flujo {
+			return nil, nil, nil, ErrManifestFlujoVisualRRHHInvalido
+		}
+		lectoresVisuales = append(lectoresVisuales, lectorVisualCircuito)
+	}
+	presentacionFlujoRRHH, err := NuevoLectorFlujosVisualesRRHH(lectoresVisuales...)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -798,6 +836,16 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		return nil, nil, nil, err
 	}
 	rutas = append(rutas, rutaCatalogosAlta, rutaConfiguracionAnalisis)
+	if consultaCircuitoRRHH != nil {
+		if dependenciaEsNulaContratacionTemporalDesarrollo(alta.postgresql.registradorAuditoriaFrontera) {
+			return nil, nil, nil, ports.ErrConsultaCircuitoRRHHNoDisponible
+		}
+		consultaCircuitoRRHH = auditorConsultaCircuitoRRHHDenegada{
+			siguiente: consultaCircuitoRRHH, registrador: alta.postgresql.registradorAuditoriaFrontera,
+			soporte: alta.soporte, reloj: reloj,
+		}
+		rutas = append(rutas, vechttp.RutaExacta{Ruta: httpinterno.RutaConsultaCircuitoRRHH, Manejador: consultaCircuitoRRHH})
+	}
 	if len(incorporacion) == 1 && incorporacion[0].nominales != nil && incorporacion[0].nominales.montajeB2 != nil {
 		rutasB2, err := incorporacion[0].nominales.montajeB2.rutas(alta.soporte, catalogoFronteras)
 		if err != nil {

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"vec-diputacion-granada/internal/modules/bolsa/application/mibolsa"
+	dominiobolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 )
@@ -18,14 +19,15 @@ import (
 // proceden siempre de la frontera; el cuerpo solo trae la bolsa y los datos
 // de la acción.
 const (
-	RutaMiBolsaSolicitudes = "/api/vec/bolsa/mi-bolsa/solicitudes"
-	RutaMiBolsaRespuestas  = "/api/vec/bolsa/mi-bolsa/respuestas"
-	maximoCuerpoPortal     = 4096
+	RutaMiBolsaSolicitudes             = "/api/vec/bolsa/mi-bolsa/solicitudes"
+	RutaMiBolsaSolicitudesDocumentales = "/api/vec/bolsa/mi-bolsa/solicitudes-documentales"
+	RutaMiBolsaRespuestas              = "/api/vec/bolsa/mi-bolsa/respuestas"
+	maximoCuerpoPortal                 = 4096
 )
 
 // EsRutaPortal indica si la ruta pertenece a «Mi bolsa» del candidato.
 func EsRutaPortal(ruta string) bool {
-	return ruta == RutaMiBolsa || ruta == RutaMiBolsaHistorial || ruta == RutaMiBolsaSolicitudes || ruta == RutaMiBolsaRespuestas || ruta == RutaMiBolsaDisposiciones || ruta == RutaMiBolsaContacto
+	return ruta == RutaMiBolsa || ruta == RutaMiBolsaHistorial || ruta == RutaMiBolsaSolicitudes || ruta == RutaMiBolsaSolicitudesDocumentales || ruta == RutaMiBolsaRespuestas || ruta == RutaMiBolsaDisposiciones || ruta == RutaMiBolsaContacto
 }
 
 // AccionPortalEn devuelve las acciones que admite cada ruta y método.
@@ -37,6 +39,8 @@ func AccionPortalEn(metodo, ruta string) []string {
 		return []string{puertosbolsa.AccionConsultarHistorialPropio}
 	case metodo == http.MethodPost && ruta == RutaMiBolsaSolicitudes:
 		return []string{puertosbolsa.AccionSolicitarPausaPropia, puertosbolsa.AccionSolicitarReactivacionPropia}
+	case metodo == http.MethodPost && ruta == RutaMiBolsaSolicitudesDocumentales:
+		return []string{puertosbolsa.AccionPresentarSolicitudDocumentalPropia}
 	case metodo == http.MethodPost && ruta == RutaMiBolsaRespuestas:
 		return []string{puertosbolsa.AccionResponderLlamamientoPropio}
 	case metodo == http.MethodPost && ruta == RutaMiBolsaDisposiciones:
@@ -50,6 +54,7 @@ func AccionPortalEn(metodo, ruta string) []string {
 type EjecutorPortal interface {
 	SolicitarPausa(context.Context, mibolsa.Orden, string, time.Time, string) (puertosbolsa.ReciboSolicitudPortal, error)
 	SolicitarReactivacion(context.Context, mibolsa.Orden, string, string) (puertosbolsa.ReciboSolicitudPortal, error)
+	PresentarSolicitudDocumental(context.Context, mibolsa.Orden, mibolsa.ComandoSolicitudDocumentalPortal) (puertosbolsa.ReciboSolicitudDocumentalPortal, error)
 	Responder(context.Context, mibolsa.Orden, mibolsa.ComandoRespuestaPortal) (puertosbolsa.ReciboRespuestaPortal, error)
 }
 
@@ -60,7 +65,7 @@ type HandlerPortal struct {
 }
 
 func NuevoPortal(ruta string, preparador Preparador, ejecutor EjecutorPortal) (http.Handler, error) {
-	if (ruta != RutaMiBolsaSolicitudes && ruta != RutaMiBolsaRespuestas) || nula(preparador) || nula(ejecutor) {
+	if (ruta != RutaMiBolsaSolicitudes && ruta != RutaMiBolsaSolicitudesDocumentales && ruta != RutaMiBolsaRespuestas) || nula(preparador) || nula(ejecutor) {
 		return nil, ErrDependenciaNoDisponible
 	}
 	return &HandlerPortal{ruta: ruta, preparador: preparador, ejecutor: ejecutor}, nil
@@ -71,6 +76,15 @@ type entradaSolicitud struct {
 	Bolsa      string  `json:"bolsa"`
 	PausaHasta *string `json:"pausa_hasta"`
 	Clave      string  `json:"clave"`
+}
+
+type entradaSolicitudDocumental struct {
+	Tipo            string `json:"tipo"`
+	Bolsa           string `json:"bolsa"`
+	DocumentoRef    string `json:"documento_ref"`
+	DocumentoSHA256 string `json:"documento_sha256"`
+	FechaFinCausa   string `json:"fecha_fin_causa"`
+	Clave           string `json:"clave"`
 }
 
 type entradaRespuesta struct {
@@ -91,6 +105,19 @@ type reciboPortal struct {
 		Estado       string  `json:"estado"`
 		Repetida     bool    `json:"repetida"`
 		VenceAntesDe *string `json:"vence_antes_de,omitempty"`
+	} `json:"data"`
+}
+
+type reciboSolicitudDocumental struct {
+	Data struct {
+		Esquema         string `json:"esquema"`
+		Referencia      string `json:"referencia"`
+		Recibo          string `json:"recibo"`
+		ContenidoSHA256 string `json:"contenido_sha256"`
+		RegistradaEn    string `json:"registrada_en"`
+		Version         int64  `json:"version"`
+		Estado          string `json:"estado"`
+		Repetida        bool   `json:"repetida"`
 	} `json:"data"`
 }
 
@@ -133,12 +160,50 @@ func (h *HandlerPortal) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.solicitar(w, r, entrada)
 		return
 	}
+	if h.ruta == RutaMiBolsaSolicitudesDocumentales {
+		var entrada entradaSolicitudDocumental
+		var resto any
+		if decodificador.Decode(&entrada) != nil || decodificador.Decode(&resto) != io.EOF || entrada.Tipo != puertosbolsa.TipoSolicitudDocumentalRRHH {
+			responder(w, 400, errorRespuesta{"datos_no_validos"})
+			return
+		}
+		h.solicitarDocumental(w, r, entrada)
+		return
+	}
 	var entrada entradaRespuesta
 	if decodificador.Decode(&entrada) != nil || decodificador.More() {
 		responder(w, 400, errorRespuesta{"datos_no_validos"})
 		return
 	}
 	h.responder(w, r, entrada)
+}
+
+func (h *HandlerPortal) solicitarDocumental(w http.ResponseWriter, r *http.Request, e entradaSolicitudDocumental) {
+	if (dominiobolsa.JustificanteOperacionSituacion{Tipo: dominiobolsa.JustificanteSolicitudCandidato,
+		Referencia: e.DocumentoRef, SHA256: e.DocumentoSHA256}).Validar() != nil {
+		responder(w, http.StatusBadRequest, errorRespuesta{"datos_no_validos"})
+		return
+	}
+	orden, err := h.preparador.PrepararMiBolsa(r)
+	if err != nil {
+		responderErrorPortal(w, err)
+		return
+	}
+	recibo, err := h.ejecutor.PresentarSolicitudDocumental(r.Context(), orden, mibolsa.ComandoSolicitudDocumentalPortal{
+		Bolsa: e.Bolsa, DocumentoRef: e.DocumentoRef, DocumentoSHA256: e.DocumentoSHA256,
+		FechaFinCausa: e.FechaFinCausa, Clave: e.Clave,
+	})
+	if err != nil {
+		responderErrorPortal(w, err)
+		return
+	}
+	var salida reciboSolicitudDocumental
+	salida.Data.Esquema = "vec.bolsa.mi-bolsa.solicitud-documental.v1"
+	salida.Data.Referencia, salida.Data.Recibo = recibo.SolicitudRef, recibo.ReciboRef
+	salida.Data.ContenidoSHA256 = recibo.ContenidoSHA256
+	salida.Data.RegistradaEn = recibo.RegistradaEn.UTC().Format("2006-01-02T15:04:05.000000Z07:00")
+	salida.Data.Version, salida.Data.Estado, salida.Data.Repetida = recibo.Version, recibo.Estado, recibo.Reutilizada
+	responder(w, estadoRecibo(recibo.Reutilizada), salida)
 }
 
 func (h *HandlerPortal) solicitar(w http.ResponseWriter, r *http.Request, e entradaSolicitud) {
@@ -263,7 +328,15 @@ type estadoPortal struct {
 		RegistradaEn string  `json:"registrada_en"`
 		PausaHasta   *string `json:"pausa_hasta"`
 	} `json:"solicitud_pendiente"`
-	UltimaRespuesta *struct {
+	UltimaSolicitudDocumental *struct {
+		Tipo                string  `json:"tipo"`
+		Recibo              string  `json:"recibo"`
+		RegistradaEn        string  `json:"registrada_en"`
+		Estado              string  `json:"estado"`
+		ReciboResolucionRef *string `json:"recibo_resolucion_ref"`
+	} `json:"ultima_solicitud_documental"`
+	SolicitudDocumentalPendiente bool `json:"solicitud_documental_pendiente"`
+	UltimaRespuesta              *struct {
 		Respuesta    string `json:"respuesta"`
 		Modo         string `json:"modo"`
 		Recibo       string `json:"recibo"`
@@ -296,7 +369,7 @@ func respuestaPortal(i puertosbolsa.InstantaneaMiBolsa) ([]estadoPortal, *accion
 	}
 	estados := make([]estadoPortal, 0, len(i.Portal))
 	for _, p := range i.Portal {
-		e := estadoPortal{Bolsa: p.Bolsa}
+		e := estadoPortal{Bolsa: p.Bolsa, SolicitudDocumentalPendiente: p.SolicitudDocumentalPendiente}
 		if a := p.LlamamientoAbierto; a != nil {
 			e.LlamamientoAbierto = &struct {
 				ContactoEn   string  `json:"contacto_en"`
@@ -310,6 +383,19 @@ func respuestaPortal(i puertosbolsa.InstantaneaMiBolsa) ([]estadoPortal, *accion
 				RegistradaEn string  `json:"registrada_en"`
 				PausaHasta   *string `json:"pausa_hasta"`
 			}{Tipo: s.Tipo, Recibo: s.Recibo, RegistradaEn: s.RegistradaEn.UTC().Format(formatoInstantePortal), PausaHasta: instantePortal(s.PausaHasta)}
+		}
+		if s := p.UltimaSolicitudDocumental; s != nil {
+			var resolucion *string
+			if s.ReciboResolucionRef != "" {
+				resolucion = &s.ReciboResolucionRef
+			}
+			e.UltimaSolicitudDocumental = &struct {
+				Tipo                string  `json:"tipo"`
+				Recibo              string  `json:"recibo"`
+				RegistradaEn        string  `json:"registrada_en"`
+				Estado              string  `json:"estado"`
+				ReciboResolucionRef *string `json:"recibo_resolucion_ref"`
+			}{Tipo: s.Tipo, Recibo: s.Recibo, RegistradaEn: s.RegistradaEn.UTC().Format(formatoInstantePortal), Estado: s.Estado, ReciboResolucionRef: resolucion}
 		}
 		if u := p.UltimaRespuesta; u != nil {
 			e.UltimaRespuesta = &struct {

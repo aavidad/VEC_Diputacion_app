@@ -17,6 +17,7 @@ import (
 	altapersonal "vec-diputacion-granada/internal/modules/personal/adapters/contrataciontemporal"
 	lecturapersonal "vec-diputacion-granada/internal/modules/personal/adapters/lecturaincorporacion"
 	personal "vec-diputacion-granada/internal/modules/personal/domain"
+	personalports "vec-diputacion-granada/internal/modules/personal/ports"
 	usuariosports "vec-diputacion-granada/internal/modules/usuarios/ports"
 	confianzaatestacion "vec-diputacion-granada/internal/vec/adapters/seguridad/confianzaatestacion"
 	"vec-diputacion-granada/internal/vec/auditoria"
@@ -281,6 +282,8 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		puertosbolsa.AudienciaSolicitarReactivacionPropia,
 		puertosbolsa.AudienciaResponderLlamamientoPropio,
 		puertosbolsa.AudienciaManifestarDisposicionPropia,
+		puertosbolsa.AudienciaPresentarSolicitudDocumentalPropia,
+		puertosbolsa.AudienciaConsultarSolicitudesDocumentalesRRHH,
 		// Confirmación del contacto propio (AD3-86); solo con el portal.
 		puertosbolsa.AudienciaConfirmarContactoPropio,
 		audienciaConsumoPersonalDietasDesarrollo,
@@ -294,6 +297,11 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		audienciaConsumoRegistrarAsignacionDietas,
 		audienciaConsumoCorregirAsignacionDietas,
 		audienciaConsumoCorregirGrupoDietas,
+		// D7c de Dietas consume las fachadas de Personal y AD3-61 existentes.
+		personalports.AudienciaSolicitarRectificacionDietas,
+		personalports.AudienciaConsultarRectificacionDietas,
+		personalports.AudienciaConsultarRectificacionesCompetentesDietas,
+		personalports.AudienciaResolverRectificacionDietas,
 		audienciaConsumoRevisarDietas,
 		audienciaConsumoAutorizarDietas,
 		audienciaConsumoLiquidarDietas,

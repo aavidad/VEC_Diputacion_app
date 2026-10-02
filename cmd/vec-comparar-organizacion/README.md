@@ -20,7 +20,7 @@ Las ausencias solo se comparan cuando ambas coberturas son completas. Con cobert
 
 El manifiesto es idéntico en JSON y HTML. La huella de entrada usa los datos tipados validados, sin idioma ni formato. La huella del manifiesto usa su JSON compacto, con las claves y orden de la estructura Go. No es la huella de los bytes del HTML ni de una firma. Repetir exactamente la misma preparación produce el mismo informe.
 
-La entrada tiene un límite de 8 MiB. Se rechazan claves desconocidas, duplicadas, más de un documento, una cadena de páginas sin terminar y datos inválidos para el dominio. La herramienta no acepta argumentos ni abre rutas indicadas por el documento. Los errores omiten los valores recibidos.
+La entrada tiene un límite de 8 MiB. Se rechazan claves desconocidas, duplicadas, más de un documento, una cadena de páginas sin terminar y datos inválidos para el dominio. El ensayo se ejecuta sin argumentos y no abre rutas indicadas por el documento. Los errores omiten los valores recibidos.
 
 Comprobación técnica focal:
 
@@ -64,3 +64,69 @@ de una fuente externa. El servicio de aplicación
 concesión y consumo V3 y devuelve selector, recibo y auditoría. Este servicio
 queda disponible para composición posterior; este corte no lo conecta al
 servidor ni activa la pantalla histórica.
+
+## Consulta nominal por HTTPS interno
+
+El argumento `-consulta-nominal` activa un modo separado. Recibe la ruta absoluta
+de un archivo JSON privado y consulta las páginas por la ruta interna fija del
+cliente de Personal, con TLS y certificado de cliente. El servidor conserva la
+autoridad sobre identidad, perfil activo, concesión V3 y auditoría de cada
+lectura. Los selectores sirven para filtrar y comprobar la respuesta; no
+conceden acceso ni envían un actor o un perfil.
+
+```sh
+/tmp/vec-comparar-organizacion -consulta-nominal "$CONFIGURACION_PRIVADA" < "$SELECTORES_PRIVADOS" > "$COMPARACION_PRIVADA"
+```
+
+Prepare esos tres valores fuera del repositorio. El archivo de configuración
+debe tener permisos `0600`, dentro de un directorio `0700`, sin enlaces
+simbólicos ni pertenencia a un árbol Git. Su tamaño máximo es 16 KiB. El JSON
+admite únicamente estos campos:
+
+- `version`: el número `1`.
+- `origen`: origen HTTPS interno, sin ruta, consulta ni credenciales en la URL.
+- `autoridad_ca`, `certificado_cliente` y `clave_cliente`: nombres relativos de
+  los archivos TLS dentro del mismo directorio privado. La clave requiere `0600`.
+- `maximo_bytes_pagina`: entero positivo con la cota de respuesta acreditada
+  para el servidor configurado. Es obligatorio, no tiene valor por defecto y
+  se comprueba que permita añadir el byte de control sin desbordar el entero.
+  Los ensayos locales usan 1 MiB, que no acredita una cota para otro servidor.
+
+La entrada estándar usa el esquema
+`vec.personal.comparacion-organizacion.consulta.v1`, con `formato: "json"`,
+`antes` y `despues`. Cada selector tiene `organismo_ref`, `unidad_clave`,
+`vigente_en`, `conocido_en`, `version_rpt_ref`, `version_plantilla_ref`, `limite`
+y `cursor`. Use el organismo y la unidad esperados de la configuración privada
+del servidor. Ambos cortes deben coincidir en esos dos campos y comenzar con
+el cursor vacío. Las fechas y versiones pueden diferir. No se admite
+`sintetico`, `idioma`, HTML ni CSV en este modo.
+
+La CLI valida los dos selectores antes de iniciar la primera consulta. Reúne
+las páginas con las mismas reglas del dominio que usa el ensayo: hasta 100
+hechos por página, 10.000 por corte y 10.001 páginas por corte. La consulta
+completa dispone de un máximo técnico de dos minutos. Un fallo de lectura,
+selector, versión, cobertura, cursor o identidad de hecho cancela la comparación
+sin emitir un manifiesto parcial. También se rechaza repetir un recibo, decisión,
+auditoría o huella de consumo entre páginas, incluidos ambos cortes. La referencia
+del efecto puede repetirse porque corresponde al mismo organismo.
+
+El JSON de salida contiene `manifiesto` y `huella_sha256`. El manifiesto usa el
+esquema `vec.personal.comparacion-organizacion.consulta.manifiesto.v1` y el modo
+`consulta_autorizada`. Incluye la comparación, los totales de hechos y páginas
+por corte y dos listas de lecturas. Cada lectura conserva su selector, evidencia
+de acceso, versiones resueltas, cobertura y siguiente cursor. Las colecciones
+completas no se vuelven a exportar. La huella SHA256 corresponde al JSON compacto
+de la estructura Go del manifiesto, con su orden de campos. No contiene el
+origen, las rutas, los archivos TLS ni cabeceras.
+
+El manifiesto conserva las evidencias recibidas del servidor. No añade un recibo
+de comparación, firma legal ni acreditación de publicación de la fuente.
+Una cobertura parcial sigue siendo parcial al terminar la paginación.
+
+Este corte conecta la fábrica de cliente HTTPS a la CLI. Las pruebas de CLI
+usan un cliente inyectado con datos de ensayo; las del adaptador verifican TLS
+local. El uso nominal en un entorno concreto requiere un perfil y una asignación
+internos con autorización positiva, CT162 para la auditoría de consultas y la
+configuración privada validada. CT162 es una migración SQL de auditoría, no un
+perfil de acceso. Esta documentación no acredita instalación, consulta de datos
+reales ni autorización de producción.
