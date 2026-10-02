@@ -1,0 +1,6 @@
+# Dependencias obligatorias: postimagen AD158 real medida en copia fría,
+# AD160/AUT31 y CT170 completos; AD159 real previo a CT170, sin funciones dobles.
+# AD162 se aplica sobre post-AD158 exacto antes de cualquier delta adicional al núcleo.
+# CT172 se aplica después de AD162, CT170 y AUT31. No reaplicar dependencias instaladas.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000162_firma_revision_pdf_v2.up.sql
+deploy/postgresql/contratacion_temporal/migraciones/000172_firma_pdf_revision_v2.up.sql

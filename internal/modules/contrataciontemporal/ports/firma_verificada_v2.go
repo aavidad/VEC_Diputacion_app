@@ -22,6 +22,7 @@ const (
 // permanece como raíz y el antecedente identifica una firma V2 concreta.
 type MaterialFirmaVerificadaV2 struct {
 	MaterialFirmaExterna
+	RolIDFirmante                                      string
 	CatalogoVersion                                    uint64
 	FirmaAnteriorRef, ReciboAnteriorRef                string
 	EntradaDocumentoRef                                string
@@ -189,4 +190,10 @@ func (c CapacidadConsultaFirmasR5V2) ExportarMaterialParaConsumidor() vp.Exporta
 
 type AutorizadorConsultaFirmasR5V2 interface {
 	AutorizarConsultaFirmasR5V2(context.Context, MaterialConsultaFirmasR5) (CapacidadConsultaFirmasR5V2, error)
+}
+
+// CamposConsultaFirmasR5V2 es la proyección nominal acordada con AD162.
+// Cada llamador obtiene una copia para conservar inmutable el contrato.
+func CamposConsultaFirmasR5V2() []string {
+	return []string{"ByteRange", "CatalogoHuella", "CatalogoRef", "CertificadoHuella", "ClaveIdempotencia", "CoincideFirmanteCandidato", "CoincideFirmanteEnOtroPaso", "ConMotivoDevolucion", "ContenidoFirmadoHuellaSHA256", "Documento", "DocumentoCustodiaRef", "DocumentoCustodiaVersion", "EntradaDocumentoHuella", "EntradaDocumentoLongitud", "EntradaDocumentoRef", "EntradaDocumentoVersion", "EvidenciaFirmasCanonica", "EvidenciaFirmasHuellaSHA256", "ExpedienteVersion", "FechaPortafirmasDeclarada", "FirmaAnteriorRef", "FirmaRef", "FirmadoHuella", "FirmantePrincipalAcreditado", "FirmanteRef", "HistoriaHuella", "HistoriaRevision", "HistoriaSeparacionAcreditada", "OrdenFirmaPDF", "OriginalHuella", "OriginalRef", "OriginalVersion", "PasoOrden", "PasoRef", "ReciboAnteriorRef", "ReciboRef", "ReferenciaPortafirmasDeclarada", "RegistradaEn", "Resultado", "RevisionHuellaSHA256", "RevisionLongitud", "Secuencia", "SelloTiempoEstado", "Via"}
 }
