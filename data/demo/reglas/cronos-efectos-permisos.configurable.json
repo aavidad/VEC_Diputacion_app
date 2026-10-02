@@ -50,10 +50,10 @@
   },
   "textos": {
     "es": {
-      "aviso": "Valores de ejemplo configurables. Pendientes de revisión y aprobación por RRHH; este archivo no autoriza ni aplica permisos."
+      "aviso": "cronos.reglas.propuesta_sin_aprobar"
     },
     "en": {
-      "aviso": "Configurable example values. Pending HR review and approval; this file does not authorize or apply leave."
+      "aviso": "cronos.reglas.propuesta_sin_aprobar"
     }
   }
 }
