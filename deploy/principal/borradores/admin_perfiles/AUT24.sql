@@ -602,10 +602,10 @@ BEGIN
 END $f$;
 REVOKE ALL ON FUNCTION vec_autorizacion.bloquear_asignacion_sensible_hasta_aut24_v1() FROM PUBLIC;
 
-CREATE FUNCTION vec_autorizacion.ejecutar_cambio_admin_interno_v1(p_material jsonb,p_operacion_ref text,p_propuesta_ref text,p_auditoria text,p_ejecutor_ref text,p_bootstrap boolean)
+CREATE FUNCTION vec_autorizacion.ejecutar_cambio_admin_interno_v1(p_material jsonb,p_operacion_ref text,p_propuesta_ref text,p_auditoria text,p_ejecutor_ref text,p_bootstrap boolean,p_decision_ref text,p_material_sha256 text)
 RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp SET timezone='UTC' AS $f$
 DECLARE o jsonb:=p_material->'objetivo';configuracion record;antes jsonb;despues jsonb;r jsonb;a record;doc jsonb;
- huella text;asig_id text;asig_ref text;ver bigint;ahora timestamptz;acto text;recibo text;estado text;version_ca numeric;ambitos jsonb;hdespues text;
+ huella text;asig_id text;asig_ref text;ver bigint;ahora timestamptz;acto text;recibo text;estado text;version_ca numeric;ambitos jsonb;hdespues text;procedencia_acto jsonb;
 BEGIN
  IF p_bootstrap IS NULL OR (p_bootstrap AND (p_material->>'operacion' IS DISTINCT FROM 'otorgar')) THEN RAISE EXCEPTION 'AUT24: contexto privado de efecto invalido' USING ERRCODE='22023'; END IF;
  antes:=vec_autorizacion.preimagen_cambio_admin_interna_v1(p_material);
@@ -637,7 +637,9 @@ BEGIN
   OR antes#>>'{asignacion,version_rol_ref}' IS DISTINCT FROM p_material->>'rol_version_ref' OR antes#>>'{asignacion,estado}' IS DISTINCT FROM 'activa' THEN RAISE EXCEPTION 'AUT24: baja sin vinculo y asignacion exactos' USING ERRCODE='40001'; END IF;
   IF (r->>'unidad_requerida')::boolean AND antes#>'{asignacion,ambitos}' IS DISTINCT FROM jsonb_build_array(jsonb_build_object('clave','unidad','valores',jsonb_build_array(p_material->>'unidad_ref'))) THEN RAISE EXCEPTION 'AUT24: unidad de baja divergente' USING ERRCODE='42501'; END IF;
   SELECT * INTO STRICT a FROM vec_autorizacion.asignacion_perfil WHERE asignacion_ref=antes#>>'{asignacion,asignacion_ref}';
-  PERFORM vec_contexto_actor_v1.revocar_perfil_vinculo_admin_v1(o->>'cuenta_ref',o->>'persona_ref',o->>'perfil_ref',o->>'vinculo_ref',(o->>'cuenta_version')::numeric,(o->>'persona_version')::numeric,(o->>'perfil_version')::numeric,(o->>'vinculo_version')::numeric,o->>'procedencia_ref',(o->>'procedencia_version')::numeric,o->>'procedencia_huella_sha256');
+  IF o->>'procedencia_ref' IS DISTINCT FROM antes#>>'{contexto,perfil,procedencia_ref}' OR (o->>'procedencia_version')::numeric IS DISTINCT FROM (antes#>>'{contexto,perfil,procedencia_version}')::numeric OR o->>'procedencia_huella_sha256' IS DISTINCT FROM antes#>>'{contexto,perfil,procedencia_huella_sha256}' THEN RAISE EXCEPTION 'AUT24: procedencia actual de perfil divergente' USING ERRCODE='40001'; END IF;
+  procedencia_acto:=vec_contexto_actor_v1.registrar_procedencia_acto_admin_v1(acto,p_operacion_ref,p_material_sha256,p_decision_ref,p_auditoria,o->>'perfil_ref',o->>'vinculo_ref',(o->>'perfil_version')::numeric,(o->>'vinculo_version')::numeric,'revocado');
+  PERFORM vec_contexto_actor_v1.revocar_perfil_vinculo_admin_v1(o->>'cuenta_ref',o->>'persona_ref',o->>'perfil_ref',o->>'vinculo_ref',(o->>'cuenta_version')::numeric,(o->>'persona_version')::numeric,(o->>'perfil_version')::numeric,(o->>'vinculo_version')::numeric,procedencia_acto->>'procedencia_ref',(procedencia_acto->>'procedencia_version')::numeric,procedencia_acto->>'procedencia_huella_sha256');
   version_ca:=(o->>'perfil_version')::numeric+1;estado:='revocado';ver:=a.version+1;asig_id:=a.asignacion_id;
   doc:=jsonb_set(jsonb_set(a.documento,'{version}',to_jsonb(ver)),'{estado}','"revocada"'::jsonb)||jsonb_build_object('revocada_por',p_ejecutor_ref,'revocada_en',to_char(ahora AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),'revocacion_ref',acto);
  END IF;
@@ -656,7 +658,7 @@ BEGIN
  hdespues:=encode(sha256(convert_to(despues::text,'UTF8')),'hex');
  RETURN jsonb_build_object('operacion_ref',p_operacion_ref,'acto_ref',acto,'recibo_ref',recibo,'propuesta_ref',coalesce(p_propuesta_ref,''),'auditoria_ref',p_auditoria,'objetivo_persona_ref',o->>'persona_ref','perfil_ref',o->>'perfil_ref','vinculo_ref',o->>'vinculo_ref','estado_posterior',estado,'version_posterior',version_ca,'huella_antes_sha256',huella,'huella_despues_sha256',hdespues,'confirmado_en',ahora,'unidad_ref',coalesce(p_material->>'unidad_ref',''),'referencia_acto',coalesce(p_material->>'referencia_acto',''));
 END $f$;
-REVOKE ALL ON FUNCTION vec_autorizacion.ejecutar_cambio_admin_interno_v1(jsonb,text,text,text,text,boolean) FROM PUBLIC;
+REVOKE ALL ON FUNCTION vec_autorizacion.ejecutar_cambio_admin_interno_v1(jsonb,text,text,text,text,boolean,text,text) FROM PUBLIC;
 
 CREATE FUNCTION vec_autorizacion.registrar_resultado_admin_interno_v1(p_material text,p_consumo jsonb,p_resultado jsonb,p_evento text)
 RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $f$
@@ -689,7 +691,7 @@ BEGIN
  IF NOT EXISTS(SELECT 1 FROM jsonb_array_elements(efectivos) x WHERE x->>'persona_ref'=m->>'actor_persona_ref' AND x->>'perfil_ref'=m->>'actor_perfil_ref') THEN RAISE EXCEPTION 'AUT24: administrador no efectivo' USING ERRCODE='42501'; END IF;
  resultado:=vec_autorizacion.recuperar_resultado_admin_interno_v1(p_material);
  IF resultado IS NOT NULL THEN RETURN resultado; END IF;
- resultado:=vec_autorizacion.ejecutar_cambio_admin_interno_v1(m,m->>'operacion_ref',null,consumo->>'auditoria_ref',m->>'actor_persona_ref',false);
+ resultado:=vec_autorizacion.ejecutar_cambio_admin_interno_v1(m,m->>'operacion_ref',null,consumo->>'auditoria_ref',m->>'actor_persona_ref',false,consumo->>'decision_ref',encode(sha256(convert_to(p_material,'UTF8')),'hex'));
  RETURN vec_autorizacion.registrar_resultado_admin_interno_v1(p_material,consumo,resultado,CASE WHEN m->>'operacion'='otorgar' THEN 'perfil_otorgado' ELSE 'perfil_revocado' END);
 END $f$;
 REVOKE ALL ON FUNCTION vec_autorizacion.aplicar_acto_ordinario_admin_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM PUBLIC;
@@ -746,7 +748,7 @@ BEGIN
  INSERT INTO vec_autorizacion.cierre_propuesta_perfil_sensible(propuesta_ref,cierre_ref,resultado,aprobador_persona_ref,aprobador_cuenta_ref,aprobador_perfil_ref,motivo_codigo,revision_continuidad_observada,documento_canonico,huella_sha256,cerrada_en)
  VALUES(propuesta.propuesta_ref,m->>'operacion_ref',m->>'decision',m->>'actor_persona_ref',d#>>'{vinculo_autenticacion_actor,cuenta_ref}',m->>'actor_perfil_ref',m#>>'{motivo,entrada_clave}',revision,convert_to(p_material,'UTF8'),huella,ahora);
  IF m->>'decision'='aprobada' THEN
-  recibo:=vec_autorizacion.ejecutar_cambio_admin_interno_v1(material_propuesta,m->>'operacion_ref',propuesta.propuesta_ref,consumo->>'auditoria_ref',m->>'actor_persona_ref',false);
+  recibo:=vec_autorizacion.ejecutar_cambio_admin_interno_v1(material_propuesta,m->>'operacion_ref',propuesta.propuesta_ref,consumo->>'auditoria_ref',m->>'actor_persona_ref',false,consumo->>'decision_ref',encode(sha256(convert_to(p_material,'UTF8')),'hex'));
   ahora:=(recibo->>'confirmado_en')::timestamptz;
   acto:=jsonb_build_object('operacion_ref',m->>'operacion_ref','propuesta_ref',propuesta.propuesta_ref,'preimagen_huella_sha256',recibo->>'huella_antes_sha256','postimagen_huella_sha256',recibo->>'huella_despues_sha256','auditoria_ref',consumo->>'auditoria_ref');
   INSERT INTO vec_autorizacion.acto_perfil_sensible VALUES(recibo->>'acto_ref',propuesta.propuesta_ref,m->>'operacion_ref',revision,revision+1,recibo->>'huella_antes_sha256',recibo->>'huella_despues_sha256',convert_to(acto::text,'UTF8'),encode(sha256(convert_to(acto::text,'UTF8')),'hex'),ahora);
@@ -990,7 +992,7 @@ BEGIN
  FOR persona IN SELECT value FROM jsonb_array_elements(plan->'personas') LOOP
   PERFORM vec_identidad_sesiones_v1.crear_certificado_bootstrap_admin_interno_v2(persona,gov,'acto_admin:'||substr(encode(sha256(convert_to(huella||':'||(persona->>'persona_ref')||':certificado','UTF8')),'hex'),1,32));
   m:=vec_autorizacion.material_persona_bootstrap_interno_v2(plan,persona,actor,acto);
-  efecto:=vec_autorizacion.ejecutar_cambio_admin_interno_v1(m,'acto_admin:'||substr(encode(sha256(convert_to(huella||':'||(persona->>'persona_ref')||':perfil','UTF8')),'hex'),1,32),null,audit,actor,true);
+  efecto:=vec_autorizacion.ejecutar_cambio_admin_interno_v1(m,'acto_admin:'||substr(encode(sha256(convert_to(huella||':'||(persona->>'persona_ref')||':perfil','UTF8')),'hex'),1,32),null,audit,actor,true,null,huella);
   partes:=partes||jsonb_build_array(efecto);
  END LOOP;
  IF (SELECT count(DISTINCT x->>'persona_ref') FROM jsonb_array_elements(vec_autorizacion.administradores_efectivos_internos_v1()) x)<>continuidad.bootstrap_minimo_personas THEN RAISE EXCEPTION 'AUT24: bootstrap_personas esperado=2 observado=divergente' USING ERRCODE='42501'; END IF;
@@ -1163,6 +1165,15 @@ END $f$;
 REVOKE ALL ON FUNCTION vec_autorizacion.objetivo_alta_admin_lectura_interna_v1(jsonb,text)
  FROM PUBLIC,vec_admin_perfiles_ejecutor,vec_autorizacion_fuente;
 
+CREATE FUNCTION vec_autorizacion.motivos_admin_lectura_interna_v1(p_accion text,p_tipo text)
+RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $f$
+DECLARE motivo jsonb;
+BEGIN
+ motivo:=vec_autorizacion.motivo_admin_publicado_interno_v1(p_accion,p_tipo);
+ RETURN jsonb_build_array(motivo||jsonb_build_object('etiqueta',''));
+EXCEPTION WHEN no_data_found THEN RETURN '[]'::jsonb;
+END $f$;
+REVOKE ALL ON FUNCTION vec_autorizacion.motivos_admin_lectura_interna_v1(text,text) FROM PUBLIC;
 CREATE FUNCTION vec_autorizacion.proyectar_propuesta_admin_lectura_interna_v1(p_propuesta text,m jsonb)
 RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path=pg_catalog,pg_temp SET timezone='UTC' AS $f$
@@ -1187,8 +1198,7 @@ BEGIN
    WHERE a.version_rol_ref=p.version_rol_ref AND a.huella_sha256=r.huella_sha256
     AND r.documento->>'estado'='publicada' AND cv.estado='habilitada'
     AND clock_timestamp()>=a.vigente_desde AND clock_timestamp()<a.vigente_hasta);
- -- AUT24 no publica una vinculación nominal de motivos ADMIN de cierre.
- -- Una lista de todas las entradas del catálogo no acredita su admisión aquí.
+ motivos:=vec_autorizacion.motivos_admin_lectura_interna_v1('administracion.perfiles.aprobar','propuesta_perfil');
  RETURN jsonb_build_object('propuesta_ref',p.propuesta_ref,'proponente_persona_ref',p.proponente_persona_ref,
   'objetivo_persona_ref',p.objetivo_persona_ref,'objetivo_nombre','','rol_version_ref',p.version_rol_ref,
   'operacion',p.operacion,'huella_sha256',p.huella_sha256,'caduca_en',p.caduca_en,
@@ -1200,7 +1210,7 @@ REVOKE ALL ON FUNCTION vec_autorizacion.proyectar_propuesta_admin_lectura_intern
 CREATE FUNCTION vec_autorizacion.proyectar_lectura_admin_interna_v1(m jsonb)
 RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path=pg_catalog,pg_temp SET timezone='UTC' AS $f$
-DECLARE fuente jsonb; datos jsonb; historia jsonb; acciones jsonb; recibo jsonb;
+DECLARE fuente jsonb;datos jsonb;historia jsonb;acciones jsonb;recibo jsonb;actos jsonb:='[]'::jsonb;r record;objetivo jsonb;motivos jsonb;
 BEGIN
  IF jsonb_typeof(m) IS DISTINCT FROM 'object' OR m->>'esquema' IS DISTINCT FROM 'administracion_perfiles_lectura_v1'
  OR m->>'limite' IS DISTINCT FROM '50' OR jsonb_path_exists(m,'$.** ? (@ == null)') THEN
@@ -1257,8 +1267,19 @@ BEGIN
    WHERE rr->>'objetivo_persona_ref'=m->>'persona_ref' AND rr ? 'acto_ref'
    AND coalesce(proyeccion.material->>'operacion',propuesta.operacion) IN ('otorgar','revocar')
    ORDER BY (rr->>'confirmado_en')::timestamptz DESC,rr->>'acto_ref' LIMIT 50) t;
+  FOR r IN SELECT a.* FROM vec_autorizacion.rol_administrable_exacto_v1 a
+   JOIN vec_autorizacion.version_rol vr USING(version_rol_ref)
+   JOIN vec_autorizacion.control_vigencia_version_rol_actual rc USING(version_rol_ref)
+   JOIN vec_autorizacion.control_vigencia_version_rol cv ON cv.version_rol_ref=rc.version_rol_ref AND cv.revision=rc.revision
+   WHERE a.huella_sha256=vr.huella_sha256 AND vr.documento->>'estado'='publicada' AND cv.estado='habilitada'
+   AND clock_timestamp()>=a.vigente_desde AND clock_timestamp()<a.vigente_hasta ORDER BY a.version_rol_ref LIMIT 50 LOOP
+   motivos:=vec_autorizacion.motivos_admin_lectura_interna_v1(CASE WHEN r.clase='ordinario' THEN 'administracion.perfiles.otorgar' ELSE 'administracion.perfiles.proponer' END,'perfil');
+   IF jsonb_array_length(motivos)=0 THEN CONTINUE; END IF;
+   objetivo:=vec_autorizacion.objetivo_alta_admin_lectura_interna_v1(m,r.version_rol_ref);
+   IF objetivo IS NOT NULL THEN actos:=actos||jsonb_build_array(jsonb_build_object('operacion','otorgar','rol_version_ref',r.version_rol_ref,'objetivo',objetivo,'motivos',motivos)); END IF;
+  END LOOP;
   RETURN jsonb_build_object('persona_ref',m->>'persona_ref','nombre','','unidad_nombre','',
-   'perfiles',datos,'actos_disponibles','[]'::jsonb,'historia',historia);
+   'perfiles',datos,'actos_disponibles',actos,'historia',historia);
  WHEN 'listar_roles' THEN
   SELECT coalesce(jsonb_agg(to_jsonb(t) ORDER BY t.version_ref),'[]'::jsonb) INTO datos
   FROM (SELECT a.version_rol_ref AS version_ref,a.clase,vr.documento->>'nombre' AS clave_i18n,
