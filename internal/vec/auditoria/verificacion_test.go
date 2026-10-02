@@ -91,7 +91,7 @@ func TestVerificarCadenaV3RangoParcialYVacio(t *testing.T) {
 
 func TestVerificarCadenaV3CabezaYLimites(t *testing.T) {
 	d := vectorCadena()
-	if r := VerificarCadenaV3(d, d.Manifiesto, 1); r.Fallo == nil || r.Fallo.Codigo != "cantidad_distinta" {
+	if r := VerificarCadenaV3(d, d.Manifiesto, 1); r.Fallo == nil || r.Fallo.Codigo != "limite_registros" || r.Fallo.Esperado != "1" || r.Fallo.Obtenido != "2" {
 		t.Fatalf("row limit ignored: %+v", r)
 	}
 	d.Manifiesto.CabezaSHA256 = strings.Repeat("a", 64)
