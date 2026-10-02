@@ -11,100 +11,125 @@ scratch=${VEC_CRN11_SCRATCH:?scratch propio externo requerido}
 helper="$scratch/generate_overlay.py"
 modcache=${VEC_CRN11_MODCACHE:?cache local de módulos requerida sin descargas}
 fallo() { printf 'CRN11 FALLO: %s\n' "$1" >&2; exit 1; }
-[[ $container == vec-codexb-crn11-post144-20261002 ]] || fallo 'nombre de clon CRN11 propio requerido'
+[[ $container == codexb-crn11-20261003-pg ]] || fallo 'nombre de clon CRN11 propio requerido'
 [[ $scratch == /dev/shm/vec-crn11-* && -d $scratch && ! -L $scratch && -O $scratch && $(stat -c %a "$scratch") == 700 ]] || fallo 'scratch propio 0700 requerido'
 [[ -d $modcache && ! -L $modcache ]] || fallo 'cache local de módulos ausente'
-[[ $(docker inspect --format '{{.HostConfig.NetworkMode}} {{.HostConfig.Memory}} {{.HostConfig.NanoCpus}} {{.HostConfig.PidsLimit}}' "$container") == 'none 2147483648 2000000000 256' ]] || fallo 'clon fuera de límites aislados'
-psql_run() { local user=$1; shift; docker exec -i "$container" /usr/bin/env -i PATH=/usr/local/bin:/usr/bin:/bin psql -X -qAt -v ON_ERROR_STOP=1 -v VERBOSITY=verbose -U "$user" -d postgres "$@"; }
+[[ $(docker inspect --format '{{.HostConfig.NetworkMode}} {{.HostConfig.Memory}} {{.HostConfig.NanoCpus}} {{.HostConfig.PidsLimit}}' "$container") == 'none 2147483648 2000000000 128' ]] || fallo 'clon fuera de límites aislados'
+psql_run() { local user=$1; shift; docker exec -i "$container" /usr/bin/env -i PATH=/usr/local/bin:/usr/bin:/bin psql -h /tmp -X -qAt -v ON_ERROR_STOP=1 -v VERBOSITY=verbose -U "$user" -d postgres "$@"; }
 valor() { psql_run postgres -c "$1"; }
 archivo() { psql_run postgres < "$1" > "$scratch/sql.log" 2>&1 || fallo 'SQL falló; diagnóstico privado en scratch/sql.log'; }
 [[ $(valor "SELECT current_setting('server_version_num')") == 180004 ]] || fallo 'PostgreSQL18.4 requerido'
 [[ ! -e $scratch/capacidad_v3_vector_sql_test.go && ! -e $scratch/overlay.json ]] || fallo 'scratch ya usado: conservarlo y elegir uno nuevo'
 [[ ${VEC_CRN11_BASE_CEDIDA:-} == 1 ]] || fallo 'falta cesión explícita de escritura del clon por Dirección'
-facade="vec_autorizacion_atestada_v3.consumir_operacion_meritos_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)"
-preservacion="SELECT encode(sha256(convert_to(pg_get_functiondef(p.oid)||to_jsonb(p)::text,'UTF8')),'hex') FROM pg_proc p WHERE p.oid='$facade'::regprocedure"
-antes142=$(valor "$preservacion")
-[[ -n $antes142 ]] || fallo 'preimagenAD142 ausente'
-
-# Captura de solo lectura: fachadas142/144 completas con dependencias. En el
-# núcleo se conservan los tres segmentos exactos de Baremo ya publicados y el
-# CHECK de audiencias completo, normalizado sólo para la nueva audienciaCRN11.
-python3 - "$repo_dir" "$scratch/preservacion142144.sql" <<'PYPRESERVACION'
+# Captura todos los consumidores presentes, incluidos cuerpos PL/pgSQL que
+# pg_depend no rastrea. El núcleo se normaliza únicamente por la extensión149.
+python3 - "$repo_dir" "$scratch/preservacion.sql" <<'PYPRESERVACION'
 import pathlib,re,sys
 raiz=pathlib.Path(sys.argv[1]);salida=pathlib.Path(sys.argv[2])
-fuente=(raiz/'deploy/postgresql/autorizacion_atestada_v3/migraciones/000144_consumidor_gobierno_borrador_reglas_baremo.up.sql').read_text()
+fuente=(raiz/'deploy/postgresql/autorizacion_atestada_v3/migraciones/000149_consumidor_vinculo_propio_crn11.up.sql').read_text()
 def fragmento(nombre):
     encontrados=re.findall(r'\b'+nombre+r' text:=\$'+nombre+r'\$(.*?)\$'+nombre+r'\$;',fuente,re.S)
-    assert len(encontrados)==1, 'AD144 debe contener cada segmento una vez'
+    assert len(encontrados)==1, 'AD149 debe contener cada segmento una vez'
     return encontrados[0]
-marca="               p_perfil_mutacion IS NOT DISTINCT FROM 'gobierno_borrador_reglas_baremo'"
-runtime=marca+fragmento('runtime_nuevo').split(marca,1)[1].split("           OR (\n               p_perfil_mutacion IN ('meritos_hecho_propio_interno'",1)[0]
-exclusion="               AND p_perfil_mutacion IS DISTINCT FROM 'gobierno_borrador_reglas_baremo'\n"
-assert exclusion in fragmento('excl_nuevo')
-valores=[]
-for i,(nombre,contenido) in enumerate((('runtime_baremo',runtime),('exclusion_baremo',exclusion),('matriz_baremo',fragmento('extension')))):
+normalizar='p.prosrc'
+for i,(viejo,nuevo) in enumerate((('extension','marca'),('excl_nuevo','excl'),('runtime_nuevo','runtime'))):
+    retirar=fragmento(viejo)+(fragmento('marca') if viejo=='extension' else '')
+    restaurar=fragmento(nuevo)
     tag='$crn11segmento'+str(i)+'$'
-    assert tag not in contenido
-    valores.append("('"+nombre+"',"+tag+contenido+tag+")")
+    assert tag not in retirar+restaurar
+    normalizar='replace('+normalizar+','+tag+retirar+tag+','+tag+restaurar+tag+')'
 consulta=r"""
-WITH fachadas AS (
- SELECT p.* FROM pg_proc p WHERE p.oid IN (
- to_regprocedure('vec_autorizacion_atestada_v3.consumir_operacion_meritos_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'),
- to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_gobierno_borrador_reglas_baremo_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'))
-), nucleo AS (
- SELECT prosrc FROM pg_proc WHERE oid=to_regprocedure('vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)')
-), segmentos(nombre,contenido) AS (VALUES __SEGMENTOS__)
-SELECT jsonb_build_object('fachadas',(
- SELECT jsonb_agg(jsonb_build_object('nombre',p.proname,
- 'definicion_sha256',encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex'),
- 'fuente_sha256',encode(sha256(convert_to(p.prosrc,'UTF8')),'hex'),
- 'metadatos',to_jsonb(p)-'prosrc',
+SET search_path=pg_catalog,pg_temp;
+WITH consumidores AS (
+ SELECT p.* FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+ WHERE n.nspname IN ('vec_autorizacion_atestada_v3','vec_personal','vec_contexto_actor_v1')
+ AND p.proname NOT IN ('consumir_vinculo_propio_crn11_v3_atestada','consultar_vinculo_propio_historico_crn11_v1')
+), fuentes AS (
+ SELECT p.*, CASE WHEN p.proname='consumir_decision_mutacion_v3_interna'
+ THEN __NORMALIZAR__ ELSE p.prosrc END AS normalizada FROM consumidores p
+)
+SELECT jsonb_build_object('consumidores',(
+ SELECT jsonb_agg(jsonb_build_object('firma',p.oid::regprocedure::text,
+ 'definicion',replace(pg_get_functiondef(p.oid),p.prosrc,p.normalizada),
+ 'fuente',p.normalizada,'metadatos',to_jsonb(p)-'prosrc'-'normalizada',
  'dependencias',coalesce((SELECT jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype)
-  FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=p.oid),'[]'::jsonb),
+ FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=p.oid),'[]'::jsonb),
  'dependencias_compartidas',coalesce((SELECT jsonb_agg(to_jsonb(d) ORDER BY d.dbid,d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype)
-  FROM pg_shdepend d WHERE d.dbid=(SELECT oid FROM pg_database WHERE datname=current_database()) AND d.classid='pg_proc'::regclass AND d.objid=p.oid),'[]'::jsonb)) ORDER BY p.proname) FROM fachadas p),
- 'baremo',(SELECT jsonb_object_agg(s.nombre,jsonb_build_object('una_vez',
- (length(n.prosrc)-length(replace(n.prosrc,s.contenido,'')))=length(s.contenido),
- 'sha256',encode(sha256(convert_to(s.contenido,'UTF8')),'hex'))) FROM segmentos s CROSS JOIN nucleo n),
+ FROM pg_shdepend d WHERE d.dbid=(SELECT oid FROM pg_database WHERE datname=current_database()) AND d.classid='pg_proc'::regclass AND d.objid=p.oid),'[]'::jsonb)) ORDER BY p.oid) FROM fuentes p),
  'audiencias',(SELECT jsonb_build_object('definicion',replace(pg_get_constraintdef(c.oid,true),
  ', ''vec_personal.vinculo_propio.crn11.v1''::text',''),
- 'validada',c.convalidated,'tipo',c.contype,'diferible',c.condeferrable,
- 'baremo_una_vez',(length(pg_get_constraintdef(c.oid,true))-length(replace(pg_get_constraintdef(c.oid,true),
- 'vec_bolsa_reglas_baremo.gobierno_borrador.v3','')))=length('vec_bolsa_reglas_baremo.gobierno_borrador.v3'))
+ 'metadatos',to_jsonb(c)-'oid'-'conbin',
+ 'not_null',(SELECT a.attnotnull FROM pg_attribute a WHERE a.attrelid=c.conrelid AND a.attname='audiencia_consumo'))
  FROM pg_constraint c WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
  AND c.conname='clave_capacidad_version_audiencia_consumo_check'));
 """
-salida.write_text(consulta.replace('__SEGMENTOS__',','.join(valores)))
+salida.write_text(consulta.replace('__NORMALIZAR__',normalizar))
 PYPRESERVACION
 capturar_preservacion() {
- psql_run postgres < "$scratch/preservacion142144.sql" > "$1" 2> "$scratch/preservacion.log" || fallo 'captura142/144 falló'
+ psql_run postgres < "$scratch/preservacion.sql" > "$1" 2> "$scratch/preservacion.log" || fallo 'captura de consumidores falló'
  python3 - "$1" <<'PYVALIDAR'
 import json,pathlib,sys
 s=json.loads(pathlib.Path(sys.argv[1]).read_text())
-assert len(s['fachadas'])==2 and len(s['baremo'])==3
-assert all(v['una_vez'] for v in s['baremo'].values())
-assert s['audiencias']['validada'] and s['audiencias']['baremo_una_vez']
+assert len(s['consumidores'])>1
+assert all(c['definicion'] and c['fuente'] for c in s['consumidores'])
+assert s['audiencias']['metadatos']['convalidated'] and s['audiencias']['not_null']
 PYVALIDAR
 }
-capturar_preservacion "$scratch/preservacion142144_antes.json"
+capturar_preservacion "$scratch/preservacion_antes.json"
 
 [[ $(valor "SELECT to_regprocedure('vec_personal.consultar_vinculo_propio_historico_crn11_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL") == t ]] || fallo 'Personal26 ya instalada: no se reaplica este ensayo'
+# Preimagen alterada: el cambio propio vive sólo en una TX que aborta.
+# El fallo no debe crear la fachada ni alterar consumidores/audiencias previos.
+python3 - "$repo_dir" "$scratch/preimagen_alterada.sql" <<'PYNEGATIVA'
+import pathlib,sys
+raiz=pathlib.Path(sys.argv[1])
+fuente=(raiz/'deploy/postgresql/autorizacion_atestada_v3/migraciones/000149_consumidor_vinculo_propio_crn11.up.sql').read_text()
+fuente='\n'.join(l for l in fuente.splitlines() if l not in ('BEGIN;','COMMIT;'))
+pre=r"""BEGIN;
+SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
+SET LOCAL search_path=pg_catalog,pg_temp;
+DO $preimagen$ DECLARE d text; n text;
+BEGIN
+ SELECT pg_get_functiondef(to_regprocedure('vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)')) INTO STRICT d;
+ n:=replace(d,E'AS $function$\n',E'AS $function$\n-- ensayo CRN11: preimagen alterada\n');
+ IF n IS NOT DISTINCT FROM d THEN RAISE EXCEPTION 'marca de ensayo ausente'; END IF;
+ EXECUTE n;
+END $preimagen$;
+"""
+pathlib.Path(sys.argv[2]).write_text(pre+fuente+'\nROLLBACK;\n')
+PYNEGATIVA
+if psql_run postgres < "$scratch/preimagen_alterada.sql" > "$scratch/preimagen.out" 2> "$scratch/preimagen.log"; then
+ fallo 'AD149 admitió preimagen alterada'
+fi
+[[ $(cat "$scratch/preimagen.log") == *'55000'* ]] || fallo 'negativa de preimagen inesperada'
+capturar_preservacion "$scratch/preservacion_negativa.json"
+cmp -s "$scratch/preservacion_antes.json" "$scratch/preservacion_negativa.json" || fallo 'negativa de preimagen dejó efectos'
+[[ $(valor "SELECT to_regprocedure('vec_autorizacion_atestada_v3.consumir_vinculo_propio_crn11_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL") == t ]] || fallo 'negativa creó fachada149'
+printf 'CRN11 preimagen alterada: SQLSTATE 55000 y conservación íntegra.\n'
+
 # Las únicas migraciones instalables son las nuevas y ausentes.
 sha256sum "$repo_dir/deploy/postgresql/autorizacion_atestada_v3/migraciones/000149_consumidor_vinculo_propio_crn11.up.sql" "$repo_dir/deploy/postgresql/personal/migraciones/000026_vinculo_propio_historico_crn11.up.sql" > "$scratch/migraciones_journal.txt"
-printf 'AD142 preimagen %s\n' "$antes142" >> "$scratch/migraciones_journal.txt"
+sha256sum "$scratch/preservacion_antes.json" >> "$scratch/migraciones_journal.txt"
 if [[ $(valor "SELECT to_regprocedure('vec_autorizacion_atestada_v3.consumir_vinculo_propio_crn11_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL") == t ]]; then
  archivo "$repo_dir/deploy/postgresql/autorizacion_atestada_v3/migraciones/000149_consumidor_vinculo_propio_crn11.up.sql"
  printf 'AD149 instalada una vez\n' >> "$scratch/migraciones_journal.txt"
 fi
 archivo "$repo_dir/deploy/postgresql/personal/migraciones/000026_vinculo_propio_historico_crn11.up.sql"
 printf 'Personal26 instalada una vez\n' >> "$scratch/migraciones_journal.txt"
-[[ $(valor "$preservacion") == "$antes142" ]] || fallo 'AD149 alteró definición/ACL/metadatosAD142'
-capturar_preservacion "$scratch/preservacion142144_post149.json"
-cmp -s "$scratch/preservacion142144_antes.json" "$scratch/preservacion142144_post149.json" || fallo 'AD149 alteró fachada142/144, dependencias, Baremo o audiencias anteriores'
-# Se mantienen íntegros los negativos de exterior y verificación AD142.
-{ printf 'BEGIN;\n'; cat "$repo_dir/deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/000142_meritos_acl_contratos.sql"; printf 'ROLLBACK;\n'; } > "$scratch/negativos142.sql"
-archivo "$scratch/negativos142.sql"
-archivo "$repo_dir/deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/000144_gobierno_borrador_acl.sql"
+capturar_preservacion "$scratch/preservacion_post149.json"
+cmp -s "$scratch/preservacion_antes.json" "$scratch/preservacion_post149.json" || fallo 'AD149 alteró consumidores, ACL, dependencias o audiencias anteriores'
+# El CHECK rechaza desconocidas; NOT NULL conserva su rechazo de NULL.
+valor "DO \$audiencias\$ DECLARE e text; desconocida boolean; propia boolean;
+ BEGIN
+ SELECT pg_get_expr(c.conbin,c.conrelid) INTO STRICT e FROM pg_constraint c
+ WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
+ AND c.conname='clave_capacidad_version_audiencia_consumo_check' AND c.convalidated;
+ EXECUTE 'SELECT ('||e||') FROM (SELECT \$1::text AS audiencia_consumo) x' INTO desconocida USING 'audiencia:crn11:desconocida';
+ EXECUTE 'SELECT ('||e||') FROM (SELECT \$1::text AS audiencia_consumo) x' INTO propia USING 'vec_personal.vinculo_propio.crn11.v1';
+ IF desconocida IS DISTINCT FROM false OR propia IS DISTINCT FROM true
+ OR NOT EXISTS(SELECT 1 FROM pg_attribute WHERE attrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass AND attname='audiencia_consumo' AND attnotnull)
+ THEN RAISE EXCEPTION 'CHECK o NOT NULL de audiencia incompatible'; END IF;
+ END \$audiencias\$;" > /dev/null
 archivo "$base_dir/vinculo_propio_historico_crn11_000026.sql"
 # Usuarios mínimos propios del ensayo. No hay SET ROLE del runtime al propietario.
 valor "CREATE ROLE vec_crn11_ensayo_runtime LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE INHERIT NOREPLICATION NOBYPASSRLS;
@@ -583,9 +608,8 @@ printf 'CRN11 barrera concurrente: SQLSTATE40001, sin datos ni efectos.\n'
  AND NOT has_table_privilege('vec_crn11_ensayo_runtime','vec_autorizacion_atestada_v3.clave_capacidad_version','SELECT')
  AND NOT has_function_privilege('vec_crn11_ensayo_runtime','vec_autorizacion_atestada_v3.consumir_vinculo_propio_crn11_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
  AND (SELECT count(*)=1 FROM pg_auth_members WHERE member='vec_crn11_ensayo_runtime'::regrole)") == t ]] || fallo 'ACL nominal abierta'
-[[ $(valor "$preservacion") == "$antes142" ]] || fallo 'fachadaAD142 alterada después del ensayo'
-capturar_preservacion "$scratch/preservacion142144_final.json"
-cmp -s "$scratch/preservacion142144_antes.json" "$scratch/preservacion142144_final.json" || fallo 'el ensayo alteró fachada142/144, dependencias, Baremo o audiencias anteriores'
+capturar_preservacion "$scratch/preservacion_final.json"
+cmp -s "$scratch/preservacion_antes.json" "$scratch/preservacion_final.json" || fallo 'el ensayo alteró consumidores, ACL, dependencias o audiencias anteriores'
 [[ $(valor 'SELECT count(*) FROM vec_personal.recibo_vinculo_propio_crn11') == 1 ]] || fallo 'negativos añadieron recibos'
 # Se retira únicamente el transporte auxiliar propio. La historia sintética
 # queda conservada en el clon para las revisiones; no hay DOWN ni reinicio.
@@ -599,4 +623,4 @@ valor "REVOKE EXECUTE ON FUNCTION public.crn11_ensayo_consultar(text,text) FROM 
  REVOKE vec_contexto_actor_v1_runtime FROM vec_crn11_ensayo_ca;
  DROP ROLE vec_crn11_ensayo_runtime,vec_crn11_ensayo_ca;" > /dev/null
 sha256sum "$repo_dir/deploy/postgresql/autorizacion_atestada_v3/migraciones/000149_consumidor_vinculo_propio_crn11.up.sql" "$repo_dir/deploy/postgresql/personal/migraciones/000026_vinculo_propio_historico_crn11.up.sql" "$base_dir/vinculo_propio_historico_crn11_000026.sql" "${BASH_SOURCE[0]}"
-printf 'ENSAYO-OK CRN11 PG18.4: COSE/HMAC reales, CA7/Personal16, V3 durable, positivo y negativas, barrera40001 y preservaciónAD142/144, Baremo y audiencias. Política e identidades sintéticas; sin HTTP, proveedor operativo ni despliegue.\n'
+printf 'ENSAYO-OK CRN11 PG18.4: COSE/HMAC reales, CA7/Personal16, V3 durable, positivo y negativas, barrera40001 y conservación de todos los consumidores previos y audiencias. Política e identidades sintéticas; sin HTTP, proveedor operativo ni despliegue.\n'
