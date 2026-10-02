@@ -110,20 +110,28 @@ type relojPreparacionB2 time.Time
 
 func (r relojPreparacionB2) Ahora() time.Time { return time.Time(r) }
 
+// ErrorMotivoPreparacionIncorporacionB2 contiene únicamente una clave del
+// contrato cerrado. No conserva referencia de motivo, DSN ni error SQL.
+type ErrorMotivoPreparacionIncorporacionB2 struct{ operacion string }
+
+func (e *ErrorMotivoPreparacionIncorporacionB2) Error() string {
+	return "motivo B2 " + e.operacion + ": esperado=motivo publicado vigente observado=no disponible o distinto"
+}
+
 // ValidarMotivosPreparacionIncorporacionB2 consulta la autoridad histórica real
 // con el LOGIN nominal de motivos; no publica ni escoge referencias.
 func ValidarMotivosPreparacionIncorporacionB2(ctx context.Context, c ConfiguracionPreparacionIncorporacionB2, raiz *os.Root, ahora time.Time) error {
 	if ctx == nil || raiz == nil || c.PersonalB2 == nil || validarConfiguracionIncorporacionB2(c.PersonalB2) != nil {
-		return ct.ErrComposicionIncorporacionAplicacion
+		return &ErrorMotivoPreparacionIncorporacionB2{operacion: "motivos_autorizacion"}
 	}
 	b, err := leerArchivoIncorporacionV2(raiz, c.Pools["motivos_autorizacion"], 16<<10)
 	if err != nil {
-		return err
+		return &ErrorMotivoPreparacionIncorporacionB2{operacion: "motivos_autorizacion"}
 	}
 	defer borrarBytes(b)
 	p, _, err := abrirPoolPostgreSQLContratacionTemporalDesarrollo(ctx, strings.TrimSpace(string(b)), "vec-preparar-incorporacion-motivos", "vec_autorizacion_motivos_evaluador")
 	if err != nil {
-		return ct.ErrComposicionIncorporacionAplicacion
+		return &ErrorMotivoPreparacionIncorporacionB2{operacion: "motivos_autorizacion"}
 	}
 	defer p.Close()
 	ahora = ahora.UTC().Truncate(time.Microsecond)
@@ -131,7 +139,7 @@ func ValidarMotivosPreparacionIncorporacionB2(ctx context.Context, c Configuraci
 		m := c.PersonalB2.Operaciones[op.clave].Motivo
 		v, e := pgvec.NuevoValidadorReferenciaMotivoPostgreSQLV2(p, m.CatalogoID)
 		if e != nil || v.ValidarReferenciaMotivoAutorizacionV2(ctx, m, ahora) != nil {
-			return ct.ErrComposicionIncorporacionAplicacion
+			return &ErrorMotivoPreparacionIncorporacionB2{operacion: op.clave}
 		}
 	}
 	return nil

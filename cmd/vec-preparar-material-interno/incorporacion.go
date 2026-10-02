@@ -98,6 +98,10 @@ func (p preparacion) prepararIncorporacion(ctx context.Context) (bool, error) {
 		validarMotivos = bootstrap.ValidarMotivosPreparacionIncorporacionB2
 	}
 	if err := validarMotivos(ctx, c, raiz, p.dep.reloj()); err != nil {
+		var motivo *bootstrap.ErrorMotivoPreparacionIncorporacionB2
+		if errors.As(err, &motivo) && motivo != nil {
+			return false, errorPropio(motivo.Error())
+		}
 		return false, errMotivosIncorporacion
 	}
 	resolverDetalle := p.dep.resolverMotivoDetalle

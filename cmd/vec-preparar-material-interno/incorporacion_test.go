@@ -109,3 +109,16 @@ func TestPrepararIncorporacionMotivoDetalleDistintoNoEscribe(t *testing.T) {
 	}
 	e.sinResiduos(t)
 }
+
+func TestPrepararIncorporacionMotivoRechazadoIndicaClaveSinDatos(t *testing.T) {
+	e, ruta, d := escenarioIncorporacion(t)
+	d.validarMotivosIncorporacion = func(ctx context.Context, c bootstrap.ConfiguracionPreparacionIncorporacionB2, r *os.Root, ahora time.Time) error {
+		return bootstrap.ValidarMotivosPreparacionIncorporacionB2(ctx, c, nil, ahora)
+	}
+	p := preparacion{opciones: opciones{inventarioCT: e.inventarioCT, idempotencia: e.idempotencia, incorporacionConfig: ruta, dsnArchivo: e.dsnArchivo, salida: e.salida}, dep: d}
+	_, err := p.prepararIncorporacion(context.Background())
+	if err == nil || mensajeSeguro(err) != "motivo B2 motivos_autorizacion: esperado=motivo publicado vigente observado=no disponible o distinto" {
+		t.Fatalf("diagnóstico no nominal: %v", err)
+	}
+	e.sinResiduos(t)
+}
