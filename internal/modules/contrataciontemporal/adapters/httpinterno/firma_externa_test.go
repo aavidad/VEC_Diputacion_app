@@ -60,13 +60,17 @@ func resultadoRegistroFirmaExternaPrueba() application.ResultadoFirmaExterna {
 		Via: ports.ViaFirmaExternaPortafirmas, OrganizacionRef: "organizacion:desarrollo:dipgra", ExpedienteRef: "expediente:ct:001",
 		VersionExpediente: 7, Documento: "resolucion", CatalogoRef: "catalogo:firma:001", CatalogoHuella: strings.Repeat("a", 64),
 		PasoRef: "paso:firma:001", PasoOrden: 1, Secuencia: 1,
+		HistoriaRevision: 0, HistoriaHuella: strings.Repeat("f", 64),
 		OriginalRef: "documento:original:001", OriginalVersion: 2,
 		OriginalHuella: strings.Repeat("b", 64), FirmadoHuella: hex.EncodeToString(huellaPDF[:]), CertificadoHuella: strings.Repeat("d", 64),
 		FirmanteRef: "ref:" + strings.Repeat("d", 64), FirmantePrincipalRef: "per_firmante_principal_001", PerfilFirmanteRef: "perfil:firmante:001", CargoFirmante: "Órgano competente",
-		UnidadFirmanteRef: "unidad:firmante:001", AsignacionFirmanteRef: "asignacion:001", AsignacionFirmanteVersion: 1,
+		UnidadFirmanteRef: "unidad:firmante:001", PerfilActivoFirmanteRef: "perfil:activo:001",
+		AsignacionFirmanteRef: "asignacion:001", AsignacionFirmanteVersion: 1,
 		AsignacionFirmanteHuella: strings.Repeat("e", 64), AsignacionVigenteDesde: "2026-01-01T00:00:00Z", AsignacionVigenteHasta: "2027-01-01T00:00:00Z",
-		CompetenciaComprobadaEn: "2026-10-02T10:30:00Z", PoliticaVerificacion: ports.PoliticaVerificacionFirma,
-		RevocacionEstado: "vigente", SelloTiempoEstado: "valido", ReferenciaPortafirmasDeclarada: "PF-2026-0001",
+		VersionRolFirmanteRef: "rol:version:001", VersionRolFirmanteHuella: strings.Repeat("1", 64),
+		ControlVigenciaFirmanteRef: "rol:version:001", ControlVigenciaFirmanteRevision: 1, ControlVigenciaFirmanteHuella: strings.Repeat("2", 64),
+		PoliticaVerificacion: ports.PoliticaVerificacionFirma,
+		RevocacionEstado:     "vigente", SelloTiempoEstado: "valido", ReferenciaPortafirmasDeclarada: "PF-2026-0001",
 		FechaPortafirmasDeclarada: "2026-10-02T10:30:00Z", ClaveIdempotencia: "clave-firma-externa-00001",
 		DocumentoCustodiaRef: "documento:custodiado:001", DocumentoCustodiaVersion: 1,
 	}
@@ -100,7 +104,8 @@ func TestRegistroFirmaExternaDistingueVerificacionDeclaracionYReplay(t *testing.
 		if salida.Data["firma_eficaz"] != false || salida.Data["recibo_ref"] != "recibo:firma:externa:001" ||
 			salida.Data["ya_registrada"] != (n == 1) || salida.Data["verificacion_tecnica"].(map[string]any)["estado"] != "valida" ||
 			salida.Data["procedencia_portafirmas"].(map[string]any)["estado"] != "declarada_por_rrhh" ||
-			strings.Contains(w.Body.String(), "conectado") {
+			strings.Contains(w.Body.String(), "conectado") || strings.Contains(w.Body.String(), "per_firmante_principal_001") ||
+			strings.Contains(w.Body.String(), "asignacion:001") || strings.Contains(w.Body.String(), "rol:version:001") {
 			t.Fatalf("respuesta engañosa: %s", w.Body)
 		}
 	}
@@ -180,6 +185,14 @@ func TestRegistroFirmaExternaRechazaCanalYRespuestaNoConfiable(t *testing.T) {
 	h.ServeHTTP(w, peticionRegistroFirmaExterna(cuerpoRegistroFirmaExternaPrueba))
 	if w.Code != http.StatusConflict {
 		t.Fatalf("clave en conflicto: %d %s", w.Code, w.Body)
+	}
+	for _, conflicto := range []error{ports.ErrAntecedenteFirmaR5NoAcreditado, ports.ErrOriginalTrasReparoNoNuevo, ports.ErrMismaPersonaEnOtroPasoR5} {
+		s.err = conflicto
+		w = httptest.NewRecorder()
+		h.ServeHTTP(w, peticionRegistroFirmaExterna(cuerpoRegistroFirmaExternaPrueba))
+		if w.Code != http.StatusConflict {
+			t.Fatalf("conflicto R5 %v: %d %s", conflicto, w.Code, w.Body)
+		}
 	}
 	s.err = errors.New("sin dependencia")
 	w = httptest.NewRecorder()

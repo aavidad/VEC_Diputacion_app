@@ -234,7 +234,8 @@ func responderErrorServicioFirmaExterna(w http.ResponseWriter, r *http.Request, 
 		responderErrorRegistroFirmaExterna(w, r, http.StatusUnprocessableEntity, "contenido_no_valido", err)
 	case errors.Is(err, ports.ErrClaveFirmaDocumentoUsada), errors.Is(err, ports.ErrFirmaDocumentoEnConflicto),
 		errors.Is(err, ports.ErrCustodiaFirmadoEnConflicto), errors.Is(err, ports.ErrCadenaFirmaDocumentoRota),
-		errors.Is(err, application.ErrPasoFirmaNoPendiente):
+		errors.Is(err, ports.ErrAntecedenteFirmaR5NoAcreditado), errors.Is(err, ports.ErrOriginalTrasReparoNoNuevo),
+		errors.Is(err, ports.ErrMismaPersonaEnOtroPasoR5), errors.Is(err, application.ErrPasoFirmaNoPendiente):
 		responderErrorRegistroFirmaExterna(w, r, http.StatusConflict, "conflicto", err)
 	case errors.As(err, &rechazo):
 		if rechazo.Motivo == docports.MotivoValidadorNoDisponible || rechazo.Motivo == docports.MotivoCredencialRechazada {
