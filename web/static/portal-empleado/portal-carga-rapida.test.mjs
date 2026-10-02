@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { CLAVES_SIN_ENTRADA_PORTAL, crearCoordinadorModulosPortal, VISTAS_AUTOSERVICIO_EMPLEADO } from "./portal-modulos-coordinador.js?v=20261001-f-reconciliacion-325-v1";
+import { CLAVES_SIN_ENTRADA_PORTAL, crearCoordinadorModulosPortal, VISTAS_AUTOSERVICIO_EMPLEADO } from "./portal-modulos-coordinador.js?v=20261002-codexe-reunion-349-r2";
 import { traducirPortal } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
 import { versionDe } from "./versiones-cache.test-helper.mjs";
 import { crearVistaInicioPortal } from "./portal-inicio.js?v=20261001-f-reconciliacion-325-v1";

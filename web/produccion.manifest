@@ -547,3 +547,6 @@ static/portal-empleado/modulos/seleccion/ficha-convocatoria/montaje.js
 static/portal-empleado/modulos/seleccion/ficha-convocatoria/vista.js
 static/textos/es/seleccion-ficha-convocatoria.json
 static/textos/en/seleccion-ficha-convocatoria.json
+static/portal-empleado/modulos/cronos/i18n-bandeja-notificaciones.js
+static/textos/es/cronos-bandeja-notificaciones.json
+static/textos/en/cronos-bandeja-notificaciones.json
