@@ -36,7 +36,8 @@
           "habilita": "remision_intervencion",
           "devolucion": "vuelve_a_redaccion",
           "sustitucion": "suplente_designado",
-          "duda": "Respondida por RRHH el 02/10/2026: respuesta 4. La firma corporativa requiere conectar el portafirmas."
+          "duda": "Respondida por RRHH el 02/10/2026: respuesta 4. La firma corporativa requiere conectar el portafirmas.",
+          "misma_persona_en_dos_pasos": "false"
         },
         "orden": 1
       },
@@ -60,7 +61,8 @@
           "devolucion": "vuelve_a_redaccion",
           "sustitucion": "suplente_designado",
           "duda": "Respondida por RRHH el 02/10/2026: respuesta 4. La firma corporativa requiere conectar el portafirmas.",
-          "perfiles_ref_alternativos": "perfil:ct:direccion_rrhh"
+          "perfiles_ref_alternativos": "perfil:ct:direccion_rrhh",
+          "misma_persona_en_dos_pasos": "false"
         },
         "orden": 2
       },
@@ -83,7 +85,8 @@
           "habilita": "cierre_circuito",
           "devolucion": "vuelve_paso_anterior",
           "sustitucion": "suplente_designado",
-          "duda": "Respondida por RRHH el 02/10/2026: respuesta 4. La firma corporativa requiere conectar el portafirmas."
+          "duda": "Respondida por RRHH el 02/10/2026: respuesta 4. La firma corporativa requiere conectar el portafirmas.",
+          "misma_persona_en_dos_pasos": "false"
         },
         "orden": 3
       }

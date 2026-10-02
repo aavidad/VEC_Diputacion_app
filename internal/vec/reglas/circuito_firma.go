@@ -77,6 +77,7 @@ const (
 )
 
 const maximoPasosCircuitoFirma = 16
+const atributoMismaPersonaEnDosPasos = "misma_persona_en_dos_pasos"
 
 // perfilRefValido admite referencias opacas del tipo «perfil:ct:jefatura».
 var perfilRefValido = regexp.MustCompile(`^[a-z][a-z0-9._:-]{2,127}$`)
@@ -112,6 +113,8 @@ type CircuitoFirma struct {
 	Version        int
 	HuellaCatalogo string
 	PaqueteEjemplo bool
+	// Una opción del catálogo no sustituye la autorización propia de cada paso.
+	PermiteMismaPersonaEnPasos bool
 }
 
 // CircuitoFirma resuelve el catálogo vigente como circuitos por documento.
@@ -135,8 +138,22 @@ func CircuitoFirmaDesdeReglas(vigentes []Regla) (CircuitoFirma, error) {
 		CatalogoID: vigentes[0].ReferenciaEntrada.CatalogoID, Version: vigentes[0].ReferenciaEntrada.CatalogoVersion,
 		HuellaCatalogo: vigentes[0].HuellaCatalogo, PaqueteEjemplo: vigentes[0].PaqueteEjemplo,
 	}
+	politica, declarada := vigentes[0].Atributos[atributoMismaPersonaEnDosPasos]
+	if declarada {
+		switch politica {
+		case "true":
+			circuito.PermiteMismaPersonaEnPasos = true
+		case "false":
+		default:
+			return CircuitoFirma{}, ErrCircuitoFirmaInvalido
+		}
+	}
 	indices := map[string]int{}
 	for _, regla := range vigentes {
+		valor, presente := regla.Atributos[atributoMismaPersonaEnDosPasos]
+		if presente != declarada || presente && valor != politica {
+			return CircuitoFirma{}, ErrCircuitoFirmaInvalido
+		}
 		paso, documento, etiqueta, err := pasoDesdeRegla(regla)
 		if err != nil {
 			return CircuitoFirma{}, err
