@@ -140,7 +140,7 @@ func (s *ServicioFirmaVec) Firmar(ctx context.Context, sol SolicitudFirmaVec) (R
 	case estado.Completo || estado.PasoPendiente != sol.PasoOrden:
 		return cero, ErrPasoFirmaNoPendiente
 	}
-	if !antecedentesR5Acreditados(estado, firmas, sol.Documento, sol.PasoOrden, sol.OriginalRef, sol.OriginalVersion) {
+	if !repetida && !antecedentesR5Acreditados(estado, firmas, sol.Documento, sol.PasoOrden, sol.OriginalRef, sol.OriginalVersion, originalEsperado) {
 		return cero, ports.ErrAntecedenteFirmaR5NoAcreditado
 	}
 	paso := doc.Pasos[sol.PasoOrden-1]

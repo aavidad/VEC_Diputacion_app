@@ -370,7 +370,7 @@ func TestFirmaExternaRechazaPDFNoVerificadoAntesDeCompetenciaYEfectos(t *testing
 }
 
 func TestFirmaExternaDosPasosConservaOriginalYSeparaFirmantes(t *testing.T) {
-	s, registro, original, competencia, _, custodio := servicioFirmaExternaPrueba(t)
+	s, registro, original, competencia, autorizadorFirma, custodio := servicioFirmaExternaPrueba(t)
 	primera := solicitudFirmaExternaPrueba(original.contenido, "clave-firma-externa-paso-01")
 	primera.PDFFirmado = append(bytes.Clone(original.contenido), []byte(" firma-tecnico-sintetica")...)
 	r1, err := s.Registrar(context.Background(), primera)
@@ -385,11 +385,38 @@ func TestFirmaExternaDosPasosConservaOriginalYSeparaFirmantes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	registro.historiaRevision++
+	registro.historiaHuella = strings.Repeat("8", 64)
+	cabezaActualRevision, cabezaActualHuella := registro.historiaRevision, registro.historiaHuella
+	r2Repetido, err := s.Registrar(context.Background(), segunda)
+	if err != nil {
+		t.Fatal(err)
+	}
+	versionDistinta := segunda
+	versionDistinta.VersionExpediente++
+	_, err = s.Registrar(context.Background(), versionDistinta)
+	if !errors.Is(err, ports.ErrClaveFirmaDocumentoUsada) {
+		t.Fatalf("la clave histórica aceptó otra versión de expediente: %v", err)
+	}
+	filasPasoDos := 0
+	for _, firma := range registro.firmas {
+		if firma.PasoOrden == 2 {
+			filasPasoDos++
+		}
+	}
 	if r1.Material.OriginalRef != r2.Material.OriginalRef || r1.Material.OriginalVersion != r2.Material.OriginalVersion ||
 		r1.Material.OriginalHuella != r2.Material.OriginalHuella || r1.Material.FirmadoHuella == r2.Material.FirmadoHuella ||
 		r1.Material.CertificadoHuella == r2.Material.CertificadoHuella || r1.Material.FirmanteRef == r2.Material.FirmanteRef ||
 		r1.Material.FirmantePrincipalRef == r2.Material.FirmantePrincipalRef ||
-		r1.Material.CargoFirmante != "Técnico" || r2.Material.CargoFirmante != "Jefatura" || len(registro.registrado) != 2 || len(competencia.vistas) != 2 || len(custodio.ordenes) != 2 {
+		r1.Material.CargoFirmante != "Técnico" || r2.Material.CargoFirmante != "Jefatura" ||
+		!r2Repetido.Recibo.YaRegistrada || r2Repetido.Recibo.ReciboRef != r2.Recibo.ReciboRef ||
+		r2Repetido.Recibo.SolicitudHuella != r2.Recibo.SolicitudHuella ||
+		r2Repetido.Material.OriginalHuella != r2.Material.OriginalHuella ||
+		r2Repetido.Material.HistoriaRevision != r2.Material.HistoriaRevision ||
+		r2Repetido.Material.HistoriaHuella != r2.Material.HistoriaHuella ||
+		registro.historiaRevision != cabezaActualRevision || registro.historiaHuella != cabezaActualHuella ||
+		len(registro.registrado) != 2 || filasPasoDos != 1 || len(registro.consultas) != 4 ||
+		len(competencia.vistas) != 4 || len(autorizadorFirma.vistas) != 3 || len(custodio.ordenes) != 3 {
 		t.Fatalf("ronda externa no conserva/separa los datos exigidos: p1=%+v p2=%+v", r1.Material, r2.Material)
 	}
 }

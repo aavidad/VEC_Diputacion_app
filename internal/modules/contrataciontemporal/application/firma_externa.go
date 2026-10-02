@@ -101,7 +101,7 @@ func competenciaTemporalValida(e ports.EvidenciaCompetenciaFirmante) bool {
 
 // Una fila CT118 legada no contiene persona acreditada ni vía R5. El estado
 // visual del circuito puede incluirla, pero no habilita un paso R5 posterior.
-func antecedentesR5Acreditados(estado domain.EstadoCircuitoDocumento, firmas []ports.FirmaRegistrada, documento string, pasoOrden int, originalRef string, originalVersion uint64) bool {
+func antecedentesR5Acreditados(estado domain.EstadoCircuitoDocumento, firmas []ports.FirmaRegistrada, documento string, pasoOrden int, originalRef string, originalVersion uint64, originalHuella string) bool {
 	for orden := 1; orden < pasoOrden; orden++ {
 		var recibo string
 		for _, p := range estado.Pasos {
@@ -122,7 +122,7 @@ func antecedentesR5Acreditados(estado domain.EstadoCircuitoDocumento, firmas []p
 				(f.Via != ports.ViaFirmaCertificadoVEC && f.Via != ports.ViaFirmaExternaPortafirmas) ||
 				!f.FirmantePrincipalAcreditado ||
 				f.OriginalRef != originalRef || f.OriginalVersion != originalVersion ||
-				f.OriginalHuella != estado.OriginalEsperadoHuella {
+				f.OriginalHuella != originalHuella {
 				return false
 			}
 			coincidencias++
@@ -233,7 +233,7 @@ func (s *ServicioFirmaExterna) Registrar(ctx context.Context, sol SolicitudFirma
 	case estado.Completo || estado.PasoPendiente != sol.PasoOrden:
 		return cero, ErrPasoFirmaNoPendiente
 	}
-	if !antecedentesR5Acreditados(estado, firmas, sol.Documento, sol.PasoOrden, sol.OriginalRef, sol.OriginalVersion) {
+	if !repetida && !antecedentesR5Acreditados(estado, firmas, sol.Documento, sol.PasoOrden, sol.OriginalRef, sol.OriginalVersion, originalEsperado) {
 		return cero, ports.ErrAntecedenteFirmaR5NoAcreditado
 	}
 	paso := doc.Pasos[sol.PasoOrden-1]

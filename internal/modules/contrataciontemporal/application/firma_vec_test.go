@@ -203,7 +203,7 @@ func TestFirmaVecRechazaCapacidadDeConsultaLigadaAOtroCandidato(t *testing.T) {
 }
 
 func TestFirmaVecDosPasosConservanOriginalYSeparanFirmantes(t *testing.T) {
-	s, registro, original, competencia, _, custodio := servicioFirmaVecPrueba(t)
+	s, registro, original, competencia, autorizadorFirma, custodio := servicioFirmaVecPrueba(t)
 	primera := solicitudFirmaVecPrueba(original.contenido, "clave-firma-vec-paso-001")
 	primera.PDFFirmado = append(bytes.Clone(original.contenido), []byte(" visto-bueno-pades-sintetico")...)
 	r1, err := s.Firmar(context.Background(), primera)
@@ -221,6 +221,25 @@ func TestFirmaVecDosPasosConservanOriginalYSeparanFirmantes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	registro.historiaRevision++
+	registro.historiaHuella = strings.Repeat("8", 64)
+	cabezaActualRevision, cabezaActualHuella := registro.historiaRevision, registro.historiaHuella
+	r2Repetido, err := s.Firmar(context.Background(), segunda)
+	if err != nil {
+		t.Fatal(err)
+	}
+	versionDistinta := segunda
+	versionDistinta.VersionExpediente++
+	_, err = s.Firmar(context.Background(), versionDistinta)
+	if !errors.Is(err, ports.ErrClaveFirmaDocumentoUsada) {
+		t.Fatalf("la clave histórica aceptó otra versión de expediente: %v", err)
+	}
+	filasPasoDos := 0
+	for _, firma := range registro.firmas {
+		if firma.PasoOrden == 2 {
+			filasPasoDos++
+		}
+	}
 
 	if r1.Material.OriginalRef != r2.Material.OriginalRef ||
 		r1.Material.OriginalVersion != r2.Material.OriginalVersion ||
@@ -230,7 +249,14 @@ func TestFirmaVecDosPasosConservanOriginalYSeparanFirmantes(t *testing.T) {
 		r1.Material.FirmanteRef == r2.Material.FirmanteRef ||
 		r1.Material.FirmantePrincipalRef == r2.Material.FirmantePrincipalRef ||
 		r1.Material.CargoFirmante != "Técnico" || r2.Material.CargoFirmante != "Jefatura" ||
-		len(registro.registrado) != 2 || len(competencia.vistas) != 2 || len(custodio.ordenes) != 2 {
+		!r2Repetido.Recibo.YaRegistrada || r2Repetido.Recibo.ReciboRef != r2.Recibo.ReciboRef ||
+		r2Repetido.Recibo.SolicitudHuella != r2.Recibo.SolicitudHuella ||
+		r2Repetido.Material.OriginalHuella != r2.Material.OriginalHuella ||
+		r2Repetido.Material.HistoriaRevision != r2.Material.HistoriaRevision ||
+		r2Repetido.Material.HistoriaHuella != r2.Material.HistoriaHuella ||
+		registro.historiaRevision != cabezaActualRevision || registro.historiaHuella != cabezaActualHuella ||
+		len(registro.registrado) != 2 || filasPasoDos != 1 || len(registro.consultas) != 4 ||
+		len(competencia.vistas) != 4 || len(autorizadorFirma.vistas) != 3 || len(custodio.ordenes) != 3 {
 		t.Fatalf("los dos pasos VEC no conservaron el original o no separaron firmantes: p1=%+v p2=%+v", r1.Material, r2.Material)
 	}
 }

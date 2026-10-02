@@ -63,8 +63,10 @@ type AutorizadorConsultaFirmasR5 interface {
 	AutorizarConsultaFirmasR5(context.Context, MaterialConsultaFirmasR5) (CapacidadConsultaFirmasR5, error)
 }
 
-// La cabeza es global por organización y expediente, aun cuando Firmas
-// proyecte solo un documento. CT170 la compara bajo bloqueo antes de insertar.
+// La cabeza abarca toda la historia de organización/expediente hasta la
+// versión autorizada, aun cuando Firmas proyecte solo un documento. Para una
+// operación nueva CT170 compara la cabeza actual bajo bloqueo; un replay usa
+// la cabeza original guardada en su fila.
 type LecturaFirmasR5 struct {
 	Firmas           []FirmaRegistrada
 	HistoriaRevision uint64
