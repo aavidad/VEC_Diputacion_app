@@ -72,9 +72,10 @@ BEGIN
  SELECT count(*) INTO despues FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3;
  IF rechazos<>6 OR antes<>despues THEN RAISE EXCEPTION 'AD143: rechazo parcial o con efectos'; END IF;
 END $rechazos$;
--- Material deliberadamente sin atestación: comprueba el rechazo del perfil
--- anterior antes del núcleo. No demuestra un positivo criptográfico.
-DO $perfil_anterior$
+-- Las candidatas de E no son una publicación. Sistemas no puede revisar;
+-- en las otras acciones el contrato pendiente mantiene la denegación.
+-- El material sin atestación no demuestra un positivo criptográfico.
+DO $perfiles_pendientes$
 DECLARE nombre text;accion text;audiencia text;tipo text;finalidad text;campos jsonb;
  ctx jsonb;v jsonb;c jsonb;d jsonb;ctx_bytes bytea;antes bigint;despues bigint;rechazos integer:=0;
 BEGIN
@@ -108,10 +109,24 @@ BEGIN
    EXECUTE format('SELECT * FROM vec_autorizacion_atestada_v3.%I($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',nombre)
     USING convert_to(c::text,'UTF8'),convert_to(d::text,'UTF8'),''::bytea,ctx_bytes,
      1::numeric,1::numeric,''::bytea,''::bytea,''::bytea,''::bytea;
-   RAISE EXCEPTION 'AD143: perfil anterior aceptado';
-  EXCEPTION WHEN insufficient_privilege THEN rechazos:=rechazos+1; END;
+   RAISE EXCEPTION 'AD143: candidato Sistemas aceptado sin publicación';
+  EXCEPTION
+   WHEN insufficient_privilege THEN
+    IF nombre<>'consumir_revision_restauracion_copias_v3_atestada' THEN RAISE; END IF;
+    rechazos:=rechazos+1;
+   WHEN object_not_in_prerequisite_state THEN
+    IF nombre='consumir_revision_restauracion_copias_v3_atestada' THEN RAISE; END IF;
+    rechazos:=rechazos+1;
+  END;
+  d:=jsonb_set(d,'{version_rol_ref}','"rol:administracion_perfiles:v3"'::jsonb);
+  BEGIN
+   EXECUTE format('SELECT * FROM vec_autorizacion_atestada_v3.%I($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',nombre)
+    USING convert_to(c::text,'UTF8'),convert_to(d::text,'UTF8'),''::bytea,ctx_bytes,
+     1::numeric,1::numeric,''::bytea,''::bytea,''::bytea,''::bytea;
+   RAISE EXCEPTION 'AD143: candidato Aplicación aceptado sin publicación';
+  EXCEPTION WHEN object_not_in_prerequisite_state THEN rechazos:=rechazos+1; END;
  END LOOP;
  SELECT count(*) INTO despues FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3;
- IF rechazos<>3 OR antes<>despues THEN RAISE EXCEPTION 'AD143: perfil anterior con efectos'; END IF;
-END $perfil_anterior$;
+ IF rechazos<>6 OR antes<>despues THEN RAISE EXCEPTION 'AD143: candidatas pendientes con efectos'; END IF;
+END $perfiles_pendientes$;
 ROLLBACK;

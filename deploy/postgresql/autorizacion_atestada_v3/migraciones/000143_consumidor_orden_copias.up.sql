@@ -1,7 +1,7 @@
 \set ON_ERROR_STOP on
 -- AD3-143: consumo nominal de órdenes y doble control de restauración ADMIN.
 -- BORRADOR: falta contrato fijo de perfiles ADMIN y ratificación de preimagen.
--- Preimagen real post-AD144; conserva AD141/142/144 y el payload V3.
+-- Preimagen real post-AD145; conserva AD141/142/144/145 y el payload V3.
 -- Las fachadas ADMIN quedan cerradas mientras falten sus fuentes nominales.
 BEGIN;
 SET LOCAL search_path=pg_catalog, pg_temp;
@@ -36,9 +36,9 @@ DECLARE
  f oid:=to_regprocedure('vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
  original text; nuevo text; actual text; fuente text; meta jsonb; deps jsonb; deps_compartidas jsonb; acl aclitem[];
  propietario oid; config text[]; definidora boolean;
- -- Preimagen medida en PG18.4 tras AD144, sobre el núcleo real AD142.
- esperada_def_sha256 text:=$esperada_def_sha256$0ffdcfcc7fa46d2555d07cad67de1686de7a9b21f6dedc17e5ea38216b1bbbd6$esperada_def_sha256$;
- esperada_fuente_sha256 text:=$esperada_fuente_sha256$86ad9182e8a9e35474fae55b608c71512c01ddfbafa336f643aa1bccee96e96b$esperada_fuente_sha256$;
+ -- Preimagen medida en PG18.4 tras AD145, sobre el núcleo real AD142/144.
+ esperada_def_sha256 text:=$esperada_def_sha256$060fa1c5e51a8a2fa4a2dd8fd7ebfe705f79e96ab71666e2754a52c378a0d89e$esperada_def_sha256$;
+ esperada_fuente_sha256 text:=$esperada_fuente_sha256$993e82bef26142ba928de996f92632d8a06a5b459715f0090d64ca756bb25358$esperada_fuente_sha256$;
  marca text:=$marca$       )
        OR c ->> 'suite' <> 'VEC-AD-3-COSE-EDDSA-1'$marca$;
  excl text:=$excl$               p_perfil_mutacion IS DISTINCT FROM 'bolsa_llamamiento'
@@ -176,7 +176,7 @@ BEGIN
  SELECT pg_get_constraintdef(c.oid,true) INTO STRICT d FROM pg_constraint c
  WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
  AND c.conname='clave_capacidad_version_audiencia_consumo_check' AND c.contype='c' AND c.convalidated;
- IF encode(sha256(convert_to(d,'UTF8')),'hex') IS DISTINCT FROM '5fb403d54926bc89ea7c5cf53fe0538ec8936f22000cbb0bce72c9a731d6cabc'
+ IF encode(sha256(convert_to(d,'UTF8')),'hex') IS DISTINCT FROM '8f3d3c4b34e0e4904c2e132982347800e2cf34a9e5d5842c79988f83a11161f7'
  OR strpos(d,'CHECK (audiencia_consumo = ANY (ARRAY[')<>1 OR right(d,3)<>']))'
  OR strpos(d,'vec_administracion_copias.')<>0
  THEN RAISE EXCEPTION 'AD3-143: preimagen de audiencias incompatible' USING ERRCODE='55000'; END IF;
@@ -194,7 +194,11 @@ LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path=pg_catalog,pg_temp SET lock_timeout='2s' AS $f$
 DECLARE c jsonb;d jsonb;ctx jsonb;v jsonb;consumo record;guard oid;doble oid;proveedor oid;
  audiencia text;accion text;tipo text;finalidad text;campos jsonb;rol_esperado text;
- -- Borrador cerrado hasta recibir el contrato fijo de E. No inferir referencias.
+ -- Candidatas comunicadas por E el 02/10/2026: Sistemas operador_plataforma:v1;
+ -- Aplicación administracion_perfiles:v3. No son publicación ni concesión.
+ -- La fuente definitiva debe resolver plantilla fija y versión publicada viva;
+ -- no usar estas versiones candidatas ni un SHA de archivo como autoridad.
+ -- Estos NULL mantienen cerrado el borrador mientras falta el contrato central.
  rol_sistemas_version_ref CONSTANT text:=NULL;
  rol_aplicacion_version_ref CONSTANT text:=NULL;
 BEGIN
@@ -218,8 +222,9 @@ BEGIN
  BEGIN c:=convert_from(p_capacidad,'UTF8')::jsonb;d:=convert_from(p_decision,'UTF8')::jsonb;
        ctx:=convert_from(p_contexto,'UTF8')::jsonb;v:=d->'vinculo_autenticacion_actor';
  EXCEPTION WHEN data_exception THEN RAISE EXCEPTION 'AD3-143: material inválido' USING ERRCODE='22023'; END;
- IF d->>'version_rol_ref' IS NOT DISTINCT FROM 'rol:operador_plataforma:v1'
- THEN RAISE EXCEPTION 'AD3-143: perfil anterior denegado' USING ERRCODE='42501'; END IF;
+ IF p_perfil='admin_copias_revision'
+ AND d->>'version_rol_ref' IS NOT DISTINCT FROM 'rol:operador_plataforma:v1'
+ THEN RAISE EXCEPTION 'AD3-143: sistemas no aprueba restauración' USING ERRCODE='42501'; END IF;
  IF rol_esperado IS NULL OR rol_sistemas_version_ref IS NOT DISTINCT FROM rol_aplicacion_version_ref
  THEN RAISE EXCEPTION 'AD3-143: contrato de perfiles ADMIN pendiente' USING ERRCODE='55000'; END IF;
  IF c->>'audiencia_consumo' IS DISTINCT FROM audiencia OR c->>'operacion' IS DISTINCT FROM accion
