@@ -36,8 +36,8 @@ No se puede convertir cualquier rechazo SQL en una consulta confirmada: la tabla
 
 ## TODO antes de cerrar el corte
 
-- Conservar las reservas propias AD000145, AUT000029 y Méritos000002. El orden central pendiente es AD142 → AD143 (K) → AD144 (G) → AD145 (A). Para esta pieza, el orden de instalación es roles de consulta/registro de intentos → AUT29 → AD145 → Méritos000002, tras sus prerrequisitos.
-- Actualizar la preimagen de AD145 cuando AD143 y AD144 estén publicadas y ensayar el conjunto en un clon nuevo. La candidata actual protege la preimagen posterior a AD142 y no acredita compatibilidad posterior a AD144. No relajar las guardas ni reaplicar UP/DOWN de migraciones con historia.
+- Conservar las reservas propias AD000145, AUT000029 y Méritos000002. La orden del 2 de octubre a las 13:50 permite avanzar por dependencias de objetos: AD144 se aplicó en el clon sobre POST142, sin AD143. Copias no es prerrequisito de RUM04. Para esta pieza, el orden de instalación es roles de consulta/registro de intentos → AUT29 → AD145 sobre POST144 → Méritos000002.
+- AD145 protege ahora la definición, fuente y constraint reales de POST144. Sus marcas son únicas y el delta se invierte exactamente sobre esa fuente, conservando Gobierno y Méritos anteriores. Esta comprobación estática no acredita instalación de AD145: faltan las dos ratificaciones del nuevo hash y el ensayo dirigido en el mismo clon. No relajar las guardas ni reaplicar UP/DOWN de migraciones con historia.
 - Completar el recorrido con Chrome del sistema y la revisión independiente de usabilidad.
 - Obtener dos revisiones del hash exacto, incluida SQL, autorización y seguridad, y ejecutar la puerta de calidad de cierre correspondiente.
 - Completar la auditoría común persistente de la denegación SQL posterior a la emisión y probarla después del rollback en el clon autorizado. Las regresiones focales de la retoma sólo acreditan propagación, cierre y ausencia de exposición.

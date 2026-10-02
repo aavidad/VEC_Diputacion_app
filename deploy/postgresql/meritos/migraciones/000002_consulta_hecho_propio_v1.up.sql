@@ -32,6 +32,7 @@ CREATE POLICY consulta_propia_lectura ON vec_meritos.consulta_propia_v1 FOR SELE
 CREATE POLICY consulta_propia_alta ON vec_meritos.consulta_propia_v1 FOR INSERT TO vec_meritos_propietario WITH CHECK(persona_ref=current_setting('vec_meritos.persona_ref',true));
 CREATE TRIGGER consulta_propia_historia BEFORE UPDATE OR DELETE OR TRUNCATE ON vec_meritos.consulta_propia_v1 FOR EACH STATEMENT EXECUTE FUNCTION vec_meritos.historia_inmutable_v1();
 REVOKE ALL ON TABLE vec_meritos.consulta_propia_v1 FROM PUBLIC,vec_meritos_consulta_propia_interno,vec_meritos_ejecutor,vec_meritos_interno,vec_meritos_externo,vec_meritos_migrador;
+REVOKE ALL ON TYPE vec_meritos.consulta_propia_v1 FROM PUBLIC,vec_meritos_consulta_propia_interno,vec_meritos_registrador_intento_consulta,vec_meritos_ejecutor,vec_meritos_interno,vec_meritos_externo,vec_meritos_migrador;
 CREATE FUNCTION vec_meritos.consultar_hecho_propio_v1(p_selector bytea,p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea)
 RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp SET lock_timeout='2s' AS $f$
 DECLARE s jsonb; d jsonb; cx jsonb; material record; actor text; contexto text; v integer:=0; h jsonb; ficha jsonb:=NULL; rev jsonb; codigo text:='no_encontrada'; recibo text; audit text; ahora timestamptz(6); r jsonb;
