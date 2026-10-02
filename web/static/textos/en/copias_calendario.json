@@ -1,0 +1,23 @@
+{
+  "aviso_sintetico": "Local test configuration. Identities and backups are declared. This does not grant permissions or run backups or deletions.",
+  "argumentos_invalidos": "Specify the register, all roots to be restored and the text catalogue. See the examples in the manual.",
+  "catalogo_invalido": "The catalogue could not be read. Select a complete catalogue and try again.",
+  "politica_entrada_invalida": "Check the dates, time zone and policy values. The window must end on the same day.",
+  "politica_version_distinta": "The policy changed. Read the current version and review your proposal before saving it.",
+  "politica_historia_invalida": "The history does not match the expected register. Stop changes and ask Systems to review the register.",
+  "politica_denegada": "The change was not authorized. Check current permission and another person's review when required.",
+  "politica_dependencia_pendiente": "The operation could not be completed. Check the external register and required services before retrying.",
+  "politica_fuera_ventana": "The date does not identify an execution within the current window. Read the schedule again.",
+  "salida_fallida": "The result could not be written. Read the register before repeating a change.",
+  "previa_activa": "Kept because it protects an active restoration.",
+  "pendiente_conciliacion": "Kept until the pending operation is reconciled.",
+  "dependencia_necesaria": "Kept because another backup depends on it.",
+  "protegida": "Kept under explicit protection.",
+  "no_verificada": "Deletion is not proposed without verification.",
+  "minimo_verificadas": "Kept to maintain the minimum number of verified backups.",
+  "dentro_retencion": "Kept within the configured retention period.",
+  "borrado_no_permitido": "The policy does not allow deletion proposals.",
+  "candidata_revision": "May be reviewed for deletion. Current authorization and the configured control are required before any effect.",
+  "fuera_destino": "The backup belongs to another destination; this policy does not apply.",
+  "politica_aviso_fallido": "Execution failed and the notification could not be emitted. Ask Systems to review the register before retrying."
+}

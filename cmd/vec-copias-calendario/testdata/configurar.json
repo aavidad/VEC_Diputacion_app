@@ -1,0 +1,23 @@
+{
+  "sintetica": true,
+  "accion": "configurar",
+  "version_esperada": 0,
+  "actor_declarado": "actor:ensayo",
+  "revisor_declarado": "actor:segunda-persona",
+  "correlacion": "correlacion:ensayo",
+  "instante": "2026-10-01T00:00:00Z",
+  "politica": {
+    "formato": 1,
+    "referencia": "politica:ensayo",
+    "destino": "destino:ensayo",
+    "zona_horaria": "Europe/Madrid",
+    "fecha_inicial": "2026-10-01",
+    "cada_dias": 1,
+    "ventana": {"inicio": "02:30", "fin": "04:00"},
+    "retencion": {
+      "conservar_minimo": 1,
+      "edad_maxima_dias": 30,
+      "borrado_permitido": false
+    }
+  }
+}

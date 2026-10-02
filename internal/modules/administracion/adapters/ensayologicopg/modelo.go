@@ -7,10 +7,13 @@ import (
 	"regexp"
 	"time"
 
+	fisica "vec-diputacion-granada/internal/modules/administracion/adapters/ensayofisicopg"
 	"vec-diputacion-granada/internal/modules/administracion/domain/copias"
+	puertos "vec-diputacion-granada/internal/modules/administracion/ports/ensayofisicopg"
 )
 
 type Configuracion struct {
+	RaizTemporal       string        `json:"raiz_temporal,omitempty"`
 	ImagenSHA256       string        `json:"imagen_sha256"`
 	VersionPostgreSQL  string        `json:"version_postgresql"`
 	UsuarioBootstrap   string        `json:"usuario_bootstrap"`
@@ -32,15 +35,20 @@ type Solicitud struct {
 }
 
 type Resultado struct {
-	Estado               string         `json:"estado"`
-	Etapa                string         `json:"etapa"`
-	VersionPostgreSQL    string         `json:"version_postgresql"`
-	HabilitaRestauracion bool           `json:"habilita_restauracion"`
-	LimpiezaCompletada   bool           `json:"limpieza_completada"`
-	Razones              []copias.Razon `json:"razones"`
+	Estado               string              `json:"estado"`
+	Etapa                string              `json:"etapa"`
+	VersionPostgreSQL    string              `json:"version_postgresql"`
+	HabilitaRestauracion bool                `json:"habilita_restauracion"`
+	LimpiezaCompletada   bool                `json:"limpieza_completada"`
+	Observacion          puertos.Observacion `json:"observacion"`
+	Razones              []copias.Razon      `json:"razones"`
 }
 
-type Ensayador struct{ Configuracion Configuracion }
+type Ensayador struct {
+	Configuracion         Configuracion
+	Observador            puertos.Observador
+	ComponentesArchivados []fisica.Componente
+}
 
 var (
 	huellaValida  = regexp.MustCompile(`^[a-f0-9]{64}$`)
@@ -67,7 +75,7 @@ func fallo(r *Resultado, etapa, clave, esperado, obtenido string) bool {
 // nuevo, aislado y eliminado; nunca recibe un DSN ni un contenedor de origen.
 func (e Ensayador) Ensayar(ctx context.Context, s Solicitud) (r Resultado) {
 	r = Resultado{Estado: "restauracion_logica_fallida", Etapa: "entrada", LimpiezaCompletada: true,
-		Razones: []copias.Razon{}}
+		Razones: []copias.Razon{}, Observacion: puertos.Observacion{ContrasteEstado: "no_comprobable", ArranqueEstado: "no_comprobable"}}
 	if ctx == nil || !e.Configuracion.validar() || !s.Sintetica ||
 		!huellaValida.MatchString(s.Dump.SHA256) || !huellaValida.MatchString(s.Globals.SHA256) {
 		fallo(&r, "entrada", "entrada", "configuracion_y_muestra_sintetica", "no_admitida")
