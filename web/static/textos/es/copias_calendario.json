@@ -1,0 +1,23 @@
+{
+  "aviso_sintetico": "Configuración local de ensayo. Las identidades y copias son declaradas. No concede permisos ni ejecuta copias o borrados.",
+  "argumentos_invalidos": "Indique el registro, las raíces que se restaurarán y el catálogo de textos. Consulte los ejemplos del manual.",
+  "catalogo_invalido": "No se pudo leer el catálogo. Seleccione un catálogo completo y vuelva a intentarlo.",
+  "politica_entrada_invalida": "Revise las fechas, la zona horaria y los valores de la política. La ventana debe terminar el mismo día.",
+  "politica_version_distinta": "La política cambió. Consulte la versión actual y revise su propuesta antes de guardarla.",
+  "politica_historia_invalida": "El historial no coincide con el registro esperado. Detenga los cambios y revise el registro con Sistemas.",
+  "politica_denegada": "No se autorizó el cambio. Compruebe el permiso vigente y la revisión de otra persona cuando sea necesaria.",
+  "politica_dependencia_pendiente": "No se pudo completar la operación. Compruebe el registro externo y los servicios necesarios antes de reintentar.",
+  "politica_fuera_ventana": "La fecha no corresponde a una ejecución dentro de la ventana vigente. Consulte de nuevo la agenda.",
+  "salida_fallida": "No se pudo escribir el resultado. Consulte el registro antes de repetir un cambio.",
+  "previa_activa": "Se conserva porque protege una restauración activa.",
+  "pendiente_conciliacion": "Se conserva hasta resolver la operación pendiente.",
+  "dependencia_necesaria": "Se conserva porque otra copia depende de ella.",
+  "protegida": "Se conserva por protección expresa.",
+  "no_verificada": "No se propone borrar sin verificación.",
+  "minimo_verificadas": "Se conserva para mantener el mínimo de copias verificadas.",
+  "dentro_retencion": "Se conserva dentro del periodo configurado.",
+  "borrado_no_permitido": "La política no permite proponer el borrado.",
+  "candidata_revision": "Puede revisarse para borrado. Requiere autorización vigente y el control configurado antes de cualquier efecto.",
+  "fuera_destino": "La copia pertenece a otro destino; esta política no se aplica.",
+  "politica_aviso_fallido": "La ejecución falló y no se pudo emitir el aviso. Consulte el registro con Sistemas antes de reintentar."
+}
