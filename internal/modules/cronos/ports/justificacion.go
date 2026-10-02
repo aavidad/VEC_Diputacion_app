@@ -53,10 +53,28 @@ type FuenteJustificacion interface {
 type DocumentosJustificacion interface {
 	// Sin efectos: exige política común y autorizador nominal de la petición.
 	PrepararRegistro(context.Context, OrdenJustificacion, domain.SolicitudJustificable, domain.PoliticaJustificacion) error
-	RegistrarJustificante(context.Context, OrdenJustificacion, domain.SolicitudJustificable, domain.PoliticaJustificacion, domain.DocumentoJustificacion, string) (domain.DocumentoJustificacion, error)
+	RegistrarJustificante(context.Context, OrdenJustificacion, domain.SolicitudJustificable, domain.PoliticaJustificacion, domain.DocumentoJustificacion, string) (RegistroDocumentalConfirmado, error)
+}
+
+// Sale exclusivamente del servicio común de Documentos después de registrar
+// una referencia externa. Acredita ese registro VEC, no la custodia externa.
+type RegistroDocumentalConfirmado struct {
+	Documento            domain.DocumentoJustificacion
+	ModuloID             string
+	ExpedienteRef        string
+	TipoRef              string
+	NumeroVEC            string
+	CreadoEnUTC          time.Time
+	PoliticaRef          string
+	PoliticaVersion      uint64
+	PoliticaSHA256       string
+	ConservacionHastaUTC time.Time
+	Proteccion           string
+	EstadoPolitica       string
 }
 type ReciboJustificacion struct {
 	Justificacion  domain.Justificacion
+	Registro       *RegistroDocumentalConfirmado
 	HuellaMaterial string
 	ReciboRef      string
 	FechaUTC       time.Time
@@ -70,7 +88,7 @@ type ReciboJustificacion struct {
 // Documentos tiene una transacción independiente: este contrato no la deshace.
 type RepositorioJustificacion interface {
 	RecuperarJustificacion(context.Context, OrdenJustificacion, domain.MaterialJustificacion) (ReciboJustificacion, bool, error)
-	ConfirmarJustificacion(context.Context, domain.MaterialJustificacion, domain.Justificacion, vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ReciboJustificacion, error)
+	ConfirmarJustificacion(context.Context, domain.MaterialJustificacion, domain.Justificacion, *RegistroDocumentalConfirmado, vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ReciboJustificacion, error)
 }
 type PeticionAnexoJustificacion struct {
 	SolicitudRef, ClaveOperacion string
@@ -89,6 +107,7 @@ type PeticionRevisionJustificacion struct {
 // espera recuperación; ReciboCronos sólo aparece tras confirmación coherente.
 type ResultadoAnexoJustificacion struct {
 	Documento       *domain.DocumentoJustificacion
+	Registro        *RegistroDocumentalConfirmado
 	ReciboCronos    *ReciboJustificacion
 	EnlacePendiente bool
 }

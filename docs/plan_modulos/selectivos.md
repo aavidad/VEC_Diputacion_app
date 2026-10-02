@@ -1,5 +1,31 @@
 # Procesos selectivos: inventario y siguiente trabajo
 
+## Cierre del 2 de octubre de 2026: estado vigente
+
+Este apartado prevalece sobre los estados y órdenes de arranque del 1 de
+octubre conservados debajo. Las estimaciones siguen siendo las iniciales;
+no se han recalculado como trabajo restante. A conserva Selectivos, Carrera,
+Formación y RUM; B conserva Personal y G el baremador común. Las referencias
+históricas a H describen el reparto anterior.
+
+| Minitarea | Entrega comprobada | Qué queda |
+| --- | --- | --- |
+| S0 · ensayo | [#343](https://github.com/aavidad/VEC_Diputacion_app/pull/343) fusionada; fuente `23671aaed`. | El ensayo sintético no acredita admisión ni calificación oficial. |
+| S1 · bases exactas V3 | [#390](https://github.com/aavidad/VEC_Diputacion_app/pull/390) fusionada; fuente `df04de956`. Lectura exacta en PostgreSQL, Chrome y recuperación tras reinicio comprobadas. | Montaje institucional; no dar por instalada esa capacidad en la principal. |
+| S2 · preparación de bases | [#389](https://github.com/aavidad/VEC_Diputacion_app/pull/389) fusionada; fuente `0395be5cf`. CLI de preparación, con material pendiente de aprobación. El inventario durable recoge la variante `disponible_para_preparacion`; se conserva acta privada. | Escritor durable y gestión de claves/composición raíz; aprobación competente, firma y publicación. El inventario no acredita implementación. |
+| S3 · solicitud recuperable | [#403](https://github.com/aavidad/VEC_Diputacion_app/pull/403) fusionada; fuente `f87269037`, diez comprobaciones CI verdes. Produce JSON y recupera exactamente los mismos 1089 bytes. | Registro y presentación, representación, firma y tasa conforme a las bases. |
+| S4 · admisión y subsanación | Pendiente. | Consumir S3 y hechos autorizados de RUM/Personal; motivación y aprobación de listas. |
+| S5 · tribunal y actas | Pendiente. | Órganos y perfiles confirmados; composición, habilitación y actas firmadas. |
+| S6 · fases y calificaciones | Pendiente. | Bases exactas, tribunal y hechos de RUM; cálculo común, reclamación y publicación aprobada. |
+| S7 · aprobados y traspaso | Pendiente. | Resultado aprobado y recibo idempotente de Bolsa/Personal, con rectificaciones. |
+| S8 · OEP y plazas | Pendiente. | Referencias y actos de RPT/Personal; cuadro de ejecución. |
+
+Para retomar, leer el FIN de cierre y comprobar los hashes/estados remotos;
+no reconstruir S0–S3. Primero resolver el siguiente corte independiente de
+S2 o S3 con sus propietarios. S4 espera los hechos autorizados de RUM y los
+perfiles/actos que correspondan. Ninguna de estas fusiones acredita producción,
+aprobación de bases, solicitud registrada o firma legal.
+
 Estado comprobado en `origin/main@0a62a3ea6` el 1/10/2026. Este plan describe
 la continuación de oposición, concurso y concurso-oposición. El ensayo A que se
 preparaba hoy está conservado en ramas remotas, todavía fuera de `main`.
