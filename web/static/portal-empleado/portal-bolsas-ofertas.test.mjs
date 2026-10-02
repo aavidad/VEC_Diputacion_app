@@ -19,6 +19,9 @@ function oferta(extra = {}) {
   };
 }
 
+const notificacion = { notificada_en: "2026-09-25T08:00:00.000000Z", referencia_correo: "correo:oferta-1",
+  huella_correo_sha256: "a".repeat(64), fuente: "correo_externo_declarado_rrhh" };
+
 const politica = { llamada: "simultanea", respuesta_horas: 24, tras_renuncia: "siguiente_en_orden" };
 const turno = () => new Promise((r) => setTimeout(r, 0));
 const sobre = (ofertas) => ({ ok: true, datos: { esquema: ESQUEMA_OFERTAS_BOLSA, ofertas } });
@@ -35,6 +38,7 @@ function boton(dataset) {
 
 test("el contrato exige una entrada por plaza y rechaza estados, propuestas y actos ajenos", () => {
   assert.equal(validarOfertasBolsa({ data: { esquema: ESQUEMA_OFERTAS_BOLSA, ofertas: [oferta()] } }).ofertas.length, 1);
+  assert.equal(validarOfertasBolsa({ data: { esquema: ESQUEMA_OFERTAS_BOLSA, ofertas: [oferta({ plazo: { ejemplo: false, notificacion } })] } }).ofertas.length, 1);
   const invalidas = [
     oferta({ estado: "inventado" }),
     oferta({ numero_plazas: 2 }),
@@ -44,6 +48,7 @@ test("el contrato exige una entrada por plaza y rechaza estados, propuestas y ac
     oferta({ plazas: [plaza(1, { propuesta: { tipo: "adjudicar" } })] }),
     oferta({ plazas: [plaza(1, { historial: [{ secuencia: 1, tipo: "borrada", orden_vigente: 1 }] })] }),
     oferta({ plazas: [plaza(1, { responder_antes_de: "mañana" })] }),
+    oferta({ plazo: { ejemplo: false, notificacion: { ...notificacion, fuente: "entrega_acreditada" } } }),
   ];
   for (const o of invalidas) assert.throws(() => validarOfertasBolsa({ data: { esquema: ESQUEMA_OFERTAS_BOLSA, ofertas: [o] } }));
 });
@@ -51,12 +56,13 @@ test("el contrato exige una entrada por plaza y rechaza estados, propuestas y ac
 test("el cliente envía bolsa, datos, número de plazas y el acto de la plaza, sin identidad", async () => {
   const llamadas = [];
   const cliente = crearClienteOfertas({ fetchImpl: async (ruta, opciones) => { llamadas.push({ ruta, opciones }); return respuesta(201, { data: oferta() }); } });
-  const r = await cliente.publicar("bolsa:1", { categoria: "Aux", centro: "Res", fecha_inicio: "2026-10-01", descripcion: "Des" }, 3, "oferta-clave-1");
+  const r = await cliente.publicar("bolsa:1", { categoria: "Aux", centro: "Res", fecha_inicio: "2026-10-01", descripcion: "Des" }, 3, notificacion, "oferta-clave-1");
   assert.equal(r.ok, true);
   assert.equal(llamadas[0].ruta, RUTA_OFERTAS_BOLSA);
   assert.equal(llamadas[0].opciones.headers["Idempotency-Key"], "oferta-clave-1");
   assert.deepEqual(JSON.parse(llamadas[0].opciones.body).numero_plazas, 3);
-  assert.deepEqual(Object.keys(JSON.parse(llamadas[0].opciones.body)), ["bolsa_ref", "datos", "numero_plazas"]);
+  assert.deepEqual(Object.keys(JSON.parse(llamadas[0].opciones.body)), ["bolsa_ref", "datos", "numero_plazas", "notificacion"]);
+  assert.deepEqual(JSON.parse(llamadas[0].opciones.body).notificacion, notificacion);
   await cliente.registrarActo("bolsa:1", { oferta_ref: "oferta:1", numero_de_plaza: 2, tipo: "llamamiento_directo", secuencia_esperada: 3 }, "clave-acto-1");
   assert.equal(llamadas[1].ruta, RUTA_RESOLUCIONES_OFERTA);
   assert.deepEqual(JSON.parse(llamadas[1].opciones.body), { bolsa_ref: "bolsa:1", oferta_ref: "oferta:1", numero_de_plaza: 2,
@@ -73,6 +79,7 @@ test("los errores del servidor se traducen sin mostrar códigos y los plurales u
   assert.match(mensajeError(t, { status: 409, codigo: "respuesta_abierta" }), /en plazo para responder/);
   assert.match(mensajeError(t, { status: 409, codigo: "politica_sin_plazas" }), /no admite varias plazas/);
   assert.match(mensajeError(t, { status: 503, codigo: "plazo_no_configurado" }), /no tiene plazo/);
+  assert.match(mensajeError(t, { status: 422, codigo: "oferta_invalida" }), /fecha del correo no puede ser futura/);
   assert.match(mensajeError(t, { status: 500, codigo: "x" }), /No se pudo completar/);
   assert.equal(t("plazas_total", { cuenta: 1 }), "1 plaza");
   assert.equal(t("plazas_cubiertas", { cuenta: 3, cubiertas: 2 }), "2 de 3 cubiertas");
@@ -91,8 +98,8 @@ test("la superficie publica con número de plazas y clave estable al reintentar,
   let claves = 0; const enviadas = [];
   let fallar = true;
   const cliente = {
-    consultar: async () => sobre([oferta()]),
-    publicar: async (_b, _d, plazas, clave) => { enviadas.push([clave, plazas]); if (fallar) { fallar = false; return { ok: false, status: 503, codigo: "servicio_no_disponible" }; } return { ok: true, status: 201, oferta: oferta() }; },
+    consultar: async () => sobre([oferta({ plazo: { ejemplo: false, notificacion } })]),
+    publicar: async (_b, _d, plazas, n, clave) => { enviadas.push([clave, plazas, n]); if (fallar) { fallar = false; return { ok: false, status: 503, codigo: "servicio_no_disponible" }; } return { ok: true, status: 201, oferta: oferta() }; },
     registrarActo: async () => ({ ok: true, status: 201, oferta: oferta() }),
   };
   const s = crearSuperficieOfertasBolsa({ cliente, generarClave: () => `clave-${++claves}` });
@@ -103,16 +110,29 @@ test("la superficie publica con número de plazas y clave estable al reintentar,
   assert.doesNotMatch(html, /<b>/);
   assert.match(html, /name="numero_plazas"[^>]*value="1"[^>]*required|name="numero_plazas"[^>]*required/);
   assert.match(html, /1 plaza/);
+  assert.match(html, /RRHH declaró un correo externo/);
+  assert.match(html, /correo:oferta-1/);
+  assert.match(html, /Fecha y hora del correo/);
+  assert.match(html, /Esta declaración no acredita la entrega/);
   assert.doesNotMatch(html, /plazas-oferta/, "una oferta abierta no despliega sus plazas");
-  const datos = { categoria: "Aux", centro: "Res", fecha_inicio: "2026-10-01", descripcion: "Des", numero_plazas: "3" };
+  const datos = { categoria: "Aux", centro: "Res", fecha_inicio: "2026-10-01", descripcion: "Des", numero_plazas: "3",
+    notificada_en: "2026-09-25T10:00", referencia_correo: "correo:oferta-1", huella_correo_sha256: "a".repeat(64) };
   const formulario = { closest: () => formulario, reportValidity: () => true };
   globalThis.FormData = class { get(k) { return datos[k] ?? ""; } };
+  datos.huella_correo_sha256 = "invalida";
+  s.manejarSubmit({ target: formulario, preventDefault() {} });
+  await turno();
+  assert.equal(enviadas.length, 0, "no publica sin huella verificable");
+  datos.huella_correo_sha256 = "a".repeat(64);
   s.manejarSubmit({ target: formulario, preventDefault() {} });
   await turno();
   assert.match(s.renderizar(), /Reintentar la misma publicación/);
   s.manejarSubmit({ target: formulario, preventDefault() {} });
   await turno();
-  assert.deepEqual(enviadas, [["clave-1", 3], ["clave-1", 3]]);
+  assert.equal(enviadas.length, 2);
+  assert.deepEqual(enviadas.map(([clave, plazas]) => [clave, plazas]), [["clave-1", 3], ["clave-1", 3]]);
+  assert.deepEqual(enviadas[0][2], enviadas[1][2]);
+  assert.match(enviadas[0][2].notificada_en, /^2026-09-25T\d\d:00:00\.000000Z$/);
   datos.numero_plazas = "101";
   s.manejarSubmit({ target: formulario, preventDefault() {} });
   await turno();
