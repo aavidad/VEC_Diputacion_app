@@ -119,5 +119,5 @@ func (a AutorizacionConfirmacionAltaExternaEnlace) AuthJSON(s SolicitudConfirmac
 // ProveedorConfirmacionAltaExternaEnlace usa el actor y perfil de la petición
 // confiable. La implementación no acepta permiso aportado por el cliente.
 type ProveedorConfirmacionAltaExternaEnlace interface {
-	AutorizarConfirmacionAltaExternaEnlace(context.Context, []byte, string, string) (AutorizacionConfirmacionAltaExternaEnlace, error)
+	AutorizarConfirmacionAltaExternaEnlace(context.Context, SolicitudConfirmacionAltaExternaEnlace) (AutorizacionConfirmacionAltaExternaEnlace, error)
 }
