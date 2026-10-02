@@ -25,6 +25,7 @@ export function renderizarCircuitoRRHH(datos) {
     dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Madrid",
   }))}</time></div>
     </li>`).join("")}</ol>` : `<p>${escapar(texto("sin_hitos"))}</p>`}
+    <p>${escapar(texto("continuar"))}</p>
   </div>`;
 }
 

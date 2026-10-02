@@ -30,6 +30,7 @@ test("la respuesta debe corresponder al flujo y no exponer evidencias personales
 test("alta sin hitos se presenta pendiente, sin afirmar firmas ni trámites hechos", () => {
   const html = renderizarCircuitoRRHH(validarCircuitoRRHH(datos(), consulta));
   assert.match(html, /Todavía no constan actuaciones/u);
+  assert.match(html, /consulte las tareas del expediente/u);
   assert.doesNotMatch(html, /✓|<li>/u);
 });
 test("el panel se inserta solo en fichas del flujo nuevo", () => {

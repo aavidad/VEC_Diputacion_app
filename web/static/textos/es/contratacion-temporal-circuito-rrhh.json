@@ -4,6 +4,7 @@
     "consultar": "Consultar el circuito",
     "fase_actual": "Trámite actual:",
     "sin_hitos": "Todavía no constan actuaciones en este circuito.",
+    "continuar": "Para continuar, consulte las tareas del expediente.",
     "consultando": "Consultando el circuito…",
     "denegado": "No dispone de permiso para consultar el circuito de este expediente.",
     "no_disponible": "No se puede mostrar el circuito de este expediente. Si persiste, avise a Informática.",
