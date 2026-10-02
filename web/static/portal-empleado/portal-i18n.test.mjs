@@ -144,9 +144,9 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     ["portal.js", "20261002-r4-moad-v6"],
   ]);
   versionesEspeciales.set("modulos/contratacion-temporal/vista-estadisticas.js", "20261001-ana002-v4");
-  versionesEspeciales.set("portal-modulos-coordinador.js", "20261002-ct-r5-grafo-v1");
-  versionesEspeciales.set("portal.js", "20261002-ct-r5-grafo-v1");
-  versionesEspeciales.set("modulos/contratacion-temporal/vista-expedientes.js", "20261002-ct-r5-grafo-v1");
+  versionesEspeciales.set("portal-modulos-coordinador.js", "20261002-ct-r5-grafo-v2");
+  versionesEspeciales.set("portal.js", "20261002-ct-r5-grafo-v2");
+  versionesEspeciales.set("modulos/contratacion-temporal/vista-expedientes.js", "20261002-ct-r5-grafo-v2");
   versionesEspeciales.set("modulos/cronos/vista-bandeja-notificaciones.js", "20261001-cronos-c9-recuperacion-v3");
   versionesEspeciales.set("modulos/cronos/i18n-bandeja-notificaciones.js", "20261001-cronos-c9-recuperacion-v3");
   versionesEspeciales.set("modulos/cronos/i18n-notificaciones-historial.js", "20261001-cronos-c9-historial-v2");
@@ -196,7 +196,7 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     if (!alcanzables.has(archivo) || !ancestros.has(destino)) continue;
     // Fin y MOAD versionan el grafo de Contratación en dos cortes apilados.
     // La unicidad por destino se comprueba abajo para todo el grafo alcanzable.
-    const esperada = ["20261002-ct-fin-modalidad-v1", "20261002-ct-fin-moad-v1", "20261002-rrhh-consulta-moad-v1", "20261002-ct-r5-grafo-v1"].includes(version)
+    const esperada = ["20261002-ct-fin-modalidad-v1", "20261002-ct-fin-moad-v1", "20261002-rrhh-consulta-moad-v1", "20261002-ct-r5-grafo-v1", "20261002-ct-r5-grafo-v2"].includes(version)
       ? version : (versionesEspeciales.get(destino) ?? vigente);
     assert.equal(version, esperada,
       `${archivo} → ${destino}: URL immutable renovada`);
@@ -289,5 +289,5 @@ test("Cronos renueva los traductores de permisos y resolución y todos sus padre
   const versionPortal = versionDe(portal, "./portal-modulos-coordinador.js");
   assert.notEqual(versionPortal, "20261001-cronos-grafo-bandeja-v5");
   assert.equal(versionDe(html, "/portal-empleado/portal-modulos-coordinador.js"), versionPortal);
-  assert.equal(versionDe(html, "/portal-empleado/portal.js"), "20261002-ct-r5-grafo-v1");
+  assert.equal(versionDe(html, "/portal-empleado/portal.js"), "20261002-ct-r5-grafo-v2");
 });

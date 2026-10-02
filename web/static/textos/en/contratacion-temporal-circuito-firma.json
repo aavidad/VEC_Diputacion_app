@@ -19,7 +19,7 @@
     "circuito_firma_sustitucion_suplente_designado": "A designated substitute may sign",
     "circuito_firma_sustitucion_no_admitida": "No substitution allowed",
     "circuito_firma_sin_eficacia": "Test signature with no administrative effect",
-    "circuito_firma_portafirmas_titulo": "Signed in Portafirmas (recorded by HR)",
+    "circuito_firma_portafirmas_titulo": "External signing with Portafirmas",
     "circuito_firma_portafirmas_pendiente": "Recording unavailable",
     "circuito_firma_portafirmas_detalle": "What is needed to record the signature",
     "circuito_firma_enviar": "Record signed document",

@@ -5,6 +5,8 @@
     "fase_actual": "Current step:",
     "ver_fase_estado": "{fase}: {estado}",
     "resumen_fases": "{hechas} done · {ahora} current · {faltan} pending",
+    "resumen_desconocido": "Progress unavailable. You can still view this case's stages.",
+    "avance_no_disponible": "Progress unavailable",
     "sin_hitos": "No actions have been recorded in this workflow yet.",
     "continuar": "To continue, check the tasks in this case.",
     "consultando": "Loading the workflow…",

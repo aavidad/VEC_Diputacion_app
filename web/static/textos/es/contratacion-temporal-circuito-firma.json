@@ -19,7 +19,7 @@
     "circuito_firma_sustitucion_suplente_designado": "Admite suplente designado",
     "circuito_firma_sustitucion_no_admitida": "Sin sustitución",
     "circuito_firma_sin_eficacia": "Firma de prueba, sin eficacia administrativa",
-    "circuito_firma_portafirmas_titulo": "Firmado en Portafirmas (registrado por RRHH)",
+    "circuito_firma_portafirmas_titulo": "Firma externa con Portafirmas",
     "circuito_firma_portafirmas_pendiente": "Registro no disponible",
     "circuito_firma_portafirmas_detalle": "Qué falta para registrar la firma",
     "circuito_firma_enviar": "Registrar documento firmado",

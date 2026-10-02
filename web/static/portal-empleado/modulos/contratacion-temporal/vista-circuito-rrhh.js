@@ -37,13 +37,38 @@ export function pasosRailCircuitoRRHH(datos, claves) {
   return claves.map((_, indice) => indice === actual ? "ahora" : hechos.has(indice) ? "hecho" : "falta");
 }
 
+/** Conserva la navegación de la ficha sin atribuirle un avance no consultado. */
+export function marcarRailDesconocido(bloque) {
+  const rail = bloque?.closest?.(".ct-expedientes")?.querySelector?.("[data-ct-exp-rail]");
+  const elementos = [...(rail?.querySelectorAll?.(":scope > li") ?? [])];
+  if (!elementos.length) return false;
+  for (const elemento of elementos) {
+    elemento.className = "desconocido";
+    elemento.removeAttribute("aria-current");
+    const boton = elemento.querySelector?.("[data-ct-exp-fase-ver]");
+    if (!boton) continue;
+    const nombre = boton.querySelector(".nombre")?.textContent ?? "";
+    const estado = texto("avance_no_disponible");
+    const rotulo = boton.querySelector("small");
+    const marca = boton.querySelector(".marca");
+    if (rotulo) rotulo.textContent = estado;
+    if (marca) marca.textContent = elemento.dataset.ctExpOrden;
+    boton.setAttribute("aria-label", plantilla("ver_fase_estado", { fase: nombre, estado }));
+  }
+  const panel = rail.closest("nav");
+  const resumen = panel?.querySelector(".cabecera-panel .texto-secundario");
+  if (resumen) resumen.textContent = texto("resumen_desconocido");
+  if (panel) panel.hidden = false;
+  return true;
+}
+
 export function actualizarRailCircuitoRRHH(bloque, datos) {
   const rail = bloque?.closest?.(".ct-expedientes")?.querySelector?.("[data-ct-exp-rail]");
   const elementos = [...(rail?.querySelectorAll?.(":scope > li") ?? [])];
   if (!elementos.length) return false;
   const claves = elementos.map((elemento) => elemento.querySelector?.("[data-ct-exp-fase-ver]")?.dataset.ctExpFaseVer ?? "");
   const pasos = pasosRailCircuitoRRHH(datos, claves);
-  if (!pasos) return false;
+  if (!pasos) return marcarRailDesconocido(bloque);
   for (const [indice, elemento] of elementos.entries()) {
     const paso = pasos[indice];
     elemento.className = paso;
@@ -112,9 +137,7 @@ export function instalarConsultaCircuitoRRHH(documento = globalThis.document, cl
     const controlador = new AbortController();
     pendientes.add(controlador);
     boton.setAttribute("aria-busy", "true");
-    const rail = bloque.closest(".ct-expedientes")?.querySelector("[data-ct-exp-rail]");
-    const panelFases = rail?.closest("nav");
-    if (panelFases) panelFases.hidden = true;
+    marcarRailDesconocido(bloque);
     resultado.textContent = texto("consultando");
     try {
       const respuesta = await cliente.consultar({

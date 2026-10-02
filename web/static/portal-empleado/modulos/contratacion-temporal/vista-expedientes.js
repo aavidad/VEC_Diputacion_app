@@ -1,7 +1,7 @@
 /** Vista y enlace DOM de la superficie de expedientes de contratación temporal. */
 
 import { validarReciboAlta } from "./contrato.js?v=20261002-ct-fin-moad-v1";
-import { renderizarConsultaCircuitoRRHH } from "./vista-circuito-rrhh.js?v=20261002-rrhh-consulta-moad-v1";
+import { marcarRailDesconocido, renderizarConsultaCircuitoRRHH } from "./vista-circuito-rrhh.js?v=20261002-ct-r5-grafo-v2";
 import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261002-ct-fin-moad-v1";
 import { montarFormularioResolucionFormalizacion } from "./formulario-resolucion-formalizacion.js?v=20261002-ct-fin-moad-v1";
 import { montarFormularioAnotacionAdministrativa } from "./formulario-anotacion-administrativa.js?v=20261002-ct-fin-moad-v1";
@@ -37,8 +37,7 @@ export function insertarConsultaCircuitoRRHH(raiz, expediente) {
   const ancla = raiz?.querySelector?.("[data-ct-exp-ancla-firma]");
   if (!ancla?.insertAdjacentHTML) return false;
   ancla.insertAdjacentHTML("beforebegin", renderizarConsultaCircuitoRRHH(expediente));
-  const panelFases = raiz?.querySelector?.("[data-ct-exp-rail]")?.closest?.("nav");
-  if (panelFases) panelFases.hidden = true;
+  marcarRailDesconocido(ancla.previousElementSibling);
   ancla.previousElementSibling?.querySelector?.("[data-ct-circuito-consultar]")?.click?.();
   return true;
 }

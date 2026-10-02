@@ -117,9 +117,9 @@ test("la fase muestra Dirección o Jefatura desde el catálogo sin abrir firma o
   assert.match(en, /HR Directorate or Head of the HR Service/u);
   assert.doesNotMatch(en, /Dirección de RRHH|Jefatura del Servicio/u);
   assert.match(es, /Firma con certificado en VEC · Firma de prueba, sin eficacia administrativa/u);
-  assert.match(es, /Firmado en Portafirmas \(registrado por RRHH\)/u);
+  assert.match(es, /Firma externa con Portafirmas/u);
   assert.match(en, /Sign with a certificate in VEC · Test signature with no administrative effect/u);
-  assert.match(en, /Signed in Portafirmas \(recorded by HR\)/u);
+  assert.match(en, /External signing with Portafirmas/u);
   assert.match(es, /<button[^>]*disabled[^>]*>Registrar documento firmado<\/button>/u);
   assert.match(es, /<button[^>]*disabled[^>]*>Descargar para firma externa<\/button>/u);
   assert.doesNotMatch(es, /data-ct-firma-accion=/u);
@@ -156,7 +156,7 @@ test("el bloque muestra cada paso con su estado, escapa el catálogo y marca el 
   const t = crearTraductorCircuitoFirma();
   const html = renderizarCircuitoFirma(validarCircuitoFirma(circuito()), t);
   assert.match(html, /aria-labelledby="ct-circuito-firma-titulo"/u);
-  assert.match(html, /Firmado en Portafirmas \(registrado por RRHH\)/u);
+  assert.match(html, /Firma externa con Portafirmas/u);
   assert.match(html, /Registro no disponible/u);
   assert.match(html, /<button[^>]*disabled[^>]*aria-describedby="ct-circuito-envio-motivo"[^>]*>Registrar documento firmado<\/button>/u);
   assert.match(html, /<button[^>]*disabled[^>]*aria-describedby="ct-circuito-envio-motivo"[^>]*>Descargar para firma externa<\/button>/u);
@@ -178,7 +178,7 @@ test("el bloque muestra cada paso con su estado, escapa el catálogo y marca el 
 test("si falla el catálogo, conserva la vía de registro bloqueada sin afirmar estado de firma", () => {
   const t = crearTraductorCircuitoFirma();
   const html = renderizarCircuitoFirma(null, t, "no_disponible");
-  assert.match(html, /Firmado en Portafirmas \(registrado por RRHH\)/u);
+  assert.match(html, /Firma externa con Portafirmas/u);
   assert.match(html, /Registro no disponible/u);
   assert.match(html, /El estado de las firmas no está disponible/u);
   assert.doesNotMatch(html, /data-ct-firma-accion|Firma de prueba registrada por/u);
@@ -213,7 +213,7 @@ test("sin preflight R5 las acciones CT118 permanecen cerradas aunque haya verifi
     });
     const html = renderizarCircuitoFirma(real, crearTraductorCircuitoFirma());
     assert.match(html, /Firma con certificado en VEC/u);
-    assert.match(html, /Firmado en Portafirmas \(registrado por RRHH\)/u);
+    assert.match(html, /Firma externa con Portafirmas/u);
     assert.match(html, /<button[^>]*disabled[^>]*>Firmar en PRUEBA<\/button>/u);
     assert.match(html, /<button[^>]*disabled[^>]*>Devolver en PRUEBA<\/button>/u);
     assert.match(html, /<button[^>]*disabled[^>]*>Descargar para firma externa<\/button>/u);
@@ -248,7 +248,7 @@ test("las dos vías de firma usan el idioma del portal", () => {
   }
   const traductor = crearTraductorCircuitoFirma({}, "en-GB");
   const html = renderizarCircuitoFirma(validarCircuitoFirma(circuito()), traductor);
-  assert.match(html, /Signed in Portafirmas \(recorded by HR\)/u);
+  assert.match(html, /External signing with Portafirmas/u);
   assert.match(html, /Recording unavailable/u);
   assert.match(html, /<button[^>]*disabled[^>]*>Record signed document<\/button>/u);
   assert.match(html, /<button[^>]*disabled[^>]*>Download for external signing<\/button>/u);
@@ -484,7 +484,7 @@ test("los importadores locales de la vista y el circuito evitan las URLs immutab
   ]);
   const versiones = new Map([
     ["circuito-firma.js", "20261002-ct-r5-grafo-v1"],
-    ["vista-expedientes.js", "20261002-ct-r5-grafo-v1"],
+    ["vista-expedientes.js", "20261002-ct-r5-grafo-v2"],
   ]);
   const anterior = "20260929-custodia-506-v1";
   const importadores = [
