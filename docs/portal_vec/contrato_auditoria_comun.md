@@ -68,7 +68,7 @@ La cabeza se bloquea con `FOR UPDATE`. La preimagen interna encadena secuencia, 
 
 ## 5. Confirmación de operaciones y lecturas
 
-La siguiente secuencia es requisito de integración. Está implementada en las fachadas y adaptadores citados; cada operación nueva debe demostrarla con su propio recorrido.
+La siguiente secuencia es requisito de integración. Los ejemplos citados confirman la transacción antes de devolver datos o recibos; los campos y productores pendientes se indican en el apartado 3. Cada operación nueva debe demostrar la secuencia con su propio recorrido.
 
 1. La frontera acredita identidad y perfil y fija correlación/proceso/canal desde contexto de confianza.
 2. El caso de uso pide la concesión exacta para acción, recurso, ámbito, finalidad, versión, campos y obligaciones.
