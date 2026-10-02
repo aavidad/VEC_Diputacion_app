@@ -57,3 +57,51 @@ test("pagehide cancela el contexto pendiente y descarta la respuesta sin consult
   remoto.resolver(contexto()); await consumidor.preparada;
   assert.equal(llamadas, 1); assert.equal(d.espacio.innerHTML, ""); assert.equal(d.nodos.get("consulta-aviso-sintetico").hidden, true);
 });
+
+test("volver por bfcache revalida el contexto y descarta la consulta anterior pendiente", async () => {
+  const d = documentoPrueba(); const anterior = pendiente(); const actual = pendiente(); const solicitudes = [];
+  const consumidor = montarConsumidorConsultaMerito({ documento: d.documento, ventana: d.ventana, fetchImpl: (ruta, opciones) => {
+    solicitudes.push({ ruta, opciones });
+    if (solicitudes.length === 1) return Promise.resolve(contexto());
+    if (solicitudes.length === 2) return anterior.promesa;
+    if (solicitudes.length === 3) return actual.promesa;
+    return Promise.resolve(respuestaPrueba(resultadoPrueba("hecho:propio-b", "Ficha nueva", 3)));
+  } });
+  while (solicitudes.length < 2) await new Promise((resolve) => setImmediate(resolve));
+  const preparadaAnterior = consumidor.preparada;
+  d.oyentes.get("pagehide")({ persisted: true });
+  assert.equal(solicitudes[1].opciones.signal.aborted, true);
+  assert.equal(d.espacio.innerHTML, "");
+  assert.equal(d.nodos.get("consulta-idiomas").children.length, 0);
+  d.oyentes.get("pageshow")({ persisted: true });
+  assert.equal(solicitudes.length, 3); assert.equal(solicitudes[2].opciones.method, "GET");
+  assert.equal(d.nodos.get("consulta-aviso-sintetico").hidden, true);
+  assert.equal(d.nodos.get("consulta-idiomas").children.length, 2);
+  anterior.resolver(respuestaPrueba(resultadoPrueba("hecho:propio-a", "Ficha anterior")));
+  await preparadaAnterior;
+  assert.doesNotMatch(d.espacio.innerHTML, /Ficha anterior/u);
+  actual.resolver(contexto({ hecho_ref: "hecho:propio-b", sintetico: true }));
+  await consumidor.preparada;
+  assert.equal(solicitudes.length, 4); assert.equal(solicitudes[3].opciones.method, "POST");
+  assert.deepEqual(JSON.parse(solicitudes[3].opciones.body), { hecho_ref: "hecho:propio-b" });
+  assert.match(d.espacio.children.at(-1).innerHTML, /Ficha nueva/u);
+  consumidor.desmontar(); assert.equal(d.oyentes.size, 0);
+});
+
+test("la recuperación por bfcache no consulta el hecho si la revalidación actual se deniega", async () => {
+  const d = documentoPrueba(); const solicitudes = [];
+  const consumidor = montarConsumidorConsultaMerito({ documento: d.documento, ventana: d.ventana, fetchImpl: async (ruta, opciones) => {
+    solicitudes.push({ ruta, opciones });
+    if (solicitudes.length === 1) return contexto();
+    if (solicitudes.length === 2) return respuestaPrueba();
+    return new Response("", { status: 403 });
+  } });
+  await consumidor.preparada;
+  d.oyentes.get("pagehide")({ persisted: true }); d.oyentes.get("pageshow")({ persisted: true });
+  await consumidor.preparada;
+  assert.equal(solicitudes.length, 3); assert.equal(solicitudes[2].opciones.method, "GET");
+  assert.match(d.espacio.innerHTML, /Consulta no autorizada/u);
+  assert.doesNotMatch(d.espacio.innerHTML, /Curso de gestión/u);
+  assert.equal(d.nodos.get("consulta-aviso-sintetico").hidden, true);
+  consumidor.desmontar(); assert.equal(d.oyentes.size, 0);
+});

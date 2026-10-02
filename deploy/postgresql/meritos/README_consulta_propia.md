@@ -56,3 +56,13 @@ La orden de cierre detuvo los casos ajeno, rechazo SQL con PDP positivo y audito
 - Preparar la PR funcional sólo después de resolver esos pendientes. La rama actual es WIP y RUM04 permanece en cola, no cerrado.
 
 No se incluyen claves, configuraciones privadas, SQL de provisión ni datos del clon en esta entrega.
+
+## Retoma del 3 de octubre
+
+La rama se reconcilió sin conflictos con `origin/main@936aac665084b57b0d71adad15672e85e0efbb6a`. El commit `930c589ab3ddeaf585db6557acd843123ee546c2` reancla AD145 a POST161, la convergencia del núcleo posterior a POST155. La lista causal está en `deploy/principal/lista_sql_codexa_rum04.txt`: exige POST155, AD161 y Méritos000001 ya instalados, y sólo permite instalar los objetos nuevos confirmados ausentes. Este reanclaje todavía no acredita instalación ni recorrido real.
+
+Los catálogos ES/EN de consulta se añadieron a ambos manifiestos. La revisión de usabilidad detectó que volver a la página desde la caché de navegación dejaba la ficha y el selector de idioma vacíos. El montaje vuelve ahora a obtener el contexto y sólo consulta después de una respuesta válida. Cancela la petición anterior, descarta su respuesta y mantiene la ficha vacía si la nueva revalidación se deniega.
+
+Comprobaciones locales: Go 1.26.6 pasó las pruebas normales, race y vet de `internal/modules/meritos/...`; las 22 pruebas de consulta web previas al parche, las seis pruebas de montaje posteriores y las cuatro de manifiestos pasaron. Gosec en los paquetes afectados y Semgrep con reglas locales no encontraron incidencias. Estas pruebas usan dobles donde corresponde; el ensayo `TestConsultaIntegracionReal` se omite si no recibe su configuración privada.
+
+En el clon nuevo sin hechos de Méritos, dirección permite una declaración sintética nueva mediante `Servicio.Declarar`, con otra referencia y otra clave. No se repite la operación M1 original ni se atribuye su recibo al clon nuevo. Quedan pendientes la instalación causal aprobada, las lecturas reales, el rechazo posterior al PDP con auditor segregado, el 503 sin auditoría, el replay del intento, Chrome ES/EN a 1440/390 y la recuperación tras reinicio. Cada lectura autorizada crea un recibo nuevo; el replay exacto corresponde al registro del intento.

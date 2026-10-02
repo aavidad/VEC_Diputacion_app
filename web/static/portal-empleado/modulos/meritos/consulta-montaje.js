@@ -79,7 +79,7 @@ export function montarConsumidorConsultaMerito({ documento = globalThis.document
   const enlace = documento.querySelector("[data-consulta-enlace-actual]");
   if (enlace && ventana?.location?.href) enlace.href = ventana.location.href;
   const controlador = new AbortController();
-  let activa = true; let ficha; let revision = 0;
+  let activa = true; let ficha; let revision = 0; let recuperada;
   const anunciar = (mensaje) => { if (activa) anuncio.textContent = mensaje; };
   const botones = IDIOMAS_DISPONIBLES.map((idioma) => {
     const boton = documento.createElement("button");
@@ -113,15 +113,26 @@ export function montarConsumidorConsultaMerito({ documento = globalThis.document
     }
   };
   const alClick = (evento) => { const boton = evento.target?.closest?.("[data-consulta-contexto-reintentar]"); if (boton && raiz.contains(boton)) void abrir(true); };
+  const alRecuperar = (evento) => {
+    if (!evento?.persisted) return;
+    ventana?.removeEventListener?.("pageshow", alRecuperar);
+    recuperada = montarConsumidorConsultaMerito({ documento, ventana, fetchImpl, textos });
+  };
+  const alOcultar = (evento) => {
+    desmontar();
+    if (evento?.persisted) ventana?.addEventListener?.("pageshow", alRecuperar);
+  };
   const desmontar = () => {
+    ventana?.removeEventListener?.("pageshow", alRecuperar);
+    recuperada?.desmontar(); recuperada = undefined;
     if (!activa) return;
     activa = false; revision++; controlador.abort(); ficha?.desmontar(); raiz.innerHTML = ""; anuncio.textContent = ""; aviso.hidden = true;
-    raiz.removeEventListener("click", alClick); ventana?.removeEventListener?.("pagehide", desmontar);
+    raiz.removeEventListener("click", alClick); ventana?.removeEventListener?.("pagehide", alOcultar);
     for (const { boton, cambiar } of botones) { boton.removeEventListener("click", cambiar); boton.remove(); }
   };
-  raiz.addEventListener("click", alClick); ventana?.addEventListener?.("pagehide", desmontar);
+  raiz.addEventListener("click", alClick); ventana?.addEventListener?.("pagehide", alOcultar);
   const preparada = abrir();
-  return Object.freeze({ preparada, desmontar });
+  return Object.freeze({ get preparada() { return recuperada?.preparada ?? preparada; }, desmontar });
 }
 
 if (globalThis.document?.getElementById?.("consulta-espacio")) montarConsumidorConsultaMerito();
