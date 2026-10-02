@@ -141,7 +141,9 @@ BEGIN
   tipo_recurso:='firma_externa_documento_contratacion_temporal'; perfil:='firma_externa_documento_ct_v2'; recurso:='operacion-firma-externa-ct:'||(s->>'ClaveIdempotencia');
  END IF;
  h:=encode(sha256(convert_to(p_solicitud,'UTF8')),'hex');
- contexto_h:=encode(sha256(convert_to('{"ambitos":{"organizacion_ref":"'||(s->>'OrganizacionRef')||'"},"atributos":{"material_sha256":"'||h||'"}}','UTF8')),'hex');
+ contexto_h:=encode(sha256(convert_to('{"ambitos":{"organizacion_ref":"'||(s->>'OrganizacionRef')||
+  (CASE WHEN s->>'Via'='certificado_vec' THEN '","unidad_ref":"'||(s->>'UnidadFirmanteRef') ELSE '' END)||
+  '"},"atributos":{"material_sha256":"'||h||'"}}','UTF8')),'hex');
  IF c->>'operacion' IS DISTINCT FROM accion OR c->>'audiencia_consumo' IS DISTINCT FROM audiencia
   OR d->>'accion' IS DISTINCT FROM accion OR d->>'modulo_id' IS DISTINCT FROM 'contratacion_temporal'
   OR d->>'tipo_recurso' IS DISTINCT FROM tipo_recurso OR d->>'finalidad' IS DISTINCT FROM 'gestionar_contratacion_temporal'
