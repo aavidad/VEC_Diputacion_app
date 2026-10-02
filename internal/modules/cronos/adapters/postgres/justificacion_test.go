@@ -44,10 +44,12 @@ func TestRepositorioJustificacionAnexoTransportaConfirmacionYMaterialSeparados(t
 	recibo := ports.ReciboJustificacion{Justificacion: j, Registro: &registro, HuellaMaterial: h,
 		ReciboRef: "recibo:cronos:0b9f3c2e-1d4a-4c6b-9e8f-0a1b2c3d4e5f", FechaUTC: time.Date(2026, 10, 2, 8, 1, 0, 0, time.UTC)}
 	salida, _ := json.Marshal(recibo)
+	salida = []byte(strings.ReplaceAll(string(salida), `Z"`, `+00:00"`))
 	tx := &txLecturaPrueba{respuestas: [][]byte{salida}}
 	r := &RepositorioJustificacion{db: dbLecturaPrueba{t: t, tx: tx}}
 	got, err := r.ConfirmarJustificacion(context.Background(), m, j, &registro, v3)
-	if err != nil || tx.commits != 1 || len(tx.consultas) != 1 || tx.consultas[0] != consultaAnexarJustificacion || got.ReciboRef != recibo.ReciboRef {
+	if err != nil || tx.commits != 1 || len(tx.consultas) != 1 || tx.consultas[0] != consultaAnexarJustificacion || got.ReciboRef != recibo.ReciboRef ||
+		got.FechaUTC.Location() != time.UTC || got.Registro == nil || got.Registro.CreadoEnUTC.Location() != time.UTC || got.Registro.ConservacionHastaUTC.Location() != time.UTC {
 		t.Fatal("anexo sin confirmacion propia", err, got, tx.consultas)
 	}
 	var enviado ports.RegistroDocumentalConfirmado
@@ -101,10 +103,12 @@ func TestRepositorioJustificacionRecuperaConLecturaNueva(t *testing.T) {
 		Encontrado bool                      `json:"encontrado"`
 		Recibo     ports.ReciboJustificacion `json:"recibo"`
 	}{true, recibo})
+	salida = []byte(strings.ReplaceAll(string(salida), `Z"`, `+00:00"`))
 	tx := &txLecturaPrueba{respuestas: [][]byte{salida}}
 	r := &RepositorioJustificacion{db: dbLecturaPrueba{t: t, tx: tx}, lecturas: &proveedorLecturaJustificacionPrueba{t}}
 	got, ok, err := r.RecuperarJustificacion(context.Background(), orden, m)
-	if err != nil || !ok || !got.Replay || tx.commits != 1 || tx.consultas[0] != consultaReciboJustificacion || !got.FechaUTC.Equal(recibo.FechaUTC) {
+	if err != nil || !ok || !got.Replay || tx.commits != 1 || tx.consultas[0] != consultaReciboJustificacion || !got.FechaUTC.Equal(recibo.FechaUTC) ||
+		got.FechaUTC.Location() != time.UTC || got.Registro == nil || got.Registro.CreadoEnUTC.Location() != time.UTC || got.Registro.ConservacionHastaUTC.Location() != time.UTC {
 		t.Fatal("recuperación sin recibo histórico", err, got)
 	}
 	var lectura domain.MaterialReciboJustificacion

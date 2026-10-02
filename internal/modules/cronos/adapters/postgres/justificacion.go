@@ -150,12 +150,23 @@ func (r *RepositorioJustificacion) RecuperarJustificacion(ctx context.Context, o
 	if !*salida.Encontrado {
 		return ports.ReciboJustificacion{}, false, nil
 	}
+	normalizarFechasJustificacion(salida.Recibo)
 	if !reciboJustificacionSQLCoherente(*salida.Recibo, m) {
 		return ports.ReciboJustificacion{}, false, ports.ErrJustificacionNoDisponible
 	}
-	salida.Recibo.FechaUTC = salida.Recibo.FechaUTC.UTC()
 	salida.Recibo.Replay = true
 	return *salida.Recibo, true, nil
+}
+
+func normalizarFechasJustificacion(r *ports.ReciboJustificacion) {
+	if r == nil {
+		return
+	}
+	r.FechaUTC = r.FechaUTC.UTC()
+	if r.Registro != nil {
+		r.Registro.CreadoEnUTC = r.Registro.CreadoEnUTC.UTC()
+		r.Registro.ConservacionHastaUTC = r.Registro.ConservacionHastaUTC.UTC()
+	}
 }
 
 func reciboJustificacionSQLCoherente(r ports.ReciboJustificacion, m domain.MaterialJustificacion) bool {
@@ -201,11 +212,14 @@ func (r *RepositorioJustificacion) ConfirmarJustificacion(ctx context.Context, m
 	}
 	defer clear(bruto)
 	var recibo ports.ReciboJustificacion
-	if decodificarEstricto(bruto, &recibo) != nil || !reciboJustificacionSQLCoherente(recibo, m) ||
+	if decodificarEstricto(bruto, &recibo) != nil {
+		return ports.ReciboJustificacion{}, ports.ErrJustificacionNoDisponible
+	}
+	normalizarFechasJustificacion(&recibo)
+	if !reciboJustificacionSQLCoherente(recibo, m) ||
 		(registro != nil && !mismoRegistroSQL(*recibo.Registro, *registro)) {
 		return ports.ReciboJustificacion{}, ports.ErrJustificacionNoDisponible
 	}
-	recibo.FechaUTC = recibo.FechaUTC.UTC()
 	return recibo, nil
 }
 
