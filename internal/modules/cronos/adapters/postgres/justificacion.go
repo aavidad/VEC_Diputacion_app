@@ -1,6 +1,7 @@
 package postgres
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -22,6 +23,7 @@ const (
 	consultaResolverEmpleadoJustificacion = `SELECT vec_cronos_v1.resolver_empleado_justificacion_v1($1)`
 	consultaPrepararJustificacion         = `SELECT vec_cronos_v1.consultar_justificacion_v1($1,$2,$3,$4,$5,$6::numeric,$7::numeric,$8,$9,$10,$11)`
 	consultaReciboJustificacion           = `SELECT vec_cronos_v1.recuperar_recibo_justificacion_v1($1,$2,$3,$4,$5,$6::numeric,$7::numeric,$8,$9,$10,$11)`
+	consultaMaterialPorClaveJustificacion = `SELECT vec_cronos_v1.recuperar_material_justificacion_por_clave_v1($1,$2,$3,$4,$5,$6::numeric,$7::numeric,$8,$9,$10,$11)`
 	consultaAnexarJustificacion           = `SELECT vec_cronos_v1.anexar_justificacion_v1($1,$2,$3::jsonb,$4,$5,$6,$7,$8::numeric,$9::numeric,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19::numeric,$20::numeric,$21,$22,$23,$24)`
 	consultaRevisarJustificacion          = `SELECT vec_cronos_v1.revisar_justificacion_v1($1,$2,$3,$4,$5,$6::numeric,$7::numeric,$8,$9,$10,$11)`
 )
@@ -171,6 +173,66 @@ func (r *RepositorioJustificacion) RecuperarJustificacion(ctx context.Context, o
 	}
 	salida.Recibo.Replay = true
 	return *salida.Recibo, true, nil
+}
+
+func (r *RepositorioJustificacion) RecuperarMaterialPorClave(ctx context.Context, orden ports.OrdenJustificacion, m domain.MaterialReciboPorClaveJustificacion) (domain.MaterialJustificacion, ports.ReciboJustificacion, bool, error) {
+	if r == nil || r.db == nil || dependenciaPostgresNula(r.lecturas) || ctx == nil || ctx.Err() != nil {
+		return domain.MaterialJustificacion{}, ports.ReciboJustificacion{}, false, ports.ErrJustificacionNoDisponible
+	}
+	actor, err := orden.ContextoActor()
+	if err != nil || actor.PersonaRef != m.ActorRef || actor.PerfilActivoRef != m.PerfilRef {
+		return domain.MaterialJustificacion{}, ports.ReciboJustificacion{}, false, ports.ErrJustificacionNoDisponible
+	}
+	b, err := m.Canonico()
+	if err != nil {
+		return domain.MaterialJustificacion{}, ports.ReciboJustificacion{}, false, domain.ErrJustificacionInvalida
+	}
+	recurso, err := application.RecursoReciboPorClaveJustificacion(m)
+	if err != nil {
+		return domain.MaterialJustificacion{}, ports.ReciboJustificacion{}, false, ports.ErrJustificacionNoDisponible
+	}
+	v3, err := r.lecturas.ProveerMaterialReciboPorClaveJustificacion(ctx, m)
+	if err != nil {
+		return domain.MaterialJustificacion{}, ports.ReciboJustificacion{}, false, errorProveedorV3(ctx, err)
+	}
+	if !resumenV3Ligado(v3, application.AudienciaReciboJustificacion, application.AccionReciboJustificacion, recurso) {
+		return domain.MaterialJustificacion{}, ports.ReciboJustificacion{}, false, ports.ErrJustificacionNoDisponible
+	}
+	bruto, err := ejecutarFuncionV3(ctx, r.db, consultaMaterialPorClaveJustificacion, b, v3, errorJustificacion)
+	if err != nil {
+		return domain.MaterialJustificacion{}, ports.ReciboJustificacion{}, false, err
+	}
+	defer clear(bruto)
+	var salida struct {
+		Encontrado       *bool                      `json:"encontrado"`
+		MaterialCanonico *string                    `json:"material_canonico"`
+		Recibo           *ports.ReciboJustificacion `json:"recibo"`
+	}
+	if decodificarEstricto(bruto, &salida) != nil || salida.Encontrado == nil ||
+		(*salida.Encontrado && (salida.MaterialCanonico == nil || salida.Recibo == nil)) ||
+		(!*salida.Encontrado && (salida.MaterialCanonico != nil || salida.Recibo != nil)) {
+		return domain.MaterialJustificacion{}, ports.ReciboJustificacion{}, false, ports.ErrJustificacionNoDisponible
+	}
+	if !*salida.Encontrado {
+		return domain.MaterialJustificacion{}, ports.ReciboJustificacion{}, false, nil
+	}
+	var original domain.MaterialJustificacion
+	if json.Unmarshal([]byte(*salida.MaterialCanonico), &original) != nil {
+		return domain.MaterialJustificacion{}, ports.ReciboJustificacion{}, false, ports.ErrJustificacionNoDisponible
+	}
+	canonico, err := original.Canonico()
+	if err != nil || !bytes.Equal(canonico, []byte(*salida.MaterialCanonico)) ||
+		original.ActorRef != m.ActorRef || original.PerfilRef != m.PerfilRef ||
+		original.Vinculo.EmpleadoRef != m.EmpleadoRef || original.Vinculo.SolicitudRef != m.SolicitudRef ||
+		original.ClaveOperacion != m.ClaveOperacion {
+		return domain.MaterialJustificacion{}, ports.ReciboJustificacion{}, false, ports.ErrJustificacionNoDisponible
+	}
+	normalizarFechasJustificacion(salida.Recibo)
+	if !reciboJustificacionSQLCoherente(*salida.Recibo, original) {
+		return domain.MaterialJustificacion{}, ports.ReciboJustificacion{}, false, ports.ErrJustificacionNoDisponible
+	}
+	salida.Recibo.Replay = true
+	return original, *salida.Recibo, true, nil
 }
 
 func normalizarFechasJustificacion(r *ports.ReciboJustificacion) {

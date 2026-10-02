@@ -97,6 +97,8 @@ CREATE TABLE vec_cronos_v1.justificacion_operacion (
  perfil_ref text NOT NULL CHECK (perfil_ref ~ '^prf_[-A-Za-z0-9_]{22,128}$'),
  asignacion_ref text REFERENCES vec_cronos_v1.permiso_resolutor,
  material_sha256 text NOT NULL CHECK (material_sha256 ~ '^[0-9a-f]{64}$'),
+ material_canonico text NOT NULL CHECK (octet_length(material_canonico) BETWEEN 2 AND 8192
+   AND material_sha256=encode(sha256(convert_to(material_canonico,'UTF8')),'hex')),
  decision_ref text NOT NULL UNIQUE,
  auditoria_ref text NOT NULL UNIQUE,
  consumo_huella_sha256 text NOT NULL UNIQUE,
@@ -116,7 +118,7 @@ CREATE TABLE vec_cronos_v1.justificacion_acceso (
  decision_ref text PRIMARY KEY,
  empleado_ref text NOT NULL,
  solicitud_ref text NOT NULL,
- accion text NOT NULL CHECK (accion IN ('consultar','recibo')),
+ accion text NOT NULL CHECK (accion IN ('consultar','recibo','material_por_clave')),
  actor_ref text NOT NULL,
  material_sha256 text NOT NULL CHECK (material_sha256 ~ '^[0-9a-f]{64}$'),
  auditoria_ref text NOT NULL UNIQUE,
@@ -337,6 +339,8 @@ BEGIN
    claves:=ARRAY['actor_ref','perfil_ref','empleado_ref','solicitud_ref'];
  ELSIF p_modo='recibo' THEN
    claves:=ARRAY['actor_ref','perfil_ref','empleado_ref','solicitud_ref','clave_operacion','huella_material'];
+ ELSIF p_modo='material_por_clave' THEN
+   claves:=ARRAY['actor_ref','perfil_ref','empleado_ref','solicitud_ref','clave_operacion'];
  ELSIF p_modo='anexar' THEN
    claves:=ARRAY['actor_ref','perfil_ref','clave_operacion','accion','solicitud_version','version_esperada',
      'politica_ref','politica_version','politica_sha256','vinculo'];
@@ -352,12 +356,13 @@ BEGIN
     OR coalesce(m->>'perfil_ref','') !~ '^prf_[-A-Za-z0-9_]{22,128}$' THEN
    RAISE EXCEPTION 'estructura Cronos inválida' USING ERRCODE='PC001';
  END IF;
- IF p_modo IN ('consultar','recibo') THEN
+ IF p_modo IN ('consultar','recibo','material_por_clave') THEN
    IF EXISTS (SELECT 1 FROM jsonb_each(m) e WHERE jsonb_typeof(e.value) IS DISTINCT FROM 'string')
       OR coalesce(m->>'empleado_ref','') !~ '^emp_[-A-Za-z0-9_]{22,128}$'
       OR coalesce(m->>'solicitud_ref','') !~ '^permiso:cronos:solicitud:[A-Za-z0-9][A-Za-z0-9_-]{7,127}$'
-      OR (p_modo='recibo' AND (coalesce(m->>'clave_operacion','') !~ '^(ref:[0-9a-f]{64}|[a-z][a-z0-9_]{1,31}:[0-9a-f-]{36})$'
-          OR coalesce(m->>'huella_material','') !~ '^[0-9a-f]{64}$')) THEN
+      OR (p_modo IN ('recibo','material_por_clave')
+          AND coalesce(m->>'clave_operacion','') !~ '^(ref:[0-9a-f]{64}|[a-z][a-z0-9_]{1,31}:[0-9a-f-]{36})$')
+      OR (p_modo='recibo' AND coalesce(m->>'huella_material','') !~ '^[0-9a-f]{64}$') THEN
      RAISE EXCEPTION 'estructura Cronos inválida' USING ERRCODE='PC001';
    END IF;
    RETURN m;
@@ -417,7 +422,8 @@ DECLARE c jsonb; d jsonb; x jsonb; vinculo jsonb; actor_emp text; objetivo text;
  huella text; consumo record; bloqueo text;
 BEGIN
  IF NOT ((p_modo='consultar' AND p_fachada='consumir_cronos_justificacion_consulta_v3_atestada')
-   OR (p_modo='recibo' AND p_fachada='consumir_cronos_justificacion_recibo_v3_atestada')
+   OR (p_modo IN ('recibo','material_por_clave')
+       AND p_fachada='consumir_cronos_justificacion_recibo_v3_atestada')
    OR (p_modo='anexar' AND p_fachada='registrar_y_consumir_cronos_justificacion_anexo_v3_atestada')
    OR (p_modo='revisar' AND p_fachada='registrar_y_consumir_cronos_justificacion_revision_v3_atestada')) THEN
    RAISE EXCEPTION 'consumidor Cronos inválido' USING ERRCODE='PC003';
@@ -447,7 +453,9 @@ BEGIN
  material_sha256:=encode(sha256(convert_to(p_material,'UTF8')),'hex');
  huella:=vec_cronos_v1.huella_contexto_justificacion_v1(objetivo,solicitud,material_sha256);
  PERFORM vec_cronos_v1.comprobar_decision_cronos_v1(d,'cronos.justificacion.'||
-   CASE p_modo WHEN 'consultar' THEN 'consultar' WHEN 'recibo' THEN 'recibo.consultar' ELSE p_modo END,
+   CASE p_modo WHEN 'consultar' THEN 'consultar'
+     WHEN 'recibo' THEN 'recibo.consultar'
+     WHEN 'material_por_clave' THEN 'recibo.consultar' ELSE p_modo END,
    p_tipo,p_finalidad,p_recurso,m->>'actor_ref',m->>'perfil_ref',huella);
  FOREACH bloqueo IN ARRAY coalesce(p_bloqueos,ARRAY[]::text[]) LOOP
    PERFORM pg_advisory_xact_lock(hashtextextended(bloqueo,0));
@@ -526,6 +534,44 @@ BEGIN
  END IF;
  IF clock_timestamp()>=k.vence THEN RAISE EXCEPTION 'vigencia Cronos agotada' USING ERRCODE='PC003'; END IF;
  RETURN jsonb_build_object('encontrado',true,
+   'recibo',vec_cronos_v1.recibo_justificacion_interno_v1(operacion)||jsonb_build_object('replay',true));
+END $f$;
+
+-- Recuperación interna por clave cuando el cliente no conoce la huella del
+-- material original. No reconstruye JSON desde jsonb: devuelve los bytes
+-- UTF-8 canónicos guardados al confirmar aquella versión histórica.
+CREATE FUNCTION vec_cronos_v1.recuperar_material_justificacion_por_clave_v1(
+ p_material text,p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,
+ p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea
+) RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER
+SET search_path=pg_catalog SET row_security=on SET timezone='UTC' SET lock_timeout='2s' AS $f$
+DECLARE m jsonb; k record; operacion vec_cronos_v1.justificacion_operacion%ROWTYPE;
+BEGIN
+ m:=vec_cronos_v1.material_justificacion_v1(p_material,'material_por_clave');
+ SELECT * INTO STRICT k FROM vec_cronos_v1.consumir_justificacion_v1(
+  'consumir_cronos_justificacion_recibo_v3_atestada','material_por_clave',
+  'justificacion_recibo','recuperar_recibo_justificacion',
+  m->>'solicitud_ref',NULL,m,p_material,p_capacidad,p_decision,p_motivo,p_contexto,p_persona_version,p_perfil_version,
+  p_payload,p_sobre,p_evidencia,p_raiz);
+ INSERT INTO vec_cronos_v1.justificacion_acceso(decision_ref,empleado_ref,solicitud_ref,accion,actor_ref,material_sha256,
+   auditoria_ref,consumo_huella_sha256,fecha_utc)
+ VALUES(k.decision_ref,m->>'empleado_ref',m->>'solicitud_ref','material_por_clave',m->>'actor_ref',k.material_sha256,
+   k.auditoria_ref,k.consumo_huella_sha256,k.ahora);
+ SELECT * INTO operacion FROM vec_cronos_v1.justificacion_operacion x
+  WHERE x.clave_operacion=m->>'clave_operacion' AND x.solicitud_ref=m->>'solicitud_ref'
+    AND x.empleado_ref=m->>'empleado_ref';
+ IF operacion.operacion_ref IS NULL THEN
+   IF clock_timestamp()>=k.vence THEN RAISE EXCEPTION 'vigencia Cronos agotada' USING ERRCODE='PC003'; END IF;
+   RETURN jsonb_build_object('encontrado',false);
+ END IF;
+ IF operacion.actor_ref IS DISTINCT FROM m->>'actor_ref'
+    OR operacion.perfil_ref IS DISTINCT FROM m->>'perfil_ref'
+    OR operacion.material_sha256 IS DISTINCT FROM
+       encode(sha256(convert_to(operacion.material_canonico,'UTF8')),'hex') THEN
+   RAISE EXCEPTION 'clave Cronos en conflicto' USING ERRCODE='PC002';
+ END IF;
+ IF clock_timestamp()>=k.vence THEN RAISE EXCEPTION 'vigencia Cronos agotada' USING ERRCODE='PC003'; END IF;
+ RETURN jsonb_build_object('encontrado',true,'material_canonico',operacion.material_canonico,
    'recibo',vec_cronos_v1.recibo_justificacion_interno_v1(operacion)||jsonb_build_object('replay',true));
 END $f$;
 
@@ -700,13 +746,13 @@ BEGIN
  recibo:='recibo:cronos:'||gen_random_uuid()::text;
  INSERT INTO vec_cronos_v1.justificacion_operacion(operacion_ref,clave_operacion,solicitud_ref,empleado_ref,
   accion,version_previa,version,solicitud_version,estado,motivo_ref,vinculo,registro,constancia_documentos,
-  politica_ref,politica_version,politica_sha256,actor_ref,perfil_ref,asignacion_ref,material_sha256,
+  politica_ref,politica_version,politica_sha256,actor_ref,perfil_ref,asignacion_ref,material_sha256,material_canonico,
   decision_ref,auditoria_ref,consumo_huella_sha256,documentos_decision_ref,documentos_auditoria_ref,
   documentos_consumo_huella_sha256,recibo_ref,fecha_utc)
  VALUES(ref,m->>'clave_operacion',m#>>'{vinculo,solicitud_ref}',m#>>'{vinculo,empleado_ref}',
   p_modo,proxima-1,proxima,(m->>'solicitud_version')::integer,estado,motivo,m->'vinculo',registro,doc_constancia,
   m->>'politica_ref',(m->>'politica_version')::numeric,m->>'politica_sha256',m->>'actor_ref',m->>'perfil_ref',asignacion,
-  k.material_sha256,k.decision_ref,k.auditoria_ref,k.consumo_huella_sha256,
+  k.material_sha256,p_material,k.decision_ref,k.auditoria_ref,k.consumo_huella_sha256,
   CASE p_modo WHEN 'anexar' THEN doc_constancia->>'decision_ref' END,
   CASE p_modo WHEN 'anexar' THEN doc_constancia->>'auditoria_ref' END,
   CASE p_modo WHEN 'anexar' THEN doc_constancia->>'consumo_huella_sha256' END,
@@ -771,6 +817,7 @@ BEGIN
   'vec_cronos_v1.resolver_empleado_justificacion_v1(text)',
   'vec_cronos_v1.consultar_justificacion_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
   'vec_cronos_v1.recuperar_recibo_justificacion_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
+  'vec_cronos_v1.recuperar_material_justificacion_por_clave_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
   'vec_cronos_v1.anexar_justificacion_v1(text,bytea,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
   'vec_cronos_v1.revisar_justificacion_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'
  ] LOOP

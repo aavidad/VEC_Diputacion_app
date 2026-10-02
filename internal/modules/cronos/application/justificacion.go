@@ -229,6 +229,39 @@ func (s *ServicioJustificacion) Revisar(ctx context.Context, o ports.OrdenJustif
 	return r, nil
 }
 
+// RecuperarRevision busca el material original por la clave opaca bajo una V3
+// de lectura nueva. La revisión solicitada debe repetir los mismos datos de
+// negocio; una clave conocida no permite cambiar el motivo o la decisión.
+func (s *ServicioJustificacion) RecuperarRevision(ctx context.Context, o ports.OrdenJustificacion, in ports.PeticionRecuperacionRevisionJustificacion) (ports.ReciboJustificacion, error) {
+	a, p, err := s.preparar(ctx, o, in.SolicitudRef)
+	if err != nil {
+		return ports.ReciboJustificacion{}, err
+	}
+	lectura := domain.MaterialReciboPorClaveJustificacion{ActorRef: a.PersonaRef, PerfilRef: a.PerfilActivoRef,
+		EmpleadoRef: p.Solicitud.EmpleadoRef, SolicitudRef: in.SolicitudRef, ClaveOperacion: in.ClaveOperacion}
+	if _, err := lectura.Canonico(); err != nil {
+		return ports.ReciboJustificacion{}, err
+	}
+	m, r, ok, err := s.repo.RecuperarMaterialPorClave(ctx, o, lectura)
+	if err != nil {
+		return ports.ReciboJustificacion{}, err
+	}
+	if !ok {
+		return ports.ReciboJustificacion{}, ports.ErrJustificacionNoEncontrada
+	}
+	if m.Accion != domain.AccionRevisarJustificacion || m.ActorRef != a.PersonaRef || m.PerfilRef != a.PerfilActivoRef ||
+		m.Vinculo.SolicitudRef != in.SolicitudRef || m.Vinculo.EmpleadoRef != p.Solicitud.EmpleadoRef ||
+		m.ClaveOperacion != in.ClaveOperacion || m.VersionEsperada != in.VersionEsperada ||
+		m.Decision != in.Decision || m.MotivoRef != in.MotivoRef {
+		return ports.ReciboJustificacion{}, domain.ErrJustificacionConflicto
+	}
+	if !reciboJustificacionCoherente(r, m, p) {
+		return ports.ReciboJustificacion{}, ports.ErrJustificacionNoDisponible
+	}
+	r.Replay = true
+	return r, nil
+}
+
 // Validación estructural y ligadura previa; la comprobación criptográfica y
 // el consumo siguen perteneciendo a la transacción del repositorio.
 func (s *ServicioJustificacion) materialLigado(a vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, m domain.MaterialJustificacion) bool {
@@ -273,6 +306,14 @@ func RecursoConsultaJustificacion(m domain.MaterialConsultaJustificacion) (vecdo
 }
 
 func RecursoReciboJustificacion(m domain.MaterialReciboJustificacion) (vecdomain.RecursoAutorizable, error) {
+	b, err := m.Canonico()
+	if err != nil {
+		return vecdomain.RecursoAutorizable{}, err
+	}
+	return recursoLecturaJustificacion(m.SolicitudRef, m.EmpleadoRef, "justificacion_recibo", b)
+}
+
+func RecursoReciboPorClaveJustificacion(m domain.MaterialReciboPorClaveJustificacion) (vecdomain.RecursoAutorizable, error) {
 	b, err := m.Canonico()
 	if err != nil {
 		return vecdomain.RecursoAutorizable{}, err

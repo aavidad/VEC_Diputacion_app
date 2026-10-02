@@ -51,12 +51,27 @@ func (d *documentosJustificacionPrueba) RegistrarJustificante(_ context.Context,
 }
 
 type repoJustificacionPrueba struct {
-	recibo            *ports.ReciboJustificacion
-	registro          *ports.RegistroDocumentalConfirmado
+	recibo     *ports.ReciboJustificacion
+	registro   *ports.RegistroDocumentalConfirmado
+	historicos map[string]struct {
+		material domain.MaterialJustificacion
+		recibo   ports.ReciboJustificacion
+	}
 	err, errorLectura error
 	lecturas, efectos int
 	alterarRegistro   bool
 	sustituirRegistro bool
+}
+
+func (r *repoJustificacionPrueba) RecuperarMaterialPorClave(_ context.Context, _ ports.OrdenJustificacion, m domain.MaterialReciboPorClaveJustificacion) (domain.MaterialJustificacion, ports.ReciboJustificacion, bool, error) {
+	h, ok := r.historicos[m.ClaveOperacion]
+	if !ok {
+		return domain.MaterialJustificacion{}, ports.ReciboJustificacion{}, false, nil
+	}
+	if h.material.Vinculo.SolicitudRef != m.SolicitudRef || h.material.Vinculo.EmpleadoRef != m.EmpleadoRef {
+		return domain.MaterialJustificacion{}, ports.ReciboJustificacion{}, false, domain.ErrJustificacionConflicto
+	}
+	return h.material, h.recibo, true, nil
 }
 
 func (r *repoJustificacionPrueba) RecuperarJustificacion(_ context.Context, _ ports.OrdenJustificacion, m domain.MaterialJustificacion) (ports.ReciboJustificacion, bool, error) {
@@ -97,6 +112,16 @@ func (r *repoJustificacionPrueba) ConfirmarJustificacion(_ context.Context, m do
 	h, _ := m.Huella()
 	recibo := ports.ReciboJustificacion{Justificacion: j, Registro: r.registro, HuellaMaterial: h, ReciboRef: "recibo:ensayo", FechaUTC: time.Now().UTC().Truncate(time.Microsecond)}
 	r.recibo = &recibo
+	if r.historicos == nil {
+		r.historicos = make(map[string]struct {
+			material domain.MaterialJustificacion
+			recibo   ports.ReciboJustificacion
+		})
+	}
+	r.historicos[m.ClaveOperacion] = struct {
+		material domain.MaterialJustificacion
+		recibo   ports.ReciboJustificacion
+	}{m, recibo}
 	return recibo, nil
 }
 
@@ -330,6 +355,44 @@ func TestJustificacionRecuperaHistoricoConPoliticaVencida(t *testing.T) {
 	in.Documento.ID = "ref:" + strings.Repeat("8", 64)
 	if _, err := s.Anexar(context.Background(), o, in); !errors.Is(err, ports.ErrPoliticaJustificacionNoVigente) || d.llamadas != desdeDocumentos || d.preflight != desdeDocumentos {
 		t.Fatal("alta nueva con política vencida", err)
+	}
+}
+
+func TestRevisionRecuperaMaterialOriginalTrasOtroAnexo(t *testing.T) {
+	s, o, f, d, r, _, in := escenarioJustificacion(t)
+	anexoA, err := s.Anexar(context.Background(), o, in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.p.Actual = &anexoA.ReciboCronos.Justificacion
+	r.recibo = nil
+	revision := ports.PeticionRevisionJustificacion{SolicitudRef: in.SolicitudRef, ClaveOperacion: "ref:" + strings.Repeat("7", 64),
+		VersionEsperada: 1, Vinculo: f.p.Actual.Vinculo, Decision: domain.JustificacionAceptada, MotivoRef: f.p.Politica.MotivosRef[0]}
+	reciboRevision, err := s.Revisar(context.Background(), o, revision)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.p.Actual = &reciboRevision.Justificacion
+	r.recibo = nil
+	inB := in
+	inB.ClaveOperacion = "ref:" + strings.Repeat("8", 64)
+	inB.VersionEsperada = 2
+	inB.Documento.ID = "ref:" + strings.Repeat("9", 64)
+	anexoB, err := s.Anexar(context.Background(), o, inB)
+	if err != nil || anexoB.ReciboCronos == nil || anexoB.ReciboCronos.Justificacion.Version != 3 {
+		t.Fatal("segundo anexo", err)
+	}
+	f.p.Actual = &anexoB.ReciboCronos.Justificacion
+	efectos, altas := r.efectos, d.llamadas
+	consulta := ports.PeticionRecuperacionRevisionJustificacion{SolicitudRef: revision.SolicitudRef, ClaveOperacion: revision.ClaveOperacion,
+		VersionEsperada: revision.VersionEsperada, Decision: revision.Decision, MotivoRef: revision.MotivoRef}
+	replay, err := s.RecuperarRevision(context.Background(), o, consulta)
+	if err != nil || !replay.Replay || replay.ReciboRef != reciboRevision.ReciboRef || replay.Justificacion.Vinculo != revision.Vinculo || r.efectos != efectos || d.llamadas != altas {
+		t.Fatal("revisión A no recuperable tras documento B", err, replay)
+	}
+	consulta.MotivoRef = f.p.Politica.MotivosRef[1]
+	if _, err := s.RecuperarRevision(context.Background(), o, consulta); !errors.Is(err, domain.ErrJustificacionConflicto) || r.efectos != efectos {
+		t.Fatal("clave histórica aceptó otro motivo", err)
 	}
 }
 

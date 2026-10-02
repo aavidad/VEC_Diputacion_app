@@ -12,6 +12,7 @@ import (
 var ErrJustificacionNoDisponible = errors.New("cronos: justificacion no disponible")
 var ErrEnlaceJustificacionPendiente = errors.New("cronos: enlace documental pendiente")
 var ErrPoliticaJustificacionNoVigente = errors.New("cronos: politica de justificacion no vigente")
+var ErrJustificacionNoEncontrada = errors.New("cronos: justificacion no encontrada")
 
 type ProveedorMaterialJustificacion interface {
 	ProveerMaterialJustificacion(context.Context, domain.MaterialJustificacion) (vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error)
@@ -21,6 +22,7 @@ type ProveedorMaterialJustificacion interface {
 type ProveedorLecturaJustificacion interface {
 	ProveerMaterialConsultaJustificacion(context.Context, domain.MaterialConsultaJustificacion) (vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error)
 	ProveerMaterialReciboJustificacion(context.Context, domain.MaterialReciboJustificacion) (vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error)
+	ProveerMaterialReciboPorClaveJustificacion(context.Context, domain.MaterialReciboPorClaveJustificacion) (vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error)
 }
 type OrdenJustificacion struct {
 	actor     vecdomain.ContextoActor
@@ -97,6 +99,7 @@ type ReciboJustificacion struct {
 // Documentos tiene una transacción independiente: este contrato no la deshace.
 type RepositorioJustificacion interface {
 	RecuperarJustificacion(context.Context, OrdenJustificacion, domain.MaterialJustificacion) (ReciboJustificacion, bool, error)
+	RecuperarMaterialPorClave(context.Context, OrdenJustificacion, domain.MaterialReciboPorClaveJustificacion) (domain.MaterialJustificacion, ReciboJustificacion, bool, error)
 	ConfirmarJustificacion(context.Context, domain.MaterialJustificacion, domain.Justificacion, *RegistroDocumentalConfirmado, vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ReciboJustificacion, error)
 }
 type PeticionAnexoJustificacion struct {
@@ -108,6 +111,13 @@ type PeticionRevisionJustificacion struct {
 	SolicitudRef, ClaveOperacion string
 	VersionEsperada              int64
 	Vinculo                      domain.VinculoJustificacion
+	Decision                     domain.EstadoJustificacion
+	MotivoRef                    string
+}
+
+type PeticionRecuperacionRevisionJustificacion struct {
+	SolicitudRef, ClaveOperacion string
+	VersionEsperada              int64
 	Decision                     domain.EstadoJustificacion
 	MotivoRef                    string
 }

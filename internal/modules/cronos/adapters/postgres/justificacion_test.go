@@ -207,6 +207,14 @@ func (p *proveedorLecturaJustificacionPrueba) ProveerMaterialReciboJustificacion
 	return exportacionPrueba(p.t, application.AccionReciboJustificacion, application.AudienciaReciboJustificacion, r), nil
 }
 
+func (p *proveedorLecturaJustificacionPrueba) ProveerMaterialReciboPorClaveJustificacion(_ context.Context, m domain.MaterialReciboPorClaveJustificacion) (vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
+	r, err := application.RecursoReciboPorClaveJustificacion(m)
+	if err != nil {
+		p.t.Fatal(err)
+	}
+	return exportacionPrueba(p.t, application.AccionReciboJustificacion, application.AudienciaReciboJustificacion, r), nil
+}
+
 type proveedorEscrituraJustificacionPrueba struct{}
 
 func (proveedorEscrituraJustificacionPrueba) ProveerMaterialJustificacion(context.Context, domain.MaterialJustificacion) (vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
@@ -243,6 +251,56 @@ func TestRepositorioJustificacionRecuperaConLecturaNueva(t *testing.T) {
 	r.db = dbLecturaPrueba{t: t, tx: tx}
 	if _, ok, err := r.RecuperarJustificacion(context.Background(), orden, m); err != nil || ok || tx.commits != 1 {
 		t.Fatal("ausencia confundida con recibo", err, ok)
+	}
+}
+
+func TestRepositorioJustificacionRecuperaMaterialCanonicoPorClave(t *testing.T) {
+	m, j, registro := materialYRegistroJustificacion(t)
+	m.Accion = domain.AccionRevisarJustificacion
+	m.VersionEsperada = 1
+	m.Decision = domain.JustificacionAceptada
+	m.MotivoRef = "motivo:documentacion:conforme"
+	j.Version = 2
+	j.Estado = m.Decision
+	j.MotivoRef = m.MotivoRef
+	actor := actorPrueba(t, empleadoPrueba)
+	orden, err := ports.NuevaOrdenJustificacion(actor, proveedorEscrituraJustificacionPrueba{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	canonico, err := m.Canonico()
+	if err != nil {
+		t.Fatal(err)
+	}
+	h, _ := m.Huella()
+	recibo := ports.ReciboJustificacion{Justificacion: j, Registro: &registro, HuellaMaterial: h,
+		ReciboRef: "recibo:cronos:0b9f3c2e-1d4a-4c6b-9e8f-0a1b2c3d4e5f", FechaUTC: time.Date(2026, 10, 2, 8, 1, 0, 0, time.UTC)}
+	respuesta := func(raw string) []byte {
+		b, _ := json.Marshal(struct {
+			Encontrado       bool                      `json:"encontrado"`
+			MaterialCanonico string                    `json:"material_canonico"`
+			Recibo           ports.ReciboJustificacion `json:"recibo"`
+		}{true, raw, recibo})
+		return b
+	}
+	lectura := domain.MaterialReciboPorClaveJustificacion{ActorRef: m.ActorRef, PerfilRef: m.PerfilRef,
+		EmpleadoRef: m.Vinculo.EmpleadoRef, SolicitudRef: m.Vinculo.SolicitudRef, ClaveOperacion: m.ClaveOperacion}
+	tx := &txLecturaPrueba{respuestas: [][]byte{respuesta(string(canonico))}}
+	r := &RepositorioJustificacion{db: dbLecturaPrueba{t: t, tx: tx}, lecturas: &proveedorLecturaJustificacionPrueba{t}}
+	original, got, ok, err := r.RecuperarMaterialPorClave(context.Background(), orden, lectura)
+	if err != nil || !ok || !got.Replay || original != m || got.ReciboRef != recibo.ReciboRef || tx.commits != 1 || tx.consultas[0] != consultaMaterialPorClaveJustificacion {
+		t.Fatal("material histórico no recuperado", err, got)
+	}
+	var enviado domain.MaterialReciboPorClaveJustificacion
+	if json.Unmarshal([]byte(tx.materiales[0]), &enviado) != nil || enviado != lectura {
+		t.Fatal("lectura por clave no ligada")
+	}
+	// Un jsonb regenerado, aunque semánticamente igual, no sustituye los bytes
+	// originales con los que se obtuvo la huella y el recibo.
+	tx = &txLecturaPrueba{respuestas: [][]byte{respuesta(" " + string(canonico))}}
+	r.db = dbLecturaPrueba{t: t, tx: tx}
+	if _, _, ok, err := r.RecuperarMaterialPorClave(context.Background(), orden, lectura); !errors.Is(err, ports.ErrJustificacionNoDisponible) || ok {
+		t.Fatal("aceptó material recanonizado", err)
 	}
 }
 
