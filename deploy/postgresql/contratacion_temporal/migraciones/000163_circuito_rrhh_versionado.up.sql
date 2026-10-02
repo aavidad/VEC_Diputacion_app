@@ -47,8 +47,9 @@ BEGIN
 END
 $funcion$;
 
--- Una confirmación añade exactamente un hito y una versión. La cabecera
--- previa, los hitos anteriores y el triple del flujo conservan sus bytes JSONB.
+-- Una confirmación añade una versión y un hito, salvo el primer análisis del
+-- flujo RRHH publicado: petición firmada y autorización comparten actuación.
+-- La cabecera previa, los hitos anteriores y el triple del flujo conservan sus bytes JSONB.
 -- Esta guarda no sustituye la evidencia ni la autorización de la operación.
 CREATE FUNCTION vec_contratacion_temporal.circuito_siguiente_ct163(
     p_anterior jsonb, p_siguiente jsonb
@@ -76,8 +77,7 @@ BEGIN
        OR pg_catalog.jsonb_array_length(p_siguiente -> 'actuaciones') <> (p_siguiente ->> 'version')::numeric
        OR (p_siguiente -> 'actuaciones') -
             (pg_catalog.jsonb_array_length(p_siguiente -> 'actuaciones') - 1)
-            IS DISTINCT FROM (p_anterior -> 'actuaciones')
-       OR pg_catalog.jsonb_array_length(v_despues) <> pg_catalog.jsonb_array_length(v_antes) + 1 THEN
+            IS DISTINCT FROM (p_anterior -> 'actuaciones') THEN
         RETURN false;
     END IF;
     v_longitud := pg_catalog.jsonb_array_length(v_antes);
@@ -90,6 +90,25 @@ BEGIN
     v_estado := p_anterior #>> '{circuito,estado_actual}';
     v_actuacion := p_siguiente -> 'actuaciones' ->
         (pg_catalog.jsonb_array_length(p_siguiente -> 'actuaciones') - 1);
+    IF v_longitud = 0 THEN
+        IF NOT coalesce(p_anterior ->> 'version' = '1'
+            AND v_estado = 'solicitud'
+            AND v_actuacion ->> 'accion_clave' = 'contratacion_temporal.analisis.registrar'
+            AND v_total = 2
+            AND p_anterior -> 'flujo' = '{"definicion_ref":"flujo:ct:rrhh:20261002","version":2,"huella_sha256":"f9b83c1291fdf96f339233b9e7a2036b67803388cea8568b4d2b02b6bcd4e9fc"}'::jsonb
+            AND v_despues -> 0 ->> 'clave' = 'contratacion_temporal.circuito.peticion_firmada'
+            AND v_despues -> 0 ->> 'tipo' = 'peticion_firmada'
+            AND v_despues -> 0 ->> 'origen' = 'solicitud'
+            AND v_despues -> 0 ->> 'destino' = 'autorizacion_rrhh'
+            AND v_despues -> 1 ->> 'clave' = 'contratacion_temporal.circuito.autorizacion_rrhh'
+            AND v_despues -> 1 ->> 'tipo' = 'autorizacion_rrhh'
+            AND v_despues -> 1 ->> 'origen' = 'autorizacion_rrhh'
+            AND v_despues -> 1 ->> 'destino' = 'credito', false) THEN
+            RETURN false;
+        END IF;
+    ELSIF v_total <> v_longitud + 1 THEN
+        RETURN false;
+    END IF;
     FOR v_indice IN v_longitud..v_total-1 LOOP
         v_hito := v_despues -> v_indice;
         IF NOT coalesce(pg_catalog.jsonb_typeof(v_hito) = 'object'
