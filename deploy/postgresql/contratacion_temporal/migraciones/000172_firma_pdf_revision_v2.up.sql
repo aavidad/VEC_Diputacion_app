@@ -41,6 +41,11 @@ CREATE TABLE vec_contratacion_temporal.firma_documento_revision_pdf_v2(
  evidencia_firmas_texto text NOT NULL CHECK(octet_length(evidencia_firmas_texto) BETWEEN 2 AND 32768 AND evidencia_firmas_texto::jsonb=evidencia_firmas_canonica),
  evidencia_firmas_huella_sha256 text NOT NULL CHECK(evidencia_firmas_huella_sha256=encode(sha256(convert_to(evidencia_firmas_texto,'UTF8')),'hex')),
  comprobada_en timestamptz(6) NOT NULL CHECK(isfinite(comprobada_en)),
+ rol_id_firmante text NOT NULL CHECK(rol_id_firmante ~ '^ct_cargo_[a-z0-9_]{2,80}$'),
+ cuenta_firmante_ref text NOT NULL CHECK(cuenta_firmante_ref ~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$'),
+ vinculo_credencial_firmante_ref text NOT NULL CHECK(vinculo_credencial_firmante_ref ~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$'),
+ vinculo_credencial_firmante_revision numeric(20,0) NOT NULL CHECK(vinculo_credencial_firmante_revision BETWEEN 1 AND 9007199254740991),
+ vinculo_credencial_firmante_huella text NOT NULL CHECK(vinculo_credencial_firmante_huella ~ '^[0-9a-f]{64}$'),
  CHECK((orden_pdf=1 AND firma_anterior_ref IS NULL AND recibo_anterior_ref IS NULL)
    OR (orden_pdf=2 AND firma_anterior_ref IS NOT NULL AND recibo_anterior_ref IS NOT NULL AND firma_anterior_ref<>firma_ref))
 );
@@ -50,8 +55,8 @@ CREATE POLICY propietario ON vec_contratacion_temporal.firma_documento_revision_
  TO vec_contratacion_temporal_propietario USING(true) WITH CHECK(true);
 REVOKE ALL ON TABLE vec_contratacion_temporal.firma_documento_revision_pdf_v2 FROM PUBLIC;
 REVOKE ALL ON TYPE vec_contratacion_temporal.firma_documento_revision_pdf_v2 FROM PUBLIC;
-CREATE TRIGGER revision_pdf_inmutable BEFORE UPDATE OR DELETE ON vec_contratacion_temporal.firma_documento_revision_pdf_v2
- FOR EACH ROW EXECUTE FUNCTION vec_contratacion_temporal.rechazar_mutacion_historia_v1();
+CREATE TRIGGER revision_pdf_inmutable BEFORE UPDATE OR DELETE OR TRUNCATE ON vec_contratacion_temporal.firma_documento_revision_pdf_v2
+ FOR EACH STATEMENT EXECUTE FUNCTION vec_contratacion_temporal.rechazar_mutacion_historia_v1();
 -- Las funciones V1 permanecen instaladas. Este cerrojo impide continuar una
 -- ronda V2 mediante un contrato de una sola firma, incluso desde CT118/145.
 CREATE FUNCTION vec_contratacion_temporal.impedir_degradacion_firma_pdf_v2() RETURNS trigger
@@ -131,7 +136,7 @@ BEGIN
       'ControlVigenciaFirmanteHuella','AsignacionVigenteDesde','AsignacionVigenteHasta',
       'ActoCompetenciaRef','DelegacionRef','PoliticaVerificacion',
       'RevocacionEstado','SelloTiempoEstado','ReferenciaPortafirmasDeclarada','FechaPortafirmasDeclarada',
-      'ClaveIdempotencia','DocumentoCustodiaRef','DocumentoCustodiaVersion','CatalogoVersion','RolIDFirmante','FirmaAnteriorRef','ReciboAnteriorRef','EntradaDocumentoRef','EntradaDocumentoVersion','EntradaDocumentoLongitud','EntradaDocumentoHuella','OrdenFirmaPDF','ByteRange','RevisionHuellaSHA256','ContenidoFirmadoHuellaSHA256','RevisionLongitud','EvidenciaFirmasCanonica','EvidenciaFirmasHuellaSHA256']) IS NOT TRUE)
+      'ClaveIdempotencia','DocumentoCustodiaRef','DocumentoCustodiaVersion','CatalogoVersion','RolIDFirmante','CuentaFirmanteRef','VinculoCredencialFirmanteRef','VinculoCredencialFirmanteRevision','VinculoCredencialFirmanteHuella','FirmaAnteriorRef','ReciboAnteriorRef','EntradaDocumentoRef','EntradaDocumentoVersion','EntradaDocumentoLongitud','EntradaDocumentoHuella','OrdenFirmaPDF','ByteRange','RevisionHuellaSHA256','ContenidoFirmadoHuellaSHA256','RevisionLongitud','EvidenciaFirmasCanonica','EvidenciaFirmasHuellaSHA256']) IS NOT TRUE)
     OR (s->>'Via'='certificado_vec' AND
      vec_contratacion_temporal.fiscalizacion_claves_exactas_v1(s,ARRAY[
       'Via','OrganizacionRef','ExpedienteRef','VersionExpediente','Documento','CatalogoRef','CatalogoHuella',
@@ -144,7 +149,7 @@ BEGIN
       'ControlVigenciaFirmanteHuella','AsignacionVigenteDesde','AsignacionVigenteHasta',
       'ActoCompetenciaRef','DelegacionRef','PoliticaVerificacion',
       'RevocacionEstado','SelloTiempoEstado','ClaveIdempotencia','DocumentoCustodiaRef',
-      'DocumentoCustodiaVersion','CatalogoVersion','RolIDFirmante','FirmaAnteriorRef','ReciboAnteriorRef','EntradaDocumentoRef','EntradaDocumentoVersion','EntradaDocumentoLongitud','EntradaDocumentoHuella','OrdenFirmaPDF','ByteRange','RevisionHuellaSHA256','ContenidoFirmadoHuellaSHA256','RevisionLongitud','EvidenciaFirmasCanonica','EvidenciaFirmasHuellaSHA256']) IS NOT TRUE)
+      'DocumentoCustodiaVersion','CatalogoVersion','RolIDFirmante','CuentaFirmanteRef','VinculoCredencialFirmanteRef','VinculoCredencialFirmanteRevision','VinculoCredencialFirmanteHuella','FirmaAnteriorRef','ReciboAnteriorRef','EntradaDocumentoRef','EntradaDocumentoVersion','EntradaDocumentoLongitud','EntradaDocumentoHuella','OrdenFirmaPDF','ByteRange','RevisionHuellaSHA256','ContenidoFirmadoHuellaSHA256','RevisionLongitud','EvidenciaFirmasCanonica','EvidenciaFirmasHuellaSHA256']) IS NOT TRUE)
  THEN RAISE EXCEPTION 'material de firma verificada inválido' USING ERRCODE='22023'; END IF;
  FOREACH k IN ARRAY ARRAY['Via','OrganizacionRef','ExpedienteRef','Documento','CatalogoRef','CatalogoHuella',
   'PasoRef','HistoriaHuella','OriginalRef','OriginalHuella','FirmadoHuella','CertificadoHuella','FirmanteRef',
@@ -216,12 +221,16 @@ BEGIN
  IF (s->>'AsignacionVigenteDesde')::timestamptz >= (s->>'AsignacionVigenteHasta')::timestamptz THEN
     RAISE EXCEPTION 'ventana de competencia inválida' USING ERRCODE='22023'; END IF;
 
+ FOREACH k IN ARRAY ARRAY['CuentaFirmanteRef','VinculoCredencialFirmanteRef'] LOOP
+  IF jsonb_typeof(s->k) IS DISTINCT FROM 'string' OR s->>k !~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$' THEN
+   RAISE EXCEPTION 'vínculo credencial inválido' USING ERRCODE='22023'; END IF;
+ END LOOP;
  IF jsonb_typeof(s->'RolIDFirmante') IS DISTINCT FROM 'string' OR s->>'RolIDFirmante' IS DISTINCT FROM s->>'CargoFirmante'
   OR s->>'RolIDFirmante' !~ '^ct_cargo_[a-z0-9_]{2,80}$' THEN
   RAISE EXCEPTION 'rol nominal del firmante inválido' USING ERRCODE='22023'; END IF;
  IF p_comprobada_en IS NULL OR NOT isfinite(p_comprobada_en) THEN
   RAISE EXCEPTION 'observación de verificación inválida' USING ERRCODE='22023'; END IF;
- FOREACH k IN ARRAY ARRAY['CatalogoVersion','EntradaDocumentoVersion','EntradaDocumentoLongitud','OrdenFirmaPDF','RevisionLongitud'] LOOP
+ FOREACH k IN ARRAY ARRAY['CatalogoVersion','VinculoCredencialFirmanteRevision','EntradaDocumentoVersion','EntradaDocumentoLongitud','OrdenFirmaPDF','RevisionLongitud'] LOOP
   IF jsonb_typeof(s->k) IS DISTINCT FROM 'number' OR s->>k !~ '^[1-9][0-9]{0,15}$'
     OR (s->>k)::numeric>9007199254740991 THEN RAISE EXCEPTION 'revisión PDF inválida' USING ERRCODE='22023'; END IF;
  END LOOP;
@@ -235,7 +244,7 @@ BEGIN
    OR jsonb_array_length(s->'EvidenciaFirmasCanonica')<>(s->>'OrdenFirmaPDF')::integer
    OR octet_length((p_solicitud::json->'EvidenciaFirmasCanonica')::text)>32768
  THEN RAISE EXCEPTION 'revisión PDF inválida' USING ERRCODE='22023'; END IF;
- FOREACH k IN ARRAY ARRAY['EntradaDocumentoHuella','RevisionHuellaSHA256','ContenidoFirmadoHuellaSHA256','EvidenciaFirmasHuellaSHA256'] LOOP
+ FOREACH k IN ARRAY ARRAY['VinculoCredencialFirmanteHuella','EntradaDocumentoHuella','RevisionHuellaSHA256','ContenidoFirmadoHuellaSHA256','EvidenciaFirmasHuellaSHA256'] LOOP
   IF jsonb_typeof(s->k) IS DISTINCT FROM 'string' OR s->>k !~ '^[0-9a-f]{64}$' OR s->>k=repeat('0',64)
   THEN RAISE EXCEPTION 'huella revisión PDF inválida' USING ERRCODE='22023'; END IF;
  END LOOP;
@@ -305,6 +314,7 @@ BEGIN
    tipo_evento := 'contratacion_temporal.documento.firma_externa_registrada';
  END IF;
  contexto_h := encode(sha256(convert_to('{"ambitos":{"organizacion_ref":"'||(s->>'OrganizacionRef')||
+   (CASE WHEN s->>'Via'='certificado_vec' THEN '","unidad_ref":"'||(s->>'UnidadFirmanteRef') ELSE '' END)||
    '"},"atributos":{"material_sha256":"'||h||'"}}','UTF8')),'hex');
  BEGIN d := convert_from(p_decision,'UTF8')::jsonb;
  EXCEPTION WHEN others THEN RAISE EXCEPTION 'decisión de firma verificada inválida' USING ERRCODE='42501'; END;
@@ -389,6 +399,7 @@ BEGIN
   IF NOT FOUND OR anterior.recibo_ref IS DISTINCT FROM s->>'ReciboAnteriorRef'
     OR anterior.organizacion_ref IS DISTINCT FROM s->>'OrganizacionRef'
     OR anterior.expediente_ref IS DISTINCT FROM s->>'ExpedienteRef'
+    OR anterior.expediente_version IS DISTINCT FROM v
     OR anterior.documento IS DISTINCT FROM s->>'Documento'
     OR anterior.catalogo_ref IS DISTINCT FROM s->>'CatalogoRef'
     OR anterior.catalogo_huella_sha256 IS DISTINCT FROM s->>'CatalogoHuella'
@@ -416,7 +427,7 @@ BEGIN
   IF EXISTS (SELECT 1 FROM vec_contratacion_temporal.firma_documento_v1 f
     WHERE f.organizacion_ref=s->>'OrganizacionRef' AND f.expediente_ref=s->>'ExpedienteRef'
       AND f.documento=s->>'Documento' AND f.resultado='firmado'
-      AND f.original_documento_ref=s->>'OriginalRef' AND f.original_documento_version=(s->>'OriginalVersion')::numeric
+      AND (f.original_documento_ref IS NULL OR (f.original_documento_ref=s->>'OriginalRef' AND f.original_documento_version=(s->>'OriginalVersion')::numeric))
       AND f.original_huella_sha256=s->>'OriginalHuella') THEN
    RAISE EXCEPTION 'original ya tiene firma en otra cadena' USING ERRCODE='P1184'; END IF;
  END IF;
@@ -463,7 +474,8 @@ BEGIN
   ARRAY[(s#>>'{ByteRange,0}')::bigint,(s#>>'{ByteRange,1}')::bigint,(s#>>'{ByteRange,2}')::bigint,(s#>>'{ByteRange,3}')::bigint],
   s->>'RevisionHuellaSHA256',s->>'ContenidoFirmadoHuellaSHA256',(s->>'RevisionLongitud')::numeric,
   s->'EvidenciaFirmasCanonica',(p_solicitud::json->'EvidenciaFirmasCanonica')::text,s->>'EvidenciaFirmasHuellaSHA256',
-  date_trunc('microseconds',p_comprobada_en));
+  date_trunc('microseconds',p_comprobada_en),s->>'RolIDFirmante',s->>'CuentaFirmanteRef',s->>'VinculoCredencialFirmanteRef',
+  (s->>'VinculoCredencialFirmanteRevision')::numeric,s->>'VinculoCredencialFirmanteHuella');
  INSERT INTO vec_contratacion_temporal.firma_documento_custodia_v1 VALUES
    (firma,recibo,ahora,s->>'DocumentoCustodiaRef',(s->>'DocumentoCustodiaVersion')::numeric,s->>'FirmadoHuella');
  INSERT INTO vec_contratacion_temporal.firma_documento_auditoria_v1 VALUES
@@ -583,6 +595,8 @@ BEGIN
   'CoincideFirmanteEnOtroPaso',coincide,'HistoriaSeparacionAcreditada',separacion);
 EXCEPTION WHEN serialization_failure OR deadlock_detected OR lock_not_available THEN
  RAISE EXCEPTION 'consulta V2 transitoria' USING ERRCODE='P1525';
+WHEN data_exception THEN
+ RAISE EXCEPTION 'material de consulta V2 inválido' USING ERRCODE='22023';
 END $f$;
 
 DO $acl$

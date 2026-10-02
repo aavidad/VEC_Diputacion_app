@@ -22,19 +22,21 @@ const (
 // permanece como raíz y el antecedente identifica una firma V2 concreta.
 type MaterialFirmaVerificadaV2 struct {
 	MaterialFirmaExterna
-	RolIDFirmante                                      string
-	CatalogoVersion                                    uint64
-	FirmaAnteriorRef, ReciboAnteriorRef                string
-	EntradaDocumentoRef                                string
-	EntradaDocumentoVersion, EntradaDocumentoLongitud  uint64
-	EntradaDocumentoHuella                             string
-	OrdenFirmaPDF                                      int
-	ByteRange                                          [4]uint64
-	RevisionHuellaSHA256, ContenidoFirmadoHuellaSHA256 string
-	RevisionLongitud                                   uint64
-	EvidenciaFirmasCanonica                            json.RawMessage
-	EvidenciaFirmasHuellaSHA256                        string
-	ComprobadaEn                                       time.Time
+	CuentaFirmanteRef, VinculoCredencialFirmanteRef, VinculoCredencialFirmanteHuella string
+	VinculoCredencialFirmanteRevision                                                uint64
+	RolIDFirmante                                                                    string
+	CatalogoVersion                                                                  uint64
+	FirmaAnteriorRef, ReciboAnteriorRef                                              string
+	EntradaDocumentoRef                                                              string
+	EntradaDocumentoVersion, EntradaDocumentoLongitud                                uint64
+	EntradaDocumentoHuella                                                           string
+	OrdenFirmaPDF                                                                    int
+	ByteRange                                                                        [4]uint64
+	RevisionHuellaSHA256, ContenidoFirmadoHuellaSHA256                               string
+	RevisionLongitud                                                                 uint64
+	EvidenciaFirmasCanonica                                                          json.RawMessage
+	EvidenciaFirmasHuellaSHA256                                                      string
+	ComprobadaEn                                                                     time.Time
 }
 
 func (m MaterialFirmaVerificadaV2) Validar() error {
@@ -55,6 +57,9 @@ func (m MaterialFirmaVerificadaV2) Validar() error {
 		m.ByteRange[0] != 0 || m.ByteRange[1] < m.EntradaDocumentoLongitud || m.ByteRange[2] <= m.ByteRange[1] ||
 		m.ByteRange[2] > m.RevisionLongitud || m.ByteRange[3] != m.RevisionLongitud-m.ByteRange[2] || m.ByteRange[3] == 0 ||
 		len(m.EvidenciaFirmasCanonica) < 2 || len(m.EvidenciaFirmasCanonica) > 32768 {
+		return ErrSolicitudFirmaDocumentoInvalida
+	}
+	if !domain.ReferenciaOpacaValida(m.CuentaFirmanteRef) || !domain.ReferenciaOpacaValida(m.VinculoCredencialFirmanteRef) || !domain.HuellaSHA256FirmaValida(m.VinculoCredencialFirmanteHuella) || m.VinculoCredencialFirmanteRevision < 1 || m.VinculoCredencialFirmanteRevision > 9007199254740991 {
 		return ErrSolicitudFirmaDocumentoInvalida
 	}
 	if m.RolIDFirmante == "" || m.RolIDFirmante != m.CargoFirmante {
@@ -117,6 +122,10 @@ func (m MaterialFirmaVerificadaV2) Canonico() ([]byte, error) {
 	fields["CatalogoVersion"] = cv
 	rid, _ := json.Marshal(m.RolIDFirmante)
 	fields["RolIDFirmante"] = rid
+	for k, v := range map[string]any{"CuentaFirmanteRef": m.CuentaFirmanteRef, "VinculoCredencialFirmanteRef": m.VinculoCredencialFirmanteRef, "VinculoCredencialFirmanteRevision": m.VinculoCredencialFirmanteRevision, "VinculoCredencialFirmanteHuella": m.VinculoCredencialFirmanteHuella} {
+		b, _ := json.Marshal(v)
+		fields[k] = b
+	}
 	for k, v := range more {
 		fields[k] = v
 	}
