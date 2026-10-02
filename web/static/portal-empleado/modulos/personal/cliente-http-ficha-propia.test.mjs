@@ -138,7 +138,7 @@ test("más filas de las que se muestran: los apartados se ofrecen con estado pro
 test("una ficha sin registros deja los apartados vacíos, no en cero inventado", async () => {
   const vacia = { data: { ...FICHA.data, ficha: { ...FICHA.data.ficha, relaciones: [], servicios: [] } } };
   const fuentes = await crearFuentesFichaPropia({ fetchImpl: async () => respuesta(vacia) }).preparar();
-  assert.deepEqual(await fuentes.servicios.consultarPropios({}), { estado: "vacio", fuente: "Registro de Personal", actualizado_en: "2026-09-25T09:00:00.000000Z", items: [] });
+  assert.deepEqual(await fuentes.servicios.consultarPropios({}), { estado: "vacio", fuente: "Registro de Personal", actualizado_en: "2026-09-25T09:00:00.000000Z", items: [], fecha_referencia: "2026-09-25" });
 });
 
 test("actualizar borra la ficha anterior y no permite que una respuesta tardía repueble la caché", async () => {
@@ -190,4 +190,54 @@ test("el cliente no usa almacenamiento del navegador ni credenciales entre oríg
   const fuente = await readFile(new URL("cliente-http-ficha-propia.js", import.meta.url), "utf8");
   assert.doesNotMatch(fuente, /localStorage|sessionStorage|indexedDB|document\.cookie|credentials:\s*"include"|Authorization/u);
   assert.match(fuente, /from "\.\/i18n-ficha-propia\.js\?v=[\w.-]+"/u);
+});
+
+
+test("solo Servicios admite fecha civil y Relaciones conserva la consulta actual", async () => {
+  const llamadas = [];
+  const fuentes = await crearFuentesFichaPropia({ fetchImpl: async (ruta) => {
+    llamadas.push(ruta);
+    const corte = ruta.includes("?") ? "2020-02-29" : "2026-09-25";
+    return respuesta({ data: { ...FICHA.data, ficha: { ...FICHA.data.ficha, corte: { ...FICHA.data.ficha.corte, vigente_en: corte } } } });
+  } }).preparar();
+  const antiguo = await fuentes.servicios.consultarPropios({ fechaReferencia: "2020-02-29" });
+  assert.equal(antiguo.fecha_referencia, "2020-02-29");
+  assert.equal(fuentes.servicios.fechaReferencia, "2026-09-25");
+  assert.equal((await fuentes.relaciones.consultarPropios()).items[0].hasta, "Actualidad");
+  assert.deepEqual(llamadas, [RUTA_FICHA_PROPIA, `${RUTA_FICHA_PROPIA}?fecha_referencia=2020-02-29`]);
+  for (const invalida of ["2025-02-29", "0000-01-01", "2020-02-29&empleado=emp_x", "2020-02-29T00:00:00Z"]) {
+    await assert.rejects(fuentes.servicios.consultarPropios({ fechaReferencia: invalida }), (e) => e.codigo === "fecha_no_valida");
+  }
+  await assert.rejects(fuentes.relaciones.consultarPropios({ fechaReferencia: "2020-02-29" }), (e) => e.codigo === "fecha_no_admitida");
+  assert.equal(llamadas.length, 2);
+});
+
+test("cambiar de fecha retira caché y un corte incorrecto o un 403 no reutiliza servicios anteriores", async () => {
+  let pendiente; let llamadas = 0;
+  const fuentes = await crearFuentesFichaPropia({ fetchImpl: async () => {
+    llamadas += 1;
+    if (llamadas === 1) return respuesta(FICHA);
+    if (llamadas === 2) return new Promise((resolver) => { pendiente = resolver; });
+    if (llamadas === 3) return respuesta({ error: "acceso_denegado" }, 403);
+    return respuesta(FICHA);
+  } }).preparar();
+  fuentes.servicios.actualizar();
+  const anterior = fuentes.servicios.consultarPropios({ fechaReferencia: "2020-02-29" });
+  fuentes.servicios.actualizar();
+  assert.deepEqual(await fuentes.servicios.consultarPropios({ fechaReferencia: "2021-01-01" }), { estado: "denegado" });
+  pendiente(respuesta(FICHA)); await anterior;
+  assert.deepEqual(await fuentes.servicios.consultarPropios({ fechaReferencia: "2021-01-01" }), { estado: "denegado" });
+  fuentes.servicios.actualizar();
+  assert.deepEqual(await fuentes.servicios.consultarPropios({ fechaReferencia: "2020-02-29" }), { estado: "error" }, "un resultado con otra fecha no se muestra");
+});
+
+
+test("el catálogo dedicado ofrece las mismas claves y variables en ambos idiomas", async () => {
+  const raiz = new URL("../../../textos/", import.meta.url);
+  const [castellano, ingles] = await Promise.all(["es", "en"].map(async (idioma) => JSON.parse(await readFile(new URL(`${idioma}/personal-corte-propio.json`, raiz), "utf8"))));
+  assert.deepEqual(Object.keys(castellano.general), Object.keys(ingles.general));
+  for (const clave of Object.keys(castellano.general)) {
+    assert.ok(castellano.general[clave] && ingles.general[clave]);
+    assert.deepEqual(castellano.general[clave].match(/\{[a-z_]+\}/gu), ingles.general[clave].match(/\{[a-z_]+\}/gu));
+  }
 });

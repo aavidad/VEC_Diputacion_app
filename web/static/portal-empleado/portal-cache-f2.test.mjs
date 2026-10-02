@@ -52,7 +52,7 @@ test("una carga con caché caliente solicita CSS F2 y entrada JS con URL nueva",
     ["portal-componentes.css", posterior(version)],
     ["modulos/cronos/cronos.css", posterior(versionCronosVista)],
     ["modulos/dietas/dietas.css", posterior(versionDietasIcono)],
-    ["modulos/personal/ficha-integral.css", version],
+    ["modulos/personal/ficha-integral.css", posterior(version)],
     ["modulos/contratacion-temporal/expedientes-operativo.css", posterior(version)],
   ]);
   for (const [recurso, versionAntigua] of previo) {
