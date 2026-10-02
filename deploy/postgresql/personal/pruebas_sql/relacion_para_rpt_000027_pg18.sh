@@ -5,7 +5,9 @@
 set -euo pipefail
 umask 077
 continuar=false
+desde_registro=false
 if [[ ${1:-} == --continuar-fixture ]]; then continuar=true; shift; fi
+if [[ ${1:-} == --continuar-registro ]]; then continuar=true; desde_registro=true; shift; fi
 [[ $# == 0 ]] || { printf '%s\n' 'RPT27: argumentos de ensayo inválidos' >&2; exit 2; }
 base_dir=$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 repo_dir=$(CDPATH='' cd -- "$base_dir/../../../.." && pwd)
@@ -40,7 +42,12 @@ else
  [[ -f $scratch/rpt27.test && -f $scratch/preimagen.json && -f $scratch/migraciones_journal.txt ]] || fallo 'fase anterior incompleta'
  [[ $(sha256sum "$scratch/preimagen.json" | cut -d' ' -f1) == "$pre_sha" ]] || fallo 'captura de reanudación distinta'
  sha256sum "$ad154" "$personal27" | cmp -s "$scratch/migraciones_journal.txt" - || fallo 'producto cambiado desde instalación'
+ if ! "$desde_registro"; then
  [[ $(valor "SELECT count(*)=0 FROM public.rpt27_ensayo_vector") == t ]] || fallo 'ya hay casos preparados: no repetir el ensayo'
+ else
+  [[ $(valor "SELECT count(*)=1 FROM public.rpt27_ensayo_vector WHERE caso='go_registro_caido'") == t ]] || fallo 'caso caído no preparado'
+  [[ $(valor "SELECT count(*)=0 FROM public.rpt27_ensayo_vector WHERE caso IN ('go_revocada','go_concurrente')") == t ]] || fallo 'fases finales ya preparadas: no repetir'
+ fi
 fi
 captura() { { printf '%s\n' 'SET search_path=pg_catalog,pg_temp;'; cat "$scratch/preservacion.sql"; } | psql_run postgres > "$1"; }
 if ! "$continuar"; then
@@ -97,6 +104,7 @@ valor "CREATE ROLE vec_rpt27_ensayo_runtime LOGIN NOSUPERUSER NOCREATEDB NOCREAT
  GRANT CONNECT ON DATABASE postgres TO vec_rpt27_ensayo_runtime;
  CREATE ROLE vec_rpt27_ensayo_registrador LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE INHERIT NOREPLICATION NOBYPASSRLS;
  GRANT vec_personal_registrador_intento_relacion_rpt TO vec_rpt27_ensayo_registrador WITH ADMIN FALSE,INHERIT TRUE,SET FALSE;
+ GRANT CONNECT ON DATABASE postgres TO vec_rpt27_ensayo_registrador;
  CREATE ROLE vec_rpt27_ensayo_ca LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE INHERIT NOREPLICATION NOBYPASSRLS;
  GRANT vec_contexto_actor_v1_runtime TO vec_rpt27_ensayo_ca WITH ADMIN FALSE,INHERIT TRUE,SET FALSE;
  GRANT USAGE ON SCHEMA public TO vec_rpt27_ensayo_runtime;
@@ -813,6 +821,7 @@ assert b==[a[0]+1,a[1]+1,a[2]+1,a[3]]
 PYPOSITIVO
 }
 # Casos con actores/contextos CA registrados y permiso RPT propio.
+if ! "$desde_registro"; then
 for estado in vigente suspendida finalizada; do preparar "positivo_$estado" "positivo_$estado" "$estado"; positivo "positivo_$estado" "$estado"; done
 rechazar positivo_vigente
 for variante in actor perfil ambito relacion organismo campos cose; do preparar "$variante"; rechazar "$variante" "$variante"; done
@@ -873,6 +882,7 @@ wait "$publicador_pid" || fallo 'escritor falló'
 [[ $(cat "$scratch/concurrente.log") == *40001* && ! -s $scratch/concurrente.out && $(contadores) == "$antes" ]] || fallo 'barrera no produjo40001 limpio'
 registrar_intento concurrente no_disponible || fallo '40001 sin intento durable'
 
+fi
 # El mismo binario de la emisión ejercita ahora el servicio y adaptadores Go
 # originales de #437 con los dos LOGIN/pools reales por socket Unix aislado.
 lector_go() {
@@ -886,6 +896,7 @@ d=list(map(int,sys.argv[3].split('|')))
 assert b==[x+y for x,y in zip(a,d)], 'efectos Go divergentes o intento dentro del rollback'
 PYCONTADORESGO
 }
+if ! "$desde_registro"; then
 preparar go_positivo
 antes=$(contadores)
 lector_go positivo
@@ -901,6 +912,10 @@ comprobar_contadores_go "$antes" '0|0|0|0'
 preparar go_registro_caido
 antes=$(contadores)
 valor 'REVOKE vec_personal_registrador_intento_relacion_rpt FROM vec_rpt27_ensayo_registrador' > /dev/null
+fi
+# La continuación no vuelve a emitir la capacidad ni repite positivos: el
+# preflight debe fallar antes de usar el material del caso ya preparado.
+antes=$(contadores)
 lector_go registro_caido
 comprobar_contadores_go "$antes" '0|0|0|0'
 valor 'GRANT vec_personal_registrador_intento_relacion_rpt TO vec_rpt27_ensayo_registrador WITH ADMIN FALSE,INHERIT TRUE,SET FALSE' > /dev/null
