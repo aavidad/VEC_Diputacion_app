@@ -239,15 +239,10 @@ func componerEnsayoBaremoReal(t *testing.T, ctx context.Context, cfg configuraci
 	}
 	defer material.borrarCopiasEfimeras()
 	material.fuenteConfianza = alta.postgresql.proveedorMaterial.fuenteConfianza
-	derivado, err := derivarMaterialConsumidorV3Desarrollo(material, DescriptorMaterialGobiernoReglasBaremoV3())
-	if err != nil {
-		t.Fatal("descriptor nominal rechazado")
-	}
-	defer borrarBytes(derivado.claveHMAC)
-	if preparar && publicarGobiernoAtestacionContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno, &derivado) != nil {
-		t.Fatal("material nominal no publicado")
-	}
-	proveedor, err := nuevoProveedorMaterialAltaContratacionTemporalDesarrollo(derivado, perfil.soporte, dependencias.reloj)
+	// El constructor de arranque común conserva clave/raíz y ajusta las
+	// coordenadas a la versión realmente gobernada en PostgreSQL. Se repite
+	// idempotentemente al recomponer; no publica por operación del servicio.
+	proveedor, err := nuevoProveedorMaterialConsumidorConDescriptorDesarrollo(ctx, alta.postgresql.gobierno, material, perfil.soporte, dependencias.reloj, DescriptorMaterialGobiernoReglasBaremoV3())
 	if err != nil {
 		t.Fatal("proveedor común no disponible")
 	}

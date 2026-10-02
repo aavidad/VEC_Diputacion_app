@@ -9,8 +9,8 @@ Este ensayo no acredita un recorrido HTTP, una conexión mTLS de navegador ni
 firma legal.
 
 Necesita un clon sintético desechable preparado por Dirección, las dependencias
-de CT que consume el soporte existente y AD144/BR4 instaladas y revisadas. La
-dependencia SQL 143E sigue pendiente en el corte de preparación de este driver.
+de CT que consume el soporte existente y AD144/BR4 instaladas y revisadas. AD144
+se apoya en el núcleo real posterior a AD142; Copias/AD143 lleva otro circuito.
 El script no arranca PostgreSQL ni instala o revierte migraciones.
 
 ## Configuración privada
@@ -58,7 +58,10 @@ bash scripts/recorridos/seleccion/baremo-gobierno/ensayar.sh alta
 `preparar` publica el contexto, el perfil inicial, el motivo y el descriptor de
 material mediante las autoridades existentes. Una asignación revocada o distinta
 no se restaura: esta preparación no aporta aprobación de una preimagen. Las
-factories del soporte CT conservan su preparación habitual de arranque.
+factories del soporte CT conservan su preparación habitual de arranque. El
+constructor común del material nominal se repite al recomponer para tomar las
+versiones de raíz, clave y configuración realmente gobernadas en PostgreSQL.
+Conserva el material privado persistente y no publica por operación del servicio.
 
 `alta` exige que la intención esté vacía y que aún no exista la continuidad.
 Comprueba un alta nueva y conserva el recibo antes del replay. Repite la misma
