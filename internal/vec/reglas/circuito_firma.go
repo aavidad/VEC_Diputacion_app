@@ -5,6 +5,7 @@ import (
 	"errors"
 	"regexp"
 	"strconv"
+	"strings"
 )
 
 // Un circuito de firma describe, por documento, los pasos ordenados de firma
@@ -82,14 +83,17 @@ var perfilRefValido = regexp.MustCompile(`^[a-z][a-z0-9._:-]{2,127}$`)
 
 // PasoFirma es un paso resuelto del circuito.
 type PasoFirma struct {
-	Orden       int
-	Cargo       string
-	PerfilRef   string
-	Accion      AccionFirma
-	Condicion   CondicionPasoFirma
-	Habilita    HabilitacionFirma
-	Devolucion  DevolucionFirma
-	Sustitucion SustitucionFirma
+	Orden     int
+	Cargo     string
+	PerfilRef string
+	// PerfilesAlternativos admite uno de estos perfiles para el mismo paso.
+	// PerfilRef sigue siendo la opción principal para catálogos anteriores.
+	PerfilesAlternativos []string
+	Accion               AccionFirma
+	Condicion            CondicionPasoFirma
+	Habilita             HabilitacionFirma
+	Devolucion           DevolucionFirma
+	Sustitucion          SustitucionFirma
 	// Referencia es catalogo:version:entrada del paso.
 	Referencia string
 }
@@ -168,6 +172,22 @@ func pasoDesdeRegla(regla Regla) (PasoFirma, string, string, error) {
 		Accion: AccionFirma(a["accion"]), Condicion: CondicionPasoFirma(a["condicion"]),
 		Habilita: HabilitacionFirma(a["habilita"]), Devolucion: DevolucionFirma(a["devolucion"]),
 		Sustitucion: SustitucionFirma(a["sustitucion"]), Referencia: regla.Referencia,
+	}
+	if alternativas, declaradas := a["perfiles_ref_alternativos"]; declaradas {
+		paso.PerfilesAlternativos = strings.Split(alternativas, ",")
+		if alternativas == "" || len(paso.PerfilesAlternativos) > maximoPasosCircuitoFirma {
+			return PasoFirma{}, "", "", ErrCircuitoFirmaInvalido
+		}
+		vistas := map[string]struct{}{paso.PerfilRef: {}}
+		for _, perfil := range paso.PerfilesAlternativos {
+			if !perfilRefValido.MatchString(perfil) {
+				return PasoFirma{}, "", "", ErrCircuitoFirmaInvalido
+			}
+			if _, repetido := vistas[perfil]; repetido {
+				return PasoFirma{}, "", "", ErrCircuitoFirmaInvalido
+			}
+			vistas[perfil] = struct{}{}
+		}
 	}
 	documento, etiqueta := a["documento"], a["documento_etiqueta"]
 	if err != nil || orden < 1 || strconv.Itoa(orden) != a["paso"] || regla.Unidad != UnidadNinguna ||

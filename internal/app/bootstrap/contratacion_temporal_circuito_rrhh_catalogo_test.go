@@ -55,3 +55,30 @@ func TestCargarDefinicionCircuitoRRHHExigePublicacionIntacta(t *testing.T) {
 		t.Fatal("acepto un campo ajeno a la definicion")
 	}
 }
+
+func TestCatalogoRRHHV2PublicaVistosBuenosAlternativos(t *testing.T) {
+	d, err := cargarDefinicionCircuitoRRHH("../../../config/contratacion_temporal_circuito_rrhh_v2.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d.Flujo.HuellaSHA256 != "1721c3a66576b21163b590602589f1627095bd6b6bfa37c79862af62775146e2" {
+		t.Fatalf("huella v2 inesperada: %s", d.Flujo.HuellaSHA256)
+	}
+	for _, base := range []string{
+		"contratacion_temporal.circuito.resolucion_firmada",
+		"contratacion_temporal.circuito.resolucion_sin_cambio",
+	} {
+		jefatura, direccion := false, false
+		for _, tr := range d.Transiciones {
+			switch tr.Clave {
+			case domain.ClaveCatalogo(base):
+				jefatura = len(tr.FirmasRequeridas) == 2 && tr.FirmasRequeridas[0] == "jefatura_servicio_rrhh" && tr.FirmasRequeridas[1] == "diputacion_delegada_rrhh"
+			case domain.ClaveCatalogo(base + "_visto_bueno_direccion"):
+				direccion = len(tr.FirmasRequeridas) == 2 && tr.FirmasRequeridas[0] == "direccion_rrhh" && tr.FirmasRequeridas[1] == "diputacion_delegada_rrhh"
+			}
+		}
+		if !jefatura || !direccion {
+			t.Fatalf("faltan alternativas ordenadas en %s", base)
+		}
+	}
+}
