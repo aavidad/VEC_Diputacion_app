@@ -2,6 +2,7 @@ package composicion
 
 import (
 	"context"
+	"errors"
 
 	dietasapp "vec-diputacion-granada/internal/modules/dietas/application"
 	"vec-diputacion-granada/internal/modules/dietas/domain"
@@ -61,9 +62,12 @@ func (f *FuenteCompetenciaPerfilFijo) competencia(ctx context.Context, actor vec
 	if ctx.Err() != nil {
 		return "", "", ctx.Err()
 	}
+	if err != nil {
+		return "", "", errors.Join(denegado, err)
+	}
 	ahora := f.reloj.Ahora()
 	p := i.AsignacionPerfil
-	if err != nil || i.Validar() != nil || ahora.IsZero() || !a.Instantanea.VigenteEn(ahora) ||
+	if i.Validar() != nil || ahora.IsZero() || !a.Instantanea.VigenteEn(ahora) ||
 		p.PrincipalID != a.PersonaRef || p.PerfilActivoRef != a.PerfilActivoRef ||
 		!p.VigenteEn(ahora) || p.EmitidaEn.After(ahora) || i.VersionRol.PublicadaEn.After(ahora) ||
 		i.VersionRol.Estado != vecdomain.EstadoVersionRolPublicada ||
