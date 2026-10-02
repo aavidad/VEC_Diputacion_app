@@ -74,8 +74,8 @@ BEGIN
  END LOOP;
 END $historia$;
 CREATE FUNCTION vec_autorizacion.resolver_rol_administrable_v1(p_version_ref text)
-RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $f$
-DECLARE r record; instante timestamptz:=statement_timestamp();
+RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $f$
+DECLARE r record; instante timestamptz:=clock_timestamp();
 BEGIN
  SELECT a.* INTO r FROM vec_autorizacion.rol_administrable_exacto_v1 a
  JOIN vec_autorizacion.version_rol v USING(version_rol_ref)
