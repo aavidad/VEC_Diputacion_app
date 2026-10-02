@@ -8,7 +8,8 @@ reservó AD150 antes de escribir el consumidor. No se altera una migración inst
 personas, baja aprobada 2→1 y denegación de 1→0; el HTTP anterior no fija el umbral.
 
 Orden causal: CA19 → AUT22 → CA20 → AUT23 → IS9 → AUT24 → CA23 → IS12;
-AD150 va después de IS12 y de AD149 real publicado. AUT24 define funciones PL/pgSQL
+AD150 consume las funciones IS12 y el núcleo POST142 real. No usa objetos de AD149;
+el número de migración no añade una dependencia. AUT24 define funciones PL/pgSQL
 que permanecen indisponibles hasta instalar el consumidor; no exige su existencia
 al crear el contrato y así evita una dependencia circular. Dirección debe reconciliar este orden con
 ORDEN_SQL_NUCLEO.md antes del ensayo. Los números no indican el orden causal.
@@ -30,7 +31,7 @@ a propietarios. La aplicación recibe un LOGIN provisionado fuera de Git con una
 Pendientes que impiden activar:
 
 - Capturar las preimágenes reales de la definición V3 y su restricción de
-  audiencias después de AD149 real publicado; no sustituirlas por una base aislada.
+  audiencias en POST142 real del clon causal; no sustituirlas por una base aislada.
 - Acreditar el enlace entre material V3 y la revalidación IS9 de certificado,
   revocación, audiencia y red. IS9 exige evidencias que no forman parte del DTO
   de negocio. No convertir constantes booleanas ni campos del cliente en esas
@@ -102,3 +103,30 @@ Las sondas ACL incluidas inspeccionan los catálogos PostgreSQL reales al aplica
 el borrador: runtime sin bootstrap, bootstrap sin lector web, sin DML sobre
 historia y sin EXECUTE público. Permanecen pendientes los casos dinámicos de
 rollback, carrera y recuperación en el clon causal.
+
+La unión con el emisor real usa la huella común de `RecursoAutorizable`: bytes
+JSON de ámbitos resueltos por el servidor y el atributo `material_sha256`.
+El atributo conserva el SHA256 de todo el material del intento, incluida su
+correlación. La comparación de idempotencia del negocio excluye únicamente
+`correlacion_ref`; el recibo y la propuesta originales no se reescriben.
+
+Los documentos de rol, control y asignación usan los canónicos Go de sus
+structs, con su orden, campos opcionales y fechas UTC. Cuenta, vínculo y huella
+del rol se conservan en una tabla de enlace inmutable, fuera del documento
+estricto de asignación. Se incluyen seis vectores JSON/SHA producidos con Go.
+
+Las siete lecturas de F tienen funciones nominales y audiencias propias. Usan
+las acciones ya publicadas: consultar, historial y recibo. Los nombres ausentes
+son datos vacíos, que la interfaz distingue con el catálogo i18n; no se copian
+referencias como nombres. La búsqueda por nombre queda cerrada hasta disponer
+de una fuente nominal común. Buscar por referencia canónica no añade una
+autoridad de identidad.
+
+La auditoría de frontera dispone de LOGIN y grupo separados. Solo admite el
+evento acotado observado por el servidor; no recibe certificados, DNI, textos
+libres ni URL con parámetros personales. No concede ni retira perfiles.
+
+La vinculación de motivos ADMIN y las procedencias nuevas de retirada deben
+proceder de la autoridad publicada. El código no inventa entradas de catálogo
+ni declara una fuente inexistente: las acciones de ficha afectadas permanecen
+cerradas hasta recibir esos datos gobernados.
