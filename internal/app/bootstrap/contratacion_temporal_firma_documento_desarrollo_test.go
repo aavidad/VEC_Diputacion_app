@@ -135,7 +135,7 @@ func TestConsultaFirmasDocumentoClasificaCaidaPosteriorDelPDP(t *testing.T) {
 			}
 			lector := new(lectorFirmasNoEjecutadoPrueba)
 			firma := &firmaDocumentoCTDesarrollo{alta: &dependenciasAltaContratacionTemporalDesarrollo{soporte: s, autorizador: autorizador,
-				postgresql: dependenciasPostgreSQLContratacionTemporalDesarrollo{proveedorMaterialConsultaFirmasDocumento: new(proveedorMaterialAltaContratacionTemporalDesarrollo)}}, lector: lector}
+				postgresql: dependenciasPostgreSQLContratacionTemporalDesarrollo{proveedorMaterialConsultaFirmasDocumento: new(proveedorMaterialAltaContratacionTemporalDesarrollo)}}, lector: lector, reloj: s.reloj}
 			ctx := contextoRutaCoberturaDesarrolloPrueba(s, principal, httpinterno.RutaConsultaFirmaDocumento)
 			_, err = (registroFirmasDocumentoNominal{firma}).ConsultarFirmas(ctx, organizacionAltaContratacionTemporalDesarrollo, "expediente:ct:uno")
 			if !errors.Is(err, caso.esperado) || fuente.lecturas != caso.lecturas || lector.llamadas != 0 || autoridad.preparadas != 0 || autoridad.publicadas != 0 {
@@ -169,7 +169,7 @@ func TestConsultaFirmasDocumentoFuenteCaidaNoSeConfundeConRevocacion(t *testing.
 	a.asignaciones = map[string]instantaneaPublicadaDesarrollo{fijo.perfilRef(): {instantanea: publicada, actoAsignacion: actoAsignacionPerfilFijoCTDesarrollo}}
 	f := &firmaDocumentoCTDesarrollo{alta: &dependenciasAltaContratacionTemporalDesarrollo{
 		soporte: s, autorizador: base.autorizador.(autorizadorLigadoContratacionTemporalDesarrollo),
-		postgresql: dependenciasPostgreSQLContratacionTemporalDesarrollo{proveedorMaterialConsultaFirmasDocumento: new(proveedorMaterialAltaContratacionTemporalDesarrollo)}}}
+		postgresql: dependenciasPostgreSQLContratacionTemporalDesarrollo{proveedorMaterialConsultaFirmasDocumento: new(proveedorMaterialAltaContratacionTemporalDesarrollo)}}, reloj: s.reloj}
 	ctx := contextoRutaCoberturaDesarrolloPrueba(s, principal, httpinterno.RutaConsultaFirmaDocumento)
 	m := ports.MaterialConsultaFirmasDocumento{OrganizacionRef: organizacionAltaContratacionTemporalDesarrollo, ExpedienteRef: "expediente:ct:uno"}
 	if _, err := f.AutorizarConsultaFirmasDocumento(ctx, m); !errors.Is(err, ports.ErrFirmaDocumentoDenegada) {
@@ -355,7 +355,7 @@ func TestFirmaDocumentoDesarrolloRechazaCertificadoDistintoDelCanal(t *testing.T
 	}
 	f := &firmaDocumentoCTDesarrollo{alta: &dependenciasAltaContratacionTemporalDesarrollo{soporte: s,
 		autorizador: base.autorizador.(autorizadorLigadoContratacionTemporalDesarrollo),
-		postgresql:  dependenciasPostgreSQLContratacionTemporalDesarrollo{proveedorMaterialFirmaDocumento: new(proveedorMaterialAltaContratacionTemporalDesarrollo)}}}
+		postgresql:  dependenciasPostgreSQLContratacionTemporalDesarrollo{proveedorMaterialFirmaDocumento: new(proveedorMaterialAltaContratacionTemporalDesarrollo)}}, reloj: s.reloj}
 	ctx := contextoRutaCoberturaDesarrolloPrueba(s, principal, httpinterno.RutaFirmaDocumento)
 	if _, err := f.AutorizarFirmaDocumento(ctx, m); !errors.Is(err, ports.ErrFirmaDocumentoDenegada) {
 		t.Fatalf("certificado ajeno admitido: %v", err)
@@ -363,6 +363,72 @@ func TestFirmaDocumentoDesarrolloRechazaCertificadoDistintoDelCanal(t *testing.T
 	a := s.autoridadAsignaciones.(*autoridadAsignacionesContratacionTemporalDesarrolloPrueba)
 	if a.preparadas != 0 || a.publicadas != 0 {
 		t.Fatal("el certificado ajeno alcanzó la autorización V3")
+	}
+}
+
+type relojFirmaAvanzaPrueba struct {
+	instantes []time.Time
+	lecturas  int
+}
+
+func (r *relojFirmaAvanzaPrueba) Ahora() time.Time {
+	i := r.lecturas
+	r.lecturas++
+	return r.instantes[i]
+}
+
+func TestFirmaDocumentoRevalidaCertificadoTrasEsperaPDP(t *testing.T) {
+	inicio := time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC)
+	vence := inicio.Add(time.Second)
+	reloj := &relojFirmaAvanzaPrueba{instantes: []time.Time{inicio, vence}}
+	firma := firmaDocumentoCTDesarrollo{reloj: reloj}
+	canal := capacidadConsultaContratacionTemporalDesarrollo{
+		certificadoVerificadoEn: inicio.Add(-time.Second), certificadoValidoHasta: vence,
+	}
+	if ahora, vigente := firma.certificadoVigenteFirmaDocumentoCTDesarrollo(canal); !vigente || !ahora.Equal(inicio) {
+		t.Fatal("certificado vigente rechazado antes del PDP")
+	}
+	if ahora, vigente := firma.certificadoVigenteFirmaDocumentoCTDesarrollo(canal); vigente || !ahora.Equal(vence) {
+		t.Fatal("certificado caducado aceptado tras el PDP")
+	}
+	if reloj.lecturas != 2 {
+		t.Fatalf("se esperaban dos lecturas del reloj: %d", reloj.lecturas)
+	}
+}
+
+func TestFirmaDocumentoCapacidadEmitidaDurantePDPUsaHoraFinal(t *testing.T) {
+	inicio := time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC)
+	final := inicio.Add(500 * time.Millisecond)
+	emitida := inicio.Add(250 * time.Millisecond)
+	expira := inicio.Add(time.Second)
+	reloj := &relojFirmaAvanzaPrueba{instantes: []time.Time{inicio, final}}
+	firma := firmaDocumentoCTDesarrollo{reloj: reloj}
+	canal := capacidadConsultaContratacionTemporalDesarrollo{
+		certificadoVerificadoEn: inicio.Add(-time.Second), certificadoValidoHasta: expira,
+	}
+	if _, vigente := firma.certificadoVigenteFirmaDocumentoCTDesarrollo(canal); !vigente {
+		t.Fatal("certificado vigente rechazado antes del PDP")
+	}
+	if capacidadFirmaDocumentoCTDesarrolloVigenteEn(emitida, expira, inicio) {
+		t.Fatal("la hora inicial admitió una capacidad aún no emitida")
+	}
+	ahoraFinal, vigente := firma.certificadoVigenteFirmaDocumentoCTDesarrollo(canal)
+	if !vigente || !capacidadFirmaDocumentoCTDesarrolloVigenteEn(emitida, expira, ahoraFinal) || reloj.lecturas != 2 {
+		t.Fatal("la hora final rechazó certificado y capacidad vigentes")
+	}
+}
+
+func TestConsultaFirmasDocumentoSinRelojDeniega(t *testing.T) {
+	s, base, principal := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
+	firma := &firmaDocumentoCTDesarrollo{alta: &dependenciasAltaContratacionTemporalDesarrollo{
+		soporte: s, autorizador: base.autorizador.(autorizadorLigadoContratacionTemporalDesarrollo),
+		postgresql: dependenciasPostgreSQLContratacionTemporalDesarrollo{
+			proveedorMaterialConsultaFirmasDocumento: new(proveedorMaterialAltaContratacionTemporalDesarrollo)},
+	}}
+	ctx := contextoRutaCoberturaDesarrolloPrueba(s, principal, httpinterno.RutaConsultaFirmaDocumento)
+	m := ports.MaterialConsultaFirmasDocumento{OrganizacionRef: organizacionAltaContratacionTemporalDesarrollo, ExpedienteRef: "expediente:ct:uno"}
+	if _, err := firma.AutorizarConsultaFirmasDocumento(ctx, m); !errors.Is(err, ports.ErrFirmaDocumentoDenegada) {
+		t.Fatalf("consulta sin reloj admitida: %v", err)
 	}
 }
 

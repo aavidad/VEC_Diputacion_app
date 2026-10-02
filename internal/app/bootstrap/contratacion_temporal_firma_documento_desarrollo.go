@@ -137,7 +137,7 @@ type firmaDocumentoCTDesarrollo struct {
 	registro      *postgrescontratacion.RegistroFirmasDocumentoPostgreSQL
 	lector        ports.LectorFirmasDocumentoAutorizadas
 	lectorInterno *lectorFirmasIntervencionCTDesarrollo
-	reloj         relojContratacionTemporalDesarrollo
+	reloj         interface{ Ahora() time.Time }
 	// fiscalizacion recibe al componer las rutas la comprobación de la firma
 	// que habilita la remisión a Intervención (duda 4).
 	fiscalizacion *ctapplication.ServicioFiscalizaciones
@@ -147,6 +147,23 @@ type firmaDocumentoCTDesarrollo struct {
 	// servicio queda al componer las rutas: la custodia en Documentos se le
 	// añade después, cuando Documentos ya está compuesto.
 	servicio *ctapplication.ServicioFirmaDocumento
+}
+
+func (f *firmaDocumentoCTDesarrollo) certificadoVigenteFirmaDocumentoCTDesarrollo(
+	capacidad capacidadConsultaContratacionTemporalDesarrollo,
+) (time.Time, bool) {
+	if f == nil || f.reloj == nil {
+		return time.Time{}, false
+	}
+	ahora := f.reloj.Ahora()
+	return ahora, ctdomain.InstanteUTCCanonico(ahora) &&
+		ctdomain.InstanteUTCCanonico(capacidad.certificadoVerificadoEn) &&
+		ctdomain.InstanteUTCCanonico(capacidad.certificadoValidoHasta) &&
+		!capacidad.certificadoVerificadoEn.After(ahora) && ahora.Before(capacidad.certificadoValidoHasta)
+}
+
+func capacidadFirmaDocumentoCTDesarrolloVigenteEn(emitida, expira, ahora time.Time) bool {
+	return !ahora.Before(emitida) && ahora.Before(expira)
 }
 
 // El catálogo solo identifica el perfil requerido; la asignación vigente y
@@ -236,13 +253,10 @@ func (f *firmaDocumentoCTDesarrollo) AutorizarFirmaDocumento(ctx context.Context
 	s := f.alta.soporte
 	capacidad, valida := s.capacidadValida(ctx)
 	perfil := s.perfilFijoParaContexto(ctx, capacidad.ruta)
-	ahora := f.reloj.Ahora()
+	_, certificadoVigente := f.certificadoVigenteFirmaDocumentoCTDesarrollo(capacidad)
 	if !valida || capacidad.ruta != httpinterno.RutaFirmaDocumento || perfil == nil ||
 		f.circuito == nil || m.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo ||
-		!ctdomain.InstanteUTCCanonico(ahora) ||
-		!ctdomain.InstanteUTCCanonico(capacidad.certificadoVerificadoEn) ||
-		!ctdomain.InstanteUTCCanonico(capacidad.certificadoValidoHasta) ||
-		capacidad.certificadoVerificadoEn.After(ahora) || !ahora.Before(capacidad.certificadoValidoHasta) {
+		!certificadoVigente {
 		return vacia, ports.ErrFirmaDocumentoDenegada
 	}
 	// La huella del documento firmado debe ser la del certificado verificado
@@ -319,7 +333,8 @@ func (f *firmaDocumentoCTDesarrollo) AutorizarFirmaDocumento(ctx context.Context
 		return vacia, ports.ErrFirmaDocumentoDenegada
 	}
 	r := material.ResumenCapacidad()
-	if ahora.Before(r.EmitidaEn()) || !ahora.Before(r.ExpiraEn()) {
+	ahoraCapacidad, certificadoVigente := f.certificadoVigenteFirmaDocumentoCTDesarrollo(capacidad)
+	if !certificadoVigente || !capacidadFirmaDocumentoCTDesarrolloVigenteEn(r.EmitidaEn(), r.ExpiraEn(), ahoraCapacidad) {
 		return vacia, ports.ErrFirmaDocumentoDenegada
 	}
 	return c, nil
@@ -328,7 +343,7 @@ func (f *firmaDocumentoCTDesarrollo) AutorizarFirmaDocumento(ctx context.Context
 func (f *firmaDocumentoCTDesarrollo) AutorizarConsultaFirmasDocumento(ctx context.Context, m ports.MaterialConsultaFirmasDocumento) (ports.CapacidadConsultaFirmasDocumento, error) {
 	vacia := ports.CapacidadConsultaFirmasDocumento{}
 	if ctx == nil || f == nil || f.alta == nil || f.alta.soporte == nil || f.alta.autorizador == nil ||
-		f.alta.postgresql.proveedorMaterialConsultaFirmasDocumento == nil || m.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo {
+		f.reloj == nil || f.alta.postgresql.proveedorMaterialConsultaFirmasDocumento == nil || m.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo {
 		return vacia, ports.ErrFirmaDocumentoDenegada
 	}
 	s := f.alta.soporte
