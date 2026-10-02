@@ -180,6 +180,7 @@
       "fechaFinCausa": "Fecha de fin de causa, si el documento la acredita",
       "documentoRef": "Referencia del justificante",
       "documentoRefAyuda": "Use la referencia que figura en el justificante, sin espacios ni tildes.",
+      "referenciaNoValida": "Use una referencia interna sin espacios ni datos de identidad como DNI, NIE o pasaporte.",
       "documento": "Seleccionar justificante",
       "documentoAviso": "El archivo no se envía. Se registra su referencia y huella para que RRHH lo compruebe.",
       "enviar": "Enviar solicitud a RRHH",

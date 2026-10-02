@@ -123,6 +123,12 @@ func TestPortalSolicitudDocumentalPropiaPendiente(t *testing.T) {
 	if _, err := p.portal.PresentarSolicitudDocumental(context.Background(), p.orden, comando); !errors.Is(err, bolsa.ErrPortalCandidatoInvalido) || len(p.registro.documentales) != 1 {
 		t.Fatalf("fecha civil imposible admitida: %v", err)
 	}
+	comando.FechaFinCausa = "2026-10-02"
+	comando.DocumentoRef = "dni:prueba"
+	if _, err := p.portal.PresentarSolicitudDocumental(context.Background(), p.orden, comando); !errors.Is(err, bolsa.ErrPortalCandidatoInvalido) || len(p.registro.documentales) != 1 {
+		t.Fatalf("referencia de identidad dejó pendiente irresoluble: %v", err)
+	}
+	comando.DocumentoRef = "documento:parte-1"
 	comando.FechaFinCausa = ""
 	comando.Clave = "clave-documental-sin-fecha"
 	sinFecha, err := p.portal.PresentarSolicitudDocumental(context.Background(), p.orden, comando)

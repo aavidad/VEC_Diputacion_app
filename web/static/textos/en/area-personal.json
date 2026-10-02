@@ -258,6 +258,7 @@
       "fechaFinCausa": "End date of the reason, if the document establishes it",
       "documentoRef": "Supporting document reference",
       "documentoRefAyuda": "Use the reference shown on the document, without spaces or accents.",
+      "referenciaNoValida": "Use an internal reference without spaces or identity document details such as an ID number or passport.",
       "documento": "Select supporting document",
       "documentoAviso": "The file is not sent. Its reference and fingerprint are recorded for HR to check.",
       "enviar": "Send request to HR",

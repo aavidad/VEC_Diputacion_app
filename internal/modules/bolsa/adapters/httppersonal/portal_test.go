@@ -94,6 +94,7 @@ func TestPortalSolicitudDocumentalSoloPropiaYConRecibo(t *testing.T) {
 	for _, invalido := range []string{
 		strings.Replace(cuerpo, `"tipo":"documental_rrhh"`, `"tipo":"pausa"`, 1),
 		strings.Replace(cuerpo, `"clave":"clave-documental-1"`, `"actor":"persona:ajena","clave":"clave-documental-1"`, 1),
+		strings.Replace(cuerpo, `"documento_ref":"documento:parte-1"`, `"documento_ref":"dni:prueba"`, 1),
 	} {
 		w = httptest.NewRecorder()
 		h.ServeHTTP(w, peticionPortal(RutaMiBolsaSolicitudesDocumentales, invalido, nil))

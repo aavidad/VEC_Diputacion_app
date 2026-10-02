@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"vec-diputacion-granada/internal/modules/bolsa/application/mibolsa"
+	dominiobolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 )
@@ -178,6 +179,11 @@ func (h *HandlerPortal) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *HandlerPortal) solicitarDocumental(w http.ResponseWriter, r *http.Request, e entradaSolicitudDocumental) {
+	if (dominiobolsa.JustificanteOperacionSituacion{Tipo: dominiobolsa.JustificanteSolicitudCandidato,
+		Referencia: e.DocumentoRef, SHA256: e.DocumentoSHA256}).Validar() != nil {
+		responder(w, http.StatusBadRequest, errorRespuesta{"datos_no_validos"})
+		return
+	}
 	orden, err := h.preparador.PrepararMiBolsa(r)
 	if err != nil {
 		responderErrorPortal(w, err)

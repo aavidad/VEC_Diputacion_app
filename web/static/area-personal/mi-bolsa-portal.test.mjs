@@ -46,10 +46,29 @@ test("la solicitud documental envía referencia, huella y fin de causa con clave
   assert.equal((await cuerpoPortalMiBolsa(formulario, datos)).cuerpo.clave, primera.cuerpo.clave);
   datos.set("fecha_fin_causa", "2026-02-30");
   assert.equal(await cuerpoPortalMiBolsa(formulario, datos), null);
+  datos.set("fecha_fin_causa", "2026-10-02");
+  datos.set("documento_ref", "dni:prueba");
+  assert.equal(await cuerpoPortalMiBolsa(formulario, datos), null);
+  datos.set("documento_ref", "documento:parte-1");
   datos.delete("fecha_fin_causa");
   const sinFecha = await cuerpoPortalMiBolsa(formulario, datos);
   assert.equal(Object.hasOwn(sinFecha.cuerpo, "fecha_fin_causa"), false);
   assert.equal(sinFecha.cuerpo.clave, primera.cuerpo.clave);
+});
+
+test("referencia con identidad se corrige antes de enviar y no deja solicitud pendiente", async () => {
+  const zona = { textContent: "" };
+  const campo = { mensaje: "", foco: false, setCustomValidity(valor) { this.mensaje = valor; }, reportValidity() { return false; }, focus() { this.foco = true; }, addEventListener() {} };
+  const formulario = { dataset: { portalMiBolsa: "documental", bolsa: "bolsa:demo:1" },
+    querySelector: (selector) => selector === "[data-portal-resultado]" ? zona : selector === '[name="documento_ref"]' ? campo : null };
+  const datos = new FormData();
+  datos.set("documento_ref", "dni:prueba"); datos.set("documento", new Blob(["abc"]));
+  let envios = 0;
+  assert.equal(await enviarPortalMiBolsa(formulario, { datos, fetchImpl: async () => { envios++; } }), false);
+  assert.equal(envios, 0);
+  assert.match(zona.textContent, /sin espacios ni datos de identidad/u);
+  assert.equal(campo.mensaje, zona.textContent);
+  assert.equal(campo.foco, true);
 });
 
 test("la consulta conserva recibo y resolución sin permitir duplicar una pendiente", () => {

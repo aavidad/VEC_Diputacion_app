@@ -27,6 +27,15 @@ export function textoPortal(clave, variables = {}) {
 
 const INSTANTE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?Z$/u;
 const CAUSA = /^[a-z][a-z0-9_]{0,63}$/u;
+const REFERENCIA_DOCUMENTAL = /^[A-Za-z0-9][A-Za-z0-9._:/#-]{0,254}$/u;
+const REFERENCIA_PROPIA_SISTEMA = /^[a-z_]+(:[a-z_]+)*:[0-9a-f]{64}$/u;
+const DOCUMENTO_IDENTIDAD = /(([0-9][._:/#-]?){8}|[XYZ][._:/#-]?([0-9][._:/#-]?){7})[A-Z]/iu;
+const ETIQUETA_IDENTIDAD = /(^|[._:/#-])(dni|nie|nif|pasaporte|passport)([._:/#-]|$)/iu;
+
+function referenciaDocumentalValida(referencia) {
+  return REFERENCIA_DOCUMENTAL.test(referencia) && !ETIQUETA_IDENTIDAD.test(referencia) &&
+    (REFERENCIA_PROPIA_SISTEMA.test(referencia) || !DOCUMENTO_IDENTIDAD.test(referencia));
+}
 
 function instante(valor, nombre) {
   if (typeof valor !== "string" || !INSTANTE.test(valor) || Number.isNaN(Date.parse(valor))) throw new TypeError(`${nombre} no es un instante válido.`);
@@ -166,7 +175,7 @@ export async function cuerpoPortalMiBolsa(formulario, datos = new FormData(formu
     const documento = datos.get("documento");
     const documentoRef = String(datos.get("documento_ref") || "").trim();
     const fechaFinCausa = String(datos.get("fecha_fin_causa") || "");
-    if (!/^[A-Za-z0-9][A-Za-z0-9._:/#-]{0,254}$/u.test(documentoRef) || (fechaFinCausa && (!/^\d{4}-\d{2}-\d{2}$/u.test(fechaFinCausa) ||
+    if (!referenciaDocumentalValida(documentoRef) || (fechaFinCausa && (!/^\d{4}-\d{2}-\d{2}$/u.test(fechaFinCausa) ||
         Number.isNaN(Date.parse(`${fechaFinCausa}T00:00:00Z`)) || new Date(`${fechaFinCausa}T00:00:00Z`).toISOString().slice(0, 10) !== fechaFinCausa)) ||
         !(documento instanceof Blob) || documento.size === 0) return null;
     const cuerpo = {
@@ -250,6 +259,19 @@ export async function enviarPortalMiBolsa(formulario, { fetchImpl = globalThis.f
   try {
     // Un resultado incierto puede haber persistido: un reintento explícito usa
     // el mismo cuerpo, incluida la versión, aunque se hayan editado los campos.
+    if (!peticionesInciertas.has(formulario) && formulario.dataset.portalMiBolsa === "documental") {
+      datos ||= new FormData(formulario);
+      if (!referenciaDocumentalValida(String(datos.get("documento_ref") || "").trim())) {
+        const mensaje = textoPortal("documental.referenciaNoValida");
+        const campo = formulario.querySelector('[name="documento_ref"]');
+        campo?.setCustomValidity?.(mensaje);
+        campo?.reportValidity?.();
+        campo?.focus?.();
+        campo?.addEventListener?.("input", () => campo.setCustomValidity(""), { once: true });
+        mostrar(mensaje);
+        return false;
+      }
+    }
     const peticion = peticionesInciertas.get(formulario) || await cuerpoPortalMiBolsa(formulario, datos);
     if (!peticion) {
       mostrar(textoPortal("error.datos_no_validos"));

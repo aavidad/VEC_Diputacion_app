@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	dominiobolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 )
 
@@ -24,6 +25,10 @@ func (p *Portal) PresentarSolicitudDocumental(ctx context.Context, orden Orden, 
 	}
 	if !bolsaRefPortal.MatchString(c.Bolsa) || !justificanteRefPortal.MatchString(c.DocumentoRef) ||
 		!huellaSHA256Portal.MatchString(c.DocumentoSHA256) || !claveIdempotenciaPortal.MatchString(c.Clave) {
+		return vacio, puertosbolsa.ErrPortalCandidatoInvalido
+	}
+	if (dominiobolsa.JustificanteOperacionSituacion{Tipo: dominiobolsa.JustificanteSolicitudCandidato,
+		Referencia: c.DocumentoRef, SHA256: c.DocumentoSHA256}).Validar() != nil {
 		return vacio, puertosbolsa.ErrPortalCandidatoInvalido
 	}
 	if c.FechaFinCausa != "" {
