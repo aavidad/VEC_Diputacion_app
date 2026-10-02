@@ -1,7 +1,7 @@
 import { leerArchivo } from './modelo.js?v=20261002-selectivos-bases-v1';
 import { pintarSalida } from './vista.js?v=20261002-selectivos-bases-v1';
 import { cargarTextos } from '../../../../comun/textos.js';
-import { INDICE_IDIOMAS, IDIOMA_ACTUAL, leerRecursoJSON } from '../../../../comun/idioma.js';
+import { INDICE_IDIOMAS, leerRecursoJSON } from '../../../../comun/idioma.js';
 
 const archivo = document.querySelector('#bases-archivo'); const estado = document.querySelector('#bases-estado');
 const raiz = document.querySelector('#bases-resultados'); const descargar = document.querySelector('#bases-descargar');
@@ -68,7 +68,8 @@ try {
 } catch {
   // Un catálogo ausente no habilita un visor sin límites comprensibles.
   archivo.disabled = true; ayuda.disabled = true; estado.setAttribute('role', 'alert');
-  const respaldo = await leerRecursoJSON(new URL(`../../../../textos/${IDIOMA_ACTUAL}/seleccion-bases-preparacion-error.json`, import.meta.url))
+  const respaldo = await cargarTextos('seleccion-bases-preparacion-error', textos ? { idioma: textos.idioma } : {})
+    .then(t => ({ idioma: t.idioma, titulo: t.traducir('titulo'), mensaje: t.traducir('mensaje') }))
     .catch(() => leerRecursoJSON(new URL('./error-catalogo.json', import.meta.url))).catch(() => null);
   if (respaldo) { estado.textContent = respaldo.mensaje; document.documentElement.lang = respaldo.idioma; document.title = respaldo.titulo; document.querySelector('h1').textContent = respaldo.titulo; }
 }

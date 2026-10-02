@@ -33,19 +33,23 @@ def main():
                 pagina.on("pageerror", lambda e: errores.append(str(e)))
                 pagina.on("request", lambda r: peticiones.append(r.url))
                 pagina.on("dialog", lambda d: (dialogos.append(d.message), d.dismiss()))
-                if "--indice-404" in sys.argv:
-                    recursos.pop("/textos/idiomas.json")
-                    assert pagina.goto(origen + entrada + "?lang=es").status == 200
-                    pagina.wait_for_function("() => document.querySelector('#bases-estado').textContent.includes('No se han podido cargar los textos')")
+                if "--indice-404" in sys.argv or "--catalogo-404" in sys.argv:
+                    indice_fallido = "--indice-404" in sys.argv
+                    recursos.pop("/textos/idiomas.json" if indice_fallido else "/textos/es/seleccion-bases-preparacion.json")
+                    idioma_respaldo = "es" if indice_fallido else "en"
+                    assert pagina.goto(origen + entrada + "?lang=" + idioma_respaldo).status == 200
+                    pagina.wait_for_function("() => document.querySelector('#bases-estado').textContent !== ''")
+                    assert ("No se han podido cargar los textos" if indice_fallido else "could not be loaded") in pagina.locator("#bases-estado").inner_text()
                     assert pagina.locator("#bases-archivo").is_disabled()
                     assert pagina.locator("#bases-descargar").is_disabled()
-                    assert pagina.title() == "Preparación de bases"
-                    assert pagina.get_by_role("heading", name="Preparación de bases").count() == 1
-                    assert pagina.locator("html").get_attribute("lang") == "es"
+                    titulo_respaldo = "Preparación de bases" if indice_fallido else "Preparing selection rules"
+                    assert pagina.title() == titulo_respaldo
+                    assert pagina.get_by_role("heading", name=titulo_respaldo).count() == 1
+                    assert pagina.locator("html").get_attribute("lang") == idioma_respaldo
                     assert not errores and not dialogos, (errores, dialogos)
                     assert all(u.startswith(origen + "/") for u in peticiones)
                     navegador.close()
-                    print(json.dumps({"chrome_indice_404": "OK", "visor_deshabilitado": True, "aviso_desde_catalogo": True}))
+                    print(json.dumps({"chrome_fallback_404": "indice" if indice_fallido else "catalogo", "visor_deshabilitado": True, "aviso_desde_catalogo": True}))
                     return
                 assert pagina.goto(origen + entrada + "?lang=es").status == 200
                 archivo = pagina.locator("#bases-archivo")
