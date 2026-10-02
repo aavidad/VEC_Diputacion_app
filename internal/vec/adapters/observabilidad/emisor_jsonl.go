@@ -63,6 +63,7 @@ type OpcionesEmisor struct {
 type elementoCola struct {
 	clasificacion domain.ClasificacionIncidenciaTecnica
 	instante      time.Time
+	correlacion   string
 }
 
 // EmisorJSONLines es seguro para uso concurrente. Un puntero nil es un
@@ -83,11 +84,12 @@ type EmisorJSONLines struct {
 	cerrado atomic.Bool
 	enVuelo atomic.Int64
 
-	aceptadas       atomic.Uint64
-	descartadas     atomic.Uint64
-	saneadas        atomic.Uint64
-	escritas        atomic.Uint64
-	fallosEscritura atomic.Uint64
+	aceptadas         atomic.Uint64
+	descartadas       atomic.Uint64
+	saneadas          atomic.Uint64
+	escritas          atomic.Uint64
+	fallosEscritura   atomic.Uint64
+	fallosCorrelacion atomic.Uint64
 
 	// Solo los usa el trabajador.
 	descartesInformados uint64
@@ -95,9 +97,9 @@ type EmisorJSONLines struct {
 }
 
 var (
-	_ ports.EmisorIncidenciasTecnicas          = (*EmisorJSONLines)(nil)
-	_ ports.ConsultaMetricasEmisionIncidencias = (*EmisorJSONLines)(nil)
-	_ ports.CierreEmisionIncidencias           = (*EmisorJSONLines)(nil)
+	_ ports.EmisorIncidenciasTecnicasConContexto = (*EmisorJSONLines)(nil)
+	_ ports.ConsultaMetricasEmisionIncidencias   = (*EmisorJSONLines)(nil)
+	_ ports.CierreEmisionIncidencias             = (*EmisorJSONLines)(nil)
 )
 
 // NuevoEmisorJSONLines crea el emisor y arranca su trabajador. Debe cerrarse
@@ -143,6 +145,12 @@ func NuevoEmisorJSONLines(o OpcionesEmisor) (*EmisorJSONLines, error) {
 
 // Emitir sanea la solicitud y la encola sin bloquear. Nunca hace E/S.
 func (e *EmisorJSONLines) Emitir(s domain.SolicitudIncidenciaTecnica) {
+	e.EmitirConContexto(nil, s)
+}
+
+// EmitirConContexto copia únicamente la correlación interna antes de encolar.
+// No retiene contexto ni genera aleatoriedad o hace E/S en el llamante.
+func (e *EmisorJSONLines) EmitirConContexto(ctx context.Context, s domain.SolicitudIncidenciaTecnica) {
 	if e == nil {
 		return
 	}
@@ -156,8 +164,9 @@ func (e *EmisorJSONLines) Emitir(s domain.SolicitudIncidenciaTecnica) {
 		return
 	}
 	clasificacion, saneada := domain.ClasificarIncidenciaTecnica(s)
+	correlacion, _ := ports.CorrelacionIncidenciasPeticion(ctx)
 	select {
-	case e.cola <- elementoCola{clasificacion: clasificacion, instante: e.reloj()}:
+	case e.cola <- elementoCola{clasificacion: clasificacion, instante: e.reloj(), correlacion: correlacion}:
 		e.aceptadas.Add(1)
 		if saneada {
 			e.saneadas.Add(1)
@@ -173,12 +182,13 @@ func (e *EmisorJSONLines) MetricasEmision() ports.MetricasEmisionIncidencias {
 		return ports.MetricasEmisionIncidencias{}
 	}
 	return ports.MetricasEmisionIncidencias{
-		Aceptadas:        e.aceptadas.Load(),
-		Descartadas:      e.descartadas.Load(),
-		Saneadas:         e.saneadas.Load(),
-		Escritas:         e.escritas.Load(),
-		FallosEscritura:  e.fallosEscritura.Load(),
-		PendientesEnCola: uint64(len(e.cola)),
+		Aceptadas:         e.aceptadas.Load(),
+		Descartadas:       e.descartadas.Load(),
+		Saneadas:          e.saneadas.Load(),
+		Escritas:          e.escritas.Load(),
+		FallosEscritura:   e.fallosEscritura.Load(),
+		FallosCorrelacion: e.fallosCorrelacion.Load(),
+		PendientesEnCola:  uint64(len(e.cola)),
 	}
 }
 
@@ -218,14 +228,14 @@ func (e *EmisorJSONLines) trabajar() {
 	for {
 		select {
 		case elemento := <-e.cola:
-			e.escribir(elemento.clasificacion, elemento.instante)
+			e.escribir(elemento.clasificacion, elemento.instante, elemento.correlacion)
 		case <-temporizador.C:
 			e.informarDescartes()
 		case <-e.parar:
 			for {
 				select {
 				case elemento := <-e.cola:
-					e.escribir(elemento.clasificacion, elemento.instante)
+					e.escribir(elemento.clasificacion, elemento.instante, elemento.correlacion)
 				default:
 					e.informarDescartes()
 					return
@@ -248,7 +258,7 @@ func (e *EmisorJSONLines) informarDescartes() {
 	if nuevos < uint64(recuento) {
 		recuento = uint32(nuevos)
 	}
-	e.escribir(domain.ClasificacionRecoleccionDegradada(domain.EtapaIncidenciaEmision, recuento), e.reloj())
+	e.escribir(domain.ClasificacionRecoleccionDegradada(domain.EtapaIncidenciaEmision, recuento), e.reloj(), "")
 }
 
 // lineaIncidencia es la lista blanca serializada; no admite otros campos.
@@ -268,8 +278,15 @@ type lineaIncidencia struct {
 
 const formatoInstante = "2006-01-02T15:04:05.000Z"
 
-func (e *EmisorJSONLines) escribir(c domain.ClasificacionIncidenciaTecnica, instante time.Time) {
-	incidencia := domain.NuevaIncidenciaTecnica(c, instante, e.entorno, e.version, e.nuevaCorrelacion())
+func (e *EmisorJSONLines) escribir(c domain.ClasificacionIncidenciaTecnica, instante time.Time, correlacion string) {
+	if correlacion == "" {
+		correlacion = e.nuevaCorrelacion()
+		if correlacion == "" {
+			e.fallosCorrelacion.Add(1)
+			return
+		}
+	}
+	incidencia := domain.NuevaIncidenciaTecnica(c, instante, e.entorno, e.version, correlacion)
 	linea := lineaIncidencia{
 		Esquema:        incidencia.Esquema,
 		Instante:       incidencia.Instante.Format(formatoInstante),
@@ -297,8 +314,8 @@ func (e *EmisorJSONLines) escribir(c domain.ClasificacionIncidenciaTecnica, inst
 }
 
 // nuevaCorrelacion genera 128 bits aleatorios sin relación con ningún dato
-// de la petición o de la persona. Si la fuente falla, el dominio la
-// sustituye por ceros: nunca se inventa una correlación derivada.
+// de la petición o de la persona. Si la fuente falla, no se escribe la
+// incidencia y se contabiliza: nunca se inventa una correlación compartida.
 func (e *EmisorJSONLines) nuevaCorrelacion() string {
 	var bruto [16]byte
 	if _, err := io.ReadFull(e.aleatorio, bruto[:]); err != nil {
