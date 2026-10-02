@@ -20,6 +20,7 @@ type Textos struct {
 	Conceptos  map[string]string `json:"conceptos"`
 	Tipos      map[string]string `json:"tipos"`
 	TiposGasto map[string]string `json:"tipos_gasto,omitempty"`
+	Familias   map[string]string `json:"familias"`
 	Motivos    map[string]string `json:"motivos"`
 }
 
@@ -58,6 +59,9 @@ type Rotulos struct {
 	Linea                string `json:"linea"`
 	Regla                string `json:"regla"`
 	TablaAyuda           string `json:"tabla_ayuda"`
+	Resumen              string `json:"resumen"`
+	Familia              string `json:"familia"`
+	ResumenAyuda         string `json:"resumen_ayuda"`
 	FechaGasto           string `json:"fecha_gasto,omitempty"`
 	DescripcionDeclarada string `json:"descripcion_declarada,omitempty"`
 	JustificanteRef      string `json:"justificante_ref,omitempty"`
@@ -99,12 +103,22 @@ func (t Textos) validar() error {
 		return ErrTextos
 	}
 	r := t.Rotulos
+	for _, s := range []string{r.Resumen, r.Familia, r.ResumenAyuda} {
+		if !texto(s) {
+			return ErrTextos
+		}
+	}
+	for _, codigo := range familiasInforme {
+		if !texto(t.Familias[codigo]) {
+			return ErrTextos
+		}
+	}
 	for _, s := range []string{r.Titulo, r.Estado, r.Limite, r.Comision, r.Grupo, r.ReferenciaComision, r.Version, r.Conceptos, r.Concepto, r.Inicial, r.Propuesto, r.Diferencia, r.Motivo, r.Total, r.SinReduccion, r.Detalle, r.Catalogo, r.Tarifa, r.Fuentes, r.DocumentoHuella, r.CatalogoHuella, r.PreparacionHuella, r.HuellaLimite, r.Reglas, r.Linea, r.Regla, r.TablaAyuda} {
 		if !texto(s) {
 			return ErrTextos
 		}
 	}
-	for _, dic := range []map[string]string{t.Conceptos, t.Tipos, t.Motivos} {
+	for _, dic := range []map[string]string{t.Conceptos, t.Tipos, t.Motivos, t.Familias} {
 		if len(dic) == 0 || len(dic) > 128 {
 			return ErrTextos
 		}

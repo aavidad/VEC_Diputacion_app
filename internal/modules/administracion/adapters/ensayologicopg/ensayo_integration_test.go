@@ -52,6 +52,7 @@ func TestEnsayoLogicoPostgreSQL18Aislado(t *testing.T) {
 		}
 		comprobarLimitesResultado(t, resultado)
 	})
+	t.Run("observador_antes_de_limpieza", func(t *testing.T) { verificarObservadores(t, context.Background(), config, dumpValido, globals) })
 	t.Run("version_distinta_rechazada_antes_de_sql", func(t *testing.T) {
 		otraVersion := config
 		otraVersion.VersionPostgreSQL = "18.3"
@@ -119,7 +120,7 @@ func nuevoOrigenSintetico(t *testing.T, imagen string) *origenSintetico {
 	if _, err := rand.Read(aleatorio[:]); err != nil {
 		t.Fatal(err)
 	}
-	datos, err := os.MkdirTemp("/dev/shm", "vec-cs06l-fuente-")
+	datos, err := os.MkdirTemp("/var/tmp", "vec-cs06l-fuente-")
 	if err != nil {
 		t.Fatalf("crear PGDATA propio de la fuente: %v", err)
 	}

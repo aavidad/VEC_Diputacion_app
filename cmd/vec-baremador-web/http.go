@@ -17,6 +17,7 @@ import (
 
 const entradaWeb = "/portal-empleado/modulos/bolsa/baremo/"
 const entradaProvision = "/portal-empleado/modulos/provision/"
+const entradaSeleccion = "/portal-empleado/modulos/seleccion/"
 
 var recursos = []string{
 	"/portal-empleado/modulos/bolsa/baremo/index.html",
@@ -38,6 +39,16 @@ var recursos = []string{
 	"/portal-empleado/modulos/provision/ensayos-modelo.js",
 	"/portal-empleado/modulos/provision/ensayos-vista.js",
 	"/portal-empleado/modulos/provision/ensayos-cliente.js",
+	"/portal-empleado/modulos/seleccion/index.html",
+	"/portal-empleado/modulos/seleccion/seleccion.css",
+	"/portal-empleado/modulos/seleccion/entrada.js",
+	"/portal-empleado/modulos/seleccion/cliente.js",
+	"/portal-empleado/modulos/seleccion/configuracion.js",
+	"/portal-empleado/modulos/seleccion/estado.js",
+	"/portal-empleado/modulos/seleccion/dom.js",
+	"/portal-empleado/modulos/seleccion/formulario.js",
+	"/portal-empleado/modulos/seleccion/resultado.js",
+	"/portal-empleado/modulos/seleccion/montaje.js",
 	"/portal-empleado/portal.css", "/portal-empleado/portal-componentes.css",
 	"/portal-empleado/portal-patrones.css", "/portal-empleado/portal-flujos.css", "/portal-empleado/portal-modulos.css",
 	"/comun/tema-vec.css", "/comun/textos.js", "/comun/idioma.js",
@@ -107,7 +118,7 @@ func cargarRecursos(dir string) (map[string]recurso, error) {
 			return nil, errors.New("indice_idiomas_invalido")
 		}
 		vistos[idioma.Codigo] = true
-		for _, catalogo := range []string{"baremo-bolsa", "baremo-concursos", "provision"} {
+		for _, catalogo := range []string{"baremo-bolsa", "baremo-concursos", "provision", "seleccion"} {
 			if err := cargar("/textos/" + idioma.Codigo + "/" + catalogo + ".json"); err != nil {
 				return nil, err
 			}
@@ -115,6 +126,7 @@ func cargarRecursos(dir string) (map[string]recurso, error) {
 	}
 	salida[entradaWeb] = salida[entradaWeb+"index.html"]
 	salida[entradaProvision] = salida[entradaProvision+"index.html"]
+	salida[entradaSeleccion] = salida[entradaSeleccion+"index.html"]
 	return salida, nil
 }
 
@@ -130,7 +142,7 @@ func nuevoHandler(host string, assets map[string]recurso) http.Handler {
 			responderError(w, http.StatusForbidden, "origen_no_admitido")
 			return
 		}
-		if r.URL.RawQuery != "" && (r.URL.Path == "/simular" || strings.HasPrefix(r.URL.Path, "/api/provision/")) {
+		if r.URL.RawQuery != "" && (r.URL.Path == "/simular" || strings.HasPrefix(r.URL.Path, "/api/provision/") || strings.HasPrefix(r.URL.Path, "/api/seleccion/")) {
 			responderError(w, http.StatusBadRequest, "solicitud_invalida")
 			return
 		}
@@ -166,6 +178,11 @@ func nuevoHandler(host string, assets map[string]recurso) http.Handler {
 			_ = json.NewEncoder(w).Encode(struct {
 				Ejemplos []provision.Ejemplo `json:"ejemplos"`
 			}{ejemplos})
+		case "/api/seleccion/v1/ensayos":
+			if !metodo(w, r, http.MethodGet) {
+				return
+			}
+			configurarSeleccionLocal(w)
 		case rutaProcesosLocales:
 			if !metodo(w, r, http.MethodGet) {
 				return
@@ -180,7 +197,7 @@ func nuevoHandler(host string, assets map[string]recurso) http.Handler {
 			} else {
 				configurarCiclosLocales(w)
 			}
-		case "/simular", "/api/provision/v1/simulaciones", rutaSimulacionProceso, rutaSimularAdjudicacion, rutaSimularCiclo:
+		case "/simular", "/api/provision/v1/simulaciones", rutaSimulacionProceso, rutaSimularAdjudicacion, rutaSimularCiclo, "/api/seleccion/v1/simulaciones":
 			if !metodo(w, r, http.MethodPost) {
 				return
 			}
@@ -210,6 +227,10 @@ func nuevoHandler(host string, assets map[string]recurso) http.Handler {
 					estado = http.StatusRequestEntityTooLarge
 				}
 				responderError(w, estado, "solicitud_invalida")
+				return
+			}
+			if r.URL.Path == "/api/seleccion/v1/simulaciones" {
+				simularSeleccionLocal(w, b)
 				return
 			}
 			if r.URL.Path == "/api/provision/v1/simulaciones" {

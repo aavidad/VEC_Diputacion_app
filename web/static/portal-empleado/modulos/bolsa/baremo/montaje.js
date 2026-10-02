@@ -1,11 +1,11 @@
 import { cargarTextos } from "/comun/textos.js";
 import { leerRecursoJSON } from "/comun/idioma.js";
 import { crearClienteBaremo } from "../baremo-cliente.js?v=20261001-concursos-v6";
-import { crearEditorBaremo, leerReglas, aMicropuntos, MAXIMO_ARCHIVO, comprobarCatalogoJornada, normalizarMinimoFormacion, comprobarCatalogoRestos, errorRestosRegla } from "../baremo-editor.js?v=20261002-g-restos-v1";
-import { renderizarPanelesBaremo } from "../baremo-vista.js?v=20261002-g-restos-v1";
+import { crearEditorBaremo, leerReglas, aMicropuntos, MAXIMO_ARCHIVO, comprobarCatalogoJornada, normalizarMinimoFormacion, comprobarCatalogoRestos, errorRestosRegla } from "../baremo-editor.js?v=20261002-a-restos-recuperacion-v1";
+import { renderizarPanelesBaremo } from "../baremo-vista.js?v=20261002-a-restos-recuperacion-v1";
 import { crearClienteConcursos } from "../concursos-cliente.js?v=20261001-g-concursos-topes-v2";
-import { renderizarConcursos } from "../concursos-vista.js?v=20261002-g-restos-v1";
-import { montarConcursos } from "../concursos-montaje.js?v=20261002-g-restos-v1";
+import { renderizarConcursos } from "../concursos-vista.js?v=20261002-a-restos-recuperacion-v1";
+import { montarConcursos } from "../concursos-montaje.js?v=20261002-a-restos-recuperacion-v1";
 const [textos, textosConcursos, datosJornada, datosRestos] = await Promise.all([cargarTextos("baremo-bolsa"), cargarTextos("baremo-concursos"),
   leerRecursoJSON(new URL("/catalogos/baremo-jornada-v1.json", import.meta.url)).catch(() => null),
   leerRecursoJSON(new URL("/catalogos/baremo-restos-v1.json", import.meta.url)).catch(() => null)]);

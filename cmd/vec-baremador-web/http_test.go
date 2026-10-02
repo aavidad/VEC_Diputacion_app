@@ -117,6 +117,9 @@ func TestRecursosCerradosYSinEscape(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "catalogos/baremo-restos-v1.json"), []byte(restos), 0600); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.WriteFile(filepath.Join(dir, "textos/zz/seleccion.json"), []byte(`{}`), 0600); err != nil {
+		t.Fatal(err)
+	}
 	assets, err := cargarRecursos(dir)
 	if err != nil {
 		t.Fatal(err)
@@ -124,6 +127,10 @@ func TestRecursosCerradosYSinEscape(t *testing.T) {
 	w := request(nuevoHandler(hostPrueba, assets), "GET", entradaWeb, "", nil)
 	if w.Code != 200 {
 		t.Fatal(w.Code)
+	}
+	w = request(nuevoHandler(hostPrueba, assets), "GET", entradaSeleccion, "", nil)
+	if w.Code != 200 || w.Header().Get("Cache-Control") != "no-store" {
+		t.Fatal("entrada del ensayo de selección no disponible")
 	}
 	if _, ok := assets["/textos/zz/baremo-bolsa.json"]; !ok {
 		t.Fatal("idioma del índice omitido")
