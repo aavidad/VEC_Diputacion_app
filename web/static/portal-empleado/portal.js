@@ -21,7 +21,7 @@ import { aplicarIdiomaDocumento, aplicarTextosPortal, instalarSelectorIdiomaPort
 import { crearControladorBolsas } from "./portal-bolsas-api.js?v=20261002-r-rrhh18-v2";
 import { crearSuperficieBorradorLlamamiento } from "./portal-borrador-llamamiento-ui.js?v=20261001-ct-a-i18n-v1";
 import { consultarAvisosBolsa, manejarAccionAvisos } from "./portal-bolsas-avisos.js?v=20261001-ct-a-i18n-v1";
-import { crearSuperficieOfertasBolsa } from "./portal-bolsas-ofertas.js?v=20261002-r2-post401-v2";
+import { crearSuperficieOfertasBolsa } from "./portal-bolsas-ofertas.js?v=20261002-r-rrhh18-v2";
 import { crearSuperficieRRHHPlazos } from "./modulos/bolsa/rrhh-plazos-ui.js?v=20261002-r2-post401-v2";
 import { crearFuenteAuditoriaHTTP } from "./modulos/auditoria/cliente-http.js?v=20260928-usab-auditoria-v2";
 import { montarVistaAuditoria } from "./modulos/auditoria/vista.js?v=20261001-ct-a-i18n-v1";

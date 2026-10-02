@@ -1,6 +1,6 @@
 import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
 import { instanteDesdeHoraMadrid } from "./hora-madrid.js";
-import { referenciaContieneDocumentoIdentidad } from "./portal-bolsas-operaciones.js?v=20261002-a-recuperar-379-v1";
+import { referenciaContieneDocumentoIdentidad } from "./portal-bolsas-operaciones.js?v=20261002-r-rrhh18-v2";
 // Ofertas publicadas de una bolsa (Petición RRHH 3.06 y 3.07; Reglamento de
 // bolsas, art. 8.1): RRHH publica la oferta con su número de plazas; al vencer
 // el plazo para ofrecerse, VEC propone plaza a plaza a la siguiente persona
