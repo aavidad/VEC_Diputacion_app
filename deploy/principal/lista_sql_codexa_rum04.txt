@@ -1,0 +1,7 @@
+# Requiere POST155 y AD161 publicada e instalada una sola vez; no reaplicarlas.
+# También requiere Meritos1 instalado. Recuperar el hecho existente por su autoridad.
+# Instalar sólo los objetos de esta candidata confirmados ausentes.
+deploy/postgresql/meritos/roles_consulta_propia_up.sql
+deploy/postgresql/autorizacion/migraciones/000029_acreditar_intento_consulta_meritos_v1.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000145_consulta_hecho_propio_meritos.up.sql
+deploy/postgresql/meritos/migraciones/000002_consulta_hecho_propio_v1.up.sql
