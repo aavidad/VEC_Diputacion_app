@@ -1,9 +1,9 @@
 \set ON_ERROR_STOP on
 -- AD3-151. Consulta nominal del circuito RRHH de Contratación temporal.
--- Preimagen de objetos real: núcleo post-AD142 y CHECK de audiencias,
--- capturados en PostgreSQL18.4 y restaurados completos en un clon propio.
--- No depende de una numeración posterior: otra ampliación de estos mismos
--- objetos debe secuenciarse y revalidar las huellas exactas antes de instalar.
+-- Preimagen causal: núcleo y audiencia post-AD149, después de AD136,
+-- AD142 y AD144. El clon hito1 + H3 + H4 carece de esa postimagen.
+-- Requiere esa postimagen exacta: otra ampliación de estos mismos objetos
+-- debe secuenciarse y revalidar las huellas antes de instalar.
 -- La provisión de perfiles fijos mediante huella/CAS precede al uso; esta migración
 -- no publica concesiones, no asigna perfiles ni crea permisos durante una petición.
 -- Los actos normales del expediente conservan sus consumidores y permisos previos.
@@ -23,6 +23,8 @@ BEGIN
   RAISE EXCEPTION 'AD3-151: PARO clave=rol_sql actual=% esperado=vec_autorizacion_atestada_v3_propietario',current_user USING ERRCODE='55000'; END IF;
  v_instalada:=to_regclass('vec_autorizacion_atestada_v3.clave_capacidad_version') IS NOT NULL;
  IF NOT v_instalada THEN RAISE EXCEPTION 'AD3-151: PARO clave=tabla_clave_capacidad_instalada actual=false esperado=true' USING ERRCODE='55000'; END IF;
+ v_instalada:=to_regprocedure('vec_autorizacion_atestada_v3.consumir_vinculo_propio_crn11_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL;
+ IF NOT v_instalada THEN RAISE EXCEPTION 'AD3-151: PARO clave=consumidor_ad149_instalado actual=false esperado=true' USING ERRCODE='55000'; END IF;
  v_instalada:=to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_consulta_circuito_ct_v3_atestada(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL;
  IF v_instalada THEN RAISE EXCEPTION 'AD3-151: PARO clave=fachada_circuito_ya_instalada actual=true esperado=false' USING ERRCODE='55000'; END IF;
  FOREACH rol IN ARRAY ARRAY['vec_contratacion_temporal_propietario','vec_contratacion_temporal_ejecutor','vec_contratacion_temporal_migrador'] LOOP
@@ -37,9 +39,9 @@ DECLARE
  f oid:=to_regprocedure('vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
  original text; nuevo text; actual text; fuente text; meta jsonb; deps jsonb; deps_compartidas jsonb; acl aclitem[];
  propietario oid; config text[]; definidora boolean;
- -- Preimagen real post-AD142: definición/fuente íntegras, sin reconstrucción parcial.
- esperada_def_sha256 text:='202b1580f00e1618e0fb311dcf0911992e56d9eb5f17bc642d58c73768f360f1';
- esperada_fuente_sha256 text:='4a98b94be7e198a6c1e364949e60f35f39b2e5bf931bc361b1adb52a12a94905';
+ -- Postimagen AD149 publicada: definición/fuente íntegras, sin reconstrucción parcial.
+ esperada_def_sha256 text:='8efb8ae6ceffc5d3c3736a1b8b83543dd6a083eb0ae03eb8f0f4a1e2d3e9b232';
+ esperada_fuente_sha256 text:='da14ce5ef628586ebc1280cd62e6b7da1f57fea9c9b6f6f4233fbecd84c558b9';
  marca text:=E'       )\n       OR c ->> ''suite'' <> ''VEC-AD-3-COSE-EDDSA-1''';
  extension text:=$x$           OR (
  p_perfil_mutacion IS NOT DISTINCT FROM 'ct_circuito_consultar'
@@ -130,7 +132,7 @@ END $nucleo$;
 
 LOCK TABLE vec_autorizacion_atestada_v3.clave_capacidad_version IN ACCESS EXCLUSIVE MODE;
 DO $audiencias$
-DECLARE d text; esperada_audiencia_sha256 text:='d5c8048786b283485016af29fba41ff68b93076ba4f37f2badfa6bb7d5532fd9'; a text;
+DECLARE d text; esperada_audiencia_sha256 text:='3ed762b21ac10a8b2c8076c4832b57545f1e3ef93ebd41cf11939466e6b36802'; a text;
 BEGIN
  SELECT pg_get_constraintdef(c.oid,true) INTO d
  FROM pg_constraint c WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
