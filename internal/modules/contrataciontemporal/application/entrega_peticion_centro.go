@@ -4,6 +4,7 @@ import (
 	"context"
 	"reflect"
 
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
 
@@ -40,10 +41,16 @@ func (s *ServicioEntregaPeticionCentro) Entregar(ctx context.Context, c ports.Co
 		return vacia, ports.ErrReciboPeticionCentroNoConfiable
 	}
 	if e.EstadoEntrega == "confirmada" {
+		if c.NumeroExpedienteMOAD != "" && c.NumeroExpedienteMOAD != e.ReciboAlta.NumeroVisible {
+			return vacia, ports.ErrEntregaPeticionEnConflicto
+		}
 		return e, nil
 	}
 	if err := ctx.Err(); err != nil {
 		return vacia, err
+	}
+	if !domain.NumeroExpedienteValido(c.NumeroExpedienteMOAD) {
+		return vacia, domain.ErrPeticionCentroInvalida
 	}
 	// Copia defensiva: el adaptador no puede modificar el original ratificado.
 	copia := e
@@ -51,7 +58,7 @@ func (s *ServicioEntregaPeticionCentro) Entregar(ctx context.Context, c ports.Co
 	if err != nil {
 		return vacia, err
 	}
-	alta, err := s.registro.RegistrarExpedientePeticion(ctx, copia)
+	alta, err := s.registro.RegistrarExpedientePeticion(ctx, copia, c.NumeroExpedienteMOAD)
 	if err != nil {
 		return vacia, err
 	}

@@ -98,7 +98,7 @@ func contextoCanalValidoPrueba() application.SolicitudRegistrarExpediente {
 func reciboValidoPrueba() ports.ReciboAlta {
 	return ports.ReciboAlta{
 		ExpedienteRef: "expediente:ct:0001",
-		NumeroVisible: "2026/CT-0001",
+		NumeroVisible: "2026/5487",
 		Version:       1,
 		ReciboRef:     "recibo:ct:0001",
 		AuditoriaRef:  "auditoria:ct:0001",
@@ -110,6 +110,7 @@ func reciboValidoPrueba() ports.ReciboAlta {
 func cuerpoValidoPrueba() []byte {
 	return []byte(`{
 		"clave_idempotencia":"4d36e96e-e325-4f9b-bebc-291d91d6f732",
+		"numero_expediente_moad":"2026/5487",
 		"solicitud":{
 			"centro_ref":"centro:solicitante:001",
 			"contacto_ref":"contacto:opaco:001",

@@ -19,11 +19,15 @@ var ErrEntregaPeticionEnConflicto = errors.New("contratacion temporal: entrega d
 // La referencia de petición identifica la operación. El servidor reserva una
 // sola clave de alta; el navegador nunca elige una clave, un actor o los datos.
 type ComandoEntregarPeticionCentro struct {
-	PeticionRef     string `json:"peticion_ref"`
-	VersionEsperada uint64 `json:"version_esperada"`
+	NumeroExpedienteMOAD string `json:"numero_expediente_moad,omitempty"`
+	PeticionRef          string `json:"peticion_ref"`
+	VersionEsperada      uint64 `json:"version_esperada"`
 }
 
 func (c ComandoEntregarPeticionCentro) Validar() error {
+	if c.NumeroExpedienteMOAD != "" && !domain.NumeroExpedienteValido(c.NumeroExpedienteMOAD) {
+		return domain.ErrPeticionCentroInvalida
+	}
 	if !domain.ReferenciaOpacaValida(c.PeticionRef) || c.VersionEsperada != 2 {
 		return domain.ErrPeticionCentroInvalida
 	}
@@ -100,7 +104,7 @@ func (m MaterialEntregaPeticionCentro) Validar() error {
 		}
 		return nil
 	}
-	if (ComandoEntregarPeticionCentro{m.PeticionRef, m.VersionEsperada}).Validar() != nil {
+	if (ComandoEntregarPeticionCentro{PeticionRef: m.PeticionRef, VersionEsperada: m.VersionEsperada}).Validar() != nil {
 		return domain.ErrPeticionCentroInvalida
 	}
 	if !domain.ReferenciaOpacaValida(m.CentroRef) || !domain.ReferenciaOpacaValida(m.CategoriaRef) {
@@ -129,5 +133,5 @@ type RepositorioEntregasPeticionCentro interface {
 // El adaptador de composición llama al registro de solicitudes existente,
 // conservando su autorización, cifrado, idempotencia y transacción de alta.
 type RegistradorExpedientePeticionCentro interface {
-	RegistrarExpedientePeticion(context.Context, EntregaPeticionCentro) (AltaDePeticionCentro, error)
+	RegistrarExpedientePeticion(context.Context, EntregaPeticionCentro, string) (AltaDePeticionCentro, error)
 }

@@ -8,6 +8,7 @@ import (
 	"vec-diputacion-granada/config"
 	contratacioncomposicion "vec-diputacion-granada/internal/app/composicion/interna/contrataciontemporal"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/numeracion"
 	postgrescontratacion "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
 	seguridadcontratacion "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/seguridad"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
@@ -366,12 +367,12 @@ func nuevasDependenciasAltaContratacionTemporalDesarrollo(
 	if err != nil {
 		return vacias, err
 	}
-	contador, err := postgrescontratacion.NuevoContadorNumeroVisiblePostgreSQL(postgresql.ejecucion)
+	politicaNumero, err := numeracion.Cargar(cfg.CTNumeroExpedienteSourcePath)
 	if err != nil {
 		postgresql.cerrar()
 		return vacias, err
 	}
-	referencias := seguridadcontratacion.NuevoGeneradorReferenciasAltaCriptograficoConContador(contador)
+	referencias := seguridadcontratacion.NuevoGeneradorReferenciasAltaCriptografico()
 	recuperacionPoliticaFin, err := postgrescontratacion.NuevoRecuperadorPoliticaFinPostgreSQL(postgresql.ejecucion)
 	if err != nil {
 		postgresql.cerrar()
@@ -384,6 +385,10 @@ func nuevasDependenciasAltaContratacionTemporalDesarrollo(
 		autorizador, reloj, postgresql.transaccionAlta, soporte,
 	)
 	if err != nil {
+		postgresql.cerrar()
+		return vacias, err
+	}
+	if err := servicio.ConfigurarPoliticaNumeroExpediente(politicaNumero); err != nil {
 		postgresql.cerrar()
 		return vacias, err
 	}
