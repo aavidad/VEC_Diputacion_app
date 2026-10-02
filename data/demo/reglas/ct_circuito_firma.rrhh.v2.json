@@ -36,14 +36,15 @@
           "habilita": "remision_intervencion",
           "devolucion": "vuelve_a_redaccion",
           "sustitucion": "suplente_designado",
-          "duda": "Respondida por RRHH el 02/10/2026: respuesta 4. La firma corporativa requiere conectar el portafirmas."
+          "duda": "Respondida por RRHH el 02/10/2026: respuesta 4. La firma corporativa requiere conectar el portafirmas.",
+          "misma_persona_en_dos_pasos": "false"
         },
         "orden": 1
       },
       {
         "clave": "resolucion.p1",
-        "etiqueta": "Resolución: visto bueno de Jefatura",
-        "descripcion": "Visto bueno de Jefatura del Servicio de RRHH. Puede sustituirse por Dirección de RRHH mediante otra versión del catálogo.",
+        "etiqueta": "Resolución: visto bueno de Dirección o Jefatura",
+        "descripcion": "Visto bueno de la Dirección de RRHH o de la Jefatura del Servicio de RRHH; basta una de las dos competencias acreditadas.",
         "vigente_desde": "2026-10-02T00:00:00Z",
         "atributos": {
           "origen": "ejemplo",
@@ -52,14 +53,16 @@
           "documento": "resolucion",
           "documento_etiqueta": "Resolución de nombramiento o contratación",
           "paso": "1",
-          "cargo": "Jefatura del Servicio de RRHH",
+          "cargo": "Dirección de RRHH o Jefatura del Servicio de RRHH",
           "perfil_ref": "perfil:ct:jefatura_servicio_rrhh",
           "accion": "visto_bueno",
           "condicion": "borrador_generado",
           "habilita": "siguiente_paso",
           "devolucion": "vuelve_a_redaccion",
           "sustitucion": "suplente_designado",
-          "duda": "Respondida por RRHH el 02/10/2026: respuesta 4. La firma corporativa requiere conectar el portafirmas."
+          "duda": "Respondida por RRHH el 02/10/2026: respuesta 4. La firma corporativa requiere conectar el portafirmas.",
+          "perfiles_ref_alternativos": "perfil:ct:direccion_rrhh",
+          "misma_persona_en_dos_pasos": "false"
         },
         "orden": 2
       },
@@ -82,7 +85,8 @@
           "habilita": "cierre_circuito",
           "devolucion": "vuelve_paso_anterior",
           "sustitucion": "suplente_designado",
-          "duda": "Respondida por RRHH el 02/10/2026: respuesta 4. La firma corporativa requiere conectar el portafirmas."
+          "duda": "Respondida por RRHH el 02/10/2026: respuesta 4. La firma corporativa requiere conectar el portafirmas.",
+          "misma_persona_en_dos_pasos": "false"
         },
         "orden": 3
       }
