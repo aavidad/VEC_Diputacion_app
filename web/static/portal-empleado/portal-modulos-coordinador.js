@@ -15,7 +15,7 @@ import {
   componerDietasInternas,
   componerPersonalVisible,
   componerRegistroPersonal,
-} from "./portal-composicion-empleado.js?v=20261001-g364-reconciliar-v2";
+} from "./portal-composicion-empleado.js?v=20261002-codexe-d7c-web-v1";
 import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20261001-ct-a-i18n-v1";
 import {
   CLAVES_CARGA_MODULAR,
@@ -132,16 +132,17 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
     return Object.freeze({ clienteRPT, vistaRPT, clienteEstructura, vistaEstructura });
   },
   dietas: async () => {
-    const [contrato, recorridos, clienteBorradores, clienteAsignacion, calculador, mapa, clienteCircuito] = await Promise.all([
+    const [contrato, recorridos, clienteBorradores, clienteAsignacion, calculador, mapa, clienteCircuito, clienteRectificacion] = await Promise.all([
       import("./modulos/dietas/contrato.js"),
-      import("./modulos/dietas/vista-recorridos.js?v=20261001-f-reconciliacion-320-v1"),
+      import("./modulos/dietas/vista-recorridos.js?v=20261002-codexe-d7c-ux-v3"),
       import("./modulos/dietas/cliente-borradores-http.js?v=20260925-d5d6-v2"),
       import("./modulos/dietas/cliente-asignacion-http.js?v=20260925-d5d6-v1"),
       import("./modulos/dietas/calculador-rutas-http.js?v=20260925-d5d6-v1"),
       import("./modulos/dietas/mapa-ruta.js?v=20260929-i18n-dietas-v1"),
       import("./modulos/dietas/cliente-circuito-http.js?v=20261001-dietas-decision-v1"),
+      import("./modulos/dietas/cliente-rectificacion-http.js?v=20261002-codexe-d7c-web-v1"),
     ]);
-    return Object.freeze({ contrato, recorridos, clienteBorradores, clienteAsignacion, calculador, mapa, clienteCircuito });
+    return Object.freeze({ contrato, recorridos, clienteBorradores, clienteAsignacion, calculador, mapa, clienteCircuito, clienteRectificacion });
   },
   // Consulta del expediente documental (RRHH). El servidor sólo publica el
   // módulo cuando su montaje está compuesto; cada consulta la autoriza V3.

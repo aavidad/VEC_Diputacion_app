@@ -16,6 +16,7 @@ import (
 
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	personal "vec-diputacion-granada/internal/modules/personal/domain"
+	personalports "vec-diputacion-granada/internal/modules/personal/ports"
 )
 
 // descriptoresPreviosPersonalB2Prueba reúne todos los descriptores que ya
@@ -108,9 +109,27 @@ func TestDescriptoresPersonalB2ColisionRechazada(t *testing.T) {
 const huellaDescriptoresPreviosPersonalB2Prueba = "fa714537fd41f5abc4eaad911d6270baf2c0077663eee114a93d58768e17b505"
 
 func TestDescriptoresPreviosIntactosByteAByte(t *testing.T) {
+	// La huella fija la preimagen anterior a B2. D7c añadió estas cuatro
+	// audiencias después: deben existir una vez y no cambiar esa preimagen.
+	nuevasD7c := map[string]bool{
+		personalports.AudienciaSolicitarRectificacionDietas:              true,
+		personalports.AudienciaConsultarRectificacionDietas:              true,
+		personalports.AudienciaConsultarRectificacionesCompetentesDietas: true,
+		personalports.AudienciaResolverRectificacionDietas:               true,
+	}
+	encontradas := make(map[string]int, len(nuevasD7c))
 	var b strings.Builder
 	for _, d := range descriptoresPreviosPersonalB2Prueba() {
+		if nuevasD7c[d.Audiencia] {
+			encontradas[d.Audiencia]++
+			continue
+		}
 		fmt.Fprintf(&b, "%q|%q|%q|%q\n", d.Audiencia, d.Dominio, d.Prefijo, d.ProveedorNominal)
+	}
+	for audiencia := range nuevasD7c {
+		if encontradas[audiencia] != 1 {
+			t.Fatalf("descriptor D7c %s: esperado 1, encontrados %d", audiencia, encontradas[audiencia])
+		}
 	}
 	suma := sha256.Sum256([]byte(b.String()))
 	if got := hex.EncodeToString(suma[:]); got != huellaDescriptoresPreviosPersonalB2Prueba {
