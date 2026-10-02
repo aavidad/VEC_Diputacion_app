@@ -11,7 +11,7 @@ SELECT pg_advisory_xact_lock(hashtextextended('vec_bolsa_llamamientos:migracion:
 -- suspensión temporal ni publica una política; el catálogo la versiona.
 -- B73 es requisito: conserva sus guardas de exclusión y sanción viva.
 DO $preimagen$
-DECLARE n text; h text;
+DECLARE n text; h text; v_actual text;
 BEGIN
  FOR n,h IN SELECT * FROM (VALUES
  ('registrar_situacion_participacion_interna_b73','816f45f22f667a352820adc3d052e67a'),
@@ -20,7 +20,11 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace ns ON ns.oid=p.pronamespace
      WHERE ns.nspname='vec_bolsa_llamamientos' AND p.proname=n
        AND pg_get_userbyid(p.proowner)=current_user AND md5(p.prosrc)=h) THEN
-   RAISE EXCEPTION 'preimagen B76 incompatible: %',n USING ERRCODE='55000';
+   SELECT string_agg(md5(p.prosrc),',' ORDER BY p.oid) INTO v_actual
+     FROM pg_proc p JOIN pg_namespace ns ON ns.oid=p.pronamespace
+    WHERE ns.nspname='vec_bolsa_llamamientos' AND p.proname=n;
+   RAISE EXCEPTION 'preimagen B76 incompatible: clave=%, actual=%, esperado=%',
+     n,coalesce(v_actual,'ausente'),h USING ERRCODE='55000';
   END IF;
  END LOOP;
  IF to_regclass('vec_bolsa_llamamientos.operacion_situacion_participacion') IS NULL
@@ -122,7 +126,7 @@ BEGIN
  SELECT * INTO STRICT consumo FROM vec_autorizacion_atestada_v3.registrar_y_consumir_situacion_participacion_v3_atestada(p_capacidad,p_decision,p_motivo_autorizacion,p_contexto,p_persona_version,p_perfil_version,p_payload,p_sobre,p_evidencia,p_raiz);
  BEGIN decision:=convert_from(p_decision,'UTF8')::jsonb; EXCEPTION WHEN others THEN RAISE EXCEPTION USING ERRCODE='42501',MESSAGE='situacion no autorizada'; END;
  IF consumo.efecto_ref IS DISTINCT FROM p_participacion_ref OR consumo.consumo_nuevo IS NOT TRUE OR decision->>'principal_id' IS DISTINCT FROM p_actor OR decision->>'accion' IS DISTINCT FROM 'bolsa.situacion_participacion.cambiar' OR decision->>'modulo_id' IS DISTINCT FROM 'bolsa' OR decision->>'tipo_recurso' IS DISTINCT FROM 'participacion_bolsa' OR decision->>'finalidad' IS DISTINCT FROM 'gestion_situacion_participacion' OR decision->>'recurso_ref' IS DISTINCT FROM p_participacion_ref OR decision->'campos_permitidos' IS DISTINCT FROM '[]'::jsonb OR decision->'obligaciones' IS DISTINCT FROM '[]'::jsonb OR consumo.huella_efecto_sha256 IS DISTINCT FROM decision->>'contexto_recurso_huella_sha256' THEN RAISE EXCEPTION USING ERRCODE='42501',MESSAGE='situacion no autorizada'; END IF;
- IF EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.situacion_participacion s WHERE s.participacion_ref=p_participacion_ref AND s.clave_idempotencia=p_clave_idempotencia AND (s.situacion<>p_situacion OR s.motivo<>p_motivo OR s.fecha_disponible IS DISTINCT FROM p_fecha_disponible OR (p_operacion_b76 IS NOT NULL AND (s.actor IS DISTINCT FROM p_actor OR s.desde IS DISTINCT FROM p_desde)))) THEN RAISE EXCEPTION USING ERRCODE='VBS01', MESSAGE='clave idempotente reutilizada con otro comando'; END IF;
+ IF EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.situacion_participacion s WHERE s.participacion_ref=p_participacion_ref AND s.clave_idempotencia=p_clave_idempotencia AND (s.situacion<>p_situacion OR s.motivo<>p_motivo OR s.fecha_disponible IS DISTINCT FROM p_fecha_disponible OR (p_operacion_b76 IS NOT NULL AND s.actor IS DISTINCT FROM p_actor))) THEN RAISE EXCEPTION USING ERRCODE='VBS01', MESSAGE='clave idempotente reutilizada con otro comando'; END IF;
  IF EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.situacion_participacion s WHERE s.participacion_ref=p_participacion_ref AND s.clave_idempotencia=p_clave_idempotencia) THEN RETURN QUERY SELECT true, s.recibo_ref, s.situacion, s.desde, s.fecha_disponible FROM vec_bolsa_llamamientos.situacion_participacion s WHERE s.participacion_ref=p_participacion_ref AND s.clave_idempotencia=p_clave_idempotencia; RETURN; END IF;
  -- B76: el replay ya se comprobó con una autorización nueva. Las guardas
  -- siguientes rigen efectos nuevos; la historia anterior sigue recuperable.
@@ -233,6 +237,8 @@ BEGIN
    p_recibo_ref, p_registrada_en, p_capacidad, p_decision, p_motivo_autorizacion, p_contexto, p_persona_version,
    p_perfil_version, p_payload, p_sobre, p_evidencia, p_raiz, p_operacion = 'reactivar');
  IF v_cambio.reutilizada THEN
+  -- Los instantes desde/validada_en pertenecen a la primera ejecución;
+  -- un reintento autorizado conserva esos valores sin exigir el mismo reloj.
   IF v_previa.participacion_ref IS NULL OR v_previa.operacion <> p_operacion OR v_previa.justificante_tipo <> p_justificante_tipo
      OR v_previa.justificante_ref <> p_justificante_ref OR v_previa.justificante_sha256 <> p_justificante_sha256
      OR v_previa.validador <> p_validador OR v_previa.actor <> p_actor THEN
@@ -292,10 +298,11 @@ BEGIN
    p_recibo_ref, p_registrada_en, p_capacidad, p_decision, p_motivo_autorizacion, p_contexto, p_persona_version,
    p_perfil_version, p_payload, p_sobre, p_evidencia, p_raiz, p_operacion = 'regularizar',p_situacion_esperada_desde,p_operacion,p_causa_finalizada_en);
  IF v_cambio.reutilizada THEN
+  -- Los instantes desde/validada_en pertenecen a la primera ejecución;
+  -- un reintento autorizado conserva esos valores sin exigir el mismo reloj.
   IF v_previa.participacion_ref IS NULL OR v_previa.operacion <> p_operacion OR v_previa.justificante_tipo <> p_justificante_tipo
      OR v_previa.justificante_ref <> p_justificante_ref OR v_previa.justificante_sha256 <> p_justificante_sha256
      OR v_previa.validador <> p_validador OR v_previa.actor <> p_actor
-     OR v_previa.validada_en IS DISTINCT FROM p_validada_en
      OR v_previa.situacion_esperada_desde IS DISTINCT FROM p_situacion_esperada_desde
      OR v_previa.causa_finalizada_en IS DISTINCT FROM p_causa_finalizada_en THEN
    RAISE EXCEPTION USING ERRCODE='VBS01', MESSAGE='clave idempotente reutilizada con otra operacion';

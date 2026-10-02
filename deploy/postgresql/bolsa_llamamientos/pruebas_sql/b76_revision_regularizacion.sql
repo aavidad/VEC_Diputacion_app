@@ -22,7 +22,7 @@ END $f$;
 CREATE FUNCTION pg_temp.b76_operar(b text,p text,op text,t timestamptz,k text,esperada timestamptz,
  fin timestamptz DEFAULT NULL,doc text DEFAULT 'justificante:b76',actor_dec text DEFAULT 'persona:rrhh-b76',
  recurso_dec text DEFAULT NULL,cap bytea DEFAULT '\x00',validada timestamptz DEFAULT NULL,
- actor text DEFAULT 'persona:rrhh-b76',version integer DEFAULT 2)
+ actor text DEFAULT 'persona:rrhh-b76',version integer DEFAULT 2,desde_recibo_esperado timestamptz DEFAULT NULL)
 RETURNS text LANGUAGE plpgsql AS $f$
 DECLARE d bytea; r record;
 BEGIN
@@ -43,6 +43,9 @@ BEGIN
  cap,d,'\x00','\x00',1,1,convert_to(coalesce(recurso_dec,p),'UTF8'),'\x00','\x00','\x00');
  END IF;
  RESET ROLE;
+ IF desde_recibo_esperado IS NOT NULL AND r.desde IS DISTINCT FROM desde_recibo_esperado THEN
+  RAISE EXCEPTION 'B76 recibo no conserva el instante original';
+ END IF;
  RETURN CASE WHEN r.reutilizada THEN 'replay:' ELSE 'nuevo:' END||r.recibo_ref||':'||r.situacion;
 EXCEPTION WHEN OTHERS THEN RESET ROLE; RETURN 'error:'||SQLSTATE;
 END $f$;
@@ -141,10 +144,22 @@ BEGIN
  'error:VBS01','replay fin causa alterado');
  PERFORM pg_temp.b76_assert(pg_temp.b76_operar(b,p,'regularizar',t+interval '2 second','b76:regularizacion',legacy,t),
  'error:VBS01','replay CAS alterado');
- PERFORM pg_temp.b76_assert(pg_temp.b76_operar(b,p,'regularizar',t+interval '2 second','b76:regularizacion',ultima,t,
- validada=>t+interval '1 second'),'error:VBS01','replay validación alterada');
- PERFORM pg_temp.b76_assert(pg_temp.b76_operar(b,p,'regularizar',t+interval '2 second','b76:regularizacion',ultima,t,
- cap=>'\x01'),'error:42501','replay autorización retirada');
+ -- Retry de la petición real: Go toma de nuevo ambos instantes del reloj.
+ PERFORM pg_temp.b76_assert(pg_temp.b76_operar(b,p,'revisar',t+interval '1 day','b76:revision',t,
+ validada=>t+interval '1 day',desde_recibo_esperado=>t+interval '1 second'),
+ 'replay:recibo:b76:revision:en_revision','replay revisión con reloj posterior');
+ PERFORM pg_temp.b76_assert(pg_temp.b76_operar(b,p,'regularizar',t+interval '1 day','b76:regularizacion',ultima,t,
+ validada=>t+interval '1 day',desde_recibo_esperado=>t+interval '2 second'),
+ 'replay:recibo:b76:regularizacion:disponible','replay regularización con reloj posterior');
+ IF EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.operacion_situacion_participacion o
+ JOIN vec_bolsa_llamamientos.situacion_participacion s USING(participacion_ref,desde)
+ WHERE o.participacion_ref=p AND o.clave_idempotencia IN ('b76:revision','b76:regularizacion')
+ AND (s.desde IS DISTINCT FROM CASE o.operacion WHEN 'revisar' THEN t+interval '1 second' ELSE t+interval '2 second' END
+   OR o.validada_en IS DISTINCT FROM s.desde OR s.registrada_en IS DISTINCT FROM s.desde
+   OR o.registrada_en IS DISTINCT FROM s.desde)) THEN
+  RAISE EXCEPTION 'B76 replay alteró instantes de la primera ejecución'; END IF;
+ PERFORM pg_temp.b76_assert(pg_temp.b76_operar(b,p,'regularizar',t+interval '1 day','b76:regularizacion',ultima,t,
+ validada=>t+interval '1 day',cap=>'\x01'),'error:42501','replay autorización retirada');
  IF (SELECT count(*) FROM vec_bolsa_llamamientos.situacion_participacion WHERE participacion_ref=p)<>n+3
  OR (SELECT count(*) FROM vec_bolsa_llamamientos.operacion_situacion_participacion WHERE participacion_ref=p AND operacion IN ('revisar','regularizar'))<>2 THEN
   RAISE EXCEPTION 'B76 efecto duplicado'; END IF;
