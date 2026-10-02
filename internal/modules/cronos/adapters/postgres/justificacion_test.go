@@ -165,9 +165,16 @@ func TestRepositorioJustificacionAnexoTransportaConfirmacionYMaterialSeparados(t
 			}
 		})
 	}
-	fallo.docConfirmador = proveedorConfirmacionDocPrueba{t: t, err: docports.ErrAccesoDenegado}
-	if _, err := fallo.ConfirmarJustificacion(context.Background(), m, j, &registro, v3); !errors.Is(err, vecdomain.ErrPermissionDenied) {
-		t.Fatal("denegación documental presentada como dependencia", err)
+	for nombre, denegacion := range map[string]error{
+		"directa":  docports.ErrAccesoDenegado,
+		"envuelta": errors.Join(errors.New("contexto documental"), docports.ErrAccesoDenegado),
+	} {
+		t.Run(nombre, func(t *testing.T) {
+			fallo.docConfirmador = proveedorConfirmacionDocPrueba{t: t, err: denegacion}
+			if _, err := fallo.ConfirmarJustificacion(context.Background(), m, j, &registro, v3); !errors.Is(err, vecdomain.ErrPermissionDenied) {
+				t.Fatal("denegación documental presentada como dependencia", err)
+			}
+		})
 	}
 }
 
