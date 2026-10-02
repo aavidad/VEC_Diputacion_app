@@ -104,10 +104,31 @@ Un fallo después de guardar la continuidad conserva el recibo para investigar.
 Si el fallo ocurrió antes de guardarla y el efecto ya existe, usar `recuperar`.
 No volver a lanzar `alta` ni borrar historia para hacer pasar el ensayo.
 
-## Evidencia pendiente
+## Recorrido acreditado el 2 de octubre de 2026
 
-En este corte el driver está preparado para compilación y revisión. Sin
-configuración privada la prueba se omite expresamente. Esa omisión no demuestra
-instalación, ejecución PostgreSQL, persistencia ni recuperación tras reinicio.
-Los negativos de campos del broker no sustituyen los negativos del consumidor
-SQL ni sus revisiones independientes.
+El driver `5f53ce371656e4353ca8fb2a9bb0a754dd59a9f5`, con el backend
+`a4b1d7db58ec4323fca9c6440c5d85b29f86cc78`, completó preparación, alta,
+replay, consulta de versión y recuperación del recibo contra PostgreSQL 18.4.
+AD144 y BR4 se instalaron una sola vez desde las fuentes revisadas
+`e94f6f14970db52aa79d6374ec00323fa5878ad4` y
+`cb822cc98d35545fefa40e91e79303d8799b37e5`.
+
+Tras reiniciar PostgreSQL con los mismos datos y ejecutar otro proceso Go,
+se conservaron el recibo completo, su fecha y el canon de la versión. Antes y
+después hubo una versión, un recibo, una historia original y un outbox ligados
+a la intención. Los accesos pasaron de cuatro a siete; el acceso original se
+conservó y los seis posteriores quedaron separados. Los negativos de ámbito,
+frontera, campos y disponibilidad devolvieron los errores nominales esperados.
+
+La evidencia minimizada se conserva fuera de Git en
+`ACTA_BAREMO_FINAL_MINIMA.json`, SHA256
+`873359157fc05b85fa2f94a25755df7ec788e1cb62d6df03de384401ede11877`,
+junto con `RECIBO_PUBLIC_SAFE.json`, los resultados de las fases y
+`RESUMEN_BAREMO_READONLY.sql`. La configuración privada y la continuidad con
+el canon completo permanecen aparte. Este resultado acredita el recorrido
+directo PDP → broker → servicio → SQL; no acredita HTTP, mTLS observado desde
+navegador ni firma legal.
+
+Sin configuración privada la prueba se omite expresamente; esa omisión no
+repite ni sustituye el recorrido descrito. Los negativos del broker tampoco
+sustituyen los negativos SQL ni sus revisiones independientes.
