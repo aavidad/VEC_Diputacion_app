@@ -1,10 +1,10 @@
 \set ON_ERROR_STOP on
 -- BORRADOR AD3-152 / reserva 000152. NO INSTALAR. Consumidor CAT6 nominal.
--- Depende de AD3-151 y CAT6-000006. Las huellas se fijan sobre la postimagen
+-- Depende de objetos del núcleo V3 y CAT6-000006. Las huellas se fijan sobre la postimagen
 -- real PostgreSQL 18; los marcadores impiden cualquier instalacion anticipada.
 BEGIN;
 DO $pendiente$ BEGIN
- RAISE EXCEPTION 'AD3-152: borrador; postimagen real AD151, perfil institucional y ensayo pendientes' USING ERRCODE='55000';
+ RAISE EXCEPTION 'AD3-152: borrador; preimagen real del núcleo común, perfil institucional y ensayo pendientes' USING ERRCODE='55000';
 END $pendiente$;
 SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
 SET LOCAL search_path=pg_catalog, pg_temp;
@@ -32,13 +32,13 @@ DECLARE
  f oid:=to_regprocedure('vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
  original text; nuevo text; actual text; fuente text; meta jsonb; deps jsonb; compartidas jsonb;
  acl aclitem[]; propietario oid; config text[]; definidora boolean;
- esperada_def_sha256 text:='POST_AD151_PG18_FUNCTIONDEF_SHA256';
- esperada_fuente_sha256 text:='POST_AD151_PG18_PROSRC_SHA256';
- excl text:='POST_AD151_EXCLUSION_LITERAL_UNICO';
+ esperada_def_sha256 text:='202b1580f00e1618e0fb311dcf0911992e56d9eb5f17bc642d58c73768f360f1';
+ esperada_fuente_sha256 text:='4a98b94be7e198a6c1e364949e60f35f39b2e5bf931bc361b1adb52a12a94905';
+ excl text:=$x$AND p_perfil_mutacion IS DISTINCT FROM 'usos_categorias'$x$;
  excl_nuevo text:=excl||E'\n               AND p_perfil_mutacion IS DISTINCT FROM ''gobierno_modulos_administracion''';
  runtime text:=$x$       OR NOT (
            (
-               p_perfil_mutacion IS NOT DISTINCT FROM 'consulta_version_convocatoria_bolsa'$x$;
+               p_perfil_mutacion IN ('meritos_hecho_propio_interno','meritos_hecho_rechazar')$x$;
  runtime_nuevo text:=$x$       OR NOT (
            (p_perfil_mutacion IS NOT DISTINCT FROM 'gobierno_modulos_administracion'
                AND EXISTS (SELECT 1 FROM pg_roles r WHERE r.rolname=session_user AND r.rolcanlogin
@@ -50,7 +50,7 @@ DECLARE
                AND NOT EXISTS (SELECT 1 FROM pg_auth_members m WHERE m.member='vec_catalogos_configurables_ejecutor_modulos'::regrole)
            )
            OR (
-               p_perfil_mutacion IS NOT DISTINCT FROM 'consulta_version_convocatoria_bolsa'$x$;
+               p_perfil_mutacion IN ('meritos_hecho_propio_interno','meritos_hecho_rechazar')$x$;
  marca text:=$x$       )
        OR c ->> 'suite' <> 'VEC-AD-3-COSE-EDDSA-1'$x$;
  extension text:=$x$           OR (
@@ -113,7 +113,7 @@ BEGIN
     OR (length(original)-length(replace(original,runtime,'')))<>length(runtime)
     OR (length(original)-length(replace(original,marca,'')))<>length(marca)
     OR strpos(original,'gobierno_modulos_administracion')<>0
- THEN RAISE EXCEPTION 'AD3-152: núcleo post-AD146 incompatible' USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'AD3-152: núcleo real incompatible' USING ERRCODE='55000'; END IF;
  nuevo:=replace(original,runtime,runtime_nuevo);
  nuevo:=replace(nuevo,excl,excl_nuevo);
  nuevo:=replace(nuevo,marca,extension||marca);
@@ -136,7 +136,7 @@ END $nucleo$;
 
 LOCK TABLE vec_autorizacion_atestada_v3.clave_capacidad_version IN ACCESS EXCLUSIVE MODE;
 DO $audiencias$
-DECLARE d text; esperada text:='POST_AD151_PG18_AUDIENCIA_SHA256';
+DECLARE d text; esperada text:='f8a26f67dcf41d1022db50b01ad0f8da404db7782c3d5d4b348564c000cbdc2d';
 BEGIN
  SELECT pg_get_constraintdef(c.oid,true) INTO STRICT d FROM pg_constraint c
  WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
