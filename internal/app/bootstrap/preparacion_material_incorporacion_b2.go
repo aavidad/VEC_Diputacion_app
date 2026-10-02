@@ -25,7 +25,7 @@ func LeerConfiguracionPreparacionIncorporacionB2(ruta string) (ConfiguracionPrep
 		return c, nil, err
 	}
 	if c.Planes != "" || c.Personal != "" || c.Continuidad != nil || c.PersonalB2 == nil {
-		r.Close()
+		_ = r.Close()
 		return c, nil, ct.ErrComposicionIncorporacionAplicacion
 	}
 	return c, r, nil
@@ -65,11 +65,10 @@ func DerivarClavesIncorporacionB2DesdeMaterialDesarrollo(dir string, ahora time.
 		porAudiencia[d.Audiencia] = d
 	}
 	claves := make([]ClaveCapacidadPersonalB2V3, 0, len(operacionesIncorporacionB2()))
-	fallo := func() ([]ClaveCapacidadPersonalB2V3, error) {
+	fallo := func() {
 		for i := range claves {
 			claves[i].Borrar()
 		}
-		return nil, errMaterialPersonalB2V3Desarrollo
 	}
 	for _, op := range operacionesIncorporacionB2() {
 		d, ok := porAudiencia[op.audiencia]

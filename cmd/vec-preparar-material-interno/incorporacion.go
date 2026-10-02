@@ -118,7 +118,7 @@ func (p preparacion) prepararIncorporacion(ctx context.Context) (bool, error) {
 	}
 	activado := false
 	defer func() {
-		rt.Close()
+		_ = rt.Close()
 		if !activado {
 			destino.retirar(temporal)
 		}
