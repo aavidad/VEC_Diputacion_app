@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 	"time"
 
@@ -56,8 +57,11 @@ func (s *ServicioPreparacionBases) Guardar(ctx context.Context, orden ports.Guar
 	if err := ctx.Err(); err != nil {
 		return vacio, err
 	}
-	if resultado.Version.Ambito != orden.Ambito || resultado.Recibo.HuellaIntencionSHA256 != intencion || !resultadoValidoPreparacion(resultado, exacta, orden.Autorizacion, orden.SolicitadaEn) {
+	if resultado.Version.Ambito != orden.Ambito || resultado.Recibo.HuellaIntencionSHA256 != intencion {
 		return vacio, ports.ErrResultadoPreparacionBasesInvalido
+	}
+	if err := validarResultadoPreparacion(resultado, exacta, orden.Autorizacion, orden.SolicitadaEn); err != nil {
+		return vacio, err
 	}
 	return clonarResultadoPreparacion(resultado)
 }
@@ -78,29 +82,38 @@ func (s *ServicioPreparacionBases) Consultar(ctx context.Context, orden ports.Co
 	if err := ctx.Err(); err != nil {
 		return vacio, err
 	}
-	if resultado.Version.Ambito != orden.Ambito || !resultadoValidoPreparacion(resultado, orden.Exacta, orden.Autorizacion, orden.SolicitadaEn) {
+	if resultado.Version.Ambito != orden.Ambito {
 		return vacio, ports.ErrResultadoPreparacionBasesInvalido
+	}
+	if err := validarResultadoPreparacion(resultado, orden.Exacta, orden.Autorizacion, orden.SolicitadaEn); err != nil {
+		return vacio, err
 	}
 	return clonarResultadoPreparacion(resultado)
 }
 
-func resultadoValidoPreparacion(r ports.ResultadoPreparacionBases, exacta prep.Esperada, e core.EvidenciaUsoDecisionAutorizacion, instante time.Time) bool {
+func validarResultadoPreparacion(r ports.ResultadoPreparacionBases, exacta prep.Esperada, e core.EvidenciaUsoDecisionAutorizacion, instante time.Time) error {
 	d, err := e.Datos()
-	if err != nil || r.Version.Validar() != nil || r.Version.Estado != exacta || r.AutorizacionRef != d.Decision.DecisionRef ||
+	if err != nil {
+		return fmt.Errorf("%w: %w", ports.ErrResultadoPreparacionBasesInvalido, err)
+	}
+	if err := r.Version.Validar(); err != nil {
+		return fmt.Errorf("%w: %w", ports.ErrResultadoPreparacionBasesInvalido, err)
+	}
+	if r.Version.Estado != exacta || r.AutorizacionRef != d.Decision.DecisionRef ||
 		r.HuellaAutorizacionSHA256 != d.HuellaDecisionSHA256 || !r.AccedidaEn.Equal(instante) ||
 		!instanteCanonicoPreparacion(r.Recibo.ConfirmadaEn) || r.Recibo.ConfirmadaEn.After(instante) ||
 		!prep.HuellaValida(r.Recibo.HuellaIntencionSHA256) {
-		return false
+		return ports.ErrResultadoPreparacionBasesInvalido
 	}
 	vistas := make(map[string]bool, 6)
 	for _, referencia := range []string{r.Recibo.ReciboRef, r.Recibo.HistoriaRef, r.Recibo.AuditoriaRef, r.Recibo.EventoRef,
 		r.ConsumoAutorizacionRef, r.AuditoriaAccesoRef} {
 		if !prep.IdentificadorValido(referencia) || vistas[referencia] {
-			return false
+			return ports.ErrResultadoPreparacionBasesInvalido
 		}
 		vistas[referencia] = true
 	}
-	return true
+	return nil
 }
 
 func clonarResultadoPreparacion(r ports.ResultadoPreparacionBases) (ports.ResultadoPreparacionBases, error) {
