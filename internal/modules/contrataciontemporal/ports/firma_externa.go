@@ -57,6 +57,7 @@ type FuenteOriginalFirmaAutorizado interface {
 // La competencia corresponde al firmante del dictamen criptográfico, no al
 // registrador RRHH. La fuente debe resolver una única asignación vigente.
 type SolicitudCompetenciaFirmante struct {
+	CatalogoVersion                           uint64
 	OrganizacionRef, ExpedienteRef, Documento string
 	CatalogoRef, CatalogoHuella, PasoRef      string
 	PasoOrden                                 int
@@ -65,6 +66,11 @@ type SolicitudCompetenciaFirmante struct {
 }
 
 type EvidenciaCompetenciaFirmante struct {
+	// RolIDFirmante lo acredita la autoridad central; V1 no lo requiere.
+	CuentaFirmanteRef, VinculoCredencialFirmanteRef                         string
+	VinculoCredencialFirmanteRevision                                       uint64
+	VinculoCredencialFirmanteHuella                                         string
+	RolIDFirmante                                                           string
 	Solicitud                                                               SolicitudCompetenciaFirmante
 	FirmantePrincipalRef                                                    string
 	PerfilFirmanteRef, CargoFirmante, UnidadFirmanteRef                     string
