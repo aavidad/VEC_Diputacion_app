@@ -2,13 +2,13 @@
  * Circuito de firma de los borradores del expediente. Consulta el catálogo
  * vigente y, si el registro de firmas está compuesto, el estado real de cada
  * paso. Mantiene visible la fase oficial aunque el catálogo o el registro no
- * respondan. En el paso pendiente ofrece «Firmar» (AutoFirma) y «Devolver».
+ * respondan. Las acciones siguen cerradas hasta el preflight nominal R5.
  * Una firma de prueba registrada no acredita envío ni firma en Firmadoc.
  * Encima de todo va la fase de firma de cada documento (fase-firma.js).
  */
 
 import { escaparHTML, solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js?v=20261002-ct-fin-modalidad-v1";
-import { crearAccionesFirma, fusionarEstadoFirmas, renderizarAccionesPaso } from "./circuito-firma-acciones.js?v=20261002-ct-fin-moad-v1";
+import { crearAccionesFirma, fusionarEstadoFirmas, renderizarAccionesPaso } from "./circuito-firma-acciones.js?v=20261002-ct-r5-grafo-v1";
 import { crearClienteFirmaDocumento } from "./firma-documento-cliente.js?v=20260930-custodia-506-e3-v3";
 import { cargarTextosFaseFirma, renderizarFaseFirma } from "./fase-firma.js?v=20261002-ct-fin-modalidad-v1";
 import { crearTraductorCircuitoFirma, traducirValorCircuitoFirma } from "./i18n-circuito-firma.js?v=20261001-ct-a-i18n-v1";
@@ -212,6 +212,7 @@ export function renderizarCircuitoFirma(circuito, t, estadoConsulta = circuito ?
       <h4 id="ct-circuito-portafirmas-titulo">${escaparHTML(t("circuito_firma_portafirmas_titulo"))}</h4>
       <span class="ct-circuito-estado ct-tono-aviso">${escaparHTML(t("circuito_firma_portafirmas_pendiente"))}</span>
       <div class="ct-circuito-envio">
+        <button type="button" class="boton-secundario" disabled aria-describedby="ct-circuito-envio-motivo">${escaparHTML(t("circuito_firma_descargar_externo"))}</button>
         <button type="button" class="boton-primario" disabled aria-describedby="ct-circuito-envio-motivo">${escaparHTML(t("circuito_firma_enviar"))}</button>
         <p id="ct-circuito-envio-motivo">${escaparHTML(t("circuito_firma_envio_bloqueado"))}</p>
       </div>

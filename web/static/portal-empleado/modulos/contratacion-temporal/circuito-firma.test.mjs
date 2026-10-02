@@ -6,8 +6,8 @@ import {
   crearClienteHTTPCircuitoFirma, crearGestorCircuitoFirma, renderizarCircuitoFirma,
   RUTA_CIRCUITO_FIRMA, validarCircuitoFirma,
 
-} from "./circuito-firma.js?v=20261002-ct-fin-moad-v1";
-import { crearAccionesFirma, fusionarEstadoFirmas, renderizarAccionesPaso } from "./circuito-firma-acciones.js?v=20261002-ct-fin-moad-v1";
+} from "./circuito-firma.js?v=20261002-ct-r5-grafo-v1";
+import { crearAccionesFirma, fusionarEstadoFirmas, renderizarAccionesPaso } from "./circuito-firma-acciones.js?v=20261002-ct-r5-grafo-v1";
 import { crearTraductorCircuitoFirma, MENSAJES_CIRCUITO_FIRMA_ES, MENSAJES_CIRCUITO_FIRMA_EN } from "./i18n-circuito-firma.js?v=20261001-ct-a-i18n-v1";
 import { cargarTextos } from "../../../comun/textos.js";
 import { IDIOMA_POR_DEFECTO } from "../../../comun/idioma.js";
@@ -121,6 +121,7 @@ test("la fase muestra Dirección o Jefatura desde el catálogo sin abrir firma o
   assert.match(en, /Sign with a certificate in VEC · Test signature with no administrative effect/u);
   assert.match(en, /Signed in Portafirmas \(recorded by HR\)/u);
   assert.match(es, /<button[^>]*disabled[^>]*>Registrar documento firmado<\/button>/u);
+  assert.match(es, /<button[^>]*disabled[^>]*>Descargar para firma externa<\/button>/u);
   assert.doesNotMatch(es, /data-ct-firma-accion=/u);
   assert.match(es, /Este panel no acredita firma, envío ni registro en Portafirmas/u);
   assert.doesNotMatch(es, /Portafirmas conectado|firma eficaz|Enviar a Firmadoc/u);
@@ -158,7 +159,8 @@ test("el bloque muestra cada paso con su estado, escapa el catálogo y marca el 
   assert.match(html, /Firmado en Portafirmas \(registrado por RRHH\)/u);
   assert.match(html, /Registro no disponible/u);
   assert.match(html, /<button[^>]*disabled[^>]*aria-describedby="ct-circuito-envio-motivo"[^>]*>Registrar documento firmado<\/button>/u);
-  assert.match(html, /VEC debe comprobar el original firmado y el permiso para este expediente/u);
+  assert.match(html, /<button[^>]*disabled[^>]*aria-describedby="ct-circuito-envio-motivo"[^>]*>Descargar para firma externa<\/button>/u);
+  assert.match(html, /VEC debe comprobar el PDF custodiado y el permiso nominal para este expediente/u);
   assert.match(html, /Este panel no acredita firma, envío ni registro en Portafirmas/u);
   assert.match(html, /Firma con certificado en VEC · Firma de prueba, sin eficacia administrativa/u);
   assert.match(html, /<details class="ct-circuito-limite">/u);
@@ -214,6 +216,8 @@ test("sin preflight R5 las acciones CT118 permanecen cerradas aunque haya verifi
     assert.match(html, /Firmado en Portafirmas \(registrado por RRHH\)/u);
     assert.match(html, /<button[^>]*disabled[^>]*>Firmar en PRUEBA<\/button>/u);
     assert.match(html, /<button[^>]*disabled[^>]*>Devolver en PRUEBA<\/button>/u);
+    assert.match(html, /<button[^>]*disabled[^>]*>Descargar para firma externa<\/button>/u);
+    assert.match(html, /<button[^>]*disabled[^>]*>Registrar documento firmado<\/button>/u);
     assert.match(html, /La firma con certificado en VEC aún no está disponible: falta comprobar el PDF original custodiado y el permiso nominal/u);
     assert.doesNotMatch(html, /data-ct-firma-accion=|Registrar devolución de PRUEBA/u);
   }
@@ -247,7 +251,8 @@ test("las dos vías de firma usan el idioma del portal", () => {
   assert.match(html, /Signed in Portafirmas \(recorded by HR\)/u);
   assert.match(html, /Recording unavailable/u);
   assert.match(html, /<button[^>]*disabled[^>]*>Record signed document<\/button>/u);
-  assert.match(html, /VEC must check the signed original and the permission for this case first/u);
+  assert.match(html, /<button[^>]*disabled[^>]*>Download for external signing<\/button>/u);
+  assert.match(html, /VEC must check the PDF held in custody and the specific permission for this case/u);
   assert.match(html, /This panel does not evidence a signature, submission or record in Portafirmas/u);
   assert.match(html, /Awaiting test signature by/u);
   assert.match(html, /Allows referral to Financial Control/u);
@@ -478,8 +483,8 @@ test("los importadores locales de la vista y el circuito evitan las URLs immutab
     readFile(new URL("./formulario-llamamiento-pruebas.js", import.meta.url), "utf8"),
   ]);
   const versiones = new Map([
-    ["circuito-firma.js", "20261002-ct-fin-moad-v1"],
-	["vista-expedientes.js", "20261002-rrhh-consulta-moad-v1"],
+    ["circuito-firma.js", "20261002-ct-r5-grafo-v1"],
+    ["vista-expedientes.js", "20261002-ct-r5-grafo-v1"],
   ]);
   const anterior = "20260929-custodia-506-v1";
   const importadores = [

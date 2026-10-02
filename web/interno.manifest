@@ -281,6 +281,7 @@ static/portal-empleado/modulos/contratacion-temporal/vista-expedientes-borrador.
 static/portal-empleado/modulos/contratacion-temporal/circuito-firma.js
 static/portal-empleado/modulos/contratacion-temporal/fase-firma.js
 static/portal-empleado/modulos/contratacion-temporal/circuito-firma-acciones.js
+static/portal-empleado/modulos/contratacion-temporal/firma-externa-cliente.js
 static/portal-empleado/modulos/contratacion-temporal/firma-autofirma.js
 static/portal-empleado/modulos/contratacion-temporal/firma-documento-cliente.js
 static/portal-empleado/modulos/contratacion-temporal/i18n-circuito-firma.js
