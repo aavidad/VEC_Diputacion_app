@@ -7,6 +7,7 @@ import (
 	dietascomp "vec-diputacion-granada/internal/modules/dietas/adapters/composicion"
 	dietasapp "vec-diputacion-granada/internal/modules/dietas/application"
 	dietasports "vec-diputacion-granada/internal/modules/dietas/ports"
+	vecports "vec-diputacion-granada/internal/vec/ports"
 
 	personalhttp "vec-diputacion-granada/internal/modules/personal/adapters/httpinterno"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
@@ -27,16 +28,10 @@ import (
 // centro, administrativo ni responsable, siguen abiertas.
 const catalogoValidadoresCompetentesAsignacionDietas = ""
 
-// fuenteCompetenciaCircuitoDietas elige la fuente que acredita la unidad de
-// cada revisor del circuito. Es el mismo catálogo de validadores competentes:
-// sin él, ninguna bandeja acredita a nadie y ninguna acción se ofrece. Con él
-// relleno la composición falla hasta que exista su consumidor: nunca se
-// deduce la competencia de la asignación D7, de un cargo ni de un perfil.
-func fuenteCompetenciaCircuitoDietas(catalogo string) (dietasports.FuenteCompetenciaCircuito, error) {
-	if escrituraAsignacionDietasAbierta(catalogo) {
-		return nil, ErrComposicionBorradoresDietasNoDisponible
-	}
-	return dietascomp.FuenteCompetenciaCircuitoSinCatalogo{}, nil
+// La competencia procede del perfil fijo publicado por administración (duda
+// 122). D7 conserva su autoridad y no se abre por conectar este lector.
+func fuenteCompetenciaCircuitoDietas(fuente vecports.FuenteAutorizacion, reloj vecports.Reloj) (dietasports.FuenteCompetenciaCircuito, error) {
+	return dietascomp.NuevaFuenteCompetenciaPerfilFijo(fuente, reloj)
 }
 
 // accionesCircuitoDietas enumera las acciones V3 del circuito de revisión.
