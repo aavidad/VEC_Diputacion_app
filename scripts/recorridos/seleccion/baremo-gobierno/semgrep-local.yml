@@ -1,0 +1,28 @@
+rules:
+  - id: vec-baremo-ensayo-tls-verificado
+    languages: [go]
+    severity: ERROR
+    message: El ensayo debe conservar la verificación TLS.
+    pattern: 'tls.Config{..., InsecureSkipVerify: true, ...}'
+  - id: vec-baremo-ensayo-sin-shell
+    languages: [go]
+    severity: ERROR
+    message: La configuración privada no ejecuta órdenes de shell.
+    pattern-either:
+      - pattern: exec.Command("sh", "-c", ...)
+      - pattern: exec.Command("bash", "-c", ...)
+  - id: vec-baremo-ensayo-sin-secretos-log
+    languages: [go]
+    severity: ERROR
+    message: No imprimir credenciales de configuración en el ensayo.
+    pattern-either:
+      - pattern: $T.Fatalf(..., $CFG.RuntimeDSN, ...)
+      - pattern: $T.Fatalf(..., $CFG.EvidenciaDSN, ...)
+      - pattern: $T.Logf(..., os.Getenv(...), ...)
+  - id: vec-baremo-ensayo-continuidad-privada
+    languages: [go]
+    severity: ERROR
+    message: La continuidad debe guardarse con permisos privados.
+    pattern-either:
+      - pattern: os.WriteFile(..., 0644)
+      - pattern: os.OpenFile(..., 0644)
