@@ -1,0 +1,12 @@
+{
+  "accesos": {
+    "titulo": "Mi espacio",
+    "personal": "Mi carpeta personal",
+    "cronos": "Mi jornada",
+    "dietas": "Mis dietas",
+    "cargando": "Cargando la vista…",
+    "error": "No se pudo cargar la vista. Actualice la página para volver a intentarlo.",
+    "consultar_accesos": "Consulte los accesos de Mi espacio",
+    "mis_tramites": "Mis trámites"
+  }
+}

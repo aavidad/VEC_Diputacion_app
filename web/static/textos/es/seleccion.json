@@ -1,0 +1,137 @@
+{
+  "saltar": "Saltar al contenido",
+  "portal": "Portal del empleado",
+  "organizacion": "Diputación de Granada",
+  "navegacion": "Navegación de procesos selectivos",
+  "volver": "Baremador de bolsas",
+  "titulo": "Ensayo de procesos selectivos",
+  "idioma": "Idioma",
+  "ayuda_boton": "Ayuda",
+  "ayuda_titulo": "Cómo usar el ensayo",
+  "ayuda_texto": "Elija una modalidad, ajuste las reglas y pulse Comparar solicitudes. Puede cambiar los valores y repetir el cálculo. Los ejemplos se pueden retirar y no son convocatorias abiertas.",
+  "cargando": "Cargando ejemplos…",
+  "sin_ejemplos": "No hay ejemplos disponibles en este momento.",
+  "denegado": "No tiene acceso a este ensayo. Consulte con la persona responsable de su unidad.",
+  "error_carga": "No se han podido cargar los ejemplos. Compruebe la conexión y vuelva a intentarlo.",
+  "reintentar": "Reintentar",
+  "ejemplo_titulo": "Elija un proceso",
+  "ejemplo_etiqueta": "Ejemplo",
+  "modalidad_etiqueta": "Modalidad",
+  "turno_etiqueta": "Turno",
+  "destino_etiqueta": "Destino",
+  "ejemplo": {
+    "oposicion": "Oposición",
+    "concurso": "Concurso",
+    "concurso_oposicion": "Concurso-oposición"
+  },
+  "modalidad": {
+    "oposicion": "Oposición",
+    "concurso": "Concurso",
+    "concurso_oposicion": "Concurso-oposición"
+  },
+  "turno": {
+    "libre": "Libre",
+    "promocion_interna": "Promoción interna",
+    "discapacidad": "Reserva para personas con discapacidad"
+  },
+  "destino": {
+    "bolsa": "Bolsa de trabajo",
+    "plaza": "Plaza"
+  },
+  "configuracion_titulo": "Reglas del ensayo",
+  "configuracion_contexto": "Cambie las plazas, la nota mínima o el peso de cada fase y compare el resultado.",
+  "plazas": "Plazas (obligatorio)",
+  "fase": {
+    "prueba": "Prueba {numero}",
+    "meritos": "Méritos · fase {numero}"
+  },
+  "minimo": "Nota mínima (opcional)",
+  "peso": "Peso de la fase (%) (obligatorio)",
+  "maximo_fase": "Puntuación máxima: {puntos}",
+  "desempate": "Fases para resolver empates",
+  "restablecer": "Restablecer reglas",
+  "simular": "Comparar solicitudes",
+  "validacion_titulo": "Revise estos campos antes de comparar:",
+  "validacion": {
+    "modalidad": "Elija un ejemplo válido.",
+    "plazas": "Indique entre 1 y 1.000 plazas.",
+    "fases": "El ejemplo necesita al menos una fase.",
+    "minimo": "La nota mínima debe estar entre cero y la puntuación máxima, con hasta seis decimales.",
+    "peso": "Indique un peso entre 1 y 100 para cada fase.",
+    "suma_pesos": "La suma de los pesos debe ser 100 %.",
+    "desempates": "Elija cada fase de desempate una sola vez."
+  },
+  "resultado_titulo": "Comparación de solicitudes",
+  "sin_resultado": "Ajuste las reglas y pulse Comparar solicitudes para ver el resultado.",
+  "calculando": "Calculando la comparación…",
+  "error_simulacion": "No se ha podido comparar. Revise la conexión y vuelva a intentarlo.",
+  "validacion_servidor": "Las reglas no se han aceptado. Revise los valores y vuelva a comparar.",
+  "limite": "Ensayo con datos de ejemplo. No constituye admisión, calificación ni propuesta oficial.",
+  "resultado": {
+    "provisional": "Resultado provisional del ensayo.",
+    "indeterminado": "No se puede establecer un orden con los datos disponibles."
+  },
+  "sin_solicitudes": "Este ejemplo no contiene solicitudes.",
+  "solicitud": "Solicitud",
+  "acceso": "Requisitos de acceso",
+  "motivo": "Motivo",
+  "acceso_titulo": "Comprobación de requisitos",
+  "sin_incidencias_acceso": "Sin incidencias conocidas",
+  "lista_titulo": "Orden y puntuación",
+  "orden": "Orden",
+  "puntos": "Puntos",
+  "propuesta": "Resultado",
+  "detalle": "Detalle",
+  "sin_puntuacion": "Pendiente",
+  "sin_orden": "Sin orden",
+  "ver_detalle": "Ver detalle",
+  "detalle_de": "Ver detalle de {nombre}",
+  "requisitos_titulo": "Requisitos",
+  "fases_titulo": "Notas por fase",
+  "detalle_requisito": "{nombre}: {estado}",
+  "requisito": {
+    "titulacion_acceso": "Titulación exigida"
+  },
+  "detalle_fase": "{fase}: {puntos} puntos · {estado}",
+  "detalle_regla": "Mérito {numero}: {puntos} puntos",
+  "acceso_estado": {
+    "cumple": "Cumple",
+    "no_cumple": "No cumple",
+    "pendiente": "Pendiente de comprobar"
+  },
+  "solicitud_estado": {
+    "apta": "Supera las fases del ensayo.",
+    "no_apta": "No supera las fases del ensayo.",
+    "pendiente": "Resultado pendiente de datos.",
+    "empate_pendiente": "Empate pendiente de resolver."
+  },
+  "fase_estado": {
+    "superada": "Superada",
+    "no_superada": "No superada",
+    "pendiente": "Pendiente"
+  },
+  "propuesta_estado": {
+    "propuesta_provisional": "Propuesta provisional",
+    "sin_propuesta": "Sin propuesta",
+    "pendiente": "Pendiente"
+  },
+  "origen": {
+    "prueba_embebida": "Nota de prueba del ejemplo.",
+    "motor_bolsa": "Méritos calculados con las reglas del baremador de bolsas."
+  },
+  "causa": {
+    "requisito_no_cumplido": "No cumple un requisito de acceso.",
+    "requisito_pendiente": "Falta comprobar un requisito de acceso.",
+    "minimo_pendiente": "Falta fijar una nota mínima.",
+    "nota_pendiente": "Falta una nota de prueba.",
+    "nota_fuera_rango": "Una nota supera el máximo de su fase.",
+    "minimo_no_superado": "No alcanza la nota mínima.",
+    "meritos_pendientes": "Faltan datos para valorar los méritos.",
+    "precision_pendiente": "La precisión disponible no permite calcular el resultado.",
+    "clasificacion_pendiente": "No se puede establecer el orden.",
+    "desempate_pendiente": "El empate necesita una decisión adicional."
+  },
+  "desempate_ayuda": "Las fases seleccionadas se aplican en el orden mostrado.",
+  "menu": "Menú",
+  "cerrar_menu": "Cerrar menú"
+}
