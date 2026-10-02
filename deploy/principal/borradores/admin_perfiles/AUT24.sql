@@ -467,5 +467,6 @@ BEGIN
  END LOOP;
 END $f$;
 REVOKE ALL ON FUNCTION vec_autorizacion.consultar_asignacion_admin_perfiles_v1(text) FROM PUBLIC;
+GRANT USAGE ON SCHEMA vec_autorizacion TO vec_contexto_actor_v1_propietario;
 GRANT EXECUTE ON FUNCTION vec_autorizacion.consultar_asignacion_admin_perfiles_v1(text) TO vec_contexto_actor_v1_propietario;
 COMMIT;
