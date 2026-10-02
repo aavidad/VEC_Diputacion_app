@@ -673,7 +673,7 @@
     "txt_pausa": "Pausa",
     "txt_pausa_reactivacion_y_exclusion": "Pausa, reactivación y exclusión",
     "txt_b8_validar_renuncia": "Validar justificante y devolver a Disponible",
-    "txt_b8_ayuda_llamamiento_directo": "En un llamamiento directo, RRHH valida el justificante de la renuncia antes de devolver a la persona a Disponible. Sin causa justificada, RRHH debe registrar expresamente la exclusión. Cada operación conserva su historial y recibo. Si ya se adoptó la exclusión, la readmisión se tramita en Sanciones mediante la resolución del recurso. No responder a una oferta telemática no tiene consecuencias en la bolsa.",
+    "txt_b8_ayuda_llamamiento_directo": "En un llamamiento directo, RRHH valida el justificante de la renuncia antes de devolver a la persona a Disponible. Sin causa justificada, RRHH debe registrar expresamente la exclusión. Cada operación conserva su historial y recibo. Si la exclusión procede de una sanción, use Sanciones para registrar la resolución del recurso. No responder a una oferta telemática no tiene consecuencias en la bolsa.",
     "txt_pausa_voluntaria": "Pausa voluntaria",
     "txt_pausar": "Pausar",
     "txt_pend_incorp": "Pend. incorp.",
