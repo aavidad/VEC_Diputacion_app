@@ -7,7 +7,7 @@ SET LOCAL lock_timeout='5s'; SET LOCAL statement_timeout='2min';
 SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('vec_catalogos_configurables:migracion:000006',0));
 DO $pendiente$
 BEGIN
- -- Retirar sólo después de dos revisiones y ensayo de la postimagen AD151 real.
+ -- Retirar sólo después de dos revisiones y ensayo de la preimagen real del núcleo común.
  RAISE EXCEPTION 'CAT6: borrador pendiente de configuración institucional, AD152 y ensayo' USING ERRCODE='55000';
 END $pendiente$;
 -- Provisión DBA separada: no crea LOGIN ni concesiones de ADMIN.
