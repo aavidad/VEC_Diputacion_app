@@ -4,6 +4,8 @@ import (
 	"errors"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 )
 
 var (
@@ -76,6 +78,9 @@ func (o OperacionAdministracionPerfiles) Valida() bool {
 // versiones cero; la autoridad durable comprueba su ausencia antes de
 // crearlas. Una revocacion exige referencias y versiones actuales exactas.
 type PreimagenAdministracionPerfiles struct {
+	// UnidadRef identifica el ámbito elegido de la lectura central. La autoridad
+	// vuelve a cotejarlo; un valor declarado no acredita competencia.
+	UnidadRef               string
 	CuentaRef               string
 	CuentaVersion           uint64
 	PersonaRef              string
@@ -93,7 +98,8 @@ type PreimagenAdministracionPerfiles struct {
 }
 
 func (p PreimagenAdministracionPerfiles) ValidarPara(operacion OperacionAdministracionPerfiles, clase ClaseControlAdministracionPerfiles) error {
-	if !referenciaOpacaAdministracionPerfiles(p.CuentaRef, "cta_") || p.CuentaVersion == 0 ||
+	if (p.UnidadRef != "" && !textoAutorizacionSinComodinSeguro(p.UnidadRef, 256, false)) ||
+		!referenciaOpacaAdministracionPerfiles(p.CuentaRef, "cta_") || p.CuentaVersion == 0 ||
 		!referenciaOpacaAdministracionPerfiles(p.PersonaRef, "per_") || p.PersonaVersion == 0 ||
 		!huellaAdministracionPerfiles(p.HuellaSHA256) || !procedenciaAdministracionPerfiles(p.ProcedenciaRef) ||
 		p.ProcedenciaVersion == 0 || !huellaAdministracionPerfiles(p.ProcedenciaHuellaSHA256) ||
@@ -143,6 +149,9 @@ func procedenciaAdministracionPerfiles(valor string) bool {
 // en la misma transaccion. RolVersionRef es una seleccion de catalogo, nunca
 // una definicion de permisos enviada por el cliente.
 type SolicitudActoAdministracionPerfiles struct {
+	// ReferenciaActo es una referencia administrativa opcional. No sustituye
+	// la procedencia técnica ni concede permisos.
+	ReferenciaActo          string
 	OperacionRef            string
 	Actor                   ContextoActor
 	InstantaneaAutorizacion InstantaneaAutorizacion
@@ -155,8 +164,9 @@ type SolicitudActoAdministracionPerfiles struct {
 }
 
 func (s SolicitudActoAdministracionPerfiles) Validar() error {
-	if !referenciaHexAdministracionPerfiles(s.OperacionRef, "acto_admin:") &&
-		!referenciaHexAdministracionPerfiles(s.OperacionRef, "propuesta_admin:") ||
+	if !ReferenciaActoAdministracionValida(s.ReferenciaActo) ||
+		(!referenciaHexAdministracionPerfiles(s.OperacionRef, "acto_admin:") &&
+			!referenciaHexAdministracionPerfiles(s.OperacionRef, "propuesta_admin:")) ||
 		s.Actor.Validar() != nil || s.InstantaneaAutorizacion.Validar() != nil ||
 		!s.Operacion.Valida() || !s.Clase.Valida() ||
 		!rolVersionAdministracionPerfiles(s.RolVersionRef) ||
@@ -193,8 +203,6 @@ type SolicitudCierrePropuestaAdministracionPerfiles struct {
 	ObjetivoPersonaRef      string
 	Aprobador               ContextoActor
 	InstantaneaAutorizacion InstantaneaAutorizacion
-	Clase                   ClaseControlAdministracionPerfiles
-	Operacion               OperacionAdministracionPerfiles
 	Decision                DecisionPropuestaAdministracionPerfiles
 	Motivo                  ReferenciaEntradaCatalogo
 	CorrelacionRef          string
@@ -207,12 +215,10 @@ func (s SolicitudCierrePropuestaAdministracionPerfiles) Validar() error {
 		!referenciaOpacaAdministracionPerfiles(s.ProponentePersonaRef, "per_") ||
 		!referenciaOpacaAdministracionPerfiles(s.ObjetivoPersonaRef, "per_") ||
 		s.Aprobador.Validar() != nil || s.InstantaneaAutorizacion.Validar() != nil ||
-		!s.Clase.RequiereDobleControl() || !s.Operacion.Valida() ||
 		!s.Decision.Valida() || s.Motivo.Validar() != nil ||
 		!ReferenciaCorrelacionAutorizacionV2Valida(s.CorrelacionRef) ||
 		s.Aprobador.PersonaRef == s.ProponentePersonaRef ||
 		s.Aprobador.PersonaRef == s.ObjetivoPersonaRef ||
-		(s.ProponentePersonaRef == s.ObjetivoPersonaRef && !PuedeProponerBajaPropia(s.Clase, s.Operacion)) ||
 		s.Aprobador.PersonaRef != s.InstantaneaAutorizacion.AsignacionPerfil.PrincipalID ||
 		s.Aprobador.PerfilActivoRef != s.InstantaneaAutorizacion.AsignacionPerfil.PerfilActivoRef {
 		return ErrControlAdministracionPerfilesInvalido
@@ -224,6 +230,8 @@ func (s SolicitudCierrePropuestaAdministracionPerfiles) Validar() error {
 // La autoridad de persistencia lo devuelve con auditoria e historia de solo
 // adicion; una propuesta pendiente no es un acto aplicado.
 type ReciboAdministracionPerfiles struct {
+	UnidadRef           string
+	ReferenciaActo      string
 	OperacionRef        string
 	ActoRef             string
 	ReciboRef           string
@@ -240,6 +248,9 @@ type ReciboAdministracionPerfiles struct {
 }
 
 func (r ReciboAdministracionPerfiles) Validar() error {
+	if !ReferenciaActoAdministracionValida(r.ReferenciaActo) || (r.UnidadRef != "" && !textoAutorizacionSinComodinSeguro(r.UnidadRef, 256, false)) {
+		return ErrActoAdministracionPerfilesInvalido
+	}
 	if !referenciaHexAdministracionPerfiles(r.OperacionRef, "acto_admin:") &&
 		!referenciaHexAdministracionPerfiles(r.OperacionRef, "cierre_admin:") ||
 		!referenciaHexAdministracionPerfiles(r.ActoRef, "acto_admin:") ||
@@ -334,6 +345,20 @@ func rolVersionAdministracionPerfiles(valor string) bool {
 	}
 	for _, c := range partes[2][1:] {
 		if c < '0' || c > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+// ReferenciaActoAdministracionValida permite una referencia legible, sin
+// controles ni contenido multilínea que se confunda con otra anotación.
+func ReferenciaActoAdministracionValida(valor string) bool {
+	if !utf8.ValidString(valor) || utf8.RuneCountInString(valor) > 256 || strings.TrimSpace(valor) != valor {
+		return false
+	}
+	for _, c := range valor {
+		if unicode.IsControl(c) || c == '\u2028' || c == '\u2029' {
 			return false
 		}
 	}

@@ -46,7 +46,7 @@ func (s *ServicioAdministracionPerfiles) AplicarOrdinario(
 		return domain.ReciboAdministracionPerfiles{}, err
 	}
 	if rol.ValidarEn(s.reloj.Ahora()) != nil || rol.VersionRef != solicitud.RolVersionRef ||
-		rol.Clase != solicitud.Clase {
+		rol.Clase != solicitud.Clase || (rol.UnidadRequerida && solicitud.Objetivo.UnidadRef == "") {
 		return domain.ReciboAdministracionPerfiles{}, domain.ErrActoAdministracionPerfilesInvalido
 	}
 	recibo, err := s.actos.AplicarActoOrdinario(ctx, solicitud)
@@ -56,7 +56,8 @@ func (s *ServicioAdministracionPerfiles) AplicarOrdinario(
 	if recibo.Validar() != nil || recibo.OperacionRef != solicitud.OperacionRef ||
 		recibo.ObjetivoPersonaRef != solicitud.Objetivo.PersonaRef ||
 		recibo.PerfilRef != solicitud.Objetivo.PerfilRef ||
-		recibo.VinculoRef != solicitud.Objetivo.VinculoRef {
+		recibo.VinculoRef != solicitud.Objetivo.VinculoRef || recibo.UnidadRef != solicitud.Objetivo.UnidadRef ||
+		recibo.ReferenciaActo != solicitud.ReferenciaActo {
 		return domain.ReciboAdministracionPerfiles{}, domain.ErrActoAdministracionPerfilesInvalido
 	}
 	if solicitud.Operacion == domain.OperacionOtorgarPerfil &&
@@ -89,7 +90,7 @@ func (s *ServicioAdministracionPerfiles) ProponerSensible(
 		return ports.PropuestaAdministracionPerfiles{}, err
 	}
 	if rol.ValidarEn(s.reloj.Ahora()) != nil || rol.VersionRef != solicitud.RolVersionRef ||
-		rol.Clase != solicitud.Clase {
+		rol.Clase != solicitud.Clase || (rol.UnidadRequerida && solicitud.Objetivo.UnidadRef == "") {
 		return ports.PropuestaAdministracionPerfiles{}, domain.ErrControlAdministracionPerfilesInvalido
 	}
 	propuesta, err := s.actos.ProponerActoSensible(ctx, solicitud)

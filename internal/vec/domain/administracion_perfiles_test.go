@@ -107,7 +107,6 @@ func TestAdministracionPerfilesDobleControlPorPersona(t *testing.T) {
 		ProponentePersonaRef:  referenciaContextoActorPrueba("per_", "p"),
 		ObjetivoPersonaRef:    s.Objetivo.PersonaRef,
 		Aprobador:             s.Actor, InstantaneaAutorizacion: s.InstantaneaAutorizacion,
-		Clase: ClaseControlPerfilAdministrador, Operacion: OperacionOtorgarPerfil,
 		Decision: DecisionAprobarPropuestaPerfil, Motivo: s.Motivo,
 		CorrelacionRef: s.CorrelacionRef,
 	}
@@ -182,6 +181,45 @@ func TestReciboAdministracionPerfilesNoConfundePropuestaConEfecto(t *testing.T) 
 	}
 }
 
+func TestReferenciaActoOpcionalNoSustituyeProcedencia(t *testing.T) {
+	s := solicitudActoAdministracionPerfilesPrueba(t)
+	s.ReferenciaActo = "Resolución 2026/123"
+	s.Objetivo.UnidadRef = "unidad:prueba"
+	if err := s.Validar(); err != nil {
+		t.Fatal(err)
+	}
+	for _, ref := range []string{"acto\n123", " acto:123 ", strings.Repeat("á", 257)} {
+		s.ReferenciaActo = ref
+		if s.Validar() == nil {
+			t.Fatal("referencia no canónica admitida")
+		}
+	}
+	s.ReferenciaActo = ""
+	s.Objetivo.ProcedenciaRef = ""
+	if s.Validar() == nil {
+		t.Fatal("referencia opcional sustituye procedencia obligatoria")
+	}
+}
+func TestUnidadAsignacionNoAdmiteComodin(t *testing.T) {
+	s := solicitudActoAdministracionPerfilesPrueba(t)
+	s.Objetivo.UnidadRef = "*"
+	if s.Validar() == nil {
+		t.Fatal("ámbito global admitido")
+	}
+}
+
+func TestCierreBajaADMINPropiaReconstituyeClaseEnAutoridad(t *testing.T) {
+	s := solicitudActoAdministracionPerfilesPrueba(t)
+	cierre := SolicitudCierrePropuestaAdministracionPerfiles{OperacionRef: "cierre_admin:" + strings.Repeat("b", 32), PropuestaRef: "propuesta_admin:" + strings.Repeat("a", 32), PropuestaHuellaSHA256: strings.Repeat("c", 64), ProponentePersonaRef: s.Objetivo.PersonaRef, ObjetivoPersonaRef: s.Objetivo.PersonaRef, Aprobador: s.Actor, InstantaneaAutorizacion: s.InstantaneaAutorizacion, Decision: DecisionAprobarPropuestaPerfil, Motivo: s.Motivo, CorrelacionRef: s.CorrelacionRef}
+	if cierre.Validar() != nil {
+		t.Fatal("igualdad proponente/afectado impedía baja propia antes de recuperar propuesta")
+	}
+	cierre.Aprobador.PersonaRef = s.Objetivo.PersonaRef
+	if cierre.Validar() == nil {
+		t.Fatal("autoaprobación admitida")
+	}
+}
+
 func TestContinuidadAdministradoresBajaPropiaConDobleControl(t *testing.T) {
 	s := solicitudActoAdministracionPerfilesPrueba(t)
 	actorA, autorizacionA := s.Actor, s.InstantaneaAutorizacion
@@ -220,7 +258,6 @@ func TestContinuidadAdministradoresBajaPropiaConDobleControl(t *testing.T) {
 		ProponentePersonaRef:  actorB.PersonaRef,
 		ObjetivoPersonaRef:    actorB.PersonaRef,
 		Aprobador:             actorA, InstantaneaAutorizacion: autorizacionA,
-		Clase: ClaseControlPerfilAdministrador, Operacion: OperacionRevocarPerfil,
 		Decision: DecisionAprobarPropuestaPerfil, Motivo: s.Motivo,
 		CorrelacionRef: s.CorrelacionRef,
 	}

@@ -16,6 +16,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -147,7 +148,41 @@ func TestServidorAdminSoloCertificadoDeCAPropiaNoRevocado(t *testing.T) {
 	if _, err := peticion("/livez", cfg.Host, false); err == nil {
 		t.Fatal("TLS acepto cliente sin certificado")
 	}
+	var llamadasPerfiles atomic.Int64
+	perfilHandler := &handlerPerfilesADMIN{api: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		llamadasPerfiles.Add(1)
+		w.WriteHeader(http.StatusAccepted)
+	}), rutas: map[string]string{}}
+	servidorPerfiles, err := nuevoServidor(cfg, perfilHandler)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pruebaPerfiles := httptest.NewUnstartedServer(servidorPerfiles.Handler)
+	pruebaPerfiles.TLS = servidorPerfiles.TLSConfig.Clone()
+	pruebaPerfiles.StartTLS()
+	defer pruebaPerfiles.Close()
+	peticionPerfil := func() int {
+		transporte := &http.Transport{TLSClientConfig: &tls.Config{RootCAs: raices, ServerName: "localhost", MinVersion: tls.VersionTLS13, Certificates: []tls.Certificate{cliente}}}
+		defer transporte.CloseIdleConnections()
+		req, err := http.NewRequest(http.MethodGet, pruebaPerfiles.URL+"/api/admin/perfiles/v1/personas", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Host = cfg.Host
+		respuesta, err := (&http.Client{Transport: transporte}).Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer respuesta.Body.Close()
+		return respuesta.StatusCode
+	}
+	if got := peticionPerfil(); got != http.StatusAccepted || llamadasPerfiles.Load() != 1 {
+		t.Fatalf("perfil tras frontera=%d llamadas=%d", got, llamadasPerfiles.Load())
+	}
 	actualizarCRL(true)
+	if got := peticionPerfil(); got != http.StatusForbidden || llamadasPerfiles.Load() != 1 {
+		t.Fatalf("revocado llegó al handler=%d llamadas=%d", got, llamadasPerfiles.Load())
+	}
 	if got, _ := peticion("/livez", cfg.Host, true); got != http.StatusForbidden {
 		t.Fatalf("revocacion: %d", got)
 	}

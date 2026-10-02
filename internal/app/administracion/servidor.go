@@ -1,6 +1,7 @@
 package administracion
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
@@ -57,6 +58,12 @@ type Configuracion struct {
 // NuevoServidor solo monta la prueba de vida. Ninguna ruta de negocio queda
 // publicada antes de disponer de rol y lectura ADMIN en V3.
 func NuevoServidor(cfg Configuracion) (*http.Server, error) {
+	return nuevoServidor(cfg, nil)
+}
+
+// nuevoServidor conserva la misma frontera para todos los handlers nominales.
+// El montaje no puede elegir rutas por configuración ni por petición.
+func nuevoServidor(cfg Configuracion, perfiles *handlerPerfilesADMIN) (*http.Server, error) {
 	if cfg.Entorno != "desarrollo" && cfg.Entorno != "cidonia" {
 		// Produccion exige ademas Kerberos y concesion V3; todavia no hay
 		// compositor ADMIN que pueda acreditarlos.
@@ -146,9 +153,18 @@ func NuevoServidor(cfg Configuracion) (*http.Server, error) {
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
+		if perfiles != nil && perfiles.atiende(r.URL.Path) {
+			perfiles.ServeHTTP(w, r)
+			return
+		}
 		http.NotFound(w, r)
 	})
+	var contextoConexion func(context.Context, net.Conn) context.Context
+	if perfiles != nil {
+		contextoConexion = perfiles.contextoConexion
+	}
 	return &http.Server{
+		ConnContext:       contextoConexion,
 		Addr:              cfg.Escucha,
 		Handler:           handler,
 		ReadHeaderTimeout: 5 * time.Second,
@@ -178,30 +194,37 @@ func cadenaDirectaVigente(cadena []*x509.Certificate, ca *x509.Certificate, ahor
 }
 
 func comprobarCertificadoVigente(hoja, ca *x509.Certificate, rutaCRL string, ahora time.Time) error {
+	_, err := comprobarCertificadoVigenteHasta(hoja, ca, rutaCRL, ahora)
+	return err
+}
+
+// comprobarCertificadoVigenteHasta comparte el único cotejo CRL del servidor
+// con el resolver nominal. La evidencia de sesión no puede durar más que la CRL.
+func comprobarCertificadoVigenteHasta(hoja, ca *x509.Certificate, rutaCRL string, ahora time.Time) (time.Time, error) {
 	datos, err := leerMaterial(rutaCRL)
 	if err != nil {
-		return fmt.Errorf("%w: %w", errCRLNoDisponible, err)
+		return time.Time{}, fmt.Errorf("%w: %w", errCRLNoDisponible, err)
 	}
 	bloque, resto := pem.Decode(datos)
 	if bloque == nil || bloque.Type != "X509 CRL" || strings.TrimSpace(string(resto)) != "" {
-		return errCRLInvalida
+		return time.Time{}, errCRLInvalida
 	}
 	crl, err := x509.ParseRevocationList(bloque.Bytes)
 	if err != nil {
-		return fmt.Errorf("%w: %w", errCRLInvalida, err)
+		return time.Time{}, fmt.Errorf("%w: %w", errCRLInvalida, err)
 	}
 	if err := crl.CheckSignatureFrom(ca); err != nil {
-		return fmt.Errorf("%w: firma: %w", errCRLInvalida, err)
+		return time.Time{}, fmt.Errorf("%w: firma: %w", errCRLInvalida, err)
 	}
 	if ahora.Before(crl.ThisUpdate) || !ahora.Before(crl.NextUpdate) {
-		return errCRLInvalida
+		return time.Time{}, errCRLInvalida
 	}
 	for _, revocado := range crl.RevokedCertificateEntries {
 		if hoja.SerialNumber.Cmp(revocado.SerialNumber) == 0 {
-			return errCertificadoRevocado
+			return time.Time{}, errCertificadoRevocado
 		}
 	}
-	return nil
+	return crl.NextUpdate.UTC(), nil
 }
 
 func usoCliente(cert *x509.Certificate) bool {
