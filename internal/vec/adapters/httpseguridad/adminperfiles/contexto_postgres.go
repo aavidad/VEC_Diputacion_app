@@ -72,7 +72,14 @@ func (r *resolutorContexto) ResolverYRegistrarContextoActorV2(ctx context.Contex
 func (r *resolutorContexto) ejecutar(ctx context.Context, consulta string, args []any,
 	solicitud ports.SolicitudResolucionRegistroContextoActorV2) (ports.ConfirmacionRegistroContextoActorV2, bool, error) {
 	var resultado ports.ConfirmacionRegistroContextoActorV2
-	tx, err := r.base.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite})
+	iso := pgx.Serializable
+	if consulta == recuperarContexto {
+		// El núcleo V2 reconcilia en READ COMMITTED para observar el COMMIT
+		// anterior después de una respuesta ambigua. CA23 debe revalidar la
+		// asignación nominal vigente bajo cerrojos en este mismo aislamiento.
+		iso = pgx.ReadCommitted
+	}
+	tx, err := r.base.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: iso, AccessMode: pgx.ReadWrite})
 	if err != nil {
 		return resultado, false, err
 	}
