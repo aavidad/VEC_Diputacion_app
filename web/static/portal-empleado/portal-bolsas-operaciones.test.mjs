@@ -63,6 +63,13 @@ test("RRHH18 solo ofrece revisión y regularización con catálogo nuevo y situa
   const vista = renderizarOperacionesSituacion({ candidato: { estado_clave: "renuncia", estado_desde: desde }, estado: { carga: "listo", transiciones: transicionesRRHH18 } });
   assert.match(vista, /data-operacion="revisar"/);
   assert.match(vista, /data-operacion="regularizar"/);
+	const revisionTrasRenuncia = renderizarOperacionesSituacion({
+		candidato: { estado_clave: "no_disponible", estado_desde: desde },
+		estado: { carga: "listo", transiciones: { ...transicionesRRHH18, no_disponible: ["en_revision", "excluido"] },
+			items: [{ desde, recibo_ref: "recibo:renuncia", operacion: "pausar", situacion: "no_disponible", motivo: "Renuncia justificada", justificante: { tipo: "otro", referencia: "documento:1", sha256: "a".repeat(64) }, actor: "persona:rrhh", validador: "persona:rrhh", validada_en: desde }],
+			cambios: [{ campo: "situacion", recibo_ref: "recibo:renuncia", valor_anterior: "renuncia", valor_nuevo: "no_disponible", instante: desde, actor: "persona:rrhh" }] },
+	});
+	assert.match(revisionTrasRenuncia, /data-operacion="revisar"/);
 });
 
 test("RRHH18 rechaza códigos históricos y exige CAS y fin de causa antes del POST", async () => {

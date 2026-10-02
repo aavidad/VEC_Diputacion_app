@@ -80,7 +80,7 @@ func (h *HandlerOperacionesSituacion) ServeHTTP(w http.ResponseWriter, r *http.R
 		}
 		salida := make([]map[string]any, 0, len(items))
 		for _, o := range items {
-			salida = append(salida, map[string]any{"desde": o.Desde.UTC().Format(time.RFC3339Nano), "operacion": o.Operacion, "situacion": o.Situacion, "motivo": o.Motivo, "justificante": map[string]string{"tipo": o.Justificante.Tipo, "referencia": o.Justificante.Referencia, "sha256": o.Justificante.SHA256}, "actor": o.Actor, "validador": o.Validador, "validada_en": o.ValidadaEn.UTC().Format(time.RFC3339Nano)})
+			salida = append(salida, map[string]any{"desde": o.Desde.UTC().Format(time.RFC3339Nano), "recibo_ref": o.ReciboRef, "operacion": o.Operacion, "situacion": o.Situacion, "motivo": o.Motivo, "justificante": map[string]string{"tipo": o.Justificante.Tipo, "referencia": o.Justificante.Referencia, "sha256": o.Justificante.SHA256}, "actor": o.Actor, "validador": o.Validador, "validada_en": o.ValidadaEn.UTC().Format(time.RFC3339Nano)})
 		}
 		datos := map[string]any{"esquema": "vec.bolsa.rrhh.operaciones_situacion.v1", "items": salida}
 		if cambios != nil {

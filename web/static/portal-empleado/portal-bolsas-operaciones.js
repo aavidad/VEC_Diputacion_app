@@ -2,7 +2,7 @@ import { causasBaja, consultarReglasSituacion, hoyCivil, instalarPropuestaReposi
 import { traducirReglasSituacion } from "./portal-bolsas-reglas-situacion-i18n.js?v=20260930-portales-i18n-integracion-v1";
 import { cargarContratosFicha, manejarClickContratos } from "./portal-bolsas-contratos.js?v=20261002-a-recuperar-379-v1";
 import { cargarReincorporacionesTitularFicha, manejarClickReincorporacionesTitular } from "./portal-bolsas-reincorporaciones.js?v=20261001-ct-a-i18n-v1";
-import { renderizarTrazaValores, validarCambiosTraza } from "./portal-bolsas-traza-valores.js?v=20261001-ct-a-i18n-v1";
+import { renderizarTrazaValores, validarCambiosTraza } from "./portal-bolsas-traza-valores.js?v=20261002-r-rrhh18-v2";
 import { LOCALIZACION_PORTAL, textoPortal, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
 import { actorTraducido, justificanteTraducido } from "./portal-justificante.js";
 import { traducirReferencia } from "./portal-referencias-i18n.js?v=20261001-ct-a-i18n-v1";
@@ -145,12 +145,26 @@ const DESTINO_OPERACION = Object.freeze({ revisar: "en_revision", regularizar: "
  */
 export function operacionesDisponibles(estadoClave, transiciones) {
   const base = estadoClave === "renuncia" ? ["revisar", "regularizar", "excluir"]
+    : estadoClave === "no_disponible" ? ["revisar", "excluir"]
     : estadoClave === "en_revision" ? ["regularizar", "excluir"]
       : estadoClave === "excluido" ? ["regularizar"] : ["excluir"];
   const destinos = transiciones?.[estadoClave];
   if (!Array.isArray(destinos)) return estadoClave === "excluido" ? [] : ["excluir"];
   return base.filter((operacion) => destinos.includes(DESTINO_OPERACION[operacion])
     && (operacion === "excluir" || Array.isArray(transiciones.en_revision)));
+}
+
+function operacionesAdmitidasCandidato(candidato, estado) {
+  return operacionesDisponibles(candidato.estado_clave, estado.transiciones)
+    .filter((operacion) => operacion === "excluir" || instanteValido(candidato.estado_desde))
+    .filter((operacion) => {
+      if (operacion !== "revisar" || candidato.estado_clave !== "no_disponible") return true;
+      const antecedente = estado.items?.find((item) => item.desde === candidato.estado_desde
+        && item.operacion === "pausar" && item.situacion === "no_disponible" && typeof item.recibo_ref === "string");
+      return Boolean(antecedente && estado.cambios?.some((cambio) => cambio.campo === "situacion"
+        && cambio.recibo_ref === antecedente.recibo_ref && cambio.valor_anterior === "renuncia"
+        && cambio.valor_nuevo === "no_disponible"));
+    });
 }
 
 function etiquetaOperacion(operacion, candidato) {
@@ -160,8 +174,7 @@ function etiquetaOperacion(operacion, candidato) {
 
 export function renderizarOperacionesSituacion({ candidato, estado = {}, escaparHTML = html }) {
   const actual = estado.carga || "cargando";
-  const disponibles = operacionesDisponibles(candidato.estado_clave, estado.transiciones)
-    .filter((operacion) => operacion === "excluir" || instanteValido(candidato.estado_desde));
+  const disponibles = operacionesAdmitidasCandidato(candidato, estado);
   const acciones = disponibles.map((operacion) => `<button type="button" class="boton-secundario" data-b8-accion="seleccionar" data-operacion="${operacion}">${escaparHTML(etiquetaOperacion(operacion, candidato))}</button>`).join("");
   const botones = estado.paso > 0 ? `<button type="button" class="boton-secundario" data-b8-accion="cancelar" ${estado.enviando ? "disabled" : ""}>${textoPortal("txt_cancelar")}</button>`
     : estado.noDisponible ? "" : acciones;
@@ -392,6 +405,6 @@ export function crearControladorOperacionesSituacion({ estado, renderizar, recar
 }
 
 function operacionAdmitida(modal, flujo, operacion) {
-  return operacionesDisponibles(modal.candidato.estado_clave, flujo.transiciones).includes(operacion)
+  return operacionesAdmitidasCandidato(modal.candidato, flujo).includes(operacion)
     && (operacion === "excluir" || instanteValido(modal.candidato.estado_desde));
 }
