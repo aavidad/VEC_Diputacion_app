@@ -4,6 +4,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { crearResumen } from '../modelo.js';
 import { cargarTextos } from '../../../comun/textos.js';
 import { recuperarResumen, leerArchivoLocal, MAXIMO_ARCHIVO } from './material.js';
+import { rutaElegirConvocatoria } from './vista.js';
 
 const detalle = JSON.parse(await readFile(new URL('./testdata/detalle-publico-sintetico.json', import.meta.url)));
 const textos = await cargarTextos('convoca-preparacion');
@@ -82,6 +83,18 @@ test('catálogos ES/EN propios comparten claves y cargan con el traductor común
   for (const idioma of ['es', 'en']) {
     const t = await cargarTextos('seleccion-recuperacion', { idioma });
     assert.deepEqual(t.faltantes, []); assert.ok(t.traducir('titulo'));
+  }
+});
+
+test('ayuda dirige al listado y conserva idioma sin selector de archivo ni ruta de preparación inválida', async () => {
+  const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
+  assert.match(html, /id="elegir-convocatoria" href="\/bolsa\/"/u);
+  assert.ok(!html.includes('href="/bolsa/preparacion/"'));
+  for (const idioma of ['es', 'en']) {
+    const ruta = new URL(rutaElegirConvocatoria(idioma), 'https://fixture.invalid');
+    assert.equal(ruta.pathname, '/bolsa/');
+    assert.equal(ruta.searchParams.get('lang'), idioma);
+    assert.deepEqual([...ruta.searchParams.keys()], ['lang']);
   }
 });
 

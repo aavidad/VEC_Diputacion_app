@@ -41,8 +41,9 @@ presentación, justificante ni inscripción durable por recuperar este archivo.
 
 Esta unión incluye la exportación JSON adicional del productor revisado en
 `8dd9b4cd7`, junto a su descarga TXT anterior. Los cinco archivos del productor
-conservan exactamente los blobs revisados. La ayuda del recuperador dirige a
-su botón JSON. La preparación, sus guardas y los derechos siguen intactos.
+conservan exactamente los blobs revisados. La ayuda del recuperador enlaza al listado público, conserva el idioma y
+permite elegir la convocatoria que lleva a su preparación y botón JSON. No usa
+un identificador procedente del archivo ni abre una preparación sin selector. La preparación, sus guardas y los derechos siguen intactos.
 La prueba focal usa una respuesta pública sintética declarada: la pantalla
 productora genera el JSON real, el consumidor lo importa y lo reexporta con
 los mismos bytes. No acredita una fuente administrativa ni datos de producción.

@@ -2,6 +2,10 @@ import { cargarTextos } from '../../../comun/textos.js';
 import { INDICE_IDIOMAS, resolverIdiomaNavegacion } from '../../../comun/idioma.js';
 import { leerArchivoLocal } from './material.js?v=20261002-codexa-s3-v1';
 
+export function rutaElegirConvocatoria(idioma) {
+  return `/bolsa/?${new URLSearchParams({ lang: idioma })}`;
+}
+
 export async function montarRecuperacion(d = document) {
   const idioma = resolverIdiomaNavegacion();
   const textos = await cargarTextos('seleccion-recuperacion', { idioma }); const t = textos.traducir;
@@ -11,6 +15,7 @@ export async function montarRecuperacion(d = document) {
   d.querySelectorAll('[data-texto]').forEach(n => { n.textContent = t(n.dataset.texto); });
   d.querySelectorAll('[data-aria]').forEach(n => { n.setAttribute('aria-label', t(n.dataset.aria)); });
   const id = valor => d.getElementById(valor);
+  id('elegir-convocatoria').href = rutaElegirConvocatoria(textos.idioma);
   const selector = id('idioma');
   for (const item of INDICE_IDIOMAS.idiomas) {
     const option = d.createElement('option'); option.value = item.codigo; option.textContent = item.nombre;
