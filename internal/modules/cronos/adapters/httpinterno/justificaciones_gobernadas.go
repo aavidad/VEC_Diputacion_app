@@ -189,7 +189,9 @@ func (m *ManejadorJustificaciones) revisar(w http.ResponseWriter, r *http.Reques
 		_ = json.NewEncoder(w).Encode(map[string]any{"recibo": proyectarReciboJustificacion(historico)})
 		return
 	}
-	if !errors.Is(err, ports.ErrJustificacionNoEncontrada) {
+	// La ausencia emitida por el servicio es el sentinel directo. Un error
+	// compuesto o envuelto no permite descartar un conflicto o fallo añadido.
+	if err != ports.ErrJustificacionNoEncontrada {
 		responderErrorJustificacion(w, err)
 		return
 	}
@@ -254,7 +256,7 @@ func responderErrorJustificacion(w http.ResponseWriter, err error) {
 }
 
 func referenciaConsultaJustificacion(raw string) (string, bool) {
-	if len(raw) == 0 || len(raw) > 160 {
+	if len(raw) == 0 || len(raw) > 512 {
 		return "", false
 	}
 	v, err := url.ParseQuery(raw)

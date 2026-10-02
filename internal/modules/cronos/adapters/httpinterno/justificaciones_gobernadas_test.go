@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -206,8 +207,11 @@ func TestJustificacionHTTPReplayReautorizaLecturaSinExigirVersionActual(t *testi
 
 func TestJustificacionHTTPErrorDeRecuperacionNoCreaRevision(t *testing.T) {
 	for nombre, err := range map[string]error{
-		"conflicto":   domain.ErrJustificacionConflicto,
-		"dependencia": ports.ErrJustificacionNoDisponible,
+		"conflicto":             domain.ErrJustificacionConflicto,
+		"dependencia":           ports.ErrJustificacionNoDisponible,
+		"conflicto_compuesto":   errors.Join(ports.ErrJustificacionNoEncontrada, domain.ErrJustificacionConflicto),
+		"dependencia_compuesta": errors.Join(ports.ErrJustificacionNoEncontrada, ports.ErrJustificacionNoDisponible),
+		"ausencia_envuelta":     fmt.Errorf("%w", ports.ErrJustificacionNoEncontrada),
 	} {
 		t.Run(nombre, func(t *testing.T) {
 			caso := &casoJustificacionPrueba{errRecuperacion: err}
@@ -225,6 +229,22 @@ func TestJustificacionHTTPErrorDeRecuperacionNoCreaRevision(t *testing.T) {
 				t.Fatalf("recuperación fallida produjo efectos: estado=%d caso=%+v", w.Code, caso)
 			}
 		})
+	}
+}
+
+func TestJustificacionHTTPConsultaAdmiteReferenciaMaximaCodificada(t *testing.T) {
+	ref := "permiso:cronos:solicitud:" + strings.Repeat("a", 128)
+	if !domain.SolicitudPermisoRefValida(ref) {
+		t.Fatal("referencia de prueba fuera del contrato")
+	}
+	resolutor := &resolverJustificacionPrueba{}
+	caso := &casoJustificacionPrueba{}
+	m, _ := NuevoManejadorJustificaciones(caso, resolutor)
+	req := httptest.NewRequest(http.MethodGet, RutaConsultarJustificacion+"?solicitud_ref="+url.QueryEscape(ref), nil)
+	w := httptest.NewRecorder()
+	m.ServeHTTP(w, req)
+	if w.Code != http.StatusOK || resolutor.llamadas != 1 || caso.consulta != 1 {
+		t.Fatalf("referencia máxima rechazada: estado=%d consulta=%d", w.Code, caso.consulta)
 	}
 }
 
