@@ -211,6 +211,36 @@ func TestXLSXExigeRelacionRaizYTiposDeContenido(t *testing.T) {
 	}
 }
 
+func TestXLSXRechazaRelacionesInternasHaciaTablasNoCanonicas(t *testing.T) {
+	referencia := hojaResumenXLSXPrueba(t)
+	const tipoEstilos = "application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"
+	const tipoCadenas = "application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"
+	casos := []struct {
+		nombre   string
+		opciones opcionesXLSX
+	}{
+		{"estilos_alternativos", opcionesXLSX{
+			estilos: true, estiloPersonalizado: true, targetStyles: "styles-date.xml",
+			celdas:      map[string]string{"F2": `<c r="F2" s="1"><v>12.5</v></c>`},
+			partesExtra: `<Override PartName="/xl/styles-date.xml" ContentType="` + tipoEstilos + `"/>`,
+			extra:       map[string]string{"xl/styles-date.xml": `<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><cellXfs count="2"><xf numFmtId="0"/><xf numFmtId="14" applyNumberFormat="1"/></cellXfs></styleSheet>`},
+		}},
+		{"cadenas_alternativas", opcionesXLSX{
+			targetSST:   "strings2.xml",
+			partesExtra: `<Override PartName="/xl/strings2.xml" ContentType="` + tipoCadenas + `"/>`,
+			extra:       map[string]string{"xl/strings2.xml": `<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="1" uniqueCount="1"><si><t>cabecera distinta</t></si></sst>`},
+		}},
+	}
+	for _, caso := range casos {
+		t.Run(caso.nombre, func(t *testing.T) {
+			libro := construirXLSXPrueba(t, referencia, caso.opciones)
+			if _, err := xlsconvoca.NuevoLector().Decodificar(context.Background(), bytes.NewReader(libro)); !errors.Is(err, xlsconvoca.ErrXLSInvalido) {
+				t.Fatalf("relación a tabla no canónica aceptada: %v", err)
+			}
+		})
+	}
+}
+
 func hojaResumenXLSXPrueba(t *testing.T) dominio.HojaStaging {
 	t.Helper()
 	hoja, err := xlsconvoca.NuevoLector().Decodificar(context.Background(), bytes.NewReader(leerFixture(t, "resumen.xls")))
@@ -234,6 +264,8 @@ type opcionesXLSX struct {
 	relacionExtra       string
 	rootTarget          string
 	omitirTipos         bool
+	targetSST           string
+	targetStyles        string
 }
 
 func construirXLSXPrueba(t *testing.T, hoja dominio.HojaStaging, o opcionesXLSX) []byte {
@@ -272,9 +304,17 @@ func construirXLSXPrueba(t *testing.T, hoja dominio.HojaStaging, o opcionesXLSX)
 	}
 	escribir("_rels/.rels", `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="`+rootTarget+`"/></Relationships>`)
 	escribir("xl/workbook.xml", `<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="`+escaparXMLPrueba(hoja.NombreHoja)+`" sheetId="1" r:id="rId1"/></sheets></workbook>`)
-	relaciones := `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings" Target="sharedStrings.xml"/>`
+	targetSST := o.targetSST
+	if targetSST == "" {
+		targetSST = "sharedStrings.xml"
+	}
+	relaciones := `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings" Target="` + targetSST + `"/>`
 	if o.estilos {
-		relaciones += `<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>`
+		targetStyles := o.targetStyles
+		if targetStyles == "" {
+			targetStyles = "styles.xml"
+		}
+		relaciones += `<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="` + targetStyles + `"/>`
 		numFmt := "14"
 		numFmts := ""
 		if o.estiloPersonalizado {
