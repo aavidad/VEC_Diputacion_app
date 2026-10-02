@@ -1,0 +1,89 @@
+\set ON_ERROR_STOP on
+-- Preparación de ensayo CRN11; NO ejecutada y NO acredita postAD148 causal.
+-- El director debe producir primero AD149 completo con matriz/guardas reales,
+-- retirar la parada solo de la candidata revisada y ensayar desde el clon causal.
+-- No aplicar ni revertir Personal16, CA7 ni otras migraciones con historia.
+DO $paro$ BEGIN
+ RAISE EXCEPTION 'PARO: pruebas CRN11 pendientes de candidata nominal AD149 y clon causal postAD148'
+ USING ERRCODE='55000';
+END $paro$;
+
+-- Comprobaciones preparadas para después de AD149 -> Personal26 reales.
+-- Se ejecutan en laboratorio sintético, con ROLLBACK y sin datos personales.
+BEGIN ISOLATION LEVEL SERIALIZABLE;
+SET LOCAL search_path=pg_catalog,pg_temp;
+SET LOCAL lock_timeout='2s';
+SET LOCAL statement_timeout='30s';
+DO $acl$
+DECLARE f oid; x record; propietario oid; consumidor oid;
+BEGIN
+ FOR x IN SELECT * FROM (VALUES
+  ('vec_autorizacion_atestada_v3.consumir_vinculo_propio_crn11_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
+   'vec_autorizacion_atestada_v3_propietario','vec_personal_propietario',
+   ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s']),
+  ('vec_personal.consultar_vinculo_propio_historico_crn11_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
+   'vec_personal_propietario','vec_personal_ejecutor',
+   ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s'])
+ ) v(firma,dueno,rol,config) LOOP
+  f:=to_regprocedure(x.firma); propietario:=x.dueno::regrole; consumidor:=x.rol::regrole;
+  IF f IS NULL OR NOT EXISTS(SELECT 1 FROM pg_proc p WHERE p.oid=f AND p.proowner=propietario
+      AND p.prosecdef AND p.provolatile='v' AND p.proconfig=x.config)
+     OR NOT has_function_privilege(consumidor,f,'EXECUTE')
+     OR (SELECT count(*) FROM pg_proc p,LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
+         WHERE p.oid=f)<>2
+     OR EXISTS(SELECT 1 FROM pg_proc p,LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
+         WHERE p.oid=f AND (a.grantee NOT IN(propietario,consumidor) OR a.grantor<>propietario
+             OR a.privilege_type<>'EXECUTE' OR a.is_grantable)) THEN
+   RAISE EXCEPTION 'CRN11: función, configuración o ACL divergentes';
+  END IF;
+ END LOOP;
+ IF has_function_privilege('vec_personal_ejecutor',
+   'vec_autorizacion_atestada_v3.consumir_vinculo_propio_crn11_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
+    OR has_table_privilege('vec_personal_ejecutor','vec_personal.proyeccion_empleado_persona_historia','SELECT')
+    OR has_table_privilege('vec_personal_ejecutor','vec_personal.recibo_vinculo_propio_crn11','SELECT')
+    OR NOT EXISTS(SELECT 1 FROM pg_class WHERE oid='vec_personal.recibo_vinculo_propio_crn11'::regclass
+       AND relrowsecurity AND relforcerowsecurity AND relowner='vec_personal_propietario'::regrole)
+    OR EXISTS(SELECT 1 FROM pg_policy WHERE polrelid='vec_personal.recibo_vinculo_propio_crn11'::regclass
+       AND polroles IS DISTINCT FROM ARRAY['vec_personal_propietario'::regrole::oid]) THEN
+  RAISE EXCEPTION 'CRN11: runtime o tabla abiertos';
+ END IF;
+END $acl$;
+
+-- Negativa de forma nominal: material vacío nunca llega al núcleo ni consume.
+-- No es una atestación válida. La cantidad de auditorías y recibos permanece.
+DO $negativa$
+DECLARE antes bigint; recibos bigint;
+BEGIN
+ SELECT count(*) INTO antes FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3;
+ SELECT count(*) INTO recibos FROM vec_personal.recibo_vinculo_propio_crn11;
+ BEGIN
+  PERFORM * FROM vec_autorizacion_atestada_v3.consumir_vinculo_propio_crn11_v3_atestada(
+   convert_to('{}','UTF8'),convert_to('{}','UTF8'),''::bytea,''::bytea,2,3,
+   ''::bytea,''::bytea,''::bytea,''::bytea);
+  RAISE EXCEPTION 'CRN11: material vacío autorizado';
+ EXCEPTION WHEN insufficient_privilege THEN NULL;
+ END;
+ IF antes IS DISTINCT FROM (SELECT count(*) FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3)
+    OR recibos IS DISTINCT FROM (SELECT count(*) FROM vec_personal.recibo_vinculo_propio_crn11) THEN
+  RAISE EXCEPTION 'CRN11: negativa produjo efecto';
+ END IF;
+END $negativa$;
+ROLLBACK;
+
+-- Casos pendientes del fixture COSE real del núcleo, sin dobles conectados:
+-- a) per_A/emp_A/pep_A versión >1 y prc_A: salida SOLO vinculo (5 claves) y
+--    evidencia (6 claves); mismo emp_/pep_/versión del contexto actual.
+-- b) Relación laboral finalizada con proyección de identidad todavía válida:
+--    sigue leyendo la pareja. Ninguna fecha de fin laboral entra en material.
+-- c) emp_B/per_B, ausencia, dos proyecciones efectivas, pep_ o versión distinta,
+--    fuente incompleta, campos extra, audiencia/acción/finalidad/ámbito distintos,
+--    obligaciones desconocidas, sesión/cuenta/perfil revocados: cero lectura.
+-- d) Revocación/publicación antes de consumo, tras instantánea SERIALIZABLE:
+--    barrera devuelve 40001; reintento fresco deniega y no devuelve datos viejos.
+-- e) Repetir capacidad consumida deniega; autorización fresca consume y crea
+--    acceso nuevo sin modificar historia Personal16 ni recibo anterior.
+-- f) Fallo después del consumo antes del recibo: ROLLBACK revierte ambos.
+-- g) Recuperación tras reinicio del laboratorio: recibo y auditoría iguales;
+--    repetir la lectura exige concesión actual nueva, sin duplicar consumo.
+-- Capturar pre/post global, ACL, funciones, triggers, CHECK, historia y huellas.
+-- Estas notas NO son resultados de pruebas ni un ENSAYO-OK.

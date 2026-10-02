@@ -1,0 +1,94 @@
+\set ON_ERROR_STOP on
+-- BORRADOR NO INSTALABLE. Reserva AD149; depende de la postimagen causal AD148.
+-- La definición de fachada está preparada. La extensión del núcleo NO está
+-- producida: falta su preimagen global publicada y ensayada. No usar AD54/74.
+-- Pendientes para la candidata ejecutable, en una sola transacción:
+-- 1. Capturar definición/fuente/owner/config/ACL/dependencias del núcleo y
+--    CHECK completo de audiencias tras AD148 real, con huellas exactas.
+-- 2. Añadir perfil vinculo_propio_historico_crn11 a exclusión del bloque CT,
+--    selección runtime Personal y matriz nominal completa, conservando el resto.
+-- 3. Matriz: personal.vinculo_propio.crn11.consultar; audiencia
+--    vec_personal.vinculo_propio.crn11.v1; módulo personal; tipo
+--    vinculo_historico_propio_crn11; finalidad
+--    acreditar_vinculo_historico_propio_crn11; campos [empleado_ref,fuente_ref,persona_ref,version,vinculo_ref];
+--    obligaciones []; efecto y recurso emp_ iguales; huellas iguales.
+--    El contexto sellado contiene SOLO ámbito empleado_ref y atributos
+--    material_sha256,operacion=vinculo_propio_historico_crn11.
+-- 4. Revalidación central actual de CA7: per_/emp_/pep_/versión, perfil,
+--    cuenta, sesión, revocación y barreras en la misma TX SERIALIZABLE RW.
+--    El permiso debe venir de política nominal; no se publica por petición.
+-- 5. Añadir SOLO esa audiencia al CHECK exacto; comprobar invariancia del
+--    núcleo fuera de la extensión y ACL/dependencias. Sin SQL dinámica aquí.
+-- 6. Dos revisiones exactas, ensayo causal real, pruebas positivas con COSE,
+--    negativas cruzadas/revocación/replay, concurrencia y recuperación.
+-- No existe hash postAD148 en este borrador y no se presume instalado.
+DO $paro$ BEGIN
+ RAISE EXCEPTION 'PARO: AD149 borrador; falta postimagen causal AD148 y matriz nominal exacta'
+ USING ERRCODE='55000';
+END $paro$;
+
+BEGIN;
+SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
+SET LOCAL search_path=pg_catalog,pg_temp;
+SET LOCAL timezone='UTC';
+SET LOCAL lock_timeout='5s';
+SET LOCAL statement_timeout='30s';
+SELECT pg_advisory_xact_lock(hashtextextended('vec_autorizacion_atestada_v3:migracion:000149',0));
+SELECT pg_advisory_xact_lock(hashtextextended('vec_autorizacion_atestada_v3:nucleo',0));
+-- El futuro tramo de guardas/matriz se colocará aquí, sobre la preimagen real.
+-- Esta fachada por sí sola NO habilita el perfil ni la audiencia en el núcleo.
+CREATE FUNCTION vec_autorizacion_atestada_v3.consumir_vinculo_propio_crn11_v3_atestada(
+ p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,
+ p_persona_version numeric,p_perfil_version numeric,
+ p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea)
+RETURNS TABLE(decision_ref text,efecto_ref text,huella_efecto_sha256 text,
+ consumo_huella_sha256 text,auditoria_ref text,consumida_en timestamptz,consumo_nuevo boolean)
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER
+SET search_path=pg_catalog,pg_temp SET lock_timeout='2s' AS $f$
+DECLARE c jsonb; d jsonb; x record;
+BEGIN
+ IF current_user<>'vec_autorizacion_atestada_v3_propietario'
+    OR current_setting('transaction_isolation')<>'serializable'
+    OR current_setting('transaction_read_only')<>'off' THEN
+  RAISE EXCEPTION 'consumo CRN11 denegado' USING ERRCODE='42501';
+ END IF;
+ BEGIN
+  c:=convert_from(p_capacidad,'UTF8')::jsonb;
+  d:=convert_from(p_decision,'UTF8')::jsonb;
+ EXCEPTION WHEN others THEN
+  RAISE EXCEPTION 'material CRN11 inválido' USING ERRCODE='22023';
+ END;
+ IF jsonb_typeof(c) IS DISTINCT FROM 'object' OR jsonb_typeof(d) IS DISTINCT FROM 'object'
+    OR d->>'concedida' IS DISTINCT FROM 'true'
+    OR d->>'modulo_id' IS DISTINCT FROM 'personal'
+    OR d->>'accion' IS DISTINCT FROM 'personal.vinculo_propio.crn11.consultar'
+    OR c->>'operacion' IS DISTINCT FROM d->>'accion'
+    OR c->>'audiencia_consumo' IS DISTINCT FROM 'vec_personal.vinculo_propio.crn11.v1'
+    OR d->>'tipo_recurso' IS DISTINCT FROM 'vinculo_historico_propio_crn11'
+    OR d->>'finalidad' IS DISTINCT FROM 'acreditar_vinculo_historico_propio_crn11'
+    OR d->'campos_permitidos' IS DISTINCT FROM '["empleado_ref","fuente_ref","persona_ref","version","vinculo_ref"]'::jsonb
+    OR d->'obligaciones' IS DISTINCT FROM '[]'::jsonb
+    OR d->>'recurso_ref' IS NULL OR d->>'recurso_ref' !~ '^emp_[A-Za-z0-9_-]{22,128}$'
+    OR d->>'recurso_ref' IS DISTINCT FROM c->>'efecto_ref'
+    OR d->>'contexto_recurso_huella_sha256' IS NULL
+    OR d->>'contexto_recurso_huella_sha256' !~ '^[0-9a-f]{64}$'
+    OR d->>'contexto_recurso_huella_sha256' IS DISTINCT FROM c->>'huella_efecto_sha256' THEN
+  RAISE EXCEPTION 'consumo CRN11 denegado' USING ERRCODE='42501';
+ END IF;
+ SELECT * INTO STRICT x
+ FROM vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(
+  'vinculo_propio_historico_crn11',p_capacidad,p_decision,p_motivo,p_contexto,
+  p_persona_version,p_perfil_version,p_payload,p_sobre,p_evidencia,p_raiz);
+ IF x.consumo_nuevo IS NOT TRUE OR x.decision_ref IS DISTINCT FROM d->>'decision_ref'
+    OR x.efecto_ref IS DISTINCT FROM c->>'efecto_ref'
+    OR x.huella_efecto_sha256 IS DISTINCT FROM c->>'huella_efecto_sha256' THEN
+  RAISE EXCEPTION 'consumo CRN11 divergente' USING ERRCODE='42501';
+ END IF;
+ RETURN QUERY SELECT x.decision_ref,x.efecto_ref,x.huella_efecto_sha256,
+  x.consumo_huella_sha256,x.auditoria_ref,x.consumida_en,true;
+END $f$;
+REVOKE ALL ON FUNCTION vec_autorizacion_atestada_v3.consumir_vinculo_propio_crn11_v3_atestada(
+ bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION vec_autorizacion_atestada_v3.consumir_vinculo_propio_crn11_v3_atestada(
+ bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) TO vec_personal_propietario;
+COMMIT;
