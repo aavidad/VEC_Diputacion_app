@@ -1,6 +1,7 @@
 \set ON_ERROR_STOP on
 -- AD3-144: fachada nominal de consumo V3 para el gobierno de borradores de baremo.
--- Debe instalarse después de AD3-143 y del perfil de núcleo GobiernoG.
+-- Borrador: sólo después de AD3-143 exacta. Hashes vacíos bloquean la
+-- instalación hasta el ensayo causal y las revisiones de la preimagen real.
 -- Sólo vec_bolsa_reglas_baremo_propietario puede invocarla; la autorización
 -- real sigue en V3 y la operación de Bolsa la consume en su transacción.
 BEGIN;
@@ -14,7 +15,6 @@ SELECT pg_advisory_xact_lock(hashtextextended('vec_autorizacion_atestada_v3:nucl
 
 DO $pre$
 DECLARE nucleo oid:=to_regprocedure('vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
-        definicion text; audiencia text;
 BEGIN
  IF current_user<>'vec_autorizacion_atestada_v3_propietario'
  OR to_regprocedure('vec_autorizacion_atestada_v3.consumir_orden_copias_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
@@ -29,17 +29,155 @@ BEGIN
    WHERE p.oid=nucleo AND (a.grantee<>p.proowner OR a.grantor<>p.proowner
     OR a.privilege_type<>'EXECUTE' OR a.is_grantable))
  THEN RAISE EXCEPTION 'AD3-144: orden causal o roles incompatibles' USING ERRCODE='55000'; END IF;
- SELECT pg_get_functiondef(nucleo) INTO STRICT definicion;
- IF strpos(definicion,'p_perfil_mutacion IS NOT DISTINCT FROM ''gobierno_borrador_reglas_baremo''')=0
- OR strpos(definicion,'vec_bolsa_reglas_baremo.gobierno_borrador.v3')=0
- OR strpos(definicion,'vec_bolsa_reglas_baremo_ejecutor_gobierno')=0
- THEN RAISE EXCEPTION 'AD3-144: núcleo GobiernoG no preparado' USING ERRCODE='55000'; END IF;
- SELECT pg_get_constraintdef(c.oid,true) INTO STRICT audiencia FROM pg_constraint c
+END $pre$;
+
+DO $nucleo$
+DECLARE
+ f oid:=to_regprocedure('vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
+ original text; nuevo text; actual text; fuente text; meta jsonb; deps jsonb; deps_compartidas jsonb; acl aclitem[];
+ propietario oid; config text[]; definidora boolean;
+ -- BORRADOR: hashes vacíos hasta medir la postimagen real AD143; instalación denegada.
+ esperada_def_sha256 text:=$esperada_def_sha256$$esperada_def_sha256$;
+ esperada_fuente_sha256 text:=$esperada_fuente_sha256$$esperada_fuente_sha256$;
+ marca text:=$marca$       )
+       OR c ->> 'suite' <> 'VEC-AD-3-COSE-EDDSA-1'$marca$;
+ excl text:=$excl$               p_perfil_mutacion IS DISTINCT FROM 'bolsa_llamamiento'
+$excl$;
+ excl_nuevo text:=$excl_nuevo$               p_perfil_mutacion IS DISTINCT FROM 'bolsa_llamamiento'
+               AND p_perfil_mutacion IS DISTINCT FROM 'gobierno_borrador_reglas_baremo'
+$excl_nuevo$;
+ runtime text:=$runtime$       OR NOT (
+           (
+               p_perfil_mutacion IN ('admin_copias_orden','admin_copias_propuesta','admin_copias_revision')
+$runtime$;
+ runtime_nuevo text:=$runtime_nuevo$       OR NOT (
+           (
+               p_perfil_mutacion IS NOT DISTINCT FROM 'gobierno_borrador_reglas_baremo'
+               AND EXISTS (SELECT 1 FROM pg_roles r WHERE r.rolname=session_user AND r.rolcanlogin
+                  AND NOT r.rolsuper AND NOT r.rolcreaterole AND NOT r.rolcreatedb
+                  AND NOT r.rolreplication AND NOT r.rolbypassrls)
+               AND EXISTS (SELECT 1 FROM pg_auth_members m WHERE m.member=session_user::regrole
+                  AND m.roleid='vec_bolsa_reglas_baremo_ejecutor_gobierno'::regrole
+                  AND m.inherit_option AND NOT m.set_option AND NOT m.admin_option)
+               AND (SELECT count(*) FROM pg_auth_members m WHERE m.member=session_user::regrole)=1
+               AND NOT EXISTS (SELECT 1 FROM pg_auth_members m WHERE m.member='vec_bolsa_reglas_baremo_ejecutor_gobierno'::regrole)
+           )
+           OR (
+               p_perfil_mutacion IN ('admin_copias_orden','admin_copias_propuesta','admin_copias_revision')
+$runtime_nuevo$;
+ extension text:=$extension$           OR (
+ p_perfil_mutacion IS NOT DISTINCT FROM 'gobierno_borrador_reglas_baremo'
+ AND c->>'audiencia_consumo' IS NOT DISTINCT FROM 'vec_bolsa_reglas_baremo.gobierno_borrador.v3'
+ AND ((c->>'operacion' IS NOT DISTINCT FROM 'bolsa.reglas_baremo.borrador.crear'
+       AND d->>'tipo_recurso' IS NOT DISTINCT FROM 'intencion_gobierno_reglas_baremo'
+       AND d->>'finalidad' IS NOT DISTINCT FROM 'gobierno_reglas_baremo'
+       AND coalesce(d->>'recurso_ref','') ~ '^intencion-reglas-baremo:[0-9a-f]{64}$'
+       AND d->'campos_permitidos' IS NOT DISTINCT FROM '["auditoria","estado_reglas_baremo","salida_eventos"]'::jsonb)
+   OR (c->>'operacion' IS NOT DISTINCT FROM 'bolsa.reglas_baremo.version.consultar'
+       AND d->>'tipo_recurso' IS NOT DISTINCT FROM 'version_reglas_baremo_gobernada'
+       AND d->>'finalidad' IS NOT DISTINCT FROM 'consulta_gobierno_reglas_baremo'
+       AND coalesce(d->>'recurso_ref','') ~ '^reglas-baremo:[0-9a-f]{64}$'
+       AND d->'campos_permitidos' IS NOT DISTINCT FROM '["estado_reglas_baremo"]'::jsonb)
+   OR (c->>'operacion' IS NOT DISTINCT FROM 'bolsa.reglas_baremo.recibo.consultar'
+       AND d->>'tipo_recurso' IS NOT DISTINCT FROM 'version_reglas_baremo_gobernada'
+       AND d->>'finalidad' IS NOT DISTINCT FROM 'consulta_gobierno_reglas_baremo'
+       AND coalesce(d->>'recurso_ref','') ~ '^reglas-baremo:[0-9a-f]{64}$'
+       AND d->'campos_permitidos' IS NOT DISTINCT FROM '["estado_reglas_baremo","recibo"]'::jsonb))
+ AND d->>'accion' IS NOT DISTINCT FROM c->>'operacion'
+ AND d->>'modulo_id' IS NOT DISTINCT FROM 'bolsa'
+ AND d->>'recurso_ref' IS NOT DISTINCT FROM c->>'efecto_ref'
+ AND d->>'contexto_recurso_huella_sha256' IS NOT DISTINCT FROM c->>'huella_efecto_sha256'
+ AND d#>>'{vinculo_autenticacion_actor,superficie}' IS NOT DISTINCT FROM 'interna_corporativa'
+ AND d#>>'{vinculo_autenticacion_actor,cuenta_privilegiada}' IS NOT DISTINCT FROM 'false'
+ AND d->'obligaciones' IS NOT DISTINCT FROM '[]'::jsonb)
+$extension$;
+BEGIN
+ IF f IS NULL THEN RAISE EXCEPTION 'AD3-144: núcleo ausente' USING ERRCODE='55000'; END IF;
+ SELECT pg_get_functiondef(f),p.prosrc,to_jsonb(p)-'prosrc',p.proacl,p.proowner,p.proconfig,p.prosecdef
+ INTO original,fuente,meta,acl,propietario,config,definidora FROM pg_proc p WHERE p.oid=f;
+ IF NOT FOUND OR original IS NULL OR fuente IS NULL OR meta IS NULL
+    OR propietario IS NULL OR config IS NULL OR definidora IS NULL
+ THEN RAISE EXCEPTION 'AD3-144: metadatos de núcleo ausentes' USING ERRCODE='55000'; END IF;
+ SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
+ INTO deps FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f;
+ SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.dbid,d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype),'[]'::jsonb)
+ INTO deps_compartidas FROM pg_shdepend d
+ WHERE d.dbid=(SELECT oid FROM pg_database WHERE datname=current_database())
+   AND d.classid='pg_proc'::regclass AND d.objid=f;
+ -- Perfil nuevo en las dos listas del núcleo: exclusión del bloque general y
+ -- selección de la guarda de sesión miembro del ejecutor Bolsa.
+ IF propietario<>'vec_autorizacion_atestada_v3_propietario'::regrole OR NOT definidora
+    OR config IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s']
+    OR encode(sha256(convert_to(original,'UTF8')),'hex') IS DISTINCT FROM esperada_def_sha256
+    OR encode(sha256(convert_to(fuente,'UTF8')),'hex') IS DISTINCT FROM esperada_fuente_sha256
+    OR NOT EXISTS (SELECT 1 FROM pg_proc p WHERE p.oid=f
+         AND p.proowner='vec_autorizacion_atestada_v3_propietario'::regrole
+         AND p.prokind='f' AND p.provolatile='v' AND p.proparallel='u'
+         AND p.prosecdef AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s'])
+    OR EXISTS (SELECT 1 FROM pg_database db
+         CROSS JOIN LATERAL aclexplode(coalesce(db.datacl,acldefault('d',db.datdba))) a
+         WHERE db.datname=current_database() AND a.grantee=0 AND a.privilege_type='TEMPORARY')
+    OR EXISTS (SELECT 1 FROM pg_roles r WHERE left(r.rolname,4)='vec_' AND r.rolcanlogin
+         AND has_database_privilege(r.oid,current_database(),'TEMPORARY'))
+    OR NOT EXISTS (SELECT 1 FROM aclexplode(coalesce(acl,acldefault('f',propietario))) a
+         WHERE a.grantee=propietario AND a.grantor=propietario
+           AND a.privilege_type='EXECUTE' AND NOT a.is_grantable)
+    OR EXISTS (SELECT 1 FROM aclexplode(coalesce(acl,acldefault('f',propietario))) a
+         WHERE a.grantee<>propietario OR a.grantor<>propietario
+            OR a.privilege_type<>'EXECUTE' OR a.is_grantable)
+    OR deps IS DISTINCT FROM jsonb_build_array(
+         jsonb_build_object('classid','pg_proc'::regclass::oid,'objid',f::oid,'objsubid',0,
+           'refclassid','pg_language'::regclass::oid,
+           'refobjid',(SELECT oid FROM pg_language WHERE lanname='plpgsql'),
+           'refobjsubid',0,'deptype','n'),
+         jsonb_build_object('classid','pg_proc'::regclass::oid,'objid',f::oid,'objsubid',0,
+           'refclassid','pg_namespace'::regclass::oid,
+           'refobjid','vec_autorizacion_atestada_v3'::regnamespace::oid,
+           'refobjsubid',0,'deptype','n'))
+    OR deps_compartidas IS DISTINCT FROM jsonb_build_array(
+         jsonb_build_object('dbid',(SELECT oid FROM pg_database WHERE datname=current_database()),
+           'classid','pg_proc'::regclass::oid,'objid',f::oid,'objsubid',0,
+           'refclassid','pg_authid'::regclass::oid,'refobjid',propietario,'deptype','o'))
+    OR length(original)-length(replace(original,marca,''))<>length(marca)
+    OR length(original)-length(replace(original,excl,''))<>length(excl)
+    OR length(original)-length(replace(original,runtime,''))<>length(runtime)
+    OR strpos(original,'gobierno_borrador_reglas_baremo')<>0
+    OR strpos(original,'vec_bolsa_reglas_baremo.gobierno_borrador.v3')<>0
+ THEN RAISE EXCEPTION 'AD3-144: núcleo incompatible' USING ERRCODE='55000'; END IF;
+ nuevo:=replace(original,runtime,runtime_nuevo);
+ nuevo:=replace(nuevo,excl,excl_nuevo);
+ nuevo:=replace(nuevo,marca,extension||marca);
+ EXECUTE nuevo;
+ SELECT pg_get_functiondef(f) INTO STRICT actual;
+ IF actual IS DISTINCT FROM nuevo
+    OR replace(replace(replace(actual,extension||marca,marca),excl_nuevo,excl),runtime_nuevo,runtime) IS DISTINCT FROM original
+    OR (SELECT to_jsonb(p)-'prosrc' FROM pg_proc p WHERE p.oid=f) IS DISTINCT FROM meta
+    OR (SELECT proacl FROM pg_proc WHERE oid=f) IS DISTINCT FROM acl
+    OR (SELECT proowner FROM pg_proc WHERE oid=f) IS DISTINCT FROM propietario
+    OR (SELECT proconfig FROM pg_proc WHERE oid=f) IS DISTINCT FROM config
+    OR (SELECT prosecdef FROM pg_proc WHERE oid=f) IS DISTINCT FROM definidora
+    OR (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
+        FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps
+    OR (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.dbid,d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype),'[]'::jsonb)
+        FROM pg_shdepend d WHERE d.dbid=(SELECT oid FROM pg_database WHERE datname=current_database())
+          AND d.classid='pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps_compartidas
+ THEN RAISE EXCEPTION 'AD3-144: núcleo alterado fuera del contrato' USING ERRCODE='55000'; END IF;
+END $nucleo$;
+
+LOCK TABLE vec_autorizacion_atestada_v3.clave_capacidad_version IN ACCESS EXCLUSIVE MODE;
+DO $audiencias$
+DECLARE d text;
+BEGIN
+ SELECT pg_get_constraintdef(c.oid,true) INTO STRICT d FROM pg_constraint c
  WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
  AND c.conname='clave_capacidad_version_audiencia_consumo_check' AND c.contype='c' AND c.convalidated;
- IF strpos(audiencia,'vec_bolsa_reglas_baremo.gobierno_borrador.v3')=0
- THEN RAISE EXCEPTION 'AD3-144: audiencia GobiernoG no preparada' USING ERRCODE='55000'; END IF;
-END $pre$;
+ IF encode(sha256(convert_to(d,'UTF8')),'hex') IS DISTINCT FROM ''
+ OR strpos(d,'CHECK (audiencia_consumo = ANY (ARRAY[')<>1 OR right(d,3)<>']))'
+ OR strpos(d,'vec_bolsa_reglas_baremo.gobierno_borrador.v3')<>0
+ THEN RAISE EXCEPTION 'AD3-144: preimagen de audiencias incompatible' USING ERRCODE='55000'; END IF;
+ ALTER TABLE vec_autorizacion_atestada_v3.clave_capacidad_version DROP CONSTRAINT clave_capacidad_version_audiencia_consumo_check;
+ EXECUTE 'ALTER TABLE vec_autorizacion_atestada_v3.clave_capacidad_version ADD CONSTRAINT clave_capacidad_version_audiencia_consumo_check '||left(d,length(d)-3)||', ''vec_bolsa_reglas_baremo.gobierno_borrador.v3''::text]))';
+END $audiencias$;
 
 CREATE FUNCTION vec_autorizacion_atestada_v3.registrar_y_consumir_gobierno_borrador_reglas_baremo_v3_atestada(
  p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,
@@ -64,11 +202,11 @@ BEGIN
  END;
  escritura:=c->>'operacion' IS NOT DISTINCT FROM 'bolsa.reglas_baremo.borrador.crear';
  IF c->>'audiencia_consumo' IS DISTINCT FROM 'vec_bolsa_reglas_baremo.gobierno_borrador.v3'
- OR coalesce(c->>'operacion','') NOT IN ('bolsa.reglas_baremo.borrador.crear','bolsa.reglas_baremo.version.consultar')
+ OR coalesce(c->>'operacion','') NOT IN ('bolsa.reglas_baremo.borrador.crear','bolsa.reglas_baremo.version.consultar','bolsa.reglas_baremo.recibo.consultar')
  OR d->>'accion' IS DISTINCT FROM c->>'operacion'
  OR d->>'modulo_id' IS DISTINCT FROM 'bolsa'
- OR d->>'tipo_recurso' IS DISTINCT FROM CASE WHEN escritura THEN 'intencion_gobierno_reglas_baremo' ELSE 'version_reglas_baremo_gobernada' END
- OR d->>'finalidad' IS DISTINCT FROM CASE WHEN escritura THEN 'gobierno_reglas_baremo' ELSE 'consulta_gobierno_reglas_baremo' END
+ OR d->>'tipo_recurso' IS DISTINCT FROM (CASE WHEN escritura THEN 'intencion_gobierno_reglas_baremo' ELSE 'version_reglas_baremo_gobernada' END)
+ OR d->>'finalidad' IS DISTINCT FROM (CASE WHEN escritura THEN 'gobierno_reglas_baremo' ELSE 'consulta_gobierno_reglas_baremo' END)
  OR d->>'recurso_ref' IS DISTINCT FROM c->>'efecto_ref'
  OR d->>'contexto_recurso_huella_sha256' IS DISTINCT FROM c->>'huella_efecto_sha256'
  OR d#>>'{vinculo_autenticacion_actor,superficie}' IS DISTINCT FROM 'interna_corporativa'
@@ -76,9 +214,11 @@ BEGIN
  OR d->'obligaciones' IS DISTINCT FROM '[]'::jsonb
  OR (escritura AND (coalesce(d->>'recurso_ref','') !~ '^intencion-reglas-baremo:[0-9a-f]{64}$'
    OR d->'campos_permitidos' IS DISTINCT FROM '["auditoria","estado_reglas_baremo","salida_eventos"]'::jsonb))
- OR (NOT escritura AND (coalesce(d->>'recurso_ref','') !~ '^reglas-baremo:[0-9a-f]{64}$'
-   OR (d->'campos_permitidos' IS DISTINCT FROM '["estado_reglas_baremo"]'::jsonb
-    AND d->'campos_permitidos' IS DISTINCT FROM '["recibo"]'::jsonb)))
+ OR (NOT escritura AND coalesce(d->>'recurso_ref','') !~ '^reglas-baremo:[0-9a-f]{64}$')
+ OR (c->>'operacion'='bolsa.reglas_baremo.version.consultar'
+   AND d->'campos_permitidos' IS DISTINCT FROM '["estado_reglas_baremo"]'::jsonb)
+ OR (c->>'operacion'='bolsa.reglas_baremo.recibo.consultar'
+   AND d->'campos_permitidos' IS DISTINCT FROM '["estado_reglas_baremo","recibo"]'::jsonb)
  THEN RAISE EXCEPTION 'AD3-144: capacidad GobiernoG denegada' USING ERRCODE='42501'; END IF;
  SELECT * INTO STRICT x FROM vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(
   'gobierno_borrador_reglas_baremo',p_capacidad,p_decision,p_motivo,p_contexto,
