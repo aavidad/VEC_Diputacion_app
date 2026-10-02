@@ -355,3 +355,27 @@ test("el cliente lista empleados por GET exacto con paginación acotada", async 
   assert.equal(rutas[0][1].method, "GET"); assert.equal(rutas[0][1].credentials, "same-origin");
   await assert.rejects(cliente.listarEmpleados({ vigenteEn: "2026-09-25", conocidoEn: "2026-09-25T10:00:00.000000Z", limite: 101 }), TypeError);
 });
+
+
+test("Vacantes monta una sola hoja con tres ejes, corte y origen estructural, conservando la paginación", async () => {
+  const raiz = raizFalsa(); const consultas = [];
+  const cliente = { consultarFicha: () => ficha(), listarVacantes: (consulta) => {
+    consultas.push(consulta);
+    return { pagina: { organismo_ref: "organismo_sintetico", corte: { vigente_en: consulta.vigenteEn, conocido_en: consulta.conocidoEn }, limite: consulta.limite, cursor: consulta.cursor, cursor_siguiente: consulta.cursor ? "" : "cursor_siguiente", cobertura: "completa", vacantes: [{
+      plaza_ref: "plaza_sintetica", puesto_ref: "puesto_sintetico", unidad_ref: "unidad_sintetica", unidad_denominacion: "Unidad sintética", puesto_denominacion: "Puesto sintético", codigo_plaza_fuente: "00041", estado_cobertura: "vacante_sin_ocupacion", version_plantilla_ref: "plantilla_version_sintetica",
+      traza: { desde: "2024-01-01", registrada_en: "2024-01-01T10:00:00Z", revision_estructural: 3, version_plantilla_ref: "plantilla_version_sintetica", acto_ref: "acto_sintetico", fuente_ref: "fuente_sintetica", fuente_huella_sha256: "a".repeat(64) },
+    }] } };
+  } };
+  montarRegistroB2({ raiz, cliente, reloj: () => new Date("2026-09-25T10:00:00Z") });
+  buscar(raiz, (n) => n.dataset.registroB2Tab === "vacantes").listeners.get("click")(); await completar();
+  assert.equal(nodos(raiz).filter((n) => n.dataset.personalVacantesB2 !== undefined).length, 1);
+  assert.equal(nodos(raiz).filter((n) => n.tagName === "table").length, 1);
+  assert.match(textoVisible(raiz), /00041.*Sin ocupación registrada.*Consta un puesto vinculado.*Pendiente de determinar/u);
+  assert.match(textoVisible(raiz), /Fecha de referencia.*Hechos conocidos hasta/u);
+  assert.doesNotMatch(textoVisible(raiz), /plaza_sintetica|acto_sintetico|fuente_sintetica/u);
+  const detalle = buscar(raiz, (n) => n.className === "personal-registro-b2-traza" && !n.open); detalle.open = true;
+  assert.match(textoVisible(detalle), /Revisión de la plaza.*3/u);
+  buscar(raiz, (n) => n.textContent === "Siguiente").listeners.get("click")(); await completar();
+  assert.equal(consultas[1].cursor, "cursor_siguiente");
+  assert.equal(consultas[1].vigenteEn, consultas[0].vigenteEn); assert.equal(consultas[1].conocidoEn, consultas[0].conocidoEn);
+});

@@ -206,6 +206,7 @@ type Config struct {
 	FirmaVerificacionNombreServidorTLS          string
 	PersonalEmpleadoEnabled                     string
 	PersonalB2GobiernoEnabled                   string
+	OrganizacionHistoricaGobiernoEnabled        string
 	DietasBorradoresPostgreSQL                  ConfiguracionDietasBorradores
 	BolsaAuditoriaFronteraPostgreSQL            ConfiguracionPostgreSQLBolsaAuditoriaFrontera
 	BolsaRelevoNoIncorporacionPostgreSQL        ConfiguracionPostgreSQLBolsaRelevoNoIncorporacion
@@ -353,6 +354,7 @@ func Load() Config {
 			dsnContextoActor:         envFirst(EnvContratacionTemporalContextoActorDatabaseURL),
 			dsnAuditoriaFrontera:     envFirst(EnvContratacionTemporalAuditoriaFronteraDatabaseURL),
 		},
+		OrganizacionHistoricaGobiernoEnabled: envFirst(EnvOrganizacionHistoricaGobiernoEnabled),
 	}.Normalize()
 }
 
@@ -472,6 +474,7 @@ func (c Config) Normalize() Config {
 	c.FirmaVerificacionNombreServidorTLS = strings.TrimSpace(c.FirmaVerificacionNombreServidorTLS)
 	c.PersonalEmpleadoEnabled = strings.TrimSpace(c.PersonalEmpleadoEnabled)
 	c.PersonalB2GobiernoEnabled = strings.TrimSpace(c.PersonalB2GobiernoEnabled)
+	c.OrganizacionHistoricaGobiernoEnabled = strings.TrimSpace(c.OrganizacionHistoricaGobiernoEnabled)
 	c.DietasBorradoresPostgreSQL = c.DietasBorradoresPostgreSQL.normalizar()
 	c.BolsaAuditoriaFronteraPostgreSQL = c.BolsaAuditoriaFronteraPostgreSQL.normalizar()
 	c.BolsaRelevoNoIncorporacionPostgreSQL = c.BolsaRelevoNoIncorporacionPostgreSQL.normalizar()

@@ -21,6 +21,8 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+	"vec-diputacion-granada/internal/app/bootstrap"
+	core "vec-diputacion-granada/internal/vec/domain"
 )
 
 // variableDSN nombra la variable de entorno alternativa al fichero 0600 con
@@ -37,7 +39,9 @@ type dependencias struct {
 	reloj          func() time.Time
 	antesDeActivar func() error
 	// sincronizarPadre sólo se sustituye en pruebas; nil usa fsync(2).
-	sincronizarPadre func(*os.File) error
+	sincronizarPadre            func(*os.File) error
+	validarMotivosIncorporacion func(context.Context, bootstrap.ConfiguracionPreparacionIncorporacionB2, *os.Root, time.Time) error
+	resolverMotivoDetalle       func(context.Context, string, time.Time) (core.ReferenciaEntradaCatalogo, error)
 }
 
 func main() {
@@ -64,7 +68,8 @@ func ejecutar(ctx context.Context, args []string, dsnEntorno string, hayDSNEntor
 	banderas.StringVar(&o.motivos, "motivos", "", "fichero JSON 0600 con los ocho motivos B2")
 	banderas.StringVar(&o.salida, "salida", "", "directorio nuevo (inexistente o vacío, 0700)")
 	banderas.StringVar(&o.dsnArchivo, "dsn-archivo", "", "fichero 0600 con el DSN del LOGIN de gobierno de vec-server")
-	if err := banderas.Parse(args); err != nil || banderas.NArg() != 0 || o.inventarioCT == "" || o.idempotencia == "" || o.motivos == "" || o.salida == "" {
+	banderas.StringVar(&o.incorporacionConfig, "incorporacion-config", "", "configuración B2 pura con referencias, motivos y DSN aprobados")
+	if err := banderas.Parse(args); err != nil || banderas.NArg() != 0 || o.inventarioCT == "" || o.idempotencia == "" || (o.motivos == "") == (o.incorporacionConfig == "") || o.salida == "" {
 		fmt.Fprintln(errores, errUso)
 		return 2
 	}
@@ -73,7 +78,13 @@ func ejecutar(ctx context.Context, args []string, dsnEntorno string, hayDSNEntor
 		return 2
 	}
 	p := preparacion{opciones: o, dsnEntorno: dsnEntorno, dep: d}
-	sincronizado, err := p.preparar(ctx)
+	var sincronizado bool
+	var err error
+	if o.incorporacionConfig != "" {
+		sincronizado, err = p.prepararIncorporacion(ctx)
+	} else {
+		sincronizado, err = p.preparar(ctx)
+	}
 	if err != nil {
 		fmt.Fprintln(errores, mensajeSeguro(err))
 		return 1
@@ -83,6 +94,10 @@ func ejecutar(ctx context.Context, args []string, dsnEntorno string, hayDSNEntor
 		// falta confirmar que la entrada del directorio padre es durable ante
 		// un corte de energía. No es un fallo de preparación.
 		fmt.Fprintln(salida, "material Personal B2 activado; fsync del padre no confirmado")
+		return 0
+	}
+	if o.incorporacionConfig != "" {
+		fmt.Fprintln(salida, "material incorporación B2 preparado y validado: servidor.json y 22 operaciones cotejadas")
 		return 0
 	}
 	fmt.Fprintln(salida, "material Personal B2 preparado y validado: personal_b2_v3.json (formato 4) y 8 claves de capacidad")
