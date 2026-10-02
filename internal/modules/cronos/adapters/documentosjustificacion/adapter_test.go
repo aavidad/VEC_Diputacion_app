@@ -164,3 +164,37 @@ func TestAdapterGateCerradoTypedNilYReferencias(t *testing.T) {
 		t.Fatal(e)
 	}
 }
+
+func TestRegistroDocumentalConservaConfirmacionComun(t *testing.T) {
+	_, _, _, _, _, s, p, d := escenario(t)
+	ahora := time.Date(2026, 10, 1, 8, 0, 0, 0, time.UTC)
+	ref := func(c string) string { return "ref:" + strings.Repeat(c, 64) }
+	entrada := docports.AltaExterna{ID: d.ID, ModuloID: "cronos", ExpedienteRef: s.ExpedienteDocumentalRef, TipoRef: p.TipoDocumentalRef,
+		Version: d.Version, Custodia: docdomain.ReferenciaCustodiaExterna{CustodioID: d.CustodioID, Referencia: d.CustodiaRef, HuellaSHA256: d.SHA256}}
+	confirmado := docdomain.Documento{ID: d.ID, NumeroVEC: "VEC-2026-14", ModuloID: entrada.ModuloID,
+		ExpedienteRef: entrada.ExpedienteRef, TipoRef: entrada.TipoRef, Version: d.Version,
+		HuellaSHA256: d.SHA256, PoliticaRef: ref("5"), VersionPolitica: 3, HuellaPoliticaSHA256: strings.Repeat("6", 64),
+		ConservacionHasta: ahora.AddDate(5, 0, 0), Proteccion: "conservacion", EstadoPolitica: docdomain.EstadoPoliticaAprobada,
+		EstadoFirma: docdomain.EstadoFirmaPendienteProveedor, CreadoEn: ahora, Custodia: docdomain.CustodiaExterna,
+		CustodiaExternaRef: entrada.Custodia}
+	r, err := registroConfirmado(confirmado, entrada, d)
+	if err != nil || r.Documento != d || r.NumeroVEC != confirmado.NumeroVEC || !r.CreadoEnUTC.Equal(ahora) || r.PoliticaRef != confirmado.PoliticaRef || r.PoliticaVersion != confirmado.VersionPolitica {
+		t.Fatal("se perdieron datos confirmados por Documentos", err, r)
+	}
+	for nombre, cambiar := range map[string]func(*docdomain.Documento){
+		"otro expediente": func(c *docdomain.Documento) { c.ExpedienteRef = ref("9") },
+		"otra huella": func(c *docdomain.Documento) {
+			c.HuellaSHA256 = strings.Repeat("7", 64)
+			c.CustodiaExternaRef.HuellaSHA256 = c.HuellaSHA256
+		},
+		"sin numero": func(c *docdomain.Documento) { c.NumeroVEC = "" },
+	} {
+		t.Run(nombre, func(t *testing.T) {
+			c := confirmado
+			cambiar(&c)
+			if _, err := registroConfirmado(c, entrada, d); !errors.Is(err, ports.ErrJustificacionNoDisponible) {
+				t.Fatal("aceptó confirmación discordante", err)
+			}
+		})
+	}
+}
