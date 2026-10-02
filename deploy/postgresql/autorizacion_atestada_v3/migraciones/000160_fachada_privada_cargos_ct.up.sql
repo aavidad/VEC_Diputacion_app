@@ -45,7 +45,7 @@ END $conexion$;
 SET LOCAL ROLE vec_contexto_actor_v1_propietario;
 CREATE FUNCTION vec_contexto_actor_v1.acreditar_destino_cargo_ct_v1(p_registro text,p_persona text,p_perfil text)
 RETURNS text LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog AS $f$
-DECLARE r record; x jsonb; ahora timestamptz; acreditada timestamptz;
+DECLARE r record; x jsonb; ahora timestamptz; acreditada timestamptz; valida_hasta timestamptz;
 BEGIN
  SELECT * INTO STRICT r FROM vec_contexto_actor_v1.registros_contexto WHERE registro_contexto_ref=p_registro;
  x:=pg_catalog.convert_from(r.representacion_canonica,'UTF8')::jsonb;
@@ -55,11 +55,22 @@ BEGIN
   OR x->>'metodo' NOT IN ('certificado','dnie','kerberos_ad')
  THEN RETURN NULL; END IF;
  ahora:=pg_catalog.clock_timestamp();
+ -- La acreditación es actual: no exige que persona/cuenta/perfil tengan
+ -- necesariamente la misma fecha final del vínculo de contexto registrado.
+ SELECT LEAST(c.vigente_hasta,pe.vigente_hasta,pf.vigente_hasta,(x->>'vigente_hasta')::timestamptz)
+ INTO STRICT valida_hasta
+ FROM vec_contexto_actor_v1.proyeccion_cuenta_actual ca
+ JOIN vec_contexto_actor_v1.proyeccion_cuenta_versiones c USING(cuenta_ref,version)
+ JOIN vec_contexto_actor_v1.persona_actual pa ON pa.persona_ref=p_persona
+ JOIN vec_contexto_actor_v1.persona_versiones pe ON pe.persona_ref=pa.persona_ref AND pe.version=pa.version
+ JOIN vec_contexto_actor_v1.perfil_actual fa ON fa.perfil_ref=p_perfil
+ JOIN vec_contexto_actor_v1.perfil_versiones pf ON pf.perfil_ref=fa.perfil_ref AND pf.version=fa.version
+ WHERE ca.cuenta_ref=x->>'cuenta_ref';
  acreditada:=vec_contexto_actor_v1.acreditar_uso_registro_contexto_actor_v2(
   p_registro,x->>'esquema',r.huella_sha256,r.manifiesto_procedencia_huella_sha256,r.autoridad_efectiva,
   x->>'cuenta_ref',(x->>'cuenta_version')::numeric,p_persona,(x->>'persona_version')::numeric,
   p_perfil,(x->>'perfil_version')::numeric,x->>'contexto_actor_ref',(x->>'contexto_version')::numeric,
-  x->>'metodo',x->>'garantia',ahora,(x->>'vigente_hasta')::timestamptz);
+  x->>'metodo',x->>'garantia',ahora,valida_hasta);
  IF acreditada IS NULL THEN RETURN NULL; END IF;
  RETURN pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(r.huella_sha256||':'||r.manifiesto_procedencia_huella_sha256,'UTF8')),'hex');
 EXCEPTION WHEN no_data_found OR too_many_rows OR data_exception THEN RETURN NULL;
