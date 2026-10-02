@@ -27,7 +27,7 @@ test("P-WEB-14 muestra el motivo en el paso de justificante y conserva el formul
   const anterior = globalThis.FormData;
   globalThis.FormData = class { constructor(formulario) { this.valores = formulario.valores; } get(campo) { return this.valores[campo]; } };
   try {
-    const flujo = { carga: "listo", items: [], paso: 2, operacion: "pausar", formulario: { motivo: "Solicitud" } };
+    const flujo = { carga: "listo", items: [], paso: 2, operacion: "excluir", formulario: { motivo: "Solicitud" } };
     const estado = { modalFicha: { candidato: { estado_clave: "disponible" }, operacionesB8: flujo } };
     const controlador = crearControladorOperacionesSituacion({ estado, renderizar() {}, recargar() {} });
     controlador.manejarSubmit({ target: { closest: () => ({ valores: { tipo: "correo", referencia: "X1234567L", sha256: "a".repeat(64) } }) }, preventDefault() {} });
@@ -42,6 +42,95 @@ const cuerpo = {
   validador: "Persona validadora",
   justificante: { tipo: "solicitud_candidato", referencia: "EXP-1", sha256: "a".repeat(64) },
 };
+const transicionesRRHH18 = { renuncia: ["en_revision", "disponible", "excluido"], en_revision: ["disponible", "excluido"], excluido: ["disponible"] };
+const desde = "2026-09-23T08:00:00Z";
+
+test("RRHH18 solo ofrece revisión y regularización con catálogo nuevo y situación vigente", () => {
+  assert.deepEqual(operacionesDisponibles("renuncia", transicionesRRHH18), ["revisar", "regularizar", "excluir"]);
+  assert.deepEqual(operacionesDisponibles("en_revision", transicionesRRHH18), ["regularizar", "excluir"]);
+  assert.deepEqual(operacionesDisponibles("excluido", transicionesRRHH18), ["regularizar"]);
+  assert.deepEqual(operacionesDisponibles("excluido", { ...transicionesRRHH18, excluido: [] }), []);
+  for (const clave of ["disponible", "trabajando", "no_disponible", "suspendido", "desconocido"]) {
+    const vista = renderizarOperacionesSituacion({ candidato: { estado_clave: clave, estado_desde: desde }, estado: { carga: "listo", transiciones: { ...transicionesRRHH18, [clave]: ["disponible", "en_revision", "no_disponible", "excluido"] } } });
+    assert.doesNotMatch(vista, /data-operacion="(?:pausar|reactivar|revisar|regularizar)"/);
+  }
+  for (const candidato of [{ estado_clave: "renuncia" }, { estado_clave: "renuncia", estado_desde: "ayer" }]) {
+    const vista = renderizarOperacionesSituacion({ candidato, estado: { carga: "listo", transiciones: transicionesRRHH18 } });
+    assert.doesNotMatch(vista, /data-operacion="(?:revisar|regularizar)"/);
+    assert.match(vista, /Recargue la ficha o consulte con RRHH/);
+  }
+  assert.deepEqual(operacionesDisponibles("renuncia", { renuncia: ["disponible", "excluido"] }), ["excluir"]);
+  const vista = renderizarOperacionesSituacion({ candidato: { estado_clave: "renuncia", estado_desde: desde }, estado: { carga: "listo", transiciones: transicionesRRHH18 } });
+  assert.match(vista, /data-operacion="revisar"/);
+  assert.match(vista, /data-operacion="regularizar"/);
+});
+
+test("RRHH18 rechaza códigos históricos y exige CAS y fin de causa antes del POST", async () => {
+  for (const comando of [
+    { ...cuerpo, operacion: "pausar" }, { ...cuerpo, operacion: "reactivar" },
+    { ...cuerpo, operacion: "revisar" },
+    { ...cuerpo, operacion: "regularizar", situacion_esperada_desde: desde },
+    ...["2026-02-30", "2099-01-01", "2026-09-23T00:00:00Z"].map((fecha) => ({ ...cuerpo, operacion: "regularizar", situacion_esperada_desde: desde, causa_finalizada_en: fecha })),
+  ]) {
+    const res = await registrarOperacionSituacion("bolsa:uno", "participacion:dos", comando, "clave", { fetchImpl: () => assert.fail("no debe enviar un comando inválido") });
+    assert.equal(res.ok, false);
+    assert.equal(res.status, 400);
+  }
+  for (const operacion of ["revisar", "regularizar"]) {
+    const comando = { ...cuerpo, operacion, situacion_esperada_desde: desde, ...(operacion === "regularizar" ? { causa_finalizada_en: "2026-09-22" } : {}) };
+    const situacion = operacion === "revisar" ? "en_revision" : "disponible";
+    const res = await registrarOperacionSituacion("bolsa:uno", "participacion:dos", comando, "clave", { fetchImpl: async (_url, opciones) => {
+      assert.deepEqual(JSON.parse(opciones.body), comando);
+      return response(201, { data: { recibo_ref: "recibo:rrhh18", situacion, desde, reutilizada: false } });
+    } });
+    assert.equal(res.ok, true);
+    const inconsistente = await registrarOperacionSituacion("bolsa:uno", "participacion:dos", comando, "clave", { fetchImpl: async () => response(201, { data: { recibo_ref: "recibo:rrhh18", situacion: "no_disponible", desde, reutilizada: false } }) });
+    assert.equal(inconsistente.codigo, "respuesta_invalida");
+  }
+});
+
+test("RRHH18 carga el CAS del estado vigente autorizado, nunca del historial", async () => {
+  const fetchAnterior = globalThis.fetch;
+  try {
+    for (const vigente of [{ situacion: "en_revision", desde }, undefined]) {
+      globalThis.fetch = async () => response(200, { data: { esquema: "vec.bolsa.rrhh.operaciones_situacion.v1", items: [], situacion_vigente: vigente } });
+      const modal = { candidato: { estado_clave: "renuncia", estado_desde: "2026-01-01T00:00:00Z", participacion_ref: "participacion:dos" } };
+      const estado = { bolsaSeleccionada: "bolsa:uno", modalFicha: modal };
+      const controlador = crearControladorOperacionesSituacion({ estado, renderizar() {}, recargar() {}, consultarReglas: async () => ({ ok: true, datos: { transiciones: transicionesRRHH18 } }) });
+      await controlador.cargar(modal);
+      assert.equal(modal.candidato.estado_desde, vigente?.desde);
+      if (vigente) assert.equal(modal.candidato.estado_clave, vigente.situacion);
+    }
+  } finally { globalThis.fetch = fetchAnterior; }
+});
+
+test("RRHH18 el formulario exige fecha, documento de fin de causa y confirmación de RRHH", () => {
+  const candidato = { estado_clave: "en_revision", estado_desde: desde };
+  const flujo = { carga: "listo", items: [], transiciones: transicionesRRHH18, operacion: "regularizar", paso: 2, formulario: {} };
+  assert.match(renderizarOperacionesSituacion({ candidato, estado: flujo }), /name="causa_finalizada_en" required/);
+  assert.match(renderizarOperacionesSituacion({ candidato, estado: flujo }), /El documento debe acreditar que la causa ha terminado/);
+  flujo.paso = 3;
+  assert.match(renderizarOperacionesSituacion({ candidato, estado: flujo }), /name="confirma_fin_causa" required/);
+  const formAnterior = globalThis.FormData;
+  globalThis.FormData = class { constructor(f) { this.valores = f.valores; } get(k) { return this.valores[k] ?? null; } has(k) { return Boolean(this.valores[k]); } };
+  try {
+    const estado = { modalFicha: { candidato, operacionesB8: flujo } };
+    const ctl = crearControladorOperacionesSituacion({ estado, renderizar() {}, recargar() {} });
+    const submit = (valores) => ctl.manejarSubmit({ target: { closest: () => ({ valores }) }, preventDefault() {} });
+    submit({ validador: "rrhh:sintetico" });
+    assert.match(flujo.errorFormulario, /Valide el documento de fin de causa/);
+    assert.equal(flujo.enviando, undefined);
+    flujo.paso = 2;
+    submit({ tipo: "resolucion", referencia: "EXP-1", sha256: "a".repeat(64), causa_finalizada_en: "2026-02-30" });
+    assert.equal(flujo.paso, 2);
+    assert.match(flujo.errorFormulario, /Indique una fecha/);
+    submit({ tipo: "resolucion", referencia: "EXP-1", sha256: "a".repeat(64), causa_finalizada_en: "2026-09-22" });
+    assert.equal(flujo.paso, 3);
+    ctl.manejarClick({ target: { closest: () => ({ dataset: { b8Accion: "seleccionar", operacion: "reactivar" } }) }, preventDefault() {} });
+    assert.equal(flujo.operacion, "regularizar");
+    assert.match(flujo.errorOperacion, /Recargue la ficha/);
+  } finally { globalThis.FormData = formAnterior; }
+});
 function response(status, body) {
   return { ok: status >= 200 && status < 300, status, json: async () => body };
 }
@@ -101,11 +190,11 @@ test("P-WEB-13 señala 404 como operación aún no desplegada y valida el GET", 
 
 test("P-WEB-13 pinta solo operaciones admitidas y documenta custodia y validación de exclusión", () => {
   const disponible = renderizarOperacionesSituacion({ candidato: { estado_clave: "disponible" }, estado: { carga: "listo", items: [] } });
-  assert.match(disponible, /data-operacion="pausar"/);
+  assert.doesNotMatch(disponible, /data-operacion="pausar"/);
   assert.match(disponible, /data-operacion="excluir"/);
   assert.doesNotMatch(disponible, /data-operacion="reactivar"/);
   const trabajando = renderizarOperacionesSituacion({ candidato: { estado_clave: "trabajando" }, estado: { carga: "listo", items: [] } });
-  assert.match(trabajando, /data-operacion="reactivar"/);
+  assert.doesNotMatch(trabajando, /data-operacion="reactivar"/);
   assert.match(trabajando, /data-operacion="excluir"/);
   const excluir = renderizarOperacionesSituacion({ candidato: { estado_clave: "disponible" }, estado: { carga: "listo", items: [], operacion: "excluir", paso: 2, formulario: { motivo: "Solicitud" } } });
   // La huella se calcula del archivo en el equipo: no se teclea ni se muestra.
@@ -127,19 +216,20 @@ test("P-WEB-13 conserva la clave en un reintento 503 y refresca después del rec
   const formDataAnterior = globalThis.FormData;
   const claves = [];
   let recargas = 0;
-  const estado = { bolsaSeleccionada: "bolsa:uno", modalFicha: { candidato: { estado_clave: "disponible", participacion_ref: "participacion:dos" } } };
+  const estado = { bolsaSeleccionada: "bolsa:uno", modalFicha: { candidato: { estado_clave: "renuncia", estado_desde: "2026-09-23T08:00:00Z", participacion_ref: "participacion:dos" } } };
   globalThis.FormData = class { constructor(formulario) { this.valores = formulario.valores; } get(clave) { return this.valores[clave]; } has(clave) { return Boolean(this.valores[clave]); } };
   globalThis.fetch = async (_ruta, opciones) => {
     if (opciones.method === "GET") return response(200, { data: { esquema: "vec.bolsa.rrhh.operaciones_situacion.v1", items: [] } });
     claves.push(opciones.headers["Idempotency-Key"]);
     return claves.length === 1 ? response(503, { error: { codigo: "servicio_no_disponible" } })
-      : response(201, { data: { recibo_ref: "recibo:1", situacion: "no_disponible", desde: "2026-09-23T08:00:00Z", reutilizada: false } });
+      : response(201, { data: { recibo_ref: "recibo:1", situacion: "en_revision", desde: "2026-09-24T08:00:00Z", reutilizada: false } });
   };
   try {
     const controlador = crearControladorOperacionesSituacion({ estado, renderizar() {}, recargar: async () => { recargas += 1; } });
     const click = (accion, operacion) => controlador.manejarClick({ target: { closest: () => ({ dataset: { b8Accion: accion, operacion } }) }, preventDefault() {} });
     const submit = (valores) => controlador.manejarSubmit({ target: { closest: () => ({ valores }) }, preventDefault() {} });
-    click("seleccionar", "pausar");
+    estado.modalFicha.operacionesB8 = { carga: "listo", items: [], transiciones: { renuncia: ["en_revision"], en_revision: ["disponible"] } };
+    click("seleccionar", "revisar");
     submit({ motivo: "Solicitud" });
     submit({ tipo: "solicitud_candidato", referencia: "EXP-1", sha256: "A".repeat(64) });
     submit({ validador: "per_validadora" });
@@ -149,7 +239,7 @@ test("P-WEB-13 conserva la clave en un reintento 503 y refresca después del rec
     await new Promise((resolver) => setTimeout(resolver, 0));
     assert.deepEqual(claves, [claves[0], claves[0]]);
     assert.equal(estado.modalFicha.operacionesB8.recibo, "recibo:1");
-    assert.equal(estado.modalFicha.candidato.estado_clave, "no_disponible");
+    assert.equal(estado.modalFicha.candidato.estado_clave, "en_revision");
     assert.equal(recargas, 1);
   } finally {
     globalThis.fetch = fetchAnterior;
@@ -157,40 +247,28 @@ test("P-WEB-13 conserva la clave en un reintento 503 y refresca después del rec
   }
 });
 
-test("B8 ofrece validar una renuncia y devolver a disponible solo si el servidor lo admite", () => {
-  const botones = (html) => [...html.matchAll(/data-operacion="([a-z]+)"/g)].map((m) => m[1]);
-  const renuncia = { estado_clave: "renuncia" };
-  // Sin reglas del servidor: lo de siempre.
-  assert.deepEqual(operacionesDisponibles("renuncia", null), ["excluir"]);
-  assert.deepEqual(operacionesDisponibles("disponible", undefined), ["pausar", "excluir"]);
-  const rrhh = { renuncia: ["disponible", "excluido"] };
-  assert.deepEqual(operacionesDisponibles("renuncia", rrhh), ["reactivar", "excluir"]);
-  const validacion = renderizarOperacionesSituacion({ candidato: renuncia, estado: { carga: "listo", items: [], transiciones: rrhh } });
-  assert.match(validacion, /data-operacion="reactivar">Validar justificante y devolver a Disponible<\/button>/);
-  assert.match(validacion, /RRHH valida el justificante de la renuncia/);
-  assert.match(validacion, /No responder a una oferta telemática no tiene consecuencias/);
-  // Una política anterior sigue mostrando únicamente sus operaciones.
-  const publicada = { renuncia: ["no_disponible", "excluido"], disponible: ["no_disponible", "pendiente_incorporacion", "renuncia", "excluido"], excluido: [] };
-  assert.deepEqual(botones(renderizarOperacionesSituacion({ candidato: renuncia, estado: { carga: "listo", items: [], transiciones: publicada } })), ["pausar", "excluir"]);
-  assert.deepEqual(operacionesDisponibles("disponible", publicada), ["pausar", "excluir"]);
-  assert.deepEqual(operacionesDisponibles("excluido", publicada), []);
-  assert.deepEqual(operacionesDisponibles("excluido", { excluido: ["disponible"] }), ["reactivar"]);
+test("RRHH18 conserva restricciones de catálogos anteriores sin acciones de suspensión", () => {
+  const antigua = { renuncia: ["disponible", "excluido"], disponible: ["no_disponible", "excluido"], excluido: ["disponible"] };
+  assert.deepEqual(operacionesDisponibles("renuncia", antigua), ["excluir"]);
+  assert.deepEqual(operacionesDisponibles("disponible", antigua), ["excluir"]);
+  assert.deepEqual(operacionesDisponibles("excluido", antigua), []);
   assert.deepEqual(operacionesDisponibles("excluido", null), []);
-  assert.deepEqual(operacionesDisponibles("excluido", { excluido: ["no_disponible", "excluido"] }), []);
-  // El servidor cierra una transición: el botón desaparece.
   assert.deepEqual(operacionesDisponibles("trabajando", { trabajando: ["excluido"] }), ["excluir"]);
+  assert.deepEqual(operacionesDisponibles("renuncia", { ...transicionesRRHH18, renuncia: ["excluido"] }), ["excluir"]);
 });
 
-test("B8 reincorpora una exclusión solo por la política vigente y conserva la acción en la revisión", () => {
-  const candidato = { estado_clave: "excluido" };
-  const estado = { carga: "listo", items: [], transiciones: { excluido: ["disponible"] } };
+test("RRHH18 reincorpora una exclusión solo por la política vigente con documento fin de causa", () => {
+  const candidato = { estado_clave: "excluido", estado_desde: desde };
+  const estado = { carga: "listo", items: [], transiciones: transicionesRRHH18 };
   const ficha = renderizarOperacionesSituacion({ candidato, estado });
-  assert.match(ficha, /data-operacion="reactivar">Reincorporar con justificante validado<\/button>/);
-  assert.match(ficha, /Si la exclusión procede de una sanción, use Sanciones/);
-  const revision = renderizarOperacionesSituacion({ candidato, estado: { ...estado, paso: 3, operacion: "reactivar", formulario: { motivo: "Justificante validado", tipo: "solicitud_candidato", referencia: "REG-2026/15" } } });
+  assert.match(ficha, /data-operacion="regularizar">Reincorporar con justificante validado<\/button>/);
+  assert.match(ficha, /una sanción vigente la impide/);
+  const revision = renderizarOperacionesSituacion({ candidato, estado: { ...estado, paso: 3, operacion: "regularizar", formulario: { motivo: "Justificante validado", tipo: "solicitud_candidato", referencia: "REG-2026/15", causa_finalizada_en: "2026-09-22" } } });
   assert.match(revision, /<dt>Operación seleccionada:<\/dt><dd>Reincorporar con justificante validado<\/dd>/);
   assert.match(revision, /Personal de RRHH que valida el justificante/);
   assert.match(revision, /Confirmar vuelta a Disponible/);
+  assert.match(revision, /Fecha de fin de la causa/);
+  assert.match(revision, /name="confirma_fin_causa" required/);
 });
 
 test("una referencia con huella del sistema no se toma por un documento de identidad", () => {
@@ -246,7 +324,7 @@ test("B8 vuelve para corregir sin perder datos escritos ni enviar antes de la co
     return response(503, { error: { codigo: "servicio_no_disponible" } });
   };
   try {
-    const estado = { bolsaSeleccionada: "bolsa:uno", modalFicha: { candidato: { estado_clave: "disponible", participacion_ref: "participacion:dos" } } };
+    const estado = { bolsaSeleccionada: "bolsa:uno", modalFicha: { candidato: { estado_clave: "renuncia", estado_desde: "2026-09-23T08:00:00Z", participacion_ref: "participacion:dos" } } };
     const controlador = crearControladorOperacionesSituacion({ estado, renderizar() {}, recargar() {} });
     const click = (accion, valores = {}) => controlador.manejarClick({
       target: { closest: () => ({ dataset: { b8Accion: accion, operacion: "excluir" }, closest: () => ({ valores }) }) }, preventDefault() {},
@@ -263,7 +341,7 @@ test("B8 vuelve para corregir sin perder datos escritos ni enviar antes de la co
     assert.equal(flujo.formulario.confirma_validador_distinto, true);
     click("anterior", { tipo: "resolucion", referencia: "REG-2", sha256: "b".repeat(64) });
     assert.equal(flujo.paso, 1);
-    assert.deepEqual(flujo.formulario, { motivo: "Solicitud original", tipo: "resolucion", referencia: "REG-2", sha256: "b".repeat(64), validador: "Ana Ruiz", confirma_validador_distinto: true });
+    assert.deepEqual(flujo.formulario, { motivo: "Solicitud original", tipo: "resolucion", referencia: "REG-2", sha256: "b".repeat(64), validador: "Ana Ruiz", confirma_validador_distinto: true, causa_finalizada_en: "", confirma_fin_causa: false });
     submit({ motivo: "Solicitud corregida" });
     const justificante = renderizarOperacionesSituacion({ candidato: estado.modalFicha.candidato, estado: flujo });
     assert.match(justificante, /value="REG-2"/);
