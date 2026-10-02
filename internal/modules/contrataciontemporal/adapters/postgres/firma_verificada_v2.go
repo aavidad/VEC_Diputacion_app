@@ -150,7 +150,7 @@ type respuestaFirmasSQL172 struct {
 	CoincideFirmanteEnOtroPaso, HistoriaSeparacionAcreditada *bool
 }
 
-func (r *RegistroFirmasVerificadasV2PostgreSQL) ConsultarFirmasAutorizadasV2(ctx context.Context, m ports.MaterialConsultaFirmasR5, c ports.CapacidadConsultaFirmasR5V2) (ports.LecturaFirmasR5V2, error) {
+func (r *RegistroFirmasVerificadasV2PostgreSQL) ConsultarFirmasAutorizadasV2(ctx context.Context, m ports.MaterialConsultaFirmasR5V2, c ports.CapacidadConsultaFirmasR5V2) (ports.LecturaFirmasR5V2, error) {
 	var zero ports.LecturaFirmasR5V2
 	if ctx == nil || r == nil || nuloRegistroTX(r.pool) {
 		return zero, ports.ErrRegistroFirmaDocumentoNoDisponible
@@ -171,7 +171,7 @@ func (r *RegistroFirmasVerificadasV2PostgreSQL) ConsultarFirmasAutorizadasV2(ctx
 			return ports.ErrResultadoFirmaDocumentoInvalido
 		}
 		var e error
-		result, e = lecturaFirma172(w, m)
+		result, e = lecturaFirma172(w, m.MaterialConsultaFirmasR5)
 		return e
 	})
 	if err != nil {

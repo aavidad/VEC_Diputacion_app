@@ -168,7 +168,7 @@ type AutorizadorFirmaVerificadaV2 interface {
 }
 type RegistroFirmasVerificadasV2 interface {
 	RegistrarFirmaVerificadaV2(context.Context, MaterialFirmaVerificadaV2, CapacidadFirmaVerificadaV2) (ReciboFirmaDocumento, error)
-	ConsultarFirmasAutorizadasV2(context.Context, MaterialConsultaFirmasR5, CapacidadConsultaFirmasR5V2) (LecturaFirmasR5V2, error)
+	ConsultarFirmasAutorizadasV2(context.Context, MaterialConsultaFirmasR5V2, CapacidadConsultaFirmasR5V2) (LecturaFirmasR5V2, error)
 }
 type FirmaRegistradaRevisionPDFV2 struct {
 	FirmaRegistrada
@@ -186,6 +186,42 @@ type LecturaFirmasR5V2 struct {
 	LecturaFirmasR5
 	RevisionesPDF []FirmaRegistradaRevisionPDFV2
 }
+
+// La unidad de consulta VEC procede de la relación gobernada expediente/documento.
+// El registrador RRHH conserva su ámbito organizativo nominal independiente.
+type MaterialConsultaFirmasR5V2 struct {
+	MaterialConsultaFirmasR5
+	Via       string
+	UnidadRef string
+}
+
+func (m MaterialConsultaFirmasR5V2) Canonico() ([]byte, error) {
+	c, e := m.MaterialConsultaFirmasR5.Canonico()
+	if e != nil {
+		return nil, e
+	}
+	if m.PasoOrden < 1 || m.PasoOrden > 2 || (m.Via != ViaFirmaCertificadoVEC && m.Via != ViaFirmaExternaPortafirmas) ||
+		(m.Via == ViaFirmaCertificadoVEC && !domain.ReferenciaOpacaValida(m.UnidadRef)) ||
+		(m.Via == ViaFirmaExternaPortafirmas && m.UnidadRef != "") {
+		return nil, ErrSolicitudFirmaDocumentoInvalida
+	}
+	var fields map[string]json.RawMessage
+	_ = json.Unmarshal(c, &fields)
+	b, _ := json.Marshal(m.Via)
+	fields["Via"] = b
+	b, _ = json.Marshal(textoFirma118Nullable(m.UnidadRef))
+	fields["UnidadRef"] = b
+	return json.Marshal(fields)
+}
+func (m MaterialConsultaFirmasR5V2) HuellaSHA256() (string, error) {
+	b, e := m.Canonico()
+	if e != nil {
+		return "", e
+	}
+	h := sha256.Sum256(b)
+	return hex.EncodeToString(h[:]), nil
+}
+
 type CapacidadConsultaFirmasR5V2 struct {
 	material vp.ExportacionMaterialConsumoAutorizacionAtestadaV3
 }
@@ -198,7 +234,7 @@ func (c CapacidadConsultaFirmasR5V2) ExportarMaterialParaConsumidor() vp.Exporta
 }
 
 type AutorizadorConsultaFirmasR5V2 interface {
-	AutorizarConsultaFirmasR5V2(context.Context, MaterialConsultaFirmasR5) (CapacidadConsultaFirmasR5V2, error)
+	AutorizarConsultaFirmasR5V2(context.Context, MaterialConsultaFirmasR5V2) (CapacidadConsultaFirmasR5V2, error)
 }
 
 // CamposConsultaFirmasR5V2 es la proyección nominal acordada con AD162.
