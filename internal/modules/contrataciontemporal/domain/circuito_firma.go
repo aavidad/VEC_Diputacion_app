@@ -52,6 +52,7 @@ const MaximoPasosCircuitoFirma = 16
 var (
 	claveDocumentoFirmaValida = regexp.MustCompile(`^[a-z][a-z0-9_]{1,63}$`)
 	huellaFirmaValida         = regexp.MustCompile(`^[0-9a-f]{64}$`)
+	perfilAlternativoValido   = regexp.MustCompile(`^[a-z][a-z0-9._:-]{2,127}$`)
 )
 
 // ClaveDocumentoFirmaValida admite claves de documento del catálogo.
@@ -64,11 +65,14 @@ func HuellaSHA256FirmaValida(v string) bool {
 
 // PasoCircuitoFirma es un paso resuelto del catálogo.
 type PasoCircuitoFirma struct {
-	Orden      int
-	Cargo      string
-	PerfilRef  string
-	Accion     string
-	Devolucion DevolucionPasoFirma
+	Orden     int
+	Cargo     string
+	PerfilRef string
+	// PerfilesAlternativos son otras competencias declaradas en la misma
+	// versión del catálogo para este paso; no conceden permisos por sí solas.
+	PerfilesAlternativos []string
+	Accion               string
+	Devolucion           DevolucionPasoFirma
 	// Habilita es lo que permite la firma del paso según el catálogo; el
 	// dominio solo interpreta HabilitaRemisionIntervencion.
 	Habilita string
@@ -140,6 +144,20 @@ func (c CircuitoFirmaDocumento) Validar() error {
 			(p.Devolucion != DevolucionVuelveARedaccion && p.Devolucion != DevolucionVuelvePasoAnterior) ||
 			(p.Orden == 1 && p.Devolucion == DevolucionVuelvePasoAnterior) {
 			return ErrCircuitoFirmaIncoherente
+		}
+		if len(p.PerfilesAlternativos) > MaximoPasosCircuitoFirma ||
+			(len(p.PerfilesAlternativos) != 0 && !perfilAlternativoValido.MatchString(p.PerfilRef)) {
+			return ErrCircuitoFirmaIncoherente
+		}
+		vistos := map[string]struct{}{p.PerfilRef: {}}
+		for _, perfil := range p.PerfilesAlternativos {
+			if !perfilAlternativoValido.MatchString(perfil) {
+				return ErrCircuitoFirmaIncoherente
+			}
+			if _, repetido := vistos[perfil]; repetido {
+				return ErrCircuitoFirmaIncoherente
+			}
+			vistos[perfil] = struct{}{}
 		}
 	}
 	return nil
