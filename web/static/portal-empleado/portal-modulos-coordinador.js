@@ -317,9 +317,18 @@ export function crearCoordinadorModulosPortal({
       temporizadores,
     );
     exigirVigente();
-    const mensajesExpedientes = locale === "en-GB"
-      ? (await import("./modulos/contratacion-temporal/i18n-expedientes.js?v=20261001-ct-a-i18n-v1")).MENSAJES_EXPEDIENTES_CONTRATACION_EN
-      : {};
+    const idiomaCircuito = locale === "en-GB" ? "en" : "es";
+    const { cargarTextos } = await import("../comun/textos.js");
+    const fasesCircuito = (await cargarTextos("contratacion-temporal-circuito-rrhh", { idioma: idiomaCircuito })).seccion("fases");
+    const rotulosCircuito = (prefijo) => Object.fromEntries(Object.entries(fasesCircuito)
+      .map(([clave, rotulo]) => [`${prefijo}circuito_${clave}`, rotulo]));
+    const mensajesExpedientes = {
+      ...(idiomaCircuito === "en"
+        ? (await import("./modulos/contratacion-temporal/i18n-expedientes.js?v=20261001-ct-a-i18n-v1")).MENSAJES_EXPEDIENTES_CONTRATACION_EN
+        : {}),
+      ...rotulosCircuito("contratacion_temporal.fase."),
+      ...rotulosCircuito("etiqueta_fase_"),
+    };
     exigirVigente();
     const cliente = recursos.cliente.crearClienteHTTPContratacionTemporal({
       fetchImpl: fetchDelEntorno(),

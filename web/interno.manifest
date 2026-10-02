@@ -273,6 +273,9 @@ static/portal-empleado/modulos/contratacion-temporal/cliente-http-documentacion-
 static/portal-empleado/modulos/contratacion-temporal/i18n-documentacion-formalizacion.js
 static/portal-empleado/modulos/contratacion-temporal/presentador.js
 static/portal-empleado/modulos/contratacion-temporal/vista-expedientes.js
+static/portal-empleado/modulos/contratacion-temporal/vista-circuito-rrhh.js
+static/portal-empleado/modulos/contratacion-temporal/cliente-http-circuito-rrhh.js
+static/portal-empleado/modulos/contratacion-temporal/contrato-circuito-rrhh.js
 static/portal-empleado/modulos/contratacion-temporal/vista-expedientes-analisis.js
 static/portal-empleado/modulos/contratacion-temporal/vista-expedientes-borrador.js
 static/portal-empleado/modulos/contratacion-temporal/circuito-firma.js
@@ -451,6 +454,7 @@ static/textos/en/provision.json
 static/textos/en/cronos-calendario-ensayo.json
 static/portal-empleado/modulos/contratacion-temporal/i18n-firma-incorporacion-datos.js
 static/textos/es/contratacion-temporal-circuito-firma.json
+static/textos/es/contratacion-temporal-circuito-rrhh.json
 static/textos/es/contratacion-temporal-firma-remision.json
 static/textos/es/contratacion-temporal-seguimiento-cese.json
 static/textos/es/contratacion-temporal-firma-incorporacion-portal.json
@@ -458,6 +462,7 @@ static/textos/es/contratacion-temporal-firma-incorporacion-expedientes.json
 static/textos/es/dietas-catalogo.json
 static/textos/es/dietas-informes.json
 static/textos/en/contratacion-temporal-circuito-firma.json
+static/textos/en/contratacion-temporal-circuito-rrhh.json
 static/textos/en/contratacion-temporal-firma-remision.json
 static/textos/en/contratacion-temporal-seguimiento-cese.json
 static/textos/en/contratacion-temporal-firma-incorporacion-portal.json
