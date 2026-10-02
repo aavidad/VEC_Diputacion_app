@@ -33,8 +33,8 @@ test("RRHH y área personal muestran acciones sólo instalados y registran su pr
     const caso = preparar(portal, true);
     await iniciarPWA({ ...caso, idioma });
     assert.equal(caso.navegacion.hidden, false);
-    assert.match(caso.manifiesto.href, new RegExp(`^/textos/${idioma}/pwa-[a-z-]+\\.json\\?v=20261002-pwa-v2$`));
-    assert.deepEqual(caso.registros, [[`${portal}sw.js?v=20261002-pwa-v2`, { scope: portal, updateViaCache: "none" }]]);
+    assert.match(caso.manifiesto.href, new RegExp(`^/textos/${idioma}/pwa-[a-z-]+\\.json\\?v=20261002-pwa-v1$`));
+    assert.deepEqual(caso.registros, [[`${portal}sw.js?v=20261002-pwa-v3`, { scope: portal, updateViaCache: "none" }]]);
     assert.ok(caso.botones.every((boton) => boton.textContent && boton["aria-label"] === boton.textContent));
     caso.botones[0].click();
     caso.botones[1].click();
@@ -54,7 +54,7 @@ test("los dos portales enlazan manifiesto, navegación y script de la misma vers
   for (const portal of ["portal-empleado", "area-personal"]) {
     const html = await readFile(new URL(`../${portal}/index.html`, import.meta.url), "utf8");
     assert.match(html, new RegExp(`data-pwa-manifest="pwa-${portal}"`));
-    assert.match(html, /\/pwa\/instalar\.js\?v=20261002-pwa-v2/u);
+    assert.match(html, /\/pwa\/instalar\.js\?v=20261002-pwa-v3/u);
     assert.match(html, /\/pwa\/navegacion\.css\?v=20261002-pwa-v2/u);
     assert.match(html, new RegExp(`data-pwa-scope="/${portal}/"`));
   }
