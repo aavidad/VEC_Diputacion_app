@@ -3,9 +3,9 @@ package interna
 import (
 	"context"
 	"errors"
+	"log"
 	"net/http"
 	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -37,6 +37,7 @@ func montarOrganizacionHistoricaGobernada(ctx context.Context, directorio, login
 	}
 	m, err := internactproveedores.CargarMaterialOrganizacionHistorica(directorio)
 	if err != nil {
+		log.Print("composicion interna: organizacion_historica_no_disponible")
 		return vacio, false
 	}
 	defer m.Cerrar()
@@ -45,6 +46,7 @@ func montarOrganizacionHistoricaGobernada(ctx context.Context, directorio, login
 	}
 	proveedor, err := internactproveedores.ConstruirOrganizacionHistorica(ctx, m, base, fuente, reloj)
 	if err != nil {
+		log.Print("composicion interna: organizacion_historica_no_disponible")
 		return vacio, false
 	}
 	transferido := false
@@ -55,14 +57,17 @@ func montarOrganizacionHistoricaGobernada(ctx context.Context, directorio, login
 	}()
 	repositorio, err := personalpg.NuevoRepositorioOrganizacionHistoricaPostgreSQL(pool)
 	if err != nil {
+		log.Print("composicion interna: organizacion_historica_no_disponible")
 		return vacio, false
 	}
 	servicio, err := personalapp.NuevoServicioConsultaOrganizacionHistorica(proveedor, repositorio)
 	if err != nil {
+		log.Print("composicion interna: organizacion_historica_no_disponible")
 		return vacio, false
 	}
 	handler, err := httpapi.NewHandlerOrganizacionHistoricaPersonal(internactproveedores.AutoridadContextoOrganizacionHistorica{Fuente: fuente}, servicio, internactproveedores.AuditorDenegacionOrganizacionHistorica{Registrador: auditoria})
 	if err != nil {
+		log.Print("composicion interna: organizacion_historica_no_disponible")
 		return vacio, false
 	}
 	ambitos := make(map[string]internagobierno.AmbitoOrganizacionHistorica, len(m.Contextos))
@@ -99,6 +104,11 @@ func materialOrganizacionHistoricaSeleccionado(directorio string) bool {
 	if directorio == "" {
 		return false
 	}
-	_, err := os.Lstat(filepath.Join(directorio, "organizacion_historica_v3.json"))
+	raiz, err := os.OpenRoot(directorio)
+	if err != nil {
+		return !errors.Is(err, os.ErrNotExist)
+	}
+	defer raiz.Close()
+	_, err = raiz.Lstat("organizacion_historica_v3.json")
 	return !errors.Is(err, os.ErrNotExist)
 }
