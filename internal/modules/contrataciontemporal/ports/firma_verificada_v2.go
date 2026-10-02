@@ -22,6 +22,7 @@ const (
 // permanece como raíz y el antecedente identifica una firma V2 concreta.
 type MaterialFirmaVerificadaV2 struct {
 	MaterialFirmaExterna
+	PerfilActivoOperadorRef                                                          string
 	CuentaFirmanteRef, VinculoCredencialFirmanteRef, VinculoCredencialFirmanteHuella string
 	VinculoCredencialFirmanteRevision                                                uint64
 	RolIDFirmante                                                                    string
@@ -60,6 +61,9 @@ func (m MaterialFirmaVerificadaV2) Validar() error {
 		return ErrSolicitudFirmaDocumentoInvalida
 	}
 	if !domain.ReferenciaOpacaValida(m.CuentaFirmanteRef) || !domain.ReferenciaOpacaValida(m.VinculoCredencialFirmanteRef) || !domain.HuellaSHA256FirmaValida(m.VinculoCredencialFirmanteHuella) || m.VinculoCredencialFirmanteRevision < 1 || m.VinculoCredencialFirmanteRevision > 9007199254740991 {
+		return ErrSolicitudFirmaDocumentoInvalida
+	}
+	if !domain.ReferenciaOpacaValida(m.PerfilActivoOperadorRef) {
 		return ErrSolicitudFirmaDocumentoInvalida
 	}
 	if m.RolIDFirmante == "" || m.RolIDFirmante != m.CargoFirmante {
@@ -122,6 +126,8 @@ func (m MaterialFirmaVerificadaV2) Canonico() ([]byte, error) {
 	fields["CatalogoVersion"] = cv
 	rid, _ := json.Marshal(m.RolIDFirmante)
 	fields["RolIDFirmante"] = rid
+	op, _ := json.Marshal(m.PerfilActivoOperadorRef)
+	fields["PerfilActivoOperadorRef"] = op
 	for k, v := range map[string]any{"CuentaFirmanteRef": m.CuentaFirmanteRef, "VinculoCredencialFirmanteRef": m.VinculoCredencialFirmanteRef, "VinculoCredencialFirmanteRevision": m.VinculoCredencialFirmanteRevision, "VinculoCredencialFirmanteHuella": m.VinculoCredencialFirmanteHuella} {
 		b, _ := json.Marshal(v)
 		fields[k] = b

@@ -142,7 +142,6 @@ BEGIN
  END IF;
  h:=encode(sha256(convert_to(p_solicitud,'UTF8')),'hex');
  contexto_h:=encode(sha256(convert_to('{"ambitos":{"organizacion_ref":"'||(s->>'OrganizacionRef')||
-  (CASE WHEN s->>'Via'='certificado_vec' THEN '","unidad_ref":"'||(s->>'UnidadFirmanteRef') ELSE '' END)||
   '"},"atributos":{"material_sha256":"'||h||'"}}','UTF8')),'hex');
  IF c->>'operacion' IS DISTINCT FROM accion OR c->>'audiencia_consumo' IS DISTINCT FROM audiencia
   OR d->>'accion' IS DISTINCT FROM accion OR d->>'modulo_id' IS DISTINCT FROM 'contratacion_temporal'
@@ -152,10 +151,10 @@ BEGIN
   OR c->>'huella_decision_sha256' IS DISTINCT FROM encode(sha256(p_decision),'hex')
   OR d#>>'{vinculo_autenticacion_actor,superficie}' IS DISTINCT FROM 'interna_corporativa'
   OR d->>'principal_id' IS NULL OR d->>'principal_id' !~ '^per_[A-Za-z0-9_-]{2,159}$'
-  OR (s->>'Via'='certificado_vec' AND (d->>'principal_id' IS DISTINCT FROM s->>'FirmantePrincipalRef'
-   OR d->>'perfil_activo_ref' IS DISTINCT FROM s->>'PerfilActivoFirmanteRef' OR d->>'version_rol_ref' IS DISTINCT FROM s->>'VersionRolFirmanteRef'))
+  OR (s->>'Via'='certificado_vec' AND d->>'principal_id' IS DISTINCT FROM s->>'FirmantePrincipalRef')
   OR (s->>'Via'='portafirmas_registro_rrhh' AND (d->>'principal_id' IS NOT DISTINCT FROM s->>'FirmantePrincipalRef'
    OR d->>'version_rol_ref' IS DISTINCT FROM 'rol:firma_externa_registro_ct_desarrollo:v1'))
+  OR d->>'perfil_activo_ref' IS DISTINCT FROM s->>'PerfilActivoOperadorRef'
   OR d->'campos_permitidos' IS DISTINCT FROM '[]'::jsonb OR d->'obligaciones' IS DISTINCT FROM '[]'::jsonb THEN
   RAISE EXCEPTION 'AD162 firma V2 denegada' USING ERRCODE='42501'; END IF;
  SELECT * INTO STRICT x FROM vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(

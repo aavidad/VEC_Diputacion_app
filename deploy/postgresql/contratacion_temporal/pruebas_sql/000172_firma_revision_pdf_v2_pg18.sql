@@ -126,7 +126,7 @@ BEGIN
  e:=CASE WHEN p_orden=1 THEN jsonb_build_array(pg_temp.evidencia(1,repeat('c',64),repeat('d',64),1000,1200))
   ELSE jsonb_build_array(p_primera::jsonb#>'{EvidenciaFirmasCanonica,0}',pg_temp.evidencia(2,repeat('2',64),repeat('3',64),1200,1400)) END;
  s:=s||jsonb_build_object('PoliticaVerificacion','politica:vec:firma:verificacion-autonoma:v2','CatalogoVersion',1,
-  'RolIDFirmante','ct_cargo_jefatura','CuentaFirmanteRef','cuenta:ct172:prueba','VinculoCredencialFirmanteRef','vinculo:ct172:prueba',
+  'RolIDFirmante','ct_cargo_jefatura','PerfilActivoOperadorRef','prf_ct172_registrador_prueba','CuentaFirmanteRef','cuenta:ct172:prueba','VinculoCredencialFirmanteRef','vinculo:ct172:prueba',
   'VinculoCredencialFirmanteRevision',1,'VinculoCredencialFirmanteHuella',repeat('4',64),
   'PasoOrden',p_orden,'OrdenFirmaPDF',p_orden,'PasoRef','vec.contratacion_temporal.circuito_firma:1:ct172_prueba.p'||p_orden,
   'FirmaAnteriorRef',p_anterior->>'FirmaRef','ReciboAnteriorRef',p_anterior->>'ReciboRef',

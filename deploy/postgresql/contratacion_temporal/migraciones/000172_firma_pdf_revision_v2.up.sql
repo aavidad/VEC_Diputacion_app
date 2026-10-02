@@ -136,7 +136,7 @@ BEGIN
       'ControlVigenciaFirmanteHuella','AsignacionVigenteDesde','AsignacionVigenteHasta',
       'ActoCompetenciaRef','DelegacionRef','PoliticaVerificacion',
       'RevocacionEstado','SelloTiempoEstado','ReferenciaPortafirmasDeclarada','FechaPortafirmasDeclarada',
-      'ClaveIdempotencia','DocumentoCustodiaRef','DocumentoCustodiaVersion','CatalogoVersion','RolIDFirmante','CuentaFirmanteRef','VinculoCredencialFirmanteRef','VinculoCredencialFirmanteRevision','VinculoCredencialFirmanteHuella','FirmaAnteriorRef','ReciboAnteriorRef','EntradaDocumentoRef','EntradaDocumentoVersion','EntradaDocumentoLongitud','EntradaDocumentoHuella','OrdenFirmaPDF','ByteRange','RevisionHuellaSHA256','ContenidoFirmadoHuellaSHA256','RevisionLongitud','EvidenciaFirmasCanonica','EvidenciaFirmasHuellaSHA256']) IS NOT TRUE)
+      'ClaveIdempotencia','DocumentoCustodiaRef','DocumentoCustodiaVersion','CatalogoVersion','RolIDFirmante','PerfilActivoOperadorRef','CuentaFirmanteRef','VinculoCredencialFirmanteRef','VinculoCredencialFirmanteRevision','VinculoCredencialFirmanteHuella','FirmaAnteriorRef','ReciboAnteriorRef','EntradaDocumentoRef','EntradaDocumentoVersion','EntradaDocumentoLongitud','EntradaDocumentoHuella','OrdenFirmaPDF','ByteRange','RevisionHuellaSHA256','ContenidoFirmadoHuellaSHA256','RevisionLongitud','EvidenciaFirmasCanonica','EvidenciaFirmasHuellaSHA256']) IS NOT TRUE)
     OR (s->>'Via'='certificado_vec' AND
      vec_contratacion_temporal.fiscalizacion_claves_exactas_v1(s,ARRAY[
       'Via','OrganizacionRef','ExpedienteRef','VersionExpediente','Documento','CatalogoRef','CatalogoHuella',
@@ -149,7 +149,7 @@ BEGIN
       'ControlVigenciaFirmanteHuella','AsignacionVigenteDesde','AsignacionVigenteHasta',
       'ActoCompetenciaRef','DelegacionRef','PoliticaVerificacion',
       'RevocacionEstado','SelloTiempoEstado','ClaveIdempotencia','DocumentoCustodiaRef',
-      'DocumentoCustodiaVersion','CatalogoVersion','RolIDFirmante','CuentaFirmanteRef','VinculoCredencialFirmanteRef','VinculoCredencialFirmanteRevision','VinculoCredencialFirmanteHuella','FirmaAnteriorRef','ReciboAnteriorRef','EntradaDocumentoRef','EntradaDocumentoVersion','EntradaDocumentoLongitud','EntradaDocumentoHuella','OrdenFirmaPDF','ByteRange','RevisionHuellaSHA256','ContenidoFirmadoHuellaSHA256','RevisionLongitud','EvidenciaFirmasCanonica','EvidenciaFirmasHuellaSHA256']) IS NOT TRUE)
+      'DocumentoCustodiaVersion','CatalogoVersion','RolIDFirmante','PerfilActivoOperadorRef','CuentaFirmanteRef','VinculoCredencialFirmanteRef','VinculoCredencialFirmanteRevision','VinculoCredencialFirmanteHuella','FirmaAnteriorRef','ReciboAnteriorRef','EntradaDocumentoRef','EntradaDocumentoVersion','EntradaDocumentoLongitud','EntradaDocumentoHuella','OrdenFirmaPDF','ByteRange','RevisionHuellaSHA256','ContenidoFirmadoHuellaSHA256','RevisionLongitud','EvidenciaFirmasCanonica','EvidenciaFirmasHuellaSHA256']) IS NOT TRUE)
  THEN RAISE EXCEPTION 'material de firma verificada inválido' USING ERRCODE='22023'; END IF;
  FOREACH k IN ARRAY ARRAY['Via','OrganizacionRef','ExpedienteRef','Documento','CatalogoRef','CatalogoHuella',
   'PasoRef','HistoriaHuella','OriginalRef','OriginalHuella','FirmadoHuella','CertificadoHuella','FirmanteRef',
@@ -225,6 +225,8 @@ BEGIN
   IF jsonb_typeof(s->k) IS DISTINCT FROM 'string' OR s->>k !~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$' THEN
    RAISE EXCEPTION 'vínculo credencial inválido' USING ERRCODE='22023'; END IF;
  END LOOP;
+ IF jsonb_typeof(s->'PerfilActivoOperadorRef') IS DISTINCT FROM 'string' OR s->>'PerfilActivoOperadorRef' !~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$' THEN
+  RAISE EXCEPTION 'perfil operacional inválido' USING ERRCODE='22023'; END IF;
  IF jsonb_typeof(s->'RolIDFirmante') IS DISTINCT FROM 'string' OR s->>'RolIDFirmante' IS DISTINCT FROM s->>'CargoFirmante'
   OR s->>'RolIDFirmante' !~ '^ct_cargo_[a-z0-9_]{2,80}$' THEN
   RAISE EXCEPTION 'rol nominal del firmante inválido' USING ERRCODE='22023'; END IF;
@@ -314,7 +316,6 @@ BEGIN
    tipo_evento := 'contratacion_temporal.documento.firma_externa_registrada';
  END IF;
  contexto_h := encode(sha256(convert_to('{"ambitos":{"organizacion_ref":"'||(s->>'OrganizacionRef')||
-   (CASE WHEN s->>'Via'='certificado_vec' THEN '","unidad_ref":"'||(s->>'UnidadFirmanteRef') ELSE '' END)||
    '"},"atributos":{"material_sha256":"'||h||'"}}','UTF8')),'hex');
  BEGIN d := convert_from(p_decision,'UTF8')::jsonb;
  EXCEPTION WHEN others THEN RAISE EXCEPTION 'decisión de firma verificada inválida' USING ERRCODE='42501'; END;
@@ -328,11 +329,9 @@ BEGIN
     OR d->'obligaciones' IS DISTINCT FROM '[]'::jsonb
     OR d->>'principal_id' IS NULL OR d->>'principal_id' !~ '^per_[A-Za-z0-9_-]{2,159}$'
     OR (s->>'Via'='certificado_vec' AND d->>'principal_id' IS DISTINCT FROM s->>'FirmantePrincipalRef')
-    OR (s->>'Via'='certificado_vec' AND d->>'perfil_activo_ref' IS DISTINCT FROM s->>'PerfilActivoFirmanteRef')
-    OR (s->>'Via'='certificado_vec' AND d->>'version_rol_ref' IS DISTINCT FROM s->>'VersionRolFirmanteRef')
     OR (s->>'Via'='portafirmas_registro_rrhh' AND d->>'principal_id' IS NOT DISTINCT FROM s->>'FirmantePrincipalRef')
     OR (s->>'Via'='portafirmas_registro_rrhh' AND d->>'version_rol_ref' IS DISTINCT FROM 'rol:firma_externa_registro_ct_desarrollo:v1')
-    OR coalesce(d->>'perfil_activo_ref','') = ''
+    OR d->>'perfil_activo_ref' IS DISTINCT FROM s->>'PerfilActivoOperadorRef'
  THEN RAISE EXCEPTION 'autorización de firma verificada divergente' USING ERRCODE='42501'; END IF;
  SELECT * INTO STRICT consumo FROM vec_autorizacion_atestada_v3.registrar_y_consumir_firma_verificada_ct_v2_atestada(
   p_solicitud,p_capacidad,p_decision,p_motivo,p_contexto,p_persona_version,p_perfil_version,
@@ -536,7 +535,6 @@ BEGIN
   RAISE EXCEPTION 'lectura V2 inválida' USING ERRCODE='22023'; END IF;
  h:=encode(sha256(convert_to(p_solicitud,'UTF8')),'hex');
  contexto_h:=encode(sha256(convert_to('{"ambitos":{"organizacion_ref":"'||(s->>'OrganizacionRef')||
-  (CASE WHEN s->>'Via'='certificado_vec' THEN '","unidad_ref":"'||(s->>'UnidadRef') ELSE '' END)||
   '"},"atributos":{"material_sha256":"'||h||'"}}','UTF8')),'hex');
  IF c->>'efecto_ref' IS DISTINCT FROM s->>'ExpedienteRef'
   OR c->>'huella_efecto_sha256' IS DISTINCT FROM contexto_h
