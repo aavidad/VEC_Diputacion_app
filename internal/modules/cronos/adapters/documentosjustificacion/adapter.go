@@ -58,23 +58,33 @@ func (a *Adapter) PrepararRegistro(ctx context.Context, o ports.OrdenJustificaci
 	_, _, e := a.preparar(ctx, o, s, p)
 	return e
 }
-func (a *Adapter) RegistrarJustificante(ctx context.Context, o ports.OrdenJustificacion, s domain.SolicitudJustificable, p domain.PoliticaJustificacion, d domain.DocumentoJustificacion, key string) (domain.DocumentoJustificacion, error) {
+func (a *Adapter) RegistrarJustificante(ctx context.Context, o ports.OrdenJustificacion, s domain.SolicitudJustificable, p domain.PoliticaJustificacion, d domain.DocumentoJustificacion, key string) (ports.RegistroDocumentalConfirmado, error) {
 	if d.Validar() != nil || d.CustodioID != p.CustodioID || !domain.RefDocumentoJustificacionValida(key) {
-		return domain.DocumentoJustificacion{}, domain.ErrJustificacionInvalida
+		return ports.RegistroDocumentalConfirmado{}, domain.ErrJustificacionInvalida
 	}
 	politica, aut, e := a.preparar(ctx, o, s, p)
 	if e != nil {
-		return domain.DocumentoJustificacion{}, e
+		return ports.RegistroDocumentalConfirmado{}, e
 	}
 	entrada := docports.AltaExterna{ID: d.ID, ClaveIdempotencia: key, ModuloID: "cronos", ExpedienteRef: s.ExpedienteDocumentalRef, TipoRef: p.TipoDocumentalRef, Version: d.Version, Custodia: docdomain.ReferenciaCustodiaExterna{CustodioID: d.CustodioID, Referencia: d.CustodiaRef, HuellaSHA256: d.SHA256}, SolicitudPolitica: politica}
 	confirmado, e := a.servicio.RegistrarExternoAutorizado(ctx, entrada, aut)
 	if e != nil {
-		return domain.DocumentoJustificacion{}, e
+		return ports.RegistroDocumentalConfirmado{}, e
 	}
-	if confirmado.ID != d.ID || confirmado.Version != d.Version || confirmado.ExpedienteRef != s.ExpedienteDocumentalRef || confirmado.TipoRef != p.TipoDocumentalRef || confirmado.ModuloID != "cronos" || confirmado.Custodia != docdomain.CustodiaExterna || confirmado.HuellaSHA256 != d.SHA256 || confirmado.CustodiaExternaRef != entrada.Custodia {
-		return domain.DocumentoJustificacion{}, ports.ErrJustificacionNoDisponible
+	return registroConfirmado(confirmado, entrada, d)
+}
+
+func registroConfirmado(confirmado docdomain.Documento, entrada docports.AltaExterna, d domain.DocumentoJustificacion) (ports.RegistroDocumentalConfirmado, error) {
+	if confirmado.Validar() != nil || confirmado.ID != d.ID || confirmado.Version != d.Version || confirmado.ExpedienteRef != entrada.ExpedienteRef || confirmado.TipoRef != entrada.TipoRef || confirmado.ModuloID != entrada.ModuloID || confirmado.ModuloID != "cronos" || confirmado.Custodia != docdomain.CustodiaExterna || confirmado.HuellaSHA256 != d.SHA256 || confirmado.CustodiaExternaRef != entrada.Custodia {
+		return ports.RegistroDocumentalConfirmado{}, ports.ErrJustificacionNoDisponible
 	}
-	return d, nil
+	return ports.RegistroDocumentalConfirmado{
+		Documento: domain.DocumentoJustificacion{ID: confirmado.ID, Version: confirmado.Version, SHA256: confirmado.HuellaSHA256, CustodioID: confirmado.CustodiaExternaRef.CustodioID, CustodiaRef: confirmado.CustodiaExternaRef.Referencia},
+		ModuloID:  confirmado.ModuloID, ExpedienteRef: confirmado.ExpedienteRef, TipoRef: confirmado.TipoRef,
+		NumeroVEC: confirmado.NumeroVEC, CreadoEnUTC: confirmado.CreadoEn.UTC(),
+		PoliticaRef: confirmado.PoliticaRef, PoliticaVersion: confirmado.VersionPolitica, PoliticaSHA256: confirmado.HuellaPoliticaSHA256,
+		ConservacionHastaUTC: confirmado.ConservacionHasta.UTC(), Proteccion: confirmado.Proteccion, EstadoPolitica: confirmado.EstadoPolitica,
+	}, nil
 }
 
 var _ ports.DocumentosJustificacion = (*Adapter)(nil)
