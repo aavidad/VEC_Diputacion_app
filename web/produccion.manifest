@@ -499,6 +499,7 @@ static/textos/es/contratacion-temporal-cancelacion.json
 static/textos/es/contratacion-temporal-ficha-lista.json
 static/textos/es/contratacion-temporal-informe-tras-subsanacion.json
 static/textos/es/contratacion-temporal-llamamiento.json
+static/textos/es/contratacion-temporal-moad.json
 static/textos/es/contratacion-temporal-subsanacion-reparos.json
 static/textos/es/contratacion-temporal-textos-vistas.json
 static/textos/es/contratacion-temporal-compatibilidad.json
@@ -510,6 +511,7 @@ static/textos/en/contratacion-temporal-cancelacion.json
 static/textos/en/contratacion-temporal-ficha-lista.json
 static/textos/en/contratacion-temporal-informe-tras-subsanacion.json
 static/textos/en/contratacion-temporal-llamamiento.json
+static/textos/en/contratacion-temporal-moad.json
 static/textos/en/contratacion-temporal-subsanacion-reparos.json
 static/textos/en/contratacion-temporal-textos-vistas.json
 static/textos/en/contratacion-temporal-compatibilidad.json
@@ -586,3 +588,6 @@ static/textos/es/seleccion-bases-preparacion.json
 static/textos/en/seleccion-bases-preparacion.json
 static/textos/es/seleccion-bases-preparacion-error.json
 static/textos/en/seleccion-bases-preparacion-error.json
+static/portal-empleado/portal-bolsas-historial-ofrecimientos.js
+static/textos/es/bolsa-historial-ofrecimientos.json
+static/textos/en/bolsa-historial-ofrecimientos.json

@@ -254,6 +254,31 @@ func TestPoliticaBorradorBolsaEvolucionaSoloDesdeB7Exacta(t *testing.T) {
 	}
 }
 
+func TestPoliticaBorradorBolsaConsultaDocumentalSoloEnVersionProvisionada(t *testing.T) {
+	politica, soporte, _, _ := nuevaPoliticaBorradorBolsaPrueba(t)
+	datos, err := soporte.soporteCanal.contexto.Vinculo.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	contar := func(version int) int {
+		i, err := nuevaInstantaneaAutorizacionBorradorLlamamientoBolsaDesarrolloVersion(
+			datos.PrincipalID, datos.PerfilActivoRef, soporte.unidadRef, soporte.ambitoRef, politica.reloj.Ahora(), version)
+		if err != nil {
+			t.Fatal(err)
+		}
+		n := 0
+		for _, c := range i.VersionRol.Concesiones {
+			if c.Accion == puertosbolsa.AccionConsultarSolicitudesDocumentalesRRHH {
+				n++
+			}
+		}
+		return n
+	}
+	if contar(5) != 0 || contar(9) != 1 || contar(10) != 1 || contar(11) != 1 || contar(12) != 1 {
+		t.Fatal("la lectura documental no conserva su versión de perfil fijo")
+	}
+}
+
 func TestPoliticaBorradorBolsaAmpliaB5AConcesionB47Exacta(t *testing.T) {
 	politica, _, autoridad, _ := nuevaPoliticaBorradorBolsaPrueba(t)
 	autoridad.permitirSucesion = true

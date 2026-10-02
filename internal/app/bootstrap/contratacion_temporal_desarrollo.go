@@ -18,6 +18,7 @@ import (
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/informejuridico"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/numeracion"
 	plantillasapp "vec-diputacion-granada/internal/modules/contrataciontemporal/application/plantillascatalogo"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
@@ -351,6 +352,11 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	politicaNumero, err := numeracion.Cargar(cfg.CTNumeroExpedienteSourcePath)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	catalogoDesarrollo.NumeroExpedienteMOAD = &politicaNumero
 	origen := nuevoOrigenConsultasConCatalogoDesarrollo(catalogoDesarrollo)
 	sello := dependencias.sello
 	reloj := dependencias.reloj
@@ -644,10 +650,11 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		})
 		if debeComponerPortalCandidatoDesarrollo(cfg) {
 			for clave, ruta := range map[string]string{
-				"bolsa-mi-bolsa-solicitar":   bolsapersonal.RutaMiBolsaSolicitudes,
-				"bolsa-mi-bolsa-responder":   bolsapersonal.RutaMiBolsaRespuestas,
-				"bolsa-mi-bolsa-disposicion": bolsapersonal.RutaMiBolsaDisposiciones,
-				"bolsa-mi-bolsa-contacto":    bolsapersonal.RutaMiBolsaContacto,
+				"bolsa-mi-bolsa-solicitar":            bolsapersonal.RutaMiBolsaSolicitudes,
+				"bolsa-mi-bolsa-solicitud-documental": bolsapersonal.RutaMiBolsaSolicitudesDocumentales,
+				"bolsa-mi-bolsa-responder":            bolsapersonal.RutaMiBolsaRespuestas,
+				"bolsa-mi-bolsa-disposicion":          bolsapersonal.RutaMiBolsaDisposiciones,
+				"bolsa-mi-bolsa-contacto":             bolsapersonal.RutaMiBolsaContacto,
 			} {
 				declaracionesFrontera = append(declaracionesFrontera, descriptorFronteraComunDesarrollo{
 					Clave: clave, Superficie: superficieExternaPersonalSeguridadComunDesarrollo,

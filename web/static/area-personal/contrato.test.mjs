@@ -55,6 +55,8 @@ test("mi bolsa valida la situación actual sin exigirla a la respuesta antigua",
   assert.throws(() => validarRespuestaMiBolsa(base), /situación actual/u);
   base.data.participaciones[0].situacion_actual.estado = "disponible";
   assert.throws(() => validarRespuestaMiBolsa(base), /fecha de disponibilidad/u);
+  base.data.participaciones[0].situacion_actual = { estado: "en_revision", desde: "2026-09-21T10:00:00.000Z", hasta: null, fecha_disponible: null };
+  assert.equal(validarRespuestaMiBolsa(base).participaciones[0].situacion_actual.estado, "en_revision");
 });
 
 test("mi bolsa admite solo el resultado mínimo del llamamiento propio", () => {

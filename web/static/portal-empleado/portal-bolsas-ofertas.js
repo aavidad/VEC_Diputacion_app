@@ -1,6 +1,7 @@
 import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
+import { crearSuperficieHistorialOfrecimientos, traducirHistorialOfrecimientos } from "./portal-bolsas-historial-ofrecimientos.js?v=20261002-r3-r4-historial-v1";
 import { instanteDesdeHoraMadrid } from "./hora-madrid.js";
-import { referenciaContieneDocumentoIdentidad } from "./portal-bolsas-operaciones.js?v=20261002-a-recuperar-379-v1";
+import { referenciaContieneDocumentoIdentidad } from "./portal-bolsas-operaciones.js?v=20261002-r-rrhh18-v2";
 // Ofertas publicadas de una bolsa (Petición RRHH 3.06 y 3.07; Reglamento de
 // bolsas, art. 8.1): RRHH publica la oferta con su número de plazas; al vencer
 // el plazo para ofrecerse, VEC propone plaza a plaza a la siguiente persona
@@ -166,13 +167,33 @@ export function accionesPlaza(plaza) {
 
 const listaFormato = new Intl.ListFormat(LOCALIZACION_PORTAL, { type: "conjunction" });
 
-export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), alCambiar = () => {}, anunciar = () => {}, traducir = crearTraductorOfertas(), generarClave = generarClavePorDefecto } = {}) {
+export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), clienteHistorial, alCambiar = () => {}, anunciar = () => {}, traducir = crearTraductorOfertas(), generarClave = generarClavePorDefecto } = {}) {
   const estado = { bolsa: "", carga: "inactiva", ofertas: [], error: "", enviando: false, claveEnCurso: null, borrador: null, mensaje: "", errorOperacion: "",
-    registrando: false, confirmacion: null, clavesActo: new Map() };
+    registrando: false, confirmacion: null, clavesActo: new Map(), historialOferta: "" };
   let controlador = null;
   let controladorPublicacion = null;
   let documentoInstalado = null;
-  const cambiar = () => alCambiar();
+  const cambiar = () => {
+    const activo = documentoInstalado?.activeElement;
+    const enOfertas = activo?.closest?.(".ofertas-bolsa");
+    const id = enOfertas ? activo.id : "";
+    const accionOfertas = enOfertas ? activo.dataset?.ofertasAccion : "";
+    const accionHistorial = enOfertas ? activo.dataset?.historialAccion : "";
+    const ofertaRef = enOfertas ? activo.dataset?.ofertaRef : "";
+    const participacion = enOfertas ? activo.dataset?.participacion : "";
+    const contactoRef = enOfertas ? activo.dataset?.contactoRef : "";
+    const seleccion = typeof activo?.selectionStart === "number" ? [activo.selectionStart, activo.selectionEnd] : null;
+    alCambiar();
+    if (!enOfertas) return;
+    const nuevo = (id && documentoInstalado?.getElementById?.(id)) ||
+      [...(documentoInstalado?.querySelectorAll?.("[data-ofertas-accion], [data-historial-accion]") || [])].find((e) =>
+        (accionOfertas && e.dataset.ofertasAccion === accionOfertas && e.dataset.ofertaRef === ofertaRef) ||
+        (accionHistorial && e.dataset.historialAccion === accionHistorial && e.dataset.participacion === participacion && e.dataset.contactoRef === contactoRef)) ||
+      (accionHistorial === "identificar" && [...(documentoInstalado?.querySelectorAll?.("[data-historial-participacion]") || [])].find((e) => e.dataset.historialParticipacion === participacion && e.dataset.contactoRef === contactoRef));
+    nuevo?.focus?.({ preventScroll: true });
+    if (seleccion && nuevo?.setSelectionRange) nuevo.setSelectionRange(...seleccion);
+  };
+  const historial = crearSuperficieHistorialOfrecimientos({ cliente: clienteHistorial, alCambiar: cambiar, anunciar });
   const enfocar = (selector) => { documentoInstalado?.querySelector?.(selector)?.focus?.(); };
 
   async function cargar() {
@@ -328,7 +349,9 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), a
       `<dl class="oferta-ficha__datos">${dato("col_fechas", fechas)}${dato("col_plazo", fechaHora(o.vence_antes_de))}` +
       `${dato("col_disposiciones", String(o.disposiciones_total), detalleOfrecidas)}${dato("col_plazas", plazas)}</dl>${correo}` +
       // Las plazas se muestran cuando ya hay algo que decidir o ver: tras el plazo.
-      (o.estado === "abierta" ? "" : listaPlazas(o)) + "</li>";
+      (o.estado === "abierta" ? "" : listaPlazas(o)) +
+      `<div class="acciones-fila"><button type="button" class="boton-secundario" data-ofertas-accion="historial" data-oferta-ref="${escapar(o.oferta_ref)}" aria-expanded="${estado.historialOferta === o.oferta_ref}">${escapar(traducirHistorialOfrecimientos("titulo"))}</button></div>` +
+      (estado.historialOferta === o.oferta_ref ? historial.renderizar() : "") + "</li>";
   }
 
   function formulario() {
@@ -366,6 +389,7 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), a
   }
 
   function manejarSubmit(evento) {
+    if (historial.manejarSubmit(evento)) return true;
     const form = evento.target?.closest?.('[data-ofertas-form="publicar"]');
     if (!form) return false;
     evento.preventDefault();
@@ -390,10 +414,21 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), a
   }
 
   function manejarClick(evento) {
+    if (historial.manejarClick(evento)) return true;
     const control = evento.target?.closest?.("[data-ofertas-accion]");
     if (!control || control.disabled) return false;
     const accion = control.dataset.ofertasAccion;
     if (accion === "recargar") void cargar();
+    else if (accion === "historial") {
+      const ofertaRef = control.dataset.ofertaRef;
+      if (estado.historialOferta === ofertaRef) {
+        historial.desmontar(); estado.historialOferta = "";
+      } else if (estado.ofertas.some((o) => o.oferta_ref === ofertaRef)) {
+        estado.historialOferta = ofertaRef;
+        historial.activar(estado.bolsa, ofertaRef);
+      }
+      cambiar();
+    }
     else if (accion === "preparar") {
       const orden = control.dataset.orden === undefined ? null : Number(control.dataset.orden);
       pedirConfirmacion({ ofertaRef: control.dataset.ofertaRef, plaza: Number(control.dataset.plaza), tipo: control.dataset.tipo,
@@ -408,15 +443,19 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), a
     activar(bolsaRef) {
       if (!bolsaRef || bolsaRef === estado.bolsa) return;
       controladorPublicacion?.abort(); controladorPublicacion = null;
-      Object.assign(estado, { bolsa: bolsaRef, carga: "inactiva", ofertas: [], mensaje: "", errorOperacion: "", enviando: false, claveEnCurso: null, borrador: null, confirmacion: null });
+      historial.desmontar();
+      Object.assign(estado, { bolsa: bolsaRef, carga: "inactiva", ofertas: [], mensaje: "", errorOperacion: "", enviando: false, claveEnCurso: null, borrador: null, confirmacion: null, historialOferta: "" });
       estado.clavesActo.clear();
       void cargar();
     },
-    desmontar() { controlador?.abort(); controlador = null; controladorPublicacion?.abort(); controladorPublicacion = null;
-      estado.bolsa = ""; estado.carga = "inactiva"; estado.enviando = false; estado.confirmacion = null; },
+    desmontar() { controlador?.abort(); controlador = null; controladorPublicacion?.abort(); controladorPublicacion = null; historial.desmontar();
+      estado.bolsa = ""; estado.carga = "inactiva"; estado.enviando = false; estado.confirmacion = null; estado.historialOferta = ""; },
     renderizar,
     instalar(documento) {
       documentoInstalado = documento;
+      historial.instalar(documento);
+      documento.addEventListener("input", (evento) => { historial.manejarInput(evento); });
+      documento.addEventListener("change", (evento) => { historial.manejarInput(evento); });
       documento.addEventListener("submit", (evento) => { manejarSubmit(evento); });
       documento.addEventListener("click", (evento) => { manejarClick(evento); });
     },
