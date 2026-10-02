@@ -113,6 +113,10 @@ func TestRecursosCerradosYSinEscape(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "textos/zz/provision.json"), []byte(`{}`), 0600); err != nil {
 		t.Fatal(err)
 	}
+	restos := `{"esquema":"catalogo_sintetico.v1","version":1}`
+	if err := os.WriteFile(filepath.Join(dir, "catalogos/baremo-restos-v1.json"), []byte(restos), 0600); err != nil {
+		t.Fatal(err)
+	}
 	if err := os.WriteFile(filepath.Join(dir, "textos/zz/seleccion.json"), []byte(`{}`), 0600); err != nil {
 		t.Fatal(err)
 	}
@@ -135,8 +139,60 @@ func TestRecursosCerradosYSinEscape(t *testing.T) {
 	if w.Code != 200 || w.Body.String() != "asset" || !strings.HasPrefix(w.Header().Get("Content-Type"), "application/json") {
 		t.Fatal("catalogo tecnico de jornada no disponible")
 	}
+	w = request(nuevoHandler(hostPrueba, assets), "GET", "/catalogos/baremo-restos-v1.json", "", nil)
+	if w.Code != 200 || w.Body.String() != restos || !strings.HasPrefix(w.Header().Get("Content-Type"), "application/json") {
+		t.Fatal("catalogo tecnico de restos no disponible")
+	}
+	if w.Header().Get("Cache-Control") != "no-store" || w.Header().Get("Set-Cookie") != "" {
+		t.Fatal("catalogo de restos altera la frontera de almacenamiento")
+	}
+	if request(nuevoHandler(hostPrueba, assets), "POST", "/catalogos/baremo-restos-v1.json", "{}", nil).Code != 405 {
+		t.Fatal("catalogo tecnico de restos admite escritura")
+	}
+	if request(nuevoHandler(hostPrueba, assets), "GET", "/catalogos/baremo-restos-v2.json", "", nil).Code != 404 {
+		t.Fatal("version ajena del catalogo disponible")
+	}
 	if request(nuevoHandler(hostPrueba, assets), "GET", "/catalogos/no-declarado.json", "", nil).Code != 404 {
 		t.Fatal("catalogo ajeno a la lista positiva disponible")
+	}
+	rutaRestos := filepath.Join(dir, "catalogos/baremo-restos-v1.json")
+	if err := os.Remove(rutaRestos); err != nil {
+		t.Fatal(err)
+	}
+	sinRestos, err := cargarRecursos(dir)
+	if err != nil {
+		t.Fatal("ausencia del catalogo tecnico impide abrir las capacidades existentes", err)
+	}
+	h := nuevoHandler(hostPrueba, sinRestos)
+	if request(h, "GET", entradaWeb, "", nil).Code != 200 || request(h, "GET", "/catalogos/baremo-restos-v1.json", "", nil).Code != 404 {
+		t.Fatal("ausencia del catalogo tecnico altera la entrada o publica contenido")
+	}
+	for _, contenido := range []string{"", strings.Repeat("x", 1024*1024+1)} {
+		if err := os.WriteFile(rutaRestos, []byte(contenido), 0600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := cargarRecursos(dir); err == nil {
+			t.Fatal("catalogo tecnico invalido tratado como ausente")
+		}
+	}
+	if err := os.Remove(rutaRestos); err != nil {
+		t.Fatal(err)
+	}
+	exterior := filepath.Join(t.TempDir(), "restos.json")
+	if err := os.WriteFile(exterior, []byte(restos), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(exterior, rutaRestos); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := cargarRecursos(dir); err == nil {
+		t.Fatal("escape del catalogo por enlace tratado como ausencia")
+	}
+	if err := os.Remove(rutaRestos); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(rutaRestos, []byte(restos), 0600); err != nil {
+		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(dir, "textos/idiomas.json"), []byte(`{"idiomas":[{"codigo":"../../etc"}]}`), 0600); err != nil {
 		t.Fatal(err)
