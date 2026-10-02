@@ -1,0 +1,7 @@
+{
+  "diario_directorio": "/var/tmp/vec-ejemplo/control-copias/diario",
+  "politica_directorio": "/var/tmp/vec-ejemplo/control-copias/politica",
+  "raices_restauradas": ["/var/tmp/vec-ejemplo/estado"],
+  "destino_ref": "destino:sintetico:aislado",
+  "limite_listado": 100
+}

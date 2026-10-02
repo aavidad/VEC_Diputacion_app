@@ -65,3 +65,66 @@ se deniega antes de llamar al control. Los consumidores anteriores pueden seguir
 mostrando historia sin esos metadatos, pero no aprobarla. El cuerpo del POST sigue
 limitado a operación, destino, sello y versión; rechaza metadatos aportados por el
 cliente. El control conserva la revalidación de preimagen y autoridad en su efecto.
+
+## Montaje en la frontera existente
+
+`administracion.NuevoServidorCopias(cfg, dependencias, publicos, auditorLecturas)`
+monta `/admin/copias/` y `/api/admin/copias/v1` dentro de la verificación F de red,
+CA y CRL. `NuevoServidor` conserva su comportamiento de prueba de vida. No se
+crea otro portal ni se sirve el árbol web completo: los recursos del módulo,
+sus dos catálogos y el tema común tienen una lista positiva exacta.
+
+La sesión y el permiso `copias_consultar` se comprueban también al cargar los
+recursos de pantalla. Los accesos usan la auditoría central; una denegación
+exterior que no pueda registrarse responde con servicio no disponible.
+La configuración `config.ejemplo.json` contiene solo rutas sintéticas y
+referencias. No configura identidad, claves, roles ni permisos.
+
+`AbrirLecturasCopias` abre el diario CS07 y la política versionada en sus
+ubicaciones privadas fuera del conjunto restaurable. Recibe el destino CS03
+ya construido por su propietario con KMS y catálogo. La lectura recupera y
+autentica el conjunto completo, coteja conjunto y operación del diario y
+minimiza la respuesta. El estado declarado en CS07 no acredita verificación.
+La compatibilidad se calcula con CS01 solo cuando la fuente de instalación
+actual aporta la observación y la preimagen; en otro caso queda no comprobable.
+El detalle busca el conjunto en un máximo de 64 páginas del diario. Superado
+ese límite se bloquea; no se afirma que la copia no exista.
+
+## Dependencias que siguen pendientes
+
+No hay un arranque operativo de `vec-admin-copias` ni una sesión alternativa.
+El proveedor central debe implementar la resolución ADMIN de F, incluyendo
+vínculo nominal certificado/cuenta privilegiada, sesión y perfil vigentes.
+La fachada del portal interno no sirve: tiene otra superficie de confianza.
+La gestión de perfiles no concede competencias de copias.
+
+La materialización V3 de CS08 requiere el consumidor nominal AD143, reservado
+por su propietario, y el SQL de `administracion_copias` todavía borrador. El
+contrato que debe implementar la autoridad central es:
+
+```go
+ComprometerOrden(context.Context, ordenescopias.Orden,
+    domain.SolicitudAutorizacionLigadaV3,
+    domain.DecisionAutorizacionLigadaV3,
+    ports.ConfirmacionRegistroConcesionAutorizacionLigadaV3) error
+```
+
+Debe revalidar persona, sesión, perfil, política, acción, recurso, campos y
+obligaciones; consumir la concesión exacta con unicidad y CAS; y conservar
+orden, auditoría y outbox en la misma transacción. Registrar una candidata
+V3 no equivale a consumirla. No se genera SQL ni se ejecuta una migración en
+este montaje.
+
+El anclaje externo también debe implementar
+`ValidarActual(context.Context, ordenescopias.Orden, time.Time) error`, con
+revocación, época y cercado actuales fuera del rollback. Durante mantenimiento
+no basta la sesión histórica ni una firma previa. La composición no habilita
+lanzamiento, cambios de calendario/retención, propuesta, revisión o ejecución
+sin sus proveedores reales. Las propuestas y los metadatos de revisión
+siguen bloqueados hasta disponer del registro y la observación actual
+correspondientes; no se devuelven listas vacías inventadas.
+
+Las pruebas locales comprueban el montaje, la segregación de recursos, red y
+revocación, retirada de sesión/permiso, fallo de auditoría y lectura minimizada
+con diario real y manifiesto sintético. No acreditan provisión central,
+instalación SQL, copias reales, despliegue ni recorrido de navegador.
