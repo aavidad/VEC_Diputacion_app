@@ -11,18 +11,85 @@ SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('vec_bolsa_l
 
 DO $precondicion$
 DECLARE actual jsonb; esperado jsonb:=pg_catalog.jsonb_build_object(
- 'rol',true,'ad155',true,'b76',true,'tabla_libre',true,'avisos',true);
+ 'rol',true,'ad155',true,'b76',true,'b61',true,'tabla_libre',true,'avisos',true);
 BEGIN
  actual:=pg_catalog.jsonb_build_object(
   'rol',current_user='vec_bolsa_llamamientos_propietario',
   'ad155',pg_catalog.to_regprocedure('vec_autorizacion_atestada_v3.consumir_solicitud_documental_bolsa_v3_atestada(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL,
   'b76',pg_catalog.to_regprocedure('vec_bolsa_llamamientos.registrar_operacion_situacion_participacion_v2(text,text,text,timestamp with time zone,timestamp with time zone,text,text,text,text,timestamp with time zone,text,text,text,text,timestamp with time zone,timestamp with time zone,timestamp with time zone,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL,
+  'b61',pg_catalog.to_regclass('vec_bolsa_llamamientos.denegacion_frontera_portal_externo') IS NOT NULL
+    AND pg_catalog.to_regprocedure('vec_bolsa_llamamientos.registrar_denegacion_portal_externo_v1(text,text,text,text,text)') IS NOT NULL,
   'tabla_libre',pg_catalog.to_regclass('vec_bolsa_llamamientos.solicitud_documental_rrhh') IS NULL,
   'avisos',pg_catalog.to_regprocedure('vec_bolsa_llamamientos.consultar_avisos_portal_rrhh_v1(timestamp with time zone)') IS NOT NULL);
  IF actual IS DISTINCT FROM esperado THEN
   RAISE EXCEPTION 'PARO clave=B77.preimagen, actual=%, esperado=%',actual,esperado USING ERRCODE='55000';
  END IF;
 END $precondicion$;
+
+-- La ruta documental debe auditar una denegación prePDP con el registrador
+-- exterior B61. Se amplían exactamente su CHECK y su guarda, sin tocar RLS,
+-- ACL ni otras rutas ya instaladas.
+DO $frontera_b61$
+DECLARE
+ ruta_nueva text:='/api/vec/bolsa/mi-bolsa/solicitudes-documentales';
+ tabla pg_catalog.regclass:='vec_bolsa_llamamientos.denegacion_frontera_portal_externo'::pg_catalog.regclass;
+ nombre text; anterior_expr text; actual_expr text; v_total integer;
+ firma pg_catalog.regprocedure:='vec_bolsa_llamamientos.registrar_denegacion_portal_externo_v1(text,text,text,text,text)'::pg_catalog.regprocedure;
+ anterior text; nuevo text; actual text; marca text:='''/api/vec/bolsa/mi-bolsa/contacto''';
+ acl pg_catalog.aclitem[]; propietario oid; config text[]; definidora boolean;
+BEGIN
+ SELECT pg_catalog.count(*),pg_catalog.min(c.conname),pg_catalog.min(pg_catalog.pg_get_expr(c.conbin,c.conrelid))
+ INTO v_total,nombre,anterior_expr FROM pg_catalog.pg_constraint c
+ WHERE c.conrelid=tabla AND c.contype='c' AND c.convalidated
+   AND pg_catalog.pg_get_constraintdef(c.oid) LIKE '%/api/vec/bolsa/mi-bolsa/contacto%';
+ IF v_total<>1 OR anterior_expr IS NULL OR pg_catalog.strpos(anterior_expr,ruta_nueva)<>0 THEN
+  RAISE EXCEPTION 'PARO clave=B61.ruta_CHECK, actual=%/%, esperado=1/false',
+   v_total,coalesce(pg_catalog.strpos(anterior_expr,ruta_nueva)<>0,false) USING ERRCODE='55000'; END IF;
+ EXECUTE pg_catalog.format('ALTER TABLE vec_bolsa_llamamientos.denegacion_frontera_portal_externo DROP CONSTRAINT %I',nombre);
+ EXECUTE pg_catalog.format('ALTER TABLE vec_bolsa_llamamientos.denegacion_frontera_portal_externo ADD CONSTRAINT %I CHECK ((%s) OR ruta=%L)',
+  nombre,anterior_expr,ruta_nueva);
+ SELECT pg_catalog.pg_get_expr(c.conbin,c.conrelid) INTO STRICT actual_expr FROM pg_catalog.pg_constraint c
+  WHERE c.conrelid=tabla AND c.conname=nombre AND c.convalidated;
+ IF pg_catalog.strpos(actual_expr,ruta_nueva)=0 OR
+    pg_catalog.strpos(actual_expr,'/api/vec/bolsa/mi-bolsa/contacto')=0 OR
+    NOT EXISTS (SELECT 1 FROM pg_catalog.pg_class WHERE oid=tabla AND relrowsecurity AND relforcerowsecurity) THEN
+  RAISE EXCEPTION 'PARO clave=B61.ruta_y_RLS, actual=%/%, esperado=true/true',
+   pg_catalog.strpos(actual_expr,ruta_nueva)<>0,
+   EXISTS (SELECT 1 FROM pg_catalog.pg_class WHERE oid=tabla AND relrowsecurity AND relforcerowsecurity)
+   USING ERRCODE='55000'; END IF;
+ SELECT pg_catalog.pg_get_functiondef(firma),p.proacl,p.proowner,p.proconfig,p.prosecdef
+ INTO STRICT anterior,acl,propietario,config,definidora FROM pg_catalog.pg_proc p WHERE p.oid=firma;
+ IF pg_catalog.length(anterior)-pg_catalog.length(pg_catalog.replace(anterior,marca,''))<>pg_catalog.length(marca)
+    OR pg_catalog.strpos(anterior,ruta_nueva)<>0 OR NOT definidora THEN
+  RAISE EXCEPTION 'PARO clave=B61.guarda_ruta, actual=%/%, esperado=1/false',
+   (pg_catalog.length(anterior)-pg_catalog.length(pg_catalog.replace(anterior,marca,'')))/pg_catalog.length(marca),
+   pg_catalog.strpos(anterior,ruta_nueva)<>0 USING ERRCODE='55000'; END IF;
+ nuevo:=pg_catalog.replace(anterior,marca,marca||','||pg_catalog.quote_literal(ruta_nueva));
+ EXECUTE nuevo;
+ SELECT pg_catalog.pg_get_functiondef(firma) INTO STRICT actual;
+ IF actual IS DISTINCT FROM nuevo OR pg_catalog.replace(actual,marca||','||pg_catalog.quote_literal(ruta_nueva),marca)
+    IS DISTINCT FROM anterior OR
+    (SELECT proacl FROM pg_catalog.pg_proc WHERE oid=firma) IS DISTINCT FROM acl OR
+    (SELECT proowner FROM pg_catalog.pg_proc WHERE oid=firma) IS DISTINCT FROM propietario OR
+    (SELECT proconfig FROM pg_catalog.pg_proc WHERE oid=firma) IS DISTINCT FROM config OR
+    (SELECT prosecdef FROM pg_catalog.pg_proc WHERE oid=firma) IS DISTINCT FROM definidora THEN
+  RAISE EXCEPTION 'PARO clave=B61.definicion_y_ACL, actual=%, esperado=%',
+   pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(actual||coalesce((SELECT proacl::text FROM pg_catalog.pg_proc WHERE oid=firma),''),'UTF8')),'hex'),
+   pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(nuevo||coalesce(acl::text,''),'UTF8')),'hex')
+   USING ERRCODE='55000'; END IF;
+END $frontera_b61$;
+
+-- La referencia del documento se conserva como identificador opaco. Misma
+-- exclusión de etiquetas/DNI/NIE que JustificanteOperacionSituacion.Validar:
+-- solo las referencias propias `espacio:sha256` eximen coincidencias numéricas
+-- fortuitas dentro de una huella, nunca una etiqueta de identidad.
+CREATE FUNCTION vec_bolsa_llamamientos.b77_documento_ref_opaco_v1(p_ref text)
+RETURNS boolean LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog AS $f$
+ SELECT p_ref ~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,255}$'
+  AND p_ref !~* '(^|[._:/#-])(dni|nie|nif|pasaporte|passport)([._:/#-]|$)'
+  AND (p_ref ~ '^[a-z_]+(:[a-z_]+)*:[0-9a-f]{64}$'
+       OR p_ref !~* '(([0-9][._:/#-]?){8}|[XYZ][._:/#-]?([0-9][._:/#-]?){7})[A-Z]')
+$f$;
 
 CREATE TABLE vec_bolsa_llamamientos.solicitud_documental_rrhh (
  solicitud_ref text PRIMARY KEY CHECK (solicitud_ref ~ '^solicitud-documental:[0-9a-f]{64}$'),
@@ -32,7 +99,7 @@ CREATE TABLE vec_bolsa_llamamientos.solicitud_documental_rrhh (
  participacion_ref text NOT NULL CHECK (pg_catalog.octet_length(participacion_ref) BETWEEN 3 AND 512),
  candidato_ref text NOT NULL CHECK (candidato_ref ~ '^can_[A-Za-z0-9_-]{22,128}$'),
  tipo text NOT NULL CHECK (tipo='documental_rrhh'),
- documento_ref text NOT NULL CHECK (documento_ref ~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,255}$'),
+ documento_ref text NOT NULL CHECK (vec_bolsa_llamamientos.b77_documento_ref_opaco_v1(documento_ref)),
  documento_sha256 text NOT NULL CHECK (documento_sha256 ~ '^[0-9a-f]{64}$'),
  fecha_fin_causa date CHECK (fecha_fin_causa IS NULL OR pg_catalog.isfinite(fecha_fin_causa)),
  version integer NOT NULL CHECK (version=1),
@@ -298,7 +365,7 @@ DECLARE participacion text; consumo record; previa vec_bolsa_llamamientos.solici
 BEGIN
  IF current_user<>'vec_bolsa_llamamientos_propietario' OR current_setting('transaction_isolation')<>'serializable'
     OR p_solicitud_ref IS NULL OR p_recibo_ref IS NULL OR p_contenido_sha256 IS NULL
-    OR p_documento_ref IS NULL OR p_documento_ref !~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,255}$'
+    OR vec_bolsa_llamamientos.b77_documento_ref_opaco_v1(p_documento_ref) IS NOT TRUE
     OR p_documento_sha256 IS NULL OR p_documento_sha256 !~ '^[0-9a-f]{64}$'
     OR p_clave IS NULL OR pg_catalog.octet_length(p_clave) NOT BETWEEN 8 AND 256 OR p_clave<>pg_catalog.btrim(p_clave)
     OR (p_fecha_fin_causa IS NOT NULL AND NOT pg_catalog.isfinite(p_fecha_fin_causa))
@@ -542,6 +609,7 @@ DECLARE f pg_catalog.regprocedure; p record; x record;
 BEGIN
  FOR p IN SELECT * FROM (VALUES
   ('b77_huella_partes_v1',1,false),
+  ('b77_documento_ref_opaco_v1',1,false),
   ('solicitar_documental_portal_v1',20,true),
   ('regularizar_solicitud_documental_rrhh_v1',28,true),
   ('rechazar_solicitud_documental_rrhh_v1',18,true),

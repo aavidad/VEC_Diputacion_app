@@ -52,7 +52,7 @@ DECLARE
  clave_b8 text:='b77:regularizar:sintetico'; recibo_b8 text; recurso bytea; huella_comando text;
  decision_b76 bytea; recibo_resolucion text; desde_original timestamptz;
  recurso_ajeno bytea; decision_ajena bytea; huella_ajena text;
- excluido_desde timestamptz; sanciones_antes bigint;
+ renuncia_desde timestamptz; excluido_desde timestamptz; sanciones_antes bigint;
 BEGIN
  SELECT c.bolsa_ref,e.participacion_ref INTO STRICT b,p
  FROM vec_bolsa_llamamientos.constitucion_entrada e
@@ -130,6 +130,22 @@ BEGIN
     cap,dec,'\x00',contexto,1,1,'\x00','\x00','\x00','\x00');
   IF NOT r.reutilizada OR r.registrada_en IS DISTINCT FROM primera OR r.recibo_ref IS DISTINCT FROM recibo_sol THEN
    RAISE EXCEPTION 'B77 replay solicitud alterado'; END IF;
+  IF i=1 THEN
+   BEGIN
+    PERFORM * FROM vec_bolsa_llamamientos.solicitar_documental_portal_v1(
+     sol,recibo_sol,contenido,cand,b,'dni:prueba',doc_sha,fecha_solicitud,clave,
+     pg_catalog.clock_timestamp(),cap,dec,'\x00',contexto,1,1,'\x00','\x00','\x00','\x00');
+    RAISE EXCEPTION 'B77 aceptó etiqueta DNI';
+   EXCEPTION WHEN invalid_parameter_value THEN NULL; END;
+   BEGIN
+    PERFORM * FROM vec_bolsa_llamamientos.solicitar_documental_portal_v1(
+     sol,recibo_sol,contenido,cand,b,'NIE:prueba',doc_sha,fecha_solicitud,clave,
+     pg_catalog.clock_timestamp(),cap,dec,'\x00',contexto,1,1,'\x00','\x00','\x00','\x00');
+    RAISE EXCEPTION 'B77 aceptó etiqueta NIE';
+   EXCEPTION WHEN invalid_parameter_value THEN NULL; END;
+   IF (SELECT pg_catalog.count(*) FROM vec_bolsa_llamamientos.solicitud_documental_rrhh s
+       WHERE s.participacion_ref=p)<>1 THEN RAISE EXCEPTION 'B77 DNI/NIE alteró pendiente'; END IF;
+  END IF;
   BEGIN
    PERFORM * FROM vec_bolsa_llamamientos.solicitar_documental_portal_v1(
     sol,recibo_sol,vec_bolsa_llamamientos.b77_huella_partes_v1('contenido-solicitud-documental',
@@ -246,17 +262,20 @@ BEGIN
   RAISE EXCEPTION 'B77 duplicó historia o cerró de forma parcial'; END IF;
  -- Recepción genérica desde exclusión con sanción viva: un escrito no es una
  -- decisión y B73/B76 seguirán impidiendo una reincorporación favorable.
- excluido_desde:=acto+interval '1 microsecond';
+ renuncia_desde:=acto+interval '1 microsecond';
+ excluido_desde:=acto+interval '2 microseconds';
  INSERT INTO vec_bolsa_llamamientos.situacion_participacion(
   participacion_ref,situacion,desde,motivo,actor,registrada_en,clave_idempotencia,recibo_ref,
   politica_transiciones_version)
- VALUES(p,'excluido',excluido_desde,'Exclusión sintética RRHH17',actor,excluido_desde,
+ VALUES(p,'renuncia',renuncia_desde,'Renuncia sintética RRHH17',actor,renuncia_desde,
+  'b77:renuncia:sancionada','recibo:b77:renuncia:sancionada',version_politica),
+       (p,'excluido',excluido_desde,'Exclusión sintética RRHH17',actor,excluido_desde,
   'b77:exclusion:sintetica','recibo:b77:exclusion',version_politica);
  INSERT INTO vec_bolsa_llamamientos.operacion_situacion_participacion(
   participacion_ref,desde,operacion,justificante_tipo,justificante_ref,justificante_sha256,
   actor,validador,validada_en,registrada_en,clave_idempotencia,situacion_esperada_desde)
  VALUES(p,excluido_desde,'excluir','resolucion','resolucion:sintetica:exclusion',pg_catalog.repeat('d',64),
-  actor,validador,excluido_desde,excluido_desde,'b77:exclusion:sintetica',acto);
+  actor,validador,excluido_desde,excluido_desde,'b77:exclusion:sintetica',renuncia_desde);
  SELECT pg_catalog.count(*) INTO sanciones_antes FROM vec_bolsa_llamamientos.sancion_participacion WHERE participacion_ref=p;
  INSERT INTO vec_bolsa_llamamientos.sancion_participacion(
   sancion_ref,participacion_ref,bolsa_ref,consecuencia,consecuencia_etiqueta,efecto,causa,
@@ -285,9 +304,48 @@ BEGIN
  IF NOT r.reutilizada OR r.registrada_en IS DISTINCT FROM primera THEN
   RAISE EXCEPTION 'B77 replay excluido alteró recibo'; END IF;
  IF (SELECT pg_catalog.count(*) FROM vec_bolsa_llamamientos.situacion_participacion WHERE participacion_ref=p)
-      IS DISTINCT FROM original_estado+2
+      IS DISTINCT FROM original_estado+3
     OR (SELECT pg_catalog.count(*) FROM vec_bolsa_llamamientos.sancion_participacion WHERE participacion_ref=p)
       IS DISTINCT FROM sanciones_antes+1 THEN
   RAISE EXCEPTION 'B77 presentar con sanción cambió situación o sanción'; END IF;
+ IF (SELECT a.situacion FROM vec_bolsa_llamamientos.situacion_participacion a
+     WHERE a.participacion_ref=p AND a.desde<excluido_desde ORDER BY a.desde DESC LIMIT 1) IS DISTINCT FROM 'renuncia'
+    OR NOT EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.operacion_situacion_participacion o
+      WHERE o.participacion_ref=p AND o.desde=excluido_desde AND o.operacion='excluir') THEN
+  RAISE EXCEPTION 'B77 fixture sanción carece antecedente renuncia/B8'; END IF;
+ -- CAS y material V3 son coherentes; la única causa de denegación restante
+ -- es la sanción B73 viva. La excepción revierte el intento entero.
+ clave_b8:='b77:regularizar:sancionada';
+ recibo_b8:='recibo:situacion:'||pg_catalog.encode(pg_catalog.sha256(
+  pg_catalog.convert_to(p||pg_catalog.chr(31)||clave_b8,'UTF8')),'hex');
+ huella_comando:=vec_bolsa_llamamientos.b77_huella_partes_v1(
+  'regularizacion-documental-v1',sol,'1',contenido,b,p,doc,doc_sha,
+  pg_catalog.to_char(fecha,'YYYY-MM-DD'),
+  ((EXTRACT(EPOCH FROM excluido_desde)*1000000)::bigint)::text,
+  pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(motivo,'UTF8')),'hex'),
+  actor,validador,clave_b8,recibo_b8);
+ recurso:=pg_catalog.convert_to('{"ambitos":{"ambito_ref":"ambito:sintetico","unidad_ref":"unidad:sintetica"},"atributos":{"regularizacion_documental_sha256":"'||huella_comando||'"}}','UTF8');
+ decision_b76:=pg_catalog.convert_to(pg_catalog.jsonb_build_object(
+  'principal_id',actor,'accion','bolsa.situacion_participacion.cambiar',
+  'modulo_id','bolsa','tipo_recurso','participacion_bolsa','finalidad','gestion_situacion_participacion',
+  'recurso_ref',p,'campos_permitidos','[]'::jsonb,'obligaciones','[]'::jsonb,
+  'contexto_recurso_huella_sha256',pg_catalog.encode(pg_catalog.sha256(recurso),'hex'))::text,'UTF8');
+ BEGIN
+  acto:=pg_catalog.clock_timestamp();
+  PERFORM * FROM vec_bolsa_llamamientos.regularizar_solicitud_documental_rrhh_v1(
+   sol,1,contenido,b,p,acto,excluido_desde,motivo,actor,clave_b8,recibo_b8,
+   acto,validador,acto,doc,doc_sha,fecha,
+   '\x00',decision_b76,'\x00','\x00',1,1,pg_catalog.convert_to(p,'UTF8'),'\x00','\x00','\x00',recurso);
+  RAISE EXCEPTION 'B77 sanción viva permitió regularizar';
+ EXCEPTION WHEN invalid_parameter_value THEN NULL; END;
+ IF (SELECT pg_catalog.count(*) FROM vec_bolsa_llamamientos.situacion_participacion WHERE participacion_ref=p)
+      IS DISTINCT FROM original_estado+3
+    OR (SELECT pg_catalog.count(*) FROM vec_bolsa_llamamientos.operacion_situacion_participacion WHERE participacion_ref=p)
+      IS DISTINCT FROM original_op+2
+    OR (SELECT pg_catalog.count(*) FROM vec_bolsa_llamamientos.resolucion_solicitud_documental_rrhh)
+      IS DISTINCT FROM original_res+2
+    OR (SELECT pg_catalog.count(*) FROM vec_bolsa_llamamientos.sancion_participacion WHERE participacion_ref=p)
+      IS DISTINCT FROM sanciones_antes+1 THEN
+  RAISE EXCEPTION 'B77 sanción viva dejó efecto parcial'; END IF;
 END $prueba$;
 ROLLBACK;
