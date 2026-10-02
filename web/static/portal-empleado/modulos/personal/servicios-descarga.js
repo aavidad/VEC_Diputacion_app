@@ -1,4 +1,5 @@
 import { cargarTextos } from "../../../comun/textos.js";
+import { esFechaCorteServicios } from "./ficha-propia-corte.js?v=20261002-personal-servicios-csv-v1";
 
 const textos = await cargarTextos("personal-servicios-descarga");
 export const traducirDescargaServicios = (clave) => textos.traducir(`general.${clave}`);
@@ -14,14 +15,18 @@ function celda(valor) {
 }
 
 /** Recibe únicamente la proyección de servicios ya validada por la vista. */
-export function crearResumenServiciosCSV(resultado, t = traducirDescargaServicios) {
+export function crearResumenServiciosCSV(resultado, catalogo = textos) {
   if (!resultado || !["disponible", "vacio"].includes(resultado.estado) || !Array.isArray(resultado.items)) throw new TypeError("resumen de servicios no disponible");
+  const t = (clave) => catalogo.traducir(`general.${clave}`);
+  // Mismo corte civil que la ficha: mediodía UTC y formato del catálogo activo.
+  const civil = (valor) => esFechaCorteServicios(valor)
+    ? catalogo.fecha(`${valor}T12:00:00Z`, { dateStyle: "medium", timeZone: "UTC" }) : valor;
   const filas = [
     [t("titulo")], [t("alcance")],
-    [t("corte"), resultado.fecha_referencia || t("corte_no_indicado")],
-    [t("fuente"), resultado.fuente], [t("actualizado"), resultado.actualizado_en],
+    [t("corte"), resultado.fecha_referencia ? civil(resultado.fecha_referencia) : t("corte_no_indicado")],
+    [t("fuente"), resultado.fuente], [t("actualizado"), catalogo.fecha(resultado.actualizado_en, { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Madrid" })],
     [], CAMPOS.map((campo) => t(campo)),
-    ...resultado.items.map((item) => CAMPOS.map((campo) => item[campo] || t("no_consta"))),
+    ...resultado.items.map((item) => CAMPOS.map((campo) => (["desde", "hasta"].includes(campo) ? civil(item[campo]) : item[campo]) || t("no_consta"))),
   ];
   if (resultado.estado === "vacio") filas.push([t("vacio")]);
   return `\uFEFF${filas.map((fila) => fila.map(celda).join(";")).join("\r\n")}\r\n`;

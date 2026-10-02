@@ -3,7 +3,7 @@ import { crearTraductorPersonal } from "./i18n.js?v=20260925-personal-e10-v1";
 
 import { crearSelectorCorteServicios, esFechaCorteServicios, presentarFechaCorteServicios, traducirCorteServicios } from "./ficha-propia-corte.js?v=20261002-personal-servicios-csv-v1";
 
-import { descargarResumenServicios, traducirDescargaServicios } from "./servicios-descarga.js?v=20261002-personal-servicios-csv-v1";
+import { descargarResumenServicios, traducirDescargaServicios } from "./servicios-descarga.js?v=20261002-personal-servicios-csv-v2";
 
 const PESTANAS = Object.freeze([
   ["ficha", "ficha_tab_ficha"], ["relaciones", "ficha_tab_relaciones"],
