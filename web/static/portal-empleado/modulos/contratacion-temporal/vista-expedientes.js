@@ -1,6 +1,7 @@
 /** Vista y enlace DOM de la superficie de expedientes de contratación temporal. */
 
 import { validarReciboAlta } from "./contrato.js?v=20261002-ct-fin-moad-v1";
+import { renderizarConsultaCircuitoRRHH } from "./vista-circuito-rrhh.js?v=20261002-rrhh-consulta-moad-v1";
 import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261002-ct-fin-moad-v1";
 import { montarFormularioResolucionFormalizacion } from "./formulario-resolucion-formalizacion.js?v=20261002-ct-fin-moad-v1";
 import { montarFormularioAnotacionAdministrativa } from "./formulario-anotacion-administrativa.js?v=20261002-ct-fin-moad-v1";
@@ -29,6 +30,15 @@ import { montarCancelacionSiProcede } from "./vista-expedientes-cancelacion.js?v
 import { montarFormularioReincorporacionRRHH } from "./rrhh-reincorporacion-formulario.js?v=20260928-rrhh-reincorporacion-v1";
 import { montarBorradoresPublicados } from "./vista-borradores-publicados.js?v=20261002-ct-fin-moad-v1";
 import { traducirPortal } from "../../portal-i18n.js?v=20261001-ct-a-i18n-v1";
+
+export function insertarConsultaCircuitoRRHH(raiz, expediente) {
+  if (!expediente?.fases?.some(({ fase_ref: referencia }) =>
+    String(referencia).split(":").at(-1)?.startsWith("circuito_"))) return false;
+  const ancla = raiz?.querySelector?.("[data-ct-exp-ancla-firma]");
+  if (!ancla?.insertAdjacentHTML) return false;
+  ancla.insertAdjacentHTML("beforebegin", renderizarConsultaCircuitoRRHH(expediente));
+  return true;
+}
 
 export { renderizarModuloContratacionTemporal } from "./vista-expedientes-render.js?v=20261002-ct-fin-moad-v1";
 export { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js?v=20261002-ct-fin-moad-v1";
@@ -559,6 +569,7 @@ export async function montarModuloContratacionTemporal({
       montarReincorporacionSiProcede(estado);
       gestorCancelacion.montar(estado);
     }
+    insertarConsultaCircuitoRRHH(raiz, estado.expediente);
     montarAuditoriaComunSiProcede(estado);
     montarBorradoresPublicadosSiProcede(estado);
     if (selectorFoco) enfocar(raiz, selectorFoco);

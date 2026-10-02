@@ -64,7 +64,8 @@
     "circuito_firma_cargo_diputacion_delegada": "Diputado/a delegado/a de Recursos Humanos",
     "circuito_firma_cargo_secretaria_razon": "Secretaría General (toma de razón)",
     "circuito_firma_cargo_secretaria_fe": "Secretaría General (fe pública)",
-    "circuito_firma_cargo_persona_nombrada": "Persona nombrada"
+    "circuito_firma_cargo_persona_nombrada": "Persona nombrada",
+    "circuito_firma_cargo_diputada_delegada": "Diputada delegada de Recursos Humanos"
   },
   "valores_controlados": {
     "documento": {
@@ -82,7 +83,8 @@
       "diputacion_delegada": "Diputado/a delegado/a de Recursos Humanos",
       "secretaria_razon": "Secretaría General (toma de razón)",
       "secretaria_fe": "Secretaría General (fe pública)",
-      "persona_nombrada": "Persona nombrada"
+      "persona_nombrada": "Persona nombrada",
+      "diputada_delegada": "Diputada delegada de Recursos Humanos"
     }
   }
 }
