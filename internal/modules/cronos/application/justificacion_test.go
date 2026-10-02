@@ -134,7 +134,8 @@ func escenarioJustificacion(t *testing.T) (*ServicioJustificacion, ports.OrdenJu
 	t.Helper()
 	p := domain.PoliticaJustificacion{Referencia: "politica:justificacion:v1", Version: 1, SHA256: strings.Repeat("a", 64), CatalogoVersionRef: "catalogo:permiso:v1", PermisoRef: "permiso:neutral", TipoDocumentalRef: "ref:" + strings.Repeat("b", 64), CustodioID: "custodia.interna", MotivosRef: []string{"motivo:documentacion:conforme", "motivo:documentacion:incompleta"}}
 	solicitud := domain.SolicitudJustificable{SolicitudRef: "permiso:cronos:solicitud:ensayo001", EmpleadoRef: "emp_0123456789abcdefghijkl", CatalogoVersionRef: p.CatalogoVersionRef, PermisoRef: p.PermisoRef, ExpedienteDocumentalRef: "ref:" + strings.Repeat("c", 64), Version: 3, Estado: domain.EstadoPermisoConcedido, JustificanteExigido: true}
-	f := &fuenteJustificacionPrueba{p: ports.PreparacionJustificacion{Solicitud: solicitud, Politica: p, PoliticaVigente: true}}
+	sintetica := true
+	f := &fuenteJustificacionPrueba{p: ports.PreparacionJustificacion{Solicitud: solicitud, Politica: p, PoliticaVigente: true, PoliticaSintetica: &sintetica}}
 	d := &documentosJustificacionPrueba{}
 	r := &repoJustificacionPrueba{}
 	prov := &proveedorJustificacionPrueba{}
@@ -152,7 +153,7 @@ func escenarioJustificacion(t *testing.T) (*ServicioJustificacion, ports.OrdenJu
 	return s, o, f, d, r, prov, in
 }
 func TestJustificacionGateAntesDocumentos(t *testing.T) {
-	for _, caso := range []string{"enclave", "personal", "politica", "orden", "proveedor", "material_vacio", "material_cambiado", "documental", "lectura"} {
+	for _, caso := range []string{"enclave", "personal", "politica", "sintetica_desconocida", "orden", "proveedor", "material_vacio", "material_cambiado", "documental", "lectura"} {
 		t.Run(caso, func(t *testing.T) {
 			s, o, f, d, r, p, in := escenarioJustificacion(t)
 			switch caso {
@@ -160,6 +161,8 @@ func TestJustificacionGateAntesDocumentos(t *testing.T) {
 				f.err = ports.ErrJustificacionNoDisponible
 			case "politica":
 				f.p.Politica.SHA256 = ""
+			case "sintetica_desconocida":
+				f.p.PoliticaSintetica = nil
 			case "orden":
 				o = ports.OrdenJustificacion{}
 			case "proveedor":
@@ -211,8 +214,12 @@ func TestConsultarJustificacionUsaFuenteAutorizadaSinEfectos(t *testing.T) {
 		t.Fatal("consulta con efecto o sin fuente", err, p)
 	}
 	p.Politica.MotivosRef[0] = "motivo:alterado"
+	*p.PoliticaSintetica = false
 	if f.p.Politica.MotivosRef[0] == "motivo:alterado" {
 		t.Fatal("consulta expone slice de la fuente")
+	}
+	if !*f.p.PoliticaSintetica {
+		t.Fatal("consulta expone estado provisional mutable")
 	}
 	f.err = ports.ErrJustificacionNoDisponible
 	if _, err := s.Consultar(context.Background(), o, in.SolicitudRef); !errors.Is(err, ports.ErrJustificacionNoDisponible) {

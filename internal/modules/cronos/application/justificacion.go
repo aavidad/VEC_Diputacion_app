@@ -48,7 +48,7 @@ func (s *ServicioJustificacion) preparar(ctx context.Context, o ports.OrdenJusti
 	if e != nil {
 		return a, ports.PreparacionJustificacion{}, e
 	}
-	if p.Solicitud.SolicitudRef != ref || p.Solicitud.Validar(p.Politica) != nil || (p.Actual != nil && p.Actual.Validar(p.Solicitud, p.Politica) != nil) {
+	if p.Solicitud.SolicitudRef != ref || p.PoliticaSintetica == nil || p.Solicitud.Validar(p.Politica) != nil || (p.Actual != nil && p.Actual.Validar(p.Solicitud, p.Politica) != nil) {
 		return a, ports.PreparacionJustificacion{}, ports.ErrJustificacionNoDisponible
 	}
 	return a, p, nil
@@ -62,6 +62,8 @@ func (s *ServicioJustificacion) Consultar(ctx context.Context, o ports.OrdenJust
 		return ports.PreparacionJustificacion{}, err
 	}
 	p.Politica.MotivosRef = append([]string(nil), p.Politica.MotivosRef...)
+	sintetica := *p.PoliticaSintetica
+	p.PoliticaSintetica = &sintetica
 	if p.Actual != nil {
 		actual := *p.Actual
 		p.Actual = &actual

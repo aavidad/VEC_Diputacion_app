@@ -79,7 +79,7 @@ func (f *FuenteJustificacion) PrepararJustificacion(ctx context.Context, orden p
 	}
 	defer clear(bruto)
 	var p ports.PreparacionJustificacion
-	if decodificarEstricto(bruto, &p) != nil || p.Solicitud.SolicitudRef != ref || p.Solicitud.EmpleadoRef != empleado || p.Solicitud.Validar(p.Politica) != nil ||
+	if decodificarEstricto(bruto, &p) != nil || p.PoliticaSintetica == nil || p.Solicitud.SolicitudRef != ref || p.Solicitud.EmpleadoRef != empleado || p.Solicitud.Validar(p.Politica) != nil ||
 		(p.Actual != nil && p.Actual.Validar(p.Solicitud, p.Politica) != nil) {
 		return ports.PreparacionJustificacion{}, ports.ErrJustificacionNoDisponible
 	}

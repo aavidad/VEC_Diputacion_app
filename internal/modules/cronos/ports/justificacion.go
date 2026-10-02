@@ -46,10 +46,11 @@ func (o OrdenJustificacion) ContextoActor() (vecdomain.ContextoActor, error) {
 func (o OrdenJustificacion) ProveedorMaterial() ProveedorMaterialJustificacion { return o.proveedor }
 
 type PreparacionJustificacion struct {
-	Solicitud       domain.SolicitudJustificable `json:"solicitud"`
-	Politica        domain.PoliticaJustificacion `json:"politica"`
-	PoliticaVigente bool                         `json:"politica_vigente"`
-	Actual          *domain.Justificacion        `json:"actual"`
+	Solicitud         domain.SolicitudJustificable `json:"solicitud"`
+	Politica          domain.PoliticaJustificacion `json:"politica"`
+	PoliticaVigente   bool                         `json:"politica_vigente"`
+	PoliticaSintetica *bool                        `json:"politica_sintetica"`
+	Actual            *domain.Justificacion        `json:"actual"`
 }
 
 // Preparar debe acreditar enclave interno, Persona/Personal y permiso nominal

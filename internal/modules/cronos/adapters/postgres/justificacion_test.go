@@ -280,11 +280,12 @@ func TestFuenteJustificacionConsultaPoliticaYVinculoNominal(t *testing.T) {
 		CatalogoVersionRef: m.Vinculo.CatalogoVersionRef, PermisoRef: m.Vinculo.PermisoRef,
 		ExpedienteDocumentalRef: m.Vinculo.ExpedienteDocumentalRef, Version: m.SolicitudVersion,
 		Estado: domain.EstadoPermisoConcedido, JustificanteExigido: true}
-	salida, _ := json.Marshal(ports.PreparacionJustificacion{Solicitud: s, Politica: p, PoliticaVigente: true, Actual: &j})
+	sintetica := true
+	salida, _ := json.Marshal(ports.PreparacionJustificacion{Solicitud: s, Politica: p, PoliticaVigente: true, PoliticaSintetica: &sintetica, Actual: &j})
 	tx := &txLecturaPrueba{respuestas: [][]byte{salida}}
 	f := &FuenteJustificacion{db: dbFuenteJustificacionPrueba{dbLecturaPrueba: dbLecturaPrueba{t: t, tx: tx}, empleado: empleadoPrueba}, lecturas: &proveedorLecturaJustificacionPrueba{t}}
 	got, err := f.PrepararJustificacion(context.Background(), orden, s.SolicitudRef)
-	if err != nil || got.Solicitud != s || got.Actual == nil || tx.commits != 1 || tx.consultas[0] != consultaPrepararJustificacion {
+	if err != nil || got.Solicitud != s || got.PoliticaSintetica == nil || !*got.PoliticaSintetica || got.Actual == nil || tx.commits != 1 || tx.consultas[0] != consultaPrepararJustificacion {
 		t.Fatal("fuente sin autoridad o política", err, got)
 	}
 }
