@@ -503,3 +503,7 @@ static/textos/en/cronos-permisos-consulta.json
 static/portal-empleado/modulos/personal/servicios-descarga.js
 static/textos/es/personal-servicios-descarga.json
 static/textos/en/personal-servicios-descarga.json
+static/textos/es/seleccion-bases-preparacion.json
+static/textos/en/seleccion-bases-preparacion.json
+static/textos/es/seleccion-bases-preparacion-error.json
+static/textos/en/seleccion-bases-preparacion-error.json
