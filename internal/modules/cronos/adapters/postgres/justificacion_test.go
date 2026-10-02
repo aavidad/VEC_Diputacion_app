@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"vec-diputacion-granada/internal/modules/cronos/application"
 	"vec-diputacion-granada/internal/modules/cronos/domain"
@@ -31,6 +32,19 @@ func materialYRegistroJustificacion(t *testing.T) (domain.MaterialJustificacion,
 		TipoRef: ref("b"), NumeroVEC: "VEC-2026-14", CreadoEnUTC: ahora, PoliticaRef: ref("1"), PoliticaVersion: 1,
 		PoliticaSHA256: strings.Repeat("2", 64), ConservacionHastaUTC: ahora.AddDate(5, 0, 0), Proteccion: "conservacion", EstadoPolitica: "aprobada"}
 	return m, domain.Justificacion{Vinculo: v, Version: 1, Estado: domain.JustificacionPendiente}, registro
+}
+
+func TestErrorJustificacionDistinguePoliticaYCAS(t *testing.T) {
+	for codigo, esperado := range map[string]error{
+		"PC001": domain.ErrJustificacionInvalida,
+		"PC002": domain.ErrJustificacionConflicto,
+		"PC011": ports.ErrDependenciaNoDisponible,
+		"PC015": ports.ErrPoliticaJustificacionNoVigente,
+	} {
+		if err := errorJustificacion(context.Background(), &pgconn.PgError{Code: codigo}); !errors.Is(err, esperado) {
+			t.Fatalf("SQLSTATE %s: %v", codigo, err)
+		}
+	}
 }
 
 func TestRepositorioJustificacionAnexoTransportaConfirmacionYMaterialSeparados(t *testing.T) {

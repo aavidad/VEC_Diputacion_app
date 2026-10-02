@@ -104,7 +104,7 @@ func errorJustificacion(ctx context.Context, err error) error {
 			return domain.ErrJustificacionInvalida
 		case "PC002":
 			return domain.ErrJustificacionConflicto
-		case "PC011":
+		case "PC015":
 			return ports.ErrPoliticaJustificacionNoVigente
 		}
 	}
