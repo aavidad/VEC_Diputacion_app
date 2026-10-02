@@ -109,7 +109,11 @@ func (r *RepositorioGobiernoReglasBaremoV3PostgreSQL) ConfirmarAltaBorrador(ctx 
 	if err != nil || r == nil || r.rol != "vec_bolsa_reglas_baremo_ejecutor_gobierno" {
 		return vacio, app.ErrGobiernoV3Prohibido
 	}
-	if !bytes.Equal(m.VersionCanonica, o.VersionCanonica) || shaPGGobiernoV3(o.VersionCanonica) != o.HuellaVersionSHA256 || m.ClaveOperacion != o.ClaveOperacion || m.HuellaSolicitudSHA256 != o.HuellaSolicitudSHA256 || !estadoPGGobiernoV3(m.Estado).CoincideExactamenteCon(o.EstadoPropuesto) {
+	estadoMaterial, err := estadoPGGobiernoV3(m.Estado)
+	if err != nil {
+		return vacio, err
+	}
+	if !bytes.Equal(m.VersionCanonica, o.VersionCanonica) || shaPGGobiernoV3(o.VersionCanonica) != o.HuellaVersionSHA256 || m.ClaveOperacion != o.ClaveOperacion || m.HuellaSolicitudSHA256 != o.HuellaSolicitudSHA256 || !estadoMaterial.CoincideExactamenteCon(o.EstadoPropuesto) {
 		return vacio, ports.ErrConfirmacionReglasBaremoInvalida
 	}
 	propuesta, err := restaurarVersionPGGobiernoV3(o.VersionCanonica, m.Estado, m)
@@ -262,7 +266,11 @@ func validarConsultaPGGobiernoV3(o ports.OrdenConsultaGobiernoReglasV3, op strin
 		return app.MaterialGobiernoV3{}, err
 	}
 	id := o.Selector.Identidad
-	if !estadoPGGobiernoV3(m.Estado).CoincideExactamenteCon(o.Selector.Estado) || m.Estado.Referencia != id.Referencia() || m.Estado.Version != id.Version() || m.ConvocatoriaRef != id.ConvocatoriaRef() || m.ExpedienteRef != id.ExpedienteRef() || m.ClaveOperacion != o.ClaveOperacion || m.HuellaSolicitudSHA256 != o.HuellaSolicitudSHA256 {
+	estadoMaterial, err := estadoPGGobiernoV3(m.Estado)
+	if err != nil {
+		return app.MaterialGobiernoV3{}, err
+	}
+	if !estadoMaterial.CoincideExactamenteCon(o.Selector.Estado) || m.Estado.Referencia != id.Referencia() || m.Estado.Version != id.Version() || m.ConvocatoriaRef != id.ConvocatoriaRef() || m.ExpedienteRef != id.ExpedienteRef() || m.ClaveOperacion != o.ClaveOperacion || m.HuellaSolicitudSHA256 != o.HuellaSolicitudSHA256 {
 		return app.MaterialGobiernoV3{}, ports.ErrConfirmacionReglasBaremoInvalida
 	}
 	return m, nil
@@ -283,6 +291,8 @@ func validarMaterialPGGobiernoV3(datos []byte, sha string, v vp.ExportacionMater
 	accion, finalidad, tipo, prefijo, ref := "bolsa.reglas_baremo.version.consultar", "consulta_gobierno_reglas_baremo", "version_reglas_baremo_gobernada", "reglas-baremo:", m.Estado.HuellaEstadoSHA256
 	if op == "alta_borrador" {
 		accion, finalidad, tipo, prefijo, ref = "bolsa.reglas_baremo.borrador.crear", "gobierno_reglas_baremo", "intencion_gobierno_reglas_baremo", "intencion-reglas-baremo:", m.HuellaSolicitudSHA256
+	} else if op == "recuperar_recibo" {
+		accion = "bolsa.reglas_baremo.recibo.consultar"
 	}
 	recurso := vd.RecursoAutorizable{Referencia: prefijo + ref, ModuloID: "bolsa", Tipo: tipo, Ambitos: map[string]string{"convocatoria_ref": m.ConvocatoriaRef, "expediente_ref": m.ExpedienteRef}, Atributos: map[string]string{"material_sha256": sha}}
 	huella, err := recurso.HuellaContextoAutorizacionSHA256()
@@ -290,7 +300,7 @@ func validarMaterialPGGobiernoV3(datos []byte, sha string, v vp.ExportacionMater
 	if err != nil || m.Accion != accion || m.Finalidad != finalidad || m.TipoRecurso != tipo || resumen.Operacion() != accion || resumen.EfectoRef() != recurso.Referencia || resumen.EfectoHuellaSHA256() != huella || resumen.AudienciaConsumo() != app.AudienciaGobiernoBorradorReglasV3 || shaPGGobiernoV3(v.DecisionCanonica()) != resumen.DecisionHuellaSHA256() || shaPGGobiernoV3(v.ContextoActorCanonico()) != resumen.ContextoHuellaSHA256() || !bytes.Equal(m.MotivoCanonico, v.MotivoCanonico()) || shaPGGobiernoV3(v.MotivoCanonico()) != resumen.MotivoHuellaSHA256() {
 		return m, app.ErrGobiernoV3Prohibido
 	}
-	if estadoPGGobiernoV3(m.Estado).Validar() != nil || m.Estado.Revision != 1 {
+	if _, err := estadoPGGobiernoV3(m.Estado); err != nil || m.Estado.Revision != 1 {
 		return m, app.ErrGobiernoV3PeticionInvalida
 	}
 	if op != "alta_borrador" && len(m.VersionCanonica) != 0 {
@@ -298,13 +308,16 @@ func validarMaterialPGGobiernoV3(datos []byte, sha string, v vp.ExportacionMater
 	}
 	return m, nil
 }
-func estadoPGGobiernoV3(s app.EstadoMaterialGobiernoV3) reglas.VinculoEstadoReglasBaremo {
+func estadoPGGobiernoV3(s app.EstadoMaterialGobiernoV3) (reglas.VinculoEstadoReglasBaremo, error) {
 	r, err := reglas.NuevaReferenciaVersionada(s.Referencia, s.Version, s.HuellaContenidoSHA256)
 	if err != nil {
-		return reglas.VinculoEstadoReglasBaremo{}
+		return reglas.VinculoEstadoReglasBaremo{}, ports.ErrConfirmacionReglasBaremoInvalida
 	}
-	v, _ := reglas.NuevoVinculoEstadoReglasBaremo(r, s.Revision, s.HuellaEstadoSHA256)
-	return v
+	v, err := reglas.NuevoVinculoEstadoReglasBaremo(r, s.Revision, s.HuellaEstadoSHA256)
+	if err != nil {
+		return reglas.VinculoEstadoReglasBaremo{}, ports.ErrConfirmacionReglasBaremoInvalida
+	}
+	return v, nil
 }
 func restaurarVersionPGGobiernoV3(canon []byte, s app.EstadoMaterialGobiernoV3, m app.MaterialGobiernoV3) (reglas.VersionGobernadaReglasBaremo, error) {
 	var vacio reglas.VersionGobernadaReglasBaremo
@@ -315,7 +328,8 @@ func restaurarVersionPGGobiernoV3(canon []byte, s app.EstadoMaterialGobiernoV3, 
 	estado, err := v.VinculoEstado()
 	conjunto, ec := v.Conjunto()
 	id := conjunto.Identidad()
-	if err != nil || ec != nil || !estado.CoincideExactamenteCon(estadoPGGobiernoV3(s)) || id.Referencia() != s.Referencia || id.Version() != s.Version || id.ConvocatoriaRef() != m.ConvocatoriaRef || id.ExpedienteRef() != m.ExpedienteRef {
+	estadoMaterial, em := estadoPGGobiernoV3(s)
+	if err != nil || ec != nil || em != nil || !estado.CoincideExactamenteCon(estadoMaterial) || id.Referencia() != s.Referencia || id.Version() != s.Version || id.ConvocatoriaRef() != m.ConvocatoriaRef || id.ExpedienteRef() != m.ExpedienteRef {
 		return vacio, ports.ErrConfirmacionReglasBaremoInvalida
 	}
 	return v, nil
@@ -387,7 +401,11 @@ func decodificarReciboPGGobiernoV3(datos, canon []byte, m app.MaterialGobiernoV3
 	if err != nil || estable != p.HuellaSolicitud {
 		return vacio, ports.ErrConfirmacionReglasBaremoInvalida
 	}
-	return ports.ReciboAltaBorradorReglasV3{ReciboRef: p.ReciboRef, ClaveOperacion: p.Clave, HuellaSolicitudSHA256: p.HuellaSolicitud, Estado: estadoPGGobiernoV3(p.Estado), VersionCanonica: bytes.Clone(canon), TransaccionRef: p.TransaccionRef, AuditoriaRef: p.AuditoriaRef, OutboxRef: p.OutboxRef, ConsumoOriginal: p.ConsumoOriginal.dto(), ConfirmadaEn: p.ConfirmadaEn.UTC()}, nil
+	estadoMaterial, err := estadoPGGobiernoV3(p.Estado)
+	if err != nil {
+		return vacio, err
+	}
+	return ports.ReciboAltaBorradorReglasV3{ReciboRef: p.ReciboRef, ClaveOperacion: p.Clave, HuellaSolicitudSHA256: p.HuellaSolicitud, Estado: estadoMaterial, VersionCanonica: bytes.Clone(canon), TransaccionRef: p.TransaccionRef, AuditoriaRef: p.AuditoriaRef, OutboxRef: p.OutboxRef, ConsumoOriginal: p.ConsumoOriginal.dto(), ConfirmadaEn: p.ConfirmadaEn.UTC()}, nil
 }
 func jsonPGGobiernoV3(datos []byte, destino any, maximo int) error {
 	if len(datos) == 0 || len(datos) > maximo || bytes.Equal(bytes.TrimSpace(datos), []byte("null")) {

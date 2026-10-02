@@ -193,7 +193,9 @@ func TestServicioGobiernoV3AltaReplayYLecturasSinNuevaEscritura(t *testing.T) {
 	if !recuperada.Existe || !bytes.Equal(consulta.VersionCanonica, primera.Recibo.VersionCanonica) || recuperada.Recibo.ReciboRef != primera.Recibo.ReciboRef || r.guardados != 2 || r.consultas != 1 || r.recuperaciones != 1 {
 		t.Fatal("lectura generó otro guardado")
 	}
-	if b.solicitudes[2].Accion != "bolsa.reglas_baremo.version.consultar" || b.solicitudes[3].Operacion != operacionRecuperarGobiernoV3 || b.solicitudes[3].Campos[0] != "recibo" {
+	if b.solicitudes[2].Accion != "bolsa.reglas_baremo.version.consultar" || b.solicitudes[3].Accion != "bolsa.reglas_baremo.recibo.consultar" ||
+		b.solicitudes[3].Operacion != operacionRecuperarGobiernoV3 || len(b.solicitudes[3].Campos) != 2 ||
+		b.solicitudes[3].Campos[0] != "estado_reglas_baremo" || b.solicitudes[3].Campos[1] != "recibo" {
 		t.Fatal("lectura usa operación ajena")
 	}
 	consulta.VersionCanonica[0] = 'x'

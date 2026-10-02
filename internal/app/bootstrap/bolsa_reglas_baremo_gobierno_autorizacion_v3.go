@@ -86,6 +86,8 @@ func (p *ProveedorGobiernoReglasBaremoV3) contexto(ctx context.Context, operacio
 	accion := "bolsa.reglas_baremo.version.consultar"
 	if ruta == p.rutas.Alta {
 		accion = "bolsa.reglas_baremo.borrador.crear"
+	} else if ruta == p.rutas.Recuperar {
+		accion = "bolsa.reglas_baremo.recibo.consultar"
 	}
 	if !ok || !valida || frontera.ruta != ruta || frontera.metodo != http.MethodPost ||
 		capacidad.metodo != http.MethodPost || frontera.descriptor.ClaveCapacidad != accion ||
@@ -157,8 +159,8 @@ func (p *ProveedorGobiernoReglasBaremoV3) ProveerMaterialGobiernoReglasV3(ctx co
 	if err != nil || errActual != nil || datos != actuales || vinculo.ValidarPara(operativo.Resultado) != nil {
 		return vacio, reglasapp.ErrGobiernoV3NoAutenticado
 	}
-	if !p.pedidoValido(pedido, operativo.Resultado.Contexto, p.reloj.Ahora()) {
-		return vacio, reglasapp.ErrGobiernoV3Prohibido
+	if err := p.validarPedido(pedido, operativo.Resultado.Contexto, p.reloj.Ahora()); err != nil {
+		return vacio, err
 	}
 	publicada, existe, err := leerInstantaneaPublicadaPostgreSQLDesarrollo(ctx, p.pool, p.perfil.PerfilRef())
 	if err != nil {
@@ -189,6 +191,11 @@ func (p *ProveedorGobiernoReglasBaremoV3) ProveerMaterialGobiernoReglasV3(ctx co
 	if err != nil || decision.ValidarPara(solicitud) != nil {
 		return vacio, reglasapp.ErrGobiernoV3NoDisponible
 	}
+	// La decisión del PDP ya debe contener el mínimo nominal; nunca se recorta
+	// una decisión firmada para adaptarla a la operación SQL.
+	if decision.ExigirProyeccionPara(solicitud, pedido.Campos, nil) != nil {
+		return vacio, reglasapp.ErrGobiernoV3Prohibido
+	}
 	exportado, err := p.material.proveerMaterialConfirmacion(ctx, solicitud, decision, confirmacion, pedido.Motivo, operativo.Resultado)
 	if err != nil || !vecports.MaterialAtestadoLigadoV3(solicitud, decision, confirmacion, operativo.Resultado,
 		pedido.Motivo, exportado, reglasapp.AudienciaGobiernoBorradorReglasV3) {
@@ -197,8 +204,8 @@ func (p *ProveedorGobiernoReglasBaremoV3) ProveerMaterialGobiernoReglasV3(ctx co
 	return exportado, nil
 }
 
-func (p *ProveedorGobiernoReglasBaremoV3) pedidoValido(s bolsapuertos.SolicitudMaterialGobiernoReglasV3,
-	actor vecdomain.ContextoActor, ahora time.Time) bool {
+func (p *ProveedorGobiernoReglasBaremoV3) validarPedido(s bolsapuertos.SolicitudMaterialGobiernoReglasV3,
+	actor vecdomain.ContextoActor, ahora time.Time) error {
 	if p == nil || p.perfil == nil || s.Audiencia != reglasapp.AudienciaGobiernoBorradorReglasV3 ||
 		actor.Validar() != nil || actor.Principal.AuthMethod != vecdomain.AuthMethodCertificate ||
 		actor.Principal.AuthAssurance != vecdomain.AuthAssuranceHigh || s.Recurso.Validar() != nil ||
@@ -207,11 +214,11 @@ func (p *ProveedorGobiernoReglasBaremoV3) pedidoValido(s bolsapuertos.SolicitudM
 		s.Recurso.ModuloID != "bolsa" || s.Recurso.Ambitos["convocatoria_ref"] != p.perfil.convocatoriaRef ||
 		s.Recurso.Ambitos["expediente_ref"] != p.perfil.expedienteRef ||
 		len(s.MaterialCanonico) == 0 || len(s.MaterialCanonico) > 1<<20 {
-		return false
+		return reglasapp.ErrGobiernoV3Prohibido
 	}
 	var material reglasapp.MaterialGobiernoV3
 	if json.Unmarshal(s.MaterialCanonico, &material) != nil {
-		return false
+		return reglasapp.ErrGobiernoV3Prohibido
 	}
 	canon, err := json.Marshal(material)
 	motivo, errMotivo := vecdomain.RepresentacionCanonicaMotivoAutorizacionV2(s.Motivo)
@@ -224,39 +231,47 @@ func (p *ProveedorGobiernoReglasBaremoV3) pedidoValido(s bolsapuertos.SolicitudM
 		material.TipoRecurso != s.Recurso.Tipo || material.Finalidad != s.Finalidad ||
 		material.PersonaRef != actor.PersonaRef || material.PerfilRef != actor.PerfilActivoRef ||
 		material.ConvocatoriaRef != p.perfil.convocatoriaRef || material.ExpedienteRef != p.perfil.expedienteRef {
-		return false
+		return reglasapp.ErrGobiernoV3Prohibido
 	}
 	solicitadaEn, err := time.Parse(time.RFC3339Nano, material.SolicitadaEn)
 	if err != nil || solicitadaEn.Location() != time.UTC || solicitadaEn.After(ahora) ||
 		ahora.Sub(solicitadaEn) > 90*time.Second {
-		return false
+		return reglasapp.ErrGobiernoV3Prohibido
 	}
 	switch s.Operacion {
 	case "alta_borrador":
-		return s.Accion == "bolsa.reglas_baremo.borrador.crear" && s.Finalidad == "gobierno_reglas_baremo" &&
+		if !(s.Accion == "bolsa.reglas_baremo.borrador.crear" && s.Finalidad == "gobierno_reglas_baremo" &&
 			s.Recurso.Tipo == "intencion_gobierno_reglas_baremo" &&
 			s.Recurso.Referencia == "intencion-reglas-baremo:"+material.HuellaSolicitudSHA256 &&
 			shaHexGobiernoV3(material.HuellaSolicitudSHA256) &&
 			slices.Equal(s.Campos, []string{"auditoria", "estado_reglas_baremo", "salida_eventos"}) &&
 			len(material.VersionCanonica) > 0 && material.EstadoEsperado == nil &&
-			claveOperacionGobiernoV3(material.ClaveOperacion)
+			claveOperacionGobiernoV3(material.ClaveOperacion)) {
+			return reglasapp.ErrGobiernoV3Prohibido
+		}
+		return nil
 	case "consultar_exacta", "recuperar_recibo":
 		campos := []string{"estado_reglas_baremo"}
+		accion := "bolsa.reglas_baremo.version.consultar"
 		if s.Operacion == "recuperar_recibo" {
-			campos = []string{"recibo"}
+			campos = []string{"estado_reglas_baremo", "recibo"}
+			accion = "bolsa.reglas_baremo.recibo.consultar"
 		}
 		claveYHuella := material.ClaveOperacion == "" && material.HuellaSolicitudSHA256 == ""
 		if s.Operacion == "recuperar_recibo" {
 			claveYHuella = claveOperacionGobiernoV3(material.ClaveOperacion) && shaHexGobiernoV3(material.HuellaSolicitudSHA256)
 		}
-		return s.Accion == "bolsa.reglas_baremo.version.consultar" && s.Finalidad == "consulta_gobierno_reglas_baremo" &&
+		if !(s.Accion == accion && s.Finalidad == "consulta_gobierno_reglas_baremo" &&
 			s.Recurso.Tipo == "version_reglas_baremo_gobernada" &&
 			s.Recurso.Referencia == "reglas-baremo:"+material.Estado.HuellaEstadoSHA256 &&
 			shaHexGobiernoV3(material.Estado.HuellaEstadoSHA256) &&
 			slices.Equal(s.Campos, campos) && len(material.VersionCanonica) == 0 &&
-			material.EstadoEsperado == nil && claveYHuella
+			material.EstadoEsperado == nil && claveYHuella) {
+			return reglasapp.ErrGobiernoV3Prohibido
+		}
+		return nil
 	default:
-		return false
+		return reglasapp.ErrGobiernoV3Prohibido
 	}
 }
 

@@ -62,6 +62,9 @@ func NuevoPerfilGobiernoReglasBaremoV3(base *soporteAltaContratacionTemporalDesa
 				Finalidades: []string{"gobierno_reglas_baremo"}, CamposPermitidos: []string{"auditoria", "estado_reglas_baremo", "salida_eventos"},
 				GarantiaMinima: vecdomain.AuthAssuranceHigh},
 			{Accion: "bolsa.reglas_baremo.version.consultar", ModuloID: "bolsa", TipoRecurso: "version_reglas_baremo_gobernada",
+				Finalidades: []string{"consulta_gobierno_reglas_baremo"}, CamposPermitidos: []string{"estado_reglas_baremo"},
+				GarantiaMinima: vecdomain.AuthAssuranceHigh},
+			{Accion: "bolsa.reglas_baremo.recibo.consultar", ModuloID: "bolsa", TipoRecurso: "version_reglas_baremo_gobernada",
 				Finalidades: []string{"consulta_gobierno_reglas_baremo"}, CamposPermitidos: []string{"estado_reglas_baremo", "recibo"},
 				GarantiaMinima: vecdomain.AuthAssuranceHigh},
 		}, []vecdomain.AmbitoPerfil{

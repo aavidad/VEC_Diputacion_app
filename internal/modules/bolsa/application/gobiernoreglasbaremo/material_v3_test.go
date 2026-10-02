@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -76,6 +77,15 @@ func TestMaterialGobiernoV3RecursoIntencionYVersion(t *testing.T) {
 	consulta := b.solicitudes[2]
 	if consulta.Recurso.Tipo != "version_reglas_baremo_gobernada" || consulta.Recurso.Referencia != "reglas-baremo:"+original.Estado.HuellaEstadoSHA256() {
 		t.Fatal("lectura dejó de seleccionar la versión exacta")
+	}
+	_, err = s.RecuperarRecibo(ctx, c, PeticionRecuperarReciboV3{Selector: selector, Motivo: motivo,
+		ClaveOperacion: p.ClaveOperacion, HuellaSolicitudSHA256: original.HuellaSolicitudSHA256})
+	debeSinError(t, err)
+	recibo := b.solicitudes[3]
+	if consulta.Accion != "bolsa.reglas_baremo.version.consultar" || !slices.Equal(consulta.Campos, []string{"estado_reglas_baremo"}) ||
+		recibo.Accion != "bolsa.reglas_baremo.recibo.consultar" || !slices.Equal(recibo.Campos, []string{"estado_reglas_baremo", "recibo"}) ||
+		recibo.Recurso.Referencia != consulta.Recurso.Referencia || recibo.Finalidad != consulta.Finalidad {
+		t.Fatal("consulta y recuperación no conservaron capacidades nominales separadas")
 	}
 }
 

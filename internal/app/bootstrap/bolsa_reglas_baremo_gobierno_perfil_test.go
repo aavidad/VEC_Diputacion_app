@@ -19,15 +19,17 @@ func perfilGobiernoReglasBaremoPrueba(t *testing.T) *PerfilGobiernoReglasBaremoV
 func TestPerfilGobiernoReglasBaremoSoloConcedeAltaYLecturaExactas(t *testing.T) {
 	p := perfilGobiernoReglasBaremoPrueba(t)
 	if p.PerfilRef() == "" || p.PerfilRef() == p.soporte.contexto.Resultado.Contexto.Instantanea.CuentaRef ||
-		p.plantilla.Validar() != nil || len(p.plantilla.VersionRol.Concesiones) != 2 ||
+		p.plantilla.Validar() != nil || len(p.plantilla.VersionRol.Concesiones) != 3 ||
 		len(p.plantilla.AsignacionPerfil.Ambitos) != 2 {
 		t.Fatal("perfil fijo no segregado o plantilla inválida")
 	}
-	alta, lectura := p.plantilla.VersionRol.Concesiones[0], p.plantilla.VersionRol.Concesiones[1]
+	alta, lectura, recibo := p.plantilla.VersionRol.Concesiones[0], p.plantilla.VersionRol.Concesiones[1], p.plantilla.VersionRol.Concesiones[2]
 	if alta.Accion != "bolsa.reglas_baremo.borrador.crear" || alta.TipoRecurso != "intencion_gobierno_reglas_baremo" ||
 		!slices.Equal(alta.CamposPermitidos, []string{"auditoria", "estado_reglas_baremo", "salida_eventos"}) ||
 		lectura.Accion != "bolsa.reglas_baremo.version.consultar" || lectura.TipoRecurso != "version_reglas_baremo_gobernada" ||
-		!slices.Equal(lectura.CamposPermitidos, []string{"estado_reglas_baremo", "recibo"}) {
+		!slices.Equal(lectura.CamposPermitidos, []string{"estado_reglas_baremo"}) ||
+		recibo.Accion != "bolsa.reglas_baremo.recibo.consultar" || recibo.TipoRecurso != lectura.TipoRecurso ||
+		!slices.Equal(recibo.CamposPermitidos, []string{"estado_reglas_baremo", "recibo"}) {
 		t.Fatal("concesión distinta del contrato V3 mínimo")
 	}
 	for _, c := range p.plantilla.VersionRol.Concesiones {
@@ -63,7 +65,7 @@ func TestProvisionGobiernoReglasBaremoNoRestauraRevocacionesNiRecortes(t *testin
 		"otro_acto":      func(a *instantaneaPublicadaDesarrollo) { a.actoAsignacion = "acto:ajeno" },
 		"rol_retirado":   func(a *instantaneaPublicadaDesarrollo) { a.instantanea.ControlVigenciaVersionRol.Estado = "retirada" },
 		"campos_recortados": func(a *instantaneaPublicadaDesarrollo) {
-			a.instantanea.VersionRol.Concesiones[1].CamposPermitidos = []string{"estado_reglas_baremo"}
+			a.instantanea.VersionRol.Concesiones[2].CamposPermitidos = []string{"estado_reglas_baremo"}
 		},
 	} {
 		t.Run(nombre, func(t *testing.T) {

@@ -283,7 +283,7 @@ func TestGobiernoReglasV3PostgresRecuperaReciboConSelectorConocido(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	m.Operacion, m.Accion, m.Finalidad, m.TipoRecurso = "recuperar_recibo", "bolsa.reglas_baremo.version.consultar", "consulta_gobierno_reglas_baremo", "version_reglas_baremo_gobernada"
+	m.Operacion, m.Accion, m.Finalidad, m.TipoRecurso = "recuperar_recibo", "bolsa.reglas_baremo.recibo.consultar", "consulta_gobierno_reglas_baremo", "version_reglas_baremo_gobernada"
 	m.VersionCanonica = nil
 	m.SolicitadaEn = ahora.Add(time.Second).Format("2006-01-02T15:04:05.000000Z")
 	material, _ := json.Marshal(m)
@@ -297,5 +297,46 @@ func TestGobiernoReglasV3PostgresRecuperaReciboConSelectorConocido(t *testing.T)
 	}
 	if !recuperado.Existe || !recuperado.Recibo.ConfirmadaEn.Equal(ahora) || !bytes.Equal(recuperado.Recibo.VersionCanonica, alta.VersionCanonica) || recuperado.Acceso.DecisionRef == recuperado.Recibo.ConsumoOriginal.DecisionRef || tx.commits != 1 {
 		t.Fatal("recuperación no conservó recibo histórico y acceso actual")
+	}
+}
+
+func TestGobiernoReglasV3PostgresDeniegaCruceAccionesDeLecturaAntesDeSQL(t *testing.T) {
+	ahora := time.Date(2026, 10, 2, 8, 0, 0, 0, time.UTC)
+	alta, original := ordenPGGobiernoPrueba(t, ahora, "decision:original")
+	version, err := reglas.RestaurarVersionGobernadaReglasBaremoConHuellaSHA256(alta.VersionCanonica, alta.HuellaVersionSHA256)
+	if err != nil {
+		t.Fatal(err)
+	}
+	conjunto, err := version.Conjunto()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, op := range []string{"consultar_exacta", "recuperar_recibo"} {
+		t.Run(op, func(t *testing.T) {
+			m := original
+			m.Operacion, m.Accion, m.Finalidad, m.TipoRecurso = op, "bolsa.reglas_baremo.version.consultar", "consulta_gobierno_reglas_baremo", "version_reglas_baremo_gobernada"
+			m.VersionCanonica = nil
+			if op == "consultar_exacta" {
+				m.Accion = "bolsa.reglas_baremo.recibo.consultar"
+				m.ClaveOperacion, m.HuellaSolicitudSHA256 = "", ""
+			}
+			material, err := json.Marshal(m)
+			if err != nil {
+				t.Fatal(err)
+			}
+			v := exportacionPGGobiernoPrueba(t, m, material, ahora, "decision:cruzada")
+			orden := ports.OrdenConsultaGobiernoReglasV3{Selector: ports.SelectorGobiernoReglasV3{Identidad: conjunto.Identidad(), Estado: alta.EstadoPropuesto},
+				MaterialCanonico: material, HuellaMaterialSHA256: shaPGGobiernoV3(material), ClaveOperacion: m.ClaveOperacion, HuellaSolicitudSHA256: m.HuellaSolicitudSHA256, Autorizacion: v}
+			tx := &txGobiernoV3Prueba{}
+			repo := repoPGGobiernoPrueba(tx)
+			if op == "consultar_exacta" {
+				_, err = repo.ObtenerExacta(context.Background(), orden)
+			} else {
+				_, err = repo.RecuperarRecibo(context.Background(), orden)
+			}
+			if !errors.Is(err, app.ErrGobiernoV3Prohibido) || tx.operaciones != 0 || tx.commits != 0 || tx.rollbacks != 0 {
+				t.Fatalf("acción cruzada llegó a SQL: %v", err)
+			}
+		})
 	}
 }

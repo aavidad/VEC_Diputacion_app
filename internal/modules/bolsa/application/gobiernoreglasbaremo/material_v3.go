@@ -194,7 +194,8 @@ func prepararMaterialGobiernoV3(c CredencialesGobiernoV3, selector ports.Selecto
 	if operacion == operacionAltaGobiernoV3 {
 		accion, finalidad, campos = "bolsa.reglas_baremo.borrador.crear", finalidadGobiernoReglas, append([]string{}, camposGobiernoReglas...)
 	} else if operacion == operacionRecuperarGobiernoV3 {
-		campos = []string{"recibo"}
+		accion = "bolsa.reglas_baremo.recibo.consultar"
+		campos = []string{"estado_reglas_baremo", "recibo"}
 	} else if operacion != operacionConsultaGobiernoV3 {
 		return MaterialGobiernoV3{}, ports.SolicitudMaterialGobiernoReglasV3{}, ErrOperacionInvalida
 	}
