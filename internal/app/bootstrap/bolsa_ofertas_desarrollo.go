@@ -257,7 +257,7 @@ func (p *preparadorBorradorLlamamientoDesarrollo) PrepararSolicitudPublicarOfert
 	if err != nil {
 		return puertosbolsa.SolicitudPublicarOferta{}, err
 	}
-	return puertosbolsa.SolicitudPublicarOferta{Vinculo: contexto.Vinculo, ResultadoContexto: contexto.Resultado, BolsaRef: entrada.BolsaRef, Datos: entrada.Datos, NumeroPlazas: entrada.NumeroPlazas, ClaveIdempotencia: entrada.ClaveIdempotencia, Correlacion: correlacion, MotivoAutorizacion: motivoEmitirLlamamientoBolsaDesarrollo()}, nil
+	return puertosbolsa.SolicitudPublicarOferta{Notificacion: entrada.Notificacion, Vinculo: contexto.Vinculo, ResultadoContexto: contexto.Resultado, BolsaRef: entrada.BolsaRef, Datos: entrada.Datos, NumeroPlazas: entrada.NumeroPlazas, ClaveIdempotencia: entrada.ClaveIdempotencia, Correlacion: correlacion, MotivoAutorizacion: motivoEmitirLlamamientoBolsaDesarrollo()}, nil
 }
 
 func (p *preparadorBorradorLlamamientoDesarrollo) PrepararSolicitudResolverOferta(ctx context.Context, entrada bolsahttp.EntradaResolverOferta) (puertosbolsa.SolicitudResolverOferta, error) {
