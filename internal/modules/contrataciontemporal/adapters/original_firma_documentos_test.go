@@ -53,6 +53,10 @@ func (t *tiposOriginalPuentePrueba) ResolverTipoOriginalRRHH(_ context.Context, 
 	return t.ref, t.err
 }
 
+func (t *tiposOriginalPuentePrueba) ResolverTipoOriginalCT(ctx context.Context, documento string) (string, error) {
+	return t.ResolverTipoOriginalRRHH(ctx, ports.TipoBorradorRRHH(documento))
+}
+
 func puenteOriginalFirmaPrueba(t *testing.T) (*FuenteOriginalFirmaDocumentos, ports.SolicitudOriginalFirma, *fuentePDFOriginalPuentePrueba, *custodiaOriginalPuentePrueba, *tiposOriginalPuentePrueba) {
 	t.Helper()
 	q := ports.SolicitudOriginalFirma{
@@ -71,7 +75,7 @@ func puenteOriginalFirmaPrueba(t *testing.T) (*FuenteOriginalFirmaDocumentos, po
 		HuellaSHA256: hex.EncodeToString(suma[:]), Contenido: contenido,
 	}}
 	fuentePDF := &fuentePDFOriginalPuentePrueba{}
-	servicio, err := vecapplication.NuevoServicioOriginalFirmableCT(fuentePDF, custodia)
+	servicio, err := vecapplication.NuevoServicioOriginalFirmableCT(fuentePDF, custodia, tipos)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -96,7 +100,7 @@ func TestPuenteOriginalFirmaLeeCustodiaSinRenderizar(t *testing.T) {
 		custodia.solicitud.ExpedienteRef != q.ExpedienteRef ||
 		custodia.solicitud.Documento != q.Documento ||
 		custodia.solicitud.OriginalVersion != q.OriginalVersion ||
-		tipos.llamadas != 1 || tipos.tipo != ports.BorradorResolucion || fuentePDF.llamadas != 0 {
+		tipos.llamadas != 2 || tipos.tipo != ports.BorradorResolucion || fuentePDF.llamadas != 0 {
 		t.Fatal("la lectura no conservó identidad, tipo o contenido original")
 	}
 	custodia.original.Contenido[0] = 'X'
@@ -132,8 +136,8 @@ func TestPuenteOriginalFirmaCierraDenegacionTipoYHuella(t *testing.T) {
 	}
 	custodia.err = nil
 	custodia.original.TipoRef = "ref:" + strings.Repeat("c", 64)
-	if _, err := puente.ObtenerOriginalFirma(context.Background(), q); !errors.Is(err, ports.ErrOriginalFirmaNoAutorizado) {
-		t.Fatal("se aceptó tipo documental ajeno")
+	if _, err := puente.ObtenerOriginalFirma(context.Background(), q); !errors.Is(err, ports.ErrFuenteOriginalFirmaNoDisponible) || fuentePDF.llamadas != 0 {
+		t.Fatal("se aceptó tipo documental ajeno o se regeneró el original")
 	}
 	custodia.original.TipoRef = tipos.ref
 	custodia.original.HuellaSHA256 = strings.Repeat("d", 64)

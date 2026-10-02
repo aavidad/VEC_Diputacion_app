@@ -48,6 +48,10 @@ func TestTiposOriginalFirmableRRHHExigeSeisTiposDistintosReservados(t *testing.T
 		if err != nil || obtenida != c.publicados[clave] {
 			t.Fatalf("tipo %s sin referencia gobernada", tipo)
 		}
+		paraCustodia, err := tipos.ResolverTipoOriginalCT(context.Background(), string(tipo))
+		if err != nil || paraCustodia != obtenida {
+			t.Fatalf("custodia no reutilizó el tipo gobernado %s", tipo)
+		}
 	}
 	if _, err := tipos.ResolverTipoOriginalRRHH(context.Background(), ports.BorradorContratoLaboral); !errors.Is(err, ErrTiposOriginalFirmableRRHHNoDisponibles) {
 		t.Fatal("se aceptó tipo CT ajeno a los seis originales")
