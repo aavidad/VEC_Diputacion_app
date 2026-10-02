@@ -157,19 +157,24 @@ test("P-WEB-13 conserva la clave en un reintento 503 y refresca después del rec
   }
 });
 
-test("B8 ofrece pausar una renuncia solo si el servidor admite pasar a no disponible", () => {
+test("B8 ofrece validar una renuncia y devolver a disponible solo si el servidor lo admite", () => {
   const botones = (html) => [...html.matchAll(/data-operacion="([a-z]+)"/g)].map((m) => m[1]);
   const renuncia = { estado_clave: "renuncia" };
   // Sin reglas del servidor: lo de siempre.
   assert.deepEqual(operacionesDisponibles("renuncia", null), ["excluir"]);
   assert.deepEqual(operacionesDisponibles("disponible", undefined), ["pausar", "excluir"]);
-  // Política de 000012: la renuncia vuelve a disponible, pero B8 no reactiva renuncias.
-  assert.deepEqual(operacionesDisponibles("renuncia", { renuncia: ["disponible", "excluido"] }), ["excluir"]);
-  // Política del Reglamento publicada: renuncia justificada a no disponible.
+  const rrhh = { renuncia: ["disponible", "excluido"] };
+  assert.deepEqual(operacionesDisponibles("renuncia", rrhh), ["reactivar", "excluir"]);
+  const validacion = renderizarOperacionesSituacion({ candidato: renuncia, estado: { carga: "listo", items: [], transiciones: rrhh } });
+  assert.match(validacion, /data-operacion="reactivar">Validar justificante y devolver a Disponible<\/button>/);
+  assert.match(validacion, /RRHH valida el justificante de la renuncia/);
+  assert.match(validacion, /No responder a una oferta telemática no tiene consecuencias/);
+  // Una política anterior sigue mostrando únicamente sus operaciones.
   const publicada = { renuncia: ["no_disponible", "excluido"], disponible: ["no_disponible", "pendiente_incorporacion", "renuncia", "excluido"], excluido: [] };
   assert.deepEqual(botones(renderizarOperacionesSituacion({ candidato: renuncia, estado: { carga: "listo", items: [], transiciones: publicada } })), ["pausar", "excluir"]);
   assert.deepEqual(operacionesDisponibles("disponible", publicada), ["pausar", "excluir"]);
   assert.deepEqual(operacionesDisponibles("excluido", publicada), []);
+  assert.deepEqual(operacionesDisponibles("excluido", { excluido: ["disponible"] }), []);
   // El servidor cierra una transición: el botón desaparece.
   assert.deepEqual(operacionesDisponibles("trabajando", { trabajando: ["excluido"] }), ["excluir"]);
 });

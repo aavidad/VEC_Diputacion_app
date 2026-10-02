@@ -672,6 +672,8 @@
     "txt_paso_de_tres": "Step {etapa} of 3 · {nombre}",
     "txt_pausa": "On hold",
     "txt_pausa_reactivacion_y_exclusion": "Hold, reactivation and exclusion",
+    "txt_b8_validar_renuncia": "Validate evidence and restore Available status",
+    "txt_b8_ayuda_llamamiento_directo": "For a direct call, HR validates the evidence supporting a refusal before restoring the person's Available status. Without a justified reason, HR must explicitly record exclusion. Each operation keeps its history and receipt. If exclusion has already been decided, readmission is handled in Sanctions through the appeal decision. Not responding to an online offer has no consequences for membership of the pool.",
     "txt_pausa_voluntaria": "Voluntary hold",
     "txt_pausar": "Put on hold",
     "txt_pend_incorp": "Pend. start",

@@ -122,23 +122,24 @@ const DESTINO_OPERACION = Object.freeze({ pausar: "no_disponible", reactivar: "d
 /**
  * Operaciones que se ofrecen desde la situación vigente. Sin reglas del
  * servidor, la selección de siempre. Con ellas, solo las que el servidor
- * admitirá; «pausar» se ofrece además donde admita pasar a no disponible
- * (renuncia justificada, art. 10, cuando la política publicada lo permite).
+ * admitirá, incluida la vuelta a disponible de una renuncia cuyo
+ * justificante valida RRHH. Una exclusión requiere su circuito de revisión.
  */
 export function operacionesDisponibles(estadoClave, transiciones) {
+  if (estadoClave === "excluido") return [];
   const base = estadoClave === "disponible" ? ["pausar", "excluir"]
     : ["no_disponible", "trabajando"].includes(estadoClave) ? ["reactivar", "excluir"]
       : estadoClave === "excluido" ? [] : ["excluir"];
   const destinos = transiciones?.[estadoClave];
   if (!Array.isArray(destinos)) return base;
   return Object.keys(DESTINO_OPERACION)
-    .filter((operacion) => (base.includes(operacion) || operacion === "pausar") && destinos.includes(DESTINO_OPERACION[operacion]));
+    .filter((operacion) => destinos.includes(DESTINO_OPERACION[operacion]));
 }
 
 export function renderizarOperacionesSituacion({ candidato, estado = {}, escaparHTML = html }) {
   const actual = estado.carga || "cargando";
   const disponibles = operacionesDisponibles(candidato.estado_clave, estado.transiciones);
-  const acciones = disponibles.map((operacion) => `<button type="button" class="boton-secundario" data-b8-accion="seleccionar" data-operacion="${operacion}">${OPERACIONES[operacion]}</button>`).join("");
+  const acciones = disponibles.map((operacion) => `<button type="button" class="boton-secundario" data-b8-accion="seleccionar" data-operacion="${operacion}">${candidato.estado_clave === "renuncia" && operacion === "reactivar" ? textoPortal("txt_b8_validar_renuncia") : OPERACIONES[operacion]}</button>`).join("");
   const botones = estado.paso > 0 ? `<button type="button" class="boton-secundario" data-b8-accion="cancelar" ${estado.enviando ? "disabled" : ""}>${textoPortal("txt_cancelar")}</button>`
     : estado.noDisponible ? "" : acciones;
   let contenido = "";
@@ -153,7 +154,7 @@ export function renderizarOperacionesSituacion({ candidato, estado = {}, escapar
     contenido = `<div class="tabla-contenedor" tabindex="0" role="region" aria-label="${textoPortal("txt_historial_de_operaciones")}"><table class="tabla-datos"><caption>${textoPortal("txt_historial_de_operaciones")}</caption><thead><tr><th>${textoPortal("txt_desde")}</th><th>${textoPortal("txt_operacion")}</th><th>${textoPortal("txt_situacion")}</th><th>${textoPortal("txt_motivo")}</th><th>${textoPortal("txt_justificante")}</th><th>${textoPortal("txt_actor_validador")}</th></tr></thead><tbody>${visibles.map((item) => `<tr><td>${escaparHTML(instanteLegible(item.desde))}</td><td>${escaparHTML(OPERACIONES[item.operacion] || item.operacion)}</td><td>${escaparHTML(situacionLegible(item.situacion))}</td><td>${escaparHTML(item.motivo)}</td><td>${escaparHTML(TIPOS_ETIQUETA[item.justificante.tipo] || item.justificante.tipo)} · ${escaparHTML(item.justificante.referencia)}</td><td>${personaLegible(item.actor, escaparHTML)} / ${personaLegible(item.validador, escaparHTML)}<br>${escaparHTML(instanteLegible(item.validada_en))}</td></tr>`).join("")}</tbody></table></div>${paginas > 1 ? `<nav class="paginacion-bolsa" aria-label="${textoPortal("txt_paginacion_del_historial_de_operaciones")}"><span>${textoPortal("txt_mostrando_desde_hasta_total", { desde: pagina * 6 + 1, hasta: Math.min((pagina + 1) * 6, total), total })}</span><button type="button" class="boton-secundario" data-b8-accion="pagina" data-pagina="${pagina - 1}" ${pagina === 0 ? "disabled" : ""}>${textoPortal("txt_anterior")}</button><button type="button" class="boton-secundario" data-b8-accion="pagina" data-pagina="${pagina + 1}" ${pagina + 1 >= paginas ? "disabled" : ""}>${textoPortal("txt_siguiente")}</button></nav>` : `<p>${textoPortal("txt_mostrando_desde_hasta_total", { desde: 1, hasta: total, total })}</p>`}`;
   }
   const flujo = estado.paso > 0 ? renderizarPaso(estado, escaparHTML) : "";
-  return `<section class="panel panel-separado" data-b8-raiz="true"><div class="cabecera-panel"><div><h4>${textoPortal("txt_pausa_reactivacion_y_exclusion")}</h4></div><details><summary aria-label="${escaparHTML(traducirHuellaArchivo("ayuda_aria"))}">?</summary><p>${escaparHTML(ayudaHuellaArchivo())}</p></details></div><div class="cuerpo-panel"><div class="acciones-vista">${botones}</div>${estado.recibo ? `<p class="mensaje-exito" role="status">${textoPortal("txt_operacion_registrada")} ${justificanteTraducido(estado.recibo, escaparHTML, (clave) => traducirPortal(`panel_${clave}`))}${estado.reutilizada ? traducirPortal("txt_respuesta_recuperada") : ""}</p>` : ""}${estado.errorOperacion ? `<p class="mensaje-error" role="alert">${escaparHTML(estado.errorOperacion)}</p>` : ""}${flujo}<h4>${textoPortal("txt_historial_de_operaciones")}</h4>${contenido}${actual === "listo" ? renderizarTrazaValores({ cambios: estado.cambios || [], pagina: estado.paginaTraza, escaparHTML }) : ""}</div></section>`;
+  return `<section class="panel panel-separado" data-b8-raiz="true"><div class="cabecera-panel"><div><h4>${textoPortal("txt_pausa_reactivacion_y_exclusion")}</h4></div><details><summary aria-label="${escaparHTML(traducirHuellaArchivo("ayuda_aria"))}">?</summary><p>${escaparHTML(ayudaHuellaArchivo())}</p><p>${textoPortal("txt_b8_ayuda_llamamiento_directo")}</p></details></div><div class="cuerpo-panel"><div class="acciones-vista">${botones}</div>${estado.recibo ? `<p class="mensaje-exito" role="status">${textoPortal("txt_operacion_registrada")} ${justificanteTraducido(estado.recibo, escaparHTML, (clave) => traducirPortal(`panel_${clave}`))}${estado.reutilizada ? traducirPortal("txt_respuesta_recuperada") : ""}</p>` : ""}${estado.errorOperacion ? `<p class="mensaje-error" role="alert">${escaparHTML(estado.errorOperacion)}</p>` : ""}${flujo}<h4>${textoPortal("txt_historial_de_operaciones")}</h4>${contenido}${actual === "listo" ? renderizarTrazaValores({ cambios: estado.cambios || [], pagina: estado.paginaTraza, escaparHTML }) : ""}</div></section>`;
 }
 
 // El historial llega con instantes ISO, claves de situación y referencias de
