@@ -1,4 +1,7 @@
-import { MENSAJES_MOAD_ES, MENSAJES_MOAD_EN } from "./i18n-moad.js?v=20261002-ct-fin-moad-v1";
+import { cargarCatalogosContratacion } from "./i18n-catalogos.js?v=20261001-ct-a-i18n-v1";
+const catalogosMOAD = await cargarCatalogosContratacion("contratacion-temporal-moad");
+const MENSAJES_MOAD_ES = catalogosMOAD.exportaciones.ES;
+const MENSAJES_MOAD_EN = catalogosMOAD.exportaciones.EN;
 /** Textos castellanos del módulo; las vistas solo consumen claves. */
 import { MENSAJES_FIRMA_INCORPORACION } from "./i18n-firma-incorporacion-datos.js?v=20261001-ct-a-i18n-v1";
 import { MENSAJES_LLAMAMIENTO_ES } from "./i18n-llamamiento.js?v=20261001-ct-a-i18n-v1";

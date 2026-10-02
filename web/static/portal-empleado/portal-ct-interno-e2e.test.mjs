@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { crearCatalogoModulosDesdeManifiestos } from "./portal-catalogo-modulos.js?v=20261001-ct-a-i18n-v1";
-import { crearCoordinadorModulosPortal } from "./portal-modulos-coordinador.js?v=20261001-cronos-grafo-bandeja-v5";
+import { crearCoordinadorModulosPortal } from "./portal-modulos-coordinador.js?v=20261002-ct-fin-moad-v1";
 
 function raizFalsa() {
   const eventos = new Map();
@@ -54,6 +54,8 @@ test("el portal interno recorre cliente, adaptador y vista reales de contrataci√
       assert.equal(opciones.method, "GET");
       return new Response(JSON.stringify({ data: {
         esquema: "vec.contratacion_temporal.catalogos_alta.v1",
+        numero_expediente_moad: { referencia: "catalogo:ct:numero-expediente-moad", version: 1,
+          patron: "^[0-9]{4}/[1-9][0-9]{0,9}$", ejemplo: "2026/5487" },
         centros: [{ referencia: "centro:001", etiqueta: "Centro 001", contactos: [{ referencia: "con:001", etiqueta: "Contacto 001" }] }],
         categorias: [{ referencia: "categoria:auxiliar", etiqueta: "categoria:auxiliar", grupos_subgrupos: [{ clave: "C2", etiqueta: "Grupo C2" }] }],
         motivos: [{ clave: "sustitucion", etiqueta: "Sustituci√≥n" }],
@@ -99,7 +101,8 @@ test("el portal interno recorre cliente, adaptador y vista reales de contrataci√
   assert.equal(coordinador.resolverAcceso("contratacion_temporal").disponible, true);
 
   const raiz = raizFalsa();
-  assert.equal(await coordinador.montarVista("contratacion-temporal", raiz), true);
+  const montada = await coordinador.montarVista("contratacion-temporal", raiz);
+  assert.equal(montada, true, `vista disponible=${coordinador.vistaDisponible("contratacion-temporal")}; consultas=${consultas}; contenido=${raiz.innerHTML.slice(0, 160)}`);
   assert.equal(consultas, 2);
   assert.match(raiz.innerHTML, /2026\/CT-0001/);
   assert.match(raiz.innerHTML, /categoria:auxiliar/);
