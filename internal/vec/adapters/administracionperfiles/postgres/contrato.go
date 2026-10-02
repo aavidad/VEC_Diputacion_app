@@ -82,6 +82,7 @@ const acreditarSQL = `SELECT current_user = session_user AND r.rolcanlogin AND r
  AND (SELECT count(*) FROM pg_catalog.pg_auth_members m WHERE m.member=r.oid)=1
  AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_database db WHERE db.datname=current_database()
    AND (db.datdba=r.oid OR db.datdba=pg_catalog.to_regrole('vec_admin_perfiles_ejecutor')))
+ AND NOT pg_catalog.has_database_privilege(current_user,current_database(),'CREATE')
  AND pg_catalog.to_regprocedure('vec_autorizacion.resolver_rol_administrable_v1(text)') IS NOT NULL
  AND pg_catalog.to_regprocedure('vec_autorizacion.aplicar_acto_ordinario_admin_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
  AND pg_catalog.to_regprocedure('vec_autorizacion.proponer_acto_admin_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
@@ -93,7 +94,8 @@ const acreditarSQL = `SELECT current_user = session_user AND r.rolcanlogin AND r
    AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_auth_members n WHERE n.member=g.oid))
  AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_namespace n
    WHERE n.nspname LIKE 'vec\_%' ESCAPE '\'
-   AND (n.nspowner=r.oid OR n.nspowner=pg_catalog.to_regrole('vec_admin_perfiles_ejecutor')))
+   AND (n.nspowner=r.oid OR n.nspowner=pg_catalog.to_regrole('vec_admin_perfiles_ejecutor')
+     OR pg_catalog.has_schema_privilege(current_user,n.oid,'CREATE')))
  AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_type t JOIN pg_catalog.pg_namespace n ON n.oid=t.typnamespace
    WHERE n.nspname LIKE 'vec\_%' ESCAPE '\'
    AND (t.typowner=r.oid OR t.typowner=pg_catalog.to_regrole('vec_admin_perfiles_ejecutor')))
@@ -101,6 +103,7 @@ const acreditarSQL = `SELECT current_user = session_user AND r.rolcanlogin AND r
    WHERE n.nspname LIKE 'vec\_%' ESCAPE '\'
    AND (c.relowner=r.oid OR c.relowner=pg_catalog.to_regrole('vec_admin_perfiles_ejecutor')
     OR (c.relkind IN ('r','p','v','m','f') AND pg_catalog.has_table_privilege(current_user,c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER'))
+    OR (c.relkind IN ('r','p','v','m','f') AND pg_catalog.has_any_column_privilege(current_user,c.oid,'SELECT,INSERT,UPDATE,REFERENCES'))
     OR (c.relkind='S' AND pg_catalog.has_sequence_privilege(current_user,c.oid,'USAGE,SELECT,UPDATE'))))
  AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
    WHERE n.nspname LIKE 'vec\_%' ESCAPE '\'
