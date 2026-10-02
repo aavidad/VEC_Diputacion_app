@@ -212,8 +212,8 @@ func TestBolsasRRHHTurnoGlobalYUltimoLlamamientoDurableConReintento(t *testing.T
 
 func TestBolsasRRHHDesarrolloFallaCerradoSinFuente(t *testing.T) {
 	rutas, colecciones, err := nuevasRutasBolsasRRHHDesarrollo(config.Config{})
-	// Tres rutas exactas: cuadro, estadísticas agregadas y avisos derivados.
-	if err != nil || len(rutas) != 3 || len(colecciones) != 1 {
+	// Cuatro rutas exactas: cuadro, estadísticas, avisos y solicitudes documentales.
+	if err != nil || len(rutas) != 4 || len(colecciones) != 1 {
 		t.Fatalf("rutas RRHH: exactas=%d colecciones=%d error=%v", len(rutas), len(colecciones), err)
 	}
 	w := httptest.NewRecorder()
