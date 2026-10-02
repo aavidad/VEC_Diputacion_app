@@ -11,6 +11,7 @@ SET LOCAL idle_in_transaction_session_timeout='20s';
 DO $prueba$
 DECLARE
  e jsonb; bytes bytea; v jsonb; previo jsonb; siguiente jsonb; sin_circuito jsonb;
+ actuacion_fingida jsonb; hito_fingido jsonb;
  v_nuevo jsonb:='{"definicion_ref":"flujo:ct:rrhh:20261002","version":2,"huella_sha256":"f9b83c1291fdf96f339233b9e7a2036b67803388cea8568b4d2b02b6bcd4e9fc"}';
  v_total bigint; v_total_despues bigint; v_detectado boolean;
  v_fuente record; v_version integer;
@@ -18,31 +19,31 @@ BEGIN
  SELECT count(*) INTO v_total FROM vec_contratacion_temporal.expediente_version_integral;
  SELECT convert_from(alta_canonica,'UTF8')::jsonb INTO STRICT e
   FROM vec_contratacion_temporal.expediente_alta_version ORDER BY expediente_ref LIMIT 1;
- e:=e||jsonb_build_object('expediente_ref','expediente:ct164:maria-castro','reserva_ref','reserva:ct164:maria-castro',
-  'numero_visible','2026/CT164','organizacion_ref','organizacion:ct164','actor_ref','persona:maria-castro',
+ e:=e||jsonb_build_object('expediente_ref','expediente:ct164:actor-sintetico','reserva_ref','reserva:ct164:actor-sintetico',
+  'numero_visible','2026/CT164','organizacion_ref','organizacion:ct164','actor_ref','persona:actor-sintetico',
   'perfil_ref','perfil:ct164:rrhh','recibo_ref','recibo:ct164:alta','flujo',v_nuevo,
   'fase_actual','solicitud','estado_actual','en_curso');
- e:=jsonb_set(e,'{actuacion,actor_ref}','"persona:maria-castro"');
+ e:=jsonb_set(e,'{actuacion,actor_ref}','"persona:actor-sintetico"');
  e:=jsonb_set(e,'{actuacion,recibo_ref}','"recibo:ct164:alta"');
  e:=jsonb_set(e,'{actuacion,fase_origen}','"solicitud"');
  e:=jsonb_set(e,'{actuacion,fase_destino}','"solicitud"');
  INSERT INTO vec_contratacion_temporal.identidad_reserva_alta
   VALUES('hmac-sha256:vec.contratacion-temporal.ambito-idempotencia/v1:'||repeat('e',64),
-   'reserva:ct164:maria-castro','expediente:ct164:maria-castro','2026/CT164','recibo:ct164:alta',
+   'reserva:ct164:actor-sintetico','expediente:ct164:actor-sintetico','2026/CT164','recibo:ct164:alta',
    'hmac-sha256:vec.contratacion-temporal.huella-peticion/v1:'||repeat('d',64),
-   'organizacion:ct164','persona:maria-castro','perfil:ct164:rrhh',timestamptz '2026-10-02T12:00:00Z');
+   'organizacion:ct164','persona:actor-sintetico','perfil:ct164:rrhh',timestamptz '2026-10-02T12:00:00Z');
  -- Confirmación FK diferida: este fixture siempre termina en ROLLBACK.
  INSERT INTO vec_contratacion_temporal.expediente_alta
-  VALUES('expediente:ct164:maria-castro','reserva:ct164:maria-castro','2026/CT164',
-   'organizacion:ct164','persona:maria-castro','perfil:ct164:rrhh','decision:ct164:alta',
+  VALUES('expediente:ct164:actor-sintetico','reserva:ct164:actor-sintetico','2026/CT164',
+   'organizacion:ct164','persona:actor-sintetico','perfil:ct164:rrhh','decision:ct164:alta',
    'efecto:ct164:alta',repeat('e',64),timestamptz '2026-10-02T12:00:00Z','cnf_ct_'||repeat('e',32));
  bytes:=vec_contratacion_temporal.reconstruir_efecto_alta_v2(e);
  IF bytes IS NULL THEN RAISE EXCEPTION 'fixture CT164: alta no canónica'; END IF;
  PERFORM vec_contratacion_temporal.materializar_version_inicial_v1(
-  'expediente:ct164:maria-castro',1,bytes,v_nuevo->>'definicion_ref',2,v_nuevo->>'huella_sha256',
+  'expediente:ct164:actor-sintetico',1,bytes,v_nuevo->>'definicion_ref',2,v_nuevo->>'huella_sha256',
   'solicitud','en_curso',timestamptz '2026-10-02T12:00:00Z');
  SELECT agregado_json INTO STRICT v FROM vec_contratacion_temporal.expediente_version_integral
-  WHERE expediente_ref='expediente:ct164:maria-castro' AND version=1;
+  WHERE expediente_ref='expediente:ct164:actor-sintetico' AND version=1;
  IF v->'circuito' IS DISTINCT FROM jsonb_build_object('definicion',v_nuevo,'estado_actual','solicitud','hitos','[]'::jsonb)
   OR vec_contratacion_temporal.circuito_agregado_valido_ct164(v) IS NOT TRUE
  THEN RAISE EXCEPTION 'CT164: alta sin circuito vacío ligado'; END IF;
@@ -51,6 +52,28 @@ BEGIN
  THEN RAISE EXCEPTION 'CT164: omisión de circuito admitida'; END IF;
  IF vec_contratacion_temporal.circuito_agregado_valido_ct164(jsonb_set(v,'{flujo,huella_sha256}',to_jsonb(repeat('f',64)))) IS NOT FALSE
  THEN RAISE EXCEPTION 'CT164: terna divergente admitida'; END IF;
+ -- Un hito bien formado para CT163 sigue sin acreditar la firma ni el cargo.
+ actuacion_fingida:=jsonb_build_object(
+  'accion_clave','contratacion_temporal.circuito.peticion_firmada',
+  'recibo_ref','recibo:ct164:fingido','actor_ref','persona:actor-sintetico',
+  'unidad_ref','unidad:ct164:sintetica','realizada_en','2026-10-02T12:01:00Z');
+ hito_fingido:=jsonb_build_object(
+  'secuencia',1,'version_expediente_entrada',1,
+  'actuacion_clave',actuacion_fingida->>'accion_clave',
+  'recibo_ref',actuacion_fingida->>'recibo_ref',
+  'actor_ref',actuacion_fingida->>'actor_ref',
+  'unidad_ref',actuacion_fingida->>'unidad_ref',
+  'registrado_en',actuacion_fingida->'realizada_en',
+  'origen','solicitud','destino','autorizacion_rrhh',
+  'documento_ref','documento:ct164:fingido','firma_ref','firma:ct164:fingida');
+ siguiente:=v||jsonb_build_object('version',2);
+ siguiente:=jsonb_set(siguiente,'{actuaciones}',(v->'actuaciones')||jsonb_build_array(actuacion_fingida));
+ siguiente:=jsonb_set(siguiente,'{circuito,hitos}',jsonb_build_array(hito_fingido));
+ siguiente:=jsonb_set(siguiente,'{circuito,estado_actual}','"autorizacion_rrhh"');
+ IF vec_contratacion_temporal.circuito_siguiente_ct163(v,siguiente) IS NOT TRUE
+ THEN RAISE EXCEPTION 'CT164: fixture de hito fingido no supera CT163'; END IF;
+ IF vec_contratacion_temporal.circuito_acto_admitido_ct164(v,siguiente) IS NOT FALSE
+ THEN RAISE EXCEPTION 'CT164: hito fingido aceptado sin fuente nominal'; END IF;
  -- Ausencia de fuentes: no basta adjuntar circuito, referencias o huellas.
  FOR v_version IN 2..6 LOOP
   previo:=v||jsonb_build_object('version',v_version-1);
@@ -76,13 +99,13 @@ BEGIN
     agregado_json_huella_sha256,prueba_canonica,prueba_huella_sha256,flujo_ref,flujo_version,
     flujo_huella_sha256,fase_clave,estado,'analisis_o3',operacion_ref,registrada_en
    FROM vec_contratacion_temporal.expediente_version_integral
-    WHERE expediente_ref='expediente:ct164:maria-castro' AND version=1;
+    WHERE expediente_ref='expediente:ct164:actor-sintetico' AND version=1;
   EXCEPTION WHEN insufficient_privilege THEN v_detectado:=true; END;
   IF NOT v_detectado THEN RAISE EXCEPTION 'CT164: INSERT v2 sin fuente no denegado'; END IF;
  END LOOP;
  -- El camino antiguo conserva identidad JSON y la semántica del validador.
  FOR v_fuente IN SELECT agregado_json FROM vec_contratacion_temporal.expediente_version_integral
-  WHERE expediente_ref<>'expediente:ct164:maria-castro' LOOP
+  WHERE expediente_ref<>'expediente:ct164:actor-sintetico' LOOP
   IF vec_contratacion_temporal.circuito_agregado_valido_ct164(v_fuente.agregado_json) IS NOT TRUE
    OR vec_contratacion_temporal.circuito_proyectar_acto_ct164(v_fuente.agregado_json,v_fuente.agregado_json,v_fuente.agregado_json)
       IS DISTINCT FROM v_fuente.agregado_json
