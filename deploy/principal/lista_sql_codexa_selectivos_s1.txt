@@ -1,0 +1,2 @@
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000141_consumidor_version_convocatoria_bolsa.up.sql
+deploy/postgresql/bolsa_convocatorias/migraciones/000007_consulta_version_v3.up.sql

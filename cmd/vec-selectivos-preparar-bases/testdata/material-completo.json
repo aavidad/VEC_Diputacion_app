@@ -1,0 +1,104 @@
+{
+  "alcance": "preparacion_sintetica",
+  "identidad_material": "material:ejemplo:bases",
+  "version_material": 1,
+  "contenido": {
+    "identificador_publico": "seleccion-ejemplo",
+    "tipo": "concurso_oposicion",
+    "catalogo_categorias": {
+      "catalogo_id": "categorias-ejemplo",
+      "catalogo_version": 1,
+      "catalogo_huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "categorias": [
+      "administrativo",
+      "auxiliar_administrativo"
+    ],
+    "titulo": "Propuesta sintética de bases",
+    "resumen": "Datos configurables de ejemplo, sin fuente aprobada.",
+    "descripcion": "La ruta del documento es una propuesta. No acredita existencia, firma, custodia ni publicación.",
+    "plazos": [
+      {
+        "referencia": "plazo:ejemplo:inscripcion",
+        "tipo": "inscripcion",
+        "titulo": "Periodo propuesto",
+        "descripcion": "Fechas sintéticas, sin plazo legal.",
+        "abre_en": "2026-10-01T08:00:00Z",
+        "cierra_en": "2026-10-31T08:00:00Z"
+      }
+    ],
+    "requisitos": [
+      {
+        "referencia": "req:ejemplo:titulo",
+        "orden": 1,
+        "titulo": "Requisito propuesto",
+        "descripcion": "Pendiente de fuente de RRHH.",
+        "obligatorio": true
+      }
+    ],
+    "documentos": [
+      {
+        "referencia": "doc:ejemplo:bases",
+        "tipo": "bases",
+        "orden": 1,
+        "titulo": "Documento propuesto",
+        "descripcion": "Ruta sintética sin documento disponible.",
+        "formato": "pdf",
+        "url": "/bolsa/documentos/ejemplo-sintetico-bases.pdf"
+      }
+    ],
+    "ayuda": []
+  },
+  "referencias": {
+    "fuente_bases": {
+      "id": "ejemplo:fuente_bases",
+      "version": 1,
+      "huella_contenido_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "catalogos": {
+      "id": "ejemplo:catalogos",
+      "version": 1,
+      "huella_contenido_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "calendario": {
+      "id": "ejemplo:calendario",
+      "version": 1,
+      "huella_contenido_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "reglas_baremacion": {
+      "id": "ejemplo:reglas_baremacion",
+      "version": 1,
+      "huella_contenido_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "flujo_proceso": {
+      "id": "ejemplo:flujo_proceso",
+      "version": 1,
+      "huella_contenido_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "flujo_solicitud": {
+      "id": "ejemplo:flujo_solicitud",
+      "version": 1,
+      "huella_contenido_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "plantilla": {
+      "id": "ejemplo:plantilla",
+      "version": 1,
+      "huella_contenido_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "plaza": {
+      "id": "ejemplo:plaza",
+      "version": 1,
+      "huella_contenido_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "oep": {
+      "id": "ejemplo:oep",
+      "version": 1,
+      "huella_contenido_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "rpt": {
+      "id": "ejemplo:rpt",
+      "version": 1,
+      "huella_contenido_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  }
+}

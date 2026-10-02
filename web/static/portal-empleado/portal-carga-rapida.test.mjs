@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { CLAVES_SIN_ENTRADA_PORTAL, crearCoordinadorModulosPortal } from "./portal-modulos-coordinador.js?v=20261001-f-reconciliacion-325-v1";
+import { CLAVES_SIN_ENTRADA_PORTAL, crearCoordinadorModulosPortal, VISTAS_AUTOSERVICIO_EMPLEADO } from "./portal-modulos-coordinador.js?v=20261002-b-servicios-351-main-v1";
 import { traducirPortal } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
 import { versionDe } from "./versiones-cache.test-helper.mjs";
 import { crearVistaInicioPortal } from "./portal-inicio.js?v=20261001-f-reconciliacion-325-v1";
@@ -68,6 +68,31 @@ const recursosDietas = () => ({
   calculador: { crearCalculadorRutasDietasHTTP: () => ({}) },
   mapa: { crearVisorRutaDietas: () => ({}) },
   recorridos: { montarVistaRecorridosDietas() {} },
+});
+
+test("Mi espacio publica navegación diferida sin cargar ni consultar módulos propios", async () => {
+  const cargados = [];
+  const coordinador = crearCoordinadorModulosPortal({ escaparHTML: String,
+    cargarCatalogoInterno: async () => CATALOGO.filter(({ clave }) => clave !== "contratacion_temporal"),
+    entorno: { fetch: () => assert.fail("los accesos no deben sondear APIs propias") },
+    cargadoresInternos: {
+      contratacion_temporal: () => assert.fail("CT no está en el catálogo"),
+      cronos: async () => { cargados.push("cronos"); return recursosCronos(); },
+      personal: () => assert.fail("Personal no se ha abierto"), dietas: () => assert.fail("Dietas no se ha abierto"),
+    },
+  });
+  await coordinador.cargarInterno();
+  assert.deepEqual(coordinador.obtenerAccesosEmpleado(), { personal: { estado: "diferido" }, cronos: { estado: "diferido" }, dietas: { estado: "diferido" }, "mis-tramites": { estado: "diferido" } });
+  assert.deepEqual(cargados, []);
+  for (const vista of ["personal-registro", "cronos-bandeja", "cronos-bandeja-notificaciones"]) assert.equal(VISTAS_AUTOSERVICIO_EMPLEADO.has(vista), false);
+  assert.match(crearVistaInicioPortal({ encabezadoVista: () => "", escaparHTML: String,
+    obtenerCatalogo: () => coordinador.obtenerCatalogo(), resolverAcceso: coordinador.resolverAcceso,
+    obtenerAccesosEmpleado: coordinador.obtenerAccesosEmpleado })(), /Mi espacio/);
+  assert.deepEqual(cargados, []);
+  await coordinador.prepararVista("cronos");
+  assert.deepEqual(cargados, ["cronos"]);
+  assert.equal(coordinador.vistaDisponible("cronos"), true);
+  assert.equal(coordinador.obtenerAccesosEmpleado().cronos.estado, "disponible");
 });
 
 /** Cada cargador espera a que la prueba lo libere: se controla el orden de llegada. */

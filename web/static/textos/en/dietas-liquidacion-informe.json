@@ -48,7 +48,10 @@
     "kilometros_finales": "Declared final distance (km)",
     "ajuste_kilometros": "Declared adjustment (km)",
     "motivo_ajuste": "Declared reason for adjustment",
-    "no_consta": "Not provided in the original line"
+    "no_consta": "Not provided in the original line",
+    "resumen": "Summary by expense category",
+    "familia": "Expense category",
+    "resumen_ayuda": "Amounts from the reviewed lines, grouped by expense category. Categories without lines show zero. Scroll the table to view all columns."
   },
   "conceptos": {
     "manutencion": "Meals"
@@ -74,5 +77,11 @@
     "revision_documental": "Amount adjusted after reviewing the supporting documents.",
     "revision_justificante": "Amount reduced during proposal review. The supporting document is not held here.",
     "gasto_no_admitido": "This expense is not proposed for acceptance."
+  },
+  "familias": {
+    "manutencion": "Meals",
+    "kilometraje": "Mileage",
+    "otro_medio": "Other transport",
+    "otro_gasto": "Other expenses"
   }
 }

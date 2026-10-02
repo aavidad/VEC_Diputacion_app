@@ -551,3 +551,34 @@ un contenedor efimeros. La mayor parte se revierte dentro de sus pruebas; la
 carrera conserva historia temporal para demostrar reinicio y proteccion del
 `down`, y el contenedor se destruye al finalizar. Nada de ello constituye una
 fuente de datos alternativa para la aplicacion.
+
+## Consulta exacta V3 para la ficha de Selección
+
+`000007_consulta_version_v3` consume la autorización AD141 y consulta una
+convocatoria y secuencia concretas en una sola transacción `SERIALIZABLE`.
+La asignación y el recurso comparten los ámbitos `convocatoria_id` y
+`secuencia`; una concesión para una versión no permite leer otra. No abre
+la consulta V1 ni concede al runtime acceso a las tablas.
+
+El ensayo privado sobre PostgreSQL 18.4 partió de una copia fría con 82
+migraciones previas y 71 expedientes conservados. Se instalaron una sola vez
+AD141 y Bolsa7, en ese orden. El fixture OWNER añadió una versión sintética y
+dos perfiles fijos. El driver usó las APIs reales de cuenta y sesión,
+revalidación, contexto, concesión V3, COSE/EdDSA y capacidad HMAC. La lectura
+positiva, el actor sin concesión y la versión no autorizada devolvieron
+`obtenida`, `denegada` y `denegada`, también tras reiniciar PostgreSQL y volver
+a ejecutar el driver. La fuente y el recibo completo anterior se conservaron;
+la nueva consulta añadió su propia auditoría, sin duplicar la versión.
+
+La lista causal es `deploy/principal/lista_sql_codexa_s1_n2.txt`. Exige las
+dependencias ya acreditadas del ensayo: no sirve para reaplicar migraciones
+instaladas. AD141 procede íntegra del candidato `88a790dcb87d95c4db5d80cd02d7401c1668751d`.
+El clon y las claves sintéticas permanecen fuera de Git. La cuota de `/dev/shm`
+impidió el arranque inicial; el ensayo usó un directorio privado en disco,
+con red deshabilitada, raíz de solo lectura y límites de recursos.
+
+La ficha consume este lector mediante un adaptador HTTP inyectado. El montaje
+recorrido es el driver aislado de ensayo, con actor fijo y socket Unix privado.
+No acredita una ruta institucional compuesta, aprobación, firma legal,
+publicación, admisión ni fases del proceso. Las fases y las referencias de
+OEP, plaza y RPT siguen pendientes de sus fuentes competentes.
