@@ -88,20 +88,23 @@ SELECT 'bolsa:r2op:1',1,p,encode(sha256(convert_to(p::text,'UTF8')),'hex'),true,
 FROM (SELECT '{"plazo":{"unidad":"dias_habiles","cantidad":2,"computo":"administrativo","municipio_sede":"18087"},"adjudicacion":{"criterio":"orden_vigente","elegibilidad":"disposicion_en_plazo"},"no_cubierta":{"accion":"llamamiento_directo","condicion":"sin_disposiciones_elegibles"},"plazas":{"llamada":"simultanea","respuesta_horas":24,"tras_renuncia":"siguiente_en_orden"}}'::jsonb p) s;
 
 DO $politica$
-DECLARE antigua jsonb; nueva jsonb; j jsonb; recibo text; total bigint;
+DECLARE antigua jsonb; sin_modo jsonb; nueva jsonb; j jsonb; recibo text; total bigint;
 BEGIN
  SELECT politica,recibo_ref INTO antigua,recibo FROM vec_bolsa_llamamientos.politica_ofertas_version WHERE bolsa_ref='bolsa:r2op:1';
  j:=prueba_r2op.politica(0,antigua,'r2op-legacy-policy');
  IF (j->>'reutilizada')::boolean IS NOT TRUE OR j->>'recibo_ref' IS DISTINCT FROM recibo OR j->'politica' IS DISTINCT FROM antigua
  THEN RAISE EXCEPTION 'B70: replay legacy cambia contenido o recibo'; END IF;
- PERFORM prueba_r2op.espera(format($$SELECT prueba_r2op.politica(1,%L,'r2op-sin-modo')$$,antigua),'22023');
+ sin_modo:=jsonb_set(antigua,'{plazo,inicio}','"notificacion"');
+ PERFORM prueba_r2op.espera(format($$SELECT prueba_r2op.politica(1,%L,'r2op-sin-modo')$$,sin_modo),'22023');
+ PERFORM prueba_r2op.espera(format($$SELECT prueba_r2op.politica(1,%L,'r2op-sin-inicio')$$,
+  jsonb_set(antigua,'{adjudicacion,confirmacion}','"aceptacion_previa"')),'22023');
  PERFORM prueba_r2op.espera(format($$SELECT prueba_r2op.politica(1,%L,'r2op-modo-vacio')$$,
-  jsonb_set(antigua,'{adjudicacion,confirmacion}','""')),'22023');
+  jsonb_set(sin_modo,'{adjudicacion,confirmacion}','""')),'22023');
  PERFORM prueba_r2op.espera(format($$SELECT prueba_r2op.politica(1,%L,'r2op-modo-ajeno')$$,
-  jsonb_set(antigua,'{adjudicacion,confirmacion}','"segunda_respuesta"')),'22023');
+  jsonb_set(sin_modo,'{adjudicacion,confirmacion}','"segunda_respuesta"')),'22023');
  IF (SELECT count(*) FROM vec_bolsa_llamamientos.politica_ofertas_version WHERE bolsa_ref='bolsa:r2op:1')<>1
  THEN RAISE EXCEPTION 'B70: rechazo dejó una versión'; END IF;
- nueva:=jsonb_set(antigua,'{adjudicacion,confirmacion}','"aceptacion_previa"');
+ nueva:=jsonb_set(jsonb_set(antigua,'{plazo,inicio}','"notificacion"'),'{adjudicacion,confirmacion}','"aceptacion_previa"');
  j:=prueba_r2op.politica(1,nueva,'r2op-policy-nueva');
  IF j->>'version' IS DISTINCT FROM '2' OR (j->>'reutilizada')::boolean IS NOT FALSE
     OR j#>>'{politica,adjudicacion,confirmacion}' IS DISTINCT FROM 'aceptacion_previa'
