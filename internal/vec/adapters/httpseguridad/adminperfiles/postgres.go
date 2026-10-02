@@ -15,7 +15,7 @@ import (
 
 const consultarCuenta = `SELECT sujeto_id,cuenta_id,cuenta_ordinaria_id,persona_ref,cuenta_ref,
  cuenta_ordinaria_ref,perfil_activo_ref,rol_id,vinculo_ref,vinculo_version::text,
- politica_garantia_ref,politica_garantia_huella_sha256,garantia_observada,vigente_hasta
+ politica_garantia_ref,politica_garantia_huella_sha256,garantia_observada,vigente_hasta,seleccion_revision::text
  FROM vec_identidad_sesiones_v1.resolver_cuenta_admin_perfiles_v1($1,$2,$3,$4,$5,$6,$7)`
 const vincularSesion = `SELECT vec_identidad_sesiones_v1.vincular_sesion_admin_perfiles_v1($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`
 
@@ -86,11 +86,11 @@ func (p *PostgreSQL) VincularSesionADMIN(ctx context.Context, o ObservacionADMIN
 
 func (p *PostgreSQL) leerCuenta(ctx context.Context, tx pgx.Tx, o ObservacionADMIN) (CuentaADMIN, error) {
 	var c CuentaADMIN
-	var version, garantia string
+	var version, seleccionRevision, garantia string
 	err := tx.QueryRow(ctx, consultarCuenta, argumentosCuenta(o)...).Scan(
 		&c.SujetoID, &c.CuentaID, &c.CuentaOrdinariaID, &c.PersonaRef, &c.CuentaRef,
 		&c.CuentaOrdinariaRef, &c.PerfilActivoRef, &c.RolID, &c.VinculoRef, &version,
-		&c.PoliticaGarantiaRef, &c.PoliticaGarantiaHuellaSHA256, &garantia, &c.VigenteHasta)
+		&c.PoliticaGarantiaRef, &c.PoliticaGarantiaHuellaSHA256, &garantia, &c.VigenteHasta, &seleccionRevision)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return CuentaADMIN{}, api.ErrAccesoDenegado
 	}
@@ -98,6 +98,9 @@ func (p *PostgreSQL) leerCuenta(ctx context.Context, tx pgx.Tx, o ObservacionADM
 		return CuentaADMIN{}, err
 	}
 	c.VinculoVersion, err = strconv.ParseUint(version, 10, 64)
+	if err == nil {
+		c.SeleccionRevision, err = strconv.ParseUint(seleccionRevision, 10, 64)
+	}
 	c.GarantiaObservada = domain.AuthAssurance(garantia)
 	c.VigenteHasta = c.VigenteHasta.UTC().Truncate(time.Microsecond)
 	if err != nil || !c.Valida(p.reloj.Ahora().UTC().Truncate(time.Microsecond)) {

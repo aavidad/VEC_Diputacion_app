@@ -35,6 +35,7 @@ type CuentaADMIN struct {
 	PersonaRef, CuentaRef, CuentaOrdinariaRef, PerfilActivoRef string
 	RolID, VinculoRef                                          string
 	VinculoVersion                                             uint64
+	SeleccionRevision                                          uint64
 	PoliticaGarantiaRef, PoliticaGarantiaHuellaSHA256          string
 	GarantiaObservada                                          domain.AuthAssurance
 	VigenteHasta                                               time.Time
@@ -44,7 +45,7 @@ func (c CuentaADMIN) Valida(ahora time.Time) bool {
 	if !referencia(c.PersonaRef, "per_") || !referencia(c.CuentaRef, "cta_") ||
 		!referencia(c.CuentaOrdinariaRef, "cta_") || c.CuentaRef == c.CuentaOrdinariaRef ||
 		!referencia(c.PerfilActivoRef, "prf_") || !referencia(c.VinculoRef, "vca_") ||
-		c.VinculoVersion == 0 || c.RolID != "administracion_perfiles" ||
+		c.VinculoVersion == 0 || c.SeleccionRevision == 0 || c.RolID != "administracion_perfiles" ||
 		!referencia(c.PoliticaGarantiaRef, "pga_") || !huella(c.PoliticaGarantiaHuellaSHA256) ||
 		c.GarantiaObservada != domain.AuthAssuranceHigh || !instante(c.VigenteHasta) || !ahora.Before(c.VigenteHasta) {
 		return false
