@@ -3,6 +3,7 @@ package domain
 import (
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestCircuitoRRHHLigaDosHitosAlActoSinVersionArtificial(t *testing.T) {
@@ -73,5 +74,51 @@ func TestCircuitoRRHHLigaDosHitosAlActoSinVersionArtificial(t *testing.T) {
 	adulterado.Circuito.Definicion.HuellaSHA256 = strings.Repeat("b", 64)
 	if adulterado.Validar() == nil {
 		t.Fatal("el circuito aceptó otro triple")
+	}
+}
+
+func TestInformeCircuitoRRHHExigeOfertaYAdjudicacion(t *testing.T) {
+	expediente := expedienteConAsignacion(t)
+	inicial := expediente.Actuaciones[0].FaseDestino
+	definicion, err := NuevaDefinicionCircuitoRRHH(
+		"flujo:ct:rrhh:sin-adjudicacion", 2, inicial,
+		[]TransicionCircuitoRRHH{{Clave: "contratacion_temporal.circuito.peticion_firmada",
+			Tipo: HitoPeticionFirmada, Origen: inicial, Destino: "autorizacion_rrhh",
+			RequiereDocumento: true, RequiereFirma: true, PerfilClave: "tecnico_rrhh",
+			FirmasRequeridas: []ClaveCatalogo{"tecnico_solicitante", "delegacion_solicitante"}}},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	circuito, err := NuevoCircuitoAdministrativo(definicion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expediente.Flujo, expediente.Circuito = definicion.Flujo, &circuito
+	if expediente.Validar() != nil {
+		t.Fatal("preimagen nueva inválida")
+	}
+	datosBorrador := datosInformeJuridicoPrueba()
+	datosBorrador.ExpedienteRef = expediente.Referencia
+	datosBorrador.VersionEsperadaExpediente = expediente.Version
+	borrador, err := NuevoBorradorInformeJuridico(datosBorrador)
+	if err != nil {
+		t.Fatal(err)
+	}
+	instante := expediente.ActualizadoEn.Add(time.Minute)
+	informe := InformeJuridicoEmitido{
+		Borrador: borrador.Estado(), InformeRef: "informe:rrhh:sintetico",
+		DocumentoRef:     "documento:informe:rrhh:sintetico",
+		VersionDocumento: 1, HuellaDocumentoSHA256: strings.Repeat("a", 64),
+		EmitidoEn: instante,
+	}
+	_, err = expediente.RegistrarInformeJuridico(expediente.Version, informe, DatosActuacion{
+		AccionClave: AccionEmitirInformeJuridico, ActorRef: "actor:jefatura:sintetico",
+		UnidadRef: expediente.Asignacion.UnidadRef, ReciboRef: "recibo:informe:rrhh:sintetico",
+		RealizadaEn: instante, FaseDestino: FaseInformeJuridico,
+		EstadoDestino: EstadoEnCurso, DocumentosRef: []string{informe.DocumentoRef},
+	})
+	if err == nil {
+		t.Fatal("el informe avanzó sin oferta y adjudicación verificadas")
 	}
 }

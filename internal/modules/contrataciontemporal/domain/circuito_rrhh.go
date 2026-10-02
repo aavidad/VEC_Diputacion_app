@@ -317,6 +317,21 @@ func (e Expediente) circuitoValido() bool {
 	return origen == c.EstadoActual
 }
 
+// HabilitaInformeJefaturaCircuitoRRHH exige que la oferta y la adjudicación
+// verificadas precedan al informe en el flujo nuevo.
+func (e Expediente) HabilitaInformeJefaturaCircuitoRRHH() bool {
+	if e.Circuito == nil || e.Asignacion == nil || e.InformeJuridico != nil ||
+		len(e.Circuito.Hitos) < 2 {
+		return false
+	}
+	ultimo := e.Circuito.Hitos[len(e.Circuito.Hitos)-1]
+	penultimo := e.Circuito.Hitos[len(e.Circuito.Hitos)-2]
+	return ultimo.Tipo == HitoAdjudicacion &&
+		penultimo.Tipo == HitoOfertaEmitida &&
+		ultimo.OfertaRef == penultimo.OfertaRef &&
+		ultimo.VersionExpedienteEntrada == penultimo.VersionExpedienteEntrada
+}
+
 // AdjuntarHitosCircuito enlaza hitos acreditados a la última actuación real
 // del expediente. No crea otra versión: el adaptador confirma actuación,
 // hitos, auditoría y outbox en la misma transacción y CAS.

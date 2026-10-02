@@ -130,6 +130,7 @@ func (p PreparacionInformeJuridico) ValidarPara(
 		p.Expediente.OrganizacionRef != p.Material.OrganizacionRef ||
 		p.Expediente.Version != p.Material.VersionExpediente ||
 		p.Expediente.Asignacion == nil ||
+		(p.Expediente.Circuito != nil && !p.Expediente.HabilitaInformeJefaturaCircuitoRRHH()) ||
 		(p.Expediente.InformeJuridico != nil && !p.Expediente.PuedeReemitirInformeTrasSubsanacion()) ||
 		!ColeccionesHMACContienenPar(
 			solicitud.AmbitosHMAC, DominioAmbitoIdempotenciaInformeJuridico,
