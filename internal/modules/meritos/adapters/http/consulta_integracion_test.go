@@ -98,6 +98,7 @@ type consultaActorConfig struct {
 	RegisterLogin     string `json:"register_login"`
 	ReasonLogin       string `json:"reason_login"`
 	RuntimeLogin      string `json:"runtime_login"`
+	AuditLogin        string `json:"audit_login,omitempty"`
 }
 
 type consultaRelojReal struct{}
@@ -344,6 +345,16 @@ func consultaComponerReal(ctx context.Context, c consultaIntegracionConfig, audi
 	repository, err := merpg.NuevaConsulta(ep)
 	if err != nil {
 		return fallo("consulta_integracion.repositorio")
+	}
+	if a.AuditLogin != "" {
+		ap, err := abrir(a.AuditLogin)
+		if err != nil {
+			return fallo("consulta_integracion.pool_auditoria")
+		}
+		auditoria, err = merpg.NuevaAuditoriaConsulta(ap)
+		if err != nil {
+			return fallo("consulta_integracion.auditoria")
+		}
 	}
 	service, err := merapp.NuevoServicioConsultaPropia(common, repository, auditoria, consultaRelojReal{})
 	if err != nil {

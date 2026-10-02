@@ -26,11 +26,17 @@ La constancia de la emisión no acredita el rechazo posterior de SQL. La transac
 
 La aplicación devuelve indisponibilidad y datos vacíos si esa auditoría falla. Las consultas obtenidas o ausentes no añaden otra auditoría fuera de su transacción SQL. El receptor de ensayo admite una autoridad inyectada y usa, mientras falta la autoridad común persistente, un cierre explícitamente indisponible para los fallos posteriores a la emisión. No registra en memoria ni simula PostgreSQL. El cierre durable de estos intentos sigue pendiente.
 
+AUT29 y la extensión de Méritos000002 preparan ese registro persistente, todavía sin instalar ni ensayar. Autorización reconstruye identidad, perfil, recurso y motivo desde su concesión positiva histórica, acreditada con ContextoActor V2 al emitir. No lee tablas de otros propietarios ni revalida la vigencia actual: una revocación posterior puede explicar el fallo que se registra.
+
+El registrador técnico tiene un pool separado y una única membresía nominal, sin lectura de tablas ni acceso a la consulta de hechos. Sólo envía decisión, correlación y resultado fijo. Méritos escribe en su tabla `auditoria_operacion`, sin otra tabla o autoridad, y conserva la misma referencia y fecha en un replay exacto. Un resultado diferente para el mismo intento se rechaza. La constancia identifica la concesión como positiva y el resultado del intento como observación del registrador confiable; no afirma una denegación del PDP ni demuestra por sí sola que SQL produjo ese rechazo.
+
+En el ensamblaje de ensayo, `audit_login` conecta el adaptador real cuando dirección haya instalado y provisionado sus dependencias. Si se omite, continúa el cierre indisponible; no se sustituye la auditoría por memoria. Los guiones de AUT29 necesitan concesiones sintéticas reales y comprueban ACL, cruces de referencias, replay y roles mezclados. Terminan en rollback y no acreditan durabilidad ni reinicio.
+
 No se puede convertir cualquier rechazo SQL en una consulta confirmada: la tabla actual exige un consumo válido y admite únicamente obtención o ausencia. Si SQL rechaza la firma o la ligadura de actor, el material recibido tampoco sirve como identidad validada para una auditoría nueva.
 
 ## TODO antes de cerrar el corte
 
-- Conservar las reservas propias AD000145 y Méritos000002. El orden central pendiente es AD142 → AD143 (K) → AD144 (G) → AD145 (A). Para esta pieza, el orden de instalación es roles de consulta propia → AD145 → Méritos000002, tras sus prerrequisitos.
+- Conservar las reservas propias AD000145, AUT000029 y Méritos000002. El orden central pendiente es AD142 → AD143 (K) → AD144 (G) → AD145 (A). Para esta pieza, el orden de instalación es roles de consulta/registro de intentos → AUT29 → AD145 → Méritos000002, tras sus prerrequisitos.
 - Actualizar la preimagen de AD145 cuando AD143 y AD144 estén publicadas y ensayar el conjunto en un clon nuevo. La candidata actual protege la preimagen posterior a AD142 y no acredita compatibilidad posterior a AD144. No relajar las guardas ni reaplicar UP/DOWN de migraciones con historia.
 - Completar el recorrido con Chrome del sistema y la revisión independiente de usabilidad.
 - Obtener dos revisiones del hash exacto, incluida SQL, autorización y seguridad, y ejecutar la puerta de calidad de cierre correspondiente.

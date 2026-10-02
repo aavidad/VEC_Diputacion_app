@@ -9,6 +9,7 @@ DO $pre$ BEGIN
  IF current_user<>'vec_meritos_propietario' OR to_regclass('vec_meritos.hecho_version') IS NULL
  OR to_regclass('vec_meritos.consulta_propia_v1') IS NOT NULL
  OR to_regprocedure('vec_autorizacion_atestada_v3.consumir_consulta_hecho_propio_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
+ OR to_regprocedure('vec_autorizacion.acreditar_intento_consulta_meritos_v1(text,text)') IS NULL
  THEN RAISE EXCEPTION 'meritos.error.consulta_preimagen_incompatible' USING ERRCODE='55000'; END IF;
 END $pre$;
 CREATE TABLE vec_meritos.consulta_propia_v1 (
@@ -81,4 +82,67 @@ BEGIN
 END $f$;
 REVOKE ALL ON FUNCTION vec_meritos.consultar_hecho_propio_v1(bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION vec_meritos.consultar_hecho_propio_v1(bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) TO vec_meritos_consulta_propia_interno;
+
+-- Otra transacción, después del rollback de la lectura. La identidad viene
+-- de Autorización; el resultado es la observación del registrador confiable.
+CREATE FUNCTION vec_meritos.registrar_intento_consulta_propia_v1(p_decision_ref text,p_correlacion_ref text,p_resultado text)
+RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER
+SET search_path=pg_catalog,pg_temp SET row_security=on SET timezone='UTC'
+SET lock_timeout='1s' SET statement_timeout='2s' AS $f$
+DECLARE identidad jsonb; entrada jsonb; anterior jsonb; referencia text; clave text; ahora timestamptz(6);
+BEGIN
+ IF current_user<>'vec_meritos_propietario' OR session_user=current_user
+ OR current_setting('transaction_isolation')<>'serializable' OR current_setting('transaction_read_only')<>'off'
+ OR NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=session_user AND rolcanlogin
+  AND NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole AND NOT rolreplication AND NOT rolbypassrls)
+ OR NOT EXISTS(SELECT 1 FROM pg_auth_members WHERE member=session_user::regrole
+  AND roleid='vec_meritos_registrador_intento_consulta'::regrole AND inherit_option AND NOT set_option AND NOT admin_option)
+ OR (SELECT count(*) FROM pg_auth_members WHERE member=session_user::regrole)<>1
+ OR EXISTS(SELECT 1 FROM pg_auth_members WHERE member='vec_meritos_registrador_intento_consulta'::regrole)
+ OR EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+  WHERE n.nspname IN ('vec_meritos','vec_autorizacion') AND c.relkind IN ('r','p','v','m','f')
+   AND (has_table_privilege(session_user::regrole::oid,c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
+    OR has_any_column_privilege(session_user::regrole::oid,c.oid,'SELECT,INSERT,UPDATE,REFERENCES')))
+ THEN RAISE EXCEPTION 'meritos.error.registrador_intento_denegado' USING ERRCODE='42501'; END IF;
+ IF p_resultado IS NULL OR p_resultado NOT IN ('denegada','no_confirmado')
+ THEN RAISE EXCEPTION 'meritos.error.resultado_intento_invalido' USING ERRCODE='22023'; END IF;
+ identidad:=vec_autorizacion.acreditar_intento_consulta_meritos_v1(p_decision_ref,p_correlacion_ref);
+ IF identidad IS NULL OR identidad->>'pdp_resultado' IS DISTINCT FROM 'concedida'
+ OR vec_meritos.referencia_valida_v1(identidad->>'actor_id') IS NOT TRUE
+ THEN RAISE EXCEPTION 'meritos.error.identidad_intento_no_acreditada' USING ERRCODE='42501'; END IF;
+ clave:='intento_consulta:'||encode(sha256(convert_to(p_decision_ref||'|'||p_correlacion_ref,'UTF8')),'hex');
+ referencia:='auditoria_'||clave;
+ PERFORM set_config('vec_meritos.persona_ref',identidad->>'actor_id',true);
+ PERFORM pg_advisory_xact_lock(hashtextextended('vec_meritos:'||clave,0));
+ entrada:=jsonb_build_object('id',referencia,'actor_id',identidad->>'actor_id','actor_profile',identidad->>'actor_profile',
+  'action','meritos.hecho.consultar_propio','module_id','meritos','purpose','consulta_hecho_propio',
+  'subject_ref',identidad->>'subject_ref','result',p_resultado,'correlation_ref',p_correlacion_ref,
+  'authorization_ref',p_decision_ref,'rule_ref',identidad->>'rule_ref',
+  'metadata',jsonb_build_object('tipo_evento','intento_consumo_consulta_propia',
+    'pdp_resultado','concedida','origen_resultado','observacion_registrador',
+    'registro_contexto_ref',identidad->>'registro_contexto_ref',
+    'contexto_actor_huella_sha256',identidad->>'contexto_actor_huella_sha256',
+    'concesion_huella_sha256',identidad->>'concesion_huella_sha256'));
+ SELECT a.entrada INTO anterior FROM vec_meritos.auditoria_operacion a WHERE a.auditoria_ref=referencia;
+ IF FOUND THEN
+  IF anterior-'occurred_at' IS DISTINCT FROM entrada THEN
+   RAISE EXCEPTION 'meritos.error.replay_intento_divergente' USING ERRCODE='23505'; END IF;
+  RETURN anterior;
+ END IF;
+ ahora:=date_trunc('microseconds',clock_timestamp());
+ entrada:=entrada||jsonb_build_object('occurred_at',to_char(ahora AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'));
+ INSERT INTO vec_meritos.auditoria_operacion(auditoria_ref,clave,persona_ref,entrada,registrada_en)
+ VALUES(referencia,clave,identidad->>'actor_id',entrada,ahora);
+ RETURN entrada;
+END $f$;
+REVOKE ALL ON FUNCTION vec_meritos.registrar_intento_consulta_propia_v1(text,text,text) FROM PUBLIC,vec_meritos_ejecutor,vec_meritos_interno,vec_meritos_externo,vec_meritos_migrador,vec_meritos_consulta_propia_interno;
+DO $acl_intento$ DECLARE f regprocedure:='vec_meritos.registrar_intento_consulta_propia_v1(text,text,text)'::regprocedure; x record; BEGIN
+ FOR x IN SELECT DISTINCT a.grantee FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
+ WHERE p.oid=f AND a.grantee<>p.proowner LOOP
+  EXECUTE format('REVOKE ALL ON FUNCTION %s FROM %s',f::text,CASE WHEN x.grantee=0 THEN 'PUBLIC' ELSE quote_ident(pg_get_userbyid(x.grantee)) END);
+ END LOOP;
+END $acl_intento$;
+REVOKE ALL ON TABLE vec_meritos.auditoria_operacion FROM vec_meritos_registrador_intento_consulta;
+REVOKE ALL ON TYPE vec_meritos.auditoria_operacion FROM vec_meritos_registrador_intento_consulta;
+GRANT EXECUTE ON FUNCTION vec_meritos.registrar_intento_consulta_propia_v1(text,text,text) TO vec_meritos_registrador_intento_consulta;
 COMMIT;
