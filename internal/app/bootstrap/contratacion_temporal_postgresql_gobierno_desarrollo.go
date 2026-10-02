@@ -279,6 +279,8 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		puertosbolsa.AudienciaSolicitarReactivacionPropia,
 		puertosbolsa.AudienciaResponderLlamamientoPropio,
 		puertosbolsa.AudienciaManifestarDisposicionPropia,
+		puertosbolsa.AudienciaPresentarSolicitudDocumentalPropia,
+		puertosbolsa.AudienciaConsultarSolicitudesDocumentalesRRHH,
 		// Confirmación del contacto propio (AD3-86); solo con el portal.
 		puertosbolsa.AudienciaConfirmarContactoPropio,
 		audienciaConsumoPersonalDietasDesarrollo,

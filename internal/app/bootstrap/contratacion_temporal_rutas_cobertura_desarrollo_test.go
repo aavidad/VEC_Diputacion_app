@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
+	postgresct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 )
 
@@ -68,6 +69,9 @@ func TestCoberturaRutasCTInventarioCompletoYOpcionales(t *testing.T) {
 	descriptores = append(descriptores, descriptoresFronterasReincorporacionTitularDesarrollo(perfil)...)
 	descriptores = append(descriptores, descriptoresFronterasPlantillasCTDesarrollo(perfil)...)
 	descriptores = append(descriptores, descriptoresFronterasPlantillasDocumentalCTDesarrollo(perfil)...)
+	descriptores = append(descriptores, fronteraContratacionTemporalDesarrollo(
+		"ct-circuito-rrhh-consultar", postgresct.AccionConsultaCircuitoRRHH,
+		httpinterno.RutaConsultaCircuitoRRHH, []string{perfil}))
 	for _, descriptor := range descriptoresFronterasIncorporacionB2Desarrollo() {
 		descriptor.PerfilesActivosRef = []string{perfil}
 		descriptores = append(descriptores, descriptor)

@@ -47,12 +47,13 @@
       "explicacion": {
         "_": "Qué significa",
         "disponible": "Consta disponible en Bolsa; un llamamiento depende del orden y las reglas aplicables.",
-        "no_disponible": "Consta temporalmente no disponible en Bolsa.",
+        "no_disponible": "Consta no disponible en Bolsa.",
         "trabajando": "Consta una situación de trabajo comunicada a Bolsa.",
         "pendiente_incorporacion": "Consta una incorporación pendiente; todavía no acredita una relación de servicio.",
         "renuncia": "Consta una renuncia registrada para esta participación.",
         "excluido": "Consta una exclusión registrada para esta participación.",
-        "disponible_desde": "Consta una fecha indicada para recuperar disponibilidad; no acredita un llamamiento ni determina por sí sola los efectos legales."
+        "disponible_desde": "Consta una fecha indicada para recuperar disponibilidad; no acredita un llamamiento ni determina por sí sola los efectos legales.",
+        "en_revision": "RRHH espera un justificante para revisar su situación. Su aportación no cambia el estado hasta que RRHH la valide."
       },
       "disponible": "Disponible",
       "no_disponible": "No disponible",
@@ -60,7 +61,8 @@
       "pendiente_incorporacion": "Pendiente de incorporación",
       "renuncia": "Renuncia",
       "excluido": "Excluido",
-      "disponible_desde": "Disponible desde fecha"
+      "disponible_desde": "Disponible desde fecha",
+      "en_revision": "En revisión"
     },
     "ordenInicial": "Mi número de orden inicial",
     "vigenciaBolsa": "Vigencia de la bolsa",
@@ -72,7 +74,7 @@
     "disponibilidad": {
       "titulo": "Disponibilidad",
       "subtitulo": "Situación por participación",
-      "detalle": "Pausar o reactivar su disponibilidad todavía no se puede solicitar aquí."
+      "detalle": "Puede consultar su situación. Para solicitar una revisión, diríjase al Servicio de RRHH."
     },
     "llamamiento": {
       "titulo": "Último resultado de correo",
@@ -101,9 +103,9 @@
     "fin": "Fin",
     "sinFin": "Sin fecha de fin",
     "descripcion": "Descripción",
-    "vence": "Ofrecerse antes de",
-    "manifestar": "Me ofrezco",
-    "manifestada": "Se ofreció el {fecha} · Recibo {recibo}",
+    "vence": "Aceptar antes de",
+    "manifestar": "Aceptar",
+    "manifestada": "Aceptó el {fecha} · Recibo {recibo}",
     "estado": {
       "abierta": "Abierta",
       "pendiente_resolucion": "Plazo terminado; pendiente de RRHH",
@@ -172,15 +174,35 @@
     "resultadoNoConfirmado": "La operación sigue preparada. Consulte su estado antes de decidir cómo continuar."
   },
   "portal": {
-    "titulo": "Disponibilidad y respuesta",
+    "titulo": "Respuestas y solicitudes a RRHH",
     "subtitulo": "Por bolsa",
+    "documental": {
+      "fechaFinCausa": "Fecha de fin de causa, si el documento la acredita",
+      "documentoRef": "Referencia del justificante",
+      "documentoRefAyuda": "Use la referencia que figura en el justificante, sin espacios ni tildes.",
+      "referenciaNoValida": "Use una referencia interna sin espacios ni datos de identidad como DNI, NIE o pasaporte.",
+      "documento": "Seleccionar justificante",
+      "documentoAviso": "El archivo no se envía. Se registra su referencia y huella para que RRHH lo compruebe.",
+      "enviar": "Enviar solicitud a RRHH",
+      "limite": "RRHH debe comprobar el justificante y decidir. La solicitud no cambia su situación en la bolsa.",
+      "resultado": {
+        "pendiente_rrhh": "Solicitud pendiente de RRHH. Recibo {recibo}.",
+        "validada": "RRHH ya validó esta solicitud. Recibo original {recibo}.",
+        "rechazada": "RRHH ya rechazó esta solicitud. Recibo original {recibo}."
+      },
+      "errorIncierto": "No se ha podido confirmar el resultado. Reintentar conserva los datos originales; recargue Mi bolsa si necesita cambiarlos.",
+      "ultima": "Última solicitud documental",
+      "reciboResolucion": "Recibo de la decisión de RRHH",
+      "estado": {"pendiente_rrhh": "Pendiente de RRHH", "validada": "Validada por RRHH", "rechazada": "Rechazada por RRHH"}
+    },
     "pausa": "Pedir una pausa hasta",
     "pausaEnviar": "Pedir pausa",
     "reactivar": "Pedir la reactivación",
     "pendiente": "Solicitud de {tipo} pendiente de RRHH",
     "tipo": {
       "pausa": "pausa",
-      "reactivacion": "reactivación"
+      "reactivacion": "reactivación",
+      "documental_rrhh": "revisión documental"
     },
     "recibo": "Recibo",
     "llamamiento": "Llamamiento abierto",
@@ -218,7 +240,7 @@
       "causa_no_admitida": "La causa indicada no está admitida.",
       "pausa_fuera_de_limite": "La fecha de fin de la pausa no está permitida.",
       "oferta_no_abierta": "La oferta ya no está abierta.",
-      "disposicion_ya_manifestada": "Ya se había ofrecido para esta oferta.",
+      "disposicion_ya_manifestada": "Ya había aceptado esta oferta.",
       "contacto_cambiado": "RRHH ha actualizado su contacto. Recargue la página antes de confirmarlo.",
       "contacto_ya_confirmado": "Este contacto ya estaba confirmado.",
       "sin_contacto": "No hay contacto registrado que confirmar.",

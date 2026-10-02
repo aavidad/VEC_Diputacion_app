@@ -8,7 +8,6 @@ const huella = "a".repeat(64);
 const oferta = `oferta:${huella}`;
 const bolsa = "bolsa:demo:1";
 const escenarios = [
-  { accion: "solicitar", dataset: { tipo: "reactivacion", bolsa }, tipo: "solicitud", referencia: `solicitud-portal:${huella}`, prefijo: "solicitud-portal", estado: "pendiente_rrhh" },
   { accion: "responder", dataset: { bolsa }, tipo: "respuesta", referencia: `respuesta-portal:${huella}`, prefijo: "respuesta-portal", estado: "propuesta_rrhh" },
   { accion: "disposicion", dataset: { oferta }, tipo: "disposicion", referencia: oferta, prefijo: "disposicion", estado: "manifestada" },
   { accion: "contacto", dataset: { bolsa, version: "3" }, tipo: "contacto", referencia: bolsa, prefijo: "confirmacion-contacto", estado: "confirmado" },
@@ -35,7 +34,7 @@ function datosDe() {
   return datos;
 }
 
-test("solo confirma los cuatro recibos completos y su recuperación HTTP", async (t) => {
+test("solo confirma los tres recibos completos y su recuperación HTTP", async (t) => {
   for (const escenario of escenarios) {
     for (const status of [201, 200]) await t.test(`${escenario.accion}: ${status}`, async () => {
       const formulario = formularioDe(escenario);
@@ -89,7 +88,7 @@ test("un 200/201 sin recibo válido queda incierto en los dos idiomas sin recarg
 });
 
 test("el reintento explícito conserva bolsa, versión y clave después de un recibo incompleto", async () => {
-  const escenario = escenarios[3];
+  const escenario = escenarios[2];
   const formulario = formularioDe(escenario);
   const enviadas = [];
   let confirmaciones = 0;
@@ -111,8 +110,8 @@ test("el reintento explícito conserva bolsa, versión y clave después de un re
 test("el recibo rechaza fechas civiles imposibles y horas normalizadas en sus dos instantes", async () => {
   for (const campo of ["registrada_en", "vence_antes_de"]) {
     for (const valor of ["2026-02-30T08:00:00Z", "2025-02-29T08:00:00Z", "2026-10-01T24:00:00Z", "2026-10-01T08:60:00Z", "2026-10-01T08:00:60Z"]) {
-      const formulario = formularioDe(escenarios[1]);
-      const recibo = reciboDe(escenarios[1]);
+      const formulario = formularioDe(escenarios[0]);
+      const recibo = reciboDe(escenarios[0]);
       recibo.data[campo] = valor;
       let confirmaciones = 0;
       assert.equal(await enviarPortalMiBolsa(formulario, { datos: datosDe(), alRegistrar: () => confirmaciones++,
@@ -121,15 +120,15 @@ test("el recibo rechaza fechas civiles imposibles y horas normalizadas en sus do
       assert.equal(formulario.zona.textContent, traducir("areaPersonal.portal.error.servicio_no_disponible"));
     }
   }
-  const recibo = reciboDe(escenarios[1]);
+  const recibo = reciboDe(escenarios[0]);
   recibo.data.registrada_en = "2024-02-29T23:59:59.123456Z";
   recibo.data.vence_antes_de = "2024-03-01T23:59:59.999999Z";
-  assert.equal(await enviarPortalMiBolsa(formularioDe(escenarios[1]), { datos: datosDe(),
+  assert.equal(await enviarPortalMiBolsa(formularioDe(escenarios[0]), { datos: datosDe(),
     fetchImpl: async () => ({ status: 201, json: async () => recibo }) }), true);
 });
 
 test("un corte conserva respuesta y justificante originales sin un segundo envío concurrente", async () => {
-  const formulario = formularioDe(escenarios[1]);
+  const formulario = formularioDe(escenarios[0]);
   const datos = new FormData();
   datos.set("respuesta", "renuncia_justificada"); datos.set("causa", "enfermedad");
   datos.set("justificante_ref", "documento:demo:1"); datos.set("justificante", new Blob(["abc"]));
@@ -148,7 +147,7 @@ test("un corte conserva respuesta y justificante originales sin un segundo enví
   assert.equal(enviadas.length, 1);
   datos.set("respuesta", "acepta"); datos.set("justificante_ref", "documento:otro");
   assert.equal(await enviarPortalMiBolsa(formulario, { datos, fetchImpl: async (_ruta, opciones) => {
-    enviadas.push(opciones.body); return { status: 200, json: async () => reciboDe(escenarios[1], true) };
+    enviadas.push(opciones.body); return { status: 200, json: async () => reciboDe(escenarios[0], true) };
   } }), true);
   assert.equal(enviadas[1], enviadas[0]);
 });
@@ -165,13 +164,13 @@ test("Mi bolsa explica el resultado incierto y el límite del justificante en am
       const zona = { textContent: "" };
       const boton = { disabled: false };
       const formulario = {
-        dataset: { portalMiBolsa: "solicitar", tipo: "reactivacion", bolsa: "bolsa:demo:1" },
+        dataset: { portalMiBolsa: "responder", bolsa: "bolsa:demo:1" },
         querySelector: (selector) => selector === "[data-portal-resultado]" ? zona : boton,
       };
       const enviadas = [];
       let confirmaciones = 0;
       const dependencias = {
-        datos: new FormData(), alRegistrar: () => confirmaciones++,
+        datos: datosDe(), alRegistrar: () => confirmaciones++,
         fetchImpl: async (_ruta, opciones) => {
           enviadas.push(JSON.parse(opciones.body));
           throw new TypeError("Respuesta perdida después de emitir la petición");

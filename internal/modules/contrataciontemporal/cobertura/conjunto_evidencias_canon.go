@@ -16,7 +16,11 @@ func calcularHuellaConjunto(
 	evidencias []EvidenciaConsultaCobertura,
 ) (string, error) {
 	escritor := nuevoEscritorConjunto()
-	escritor.texto(dominioConjuntoEvidencias)
+	if coordenadas.Periodo.PoliticaFin == (domain.PoliticaFin{}) {
+		escritor.texto(dominioConjuntoEvidencias)
+	} else {
+		escritor.texto("VEC-CT-CONJUNTO-EVIDENCIAS-COBERTURA-V2")
+	}
 	escritor.texto(coordenadas.OrganizacionRef)
 	escritor.texto(coordenadas.ExpedienteRef)
 	escritor.entero64(coordenadas.VersionExpediente)
@@ -26,8 +30,7 @@ func calcularHuellaConjunto(
 	escritor.texto(coordenadas.FinalidadRef)
 	escritor.texto(string(coordenadas.ViaClave))
 	escritor.texto(coordenadas.CategoriaRef)
-	escritor.instante(coordenadas.Periodo.Inicio)
-	escritor.instante(coordenadas.Periodo.Fin)
+	escritor.periodo(coordenadas.Periodo)
 	escritor.entero16(uint16(len(evidencias)))
 	for _, evidencia := range evidencias {
 		resumen, err := evidencia.Resumen()
@@ -85,6 +88,25 @@ func (e *escritorConjunto) booleano(valor bool) {
 }
 func (e *escritorConjunto) instante(valor time.Time) {
 	e.texto(valor.UTC().Format(time.RFC3339Nano))
+}
+func (e *escritorConjunto) periodo(p domain.PeriodoPrevisto) {
+	e.instante(p.Inicio)
+	if p.PoliticaFin == (domain.PoliticaFin{}) {
+		e.instante(p.Fin)
+		return
+	}
+	if p.Fin.IsZero() {
+		e.texto("causa")
+		e.texto(string(p.CausaFin))
+	} else {
+		e.texto("fecha")
+		e.instante(p.Fin)
+	}
+	e.texto(p.PoliticaFin.ReglaRef)
+	e.entero64(p.PoliticaFin.CatalogoVersion)
+	e.texto(p.PoliticaFin.CatalogoHuellaSHA256)
+	e.texto(p.PoliticaFin.FechaFin)
+	e.texto(string(p.PoliticaFin.CausaFin))
 }
 func (e *escritorConjunto) identidadCatalogo(
 	i domain.IdentidadCatalogoViasCobertura,

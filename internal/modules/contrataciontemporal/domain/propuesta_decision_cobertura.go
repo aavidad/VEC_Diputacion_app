@@ -122,8 +122,22 @@ func CanonHuellaPropuestaDecisionCoberturaV1() CanonHuellaPropuestaDecisionCober
 	}
 }
 
+func CanonHuellaPropuestaDecisionCoberturaV2() CanonHuellaPropuestaDecisionCobertura {
+	canon := CanonHuellaPropuestaDecisionCoberturaV1()
+	canon.VersionEsquema = 2
+	return canon
+}
+
 func (c CanonHuellaPropuestaDecisionCobertura) valido() bool {
-	return c == CanonHuellaPropuestaDecisionCoberturaV1()
+	return c == CanonHuellaPropuestaDecisionCoberturaV1() ||
+		c == CanonHuellaPropuestaDecisionCoberturaV2()
+}
+
+func canonPropuestaParaPeriodo(periodo PeriodoPrevisto) CanonHuellaPropuestaDecisionCobertura {
+	if periodo.CausaFin != "" || periodo.PoliticaFin != (PoliticaFin{}) {
+		return CanonHuellaPropuestaDecisionCoberturaV2()
+	}
+	return CanonHuellaPropuestaDecisionCoberturaV1()
 }
 
 type DatosCrearPropuestaDecisionCobertura struct {
@@ -192,7 +206,7 @@ func CrearPropuestaDecisionCobertura(
 		!datos.FinalidadClave.Valida() ||
 		!referenciaValida(datos.FinalidadRef) ||
 		!referenciaValida(datos.CategoriaRef) ||
-		!periodoAnalisisValido(datos.Periodo) ||
+		!periodoPropuestaCoberturaValido(datos.Periodo) ||
 		!instanteCanonico(datos.GeneradaEn) ||
 		!instanteCanonico(datos.ValidaHasta) ||
 		!datos.ValidaHasta.After(datos.GeneradaEn) ||
@@ -229,7 +243,7 @@ func CrearPropuestaDecisionCobertura(
 		resultados,
 	)
 	publicacion := PublicacionPropuestaDecisionCobertura{
-		Canon:                             CanonHuellaPropuestaDecisionCoberturaV1(),
+		Canon:                             canonPropuestaParaPeriodo(datos.Periodo),
 		OrganizacionRef:                   datos.OrganizacionRef,
 		ExpedienteRef:                     datos.ExpedienteRef,
 		VersionExpediente:                 datos.VersionExpediente,

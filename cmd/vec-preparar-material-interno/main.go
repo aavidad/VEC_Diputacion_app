@@ -42,6 +42,7 @@ type dependencias struct {
 	sincronizarPadre            func(*os.File) error
 	validarMotivosIncorporacion func(context.Context, bootstrap.ConfiguracionPreparacionIncorporacionB2, *os.Root, time.Time) error
 	resolverMotivoDetalle       func(context.Context, string, time.Time) (core.ReferenciaEntradaCatalogo, error)
+	validarMotivoOH             func(context.Context, string, core.ReferenciaEntradaCatalogo, time.Time) error
 }
 
 func main() {
@@ -63,13 +64,22 @@ func ejecutar(ctx context.Context, args []string, dsnEntorno string, hayDSNEntor
 	banderas := flag.NewFlagSet("vec-preparar-material-interno", flag.ContinueOnError)
 	banderas.SetOutput(io.Discard)
 	var o opciones
+	var configuracionOH string
 	banderas.StringVar(&o.inventarioCT, "inventario-ct", "", "ruta absoluta de ct_v3.json existente")
 	banderas.StringVar(&o.idempotencia, "material-idempotencia", "", "subdirectorio idempotencia del material de desarrollo de vec-server (0700)")
 	banderas.StringVar(&o.motivos, "motivos", "", "fichero JSON 0600 con los ocho motivos B2")
 	banderas.StringVar(&o.salida, "salida", "", "directorio nuevo (inexistente o vacío, 0700)")
 	banderas.StringVar(&o.dsnArchivo, "dsn-archivo", "", "fichero 0600 con el DSN del LOGIN de gobierno de vec-server")
 	banderas.StringVar(&o.incorporacionConfig, "incorporacion-config", "", "configuración B2 pura con referencias, motivos y DSN aprobados")
-	if err := banderas.Parse(args); err != nil || banderas.NArg() != 0 || o.inventarioCT == "" || o.idempotencia == "" || (o.motivos == "") == (o.incorporacionConfig == "") || o.salida == "" {
+	banderas.StringVar(&configuracionOH, "organizacion-historica-config", "", "inventario OH privado con motivo y ámbitos admitidos")
+	errParse := banderas.Parse(args)
+	modos := 0
+	for _, v := range []string{o.motivos, o.incorporacionConfig, configuracionOH} {
+		if v != "" {
+			modos++
+		}
+	}
+	if errParse != nil || banderas.NArg() != 0 || o.inventarioCT == "" || o.idempotencia == "" || modos != 1 || o.salida == "" {
 		fmt.Fprintln(errores, errUso)
 		return 2
 	}
@@ -80,7 +90,9 @@ func ejecutar(ctx context.Context, args []string, dsnEntorno string, hayDSNEntor
 	p := preparacion{opciones: o, dsnEntorno: dsnEntorno, dep: d}
 	var sincronizado bool
 	var err error
-	if o.incorporacionConfig != "" {
+	if configuracionOH != "" {
+		sincronizado, err = p.prepararOrganizacionHistorica(ctx, configuracionOH)
+	} else if o.incorporacionConfig != "" {
 		sincronizado, err = p.prepararIncorporacion(ctx)
 	} else {
 		sincronizado, err = p.preparar(ctx)
@@ -93,7 +105,15 @@ func ejecutar(ctx context.Context, args []string, dsnEntorno string, hayDSNEntor
 		// rename(2) ya se hizo: el material está activado y visible; sólo
 		// falta confirmar que la entrada del directorio padre es durable ante
 		// un corte de energía. No es un fallo de preparación.
-		fmt.Fprintln(salida, "material Personal B2 activado; fsync del padre no confirmado")
+		if configuracionOH != "" {
+			fmt.Fprintln(salida, "material Organización histórica activado; fsync del padre no confirmado")
+		} else {
+			fmt.Fprintln(salida, "material Personal B2 activado; fsync del padre no confirmado")
+		}
+		return 0
+	}
+	if configuracionOH != "" {
+		fmt.Fprintln(salida, "material Organización histórica preparado y validado: organizacion_historica_v3.json y clave propia")
 		return 0
 	}
 	if o.incorporacionConfig != "" {

@@ -68,7 +68,7 @@ func solicitudPublicarOfertaPrueba(t *testing.T, ahora time.Time) puertosbolsa.S
 	if err != nil {
 		t.Fatal(err)
 	}
-	return puertosbolsa.SolicitudPublicarOferta{Vinculo: vinculo, ResultadoContexto: resultado, BolsaRef: "bolsa:of", Datos: datosOfertaPrueba(), NumeroPlazas: 3, ClaveIdempotencia: "oferta-clave-0001", Correlacion: correlacionBorradorPrueba(t), MotivoAutorizacion: motivoBorradorPrueba()}
+	return puertosbolsa.SolicitudPublicarOferta{Notificacion: dominiobolsa.NotificacionOferta{NotificadaEn: ahora, ReferenciaCorreo: "correo:extracto:oferta-1", HuellaCorreoSHA256: strings.Repeat("a", 64), Fuente: "correo_externo_declarado_rrhh"}, Vinculo: vinculo, ResultadoContexto: resultado, BolsaRef: "bolsa:of", Datos: datosOfertaPrueba(), NumeroPlazas: 3, ClaveIdempotencia: "oferta-clave-0001", Correlacion: correlacionBorradorPrueba(t), MotivoAutorizacion: motivoBorradorPrueba()}
 }
 
 func TestPublicarOfertaFijaPlazoDeLaReglaYConsumeLaAutorizacionDeEmision(t *testing.T) {

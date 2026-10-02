@@ -1,4 +1,4 @@
-// Package xlsconvoca adapta libros binarios BIFF8 a la zona de ensayo T17.
+// Package xlsconvoca adapta libros BIFF8 y OOXML a la zona de ensayo T17.
 // No abre rutas ni conserva el fichero: recibe un io.ReadSeeker ya acotado.
 package xlsconvoca
 
@@ -47,8 +47,12 @@ func (l *Lector) Decodificar(
 			err = ErrXLSInvalido
 		}
 	}()
-	if err := validarContenedor(origen); err != nil {
+	esXLSX, err := validarContenedor(origen)
+	if err != nil {
 		return dominio.HojaStaging{}, err
+	}
+	if esXLSX {
+		return decodificarXLSX(ctx, origen)
 	}
 	libro, err := xls.Read(origen)
 	if err != nil || libro == nil || libro.SheetCount() != 1 {
@@ -96,25 +100,32 @@ func (l *Lector) Decodificar(
 	}, nil
 }
 
-func validarContenedor(origen io.ReadSeeker) error {
+func validarContenedor(origen io.ReadSeeker) (bool, error) {
 	tamano, err := origen.Seek(0, io.SeekEnd)
-	if err != nil || tamano < int64(len(firmaContenedorOLE2)) {
-		return ErrXLSInvalido
+	if err != nil || tamano < 4 {
+		return false, ErrXLSInvalido
 	}
 	if tamano > maximoBytesXLS {
-		return ErrLimiteXLSExcedido
+		return false, ErrLimiteXLSExcedido
 	}
 	if _, err := origen.Seek(0, io.SeekStart); err != nil {
-		return ErrXLSInvalido
+		return false, ErrXLSInvalido
 	}
 	var firma [8]byte
-	if _, err := io.ReadFull(origen, firma[:]); err != nil || firma != firmaContenedorOLE2 {
-		return ErrXLSInvalido
+	n, err := io.ReadFull(origen, firma[:])
+	if err != nil && err != io.ErrUnexpectedEOF {
+		return false, ErrXLSInvalido
 	}
 	if _, err := origen.Seek(0, io.SeekStart); err != nil {
-		return ErrXLSInvalido
+		return false, ErrXLSInvalido
 	}
-	return nil
+	if n == len(firma) && firma == firmaContenedorOLE2 {
+		return false, nil
+	}
+	if string(firma[:4]) == "PK\x03\x04" {
+		return true, nil
+	}
+	return false, ErrXLSInvalido
 }
 
 func leerCabeceras(fila *xls.Row) ([]string, error) {

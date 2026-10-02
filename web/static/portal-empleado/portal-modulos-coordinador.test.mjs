@@ -12,14 +12,14 @@ import {
   moduloDeVistaPortal,
   rutaDeVistaPortal,
   VISTA_PLANTILLAS_RRHH,
-} from "./portal-modulos-coordinador.js?v=20261001-cronos-grafo-bandeja-v5";
-import { crearPresentadorExpedientesContratacionTemporal } from "./modulos/contratacion-temporal/presentador-expedientes.js?v=20261001-ct-a-i18n-v1";
+} from "./portal-modulos-coordinador.js?v=20261002-ct-fin-moad-v1";
+import { crearPresentadorExpedientesContratacionTemporal } from "./modulos/contratacion-temporal/presentador-expedientes.js?v=20261002-ct-fin-moad-v1";
 import {
   crearCuadroContratacionTemporalPresentacion,
   crearExpedienteContratacionTemporalPresentacion,
 } from "./modulos/contratacion-temporal/datos-presentacion.js";
-import { renderizarModuloContratacionTemporal } from "./modulos/contratacion-temporal/vista-expedientes-render.js?v=20261001-ct-a-i18n-v1";
-import { MENSAJES_EXPEDIENTES_CONTRATACION_EN } from "./modulos/contratacion-temporal/i18n-expedientes.js?v=20261001-ct-a-i18n-v1";
+import { renderizarModuloContratacionTemporal } from "./modulos/contratacion-temporal/vista-expedientes-render.js?v=20261002-ct-fin-moad-v1";
+import { MENSAJES_EXPEDIENTES_CONTRATACION_EN } from "./modulos/contratacion-temporal/i18n-expedientes.js?v=20261002-ct-fin-modalidad-v1";
 
 test("plantillas RRHH conserva la autoridad CT y una ruta interna propia", () => {
   assert.equal(moduloDeVistaPortal(VISTA_PLANTILLAS_RRHH), "contratacion_temporal");
@@ -858,6 +858,8 @@ test("Inicio y Cuadro abren el mismo detalle CT tras la consulta, una vez y en E
   ]) {
     const llamadas = [];
     let presentador;
+    let mensajesAdaptador;
+    const rotuloCircuito = idioma === "en-GB" ? "Request signing" : "Firma de la petición";
     const fuente = {
       capacidades: ["contratacion_temporal.cuadro.consultar", "contratacion_temporal.expediente.consultar"],
       async listar() { llamadas.push("cuadro"); return cuadro; },
@@ -875,8 +877,10 @@ test("Inicio y Cuadro abren el mismo detalle CT tras la consulta, una vez y en E
         }) },
         adaptador: { crearAdaptadorHTTPExpedientesContratacionTemporal: (opciones) => {
           assert.equal(opciones.locale, idioma);
-          if (idioma === "en-GB") assert.equal(opciones.mensajes, MENSAJES_EXPEDIENTES_CONTRATACION_EN);
-          else assert.deepEqual(opciones.mensajes, {});
+          mensajesAdaptador = opciones.mensajes;
+          assert.equal(mensajesAdaptador["contratacion_temporal.fase.circuito_solicitud"], rotuloCircuito);
+          assert.equal(mensajesAdaptador.etiqueta_fase_circuito_solicitud, rotuloCircuito);
+          if (idioma === "en-GB") assert.equal(mensajesAdaptador.nav_cuadro, MENSAJES_EXPEDIENTES_CONTRATACION_EN.nav_cuadro);
           return fuente;
         } },
         presentador: { crearPresentadorExpedientesContratacionTemporal: (opciones) => (
@@ -885,7 +889,7 @@ test("Inicio y Cuadro abren el mismo detalle CT tras la consulta, una vez y en E
         vista: { montarModuloContratacionTemporal: async ({ raiz, presentador: actual,
           mensajes, locale, zonaHoraria }) => {
           assert.equal(locale, idioma);
-          if (idioma === "en-GB") assert.equal(mensajes, MENSAJES_EXPEDIENTES_CONTRATACION_EN);
+          assert.equal(mensajes, mensajesAdaptador);
           const estado = actual.obtenerEstado();
           const recibo = estado.carga === "listo" && estado.vista === "expediente" ? {
             recibo_ref: "recibo:ct:sintetico:001",

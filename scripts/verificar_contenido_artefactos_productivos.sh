@@ -179,6 +179,8 @@ transportes_mtls_revisados=(
 	# Descarga de los borradores PDF/Word: POST a ruta interna fija, same-origin,
 	# no-store, redirect error y no-referrer, como cliente-http.js (revisado 23/09).
 	static/portal-empleado/modulos/contratacion-temporal/cliente-http-informe-definitivo.js
+	static/portal-empleado/modulos/contratacion-temporal/cliente-http-circuito-rrhh.js
+	static/portal-empleado/modulos/contratacion-temporal/firma-externa-cliente.js
 	# Clientes internos del portal (23/09): con omit el navegador no presenta el
 	# certificado mTLS ni la autenticación del proxy; mismo patrón que cliente-http.js.
 	static/portal-empleado/portal-bolsas-api.js
@@ -260,6 +262,10 @@ transportes_mtls_revisados=(
 	static/portal-empleado/portal-bolsas-correo.js
 	static/portal-empleado/portal-bolsas-intentos.js
 	static/portal-empleado/portal-bolsas-ofertas.js
+	# Historial de ofrecimientos (02/10): GET por bolsa/oferta y POST de contacto
+	# a rutas internas fijas; referencias sin segmentos, same-origin, no-store,
+	# redirect error y no-referrer. Contexto y permiso se cotejan en servidor.
+	static/portal-empleado/portal-bolsas-historial-ofrecimientos.js
 	static/portal-empleado/portal-bolsas-reglas-situacion.js
 	static/portal-empleado/portal-bolsas-sanciones.js
 	static/portal-empleado/reglas/reglas.js

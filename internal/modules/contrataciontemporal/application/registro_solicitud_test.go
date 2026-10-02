@@ -130,6 +130,7 @@ type generadorAltaDoble struct {
 
 func (d *generadorAltaDoble) GenerarReferenciasAlta(
 	context.Context,
+	string,
 ) (ports.ReferenciasAlta, error) {
 	d.llamadasReferencias++
 	return d.referencias, d.errReferencias
@@ -158,6 +159,20 @@ func (d *resolutorCandidaturaDoble) ResolverCandidaturaAlta(
 		d.antes()
 	}
 	return d.candidatura, d.err
+}
+
+func (d *resolutorCandidaturaDoble) RecuperarCandidaturaAlta(
+	ctx context.Context, solicitud ports.SolicitudResolverCandidaturaAlta,
+) (ports.CandidaturaAlta, error) {
+	candidatura, err := d.ResolverCandidaturaAlta(ctx, solicitud)
+	if err != nil {
+		return candidatura, err
+	}
+	datos, err := candidatura.Datos()
+	if err != nil || !datos.Recuperada {
+		return ports.CandidaturaAlta{}, ports.ErrClaveIdempotenciaUsada
+	}
+	return candidatura, nil
 }
 
 type derivadorHuellaEfectoDoble struct {
@@ -340,11 +355,12 @@ func nuevoEscenarioRegistro(t *testing.T) escenarioRegistro {
 	return escenarioRegistro{
 		instante: instante,
 		solicitud: SolicitudRegistrarExpediente{
-			AutenticacionRef:  vinculo.AutenticacionRef,
-			SesionRef:         vinculo.SesionRef,
-			PerfilRef:         vinculo.PerfilActivoRef,
-			OrganizacionRef:   "organizacion:diputacion-granada",
-			ClaveIdempotencia: "018f3b2a-7c4d-4e5f-8a9b-0c1d2e3f4a5b",
+			NumeroExpedienteMOAD: "2026/CT-0001",
+			AutenticacionRef:     vinculo.AutenticacionRef,
+			SesionRef:            vinculo.SesionRef,
+			PerfilRef:            vinculo.PerfilActivoRef,
+			OrganizacionRef:      "organizacion:diputacion-granada",
+			ClaveIdempotencia:    "018f3b2a-7c4d-4e5f-8a9b-0c1d2e3f4a5b",
 			Solicitud: domain.SolicitudCentro{
 				CentroRef:     "centro:residencia-rodriguez-penalva",
 				ContactoRef:   "persona:responsable-centro-001",
@@ -736,5 +752,40 @@ func TestRegistroSolicitudRechazaConfirmacionV3CruzadaAntesDeConfirmar(t *testin
 	if !errors.Is(err, ports.ErrAutorizacionDenegada) ||
 		d.candidaturas.llamadas != 1 || d.transaccion.llamadas != 0 {
 		t.Fatalf("confirmación V3 cruzada produjo efecto: %v", err)
+	}
+}
+
+func TestRegistroSolicitudIniciaCircuitoNuevoSinAfirmarFirma(t *testing.T) {
+	escenario := nuevoEscenarioRegistro(t)
+	definicion, err := domain.NuevaDefinicionCircuitoRRHH(
+		"flujo:ct:rrhh:sintetico", 2, escenario.configuracion.FaseInicial,
+		[]domain.TransicionCircuitoRRHH{{
+			Clave: "contratacion_temporal.circuito.peticion_firmada",
+			Tipo:  domain.HitoPeticionFirmada, Origen: escenario.configuracion.FaseInicial,
+			Destino: "autorizacion_rrhh", RequiereDocumento: true,
+			RequiereFirma: true, PerfilClave: "centro_solicitante",
+			FirmasRequeridas: []domain.ClaveCatalogo{"tecnico_solicitante", "delegacion_solicitante"},
+		}},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	escenario.configuracion.Flujo = definicion.Flujo
+	escenario.configuracion.DefinicionCircuito = &definicion
+	servicio, dobles := construirServicioRegistro(t, escenario)
+	if _, err := servicio.Registrar(context.Background(), escenario.solicitud); err != nil {
+		t.Fatalf("alta de circuito RRHH: %v", err)
+	}
+	orden, err := dobles.transaccion.orden.Datos()
+	if err != nil || orden.Expediente.Circuito == nil ||
+		orden.Expediente.Circuito.Definicion != definicion.Flujo ||
+		orden.Expediente.Circuito.EstadoActual != escenario.configuracion.FaseInicial ||
+		len(orden.Expediente.Circuito.Hitos) != 0 ||
+		orden.Expediente.Validar() != nil {
+		t.Fatalf("alta publicó una firma inexistente o perdió el circuito: %v", err)
+	}
+	serializado, err := json.Marshal(orden.Expediente)
+	if err != nil || !bytes.Contains(serializado, []byte(`"hitos":[]`)) {
+		t.Fatalf("alta debe conservar un array de hitos vacío: %v", err)
 	}
 }
