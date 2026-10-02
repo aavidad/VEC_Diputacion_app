@@ -3,7 +3,7 @@ import test from "node:test";
 import { exigirVersiones, posterior } from "./versiones-cache.test-helper.mjs";
 
 const versionEntradaAnterior = "20261002-a-recuperar-379-v1";
-const versionCoordinador = "20261002-b-base-401-acumulada-v3";
+const versionCoordinador = "20261002-ct-fin-modalidad-v1";
 const raiz = new URL("./", import.meta.url);
 
 test("la extracción CT renueva cada padre hasta la entrada del portal", async () => {
