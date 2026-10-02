@@ -8,7 +8,7 @@
  * sin acceder al DOM global.
  */
 import { finVigenciaBolsaPortal, LOCALIZACION_PORTAL, textoPortal, traducirBolsaInterna, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
-import { renderizarBloqueAvisos } from "./portal-bolsas-avisos.js?v=20261001-ct-a-i18n-v1";
+import { renderizarBloqueAvisos } from "./portal-bolsas-avisos.js?v=20261002-rrhh17-v1";
 import { renderizarChipsMarcas, renderizarMarcasFicha, seleccionableEnLlamamiento, traducirMarcasBolsa } from "./portal-bolsas-marcas.js?v=20261001-ct-a-i18n-v1";
 import { renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20261002-r-rrhh18-v2";
 import { destinosSituacion, fechaDisponiblePropuesta, renderizarCamposReposicion } from "./portal-bolsas-reglas-situacion.js?v=20260930-portales-i18n-integracion-v1";
