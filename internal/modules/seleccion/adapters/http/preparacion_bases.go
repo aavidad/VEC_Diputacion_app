@@ -54,8 +54,8 @@ func (h preparacionBasesHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 		escribirError(w, http.StatusNotFound, "no_encontrada")
 		return
 	}
-	if h.config.ValidarFrontera(r) != nil {
-		escribirError(w, http.StatusForbidden, "acceso_denegado")
+	if err := h.config.ValidarFrontera(r); err != nil {
+		responderErrorPreparacion(w, ports.ResultadoPreparacionBasesV3{}, err)
 		return
 	}
 	if r.Method != http.MethodPost {
@@ -80,7 +80,7 @@ func (h preparacionBasesHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 	}
 	z, err := h.config.ResolverContexto(r)
 	if err != nil {
-		escribirError(w, http.StatusForbidden, "acceso_denegado")
+		responderErrorPreparacion(w, ports.ResultadoPreparacionBasesV3{}, err)
 		return
 	}
 	ctx, cancelar := context.WithTimeout(r.Context(), 20*time.Second)
@@ -110,6 +110,8 @@ func (h preparacionBasesHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 func responderErrorPreparacion(w http.ResponseWriter, r ports.ResultadoPreparacionBasesV3, err error) {
 	estado, codigo := http.StatusServiceUnavailable, "servicio_no_disponible"
 	switch {
+	case errors.Is(err, ports.ErrPreparacionBasesNoDisponible), errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
+		// Un fallo tecnico no acredita una denegacion, incluso con error unido.
 	case errors.Is(err, ports.ErrPreparacionBasesDenegada):
 		estado, codigo = http.StatusForbidden, "acceso_denegado"
 	case errors.Is(err, ports.ErrPreparacionBasesInvalida):

@@ -54,7 +54,10 @@ func (p *ProveedorPreparacionBases) emitirPreparacion(ctx context.Context, actor
 	if cancelacion := ctx.Err(); cancelacion != nil {
 		return cero, cancelacion
 	}
-	if err != nil || i.Resultado.Validar() != nil || i.Vinculo.ValidarPara(i.Resultado) != nil {
+	if err != nil {
+		return cero, clasificarErrorPreparacion(ctx, err)
+	}
+	if i.Resultado.Validar() != nil || i.Vinculo.ValidarPara(i.Resultado) != nil {
 		return cero, ports.ErrPreparacionBasesNoDisponible
 	}
 	b, err := actor.RepresentacionCanonicaVinculadaV2()
@@ -90,12 +93,12 @@ func clasificarErrorPreparacion(ctx context.Context, err error) error {
 	if ctx != nil && ctx.Err() != nil {
 		return ctx.Err()
 	}
-	for _, causa := range []error{core.ErrFuenteAutorizacionNoDisponible, core.ErrRegistroConcesionAutorizacionLigadaV3NoDisponible, core.ErrRegistroDenegacionAutorizacionLigadaV3NoDisponible, context.Canceled, context.DeadlineExceeded} {
+	for _, causa := range []error{ports.ErrPreparacionBasesNoDisponible, core.ErrFuenteAutorizacionNoDisponible, core.ErrRegistroConcesionAutorizacionLigadaV3NoDisponible, core.ErrRegistroDenegacionAutorizacionLigadaV3NoDisponible, context.Canceled, context.DeadlineExceeded} {
 		if errors.Is(err, causa) {
 			return ports.ErrPreparacionBasesNoDisponible
 		}
 	}
-	if errors.Is(err, core.ErrDenegacionExplicitaAutorizacionLigadaV3) {
+	if errors.Is(err, ports.ErrPreparacionBasesDenegada) || errors.Is(err, core.ErrDenegacionExplicitaAutorizacionLigadaV3) {
 		return ports.ErrPreparacionBasesDenegada
 	}
 	return ports.ErrPreparacionBasesNoDisponible
