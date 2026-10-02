@@ -63,6 +63,18 @@ Los plazos de no disponibilidad tras una relación temporal están en el Reglame
 
 Lo genera la aplicación MOAD desde que se abre el expediente. VEC guarda ese número; no lo genera.
 
+## Segunda respuesta del mismo día (preguntas 16, 17 y 18)
+
+RRHH indica que el resto de las preguntas implica a otros departamentos y necesita el visto bueno de la Dirección de RRHH. Las considera más de integración que del propio módulo de personal temporal.
+
+- **16. Carga inicial desde CONVOCA.** RRHH sabe exportar los datos de CONVOCA, normalmente en Excel, y se estudiará el formato que mejor convenga. CONVOCA no está actualizado porque no se usa. Cuando se autorice VEC, RRHH actualizará todas las bolsas y las pasará. VEC importa esos Excel con el importador existente y comprueba antes el formato con un ejemplo.
+- **17. Qué ve y qué hace el integrante de una bolsa.** Solo puede modificar sus **datos personales**, y siempre con su certificado digital. Ve su **historial de llamamientos**, el **estado de las bolsas** y **su estado** en cada una. Cualquier otra cosa la remite a RRHH, que la valida: VEC le permite enviar esa solicitud, pero no cambiar nada por sí mismo. Sigue abierto si se mantiene la lista pública sin identificarse (pregunta 17).
+- **18. Estados.**
+  - «En revisión» significa que se espera un documento justificativo para regularizar el estado en la bolsa.
+  - **No existe la suspensión temporal** en la bolsa.
+  - Quien está en **renuncia justificada** remite un documento cuando termina la causa. RRHH lo valida y entonces cambia su estado.
+  - Siguen abiertas las causas de baja y la documentación que hay que presentar tras aceptar (pregunta 18).
+
 ## Preguntas posteriores que estas respuestas cierran
 
 - **64 (reposición tras cese):** la cierra el art. 9 del Reglamento.
