@@ -26,13 +26,14 @@ DECLARE
              AND d->>'contexto_recurso_huella_sha256' IS NOT DISTINCT FROM c->>'huella_efecto_sha256'
              AND d#>>'{vinculo_autenticacion_actor,superficie}' IS NOT DISTINCT FROM 'administracion_privilegiada'
              AND d#>>'{vinculo_autenticacion_actor,cuenta_privilegiada}' IS NOT DISTINCT FROM 'true'
-             AND d->'campos_permitidos' IS NOT DISTINCT FROM '[]'::jsonb
+             AND (d->'campos_permitidos' IS NOT DISTINCT FROM '[]'::jsonb OR (c->>'audiencia_consumo'='vec_autorizacion.administracion_perfiles.consulta.v1' AND d->'campos_permitidos' IS NOT DISTINCT FROM '["actos_disponibles","preimagen"]'::jsonb))
              AND d->'obligaciones' IS NOT DISTINCT FROM '[]'::jsonb
              AND (
                (c->>'audiencia_consumo'='vec_autorizacion.administracion_perfiles.ordinario.v1'
                  AND d->>'accion' IN ('administracion.perfiles.otorgar','administracion.perfiles.revocar') AND d->>'tipo_recurso'='perfil')
                OR (c->>'audiencia_consumo'='vec_autorizacion.administracion_perfiles.propuesta.v1'
                  AND d->>'accion'='administracion.perfiles.proponer' AND d->>'tipo_recurso'='perfil')
+               OR (c->>'audiencia_consumo'='vec_autorizacion.administracion_perfiles.consulta.v1' AND d->>'accion'='administracion.perfiles.consultar' AND d->>'tipo_recurso'='perfil' AND d->'campos_permitidos'='["actos_disponibles","preimagen"]'::jsonb)
                OR (c->>'audiencia_consumo'='vec_autorizacion.administracion_perfiles.cierre.v1'
                  AND d->>'accion' IN ('administracion.perfiles.aprobar','administracion.perfiles.rechazar') AND d->>'tipo_recurso'='propuesta_perfil')
              ))
@@ -67,7 +68,7 @@ BEGIN
  OR strpos(original,'vec_autorizacion.administracion_perfiles.')<>0 THEN
   RAISE EXCEPTION 'AD150: audiencia esperado=postAD149_real observado=divergente' USING ERRCODE='55000'; END IF;
  ALTER TABLE vec_autorizacion_atestada_v3.clave_capacidad_version DROP CONSTRAINT clave_capacidad_version_audiencia_consumo_check;
- EXECUTE 'ALTER TABLE vec_autorizacion_atestada_v3.clave_capacidad_version ADD CONSTRAINT clave_capacidad_version_audiencia_consumo_check '||left(original,length(original)-3)||', ''vec_autorizacion.administracion_perfiles.ordinario.v1''::text, ''vec_autorizacion.administracion_perfiles.propuesta.v1''::text, ''vec_autorizacion.administracion_perfiles.cierre.v1''::text]))';
+ EXECUTE 'ALTER TABLE vec_autorizacion_atestada_v3.clave_capacidad_version ADD CONSTRAINT clave_capacidad_version_audiencia_consumo_check '||left(original,length(original)-3)||', ''vec_autorizacion.administracion_perfiles.ordinario.v1''::text, ''vec_autorizacion.administracion_perfiles.propuesta.v1''::text, ''vec_autorizacion.administracion_perfiles.cierre.v1''::text, ''vec_autorizacion.administracion_perfiles.consulta.v1''::text]))';
 END $audiencias$;
 CREATE FUNCTION vec_autorizacion_atestada_v3.registrar_consumir_admin_perfiles_v3(
  p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea)

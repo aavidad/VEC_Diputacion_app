@@ -7,7 +7,7 @@ reservó AD150 antes de escribir el consumidor. No se altera una migración inst
 `d49e6adfcac7a1a68752c239efc6c68a4679191d` (#232). Mantener bootstrap de dos
 personas, baja aprobada 2→1 y denegación de 1→0; el HTTP anterior no fija el umbral.
 
-Orden causal: CA19 → AUT22 → AUT23 → CA20 → IS9 → AUT24 → CA23 → IS12;
+Orden causal: CA19 → AUT22 → CA20 → AUT23 → IS9 → AUT24 → CA23 → IS12;
 AD150 va después de IS12 y de AD149 real publicado. AUT24 define funciones PL/pgSQL
 que permanecen indisponibles hasta instalar el consumidor; no exige su existencia
 al crear el contrato y así evita una dependencia circular. Dirección debe reconciliar este orden con
@@ -56,9 +56,13 @@ de consulta, una sesión, nombres ni certificados. El cliente trata la huella
 como opaca. Go no vuelve a serializar ese JSONB para calcularla. La vigencia se
 comprueba de nuevo al aplicar el cambio.
 
-La preparación del formulario todavía necesita una lectura nominal autorizada
-de esa preimagen. El borrador conserva la rutina interna sin EXECUTE runtime;
-no abre consultas personales para facilitar el formulario.
+La preparación del formulario usa `preparar_preimagen_admin_v1`, con material
+de negocio y diez piezas V3. Reutiliza la acción lectora de F y la audiencia
+nominal `.consulta.v1`. AUT24 publica el rol fijo v3 sin modificar v2: amplía
+los campos de consulta con los grupos cerrados `preimagen` y `actos_disponibles`.
+Devuelve referencias opacas, versiones y huella; no nombres, certificados,
+concesiones ni datos de sesión. Exige un consumo nuevo y autorización vigente.
+El perfil actor no se elige por el cliente.
 
 La consulta propietaria `consultar_asignacion_admin_perfiles_v1(text)` sirve a
 CA23 y devuelve versiones exactas sin conceder otro perfil. Su audiencia procede
@@ -72,3 +76,29 @@ comprobaron concesiones a PUBLIC y pertenencia del runtime a propietarios:
 cero hallazgos. Esta comprobación no acredita ACL efectivas, ejecución de
 PL/pgSQL, transacciones, concurrencia ni recuperación. No se ejecutaron SQL
 en un clon ni se abrió una PR.
+
+El bootstrap privado usa el plan tipado v2 de F/K. `gobierno` contiene una lista
+finita de roles ya publicados con su huella, clase, ámbito, vigencia y duración
+de las propuestas, además de audiencia y política de certificado. Todo queda
+dentro de los bytes SHA256 aprobados; no se reciben concesiones. El plan v1
+carece de ese gobierno y no puede producir efectos.
+
+`provisionar_dos_administradores_iniciales_v2(text,text)` pertenece únicamente
+al grupo técnico `vec_admin_perfiles_bootstrap_ejecutor`, separado del runtime
+web. Coteja las dos preimágenes antes de la primera escritura, registra ambas
+altas y consume el bootstrap en una sola transacción. La repetición exacta
+recupera el recibo tras revalidar el operador y las fuentes actuales. Una
+aprobación ausente, otra huella, una cuenta repetida o un fallo en cualquiera
+de las altas revierte todo. El actor de la auditoría central es el LOGIN técnico
+del operador; no se fabrica una identidad personal ni una decisión V3.
+
+Los hashes de acreditación de certificado del plan son referencias declaradas
+en la aprobación privada del operador. La autoridad comprueba la política y
+CA exactas, las cuentas privilegiada y ordinaria activas y la identidad maestra
+CA. El alta crea el vínculo nominal IS9; no afirma que el plan sustituya una
+observación TLS o una CRL. El acceso web posterior exige ambas por IS12.
+
+Las sondas ACL incluidas inspeccionan los catálogos PostgreSQL reales al aplicar
+el borrador: runtime sin bootstrap, bootstrap sin lector web, sin DML sobre
+historia y sin EXECUTE público. Permanecen pendientes los casos dinámicos de
+rollback, carrera y recuperación en el clon causal.
