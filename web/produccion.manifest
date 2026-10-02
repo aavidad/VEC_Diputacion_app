@@ -568,3 +568,6 @@ static/textos/en/cronos-notificaciones-historial.json
 static/portal-empleado/modulos/cronos/i18n-permisos-consulta.js
 static/textos/es/cronos-permisos-consulta.json
 static/textos/en/cronos-permisos-consulta.json
+static/portal-empleado/modulos/personal/servicios-descarga.js
+static/textos/es/personal-servicios-descarga.json
+static/textos/en/personal-servicios-descarga.json

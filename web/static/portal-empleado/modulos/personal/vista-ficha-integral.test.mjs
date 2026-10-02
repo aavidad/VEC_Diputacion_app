@@ -18,6 +18,7 @@ function raizFalsa() {
     remove() { if (this.parent) this.parent.children = this.parent.children.filter((hijo) => hijo !== this); }
     addEventListener(tipo, fn) { this.listeners.set(tipo, fn); }
     setAttribute(clave, valor) { this.atributos.set(clave, valor); }
+    click() { this.listeners.get("click")?.(); }
     focus() { this.enfocado = true; this.ownerDocument.activeElement = this; }
     matches(selector) { const coincide = selector.match(/^\[data-([a-z-]+)(?:="([a-z_-]+)")?\]$/u); if (!coincide) return false; const clave = coincide[1].replace(/-([a-z])/g, (_m, letra) => letra.toUpperCase()); return this.dataset[clave] !== undefined && (coincide[2] === undefined || this.dataset[clave] === coincide[2]); }
     querySelector(selector) { if (this.matches(selector)) return this; for (const hijo of this.children) { const encontrado = hijo.querySelector(selector); if (encontrado) return encontrado; } return null; }
@@ -393,4 +394,24 @@ test("fecha inválida señala el campo y no inicia otra consulta", async () => {
   assert.doesNotMatch(texto(ficha), /Introduzca una fecha válida/);
   ficha.querySelector("[data-personal-ficha-corte]").listeners.get("submit")({ preventDefault() {} }); await completar();
   assert.equal(llamadas, 2, "corregir la fecha permite enviar a la primera");
+});
+
+
+test("CSV sólo después de respuesta validada; cortar, actualizar, salir y desmontar invalidan el botón previo", async () => {
+  const raiz = raizFalsa(), d = raiz.ownerDocument; const blobs = [], urls = []; d.body = raiz;
+  d.defaultView = { Blob, URL: { createObjectURL(blob) { blobs.push(blob); return "blob:local"; }, revokeObjectURL(url) { urls.push(url); } } };
+  let estado = "disponible", resolver, peticiones = 0;
+  const datos = () => ({ estado, fuente: "Personal", actualizado_en: "2026-10-02T08:00:00Z", fecha_referencia: "2026-10-01", items: [{ procedencia: "Diputación" }] });
+  const montaje = montarVistaFichaIntegralPersonal({ raiz, fuentes: { servicios: { seleccionarFecha: true, actualizar() {}, consultarPropios() { peticiones += 1; return peticiones === 1 ? datos() : new Promise((r) => { resolver = r; }); } } } });
+  const ficha = raiz.querySelector("[data-personal-ficha-integral]");
+  tab(ficha, "servicios").click(); assert.equal(ficha.querySelector("[data-personal-servicios-descargar]"), null); await completar();
+  let boton = ficha.querySelector("[data-personal-servicios-descargar]"); assert.ok(boton); boton.click(); assert.equal(peticiones, 1); assert.equal(blobs.length, 1); assert.equal(urls.length, 1);
+  ficha.querySelector('[data-personal-ficha-actualizar="servicios"]').click(); boton.click(); assert.equal(blobs.length, 1); await completar();
+  estado = "denegado"; resolver(datos()); await completar(); assert.equal(ficha.querySelector("[data-personal-servicios-descargar]"), null); boton.click(); assert.equal(blobs.length, 1);
+  tab(ficha, "servicios").click(); await completar(); estado = "disponible"; resolver(datos()); await completar(); boton = ficha.querySelector("[data-personal-servicios-descargar]");
+  const fecha = ficha.querySelector("[data-personal-ficha-fecha]"); fecha.value = "2026-01-01";
+  ficha.querySelector("[data-personal-ficha-corte]").listeners.get("submit")({ preventDefault() {} }); boton.click(); assert.equal(blobs.length, 1); await completar();
+  resolver({ estado: "error" }); await completar(); assert.equal(ficha.querySelector("[data-personal-servicios-descargar]"), null);
+  tab(ficha, "servicios").click(); await completar(); resolver(datos()); await completar(); boton = ficha.querySelector("[data-personal-servicios-descargar]"); tab(ficha, "ficha").click(); boton.click(); assert.equal(blobs.length, 1);
+  tab(ficha, "servicios").click(); await completar(); resolver(datos()); await completar(); boton = ficha.querySelector("[data-personal-servicios-descargar]"); montaje.desmontar(); boton.click(); assert.equal(blobs.length, 1);
 });
