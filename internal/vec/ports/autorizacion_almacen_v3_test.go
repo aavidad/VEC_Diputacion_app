@@ -170,6 +170,31 @@ func TestAlmacenV3CustodiaRegistradaSoloEscribe(t *testing.T) {
 	}
 }
 
+func TestAlmacenV3OriginalFirmableExigeConcesionPropiaYVinculoDeIntento(t *testing.T) {
+	e := nuevoAlmacenV3Prueba(t, opcionesAlmacenV3Prueba{
+		accion: AccionNegocioEscribirOriginalFirmable,
+		campos: []string{"original_firmable.contenido", "evidencia_almacen"},
+	})
+	instante := e.ahora.Add(2 * time.Second)
+	contexto, err := NuevoContextoEscribirOriginalFirmableAlmacenV3(
+		e.solicitud, e.decision, e.confirmacion, e.vinculos, instante)
+	if err != nil || contexto.ValidarParaEn(AccionAlmacenEscribir, instante) != nil ||
+		contexto.ValidarParaEn(AccionAlmacenLeer, instante) == nil {
+		t.Fatalf("plan de escritura original: %v", err)
+	}
+	ajeno := e.vinculos
+	ajeno.CargaRef = "carga:otro-intento"
+	if _, err := NuevoContextoEscribirOriginalFirmableAlmacenV3(
+		e.solicitud, e.decision, e.confirmacion, ajeno, instante); !errors.Is(err, ErrAutorizacionAlmacenInvalida) {
+		t.Fatalf("se acepto otra clave de intento: %v", err)
+	}
+	firmado := custodiaV3Prueba(t)
+	if _, err := NuevoContextoEscribirOriginalFirmableAlmacenV3(
+		firmado.solicitud, firmado.decision, firmado.confirmacion, firmado.vinculos, instante); !errors.Is(err, ErrAutorizacionAlmacenInvalida) {
+		t.Fatalf("se presto la concesion de documento firmado: %v", err)
+	}
+}
+
 func TestAlmacenV3LecturaRegistradaSoloLeeElObjetoExacto(t *testing.T) {
 	e := nuevoAlmacenV3Prueba(t, opcionesAlmacenV3Prueba{
 		accion: AccionNegocioLeerOriginalDocumentoGenerado, campos: []string{"contenido", "documento"}, requiereObjeto: true})
