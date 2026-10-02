@@ -93,7 +93,9 @@ func (a *Autoridad) ProponerActoSensible(ctx context.Context, s domain.Solicitud
 		if decodificar(b, &x) != nil {
 			return ports.ErrAutoridadAdministracionPerfilesNoDisponible
 		}
-		resultado = ports.PropuestaAdministracionPerfiles{x.OperacionRef, x.PropuestaRef, x.HuellaSHA256, x.ProponentePersonaRef, x.ObjetivoPersonaRef, x.CaducaEn}
+		resultado = ports.PropuestaAdministracionPerfiles{OperacionRef: x.OperacionRef, PropuestaRef: x.PropuestaRef,
+			HuellaSHA256: x.HuellaSHA256, ProponentePersonaRef: x.ProponentePersonaRef,
+			ObjetivoPersonaRef: x.ObjetivoPersonaRef, CaducaEn: x.CaducaEn}
 		if resultado.ValidarPara(s) != nil || !resultado.CaducaEn.After(a.reloj.Ahora()) {
 			return domain.ErrControlAdministracionPerfilesInvalido
 		}
