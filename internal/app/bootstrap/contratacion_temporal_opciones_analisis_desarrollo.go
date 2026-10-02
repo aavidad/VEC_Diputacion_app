@@ -243,7 +243,8 @@ func modalidadDesdeReglaCT(regla reglas.Regla, porClave map[string]reglas.Regla)
 	causa := domain.ClaveCatalogo(regla.Atributos[atributoCausaFinReglaCT])
 	if (modo != fechaFinObligatoriaCT && modo != fechaFinOpcionalCT && modo != fechaFinNoAplicaCT) ||
 		(modo == fechaFinObligatoriaCT && causa != "") ||
-		(modo != fechaFinObligatoriaCT && !causa.Valida()) {
+		(modo != fechaFinObligatoriaCT && !causa.Valida()) ||
+		regla.ReferenciaEntrada.CatalogoVersion < 1 {
 		return modalidadAnalisisCT{}, errOpcionesAnalisisNoValidas
 	}
 	modalidad := modalidadAnalisisCT{
