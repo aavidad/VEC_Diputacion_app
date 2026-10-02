@@ -3,6 +3,7 @@ package composicion
 import (
 	"bytes"
 	"context"
+	"time"
 
 	"vec-diputacion-granada/internal/modules/personal/domain"
 	"vec-diputacion-granada/internal/modules/personal/ports"
@@ -16,16 +17,17 @@ import (
 type RegistroIntentosLectorRelacionRPT struct {
 	identidad ResolutorIdentidadLectorRelacionRPT
 	destino   ports.DestinoIntentosLectorRelacionRPT
+	ahora     func() time.Time
 }
 
-func NuevoRegistroIntentosLectorRelacionRPT(i ResolutorIdentidadLectorRelacionRPT, d ports.DestinoIntentosLectorRelacionRPT) (*RegistroIntentosLectorRelacionRPT, error) {
-	if dependenciaNula(i) || dependenciaNula(d) {
+func NuevoRegistroIntentosLectorRelacionRPT(i ResolutorIdentidadLectorRelacionRPT, d ports.DestinoIntentosLectorRelacionRPT, ahora func() time.Time) (*RegistroIntentosLectorRelacionRPT, error) {
+	if dependenciaNula(i) || dependenciaNula(d) || ahora == nil {
 		return nil, domain.ErrLectorRelacionRPTNoDisponible
 	}
-	return &RegistroIntentosLectorRelacionRPT{i, d}, nil
+	return &RegistroIntentosLectorRelacionRPT{i, d, ahora}, nil
 }
 func (r *RegistroIntentosLectorRelacionRPT) VerificarRegistroRelacionRPT(ctx context.Context) error {
-	if r == nil || ctx == nil || ctx.Err() != nil || dependenciaNula(r.destino) {
+	if r == nil || ctx == nil || ctx.Err() != nil || dependenciaNula(r.destino) || r.ahora == nil {
 		return domain.ErrLectorRelacionRPTNoDisponible
 	}
 	if err := r.destino.VerificarDestinoRelacionRPT(ctx); err != nil {
@@ -34,7 +36,7 @@ func (r *RegistroIntentosLectorRelacionRPT) VerificarRegistroRelacionRPT(ctx con
 	return nil
 }
 func (r *RegistroIntentosLectorRelacionRPT) RegistrarIntentoRelacionRPT(ctx context.Context, in ports.IntentoLectorRelacionRPT) error {
-	if r == nil || ctx == nil || ctx.Err() != nil || dependenciaNula(r.identidad) || dependenciaNula(r.destino) {
+	if r == nil || ctx == nil || ctx.Err() != nil || dependenciaNula(r.identidad) || dependenciaNula(r.destino) || r.ahora == nil {
 		return domain.ErrLectorRelacionRPTNoDisponible
 	}
 	correlacion, err := vecdomain.GenerarReferenciaCorrelacionAutorizacionV2(ctx, seguridadvec.GeneradorReferenciasCriptograficas{})
@@ -50,7 +52,8 @@ func (r *RegistroIntentosLectorRelacionRPT) RegistrarIntentoRelacionRPT(ctx cont
 		evento.RelacionRef = in.RelacionRef
 	}
 	identidad, err := r.identidad.ResolverIdentidadLectorRelacionRPT(ctx)
-	if err == nil && identidad.Resultado.Validar() == nil && identidad.Vinculo.ValidarPara(identidad.Resultado) == nil {
+	instanteActual := r.ahora().UTC().Truncate(time.Microsecond)
+	if err == nil && identidad.Resultado.Validar() == nil && identidad.Vinculo.ValidarPara(identidad.Resultado) == nil && identidad.Vinculo.VigenteEn(instanteActual, identidad.Resultado) {
 		canon, canonErr := in.Actor.RepresentacionCanonicaVinculadaV2()
 		if canonErr == nil && bytes.Equal(canon, identidad.Resultado.RepresentacionCanonica) {
 			evento.ActorRef = identidad.Resultado.Contexto.PersonaRef

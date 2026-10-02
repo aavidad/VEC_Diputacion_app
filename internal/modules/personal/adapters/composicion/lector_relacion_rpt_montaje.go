@@ -38,7 +38,7 @@ func ComponerLectorRelacionSeleccionadaRPT(d DependenciasLectorRelacionRPT) (*pe
 	if err != nil {
 		return nil, personaldomain.ErrLectorRelacionRPTNoDisponible
 	}
-	i, err := NuevoRegistroIntentosLectorRelacionRPT(d.Identidad, destino)
+	i, err := NuevoRegistroIntentosLectorRelacionRPT(d.Identidad, destino, d.Ahora)
 	if err != nil {
 		return nil, personaldomain.ErrLectorRelacionRPTNoDisponible
 	}

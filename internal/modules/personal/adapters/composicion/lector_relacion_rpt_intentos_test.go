@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"vec-diputacion-granada/internal/modules/personal/domain"
 	"vec-diputacion-granada/internal/modules/personal/ports"
@@ -27,7 +28,7 @@ func (d *destinoIntentosRPTPrueba) RegistrarEventoRelacionRPT(_ context.Context,
 }
 func TestLectorRPTIntentoNoInventaActorSinIdentidadActual(t *testing.T) {
 	d := &destinoIntentosRPTPrueba{}
-	r, err := NuevoRegistroIntentosLectorRelacionRPT(identidadLectorRelacionRPTPrueba{err: errors.New("sin identidad")}, d)
+	r, err := NuevoRegistroIntentosLectorRelacionRPT(identidadLectorRelacionRPTPrueba{err: errors.New("sin identidad")}, d, time.Now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -39,11 +40,11 @@ func TestLectorRPTIntentoNoInventaActorSinIdentidadActual(t *testing.T) {
 	}
 }
 func TestLectorRPTIntentosCierranDestinoAusenteOFallido(t *testing.T) {
-	if _, err := NuevoRegistroIntentosLectorRelacionRPT(identidadLectorRelacionRPTPrueba{}, nil); !errors.Is(err, domain.ErrLectorRelacionRPTNoDisponible) {
+	if _, err := NuevoRegistroIntentosLectorRelacionRPT(identidadLectorRelacionRPTPrueba{}, nil, time.Now); !errors.Is(err, domain.ErrLectorRelacionRPTNoDisponible) {
 		t.Fatal("registrador nil admitido", err)
 	}
 	d := &destinoIntentosRPTPrueba{err: errors.New("detalle privado")}
-	r, _ := NuevoRegistroIntentosLectorRelacionRPT(identidadLectorRelacionRPTPrueba{}, d)
+	r, _ := NuevoRegistroIntentosLectorRelacionRPT(identidadLectorRelacionRPTPrueba{}, d, time.Now)
 	if err := r.VerificarRegistroRelacionRPT(context.Background()); !errors.Is(err, domain.ErrLectorRelacionRPTNoDisponible) || strings.Contains(err.Error(), "privado") {
 		t.Fatal("preflight no cerrado", err)
 	}
