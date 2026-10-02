@@ -36,6 +36,7 @@ type ResultadoFichaEmpleadoB2 struct {
 	Evidencia            EvidenciaRegistroEmpleadoB2                  `json:"evidencia"`
 	PreparacionServicios *domain.PreparacionServiciosParaCertificados `json:"preparacion_servicios,omitempty"`
 	PreparacionRPT       *domain.PreparacionRelacionParaRPT           `json:"preparacion_rpt,omitempty"`
+	PreparacionCarrera   *domain.PreparacionAntecedentesCarrera       `json:"preparacion_carrera,omitempty"`
 }
 type ResultadoVacantesB2 struct {
 	Pagina    domain.PaginaVacantesB2     `json:"pagina"`

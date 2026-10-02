@@ -192,6 +192,9 @@ func (h *handlerRegistroEmpleadoB2) ServeHTTP(w http.ResponseWriter, r *http.Req
 	if resultado.PreparacionRPT != nil {
 		datos["preparacion_rpt"] = resultado.PreparacionRPT
 	}
+	if resultado.PreparacionCarrera != nil {
+		datos["preparacion_carrera"] = resultado.PreparacionCarrera
+	}
 	responderRegistroEmpleadoB2(w, http.StatusOK, "", map[string]any{"data": datos})
 }
 
