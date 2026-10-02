@@ -154,6 +154,7 @@ type SolicitudActoAdministracionPerfiles struct {
 	ReferenciaActo          string
 	OperacionRef            string
 	Actor                   ContextoActor
+	Evidencia               EvidenciaSesionAdministracionPerfiles `json:"-"`
 	InstantaneaAutorizacion InstantaneaAutorizacion
 	Operacion               OperacionAdministracionPerfiles
 	Clase                   ClaseControlAdministracionPerfiles
@@ -202,6 +203,7 @@ type SolicitudCierrePropuestaAdministracionPerfiles struct {
 	ProponentePersonaRef    string
 	ObjetivoPersonaRef      string
 	Aprobador               ContextoActor
+	Evidencia               EvidenciaSesionAdministracionPerfiles `json:"-"`
 	InstantaneaAutorizacion InstantaneaAutorizacion
 	Decision                DecisionPropuestaAdministracionPerfiles
 	Motivo                  ReferenciaEntradaCatalogo

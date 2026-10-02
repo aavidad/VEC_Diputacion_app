@@ -13,6 +13,7 @@ import (
 
 	"vec-diputacion-granada/internal/vec/domain"
 	"vec-diputacion-granada/internal/vec/ports"
+	"vec-diputacion-granada/internal/vec/pruebas"
 )
 
 type sesionPrueba struct {
@@ -209,20 +210,12 @@ func sesionADMINPrueba(t *testing.T) SesionConfiable {
 	ahora := time.Date(2026, 9, 30, 19, 0, 0, 0, time.UTC)
 	persona := "per_" + strings.Repeat("a", 22)
 	perfil := "prf_" + strings.Repeat("b", 22)
-	cuenta := domain.CuentaAutenticadaContextoActor{
-		CuentaRef: "cta_" + strings.Repeat("c", 22), Metodo: domain.AuthMethodCertificate,
-		Garantia: domain.AuthAssuranceHigh,
-	}
-	i := domain.InstantaneaContextoActor{
-		VinculoRef: "vca_" + strings.Repeat("d", 22), VinculoVersion: 1,
-		CuentaRef: cuenta.CuentaRef, CuentaVersion: 1, PersonaRef: persona, PersonaVersion: 1,
-		PerfilActivoRef: perfil, PerfilVersion: 1, Estado: domain.EstadoVinculoContextoActorActivo,
-		VigenteDesde: ahora.Add(-time.Hour), VigenteHasta: ahora.Add(time.Hour),
-	}
-	actor, err := domain.NuevoContextoActor(cuenta, i, ahora)
+	resultado, vinculo, err := pruebas.NuevoContextoRegistradoYVinculoV2(
+		ahora, persona, perfil, domain.AuthMethodCertificate, domain.AuthAssuranceHigh)
 	if err != nil {
 		t.Fatal(err)
 	}
+	actor := resultado.Contexto
 	rol := domain.VersionRol{
 		RolID: "tecnico_bolsa", Version: 1, Nombre: "Tecnico de bolsa",
 		Estado:       domain.EstadoVersionRolPublicada,
@@ -252,8 +245,41 @@ func sesionADMINPrueba(t *testing.T) SesionConfiable {
 	if err := snapshot.Validar(); err != nil {
 		t.Fatal(err)
 	}
-	return SesionConfiable{Actor: actor, InstantaneaAutorizacion: snapshot,
-		CorrelacionRef: "correlacion_" + strings.Repeat("e", 32)}
+	return SesionConfiable{Actor: actor,
+		Evidencia:               domain.EvidenciaSesionAdministracionPerfiles{ResultadoContexto: resultado, Vinculo: vinculo},
+		InstantaneaAutorizacion: snapshot,
+		CorrelacionRef:          "correlacion_" + strings.Repeat("e", 32)}
+}
+
+func TestSesionADMINRechazaEvidenciaAusenteOCruzada(t *testing.T) {
+	base := sesionADMINPrueba(t)
+	otra, vinculo, err := pruebas.NuevoContextoRegistradoYVinculoV2(
+		base.Actor.ResueltoEn.Add(2*time.Minute),
+		"per_"+strings.Repeat("f", 22), "prf_"+strings.Repeat("g", 22),
+		domain.AuthMethodCertificate, domain.AuthAssuranceHigh)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for nombre, evidencia := range map[string]domain.EvidenciaSesionAdministracionPerfiles{
+		"ausente":    {},
+		"otro actor": {ResultadoContexto: otra, Vinculo: vinculo},
+	} {
+		t.Run(nombre, func(t *testing.T) {
+			s := base
+			s.Evidencia = evidencia
+			lecturas := &lecturasPrueba{}
+			h, err := NuevoHandler("https://admin.example.test", &sesionPrueba{resultado: s},
+				lecturas, &catalogoPrueba{}, &actosPrueba{}, &auditorPrueba{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			w := httptest.NewRecorder()
+			h.ServeHTTP(w, peticionADMIN(http.MethodGet, PrefijoV1+"/capacidades", ""))
+			if w.Code != http.StatusServiceUnavailable || lecturas.llamadas != 0 {
+				t.Fatalf("estado=%d lecturas=%d", w.Code, lecturas.llamadas)
+			}
+		})
+	}
 }
 
 func peticionADMIN(metodo, ruta, cuerpo string) *http.Request {

@@ -29,6 +29,7 @@ var (
 // requiere la decisión V3 actual de su propia autoridad.
 type SesionConfiable struct {
 	Actor                   domain.ContextoActor
+	Evidencia               domain.EvidenciaSesionAdministracionPerfiles `json:"-"`
 	InstantaneaAutorizacion domain.InstantaneaAutorizacion
 	CorrelacionRef          string
 }
@@ -156,7 +157,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	if sesion.Actor.Validar() != nil || sesion.InstantaneaAutorizacion.Validar() != nil ||
+	if sesion.Actor.Validar() != nil || sesion.Evidencia.ValidarPara(sesion.Actor) != nil ||
+		sesion.InstantaneaAutorizacion.Validar() != nil ||
 		sesion.Actor.PersonaRef != sesion.InstantaneaAutorizacion.AsignacionPerfil.PrincipalID ||
 		sesion.Actor.PerfilActivoRef != sesion.InstantaneaAutorizacion.AsignacionPerfil.PerfilActivoRef ||
 		!domain.ReferenciaCorrelacionAutorizacionV2Valida(sesion.CorrelacionRef) {
@@ -276,7 +278,7 @@ func (h *Handler) post(w http.ResponseWriter, r *http.Request, s SesionConfiable
 			return
 		}
 		solicitud := domain.SolicitudActoAdministracionPerfiles{ReferenciaActo: dto.ReferenciaActo, OperacionRef: dto.OperacionRef,
-			Actor: s.Actor, InstantaneaAutorizacion: s.InstantaneaAutorizacion,
+			Actor: s.Actor, Evidencia: s.Evidencia, InstantaneaAutorizacion: s.InstantaneaAutorizacion,
 			Operacion: domain.OperacionAdministracionPerfiles(dto.Operacion), Clase: clase.Clase,
 			RolVersionRef: dto.RolVersionRef, Objetivo: dto.Objetivo.dominio(),
 			Motivo: dto.Motivo.dominio(), CorrelacionRef: s.CorrelacionRef}
@@ -351,7 +353,7 @@ func (h *Handler) post(w http.ResponseWriter, r *http.Request, s SesionConfiable
 		solicitud := domain.SolicitudCierrePropuestaAdministracionPerfiles{
 			OperacionRef: dto.OperacionRef, PropuestaRef: ref, PropuestaHuellaSHA256: dto.PropuestaHuellaSHA256,
 			ProponentePersonaRef: propuesta.ProponentePersonaRef, ObjetivoPersonaRef: propuesta.ObjetivoPersonaRef,
-			Aprobador: s.Actor, InstantaneaAutorizacion: s.InstantaneaAutorizacion,
+			Aprobador: s.Actor, Evidencia: s.Evidencia, InstantaneaAutorizacion: s.InstantaneaAutorizacion,
 			Decision: domain.DecisionPropuestaAdministracionPerfiles(dto.Decision), Motivo: dto.Motivo.dominio(),
 			CorrelacionRef: s.CorrelacionRef}
 		if solicitud.Validar() != nil {

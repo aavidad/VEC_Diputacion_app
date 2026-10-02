@@ -84,8 +84,10 @@ func TestActoHTTPConservaUnidadYReferenciaOpcional(t *testing.T) {
 			if (autoridad.llamada != nil) != caso.efecto {
 				t.Fatal("efecto de autoridad inesperado")
 			}
-			if autoridad.llamada != nil && (autoridad.llamada.ReferenciaActo != caso.referencia || autoridad.llamada.Objetivo.UnidadRef != caso.unidad) {
-				t.Fatal("se perdieron unidad o acto")
+			if autoridad.llamada != nil && (autoridad.llamada.ReferenciaActo != caso.referencia ||
+				autoridad.llamada.Objetivo.UnidadRef != caso.unidad ||
+				autoridad.llamada.Evidencia.ValidarPara(sesion.Actor) != nil) {
+				t.Fatal("se perdieron unidad, acto o evidencia de sesión")
 			}
 		})
 	}

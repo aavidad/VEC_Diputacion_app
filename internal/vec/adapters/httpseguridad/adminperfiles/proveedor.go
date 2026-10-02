@@ -146,7 +146,9 @@ func (p *Proveedor) Resolver(ctx context.Context, r *http.Request, o Observacion
 	if err != nil {
 		return vacia, api.ErrConfiguracionIncompleta
 	}
-	return api.SesionConfiable{Actor: resultado.Contexto, InstantaneaAutorizacion: instantanea, CorrelacionRef: ref}, nil
+	return api.SesionConfiable{Actor: resultado.Contexto,
+		Evidencia:               domain.EvidenciaSesionAdministracionPerfiles{ResultadoContexto: resultado, Vinculo: vinculo},
+		InstantaneaAutorizacion: instantanea, CorrelacionRef: ref}, nil
 }
 
 func errorAutoridad(err error) error {

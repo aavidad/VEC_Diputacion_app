@@ -60,6 +60,27 @@ func solicitudActoAdministracionPerfilesPrueba(t *testing.T) SolicitudActoAdmini
 	}
 }
 
+func TestEvidenciaSesionAdministracionPerfilesConservaParRegistrado(t *testing.T) {
+	ahora := instanteVinculoAutenticacionActorV2Prueba()
+	vinculo, resultado, _ := vinculoAutenticacionActorV2Prueba(t, ahora)
+	e := EvidenciaSesionAdministracionPerfiles{ResultadoContexto: resultado, Vinculo: vinculo}
+	if err := e.ValidarPara(resultado.Contexto); err != nil {
+		t.Fatal(err)
+	}
+	if err := (EvidenciaSesionAdministracionPerfiles{}).ValidarPara(resultado.Contexto); err == nil {
+		t.Fatal("ausencia de evidencia admitida")
+	}
+	otro := resultado.Contexto
+	otro.PerfilActivoRef = "prf_" + strings.Repeat("f", 22)
+	otro.Instantanea.PerfilActivoRef = otro.PerfilActivoRef
+	if err := otro.Validar(); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.ValidarPara(otro); err == nil {
+		t.Fatal("evidencia del perfil original aceptada para otro actor")
+	}
+}
+
 func TestAdministracionPerfilesSeparaActoOrdinarioDePropuestaSensible(t *testing.T) {
 	s := solicitudActoAdministracionPerfilesPrueba(t)
 	if err := s.Validar(); err != nil {

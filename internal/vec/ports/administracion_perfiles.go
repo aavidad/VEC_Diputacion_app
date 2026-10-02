@@ -36,6 +36,9 @@ type CatalogoRolesAdministrables interface {
 // hasta la recuperacion autorizada. Intervencion usa el mismo doble control;
 // su rol exacto sigue cerrado hasta publicarlo en catalogo.
 // Una revocacion no puede reactivar el mismo perfil/vinculo historico.
+// El adaptador rechaza EvidenciaSesionAdministracionPerfiles vacía, cruzada o
+// ajena al actor también en replay. Entrega al PDP V3 el vínculo V2 y su
+// resultado registrado exactos, sin serializar contexto V2 como contexto V3.
 //
 // Las referencias de operacion son idempotentes: mismo contenido recupera el
 // mismo recibo, contenido distinto falla; incluso al recuperar se revalida

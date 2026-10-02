@@ -37,6 +37,7 @@ func (s *ServicioAdministracionPerfiles) AplicarOrdinario(
 		return domain.ReciboAdministracionPerfiles{}, ErrAdministracionPerfilesNoConfigurada
 	}
 	if ctx == nil || ctx.Err() != nil || solicitud.Validar() != nil ||
+		solicitud.Evidencia.ValidarPara(solicitud.Actor) != nil ||
 		solicitud.Clase != domain.ClaseControlPerfilOrdinario ||
 		!domain.ReferenciaAdministracionPerfilesValida(solicitud.OperacionRef, "acto_admin:") {
 		return domain.ReciboAdministracionPerfiles{}, domain.ErrActoAdministracionPerfilesInvalido
@@ -81,6 +82,7 @@ func (s *ServicioAdministracionPerfiles) ProponerSensible(
 		return ports.PropuestaAdministracionPerfiles{}, ErrAdministracionPerfilesNoConfigurada
 	}
 	if ctx == nil || ctx.Err() != nil || solicitud.Validar() != nil ||
+		solicitud.Evidencia.ValidarPara(solicitud.Actor) != nil ||
 		!solicitud.Clase.RequiereDobleControl() ||
 		!domain.ReferenciaAdministracionPerfilesValida(solicitud.OperacionRef, "propuesta_admin:") {
 		return ports.PropuestaAdministracionPerfiles{}, domain.ErrControlAdministracionPerfilesInvalido
@@ -112,7 +114,8 @@ func (s *ServicioAdministracionPerfiles) CerrarPropuestaSensible(
 	if s == nil || s.actos == nil {
 		return ports.CierrePropuestaAdministracionPerfiles{}, ErrAdministracionPerfilesNoConfigurada
 	}
-	if ctx == nil || ctx.Err() != nil || solicitud.Validar() != nil {
+	if ctx == nil || ctx.Err() != nil || solicitud.Validar() != nil ||
+		solicitud.Evidencia.ValidarPara(solicitud.Aprobador) != nil {
 		return ports.CierrePropuestaAdministracionPerfiles{}, domain.ErrControlAdministracionPerfilesInvalido
 	}
 	cierre, err := s.actos.CerrarPropuestaSensible(ctx, solicitud)
