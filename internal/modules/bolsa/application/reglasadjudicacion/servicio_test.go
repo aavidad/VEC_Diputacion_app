@@ -53,7 +53,7 @@ func (c *calendarioPrueba) CalcularPlazo(_ context.Context, s calendariosports.S
 
 func politicaPrueba() domain.PoliticaOfertas {
 	return domain.PoliticaOfertas{
-		Plazo:        domain.PlazoPoliticaOfertas{Unidad: "dias_habiles", Cantidad: 2, Computo: "administrativo", MunicipioSede: "18087"},
+		Plazo:        domain.PlazoPoliticaOfertas{Inicio: "notificacion", Unidad: "dias_habiles", Cantidad: 2, Computo: "administrativo", MunicipioSede: "18087"},
 		Adjudicacion: domain.AdjudicacionPoliticaOfertas{Criterio: "orden_vigente", Elegibilidad: "disposicion_en_plazo"},
 		NoCubierta:   domain.NoCubiertaPoliticaOfertas{Accion: "llamamiento_directo", Condicion: "sin_disposiciones_elegibles"},
 	}
@@ -96,7 +96,7 @@ func TestPlazoHorasNaturalesCruzaCambiosHorarioMadrid(t *testing.T) {
 		time.Date(2026, 10, 24, 12, 17, 13, 123456000, time.UTC),
 	} {
 		p := politicaPrueba()
-		p.Plazo = domain.PlazoPoliticaOfertas{Unidad: "horas_naturales", Cantidad: 48, Computo: "continuo_utc", MunicipioSede: "18087"}
+		p.Plazo = domain.PlazoPoliticaOfertas{Inicio: "notificacion", Unidad: "horas_naturales", Cantidad: 48, Computo: "continuo_utc", MunicipioSede: "18087"}
 		s, err := NuevoServicio(repoPrueba{version: ports.VersionPoliticaOfertas{
 			BolsaRef: "bolsa:prueba", Version: 3, HuellaSHA256: strings.Repeat("a", 64), Ejemplo: true, Configurada: true, Politica: &p,
 		}}, nil)
@@ -149,5 +149,21 @@ func TestConsultaRRHHExigeMaterialAtestado(t *testing.T) {
 	}
 	if _, err := s.ConsultarAutorizada(t.Context(), ports.ConsultaPoliticaOfertasAutorizada{BolsaRef: "bolsa:prueba"}); !errors.Is(err, ports.ErrPoliticaOfertasNoDisponible) || repo.llamadas != 0 {
 		t.Fatalf("GET sin material V3: %v", err)
+	}
+}
+
+func TestPoliticaHistoricaSeConsultaSinAbrirOtraOfertaDesdeNotificacion(t *testing.T) {
+	p := politicaPrueba()
+	p.Plazo.Inicio = ""
+	s, err := NuevoServicio(repoPrueba{version: ports.VersionPoliticaOfertas{BolsaRef: "bolsa:prueba", Version: 1, HuellaSHA256: strings.Repeat("a", 64), Ejemplo: true, Configurada: true, Politica: &p}}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	v, err := s.Vigente(t.Context(), "bolsa:prueba")
+	if err != nil || v.Politica.Plazo.Inicio != "" {
+		t.Fatalf("política histórica alterada: %+v %v", v, err)
+	}
+	if _, _, err = s.PlazoDisposicionBolsa(t.Context(), "bolsa:prueba", time.Date(2026, 10, 2, 9, 0, 0, 0, time.UTC)); !errors.Is(err, ports.ErrPlazoOfertaNoConfigurado) {
+		t.Fatalf("oferta nueva con política histórica: %v", err)
 	}
 }

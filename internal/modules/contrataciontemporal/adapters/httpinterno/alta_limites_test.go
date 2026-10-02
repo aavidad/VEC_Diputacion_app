@@ -36,8 +36,9 @@ func codificarMapaPrueba(t *testing.T, valor any) []byte {
 func codificarSolicitudPrueba(t *testing.T, solicitud map[string]any) []byte {
 	t.Helper()
 	return codificarMapaPrueba(t, map[string]any{
-		"clave_idempotencia": claveIdempotenciaPrueba,
-		"solicitud":          solicitud,
+		"clave_idempotencia":     claveIdempotenciaPrueba,
+		"numero_expediente_moad": "2026/5487",
+		"solicitud":              solicitud,
 	})
 }
 

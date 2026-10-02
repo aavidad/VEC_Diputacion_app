@@ -104,7 +104,7 @@ func errorSituacionParticipacion(err error) error {
 		switch pgErr.Code {
 		case "23503":
 			return ports.ErrSituacionParticipacionNoEncontrada
-		case "VBS01", "22023":
+		case "VBS01", "VBS02", "22023":
 			return dominiobolsa.ErrCambioSituacionParticipacionInvalido
 		case "23505":
 			return ports.ErrSituacionParticipacionNoDisponible

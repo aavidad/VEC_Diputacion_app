@@ -50,7 +50,7 @@ func (r *RegistroPortalCandidatoPostgreSQL) SolicitarPortal(ctx context.Context,
 	var recibo puertosbolsa.ReciboSolicitudPortal
 	err = tx.QueryRow(ctx, `SELECT reutilizada, solicitud_ref, recibo_ref, registrada_en FROM `+funcionSolicitarPortalV1+`($1::text,$2::text,$3::text,$4::text,$5::text,$6::timestamptz,$7::timestamptz,$8::text[],$9::text,$10::text,$11::timestamptz,$12::bytea,$13::bytea,$14::bytea,$15::bytea,$16::numeric,$17::numeric,$18::bytea,$19::bytea,$20::bytea,$21::bytea)`,
 		s.SolicitudRef, s.ReciboRef, s.CandidatoRef, s.Bolsa, s.Tipo, utcOpcional(s.PausaHasta), utcOpcional(s.PausaMaxima), s.SituacionesAdmitidas, s.ReglaRef, s.Clave, s.RegistradaEn.UTC(),
-		m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), int64(m.PersonaVersion()), int64(m.PerfilVersion()), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI(),
+		m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), m.PersonaVersion(), m.PerfilVersion(), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI(),
 	).Scan(&recibo.Reutilizada, &recibo.SolicitudRef, &recibo.ReciboRef, &recibo.RegistradaEn)
 	if err != nil {
 		return vacio, errorPortalCandidato(ctx, err)
@@ -76,7 +76,7 @@ func (r *RegistroPortalCandidatoPostgreSQL) ResponderPortal(ctx context.Context,
 	// Primero se consume la decisión propia: sin ella la base no deja leer el
 	// portal. La respuesta usa después esa misma decisión, no otra.
 	if _, err := tx.Exec(ctx, `SELECT `+funcionPrepararRespuestaV1+`($1::text,$2::text,$3::bytea,$4::bytea,$5::bytea,$6::bytea,$7::numeric,$8::numeric,$9::bytea,$10::bytea,$11::bytea,$12::bytea)`,
-		s.CandidatoRef, s.Bolsa, m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), int64(m.PersonaVersion()), int64(m.PerfilVersion()), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI()); err != nil {
+		s.CandidatoRef, s.Bolsa, m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), m.PersonaVersion(), m.PerfilVersion(), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI()); err != nil {
 		return vacio, errorPortalCandidato(ctx, err)
 	}
 	// El contacto vigente se lee en la misma transacción serializable que la
@@ -109,7 +109,7 @@ func (r *RegistroPortalCandidatoPostgreSQL) ResponderPortal(ctx context.Context,
 	err = tx.QueryRow(ctx, `SELECT reutilizada, respuesta_ref, recibo_ref, respondida_en, modo FROM `+funcionResponderPortalV1+`($1::text,$2::text,$3::text,$4::text,$5::text,$6::text,$7::text,$8::text,$9::text,$10::timestamptz,$11::timestamptz,$12::text[],$13::text,$14::text,$15::timestamptz,$16::bytea,$17::bytea,$18::bytea,$19::bytea,$20::numeric,$21::numeric,$22::bytea,$23::bytea,$24::bytea,$25::bytea)`,
 		s.RespuestaRef, s.ReciboRef, s.CandidatoRef, s.Bolsa, s.Respuesta, textoOpcional(s.Causa), textoOpcional(s.JustificanteRef), textoOpcional(s.JustificanteSHA256), s.Modo,
 		contacto, vence, s.ResultadosEfectivos, s.ReglaRef, s.Clave, s.RespondidaEn.UTC(),
-		m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), int64(m.PersonaVersion()), int64(m.PerfilVersion()), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI(),
+		m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), m.PersonaVersion(), m.PerfilVersion(), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI(),
 	).Scan(&recibo.Reutilizada, &recibo.RespuestaRef, &recibo.ReciboRef, &recibo.RespondidaEn, &recibo.Modo)
 	if err != nil {
 		return vacio, errorPortalCandidato(ctx, err)
@@ -151,7 +151,15 @@ type estadoPortalPostgreSQL struct {
 		RegistradaEn time.Time  `json:"registrada_en"`
 		PausaHasta   *time.Time `json:"pausa_hasta"`
 	} `json:"solicitud_pendiente"`
-	UltimaRespuesta *struct {
+	UltimaSolicitudDocumental *struct {
+		Tipo                string    `json:"tipo"`
+		Recibo              string    `json:"recibo"`
+		RegistradaEn        time.Time `json:"registrada_en"`
+		Estado              string    `json:"estado"`
+		ReciboResolucionRef *string   `json:"recibo_resolucion_ref"`
+	} `json:"ultima_solicitud_documental"`
+	SolicitudDocumentalPendiente bool `json:"solicitud_documental_pendiente"`
+	UltimaRespuesta              *struct {
 		Respuesta    string    `json:"respuesta"`
 		Modo         string    `json:"modo"`
 		Recibo       string    `json:"recibo"`
@@ -176,6 +184,7 @@ func leerPortalCandidato(ctx context.Context, tx consultorPortal, candidato stri
 			return nil, puertosbolsa.ErrPortalCandidatoNoDisponible
 		}
 		e := puertosbolsa.EstadoPortalCandidato{Bolsa: f.Bolsa}
+		e.SolicitudDocumentalPendiente = f.SolicitudDocumentalPendiente
 		if a := f.LlamamientoAbierto; a != nil {
 			if a.ContactoEn.IsZero() || a.ContactoEn.After(corte) {
 				return nil, puertosbolsa.ErrPortalCandidatoNoDisponible
@@ -187,6 +196,21 @@ func leerPortalCandidato(ctx context.Context, tx consultorPortal, candidato stri
 				return nil, puertosbolsa.ErrPortalCandidatoNoDisponible
 			}
 			e.SolicitudPendiente = &puertosbolsa.SolicitudPendientePortal{Tipo: p.Tipo, Recibo: p.Recibo, RegistradaEn: p.RegistradaEn.UTC(), PausaHasta: utcOpcional(p.PausaHasta)}
+		}
+		if d := f.UltimaSolicitudDocumental; d != nil {
+			if d.Tipo != puertosbolsa.TipoSolicitudDocumentalRRHH || d.Recibo == "" || d.RegistradaEn.IsZero() ||
+				(d.Estado != "pendiente_rrhh" && d.Estado != "validada" && d.Estado != "rechazada") ||
+				(d.Estado == "pendiente_rrhh") != f.SolicitudDocumentalPendiente ||
+				(d.Estado == "pendiente_rrhh" && d.ReciboResolucionRef != nil) ||
+				(d.Estado != "pendiente_rrhh" && (d.ReciboResolucionRef == nil || *d.ReciboResolucionRef == "")) {
+				return nil, puertosbolsa.ErrPortalCandidatoNoDisponible
+			}
+			e.UltimaSolicitudDocumental = &puertosbolsa.SolicitudDocumentalEstadoPortal{Tipo: d.Tipo, Recibo: d.Recibo, RegistradaEn: d.RegistradaEn.UTC(), Estado: d.Estado}
+			if d.ReciboResolucionRef != nil {
+				e.UltimaSolicitudDocumental.ReciboResolucionRef = *d.ReciboResolucionRef
+			}
+		} else if f.SolicitudDocumentalPendiente {
+			return nil, puertosbolsa.ErrPortalCandidatoNoDisponible
 		}
 		if u := f.UltimaRespuesta; u != nil {
 			if u.Respuesta == "" || u.Recibo == "" || u.RespondidaEn.IsZero() || (u.Modo != puertosbolsa.ModoRespuestaPortalFirme && u.Modo != puertosbolsa.ModoRespuestaPortalPropuesta) {

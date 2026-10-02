@@ -1,5 +1,5 @@
-import { crearControladorPortal } from "./portal-eventos.js?v=20261001-ct-a-i18n-v1";
-import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261002-a-recuperar-379-v1";
+import { crearControladorPortal } from "./portal-eventos.js?v=20261002-ct-fin-modalidad-v1";
+import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261002-r-rrhh18-v4";
 import { extraerDatosEnvelopeCanonico } from "./portal-contrato.js?v=20260925-sin-demo2-v1";
 import { crearClientePropuestasLlamamiento } from "./portal-llamamientos-api.js?v=20261001-ct-a-i18n-v1";
 import { resolverSolicitudPropuestaLlamamiento } from "./portal-llamamientos-flujo.js?v=20261001-ct-a-i18n-v1";
@@ -8,7 +8,7 @@ import { crearAyudanteTramites } from "./ayudante-tramites.js?v=20261001-ct-a-i1
 import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20261001-ct-a-i18n-v1";
 import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20261001-ct-a-i18n-v1";
 import { crearVistasOperaciones } from "./portal-vistas-operaciones.js?v=20260930-portales-i18n-integracion-v1";
-import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES, VISTAS_AUTOSERVICIO_EMPLEADO } from "./portal-modulos-coordinador.js?v=20261002-codexe-d7c-personal-v4";
+import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES, VISTAS_AUTOSERVICIO_EMPLEADO } from "./portal-modulos-coordinador.js?v=20261002-ct-fin-moad-v1";
 import { crearTraductorDocumentos } from "./modulos/documentos/i18n.js?v=20260928-ppt-v2";
 import { consultarSesionPortal, presentarSesionPortal } from "./portal-catalogo-modulos.js?v=20261001-ct-a-i18n-v1";
 import { crearTraductorPersonal } from "./modulos/personal/i18n.js?v=20260925-personal-e10-v1";
@@ -18,11 +18,11 @@ import { accesoBolsaEfectivo, aplicarDisponibilidadMenuBolsa, instalarMenuBolsa,
 import { LOCALIZACION_PORTAL, textoPortal, traducirPortal } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
 import { instalarCopiaJustificantes } from "./portal-justificante.js";
 import { aplicarIdiomaDocumento, aplicarTextosPortal, instalarSelectorIdiomaPortal, instalarValidacionI18n } from "./portal-idioma.js?v=20261001-ct-a-i18n-v1";
-import { crearControladorBolsas } from "./portal-bolsas-api.js?v=20261002-a-recuperar-379-v1";
+import { crearControladorBolsas } from "./portal-bolsas-api.js?v=20261002-r-rrhh18-v3";
 import { crearSuperficieBorradorLlamamiento } from "./portal-borrador-llamamiento-ui.js?v=20261001-ct-a-i18n-v1";
-import { consultarAvisosBolsa, manejarAccionAvisos } from "./portal-bolsas-avisos.js?v=20261001-ct-a-i18n-v1";
-import { crearSuperficieOfertasBolsa } from "./portal-bolsas-ofertas.js?v=20261001-ct-a-i18n-v1";
-import { crearSuperficieRRHHPlazos } from "./modulos/bolsa/rrhh-plazos-ui.js?v=20261001-ct-a-i18n-v1";
+import { consultarAvisosBolsa, manejarAccionAvisos } from "./portal-bolsas-avisos.js?v=20261002-rrhh17-v1";
+import { crearSuperficieOfertasBolsa } from "./portal-bolsas-ofertas.js?v=20261002-r3-r4-ofertas-v1";
+import { crearSuperficieRRHHPlazos } from "./modulos/bolsa/rrhh-plazos-ui.js?v=20261002-r2-post401-v2";
 import { crearFuenteAuditoriaHTTP } from "./modulos/auditoria/cliente-http.js?v=20260928-usab-auditoria-v2";
 import { montarVistaAuditoria } from "./modulos/auditoria/vista.js?v=20261001-ct-a-i18n-v1";
 import { crearClientePoliticaCeseRRHH } from "./modulos/bolsa/rrhh-politica-cese-api.js?v=20260928-rrhh-politica-cese-v1";
@@ -534,7 +534,7 @@ async function comprobarAccesoPlantillas() {
   const controlador = new AbortController();
   consultaAccesoPlantillas = controlador;
   try {
-    const { crearClientePlantillasRRHH } = await import("./modulos/contratacion-temporal/rrhh-plantillas-cliente.js?v=20261001-ct-a-i18n-v1");
+    const { crearClientePlantillasRRHH } = await import("./modulos/contratacion-temporal/rrhh-plantillas-cliente.js?v=20261002-ct-fin-moad-v1");
     if (consultaAccesoPlantillas !== controlador || controlador.signal.aborted) return;
     await crearClientePlantillasRRHH().consultar({ signal: controlador.signal });
     if (consultaAccesoPlantillas !== controlador || controlador.signal.aborted) return;

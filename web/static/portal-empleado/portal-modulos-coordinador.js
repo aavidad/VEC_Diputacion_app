@@ -92,15 +92,20 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
       notificacionesPropias, bandejaNotificaciones, clienteNotificaciones, i18nNotificaciones });
   },
   contratacion_temporal: async () => {
-    const [contrato, cliente, presentador, vista, adaptador, auditoriaVista, auditoriaCliente, incorporacionB2] = await Promise.all([
-      import("./modulos/contratacion-temporal/contrato.js"),
-      import("./modulos/contratacion-temporal/cliente-http.js"),
-      import("./modulos/contratacion-temporal/presentador-expedientes.js?v=20261001-ct-a-i18n-v1"),
-      import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261001-ana002-v4"),
-      import("./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=20261001-ct-a-i18n-v1"),
+    const [contrato, cliente, presentador, adaptador, incorporacionB2] = await Promise.all([
+      import("./modulos/contratacion-temporal/contrato.js?v=20261002-ct-fin-moad-v1"),
+      import("./modulos/contratacion-temporal/cliente-http.js?v=20261002-ct-fin-moad-v1"),
+      import("./modulos/contratacion-temporal/presentador-expedientes.js?v=20261002-ct-fin-moad-v1"),
+      import("./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=20261002-ct-fin-moad-v1"),
+      import("./modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js?v=20260930-inc-b2-web-v1"),
+    ]);
+    // La vista importa el catálogo de fases y el de expedientes. Esperar a los
+    // consumidores previos evita leer ese catálogo antes de inicializarlo.
+    const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261002-ct-fin-moad-v1");
+    // Auditoría comparte el cargador de textos con CT.
+    const [auditoriaVista, auditoriaCliente] = await Promise.all([
       import("./modulos/auditoria/vista.js?v=20261001-ct-a-i18n-v1"),
       import("./modulos/auditoria/cliente-http.js?v=20260928-usab-auditoria-v2"),
-      import("./modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js?v=20260930-inc-b2-web-v1"),
     ]);
     return Object.freeze({ contrato, cliente, presentador, vista, adaptador, auditoriaVista, auditoriaCliente, incorporacionB2 });
   },
@@ -110,8 +115,8 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
       import("./modulos/personal/cliente-http-categorias.js?v=20260925-portal-integrado-v1"),
       import("./modulos/personal/vista.js?v=20260929-i18n-personal-v1"),
       import("./modulos/personal/vista-ficha-integral.js?v=20261002-personal-servicios-csv-v2"),
-      import("./modulos/personal/registro-b2.js?v=20261002-b-servicios-351-main-v1"),
-      import("./modulos/personal/registro-b2-cliente.js?v=20260925-b2-selector-v1"),
+      import("./modulos/personal/registro-b2.js?v=20261002-b-base-401-acumulada-v3"),
+      import("./modulos/personal/registro-b2-cliente.js?v=20261002-b-base-401-acumulada-v3"),
       import("./modulos/personal/registro-b2-catalogos-cliente.js?v=20260925-b2-mtls-v1"),
       import("./modulos/personal/i18n.js?v=20260925-personal-e10-v1"),
       import("./modulos/personal/cliente-http-ficha-propia.js?v=20261002-personal-servicios-csv-v1"),
@@ -318,7 +323,7 @@ export function crearCoordinadorModulosPortal({
     );
     exigirVigente();
     const mensajesExpedientes = locale === "en-GB"
-      ? (await import("./modulos/contratacion-temporal/i18n-expedientes.js?v=20261001-ct-a-i18n-v1")).MENSAJES_EXPEDIENTES_CONTRATACION_EN
+      ? (await import("./modulos/contratacion-temporal/i18n-expedientes.js?v=20261002-ct-fin-modalidad-v1")).MENSAJES_EXPEDIENTES_CONTRATACION_EN
       : {};
     exigirVigente();
     const cliente = recursos.cliente.crearClienteHTTPContratacionTemporal({
@@ -945,7 +950,7 @@ export function crearCoordinadorModulosPortal({
     }
 
     if (vista === VISTA_PLANTILLAS_RRHH) {
-      const { montarRRHHPlantillas } = await import("./modulos/contratacion-temporal/rrhh-plantillas-vista.js?v=20261001-ct-a-i18n-v1");
+      const { montarRRHHPlantillas } = await import("./modulos/contratacion-temporal/rrhh-plantillas-vista.js?v=20261002-ct-fin-moad-v1");
       if (montaje !== secuenciaMontaje) return false;
       const modulo = montarRRHHPlantillas({ raiz, anunciar });
       if (montaje !== secuenciaMontaje) { modulo.desmontar(); return false; }

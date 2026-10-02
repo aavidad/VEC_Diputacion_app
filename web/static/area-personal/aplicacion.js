@@ -1,6 +1,5 @@
 import { escaparAtributo, escaparHTML, listaDatos } from "./vistas/comunes.js";
 import { IDIOMAS_DISPONIBLES } from "../comun/idioma.js";
-import { MOTIVOS_PAUSA_DISPONIBILIDAD } from "./contrato.js";
 import { iniciarI18nAreaPersonal, textosErrorCargaAreaPersonal, traducir } from "./i18n.js";
 import { alternarVisualSesion, crearOperacionPreferencias, montarUsuariosAreaPersonal, pintarInicialesSesion, renderizarPreferencias,
   sincronizarAtajosVisuales, valoresDelFormulario } from "./preferencias.js?v=20260930-codexf-temas-v2";
@@ -13,18 +12,17 @@ import {
 } from "./vistas/perfil-meritos-solicitud.js";
 import {
   renderizarAlegaciones, renderizarLlamamientos, renderizarSeguimiento, renderizarSubsanaciones,
-} from "./vistas/seguimiento-tramites.js";
+} from "./vistas/seguimiento-tramites.js?v=20261002-rrhh17-v1";
 import { renderizarAyuda, renderizarCertificados, renderizarMensajes } from "./vistas/comunicaciones-ayuda.js";
-import { crearControladorContactoPropio, montarContactoPropio } from "./contacto-propio.js?v=20260930-temas-v2-historico-v1";
+import { crearControladorContactoPropio, montarContactoPropio } from "./contacto-propio.js?v=20261002-rrhh17-v1";
 import { montarFichaAspirante } from "./ficha-aspirante.js?v=20260930-portales-i18n-integracion-v1";
-import { enviarPortalMiBolsa } from "./mi-bolsa-portal.js";
+import { enviarPortalMiBolsa } from "./mi-bolsa-portal.js?v=20261002-rrhh17-v1";
 import { montarHistorialMiBolsa } from "./mi-bolsa-historial.js";
 import {
   aplicarPasoSolicitud, crearPayloadBorrador, crearProgresoSolicitud,
   declaracionFinalConfirmada, localizarSolicitudEdicion,
 } from "./flujo-solicitud.js";
 
-const MOTIVO_PAUSA_PREDETERMINADO = MOTIVOS_PAUSA_DISPONIBILIDAD[0];
 
 const RUTAS = Object.freeze({
   inicio: ["areaPersonal.rutas.inicio", renderizarInicio],
@@ -49,7 +47,7 @@ const RUTAS = Object.freeze({
 // (`areaPersonal.operacion.<operación>`).
 const OPERACIONES = Object.freeze(new Set([
   "actualizar_contacto", "incorporar_merito", "guardar_borrador", "calcular_autobaremo", "iniciar_pago",
-  "firmar_solicitud", "registrar_solicitud", "cambiar_disponibilidad", "responder_llamamiento",
+  "firmar_solicitud", "registrar_solicitud", "responder_llamamiento",
   "presentar_subsanacion", "presentar_alegacion", "marcar_mensaje", "actualizar_notificaciones",
   "solicitar_certificado", "solicitar_descarga",
 ]));
@@ -686,14 +684,6 @@ function atenderAccion(estado, boton) {
       id = llamamiento;
       payload.respuesta = respuesta;
     }
-    if (boton.dataset.operacion === "cambiar_disponibilidad") {
-      payload.disponible = id === "true";
-      if (!payload.disponible) {
-        payload.motivo_clave = boton.dataset.motivoClave || "pausa_voluntaria";
-        if (boton.dataset.hasta) payload.hasta = boton.dataset.hasta;
-        if (boton.dataset.motivoTexto) payload.motivo_texto = boton.dataset.motivoTexto;
-      }
-    }
     if (boton.dataset.operacion === "calcular_autobaremo") {
       const borrador = localizarSolicitudEdicion(estado.datos, {
         solicitudId: estado.solicitudEdicionId,
@@ -794,29 +784,6 @@ function conectarEventos(estado) {
       const payloadInicial = formularioAObjeto(formulario);
       const payload = formulario.dataset.operacion === "actualizar_contacto"
         ? excluirCorreoDeActualizacionContacto(payloadInicial) : payloadInicial;
-      if (formulario.dataset.operacion === "cambiar_disponibilidad") {
-        const disponible = payload.disponible === "true" || payload.disponible === true;
-        if (disponible) {
-          payload.disponible = true;
-          delete payload.motivo_clave;
-          delete payload.motivo_texto;
-          delete payload.hasta;
-        } else {
-          payload.disponible = false;
-          payload.motivo_clave ||= MOTIVO_PAUSA_PREDETERMINADO;
-          if (payload.hasta && typeof payload.hasta === "string" && payload.hasta.trim()) {
-            payload.hasta = payload.hasta.trim();
-          } else {
-            delete payload.hasta;
-          }
-          if (payload.motivo_texto && typeof payload.motivo_texto === "string" && payload.motivo_texto.trim()) {
-            payload.motivo_texto = payload.motivo_texto.trim();
-          } else {
-            delete payload.motivo_texto;
-          }
-        }
-        delete payload.confirmacion;
-      }
       if (formulario.dataset.operacion === "registrar_solicitud") {
         if (!declaracionFinalConfirmada(payload.declaracion_final)) {
           estado.errorPasoSolicitud = t("sinDeclaracion");

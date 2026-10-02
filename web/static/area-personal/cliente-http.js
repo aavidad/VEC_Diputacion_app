@@ -1,4 +1,4 @@
-import { validarRecibo, validarRespuestaMiBolsa } from "./contrato.js";
+import { validarRecibo, validarRespuestaMiBolsa } from "./contrato.js?v=20261002-rrhh17-v1";
 import { traducir } from "./i18n.js";
 import { IDIOMAS_DISPONIBLES } from "../comun/idioma.js";
 
@@ -29,7 +29,6 @@ const ACCIONES = Object.freeze({
   iniciar_pago: ["POST", "/api/vec/bolsa/mis-solicitudes/pago"],
   firmar_solicitud: ["POST", "/api/vec/bolsa/mis-solicitudes/firma"],
   registrar_solicitud: ["POST", "/api/vec/bolsa/mis-solicitudes/registro"],
-  cambiar_disponibilidad: ["POST", "/api/vec/bolsa/mi-disponibilidad"],
   responder_llamamiento: ["POST", "/api/vec/bolsa/mis-llamamientos/respuesta"],
   presentar_subsanacion: ["POST", "/api/vec/bolsa/mis-subsanaciones"],
   presentar_alegacion: ["POST", "/api/vec/bolsa/mis-alegaciones"],
