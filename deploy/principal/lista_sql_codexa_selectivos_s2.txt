@@ -1,0 +1,7 @@
+# Borrador: preimagen del núcleo V3 real congelada antes del ensayo.
+# Prerrequisitos existentes: roles/esquema Bolsa Convocatorias y autoridad V3.
+# No exigir Copias/otros consumidores por número; conservar todos en el núcleo.
+# Instalar sólo piezas ausentes; nunca reaplicar ni ejecutar DOWN con historia.
+# Despliegue en orden explícito de fusión, según dirección 02/10 13:50.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000153_consumidores_preparacion_bases_bolsa.up.sql
+deploy/postgresql/bolsa_convocatorias/migraciones/000008_preparacion_bases_v3.up.sql
