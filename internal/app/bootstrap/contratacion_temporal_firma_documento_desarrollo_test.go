@@ -366,6 +366,106 @@ func TestFirmaDocumentoDesarrolloRechazaCertificadoDistintoDelCanal(t *testing.T
 	}
 }
 
+// El catálogo de ejemplo conserva perfiles de cargo opacos, pero el único
+// perfil publicado por la composición antigua es el genérico de firma. Su
+// asignación vigente no le convierte en Jefatura, Diputación ni Secretaría.
+func TestFirmaDocumentoDesarrolloSinPerfilNominalDeniegaPaso(t *testing.T) {
+	s, base, principal := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
+	ahora := s.reloj.Ahora()
+	perfil, err := nuevoPerfilFijoCTDesarrollo(principal, s.contexto, ahora, clavePerfilFijoFirmaCTDesarrollo,
+		[]string{httpinterno.RutaFirmaDocumento, httpinterno.RutaConsultaFirmaDocumento},
+		func(actor, ref string) (dominiovec.InstantaneaAutorizacion, error) {
+			return instantaneaPerfilFijoFirmaDocumentoCTDesarrollo(actor, ref, ahora)
+		})
+	if err != nil || s.registrarPerfilFijoCTDesarrollo(perfil) != nil {
+		t.Fatal("perfil de firma no compuesto", err)
+	}
+	perfil.contextoEsperadoRegistrado = perfil.contexto.Resultado
+	perfil.sesionOperativa = proveedorSesionOperativaCTPrueba{contexto: perfil.contexto}
+	a := s.autoridadAsignaciones.(*autoridadAsignacionesContratacionTemporalDesarrolloPrueba)
+	publicada := instantaneaPublicadaDesarrollo{instantanea: clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(perfil.plantilla),
+		actoAsignacion: actoAsignacionPerfilFijoCTDesarrollo}
+	a.asignaciones = map[string]instantaneaPublicadaDesarrollo{perfil.perfilRef(): publicada}
+	compuestas, err := nuevasReglasEjemploDesarrollo(configuracionCircuitoFirmaPrueba(rutaCircuitoFirmaCTEjemploPrueba), nil, relojPresentacionReglasEjemplo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	circuito, err := compuestas.circuitoFirmaCT.CircuitoFirma(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	f := &firmaDocumentoCTDesarrollo{alta: &dependenciasAltaContratacionTemporalDesarrollo{soporte: s,
+		autorizador: base.autorizador.(autorizadorLigadoContratacionTemporalDesarrollo),
+		postgresql: dependenciasPostgreSQLContratacionTemporalDesarrollo{
+			proveedorMaterialFirmaDocumento: new(proveedorMaterialAltaContratacionTemporalDesarrollo)}},
+		circuito: compuestas.circuitoFirmaCT, reloj: s.reloj}
+	m := materialFirmaDesarrolloPrueba()
+	m.CatalogoRef = circuito.CatalogoID + ":1"
+	m.CatalogoHuella = circuito.HuellaCatalogo
+	m.PasoRef = circuito.Documentos[0].Pasos[0].Referencia
+	if m.Validar() != nil || perfil.perfilRef() == circuito.Documentos[0].Pasos[0].PerfilRef {
+		t.Fatal("el escenario no separa perfil genérico y paso del catálogo")
+	}
+	ctx := contextoRutaCoberturaDesarrolloPrueba(s, principal, httpinterno.RutaFirmaDocumento)
+	if _, err := f.AutorizarFirmaDocumento(ctx, m); !errors.Is(err, ports.ErrFirmaDocumentoDenegada) {
+		t.Fatalf("perfil genérico admitido: %v", err)
+	}
+	if a.preparadas != 0 || a.publicadas != 0 {
+		t.Fatal("la escritura publicó una asignación para superar el perfil genérico")
+	}
+	canal := ctx.Value(claveCapacidadConsultasContratacionTemporalDesarrollo{}).(capacidadConsultaContratacionTemporalDesarrollo)
+	canal.certificadoValidoHasta = ahora
+	ctxCaducado := context.WithValue(context.Background(), claveCapacidadConsultasContratacionTemporalDesarrollo{}, canal)
+	if _, err := f.AutorizarFirmaDocumento(ctxCaducado, m); !errors.Is(err, ports.ErrFirmaDocumentoDenegada) {
+		t.Fatalf("certificado caducado admitido: %v", err)
+	}
+
+	// La revocación se lee de la fuente central y no revive por la
+	// plantilla mantenida en memoria.
+	revocada := publicada
+	revocada.instantanea.AsignacionPerfil.Estado = dominiovec.EstadoAsignacionPerfilRevocada
+	revocada.instantanea.AsignacionPerfil.RevocadaEn = ahora
+	revocada.instantanea.AsignacionPerfil.RevocadaPor = "revocador:prueba"
+	revocada.instantanea.AsignacionPerfil.RevocacionRef = "revocacion:prueba"
+	a.asignaciones[perfil.perfilRef()] = revocada
+	if _, estado := s.consumirPerfilFijoCTDesarrolloConEstado(ctx, perfil); estado != perfilFijoConsumoDenegado {
+		t.Fatalf("asignación revocada consumida: %v", estado)
+	}
+	if _, err := f.AutorizarFirmaDocumento(ctx, m); !errors.Is(err, ports.ErrFirmaDocumentoDenegada) {
+		t.Fatalf("perfil revocado admitido: %v", err)
+	}
+	a.asignaciones[perfil.perfilRef()] = publicada
+	unidadAjena := publicada
+	unidadAjena.instantanea.AsignacionPerfil.Ambitos = append(
+		unidadAjena.instantanea.AsignacionPerfil.Ambitos,
+		dominiovec.AmbitoPerfil{Clave: "unidad_ref", Valores: []string{"unidad:ajena"}},
+	)
+	a.asignaciones[perfil.perfilRef()] = unidadAjena
+	if _, estado := s.consumirPerfilFijoCTDesarrolloConEstado(ctx, perfil); estado != perfilFijoConsumoDenegado {
+		t.Fatalf("ámbito de unidad ajena consumido: %v", estado)
+	}
+	a.asignaciones[perfil.perfilRef()] = publicada
+
+	ajena := m
+	ajena.OrganizacionRef = "organizacion:ajena"
+	if _, err := f.AutorizarFirmaDocumento(ctx, ajena); !errors.Is(err, ports.ErrFirmaDocumentoDenegada) {
+		t.Fatalf("organización ajena admitida: %v", err)
+	}
+	cambiado := m
+	cambiado.CatalogoHuella = strings.Repeat("0", 64)
+	if perfilPasoFirmaDocumentoCTDesarrolloCoincide(cambiado, circuito, circuito.Documentos[0].Pasos[0].PerfilRef) {
+		t.Fatal("material de otro catálogo aceptado por el paso")
+	}
+	if _, err := f.AutorizarFirmaDocumento(ctx, cambiado); !errors.Is(err, ports.ErrFirmaDocumentoDenegada) {
+		t.Fatalf("catálogo cambiado admitido: %v", err)
+	}
+	pasoAjeno := m
+	pasoAjeno.PasoRef = circuito.Documentos[0].Pasos[1].Referencia
+	if perfilPasoFirmaDocumentoCTDesarrolloCoincide(pasoAjeno, circuito, circuito.Documentos[0].Pasos[0].PerfilRef) {
+		t.Fatal("referencia de otro paso aceptada")
+	}
+}
+
 func TestFirmaDocumentoCTApagadaNoCompone(t *testing.T) {
 	f, err := nuevaFirmaDocumentoCTDesarrollo(config.Config{}, nil, relojContratacionTemporalDesarrollo{}, nil)
 	if f != nil || err != nil {

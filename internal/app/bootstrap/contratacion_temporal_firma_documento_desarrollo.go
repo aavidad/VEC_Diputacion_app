@@ -26,9 +26,9 @@ import (
 
 // Registro de firmas de prueba de los borradores de CT en el perfil de
 // desarrollo. Se compone solo con VEC_CT_FIRMA_REGISTRO_ENABLED=true (AD3-85
-// y CT118 instaladas) y el circuito de firma de ejemplo. La autorización es
-// un rol nominal propio publicado para la identidad del canal CT: no se
-// infiere del cargo del catálogo, cuyo perfil_ref sigue siendo informativo.
+// y CT118 instaladas) y el circuito de firma de ejemplo. La autorización exige
+// un perfil nominal publicado para la persona y el paso exacto del catálogo.
+// Sin esa publicación se deniega, incluido el perfil genérico antiguo.
 // La verificación la hace GrxFirma como servicio separado; apagado, toda firma se
 // rechaza. Ninguna firma registrada tiene eficacia administrativa.
 
@@ -133,6 +133,7 @@ func solicitudAutorizacionFirmaDocumentoCTDesarrolloValida(ctx context.Context, 
 // registro PostgreSQL; la ruta se compone cuando llega el circuito.
 type firmaDocumentoCTDesarrollo struct {
 	alta          *dependenciasAltaContratacionTemporalDesarrollo
+	circuito      *reglas.Resolutor
 	registro      *postgrescontratacion.RegistroFirmasDocumentoPostgreSQL
 	lector        ports.LectorFirmasDocumentoAutorizadas
 	lectorInterno *lectorFirmasIntervencionCTDesarrollo
@@ -146,6 +147,28 @@ type firmaDocumentoCTDesarrollo struct {
 	// servicio queda al componer las rutas: la custodia en Documentos se le
 	// añade después, cuando Documentos ya está compuesto.
 	servicio *ctapplication.ServicioFirmaDocumento
+}
+
+// El catálogo solo identifica el perfil requerido; la asignación vigente y
+// la persona las resuelve la autoridad central. Ningún cargo, prefijo o rol
+// genérico se convierte aquí en competencia. Se lee el catálogo de nuevo
+// para que un material preparado bajo otra versión no llegue al PDP.
+func perfilPasoFirmaDocumentoCTDesarrolloCoincide(m ports.MaterialFirmaDocumento, circuito reglas.CircuitoFirma, perfilRef string) bool {
+	if perfilRef == "" || circuito.CatalogoID+":"+strconv.Itoa(circuito.Version) != m.CatalogoRef ||
+		circuito.HuellaCatalogo != m.CatalogoHuella {
+		return false
+	}
+	for _, documento := range circuito.Documentos {
+		if documento.Documento != m.Documento {
+			continue
+		}
+		if m.PasoOrden < 1 || m.PasoOrden > len(documento.Pasos) {
+			return false
+		}
+		paso := documento.Pasos[m.PasoOrden-1]
+		return paso.Orden == m.PasoOrden && paso.Referencia == m.PasoRef && paso.PerfilRef == perfilRef
+	}
+	return false
 }
 
 var (
@@ -212,14 +235,38 @@ func (f *firmaDocumentoCTDesarrollo) AutorizarFirmaDocumento(ctx context.Context
 	}
 	s := f.alta.soporte
 	capacidad, valida := s.capacidadValida(ctx)
-	if !valida || capacidad.ruta != httpinterno.RutaFirmaDocumento || s.perfilFijoParaContexto(ctx, capacidad.ruta) == nil || m.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo {
+	perfil := s.perfilFijoParaContexto(ctx, capacidad.ruta)
+	ahora := f.reloj.Ahora()
+	if !valida || capacidad.ruta != httpinterno.RutaFirmaDocumento || perfil == nil ||
+		f.circuito == nil || m.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo ||
+		!ctdomain.InstanteUTCCanonico(ahora) ||
+		!ctdomain.InstanteUTCCanonico(capacidad.certificadoVerificadoEn) ||
+		!ctdomain.InstanteUTCCanonico(capacidad.certificadoValidoHasta) ||
+		capacidad.certificadoVerificadoEn.After(ahora) || !ahora.Before(capacidad.certificadoValidoHasta) {
 		return vacia, ports.ErrFirmaDocumentoDenegada
 	}
-	// Esta rama de desarrollo solo admite una firma de prueba cuyo
-	// certificado sea exactamente el ya verificado para el canal actual.
-	// La huella se toma del contexto sellado, nunca del cuerpo HTTP.
+	// La huella del documento firmado debe ser la del certificado verificado
+	// en este canal, nunca la enviada por el navegador.
 	if m.Resultado == ctdomain.ResultadoFirmaFirmado &&
 		(m.CertificadoHuella == "" || m.CertificadoHuella != capacidad.principal.Attributes["certificate_sha256"]) {
+		return vacia, ports.ErrFirmaDocumentoDenegada
+	}
+	// El perfil compartido de la prueba anterior nunca acredita un cargo,
+	// aunque el catálogo llegase a contener su referencia opaca.
+	if perfil.clave == clavePerfilFijoFirmaCTDesarrollo ||
+		perfil.plantilla.VersionRol.RolID == "firma_documento_ct_desarrollo" {
+		return vacia, ports.ErrFirmaDocumentoDenegada
+	}
+	// La asignación fija se consume sin prepararla ni publicarla. Una
+	// revocación, cambio de plantilla o caída de la fuente cierra el paso.
+	if _, estado := s.consumirPerfilFijoCTDesarrolloConEstado(ctx, perfil); estado != perfilFijoConsumoVigente {
+		if estado == perfilFijoConsumoFuenteNoDisponible {
+			return vacia, ports.ErrRegistroFirmaDocumentoNoDisponible
+		}
+		return vacia, ports.ErrFirmaDocumentoDenegada
+	}
+	circuito, err := f.circuito.CircuitoFirma(ctx)
+	if err != nil || !perfilPasoFirmaDocumentoCTDesarrolloCoincide(m, circuito, perfil.perfilRef()) {
 		return vacia, ports.ErrFirmaDocumentoDenegada
 	}
 	recurso, err := ctapplication.RecursoFirmaDocumento(m)
@@ -232,6 +279,10 @@ func (f *firmaDocumentoCTDesarrollo) AutorizarFirmaDocumento(ctx context.Context
 	}
 	operativo, err := s.contextoOperativoDesarrollo(ctx)
 	if err != nil {
+		return vacia, ports.ErrFirmaDocumentoDenegada
+	}
+	if operativo.Resultado.Contexto.PerfilActivoRef != perfil.perfilRef() ||
+		operativo.Resultado.Contexto.PersonaRef != capacidad.principal.ID {
 		return vacia, ports.ErrFirmaDocumentoDenegada
 	}
 	motivo := motivoFirmaDocumentoCTDesarrollo()
@@ -267,7 +318,6 @@ func (f *firmaDocumentoCTDesarrollo) AutorizarFirmaDocumento(ctx context.Context
 	if ctapplication.ValidarCapacidadFirmaDocumento(c, m) != nil {
 		return vacia, ports.ErrFirmaDocumentoDenegada
 	}
-	ahora := f.reloj.Ahora()
 	r := material.ResumenCapacidad()
 	if ahora.Before(r.EmitidaEn()) || !ahora.Before(r.ExpiraEn()) {
 		return vacia, ports.ErrFirmaDocumentoDenegada
@@ -462,6 +512,7 @@ func (f *firmaDocumentoCTDesarrollo) rutas(cfg config.Config, circuito *reglas.R
 	if f.fiscalizacion.ExigirFirmaRemision(servicio) != nil {
 		return nil, errFirmaDocumentoCTDesarrolloNoDisponible
 	}
+	f.circuito = circuito
 	return []vechttp.RutaExacta{
 		{Ruta: httpinterno.RutaFirmaDocumento, Manejador: h},
 		{Ruta: httpinterno.RutaConsultaFirmaDocumento, Manejador: h},
