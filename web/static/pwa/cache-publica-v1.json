@@ -1,7 +1,7 @@
 {
-  "version": "20261002-pwa-v2",
+  "version": "20261002-pwa-v3",
   "comunes": [
-    "/pwa/instalar.js?v=20261002-pwa-v2",
+    "/pwa/instalar.js?v=20261002-pwa-v3",
     "/pwa/navegacion.css?v=20261002-pwa-v2",
     "/pwa/icons/vec-192.png?v=20261002-pwa-v1",
     "/pwa/icons/vec-512.png?v=20261002-pwa-v1",

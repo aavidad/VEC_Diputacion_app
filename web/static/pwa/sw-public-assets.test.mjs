@@ -87,6 +87,7 @@ test('instala únicamente política e idiomas aprobados y limpia versiones del m
   ]);
   const anterior = await app.caches.open('vec-pwa-empleado-public-20261002-pwa-v1');
   await anterior.put('https://vec.example/textos/es/preferencias.json?v=1', { ok: true });
+  await app.caches.open('vec-pwa-empleado-public-20261002-pwa-v2');
   await app.caches.open('vec-pwa-personal-public-anterior');
   await app.lanzar('activate');
   assert.deepEqual(await app.caches.keys(), [nombre, 'vec-pwa-personal-public-anterior']);

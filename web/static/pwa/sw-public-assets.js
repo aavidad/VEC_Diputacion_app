@@ -2,7 +2,7 @@
 (function () {
   'use strict';
 
-  const VERSION = '20261002-pwa-v2';
+  const VERSION = '20261002-pwa-v3';
   const SCOPES = Object.freeze({
     empleado: '/portal-empleado/',
     personal: '/area-personal/',
