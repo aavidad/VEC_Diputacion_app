@@ -147,3 +147,42 @@ test("moverse a la ayuda durante el envío sustituye el destino provisional", as
   respuesta.rechazar(new ErrorClienteSolicitudesCronos("servicio_no_disponible", 503)); await envio;
   assert.equal(s.documento.activeElement, s.nodo.querySelector('[data-accion="ayuda"]'));
 });
+
+test("elegir un día muestra el detalle, mantiene el foco y no consulta ni pierde el borrador", async () => {
+  const s = superficie(); let consultas = 0; let escrituras = 0;
+  montar(s, { consultarMovimientos: async (c) => { consultas++; return datos(c); }, solicitarCorreccion: async () => { escrituras++; } });
+  await esperar(); s.pulsar('[data-cronos-olvido="abrir"]'); s.editar("hora_pretendida", "07:35");
+  const filtro = s.elegir('[data-cronos-filtro="justificante"]'); filtro.value = "pendiente";
+  s.nodo.eventos.change({ type: "change", target: filtro });
+  s.pulsar('[data-cronos-cal-dia][data-fecha="2026-09-22"]');
+  const seleccionado = s.nodo.querySelector('[data-cronos-cal-dia][data-fecha="2026-09-22"]');
+  assert.equal(seleccionado.tag, "button");
+  assert.equal(seleccionado.getAttribute("aria-pressed"), "true");
+  assert.equal(seleccionado.getAttribute("aria-controls"), "cronos-movpropios-detalle");
+  assert.equal(s.documento.activeElement, seleccionado);
+  assert.equal(s.nodo.querySelector('[data-cronos-cal-fecha]').value, "2026-09-22");
+  assert.equal(s.nodo.querySelector('[name="hora_pretendida"]').value, "07:35");
+  assert.match(s.nodo.innerHTML, /value="pendiente" selected/u);
+  assert.match(s.nodo.innerHTML, /Ausencia: Permiso sintético/u);
+  assert.match(s.nodo.innerHTML, /data-calendario-vista="mes"/u);
+  s.pulsar('[data-cronos-cal-dia][data-fecha="2026-09-26"]');
+  assert.match(s.nodo.innerHTML, /No hay datos registrados para esta fecha/u);
+  assert.equal(consultas, 1); assert.equal(escrituras, 0);
+});
+
+test("un día anual conserva la vista; fechas ajenas o no válidas no consultan ni cambian selección", async () => {
+  const s = superficie(); let consultas = 0;
+  const vista = montarMovimientosPropiosCronos({ raiz: s.raiz, anio: 2026, fechaSeleccionada: "2026-09-24", cliente: {
+    consultarMovimientos: async (c) => { consultas++; const d = datos(c); d.calendario.disponible = false; return d; }, solicitarCorreccion: async () => ({}),
+  } });
+  await esperar(); s.pulsar('[data-cronos-cal-dia][data-fecha="2026-01-06"]');
+  assert.match(s.nodo.innerHTML, /data-calendario-vista="anio"/u);
+  assert.match(s.nodo.innerHTML, /No hay datos registrados para esta fecha/u);
+  assert.doesNotMatch(s.nodo.innerHTML, /data-fecha="2026-01-06" data-tipos/u);
+  for (const fecha of ["2025-12-31", "2027-01-01", "2026-02-30", '<img src="x">']) {
+    s.nodo.eventos.click({ target: { closest: (selector) => selector === "[data-cronos-cal-dia]" ? { dataset: { fecha } } : null } });
+  }
+  assert.equal(s.nodo.querySelector('[data-cronos-cal-fecha]').value, "2026-01-06");
+  assert.equal(consultas, 1);
+  vista.desmontar();
+});
