@@ -20,8 +20,12 @@ Este comando no concede acceso ni obtiene filas: recibe una extracción ya
 autorizada. La extracción y entrega deben quedar auditadas por su consumidor
 transaccional; esta pieza no implementa ese consumidor.
 
-Cada base mantiene su propia cadena. Asigne un `cadena_id` opaco que distinga
-la base y conserve ese identificador en los dos ficheros. No incluya nombres,
+Distinga tanto la base como el carril interno o externo al asignar el
+`cadena_id` opaco y conserve ese identificador en los dos ficheros. AD3-116
+añade una cadena exterior separada, con tablas y control propios. Este corte
+se ensaya con la cadena interna; no mezcle sus registros ni su checkpoint con
+los de la exterior. El comando no determina la tabla de origen de un JSON.
+No incluya nombres,
 DNI, direcciones, credenciales o detalles de conexión.
 
 El manifiesto y el checkpoint tienen la misma estructura:
