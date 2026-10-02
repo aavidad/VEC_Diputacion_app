@@ -136,7 +136,7 @@ END $nucleo$;
 
 LOCK TABLE vec_autorizacion_atestada_v3.clave_capacidad_version IN ACCESS EXCLUSIVE MODE;
 DO $audiencias$
-DECLARE d text; esperada text:='f8a26f67dcf41d1022db50b01ad0f8da404db7782c3d5d4b348564c000cbdc2d';
+DECLARE d text; esperada text:='d5c8048786b283485016af29fba41ff68b93076ba4f37f2badfa6bb7d5532fd9';
 BEGIN
  SELECT pg_get_constraintdef(c.oid,true) INTO STRICT d FROM pg_constraint c
  WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
