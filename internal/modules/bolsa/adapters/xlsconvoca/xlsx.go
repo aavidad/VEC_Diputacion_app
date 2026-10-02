@@ -449,6 +449,9 @@ func leerCompartidasXLSX(datos []byte) ([]string, error) {
 		if err != nil {
 			return nil, err
 		}
+		if len(cadenas) >= maximoFilasXLS*maximoColumnasXLS {
+			return nil, ErrLimiteXLSExcedido
+		}
 		cadenas = append(cadenas, valor)
 	}
 }
@@ -501,6 +504,9 @@ func leerEstilosXLSX(datos []byte) ([]bool, error) {
 					fecha, valido := esFormatoFechaXLSX(id, formatos)
 					if !valido {
 						return nil, ErrXLSInvalido
+					}
+					if len(estilos) >= maximoFilasXLS*maximoColumnasXLS {
+						return nil, ErrLimiteXLSExcedido
 					}
 					estilos = append(estilos, fecha)
 				}
