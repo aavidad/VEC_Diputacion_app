@@ -9,9 +9,10 @@ import (
 // PerfilPropio procede del catálogo y de una asignación central vigente. La
 // clave i18n nombra un texto del catálogo web; nunca contiene el nombre civil.
 type PerfilPropio struct {
-	PerfilRef     string
-	RolVersionRef string
-	ClaveI18N     string
+	PerfilRef      string
+	RolVersionRef  string
+	ClaveI18N      string
+	CategoriaADMIN string
 }
 
 // PerfilesPropios contiene únicamente asignaciones de la cuenta acreditada.
@@ -39,7 +40,8 @@ type FuenteSeleccionADMIN interface {
 
 func (p PerfilPropio) Valido() bool {
 	return referencia(p.PerfilRef, "prf_") && strings.HasPrefix(p.RolVersionRef, "rol:") &&
-		textoCatalogo(p.RolVersionRef, 512) && textoCatalogo(p.ClaveI18N, 256)
+		textoCatalogo(p.RolVersionRef, 512) && textoCatalogo(p.ClaveI18N, 256) &&
+		(p.CategoriaADMIN == "aplicacion" || p.CategoriaADMIN == "sistemas")
 }
 
 func (p PerfilesPropios) Validos() bool {

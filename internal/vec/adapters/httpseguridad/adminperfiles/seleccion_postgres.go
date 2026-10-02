@@ -11,7 +11,7 @@ import (
 )
 
 const listarPropiosSQL = `SELECT persona_ref,cuenta_ref,perfil_ref,vinculo_ref,audiencia,vigente_hasta,
- seleccionado,seleccion_revision::text,rol_version_ref,clave_i18n
+ seleccionado,seleccion_revision::text,rol_version_ref,clave_i18n,categoria_admin
  FROM vec_identidad_sesiones_v1.listar_perfiles_admin_v1($1,$2,$3,$4,$5,$6,$7,$8,$9)`
 const seleccionarPerfilSQL = `SELECT perfil_ref,seleccion_revision::text,seleccionada_en,auditoria_ref
  FROM vec_identidad_sesiones_v1.seleccionar_perfil_admin_v1($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`
@@ -39,7 +39,7 @@ func (p *PostgreSQL) ListarPropiosADMIN(ctx context.Context, o ObservacionADMIN)
 			var seleccionado bool
 			var perfil PerfilPropio
 			if err = filas.Scan(&actualPersona, &actualCuenta, &perfil.PerfilRef, &vinculo, &audiencia,
-				&vigente, &seleccionado, &revision, &perfil.RolVersionRef, &perfil.ClaveI18N); err != nil {
+				&vigente, &seleccionado, &revision, &perfil.RolVersionRef, &perfil.ClaveI18N, &perfil.CategoriaADMIN); err != nil {
 				return err
 			}
 			r, parseErr := strconv.ParseUint(revision, 10, 64)
