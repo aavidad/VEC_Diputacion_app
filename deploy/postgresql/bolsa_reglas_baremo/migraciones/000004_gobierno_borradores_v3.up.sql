@@ -125,7 +125,8 @@ BEGIN
  OR (SELECT count(*) FROM jsonb_object_keys(m))<>17
  OR m->>'esquema' IS DISTINCT FROM 'vec.bolsa.gobierno-borrador.material.v3'
  OR m->>'modulo_id' IS DISTINCT FROM 'bolsa'
- OR m->>'tipo_recurso' IS DISTINCT FROM 'version_reglas_baremo_gobernada'
+ OR m->>'tipo_recurso' IS DISTINCT FROM (CASE WHEN m->>'operacion'='alta_borrador'
+   THEN 'intencion_gobierno_reglas_baremo' ELSE 'version_reglas_baremo_gobernada' END)
  OR coalesce(m->>'operacion','') NOT IN ('alta_borrador','consultar_exacta','recuperar_recibo')
  OR coalesce(m->>'persona_ref','') !~ '^per_[A-Za-z0-9_-]{22,128}$'
  OR NOT vec_bolsa_reglas_baremo.referencia_valida(m->>'perfil_ref')
@@ -137,11 +138,16 @@ BEGIN
  OR (m->'estado')-'referencia'-'version'-'huella_contenido_sha256'-'revision'-'huella_estado_sha256' <> '{}'::jsonb
  OR (SELECT count(*) FROM jsonb_object_keys(m->'estado'))<>5
  OR NOT vec_bolsa_reglas_baremo.referencia_valida(m#>>'{estado,referencia}')
- OR coalesce(m#>>'{estado,version}','') !~ '^[1-9][0-9]{0,8}$'
+ OR coalesce(m#>>'{estado,version}','') !~ '^[1-9][0-9]{0,9}$'
  OR m#>>'{estado,revision}' IS DISTINCT FROM '1'
  OR NOT vec_bolsa_reglas_baremo.huella_sha256_valida(m#>>'{estado,huella_contenido_sha256}')
  OR NOT vec_bolsa_reglas_baremo.huella_sha256_valida(m#>>'{estado,huella_estado_sha256}')
  THEN RAISE EXCEPTION 'BR4: proyecciones incompatibles' USING ERRCODE='22023'; END IF;
+ -- El formato ya comprobado permite convertir sin admitir exponentes ni
+ -- decimales. El mismo límite autoritativo del almacén incluye 1000000000.
+ IF NOT vec_bolsa_reglas_baremo.version_valida((m#>>'{estado,version}')::numeric) THEN
+  RAISE EXCEPTION 'BR4: versión fuera de límites' USING ERRCODE='22023';
+ END IF;
  BEGIN
   IF decode(m->>'motivo_canonico','base64') IS DISTINCT FROM p_motivo THEN
    RAISE EXCEPTION 'motivo divergente';
@@ -225,7 +231,7 @@ BEGIN
  OR current_setting('transaction_read_only')<>'off'
  THEN RAISE EXCEPTION 'BR4: requiere transacción SERIALIZABLE READ WRITE' USING ERRCODE='25000'; END IF;
  -- No hay sustituto V2 ni consumidor central genérico si AD144 está ausente.
- consumer:=to_regprocedure('vec_autorizacion_atestada_v3.consumir_gobierno_borrador_reglas_baremo_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
+ consumer:=to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_gobierno_borrador_reglas_baremo_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
  IF consumer IS NULL THEN RAISE EXCEPTION 'BR4: consumidor nominal no disponible' USING ERRCODE='55000'; END IF;
  IF NOT has_function_privilege(current_user,consumer,'EXECUTE')
  OR NOT EXISTS(SELECT 1 FROM pg_proc WHERE oid=consumer AND prosecdef
@@ -235,8 +241,9 @@ BEGIN
  BEGIN d:=convert_from(p_decision,'UTF8')::jsonb; c:=convert_from(p_capacidad,'UTF8')::jsonb;
  EXCEPTION WHEN others THEN RAISE EXCEPTION 'BR4: material V3 inválido' USING ERRCODE='22023'; END;
  material_sha:=encode(sha256(p_material),'hex');
- ref_recurso:='reglas-baremo:'||CASE WHEN m->>'operacion'='alta_borrador'
-  THEN m->>'huella_solicitud_sha256' ELSE m#>>'{estado,huella_estado_sha256}' END;
+ ref_recurso:=CASE WHEN m->>'operacion'='alta_borrador'
+  THEN 'intencion-reglas-baremo:'||(m->>'huella_solicitud_sha256')
+  ELSE 'reglas-baremo:'||(m#>>'{estado,huella_estado_sha256}') END;
  recurso_canon:='{"ambitos":{"convocatoria_ref":'||to_json(m->>'convocatoria_ref')::text||
   ',"expediente_ref":'||to_json(m->>'expediente_ref')::text||'},"atributos":{"material_sha256":"'||material_sha||'"}}';
  recurso_sha:=encode(sha256(convert_to(recurso_canon,'UTF8')),'hex');
@@ -257,14 +264,14 @@ BEGIN
  OR d->>'motivo_huella_sha256' IS DISTINCT FROM encode(sha256(p_motivo),'hex')
  THEN RAISE EXCEPTION 'BR4: material y concesión divergentes' USING ERRCODE='42501'; END IF;
  instante:=clock_timestamp();
- IF (m->>'solicitada_en')::timestamptz>instante OR instante-(m->>'solicitada_en')::timestamptz>interval '5 seconds'
+ IF (m->>'solicitada_en')::timestamptz>instante OR instante-(m->>'solicitada_en')::timestamptz>interval '30 seconds'
  THEN RAISE EXCEPTION 'BR4: solicitud caducada' USING ERRCODE='42501'; END IF;
  -- Bloqueo estable antes de consumir autoridad; timeout limita la espera.
  PERFORM pg_advisory_xact_lock(hashtextextended('BR4:contenido:'||(m#>>'{estado,referencia}')||':'||(m#>>'{estado,version}'),0));
  IF m->>'operacion' IN ('alta_borrador','recuperar_recibo') THEN
   PERFORM pg_advisory_xact_lock(hashtextextended('BR4:intencion:'||(m->>'clave_operacion'),0));
  END IF;
- SELECT * INTO STRICT consumo FROM vec_autorizacion_atestada_v3.consumir_gobierno_borrador_reglas_baremo_v3_atestada(
+ SELECT * INTO STRICT consumo FROM vec_autorizacion_atestada_v3.registrar_y_consumir_gobierno_borrador_reglas_baremo_v3_atestada(
   p_capacidad,p_decision,p_motivo,p_contexto,p_persona_version,p_perfil_version,p_payload,p_sobre,p_evidencia,p_raiz);
  IF consumo.consumo_nuevo IS NOT TRUE OR consumo.decision_ref IS DISTINCT FROM d->>'decision_ref'
  OR consumo.efecto_ref IS DISTINCT FROM ref_recurso OR consumo.huella_efecto_sha256 IS DISTINCT FROM recurso_sha
@@ -272,7 +279,7 @@ BEGIN
  THEN RAISE EXCEPTION 'BR4: requiere consumo nominal nuevo' USING ERRCODE='42501'; END IF;
  instante:=clock_timestamp();
  IF instante>=(d->>'valida_hasta')::timestamptz
- OR instante-(m->>'solicitada_en')::timestamptz>interval '5 seconds'
+ OR instante-(m->>'solicitada_en')::timestamptz>interval '30 seconds'
  THEN RAISE EXCEPTION 'BR4: autorización caducada tras consumo' USING ERRCODE='42501'; END IF;
  ar:='acceso:reglas-baremo:v3:'||consumo.consumo_huella_sha256;
  acceso_actual:=jsonb_build_object('decision_ref',consumo.decision_ref,'decision_huella_sha256',encode(sha256(p_decision),'hex'),

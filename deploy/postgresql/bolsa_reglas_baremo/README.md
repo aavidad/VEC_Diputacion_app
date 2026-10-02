@@ -222,7 +222,11 @@ la identidad y el permiso los verifica la autoridad V3, nunca ese JSON.
 
 La intención estable liga persona, convocatoria, expediente, conjunto
 canónico, motivo canónico y clave de 128 bits. Su huella no incluye la fecha
-de la propuesta. Una repetición con esa intención devuelve la versión, fecha
+de la propuesta. El alta usa el tipo de recurso
+`intencion_gobierno_reglas_baremo` y la referencia
+`intencion-reglas-baremo:<huella_solicitud_sha256>`. Las lecturas mantienen
+`version_reglas_baremo_gobernada` y `reglas-baremo:<huella_estado_sha256>`.
+Una repetición con esa intención devuelve la versión, fecha
 y recibo originales, con un acceso V3 actual separado. Reutilizar la clave con
 otro contenido, versión, actor, ámbito o motivo causa conflicto sin efectos.
 Una nueva intención exige que no exista ese contenido y versión; no adopta
@@ -243,7 +247,7 @@ comprobarse sin AD144; cualquier llamada a la fachada falla entonces antes
 de leer o escribir negocio. Eso no acredita autorización ni una operación V3.
 
 El contrato propuesto para AD144 es
-`consumir_gobierno_borrador_reglas_baremo_v3_atestada`, con los diez argumentos
+`registrar_y_consumir_gobierno_borrador_reglas_baremo_v3_atestada`, con los diez argumentos
 V3 habituales y la audiencia
 `vec_bolsa_reglas_baremo.gobierno_borrador.v3`. Dirección debe fijar el perfil
 operativo y las membresías de conexión, la preimagen central, las acciones,
