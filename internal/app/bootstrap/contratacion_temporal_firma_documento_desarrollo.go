@@ -146,6 +146,62 @@ type firmaDocumentoCTDesarrollo struct {
 	// servicio queda al componer las rutas: la custodia en Documentos se le
 	// añade después, cuando Documentos ya está compuesto.
 	servicio *ctapplication.ServicioFirmaDocumento
+	// Las vías R5 se preparan juntas sobre el mismo servicio, circuito y
+	// custodia. Ninguna de ellas se entrega a una ruta mientras falte su
+	// autoridad nominal y transaccional.
+	firmaExterna *ctapplication.ServicioFirmaExterna
+	firmaVec     *ctapplication.ServicioFirmaVec
+}
+
+// registroFirmasR5Desarrollo es una sola autoridad de historia: CT170
+// registra ambas vías y ofrece la lectura nominal AD159. No se mezclan dos
+// registros independientes que pudieran discrepar sobre la cabeza CT.
+type registroFirmasR5Desarrollo interface {
+	ports.RegistroFirmasExternas
+	ports.RegistroFirmasVec
+}
+
+type dependenciasFirmaR5Desarrollo struct {
+	original          ports.FuenteOriginalFirmaAutorizado
+	registro          registroFirmasR5Desarrollo
+	consulta          ports.AutorizadorConsultaFirmasR5
+	autorizarExterna  ports.AutorizadorRegistroFirmaExterna
+	autorizarVec      ports.AutorizadorFirmaVec
+	competencia       ports.FuenteCompetenciaFirmante
+	politicaFirmantes ports.FuentePoliticaMismaPersonaEnPasos
+}
+
+// componerFirmasR5 prepara las dos vías como una unidad. El llamador debe
+// aportar el lector autorizado de Documentos, CT170, AD159, AD156, AD157 y
+// AUT30 ya compuestos. Hasta entonces no se invoca ni se monta una ruta R5.
+func (f *firmaDocumentoCTDesarrollo) componerFirmasR5(d dependenciasFirmaR5Desarrollo) error {
+	if f == nil || f.servicio == nil || f.firmaExterna != nil || f.firmaVec != nil ||
+		dependenciaEsNulaContratacionTemporalDesarrollo(d.original) ||
+		dependenciaEsNulaContratacionTemporalDesarrollo(d.registro) ||
+		dependenciaEsNulaContratacionTemporalDesarrollo(d.consulta) ||
+		dependenciaEsNulaContratacionTemporalDesarrollo(d.autorizarExterna) ||
+		dependenciaEsNulaContratacionTemporalDesarrollo(d.autorizarVec) ||
+		dependenciaEsNulaContratacionTemporalDesarrollo(d.competencia) ||
+		dependenciaEsNulaContratacionTemporalDesarrollo(d.politicaFirmantes) {
+		return errFirmaDocumentoCTDesarrolloNoDisponible
+	}
+	if err := f.servicio.ComponerOriginalAutorizado(d.original); err != nil {
+		return errFirmaDocumentoCTDesarrolloNoDisponible
+	}
+	externa, err := ctapplication.NuevoServicioFirmaExterna(f.servicio, d.registro, d.consulta, d.autorizarExterna, d.competencia)
+	if err != nil {
+		return errFirmaDocumentoCTDesarrolloNoDisponible
+	}
+	vec, err := ctapplication.NuevoServicioFirmaVec(f.servicio, d.registro, d.consulta, d.autorizarVec, d.competencia)
+	if err != nil {
+		return errFirmaDocumentoCTDesarrolloNoDisponible
+	}
+	if externa.ComponerPoliticaMismaPersonaEnPasos(d.politicaFirmantes) != nil ||
+		vec.ComponerPoliticaMismaPersonaEnPasos(d.politicaFirmantes) != nil {
+		return errFirmaDocumentoCTDesarrolloNoDisponible
+	}
+	f.firmaExterna, f.firmaVec = externa, vec
+	return nil
 }
 
 var (
