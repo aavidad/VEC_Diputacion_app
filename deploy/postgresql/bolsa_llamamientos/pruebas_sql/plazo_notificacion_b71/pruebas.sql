@@ -13,6 +13,15 @@ LANGUAGE sql VOLATILE SECURITY DEFINER SET search_path=pg_catalog AS $f$
  SELECT 'decision:b71:'||gen_random_uuid(),convert_from(p_capacidad,'UTF8')::jsonb->>'efecto_ref',
         repeat('a',64),repeat('b',64),'auditoria:b71:'||gen_random_uuid(),clock_timestamp(),true
 $f$;
+CREATE OR REPLACE FUNCTION vec_autorizacion_atestada_v3.registrar_y_consumir_politica_ofertas_bolsa_v3_atestada(
+ p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,p_persona_version numeric,p_perfil_version numeric,
+ p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea)
+RETURNS TABLE(decision_ref text,efecto_ref text,huella_efecto_sha256 text,consumo_huella_sha256 text,
+ auditoria_ref text,consumida_en timestamptz,consumo_nuevo boolean)
+LANGUAGE sql VOLATILE SECURITY DEFINER SET search_path=pg_catalog AS $f$
+ SELECT 'decision:b71:politica:'||gen_random_uuid(),convert_from(p_capacidad,'UTF8')::jsonb->>'efecto_ref',
+        repeat('a',64),repeat('b',64),'auditoria:b71:politica:'||gen_random_uuid(),clock_timestamp(),true
+$f$;
 DO $f$
 BEGIN
  IF NOT has_function_privilege('vec_bolsa_llamamientos_ejecutor',
@@ -32,16 +41,57 @@ BEGIN
  n:=date_trunc('second',clock_timestamp())-interval '59 minutes 55 seconds';
  v:=n+interval '1 hour';
  p:=jsonb_build_object('plazo',jsonb_build_object('unidad','horas_naturales','cantidad',1,
-     'computo','continuo_utc','municipio_sede','18087'),
+     'computo','continuo_utc','municipio_sede','18087','inicio','notificacion'),
      'adjudicacion',jsonb_build_object('criterio','orden_vigente','elegibilidad','disposicion_en_plazo'),
      'no_cubierta',jsonb_build_object('accion','llamamiento_directo','condicion','sin_disposiciones_elegibles'));
+ -- La política sin inicio ya no se puede publicar como versión nueva.
+ BEGIN
+  PERFORM vec_bolsa_llamamientos.publicar_politica_ofertas_v1(b,0,
+   jsonb_set(p,'{plazo}',(p->'plazo') - 'inicio'::text),'per_actoractoractoractoractor',
+   'clave-politica-sin-inicio-b71','recibo:politica-ofertas:'||repeat('0',64),
+   convert_to(jsonb_build_object('efecto_ref',b)::text,'UTF8'),
+   convert_to(jsonb_build_object('principal_id','per_actoractoractoractoractor',
+     'accion','bolsa.politica_ofertas.publicar','modulo_id','bolsa','tipo_recurso','bolsa_constituida',
+     'finalidad','gobierno_politica_ofertas_bolsa','recurso_ref',b)::text,'UTF8'),
+   '\x00','\x00',1,1,'\x00','\x00','\x00','\x00');
+  RAISE EXCEPTION 'B71: política sin inicio aceptada';
+ EXCEPTION WHEN sqlstate '22023' THEN NULL; END;
+ PERFORM vec_bolsa_llamamientos.publicar_politica_ofertas_v1(b,0,p,
+  'per_actoractoractoractoractor','clave-politica-b71','recibo:politica-ofertas:'||repeat('1',64),
+  convert_to(jsonb_build_object('efecto_ref',b)::text,'UTF8'),
+  convert_to(jsonb_build_object('principal_id','per_actoractoractoractoractor',
+    'accion','bolsa.politica_ofertas.publicar','modulo_id','bolsa','tipo_recurso','bolsa_constituida',
+    'finalidad','gobierno_politica_ofertas_bolsa','recurso_ref',b)::text,'UTF8'),
+  '\x00','\x00',1,1,'\x00','\x00','\x00','\x00');
+ IF (SELECT count(*) FROM vec_bolsa_llamamientos.politica_ofertas_outbox WHERE bolsa_ref=b)<>1 THEN
+  RAISE EXCEPTION 'B71: política sin outbox'; END IF;
+ INSERT INTO prueba_b71.estado(bolsa,notificada,vence) VALUES(b,n,v);
+END $f$;
+-- Una versión anterior de cuatro claves conserva su replay exacto.
+DO $f$
+DECLARE b text; p jsonb; h text; r record;
+BEGIN
+ SELECT bolsa_ref INTO b FROM vec_bolsa_llamamientos.constitucion ORDER BY bolsa_ref OFFSET 1 LIMIT 1;
+ IF b IS NULL THEN RAISE EXCEPTION 'B71: falta segunda bolsa sintetica'; END IF;
+ p:=jsonb_build_object('plazo',jsonb_build_object('unidad','horas_naturales','cantidad',1,
+    'computo','continuo_utc','municipio_sede','18087'),
+    'adjudicacion',jsonb_build_object('criterio','orden_vigente','elegibilidad','disposicion_en_plazo'),
+    'no_cubierta',jsonb_build_object('accion','llamamiento_directo','condicion','sin_disposiciones_elegibles'));
  h:=encode(sha256(convert_to(p::text,'UTF8')),'hex');
  INSERT INTO vec_bolsa_llamamientos.politica_ofertas_version(
   bolsa_ref,version,politica,huella_sha256,ejemplo,actor_ref,clave_idempotencia,version_esperada,
   recibo_ref,publicada_en,decision_ref,auditoria_ref)
- VALUES(b,1,p,h,true,'per_actoractoractoractoractor','clave-politica-b71',0,
-  'recibo:politica-ofertas:'||repeat('1',64),clock_timestamp(),'decision:politica:b71','auditoria:politica:b71');
- INSERT INTO prueba_b71.estado(bolsa,notificada,vence) VALUES(b,n,v);
+ VALUES(b,1,p,h,true,'per_actoractoractoractoractor','clave-legada-b71',0,
+  'recibo:politica-ofertas:'||repeat('9',64),clock_timestamp(),'decision:politica:b71:legada','auditoria:politica:b71:legada');
+ SELECT * INTO STRICT r FROM vec_bolsa_llamamientos.publicar_politica_ofertas_v1(b,0,p,
+  'per_actoractoractoractoractor','clave-legada-b71','recibo:politica-ofertas:'||repeat('9',64),
+  convert_to(jsonb_build_object('efecto_ref',b)::text,'UTF8'),
+  convert_to(jsonb_build_object('principal_id','per_actoractoractoractoractor',
+    'accion','bolsa.politica_ofertas.publicar','modulo_id','bolsa','tipo_recurso','bolsa_constituida',
+    'finalidad','gobierno_politica_ofertas_bolsa','recurso_ref',b)::text,'UTF8'),
+  '\x00','\x00',1,1,'\x00','\x00','\x00','\x00');
+ IF NOT r.reutilizada OR r.politica->>'recibo_ref' IS DISTINCT FROM 'recibo:politica-ofertas:'||repeat('9',64)
+ THEN RAISE EXCEPTION 'B71: replay histórico distinto'; END IF;
 END $f$;
 CREATE FUNCTION prueba_b71.publicar(p_clave text,p_notificada timestamptz)
 RETURNS TABLE(oferta jsonb,reutilizada boolean)
@@ -115,7 +165,7 @@ DECLARE e record; p jsonb; h text; v timestamptz; plazo jsonb; v_referencia text
 BEGIN
  SELECT * INTO STRICT e FROM prueba_b71.estado;
  p:=jsonb_build_object('plazo',jsonb_build_object('unidad','dias_habiles','cantidad',2,
-   'computo','administrativo','municipio_sede','18087'),
+   'computo','administrativo','municipio_sede','18087','inicio','notificacion'),
    'adjudicacion',jsonb_build_object('criterio','orden_vigente','elegibilidad','disposicion_en_plazo'),
    'no_cubierta',jsonb_build_object('accion','llamamiento_directo','condicion','sin_disposiciones_elegibles'));
  h:=encode(sha256(convert_to(p::text,'UTF8')),'hex');
