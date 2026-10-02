@@ -227,5 +227,104 @@ BEGIN
  RETURN QUERY SELECT vec_bolsa_llamamientos.proyectar_oferta_v2(p_oferta,v_ahora),false;
 END $f$;
 
+CREATE OR REPLACE FUNCTION vec_bolsa_llamamientos.publicar_politica_ofertas_v1(
+ p_bolsa text,p_version_esperada bigint,p_politica jsonb,p_actor text,p_clave text,p_recibo text,
+ p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,p_persona_version numeric,p_perfil_version numeric,
+ p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea)
+RETURNS TABLE(politica jsonb,reutilizada boolean)
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET timezone='UTC' SET lock_timeout='2s' AS $f$
+DECLARE consumo record; d jsonb; previa record; v_version bigint; v_huella text; v_ahora timestamptz:=clock_timestamp();
+BEGIN
+ IF current_user<>'vec_bolsa_llamamientos_propietario'
+    OR p_bolsa IS NULL OR p_bolsa !~ '^bolsa:[A-Za-z0-9:_-]{1,250}$'
+    OR p_version_esperada IS NULL OR p_version_esperada<0 OR p_version_esperada>2147483646
+    OR p_actor IS NULL OR p_actor !~ '^per_[A-Za-z0-9_-]{22,128}$'
+    OR p_clave IS NULL OR p_clave !~ '^[A-Za-z0-9:_-]+$' OR octet_length(p_clave) NOT BETWEEN 8 AND 256
+    OR p_recibo IS NULL OR p_recibo !~ '^recibo:politica-ofertas:[0-9a-f]{64}$'
+    OR jsonb_typeof(p_politica) IS DISTINCT FROM 'object'
+    OR (SELECT count(*) FROM jsonb_object_keys(p_politica)) NOT IN (3,4)
+    OR NOT (p_politica ?& ARRAY['plazo','adjudicacion','no_cubierta'])
+    OR ((SELECT count(*) FROM jsonb_object_keys(p_politica))=4 AND NOT (p_politica ? 'plazas'))
+    -- B58: apartado opcional de plazas. Solo valores que ejecuta la proyección.
+    OR (p_politica ? 'plazas' AND (
+        jsonb_typeof(p_politica->'plazas') IS DISTINCT FROM 'object'
+        OR (SELECT count(*) FROM jsonb_object_keys(p_politica->'plazas'))<>3
+        OR NOT (p_politica->'plazas' ?& ARRAY['llamada','respuesta_horas','tras_renuncia'])
+        OR coalesce(p_politica#>>'{plazas,llamada}','') NOT IN ('simultanea','sucesiva')
+        OR jsonb_typeof(p_politica#>'{plazas,respuesta_horas}') IS DISTINCT FROM 'number'
+        OR coalesce(p_politica#>>'{plazas,respuesta_horas}','') !~ '^([1-9][0-9]?|[1-6][0-9]{2}|7[01][0-9]|720)$'
+        OR coalesce(p_politica#>>'{plazas,tras_renuncia}','') NOT IN ('siguiente_en_orden','llamamiento_directo')))
+    OR jsonb_typeof(p_politica->'plazo') IS DISTINCT FROM 'object'
+    OR (SELECT count(*) FROM jsonb_object_keys(p_politica->'plazo'))<>4
+    OR NOT (p_politica->'plazo' ?& ARRAY['unidad','cantidad','computo','municipio_sede'])
+    OR coalesce(p_politica#>>'{plazo,unidad}','') NOT IN ('dias_habiles','dias_naturales','horas_naturales')
+    OR jsonb_typeof(p_politica#>'{plazo,cantidad}') IS DISTINCT FROM 'number'
+    OR coalesce(p_politica#>>'{plazo,cantidad}','') !~ '^[0-9]{1,3}$'
+    OR ((p_politica#>>'{plazo,unidad}' IN ('dias_habiles','dias_naturales')
+             AND (p_politica#>>'{plazo,cantidad}')::int BETWEEN 1 AND 30
+             AND p_politica#>>'{plazo,computo}'='administrativo')
+         OR (p_politica#>>'{plazo,unidad}'='horas_naturales'
+             AND (p_politica#>>'{plazo,cantidad}')::int BETWEEN 1 AND 720
+             AND p_politica#>>'{plazo,computo}'='continuo_utc')) IS NOT TRUE
+    OR coalesce(p_politica#>>'{plazo,municipio_sede}','') !~ '^[0-9]{5}$'
+    OR jsonb_typeof(p_politica->'adjudicacion') IS DISTINCT FROM 'object'
+    OR (SELECT count(*) FROM jsonb_object_keys(p_politica->'adjudicacion')) NOT IN (2,3)
+    OR ((SELECT count(*) FROM jsonb_object_keys(p_politica->'adjudicacion'))=3
+        AND p_politica#>>'{adjudicacion,confirmacion}' IS DISTINCT FROM 'aceptacion_previa')
+    OR p_politica#>>'{adjudicacion,criterio}' IS DISTINCT FROM 'orden_vigente'
+    OR p_politica#>>'{adjudicacion,elegibilidad}' IS DISTINCT FROM 'disposicion_en_plazo'
+    OR jsonb_typeof(p_politica->'no_cubierta') IS DISTINCT FROM 'object'
+    OR (SELECT count(*) FROM jsonb_object_keys(p_politica->'no_cubierta'))<>2
+    OR p_politica#>>'{no_cubierta,accion}' IS DISTINCT FROM 'llamamiento_directo'
+    OR p_politica#>>'{no_cubierta,condicion}' IS DISTINCT FROM 'sin_disposiciones_elegibles'
+ THEN RAISE EXCEPTION 'B47: política de ejemplo inválida' USING ERRCODE='22023'; END IF;
+ SELECT * INTO STRICT consumo FROM vec_autorizacion_atestada_v3.registrar_y_consumir_politica_ofertas_bolsa_v3_atestada(
+  p_capacidad,p_decision,p_motivo,p_contexto,p_persona_version,p_perfil_version,p_payload,p_sobre,p_evidencia,p_raiz);
+ BEGIN d:=convert_from(p_decision,'UTF8')::jsonb;
+ EXCEPTION WHEN others THEN RAISE EXCEPTION 'B47: autorización inválida' USING ERRCODE='42501'; END;
+ IF consumo.efecto_ref IS DISTINCT FROM p_bolsa OR consumo.consumo_nuevo IS NOT TRUE
+    OR d->>'principal_id' IS DISTINCT FROM p_actor
+    OR d->>'accion' IS DISTINCT FROM 'bolsa.politica_ofertas.publicar'
+    OR d->>'modulo_id' IS DISTINCT FROM 'bolsa'
+    OR d->>'tipo_recurso' IS DISTINCT FROM 'bolsa_constituida'
+    OR d->>'finalidad' IS DISTINCT FROM 'gobierno_politica_ofertas_bolsa'
+    OR d->>'recurso_ref' IS DISTINCT FROM p_bolsa
+ THEN RAISE EXCEPTION 'B47: publicación no autorizada' USING ERRCODE='42501'; END IF;
+ PERFORM pg_advisory_xact_lock(hashtextextended('vec_bolsa_llamamientos:politica-ofertas:'||p_bolsa,0));
+ v_huella:=encode(sha256(convert_to(p_politica::text,'UTF8')),'hex');
+ SELECT * INTO previa FROM vec_bolsa_llamamientos.politica_ofertas_version
+  WHERE bolsa_ref=p_bolsa AND clave_idempotencia=p_clave;
+ IF FOUND THEN
+  IF previa.actor_ref<>p_actor OR previa.version_esperada<>p_version_esperada
+     OR previa.huella_sha256<>v_huella OR previa.recibo_ref<>p_recibo
+  THEN RAISE EXCEPTION 'B47: clave reutilizada' USING ERRCODE='VBP01'; END IF;
+  RETURN QUERY SELECT jsonb_build_object('bolsa_ref',previa.bolsa_ref,'version',previa.version,
+   'huella_sha256',previa.huella_sha256,'ejemplo',true,'configurada',true,'politica',previa.politica,
+   'recibo_ref',previa.recibo_ref,
+   'publicada_en',to_char(previa.publicada_en AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"')),true;
+  RETURN;
+ END IF;
+ -- Las versiones históricas se pueden recuperar arriba con su misma clave.
+ -- Toda versión nueva aplica la aceptación previa; omitirla no recupera el
+ -- circuito antiguo desde una petición preparada fuera de la pantalla.
+ IF p_politica#>>'{adjudicacion,confirmacion}' IS DISTINCT FROM 'aceptacion_previa' THEN
+  RAISE EXCEPTION 'B70: confirmación telemática requerida para la versión nueva' USING ERRCODE='22023';
+ END IF;
+ SELECT coalesce(max(version),0) INTO v_version FROM vec_bolsa_llamamientos.politica_ofertas_version WHERE bolsa_ref=p_bolsa;
+ IF v_version<>p_version_esperada THEN
+  RAISE EXCEPTION 'B47: versión esperada obsoleta' USING ERRCODE='VBP01';
+ END IF;
+ IF NOT EXISTS(SELECT 1 FROM vec_bolsa_llamamientos.constitucion WHERE bolsa_ref=p_bolsa) THEN
+  RAISE EXCEPTION 'B47: bolsa no constituida' USING ERRCODE='23503'; END IF;
+ INSERT INTO vec_bolsa_llamamientos.politica_ofertas_version(
+  bolsa_ref,version,politica,huella_sha256,ejemplo,actor_ref,clave_idempotencia,version_esperada,
+  recibo_ref,publicada_en,decision_ref,auditoria_ref)
+ VALUES(p_bolsa,v_version+1,p_politica,v_huella,true,p_actor,p_clave,p_version_esperada,
+  p_recibo,v_ahora,consumo.decision_ref,consumo.auditoria_ref);
+ INSERT INTO vec_bolsa_llamamientos.politica_ofertas_outbox(recibo_ref,bolsa_ref,version,huella_sha256,creada_en)
+ VALUES(p_recibo,p_bolsa,v_version+1,v_huella,v_ahora);
+ RETURN QUERY SELECT vec_bolsa_llamamientos.leer_politica_ofertas_v1(p_bolsa),false;
+END $f$;
+
 -- Las funciones sustituidas conservan propietario, firmas y ACL nominales.
 COMMIT;
