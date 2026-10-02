@@ -206,20 +206,23 @@ func TestAplicarExigeCotejoYAprobacionPrivada(t *testing.T) {
 }
 
 func TestFallbackRemotoNoHeredaExencionDelSocket(t *testing.T) {
-	cfg, err := pgxpool.ParseConfig("host=/var/run/postgresql,servidor.example user=operador dbname=ensayo sslmode=disable")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !canalBootstrapValido(cfg.ConnConfig.Host, cfg.ConnConfig.TLSConfig) {
-		t.Fatal("socket inicial rechazado")
-	}
-	remotoRechazado := false
-	for _, f := range cfg.ConnConfig.Fallbacks {
-		if !strings.HasPrefix(f.Host, "/") && !canalBootstrapValido(f.Host, f.TLSConfig) {
-			remotoRechazado = true
-		}
-	}
-	if !remotoRechazado {
-		t.Fatal("fallback remoto no verificado")
+	for _, caso := range []struct {
+		hosts, ssl string
+		valido     bool
+	}{
+		{"/var/run/postgresql,servidor.example", "disable", false},
+		{"/var/run/postgresql,servidor.example", "verify-full", true},
+		{"servidor.example,/var/run/postgresql", "verify-full", true},
+		{"/var/run/postgresql", "disable", true},
+	} {
+		t.Run(caso.hosts+caso.ssl, func(t *testing.T) {
+			cfg, err := pgxpool.ParseConfig("host=" + caso.hosts + " user=operador dbname=ensayo sslmode=" + caso.ssl)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if conexionBootstrapValida(&cfg.ConnConfig.Config) != caso.valido {
+				t.Fatal("validación ignora un destino alternativo")
+			}
+		})
 	}
 }

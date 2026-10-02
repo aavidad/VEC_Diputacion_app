@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	adaptador "vec-diputacion-granada/internal/vec/adapters/administracionperfiles/postgres"
 	"vec-diputacion-granada/internal/vec/domain"
@@ -55,13 +56,8 @@ func aplicarPlan(plan material, rutaConexion, rutaAprobacion string) (reciboOper
 	}
 	// Socket local o TLS con verificación; no se admite una conexión remota
 	// sin protección ni degradación a un fallback sin verificar el servidor.
-	if !canalBootstrapValido(pc.ConnConfig.Host, pc.ConnConfig.TLSConfig) {
+	if !conexionBootstrapValida(&pc.ConnConfig.Config) {
 		return cero, errors.New("canal_invalido")
-	}
-	for _, f := range pc.ConnConfig.Fallbacks {
-		if !canalBootstrapValido(f.Host, f.TLSConfig) {
-			return cero, errors.New("canal_invalido")
-		}
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(cfg.TimeoutSegundos)*time.Second)
 	defer cancel()
@@ -83,6 +79,18 @@ func aplicarPlan(plan material, rutaConexion, rutaAprobacion string) (reciboOper
 
 func canalBootstrapValido(host string, tlsCfg *tls.Config) bool {
 	return strings.HasPrefix(host, "/") || tlsCfg != nil && !tlsCfg.InsecureSkipVerify
+}
+
+func conexionBootstrapValida(cfg *pgconn.Config) bool {
+	if cfg == nil || !canalBootstrapValido(cfg.Host, cfg.TLSConfig) {
+		return false
+	}
+	for _, f := range cfg.Fallbacks {
+		if f == nil || !canalBootstrapValido(f.Host, f.TLSConfig) {
+			return false
+		}
+	}
+	return true
 }
 
 type reciboOperador struct {
