@@ -142,7 +142,13 @@ BEGIN
     OR length(original)-length(replace(original,runtime,''))<>length(runtime)
     OR strpos(original,'vinculo_propio_historico_crn11')<>0
     OR strpos(original,'personal.vinculo_propio.crn11.consultar')<>0
- THEN RAISE EXCEPTION 'AD3-149: núcleo incompatible' USING ERRCODE='55000'; END IF;
+ THEN
+  RAISE EXCEPTION 'PARO clave=AD149.nucleo_preimagen, actual=def:%/src:%/runtime:%/config:%, esperado=def:%/src:%/runtime:1/config:search_path=pg_catalog, pg_temp;lock_timeout=2s',
+   encode(sha256(convert_to(original,'UTF8')),'hex'),
+   encode(sha256(convert_to(fuente,'UTF8')),'hex'),
+   (length(original)-length(replace(original,runtime,'')))/length(runtime),
+   config,esperada_def_sha256,esperada_fuente_sha256 USING ERRCODE='55000';
+ END IF;
  nuevo:=replace(original,runtime,runtime_nuevo);
  nuevo:=replace(nuevo,excl,excl_nuevo);
  nuevo:=replace(nuevo,marca,extension||marca);
@@ -173,7 +179,10 @@ BEGIN
  IF encode(sha256(convert_to(d,'UTF8')),'hex') IS DISTINCT FROM 'c220a791d3bf62f5a87ca192373900178c7c3344f10384b1080cfef9c2f81626'
     OR strpos(d,'CHECK (audiencia_consumo = ANY (ARRAY[')<>1 OR right(d,3)<>']))'
     OR strpos(d,'vec_personal.vinculo_propio.crn11.v1')<>0 THEN
-  RAISE EXCEPTION 'AD149: preimagen de audiencias incompatible' USING ERRCODE='55000';
+  RAISE EXCEPTION 'PARO clave=AD149.audiencias_preimagen, actual=sha256:%/forma:%/crn11_ausente:%, esperado=sha256:c220a791d3bf62f5a87ca192373900178c7c3344f10384b1080cfef9c2f81626/forma:true/crn11_ausente:true',
+   encode(sha256(convert_to(d,'UTF8')),'hex'),
+   strpos(d,'CHECK (audiencia_consumo = ANY (ARRAY[')=1 AND right(d,3)=']))',
+   strpos(d,'vec_personal.vinculo_propio.crn11.v1')=0 USING ERRCODE='55000';
  END IF;
  nueva:=left(d,length(d)-3)||', ''vec_personal.vinculo_propio.crn11.v1''::text]))';
  ALTER TABLE vec_autorizacion_atestada_v3.clave_capacidad_version DROP CONSTRAINT clave_capacidad_version_audiencia_consumo_check;

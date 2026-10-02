@@ -132,7 +132,13 @@ BEGIN
     OR length(original)-length(replace(original,excl_nuevo,''))<>length(excl_nuevo)
     OR length(original)-length(replace(original,runtime_nuevo,''))<>length(runtime_nuevo)
     OR length(original)-length(replace(original,extension,''))<>length(extension)
- THEN RAISE EXCEPTION 'AD3-149: núcleo incompatible' USING ERRCODE='55000'; END IF;
+ THEN
+  RAISE EXCEPTION 'PARO clave=AD149.nucleo_preimagen, actual=def:%/src:%/runtime:%/config:%, esperado=def:%/src:%/runtime:1/config:search_path=pg_catalog, pg_temp;lock_timeout=2s',
+   encode(sha256(convert_to(original,'UTF8')),'hex'),
+   encode(sha256(convert_to(fuente,'UTF8')),'hex'),
+   (length(original)-length(replace(original,runtime_nuevo,'')))/length(runtime_nuevo),
+   config,esperada_def_sha256,esperada_fuente_sha256 USING ERRCODE='55000';
+ END IF;
  nuevo:=replace(original,extension||marca,marca);
  nuevo:=replace(nuevo,excl_nuevo,excl);
  nuevo:=replace(nuevo,runtime_nuevo,runtime);
@@ -161,7 +167,9 @@ BEGIN
    AND c.conname='clave_capacidad_version_audiencia_consumo_check' AND c.contype='c' AND c.convalidated;
  IF encode(sha256(convert_to(d,'UTF8')),'hex') IS DISTINCT FROM '0ba3eabde2f45d27afd278cfc008ddc0c3a24cc6d0e5de790b5c6d65dec906a6'
     OR length(d)-length(replace(d,retirar,''))<>length(retirar) THEN
-  RAISE EXCEPTION 'AD149: postimagen de audiencias incompatible' USING ERRCODE='55000';
+  RAISE EXCEPTION 'PARO clave=AD149.audiencias_postimagen, actual=sha256:%/extension:%, esperado=sha256:0ba3eabde2f45d27afd278cfc008ddc0c3a24cc6d0e5de790b5c6d65dec906a6/extension:1',
+   encode(sha256(convert_to(d,'UTF8')),'hex'),
+   (length(d)-length(replace(d,retirar,'')))/length(retirar) USING ERRCODE='55000';
  END IF;
  nueva:=replace(d,retirar,'');
  IF encode(sha256(convert_to(nueva,'UTF8')),'hex') IS DISTINCT FROM 'c220a791d3bf62f5a87ca192373900178c7c3344f10384b1080cfef9c2f81626' THEN
