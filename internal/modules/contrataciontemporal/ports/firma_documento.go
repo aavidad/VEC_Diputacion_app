@@ -229,6 +229,8 @@ type ReciboFirmaDocumento struct {
 
 // FirmaRegistrada es una fila de la historia de un expediente.
 type FirmaRegistrada struct {
+	// Via distingue la procedencia de CT170; vacío indica una fila legada.
+	Via               string
 	FirmaRef          string
 	ReciboRef         string
 	Documento         string
