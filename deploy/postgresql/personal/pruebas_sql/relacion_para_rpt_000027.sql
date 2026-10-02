@@ -48,6 +48,8 @@ REVOKE ALL ON FUNCTION public.rpt27_ensayo_actor(text) FROM PUBLIC;
 
 -- El propietario publica datos sintéticos propios con banderas false.
 -- Personal17 fija conocido_desde mediante su reloj y conserva la revisión.
+-- El snapshot vacío representa una fuente sintética sin catálogo admitido;
+-- no se inventan entradas publicadas. La revisión conserva ese mismo snapshot.
 CREATE FUNCTION public.rpt27_ensayo_fuente(p text,familia text,estado_fuente text DEFAULT 'vigente') RETURNS void
 LANGUAGE plpgsql SET search_path=pg_catalog AS $f$
 DECLARE s text:=substr(encode(sha256(convert_to(familia,'UTF8')),'hex'),1,32);
@@ -58,10 +60,10 @@ BEGIN
   PERFORM vec_personal.publicar_proyeccion_empleado_persona_v1('pep_objetivo_rpt27_'||s,1,'per_objetivo_rpt27_'||s,'emp_objetivo_rpt27_'||s,
    'activa',clock_timestamp()-interval '1 hour',clock_timestamp()+interval '2 hours',NULL,'prc_objetivo_rpt27_'||s,1,repeat('a',64));
   INSERT INTO vec_personal.relacion_servicio_historia(relacion_ref,revision,persona_ref,empleado_ref,organismo_ref,unidad_ref,regimen_ref,modalidad_ref,
-   estado,vigente_desde,vigente_hasta,conocido_desde,acto_ref,fuente_ref,fuente_version,fuente_huella_sha256,firma_oficial,eficacia_administrativa,decision_ref,auditoria_ref)
+   estado,vigente_desde,vigente_hasta,conocido_desde,acto_ref,fuente_ref,fuente_version,fuente_huella_sha256,firma_oficial,eficacia_administrativa,decision_ref,auditoria_ref,catalogo_snapshot)
   VALUES('rel_rpt27_'||s,1,'per_objetivo_rpt27_'||s,'emp_objetivo_rpt27_'||s,'organismo:rpt27:sintetico','unidad:rpt27:sintetica','regimen:rpt27:sintetico','modalidad:rpt27:sintetica',
    estado_fuente,'2026-01-01',CASE WHEN estado_fuente='finalizada' THEN '2026-12-31'::date ELSE NULL END,clock_timestamp(),
-   'acto:rpt27:sintetico:'||s,'fuente:rpt27:sintetica:'||s,1,repeat('a',64),false,false,'fixture:rpt27:origen:'||s,'fixture:rpt27:auditoria-origen:'||s);
+   'acto:rpt27:sintetico:'||s,'fuente:rpt27:sintetica:'||s,1,repeat('a',64),false,false,'fixture:rpt27:origen:'||s,'fixture:rpt27:auditoria-origen:'||s,'{}'::jsonb);
  END IF;
  RESET ROLE;
  UPDATE public.rpt27_ensayo_vector SET empleado_ref='emp_objetivo_rpt27_'||s,relacion_ref='rel_rpt27_'||s,
@@ -76,10 +78,10 @@ BEGIN
  SET LOCAL ROLE vec_personal_propietario;
  SELECT * INTO STRICT anterior FROM vec_personal.relacion_servicio_historia WHERE relacion_ref=rel ORDER BY revision DESC LIMIT 1;
  INSERT INTO vec_personal.relacion_servicio_historia(relacion_ref,revision,persona_ref,empleado_ref,organismo_ref,unidad_ref,regimen_ref,modalidad_ref,
-  estado,vigente_desde,vigente_hasta,conocido_desde,acto_ref,fuente_ref,fuente_version,fuente_huella_sha256,firma_oficial,eficacia_administrativa,decision_ref,auditoria_ref)
+  estado,vigente_desde,vigente_hasta,conocido_desde,acto_ref,fuente_ref,fuente_version,fuente_huella_sha256,firma_oficial,eficacia_administrativa,decision_ref,auditoria_ref,catalogo_snapshot)
  VALUES(rel,anterior.revision+1,anterior.persona_ref,anterior.empleado_ref,anterior.organismo_ref,anterior.unidad_ref,anterior.regimen_ref,anterior.modalidad_ref,
   estado_fuente,desde,hasta,clock_timestamp(),'acto:rpt27:correccion:'||substr(encode(sha256(convert_to(rel,'UTF8')),'hex'),1,32),anterior.fuente_ref,anterior.fuente_version+1,
-  repeat('b',64),false,false,'fixture:rpt27:revision','fixture:rpt27:revision') RETURNING conocido_desde INTO conocida;
+  repeat('b',64),false,false,'fixture:rpt27:revision','fixture:rpt27:revision',anterior.catalogo_snapshot) RETURNING conocido_desde INTO conocida;
  RESET ROLE;
  RETURN conocida;
 END $f$;

@@ -4,6 +4,9 @@
 # Dirección cede el clon tras fijar preimagen y revisar el contenido exacto.
 set -euo pipefail
 umask 077
+continuar=false
+if [[ ${1:-} == --continuar-fixture ]]; then continuar=true; shift; fi
+[[ $# == 0 ]] || { printf '%s\n' 'RPT27: argumentos de ensayo inválidos' >&2; exit 2; }
 base_dir=$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 repo_dir=$(CDPATH='' cd -- "$base_dir/../../../.." && pwd)
 fallo() { printf 'RPT27 FALLO: %s\n' "$1" >&2; exit 1; }
@@ -28,8 +31,19 @@ psql_run() { local user=$1; shift; docker exec -i "$container" /usr/bin/env -i P
 valor() { psql_run postgres -c "$1"; }
 archivo() { psql_run postgres -v rpt27_ensayo_autorizado=on < "$1" > "$scratch/sql.log" 2>&1 || fallo 'SQL falló: diagnóstico privado'; }
 [[ $(valor "SELECT current_setting('server_version_num')") == 180004 ]] || fallo 'PG18.4 requerido'
+if ! "$continuar"; then
 [[ ! -e $scratch/overlay.json && ! -e $scratch/capacidad_v3_vector_sql_test.go ]] || fallo 'scratch ya usado: conservarlo'
+fi
+if ! "$continuar"; then
 [[ $(valor "SELECT to_regprocedure('vec_personal.consultar_relacion_para_rpt_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL AND to_regprocedure('vec_autorizacion_atestada_v3.consumir_relacion_para_rpt_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL") == t ]] || fallo 'RPT27/154 ya presentes: no reaplicar'
+else
+ [[ -f $scratch/rpt27.test && -f $scratch/preimagen.json && -f $scratch/migraciones_journal.txt ]] || fallo 'fase anterior incompleta'
+ [[ $(sha256sum "$scratch/preimagen.json" | cut -d' ' -f1) == "$pre_sha" ]] || fallo 'captura de reanudación distinta'
+ sha256sum "$ad154" "$personal27" | cmp -s "$scratch/migraciones_journal.txt" - || fallo 'producto cambiado desde instalación'
+ [[ $(valor "SELECT count(*)=0 FROM public.rpt27_ensayo_vector") == t ]] || fallo 'ya hay casos preparados: no repetir el ensayo'
+fi
+captura() { { printf '%s\n' 'SET search_path=pg_catalog,pg_temp;'; cat "$scratch/preservacion.sql"; } | psql_run postgres > "$1"; }
+if ! "$continuar"; then
 # Snapshot de todas las fachadas A previas y CHECK. El núcleo se normaliza con
 # el inverso textual del delta154 congelado, jamás ejecutando DOWN. El contrato
 # de segmentos debe coincidir con AD154; su ausencia detiene antes de aplicar.
@@ -57,7 +71,7 @@ filas="SELECT coalesce(jsonb_agg(to_jsonb(h) ORDER BY h.relacion_ref,h.revision)
 pathlib.Path(sys.argv[2]+'.plantilla').write_text(q)
 pathlib.Path(sys.argv[2]).write_text(q.replace('__FILAS17__',filas))
 PYPRESERVACION
-captura() { { printf '%s\n' 'SET search_path=pg_catalog,pg_temp;'; cat "$scratch/preservacion.sql"; } | psql_run postgres > "$1"; }
+
 captura "$scratch/preimagen.json"
 [[ $(sha256sum "$scratch/preimagen.json" | cut -d' ' -f1) == "$pre_sha" ]] || fallo 'preimagen distinta de la aprobada'
 # Fijar los identificadores originales de17: añadir fixtures después no altera
@@ -644,6 +658,7 @@ python3 - "$scratch/overlay.json" "$repo_dir" "$scratch" <<'PY'
 import json,pathlib,sys
 p=pathlib.Path(sys.argv[1]); o=json.loads(p.read_text()); o['Replace']={k.replace(sys.argv[2],'/src',1):v.replace(sys.argv[3],'/scratch',1) for k,v in o['Replace'].items()};p.write_text(json.dumps(o))
 PY
+fi
 toolchain=/modcache/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64
 sandbox() {
  systemd-run --user --quiet --wait --pipe --collect -p MemoryMax=2G -p TasksMax=256 -p CPUQuota=200% -p LimitFSIZE=268435456 -p LimitNOFILE=256 \
@@ -653,7 +668,23 @@ sandbox() {
  /usr/bin/env -i PATH="$toolchain/bin:/usr/bin:/bin" HOME=/scratch GOROOT="$toolchain" GOTOOLCHAIN=local GOPATH=/scratch/gopath GOMODCACHE=/modcache GOCACHE=/buildcache GOPROXY=off GOSUMDB=off CGO_ENABLED=0 GOMAXPROCS=2 \
  VEC_RPT27_VECTOR_ENTRADA=/scratch/entrada.json VEC_RPT27_VECTOR_SALIDA=/scratch/salida.json VEC_RPT27_GO_MODO="${go_modo:-}" "$@"
 }
+if ! "$continuar"; then
 sandbox "$toolchain/bin/go" test -c -p 8 -overlay /scratch/overlay.json -o /scratch/rpt27.test ./internal/vec/adapters/seguridad/confianzaatestacion > "$scratch/compilar.log" 2>&1 || fallo 'compilación focal aislada falló'
+else
+ # Únicamente las dos funciones auxiliares propias, nunca las migraciones.
+ python3 - "$base_dir/relacion_para_rpt_000027.sql" "$scratch/fixture_corregida.sql" <<'PYFIXTURE'
+import pathlib,re,sys
+s=pathlib.Path(sys.argv[1]).read_text();partes=[]
+for n in ('rpt27_ensayo_fuente','rpt27_ensayo_revision'):
+ m=re.search(r'CREATE FUNCTION public\.'+n+r'\(.*?\$f\$;',s,re.S)
+ assert m is not None
+ partes.append(m[0].replace('CREATE FUNCTION','CREATE OR REPLACE FUNCTION',1))
+pathlib.Path(sys.argv[2]).write_text('\set ON_ERROR_STOP on\nBEGIN;\n'+'\n'.join(partes)+'\nCOMMIT;\n')
+PYFIXTURE
+ archivo "$scratch/fixture_corregida.sql"
+ captura "$scratch/reanudacion.json"
+ cmp -s "$scratch/preimagen.json" "$scratch/reanudacion.json" || fallo 'reanudación alteró autoridades previas'
+fi
 
 normalizar() { # entrada exportadaSQL; fase; confirmación opcional
  python3 - "$scratch" "$1" "${2:-}" <<'PY'
