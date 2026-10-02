@@ -11,7 +11,7 @@ SET LOCAL idle_in_transaction_session_timeout='20s';
 DO $prueba$
 DECLARE
  e jsonb; bytes bytea; v jsonb; previo jsonb; siguiente jsonb; sin_circuito jsonb;
- actuacion_fingida jsonb; hito_fingido jsonb;
+ actuacion_fingida jsonb; hito_fingido jsonb; segundo_hito_fingido jsonb;
  v_nuevo jsonb:='{"definicion_ref":"flujo:ct:rrhh:20261002","version":2,"huella_sha256":"1721c3a66576b21163b590602589f1627095bd6b6bfa37c79862af62775146e2"}';
  v_total bigint; v_total_despues bigint; v_detectado boolean;
  v_fuente record; v_version integer;
@@ -52,13 +52,14 @@ BEGIN
  THEN RAISE EXCEPTION 'CT164: omisión de circuito admitida'; END IF;
  IF vec_contratacion_temporal.circuito_agregado_valido_ct164(jsonb_set(v,'{flujo,huella_sha256}',to_jsonb(repeat('f',64)))) IS NOT FALSE
  THEN RAISE EXCEPTION 'CT164: terna divergente admitida'; END IF;
- -- Un hito bien formado para CT163 sigue sin acreditar la firma ni el cargo.
+ -- El par inicial bien formado para CT163 no acredita firma ni competencia.
  actuacion_fingida:=jsonb_build_object(
-  'accion_clave','contratacion_temporal.circuito.peticion_firmada',
+  'accion_clave','contratacion_temporal.analisis.registrar',
   'recibo_ref','recibo:ct164:fingido','actor_ref','persona:actor-sintetico',
   'unidad_ref','unidad:ct164:sintetica','realizada_en','2026-10-02T12:01:00Z');
  hito_fingido:=jsonb_build_object(
   'secuencia',1,'version_expediente_entrada',1,
+  'clave','contratacion_temporal.circuito.peticion_firmada','tipo','peticion_firmada',
   'actuacion_clave',actuacion_fingida->>'accion_clave',
   'recibo_ref',actuacion_fingida->>'recibo_ref',
   'actor_ref',actuacion_fingida->>'actor_ref',
@@ -66,14 +67,17 @@ BEGIN
   'registrado_en',actuacion_fingida->'realizada_en',
   'origen','solicitud','destino','autorizacion_rrhh',
   'documento_ref','documento:ct164:fingido','firma_ref','firma:ct164:fingida');
+ segundo_hito_fingido:=hito_fingido||jsonb_build_object(
+  'secuencia',2,'clave','contratacion_temporal.circuito.autorizacion_rrhh',
+  'tipo','autorizacion_rrhh','origen','autorizacion_rrhh','destino','credito');
  siguiente:=v||jsonb_build_object('version',2);
  siguiente:=jsonb_set(siguiente,'{actuaciones}',(v->'actuaciones')||jsonb_build_array(actuacion_fingida));
- siguiente:=jsonb_set(siguiente,'{circuito,hitos}',jsonb_build_array(hito_fingido));
- siguiente:=jsonb_set(siguiente,'{circuito,estado_actual}','"autorizacion_rrhh"');
+ siguiente:=jsonb_set(siguiente,'{circuito,hitos}',jsonb_build_array(hito_fingido,segundo_hito_fingido));
+ siguiente:=jsonb_set(siguiente,'{circuito,estado_actual}','"credito"');
  IF vec_contratacion_temporal.circuito_siguiente_ct163(v,siguiente) IS NOT TRUE
- THEN RAISE EXCEPTION 'CT164: fixture de hito fingido no supera CT163'; END IF;
+ THEN RAISE EXCEPTION 'CT164: fixture del par fingido no supera CT163'; END IF;
  IF vec_contratacion_temporal.circuito_acto_admitido_ct164(v,siguiente) IS NOT FALSE
- THEN RAISE EXCEPTION 'CT164: hito fingido aceptado sin fuente nominal'; END IF;
+ THEN RAISE EXCEPTION 'CT164: par fingido aceptado sin fuente nominal'; END IF;
  -- Ausencia de fuentes: no basta adjuntar circuito, referencias o huellas.
  FOR v_version IN 2..6 LOOP
   previo:=v||jsonb_build_object('version',v_version-1);
@@ -113,6 +117,6 @@ BEGIN
  END LOOP;
  SELECT count(*) INTO v_total_despues FROM vec_contratacion_temporal.expediente_version_integral;
  IF v_total_despues<>v_total+1 THEN RAISE EXCEPTION 'CT164: efecto inesperado'; END IF;
- RAISE NOTICE 'CT164 focal OK: materializador real v1 vacío, hito CT163 fingido denegado, omisión/terna divergente denegadas, v2-v6 sin fuente denegadas, INSERT v2 denegado, legacy idéntico';
+ RAISE NOTICE 'CT164 focal OK: materializador real v1 vacío, par inicial CT163 fingido denegado, omisión/terna divergente denegadas, v2-v6 sin fuente denegadas, INSERT v2 denegado, legacy idéntico';
 END $prueba$;
 ROLLBACK;
