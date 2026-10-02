@@ -4,6 +4,7 @@ import (
 	"context"
 	"strconv"
 
+	docapp "vec-diputacion-granada/internal/vec/documentos/application"
 	docports "vec-diputacion-granada/internal/vec/documentos/ports"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
@@ -49,7 +50,7 @@ func (a *AutoridadOriginalFirmableV3) autorizarOperacion(ctx context.Context, ac
 		return docports.AutorizacionV3{}, denegadoPor(err)
 	}
 	if concesion.RecursoRef != id || concesion.AmbitoRef != expedienteRef ||
-		concesion.ValidarOriginalFirmable(accion, a.reloj.Ahora()) != nil ||
+		docapp.ValidarAutorizacionOriginalFirmable(concesion, accion, a.reloj.Ahora()) != nil ||
 		concesion.Material.ResumenCapacidad().EfectoHuellaSHA256() != docports.HuellaEfectoV3(preimagen) {
 		return docports.AutorizacionV3{}, denegadoPor(nil)
 	}
@@ -60,12 +61,12 @@ func (a *AutoridadOriginalFirmableV3) ContextoEscrituraOriginal(
 	ctx context.Context, r docports.ReservaOriginalFirmable, intento docports.IntentoOriginalFirmable,
 ) (vecports.ContextoOperacionAlmacen, error) {
 	if a == nil || nulo(a.almacen) || nulo(a.reloj) || ctx == nil || ctx.Err() != nil ||
-		intento.ValidarContra(r) != nil || intento.Estado != "pendiente" {
+		docapp.ValidarIntentoOriginalFirmable(intento, r) != nil || intento.Estado != "pendiente" {
 		return vecports.ContextoOperacionAlmacen{}, denegadoPor(contextoCancelado(ctx))
 	}
-	preimagen, err := r.Preimagen()
+	preimagen, err := docapp.PreimagenReservaOriginalFirmable(r)
 	if err != nil || r.Autorizacion.RecursoRef != r.ID || r.Autorizacion.AmbitoRef != r.ExpedienteRef ||
-		r.Autorizacion.ValidarOriginalFirmable(docports.AccionReservarOriginalFirmable, a.reloj.Ahora()) != nil ||
+		docapp.ValidarAutorizacionOriginalFirmable(r.Autorizacion, docports.AccionReservarOriginalFirmable, a.reloj.Ahora()) != nil ||
 		r.Autorizacion.Material.ResumenCapacidad().EfectoHuellaSHA256() != docports.HuellaEfectoV3(preimagen) {
 		return vecports.ContextoOperacionAlmacen{}, denegadoPor(err)
 	}

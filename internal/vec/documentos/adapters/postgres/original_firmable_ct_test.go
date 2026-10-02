@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	docapp "vec-diputacion-granada/internal/vec/documentos/application"
 	"vec-diputacion-granada/internal/vec/documentos/ports"
 )
 
@@ -15,7 +16,7 @@ func TestRepositorioOriginalFirmableRechazaDecisionDeOtroEfectoAntesDeSQL(t *tes
 	r := ports.ReservaOriginalFirmable{ID: ref("1"), ClaveIdempotencia: ref("4"), ModuloID: "contrataciontemporal",
 		ExpedienteRef: expediente, TipoRef: tipo, Version: 1, MIME: "application/pdf",
 		HuellaSHA256: strings.Repeat("a", 64), Tamano: 16, Politica: politicaEnsayo(t, expediente, tipo)}
-	preimagen, err := r.Preimagen()
+	preimagen, err := docapp.PreimagenReservaOriginalFirmable(r)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -5,14 +5,109 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
+	"time"
 
 	baseapp "vec-diputacion-granada/internal/vec/application"
+	canonicodoc "vec-diputacion-granada/internal/vec/canonico/documental"
 	"vec-diputacion-granada/internal/vec/documentos/domain"
 	"vec-diputacion-granada/internal/vec/documentos/ports"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
+
+func datosReservaOriginalFirmable(r ports.ReservaOriginalFirmable) (canonicodoc.DatosReservaOriginal, error) {
+	if r.Politica.Validar() != nil {
+		return canonicodoc.DatosReservaOriginal{}, ports.ErrSolicitudInvalida
+	}
+	p := r.Politica.Politica()
+	s := p.Solicitud()
+	if s.ExpedienteRef() != r.ExpedienteRef || s.TipoDocumentalRef() != r.TipoRef {
+		return canonicodoc.DatosReservaOriginal{}, ports.ErrSolicitudInvalida
+	}
+	return canonicodoc.DatosReservaOriginal{
+		ID: r.ID, ClaveIdempotencia: r.ClaveIdempotencia, ModuloID: r.ModuloID,
+		ExpedienteRef: r.ExpedienteRef, TipoRef: r.TipoRef, Version: r.Version,
+		MIME: r.MIME, HuellaSHA256: r.HuellaSHA256, Tamano: r.Tamano,
+		PoliticaRef: s.PoliticaRef(), VersionPolitica: s.VersionPolitica(),
+		HuellaPoliticaSHA256: hex.EncodeToString(s.HuellaPoliticaSHA256()),
+		Proteccion:           string(p.Proteccion()), ConservacionHasta: p.ConservacionHasta(),
+		EstadoPolitica: ports.EstadoPolitica(p),
+	}, nil
+}
+
+func PreimagenReservaOriginalFirmable(r ports.ReservaOriginalFirmable) ([]byte, error) {
+	d, err := datosReservaOriginalFirmable(r)
+	if err != nil {
+		return nil, err
+	}
+	preimagen, err := d.Preimagen()
+	if err != nil {
+		return nil, ports.ErrSolicitudInvalida
+	}
+	return preimagen, nil
+}
+
+func ValidarIntentoOriginalFirmable(i ports.IntentoOriginalFirmable, r ports.ReservaOriginalFirmable) error {
+	d, err := datosReservaOriginalFirmable(r)
+	if err != nil || !i.ValidoContra(d) {
+		return ports.ErrCapacidadNoDisponible
+	}
+	return nil
+}
+
+func PreimagenConfirmacionOriginalFirmable(c ports.ConfirmacionOriginalFirmable) ([]byte, error) {
+	preimagen, err := (canonicodoc.DatosConfirmacionOriginal{Intento: c.Intento, Objeto: c.Objeto}).Preimagen()
+	if err != nil {
+		return nil, ports.ErrSolicitudInvalida
+	}
+	return preimagen, nil
+}
+
+func ValidarAutorizacionOriginalFirmable(a ports.AutorizacionV3, accion string, ahora time.Time) error {
+	resumen := a.Material.ResumenCapacidad()
+	d := canonicodoc.DatosAutorizacionOriginal{
+		MaterialValido: a.Material.ValidarEstructura() == nil && resumen.ValidarEstructura() == nil,
+		Accion:         a.Accion, Finalidad: a.Finalidad, RecursoRef: a.RecursoRef,
+		AmbitoRef: a.AmbitoRef, PrincipalID: a.PrincipalID, PerfilActivoRef: a.PerfilActivoRef,
+		CorrelacionRef: a.CorrelacionRef, Audiencia: resumen.AudienciaConsumo(),
+		Operacion: resumen.Operacion(), EfectoRef: resumen.EfectoRef(),
+		EmitidaEn: resumen.EmitidaEn(), ExpiraEn: resumen.ExpiraEn(), Ahora: ahora,
+	}
+	if a.Accion != accion || !d.Valida() {
+		return ports.ErrSolicitudInvalida
+	}
+	return nil
+}
+
+func nuevoObjetoOriginalFirmable(i ports.IntentoOriginalFirmable, resultado vecports.ResultadoOperacionObjeto) (ports.ObjetoOriginalFirmable, error) {
+	if resultado.Validar() != nil || resultado.Objeto.HuellaSHA256 != i.HuellaSHA256 {
+		return ports.ObjetoOriginalFirmable{}, ports.ErrSolicitudInvalida
+	}
+	recibo, err := json.Marshal(resultado.Evidencia)
+	if err != nil {
+		return ports.ObjetoOriginalFirmable{}, ports.ErrSolicitudInvalida
+	}
+	var retencion *time.Time
+	if !resultado.Objeto.RetenidoHasta.IsZero() {
+		v := resultado.Objeto.RetenidoHasta.UTC()
+		retencion = &v
+	}
+	o := ports.ObjetoOriginalFirmable{
+		ClaveAlmacenRef: i.ClaveAlmacenRef,
+		ObjetoRef:       resultado.Objeto.Objeto.Referencia, ObjetoVersion: resultado.Objeto.Objeto.Version,
+		ConectorRef: resultado.Objeto.ConectorID, ReciboObjetoRef: resultado.Evidencia.OperacionRef,
+		ReciboObjetoHuellaSHA256: canonicodoc.HuellaReciboObjetoOriginal(recibo),
+		RetenidoHasta:            retencion, Inmovilizado: resultado.Objeto.Inmovilizado,
+		MIME: resultado.Objeto.MIME, Tamano: resultado.Objeto.Tamano,
+		HuellaSHA256: resultado.Objeto.HuellaSHA256,
+	}
+	if !o.Valido() {
+		return ports.ObjetoOriginalFirmable{}, ports.ErrSolicitudInvalida
+	}
+	return o, nil
+}
 
 // CustodiarOriginalFirmable reserva la identidad y la huella antes de escribir
 // el objeto. Cada intento pendiente usa la clave durable emitida por SQL; un
@@ -30,7 +125,7 @@ func (s *Servicio) CustodiarOriginalFirmable(
 		in.MIME != "application/pdf" || len(in.Contenido) < 8 || len(in.Contenido) > 1<<20 ||
 		!bytes.HasPrefix(in.Contenido, []byte("%PDF-")) || in.SolicitudPolitica.Validar() != nil ||
 		in.SolicitudPolitica.ExpedienteRef() != in.ExpedienteRef ||
-		in.SolicitudPolitica.TipoDocumentalRef() != in.TipoRef {
+		in.SolicitudPolitica.TipoDocumentalRef() != in.TipoRef || !s.tipoReservadoOriginalCT(in.TipoRef) {
 		return ports.IntentoOriginalFirmable{}, ports.ErrSolicitudInvalida
 	}
 	repositorio, ok := s.Repositorio.(ports.RepositorioOriginalFirmable)
@@ -48,7 +143,7 @@ func (s *Servicio) CustodiarOriginalFirmable(
 		ExpedienteRef: in.ExpedienteRef, TipoRef: in.TipoRef, Version: in.Version,
 		MIME: in.MIME, HuellaSHA256: huella, Tamano: int64(len(in.Contenido)), Politica: politica,
 	}
-	preimagenReserva, err := reserva.Preimagen()
+	preimagenReserva, err := PreimagenReservaOriginalFirmable(reserva)
 	if err != nil {
 		return ports.IntentoOriginalFirmable{}, err
 	}
@@ -57,7 +152,7 @@ func (s *Servicio) CustodiarOriginalFirmable(
 		return ports.IntentoOriginalFirmable{}, err
 	}
 	if reserva.Autorizacion.RecursoRef != in.ID || reserva.Autorizacion.AmbitoRef != in.ExpedienteRef ||
-		reserva.Autorizacion.ValidarOriginalFirmable(ports.AccionReservarOriginalFirmable, s.Reloj.Ahora()) != nil ||
+		ValidarAutorizacionOriginalFirmable(reserva.Autorizacion, ports.AccionReservarOriginalFirmable, s.Reloj.Ahora()) != nil ||
 		reserva.Autorizacion.Material.ResumenCapacidad().EfectoHuellaSHA256() != ports.HuellaEfectoV3(preimagenReserva) {
 		return ports.IntentoOriginalFirmable{}, ports.ErrSolicitudInvalida
 	}
@@ -65,7 +160,7 @@ func (s *Servicio) CustodiarOriginalFirmable(
 	if err != nil {
 		return ports.IntentoOriginalFirmable{}, err
 	}
-	if intento.ValidarContra(reserva) != nil {
+	if ValidarIntentoOriginalFirmable(intento, reserva) != nil {
 		return ports.IntentoOriginalFirmable{}, ports.ErrCapacidadNoDisponible
 	}
 	if intento.Estado == "confirmado" {
@@ -96,12 +191,12 @@ func (s *Servicio) CustodiarOriginalFirmable(
 		!custodiaSatisfacePolitica(objeto, capacidades, politica.Politica()) {
 		return ports.IntentoOriginalFirmable{}, ports.ErrCapacidadNoDisponible
 	}
-	objetoConfirmacion, err := ports.NuevoObjetoOriginalFirmable(intento, objeto)
+	objetoConfirmacion, err := nuevoObjetoOriginalFirmable(intento, objeto)
 	if err != nil {
 		return ports.IntentoOriginalFirmable{}, err
 	}
 	confirmacion := ports.ConfirmacionOriginalFirmable{Intento: intento, Objeto: objetoConfirmacion}
-	preimagenConfirmacion, err := confirmacion.Preimagen()
+	preimagenConfirmacion, err := PreimagenConfirmacionOriginalFirmable(confirmacion)
 	if err != nil {
 		return ports.IntentoOriginalFirmable{}, err
 	}
@@ -110,7 +205,7 @@ func (s *Servicio) CustodiarOriginalFirmable(
 		return ports.IntentoOriginalFirmable{}, err
 	}
 	if confirmacion.Autorizacion.RecursoRef != in.ID || confirmacion.Autorizacion.AmbitoRef != in.ExpedienteRef ||
-		confirmacion.Autorizacion.ValidarOriginalFirmable(ports.AccionConfirmarOriginalFirmable, s.Reloj.Ahora()) != nil ||
+		ValidarAutorizacionOriginalFirmable(confirmacion.Autorizacion, ports.AccionConfirmarOriginalFirmable, s.Reloj.Ahora()) != nil ||
 		confirmacion.Autorizacion.Material.ResumenCapacidad().EfectoHuellaSHA256() != ports.HuellaEfectoV3(preimagenConfirmacion) {
 		return ports.IntentoOriginalFirmable{}, ports.ErrSolicitudInvalida
 	}
@@ -128,6 +223,14 @@ func (s *Servicio) CustodiarOriginalFirmable(
 	}
 	intento.Estado = "confirmado"
 	return intento, nil
+}
+
+func (s *Servicio) tipoReservadoOriginalCT(tipoRef string) bool {
+	if s == nil {
+		return false
+	}
+	r, ok := s.Politicas.(ports.ReservaTiposOriginalCT)
+	return ok && r.CustodiaOriginalCTReservada(tipoRef)
 }
 
 // DescargarOriginalConDocumento devuelve el contenido exacto y sus metadatos

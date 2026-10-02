@@ -6,12 +6,13 @@ import (
 	"strconv"
 	"time"
 
+	docapp "vec-diputacion-granada/internal/vec/documentos/application"
 	"vec-diputacion-granada/internal/vec/documentos/domain"
 	"vec-diputacion-granada/internal/vec/documentos/ports"
 )
 
 func validarAutorizacionOriginalFirmable(a ports.AutorizacionV3, accion string, preimagen []byte) (materialV3, error) {
-	if a.ValidarOriginalFirmable(accion, time.Now().UTC()) != nil || len(preimagen) == 0 {
+	if docapp.ValidarAutorizacionOriginalFirmable(a, accion, time.Now().UTC()) != nil || len(preimagen) == 0 {
 		return materialV3{}, ports.ErrSolicitudInvalida
 	}
 	persona, errPersona := strconv.ParseInt(strconv.FormatUint(a.Material.PersonaVersion(), 10), 10, 64)
@@ -36,7 +37,7 @@ func validarAutorizacionOriginalFirmable(a ports.AutorizacionV3, accion string, 
 // intento pendiente recibe una clave de almacén nueva; el repositorio no
 // accede a tablas de otro módulo ni crea referencias por su cuenta.
 func (r *Repositorio) ReservarOriginalFirmable(ctx context.Context, solicitud ports.ReservaOriginalFirmable) (ports.IntentoOriginalFirmable, error) {
-	preimagen, err := solicitud.Preimagen()
+	preimagen, err := docapp.PreimagenReservaOriginalFirmable(solicitud)
 	if err != nil || solicitud.Autorizacion.RecursoRef != solicitud.ID ||
 		solicitud.Autorizacion.AmbitoRef != solicitud.ExpedienteRef {
 		return ports.IntentoOriginalFirmable{}, ports.ErrSolicitudInvalida
@@ -72,7 +73,7 @@ func (r *Repositorio) ReservarOriginalFirmable(ctx context.Context, solicitud po
 		DocumentoID: respuesta.ID, HuellaSHA256: respuesta.HuellaSHA256,
 		Numero: respuesta.IntentoNum, ClaveAlmacenRef: respuesta.ClaveAlmacenRef,
 	}
-	if intento.ValidarContra(solicitud) != nil {
+	if docapp.ValidarIntentoOriginalFirmable(intento, solicitud) != nil {
 		return ports.IntentoOriginalFirmable{}, ErrRepositorioNoDisponible
 	}
 	return intento, nil
@@ -81,7 +82,7 @@ func (r *Repositorio) ReservarOriginalFirmable(ctx context.Context, solicitud po
 // ConfirmarOriginalFirmable coteja el objeto validado por la aplicación con
 // el intento reservado y consume otra concesión V3 en la transacción SQL.
 func (r *Repositorio) ConfirmarOriginalFirmable(ctx context.Context, confirmacion ports.ConfirmacionOriginalFirmable) (domain.Documento, error) {
-	preimagen, err := confirmacion.Preimagen()
+	preimagen, err := docapp.PreimagenConfirmacionOriginalFirmable(confirmacion)
 	if err != nil || confirmacion.Autorizacion.RecursoRef != confirmacion.Intento.DocumentoID ||
 		!domain.ReferenciaOpacaValida(confirmacion.Autorizacion.AmbitoRef) {
 		return domain.Documento{}, ports.ErrSolicitudInvalida
