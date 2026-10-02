@@ -60,6 +60,7 @@
     "circuito_firma_documento_comunicacion_centro": "Notice to the requesting centre",
     "circuito_firma_cargo_tecnico_rrhh": "HR officer responsible for the case",
     "circuito_firma_cargo_jefatura_rrhh": "Head of the HR Service",
+    "circuito_firma_cargo_direccion_o_jefatura_rrhh": "HR Directorate or Head of the HR Service",
     "circuito_firma_cargo_jefatura_propuesta": "Head of the HR Service (proposal)",
     "circuito_firma_cargo_diputacion_delegada": "Delegate for Human Resources",
     "circuito_firma_cargo_secretaria_razon": "General Secretariat (acknowledgement)",
@@ -79,6 +80,7 @@
     "cargo": {
       "tecnico_rrhh": "Técnico/a de RRHH responsable del expediente",
       "jefatura_rrhh": "Jefatura del Servicio de RRHH",
+      "direccion_o_jefatura_rrhh": "Dirección de RRHH o Jefatura del Servicio de RRHH",
       "jefatura_propuesta": "Jefatura del Servicio de RRHH (propuesta)",
       "diputacion_delegada": "Diputado/a delegado/a de Recursos Humanos",
       "secretaria_razon": "Secretaría General (toma de razón)",
