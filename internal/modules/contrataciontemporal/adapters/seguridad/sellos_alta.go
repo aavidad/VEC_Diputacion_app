@@ -240,19 +240,21 @@ func materialCanonicoHuellaAlta(
 		solicitud.DocumentosAdjuntos = []string{}
 	}
 	return json.Marshal(struct {
-		Esquema         string                 `json:"esquema"`
-		OrganizacionRef string                 `json:"organizacion_ref"`
-		ActorRef        string                 `json:"actor_ref"`
-		PerfilRef       string                 `json:"perfil_ref"`
-		Flujo           domain.ReferenciaFlujo `json:"flujo"`
-		Solicitud       domain.SolicitudCentro `json:"solicitud"`
+		NumeroExpedienteMOAD string                 `json:"numero_expediente_moad,omitempty"`
+		Esquema              string                 `json:"esquema"`
+		OrganizacionRef      string                 `json:"organizacion_ref"`
+		ActorRef             string                 `json:"actor_ref"`
+		PerfilRef            string                 `json:"perfil_ref"`
+		Flujo                domain.ReferenciaFlujo `json:"flujo"`
+		Solicitud            domain.SolicitudCentro `json:"solicitud"`
 	}{
-		Esquema:         esquemaHuellaAltaV1,
-		OrganizacionRef: material.OrganizacionRef,
-		ActorRef:        material.ActorRef,
-		PerfilRef:       material.PerfilRef,
-		Flujo:           material.Flujo,
-		Solicitud:       solicitud,
+		NumeroExpedienteMOAD: material.NumeroExpedienteMOAD,
+		Esquema:              esquemaHuellaAltaV1,
+		OrganizacionRef:      material.OrganizacionRef,
+		ActorRef:             material.ActorRef,
+		PerfilRef:            material.PerfilRef,
+		Flujo:                material.Flujo,
+		Solicitud:            solicitud,
 	})
 }
 

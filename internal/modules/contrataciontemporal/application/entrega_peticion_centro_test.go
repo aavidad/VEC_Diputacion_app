@@ -171,7 +171,7 @@ type registradorEntregaPeticionCentroPrueba struct {
 	recibo   ports.ReciboAlta
 }
 
-func (r *registradorEntregaPeticionCentroPrueba) RegistrarExpedientePeticion(_ context.Context, peticion ports.EntregaPeticionCentro) (ports.AltaDePeticionCentro, error) {
+func (r *registradorEntregaPeticionCentroPrueba) RegistrarExpedientePeticion(_ context.Context, peticion ports.EntregaPeticionCentro, _ string) (ports.AltaDePeticionCentro, error) {
 	r.llamadas++
 	r.recibido = peticion
 	if r.err != nil {
@@ -199,7 +199,7 @@ func entregaPeticionCentroPrueba(t *testing.T) (*repositorioEntregaPeticionCentr
 	if err != nil {
 		t.Fatal(err)
 	}
-	comando := ports.ComandoEntregarPeticionCentro{PeticionRef: peticion.Referencia, VersionEsperada: 2}
+	comando := ports.ComandoEntregarPeticionCentro{PeticionRef: peticion.Referencia, VersionEsperada: 2, NumeroExpedienteMOAD: "2026/5487"}
 	return repo, registro, servicio, comando, preparada
 }
 

@@ -130,6 +130,7 @@ type generadorAltaDoble struct {
 
 func (d *generadorAltaDoble) GenerarReferenciasAlta(
 	context.Context,
+	string,
 ) (ports.ReferenciasAlta, error) {
 	d.llamadasReferencias++
 	return d.referencias, d.errReferencias
@@ -340,11 +341,12 @@ func nuevoEscenarioRegistro(t *testing.T) escenarioRegistro {
 	return escenarioRegistro{
 		instante: instante,
 		solicitud: SolicitudRegistrarExpediente{
-			AutenticacionRef:  vinculo.AutenticacionRef,
-			SesionRef:         vinculo.SesionRef,
-			PerfilRef:         vinculo.PerfilActivoRef,
-			OrganizacionRef:   "organizacion:diputacion-granada",
-			ClaveIdempotencia: "018f3b2a-7c4d-4e5f-8a9b-0c1d2e3f4a5b",
+			NumeroExpedienteMOAD: "2026/CT-0001",
+			AutenticacionRef:     vinculo.AutenticacionRef,
+			SesionRef:            vinculo.SesionRef,
+			PerfilRef:            vinculo.PerfilActivoRef,
+			OrganizacionRef:      "organizacion:diputacion-granada",
+			ClaveIdempotencia:    "018f3b2a-7c4d-4e5f-8a9b-0c1d2e3f4a5b",
 			Solicitud: domain.SolicitudCentro{
 				CentroRef:     "centro:residencia-rodriguez-penalva",
 				ContactoRef:   "persona:responsable-centro-001",

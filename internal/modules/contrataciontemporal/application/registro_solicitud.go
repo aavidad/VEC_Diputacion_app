@@ -30,12 +30,13 @@ var (
 // SesionRef pueden proceder de web, escritorio, CLI o MCP, pero la autoridad
 // común VEC las revalida y resuelve la cuenta, persona, perfil y garantía.
 type SolicitudRegistrarExpediente struct {
-	AutenticacionRef  string
-	SesionRef         string
-	PerfilRef         string
-	OrganizacionRef   string
-	ClaveIdempotencia string
-	Solicitud         domain.SolicitudCentro
+	AutenticacionRef     string
+	SesionRef            string
+	PerfilRef            string
+	OrganizacionRef      string
+	ClaveIdempotencia    string
+	NumeroExpedienteMOAD string
+	Solicitud            domain.SolicitudCentro
 }
 
 type ServicioRegistroSolicitud struct {
@@ -50,6 +51,7 @@ type ServicioRegistroSolicitud struct {
 	huellasEfecto         ports.DerivadorHuellaEfectoAlta
 	autorizador           puertosvec.AutorizadorSolicitudLigadaV3
 	reloj                 ports.Reloj
+	politicaNumero        *domain.PoliticaNumeroExpediente
 	transaccion           ports.TransaccionAltasCandidata
 }
 
@@ -66,6 +68,7 @@ func NuevoServicioRegistroSolicitud(
 	autorizador puertosvec.AutorizadorSolicitudLigadaV3,
 	reloj ports.Reloj,
 	transaccion ports.TransaccionAltasCandidata,
+	politicas ...domain.PoliticaNumeroExpediente,
 ) (*ServicioRegistroSolicitud, error) {
 	if dependenciaNula(contextosAutorizacion) || dependenciaNula(flujos) ||
 		dependenciaNula(huellas) || dependenciaNula(ambitos) ||
@@ -75,7 +78,16 @@ func NuevoServicioRegistroSolicitud(
 		dependenciaNula(reloj) || dependenciaNula(transaccion) {
 		return nil, ErrServicioRegistroInvalido
 	}
+	if len(politicas) > 1 || len(politicas) == 1 && politicas[0].Validar() != nil {
+		return nil, ErrServicioRegistroInvalido
+	}
+	var politica *domain.PoliticaNumeroExpediente
+	if len(politicas) == 1 {
+		copia := politicas[0]
+		politica = &copia
+	}
 	return &ServicioRegistroSolicitud{
+		politicaNumero:        politica,
 		contextosAutorizacion: contextosAutorizacion,
 		flujos:                flujos,
 		huellas:               huellas,
@@ -114,6 +126,9 @@ func (s *ServicioRegistroSolicitud) Registrar(
 			ports.ErrAutorizacionDenegada,
 			ErrSolicitudRegistroInvalida,
 		)
+	}
+	if !domain.NumeroExpedienteValido(solicitud.NumeroExpedienteMOAD) || s.politicaNumero != nil && s.politicaNumero.ValidarNumero(solicitud.NumeroExpedienteMOAD) != nil {
+		return ports.ReciboAlta{}, ErrSolicitudRegistroInvalida
 	}
 	solicitudCentro, err := solicitud.Solicitud.Clonar()
 	if err != nil {
@@ -178,11 +193,12 @@ func (s *ServicioRegistroSolicitud) Registrar(
 		return ports.ReciboAlta{}, ErrSolicitudRegistroInvalida
 	}
 	materialHuella := ports.MaterialHuellaAlta{
-		OrganizacionRef: solicitud.OrganizacionRef,
-		ActorRef:        vinculo.PrincipalID,
-		PerfilRef:       vinculo.PerfilActivoRef,
-		Flujo:           configuracion.Flujo,
-		Solicitud:       solicitudParaHuella,
+		NumeroExpedienteMOAD: solicitud.NumeroExpedienteMOAD,
+		OrganizacionRef:      solicitud.OrganizacionRef,
+		ActorRef:             vinculo.PrincipalID,
+		PerfilRef:            vinculo.PerfilActivoRef,
+		Flujo:                configuracion.Flujo,
+		Solicitud:            solicitudParaHuella,
 	}
 	if materialHuella.Validar() != nil {
 		return ports.ReciboAlta{}, ports.ErrPreparacionAltaInvalida
@@ -227,9 +243,12 @@ func (s *ServicioRegistroSolicitud) Registrar(
 	if err != nil {
 		return ports.ReciboAlta{}, err
 	}
-	referencias, err := s.referencias.GenerarReferenciasAlta(ctx)
+	referencias, err := s.referencias.GenerarReferenciasAlta(ctx, solicitud.NumeroExpedienteMOAD)
 	if err != nil {
 		return ports.ReciboAlta{}, err
+	}
+	if referencias.NumeroVisible != solicitud.NumeroExpedienteMOAD {
+		return ports.ReciboAlta{}, ErrResultadoRegistroNoConfiable
 	}
 	if err := ctx.Err(); err != nil {
 		return ports.ReciboAlta{}, err
@@ -289,6 +308,9 @@ func (s *ServicioRegistroSolicitud) Registrar(
 		return ports.ReciboAlta{}, ports.ErrPreparacionAltaInvalida
 	}
 
+	if datosCandidatura.Referencias.NumeroVisible != solicitud.NumeroExpedienteMOAD {
+		return ports.ReciboAlta{}, ports.ErrClaveIdempotenciaUsada
+	}
 	expediente, err := domain.NuevoExpediente(domain.AltaExpediente{
 		Referencia:      datosCandidatura.Referencias.ExpedienteRef,
 		OrganizacionRef: solicitud.OrganizacionRef,

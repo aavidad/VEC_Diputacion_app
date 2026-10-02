@@ -339,7 +339,7 @@ func solicitudAutorizacionEntregaPeticionValida(ctx context.Context, d vecdomain
 	return err == nil && r.Referencia == d.Recurso.Referencia && r.ModuloID == d.Recurso.ModuloID && r.Tipo == d.Recurso.Tipo && maps.Equal(r.Ambitos, d.Recurso.Ambitos) && maps.Equal(r.Atributos, d.Recurso.Atributos)
 }
 
-func (p *proveedorEntregaPeticionDesarrollo) RegistrarExpedientePeticion(ctx context.Context, e ports.EntregaPeticionCentro) (ports.AltaDePeticionCentro, error) {
+func (p *proveedorEntregaPeticionDesarrollo) RegistrarExpedientePeticion(ctx context.Context, e ports.EntregaPeticionCentro, numeroMOAD string) (ports.AltaDePeticionCentro, error) {
 	var vacia ports.AltaDePeticionCentro
 	a, perfil, err := p.ActorEntregaPeticionCentro(ctx)
 	if err != nil {
@@ -354,6 +354,7 @@ func (p *proveedorEntregaPeticionDesarrollo) RegistrarExpedientePeticion(ctx con
 		return vacia, err
 	}
 	comando.ClaveIdempotencia = e.ClaveAlta
+	comando.NumeroExpedienteMOAD = numeroMOAD
 	comando.Solicitud, err = e.Peticion.Solicitud.Clonar()
 	if err != nil {
 		return vacia, err
