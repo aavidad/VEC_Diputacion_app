@@ -1,0 +1,5 @@
+{
+  "alcance": "Ensayo físico con datos sintéticos. El resultado no valida la copia completa ni permite restaurarla.",
+  "restauracion_fisica_completada": "PostgreSQL se ha recuperado en un entorno aislado. Revise el contraste y el arranque de VEC antes de validar el conjunto.",
+  "restauracion_fisica_fallida": "No se ha completado el ensayo físico. Revise la etapa y los motivos indicados."
+}

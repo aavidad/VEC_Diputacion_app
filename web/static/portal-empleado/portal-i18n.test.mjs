@@ -62,25 +62,26 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   const coordinador = await readFile(new URL("portal-modulos-coordinador.js", raiz), "utf8");
   const recorridosDietas = await readFile(new URL("modulos/dietas/vista-recorridos.js", raiz), "utf8");
   const versionesEspeciales = new Map([
+    ["modulos/solicitudes/vista-tramites-propios.js", "20261001-g364-reconciliar-v2"],
     ["modulos/contratacion-temporal/formulario-llamamiento-pruebas.js", "20261001-ana002-v4"],
     ["modulos/contratacion-temporal/circuito-firma-acciones.js", "20261001-f-reconciliacion-325-v1"],
     ["portal-modulos-coordinador.js", versionEntrada],
     ["portal.js", versionEntrada],
-    ["modulos/cronos/vista-bandeja-permisos.js", "20261001-cronos-grafo-bandeja-v5"],
+    ["modulos/cronos/vista-bandeja-permisos.js", "20261001-f-reconciliacion-321-v1"],
     ["modulos/cronos/i18n-resolucion.js", "20261001-cronos-grafo-bandeja-v5"],
     ["modulos/cronos/i18n-permisos.js", "20261001-cronos-grafo-bandeja-v5"],
-    ["modulos/cronos/vista-permisos-propios.js", "20261001-cronos-grafo-bandeja-v5"],
-    ["modulos/cronos/vista-movimientos-propios.js", "20261001-f-reconciliacion-322-v1"],
+    ["modulos/cronos/vista-permisos-propios.js", "20261001-cronos-calendario-seleccion-v1"],
+    ["modulos/cronos/vista-movimientos-propios.js", "20261001-cronos-calendario-seleccion-v1"],
     ["modulos/cronos/i18n-incidencias.js", "20261001-cronos-grafo-bandeja-v5"],
     ["modulos/cronos/i18n-consulta.js", "20261001-cronos-grafo-bandeja-v5"],
-    ["portal-composicion-empleado.js", "20261001-cronos-grafo-bandeja-v5"],
+    ["portal-composicion-empleado.js", "20261001-g364-reconciliar-v2"],
     ["modulos/cronos/vista-saldo-conectado.js", "20261001-cronos-saldo-explicado-v1"],
-    ["modulos/cronos/vista-notificaciones-propias.js", "20261001-cronos-notificaciones-v1"],
+    ["modulos/cronos/vista-notificaciones-propias.js", "20261001-cronos-c9-historial-v2"],
     ["modulos/cronos/vista-remoto.js", "20261001-cronos-grafo-bandeja-v5"],
-    ["modulos/cronos/vista-movimientos-conectado.js", "20261001-cronos-grafo-bandeja-v5"],
+    ["modulos/cronos/vista-movimientos-conectado.js", "20261001-cronos-movimientos-consulta-v1"],
     ["modulos/cronos/i18n-fichaje.js", "20261001-cronos-grafo-bandeja-v5"],
     ["modulos/bolsa/rrhh-plazos-ui.js", "20261001-ct-a-i18n-v1"],
-    ["portal-inicio.js", "20261001-g354-reconciliar-v2"],
+    ["portal-inicio.js", "20261001-g364-reconciliar-v2"],
     // 5.06, segundo corte: el circuito de firma trae el estado de Firmadoc.
     // Reglas vigentes: el detalle de cada regla y sus textos en catálogos renuevan el enlace del panel.
     // Nuevo llamamiento: el campo «Resumen de la preparación» usa la etiqueta encima y el campo a lo ancho.
@@ -107,7 +108,7 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     ["modulos/contratacion-temporal/vista-expedientes.js", "20261001-ana002-v4"],
     ["portal-modulos-coordinador.js", versionEntrada],
     ["modulos/bolsa/baremo/montaje.js", "20261001-f-reconciliacion-319-v1"],
-    ["modulos/cronos/vista-permisos-propios.js", "20261001-f-reconciliacion-322-v1"],
+    ["modulos/cronos/vista-permisos-propios.js", "20261001-cronos-calendario-seleccion-v1"],
     ["modulos/dietas/vista-borradores-propios.js", "20261001-f-reconciliacion-320-v1"],
     ["modulos/cronos/vista-bandeja-permisos.js", "20261001-f-reconciliacion-321-v1"],
     ["portal-bolsas-operaciones.js", "20261001-f-reconciliacion-323-v1"],
@@ -136,6 +137,10 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     ["portal.js", versionEntrada],
   ]);
   versionesEspeciales.set("modulos/contratacion-temporal/vista-estadisticas.js", "20261001-ana002-v4");
+  versionesEspeciales.set("modulos/cronos/vista-bandeja-notificaciones.js", "20261001-cronos-c9-recuperacion-v3");
+  versionesEspeciales.set("modulos/cronos/i18n-bandeja-notificaciones.js", "20261001-cronos-c9-recuperacion-v3");
+  versionesEspeciales.set("modulos/cronos/i18n-notificaciones-historial.js", "20261001-cronos-c9-historial-v2");
+  versionesEspeciales.set("modulos/cronos/i18n-permisos-consulta.js", "20261001-cronos-c7-consulta-v2");
   const archivos = ["index.html"];
   const pendientes = [""];
   while (pendientes.length) {
@@ -265,7 +270,7 @@ test("Cronos renueva los traductores de permisos y resolución y todos sus padre
   assert.equal(versionDe(permisos, "./i18n-permisos.js"), version);
   assert.equal(versionDe(coordinador, "./modulos/cronos/vista-avisos-propios.js"), "20261001-cronos-avisos-confirmados-v1");
   assert.equal(versionDe(coordinador, "./modulos/cronos/vista-bandeja-permisos.js"), "20261001-f-reconciliacion-321-v1");
-  assert.equal(versionDe(coordinador, "./modulos/cronos/vista-permisos-propios.js"), "20261001-f-reconciliacion-322-v1");
+  assert.equal(versionDe(coordinador, "./modulos/cronos/vista-permisos-propios.js"), "20261001-cronos-calendario-seleccion-v1");
   const versionPortal = versionDe(portal, "./portal-modulos-coordinador.js");
   assert.notEqual(versionPortal, "20261001-cronos-grafo-bandeja-v5");
   assert.equal(versionDe(html, "/portal-empleado/portal-modulos-coordinador.js"), versionPortal);
