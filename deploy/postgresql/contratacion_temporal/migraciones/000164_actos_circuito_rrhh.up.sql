@@ -56,7 +56,7 @@ END $pre$;
 -- La decisión, el material del alta y los sellos existentes ligan este flujo.
 CREATE FUNCTION vec_contratacion_temporal.circuito_flujo_nuevo_ct164(p_flujo jsonb)
 RETURNS boolean LANGUAGE sql IMMUTABLE SET search_path=pg_catalog AS $f$
- SELECT coalesce(p_flujo = '{"definicion_ref":"flujo:ct:rrhh:20261002","version":2,"huella_sha256":"f9b83c1291fdf96f339233b9e7a2036b67803388cea8568b4d2b02b6bcd4e9fc"}'::jsonb,false)
+ SELECT coalesce(p_flujo = '{"definicion_ref":"flujo:ct:rrhh:20261002","version":2,"huella_sha256":"1721c3a66576b21163b590602589f1627095bd6b6bfa37c79862af62775146e2"}'::jsonb,false)
 $f$;
 
 CREATE FUNCTION vec_contratacion_temporal.circuito_agregado_valido_ct164(p_agregado jsonb)

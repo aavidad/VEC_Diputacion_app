@@ -12,7 +12,7 @@ DO $prueba$
 DECLARE
  e jsonb; bytes bytea; v jsonb; previo jsonb; siguiente jsonb; sin_circuito jsonb;
  actuacion_fingida jsonb; hito_fingido jsonb;
- v_nuevo jsonb:='{"definicion_ref":"flujo:ct:rrhh:20261002","version":2,"huella_sha256":"f9b83c1291fdf96f339233b9e7a2036b67803388cea8568b4d2b02b6bcd4e9fc"}';
+ v_nuevo jsonb:='{"definicion_ref":"flujo:ct:rrhh:20261002","version":2,"huella_sha256":"1721c3a66576b21163b590602589f1627095bd6b6bfa37c79862af62775146e2"}';
  v_total bigint; v_total_despues bigint; v_detectado boolean;
  v_fuente record; v_version integer;
 BEGIN
