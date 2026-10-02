@@ -20,12 +20,12 @@ func TestPWARecursosPorFrontera(t *testing.T) {
 	}{
 		{
 			nombre: "interno", handler: NewHandlerInternoWithConfig(configuracion, api),
-			rutas:    []string{"/portal-empleado/", "/portal-empleado/sw.js", "/pwa/instalar.js", "/pwa/icons/vec-192.png", "/textos/es/pwa-portal-empleado.json"},
+			rutas:    []string{"/portal-empleado/", "/portal-empleado/sw.js", "/pwa/instalar.js", "/pwa/cache-publica-v1.json", "/pwa/icons/vec-192.png", "/textos/es/pwa-portal-empleado.json"},
 			cerradas: []string{"/area-personal/sw.js", "/administracion-perfiles/sw.js", "/pwa/manifiestos.test.mjs"},
 		},
 		{
 			nombre: "externo", handler: NewHandlerWithConfig(config.Config{PortalProceso: "externo", HTTPAllowedCIDRs: []string{"127.0.0.1/8"}}, api),
-			rutas:    []string{"/area-personal/", "/area-personal/sw.js", "/pwa/instalar.js", "/pwa/icons/vec-512.png", "/textos/en/pwa-area-personal.json"},
+			rutas:    []string{"/area-personal/", "/area-personal/sw.js", "/pwa/instalar.js", "/pwa/cache-publica-v1.json", "/pwa/icons/vec-512.png", "/textos/en/pwa-area-personal.json"},
 			cerradas: []string{"/portal-empleado/sw.js", "/administracion-perfiles/sw.js", "/pwa/sw-public-assets.test.mjs"},
 		},
 	}
@@ -58,6 +58,7 @@ func TestPWAIconoVersionadoYManifiestoSinCacheHTTP(t *testing.T) {
 		{"/pwa/icons/vec-192.png?v=20261002-pwa-v1", "public, max-age=31536000, immutable"},
 		{"/pwa/icons/vec-192.png", "no-cache"},
 		{"/textos/es/pwa-portal-empleado.json?v=20261002-pwa-v1", "no-store"},
+		{"/pwa/cache-publica-v1.json?v=20261002-pwa-v2", "no-store"},
 	} {
 		rec := httptest.NewRecorder()
 		handler.ServeHTTP(rec, peticionServidorPrueba(http.MethodGet, caso.ruta, nil))
