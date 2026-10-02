@@ -8,8 +8,10 @@ reservó AD150 antes de escribir el consumidor. No se altera una migración inst
 personas, baja aprobada 2→1 y denegación de 1→0; el HTTP anterior no fija el umbral.
 
 Orden causal: CA19 → AUT22 → CA20 → AUT23 → IS9 → AUT24 → CA23 → IS12;
-AD150 consume las funciones IS12 y el núcleo POST142 real. No usa objetos de AD149;
-el número de migración no añade una dependencia. AUT24 define funciones PL/pgSQL
+AD150 consume las funciones IS12. Su borrador conserva la preimagen POST142
+ensayada; necesita reanclaje al núcleo precedente real AD144 o AD149 antes de
+instalarse. No usa objetos de Personal de AD149; la dependencia nace del núcleo
+compartido, no del número de migración. AUT24 define funciones PL/pgSQL
 que permanecen indisponibles hasta instalar el consumidor; no exige su existencia
 al crear el contrato y así evita una dependencia circular. Dirección debe reconciliar este orden con
 ORDEN_SQL_NUCLEO.md antes del ensayo. Los números no indican el orden causal.
@@ -31,7 +33,8 @@ a propietarios. La aplicación recibe un LOGIN provisionado fuera de Git con una
 Pendientes que impiden activar:
 
 - Capturar las preimágenes reales de la definición V3 y su restricción de
-  audiencias en POST142 real del clon causal; no sustituirlas por una base aislada.
+  audiencias tras AD144 o AD149, según el orden publicado que fije dirección.
+  Las preimágenes POST142 anteriores ya están acreditadas en el clon.
 - Acreditar el enlace entre material V3 y la revalidación IS9 de certificado,
   revocación, audiencia y red. IS9 exige evidencias que no forman parte del DTO
   de negocio. No convertir constantes booleanas ni campos del cliente en esas
@@ -63,20 +66,23 @@ nominal `.consulta.v1`. AUT24 publica el rol fijo v3 sin modificar v2: amplía
 los campos de consulta con los grupos cerrados `preimagen` y `actos_disponibles`.
 Devuelve referencias opacas, versiones y huella; no nombres, certificados,
 concesiones ni datos de sesión. Exige un consumo nuevo y autorización vigente.
-El perfil actor no se elige por el cliente.
+Cada operación usa únicamente el perfil activo acreditado por el selector central.
 
 La consulta propietaria `consultar_asignacion_admin_perfiles_v1(text)` sirve a
 CA23 y devuelve versiones exactas sin conceder otro perfil. Su audiencia procede
 del catálogo auditado `audiencia_administrativa`, cotejada con configuración
-privada por el proveedor de sesión. El bootstrap debe conservar `cuenta_ref`,
-`vinculo_ref` y `rol_huella_sha256` en las asignaciones.
+privada por el proveedor de sesión. El bootstrap conserva `cuenta_ref`, `vinculo_ref` y `rol_huella_sha256`
+en `vinculacion_asignacion_admin_v1`, sin añadir campos al documento canónico
+de asignación.
 
 Comprobaciones del borrador: `git diff --check` y Semgrep local sobre los dos
 SQL, con métricas y comprobación de versión desactivadas. Las tres reglas
 comprobaron concesiones a PUBLIC y pertenencia del runtime a propietarios:
-cero hallazgos. Esta comprobación no acredita ACL efectivas, ejecución de
-PL/pgSQL, transacciones, concurrencia ni recuperación. No se ejecutaron SQL
-en un clon ni se abrió una PR.
+cero hallazgos. En PG18 causal, AUT24@79fd y AD150 anteriores se instalaron
+en una copia desechable: seis vectores de bytes/huellas y seis negativos
+quedaron verdes. No hubo positivo de bootstrap ni de negocio, y el delta dual
+posterior todavía no está ensayado. Estas pruebas no acreditan concurrencia,
+recuperación ni autorización de instalación. No se abrió una PR.
 
 El bootstrap privado usa el plan tipado v2 de F/K. `gobierno` contiene una lista
 finita de roles ya publicados con su huella, clase, ámbito, vigencia y duración
@@ -86,8 +92,8 @@ carece de ese gobierno y no puede producir efectos.
 
 `provisionar_dos_administradores_iniciales_v2(text,text)` pertenece únicamente
 al grupo técnico `vec_admin_perfiles_bootstrap_ejecutor`, separado del runtime
-web. Coteja las dos preimágenes antes de la primera escritura, registra ambas
-altas y consume el bootstrap en una sola transacción. La repetición exacta
+web. Coteja las preimágenes antes de la primera escritura, registra las tres
+asignaciones del kit y consume el bootstrap en una sola transacción. La repetición exacta
 recupera el recibo tras revalidar el operador y las fuentes actuales. Una
 aprobación ausente, otra huella, una cuenta repetida o un fallo en cualquiera
 de las altas revierte todo. El actor de la auditoría central es el LOGIN técnico
