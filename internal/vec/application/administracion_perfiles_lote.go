@@ -21,7 +21,7 @@ func (s *ServicioAdministracionPerfiles) validarAdministrador(ctx context.Contex
 	huella, err := instantanea.VersionRol.HuellaSHA256()
 	if err != nil || rol.ValidarEn(s.reloj.Ahora()) != nil ||
 		rol.VersionRef != instantanea.VersionRol.Referencia() || rol.HuellaSHA256 != huella ||
-		rol.Clase != domain.ClaseControlPerfilAdministrador {
+		rol.Clase != domain.ClaseControlPerfilAdministrador || rol.CategoriaAdmin != "aplicacion" {
 		return domain.ErrControlAdministracionPerfilesInvalido
 	}
 	return nil
@@ -56,6 +56,9 @@ func (s *ServicioAdministracionPerfiles) AplicarLoteOrdinario(ctx context.Contex
 					cambio.Objetivo.VigenteHasta.After(rol.VigenteHasta))) {
 			return domain.ReciboLoteAdministracionPerfiles{}, domain.ErrActoAdministracionPerfilesInvalido
 		}
+	}
+	if err := ctx.Err(); err != nil {
+		return domain.ReciboLoteAdministracionPerfiles{}, err
 	}
 	recibo, err := autoridad.AplicarLoteOrdinario(ctx, solicitud)
 	if err != nil {

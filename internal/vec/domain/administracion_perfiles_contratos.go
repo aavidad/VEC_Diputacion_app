@@ -8,15 +8,20 @@ import "time"
 type RolAdministrable struct {
 	// UnidadRequerida procede del catálogo administrable publicado.
 	UnidadRequerida bool
-	VersionRef      string
-	Clase           ClaseControlAdministracionPerfiles
-	HuellaSHA256    string
-	VigenteDesde    time.Time
-	VigenteHasta    time.Time
+	// CategoriaAdmin procede del gobierno publicado (aplicacion/sistemas).
+	// No se infiere de Clase, del nombre ni de roles declarados.
+	CategoriaAdmin string
+	VersionRef     string
+	Clase          ClaseControlAdministracionPerfiles
+	HuellaSHA256   string
+	VigenteDesde   time.Time
+	VigenteHasta   time.Time
 }
 
 func (r RolAdministrable) ValidarEn(instante time.Time) error {
 	if !RolVersionAdministracionPerfilesValido(r.VersionRef) || !r.Clase.Valida() ||
+		(r.Clase == ClaseControlPerfilAdministrador && r.CategoriaAdmin != "aplicacion" && r.CategoriaAdmin != "sistemas") ||
+		(r.Clase != ClaseControlPerfilAdministrador && r.CategoriaAdmin != "") ||
 		!HuellaAdministracionPerfilesValida(r.HuellaSHA256) ||
 		r.VigenteDesde.IsZero() || r.VigenteHasta.IsZero() ||
 		!r.VigenteHasta.After(r.VigenteDesde) || instante.IsZero() ||
