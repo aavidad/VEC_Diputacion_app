@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { accionesPlaza, crearClienteOfertas, crearSuperficieOfertasBolsa, crearTraductorOfertas, mensajeError, validarOfertasBolsa,
-  ESQUEMA_OFERTAS_BOLSA, RUTA_OFERTAS_BOLSA, RUTA_RESOLUCIONES_OFERTA } from "./portal-bolsas-ofertas.js?v=20261001-ct-a-i18n-v1";
+  ESQUEMA_OFERTAS_BOLSA, RUTA_OFERTAS_BOLSA, RUTA_RESOLUCIONES_OFERTA } from "./portal-bolsas-ofertas.js?v=20261002-r4-integracion-v1";
 
 function plaza(numero, extra = {}) {
   return { numero_de_plaza: numero, estado: "vacante", secuencia: 0, participacion_ref: null, orden_vigente: null,
@@ -35,6 +35,25 @@ function boton(dataset) {
   b.closest = () => b;
   return { target: b };
 }
+
+test("la ficha abre el historial autorizado de la oferta elegida y lo desmonta al cerrar", async () => {
+  const referencia = `oferta:${"a".repeat(64)}`;
+  const llamadas = [];
+  const clienteHistorial = {
+    consultar: async (bolsa, ofertaRef) => { llamadas.push([bolsa, ofertaRef]); return { ok: true, datos: { contactos: [], cursor_siguiente: null } }; },
+    buscar: async () => ({ ok: true, datos: { candidatos: [], cursor_siguiente: null } }),
+  };
+  const superficie = crearSuperficieOfertasBolsa({ cliente: { consultar: async () => sobre([oferta({ oferta_ref: referencia })]) }, clienteHistorial });
+  superficie.activar("bolsa:1"); await turno();
+  assert.match(superficie.renderizar(), /Historial de ofrecimientos/);
+  superficie.manejarClick(boton({ ofertasAccion: "historial", ofertaRef: referencia }));
+  await turno();
+  assert.deepEqual(llamadas, [["bolsa:1", referencia]]);
+  assert.match(superficie.renderizar(), /No hay ofrecimientos registrados/);
+  superficie.manejarClick(boton({ ofertasAccion: "historial", ofertaRef: referencia }));
+  assert.doesNotMatch(superficie.renderizar(), /No hay ofrecimientos registrados/);
+  superficie.desmontar();
+});
 
 test("el contrato exige una entrada por plaza y rechaza estados, propuestas y actos ajenos", () => {
   assert.equal(validarOfertasBolsa({ data: { esquema: ESQUEMA_OFERTAS_BOLSA, ofertas: [oferta()] } }).ofertas.length, 1);
