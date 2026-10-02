@@ -68,7 +68,10 @@ BEGIN
  SELECT coalesce(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
  INTO deps FROM pg_catalog.pg_depend d WHERE d.classid='pg_catalog.pg_proc'::pg_catalog.regclass AND d.objid=f;
  IF propietario IS DISTINCT FROM 'vec_autorizacion_atestada_v3_propietario'::pg_catalog.regrole
-    OR NOT definidora OR config IS DISTINCT FROM ARRAY['search_path=pg_catalog','lock_timeout=2s']
+    OR NOT definidora
+    -- La principal conserva search_path con pg_temp desde AD139/140; se admite y se preserva.
+    OR (config IS DISTINCT FROM ARRAY['search_path=pg_catalog','lock_timeout=2s']
+        AND config IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s'])
     OR pg_catalog.length(original)-pg_catalog.length(pg_catalog.replace(original,marca,''))<>pg_catalog.length(marca)
     OR pg_catalog.strpos(original,'portal_candidato_bolsa')=0
     OR pg_catalog.strpos(original,'situacion_participacion_bolsa')=0
