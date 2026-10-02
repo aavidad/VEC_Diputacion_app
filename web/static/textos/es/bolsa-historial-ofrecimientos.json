@@ -64,6 +64,7 @@
     "consulta": "Personas de la bolsa",
     "ayuda": "La declaración conserva una referencia y la huella de una constancia externa. El envío por sí solo no demuestra la entrega.",
     "ayuda_boton": "Ayuda",
-    "ver_recibo": "Ver justificante"
+    "ver_recibo": "Ver justificante",
+    "en_revision": "En revisión"
   }
 }

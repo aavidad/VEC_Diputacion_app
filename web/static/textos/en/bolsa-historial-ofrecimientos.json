@@ -64,6 +64,7 @@
     "consulta": "People in the pool",
     "ayuda": "The declaration preserves a reference and fingerprint of external evidence. Sending alone does not establish delivery.",
     "ayuda_boton": "Help",
-    "ver_recibo": "View receipt"
+    "ver_recibo": "View receipt",
+    "en_revision": "Under review"
   }
 }
