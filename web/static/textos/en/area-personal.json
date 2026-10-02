@@ -70,12 +70,13 @@
       "explicacion": {
         "_": "What this means",
         "disponible": "You are recorded as available in the job pool. Any call-up depends on your position and the applicable rules.",
-        "no_disponible": "You are recorded as temporarily unavailable in the job pool.",
+        "no_disponible": "You are recorded as unavailable in the job pool.",
         "trabajando": "A working status has been reported to the job pool.",
         "pendiente_incorporacion": "A start of employment is pending; this does not yet establish an employment relationship.",
         "renuncia": "A decision to decline has been recorded for this participation.",
         "excluido": "An exclusion has been recorded for this participation.",
-        "disponible_desde": "A date for becoming available again has been stated. This does not establish a call-up or determine any legal effect on its own."
+        "disponible_desde": "A date for becoming available again has been stated. This does not establish a call-up or determine any legal effect on its own.",
+        "en_revision": "HR is awaiting supporting evidence to review your status. Providing it does not change your status until HR validates it."
       },
       "disponible": "Available",
       "no_disponible": "Unavailable",
@@ -83,12 +84,13 @@
       "pendiente_incorporacion": "Awaiting start of employment",
       "renuncia": "Declined",
       "excluido": "Excluded",
-      "disponible_desde": "Available from a specified date"
+      "disponible_desde": "Available from a specified date",
+      "en_revision": "Under review"
     },
     "disponibilidad": {
       "titulo": "Availability",
       "subtitulo": "Status by participation",
-      "detalle": "You cannot yet request to pause or resume your availability here."
+      "detalle": "You can check your status. Contact the HR Service to request a review."
     },
     "ordenInicial": "My initial position in the job pool",
     "vigenciaBolsa": "Job pool validity period",
@@ -250,15 +252,34 @@
     }
   },
   "portal": {
-    "titulo": "Availability and response",
+    "titulo": "Responses and requests to HR",
     "subtitulo": "By job pool",
+    "documental": {
+      "fechaFinCausa": "Date the reason ended",
+      "documentoRef": "Supporting document reference",
+      "documentoRefAyuda": "Use the reference shown on the document, without spaces or accents.",
+      "documento": "Select supporting document",
+      "documentoAviso": "The file is not sent. Its reference and fingerprint are recorded for HR to check.",
+      "enviar": "Send request to HR",
+      "limite": "HR must check the document and decide. The request does not change your status in the job pool.",
+      "resultado": {
+        "pendiente_rrhh": "Request pending HR decision. Receipt {recibo}.",
+        "validada": "HR has already validated this request. Original receipt {recibo}.",
+        "rechazada": "HR has already rejected this request. Original receipt {recibo}."
+      },
+      "errorIncierto": "The outcome could not be confirmed. Retrying keeps the original details; reload My job pool if you need to change them.",
+      "ultima": "Latest document request",
+      "reciboResolucion": "HR decision receipt",
+      "estado": {"pendiente_rrhh": "Pending HR decision", "validada": "Validated by HR", "rechazada": "Rejected by HR"}
+    },
     "pausa": "Request a pause until",
     "pausaEnviar": "Request pause",
     "reactivar": "Request reactivation",
     "pendiente": "{tipo} request pending HR decision",
     "tipo": {
       "pausa": "Pause",
-      "reactivacion": "Reactivation"
+      "reactivacion": "Reactivation",
+      "documental_rrhh": "document review"
     },
     "recibo": "Receipt",
     "llamamiento": "Open call-up",

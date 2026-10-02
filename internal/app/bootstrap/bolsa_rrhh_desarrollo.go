@@ -108,6 +108,7 @@ func nuevasRutasBolsasRRHHDesarrolloConFuente(_ config.Config, fuente *fuenteCon
 			{Ruta: rutaBolsasRRHHDesarrollo, Manejador: manejador},
 			{Ruta: rutaEstadisticasBolsaRRHHDesarrollo, Manejador: manejador},
 			{Ruta: rutaAvisosBolsaRRHHDesarrollo, Manejador: manejador},
+			{Ruta: bolsahttp.RutaSolicitudesDocumentalesPendientesRRHH, Manejador: manejador},
 		},
 		[]vechttp.RutaColeccion{{Prefijo: prefijoCandidatosRRHHDesarrollo, Manejador: manejador}}, nil
 }
@@ -145,6 +146,7 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	if esContratos {
 		_, _, esContratos = bolsahttp.ReferenciasRutaContratosParticipacion(r)
 	}
+	esSolicitudesDocumentales := h != nil && h.mutar != nil && r != nil && r.Method == http.MethodGet && r.URL != nil && r.URL.Path == bolsahttp.RutaSolicitudesDocumentalesPendientesRRHH
 	esSancion := h != nil && h.mutar != nil && r != nil && (r.Method == http.MethodPost || r.Method == http.MethodGet)
 	if esSancion {
 		_, _, _, esSancion = bolsahttp.ReferenciasRutaSancionesParticipacion(r)
@@ -152,7 +154,7 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	cabeceras := http.Header(nil)
 	if r != nil {
 		cabeceras = r.Header
-		if esMutacionSituacion || esOperacion || esContacto || esDatosContacto || esContratos || esSancion {
+		if esMutacionSituacion || esOperacion || esContacto || esDatosContacto || esContratos || esSancion || esSolicitudesDocumentales {
 			cabeceras = r.Header.Clone()
 			cabeceras.Del("Idempotency-Key")
 		}
@@ -161,7 +163,7 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		responderBolsaRRHHDesarrollo(w, http.StatusBadRequest, map[string]string{"codigo": "solicitud_invalida"})
 		return
 	}
-	if esMutacionSituacion || esOperacion || esContacto || esDatosContacto || esContratos || esSancion {
+	if esMutacionSituacion || esOperacion || esContacto || esDatosContacto || esContratos || esSancion || esSolicitudesDocumentales {
 		h.mutar.ServeHTTP(w, r)
 		if h.invalidar != nil {
 			h.invalidar()

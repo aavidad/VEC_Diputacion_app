@@ -696,6 +696,8 @@
     "txt_b8_confirmar_disponibilidad": "Confirmar vuelta a Disponible",
     "txt_b8_ayuda_llamamiento_directo": "Una renuncia puede pasar a en revisión mientras se espera el documento de fin de causa. Para volver a disponible, RRHH valida ese documento y registra cuándo terminó la causa. La reincorporación desde una exclusión requiere que la política vigente lo permita; una sanción vigente la impide. Cada operación conserva su historial y recibo. Para una exclusión por sanción, use Sanciones para registrar la resolución del recurso. No responder a una oferta telemática no tiene consecuencias en la bolsa.",
     "txt_pausa_voluntaria": "Pausa voluntaria",
+    "txt_solicitud_documental_rrhh": "Solicitud documental",
+    "txt_solicitud_documental_rrhh_pendiente": "RRHH debe comprobar el justificante y resolver la solicitud; aún no cambia la situación.",
     "txt_pausar": "Pausar",
     "txt_pend_incorp": "Pend. incorp.",
     "txt_pend_incorporacion": "Pend. incorporación",

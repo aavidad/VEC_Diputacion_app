@@ -64,8 +64,8 @@ func TestDescriptoresBorradorLlamamientoBolsaFronterasExactas(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(fronteras) != 20 {
-		t.Fatalf("fronteras = %d, se esperan 20 con preflight B47 propio", len(fronteras))
+	if len(fronteras) != 21 {
+		t.Fatalf("fronteras = %d, se esperan 21 con consulta documental RRHH", len(fronteras))
 	}
 	for _, frontera := range fronteras {
 		if len(frontera.PerfilesActivosRef) != 1 || frontera.PerfilesActivosRef[0] != "prf_bolsa_bback" {
@@ -255,8 +255,8 @@ func TestReincorporacionTitularTieneFronteraYAccionDeLecturaPropias(t *testing.T
 
 func TestDescriptoresBorradorLlamamientoBolsaMaterialExacto(t *testing.T) {
 	descriptores := append(descriptoresMaterialBorradorLlamamientoBolsaDesarrollo(), descriptorMaterialPoliticaOfertasBolsaDesarrollo(), descriptorMaterialConsultaPoliticaOfertasBolsaDesarrollo())
-	if len(descriptores) != 9 {
-		t.Fatalf("materiales = %d, se esperan 9", len(descriptores))
+	if len(descriptores) != 10 {
+		t.Fatalf("materiales = %d, se esperan 10", len(descriptores))
 	}
 	catalogo, err := nuevoCatalogoMaterialAutorizacionComunDesarrollo(descriptores)
 	if err != nil {

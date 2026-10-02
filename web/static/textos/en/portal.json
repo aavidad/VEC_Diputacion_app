@@ -696,6 +696,8 @@
     "txt_b8_confirmar_disponibilidad": "Confirm return to Available status",
     "txt_b8_ayuda_llamamiento_directo": "A refusal can be marked as under review while awaiting evidence that the reason has ended. To restore availability, HR validates that document and records when the reason ended. Readmission following exclusion requires the current policy to allow it; an active sanction prevents readmission. Each operation keeps its history and receipt. For exclusion resulting from a sanction, use Sanctions to record the appeal decision. Not responding to an online offer has no consequences for pool membership.",
     "txt_pausa_voluntaria": "Voluntary hold",
+    "txt_solicitud_documental_rrhh": "Document request",
+    "txt_solicitud_documental_rrhh_pendiente": "HR must check the document and decide; the request has not changed the status.",
     "txt_pausar": "Put on hold",
     "txt_pend_incorp": "Pend. start",
     "txt_pend_incorporacion": "Awaiting start",

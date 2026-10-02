@@ -1,5 +1,5 @@
-// Acciones propias de la persona en «Mi bolsa»: pedir pausa o reactivación y
-// responder al llamamiento abierto. El servidor decide con el catálogo de
+// Acciones propias de la persona en «Mi bolsa»: responder al llamamiento abierto.
+// El servidor decide con el catálogo de
 // reglas (modo, plazo, situaciones admitidas, causas); aquí solo se recogen
 // los datos, se calcula la huella del justificante y se muestra el recibo.
 import { localizacionAreaPersonal, traducir } from "./i18n.js";
@@ -9,7 +9,7 @@ import { nombreCategoria } from "./mi-bolsa-campos.js";
 import { cuerpoConfirmacionContacto, RUTA_CONTACTO_MI_BOLSA, validarContactosMiBolsa } from "./mi-bolsa-contacto.js";
 
 export const RUTAS_PORTAL_MI_BOLSA = Object.freeze({
-  solicitar: "/api/vec/bolsa/mi-bolsa/solicitudes",
+  documental: "/api/vec/bolsa/mi-bolsa/solicitudes-documentales",
   responder: "/api/vec/bolsa/mi-bolsa/respuestas",
 });
 
@@ -53,9 +53,18 @@ export function validarPortalMiBolsa(datos) {
       if (estado.llamamiento_abierto.vence_antes_de !== null) instante(estado.llamamiento_abierto.vence_antes_de, "vence_antes_de");
     }
     if (estado.solicitud_pendiente) {
-      if (!["pausa", "reactivacion"].includes(estado.solicitud_pendiente.tipo) || typeof estado.solicitud_pendiente.recibo !== "string") throw new TypeError("Solicitud pendiente no válida.");
+      if (!["pausa", "reactivacion", "documental_rrhh"].includes(estado.solicitud_pendiente.tipo) || typeof estado.solicitud_pendiente.recibo !== "string") throw new TypeError("Solicitud pendiente no válida.");
       instante(estado.solicitud_pendiente.registrada_en, "registrada_en");
     }
+    if (estado.solicitud_documental_pendiente !== undefined && typeof estado.solicitud_documental_pendiente !== "boolean") throw new TypeError("Estado documental no válido.");
+    if (estado.ultima_solicitud_documental) {
+      const solicitud = estado.ultima_solicitud_documental;
+      if (solicitud.tipo !== "documental_rrhh" || typeof solicitud.recibo !== "string" ||
+          !["pendiente_rrhh", "validada", "rechazada"].includes(solicitud.estado) ||
+          (solicitud.estado === "pendiente_rrhh") !== estado.solicitud_documental_pendiente ||
+          (solicitud.estado === "pendiente_rrhh" ? solicitud.recibo_resolucion_ref !== null : typeof solicitud.recibo_resolucion_ref !== "string")) throw new TypeError("Solicitud documental no válida.");
+      instante(solicitud.registrada_en, "registrada_en");
+    } else if (estado.solicitud_documental_pendiente) throw new TypeError("Solicitud documental pendiente sin recibo.");
     if (estado.ultima_respuesta) {
       if (!["acepta", "renuncia", "renuncia_justificada"].includes(estado.ultima_respuesta.respuesta) || typeof estado.ultima_respuesta.recibo !== "string") throw new TypeError("Respuesta registrada no válida.");
       instante(estado.ultima_respuesta.respondida_en, "respondida_en");
@@ -65,13 +74,6 @@ export function validarPortalMiBolsa(datos) {
 
 function fecha(valor) {
   return new Intl.DateTimeFormat(localizacionAreaPersonal(), { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Madrid" }).format(new Date(valor));
-}
-
-function fechaISO(valor) {
-  // Fecha civil peninsular (AAAA-MM-DD) para los límites del selector.
-  const partes = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Madrid", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date(valor));
-  const parte = (tipo) => partes.find((p) => p.type === tipo)?.value;
-  return `${parte("year")}-${parte("month")}-${parte("day")}`;
 }
 
 function idSeguro(bolsa, sufijo) {
@@ -95,26 +97,35 @@ function formularioRespuesta(bolsa, acciones) {
   </form>`;
 }
 
+function formularioDocumental(bolsa) {
+  const id = (s) => idSeguro(bolsa, s);
+  const obligatorio = `<span>${escaparHTML(traducir("areaPersonal.vista.comun.campoObligatorio"))}</span>`;
+  return `<form class="portal-mi-bolsa__formulario" data-portal-mi-bolsa="documental" data-bolsa="${escaparAtributo(bolsa)}">
+    <div class="campo"><label for="${id("fin-causa")}">${escaparHTML(textoPortal("documental.fechaFinCausa"))} ${obligatorio}</label><input id="${id("fin-causa")}" name="fecha_fin_causa" type="date" required></div>
+    <div class="campo"><label for="${id("documento-ref")}">${escaparHTML(textoPortal("documental.documentoRef"))} ${obligatorio}</label><input id="${id("documento-ref")}" name="documento_ref" maxlength="255" pattern="[A-Za-z0-9][A-Za-z0-9._:/#-]*" required aria-describedby="${id("documento-ref-ayuda")}"><small id="${id("documento-ref-ayuda")}">${escaparHTML(textoPortal("documental.documentoRefAyuda"))}</small></div>
+    <div class="campo"><label for="${id("documento")}">${escaparHTML(textoPortal("documental.documento"))} ${obligatorio}</label><input id="${id("documento")}" name="documento" type="file" required aria-describedby="${id("documento-aviso")}"><small id="${id("documento-aviso")}">${escaparHTML(textoPortal("documental.documentoAviso"))}</small></div>
+    <button type="submit" class="boton-primario">${escaparHTML(textoPortal("documental.enviar"))}</button>
+    <p class="nota" role="status" aria-live="polite" data-portal-resultado></p>
+  </form>`;
+}
+
 // renderizarPortalMiBolsa pinta, por bolsa, lo que la persona puede hacer.
 export function renderizarPortalMiBolsa(participaciones, portal, acciones) {
   const porBolsa = new Map((portal || []).map((e) => [e.bolsa, e]));
-  const maxima = fechaISO(acciones.pausa_maxima);
-  const manana = fechaISO(Date.now() + 24 * 3600 * 1000);
   const bloques = (participaciones || []).map((p) => {
     const estado = porBolsa.get(p.bolsa) || {};
-    const id = (s) => idSeguro(p.bolsa, s);
     const partes = [];
     if (estado.solicitud_pendiente) {
       const s = estado.solicitud_pendiente;
       partes.push(`<p class="nota aviso">${escaparHTML(textoPortal("pendiente", { tipo: textoPortal(`tipo.${s.tipo}`) }))} · ${escaparHTML(textoPortal("recibo"))} ${escaparHTML(s.recibo)}</p>`);
-    } else {
-      partes.push(`<form class="portal-mi-bolsa__formulario" data-portal-mi-bolsa="solicitar" data-tipo="pausa" data-bolsa="${escaparAtributo(p.bolsa)}">
-        <div class="campo"><label for="${id("pausa")}">${escaparHTML(textoPortal("pausa"))}</label><input id="${id("pausa")}" name="hasta" type="date" required min="${manana}" max="${maxima}"></div>
-        <button type="submit" class="boton-secundario">${escaparHTML(textoPortal("pausaEnviar"))}</button>
-        <p class="nota" role="status" aria-live="polite" data-portal-resultado></p></form>
-        <form class="portal-mi-bolsa__formulario" data-portal-mi-bolsa="solicitar" data-tipo="reactivacion" data-bolsa="${escaparAtributo(p.bolsa)}">
-        <button type="submit" class="boton-secundario">${escaparHTML(textoPortal("reactivar"))}</button>
-        <p class="nota" role="status" aria-live="polite" data-portal-resultado></p></form>`);
+    }
+    if (estado.ultima_solicitud_documental) {
+      const s = estado.ultima_solicitud_documental;
+      partes.push(listaDatos([[textoPortal("documental.ultima"), `${escaparHTML(textoPortal(`documental.estado.${s.estado}`))} · ${escaparHTML(fecha(s.registrada_en))} · ${escaparHTML(textoPortal("recibo"))} ${escaparHTML(s.recibo)}`],
+        ...(s.recibo_resolucion_ref ? [[textoPortal("documental.reciboResolucion"), escaparHTML(s.recibo_resolucion_ref)]] : [])]));
+    }
+    if (p.situacion_actual?.estado === "en_revision" && !estado.solicitud_pendiente && !estado.solicitud_documental_pendiente) {
+      partes.push(formularioDocumental(p.bolsa));
     }
     if (estado.llamamiento_abierto) {
       const a = estado.llamamiento_abierto;
@@ -129,7 +140,8 @@ export function renderizarPortalMiBolsa(participaciones, portal, acciones) {
     }
     return `<article class="portal-mi-bolsa__bolsa"><h4>${escaparHTML(nombreCategoria(p))}</h4>${partes.join("")}</article>`;
   }).join("");
-  return `<div class="portal-mi-bolsa">${bloques}</div>`;
+  const gestion = `<p class="nota">${escaparHTML(textoPortal("documental.limite"))}</p>`;
+  return `<div class="portal-mi-bolsa">${bloques}${gestion}</div>`;
 }
 
 async function huellaSHA256(fichero) {
@@ -149,17 +161,20 @@ export async function cuerpoPortalMiBolsa(formulario, datos = new FormData(formu
   if (formulario.dataset.portalMiBolsa === "disposicion") return cuerpoDisposicion(formulario);
   if (formulario.dataset.portalMiBolsa === "contacto") return cuerpoConfirmacionContacto(formulario);
   const bolsa = formulario.dataset.bolsa;
-  if (formulario.dataset.portalMiBolsa === "solicitar") {
-    const tipo = formulario.dataset.tipo;
-    const cuerpo = { tipo, bolsa, clave: claveIdempotencia(formulario) };
-    if (tipo === "pausa") {
-      const dia = String(datos.get("hasta") || "");
-      if (!/^\d{4}-\d{2}-\d{2}$/u.test(dia)) return null;
-      // Hasta el final del día elegido, hora local del navegador.
-      cuerpo.pausa_hasta = new Date(`${dia}T23:59:59`).toISOString();
-    }
-    return { ruta: RUTAS_PORTAL_MI_BOLSA.solicitar, cuerpo };
+  if (formulario.dataset.portalMiBolsa === "documental") {
+    const documento = datos.get("documento");
+    const documentoRef = String(datos.get("documento_ref") || "").trim();
+    const fechaFinCausa = String(datos.get("fecha_fin_causa") || "");
+    if (!/^[A-Za-z0-9][A-Za-z0-9._:/#-]{0,254}$/u.test(documentoRef) || !/^\d{4}-\d{2}-\d{2}$/u.test(fechaFinCausa) ||
+        Number.isNaN(Date.parse(`${fechaFinCausa}T00:00:00Z`)) || new Date(`${fechaFinCausa}T00:00:00Z`).toISOString().slice(0, 10) !== fechaFinCausa ||
+        !(documento instanceof Blob) || documento.size === 0) return null;
+    return { ruta: RUTAS_PORTAL_MI_BOLSA.documental, cuerpo: {
+      tipo: "documental_rrhh", bolsa, documento_ref: documentoRef,
+      documento_sha256: await huellaSHA256(documento), fecha_fin_causa: fechaFinCausa,
+      clave: claveIdempotencia(formulario),
+    } };
   }
+  if (formulario.dataset.portalMiBolsa !== "responder") return null;
   const respuesta = String(datos.get("respuesta") || "");
   const cuerpo = { bolsa, respuesta, clave: claveIdempotencia(formulario) };
   if (respuesta === "renuncia_justificada") {
@@ -177,6 +192,12 @@ export async function cuerpoPortalMiBolsa(formulario, datos = new FormData(formu
 const peticionesInciertas = new WeakMap();
 const enviosEnCurso = new WeakSet();
 
+function bloquearDatosDocumentales(formulario, bloqueados) {
+  for (const campo of formulario.querySelectorAll?.('input[name="fecha_fin_causa"], input[name="documento_ref"], input[name="documento"]') || []) {
+    campo.disabled = bloqueados;
+  }
+}
+
 function instanteRecibo(valor, nombre) {
   instante(valor, nombre);
   // Date.parse normaliza días inexistentes y 24:00. El recibo exige la fecha
@@ -186,10 +207,10 @@ function instanteRecibo(valor, nombre) {
 
 // Este recibo es el de httppersonal/reciboPortal; el recibo del panel del área
 // personal usa otro esquema. Solo contacto y disposición devuelven el recurso
-// de la petición: solicitudes y respuestas devuelven una referencia opaca nueva.
+// de la petición; las respuestas devuelven una referencia opaca nueva.
 function validarReciboPortal(entrada, peticion, estadoHTTP) {
   const contratos = {
-    [RUTAS_PORTAL_MI_BOLSA.solicitar]: ["solicitud", /^solicitud-portal:[a-f0-9]{64}$/u, "solicitud-portal", ["pendiente_rrhh"]],
+    [RUTAS_PORTAL_MI_BOLSA.documental]: ["solicitud-documental", /^solicitud-documental:[a-f0-9]{64}$/u, "solicitud-documental", ["pendiente_rrhh", "validada", "rechazada"]],
     [RUTAS_PORTAL_MI_BOLSA.responder]: ["respuesta", /^respuesta-portal:[a-f0-9]{64}$/u, "respuesta-portal", ["firme", "propuesta_rrhh"]],
     [RUTA_DISPOSICION_MI_BOLSA]: ["disposicion", peticion.cuerpo.oferta, "disposicion", ["manifestada"]],
     [RUTA_CONTACTO_MI_BOLSA]: ["contacto", peticion.cuerpo.bolsa, "confirmacion-contacto", ["confirmado"]],
@@ -204,6 +225,10 @@ function validarReciboPortal(entrada, peticion, estadoHTTP) {
       typeof recibo.recibo !== "string" || !new RegExp(`^recibo:${prefijo}:[a-f0-9]{64}$`, "u").test(recibo.recibo) ||
       !estados.includes(recibo.estado) || typeof recibo.repetida !== "boolean" || recibo.repetida !== (estadoHTTP === 200)) throw new TypeError();
   instanteRecibo(recibo.registrada_en, "registrada_en");
+  if (tipo === "solicitud-documental") {
+    if (!/^[a-f0-9]{64}$/u.test(recibo.contenido_sha256 || "") || recibo.version !== 1 ||
+        (!recibo.repetida && recibo.estado !== "pendiente_rrhh")) throw new TypeError();
+  }
   if (recibo.vence_antes_de !== undefined) {
     if (tipo !== "respuesta") throw new TypeError();
     instanteRecibo(recibo.vence_antes_de, "vence_antes_de");
@@ -228,6 +253,7 @@ export async function enviarPortalMiBolsa(formulario, { fetchImpl = globalThis.f
       return false;
     }
     peticionesInciertas.set(formulario, peticion);
+    if (peticion.ruta === RUTAS_PORTAL_MI_BOLSA.documental) bloquearDatosDocumentales(formulario, true);
     if (boton) boton.disabled = true;
     mostrar(textoPortal("enviando"));
     const respuesta = await fetchImpl(peticion.ruta, {
@@ -238,16 +264,23 @@ export async function enviarPortalMiBolsa(formulario, { fetchImpl = globalThis.f
     if (respuesta.status === 200 || respuesta.status === 201) {
       const recibo = validarReciboPortal(resultado, peticion, respuesta.status);
       peticionesInciertas.delete(formulario);
-      mostrar(textoPortal("hecho", { recibo: recibo.recibo }));
+      if (peticion.ruta === RUTAS_PORTAL_MI_BOLSA.documental) bloquearDatosDocumentales(formulario, false);
+      mostrar(textoPortal(peticion.ruta === RUTAS_PORTAL_MI_BOLSA.documental ? `documental.resultado.${recibo.estado}` : "hecho", { recibo: recibo.recibo }));
       alRegistrar();
       return true;
     }
     const codigo = String(resultado?.error?.codigo || "servicio_no_disponible");
-    if (respuesta.status >= 400 && respuesta.status < 500 && CODIGOS_ERROR.has(codigo)) peticionesInciertas.delete(formulario);
-    mostrar(textoPortal(`error.${CODIGOS_ERROR.has(codigo) ? codigo : "servicio_no_disponible"}`));
+    if (respuesta.status >= 400 && respuesta.status < 500 && CODIGOS_ERROR.has(codigo)) {
+      peticionesInciertas.delete(formulario);
+      if (peticion.ruta === RUTAS_PORTAL_MI_BOLSA.documental) bloquearDatosDocumentales(formulario, false);
+    }
+    mostrar(peticionesInciertas.has(formulario) && peticion.ruta === RUTAS_PORTAL_MI_BOLSA.documental
+      ? textoPortal("documental.errorIncierto")
+      : textoPortal(`error.${CODIGOS_ERROR.has(codigo) ? codigo : "servicio_no_disponible"}`));
     return false;
   } catch {
-    mostrar(textoPortal("error.servicio_no_disponible"));
+    mostrar(peticionesInciertas.get(formulario)?.ruta === RUTAS_PORTAL_MI_BOLSA.documental
+      ? textoPortal("documental.errorIncierto") : textoPortal("error.servicio_no_disponible"));
     return false;
   } finally {
     enviosEnCurso.delete(formulario);
