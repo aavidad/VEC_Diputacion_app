@@ -1,6 +1,6 @@
 \set ON_ERROR_STOP on
 -- BR4: preparación nominal V3 del borrador, consulta exacta y recuperación.
--- Sin GRANT runtime. AD144 y su orden causal aún deben aprobarse por Dirección.
+-- Acceso runtime sólo por el ejecutor nominal. AD144 aún debe ensayarse.
 -- No instala ni reabre V1/V2; no contiene publicación ni activación formal.
 BEGIN;
 SET LOCAL ROLE vec_bolsa_reglas_baremo_propietario;
@@ -198,7 +198,8 @@ BEGIN
    RAISE EXCEPTION 'BR4: huella estable divergente' USING ERRCODE='22023';
   END IF;
  ELSE
-  IF m->>'accion' IS DISTINCT FROM 'bolsa.reglas_baremo.version.consultar'
+  IF m->>'accion' IS DISTINCT FROM (CASE WHEN m->>'operacion'='recuperar_recibo'
+    THEN 'bolsa.reglas_baremo.recibo.consultar' ELSE 'bolsa.reglas_baremo.version.consultar' END)
   OR m->>'finalidad' IS DISTINCT FROM 'consulta_gobierno_reglas_baremo'
   OR m->'version_canonica' IS DISTINCT FROM 'null'::jsonb
   OR (m->>'operacion'='consultar_exacta' AND
@@ -248,7 +249,7 @@ BEGIN
   ',"expediente_ref":'||to_json(m->>'expediente_ref')::text||'},"atributos":{"material_sha256":"'||material_sha||'"}}';
  recurso_sha:=encode(sha256(convert_to(recurso_canon,'UTF8')),'hex');
  campos:=CASE m->>'operacion' WHEN 'alta_borrador' THEN '["auditoria","estado_reglas_baremo","salida_eventos"]'::jsonb
-   WHEN 'consultar_exacta' THEN '["estado_reglas_baremo"]'::jsonb ELSE '["recibo"]'::jsonb END;
+   WHEN 'consultar_exacta' THEN '["estado_reglas_baremo"]'::jsonb ELSE '["estado_reglas_baremo","recibo"]'::jsonb END;
  IF d->>'principal_id' IS DISTINCT FROM m->>'persona_ref'
  OR d->>'perfil_activo_ref' IS DISTINCT FROM m->>'perfil_ref'
  OR d->>'accion' IS DISTINCT FROM m->>'accion' OR d->>'modulo_id' IS DISTINCT FROM 'bolsa'
@@ -355,6 +356,24 @@ BEGIN
  RETURN QUERY SELECT codigo,canon,recibo_actual,acceso_actual,replay_actual;
 END $fn$;
 REVOKE ALL ON FUNCTION vec_bolsa_reglas_baremo.operar_borrador_v3(bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM PUBLIC;
--- No USAGE/EXECUTE runtime: una migración futura y revisada debe fijar la
--- preimagen AD144 y sus membresías nominales antes de abrir esta superficie.
+-- El LOGIN hereda únicamente este ejecutor; la guarda central AD144 vuelve
+-- a comprobar esa membresía, la sesión y los materiales atestados. No accede
+-- al núcleo, a las tablas ni a las puertas V1/V2.
+GRANT USAGE ON SCHEMA vec_bolsa_reglas_baremo TO vec_bolsa_reglas_baremo_ejecutor_gobierno;
+GRANT EXECUTE ON FUNCTION vec_bolsa_reglas_baremo.operar_borrador_v3(bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) TO vec_bolsa_reglas_baremo_ejecutor_gobierno;
+DO $acl_runtime$
+DECLARE f oid:='vec_bolsa_reglas_baremo.operar_borrador_v3(bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure;
+        ejecutor oid:='vec_bolsa_reglas_baremo_ejecutor_gobierno'::regrole;
+BEGIN
+ IF NOT has_schema_privilege(ejecutor,'vec_bolsa_reglas_baremo','USAGE')
+ OR NOT has_function_privilege(ejecutor,f,'EXECUTE')
+ OR (SELECT count(*) FROM pg_proc p,LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a WHERE p.oid=f)<>2
+ OR EXISTS (SELECT 1 FROM pg_proc p,LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
+   WHERE p.oid=f AND (a.grantee NOT IN(p.proowner,ejecutor) OR a.grantor<>p.proowner
+     OR a.privilege_type<>'EXECUTE' OR a.is_grantable))
+ OR EXISTS (SELECT 1 FROM pg_proc p,LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
+   WHERE p.pronamespace='vec_bolsa_reglas_baremo'::regnamespace AND p.oid<>f
+     AND a.grantee<>p.proowner)
+ THEN RAISE EXCEPTION 'BR4: ACL nominal runtime incompatible' USING ERRCODE='55000'; END IF;
+END $acl_runtime$;
 COMMIT;

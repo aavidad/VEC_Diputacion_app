@@ -1,0 +1,6 @@
+# Contexto requerido, inventariado; nunca reaplicar piezas instaladas:
+# roles Baremo -> revalidación propia autorizacion/000001 -> BR1 -> BR2
+# -> composición atestacion/000001 -> BR3; sólo instalar las piezas ausentes.
+# Núcleo vigente: main AD142 -> AD143 integrada -> AD144 exacta ensayada.
+# Esta lista añade únicamente BR4. No ejecutar DOWN con historia.
+deploy/postgresql/bolsa_reglas_baremo/migraciones/000004_gobierno_borradores_v3.up.sql
