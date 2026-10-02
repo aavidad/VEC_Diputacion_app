@@ -38,6 +38,35 @@ type SolicitudRegistrarExpediente struct {
 	Solicitud         domain.SolicitudCentro
 }
 
+// claveFinAltaConfirmada sólo existe dentro de aplicación: ni HTTP ni un
+// llamador de otro paquete pueden insertar una confirmación en el contexto.
+type claveFinAltaConfirmada struct{}
+
+type finAltaConfirmada struct {
+	organizacionRef string
+	actorRef        string
+	perfilRef       string
+	motivoClave     domain.ClaveCatalogo
+	ambitoHMAC      string
+}
+
+// PoliticaFinAltaConfirmadaPara permite a la composición comprobar un replay
+// histórico sin transportar la política o la clave de idempotencia. El
+// marcador nunca se serializa ni modifica la autorización V3.
+func PoliticaFinAltaConfirmadaPara(
+	ctx context.Context, organizacionRef, actorRef, perfilRef string,
+	motivoClave domain.ClaveCatalogo,
+) bool {
+	if ctx == nil || ctx.Err() != nil {
+		return false
+	}
+	confirmacion, ok := ctx.Value(claveFinAltaConfirmada{}).(finAltaConfirmada)
+	return ok && ports.SelloHMACSHA256Valido(confirmacion.ambitoHMAC) &&
+		confirmacion.organizacionRef == organizacionRef &&
+		confirmacion.actorRef == actorRef && confirmacion.perfilRef == perfilRef &&
+		confirmacion.motivoClave == motivoClave
+}
+
 type ServicioRegistroSolicitud struct {
 	contextosAutorizacion ports.ResolutorContextoAutorizacionAltaV3
 	flujos                ports.ResolutorFlujoAlta
@@ -183,6 +212,7 @@ func (s *ServicioRegistroSolicitud) Registrar(
 	if err := ctx.Err(); err != nil {
 		return ports.ReciboAlta{}, err
 	}
+	ctxFlujo := ctx
 	if solicitudCentro.Periodo.PoliticaFin == (domain.PoliticaFin{}) && solicitudCentro.Periodo.Fin.IsZero() {
 		if dependenciaNula(s.periodos) || dependenciaNula(s.recuperacion) {
 			return ports.ReciboAlta{}, ErrServicioRegistroInvalido
@@ -201,6 +231,15 @@ func (s *ServicioRegistroSolicitud) Registrar(
 				return ports.ReciboAlta{}, ErrResultadoRegistroNoConfiable
 			}
 			solicitudCentro.Periodo.PoliticaFin = politicaAnterior
+			ambitos, err := ambitosHMAC.Datos()
+			if err != nil {
+				return ports.ReciboAlta{}, ErrResultadoRegistroNoConfiable
+			}
+			ctxFlujo = context.WithValue(ctx, claveFinAltaConfirmada{}, finAltaConfirmada{
+				organizacionRef: solicitud.OrganizacionRef,
+				actorRef:        vinculo.PrincipalID, perfilRef: vinculo.PerfilActivoRef,
+				motivoClave: solicitudCentro.MotivoClave, ambitoHMAC: ambitos.Activo.Valor,
+			})
 		} else {
 			periodo, err := s.periodos.PrepararPeriodoModalidad(ctx, solicitudCentro.MotivoClave, solicitudCentro.Periodo)
 			if err != nil {
@@ -223,7 +262,7 @@ func (s *ServicioRegistroSolicitud) Registrar(
 	if resolverFlujo.Validar() != nil {
 		return ports.ReciboAlta{}, ports.ErrFlujoNoDisponible
 	}
-	configuracion, err := s.flujos.ResolverFlujoAlta(ctx, resolverFlujo)
+	configuracion, err := s.flujos.ResolverFlujoAlta(ctxFlujo, resolverFlujo)
 	if err != nil {
 		return ports.ReciboAlta{}, err
 	}
@@ -372,7 +411,7 @@ func (s *ServicioRegistroSolicitud) Registrar(
 	if resolverMotivo.Validar() != nil {
 		return ports.ReciboAlta{}, ports.ErrAutorizacionDenegada
 	}
-	motivo, err := s.motivos.ResolverMotivoAutorizacionAltaV3(ctx, resolverMotivo)
+	motivo, err := s.motivos.ResolverMotivoAutorizacionAltaV3(ctxFlujo, resolverMotivo)
 	if errContexto := ctx.Err(); errContexto != nil {
 		return ports.ReciboAlta{}, errContexto
 	}

@@ -246,6 +246,25 @@ func (s *soporteAltaContratacionTemporalDesarrollo) motivoDeCatalogo(clave domai
 	return existe
 }
 
+// Una modalidad retirada sólo puede continuar un alta cuya confirmación
+// encontró la aplicación en CT167. El contexto operativo se vuelve a
+// consultar para que el marcador privado coincida con actor y perfil vigentes.
+func (s *soporteAltaContratacionTemporalDesarrollo) motivoAltaAdmitido(
+	ctx context.Context, organizacionRef string, clave domain.ClaveCatalogo,
+) bool {
+	if s.motivoDeCatalogo(clave) {
+		return true
+	}
+	operativo, err := s.contextoOperativoDesarrollo(ctx)
+	if err != nil {
+		return false
+	}
+	vinculo, err := operativo.Vinculo.Datos()
+	return err == nil && application.PoliticaFinAltaConfirmadaPara(
+		ctx, organizacionRef, vinculo.PrincipalID, vinculo.PerfilActivoRef, clave,
+	)
+}
+
 // PrepararPeriodoModalidad añade al periodo la publicación exacta de c12.
 // Solo la composición interna usa este método; el cliente no aporta la regla.
 func (s *soporteAltaContratacionTemporalDesarrollo) PrepararPeriodoModalidad(
@@ -278,7 +297,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) ResolverFlujoAlta(
 		solicitud.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo ||
 		!centroValido ||
 		!s.categoriaDeCatalogo(solicitud.CategoriaRef) ||
-		!s.motivoDeCatalogo(solicitud.MotivoClave) {
+		!s.motivoAltaAdmitido(ctx, solicitud.OrganizacionRef, solicitud.MotivoClave) {
 		return ports.ConfiguracionAltaFlujo{}, ports.ErrFlujoNoDisponible
 	}
 	return s.flujo, nil
@@ -291,7 +310,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) ResolverMotivoAutorizacionAl
 	if !s.capacidadAltaValida(ctx) || solicitud.Validar() != nil ||
 		solicitud.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo ||
 		solicitud.Flujo != s.flujo.Flujo ||
-		!s.motivoDeCatalogo(solicitud.MotivoClave) {
+		!s.motivoAltaAdmitido(ctx, solicitud.OrganizacionRef, solicitud.MotivoClave) {
 		return dominiovec.ReferenciaEntradaCatalogo{}, ports.ErrMotivoAutorizacionNoDisponible
 	}
 	return s.motivo, nil

@@ -9,6 +9,7 @@ import (
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	dominiovec "vec-diputacion-granada/internal/vec/domain"
 )
 
 type recuperadorPoliticaFinPrueba struct {
@@ -39,14 +40,48 @@ func (r *recuperadorPoliticaFinPrueba) ConsultarPoliticaFinAltaConfirmada(
 type preparadorPeriodoFinPrueba struct {
 	politica  domain.PoliticaFin
 	consultas int
+	err       error
 }
 
 func (p *preparadorPeriodoFinPrueba) PrepararPeriodoModalidad(
 	_ context.Context, _ domain.ClaveCatalogo, periodo domain.PeriodoPrevisto,
 ) (domain.PeriodoPrevisto, error) {
 	p.consultas++
+	if p.err != nil {
+		return domain.PeriodoPrevisto{}, p.err
+	}
 	periodo.PoliticaFin = p.politica
 	return periodo, periodo.Validar()
+}
+
+type flujoFinReplayPrueba struct {
+	delegado      ports.ResolutorFlujoAlta
+	actor, perfil string
+	vigente       bool
+	llamadas      int
+}
+
+func (f *flujoFinReplayPrueba) ResolverFlujoAlta(ctx context.Context, solicitud ports.SolicitudResolverFlujo) (ports.ConfiguracionAltaFlujo, error) {
+	f.llamadas++
+	if !f.vigente && !PoliticaFinAltaConfirmadaPara(ctx, solicitud.OrganizacionRef, f.actor, f.perfil, solicitud.MotivoClave) {
+		return ports.ConfiguracionAltaFlujo{}, ports.ErrFlujoNoDisponible
+	}
+	return f.delegado.ResolverFlujoAlta(ctx, solicitud)
+}
+
+type motivoFinReplayPrueba struct {
+	delegado      ports.ResolutorMotivoAutorizacionAltaV3
+	actor, perfil string
+	vigente       bool
+	llamadas      int
+}
+
+func (m *motivoFinReplayPrueba) ResolverMotivoAutorizacionAltaV3(ctx context.Context, solicitud ports.SolicitudResolverMotivoAutorizacionAltaV3) (dominiovec.ReferenciaEntradaCatalogo, error) {
+	m.llamadas++
+	if !m.vigente && !PoliticaFinAltaConfirmadaPara(ctx, solicitud.OrganizacionRef, m.actor, m.perfil, solicitud.MotivoClave) {
+		return dominiovec.ReferenciaEntradaCatalogo{}, ports.ErrMotivoAutorizacionNoDisponible
+	}
+	return m.delegado.ResolverMotivoAutorizacionAltaV3(ctx, solicitud)
 }
 
 func politicaFinHistoricaPrueba() domain.PoliticaFin {
@@ -198,5 +233,50 @@ func TestAnalisisDistingueLegadoConfirmadoDeOperacionNueva(t *testing.T) {
 				t.Fatal("la huella de consulta no corresponde a la política aplicable")
 			}
 		})
+	}
+}
+
+func TestAltaReplayConfirmadoAdmiteModalidadRetiradaYClaveNuevaSeDeniega(t *testing.T) {
+	escenario := nuevoEscenarioRegistro(t)
+	escenario.solicitud.Solicitud.Periodo.Fin = time.Time{}
+	escenario.solicitud.Solicitud.Periodo.CausaFin = "fin_sustitucion"
+	servicio, dobles := construirServicioRegistro(t, escenario)
+	vinculo, err := escenario.contexto.Vinculo.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	flujo := &flujoFinReplayPrueba{delegado: dobles.flujos, actor: vinculo.PrincipalID, perfil: vinculo.PerfilActivoRef, vigente: true}
+	motivo := &motivoFinReplayPrueba{delegado: dobles.motivos, actor: vinculo.PrincipalID, perfil: vinculo.PerfilActivoRef, vigente: true}
+	servicio.flujos, servicio.motivos = flujo, motivo
+	politica := politicaFinHistoricaPrueba()
+	periodos := &preparadorPeriodoFinPrueba{politica: politica}
+	recuperacion := &recuperadorPoliticaFinPrueba{}
+	servicio.periodos = periodos
+	if err := servicio.ConfigurarRecuperacionPoliticaFin(recuperacion); err != nil {
+		t.Fatal(err)
+	}
+	var huellas int
+	dobles.huellas.antes = func(*ports.MaterialHuellaAlta) { huellas++ }
+	original, err := servicio.Registrar(context.Background(), escenario.solicitud)
+	if err != nil {
+		t.Fatalf("alta inicial sintética: %v", err)
+	}
+	if original != escenario.recibo || huellas != 1 || dobles.autorizador.llamadas != 1 || dobles.transaccion.llamadas != 1 {
+		t.Fatal("la confirmación inicial no recorrió huella, V3 y transacción")
+	}
+	flujo.vigente, motivo.vigente = false, false
+	periodos.err = errors.New("modalidad retirada de c12")
+	recuperacion.confirmada, recuperacion.politica = true, politica
+	repetido, err := servicio.Registrar(context.Background(), escenario.solicitud)
+	if err != nil || repetido != original || huellas != 2 || dobles.autorizador.llamadas != 2 || dobles.transaccion.llamadas != 2 || periodos.consultas != 1 {
+		t.Fatalf("el replay confirmado perdió su recibo o saltó huella/V3: %v", err)
+	}
+	nueva := escenario.solicitud
+	nueva.ClaveIdempotencia = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee"
+	recuperacion.confirmada = false
+	recuperacion.politica = domain.PoliticaFin{}
+	_, err = servicio.Registrar(context.Background(), nueva)
+	if !errors.Is(err, ErrSolicitudRegistroInvalida) || huellas != 2 || dobles.autorizador.llamadas != 2 || dobles.transaccion.llamadas != 2 || periodos.consultas != 2 {
+		t.Fatalf("la nueva clave para modalidad retirada llegó al efecto: %v", err)
 	}
 }
