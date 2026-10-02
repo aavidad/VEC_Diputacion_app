@@ -17,7 +17,8 @@ func CamposConsultaFirmasR5() []string {
 		"Via", "OriginalRef", "OriginalVersion",
 		"ReferenciaPortafirmasDeclarada", "FechaPortafirmasDeclarada",
 		"FirmantePrincipalAcreditado", "CoincideFirmanteCandidato",
-		"HistoriaRevision", "HistoriaHuella")
+		"HistoriaRevision", "HistoriaHuella",
+		"CoincideFirmanteEnOtroPaso", "HistoriaSeparacionAcreditada")
 	slices.Sort(campos)
 	return campos
 }

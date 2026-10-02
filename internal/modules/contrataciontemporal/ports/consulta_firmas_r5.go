@@ -25,6 +25,9 @@ type MaterialConsultaFirmasR5 struct {
 	VersionExpediente             uint64
 	Documento                     string
 	FirmantePrincipalCandidatoRef string
+	ClaveIdempotencia             string
+	PasoOrden                     int
+	CatalogoHuella                string
 }
 
 func (m MaterialConsultaFirmasR5) Canonico() ([]byte, error) {
@@ -32,7 +35,10 @@ func (m MaterialConsultaFirmasR5) Canonico() ([]byte, error) {
 		m.VersionExpediente == 0 || m.VersionExpediente > 9007199254740991 ||
 		!domain.ClaveDocumentoFirmaValida(m.Documento) ||
 		!domain.ReferenciaOpacaValida(m.FirmantePrincipalCandidatoRef) ||
-		!strings.HasPrefix(m.FirmantePrincipalCandidatoRef, "per_") {
+		!strings.HasPrefix(m.FirmantePrincipalCandidatoRef, "per_") ||
+		!ClaveIdempotenciaFirmaValida(m.ClaveIdempotencia) ||
+		m.PasoOrden < 1 || m.PasoOrden > domain.MaximoPasosCircuitoFirma ||
+		!domain.HuellaSHA256FirmaValida(m.CatalogoHuella) {
 		return nil, ErrSolicitudFirmaDocumentoInvalida
 	}
 	return json.Marshal(m)
@@ -68,7 +74,9 @@ type AutorizadorConsultaFirmasR5 interface {
 // operación nueva CT170 compara la cabeza actual bajo bloqueo; un replay usa
 // la cabeza original guardada en su fila.
 type LecturaFirmasR5 struct {
-	Firmas           []FirmaRegistrada
-	HistoriaRevision uint64
-	HistoriaHuella   string
+	Firmas                       []FirmaRegistrada
+	HistoriaRevision             uint64
+	HistoriaHuella               string
+	CoincideFirmanteEnOtroPaso   bool
+	HistoriaSeparacionAcreditada bool
 }

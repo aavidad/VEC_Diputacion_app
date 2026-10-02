@@ -2,9 +2,12 @@ package ports
 
 import (
 	"context"
+	"errors"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 )
+
+var ErrMismaPersonaEnOtroPasoR5 = errors.New("contratacion temporal: misma persona en otro paso del expediente")
 
 // La bandera se publica dentro de la versión del catálogo de circuito.
 // Ausencia o caída de la fuente nunca equivale a permitir dos pasos por la

@@ -38,3 +38,43 @@ func TestPoliticaMismaPersonaEnPasosVersionadaFallaCerrada(t *testing.T) {
 		t.Fatalf("fuente caida no debe conceder: %v, %v", permite, err)
 	}
 }
+
+func TestPasoLogicoFirmaR5SoloEquivaleEnMismaPosicionYCatalogo(t *testing.T) {
+	base := PasoLogicoFirmaR5{Documento: "informe_definitivo", PasoOrden: 1, CatalogoHuella: strings.Repeat("a", 64)}
+	if !base.MismoPaso(base) {
+		t.Fatal("la misma posicion publicada dejo de ser equivalente")
+	}
+	for nombre, otro := range map[string]PasoLogicoFirmaR5{
+		"otro documento":    {Documento: "resolucion", PasoOrden: 1, CatalogoHuella: base.CatalogoHuella},
+		"otro orden":        {Documento: base.Documento, PasoOrden: 2, CatalogoHuella: base.CatalogoHuella},
+		"catalogo cambiado": {Documento: base.Documento, PasoOrden: 1, CatalogoHuella: strings.Repeat("b", 64)},
+		"invalido":          {Documento: base.Documento, PasoOrden: 1},
+	} {
+		t.Run(nombre, func(t *testing.T) {
+			if base.MismoPaso(otro) {
+				t.Fatal("se equipararon pasos de identidad distinta o ambigua")
+			}
+		})
+	}
+}
+
+func TestCoincidenciaPersonaR5DefaultNoYPermisoPublicado(t *testing.T) {
+	for _, caso := range []struct {
+		nombre                         string
+		permite, coincide, desconocido bool
+		denegado                       bool
+	}{
+		{"sin coincidencia", false, false, false, false},
+		{"misma persona otro paso", false, true, false, true},
+		{"legacy sin identidad otro paso", false, false, true, true},
+		{"permiso publicado", true, true, false, false},
+		{"permiso publicado con legacy", true, false, true, false},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			err := EvaluarCoincidenciaPersonaR5(caso.permite, caso.coincide, caso.desconocido)
+			if errors.Is(err, ports.ErrMismaPersonaEnOtroPasoR5) != caso.denegado {
+				t.Fatalf("decision inesperada: %v", err)
+			}
+		})
+	}
+}

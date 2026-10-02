@@ -44,6 +44,17 @@ type ServicioFirmaExterna struct {
 	consulta    ports.AutorizadorConsultaFirmasR5
 	autorizador ports.AutorizadorRegistroFirmaExterna
 	competencia ports.FuenteCompetenciaFirmante
+	politica    ports.FuentePoliticaMismaPersonaEnPasos
+}
+
+// La fuente solo puede ampliar el default NO si devuelve un valor ligado a la
+// referencia y huella publicadas. Se fija una vez antes del montaje.
+func (s *ServicioFirmaExterna) ComponerPoliticaMismaPersonaEnPasos(f ports.FuentePoliticaMismaPersonaEnPasos) error {
+	if s == nil || nula(f) || s.politica != nil {
+		return ErrCircuitoFirmaNoDisponible
+	}
+	s.politica = f
+	return nil
 }
 
 func NuevoServicioFirmaExterna(
@@ -134,42 +145,38 @@ func antecedentesR5Acreditados(estado domain.EstadoCircuitoDocumento, firmas []p
 	return true
 }
 
-func (s *ServicioFirmaExterna) estado(
-	ctx context.Context, org, exp, documento string, version uint64, candidato string,
-) (domain.CircuitoFirma, domain.CircuitoFirmaDocumento, domain.EstadoCircuitoDocumento, ports.LecturaFirmasR5, error) {
+func (s *ServicioFirmaExterna) leerHistoria(
+	ctx context.Context, org, exp, documento string, version uint64, candidato, clave string, pasoOrden int,
+) (domain.CircuitoFirma, domain.CircuitoFirmaDocumento, ports.LecturaFirmasR5, error) {
 	circuito, err := s.base.circuitoValido(ctx)
 	if err != nil {
-		return domain.CircuitoFirma{}, domain.CircuitoFirmaDocumento{}, domain.EstadoCircuitoDocumento{}, ports.LecturaFirmasR5{}, err
+		return domain.CircuitoFirma{}, domain.CircuitoFirmaDocumento{}, ports.LecturaFirmasR5{}, err
 	}
 	doc, ok := circuito.Documento(documento)
 	if !ok {
-		return domain.CircuitoFirma{}, domain.CircuitoFirmaDocumento{}, domain.EstadoCircuitoDocumento{}, ports.LecturaFirmasR5{}, ports.ErrSolicitudFirmaDocumentoInvalida
+		return domain.CircuitoFirma{}, domain.CircuitoFirmaDocumento{}, ports.LecturaFirmasR5{}, ports.ErrSolicitudFirmaDocumentoInvalida
 	}
 	lectura := ports.MaterialConsultaFirmasR5{OrganizacionRef: org, ExpedienteRef: exp, VersionExpediente: version,
-		Documento: documento, FirmantePrincipalCandidatoRef: candidato}
+		Documento: documento, FirmantePrincipalCandidatoRef: candidato, ClaveIdempotencia: clave,
+		PasoOrden: pasoOrden, CatalogoHuella: circuito.HuellaCatalogo}
 	capacidad, err := s.consulta.AutorizarConsultaFirmasR5(ctx, lectura)
 	if err != nil {
 		if ctx.Err() != nil {
-			return domain.CircuitoFirma{}, domain.CircuitoFirmaDocumento{}, domain.EstadoCircuitoDocumento{}, ports.LecturaFirmasR5{}, ctx.Err()
+			return domain.CircuitoFirma{}, domain.CircuitoFirmaDocumento{}, ports.LecturaFirmasR5{}, ctx.Err()
 		}
-		return domain.CircuitoFirma{}, domain.CircuitoFirmaDocumento{}, domain.EstadoCircuitoDocumento{}, ports.LecturaFirmasR5{}, ports.ErrFirmaDocumentoDenegada
+		return domain.CircuitoFirma{}, domain.CircuitoFirmaDocumento{}, ports.LecturaFirmasR5{}, ports.ErrFirmaDocumentoDenegada
 	}
 	if err := ValidarCapacidadConsultaFirmasR5(capacidad, lectura); err != nil {
-		return domain.CircuitoFirma{}, domain.CircuitoFirmaDocumento{}, domain.EstadoCircuitoDocumento{}, ports.LecturaFirmasR5{}, err
+		return domain.CircuitoFirma{}, domain.CircuitoFirmaDocumento{}, ports.LecturaFirmasR5{}, err
 	}
 	firmas, err := s.registro.ConsultarFirmasAutorizadas(ctx, lectura, capacidad)
 	if err != nil {
-		return domain.CircuitoFirma{}, domain.CircuitoFirmaDocumento{}, domain.EstadoCircuitoDocumento{}, ports.LecturaFirmasR5{}, err
+		return domain.CircuitoFirma{}, domain.CircuitoFirmaDocumento{}, ports.LecturaFirmasR5{}, err
 	}
 	if err := validarProyeccionFirmasR5(lectura, firmas); err != nil {
-		return domain.CircuitoFirma{}, domain.CircuitoFirmaDocumento{}, domain.EstadoCircuitoDocumento{}, ports.LecturaFirmasR5{}, err
+		return domain.CircuitoFirma{}, domain.CircuitoFirmaDocumento{}, ports.LecturaFirmasR5{}, err
 	}
-	rondas, err := s.base.inicioRonda(ctx, org, exp)
-	if err != nil {
-		return domain.CircuitoFirma{}, domain.CircuitoFirmaDocumento{}, domain.EstadoCircuitoDocumento{}, ports.LecturaFirmasR5{}, err
-	}
-	estado, err := domain.CalcularEstadoCircuitoFirmaEnRonda(doc, circuito.HuellaCatalogo, eventosDocumento(firmas.Firmas, documento), rondas[documento])
-	return circuito, doc, estado, firmas, err
+	return circuito, doc, firmas, nil
 }
 
 func (s *ServicioFirmaExterna) Registrar(ctx context.Context, sol SolicitudFirmaExterna) (ResultadoFirmaExterna, error) {
@@ -204,8 +211,9 @@ func (s *ServicioFirmaExterna) Registrar(ctx context.Context, sol SolicitudFirma
 	if err != nil {
 		return cero, err
 	}
-	circuito, doc, estado, lectura, err := s.estado(ctx, sol.OrganizacionRef, sol.ExpedienteRef,
-		sol.Documento, sol.VersionExpediente, preparacion.competencia.FirmantePrincipalRef)
+	circuito, doc, lectura, err := s.leerHistoria(ctx, sol.OrganizacionRef, sol.ExpedienteRef,
+		sol.Documento, sol.VersionExpediente, preparacion.competencia.FirmantePrincipalRef,
+		sol.ClaveIdempotencia, sol.PasoOrden)
 	if err != nil {
 		return cero, err
 	}
@@ -218,23 +226,46 @@ func (s *ServicioFirmaExterna) Registrar(ctx context.Context, sol SolicitudFirma
 		return cero, ports.ErrCustodiaFirmadoNoDisponible
 	}
 	firmas := lectura.Firmas
-	secuencia, originalEsperado := estado.UltimaSecuencia+1, estado.OriginalEsperadoHuella
+	var secuencia int
+	var originalEsperado string
 	historiaRevision, historiaHuella := lectura.HistoriaRevision, lectura.HistoriaHuella
 	previa, repetida := firmaConClave(firmas, sol.Documento, sol.ClaveIdempotencia)
-	switch {
-	case repetida:
+	if repetida {
 		if previa.Via != ports.ViaFirmaExternaPortafirmas || previa.PasoOrden != sol.PasoOrden ||
 			previa.Resultado != domain.ResultadoFirmaFirmado || previa.CatalogoHuella != circuito.HuellaCatalogo ||
-			previa.ExpedienteVersion != sol.VersionExpediente || sol.PasoOrden > len(doc.Pasos) {
+			previa.ExpedienteVersion != sol.VersionExpediente || len(firmas) != 1 {
 			return cero, ports.ErrClaveFirmaDocumentoUsada
 		}
 		secuencia, originalEsperado = previa.Secuencia, previa.OriginalHuella
 		historiaRevision, historiaHuella = previa.HistoriaRevision, previa.HistoriaHuella
-	case estado.Completo || estado.PasoPendiente != sol.PasoOrden:
-		return cero, ErrPasoFirmaNoPendiente
-	}
-	if !repetida && !antecedentesR5Acreditados(estado, firmas, sol.Documento, sol.PasoOrden, sol.OriginalRef, sol.OriginalVersion, originalEsperado) {
-		return cero, ports.ErrAntecedenteFirmaR5NoAcreditado
+	} else {
+		rondas, err := s.base.inicioRonda(ctx, sol.OrganizacionRef, sol.ExpedienteRef)
+		if err != nil {
+			return cero, err
+		}
+		if err := validarOriginalNuevoTrasReparo(firmas, sol.Documento, sol.PasoOrden, rondas[sol.Documento],
+			sol.OriginalRef, sol.OriginalVersion, preparacion.original.HuellaSHA256); err != nil {
+			return cero, err
+		}
+		estado, err := domain.CalcularEstadoCircuitoFirmaEnRonda(
+			doc, circuito.HuellaCatalogo, eventosDocumento(firmas, sol.Documento), rondas[sol.Documento])
+		if err != nil {
+			return cero, err
+		}
+		if estado.Completo || estado.PasoPendiente != sol.PasoOrden {
+			return cero, ErrPasoFirmaNoPendiente
+		}
+		secuencia, originalEsperado = estado.UltimaSecuencia+1, estado.OriginalEsperadoHuella
+		if !antecedentesR5Acreditados(estado, firmas, sol.Documento, sol.PasoOrden, sol.OriginalRef, sol.OriginalVersion, originalEsperado) {
+			return cero, ports.ErrAntecedenteFirmaR5NoAcreditado
+		}
+		permite, err := ResolverPoliticaMismaPersonaEnPasos(ctx, s.politica, circuito.CatalogoRef, circuito.HuellaCatalogo)
+		if err != nil {
+			return cero, err
+		}
+		if err := EvaluarCoincidenciaPersonaR5(permite, lectura.CoincideFirmanteEnOtroPaso, !lectura.HistoriaSeparacionAcreditada); err != nil {
+			return cero, err
+		}
 	}
 	paso := doc.Pasos[sol.PasoOrden-1]
 	original, dictamen, evidencia := preparacion.original, preparacion.dictamen, preparacion.competencia

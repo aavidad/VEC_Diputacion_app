@@ -17,6 +17,30 @@ type preparacionFirmaR5 struct {
 	competencia ports.EvidenciaCompetenciaFirmante
 }
 
+// Una ronda de reemisión del mismo paso necesita otra revisión real del
+// original. Si la historia anterior carece de referencia/version verificable,
+// no se puede afirmar que el original sea nuevo.
+func validarOriginalNuevoTrasReparo(
+	firmas []ports.FirmaRegistrada, documento string, pasoOrden int, inicioRonda uint64,
+	originalRef string, originalVersion uint64, originalHuella string,
+) error {
+	if inicioRonda == 0 {
+		return nil
+	}
+	for _, f := range firmas {
+		if f.Documento != documento || f.PasoOrden != pasoOrden ||
+			f.Resultado != domain.ResultadoFirmaFirmado || f.ExpedienteVersion >= inicioRonda {
+			continue
+		}
+		if f.OriginalRef == "" || f.OriginalVersion == 0 ||
+			f.OriginalRef == originalRef || f.OriginalVersion == originalVersion ||
+			f.OriginalHuella == originalHuella {
+			return ports.ErrOriginalTrasReparoNoNuevo
+		}
+	}
+	return nil
+}
+
 func prepararFirmaR5(
 	ctx context.Context, base *ServicioFirmaDocumento, fuente ports.FuenteCompetenciaFirmante,
 	org, exp, documento, originalRef string, originalVersion uint64,

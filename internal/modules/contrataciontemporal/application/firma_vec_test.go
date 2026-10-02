@@ -73,8 +73,10 @@ type registroVecPrueba struct {
 	firmantesPrincipales []string
 	registrado           []ports.MaterialFirmaVec
 	consultas            []ports.MaterialConsultaFirmasR5
+	lecturas             []ports.LecturaFirmasR5
 	historiaRevision     uint64
 	historiaHuella       string
+	versionActual        uint64
 }
 
 func (d *registroVecPrueba) ConsultarFirmasAutorizadas(_ context.Context, m ports.MaterialConsultaFirmasR5, c ports.CapacidadConsultaFirmasR5) (ports.LecturaFirmasR5, error) {
@@ -82,12 +84,38 @@ func (d *registroVecPrueba) ConsultarFirmasAutorizadas(_ context.Context, m port
 		return ports.LecturaFirmasR5{}, err
 	}
 	d.consultas = append(d.consultas, m)
-	firmas := append([]ports.FirmaRegistrada(nil), d.firmas...)
-	for i := range firmas {
-		firmas[i].CoincideFirmanteCandidato = i < len(d.firmantesPrincipales) &&
-			d.firmantesPrincipales[i] == m.FirmantePrincipalCandidatoRef
+	firmas := make([]ports.FirmaRegistrada, 0, len(d.firmas))
+	for _, firma := range d.firmas {
+		if firma.Documento == m.Documento {
+			firmas = append(firmas, firma)
+		}
 	}
-	return ports.LecturaFirmasR5{Firmas: firmas, HistoriaRevision: d.historiaRevision, HistoriaHuella: d.historiaHuella}, nil
+	exacta := false
+	for _, firma := range firmas {
+		if firma.Documento == m.Documento && firma.ExpedienteVersion == m.VersionExpediente &&
+			firma.ClaveIdempotencia == m.ClaveIdempotencia {
+			firmas = []ports.FirmaRegistrada{firma}
+			exacta = true
+			break
+		}
+	}
+	if !exacta && m.VersionExpediente < d.versionActual {
+		firmas = nil
+	}
+	for i := range firmas {
+		for j, registrada := range d.firmas {
+			if registrada.ClaveIdempotencia == firmas[i].ClaveIdempotencia {
+				firmas[i].CoincideFirmanteCandidato = j < len(d.firmantesPrincipales) &&
+					d.firmantesPrincipales[j] == m.FirmantePrincipalCandidatoRef
+				break
+			}
+		}
+	}
+	coincide, acreditada := separacionGlobalFirmasR5Prueba(d.firmas, d.firmantesPrincipales, m, exacta)
+	lectura := ports.LecturaFirmasR5{Firmas: firmas, HistoriaRevision: d.historiaRevision, HistoriaHuella: d.historiaHuella,
+		CoincideFirmanteEnOtroPaso: coincide, HistoriaSeparacionAcreditada: acreditada}
+	d.lecturas = append(d.lecturas, lectura)
+	return lectura, nil
 }
 
 func (d *registroVecPrueba) RegistrarFirmaVec(_ context.Context, m ports.MaterialFirmaVec, c ports.CapacidadFirmaVec) (ports.ReciboFirmaDocumento, error) {
@@ -144,7 +172,7 @@ func servicioFirmaVecPrueba(t *testing.T) (*ServicioFirmaVec, *registroVecPrueba
 	if err := base.ComponerCustodia(custodio, map[string]string{"informe_definitivo": tipoCustodiaPrueba}); err != nil {
 		t.Fatal(err)
 	}
-	registro := &registroVecPrueba{historiaHuella: strings.Repeat("1", 64)}
+	registro := &registroVecPrueba{historiaHuella: strings.Repeat("1", 64), versionActual: 7}
 	consulta, competencia := &autorizadorConsultaFirmasR5Prueba{}, &competenciaExternaPrueba{}
 	autorizador := &autorizadorVecPrueba{certificadoCanal: strings.Repeat("f", 64)}
 	s, err := NuevoServicioFirmaVec(base, registro, consulta, autorizador, competencia)
@@ -223,6 +251,7 @@ func TestFirmaVecDosPasosConservanOriginalYSeparanFirmantes(t *testing.T) {
 	}
 	registro.historiaRevision++
 	registro.historiaHuella = strings.Repeat("8", 64)
+	registro.versionActual = 8
 	cabezaActualRevision, cabezaActualHuella := registro.historiaRevision, registro.historiaHuella
 	r2Repetido, err := s.Firmar(context.Background(), segunda)
 	if err != nil {
@@ -233,6 +262,12 @@ func TestFirmaVecDosPasosConservanOriginalYSeparanFirmantes(t *testing.T) {
 	_, err = s.Firmar(context.Background(), versionDistinta)
 	if !errors.Is(err, ports.ErrClaveFirmaDocumentoUsada) {
 		t.Fatalf("la clave histórica aceptó otra versión de expediente: %v", err)
+	}
+	claveNueva := versionDistinta
+	claveNueva.ClaveIdempotencia = "clave-firma-vec-nueva-version"
+	_, err = s.Firmar(context.Background(), claveNueva)
+	if !errors.Is(err, ErrPasoFirmaNoPendiente) {
+		t.Fatalf("una clave nueva reutilizó el paso completo: %v", err)
 	}
 	filasPasoDos := 0
 	for _, firma := range registro.firmas {
@@ -255,9 +290,90 @@ func TestFirmaVecDosPasosConservanOriginalYSeparanFirmantes(t *testing.T) {
 		r2Repetido.Material.HistoriaRevision != r2.Material.HistoriaRevision ||
 		r2Repetido.Material.HistoriaHuella != r2.Material.HistoriaHuella ||
 		registro.historiaRevision != cabezaActualRevision || registro.historiaHuella != cabezaActualHuella ||
-		len(registro.registrado) != 2 || filasPasoDos != 1 || len(registro.consultas) != 4 ||
-		len(competencia.vistas) != 4 || len(autorizadorFirma.vistas) != 3 || len(custodio.ordenes) != 3 {
+		len(registro.registrado) != 2 || filasPasoDos != 1 || len(registro.consultas) != 5 ||
+		registro.consultas[2].ClaveIdempotencia != segunda.ClaveIdempotencia ||
+		registro.consultas[1].PasoOrden != 2 || registro.consultas[1].CatalogoHuella != r2.Material.CatalogoHuella ||
+		registro.consultas[1].FirmantePrincipalCandidatoRef != r2.Material.FirmantePrincipalRef ||
+		len(registro.lecturas[2].Firmas) != 1 || registro.lecturas[2].Firmas[0].Secuencia != 2 ||
+		len(registro.lecturas[4].Firmas) != 2 || len(competencia.vistas) != 5 ||
+		len(autorizadorFirma.vistas) != 3 || len(custodio.ordenes) != 3 {
 		t.Fatalf("los dos pasos VEC no conservaron el original o no separaron firmantes: p1=%+v p2=%+v", r1.Material, r2.Material)
+	}
+	consulta := s.consulta.(*autorizadorConsultaFirmasR5Prueba)
+	consulta.err = errors.New("concesión de lectura revocada")
+	if _, err := s.Firmar(context.Background(), segunda); !errors.Is(err, ports.ErrFirmaDocumentoDenegada) ||
+		len(registro.consultas) != 5 || len(registro.registrado) != 2 || len(autorizadorFirma.vistas) != 3 || len(custodio.ordenes) != 3 {
+		t.Fatalf("la revocación permitió leer o repetir el efecto: %v", err)
+	}
+}
+
+func TestFirmaVecMismaPersonaEnPasosRequierePoliticaVersionada(t *testing.T) {
+	for _, permite := range []bool{false, true} {
+		t.Run(strconv.FormatBool(permite), func(t *testing.T) {
+			s, registro, original, competencia, autorizador, custodio := servicioFirmaVecPrueba(t)
+			if _, err := s.Firmar(context.Background(), solicitudFirmaVecPrueba(original.contenido, "clave-vec-separacion-p1")); err != nil {
+				t.Fatal(err)
+			}
+			competencia.alterar = func(e *ports.EvidenciaCompetenciaFirmante) {
+				e.FirmantePrincipalRef = "per_firmante_sintetico_001"
+				e.ActoCompetenciaRef = "acto:competencia:jefatura:002"
+			}
+			s.base.verificador = verificadorExternoPrueba{motivo: docports.MotivoFirmaVerificada, firmanteByte: 'd'}
+			autorizador.certificadoCanal = strings.Repeat("d", 64)
+			segunda := solicitudFirmaVecPrueba(original.contenido, "clave-vec-separacion-p2")
+			segunda.PasoOrden = 2
+			if permite {
+				if err := s.ComponerPoliticaMismaPersonaEnPasos(politicaMismaPersonaAplicacionPrueba{}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			r, err := s.Firmar(context.Background(), segunda)
+			if !permite {
+				if !errors.Is(err, ports.ErrMismaPersonaEnOtroPasoR5) || len(registro.registrado) != 1 ||
+					len(autorizador.vistas) != 1 || len(custodio.ordenes) != 1 ||
+					!registro.lecturas[1].CoincideFirmanteEnOtroPaso || !registro.lecturas[1].HistoriaSeparacionAcreditada {
+					t.Fatalf("misma persona pasó sin política: %v", err)
+				}
+				return
+			}
+			if err != nil || len(registro.registrado) != 2 || r.Material.FirmantePrincipalRef != "per_firmante_sintetico_001" ||
+				r.Material.PerfilFirmanteRef != "perfil:ct:jefatura" || r.Material.CargoFirmante != "Jefatura" ||
+				r.Material.ActoCompetenciaRef != "acto:competencia:jefatura:002" || len(autorizador.vistas) != 2 {
+				t.Fatalf("política no conservó competencia del paso 2: %+v %v", r.Material, err)
+			}
+		})
+	}
+}
+
+func TestFirmaVecLegadoEnOtroDocumentoNoAcreditaSeparacion(t *testing.T) {
+	s, registro, original, _, autorizador, custodio := servicioFirmaVecPrueba(t)
+	legada := firmaLegadaPasoUnoPrueba(original.contenido)
+	legada.Documento = "resolucion"
+	registro.firmas = append(registro.firmas, legada)
+	registro.firmantesPrincipales = append(registro.firmantesPrincipales, "")
+	_, err := s.Firmar(context.Background(), solicitudFirmaVecPrueba(original.contenido, "clave-vec-legado-otro-documento"))
+	if !errors.Is(err, ports.ErrMismaPersonaEnOtroPasoR5) || len(registro.registrado) != 0 ||
+		len(autorizador.vistas) != 0 || len(custodio.ordenes) != 0 ||
+		len(registro.lecturas[0].Firmas) != 0 || registro.lecturas[0].HistoriaSeparacionAcreditada {
+		t.Fatalf("historia global legada acreditó separación: %v", err)
+	}
+}
+
+func TestFirmaVecConsultaV3NoAceptaOtroPasoOCatalogo(t *testing.T) {
+	for nombre, alterar := range map[string]func(*ports.MaterialConsultaFirmasR5){
+		"paso":     func(m *ports.MaterialConsultaFirmasR5) { m.PasoOrden++ },
+		"catalogo": func(m *ports.MaterialConsultaFirmasR5) { m.CatalogoHuella = strings.Repeat("9", 64) },
+	} {
+		t.Run(nombre, func(t *testing.T) {
+			s, registro, original, _, autorizador, custodio := servicioFirmaVecPrueba(t)
+			consulta := s.consulta.(*autorizadorConsultaFirmasR5Prueba)
+			consulta.alterar = alterar
+			_, err := s.Firmar(context.Background(), solicitudFirmaVecPrueba(original.contenido, "clave-vec-consulta-otro-"+nombre))
+			if !errors.Is(err, ports.ErrFirmaDocumentoDenegada) || len(registro.consultas) != 0 ||
+				len(registro.registrado) != 0 || len(autorizador.vistas) != 0 || len(custodio.ordenes) != 0 {
+				t.Fatalf("capacidad V3 de otro %s alcanzó la historia o el efecto: %v", nombre, err)
+			}
+		})
 	}
 }
 

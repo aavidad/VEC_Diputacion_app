@@ -33,6 +33,7 @@ var (
 	ErrCompetenciaFirmanteNoAcreditada  = errors.New("contratacion temporal: competencia del firmante no acreditada")
 	ErrRegistroFirmaExternaNoDisponible = errors.New("contratacion temporal: registro de firma externa no disponible")
 	ErrAntecedenteFirmaR5NoAcreditado   = errors.New("contratacion temporal: el paso anterior no tiene firma R5 acreditada")
+	ErrOriginalTrasReparoNoNuevo        = errors.New("contratacion temporal: el original tras reparo no es nuevo")
 )
 
 // SolicitudOriginalFirma identifica una revisión concreta. La fuente es la
