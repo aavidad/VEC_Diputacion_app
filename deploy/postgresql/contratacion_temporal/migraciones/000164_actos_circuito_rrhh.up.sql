@@ -14,12 +14,16 @@ SET LOCAL lock_timeout='5s';
 SET LOCAL statement_timeout='2min';
 SELECT pg_advisory_xact_lock(hashtextextended('vec_contratacion_temporal:migracion:000164',0));
 DO $pre$
+DECLARE v_instalada boolean;
 BEGIN
- IF current_user<>'vec_contratacion_temporal_propietario'
-  OR to_regprocedure('vec_contratacion_temporal.circuito_vinculado_ct163(jsonb)') IS NULL
-  OR to_regprocedure('vec_contratacion_temporal.circuito_siguiente_ct163(jsonb,jsonb)') IS NULL
-  OR to_regprocedure('vec_contratacion_temporal.circuito_flujo_nuevo_ct164(jsonb)') IS NOT NULL
- THEN RAISE EXCEPTION 'CT164: dependencia CT163 o preimagen incompatible' USING ERRCODE='55000'; END IF;
+ IF current_user IS DISTINCT FROM 'vec_contratacion_temporal_propietario' THEN
+  RAISE EXCEPTION 'CT164: PARO clave=rol_sql actual=% esperado=vec_contratacion_temporal_propietario',current_user USING ERRCODE='55000'; END IF;
+ v_instalada:=to_regprocedure('vec_contratacion_temporal.circuito_vinculado_ct163(jsonb)') IS NOT NULL;
+ IF NOT v_instalada THEN RAISE EXCEPTION 'CT164: PARO clave=ct163_vinculado_instalada actual=% esperado=true',v_instalada::text USING ERRCODE='55000'; END IF;
+ v_instalada:=to_regprocedure('vec_contratacion_temporal.circuito_siguiente_ct163(jsonb,jsonb)') IS NOT NULL;
+ IF NOT v_instalada THEN RAISE EXCEPTION 'CT164: PARO clave=ct163_siguiente_instalada actual=% esperado=true',v_instalada::text USING ERRCODE='55000'; END IF;
+ v_instalada:=to_regprocedure('vec_contratacion_temporal.circuito_flujo_nuevo_ct164(jsonb)') IS NOT NULL;
+ IF v_instalada THEN RAISE EXCEPTION 'CT164: PARO clave=ct164_ya_instalada actual=% esperado=false',v_instalada::text USING ERRCODE='55000'; END IF;
 END $pre$;
 
 -- Terna de la definición gobernada que publica el operador en configuración.
@@ -127,28 +131,43 @@ $marca$;
     v_agregado_huella := pg_catalog.encode(
 $reemplazo$;
 BEGIN
- IF f IS NULL THEN RAISE EXCEPTION 'CT164: función ausente materializar_version_inicial_v1' USING ERRCODE='55000'; END IF;
+ IF f IS NULL THEN RAISE EXCEPTION 'CT164: PARO funcion=materializar_version_inicial_v1 clave=instalada actual=false esperado=true' USING ERRCODE='55000'; END IF;
  SELECT pg_get_functiondef(f),p.prosrc,to_jsonb(p)-'prosrc' INTO STRICT original,fuente,meta FROM pg_proc p WHERE p.oid=f;
  SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
   INTO deps FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f;
  SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.dbid,d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype),'[]'::jsonb)
   INTO deps_compartidas FROM pg_shdepend d WHERE d.dbid=(SELECT oid FROM pg_database WHERE datname=current_database()) AND d.classid='pg_proc'::regclass AND d.objid=f;
- IF (SELECT proowner FROM pg_proc WHERE oid=f) IS DISTINCT FROM 'vec_contratacion_temporal_propietario'::regrole
-  OR encode(sha256(convert_to(original,'UTF8')),'hex') IS DISTINCT FROM '0b1872b16ad62786eaccea72d4981fd76839adee57a9093b2dd6bed8b1108bd0'
-  OR encode(sha256(convert_to(fuente,'UTF8')),'hex') IS DISTINCT FROM 'dda0fe399101565ffb8f362060efa052bdd2d4d74447429fde11da1e3fea818a'
-  OR length(original)-length(replace(original,marca,''))<>length(marca)
-  OR strpos(original,'ct164')<>0
- THEN RAISE EXCEPTION 'CT164: preimagen incompatible materializar_version_inicial_v1' USING ERRCODE='55000'; END IF;
+ IF (SELECT proowner FROM pg_proc WHERE oid=f) IS DISTINCT FROM 'vec_contratacion_temporal_propietario'::regrole THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=materializar_version_inicial_v1 clave=propietario_sql actual=% esperado=vec_contratacion_temporal_propietario',
+   (SELECT pg_get_userbyid(proowner) FROM pg_proc WHERE oid=f) USING ERRCODE='55000'; END IF;
+ IF encode(sha256(convert_to(original,'UTF8')),'hex') IS DISTINCT FROM '0b1872b16ad62786eaccea72d4981fd76839adee57a9093b2dd6bed8b1108bd0' THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=materializar_version_inicial_v1 clave=definicion_sha256 actual=% esperado=0b1872b16ad62786eaccea72d4981fd76839adee57a9093b2dd6bed8b1108bd0',
+   encode(sha256(convert_to(original,'UTF8')),'hex') USING ERRCODE='55000'; END IF;
+ IF encode(sha256(convert_to(fuente,'UTF8')),'hex') IS DISTINCT FROM 'dda0fe399101565ffb8f362060efa052bdd2d4d74447429fde11da1e3fea818a' THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=materializar_version_inicial_v1 clave=fuente_sha256 actual=% esperado=dda0fe399101565ffb8f362060efa052bdd2d4d74447429fde11da1e3fea818a',
+   encode(sha256(convert_to(fuente,'UTF8')),'hex') USING ERRCODE='55000'; END IF;
+ IF length(original)-length(replace(original,marca,''))<>length(marca) THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=materializar_version_inicial_v1 clave=marca_apariciones actual=% esperado=1',
+   (length(original)-length(replace(original,marca,'')))/length(marca) USING ERRCODE='55000'; END IF;
+ IF strpos(original,'ct164')<>0 THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=materializar_version_inicial_v1 clave=ct164_presente_en_fuente actual=true esperado=false' USING ERRCODE='55000'; END IF;
  nuevo:=replace(original,marca,reemplazo);
  EXECUTE nuevo;
  SELECT pg_get_functiondef(f) INTO STRICT actual;
- IF actual IS DISTINCT FROM nuevo OR replace(actual,reemplazo,marca) IS DISTINCT FROM original
-  OR (SELECT to_jsonb(p)-'prosrc' FROM pg_proc p WHERE p.oid=f) IS DISTINCT FROM meta
-  OR (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
-      FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps
-  OR (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.dbid,d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype),'[]'::jsonb)
-      FROM pg_shdepend d WHERE d.dbid=(SELECT oid FROM pg_database WHERE datname=current_database()) AND d.classid='pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps_compartidas
- THEN RAISE EXCEPTION 'CT164: metadatos alterados materializar_version_inicial_v1' USING ERRCODE='55000'; END IF;
+ IF actual IS DISTINCT FROM nuevo THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=materializar_version_inicial_v1 clave=postimagen_sha256 actual=% esperado=%',
+   encode(sha256(convert_to(actual,'UTF8')),'hex'),encode(sha256(convert_to(nuevo,'UTF8')),'hex') USING ERRCODE='55000'; END IF;
+ IF replace(actual,reemplazo,marca) IS DISTINCT FROM original THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=materializar_version_inicial_v1 clave=reversion_sha256 actual=% esperado=%',
+   encode(sha256(convert_to(replace(actual,reemplazo,marca),'UTF8')),'hex'),encode(sha256(convert_to(original,'UTF8')),'hex') USING ERRCODE='55000'; END IF;
+ IF (SELECT to_jsonb(p)-'prosrc' FROM pg_proc p WHERE p.oid=f) IS DISTINCT FROM meta THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=materializar_version_inicial_v1 clave=metadatos_pg_proc_conservados actual=false esperado=true' USING ERRCODE='55000'; END IF;
+ IF (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
+      FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=materializar_version_inicial_v1 clave=dependencias_conservadas actual=false esperado=true' USING ERRCODE='55000'; END IF;
+ IF (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.dbid,d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype),'[]'::jsonb)
+      FROM pg_shdepend d WHERE d.dbid=(SELECT oid FROM pg_database WHERE datname=current_database()) AND d.classid='pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps_compartidas THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=materializar_version_inicial_v1 clave=dependencias_compartidas_conservadas actual=false esperado=true' USING ERRCODE='55000'; END IF;
 END $patch$;
 
 -- Parche nominal expediente_analisis_valido_v2: preimagen exacta y metadatos conservados.
@@ -165,28 +184,43 @@ $marca$;
     IF p_exige_analisis IS NULL
 $reemplazo$;
 BEGIN
- IF f IS NULL THEN RAISE EXCEPTION 'CT164: función ausente expediente_analisis_valido_v2' USING ERRCODE='55000'; END IF;
+ IF f IS NULL THEN RAISE EXCEPTION 'CT164: PARO funcion=expediente_analisis_valido_v2 clave=instalada actual=false esperado=true' USING ERRCODE='55000'; END IF;
  SELECT pg_get_functiondef(f),p.prosrc,to_jsonb(p)-'prosrc' INTO STRICT original,fuente,meta FROM pg_proc p WHERE p.oid=f;
  SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
   INTO deps FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f;
  SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.dbid,d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype),'[]'::jsonb)
   INTO deps_compartidas FROM pg_shdepend d WHERE d.dbid=(SELECT oid FROM pg_database WHERE datname=current_database()) AND d.classid='pg_proc'::regclass AND d.objid=f;
- IF (SELECT proowner FROM pg_proc WHERE oid=f) IS DISTINCT FROM 'vec_contratacion_temporal_propietario'::regrole
-  OR encode(sha256(convert_to(original,'UTF8')),'hex') IS DISTINCT FROM 'b3b06bff38b7289676c4bfbd7ee6b7c20c53e7cb08a2660d7ccdb7b194a69705'
-  OR encode(sha256(convert_to(fuente,'UTF8')),'hex') IS DISTINCT FROM '9eb4e8b00da3745d27f6d28898575ed15422ed8e67426ca3c61dbe36ee4f39a4'
-  OR length(original)-length(replace(original,marca,''))<>length(marca)
-  OR strpos(original,'ct164')<>0
- THEN RAISE EXCEPTION 'CT164: preimagen incompatible expediente_analisis_valido_v2' USING ERRCODE='55000'; END IF;
+ IF (SELECT proowner FROM pg_proc WHERE oid=f) IS DISTINCT FROM 'vec_contratacion_temporal_propietario'::regrole THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=expediente_analisis_valido_v2 clave=propietario_sql actual=% esperado=vec_contratacion_temporal_propietario',
+   (SELECT pg_get_userbyid(proowner) FROM pg_proc WHERE oid=f) USING ERRCODE='55000'; END IF;
+ IF encode(sha256(convert_to(original,'UTF8')),'hex') IS DISTINCT FROM 'b3b06bff38b7289676c4bfbd7ee6b7c20c53e7cb08a2660d7ccdb7b194a69705' THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=expediente_analisis_valido_v2 clave=definicion_sha256 actual=% esperado=b3b06bff38b7289676c4bfbd7ee6b7c20c53e7cb08a2660d7ccdb7b194a69705',
+   encode(sha256(convert_to(original,'UTF8')),'hex') USING ERRCODE='55000'; END IF;
+ IF encode(sha256(convert_to(fuente,'UTF8')),'hex') IS DISTINCT FROM '9eb4e8b00da3745d27f6d28898575ed15422ed8e67426ca3c61dbe36ee4f39a4' THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=expediente_analisis_valido_v2 clave=fuente_sha256 actual=% esperado=9eb4e8b00da3745d27f6d28898575ed15422ed8e67426ca3c61dbe36ee4f39a4',
+   encode(sha256(convert_to(fuente,'UTF8')),'hex') USING ERRCODE='55000'; END IF;
+ IF length(original)-length(replace(original,marca,''))<>length(marca) THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=expediente_analisis_valido_v2 clave=marca_apariciones actual=% esperado=1',
+   (length(original)-length(replace(original,marca,'')))/length(marca) USING ERRCODE='55000'; END IF;
+ IF strpos(original,'ct164')<>0 THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=expediente_analisis_valido_v2 clave=ct164_presente_en_fuente actual=true esperado=false' USING ERRCODE='55000'; END IF;
  nuevo:=replace(original,marca,reemplazo);
  EXECUTE nuevo;
  SELECT pg_get_functiondef(f) INTO STRICT actual;
- IF actual IS DISTINCT FROM nuevo OR replace(actual,reemplazo,marca) IS DISTINCT FROM original
-  OR (SELECT to_jsonb(p)-'prosrc' FROM pg_proc p WHERE p.oid=f) IS DISTINCT FROM meta
-  OR (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
-      FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps
-  OR (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.dbid,d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype),'[]'::jsonb)
-      FROM pg_shdepend d WHERE d.dbid=(SELECT oid FROM pg_database WHERE datname=current_database()) AND d.classid='pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps_compartidas
- THEN RAISE EXCEPTION 'CT164: metadatos alterados expediente_analisis_valido_v2' USING ERRCODE='55000'; END IF;
+ IF actual IS DISTINCT FROM nuevo THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=expediente_analisis_valido_v2 clave=postimagen_sha256 actual=% esperado=%',
+   encode(sha256(convert_to(actual,'UTF8')),'hex'),encode(sha256(convert_to(nuevo,'UTF8')),'hex') USING ERRCODE='55000'; END IF;
+ IF replace(actual,reemplazo,marca) IS DISTINCT FROM original THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=expediente_analisis_valido_v2 clave=reversion_sha256 actual=% esperado=%',
+   encode(sha256(convert_to(replace(actual,reemplazo,marca),'UTF8')),'hex'),encode(sha256(convert_to(original,'UTF8')),'hex') USING ERRCODE='55000'; END IF;
+ IF (SELECT to_jsonb(p)-'prosrc' FROM pg_proc p WHERE p.oid=f) IS DISTINCT FROM meta THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=expediente_analisis_valido_v2 clave=metadatos_pg_proc_conservados actual=false esperado=true' USING ERRCODE='55000'; END IF;
+ IF (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
+      FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=expediente_analisis_valido_v2 clave=dependencias_conservadas actual=false esperado=true' USING ERRCODE='55000'; END IF;
+ IF (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.dbid,d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype),'[]'::jsonb)
+      FROM pg_shdepend d WHERE d.dbid=(SELECT oid FROM pg_database WHERE datname=current_database()) AND d.classid='pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps_compartidas THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=expediente_analisis_valido_v2 clave=dependencias_compartidas_conservadas actual=false esperado=true' USING ERRCODE='55000'; END IF;
 END $patch$;
 
 -- Parche nominal transicion_confirmacion_analisis_valida_v1: preimagen exacta y metadatos conservados.
@@ -200,28 +234,43 @@ DECLARE
     IF vec_contratacion_temporal.circuito_acto_admitido_ct164(anterior,siguiente) IS NOT TRUE THEN RETURN false; END IF;
     IF vec_contratacion_temporal.normalizar_agregado_dominio_analisis_v2($reemplazo$;
 BEGIN
- IF f IS NULL THEN RAISE EXCEPTION 'CT164: función ausente transicion_confirmacion_analisis_valida_v1' USING ERRCODE='55000'; END IF;
+ IF f IS NULL THEN RAISE EXCEPTION 'CT164: PARO funcion=transicion_confirmacion_analisis_valida_v1 clave=instalada actual=false esperado=true' USING ERRCODE='55000'; END IF;
  SELECT pg_get_functiondef(f),p.prosrc,to_jsonb(p)-'prosrc' INTO STRICT original,fuente,meta FROM pg_proc p WHERE p.oid=f;
  SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
   INTO deps FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f;
  SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.dbid,d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype),'[]'::jsonb)
   INTO deps_compartidas FROM pg_shdepend d WHERE d.dbid=(SELECT oid FROM pg_database WHERE datname=current_database()) AND d.classid='pg_proc'::regclass AND d.objid=f;
- IF (SELECT proowner FROM pg_proc WHERE oid=f) IS DISTINCT FROM 'vec_contratacion_temporal_propietario'::regrole
-  OR encode(sha256(convert_to(original,'UTF8')),'hex') IS DISTINCT FROM 'd8b0f30326d0d1badf826b4bff790a7920aa54b783798537baff610fcd5004d5'
-  OR encode(sha256(convert_to(fuente,'UTF8')),'hex') IS DISTINCT FROM '09886769afbd66f637233fa5e2a3c224997f5884122f7bf189ba34f1d6a36f2a'
-  OR length(original)-length(replace(original,marca,''))<>length(marca)
-  OR strpos(original,'ct164')<>0
- THEN RAISE EXCEPTION 'CT164: preimagen incompatible transicion_confirmacion_analisis_valida_v1' USING ERRCODE='55000'; END IF;
+ IF (SELECT proowner FROM pg_proc WHERE oid=f) IS DISTINCT FROM 'vec_contratacion_temporal_propietario'::regrole THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=transicion_confirmacion_analisis_valida_v1 clave=propietario_sql actual=% esperado=vec_contratacion_temporal_propietario',
+   (SELECT pg_get_userbyid(proowner) FROM pg_proc WHERE oid=f) USING ERRCODE='55000'; END IF;
+ IF encode(sha256(convert_to(original,'UTF8')),'hex') IS DISTINCT FROM 'd8b0f30326d0d1badf826b4bff790a7920aa54b783798537baff610fcd5004d5' THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=transicion_confirmacion_analisis_valida_v1 clave=definicion_sha256 actual=% esperado=d8b0f30326d0d1badf826b4bff790a7920aa54b783798537baff610fcd5004d5',
+   encode(sha256(convert_to(original,'UTF8')),'hex') USING ERRCODE='55000'; END IF;
+ IF encode(sha256(convert_to(fuente,'UTF8')),'hex') IS DISTINCT FROM '09886769afbd66f637233fa5e2a3c224997f5884122f7bf189ba34f1d6a36f2a' THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=transicion_confirmacion_analisis_valida_v1 clave=fuente_sha256 actual=% esperado=09886769afbd66f637233fa5e2a3c224997f5884122f7bf189ba34f1d6a36f2a',
+   encode(sha256(convert_to(fuente,'UTF8')),'hex') USING ERRCODE='55000'; END IF;
+ IF length(original)-length(replace(original,marca,''))<>length(marca) THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=transicion_confirmacion_analisis_valida_v1 clave=marca_apariciones actual=% esperado=1',
+   (length(original)-length(replace(original,marca,'')))/length(marca) USING ERRCODE='55000'; END IF;
+ IF strpos(original,'ct164')<>0 THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=transicion_confirmacion_analisis_valida_v1 clave=ct164_presente_en_fuente actual=true esperado=false' USING ERRCODE='55000'; END IF;
  nuevo:=replace(original,marca,reemplazo);
  EXECUTE nuevo;
  SELECT pg_get_functiondef(f) INTO STRICT actual;
- IF actual IS DISTINCT FROM nuevo OR replace(actual,reemplazo,marca) IS DISTINCT FROM original
-  OR (SELECT to_jsonb(p)-'prosrc' FROM pg_proc p WHERE p.oid=f) IS DISTINCT FROM meta
-  OR (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
-      FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps
-  OR (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.dbid,d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype),'[]'::jsonb)
-      FROM pg_shdepend d WHERE d.dbid=(SELECT oid FROM pg_database WHERE datname=current_database()) AND d.classid='pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps_compartidas
- THEN RAISE EXCEPTION 'CT164: metadatos alterados transicion_confirmacion_analisis_valida_v1' USING ERRCODE='55000'; END IF;
+ IF actual IS DISTINCT FROM nuevo THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=transicion_confirmacion_analisis_valida_v1 clave=postimagen_sha256 actual=% esperado=%',
+   encode(sha256(convert_to(actual,'UTF8')),'hex'),encode(sha256(convert_to(nuevo,'UTF8')),'hex') USING ERRCODE='55000'; END IF;
+ IF replace(actual,reemplazo,marca) IS DISTINCT FROM original THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=transicion_confirmacion_analisis_valida_v1 clave=reversion_sha256 actual=% esperado=%',
+   encode(sha256(convert_to(replace(actual,reemplazo,marca),'UTF8')),'hex'),encode(sha256(convert_to(original,'UTF8')),'hex') USING ERRCODE='55000'; END IF;
+ IF (SELECT to_jsonb(p)-'prosrc' FROM pg_proc p WHERE p.oid=f) IS DISTINCT FROM meta THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=transicion_confirmacion_analisis_valida_v1 clave=metadatos_pg_proc_conservados actual=false esperado=true' USING ERRCODE='55000'; END IF;
+ IF (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
+      FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=transicion_confirmacion_analisis_valida_v1 clave=dependencias_conservadas actual=false esperado=true' USING ERRCODE='55000'; END IF;
+ IF (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.dbid,d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype),'[]'::jsonb)
+      FROM pg_shdepend d WHERE d.dbid=(SELECT oid FROM pg_database WHERE datname=current_database()) AND d.classid='pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps_compartidas THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=transicion_confirmacion_analisis_valida_v1 clave=dependencias_compartidas_conservadas actual=false esperado=true' USING ERRCODE='55000'; END IF;
 END $patch$;
 
 -- Parche nominal confirmar_operacion_analisis_v3: preimagen exacta y metadatos conservados.
@@ -237,28 +286,43 @@ $marca$;
     RETURN QUERY
 $reemplazo$;
 BEGIN
- IF f IS NULL THEN RAISE EXCEPTION 'CT164: función ausente confirmar_operacion_analisis_v3' USING ERRCODE='55000'; END IF;
+ IF f IS NULL THEN RAISE EXCEPTION 'CT164: PARO funcion=confirmar_operacion_analisis_v3 clave=instalada actual=false esperado=true' USING ERRCODE='55000'; END IF;
  SELECT pg_get_functiondef(f),p.prosrc,to_jsonb(p)-'prosrc' INTO STRICT original,fuente,meta FROM pg_proc p WHERE p.oid=f;
  SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
   INTO deps FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f;
  SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.dbid,d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype),'[]'::jsonb)
   INTO deps_compartidas FROM pg_shdepend d WHERE d.dbid=(SELECT oid FROM pg_database WHERE datname=current_database()) AND d.classid='pg_proc'::regclass AND d.objid=f;
- IF (SELECT proowner FROM pg_proc WHERE oid=f) IS DISTINCT FROM 'vec_contratacion_temporal_propietario'::regrole
-  OR encode(sha256(convert_to(original,'UTF8')),'hex') IS DISTINCT FROM '35ac905214da14f99a881f46b34d563a546e6afd2768ead28a2c999f0bac018f'
-  OR encode(sha256(convert_to(fuente,'UTF8')),'hex') IS DISTINCT FROM '0e964cb6f8c68a4fd64d62b75d202b4ca481c3394f0f21ae21e7528f7832e54e'
-  OR length(original)-length(replace(original,marca,''))<>length(marca)
-  OR strpos(original,'ct164')<>0
- THEN RAISE EXCEPTION 'CT164: preimagen incompatible confirmar_operacion_analisis_v3' USING ERRCODE='55000'; END IF;
+ IF (SELECT proowner FROM pg_proc WHERE oid=f) IS DISTINCT FROM 'vec_contratacion_temporal_propietario'::regrole THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=confirmar_operacion_analisis_v3 clave=propietario_sql actual=% esperado=vec_contratacion_temporal_propietario',
+   (SELECT pg_get_userbyid(proowner) FROM pg_proc WHERE oid=f) USING ERRCODE='55000'; END IF;
+ IF encode(sha256(convert_to(original,'UTF8')),'hex') IS DISTINCT FROM '35ac905214da14f99a881f46b34d563a546e6afd2768ead28a2c999f0bac018f' THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=confirmar_operacion_analisis_v3 clave=definicion_sha256 actual=% esperado=35ac905214da14f99a881f46b34d563a546e6afd2768ead28a2c999f0bac018f',
+   encode(sha256(convert_to(original,'UTF8')),'hex') USING ERRCODE='55000'; END IF;
+ IF encode(sha256(convert_to(fuente,'UTF8')),'hex') IS DISTINCT FROM '0e964cb6f8c68a4fd64d62b75d202b4ca481c3394f0f21ae21e7528f7832e54e' THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=confirmar_operacion_analisis_v3 clave=fuente_sha256 actual=% esperado=0e964cb6f8c68a4fd64d62b75d202b4ca481c3394f0f21ae21e7528f7832e54e',
+   encode(sha256(convert_to(fuente,'UTF8')),'hex') USING ERRCODE='55000'; END IF;
+ IF length(original)-length(replace(original,marca,''))<>length(marca) THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=confirmar_operacion_analisis_v3 clave=marca_apariciones actual=% esperado=1',
+   (length(original)-length(replace(original,marca,'')))/length(marca) USING ERRCODE='55000'; END IF;
+ IF strpos(original,'ct164')<>0 THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=confirmar_operacion_analisis_v3 clave=ct164_presente_en_fuente actual=true esperado=false' USING ERRCODE='55000'; END IF;
  nuevo:=replace(original,marca,reemplazo);
  EXECUTE nuevo;
  SELECT pg_get_functiondef(f) INTO STRICT actual;
- IF actual IS DISTINCT FROM nuevo OR replace(actual,reemplazo,marca) IS DISTINCT FROM original
-  OR (SELECT to_jsonb(p)-'prosrc' FROM pg_proc p WHERE p.oid=f) IS DISTINCT FROM meta
-  OR (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
-      FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps
-  OR (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.dbid,d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype),'[]'::jsonb)
-      FROM pg_shdepend d WHERE d.dbid=(SELECT oid FROM pg_database WHERE datname=current_database()) AND d.classid='pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps_compartidas
- THEN RAISE EXCEPTION 'CT164: metadatos alterados confirmar_operacion_analisis_v3' USING ERRCODE='55000'; END IF;
+ IF actual IS DISTINCT FROM nuevo THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=confirmar_operacion_analisis_v3 clave=postimagen_sha256 actual=% esperado=%',
+   encode(sha256(convert_to(actual,'UTF8')),'hex'),encode(sha256(convert_to(nuevo,'UTF8')),'hex') USING ERRCODE='55000'; END IF;
+ IF replace(actual,reemplazo,marca) IS DISTINCT FROM original THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=confirmar_operacion_analisis_v3 clave=reversion_sha256 actual=% esperado=%',
+   encode(sha256(convert_to(replace(actual,reemplazo,marca),'UTF8')),'hex'),encode(sha256(convert_to(original,'UTF8')),'hex') USING ERRCODE='55000'; END IF;
+ IF (SELECT to_jsonb(p)-'prosrc' FROM pg_proc p WHERE p.oid=f) IS DISTINCT FROM meta THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=confirmar_operacion_analisis_v3 clave=metadatos_pg_proc_conservados actual=false esperado=true' USING ERRCODE='55000'; END IF;
+ IF (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
+      FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=confirmar_operacion_analisis_v3 clave=dependencias_conservadas actual=false esperado=true' USING ERRCODE='55000'; END IF;
+ IF (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.dbid,d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype),'[]'::jsonb)
+      FROM pg_shdepend d WHERE d.dbid=(SELECT oid FROM pg_database WHERE datname=current_database()) AND d.classid='pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps_compartidas THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=confirmar_operacion_analisis_v3 clave=dependencias_compartidas_conservadas actual=false esperado=true' USING ERRCODE='55000'; END IF;
 END $patch$;
 
 -- Parche nominal o404e_transicion_exacta_v1: preimagen exacta y metadatos conservados.
@@ -272,28 +336,43 @@ DECLARE
     IF vec_contratacion_temporal.circuito_acto_admitido_ct164(p_anterior,p_siguiente) IS NOT TRUE THEN RETURN false; END IF;
     IF pg_catalog.jsonb_typeof(p_anterior)$reemplazo$;
 BEGIN
- IF f IS NULL THEN RAISE EXCEPTION 'CT164: función ausente o404e_transicion_exacta_v1' USING ERRCODE='55000'; END IF;
+ IF f IS NULL THEN RAISE EXCEPTION 'CT164: PARO funcion=o404e_transicion_exacta_v1 clave=instalada actual=false esperado=true' USING ERRCODE='55000'; END IF;
  SELECT pg_get_functiondef(f),p.prosrc,to_jsonb(p)-'prosrc' INTO STRICT original,fuente,meta FROM pg_proc p WHERE p.oid=f;
  SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
   INTO deps FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f;
  SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.dbid,d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype),'[]'::jsonb)
   INTO deps_compartidas FROM pg_shdepend d WHERE d.dbid=(SELECT oid FROM pg_database WHERE datname=current_database()) AND d.classid='pg_proc'::regclass AND d.objid=f;
- IF (SELECT proowner FROM pg_proc WHERE oid=f) IS DISTINCT FROM 'vec_contratacion_temporal_propietario'::regrole
-  OR encode(sha256(convert_to(original,'UTF8')),'hex') IS DISTINCT FROM '841486956d55f53192d1e53352337ee97db3aac553d7d1d013d88a7611897413'
-  OR encode(sha256(convert_to(fuente,'UTF8')),'hex') IS DISTINCT FROM 'b4df981a3c9e4c36f13ffb383f74c97c7b08b9726a81209dfe9d985a90ce9c26'
-  OR length(original)-length(replace(original,marca,''))<>length(marca)
-  OR strpos(original,'ct164')<>0
- THEN RAISE EXCEPTION 'CT164: preimagen incompatible o404e_transicion_exacta_v1' USING ERRCODE='55000'; END IF;
+ IF (SELECT proowner FROM pg_proc WHERE oid=f) IS DISTINCT FROM 'vec_contratacion_temporal_propietario'::regrole THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=o404e_transicion_exacta_v1 clave=propietario_sql actual=% esperado=vec_contratacion_temporal_propietario',
+   (SELECT pg_get_userbyid(proowner) FROM pg_proc WHERE oid=f) USING ERRCODE='55000'; END IF;
+ IF encode(sha256(convert_to(original,'UTF8')),'hex') IS DISTINCT FROM '841486956d55f53192d1e53352337ee97db3aac553d7d1d013d88a7611897413' THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=o404e_transicion_exacta_v1 clave=definicion_sha256 actual=% esperado=841486956d55f53192d1e53352337ee97db3aac553d7d1d013d88a7611897413',
+   encode(sha256(convert_to(original,'UTF8')),'hex') USING ERRCODE='55000'; END IF;
+ IF encode(sha256(convert_to(fuente,'UTF8')),'hex') IS DISTINCT FROM 'b4df981a3c9e4c36f13ffb383f74c97c7b08b9726a81209dfe9d985a90ce9c26' THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=o404e_transicion_exacta_v1 clave=fuente_sha256 actual=% esperado=b4df981a3c9e4c36f13ffb383f74c97c7b08b9726a81209dfe9d985a90ce9c26',
+   encode(sha256(convert_to(fuente,'UTF8')),'hex') USING ERRCODE='55000'; END IF;
+ IF length(original)-length(replace(original,marca,''))<>length(marca) THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=o404e_transicion_exacta_v1 clave=marca_apariciones actual=% esperado=1',
+   (length(original)-length(replace(original,marca,'')))/length(marca) USING ERRCODE='55000'; END IF;
+ IF strpos(original,'ct164')<>0 THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=o404e_transicion_exacta_v1 clave=ct164_presente_en_fuente actual=true esperado=false' USING ERRCODE='55000'; END IF;
  nuevo:=replace(original,marca,reemplazo);
  EXECUTE nuevo;
  SELECT pg_get_functiondef(f) INTO STRICT actual;
- IF actual IS DISTINCT FROM nuevo OR replace(actual,reemplazo,marca) IS DISTINCT FROM original
-  OR (SELECT to_jsonb(p)-'prosrc' FROM pg_proc p WHERE p.oid=f) IS DISTINCT FROM meta
-  OR (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
-      FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps
-  OR (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.dbid,d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype),'[]'::jsonb)
-      FROM pg_shdepend d WHERE d.dbid=(SELECT oid FROM pg_database WHERE datname=current_database()) AND d.classid='pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps_compartidas
- THEN RAISE EXCEPTION 'CT164: metadatos alterados o404e_transicion_exacta_v1' USING ERRCODE='55000'; END IF;
+ IF actual IS DISTINCT FROM nuevo THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=o404e_transicion_exacta_v1 clave=postimagen_sha256 actual=% esperado=%',
+   encode(sha256(convert_to(actual,'UTF8')),'hex'),encode(sha256(convert_to(nuevo,'UTF8')),'hex') USING ERRCODE='55000'; END IF;
+ IF replace(actual,reemplazo,marca) IS DISTINCT FROM original THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=o404e_transicion_exacta_v1 clave=reversion_sha256 actual=% esperado=%',
+   encode(sha256(convert_to(replace(actual,reemplazo,marca),'UTF8')),'hex'),encode(sha256(convert_to(original,'UTF8')),'hex') USING ERRCODE='55000'; END IF;
+ IF (SELECT to_jsonb(p)-'prosrc' FROM pg_proc p WHERE p.oid=f) IS DISTINCT FROM meta THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=o404e_transicion_exacta_v1 clave=metadatos_pg_proc_conservados actual=false esperado=true' USING ERRCODE='55000'; END IF;
+ IF (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
+      FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=o404e_transicion_exacta_v1 clave=dependencias_conservadas actual=false esperado=true' USING ERRCODE='55000'; END IF;
+ IF (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.dbid,d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype),'[]'::jsonb)
+      FROM pg_shdepend d WHERE d.dbid=(SELECT oid FROM pg_database WHERE datname=current_database()) AND d.classid='pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps_compartidas THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=o404e_transicion_exacta_v1 clave=dependencias_compartidas_conservadas actual=false esperado=true' USING ERRCODE='55000'; END IF;
 END $patch$;
 
 -- Parche nominal confirmar_asignacion_v1: preimagen exacta y metadatos conservados.
@@ -308,28 +387,43 @@ $marca$;
     IF p_operacion -> 'actuacion' IS DISTINCT FROM v_actuacion
 $reemplazo$;
 BEGIN
- IF f IS NULL THEN RAISE EXCEPTION 'CT164: función ausente confirmar_asignacion_v1' USING ERRCODE='55000'; END IF;
+ IF f IS NULL THEN RAISE EXCEPTION 'CT164: PARO funcion=confirmar_asignacion_v1 clave=instalada actual=false esperado=true' USING ERRCODE='55000'; END IF;
  SELECT pg_get_functiondef(f),p.prosrc,to_jsonb(p)-'prosrc' INTO STRICT original,fuente,meta FROM pg_proc p WHERE p.oid=f;
  SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
   INTO deps FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f;
  SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.dbid,d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype),'[]'::jsonb)
   INTO deps_compartidas FROM pg_shdepend d WHERE d.dbid=(SELECT oid FROM pg_database WHERE datname=current_database()) AND d.classid='pg_proc'::regclass AND d.objid=f;
- IF (SELECT proowner FROM pg_proc WHERE oid=f) IS DISTINCT FROM 'vec_contratacion_temporal_propietario'::regrole
-  OR encode(sha256(convert_to(original,'UTF8')),'hex') IS DISTINCT FROM 'f20c58b07740b8e2b5907d1d9e017d649b641812de0ce6ded41c64583ab02276'
-  OR encode(sha256(convert_to(fuente,'UTF8')),'hex') IS DISTINCT FROM '65466bed9b1461df2550b57afa1a0f8d008593e9a3ff92417030fd05ef2aef56'
-  OR length(original)-length(replace(original,marca,''))<>length(marca)
-  OR strpos(original,'ct164')<>0
- THEN RAISE EXCEPTION 'CT164: preimagen incompatible confirmar_asignacion_v1' USING ERRCODE='55000'; END IF;
+ IF (SELECT proowner FROM pg_proc WHERE oid=f) IS DISTINCT FROM 'vec_contratacion_temporal_propietario'::regrole THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=confirmar_asignacion_v1 clave=propietario_sql actual=% esperado=vec_contratacion_temporal_propietario',
+   (SELECT pg_get_userbyid(proowner) FROM pg_proc WHERE oid=f) USING ERRCODE='55000'; END IF;
+ IF encode(sha256(convert_to(original,'UTF8')),'hex') IS DISTINCT FROM 'f20c58b07740b8e2b5907d1d9e017d649b641812de0ce6ded41c64583ab02276' THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=confirmar_asignacion_v1 clave=definicion_sha256 actual=% esperado=f20c58b07740b8e2b5907d1d9e017d649b641812de0ce6ded41c64583ab02276',
+   encode(sha256(convert_to(original,'UTF8')),'hex') USING ERRCODE='55000'; END IF;
+ IF encode(sha256(convert_to(fuente,'UTF8')),'hex') IS DISTINCT FROM '65466bed9b1461df2550b57afa1a0f8d008593e9a3ff92417030fd05ef2aef56' THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=confirmar_asignacion_v1 clave=fuente_sha256 actual=% esperado=65466bed9b1461df2550b57afa1a0f8d008593e9a3ff92417030fd05ef2aef56',
+   encode(sha256(convert_to(fuente,'UTF8')),'hex') USING ERRCODE='55000'; END IF;
+ IF length(original)-length(replace(original,marca,''))<>length(marca) THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=confirmar_asignacion_v1 clave=marca_apariciones actual=% esperado=1',
+   (length(original)-length(replace(original,marca,'')))/length(marca) USING ERRCODE='55000'; END IF;
+ IF strpos(original,'ct164')<>0 THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=confirmar_asignacion_v1 clave=ct164_presente_en_fuente actual=true esperado=false' USING ERRCODE='55000'; END IF;
  nuevo:=replace(original,marca,reemplazo);
  EXECUTE nuevo;
  SELECT pg_get_functiondef(f) INTO STRICT actual;
- IF actual IS DISTINCT FROM nuevo OR replace(actual,reemplazo,marca) IS DISTINCT FROM original
-  OR (SELECT to_jsonb(p)-'prosrc' FROM pg_proc p WHERE p.oid=f) IS DISTINCT FROM meta
-  OR (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
-      FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps
-  OR (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.dbid,d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype),'[]'::jsonb)
-      FROM pg_shdepend d WHERE d.dbid=(SELECT oid FROM pg_database WHERE datname=current_database()) AND d.classid='pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps_compartidas
- THEN RAISE EXCEPTION 'CT164: metadatos alterados confirmar_asignacion_v1' USING ERRCODE='55000'; END IF;
+ IF actual IS DISTINCT FROM nuevo THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=confirmar_asignacion_v1 clave=postimagen_sha256 actual=% esperado=%',
+   encode(sha256(convert_to(actual,'UTF8')),'hex'),encode(sha256(convert_to(nuevo,'UTF8')),'hex') USING ERRCODE='55000'; END IF;
+ IF replace(actual,reemplazo,marca) IS DISTINCT FROM original THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=confirmar_asignacion_v1 clave=reversion_sha256 actual=% esperado=%',
+   encode(sha256(convert_to(replace(actual,reemplazo,marca),'UTF8')),'hex'),encode(sha256(convert_to(original,'UTF8')),'hex') USING ERRCODE='55000'; END IF;
+ IF (SELECT to_jsonb(p)-'prosrc' FROM pg_proc p WHERE p.oid=f) IS DISTINCT FROM meta THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=confirmar_asignacion_v1 clave=metadatos_pg_proc_conservados actual=false esperado=true' USING ERRCODE='55000'; END IF;
+ IF (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
+      FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=confirmar_asignacion_v1 clave=dependencias_conservadas actual=false esperado=true' USING ERRCODE='55000'; END IF;
+ IF (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.dbid,d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype),'[]'::jsonb)
+      FROM pg_shdepend d WHERE d.dbid=(SELECT oid FROM pg_database WHERE datname=current_database()) AND d.classid='pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps_compartidas THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=confirmar_asignacion_v1 clave=dependencias_compartidas_conservadas actual=false esperado=true' USING ERRCODE='55000'; END IF;
 END $patch$;
 
 -- Parche nominal confirmar_informe_juridico_v1: preimagen exacta y metadatos conservados.
@@ -346,28 +440,43 @@ $marca$;
            v_actual.agregado_json -> 'actuaciones') <> 4
 $reemplazo$;
 BEGIN
- IF f IS NULL THEN RAISE EXCEPTION 'CT164: función ausente confirmar_informe_juridico_v1' USING ERRCODE='55000'; END IF;
+ IF f IS NULL THEN RAISE EXCEPTION 'CT164: PARO funcion=confirmar_informe_juridico_v1 clave=instalada actual=false esperado=true' USING ERRCODE='55000'; END IF;
  SELECT pg_get_functiondef(f),p.prosrc,to_jsonb(p)-'prosrc' INTO STRICT original,fuente,meta FROM pg_proc p WHERE p.oid=f;
  SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
   INTO deps FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f;
  SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.dbid,d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype),'[]'::jsonb)
   INTO deps_compartidas FROM pg_shdepend d WHERE d.dbid=(SELECT oid FROM pg_database WHERE datname=current_database()) AND d.classid='pg_proc'::regclass AND d.objid=f;
- IF (SELECT proowner FROM pg_proc WHERE oid=f) IS DISTINCT FROM 'vec_contratacion_temporal_propietario'::regrole
-  OR encode(sha256(convert_to(original,'UTF8')),'hex') IS DISTINCT FROM 'c71c053abf0f2f98fb01b7534d55f5e5c56e4ede92e81822911c36b7fe1da39e'
-  OR encode(sha256(convert_to(fuente,'UTF8')),'hex') IS DISTINCT FROM 'bde7c18fd552f86124c9b4dc2dd7fb7864a3a6339cf545c876cb0498cf929d1e'
-  OR length(original)-length(replace(original,marca,''))<>length(marca)
-  OR strpos(original,'ct164')<>0
- THEN RAISE EXCEPTION 'CT164: preimagen incompatible confirmar_informe_juridico_v1' USING ERRCODE='55000'; END IF;
+ IF (SELECT proowner FROM pg_proc WHERE oid=f) IS DISTINCT FROM 'vec_contratacion_temporal_propietario'::regrole THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=confirmar_informe_juridico_v1 clave=propietario_sql actual=% esperado=vec_contratacion_temporal_propietario',
+   (SELECT pg_get_userbyid(proowner) FROM pg_proc WHERE oid=f) USING ERRCODE='55000'; END IF;
+ IF encode(sha256(convert_to(original,'UTF8')),'hex') IS DISTINCT FROM 'c71c053abf0f2f98fb01b7534d55f5e5c56e4ede92e81822911c36b7fe1da39e' THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=confirmar_informe_juridico_v1 clave=definicion_sha256 actual=% esperado=c71c053abf0f2f98fb01b7534d55f5e5c56e4ede92e81822911c36b7fe1da39e',
+   encode(sha256(convert_to(original,'UTF8')),'hex') USING ERRCODE='55000'; END IF;
+ IF encode(sha256(convert_to(fuente,'UTF8')),'hex') IS DISTINCT FROM 'bde7c18fd552f86124c9b4dc2dd7fb7864a3a6339cf545c876cb0498cf929d1e' THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=confirmar_informe_juridico_v1 clave=fuente_sha256 actual=% esperado=bde7c18fd552f86124c9b4dc2dd7fb7864a3a6339cf545c876cb0498cf929d1e',
+   encode(sha256(convert_to(fuente,'UTF8')),'hex') USING ERRCODE='55000'; END IF;
+ IF length(original)-length(replace(original,marca,''))<>length(marca) THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=confirmar_informe_juridico_v1 clave=marca_apariciones actual=% esperado=1',
+   (length(original)-length(replace(original,marca,'')))/length(marca) USING ERRCODE='55000'; END IF;
+ IF strpos(original,'ct164')<>0 THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=confirmar_informe_juridico_v1 clave=ct164_presente_en_fuente actual=true esperado=false' USING ERRCODE='55000'; END IF;
  nuevo:=replace(original,marca,reemplazo);
  EXECUTE nuevo;
  SELECT pg_get_functiondef(f) INTO STRICT actual;
- IF actual IS DISTINCT FROM nuevo OR replace(actual,reemplazo,marca) IS DISTINCT FROM original
-  OR (SELECT to_jsonb(p)-'prosrc' FROM pg_proc p WHERE p.oid=f) IS DISTINCT FROM meta
-  OR (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
-      FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps
-  OR (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.dbid,d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype),'[]'::jsonb)
-      FROM pg_shdepend d WHERE d.dbid=(SELECT oid FROM pg_database WHERE datname=current_database()) AND d.classid='pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps_compartidas
- THEN RAISE EXCEPTION 'CT164: metadatos alterados confirmar_informe_juridico_v1' USING ERRCODE='55000'; END IF;
+ IF actual IS DISTINCT FROM nuevo THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=confirmar_informe_juridico_v1 clave=postimagen_sha256 actual=% esperado=%',
+   encode(sha256(convert_to(actual,'UTF8')),'hex'),encode(sha256(convert_to(nuevo,'UTF8')),'hex') USING ERRCODE='55000'; END IF;
+ IF replace(actual,reemplazo,marca) IS DISTINCT FROM original THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=confirmar_informe_juridico_v1 clave=reversion_sha256 actual=% esperado=%',
+   encode(sha256(convert_to(replace(actual,reemplazo,marca),'UTF8')),'hex'),encode(sha256(convert_to(original,'UTF8')),'hex') USING ERRCODE='55000'; END IF;
+ IF (SELECT to_jsonb(p)-'prosrc' FROM pg_proc p WHERE p.oid=f) IS DISTINCT FROM meta THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=confirmar_informe_juridico_v1 clave=metadatos_pg_proc_conservados actual=false esperado=true' USING ERRCODE='55000'; END IF;
+ IF (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
+      FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=confirmar_informe_juridico_v1 clave=dependencias_conservadas actual=false esperado=true' USING ERRCODE='55000'; END IF;
+ IF (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.dbid,d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype),'[]'::jsonb)
+      FROM pg_shdepend d WHERE d.dbid=(SELECT oid FROM pg_database WHERE datname=current_database()) AND d.classid='pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps_compartidas THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=confirmar_informe_juridico_v1 clave=dependencias_compartidas_conservadas actual=false esperado=true' USING ERRCODE='55000'; END IF;
 END $patch$;
 
 -- Parche nominal confirmar_fiscalizacion_v1: preimagen exacta y metadatos conservados.
@@ -384,28 +493,43 @@ $marca$;
            v_actual.agregado_json -> 'actuaciones') <> 5
 $reemplazo$;
 BEGIN
- IF f IS NULL THEN RAISE EXCEPTION 'CT164: función ausente confirmar_fiscalizacion_v1' USING ERRCODE='55000'; END IF;
+ IF f IS NULL THEN RAISE EXCEPTION 'CT164: PARO funcion=confirmar_fiscalizacion_v1 clave=instalada actual=false esperado=true' USING ERRCODE='55000'; END IF;
  SELECT pg_get_functiondef(f),p.prosrc,to_jsonb(p)-'prosrc' INTO STRICT original,fuente,meta FROM pg_proc p WHERE p.oid=f;
  SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
   INTO deps FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f;
  SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.dbid,d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype),'[]'::jsonb)
   INTO deps_compartidas FROM pg_shdepend d WHERE d.dbid=(SELECT oid FROM pg_database WHERE datname=current_database()) AND d.classid='pg_proc'::regclass AND d.objid=f;
- IF (SELECT proowner FROM pg_proc WHERE oid=f) IS DISTINCT FROM 'vec_contratacion_temporal_propietario'::regrole
-  OR encode(sha256(convert_to(original,'UTF8')),'hex') IS DISTINCT FROM '27e369c38267d18d3ed258eca1a986c5835717d9c9630740d2291033fddeb147'
-  OR encode(sha256(convert_to(fuente,'UTF8')),'hex') IS DISTINCT FROM 'bb21608248394f30ef120618c26c5a753d93d0ba12fd98f69a6953ea9154aecf'
-  OR length(original)-length(replace(original,marca,''))<>length(marca)
-  OR strpos(original,'ct164')<>0
- THEN RAISE EXCEPTION 'CT164: preimagen incompatible confirmar_fiscalizacion_v1' USING ERRCODE='55000'; END IF;
+ IF (SELECT proowner FROM pg_proc WHERE oid=f) IS DISTINCT FROM 'vec_contratacion_temporal_propietario'::regrole THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=confirmar_fiscalizacion_v1 clave=propietario_sql actual=% esperado=vec_contratacion_temporal_propietario',
+   (SELECT pg_get_userbyid(proowner) FROM pg_proc WHERE oid=f) USING ERRCODE='55000'; END IF;
+ IF encode(sha256(convert_to(original,'UTF8')),'hex') IS DISTINCT FROM '27e369c38267d18d3ed258eca1a986c5835717d9c9630740d2291033fddeb147' THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=confirmar_fiscalizacion_v1 clave=definicion_sha256 actual=% esperado=27e369c38267d18d3ed258eca1a986c5835717d9c9630740d2291033fddeb147',
+   encode(sha256(convert_to(original,'UTF8')),'hex') USING ERRCODE='55000'; END IF;
+ IF encode(sha256(convert_to(fuente,'UTF8')),'hex') IS DISTINCT FROM 'bb21608248394f30ef120618c26c5a753d93d0ba12fd98f69a6953ea9154aecf' THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=confirmar_fiscalizacion_v1 clave=fuente_sha256 actual=% esperado=bb21608248394f30ef120618c26c5a753d93d0ba12fd98f69a6953ea9154aecf',
+   encode(sha256(convert_to(fuente,'UTF8')),'hex') USING ERRCODE='55000'; END IF;
+ IF length(original)-length(replace(original,marca,''))<>length(marca) THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=confirmar_fiscalizacion_v1 clave=marca_apariciones actual=% esperado=1',
+   (length(original)-length(replace(original,marca,'')))/length(marca) USING ERRCODE='55000'; END IF;
+ IF strpos(original,'ct164')<>0 THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=confirmar_fiscalizacion_v1 clave=ct164_presente_en_fuente actual=true esperado=false' USING ERRCODE='55000'; END IF;
  nuevo:=replace(original,marca,reemplazo);
  EXECUTE nuevo;
  SELECT pg_get_functiondef(f) INTO STRICT actual;
- IF actual IS DISTINCT FROM nuevo OR replace(actual,reemplazo,marca) IS DISTINCT FROM original
-  OR (SELECT to_jsonb(p)-'prosrc' FROM pg_proc p WHERE p.oid=f) IS DISTINCT FROM meta
-  OR (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
-      FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps
-  OR (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.dbid,d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype),'[]'::jsonb)
-      FROM pg_shdepend d WHERE d.dbid=(SELECT oid FROM pg_database WHERE datname=current_database()) AND d.classid='pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps_compartidas
- THEN RAISE EXCEPTION 'CT164: metadatos alterados confirmar_fiscalizacion_v1' USING ERRCODE='55000'; END IF;
+ IF actual IS DISTINCT FROM nuevo THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=confirmar_fiscalizacion_v1 clave=postimagen_sha256 actual=% esperado=%',
+   encode(sha256(convert_to(actual,'UTF8')),'hex'),encode(sha256(convert_to(nuevo,'UTF8')),'hex') USING ERRCODE='55000'; END IF;
+ IF replace(actual,reemplazo,marca) IS DISTINCT FROM original THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=confirmar_fiscalizacion_v1 clave=reversion_sha256 actual=% esperado=%',
+   encode(sha256(convert_to(replace(actual,reemplazo,marca),'UTF8')),'hex'),encode(sha256(convert_to(original,'UTF8')),'hex') USING ERRCODE='55000'; END IF;
+ IF (SELECT to_jsonb(p)-'prosrc' FROM pg_proc p WHERE p.oid=f) IS DISTINCT FROM meta THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=confirmar_fiscalizacion_v1 clave=metadatos_pg_proc_conservados actual=false esperado=true' USING ERRCODE='55000'; END IF;
+ IF (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
+      FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=confirmar_fiscalizacion_v1 clave=dependencias_conservadas actual=false esperado=true' USING ERRCODE='55000'; END IF;
+ IF (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.dbid,d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype),'[]'::jsonb)
+      FROM pg_shdepend d WHERE d.dbid=(SELECT oid FROM pg_database WHERE datname=current_database()) AND d.classid='pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps_compartidas THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=confirmar_fiscalizacion_v1 clave=dependencias_compartidas_conservadas actual=false esperado=true' USING ERRCODE='55000'; END IF;
 END $patch$;
 
 -- Los helpers son internos: tampoco se conserva acceso por ACL predeterminada.
@@ -427,7 +551,7 @@ BEGIN
    OR (SELECT proconfig FROM pg_proc WHERE oid=f) IS DISTINCT FROM ARRAY['search_path=pg_catalog']
    OR EXISTS(SELECT 1 FROM pg_proc p,LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) x
        WHERE p.oid=f AND (x.grantee<>p.proowner OR x.privilege_type<>'EXECUTE' OR x.is_grantable))
-  THEN RAISE EXCEPTION 'CT164: ACL helper abierta' USING ERRCODE='55000'; END IF;
+  THEN RAISE EXCEPTION 'CT164: PARO funcion=% clave=acl_y_metadatos_helper_cerrados actual=false esperado=true',firma USING ERRCODE='55000'; END IF;
  END LOOP;
 END $acl$;
 COMMIT;
