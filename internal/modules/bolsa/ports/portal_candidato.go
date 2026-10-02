@@ -17,12 +17,14 @@ const (
 	AccionResponderLlamamientoPropio  = "bolsa.participaciones_propias.responder_llamamiento"
 	// AccionManifestarDisposicionPropia actúa sobre la oferta publicada
 	// (TipoRecursoOfertaBolsa); la consumirá la función de ofertas de Bolsa.
-	AccionManifestarDisposicionPropia = "bolsa.participaciones_propias.manifestar_disposicion"
+	AccionManifestarDisposicionPropia        = "bolsa.participaciones_propias.manifestar_disposicion"
+	AccionPresentarSolicitudDocumentalPropia = "bolsa.participaciones_propias.presentar_solicitud_documental"
 
-	AudienciaSolicitarPausaPropia        = "vec_bolsa_llamamientos.participaciones_propias.solicitar_pausa.v1"
-	AudienciaSolicitarReactivacionPropia = "vec_bolsa_llamamientos.participaciones_propias.solicitar_reactivacion.v1"
-	AudienciaResponderLlamamientoPropio  = "vec_bolsa_llamamientos.participaciones_propias.responder_llamamiento.v1"
-	AudienciaManifestarDisposicionPropia = "vec_bolsa_llamamientos.participaciones_propias.manifestar_disposicion.v1"
+	AudienciaSolicitarPausaPropia               = "vec_bolsa_llamamientos.participaciones_propias.solicitar_pausa.v1"
+	AudienciaSolicitarReactivacionPropia        = "vec_bolsa_llamamientos.participaciones_propias.solicitar_reactivacion.v1"
+	AudienciaResponderLlamamientoPropio         = "vec_bolsa_llamamientos.participaciones_propias.responder_llamamiento.v1"
+	AudienciaManifestarDisposicionPropia        = "vec_bolsa_llamamientos.participaciones_propias.manifestar_disposicion.v1"
+	AudienciaPresentarSolicitudDocumentalPropia = "vec_bolsa_llamamientos.participaciones_propias.presentar_solicitud_documental.v1"
 
 	FinalidadPortalCandidato = "gestion_participaciones_propias"
 	TipoRecursoOfertaBolsa   = "oferta_bolsa"
@@ -36,6 +38,7 @@ func AccionesPortalCandidato() [][2]string {
 		{AccionSolicitarReactivacionPropia, AudienciaSolicitarReactivacionPropia},
 		{AccionResponderLlamamientoPropio, AudienciaResponderLlamamientoPropio},
 		{AccionManifestarDisposicionPropia, AudienciaManifestarDisposicionPropia},
+		{AccionPresentarSolicitudDocumentalPropia, AudienciaPresentarSolicitudDocumentalPropia},
 	}
 }
 
@@ -118,10 +121,12 @@ type PlazoRespuestaPortal interface {
 // EstadoPortalCandidato resume por bolsa lo que la persona puede hacer. No
 // contiene referencias de participación.
 type EstadoPortalCandidato struct {
-	Bolsa              string
-	LlamamientoAbierto *LlamamientoAbiertoPortal
-	SolicitudPendiente *SolicitudPendientePortal
-	UltimaRespuesta    *UltimaRespuestaPortal
+	Bolsa                        string
+	LlamamientoAbierto           *LlamamientoAbiertoPortal
+	SolicitudPendiente           *SolicitudPendientePortal
+	UltimaSolicitudDocumental    *SolicitudDocumentalEstadoPortal
+	SolicitudDocumentalPendiente bool
+	UltimaRespuesta              *UltimaRespuestaPortal
 }
 
 type LlamamientoAbiertoPortal struct {
@@ -135,6 +140,11 @@ type SolicitudPendientePortal struct {
 	PausaHasta   *time.Time
 }
 
+type SolicitudDocumentalEstadoPortal struct {
+	Tipo, Recibo, Estado, ReciboResolucionRef string
+	RegistradaEn                              time.Time
+}
+
 type UltimaRespuestaPortal struct {
 	Respuesta, Modo, Recibo string
 	RespondidaEn            time.Time
@@ -144,6 +154,7 @@ type UltimaRespuestaPortal struct {
 // escritura consume la decisión dentro de su transacción.
 type RegistroPortalCandidato interface {
 	SolicitarPortal(context.Context, SolicitudPortalCandidato) (ReciboSolicitudPortal, error)
+	SolicitarDocumentalPortal(context.Context, SolicitudDocumentalPortal) (ReciboSolicitudDocumentalPortal, error)
 	ResponderPortal(context.Context, RespuestaPortalCandidato, PlazoRespuestaPortal) (ReciboRespuestaPortal, error)
 }
 

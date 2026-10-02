@@ -100,6 +100,7 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	proveedorMaterialBorradorCrear                   *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialBorradorConsulta                *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialSituacion                       *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialConsultaSolicitudesDocumentales *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialConsultaReincorporacionTitular  *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialContacto                        *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialConsultaContacto                *proveedorMaterialAltaContratacionTemporalDesarrollo
@@ -127,6 +128,8 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	materialUsuariosImagen                           proveedoresMaterialImagenUsuarios
 	materialAspirantes                               proveedoresMaterialAspirantes
 	materialPersonalB2                               [8]CapacidadPublicadaPersonalB2V3
+	materialOrganizacionHistorica                    CapacidadPublicadaOrganizacionHistoricaV3
+	errMaterialOrganizacionHistorica                 error
 	detenerRenovacion                                func()
 	detenerEntregaContratos                          func()
 	detenerEntregaCeses                              func()
@@ -700,6 +703,11 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 				return vacias, err
 			}
 			dependencias.proveedorMaterialSituacion = proveedorSituacion
+			proveedorDocumentales, err := nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, puertosbolsa.AudienciaConsultarSolicitudesDocumentalesRRHH)
+			if err != nil {
+				return vacias, err
+			}
+			dependencias.proveedorMaterialConsultaSolicitudesDocumentales = proveedorDocumentales
 			proveedorContacto, err := nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, puertosbolsa.AudienciaRegistrarContactoParticipacion)
 			if err != nil {
 				return vacias, err
@@ -806,6 +814,19 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 			return vacias, err
 		}
 	}
+	// Organización histórica es opcional e independiente de B2. La selección
+	// y la publicación usan el gobierno central, pero su fallo sólo deja esta
+	// capacidad sin material; no interrumpe las capacidades anteriores.
+	catalogoOH, activoOH, falloOH := seleccionarMaterialOrganizacionHistorica(cfg, descriptoresMaterial)
+	if falloOH == nil && activoOH {
+		dependencias.materialOrganizacionHistorica, falloOH = publicarMaterialOrganizacionHistorica(ctx, gobierno, material, catalogoOH)
+	}
+	dependencias.errMaterialOrganizacionHistorica = falloOH
+	if falloOH != nil {
+		registrarFalloPostgreSQLContratacionTemporalDesarrollo(
+			"material_organizacion_historica", "capacidad_no_disponible",
+		)
+	}
 	completa = true
 	return dependencias, nil
 }
@@ -828,10 +849,10 @@ func descriptorMaterialHistorialMiBolsaDesarrollo() descriptorMaterialConsumidor
 	}
 }
 
-// descriptoresMaterialPortalCandidatoDesarrollo declara las cuatro audiencias
+// descriptoresMaterialPortalCandidatoDesarrollo declara las audiencias
 // de AD3-84 en el catálogo común de material.
 func descriptoresMaterialPortalCandidatoDesarrollo() []descriptorMaterialConsumidorV3Desarrollo {
-	descriptores := make([]descriptorMaterialConsumidorV3Desarrollo, 0, 4)
+	descriptores := make([]descriptorMaterialConsumidorV3Desarrollo, 0, len(puertosbolsa.AccionesPortalCandidato()))
 	for _, par := range puertosbolsa.AccionesPortalCandidato() {
 		nombre := strings.TrimPrefix(par[0], "bolsa.participaciones_propias.")
 		descriptores = append(descriptores, descriptorMaterialConsumidorV3Desarrollo{

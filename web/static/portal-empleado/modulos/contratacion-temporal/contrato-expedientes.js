@@ -1,4 +1,4 @@
-import { validarDatosPreviosAnalisis } from "./contrato-analisis.js";
+import { validarDatosPreviosAnalisis } from "./contrato-analisis.js?v=20261002-ct-fin-modalidad-v1";
 
 /**
  * Proyecciones cerradas del cuadro y el expediente de contratación temporal.

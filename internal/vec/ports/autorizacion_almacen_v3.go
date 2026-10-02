@@ -59,6 +59,19 @@ func NuevoContextoCustodiarDocumentoFirmadoExpedienteAlmacenV3(
 		especificacionCustodiarDocumentoFirmadoExpediente())
 }
 
+// NuevoContextoEscribirOriginalFirmableAlmacenV3 deriva solo la escritura
+// del objeto del intento reservado; exige una concesión PDP registrada propia.
+func NuevoContextoEscribirOriginalFirmableAlmacenV3(
+	solicitud domain.SolicitudAutorizacionLigadaV3,
+	decision domain.DecisionAutorizacionLigadaV3,
+	confirmacion ConfirmacionRegistroConcesionAutorizacionLigadaV3,
+	vinculos VinculosOperacionAlmacen,
+	verificadaEn time.Time,
+) (ContextoOperacionAlmacen, error) {
+	return nuevoContextoOperacionAlmacenV3(solicitud, decision, confirmacion, vinculos, verificadaEn,
+		especificacionEscribirOriginalFirmable())
+}
+
 // NuevoContextoLeerDocumentoGeneradoAlmacenV3 deriva la lectura del objeto
 // exacto de un original desde una concesión V3 registrada de
 // documentos.original.descargar.
@@ -218,6 +231,8 @@ func especificacionAlmacenV3(accionNegocio string) (especificacionAutorizacionAl
 	switch accionNegocio {
 	case AccionNegocioCustodiarDocumentoFirmadoExpediente:
 		return especificacionCustodiarDocumentoFirmadoExpediente(), true
+	case AccionNegocioEscribirOriginalFirmable:
+		return especificacionEscribirOriginalFirmable(), true
 	case AccionNegocioLeerOriginalDocumentoGenerado:
 		return especificacionLeerOriginalDocumentoGenerado(), true
 	default:

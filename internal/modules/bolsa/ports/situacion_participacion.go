@@ -29,9 +29,11 @@ type SituacionParticipacion struct {
 	FechaDisponible             *time.Time
 }
 type RegistroSituacionParticipacion struct {
-	Reutilizada bool
-	ReciboRef   string
-	Motivo      string
+	Reutilizada         bool
+	ReciboRef           string
+	ReciboResolucionRef string
+	ResueltaEn          *time.Time
+	Motivo              string
 	SituacionParticipacion
 }
 

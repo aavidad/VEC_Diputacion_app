@@ -25,7 +25,8 @@ function montar(editor) {
     setCustomValidity(mensaje) { this.validacion = mensaje; },
   };
   const raiz = { addEventListener(_nombre, callback) { escuchar = callback; }, querySelector(selector) { return controles.get(selector); } };
-  runInNewContext(entrada, { raiz, editor, panel: "bolsa", lecturaId: 0, error: "", aMicropuntos,
+  const compatibilidad = fuente.slice(fuente.indexOf("function falloRestosBorrador("), fuente.indexOf("function claveErrorCampo("));
+  runInNewContext(`${compatibilidad}\n${entrada}`, { raiz, editor, panel: "bolsa", lecturaId: 0, error: "", aMicropuntos,
     t: (clave) => clave, claveErrorCampo: () => "minimo_formacion_invalido", mostrarErrores() {} });
   return { control, exportar, escribir(valor) { control.value = valor; escuchar({ target: control }); } };
 }
@@ -76,9 +77,9 @@ test("la validación del montaje detecta límites semánticos que el patrón HTM
     setCustomValidity(mensaje) { this.validacion = mensaje; }, checkValidity() { return !this.validacion; },
     closest: () => ({ querySelector: () => pista }),
   };
-  const raiz = { querySelectorAll: () => [control], querySelector: () => null };
+  const raiz = { querySelectorAll: (selector) => selector.startsWith("select") ? [] : [control], querySelector: () => null };
   const validacion = fuente.slice(fuente.indexOf("function claveErrorCampo("), fuente.indexOf('raiz.addEventListener("focusout",'));
-  const contexto = { raiz, normalizarMinimoFormacion, t: (clave) => clave };
+  const contexto = { raiz, editor: { estado: () => ({}) }, normalizarMinimoFormacion, t: (clave) => clave };
   runInNewContext(`${validacion}\nresultado = mostrarErrores();`, contexto);
   assert.equal(contexto.resultado, false);
   assert.equal(pista.textContent, "minimo_formacion_invalido"); assert.equal(pista.hidden, false);

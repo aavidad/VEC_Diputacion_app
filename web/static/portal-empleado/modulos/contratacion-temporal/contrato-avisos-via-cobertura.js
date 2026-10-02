@@ -103,10 +103,15 @@ function validarAviso(aviso) {
   } else if (aviso.clave === "propuesta_oferta_sae") {
     salida.duracion_maxima_meses = entero(aviso.duracion_maxima_meses);
     salida.fin_maximo = fecha(aviso.fin_maximo);
-    salida.fin_previsto = fecha(aviso.fin_previsto);
-    if (!salida.duracion_maxima_meses || !salida.fin_maximo
-      || typeof aviso.excede_duracion !== "boolean") fallo();
-    salida.excede_duracion = aviso.excede_duracion;
+    if (!salida.duracion_maxima_meses || !salida.fin_maximo) fallo();
+    const tieneFin = Object.hasOwn(aviso, "fin_previsto");
+    const tieneComparacion = Object.hasOwn(aviso, "excede_duracion");
+    if (tieneFin !== tieneComparacion) fallo();
+    if (tieneFin) {
+      salida.fin_previsto = fecha(aviso.fin_previsto);
+      if (!salida.fin_previsto || typeof aviso.excede_duracion !== "boolean") fallo();
+      salida.excede_duracion = aviso.excede_duracion;
+    }
   } else {
     const motivos = listaPlana(aviso.motivos, MOTIVOS.size);
     if (motivos.length === 0 || !motivos.every((motivo) => MOTIVOS.has(motivo))

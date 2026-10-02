@@ -121,7 +121,7 @@ func (s *ServicioIntegracionLlamamientosDesarrollo) PrepararOrden(ctx context.Co
 		ReferidaEn: ahora, GeneradaEn: ahora, Entradas: d.Entradas,
 	})
 	if err != nil || !d.Bolsa.VigenteEn(ahora) || !d.Politica.VigenteEn(ahora) ||
-		ahora.Before(d.Necesidad.CreadaEn) || !ahora.Before(d.Necesidad.FinPrevisto) {
+		!d.Necesidad.HorizonteVigenteEn(ahora) {
 		return ports.ReciboLlamamientoDesarrollo{}, ports.ErrDatosLlamamientoNoConfiables
 	}
 	r = ports.RegistroLlamamientoDesarrollo{

@@ -4,7 +4,7 @@ import {
   validarReciboResultadoFiscalizacion,
   validarSolicitudResultadoFiscalizacion,
 } from "./contrato-fiscalizacion.js";
-import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261001-ct-a-i18n-v1";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261002-ct-fin-moad-v1";
 import { MENSAJES_FIRMA_REMISION_ES } from "./i18n-firma-remision.js?v=20261001-ct-a-i18n-v1";
 import { MENSAJES_INFORME_TRAS_SUBSANACION_ES } from "./i18n-informe-tras-subsanacion.js?v=20261001-ct-a-i18n-v1";
 import { justificanteTraducido } from "../../portal-justificante.js";

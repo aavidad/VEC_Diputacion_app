@@ -1,0 +1,12 @@
+{
+  "general": {
+    "numero_expediente_moad": "MOAD case number",
+    "numero_moad_obligatorio": "MOAD case number (required)",
+    "numero_moad_ejemplo": "Example: {ejemplo}",
+    "error_numero_moad": "Enter the MOAD case number, without leading or trailing spaces.",
+    "numero_moad_formato_no_valido": "Check the MOAD number. Use the format shown in the example: {ejemplo}.",
+    "numero_moad_no_disponible": "The MOAD number format could not be retrieved. Retry before creating the case.",
+    "numero_moad_recuperar_alta_anterior": "Recover previous registration",
+    "numero_moad_recuperacion_no_disponible": "There is no previous registration to recover. Enter the MOAD number to continue."
+  }
+}

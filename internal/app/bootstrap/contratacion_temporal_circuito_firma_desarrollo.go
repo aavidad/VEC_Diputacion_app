@@ -19,19 +19,22 @@ import (
 const (
 	rutaCircuitoFirmaContratacionTemporalDesarrollo    = "/api/vec/contratacion-temporal/circuito-firma"
 	esquemaCircuitoFirmaContratacionTemporalDesarrollo = "vec.contratacion_temporal.circuito_firma.v1"
+	esquemaCircuitoFirmaAlternativasDesarrollo         = "vec.contratacion_temporal.circuito_firma.v2"
 )
 
 type pasoCircuitoFirmaDesarrollo struct {
-	Orden       int    `json:"orden"`
-	Cargo       string `json:"cargo"`
-	PerfilRef   string `json:"perfil_ref"`
-	Accion      string `json:"accion"`
-	Condicion   string `json:"condicion"`
-	Habilita    string `json:"habilita"`
-	Devolucion  string `json:"devolucion"`
-	Sustitucion string `json:"sustitucion"`
-	Estado      string `json:"estado"`
-	Referencia  string `json:"referencia"`
+	Orden     int    `json:"orden"`
+	Cargo     string `json:"cargo"`
+	PerfilRef string `json:"perfil_ref"`
+	// Solo aparece en v2 cuando el catálogo declara otra competencia para el mismo paso.
+	PerfilesAlternativos []string `json:"perfiles_ref_alternativos,omitempty"`
+	Accion               string   `json:"accion"`
+	Condicion            string   `json:"condicion"`
+	Habilita             string   `json:"habilita"`
+	Devolucion           string   `json:"devolucion"`
+	Sustitucion          string   `json:"sustitucion"`
+	Estado               string   `json:"estado"`
+	Referencia           string   `json:"referencia"`
 }
 
 type documentoCircuitoFirmaDesarrollo struct {
@@ -48,6 +51,8 @@ type portafirmasCircuitoFirmaDesarrollo struct {
 }
 
 type circuitoFirmaDesarrollo struct {
+	// La política sobre una misma persona en dos pasos es interna al servicio
+	// de firma: esta consulta no concede competencias ni decide firmantes.
 	Esquema      string                             `json:"esquema"`
 	CatalogoRef  string                             `json:"catalogo_ref"`
 	HuellaSHA256 string                             `json:"huella_sha256"`
@@ -130,9 +135,13 @@ func vistaCircuitoFirmaDesarrollo(circuito reglas.CircuitoFirma) circuitoFirmaDe
 			Pasos: make([]pasoCircuitoFirmaDesarrollo, 0, len(documento.Pasos)),
 		}
 		for _, paso := range documento.Pasos {
+			if len(paso.PerfilesAlternativos) != 0 {
+				vista.Esquema = esquemaCircuitoFirmaAlternativasDesarrollo
+			}
 			salida.Pasos = append(salida.Pasos, pasoCircuitoFirmaDesarrollo{
 				Orden: paso.Orden, Cargo: paso.Cargo, PerfilRef: paso.PerfilRef,
-				Accion: string(paso.Accion), Condicion: string(paso.Condicion), Habilita: string(paso.Habilita),
+				PerfilesAlternativos: append([]string(nil), paso.PerfilesAlternativos...),
+				Accion:               string(paso.Accion), Condicion: string(paso.Condicion), Habilita: string(paso.Habilita),
 				Devolucion: string(paso.Devolucion), Sustitucion: string(paso.Sustitucion),
 				Estado: string(reglas.EstadoPasoSinFirmas(paso.Orden)), Referencia: paso.Referencia,
 			})

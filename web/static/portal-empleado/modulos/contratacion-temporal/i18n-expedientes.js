@@ -2,9 +2,11 @@
 import { MENSAJES_FIRMA_INCORPORACION } from "./i18n-firma-incorporacion-datos.js?v=20261001-ct-a-i18n-v1";
 import { mensajesTramite } from "./i18n-fases-rrhh.js?v=20261001-ct-a-i18n-v1";
 import { MENSAJES_FICHA_LISTA_EN, MENSAJES_FICHA_LISTA_ES } from "./i18n-ficha-lista.js?v=20261001-ct-a-i18n-v1";
+import { MENSAJES_ANALISIS_CATALOGO_ES, MENSAJES_ANALISIS_CATALOGO_EN } from "./i18n-analisis-catalogo.js?v=20261001-ct-a-i18n-v1";
 
 export const MENSAJES_EXPEDIENTES_CONTRATACION_ES = Object.freeze({
   ...mensajesTramite("es"),
+  ...MENSAJES_ANALISIS_CATALOGO_ES,
   ...MENSAJES_FICHA_LISTA_ES,
   centro_visible: "Centro {ambito} · {numero}",
   justificante_registrado: "Justificante registrado",
@@ -355,6 +357,7 @@ export const MENSAJES_EXPEDIENTES_CONTRATACION_ES = Object.freeze({
 /** British English texts for the temporary staff requests case-file interface. */
 export const MENSAJES_EXPEDIENTES_CONTRATACION_EN = Object.freeze({
   ...mensajesTramite("en"),
+  ...MENSAJES_ANALISIS_CATALOGO_EN,
   ...MENSAJES_FICHA_LISTA_EN,
   centro_visible: "Centre {ambito} · {numero}",
   justificante_registrado: "Acknowledgement recorded",

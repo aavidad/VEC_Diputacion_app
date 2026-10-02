@@ -12,8 +12,10 @@ import (
 )
 
 const (
-	esquemaPeticionCobertura  = "VEC-CT-FUENTE-COBERTURA-PETICION-V1"
-	esquemaRespuestaCobertura = "VEC-CT-FUENTE-COBERTURA-RESPUESTA-V1"
+	esquemaPeticionCobertura    = "VEC-CT-FUENTE-COBERTURA-PETICION-V1"
+	esquemaRespuestaCobertura   = "VEC-CT-FUENTE-COBERTURA-RESPUESTA-V1"
+	esquemaPeticionCoberturaV2  = "VEC-CT-FUENTE-COBERTURA-PETICION-V2"
+	esquemaRespuestaCoberturaV2 = "VEC-CT-FUENTE-COBERTURA-RESPUESTA-V2"
 )
 
 // DatosResultadoConsultaCobertura contiene únicamente datos funcionales y
@@ -48,8 +50,7 @@ func (d DatosResultadoConsultaCobertura) validarPara(
 		d.ViaClave != solicitud.ViaClave ||
 		d.ProcedenciaClave != solicitud.Comprobacion.Procedencia.Clave ||
 		d.CategoriaRef != solicitud.CategoriaRef ||
-		!d.Periodo.Inicio.Equal(solicitud.Periodo.Inicio) ||
-		!d.Periodo.Fin.Equal(solicitud.Periodo.Fin) ||
+		!periodosCoberturaCoinciden(d.Periodo, solicitud.Periodo) ||
 		d.Comprobacion.Validar() != nil ||
 		d.Comprobacion.Detalle != "" ||
 		d.Comprobacion.Clave != solicitud.Comprobacion.Clave ||
@@ -244,11 +245,15 @@ func canonRespuestaCobertura(
 	datos DatosResultadoConsultaCobertura,
 	metadatos MetadatosAtestacionRespuestaCobertura,
 ) ([]byte, error) {
-	if metadatos.Validar() != nil {
+	if metadatos.Validar() != nil || !periodoCoberturaValido(datos.Periodo) {
 		return nil, ErrResultadoFuenteCoberturaNoConfiable
 	}
 	escritor := nuevoEscritorCanonFuenteAnalisis()
-	escritor.texto(esquemaRespuestaCobertura)
+	if periodoCoberturaV2(datos.Periodo) {
+		escritor.texto(esquemaRespuestaCoberturaV2)
+	} else {
+		escritor.texto(esquemaRespuestaCobertura)
+	}
 	escribirDatosResultadoCobertura(escritor, datos)
 	escritor.texto(metadatos.AutoridadRef)
 	escritor.entero64(uint64(metadatos.Generacion))
@@ -266,7 +271,11 @@ func escribirSolicitudCobertura(
 	escritor *escritorCanonFuenteAnalisis,
 	s SolicitudConsultarCobertura,
 ) {
-	escritor.texto(esquemaPeticionCobertura)
+	if periodoCoberturaV2(s.Periodo) {
+		escritor.texto(esquemaPeticionCoberturaV2)
+	} else {
+		escritor.texto(esquemaPeticionCobertura)
+	}
 	escritor.texto(s.PeticionRef)
 	escritor.texto(s.OrganizacionRef)
 	escritor.texto(s.ExpedienteRef)
@@ -281,8 +290,7 @@ func escribirSolicitudCobertura(
 	escritor.texto(string(s.Comprobacion.Procedencia.Clave))
 	escritor.texto(s.Comprobacion.Procedencia.DefinicionFuenteRef)
 	escritor.texto(s.CategoriaRef)
-	escritor.instante(s.Periodo.Inicio)
-	escritor.instante(s.Periodo.Fin)
+	escribirPeriodoCobertura(escritor, s.Periodo)
 	escritor.instante(s.SolicitadaEn)
 }
 
@@ -301,8 +309,7 @@ func escribirDatosResultadoCobertura(
 	escritor.texto(string(d.ViaClave))
 	escritor.texto(string(d.ProcedenciaClave))
 	escritor.texto(d.CategoriaRef)
-	escritor.instante(d.Periodo.Inicio)
-	escritor.instante(d.Periodo.Fin)
+	escribirPeriodoCobertura(escritor, d.Periodo)
 	escritor.texto(string(d.Comprobacion.Clave))
 	escritor.texto(string(d.Comprobacion.Resultado))
 	escritor.texto(d.Comprobacion.FuenteRef)

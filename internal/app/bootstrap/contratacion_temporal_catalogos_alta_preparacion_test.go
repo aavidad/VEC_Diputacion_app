@@ -44,7 +44,7 @@ func TestCatalogosAltaPublicanPreparacionDeLasViasVigentes(t *testing.T) {
 	}
 	catalogo.componerOpcionesAnalisis(opciones)
 	datos := servirCatalogosAltaPrueba(t, catalogo)
-	if len(datos) != 6 || datos["preparacion_vias"] == nil {
+	if len(datos) != 7 || datos["preparacion_vias"] == nil || datos["numero_expediente_moad"] == nil {
 		t.Fatalf("falta la relación por vía: %v", datos)
 	}
 	var preparacion struct {
@@ -93,7 +93,7 @@ func TestCatalogosAltaSinPreparacionConservanSuForma(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if datos := servirCatalogosAltaPrueba(t, catalogo); len(datos) != 5 || datos["preparacion_vias"] != nil {
+	if datos := servirCatalogosAltaPrueba(t, catalogo); len(datos) != 6 || datos["preparacion_vias"] != nil || datos["numero_expediente_moad"] == nil {
 		t.Fatalf("relación inventada sin catálogo: %v", datos)
 	}
 	if preparacionViasCatalogosAlta(nil) != nil {

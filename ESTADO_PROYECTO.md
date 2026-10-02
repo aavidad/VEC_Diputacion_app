@@ -1,5 +1,14 @@
 # Estado y plan de ataque del proyecto
 
+## Cierre documental A — 2 de octubre de 2026
+
+Los checkpoints de [Selectivos](docs/plan_modulos/selectivos.md#cierre-del-2-de-octubre-de-2026-estado-vigente) y [Carrera, Formación y RUM](docs/plan_modulos/carrera_formacion.md#cierre-del-2-de-octubre-de-2026-estado-vigente) prevalecen sobre sus estados iniciales.
+S0/S1, preparación S2 y recuperación JSON S3 están fusionadas; quedan montaje institucional, aprobación y presentación registrada.
+Carrera tiene H05/H06/H11 fusionadas como cortes sintéticos; H07 sigue en borrador y H08 conservado sin montaje real.
+RUM01 fusionada; RUM02–03 en #400 abierta, CI en curso; AD3-142 instalada solo en clon. RUM04 conserva WIP, sin cierre acreditado.
+A conserva estos ámbitos, B Personal y G baremador. Las tablas enlazadas detallan la cola por minitarea; verificar FIN y PR antes de retomar.
+Se conservan historia y estimaciones; no cambia el cómputo funcional ni se acredita producción. La raíz local histórica y su WIP siguen intactos.
+
 ## Recuperación de incorporación con perfiles nominales — 30 de septiembre de 2026 (candidata)
 
 La incorporación de ejercicio prepara sus perfiles antes de fijar las rutas.
