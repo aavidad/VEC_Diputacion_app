@@ -38,6 +38,17 @@ function circuito() {
   };
 }
 
+function circuitoConAlternativa() {
+  const datos = circuito();
+  datos.esquema = "vec.contratacion_temporal.circuito_firma.v2";
+  datos.documentos[0].documento = "resolucion";
+  datos.documentos[0].etiqueta = "Resolución de nombramiento o contratación";
+  datos.documentos[0].pasos[0].cargo = "Dirección de RRHH o Jefatura del Servicio de RRHH";
+  datos.documentos[0].pasos[0].accion = "visto_bueno";
+  datos.documentos[0].pasos[0].perfiles_ref_alternativos = ["perfil:ct:direccion_rrhh"];
+  return datos;
+}
+
 function respuestaJSON(cuerpo, estado = 200) {
   return new Response(JSON.stringify(cuerpo), { status: estado, headers: { "Content-Type": "application/json; charset=utf-8" } });
 }
@@ -65,6 +76,49 @@ test("valida el contrato exacto y rechaza desviaciones", () => {
     alterar(copia);
     assert.equal(validarCircuitoFirma(copia), null);
   }
+});
+
+test("v2 conserva la alternativa opaca; v1 exige ausencia y v2 exige una lista válida", () => {
+  const datos = circuitoConAlternativa();
+  const validado = validarCircuitoFirma(datos);
+  assert.deepEqual(validado.documentos[0].pasos[0].perfiles_ref_alternativos, ["perfil:ct:direccion_rrhh"]);
+  assert.equal(Object.isFrozen(validado.documentos[0].pasos[0].perfiles_ref_alternativos), true);
+  const cliente = crearClienteHTTPCircuitoFirma({ fetchImpl: async () => respuestaJSON({ data: datos }) });
+  return cliente.obtenerCircuito().then((resultado) => {
+    assert.deepEqual(resultado.documentos[0].pasos[0].perfiles_ref_alternativos, ["perfil:ct:direccion_rrhh"]);
+    const alteraciones = [
+      (c) => { c.esquema = "vec.contratacion_temporal.circuito_firma.v1"; },
+      (c) => { delete c.documentos[0].pasos[0].perfiles_ref_alternativos; },
+      (c) => { c.documentos[0].pasos[0].perfiles_ref_alternativos = []; },
+      (c) => { c.documentos[0].pasos[0].perfiles_ref_alternativos = ["perfil:ct:direccion_rrhh", "perfil:ct:direccion_rrhh"]; },
+      (c) => { c.documentos[0].pasos[0].perfiles_ref_alternativos = [c.documentos[0].pasos[0].perfil_ref]; },
+      (c) => { c.documentos[0].pasos[0].perfiles_ref_alternativos = ["", "perfil:ct:direccion_rrhh"]; },
+      (c) => { c.documentos[0].pasos[0].perfiles_ref_alternativos = ["Nombre Apellido"]; },
+      (c) => { c.documentos[0].pasos[0].perfiles_ref_alternativos = ["perfil:ct:direccion_rrhh", "<script>"]; },
+      (c) => { c.documentos[0].pasos[0].perfiles_ref_alternativos = "perfil:ct:direccion_rrhh"; },
+      (c) => { c.documentos[0].pasos[0].perfiles_ref_alternativos = Array(17).fill("perfil:ct:direccion_rrhh"); },
+      (c) => { c.documentos[0].pasos[0].persona = "Nombre Apellido"; },
+      (c) => { c.documentos[0].pasos[0].permiso = true; },
+      (c) => { c.firma_eficaz = true; },
+    ];
+    for (const alterar of alteraciones) {
+      const copia = circuitoConAlternativa();
+      alterar(copia);
+      assert.equal(validarCircuitoFirma(copia), null);
+    }
+  });
+});
+
+test("la fase muestra Dirección o Jefatura desde el catálogo sin abrir firma oficial", () => {
+  const datos = validarCircuitoFirma(circuitoConAlternativa());
+  const es = renderizarCircuitoFirma(datos, crearTraductorCircuitoFirma());
+  const en = renderizarCircuitoFirma(datos, crearTraductorCircuitoFirma({}, "en-GB"));
+  assert.match(es, /Dirección de RRHH o Jefatura del Servicio de RRHH/u);
+  assert.match(en, /HR Directorate or Head of the HR Service/u);
+  assert.doesNotMatch(en, /Dirección de RRHH|Jefatura del Servicio/u);
+  assert.match(es, /<button[^>]*disabled[^>]*>Enviar a Firmadoc<\/button>/u);
+  assert.doesNotMatch(es, /data-ct-firma-accion=/u);
+  assert.match(es, /Sin constancia de envío ni firma oficial en VEC/u);
 });
 
 test("el cliente pide la ruta de solo lectura y falla cerrado", async () => {
