@@ -1,9 +1,11 @@
 import { crearTraductorSolicitudesCronos, formatearCantidadCronos, MENSAJES_CRONOS_SOLICITUDES } from "./i18n-solicitudes.js";
 import { ErrorClienteSolicitudesCronos, crearClienteSolicitudesCronosHTTP, validarPermisosPropiosCronos, validarEntradaPermisoCronos } from "./cliente-solicitudes-http.js";
-import { hoyCivilCronos } from "./vista-movimientos-propios.js?v=20261001-f-reconciliacion-322-v1";
+import { hoyCivilCronos } from "./vista-movimientos-propios.js?v=20261001-cronos-calendario-seleccion-v1";
 import { crearTraductorHistorialCronos, MENSAJES_HISTORIAL_CRONOS } from "./i18n-historial.js?v=20261001-cronos-historial-v1";
 import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
 import { crearTraductorJustificacionCronos, MENSAJES_JUSTIFICACION_CRONOS } from "./i18n-permisos.js?v=20261001-cronos-grafo-bandeja-v5";
+
+import { crearTraductorConsultaPermisosCronos, MENSAJES_CONSULTA_PERMISOS_CRONOS } from "./i18n-permisos-consulta.js?v=20261001-cronos-c7-consulta-v2";
 
 const ERRORES = new Map([
   ["peticion_invalida", "error_peticion_invalida"], ["conflicto", "error_conflicto"],
@@ -130,22 +132,24 @@ function formularioSolicitud(f, permiso, t) {
 /** Listado anual del catálogo versionado, solicitud y pendientes de conceder y de justificar. */
 export function renderizarPermisosPropiosCronos({ estado = "cargando", anio, datos = null, solicitud = null, mensajes = MENSAJES_CRONOS_SOLICITUDES, locale = LOCALIZACION_ACTUAL, hoy = null, filtro = "todas", pagina = 1, tamanoPagina = 20,
   reciboConfirmado = null, mensajesHistorial = MENSAJES_HISTORIAL_CRONOS, zonaHoraria = "Europe/Madrid",
-  mensajesJustificacion = MENSAJES_JUSTIFICACION_CRONOS, ayudaJustificacion = false } = {}) {
+  mensajesJustificacion = MENSAJES_JUSTIFICACION_CRONOS, ayudaJustificacion = false, mensajesConsulta = MENSAJES_CONSULTA_PERMISOS_CRONOS } = {}) {
   const t = crearTraductorSolicitudesCronos(mensajes);
   const th = crearTraductorHistorialCronos(mensajesHistorial);
   const tj = crearTraductorJustificacionCronos(mensajesJustificacion);
+  const tc = crearTraductorConsultaPermisosCronos(mensajesConsulta);
   if (estado === "listo") validarPermisosPropiosCronos(datos, anio);
   const historial = paginarHistorial(estado === "listo" ? datos.solicitudes : [], filtro, pagina, tamanoPagina);
   const recibo = panelRecibo(reciboConfirmado, th, locale, zonaHoraria);
   if (!Number.isInteger(anio) || anio < 2000 || anio > 2100) throw new RangeError("año de Cronos no válido");
   const ayuda = t("abrir_ayuda", { asunto: t("permisos_titulo") });
   const navegacion = `<nav class="cronos-anio-navegacion" aria-label="${escaparHTML(t("permisos_anio", { anio }))}"><button type="button" class="boton-secundario" data-cronos-anio="-1" aria-label="${escaparHTML(t("anio_anterior"))}"${anio <= 2000 ? " disabled" : ""}>‹</button><strong aria-live="polite">${anio}</strong><button type="button" class="boton-secundario" data-cronos-anio="1" aria-label="${escaparHTML(t("anio_siguiente"))}"${anio >= 2100 ? " disabled" : ""}>›</button></nav>`;
+  const actualizar = `<button type="button" class="boton-secundario" data-cronos-permisos-actualizar=""${estado === "cargando" ? ' aria-disabled="true"' : ""}${solicitud?.estado === "enviando" ? " disabled" : ""}>${escaparHTML(tc(estado === "listo" ? "actualizar" : estado === "cargando" ? "cargando" : "reintentar"))}</button>`;
   const cabecera = `<header class="cronos-encabezado"><div><p class="sobrelinea">${escaparHTML(t("sobrelinea"))}</p><h2 id="cronos-permisos-propios-titulo">${escaparHTML(t("permisos_titulo"))}</h2></div>
-    <button type="button" class="cronos-boton-ayuda" data-accion="ayuda" aria-label="${escaparHTML(ayuda)}" title="${escaparHTML(ayuda)}"><span aria-hidden="true">?</span></button></header>`;
+    <div class="cronos-solicitud-acciones">${actualizar}<button type="button" class="cronos-boton-ayuda" data-accion="ayuda" aria-label="${escaparHTML(ayuda)}" title="${escaparHTML(ayuda)}"><span aria-hidden="true">?</span></button></div></header>`;
   if (estado !== "listo") {
     const clave = { denegado: "denegado", sin_empleado: "sin_empleado", error: "error" }[estado] ?? "cargando";
     return `<section class="cronos-area cronos-permisos-propios" aria-labelledby="cronos-permisos-propios-titulo" data-estado="${escaparHTML(estado)}">${cabecera}${recibo}
-      <section class="panel cronos-panel"><div class="cabecera-panel">${navegacion}</div><div class="cuerpo-panel"><p class="cronos-${estado === "cargando" ? "vacio" : "acceso-denegado"}" role="${estado === "error" ? "alert" : "status"}">${escaparHTML(t(clave))}</p></div></section></section>`;
+      <section class="panel cronos-panel"><div class="cabecera-panel">${navegacion}</div><div class="cuerpo-panel"><p class="cronos-${estado === "cargando" ? "vacio" : "acceso-denegado"}" role="${estado === "error" ? "alert" : "status"}">${escaparHTML(estado === "error" ? tc("error") : t(clave))}</p></div></section></section>`;
   }
   const porRef = new Map(datos.permisos.map((p) => [p.permiso_ref, p]));
   const pendientes = datos.solicitudes.filter((s) => s.estado === "solicitado" || s.estado === "pendiente_administracion");
@@ -172,7 +176,7 @@ export function renderizarPermisosPropiosCronos({ estado = "cargando", anio, dat
     <div class="rejilla-kpi">${kpi("kpi_pendientes_conceder", pendientes.length, "naranja")}${kpi("kpi_pendientes_justificar", justificar.length, "violeta")}${kpi("kpi_concedidos", concedidos.length, "verde")}</div>
     <section class="panel cronos-panel" aria-labelledby="cronos-permisos-anio"><div class="cabecera-panel"><h3 id="cronos-permisos-anio">${escaparHTML(t("permisos_anio", { anio }))}</h3>${sintetico ? `<span class="cronos-estado cronos-estado-aviso">${escaparHTML(t("permisos_a_confirmar"))}</span>` : ""}${navegacion}</div>
       ${tabla(["permiso", "col_maximo", "col_minimo", "col_solicitado", "col_concedido", "col_resta", "col_accion"], filas, t)}</section>
-    ${formularioSolicitud(solicitud, elegido, t)}
+    ${solicitud && !elegido?.solicitable ? `<section class="panel cronos-panel"><div class="cuerpo-panel"><p role="status">${escaparHTML(tc("no_solicitable"))}</p><button type="button" class="boton-secundario" data-cronos-permiso-cerrar>${escaparHTML(t("cancelar"))}</button></div></section>` : formularioSolicitud(solicitud, elegido, t)}
     <section class="panel cronos-panel" aria-labelledby="cronos-historial-titulo"><div class="cabecera-panel"><h3 id="cronos-historial-titulo">${escaparHTML(th("titulo"))}</h3></div>
       <div class="cuerpo-panel">${filtros}</div>${tabla(["permiso", "periodo", "duracion", "estado"], historial.filas.map((s) => fila(s)), t, th("sin_resultados"))}<div class="cuerpo-panel">${paginacion}</div></section>
     <section class="panel cronos-panel" id="cronos-permisos-just-panel" aria-labelledby="cronos-permisos-just"><div class="cabecera-panel"><h3 id="cronos-permisos-just" tabindex="-1">${escaparHTML(t("pendientes_justificar_titulo"))}</h3>
@@ -193,11 +197,12 @@ function estadoError(error) {
 
 export function montarPermisosPropiosCronos({ raiz, cliente = crearClienteSolicitudesCronosHTTP(), mensajes = MENSAJES_CRONOS_SOLICITUDES,
   anunciar = () => {}, registrarDesmontar, locale = LOCALIZACION_ACTUAL, zonaHoraria = "Europe/Madrid", anio, tamanoPagina = 20, mensajesHistorial = MENSAJES_HISTORIAL_CRONOS,
-  mensajesJustificacion = MENSAJES_JUSTIFICACION_CRONOS } = {}) {
+  mensajesJustificacion = MENSAJES_JUSTIFICACION_CRONOS, mensajesConsulta = MENSAJES_CONSULTA_PERMISOS_CRONOS } = {}) {
   if (!raiz?.append || !raiz.ownerDocument?.createElement || typeof cliente?.consultarPermisos !== "function" || typeof cliente?.solicitarPermiso !== "function"
     || typeof anunciar !== "function" || (registrarDesmontar !== undefined && typeof registrarDesmontar !== "function")) throw new TypeError("montaje de permisos propios Cronos no disponible");
   const t = crearTraductorSolicitudesCronos(mensajes);
   const th = crearTraductorHistorialCronos(mensajesHistorial);
+  const tc = crearTraductorConsultaPermisosCronos(mensajesConsulta);
   paginarHistorial([], "todas", 1, tamanoPagina);
   const contenedor = raiz.ownerDocument.createElement("section"); contenedor.dataset.cronosPermisosPropios = ""; raiz.append(contenedor);
   let anioVisible = Number.isInteger(anio) ? anio : Number(hoyCivilCronos(zonaHoraria).slice(0, 4));
@@ -210,14 +215,14 @@ export function montarPermisosPropiosCronos({ raiz, cliente = crearClienteSolici
     const foco = raiz.ownerDocument.activeElement;
     let selector = null; let direccionAnio = null;
     if (foco && contenedor.contains?.(foco)) {
-      for (const atributo of ["data-cronos-anio", "data-cronos-historial-filtro", "data-cronos-historial-pagina", "data-cronos-historial-recuento", "data-cronos-ver-justificacion", "data-cronos-justificacion-ayuda", "name"]) {
+      for (const atributo of ["data-cronos-permisos-actualizar", "data-cronos-anio", "data-cronos-historial-filtro", "data-cronos-historial-pagina", "data-cronos-historial-recuento", "data-cronos-ver-justificacion", "data-cronos-justificacion-ayuda", "name"]) {
         const valor = foco.getAttribute?.(atributo);
         const valido = atributo === "data-cronos-anio" ? ["-1", "1"].includes(valor) : valor !== null && valor !== undefined && /^[a-z_]*$/u.test(valor);
         if (valido) { selector = `[${atributo}="${valor}"]`; if (atributo === "data-cronos-anio") direccionAnio = valor; break; }
       }
     }
     contenedor.innerHTML = renderizarPermisosPropiosCronos({ estado, anio: anioVisible, datos, solicitud, mensajes, locale,
-      hoy: hoyCivilCronos(zonaHoraria), filtro, pagina, tamanoPagina, reciboConfirmado, mensajesHistorial, zonaHoraria, mensajesJustificacion, ayudaJustificacion });
+      hoy: hoyCivilCronos(zonaHoraria), filtro, pagina, tamanoPagina, reciboConfirmado, mensajesHistorial, zonaHoraria, mensajesJustificacion, ayudaJustificacion, mensajesConsulta });
     if (selector) {
       let destino = contenedor.querySelector?.(selector);
       if (!destino || destino.disabled) destino = contenedor.querySelector?.(direccionAnio
@@ -226,20 +231,26 @@ export function montarPermisosPropiosCronos({ raiz, cliente = crearClienteSolici
     }
   };
   const cargar = async () => {
-    controlador?.abort(); controlador = new AbortController(); const turno = ++secuencia;
+    if (!activa) return;
+    controlador?.abort(); const consulta = new AbortController(); controlador = consulta; const turno = ++secuencia;
     estado = "cargando"; datos = null; dibujar();
     try {
-      const r = await cliente.consultarPermisos({ anio: anioVisible }, { signal: controlador.signal });
+      const r = await cliente.consultarPermisos({ anio: anioVisible }, { signal: consulta.signal });
       if (!activa || turno !== secuencia) return;
       datos = validarPermisosPropiosCronos(r, anioVisible);
       pagina = paginarHistorial(datos.solicitudes, filtro, pagina, tamanoPagina).actual;
       estado = "listo"; dibujar();
     } catch (error) {
-      if (!activa || turno !== secuencia || controlador.signal.aborted) return;
-      datos = null; estado = estadoError(error); dibujar(); anunciar(t(estado === "error" ? "error" : estado));
+      if (!activa || turno !== secuencia || consulta.signal.aborted) return;
+      datos = null; estado = estadoError(error); dibujar(); anunciar(estado === "error" ? tc("error") : t(estado));
     }
   };
   const alPulsar = (evento) => {
+    const actualizar = evento.target?.closest?.("[data-cronos-permisos-actualizar]");
+    if (actualizar) {
+      if (!actualizar.disabled && estado !== "cargando" && solicitud?.estado !== "enviando") void cargar();
+      return;
+    }
     if (estado === "listo" && evento.target?.closest?.("[data-cronos-ver-justificacion]")) {
       const destino = contenedor.querySelector?.("#cronos-permisos-just");
       destino?.focus?.(); destino?.scrollIntoView?.({ block: "nearest" }); return;
@@ -262,7 +273,7 @@ export function montarPermisosPropiosCronos({ raiz, cliente = crearClienteSolici
       return;
     }
     const pedir = evento.target?.closest?.("[data-cronos-solicitar]");
-    if (pedir && datos?.permisos.some((p) => p.permiso_ref === pedir.dataset.cronosSolicitar && p.solicitable)) {
+    if (estado === "listo" && pedir && datos?.permisos.some((p) => p.permiso_ref === pedir.dataset.cronosSolicitar && p.solicitable)) {
       envio?.abort();
       solicitud = { permisoRef: pedir.dataset.cronosSolicitar, clave: claveNueva() };
       dibujar(); contenedor.querySelector?.("[data-cronos-permiso-formulario] [name=desde]")?.focus?.();
@@ -276,10 +287,10 @@ export function montarPermisosPropiosCronos({ raiz, cliente = crearClienteSolici
     }
   };
   const alEnviar = async (evento) => {
-    if (!evento.target?.matches?.("[data-cronos-permiso-formulario]") || !solicitud || solicitud.estado === "enviando") return;
+    if (!evento.target?.matches?.("[data-cronos-permiso-formulario]") || !solicitud || solicitud.estado === "enviando" || estado !== "listo") return;
     evento.preventDefault();
     const permiso = datos?.permisos.find((p) => p.permiso_ref === solicitud.permisoRef);
-    if (!permiso) return;
+    if (!permiso?.solicitable) return;
     const valor = (n) => evento.target.elements?.namedItem?.(n)?.value ?? "";
     const horas = permiso.unidad === "hora";
     const campos = horas ? { desde: valor("desde"), hasta: valor("desde"), hora_inicio: valor("hora_inicio"), hora_fin: valor("hora_fin") } : { desde: valor("desde"), hasta: valor("hasta") };
