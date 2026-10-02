@@ -1,10 +1,13 @@
 package adminperfiles
 
 import (
+	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
 
+	api "vec-diputacion-granada/internal/vec/adapters/httpapi/administracionperfiles"
 	"vec-diputacion-granada/internal/vec/domain"
 )
 
@@ -38,6 +41,21 @@ func TestCuentaADMINExigeCuentaPrivilegiadaSeparadaYRolNominal(t *testing.T) {
 				t.Fatal("una cuenta no autorizable se aceptó")
 			}
 		})
+	}
+}
+
+func TestErroresDeFuenteADMINNoConviertenCaidaEnDenegacion(t *testing.T) {
+	for _, caso := range []struct {
+		origen, esperado error
+	}{
+		{api.ErrAutenticacionRequerida, api.ErrAutenticacionRequerida},
+		{fmt.Errorf("CAS: %w", api.ErrConflictoEstado), api.ErrConflictoEstado},
+		{api.ErrAccesoDenegado, api.ErrAccesoDenegado},
+		{errors.New("postgresql sintético caído"), api.ErrConfiguracionIncompleta},
+	} {
+		if got := errorAutoridad(caso.origen); !errors.Is(got, caso.esperado) {
+			t.Fatalf("origen=%v normalizado=%v esperado=%v", caso.origen, got, caso.esperado)
+		}
 	}
 }
 

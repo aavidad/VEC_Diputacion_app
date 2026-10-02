@@ -95,7 +95,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		propios, err := h.seleccionador.ListarPropiosADMIN(r.Context(), o)
 		if err != nil {
-			falloError(w, err)
+			h.falloSeleccionador(w, r, err)
 			return
 		}
 		lista := PerfilesPropios{Revision: propios.Revision, PerfilActivoRef: propios.PerfilActivoRef}
@@ -127,7 +127,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	seleccion, err := h.seleccionador.SeleccionarPerfilADMIN(r.Context(), o, perfil, revision)
 	if err != nil {
-		falloError(w, err)
+		h.falloSeleccionador(w, r, err)
 		return
 	}
 	if seleccion.PerfilActivoRef != perfil || seleccion.Revision == 0 || seleccion.Revision > maxRevisionJSON ||
@@ -298,10 +298,14 @@ func (p PerfilesPropios) valida() bool {
 
 func (h *Handler) denegar(w http.ResponseWriter, r *http.Request, estado int, codigo string) {
 	accion := "seleccionar_perfil_propio"
+	recurso := RutaSeleccion
 	if r.Method == http.MethodGet {
 		accion = "consultar_perfiles_propios"
+		recurso = RutaPropios
 	}
-	if h.auditor.RegistrarDenegacionADMIN(r.Context(), api.DenegacionADMIN{Codigo: codigo, Accion: accion}) != nil {
+	if h.auditor.RegistrarDenegacionADMIN(r.Context(), api.DenegacionADMIN{
+		Codigo: codigo, Accion: accion, RecursoRef: recurso,
+	}) != nil {
 		fallo(w, http.StatusServiceUnavailable, "servicio_no_disponible")
 		return
 	}
@@ -314,20 +318,20 @@ func (h *Handler) errorObservacion(w http.ResponseWriter, r *http.Request, err e
 	} else if errors.Is(err, api.ErrAccesoDenegado) || errors.Is(err, domain.ErrAutorizacionDenegada) {
 		h.denegar(w, r, http.StatusForbidden, "acceso_denegado")
 	} else {
-		fallo(w, http.StatusServiceUnavailable, "servicio_no_disponible")
+		h.denegar(w, r, http.StatusServiceUnavailable, "servicio_no_disponible")
 	}
 }
 
-func falloError(w http.ResponseWriter, err error) {
+func (h *Handler) falloSeleccionador(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
 	case errors.Is(err, api.ErrAutenticacionRequerida):
-		fallo(w, http.StatusUnauthorized, "autenticacion_requerida")
+		h.denegar(w, r, http.StatusUnauthorized, "autenticacion_requerida")
 	case errors.Is(err, api.ErrAccesoDenegado), errors.Is(err, domain.ErrAutorizacionDenegada):
-		fallo(w, http.StatusForbidden, "acceso_denegado")
+		h.denegar(w, r, http.StatusForbidden, "acceso_denegado")
 	case errors.Is(err, api.ErrConflictoEstado):
-		fallo(w, http.StatusConflict, "conflicto_estado")
+		h.denegar(w, r, http.StatusConflict, "conflicto_estado")
 	default:
-		fallo(w, http.StatusServiceUnavailable, "servicio_no_disponible")
+		h.denegar(w, r, http.StatusServiceUnavailable, "servicio_no_disponible")
 	}
 }
 

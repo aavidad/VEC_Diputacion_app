@@ -302,14 +302,28 @@ func TestFallosCentralesNoConfirmanSeleccionNiExponenDetalles(t *testing.T) {
 		{errors.New("DSN_SECRETO_SINTETICO"), 503},
 	} {
 		t.Run(fmt.Sprint(caso.estado), func(t *testing.T) {
-			h, _, s, _ := escenario(t)
+			h, _, s, a := escenario(t)
 			s.err = caso.err
 			w := httptest.NewRecorder()
 			h.ServeHTTP(w, peticion(http.MethodPost, RutaSeleccion, cuerpoValido()))
-			if w.Code != caso.estado || strings.Contains(w.Body.String(), "DSN") || strings.Contains(w.Body.String(), "perfil_activo_ref") {
+			if w.Code != caso.estado || strings.Contains(w.Body.String(), "DSN") || strings.Contains(w.Body.String(), "perfil_activo_ref") ||
+				len(a.registros) != 1 || a.registros[0].RecursoRef != RutaSeleccion ||
+				a.registros[0].Accion != "seleccionar_perfil_propio" {
 				t.Fatalf("error no normalizado: %d %s", w.Code, w.Body)
 			}
 		})
+	}
+}
+
+func TestDenegacionCentralDependeDelReciboDeAuditoria(t *testing.T) {
+	h, _, s, a := escenario(t)
+	s.err = api.ErrConflictoEstado
+	a.err = errors.New("auditoria indisponible")
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, peticion(http.MethodPost, RutaSeleccion, cuerpoValido()))
+	if w.Code != http.StatusServiceUnavailable || len(a.registros) != 1 ||
+		a.registros[0].RecursoRef != RutaSeleccion || s.escrituras != 1 {
+		t.Fatalf("denegación sin auditoría: estado=%d registros=%d", w.Code, len(a.registros))
 	}
 }
 
