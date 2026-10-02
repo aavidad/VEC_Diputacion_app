@@ -351,7 +351,9 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 func audienciaConsumoGobiernoPostgreSQLContratacionTemporalDesarrolloEsPropia(
 	audiencia string,
 ) bool {
-	return slices.Contains(audienciasConsumoGobiernoCTDesarrollo(), audiencia)
+	s2 := DescriptoresMaterialPreparacionBasesV3()
+	return slices.Contains(audienciasConsumoGobiernoCTDesarrollo(), audiencia) ||
+		audiencia == s2[0].Audiencia || audiencia == s2[1].Audiencia
 }
 
 func reconstruirClavesGobiernoPostgreSQLContratacionTemporalDesarrollo(
