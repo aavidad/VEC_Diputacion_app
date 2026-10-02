@@ -59,6 +59,7 @@ type PlazoPoliticaOfertas struct {
 type AdjudicacionPoliticaOfertas struct {
 	Criterio     string `json:"criterio"`
 	Elegibilidad string `json:"elegibilidad"`
+	Confirmacion string `json:"confirmacion,omitempty"`
 }
 
 type NoCubiertaPoliticaOfertas struct {
@@ -81,6 +82,7 @@ func (p PoliticaOfertas) Validar() error {
 	if !plazoValido || (p.Plazo.Inicio != "" && p.Plazo.Inicio != "notificacion") ||
 		!municipioINE.MatchString(p.Plazo.MunicipioSede) ||
 		p.Adjudicacion.Criterio != "orden_vigente" || p.Adjudicacion.Elegibilidad != "disposicion_en_plazo" ||
+		!ConfirmacionAdjudicacionValida(p.Adjudicacion.Confirmacion) ||
 		p.NoCubierta.Accion != "llamamiento_directo" || p.NoCubierta.Condicion != "sin_disposiciones_elegibles" {
 		return ErrPoliticaOfertasInvalida
 	}

@@ -2,9 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { crearClientePoliticaOfertas, ESQUEMA_POLITICA_OFERTAS, RUTA_POLITICA_OFERTAS,
   RUTA_CAPACIDAD_POLITICA_OFERTAS,
-  validarPoliticaEditable, validarPoliticaRecibida, cargarEjemploPlazas, plazasCompletas } from "./rrhh-plazos-api.js";
+  validarPoliticaEditable, validarPoliticaRecibida, cargarEjemploPlazas, cargarConfirmacionAdjudicacion, plazasCompletas } from "./rrhh-plazos-api.js";
 import { crearTraductorRRHHPlazos } from "./rrhh-plazos-i18n.js";
-import { crearSuperficieRRHHPlazos, cargarPlazoCatalogo } from "./rrhh-plazos-ui.js?v=20261001-ct-a-i18n-v1";
+import { crearSuperficieRRHHPlazos as crearSuperficieRRHHPlazosReal, cargarPlazoCatalogo } from "./rrhh-plazos-ui.js?v=20261001-ct-a-i18n-v1";
+
+const crearSuperficieRRHHPlazos = (opciones) => crearSuperficieRRHHPlazosReal({ cargarConfirmacion: async () => null, ...opciones });
 
 const POLITICA = Object.freeze({
   plazo: { unidad: "dias_habiles", cantidad: 3, computo: "administrativo", municipio_sede: "18087", inicio: "notificacion" },
@@ -123,6 +125,8 @@ test("la superficie muestra ejemplo, no cubierta y recibo solo después de POST 
   assert.match(superficie.renderizar(), /id="rrhh-plazos-ayuda"[^>]*hidden/u);
   superficie.manejarClick({ target: { disabled: false, dataset: { rrhhPlazosAccion: "ayuda" }, closest: () => ({ disabled: false, dataset: { rrhhPlazosAccion: "ayuda" } }) } });
   assert.doesNotMatch(superficie.renderizar(), /id="rrhh-plazos-ayuda"[^>]*hidden/u);
+  assert.match(superficie.renderizar(), /fecha y hora del correo externo/u);
+  assert.match(superficie.renderizar(), /Correo externo declarado por RRHH/u);
   assert.match(superficie.renderizar(), /catálogo de Bolsa/);
   assert.match(superficie.renderizar(), /Correo externo declarado por RRHH/);
   assert.match(superficie.renderizar(), /Inicio del plazo/);
@@ -154,7 +158,7 @@ test("el selector recupera el plazo del catálogo y deja vacía la unidad sin pr
   assert.deepEqual([superficie.estado().borrador.plazo.cantidad, superficie.estado().borrador.plazo.computo],
     [12, "administrativo"]);
   assert.match(superficie.renderizar(), /max="30"/);
-  assert.match(superficie.renderizar(), /id="rrhh-plazos-ayuda"[^>]*hidden>[^<]*correo/);
+  assert.match(superficie.renderizar(), /id="rrhh-plazos-ayuda"[^>]*hidden>[^<]*correo externo/u);
 });
 
 test("el plazo inicial sale de la regla publicada y válida del catálogo de Bolsa", async () => {
@@ -163,6 +167,7 @@ test("el plazo inicial sale de la regla publicada y válida del catálogo de Bol
   const regla = { clave: "b10.plazo_publicacion", origen: "reglamento", unidad: "dias_habiles",
     cantidad: 3, computo: "administrativo", inicio: "notificacion" };
   assert.deepEqual(await cargarPlazoCatalogo({ cliente: lector(regla) }), { ...PLAZO_CATALOGO, cantidad: 3 });
+  assert.deepEqual(await cargarPlazoCatalogo({ cliente: lector({ ...regla, inicio: "notificacion" }) }), { ...PLAZO_CATALOGO, cantidad: 3 });
   assert.deepEqual(await cargarPlazoCatalogo({ cliente: lector({ ...regla, unidad: "dias_naturales" }) }),
     { ...PLAZO_CATALOGO, cantidad: 3, unidad: "dias_naturales" });
   assert.equal(await cargarPlazoCatalogo({ cliente: lector({ ...regla, inicio: "publicacion" }) }), null);
@@ -385,4 +390,43 @@ test("sin paquete de ejemplo las plazas quedan por elegir y no se guarda una pol
   superficie.manejarSubmit({ target: form, preventDefault() {} }); await turno();
   assert.equal(publicadas, 0);
   assert.match(superficie.renderizar(), /Revise los campos señalados/u);
+});
+
+
+test("la confirmación de la oferta se carga del catálogo y rechaza ausencia, duplicados y modos ajenos", async () => {
+  const cliente = (reglas) => ({ reglas: async () => ({ catalogos: [{ modulo: "bolsa", estado: "disponible", reglas }] }) });
+  const regla = { clave: "b30.confirmacion_adjudicacion", valor: "aceptacion_previa" };
+  assert.equal(await cargarConfirmacionAdjudicacion({ cliente: cliente([regla]) }), "aceptacion_previa");
+  for (const reglas of [[], [regla, regla], [{ ...regla, valor: "segunda_respuesta" }]]) {
+    assert.equal(await cargarConfirmacionAdjudicacion({ cliente: cliente(reglas) }), null);
+  }
+  const telematica = structuredClone(POLITICA);
+  telematica.adjudicacion.confirmacion = "aceptacion_previa";
+  assert.deepEqual(validarPoliticaEditable(telematica), telematica);
+  telematica.adjudicacion.confirmacion = "segunda_respuesta";
+  assert.throws(() => validarPoliticaEditable(telematica));
+});
+
+test("guardar una versión nueva adopta la aceptación previa del catálogo sin alterar la política histórica leída", async () => {
+  let enviado;
+  const antigua = vigente("bolsa:1", { politica: { ...structuredClone(POLITICA), plazas: structuredClone(EJEMPLO_PLAZAS) } }).data;
+  const cliente = {
+    consultar: async () => ({ ok: true, politica: antigua }),
+    consultarCapacidad: async () => ({ ok: true, puede_publicar: true }),
+    publicar: async (comando) => {
+      enviado = comando;
+      return { ok: true, politica: { ...antigua, version: 2, politica: comando.politica, recibo_ref: "recibo:politica:2" } };
+    },
+  };
+  const s = crearSuperficieRRHHPlazos({ cliente, traducir: crearTraductorRRHHPlazos(),
+    cargarEjemplo: conEjemplo, cargarConfirmacion: async () => "aceptacion_previa" });
+  s.activar("bolsa:1"); await turno();
+  assert.equal(antigua.politica.adjudicacion.confirmacion, undefined);
+  assert.match(s.renderizar(), /No se pide una segunda respuesta/u);
+  assert.doesNotMatch(s.renderizar(), /name="plazas_respuesta_horas"|name="plazas_tras_renuncia"/u);
+  const form = { closest: () => form, reportValidity: () => true };
+  s.manejarSubmit({ target: form, preventDefault() {} }); await turno();
+  assert.equal(enviado.politica.adjudicacion.confirmacion, "aceptacion_previa");
+  assert.equal(enviado.version_esperada, 1);
+  assert.equal(antigua.politica.adjudicacion.confirmacion, undefined);
 });

@@ -12,10 +12,11 @@ func TestPoliticaOfertasSoloAdmiteReglaEjecutable(t *testing.T) {
 		t.Fatal(err)
 	}
 	for nombre, cambio := range map[string]func(*PoliticaOfertas){
-		"plazo sin calendario": func(v *PoliticaOfertas) { v.Plazo.MunicipioSede = "" },
-		"plazo excesivo":       func(v *PoliticaOfertas) { v.Plazo.Cantidad = 31 },
-		"criterio desconocido": func(v *PoliticaOfertas) { v.Adjudicacion.Criterio = "aleatorio" },
-		"resultado inventado":  func(v *PoliticaOfertas) { v.NoCubierta.Accion = "renuncia_automatica" },
+		"plazo sin calendario":     func(v *PoliticaOfertas) { v.Plazo.MunicipioSede = "" },
+		"plazo excesivo":           func(v *PoliticaOfertas) { v.Plazo.Cantidad = 31 },
+		"criterio desconocido":     func(v *PoliticaOfertas) { v.Adjudicacion.Criterio = "aleatorio" },
+		"confirmación desconocida": func(v *PoliticaOfertas) { v.Adjudicacion.Confirmacion = "respuesta_automatica" },
+		"resultado inventado":      func(v *PoliticaOfertas) { v.NoCubierta.Accion = "renuncia_automatica" },
 	} {
 		t.Run(nombre, func(t *testing.T) {
 			q := p

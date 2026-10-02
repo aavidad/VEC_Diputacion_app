@@ -108,7 +108,8 @@ func decodificarListaOfertas(salida []byte) ([]ports.OfertaPublicada, error) {
 // ofertaCompleta exige la proyección B58: una entrada por plaza, numeradas
 // desde 1 y con estado.
 func ofertaCompleta(o ports.OfertaPublicada) bool {
-	if o.OfertaRef == "" || o.Estado == "" || o.NumeroPlazas < 1 || len(o.Plazas) != o.NumeroPlazas {
+	if o.OfertaRef == "" || o.Estado == "" || o.NumeroPlazas < 1 || len(o.Plazas) != o.NumeroPlazas ||
+		!dominiobolsa.ConfirmacionAdjudicacionValida(o.ConfirmacionAdjudicacion) {
 		return false
 	}
 	for i, p := range o.Plazas {

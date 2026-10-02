@@ -72,6 +72,7 @@
     "accion_renuncia": "Declined",
     "accion_sin_respuesta": "Did not reply",
     "confirmar_adjudicada": "Award post {plaza} to order no. {orden}? They must reply within the deadline.",
+    "confirmar_adjudicada_telematica": "Award post {plaza} to order no. {orden}, who already accepted within the deadline?",
     "confirmar_llamamiento_directo": "Move post {plaza} to a direct call-up?",
     "confirmar_aceptada": "Record that no. {orden} accepted post {plaza}?",
     "confirmar_renuncia": "Record that no. {orden} declined post {plaza}?",
@@ -80,6 +81,7 @@
     "cancelar": "Cancel",
     "registrando": "Recording…",
     "hecho_adjudicada": "Post {plaza} awarded to order no. {orden}. Record their reply when it arrives.",
+    "hecho_adjudicada_telematica": "Post {plaza} awarded to order no. {orden}, who accepted within the deadline.",
     "hecho_aceptada": "Post {plaza} filled by order no. {orden}.",
     "hecho_renuncia": "Refusal recorded for post {plaza}.",
     "hecho_sin_respuesta": "No reply recorded for post {plaza}.",
@@ -109,6 +111,7 @@
     "ayuda": "The operational deadline starts from the date and time of the external email declared by HR. The form shows the current policy or proposes the job pool catalogue. Review and save it before publishing."
   },
   "politica_plazas": {
+    "aceptacion_previa": "Posts are awarded among those who accepted within the deadline, by available order. No second reply is required.",
     "titulo": "Posts",
     "llamada": "How people are contacted",
     "llamada_simultanea": "At the same time: one person per vacant post",

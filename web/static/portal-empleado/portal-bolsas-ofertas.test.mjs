@@ -227,3 +227,23 @@ test("un conflicto descarta la confirmación, recarga y explica el cambio", asyn
   assert.equal(s.estado().confirmacion, null);
   assert.match(s.renderizar(), /La plaza ha cambiado mientras la consultaba/);
 });
+
+
+test("la adjudicación telemática confirma la aceptación previa sin pedir otra respuesta", async () => {
+  let adjudicada = false;
+  const pendiente = oferta({ confirmacion_adjudicacion: "aceptacion_previa", estado: "pendiente_resolucion",
+    plazas: [plaza(1, { propuesta: { tipo: "adjudicar", participacion_ref: "p:2", orden_vigente: 2 } })] });
+  const cubierta = oferta({ confirmacion_adjudicacion: "aceptacion_previa", estado: "adjudicada",
+    plazas: [plaza(1, { estado: "cubierta", secuencia: 1, participacion_ref: "p:2", orden_vigente: 2 })] });
+  const anuncios = [];
+  const cliente = { consultar: async () => sobre([adjudicada ? cubierta : pendiente]),
+    registrarActo: async () => { adjudicada = true; return { ok: true, oferta: cubierta }; } };
+  const s = crearSuperficieOfertasBolsa({ cliente, anunciar: (m) => anuncios.push(m) });
+  s.activar("bolsa:1"); await turno();
+  s.manejarClick(boton({ ofertasAccion: "preparar", ofertaRef: "oferta:1", plaza: "1", tipo: "adjudicada", secuencia: "0", participacionRef: "p:2", orden: "2" }));
+  assert.match(s.renderizar(), /que ya aceptó en plazo/u);
+  assert.doesNotMatch(s.renderizar(), /Tendrá que responder dentro de plazo/u);
+  s.manejarClick(boton({ ofertasAccion: "confirmar" })); await turno();
+  assert.deepEqual(anuncios, ["Plaza 1 adjudicada al n.º de orden 2, que aceptó en plazo."]);
+  assert.doesNotMatch(s.renderizar(), /data-tipo="(?:aceptada|renuncia|sin_respuesta)"/u);
+});

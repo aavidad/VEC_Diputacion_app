@@ -14,6 +14,19 @@ export const MAXIMO_HORAS_RESPUESTA = 720;
 // apartado cuando la política de la bolsa aún no lo tiene.
 const REGLAS_EJEMPLO_PLAZAS = Object.freeze({ llamada: "b30.plazas_llamada", respuesta: "b30.plazas_plazo_respuesta", tras: "b30.plazas_tras_renuncia" });
 
+/** La confirmación nueva procede del catálogo; sin regla se conserva el modo vigente. */
+export async function cargarConfirmacionAdjudicacion({ cliente } = {}) {
+  try {
+    const lector = cliente ?? (await import("../../reglas/reglas.js?v=20260930-reglas-recuperacion-v2")).crearCliente();
+    const datos = await lector.reglas();
+    const reglas = datos.catalogos.filter((c) => c.modulo === "bolsa" && c.estado === "disponible")
+      .flatMap((c) => c.reglas).filter((r) => r.clave === "b30.confirmacion_adjudicacion");
+    return reglas.length === 1 && reglas[0].valor === "aceptacion_previa" ? reglas[0].valor : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Apartado de plazas completo y con valores admitidos. */
 export function plazasCompletas(plazas) {
   return Boolean(plazas) && Object.keys(plazas).length === 3 && LLAMADAS_PLAZAS.includes(plazas.llamada)
@@ -52,6 +65,7 @@ export function validarPoliticaEditable(politica, { permitirLegada = false } = {
     || typeof plazo.municipio_sede !== "string" || !MUNICIPIO.test(plazo.municipio_sede)
     || politica?.adjudicacion?.criterio !== "orden_vigente"
     || politica.adjudicacion.elegibilidad !== "disposicion_en_plazo"
+    || (politica.adjudicacion.confirmacion !== undefined && politica.adjudicacion.confirmacion !== "aceptacion_previa")
     || politica?.no_cubierta?.accion !== "llamamiento_directo"
     || politica.no_cubierta.condicion !== "sin_disposiciones_elegibles"
     || (politica.plazas !== undefined && politica.plazas !== null && !plazasCompletas(politica.plazas))) {

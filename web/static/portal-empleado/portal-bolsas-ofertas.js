@@ -83,6 +83,7 @@ export function validarOferta(oferta) {
       !d || typeof d.categoria !== "string" || typeof d.centro !== "string" || !FECHA_DIA.test(d.fecha_inicio ?? "") ||
       (d.fecha_fin !== undefined && !FECHA_DIA.test(d.fecha_fin)) || !instante(oferta.publicada_en) || !instante(oferta.vence_antes_de) ||
       !Array.isArray(oferta.disposiciones) || !Number.isSafeInteger(oferta.disposiciones_total) || typeof oferta.plazo?.ejemplo !== "boolean" ||
+      (oferta.confirmacion_adjudicacion !== undefined && oferta.confirmacion_adjudicacion !== null && oferta.confirmacion_adjudicacion !== "aceptacion_previa") ||
       (oferta.plazo.notificacion != null && !notificacionValida(oferta.plazo.notificacion)) ||
       !Number.isSafeInteger(oferta.numero_plazas) || oferta.numero_plazas < 1 || oferta.numero_plazas > MAXIMO_PLAZAS_OFERTA ||
       !Array.isArray(oferta.plazas) || oferta.plazas.length !== oferta.numero_plazas || !oferta.plazas.every(plazaValida) ||
@@ -237,7 +238,8 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), a
         participacion_ref: acto.participacion, secuencia_esperada: acto.secuencia }, clave);
       if (resultado.ok) {
         estado.clavesActo.delete(firma); estado.confirmacion = null;
-        estado.mensaje = traducir(`hecho_${acto.tipo}`, { plaza: acto.plaza, orden: acto.orden ?? "" });
+        const telematica = resultado.oferta.confirmacion_adjudicacion === "aceptacion_previa" && acto.tipo === "adjudicada";
+        estado.mensaje = traducir(telematica ? "hecho_adjudicada_telematica" : `hecho_${acto.tipo}`, { plaza: acto.plaza, orden: acto.orden ?? "" });
         anunciar(estado.mensaje); void cargar();
         enfocar('[data-ofertas-aviso="exito"]');
       } else {
@@ -271,7 +273,8 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), a
   function botonesPlaza(o, plaza) {
     const confirmando = estado.confirmacion;
     if (confirmando && confirmando.ofertaRef === o.oferta_ref && confirmando.plaza === plaza.numero_de_plaza) {
-      const pregunta = traducir(`confirmar_${confirmando.tipo}`, { plaza: plaza.numero_de_plaza, orden: confirmando.orden ?? "" });
+      const telematica = o.confirmacion_adjudicacion === "aceptacion_previa" && confirmando.tipo === "adjudicada";
+      const pregunta = traducir(telematica ? "confirmar_adjudicada_telematica" : `confirmar_${confirmando.tipo}`, { plaza: plaza.numero_de_plaza, orden: confirmando.orden ?? "" });
       const ocupado = estado.registrando ? " disabled" : "";
       return `<div class="acciones-fila" role="group" aria-label="${escapar(pregunta)}"><span>${escapar(pregunta)}</span>` +
         `<button type="button" class="boton-primario" data-ofertas-accion="confirmar"${ocupado}>${escapar(traducir(estado.registrando ? "registrando" : "confirmar"))}</button>` +
