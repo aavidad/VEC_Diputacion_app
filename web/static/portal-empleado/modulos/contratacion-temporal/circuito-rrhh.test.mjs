@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { validarCircuitoRRHH, validarConsultaCircuitoRRHH } from "./contrato-circuito-rrhh.js";
 import { crearClienteCircuitoRRHH, RUTA_CONSULTA_CIRCUITO_RRHH } from "./cliente-http-circuito-rrhh.js";
-import { renderizarCircuitoRRHH } from "./vista-circuito-rrhh.js";
+import { pasosRailCircuitoRRHH, renderizarCircuitoRRHH } from "./vista-circuito-rrhh.js";
 import { insertarConsultaCircuitoRRHH } from "./vista-expedientes.js";
 
 const consulta = { expediente_ref: "expediente:prueba:rrhh", version_observada: 1 };
@@ -33,15 +33,32 @@ test("alta sin hitos se presenta pendiente, sin afirmar firmas ni trámites hech
   assert.match(html, /consulte las tareas del expediente/u);
   assert.doesNotMatch(html, /✓|<li>/u);
 });
+test("el carril usa el estado acreditado del circuito tras alta y primer análisis", () => {
+  const claves = ["circuito_solicitud", "circuito_autorizacion_rrhh", "circuito_credito", "circuito_oferta"];
+  assert.deepEqual(pasosRailCircuitoRRHH(datos(), claves), ["ahora", "falta", "falta", "falta"]);
+  const trasAnalisis = datos();
+  trasAnalisis.circuito.estado_actual = "credito";
+  trasAnalisis.circuito.hitos = [
+    { origen: "solicitud", destino: "autorizacion_rrhh" },
+    { origen: "autorizacion_rrhh", destino: "credito" },
+  ];
+  assert.deepEqual(pasosRailCircuitoRRHH(trasAnalisis, claves), ["hecho", "hecho", "ahora", "falta"]);
+  trasAnalisis.circuito.estado_actual = "subsanacion_servicio";
+  assert.equal(pasosRailCircuitoRRHH(trasAnalisis, claves), null);
+});
 test("el panel se inserta solo en fichas del flujo nuevo", () => {
   const inserciones = [];
+  let consultas = 0;
   const raiz = { querySelector: (selector) => selector === "[data-ct-exp-ancla-firma]"
-    ? { insertAdjacentHTML: (...args) => inserciones.push(args) } : null };
+    ? { insertAdjacentHTML: (...args) => inserciones.push(args), previousElementSibling: {
+      querySelector: () => ({ click: () => { consultas += 1; } }),
+    } } : null };
   assert.equal(insertarConsultaCircuitoRRHH(raiz, { expediente_ref: consulta.expediente_ref,
     version: 1, fases: [{ fase_ref: "fase:ct:solicitud" }] }), false);
   assert.equal(insertarConsultaCircuitoRRHH(raiz, { expediente_ref: consulta.expediente_ref,
     version: 1, fases: [{ fase_ref: "fase:ct:circuito_solicitud" }] }), true);
   assert.equal(inserciones.length, 1);
+  assert.equal(consultas, 1);
   assert.equal(inserciones[0][0], "beforebegin");
   assert.match(inserciones[0][1], /data-ct-circuito-expediente="expediente:prueba:rrhh"/u);
 });

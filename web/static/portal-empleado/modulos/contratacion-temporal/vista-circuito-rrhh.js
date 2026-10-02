@@ -2,15 +2,69 @@ import { crearClienteCircuitoRRHH } from "./cliente-http-circuito-rrhh.js?v=2026
 import { cargarTextos } from "../../../comun/textos.js";
 
 const mensajes = await cargarTextos("contratacion-temporal-circuito-rrhh");
+const textosPortal = await cargarTextos("portal");
 const general = mensajes.seccion("general");
 const fases = mensajes.seccion("fases");
 const actuaciones = mensajes.seccion("actuaciones");
+const textosFases = textosPortal.seccion("fases_rrhh");
 function escapar(valor) {
   return String(valor ?? "").replace(/[&<>"']/gu, (caracter) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
   })[caracter]);
 }
 function texto(clave) { return general[clave] ?? general.no_disponible; }
+function plantilla(clave, variables) {
+  return Object.entries(variables).reduce((valor, [nombre, dato]) =>
+    valor.replaceAll(`{${nombre}}`, String(dato)), texto(clave));
+}
+
+// El carril se actualiza con el estado acreditado del circuito, no con la fase
+// administrativa: el análisis puede dejar esta última todavía en solicitud.
+export function pasosRailCircuitoRRHH(datos, claves) {
+  const indices = new Map(claves.map((clave, indice) => [clave, indice]));
+  const actual = indices.get(`circuito_${datos.circuito.estado_actual}`);
+  if (actual === undefined) return null;
+  const hechos = new Set();
+  for (const hito of datos.circuito.hitos) {
+    const origen = indices.get(`circuito_${hito.origen}`);
+    const destino = indices.get(`circuito_${hito.destino}`);
+    if (destino !== undefined && origen !== undefined && destino < origen) {
+      for (const indice of hechos) if (indice >= destino) hechos.delete(indice);
+    } else if (origen !== undefined && origen !== destino) {
+      hechos.add(origen);
+    }
+  }
+  return claves.map((_, indice) => indice === actual ? "ahora" : hechos.has(indice) ? "hecho" : "falta");
+}
+
+export function actualizarRailCircuitoRRHH(bloque, datos) {
+  const rail = bloque?.closest?.(".ct-expedientes")?.querySelector?.("[data-ct-exp-rail]");
+  const elementos = [...(rail?.querySelectorAll?.(":scope > li") ?? [])];
+  if (!elementos.length) return false;
+  const claves = elementos.map((elemento) => elemento.querySelector?.("[data-ct-exp-fase-ver]")?.dataset.ctExpFaseVer ?? "");
+  const pasos = pasosRailCircuitoRRHH(datos, claves);
+  if (!pasos) return false;
+  for (const [indice, elemento] of elementos.entries()) {
+    const paso = pasos[indice];
+    elemento.className = paso;
+    if (paso === "ahora") elemento.setAttribute("aria-current", "step");
+    else elemento.removeAttribute("aria-current");
+    const boton = elemento.querySelector("[data-ct-exp-fase-ver]");
+    const estado = textosFases[`linea_${paso}`];
+    if (!boton || !estado) continue;
+    const nombre = boton.querySelector(".nombre")?.textContent ?? "";
+    const textoEstado = boton.querySelector("small");
+    if (textoEstado) textoEstado.textContent = estado;
+    boton.setAttribute("aria-label", plantilla("ver_fase_estado", { fase: nombre, estado }));
+  }
+  const resumen = rail.closest("nav")?.querySelector(".cabecera-panel .texto-secundario");
+  if (resumen) resumen.textContent = plantilla("resumen_fases", {
+    hechas: pasos.filter((paso) => paso === "hecho").length,
+    ahora: pasos.filter((paso) => paso === "ahora").length,
+    faltan: pasos.filter((paso) => paso === "falta").length,
+  });
+  return true;
+}
 
 /** Muestra solo hechos devueltos por la consulta autorizada. */
 export function renderizarCircuitoRRHH(datos) {
@@ -60,7 +114,10 @@ export function instalarConsultaCircuitoRRHH(documento = globalThis.document, cl
         expediente_ref: bloque.dataset.ctCircuitoExpediente, version_observada: version,
       }, { signal: controlador.signal });
       if (!documento.contains(bloque) || controlador.signal.aborted) return;
-      if (respuesta.estado === "disponible") resultado.innerHTML = renderizarCircuitoRRHH(respuesta.datos);
+      if (respuesta.estado === "disponible") {
+        resultado.innerHTML = renderizarCircuitoRRHH(respuesta.datos);
+        actualizarRailCircuitoRRHH(bloque, respuesta.datos);
+      }
       else resultado.textContent = texto(respuesta.estado === "denegado" ? "denegado" : "no_disponible");
     } catch {
       if (documento.contains(bloque) && !controlador.signal.aborted) resultado.textContent = texto("no_disponible");

@@ -17,6 +17,7 @@ import {
   componerRegistroPersonal,
 } from "./portal-composicion-empleado.js?v=20261002-codexe-d7c-web-v1";
 import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20261001-ct-a-i18n-v1";
+import { cargarTextos } from "../comun/textos.js";
 import {
   CLAVES_CARGA_MODULAR,
   LIMITE_CARGA_MODULAR_MS,
@@ -25,6 +26,9 @@ import {
 } from "./portal-modulos-carga.js?v=20260926-integracion-bolsa-ct-v1";
 
 const CLAVE_CONTRATACION_TEMPORAL = "contratacion_temporal";
+const ROTULOS_CIRCUITO_RRHH = await Promise.all(["es", "en"].map(async (idioma) => [
+  idioma, (await cargarTextos("contratacion-temporal-circuito-rrhh", { idioma })).seccion("fases"),
+])).then(Object.fromEntries).catch(() => null);
 const SIN_CATALOGOS_PUBLICOS = Object.freeze({ recursos: Object.freeze({}), disponibles: Object.freeze([]) });
 const CLAVE_PERSONAL = "personal";
 const CLAVE_DOCUMENTOS = "documentos";
@@ -323,8 +327,8 @@ export function crearCoordinadorModulosPortal({
     );
     exigirVigente();
     const idiomaCircuito = locale === "en-GB" ? "en" : "es";
-    const { cargarTextos } = await import("../comun/textos.js");
-    const fasesCircuito = (await cargarTextos("contratacion-temporal-circuito-rrhh", { idioma: idiomaCircuito })).seccion("fases");
+    const fasesCircuito = ROTULOS_CIRCUITO_RRHH?.[idiomaCircuito];
+    if (!fasesCircuito) throw new Error("contratacion_temporal.circuito.catalogo_no_disponible");
     const rotulosCircuito = (prefijo) => Object.fromEntries(Object.entries(fasesCircuito)
       .map(([clave, rotulo]) => [`${prefijo}circuito_${clave}`, rotulo]));
     const mensajesExpedientes = {
