@@ -156,7 +156,7 @@ func TestFuenteJustificacionConsultaPoliticaYVinculoNominal(t *testing.T) {
 		CatalogoVersionRef: m.Vinculo.CatalogoVersionRef, PermisoRef: m.Vinculo.PermisoRef,
 		ExpedienteDocumentalRef: m.Vinculo.ExpedienteDocumentalRef, Version: m.SolicitudVersion,
 		Estado: domain.EstadoPermisoConcedido, JustificanteExigido: true}
-	salida, _ := json.Marshal(ports.PreparacionJustificacion{Solicitud: s, Politica: p, Actual: &j})
+	salida, _ := json.Marshal(ports.PreparacionJustificacion{Solicitud: s, Politica: p, PoliticaVigente: true, Actual: &j})
 	tx := &txLecturaPrueba{respuestas: [][]byte{salida}}
 	f := &FuenteJustificacion{db: dbFuenteJustificacionPrueba{dbLecturaPrueba: dbLecturaPrueba{t: t, tx: tx}, empleado: empleadoPrueba}, lecturas: &proveedorLecturaJustificacionPrueba{t}}
 	got, err := f.PrepararJustificacion(context.Background(), orden, s.SolicitudRef)

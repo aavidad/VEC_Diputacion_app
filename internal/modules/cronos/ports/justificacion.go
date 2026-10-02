@@ -11,6 +11,7 @@ import (
 
 var ErrJustificacionNoDisponible = errors.New("cronos: justificacion no disponible")
 var ErrEnlaceJustificacionPendiente = errors.New("cronos: enlace documental pendiente")
+var ErrPoliticaJustificacionNoVigente = errors.New("cronos: politica de justificacion no vigente")
 
 type ProveedorMaterialJustificacion interface {
 	ProveerMaterialJustificacion(context.Context, domain.MaterialJustificacion) (vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error)
@@ -45,9 +46,10 @@ func (o OrdenJustificacion) ContextoActor() (vecdomain.ContextoActor, error) {
 func (o OrdenJustificacion) ProveedorMaterial() ProveedorMaterialJustificacion { return o.proveedor }
 
 type PreparacionJustificacion struct {
-	Solicitud domain.SolicitudJustificable
-	Politica  domain.PoliticaJustificacion
-	Actual    *domain.Justificacion
+	Solicitud       domain.SolicitudJustificable `json:"solicitud"`
+	Politica        domain.PoliticaJustificacion `json:"politica"`
+	PoliticaVigente bool                         `json:"politica_vigente"`
+	Actual          *domain.Justificacion        `json:"actual"`
 }
 
 // Preparar debe acreditar enclave interno, Persona/Personal y permiso nominal

@@ -111,10 +111,6 @@ func (s *ServicioJustificacion) Anexar(ctx context.Context, o ports.OrdenJustifi
 	if _, e = m.Canonico(); e != nil {
 		return ports.ResultadoAnexoJustificacion{}, e
 	}
-	// Preflight antes incluso del replay: no emplear una autoridad histórica.
-	if e = s.documentos.PrepararRegistro(ctx, o, p.Solicitud, p.Politica); e != nil {
-		return ports.ResultadoAnexoJustificacion{}, e
-	}
 	r, ok, e := s.repo.RecuperarJustificacion(ctx, o, m)
 	if e != nil {
 		return ports.ResultadoAnexoJustificacion{}, e
@@ -126,6 +122,12 @@ func (s *ServicioJustificacion) Anexar(ctx context.Context, o ports.OrdenJustifi
 		r.Replay = true
 		d := r.Justificacion.Vinculo.Documento
 		return ports.ResultadoAnexoJustificacion{Documento: &d, Registro: r.Registro, ReciboCronos: &r}, nil
+	}
+	if !p.PoliticaVigente {
+		return ports.ResultadoAnexoJustificacion{}, ports.ErrPoliticaJustificacionNoVigente
+	}
+	if e = s.documentos.PrepararRegistro(ctx, o, p.Solicitud, p.Politica); e != nil {
+		return ports.ResultadoAnexoJustificacion{}, e
 	}
 	siguiente, e := domain.PrepararAnexoJustificacion(p.Solicitud, p.Politica, p.Actual, v, in.VersionEsperada)
 	if e != nil {

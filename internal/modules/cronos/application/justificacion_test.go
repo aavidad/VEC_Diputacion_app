@@ -134,7 +134,7 @@ func escenarioJustificacion(t *testing.T) (*ServicioJustificacion, ports.OrdenJu
 	t.Helper()
 	p := domain.PoliticaJustificacion{Referencia: "politica:justificacion:v1", Version: 1, SHA256: strings.Repeat("a", 64), CatalogoVersionRef: "catalogo:permiso:v1", PermisoRef: "permiso:neutral", TipoDocumentalRef: "ref:" + strings.Repeat("b", 64), CustodioID: "custodia.interna", MotivosRef: []string{"motivo:documentacion:conforme", "motivo:documentacion:incompleta"}}
 	solicitud := domain.SolicitudJustificable{SolicitudRef: "permiso:cronos:solicitud:ensayo001", EmpleadoRef: "emp_0123456789abcdefghijkl", CatalogoVersionRef: p.CatalogoVersionRef, PermisoRef: p.PermisoRef, ExpedienteDocumentalRef: "ref:" + strings.Repeat("c", 64), Version: 3, Estado: domain.EstadoPermisoConcedido, JustificanteExigido: true}
-	f := &fuenteJustificacionPrueba{p: ports.PreparacionJustificacion{Solicitud: solicitud, Politica: p}}
+	f := &fuenteJustificacionPrueba{p: ports.PreparacionJustificacion{Solicitud: solicitud, Politica: p, PoliticaVigente: true}}
 	d := &documentosJustificacionPrueba{}
 	r := &repoJustificacionPrueba{}
 	prov := &proveedorJustificacionPrueba{}
@@ -238,6 +238,7 @@ func TestRevisionJustificacionSeparadaYRefsExactas(t *testing.T) {
 		t.Fatal(e)
 	}
 	f.p.Actual = &res.ReciboCronos.Justificacion
+	f.p.PoliticaVigente = false // La revisión usa la versión original, no una política nueva.
 	r.recibo = nil
 	p := ports.PeticionRevisionJustificacion{SolicitudRef: in.SolicitudRef, ClaveOperacion: "ref:" + strings.Repeat("a", 64), VersionEsperada: 1, Vinculo: f.p.Actual.Vinculo, Decision: domain.JustificacionRechazada, MotivoRef: f.p.Politica.MotivosRef[1]}
 	original := f.p.Solicitud
@@ -284,6 +285,28 @@ func TestJustificacionNoAceptaReciboConRegistroDistinto(t *testing.T) {
 				t.Fatal("recibo aceptado con registro distinto al confirmado", err, res)
 			}
 		})
+	}
+}
+
+func TestJustificacionRecuperaHistoricoConPoliticaVencida(t *testing.T) {
+	s, o, f, d, r, _, in := escenarioJustificacion(t)
+	primero, err := s.Anexar(context.Background(), o, in)
+	if err != nil || primero.ReciboCronos == nil {
+		t.Fatal("no se preparó recibo histórico", err)
+	}
+	desdeDocumentos := d.llamadas
+	f.p.PoliticaVigente = false
+	f.p.Actual = &primero.ReciboCronos.Justificacion
+	replay, err := s.Anexar(context.Background(), o, in)
+	if err != nil || replay.ReciboCronos == nil || !replay.ReciboCronos.Replay || d.llamadas != desdeDocumentos || d.preflight != desdeDocumentos {
+		t.Fatal("recibo histórico depende de poder registrar otra vez", err, replay)
+	}
+	r.recibo = nil
+	in.ClaveOperacion = "ref:" + strings.Repeat("9", 64)
+	in.VersionEsperada = 1
+	in.Documento.ID = "ref:" + strings.Repeat("8", 64)
+	if _, err := s.Anexar(context.Background(), o, in); !errors.Is(err, ports.ErrPoliticaJustificacionNoVigente) || d.llamadas != desdeDocumentos || d.preflight != desdeDocumentos {
+		t.Fatal("alta nueva con política vencida", err)
 	}
 }
 
