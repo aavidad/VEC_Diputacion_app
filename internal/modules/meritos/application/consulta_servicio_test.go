@@ -264,12 +264,26 @@ func TestConsultaPropiaMinimizaYCopiaProyeccion(t *testing.T) {
 	}
 }
 
-func TestConsultaPropiaDenegacionDurableSinDatos(t *testing.T) {
+func TestConsultaPropiaDenegacionNominalSinDatos(t *testing.T) {
 	s, solicitud, _, r, audit := escenarioConsulta(t)
 	r.mutar = func(r *ports.ResultadoConsultaPropia) { *r = ports.ResultadoConsultaPropia{Codigo: "denegada"} }
 	out, err := s.ConsultarActual(context.Background(), solicitud)
 	if !errors.Is(err, vec.ErrAutorizacionDenegada) || out.Codigo != "" || out.HechoActual != nil || out.ReciboConsulta != nil || audit.llamadas != 0 {
 		t.Fatal("denegación no cerrada", err)
+	}
+}
+
+func TestConsultaPropiaRechazoTrasEmisionNoDevuelveFichaNiRecibo(t *testing.T) {
+	s, solicitud, autoridad, repositorio, _ := escenarioConsulta(t)
+	repositorio.err = vec.ErrAutorizacionDenegada
+	out, err := s.ConsultarActual(context.Background(), solicitud)
+	if !errors.Is(err, vec.ErrAutorizacionDenegada) || out.Codigo != "" ||
+		out.HechoActual != nil || out.ReciboConsulta != nil ||
+		autoridad.llamadas != 1 || repositorio.llamadas != 1 {
+		t.Fatal("rechazo posterior a la emisión expone un resultado", err)
+	}
+	if repositorio.ultima.Autorizacion.Material.ResumenCapacidad().DecisionRef() != decisionRef {
+		t.Fatal("el repositorio no recibió la autorización emitida")
 	}
 }
 

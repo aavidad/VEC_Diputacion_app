@@ -211,6 +211,36 @@ func TestConsultaPropiaFallosTransaccionalesNoExponenDatos(t *testing.T) {
 	}
 }
 
+// Esta regresión acredita el rechazo y el cierre del adaptador con material
+// ya emitido. El doble no demuestra auditoría durable ni consumo V3 real.
+func TestConsultaPropiaRechazoSQLRevierteAntesDeDevolverDenegacion(t *testing.T) {
+	orden, resultado := consultaOrdenPrueba(t)
+	privado := "diagnostico_sql_que_no_debe_salir"
+	tx := &consultaTxPrueba{
+		raw:         consultaJSONPrueba(t, resultado),
+		errConsulta: &pgconn.PgError{Code: "42501", Message: privado},
+	}
+	pool := &consultaPoolPrueba{tx: tx}
+	repo, err := nuevaConsulta(pool)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := repo.ConsultarActual(context.Background(), orden)
+	if !errors.Is(err, vec.ErrAutorizacionDenegada) ||
+		!reflect.DeepEqual(out, ports.ResultadoConsultaPropia{}) ||
+		tx.rollbacks != 1 || tx.commits != 0 || pool.llamadas != 1 {
+		t.Fatal("el rechazo SQL no terminó vacío y revertido", err)
+	}
+	if tx.consulta != consultaHechoPropio || len(tx.argumentos) != 11 ||
+		!bytes.Equal(tx.argumentos[1].([]byte), orden.Autorizacion.Material.CapacidadCanonica()) ||
+		!bytes.Equal(tx.argumentos[2].([]byte), orden.Autorizacion.Material.DecisionCanonica()) {
+		t.Fatal("el rechazo no sucedió después de enviar la autorización emitida")
+	}
+	if strings.Contains(err.Error(), privado) {
+		t.Fatal("el rechazo expone el diagnóstico SQL")
+	}
+}
+
 func TestConsultaPropiaRechazaDependenciasNulas(t *testing.T) {
 	if _, err := NuevaConsulta(nil); !errors.Is(err, ports.ErrConsultaNoDisponible) {
 		t.Fatal("pool nulo aceptado")

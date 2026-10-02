@@ -16,13 +16,23 @@ En un clon privado nuevo, las migraciones nuevas se instalaron una vez tras AD14
 
 Las pruebas focales de aplicación, adaptadores y HTTP pasaron en Go normal/race/vet, con análisis local de seguridad sin hallazgos. La interfaz pasó sus 22 pruebas con Node20 y los catálogos por idioma. Estas comprobaciones no sustituyen Chrome ni las revisiones independientes pendientes.
 
+## Retoma del 2 de octubre
+
+La continuación une el WIP `f25aac133ea44e54aa1edb88e883bcb09f634ccf` con `main@7225e8782`. El cambio respecto a esa base conserva los 31 archivos propios de RUM04. RUM03, AD142 y Méritos000001 coinciden con la fuente final de la PR #400, `770c288cf43a14f7026d77d13c4867107c1aef24`; no se vuelven a incluir como cambios nuevos.
+
+Dos regresiones focales comprueban el rechazo después de emitir la autorización. El adaptador envía el material, recibe un rechazo SQL, revierte la transacción y devuelve una denegación sin ficha, recibo ni diagnóstico privado. Aplicación también conserva ese resultado vacío. Son pruebas con dobles de contrato: no prueban el rechazo en PostgreSQL real ni su auditoría durable.
+
+La constancia de la emisión no acredita el rechazo posterior de SQL. La transacción rechazada revierte también cualquier consumo o constancia de consulta que hubiera iniciado. Sigue pendiente registrar ese resultado mediante la autoridad común persistente, con contexto confiable y metadatos mínimos, después de terminar el rollback. No se incorpora un auditor en memoria al receptor real.
+
+No se puede convertir cualquier rechazo SQL en una consulta confirmada: la tabla actual exige un consumo válido y admite únicamente obtención o ausencia. Si SQL rechaza la firma o la ligadura de actor, el material recibido tampoco sirve como identidad validada para una auditoría nueva.
+
 ## TODO antes de cerrar el corte
 
 - Conservar las reservas propias AD000145 y Méritos000002. El orden central pendiente es AD142 → AD143 (K) → AD144 (G) → AD145 (A). Para esta pieza, el orden de instalación es roles de consulta propia → AD145 → Méritos000002, tras sus prerrequisitos.
 - Actualizar la preimagen de AD145 cuando AD143 y AD144 estén publicadas y ensayar el conjunto en un clon nuevo. La candidata actual protege la preimagen posterior a AD142 y no acredita compatibilidad posterior a AD144. No relajar las guardas ni reaplicar UP/DOWN de migraciones con historia.
 - Completar el recorrido con Chrome del sistema y la revisión independiente de usabilidad.
 - Obtener dos revisiones del hash exacto, incluida SQL, autorización y seguridad, y ejecutar la puerta de calidad de cierre correspondiente.
-- Acreditar la auditoría de la denegación SQL que sucede después de emitir una autorización y termina en rollback; este ensayo no la demuestra.
+- Completar la auditoría común persistente de la denegación SQL posterior a la emisión y probarla después del rollback en el clon autorizado. Las regresiones focales de la retoma sólo acreditan propagación, cierre y ausencia de exposición.
 - Preparar la PR funcional sólo después de resolver esos pendientes. La rama actual es WIP y RUM04 permanece en cola, no cerrado.
 
 No se incluyen claves, configuraciones privadas, SQL de provisión ni datos del clon en esta entrega.
