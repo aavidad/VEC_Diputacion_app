@@ -37,6 +37,7 @@ type ConsultaCabezaCatalogoOperativo interface {
 type ConfirmacionCatalogoOperativo struct {
 	ClaveIdempotencia    string
 	HuellaMaterialSHA256 string
+	MaterialCanonico     []byte
 	CabezaEsperada       CabezaCatalogoOperativo
 	HuellaAnteriorSHA256 string
 	Catalogo             domain.CatalogoConfigurable
@@ -51,6 +52,7 @@ type ConfirmacionCatalogoOperativo struct {
 type RecuperacionCatalogoOperativo struct {
 	ClaveIdempotencia    string
 	HuellaMaterialSHA256 string
+	MaterialCanonico     []byte
 	CatalogoID           string
 	Version              int
 	Accion               string
