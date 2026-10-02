@@ -28,15 +28,16 @@ const CLAVE_ERROR = Object.freeze({
 });
 
 const REFERENCIA = /^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/u;
+function referenciaValida(valor) { return typeof valor === "string" && REFERENCIA.test(valor); }
 
 // Este contrato solo se puede completar con una respuesta autorizada del
 // servidor. La consulta actual no lo entrega y, por tanto, falla cerrado.
 export function contextoFirmaExternaValido(contexto, expedienteRef, version, documento, orden) {
-  return contexto?.permitido === true && REFERENCIA.test(contexto.expediente_ref ?? "")
+  return contexto?.permitido === true && referenciaValida(contexto.expediente_ref)
     && Number.isSafeInteger(contexto.version_expediente) && contexto.version_expediente > 0
     && contexto.expediente_ref === expedienteRef
     && contexto.version_expediente === version && contexto.documento === documento
-    && contexto.paso_orden === orden && REFERENCIA.test(contexto.original_ref ?? "")
+    && contexto.paso_orden === orden && referenciaValida(contexto.original_ref)
     && Number.isSafeInteger(contexto.original_version) && contexto.original_version > 0;
 }
 

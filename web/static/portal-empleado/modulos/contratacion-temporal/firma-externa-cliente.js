@@ -14,6 +14,11 @@ const CODIGOS = new Set(["autenticacion_requerida", "acceso_denegado", "contenid
   "paso_no_pendiente", "cadena_rota", "conflicto", "firma_no_verificada", "verificacion_no_disponible",
   "servicio_no_disponible", "resultado_no_confiable", "recurso_no_encontrado"]);
 
+function referenciaValida(valor) { return typeof valor === "string" && REFERENCIA.test(valor); }
+function documentoValido(valor) { return typeof valor === "string" && DOCUMENTO.test(valor); }
+function huellaValida(valor) { return typeof valor === "string" && HUELLA.test(valor); }
+function referenciaCustodiaValida(valor) { return typeof valor === "string" && /^ref:[0-9a-f]{64}$/u.test(valor); }
+
 export class ErrorFirmaExterna extends Error {
   constructor(codigo) { super(codigo); this.name = "ErrorFirmaExterna"; this.codigo = codigo; }
 }
@@ -95,14 +100,17 @@ function validarRecibo(datos, solicitud) {
   if (!campos(datos, claves) || datos.esquema !== ESQUEMA || datos.firma_eficaz !== false
     || datos.expediente_ref !== solicitud.expedienteRef || datos.version_expediente !== solicitud.version
     || datos.documento !== solicitud.documento || datos.paso_orden !== solicitud.pasoOrden
-    || !REFERENCIA.test(datos.recibo_ref) || !REFERENCIA.test(datos.firma_ref) || !REFERENCIA.test(datos.paso_ref)
+    || !referenciaValida(datos.recibo_ref) || !referenciaValida(datos.firma_ref) || !referenciaValida(datos.paso_ref)
     || !entero(datos.secuencia) || typeof datos.ya_registrada !== "boolean" || !fechaRecibo(datos.registrada_en)
     || !campos(custodia, ["expediente_ref", "documento_ref", "version", "huella_sha256"])
-    || !/^ref:[0-9a-f]{64}$/u.test(custodia.expediente_ref) || !/^ref:[0-9a-f]{64}$/u.test(custodia.documento_ref)
-    || !entero(custodia.version) || !HUELLA.test(custodia.huella_sha256)
+    || !referenciaCustodiaValida(custodia.expediente_ref) || !referenciaCustodiaValida(custodia.documento_ref)
+    || !entero(custodia.version) || !huellaValida(custodia.huella_sha256)
     || !campos(verificacion, ["estado", "motivo", "politica", "revocacion", "sello_tiempo", "original_sha256", "firmado_sha256"])
-    || verificacion.estado !== "valida" || verificacion.motivo !== "verificada" || !HUELLA.test(verificacion.original_sha256)
-    || !HUELLA.test(verificacion.firmado_sha256) || verificacion.firmado_sha256 !== custodia.huella_sha256
+    || verificacion.estado !== "valida" || verificacion.motivo !== "verificada"
+    || typeof verificacion.politica !== "string" || verificacion.politica.length < 1 || verificacion.politica.length > 256
+    || verificacion.revocacion !== "vigente" || !["no_presente", "valido", "no_comprobado"].includes(verificacion.sello_tiempo)
+    || !huellaValida(verificacion.original_sha256) || !huellaValida(verificacion.firmado_sha256)
+    || verificacion.firmado_sha256 !== custodia.huella_sha256
     || !campos(procedencia, ["estado", "referencia_declarada", "fecha_declarada"])
     || procedencia.estado !== "declarada_por_rrhh"
     || procedencia.referencia_declarada !== solicitud.referenciaPortafirmas
@@ -115,10 +123,10 @@ export function crearClienteFirmaExterna({ fetchImpl = globalThis.fetch } = {}) 
     async registrar(solicitud, { signal } = {}) {
       const { expedienteRef, version, documento, pasoOrden, originalRef, originalVersion, firmado,
         referenciaPortafirmas, fechaPortafirmas, clave } = solicitud ?? {};
-      if (!REFERENCIA.test(expedienteRef ?? "") || !entero(version) || !DOCUMENTO.test(documento ?? "")
-        || !entero(pasoOrden) || pasoOrden > 16 || !REFERENCIA.test(originalRef ?? "") || !entero(originalVersion)
+      if (!referenciaValida(expedienteRef) || !entero(version) || !documentoValido(documento)
+        || !entero(pasoOrden) || pasoOrden > 16 || !referenciaValida(originalRef) || !entero(originalVersion)
         || !pdfValido(firmado) || !referenciaDeclarada(referenciaPortafirmas)
-        || !fechaCanonica(fechaPortafirmas) || !CLAVE.test(clave ?? "")) throw new ErrorFirmaExterna("contenido_no_valido");
+        || !fechaCanonica(fechaPortafirmas) || typeof clave !== "string" || !CLAVE.test(clave)) throw new ErrorFirmaExterna("contenido_no_valido");
       if (typeof fetchImpl !== "function") throw new ErrorFirmaExterna("servicio_no_disponible");
       let respuesta;
       try {

@@ -65,6 +65,22 @@ test("replay conserva el recibo y rechaza una respuesta que afirma eficacia o pr
   }
 });
 
+test("el recibo exige tipos estrictos en referencias, custodia y verificación", async () => {
+  const mutaciones = [
+    { recibo_ref: null }, { firma_ref: 1234567890123456 }, { paso_ref: ["paso:resolucion:1"] },
+    { documento_custodiado: { ...recibo().documento_custodiado, expediente_ref: [`ref:${"a".repeat(64)}`] } },
+    { documento_custodiado: { ...recibo().documento_custodiado, huella_sha256: ["c".repeat(64)] } },
+    { verificacion_tecnica: { ...recibo().verificacion_tecnica, original_sha256: ["d".repeat(64)] } },
+    { verificacion_tecnica: { ...recibo().verificacion_tecnica, politica: null } },
+    { verificacion_tecnica: { ...recibo().verificacion_tecnica, revocacion: null } },
+    { verificacion_tecnica: { ...recibo().verificacion_tecnica, sello_tiempo: {} } },
+  ];
+  for (const cambio of mutaciones) {
+    const cliente = crearClienteFirmaExterna({ fetchImpl: async () => respuesta({ data: { ...recibo(), ...cambio } }) });
+    await assert.rejects(cliente.registrar(solicitud), (e) => e instanceof ErrorFirmaExterna && e.codigo === "resultado_no_confiable");
+  }
+});
+
 test("denegación, conflicto y red caída no producen un recibo aparente", async () => {
   const casos = [[403, "acceso_denegado"], [409, "conflicto"], [422, "firma_no_verificada"]];
   for (const [status, codigo] of casos) {
@@ -129,6 +145,8 @@ test("la pantalla presenta dos vías, pero sin DTO de original y permiso bloquea
   assert.equal(contextoFirmaExternaValido({ ...contexto, permitido: false }, solicitud.expedienteRef, 7, "resolucion", 1), false);
   assert.equal(contextoFirmaExternaValido({ ...contexto, expediente_ref: undefined }, undefined, 7, "resolucion", 1), false);
   assert.equal(contextoFirmaExternaValido({ ...contexto, version_expediente: undefined }, solicitud.expedienteRef, undefined, "resolucion", 1), false);
+  assert.equal(contextoFirmaExternaValido({ ...contexto, original_ref: null }, solicitud.expedienteRef, 7, "resolucion", 1), false);
+  assert.equal(contextoFirmaExternaValido({ ...contexto, original_ref: [solicitud.originalRef] }, solicitud.expedienteRef, 7, "resolucion", 1), false);
   let enviados = 0;
   const acciones = crearAccionesFirma({ obtenerEstado: estadoExpediente, t,
     clienteExterno: { registrar: async () => { enviados += 1; return recibo(); } } });
