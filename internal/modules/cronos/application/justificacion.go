@@ -56,6 +56,22 @@ func (s *ServicioJustificacion) preparar(ctx context.Context, o ports.OrdenJusti
 func materialJustificacion(a vecdomain.ContextoActor, p ports.PreparacionJustificacion, v domain.VinculoJustificacion, key, accion string, version int64) domain.MaterialJustificacion {
 	return domain.MaterialJustificacion{ActorRef: a.PersonaRef, PerfilRef: a.PerfilActivoRef, ClaveOperacion: key, Accion: accion, SolicitudVersion: p.Solicitud.Version, VersionEsperada: version, PoliticaRef: p.Politica.Referencia, PoliticaVersion: p.Politica.Version, PoliticaSHA256: p.Politica.SHA256, Vinculo: v}
 }
+
+// RecursoJustificacion liga el efecto V3 al material exacto y a la persona
+// empleada resuelta por la frontera, sin usar datos libres de la petición.
+func RecursoJustificacion(m domain.MaterialJustificacion) (vecdomain.RecursoAutorizable, error) {
+	h, err := m.Huella()
+	if err != nil {
+		return vecdomain.RecursoAutorizable{}, err
+	}
+	r := vecdomain.RecursoAutorizable{Referencia: m.Vinculo.SolicitudRef, ModuloID: "cronos", Tipo: "justificacion",
+		Ambitos:   map[string]string{"empleado_ref": m.Vinculo.EmpleadoRef, "solicitud_ref": m.Vinculo.SolicitudRef},
+		Atributos: map[string]string{"material_sha256": h}}
+	if r.Validar() != nil {
+		return vecdomain.RecursoAutorizable{}, ports.ErrJustificacionNoDisponible
+	}
+	return r, nil
+}
 func reciboJustificacionCoherente(r ports.ReciboJustificacion, m domain.MaterialJustificacion, p ports.PreparacionJustificacion) bool {
 	h, e := m.Huella()
 	if e != nil || r.HuellaMaterial != h || r.ReciboRef == "" || r.FechaUTC.IsZero() || r.FechaUTC.Location() != time.UTC || r.FechaUTC.Nanosecond()%1000 != 0 || r.Justificacion.Validar(p.Solicitud, p.Politica) != nil || r.Justificacion.Vinculo != m.Vinculo || r.Justificacion.Version != m.VersionEsperada+1 || r.Registro == nil || !registroDocumentalCoherente(*r.Registro, m.Vinculo.Documento, p) {
@@ -75,6 +91,12 @@ func registroDocumentalCoherente(r ports.RegistroDocumentalConfirmado, d domain.
 		r.ConservacionHastaUTC.Location() == time.UTC &&
 		(r.Proteccion == "conservacion" || r.Proteccion == "bloqueo") &&
 		(r.EstadoPolitica == "aprobada" || r.EstadoPolitica == "provisional")
+}
+func mismoRegistroDocumental(a, b ports.RegistroDocumentalConfirmado) bool {
+	return a.Documento == b.Documento && a.ModuloID == b.ModuloID && a.ExpedienteRef == b.ExpedienteRef &&
+		a.TipoRef == b.TipoRef && a.NumeroVEC == b.NumeroVEC && a.CreadoEnUTC.Equal(b.CreadoEnUTC) &&
+		a.PoliticaRef == b.PoliticaRef && a.PoliticaVersion == b.PoliticaVersion && a.PoliticaSHA256 == b.PoliticaSHA256 &&
+		a.ConservacionHastaUTC.Equal(b.ConservacionHastaUTC) && a.Proteccion == b.Proteccion && a.EstadoPolitica == b.EstadoPolitica
 }
 func (s *ServicioJustificacion) Anexar(ctx context.Context, o ports.OrdenJustificacion, in ports.PeticionAnexoJustificacion) (ports.ResultadoAnexoJustificacion, error) {
 	a, p, e := s.preparar(ctx, o, in.SolicitudRef)
@@ -125,13 +147,14 @@ func (s *ServicioJustificacion) Anexar(ctx context.Context, o ports.OrdenJustifi
 	if !registroDocumentalCoherente(registro, in.Documento, p) {
 		return ports.ResultadoAnexoJustificacion{EnlacePendiente: true}, ports.ErrEnlaceJustificacionPendiente
 	}
+	registroOriginal := registro
 	d := registro.Documento
-	resultado := ports.ResultadoAnexoJustificacion{Documento: &d, Registro: &registro, EnlacePendiente: true}
+	resultado := ports.ResultadoAnexoJustificacion{Documento: &d, Registro: &registroOriginal, EnlacePendiente: true}
 	r, e = s.repo.ConfirmarJustificacion(ctx, m, siguiente, &registro, autorizacion)
 	if e != nil {
 		return resultado, errors.Join(ports.ErrEnlaceJustificacionPendiente, e)
 	}
-	if !reciboJustificacionCoherente(r, m, p) {
+	if !reciboJustificacionCoherente(r, m, p) || r.Registro == nil || !mismoRegistroDocumental(*r.Registro, registroOriginal) {
 		return resultado, ports.ErrEnlaceJustificacionPendiente
 	}
 	resultado.EnlacePendiente = false
@@ -190,10 +213,14 @@ func (s *ServicioJustificacion) Revisar(ctx context.Context, o ports.OrdenJustif
 // Validación estructural y ligadura previa; la comprobación criptográfica y
 // el consumo siguen perteneciendo a la transacción del repositorio.
 func (s *ServicioJustificacion) materialLigado(a vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, m domain.MaterialJustificacion) bool {
-	h, e := m.Huella()
+	recurso, e := RecursoJustificacion(m)
+	if e != nil {
+		return false
+	}
+	h, e := recurso.HuellaContextoAutorizacionSHA256()
 	r := a.ResumenCapacidad()
 	ahora := s.reloj.AhoraUTC()
-	return e == nil && a.ValidarEstructura() == nil && r.Operacion() == m.Accion && r.EfectoRef() == m.Vinculo.SolicitudRef && r.EfectoHuellaSHA256() == h && r.AudienciaConsumo() == AudienciaJustificacion && !ahora.Before(r.EmitidaEn()) && ahora.Before(r.ExpiraEn())
+	return e == nil && a.ValidarEstructura() == nil && r.Operacion() == m.Accion && r.EfectoRef() == recurso.Referencia && r.EfectoHuellaSHA256() == h && r.AudienciaConsumo() == AudienciaJustificacion && !ahora.Before(r.EmitidaEn()) && ahora.Before(r.ExpiraEn())
 }
 
 const AudienciaJustificacion = "vec_cronos_v1.justificacion.v1"

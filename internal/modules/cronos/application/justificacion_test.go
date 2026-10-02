@@ -55,6 +55,8 @@ type repoJustificacionPrueba struct {
 	registro          *ports.RegistroDocumentalConfirmado
 	err, errorLectura error
 	lecturas, efectos int
+	alterarRegistro   bool
+	sustituirRegistro bool
 }
 
 func (r *repoJustificacionPrueba) RecuperarJustificacion(_ context.Context, _ ports.OrdenJustificacion, m domain.MaterialJustificacion) (ports.ReciboJustificacion, bool, error) {
@@ -81,6 +83,14 @@ func (r *repoJustificacionPrueba) ConfirmarJustificacion(_ context.Context, m do
 			return ports.ReciboJustificacion{}, ports.ErrJustificacionNoDisponible
 		}
 		r.registro = registro
+		if r.alterarRegistro {
+			registro.NumeroVEC = "VEC-2026-15"
+		}
+		if r.sustituirRegistro {
+			copia := *registro
+			copia.NumeroVEC = "VEC-2026-15"
+			r.registro = &copia
+		}
 	} else if registro != nil || r.registro == nil {
 		return ports.ReciboJustificacion{}, ports.ErrJustificacionNoDisponible
 	}
@@ -101,7 +111,11 @@ func (p *proveedorJustificacionPrueba) ProveerMaterialJustificacion(_ context.Co
 	if p.err != nil || p.vacio {
 		return vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, p.err
 	}
-	h, e := m.Huella()
+	recurso, e := RecursoJustificacion(m)
+	if e != nil {
+		return vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, e
+	}
+	h, e := recurso.HuellaContextoAutorizacionSHA256()
 	if e != nil {
 		return vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, e
 	}
@@ -257,5 +271,45 @@ func TestJustificacionFalloDocumentosNoConfirmaCronos(t *testing.T) {
 	d.sinNumero = true
 	if res, e := s.Anexar(context.Background(), o, in); !errors.Is(e, ports.ErrEnlaceJustificacionPendiente) || r.efectos != 0 || res.ReciboCronos != nil {
 		t.Fatal("enlace sin confirmacion registral")
+	}
+}
+func TestJustificacionNoAceptaReciboConRegistroDistinto(t *testing.T) {
+	for _, caso := range []string{"mutar argumento", "sustituir recibo"} {
+		t.Run(caso, func(t *testing.T) {
+			s, o, _, _, r, _, in := escenarioJustificacion(t)
+			r.alterarRegistro = caso == "mutar argumento"
+			r.sustituirRegistro = caso == "sustituir recibo"
+			res, err := s.Anexar(context.Background(), o, in)
+			if !errors.Is(err, ports.ErrEnlaceJustificacionPendiente) || !res.EnlacePendiente || res.Registro == nil || res.Registro.NumeroVEC != "VEC-2026-14" || res.ReciboCronos != nil {
+				t.Fatal("recibo aceptado con registro distinto al confirmado", err, res)
+			}
+		})
+	}
+}
+
+func TestRecursoJustificacionLigaHuellaDelMaterialAlContextoV3(t *testing.T) {
+	_, o, f, _, _, _, in := escenarioJustificacion(t)
+	actor, err := o.ContextoActor()
+	if err != nil {
+		t.Fatal(err)
+	}
+	v := domain.VinculoJustificacion{SolicitudRef: f.p.Solicitud.SolicitudRef, EmpleadoRef: f.p.Solicitud.EmpleadoRef,
+		CatalogoVersionRef: f.p.Solicitud.CatalogoVersionRef, PermisoRef: f.p.Solicitud.PermisoRef,
+		ExpedienteDocumentalRef: f.p.Solicitud.ExpedienteDocumentalRef, Documento: in.Documento}
+	m := materialJustificacion(actor, f.p, v, in.ClaveOperacion, domain.AccionAnexarJustificacion, 0)
+	recurso, err := RecursoJustificacion(m)
+	if err != nil || recurso.Referencia != in.SolicitudRef || recurso.Ambitos["empleado_ref"] != f.p.Solicitud.EmpleadoRef {
+		t.Fatal("recurso C8 incoherente", err)
+	}
+	contexto, err := recurso.HuellaContextoAutorizacionSHA256()
+	bruta, _ := m.Huella()
+	if err != nil || contexto == bruta || recurso.Atributos["material_sha256"] != bruta {
+		t.Fatal("huella V3 confundida con material bruto", err)
+	}
+	m.Vinculo.Documento.SHA256 = strings.Repeat("9", 64)
+	cambiado, err := RecursoJustificacion(m)
+	huellaCambiada, e := cambiado.HuellaContextoAutorizacionSHA256()
+	if err != nil || e != nil || contexto == huellaCambiada {
+		t.Fatal("material alterado conserva recurso V3", err, e)
 	}
 }
