@@ -1,5 +1,7 @@
 package bootstrap
 
+import personalports "vec-diputacion-granada/internal/modules/personal/ports"
+
 // En desarrollo hay un único gobierno V3: Contratación publica la
 // configuración vigente con una sola raíz y la renueva cada día (ver
 // contratacion_temporal_confianza_renovable_desarrollo.go). Un módulo que
@@ -74,6 +76,10 @@ func descriptoresMaterialDietasDesarrollo() []descriptorMaterialConsumidorV3Desa
 		{Audiencia: audienciaConsumoRegistrarAsignacionDietas, Dominio: "vec.personal.asignacion-dietas.registrar-inicial.desarrollo.capacidad-v3", Prefijo: "clave:capacidad:personal-asignacion-registrar:", ProveedorNominal: "proveedor-material-personal-asignacion-registrar"},
 		{Audiencia: audienciaConsumoCorregirAsignacionDietas, Dominio: "vec.personal.asignacion-dietas.corregir.desarrollo.capacidad-v3", Prefijo: "clave:capacidad:personal-asignacion-corregir:", ProveedorNominal: "proveedor-material-personal-asignacion-corregir"},
 		{Audiencia: audienciaConsumoCorregirGrupoDietas, Dominio: "vec.personal.asignacion-dietas.grupo-corregir.desarrollo.capacidad-v3", Prefijo: "clave:capacidad:personal-asignacion-grupo:", ProveedorNominal: "proveedor-material-personal-asignacion-grupo"},
+		{Audiencia: personalports.AudienciaSolicitarRectificacionDietas, Dominio: "vec.personal.rectificacion-dietas.solicitar.desarrollo.capacidad-v3", Prefijo: "clave:capacidad:personal-rectificacion-dietas-solicitar:", ProveedorNominal: "proveedor-material-personal-rectificacion-dietas-solicitar"},
+		{Audiencia: personalports.AudienciaConsultarRectificacionDietas, Dominio: "vec.personal.rectificacion-dietas.propia-consultar.desarrollo.capacidad-v3", Prefijo: "clave:capacidad:personal-rectificacion-dietas-propia-consultar:", ProveedorNominal: "proveedor-material-personal-rectificacion-dietas-propia-consultar"},
+		{Audiencia: personalports.AudienciaConsultarRectificacionesCompetentesDietas, Dominio: "vec.personal.rectificacion-dietas.competente-consultar.desarrollo.capacidad-v3", Prefijo: "clave:capacidad:personal-rectificacion-dietas-competente-consultar:", ProveedorNominal: "proveedor-material-personal-rectificacion-dietas-competente-consultar"},
+		{Audiencia: personalports.AudienciaResolverRectificacionDietas, Dominio: "vec.personal.rectificacion-dietas.resolver.desarrollo.capacidad-v3", Prefijo: "clave:capacidad:personal-rectificacion-dietas-resolver:", ProveedorNominal: "proveedor-material-personal-rectificacion-dietas-resolver"},
 		{Audiencia: audienciaConsumoRevisarDietas, Dominio: "vec.dietas.documento.revisar.desarrollo.capacidad-v3", Prefijo: "clave:capacidad:dietas-revisar:", ProveedorNominal: "proveedor-material-dietas-revisar"},
 		{Audiencia: audienciaConsumoAutorizarDietas, Dominio: "vec.dietas.documento.autorizar.desarrollo.capacidad-v3", Prefijo: "clave:capacidad:dietas-autorizar:", ProveedorNominal: "proveedor-material-dietas-autorizar"},
 		{Audiencia: audienciaConsumoLiquidarDietas, Dominio: "vec.dietas.documento.liquidar.desarrollo.capacidad-v3", Prefijo: "clave:capacidad:dietas-liquidar:", ProveedorNominal: "proveedor-material-dietas-liquidar"},

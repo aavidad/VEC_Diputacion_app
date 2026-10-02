@@ -156,3 +156,43 @@ func TestFichaPropiaHTTPSinAuditoriaNoRevelaMotivo(t *testing.T) {
 		t.Fatalf("sin auditoría se reveló el motivo: %d %s", w.Code, w.Body.String())
 	}
 }
+
+func TestFichaPropiaHTTPFechaReferenciaNoCambiaIdentidadNiConocimiento(t *testing.T) {
+	for _, fecha := range []string{"2020-02-29", "2026-09-25", "2027-01-01"} {
+		t.Run(fecha, func(t *testing.T) {
+			consulta := &consultaFichaPropiaHTTP{}
+			w := httptest.NewRecorder()
+			manejadorFichaPropiaPrueba(t, consulta, &registroFichaPropiaHTTP{}).ServeHTTP(w, httptest.NewRequest(http.MethodGet, RutaFichaPropia+"?fecha_referencia="+fecha, nil))
+			if w.Code != http.StatusOK || consulta.solicitud.Corte.VigenteEn.Texto() != fecha || !consulta.solicitud.Corte.ConocidoEn.Equal(time.Date(2026, 9, 24, 23, 29, 59, 0, time.UTC)) {
+				t.Fatalf("estado %d corte %+v", w.Code, consulta.solicitud.Corte)
+			}
+			if consulta.solicitud.Actor.Principal.ID != actorFichaPropiaPruebaHTTP(t).Principal.ID {
+				t.Fatal("la fecha alteró el actor efectivo")
+			}
+		})
+	}
+}
+
+func TestFichaPropiaHTTPRechazaVariantesDeCorteAntesDeConsultar(t *testing.T) {
+	for _, caso := range []struct {
+		query  string
+		estado int
+	}{
+		{"?", 404}, {"?fecha_referencia=", 400}, {"?fecha_referencia=2025-02-29", 400},
+		{"?fecha_referencia=0000-01-01", 400}, {"?fecha_referencia=2026-9-25", 400},
+		{"?fecha_referencia=2026-09-25T00:00:00Z", 400}, {"?fecha_referencia=%32%30%32%36-09-25", 400},
+		{"?fecha_referencia=2026-09-25&fecha_referencia=2020-01-01", 404},
+		{"?fecha_referencia=2026-09-25&empleado=emp_x", 404},
+		{"?conocido_en=2020-01-01", 404}, {"?fecha_referencia=2026-09-25&conocido_en=2020-01-01", 404},
+	} {
+		t.Run(caso.query, func(t *testing.T) {
+			consulta := &consultaFichaPropiaHTTP{}
+			registro := &registroFichaPropiaHTTP{}
+			w := httptest.NewRecorder()
+			manejadorFichaPropiaPrueba(t, consulta, registro).ServeHTTP(w, httptest.NewRequest(http.MethodGet, RutaFichaPropia+caso.query, nil))
+			if w.Code != caso.estado || consulta.llamadas != 0 || len(registro.denegaciones) != 1 {
+				t.Fatalf("estado %d consultas %d auditoría %+v", w.Code, consulta.llamadas, registro.denegaciones)
+			}
+		})
+	}
+}
