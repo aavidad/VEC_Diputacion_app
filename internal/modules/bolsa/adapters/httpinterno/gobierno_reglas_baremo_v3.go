@@ -22,6 +22,10 @@ type AutoridadGobiernoReglasBaremoV3 interface {
 	Credenciales(context.Context) (app.CredencialesGobiernoV3, error)
 }
 
+// La raíz liga este callback al registrador común ya compuesto. No recibe
+// identidad, superficie, cuerpo ni material V3 del cliente.
+type AuditarRechazoSesionGobiernoReglasV3 func(context.Context, string, error) error
+
 type OperadorGobiernoReglasBaremoV3 interface {
 	GuardarAltaBorrador(context.Context, app.CredencialesGobiernoV3, app.PeticionAltaBorradorV3) (ports.ResultadoAltaBorradorReglasV3, error)
 	ConsultarExacta(context.Context, app.CredencialesGobiernoV3, app.PeticionConsultaExactaV3) (ports.ResultadoConsultaGobiernoReglasV3, error)
@@ -33,13 +37,14 @@ type OperadorGobiernoReglasBaremoV3 interface {
 type HandlerGobiernoReglasBaremoV3 struct {
 	autoridad AutoridadGobiernoReglasBaremoV3
 	operador  OperadorGobiernoReglasBaremoV3
+	auditar   AuditarRechazoSesionGobiernoReglasV3
 }
 
-func NuevoHandlerGobiernoReglasBaremoV3(a AutoridadGobiernoReglasBaremoV3, o OperadorGobiernoReglasBaremoV3) (*HandlerGobiernoReglasBaremoV3, error) {
-	if dependenciaNula(a) || dependenciaNula(o) {
+func NuevoHandlerGobiernoReglasBaremoV3(a AutoridadGobiernoReglasBaremoV3, o OperadorGobiernoReglasBaremoV3, auditar AuditarRechazoSesionGobiernoReglasV3) (*HandlerGobiernoReglasBaremoV3, error) {
+	if dependenciaNula(a) || dependenciaNula(o) || auditar == nil {
 		return nil, app.ErrGobiernoV3NoDisponible
 	}
-	return &HandlerGobiernoReglasBaremoV3{a, o}, nil
+	return &HandlerGobiernoReglasBaremoV3{a, o, auditar}, nil
 }
 
 func (h *HandlerGobiernoReglasBaremoV3) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -55,12 +60,18 @@ func (h *HandlerGobiernoReglasBaremoV3) ServeHTTP(w http.ResponseWriter, r *http
 		responderGobiernoReglasV3(w, http.StatusMethodNotAllowed, "metodo_no_permitido")
 		return
 	}
-	if h == nil || dependenciaNula(h.autoridad) || dependenciaNula(h.operador) {
+	if h == nil || dependenciaNula(h.autoridad) || dependenciaNula(h.operador) || h.auditar == nil {
 		responderGobiernoReglasV3(w, http.StatusServiceUnavailable, "gobierno_reglas_v3_no_disponible")
 		return
 	}
 	credenciales, err := h.autoridad.Credenciales(r.Context())
 	if err != nil {
+		if errors.Is(err, app.ErrGobiernoV3NoAutenticado) || errors.Is(err, app.ErrGobiernoV3Prohibido) {
+			if errAudit := h.auditar(r.Context(), r.URL.Path, err); errAudit != nil {
+				errorGobiernoHTTPV3(w, app.ErrGobiernoV3NoDisponible)
+				return
+			}
+		}
 		errorGobiernoHTTPV3(w, err)
 		return
 	}

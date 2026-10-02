@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"bytes"
 	"context"
+	"errors"
 	"net/http"
 	"os"
 	"strings"
@@ -17,6 +18,7 @@ import (
 	pgvec "vec-diputacion-granada/internal/vec/adapters/postgres"
 	seg "vec-diputacion-granada/internal/vec/adapters/seguridad"
 	appvec "vec-diputacion-granada/internal/vec/application"
+	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
 type montajeGobiernoReglasBaremoHTTPV3 struct {
@@ -73,6 +75,7 @@ func (m *montajeGobiernoReglasBaremoHTTPV3) rutas(ctx context.Context, cfg confi
 	}
 	if ctx == nil || ctx.Err() != nil || alta == nil || alta.postgresql.gobierno == nil ||
 		alta.postgresql.registroAutorizacion == nil || alta.postgresql.proveedorMaterial == nil ||
+		dependenciaEsNulaContratacionTemporalDesarrollo(alta.postgresql.registradorAuditoriaFrontera) ||
 		m.perfil == nil || identidadBase == nil || fronteras.identidad == nil ||
 		!identidadBase.fronteras.mismaInstancia(fronteras) {
 		return nil, nil, app.ErrGobiernoV3NoDisponible
@@ -168,12 +171,33 @@ func (m *montajeGobiernoReglasBaremoHTTPV3) rutas(ctx context.Context, cfg confi
 	if err != nil {
 		return nil, nil, err
 	}
-	h, err := bolsahttp.NuevoHandlerGobiernoReglasBaremoV3(proveedor, servicio)
+	h, err := bolsahttp.NuevoHandlerGobiernoReglasBaremoV3(proveedor, servicio,
+		auditorRechazoSesionGobiernoReglasBaremoHTTPV3(sesion, alta.postgresql.registradorAuditoriaFrontera))
 	if err != nil {
 		return nil, nil, err
 	}
 	completo = true
 	return rutasHandlerGobiernoReglasBaremoHTTPV3(h), cerrar, nil
+}
+
+func auditorRechazoSesionGobiernoReglasBaremoHTTPV3(sesion *proveedorSesionConsultaRRHHDesarrollo, registrador vecports.RegistradorAuditoriaFronteraRutaExacta) bolsahttp.AuditarRechazoSesionGobiernoReglasV3 {
+	return func(ctx context.Context, ruta string, err error) error {
+		// El export común sólo registra una observación. La composición
+		// conserva aquí la prueba opaca del perímetro que emitió la raíz.
+		if !sesion.sesionGobiernoReglasBaremoHTTPV3(ctx, ruta) {
+			return app.ErrGobiernoV3NoDisponible
+		}
+		var motivo vecports.MotivoAuditoriaFronteraRutaExacta
+		switch {
+		case errors.Is(err, app.ErrGobiernoV3NoAutenticado):
+			motivo = vecports.MotivoAuditoriaFronteraRutaExactaAutenticacionRequerida
+		case errors.Is(err, app.ErrGobiernoV3Prohibido):
+			motivo = vecports.MotivoAuditoriaFronteraRutaExactaAccesoDenegado
+		default:
+			return app.ErrGobiernoV3NoDisponible
+		}
+		return vechttp.RegistrarDenegacionFronteraPreparacion(ctx, registrador, http.MethodPost, ruta, motivo)
+	}
 }
 
 func abrirPoolsGobiernoReglasBaremoHTTPV3(ctx context.Context, cfg config.Config, c *configuracionGobiernoReglasBaremoHTTPV3) (map[string]*pgxpool.Pool, func(), error) {

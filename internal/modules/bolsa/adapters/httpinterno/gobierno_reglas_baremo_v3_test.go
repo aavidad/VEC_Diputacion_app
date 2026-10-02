@@ -78,7 +78,7 @@ func escenarioGobiernoHTTPPrueba(t *testing.T) (*HandlerGobiernoReglasBaremoV3, 
 	}
 	a := &autoridadGobiernoHTTPPrueba{}
 	o := &operadorGobiernoHTTPPrueba{existe: true, recibo: ports.ReciboAltaBorradorReglasV3{ReciboRef: "recibo:original", ConfirmadaEn: ahora, Estado: estado, VersionCanonica: version, ClaveOperacion: p.ClaveOperacion, HuellaSolicitudSHA256: strings.Repeat("b", 64)}}
-	h, err := NuevoHandlerGobiernoReglasBaremoV3(a, o)
+	h, err := NuevoHandlerGobiernoReglasBaremoV3(a, o, func(context.Context, string, error) error { return nil })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -231,5 +231,31 @@ func TestGobiernoReglasHTTPV3FamiliaAusenteYRutasExactas(t *testing.T) {
 		if w.Code != caso.status || a.llamadas != 0 || o.llamadas != 0 {
 			t.Fatal("ruta/método ajeno alcanzó identidad")
 		}
+	}
+}
+
+func TestGobiernoReglasHTTPV3CallbackSoloParaSesionAnteriorPDP(t *testing.T) {
+	h, a, o, body := escenarioGobiernoHTTPPrueba(t)
+	llamadas := 0
+	h.auditar = func(context.Context, string, error) error { llamadas++; return nil }
+	// El operador representa aquí la denegación posterior del PDP. Su
+	// autoridad V3 conserva ese registro; no se inventa otro de sesión.
+	o.err = app.ErrGobiernoV3Prohibido
+	w := peticionGobiernoHTTPPrueba(t, h, RutaAltaGobiernoReglasBaremoV3, body)
+	if w.Code != 403 || llamadas != 0 || o.llamadas != 1 {
+		t.Fatal("denegación PDP adquirió callback de sesión")
+	}
+	a.err = app.ErrGobiernoV3NoAutenticado
+	w = peticionGobiernoHTTPPrueba(t, h, RutaAltaGobiernoReglasBaremoV3, body)
+	if w.Code != 401 || llamadas != 1 || o.llamadas != 1 {
+		t.Fatal("rechazo sesión llegó al operador o perdió auditoría")
+	}
+	a.err = app.ErrGobiernoV3NoDisponible
+	w = peticionGobiernoHTTPPrueba(t, h, RutaAltaGobiernoReglasBaremoV3, body)
+	if w.Code != 503 || llamadas != 1 || o.llamadas != 1 {
+		t.Fatal("caída de sesión inventó un motivo de denegación")
+	}
+	if _, err := NuevoHandlerGobiernoReglasBaremoV3(a, o, nil); err == nil {
+		t.Fatal("constructor habilitó familia sin callback")
 	}
 }
