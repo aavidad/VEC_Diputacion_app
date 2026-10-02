@@ -37,6 +37,8 @@ type ResultadoRecuperacionGobiernoReglasV3 struct {
 // transacción que obtiene los datos. Recuperar no crea borradores ni altera
 // historia/recibo; también autoriza y audita la respuesta ausente. No sustituir
 // selector por "última versión", ni reutilizar una concesión histórica.
+// RecuperarRecibo exige un selector original conocido. Una primera respuesta
+// perdida se reconcilia reintentando el alta con la misma intención estable.
 type ConsultaGobiernoReglasBaremoV3 interface {
 	ObtenerExacta(context.Context, OrdenConsultaGobiernoReglasV3) (ResultadoConsultaGobiernoReglasV3, error)
 	RecuperarRecibo(context.Context, OrdenConsultaGobiernoReglasV3) (ResultadoRecuperacionGobiernoReglasV3, error)

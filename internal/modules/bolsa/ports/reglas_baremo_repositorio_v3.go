@@ -74,7 +74,10 @@ type ResultadoAltaBorradorReglasV3 struct {
 // ConfirmarAltaBorrador consume V3 fresco, comprueba intención ligada al actor
 // y al contenido y reconcilia ANTES de crear otro estado. Una repetición con
 // el mismo material devuelve canon/fecha/recibo originales. Otra huella para
-// la clave produce conflicto. Un alta nueva exige ausencia de ese contenido,
+// la clave produce conflicto. Reintentar el alta resuelve también una primera
+// respuesta perdida, sin conocer todavía el selector original. El material
+// V3 fresco no sustituye ni redefine esa intención estable.
+// Un alta nueva exige ausencia de ese contenido,
 // añade revisión 1 inmutable, CAS, historia, auditoría, outbox y recibo en el
 // mismo COMMIT SERIALIZABLE. Nunca usa las funciones históricas V2/AD2.
 // El adaptador coteja los bytes Go originales (no jsonb::text), proyecciones,

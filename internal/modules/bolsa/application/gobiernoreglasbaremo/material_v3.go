@@ -24,6 +24,8 @@ var (
 const AudienciaGobiernoBorradorReglasV3 = "vec_bolsa_reglas_baremo.gobierno_borrador.v3"
 const esquemaMaterialGobiernoV3 = "vec.bolsa.gobierno-borrador.material.v3"
 const operacionAltaGobiernoV3 = "alta_borrador"
+const tipoRecursoIntencionGobiernoV3 = "intencion_gobierno_reglas_baremo"
+const prefijoRecursoIntencionGobiernoV3 = "intencion-reglas-baremo:"
 const operacionConsultaGobiernoV3 = "consultar_exacta"
 const operacionRecuperarGobiernoV3 = "recuperar_recibo"
 
@@ -72,6 +74,9 @@ type PeticionConsultaExactaV3 struct {
 	Motivo   vd.ReferenciaEntradaCatalogo
 }
 
+// PeticionRecuperarReciboV3 exige el selector exacto de un recibo conocido.
+// Si se pierde la primera respuesta, se reintenta GuardarAltaBorrador con
+// la misma clave y contenido; el repositorio devuelve el recibo original.
 type PeticionRecuperarReciboV3 struct {
 	bloqueoSerializacion
 	Selector              ports.SelectorGobiernoReglasV3
@@ -191,16 +196,16 @@ func prepararMaterialGobiernoV3(c CredencialesGobiernoV3, selector ports.Selecto
 		return MaterialGobiernoV3{}, ports.SolicitudMaterialGobiernoReglasV3{}, ErrGobiernoV3PeticionInvalida
 	}
 	id := selector.Identidad
-	material := MaterialGobiernoV3{Esquema: esquemaMaterialGobiernoV3, Operacion: operacion, Accion: accion, ModuloID: moduloBolsaGobiernoReglas, TipoRecurso: tipoRecursoReglasGobernadas, Finalidad: finalidad, PersonaRef: c.actor.PersonaRef, PerfilRef: c.actor.PerfilActivoRef, ConvocatoriaRef: id.ConvocatoriaRef(), ExpedienteRef: id.ExpedienteRef(), Estado: estadoMaterialV3(selector.Estado), VersionCanonica: bytes.Clone(canon), ClaveOperacion: clave, HuellaSolicitudSHA256: huella, MotivoCanonico: motivoCanon, SolicitadaEn: ahora.Format("2006-01-02T15:04:05.000000Z")}
+	tipo, prefijo, ref := tipoRecursoReglasGobernadas, "reglas-baremo:", selector.Estado.HuellaEstadoSHA256()
+	if operacion == operacionAltaGobiernoV3 {
+		tipo, prefijo, ref = tipoRecursoIntencionGobiernoV3, prefijoRecursoIntencionGobiernoV3, huella
+	}
+	material := MaterialGobiernoV3{Esquema: esquemaMaterialGobiernoV3, Operacion: operacion, Accion: accion, ModuloID: moduloBolsaGobiernoReglas, TipoRecurso: tipo, Finalidad: finalidad, PersonaRef: c.actor.PersonaRef, PerfilRef: c.actor.PerfilActivoRef, ConvocatoriaRef: id.ConvocatoriaRef(), ExpedienteRef: id.ExpedienteRef(), Estado: estadoMaterialV3(selector.Estado), VersionCanonica: bytes.Clone(canon), ClaveOperacion: clave, HuellaSolicitudSHA256: huella, MotivoCanonico: motivoCanon, SolicitadaEn: ahora.Format("2006-01-02T15:04:05.000000Z")}
 	datos, err := json.Marshal(material)
 	if err != nil {
 		return MaterialGobiernoV3{}, ports.SolicitudMaterialGobiernoReglasV3{}, ErrGobiernoV3PeticionInvalida
 	}
-	ref := selector.Estado.HuellaEstadoSHA256()
-	if operacion == operacionAltaGobiernoV3 {
-		ref = huella
-	} // intención estable, independiente del reloj de la propuesta
-	recurso := vd.RecursoAutorizable{Referencia: "reglas-baremo:" + ref, ModuloID: moduloBolsaGobiernoReglas, Tipo: tipoRecursoReglasGobernadas, Ambitos: map[string]string{ambitoConvocatoriaRef: id.ConvocatoriaRef(), ambitoExpedienteRef: id.ExpedienteRef()}, Atributos: map[string]string{"material_sha256": shaGobiernoV3(datos)}}
+	recurso := vd.RecursoAutorizable{Referencia: prefijo + ref, ModuloID: moduloBolsaGobiernoReglas, Tipo: tipo, Ambitos: map[string]string{ambitoConvocatoriaRef: id.ConvocatoriaRef(), ambitoExpedienteRef: id.ExpedienteRef()}, Atributos: map[string]string{"material_sha256": shaGobiernoV3(datos)}}
 	if recurso.Validar() != nil {
 		return MaterialGobiernoV3{}, ports.SolicitudMaterialGobiernoReglasV3{}, ErrGobiernoV3PeticionInvalida
 	}
