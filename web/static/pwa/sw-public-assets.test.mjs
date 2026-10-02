@@ -4,25 +4,38 @@ import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
 
 const source = await readFile(new URL('./sw-public-assets.js', import.meta.url), 'utf8');
-const VERSION = '20261002-pwa-v1';
+const configBase = JSON.parse(await readFile(new URL('./cache-publica-v1.json', import.meta.url), 'utf8'));
+const VERSION = configBase.version;
+const PRECACHE = 4;
 
-function crearEntorno(portal = 'empleado') {
+function crearEntorno(portal = 'empleado', opciones = {}) {
   const scopes = { empleado: '/portal-empleado/', personal: '/area-personal/', admin: '/administracion-perfiles/' };
-  const scope = scopes[portal];
   const handlers = new Map();
-  const almacen = new Map();
+  const almacen = opciones.almacen || new Map();
   const llamadas = [];
-  let respuesta = (url) => ({
-    status: 200, ok: true, type: 'basic', redirected: false, url,
-    headers: new Headers({ 'Content-Type': url.endsWith('.json?v=' + VERSION) ? 'application/json' :
-      url.includes('.css?') ? 'text/css' : 'text/javascript' }),
-    clone() { return this; },
-    async json() { return { general: {
-      sin_conexion_titulo: 'Sin conexión',
-      sin_conexion_mensaje: 'Compruebe la conexión y vuelva a intentarlo.',
-      reintentar: 'Reintentar'
-    } }; }
-  });
+  const config = opciones.config || configBase;
+  const indice = opciones.indice || {
+    por_defecto: 'es', idiomas: [{ codigo: 'es' }, { codigo: 'en' }]
+  };
+  let respuesta = url => {
+    const path = new URL(url).pathname;
+    const idioma = path.match(/^\/textos\/([^/]+)\/pwa\.json$/)?.[1];
+    const tipo = path.endsWith('.json') ? 'application/json' : path.endsWith('.css') ? 'text/css' : 'text/javascript';
+    return {
+      status: 200, ok: true, type: 'basic', redirected: false, url,
+      headers: new Headers({ 'Content-Type': tipo, ...(tipo === 'application/json' ? { 'Cache-Control': 'no-store' } : {}) }),
+      clone() { return this; },
+      async json() {
+        if (path === '/pwa/cache-publica-v1.json') return config;
+        if (path === '/textos/idiomas.json') return indice;
+        return { general: {
+          sin_conexion_titulo: `Sin conexión ${idioma}`,
+          sin_conexion_mensaje: 'Compruebe la conexión y vuelva a intentarlo.',
+          reintentar: 'Reintentar'
+        } };
+      }
+    };
+  };
   const caches = {
     async open(name) {
       if (!almacen.has(name)) almacen.set(name, new Map());
@@ -37,9 +50,8 @@ function crearEntorno(portal = 'empleado') {
   };
   const self = {
     location: { origin: 'https://vec.example' },
-    registration: { scope: `https://vec.example${scope}` },
-    clients: { async claim() {} },
-    async skipWaiting() {},
+    registration: { scope: `https://vec.example${scopes[portal]}` },
+    clients: { async claim() {} }, async skipWaiting() {},
     addEventListener(tipo, callback) { handlers.set(tipo, callback); }
   };
   vm.runInNewContext(source, { self, URL, Headers, Response, caches,
@@ -58,122 +70,166 @@ function crearEntorno(portal = 'empleado') {
   const solicitud = (path, options = {}) => ({
     url: new URL(path, 'https://vec.example').href,
     method: options.method || 'GET', mode: options.mode || 'cors',
-    destination: options.destination || '',
-    headers: new Headers(options.headers || {})
+    destination: options.destination || '', headers: new Headers(options.headers || {})
   });
   return { lanzar, solicitud, caches, almacen, llamadas, ponerRespuesta(fn) { respuesta = fn; } };
 }
 
-test('instala solo los catálogos públicos y limpia únicamente versiones de su portal', async () => {
+test('instala únicamente política e idiomas aprobados y limpia versiones del mismo portal', async () => {
   const app = crearEntorno();
   await app.lanzar('install');
   const nombre = `vec-pwa-empleado-public-${VERSION}`;
   assert.deepEqual([...app.almacen.get(nombre).keys()], [
+    `https://vec.example/pwa/cache-publica-v1.json?v=${VERSION}`,
+    `https://vec.example/textos/idiomas.json?v=${VERSION}`,
     `https://vec.example/textos/es/pwa.json?v=${VERSION}`,
     `https://vec.example/textos/en/pwa.json?v=${VERSION}`
   ]);
-  await app.caches.open('vec-pwa-empleado-public-anterior');
+  const anterior = await app.caches.open('vec-pwa-empleado-public-20261002-pwa-v1');
+  await anterior.put('https://vec.example/textos/es/preferencias.json?v=1', { ok: true });
   await app.caches.open('vec-pwa-personal-public-anterior');
   await app.lanzar('activate');
   assert.deepEqual(await app.caches.keys(), [nombre, 'vec-pwa-personal-public-anterior']);
 });
 
-test('ADMIN mantiene el scope del proceso privado y no almacena activos de otros portales', async () => {
+test('ADMIN conserva el scope privado y su CSS aprobado', async () => {
   const app = crearEntorno('admin');
   await app.lanzar('install');
-  const script = app.solicitud('/administracion-perfiles/arranque.js?v=1', { destination: 'script' });
-  await app.lanzar('fetch', script);
-  assert.equal(app.almacen.get(`vec-pwa-admin-public-${VERSION}`).has(script.url), true);
-  assert.equal(await app.lanzar('fetch', app.solicitud('/admin/modulos/arranque.js?v=1', { destination: 'script' })), undefined);
+  const css = app.solicitud(configBase.portales.admin[0], { destination: 'style' });
+  await app.lanzar('fetch', css);
+  assert.equal(app.almacen.get(`vec-pwa-admin-public-${VERSION}`).has(css.url), true);
+  assert.equal(await app.lanzar('fetch', app.solicitud('/admin/modulos/arranque.js?v=1')), undefined);
 });
 
-test('guarda solo una respuesta pública estática versionada del mismo origen', async () => {
+test('almacena una sola vez el asset exacto aprobado; un JS futuro del mismo directorio no entra', async () => {
   const app = crearEntorno();
   await app.lanzar('install');
-  const js = app.solicitud('/portal-empleado/portal.js?v=20260923-p4-reintento-v2', { destination: 'script' });
+  const js = app.solicitud(configBase.portales.empleado[2], { destination: 'script' });
   await app.lanzar('fetch', js);
   await app.lanzar('fetch', js);
   assert.equal(app.llamadas.filter(url => url === js.url).length, 1);
-  const entradas = app.almacen.get(`vec-pwa-empleado-public-${VERSION}`);
-  assert.equal(entradas.has(js.url), true);
+  const nuevo = app.solicitud('/portal-empleado/nuevo-modulo.js?v=20991231', { destination: 'script' });
+  assert.equal(await app.lanzar('fetch', nuevo), undefined);
+  assert.equal(app.almacen.get(`vec-pwa-empleado-public-${VERSION}`).size, PRECACHE + 1);
 });
 
-test('API, documentos, HTML, métodos de escritura, consultas ajenas y otros portales pasan a la red', async () => {
+test('API, documentos, HTML, escritura, consultas extra y otros portales pasan a la red', async () => {
   const app = crearEntorno();
   await app.lanzar('install');
   const rutas = [
-    '/api/vec/session?v=1',
-    '/portal-empleado/documentos/recibo.pdf?v=1',
-    '/portal-empleado/index.html?v=1',
-    '/portal-empleado/portal.js?perfil=rrhh',
-    '/portal-empleado/portal.js?v=1&usuario=1',
-    '/portal-empleado/portal.js',
-    '/portal-empleado/portal.test.mjs?v=1',
-    '/portal-empleado/sw.js?v=1',
-    '/area-personal/arranque.js?v=1',
-    'https://otro.example/portal-empleado/portal.js?v=1'
+    '/api/vec/session?v=1', '/portal-empleado/documentos/recibo.pdf?v=1',
+    '/portal-empleado/index.html?v=1', '/portal-empleado/portal.js?perfil=rrhh',
+    '/portal-empleado/portal.js?v=1&usuario=1', '/portal-empleado/portal.js',
+    '/portal-empleado/portal.test.mjs?v=1', '/portal-empleado/sw.js?v=1',
+    configBase.portales.personal[1], 'https://otro.example/portal-empleado/portal.js?v=1'
   ];
   for (const ruta of rutas) assert.equal(await app.lanzar('fetch', app.solicitud(ruta)), undefined, ruta);
-  assert.equal(await app.lanzar('fetch', app.solicitud('/portal-empleado/portal.js?v=1', { method: 'POST' })), undefined);
-  assert.equal(app.almacen.get(`vec-pwa-empleado-public-${VERSION}`).size, 2);
+  assert.equal(await app.lanzar('fetch', app.solicitud(configBase.portales.empleado[2], { method: 'POST' })), undefined);
+  assert.equal(app.almacen.get(`vec-pwa-empleado-public-${VERSION}`).size, PRECACHE);
 });
 
-test('rechaza redirecciones, HTML disfrazado, respuestas privadas y tipos opacos', async () => {
+test('rechaza respuesta redirigida, HTML disfrazado, privada, opaca o de otro origen', async () => {
   const app = crearEntorno();
   await app.lanzar('install');
-  const url = '/portal-empleado/portal.css?v=1';
+  const url = configBase.portales.empleado[0];
   for (const cambio of [
     { redirected: true },
     { headers: new Headers({ 'Content-Type': 'text/html' }) },
     { headers: new Headers({ 'Content-Type': 'text/css', 'Cache-Control': 'private' }) },
-    { type: 'opaque' },
-    { url: 'https://otro.example/portal.css?v=1' }
+    { type: 'opaque' }, { url: 'https://otro.example/portal.css?v=1' }
   ]) {
     app.ponerRespuesta(valor => ({ status: 200, ok: true, type: 'basic', redirected: false,
       url: valor, headers: new Headers({ 'Content-Type': 'text/css' }), clone() { return this; }, ...cambio }));
     await app.lanzar('fetch', app.solicitud(url, { destination: 'style' }));
   }
-  assert.equal(app.almacen.get(`vec-pwa-empleado-public-${VERSION}`).size, 2);
+  assert.equal(app.almacen.get(`vec-pwa-empleado-public-${VERSION}`).size, PRECACHE);
 });
 
-test('un catálogo i18n privado no se almacena, aunque sea JSON público por ruta', async () => {
+test('un catálogo offline marcado private se rechaza; otros JSON no figuran en la política', async () => {
   const app = crearEntorno();
   await app.lanzar('install');
-  const url = '/textos/es/preferencias.json?v=1';
+  const cache = app.almacen.get(`vec-pwa-empleado-public-${VERSION}`);
+  const catalogo = `https://vec.example/textos/es/pwa.json?v=${VERSION}`;
+  cache.delete(catalogo);
   app.ponerRespuesta(valor => ({ status: 200, ok: true, type: 'basic', redirected: false,
     url: valor, headers: new Headers({ 'Content-Type': 'application/json', 'Cache-Control': 'private, no-store' }),
     clone() { return this; }
   }));
-  await app.lanzar('fetch', app.solicitud(url));
-  assert.equal(app.almacen.get(`vec-pwa-empleado-public-${VERSION}`).size, 2);
+  await app.lanzar('fetch', app.solicitud(catalogo));
+  assert.equal(cache.has(catalogo), false);
+  assert.equal(await app.lanzar('fetch', app.solicitud('/textos/es/preferencias.json?v=1')), undefined);
 });
 
-test('si la carga anónima del estático falla, recupera la petición de red sin almacenarla', async () => {
+test('un fallo al pedir el estático aprobado vuelve a la red original sin cachearlo', async () => {
   const app = crearEntorno();
   await app.lanzar('install');
   app.ponerRespuesta((valor, input) => {
     if (typeof input === 'string') throw new TypeError('redirección rechazada');
     return { status: 200, ok: true, url: valor };
   });
-  const recurso = app.solicitud('/portal-empleado/portal.js?v=1', { destination: 'script' });
+  const recurso = app.solicitud(configBase.portales.empleado[2], { destination: 'script' });
   const response = await app.lanzar('fetch', recurso);
   assert.equal(response.url, recurso.url);
   assert.equal(app.llamadas.filter(url => url === recurso.url).length, 2);
-  assert.equal(app.almacen.get(`vec-pwa-empleado-public-${VERSION}`).size, 2);
+  assert.equal(app.almacen.get(`vec-pwa-empleado-public-${VERSION}`).size, PRECACHE);
 });
 
-test('las navegaciones consultan la red; sin conexión generan HTML sin guardarlo', async () => {
-  const app = crearEntorno('personal');
+test('la página sin conexión deriva tercer idioma y nuevo predeterminado del índice', async () => {
+  const indice = { por_defecto: 'fr', idiomas: [{ codigo: 'es' }, { codigo: 'en' }, { codigo: 'fr' }] };
+  const app = crearEntorno('personal', { indice });
   await app.lanzar('install');
-  const privada = app.solicitud('/area-personal/?vista=perfil&persona=123', { mode: 'navigate', headers: { 'Accept-Language': 'es' } });
+  const privada = app.solicitud('/area-personal/?vista=perfil&persona=123', { mode: 'navigate',
+    headers: { 'Accept-Language': 'fr-FR,fr;q=0.9' } });
   const online = await app.lanzar('fetch', privada);
   assert.equal(online.url, privada.url);
   app.ponerRespuesta(() => { throw new TypeError('sin red'); });
   const offline = await app.lanzar('fetch', privada);
+  const html = await offline.text();
   assert.equal(offline.status, 503);
   assert.equal(offline.headers.get('Cache-Control'), 'no-store');
-  const html = await offline.text();
-  assert.match(html, /Sin conexión/);
+  assert.match(html, /lang="fr"/);
+  assert.match(html, /Sin conexión fr/);
   assert.doesNotMatch(html, /persona=123/);
-  assert.equal(app.almacen.get(`vec-pwa-personal-public-${VERSION}`).size, 2);
+  const sinPreferencia = await app.lanzar('fetch', app.solicitud('/area-personal/', { mode: 'navigate' }));
+  assert.match(await sinPreferencia.text(), /Sin conexión fr/);
+  assert.equal(app.almacen.get(`vec-pwa-personal-public-${VERSION}`).size, PRECACHE + 1);
+});
+
+test('respeta el código regional canónico y recupera política del CacheStorage tras reiniciar', async () => {
+  const indice = { por_defecto: 'es', idiomas: [{ codigo: 'es' }, { codigo: 'pt-BR' }] };
+  const primera = crearEntorno('personal', { indice });
+  await primera.lanzar('install');
+  const reiniciada = crearEntorno('personal', { almacen: primera.almacen });
+  reiniciada.ponerRespuesta(() => { throw new TypeError('sin red'); });
+  const respuesta = await reiniciada.lanzar('fetch', reiniciada.solicitud('/area-personal/?vista=perfil', {
+    mode: 'navigate', headers: { 'Accept-Language': 'pt-BR,pt;q=0.9' }
+  }));
+  const html = await respuesta.text();
+  assert.match(html, /lang="pt-BR"/);
+  assert.match(html, /Sin conexión pt-BR/);
+  assert.equal(primera.almacen.get(`vec-pwa-personal-public-${VERSION}`).size, PRECACHE);
+});
+
+test('la preferencia lang explícita precede al navegador y se conserva al reintentar', async () => {
+  const app = crearEntorno('personal');
+  await app.lanzar('install');
+  app.ponerRespuesta(() => { throw new TypeError('sin red'); });
+  const en = await app.lanzar('fetch', app.solicitud('/area-personal/?lang=en&vista=perfil', {
+    mode: 'navigate', headers: { 'Accept-Language': 'es-ES' }
+  }));
+  const enHTML = await en.text();
+  assert.match(enHTML, /lang="en"/);
+  assert.match(enHTML, /href="\/area-personal\/\?lang=en"/);
+  assert.doesNotMatch(enHTML, /vista=perfil/);
+  const es = await app.lanzar('fetch', app.solicitud('/area-personal/?lang=es', {
+    mode: 'navigate', headers: { 'Accept-Language': 'en-GB' }
+  }));
+  assert.match(await es.text(), /lang="es"/);
+});
+
+test('una configuración que intente añadir API se rechaza en la instalación', async () => {
+  const config = structuredClone(configBase);
+  config.comunes.push('/api/vec/private.js?v=1');
+  const app = crearEntorno('empleado', { config });
+  await assert.rejects(app.lanzar('install'), /política pública PWA no válida/);
 });

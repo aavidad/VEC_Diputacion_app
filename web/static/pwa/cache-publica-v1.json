@@ -1,0 +1,27 @@
+{
+  "version": "20261002-pwa-v2",
+  "comunes": [
+    "/pwa/instalar.js?v=20261002-pwa-v2",
+    "/pwa/navegacion.css?v=20261002-pwa-v2",
+    "/pwa/icons/vec-192.png?v=20261002-pwa-v1",
+    "/pwa/icons/vec-512.png?v=20261002-pwa-v1",
+    "/pwa/icons/vec-maskable-192.png?v=20261002-pwa-v1",
+    "/pwa/icons/vec-maskable-512.png?v=20261002-pwa-v1",
+    "/pwa/icons/vec.ico?v=20261002-pwa-v1"
+  ],
+  "portales": {
+    "empleado": [
+      "/portal-empleado/portal.css?v=20261001-codexf-accesibilidad-v1",
+      "/portal-empleado/portal-componentes.css?v=20261001-f-cronos-movimientos-v1",
+      "/portal-empleado/portal.js?v=20261002-personal-servicios-csv-v2"
+    ],
+    "personal": [
+      "/area-personal/area-personal.css?v=20261001-codexf-accesibilidad-v1",
+      "/area-personal/arranque.js?v=20261001-codexf-accesibilidad-v1"
+    ],
+    "admin": [
+      "/administracion-perfiles/administracion-perfiles.css?v=20261002-admin-perfiles-v3",
+      "/administracion-perfiles/administracion-perfiles.js?v=20261002-admin-perfiles-referencia-v1"
+    ]
+  }
+}
