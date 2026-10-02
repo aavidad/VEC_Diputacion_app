@@ -1,0 +1,3 @@
+# Prefijo requerido: AD151 y CT163 instaladas una sola vez sobre H7/H8/post-AD155.
+# AD159 conserva sus PARO funcionales y no forma parte del lote instalable.
+deploy/postgresql/contratacion_temporal/migraciones/000164_actos_circuito_rrhh.up.sql
