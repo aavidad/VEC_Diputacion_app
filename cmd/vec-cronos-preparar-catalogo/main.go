@@ -27,9 +27,9 @@ func main() {
 	if err != nil {
 		os.Exit(1)
 	}
-	defer f.Close()
 	contenido, err := io.ReadAll(io.LimitReader(f, 1<<20+1))
-	if err != nil {
+	errCierre := f.Close()
+	if err != nil || errCierre != nil {
 		os.Exit(1)
 	}
 	politica, err := catalogoefectos.ValidarPropuestaC3(contenido)

@@ -3,9 +3,13 @@ package catalogoefectos
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"regexp"
+	"unicode/utf8"
 	"vec-diputacion-granada/internal/modules/cronos/domain"
 	"vec-diputacion-granada/internal/modules/cronos/ports"
 )
+
+var idiomaCatalogoC3 = regexp.MustCompile(`^[a-z]{2,3}(-[A-Z]{2})?$`)
 
 type propuestaEfectosJSON struct {
 	VersionEsquema int `json:"version_esquema"`
@@ -22,16 +26,18 @@ type propuestaEfectosJSON struct {
 // ValidarPropuestaC3 valida contenido configurable; no lo publica ni aprueba.
 // El SHA corresponde a los bytes exactos, incluidos espacios y orden JSON.
 func ValidarPropuestaC3(contenido []byte) (domain.PoliticaEfectosPermisoSaldo, error) {
+	if !utf8.Valid(contenido) {
+		return domain.PoliticaEfectosPermisoSaldo{}, domain.ErrEfectoPermisoSaldoInvalido
+	}
 	huella := sha256.Sum256(contenido)
 	sha := hex.EncodeToString(huella[:])
 	var documento propuestaEfectosJSON
 	if DecodificarEstricto(contenido, sha, &documento) != nil ||
-		documento.VersionEsquema != 1 || len(documento.Textos) < 2 || len(documento.Textos) > 10 ||
-		len(documento.Textos["es"].Aviso) == 0 || len(documento.Textos["en"].Aviso) == 0 {
+		documento.VersionEsquema != 1 || len(documento.Textos) < 1 || len(documento.Textos) > 10 {
 		return domain.PoliticaEfectosPermisoSaldo{}, domain.ErrEfectoPermisoSaldoInvalido
 	}
 	for idioma, textos := range documento.Textos {
-		if len(idioma) < 2 || len(idioma) > 10 || len(textos.Aviso) == 0 || len(textos.Aviso) > 1024 {
+		if !idiomaCatalogoC3.MatchString(idioma) || len(textos.Aviso) == 0 || len(textos.Aviso) > 1024 {
 			return domain.PoliticaEfectosPermisoSaldo{}, domain.ErrEfectoPermisoSaldoInvalido
 		}
 	}
