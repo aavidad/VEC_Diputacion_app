@@ -1354,10 +1354,10 @@ GRANT EXECUTE ON FUNCTION vec_autorizacion.registrar_denegacion_frontera_admin_v
 
 DO $acl_bootstrap_y_lectura$
 BEGIN
- IF pg_has_function_privilege('vec_admin_perfiles_ejecutor','vec_autorizacion.provisionar_dos_administradores_iniciales_v2(text,text)','EXECUTE')
- OR pg_has_function_privilege('vec_admin_perfiles_bootstrap_ejecutor','vec_autorizacion.preparar_preimagen_admin_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
- OR pg_has_table_privilege('vec_admin_perfiles_ejecutor','vec_autorizacion.bootstrap_admin_v2','SELECT,INSERT,UPDATE,DELETE,TRUNCATE')
- OR pg_has_table_privilege('vec_admin_perfiles_bootstrap_ejecutor','vec_autorizacion.bootstrap_admin_v2','SELECT,INSERT,UPDATE,DELETE,TRUNCATE')
+ IF has_function_privilege('vec_admin_perfiles_ejecutor','vec_autorizacion.provisionar_dos_administradores_iniciales_v2(text,text)','EXECUTE')
+ OR has_function_privilege('vec_admin_perfiles_bootstrap_ejecutor','vec_autorizacion.preparar_preimagen_admin_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
+ OR has_table_privilege('vec_admin_perfiles_ejecutor','vec_autorizacion.bootstrap_admin_v2','SELECT,INSERT,UPDATE,DELETE,TRUNCATE')
+ OR has_table_privilege('vec_admin_perfiles_bootstrap_ejecutor','vec_autorizacion.bootstrap_admin_v2','SELECT,INSERT,UPDATE,DELETE,TRUNCATE')
  OR EXISTS(SELECT 1 FROM pg_auth_members WHERE member IN('vec_admin_perfiles_ejecutor'::regrole,'vec_admin_perfiles_bootstrap_ejecutor'::regrole))
  OR EXISTS(SELECT 1 FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
  WHERE p.oid IN('vec_autorizacion.provisionar_dos_administradores_iniciales_v2(text,text)'::regprocedure,'vec_autorizacion.preparar_preimagen_admin_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure)
