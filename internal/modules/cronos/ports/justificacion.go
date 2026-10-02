@@ -15,6 +15,12 @@ var ErrEnlaceJustificacionPendiente = errors.New("cronos: enlace documental pend
 type ProveedorMaterialJustificacion interface {
 	ProveerMaterialJustificacion(context.Context, domain.MaterialJustificacion) (vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error)
 }
+
+// Las dos lecturas piden decisiones nuevas, distintas de las escrituras.
+type ProveedorLecturaJustificacion interface {
+	ProveerMaterialConsultaJustificacion(context.Context, domain.MaterialConsultaJustificacion) (vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error)
+	ProveerMaterialReciboJustificacion(context.Context, domain.MaterialReciboJustificacion) (vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error)
+}
 type OrdenJustificacion struct {
 	actor     vecdomain.ContextoActor
 	proveedor ProveedorMaterialJustificacion
@@ -59,26 +65,26 @@ type DocumentosJustificacion interface {
 // Sale exclusivamente del servicio común de Documentos después de registrar
 // una referencia externa. Acredita ese registro VEC, no la custodia externa.
 type RegistroDocumentalConfirmado struct {
-	Documento            domain.DocumentoJustificacion
-	ModuloID             string
-	ExpedienteRef        string
-	TipoRef              string
-	NumeroVEC            string
-	CreadoEnUTC          time.Time
-	PoliticaRef          string
-	PoliticaVersion      uint64
-	PoliticaSHA256       string
-	ConservacionHastaUTC time.Time
-	Proteccion           string
-	EstadoPolitica       string
+	Documento            domain.DocumentoJustificacion `json:"documento"`
+	ModuloID             string                        `json:"modulo_id"`
+	ExpedienteRef        string                        `json:"expediente_ref"`
+	TipoRef              string                        `json:"tipo_ref"`
+	NumeroVEC            string                        `json:"numero_vec"`
+	CreadoEnUTC          time.Time                     `json:"creado_en_utc"`
+	PoliticaRef          string                        `json:"politica_ref"`
+	PoliticaVersion      uint64                        `json:"politica_version"`
+	PoliticaSHA256       string                        `json:"politica_sha256"`
+	ConservacionHastaUTC time.Time                     `json:"conservacion_hasta_utc"`
+	Proteccion           string                        `json:"proteccion"`
+	EstadoPolitica       string                        `json:"estado_politica"`
 }
 type ReciboJustificacion struct {
-	Justificacion  domain.Justificacion
-	Registro       *RegistroDocumentalConfirmado
-	HuellaMaterial string
-	ReciboRef      string
-	FechaUTC       time.Time
-	Replay         bool
+	Justificacion  domain.Justificacion          `json:"justificacion"`
+	Registro       *RegistroDocumentalConfirmado `json:"registro"`
+	HuellaMaterial string                        `json:"huella_material"`
+	ReciboRef      string                        `json:"recibo_ref"`
+	FechaUTC       time.Time                     `json:"fecha_utc"`
+	Replay         bool                          `json:"replay"`
 }
 
 // Recuperar reautoriza lectura en la petición actual; una misma clave con

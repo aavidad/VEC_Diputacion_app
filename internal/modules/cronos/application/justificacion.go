@@ -224,3 +224,39 @@ func (s *ServicioJustificacion) materialLigado(a vecports.ExportacionMaterialCon
 }
 
 const AudienciaJustificacion = "vec_cronos_v1.justificacion.v1"
+
+const (
+	AccionConsultaJustificacion    = "cronos.justificacion.consultar"
+	AccionReciboJustificacion      = "cronos.justificacion.recibo.consultar"
+	AudienciaConsultaJustificacion = "vec_cronos_v1.justificacion.consultar.v1"
+	AudienciaReciboJustificacion   = "vec_cronos_v1.justificacion.recibo.consultar.v1"
+)
+
+func recursoLecturaJustificacion(ref, empleado, tipo string, canonico []byte) (vecdomain.RecursoAutorizable, error) {
+	if len(canonico) == 0 {
+		return vecdomain.RecursoAutorizable{}, ports.ErrJustificacionNoDisponible
+	}
+	r := vecdomain.RecursoAutorizable{Referencia: ref, ModuloID: "cronos", Tipo: tipo,
+		Ambitos:   map[string]string{"empleado_ref": empleado, "solicitud_ref": ref},
+		Atributos: map[string]string{"material_sha256": domain.HuellaMaterialLecturaJustificacion(canonico)}}
+	if r.Validar() != nil {
+		return vecdomain.RecursoAutorizable{}, ports.ErrJustificacionNoDisponible
+	}
+	return r, nil
+}
+
+func RecursoConsultaJustificacion(m domain.MaterialConsultaJustificacion) (vecdomain.RecursoAutorizable, error) {
+	b, err := m.Canonico()
+	if err != nil {
+		return vecdomain.RecursoAutorizable{}, err
+	}
+	return recursoLecturaJustificacion(m.SolicitudRef, m.EmpleadoRef, "justificacion", b)
+}
+
+func RecursoReciboJustificacion(m domain.MaterialReciboJustificacion) (vecdomain.RecursoAutorizable, error) {
+	b, err := m.Canonico()
+	if err != nil {
+		return vecdomain.RecursoAutorizable{}, err
+	}
+	return recursoLecturaJustificacion(m.SolicitudRef, m.EmpleadoRef, "justificacion_recibo", b)
+}
