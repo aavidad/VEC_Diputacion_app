@@ -174,8 +174,11 @@ func (a *autorizadoresFirmaR5Desarrollo) AutorizarRegistroFirmaExterna(ctx conte
 		return ports.CapacidadFirmaExterna{}, ports.ErrFirmaDocumentoDenegada
 	}
 	material, err := a.autorizar(ctx, a.externa, ports.AccionRegistrarFirmaExterna, ports.AudienciaFirmaExternaV3, r, "", "")
+	if err != nil {
+		return ports.CapacidadFirmaExterna{}, err
+	}
 	c := ports.TransportarMaterialFirmaExterna(material)
-	if err != nil || ctapp.ValidarCapacidadFirmaExterna(c, m) != nil {
+	if ctapp.ValidarCapacidadFirmaExterna(c, m) != nil {
 		return ports.CapacidadFirmaExterna{}, ports.ErrFirmaDocumentoDenegada
 	}
 	return c, nil
@@ -191,8 +194,11 @@ func (a *autorizadoresFirmaR5Desarrollo) AutorizarFirmaVec(ctx context.Context, 
 	}
 	material, err := a.autorizar(ctx, a.vec, ports.AccionRegistrarFirmaVec, ports.AudienciaFirmaVecV3,
 		r, m.FirmantePrincipalRef, m.CertificadoHuella)
+	if err != nil {
+		return ports.CapacidadFirmaVec{}, err
+	}
 	c := ports.TransportarMaterialFirmaVec(material)
-	if err != nil || ctapp.ValidarCapacidadFirmaVec(c, m) != nil {
+	if ctapp.ValidarCapacidadFirmaVec(c, m) != nil {
 		return ports.CapacidadFirmaVec{}, ports.ErrFirmaDocumentoDenegada
 	}
 	return c, nil
@@ -204,8 +210,11 @@ func (a *autorizadoresFirmaR5Desarrollo) AutorizarConsultaFirmasR5(ctx context.C
 		return ports.CapacidadConsultaFirmasR5{}, ports.ErrFirmaDocumentoDenegada
 	}
 	material, err := a.autorizar(ctx, a.consulta, ports.AccionConsultarFirmasR5, ports.AudienciaConsultaFirmasR5V3, r, "", "")
+	if err != nil {
+		return ports.CapacidadConsultaFirmasR5{}, err
+	}
 	c := ports.TransportarMaterialConsultaFirmasR5(material)
-	if err != nil || ctapp.ValidarCapacidadConsultaFirmasR5(c, m) != nil {
+	if ctapp.ValidarCapacidadConsultaFirmasR5(c, m) != nil {
 		return ports.CapacidadConsultaFirmasR5{}, ports.ErrFirmaDocumentoDenegada
 	}
 	return c, nil
