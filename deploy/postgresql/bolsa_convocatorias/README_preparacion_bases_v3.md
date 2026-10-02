@@ -64,8 +64,9 @@ Ninguna operación escribe tablas formales de gobierno de convocatorias.
 
 ## Estado verificable
 
-Este corte es un borrador. AD153 mantiene vacías las tres huellas de preimagen,
-lo que impide instalarlo hasta medir el núcleo real y revisar el delta final.
+Este corte es un borrador. Las tres huellas de AD153 proceden del núcleo
+POST145 real del clon. Una preimagen posterior exige remedir y revisar el delta;
+el ensayo de esta candidata no acredita automáticamente otra versión.
 No depende de la numeración anterior: la lista de despliegue sigue el orden de
 fusión y sólo los objetos reales requeridos. No reaplicar migraciones instaladas
 ni ejecutar DOWN sobre historia.

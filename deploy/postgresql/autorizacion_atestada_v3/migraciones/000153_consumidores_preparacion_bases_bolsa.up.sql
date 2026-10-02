@@ -1,6 +1,6 @@
 \set ON_ERROR_STOP on
 -- AD153 S2: preparación incompleta de bases. No aprueba ni publica bases.
--- BORRADOR bloqueado hasta medir la preimagen real del núcleo que se integre.
+-- Preimagen POST145 real medida; ensayo y revisión final todavía pendientes.
 BEGIN;
 SET LOCAL search_path=pg_catalog,pg_temp;
 SET LOCAL timezone='UTC'; SET LOCAL lock_timeout='5s'; SET LOCAL statement_timeout='30s';
@@ -32,10 +32,10 @@ DECLARE
  f oid:=to_regprocedure('vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
  original text; nuevo text; actual text; fuente text; meta jsonb; deps jsonb; deps_compartidas jsonb; acl aclitem[];
  propietario oid; config text[]; definidora boolean;
- -- BORRADOR: medir definición/fuente/audiencias del núcleo real antes del ensayo.
- -- Las tres huellas vacías bloquean la instalación; no se estiman postimágenes.
- esperada_def_sha256 text:=$esperada_def_sha256$$esperada_def_sha256$;
- esperada_fuente_sha256 text:=$esperada_fuente_sha256$$esperada_fuente_sha256$;
+ -- Huellas medidas en el núcleo POST145 real antes del ensayo.
+ -- Otra preimagen exige remedirlas y revisar el delta; no se estiman postimágenes.
+ esperada_def_sha256 text:=$esperada_def_sha256$060fa1c5e51a8a2fa4a2dd8fd7ebfe705f79e96ab71666e2754a52c378a0d89e$esperada_def_sha256$;
+ esperada_fuente_sha256 text:=$esperada_fuente_sha256$993e82bef26142ba928de996f92632d8a06a5b459715f0090d64ca756bb25358$esperada_fuente_sha256$;
  marca text:=$marca$       )
        OR c ->> 'suite' <> 'VEC-AD-3-COSE-EDDSA-1'$marca$;
  excl text:=$excl$               p_perfil_mutacion IS DISTINCT FROM 'bolsa_llamamiento'
@@ -178,7 +178,7 @@ BEGIN
  SELECT pg_get_constraintdef(c.oid,true) INTO STRICT d FROM pg_constraint c
  WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
  AND c.conname='clave_capacidad_version_audiencia_consumo_check' AND c.contype='c' AND c.convalidated;
- IF encode(sha256(convert_to(d,'UTF8')),'hex') IS DISTINCT FROM ''
+ IF encode(sha256(convert_to(d,'UTF8')),'hex') IS DISTINCT FROM '8f3d3c4b34e0e4904c2e132982347800e2cf34a9e5d5842c79988f83a11161f7'
  OR strpos(d,'CHECK (audiencia_consumo = ANY (ARRAY[')<>1 OR right(d,3)<>']))'
  OR strpos(d,'vec_bolsa_convocatorias.preparacion_bases.')<>0
  THEN RAISE EXCEPTION 'AD3-153: preimagen de audiencias incompatible' USING ERRCODE='55000'; END IF;
