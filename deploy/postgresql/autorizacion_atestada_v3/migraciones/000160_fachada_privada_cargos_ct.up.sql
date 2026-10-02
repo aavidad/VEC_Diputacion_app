@@ -211,6 +211,9 @@ BEGIN
  h:=pg_catalog.encode(pg_catalog.sha256(b),'hex');
  aud:='auditoria_cargo_ct:'||pg_catalog.replace(pg_catalog.gen_random_uuid()::text,'-','');
  BEGIN
+  -- Serializa las operaciones de este kit antes de adquirir locks CA/IS/AUT.
+  -- Evita convertir dos locks de fila en un upgrade de tabla concurrente.
+  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('vec_autorizacion:cargos_ct:provision:v1',0));
   p:=pg_catalog.convert_from(b,'UTF8')::jsonb;clave:=p->>'clave';
   IF pg_catalog.jsonb_typeof(p)<>'object' OR (SELECT count(*) FROM pg_catalog.jsonb_object_keys(p))<>(CASE WHEN p ? 'vinculo_certificado_canonico' THEN 14 ELSE 13 END)
    OR (p ? 'vinculo_certificado_canonico' AND (pg_catalog.octet_length(p->>'vinculo_certificado_canonico') NOT BETWEEN 2 AND 16384
