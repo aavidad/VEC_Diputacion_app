@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	dominiobolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
 	"vec-diputacion-granada/internal/modules/bolsa/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 )
@@ -30,7 +31,7 @@ func (r *RepositorioOfertasPublicadasPostgreSQL) Publicar(ctx context.Context, c
 		return ports.OfertaPublicada{}, ports.ErrOfertaNoDisponible
 	}
 	datos, errDatos := json.Marshal(c.Datos)
-	plazo, errPlazo := json.Marshal(c.Plazo)
+	plazo, errPlazo := serializarPlazoOfertaPostgreSQL(c.Plazo)
 	if errDatos != nil || errPlazo != nil {
 		return ports.OfertaPublicada{}, ports.ErrOfertaInvalida
 	}
@@ -143,4 +144,23 @@ func errorOferta(err error) error {
 		}
 	}
 	return ports.ErrOfertaNoDisponible
+}
+
+// serializarPlazoOfertaPostgreSQL conserva el formato UTC de seis decimales
+// que liga la evidencia al material V3 y a la validación de PostgreSQL.
+// El dominio mantiene time.Time; el formato corresponde al adaptador.
+func serializarPlazoOfertaPostgreSQL(p ports.PlazoOferta) ([]byte, error) {
+	type notificacionSQL struct {
+		dominiobolsa.NotificacionOferta
+		NotificadaEn string `json:"notificada_en"`
+	}
+	type plazoSQL struct {
+		ports.PlazoOferta
+		Notificacion *notificacionSQL `json:"notificacion,omitempty"`
+	}
+	salida := plazoSQL{PlazoOferta: p}
+	if n := p.Notificacion; n != nil {
+		salida.Notificacion = &notificacionSQL{NotificacionOferta: *n, NotificadaEn: n.NotificadaEn.UTC().Format("2006-01-02T15:04:05.000000Z")}
+	}
+	return json.Marshal(salida)
 }

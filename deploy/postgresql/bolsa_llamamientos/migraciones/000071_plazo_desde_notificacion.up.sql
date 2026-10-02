@@ -51,6 +51,9 @@ BEGIN
       OR NOT (NEW.plazo->'notificacion' ?& ARRAY['notificada_en','referencia_correo','huella_correo_sha256','fuente'])
       OR coalesce(NEW.plazo#>>'{notificacion,notificada_en}','') !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{6}Z$'
       OR coalesce(NEW.plazo#>>'{notificacion,referencia_correo}','') !~ '^[A-Za-z0-9][A-Za-z0-9:_.-]{0,255}$'
+      OR (NEW.plazo#>>'{notificacion,referencia_correo}' !~ '^[a-z_]+(:[a-z_]+)*:[0-9a-f]{64}$'
+          AND NEW.plazo#>>'{notificacion,referencia_correo}' ~* '(([0-9][._:/#-]?){8}|[XYZ][._:/#-]?([0-9][._:/#-]?){7})[A-Z]')
+      OR NEW.plazo#>>'{notificacion,referencia_correo}' ~* '(^|[._:/#-])(dni|nie|nif|pasaporte|passport)([._:/#-]|$)'
       OR coalesce(NEW.plazo#>>'{notificacion,huella_correo_sha256}','') !~ '^[0-9a-f]{64}$'
       OR NEW.plazo#>>'{notificacion,fuente}' IS DISTINCT FROM 'correo_externo_declarado_rrhh'
       OR NEW.plazo->>'apertura_en' IS DISTINCT FROM NEW.plazo#>>'{notificacion,notificada_en}'
@@ -66,6 +69,9 @@ BEGIN
         OR NOT (NEW.plazo->'notificacion' ?& ARRAY['notificada_en','referencia_correo','huella_correo_sha256','fuente'])
         OR coalesce(NEW.plazo#>>'{notificacion,notificada_en}','') !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{6}Z$'
         OR coalesce(NEW.plazo#>>'{notificacion,referencia_correo}','') !~ '^[A-Za-z0-9][A-Za-z0-9:_.-]{0,255}$'
+      OR (NEW.plazo#>>'{notificacion,referencia_correo}' !~ '^[a-z_]+(:[a-z_]+)*:[0-9a-f]{64}$'
+          AND NEW.plazo#>>'{notificacion,referencia_correo}' ~* '(([0-9][._:/#-]?){8}|[XYZ][._:/#-]?([0-9][._:/#-]?){7})[A-Z]')
+      OR NEW.plazo#>>'{notificacion,referencia_correo}' ~* '(^|[._:/#-])(dni|nie|nif|pasaporte|passport)([._:/#-]|$)'
         OR coalesce(NEW.plazo#>>'{notificacion,huella_correo_sha256}','') !~ '^[0-9a-f]{64}$'
         OR NEW.plazo#>>'{notificacion,fuente}' IS DISTINCT FROM 'correo_externo_declarado_rrhh'
         OR (NEW.vence_antes_de AT TIME ZONE 'Europe/Madrid') IS DISTINCT FROM
@@ -113,6 +119,9 @@ BEGIN
     OR NOT (p_plazo->'notificacion' ?& ARRAY['notificada_en','referencia_correo','huella_correo_sha256','fuente'])
     OR coalesce(p_plazo#>>'{notificacion,notificada_en}','') !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{6}Z$'
     OR coalesce(p_plazo#>>'{notificacion,referencia_correo}','') !~ '^[A-Za-z0-9][A-Za-z0-9:_.-]{0,255}$'
+      OR (p_plazo#>>'{notificacion,referencia_correo}' !~ '^[a-z_]+(:[a-z_]+)*:[0-9a-f]{64}$'
+          AND p_plazo#>>'{notificacion,referencia_correo}' ~* '(([0-9][._:/#-]?){8}|[XYZ][._:/#-]?([0-9][._:/#-]?){7})[A-Z]')
+      OR p_plazo#>>'{notificacion,referencia_correo}' ~* '(^|[._:/#-])(dni|nie|nif|pasaporte|passport)([._:/#-]|$)'
     OR coalesce(p_plazo#>>'{notificacion,huella_correo_sha256}','') !~ '^[0-9a-f]{64}$'
     OR p_plazo#>>'{notificacion,fuente}' IS DISTINCT FROM 'correo_externo_declarado_rrhh'
     OR (p_plazo->>'unidad'='horas_naturales' AND

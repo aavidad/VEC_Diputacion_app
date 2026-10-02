@@ -111,7 +111,7 @@ END $f$;
 -- El catálogo también puede publicar días hábiles; el trigger exige la
 -- notificación sin cambiar la validación de calendarios de la aplicación.
 DO $f$
-DECLARE e record; p jsonb; h text; v timestamptz; plazo jsonb;
+DECLARE e record; p jsonb; h text; v timestamptz; plazo jsonb; v_referencia text;
 BEGIN
  SELECT * INTO STRICT e FROM prueba_b71.estado;
  p:=jsonb_build_object('plazo',jsonb_build_object('unidad','dias_habiles','cantidad',2,
@@ -146,6 +146,19 @@ BEGIN
    clock_timestamp(),v,repeat('f',64),'decision:oferta:b71:sin-notif');
   RAISE EXCEPTION 'B71: días sin notificación aceptados';
  EXCEPTION WHEN sqlstate 'VBP02' THEN NULL; END;
+ -- El acceso directo a SQL tampoco conserva identificadores personales.
+ FOREACH v_referencia IN ARRAY ARRAY['correo:dni-12345678Z','correo:X1234567L','correo:pasaporte:extracto-1'] LOOP
+  BEGIN
+   INSERT INTO vec_bolsa_llamamientos.oferta_publicada(
+    oferta_ref,recibo_ref,bolsa_ref,actor_ref,clave_idempotencia,datos,plazo,
+    publicada_en,vence_antes_de,huella_comando_sha256,decision_ref)
+   VALUES('oferta:'||repeat('f',64),'recibo:oferta:'||repeat('f',64),e.bolsa,
+    'per_actoractoractoractoractor','clave-dias-identidad-b71','{}'::jsonb,
+    jsonb_set(plazo,'{notificacion,referencia_correo}',to_jsonb(v_referencia)),
+    clock_timestamp(),v,repeat('f',64),'decision:oferta:b71:identidad');
+   RAISE EXCEPTION 'B71: referencia con documento personal aceptada';
+  EXCEPTION WHEN sqlstate 'VBP02' THEN NULL; END;
+ END LOOP;
  RAISE NOTICE 'B71: días configurables y notificación obligatoria OK';
 END $f$;
 ROLLBACK;
