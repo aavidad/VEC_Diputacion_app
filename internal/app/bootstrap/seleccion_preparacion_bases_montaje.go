@@ -130,7 +130,7 @@ func (m *MontajePreparacionBasesV3) Componer(ctx context.Context, d Dependencias
 		sesiones[i] = sesion
 	}
 	broker, err := nuevoProveedorPreparacionBasesV3(m.perfiles, sesiones,
-		[2]*proveedorMaterialAltaContratacionTemporalDesarrollo{d.MaterialGuardar, d.MaterialConsultar}, d.PDP, m.reloj)
+		[2]*proveedorMaterialAltaContratacionTemporalDesarrollo{d.MaterialGuardar, d.MaterialConsultar}, d.PDP, m.reloj, d.RegistrarRechazoFrontera)
 	if err != nil {
 		return nil, nil, err
 	}

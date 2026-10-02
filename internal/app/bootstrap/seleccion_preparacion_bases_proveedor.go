@@ -22,17 +22,18 @@ import (
 // El broker sólo consume la sesión y el PDP existentes. No dispone de
 // publicadores ni de un actor o perfil que pueda elegir el cuerpo HTTP.
 type proveedorPreparacionBasesV3 struct {
-	perfiles   [2]*perfilPreparacionBasesV3
-	sesiones   [2]*proveedorSesionConsultaRRHHDesarrollo
-	materiales [2]*proveedorMaterialAltaContratacionTemporalDesarrollo
-	pdp        vecports.AutorizadorSolicitudLigadaV3
-	reloj      relojContratacionTemporalDesarrollo
+	perfiles         [2]*perfilPreparacionBasesV3
+	sesiones         [2]*proveedorSesionConsultaRRHHDesarrollo
+	materiales       [2]*proveedorMaterialAltaContratacionTemporalDesarrollo
+	pdp              vecports.AutorizadorSolicitudLigadaV3
+	reloj            relojContratacionTemporalDesarrollo
+	registrarRechazo func(*http.Request) error
 }
 
 func nuevoProveedorPreparacionBasesV3(ps [2]*perfilPreparacionBasesV3, ss [2]*proveedorSesionConsultaRRHHDesarrollo,
 	ms [2]*proveedorMaterialAltaContratacionTemporalDesarrollo, pdp vecports.AutorizadorSolicitudLigadaV3,
-	reloj relojContratacionTemporalDesarrollo) (*proveedorPreparacionBasesV3, error) {
-	if dependenciaEsNulaContratacionTemporalDesarrollo(pdp) || ps[0] == nil || ps[1] == nil || ps[0].perfilRef() == ps[1].perfilRef() || ms[0] == ms[1] {
+	reloj relojContratacionTemporalDesarrollo, registrarRechazo func(*http.Request) error) (*proveedorPreparacionBasesV3, error) {
+	if registrarRechazo == nil || dependenciaEsNulaContratacionTemporalDesarrollo(pdp) || ps[0] == nil || ps[1] == nil || ps[0].perfilRef() == ps[1].perfilRef() || ms[0] == ms[1] {
 		return nil, bolsaports.ErrPreparacionBasesNoDisponible
 	}
 	for i, p := range ps {
@@ -46,7 +47,7 @@ func nuevoProveedorPreparacionBasesV3(ps [2]*perfilPreparacionBasesV3, ss [2]*pr
 	if !ss[0].fronteras.mismaInstancia(ss[1].fronteras) {
 		return nil, bolsaports.ErrPreparacionBasesNoDisponible
 	}
-	return &proveedorPreparacionBasesV3{ps, ss, ms, pdp, reloj}, nil
+	return &proveedorPreparacionBasesV3{ps, ss, ms, pdp, reloj, registrarRechazo}, nil
 }
 
 func (p *proveedorPreparacionBasesV3) indice(ctx context.Context) (int, error) {
@@ -129,6 +130,11 @@ func (p *proveedorPreparacionBasesV3) ResolverContextoHTTP(r *http.Request) (sel
 	}
 	z, i, err := p.contexto(r.Context())
 	if err != nil {
+		if errors.Is(err, bolsaports.ErrPreparacionBasesDenegada) && !errors.Is(err, bolsaports.ErrPreparacionBasesNoDisponible) {
+			if p.registrarRechazo == nil || p.registrarRechazo(r) != nil {
+				return selhttp.ContextoPreparacionBases{}, bolsaports.ErrPreparacionBasesNoDisponible
+			}
+		}
 		return selhttp.ContextoPreparacionBases{}, err
 	}
 	c, err := core.GenerarReferenciaCorrelacionAutorizacionV2(r.Context(), seguridad.GeneradorReferenciasCriptograficas{})
