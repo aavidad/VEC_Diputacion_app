@@ -24,6 +24,13 @@ callback no lee el cuerpo ni crea identidad. Una auditoría confirmada permite
 responder 403; su ausencia o fallo exige 503. Ambos casos terminan antes del
 material V3 y del repositorio de negocio.
 
+El export neutral `httpapi.RegistrarDenegacionFronteraPreparacion` recibe
+contexto, el registrador existente, método, ruta y motivo. Genera la correlación
+con el helper común y deriva la superficie de la lista cerrada. El binder de
+bootstrap comprueba primero su capacidad sellada y la misma instancia del
+catálogo; esas comprobaciones pertenecen a la raíz. El export registra la
+observación técnica y no acredita identidad ni autorización.
+
 El dispatcher común aplica la misma regla de fallo a las nuevas familias,
 exige POST sin query y conserva las reglas previas de las otras rutas.
 Las denegaciones posteriores de sesión o PDP mantienen sus autoridades;
