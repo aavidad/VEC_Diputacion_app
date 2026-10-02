@@ -1,6 +1,7 @@
 package postgres
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -15,6 +16,12 @@ import (
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
+
+const funcionPrepararEntregaConOriginal = "vec_contratacion_temporal.preparar_entrega_peticion_centro_con_original_v1"
+
+type verificadorOriginalAltaEntrega interface {
+	VerificarOriginalAltaEntrega(context.Context, ports.EntregaPeticionCentro, ports.OriginalAltaEntrega) error
+}
 
 type ProveedorEntregaPeticionCentro interface {
 	ActorEntregaPeticionCentro(context.Context) (string, string, error)
@@ -158,7 +165,7 @@ func (s resultadoEntregaPeticionCentroSQL) entregaPara(modo string, soloExistent
 
 func (r *RepositorioEntregasPeticionCentroPostgreSQL) entrega(ctx context.Context, m ports.MaterialEntregaPeticionCentro, soloExistente bool) (ports.EntregaPeticionCentro, error) {
 	var e ports.EntregaPeticionCentro
-	err := r.ejecutar(ctx, m, func(b []byte) error {
+	err := r.ejecutarConOriginal(ctx, m, soloExistente, func(b, contenidoOriginal []byte) error {
 		var resultado resultadoEntregaPeticionCentroSQL
 		if decodificarJSONEstricto(b, &resultado) != nil {
 			return ports.ErrReciboPeticionCentroNoConfiable
@@ -167,6 +174,29 @@ func (r *RepositorioEntregasPeticionCentroPostgreSQL) entrega(ctx context.Contex
 		e, err = resultado.entregaPara(m.Modo, soloExistente)
 		if err != nil {
 			return err
+		}
+		if soloExistente {
+			if len(contenidoOriginal) == 0 || bytes.Equal(contenidoOriginal, []byte("null")) {
+				if e.EstadoEntrega == "confirmada" {
+					return ports.ErrReciboPeticionCentroNoConfiable
+				}
+				return ports.ErrNumeroMOADAusente
+			}
+			if len(contenidoOriginal) > 8192 {
+				return ports.ErrReciboPeticionCentroNoConfiable
+			}
+			var original ports.OriginalAltaEntrega
+			if decodificarJSONEstricto(contenidoOriginal, &original) != nil || original.Validar() != nil {
+				return ports.ErrReciboPeticionCentroNoConfiable
+			}
+			verificador, ok := r.proveedor.(verificadorOriginalAltaEntrega)
+			if !ok || dependenciaNula(verificador) {
+				return ports.ErrPeticionCentroNoDisponible
+			}
+			if err := verificador.VerificarOriginalAltaEntrega(ctx, e, original); err != nil {
+				return err
+			}
+			e.AltaAnterior = &ports.AltaDePeticionCentro{Recibo: original.ReciboAlta, AmbitoHMAC: e.AmbitoAltaHMAC}
 		}
 		// CT150 puede devolver una confirmación histórica cuyo perfil reservado
 		// precede al perfil fijo. Solo preparar admite ese replay: la función SQL
@@ -213,6 +243,13 @@ func RecursoEntregaPeticionCentro(m ports.MaterialEntregaPeticionCentro) (vecdom
 }
 
 func (r *RepositorioEntregasPeticionCentroPostgreSQL) ejecutar(ctx context.Context, m ports.MaterialEntregaPeticionCentro, validar func([]byte) error) error {
+	return r.ejecutarConOriginal(ctx, m, false, func(entrega, _ []byte) error { return validar(entrega) })
+}
+
+func (r *RepositorioEntregasPeticionCentroPostgreSQL) ejecutarConOriginal(
+	ctx context.Context, m ports.MaterialEntregaPeticionCentro, conOriginal bool,
+	validar func([]byte, []byte) error,
+) error {
 	recurso, err := RecursoEntregaPeticionCentro(m)
 	if err != nil {
 		return err
@@ -243,15 +280,21 @@ func (r *RepositorioEntregasPeticionCentroPostgreSQL) ejecutar(ctx context.Conte
 		}
 	}()
 	var salida []byte
-	err = tx.QueryRow(ctx, "SELECT vec_contratacion_temporal.gestionar_entrega_peticion_centro_v1($1::text,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)::text", string(b), secretos[0], secretos[1], secretos[2], secretos[3], int64(a.PersonaVersion()), int64(a.PerfilVersion()), secretos[4], secretos[5], secretos[6], secretos[7]).Scan(&salida)
+	var original []byte
+	if conOriginal {
+		err = tx.QueryRow(ctx, "SELECT entrega::text,original_alta::text FROM "+funcionPrepararEntregaConOriginal+"($1::text,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)", string(b), secretos[0], secretos[1], secretos[2], secretos[3], int64(a.PersonaVersion()), int64(a.PerfilVersion()), secretos[4], secretos[5], secretos[6], secretos[7]).Scan(&salida, &original)
+	} else {
+		err = tx.QueryRow(ctx, "SELECT vec_contratacion_temporal.gestionar_entrega_peticion_centro_v1($1::text,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)::text", string(b), secretos[0], secretos[1], secretos[2], secretos[3], int64(a.PersonaVersion()), int64(a.PerfilVersion()), secretos[4], secretos[5], secretos[6], secretos[7]).Scan(&salida)
+	}
 	if err != nil {
 		return errorEntregaPeticionSQL(ctx, err)
 	}
 	defer clear(salida)
+	defer clear(original)
 	if len(salida) == 0 || len(salida) > 2*1024*1024 {
 		return ports.ErrPeticionCentroNoDisponible
 	}
-	if err = validar(salida); err != nil {
+	if err = validar(salida, original); err != nil {
 		return err
 	}
 	if err = tx.Commit(ctx); err != nil {

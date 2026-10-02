@@ -173,6 +173,7 @@ var _ httpinterno.AutoridadContextoCanalInformeJuridico = (*soporteAltaContratac
 type dependenciasAltaContratacionTemporalDesarrollo struct {
 	soporte     *soporteAltaContratacionTemporalDesarrollo
 	servicio    *application.ServicioRegistroSolicitud
+	huellas     ports.DerivadorHuellaAlta
 	autorizador autorizadorLigadoContratacionTemporalDesarrollo
 	postgresql  dependenciasPostgreSQLContratacionTemporalDesarrollo
 	// cancelacion guarda las piezas de la cancelación de RRHH que reutiliza
@@ -399,6 +400,7 @@ func nuevasDependenciasAltaContratacionTemporalDesarrollo(
 	return dependenciasAltaContratacionTemporalDesarrollo{
 		soporte:     soporte,
 		servicio:    servicio,
+		huellas:     huellas,
 		autorizador: autorizador,
 		postgresql:  postgresql,
 	}, nil

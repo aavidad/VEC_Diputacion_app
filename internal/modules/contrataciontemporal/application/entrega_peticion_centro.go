@@ -43,17 +43,8 @@ func (s *ServicioEntregaPeticionCentro) Entregar(ctx context.Context, c ports.Co
 		if c.NumeroExpedienteMOAD != "" && c.NumeroExpedienteMOAD != e.ReciboAlta.NumeroVisible {
 			return vacia, ports.ErrEntregaPeticionEnConflicto
 		}
-		if c.NumeroExpedienteMOAD == "" {
-			// Una confirmación por sí sola no prueba que el número sea anterior
-			// a MOAD. El alta original debe recuperarse con su canon sin MOAD.
-			alta, err := s.registro.RegistrarExpedientePeticion(ctx, e, "")
-			if err != nil {
-				return vacia, err
-			}
-			if alta.Recibo.ValidarEstructura() != nil || alta.AmbitoHMAC != e.AmbitoAltaHMAC ||
-				!reflect.DeepEqual(alta.Recibo, *e.ReciboAlta) {
-				return vacia, ports.ErrReciboPeticionCentroNoConfiable
-			}
+		if c.NumeroExpedienteMOAD == "" && e.AltaAnterior == nil {
+			return vacia, ports.ErrClaveIdempotenciaUsada
 		}
 		return e, nil
 	}
@@ -66,9 +57,17 @@ func (s *ServicioEntregaPeticionCentro) Entregar(ctx context.Context, c ports.Co
 	if err != nil {
 		return vacia, err
 	}
-	alta, err := s.registro.RegistrarExpedientePeticion(ctx, copia, c.NumeroExpedienteMOAD)
-	if err != nil {
-		return vacia, err
+	var alta ports.AltaDePeticionCentro
+	if c.NumeroExpedienteMOAD == "" {
+		if e.AltaAnterior == nil {
+			return vacia, ports.ErrNumeroMOADAusente
+		}
+		alta = *e.AltaAnterior
+	} else {
+		alta, err = s.registro.RegistrarExpedientePeticion(ctx, copia, c.NumeroExpedienteMOAD)
+		if err != nil {
+			return vacia, err
+		}
 	}
 	if alta.Recibo.ValidarEstructura() != nil || alta.Recibo.Version != 1 || !ports.SelloHMACSHA256Valido(alta.AmbitoHMAC) {
 		return vacia, ports.ErrReciboPeticionCentroNoConfiable

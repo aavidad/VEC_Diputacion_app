@@ -116,11 +116,12 @@ func TestEntregaPeticionCentroEnlazaAltaHistoricaSinNumeroMOAD(t *testing.T) {
 	// La reserva ya existía y el alta antigua hizo COMMIT; falló solamente
 	// ConfirmarEntrega. El nuevo intento conserva la clave y no atribuye MOAD.
 	repo.preparaciones = 1
+	recibo := reciboAltaPeticionCentroPruebaApplication()
+	repo.preparada.AltaAnterior = &ports.AltaDePeticionCentro{Recibo: recibo, AmbitoHMAC: repo.preparada.AmbitoAltaHMAC}
 	comando.NumeroExpedienteMOAD = ""
 	primera, err := servicio.Entregar(context.Background(), comando)
 	if err != nil || primera.EstadoEntrega != "confirmada" || primera.ReservaCreadaAhora ||
-		primera.ReciboAlta.NumeroVisible != registro.recibo.NumeroVisible ||
-		registro.recibido.ClaveAlta != repo.preparada.ClaveAlta ||
+		primera.ReciboAlta.NumeroVisible != recibo.NumeroVisible || registro.llamadas != 0 ||
 		repo.ultimaComando.NumeroExpedienteMOAD != "" {
 		t.Fatalf("no se enlazó el alta histórica: entrega=%#v error=%v", primera, err)
 	}
@@ -131,14 +132,23 @@ func TestEntregaConfirmadaSinNumeroCompruebaOrigenHistorico(t *testing.T) {
 	recibo := reciboAltaPeticionCentroPruebaApplication()
 	repo.preparada.EstadoEntrega = "confirmada"
 	repo.preparada.ReciboAlta = &recibo
+	repo.preparada.AltaAnterior = &ports.AltaDePeticionCentro{Recibo: recibo, AmbitoHMAC: repo.preparada.AmbitoAltaHMAC}
 	comando.NumeroExpedienteMOAD = ""
 	confirmada, err := servicio.Entregar(context.Background(), comando)
-	if err != nil || confirmada.ReciboAlta == nil || registro.llamadas != 1 || repo.confirmaciones != 0 {
+	if err != nil || confirmada.ReciboAlta == nil || registro.llamadas != 0 || repo.confirmaciones != 0 {
 		t.Fatalf("no se acreditó el origen del recibo histórico: entrega=%#v error=%v", confirmada, err)
 	}
-	registro.err = ports.ErrClaveIdempotenciaUsada
+	repo.preparada.AltaAnterior = nil
 	if _, err := servicio.Entregar(context.Background(), comando); !errors.Is(err, ports.ErrClaveIdempotenciaUsada) || repo.confirmaciones != 0 {
 		t.Fatalf("un alta MOAD se recuperó omitiendo su número: %v", err)
+	}
+}
+
+func TestEntregaNuevaSinMOADNoInvocaAlta(t *testing.T) {
+	repo, registro, servicio, comando, _ := entregaPeticionCentroPrueba(t)
+	comando.NumeroExpedienteMOAD = ""
+	if _, err := servicio.Entregar(context.Background(), comando); !errors.Is(err, ports.ErrNumeroMOADAusente) || registro.llamadas != 0 || repo.confirmaciones != 0 {
+		t.Fatalf("entrega sin MOAD creó alta: %v", err)
 	}
 }
 
