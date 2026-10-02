@@ -213,6 +213,7 @@ BEGIN
  texto_fecha:=to_char(ahora AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS"Z"');
  d:=jsonb_set(anterior.documento,'{version}','3'::jsonb);
  SELECT jsonb_set(d,'{concesiones}',jsonb_agg(CASE WHEN x->>'accion'='administracion.perfiles.consultar' THEN jsonb_set(x,'{campos_permitidos}','["actos_disponibles","capacidades","perfil_ref","persona","personas","preimagen","roles","siguiente_cursor","version","vinculo_ref"]'::jsonb) WHEN x->>'accion'='administracion.perfiles.historial.consultar' THEN jsonb_set(x,'{campos_permitidos}','["propuesta","propuestas"]'::jsonb) WHEN x->>'accion'='administracion.perfiles.recibo.consultar' THEN jsonb_set(x,'{campos_permitidos}','["recibo"]'::jsonb) ELSE x END ORDER BY n)) INTO d FROM jsonb_array_elements(anterior.documento->'concesiones') WITH ORDINALITY AS e(x,n);
+ d:=jsonb_set(d,'{concesiones}',(d->'concesiones')||jsonb_build_array(jsonb_build_object('accion','copias_restauracion_revisar','modulo_id','administracion','tipo_recurso','propuesta_restauracion_copia','finalidades',jsonb_build_array('revisar_restauracion_copia'),'garantia_minima','alto','campos_permitidos',jsonb_build_array('propuesta','recibo','revision'))));
  d:=jsonb_set(jsonb_set(d,'{publicada_por}','"migracion:autorizacion:000024"'::jsonb),'{publicada_en}',to_jsonb(texto_fecha));
  IF vec_autorizacion.concesiones_positivas_validas(d) IS NOT TRUE THEN RAISE EXCEPTION 'AUT24: rol lector fijo invalido' USING ERRCODE='23514'; END IF;
  INSERT INTO vec_autorizacion.version_rol(version_rol_ref,rol_id,version,huella_sha256,publicada_en,documento) VALUES('rol:administracion_perfiles:v3','administracion_perfiles',3,encode(sha256(convert_to(vec_autorizacion.canon_version_rol_admin_v1(d),'UTF8')),'hex'),ahora,d);
@@ -221,6 +222,21 @@ BEGIN
  INSERT INTO vec_autorizacion.control_vigencia_version_rol_actual VALUES('rol:administracion_perfiles:v3',1,ahora,'migracion:autorizacion:000024','migracion:autorizacion:000024');
  INSERT INTO vec_autorizacion.rol_sensible_exacto(version_rol_ref,clase,huella_sha256) SELECT version_rol_ref,'administrador',huella_sha256 FROM vec_autorizacion.version_rol WHERE version_rol_ref='rol:administracion_perfiles:v3';
 END $rol_lector_v3$;
+DO $rol_sistemas_v1$
+DECLARE d jsonb;c jsonb;ahora timestamptz:=date_trunc('second',clock_timestamp());fecha text;
+BEGIN
+ fecha:=to_char(ahora AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS"Z"');
+ d:=jsonb_build_object('rol_id','operador_plataforma','version',1,'nombre','administracion.sistemas.rol','estado','publicada','concesiones',jsonb_build_array(
+ jsonb_build_object('accion','administracion.copias.orden.emitir','modulo_id','administracion','tipo_recurso','orden_copia','finalidades',jsonb_build_array('emitir_orden_copia'),'garantia_minima','alto','campos_permitidos',jsonb_build_array('orden','recibo')),
+ jsonb_build_object('accion','copias_restauracion_proponer','modulo_id','administracion','tipo_recurso','propuesta_restauracion_copia','finalidades',jsonb_build_array('proponer_restauracion_copia'),'garantia_minima','alto','campos_permitidos',jsonb_build_array('propuesta','recibo'))),
+ 'publicada_por','migracion:autorizacion:000024','publicada_en',fecha,'retirada_en','0001-01-01T00:00:00Z');
+ IF vec_autorizacion.concesiones_positivas_validas(d) IS NOT TRUE THEN RAISE EXCEPTION 'AUT24: plantilla Sistemas invalida' USING ERRCODE='23514'; END IF;
+ INSERT INTO vec_autorizacion.version_rol(version_rol_ref,rol_id,version,huella_sha256,publicada_en,documento) VALUES('rol:operador_plataforma:v1','operador_plataforma',1,encode(sha256(convert_to(vec_autorizacion.canon_version_rol_admin_v1(d),'UTF8')),'hex'),ahora,d);
+ c:=jsonb_build_object('version_rol_ref','rol:operador_plataforma:v1','revision',1,'estado','habilitada','actualizado_por','migracion:autorizacion:000024','actualizado_en',fecha);
+ INSERT INTO vec_autorizacion.control_vigencia_version_rol(version_rol_ref,revision,estado,huella_sha256,actualizado_en,documento) VALUES('rol:operador_plataforma:v1',1,'habilitada',encode(sha256(convert_to(vec_autorizacion.canon_control_rol_admin_v1(c),'UTF8')),'hex'),ahora,c);
+ INSERT INTO vec_autorizacion.control_vigencia_version_rol_actual VALUES('rol:operador_plataforma:v1',1,ahora,'migracion:autorizacion:000024','migracion:autorizacion:000024');
+ INSERT INTO vec_autorizacion.rol_sensible_exacto(version_rol_ref,clase,huella_sha256) SELECT version_rol_ref,'administrador',huella_sha256 FROM vec_autorizacion.version_rol WHERE version_rol_ref='rol:operador_plataforma:v1';
+END $rol_sistemas_v1$;
 CREATE TABLE vec_autorizacion.rol_administrable_exacto_v1(
  version_rol_ref text PRIMARY KEY REFERENCES vec_autorizacion.version_rol(version_rol_ref),
  clase text NOT NULL CHECK(clase IN ('ordinario','administrador','intervencion')),
@@ -231,6 +247,8 @@ CREATE TABLE vec_autorizacion.rol_administrable_exacto_v1(
  audiencia_administrativa text NOT NULL CHECK(vec_autorizacion.texto_positivo_valido(audiencia_administrativa,256) IS TRUE),
  ambitos_fijos jsonb NOT NULL CHECK(jsonb_typeof(ambitos_fijos)='array'),
  duracion_propuesta interval NOT NULL CHECK(duracion_propuesta>interval '0 seconds'),
+ categoria_admin text NOT NULL CHECK(categoria_admin IN ('aplicacion','sistemas','')),
+ CHECK((clase='administrador' AND categoria_admin IN ('aplicacion','sistemas')) OR (clase<>'administrador' AND categoria_admin='')),
  CHECK(isfinite(vigente_desde) AND isfinite(vigente_hasta) AND vigente_hasta>vigente_desde)
 );
 -- Este catálogo registra referencias publicadas; nunca publica concesiones.
@@ -610,7 +628,7 @@ REVOKE ALL ON FUNCTION vec_autorizacion.bloquear_asignacion_sensible_hasta_aut24
 CREATE FUNCTION vec_autorizacion.ejecutar_cambio_admin_interno_v1(p_material jsonb,p_operacion_ref text,p_propuesta_ref text,p_auditoria text,p_ejecutor_ref text,p_bootstrap boolean,p_decision_ref text,p_material_sha256 text)
 RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp SET timezone='UTC' AS $f$
 DECLARE o jsonb:=p_material->'objetivo';configuracion record;antes jsonb;despues jsonb;r jsonb;a record;doc jsonb;
- huella text;asig_id text;asig_ref text;ver bigint;ahora timestamptz;acto text;recibo text;estado text;version_ca numeric;ambitos jsonb;hdespues text;procedencia_acto jsonb;
+ huella text;asig_id text;asig_ref text;ver bigint;ahora timestamptz;acto text;recibo text;estado text;version_ca numeric;ambitos jsonb;hdespues text;procedencia_acto jsonb;rol_id_destino text;
 BEGIN
  IF p_bootstrap IS NULL OR (p_bootstrap AND (p_material->>'operacion' IS DISTINCT FROM 'otorgar')) THEN RAISE EXCEPTION 'AUT24: contexto privado de efecto invalido' USING ERRCODE='22023'; END IF;
  antes:=vec_autorizacion.preimagen_cambio_admin_interna_v1(p_material);
@@ -622,6 +640,7 @@ BEGIN
  OR (p_bootstrap AND (antes#>>'{continuidad,bootstrap_estado}' IS DISTINCT FROM 'pendiente' OR rtrim(o->>'revision_continuidad') IS DISTINCT FROM '0')) THEN
   RAISE EXCEPTION 'AUT24: CAS de objetivo o bootstrap divergente' USING ERRCODE='40001'; END IF;
  r:=vec_autorizacion.resolver_rol_administrable_v1(p_material->>'rol_version_ref');
+ SELECT vr.rol_id INTO STRICT rol_id_destino FROM vec_autorizacion.version_rol vr WHERE vr.version_rol_ref=p_material->>'rol_version_ref';
  IF r->>'huella_sha256' IS DISTINCT FROM p_material->>'rol_huella_sha256' THEN RAISE EXCEPTION 'AUT24: rol no vigente' USING ERRCODE='42501'; END IF;
  IF NOT p_bootstrap AND r->>'clase'<>'ordinario' AND ((antes#>>'{continuidad,revision}')::bigint IS DISTINCT FROM (o->>'revision_continuidad')::bigint
  OR (SELECT count(DISTINCT x->>'persona_ref') FROM jsonb_array_elements(antes->'administradores_efectivos') x)<2) THEN
@@ -629,7 +648,7 @@ BEGIN
  ahora:=clock_timestamp();acto:='acto_admin:'||substr(encode(sha256(convert_to(p_operacion_ref,'UTF8')),'hex'),1,32);
  recibo:='recibo_admin:'||substr(encode(sha256(convert_to(p_operacion_ref||':recibo','UTF8')),'hex'),1,32);
  IF p_material->>'operacion'='otorgar' THEN
-  IF r->>'clase'='administrador' AND (vec_identidad_sesiones_v1.estado_admin_interno_v1(o->>'persona_ref',o->>'cuenta_ref') IS NULL OR EXISTS(SELECT 1 FROM jsonb_array_elements(antes->'administradores_efectivos') x WHERE x->>'persona_ref'=o->>'persona_ref')) THEN RAISE EXCEPTION 'AUT24: alta de administrador sin identidad privilegiada unica' USING ERRCODE='42501'; END IF;
+  IF r->>'clase'='administrador' AND (vec_identidad_sesiones_v1.estado_admin_interno_v1(o->>'persona_ref',o->>'cuenta_ref') IS NULL OR (rol_id_destino='administracion_perfiles' AND EXISTS(SELECT 1 FROM jsonb_array_elements(antes->'administradores_efectivos') x WHERE x->>'persona_ref'=o->>'persona_ref'))) THEN RAISE EXCEPTION 'AUT24: alta de administrador sin identidad privilegiada unica' USING ERRCODE='42501'; END IF;
   IF antes#>'{contexto,perfil}' IS DISTINCT FROM 'null'::jsonb OR antes#>'{contexto,vinculo}' IS DISTINCT FROM 'null'::jsonb OR antes->'asignacion' IS DISTINCT FROM 'null'::jsonb THEN RAISE EXCEPTION 'AUT24: alta requiere referencias nuevas' USING ERRCODE='40001'; END IF;
   PERFORM vec_contexto_actor_v1.crear_perfil_vinculo_admin_v1(o->>'cuenta_ref',o->>'persona_ref',(o->>'cuenta_version')::numeric,(o->>'persona_version')::numeric,o->>'perfil_ref',o->>'vinculo_ref',o->>'procedencia_ref',(o->>'procedencia_version')::numeric,o->>'procedencia_huella_sha256',(o->>'vigente_hasta')::timestamptz);
   version_ca:=1;estado:='activo';ver:=1;asig_id:='admin_'||substr(encode(sha256(convert_to(p_operacion_ref,'UTF8')),'hex'),1,32);
@@ -780,7 +799,7 @@ BEGIN
  JOIN vec_autorizacion.control_vigencia_version_rol_actual rc USING(version_rol_ref)
  JOIN vec_autorizacion.control_vigencia_version_rol cv ON cv.version_rol_ref=rc.version_rol_ref AND cv.revision=rc.revision
  WHERE va.cuenta_ref=p_cuenta AND x.documento->>'estado'='activa'
- AND r.rol_id='administracion_perfiles' AND sx.clase='administrador' AND sx.huella_sha256=r.huella_sha256 AND r.documento->>'estado'='publicada' AND cv.estado='habilitada'
+ AND r.rol_id IN ('administracion_perfiles','operador_plataforma') AND sx.clase='administrador' AND sx.huella_sha256=r.huella_sha256 AND r.documento->>'estado'='publicada' AND cv.estado='habilitada'
  AND clock_timestamp()>=(x.documento->>'vigente_desde')::timestamptz AND clock_timestamp()<(x.documento->>'vigente_hasta')::timestamptz
  ORDER BY x.principal_id,x.perfil_activo_ref FOR UPDATE OF ac LOOP
   SELECT * INTO STRICT cfg FROM vec_autorizacion.rol_administrable_exacto_v1 WHERE version_rol_ref=a.version_rol_ref AND huella_sha256=a.rol_huella_sha256;
@@ -810,7 +829,7 @@ BEGIN
  JOIN vec_autorizacion.control_vigencia_version_rol_actual rc USING(version_rol_ref)
  JOIN vec_autorizacion.control_vigencia_version_rol cv ON cv.version_rol_ref=rc.version_rol_ref AND cv.revision=rc.revision
  WHERE va.cuenta_ref=p_cuenta AND x.documento->>'estado'='activa'
- AND r.rol_id='administracion_perfiles' AND sx.clase='administrador' AND sx.huella_sha256=r.huella_sha256 AND r.documento->>'estado'='publicada' AND cv.estado='habilitada'
+ AND r.rol_id IN ('administracion_perfiles','operador_plataforma') AND sx.clase='administrador' AND sx.huella_sha256=r.huella_sha256 AND r.documento->>'estado'='publicada' AND cv.estado='habilitada'
  AND clock_timestamp()>=(x.documento->>'vigente_desde')::timestamptz AND clock_timestamp()<(x.documento->>'vigente_hasta')::timestamptz
  AND x.asignacion_ref=puntero_asig AND cv.revision=puntero_control;
  IF NOT FOUND THEN CONTINUE; END IF;
@@ -845,17 +864,54 @@ REVOKE ALL ON FUNCTION vec_autorizacion.consultar_asignacion_admin_perfiles_reco
 GRANT EXECUTE ON FUNCTION vec_autorizacion.consultar_asignacion_admin_perfiles_reconciliacion_v1(text,text) TO vec_contexto_actor_v1_propietario;
 
 CREATE FUNCTION vec_autorizacion.listar_asignaciones_admin_perfiles_propias_v1(p_cuenta text)
-RETURNS TABLE(persona_ref text,perfil_ref text,vinculo_ref text,cuenta_version numeric,persona_version numeric,perfil_version numeric,vinculo_version numeric,audiencia text,vigente_hasta timestamptz,rol_version_ref text,clave_i18n text)
+RETURNS TABLE(persona_ref text,perfil_ref text,vinculo_ref text,cuenta_version numeric,persona_version numeric,perfil_version numeric,vinculo_version numeric,audiencia text,vigente_hasta timestamptz,rol_version_ref text,clave_i18n text,categoria_admin text)
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $f$
 BEGIN
- RETURN QUERY SELECT x.persona_ref,x.perfil_ref,x.vinculo_ref,x.cuenta_version,x.persona_version,x.perfil_version,x.vinculo_version,x.audiencia,x.vigente_hasta,a.version_rol_ref,r.documento->>'nombre'
- FROM vec_autorizacion.consultar_asignacion_admin_perfiles_reconciliacion_v1(p_cuenta) x
+ RETURN QUERY SELECT x.persona_ref,x.perfil_ref,x.vinculo_ref,x.cuenta_version,x.persona_version,x.perfil_version,x.vinculo_version,x.audiencia,x.vigente_hasta,a.version_rol_ref,r.documento->>'nombre',g.categoria_admin
+ FROM vec_autorizacion.consultar_asignacion_admin_perfiles_v1(p_cuenta) x
  JOIN vec_autorizacion.asignacion_perfil_actual ac ON ac.perfil_activo_ref=x.perfil_ref
  JOIN vec_autorizacion.asignacion_perfil a ON a.asignacion_ref=ac.asignacion_ref
- JOIN vec_autorizacion.version_rol r ON r.version_rol_ref=a.version_rol_ref;
+ JOIN vec_autorizacion.version_rol r ON r.version_rol_ref=a.version_rol_ref JOIN vec_autorizacion.rol_administrable_exacto_v1 g ON g.version_rol_ref=r.version_rol_ref;
 END $f$;
 REVOKE ALL ON FUNCTION vec_autorizacion.listar_asignaciones_admin_perfiles_propias_v1(text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION vec_autorizacion.listar_asignaciones_admin_perfiles_propias_v1(text) TO vec_contexto_actor_v1_propietario;
+CREATE FUNCTION vec_autorizacion.listar_asignaciones_admin_perfiles_propias_reconciliacion_v1(p_cuenta text)
+RETURNS TABLE(persona_ref text,perfil_ref text,vinculo_ref text,cuenta_version numeric,persona_version numeric,perfil_version numeric,vinculo_version numeric,audiencia text,vigente_hasta timestamptz,rol_version_ref text,clave_i18n text,categoria_admin text)
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $f$
+BEGIN
+ RETURN QUERY SELECT x.persona_ref,x.perfil_ref,x.vinculo_ref,x.cuenta_version,x.persona_version,x.perfil_version,x.vinculo_version,x.audiencia,x.vigente_hasta,a.version_rol_ref,r.documento->>'nombre',g.categoria_admin
+ FROM vec_autorizacion.consultar_asignacion_admin_perfiles_reconciliacion_v1(p_cuenta) x
+ JOIN vec_autorizacion.asignacion_perfil_actual ac ON ac.perfil_activo_ref=x.perfil_ref
+ JOIN vec_autorizacion.asignacion_perfil a ON a.asignacion_ref=ac.asignacion_ref
+ JOIN vec_autorizacion.version_rol r ON r.version_rol_ref=a.version_rol_ref JOIN vec_autorizacion.rol_administrable_exacto_v1 g ON g.version_rol_ref=r.version_rol_ref;
+END $f$;
+REVOKE ALL ON FUNCTION vec_autorizacion.listar_asignaciones_admin_perfiles_propias_reconciliacion_v1(text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION vec_autorizacion.listar_asignaciones_admin_perfiles_propias_reconciliacion_v1(text) TO vec_contexto_actor_v1_propietario;
+CREATE FUNCTION vec_autorizacion.consultar_metadata_perfil_admin_v1(p_cuenta text,p_perfil text)
+RETURNS TABLE(rol_id text,rol_version_ref text,rol_huella_sha256 text,clave_i18n text,categoria_admin text)
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $f$
+DECLARE validado record;
+BEGIN
+ IF current_setting('transaction_isolation')='serializable' THEN SELECT * INTO STRICT validado FROM vec_autorizacion.consultar_asignacion_admin_perfiles_v1(p_cuenta,p_perfil);
+ ELSIF current_setting('transaction_isolation')='read committed' THEN SELECT * INTO STRICT validado FROM vec_autorizacion.consultar_asignacion_admin_perfiles_reconciliacion_v1(p_cuenta,p_perfil);
+ ELSE RAISE EXCEPTION 'AUT24: aislamiento de metadata no admitido' USING ERRCODE='25000'; END IF;
+ RETURN QUERY SELECT r.rol_id,r.version_rol_ref,r.huella_sha256,r.documento->>'nombre',g.categoria_admin
+ FROM vec_autorizacion.asignacion_perfil_actual ac JOIN vec_autorizacion.asignacion_perfil a USING(asignacion_ref)
+ JOIN vec_autorizacion.version_rol r USING(version_rol_ref) JOIN vec_autorizacion.rol_administrable_exacto_v1 g USING(version_rol_ref)
+ WHERE a.perfil_activo_ref=p_perfil AND a.principal_id=validado.persona_ref AND g.huella_sha256=r.huella_sha256;
+END $f$;
+REVOKE ALL ON FUNCTION vec_autorizacion.consultar_metadata_perfil_admin_v1(text,text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION vec_autorizacion.consultar_metadata_perfil_admin_v1(text,text) TO vec_contexto_actor_v1_propietario;
+CREATE FUNCTION vec_autorizacion.revalidar_audiencia_selector_admin_v1(p_audiencia text)
+RETURNS boolean LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $f$
+DECLARE fuente text;
+BEGIN
+ SELECT convert_from(b.plan_canonico,'UTF8')::jsonb#>>'{gobierno,audiencia_selector_admin}' INTO fuente
+ FROM vec_autorizacion.control_continuidad_admin c JOIN vec_autorizacion.bootstrap_admin_v2 b ON b.acto_ref=c.bootstrap_acto_ref WHERE c.control_id AND c.bootstrap_estado='consumido';
+ RETURN fuente IS NOT NULL AND fuente=p_audiencia;
+END $f$;
+REVOKE ALL ON FUNCTION vec_autorizacion.revalidar_audiencia_selector_admin_v1(text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION vec_autorizacion.revalidar_audiencia_selector_admin_v1(text) TO vec_contexto_actor_v1_propietario;
 CREATE FUNCTION vec_autorizacion.preparar_preimagen_admin_v1(p_material text,p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea)
 RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp SET timezone='UTC' AS $f$
 DECLARE m jsonb;consumo jsonb;c record;d jsonb;r jsonb;o jsonb;acto jsonb;pi jsonb;efectivos jsonb;objetivo jsonb;operaciones jsonb;v_persona numeric;v_cuenta numeric;v_perfil numeric;v_vinculo numeric;revision bigint;
@@ -973,7 +1029,7 @@ REVOKE ALL ON FUNCTION vec_autorizacion.material_persona_bootstrap_interno_v2(js
 
 CREATE FUNCTION vec_autorizacion.provisionar_dos_administradores_iniciales_v2(p_plan_canonico text,p_huella_aprobada text)
 RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp SET timezone='UTC' AS $f$
-DECLARE plan jsonb;gov jsonb;rol record;control record;continuidad record;previo record;cfg jsonb;persona jsonb;m jsonb;pi jsonb;identidad jsonb;actor text:=session_user;huella text;acto text;audit text;recibo text;resultado jsonb;efecto jsonb;partes jsonb:='[]'::jsonb;ahora timestamptz;clase text;duracion interval;
+DECLARE plan jsonb;gov jsonb;rol record;control record;continuidad record;previo record;cfg jsonb;persona jsonb;m jsonb;pi jsonb;identidad jsonb;actor text:=session_user;huella text;acto text;audit text;recibo text;resultado jsonb;efecto jsonb;partes jsonb:='[]'::jsonb;ahora timestamptz;clase text;duracion interval;sis jsonb;plan_sis jsonb;persona_sis jsonb;rol_sis record;control_sis record;
 BEGIN
  IF current_setting('transaction_isolation')<>'serializable' OR current_setting('transaction_read_only')<>'off' THEN RAISE EXCEPTION 'AUT24: bootstrap requiere SERIALIZABLE escritura' USING ERRCODE='25000'; END IF;
  IF NOT pg_has_role(session_user,'vec_admin_perfiles_bootstrap_ejecutor','MEMBER') OR (SELECT count(*) FROM pg_auth_members WHERE member=session_user::regrole)<>1 OR NOT EXISTS(SELECT 1 FROM pg_auth_members WHERE member=session_user::regrole AND roleid='vec_admin_perfiles_bootstrap_ejecutor'::regrole AND inherit_option AND NOT set_option AND NOT admin_option) OR EXISTS(SELECT 1 FROM pg_roles WHERE oid=session_user::regrole AND (NOT rolcanlogin OR rolsuper OR rolcreaterole OR rolcreatedb OR rolbypassrls)) THEN RAISE EXCEPTION 'AUT24: operador bootstrap no autorizado' USING ERRCODE='42501'; END IF;
@@ -982,6 +1038,8 @@ BEGIN
  IF huella IS DISTINCT FROM p_huella_aprobada THEN RAISE EXCEPTION 'AUT24: plan_huella esperado=% observado=%',p_huella_aprobada,huella USING ERRCODE='40001'; END IF;
  plan:=p_plan_canonico::jsonb;gov:=plan->'gobierno';
  IF plan->>'version' IS DISTINCT FROM '2' OR NOT plan ?& ARRAY['preparado_en','caduca_en','control_continuidad_revision_esperada','bootstrap_estado_esperado','rol','fuente_identidad','fuente_ca_admin','personas','gobierno'] OR jsonb_path_exists(plan,'$.** ? (@ == null)') OR jsonb_typeof(plan->'personas') IS DISTINCT FROM 'array' OR jsonb_array_length(plan->'personas')<>2 OR plan#>>'{personas,0,persona_ref}'>=plan#>>'{personas,1,persona_ref}' OR plan#>>'{personas,0,cuenta_ref}'=plan#>>'{personas,1,cuenta_ref}' OR plan#>>'{personas,0,perfil_ref}'=plan#>>'{personas,1,perfil_ref}' OR plan#>>'{personas,0,vinculo_ref}'=plan#>>'{personas,1,vinculo_ref}' OR plan#>>'{personas,0,certificado_admin,huella_sha256}'=plan#>>'{personas,1,certificado_admin,huella_sha256}' OR plan->>'control_continuidad_revision_esperada' IS DISTINCT FROM '1' OR plan->>'bootstrap_estado_esperado' IS DISTINCT FROM 'pendiente' OR jsonb_typeof(gov->'roles') IS DISTINCT FROM 'array' OR jsonb_array_length(gov->'roles') NOT BETWEEN 1 AND 64 THEN RAISE EXCEPTION 'AUT24: plan de bootstrap invalido' USING ERRCODE='22023'; END IF;
+ IF vec_autorizacion.texto_positivo_valido(gov->>'audiencia_selector_admin',256) IS NOT TRUE THEN RAISE EXCEPTION 'AUT24: audiencia selector ausente en gobierno aprobado' USING ERRCODE='22023'; END IF;
+ IF jsonb_typeof(plan#>'{personas,0,sistemas}') IS DISTINCT FROM 'array' OR jsonb_typeof(plan#>'{personas,1,sistemas}') IS DISTINCT FROM 'array' OR jsonb_array_length(plan#>'{personas,0,sistemas}')+jsonb_array_length(plan#>'{personas,1,sistemas}')<>1 THEN RAISE EXCEPTION 'AUT24: kit requiere dos personas Aplicacion y una asignacion Sistemas' USING ERRCODE='22023'; END IF;
  PERFORM pg_advisory_xact_lock(hashtextextended('vec:admin:continuidad:v1',0));
  acto:='acto_admin:'||substr(huella,1,32);audit:='auditoria_bootstrap:'||huella;recibo:='recibo_admin:'||substr(encode(sha256(convert_to(huella||':recibo','UTF8')),'hex'),1,32);
  SELECT * INTO STRICT continuidad FROM vec_autorizacion.control_continuidad_admin WHERE control_id FOR UPDATE;
@@ -1000,6 +1058,17 @@ BEGIN
  SELECT * INTO STRICT rol FROM vec_autorizacion.version_rol WHERE version_rol_ref=plan#>>'{rol,version_ref}';
  SELECT v.* INTO STRICT control FROM vec_autorizacion.control_vigencia_version_rol_actual a JOIN vec_autorizacion.control_vigencia_version_rol v USING(version_rol_ref,revision) WHERE a.version_rol_ref=rol.version_rol_ref FOR UPDATE OF a;
  IF rol.rol_id IS DISTINCT FROM 'administracion_perfiles' OR rol.documento->>'estado' IS DISTINCT FROM 'publicada' OR rol.huella_sha256 IS DISTINCT FROM plan#>>'{rol,huella_sha256}' OR control.estado IS DISTINCT FROM 'habilitada' OR control.revision IS DISTINCT FROM (plan#>>'{rol,control_revision}')::numeric OR control.huella_sha256 IS DISTINCT FROM plan#>>'{rol,control_huella_sha256}' OR NOT EXISTS(SELECT 1 FROM vec_autorizacion.rol_sensible_exacto sx WHERE sx.version_rol_ref=rol.version_rol_ref AND sx.clase='administrador' AND sx.huella_sha256=rol.huella_sha256) THEN RAISE EXCEPTION 'AUT24: rol bootstrap publicado divergente' USING ERRCODE='40001'; END IF;
+ -- La tercera asignación del kit usa la misma persona/cuenta acreditada y
+ -- referencias nuevas propias. Su rol y control se cotejan sin inferir permisos.
+ FOR persona IN SELECT value FROM jsonb_array_elements(plan->'personas') LOOP
+  FOR sis IN SELECT value FROM jsonb_array_elements(persona->'sistemas') LOOP
+   SELECT * INTO STRICT rol_sis FROM vec_autorizacion.version_rol WHERE version_rol_ref=sis#>>'{rol,version_ref}';
+   SELECT cv.* INTO STRICT control_sis FROM vec_autorizacion.control_vigencia_version_rol_actual rc JOIN vec_autorizacion.control_vigencia_version_rol cv USING(version_rol_ref,revision) WHERE rc.version_rol_ref=rol_sis.version_rol_ref FOR UPDATE OF rc;
+   IF rol_sis.rol_id IS DISTINCT FROM 'operador_plataforma' OR rol_sis.huella_sha256 IS DISTINCT FROM sis#>>'{rol,huella_sha256}' OR control_sis.estado IS DISTINCT FROM 'habilitada' OR control_sis.revision IS DISTINCT FROM (sis#>>'{rol,control_revision}')::numeric OR control_sis.huella_sha256 IS DISTINCT FROM sis#>>'{rol,control_huella_sha256}' THEN RAISE EXCEPTION 'AUT24: kit Sistemas no corresponde a plantilla publicada' USING ERRCODE='40001'; END IF;
+   pi:=vec_contexto_actor_v1.preimagen_admin_interna_v1(persona->>'cuenta_ref',persona->>'persona_ref',sis->>'perfil_ref',sis->>'vinculo_ref');
+   IF pi->'perfil' IS DISTINCT FROM 'null'::jsonb OR pi->'vinculo' IS DISTINCT FROM 'null'::jsonb OR sis->>'perfil_ref' IN(plan#>>'{personas,0,perfil_ref}',plan#>>'{personas,1,perfil_ref}') OR sis->>'vinculo_ref' IN(plan#>>'{personas,0,vinculo_ref}',plan#>>'{personas,1,vinculo_ref}') OR NOT isfinite((sis->>'vigente_hasta')::timestamptz) OR (sis->>'vigente_hasta')::timestamptz<(plan->>'caduca_en')::timestamptz OR (sis->>'vigente_hasta')::timestamptz>(persona->>'vigente_hasta')::timestamptz OR EXISTS(SELECT 1 FROM vec_autorizacion.asignacion_perfil_actual ac WHERE ac.perfil_activo_ref=sis->>'perfil_ref') THEN RAISE EXCEPTION 'AUT24: preimagen Sistemas requiere referencias nuevas y vigencia' USING ERRCODE='40001'; END IF;
+  END LOOP;
+ END LOOP;
  -- Ambas preimágenes se cotejan antes de la primera escritura. Los bloqueos
  -- se conservan hasta COMMIT; no se recalcula la segunda tras la primera alta.
  FOR persona IN SELECT value FROM jsonb_array_elements(plan->'personas') LOOP
@@ -1009,12 +1078,13 @@ BEGIN
   IF encode(sha256(convert_to(pi::text,'UTF8')),'hex') IS DISTINCT FROM persona->>'preimagen_huella_sha256' OR (pi#>>'{contexto,cuenta,version}')::numeric IS DISTINCT FROM (persona->>'cuenta_version')::numeric OR (pi#>>'{contexto,persona,version}')::numeric IS DISTINCT FROM (persona->>'persona_version')::numeric OR pi#>'{contexto,perfil}' IS DISTINCT FROM 'null'::jsonb OR pi#>'{contexto,vinculo}' IS DISTINCT FROM 'null'::jsonb OR pi->'asignacion' IS DISTINCT FROM 'null'::jsonb OR (persona->>'vigente_hasta')::timestamptz<(plan->>'caduca_en')::timestamptz OR (persona->>'vigente_hasta')::timestamptz>(identidad->>'vigente_hasta')::timestamptz THEN RAISE EXCEPTION 'AUT24: preimagen bootstrap divergente' USING ERRCODE='40001'; END IF;
  END LOOP;
  FOR cfg IN SELECT value FROM jsonb_array_elements(gov->'roles') LOOP
-  IF NOT cfg ?& ARRAY['version_ref','huella_sha256','clase','unidad_requerida','ambitos_fijos','vigente_desde','vigente_hasta','duracion_propuesta_segundos'] OR jsonb_typeof(cfg->'unidad_requerida') IS DISTINCT FROM 'boolean' OR cfg->>'clase' NOT IN ('ordinario','administrador','intervencion') OR jsonb_typeof(cfg->'ambitos_fijos') IS DISTINCT FROM 'array' OR ((cfg->>'unidad_requerida')::boolean AND jsonb_array_length(cfg->'ambitos_fijos')<>0) OR (NOT (cfg->>'unidad_requerida')::boolean AND vec_autorizacion.ambitos_positivos_validos(jsonb_build_object('ambitos',cfg->'ambitos_fijos')) IS NOT TRUE) OR (cfg->>'vigente_desde')::timestamptz>(plan->>'preparado_en')::timestamptz OR (cfg->>'vigente_hasta')::timestamptz<(plan->>'caduca_en')::timestamptz OR (cfg->>'duracion_propuesta_segundos')::numeric<1 OR (cfg->>'duracion_propuesta_segundos')::numeric>extract(epoch FROM ((cfg->>'vigente_hasta')::timestamptz-(plan->>'preparado_en')::timestamptz)) THEN RAISE EXCEPTION 'AUT24: gobierno de rol invalido' USING ERRCODE='22023'; END IF;
+  IF NOT cfg ?& ARRAY['version_ref','huella_sha256','clase','unidad_requerida','ambitos_fijos','vigente_desde','vigente_hasta','duracion_propuesta_segundos','categoria_admin'] OR jsonb_typeof(cfg->'unidad_requerida') IS DISTINCT FROM 'boolean' OR cfg->>'clase' NOT IN ('ordinario','administrador','intervencion') OR jsonb_typeof(cfg->'ambitos_fijos') IS DISTINCT FROM 'array' OR ((cfg->>'unidad_requerida')::boolean AND jsonb_array_length(cfg->'ambitos_fijos')<>0) OR (NOT (cfg->>'unidad_requerida')::boolean AND vec_autorizacion.ambitos_positivos_validos(jsonb_build_object('ambitos',cfg->'ambitos_fijos')) IS NOT TRUE) OR (cfg->>'vigente_desde')::timestamptz>(plan->>'preparado_en')::timestamptz OR (cfg->>'vigente_hasta')::timestamptz<(plan->>'caduca_en')::timestamptz OR (cfg->>'duracion_propuesta_segundos')::numeric<1 OR (cfg->>'duracion_propuesta_segundos')::numeric>extract(epoch FROM ((cfg->>'vigente_hasta')::timestamptz-(plan->>'preparado_en')::timestamptz)) THEN RAISE EXCEPTION 'AUT24: gobierno de rol invalido' USING ERRCODE='22023'; END IF;
   IF NOT EXISTS(SELECT 1 FROM vec_autorizacion.version_rol v JOIN vec_autorizacion.control_vigencia_version_rol_actual a USING(version_rol_ref) JOIN vec_autorizacion.control_vigencia_version_rol c ON c.version_rol_ref=a.version_rol_ref AND c.revision=a.revision WHERE v.version_rol_ref=cfg->>'version_ref' AND v.huella_sha256=cfg->>'huella_sha256' AND v.documento->>'estado'='publicada' AND c.estado='habilitada') THEN RAISE EXCEPTION 'AUT24: catalogo no puede publicar permisos' USING ERRCODE='42501'; END IF;
+  IF NOT EXISTS(SELECT 1 FROM vec_autorizacion.version_rol vr WHERE vr.version_rol_ref=cfg->>'version_ref' AND ((vr.rol_id='administracion_perfiles' AND cfg->>'categoria_admin'='aplicacion') OR (vr.rol_id='operador_plataforma' AND cfg->>'categoria_admin'='sistemas') OR (cfg->>'clase'<>'administrador' AND cfg->>'categoria_admin'=''))) THEN RAISE EXCEPTION 'AUT24: categoria no corresponde a familia publicada' USING ERRCODE='42501'; END IF;
   SELECT s.clase INTO clase FROM vec_autorizacion.rol_sensible_exacto s WHERE s.version_rol_ref=cfg->>'version_ref' AND s.huella_sha256=cfg->>'huella_sha256';
   IF coalesce(clase,'ordinario') IS DISTINCT FROM cfg->>'clase' THEN RAISE EXCEPTION 'AUT24: clase de rol no declarable' USING ERRCODE='42501'; END IF;
   duracion:=make_interval(secs=>(cfg->>'duracion_propuesta_segundos')::double precision);
-  INSERT INTO vec_autorizacion.rol_administrable_exacto_v1 VALUES(cfg->>'version_ref',cfg->>'clase',cfg->>'huella_sha256',(cfg->>'vigente_desde')::timestamptz,(cfg->>'vigente_hasta')::timestamptz,(cfg->>'unidad_requerida')::boolean,gov->>'audiencia_administrativa',cfg->'ambitos_fijos',duracion);
+  INSERT INTO vec_autorizacion.rol_administrable_exacto_v1 VALUES(cfg->>'version_ref',cfg->>'clase',cfg->>'huella_sha256',(cfg->>'vigente_desde')::timestamptz,(cfg->>'vigente_hasta')::timestamptz,(cfg->>'unidad_requerida')::boolean,gov->>'audiencia_administrativa',cfg->'ambitos_fijos',duracion,cfg->>'categoria_admin');
  END LOOP;
  IF gov ? 'motivos' THEN
   IF jsonb_typeof(gov->'motivos') IS DISTINCT FROM 'array' THEN RAISE EXCEPTION 'AUT24: gobierno de motivos invalido' USING ERRCODE='22023'; END IF;
@@ -1030,6 +1100,16 @@ BEGIN
   m:=vec_autorizacion.material_persona_bootstrap_interno_v2(plan,persona,actor,acto);
   efecto:=vec_autorizacion.ejecutar_cambio_admin_interno_v1(m,'acto_admin:'||substr(encode(sha256(convert_to(huella||':'||(persona->>'persona_ref')||':perfil','UTF8')),'hex'),1,32),null,audit,actor,true,null,huella);
   partes:=partes||jsonb_build_array(efecto);
+ END LOOP;
+ FOR persona IN SELECT value FROM jsonb_array_elements(plan->'personas') LOOP
+  FOR sis IN SELECT value FROM jsonb_array_elements(persona->'sistemas') LOOP
+   IF NOT EXISTS(SELECT 1 FROM vec_autorizacion.rol_administrable_exacto_v1 g WHERE g.version_rol_ref=sis#>>'{rol,version_ref}' AND g.categoria_admin='sistemas' AND g.clase='administrador' AND NOT g.unidad_requerida AND g.huella_sha256=sis#>>'{rol,huella_sha256}') THEN RAISE EXCEPTION 'AUT24: gobierno Sistemas no publicado' USING ERRCODE='42501'; END IF;
+   plan_sis:=jsonb_set(plan,'{rol}',sis->'rol');
+   persona_sis:=persona||jsonb_build_object('perfil_ref',sis->>'perfil_ref','vinculo_ref',sis->>'vinculo_ref','vigente_hasta',sis->>'vigente_hasta');
+   m:=vec_autorizacion.material_persona_bootstrap_interno_v2(plan_sis,persona_sis,actor,acto);
+   efecto:=vec_autorizacion.ejecutar_cambio_admin_interno_v1(m,'acto_admin:'||substr(encode(sha256(convert_to(huella||':'||(persona->>'persona_ref')||':sistemas','UTF8')),'hex'),1,32),null,audit,actor,true,null,huella);
+   partes:=partes||jsonb_build_array(efecto);
+  END LOOP;
  END LOOP;
  IF (SELECT count(DISTINCT x->>'persona_ref') FROM jsonb_array_elements(vec_autorizacion.administradores_efectivos_internos_v1()) x)<>continuidad.bootstrap_minimo_personas THEN RAISE EXCEPTION 'AUT24: bootstrap_personas esperado=2 observado=divergente' USING ERRCODE='42501'; END IF;
  UPDATE vec_autorizacion.control_continuidad_admin SET revision=revision+1,bootstrap_estado='consumido',bootstrap_acto_ref=acto,actualizado_en=clock_timestamp() WHERE control_id AND revision=1 AND bootstrap_estado='pendiente';

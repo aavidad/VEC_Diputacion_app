@@ -130,3 +130,34 @@ La vinculación de motivos ADMIN y las procedencias nuevas de retirada deben
 proceder de la autoridad publicada. El código no inventa entradas de catálogo
 ni declara una fuente inexistente: las acciones de ficha afectadas permanecen
 cerradas hasta recibir esos datos gobernados.
+
+## Catálogo dual y selector central
+
+El kit inicial crea dos personas con Aplicación y añade Sistemas a una de ellas,
+en una sola transacción. `personas[].sistemas` es un array requerido: vacío en
+una persona y con una asignación en la otra. Su vigencia no supera la de
+Aplicación ya acreditada para esa persona. Ambas familias son sensibles;
+Sistemas no cuenta para la continuidad ni para el doble control de Aplicación.
+
+AUT24 prepara `rol:operador_plataforma:v1` con las dos capacidades de Sistemas
+ya implementadas por Copias: emitir orden y proponer restauración. Aplicación
+añade únicamente la revisión de restauración. La categoría procede del gobierno
+aprobado dentro del SHA del plan, fuera del documento canónico de rol; no se
+infiere de un prefijo. Las huellas concretas se obtendrán de la publicación en
+el clon causal: este documento no afirma que estos roles estén instalados.
+
+CA23 recibe los lectores `(cuenta,perfil)` con las nueve columnas originales.
+Los listados propios, SERIALIZABLE y READ COMMITTED, devuelven esas columnas
+más `rol_version_ref`, `clave_i18n` y `categoria_admin`, para ambas familias.
+`consultar_metadata_perfil_admin_v1(cuenta,perfil)` devuelve rol_id, versión,
+huella, clave i18n y categoría tras revalidar el perfil elegido.
+`revalidar_audiencia_selector_admin_v1(text)` coteja la audiencia del servicio
+con `gobierno.audiencia_selector_admin` del plan privado aprobado. Todas estas
+fachadas son exclusivas del propietario CA; el runtime HTTP carece de EXECUTE.
+La elección de perfil activo no publica facultades ni suma ambos perfiles.
+
+AD150 sigue pendiente de reanclaje al núcleo precedente real publicado: AD144
+y, si se integra antes, AD149 modifican la misma función y restricción. No debe
+instalarse con la preimagen POST142 sobre una postimagen diferente. Los seis
+vectores canónicos y sus seis negativos acreditados en PG18 corresponden a
+AUT24 anterior; el nuevo delta dual todavía necesita ensayo y dos revisiones.
