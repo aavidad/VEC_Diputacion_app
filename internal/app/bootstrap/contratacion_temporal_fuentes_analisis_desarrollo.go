@@ -154,6 +154,12 @@ func (p *preparadorSolicitudesFuentesAnalisisDesarrollo) PrepararSolicitudesFuen
 	if err != nil {
 		return vacias, err
 	}
+	// Sin fecha de finalización no hay horizonte sobre el que estimar un
+	// importe total. El análisis conserva la validación de RC sin atribuirle
+	// un coste calculado a partir de una fecha ficticia.
+	if solicitud.DatosFuncionales.Periodo.Fin.IsZero() {
+		return ports.SolicitudesFuentesAnalisisO3{ValidacionRC: solicitudRC}, nil
+	}
 	_, conCoste, err := p.retribuciones.retribucion(
 		ctx, solicitud.DatosFuncionales.CategoriaRef, solicitud.DatosFuncionales.GrupoSubgrupo,
 	)
