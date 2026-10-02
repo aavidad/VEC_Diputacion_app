@@ -80,6 +80,12 @@ func ausente(v any) bool {
 const acreditarSQL = `SELECT current_user = session_user AND r.rolcanlogin AND r.rolinherit
  AND NOT (r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls)
  AND (SELECT count(*) FROM pg_catalog.pg_auth_members m WHERE m.member=r.oid)=1
+ AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_database db WHERE db.datname=current_database()
+   AND (db.datdba=r.oid OR db.datdba=pg_catalog.to_regrole('vec_admin_perfiles_ejecutor')))
+ AND pg_catalog.to_regprocedure('vec_autorizacion.resolver_rol_administrable_v1(text)') IS NOT NULL
+ AND pg_catalog.to_regprocedure('vec_autorizacion.aplicar_acto_ordinario_admin_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
+ AND pg_catalog.to_regprocedure('vec_autorizacion.proponer_acto_admin_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
+ AND pg_catalog.to_regprocedure('vec_autorizacion.cerrar_propuesta_admin_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
  AND EXISTS (SELECT 1 FROM pg_catalog.pg_auth_members m JOIN pg_catalog.pg_roles g ON g.oid=m.roleid
    WHERE m.member=r.oid AND g.rolname='vec_admin_perfiles_ejecutor'
    AND m.inherit_option AND NOT m.set_option AND NOT m.admin_option
@@ -88,6 +94,9 @@ const acreditarSQL = `SELECT current_user = session_user AND r.rolcanlogin AND r
  AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_namespace n
    WHERE n.nspname LIKE 'vec\_%' ESCAPE '\'
    AND (n.nspowner=r.oid OR n.nspowner=pg_catalog.to_regrole('vec_admin_perfiles_ejecutor')))
+ AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_type t JOIN pg_catalog.pg_namespace n ON n.oid=t.typnamespace
+   WHERE n.nspname LIKE 'vec\_%' ESCAPE '\'
+   AND (t.typowner=r.oid OR t.typowner=pg_catalog.to_regrole('vec_admin_perfiles_ejecutor')))
  AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
    WHERE n.nspname LIKE 'vec\_%' ESCAPE '\'
    AND (c.relowner=r.oid OR c.relowner=pg_catalog.to_regrole('vec_admin_perfiles_ejecutor')
@@ -97,12 +106,12 @@ const acreditarSQL = `SELECT current_user = session_user AND r.rolcanlogin AND r
    WHERE n.nspname LIKE 'vec\_%' ESCAPE '\'
    AND (p.proowner=r.oid OR p.proowner=pg_catalog.to_regrole('vec_admin_perfiles_ejecutor')
      OR (pg_catalog.has_function_privilege(current_user,p.oid,'EXECUTE')
-       AND NOT (n.nspname='vec_autorizacion' AND p.oid=ANY(ARRAY[
+       AND NOT COALESCE(n.nspname='vec_autorizacion' AND p.oid=ANY(ARRAY[
          pg_catalog.to_regprocedure('vec_autorizacion.resolver_rol_administrable_v1(text)'),
          pg_catalog.to_regprocedure('vec_autorizacion.aplicar_acto_ordinario_admin_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'),
          pg_catalog.to_regprocedure('vec_autorizacion.proponer_acto_admin_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'),
          pg_catalog.to_regprocedure('vec_autorizacion.cerrar_propuesta_admin_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'
-       )]::oid[]))
+       )]::oid[]),false)
        AND (p.prosecdef OR EXISTS (SELECT 1 FROM pg_catalog.aclexplode(COALESCE(p.proacl,pg_catalog.acldefault('f',p.proowner))) acl
          WHERE acl.privilege_type='EXECUTE' AND acl.grantee IN (r.oid,pg_catalog.to_regrole('vec_admin_perfiles_ejecutor')))))))
  FROM pg_catalog.pg_roles r WHERE r.rolname=session_user`
@@ -119,5 +128,5 @@ type rolJSON struct {
 	HuellaSHA256    string                                    `json:"huella_sha256"`
 	VigenteDesde    time.Time                                 `json:"vigente_desde"`
 	VigenteHasta    time.Time                                 `json:"vigente_hasta"`
-	UnidadRequerida bool                                      `json:"unidad_requerida"`
+	UnidadRequerida *bool                                     `json:"unidad_requerida"`
 }

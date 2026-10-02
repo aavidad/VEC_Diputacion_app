@@ -35,11 +35,11 @@ func (a *Autoridad) ResolverRolAdministrable(ctx context.Context, ref string) (p
 		return cero, traducir(ctx, err)
 	}
 	var x rolJSON
-	if decodificar(b, &x) != nil {
+	if decodificar(b, &x) != nil || x.UnidadRequerida == nil {
 		return cero, ports.ErrAutoridadAdministracionPerfilesNoDisponible
 	}
 	rol := ports.RolAdministrable{VersionRef: x.VersionRef, Clase: x.Clase, HuellaSHA256: x.HuellaSHA256,
-		VigenteDesde: x.VigenteDesde, VigenteHasta: x.VigenteHasta, UnidadRequerida: x.UnidadRequerida}
+		VigenteDesde: x.VigenteDesde, VigenteHasta: x.VigenteHasta, UnidadRequerida: *x.UnidadRequerida}
 	if rol.VersionRef != ref || rol.ValidarEn(a.reloj.Ahora()) != nil {
 		return cero, domain.ErrActoAdministracionPerfilesInvalido
 	}
@@ -96,7 +96,7 @@ func (a *Autoridad) ProponerActoSensible(ctx context.Context, s domain.Solicitud
 		resultado = ports.PropuestaAdministracionPerfiles{OperacionRef: x.OperacionRef, PropuestaRef: x.PropuestaRef,
 			HuellaSHA256: x.HuellaSHA256, ProponentePersonaRef: x.ProponentePersonaRef,
 			ObjetivoPersonaRef: x.ObjetivoPersonaRef, CaducaEn: x.CaducaEn}
-		if resultado.ValidarPara(s) != nil || !resultado.CaducaEn.After(a.reloj.Ahora()) {
+		if resultado.ValidarPara(s) != nil || !resultado.CaducaEn.After(a.reloj.Ahora()) || !instantePersistible(resultado.CaducaEn) {
 			return domain.ErrControlAdministracionPerfilesInvalido
 		}
 		return nil
@@ -129,6 +129,9 @@ func (a *Autoridad) CerrarPropuestaSensible(ctx context.Context, s domain.Solici
 		if x.Recibo != nil {
 			r := x.Recibo.dominio()
 			resultado.Recibo = &r
+		}
+		if !instantePersistible(resultado.ConfirmadoEn) {
+			return domain.ErrControlAdministracionPerfilesInvalido
 		}
 		return resultado.ValidarPara(s)
 	})
@@ -224,4 +227,8 @@ func traducir(ctx context.Context, err error) error {
 		}
 	}
 	return ports.ErrAutoridadAdministracionPerfilesNoDisponible
+}
+
+func instantePersistible(t time.Time) bool {
+	return !t.IsZero() && t.Equal(t.Truncate(time.Microsecond))
 }

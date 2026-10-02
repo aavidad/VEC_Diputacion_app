@@ -209,3 +209,31 @@ func TestCierreReconstruyeParticipantesYClaseEnSQL(t *testing.T) {
 		t.Fatal("cierre adopta participantes de la petición")
 	}
 }
+
+func TestCatalogoExigeDecisionExplicitaDeUnidad(t *testing.T) {
+	ahora := time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC)
+	base := `{"version_ref":"rol:cronos_rrhh:v1","clase":"ordinario","huella_sha256":"` + strings.Repeat("a", 64) + `","vigente_desde":"2026-10-01T00:00:00Z","vigente_hasta":"2027-01-01T00:00:00Z"`
+	for _, caso := range []struct {
+		nombre, final string
+		valido        bool
+		unidad        bool
+	}{
+		{"ausente", "}", false, false}, {"nulo", `,"unidad_requerida":null}`, false, false},
+		{"no_requiere", `,"unidad_requerida":false}`, true, false}, {"requiere", `,"unidad_requerida":true}`, true, true},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			a := &Autoridad{pool: &poolFalso{fila: filaFalsa{dato: []byte(base + caso.final)}}, emisor: &emisorFalso{}, reloj: relojFijo(ahora)}
+			rol, err := a.ResolverRolAdministrable(context.Background(), "rol:cronos_rrhh:v1")
+			if (err == nil) != caso.valido || err == nil && rol.UnidadRequerida != caso.unidad {
+				t.Fatalf("rol=%+v err=%v", rol, err)
+			}
+		})
+	}
+}
+
+func TestFechasPersistiblesEnPropuestaYCierre(t *testing.T) {
+	base := time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC)
+	if !instantePersistible(base) || instantePersistible(base.Add(time.Nanosecond)) || instantePersistible(time.Time{}) {
+		t.Fatal("acepta precisión que PostgreSQL perdería")
+	}
+}
