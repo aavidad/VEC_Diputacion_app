@@ -14,7 +14,7 @@ DECLARE rol text; nombre text; f155 oid;
 BEGIN
  IF current_user<>'vec_autorizacion_atestada_v3_propietario'
  OR to_regprocedure('vec_autorizacion_atestada_v3.consumir_solicitud_documental_bolsa_v3_atestada(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
- THEN RAISE EXCEPTION 'AD161: POST155 ausente' USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'PARO clave=AD161.POST155, observado=propietario_%/fachada_%, esperado=propietario_true/fachada_true', current_user='vec_autorizacion_atestada_v3_propietario', to_regprocedure('vec_autorizacion_atestada_v3.consumir_solicitud_documental_bolsa_v3_atestada(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL USING ERRCODE='55000'; END IF;
  FOREACH nombre IN ARRAY ARRAY[
   'consumir_consulta_version_convocatoria_v3_atestada',
   'consumir_operacion_meritos_v3_atestada',
@@ -22,7 +22,7 @@ BEGIN
   'consumir_vinculo_propio_crn11_v3_atestada'
  ] LOOP
   IF to_regprocedure('vec_autorizacion_atestada_v3.'||nombre||'(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
-  THEN RAISE EXCEPTION 'AD161: consumidor presente o estado parcial' USING ERRCODE='55000'; END IF;
+  THEN RAISE EXCEPTION 'PARO clave=AD161.consumidor_%, observado=presente, esperado=ausente', nombre USING ERRCODE='55000'; END IF;
  END LOOP;
  FOREACH rol IN ARRAY ARRAY[
   'vec_bolsa_convocatorias_propietario','vec_bolsa_convocatorias_ejecutor_consulta',
@@ -32,7 +32,7 @@ BEGIN
  ] LOOP
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname=rol AND NOT rolcanlogin
    AND NOT rolsuper AND NOT rolcreaterole AND NOT rolcreatedb AND NOT rolreplication AND NOT rolbypassrls)
-  THEN RAISE EXCEPTION 'AD161: rol nominal incompatible' USING ERRCODE='55000'; END IF;
+  THEN RAISE EXCEPTION 'PARO clave=AD161.rol_%, observado=ausente_o_atributos_incompatibles, esperado=NOLOGIN_sin_privilegios_elevados', rol USING ERRCODE='55000'; END IF;
  END LOOP;
  IF EXISTS (SELECT 1 FROM pg_auth_members WHERE member IN (
   'vec_bolsa_convocatorias_ejecutor_consulta'::regrole,'vec_meritos_ejecutor'::regrole,
@@ -49,7 +49,7 @@ BEGIN
   WHERE n.nspname='vec_contexto_actor_v1' AND p.proname='proyeccion_empleado_personal_v2'
    AND p.pronargs=2 AND p.proargtypes[0]='text'::regtype AND p.proargtypes[1]='timestamptz'::regtype
    AND p.proowner='vec_contexto_actor_v1_propietario'::regrole)
- THEN RAISE EXCEPTION 'AD161: dependencias o herencia incompatibles' USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'PARO clave=AD161.dependencias_herencia, observado=incompatible, esperado=tres_objetos_Personal_CA_y_grupos_sin_herencia' USING ERRCODE='55000'; END IF;
  f155:='vec_autorizacion_atestada_v3.consumir_solicitud_documental_bolsa_v3_atestada(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure;
  IF (SELECT encode(sha256(convert_to(pg_get_functiondef(f155),'UTF8')),'hex'))
    IS DISTINCT FROM '6cbc471ddab55e56b97d4c7c4b75149ffc09992fc735ccca461d1372000d1197'
@@ -62,7 +62,7 @@ BEGIN
   aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a WHERE p.oid=f155
   AND (a.grantee NOT IN (p.proowner,'vec_bolsa_llamamientos_propietario'::regrole)
    OR a.grantor<>p.proowner OR a.privilege_type<>'EXECUTE' OR a.is_grantable))
- THEN RAISE EXCEPTION 'AD161: fachada POST155 incompatible' USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'PARO clave=AD161.fachada_POST155, observado_def=%/ACL_count=%, esperado_def=6cbc471ddab55e56b97d4c7c4b75149ffc09992fc735ccca461d1372000d1197/ACL_count=2', encode(sha256(convert_to(pg_get_functiondef(f155),'UTF8')),'hex'), (SELECT count(*) FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a WHERE p.oid=f155) USING ERRCODE='55000'; END IF;
 END $pre$;
 DO $nucleo$
 DECLARE
@@ -225,12 +225,12 @@ $runtime_nuevo$;
  AND d->'obligaciones' IS NOT DISTINCT FROM '[]'::jsonb)
 $extension$;
 BEGIN
- IF f IS NULL THEN RAISE EXCEPTION 'AD161: núcleo ausente' USING ERRCODE='55000'; END IF;
+ IF f IS NULL THEN RAISE EXCEPTION 'PARO clave=AD161.nucleo_presencia, observado=ausente, esperado=presente' USING ERRCODE='55000'; END IF;
  SELECT pg_get_functiondef(f),p.prosrc,to_jsonb(p)-'prosrc',p.proacl,p.proowner,p.proconfig,p.prosecdef
  INTO original,fuente,meta,acl,propietario,config,definidora FROM pg_proc p WHERE p.oid=f;
  IF NOT FOUND OR original IS NULL OR fuente IS NULL OR meta IS NULL
     OR propietario IS NULL OR config IS NULL OR definidora IS NULL
- THEN RAISE EXCEPTION 'AD161: metadatos de núcleo ausentes' USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'PARO clave=AD161.nucleo_metadata, observado=incompleta, esperado=def_fuente_meta_propietario_config_definidora_presentes' USING ERRCODE='55000'; END IF;
  SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
  INTO deps FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f;
  SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.dbid,d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype),'[]'::jsonb)
@@ -280,7 +280,7 @@ BEGIN
     OR strpos(original,'meritos_hecho_rechazar')<>0
     OR strpos(original,'gobierno_borrador_reglas_baremo')<>0
     OR strpos(original,'vinculo_propio_historico_crn11')<>0
- THEN RAISE EXCEPTION 'AD161: núcleo incompatible' USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'PARO clave=AD161.nucleo_preimagen, observado_def=%/fuente=%/metadata=%, esperado_def=%/fuente=%/metadata=propietario_y_ACL_nominal_config_pg_catalog_pg_temp_lock_timeout_2s_dependencias_y_anclas_unicas', encode(sha256(convert_to(original,'UTF8')),'hex'), encode(sha256(convert_to(fuente,'UTF8')),'hex'), encode(sha256(convert_to(meta::text,'UTF8')),'hex'), esperada_def_sha256, esperada_fuente_sha256 USING ERRCODE='55000'; END IF;
  nuevo:=replace(original,runtime,runtime_nuevo);
  nuevo:=replace(nuevo,excl,excl_nuevo);
  nuevo:=replace(nuevo,marca,extension||marca);
@@ -298,7 +298,7 @@ BEGIN
     OR (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.dbid,d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype),'[]'::jsonb)
         FROM pg_shdepend d WHERE d.dbid=(SELECT oid FROM pg_database WHERE datname=current_database())
           AND d.classid='pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps_compartidas
- THEN RAISE EXCEPTION 'AD161: núcleo alterado fuera del contrato' USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'PARO clave=AD161.nucleo_postimagen, observado_def=%/metadata=%, esperado_def=%/metadata=%', encode(sha256(convert_to(actual,'UTF8')),'hex'), (SELECT encode(sha256(convert_to((to_jsonb(p)-'prosrc')::text,'UTF8')),'hex') FROM pg_proc p WHERE p.oid=f), encode(sha256(convert_to(nuevo,'UTF8')),'hex'), encode(sha256(convert_to(meta::text,'UTF8')),'hex') USING ERRCODE='55000'; END IF;
 END $nucleo$;
 
 LOCK TABLE vec_autorizacion_atestada_v3.clave_capacidad_version IN ACCESS EXCLUSIVE MODE;
@@ -310,7 +310,7 @@ BEGIN
  AND c.conname='clave_capacidad_version_audiencia_consumo_check' AND c.contype='c' AND c.convalidated;
  IF encode(sha256(convert_to(d,'UTF8')),'hex') IS DISTINCT FROM 'c220a791d3bf62f5a87ca192373900178c7c3344f10384b1080cfef9c2f81626'
  OR strpos(d,'CHECK (audiencia_consumo = ANY (ARRAY[')<>1 OR right(d,3)<>']))'
- THEN RAISE EXCEPTION 'AD161: preimagen de audiencias incompatible' USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'PARO clave=AD161.audiencias_preimagen, observado=%, esperado=c220a791d3bf62f5a87ca192373900178c7c3344f10384b1080cfef9c2f81626', encode(sha256(convert_to(d,'UTF8')),'hex') USING ERRCODE='55000'; END IF;
  nueva:=d;
  FOREACH a IN ARRAY ARRAY[
   'vec_bolsa_convocatorias.version.consultar.v1',
@@ -318,7 +318,7 @@ BEGIN
   'vec_bolsa_reglas_baremo.gobierno_borrador.v3','vec_personal.vinculo_propio.crn11.v1'
  ] LOOP
   IF strpos(d,quote_literal(a))<>0 THEN
-   RAISE EXCEPTION 'AD161: audiencia presente o estado parcial' USING ERRCODE='55000'; END IF;
+   RAISE EXCEPTION 'PARO clave=AD161.audiencia_%, observado=presente, esperado=ausente', a USING ERRCODE='55000'; END IF;
   nueva:=left(nueva,length(nueva)-3)||', '||quote_literal(a)||'::text]))';
  END LOOP;
  ALTER TABLE vec_autorizacion_atestada_v3.clave_capacidad_version DROP CONSTRAINT clave_capacidad_version_audiencia_consumo_check;
@@ -326,7 +326,7 @@ BEGIN
  IF (SELECT pg_get_constraintdef(c.oid,true) FROM pg_constraint c
   WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
   AND c.conname='clave_capacidad_version_audiencia_consumo_check' AND c.convalidated) IS DISTINCT FROM nueva
- THEN RAISE EXCEPTION 'AD161: audiencias cambiadas fuera del contrato' USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'PARO clave=AD161.audiencias_postimagen, observado=distinta_o_sin_validar, esperado=%', encode(sha256(convert_to(nueva,'UTF8')),'hex') USING ERRCODE='55000'; END IF;
 END $audiencias$;
 
 CREATE FUNCTION vec_autorizacion_atestada_v3.consumir_consulta_version_convocatoria_v3_atestada(
