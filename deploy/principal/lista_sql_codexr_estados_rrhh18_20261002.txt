@@ -1,0 +1,3 @@
+# B76 requiere los objetos de Bolsa 000073. Instalar una sola vez en el orden
+# causal; esta lista no incluye migraciones previas ni instrucciones DOWN.
+deploy/postgresql/bolsa_llamamientos/migraciones/000076_revision_regularizacion_rrhh.up.sql
