@@ -69,12 +69,21 @@ func versionPreparacionV3Valida(r ports.ResultadoPreparacionBasesV3, a bolsa.Amb
 		!instanteCanonicoPreparacion(r.Recibo.ConfirmadaEn) || r.Recibo.ConfirmadaEn.After(r.Acceso.AccedidaEn) {
 		return false
 	}
-	vistos := map[string]bool{r.Acceso.ReciboRef: true, r.Acceso.AuditoriaRef: true}
+	vistos := map[string]bool{}
 	for _, ref := range []string{r.Recibo.ReciboRef, r.Recibo.HistoriaRef, r.Recibo.AuditoriaRef, r.Recibo.EventoRef} {
 		if !prep.IdentificadorValido(ref) || vistos[ref] {
 			return false
 		}
 		vistos[ref] = true
+	}
+	if vistos[r.Acceso.ReciboRef] {
+		return false
+	}
+	// El primer guardado de esta revision consume una sola autorizacion: su
+	// auditoria real puede acreditar juntos acceso y efecto. Recuperar o leer
+	// exige otra auditoria; nunca se fabrican referencias para distinguirlas.
+	if vistos[r.Acceso.AuditoriaRef] && !(r.Estado == "guardada" && r.Acceso.AuditoriaRef == r.Recibo.AuditoriaRef) {
+		return false
 	}
 	return true
 }
