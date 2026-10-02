@@ -8,7 +8,7 @@ import {
   validarReciboAnalisis,
   validarSolicitudRectificacionAnalisis,
   validarSolicitudRegistroAnalisis,
-} from "./contrato-analisis.js";
+} from "./contrato-analisis.js?v=20261002-ct-fin-modalidad-v1";
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261001-ct-a-i18n-v1";
 import { justificanteTraducido } from "../../portal-justificante.js";
 
@@ -879,8 +879,9 @@ export function montarFormularioAnalisisRRHH(configuracion = {}) {
       estado = { ...estado,
         borrador: extraerBorrador(formulario, catalogos.jornada_completa_minutos_semanales),
         errores: {} };
-      repintar("#ct-analisis-fin");
-      return;
+		repintar("#ct-analisis-fin");
+		actualizarAvisoDuracion(formulario);
+		return;
     }
     if (["modalidad_clave", "inicio", "fin"].includes(evento.target?.name) && !estado.ocupado) {
       const formulario = evento.target.closest?.("[data-ct-analisis-form]");

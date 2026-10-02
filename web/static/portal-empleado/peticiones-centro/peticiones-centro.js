@@ -3,12 +3,12 @@ import {
   crearComandoAlta,
   validarBorradorAlta,
   validarCatalogosAlta,
-} from "../modulos/contratacion-temporal/contrato.js";
+} from "../modulos/contratacion-temporal/contrato.js?v=20261002-ct-fin-modalidad-v1";
 import {
   extraerBorradorPeticionCentro,
   renderizarFormularioPeticionCentro,
   renderizarRevisionPeticionCentro,
-} from "../modulos/contratacion-temporal/vista.js?v=20261001-ct-a-i18n-v1";
+} from "../modulos/contratacion-temporal/vista.js?v=20261002-ct-fin-modalidad-v1";
 import { MENSAJES_CONTRATACION_TEMPORAL_ES, crearTraductorContratacionTemporal } from "../modulos/contratacion-temporal/i18n.js?v=20261001-ct-a-i18n-v1";
 import { IDIOMA_ACTUAL } from "../../comun/idioma.js";
 import { aplicarIdiomaDocumento, aplicarTextosPortal, instalarValidacionI18n } from "../portal-idioma.js?v=20261001-ct-a-i18n-v1";
