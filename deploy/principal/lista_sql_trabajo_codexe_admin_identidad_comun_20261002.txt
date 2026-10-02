@@ -1,0 +1,6 @@
+# Dependencia preparatoria de Administración: aplicar sólo después de la base
+# F232 (CA19, AUT22, CA20, AUT23, IS9) y antes de CA23/IS12.
+# Requiere ensayo causal y dos revisiones finales. No instalar en la principal
+# desde esta lista por sí sola.
+deploy/postgresql/contexto_actor_v1/migraciones/000022_contexto_admin_copias_v1.up.sql
+deploy/postgresql/identidad_sesiones_v1/migraciones/000011_cuenta_contexto_admin_copias_v1.up.sql
