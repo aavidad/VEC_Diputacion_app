@@ -11,11 +11,11 @@ SELECT pg_advisory_xact_lock(hashtextextended('vec_autorizacion_atestada_v3:nucl
 DO $nucleo$
 DECLARE
  f oid:=to_regprocedure('vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
- esperada text:='POST_AD149_REAL_FUNCTIONDEF_SHA256';
+ esperada text:='202b1580f00e1618e0fb311dcf0911992e56d9eb5f17bc642d58c73768f360f1';
  original text; nuevo text; metadatos jsonb; acl aclitem[];
  marca text:=$x$       )
        OR c ->> 'suite' <> 'VEC-AD-3-COSE-EDDSA-1'$x$;
- exclusion text:=$x$               AND p_perfil_mutacion IS DISTINCT FROM 'cronos_justificacion_revision'$x$;
+ exclusion text:=$x$               AND p_perfil_mutacion IS DISTINCT FROM 'cronos_permiso_solicitar'$x$;
  guarda text:=E'           )\n       ) THEN\n        RAISE EXCEPTION USING\n            ERRCODE = ''42501'',';
  permiso text:=E'           )\n           OR (p_perfil_mutacion=''administracion_perfiles_acto''\n             AND pg_catalog.pg_has_role(session_user,''vec_admin_perfiles_ejecutor'',''MEMBER'')\n             AND EXISTS(SELECT 1 FROM pg_auth_members m WHERE m.member=session_user::regrole AND m.roleid=''vec_admin_perfiles_ejecutor''::regrole AND m.inherit_option AND NOT m.set_option AND NOT m.admin_option)\n             AND (SELECT count(*) FROM pg_auth_members WHERE member=session_user::regrole)=1\n             AND NOT EXISTS(SELECT 1 FROM pg_auth_members WHERE member=''vec_admin_perfiles_ejecutor''::regrole)\n             AND NOT EXISTS(SELECT 1 FROM pg_roles r WHERE r.oid=session_user::regrole AND (r.rolsuper OR r.rolcreaterole OR r.rolcreatedb OR r.rolbypassrls))\n           )\n       ) THEN\n        RAISE EXCEPTION USING\n            ERRCODE = ''42501'',';
  extension text:=$x$           OR (p_perfil_mutacion='administracion_perfiles_acto'
@@ -26,16 +26,23 @@ DECLARE
              AND d->>'contexto_recurso_huella_sha256' IS NOT DISTINCT FROM c->>'huella_efecto_sha256'
              AND d#>>'{vinculo_autenticacion_actor,superficie}' IS NOT DISTINCT FROM 'administracion_privilegiada'
              AND d#>>'{vinculo_autenticacion_actor,cuenta_privilegiada}' IS NOT DISTINCT FROM 'true'
-             AND (d->'campos_permitidos' IS NOT DISTINCT FROM '[]'::jsonb OR (c->>'audiencia_consumo'='vec_autorizacion.administracion_perfiles.consulta.v1' AND d->'campos_permitidos' IS NOT DISTINCT FROM '["actos_disponibles","preimagen"]'::jsonb))
+             AND d->'campos_permitidos' IN ('[]'::jsonb,'["actos_disponibles","preimagen"]'::jsonb,'["capacidades"]'::jsonb,'["personas","siguiente_cursor"]'::jsonb,'["persona"]'::jsonb,'["roles"]'::jsonb,'["propuestas"]'::jsonb,'["propuesta"]'::jsonb,'["recibo"]'::jsonb)
              AND d->'obligaciones' IS NOT DISTINCT FROM '[]'::jsonb
              AND (
                (c->>'audiencia_consumo'='vec_autorizacion.administracion_perfiles.ordinario.v1'
-                 AND d->>'accion' IN ('administracion.perfiles.otorgar','administracion.perfiles.revocar') AND d->>'tipo_recurso'='perfil')
+                 AND d->>'accion' IN ('administracion.perfiles.otorgar','administracion.perfiles.revocar') AND d->>'tipo_recurso'='perfil' AND d->'campos_permitidos'='[]'::jsonb)
                OR (c->>'audiencia_consumo'='vec_autorizacion.administracion_perfiles.propuesta.v1'
-                 AND d->>'accion'='administracion.perfiles.proponer' AND d->>'tipo_recurso'='perfil')
+                 AND d->>'accion'='administracion.perfiles.proponer' AND d->>'tipo_recurso'='perfil' AND d->'campos_permitidos'='[]'::jsonb)
                OR (c->>'audiencia_consumo'='vec_autorizacion.administracion_perfiles.consulta.v1' AND d->>'accion'='administracion.perfiles.consultar' AND d->>'tipo_recurso'='perfil' AND d->'campos_permitidos'='["actos_disponibles","preimagen"]'::jsonb)
                OR (c->>'audiencia_consumo'='vec_autorizacion.administracion_perfiles.cierre.v1'
-                 AND d->>'accion' IN ('administracion.perfiles.aprobar','administracion.perfiles.rechazar') AND d->>'tipo_recurso'='propuesta_perfil')
+                 AND d->>'accion' IN ('administracion.perfiles.aprobar','administracion.perfiles.rechazar') AND d->>'tipo_recurso'='propuesta_perfil' AND d->'campos_permitidos'='[]'::jsonb)
+               OR (c->>'audiencia_consumo'='vec_autorizacion.administracion_perfiles.lectura.capacidades.v1' AND d->>'accion'='administracion.perfiles.consultar' AND d->>'tipo_recurso'='perfil' AND d->'campos_permitidos'='["capacidades"]'::jsonb)
+               OR (c->>'audiencia_consumo'='vec_autorizacion.administracion_perfiles.lectura.buscar_personas.v1' AND d->>'accion'='administracion.perfiles.consultar' AND d->>'tipo_recurso'='perfil' AND d->'campos_permitidos'='["personas","siguiente_cursor"]'::jsonb)
+               OR (c->>'audiencia_consumo'='vec_autorizacion.administracion_perfiles.lectura.consultar_persona.v1' AND d->>'accion'='administracion.perfiles.consultar' AND d->>'tipo_recurso'='perfil' AND d->'campos_permitidos'='["persona"]'::jsonb)
+               OR (c->>'audiencia_consumo'='vec_autorizacion.administracion_perfiles.lectura.listar_roles.v1' AND d->>'accion'='administracion.perfiles.consultar' AND d->>'tipo_recurso'='perfil' AND d->'campos_permitidos'='["roles"]'::jsonb)
+               OR (c->>'audiencia_consumo'='vec_autorizacion.administracion_perfiles.lectura.listar_propuestas.v1' AND d->>'accion'='administracion.perfiles.historial.consultar' AND d->>'tipo_recurso'='historial_perfil' AND d->'campos_permitidos'='["propuestas"]'::jsonb)
+               OR (c->>'audiencia_consumo'='vec_autorizacion.administracion_perfiles.lectura.consultar_propuesta.v1' AND d->>'accion'='administracion.perfiles.historial.consultar' AND d->>'tipo_recurso'='historial_perfil' AND d->'campos_permitidos'='["propuesta"]'::jsonb)
+               OR (c->>'audiencia_consumo'='vec_autorizacion.administracion_perfiles.lectura.consultar_recibo.v1' AND d->>'accion'='administracion.perfiles.recibo.consultar' AND d->>'tipo_recurso'='recibo_perfil' AND d->'campos_permitidos'='["recibo"]'::jsonb)
              ))
 $x$;
 BEGIN
@@ -59,7 +66,7 @@ BEGIN
 END $nucleo$;
 LOCK TABLE vec_autorizacion_atestada_v3.clave_capacidad_version IN ACCESS EXCLUSIVE MODE;
 DO $audiencias$
-DECLARE original text; esperada text:='POST_AD149_REAL_AUDIENCIA_SHA256';
+DECLARE original text; esperada text:='d5c8048786b283485016af29fba41ff68b93076ba4f37f2badfa6bb7d5532fd9';
 BEGIN
  SELECT pg_get_constraintdef(oid,true) INTO STRICT original FROM pg_constraint
  WHERE conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass AND conname='clave_capacidad_version_audiencia_consumo_check' AND contype='c' AND convalidated;
@@ -68,7 +75,7 @@ BEGIN
  OR strpos(original,'vec_autorizacion.administracion_perfiles.')<>0 THEN
   RAISE EXCEPTION 'AD150: audiencia esperado=postAD149_real observado=divergente' USING ERRCODE='55000'; END IF;
  ALTER TABLE vec_autorizacion_atestada_v3.clave_capacidad_version DROP CONSTRAINT clave_capacidad_version_audiencia_consumo_check;
- EXECUTE 'ALTER TABLE vec_autorizacion_atestada_v3.clave_capacidad_version ADD CONSTRAINT clave_capacidad_version_audiencia_consumo_check '||left(original,length(original)-3)||', ''vec_autorizacion.administracion_perfiles.ordinario.v1''::text, ''vec_autorizacion.administracion_perfiles.propuesta.v1''::text, ''vec_autorizacion.administracion_perfiles.cierre.v1''::text, ''vec_autorizacion.administracion_perfiles.consulta.v1''::text]))';
+ EXECUTE 'ALTER TABLE vec_autorizacion_atestada_v3.clave_capacidad_version ADD CONSTRAINT clave_capacidad_version_audiencia_consumo_check '||left(original,length(original)-3)||', ''vec_autorizacion.administracion_perfiles.ordinario.v1''::text, ''vec_autorizacion.administracion_perfiles.propuesta.v1''::text, ''vec_autorizacion.administracion_perfiles.cierre.v1''::text, ''vec_autorizacion.administracion_perfiles.consulta.v1''::text, ''vec_autorizacion.administracion_perfiles.lectura.capacidades.v1''::text, ''vec_autorizacion.administracion_perfiles.lectura.buscar_personas.v1''::text, ''vec_autorizacion.administracion_perfiles.lectura.consultar_persona.v1''::text, ''vec_autorizacion.administracion_perfiles.lectura.listar_roles.v1''::text, ''vec_autorizacion.administracion_perfiles.lectura.listar_propuestas.v1''::text, ''vec_autorizacion.administracion_perfiles.lectura.consultar_propuesta.v1''::text, ''vec_autorizacion.administracion_perfiles.lectura.consultar_recibo.v1''::text]))';
 END $audiencias$;
 CREATE FUNCTION vec_autorizacion_atestada_v3.registrar_consumir_admin_perfiles_v3(
  p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea)
