@@ -102,9 +102,7 @@ BEGIN
            AND v_hito -> 'registrado_en' = v_actuacion -> 'realizada_en'
            AND v_hito ->> 'origen' = v_estado
            AND pg_catalog.jsonb_typeof(v_hito -> 'destino') = 'string'
-           AND v_hito ->> 'recibo_ref' ~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$'
-           AND v_hito ->> 'auditoria_ref' ~ '^aud_v3_[0-9a-f]{32}$'
-           AND v_hito ->> 'evento_ref' ~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$', false) THEN
+           AND v_hito ->> 'recibo_ref' ~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$', false) THEN
             RETURN false;
         END IF;
         v_estado := v_hito ->> 'destino';
@@ -163,9 +161,9 @@ CREATE TRIGGER proteger_version_circuito_ct163
 BEFORE INSERT ON vec_contratacion_temporal.expediente_version_integral
 FOR EACH ROW EXECUTE FUNCTION vec_contratacion_temporal.proteger_version_circuito_ct163();
 
--- El nuevo circuito ofrece desde la comprobación de crédito v3, antes de
--- asignar a la persona adjudicataria. La lectura es exacta y no da permiso
--- para emitir la oferta: la ejecución O6 conserva su consumidor nominal.
+-- Preparación de la selección desde crédito v3. Se conserva privada mientras
+-- la ejecución O6 no tenga un consumidor nominal de lectura; la pertenencia
+-- técnica al rol ejecutor no autoriza ver el agregado con firmas y actores.
 CREATE FUNCTION vec_contratacion_temporal.leer_expediente_seleccion_v3(
     p_organizacion text, p_expediente text, p_version bigint
 ) RETURNS TABLE(expediente_json jsonb, version_actual bigint)
@@ -206,9 +204,7 @@ BEGIN
 END
 $funcion$;
 REVOKE ALL ON FUNCTION vec_contratacion_temporal.leer_expediente_seleccion_v3(
-    text,text,bigint) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION vec_contratacion_temporal.leer_expediente_seleccion_v3(
-    text,text,bigint) TO vec_contratacion_temporal_ejecutor;
+    text,text,bigint) FROM PUBLIC, vec_contratacion_temporal_ejecutor;
 
 -- Consulta solo la cabeza vigente. La autorización y la lectura comparten
 -- transacción: el ejecutor no recibe acceso directo a las tablas históricas.
@@ -288,6 +284,105 @@ REVOKE ALL ON FUNCTION vec_contratacion_temporal.consultar_circuito_rrhh_v1(
 GRANT EXECUTE ON FUNCTION vec_contratacion_temporal.consultar_circuito_rrhh_v1(
     text,text,bigint,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)
     TO vec_contratacion_temporal_ejecutor;
+
+-- Los lectores anteriores devolvían el agregado entero para el circuito
+-- fiscalizado. Para una terna nueva ese agregado contiene fuentes de firma;
+-- la preparación/aviso nuevos quedan cerrados hasta lector O6 nominal.
+DO $lectores_anteriores$
+DECLARE
+    v_firma text;
+    v_oid oid;
+    v_def text;
+    v_nueva text;
+    v_acl aclitem[];
+    v_propietario oid;
+    v_config text[];
+    v_definidora boolean;
+    v_ancla text := 'AND v.agregado_json->>''organizacion_ref'' = p_organizacion';
+    v_guardia text := E'\n       AND NOT (v.agregado_json ? ''circuito'')';
+BEGIN
+    FOREACH v_firma IN ARRAY ARRAY[
+        'vec_contratacion_temporal.leer_expediente_seleccion_v1(text,text,bigint)',
+        'vec_contratacion_temporal.leer_expediente_seleccion_v2(text,text,bigint)'
+    ] LOOP
+        v_oid := pg_catalog.to_regprocedure(v_firma);
+        IF v_oid IS NULL THEN
+            RAISE EXCEPTION 'CT163: lector anterior ausente: %', v_firma USING ERRCODE = '55000';
+        END IF;
+        SELECT pg_catalog.pg_get_functiondef(p.oid), p.proacl, p.proowner,
+               p.proconfig, p.prosecdef
+          INTO v_def, v_acl, v_propietario, v_config, v_definidora
+          FROM pg_catalog.pg_proc p WHERE p.oid = v_oid;
+        IF v_propietario IS DISTINCT FROM 'vec_contratacion_temporal_propietario'::regrole
+           OR v_definidora IS NOT TRUE
+           OR pg_catalog.length(v_def) - pg_catalog.length(pg_catalog.replace(v_def,v_ancla,''))
+                <> pg_catalog.length(v_ancla)
+           OR pg_catalog.strpos(v_def,v_guardia) <> 0 THEN
+            RAISE EXCEPTION 'CT163: preimagen incompatible del lector %', v_firma USING ERRCODE = '55000';
+        END IF;
+        -- Conservar el predicado original y añadir solo la exclusión. La
+        -- sustitución se comprueba en ambas direcciones antes de confirmar.
+        v_nueva := pg_catalog.replace(v_def, v_ancla, v_ancla || v_guardia);
+        EXECUTE v_nueva;
+        IF (SELECT p.proacl FROM pg_catalog.pg_proc p WHERE p.oid=v_oid) IS DISTINCT FROM v_acl
+           OR (SELECT p.proowner FROM pg_catalog.pg_proc p WHERE p.oid=v_oid) IS DISTINCT FROM v_propietario
+           OR (SELECT p.proconfig FROM pg_catalog.pg_proc p WHERE p.oid=v_oid) IS DISTINCT FROM v_config
+           OR (SELECT p.prosecdef FROM pg_catalog.pg_proc p WHERE p.oid=v_oid) IS NOT TRUE
+           OR pg_catalog.replace(pg_catalog.pg_get_functiondef(v_oid),
+                v_ancla || v_guardia, v_ancla) IS DISTINCT FROM v_def THEN
+            RAISE EXCEPTION 'CT163: lector anterior alterado: %', v_firma USING ERRCODE = '55000';
+        END IF;
+    END LOOP;
+END
+$lectores_anteriores$;
+
+DO $aviso_anterior$
+DECLARE
+    v_oid oid := pg_catalog.to_regprocedure(
+        'vec_contratacion_temporal.leer_expediente_aviso_confirmado_v1(text,text,text)');
+    v_def text;
+    v_nueva text;
+    v_acl aclitem[];
+    v_propietario oid;
+    v_config text[];
+    v_definidora boolean;
+    v_ancla text := $ancla$    v_version := (v_seleccion.solicitud_json->>'version_expediente')::bigint;$ancla$;
+    v_guardia text := $guardia$
+    IF EXISTS (
+        SELECT 1 FROM vec_contratacion_temporal.expediente_version_integral v
+         WHERE v.expediente_ref = p_expediente AND v.version = v_version
+           AND v.agregado_json ->> 'organizacion_ref' = p_organizacion
+           AND v.agregado_json ? 'circuito'
+    ) THEN
+        RAISE EXCEPTION 'antecedente de aviso no disponible' USING ERRCODE = '42501';
+    END IF;$guardia$;
+BEGIN
+    IF v_oid IS NULL THEN
+        RAISE EXCEPTION 'CT163: lector de aviso anterior ausente' USING ERRCODE = '55000';
+    END IF;
+    SELECT pg_catalog.pg_get_functiondef(p.oid), p.proacl, p.proowner,
+           p.proconfig, p.prosecdef
+      INTO v_def, v_acl, v_propietario, v_config, v_definidora
+      FROM pg_catalog.pg_proc p WHERE p.oid = v_oid;
+    IF v_propietario IS DISTINCT FROM 'vec_contratacion_temporal_propietario'::regrole
+       OR v_definidora IS NOT TRUE
+       OR pg_catalog.length(v_def) - pg_catalog.length(pg_catalog.replace(v_def,v_ancla,''))
+            <> pg_catalog.length(v_ancla)
+       OR pg_catalog.strpos(v_def,v_guardia) <> 0 THEN
+        RAISE EXCEPTION 'CT163: preimagen incompatible del lector de aviso' USING ERRCODE = '55000';
+    END IF;
+    v_nueva := pg_catalog.replace(v_def, v_ancla, v_ancla || v_guardia);
+    EXECUTE v_nueva;
+    IF (SELECT p.proacl FROM pg_catalog.pg_proc p WHERE p.oid=v_oid) IS DISTINCT FROM v_acl
+       OR (SELECT p.proowner FROM pg_catalog.pg_proc p WHERE p.oid=v_oid) IS DISTINCT FROM v_propietario
+       OR (SELECT p.proconfig FROM pg_catalog.pg_proc p WHERE p.oid=v_oid) IS DISTINCT FROM v_config
+       OR (SELECT p.prosecdef FROM pg_catalog.pg_proc p WHERE p.oid=v_oid) IS NOT TRUE
+       OR pg_catalog.replace(pg_catalog.pg_get_functiondef(v_oid),
+            v_ancla || v_guardia, v_ancla) IS DISTINCT FROM v_def THEN
+        RAISE EXCEPTION 'CT163: lector de aviso alterado' USING ERRCODE = '55000';
+    END IF;
+END
+$aviso_anterior$;
 
 REVOKE ALL ON FUNCTION vec_contratacion_temporal.circuito_vinculado_ct163(jsonb),
     vec_contratacion_temporal.circuito_siguiente_ct163(jsonb,jsonb),
