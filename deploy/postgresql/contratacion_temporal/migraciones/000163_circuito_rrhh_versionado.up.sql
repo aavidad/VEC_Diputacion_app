@@ -95,7 +95,10 @@ BEGIN
             AND v_estado = 'solicitud'
             AND v_actuacion ->> 'accion_clave' = 'contratacion_temporal.analisis.registrar'
             AND v_total = 2
-            AND p_anterior -> 'flujo' = '{"definicion_ref":"flujo:ct:rrhh:20261002","version":2,"huella_sha256":"f9b83c1291fdf96f339233b9e7a2036b67803388cea8568b4d2b02b6bcd4e9fc"}'::jsonb
+            -- CT164 coteja la huella publicada; aquí se inmoviliza la terna
+            -- entre versiones y se reconoce la referencia/version del circuito.
+            AND p_anterior #>> '{flujo,definicion_ref}' = 'flujo:ct:rrhh:20261002'
+            AND p_anterior #>> '{flujo,version}' = '2'
             AND v_despues -> 0 ->> 'clave' = 'contratacion_temporal.circuito.peticion_firmada'
             AND v_despues -> 0 ->> 'tipo' = 'peticion_firmada'
             AND v_despues -> 0 ->> 'origen' = 'solicitud'

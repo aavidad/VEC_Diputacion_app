@@ -7,7 +7,7 @@ DO $prueba$
 DECLARE
     v_flujo jsonb := pg_catalog.jsonb_build_object(
         'definicion_ref', 'flujo:ct:rrhh:20261002', 'version', 2,
-        'huella_sha256', 'f9b83c1291fdf96f339233b9e7a2036b67803388cea8568b4d2b02b6bcd4e9fc');
+        'huella_sha256', '1721c3a66576b21163b590602589f1627095bd6b6bfa37c79862af62775146e2');
     v_actuacion_1 jsonb := pg_catalog.jsonb_build_object('accion_clave', 'registrar_solicitud');
     v_actuacion_2 jsonb := pg_catalog.jsonb_build_object(
         'accion_clave', 'contratacion_temporal.analisis.registrar', 'recibo_ref', 'recibo:prueba:163',
@@ -70,6 +70,13 @@ BEGIN
     v_par := pg_catalog.jsonb_set(v_par, '{circuito,estado_actual}', '"credito"'::jsonb);
     IF vec_contratacion_temporal.circuito_siguiente_ct163(v_anterior, v_par) IS NOT TRUE THEN
         RAISE EXCEPTION 'CT163: par inicial acreditado debe aceptarse';
+    END IF;
+    v_mal := pg_catalog.jsonb_set(v_par, '{flujo,huella_sha256}',
+        '"f9b83c1291fdf96f339233b9e7a2036b67803388cea8568b4d2b02b6bcd4e9fc"'::jsonb);
+    v_mal := pg_catalog.jsonb_set(v_mal, '{circuito,definicion,huella_sha256}',
+        '"f9b83c1291fdf96f339233b9e7a2036b67803388cea8568b4d2b02b6bcd4e9fc"'::jsonb);
+    IF vec_contratacion_temporal.circuito_siguiente_ct163(v_anterior, v_mal) IS NOT FALSE THEN
+        RAISE EXCEPTION 'CT163: sustitución de huella entre versiones aceptada';
     END IF;
     v_mal := pg_catalog.jsonb_set(v_par, '{actuaciones,1,accion_clave}',
         '"contratacion_temporal.cobertura.decidir"'::jsonb);
