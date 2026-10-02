@@ -58,8 +58,9 @@ runner ejecuta adicionalmente las pruebas del paquete de dominio.
 Las tablas historicas rechazan `UPDATE`, `DELETE` y `TRUNCATE`. Los dos
 punteros mutables rechazan borrado y truncado. Todas las tablas tienen RLS
 habilitada y forzada; su unica politica positiva exige al propietario
-`NOLOGIN`. Los roles runtime no reciben privilegios de tabla, secuencia, tipo,
-esquema o funcion.
+`NOLOGIN`. Los roles runtime no reciben privilegios de tabla, secuencia o tipo;
+las puertas V1/V2 permanecen cerradas. El acceso V3 se limita a la fachada
+nominal descrita en el apartado de BR4.
 
 ## Operaciones cerradas
 
@@ -244,10 +245,14 @@ V3 quedan separados de las claves foráneas V2 históricas. La auditoría
 conserva la referencia y huella del consumo central actual; el recibo conserva
 el consumo original del alta. No se cambia ni elimina historia anterior.
 
-El orden causal pendiente de aprobar es: almacén propio 000001 → operaciones
-000002 → composición V2 propia 000003, con sus dependencias históricas, y
-consumidor nominal AD144 → BR4. Si la preimagen ya contiene esas piezas,
-se conserva y no se reaplican. El ensayo del DDL cerrado de BR4 puede
+El prefijo mínimo V3 es: roles propios → revalidación propia de autorización
+000001 → almacén BR1 → operaciones BR2. Después se instala AD144 sobre la
+preimagen real de main AD142 y, finalmente, BR4. Copias AD143 y la composición
+V2 no son dependencias de estas operaciones. El despliegue sigue la lista
+explícita en orden de fusión, según dirección del 2 de octubre a las 13:50.
+Si la preimagen ya contiene las piezas del prefijo, se conservan y no se
+reaplican. La historia y las puertas V2 existentes se conservan sin cambios.
+El ensayo del DDL de BR4 puede
 comprobarse sin AD144; cualquier llamada a la fachada falla entonces antes
 de leer o escribir negocio. Eso no acredita autorización ni una operación V3.
 
@@ -267,7 +272,8 @@ La recuperación necesita el estado canónico para validar el recibo original.
 Las dos lecturas conservan finalidad `consulta_gobierno_reglas_baremo` y el
 tipo de recurso `version_reglas_baremo_gobernada`. La provisión del perfil
 se realiza fuera de las peticiones, por huella y CAS. Falta medir la preimagen
-central posterior a AD143. No se aprovisionan LOGIN ni perfiles por petición.
+central posterior a AD142, medida en PostgreSQL18. No se aprovisionan LOGIN
+ni perfiles por petición.
 No se edita el núcleo V3 en BR4 ni se sustituye el consumidor por una puerta
 V2 o genérica.
 

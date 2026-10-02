@@ -16,7 +16,6 @@ BEGIN
    AND NOT rolsuper AND NOT rolbypassrls AND NOT rolcreaterole AND NOT rolcreatedb)
  OR to_regclass('vec_bolsa_reglas_baremo.version_reglas_baremo') IS NULL
  OR to_regclass('vec_bolsa_reglas_baremo.estado_actual') IS NULL
- OR to_regclass('vec_bolsa_reglas_baremo.recibo_cambio_atestado_v2') IS NULL
  OR to_regclass('vec_bolsa_reglas_baremo.acceso_borrador_v3') IS NOT NULL
  THEN RAISE EXCEPTION 'BR4: preimagen propia incompatible' USING ERRCODE='55000'; END IF;
  -- Abrir una fachada anterior no puede quedar disimulado por el corte nuevo.
