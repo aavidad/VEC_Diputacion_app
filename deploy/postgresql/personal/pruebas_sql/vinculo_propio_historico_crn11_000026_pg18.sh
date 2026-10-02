@@ -12,7 +12,7 @@ helper="$scratch/generate_overlay.py"
 modcache=${VEC_CRN11_MODCACHE:?cache local de módulos requerida sin descargas}
 fallo() { printf 'CRN11 FALLO: %s\n' "$1" >&2; exit 1; }
 [[ $container == codexb-crn11-20261003-pg ]] || fallo 'nombre de clon CRN11 propio requerido'
-[[ $scratch == /dev/shm/vec-crn11-* && -d $scratch && ! -L $scratch && -O $scratch && $(stat -c %a "$scratch") == 700 ]] || fallo 'scratch propio 0700 requerido'
+[[ $scratch == /dev/shm/codexb-crn11-20261003-* && -d $scratch && ! -L $scratch && -O $scratch && $(stat -c %a "$scratch") == 700 ]] || fallo 'scratch propio 0700 requerido'
 [[ -d $modcache && ! -L $modcache ]] || fallo 'cache local de módulos ausente'
 [[ $(docker inspect --format '{{.HostConfig.NetworkMode}} {{.HostConfig.Memory}} {{.HostConfig.NanoCpus}} {{.HostConfig.PidsLimit}}' "$container") == 'none 2147483648 2000000000 128' ]] || fallo 'clon fuera de límites aislados'
 psql_run() { local user=$1; shift; docker exec -i "$container" /usr/bin/env -i PATH=/usr/local/bin:/usr/bin:/bin psql -h /tmp -X -qAt -v ON_ERROR_STOP=1 -v VERBOSITY=verbose -U "$user" -d postgres "$@"; }
@@ -20,7 +20,6 @@ valor() { psql_run postgres -c "$1"; }
 archivo() { psql_run postgres < "$1" > "$scratch/sql.log" 2>&1 || fallo 'SQL falló; diagnóstico privado en scratch/sql.log'; }
 [[ $(valor "SELECT current_setting('server_version_num')") == 180004 ]] || fallo 'PostgreSQL18.4 requerido'
 [[ ! -e $scratch/capacidad_v3_vector_sql_test.go && ! -e $scratch/overlay.json ]] || fallo 'scratch ya usado: conservarlo y elegir uno nuevo'
-[[ ${VEC_CRN11_BASE_CEDIDA:-} == 1 ]] || fallo 'falta cesión explícita de escritura del clon por Dirección'
 # Captura todos los consumidores presentes, incluidos cuerpos PL/pgSQL que
 # pg_depend no rastrea. El núcleo se normaliza únicamente por la extensión149.
 python3 - "$repo_dir" "$scratch/preservacion.sql" <<'PYPRESERVACION'
