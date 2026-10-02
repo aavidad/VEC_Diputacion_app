@@ -60,6 +60,11 @@ func (s *ServicioSituacionParticipacion) Operar(ctx context.Context, q ports.Sol
 	if err != nil {
 		return ports.RegistroSituacionParticipacion{}, err
 	}
+	if vigente.Situacion == dominiobolsa.SituacionEnRevision && q.Operacion == dominiobolsa.OperacionExcluir {
+		if q.SituacionEsperadaDesde.IsZero() || q.CausaFinalizadaEn != nil {
+			return ports.RegistroSituacionParticipacion{}, dominiobolsa.ErrCambioSituacionParticipacionInvalido
+		}
+	}
 	cambio := dominiobolsa.CambioSituacionParticipacion{ParticipacionRef: q.ParticipacionRef, Origen: vigente.Situacion, Destino: destino, Desde: ahora, Motivo: q.Motivo, RegistradaEn: ahora}
 	// El cambio vigente puede ser ya el efecto de esta clave. B2 resuelve
 	// replay antes de validar transiciones, bajo el mismo consumo V3; una
@@ -67,12 +72,12 @@ func (s *ServicioSituacionParticipacion) Operar(ctx context.Context, q ports.Sol
 	if ahora.Before(vigente.Desde) {
 		return ports.RegistroSituacionParticipacion{}, dominiobolsa.ErrCambioSituacionParticipacionInvalido
 	}
-	if accionNueva && vigente.Situacion != destino && !q.SituacionEsperadaDesde.Equal(vigente.Desde) {
-		return ports.RegistroSituacionParticipacion{}, dominiobolsa.ErrCambioSituacionParticipacionInvalido
-	}
 	// Si la situación vigente ya es el destino puede tratarse del replay de
 	// esta misma clave: lo resuelve la base de datos, como hasta ahora.
-	if vigente.Situacion != destino {
+	// B76 resuelve también el replay cuando ya hubo otra actuación posterior;
+	// por eso CAS y política de las operaciones nuevas se comprueban en SQL,
+	// tras consumir de nuevo la autorización positiva.
+	if vigente.Situacion != destino && !accionNueva && !(q.Operacion == dominiobolsa.OperacionExcluir && !q.SituacionEsperadaDesde.IsZero()) {
 		politica, err := s.politicaEfectiva(ctx)
 		if err != nil {
 			return ports.RegistroSituacionParticipacion{}, err

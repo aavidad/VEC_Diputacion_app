@@ -24,8 +24,7 @@ func (s *ServicioSituacionParticipacion) ListarHistorial(ctx context.Context, q 
 	if err != nil {
 		return ports.HistorialParticipacion{}, err
 	}
-	h.Vigente, err = s.repositorio.SituacionVigente(ctx, q.ParticipacionRef)
-	if err != nil || h.Vigente.Situacion == "" || h.Vigente.Desde.IsZero() {
+	if h.Vigente.ParticipacionRef != q.ParticipacionRef || h.Vigente.Situacion == "" || h.Vigente.Desde.IsZero() {
 		return ports.HistorialParticipacion{}, ErrCambioSituacionParticipacionNoDisponible
 	}
 	return h, nil

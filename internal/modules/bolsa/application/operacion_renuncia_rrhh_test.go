@@ -42,7 +42,7 @@ func TestOperacionRenunciaJustificadaRRHHConservaJustificanteYRecibo(t *testing.
 	}
 }
 
-func TestRevisionDocumentalExigePoliticaYVersionEsperada(t *testing.T) {
+func TestRevisionDocumentalExigeCASYRecuperaTrasAvance(t *testing.T) {
 	servicio, repo, ahora := servicioDesdeRenunciaPrueba(t, nil)
 	tabla := map[string][]string{}
 	for _, origen := range domain.SituacionesParticipacion() {
@@ -59,17 +59,23 @@ func TestRevisionDocumentalExigePoliticaYVersionEsperada(t *testing.T) {
 		SolicitudCambiarSituacionParticipacion: solicitudSituacionPrueba(t, ahora),
 		Operacion:                              domain.OperacionRevisar,
 		Justificante:                           domain.JustificanteOperacionSituacion{Tipo: domain.JustificanteSolicitudCandidato, Referencia: "documento:renuncia", SHA256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
-		Validador:                              "persona:rrhh", SituacionEsperadaDesde: ahora.Add(-time.Second),
+		Validador:                              "persona:rrhh",
 	}
 	q.Destino = domain.SituacionEnRevision
 	q.Motivo = "Pendiente de acreditar el fin de la causa"
-	if _, err := servicio.Operar(context.Background(), q); !errors.Is(err, domain.ErrCambioSituacionParticipacionInvalido) || repo.escrituras != 0 {
-		t.Fatalf("CAS obsoleto: error=%v escrituras=%d", err, repo.escrituras)
+	if _, err := servicio.Operar(context.Background(), q); !errors.Is(err, domain.ErrOperacionSituacionParticipacionInvalida) || repo.escrituras != 0 {
+		t.Fatalf("sin CAS: error=%v escrituras=%d", err, repo.escrituras)
 	}
 	q.SituacionEsperadaDesde = ahora
 	res, err := servicio.Operar(context.Background(), q)
 	if err != nil || res.Situacion != domain.SituacionEnRevision || repo.escrituras != 1 {
 		t.Fatalf("revisión: resultado=%+v error=%v escrituras=%d", res, err, repo.escrituras)
+	}
+	repo.vigente = ports.SituacionParticipacion{ParticipacionRef: q.ParticipacionRef, Situacion: domain.SituacionDisponible, Desde: ahora.Add(time.Second)}
+	servicio.reloj = func() time.Time { return ahora.Add(2 * time.Second) }
+	repetida, err := servicio.Operar(context.Background(), q)
+	if err != nil || !repetida.Reutilizada || repetida.ReciboRef != res.ReciboRef || repo.escrituras != 1 {
+		t.Fatalf("revisión recuperada tras avance: resultado=%+v error=%v escrituras=%d", repetida, err, repo.escrituras)
 	}
 	q.Operacion = domain.OperacionRegularizar
 	q.Destino = domain.SituacionDisponible

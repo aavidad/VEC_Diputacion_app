@@ -99,6 +99,7 @@ export async function registrarOperacionSituacion(bolsa, participacion, comando,
   if (!bolsa || !participacion || !comando || !clave
     || !["revisar", "regularizar", "excluir"].includes(comando.operacion)
     || (["revisar", "regularizar"].includes(comando.operacion) && !instanteValido(comando.situacion_esperada_desde))
+    || (comando.operacion === "excluir" && comando.situacion_esperada_desde !== undefined && !instanteValido(comando.situacion_esperada_desde))
     || (comando.operacion === "regularizar" && !fechaCausaValida(comando.causa_finalizada_en))
     || typeof comando.motivo !== "string" || !comando.motivo.trim()
     || typeof comando.validador !== "string" || !comando.validador.trim()
@@ -156,7 +157,7 @@ export function operacionesDisponibles(estadoClave, transiciones) {
 
 function operacionesAdmitidasCandidato(candidato, estado) {
   return operacionesDisponibles(candidato.estado_clave, estado.transiciones)
-    .filter((operacion) => operacion === "excluir" || instanteValido(candidato.estado_desde))
+    .filter((operacion) => (operacion === "excluir" && candidato.estado_clave !== "en_revision") || instanteValido(candidato.estado_desde))
     .filter((operacion) => {
       if (operacion !== "revisar" || candidato.estado_clave !== "no_disponible") return true;
       const antecedente = estado.items?.find((item) => item.desde === candidato.estado_desde
@@ -317,7 +318,7 @@ export function crearControladorOperacionesSituacion({ estado, renderizar, recar
   async function enviar(modal, flujo) {
     const comando = { operacion: flujo.operacion, motivo: flujo.formulario.motivo, validador: flujo.formulario.validador,
       justificante: { tipo: flujo.formulario.tipo, referencia: flujo.formulario.referencia, sha256: flujo.formulario.sha256 } };
-    if (["revisar", "regularizar"].includes(flujo.operacion)) comando.situacion_esperada_desde = modal.candidato.estado_desde;
+    if (["revisar", "regularizar"].includes(flujo.operacion) || (flujo.operacion === "excluir" && modal.candidato.estado_clave === "en_revision")) comando.situacion_esperada_desde = modal.candidato.estado_desde;
     if (flujo.operacion === "regularizar") comando.causa_finalizada_en = flujo.formulario.causa_finalizada_en;
     const huella = JSON.stringify(comando);
     if (flujo.huella !== huella) {
@@ -406,5 +407,5 @@ export function crearControladorOperacionesSituacion({ estado, renderizar, recar
 
 function operacionAdmitida(modal, flujo, operacion) {
   return operacionesAdmitidasCandidato(modal.candidato, flujo).includes(operacion)
-    && (operacion === "excluir" || instanteValido(modal.candidato.estado_desde));
+    && ((operacion === "excluir" && modal.candidato.estado_clave !== "en_revision") || instanteValido(modal.candidato.estado_desde));
 }
