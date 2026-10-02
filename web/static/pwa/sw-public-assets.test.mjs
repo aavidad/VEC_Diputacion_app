@@ -7,7 +7,7 @@ const source = await readFile(new URL('./sw-public-assets.js', import.meta.url),
 const VERSION = '20261002-pwa-v1';
 
 function crearEntorno(portal = 'empleado') {
-  const scopes = { empleado: '/portal-empleado/', personal: '/area-personal/', admin: '/admin/modulos/' };
+  const scopes = { empleado: '/portal-empleado/', personal: '/area-personal/', admin: '/administracion-perfiles/' };
   const scope = scopes[portal];
   const handlers = new Map();
   const almacen = new Map();
@@ -76,6 +76,15 @@ test('instala solo los catálogos públicos y limpia únicamente versiones de su
   await app.caches.open('vec-pwa-personal-public-anterior');
   await app.lanzar('activate');
   assert.deepEqual(await app.caches.keys(), [nombre, 'vec-pwa-personal-public-anterior']);
+});
+
+test('ADMIN mantiene el scope del proceso privado y no almacena activos de otros portales', async () => {
+  const app = crearEntorno('admin');
+  await app.lanzar('install');
+  const script = app.solicitud('/administracion-perfiles/arranque.js?v=1', { destination: 'script' });
+  await app.lanzar('fetch', script);
+  assert.equal(app.almacen.get(`vec-pwa-admin-public-${VERSION}`).has(script.url), true);
+  assert.equal(await app.lanzar('fetch', app.solicitud('/admin/modulos/arranque.js?v=1', { destination: 'script' })), undefined);
 });
 
 test('guarda solo una respuesta pública estática versionada del mismo origen', async () => {

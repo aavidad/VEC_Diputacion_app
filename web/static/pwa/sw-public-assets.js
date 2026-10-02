@@ -6,7 +6,7 @@
   const PORTALS = Object.freeze({
     empleado: '/portal-empleado/',
     personal: '/area-personal/',
-    admin: '/admin/modulos/'
+    admin: '/administracion-perfiles/'
   });
   const ICONS = new Set([
     '/pwa/icons/vec-192.png',
