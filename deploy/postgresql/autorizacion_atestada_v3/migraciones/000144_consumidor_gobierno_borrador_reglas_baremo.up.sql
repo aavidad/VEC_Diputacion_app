@@ -64,7 +64,7 @@ BEGIN
  END;
  escritura:=c->>'operacion' IS NOT DISTINCT FROM 'bolsa.reglas_baremo.borrador.crear';
  IF c->>'audiencia_consumo' IS DISTINCT FROM 'vec_bolsa_reglas_baremo.gobierno_borrador.v3'
- OR coalesce(c->>'operacion','') NOT IN ('bolsa.reglas_baremo.borrador.crear','bolsa.reglas_baremo.version.consultar')
+ OR coalesce(c->>'operacion','') NOT IN ('bolsa.reglas_baremo.borrador.crear','bolsa.reglas_baremo.version.consultar','bolsa.reglas_baremo.recibo.consultar')
  OR d->>'accion' IS DISTINCT FROM c->>'operacion'
  OR d->>'modulo_id' IS DISTINCT FROM 'bolsa'
  OR d->>'tipo_recurso' IS DISTINCT FROM CASE WHEN escritura THEN 'intencion_gobierno_reglas_baremo' ELSE 'version_reglas_baremo_gobernada' END
@@ -76,9 +76,11 @@ BEGIN
  OR d->'obligaciones' IS DISTINCT FROM '[]'::jsonb
  OR (escritura AND (coalesce(d->>'recurso_ref','') !~ '^intencion-reglas-baremo:[0-9a-f]{64}$'
    OR d->'campos_permitidos' IS DISTINCT FROM '["auditoria","estado_reglas_baremo","salida_eventos"]'::jsonb))
- OR (NOT escritura AND (coalesce(d->>'recurso_ref','') !~ '^reglas-baremo:[0-9a-f]{64}$'
-   OR (d->'campos_permitidos' IS DISTINCT FROM '["estado_reglas_baremo"]'::jsonb
-    AND d->'campos_permitidos' IS DISTINCT FROM '["recibo"]'::jsonb)))
+ OR (NOT escritura AND coalesce(d->>'recurso_ref','') !~ '^reglas-baremo:[0-9a-f]{64}$')
+ OR (c->>'operacion'='bolsa.reglas_baremo.version.consultar'
+   AND d->'campos_permitidos' IS DISTINCT FROM '["estado_reglas_baremo"]'::jsonb)
+ OR (c->>'operacion'='bolsa.reglas_baremo.recibo.consultar'
+   AND d->'campos_permitidos' IS DISTINCT FROM '["recibo"]'::jsonb)
  THEN RAISE EXCEPTION 'AD3-144: capacidad GobiernoG denegada' USING ERRCODE='42501'; END IF;
  SELECT * INTO STRICT x FROM vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(
   'gobierno_borrador_reglas_baremo',p_capacidad,p_decision,p_motivo,p_contexto,
