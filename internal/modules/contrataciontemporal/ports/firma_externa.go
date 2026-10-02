@@ -34,6 +34,7 @@ var (
 	ErrRegistroFirmaExternaNoDisponible = errors.New("contratacion temporal: registro de firma externa no disponible")
 	ErrAntecedenteFirmaR5NoAcreditado   = errors.New("contratacion temporal: el paso anterior no tiene firma R5 acreditada")
 	ErrOriginalTrasReparoNoNuevo        = errors.New("contratacion temporal: el original tras reparo no es nuevo")
+	errFechaFirmaExternaNoCanonica      = errors.New("contratacion temporal: fecha de firma no canonica")
 )
 
 // SolicitudOriginalFirma identifica una revisión concreta. La fuente es la
@@ -117,14 +118,34 @@ type MaterialFirmaExterna struct {
 }
 
 func FechaFirmaExternaCanonica(v string) (time.Time, bool) {
+	t, err := fechaFirmaExternaParseada(v)
+	return t, err == nil
+}
+
+// El error de time.Parse puede contener el valor aportado. Se normaliza a un
+// centinela privado antes de salir de esta función; el predicado público solo
+// devuelve si la fecha cumple el contrato.
+func fechaFirmaExternaParseada(v string) (time.Time, error) {
 	if !strings.HasSuffix(v, "Z") || len(v) > len("2006-01-02T15:04:05.000000Z") {
-		return time.Time{}, false
+		return time.Time{}, errFechaFirmaExternaNoCanonica
 	}
 	t, err := time.Parse(time.RFC3339Nano, v)
-	if err != nil || t.UTC().Format(time.RFC3339Nano) != v {
-		return time.Time{}, false
+	if err != nil {
+		return time.Time{}, normalizarErrorFechaFirmaExterna(err)
 	}
-	return t, true
+	if t.UTC().Format(time.RFC3339Nano) != v {
+		return time.Time{}, errFechaFirmaExternaNoCanonica
+	}
+	return t, nil
+}
+
+func normalizarErrorFechaFirmaExterna(causa error) error {
+	switch causa {
+	case nil:
+		return nil
+	default:
+		return errFechaFirmaExternaNoCanonica
+	}
 }
 
 func ReferenciaPortafirmasDeclaradaValida(v string) bool {
