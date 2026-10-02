@@ -8,7 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
-	ctapp "vec-diputacion-granada/internal/modules/contrataciontemporal/application"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/application/consultafirmas"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	vp "vec-diputacion-granada/internal/vec/ports"
@@ -222,7 +222,7 @@ func (r *RegistroFirmasExternasPostgreSQL) ConsultarFirmasAutorizadas(ctx contex
 	if err != nil {
 		return cero, ports.ErrSolicitudFirmaDocumentoInvalida
 	}
-	if err = ctapp.ValidarCapacidadConsultaFirmasR5(c, m); err != nil {
+	if err = consultafirmas.ValidarCapacidadConsultaFirmasR5(c, m); err != nil {
 		return cero, ports.ErrFirmaDocumentoDenegada
 	}
 	parametros, err := exportacionParametrosRegistroV2(c.ExportarMaterialParaConsumidor(), true)
