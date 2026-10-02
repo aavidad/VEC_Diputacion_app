@@ -49,7 +49,9 @@ test("el portal interno recorre cliente, adaptador y vista reales de contrataci√
     "ui.vec.module.contratacion_temporal.description": "Expedientes temporales",
   });
   let consultas = 0;
+  const rutas = [];
   const fetchImpl = async (ruta, opciones) => {
+    rutas.push(ruta);
     if (ruta === "/api/vec/contratacion-temporal/catalogos-alta") {
       assert.equal(opciones.method, "GET");
       return new Response(JSON.stringify({ data: {
@@ -98,7 +100,8 @@ test("el portal interno recorre cliente, adaptador y vista reales de contrataci√
     entorno: { fetch: fetchImpl, Headers },
   });
   await coordinador.cargarInterno();
-  assert.equal(coordinador.resolverAcceso("contratacion_temporal").disponible, true);
+  const acceso = coordinador.resolverAcceso("contratacion_temporal");
+  assert.equal(acceso.disponible, true, `acceso=${JSON.stringify(acceso)}; consultas=${consultas}; rutas=${rutas.join(",")}`);
 
   const raiz = raizFalsa();
   const montada = await coordinador.montarVista("contratacion-temporal", raiz);

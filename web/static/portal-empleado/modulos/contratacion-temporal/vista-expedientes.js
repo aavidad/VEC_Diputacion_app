@@ -11,7 +11,7 @@ import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=2
 import { filtroListaValido } from "./recuentos-peticiones.js?v=20261001-f-reconciliacion-325-v1";
 import { renderizarResultadosCuadro } from "./componentes-expedientes.js?v=20261002-ct-fin-modalidad-v1";
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261002-ct-fin-moad-v1";
-import { cerrarFase, mostrarFase } from "./fases-expediente.js?v=20261002-ct-fin-modalidad-v1";
+import { cerrarFase, instalarPantallasFase, mostrarFase } from "./fases-expediente.js?v=20261002-ct-fin-moad-v1";
 import { prepararComposicionAnalisis } from "./vista-expedientes-analisis.js?v=20261002-ct-fin-modalidad-v1";
 import {
   contextoLlamamientoDesdeEstado,
@@ -140,6 +140,7 @@ export async function montarModuloContratacionTemporal({
     throw new TypeError("dependencias del módulo de contratación temporal no válidas");
   }
   const traducirExpedientes = crearTraductorExpedientesContratacion(mensajes);
+  instalarPantallasFase(raiz.ownerDocument ?? globalThis.document, traducirExpedientes);
   // Filtros de la lista aplicados en pantalla sobre la consulta ya cargada.
   let filtroLista = filtroListaValido(filtroListaInicial ?? {});
 
