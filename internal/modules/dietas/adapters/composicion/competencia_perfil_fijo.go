@@ -63,11 +63,8 @@ func (f *FuenteCompetenciaPerfilFijo) competencia(ctx context.Context, actor vec
 	}
 	ahora := f.reloj.Ahora()
 	p := i.AsignacionPerfil
-	if p.Version < 1 {
-		return "", "", denegado
-	}
 	if err != nil || i.Validar() != nil || ahora.IsZero() || !a.Instantanea.VigenteEn(ahora) ||
-		p.PrincipalID != a.PersonaRef || p.PerfilActivoRef != a.PerfilActivoRef || uint64(p.Version) != a.Instantanea.PerfilVersion ||
+		p.PrincipalID != a.PersonaRef || p.PerfilActivoRef != a.PerfilActivoRef ||
 		!p.VigenteEn(ahora) || p.EmitidaEn.After(ahora) || i.VersionRol.PublicadaEn.After(ahora) ||
 		i.VersionRol.Estado != vecdomain.EstadoVersionRolPublicada ||
 		i.ControlVigenciaVersionRol.Estado != vecdomain.EstadoControlVigenciaVersionRolHabilitada || i.ControlVigenciaVersionRol.ActualizadoEn.After(ahora) {
