@@ -202,7 +202,7 @@ BEGIN
  EXCEPTION WHEN data_exception THEN RAISE EXCEPTION 'AD3-156: material inválido' USING ERRCODE='22023'; END;
  IF jsonb_typeof(s) IS DISTINCT FROM 'object' OR jsonb_typeof(c) IS DISTINCT FROM 'object'
     OR jsonb_typeof(d) IS DISTINCT FROM 'object'
-    OR (SELECT count(*) FROM jsonb_object_keys(s))<>44
+    OR (SELECT count(*) FROM jsonb_object_keys(s))<>43
     OR NOT (s ?& ARRAY[
      'Via','OrganizacionRef','ExpedienteRef','VersionExpediente','Documento','CatalogoRef','CatalogoHuella',
      'PasoRef','PasoOrden','Secuencia','OriginalRef','OriginalVersion','OriginalHuella','FirmadoHuella',
@@ -211,7 +211,7 @@ BEGIN
      'AsignacionFirmanteVersion','AsignacionFirmanteHuella','VersionRolFirmanteRef','VersionRolFirmanteHuella',
      'ControlVigenciaFirmanteRef','ControlVigenciaFirmanteRevision','ControlVigenciaFirmanteHuella',
      'AsignacionVigenteDesde','AsignacionVigenteHasta',
-     'CompetenciaComprobadaEn','ActoCompetenciaRef','DelegacionRef','PoliticaVerificacion',
+     'ActoCompetenciaRef','DelegacionRef','PoliticaVerificacion',
      'RevocacionEstado','SelloTiempoEstado','ReferenciaPortafirmasDeclarada','FechaPortafirmasDeclarada',
      'ClaveIdempotencia','DocumentoCustodiaRef','DocumentoCustodiaVersion'])
     OR jsonb_typeof(s->'OrganizacionRef') IS DISTINCT FROM 'string'
