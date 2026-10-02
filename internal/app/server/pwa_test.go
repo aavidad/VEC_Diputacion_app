@@ -21,12 +21,12 @@ func TestPWARecursosPorFrontera(t *testing.T) {
 		{
 			nombre: "interno", handler: NewHandlerInternoWithConfig(configuracion, api),
 			rutas:    []string{"/portal-empleado/", "/portal-empleado/sw.js", "/portal-empleado/cache-publica-v1.json", "/pwa/instalar.js", "/pwa/icons/vec-192.png", "/textos/es/pwa-portal-empleado.json"},
-			cerradas: []string{"/area-personal/sw.js", "/area-personal/cache-publica-v1.json", "/administracion-perfiles/sw.js", "/administracion-perfiles/cache-publica-v1.json", "/pwa/manifiestos.test.mjs"},
+			cerradas: []string{"/area-personal/sw.js", "/area-personal/cache-publica-v1.json", "/administracion-perfiles/sw.js", "/administracion-perfiles/cache-publica-v1.json", "/textos/es/pwa-admin.json", "/pwa/manifiestos.test.mjs"},
 		},
 		{
 			nombre: "externo", handler: NewHandlerWithConfig(config.Config{PortalProceso: "externo", HTTPAllowedCIDRs: []string{"127.0.0.1/8"}}, api),
 			rutas:    []string{"/area-personal/", "/area-personal/sw.js", "/area-personal/cache-publica-v1.json", "/pwa/instalar.js", "/pwa/icons/vec-512.png", "/textos/en/pwa-area-personal.json"},
-			cerradas: []string{"/portal-empleado/sw.js", "/portal-empleado/cache-publica-v1.json", "/administracion-perfiles/sw.js", "/administracion-perfiles/cache-publica-v1.json", "/pwa/sw-public-assets.test.mjs"},
+			cerradas: []string{"/portal-empleado/sw.js", "/portal-empleado/cache-publica-v1.json", "/administracion-perfiles/sw.js", "/administracion-perfiles/cache-publica-v1.json", "/textos/es/pwa-admin.json", "/pwa/sw-public-assets.test.mjs"},
 		},
 	}
 	for _, caso := range casos {
