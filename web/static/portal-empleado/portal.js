@@ -1,5 +1,5 @@
 import { crearControladorPortal } from "./portal-eventos.js?v=20261002-ct-fin-modalidad-v1";
-import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261002-a-recuperar-379-v1";
+import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261002-r-rrhh18-v4";
 import { extraerDatosEnvelopeCanonico } from "./portal-contrato.js?v=20260925-sin-demo2-v1";
 import { crearClientePropuestasLlamamiento } from "./portal-llamamientos-api.js?v=20261001-ct-a-i18n-v1";
 import { resolverSolicitudPropuestaLlamamiento } from "./portal-llamamientos-flujo.js?v=20261001-ct-a-i18n-v1";
@@ -18,10 +18,10 @@ import { accesoBolsaEfectivo, aplicarDisponibilidadMenuBolsa, instalarMenuBolsa,
 import { LOCALIZACION_PORTAL, textoPortal, traducirPortal } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
 import { instalarCopiaJustificantes } from "./portal-justificante.js";
 import { aplicarIdiomaDocumento, aplicarTextosPortal, instalarSelectorIdiomaPortal, instalarValidacionI18n } from "./portal-idioma.js?v=20261001-ct-a-i18n-v1";
-import { crearControladorBolsas } from "./portal-bolsas-api.js?v=20261002-a-recuperar-379-v1";
+import { crearControladorBolsas } from "./portal-bolsas-api.js?v=20261002-r-rrhh18-v3";
 import { crearSuperficieBorradorLlamamiento } from "./portal-borrador-llamamiento-ui.js?v=20261001-ct-a-i18n-v1";
-import { consultarAvisosBolsa, manejarAccionAvisos } from "./portal-bolsas-avisos.js?v=20261001-ct-a-i18n-v1";
-import { crearSuperficieOfertasBolsa } from "./portal-bolsas-ofertas.js?v=20261002-r4-postr2-v4";
+import { consultarAvisosBolsa, manejarAccionAvisos } from "./portal-bolsas-avisos.js?v=20261002-rrhh17-v1";
+import { crearSuperficieOfertasBolsa } from "./portal-bolsas-ofertas.js?v=20261002-r3-r4-ofertas-v1";
 import { crearSuperficieRRHHPlazos } from "./modulos/bolsa/rrhh-plazos-ui.js?v=20261002-r2-post401-v2";
 import { crearFuenteAuditoriaHTTP } from "./modulos/auditoria/cliente-http.js?v=20260928-usab-auditoria-v2";
 import { montarVistaAuditoria } from "./modulos/auditoria/vista.js?v=20261001-ct-a-i18n-v1";

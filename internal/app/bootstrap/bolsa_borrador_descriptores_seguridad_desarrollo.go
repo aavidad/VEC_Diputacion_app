@@ -15,11 +15,13 @@ const (
 	claveCapacidadConsultarBorradorLlamamientoBolsa = "capacidad-bolsa-bback-borrador-consultar"
 	claveFronteraSituacionParticipacionBolsa        = "bolsa-b2-situacion-cambiar"
 	claveFronteraOperacionesSituacionBolsa          = "bolsa-b8-operaciones-situacion"
+	claveFronteraSolicitudesDocumentalesRRHH        = "bolsa-b77-solicitudes-documentales-consultar"
 	claveFronteraContratosParticipacionBolsa        = "bolsa-b13-contratos-consultar"
 	claveFronteraReincorporacionesTitularBolsa      = "bolsa-b46-reincorporaciones-titular-consultar"
 	claveFronteraConsultarSancionesBolsa            = "bolsa-b24-sanciones-consultar"
 	claveFronteraRecursoSancionBolsa                = "bolsa-b24-sancion-recurso"
 	claveCapacidadSituacionParticipacionBolsa       = "capacidad-bolsa-b2-situacion-cambiar"
+	claveCapacidadSolicitudesDocumentalesRRHH       = "capacidad-bolsa-b77-solicitudes-documentales-consultar"
 	claveCapacidadConsultaReincorporacionBolsa      = "capacidad-bolsa-b55-reincorporacion-consultar"
 	claveFronteraConsultarContactosBolsa            = "bolsa-b3-contactos-consultar"
 	claveFronteraConsultarContactosB5Bolsa          = "bolsa-b3-contactos-b5-consultar"
@@ -44,6 +46,8 @@ const (
 	prefijoMaterialConsultarBorradorLlamamientoBolsa  = "clave:capacidad:bolsa-borrador-consultar:"
 	dominioMaterialSituacionParticipacionBolsa        = "vec.bolsa.situacion-participacion.cambiar.desarrollo.capacidad-v3"
 	prefijoMaterialSituacionParticipacionBolsa        = "clave:capacidad:bolsa-situacion-cambiar:"
+	dominioMaterialSolicitudesDocumentalesRRHH        = "vec.bolsa.solicitudes-documentales.consultar-rrhh.desarrollo.capacidad-v3"
+	prefijoMaterialSolicitudesDocumentalesRRHH        = "clave:capacidad:bolsa-solicitudes-documentales-consultar-rrhh:"
 	dominioMaterialContactoParticipacionBolsa         = "vec.bolsa.contacto-participacion.registrar.desarrollo.capacidad-v3"
 	prefijoMaterialContactoParticipacionBolsa         = "clave:capacidad:bolsa-contacto-registrar:"
 	dominioMaterialConsultaContactoParticipacionBolsa = "vec.bolsa.contacto-participacion.consultar.desarrollo.capacidad-v3"
@@ -101,6 +105,7 @@ func descriptoresFronterasBorradorLlamamientoBolsaDesarrollo(
 		},
 		{Clave: claveFronteraSituacionParticipacionBolsa, Superficie: superficieInternaSeguridadComunDesarrollo, Metodo: http.MethodPost, Ruta: bolsahttp.RutaBolsasGestion, PerfilesActivosRef: []string{perfilActivoRef}, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadSituacionParticipacionBolsa, PlantillaDetalle: []string{"*", "candidatos", "*", "*"}},
 		{Clave: claveFronteraOperacionesSituacionBolsa, Superficie: superficieInternaSeguridadComunDesarrollo, Metodo: http.MethodGet, Ruta: bolsahttp.RutaBolsasGestion, PerfilesActivosRef: []string{perfilActivoRef}, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadSituacionParticipacionBolsa, PlantillaDetalle: []string{"*", "candidatos", "*", "operaciones"}},
+		{Clave: claveFronteraSolicitudesDocumentalesRRHH, Superficie: superficieInternaSeguridadComunDesarrollo, Metodo: http.MethodGet, Ruta: bolsahttp.RutaSolicitudesDocumentalesPendientesRRHH, PerfilesActivosRef: []string{perfilActivoRef}, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadSolicitudesDocumentalesRRHH},
 		{Clave: claveFronteraContratosParticipacionBolsa, Superficie: superficieInternaSeguridadComunDesarrollo, Metodo: http.MethodGet, Ruta: bolsahttp.RutaBolsasGestion, PerfilesActivosRef: []string{perfilActivoRef}, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadSituacionParticipacionBolsa, PlantillaDetalle: []string{"*", "candidatos", "*", "contratos"}},
 		{Clave: claveFronteraConsultarSancionesBolsa, Superficie: superficieInternaSeguridadComunDesarrollo, Metodo: http.MethodGet, Ruta: bolsahttp.RutaBolsasGestion, PerfilesActivosRef: []string{perfilActivoRef}, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadSituacionParticipacionBolsa, PlantillaDetalle: []string{"*", "candidatos", "*", "sanciones"}},
 		{Clave: claveFronteraRecursoSancionBolsa, Superficie: superficieInternaSeguridadComunDesarrollo, Metodo: http.MethodPost, Ruta: bolsahttp.RutaBolsasGestion, PerfilesActivosRef: []string{perfilActivoRef}, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadSituacionParticipacionBolsa, PlantillaDetalle: []string{"*", "candidatos", "*", "sanciones", "*", "recursos"}},
@@ -165,6 +170,7 @@ func descriptoresAutorizacionBorradorLlamamientoBolsaDesarrollo(
 			Politica:       politica,
 		},
 		{Accion: puertosbolsa.AccionCambiarSituacionParticipacion, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadSituacionParticipacionBolsa, Fronteras: []string{claveFronteraSituacionParticipacionBolsa, claveFronteraOperacionesSituacionBolsa, claveFronteraContratosParticipacionBolsa, claveFronteraConsultarSancionesBolsa, claveFronteraRecursoSancionBolsa}, Politica: politica},
+		{Accion: puertosbolsa.AccionConsultarSolicitudesDocumentalesRRHH, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadSolicitudesDocumentalesRRHH, Fronteras: []string{claveFronteraSolicitudesDocumentalesRRHH}, Politica: politica},
 		{Accion: puertosbolsa.AccionRegistrarContactoParticipacion, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadSituacionParticipacionBolsa, Fronteras: []string{claveFronteraSituacionParticipacionBolsa}, Politica: politica},
 		{Accion: puertosbolsa.AccionConsultarContactoParticipacion, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadConsultarContactosBolsa, Fronteras: []string{claveFronteraConsultarContactosBolsa, claveFronteraConsultarContactosB5Bolsa, claveFronteraConsultarContactosOfertaBolsa}, Politica: politica},
 		{Accion: puertosbolsa.AccionRegistrarDatosContactoParticipacion, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadSituacionParticipacionBolsa, Fronteras: []string{claveFronteraSituacionParticipacionBolsa, claveFronteraConsultarDatosContactoBolsa}, Politica: politica},
@@ -200,6 +206,7 @@ func descriptoresMaterialBorradorLlamamientoBolsaDesarrollo() []descriptorMateri
 			ProveedorNominal: "proveedor-material-borrador-llamamiento-bolsa-crear",
 		},
 		{Audiencia: puertosbolsa.AudienciaCambiarSituacionParticipacion, Dominio: dominioMaterialSituacionParticipacionBolsa, Prefijo: prefijoMaterialSituacionParticipacionBolsa, ProveedorNominal: "proveedor-material-situacion-participacion-bolsa"},
+		{Audiencia: puertosbolsa.AudienciaConsultarSolicitudesDocumentalesRRHH, Dominio: dominioMaterialSolicitudesDocumentalesRRHH, Prefijo: prefijoMaterialSolicitudesDocumentalesRRHH, ProveedorNominal: "proveedor-material-solicitudes-documentales-rrhh-bolsa"},
 		{Audiencia: puertosbolsa.AudienciaRegistrarContactoParticipacion, Dominio: dominioMaterialContactoParticipacionBolsa, Prefijo: prefijoMaterialContactoParticipacionBolsa, ProveedorNominal: "proveedor-material-contacto-participacion-bolsa"},
 		{Audiencia: puertosbolsa.AudienciaConsultarContactoParticipacion, Dominio: dominioMaterialConsultaContactoParticipacionBolsa, Prefijo: prefijoMaterialConsultaContactoParticipacionBolsa, ProveedorNominal: "proveedor-material-consulta-contacto-participacion-bolsa"},
 		{Audiencia: puertosbolsa.AudienciaRegistrarDatosContactoParticipacion, Dominio: dominioMaterialDatosContactoParticipacionBolsa, Prefijo: prefijoMaterialDatosContactoParticipacionBolsa, ProveedorNominal: "proveedor-material-datos-contacto-participacion-bolsa"},
