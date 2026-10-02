@@ -17,6 +17,15 @@ type fuenteOriginalCTPrueba struct {
 	llamadas int
 }
 
+type tipoOriginalCTPrueba struct{ referencia string }
+
+func (t tipoOriginalCTPrueba) ResolverTipoOriginalCT(_ context.Context, documento string) (string, error) {
+	if documento != "informe_definitivo" {
+		return "", ports.ErrOriginalFirmableCTNoDisponible
+	}
+	return t.referencia, nil
+}
+
 func (f *fuenteOriginalCTPrueba) ObtenerPDFOriginalCT(context.Context, ports.SolicitudOriginalFirmableCT) (ports.PDFOriginalCT, error) {
 	f.llamadas++
 	return f.pdf, nil
@@ -73,7 +82,7 @@ func TestOriginalFirmableCTAltaUnicaReplayConflictoYLecturaSinRegenerar(t *testi
 	contenido := []byte("%PDF-1.7\noriginal version 7\n%%EOF")
 	fuente := &fuenteOriginalCTPrueba{pdf: ports.PDFOriginalCT{TipoRef: "ref:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", Contenido: contenido}}
 	custodia := &custodiaOriginalCTPrueba{permitir: true, pertenece: s.ExpedienteRef}
-	servicio, err := NuevoServicioOriginalFirmableCT(fuente, custodia)
+	servicio, err := NuevoServicioOriginalFirmableCT(fuente, custodia, tipoOriginalCTPrueba{fuente.pdf.TipoRef})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -104,11 +113,39 @@ func TestOriginalFirmableCTAltaUnicaReplayConflictoYLecturaSinRegenerar(t *testi
 	}
 }
 
+func TestOriginalFirmableCTRechazaTipoAjenoEnReplayYLectura(t *testing.T) {
+	solicitud := solicitudOriginalCTPrueba()
+	tipoPublicado := "ref:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+	fuente := &fuenteOriginalCTPrueba{pdf: ports.PDFOriginalCT{
+		TipoRef: tipoPublicado, Contenido: []byte("%PDF-1.7\noriginal version 7\n%%EOF"),
+	}}
+	custodia := &custodiaOriginalCTPrueba{permitir: true, pertenece: solicitud.ExpedienteRef}
+	servicio, err := NuevoServicioOriginalFirmableCT(fuente, custodia, tipoOriginalCTPrueba{tipoPublicado})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := servicio.Preparar(context.Background(), solicitud); err != nil {
+		t.Fatal(err)
+	}
+	// La fila conserva ID, expediente, versión, bytes y huella; solo el tipo
+	// difiere de la instantánea gobernada para esta clave de documento.
+	custodia.guardado.TipoRef = "ref:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+	if _, err := servicio.Preparar(context.Background(), solicitud); !errors.Is(err, ports.ErrOriginalFirmableCTNoDisponible) {
+		t.Fatalf("replay devolvió un tipo documental ajeno: %v", err)
+	}
+	if _, err := servicio.Leer(context.Background(), solicitud); !errors.Is(err, ports.ErrOriginalFirmableCTNoDisponible) {
+		t.Fatalf("lectura devolvió un tipo documental ajeno: %v", err)
+	}
+	if custodia.altas != 1 || fuente.llamadas != 1 {
+		t.Fatalf("reintento alteró el original: altas=%d fuente=%d", custodia.altas, fuente.llamadas)
+	}
+}
+
 func TestOriginalFirmableCTDeniegaLecturaAjenaPermisoCortadoYRefAlterada(t *testing.T) {
 	s := solicitudOriginalCTPrueba()
 	fuente := &fuenteOriginalCTPrueba{pdf: ports.PDFOriginalCT{TipoRef: "ref:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", Contenido: []byte("%PDF-1.7\noriginal\n%%EOF")}}
 	custodia := &custodiaOriginalCTPrueba{permitir: true, pertenece: s.ExpedienteRef}
-	servicio, err := NuevoServicioOriginalFirmableCT(fuente, custodia)
+	servicio, err := NuevoServicioOriginalFirmableCT(fuente, custodia, tipoOriginalCTPrueba{fuente.pdf.TipoRef})
 	if err != nil {
 		t.Fatal(err)
 	}
