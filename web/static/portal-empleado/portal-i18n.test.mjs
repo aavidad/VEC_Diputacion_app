@@ -65,7 +65,7 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     ["modulos/solicitudes/vista-tramites-propios.js", "20261001-g364-reconciliar-v2"],
     ["modulos/contratacion-temporal/formulario-llamamiento-pruebas.js", "20261001-ana002-v4"],
     ["modulos/contratacion-temporal/circuito-firma-acciones.js", "20261001-f-reconciliacion-325-v1"],
-    ["portal-modulos-coordinador.js", versionEntrada],
+    ["portal-modulos-coordinador.js", "20261002-b-servicios-351-main-v1"],
     ["portal.js", versionEntrada],
     ["modulos/cronos/vista-bandeja-permisos.js", "20261001-f-reconciliacion-321-v1"],
     ["modulos/cronos/i18n-resolucion.js", "20261001-cronos-grafo-bandeja-v5"],
@@ -91,8 +91,8 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     ["portal-preferencias.js", "20261001-ct-a-i18n-v1"],
     ["portal-preferencias-api.js", versionTemas],
     ["portal-borrador-llamamiento-ui.js", "20261001-ct-a-i18n-v1"],
-    ["portal-panel-interno.js", "20261001-f-reconciliacion-323-v1"],
-    ["portal-bolsas-api.js", "20261001-f-reconciliacion-323-v1"],
+    ["portal-panel-interno.js", versionEntrada],
+    ["portal-bolsas-api.js", versionEntrada],
     ["portal-bolsas-contrato.js", "20261001-ct-a-i18n-v1"],
     ["portal-llamamientos-operaciones-api.js", "20261001-ct-a-i18n-v1"],
     ["reglas/enlace.js", "20261001-ct-a-i18n-v1"],
@@ -111,8 +111,8 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     ["modulos/cronos/vista-permisos-propios.js", "20261001-cronos-calendario-seleccion-v1"],
     ["modulos/dietas/vista-borradores-propios.js", "20261001-f-reconciliacion-320-v1"],
     ["modulos/cronos/vista-bandeja-permisos.js", "20261001-f-reconciliacion-321-v1"],
-    ["portal-bolsas-operaciones.js", "20261001-f-reconciliacion-323-v1"],
-    ["portal-bolsas-sanciones.js", "20261001-f-reconciliacion-323-v1"],
+    ["portal-bolsas-operaciones.js", versionEntrada],
+    ["portal-bolsas-sanciones.js", versionEntrada],
     ["modulos/contratacion-temporal/componentes-expedientes.js", "20261001-f-reconciliacion-325-v1"],
     ["modulos/contratacion-temporal/consulta-seguimiento.js", "20261001-f-reconciliacion-325-v1"],
     ["modulos/contratacion-temporal/documentacion-formalizacion.js", "20261001-f-reconciliacion-325-v1"],
@@ -141,6 +141,7 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   versionesEspeciales.set("modulos/cronos/i18n-bandeja-notificaciones.js", "20261001-cronos-c9-recuperacion-v3");
   versionesEspeciales.set("modulos/cronos/i18n-notificaciones-historial.js", "20261001-cronos-c9-historial-v2");
   versionesEspeciales.set("modulos/cronos/i18n-permisos-consulta.js", "20261001-cronos-c7-consulta-v2");
+  versionesEspeciales.set("portal-bolsas-contratos.js", versionEntrada);
   const archivos = ["index.html"];
   const pendientes = [""];
   while (pendientes.length) {
@@ -274,5 +275,5 @@ test("Cronos renueva los traductores de permisos y resolución y todos sus padre
   const versionPortal = versionDe(portal, "./portal-modulos-coordinador.js");
   assert.notEqual(versionPortal, "20261001-cronos-grafo-bandeja-v5");
   assert.equal(versionDe(html, "/portal-empleado/portal-modulos-coordinador.js"), versionPortal);
-  assert.equal(versionDe(html, "/portal-empleado/portal.js"), versionPortal);
+  assert.equal(versionDe(html, "/portal-empleado/portal.js"), versionEntrada);
 });

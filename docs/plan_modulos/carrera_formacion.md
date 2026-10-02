@@ -1,5 +1,55 @@
 # Carrera y Formación: continuación de Codex-H
 
+## Cierre del 2 de octubre de 2026: estado vigente
+
+Este apartado prevalece sobre los estados y la próxima acción del plan inicial
+conservado debajo. Las horquillas son estimaciones originales, sin recálculo del
+trabajo restante. A conserva Carrera, Formación y RUM; B conserva Personal y
+G el baremador común. Las menciones a H corresponden al reparto histórico.
+
+| Minitarea | Estado comprobado | Siguiente dependencia |
+| --- | --- | --- |
+| H01 · verificar entregas | Comprobado en este cierre. | Revalidar PR y FIN antes de retomar. |
+| H02 · fuente de Formación | Preguntas 119–121 pendientes de RRHH sobre Formación, convenio y vías de grado. | Fuente, competencias y versiones admitidas. |
+| H03 · puerto de catálogo | Pendiente. | Contrato confirmado en H02. |
+| H04 · consulta de Formación | Pendiente. | Fuente/adaptador y consumidor de H03; mantener consulta y derivación. |
+| H05 · antecedentes de Personal | [#341](https://github.com/aavidad/VEC_Diputacion_app/pull/341) fusionada, `08231a909`: puerto y ensayo sintético. La entrega de B [#376](https://github.com/aavidad/VEC_Diputacion_app/pull/376) aporta contrato. | Lector nominal real de B; el contrato no acredita una lectura montada. |
+| H06 · política de grado | [#366](https://github.com/aavidad/VEC_Diputacion_app/pull/366) fusionada, `1b3d5dcb9`: política sintética. | Fuente provincial y aprobación; los valores de ensayo no conceden derechos. |
+| H07 · preparación de expediente | [#388](https://github.com/aavidad/VEC_Diputacion_app/pull/388) abierta en borrador, `fcfbce9cf`; calidad CI en curso al comprobar. | Cerrar CI/revisión; H08 y lector B antes de datos personales. La corrección común #402 ya está fusionada y no cambia esta fuente. |
+| H08 · autorización nominal | WIP conservado en `trabajo/codexa-carrera-h08-n2@39672b2ae64e820249f7317e0c8702eac15cbd86`, sin PR; dos revisiones favorables del corte preparado. | Lector B, montaje, HTTP y fuente real; esas revisiones no acreditan consumo montado. |
+| H09 · persistencia | Pendiente. | H05–H08, reserva SQL, ensayo y revisiones antes de instalación por dirección. |
+| H10 · resolución e inscripción | Pendiente. | Persistencia, autorización montada, documentos/firma y recibo de Personal. |
+| H11 · cotejo de promoción | [#393](https://github.com/aavidad/VEC_Diputacion_app/pull/393) fusionada, `f48d0f3dc`: dictamen sintético. | Bases y hechos reales autorizados; el cotejo no decide admisión. |
+| H12 · seguimiento de promoción | Inventario, sin código nuevo. | Estado autorizado de A y acto de Personal; H08 y H11. |
+| H13 · política laboral | Pendiente. | Convenio consolidado y aprobación de RRHH. |
+| H14 · expediente laboral | Pendiente. | H05/H08/H09 y política laboral aprobada. |
+| H15 · solicitudes de Formación | Pendiente. | Fuente, competencias y permisos de H02–H04. |
+| H16 · ejecución y certificado | Pendiente. | Hechos de Formación y custodia/firma de Documentos. |
+| H17 · Formación → RUM | Pendiente. | H16 y RUM01–06; entrega única con recibo reconciliable. |
+
+El nivel del puesto, el grado reconocido y la progresión laboral se mantienen
+separados. Las consultas de ensayo y políticas sintéticas siguen pendientes
+de fuente y aprobación para uso real.
+
+| Minitarea RUM | Estado comprobado | Qué queda |
+| --- | --- | --- |
+| RUM01 · hechos y procedencia | [#339](https://github.com/aavidad/VEC_Diputacion_app/pull/339) fusionada, `c4c1856fd`: modelo y CLI. | Su consumo no convierte una declaración en acreditación. |
+| RUM02 · cambios e historia | [#400](https://github.com/aavidad/VEC_Diputacion_app/pull/400) abierta, `770c288cf`, calidad CI en curso tras incorporar `03af`. Escritura, archivo y repetición probados en el clon con siete operaciones reales y reinicio. | Cierre de CI e integración; canal externo y verificación competente siguen cerrados. |
+| RUM03 · persistencia y V3 | Misma #400: lector V3, convivencia con S1 y dos revisiones favorables del corte; comprobaciones locales verdes. AD3-142 ensayada e instalada solo en el clon. | Integración e instalación controlada en destino por dirección; no está instalada en la principal. |
+| RUM04 · consulta propia | WIP publicado en `trabajo/codexa-rum04-p1-n1@f25aac133ea44e54aa1edb88e883bcb09f634ccf`. AD3-145/Méritos2 reservadas; lectura propia 200 y ausencia ajena comprobadas. Tras reinicio en otro proceso, misma huella y negocio conservado; recibos de acceso 4→6. | Dos revisiones, Chrome, adaptación tras AD3-143/144 y cierre del montaje. No hay cierre funcional acreditado. |
+| RUM05 · lectura por otros procesos | Pendiente. | Lectura positiva RUM03 y contratos mínimos por finalidad de Selectivos/baremador. |
+| RUM06 · conformidad de fuentes | Pendiente. | Correspondencia de Persona, hechos y evidencias; conflictos/reintentos y circuito Formación. |
+
+AD3-145 se prepara con guardas POST-142; no se presenta como POST-144.
+El orden reservado es 143 K → 144 G → 145 A → 146 E → 147 E → 148 E;
+esta secuencia no afirma instalación. No reaplicar AD3-142 en el clon ni usar
+un SQL reservado como capacidad disponible en la principal.
+
+Para retomar, leer los FIN y verificar #388/#400 antes de continuar sus cortes.
+Después cerrar la candidata RUM04 sobre su fuente final, sin reconstruir RUM01
+ni duplicar Personal. Las preguntas 119–121 y las integraciones pendientes
+siguen abiertas; este cierre no acredita producción ni reconocimiento de grado.
+
 Alcance: CAR-001–003, FOR-001–003 y Registro Único de Méritos (RUM).
 **CAR-004 Desempeño queda fuera de este encargo y de su estimación.**
 
