@@ -200,7 +200,7 @@ DECLARE
  f oid:=to_regprocedure('vec_autorizacion_atestada_v3.consumir_operacion_documentos_replay_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
  original text; nuevo text; actual text; meta jsonb; deps jsonb; deps_compartidas jsonb; acl aclitem[];
  propietario oid; config text[]; definidora boolean;
- esperada_def_sha256 text:='3e4412dbac79bcce4c0fddfbb32602ed2169b9d694c2292fbb83a5d4f';
+ esperada_def_sha256 text:='3e4412dbac79bcce6d0425f4c0fddfbb32602ed2169b9d694c2292fbb83a5d4f';
  ancla text:=$a$      AND d->>'finalidad'='registrar_documento_externo' AND d->'campos_permitidos'='["documento","recibo"]'::jsonb)
      OR (accion='documentos.firmado.custodiar' AND d->>'tipo_recurso'='documento_firmado'
       AND d->>'finalidad'='custodiar_documento_firmado' AND d->'campos_permitidos'='["documento_firmado.custodia","evidencia_custodia"]'::jsonb))$a$;
