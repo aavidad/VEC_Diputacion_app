@@ -260,9 +260,24 @@ func (s *soporteAltaContratacionTemporalDesarrollo) motivoAltaAdmitido(
 		return false
 	}
 	vinculo, err := operativo.Vinculo.Datos()
-	return err == nil && application.PoliticaFinAltaConfirmadaPara(
+	if err != nil {
+		return false
+	}
+	if application.PoliticaFinAltaConfirmadaPara(
 		ctx, organizacionRef, vinculo.PrincipalID, vinculo.PerfilActivoRef, clave,
-	)
+	) {
+		return true
+	}
+	// La petición ratificada conserva su propia instantánea c12. El
+	// contexto privado de entrega liga actor, perfil, clave y solicitud;
+	// un alta directa sin ese acto sigue sujeta al catálogo vigente.
+	entrega, desdePeticion := altaDePeticionConfiable(ctx)
+	periodo := entrega.Peticion.Solicitud.Periodo
+	return desdePeticion && organizacionRef == organizacionAltaContratacionTemporalDesarrollo &&
+		entrega.ActorRef == vinculo.PrincipalID && entrega.PerfilRef == vinculo.PerfilActivoRef &&
+		entrega.Peticion.Solicitud.MotivoClave == clave && periodo.Fin.IsZero() &&
+		periodo.PoliticaFin.Validar() == nil &&
+		ports.SelloHMACSHA256Valido(entrega.AmbitoAltaHMAC)
 }
 
 // PrepararPeriodoModalidad añade al periodo la publicación exacta de c12.

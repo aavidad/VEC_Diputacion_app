@@ -213,8 +213,8 @@ func (s *ServicioRegistroSolicitud) Registrar(
 		return ports.ReciboAlta{}, err
 	}
 	ctxFlujo := ctx
-	if solicitudCentro.Periodo.PoliticaFin == (domain.PoliticaFin{}) && solicitudCentro.Periodo.Fin.IsZero() {
-		if dependenciaNula(s.periodos) || dependenciaNula(s.recuperacion) {
+	if solicitudCentro.Periodo.Fin.IsZero() {
+		if dependenciaNula(s.recuperacion) {
 			return ports.ReciboAlta{}, ErrServicioRegistroInvalido
 		}
 		politicaAnterior, confirmada, err := s.recuperacion.ConsultarPoliticaFinAltaConfirmada(
@@ -230,6 +230,10 @@ func (s *ServicioRegistroSolicitud) Registrar(
 			if politicaAnterior != (domain.PoliticaFin{}) && politicaAnterior.Validar() != nil {
 				return ports.ReciboAlta{}, ErrResultadoRegistroNoConfiable
 			}
+			if solicitudCentro.Periodo.PoliticaFin != (domain.PoliticaFin{}) &&
+				solicitudCentro.Periodo.PoliticaFin != politicaAnterior {
+				return ports.ReciboAlta{}, ports.ErrClaveIdempotenciaUsada
+			}
 			solicitudCentro.Periodo.PoliticaFin = politicaAnterior
 			ambitos, err := ambitosHMAC.Datos()
 			if err != nil {
@@ -240,7 +244,10 @@ func (s *ServicioRegistroSolicitud) Registrar(
 				actorRef:        vinculo.PrincipalID, perfilRef: vinculo.PerfilActivoRef,
 				motivoClave: solicitudCentro.MotivoClave, ambitoHMAC: ambitos.Activo.Valor,
 			})
-		} else {
+		} else if solicitudCentro.Periodo.PoliticaFin == (domain.PoliticaFin{}) {
+			if dependenciaNula(s.periodos) {
+				return ports.ReciboAlta{}, ErrServicioRegistroInvalido
+			}
 			periodo, err := s.periodos.PrepararPeriodoModalidad(ctx, solicitudCentro.MotivoClave, solicitudCentro.Periodo)
 			if err != nil {
 				return ports.ReciboAlta{}, ErrSolicitudRegistroInvalida

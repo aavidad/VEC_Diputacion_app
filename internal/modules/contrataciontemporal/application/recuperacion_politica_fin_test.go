@@ -267,9 +267,18 @@ func TestAltaReplayConfirmadoAdmiteModalidadRetiradaYClaveNuevaSeDeniega(t *test
 	flujo.vigente, motivo.vigente = false, false
 	periodos.err = errors.New("modalidad retirada de c12")
 	recuperacion.confirmada, recuperacion.politica = true, politica
-	repetido, err := servicio.Registrar(context.Background(), escenario.solicitud)
+	reintentoPeticion := escenario.solicitud
+	reintentoPeticion.Solicitud.Periodo.PoliticaFin = politica
+	repetido, err := servicio.Registrar(context.Background(), reintentoPeticion)
 	if err != nil || repetido != original || huellas != 2 || dobles.autorizador.llamadas != 2 || dobles.transaccion.llamadas != 2 || periodos.consultas != 1 {
 		t.Fatalf("el replay confirmado perdió su recibo o saltó huella/V3: %v", err)
+	}
+	politicaAjena := politica
+	politicaAjena.CatalogoVersion++
+	reintentoPeticion.Solicitud.Periodo.PoliticaFin = politicaAjena
+	_, err = servicio.Registrar(context.Background(), reintentoPeticion)
+	if !errors.Is(err, ports.ErrClaveIdempotenciaUsada) || huellas != 2 || dobles.autorizador.llamadas != 2 || dobles.transaccion.llamadas != 2 {
+		t.Fatalf("snapshot distinto reutilizó la clave confirmada: %v", err)
 	}
 	nueva := escenario.solicitud
 	nueva.ClaveIdempotencia = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee"
@@ -278,5 +287,29 @@ func TestAltaReplayConfirmadoAdmiteModalidadRetiradaYClaveNuevaSeDeniega(t *test
 	_, err = servicio.Registrar(context.Background(), nueva)
 	if !errors.Is(err, ErrSolicitudRegistroInvalida) || huellas != 2 || dobles.autorizador.llamadas != 2 || dobles.transaccion.llamadas != 2 || periodos.consultas != 2 {
 		t.Fatalf("la nueva clave para modalidad retirada llegó al efecto: %v", err)
+	}
+}
+
+func TestAltaNuevaDePeticionRatificadaConservaSnapshotSinConsultarC12Retirada(t *testing.T) {
+	escenario := nuevoEscenarioRegistro(t)
+	escenario.solicitud.Solicitud.Periodo.Fin = time.Time{}
+	escenario.solicitud.Solicitud.Periodo.CausaFin = "fin_sustitucion"
+	escenario.solicitud.Solicitud.Periodo.PoliticaFin = politicaFinHistoricaPrueba()
+	servicio, dobles := construirServicioRegistro(t, escenario)
+	periodos := &preparadorPeriodoFinPrueba{err: errors.New("modalidad retirada de c12")}
+	recuperacion := &recuperadorPoliticaFinPrueba{}
+	servicio.periodos = periodos
+	if err := servicio.ConfigurarRecuperacionPoliticaFin(recuperacion); err != nil {
+		t.Fatal(err)
+	}
+	var periodoHuella domain.PeriodoPrevisto
+	dobles.huellas.antes = func(material *ports.MaterialHuellaAlta) {
+		periodoHuella = material.Solicitud.Periodo
+	}
+	recibo, err := servicio.Registrar(context.Background(), escenario.solicitud)
+	if err != nil || recibo != escenario.recibo || recuperacion.consultas != 1 ||
+		periodos.consultas != 0 || periodoHuella != escenario.solicitud.Solicitud.Periodo ||
+		dobles.autorizador.llamadas != 1 || dobles.transaccion.llamadas != 1 {
+		t.Fatalf("alta de petición ratificada no conservó su snapshot y controles: %v", err)
 	}
 }
