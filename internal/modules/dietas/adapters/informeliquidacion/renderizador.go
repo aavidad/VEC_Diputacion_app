@@ -51,11 +51,14 @@ type vista struct {
 	Tema, Estilos                                                                   template.CSS
 	ComisionRef, Version, Grupo                                                     string
 	Filas                                                                           []fila
+	Resumen                                                                         []fila
 	TotalInicial, TotalPropuesto, TotalDiferencia                                   string
 	CatalogoRef, CatalogoVersion, Tarifa, DocumentoSHA, CatalogoSHA, PreparacionSHA string
 	Fuentes                                                                         []string
 	TieneD5                                                                         bool
 }
+
+var familiasInforme = [...]string{"manutencion", "kilometraje", domain.ClaseOtroMedio, domain.ClaseOtroGasto}
 
 // Renderizar consume los importes y totales decididos por el dominio opaco.
 // Sólo transforma presentación; no concede aprobación ni registra una liquidación.
@@ -78,11 +81,28 @@ func (r *Renderizador) Renderizar(p *domain.PreparacionLiquidacion, t Textos) ([
 	for _, regla := range s.Catalogo.Reglas {
 		reglas[regla.Referencia] = regla
 	}
+	subtotales := make(map[string]*domain.TotalesLiquidacionPropuesta, len(familiasInforme))
+	for _, codigo := range familiasInforme {
+		subtotales[codigo] = &domain.TotalesLiquidacionPropuesta{}
+	}
 	for _, l := range s.Lineas {
 		if l.Indice < 0 || l.Indice >= len(s.Documento.Lineas) {
 			return nil, ErrPreparacion
 		}
 		d := s.Documento.Lineas[l.Indice]
+		familia := d.Tipo
+		if d.Tipo == "dieta" {
+			familia = d.Concepto
+		}
+		subtotal, ok := subtotales[familia]
+		if !ok {
+			return nil, ErrPreparacion
+		}
+		// El dominio ya validó importes no negativos y totales sin desbordamiento.
+		// Agrupar esos céntimos no aplica tarifas ni vuelve a decidir la propuesta.
+		subtotal.OriginalCentimos += l.OriginalCentimos
+		subtotal.ReconocidoPropuestoCentimos += l.ReconocidoPropuestoCentimos
+		subtotal.RechazadoCentimos += l.RechazadoCentimos
 		concepto := t.Conceptos[d.Concepto]
 		detalle := ""
 		if d.Tipo == "kilometraje" {
@@ -155,6 +175,17 @@ func (r *Renderizador) Renderizar(p *domain.PreparacionLiquidacion, t Textos) ([
 			f.Tope = moneda(regla.TopeCentimos, t.Formato)
 		}
 		v.Filas = append(v.Filas, f)
+	}
+	var comprobacion domain.TotalesLiquidacionPropuesta
+	for _, codigo := range familiasInforme {
+		subtotal := subtotales[codigo]
+		v.Resumen = append(v.Resumen, fila{Concepto: t.Familias[codigo], Inicial: moneda(subtotal.OriginalCentimos, t.Formato), Propuesto: moneda(subtotal.ReconocidoPropuestoCentimos, t.Formato), Diferencia: moneda(subtotal.RechazadoCentimos, t.Formato)})
+		comprobacion.OriginalCentimos += subtotal.OriginalCentimos
+		comprobacion.ReconocidoPropuestoCentimos += subtotal.ReconocidoPropuestoCentimos
+		comprobacion.RechazadoCentimos += subtotal.RechazadoCentimos
+	}
+	if comprobacion != s.Totales {
+		return nil, ErrPreparacion
 	}
 	v.TotalInicial = moneda(s.Totales.OriginalCentimos, t.Formato)
 	v.TotalPropuesto = moneda(s.Totales.ReconocidoPropuestoCentimos, t.Formato)

@@ -1,0 +1,34 @@
+{
+  "alcance": "preparacion_sintetica",
+  "identidad_material": "material:ejemplo:bases",
+  "version_material": 2,
+  "contenido": {
+    "identificador_publico": "seleccion-ejemplo",
+    "tipo": "concurso_oposicion",
+    "catalogo_categorias": {
+      "catalogo_id": "categorias-ejemplo",
+      "catalogo_version": 1,
+      "catalogo_huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "categorias": [
+      "administrativo",
+      "auxiliar_administrativo"
+    ],
+    "titulo": "Propuesta sintética de bases",
+    "resumen": "Datos configurables de ejemplo, sin fuente aprobada.",
+    "descripcion": "La ruta del documento es una propuesta. No acredita existencia, firma, custodia ni publicación.",
+    "plazos": [],
+    "requisitos": [
+      {
+        "referencia": "req:ejemplo:titulo",
+        "orden": 1,
+        "titulo": "Requisito propuesto",
+        "descripcion": "Pendiente de fuente de RRHH.",
+        "obligatorio": true
+      }
+    ],
+    "documentos": [],
+    "ayuda": []
+  },
+  "referencias": {}
+}
