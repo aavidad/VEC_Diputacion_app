@@ -11,7 +11,7 @@
 
 import { generarCSVEstadisticas, PERIODOS_ESTADISTICAS } from "./contrato-estadisticas.js?v=20261001-ct-a-i18n-v1";
 import { consultarEstadisticas } from "./cliente-http-estadisticas.js?v=20261001-ct-a-i18n-v1";
-import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261001-ct-a-i18n-v1";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261002-moad-v1";
 import { IDIOMA_ACTUAL, localizacionDe } from "../../../comun/idioma.js";
 
 import { cargarFichaIndicadores, renderizarFichaIndicadores } from "../analitica/ficha-indicadores.js?v=20261001-ana002-v4";

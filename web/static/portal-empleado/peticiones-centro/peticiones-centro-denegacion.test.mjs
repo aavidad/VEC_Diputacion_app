@@ -5,13 +5,14 @@ import { iniciarPeticionCentro, iniciarPeticionesCentroRRHH, pedir } from "./pet
 
 const catalogos = {
   esquema: "vec.contratacion_temporal.catalogos_alta.v1",
+  numero_expediente_moad: { referencia: "catalogo:numero:moad", version: 1, patron: "^[0-9]{4}/[1-9][0-9]{0,9}$", ejemplo: "2026/12345" },
   centros: [{ referencia: "cen_sintetico_001", etiqueta: "Centro sintético", contactos: [{ referencia: "con_sintetico_001", etiqueta: "Contacto sintético" }] }],
   categorias: [{ referencia: "cat_sintetica_001", etiqueta: "Categoría sintética", grupos_subgrupos: [{ clave: "C2", etiqueta: "C2" }] }],
   motivos: [{ clave: "sustitucion", etiqueta: "Sustitución" }], documentos: [],
 };
 const contexto = { actor: { referencia: "actor:sintetico:001", nombre: "Actor anterior sintético", cargo: "Cargo anterior", centro: "Centro anterior", puede_presentar: true, puede_ratificar: false }, catalogos };
 const peticion = { referencia: "peticion:centro:sintetica", version: 2, estado: "ratificada", configuracion: { solicitante: { actor_ref: "actor:sintetico:001", puesto_ref: "puesto:sintetico:001" } }, solicitud: { centro_ref: "cen_sintetico_001", categoria_ref: "cat_sintetica_001", motivo_clave: "sustitucion", detalle: "Dato personal previo sintético", periodo: {} } };
-const entrega = { peticion, estado_entrega: "preparada", recibo_alta: { recibo_ref: "recibo:sintetico:anterior", expediente_ref: "expediente:sintetico:anterior", confirmada_en: "2026-09-06T08:00:00Z" } };
+const entrega = { peticion, estado_entrega: "preparada", recibo_alta: { numero_visible: "2026/12345", recibo_ref: "recibo:sintetico:anterior", expediente_ref: "expediente:sintetico:anterior", confirmada_en: "2026-09-06T08:00:00Z" } };
 
 function raizFalsa() {
   const manejadores = new Map();
@@ -20,7 +21,7 @@ function raizFalsa() {
     manejadores,
     setAttribute() {},
     insertAdjacentHTML(_posicion, contenido) { this.innerHTML = contenido + this.innerHTML; },
-    querySelector() { return { checked: true, value: "Motivo privado sintético" }; },
+    querySelector(selector) { return { checked: true, value: selector === "[name=numero_expediente_moad]" ? "2026/12345" : "Motivo privado sintético" }; },
     querySelectorAll() { return []; },
     addEventListener(tipo, manejador) { manejadores.set(tipo, manejador); },
     async pulsar(dataset) {
@@ -141,13 +142,14 @@ test("RRHH informa del alta confirmada si la lectura posterior queda denegada, s
   const cliente = async (ruta, opciones) => {
     llamadas.push([ruta, opciones?.method || "GET"]);
     if (opciones?.method === "POST") return { ...entrega, estado_entrega: "confirmada" };
-    if (llamadas.length > 1) throw { status: 403 };
+    if (ruta.endsWith("/catalogos-alta")) return catalogos;
+    if (llamadas.length > 2) throw { status: 403 };
     return { limite: 50, peticiones: [entrega] };
   };
   await iniciarPeticionesCentroRRHH({ raiz, cliente });
   await raiz.pulsar({ accion: "abrir-alta-rrhh" });
   await raiz.pulsar({ accion: "confirmar-alta-rrhh" });
-  assert.deepEqual(llamadas.map(([, method]) => method), ["GET", "POST", "GET"]);
+  assert.deepEqual(llamadas.map(([, method]) => method), ["GET", "GET", "POST", "GET"]);
   assert.match(raiz.innerHTML, /La operación se registró/);
   assert.match(raiz.innerHTML, /Acceso denegado/);
   verificarSinDatos(raiz);
@@ -200,7 +202,7 @@ test("RRHH descarta el comando incierto tras POST 503 y reintento 401", async ()
   const cliente = async (ruta, opciones) => {
     llamadas.push([ruta, opciones?.method || "GET"]);
     if (opciones?.method === "POST") throw { status: ++post === 1 ? 503 : 401 };
-    return { limite: 50, peticiones: [entrega] };
+    return ruta.endsWith("/catalogos-alta") ? catalogos : { limite: 50, peticiones: [entrega] };
   };
   const vista = await iniciarPeticionesCentroRRHH({ raiz, cliente });
   await raiz.pulsar({ accion: "abrir-alta-rrhh" });

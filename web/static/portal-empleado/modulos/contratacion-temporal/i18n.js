@@ -1,3 +1,4 @@
+import { MENSAJES_MOAD_ES, MENSAJES_MOAD_EN } from "./i18n-moad.js?v=20261002-moad-v1";
 /** Textos castellanos del módulo; las vistas solo consumen claves. */
 import { MENSAJES_FIRMA_INCORPORACION } from "./i18n-firma-incorporacion-datos.js?v=20261001-ct-a-i18n-v1";
 import { MENSAJES_LLAMAMIENTO_ES } from "./i18n-llamamiento.js?v=20261001-ct-a-i18n-v1";
@@ -18,6 +19,7 @@ import { IDIOMA_ACTUAL } from "../../../comun/idioma.js";
 import { rotulosFasesComoMensajes } from "./i18n-fases-rrhh.js?v=20261001-ct-a-i18n-v1";
 
 export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
+  ...MENSAJES_MOAD_ES,
   ...rotulosFasesComoMensajes("contratacion_temporal.fase.", "es"),
   justificante_registrado: "Justificante registrado",
   justificante_copiar: "Copiar referencia",
@@ -485,6 +487,7 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
 
 /** British English messages for the temporary staff requests module. */
 export const MENSAJES_CONTRATACION_TEMPORAL_EN = Object.freeze({
+  ...MENSAJES_MOAD_EN,
   ...rotulosFasesComoMensajes("contratacion_temporal.fase.", "en"),
   justificante_registrado: "Receipt recorded",
   justificante_copiar: "Copy reference",

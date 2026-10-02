@@ -1,5 +1,5 @@
 /** Transporte de la configuración RRHH. La identidad y V3 se resuelven en el servidor. */
-import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261001-ct-a-i18n-v1";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261002-moad-v1";
 import { MENSAJES_RRHH_PLANTILLAS_ES } from "./rrhh-plantillas-i18n.js";
 
 export const RUTA_RRHH_PLANTILLAS = "/api/vec/contratacion-temporal/plantillas";
