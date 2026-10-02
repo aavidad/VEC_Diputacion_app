@@ -216,7 +216,7 @@ func consultaAbrirPool(ctx context.Context, socket, login string) (*pgxpool.Pool
 
 // La fábrica mantiene separadas las seis cuentas técnicas. La autorización
 // central registra sus denegaciones; éxito y ausencia se auditan en Méritos.
-func consultaComponerReal(ctx context.Context, c consultaIntegracionConfig) (http.Handler, func(), error) {
+func consultaComponerReal(ctx context.Context, c consultaIntegracionConfig, auditoria merports.AuditoriaIntentos) (http.Handler, func(), error) {
 	pools := make([]*pgxpool.Pool, 0, 6)
 	var privada ed25519.PrivateKey
 	cerrar := func() {
@@ -345,11 +345,20 @@ func consultaComponerReal(ctx context.Context, c consultaIntegracionConfig) (htt
 	if err != nil {
 		return fallo("consulta_integracion.repositorio")
 	}
-	service, err := merapp.NuevoServicioConsultaPropia(common, repository, consultaRelojReal{})
+	service, err := merapp.NuevoServicioConsultaPropia(common, repository, auditoria, consultaRelojReal{})
 	if err != nil {
 		return fallo("consulta_integracion.servicio")
 	}
 	return NuevaConsultaPropia(provider, service), cerrar, nil
+}
+
+// El ensamblaje de ensayo no tiene todavía la autoridad común persistente de
+// intentos. Este cierre explícito nunca afirma haber registrado una auditoría:
+// un fallo posterior a la emisión termina indisponible, sin datos ni recibo.
+type consultaAuditoriaPendiente struct{}
+
+func (consultaAuditoriaPendiente) AppendAudit(context.Context, vd.AuditEntry) (vd.AuditEntry, error) {
+	return vd.AuditEntry{}, merports.ErrConsultaNoDisponible
 }
 
 type consultaFirmanteReal struct {
@@ -560,7 +569,7 @@ func TestConsultaIntegracionReal(t *testing.T) {
 	}()
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
-	handler, cleanup, err := consultaComponerReal(ctx, c)
+	handler, cleanup, err := consultaComponerReal(ctx, c, consultaAuditoriaPendiente{})
 	if err != nil {
 		t.Fatal(err.Error())
 	}

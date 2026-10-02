@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"errors"
+	"time"
 
 	"vec-diputacion-granada/internal/modules/meritos/ports"
 	vec "vec-diputacion-granada/internal/vec/domain"
@@ -12,18 +13,19 @@ import (
 type ServicioConsultaPropia struct {
 	autorizador ports.Autorizador
 	repositorio ports.RepositorioConsultaPropia
+	auditoria   ports.AuditoriaIntentos
 	reloj       vecports.Reloj
 }
 
-func NuevoServicioConsultaPropia(a ports.Autorizador, r ports.RepositorioConsultaPropia, reloj vecports.Reloj) (*ServicioConsultaPropia, error) {
-	if nulo(a) || nulo(r) || nulo(reloj) {
+func NuevoServicioConsultaPropia(a ports.Autorizador, r ports.RepositorioConsultaPropia, audit ports.AuditoriaIntentos, reloj vecports.Reloj) (*ServicioConsultaPropia, error) {
+	if nulo(a) || nulo(r) || nulo(audit) || nulo(reloj) {
 		return nil, ports.ErrConsultaNoDisponible
 	}
-	return &ServicioConsultaPropia{a, r, reloj}, nil
+	return &ServicioConsultaPropia{a, r, audit, reloj}, nil
 }
 
 func (s *ServicioConsultaPropia) ConsultarActual(ctx context.Context, solicitud SolicitudConsultaPropia) (out ports.ResultadoConsultaPropia, err error) {
-	if s == nil || ctx == nil || nulo(s.autorizador) || nulo(s.repositorio) || nulo(s.reloj) {
+	if s == nil || ctx == nil || nulo(s.autorizador) || nulo(s.repositorio) || nulo(s.auditoria) || nulo(s.reloj) {
 		return ports.ResultadoConsultaPropia{}, ports.ErrConsultaNoDisponible
 	}
 	if err = ctx.Err(); err != nil {
@@ -48,6 +50,31 @@ func (s *ServicioConsultaPropia) ConsultarActual(ctx context.Context, solicitud 
 	if ValidarOrdenConsultaPropia(o) != nil {
 		return ports.ResultadoConsultaPropia{}, ports.ErrConsultaNoDisponible
 	}
+	// El repositorio termina su rollback antes de devolver un error. Ese
+	// resultado necesita constancia por la autoridad común independiente; la
+	// concesión emitida no acredita una denegación de su consumo posterior.
+	defer func() {
+		if err == nil {
+			return
+		}
+		correlacion, _ := solicitud.Correlacion.ValorCanonico()
+		entrada := vec.AuditEntry{ActorID: solicitud.Contexto.Contexto.PersonaRef,
+			ActorProfile: solicitud.Contexto.Contexto.PerfilActivoRef,
+			Action:       AccionConsultaPropia, ModuleID: "meritos", Purpose: FinalidadConsultaPropia,
+			SubjectRef: o.HechoRef, CorrelationRef: correlacion, RuleRef: solicitud.Motivo.EntradaClave,
+			AuthorizationRef: o.Autorizacion.Material.ResumenCapacidad().DecisionRef(),
+			OccurredAt:       s.reloj.Ahora().UTC(), Result: "no_confirmado"}
+		if errors.Is(err, vec.ErrAutorizacionDenegada) {
+			entrada.Result = "denegada"
+		}
+		// Un cierre de la petición no borra el intento. El plazo del registro
+		// es independiente y corto; no conserva credenciales o material V3.
+		auditCtx, cancelar := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
+		defer cancelar()
+		if _, auditErr := s.auditoria.AppendAudit(auditCtx, entrada); auditErr != nil {
+			out, err = ports.ResultadoConsultaPropia{}, ports.ErrConsultaNoDisponible
+		}
+	}()
 	resultado, err := s.repositorio.ConsultarActual(ctx, o)
 	if err != nil {
 		return ports.ResultadoConsultaPropia{}, err

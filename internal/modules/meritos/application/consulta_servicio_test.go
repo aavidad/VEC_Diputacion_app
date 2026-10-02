@@ -22,7 +22,7 @@ func escenarioConsulta(t *testing.T) (*ServicioConsultaPropia, SolicitudConsulta
 	t.Helper()
 	_, original, _, _, audit := escenario(t)
 	a, r := &autoridadConsultaPrueba{t: t}, &repositorioConsultaPrueba{}
-	s, err := NuevoServicioConsultaPropia(a, r, relojPrueba{})
+	s, err := NuevoServicioConsultaPropia(a, r, audit, relojPrueba{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -106,11 +106,15 @@ type repositorioConsultaPrueba struct {
 	resultado ports.ResultadoConsultaPropia
 	mutar     func(*ports.ResultadoConsultaPropia)
 	err       error
+	despues   func()
 }
 
 func (r *repositorioConsultaPrueba) ConsultarActual(_ context.Context, o ports.OrdenConsultaPropia) (ports.ResultadoConsultaPropia, error) {
 	r.llamadas++
 	r.ultima = o
+	if r.despues != nil {
+		defer r.despues()
+	}
 	if r.err != nil {
 		return ports.ResultadoConsultaPropia{}, r.err
 	}
@@ -229,7 +233,7 @@ func TestConsultaPropiaRechazaResultadoManipulado(t *testing.T) {
 			s, solicitud, _, r, audit := escenarioConsulta(t)
 			r.mutar = mutar
 			out, err := s.ConsultarActual(context.Background(), solicitud)
-			if !errors.Is(err, ports.ErrConsultaNoDisponible) || out.HechoActual != nil || out.ReciboConsulta != nil || audit.llamadas != 0 {
+			if !errors.Is(err, ports.ErrConsultaNoDisponible) || out.HechoActual != nil || out.ReciboConsulta != nil || audit.llamadas != 1 || audit.ultima.Result != "no_confirmado" {
 				t.Fatal("resultado manipulado aceptado", err)
 			}
 		})
@@ -268,13 +272,13 @@ func TestConsultaPropiaDenegacionNominalSinDatos(t *testing.T) {
 	s, solicitud, _, r, audit := escenarioConsulta(t)
 	r.mutar = func(r *ports.ResultadoConsultaPropia) { *r = ports.ResultadoConsultaPropia{Codigo: "denegada"} }
 	out, err := s.ConsultarActual(context.Background(), solicitud)
-	if !errors.Is(err, vec.ErrAutorizacionDenegada) || out.Codigo != "" || out.HechoActual != nil || out.ReciboConsulta != nil || audit.llamadas != 0 {
+	if !errors.Is(err, vec.ErrAutorizacionDenegada) || out.Codigo != "" || out.HechoActual != nil || out.ReciboConsulta != nil || audit.llamadas != 1 || audit.ultima.Result != "denegada" {
 		t.Fatal("denegación no cerrada", err)
 	}
 }
 
 func TestConsultaPropiaRechazoTrasEmisionNoDevuelveFichaNiRecibo(t *testing.T) {
-	s, solicitud, autoridad, repositorio, _ := escenarioConsulta(t)
+	s, solicitud, autoridad, repositorio, audit := escenarioConsulta(t)
 	repositorio.err = vec.ErrAutorizacionDenegada
 	out, err := s.ConsultarActual(context.Background(), solicitud)
 	if !errors.Is(err, vec.ErrAutorizacionDenegada) || out.Codigo != "" ||
@@ -284,6 +288,52 @@ func TestConsultaPropiaRechazoTrasEmisionNoDevuelveFichaNiRecibo(t *testing.T) {
 	}
 	if repositorio.ultima.Autorizacion.Material.ResumenCapacidad().DecisionRef() != decisionRef {
 		t.Fatal("el repositorio no recibió la autorización emitida")
+	}
+	correlacion, _ := solicitud.Correlacion.ValorCanonico()
+	entrada := audit.ultima
+	if audit.llamadas != 1 || entrada.Result != "denegada" || entrada.ActorID != persona ||
+		entrada.ActorProfile != perfil || entrada.Action != AccionConsultaPropia ||
+		entrada.ModuleID != "meritos" || entrada.Purpose != FinalidadConsultaPropia ||
+		entrada.SubjectRef != solicitud.HechoRef || entrada.CorrelationRef != correlacion ||
+		entrada.AuthorizationRef != decisionRef || entrada.RuleRef != solicitud.Motivo.EntradaClave ||
+		entrada.ObjectVersion != 0 || len(entrada.Metadata) != 0 || entrada.Reason != "" ||
+		entrada.DocumentRef != "" || entrada.RepresentedSubjectID != "" {
+		t.Fatal("falta constancia minimizada del rechazo nominal")
+	}
+	audit.err = errors.New("diagnóstico privado de auditoría")
+	out, err = s.ConsultarActual(context.Background(), solicitud)
+	if !errors.Is(err, ports.ErrConsultaNoDisponible) || out.HechoActual != nil || out.ReciboConsulta != nil || audit.llamadas != 2 {
+		t.Fatal("el fallo de auditoría no termina indisponible y vacío", err)
+	}
+}
+
+type auditoriaConsultaContextoPrueba struct {
+	registrar func(context.Context, vec.AuditEntry)
+}
+
+func (a auditoriaConsultaContextoPrueba) AppendAudit(ctx context.Context, entrada vec.AuditEntry) (vec.AuditEntry, error) {
+	a.registrar(ctx, entrada)
+	return entrada, nil
+}
+
+func TestConsultaPropiaCancelacionPosteriorNoBorraElIntento(t *testing.T) {
+	s, solicitud, _, repositorio, _ := escenarioConsulta(t)
+	ctx, cancelar := context.WithCancel(context.Background())
+	defer cancelar()
+	repositorio.err, repositorio.despues = context.Canceled, cancelar
+	llamadas := 0
+	s.auditoria = auditoriaConsultaContextoPrueba{registrar: func(auditCtx context.Context, entrada vec.AuditEntry) {
+		llamadas++
+		limite, limitado := auditCtx.Deadline()
+		if ctx.Err() == nil || auditCtx.Err() != nil || !limitado ||
+			time.Until(limite) <= 0 || time.Until(limite) > 2*time.Second ||
+			entrada.Result != "no_confirmado" || repositorio.llamadas != 1 {
+			t.Fatal("intento cancelado sin contexto independiente acotado")
+		}
+	}}
+	out, err := s.ConsultarActual(ctx, solicitud)
+	if !errors.Is(err, context.Canceled) || out.HechoActual != nil || out.ReciboConsulta != nil || llamadas != 1 {
+		t.Fatal("cancelación posterior borra el intento o expone datos", err)
 	}
 }
 
@@ -320,7 +370,7 @@ func TestConsultaPropiaErroresYCancelacionNoDevuelvenDatos(t *testing.T) {
 	s, solicitud, _, r, audit := escenarioConsulta(t)
 	r.err = ports.ErrConsultaNoDisponible
 	out, err := s.ConsultarActual(context.Background(), solicitud)
-	if err == nil || out.HechoActual != nil || out.ReciboConsulta != nil || audit.llamadas != 0 {
+	if err == nil || out.HechoActual != nil || out.ReciboConsulta != nil || audit.llamadas != 1 || audit.ultima.Result != "no_confirmado" {
 		t.Fatal("fallo de repositorio devuelve datos", err)
 	}
 	ctx, cancelar := context.WithCancel(context.Background())
@@ -329,7 +379,10 @@ func TestConsultaPropiaErroresYCancelacionNoDevuelvenDatos(t *testing.T) {
 	if _, err = s.ConsultarActual(ctx, solicitud); !errors.Is(err, context.Canceled) || r.llamadas != llamadas {
 		t.Fatal("cancelación no respetada", err)
 	}
-	if _, err = NuevoServicioConsultaPropia(nil, r, relojPrueba{}); !errors.Is(err, ports.ErrConsultaNoDisponible) {
+	if _, err = NuevoServicioConsultaPropia(nil, r, audit, relojPrueba{}); !errors.Is(err, ports.ErrConsultaNoDisponible) {
 		t.Fatal("dependencia ausente aceptada", err)
+	}
+	if _, err = NuevoServicioConsultaPropia(s.autorizador, r, nil, relojPrueba{}); !errors.Is(err, ports.ErrConsultaNoDisponible) {
+		t.Fatal("auditoría ausente aceptada", err)
 	}
 }
