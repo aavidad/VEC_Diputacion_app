@@ -21,7 +21,7 @@ type preparadorOfertasPrueba struct {
 
 func (p *preparadorOfertasPrueba) PrepararSolicitudPublicarOferta(_ context.Context, e EntradaPublicarOferta) (ports.SolicitudPublicarOferta, error) {
 	p.publicar = &e
-	return ports.SolicitudPublicarOferta{BolsaRef: e.BolsaRef, Datos: e.Datos, NumeroPlazas: e.NumeroPlazas, ClaveIdempotencia: e.ClaveIdempotencia}, nil
+	return ports.SolicitudPublicarOferta{Notificacion: e.Notificacion, BolsaRef: e.BolsaRef, Datos: e.Datos, NumeroPlazas: e.NumeroPlazas, ClaveIdempotencia: e.ClaveIdempotencia}, nil
 }
 func (p *preparadorOfertasPrueba) PrepararSolicitudResolverOferta(_ context.Context, e EntradaResolverOferta) (ports.SolicitudResolverOferta, error) {
 	p.resolver = &e
@@ -68,7 +68,7 @@ func codigoOferta(t *testing.T, w *httptest.ResponseRecorder) string {
 	return sobre.Error.Codigo
 }
 
-const cuerpoOfertaPrueba = `{"bolsa_ref":"bolsa:1","numero_plazas":2,"datos":{"categoria":"Auxiliar","centro":"Residencia","fecha_inicio":"2026-10-01","descripcion":"Sustitución"}}`
+const cuerpoOfertaPrueba = `{"notificacion":{"notificada_en":"2026-10-02T09:00:00Z","referencia_correo":"correo:extracto:oferta-1","huella_correo_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","fuente":"correo_externo_declarado_rrhh"},"bolsa_ref":"bolsa:1","numero_plazas":2,"datos":{"categoria":"Auxiliar","centro":"Residencia","fecha_inicio":"2026-10-01","descripcion":"Sustitución"}}`
 
 // cuerpoActoPlazaPrueba registra un acto sobre la plaza 2 de una oferta.
 const cuerpoActoPlazaPrueba = `{"bolsa_ref":"b","oferta_ref":"oferta:1","numero_de_plaza":2,"tipo":"adjudicada","secuencia_esperada":3,"participacion_ref":"p:1"}`
@@ -82,7 +82,7 @@ func TestHandlerOfertasPublicaYDistingueReplay(t *testing.T) {
 		h, _ := NuevoHandlerOfertasPublicadas(p, operadorOfertasPrueba{reutilizada: caso.reutilizada})
 		w := httptest.NewRecorder()
 		h.ServeHTTP(w, peticionOferta(http.MethodPost, RutaOfertasPublicadas, cuerpoOfertaPrueba, "clave-oferta-1"))
-		if w.Code != caso.estado || p.publicar == nil || p.publicar.ClaveIdempotencia != "clave-oferta-1" || p.publicar.Datos.Centro != "Residencia" || p.publicar.NumeroPlazas != 2 {
+		if w.Code != caso.estado || p.publicar == nil || p.publicar.ClaveIdempotencia != "clave-oferta-1" || p.publicar.Datos.Centro != "Residencia" || p.publicar.NumeroPlazas != 2 || p.publicar.Notificacion.ReferenciaCorreo != "correo:extracto:oferta-1" {
 			t.Fatalf("estado=%d cuerpo=%s", w.Code, w.Body.String())
 		}
 	}
@@ -90,6 +90,7 @@ func TestHandlerOfertasPublicaYDistingueReplay(t *testing.T) {
 
 func TestHandlerOfertasRechazaEntradasSinLlegarAlPreparador(t *testing.T) {
 	casos := map[string]*http.Request{
+		"sin notificación":   peticionOferta(http.MethodPost, RutaOfertasPublicadas, `{"bolsa_ref":"bolsa:1","numero_plazas":1,"datos":{}}`, "clave-oferta-1"),
 		"sin clave":          peticionOferta(http.MethodPost, RutaOfertasPublicadas, cuerpoOfertaPrueba, ""),
 		"campo ajeno":        peticionOferta(http.MethodPost, RutaOfertasPublicadas, `{"bolsa_ref":"b","actor":"x","datos":{}}`, "clave-oferta-1"),
 		"dos documentos":     peticionOferta(http.MethodPost, RutaOfertasPublicadas, cuerpoOfertaPrueba+cuerpoOfertaPrueba, "clave-oferta-1"),

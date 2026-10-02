@@ -84,3 +84,21 @@ func TestPoliticaOfertasApartadoDePlazas(t *testing.T) {
 		}
 	}
 }
+
+func TestPoliticaInicioExplicitoSoloObligatorioParaOfertasNuevas(t *testing.T) {
+	p := PoliticaOfertas{Plazo: PlazoPoliticaOfertas{Unidad: "dias_habiles", Cantidad: 2, Computo: "administrativo", MunicipioSede: "18087"}, Adjudicacion: AdjudicacionPoliticaOfertas{Criterio: "orden_vigente", Elegibilidad: "disposicion_en_plazo"}, NoCubierta: NoCubiertaPoliticaOfertas{Accion: "llamamiento_directo", Condicion: "sin_disposiciones_elegibles"}}
+	if p.Validar() != nil {
+		t.Fatal("política histórica rechazada en lectura")
+	}
+	if p.ValidarParaOfertasNuevas() == nil {
+		t.Fatal("se interpretó una política sin origen como notificación")
+	}
+	p.Plazo.Inicio = "notificacion"
+	if p.ValidarParaOfertasNuevas() != nil {
+		t.Fatal("política de notificación explícita rechazada")
+	}
+	p.Plazo.Inicio = "publicacion"
+	if p.Validar() == nil || p.ValidarParaOfertasNuevas() == nil {
+		t.Fatal("origen no ejecutable aceptado")
+	}
+}
