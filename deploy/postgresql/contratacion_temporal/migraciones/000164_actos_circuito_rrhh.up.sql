@@ -22,6 +22,32 @@ BEGIN
  IF NOT v_instalada THEN RAISE EXCEPTION 'CT164: PARO clave=ct163_vinculado_instalada actual=% esperado=true',v_instalada::text USING ERRCODE='55000'; END IF;
  v_instalada:=to_regprocedure('vec_contratacion_temporal.circuito_siguiente_ct163(jsonb,jsonb)') IS NOT NULL;
  IF NOT v_instalada THEN RAISE EXCEPTION 'CT164: PARO clave=ct163_siguiente_instalada actual=% esperado=true',v_instalada::text USING ERRCODE='55000'; END IF;
+ -- La presencia de un nombre no acredita las guardas CT163. CT164 consume la
+ -- postimagen exacta, incluido el trigger sobre la tabla de versiones.
+ SELECT count(*)=3 AND coalesce(bool_and(
+   encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex')=v.def_sha
+   AND encode(sha256(convert_to(p.prosrc,'UTF8')),'hex')=v.src_sha
+   AND p.proowner='vec_contratacion_temporal_propietario'::regrole),false)
+ INTO v_instalada
+ FROM (VALUES
+  ('vec_contratacion_temporal.circuito_vinculado_ct163(jsonb)',
+   '7db838715d98bd5876916ba1809c924a12623680a6fdab68b6cea9a6eadff585',
+   'a2bc9daa31c30738c2a43db20e76440b2709f5e99627ae5648b336b43cfa73bf'),
+  ('vec_contratacion_temporal.circuito_siguiente_ct163(jsonb,jsonb)',
+   'bfe6bfa13d1c752e23125d23c99787f3367d253a05221d7127a667e75ad533f5',
+   '4a1f2e433ef634e6598c245f7f6344cf74a5ab199fdcd9ffe05a25de82ee28c9'),
+  ('vec_contratacion_temporal.proteger_version_circuito_ct163()',
+   '8b0de28c8fad46fd5e71b34ab587757122eaafb870252f63b3e7feaa318150f4',
+   '4947358f5cebf637b199b783037e918e689835ebee677b36bd76f97bb6adbd37')
+ ) AS v(firma,def_sha,src_sha)
+ JOIN pg_proc p ON p.oid=to_regprocedure(v.firma);
+ IF NOT v_instalada THEN RAISE EXCEPTION 'CT164: PARO clave=ct163_funciones_exactas actual=false esperado=true' USING ERRCODE='55000'; END IF;
+ SELECT count(*)=1 INTO v_instalada FROM pg_trigger t
+ WHERE t.tgrelid='vec_contratacion_temporal.expediente_version_integral'::regclass
+  AND t.tgname='proteger_version_circuito_ct163'
+  AND t.tgfoid='vec_contratacion_temporal.proteger_version_circuito_ct163()'::regprocedure
+  AND t.tgenabled='O' AND NOT t.tgisinternal;
+ IF NOT v_instalada THEN RAISE EXCEPTION 'CT164: PARO clave=ct163_trigger_activo actual=false esperado=true' USING ERRCODE='55000'; END IF;
  v_instalada:=to_regprocedure('vec_contratacion_temporal.circuito_flujo_nuevo_ct164(jsonb)') IS NOT NULL;
  IF v_instalada THEN RAISE EXCEPTION 'CT164: PARO clave=ct164_ya_instalada actual=% esperado=false',v_instalada::text USING ERRCODE='55000'; END IF;
 END $pre$;

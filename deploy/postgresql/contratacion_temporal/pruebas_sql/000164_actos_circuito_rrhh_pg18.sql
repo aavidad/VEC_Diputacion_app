@@ -113,6 +113,6 @@ BEGIN
  END LOOP;
  SELECT count(*) INTO v_total_despues FROM vec_contratacion_temporal.expediente_version_integral;
  IF v_total_despues<>v_total+1 THEN RAISE EXCEPTION 'CT164: efecto inesperado'; END IF;
- RAISE NOTICE 'CT164 focal OK: materializador real v1 vacío, omisión/terna divergente denegadas, v2-v6 sin fuente denegadas, INSERT v2 denegado, legacy idéntico';
+ RAISE NOTICE 'CT164 focal OK: materializador real v1 vacío, hito CT163 fingido denegado, omisión/terna divergente denegadas, v2-v6 sin fuente denegadas, INSERT v2 denegado, legacy idéntico';
 END $prueba$;
 ROLLBACK;
