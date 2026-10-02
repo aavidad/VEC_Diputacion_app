@@ -62,3 +62,7 @@ d5cbc96f0fdf0e64c8b7296adef62e86f5220c97:internal/vec/reglas/resolutor_test.go:v
 
 # Referencia pública de caché Bolsa, no credencial
 2a84532885f56ff267e6ed1d8c52f80b4c11302d:web/static/portal-empleado/portal-i18n.test.mjs:generic-api-key:93
+
+# Identificador público de clave sintética CRN11, no secreto
+dcfb876c98a9d674b24efee1884f3d06dd82916c:deploy/postgresql/personal/pruebas_sql/vinculo_propio_historico_crn11_000026.sql:vep-clave-castellana-asignada:51
+dcfb876c98a9d674b24efee1884f3d06dd82916c:deploy/postgresql/personal/pruebas_sql/vinculo_propio_historico_crn11_000026_pg18.sh:vep-clave-castellana-asignada:58
