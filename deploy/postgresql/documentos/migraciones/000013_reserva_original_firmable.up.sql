@@ -425,7 +425,7 @@ DECLARE anterior text:=current_setting('vec.documentos.expediente_ref',true); r 
 BEGIN
  PERFORM set_config('vec.documentos.expediente_ref',NEW.expediente_ref,true);
  tipo_reservado:=EXISTS(SELECT 1 FROM vec_documentos.tipo_original_firmable t
-   WHERE t.tipo_ref=NEW.tipo_ref AND t.modulo_id=NEW.modulo_id);
+   WHERE t.tipo_ref=NEW.tipo_ref);
  SELECT reserva_ref INTO r FROM vec_documentos.reserva_original_firmable
   WHERE documento_id=NEW.id OR (modulo_id=NEW.modulo_id AND expediente_ref=NEW.expediente_ref
     AND tipo_ref=NEW.tipo_ref AND version=NEW.version);
@@ -444,7 +444,7 @@ CREATE FUNCTION vec_documentos.rechazar_externa_original_firmable_v1() RETURNS t
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog, pg_temp SET row_security=on AS $f$
 BEGIN
  IF EXISTS(SELECT 1 FROM vec_documentos.tipo_original_firmable t
-   WHERE t.tipo_ref=NEW.tipo_ref AND t.modulo_id=NEW.modulo_id)
+   WHERE t.tipo_ref=NEW.tipo_ref)
  THEN RAISE EXCEPTION 'documentos: tipo reservado a original firmable' USING ERRCODE='42501'; END IF;
  RETURN NEW;
 END $f$;

@@ -112,6 +112,24 @@ BEGIN
  IF d2 IS DISTINCT FROM d1 THEN RAISE EXCEPTION 'replay de confirmación alteró documento'; END IF;
 END $probar$;
 RESET SESSION AUTHORIZATION;
+SET CONSTRAINTS ALL IMMEDIATE;
+-- El tipo es global: cambiar módulo no debe abrir el alta genérica.
+DO $tipo_ajeno$
+DECLARE d vec_documentos.documento%ROWTYPE;
+BEGIN
+ SELECT * INTO STRICT d FROM vec_documentos.documento
+  WHERE id='ref:'||repeat('1',64);
+ BEGIN
+  INSERT INTO vec_documentos.documento
+  SELECT (jsonb_populate_record(NULL::vec_documentos.documento,
+    to_jsonb(d)||jsonb_build_object(
+      'id','ref:'||repeat('2',64),
+      'numero_vec','VEC-2099-999999999999',
+      'clave_idempotencia','idem:00000000-0000-4000-8000-000000000014',
+      'modulo_id','bolsa','version',2))).*;
+  RAISE EXCEPTION 'tipo original admitido en módulo ajeno';
+ EXCEPTION WHEN SQLSTATE '42501' THEN NULL; END;
+END $tipo_ajeno$;
 DO $conteos$
 DECLARE original_id text:='ref:'||repeat('1',64); reserva_id text;
 BEGIN
