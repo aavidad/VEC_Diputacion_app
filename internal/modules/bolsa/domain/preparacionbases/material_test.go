@@ -1,11 +1,35 @@
 package preparacionbases
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 
 	bolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
 )
+
+func TestEvaluacionVaciaConservaLos23ParesOrdenados(t *testing.T) {
+	evaluacion, err := EvaluarMaterialBases(Material{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	esperados := []Pendiente{
+		{"fuente_bases", "referencia_ausente"}, {"catalogos", "referencia_ausente"}, {"calendario", "referencia_ausente"},
+		{"reglas_baremacion", "referencia_ausente"}, {"flujo_proceso", "referencia_ausente"}, {"flujo_solicitud", "referencia_ausente"},
+		{"plantilla", "referencia_ausente"}, {"plaza", "referencia_ausente"}, {"oep", "referencia_ausente"}, {"rpt", "referencia_ausente"},
+		{"identificador_publico", "material_ausente"}, {"tipo", "material_ausente"}, {"titulo", "material_ausente"}, {"resumen", "material_ausente"},
+		{"catalogo_categorias", "material_ausente"}, {"categorias", "material_ausente"}, {"plazos", "material_ausente"}, {"documentos_propuestos", "material_ausente"},
+		{"contenido", "contenido_no_validado"}, {"documentos_admitidos", "circuito_pendiente"}, {"firma_y_custodia", "circuito_pendiente"},
+		{"acto_aprobacion", "circuito_pendiente"}, {"publicacion_oficial", "circuito_pendiente"},
+	}
+	if evaluacion.ContenidoCanonico != nil || !reflect.DeepEqual(evaluacion.Pendientes, esperados) {
+		t.Fatalf("evaluacion=%+v", evaluacion)
+	}
+	pendientes, err := (Material{}).Pendientes()
+	if err != nil || !reflect.DeepEqual(pendientes, evaluacion.Pendientes) {
+		t.Fatal("Pendientes no delega en la evaluacion comun")
+	}
+}
 
 func TestMaterialIncompletoConservaPendientesSinGobierno(t *testing.T) {
 	m := Material{Contenido: bolsa.ContenidoPublicableConvocatoria{Titulo: "Propuesta sintética incompleta"}}
@@ -14,7 +38,7 @@ func TestMaterialIncompletoConservaPendientesSinGobierno(t *testing.T) {
 		t.Fatal(err)
 	}
 	pendientes, err := canonico.Pendientes()
-	if err != nil || len(pendientes) != 15 {
+	if err != nil || len(pendientes) != 22 {
 		t.Fatalf("pendientes=%+v error=%v", pendientes, err)
 	}
 	if canonico.Contenido.Validar() == nil {
