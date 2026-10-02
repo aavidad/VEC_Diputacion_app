@@ -68,6 +68,13 @@ type PeticionAltaBorradorV3 struct {
 	ClaveOperacion string
 }
 
+// HuellaSolicitudAltaBorradorV3 permite cotejar el negocio restaurado antes
+// del commit sin duplicar su representación canónica en los adaptadores.
+// La huella identifica la intención; no acredita identidad ni autorización.
+func HuellaSolicitudAltaBorradorV3(persona string, peticion PeticionAltaBorradorV3) (string, error) {
+	return huellaNegocioAltaV3(persona, peticion)
+}
+
 type PeticionConsultaExactaV3 struct {
 	bloqueoSerializacion
 	Selector ports.SelectorGobiernoReglasV3
