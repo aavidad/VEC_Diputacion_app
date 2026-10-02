@@ -86,7 +86,10 @@ func VerificarCadenaV3(d DocumentoVerificacion, checkpoint CoberturaCadena, maxR
 	}
 	informe.Cobertura = checkpoint
 	informe.CheckpointCotejado = true
-	if uint64(len(d.Registros)) != checkpoint.Registros || uint64(len(d.Registros)) > maxRegistros {
+	if uint64(len(d.Registros)) > maxRegistros {
+		return fallar("limite_registros", "max_registros", strconv.FormatUint(maxRegistros, 10), strconv.Itoa(len(d.Registros)), 0)
+	}
+	if uint64(len(d.Registros)) != checkpoint.Registros {
 		return fallar("cantidad_distinta", "registros", strconv.FormatUint(checkpoint.Registros, 10), strconv.Itoa(len(d.Registros)), 0)
 	}
 	anterior := checkpoint.AnteriorSHA256
