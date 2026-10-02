@@ -27,3 +27,18 @@ no basta. La firma local mantiene `firma_eficaz=false` y no sustituye al circuit
 corporativo. Los certificados distintos de una misma persona necesitan una
 relación nominal aprobada; el canal de desarrollo exige el mismo certificado
 para autenticarse y firmar.
+
+## Cofirma PAdES de un mismo PDF
+
+El diseño aprobado conserva el visto bueno de Dirección o Jefatura y la firma
+de la Diputada como dos PDF distintos sobre un mismo original, que debe quedar
+custodiado antes de firmar. Cada PDF tendrá un firmante verificado, su recibo
+y su referencia de custodia. No se presentará como un PDF con dos firmas.
+
+Si más adelante se necesita una cofirma incremental en un único PDF, GrxFirma
+y el puerto de verificación deberán identificar el certificado de cada firma
+con su revisión y `ByteRange`, comprobar que las firmas anteriores siguen
+válidas y rechazar cambios no permitidos. El dictamen actual solo acredita un
+firmante y rechaza la identidad ambigua en un PDF con varios. Este cambio queda
+para V2; no condiciona el recorrido de dos evidencias separadas aprobado por
+dirección el 2 de octubre de 2026.
