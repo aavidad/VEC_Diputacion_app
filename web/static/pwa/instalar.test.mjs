@@ -29,17 +29,17 @@ function preparar(portal, instalada, segura = true) {
 }
 
 test("RRHH y área personal muestran acciones sólo instalados y registran su propio scope", async () => {
-  for (const portal of ["/portal-empleado/", "/area-personal/"]) {
+  for (const [portal, idioma] of [["/portal-empleado/", "es"], ["/area-personal/", "en"]]) {
     const caso = preparar(portal, true);
-    await iniciarPWA(caso);
+    await iniciarPWA({ ...caso, idioma });
     assert.equal(caso.navegacion.hidden, false);
-    assert.match(caso.manifiesto.href, /^\/textos\/[a-z]{2,3}\/pwa-[a-z-]+\.json\?v=20261002-pwa-v1$/u);
+    assert.match(caso.manifiesto.href, new RegExp(`^/textos/${idioma}/pwa-[a-z-]+\\.json\\?v=20261002-pwa-v1$`));
     assert.deepEqual(caso.registros, [[`${portal}sw.js?v=20261002-pwa-v1`, { scope: portal, updateViaCache: "none" }]]);
     assert.ok(caso.botones.every((boton) => boton.textContent && boton["aria-label"] === boton.textContent));
     caso.botones[0].click();
     caso.botones[1].click();
     caso.botones[2].click();
-    assert.deepEqual(caso.movimientos, [portal, portal, "reload"]);
+    assert.deepEqual(caso.movimientos, [`${portal}?lang=${idioma}`, `${portal}?lang=${idioma}`, "reload"]);
   }
 });
 

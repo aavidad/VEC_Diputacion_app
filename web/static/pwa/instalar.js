@@ -3,7 +3,7 @@ import { IDIOMA_ACTUAL } from "../comun/idioma.js?v=20261002-pwa-v1";
 
 const VERSION = "20261002-pwa-v1";
 
-export async function iniciarPWA({ documento = globalThis.document, ventana = globalThis.window, navegador = globalThis.navigator } = {}) {
+export async function iniciarPWA({ documento = globalThis.document, ventana = globalThis.window, navegador = globalThis.navigator, idioma = IDIOMA_ACTUAL } = {}) {
   const navegacion = documento?.querySelector?.("[data-pwa-navegacion]");
   const manifiesto = documento?.querySelector?.("link[data-pwa-manifest]");
   if (!navegacion || !manifiesto || !ventana) return;
@@ -13,8 +13,9 @@ export async function iniciarPWA({ documento = globalThis.document, ventana = gl
   if (!scope || !/^\/[a-z0-9-]+(?:\/[a-z0-9-]+)?\/$/u.test(scope) ||
       !/^pwa-[a-z0-9-]+$/u.test(portal) || !ventana.location.pathname.startsWith(scope)) return;
 
-  const textos = await cargarTextos("pwa", { idioma: IDIOMA_ACTUAL });
+  const textos = await cargarTextos("pwa", { idioma });
   manifiesto.href = `/textos/${textos.idioma}/${portal}.json?v=${VERSION}`;
+  const inicio = `${scope}?lang=${encodeURIComponent(textos.idioma)}`;
 
   const instalada = ventana.matchMedia?.("(display-mode: standalone)");
   const actualizarVisibilidad = () => { navegacion.hidden = !instalada?.matches; };
@@ -30,8 +31,8 @@ export async function iniciarPWA({ documento = globalThis.document, ventana = gl
     boton.addEventListener("click", () => {
       if (accion === "volver") {
         if (ventana.history.length > 1) ventana.history.back();
-        else ventana.location.assign(scope);
-      } else if (accion === "inicio") ventana.location.assign(scope);
+        else ventana.location.assign(inicio);
+      } else if (accion === "inicio") ventana.location.assign(inicio);
       else ventana.location.reload();
     });
   }
