@@ -1,0 +1,50 @@
+{
+  "general": {
+    "titulo": "Recruitment workflow",
+    "consultar": "View the workflow",
+    "fase_actual": "Current step:",
+    "ver_fase_estado": "{fase}: {estado}",
+    "resumen_fases": "{hechas} done · {ahora} current · {faltan} pending",
+    "resumen_desconocido": "Progress unavailable. You can still view this case's stages.",
+    "avance_no_disponible": "Progress unavailable",
+    "sin_hitos": "No actions have been recorded in this workflow yet.",
+    "continuar": "To continue, check the tasks in this case.",
+    "consultando": "Loading the workflow…",
+    "denegado": "You do not have permission to view this case’s workflow.",
+    "no_disponible": "This case’s workflow cannot be shown. If the problem persists, contact IT.",
+    "estado_desconocido": "Awaiting verification",
+    "actuacion_registrada": "Step recorded"
+  },
+  "fases": {
+    "solicitud": "Request signing",
+    "autorizacion_rrhh": "HR Management authorisation",
+    "credito": "Budget check",
+    "oferta": "Offer to the employment pool",
+    "adjudicacion": "Allocation",
+    "informe_jefatura": "Head of Service report",
+    "intervencion": "Financial oversight review",
+    "resolucion": "Decision",
+    "ginpix": "Manual entry in GINPIX",
+    "firma_interesado": "Signature by the person appointed",
+    "incorporacion": "Start of employment",
+    "seguimiento": "Follow-up",
+    "subsanacion_servicio": "Correction by the Service",
+    "devolucion_servicio": "Return to the Service"
+  },
+  "actuaciones": {
+    "peticion_firmada": "Request signed",
+    "autorizacion_rrhh": "HR Management authorisation recorded",
+    "credito_comprobado": "Budget checked",
+    "oferta_emitida": "Offer issued",
+    "adjudicacion": "Allocation recorded",
+    "informe_jefatura": "Head of Service report signed",
+    "intervencion_favorable": "Favourable financial review",
+    "intervencion_reparo": "Objection from Financial Oversight",
+    "resolucion_firmada": "Decision signed",
+    "ginpix_registrado": "Manual GINPIX entry recorded",
+    "firma_interesado": "Signature by the person appointed recorded",
+    "devolucion": "Return recorded",
+    "reinicio": "Processing restarted",
+    "incorporacion": "Start of employment confirmed"
+  }
+}

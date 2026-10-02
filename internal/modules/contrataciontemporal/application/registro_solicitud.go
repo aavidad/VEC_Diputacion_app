@@ -30,12 +30,42 @@ var (
 // SesionRef pueden proceder de web, escritorio, CLI o MCP, pero la autoridad
 // común VEC las revalida y resuelve la cuenta, persona, perfil y garantía.
 type SolicitudRegistrarExpediente struct {
-	AutenticacionRef  string
-	SesionRef         string
-	PerfilRef         string
-	OrganizacionRef   string
-	ClaveIdempotencia string
-	Solicitud         domain.SolicitudCentro
+	AutenticacionRef     string
+	SesionRef            string
+	PerfilRef            string
+	OrganizacionRef      string
+	ClaveIdempotencia    string
+	NumeroExpedienteMOAD string
+	Solicitud            domain.SolicitudCentro
+}
+
+// claveFinAltaConfirmada sólo existe dentro de aplicación: ni HTTP ni un
+// llamador de otro paquete pueden insertar una confirmación en el contexto.
+type claveFinAltaConfirmada struct{}
+
+type finAltaConfirmada struct {
+	organizacionRef string
+	actorRef        string
+	perfilRef       string
+	motivoClave     domain.ClaveCatalogo
+	ambitoHMAC      string
+}
+
+// PoliticaFinAltaConfirmadaPara permite a la composición comprobar un replay
+// histórico sin transportar la política o la clave de idempotencia. El
+// marcador nunca se serializa ni modifica la autorización V3.
+func PoliticaFinAltaConfirmadaPara(
+	ctx context.Context, organizacionRef, actorRef, perfilRef string,
+	motivoClave domain.ClaveCatalogo,
+) bool {
+	if ctx == nil || ctx.Err() != nil {
+		return false
+	}
+	confirmacion, ok := ctx.Value(claveFinAltaConfirmada{}).(finAltaConfirmada)
+	return ok && ports.SelloHMACSHA256Valido(confirmacion.ambitoHMAC) &&
+		confirmacion.organizacionRef == organizacionRef &&
+		confirmacion.actorRef == actorRef && confirmacion.perfilRef == perfilRef &&
+		confirmacion.motivoClave == motivoClave
 }
 
 type ServicioRegistroSolicitud struct {
@@ -50,7 +80,30 @@ type ServicioRegistroSolicitud struct {
 	huellasEfecto         ports.DerivadorHuellaEfectoAlta
 	autorizador           puertosvec.AutorizadorSolicitudLigadaV3
 	reloj                 ports.Reloj
+	politicaNumero        *domain.PoliticaNumeroExpediente
 	transaccion           ports.TransaccionAltasCandidata
+	periodos              ports.PreparadorPeriodoModalidad
+	recuperacion          ports.RecuperadorPoliticaFinConfirmada
+}
+
+func (s *ServicioRegistroSolicitud) ConfigurarPoliticaNumeroExpediente(
+	politica domain.PoliticaNumeroExpediente,
+) error {
+	if s == nil || s.politicaNumero != nil || politica.Validar() != nil {
+		return ErrServicioRegistroInvalido
+	}
+	s.politicaNumero = &politica
+	return nil
+}
+
+func (s *ServicioRegistroSolicitud) ConfigurarRecuperacionPoliticaFin(
+	recuperacion ports.RecuperadorPoliticaFinConfirmada,
+) error {
+	if s == nil || dependenciaNula(recuperacion) || s.recuperacion != nil {
+		return ErrServicioRegistroInvalido
+	}
+	s.recuperacion = recuperacion
+	return nil
 }
 
 func NuevoServicioRegistroSolicitud(
@@ -66,16 +119,17 @@ func NuevoServicioRegistroSolicitud(
 	autorizador puertosvec.AutorizadorSolicitudLigadaV3,
 	reloj ports.Reloj,
 	transaccion ports.TransaccionAltasCandidata,
+	periodos ...ports.PreparadorPeriodoModalidad,
 ) (*ServicioRegistroSolicitud, error) {
 	if dependenciaNula(contextosAutorizacion) || dependenciaNula(flujos) ||
 		dependenciaNula(huellas) || dependenciaNula(ambitos) ||
 		dependenciaNula(motivos) || dependenciaNula(correlaciones) ||
 		dependenciaNula(referencias) || dependenciaNula(candidaturas) ||
 		dependenciaNula(huellasEfecto) || dependenciaNula(autorizador) ||
-		dependenciaNula(reloj) || dependenciaNula(transaccion) {
+		dependenciaNula(reloj) || dependenciaNula(transaccion) || len(periodos) > 1 {
 		return nil, ErrServicioRegistroInvalido
 	}
-	return &ServicioRegistroSolicitud{
+	servicio := &ServicioRegistroSolicitud{
 		contextosAutorizacion: contextosAutorizacion,
 		flujos:                flujos,
 		huellas:               huellas,
@@ -88,7 +142,11 @@ func NuevoServicioRegistroSolicitud(
 		autorizador:           autorizador,
 		reloj:                 reloj,
 		transaccion:           transaccion,
-	}, nil
+	}
+	if len(periodos) == 1 {
+		servicio.periodos = periodos[0]
+	}
+	return servicio, nil
 }
 
 func (s *ServicioRegistroSolicitud) Registrar(
@@ -115,6 +173,9 @@ func (s *ServicioRegistroSolicitud) Registrar(
 			ErrSolicitudRegistroInvalida,
 		)
 	}
+	if solicitud.NumeroExpedienteMOAD != "" && !domain.NumeroExpedienteValido(solicitud.NumeroExpedienteMOAD) {
+		return ports.ReciboAlta{}, ErrSolicitudRegistroInvalida
+	}
 	solicitudCentro, err := solicitud.Solicitud.Clonar()
 	if err != nil {
 		return ports.ReciboAlta{}, errors.Join(
@@ -123,7 +184,6 @@ func (s *ServicioRegistroSolicitud) Registrar(
 			err,
 		)
 	}
-
 	resolverContexto := ports.SolicitudResolverContextoAutorizacionAltaV3{
 		AutenticacionRef: solicitud.AutenticacionRef,
 		SesionRef:        solicitud.SesionRef,
@@ -151,6 +211,83 @@ func (s *ServicioRegistroSolicitud) Registrar(
 			ports.ErrContextoAutorizacionV3Invalido,
 		)
 	}
+	solicitudAmbito := ports.SolicitudSellarAmbitoIdempotencia{
+		ClaveIdempotencia: solicitud.ClaveIdempotencia,
+		OrganizacionRef:   solicitud.OrganizacionRef,
+		ActorRef:          vinculo.PrincipalID,
+		PerfilRef:         vinculo.PerfilActivoRef,
+	}
+	if solicitudAmbito.Validar() != nil {
+		return ports.ReciboAlta{}, ports.ErrPreparacionAltaInvalida
+	}
+	ambitosHMAC, err := s.ambitos.SellarAmbitoIdempotencia(ctx, solicitudAmbito)
+	if err != nil || ambitosHMAC.ValidarDominio("vec.contratacion-temporal.ambito-idempotencia") != nil {
+		return ports.ReciboAlta{}, errors.Join(ports.ErrPreparacionAltaInvalida, err)
+	}
+	if err := ctx.Err(); err != nil {
+		return ports.ReciboAlta{}, err
+	}
+	sinNumeroMOAD := solicitud.NumeroExpedienteMOAD == ""
+	formatoRetirado := !sinNumeroMOAD && s.politicaNumero != nil &&
+		s.politicaNumero.ValidarNumero(solicitud.NumeroExpedienteMOAD) != nil
+	soloRecuperacion := sinNumeroMOAD || formatoRetirado
+	consultarConfirmacion := soloRecuperacion || solicitudCentro.Periodo.Fin.IsZero()
+	var politicaAnterior domain.PoliticaFin
+	var confirmada bool
+	if consultarConfirmacion {
+		if dependenciaNula(s.recuperacion) {
+			if soloRecuperacion {
+				return ports.ReciboAlta{}, ErrSolicitudRegistroInvalida
+			}
+			return ports.ReciboAlta{}, ErrServicioRegistroInvalido
+		}
+		politicaAnterior, confirmada, err = s.recuperacion.ConsultarPoliticaFinAltaConfirmada(
+			ctx, ports.ConsultaPoliticaFinAltaConfirmada{
+				AmbitosHMAC: ambitosHMAC, OrganizacionRef: solicitud.OrganizacionRef,
+				ActorRef: vinculo.PrincipalID, PerfilRef: vinculo.PerfilActivoRef,
+			},
+		)
+		if err != nil {
+			return ports.ReciboAlta{}, errors.Join(ports.ErrPersistenciaNoDisponible, err)
+		}
+		if soloRecuperacion && !confirmada {
+			return ports.ReciboAlta{}, ErrSolicitudRegistroInvalida
+		}
+	}
+	ctxFlujo := ctx
+	if solicitudCentro.Periodo.Fin.IsZero() {
+		if confirmada {
+			if politicaAnterior != (domain.PoliticaFin{}) && politicaAnterior.Validar() != nil {
+				return ports.ReciboAlta{}, ErrResultadoRegistroNoConfiable
+			}
+			if solicitudCentro.Periodo.PoliticaFin != (domain.PoliticaFin{}) &&
+				solicitudCentro.Periodo.PoliticaFin != politicaAnterior {
+				return ports.ReciboAlta{}, ports.ErrClaveIdempotenciaUsada
+			}
+			solicitudCentro.Periodo.PoliticaFin = politicaAnterior
+			ambitos, err := ambitosHMAC.Datos()
+			if err != nil {
+				return ports.ReciboAlta{}, ErrResultadoRegistroNoConfiable
+			}
+			ctxFlujo = context.WithValue(ctx, claveFinAltaConfirmada{}, finAltaConfirmada{
+				organizacionRef: solicitud.OrganizacionRef,
+				actorRef:        vinculo.PrincipalID, perfilRef: vinculo.PerfilActivoRef,
+				motivoClave: solicitudCentro.MotivoClave, ambitoHMAC: ambitos.Activo.Valor,
+			})
+		} else if solicitudCentro.Periodo.PoliticaFin == (domain.PoliticaFin{}) {
+			if dependenciaNula(s.periodos) {
+				return ports.ReciboAlta{}, ErrServicioRegistroInvalido
+			}
+			periodo, err := s.periodos.PrepararPeriodoModalidad(ctx, solicitudCentro.MotivoClave, solicitudCentro.Periodo)
+			if err != nil {
+				return ports.ReciboAlta{}, ErrSolicitudRegistroInvalida
+			}
+			solicitudCentro.Periodo = periodo
+		}
+		if solicitudCentro.Periodo.Validar() != nil {
+			return ports.ReciboAlta{}, ErrSolicitudRegistroInvalida
+		}
+	}
 
 	resolverFlujo := ports.SolicitudResolverFlujo{
 		OrganizacionRef: solicitud.OrganizacionRef,
@@ -162,7 +299,7 @@ func (s *ServicioRegistroSolicitud) Registrar(
 	if resolverFlujo.Validar() != nil {
 		return ports.ReciboAlta{}, ports.ErrFlujoNoDisponible
 	}
-	configuracion, err := s.flujos.ResolverFlujoAlta(ctx, resolverFlujo)
+	configuracion, err := s.flujos.ResolverFlujoAlta(ctxFlujo, resolverFlujo)
 	if err != nil {
 		return ports.ReciboAlta{}, err
 	}
@@ -178,11 +315,12 @@ func (s *ServicioRegistroSolicitud) Registrar(
 		return ports.ReciboAlta{}, ErrSolicitudRegistroInvalida
 	}
 	materialHuella := ports.MaterialHuellaAlta{
-		OrganizacionRef: solicitud.OrganizacionRef,
-		ActorRef:        vinculo.PrincipalID,
-		PerfilRef:       vinculo.PerfilActivoRef,
-		Flujo:           configuracion.Flujo,
-		Solicitud:       solicitudParaHuella,
+		NumeroExpedienteMOAD: solicitud.NumeroExpedienteMOAD,
+		OrganizacionRef:      solicitud.OrganizacionRef,
+		ActorRef:             vinculo.PrincipalID,
+		PerfilRef:            vinculo.PerfilActivoRef,
+		Flujo:                configuracion.Flujo,
+		Solicitud:            solicitudParaHuella,
 	}
 	if materialHuella.Validar() != nil {
 		return ports.ReciboAlta{}, ports.ErrPreparacionAltaInvalida
@@ -199,27 +337,6 @@ func (s *ServicioRegistroSolicitud) Registrar(
 	if err := ctx.Err(); err != nil {
 		return ports.ReciboAlta{}, err
 	}
-	solicitudAmbito := ports.SolicitudSellarAmbitoIdempotencia{
-		ClaveIdempotencia: solicitud.ClaveIdempotencia,
-		OrganizacionRef:   solicitud.OrganizacionRef,
-		ActorRef:          vinculo.PrincipalID,
-		PerfilRef:         vinculo.PerfilActivoRef,
-	}
-	if solicitudAmbito.Validar() != nil {
-		return ports.ReciboAlta{}, ports.ErrPreparacionAltaInvalida
-	}
-	ambitosHMAC, err := s.ambitos.SellarAmbitoIdempotencia(
-		ctx,
-		solicitudAmbito,
-	)
-	if err != nil || ambitosHMAC.ValidarDominio(
-		"vec.contratacion-temporal.ambito-idempotencia",
-	) != nil {
-		return ports.ReciboAlta{}, errors.Join(ports.ErrPreparacionAltaInvalida, err)
-	}
-	if err := ctx.Err(); err != nil {
-		return ports.ReciboAlta{}, err
-	}
 	ambitoHMAC, huellaHMAC, err := ports.ParActivoColeccionesHMACAlta(
 		ambitosHMAC,
 		huellasHMAC,
@@ -227,9 +344,21 @@ func (s *ServicioRegistroSolicitud) Registrar(
 	if err != nil {
 		return ports.ReciboAlta{}, err
 	}
-	referencias, err := s.referencias.GenerarReferenciasAlta(ctx)
+	numeroPropuesto := solicitud.NumeroExpedienteMOAD
+	if sinNumeroMOAD {
+		if s.politicaNumero == nil || s.politicaNumero.Validar() != nil {
+			return ports.ReciboAlta{}, ErrServicioRegistroInvalido
+		}
+		// CT47 exige una propuesta técnica válida incluso al recuperar. Esta
+		// muestra del catálogo nunca puede confirmarse ni presentarse como MOAD.
+		numeroPropuesto = s.politicaNumero.Ejemplo
+	}
+	referencias, err := s.referencias.GenerarReferenciasAlta(ctx, numeroPropuesto)
 	if err != nil {
 		return ports.ReciboAlta{}, err
+	}
+	if referencias.NumeroVisible != numeroPropuesto {
+		return ports.ReciboAlta{}, ErrResultadoRegistroNoConfiable
 	}
 	if err := ctx.Err(); err != nil {
 		return ports.ReciboAlta{}, err
@@ -271,10 +400,16 @@ func (s *ServicioRegistroSolicitud) Registrar(
 	if err != nil {
 		return ports.ReciboAlta{}, err
 	}
-	candidatura, err := s.candidaturas.ResolverCandidaturaAlta(
-		ctx,
-		solicitudCandidatura,
-	)
+	var candidatura ports.CandidaturaAlta
+	if soloRecuperacion {
+		recuperador, ok := s.candidaturas.(ports.RecuperadorCandidaturaAlta)
+		if !ok || dependenciaNula(recuperador) {
+			return ports.ReciboAlta{}, ErrServicioRegistroInvalido
+		}
+		candidatura, err = recuperador.RecuperarCandidaturaAlta(ctx, solicitudCandidatura)
+	} else {
+		candidatura, err = s.candidaturas.ResolverCandidaturaAlta(ctx, solicitudCandidatura)
+	}
 	if err != nil {
 		return ports.ReciboAlta{}, err
 	}
@@ -288,12 +423,32 @@ func (s *ServicioRegistroSolicitud) Registrar(
 	if err != nil {
 		return ports.ReciboAlta{}, ports.ErrPreparacionAltaInvalida
 	}
+	if soloRecuperacion && !datosCandidatura.Recuperada {
+		return ports.ReciboAlta{}, ErrResultadoRegistroNoConfiable
+	}
+	if !datosCandidatura.Recuperada && !solicitudCentro.Periodo.Fin.IsZero() && s.periodos != nil {
+		if _, err := s.periodos.PrepararPeriodoModalidad(ctx, solicitudCentro.MotivoClave, solicitudCentro.Periodo); err != nil {
+			return ports.ReciboAlta{}, ErrSolicitudRegistroInvalida
+		}
+	}
 
+	if !sinNumeroMOAD && datosCandidatura.Referencias.NumeroVisible != solicitud.NumeroExpedienteMOAD {
+		return ports.ReciboAlta{}, ports.ErrClaveIdempotenciaUsada
+	}
+	var circuito *domain.CircuitoAdministrativo
+	if configuracion.DefinicionCircuito != nil {
+		inicial, err := domain.NuevoCircuitoAdministrativo(*configuracion.DefinicionCircuito)
+		if err != nil {
+			return ports.ReciboAlta{}, ports.ErrFlujoNoDisponible
+		}
+		circuito = &inicial
+	}
 	expediente, err := domain.NuevoExpediente(domain.AltaExpediente{
 		Referencia:      datosCandidatura.Referencias.ExpedienteRef,
 		OrganizacionRef: solicitud.OrganizacionRef,
 		NumeroVisible:   datosCandidatura.Referencias.NumeroVisible,
 		Flujo:           configuracion.Flujo,
+		Circuito:        circuito,
 		FaseInicial:     configuracion.FaseInicial,
 		Solicitud:       solicitudCentro,
 		Actuacion: domain.DatosActuacion{
@@ -327,7 +482,7 @@ func (s *ServicioRegistroSolicitud) Registrar(
 	if resolverMotivo.Validar() != nil {
 		return ports.ReciboAlta{}, ports.ErrAutorizacionDenegada
 	}
-	motivo, err := s.motivos.ResolverMotivoAutorizacionAltaV3(ctx, resolverMotivo)
+	motivo, err := s.motivos.ResolverMotivoAutorizacionAltaV3(ctxFlujo, resolverMotivo)
 	if errContexto := ctx.Err(); errContexto != nil {
 		return ports.ReciboAlta{}, errContexto
 	}

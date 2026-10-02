@@ -2,20 +2,21 @@
  * Circuito de firma de los borradores del expediente. Consulta el catálogo
  * vigente y, si el registro de firmas está compuesto, el estado real de cada
  * paso. Mantiene visible la fase oficial aunque el catálogo o el registro no
- * respondan. En el paso pendiente ofrece «Firmar» (AutoFirma) y «Devolver».
+ * respondan. Las acciones siguen cerradas hasta el preflight nominal R5.
  * Una firma de prueba registrada no acredita envío ni firma en Firmadoc.
  * Encima de todo va la fase de firma de cada documento (fase-firma.js).
  */
 
-import { escaparHTML, solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js?v=20261001-f-reconciliacion-325-v1";
-import { crearAccionesFirma, fusionarEstadoFirmas, renderizarAccionesPaso } from "./circuito-firma-acciones.js?v=20261001-f-reconciliacion-325-v1";
+import { escaparHTML, solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js?v=20261002-ct-fin-modalidad-v1";
+import { crearAccionesFirma, fusionarEstadoFirmas, renderizarAccionesPaso } from "./circuito-firma-acciones.js?v=20261002-ct-r5-grafo-v1";
 import { crearClienteFirmaDocumento } from "./firma-documento-cliente.js?v=20260930-custodia-506-e3-v3";
-import { cargarTextosFaseFirma, renderizarFaseFirma } from "./fase-firma.js?v=20261001-f-reconciliacion-325-v1";
+import { cargarTextosFaseFirma, renderizarFaseFirma } from "./fase-firma.js?v=20261002-ct-fin-modalidad-v1";
 import { crearTraductorCircuitoFirma, traducirValorCircuitoFirma } from "./i18n-circuito-firma.js?v=20261001-ct-a-i18n-v1";
 import { crearFuenteDocumentosHTTP } from "../documentos/cliente-http.js?v=20260926-integracion-bolsa-ct-v1";
 
 export const RUTA_CIRCUITO_FIRMA = "/api/vec/contratacion-temporal/circuito-firma";
-const ESQUEMA = "vec.contratacion_temporal.circuito_firma.v1";
+const ESQUEMA_V1 = "vec.contratacion_temporal.circuito_firma.v1";
+const ESQUEMA_V2 = "vec.contratacion_temporal.circuito_firma.v2";
 const MAXIMO_RESPUESTA = 64 * 1024;
 const MAXIMO_DOCUMENTOS = 32;
 const MAXIMO_PASOS = 16;
@@ -38,6 +39,7 @@ const NO_CONECTADO = Object.freeze({ conectado: false, motivo: "conexion_pendien
 const MOTIVO_PORTAFIRMAS = /^[a-z][a-z0-9_]{2,63}$/u;
 const CAMPOS_DOCUMENTO = ["documento", "etiqueta", "pasos"];
 const CAMPOS_PASO = ["orden", "cargo", "perfil_ref", "accion", "condicion", "habilita", "devolucion", "sustitucion", "estado", "referencia"];
+const CAMPO_ALTERNATIVAS = "perfiles_ref_alternativos";
 
 function camposExactos(valor, campos) {
   return valor !== null && typeof valor === "object" && !Array.isArray(valor)
@@ -49,12 +51,19 @@ function textoAcotado(valor, maximo = 512) {
   return typeof valor === "string" && valor.trim() !== "" && valor.length <= maximo;
 }
 
-function validarPaso(paso, indice, total) {
-  if (!camposExactos(paso, CAMPOS_PASO) || paso.orden !== indice + 1
+function validarPaso(paso, indice, total, esquema) {
+  const conAlternativas = paso !== null && typeof paso === "object" && Object.hasOwn(paso, CAMPO_ALTERNATIVAS);
+  if (!camposExactos(paso, conAlternativas && esquema === ESQUEMA_V2 ? [...CAMPOS_PASO, CAMPO_ALTERNATIVAS] : CAMPOS_PASO)
+    || paso.orden !== indice + 1
     || !textoAcotado(paso.cargo) || !PERFIL.test(paso.perfil_ref) || !textoAcotado(paso.referencia)
     || Object.entries(VOCABULARIO).some(([campo, valores]) => !valores.includes(paso[campo]))
     || (indice === total - 1) === (paso.habilita === "siguiente_paso")) return null;
-  return Object.freeze({ ...paso });
+  if (!conAlternativas) return Object.freeze({ ...paso });
+  const alternativas = paso.perfiles_ref_alternativos;
+  if (!Array.isArray(alternativas) || alternativas.length < 1 || alternativas.length > MAXIMO_PASOS
+    || alternativas.some((ref) => typeof ref !== "string" || !PERFIL.test(ref))
+    || new Set([paso.perfil_ref, ...alternativas]).size !== alternativas.length + 1) return null;
+  return Object.freeze({ ...paso, perfiles_ref_alternativos: Object.freeze([...alternativas]) });
 }
 
 /**
@@ -74,21 +83,25 @@ function validarPortafirmas(valor) {
  */
 export function validarCircuitoFirma(datos) {
   const conPortafirmas = datos !== null && typeof datos === "object" && Object.hasOwn(datos, "portafirmas");
-  if (!camposExactos(datos, conPortafirmas ? [...CAMPOS_CIRCUITO, "portafirmas"] : CAMPOS_CIRCUITO) || datos.esquema !== ESQUEMA
+  if (!camposExactos(datos, conPortafirmas ? [...CAMPOS_CIRCUITO, "portafirmas"] : CAMPOS_CIRCUITO)
+    || (datos.esquema !== ESQUEMA_V1 && datos.esquema !== ESQUEMA_V2)
     || !textoAcotado(datos.catalogo_ref) || !HUELLA.test(datos.huella_sha256)
     || typeof datos.ejemplo !== "boolean" || datos.firma_eficaz !== false
     || (conPortafirmas && !validarPortafirmas(datos.portafirmas))
     || !Array.isArray(datos.documentos) || datos.documentos.length < 1
     || datos.documentos.length > MAXIMO_DOCUMENTOS) return null;
   const documentos = [];
+  let conAlternativas = false;
   for (const documento of datos.documentos) {
     if (!camposExactos(documento, CAMPOS_DOCUMENTO) || !CLAVE.test(documento.documento)
       || !textoAcotado(documento.etiqueta) || !Array.isArray(documento.pasos)
       || documento.pasos.length < 1 || documento.pasos.length > MAXIMO_PASOS) return null;
-    const pasos = documento.pasos.map((paso, indice) => validarPaso(paso, indice, documento.pasos.length));
+    const pasos = documento.pasos.map((paso, indice) => validarPaso(paso, indice, documento.pasos.length, datos.esquema));
     if (pasos.includes(null)) return null;
+    conAlternativas ||= pasos.some((paso) => Object.hasOwn(paso, CAMPO_ALTERNATIVAS));
     documentos.push(Object.freeze({ documento: documento.documento, etiqueta: documento.etiqueta, pasos: Object.freeze(pasos) }));
   }
+  if ((datos.esquema === ESQUEMA_V2) !== conAlternativas) return null;
   return Object.freeze({
     catalogo_ref: datos.catalogo_ref, huella_sha256: datos.huella_sha256,
     ejemplo: datos.ejemplo, documentos: Object.freeze(documentos), portafirmas: conPortafirmas ? validarPortafirmas(datos.portafirmas) : NO_CONECTADO,
@@ -199,6 +212,7 @@ export function renderizarCircuitoFirma(circuito, t, estadoConsulta = circuito ?
       <h4 id="ct-circuito-portafirmas-titulo">${escaparHTML(t("circuito_firma_portafirmas_titulo"))}</h4>
       <span class="ct-circuito-estado ct-tono-aviso">${escaparHTML(t("circuito_firma_portafirmas_pendiente"))}</span>
       <div class="ct-circuito-envio">
+        <button type="button" class="boton-secundario" disabled aria-describedby="ct-circuito-envio-motivo">${escaparHTML(t("circuito_firma_descargar_externo"))}</button>
         <button type="button" class="boton-primario" disabled aria-describedby="ct-circuito-envio-motivo">${escaparHTML(t("circuito_firma_enviar"))}</button>
         <p id="ct-circuito-envio-motivo">${escaparHTML(t("circuito_firma_envio_bloqueado"))}</p>
       </div>
@@ -207,7 +221,7 @@ export function renderizarCircuitoFirma(circuito, t, estadoConsulta = circuito ?
       </details>
     </section>
     ${circuito ? `<details class="ct-circuito-prueba" data-ct-firma-detalles>
-      <summary>${escaparHTML(t("circuito_firma_autofirma_prueba"))} · ${escaparHTML(t("circuito_firma_ver_pasos"))}</summary>
+      <summary>${escaparHTML(t("circuito_firma_autofirma_prueba"))} · ${escaparHTML(t("circuito_firma_sin_eficacia"))} · ${escaparHTML(t("circuito_firma_ver_pasos"))}</summary>
       <div class="ct-circuito-documentos">${circuito.documentos.map((documento) => {
     const etiqueta = traducirValorCircuitoFirma("documento", documento.etiqueta, t);
     return `<article class="ct-circuito-documento" data-ct-circuito-documento="${escaparHTML(documento.documento)}">

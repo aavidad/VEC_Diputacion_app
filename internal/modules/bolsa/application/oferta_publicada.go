@@ -50,13 +50,17 @@ func (s *ServicioOfertasPublicadas) PublicarOferta(ctx context.Context, q puerto
 		return puertosbolsa.OfertaPublicada{}, puertosbolsa.ErrOfertaInvalida
 	}
 	ahora := s.reloj().UTC().Truncate(time.Microsecond)
+	if q.Notificacion.ValidarPara(ahora) != nil {
+		return puertosbolsa.OfertaPublicada{}, puertosbolsa.ErrOfertaInvalida
+	}
+	q.Notificacion.NotificadaEn = q.Notificacion.NotificadaEn.UTC()
 	var plazo puertosbolsa.PlazoOferta
 	var vence time.Time
 	var err error
 	if porBolsa, ok := s.plazos.(puertosbolsa.CalculadoraPlazoOfertaPorBolsa); ok {
-		plazo, vence, err = porBolsa.PlazoDisposicionBolsa(ctx, q.BolsaRef, ahora)
+		plazo, vence, err = porBolsa.PlazoDisposicionBolsa(ctx, q.BolsaRef, q.Notificacion.NotificadaEn)
 	} else {
-		plazo, vence, err = s.plazos.PlazoDisposicion(ctx, ahora)
+		plazo, vence, err = s.plazos.PlazoDisposicion(ctx, q.Notificacion.NotificadaEn)
 	}
 	if err != nil {
 		if errors.Is(err, puertosbolsa.ErrPlazoOfertaNoConfigurado) {
@@ -64,10 +68,12 @@ func (s *ServicioOfertasPublicadas) PublicarOferta(ctx context.Context, q puerto
 		}
 		return puertosbolsa.OfertaPublicada{}, puertosbolsa.ErrOfertaNoDisponible
 	}
-	if !vence.After(ahora) {
+	if !vence.After(q.Notificacion.NotificadaEn) {
 		return puertosbolsa.OfertaPublicada{}, puertosbolsa.ErrOfertaNoDisponible
 	}
 	vence = vence.UTC().Truncate(time.Microsecond)
+	notificacion := q.Notificacion
+	plazo.Notificacion = &notificacion
 	materialHash := huellaMaterialPlazoOfertaConPlazas(q.BolsaRef, ahora, vence, plazo, q.NumeroPlazas)
 	emision, err := s.materialEmision(ctx, q.Vinculo, q.ResultadoContexto, q.BolsaRef, q.Correlacion, q.MotivoAutorizacion, materialHash)
 	if err != nil {
@@ -83,7 +89,8 @@ func (s *ServicioOfertasPublicadas) PublicarOferta(ctx context.Context, q puerto
 	if err != nil {
 		return puertosbolsa.OfertaPublicada{}, err
 	}
-	if oferta.BolsaRef != q.BolsaRef || oferta.Datos != q.Datos || oferta.NumeroPlazas != q.NumeroPlazas {
+	if oferta.BolsaRef != q.BolsaRef || oferta.Datos != q.Datos || oferta.NumeroPlazas != q.NumeroPlazas ||
+		oferta.Plazo.Notificacion == nil || *oferta.Plazo.Notificacion != q.Notificacion {
 		return puertosbolsa.OfertaPublicada{}, puertosbolsa.ErrOfertaConflicto
 	}
 	return oferta, nil
@@ -182,6 +189,9 @@ func camposMaterialPlazoOferta(bolsa string, publicada, vence time.Time, p puert
 func huellaMaterialPlazoOfertaConPlazas(bolsa string, publicada, vence time.Time, p puertosbolsa.PlazoOferta, numeroPlazas int) string {
 	campos := camposMaterialPlazoOferta(bolsa, publicada, vence, p)
 	campos = append(campos, fmt.Sprint(numeroPlazas))
+	if n := p.Notificacion; n != nil {
+		campos = append(campos, n.NotificadaEn.UTC().Format(formatoInstanteMaterialOferta), n.ReferenciaCorreo, n.HuellaCorreoSHA256, n.Fuente)
+	}
 	h := sha256.Sum256([]byte(strings.Join(campos, "\x1f")))
 	return hex.EncodeToString(h[:])
 }

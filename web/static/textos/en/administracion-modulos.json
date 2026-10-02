@@ -1,0 +1,81 @@
+{
+  "general": {
+    "titulo_documento": "Module status · VEC Administration",
+    "titulo": "Module status",
+    "administracion": "System administration",
+    "ruta": "Current location",
+    "saltar": "Skip to content",
+    "idioma": "Language",
+    "ayuda": "Help",
+    "ayuda_contenido": "Check the current status, choose a configurable module and review the proposed status and reason. Preparing a request does not change the configuration. Applying it requires an authorised service that records changes, which is still pending. Enabling a module does not grant access permissions.",
+    "solo_preparacion": "Preparation only",
+    "limite": "Actual changes are disabled. The authorised service that stores and records the configuration is not yet connected."
+  },
+  "consulta": {
+    "titulo": "Current configuration",
+    "descripcion": "Statuses received from the central module catalogue.",
+    "recargar": "Refresh configuration",
+    "tabla": "Current module status",
+    "modulo": "Module",
+    "nombre_pendiente": "Module name unavailable",
+    "estado": "Current status",
+    "gobierno": "Configuration",
+    "gobernado": "Configurable",
+    "no_gobernado": "Outside this control",
+    "pendiente": "Configuration unavailable: no service is connected to retrieve current statuses yet.",
+    "cargando": "Loading the configuration…",
+    "disponible": "Configuration loaded. You can prepare a request without changing current statuses.",
+    "vacia": "The queried catalogue contains no modules. There are no requests to prepare.",
+    "sin_gobernados": "The queried modules are outside this control. You cannot prepare changes here.",
+    "denegada": "You do not have access to this configuration. Request the required administrative authorisation.",
+    "incompatible": "The received configuration cannot be used. Refresh it; if the problem persists, contact IT.",
+    "error": "The configuration could not be loaded. Select Refresh configuration to try again."
+  },
+  "estados": { "habilitado": "Enabled", "deshabilitado": "Disabled" },
+  "preparacion": {
+    "titulo": "Prepare a request",
+    "modulo": "Module (required)",
+    "estado": "Proposed status (required)",
+    "motivo": "Reason (required)",
+    "pista_motivo": "Explain the change in up to 500 characters. Avoid including personal data.",
+    "elegir_modulo": "Select a module",
+    "elegir_estado": "Select a status",
+    "revisar": "Review request"
+  },
+  "revision": {
+    "titulo": "Request review",
+    "modulo": "Module",
+    "actual": "Current status",
+    "propuesto": "Proposed status",
+    "motivo": "Reason",
+    "limite": "This preparation does not enable or disable the module. Its current status stays the same.",
+    "corregir": "Edit request",
+    "preparar": "Prepare request",
+    "dependencia": "Only the proposal will be prepared. Applying actual changes is still pending.",
+    "sin_preparador": "Preparation disabled: the service that reviews the proposal is not yet connected.",
+    "preparando": "Preparing the request…",
+    "preparada": "Request prepared for review. The current configuration has not changed."
+  },
+  "errores": {
+    "titulo": "Check these fields",
+    "modulo": "Select a configurable module.",
+    "estado": "Select the proposed status.",
+    "sin_cambio": "Choose a status different from the current one.",
+    "motivo": "Enter a reason between 1 and 500 characters long.",
+    "conflicto": "The configuration has changed. Refresh it and review the request before preparing it again.",
+    "preparacion": "The request could not be prepared. Check the details and try again."
+  },
+  "ui": { "vec": { "module": {
+    "administracion": { "name": "System administration" },
+    "bolsa": { "name": "Employment pools" },
+    "contrataciontemporal": { "name": "Temporary recruitment" },
+    "contratacion_temporal": { "name": "Temporary recruitment" },
+    "cronos": { "name": "Time management" },
+    "dietas": { "name": "Travel and expenses" },
+    "personal": { "name": "Personnel" },
+    "formacion": { "name": "Training" },
+    "seleccion": { "name": "Selection" },
+    "meritos": { "name": "Qualifications and merits" },
+    "carrera": { "name": "Career development" }
+  } } }
+}

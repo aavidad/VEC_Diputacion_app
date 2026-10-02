@@ -236,6 +236,8 @@ func (f *fuenteComprobacionCoberturaDesarrollo) resultadoPara(
 		if registro.categoriaRef == categoriaRef &&
 			registro.periodo.Inicio.Equal(periodo.Inicio) &&
 			registro.periodo.Fin.Equal(periodo.Fin) &&
+			registro.periodo.CausaFin == periodo.CausaFin &&
+			registro.periodo.PoliticaFin == periodo.PoliticaFin &&
 			registro.viaClave == viaClave &&
 			registro.comprobacion == comprobacion &&
 			registro.procedencia == procedencia {

@@ -15,6 +15,7 @@ import (
 type repositorioOperacionPrueba struct {
 	*repositorioSituacionPrueba
 	operacion  *ports.RegistroOperacionSituacion
+	comando    ports.ComandoOperacionSituacion
 	escrituras int
 }
 
@@ -28,6 +29,7 @@ func (r *repositorioOperacionPrueba) RegistrarOperacion(_ context.Context, c por
 		return previo, nil
 	}
 	r.escrituras++
+	r.comando = c
 	res := ports.RegistroSituacionParticipacion{ReciboRef: c.ReciboRef, Motivo: c.Cambio.Motivo, SituacionParticipacion: ports.SituacionParticipacion{ParticipacionRef: c.Cambio.ParticipacionRef, Situacion: c.Cambio.Destino, Desde: c.Cambio.Desde}}
 	r.operacion = &ports.RegistroOperacionSituacion{RegistroSituacionParticipacion: res, Operacion: c.Operacion, Justificante: c.Justificante, Actor: c.Actor, Validador: c.Validador, ValidadaEn: c.ValidadaEn}
 	return res, nil
