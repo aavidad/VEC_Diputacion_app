@@ -260,6 +260,10 @@ transportes_mtls_revisados=(
 	static/portal-empleado/portal-bolsas-correo.js
 	static/portal-empleado/portal-bolsas-intentos.js
 	static/portal-empleado/portal-bolsas-ofertas.js
+	# Historial de ofrecimientos (02/10): GET por bolsa/oferta y POST de contacto
+	# a rutas internas fijas; referencias sin segmentos, same-origin, no-store,
+	# redirect error y no-referrer. Contexto y permiso se cotejan en servidor.
+	static/portal-empleado/portal-bolsas-historial-ofrecimientos.js
 	static/portal-empleado/portal-bolsas-reglas-situacion.js
 	static/portal-empleado/portal-bolsas-sanciones.js
 	static/portal-empleado/reglas/reglas.js

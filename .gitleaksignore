@@ -74,6 +74,7 @@ f2fd58e53da6d7eaf8c8b76d58d5118f7b2fecda:deploy/postgresql/bolsa_llamamientos/pr
 # Identificador público de clave sintética CRN11, no secreto
 dcfb876c98a9d674b24efee1884f3d06dd82916c:deploy/postgresql/personal/pruebas_sql/vinculo_propio_historico_crn11_000026.sql:vep-clave-castellana-asignada:51
 dcfb876c98a9d674b24efee1884f3d06dd82916c:deploy/postgresql/personal/pruebas_sql/vinculo_propio_historico_crn11_000026_pg18.sh:vep-clave-castellana-asignada:58
+
 # R2: claves de operaciones sinteticas en fixtures SQL y versiones publicas de modulos; no son credenciales.
 67a6444b3186df53d6deb233f57ba4b2f6bfcc90:deploy/postgresql/bolsa_llamamientos/pruebas_sql/adjudicacion_telematica_operaciones.sql:vep-clave-castellana-asignada:134
 67a6444b3186df53d6deb233f57ba4b2f6bfcc90:deploy/postgresql/bolsa_llamamientos/pruebas_sql/adjudicacion_telematica_operaciones.sql:vep-clave-castellana-asignada:149

@@ -64,8 +64,8 @@ func TestDescriptoresBorradorLlamamientoBolsaFronterasExactas(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(fronteras) != 21 {
-		t.Fatalf("fronteras = %d, se esperan 21 con consulta documental RRHH", len(fronteras))
+	if len(fronteras) != 22 {
+		t.Fatalf("fronteras = %d, se esperan 22 con consulta documental RRHH e historial de ofrecimientos", len(fronteras))
 	}
 	for _, frontera := range fronteras {
 		if len(frontera.PerfilesActivosRef) != 1 || frontera.PerfilesActivosRef[0] != "prf_bolsa_bback" {
