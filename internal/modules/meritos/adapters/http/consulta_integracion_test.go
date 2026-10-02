@@ -676,8 +676,9 @@ func TestConsultaIntegracionReal(t *testing.T) {
 			}
 		} else {
 			var result merports.ResultadoConsultaPropia
-			if w.Code != http.StatusOK || json.Unmarshal(w.Body.Bytes(), &result) != nil || result.Codigo != h.Expected || result.ReciboConsulta == nil || result.ReciboConsulta.VersionConsultada != h.Version {
-				t.Fatal("consulta_integracion.resultado")
+			decodeErr := json.Unmarshal(w.Body.Bytes(), &result)
+			if w.Code != http.StatusOK || decodeErr != nil || result.Codigo != h.Expected || result.ReciboConsulta == nil || result.ReciboConsulta.VersionConsultada != h.Version {
+				t.Fatalf("consulta_integracion.resultado estado_http=%d codigo=%q", w.Code, result.Codigo)
 			}
 		}
 		t.Logf("consulta_integracion caso=%d estado_http=%d", i, w.Code)
