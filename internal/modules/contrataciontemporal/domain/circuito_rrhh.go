@@ -332,6 +332,20 @@ func (e Expediente) HabilitaInformeJefaturaCircuitoRRHH() bool {
 		ultimo.VersionExpedienteEntrada == penultimo.VersionExpedienteEntrada
 }
 
+// HabilitaInformeSubsanacionCircuitoRRHH liga el informe nuevo al reparo
+// vigente ya subsanado. La firma del documento se comprueba al registrar el
+// hito posterior desde una fuente de firmas acreditada.
+func (e Expediente) HabilitaInformeSubsanacionCircuitoRRHH() bool {
+	if e.Circuito == nil || !e.PuedeReemitirInformeTrasSubsanacion() ||
+		len(e.Circuito.Hitos) == 0 {
+		return false
+	}
+	ultimo := e.Circuito.Hitos[len(e.Circuito.Hitos)-1]
+	return ultimo.Tipo == HitoIntervencionReparo &&
+		e.Fiscalizacion != nil && e.Fiscalizacion.Retorno != nil &&
+		ultimo.RetornoRef == e.Fiscalizacion.Retorno.RetornoRef
+}
+
 // AdjuntarHitosCircuito enlaza hitos acreditados a la última actuación real
 // del expediente. No crea otra versión: el adaptador confirma actuación,
 // hitos, auditoría y outbox en la misma transacción y CAS.

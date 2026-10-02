@@ -122,3 +122,41 @@ func TestInformeCircuitoRRHHExigeOfertaYAdjudicacion(t *testing.T) {
 		t.Fatal("el informe avanzó sin oferta y adjudicación verificadas")
 	}
 }
+
+func TestFiscalizacionCircuitoRRHHExigeFirmaJefaturaAcreditada(t *testing.T) {
+	expediente := expedienteFiscalizablePrueba(t)
+	inicial := expediente.Actuaciones[0].FaseDestino
+	definicion, err := NuevaDefinicionCircuitoRRHH(
+		"flujo:ct:rrhh:fiscalizacion", 2, inicial,
+		[]TransicionCircuitoRRHH{{Clave: "contratacion_temporal.circuito.peticion_firmada",
+			Tipo: HitoPeticionFirmada, Origen: inicial, Destino: "autorizacion_rrhh",
+			RequiereDocumento: true, RequiereFirma: true, PerfilClave: "tecnico_rrhh",
+			FirmasRequeridas: []ClaveCatalogo{"tecnico_solicitante", "delegacion_solicitante"}}},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	circuito, err := NuevoCircuitoAdministrativo(definicion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expediente.Flujo, expediente.Circuito = definicion.Flujo, &circuito
+	if expediente.Validar() != nil {
+		t.Fatal("preimagen nueva inválida")
+	}
+	instante := expediente.ActualizadoEn.Add(time.Minute)
+	actuacion := DatosActuacion{
+		AccionClave: AccionRegistrarFiscalizacion,
+		ActorRef:    "actor:intervencion:sintetico", UnidadRef: "unidad:intervencion:sintetica",
+		ReciboRef: "recibo:fiscalizacion:sintetica", RealizadaEn: instante,
+		FaseDestino: FaseFiscalizacion, EstadoDestino: EstadoEnCurso,
+		DocumentosRef: []string{expediente.InformeJuridico.DocumentoRef},
+	}
+	_, err = expediente.RegistrarFiscalizacion(expediente.Version, DatosRegistrarFiscalizacion{
+		FiscalizacionRef: "fiscalizacion:sintetica", Resultado: FiscalizacionFavorable,
+		UnidadFiscalizadoraRef: actuacion.UnidadRef, FiscalizadaEn: instante,
+	}, actuacion)
+	if err == nil {
+		t.Fatal("fiscalización nueva avanzó sin firma y cargo de Jefatura acreditados")
+	}
+}
