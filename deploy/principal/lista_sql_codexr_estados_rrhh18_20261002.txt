@@ -1,4 +1,4 @@
-# Precondiciones: Bolsa 000060 y AD3-000115. Comprobar sus objetos y huellas
+# Precondiciones: Bolsa 000060/000061 y AD3-000115. Comprobar sus objetos y huellas
 # en el destino; no reaplicar migraciones instaladas ni ejecutar DOWN.
 # Orden causal nuevo, una sola vez y tras copia de seguridad de la principal:
 deploy/postgresql/bolsa_llamamientos/migraciones/000073_reincorporacion_b8_justificada.up.sql

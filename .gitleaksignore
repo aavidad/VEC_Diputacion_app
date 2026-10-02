@@ -80,3 +80,8 @@ dcfb876c98a9d674b24efee1884f3d06dd82916c:deploy/postgresql/personal/pruebas_sql/
 67a6444b3186df53d6deb233f57ba4b2f6bfcc90:deploy/postgresql/bolsa_llamamientos/pruebas_sql/adjudicacion_telematica_operaciones.sql:vep-clave-castellana-asignada:150
 67a6444b3186df53d6deb233f57ba4b2f6bfcc90:deploy/postgresql/bolsa_llamamientos/pruebas_sql/adjudicacion_telematica_operaciones.sql:vep-clave-castellana-asignada:151
 5427942ba042d0ed37dc4b5a9326e6003a50cd6c:deploy/postgresql/bolsa_llamamientos/pruebas_sql/adjudicacion_telematica.sql:vep-clave-castellana-asignada:75
+
+# R3: identificadores de idempotencia sinteticos en pruebas HTTP/SQL, no credenciales.
+3677379327ac17a2b97a58531933c8365db74264:internal/modules/bolsa/adapters/httpinterno/operacion_situacion_participacion_test.go:generic-api-key:47
+f548260d7c6bc962fd5f1fcd6a5d4b1e3d144106:deploy/postgresql/bolsa_llamamientos/pruebas_sql/b76_revision_regularizacion.sql:vep-clave-castellana-asignada:76
+f548260d7c6bc962fd5f1fcd6a5d4b1e3d144106:deploy/postgresql/bolsa_llamamientos/pruebas_sql/b76_revision_regularizacion.sql:vep-clave-castellana-asignada:182
