@@ -174,7 +174,11 @@ static/portal-empleado/modulos/dietas/vista-recorridos.js
 static/portal-empleado/modulos/dietas/vista-rectificacion-admin.js
 static/portal-empleado/modulos/dietas/vista-rectificacion-dietas.js
 static/textos/es/personal.json
+static/textos/es/personal-vacantes.json
 static/textos/en/personal.json
+static/textos/en/personal-vacantes.json
+static/textos/es/personal-corte-propio.json
+static/textos/en/personal-corte-propio.json
 static/textos/es/personal-traza.json
 static/textos/en/personal-traza.json
 static/portal-empleado/modulos/personal/cliente-http-categorias.js
@@ -188,7 +192,10 @@ static/portal-empleado/modulos/personal/personal-traza-i18n.js
 static/portal-empleado/modulos/personal/cliente-http-ficha-propia.js
 static/portal-empleado/modulos/personal/ficha-integral.css
 static/portal-empleado/modulos/personal/vista-ficha-integral.js
+static/portal-empleado/modulos/personal/ficha-propia-corte.js
 static/portal-empleado/modulos/personal/registro-b2.js
+static/portal-empleado/modulos/personal/vacantes-b2-vista.js
+static/portal-empleado/modulos/personal/vacantes-b2-proyeccion.js
 static/portal-empleado/modulos/personal/registro-b2.css
 static/portal-empleado/modulos/personal/registro-b2-cliente.js
 static/portal-empleado/modulos/personal/registro-b2-actos.js
@@ -402,6 +409,7 @@ static/portal-empleado/portal-preferencias.css
 static/portal-empleado/portal-vistas-operaciones.js
 static/portal-empleado/portal-vistas-utilidades.js
 static/portal-empleado/portal.css
+static/portal-empleado/portal-pagina-larga.css
 static/portal-empleado/portal.js
 static/textos/es/bolsa.json
 static/textos/en/bolsa.json
@@ -565,3 +573,16 @@ static/textos/en/cronos-notificaciones-historial.json
 static/portal-empleado/modulos/cronos/i18n-permisos-consulta.js
 static/textos/es/cronos-permisos-consulta.json
 static/textos/en/cronos-permisos-consulta.json
+static/portal-empleado/modulos/personal/preparacion-relacion-rpt.js
+static/textos/es/preparacion-relacion-rpt.json
+static/textos/en/preparacion-relacion-rpt.json
+static/portal-empleado/modulos/personal/preparacion-antecedentes-carrera.js
+static/textos/es/personal-antecedentes-carrera.json
+static/textos/en/personal-antecedentes-carrera.json
+static/portal-empleado/modulos/personal/servicios-descarga.js
+static/textos/es/personal-servicios-descarga.json
+static/textos/en/personal-servicios-descarga.json
+static/textos/es/seleccion-bases-preparacion.json
+static/textos/en/seleccion-bases-preparacion.json
+static/textos/es/seleccion-bases-preparacion-error.json
+static/textos/en/seleccion-bases-preparacion-error.json

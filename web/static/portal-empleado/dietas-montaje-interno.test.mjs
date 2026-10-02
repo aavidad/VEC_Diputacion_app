@@ -68,7 +68,7 @@ test("el cargador interno importa la ruta real y ningún dato de presentación",
   ]);
   const interno = coordinador.split("const CARGADORES_INTERNOS_PREDETERMINADOS =")[1]
     .split("function componerModuloAislado")[0];
-  for (const recurso of ["cliente-borradores-http", "cliente-asignacion-http", "calculador-rutas-http", "mapa-ruta"])
+  for (const recurso of ["cliente-borradores-http", "cliente-asignacion-http", "cliente-rectificacion-http", "calculador-rutas-http", "mapa-ruta"])
     assert.ok(versionDe(interno, `./modulos/dietas/${recurso}.js`), recurso);
   assert.doesNotMatch(interno, /calculador-rutas-presentacion|vista-itinerario|datos-presentacion|adaptador-presentacion/u);
   assert.doesNotMatch(composicion, /datos-sinteticos-rrhh|componerDietasVisible|centroSalidaSintetico/u);
