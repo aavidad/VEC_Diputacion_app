@@ -32,8 +32,9 @@ type EvidenciaRegistroEmpleadoB2 struct {
 	ConsultadaEn        time.Time `json:"consultada_en"`
 }
 type ResultadoFichaEmpleadoB2 struct {
-	Ficha     domain.FichaEmpleadoB2      `json:"ficha"`
-	Evidencia EvidenciaRegistroEmpleadoB2 `json:"evidencia"`
+	Ficha                domain.FichaEmpleadoB2                       `json:"ficha"`
+	Evidencia            EvidenciaRegistroEmpleadoB2                  `json:"evidencia"`
+	PreparacionServicios *domain.PreparacionServiciosParaCertificados `json:"preparacion_servicios,omitempty"`
 }
 type ResultadoVacantesB2 struct {
 	Pagina    domain.PaginaVacantesB2     `json:"pagina"`

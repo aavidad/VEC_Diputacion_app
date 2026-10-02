@@ -53,6 +53,11 @@ func (s *ServicioRegistroEmpleadoB2) ConsultarFicha(ctx context.Context, solicit
 	if resultado.Ficha.ValidarPara(material) != nil || !evidenciaRegistroB2Valida(material, autorizacion, resultado.Evidencia) {
 		return vacio, domain.ErrRegistroEmpleadoB2NoDisponible
 	}
+	preparacion, err := domain.PrepararServiciosParaCertificados(resultado.Ficha)
+	if err != nil {
+		return vacio, domain.ErrRegistroEmpleadoB2NoDisponible
+	}
+	resultado.PreparacionServicios = &preparacion
 	return resultado, nil
 }
 

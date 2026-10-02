@@ -170,7 +170,8 @@ const AccionAnexarJustificacion = "cronos.justificacion.anexar"
 const AccionRevisarJustificacion = "cronos.justificacion.revisar"
 
 func (m MaterialJustificacion) Canonico() ([]byte, error) {
-	if !referenciaIdentidadMarcaje(m.ActorRef, "per_") || !referenciaIdentidadMarcaje(m.PerfilRef, "prf_") || !RefDocumentoJustificacionValida(m.ClaveOperacion) || m.SolicitudVersion < 1 || m.VersionEsperada < 0 || m.VersionEsperada == math.MaxInt64 || !referenciaMarcaje(m.PoliticaRef) || m.PoliticaVersion == 0 || !HuellaEfectosValida(m.PoliticaSHA256) || m.Vinculo.Documento.Validar() != nil {
+	if !referenciaIdentidadMarcaje(m.ActorRef, "per_") || !referenciaIdentidadMarcaje(m.PerfilRef, "prf_") || !RefDocumentoJustificacionValida(m.ClaveOperacion) || m.SolicitudVersion < 1 || m.VersionEsperada < 0 || m.VersionEsperada == math.MaxInt64 || !referenciaMarcaje(m.PoliticaRef) || m.PoliticaVersion == 0 || !HuellaEfectosValida(m.PoliticaSHA256) ||
+		!SolicitudPermisoRefValida(m.Vinculo.SolicitudRef) || !referenciaIdentidadMarcaje(m.Vinculo.EmpleadoRef, "emp_") || !referenciaMarcaje(m.Vinculo.CatalogoVersionRef) || !referenciaMarcaje(m.Vinculo.PermisoRef) || !RefDocumentoJustificacionValida(m.Vinculo.ExpedienteDocumentalRef) || m.Vinculo.Documento.Validar() != nil {
 		return nil, ErrJustificacionInvalida
 	}
 	switch m.Accion {

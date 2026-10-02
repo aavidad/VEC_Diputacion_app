@@ -448,3 +448,112 @@ test("el retorno del año no roba el foco externo y una respuesta tardía o desm
   tardia.resolver(datos()); await esperar();
   assert.equal(segunda.documento.activeElement, externo); assert.equal(segunda.nodo.innerHTML, antes); assert.equal(segunda.nodo.eliminado, true);
 });
+
+test("Reintentar recupera lectura y Actualizar conserva filtro, página, borrador y clave sin escribir", async () => {
+  const { nodo, raiz } = raizFalsa(); const entradas = []; let consultas = 0; let caer = true;
+  const vista = montarPermisosPropiosCronos({ raiz, anio: 2026, tamanoPagina: 2,
+    cliente: { consultarPermisos: async ({ anio }) => { consultas++; assert.equal(anio, 2026);
+      if (caer) throw new ErrorClienteSolicitudesCronos("servicio_no_disponible", 503); return datosHistorial(); },
+    solicitarPermiso: async (entrada) => { entradas.push(entrada); throw new ErrorClienteSolicitudesCronos("servicio_no_disponible", 503); } } });
+  await esperar(); assert.match(nodo.innerHTML, /data-cronos-permisos-actualizar="">Reintentar/u);
+  caer = false; pulsar(nodo, "[data-cronos-permisos-actualizar]", {}); await esperar();
+  assert.match(nodo.innerHTML, /data-cronos-permisos-actualizar="">Actualizar/u);
+  pulsar(nodo, "[data-cronos-solicitar]", { cronosSolicitar: "permiso:cronos:asuntos-propios" });
+  editar(nodo, "desde", "2026-10-20"); editar(nodo, "hasta", "2026-10-21");
+  filtrar(nodo, "denegados"); pulsar(nodo, "[data-cronos-historial-pagina]", { cronosHistorialPagina: "siguiente" });
+  await enviar(nodo, { desde: "2026-10-20", hasta: "2026-10-21" });
+  caer = true; pulsar(nodo, "[data-cronos-permisos-actualizar]", {}); await esperar();
+  assert.match(nodo.innerHTML, /data-estado="error"/u);
+  assert.doesNotMatch(nodo.innerHTML, /Asuntos propios|tarjeta-kpi|data-cronos-solicitar|data-cronos-permiso-formulario/u);
+  assert.equal(entradas.length, 1);
+  caer = false; pulsar(nodo, "[data-cronos-permisos-actualizar]", {}); await esperar();
+  assert.match(nodo.innerHTML, /value="denegados" selected/u); assert.match(nodo.innerHTML, /Página 2 de 4/u);
+  assert.match(nodo.innerHTML, /value="2026-10-20"/u); assert.match(nodo.innerHTML, /value="2026-10-21"/u);
+  assert.equal(consultas, 4); assert.equal(entradas.length, 1);
+  await enviar(nodo, { desde: "2026-10-20", hasta: "2026-10-21" });
+  assert.equal(entradas[1].clave_operacion, entradas[0].clave_operacion);
+  vista.desmontar(); await vista.recargar(); assert.equal(consultas, 4);
+});
+
+test("Actualizar oculta datos durante carga, aborta la lectura anterior y descarta su retorno", async () => {
+  const { nodo, raiz } = raizFalsa(); const primera = diferido(); const ultima = diferido(); const signals = [];
+  const vista = montarPermisosPropiosCronos({ raiz, anio: 2026,
+    cliente: { consultarPermisos: async (_entrada, { signal }) => { signals.push(signal);
+      return signals.length === 1 ? datos() : signals.length === 2 ? primera.promesa : ultima.promesa; }, solicitarPermiso: async () => assert.fail("escritura") } });
+  await esperar(); pulsar(nodo, "[data-cronos-permisos-actualizar]", {});
+  assert.match(nodo.innerHTML, /aria-disabled="true">Consultando permisos/u);
+  assert.doesNotMatch(nodo.innerHTML, /Asuntos propios|tarjeta-kpi/u);
+  pulsar(nodo, "[data-cronos-permisos-actualizar]", {}); assert.equal(signals.length, 2);
+  const recarga = vista.recargar(); assert.equal(signals[1].aborted, true);
+  ultima.rechazar(new ErrorClienteSolicitudesCronos("acceso_denegado", 403)); await recarga;
+  const denegacion = nodo.innerHTML;
+  primera.resolver(datos()); await esperar(); assert.equal(nodo.innerHTML, denegacion);
+  assert.match(nodo.innerHTML, /data-estado="denegado"/u); assert.doesNotMatch(nodo.innerHTML, /Asuntos propios/u);
+  vista.desmontar();
+});
+
+test("Actualizar y Reintentar conservan el recibo confirmado sin repetir la escritura", async () => {
+  const { nodo, raiz } = raizFalsa(); let caer = false; let escrituras = 0;
+  const vista = montarPermisosPropiosCronos({ raiz, anio: 2026,
+    cliente: { consultarPermisos: async () => { if (caer) throw new ErrorClienteSolicitudesCronos("servicio_no_disponible", 503); return datos(); },
+      solicitarPermiso: async (entrada) => { escrituras++; return reciboDe(entrada); } } });
+  await esperar(); pulsar(nodo, "[data-cronos-solicitar]", { cronosSolicitar: "permiso:cronos:asuntos-propios" }); await enviar(nodo);
+  caer = true; pulsar(nodo, "[data-cronos-permisos-actualizar]", {}); await esperar();
+  assert.match(nodo.innerHTML, /recibo:cronos:conservado/u); assert.match(nodo.innerHTML, /datetime="2026-10-01T08:15:00Z"/u);
+  caer = false; pulsar(nodo, "[data-cronos-permisos-actualizar]", {}); await esperar();
+  assert.match(nodo.innerHTML, /recibo:cronos:conservado/u); assert.equal(escrituras, 1); vista.desmontar();
+});
+
+test("la acción de consulta traduce y escapa sus mensajes en ambos idiomas", async () => {
+  const { cargarTextos } = await import("../../../comun/textos.js");
+  const { crearTraductorConsultaPermisosCronos } = await import("./i18n-permisos-consulta.js");
+  let claves;
+  for (const [idioma, actualizar, reintentar] of [["es", "Actualizar", "Reintentar"], ["en", "Refresh", "Retry"]]) {
+    const textos = await cargarTextos("cronos-permisos-consulta", { idioma, avisar: (aviso) => assert.fail(aviso) });
+    const mensajesConsulta = textos.seccion("consulta"); claves ??= Object.keys(mensajesConsulta); assert.deepEqual(Object.keys(mensajesConsulta), claves);
+    const t = crearTraductorConsultaPermisosCronos(mensajesConsulta);
+    assert.equal(t("actualizar"), actualizar); assert.equal(t("reintentar"), reintentar);
+    assert.throws(() => t("inexistente"), TypeError); assert.throws(() => crearTraductorConsultaPermisosCronos({}), TypeError);
+    assert.ok(renderizarPermisosPropiosCronos({ estado: "listo", anio: 2026, datos: datos(), mensajesConsulta }).includes(`>${actualizar}</button>`));
+    assert.ok(renderizarPermisosPropiosCronos({ estado: "error", anio: 2026, mensajesConsulta }).includes(`>${reintentar}</button>`));
+    const hostil = renderizarPermisosPropiosCronos({ estado: "error", anio: 2026, mensajesConsulta: { ...mensajesConsulta, error: '<img src=x onerror="x()">' } });
+    assert.match(hostil, /&lt;img/u); assert.doesNotMatch(hostil, /<img/u);
+  }
+});
+
+test("Actualizar no interrumpe ni repite una solicitud que está enviándose", async () => {
+  const { nodo, raiz } = raizFalsa(); const pendiente = diferido(); let consultas = 0; let escrituras = 0; let entrada;
+  const vista = montarPermisosPropiosCronos({ raiz, anio: 2026,
+    cliente: { consultarPermisos: async () => { consultas++; return datos(); },
+      solicitarPermiso: async (e) => { escrituras++; entrada = e; return pendiente.promesa; } } });
+  await esperar(); pulsar(nodo, "[data-cronos-solicitar]", { cronosSolicitar: "permiso:cronos:asuntos-propios" });
+  const envio = enviar(nodo);
+  assert.match(nodo.innerHTML, /data-cronos-permisos-actualizar="" disabled/u);
+  pulsar(nodo, "[data-cronos-permisos-actualizar]", {});
+  assert.equal(consultas, 1); assert.equal(escrituras, 1);
+  pendiente.resolver(reciboDe(entrada)); await envio;
+  assert.equal(consultas, 2); assert.equal(escrituras, 1); assert.match(nodo.innerHTML, /recibo:cronos:conservado/u);
+  vista.desmontar();
+});
+
+test("el catálogo actualizado bloquea un permiso no solicitable y conserva borrador y clave", async () => {
+  for (const retirar of [false, true]) {
+    const { nodo, raiz } = raizFalsa(); let disponible = true; const envios = [];
+    const vista = montarPermisosPropiosCronos({ raiz, anio: 2026,
+      cliente: { consultarPermisos: async () => { const d = datos();
+        if (!disponible) { if (retirar) d.permisos.shift(); else d.permisos[0].solicitable = false; }
+        return d; }, solicitarPermiso: async (entrada) => { envios.push(entrada); throw new ErrorClienteSolicitudesCronos("servicio_no_disponible", 503); } } });
+    await esperar(); pulsar(nodo, "[data-cronos-solicitar]", { cronosSolicitar: "permiso:cronos:asuntos-propios" });
+    editar(nodo, "desde", "2026-10-20"); editar(nodo, "hasta", "2026-10-21");
+    await enviar(nodo, { desde: "2026-10-20", hasta: "2026-10-21" });
+    const clave = envios[0].clave_operacion; envios.length = 0;
+    disponible = false; pulsar(nodo, "[data-cronos-permisos-actualizar]", {}); await esperar();
+    assert.match(nodo.innerHTML, /El permiso seleccionado ya no admite solicitudes/u);
+    assert.doesNotMatch(nodo.innerHTML, /data-cronos-permiso-formulario/u);
+    await enviar(nodo, { desde: "2026-10-20", hasta: "2026-10-21" }); assert.equal(envios.length, 0);
+    disponible = true; pulsar(nodo, "[data-cronos-permisos-actualizar]", {}); await esperar();
+    assert.match(nodo.innerHTML, /value="2026-10-20"/u); assert.match(nodo.innerHTML, /value="2026-10-21"/u);
+    await enviar(nodo, { desde: "2026-10-20", hasta: "2026-10-21" }); assert.equal(envios[0].clave_operacion, clave);
+    vista.desmontar();
+  }
+});
