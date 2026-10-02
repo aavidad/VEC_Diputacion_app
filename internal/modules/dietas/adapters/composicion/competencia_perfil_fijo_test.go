@@ -79,7 +79,6 @@ func TestCompetenciaPerfilFijoCierraPorAutoridadInvalida(t *testing.T) {
 	for nombre, alterar := range map[string]func(*vecdomain.InstantaneaAutorizacion){
 		"otra persona":         func(i *vecdomain.InstantaneaAutorizacion) { i.AsignacionPerfil.PrincipalID = "persona:ajena" },
 		"otro perfil":          func(i *vecdomain.InstantaneaAutorizacion) { i.AsignacionPerfil.PerfilActivoRef = "perfil:ajeno" },
-		"otra version":         func(i *vecdomain.InstantaneaAutorizacion) { i.AsignacionPerfil.Version++ },
 		"persona ambito ajena": func(i *vecdomain.InstantaneaAutorizacion) { i.AsignacionPerfil.Ambitos[0].Valores[0] = "persona:ajena" },
 		"varias unidades": func(i *vecdomain.InstantaneaAutorizacion) {
 			i.AsignacionPerfil.Ambitos[1].Valores = []string{"unidad:uno", "unidad:dos"}
@@ -134,5 +133,16 @@ func TestCompetenciaPerfilFijoNoSumaPerfilesYRespetaCancelacion(t *testing.T) {
 	}
 	if _, err := NuevaFuenteCompetenciaPerfilFijo(nil, relojVinculoR15{}); err == nil {
 		t.Fatal("fuente nula aceptada")
+	}
+}
+
+func TestCompetenciaVersionAsignacionNoEsVersionPerfilIdentidad(t *testing.T) {
+	base, _ := identidadYMaterialR15(t)
+	i := instantaneaPerfilDietas(t, base.Contexto.Contexto, "dietas_liquidacion_rrhh")
+	i.AsignacionPerfil.Version = 4
+	f, _ := NuevaFuenteCompetenciaPerfilFijo(&fuentePerfilFijoPrueba{i: i}, relojVinculoR15{base.Contexto.Contexto.ResueltoEn})
+	unidad, err := f.UnidadCompetente(context.Background(), base.Contexto, domain.EtapaLiquidacion)
+	if err != nil || unidad != "unidad:ejemplo" {
+		t.Fatalf("asignación v4 / perfil v1: unidad=%s error=%v", unidad, err)
 	}
 }
