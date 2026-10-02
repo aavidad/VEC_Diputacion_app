@@ -166,7 +166,19 @@ func catalogosPublicosCopias(publicos fs.FS) map[string]string {
 	return m
 }
 func consultaPublicaCopias(u *url.URL, catalogos map[string]string) bool {
-	if u.RawQuery == "" || u.RawQuery == "v=20261001-cs09-copias-ux-v2" || u.RawQuery == "v=20261002-codexk-admin-montaje-v1" || u.RawQuery == "v=20261001-codexf-accesibilidad-v1" {
+	if u.RawQuery == "" {
+		return true
+	}
+	versiones := map[string]string{
+		"/portal-empleado/portal.css":             "20261001-codexf-accesibilidad-v1",
+		"/comun/tema-vec.css":                     "20261001-codexf-accesibilidad-v1",
+		"/portal-empleado/portal-componentes.css": "20261001-f-cronos-movimientos-v1",
+		"/admin/copias/montaje.js":                "20261002-codexk-admin-montaje-v1",
+	}
+	for _, nombre := range []string{"vista.js", "cliente-http.js", "contratos.js", "estilos.css", "i18n.js", "vista-configuracion.js", "vista-recuperacion.js", "vista-soporte.js"} {
+		versiones["/admin/copias/"+nombre] = "20261001-cs09-copias-ux-v2"
+	}
+	if version, ok := versiones[u.Path]; ok && u.RawQuery == "v="+version {
 		return true
 	}
 	q, err := url.ParseQuery(u.RawQuery)

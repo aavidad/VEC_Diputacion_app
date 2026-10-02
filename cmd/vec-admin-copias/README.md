@@ -128,3 +128,18 @@ Las pruebas locales comprueban el montaje, la segregación de recursos, red y
 revocación, retirada de sesión/permiso, fallo de auditoría y lectura minimizada
 con diario real y manifiesto sintético. No acreditan provisión central,
 instalación SQL, copias reales, despliegue ni recorrido de navegador.
+
+El listado conserva además las reservas y capturas en progreso del diario,
+con su fecha de reserva original y compatibilidad no comprobable. Estas filas
+no acreditan publicación: omiten huella, release, tamaño y fecha de fin. Un
+abandono previo a la publicación se muestra como fallido solo cuando la
+historia conserva el motivo de captura admitido y no confirma publicación.
+Las fases publicadas y los abandonos por fallo de verificación deben recuperar
+el conjunto autenticado; un error de integridad no se degrada a progreso.
+Cada conjunto incluido tiene su propio recibo de acceso, además del listado;
+un fallo de auditoría bloquea la página completa.
+
+Una política todavía vacía o inválida queda no disponible. La respuesta no
+presenta una versión cero como configuración válida. El ensayo del grafo lee
+el HTML y sus dependencias del árbol real a través del manejador ADMIN; no
+sustituye los estilos comunes por recursos de prueba.

@@ -5,9 +5,12 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
+	"time"
 
 	app "vec-diputacion-granada/internal/modules/administracion/application/httpcopias"
 	"vec-diputacion-granada/internal/modules/administracion/domain/copias"
+	op "vec-diputacion-granada/internal/modules/administracion/domain/operacionescopias"
 	ej "vec-diputacion-granada/internal/modules/administracion/ports/ejecucioncopias"
 	p "vec-diputacion-granada/internal/modules/administracion/ports/httpcopias"
 	pol "vec-diputacion-granada/internal/modules/administracion/ports/politicacopias"
@@ -53,6 +56,9 @@ func (l *LecturasCopias) finalizar(ctx context.Context, s p.Sesion, accion, recu
 	resultado := "consultado"
 	if err != nil {
 		resultado = "no_disponible"
+		if errors.Is(err, p.ErrDenegado) {
+			resultado = "denegado"
+		}
 	}
 	if l.Auditor.RegistrarLecturaCopias(ctx, s, accion, recurso, resultado) != nil {
 		return p.ErrNoDisponible
@@ -82,8 +88,11 @@ func (l *LecturasCopias) Listar(ctx context.Context, s p.Sesion, cursor string, 
 			break
 		}
 		var c p.Copia
-		c, err = l.copia(ctx, item)
+		c, err = l.copia(ctx, s, item)
 		if err != nil {
+			break
+		}
+		if err = l.finalizar(ctx, s, "listar_copia", item.Solicitud.Conjunto, nil); err != nil {
 			break
 		}
 		v.Copias = append(v.Copias, c)
@@ -115,7 +124,7 @@ func (l *LecturasCopias) Detalle(ctx context.Context, s p.Sesion, ref string) (p
 		}
 		for _, item := range r.Operaciones {
 			if item.Solicitud.Conjunto == ref {
-				v, err = l.copia(ctx, item)
+				v, err = l.copia(ctx, s, item)
 				return v, l.finalizar(ctx, s, "detalle", ref, err)
 			}
 		}
@@ -129,7 +138,17 @@ func (l *LecturasCopias) Detalle(ctx context.Context, s p.Sesion, ref string) (p
 	}
 	return v, l.finalizar(ctx, s, "detalle", ref, p.ErrNoDisponible)
 }
-func (l *LecturasCopias) copia(ctx context.Context, item reg.Vista) (p.Copia, error) {
+func (l *LecturasCopias) copia(ctx context.Context, s p.Sesion, item reg.Vista) (p.Copia, error) {
+	if err := l.Autoridad.AutorizarCopias(ctx, s, p.Consultar, item.Solicitud.Operacion); err != nil {
+		return p.Copia{}, err
+	}
+	estado, soloProgreso, err := l.progresoSinPublicacionConfirmada(ctx, s, item)
+	if err != nil {
+		return p.Copia{}, err
+	}
+	if soloProgreso {
+		return copiaProgreso(item, estado)
+	}
 	c, err := l.Destino.Recuperar(ctx, item.Solicitud.Conjunto)
 	m := c.Manifiesto
 	// El resultado se liga también a la operación persistida. Una huella correcta
@@ -137,7 +156,7 @@ func (l *LecturasCopias) copia(ctx context.Context, item reg.Vista) (p.Copia, er
 	if err != nil || c.Ref != item.Solicitud.Conjunto || m.ConjuntoRef != c.Ref || m.OperacionRef != item.Solicitud.Operacion || c.IndiceAutenticadoRef == "" || c.ManifiestoSHA256 != huellaManifiestoADMIN(m) || m.Inicio.IsZero() || m.Fin.IsZero() || m.TamanoBytes < 0 || len(copias.ValidarManifiesto(m)) != 0 {
 		return p.Copia{}, p.ErrNoDisponible
 	}
-	estado := "verificando"
+	estado = "verificando"
 	if len(copias.ValidarManifiesto(m)) == 0 {
 		if m.Verificacion.Estado == "valida" {
 			estado = "valida"
@@ -166,6 +185,9 @@ func (l *LecturasCopias) configuracion(ctx context.Context, s p.Sesion, accion s
 		return c, l.finalizar(ctx, s, accion, "copias", p.ErrNoDisponible)
 	}
 	r, err := l.Politica.Actual(ctx)
+	if err == nil && (r.Version == 0 || r.Politica.Validar() != nil) {
+		err = p.ErrNoDisponible
+	}
 	if err == nil {
 		var b []byte
 		b, err = json.Marshal(r.Politica)
@@ -201,4 +223,43 @@ func huellaManifiestoADMIN(m copias.Manifiesto) string {
 	}
 	h := sha256.Sum256(b)
 	return hex.EncodeToString(h[:])
+}
+
+// progresoSinPublicacionConfirmada no transforma un error de CS03 en ausencia de índice.
+// Una captura en curso no acredita publicación. Las fases con publicación
+// confirmada siempre recuperan el conjunto autenticado.
+func (l *LecturasCopias) progresoSinPublicacionConfirmada(ctx context.Context, s p.Sesion, item reg.Vista) (string, bool, error) {
+	switch item.Recibo.Estado {
+	case op.Solicitada:
+		return "solicitada", true, nil
+	case op.Capturando:
+		return "capturando", true, nil
+	case op.AbandonadaDeclarada:
+		actual, err := l.Diario.Consultar(ctx, declaracionCopias(s), item.Solicitud.Operacion)
+		if err != nil || actual.Solicitud != item.Solicitud || actual.Recibo != item.Recibo || len(actual.Historia) == 0 {
+			return "", false, p.ErrNoDisponible
+		}
+		ultimo := actual.Historia[len(actual.Historia)-1].Comando
+		if ultimo.Accion != "abandonar_captura" || ultimo.Abandono == nil {
+			return "", false, p.ErrNoDisponible
+		}
+		publicado := !falloPrepublicacion(ultimo.Abandono.FalloReferencia)
+		for _, evento := range actual.Historia {
+			publicado = publicado || evento.Comando.Accion == "confirmar_captura"
+		}
+		if !publicado {
+			return "fallida", true, nil
+		}
+	}
+	return "", false, nil
+}
+func falloPrepublicacion(fallo string) bool {
+	return fallo == "captura_fallida" || fallo == "captura_no_comprobable"
+}
+func copiaProgreso(item reg.Vista, estado string) (p.Copia, error) {
+	inicio, err := time.Parse(time.RFC3339Nano, item.Reserva.Instante)
+	if err != nil || inicio.IsZero() || item.Reserva.Estado != op.Solicitada || item.Reserva.Version != 0 || item.Reserva.Referencia == "" {
+		return p.Copia{}, p.ErrNoDisponible
+	}
+	return p.Copia{CopiaRef: item.Solicitud.Conjunto, Version: item.Recibo.Version, Tipo: "completa", Estado: estado, IniciadaEn: inicio.UTC(), Compatibilidad: p.Compatibilidad{Estado: string(copias.NoComprobable)}}, nil
 }
