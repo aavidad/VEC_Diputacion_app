@@ -195,6 +195,10 @@ function camposCentro(estado, t, deshabilitado) {
 
 function camposDetalle(estado, t, deshabilitado) {
   const maximo = LIMITES_ALTA_CONTRATACION.texto;
+  const motivo = estado.catalogos.motivos.find(({ clave }) => clave === estado.borrador.motivo_clave);
+  const reglaFin = motivo?.fecha_fin ?? "obligatoria";
+  const causaFin = !estado.borrador.fin && motivo?.causa_fin
+    ? t(`causa_fin_${motivo.causa_fin}`) : "";
   return `<fieldset class="ct-bloque">
     <legend>${escaparHTML(t("detalle_periodo_leyenda"))}</legend>
     <div class="ct-campos">
@@ -218,10 +222,12 @@ function camposDetalle(estado, t, deshabilitado) {
         ${errorCampo(estado, "inicio", t)}
       </div>
       <div class="ct-campo">
-        <label for="ct-fin">${escaparHTML(t("fin"))} <b aria-hidden="true">*</b></label>
-        <input id="ct-fin" name="fin" type="date" required
+        ${reglaFin === "no_aplica" ? `<span>${escaparHTML(t("fin"))}</span>`
+          : `<label for="ct-fin">${escaparHTML(t("fin"))}${reglaFin === "obligatoria" ? ' <b aria-hidden="true">*</b>' : ""}</label>`}
+        ${reglaFin === "no_aplica" ? "" : `<input id="ct-fin" name="fin" type="date"${reglaFin === "obligatoria" ? " required" : ""}
           value="${escaparHTML(estado.borrador.fin)}"
-          ${atributosAccesibles(estado, "fin")}${deshabilitado ? " disabled" : ""}>
+          ${atributosAccesibles(estado, "fin")}${deshabilitado ? " disabled" : ""}>`}
+        ${causaFin ? `<p class="ct-aviso-campo" role="status">${escaparHTML(causaFin)}</p>` : ""}
         ${errorCampo(estado, "fin", t)}
       </div>
       <div class="ct-campo ct-campo-ancho">
@@ -397,7 +403,8 @@ function revision(estado, t, locale) {
       ${filaResumen(
     t("resumen_periodo"),
     `${formatearFechaCivil(borrador.inicio, locale)} — `
-      + `${formatearFechaCivil(borrador.fin, locale)}`,
+      + (borrador.fin ? formatearFechaCivil(borrador.fin, locale)
+        : t(`causa_fin_${estado.catalogos.motivos.find(({ clave }) => clave === borrador.motivo_clave).causa_fin}`)),
   )}
       ${filaResumen(t("resumen_rc"), rc)}
       ${filaResumen(
@@ -588,10 +595,12 @@ export function montarAltaContratacionTemporal({
 
   function alCambiar(evento) {
     const campo = evento.target?.name;
-    if (!["centro_ref", "categoria_ref", "rc_existe"].includes(campo)) return;
+    if (!["centro_ref", "categoria_ref", "rc_existe", "motivo_clave", "fin"].includes(campo)) return;
     const formularioDOM = evento.target.closest?.("[data-ct-form]");
     if (!formularioDOM || !raiz.contains(formularioDOM)) return;
     const borrador = extraerBorrador(formularioDOM);
+    if (campo === "motivo_clave" && presentador.obtenerEstado().catalogos.motivos.find(
+      ({ clave }) => clave === borrador.motivo_clave)?.fecha_fin === "no_aplica") borrador.fin = "";
     presentador.actualizarBorrador(borrador);
     const selectorFoco = campo === "rc_existe"
       ? `[name="rc_existe"][value="${borrador.rc_existe ? "si" : "no"}"]`

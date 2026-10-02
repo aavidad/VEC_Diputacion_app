@@ -41,6 +41,19 @@ test("contrato-analisis: admite solicitud sin observaciones y omite la clave", (
   assert.equal(Object.hasOwn(validada.analisis, "observaciones"), false);
 });
 
+test("contrato-analisis: conserva causa gobernada sin fabricar fecha de fin", () => {
+  const periodo = { inicio: "2026-09-01T00:00:00Z", causa_fin: "reincorporacion_titular" };
+  const validada = validarSolicitudRegistroAnalisis(solicitudBase({ periodo }));
+  assert.deepEqual(validada.analisis.periodo, periodo);
+  assert.equal(Object.hasOwn(validada.analisis.periodo, "fin"), false);
+  assert.throws(() => validarSolicitudRegistroAnalisis(solicitudBase({ periodo: {
+    ...periodo, fin: "2027-02-28T00:00:00Z",
+  } })), TypeError);
+  assert.throws(() => validarSolicitudRegistroAnalisis(solicitudBase({ periodo: {
+    inicio: periodo.inicio,
+  } })), TypeError);
+});
+
 test("contrato-analisis: con observaciones vacías omite la clave", () => {
   const solicitud = solicitudBase({ observaciones: "" });
   const validada = validarSolicitudRegistroAnalisis(solicitud);

@@ -246,6 +246,9 @@ function estadoPeticion(estado) {
 function periodoLegible(periodo) {
   const inicio = fechaValida(periodo?.inicio); const fin = fechaValida(periodo?.fin);
   if (inicio && fin) return traducirCentro("pc_periodo_desde_hasta", { inicio: fecha(periodo.inicio), fin: fecha(periodo.fin) });
+  if (inicio && periodo?.causa_fin) return traducirCentro("pc_periodo_con_causa", {
+    inicio: fecha(periodo.inicio), causa: traducirCentro(`causa_fin_${periodo.causa_fin}`),
+  });
   if (inicio) return traducirCentro("pc_periodo_desde", { inicio: fecha(periodo.inicio) });
   if (fin) return traducirCentro("pc_periodo_hasta", { fin: fecha(periodo.fin) });
   return traducirCentro("pc_sin_fechas");
@@ -641,10 +644,12 @@ export async function iniciarPeticionCentro({ raiz = document.querySelector("#ap
     const campo = event.target.name;
     const formulario = event.target.closest?.("[data-ct-form]");
     if (ocupado || operacionPendiente || resultadoIncierto || !contexto || ["denegado", "sin_verificar"].includes(modo)
-      || !formulario || !["centro_ref", "categoria_ref", "rc_existe"].includes(campo)) return;
+      || !formulario || !["centro_ref", "categoria_ref", "rc_existe", "motivo_clave", "fin"].includes(campo)) return;
     const borrador = extraerBorradorPeticionCentro(formulario);
     if (campo === "centro_ref") borrador.contacto_ref = "";
     if (campo === "categoria_ref") borrador.grupo_subgrupo = "";
+    if (campo === "motivo_clave" && contexto.catalogos.motivos.find(
+      ({ clave }) => clave === borrador.motivo_clave)?.fecha_fin === "no_aplica") borrador.fin = "";
     estado = estadoBase(contexto.catalogos, borrador); dibujar();
     raiz.querySelector(campo === "rc_existe" ? `[name="rc_existe"][value="${borrador.rc_existe ? "si" : "no"}"]` : `#ct-${campo}`)?.focus();
   });

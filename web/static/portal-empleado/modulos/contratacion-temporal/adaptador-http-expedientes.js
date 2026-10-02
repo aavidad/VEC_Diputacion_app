@@ -257,6 +257,12 @@ function fechaCivil(instante, locale, incluirHora = false) {
   }).format(fecha);
 }
 
+function periodoVisible(inicio, fin, causa, locale, t) {
+  const extremo = fin ? fechaCivil(fin, locale)
+    : causa ? t(`causa_fin_${causa}`) : t("pc_sin_fechas");
+  return `${fechaCivil(inicio, locale)} — ${extremo}`;
+}
+
 const MENSAJES_ACCIONES_HISTORIAL = new Map([
   ["contratacion_temporal.solicitud.crear", "hito_solicitud"],
   ["contratacion_temporal.analisis.registrar", "hito_analisis"],
@@ -338,11 +344,13 @@ function cabeceraDetalle(detalle, locale, catalogos, t, minutosCompleta) {
     campo("estado", t("cabecera_estado"), etiqueta(resumen.estado_clave, t)),
     campo("grupo_subgrupo", t("cabecera_grupo_subgrupo"), solicitud.grupo_subgrupo),
     campo("motivo", t("cabecera_motivo"), etiqueta(solicitud.motivo_clave, t)),
-    campo("periodo", t("cabecera_periodo_solicitado"), `${fechaCivil(solicitud.periodo_inicio, locale)} — ${fechaCivil(solicitud.periodo_fin, locale)}`),
+    campo("periodo", t("cabecera_periodo_solicitado"), periodoVisible(solicitud.periodo_inicio,
+      solicitud.periodo_fin, solicitud.periodo_causa_fin, locale, t)),
   ];
   if (detalle.analisis) {
     campos.push(
-      campo("periodo_analizado", t("cabecera_periodo_analizado"), `${fechaCivil(detalle.analisis.periodo_inicio, locale)} — ${fechaCivil(detalle.analisis.periodo_fin, locale)}`),
+      campo("periodo_analizado", t("cabecera_periodo_analizado"), periodoVisible(detalle.analisis.periodo_inicio,
+        detalle.analisis.periodo_fin, detalle.analisis.periodo_causa_fin, locale, t)),
       campo("causa", t("cabecera_causa_analizada"), etiqueta(detalle.analisis.causa_clave, t)),
       campo("jornada", t("cabecera_jornada"), jornadaVisible(detalle.analisis.porcentaje_jornada, locale, t, minutosCompleta)),
       campo("resultado_rc", t("cabecera_resultado_rc"), etiqueta(detalle.analisis.resultado_rc, t)),
@@ -494,7 +502,9 @@ function proyectarExpediente(detalle, locale, catalogos, t, mensajes, minutosCom
       modalidad_clave: detalle.analisis.modalidad_clave,
       categoria_ref: detalle.analisis.categoria_ref,
       causa_clave: detalle.analisis.causa_clave,
-      periodo: { inicio: detalle.analisis.periodo_inicio, fin: detalle.analisis.periodo_fin },
+      periodo: { inicio: detalle.analisis.periodo_inicio,
+        ...(detalle.analisis.periodo_fin ? { fin: detalle.analisis.periodo_fin }
+          : { causa_fin: detalle.analisis.periodo_causa_fin }) },
       porcentaje_jornada: detalle.analisis.porcentaje_jornada,
       ...(detalle.analisis.observaciones ? { observaciones: detalle.analisis.observaciones } : {}),
     } } : {}),

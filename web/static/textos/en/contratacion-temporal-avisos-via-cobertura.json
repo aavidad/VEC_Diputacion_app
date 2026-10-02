@@ -15,6 +15,7 @@
     "avisos_via_propuesta_oferta_sae_titulo": "Vacancy submission to the Andalusian Employment Service",
     "avisos_via_propuesta_oferta_sae_detalle": "Maximum duration of {meses} months: the appointment could not extend beyond {fin_maximo}.",
     "avisos_via_propuesta_oferta_sae_excede": "The expected end date in the analysis ({fin_previsto}) exceeds that maximum duration.",
+    "avisos_via_propuesta_oferta_sae_sin_fin": "No end date is planned. The maximum duration will apply when an end date is set.",
     "avisos_via_nueva_convocatoria_titulo": "New call for applications to the recruitment pool",
     "avisos_via_motivo_vigencia_superada": "The recruitment pool expired on {vigencia_hasta} (established on {constituida_en}).",
     "avisos_via_motivo_bolsa_agotada": "The recruitment pool is exhausted.",
