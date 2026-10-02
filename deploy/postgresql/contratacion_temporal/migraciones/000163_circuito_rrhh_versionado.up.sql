@@ -77,7 +77,7 @@ BEGIN
        OR (p_siguiente -> 'actuaciones') -
             (pg_catalog.jsonb_array_length(p_siguiente -> 'actuaciones') - 1)
             IS DISTINCT FROM (p_anterior -> 'actuaciones')
-       OR pg_catalog.jsonb_array_length(v_despues) <= pg_catalog.jsonb_array_length(v_antes) THEN
+       OR pg_catalog.jsonb_array_length(v_despues) <> pg_catalog.jsonb_array_length(v_antes) + 1 THEN
         RETURN false;
     END IF;
     v_longitud := pg_catalog.jsonb_array_length(v_antes);
