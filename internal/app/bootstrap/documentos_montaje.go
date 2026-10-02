@@ -106,6 +106,9 @@ type autoridadDocumentosDesarrollo struct {
 	cerrar      func()
 	// custodia es nil salvo con la sección custodia_firmado del material.
 	custodia *custodiaDocumentosDesarrollo
+	// originalCT comparte repositorio y almacén, con catálogo v2 reservado.
+	// La fábrica exige por separado AD158 y una autoridad nominal CT→Documentos.
+	originalCT *preparacionOriginalFirmableCTDesarrollo
 }
 
 type registradorDenegacionesDocumentos interface {
@@ -725,6 +728,15 @@ func nuevosDocumentosDesarrollo(cfg config.Config, resolvedor vechttp.DemoIdenti
 	}
 	servicio := &docapp.Servicio{Repositorio: repositorio, Almacen: almacen, Politicas: politicas, Reloj: reloj,
 		ContextosLectura: lectura, VerificadorFirma: verificadorFirma}
+	politicasOriginalCT, err := conservacion.NuevoCatalogoProvisionalV2(reloj)
+	if err != nil || admitirCatalogoConservacion(cfg, politicasOriginalCT.Provisional(), c.Almacen.Tipo, almacen) != nil {
+		return nil, errDocumentosEn()
+	}
+	a.originalCT = &preparacionOriginalFirmableCTDesarrollo{
+		servicio: &docapp.Servicio{Repositorio: repositorio, Almacen: almacen, Politicas: politicasOriginalCT,
+			Reloj: reloj, ContextosLectura: lectura},
+		catalogo: politicasOriginalCT, puerta: puertaSQLOriginalFirmableCTDesarrollo{ejecutor: ejecutor},
+	}
 	a.custodia, err = nuevaCustodiaDocumentosDesarrollo(c.CustodiaFirmado, repositorio, almacen, politicas, reloj, seudonimosAlmacen)
 	if err != nil {
 		return nil, errDocumentosEn()
