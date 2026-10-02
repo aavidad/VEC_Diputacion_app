@@ -61,15 +61,25 @@ function consultaValida({ vigenteEn, conocidoEn }) {
       !Number.isFinite(Date.parse(conocidoEn))) throw new TypeError("corte de Registro de Personal no válido");
 }
 
-async function leerJSON(respuesta, signal) {
+// Las preparaciones añaden hasta 200 filas por familia a una ficha que antes
+// cabía en 512 KiB. Con referencias, trazas y catálogos de hasta 256 bytes
+// (escape JSON incluido), la cota conservadora es 3.269.824 bytes.
+// Base 524.288 + 200 * (1.000 RPT + 3.000 CER + 4.000 relación Carrera +
+// 3.000 historia + 1.200 servicio + 1.200 situación) + 65.536 de envoltorios.
+// El perfil ampliado es privado y sólo lo usa consultarFicha tras un HTTP 200.
+async function leerJSON(respuesta, signal, perfilFicha = false) {
+  const maximoBytes = perfilFicha ? 4 * 1024 * 1024 : 512 * 1024;
   const longitud = respuesta.headers?.get?.("content-length");
-  if (longitud !== null && longitud !== undefined && (!/^\d+$/u.test(longitud) || Number(longitud) > 512 * 1024)) {
+  if (longitud !== null && longitud !== undefined && (!/^\d+$/u.test(longitud) || Number(longitud) > maximoBytes)) {
     await respuesta.body?.cancel?.();
     throw new ErrorRegistroB2("respuesta_excesiva", respuesta.status);
   }
   if (!respuesta.body?.getReader) throw new ErrorRegistroB2("respuesta_no_incremental", respuesta.status);
   const lector = respuesta.body.getReader();
-  const trozos = [];
+  // La ficha acumula en un único búfer acotado: la fragmentación de red no
+  // cambia qué contenido se puede consultar ni crea una lista sin límite.
+  const acumuladoFicha = perfilFicha ? new Uint8Array(maximoBytes) : null;
+  const trozos = perfilFicha ? null : [];
   let total = 0;
   try {
     while (true) {
@@ -77,9 +87,10 @@ async function leerJSON(respuesta, signal) {
       const siguiente = await lector.read();
       if (siguiente.done) break;
       if (!(siguiente.value instanceof Uint8Array) || siguiente.value.byteLength === 0) throw new ErrorRegistroB2("respuesta_incompatible", respuesta.status);
+      if (siguiente.value.byteLength > maximoBytes - total || (!perfilFicha && trozos.length >= 256)) throw new ErrorRegistroB2("respuesta_excesiva", respuesta.status);
+      if (perfilFicha) acumuladoFicha.set(siguiente.value, total);
+      else trozos.push(siguiente.value);
       total += siguiente.value.byteLength;
-      if (total > 512 * 1024 || trozos.length >= 256) throw new ErrorRegistroB2("respuesta_excesiva", respuesta.status);
-      trozos.push(siguiente.value);
     }
   } catch (error) {
     await lector.cancel().catch(() => {});
@@ -87,16 +98,18 @@ async function leerJSON(respuesta, signal) {
   } finally {
     lector.releaseLock?.();
   }
-  const bytes = new Uint8Array(total);
-  let posicion = 0;
-  for (const trozo of trozos) { bytes.set(trozo, posicion); posicion += trozo.byteLength; }
+  const bytes = perfilFicha ? acumuladoFicha.subarray(0, total) : new Uint8Array(total);
+  if (!perfilFicha) {
+    let posicion = 0;
+    for (const trozo of trozos) { bytes.set(trozo, posicion); posicion += trozo.byteLength; }
+  }
   try { return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)); }
   catch { throw new ErrorRegistroB2("json_invalido", respuesta.status); }
 }
 
 export function crearClienteRegistroB2({ fetchImpl = globalThis.fetch, plazoMs = 10_000 } = {}) {
   if (typeof fetchImpl !== "function" || !Number.isSafeInteger(plazoMs) || plazoMs < 1 || plazoMs > 30_000) throw new TypeError("cliente de Registro de Personal no disponible");
-  async function get(ruta, parametros, signal) {
+  async function get(ruta, parametros, signal, perfilFicha = false) {
     if (signal !== undefined && (!signal || typeof signal.addEventListener !== "function" || typeof signal.aborted !== "boolean")) throw new TypeError("señal de cancelación no válida");
     if (signal?.aborted) throw new ErrorRegistroB2("operacion_abortada");
     const controlador = new AbortController();
@@ -125,7 +138,7 @@ export function crearClienteRegistroB2({ fetchImpl = globalThis.fetch, plazoMs =
         await respuesta.body?.cancel?.().catch(() => {});
         throw new ErrorRegistroB2("tipo_respuesta_no_valido", respuesta.status);
       }
-      return await leerJSON(respuesta, controlador.signal);
+      return await leerJSON(respuesta, controlador.signal, perfilFicha);
     } finally {
       clearTimeout(temporizador);
       signal?.removeEventListener("abort", abortar);
@@ -162,7 +175,7 @@ export function crearClienteRegistroB2({ fetchImpl = globalThis.fetch, plazoMs =
       if (typeof empleadoRef !== "string" || !/^emp_[A-Za-z0-9_-]{22,128}$/u.test(empleadoRef)) throw new TypeError("referencia de empleado no válida");
       consultaValida({ vigenteEn, conocidoEn });
       const query = new URLSearchParams({ vigente_en: vigenteEn, conocido_en: conocidoEn });
-      const respuesta = await get(`${RUTA_REGISTRO_B2}/empleados/${encodeURIComponent(empleadoRef)}`, query, signal);
+      const respuesta = await get(`${RUTA_REGISTRO_B2}/empleados/${encodeURIComponent(empleadoRef)}`, query, signal, true);
       if (!respuesta?.data?.ficha || !respuesta.data.evidencia) throw new ErrorRegistroB2("sobre_no_valido", 200);
       return respuesta.data;
     },
