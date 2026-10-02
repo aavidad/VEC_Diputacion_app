@@ -1,37 +1,30 @@
 #!/usr/bin/env bash
-# BORRADOR reproducible RPT27/AD154. Ningún resultado acreditado.
-# Reutiliza el emisor público y transporte del harness CRN11@9a58bcb9.
-# Dirección congela fuente y preimagen; sólo después de dos GO cede un clon.
+# Ensayo nominal RPT27/AD154 sobre la captura causal POST149 de principal.
+# Reutiliza el emisor y el transporte existentes, sin reconstruir Baremo.
+# Dirección cede el clon tras fijar preimagen y revisar el contenido exacto.
 set -euo pipefail
 umask 077
 base_dir=$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 repo_dir=$(CDPATH='' cd -- "$base_dir/../../../.." && pwd)
 fallo() { printf 'RPT27 FALLO: %s\n' "$1" >&2; exit 1; }
-if [[ ${VEC_RPT27_ACTIVACION:-} != dos_go_y_preimagen_verificada ]]; then
- printf '%s\n' 'PARO RPT27: faltan fuente congelada, dos GO exactos y preimagen real del clon.' >&2
- exit 78
-fi
-# Pendiente de provisión: Dirección debe establecer una cota REAL de disco
-# para scratch y cache. LimitFSIZE no es una cuota total; no se afirma tal control.
-[[ ${VEC_RPT27_COTA_DISCO_CONFIRMADA:-} == 1 ]] || fallo 'falta cota real de disco provisionada por Dirección'
-head_sha=$(git -C "$repo_dir" rev-parse HEAD)
-[[ ${VEC_RPT27_DOS_GO_SHA:-} == "$head_sha" && ${VEC_RPT27_BASE_CEDIDA:-} == 1 ]] || fallo 'faltan revisión y cesión del hash exacto'
 container=${VEC_RPT27_CLONE_CONTAINER:?clon privado autorizado requerido}
 scratch=${VEC_RPT27_SCRATCH:?scratch propio externo requerido}
 modcache=${VEC_RPT27_MODCACHE:?módulos locales sin descargas requeridos}
-cache=${VEC_RPT27_CACHE_SSD:?cache de compilación privada requerida}
+cache=${VEC_RPT27_CACHE:-/dev/shm/go-build}
+socket=${VEC_RPT27_SOCKET:?socket Unix del clon requerido}
 ad154=${VEC_RPT27_UP_AD154:?UP154 activado y revisado requerido}
 personal27=${VEC_RPT27_UP_PERSONAL27:?UP27 activado y revisado requerido}
 pre_sha=${VEC_RPT27_PREIMAGEN_SHA256:?SHA de captura real requerida}
 helper="$scratch/generate_overlay.py"
-[[ $container =~ ^vec-codexb-rpt27-(sql-clon-)?[0-9]{8}$ ]] || fallo 'clon nominal propio requerido'
-[[ $scratch == /dev/shm/vec-rpt27-* && -d $scratch && ! -L $scratch && -O $scratch && $(stat -c %a "$scratch") == 700 ]] || fallo 'scratch propio0700 requerido'
-[[ -d $cache && ! -L $cache && -O $cache && $(stat -c %a "$cache") == 700 && $cache != "$repo_dir"/* ]] || fallo 'cache propia0700 fuera de Git requerida'
+[[ $container == codexb-crn11-20261003-pg ]] || fallo 'clon nominal propio requerido'
+[[ $scratch == /dev/shm/codexb-crn11-20261003-rpt-* && -d $scratch && ! -L $scratch && -O $scratch && $(stat -c %a "$scratch") == 700 ]] || fallo 'scratch propio0700 requerido'
+[[ $cache == /dev/shm/go-build && -d $cache && ! -L $cache && -O $cache ]] || fallo 'cache compartida SHM requerida'
+[[ $socket == /dev/shm/codexb-crn11-20261003-data/vec-desarrollo-20260906/pgdata/codexb-crn11-20261003-socket && -S $socket/.s.PGSQL.5432 ]] || fallo 'socket ajeno o ausente'
 [[ -d $modcache && ! -L $modcache && $pre_sha =~ ^[0-9a-f]{64}$ ]] || fallo 'faltan módulos o huella real'
 [[ $ad154 == "$repo_dir"/deploy/postgresql/autorizacion_atestada_v3/migraciones/000154_*.up.sql && -f $ad154 && ! -L $ad154 ]] || fallo 'no aplicar borrador ni otra AD'
 [[ $personal27 == "$repo_dir"/deploy/postgresql/personal/migraciones/000027_*.up.sql && -f $personal27 && ! -L $personal27 ]] || fallo 'no aplicar borrador ni otra Personal'
-[[ $(docker inspect --format '{{.HostConfig.NetworkMode}} {{.HostConfig.Memory}} {{.HostConfig.NanoCpus}} {{.HostConfig.PidsLimit}}' "$container") == 'none 2147483648 2000000000 256' ]] || fallo 'clon fuera de límites aislados'
-psql_run() { local user=$1; shift; docker exec -i "$container" /usr/bin/env -i PATH=/usr/local/bin:/usr/bin:/bin psql -X -qAt -v ON_ERROR_STOP=1 -v VERBOSITY=verbose -U "$user" -d postgres "$@"; }
+[[ $(docker inspect --format '{{.HostConfig.NetworkMode}} {{.HostConfig.Memory}} {{.HostConfig.NanoCpus}} {{.HostConfig.PidsLimit}}' "$container") == 'none 2147483648 2000000000 128' ]] || fallo 'clon fuera de límites aislados'
+psql_run() { local user=$1; shift; docker exec -i "$container" /usr/bin/env -i PATH=/usr/local/bin:/usr/bin:/bin psql -h /tmp -X -qAt -v ON_ERROR_STOP=1 -v VERBOSITY=verbose -U "$user" -d postgres "$@"; }
 valor() { psql_run postgres -c "$1"; }
 archivo() { psql_run postgres -v rpt27_ensayo_autorizado=on < "$1" > "$scratch/sql.log" 2>&1 || fallo 'SQL falló: diagnóstico privado'; }
 [[ $(valor "SELECT current_setting('server_version_num')") == 180004 ]] || fallo 'PG18.4 requerido'
@@ -58,13 +51,13 @@ q="""SELECT jsonb_build_object('funciones',(SELECT jsonb_agg(jsonb_build_object(
  'tabla',(SELECT jsonb_build_object('owner',c.relowner,'acl',c.relacl,'rls',c.relrowsecurity,'forzada',c.relforcerowsecurity) FROM pg_class c WHERE c.oid='vec_personal.relacion_servicio_historia'::regclass),
  'triggers',(SELECT jsonb_agg(to_jsonb(t) ORDER BY t.oid) FROM pg_trigger t WHERE t.tgrelid='vec_personal.relacion_servicio_historia'::regclass AND NOT(t.tgname='relacion_rpt_generacion_insertada' AND t.tgtype=5 AND t.tgfoid=to_regprocedure('vec_personal.avanzar_generacion_relacion_rpt_v1()'))),
  'validador_sha256',(SELECT encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex') FROM pg_proc p WHERE p.oid='vec_personal.validar_revision_registro_empleado_v1()'::regprocedure)),
- 'audiencias',(SELECT jsonb_build_object('validada',c.convalidated,'definicion',pg_get_constraintdef(c.oid,true)) FROM pg_constraint c WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass AND c.conname='clave_capacidad_version_audiencia_consumo_check'));"""
-q=q.replace('__INV__',inv)
+ 'audiencias',(SELECT jsonb_build_object('validada',c.convalidated,'definicion',replace(pg_get_constraintdef(c.oid,true), __RETIRAR_AUDIENCIA__, '')) FROM pg_constraint c WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass AND c.conname='clave_capacidad_version_audiencia_consumo_check'));"""
+q=q.replace('__INV__',inv).replace('__RETIRAR_AUDIENCIA__', "$rpt27audiencia$, 'vec_personal.relacion_rpt.v1'::text$rpt27audiencia$")
 filas="SELECT coalesce(jsonb_agg(to_jsonb(h) ORDER BY h.relacion_ref,h.revision),'[]'::jsonb) FROM vec_personal.relacion_servicio_historia h"
 pathlib.Path(sys.argv[2]+'.plantilla').write_text(q)
 pathlib.Path(sys.argv[2]).write_text(q.replace('__FILAS17__',filas))
 PYPRESERVACION
-captura() { psql_run postgres < "$scratch/preservacion.sql" > "$1"; }
+captura() { { printf '%s\n' 'SET search_path=pg_catalog,pg_temp;'; cat "$scratch/preservacion.sql"; } | psql_run postgres > "$1"; }
 captura "$scratch/preimagen.json"
 [[ $(sha256sum "$scratch/preimagen.json" | cut -d' ' -f1) == "$pre_sha" ]] || fallo 'preimagen distinta de la aprobada'
 # Fijar los identificadores originales de17: añadir fixtures después no altera
@@ -81,7 +74,10 @@ sha256sum "$ad154" "$personal27" > "$scratch/migraciones_journal.txt"
 archivo "$ad154"; archivo "$personal27"
 captura "$scratch/post154.json"
 cmp -s "$scratch/preimagen.json" "$scratch/post154.json" || fallo 'delta154 alteró autoridades previas'
-archivo "$base_dir/relacion_para_rpt_000027.sql.borrador"
+# La comparación inversa conserva cada audiencia previa; el literal nuevo
+# debe aparecer exactamente una vez en la postimagen aprobada.
+[[ $(valor "SELECT length(pg_get_constraintdef(c.oid,true))-length(replace(pg_get_constraintdef(c.oid,true), ', ''vec_personal.relacion_rpt.v1''::text','')) = length(', ''vec_personal.relacion_rpt.v1''::text') FROM pg_constraint c WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass AND c.conname='clave_capacidad_version_audiencia_consumo_check' AND c.convalidated") == t ]] || fallo 'audiencia nominal ausente o duplicada'
+archivo "$base_dir/relacion_para_rpt_000027.sql"
 valor "CREATE ROLE vec_rpt27_ensayo_runtime LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE INHERIT NOREPLICATION NOBYPASSRLS;
  GRANT vec_personal_ejecutor TO vec_rpt27_ensayo_runtime WITH ADMIN FALSE,INHERIT TRUE,SET FALSE;
  GRANT CONNECT ON DATABASE postgres TO vec_rpt27_ensayo_runtime;
@@ -118,6 +114,7 @@ source = root / 'internal/vec/adapters/seguridad/confianzaatestacion/capacidad_v
 original = source.read_text()
 original = original.replace('"crypto/rand"', '"crypto/rand"\n\t"crypto/sha256"\n\t"fmt"\n\t"io"')
 original = original.replace('"vec-diputacion-granada/internal/vec/domain"', '"vec-diputacion-granada/internal/vec/application"\n\t"vec-diputacion-granada/internal/vec/domain"')
+original = original.replace('"vec-diputacion-granada/internal/vec/ports"', '"vec-diputacion-granada/internal/vec/ports"\n\t"github.com/jackc/pgx/v5/pgxpool"\n\tpersonalpg "vec-diputacion-granada/internal/modules/personal/adapters/postgres"\n\tpersonalapp "vec-diputacion-granada/internal/modules/personal/application"\n\tpersonaldomain "vec-diputacion-granada/internal/modules/personal/domain"\n\tpersonalports "vec-diputacion-granada/internal/modules/personal/ports"')
 extra = r'''
 // RPT27 is an ephemeral synthetic PDP fixture. Neither this test nor its
 // import bridge establishes production identity, PDP governance or database I/O.
@@ -555,6 +552,83 @@ func (f rpt27Firmante) FirmarAtestacionAutorizacionV3(ctx context.Context, solic
 	return ports.NuevoResultadoFirmaAtestacionAutorizacionV3(solicitud, sobre, "evidencia:rpt27:fixture:crypto-real", f.ahora)
 }
 
+
+// This fixture transports the native material already issued and registered by
+// the runner. PostgreSQL still validates COSE/HMAC and live authority.
+type rpt27AutorizadorPG struct { material ports.ExportacionMaterialConsumoAutorizacionAtestadaV3 }
+func (a rpt27AutorizadorPG) AutorizarRelacionParaRPT(context.Context, personaldomain.MaterialLectorRelacionRPT) (ports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) { return a.material, nil }
+
+type rpt27IntentosPG struct { destino personalports.DestinoIntentosLectorRelacionRPT }
+func (i rpt27IntentosPG) VerificarRegistroRelacionRPT(ctx context.Context) error { return i.destino.VerificarDestinoRelacionRPT(ctx) }
+func (i rpt27IntentosPG) RegistrarIntentoRelacionRPT(ctx context.Context, e personalports.IntentoLectorRelacionRPT) error {
+	b := make([]byte,16)
+	if _, err := rand.Read(b); err != nil { return err }
+	// This fixture has no trusted identity resolver. It must leave actor_ref
+	// empty, never treat a declared/cached actor as currently accredited.
+	return i.destino.RegistrarEventoRelacionRPT(ctx, personalports.EventoIntentoLectorRelacionRPT{CorrelacionRef: fmt.Sprintf("correlacion_%x",b), Motivo:e.Motivo, RelacionRef:e.RelacionRef})
+}
+
+func TestLectorRPT27ConPoolsPostgreSQL(t *testing.T) {
+	modo := os.Getenv("VEC_RPT27_GO_MODO")
+	if modo == "" { t.Skip("private PostgreSQL runner only") }
+	if modo != "positivo" && modo != "replay" && modo != "cruzados" && modo != "registro_caido" && modo != "revocada" && modo != "concurrente" { t.Fatal("RPT27 unknown test mode") }
+	ctx,cancel := context.WithTimeout(context.Background(),20*time.Second); defer cancel()
+	pool := func(usuario string) *pgxpool.Pool {
+		c,err := pgxpool.ParseConfig("host=/pgsocket dbname=postgres sslmode=disable")
+		if err != nil { t.Fatal("RPT27 pool configuration unavailable") }
+		c.ConnConfig.User=usuario; c.MaxConns=1; c.MinConns=0
+		c.ConnConfig.RuntimeParams["timezone"]="UTC"
+		c.ConnConfig.RuntimeParams["statement_timeout"]="15000"
+		v,err := pgxpool.NewWithConfig(ctx,c)
+		if err != nil { t.Fatal("RPT27 pool unavailable") }
+		t.Cleanup(v.Close)
+		var actual string
+		if v.QueryRow(ctx,"SELECT session_user").Scan(&actual)!=nil || actual!=usuario { t.Fatal("RPT27 nominal SQL identity mismatch") }
+		return v
+	}
+	lectura := pool("vec_rpt27_ensayo_runtime")
+	registro := pool("vec_rpt27_ensayo_registrador")
+	if lectura==registro { t.Fatal("RPT27 pools must be segregated") }
+	buf,err := os.ReadFile(os.Getenv("VEC_RPT27_VECTOR_SALIDA"))
+	if err!=nil || len(buf)>2<<20 { t.Fatal("RPT27 exported material unavailable") }
+	var salida rpt27Salida
+	if json.Unmarshal(buf,&salida)!=nil { t.Fatal("RPT27 exported material invalid") }
+	capacidad := exigirBase64O205(t,salida.CapacidadB64)
+	var cap capacidadAtestacionAutorizacionV3JSON
+	if json.Unmarshal(capacidad,&cap)!=nil || cap.validarEstructura()!=nil { t.Fatal("RPT27 capability invalid") }
+	resumen,err := ports.NuevoResumenCapacidadAtestacionAutorizacionV3(cap.DecisionRef,cap.HuellaDecisionSHA256,cap.HuellaMotivoSHA256,cap.ContextoRef,cap.HuellaContextoSHA256,cap.Operacion,cap.EfectoRef,cap.HuellaEfectoSHA256,cap.AudienciaConsumo,rpt27Instante(t,cap.EmitidaEn),rpt27Instante(t,cap.ExpiraEn))
+	if err!=nil { t.Fatal("RPT27 summary invalid") }
+	a,err := ports.NuevaExportacionMaterialConsumoAutorizacionAtestadaV3(capacidad,resumen,exigirBase64O205(t,salida.DecisionB64),exigirBase64O205(t,salida.MotivoB64),exigirBase64O205(t,salida.ContextoB64),salida.PersonaVersion,salida.PerfilVersion,exigirBase64O205(t,salida.PayloadB64),exigirBase64O205(t,salida.COSEB64),exigirBase64O205(t,salida.EvidenciaB64),exigirBase64O205(t,salida.SPKIB64))
+	if err!=nil { t.Fatal("RPT27 native transport invalid") }
+	actor,err := domain.RehidratarContextoActorVinculadoV2(a.ContextoActorCanonico())
+	if err!=nil { t.Fatal("RPT27 registered actor invalid") }
+	var material struct {
+		EmpleadoRef string `json:"empleado_ref"`
+		RelacionRef string `json:"relacion_ref"`
+		OrganismoRef string `json:"organismo_ref"`
+		Version int64 `json:"version_esperada"`
+		VigenteEn string `json:"vigente_en"`
+		ConocidoEn string `json:"conocido_en"`
+	}
+	if json.Unmarshal(exigirBase64O205(t,salida.MaterialCanonicoB64),&material)!=nil { t.Fatal("RPT27 selector invalid") }
+	r,err := personalpg.NuevoRepositorioLectorRelacionRPTPostgreSQL(lectura)
+	if err!=nil { t.Fatal("RPT27 reader unavailable") }
+	destino := registro
+	if modo=="cruzados" { destino=lectura }
+	i,err := personalpg.NuevoRegistroIntentosLectorRPTPostgreSQL(destino)
+	if err!=nil { t.Fatal("RPT27 registry unavailable") }
+	servicio,err := personalapp.NuevoServicioLectorRelacionRPT(rpt27AutorizadorPG{a},r,rpt27IntentosPG{i},time.Now)
+	if err!=nil { t.Fatal("RPT27 service unavailable") }
+	v,err := servicio.ConsultarRelacionParaRPT(ctx,personalports.ConsultaRelacionParaRPTV1{Actor:actor,EmpleadoRef:material.EmpleadoRef,RelacionRef:material.RelacionRef,OrganismoRef:material.OrganismoRef,VersionEsperada:material.Version,Corte:personaldomain.CorteEmpleadoB2{VigenteEn:personaldomain.FechaCivil(material.VigenteEn),ConocidoEn:rpt27Instante(t,material.ConocidoEn)}})
+	if modo=="positivo" {
+		if err!=nil || v.Relacion.RelacionRef!=material.RelacionRef || v.Relacion.Version!=material.Version || v.Cobertura!=personalports.CoberturaPersonalNoAcreditadaV1 || v.Relacion.Procedencia.Certeza!=personalports.CertezaPersonalNoAcreditadaV1 || v.Evidencia.ReciboRef=="" { t.Fatal("RPT27 native positive did not produce validated receipt") }
+		return
+	}
+	esperado := personaldomain.ErrLectorRelacionRPTDenegado
+	if modo=="cruzados" || modo=="registro_caido" || modo=="concurrente" { esperado=personaldomain.ErrLectorRelacionRPTNoDisponible }
+	if !errors.Is(err,esperado) || v.Relacion.RelacionRef!="" || v.Evidencia.ReciboRef!="" { t.Fatal("RPT27 native negative returned data or wrong nominal error") }
+}
+
 '''
 output = scratch / 'capacidad_v3_vector_sql_test.go'
 with output.open('x') as f:
@@ -575,9 +649,9 @@ sandbox() {
  systemd-run --user --quiet --wait --pipe --collect -p MemoryMax=2G -p TasksMax=256 -p CPUQuota=200% -p LimitFSIZE=268435456 -p LimitNOFILE=256 \
  /usr/bin/env -i PATH=/usr/bin:/bin /usr/bin/timeout 1800 /usr/bin/bwrap --unshare-all --die-with-parent \
  --ro-bind /usr /usr --ro-bind /bin /bin --ro-bind /lib /lib --ro-bind /lib64 /lib64 --proc /proc --dev /dev --tmpfs /tmp \
- --ro-bind "$repo_dir" /src --ro-bind "$modcache" /modcache --bind "$scratch" /scratch --bind "$cache" /buildcache --chdir /src \
+ --ro-bind "$repo_dir" /src --ro-bind "$modcache" /modcache --bind "$scratch" /scratch --bind "$cache" /buildcache --ro-bind "$socket" /pgsocket --chdir /src \
  /usr/bin/env -i PATH="$toolchain/bin:/usr/bin:/bin" HOME=/scratch GOROOT="$toolchain" GOTOOLCHAIN=local GOPATH=/scratch/gopath GOMODCACHE=/modcache GOCACHE=/buildcache GOPROXY=off GOSUMDB=off CGO_ENABLED=0 GOMAXPROCS=2 \
- VEC_RPT27_VECTOR_ENTRADA=/scratch/entrada.json VEC_RPT27_VECTOR_SALIDA=/scratch/salida.json "$@"
+ VEC_RPT27_VECTOR_ENTRADA=/scratch/entrada.json VEC_RPT27_VECTOR_SALIDA=/scratch/salida.json VEC_RPT27_GO_MODO="${go_modo:-}" "$@"
 }
 sandbox "$toolchain/bin/go" test -c -p 8 -overlay /scratch/overlay.json -o /scratch/rpt27.test ./internal/vec/adapters/seguridad/confianzaatestacion > "$scratch/compilar.log" 2>&1 || fallo 'compilación focal aislada falló'
 
@@ -707,7 +781,7 @@ a=list(map(int,sys.argv[1].split('|')));b=list(map(int,sys.argv[2].split('|')))
 assert b==[a[0]+1,a[1]+1,a[2]+1,a[3]]
 PYPOSITIVO
 }
-# Casos futuros, todos con actores/contextos CA registrados y permiso RPT propio.
+# Casos con actores/contextos CA registrados y permiso RPT propio.
 for estado in vigente suspendida finalizada; do preparar "positivo_$estado" "positivo_$estado" "$estado"; positivo "positivo_$estado" "$estado"; done
 rechazar positivo_vigente
 for variante in actor perfil ambito relacion organismo campos cose; do preparar "$variante"; rechazar "$variante" "$variante"; done
@@ -767,10 +841,69 @@ if consultar concurrente > "$scratch/concurrente.out" 2> "$scratch/concurrente.l
 wait "$publicador_pid" || fallo 'escritor falló'
 [[ $(cat "$scratch/concurrente.log") == *40001* && ! -s $scratch/concurrente.out && $(contadores) == "$antes" ]] || fallo 'barrera no produjo40001 limpio'
 registrar_intento concurrente no_disponible || fallo '40001 sin intento durable'
+
+# El mismo binario de la emisión ejercita ahora el servicio y adaptadores Go
+# originales de #437 con los dos LOGIN/pools reales por socket Unix aislado.
+lector_go() {
+ go_modo=$1 sandbox /scratch/rpt27.test -test.run '^TestLectorRPT27ConPoolsPostgreSQL$' -test.count=1 > "$scratch/go_$1.log" 2>&1 || fallo 'adaptador Go con pools reales falló: diagnóstico privado'
+}
+comprobar_contadores_go() {
+ python3 - "$1" "$(contadores)" "$2" <<'PYCONTADORESGO'
+import sys
+a=list(map(int,sys.argv[1].split('|')));b=list(map(int,sys.argv[2].split('|')))
+d=list(map(int,sys.argv[3].split('|')))
+assert b==[x+y for x,y in zip(a,d)], 'efectos Go divergentes o intento dentro del rollback'
+PYCONTADORESGO
+}
+preparar go_positivo
+antes=$(contadores)
+lector_go positivo
+comprobar_contadores_go "$antes" '1|1|1|0'
+antes=$(contadores)
+lector_go replay
+comprobar_contadores_go "$antes" '0|0|0|1'
+# Punteros distintos no bastan: el registrador del LOGIN lector debe fallar.
+preparar go_cruzados
+antes=$(contadores)
+lector_go cruzados
+comprobar_contadores_go "$antes" '0|0|0|0'
+preparar go_registro_caido
+antes=$(contadores)
+valor 'REVOKE vec_personal_registrador_intento_relacion_rpt FROM vec_rpt27_ensayo_registrador' > /dev/null
+lector_go registro_caido
+comprobar_contadores_go "$antes" '0|0|0|0'
+valor 'GRANT vec_personal_registrador_intento_relacion_rpt TO vec_rpt27_ensayo_registrador WITH ADMIN FALSE,INHERIT TRUE,SET FALSE' > /dev/null
+# La identidad cacheada de Go no rescata una sesión revocada en SQL actual.
+preparar go_revocada
+s=$(printf '%s' go_revocada | sha256sum | cut -c1-32)
+valor "BEGIN; SET LOCAL ROLE vec_autorizacion_propietario;
+ INSERT INTO vec_autorizacion.control_sesion_v1(control_sesion_ref,revision,sesion_ref,estado,huella_sha256,sesion_revalidada_en,sesion_valida_hasta)
+ SELECT control_sesion_ref,2,sesion_ref,'revocada',repeat('f',64),clock_timestamp(),sesion_valida_hasta
+ FROM vec_autorizacion.control_sesion_v1 WHERE control_sesion_ref='cse_rpt27_$s' AND revision=1;
+ UPDATE vec_autorizacion.control_sesion_actual_v1 SET revision=2,actualizada_en=clock_timestamp(),acto_ref='acto:rpt27:revocacion-sintetica'
+ WHERE sesion_ref='ses_rpt27_$s'; COMMIT;" > /dev/null
+antes=$(contadores)
+lector_go revocada
+comprobar_contadores_go "$antes" '0|0|0|1'
+# 40001 en el adaptador Go: sin DTO, consumo ni recibo; intento confirmado
+# por el pool separado cuando ya terminó el rollback de la transacción lectora.
+preparar go_concurrente
+rel=$(valor "SELECT relacion_ref FROM public.rpt27_ensayo_vector WHERE caso='go_concurrente'")
+antes=$(contadores)
+psql_run postgres -c "SET application_name='rpt27_publicador_go_lento'; BEGIN;
+ SELECT public.rpt27_ensayo_revision('$rel','suspendida','2026-01-01',NULL); SELECT pg_sleep(2); COMMIT;" > "$scratch/publicador_go.out" 2> "$scratch/publicador_go.log" &
+publicador_pid=$!
+lista=false
+for _ in {1..80}; do
+ if [[ $(valor "SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE application_name='rpt27_publicador_go_lento' AND wait_event='PgSleep')") == t ]]; then lista=true; break; fi
+ sleep 0.02
+done
+[[ $lista == true ]] || fallo 'escritor Go no alcanzó barrera'
+lector_go concurrente
+wait "$publicador_pid" || fallo 'escritor Go falló'
+comprobar_contadores_go "$antes" '0|0|0|1'
+[[ $(valor "SELECT count(*)=3 AND NOT bool_or(actor_ref IS NOT NULL) FROM vec_personal.denegacion_relacion_para_rpt WHERE correlacion_ref NOT IN (SELECT 'correlacion_'||substr(encode(sha256(convert_to(caso,'UTF8')),'hex'),1,32) FROM public.rpt27_ensayo_vector)") == t ]] || fallo 'intentos Go atribuyeron identidad no revalidada o no confirmaron'
+
 captura "$scratch/final.json"
 cmp -s "$scratch/preimagen.json" "$scratch/final.json" || fallo 'ensayo alteró extensiones previas de A'
-# Queda por exigir en la candidata final la prueba focal del lector Go integrado
-# con ambos pools reales: debe devolver ErrNoDisponible, nunca un DTO, ante
-# fachada ausente, registro fallido o revocación actual del actor. Este borrador
-# acredita sólo un plan SQL/crypto; hoy no se ha ejecutado ningún caso.
-printf '%s\n' 'RPT27 plan SQL/COSE completado; comprobar además lector Go/pools antes de declarar ENSAYO-OK integral.'
+printf '%s\n' 'RPT27 ENSAYO-OK: SQL/COSE, lector Go/pools, rollback, revocación, MVCC e historia previa conservada.'

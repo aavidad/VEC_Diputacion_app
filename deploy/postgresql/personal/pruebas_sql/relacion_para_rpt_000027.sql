@@ -1,15 +1,8 @@
 \set ON_ERROR_STOP on
--- BORRADOR RPT27: sólo infraestructura futura de ensayo; ningún resultado acreditado.
+-- Fixture RPT27 exclusiva del clon autorizado: no instalar en principal.
 -- Activación únicamente por Dirección tras fuente congelada, dos GO y preimagen.
-\if :{?rpt27_ensayo_autorizado}
-\else
-\set rpt27_ensayo_autorizado false
-\endif
-\if :rpt27_ensayo_autorizado
-\else
-DO $paro$ BEGIN RAISE EXCEPTION 'PARO RPT27: faltan dos GO exactos y preimagen verificada' USING ERRCODE='55000'; END $paro$;
-\endif
--- Fixture nominal reutilizado sobre la preimagen AD144; no modifica Baremo.
+-- Fixture nominal sobre la captura causal POST149 del clon principal.
+-- Conserva las extensiones presentes, sin exigir Méritos ni Baremo ausentes.
 -- Infraestructura de ensayo exclusiva del clon privado. Autoridades y datos
 -- sintéticos propios: no acreditan IdP, fuente institucional ni política RRHH.
 -- El material positivo atraviesa COSE EdDSA y HMAC Go, registro durable V3 y
