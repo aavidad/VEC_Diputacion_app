@@ -2,7 +2,7 @@
 -- DOWN AD149 preparado, nunca ejecutado en este ensayo.
 -- Personal26 debe retirarse primero y sólo sin recibos; cualquier clave propia
 -- CRN11 registrada impide retirar la frontera, aun revocada. No borrar historia.
--- Requiere postimagen exacta propia y restaura matriz142 completa con sus ACL.
+-- Requiere postimagen propia exacta y restaura POST144, Baremo y sus ACL.
 BEGIN;
 SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
 SET LOCAL search_path=pg_catalog,pg_temp;
@@ -36,9 +36,10 @@ DECLARE
  f oid:=to_regprocedure('vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
  original text; nuevo text; actual text; fuente text; meta jsonb; deps jsonb; deps_compartidas jsonb; acl aclitem[];
  propietario oid; config text[]; definidora boolean;
- -- Postimagen AD149 capturada en PG18.4; restaura AD142 íntegra.
- esperada_def_sha256 text:=$esperada_def_sha256$eaeafc791e4db166b3e1c517f4a4b726ccf951c3769a1c6913e7cb2203a5eb07$esperada_def_sha256$;
- esperada_fuente_sha256 text:=$esperada_fuente_sha256$fed9fb4e46f3fc019ff060455ddbf3660702021c2c0f5ac9d172d11afbb71eab$esperada_fuente_sha256$;
+ -- Postimagen149 derivada exactamente del POST144 capturado y extensión propia;
+ -- no se ejecuta DOWN ni se elimina Baremo.
+ esperada_def_sha256 text:=$esperada_def_sha256$8efb8ae6ceffc5d3c3736a1b8b83543dd6a083eb0ae03eb8f0f4a1e2d3e9b232$esperada_def_sha256$;
+ esperada_fuente_sha256 text:=$esperada_fuente_sha256$da14ce5ef628586ebc1280cd62e6b7da1f57fea9c9b6f6f4233fbecd84c558b9$esperada_fuente_sha256$;
  marca text:=$marca$       )
        OR c ->> 'suite' <> 'VEC-AD-3-COSE-EDDSA-1'$marca$;
  excl text:=$excl$               p_perfil_mutacion IS DISTINCT FROM 'bolsa_llamamiento'
@@ -48,7 +49,7 @@ $excl$;
 $excl_nuevo$;
  runtime text:=$runtime$       OR NOT (
            (
-               p_perfil_mutacion IN ('meritos_hecho_propio_interno','meritos_hecho_rechazar')
+               p_perfil_mutacion IS NOT DISTINCT FROM 'gobierno_borrador_reglas_baremo'
 $runtime$;
  runtime_nuevo text:=$runtime_nuevo$       OR NOT (
            (
@@ -63,7 +64,7 @@ $runtime$;
                AND NOT EXISTS (SELECT 1 FROM pg_auth_members m WHERE m.member='vec_personal_ejecutor'::regrole)
            )
            OR (
-               p_perfil_mutacion IN ('meritos_hecho_propio_interno','meritos_hecho_rechazar')
+               p_perfil_mutacion IS NOT DISTINCT FROM 'gobierno_borrador_reglas_baremo'
 $runtime_nuevo$;
  extension text:=$extension$           OR (
  p_perfil_mutacion IS NOT DISTINCT FROM 'vinculo_propio_historico_crn11'
@@ -134,6 +135,8 @@ BEGIN
     OR strpos(original,'meritos.hecho.declarar')=0
     OR strpos(original,'meritos.hecho.rectificar')=0
     OR strpos(original,'meritos.hecho.rechazar')=0
+    OR strpos(original,'gobierno_borrador_reglas_baremo')=0
+    OR strpos(original,'vec_bolsa_reglas_baremo.gobierno_borrador.v3')=0
  THEN RAISE EXCEPTION 'AD3-149: núcleo incompatible' USING ERRCODE='55000'; END IF;
  nuevo:=replace(original,extension||marca,marca);
  nuevo:=replace(nuevo,excl_nuevo,excl);
@@ -142,7 +145,7 @@ BEGIN
  SELECT pg_get_functiondef(f) INTO STRICT actual;
  IF actual IS DISTINCT FROM nuevo
     OR replace(replace(replace(actual,runtime,runtime_nuevo),excl,excl_nuevo),marca,extension||marca) IS DISTINCT FROM original
-    OR encode(sha256(convert_to(actual,'UTF8')),'hex') IS DISTINCT FROM '202b1580f00e1618e0fb311dcf0911992e56d9eb5f17bc642d58c73768f360f1'
+    OR encode(sha256(convert_to(actual,'UTF8')),'hex') IS DISTINCT FROM '0ffdcfcc7fa46d2555d07cad67de1686de7a9b21f6dedc17e5ea38216b1bbbd6'
     OR (SELECT to_jsonb(p)-'prosrc' FROM pg_proc p WHERE p.oid=f) IS DISTINCT FROM meta
     OR (SELECT proacl FROM pg_proc WHERE oid=f) IS DISTINCT FROM acl
     OR (SELECT proowner FROM pg_proc WHERE oid=f) IS DISTINCT FROM propietario
@@ -161,12 +164,12 @@ BEGIN
  SELECT pg_get_constraintdef(c.oid,true) INTO STRICT d FROM pg_constraint c
  WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
    AND c.conname='clave_capacidad_version_audiencia_consumo_check' AND c.contype='c' AND c.convalidated;
- IF encode(sha256(convert_to(d,'UTF8')),'hex') IS DISTINCT FROM 'a8f3fb019c420ec380e29b3291e13b85c1e499637e0ad43e6ef86bb03bc45c95'
+ IF encode(sha256(convert_to(d,'UTF8')),'hex') IS DISTINCT FROM '3ed762b21ac10a8b2c8076c4832b57545f1e3ef93ebd41cf11939466e6b36802'
     OR length(d)-length(replace(d,retirar,''))<>length(retirar) THEN
   RAISE EXCEPTION 'AD149: postimagen de audiencias incompatible' USING ERRCODE='55000';
  END IF;
  nueva:=replace(d,retirar,'');
- IF encode(sha256(convert_to(nueva,'UTF8')),'hex') IS DISTINCT FROM 'd5c8048786b283485016af29fba41ff68b93076ba4f37f2badfa6bb7d5532fd9' THEN
+ IF encode(sha256(convert_to(nueva,'UTF8')),'hex') IS DISTINCT FROM '5fb403d54926bc89ea7c5cf53fe0538ec8936f22000cbb0bce72c9a731d6cabc' THEN
   RAISE EXCEPTION 'AD149: reversión de audiencias divergente' USING ERRCODE='55000';
  END IF;
  ALTER TABLE vec_autorizacion_atestada_v3.clave_capacidad_version DROP CONSTRAINT clave_capacidad_version_audiencia_consumo_check;

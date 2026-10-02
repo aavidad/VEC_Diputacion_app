@@ -2,9 +2,10 @@
 -- AD149. Consumo nominal del vínculo propio histórico CRN11.
 -- Orden de Dirección 02/10/2026 13:50: el número no crea dependencia.
 -- Esta fuente sustituye la espera de AD148 del borrador eaa21db: no usa objetos
--- AD143..148. Depende de Personal16/CA7 y núcleo V3 actual AD142 íntegro.
+-- AD143/145..148. Depende de Personal16/CA7 y núcleo V3 POST-AD144 íntegro.
 -- Prefijo de ensayo: H6 físico72 -> roles BolsaConvocatorias -> AD141 ->
--- roles Méritos -> AD142. No reaplicar ese prefijo sobre historia instalada.
+-- roles Méritos -> AD142 -> prefijo Baremo BR1/BR2 -> AD144 -> BR4.
+-- Reanclaje Claude 02/10 16:20: preservar Baremo íntegro; no reaplicar prefijos.
 -- Añade un perfil, su selección runtime y una sola audiencia. Nunca presta
 -- AD54/74, publica permisos por petición ni amplía el proceso exterior.
 BEGIN;
@@ -31,7 +32,8 @@ BEGIN
        WHERE n.nspname='vec_contexto_actor_v1' AND p.proname='proyeccion_empleado_personal_v2'
          AND p.pronargs=2 AND p.proargtypes[0]='text'::regtype AND p.proargtypes[1]='timestamptz'::regtype
          AND p.proowner='vec_contexto_actor_v1_propietario'::regrole)
-    OR to_regprocedure('vec_autorizacion_atestada_v3.consumir_operacion_meritos_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL THEN
+    OR to_regprocedure('vec_autorizacion_atestada_v3.consumir_operacion_meritos_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
+    OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_gobierno_borrador_reglas_baremo_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL THEN
   RAISE EXCEPTION 'AD149: dependencias o preimagen incompatibles' USING ERRCODE='55000';
  END IF;
  FOREACH rol IN ARRAY ARRAY['vec_personal_propietario','vec_personal_migrador','vec_personal_ejecutor'] LOOP
@@ -49,9 +51,9 @@ DECLARE
  f oid:=to_regprocedure('vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
  original text; nuevo text; actual text; fuente text; meta jsonb; deps jsonb; deps_compartidas jsonb; acl aclitem[];
  propietario oid; config text[]; definidora boolean;
- -- Preimagen completa AD142 capturada en PG18.4, no inferida por numeración.
- esperada_def_sha256 text:=$esperada_def_sha256$202b1580f00e1618e0fb311dcf0911992e56d9eb5f17bc642d58c73768f360f1$esperada_def_sha256$;
- esperada_fuente_sha256 text:=$esperada_fuente_sha256$4a98b94be7e198a6c1e364949e60f35f39b2e5bf931bc361b1adb52a12a94905$esperada_fuente_sha256$;
+ -- Preimagen POST-AD144 completa capturada en PG18.4, sin hashes futuros.
+ esperada_def_sha256 text:=$esperada_def_sha256$0ffdcfcc7fa46d2555d07cad67de1686de7a9b21f6dedc17e5ea38216b1bbbd6$esperada_def_sha256$;
+ esperada_fuente_sha256 text:=$esperada_fuente_sha256$86ad9182e8a9e35474fae55b608c71512c01ddfbafa336f643aa1bccee96e96b$esperada_fuente_sha256$;
  marca text:=$marca$       )
        OR c ->> 'suite' <> 'VEC-AD-3-COSE-EDDSA-1'$marca$;
  excl text:=$excl$               p_perfil_mutacion IS DISTINCT FROM 'bolsa_llamamiento'
@@ -61,7 +63,7 @@ $excl$;
 $excl_nuevo$;
  runtime text:=$runtime$       OR NOT (
            (
-               p_perfil_mutacion IN ('meritos_hecho_propio_interno','meritos_hecho_rechazar')
+               p_perfil_mutacion IS NOT DISTINCT FROM 'gobierno_borrador_reglas_baremo'
 $runtime$;
  runtime_nuevo text:=$runtime_nuevo$       OR NOT (
            (
@@ -76,7 +78,7 @@ $runtime$;
                AND NOT EXISTS (SELECT 1 FROM pg_auth_members m WHERE m.member='vec_personal_ejecutor'::regrole)
            )
            OR (
-               p_perfil_mutacion IN ('meritos_hecho_propio_interno','meritos_hecho_rechazar')
+               p_perfil_mutacion IS NOT DISTINCT FROM 'gobierno_borrador_reglas_baremo'
 $runtime_nuevo$;
  extension text:=$extension$           OR (
  p_perfil_mutacion IS NOT DISTINCT FROM 'vinculo_propio_historico_crn11'
@@ -148,6 +150,8 @@ BEGIN
     OR strpos(original,'meritos.hecho.declarar')=0
     OR strpos(original,'meritos.hecho.rectificar')=0
     OR strpos(original,'meritos.hecho.rechazar')=0
+    OR strpos(original,'gobierno_borrador_reglas_baremo')=0
+    OR strpos(original,'vec_bolsa_reglas_baremo.gobierno_borrador.v3')=0
  THEN RAISE EXCEPTION 'AD3-149: núcleo incompatible' USING ERRCODE='55000'; END IF;
  nuevo:=replace(original,runtime,runtime_nuevo);
  nuevo:=replace(nuevo,excl,excl_nuevo);
@@ -176,7 +180,7 @@ BEGIN
  SELECT pg_get_constraintdef(c.oid,true) INTO STRICT d FROM pg_constraint c
  WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
    AND c.conname='clave_capacidad_version_audiencia_consumo_check' AND c.contype='c' AND c.convalidated;
- IF encode(sha256(convert_to(d,'UTF8')),'hex') IS DISTINCT FROM 'd5c8048786b283485016af29fba41ff68b93076ba4f37f2badfa6bb7d5532fd9'
+ IF encode(sha256(convert_to(d,'UTF8')),'hex') IS DISTINCT FROM '5fb403d54926bc89ea7c5cf53fe0538ec8936f22000cbb0bce72c9a731d6cabc'
     OR strpos(d,'CHECK (audiencia_consumo = ANY (ARRAY[')<>1 OR right(d,3)<>']))'
     OR strpos(d,'vec_personal.vinculo_propio.crn11.v1')<>0 THEN
   RAISE EXCEPTION 'AD149: preimagen de audiencias incompatible' USING ERRCODE='55000';
