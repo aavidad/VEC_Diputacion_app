@@ -16,10 +16,62 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"vec-diputacion-granada/config"
 	app "vec-diputacion-granada/internal/modules/bolsa/application/gobiernoreglasbaremo"
 	bp "vec-diputacion-granada/internal/modules/bolsa/ports"
 	vd "vec-diputacion-granada/internal/vec/domain"
 )
+
+func baseNominalEnsayoBaremo(t *testing.T, ctx context.Context, cfg config.Config, d *DependenciasCT) (dependenciasAltaContratacionTemporalDesarrollo, materialAtestacionContratacionTemporalDesarrollo) {
+	t.Helper()
+	principal, ok := d.resolvedor.principalConRolUnico(rolTecnicoRRHHContratacionTemporalDesarrollo)
+	if !ok {
+		t.Fatal("identidad nominal RRHH ausente")
+	}
+	contexto, err := nuevoContextoAltaContratacionTemporalDesarrollo(principal, d.reloj.Ahora())
+	if err != nil {
+		t.Fatal("contexto base existente rechazado")
+	}
+	soporte := &soporteAltaContratacionTemporalDesarrollo{sello: d.sello, reloj: d.reloj,
+		principalID: principal.ID, certificadoSHA256: principal.Attributes["certificate_sha256"], contexto: contexto}
+	_, gobiernoDSN, err := cfg.ContratacionTemporalPostgreSQL.DSNSeparados()
+	if err != nil {
+		t.Fatal("configuración nominal de gobierno incompleta")
+	}
+	gobierno, _, err := abrirPoolPostgreSQLContratacionTemporalDesarrollo(ctx, gobiernoDSN, "vec-ensayo-baremo-gobierno", rolGobiernoPostgreSQLContratacionTemporalDesarrollo)
+	if err != nil {
+		t.Fatal("gobierno nominal no disponible")
+	}
+	t.Cleanup(gobierno.Close)
+	registroDSN, err := cfg.ContratacionTemporalPostgreSQL.DSNRegistroAutorizacionSeparado()
+	if err != nil {
+		t.Fatal("configuración nominal de registro incompleta")
+	}
+	registro, _, err := abrirPoolPostgreSQLContratacionTemporalDesarrollo(ctx, registroDSN, "vec-ensayo-baremo-registro", rolRegistroAutorizacionPostgreSQLContratacionTemporalDesarrollo)
+	if err != nil {
+		t.Fatal("registro nominal no disponible")
+	}
+	t.Cleanup(registro.Close)
+	if gobierno.Config().ConnConfig.User == registro.Config().ConnConfig.User {
+		t.Fatal("gobierno y registro comparten LOGIN")
+	}
+	material, err := nuevoMaterialAtestacionContratacionTemporalDesarrollo(d.derivador, d.reloj.Ahora())
+	if err != nil {
+		t.Fatal("material persistente privado rechazado")
+	}
+	if publicarGobiernoAtestacionContratacionTemporalDesarrollo(ctx, gobierno, &material) != nil {
+		material.borrarCopiasEfimeras()
+		t.Fatal("publicación de arranque existente rechazada")
+	}
+	material.fuenteConfianza, err = nuevaFuenteConfianzaRenovableCTDesarrollo(gobierno, material, d.reloj)
+	if err != nil {
+		material.borrarCopiasEfimeras()
+		t.Fatal("confianza renovable PostgreSQL no disponible")
+	}
+	alta := dependenciasAltaContratacionTemporalDesarrollo{soporte: soporte,
+		postgresql: dependenciasPostgreSQLContratacionTemporalDesarrollo{gobierno: gobierno, registroAutorizacion: registro}}
+	return alta, material
+}
 
 func cargarEntornoEnsayoBaremo(t *testing.T, cfg configuracionEnsayoBaremo) {
 	t.Helper()

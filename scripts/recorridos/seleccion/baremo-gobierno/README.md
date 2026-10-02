@@ -2,16 +2,22 @@
 
 El driver llama a `ServicioGobiernoV3` con el PDP central, el broker nominal,
 la sesión PostgreSQL, el proveedor criptográfico y el repositorio PostgreSQL
-existentes. Reutiliza la composición de seguridad y el soporte base de CT.
+existentes. Reutiliza la composición de seguridad y los constructores del
+soporte base de CT, con sus autoridades nominales de gobierno y registro.
 No levanta un servidor HTTP. El contexto de cada llamada se sella en el harness
 con la identidad y el certificado verificados por la composición de desarrollo.
 Este ensayo no acredita un recorrido HTTP, una conexión mTLS de navegador ni
 firma legal.
 
 Necesita un clon sintético desechable preparado por Dirección, las dependencias
-de CT que consume el soporte existente y AD144/BR4 instaladas y revisadas. AD144
+de identidad y autorización que consume el soporte existente y AD144/BR4
+instaladas y revisadas. AD144
 se apoya en el núcleo real posterior a AD142; Copias/AD143 lleva otro circuito.
 El script no arranca PostgreSQL ni instala o revierte migraciones.
+
+El ensayo no arranca el caso de alta de CT ni su lector de cobertura O4-05:
+el gobierno de baremos no los consume. Las guardas y la composición de CT en
+producción permanecen en sus constructores originales.
 
 ## Configuración privada
 

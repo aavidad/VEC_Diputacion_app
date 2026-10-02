@@ -176,11 +176,11 @@ func componerEnsayoBaremoReal(t *testing.T, ctx context.Context, cfg configuraci
 		t.Fatal("dependencias CT existentes rechazadas")
 	}
 	t.Cleanup(dependencias.Cerrar)
-	alta, err := nuevasDependenciasAltaContratacionTemporalDesarrollo(dependencias)
-	if err != nil {
-		t.Fatal("soporte base PostgreSQL existente no disponible")
-	}
-	t.Cleanup(alta.cerrar)
+	// Baremo no consume el caso de alta CT ni su lector de cobertura O4-05.
+	// Se componen sólo su soporte y las autoridades necesarias, con las
+	// fábricas existentes de identidad/contexto/material.
+	alta, material := baseNominalEnsayoBaremo(t, ctx, c, dependencias)
+	defer material.borrarCopiasEfimeras()
 	id := conjunto.Identidad()
 	perfil, err := NuevoPerfilGobiernoReglasBaremoV3(alta.soporte, id.ConvocatoriaRef(), id.ExpedienteRef(), dependencias.reloj.Ahora())
 	if err != nil {
@@ -233,12 +233,6 @@ func componerEnsayoBaremoReal(t *testing.T, ctx context.Context, cfg configuraci
 	if err != nil {
 		t.Fatal("PDP común no disponible")
 	}
-	material, err := nuevoMaterialAtestacionContratacionTemporalDesarrollo(composicion.derivadorIdempotencia, dependencias.reloj.Ahora())
-	if err != nil {
-		t.Fatal("material persistente privado rechazado")
-	}
-	defer material.borrarCopiasEfimeras()
-	material.fuenteConfianza = alta.postgresql.proveedorMaterial.fuenteConfianza
 	// El constructor de arranque común conserva clave/raíz y ajusta las
 	// coordenadas a la versión realmente gobernada en PostgreSQL. Se repite
 	// idempotentemente al recomponer; no publica por operación del servicio.
