@@ -254,7 +254,7 @@ func TestRepositorioJustificacionRecuperaConLecturaNueva(t *testing.T) {
 	}
 }
 
-func TestRepositorioJustificacionRecuperaMaterialCanonicoPorClave(t *testing.T) {
+func TestRepositorioJustificacionRecuperaRevisionPorClave(t *testing.T) {
 	m, j, registro := materialYRegistroJustificacion(t)
 	m.Accion = domain.AccionRevisarJustificacion
 	m.VersionEsperada = 1
@@ -268,39 +268,37 @@ func TestRepositorioJustificacionRecuperaMaterialCanonicoPorClave(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	canonico, err := m.Canonico()
-	if err != nil {
-		t.Fatal(err)
-	}
 	h, _ := m.Huella()
 	recibo := ports.ReciboJustificacion{Justificacion: j, Registro: &registro, HuellaMaterial: h,
 		ReciboRef: "recibo:cronos:0b9f3c2e-1d4a-4c6b-9e8f-0a1b2c3d4e5f", FechaUTC: time.Date(2026, 10, 2, 8, 1, 0, 0, time.UTC)}
-	respuesta := func(raw string) []byte {
-		b, _ := json.Marshal(struct {
-			Encontrado       bool                      `json:"encontrado"`
-			MaterialCanonico string                    `json:"material_canonico"`
-			Recibo           ports.ReciboJustificacion `json:"recibo"`
-		}{true, raw, recibo})
-		return b
-	}
+	respuesta, _ := json.Marshal(struct {
+		Encontrado bool                      `json:"encontrado"`
+		Recibo     ports.ReciboJustificacion `json:"recibo"`
+	}{true, recibo})
 	lectura := domain.MaterialReciboPorClaveJustificacion{ActorRef: m.ActorRef, PerfilRef: m.PerfilRef,
-		EmpleadoRef: m.Vinculo.EmpleadoRef, SolicitudRef: m.Vinculo.SolicitudRef, ClaveOperacion: m.ClaveOperacion}
-	tx := &txLecturaPrueba{respuestas: [][]byte{respuesta(string(canonico))}}
+		EmpleadoRef: m.Vinculo.EmpleadoRef, SolicitudRef: m.Vinculo.SolicitudRef, ClaveOperacion: m.ClaveOperacion,
+		VersionEsperada: m.VersionEsperada, Decision: m.Decision, MotivoRef: m.MotivoRef}
+	tx := &txLecturaPrueba{respuestas: [][]byte{respuesta}}
 	r := &RepositorioJustificacion{db: dbLecturaPrueba{t: t, tx: tx}, lecturas: &proveedorLecturaJustificacionPrueba{t}}
-	original, got, ok, err := r.RecuperarMaterialPorClave(context.Background(), orden, lectura)
-	if err != nil || !ok || !got.Replay || original != m || got.ReciboRef != recibo.ReciboRef || tx.commits != 1 || tx.consultas[0] != consultaMaterialPorClaveJustificacion {
-		t.Fatal("material histórico no recuperado", err, got)
+	got, ok, err := r.RecuperarRevisionPorClave(context.Background(), orden, lectura)
+	if err != nil || !ok || !got.Replay || got.ReciboRef != recibo.ReciboRef || tx.commits != 1 || tx.consultas[0] != consultaRevisionPorClaveJustificacion {
+		t.Fatal("recibo histórico no recuperado", err, got)
 	}
 	var enviado domain.MaterialReciboPorClaveJustificacion
 	if json.Unmarshal([]byte(tx.materiales[0]), &enviado) != nil || enviado != lectura {
 		t.Fatal("lectura por clave no ligada")
 	}
-	// Un jsonb regenerado, aunque semánticamente igual, no sustituye los bytes
-	// originales con los que se obtuvo la huella y el recibo.
-	tx = &txLecturaPrueba{respuestas: [][]byte{respuesta(" " + string(canonico))}}
+	// La fachada sólo puede devolver el recibo autorizado, nunca el material completo.
+	var extra map[string]json.RawMessage
+	if json.Unmarshal(respuesta, &extra) != nil {
+		t.Fatal("respuesta inválida")
+	}
+	extra["material_canonico"] = json.RawMessage(`"no_debe_salir"`)
+	respuestaExtra, _ := json.Marshal(extra)
+	tx = &txLecturaPrueba{respuestas: [][]byte{respuestaExtra}}
 	r.db = dbLecturaPrueba{t: t, tx: tx}
-	if _, _, ok, err := r.RecuperarMaterialPorClave(context.Background(), orden, lectura); !errors.Is(err, ports.ErrJustificacionNoDisponible) || ok {
-		t.Fatal("aceptó material recanonizado", err)
+	if _, ok, err := r.RecuperarRevisionPorClave(context.Background(), orden, lectura); !errors.Is(err, ports.ErrJustificacionNoDisponible) || ok {
+		t.Fatal("aceptó material no autorizado", err)
 	}
 }
 

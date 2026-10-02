@@ -99,7 +99,7 @@ type ReciboJustificacion struct {
 // Documentos tiene una transacción independiente: este contrato no la deshace.
 type RepositorioJustificacion interface {
 	RecuperarJustificacion(context.Context, OrdenJustificacion, domain.MaterialJustificacion) (ReciboJustificacion, bool, error)
-	RecuperarMaterialPorClave(context.Context, OrdenJustificacion, domain.MaterialReciboPorClaveJustificacion) (domain.MaterialJustificacion, ReciboJustificacion, bool, error)
+	RecuperarRevisionPorClave(context.Context, OrdenJustificacion, domain.MaterialReciboPorClaveJustificacion) (ReciboJustificacion, bool, error)
 	ConfirmarJustificacion(context.Context, domain.MaterialJustificacion, domain.Justificacion, *RegistroDocumentalConfirmado, vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ReciboJustificacion, error)
 }
 type PeticionAnexoJustificacion struct {

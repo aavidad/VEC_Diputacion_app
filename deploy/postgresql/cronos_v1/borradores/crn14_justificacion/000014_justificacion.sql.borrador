@@ -340,7 +340,7 @@ BEGIN
  ELSIF p_modo='recibo' THEN
    claves:=ARRAY['actor_ref','perfil_ref','empleado_ref','solicitud_ref','clave_operacion','huella_material'];
  ELSIF p_modo='material_por_clave' THEN
-   claves:=ARRAY['actor_ref','perfil_ref','empleado_ref','solicitud_ref','clave_operacion'];
+   claves:=ARRAY['actor_ref','perfil_ref','empleado_ref','solicitud_ref','clave_operacion','version_esperada','decision','motivo_ref'];
  ELSIF p_modo='anexar' THEN
    claves:=ARRAY['actor_ref','perfil_ref','clave_operacion','accion','solicitud_version','version_esperada',
      'politica_ref','politica_version','politica_sha256','vinculo'];
@@ -357,13 +357,21 @@ BEGIN
    RAISE EXCEPTION 'estructura Cronos inválida' USING ERRCODE='PC001';
  END IF;
  IF p_modo IN ('consultar','recibo','material_por_clave') THEN
-   IF EXISTS (SELECT 1 FROM jsonb_each(m) e WHERE jsonb_typeof(e.value) IS DISTINCT FROM 'string')
+   IF EXISTS (SELECT 1 FROM jsonb_each(m) e WHERE e.key<>'version_esperada' AND jsonb_typeof(e.value) IS DISTINCT FROM 'string')
       OR coalesce(m->>'empleado_ref','') !~ '^emp_[-A-Za-z0-9_]{22,128}$'
       OR coalesce(m->>'solicitud_ref','') !~ '^permiso:cronos:solicitud:[A-Za-z0-9][A-Za-z0-9_-]{7,127}$'
       OR (p_modo IN ('recibo','material_por_clave')
           AND coalesce(m->>'clave_operacion','') !~ '^(ref:[0-9a-f]{64}|[a-z][a-z0-9_]{1,31}:[0-9a-f-]{36})$')
       OR (p_modo='recibo' AND coalesce(m->>'huella_material','') !~ '^[0-9a-f]{64}$') THEN
      RAISE EXCEPTION 'estructura Cronos inválida' USING ERRCODE='PC001';
+   END IF;
+   IF p_modo='material_por_clave' AND (
+      jsonb_typeof(m->'version_esperada') IS DISTINCT FROM 'number'
+      OR coalesce(m->>'version_esperada','') !~ '^[1-9][0-9]{0,18}$'
+      OR (m->>'version_esperada')::numeric>=9223372036854775807
+      OR coalesce(m->>'decision','') NOT IN ('aceptada','rechazada')
+      OR coalesce(m->>'motivo_ref','') !~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{0,159}$') THEN
+     RAISE EXCEPTION 'revisión Cronos inválida' USING ERRCODE='PC001';
    END IF;
    RETURN m;
  END IF;
@@ -538,14 +546,15 @@ BEGIN
 END $f$;
 
 -- Recuperación interna por clave cuando el cliente no conoce la huella del
--- material original. No reconstruye JSON desde jsonb: devuelve los bytes
--- UTF-8 canónicos guardados al confirmar aquella versión histórica.
-CREATE FUNCTION vec_cronos_v1.recuperar_material_justificacion_por_clave_v1(
+-- material original. Usa los bytes UTF-8 canónicos guardados al confirmar
+-- aquella versión histórica para cotejar
+-- decisión, motivo y versión. El material permanece interno: sólo sale el recibo.
+CREATE FUNCTION vec_cronos_v1.recuperar_recibo_revision_por_clave_v1(
  p_material text,p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,
  p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea
 ) RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path=pg_catalog SET row_security=on SET timezone='UTC' SET lock_timeout='2s' AS $f$
-DECLARE m jsonb; k record; operacion vec_cronos_v1.justificacion_operacion%ROWTYPE;
+DECLARE m jsonb; historico jsonb; k record; operacion vec_cronos_v1.justificacion_operacion%ROWTYPE;
 BEGIN
  m:=vec_cronos_v1.material_justificacion_v1(p_material,'material_por_clave');
  SELECT * INTO STRICT k FROM vec_cronos_v1.consumir_justificacion_v1(
@@ -564,14 +573,27 @@ BEGIN
    IF clock_timestamp()>=k.vence THEN RAISE EXCEPTION 'vigencia Cronos agotada' USING ERRCODE='PC003'; END IF;
    RETURN jsonb_build_object('encontrado',false);
  END IF;
- IF operacion.actor_ref IS DISTINCT FROM m->>'actor_ref'
+ IF operacion.accion IS DISTINCT FROM 'revisar' THEN
+   RAISE EXCEPTION 'clave Cronos en conflicto' USING ERRCODE='PC002';
+ END IF;
+ historico:=vec_cronos_v1.material_justificacion_v1(operacion.material_canonico,'revisar');
+ IF historico->>'accion' IS DISTINCT FROM 'cronos.justificacion.revisar'
+    OR historico->'version_esperada' IS DISTINCT FROM m->'version_esperada'
+    OR historico->>'decision' IS DISTINCT FROM m->>'decision'
+    OR historico->>'motivo_ref' IS DISTINCT FROM m->>'motivo_ref'
+    OR historico->>'clave_operacion' IS DISTINCT FROM m->>'clave_operacion'
+    OR historico->>'actor_ref' IS DISTINCT FROM m->>'actor_ref'
+    OR historico->>'perfil_ref' IS DISTINCT FROM m->>'perfil_ref'
+    OR historico#>>'{vinculo,empleado_ref}' IS DISTINCT FROM m->>'empleado_ref'
+    OR historico#>>'{vinculo,solicitud_ref}' IS DISTINCT FROM m->>'solicitud_ref'
+    OR operacion.actor_ref IS DISTINCT FROM m->>'actor_ref'
     OR operacion.perfil_ref IS DISTINCT FROM m->>'perfil_ref'
     OR operacion.material_sha256 IS DISTINCT FROM
        encode(sha256(convert_to(operacion.material_canonico,'UTF8')),'hex') THEN
    RAISE EXCEPTION 'clave Cronos en conflicto' USING ERRCODE='PC002';
  END IF;
  IF clock_timestamp()>=k.vence THEN RAISE EXCEPTION 'vigencia Cronos agotada' USING ERRCODE='PC003'; END IF;
- RETURN jsonb_build_object('encontrado',true,'material_canonico',operacion.material_canonico,
+ RETURN jsonb_build_object('encontrado',true,
    'recibo',vec_cronos_v1.recibo_justificacion_interno_v1(operacion)||jsonb_build_object('replay',true));
 END $f$;
 
@@ -817,7 +839,7 @@ BEGIN
   'vec_cronos_v1.resolver_empleado_justificacion_v1(text)',
   'vec_cronos_v1.consultar_justificacion_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
   'vec_cronos_v1.recuperar_recibo_justificacion_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
-  'vec_cronos_v1.recuperar_material_justificacion_por_clave_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
+  'vec_cronos_v1.recuperar_recibo_revision_por_clave_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
   'vec_cronos_v1.anexar_justificacion_v1(text,bytea,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
   'vec_cronos_v1.revisar_justificacion_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'
  ] LOOP

@@ -63,15 +63,18 @@ type repoJustificacionPrueba struct {
 	sustituirRegistro bool
 }
 
-func (r *repoJustificacionPrueba) RecuperarMaterialPorClave(_ context.Context, _ ports.OrdenJustificacion, m domain.MaterialReciboPorClaveJustificacion) (domain.MaterialJustificacion, ports.ReciboJustificacion, bool, error) {
+func (r *repoJustificacionPrueba) RecuperarRevisionPorClave(_ context.Context, _ ports.OrdenJustificacion, m domain.MaterialReciboPorClaveJustificacion) (ports.ReciboJustificacion, bool, error) {
 	h, ok := r.historicos[m.ClaveOperacion]
 	if !ok {
-		return domain.MaterialJustificacion{}, ports.ReciboJustificacion{}, false, nil
+		return ports.ReciboJustificacion{}, false, nil
 	}
-	if h.material.Vinculo.SolicitudRef != m.SolicitudRef || h.material.Vinculo.EmpleadoRef != m.EmpleadoRef {
-		return domain.MaterialJustificacion{}, ports.ReciboJustificacion{}, false, domain.ErrJustificacionConflicto
+	if h.material.ActorRef != m.ActorRef || h.material.PerfilRef != m.PerfilRef ||
+		h.material.Vinculo.SolicitudRef != m.SolicitudRef || h.material.Vinculo.EmpleadoRef != m.EmpleadoRef ||
+		h.material.Accion != domain.AccionRevisarJustificacion || h.material.VersionEsperada != m.VersionEsperada ||
+		h.material.Decision != m.Decision || h.material.MotivoRef != m.MotivoRef {
+		return ports.ReciboJustificacion{}, false, domain.ErrJustificacionConflicto
 	}
-	return h.material, h.recibo, true, nil
+	return h.recibo, true, nil
 }
 
 func (r *repoJustificacionPrueba) RecuperarJustificacion(_ context.Context, _ ports.OrdenJustificacion, m domain.MaterialJustificacion) (ports.ReciboJustificacion, bool, error) {
@@ -390,9 +393,19 @@ func TestRevisionRecuperaMaterialOriginalTrasOtroAnexo(t *testing.T) {
 	if err != nil || !replay.Replay || replay.ReciboRef != reciboRevision.ReciboRef || replay.Justificacion.Vinculo != revision.Vinculo || r.efectos != efectos || d.llamadas != altas {
 		t.Fatal("revisión A no recuperable tras documento B", err, replay)
 	}
-	consulta.MotivoRef = f.p.Politica.MotivosRef[1]
-	if _, err := s.RecuperarRevision(context.Background(), o, consulta); !errors.Is(err, domain.ErrJustificacionConflicto) || r.efectos != efectos {
-		t.Fatal("clave histórica aceptó otro motivo", err)
+	for _, campo := range []string{"motivo", "decision", "version"} {
+		alterada := consulta
+		switch campo {
+		case "motivo":
+			alterada.MotivoRef = f.p.Politica.MotivosRef[1]
+		case "decision":
+			alterada.Decision = domain.JustificacionRechazada
+		case "version":
+			alterada.VersionEsperada++
+		}
+		if _, err := s.RecuperarRevision(context.Background(), o, alterada); !errors.Is(err, domain.ErrJustificacionConflicto) || r.efectos != efectos || d.llamadas != altas {
+			t.Fatal("clave histórica aceptó otro campo", campo, err)
+		}
 	}
 }
 

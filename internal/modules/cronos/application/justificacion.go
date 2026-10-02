@@ -238,26 +238,30 @@ func (s *ServicioJustificacion) RecuperarRevision(ctx context.Context, o ports.O
 		return ports.ReciboJustificacion{}, err
 	}
 	lectura := domain.MaterialReciboPorClaveJustificacion{ActorRef: a.PersonaRef, PerfilRef: a.PerfilActivoRef,
-		EmpleadoRef: p.Solicitud.EmpleadoRef, SolicitudRef: in.SolicitudRef, ClaveOperacion: in.ClaveOperacion}
+		EmpleadoRef: p.Solicitud.EmpleadoRef, SolicitudRef: in.SolicitudRef, ClaveOperacion: in.ClaveOperacion,
+		VersionEsperada: in.VersionEsperada, Decision: in.Decision, MotivoRef: in.MotivoRef}
 	if _, err := lectura.Canonico(); err != nil {
 		return ports.ReciboJustificacion{}, err
 	}
-	m, r, ok, err := s.repo.RecuperarMaterialPorClave(ctx, o, lectura)
+	r, ok, err := s.repo.RecuperarRevisionPorClave(ctx, o, lectura)
 	if err != nil {
 		return ports.ReciboJustificacion{}, err
 	}
 	if !ok {
 		return ports.ReciboJustificacion{}, ports.ErrJustificacionNoEncontrada
 	}
-	if m.Accion != domain.AccionRevisarJustificacion || m.ActorRef != a.PersonaRef || m.PerfilRef != a.PerfilActivoRef ||
-		m.Vinculo.SolicitudRef != in.SolicitudRef || m.Vinculo.EmpleadoRef != p.Solicitud.EmpleadoRef ||
-		m.ClaveOperacion != in.ClaveOperacion || m.VersionEsperada != in.VersionEsperada ||
-		m.Decision != in.Decision || m.MotivoRef != in.MotivoRef {
-		return ports.ReciboJustificacion{}, domain.ErrJustificacionConflicto
-	}
-	if !reciboJustificacionCoherente(r, m, p) {
+	if r.Justificacion.Version != in.VersionEsperada+1 || r.Justificacion.Estado != in.Decision ||
+		r.Justificacion.MotivoRef != in.MotivoRef || r.Justificacion.Vinculo.SolicitudRef != in.SolicitudRef ||
+		r.Justificacion.Vinculo.EmpleadoRef != p.Solicitud.EmpleadoRef {
 		return ports.ReciboJustificacion{}, ports.ErrJustificacionNoDisponible
 	}
+	if !domain.HuellaEfectosValida(r.HuellaMaterial) || r.ReciboRef == "" || r.FechaUTC.IsZero() ||
+		r.FechaUTC.Location() != time.UTC || r.FechaUTC.Nanosecond()%1000 != 0 ||
+		r.Justificacion.Validar(p.Solicitud, p.Politica) != nil || r.Registro == nil ||
+		!registroDocumentalCoherente(*r.Registro, r.Justificacion.Vinculo.Documento, p) {
+		return ports.ReciboJustificacion{}, ports.ErrJustificacionNoDisponible
+	}
+
 	r.Replay = true
 	return r, nil
 }
