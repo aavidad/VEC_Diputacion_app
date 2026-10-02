@@ -57,6 +57,7 @@ type Consulta struct {
 	Despues string `json:"despues,omitempty"`
 }
 type Vista struct {
+	Reserva        Recibo                      `json:"reserva"`
 	Solicitud      operacionescopias.Solicitud `json:"solicitud"`
 	Recibo         Recibo                      `json:"recibo"`
 	Reconciliacion string                      `json:"reconciliacion"`

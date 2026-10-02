@@ -137,7 +137,7 @@ func (m *motor) procesar(p peticion, instante string) (port.Resultado, *operacio
 		res.Operaciones = make([]port.Vista, 0, len(keys))
 		for _, key := range keys {
 			e := m.operaciones[key]
-			res.Operaciones = append(res.Operaciones, port.Vista{Solicitud: e.Solicitud, Recibo: e.Ultimo, Reconciliacion: e.Operacion.Reconciliar()})
+			res.Operaciones = append(res.Operaciones, port.Vista{Reserva: e.Reserva, Solicitud: e.Solicitud, Recibo: e.Ultimo, Reconciliacion: e.Operacion.Reconciliar()})
 		}
 	case "reservar":
 		if op, ok := m.claves[p.Solicitud.Clave]; ok && op != p.Operacion {
