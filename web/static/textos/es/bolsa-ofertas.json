@@ -10,7 +10,7 @@
     "descripcion": "Descripción y requisitos",
     "correo_titulo": "Correo externo declarado por RRHH",
     "correo_limite": "Registre el correo ya enviado con el extracto de descripción, duración y requisitos. Esta declaración no acredita la entrega.",
-    "correo_fecha": "Fecha y hora del correo (obligatorio, hora local)",
+    "correo_fecha": "Fecha y hora del correo (obligatorio, hora de Madrid)",
     "correo_referencia": "Referencia del correo",
     "correo_referencia_obligatoria": "Referencia del correo (obligatoria)",
     "correo_huella": "Huella SHA-256 del correo",
@@ -103,11 +103,12 @@
     "error_422_oferta_invalida": "Revise la oferta y el correo declarado. La fecha del correo no puede ser futura ni el plazo puede haber terminado.",
     "error_400_solicitud_invalida": "Faltan datos de la oferta o del correo declarado. Revise el formulario.",
     "error_correo": "Revise la fecha, la referencia y la huella del correo declarado.",
+    "error_correo_referencia_personal": "La referencia del correo no puede incluir un DNI, NIE ni otros datos de identidad. Use una referencia interna.",
     "error_503_plazo_no_configurado": "La política de ofertas de esta bolsa no tiene plazo. Configure el «Plazo de disposición» y vuelva a publicar.",
     "error_generico": "No se pudo completar la operación. Consulte las ofertas antes de repetirla."
   },
   "politica_plazo": {
-    "ayuda": "El cálculo usa la fecha de notificación del correo externo que registra RRHH. Revise el cómputo y el calendario. Guarde la política antes de publicar."
+    "ayuda": "El plazo operativo empieza en la fecha y hora del correo externo declaradas por RRHH. El formulario muestra la política vigente o propone el catálogo de Bolsa. Revíselo y guárdelo antes de publicar."
   },
   "politica_plazas": {
     "aceptacion_previa": "Se adjudica entre las aceptaciones recibidas en plazo, por posición disponible. No se pide una segunda respuesta.",

@@ -55,11 +55,12 @@ export async function cargarEjemploPlazas({ cliente } = {}) {
   }
 }
 
-export function validarPoliticaEditable(politica) {
+export function validarPoliticaEditable(politica, { permitirLegada = false } = {}) {
   const plazo = politica?.plazo;
   const horas = plazo?.unidad === "horas_naturales";
   if (!plazo || (!horas && !UNIDADES_DIAS.has(plazo.unidad)) || !Number.isSafeInteger(plazo.cantidad)
     || plazo.cantidad < 1 || plazo.cantidad > (horas ? 720 : 30)
+    || (plazo.inicio !== "notificacion" && !(permitirLegada && plazo.inicio === undefined))
     || plazo.computo !== (horas ? "continuo_utc" : "administrativo")
     || typeof plazo.municipio_sede !== "string" || !MUNICIPIO.test(plazo.municipio_sede)
     || politica?.adjudicacion?.criterio !== "orden_vigente"
@@ -88,7 +89,9 @@ export function validarPoliticaRecibida(sobre) {
     || (Object.hasOwn(p, "puede_publicar") && typeof p.puede_publicar !== "boolean")) {
     throw new TypeError("respuesta de política de ofertas no válida");
   }
-  const politica = { ...p, politica: p.configurada ? validarPoliticaEditable(p.politica) : null };
+  // Las versiones anteriores conservan sus cuatro campos: lectura y replay,
+  // sin inventar un inicio ni permitir que se publique otra versión desde ellas.
+  const politica = { ...p, politica: p.configurada ? validarPoliticaEditable(p.politica, { permitirLegada: true }) : null };
   delete politica.puede_publicar;
   return politica;
 }
@@ -138,7 +141,8 @@ export function crearClientePoliticaOfertas({ fetchImpl = fetch } = {}) {
       if (!respuesta.ok) return { ok: false, status: respuesta.status, codigo: await codigoError(respuesta) };
       const recibida = validarPoliticaRecibida(await respuesta.json());
       if (recibida.bolsa_ref !== bolsa_ref || !recibida.configurada
-        || recibida.version !== version_esperada + 1 || !recibida.recibo_ref) {
+        || recibida.version !== version_esperada + 1 || !recibida.recibo_ref
+        || recibida.politica.plazo.inicio !== "notificacion") {
         throw new TypeError("recibo de política incoherente");
       }
       return { ok: true, status: respuesta.status, politica: recibida };

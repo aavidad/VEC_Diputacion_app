@@ -21,8 +21,8 @@ import { aplicarIdiomaDocumento, aplicarTextosPortal, instalarSelectorIdiomaPort
 import { crearControladorBolsas } from "./portal-bolsas-api.js?v=20261002-a-recuperar-379-v1";
 import { crearSuperficieBorradorLlamamiento } from "./portal-borrador-llamamiento-ui.js?v=20261001-ct-a-i18n-v1";
 import { consultarAvisosBolsa, manejarAccionAvisos } from "./portal-bolsas-avisos.js?v=20261001-ct-a-i18n-v1";
-import { crearSuperficieOfertasBolsa } from "./portal-bolsas-ofertas.js?v=20261001-ct-a-i18n-v1";
-import { crearSuperficieRRHHPlazos } from "./modulos/bolsa/rrhh-plazos-ui.js?v=20261001-ct-a-i18n-v1";
+import { crearSuperficieOfertasBolsa } from "./portal-bolsas-ofertas.js?v=20261002-r2-integracion-v1";
+import { crearSuperficieRRHHPlazos } from "./modulos/bolsa/rrhh-plazos-ui.js?v=20261002-r2-integracion-v1";
 import { crearFuenteAuditoriaHTTP } from "./modulos/auditoria/cliente-http.js?v=20260928-usab-auditoria-v2";
 import { montarVistaAuditoria } from "./modulos/auditoria/vista.js?v=20261001-ct-a-i18n-v1";
 import { crearClientePoliticaCeseRRHH } from "./modulos/bolsa/rrhh-politica-cese-api.js?v=20260928-rrhh-politica-cese-v1";
