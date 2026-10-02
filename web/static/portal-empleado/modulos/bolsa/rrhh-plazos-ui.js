@@ -1,6 +1,6 @@
 import { traducirPortal } from "../../portal-i18n.js?v=20261001-ct-a-i18n-v1";
 import { crearClientePoliticaOfertas, validarPoliticaEditable, cargarEjemploPlazas, plazasCompletas,
-  LLAMADAS_PLAZAS, TRAS_RENUNCIA_PLAZAS, MAXIMO_HORAS_RESPUESTA } from "./rrhh-plazos-api.js";
+  LLAMADAS_PLAZAS, TRAS_RENUNCIA_PLAZAS, MAXIMO_HORAS_RESPUESTA } from "./rrhh-plazos-api.js?v=20261002-r1-notificacion-v2";
 
 // Los textos de plazos y plazas viven en textos/<idioma>/bolsa-ofertas.json.
 const { cargarTextos } = await import("../../../comun/textos.js");
