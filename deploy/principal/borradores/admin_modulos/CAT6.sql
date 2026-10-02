@@ -233,7 +233,7 @@ DECLARE m jsonb; c jsonb; d jsonb; cap jsonb; cfg jsonb; canon bytea; op text; a
  v integer; r integer; h text; mh text; ch text; accion text; entrada jsonb; momento timestamptz;
  cab vec_catalogos_configurables.modulos_cabeza%ROWTYPE; anterior jsonb; pub jsonb; bor jsonb;
  previo vec_catalogos_configurables.modulos_recibo%ROWTYPE; usado record; recibo text;
- sem bytea; sj jsonb; neutral bytea; nj jsonb; semh text; rb bytea; rh text; confirmado timestamptz; original bytea;
+ sem bytea; sj jsonb; neutral bytea; nj jsonb; semh text; rb bytea; rh text; confirmado timestamptz; original bytea; campo_fecha text; fecha_original text;
 BEGIN
  IF p_material_exacto IS NULL OR pg_catalog.octet_length(p_material_exacto) NOT BETWEEN 2 AND 2097152
     OR p_decision IS NULL OR pg_catalog.octet_length(p_decision) NOT BETWEEN 2 AND 65536
@@ -286,6 +286,17 @@ BEGIN
     OR pg_catalog.octet_length(coalesce(c->>'fuente_ref','')) NOT BETWEEN 1 AND 512
     OR pg_catalog.octet_length(coalesce(c->>'motivo_creacion','')) NOT BETWEEN 1 AND 32768 THEN
   RAISE EXCEPTION 'CAT6: metadatos centrales inválidos' USING ERRCODE='22023'; END IF;
+ -- Comprobar los bytes temporales antes del cast: timestamptz redondea
+ -- fracciones de más de seis decimales y no puede detectar después su pérdida.
+ FOREACH campo_fecha IN ARRAY ARRAY['creado_en','ultima_modificacion_en','publicado_en','retirado_en'] LOOP
+  fecha_original:=c->>campo_fecha;
+  IF fecha_original IS NOT NULL AND fecha_original !~ '^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])T([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]([.][0-9]{1,6})?Z$' THEN
+   RAISE EXCEPTION 'CAT6: instante original debe ser RFC3339 UTC con precisión máxima de microsegundos' USING ERRCODE='22023'; END IF;
+ END LOOP;
+ fecha_original:=CASE op WHEN 'crear' THEN c->>'creado_en' WHEN 'actualizar' THEN c->>'ultima_modificacion_en'
+    WHEN 'publicar' THEN c->>'publicado_en' ELSE c->>'retirado_en' END;
+ IF fecha_original IS NULL THEN
+  RAISE EXCEPTION 'CAT6: instante original ausente' USING ERRCODE='22023'; END IF;
  BEGIN
   momento:=(c->>'creado_en')::timestamptz;
   IF momento IS NULL OR NOT pg_catalog.isfinite(momento) OR momento='0001-01-01T00:00:00Z'::timestamptz THEN RAISE EXCEPTION 'fecha inválida'; END IF;
@@ -415,7 +426,7 @@ BEGIN
  IF usado.consumo_nuevo IS NOT TRUE THEN RAISE EXCEPTION 'CAT6: consumo nuevo requerido' USING ERRCODE='42501'; END IF;
  recibo:='recibo:'||pg_catalog.gen_random_uuid()::text;
  confirmado:=(CASE op WHEN 'crear' THEN c->>'creado_en' WHEN 'actualizar' THEN c->>'ultima_modificacion_en' WHEN 'publicar' THEN c->>'publicado_en' ELSE c->>'retirado_en' END)::timestamptz;
- IF confirmado IS NULL OR NOT pg_catalog.isfinite(confirmado) OR confirmado<>pg_catalog.date_trunc('microseconds',confirmado) THEN
+ IF confirmado IS NULL OR NOT pg_catalog.isfinite(confirmado) THEN
   RAISE EXCEPTION 'CAT6: instante original inválido' USING ERRCODE='22023'; END IF;
  rb:=pg_catalog.convert_to(pg_catalog.jsonb_build_object('referencia',recibo,'clave_idempotencia',m->>'clave_operacion',
    'huella_material_sha256',semh,'accion','vec.catalogos.'||op,'catalogo_id','administracion.modulos','version',v,
