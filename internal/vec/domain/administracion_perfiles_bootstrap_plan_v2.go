@@ -117,8 +117,14 @@ func (p PlanBootstrapAdministracionV2) Validar() error {
 		if !RolVersionAdministracionPerfilesValido(rol.VersionRef) || rol.VersionRef <= ultimo || !HuellaAdministracionPerfilesValida(rol.HuellaSHA256) ||
 			!rol.Clase.Valida() || !instanteBootstrap(rol.VigenteDesde) || !instanteBootstrap(rol.VigenteHasta) || rol.VigenteDesde.After(p.PreparadoEn) ||
 			rol.VigenteHasta.Before(p.CaducaEn) || !rol.VigenteHasta.After(rol.VigenteDesde) || rol.DuracionPropuestaSegundos == 0 ||
-			rol.DuracionPropuestaSegundos > uint64(rol.VigenteHasta.Sub(p.PreparadoEn)/time.Second) ||
 			rol.AmbitosFijos == nil || len(rol.AmbitosFijos) > 64 || rol.UnidadRequerida && len(rol.AmbitosFijos) != 0 || !rol.UnidadRequerida && len(rol.AmbitosFijos) == 0 {
+			return ErrControlAdministracionPerfilesInvalido
+		}
+		segundosDisponibles := int64(rol.VigenteHasta.Sub(p.PreparadoEn) / time.Second)
+		if segundosDisponibles <= 0 {
+			return ErrControlAdministracionPerfilesInvalido
+		}
+		if rol.DuracionPropuestaSegundos > uint64(segundosDisponibles) {
 			return ErrControlAdministracionPerfilesInvalido
 		}
 		ultimo = rol.VersionRef
