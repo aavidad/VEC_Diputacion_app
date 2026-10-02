@@ -10,7 +10,7 @@
     "descripcion": "Description and requirements",
     "correo_titulo": "External email declared by HR",
     "correo_limite": "Record the email already sent with the description, duration and requirements. This declaration does not prove delivery.",
-    "correo_fecha": "Email date and time (required, local time)",
+    "correo_fecha": "Email date and time (required, Madrid time)",
     "correo_referencia": "Email reference",
     "correo_referencia_obligatoria": "Email reference (required)",
     "correo_huella": "Email SHA-256 digest",
@@ -101,11 +101,12 @@
     "error_422_oferta_invalida": "Check the offer and declared email. The email date cannot be in the future or after the deadline.",
     "error_400_solicitud_invalida": "Offer or declared email details are missing. Check the form.",
     "error_correo": "Check the date, reference and digest of the declared email.",
+    "error_correo_referencia_personal": "The email reference cannot contain an identity document number or label. Use an internal reference.",
     "error_503_plazo_no_configurado": "This job pool’s offer policy has no deadline. Set the “Deadline to express interest” section and publish again.",
     "error_generico": "The operation could not be completed. Check the offers before trying again."
   },
   "politica_plazo": {
-    "ayuda": "The form shows the deadline in the current policy. If there is no policy yet, it suggests the value from the job pool catalogue. Review and save the policy before publishing. Email does not start a legal deadline."
+    "ayuda": "The operational deadline starts from the date and time of the external email declared by HR. The form shows the current policy or proposes the job pool catalogue. Review and save it before publishing."
   },
   "politica_plazas": {
     "titulo": "Posts",

@@ -115,7 +115,9 @@ test("la superficie muestra ejemplo, no cubierta y recibo solo después de POST 
   superficie.manejarClick({ target: { disabled: false, dataset: { rrhhPlazosAccion: "ayuda" }, closest: () => ({ disabled: false, dataset: { rrhhPlazosAccion: "ayuda" } }) } });
   assert.doesNotMatch(superficie.renderizar(), /id="rrhh-plazos-ayuda"[^>]*hidden/u);
   assert.match(superficie.renderizar(), /catálogo de Bolsa/);
-  assert.match(superficie.renderizar(), /correo no inicia un plazo legal/);
+  assert.match(superficie.renderizar(), /Correo externo declarado por RRHH/);
+  assert.match(superficie.renderizar(), /Inicio del plazo/);
+  assert.match(superficie.renderizar(), /Guardar política de esta bolsa/);
   assert.doesNotMatch(superficie.renderizar(), /recibo:politica:1/);
   const control = { name: "municipio_sede", value: "18087", closest: () => ({}) };
   superficie.manejarCambio({ target: control });
@@ -143,15 +145,16 @@ test("el selector recupera el plazo del catálogo y deja vacía la unidad sin pr
   assert.deepEqual([superficie.estado().borrador.plazo.cantidad, superficie.estado().borrador.plazo.computo],
     [12, "administrativo"]);
   assert.match(superficie.renderizar(), /max="30"/);
-  assert.match(superficie.renderizar(), /id="rrhh-plazos-ayuda"[^>]*hidden>[^<]*plazo legal/);
+  assert.match(superficie.renderizar(), /id="rrhh-plazos-ayuda"[^>]*hidden>[^<]*correo/);
 });
 
 test("el plazo inicial sale de la regla publicada y válida del catálogo de Bolsa", async () => {
   const lector = (regla) => ({ reglas: async () => ({ catalogos: [{ modulo: "bolsa", estado: "disponible",
     paquete_ejemplo: true, reglas: [regla] }] }) });
   const regla = { clave: "b10.plazo_publicacion", origen: "reglamento", unidad: "dias_habiles",
-    cantidad: 3, computo: "administrativo", inicio: "publicacion" };
+    cantidad: 3, computo: "administrativo", inicio: "notificacion" };
   assert.deepEqual(await cargarPlazoCatalogo({ cliente: lector(regla) }), { ...PLAZO_CATALOGO, cantidad: 3 });
+  assert.equal(await cargarPlazoCatalogo({ cliente: lector({ ...regla, inicio: "publicacion" }) }), null);
   assert.equal(await cargarPlazoCatalogo({ cliente: lector({ ...regla, origen: "ejemplo" }) }), null);
   assert.equal(await cargarPlazoCatalogo({ cliente: lector({ ...regla, cantidad: 31 }) }), null);
   assert.equal(await cargarPlazoCatalogo({ cliente: { reglas: async () => { throw new Error("sin red"); } } }), null);
