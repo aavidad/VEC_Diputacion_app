@@ -6,6 +6,12 @@ existentes, y crea una salida nueva. No publica claves, perfiles ni permisos.
 
 1. Publicar OH con el `vec-server` existente y su selector
    `VEC_ORGANIZACION_HISTORICA_GOBIERNO_ENABLED=true`, por el circuito aprobado.
+   No necesita el inventario OH: el selector sólo añade el descriptor propio
+   al catálogo de material de `vec-server`, que publica la audiencia antes
+   del montaje de `vec-interno`. Conservar su material de idempotencia y el
+   resto de su entorno aprobado. Arrancar o reiniciar ese publicador, comprobar
+   que la fila OH y su puntero están vigentes y preparar después la salida del
+   paso 3. `vec-interno` conserva OH sin montar mientras no exista el inventario.
 2. Proporcionar `organizacion_historica_v3.json` privado con versión 1, catálogo,
    motivo y contextos admitidos. Cada cuenta conserva perfil, versión,
    organismo y unidad. La capacidad de entrada sólo necesita su ruta local;
