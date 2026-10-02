@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"strings"
 	"time"
@@ -54,14 +55,12 @@ func aplicarPlan(plan material, rutaConexion, rutaAprobacion string) (reciboOper
 	}
 	// Socket local o TLS con verificación; no se admite una conexión remota
 	// sin protección ni degradación a un fallback sin verificar el servidor.
-	if !strings.HasPrefix(pc.ConnConfig.Host, "/") {
-		if pc.ConnConfig.TLSConfig == nil || pc.ConnConfig.TLSConfig.InsecureSkipVerify {
+	if !canalBootstrapValido(pc.ConnConfig.Host, pc.ConnConfig.TLSConfig) {
+		return cero, errors.New("canal_invalido")
+	}
+	for _, f := range pc.ConnConfig.Fallbacks {
+		if !canalBootstrapValido(f.Host, f.TLSConfig) {
 			return cero, errors.New("canal_invalido")
-		}
-		for _, f := range pc.ConnConfig.Fallbacks {
-			if f.TLSConfig == nil || f.TLSConfig.InsecureSkipVerify {
-				return cero, errors.New("canal_invalido")
-			}
 		}
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(cfg.TimeoutSegundos)*time.Second)
@@ -80,6 +79,10 @@ func aplicarPlan(plan material, rutaConexion, rutaAprobacion string) (reciboOper
 		return cero, err
 	}
 	return reciboOperador{r.ActoRef, r.ReciboRef, r.HuellaPlanSHA256, r.PrimeraPersonaRef, r.SegundaPersonaRef, r.ConfirmadoEn}, nil
+}
+
+func canalBootstrapValido(host string, tlsCfg *tls.Config) bool {
+	return strings.HasPrefix(host, "/") || tlsCfg != nil && !tlsCfg.InsecureSkipVerify
 }
 
 type reciboOperador struct {

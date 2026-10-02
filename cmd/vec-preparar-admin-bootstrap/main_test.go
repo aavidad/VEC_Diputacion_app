@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"io"
 	"os"
 	"path/filepath"
@@ -201,5 +202,24 @@ func TestAplicarExigeCotejoYAprobacionPrivada(t *testing.T) {
 	}
 	if _, err := os.Stat(plan); !os.IsNotExist(err) {
 		t.Fatal("el uso inválido modifica el plan")
+	}
+}
+
+func TestFallbackRemotoNoHeredaExencionDelSocket(t *testing.T) {
+	cfg, err := pgxpool.ParseConfig("host=/var/run/postgresql,servidor.example user=operador dbname=ensayo sslmode=disable")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !canalBootstrapValido(cfg.ConnConfig.Host, cfg.ConnConfig.TLSConfig) {
+		t.Fatal("socket inicial rechazado")
+	}
+	remotoRechazado := false
+	for _, f := range cfg.ConnConfig.Fallbacks {
+		if !strings.HasPrefix(f.Host, "/") && !canalBootstrapValido(f.Host, f.TLSConfig) {
+			remotoRechazado = true
+		}
+	}
+	if !remotoRechazado {
+		t.Fatal("fallback remoto no verificado")
 	}
 }
