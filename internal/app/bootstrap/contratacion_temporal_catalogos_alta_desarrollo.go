@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/informejuridico"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/numeracion"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	personalcatalogos "vec-diputacion-granada/internal/modules/personal/adapters/catalogosvec"
 	"vec-diputacion-granada/internal/vec/adapters/fichero"
@@ -56,11 +57,12 @@ type categoriaCatalogosAltaContratacionTemporalDesarrollo struct {
 }
 
 type catalogosAltaContratacionTemporalDesarrollo struct {
-	Esquema    string                                                        `json:"esquema"`
-	Centros    []centroCatalogosAltaContratacionTemporalDesarrollo           `json:"centros"`
-	Categorias []categoriaCatalogosAltaContratacionTemporalDesarrollo        `json:"categorias"`
-	Motivos    []opcionClaveCatalogosAltaContratacionTemporalDesarrollo      `json:"motivos"`
-	Documentos []opcionReferenciaCatalogosAltaContratacionTemporalDesarrollo `json:"documentos"`
+	NumeroExpedienteMOAD *domain.PoliticaNumeroExpediente                              `json:"numero_expediente_moad,omitempty"`
+	Esquema              string                                                        `json:"esquema"`
+	Centros              []centroCatalogosAltaContratacionTemporalDesarrollo           `json:"centros"`
+	Categorias           []categoriaCatalogosAltaContratacionTemporalDesarrollo        `json:"categorias"`
+	Motivos              []opcionClaveCatalogosAltaContratacionTemporalDesarrollo      `json:"motivos"`
+	Documentos           []opcionReferenciaCatalogosAltaContratacionTemporalDesarrollo `json:"documentos"`
 	// Las peticiones del centro usan la clave original de la organización
 	// (centro-520), no la referencia adaptada del alta (centro:rpt:520).
 	// Queda fuera del JSON del catálogo de alta.
@@ -219,11 +221,20 @@ func categoriaYGrupoDeCatalogoDesarrolloValidos(catalogo *catalogosAltaContratac
 }
 
 func nuevoCatalogoDesarrollo(rutaFuente, rutaRPT string) (*catalogosAltaContratacionTemporalDesarrollo, error) {
+	politica, err := numeracion.Cargar("")
+	if err != nil {
+		return nil, err
+	}
 	if strings.TrimSpace(rutaFuente) != "" {
-		return construirCatalogosAltaDesarrollo(rutaFuente, rutaRPT)
+		catalogo, err := construirCatalogosAltaDesarrollo(rutaFuente, rutaRPT)
+		if err == nil {
+			catalogo.NumeroExpedienteMOAD = &politica
+		}
+		return catalogo, err
 	}
 	return &catalogosAltaContratacionTemporalDesarrollo{
-		Esquema: esquemaCatalogosAltaContratacionTemporal,
+		NumeroExpedienteMOAD: &politica,
+		Esquema:              esquemaCatalogosAltaContratacionTemporal,
 		Centros: []centroCatalogosAltaContratacionTemporalDesarrollo{{
 			Referencia: centroAltaContratacionTemporalDesarrollo,
 			Etiqueta:   "Centro solicitante",

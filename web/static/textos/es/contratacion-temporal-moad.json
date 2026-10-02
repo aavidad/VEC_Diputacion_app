@@ -1,0 +1,12 @@
+{
+  "general": {
+    "numero_expediente_moad": "Número de expediente MOAD",
+    "numero_moad_obligatorio": "Número de expediente MOAD (obligatorio)",
+    "numero_moad_ejemplo": "Ejemplo: {ejemplo}",
+    "error_numero_moad": "Introduzca el número de expediente MOAD, sin espacios al principio o al final.",
+    "numero_moad_formato_no_valido": "Revise el número de MOAD. Use el formato del ejemplo: {ejemplo}.",
+    "numero_moad_no_disponible": "No se ha podido consultar el formato del número MOAD. Reintente antes de crear el expediente.",
+    "numero_moad_recuperar_alta_anterior": "Recuperar alta anterior",
+    "numero_moad_recuperacion_no_disponible": "No hay un alta anterior que recuperar. Indique el número de MOAD para continuar."
+  }
+}

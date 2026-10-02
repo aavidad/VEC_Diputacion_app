@@ -7,6 +7,8 @@ export const LIMITES_ALTA_CONTRATACION = Object.freeze({
   texto: 4000,
   adjuntos: 64,
   referencia: 160,
+  numeroExpediente: 45,
+  patronNumero: 1024,
   etiquetaCatalogo: 200,
   opcionesCatalogo: 1000,
   opcionesCatalogoTotales: 5000,
@@ -298,14 +300,32 @@ function validarCategoria(categoria, indice) {
   };
 }
 
+export function numeroExpedienteMOADValido(valor) {
+  // Envolvente de transporte; el patrón de negocio sólo lo aplica el servidor.
+  return textoValido(valor, LIMITES_ALTA_CONTRATACION.numeroExpediente, false)
+    && !/[\p{Cc}\p{Cf}]/u.test(valor);
+}
+
+export function validarPoliticaNumeroMOAD(politica) {
+  exigirCamposExactos(politica, ["referencia", "version", "patron", "ejemplo"], "política de número MOAD");
+  if (!referenciaValida(politica.referencia) || !Number.isSafeInteger(politica.version)
+    || politica.version < 1 || !textoValido(politica.patron, LIMITES_ALTA_CONTRATACION.patronNumero, false)
+    || !numeroExpedienteMOADValido(politica.ejemplo)) {
+    throw new TypeError("política de número MOAD no válida");
+  }
+  return clonarYCongelarAlta(politica);
+}
+
 export function validarCatalogosAlta(catalogos) {
   // La relación de documentos y datos por vía de cobertura es opcional: la
   // publica la ruta de catálogos del alta de RRHH, no el contexto del centro.
+  const conNumero = esRegistro(catalogos) && Object.hasOwn(catalogos, "numero_expediente_moad");
   const conPreparacion = esRegistro(catalogos) && Object.hasOwn(catalogos, "preparacion_vias");
   exigirCamposExactos(
     catalogos,
     ["esquema", "centros", "categorias", "motivos", "documentos",
-      ...(conPreparacion ? ["preparacion_vias"] : [])],
+      ...(conPreparacion ? ["preparacion_vias"] : []),
+      ...(conNumero ? ["numero_expediente_moad"] : [])],
     "catálogos de alta",
   );
   if (catalogos.esquema !== ESQUEMA_CATALOGOS) {
@@ -331,6 +351,7 @@ export function validarCatalogosAlta(catalogos) {
   }
   return clonarYCongelarAlta({
     esquema: ESQUEMA_CATALOGOS,
+    ...(conNumero ? { numero_expediente_moad: validarPoliticaNumeroMOAD(catalogos.numero_expediente_moad) } : {}),
     centros,
     categorias,
     motivos,
@@ -340,8 +361,9 @@ export function validarCatalogosAlta(catalogos) {
   });
 }
 
-export function crearBorradorAlta() {
+export function crearBorradorAlta({ conNumeroMOAD = false } = {}) {
   return clonarYCongelarAlta({
+    ...(conNumeroMOAD ? { numero_expediente_moad: "" } : {}),
     centro_ref: "",
     contacto_ref: "",
     categoria_ref: "",
@@ -367,7 +389,8 @@ function catalogosOperables(catalogos) {
 }
 
 export function catalogosAltaOperables(catalogos) {
-  return catalogosOperables(validarCatalogosAlta(catalogos));
+  const validados = validarCatalogosAlta(catalogos);
+  return Boolean(validados.numero_expediente_moad) && catalogosOperables(validados);
 }
 
 function analizarEntradaMonetaria(valor) {
@@ -396,10 +419,14 @@ function referenciasAdjuntasValidas(valor) {
 export function validarBorradorAlta(borrador, catalogosSinValidar) {
   const catalogos = validarCatalogosAlta(catalogosSinValidar);
   const errores = {};
-  if (!tieneCamposExactos(borrador, CAMPOS_BORRADOR)) {
+  const conNumero = esRegistro(borrador) && Object.hasOwn(borrador, "numero_expediente_moad");
+  if (!tieneCamposExactos(borrador, [...CAMPOS_BORRADOR, ...(conNumero ? ["numero_expediente_moad"] : [])])) {
     return congelar({ valido: false, errores: { general: "contrato_cerrado" } });
   }
 
+  if (conNumero && !numeroExpedienteMOADValido(borrador.numero_expediente_moad)) {
+    agregarError(errores, "numero_expediente_moad", "numero_moad");
+  }
   const centro = catalogos.centros.find((opcion) => opcion.referencia === borrador.centro_ref);
   if (!centro) agregarError(errores, "centro_ref", "opcion_catalogo");
   if (!centro?.contactos.some((opcion) => opcion.referencia === borrador.contacto_ref)) {
@@ -491,7 +518,7 @@ function instanteCivilValido(valor) {
     && fechaCivilValida(valor.slice(0, 10));
 }
 
-export function validarComandoAlta(comando) {
+function validarComandoPeticionCentro(comando) {
   exigirCamposExactos(comando, ["clave_idempotencia", "solicitud"], "comando de alta");
   if (typeof comando.clave_idempotencia !== "string"
     || !PATRON_IDEMPOTENCIA.test(comando.clave_idempotencia)
@@ -528,7 +555,7 @@ export function validarComandoAlta(comando) {
   return clonarYCongelarAlta(comando);
 }
 
-export function crearComandoAlta(borrador, catalogos, claveIdempotencia) {
+export function crearComandoPeticionCentro(borrador, catalogos, claveIdempotencia) {
   const validacion = validarBorradorAlta(borrador, catalogos);
   if (!validacion.valido) throw new ErrorValidacionAlta(validacion.errores);
   const rc = borrador.rc_existe
@@ -540,7 +567,7 @@ export function crearComandoAlta(borrador, catalogos, claveIdempotencia) {
       documento_ref: borrador.rc_documento_ref,
     }
     : { existe: false };
-  return validarComandoAlta({
+  return validarComandoPeticionCentro({
     clave_idempotencia: claveIdempotencia,
     solicitud: {
       centro_ref: borrador.centro_ref,
@@ -557,6 +584,31 @@ export function crearComandoAlta(borrador, catalogos, claveIdempotencia) {
       documentos_adjuntos: [...borrador.documentos_adjuntos],
       observaciones: borrador.observaciones,
     },
+  });
+}
+
+export function validarComandoAlta(comando) {
+  exigirCamposExactos(comando, ["clave_idempotencia", "numero_expediente_moad", "solicitud"], "comando de alta");
+  if (!numeroExpedienteMOADValido(comando.numero_expediente_moad)) {
+    throw new TypeError("número de expediente MOAD no válido");
+  }
+  validarComandoPeticionCentro({ clave_idempotencia: comando.clave_idempotencia, solicitud: comando.solicitud });
+  return clonarYCongelarAlta(comando);
+}
+
+export function crearComandoAlta(borrador, catalogos, claveIdempotencia) {
+  const validacion = validarBorradorAlta(borrador, catalogos);
+  if (!validacion.valido) throw new ErrorValidacionAlta(validacion.errores);
+  if (!numeroExpedienteMOADValido(borrador.numero_expediente_moad)) {
+    throw new ErrorValidacionAlta({ numero_expediente_moad: "numero_moad" });
+  }
+  if (!validarCatalogosAlta(catalogos).numero_expediente_moad) {
+    throw new ErrorValidacionAlta({ general: "contrato_cerrado" });
+  }
+  const { numero_expediente_moad, ...solicitud } = borrador;
+  return validarComandoAlta({
+    ...crearComandoPeticionCentro(solicitud, catalogos, claveIdempotencia),
+    numero_expediente_moad,
   });
 }
 

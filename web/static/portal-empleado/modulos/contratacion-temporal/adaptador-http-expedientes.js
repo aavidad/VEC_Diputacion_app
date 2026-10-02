@@ -4,8 +4,8 @@ import {
   validarExpedienteContratacionTemporal,
 } from "./contrato-expedientes.js?v=20261002-ct-fin-modalidad-v1";
 import { minutosJornadaCompletaValidos } from "./contrato-analisis.js?v=20261002-ct-fin-modalidad-v1";
-import { validarCatalogosAlta } from "./contrato.js?v=20261002-ct-fin-modalidad-v1";
-import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261001-ct-a-i18n-v1";
+import { validarCatalogosAlta } from "./contrato.js?v=20261002-ct-fin-moad-v1";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261002-ct-fin-moad-v1";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261002-ct-fin-modalidad-v1";
 import { faseRRHH } from "./i18n-fases-rrhh.js?v=20261001-ct-a-i18n-v1";
 

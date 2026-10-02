@@ -109,5 +109,3 @@ export function instalarPantallasFase(
     if (cerrar) { evento.preventDefault(); cerrarFase(cerrar); }
   });
 }
-
-instalarPantallasFase();
