@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { accionesPlaza, crearClienteOfertas, crearSuperficieOfertasBolsa, crearTraductorOfertas, mensajeError, validarOfertasBolsa,
-  ESQUEMA_OFERTAS_BOLSA, RUTA_OFERTAS_BOLSA, RUTA_RESOLUCIONES_OFERTA } from "./portal-bolsas-ofertas.js?v=20261001-ct-a-i18n-v1";
+  ESQUEMA_OFERTAS_BOLSA, RUTA_OFERTAS_BOLSA, RUTA_RESOLUCIONES_OFERTA } from "./portal-bolsas-ofertas.js?v=20261002-r4-integracion-v1";
 
 function plaza(numero, extra = {}) {
   return { numero_de_plaza: numero, estado: "vacante", secuencia: 0, participacion_ref: null, orden_vigente: null,
@@ -82,6 +82,10 @@ test("el cliente envía bolsa, datos, número de plazas y el acto de la plaza, s
   assert.deepEqual(JSON.parse(llamadas[0].opciones.body).numero_plazas, 3);
   assert.deepEqual(Object.keys(JSON.parse(llamadas[0].opciones.body)), ["bolsa_ref", "datos", "numero_plazas", "notificacion"]);
   assert.deepEqual(JSON.parse(llamadas[0].opciones.body).notificacion, notificacion);
+  const invalida = await cliente.publicar("bolsa:1", { categoria: "Aux" }, 1,
+    { ...notificacion, referencia_correo: "nie:X1234567L" }, "clave-privada");
+  assert.deepEqual(invalida, { ok: false, status: 400, codigo: "solicitud_invalida" });
+  assert.equal(llamadas.length, 1, "el cliente no envía identificadores personales");
   await cliente.registrarActo("bolsa:1", { oferta_ref: "oferta:1", numero_de_plaza: 2, tipo: "llamamiento_directo", secuencia_esperada: 3 }, "clave-acto-1");
   assert.equal(llamadas[1].ruta, RUTA_RESOLUCIONES_OFERTA);
   assert.deepEqual(JSON.parse(llamadas[1].opciones.body), { bolsa_ref: "bolsa:1", oferta_ref: "oferta:1", numero_de_plaza: 2,
@@ -143,6 +147,17 @@ test("la superficie publica con número de plazas y clave estable al reintentar,
   await turno();
   assert.equal(enviadas.length, 0, "no publica sin huella verificable");
   datos.huella_correo_sha256 = "a".repeat(64);
+  datos.referencia_correo = "dni:12345678Z";
+  s.manejarSubmit({ target: formulario, preventDefault() {} });
+  await turno();
+  assert.equal(enviadas.length, 0, "no envía un identificador personal como referencia opaca");
+  assert.match(s.renderizar(), /no puede incluir un DNI/);
+  datos.referencia_correo = "correo:oferta-1";
+  datos.notificada_en = "2026-03-29T02:30";
+  s.manejarSubmit({ target: formulario, preventDefault() {} });
+  await turno();
+  assert.equal(enviadas.length, 0, "no convierte una hora inexistente en Madrid");
+  datos.notificada_en = "2026-09-25T10:00";
   s.manejarSubmit({ target: formulario, preventDefault() {} });
   await turno();
   assert.match(s.renderizar(), /Reintentar la misma publicación/);
@@ -151,7 +166,7 @@ test("la superficie publica con número de plazas y clave estable al reintentar,
   assert.equal(enviadas.length, 2);
   assert.deepEqual(enviadas.map(([clave, plazas]) => [clave, plazas]), [["clave-1", 3], ["clave-1", 3]]);
   assert.deepEqual(enviadas[0][2], enviadas[1][2]);
-  assert.match(enviadas[0][2].notificada_en, /^2026-09-25T\d\d:00:00\.000000Z$/);
+  assert.equal(enviadas[0][2].notificada_en, "2026-09-25T08:00:00.000000Z", "el navegador no determina la zona");
   datos.numero_plazas = "101";
   s.manejarSubmit({ target: formulario, preventDefault() {} });
   await turno();

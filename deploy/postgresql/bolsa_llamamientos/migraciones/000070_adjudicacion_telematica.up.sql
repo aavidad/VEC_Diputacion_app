@@ -1,5 +1,6 @@
 \set ON_ERROR_STOP on
 -- RRHH 02/10/2026: la aceptación telemática precede a la adjudicación.
+-- B71 (activación con inicio configurable) precede a esta migración.
 -- La política de cada oferta inmoviliza esta decisión. Las anteriores
 -- conservan su segundo plazo y sus actos; no se modifica ninguna fila.
 BEGIN;
@@ -12,6 +13,7 @@ SELECT pg_advisory_xact_lock(hashtextextended('vec_bolsa_llamamientos:migracion:
 DO $pre$
 BEGIN
  IF to_regprocedure('vec_bolsa_llamamientos.proyectar_oferta_v2(text,timestamp with time zone)') IS NULL
+    OR to_regprocedure('vec_bolsa_llamamientos.publicar_oferta_v4(text,text,text,text,text,jsonb,jsonb,timestamptz,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,text,text,integer)') IS NULL
     OR to_regclass('vec_bolsa_llamamientos.politica_ofertas_version') IS NULL
     OR to_regclass('vec_bolsa_llamamientos.acto_plaza_oferta') IS NULL THEN
   RAISE EXCEPTION 'B70: clave=dependencias_B58 esperado=presentes actual=ausentes' USING ERRCODE='55000';
@@ -255,7 +257,9 @@ BEGIN
         OR coalesce(p_politica#>>'{plazas,respuesta_horas}','') !~ '^([1-9][0-9]?|[1-6][0-9]{2}|7[01][0-9]|720)$'
         OR coalesce(p_politica#>>'{plazas,tras_renuncia}','') NOT IN ('siguiente_en_orden','llamamiento_directo')))
     OR jsonb_typeof(p_politica->'plazo') IS DISTINCT FROM 'object'
-    OR (SELECT count(*) FROM jsonb_object_keys(p_politica->'plazo'))<>4
+    OR (SELECT count(*) FROM jsonb_object_keys(p_politica->'plazo')) NOT IN (4,5)
+    OR ((SELECT count(*) FROM jsonb_object_keys(p_politica->'plazo'))=5
+        AND p_politica#>>'{plazo,inicio}' IS DISTINCT FROM 'notificacion')
     OR NOT (p_politica->'plazo' ?& ARRAY['unidad','cantidad','computo','municipio_sede'])
     OR coalesce(p_politica#>>'{plazo,unidad}','') NOT IN ('dias_habiles','dias_naturales','horas_naturales')
     OR jsonb_typeof(p_politica#>'{plazo,cantidad}') IS DISTINCT FROM 'number'
@@ -304,9 +308,12 @@ BEGIN
    'publicada_en',to_char(previa.publicada_en AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"')),true;
   RETURN;
  END IF;
- -- Las versiones históricas se pueden recuperar arriba con su misma clave.
- -- Toda versión nueva aplica la aceptación previa; omitirla no recupera el
- -- circuito antiguo desde una petición preparada fuera de la pantalla.
+ -- Las versiones anteriores pueden repetirse, pero toda política nueva declara
+ -- en su propia versión que el plazo empieza en la notificación.
+ IF p_politica#>>'{plazo,inicio}' IS DISTINCT FROM 'notificacion' THEN
+  RAISE EXCEPTION 'B71: inicio de plazo no configurado' USING ERRCODE='22023'; END IF;
+ -- El replay histórico ya devolvió arriba el contenido y recibo originales.
+ -- Toda versión nueva requiere la aceptación telemática previa.
  IF p_politica#>>'{adjudicacion,confirmacion}' IS DISTINCT FROM 'aceptacion_previa' THEN
   RAISE EXCEPTION 'B70: confirmación telemática requerida para la versión nueva' USING ERRCODE='22023';
  END IF;

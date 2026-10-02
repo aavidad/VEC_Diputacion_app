@@ -18,6 +18,9 @@ func TestNotificacionOfertaExigeHechoYaRealizadoYReferenciaSinDatos(t *testing.T
 		"precision excesiva":    func(n *NotificacionOferta) { n.NotificadaEn = ahora.Add(-time.Nanosecond) },
 		"correo sin referencia": func(n *NotificacionOferta) { n.ReferenciaCorreo = "" },
 		"direccion personal":    func(n *NotificacionOferta) { n.ReferenciaCorreo = "antonio@example.invalid" },
+		"dni en referencia":     func(n *NotificacionOferta) { n.ReferenciaCorreo = "correo:dni-12345678Z" },
+		"nie en referencia":     func(n *NotificacionOferta) { n.ReferenciaCorreo = "correo:X1234567L" },
+		"etiqueta identidad":    func(n *NotificacionOferta) { n.ReferenciaCorreo = "correo:pasaporte:extracto-1" },
 		"sin huella":            func(n *NotificacionOferta) { n.HuellaCorreoSHA256 = "" },
 		"entrega no acreditada": func(n *NotificacionOferta) { n.Fuente = "entregado_smtp" },
 	} {

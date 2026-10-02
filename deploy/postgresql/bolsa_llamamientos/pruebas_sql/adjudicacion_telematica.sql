@@ -24,8 +24,8 @@ INSERT INTO vec_bolsa_llamamientos.vinculo_candidato VALUES
  ('part:r2tele:2','can_r2teleosicion_candidato_B01','acta:r2tele:1','inst:r2tele:1',1,now()-interval '10 days'),
  ('part:r2tele:4','can_r2teleosicion_candidato_D01','acta:r2tele:1','inst:r2tele:1',1,now()-interval '10 days'),
  ('part:r2tele:9','can_r2teleosicion_candidato_C01','acta:r2tele:2','inst:r2tele:2',1,now()-interval '10 days');
-INSERT INTO vec_bolsa_llamamientos.situacion_participacion(participacion_ref,situacion,desde,hasta,fecha_r2teleonible,motivo,actor,registrada_en,clave_idempotencia,recibo_ref)
-SELECT p, 'r2teleonible', now()-interval '9 days', NULL, NULL, 'alta', 'per_actoractoractoractoractor', now()-interval '9 days', 'clave:'||p, 'recibo:'||p
+INSERT INTO vec_bolsa_llamamientos.situacion_participacion(participacion_ref,situacion,desde,hasta,fecha_disponible,motivo,actor,registrada_en,clave_idempotencia,recibo_ref)
+SELECT p, 'disponible', now()-interval '9 days', NULL, NULL, 'alta', 'per_actoractoractoractoractor', now()-interval '9 days', 'clave:'||p, 'recibo:'||p
   FROM unnest(ARRAY['part:r2tele:1','part:r2tele:2','part:r2tele:3','part:r2tele:4']) p;
 INSERT INTO vec_bolsa_llamamientos.politica_orden_bolsa(politica_ref,bolsa_ref,version,criterio,tipo_lista,reposicion,provisional,rotulo,actor,vigente_desde,vigente_hasta,registrada_en)
 VALUES ('politica:r2tele:1','bolsa:r2tele:1',1,'puntuacion_desc_acta','rotatoria','misma_posicion',false,'Ejemplo','per_actoractoractoractoractor',now()-interval '10 days',NULL,now()-interval '10 days');
@@ -45,6 +45,9 @@ SELECT 'bolsa:r2tele:1',v,
  now()-interval '3 days','decision:r2tele-politica-'||v,'auditoria:r2tele-politica-'||v
 FROM generate_series(1,2) v;
 
+-- Siembra de historia previa, no una publicación: se pausa el trigger B71
+-- sólo mientras se prepara el fixture y se vuelve a origin antes de leer.
+SET LOCAL session_replication_role=replica;
 INSERT INTO vec_bolsa_llamamientos.oferta_publicada(
  oferta_ref,recibo_ref,bolsa_ref,actor_ref,clave_idempotencia,datos,plazo,publicada_en,vence_antes_de,huella_comando_sha256,decision_ref)
 SELECT 'oferta:'||encode(sha256(convert_to(nombre,'UTF8')),'hex'),
@@ -77,6 +80,8 @@ SELECT oferta_ref,1,1,'adjudicada','part:r2tele:2',1,
  'per_actoractoractoractoractor','r2tele-adjudica-'||clave_idempotencia,repeat('a',64),
  'decision:acto:'||clave_idempotencia,'auditoria:acto:'||clave_idempotencia,now()-interval '1 hour'
 FROM vec_bolsa_llamamientos.oferta_publicada WHERE clave_idempotencia IN ('r2tele-historica','r2tele-adjudicada');
+
+SET LOCAL session_replication_role=origin;
 
 DO $prueba$
 DECLARE j jsonb; r record; situaciones bigint; actos bigint;

@@ -1,5 +1,7 @@
 import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
 import { crearSuperficieHistorialOfrecimientos, traducirHistorialOfrecimientos } from "./portal-bolsas-historial-ofrecimientos.js?v=20261002-r4-historial-v1";
+import { instanteDesdeHoraMadrid } from "./hora-madrid.js";
+import { referenciaContieneDocumentoIdentidad } from "./portal-bolsas-operaciones.js?v=20261002-a-recuperar-379-v1";
 // Ofertas publicadas de una bolsa (Petición RRHH 3.06 y 3.07; Reglamento de
 // bolsas, art. 8.1): RRHH publica la oferta con su número de plazas; al vencer
 // el plazo para ofrecerse, VEC propone plaza a plaza a la siguiente persona
@@ -49,14 +51,17 @@ const referenciaOpcional = (valor) => valor === null || valor === undefined || R
 
 function notificacionValida(notificacion) {
   return notificacion && FECHA_NOTIFICACION.test(notificacion.notificada_en ?? "") && instante(notificacion.notificada_en) &&
-    REFERENCIA_CORREO.test(notificacion.referencia_correo ?? "") && HUELLA_CORREO.test(notificacion.huella_correo_sha256 ?? "") &&
+    REFERENCIA_CORREO.test(notificacion.referencia_correo ?? "") && !referenciaContieneDocumentoIdentidad(notificacion.referencia_correo) &&
+    HUELLA_CORREO.test(notificacion.huella_correo_sha256 ?? "") &&
     notificacion.fuente === FUENTE_CORREO;
 }
 
 function fechaNotificacionLocal(valor) {
-  if (!valor) return "";
-  const fecha = new Date(valor);
-  if (Number.isNaN(fecha.getTime())) return "";
+  const partes = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2})(?::([0-5]\d))?$/.exec(String(valor ?? ""));
+  if (!partes) return "";
+  const minutoMadrid = instanteDesdeHoraMadrid(partes[1]);
+  if (minutoMadrid === null) return "";
+  const fecha = new Date(minutoMadrid + Number(partes[2] ?? 0) * 1000);
   return fecha.toISOString().replace(/\.(\d{3})Z$/, (_total, milisegundos) => `.${milisegundos}000Z`);
 }
 
@@ -116,7 +121,9 @@ export function crearClienteOfertas({ fetchImpl = fetch } = {}) {
       return { ok: true, datos: validarOfertasBolsa(await respuesta.json()) };
     },
     publicar: (bolsaRef, datos, numeroPlazas, notificacion, clave, { signal } = {}) =>
-      escribir(RUTA_OFERTAS_BOLSA, { bolsa_ref: bolsaRef, datos, numero_plazas: numeroPlazas, notificacion }, clave, signal),
+      !notificacionValida(notificacion)
+        ? Promise.resolve({ ok: false, status: 400, codigo: "solicitud_invalida" })
+        : escribir(RUTA_OFERTAS_BOLSA, { bolsa_ref: bolsaRef, datos, numero_plazas: numeroPlazas, notificacion }, clave, signal),
     /** Acto sobre una plaza: tipo, persona (null en llamamiento directo) y la secuencia que vio RRHH. */
     registrarActo: (bolsaRef, acto, clave, { signal } = {}) =>
       escribir(RUTA_RESOLUCIONES_OFERTA, { bolsa_ref: bolsaRef, oferta_ref: acto.oferta_ref, numero_de_plaza: acto.numero_de_plaza,
@@ -398,6 +405,9 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), c
     const notificacion = { notificada_en: fechaNotificacionLocal(fechaLocal),
       referencia_correo: String(valores.get("referencia_correo") ?? "").trim(),
       huella_correo_sha256: String(valores.get("huella_correo_sha256") ?? "").trim(), fuente: FUENTE_CORREO };
+    if (referenciaContieneDocumentoIdentidad(notificacion.referencia_correo)) {
+      estado.errorOperacion = traducir("error_correo_referencia_personal"); cambiar(); return true;
+    }
     if (!notificacionValida(notificacion)) { estado.errorOperacion = traducir("error_correo"); cambiar(); return true; }
     void publicar(datos, plazas, notificacion, fechaLocal);
     return true;

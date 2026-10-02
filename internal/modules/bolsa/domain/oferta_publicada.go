@@ -118,7 +118,7 @@ func (n NotificacionOferta) ValidarPara(ahora time.Time) error {
 	_, offset := n.NotificadaEn.Zone()
 	if ahora.IsZero() || n.NotificadaEn.IsZero() || offset != 0 ||
 		n.NotificadaEn.Nanosecond()%1000 != 0 || n.NotificadaEn.After(ahora) ||
-		!referenciaCorreoOferta.MatchString(n.ReferenciaCorreo) ||
+		!referenciaCorreoOferta.MatchString(n.ReferenciaCorreo) || !referenciaLlamamientoOpacaValida(n.ReferenciaCorreo) ||
 		!huellaCorreoOferta.MatchString(n.HuellaCorreoSHA256) ||
 		n.Fuente != "correo_externo_declarado_rrhh" {
 		return ErrDatosOfertaInvalidos
