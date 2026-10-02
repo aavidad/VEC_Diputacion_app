@@ -1,0 +1,321 @@
+package application
+
+import (
+	"bytes"
+	"context"
+	"crypto/ed25519"
+	"crypto/x509"
+	"encoding/json"
+	"errors"
+	"strings"
+	"testing"
+	"time"
+
+	"vec-diputacion-granada/internal/modules/meritos/domain"
+	"vec-diputacion-granada/internal/modules/meritos/ports"
+	vec "vec-diputacion-granada/internal/vec/domain"
+	vecports "vec-diputacion-granada/internal/vec/ports"
+	"vec-diputacion-granada/internal/vec/pruebas"
+)
+
+func escenarioConsulta(t *testing.T) (*ServicioConsultaPropia, SolicitudConsultaPropia, *autoridadConsultaPrueba, *repositorioConsultaPrueba, *auditoriaPrueba) {
+	t.Helper()
+	_, original, _, _, audit := escenario(t)
+	a, r := &autoridadConsultaPrueba{t: t}, &repositorioConsultaPrueba{}
+	s, err := NuevoServicioConsultaPropia(a, r, relojPrueba{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.ficha = &ports.FichaHechoPropio{Referencia: original.Hecho.Referencia, Version: 7, Tipo: original.Hecho.Tipo,
+		ConceptoRef: original.Hecho.ConceptoRef, Denominacion: original.Hecho.Denominacion,
+		Procedencia: original.Hecho.Procedencia, Vigencia: original.Hecho.Vigencia, Estado: domain.Pendiente,
+		Evidencias: append([]vec.ReferenciaDocumento{}, original.Hecho.Evidencias...)}
+	return s, SolicitudConsultaPropia{Vinculo: original.Vinculo, Contexto: original.Contexto,
+		Correlacion: original.Correlacion, Motivo: original.Motivo, HechoRef: original.Hecho.Referencia}, a, r, audit
+}
+
+// Estos dobles solo cotejan contratos de aplicación. No verifican criptografía,
+// consumo V3 real, SQL, persistencia ni recuperación; no se montan en producto.
+type autoridadConsultaPrueba struct {
+	t        *testing.T
+	llamadas int
+	defecto  string
+}
+
+func (a *autoridadConsultaPrueba) EmitirMaterialAutorizacionAtestadaV3(_ context.Context, solicitud vec.SolicitudAutorizacionLigadaV3, resultado vec.ResultadoContextoActorRegistradoV2) (vec.DecisionAutorizacionLigadaV3, vecports.ConfirmacionRegistroConcesionAutorizacionLigadaV3, vecports.ExportadorMaterialConsumoAutorizacionAtestadaV3, error) {
+	a.llamadas++
+	if a.defecto == "denegada" {
+		return vec.DecisionAutorizacionLigadaV3{}, vecports.ConfirmacionRegistroConcesionAutorizacionLigadaV3{}, nil, vec.ErrAutorizacionDenegada
+	}
+	datos, err := solicitud.Datos()
+	if err != nil {
+		a.t.Fatal(err)
+	}
+	d := pruebas.DatosConcesionV3Prueba{Instante: instante, PersonaRef: persona, PerfilRef: perfil, Accion: datos.Accion,
+		Recurso: datos.Recurso, Finalidad: datos.Finalidad, Campos: []string{"hecho_actual", "recibo_consulta"}, Obligaciones: []string{"auditar"}, DecisionRef: decisionRef}
+	switch a.defecto {
+	case "campo_ausente":
+		d.Campos = []string{"hecho_actual"}
+	case "campo_ajeno":
+		d.Campos = append(d.Campos, "persona_ref")
+	case "obligacion_ausente":
+		d.Obligaciones = nil
+	case "obligacion_ajena":
+		d.Obligaciones = append(d.Obligaciones, "firmar")
+	}
+	c, err := pruebas.NuevaConcesionV3Prueba(d)
+	if err != nil {
+		a.t.Fatal(err)
+	}
+	dh, _ := vec.HuellaSHA256DecisionAutorizacionV3(c.Decision)
+	mh, _ := vec.HuellaSHA256MotivoAutorizacionV2(datos.ReferenciaMotivo)
+	rh, _ := datos.Recurso.HuellaContextoAutorizacionSHA256()
+	audiencia, expira := AudienciaConsultaPropia, instante.Add(5*time.Second)
+	if a.defecto == "audiencia" {
+		audiencia = "otra.audiencia.v1"
+	}
+	if a.defecto == "caducada" {
+		expira = instante.Add(1500 * time.Millisecond)
+	}
+	resumen, err := vecports.NuevoResumenCapacidadAtestacionAutorizacionV3(decisionRef, dh, mh,
+		resultado.RegistroContextoRef, resultado.HuellaSHA256, datos.Accion, datos.Recurso.Referencia, rh,
+		audiencia, instante.Add(time.Second), expira)
+	if err != nil {
+		a.t.Fatal(err)
+	}
+	dc, _ := vec.RepresentacionCanonicaDecisionAutorizacionV3(c.Decision)
+	mc, _ := vec.RepresentacionCanonicaMotivoAutorizacionV2(datos.ReferenciaMotivo)
+	privada := ed25519.NewKeyFromSeed(bytes.Repeat([]byte{2}, ed25519.SeedSize))
+	raiz, err := x509.MarshalPKIXPublicKey(privada.Public())
+	if err != nil {
+		a.t.Fatal(err)
+	}
+	m, err := vecports.NuevaExportacionMaterialConsumoAutorizacionAtestadaV3(bytes.Repeat([]byte{'b'}, vecports.TamanoMinimoCapacidadCanonicaV3), resumen,
+		dc, mc, resultado.RepresentacionCanonica, resultado.Contexto.Instantanea.PersonaVersion, resultado.Contexto.Instantanea.PerfilVersion,
+		[]byte("payload"), []byte("cose"), []byte("evidencia"), raiz)
+	if err != nil {
+		a.t.Fatal(err)
+	}
+	return c.Decision, c.Confirmacion, exportadorPrueba{m}, nil
+}
+
+type repositorioConsultaPrueba struct {
+	llamadas  int
+	ficha     *ports.FichaHechoPropio
+	ultima    ports.OrdenConsultaPropia
+	resultado ports.ResultadoConsultaPropia
+	mutar     func(*ports.ResultadoConsultaPropia)
+	err       error
+}
+
+func (r *repositorioConsultaPrueba) ConsultarActual(_ context.Context, o ports.OrdenConsultaPropia) (ports.ResultadoConsultaPropia, error) {
+	r.llamadas++
+	r.ultima = o
+	if r.err != nil {
+		return ports.ResultadoConsultaPropia{}, r.err
+	}
+	d, _ := o.Autorizacion.Solicitud.Datos()
+	correlacion, _ := d.Correlacion.ValorCanonico()
+	out := ports.ResultadoConsultaPropia{Codigo: "obtenida", HechoActual: r.ficha,
+		ReciboConsulta: &ports.ReciboConsultaPropia{Referencia: "recibo:consulta:prueba", HechoRef: o.HechoRef,
+			DecisionRef: o.Autorizacion.Material.ResumenCapacidad().DecisionRef(), ConsumoHuellaSHA256: strings.Repeat("a", 64),
+			AuditoriaRef: "auditoria:consulta:prueba", CorrelacionRef: correlacion, ConsultadaEn: instante.Add(2 * time.Second)}}
+	if r.ficha == nil {
+		out.Codigo = "no_encontrada"
+	} else {
+		out.ReciboConsulta.VersionConsultada = r.ficha.Version
+	}
+	if r.mutar != nil {
+		r.mutar(&out)
+	}
+	r.resultado = out
+	return out, nil
+}
+
+func TestConsultaPropiaVersionActualYSelectorAtestado(t *testing.T) {
+	s, solicitud, _, r, audit := escenarioConsulta(t)
+	out, err := s.ConsultarActual(context.Background(), solicitud)
+	if err != nil || out.Codigo != "obtenida" || out.HechoActual.Version != 7 || out.ReciboConsulta.VersionConsultada != 7 {
+		t.Fatalf("consulta actual: %#v, %v", out, err)
+	}
+	esperado := `{"esquema":"vec.meritos.hecho.consulta_propia.v1","hecho_ref":"hecho:prueba","persona_ref":"per_0123456789abcdefghijkl"}`
+	if string(r.ultima.SelectorCanonico) != esperado || r.ultima.PersonaRef != solicitud.Contexto.Contexto.PersonaRef || audit.llamadas != 0 {
+		t.Fatal("selector no atestado o auditoría de éxito fuera de transacción")
+	}
+	d, _ := r.ultima.Autorizacion.Solicitud.Datos()
+	if len(d.Recurso.Ambitos) != 2 || d.Recurso.Ambitos["huella_consulta_sha256"] != huellaConsulta([]byte(esperado)) {
+		t.Fatal("consulta no ligada al selector exacto")
+	}
+	r.ficha.Version = 8
+	out, err = s.ConsultarActual(context.Background(), solicitud)
+	if err != nil || out.HechoActual.Version != 8 || out.ReciboConsulta.VersionConsultada != 8 {
+		t.Fatal("la consulta debe obtener la versión actual sin CAS de negocio", err)
+	}
+}
+
+func TestConsultaPropiaAusenciaConRecibo(t *testing.T) {
+	s, solicitud, _, r, audit := escenarioConsulta(t)
+	r.ficha = nil
+	out, err := s.ConsultarActual(context.Background(), solicitud)
+	if err != nil || out.Codigo != "no_encontrada" || out.HechoActual != nil || out.ReciboConsulta == nil || out.ReciboConsulta.VersionConsultada != 0 || audit.llamadas != 0 {
+		t.Fatalf("ausencia sin recibo nominal: %#v, %v", out, err)
+	}
+}
+
+func TestConsultaPropiaEvidenciasVaciasSonArray(t *testing.T) {
+	s, solicitud, _, r, _ := escenarioConsulta(t)
+	r.ficha.Evidencias = nil
+	out, err := s.ConsultarActual(context.Background(), solicitud)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := json.Marshal(out)
+	if err != nil || !bytes.Contains(b, []byte(`"evidencias":[]`)) {
+		t.Fatal("las evidencias vacías deben serializarse como array", err)
+	}
+}
+
+func TestConsultaPropiaNoConsultaSinConcesionExacta(t *testing.T) {
+	for _, defecto := range []string{"denegada", "campo_ausente", "campo_ajeno", "obligacion_ausente", "obligacion_ajena", "audiencia", "caducada"} {
+		t.Run(defecto, func(t *testing.T) {
+			s, solicitud, a, r, audit := escenarioConsulta(t)
+			a.defecto = defecto
+			out, err := s.ConsultarActual(context.Background(), solicitud)
+			if err == nil || out.HechoActual != nil || out.ReciboConsulta != nil || r.llamadas != 0 || audit.llamadas != 0 {
+				t.Fatal("autoridad no exacta alcanza el repositorio o devuelve datos", err)
+			}
+		})
+	}
+}
+
+func TestConsultaPropiaVinculoAjenoNoLlegaAEmisor(t *testing.T) {
+	s, solicitud, a, r, audit := escenarioConsulta(t)
+	_, ajeno, err := pruebas.NuevoContextoRegistradoYVinculoV2(instante, "per_abcdefghijkl0123456789", perfil, vec.AuthMethodCertificate, vec.AuthAssuranceHigh)
+	if err != nil {
+		t.Fatal(err)
+	}
+	solicitud.Vinculo = ajeno
+	out, err := s.ConsultarActual(context.Background(), solicitud)
+	if !errors.Is(err, vec.ErrAutorizacionDenegada) || out.HechoActual != nil || out.ReciboConsulta != nil || a.llamadas != 0 || r.llamadas != 0 || audit.llamadas != 0 {
+		t.Fatal("vínculo ajeno aceptado o identidad libre auditada", err)
+	}
+}
+
+func TestConsultaPropiaRechazaResultadoManipulado(t *testing.T) {
+	casos := map[string]func(*ports.ResultadoConsultaPropia){
+		"hecho_ajeno": func(r *ports.ResultadoConsultaPropia) { r.HechoActual.Referencia = "hecho:ajeno" },
+		"version":     func(r *ports.ResultadoConsultaPropia) { r.ReciboConsulta.VersionConsultada++ },
+		"decision":    func(r *ports.ResultadoConsultaPropia) { r.ReciboConsulta.DecisionRef = "decision:ajena" },
+		"correlacion": func(r *ports.ResultadoConsultaPropia) { r.ReciboConsulta.CorrelacionRef = "correlacion:ajena" },
+		"consumo":     func(r *ports.ResultadoConsultaPropia) { r.ReciboConsulta.ConsumoHuellaSHA256 = "a" },
+		"sin_recibo":  func(r *ports.ResultadoConsultaPropia) { r.ReciboConsulta = nil },
+		"auditoria":   func(r *ports.ResultadoConsultaPropia) { r.ReciboConsulta.AuditoriaRef = "" },
+		"estado":      func(r *ports.ResultadoConsultaPropia) { r.HechoActual.Estado = "desconocido" },
+		"evidencia_repetida": func(r *ports.ResultadoConsultaPropia) {
+			r.HechoActual.Evidencias = append(r.HechoActual.Evidencias, r.HechoActual.Evidencias[0])
+		},
+		"acreditado_sin_revision": func(r *ports.ResultadoConsultaPropia) { r.HechoActual.Estado = domain.Acreditado },
+		"instante_anterior":       func(r *ports.ResultadoConsultaPropia) { r.ReciboConsulta.ConsultadaEn = instante },
+		"instante_caducado":       func(r *ports.ResultadoConsultaPropia) { r.ReciboConsulta.ConsultadaEn = instante.Add(time.Minute) },
+		"instante_no_utc": func(r *ports.ResultadoConsultaPropia) {
+			r.ReciboConsulta.ConsultadaEn = r.ReciboConsulta.ConsultadaEn.In(time.FixedZone("desplazada", 3600))
+		},
+		"codigo_ajeno":       func(r *ports.ResultadoConsultaPropia) { r.Codigo = "confirmada" },
+		"denegada_con_datos": func(r *ports.ResultadoConsultaPropia) { r.Codigo = "denegada" },
+		"ausencia_con_ficha": func(r *ports.ResultadoConsultaPropia) { r.Codigo = "no_encontrada" },
+	}
+	for nombre, mutar := range casos {
+		t.Run(nombre, func(t *testing.T) {
+			s, solicitud, _, r, audit := escenarioConsulta(t)
+			r.mutar = mutar
+			out, err := s.ConsultarActual(context.Background(), solicitud)
+			if !errors.Is(err, ports.ErrConsultaNoDisponible) || out.HechoActual != nil || out.ReciboConsulta != nil || audit.llamadas != 0 {
+				t.Fatal("resultado manipulado aceptado", err)
+			}
+		})
+	}
+}
+
+func TestConsultaPropiaMinimizaYCopiaProyeccion(t *testing.T) {
+	s, solicitud, _, r, _ := escenarioConsulta(t)
+	horas := 20
+	r.ficha.Horas = &horas
+	r.ficha.Estado = domain.Rechazado
+	r.ficha.Revision = &ports.RevisionConsultaPropia{Referencia: "revision:prueba", MotivoRef: "motivo:prueba", Fecha: instante.Format(time.RFC3339Nano)}
+	out, err := s.ConsultarActual(context.Background(), solicitud)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := json.Marshal(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, prohibido := range []string{"persona_ref", "actor_ref", "declarante_ref", "empleado_ref"} {
+		if bytes.Contains(b, []byte(prohibido)) {
+			t.Fatal("proyección expone identidad", prohibido)
+		}
+	}
+	*out.HechoActual.Horas = 999
+	out.HechoActual.Evidencias[0].ID = "documento:otro"
+	out.HechoActual.Revision.MotivoRef = "motivo:otro"
+	out.ReciboConsulta.Referencia = "recibo:otro"
+	if *r.ficha.Horas != 20 || r.ficha.Evidencias[0].ID != "documento:prueba" || r.ficha.Revision.MotivoRef != "motivo:prueba" || r.resultado.ReciboConsulta.Referencia != "recibo:consulta:prueba" {
+		t.Fatal("respuesta comparte memoria con resultado confiable")
+	}
+}
+
+func TestConsultaPropiaDenegacionDurableSinDatos(t *testing.T) {
+	s, solicitud, _, r, audit := escenarioConsulta(t)
+	r.mutar = func(r *ports.ResultadoConsultaPropia) { *r = ports.ResultadoConsultaPropia{Codigo: "denegada"} }
+	out, err := s.ConsultarActual(context.Background(), solicitud)
+	if !errors.Is(err, vec.ErrAutorizacionDenegada) || out.Codigo != "" || out.HechoActual != nil || out.ReciboConsulta != nil || audit.llamadas != 0 {
+		t.Fatal("denegación no cerrada", err)
+	}
+}
+
+func TestConsultaPropiaRechazaOrdenMutadaAntesDeConsumo(t *testing.T) {
+	for _, nombre := range []string{"selector", "persona", "huella", "hecho", "motivo", "contexto"} {
+		t.Run(nombre, func(t *testing.T) {
+			s, solicitud, _, r, _ := escenarioConsulta(t)
+			if _, err := s.ConsultarActual(context.Background(), solicitud); err != nil {
+				t.Fatal(err)
+			}
+			o := r.ultima
+			switch nombre {
+			case "selector":
+				o.SelectorCanonico = append(o.SelectorCanonico, ' ')
+			case "persona":
+				o.PersonaRef = "persona:ajena"
+			case "huella":
+				o.HuellaConsultaSHA256 = strings.Repeat("0", 64)
+			case "hecho":
+				o.HechoRef = "hecho:ajeno"
+			case "motivo":
+				o.Motivo = vec.ReferenciaEntradaCatalogo{}
+			case "contexto":
+				o.Autorizacion.Contexto = vec.ResultadoContextoActorRegistradoV2{}
+			}
+			if ValidarOrdenConsultaPropia(o) == nil {
+				t.Fatal("orden manipulada aceptada", nombre)
+			}
+		})
+	}
+}
+
+func TestConsultaPropiaErroresYCancelacionNoDevuelvenDatos(t *testing.T) {
+	s, solicitud, _, r, audit := escenarioConsulta(t)
+	r.err = ports.ErrConsultaNoDisponible
+	out, err := s.ConsultarActual(context.Background(), solicitud)
+	if err == nil || out.HechoActual != nil || out.ReciboConsulta != nil || audit.llamadas != 0 {
+		t.Fatal("fallo de repositorio devuelve datos", err)
+	}
+	ctx, cancelar := context.WithCancel(context.Background())
+	cancelar()
+	llamadas := r.llamadas
+	if _, err = s.ConsultarActual(ctx, solicitud); !errors.Is(err, context.Canceled) || r.llamadas != llamadas {
+		t.Fatal("cancelación no respetada", err)
+	}
+	if _, err = NuevoServicioConsultaPropia(nil, r, relojPrueba{}); !errors.Is(err, ports.ErrConsultaNoDisponible) {
+		t.Fatal("dependencia ausente aceptada", err)
+	}
+}
