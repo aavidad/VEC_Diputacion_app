@@ -83,3 +83,31 @@ func TestJustificacionCustodiaOpacaSinRutas(t *testing.T) {
 		}
 	}
 }
+
+func TestMaterialJustificacionRechazaVinculoIncompleto(t *testing.T) {
+	s, p, v := ejemploJustificacion()
+	m := MaterialJustificacion{
+		ActorRef: "per_AAAAAAAAAAAAAAAAAAAAAA", PerfilRef: "prf_AAAAAAAAAAAAAAAAAAAAAA",
+		ClaveOperacion: "ref:" + strings.Repeat("a", 64), Accion: AccionAnexarJustificacion,
+		SolicitudVersion: s.Version, VersionEsperada: 0, PoliticaRef: p.Referencia,
+		PoliticaVersion: p.Version, PoliticaSHA256: p.SHA256, Vinculo: v,
+	}
+	if _, err := m.Canonico(); err != nil {
+		t.Fatal("material válido rechazado", err)
+	}
+	for nombre, mutar := range map[string]func(*VinculoJustificacion){
+		"solicitud":  func(v *VinculoJustificacion) { v.SolicitudRef = "" },
+		"empleado":   func(v *VinculoJustificacion) { v.EmpleadoRef = "" },
+		"catalogo":   func(v *VinculoJustificacion) { v.CatalogoVersionRef = "" },
+		"permiso":    func(v *VinculoJustificacion) { v.PermisoRef = "" },
+		"expediente": func(v *VinculoJustificacion) { v.ExpedienteDocumentalRef = "" },
+	} {
+		t.Run(nombre, func(t *testing.T) {
+			c := m
+			mutar(&c.Vinculo)
+			if _, err := c.Canonico(); !errors.Is(err, ErrJustificacionInvalida) {
+				t.Fatal("se aceptó material sin vínculo completo", err)
+			}
+		})
+	}
+}
