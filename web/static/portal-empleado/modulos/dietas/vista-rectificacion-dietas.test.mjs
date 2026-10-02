@@ -25,10 +25,30 @@ test("consulta 404, abre el formulario y confirma solo tras recibo válido", asy
   await esperar(); const panel = contenedor.querySelector("[data-dietas-rectificacion]"); assert.match(panel.querySelector("[data-dietas-rectificacion-estado]").textContent, /No hay/u);
   panel.listeners.click({ target: panel.querySelector("[data-dietas-rectificacion-abrir]") }); const formulario = panel.querySelector("[data-dietas-rectificacion-form]"); assert.equal(formulario.hidden, false);
   formulario.querySelectorAll('[name="campos_a_revisar"]')[0].checked = true; formulario.querySelector('[name="motivo_revision"]').value = "Centro incorrecto";
-  formulario.listeners.submit({ preventDefault() {} }); await esperar(); assert.deepEqual(entradas[0].campos_a_revisar, ["centro_ref"]); assert.equal(entradas[0].clave_idempotencia, "rectificacion-dietas-0001"); assert.match(panel.querySelector("[data-dietas-rectificacion-estado]").textContent, /rrd_/u); vista.desmontar();
+  formulario.listeners.submit({ preventDefault() {} }); await esperar(); assert.deepEqual(entradas[0].campos_a_revisar, ["centro_ref"]); assert.equal(entradas[0].clave_idempotencia, "rectificacion-dietas-0001");
+  const mensaje = panel.querySelector("[data-dietas-rectificacion-estado]").textContent;
+  assert.match(mensaje, /rrd_/u); assert.match(mensaje, /Pendiente de revisión/u);
+  assert.doesNotMatch(mensaje, /2026-09-24T|Estado: pendiente/u); vista.desmontar();
 });
 
-test("un resultado incierto reintenta exactamente el mismo material y desmontar aborta GET", async () => {
-  const contenedor = raiz(); const entradas = []; let intento = 0; let signal; const vista = montarVistaRectificacionDietas(contenedor, { asignacion, generarClaveIdempotencia: () => "rectificacion-dietas-0001", cliente: { consultar: (_entrada, opciones) => { signal = opciones.signal; return new Promise(() => {}); }, solicitar: async (entrada) => { entradas.push(entrada); if (!intento++) { const error = new Error(); error.resultadoIndeterminado = true; throw error; } return { ...resultado, estado: "replay_confirmado" }; } } });
-  const panel = contenedor.querySelector("[data-dietas-rectificacion]"); panel.listeners.click({ target: panel.querySelector("[data-dietas-rectificacion-abrir]") }); const formulario = panel.querySelector("[data-dietas-rectificacion-form]"); formulario.querySelectorAll('[name="campos_a_revisar"]')[1].checked = true; formulario.querySelector('[name="motivo_revision"]').value = "Unidad incorrecta"; formulario.listeners.submit({ preventDefault() {} }); await esperar(); const reintentar = panel.querySelector("[data-dietas-rectificacion-reintentar]"); assert.ok(reintentar); panel.listeners.click({ target: reintentar }); await esperar(); assert.deepEqual(entradas[1], entradas[0]); vista.desmontar(); assert.equal(signal.aborted, true);
+test("un 503 incierto bloquea la edición y un segundo envío recupera la misma solicitud", async () => {
+  const contenedor = raiz(); const entradas = []; let intento = 0; let claves = 0; let signal; let terminarConsulta;
+  const vista = montarVistaRectificacionDietas(contenedor, { asignacion,
+    generarClaveIdempotencia: () => `rectificacion-dietas-000${++claves}`,
+    cliente: { consultar: (_entrada, opciones) => { signal = opciones.signal; return new Promise((resolver) => { terminarConsulta = resolver; }); },
+      solicitar: async (entrada) => { entradas.push(entrada); if (!intento++) { const error = new Error(); error.codigo = "no_disponible"; error.resultadoIndeterminado = true; throw error; } return { ...resultado, estado: "replay_confirmado" }; } } });
+  const panel = contenedor.querySelector("[data-dietas-rectificacion]"); panel.listeners.click({ target: panel.querySelector("[data-dietas-rectificacion-abrir]") });
+  const formulario = panel.querySelector("[data-dietas-rectificacion-form]"); const motivo = formulario.querySelector('[name="motivo_revision"]');
+  formulario.querySelectorAll('[name="campos_a_revisar"]')[1].checked = true; motivo.value = "Unidad incorrecta";
+  formulario.listeners.submit({ preventDefault() {} }); await esperar();
+  assert.equal(formulario.querySelector("fieldset").disabled, true); assert.equal(motivo.disabled, true);
+  assert.equal(formulario.querySelector("[data-dietas-rectificacion-enviar]").disabled, true);
+  assert.ok(panel.querySelector("[data-dietas-rectificacion-reintentar]"));
+  terminarConsulta(resultado); await esperar();
+  assert.match(panel.querySelector("[data-dietas-rectificacion-estado]").textContent, /No se ha confirmado/u);
+  motivo.value = "Otra petición"; formulario.listeners.submit({ preventDefault() {} }); await esperar();
+  assert.equal(claves, 1); assert.deepEqual(entradas[1], entradas[0]);
+  assert.equal(motivo.disabled, false); assert.doesNotMatch(panel.querySelector("[data-dietas-rectificacion-estado]").textContent, /replay_confirmado|2026-09-24T/u);
+  assert.match(panel.querySelector("[data-dietas-rectificacion-estado]").textContent, /Pendiente de revisión/u);
+  vista.desmontar(); assert.equal(signal.aborted, true);
 });
