@@ -6,6 +6,7 @@ import (
 	"errors"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	administracion "vec-diputacion-granada/internal/modules/administracion"
 	vec "vec-diputacion-granada/internal/vec/domain"
@@ -130,7 +131,7 @@ func Preparar(cfg Configuracion, catalogo vec.CatalogoConfigurable, registrados 
 	if cambio.VersionEsperada != estado.Version || cambio.HuellaEsperada != estado.HuellaSHA256 {
 		return Preparacion{}, ErrConflicto
 	}
-	if cambio.Motivo == "" || strings.TrimSpace(cambio.Motivo) != cambio.Motivo || len(cambio.Motivo) > 2048 || strings.ContainsAny(cambio.Motivo, "\x00\r\n") || catalogo.Version >= 1_000_000 {
+	if cambio.Motivo == "" || strings.TrimSpace(cambio.Motivo) != cambio.Motivo || len(cambio.Motivo) > 2048 || !textoValido(cambio.Motivo) || catalogo.Version >= 1_000_000 {
 		return Preparacion{}, ErrCambio
 	}
 	gobernado := false
@@ -169,4 +170,16 @@ func Preparar(cfg Configuracion, catalogo vec.CatalogoConfigurable, registrados 
 		return Preparacion{}, ErrCambio
 	}
 	return Preparacion{Cambio: cambio, CatalogoReferencia: catalogo.Referencia(), VersionSiguiente: catalogo.Version + 1, Entradas: canonico.Entradas}, nil
+}
+
+func textoValido(s string) bool {
+	if !utf8.ValidString(s) {
+		return false
+	}
+	for _, r := range s {
+		if (r < 0x20 && r != '\n' && r != '\r' && r != '\t') || r == 0x7f {
+			return false
+		}
+	}
+	return true
 }

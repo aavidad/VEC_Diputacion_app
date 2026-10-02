@@ -87,7 +87,7 @@ func TestPrepararExigePreimagenSinModificarPublicacion(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cambio := Cambio{ModuloID: "vec.module.cronos", Habilitado: false, VersionEsperada: 1, HuellaEsperada: huella, Motivo: "Mantenimiento programado"}
+	cambio := Cambio{ModuloID: "vec.module.cronos", Habilitado: false, VersionEsperada: 1, HuellaEsperada: huella, Motivo: "Mantenimiento programado\nVentana aprobada"}
 	p, err := Preparar(cfg, c, registro, ahora, cambio)
 	if err != nil {
 		t.Fatal(err)
