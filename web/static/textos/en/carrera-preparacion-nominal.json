@@ -1,0 +1,38 @@
+{
+  "titulo": "Career preparation",
+  "reintentar": "Query again",
+  "estados": {
+    "carga": "Reading employment records…",
+    "disponible": "Records retrieved. Career preparation is still pending.",
+    "denegado": "You do not have permission to read these records. Ask the area manager for access.",
+    "no_disponible": "Employment records are unavailable. Query them again when access is restored."
+  },
+  "pendientes_titulo": "Checks pending",
+  "pendientes": { "grupo": "Verified group or subgroup", "grado": "Recognised personal grade", "politica": "Approved career rules" },
+  "limite": "The post level does not establish a personal grade. These records do not grant career rights.",
+  "sin_dato": "Not recorded",
+  "sin_antecedentes": "This query returns no records of this type. Check its coverage.",
+  "estado_sin_traduccion": "Status not catalogued; view source details",
+  "cobertura_resumen": "Query coverage: {cobertura}",
+  "periodo": "From {desde} until {hasta} (end excluded)",
+  "periodo_abierto": "From {desde}",
+  "procedencia": "View source details",
+  "detalle_tecnico": "View query technical details",
+  "tablas": { "relaciones": "Employment relationships", "servicios": "Service records", "puestos": "Posts held" },
+  "columnas": { "periodo": "Source period", "estado": "Source status", "procedencia": "Source", "nivel_puesto": "Post level" },
+  "estados_relaciones": { "vigente": "Current", "finalizada": "Ended", "suspendida": "Suspended" },
+  "estados_servicios": { "declarado": "Declared", "comprobado": "Checked", "reconocido": "Recognised" },
+  "cobertura": { "completa": "Complete", "parcial": "Partial", "no_acreditada": "Unverified" },
+  "certeza": { "acreditado": "Verified", "pendiente": "Pending", "no_acreditado": "Unverified" },
+  "advertencia_certeza": { "acreditado": "Verified in the source", "pendiente": "Verification pending", "no_acreditado": "Unverified in the source", "desconocida": "Certainty unverified; view source details" },
+  "datos": {
+    "relacion": "Relationship reference", "servicio": "Service reference", "puesto": "Post reference",
+    "version": "Version", "regimen": "Regime reference in the source", "version_regimen": "Regime version",
+    "clase": "Class reference in the source", "version_clase": "Class version", "version_puesto": "Post version",
+    "estado_fuente": "Status stated by the source", "acto": "Act reference", "fuente": "Source reference", "version_fuente": "Source version", "certeza": "Certainty stated by the source",
+    "empleado": "Employee reference", "organismo": "Organisation reference", "vigente_en": "Effective date",
+    "conocido_en": "Known to the system (UTC)", "cobertura": "Query coverage", "recibo": "Receipt",
+    "decision": "Decision reference", "efecto": "Effect reference", "huella": "Consumption fingerprint",
+    "auditoria": "Audit reference", "consultada_en": "Query date (UTC)"
+  }
+}

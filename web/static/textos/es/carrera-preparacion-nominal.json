@@ -1,0 +1,38 @@
+{
+  "titulo": "Preparación de carrera",
+  "reintentar": "Volver a consultar",
+  "estados": {
+    "carga": "Consultando antecedentes…",
+    "disponible": "Antecedentes consultados. La preparación sigue pendiente.",
+    "denegado": "No tiene permiso para consultar estos antecedentes. Solicite acceso al responsable del área.",
+    "no_disponible": "La consulta de antecedentes no está disponible. Vuelva a consultarla cuando se restablezca el acceso."
+  },
+  "pendientes_titulo": "Pendiente de comprobar",
+  "pendientes": { "grupo": "Grupo o subgrupo acreditado", "grado": "Grado reconocido", "politica": "Reglas de carrera aprobadas" },
+  "limite": "El nivel del puesto no acredita el grado personal. Estos antecedentes no reconocen derechos de carrera.",
+  "sin_dato": "No consta",
+  "sin_antecedentes": "Esta consulta no devuelve registros de este tipo. Revise la cobertura.",
+  "estado_sin_traduccion": "Estado no catalogado; ver procedencia",
+  "cobertura_resumen": "Cobertura de la consulta: {cobertura}",
+  "periodo": "Desde {desde} hasta {hasta} (fin excluido)",
+  "periodo_abierto": "Desde {desde}",
+  "procedencia": "Ver procedencia",
+  "detalle_tecnico": "Ver detalle técnico de la consulta",
+  "tablas": { "relaciones": "Relaciones de servicio", "servicios": "Servicios", "puestos": "Puestos ocupados" },
+  "columnas": { "periodo": "Periodo de la fuente", "estado": "Estado de la fuente", "procedencia": "Procedencia", "nivel_puesto": "Nivel del puesto" },
+  "estados_relaciones": { "vigente": "Vigente", "finalizada": "Finalizada", "suspendida": "Suspendida" },
+  "estados_servicios": { "declarado": "Declarado", "comprobado": "Comprobado", "reconocido": "Reconocido" },
+  "cobertura": { "completa": "Completa", "parcial": "Parcial", "no_acreditada": "No acreditada" },
+  "certeza": { "acreditado": "Acreditado", "pendiente": "Pendiente", "no_acreditado": "No acreditado" },
+  "advertencia_certeza": { "acreditado": "Acreditado en la fuente", "pendiente": "Pendiente de acreditar", "no_acreditado": "No acreditado en la fuente", "desconocida": "Certeza no acreditada; ver procedencia" },
+  "datos": {
+    "relacion": "Referencia de relación", "servicio": "Referencia de servicio", "puesto": "Referencia de puesto",
+    "version": "Versión", "regimen": "Referencia del régimen en la fuente", "version_regimen": "Versión del régimen",
+    "clase": "Referencia de clase en la fuente", "version_clase": "Versión de clase", "version_puesto": "Versión del puesto",
+    "estado_fuente": "Estado indicado por la fuente", "acto": "Referencia del acto", "fuente": "Referencia de fuente", "version_fuente": "Versión de fuente", "certeza": "Certeza indicada por la fuente",
+    "empleado": "Referencia de empleado", "organismo": "Referencia de organismo", "vigente_en": "Fecha de vigencia",
+    "conocido_en": "Conocido por el sistema (UTC)", "cobertura": "Cobertura de la consulta", "recibo": "Recibo",
+    "decision": "Referencia de decisión", "efecto": "Referencia de efecto", "huella": "Huella del consumo",
+    "auditoria": "Referencia de auditoría", "consultada_en": "Fecha de consulta (UTC)"
+  }
+}
