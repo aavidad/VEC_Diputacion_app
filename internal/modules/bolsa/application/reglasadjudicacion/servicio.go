@@ -72,6 +72,9 @@ func (s *Servicio) ConsultarAutorizada(ctx context.Context, c ports.ConsultaPoli
 	return v, nil
 }
 
+// Publicar admite la forma histórica solo para recuperar una operación: el
+// repositorio distingue atómicamente el replay de una versión nueva y exige
+// el inicio explícito para esta última, sin alterar el recibo histórico.
 func (s *Servicio) Publicar(ctx context.Context, c ports.ComandoPublicarPoliticaOfertas) (ports.VersionPoliticaOfertas, error) {
 	if s == nil || ctx == nil || !bolsaRef.MatchString(c.BolsaRef) || c.VersionEsperada < 0 ||
 		!clave.MatchString(c.ClaveIdempotencia) || c.ActorRef == "" ||
@@ -95,20 +98,20 @@ func (s *Servicio) Publicar(ctx context.Context, c ports.ComandoPublicarPolitica
 // PlazoDisposicion toma la versión vigente y delega el cálculo al módulo
 // Calendarios. El recibo de la oferta congela versión, huella y calendarios
 // usados; editar la política más tarde no reescribe ofertas anteriores.
-func (s *Servicio) PlazoDisposicionBolsa(ctx context.Context, bolsa string, publicada time.Time) (ports.PlazoOferta, time.Time, error) {
-	if s == nil || publicada.IsZero() {
+func (s *Servicio) PlazoDisposicionBolsa(ctx context.Context, bolsa string, notificada time.Time) (ports.PlazoOferta, time.Time, error) {
+	if s == nil || notificada.IsZero() {
 		return ports.PlazoOferta{}, time.Time{}, ports.ErrPlazoOfertaNoConfigurado
 	}
 	v, err := s.Vigente(ctx, bolsa)
 	if err != nil {
 		return ports.PlazoOferta{}, time.Time{}, err
 	}
-	if !v.Configurada || v.Politica == nil {
+	if !v.Configurada || v.Politica == nil || v.Politica.ValidarParaOfertasNuevas() != nil {
 		return ports.PlazoOferta{}, time.Time{}, ports.ErrPlazoOfertaNoConfigurado
 	}
 	p := v.Politica.Plazo
 	if p.Unidad == "horas_naturales" {
-		apertura := publicada.UTC().Truncate(time.Microsecond)
+		apertura := notificada.UTC().Truncate(time.Microsecond)
 		vence := apertura.Add(time.Duration(p.Cantidad) * time.Hour)
 		madrid, err := time.LoadLocation("Europe/Madrid")
 		if err != nil {
@@ -128,10 +131,10 @@ func (s *Servicio) PlazoDisposicionBolsa(ctx context.Context, bolsa string, publ
 		return ports.PlazoOferta{}, time.Time{}, ports.ErrOfertaNoDisponible
 	}
 	resultado, err := s.calendarios.CalcularPlazo(ctx, calendariosports.SolicitudCalculoPlazo{
-		NotificadoEn: publicada.UTC(), Unidad: calendariosdomain.UnidadPlazo(p.Unidad),
+		NotificadoEn: notificada.UTC(), Unidad: calendariosdomain.UnidadPlazo(p.Unidad),
 		Cantidad: p.Cantidad, MunicipioSede: "municipio:ine:" + p.MunicipioSede,
 	})
-	if err != nil || !resultado.VenceAntesDe.After(publicada) {
+	if err != nil || !resultado.VenceAntesDe.After(notificada) {
 		return ports.PlazoOferta{}, time.Time{}, errors.Join(ports.ErrOfertaNoDisponible, err)
 	}
 	versiones := make([]string, 0, len(resultado.VersionesUtilizadas))

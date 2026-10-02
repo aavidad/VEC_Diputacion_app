@@ -48,6 +48,8 @@ func (p PlazasPoliticaOfertas) Validar() error {
 }
 
 type PlazoPoliticaOfertas struct {
+	// Vacío conserva la forma histórica; las nuevas ofertas exigen notificación.
+	Inicio        string `json:"inicio,omitempty"`
 	Unidad        string `json:"unidad"`
 	Cantidad      int    `json:"cantidad"`
 	Computo       string `json:"computo"`
@@ -76,13 +78,26 @@ func (p PoliticaOfertas) Validar() error {
 	plazoValido := ((unidad == "dias_habiles" || unidad == "dias_naturales") &&
 		cantidad >= 1 && cantidad <= 30 && computo == "administrativo") ||
 		(unidad == "horas_naturales" && cantidad >= 1 && cantidad <= 720 && computo == "continuo_utc")
-	if !plazoValido || !municipioINE.MatchString(p.Plazo.MunicipioSede) ||
+	if !plazoValido || (p.Plazo.Inicio != "" && p.Plazo.Inicio != "notificacion") ||
+		!municipioINE.MatchString(p.Plazo.MunicipioSede) ||
 		p.Adjudicacion.Criterio != "orden_vigente" || p.Adjudicacion.Elegibilidad != "disposicion_en_plazo" ||
 		p.NoCubierta.Accion != "llamamiento_directo" || p.NoCubierta.Condicion != "sin_disposiciones_elegibles" {
 		return ErrPoliticaOfertasInvalida
 	}
 	if p.Plazas != nil {
 		return p.Plazas.Validar()
+	}
+	return nil
+}
+
+// ValidarParaOfertasNuevas impide que una versión histórica sin origen
+// explícito se interprete como una política desde la notificación.
+func (p PoliticaOfertas) ValidarParaOfertasNuevas() error {
+	if err := p.Validar(); err != nil {
+		return err
+	}
+	if p.Plazo.Inicio != "notificacion" {
+		return ErrPoliticaOfertasInvalida
 	}
 	return nil
 }
