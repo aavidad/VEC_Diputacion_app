@@ -58,13 +58,23 @@ func materialJustificacion(a vecdomain.ContextoActor, p ports.PreparacionJustifi
 }
 func reciboJustificacionCoherente(r ports.ReciboJustificacion, m domain.MaterialJustificacion, p ports.PreparacionJustificacion) bool {
 	h, e := m.Huella()
-	if e != nil || r.HuellaMaterial != h || r.ReciboRef == "" || r.FechaUTC.IsZero() || r.FechaUTC.Location() != time.UTC || r.FechaUTC.Nanosecond()%1000 != 0 || r.Justificacion.Validar(p.Solicitud, p.Politica) != nil || r.Justificacion.Vinculo != m.Vinculo || r.Justificacion.Version != m.VersionEsperada+1 {
+	if e != nil || r.HuellaMaterial != h || r.ReciboRef == "" || r.FechaUTC.IsZero() || r.FechaUTC.Location() != time.UTC || r.FechaUTC.Nanosecond()%1000 != 0 || r.Justificacion.Validar(p.Solicitud, p.Politica) != nil || r.Justificacion.Vinculo != m.Vinculo || r.Justificacion.Version != m.VersionEsperada+1 || r.Registro == nil || !registroDocumentalCoherente(*r.Registro, m.Vinculo.Documento, p) {
 		return false
 	}
 	if m.Accion == domain.AccionAnexarJustificacion {
 		return r.Justificacion.Estado == domain.JustificacionPendiente && r.Justificacion.MotivoRef == ""
 	}
 	return r.Justificacion.Estado == m.Decision && r.Justificacion.MotivoRef == m.MotivoRef
+}
+func registroDocumentalCoherente(r ports.RegistroDocumentalConfirmado, d domain.DocumentoJustificacion, p ports.PreparacionJustificacion) bool {
+	return r.Documento == d && r.Documento.Validar() == nil && r.ModuloID == "cronos" &&
+		r.ExpedienteRef == p.Solicitud.ExpedienteDocumentalRef && r.TipoRef == p.Politica.TipoDocumentalRef &&
+		r.NumeroVEC != "" && !r.CreadoEnUTC.IsZero() && r.CreadoEnUTC.Location() == time.UTC &&
+		domain.RefDocumentoJustificacionValida(r.PoliticaRef) && r.PoliticaVersion > 0 &&
+		domain.HuellaEfectosValida(r.PoliticaSHA256) && !r.ConservacionHastaUTC.IsZero() &&
+		r.ConservacionHastaUTC.Location() == time.UTC &&
+		(r.Proteccion == "conservacion" || r.Proteccion == "bloqueo") &&
+		(r.EstadoPolitica == "aprobada" || r.EstadoPolitica == "provisional")
 }
 func (s *ServicioJustificacion) Anexar(ctx context.Context, o ports.OrdenJustificacion, in ports.PeticionAnexoJustificacion) (ports.ResultadoAnexoJustificacion, error) {
 	a, p, e := s.preparar(ctx, o, in.SolicitudRef)
@@ -93,7 +103,7 @@ func (s *ServicioJustificacion) Anexar(ctx context.Context, o ports.OrdenJustifi
 		}
 		r.Replay = true
 		d := r.Justificacion.Vinculo.Documento
-		return ports.ResultadoAnexoJustificacion{Documento: &d, ReciboCronos: &r}, nil
+		return ports.ResultadoAnexoJustificacion{Documento: &d, Registro: r.Registro, ReciboCronos: &r}, nil
 	}
 	siguiente, e := domain.PrepararAnexoJustificacion(p.Solicitud, p.Politica, p.Actual, v, in.VersionEsperada)
 	if e != nil {
@@ -108,15 +118,16 @@ func (s *ServicioJustificacion) Anexar(ctx context.Context, o ports.OrdenJustifi
 	if !s.materialLigado(autorizacion, m) {
 		return ports.ResultadoAnexoJustificacion{}, ports.ErrJustificacionNoDisponible
 	}
-	d, e := s.documentos.RegistrarJustificante(ctx, o, p.Solicitud, p.Politica, in.Documento, in.ClaveOperacion)
+	registro, e := s.documentos.RegistrarJustificante(ctx, o, p.Solicitud, p.Politica, in.Documento, in.ClaveOperacion)
 	if e != nil {
 		return ports.ResultadoAnexoJustificacion{}, e
 	}
-	if d != in.Documento {
+	if !registroDocumentalCoherente(registro, in.Documento, p) {
 		return ports.ResultadoAnexoJustificacion{EnlacePendiente: true}, ports.ErrEnlaceJustificacionPendiente
 	}
-	resultado := ports.ResultadoAnexoJustificacion{Documento: &d, EnlacePendiente: true}
-	r, e = s.repo.ConfirmarJustificacion(ctx, m, siguiente, autorizacion)
+	d := registro.Documento
+	resultado := ports.ResultadoAnexoJustificacion{Documento: &d, Registro: &registro, EnlacePendiente: true}
+	r, e = s.repo.ConfirmarJustificacion(ctx, m, siguiente, &registro, autorizacion)
 	if e != nil {
 		return resultado, errors.Join(ports.ErrEnlaceJustificacionPendiente, e)
 	}
@@ -166,7 +177,7 @@ func (s *ServicioJustificacion) Revisar(ctx context.Context, o ports.OrdenJustif
 	if !s.materialLigado(autorizacion, m) {
 		return ports.ReciboJustificacion{}, ports.ErrJustificacionNoDisponible
 	}
-	r, e = s.repo.ConfirmarJustificacion(ctx, m, siguiente, autorizacion)
+	r, e = s.repo.ConfirmarJustificacion(ctx, m, siguiente, nil, autorizacion)
 	if e != nil {
 		return ports.ReciboJustificacion{}, e
 	}

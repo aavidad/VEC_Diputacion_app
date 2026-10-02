@@ -28,22 +28,31 @@ type documentosJustificacionPrueba struct {
 	preflightErr, err   error
 	llamadas, preflight int
 	cambiada            bool
+	sinNumero           bool
 }
 
 func (d *documentosJustificacionPrueba) PrepararRegistro(context.Context, ports.OrdenJustificacion, domain.SolicitudJustificable, domain.PoliticaJustificacion) error {
 	d.preflight++
 	return d.preflightErr
 }
-func (d *documentosJustificacionPrueba) RegistrarJustificante(_ context.Context, _ ports.OrdenJustificacion, _ domain.SolicitudJustificable, _ domain.PoliticaJustificacion, v domain.DocumentoJustificacion, _ string) (domain.DocumentoJustificacion, error) {
+func (d *documentosJustificacionPrueba) RegistrarJustificante(_ context.Context, _ ports.OrdenJustificacion, s domain.SolicitudJustificable, p domain.PoliticaJustificacion, v domain.DocumentoJustificacion, _ string) (ports.RegistroDocumentalConfirmado, error) {
 	d.llamadas++
 	if d.cambiada {
 		v.Version++
 	}
-	return v, d.err
+	numero := "VEC-2026-14"
+	if d.sinNumero {
+		numero = ""
+	}
+	return ports.RegistroDocumentalConfirmado{Documento: v, ModuloID: "cronos", ExpedienteRef: s.ExpedienteDocumentalRef, TipoRef: p.TipoDocumentalRef,
+		NumeroVEC: numero, CreadoEnUTC: time.Now().UTC(), PoliticaRef: "ref:" + strings.Repeat("1", 64),
+		PoliticaVersion: 1, PoliticaSHA256: strings.Repeat("2", 64), ConservacionHastaUTC: time.Now().UTC().AddDate(1, 0, 0),
+		Proteccion: "conservacion", EstadoPolitica: "aprobada"}, d.err
 }
 
 type repoJustificacionPrueba struct {
 	recibo            *ports.ReciboJustificacion
+	registro          *ports.RegistroDocumentalConfirmado
 	err, errorLectura error
 	lecturas, efectos int
 }
@@ -62,13 +71,21 @@ func (r *repoJustificacionPrueba) RecuperarJustificacion(_ context.Context, _ po
 	}
 	return *r.recibo, true, nil
 }
-func (r *repoJustificacionPrueba) ConfirmarJustificacion(_ context.Context, m domain.MaterialJustificacion, j domain.Justificacion, _ vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ports.ReciboJustificacion, error) {
+func (r *repoJustificacionPrueba) ConfirmarJustificacion(_ context.Context, m domain.MaterialJustificacion, j domain.Justificacion, registro *ports.RegistroDocumentalConfirmado, _ vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ports.ReciboJustificacion, error) {
 	r.efectos++
 	if r.err != nil {
 		return ports.ReciboJustificacion{}, r.err
 	}
+	if m.Accion == domain.AccionAnexarJustificacion {
+		if registro == nil || registro.Documento != m.Vinculo.Documento {
+			return ports.ReciboJustificacion{}, ports.ErrJustificacionNoDisponible
+		}
+		r.registro = registro
+	} else if registro != nil || r.registro == nil {
+		return ports.ReciboJustificacion{}, ports.ErrJustificacionNoDisponible
+	}
 	h, _ := m.Huella()
-	recibo := ports.ReciboJustificacion{Justificacion: j, HuellaMaterial: h, ReciboRef: "recibo:ensayo", FechaUTC: time.Now().UTC().Truncate(time.Microsecond)}
+	recibo := ports.ReciboJustificacion{Justificacion: j, Registro: r.registro, HuellaMaterial: h, ReciboRef: "recibo:ensayo", FechaUTC: time.Now().UTC().Truncate(time.Microsecond)}
 	r.recibo = &recibo
 	return recibo, nil
 }
@@ -176,12 +193,12 @@ func TestJustificacionDosEfectosFalloYReplay(t *testing.T) {
 	s, o, f, d, r, _, in := escenarioJustificacion(t)
 	r.err = ports.ErrJustificacionNoDisponible
 	res, e := s.Anexar(context.Background(), o, in)
-	if !errors.Is(e, ports.ErrEnlaceJustificacionPendiente) || !res.EnlacePendiente || res.Documento == nil || res.ReciboCronos != nil || d.llamadas != 1 {
+	if !errors.Is(e, ports.ErrEnlaceJustificacionPendiente) || !res.EnlacePendiente || res.Documento == nil || res.Registro == nil || res.ReciboCronos != nil || d.llamadas != 1 {
 		t.Fatal("oculta alta parcial", e, res)
 	}
 	r.err = nil
 	res, e = s.Anexar(context.Background(), o, in)
-	if e != nil || res.EnlacePendiente || res.ReciboCronos == nil || d.llamadas != 2 {
+	if e != nil || res.EnlacePendiente || res.ReciboCronos == nil || res.ReciboCronos.Registro == nil || res.ReciboCronos.Registro.NumeroVEC != "VEC-2026-14" || d.llamadas != 2 {
 		t.Fatal(e, res)
 	}
 	original := *res.ReciboCronos
@@ -235,5 +252,10 @@ func TestJustificacionFalloDocumentosNoConfirmaCronos(t *testing.T) {
 	d.cambiada = true
 	if res, e := s.Anexar(context.Background(), o, in); !errors.Is(e, ports.ErrEnlaceJustificacionPendiente) || r.efectos != 0 || res.ReciboCronos != nil {
 		t.Fatal("enlace de documento incoherente")
+	}
+	d.cambiada = false
+	d.sinNumero = true
+	if res, e := s.Anexar(context.Background(), o, in); !errors.Is(e, ports.ErrEnlaceJustificacionPendiente) || r.efectos != 0 || res.ReciboCronos != nil {
+		t.Fatal("enlace sin confirmacion registral")
 	}
 }
