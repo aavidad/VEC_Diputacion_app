@@ -73,7 +73,7 @@ func (h *HandlerOperacionesSituacion) ServeHTTP(w http.ResponseWriter, r *http.R
 			responderErrorOperacion(w, err)
 			return
 		}
-		items, cambios, err := listarHistorialOperaciones(r.Context(), h.operador, q)
+		items, cambios, vigente, err := listarHistorialOperaciones(r.Context(), h.operador, q)
 		if err != nil {
 			responderErrorOperacion(w, err)
 			return
@@ -85,6 +85,9 @@ func (h *HandlerOperacionesSituacion) ServeHTTP(w http.ResponseWriter, r *http.R
 		datos := map[string]any{"esquema": "vec.bolsa.rrhh.operaciones_situacion.v1", "items": salida}
 		if cambios != nil {
 			datos["cambios"] = cambios
+		}
+		if vigente != nil {
+			datos["situacion_vigente"] = map[string]any{"situacion": vigente.Situacion, "desde": vigente.Desde.UTC().Format(time.RFC3339Nano), "fecha_disponible": vigente.FechaDisponible}
 		}
 		responderSituacion(w, 200, map[string]any{"data": datos})
 		return
@@ -99,10 +102,12 @@ func (h *HandlerOperacionesSituacion) ServeHTTP(w http.ResponseWriter, r *http.R
 		return
 	}
 	var cuerpo struct {
-		Operacion    string `json:"operacion"`
-		Motivo       string `json:"motivo"`
-		Validador    string `json:"validador"`
-		Justificante struct {
+		Operacion              string `json:"operacion"`
+		Motivo                 string `json:"motivo"`
+		Validador              string `json:"validador"`
+		SituacionEsperadaDesde string `json:"situacion_esperada_desde"`
+		CausaFinalizadaEn      string `json:"causa_finalizada_en"`
+		Justificante           struct {
 			Tipo       string `json:"tipo"`
 			Referencia string `json:"referencia"`
 			SHA256     string `json:"sha256"`
@@ -120,12 +125,36 @@ func (h *HandlerOperacionesSituacion) ServeHTTP(w http.ResponseWriter, r *http.R
 		responderOperacion(w, 400, "solicitud_invalida")
 		return
 	}
+	var esperada time.Time
+	var finCausa *time.Time
+	if cuerpo.SituacionEsperadaDesde != "" {
+		valor, parseErr := time.Parse(time.RFC3339Nano, cuerpo.SituacionEsperadaDesde)
+		if parseErr != nil || valor.IsZero() {
+			responderOperacion(w, 400, "solicitud_invalida")
+			return
+		}
+		esperada = valor.UTC()
+	}
+	if cuerpo.CausaFinalizadaEn != "" {
+		madrid, locErr := time.LoadLocation("Europe/Madrid")
+		if locErr != nil {
+			responderOperacion(w, 503, "servicio_no_disponible")
+			return
+		}
+		valor, parseErr := time.ParseInLocation("2006-01-02", cuerpo.CausaFinalizadaEn, madrid)
+		if parseErr != nil || valor.IsZero() || valor.Format("2006-01-02") != cuerpo.CausaFinalizadaEn {
+			responderOperacion(w, 400, "solicitud_invalida")
+			return
+		}
+		utc := valor.UTC()
+		finCausa = &utc
+	}
 	q, err := h.preparador.PrepararSolicitudCambiarSituacion(r.Context(), EntradaCambiarSituacionParticipacion{BolsaRef: bolsa, ParticipacionRef: participacion, Destino: destino, Motivo: cuerpo.Motivo, ClaveIdempotencia: clave})
 	if err != nil {
 		responderErrorOperacion(w, err)
 		return
 	}
-	res, err := h.operador.Operar(r.Context(), ports.SolicitudOperacionSituacion{SolicitudCambiarSituacionParticipacion: q, Operacion: cuerpo.Operacion, Justificante: j, Validador: cuerpo.Validador})
+	res, err := h.operador.Operar(r.Context(), ports.SolicitudOperacionSituacion{SolicitudCambiarSituacionParticipacion: q, Operacion: cuerpo.Operacion, Justificante: j, Validador: cuerpo.Validador, SituacionEsperadaDesde: esperada, CausaFinalizadaEn: finCausa})
 	if err != nil {
 		responderErrorOperacion(w, err)
 		return

@@ -33,6 +33,16 @@ func (s *ServicioSituacionParticipacion) Operar(ctx context.Context, q ports.Sol
 	}
 	actor := q.ResultadoContexto.Contexto.PersonaRef
 	ahora := s.reloj().UTC().Truncate(time.Microsecond)
+	accionNueva := q.Operacion == dominiobolsa.OperacionRevisar || q.Operacion == dominiobolsa.OperacionRegularizar
+	if accionNueva {
+		if q.SituacionEsperadaDesde.IsZero() || q.SituacionEsperadaDesde.Location() == nil ||
+			(q.Operacion == dominiobolsa.OperacionRegularizar) != (q.CausaFinalizadaEn != nil) {
+			return ports.RegistroSituacionParticipacion{}, dominiobolsa.ErrOperacionSituacionParticipacionInvalida
+		}
+		if q.CausaFinalizadaEn != nil && (q.CausaFinalizadaEn.IsZero() || q.CausaFinalizadaEn.After(ahora)) {
+			return ports.RegistroSituacionParticipacion{}, dominiobolsa.ErrOperacionSituacionParticipacionInvalida
+		}
+	}
 	// El validador es una identidad declarada por RRHH, no un firmante. Qué
 	// operaciones exigen otra persona lo fija la política configurable; la
 	// base de datos vuelve a comprobarlo con la misma versión.
@@ -57,6 +67,9 @@ func (s *ServicioSituacionParticipacion) Operar(ctx context.Context, q ports.Sol
 	if ahora.Before(vigente.Desde) {
 		return ports.RegistroSituacionParticipacion{}, dominiobolsa.ErrCambioSituacionParticipacionInvalido
 	}
+	if accionNueva && vigente.Situacion != destino && !q.SituacionEsperadaDesde.Equal(vigente.Desde) {
+		return ports.RegistroSituacionParticipacion{}, dominiobolsa.ErrCambioSituacionParticipacionInvalido
+	}
 	// Si la situación vigente ya es el destino puede tratarse del replay de
 	// esta misma clave: lo resuelve la base de datos, como hasta ahora.
 	if vigente.Situacion != destino {
@@ -70,7 +83,7 @@ func (s *ServicioSituacionParticipacion) Operar(ctx context.Context, q ports.Sol
 	}
 	h := sha256.Sum256([]byte(q.ParticipacionRef + "\x1f" + q.ClaveIdempotencia))
 	recibo := "recibo:situacion:" + hex.EncodeToString(h[:])
-	return repo.RegistrarOperacion(ctx, ports.ComandoOperacionSituacion{ComandoCambiarSituacionParticipacion: ports.ComandoCambiarSituacionParticipacion{Cambio: cambio, Actor: actor, BolsaRef: q.BolsaRef, ClaveIdempotencia: q.ClaveIdempotencia, ReciboRef: recibo, SolicitudAutorizacion: auth, Decision: decision, Confirmacion: confirmacion, Material: material}, Operacion: q.Operacion, Justificante: q.Justificante, Validador: q.Validador, ValidadaEn: ahora})
+	return repo.RegistrarOperacion(ctx, ports.ComandoOperacionSituacion{ComandoCambiarSituacionParticipacion: ports.ComandoCambiarSituacionParticipacion{Cambio: cambio, Actor: actor, BolsaRef: q.BolsaRef, ClaveIdempotencia: q.ClaveIdempotencia, ReciboRef: recibo, SolicitudAutorizacion: auth, Decision: decision, Confirmacion: confirmacion, Material: material}, Operacion: q.Operacion, Justificante: q.Justificante, Validador: q.Validador, ValidadaEn: ahora, SituacionEsperadaDesde: q.SituacionEsperadaDesde, CausaFinalizadaEn: q.CausaFinalizadaEn})
 }
 
 // politicaSegregacion lee la política vigente del repositorio. Sin consulta

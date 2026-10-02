@@ -20,5 +20,13 @@ func (s *ServicioSituacionParticipacion) ListarHistorial(ctx context.Context, q 
 	if err != nil {
 		return ports.HistorialParticipacion{}, err
 	}
-	return repo.ListarHistorial(ctx, q.ParticipacionRef, q.ResultadoContexto.Contexto.PersonaRef, material)
+	h, err := repo.ListarHistorial(ctx, q.ParticipacionRef, q.ResultadoContexto.Contexto.PersonaRef, material)
+	if err != nil {
+		return ports.HistorialParticipacion{}, err
+	}
+	h.Vigente, err = s.repositorio.SituacionVigente(ctx, q.ParticipacionRef)
+	if err != nil || h.Vigente.Situacion == "" || h.Vigente.Desde.IsZero() {
+		return ports.HistorialParticipacion{}, ErrCambioSituacionParticipacionNoDisponible
+	}
+	return h, nil
 }

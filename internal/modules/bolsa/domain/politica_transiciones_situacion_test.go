@@ -103,3 +103,27 @@ func TestPoliticaTransicionesReincorporacionRRHHSoloPublicadaADisponible(t *test
 		}
 	}
 }
+
+func TestPoliticaRevisionConservaHistorialYExigeSalidaDeBaja(t *testing.T) {
+	base := map[string][]string{}
+	for _, origen := range SituacionesParticipacion() {
+		base[origen] = DestinosSituacionParticipacion(origen)
+	}
+	antigua, err := NuevaPoliticaTransicionesSituacion(base)
+	if err != nil || len(antigua.Pares()) != 18 {
+		t.Fatalf("política histórica alterada: %v, %v", antigua.Pares(), err)
+	}
+	base[SituacionRenuncia] = []string{SituacionEnRevision, SituacionExcluido}
+	if _, err := NuevaPoliticaTransicionesSituacion(base); !errors.Is(err, ErrPoliticaTransicionesInvalida) {
+		t.Fatalf("revisión sin salida a exclusión: %v", err)
+	}
+	base[SituacionEnRevision] = []string{SituacionDisponible, SituacionExcluido}
+	nueva, err := NuevaPoliticaTransicionesSituacion(base)
+	if err != nil || !nueva.Admite(SituacionRenuncia, SituacionEnRevision) || !nueva.Admite(SituacionEnRevision, SituacionDisponible) {
+		t.Fatalf("política revisión: %v, %v", nueva.Pares(), err)
+	}
+	leida, err := PoliticaTransicionesDesdePares(nueva.Pares())
+	if err != nil || !slices.Equal(leida.Pares(), nueva.Pares()) {
+		t.Fatalf("ida y vuelta de revisión: %v", err)
+	}
+}

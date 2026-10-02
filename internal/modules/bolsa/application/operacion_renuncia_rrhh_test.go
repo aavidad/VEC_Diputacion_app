@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"vec-diputacion-granada/internal/modules/bolsa/domain"
 	"vec-diputacion-granada/internal/modules/bolsa/ports"
@@ -38,6 +39,43 @@ func TestOperacionRenunciaJustificadaRRHHConservaJustificanteYRecibo(t *testing.
 	q.Justificante.Referencia = "justificante:otro"
 	if _, err := servicio.Operar(context.Background(), q); !errors.Is(err, ports.ErrClaveOperacionReutilizada) || repo.escrituras != 1 {
 		t.Fatalf("otro justificante con la misma clave: error=%v escrituras=%d", err, repo.escrituras)
+	}
+}
+
+func TestRevisionDocumentalExigePoliticaYVersionEsperada(t *testing.T) {
+	servicio, repo, ahora := servicioDesdeRenunciaPrueba(t, nil)
+	tabla := map[string][]string{}
+	for _, origen := range domain.SituacionesParticipacion() {
+		tabla[origen] = domain.DestinosSituacionParticipacion(origen)
+	}
+	tabla[domain.SituacionRenuncia] = []string{domain.SituacionEnRevision, domain.SituacionExcluido}
+	tabla[domain.SituacionEnRevision] = []string{domain.SituacionDisponible, domain.SituacionExcluido}
+	politica, err := domain.NuevaPoliticaTransicionesSituacion(tabla)
+	if err != nil {
+		t.Fatal(err)
+	}
+	servicio.repositorio = &repositorioPoliticaReincorporacionPrueba{repositorioOperacionPrueba: repo, politica: politica}
+	q := ports.SolicitudOperacionSituacion{
+		SolicitudCambiarSituacionParticipacion: solicitudSituacionPrueba(t, ahora),
+		Operacion:                              domain.OperacionRevisar,
+		Justificante:                           domain.JustificanteOperacionSituacion{Tipo: domain.JustificanteSolicitudCandidato, Referencia: "documento:renuncia", SHA256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+		Validador:                              "persona:rrhh", SituacionEsperadaDesde: ahora.Add(-time.Second),
+	}
+	q.Destino = domain.SituacionEnRevision
+	q.Motivo = "Pendiente de acreditar el fin de la causa"
+	if _, err := servicio.Operar(context.Background(), q); !errors.Is(err, domain.ErrCambioSituacionParticipacionInvalido) || repo.escrituras != 0 {
+		t.Fatalf("CAS obsoleto: error=%v escrituras=%d", err, repo.escrituras)
+	}
+	q.SituacionEsperadaDesde = ahora
+	res, err := servicio.Operar(context.Background(), q)
+	if err != nil || res.Situacion != domain.SituacionEnRevision || repo.escrituras != 1 {
+		t.Fatalf("revisión: resultado=%+v error=%v escrituras=%d", res, err, repo.escrituras)
+	}
+	q.Operacion = domain.OperacionRegularizar
+	q.Destino = domain.SituacionDisponible
+	q.ClaveIdempotencia = "regularizacion-sin-fin"
+	if _, err := servicio.Operar(context.Background(), q); !errors.Is(err, domain.ErrOperacionSituacionParticipacionInvalida) {
+		t.Fatalf("regularización sin fin: %v", err)
 	}
 }
 

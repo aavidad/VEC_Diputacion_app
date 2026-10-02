@@ -13,8 +13,9 @@ var ErrPoliticaTransicionesInvalida = errors.New("bolsa: politica de transicione
 const separadorTransicion = ">"
 
 // maximoTransiciones acota una lista recibida antes de reservar memoria:
-// siete situaciones, sin repetir la misma.
-const maximoTransiciones = 42
+// ocho situaciones, sin repetir la misma. El orden de las siete anteriores
+// permanece estable para conservar las políticas históricas.
+const maximoTransiciones = 56
 
 // PoliticaTransicionesSituacion es la tabla de transiciones de situación que
 // rige un cambio. Procede del catálogo configurable (b28.transiciones.<origen>)
@@ -46,11 +47,13 @@ func PoliticaTransicionesSituacionCompilada() PoliticaTransicionesSituacion {
 // repetidas y cualquier tabla que incumpla una invariante fija.
 func NuevaPoliticaTransicionesSituacion(tabla map[string][]string) (PoliticaTransicionesSituacion, error) {
 	total := 0
+	usaRevision := len(tabla[SituacionEnRevision]) != 0
 	for origen, destinos := range tabla {
 		if !situacionParticipacionValida(origen) {
 			return PoliticaTransicionesSituacion{}, ErrPoliticaTransicionesInvalida
 		}
 		total += len(destinos)
+		usaRevision = usaRevision || slices.Contains(destinos, SituacionEnRevision)
 	}
 	if total > maximoTransiciones {
 		return PoliticaTransicionesSituacion{}, ErrPoliticaTransicionesInvalida
@@ -63,7 +66,9 @@ func NuevaPoliticaTransicionesSituacion(tabla map[string][]string) (PoliticaTran
 				return PoliticaTransicionesSituacion{}, ErrPoliticaTransicionesInvalida
 			}
 		}
-		if origen != SituacionExcluido && !slices.Contains(destinos, SituacionExcluido) {
+		// Las políticas anteriores a RRHH18 no conocen «en_revision». Su
+		// lectura no debe añadir ni exigir pares que no publicaron.
+		if origen != SituacionExcluido && (origen != SituacionEnRevision || usaRevision) && !slices.Contains(destinos, SituacionExcluido) {
 			return PoliticaTransicionesSituacion{}, ErrPoliticaTransicionesInvalida
 		}
 		ordenados := make([]string, 0, len(destinos))
