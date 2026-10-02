@@ -24,6 +24,7 @@
     "circuito_firma_portafirmas_detalle": "What is needed to record the signature",
     "circuito_firma_enviar": "Record signed document",
     "circuito_firma_envio_bloqueado": "HR cannot record this route yet. VEC must check the signed original and the permission for this case first.",
+    "circuito_firma_vec_bloqueada": "Signing with a certificate in VEC is not available yet: VEC must verify the original PDF held in custody and your specific permission to sign this case.",
     "circuito_firma_portafirmas_sin_envio": "This panel does not evidence a signature, submission or record in Portafirmas.",
     "circuito_firma_portafirmas_estado_no_disponible": "The signing workflow cannot be retrieved.",
     "circuito_firma_consulta_denegada": "You are not authorised to view the signatures for this case.",
