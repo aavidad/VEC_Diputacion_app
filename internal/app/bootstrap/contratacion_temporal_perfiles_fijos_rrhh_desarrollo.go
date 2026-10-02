@@ -5,6 +5,8 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"slices"
+	"strconv"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -12,8 +14,13 @@ import (
 	"vec-diputacion-granada/config"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
+	ctapp "vec-diputacion-granada/internal/modules/contrataciontemporal/application"
+	ctdomain "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	docports "vec-diputacion-granada/internal/vec/documentos/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
+	vecports "vec-diputacion-granada/internal/vec/ports"
+	"vec-diputacion-granada/internal/vec/reglas"
 )
 
 // Perfiles fijos de RRHH (corte 2; el análisis, corte 3).
@@ -61,6 +68,9 @@ type perfilFijoCTDesarrollo struct {
 	plantilla dominiovec.InstantaneaAutorizacion
 	// actoSesion es el de las filas de sesión del perfil (propio en los
 	// perfiles nuevos, el histórico en un perfil que ya existía).
+	actoAsignacion string
+	// Un perfil de cargo se publica mediante la autoridad central; este soporte solo consume.
+	soloConsumoCentral         bool
 	actoSesion                 string
 	actoControlRol             string
 	contextoEsperadoRegistrado dominiovec.ResultadoContextoActorRegistradoV2
@@ -152,7 +162,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) perfilFijoParaRuta(ruta stri
 func (s *soporteAltaContratacionTemporalDesarrollo) perfilFijoParaContexto(
 	ctx context.Context, ruta string,
 ) *perfilFijoCTDesarrollo {
-	if ruta == rutaEntregaPeticionCentro {
+	if ruta == rutaEntregaPeticionCentro || rutaFirmaR5CTDesarrollo(ruta) {
 		capacidad, valida := s.capacidadValida(ctx)
 		if !valida || capacidad.ruta != ruta ||
 			(capacidad.metodo != http.MethodGet && capacidad.metodo != http.MethodPost) {
@@ -239,7 +249,7 @@ func autoridadPerfilFijoCTDesarrollo(pool *pgxpool.Pool, p *perfilFijoCTDesarrol
 // publicarContextoPerfilFijoCTDesarrollo registra el contexto del perfil con
 // una operación propia (incluye el perfil para no colisionar con el general).
 func publicarContextoPerfilFijoCTDesarrollo(ctx context.Context, pool *pgxpool.Pool, p *perfilFijoCTDesarrollo) error {
-	if p == nil {
+	if p == nil || p.soloConsumoCentral {
 		return falloPostgreSQLCTDesarrollo(nil)
 	}
 	v, err := p.contexto.Vinculo.Datos()
@@ -284,7 +294,7 @@ func asegurarPerfilFijoCTDesarrollo(
 	aprobacion aprobacionProvisionPerfilesRRHHDesarrollo,
 	admitida func(instantaneaPublicadaDesarrollo, time.Time) bool,
 ) (estadoPerfilFijoCTDesarrollo, error) {
-	if ctx == nil || pool == nil || s == nil || p == nil || admitida == nil ||
+	if ctx == nil || pool == nil || s == nil || p == nil || p.soloConsumoCentral || admitida == nil ||
 		dependenciaEsNulaContratacionTemporalDesarrollo(s.reloj) || p.plantilla.Validar() != nil {
 		return "", falloPostgreSQLCTDesarrollo(nil)
 	}
@@ -311,7 +321,7 @@ func asegurarPerfilFijoCTDesarrollo(
 		return perfilFijoPendienteProvision, nil
 	}
 	if _, exacta := instantaneaConsumible(publicada, plantilla, ahora); exacta &&
-		publicada.actoAsignacion == actoAsignacionPerfilFijoCTDesarrollo {
+		publicada.actoAsignacion == p.actoAsignacionEsperado() {
 		return perfilFijoVigente, nil
 	}
 	huella, errHuella := publicada.instantanea.AsignacionPerfil.HuellaSHA256()
@@ -413,7 +423,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) consumirPerfilFijoCTDesarrol
 	estado := perfilFijoConsumoDenegado
 	if err != nil || publicada.instantanea.Validar() != nil && encontrada {
 		estado = perfilFijoConsumoFuenteNoDisponible
-	} else if encontrada && publicada.actoAsignacion == actoAsignacionPerfilFijoCTDesarrollo {
+	} else if encontrada && publicada.actoAsignacion == p.actoAsignacionEsperado() {
 		consumida, valida := instantaneaConsumible(publicada, p.plantilla, s.reloj.Ahora())
 		if valida && consumida.Validar() == nil {
 			return consumida, perfilFijoConsumoVigente
@@ -474,6 +484,10 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaPerfilFijoParaCon
 		case rutaAnalisisContratacionTemporalDesarrollo(ruta):
 			fase, ok := s.opcionesCatalogo.faseOperacionVigente(operacionFaseAnalisisCT)
 			valida = ok && solicitudAutorizacionAnalisisContratacionTemporalDesarrolloValida(ruta, datos, fase)
+		case rutaFirmaR5CTDesarrollo(ruta):
+			valida = solicitudAutorizacionFirmaR5DesarrolloValida(ctx, datos) ||
+				solicitudAutorizacionOriginalDocumentosCTValida(ctx, datos) ||
+				solicitudAutorizacionCustodiaFirmadoCTDesarrolloValida(ctx, datos)
 		case rutaFirmaDocumentoCTDesarrollo(ruta):
 			valida = solicitudAutorizacionConsultaFirmasDocumentoCTDesarrolloValida(ctx, datos) ||
 				ruta == httpinterno.RutaFirmaDocumento && (solicitudAutorizacionFirmaDocumentoCTDesarrolloValida(ctx, datos) || solicitudAutorizacionCustodiaFirmadoCTDesarrolloValida(ctx, datos))
@@ -510,6 +524,9 @@ func asegurarPerfilesFijosCTDesarrollo(
 	aprobacion aprobacionProvisionPerfilesRRHHDesarrollo, perfiles ...*perfilFijoCTDesarrollo,
 ) error {
 	for _, p := range perfiles {
+		if p != nil && p.soloConsumoCentral {
+			continue
+		}
 		if p == nil || p.propioDelSoporte {
 			return falloPostgreSQLCTDesarrollo(nil)
 		}
@@ -534,7 +551,7 @@ func configurarSesionesPerfilesFijosCTDesarrollo(
 		return ports.ErrConsultaRRHHNoDisponible
 	}
 	for _, p := range s.perfilesFijosRegistrados() {
-		if p.propioDelSoporte {
+		if p.propioDelSoporte || p.soloConsumoCentral {
 			continue
 		}
 		esperado, err := contextoEsperadoRegistradoParaSemillaDesarrollo(ctx, base.resolutor, s, p.contexto.Resultado)
@@ -750,4 +767,151 @@ func componerPerfilFijoLectorRRHHDesarrollo(
 		return err
 	}
 	return nil
+}
+
+func (p *perfilFijoCTDesarrollo) actoAsignacionEsperado() string {
+	if p != nil && p.actoAsignacion != "" {
+		return p.actoAsignacion
+	}
+	return actoAsignacionPerfilFijoCTDesarrollo
+}
+
+// El descriptor procede de la configuración privada versionada de composición.
+// Liga expresamente el perfil lógico del catálogo al perfil activo registrado y
+// a una versión de rol publicada. Ninguno de sus valores se deduce del cargo.
+type descriptorPerfilFirmaR5CTDesarrollo struct {
+	perfilRef, perfilActivoRef, rolID, versionRolRef, huellaVersionRol string
+	catalogoRef, huellaCatalogo                                        string
+}
+
+type configuracionPerfilFijoFirmaR5CTDesarrollo struct {
+	soporte               *soporteAltaContratacionTemporalDesarrollo
+	clave, actoAsignacion string
+	rutas                 []string
+	descriptor            descriptorPerfilFirmaR5CTDesarrollo
+	circuito              reglas.CircuitoFirma
+	contexto              ports.ContextoAutorizacionAltaV3
+	esperado              dominiovec.ResultadoContextoActorRegistradoV2
+	sesion                proveedorSesionOperativaCTDesarrollo
+	plantilla             dominiovec.InstantaneaAutorizacion
+}
+
+// nuevoPerfilFijoFirmaR5CTDesarrollo no crea actores, vínculos, sesiones ni
+// asignaciones. La autoridad central aporta la instantánea y el canal su
+// contexto registrado. El perfil resultante solo puede consumir la publicación
+// exacta; el publicador sintético de perfiles fijos lo rechaza.
+func nuevoPerfilFijoFirmaR5CTDesarrollo(c configuracionPerfilFijoFirmaR5CTDesarrollo) (*perfilFijoCTDesarrollo, error) {
+	if c.soporte == nil || c.clave == "" || c.actoAsignacion == "" || len(c.rutas) == 0 ||
+		c.contexto.Resultado.Validar() != nil || c.contexto.Vinculo.ValidarPara(c.contexto.Resultado) != nil ||
+		c.esperado.Validar() != nil || dependenciaEsNulaContratacionTemporalDesarrollo(c.sesion) ||
+		c.plantilla.Validar() != nil || !mismoContextoEsperadoRegistradoDesarrollo(c.contexto.Resultado, c.esperado) {
+		return nil, errPerfilFijoCTNoConsumible
+	}
+	d := c.descriptor
+	huella, err := c.plantilla.VersionRol.HuellaSHA256()
+	base, actor := c.soporte.contexto.Resultado.Contexto, c.contexto.Resultado.Contexto
+	if err != nil || d.perfilRef == "" || d.perfilActivoRef != actor.PerfilActivoRef ||
+		d.perfilActivoRef != c.plantilla.AsignacionPerfil.PerfilActivoRef ||
+		d.rolID != c.plantilla.VersionRol.RolID || d.versionRolRef != c.plantilla.VersionRol.Referencia() ||
+		d.huellaVersionRol != huella || actor.Principal.ID != base.Principal.ID ||
+		actor.PersonaRef != base.PersonaRef || actor.Instantanea.CuentaRef != base.Instantanea.CuentaRef ||
+		c.plantilla.AsignacionPerfil.PrincipalID != actor.Principal.ID ||
+		d.catalogoRef != c.circuito.CatalogoID+":"+strconv.Itoa(c.circuito.Version) ||
+		d.huellaCatalogo != c.circuito.HuellaCatalogo || !ctdomain.HuellaSHA256FirmaValida(d.huellaCatalogo) ||
+		c.circuito.CatalogoID == "" || c.circuito.Version < 1 || len(c.circuito.Documentos) == 0 {
+		return nil, errPerfilFijoCTNoConsumible
+	}
+	p := &perfilFijoCTDesarrollo{clave: c.clave, metodo: http.MethodPost,
+		rutas: make(map[string]struct{}, len(c.rutas)), contexto: c.contexto,
+		contextoEsperadoRegistrado: c.esperado, sesionOperativa: c.sesion,
+		plantilla:      clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(c.plantilla),
+		actoAsignacion: c.actoAsignacion, soloConsumoCentral: true}
+	for _, ruta := range c.rutas {
+		if !rutaFirmaR5CTDesarrollo(ruta) || !perfilFirmaR5ConcesionesExactas(c.plantilla, ruta) {
+			return nil, errPerfilFijoCTNoConsumible
+		}
+		if _, repetida := p.rutas[ruta]; repetida {
+			return nil, errPerfilFijoCTNoConsumible
+		}
+		if ruta == httpinterno.RutaRegistroFirmaVec && !perfilEnCircuitoFirmaR5CTDesarrollo(c.circuito, d.perfilRef) {
+			return nil, errPerfilFijoCTNoConsumible
+		}
+		p.rutas[ruta] = struct{}{}
+	}
+	return p, nil
+}
+
+func perfilEnCircuitoFirmaR5CTDesarrollo(c reglas.CircuitoFirma, perfilRef string) bool {
+	if perfilRef == "" {
+		return false
+	}
+	for _, documento := range c.Documentos {
+		for _, paso := range documento.Pasos {
+			if paso.PerfilRef == perfilRef || slices.Contains(paso.PerfilesAlternativos, perfilRef) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// Las concesiones se entregan al publicador central como plantilla propuesta.
+// Su publicación, versión y huella pertenecen a esa autoridad, no a este builder.
+func concesionesPerfilFirmaR5CTDesarrollo(ruta string) ([]dominiovec.ConcesionRol, error) {
+	var accion, tipo string
+	switch ruta {
+	case httpinterno.RutaPreflightFirmaR5:
+		return []dominiovec.ConcesionRol{
+			{Accion: ports.AccionConsultarFirmasR5, ModuloID: ports.ModuloContratacion, TipoRecurso: ports.TipoRecursoConsultaFirmasR5,
+				Finalidades: []string{ports.FinalidadFirmaDocumento}, GarantiaMinima: dominiovec.AuthAssuranceHigh, CamposPermitidos: ctapp.CamposConsultaFirmasR5()},
+			{Accion: docports.AccionDescargar, ModuloID: "documentos", TipoRecurso: "documento_original",
+				Finalidades: []string{"descargar_documento_original"}, GarantiaMinima: dominiovec.AuthAssuranceHigh, CamposPermitidos: []string{"contenido", "documento"}},
+		}, nil
+	case httpinterno.RutaRegistroFirmaVec:
+		accion, tipo = ports.AccionRegistrarFirmaVec, ports.TipoRecursoFirmaVec
+	case httpinterno.RutaRegistroFirmaExterna:
+		accion, tipo = ports.AccionRegistrarFirmaExterna, ports.TipoRecursoFirmaExterna
+	default:
+		return nil, errPerfilFijoCTNoConsumible
+	}
+	return []dominiovec.ConcesionRol{
+		{Accion: accion, ModuloID: ports.ModuloContratacion, TipoRecurso: tipo,
+			Finalidades: []string{ports.FinalidadFirmaDocumento}, GarantiaMinima: dominiovec.AuthAssuranceHigh},
+		{Accion: ports.AccionConsultarFirmasR5, ModuloID: ports.ModuloContratacion, TipoRecurso: ports.TipoRecursoConsultaFirmasR5,
+			Finalidades: []string{ports.FinalidadFirmaDocumento}, GarantiaMinima: dominiovec.AuthAssuranceHigh,
+			CamposPermitidos: ctapp.CamposConsultaFirmasR5()},
+		{Accion: docports.AccionDescargar, ModuloID: "documentos", TipoRecurso: "documento_original",
+			Finalidades: []string{"descargar_documento_original"}, GarantiaMinima: dominiovec.AuthAssuranceHigh,
+			CamposPermitidos: []string{"contenido", "documento"}},
+		{Accion: docports.AccionReservarOriginalFirmable, ModuloID: "documentos", TipoRecurso: "documento_original_firmable",
+			Finalidades: []string{docports.FinalidadOriginalFirmable}, GarantiaMinima: dominiovec.AuthAssuranceHigh},
+		{Accion: docports.AccionConfirmarOriginalFirmable, ModuloID: "documentos", TipoRecurso: "documento_original_firmable",
+			Finalidades: []string{docports.FinalidadOriginalFirmable}, GarantiaMinima: dominiovec.AuthAssuranceHigh},
+		{Accion: vecports.AccionNegocioEscribirOriginalFirmable, ModuloID: "documentos", TipoRecurso: "documento_original_firmable",
+			Finalidades: []string{docports.FinalidadOriginalFirmable}, GarantiaMinima: dominiovec.AuthAssuranceHigh,
+			CamposPermitidos: []string{"evidencia_almacen", "original_firmable.contenido"}},
+		concesionCustodiaFirmadoCTDesarrollo(),
+	}, nil
+}
+
+func perfilFirmaR5ConcesionesExactas(plantilla dominiovec.InstantaneaAutorizacion, ruta string) bool {
+	esperadas, err := concesionesPerfilFirmaR5CTDesarrollo(ruta)
+	if err != nil {
+		return false
+	}
+	for _, esperada := range esperadas {
+		encontrada := false
+		for _, actual := range plantilla.VersionRol.Concesiones {
+			if actual.Accion == esperada.Accion && actual.ModuloID == esperada.ModuloID && actual.TipoRecurso == esperada.TipoRecurso &&
+				actual.GarantiaMinima == esperada.GarantiaMinima && slices.Equal(actual.Finalidades, esperada.Finalidades) &&
+				slices.Equal(actual.CamposPermitidos, esperada.CamposPermitidos) && slices.Equal(actual.Obligaciones, esperada.Obligaciones) {
+				encontrada = true
+				break
+			}
+		}
+		if !encontrada {
+			return false
+		}
+	}
+	return true
 }

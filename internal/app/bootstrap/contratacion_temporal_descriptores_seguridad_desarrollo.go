@@ -9,6 +9,7 @@ import (
 	ctdomain "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	ctports "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	docports "vec-diputacion-granada/internal/vec/documentos/ports"
+	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
 const (
@@ -224,4 +225,50 @@ func descriptoresMaterialAutorizacionContratacionTemporalDesarrollo() []descript
 		{Audiencia: ctapplication.AudienciaDespachoCorreoLlamamientoV3, Dominio: "vec.ct.despacho-correo-llamamiento.desarrollo.capacidad-v3", Prefijo: "clave:capacidad:ct-despacho-correo:", ProveedorNominal: proveedorMaterialContratacionTemporal},
 		{Audiencia: ctapplication.AudienciaResultadoCorreoLlamamientoV3, Dominio: "vec.ct.resultado-correo-llamamiento.desarrollo.capacidad-v3", Prefijo: "clave:capacidad:ct-resultado-correo:", ProveedorNominal: proveedorMaterialContratacionTemporal},
 	}
+}
+
+// R5 declara vías segregadas. La consulta y las operaciones del original se
+// autorizan por separado dentro de la misma frontera, sin cambiar de perfil.
+func descriptoresFronterasFirmaR5CTDesarrollo(perfilVec, perfilExterna string) []descriptorFronteraComunDesarrollo {
+	return []descriptorFronteraComunDesarrollo{
+		fronteraContratacionTemporalDesarrollo("ct-firma-r5-vec-registrar", ctports.AccionRegistrarFirmaVec, cthttp.RutaRegistroFirmaVec, []string{perfilVec}),
+		fronteraContratacionTemporalDesarrollo("ct-firma-r5-externa-registrar", ctports.AccionRegistrarFirmaExterna, cthttp.RutaRegistroFirmaExterna, []string{perfilExterna}),
+	}
+}
+
+func descriptoresAutorizacionFirmaR5CTDesarrollo(politica politicaAutorizacionSolicitudLigadaV3Desarrollo) []descriptorAutorizacionComunDesarrollo {
+	var resultado []descriptorAutorizacionComunDesarrollo
+	for _, f := range descriptoresFronterasFirmaR5CTDesarrollo("prf_catalogo_vec", "prf_catalogo_externa") {
+		for _, accion := range []string{f.ClaveCapacidad, ctports.AccionConsultarFirmasR5, docports.AccionDescargar,
+			docports.AccionReservarOriginalFirmable, docports.AccionConfirmarOriginalFirmable,
+			vecports.AccionNegocioEscribirOriginalFirmable, docports.AccionCustodiarFirmado} {
+			resultado = append(resultado, descriptorAutorizacionComunDesarrollo{Accion: accion,
+				ClavePolitica: f.ClavePolitica, ClaveCapacidad: f.ClaveCapacidad, Fronteras: []string{f.Clave}, Politica: politica})
+		}
+	}
+	return resultado
+}
+
+func descriptoresMaterialFirmaR5CTDesarrollo() []descriptorMaterialConsumidorV3Desarrollo {
+	return []descriptorMaterialConsumidorV3Desarrollo{
+		{Audiencia: ctports.AudienciaFirmaVecV3, Dominio: "vec.ct.firma-vec.capacidad-v3", Prefijo: "clave:capacidad:ct-firma-vec:", ProveedorNominal: proveedorMaterialContratacionTemporal},
+		{Audiencia: ctports.AudienciaFirmaExternaV3, Dominio: "vec.ct.firma-externa.capacidad-v3", Prefijo: "clave:capacidad:ct-firma-externa:", ProveedorNominal: proveedorMaterialContratacionTemporal},
+		{Audiencia: ctports.AudienciaConsultaFirmasR5V3, Dominio: "vec.ct.firmas-r5.consulta.capacidad-v3", Prefijo: "clave:capacidad:ct-firmas-r5-consulta:", ProveedorNominal: proveedorMaterialContratacionTemporal},
+	}
+}
+
+// El preflight solo consulta la historia y el original. No hereda acciones
+// de registro ni las de reserva, confirmación o escritura de almacén.
+func descriptorFronteraPreflightFirmaR5CTDesarrollo(perfiles []string) descriptorFronteraComunDesarrollo {
+	return fronteraContratacionTemporalDesarrollo("ct-firma-r5-preflight", ctports.AccionConsultarFirmasR5, cthttp.RutaPreflightFirmaR5, perfiles)
+}
+
+func descriptoresAutorizacionPreflightFirmaR5CTDesarrollo(politica politicaAutorizacionSolicitudLigadaV3Desarrollo) []descriptorAutorizacionComunDesarrollo {
+	f := descriptorFronteraPreflightFirmaR5CTDesarrollo(nil)
+	var resultado []descriptorAutorizacionComunDesarrollo
+	for _, accion := range []string{ctports.AccionConsultarFirmasR5, docports.AccionDescargar} {
+		resultado = append(resultado, descriptorAutorizacionComunDesarrollo{Accion: accion,
+			ClavePolitica: f.ClavePolitica, ClaveCapacidad: f.ClaveCapacidad, Fronteras: []string{f.Clave}, Politica: politica})
+	}
+	return resultado
 }

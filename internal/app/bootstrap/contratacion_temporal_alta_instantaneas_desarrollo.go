@@ -19,7 +19,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaContexto(
 	if fijo := s.perfilFijoParaContexto(ctx, ruta); fijo != nil {
 		return s.instantaneaPerfilFijoParaContexto(ctx, ruta, fijo)
 	}
-	if ruta == rutaEntregaPeticionCentro {
+	if ruta == rutaEntregaPeticionCentro || rutaFirmaR5CTDesarrollo(ruta) {
 		return dominiovec.InstantaneaAutorizacion{}, false
 	}
 	instantanea, valida := s.instantaneaParaRuta(ruta)

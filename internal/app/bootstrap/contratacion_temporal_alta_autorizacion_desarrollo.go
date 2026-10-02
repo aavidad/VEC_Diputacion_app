@@ -77,7 +77,7 @@ func rutaContextoAutorizacionContratacionTemporalDesarrollo(ruta string) bool {
 		rutaAsignacionContratacionTemporalDesarrollo(ruta) ||
 		rutaInformeJuridicoContratacionTemporalDesarrollo(ruta) ||
 		ruta == httpinterno.RutaSubsanacionReparos ||
-		rutaFirmaDocumentoCTDesarrollo(ruta) ||
+		rutaFirmaDocumentoCTDesarrollo(ruta) || rutaFirmaR5CTDesarrollo(ruta) ||
 		rutaSeguimientoCeseDesarrollo(ruta) || rutaCancelacionCTDesarrollo(ruta) ||
 		rutaLlamamientoContratacionTemporalDesarrollo(ruta) ||
 		ruta == httpinterno.RutaConsultaCircuitoRRHH ||

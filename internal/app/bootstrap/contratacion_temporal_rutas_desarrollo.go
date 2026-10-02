@@ -107,6 +107,9 @@ func inventarioRutasCTDesarrollo() map[string][]metodoRutaCTDesarrollo {
 		rutaCircuitoFirmaContratacionTemporalDesarrollo:         {nominalCT(http.MethodGet, "contratacion_temporal_circuito_firma_desarrollo.go:manejadorCircuitoFirmaContratacionTemporalDesarrollo"), nominalCT(http.MethodHead, "contratacion_temporal_circuito_firma_desarrollo.go:manejadorCircuitoFirmaContratacionTemporalDesarrollo")},
 		httpinterno.RutaDocumentacionFormalizacion:              {nominalCT(http.MethodGet, "contratacion_temporal_documentacion_formalizacion_desarrollo.go:nuevaRutaDocumentacionFormalizacionDesarrollo")},
 		httpinterno.RutaFirmaDocumento:                          {pdpCT(http.MethodPost)},
+		httpinterno.RutaRegistroFirmaExterna:                    {pdpCT(http.MethodPost)},
+		httpinterno.RutaRegistroFirmaVec:                        {pdpCT(http.MethodPost)},
+		httpinterno.RutaPreflightFirmaR5:                        {pdpCT(http.MethodPost)},
 		httpinterno.RutaConsultaFirmaDocumento:                  {pdpCT(http.MethodPost)},
 		httpinterno.RutaPlanB2:                                  {pdpCT(http.MethodGet), pdpCT(http.MethodPost)},
 		httpinterno.RutaConfirmacionB2:                          {pdpCT(http.MethodPost)},
@@ -243,7 +246,11 @@ func esRutaContratacionTemporalDesarrollo(r *http.Request) bool {
 		r.URL.Path == rutaCambiosOrganizacionContratacionTemporalDesarrollo ||
 		r.URL.Path == rutaConfiguracionAnalisisContratacionTemporalDesarrollo ||
 		r.URL.Path == rutaCircuitoFirmaContratacionTemporalDesarrollo ||
-		rutaFirmaDocumentoCTDesarrollo(r.URL.Path) ||
+		rutaFirmaDocumentoCTDesarrollo(r.URL.Path) || rutaFirmaR5CTDesarrollo(r.URL.Path) ||
 		rutaCalendariosDesarrollo(r.URL.Path) || rutaDocumentacionFormalizacionDesarrollo(r.URL.Path) ||
 		rutaReglasVigentesDesarrollo(r.URL.Path)
+}
+
+func rutaFirmaR5CTDesarrollo(ruta string) bool {
+	return ruta == httpinterno.RutaRegistroFirmaExterna || ruta == httpinterno.RutaRegistroFirmaVec || ruta == httpinterno.RutaPreflightFirmaR5
 }
