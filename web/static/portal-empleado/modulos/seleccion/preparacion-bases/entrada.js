@@ -68,6 +68,7 @@ try {
 } catch {
   // Un catálogo ausente no habilita un visor sin límites comprensibles.
   archivo.disabled = true; ayuda.disabled = true; estado.setAttribute('role', 'alert');
-  const respaldo = await leerRecursoJSON(new URL(`../../../../textos/${IDIOMA_ACTUAL}/seleccion-bases-preparacion-error.json`, import.meta.url)).catch(() => null);
+  const respaldo = await leerRecursoJSON(new URL(`../../../../textos/${IDIOMA_ACTUAL}/seleccion-bases-preparacion-error.json`, import.meta.url))
+    .catch(() => leerRecursoJSON(new URL('./error-catalogo.json', import.meta.url))).catch(() => null);
   if (respaldo) { estado.textContent = respaldo.mensaje; document.documentElement.lang = respaldo.idioma; document.title = respaldo.titulo; document.querySelector('h1').textContent = respaldo.titulo; }
 }
