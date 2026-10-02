@@ -33,11 +33,11 @@ BEGIN
    AND p.proowner='vec_autorizacion_atestada_v3_propietario'::regrole
    AND p.prokind='f' AND p.provolatile='v' AND p.proparallel='u' AND p.prosecdef
    AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s']
-   AND encode(sha256(convert_to(p.prosrc,'UTF8')),'hex')='257ae68bea3ac1ff3fc36cb57b9d00c9c295eca874a0be9e98cd15020bedaeeb'
+   AND encode(sha256(convert_to(p.prosrc,'UTF8')),'hex')='48d812c39c5a26c4e905f26575acd04bc6d11017e2ecbac4c3b20eb09ae04144'
    AND NOT EXISTS(SELECT 1 FROM aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
      WHERE a.grantee NOT IN (p.proowner,'vec_contratacion_temporal_propietario'::regrole)
        OR a.privilege_type<>'EXECUTE' OR a.is_grantable)) THEN
-  RAISE EXCEPTION 'AD3-158: PARO clave=fachada_ad157_fuente_acl actual=divergente esperado=090f98ed3' USING ERRCODE='55000'; END IF;
+  RAISE EXCEPTION 'AD3-158: PARO clave=fachada_ad157_fuente_acl actual=divergente esperado=3be925094' USING ERRCODE='55000'; END IF;
  IF to_regprocedure('vec_autorizacion_atestada_v3.consumir_operacion_documentos_replay_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL THEN
   RAISE EXCEPTION 'AD3-158: PARO clave=consumidor_documentos_replay_instalado actual=false esperado=true' USING ERRCODE='55000'; END IF;
  FOREACH rol IN ARRAY ARRAY['vec_documentos_propietario','vec_documentos_ejecutor','vec_documentos_migrador'] LOOP
