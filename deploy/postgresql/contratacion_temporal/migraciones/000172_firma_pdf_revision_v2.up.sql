@@ -515,8 +515,11 @@ BEGIN
   RAISE EXCEPTION 'lectura V2 inválida' USING ERRCODE='22023'; END IF;
  s:=p_solicitud::jsonb; c:=convert_from(p_capacidad,'UTF8')::jsonb; d:=convert_from(p_decision,'UTF8')::jsonb;
  IF vec_contratacion_temporal.fiscalizacion_claves_exactas_v1(s,ARRAY['OrganizacionRef','ExpedienteRef','VersionExpediente',
-   'Documento','FirmantePrincipalCandidatoRef','ClaveIdempotencia','PasoOrden','CatalogoHuella']) IS NOT TRUE
+   'Documento','FirmantePrincipalCandidatoRef','ClaveIdempotencia','PasoOrden','CatalogoHuella','Via','UnidadRef']) IS NOT TRUE
   OR (SELECT count(*) FROM json_each(p_solicitud::json))<>(SELECT count(*) FROM jsonb_each(s))
+  OR jsonb_typeof(s->'Via') IS DISTINCT FROM 'string' OR s->>'Via' NOT IN('certificado_vec','portafirmas_registro_rrhh')
+  OR (s->>'Via'='certificado_vec' AND (jsonb_typeof(s->'UnidadRef') IS DISTINCT FROM 'string' OR s->>'UnidadRef' !~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$'))
+  OR (s->>'Via'='portafirmas_registro_rrhh' AND s->'UnidadRef' IS DISTINCT FROM 'null'::jsonb)
   OR jsonb_typeof(s->'OrganizacionRef') IS DISTINCT FROM 'string'
   OR s->>'OrganizacionRef' !~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$'
   OR jsonb_typeof(s->'ExpedienteRef') IS DISTINCT FROM 'string'
@@ -533,6 +536,7 @@ BEGIN
   RAISE EXCEPTION 'lectura V2 inválida' USING ERRCODE='22023'; END IF;
  h:=encode(sha256(convert_to(p_solicitud,'UTF8')),'hex');
  contexto_h:=encode(sha256(convert_to('{"ambitos":{"organizacion_ref":"'||(s->>'OrganizacionRef')||
+  (CASE WHEN s->>'Via'='certificado_vec' THEN '","unidad_ref":"'||(s->>'UnidadRef') ELSE '' END)||
   '"},"atributos":{"material_sha256":"'||h||'"}}','UTF8')),'hex');
  IF c->>'efecto_ref' IS DISTINCT FROM s->>'ExpedienteRef'
   OR c->>'huella_efecto_sha256' IS DISTINCT FROM contexto_h
