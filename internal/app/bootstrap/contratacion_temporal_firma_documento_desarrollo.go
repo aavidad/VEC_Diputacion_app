@@ -152,6 +152,9 @@ type firmaDocumentoCTDesarrollo struct {
 	// autoridad nominal y transaccional.
 	firmaExterna *ctapplication.ServicioFirmaExterna
 	firmaVec     *ctapplication.ServicioFirmaVec
+	// Se fija únicamente después de que Documentos acepte la custodia. Los
+	// constructores R5 la exigen; no consumimos el original antes de tiempo.
+	custodiaR5Compuesta bool
 }
 
 // registroFirmasR5Desarrollo es una sola autoridad de historia: CT170
@@ -176,7 +179,8 @@ type dependenciasFirmaR5Desarrollo struct {
 // aportar el lector autorizado de Documentos, CT170, AD159, AD156, AD157 y
 // AUT30 ya compuestos. Hasta entonces no se invoca ni se monta una ruta R5.
 func (f *firmaDocumentoCTDesarrollo) componerFirmasR5(d dependenciasFirmaR5Desarrollo) error {
-	if f == nil || f.servicio == nil || f.firmaExterna != nil || f.firmaVec != nil ||
+	if f == nil || f.servicio == nil || !f.custodiaR5Compuesta || !f.servicio.VerificacionDisponible() ||
+		f.firmaExterna != nil || f.firmaVec != nil ||
 		dependenciaEsNulaContratacionTemporalDesarrollo(d.original) ||
 		dependenciaEsNulaContratacionTemporalDesarrollo(d.registro) ||
 		dependenciaEsNulaContratacionTemporalDesarrollo(d.consulta) ||
@@ -587,6 +591,7 @@ func (f *firmaDocumentoCTDesarrollo) rutas(cfg config.Config, circuito *reglas.R
 		return nil, errFirmaDocumentoCTDesarrolloNoDisponible
 	}
 	f.servicio = servicio
+	f.custodiaR5Compuesta = false
 	h, err := httpinterno.NuevoManejadorFirmaDocumento(f, servicio)
 	if err != nil {
 		return nil, errFirmaDocumentoCTDesarrolloNoDisponible
