@@ -1,6 +1,6 @@
-# Clon frío hito1 PG18.4; no reaplicar las migraciones que ya contiene.
-# Antes de esta lista: resolver/ensayar la cadena real post-AD150E para AD151.
-# AD151 conserva PARO: lista causal preparada, todavía no ENSAYO-OK completo.
+# Sobre un clon completo de la preimagen real post-AD142.
+# Comprobar huellas por objeto: el número AD150 no impone una dependencia.
+# CT164 requiere reconciliar las funciones compartidas con el corte Fin vigente.
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000151_circuito_rrhh_atestado.up.sql
 deploy/postgresql/contratacion_temporal/migraciones/000163_circuito_rrhh_versionado.up.sql
 deploy/postgresql/contratacion_temporal/migraciones/000164_actos_circuito_rrhh.up.sql
