@@ -90,3 +90,14 @@ CT163 y Documentos13, con los artefactos originales identificados arriba, tambi�
 Las pruebas SQL de guardas CT163, cierre al uso AD157, ACL AD158 y estructura Documentos13 pasaron en transacciones revertidas. La prueba de lógica de reserva documental pasó usando un doble temporal de V3. Acredita reserva, reintento, confirmación e idempotencia; no acredita criptografía ni concesión real. El ROLLBACK conservó exactamente historia, funciones, ACL, roles y catálogo de esquema.
 
 AD159 conserva dos cierres expresos de instalación: preimagen posterior a AD158 acreditada y perfiles R5 publicados y vigentes. CT170 exige su fachada. Ambas capacidades siguen pendientes de candidatas y fuentes válidas.
+
+CT164 reanclada, commit `d888b72ccb3ecec485402384dc4bd77df924523b`, SHA256 `1734bc466b2c3ae13582518b8e4cfbc2eaf16f5bafeb5a2abf2e33145b90a942`, terminó en `ENSAYO-OK`. La migración AUT30 de PR453 también pasó; su fuente coincide byte a byte con la referencia local `3ae86002f`, SHA256 `704933566ff5170feb01bfc5f9a3a650be21189306d20348293733c4ae676c32`. Las pruebas SQL CT164 y AUT30 pasaron en ROLLBACK.
+
+Se reprodujeron los bloqueos de los artefactos originales AD159 y CT170 después de las capacidades preparatorias válidas:
+
+```text
+AD3-159: PARO clave=preimagen_ad125_ad149_ad151_ad156_ad157 actual=incompleta esperado=instalada
+CT170: AD3-159 requerido
+```
+
+Ambos intentos conservaron snapshots completos e idénticos de historia, roles, funciones, ACL y catálogo de esquema. Resultado parcial: 23 migraciones nuevas instaladas en la copia y siete pruebas SQL focales verdes. AD159 y CT170 siguen sin instalar. Las piezas nuevas de cargos, competencia nominal y multifirma se ensayarán al recibir sus artefactos y orden aprobados.
