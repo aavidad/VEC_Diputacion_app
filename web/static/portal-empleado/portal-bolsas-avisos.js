@@ -86,6 +86,9 @@ function copiable(referencia, claveAria) {
 
 function detalleAviso(aviso) {
   if (aviso.tipo === "solicitud_portal") {
+    if (aviso.detalle.solicitud === "documental_rrhh") {
+      return `${texto(traducirPortal("txt_solicitud_documental_rrhh"))}. ${texto(traducirPortal("txt_solicitud_documental_rrhh_pendiente"))}`;
+    }
     const hasta = aviso.detalle.pausa_hasta ? ` hasta ${texto(fechaVisible(aviso.detalle.pausa_hasta))}` : "";
     return `${texto(SOLICITUDES_PORTAL[aviso.detalle.solicitud] || traducirPortal("txt_solicitud"))}${hasta}. ${texto(traducirReferencia("aviso_solicitud_valida"))} ${copiable(aviso.referencia, "aviso_solicitud_copiar_aria")}`;
   }
