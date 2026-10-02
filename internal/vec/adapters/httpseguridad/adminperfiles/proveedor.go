@@ -123,7 +123,7 @@ func (p *Proveedor) Resolver(ctx context.Context, r *http.Request, o Observacion
 	}
 	final := p.deps.Reloj.Ahora().UTC().Truncate(time.Microsecond)
 	if instantanea.Validar() != nil || instantanea.VersionRol.RolID != "administracion_perfiles" ||
-		instantanea.VersionRol.Version != 2 || instantanea.VersionRol.Estado != domain.EstadoVersionRolPublicada ||
+		instantanea.VersionRol.Estado != domain.EstadoVersionRolPublicada ||
 		instantanea.ControlVigenciaVersionRol.Estado != domain.EstadoControlVigenciaVersionRolHabilitada ||
 		instantanea.AsignacionPerfil.PrincipalID != cuenta.PersonaRef ||
 		instantanea.AsignacionPerfil.PerfilActivoRef != cuenta.PerfilActivoRef ||

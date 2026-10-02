@@ -62,13 +62,13 @@ type DenegacionADMIN struct {
 // el navegador nunca los proporciona. PuedeCerrar es solo una pista de UI:
 // la autoridad durable decide y audita cada cierre y cada replay.
 type FuenteLecturas interface {
-	Capacidades(context.Context, domain.ContextoActor) (Capacidades, error)
-	BuscarPersonas(context.Context, domain.ContextoActor, string, string) (PaginaPersonas, error)
-	ConsultarPersona(context.Context, domain.ContextoActor, string) (FichaPersona, error)
-	ListarRoles(context.Context, domain.ContextoActor) (Roles, error)
-	ListarPropuestas(context.Context, domain.ContextoActor) (PaginaPropuestas, error)
-	ConsultarPropuesta(context.Context, domain.ContextoActor, string) (Propuesta, error)
-	ConsultarRecibo(context.Context, domain.ContextoActor, string) (domain.ReciboAdministracionPerfiles, error)
+	Capacidades(context.Context, domain.ContextoActor, domain.EvidenciaSesionAdministracionPerfiles) (Capacidades, error)
+	BuscarPersonas(context.Context, domain.ContextoActor, domain.EvidenciaSesionAdministracionPerfiles, string, string) (PaginaPersonas, error)
+	ConsultarPersona(context.Context, domain.ContextoActor, domain.EvidenciaSesionAdministracionPerfiles, string) (FichaPersona, error)
+	ListarRoles(context.Context, domain.ContextoActor, domain.EvidenciaSesionAdministracionPerfiles) (Roles, error)
+	ListarPropuestas(context.Context, domain.ContextoActor, domain.EvidenciaSesionAdministracionPerfiles) (PaginaPropuestas, error)
+	ConsultarPropuesta(context.Context, domain.ContextoActor, domain.EvidenciaSesionAdministracionPerfiles, string) (Propuesta, error)
+	ConsultarRecibo(context.Context, domain.ContextoActor, domain.EvidenciaSesionAdministracionPerfiles, string) (domain.ReciboAdministracionPerfiles, error)
 }
 
 type ServicioActos interface {
@@ -194,11 +194,11 @@ func (h *Handler) get(w http.ResponseWriter, r *http.Request, s SesionConfiable)
 	switch {
 	case p == PrefijoV1+"/capacidades" && r.URL.RawQuery == "":
 		var capacidades Capacidades
-		capacidades, err = h.lecturas.Capacidades(ctx, actor)
+		capacidades, err = h.lecturas.Capacidades(ctx, actor, s.Evidencia)
 		capacidades.ActorPersonaRef = actor.PersonaRef
 		result = capacidades
 	case p == PrefijoV1+"/roles" && r.URL.RawQuery == "":
-		result, err = h.lecturas.ListarRoles(ctx, actor)
+		result, err = h.lecturas.ListarRoles(ctx, actor, s.Evidencia)
 	case p == PrefijoV1+"/personas":
 		q := r.URL.Query()
 		if len(q) > 2 || (len(q) == 2 && q["cursor"] == nil) || len(q["q"]) != 1 || len(q["q"][0]) < 2 || len(q["q"][0]) > 80 ||
@@ -206,16 +206,16 @@ func (h *Handler) get(w http.ResponseWriter, r *http.Request, s SesionConfiable)
 			h.denegarActor(w, r, s, http.StatusBadRequest, "solicitud_invalida", "buscar_personas", "")
 			return
 		}
-		result, err = h.lecturas.BuscarPersonas(ctx, actor, q.Get("q"), q.Get("cursor"))
+		result, err = h.lecturas.BuscarPersonas(ctx, actor, s.Evidencia, q.Get("q"), q.Get("cursor"))
 	case strings.HasPrefix(p, PrefijoV1+"/personas/") && r.URL.RawQuery == "":
 		ref := strings.TrimPrefix(p, PrefijoV1+"/personas/")
 		if !refOpaca(ref, "per_") {
 			h.denegarActor(w, r, s, http.StatusBadRequest, "solicitud_invalida", "consultar_persona", "")
 			return
 		}
-		result, err = h.lecturas.ConsultarPersona(ctx, actor, ref)
+		result, err = h.lecturas.ConsultarPersona(ctx, actor, s.Evidencia, ref)
 	case p == PrefijoV1+"/propuestas" && (r.URL.RawQuery == "" || r.URL.RawQuery == "estado=pendiente"):
-		result, err = h.lecturas.ListarPropuestas(ctx, actor)
+		result, err = h.lecturas.ListarPropuestas(ctx, actor, s.Evidencia)
 	case strings.HasPrefix(p, PrefijoV1+"/recibos/") && r.URL.RawQuery == "":
 		ref := strings.TrimPrefix(p, PrefijoV1+"/recibos/")
 		if !domain.ReferenciaAdministracionPerfilesValida(ref, "recibo_admin:") {
@@ -223,7 +223,7 @@ func (h *Handler) get(w http.ResponseWriter, r *http.Request, s SesionConfiable)
 			return
 		}
 		var recibo domain.ReciboAdministracionPerfiles
-		recibo, err = h.lecturas.ConsultarRecibo(ctx, actor, ref)
+		recibo, err = h.lecturas.ConsultarRecibo(ctx, actor, s.Evidencia, ref)
 		if err == nil && (recibo.Validar() != nil || recibo.ReciboRef != ref) {
 			err = ErrConfiguracionIncompleta
 		}
@@ -341,7 +341,7 @@ func (h *Handler) post(w http.ResponseWriter, r *http.Request, s SesionConfiable
 			h.denegarActor(w, r, s, estado, "solicitud_invalida", "cerrar_propuesta", ref)
 			return
 		}
-		propuesta, err := h.lecturas.ConsultarPropuesta(r.Context(), s.Actor, ref)
+		propuesta, err := h.lecturas.ConsultarPropuesta(r.Context(), s.Actor, s.Evidencia, ref)
 		if err != nil {
 			falloError(w, err)
 			return

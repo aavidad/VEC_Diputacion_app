@@ -24,7 +24,7 @@ type Efecto struct {
 // Emisor proporciona material V3 nominal desde el contexto acreditado. La
 // composición reutiliza el emisor central; HTTP nunca puede suministrarlo.
 type Emisor interface {
-	EmitirAdministracionPerfiles(context.Context, domain.ContextoActor, domain.InstantaneaAutorizacion, Efecto) (ports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error)
+	EmitirAdministracionPerfiles(context.Context, domain.ContextoActor, domain.EvidenciaSesionAdministracionPerfiles, domain.InstantaneaAutorizacion, Efecto) (ports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error)
 }
 
 type conexion interface {
@@ -84,6 +84,7 @@ const acreditarSQL = `SELECT current_user = session_user AND r.rolcanlogin AND r
    AND (db.datdba=r.oid OR db.datdba=pg_catalog.to_regrole('vec_admin_perfiles_ejecutor')))
  AND NOT pg_catalog.has_database_privilege(current_user,current_database(),'CREATE')
  AND pg_catalog.to_regprocedure('vec_autorizacion.resolver_rol_administrable_v1(text)') IS NOT NULL
+ AND pg_catalog.to_regprocedure('vec_autorizacion.preparar_preimagen_admin_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
  AND pg_catalog.to_regprocedure('vec_autorizacion.aplicar_acto_ordinario_admin_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
  AND pg_catalog.to_regprocedure('vec_autorizacion.proponer_acto_admin_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
  AND pg_catalog.to_regprocedure('vec_autorizacion.cerrar_propuesta_admin_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
@@ -111,6 +112,7 @@ const acreditarSQL = `SELECT current_user = session_user AND r.rolcanlogin AND r
      OR (pg_catalog.has_function_privilege(current_user,p.oid,'EXECUTE')
        AND NOT COALESCE(n.nspname='vec_autorizacion' AND p.oid=ANY(ARRAY[
          pg_catalog.to_regprocedure('vec_autorizacion.resolver_rol_administrable_v1(text)'),
+         pg_catalog.to_regprocedure('vec_autorizacion.preparar_preimagen_admin_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'),
          pg_catalog.to_regprocedure('vec_autorizacion.aplicar_acto_ordinario_admin_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'),
          pg_catalog.to_regprocedure('vec_autorizacion.proponer_acto_admin_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'),
          pg_catalog.to_regprocedure('vec_autorizacion.cerrar_propuesta_admin_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'

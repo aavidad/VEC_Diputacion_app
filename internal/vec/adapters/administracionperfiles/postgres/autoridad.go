@@ -56,7 +56,7 @@ func (a *Autoridad) AplicarActoOrdinario(ctx context.Context, s domain.Solicitud
 	if err != nil {
 		return recibo, err
 	}
-	err = a.ejecutar(ctx, s.Actor, s.InstantaneaAutorizacion, e, aplicarSQL, func(b []byte) error {
+	err = a.ejecutar(ctx, s.Actor, s.Evidencia, s.InstantaneaAutorizacion, e, aplicarSQL, func(b []byte) error {
 		var x reciboJSON
 		if decodificar(b, &x) != nil {
 			return ports.ErrAutoridadAdministracionPerfilesNoDisponible
@@ -88,7 +88,7 @@ func (a *Autoridad) ProponerActoSensible(ctx context.Context, s domain.Solicitud
 	if err != nil {
 		return resultado, err
 	}
-	err = a.ejecutar(ctx, s.Actor, s.InstantaneaAutorizacion, e, proponerSQL, func(b []byte) error {
+	err = a.ejecutar(ctx, s.Actor, s.Evidencia, s.InstantaneaAutorizacion, e, proponerSQL, func(b []byte) error {
 		var x propuestaJSON
 		if decodificar(b, &x) != nil {
 			return ports.ErrAutoridadAdministracionPerfilesNoDisponible
@@ -119,7 +119,7 @@ func (a *Autoridad) CerrarPropuestaSensible(ctx context.Context, s domain.Solici
 	if err != nil {
 		return resultado, err
 	}
-	err = a.ejecutar(ctx, s.Aprobador, s.InstantaneaAutorizacion, e, cerrarSQL, func(b []byte) error {
+	err = a.ejecutar(ctx, s.Aprobador, s.Evidencia, s.InstantaneaAutorizacion, e, cerrarSQL, func(b []byte) error {
 		var x cierreResultadoJSON
 		if decodificar(b, &x) != nil {
 			return ports.ErrAutoridadAdministracionPerfilesNoDisponible
@@ -146,7 +146,7 @@ func (a *Autoridad) validarActo(ctx context.Context, s domain.SolicitudActoAdmin
 	if err := a.disponible(ctx); err != nil {
 		return cero, err
 	}
-	if s.Validar() != nil || s.Clase.RequiereDobleControl() != sensible {
+	if s.Validar() != nil || s.Evidencia.ValidarPara(s.Actor) != nil || s.Clase.RequiereDobleControl() != sensible {
 		return cero, domain.ErrActoAdministracionPerfilesInvalido
 	}
 	rol, err := a.ResolverRolAdministrable(ctx, s.RolVersionRef)
@@ -159,14 +159,25 @@ func (a *Autoridad) validarActo(ctx context.Context, s domain.SolicitudActoAdmin
 	return rol, nil
 }
 
-func (a *Autoridad) ejecutar(ctx context.Context, actor domain.ContextoActor, instantanea domain.InstantaneaAutorizacion, e Efecto, consulta string, validar func([]byte) error) error {
+func (a *Autoridad) ejecutar(ctx context.Context, actor domain.ContextoActor, evidencia domain.EvidenciaSesionAdministracionPerfiles, instantanea domain.InstantaneaAutorizacion, e Efecto, consulta string, validar func([]byte) error) error {
+	if evidencia.ValidarPara(actor) != nil {
+		return domain.ErrActoAdministracionPerfilesInvalido
+	}
+	resultado, err := evidencia.ResultadoContexto.Clonar()
+	if err != nil {
+		return domain.ErrActoAdministracionPerfilesInvalido
+	}
+	independiente := domain.EvidenciaSesionAdministracionPerfiles{ResultadoContexto: resultado, Vinculo: evidencia.Vinculo}
 	// El emisor recibe copia: no puede alterar el material ya ligado al efecto.
 	entrega := e
 	entrega.Material = append([]byte(nil), e.Material...)
-	m, err := a.emisor.EmitirAdministracionPerfiles(ctx, actor, instantanea, entrega)
+	m, err := a.emisor.EmitirAdministracionPerfiles(ctx, actor, independiente, instantanea, entrega)
 	clear(entrega.Material)
 	if err != nil {
 		return traducir(ctx, err)
+	}
+	if independiente.ValidarPara(actor) != nil || evidencia.ValidarPara(actor) != nil {
+		return ports.ErrAutoridadAdministracionPerfilesNoDisponible
 	}
 	huella := sha256.Sum256(e.Material)
 	r := m.ResumenCapacidad()

@@ -16,6 +16,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"vec-diputacion-granada/internal/vec/domain"
 	"vec-diputacion-granada/internal/vec/ports"
+	"vec-diputacion-granada/internal/vec/pruebas"
 )
 
 type relojFijo time.Time
@@ -68,17 +69,42 @@ func (p *poolFalso) BeginTx(_ context.Context, o pgx.TxOptions) (pgx.Tx, error) 
 func (p *poolFalso) QueryRow(context.Context, string, ...any) pgx.Row { return p.fila }
 
 type emisorFalso struct {
-	material ports.ExportacionMaterialConsumoAutorizacionAtestadaV3
-	err      error
+	material  ports.ExportacionMaterialConsumoAutorizacionAtestadaV3
+	err       error
+	evidencia domain.EvidenciaSesionAdministracionPerfiles
+	llamadas  int
 }
 
-func (e *emisorFalso) EmitirAdministracionPerfiles(context.Context, domain.ContextoActor, domain.InstantaneaAutorizacion, Efecto) (ports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
+func (e *emisorFalso) EmitirAdministracionPerfiles(_ context.Context, _ domain.ContextoActor, evidencia domain.EvidenciaSesionAdministracionPerfiles, _ domain.InstantaneaAutorizacion, _ Efecto) (ports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
+	e.llamadas++
+	e.evidencia = evidencia
 	return e.material, e.err
+}
+
+func TestEvidenciaDeOtroActorNoLlegaAlEmisorNiASQL(t *testing.T) {
+	ahora := time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC)
+	uno, _, err := pruebas.NuevoContextoRegistradoYVinculoV2(ahora,
+		"per_"+strings.Repeat("a", 22), "prf_"+strings.Repeat("b", 22), domain.AuthMethodCertificate, domain.AuthAssuranceHigh)
+	if err != nil {
+		t.Fatal(err)
+	}
+	otro, vinculo, err := pruebas.NuevoContextoRegistradoYVinculoV2(ahora,
+		"per_"+strings.Repeat("c", 22), "prf_"+strings.Repeat("d", 22), domain.AuthMethodCertificate, domain.AuthAssuranceHigh)
+	if err != nil {
+		t.Fatal(err)
+	}
+	evidencia := domain.EvidenciaSesionAdministracionPerfiles{ResultadoContexto: otro, Vinculo: vinculo}
+	emisor, pool := &emisorFalso{}, &poolFalso{}
+	a := &Autoridad{pool: pool, emisor: emisor, reloj: relojFijo(ahora)}
+	err = a.ejecutar(context.Background(), uno.Contexto, evidencia, domain.InstantaneaAutorizacion{}, Efecto{}, aplicarSQL, func([]byte) error { return nil })
+	if err == nil || emisor.llamadas != 0 || pool.comienzos != 0 {
+		t.Fatalf("evidencia cruzada: error=%v emision=%d tx=%d", err, emisor.llamadas, pool.comienzos)
+	}
 }
 
 // Este transporte sólo satisface la forma estructural de los puertos. No es
 // una autorización firmada y nunca se monta como proveedor de ejecución real.
-func materialSintetico(t *testing.T, e Efecto, ahora time.Time) ports.ExportacionMaterialConsumoAutorizacionAtestadaV3 {
+func materialSintetico(t *testing.T, e Efecto, actor domain.ContextoActor, ahora time.Time) ports.ExportacionMaterialConsumoAutorizacionAtestadaV3 {
 	t.Helper()
 	h := sha256.Sum256(e.Material)
 	r, err := ports.NuevoResumenCapacidadAtestacionAutorizacionV3("decision:ejemplo", strings.Repeat("a", 64), strings.Repeat("b", 64), "contexto:ejemplo", strings.Repeat("c", 64), e.Accion, e.Referencia, hex.EncodeToString(h[:]), e.Audiencia, ahora, ahora.Add(4*time.Second))
@@ -89,7 +115,7 @@ func materialSintetico(t *testing.T, e Efecto, ahora time.Time) ports.Exportacio
 	if err != nil {
 		t.Fatal(err)
 	}
-	m, err := ports.NuevaExportacionMaterialConsumoAutorizacionAtestadaV3(make([]byte, 512), r, []byte("decision"), []byte("motivo"), []byte("contexto"), 1, 2, []byte("payload"), []byte("sobre"), []byte("evidencia"), raiz)
+	m, err := ports.NuevaExportacionMaterialConsumoAutorizacionAtestadaV3(make([]byte, 512), r, []byte("decision"), []byte("motivo"), []byte("contexto"), actor.Instantanea.PersonaVersion, actor.Instantanea.PerfilVersion, []byte("payload"), []byte("sobre"), []byte("evidencia"), raiz)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -99,9 +125,13 @@ func materialSintetico(t *testing.T, e Efecto, ahora time.Time) ports.Exportacio
 func TestTransaccionValidaSalidaAntesDeCommit(t *testing.T) {
 	ahora := time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC)
 	e := Efecto{Accion: "administracion.perfiles.revocar", Audiencia: "vec_autorizacion.administracion_perfiles.ordinario.v1", Referencia: "acto_admin:" + strings.Repeat("a", 32), Material: []byte(`{"esquema":"ejemplo"}`)}
-	actor := domain.ContextoActor{}
-	actor.Instantanea.PersonaVersion = 1
-	actor.Instantanea.PerfilVersion = 2
+	resultado, vinculo, err := pruebas.NuevoContextoRegistradoYVinculoV2(ahora,
+		"per_"+strings.Repeat("a", 22), "prf_"+strings.Repeat("b", 22), domain.AuthMethodCertificate, domain.AuthAssuranceHigh)
+	if err != nil {
+		t.Fatal(err)
+	}
+	actor := resultado.Contexto
+	evidencia := domain.EvidenciaSesionAdministracionPerfiles{ResultadoContexto: resultado, Vinculo: vinculo}
 	for _, caso := range []struct {
 		nombre      string
 		fila        pgx.Row
@@ -117,8 +147,9 @@ func TestTransaccionValidaSalidaAntesDeCommit(t *testing.T) {
 		t.Run(caso.nombre, func(t *testing.T) {
 			tx := &txFalsa{fila: caso.fila, falloCommit: caso.commitError}
 			pool := &poolFalso{tx: tx}
-			a := &Autoridad{pool: pool, emisor: &emisorFalso{material: materialSintetico(t, e, ahora)}, reloj: relojFijo(ahora)}
-			err := a.ejecutar(context.Background(), actor, domain.InstantaneaAutorizacion{}, e, aplicarSQL, func([]byte) error { return caso.validacion })
+			emisor := &emisorFalso{material: materialSintetico(t, e, actor, ahora)}
+			a := &Autoridad{pool: pool, emisor: emisor, reloj: relojFijo(ahora)}
+			err := a.ejecutar(context.Background(), actor, evidencia, domain.InstantaneaAutorizacion{}, e, aplicarSQL, func([]byte) error { return caso.validacion })
 			if (err == nil) != (caso.nombre == "confirmado") {
 				t.Fatalf("resultado=%v", err)
 			}
@@ -128,6 +159,9 @@ func TestTransaccionValidaSalidaAntesDeCommit(t *testing.T) {
 			if err != nil && strings.Contains(err.Error(), "privad") {
 				t.Fatal("error filtra datos del proveedor")
 			}
+			if emisor.evidencia.ValidarPara(actor) != nil {
+				t.Fatal("el emisor perdió el par V2 exacto")
+			}
 		})
 	}
 }
@@ -135,9 +169,13 @@ func TestTransaccionValidaSalidaAntesDeCommit(t *testing.T) {
 func TestMaterialAjenoNoAbreTransaccion(t *testing.T) {
 	ahora := time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC)
 	e := Efecto{Accion: "administracion.perfiles.revocar", Audiencia: "vec_autorizacion.administracion_perfiles.ordinario.v1", Referencia: "acto_admin:" + strings.Repeat("a", 32), Material: []byte(`{}`)}
-	actor := domain.ContextoActor{}
-	actor.Instantanea.PersonaVersion = 1
-	actor.Instantanea.PerfilVersion = 2
+	resultado, vinculo, err := pruebas.NuevoContextoRegistradoYVinculoV2(ahora,
+		"per_"+strings.Repeat("a", 22), "prf_"+strings.Repeat("b", 22), domain.AuthMethodCertificate, domain.AuthAssuranceHigh)
+	if err != nil {
+		t.Fatal(err)
+	}
+	actor := resultado.Contexto
+	evidencia := domain.EvidenciaSesionAdministracionPerfiles{ResultadoContexto: resultado, Vinculo: vinculo}
 	for _, campo := range []string{"audiencia", "referencia", "accion", "material"} {
 		t.Run(campo, func(t *testing.T) {
 			ajeno := e
@@ -152,8 +190,8 @@ func TestMaterialAjenoNoAbreTransaccion(t *testing.T) {
 				ajeno.Material = []byte(`{"otro":true}`)
 			}
 			pool := &poolFalso{}
-			a := &Autoridad{pool: pool, emisor: &emisorFalso{material: materialSintetico(t, ajeno, ahora)}, reloj: relojFijo(ahora)}
-			if a.ejecutar(context.Background(), actor, domain.InstantaneaAutorizacion{}, e, aplicarSQL, func([]byte) error { return nil }) == nil || pool.comienzos != 0 {
+			a := &Autoridad{pool: pool, emisor: &emisorFalso{material: materialSintetico(t, ajeno, actor, ahora)}, reloj: relojFijo(ahora)}
+			if a.ejecutar(context.Background(), actor, evidencia, domain.InstantaneaAutorizacion{}, e, aplicarSQL, func([]byte) error { return nil }) == nil || pool.comienzos != 0 {
 				t.Fatal("material ajeno alcanzo SQL")
 			}
 		})

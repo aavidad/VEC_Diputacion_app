@@ -164,11 +164,12 @@ func (h *handlerPerfilesADMIN) estadoLecturaActivos(ctx context.Context, r *http
 		}
 		return h.denegarActivos(ctx, estado, codigo)
 	}
-	if sesion.Actor.Validar() != nil || sesion.InstantaneaAutorizacion.Validar() != nil ||
+	if sesion.Actor.Validar() != nil || sesion.Evidencia.ValidarPara(sesion.Actor) != nil ||
+		sesion.InstantaneaAutorizacion.Validar() != nil ||
 		sesion.Actor.PersonaRef != sesion.InstantaneaAutorizacion.AsignacionPerfil.PrincipalID || sesion.Actor.PerfilActivoRef != sesion.InstantaneaAutorizacion.AsignacionPerfil.PerfilActivoRef {
 		return h.denegarActivos(ctx, http.StatusServiceUnavailable, "servicio_no_disponible")
 	}
-	capacidades, err := h.lecturas.Capacidades(ctx, sesion.Actor)
+	capacidades, err := h.lecturas.Capacidades(ctx, sesion.Actor, sesion.Evidencia)
 	// FuenteLecturas conserva la auditoría de esta lectura, incluida denegación.
 	if err != nil {
 		if errors.Is(err, api.ErrAccesoDenegado) {

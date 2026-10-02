@@ -35,31 +35,31 @@ type lecturasPrueba struct {
 	propuesta Propuesta
 }
 
-func (l *lecturasPrueba) Capacidades(context.Context, domain.ContextoActor) (Capacidades, error) {
+func (l *lecturasPrueba) Capacidades(context.Context, domain.ContextoActor, domain.EvidenciaSesionAdministracionPerfiles) (Capacidades, error) {
 	l.llamadas++
 	return Capacidades{}, nil
 }
-func (l *lecturasPrueba) BuscarPersonas(context.Context, domain.ContextoActor, string, string) (PaginaPersonas, error) {
+func (l *lecturasPrueba) BuscarPersonas(context.Context, domain.ContextoActor, domain.EvidenciaSesionAdministracionPerfiles, string, string) (PaginaPersonas, error) {
 	l.llamadas++
 	return PaginaPersonas{}, nil
 }
-func (l *lecturasPrueba) ConsultarPersona(context.Context, domain.ContextoActor, string) (FichaPersona, error) {
+func (l *lecturasPrueba) ConsultarPersona(context.Context, domain.ContextoActor, domain.EvidenciaSesionAdministracionPerfiles, string) (FichaPersona, error) {
 	l.llamadas++
 	return FichaPersona{}, nil
 }
-func (l *lecturasPrueba) ListarRoles(context.Context, domain.ContextoActor) (Roles, error) {
+func (l *lecturasPrueba) ListarRoles(context.Context, domain.ContextoActor, domain.EvidenciaSesionAdministracionPerfiles) (Roles, error) {
 	l.llamadas++
 	return Roles{}, nil
 }
-func (l *lecturasPrueba) ListarPropuestas(context.Context, domain.ContextoActor) (PaginaPropuestas, error) {
+func (l *lecturasPrueba) ListarPropuestas(context.Context, domain.ContextoActor, domain.EvidenciaSesionAdministracionPerfiles) (PaginaPropuestas, error) {
 	l.llamadas++
 	return PaginaPropuestas{}, nil
 }
-func (l *lecturasPrueba) ConsultarPropuesta(context.Context, domain.ContextoActor, string) (Propuesta, error) {
+func (l *lecturasPrueba) ConsultarPropuesta(context.Context, domain.ContextoActor, domain.EvidenciaSesionAdministracionPerfiles, string) (Propuesta, error) {
 	l.llamadas++
 	return l.propuesta, nil
 }
-func (l *lecturasPrueba) ConsultarRecibo(context.Context, domain.ContextoActor, string) (domain.ReciboAdministracionPerfiles, error) {
+func (l *lecturasPrueba) ConsultarRecibo(context.Context, domain.ContextoActor, domain.EvidenciaSesionAdministracionPerfiles, string) (domain.ReciboAdministracionPerfiles, error) {
 	l.llamadas++
 	return domain.ReciboAdministracionPerfiles{}, nil
 }
