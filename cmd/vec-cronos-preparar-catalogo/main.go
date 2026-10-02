@@ -1,0 +1,42 @@
+// Prepara la huella de una propuesta C3 local. No publica ni adopta.
+package main
+
+import (
+	"encoding/json"
+	"io"
+	"os"
+
+	"vec-diputacion-granada/internal/modules/cronos/adapters/catalogoefectos"
+)
+
+type resultado struct {
+	PoliticaRef     string `json:"politica_ref"`
+	PoliticaVersion int64  `json:"politica_version"`
+	ContenidoSHA256 string `json:"contenido_sha256"`
+	Reglas          int    `json:"reglas"`
+	Estado          string `json:"estado"`
+}
+
+func main() {
+	if len(os.Args) != 2 {
+		os.Exit(2)
+	}
+	// La ruta la elige quien ejecuta esta herramienta local; solo se emite el
+	// resumen si su contenido supera el validador estricto de la propuesta C3.
+	f, err := os.Open(os.Args[1]) // #nosec G703 -- argumento local explícito del operador
+	if err != nil {
+		os.Exit(1)
+	}
+	defer f.Close()
+	contenido, err := io.ReadAll(io.LimitReader(f, 1<<20+1))
+	if err != nil {
+		os.Exit(1)
+	}
+	politica, err := catalogoefectos.ValidarPropuestaC3(contenido)
+	if err != nil {
+		os.Exit(1)
+	}
+	if json.NewEncoder(os.Stdout).Encode(resultado{politica.Referencia, politica.Version, politica.SHA256, len(politica.Reglas), "propuesta_sin_aprobar"}) != nil {
+		os.Exit(1)
+	}
+}
