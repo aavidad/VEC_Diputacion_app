@@ -63,7 +63,6 @@ type EjecutorAnalisisRRHH interface {
 type manejadorAnalisisRRHH struct {
 	autoridad AutoridadContextoCanalAnalisisRRHH
 	ejecutor  EjecutorAnalisisRRHH
-	periodos  ResolutorPeriodoModalidad
 }
 
 var _ http.Handler = (*manejadorAnalisisRRHH)(nil)
@@ -74,19 +73,14 @@ var _ EjecutorAnalisisRRHH = (*application.ServicioOperacionAnalisis)(nil)
 func NuevoManejadorAnalisisRRHH(
 	autoridad AutoridadContextoCanalAnalisisRRHH,
 	ejecutor EjecutorAnalisisRRHH,
-	periodos ...ResolutorPeriodoModalidad,
 ) (http.Handler, error) {
-	if dependenciaNula(autoridad) || dependenciaNula(ejecutor) || len(periodos) > 1 {
+	if dependenciaNula(autoridad) || dependenciaNula(ejecutor) {
 		return nil, ErrManejadorAnalisisRRHHInvalido
 	}
-	h := &manejadorAnalisisRRHH{
+	return &manejadorAnalisisRRHH{
 		autoridad: autoridad,
 		ejecutor:  ejecutor,
-	}
-	if len(periodos) == 1 {
-		h.periodos = periodos[0]
-	}
-	return h, nil
+	}, nil
 }
 
 func (h *manejadorAnalisisRRHH) ServeHTTP(
@@ -145,17 +139,6 @@ func (h *manejadorAnalisisRRHH) ServeHTTP(
 	}
 	if err := r.Context().Err(); err != nil {
 		responderErrorCobertura(w, r, clasificarErrorAnalisisRRHH(err), err)
-		return
-	}
-	if h.periodos != nil {
-		periodo, err := h.periodos.ResolverPeriodoModalidad(r.Context(), entrada.datosFuncionales.ModalidadClave, entrada.datosFuncionales.Periodo)
-		if err != nil {
-			responderErrorCobertura(w, r, errorContenidoCoberturaInvalido)
-			return
-		}
-		entrada.datosFuncionales.Periodo = periodo
-	} else if entrada.datosFuncionales.Periodo.Fin.IsZero() {
-		responderErrorCobertura(w, r, errorContenidoCoberturaInvalido)
 		return
 	}
 

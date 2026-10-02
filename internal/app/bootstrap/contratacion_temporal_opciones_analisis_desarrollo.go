@@ -403,6 +403,19 @@ func (c *catalogosAltaContratacionTemporalDesarrollo) opcionesAnalisis() *opcion
 	return c.analisis
 }
 
+func (c *catalogosAltaContratacionTemporalDesarrollo) PrepararPeriodoModalidad(
+	ctx context.Context, clave domain.ClaveCatalogo, periodo domain.PeriodoPrevisto,
+) (domain.PeriodoPrevisto, error) {
+	if c == nil || ctx == nil || ctx.Err() != nil {
+		return domain.PeriodoPrevisto{}, errOpcionesAnalisisNoValidas
+	}
+	modalidad, existe := c.opcionesAnalisis().modalidad(clave)
+	if !existe {
+		return domain.PeriodoPrevisto{}, errOpcionesAnalisisNoValidas
+	}
+	return modalidad.periodoConPolitica(periodo)
+}
+
 // componerOpcionesAnalisis fija las opciones resueltas del catálogo de reglas.
 // Se llama una sola vez al componer, antes de servir.
 func (c *catalogosAltaContratacionTemporalDesarrollo) componerOpcionesAnalisis(opciones *opcionesAnalisisCTDesarrollo) {

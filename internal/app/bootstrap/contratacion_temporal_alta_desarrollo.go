@@ -376,7 +376,7 @@ func nuevasDependenciasAltaContratacionTemporalDesarrollo(
 		soporte, soporte, huellas, ambitos, soporte, generador,
 		referencias, postgresql.candidaturas,
 		postgrescontratacion.NuevoDerivadorHuellaEfectoAltaCanonico(),
-		autorizador, reloj, postgresql.transaccionAlta,
+		autorizador, reloj, postgresql.transaccionAlta, soporte,
 	)
 	if err != nil {
 		postgresql.cerrar()

@@ -355,6 +355,7 @@ func nuevasDependenciasAnalisisContratacionTemporalDesarrollo(
 		alta.autorizador,
 		reloj,
 		transaccion,
+		alta.soporte,
 	)
 	if err != nil {
 		return nil, errAnalisisContratacionTemporalDesarrolloNoDisponible

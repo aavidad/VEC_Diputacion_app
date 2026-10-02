@@ -51,6 +51,7 @@ type ServicioRegistroSolicitud struct {
 	autorizador           puertosvec.AutorizadorSolicitudLigadaV3
 	reloj                 ports.Reloj
 	transaccion           ports.TransaccionAltasCandidata
+	periodos              ports.PreparadorPeriodoModalidad
 }
 
 func NuevoServicioRegistroSolicitud(
@@ -66,16 +67,17 @@ func NuevoServicioRegistroSolicitud(
 	autorizador puertosvec.AutorizadorSolicitudLigadaV3,
 	reloj ports.Reloj,
 	transaccion ports.TransaccionAltasCandidata,
+	periodos ...ports.PreparadorPeriodoModalidad,
 ) (*ServicioRegistroSolicitud, error) {
 	if dependenciaNula(contextosAutorizacion) || dependenciaNula(flujos) ||
 		dependenciaNula(huellas) || dependenciaNula(ambitos) ||
 		dependenciaNula(motivos) || dependenciaNula(correlaciones) ||
 		dependenciaNula(referencias) || dependenciaNula(candidaturas) ||
 		dependenciaNula(huellasEfecto) || dependenciaNula(autorizador) ||
-		dependenciaNula(reloj) || dependenciaNula(transaccion) {
+		dependenciaNula(reloj) || dependenciaNula(transaccion) || len(periodos) > 1 {
 		return nil, ErrServicioRegistroInvalido
 	}
-	return &ServicioRegistroSolicitud{
+	servicio := &ServicioRegistroSolicitud{
 		contextosAutorizacion: contextosAutorizacion,
 		flujos:                flujos,
 		huellas:               huellas,
@@ -88,7 +90,11 @@ func NuevoServicioRegistroSolicitud(
 		autorizador:           autorizador,
 		reloj:                 reloj,
 		transaccion:           transaccion,
-	}, nil
+	}
+	if len(periodos) == 1 {
+		servicio.periodos = periodos[0]
+	}
+	return servicio, nil
 }
 
 func (s *ServicioRegistroSolicitud) Registrar(
@@ -122,6 +128,19 @@ func (s *ServicioRegistroSolicitud) Registrar(
 			ErrSolicitudRegistroInvalida,
 			err,
 		)
+	}
+	if solicitudCentro.Periodo.PoliticaFin != (domain.PoliticaFin{}) {
+		// Las entregas internas reutilizan la instantánea ya conservada por
+		// la petición ratificada; el DTO HTTP no acepta politica_fin.
+	} else if solicitudCentro.Periodo.Fin.IsZero() {
+		if dependenciaNula(s.periodos) {
+			return ports.ReciboAlta{}, ErrServicioRegistroInvalido
+		}
+		periodo, err := s.periodos.PrepararPeriodoModalidad(ctx, solicitudCentro.MotivoClave, solicitudCentro.Periodo)
+		if err != nil {
+			return ports.ReciboAlta{}, ErrSolicitudRegistroInvalida
+		}
+		solicitudCentro.Periodo = periodo
 	}
 
 	resolverContexto := ports.SolicitudResolverContextoAutorizacionAltaV3{
@@ -287,6 +306,11 @@ func (s *ServicioRegistroSolicitud) Registrar(
 	datosCandidatura, err := candidatura.Datos()
 	if err != nil {
 		return ports.ReciboAlta{}, ports.ErrPreparacionAltaInvalida
+	}
+	if !datosCandidatura.Recuperada && !solicitudCentro.Periodo.Fin.IsZero() && s.periodos != nil {
+		if _, err := s.periodos.PrepararPeriodoModalidad(ctx, solicitudCentro.MotivoClave, solicitudCentro.Periodo); err != nil {
+			return ports.ReciboAlta{}, ErrSolicitudRegistroInvalida
+		}
 	}
 
 	expediente, err := domain.NuevoExpediente(domain.AltaExpediente{

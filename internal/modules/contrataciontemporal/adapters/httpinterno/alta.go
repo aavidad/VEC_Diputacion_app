@@ -37,18 +37,10 @@ type EjecutorAlta interface {
 	) (ports.ReciboAlta, error)
 }
 
-// ResolutorPeriodoModalidad fija la versión de la regla de fin desde el
-// catálogo confiable antes de sellar la operación. La petición no aporta ese
-// vínculo de autoridad.
-type ResolutorPeriodoModalidad interface {
-	ResolverPeriodoModalidad(context.Context, domain.ClaveCatalogo, domain.PeriodoPrevisto) (domain.PeriodoPrevisto, error)
-}
-
 type manejadorAlta struct {
 	autoridad AutoridadContextoCanal
 	ejecutor  EjecutorAlta
 	reloj     ports.Reloj
-	periodos  ResolutorPeriodoModalidad
 }
 
 var (
@@ -62,19 +54,11 @@ func NuevoManejadorAlta(
 	autoridad AutoridadContextoCanal,
 	ejecutor EjecutorAlta,
 	reloj ports.Reloj,
-	periodos ...ResolutorPeriodoModalidad,
 ) (http.Handler, error) {
 	if dependenciaNula(autoridad) || dependenciaNula(ejecutor) || dependenciaNula(reloj) {
 		return nil, ErrManejadorAltaInvalido
 	}
-	h := &manejadorAlta{autoridad: autoridad, ejecutor: ejecutor, reloj: reloj}
-	if len(periodos) > 1 {
-		return nil, ErrManejadorAltaInvalido
-	}
-	if len(periodos) == 1 {
-		h.periodos = periodos[0]
-	}
-	return h, nil
+	return &manejadorAlta{autoridad: autoridad, ejecutor: ejecutor, reloj: reloj}, nil
 }
 
 func (h *manejadorAlta) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -117,17 +101,6 @@ func (h *manejadorAlta) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if err != nil {
 		responderErrorAlta(w, r, clasificarErrorAlta(err), err)
-		return
-	}
-	if h.periodos != nil {
-		periodo, err := h.periodos.ResolverPeriodoModalidad(r.Context(), solicitud.MotivoClave, solicitud.Periodo)
-		if err != nil {
-			responderErrorAlta(w, r, errorEntradaAlta(errContenidoAltaNoValido))
-			return
-		}
-		solicitud.Periodo = periodo
-	} else if solicitud.Periodo.Fin.IsZero() {
-		responderErrorAlta(w, r, errorEntradaAlta(errContenidoAltaNoValido))
 		return
 	}
 	comando, correcto := comandoDesdeContextoCanal(

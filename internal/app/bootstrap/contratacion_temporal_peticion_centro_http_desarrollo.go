@@ -32,7 +32,7 @@ func rutasHTTPPeticionCentroDesarrollo(p *proveedorPeticionCentroDesarrollo, r *
 	if err != nil {
 		return nil, err
 	}
-	s, err := application.NuevoServicioPeticionCentro(p, r, p.reloj)
+	s, err := application.NuevoServicioPeticionCentro(p, r, p.reloj, catalogo)
 	if err != nil {
 		return nil, err
 	}
@@ -113,26 +113,6 @@ func (m *manejadorPeticionCentroDesarrollo) ServeHTTP(w http.ResponseWriter, r *
 	if comando.Operacion == ports.OperacionPresentarPeticionCentro && a.principal.Roles[0] != "solicitante_centro" || comando.Operacion == ports.OperacionRatificarPeticionCentro && a.principal.Roles[0] != "ratificador_centro" {
 		fallo(403, "operacion_denegada")
 		return
-	}
-	if comando.Operacion == ports.OperacionPresentarPeticionCentro {
-		if m.catalogo == nil {
-			if comando.Solicitud.Periodo.Fin.IsZero() {
-				fallo(503, "servicio_no_disponible")
-				return
-			}
-		} else {
-			modalidad, existe := m.catalogo.opcionesAnalisis().modalidad(comando.Solicitud.MotivoClave)
-			if !existe {
-				fallo(400, "solicitud_invalida")
-				return
-			}
-			periodo, err := modalidad.periodoConPolitica(comando.Solicitud.Periodo)
-			if err != nil {
-				fallo(400, "solicitud_invalida")
-				return
-			}
-			comando.Solicitud.Periodo = periodo
-		}
 	}
 	recibo, err := m.servicio.Ejecutar(r.Context(), comando)
 	if err != nil {

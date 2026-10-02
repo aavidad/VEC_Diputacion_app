@@ -768,7 +768,6 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			AutoridadAlta:                   alta.soporte,
 			EjecutorAlta:                    alta.servicio,
 			Reloj:                           reloj,
-			ResolutorPeriodoModalidad:       alta.soporte,
 			AutoridadCobertura:              alta.soporte,
 			Presentador:                     coberturaReal.presentador,
 			Decisor:                         coberturaReal.decisor,

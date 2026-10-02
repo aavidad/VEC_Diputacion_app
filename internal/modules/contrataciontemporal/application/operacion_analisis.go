@@ -44,6 +44,7 @@ type ServicioOperacionAnalisis struct {
 	autorizador   puertosvec.AutorizadorSolicitudLigadaV3
 	reloj         ports.Reloj
 	transaccion   ports.TransaccionOperacionesAnalisis
+	periodos      ports.PreparadorPeriodoModalidad
 }
 
 func NuevoServicioOperacionAnalisis(
@@ -56,15 +57,16 @@ func NuevoServicioOperacionAnalisis(
 	autorizador puertosvec.AutorizadorSolicitudLigadaV3,
 	reloj ports.Reloj,
 	transaccion ports.TransaccionOperacionesAnalisis,
+	periodos ...ports.PreparadorPeriodoModalidad,
 ) (*ServicioOperacionAnalisis, error) {
 	if dependenciaNula(contextos) || dependenciaNula(artefactos) ||
 		dependenciaNula(sellador) || dependenciaNula(preparaciones) ||
 		dependenciaNula(politicas) || dependenciaNula(correlaciones) ||
 		dependenciaNula(autorizador) || dependenciaNula(reloj) ||
-		dependenciaNula(transaccion) {
+		dependenciaNula(transaccion) || len(periodos) > 1 {
 		return nil, ErrServicioOperacionAnalisisInvalido
 	}
-	return &ServicioOperacionAnalisis{
+	servicio := &ServicioOperacionAnalisis{
 		contextos:     contextos,
 		artefactos:    artefactos,
 		sellador:      sellador,
@@ -74,7 +76,11 @@ func NuevoServicioOperacionAnalisis(
 		autorizador:   autorizador,
 		reloj:         reloj,
 		transaccion:   transaccion,
-	}, nil
+	}
+	if len(periodos) == 1 {
+		servicio.periodos = periodos[0]
+	}
+	return servicio, nil
 }
 
 func (s *ServicioOperacionAnalisis) Registrar(
@@ -177,6 +183,19 @@ func (s *ServicioOperacionAnalisis) ejecutar(
 		return ports.ReciboOperacionAnalisis{},
 			nuevoErrorOperacionAnalisis(tipoErrorDenegacion, nil)
 	}
+	if solicitud.datosFuncionales.Periodo.PoliticaFin != (domain.PoliticaFin{}) {
+		return ports.ReciboOperacionAnalisis{}, nuevoErrorOperacionAnalisis(tipoErrorSolicitud, nil)
+	}
+	if solicitud.datosFuncionales.Periodo.Fin.IsZero() {
+		if dependenciaNula(s.periodos) {
+			return ports.ReciboOperacionAnalisis{}, ErrServicioOperacionAnalisisInvalido
+		}
+		periodo, err := s.periodos.PrepararPeriodoModalidad(ctxOperacion, solicitud.datosFuncionales.ModalidadClave, solicitud.datosFuncionales.Periodo)
+		if err != nil {
+			return ports.ReciboOperacionAnalisis{}, nuevoErrorOperacionAnalisis(tipoErrorSolicitud, nil)
+		}
+		solicitud.datosFuncionales.Periodo = periodo
+	}
 	datosConsulta := ports.DatosPreimagenesConsultaOperacionAnalisis{
 		Operacion:           solicitud.operacion,
 		OrganizacionRef:     solicitud.organizacionRef,
@@ -227,6 +246,11 @@ func (s *ServicioOperacionAnalisis) ejecutar(
 				nuevoErrorOperacionAnalisis(tipoErrorResultado, nil)
 		}
 		return reciboConfirmado, nil
+	}
+	if !solicitud.datosFuncionales.Periodo.Fin.IsZero() && s.periodos != nil {
+		if _, err := s.periodos.PrepararPeriodoModalidad(ctxOperacion, solicitud.datosFuncionales.ModalidadClave, solicitud.datosFuncionales.Periodo); err != nil {
+			return ports.ReciboOperacionAnalisis{}, nuevoErrorOperacionAnalisis(tipoErrorSolicitud, nil)
+		}
 	}
 
 	solicitudArtefacto := ports.SolicitudPrepararArtefactoAnalisis{

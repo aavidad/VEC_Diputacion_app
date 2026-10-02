@@ -246,9 +246,9 @@ func (s *soporteAltaContratacionTemporalDesarrollo) motivoDeCatalogo(clave domai
 	return existe
 }
 
-// ResolverPeriodoModalidad añade al periodo la publicación exacta de c12.
+// PrepararPeriodoModalidad añade al periodo la publicación exacta de c12.
 // Solo la composición interna usa este método; el cliente no aporta la regla.
-func (s *soporteAltaContratacionTemporalDesarrollo) ResolverPeriodoModalidad(
+func (s *soporteAltaContratacionTemporalDesarrollo) PrepararPeriodoModalidad(
 	ctx context.Context, clave domain.ClaveCatalogo, periodo domain.PeriodoPrevisto,
 ) (domain.PeriodoPrevisto, error) {
 	if s == nil || ctx == nil || ctx.Err() != nil {
