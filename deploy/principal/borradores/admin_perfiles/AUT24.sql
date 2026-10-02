@@ -464,7 +464,12 @@ BEGIN
   referencia_rol:=propuesta.version_rol_ref;unidad:=convert_from(propuesta.documento_canonico,'UTF8')::jsonb->>'unidad_ref';tipo:='propuesta_perfil';
  WHEN 'administracion_perfiles_lectura_v1' THEN
   referencia_rol:=actor.version_rol_ref;
-  IF m->>'consulta' IN ('listar_propuestas','consultar_propuesta') THEN tipo:='historial_perfil';
+  IF m->>'consulta' IN ('listar_propuestas','consultar_propuesta') THEN
+   tipo:='historial_perfil';
+   IF m->>'consulta'='consultar_propuesta' THEN
+    SELECT * INTO STRICT propuesta FROM vec_autorizacion.propuesta_perfil_sensible WHERE propuesta_ref=m->>'propuesta_ref';
+    referencia_rol:=propuesta.version_rol_ref;unidad:=convert_from(propuesta.documento_canonico,'UTF8')::jsonb->>'unidad_ref';
+   END IF;
   ELSIF m->>'consulta'='consultar_recibo' THEN
    tipo:='recibo_perfil';
    SELECT * INTO STRICT registro FROM vec_autorizacion.registro_acto_admin_v1 WHERE resultado->>'recibo_ref'=m->>'recibo_ref' OR resultado#>>'{recibo,recibo_ref}'=m->>'recibo_ref';
