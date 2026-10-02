@@ -33,6 +33,6 @@ export function comprobarResultadoConcursos(datos, solicitud) {
     || ![r.huella_reglas, r.huella_entrada, r.huella_resultado].every((h) => /^[a-f0-9]{64}$/u.test(h ?? ""))
     || !Array.isArray(r.desglose) || !Array.isArray(r.incidencias)
     || r.desglose.some((d) => typeof d.familia !== "string" || !Array.isArray(d.detalles) || ![d.bruto, d.maximo, d.resultado].every(puntos))
-    || (r.estado !== "simulacion_local_sin_efectos" || typeof r.completo !== "boolean" || (r.completo ? !puntos(r.total) : r.total !== null))) throw error("respuesta_invalida");
+    || (r.estado !== "simulacion_local_sin_efectos" || typeof r.completo !== "boolean" || (r.completo ? ![r.bruto, r.maximo_total, r.total].every(puntos) : r.total !== null))) throw error("respuesta_invalida");
   return datos;
 }
