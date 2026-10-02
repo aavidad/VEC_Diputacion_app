@@ -1,0 +1,8 @@
+.pwa-navegacion[hidden] { display: none !important; }
+.pwa-navegacion { display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; }
+.pwa-navegacion button { min-height: 2.5rem; padding: 0.45rem 0.75rem; border: 1px solid currentColor; border-radius: 0.5rem; color: inherit; background: transparent; font: inherit; cursor: pointer; }
+.pwa-navegacion button:hover { background: var(--portal-superficie-alterna, transparent); }
+.pwa-navegacion button:focus-visible { outline: 3px solid currentColor; outline-offset: 2px; }
+@media not all and (display-mode: standalone) {
+  .pwa-navegacion { display: none !important; }
+}

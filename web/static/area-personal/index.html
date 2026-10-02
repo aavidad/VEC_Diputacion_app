@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="light">
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="manifest" data-pwa-manifest="pwa-area-personal" href="/textos/es/pwa-area-personal.json?v=20261002-pwa-v1">
+    <link rel="stylesheet" href="/pwa/navegacion.css?v=20261002-pwa-v1">
+    <script type="module" src="/pwa/instalar.js?v=20261002-pwa-v1"></script>
     <title data-i18n="areaPersonal.html.titulo">Mi área personal · Bolsas de trabajo</title>
     <link rel="stylesheet" href="/comun/tema-vec.css?v=20261001-codexf-accesibilidad-v1">
     <link rel="stylesheet" href="/area-personal/area-personal.css?v=20261001-codexf-accesibilidad-v1">
@@ -68,6 +71,11 @@
             <button type="submit" class="boton-icono" data-i18n-aria-label="areaPersonal.html.buscar" aria-label="Buscar"><svg aria-hidden="true"><use href="#icono-buscar"></use></svg></button>
           </form>
           <div class="acciones-cabecera">
+            <nav class="pwa-navegacion" data-pwa-navegacion data-pwa-scope="/area-personal/" hidden>
+              <button type="button" data-pwa-accion="volver"></button>
+              <button type="button" data-pwa-accion="inicio"></button>
+              <button type="button" data-pwa-accion="recargar"></button>
+            </nav>
             <button type="button" class="boton-utilidad" data-accion="leer-pantalla" data-i18n="areaPersonal.html.escuchar">Escuchar</button>
             <button type="button" class="boton-utilidad" data-accion="alternar-texto" data-i18n-aria-label="areaPersonal.preferencias.atajoTexto" aria-label="Aumentar o restablecer el tamaño del texto en esta sesión" aria-pressed="false"><span class="etiqueta-amplia" data-i18n="areaPersonal.preferencias.textoCorto">Texto </span>A+</button>
             <button type="button" class="boton-utilidad" data-accion="alternar-contraste" data-i18n-aria-label="areaPersonal.preferencias.atajoContraste" aria-label="Activar o desactivar el alto contraste en esta sesión" aria-pressed="false"><span class="etiqueta-amplia" data-i18n="areaPersonal.preferencias.contrasteCorto">Contraste</span><span class="etiqueta-corta" aria-hidden="true">AC</span></button>

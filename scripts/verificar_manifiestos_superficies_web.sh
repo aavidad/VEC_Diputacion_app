@@ -176,7 +176,17 @@ printf '%s\n' \
 	static/comun/tema-vec.css \
 	static/comun/textos.js \
 	static/favicon.svg \
+	static/pwa/instalar.js \
+	static/pwa/navegacion.css \
+	static/pwa/sw-public-assets.js \
+	static/pwa/icons/vec-192.png \
+	static/pwa/icons/vec-512.png \
+	static/pwa/icons/vec-maskable-192.png \
+	static/pwa/icons/vec-maskable-512.png \
+	static/pwa/icons/vec.ico \
 	static/styles.css \
+	static/textos/es/pwa.json \
+	static/textos/en/pwa.json \
 	static/textos/idiomas.json | LC_ALL=C sort >"${esperados}"
 if ! cmp -s "${compartidos}" "${esperados}"; then
 	printf 'Interseccion no autorizada entre manifiestos:\n' >&2

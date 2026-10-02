@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="light">
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="manifest" data-pwa-manifest="pwa-portal-empleado" href="/textos/es/pwa-portal-empleado.json?v=20261002-pwa-v1">
+    <link rel="stylesheet" href="/pwa/navegacion.css?v=20261002-pwa-v1">
+    <script type="module" src="/pwa/instalar.js?v=20261002-pwa-v1"></script>
     <title data-i18n-portal="txt_portal_del_empleado_recursos_humanos">Portal del Empleado · Recursos Humanos</title>
     <link rel="stylesheet" href="/portal-empleado/vendor/leaflet-1.9.4/leaflet.css?v=1.9.4" integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H">
     <link rel="stylesheet" href="/styles.css?v=20260717-portal-rrhh">
@@ -254,6 +257,11 @@
             <h1 id="titulo-vista" data-i18n-portal="txt_portal_del_empleado">Portal del Empleado</h1>
           </div>
           <div class="acciones-cabecera">
+            <nav class="pwa-navegacion" data-pwa-navegacion data-pwa-scope="/portal-empleado/" hidden>
+              <button type="button" data-pwa-accion="volver"></button>
+              <button type="button" data-pwa-accion="inicio"></button>
+              <button type="button" data-pwa-accion="recargar"></button>
+            </nav>
             <label class="selector-idioma" for="idioma-interfaz"><span data-i18n-portal="selector_idioma_etiqueta">Idioma de la interfaz</span>
               <select id="idioma-interfaz" name="lang"><option value="es" data-i18n-portal="selector_idioma_es">Español</option><option value="en" data-i18n-portal="selector_idioma_en">Inglés</option></select>
             </label>
