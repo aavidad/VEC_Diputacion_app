@@ -19,6 +19,7 @@ const (
 	dominioCanonVerificadorConsumoCobertura = "VEC-CT-CONSUMO-COBERTURA-" +
 		"VERIFICADOR-V1"
 	dominioCanonResumenConsumoCobertura       = "VEC-CT-CONSUMO-COBERTURA-RESUMEN-V1"
+	dominioCanonResumenConsumoCoberturaV2     = "VEC-CT-CONSUMO-COBERTURA-RESUMEN-V2"
 	redaccionPruebasCanonicasConsumoCobertura = "[PRUEBAS-CANONICAS-" +
 		"CONSUMO-COBERTURA-REDACTADAS]"
 )
@@ -408,7 +409,11 @@ func canonResumenConsumoCobertura(
 	resumen ResumenOrdenConsumoCobertura,
 ) ([]byte, error) {
 	escritor := nuevoEscritorCanonFuenteAnalisis()
-	escritor.texto(dominioCanonResumenConsumoCobertura)
+	if periodoCoberturaV2(resumen.Periodo) {
+		escritor.texto(dominioCanonResumenConsumoCoberturaV2)
+	} else {
+		escritor.texto(dominioCanonResumenConsumoCobertura)
+	}
 	escritor.texto(resumen.PeticionRef)
 	escritor.texto(resumen.OrganizacionRef)
 	escritor.texto(resumen.ExpedienteRef)
@@ -424,8 +429,7 @@ func canonResumenConsumoCobertura(
 	escritor.texto(string(resumen.ProcedenciaClave))
 	escritor.texto(resumen.DefinicionFuenteRef)
 	escritor.texto(resumen.CategoriaRef)
-	escritor.instante(resumen.Periodo.Inicio)
-	escritor.instante(resumen.Periodo.Fin)
+	escribirPeriodoCobertura(escritor, resumen.Periodo)
 	escritor.instante(resumen.SolicitadaEn)
 	escritor.instante(resumen.EmitidaEn)
 	escritor.instante(resumen.ValidaHasta)
