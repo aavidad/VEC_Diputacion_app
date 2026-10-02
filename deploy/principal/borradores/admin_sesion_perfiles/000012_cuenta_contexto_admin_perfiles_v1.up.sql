@@ -107,9 +107,12 @@ BEGIN
  OR s.politica_garantia_ref IS DISTINCT FROM r.politica_garantia_ref OR s.politica_garantia_huella_sha256 IS DISTINCT FROM r.politica_garantia_huella_sha256
  OR s.autenticacion_verificada_en IS DISTINCT FROM p_autenticada OR s.sesion_valida_hasta>r.vigente_hasta THEN RETURN false; END IF;
  hasta:=LEAST(r.vigente_hasta,s.sesion_valida_hasta,p_crl_vigente_hasta,p_certificado_vigente_hasta);
- IF hasta<=GREATEST(p_autenticada,p_revocada) THEN RETURN false; END IF;
+ IF hasta<=GREATEST(p_autenticada,p_revocada) OR hasta<=pg_catalog.clock_timestamp() THEN RETURN false; END IF;
  doc:=pg_catalog.jsonb_build_object('esquema','vec.admin-perfiles.sesion.v1','autenticacion_ref',p_autenticacion_ref,'sesion_ref',p_sesion_ref,'autenticacion_huella_sha256',s.autenticacion_huella_sha256,'cuenta_ref',r.cuenta_ref,'cuenta_ordinaria_ref',r.cuenta_ordinaria_ref,'persona_ref',r.persona_ref,'perfil_ref',r.perfil_activo_ref,'certificado_vinculo_ref',r.vinculo_ref,'certificado_vinculo_version',r.vinculo_version,'politica_ref',r.politica_garantia_ref,'politica_huella_sha256',r.politica_garantia_huella_sha256,'entorno',p_entorno,'host',p_host,'audiencia',p_audiencia,'autenticacion_verificada_en',p_autenticada,'revocacion_verificada_en',p_revocada,'crl_vigente_hasta',p_crl_vigente_hasta,'certificado_vigente_hasta',p_certificado_vigente_hasta,'observacion_vigente_hasta',hasta,'vigente_hasta',hasta);
  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('vec:admin:sesion:v1:'||p_autenticacion_ref,0));
+ -- La espera por la clave de sesión no puede convertir una CRL caducada en
+ -- una vinculación positiva; el consumidor vuelve a comprobarla al actuar.
+ IF hasta<=pg_catalog.clock_timestamp() THEN RETURN false; END IF;
  SELECT * INTO prev FROM vec_identidad_sesiones_v1.sesion_admin_perfiles_v1 WHERE autenticacion_ref=p_autenticacion_ref;
  IF FOUND THEN RETURN prev.snapshot IS NOT DISTINCT FROM doc; END IF;
  INSERT INTO vec_identidad_sesiones_v1.sesion_admin_perfiles_v1 VALUES(p_autenticacion_ref,p_sesion_ref,r.cuenta_ref,r.cuenta_ordinaria_ref,r.persona_ref,r.perfil_activo_ref,r.vinculo_ref,r.vinculo_version,r.politica_garantia_ref,r.politica_garantia_huella_sha256,p_entorno,p_host,p_audiencia,p_autenticada,p_revocada,p_crl_vigente_hasta,p_certificado_vigente_hasta,hasta,hasta,doc,pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(doc::text,'UTF8')),'hex'),pg_catalog.clock_timestamp());
