@@ -14,6 +14,7 @@ import (
 	"vec-diputacion-granada/internal/modules/cronos/domain"
 	"vec-diputacion-granada/internal/modules/cronos/ports"
 	docports "vec-diputacion-granada/internal/vec/documentos/ports"
+	vecdomain "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
@@ -111,6 +112,16 @@ func errorJustificacion(ctx context.Context, err error) error {
 		}
 	}
 	return errorSeguro(ctx, err)
+}
+
+func errorProveedorConfirmacionDocumental(ctx context.Context, err error) error {
+	if ctx != nil && ctx.Err() != nil {
+		return ctx.Err()
+	}
+	if errors.Is(err, docports.ErrAccesoDenegado) {
+		return vecdomain.ErrPermissionDenied
+	}
+	return errorProveedorV3(ctx, err)
 }
 
 func (r *RepositorioJustificacion) RecuperarJustificacion(ctx context.Context, orden ports.OrdenJustificacion, m domain.MaterialJustificacion) (ports.ReciboJustificacion, bool, error) {
@@ -220,7 +231,7 @@ func (r *RepositorioJustificacion) ConfirmarJustificacion(ctx context.Context, m
 		defer clear(preimagenDoc)
 		autorizacionDoc, e := r.docConfirmador.AutorizarConfirmacionAltaExternaEnlace(ctx, solicitudDoc)
 		if e != nil {
-			return ports.ReciboJustificacion{}, errorProveedorV3(ctx, e)
+			return ports.ReciboJustificacion{}, errorProveedorConfirmacionDocumental(ctx, e)
 		}
 		if autorizacionDoc.PrincipalID != m.ActorRef || autorizacionDoc.Validar(solicitudDoc, time.Now().UTC()) != nil {
 			return ports.ReciboJustificacion{}, ports.ErrJustificacionNoDisponible

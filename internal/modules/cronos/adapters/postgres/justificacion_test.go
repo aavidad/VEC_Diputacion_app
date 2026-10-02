@@ -15,6 +15,7 @@ import (
 	"vec-diputacion-granada/internal/modules/cronos/domain"
 	"vec-diputacion-granada/internal/modules/cronos/ports"
 	docports "vec-diputacion-granada/internal/vec/documentos/ports"
+	vecdomain "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
@@ -22,10 +23,14 @@ type proveedorConfirmacionDocPrueba struct {
 	t                 *testing.T
 	principalCambiado bool
 	audienciaCambiada bool
+	err               error
 }
 
 func (p proveedorConfirmacionDocPrueba) AutorizarConfirmacionAltaExternaEnlace(_ context.Context, s docports.SolicitudConfirmacionAltaExternaEnlace) (docports.AutorizacionConfirmacionAltaExternaEnlace, error) {
 	p.t.Helper()
+	if p.err != nil {
+		return docports.AutorizacionConfirmacionAltaExternaEnlace{}, p.err
+	}
 	if _, err := s.Preimagen(); err != nil {
 		p.t.Fatal("solicitud Doc alterada", err)
 	}
@@ -159,6 +164,10 @@ func TestRepositorioJustificacionAnexoTransportaConfirmacionYMaterialSeparados(t
 				t.Fatal("acepta material Doc ajeno", err)
 			}
 		})
+	}
+	fallo.docConfirmador = proveedorConfirmacionDocPrueba{t: t, err: docports.ErrAccesoDenegado}
+	if _, err := fallo.ConfirmarJustificacion(context.Background(), m, j, &registro, v3); !errors.Is(err, vecdomain.ErrPermissionDenied) {
+		t.Fatal("denegación documental presentada como dependencia", err)
 	}
 }
 
