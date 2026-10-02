@@ -52,6 +52,17 @@ type ServicioRegistroSolicitud struct {
 	reloj                 ports.Reloj
 	transaccion           ports.TransaccionAltasCandidata
 	periodos              ports.PreparadorPeriodoModalidad
+	recuperacion          ports.RecuperadorPoliticaFinConfirmada
+}
+
+func (s *ServicioRegistroSolicitud) ConfigurarRecuperacionPoliticaFin(
+	recuperacion ports.RecuperadorPoliticaFinConfirmada,
+) error {
+	if s == nil || dependenciaNula(recuperacion) || s.recuperacion != nil {
+		return ErrServicioRegistroInvalido
+	}
+	s.recuperacion = recuperacion
+	return nil
 }
 
 func NuevoServicioRegistroSolicitud(
@@ -129,20 +140,6 @@ func (s *ServicioRegistroSolicitud) Registrar(
 			err,
 		)
 	}
-	if solicitudCentro.Periodo.PoliticaFin != (domain.PoliticaFin{}) {
-		// Las entregas internas reutilizan la instantánea ya conservada por
-		// la petición ratificada; el DTO HTTP no acepta politica_fin.
-	} else if solicitudCentro.Periodo.Fin.IsZero() {
-		if dependenciaNula(s.periodos) {
-			return ports.ReciboAlta{}, ErrServicioRegistroInvalido
-		}
-		periodo, err := s.periodos.PrepararPeriodoModalidad(ctx, solicitudCentro.MotivoClave, solicitudCentro.Periodo)
-		if err != nil {
-			return ports.ReciboAlta{}, ErrSolicitudRegistroInvalida
-		}
-		solicitudCentro.Periodo = periodo
-	}
-
 	resolverContexto := ports.SolicitudResolverContextoAutorizacionAltaV3{
 		AutenticacionRef: solicitud.AutenticacionRef,
 		SesionRef:        solicitud.SesionRef,
@@ -169,6 +166,51 @@ func (s *ServicioRegistroSolicitud) Registrar(
 			ports.ErrAutorizacionDenegada,
 			ports.ErrContextoAutorizacionV3Invalido,
 		)
+	}
+	solicitudAmbito := ports.SolicitudSellarAmbitoIdempotencia{
+		ClaveIdempotencia: solicitud.ClaveIdempotencia,
+		OrganizacionRef:   solicitud.OrganizacionRef,
+		ActorRef:          vinculo.PrincipalID,
+		PerfilRef:         vinculo.PerfilActivoRef,
+	}
+	if solicitudAmbito.Validar() != nil {
+		return ports.ReciboAlta{}, ports.ErrPreparacionAltaInvalida
+	}
+	ambitosHMAC, err := s.ambitos.SellarAmbitoIdempotencia(ctx, solicitudAmbito)
+	if err != nil || ambitosHMAC.ValidarDominio("vec.contratacion-temporal.ambito-idempotencia") != nil {
+		return ports.ReciboAlta{}, errors.Join(ports.ErrPreparacionAltaInvalida, err)
+	}
+	if err := ctx.Err(); err != nil {
+		return ports.ReciboAlta{}, err
+	}
+	if solicitudCentro.Periodo.PoliticaFin == (domain.PoliticaFin{}) && solicitudCentro.Periodo.Fin.IsZero() {
+		if dependenciaNula(s.periodos) || dependenciaNula(s.recuperacion) {
+			return ports.ReciboAlta{}, ErrServicioRegistroInvalido
+		}
+		politicaAnterior, confirmada, err := s.recuperacion.ConsultarPoliticaFinAltaConfirmada(
+			ctx, ports.ConsultaPoliticaFinAltaConfirmada{
+				AmbitosHMAC: ambitosHMAC, OrganizacionRef: solicitud.OrganizacionRef,
+				ActorRef: vinculo.PrincipalID, PerfilRef: vinculo.PerfilActivoRef,
+			},
+		)
+		if err != nil {
+			return ports.ReciboAlta{}, errors.Join(ports.ErrPersistenciaNoDisponible, err)
+		}
+		if confirmada {
+			if politicaAnterior != (domain.PoliticaFin{}) && politicaAnterior.Validar() != nil {
+				return ports.ReciboAlta{}, ErrResultadoRegistroNoConfiable
+			}
+			solicitudCentro.Periodo.PoliticaFin = politicaAnterior
+		} else {
+			periodo, err := s.periodos.PrepararPeriodoModalidad(ctx, solicitudCentro.MotivoClave, solicitudCentro.Periodo)
+			if err != nil {
+				return ports.ReciboAlta{}, ErrSolicitudRegistroInvalida
+			}
+			solicitudCentro.Periodo = periodo
+		}
+		if solicitudCentro.Periodo.Validar() != nil {
+			return ports.ReciboAlta{}, ErrSolicitudRegistroInvalida
+		}
 	}
 
 	resolverFlujo := ports.SolicitudResolverFlujo{
@@ -212,27 +254,6 @@ func (s *ServicioRegistroSolicitud) Registrar(
 	)
 	if err != nil || huellasHMAC.ValidarDominio(
 		"vec.contratacion-temporal.huella-peticion",
-	) != nil {
-		return ports.ReciboAlta{}, errors.Join(ports.ErrPreparacionAltaInvalida, err)
-	}
-	if err := ctx.Err(); err != nil {
-		return ports.ReciboAlta{}, err
-	}
-	solicitudAmbito := ports.SolicitudSellarAmbitoIdempotencia{
-		ClaveIdempotencia: solicitud.ClaveIdempotencia,
-		OrganizacionRef:   solicitud.OrganizacionRef,
-		ActorRef:          vinculo.PrincipalID,
-		PerfilRef:         vinculo.PerfilActivoRef,
-	}
-	if solicitudAmbito.Validar() != nil {
-		return ports.ReciboAlta{}, ports.ErrPreparacionAltaInvalida
-	}
-	ambitosHMAC, err := s.ambitos.SellarAmbitoIdempotencia(
-		ctx,
-		solicitudAmbito,
-	)
-	if err != nil || ambitosHMAC.ValidarDominio(
-		"vec.contratacion-temporal.ambito-idempotencia",
 	) != nil {
 		return ports.ReciboAlta{}, errors.Join(ports.ErrPreparacionAltaInvalida, err)
 	}

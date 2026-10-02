@@ -372,6 +372,11 @@ func nuevasDependenciasAltaContratacionTemporalDesarrollo(
 		return vacias, err
 	}
 	referencias := seguridadcontratacion.NuevoGeneradorReferenciasAltaCriptograficoConContador(contador)
+	recuperacionPoliticaFin, err := postgrescontratacion.NuevoRecuperadorPoliticaFinPostgreSQL(postgresql.ejecucion)
+	if err != nil {
+		postgresql.cerrar()
+		return vacias, err
+	}
 	servicio, err := application.NuevoServicioRegistroSolicitud(
 		soporte, soporte, huellas, ambitos, soporte, generador,
 		referencias, postgresql.candidaturas,
@@ -379,6 +384,10 @@ func nuevasDependenciasAltaContratacionTemporalDesarrollo(
 		autorizador, reloj, postgresql.transaccionAlta, soporte,
 	)
 	if err != nil {
+		postgresql.cerrar()
+		return vacias, err
+	}
+	if err := servicio.ConfigurarRecuperacionPoliticaFin(recuperacionPoliticaFin); err != nil {
 		postgresql.cerrar()
 		return vacias, err
 	}

@@ -345,6 +345,12 @@ func nuevasDependenciasAnalisisContratacionTemporalDesarrollo(
 	if err != nil {
 		return nil, errAnalisisContratacionTemporalDesarrolloNoDisponible
 	}
+	recuperacionPoliticaFin, err := postgrescontratacion.NuevoRecuperadorPoliticaFinPostgreSQL(
+		alta.postgresql.ejecucion,
+	)
+	if err != nil {
+		return nil, errAnalisisContratacionTemporalDesarrolloNoDisponible
+	}
 	servicio, err := application.NuevoServicioOperacionAnalisis(
 		alta.soporte,
 		artefactos,
@@ -358,6 +364,9 @@ func nuevasDependenciasAnalisisContratacionTemporalDesarrollo(
 		alta.soporte,
 	)
 	if err != nil {
+		return nil, errAnalisisContratacionTemporalDesarrolloNoDisponible
+	}
+	if err := servicio.ConfigurarRecuperacionPoliticaFin(recuperacionPoliticaFin); err != nil {
 		return nil, errAnalisisContratacionTemporalDesarrolloNoDisponible
 	}
 	return servicio, nil

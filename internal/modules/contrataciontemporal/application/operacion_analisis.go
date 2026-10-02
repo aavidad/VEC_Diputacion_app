@@ -45,6 +45,20 @@ type ServicioOperacionAnalisis struct {
 	reloj         ports.Reloj
 	transaccion   ports.TransaccionOperacionesAnalisis
 	periodos      ports.PreparadorPeriodoModalidad
+	recuperacion  ports.RecuperadorPoliticaFinConfirmada
+}
+
+// ConfigurarRecuperacionPoliticaFin se usa una vez durante la composición.
+// Los periodos sin fecha requieren esta dependencia para impedir que un
+// cambio de c12 altere la identidad de una operación ya confirmada.
+func (s *ServicioOperacionAnalisis) ConfigurarRecuperacionPoliticaFin(
+	recuperacion ports.RecuperadorPoliticaFinConfirmada,
+) error {
+	if s == nil || dependenciaNula(recuperacion) || s.recuperacion != nil {
+		return ErrServicioOperacionAnalisisInvalido
+	}
+	s.recuperacion = recuperacion
+	return nil
 }
 
 func NuevoServicioOperacionAnalisis(
@@ -190,11 +204,49 @@ func (s *ServicioOperacionAnalisis) ejecutar(
 		if dependenciaNula(s.periodos) {
 			return ports.ReciboOperacionAnalisis{}, ErrServicioOperacionAnalisisInvalido
 		}
-		periodo, err := s.periodos.PrepararPeriodoModalidad(ctxOperacion, solicitud.datosFuncionales.ModalidadClave, solicitud.datosFuncionales.Periodo)
+		if dependenciaNula(s.recuperacion) {
+			return ports.ReciboOperacionAnalisis{}, ErrServicioOperacionAnalisisInvalido
+		}
+		// El ámbito HMAC se obtiene sin los datos funcionales; sólo tras
+		// recuperar la política original se sella la semántica completa.
+		preimagenesAmbito, err := ports.AmbitoPoliticaFinAnalisis(
+			solicitud.claveIdempotencia, solicitud.organizacionRef,
+			solicitud.expedienteRef, vinculo.PrincipalID, vinculo.PerfilActivoRef,
+		)
 		if err != nil {
 			return ports.ReciboOperacionAnalisis{}, nuevoErrorOperacionAnalisis(tipoErrorSolicitud, nil)
 		}
-		solicitud.datosFuncionales.Periodo = periodo
+		sellosAmbito, err := s.sellador.SellarOperacionAnalisis(ctxOperacion, preimagenesAmbito)
+		if err != nil || sellosAmbito.Validar() != nil {
+			return ports.ReciboOperacionAnalisis{}, errorDependenciaOperacionAnalisis(ctxOperacion)
+		}
+		politicaAnterior, confirmada, err := s.recuperacion.ConsultarPoliticaFinAnalisisConfirmada(
+			ctxOperacion, ports.ConsultaPoliticaFinAnalisisConfirmada{
+				AmbitosHMAC:     sellosAmbito.AmbitosIdempotenciaHMAC,
+				OrganizacionRef: solicitud.organizacionRef, ExpedienteRef: solicitud.expedienteRef,
+				ActorRef: vinculo.PrincipalID, PerfilRef: vinculo.PerfilActivoRef,
+				Operacion: solicitud.operacion, VersionExpediente: solicitud.versionEsperada,
+			},
+		)
+		if err != nil {
+			return ports.ReciboOperacionAnalisis{}, clasificarFalloPersistencia(ctxOperacion, err)
+		}
+		if confirmada {
+			if politicaAnterior != (domain.PoliticaFin{}) && politicaAnterior.Validar() != nil {
+				return ports.ReciboOperacionAnalisis{}, nuevoErrorOperacionAnalisis(tipoErrorResultado, nil)
+			}
+			// NULL histórico conserva el canon anterior a c12.
+			solicitud.datosFuncionales.Periodo.PoliticaFin = politicaAnterior
+		} else {
+			periodo, err := s.periodos.PrepararPeriodoModalidad(ctxOperacion, solicitud.datosFuncionales.ModalidadClave, solicitud.datosFuncionales.Periodo)
+			if err != nil {
+				return ports.ReciboOperacionAnalisis{}, nuevoErrorOperacionAnalisis(tipoErrorSolicitud, nil)
+			}
+			solicitud.datosFuncionales.Periodo = periodo
+		}
+		if solicitud.datosFuncionales.Validar() != nil {
+			return ports.ReciboOperacionAnalisis{}, nuevoErrorOperacionAnalisis(tipoErrorSolicitud, nil)
+		}
 	}
 	datosConsulta := ports.DatosPreimagenesConsultaOperacionAnalisis{
 		Operacion:           solicitud.operacion,
