@@ -206,8 +206,11 @@ func gobiernoActualPostgreSQLContratacionTemporalDesarrolloEsPropio(
 // publicación siguiente, el gobierno como «ajeno» y tumbara el arranque. Cada
 // audiencia es nominal y la admite su migración AD3; no hay comodines.
 func audienciasConsumoGobiernoCTDesarrollo() []string {
+	s2 := DescriptoresMaterialPreparacionBasesV3()
 	return []string{
 		audienciaConsumoAltaContratacionTemporal,
+		s2[0].Audiencia,
+		s2[1].Audiencia,
 		puertosbolsa.AudienciaIntegracionLlamamientoDesarrollo,
 		ports.AudienciaConsumoConsultaCuadroRRHHV3,
 		ports.AudienciaConsumoConsultaDetalleRRHHV3,
@@ -351,9 +354,7 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 func audienciaConsumoGobiernoPostgreSQLContratacionTemporalDesarrolloEsPropia(
 	audiencia string,
 ) bool {
-	s2 := DescriptoresMaterialPreparacionBasesV3()
-	return slices.Contains(audienciasConsumoGobiernoCTDesarrollo(), audiencia) ||
-		audiencia == s2[0].Audiencia || audiencia == s2[1].Audiencia
+	return slices.Contains(audienciasConsumoGobiernoCTDesarrollo(), audiencia)
 }
 
 func reconstruirClavesGobiernoPostgreSQLContratacionTemporalDesarrollo(

@@ -153,10 +153,13 @@ func (p *proveedorPreparacionBasesV3) EmitirMaterialAutorizacionAtestadaV3(ctx c
 	}
 	d, confirmacion, err = p.pdp.ExigirSolicitudLigadaV3(ctx, s, z.Resultado)
 	if err != nil {
-		if errors.Is(err, core.ErrAutorizacionDenegada) || errors.Is(err, vecports.ErrDenegacionExplicitaAutorizacionLigadaV3) {
-			return d, confirmacion, nil, vecports.ErrDenegacionExplicitaAutorizacionLigadaV3
+		if errorTecnicoPDPPreparacionBasesV3(ctx, err) {
+			return core.DecisionAutorizacionLigadaV3{}, vecports.ConfirmacionRegistroConcesionAutorizacionLigadaV3{}, nil, bolsaports.ErrPreparacionBasesNoDisponible
 		}
-		return d, confirmacion, nil, bolsaports.ErrPreparacionBasesNoDisponible
+		if errors.Is(err, core.ErrAutorizacionDenegada) || errors.Is(err, vecports.ErrDenegacionExplicitaAutorizacionLigadaV3) {
+			return core.DecisionAutorizacionLigadaV3{}, vecports.ConfirmacionRegistroConcesionAutorizacionLigadaV3{}, nil, vecports.ErrDenegacionExplicitaAutorizacionLigadaV3
+		}
+		return core.DecisionAutorizacionLigadaV3{}, vecports.ConfirmacionRegistroConcesionAutorizacionLigadaV3{}, nil, bolsaports.ErrPreparacionBasesNoDisponible
 	}
 	campos := bolsaapp.CamposPreparacionBasesV3(perfil.accion)
 	if d.ValidarPara(s) != nil || d.ExigirProyeccionPara(s, campos, nil) != nil {
@@ -167,6 +170,20 @@ func (p *proveedorPreparacionBasesV3) EmitirMaterialAutorizacionAtestadaV3(ctx c
 		return core.DecisionAutorizacionLigadaV3{}, vecports.ConfirmacionRegistroConcesionAutorizacionLigadaV3{}, nil, bolsaports.ErrPreparacionBasesNoDisponible
 	}
 	return d, confirmacion, exportadorPreparacionBasesV3{e}, nil
+}
+
+func errorTecnicoPDPPreparacionBasesV3(ctx context.Context, err error) bool {
+	if ctx != nil && ctx.Err() != nil {
+		return true
+	}
+	for _, causa := range []error{vecports.ErrFuenteAutorizacionNoDisponible, vecports.ErrRegistroConcesionAutorizacionLigadaV3NoDisponible,
+		vecports.ErrRegistroDenegacionAutorizacionLigadaV3NoDisponible, errAutorizacionComunDesarrolloNoDisponible,
+		bolsaports.ErrPreparacionBasesNoDisponible, context.Canceled, context.DeadlineExceeded} {
+		if errors.Is(err, causa) {
+			return true
+		}
+	}
+	return false
 }
 
 func validarSolicitudMaterialPreparacionBasesV3(s core.SolicitudAutorizacionLigadaV3, z contextoSeguridadComunDesarrollo, p *perfilPreparacionBasesV3) error {

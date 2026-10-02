@@ -143,7 +143,7 @@ func TestPreparacionBasesAudienciasCerradasYMaterialSeparado(t *testing.T) {
 		t.Fatal("material compartido entre operaciones")
 	}
 	for _, d := range ds {
-		if !audienciaConsumoGobiernoPostgreSQLContratacionTemporalDesarrolloEsPropia(d.Audiencia) {
+		if !slices.Contains(audienciasConsumoGobiernoCTDesarrollo(), d.Audiencia) || !audienciaConsumoGobiernoPostgreSQLContratacionTemporalDesarrolloEsPropia(d.Audiencia) {
 			t.Fatal("audiencia propia rechazada")
 		}
 		for _, ajena := range []string{d.Audiencia + ".otra", strings.TrimSuffix(d.Audiencia, "v1") + "v2", "vec_bolsa_convocatorias.preparacion_bases.*"} {

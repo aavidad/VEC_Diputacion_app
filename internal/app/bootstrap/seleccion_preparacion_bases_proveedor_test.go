@@ -151,6 +151,18 @@ func TestPreparacionBasesBrokerDenegacionNoEmiteMaterial(t *testing.T) {
 	}
 }
 
+func TestPreparacionBasesBrokerFallosPDPCombinadosSonTecnicos(t *testing.T) {
+	for _, err := range []error{vecports.ErrFuenteAutorizacionNoDisponible, vecports.ErrRegistroConcesionAutorizacionLigadaV3NoDisponible,
+		vecports.ErrRegistroDenegacionAutorizacionLigadaV3NoDisponible, errAutorizacionComunDesarrolloNoDisponible, context.Canceled} {
+		if !errorTecnicoPDPPreparacionBasesV3(context.Background(), errors.Join(core.ErrAutorizacionDenegada, err)) {
+			t.Fatal("caída del PDP clasificada como concesión denegada")
+		}
+	}
+	if errorTecnicoPDPPreparacionBasesV3(context.Background(), core.ErrAutorizacionDenegada) {
+		t.Fatal("denegación vigente clasificada como caída")
+	}
+}
+
 func TestPreparacionBasesMontajeSinDependenciasYFallback(t *testing.T) {
 	if _, _, err := (*MontajePreparacionBasesV3)(nil).Componer(context.Background(), DependenciasMontajePreparacionBasesV3{}); err == nil {
 		t.Fatal("montaje vacío admitido")
