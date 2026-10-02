@@ -9,7 +9,7 @@ import {
   validarBorradorAlta,
   validarCatalogosAlta,
   validarReciboAlta,
-} from "./contrato.js";
+} from "./contrato.js?v=20261002-ct-fin-modalidad-v1";
 
 const FASE_EDICION = "edicion";
 const FASE_REVISION = "revision";

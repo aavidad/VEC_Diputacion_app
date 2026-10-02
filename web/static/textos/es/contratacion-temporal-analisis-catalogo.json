@@ -1,5 +1,12 @@
 {
   "general": {
+    "causa_fin_reincorporacion_titular": "Hasta la reincorporación de la persona titular.",
+    "causa_fin_cobertura_reglamentaria": "Hasta la cobertura reglamentaria del puesto.",
+    "pc_periodo_con_causa": "Desde el {inicio}. {causa}",
+    "error_fecha_no_aplica": "Este motivo no lleva fecha de fin. Deje el campo vacío.",
+    "error_causa_fin": "El motivo no tiene una causa de fin configurada. Consulte con RRHH.",
+    "analisis_error_fecha_no_aplica": "Esta modalidad no lleva fecha de fin. Deje el campo vacío.",
+    "analisis_error_causa_fin": "La modalidad no tiene una causa de fin configurada. Consulte con RRHH.",
     "analisis_aviso_duracion_maxima": "El periodo supera la duración máxima de esta modalidad ({duracion}). Revíselo antes de registrar.",
     "analisis_error_duracion_maxima": "El periodo supera la duración máxima de esta modalidad.",
     "analisis_duracion_meses_uno": "{cantidad} mes",

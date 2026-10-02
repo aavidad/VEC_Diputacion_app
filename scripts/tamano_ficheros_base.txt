@@ -44,7 +44,7 @@
 1303 internal/modules/bolsa/adapters/memory/baremacion_test.go
 849 internal/modules/bolsa/adapters/postgres/baremacion.go
 1525 internal/modules/bolsa/domain/baremacion.go
-1168 internal/modules/bolsa/domain/llamamientos.go
+1208 internal/modules/bolsa/domain/llamamientos.go
 959 internal/modules/bolsa/domain/llamamientos_test.go
 2055 internal/modules/bolsa/ports/baremacion.go
 2043 internal/modules/bolsa/ports/baremacion_test.go
@@ -98,7 +98,7 @@
 848 web/static/bolsa/bolsa.css
 969 web/static/bolsa/lista-bolsas.test.mjs
 1069 web/static/portal-empleado/modulos/contratacion-temporal/montaje-formulario-analisis.test.mjs
-927 web/static/portal-empleado/modulos/contratacion-temporal/formulario-analisis.js
+973 web/static/portal-empleado/modulos/contratacion-temporal/formulario-analisis.js
 1719 web/static/portal-empleado/modulos/dietas/dietas.css
 1879 web/static/portal-empleado/modulos/dietas/vista-borradores-propios.test.mjs
 1258 web/static/portal-empleado/portal-modulos-coordinador.js

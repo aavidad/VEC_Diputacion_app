@@ -60,7 +60,11 @@ func (e *escritorHuellaDetalleRRHH) solicitud(s SolicitudOperativaRRHH) {
 	e.cadena(s.GrupoSubgrupo)
 	e.cadena(string(s.MotivoClave))
 	e.instante(s.PeriodoInicio)
-	e.instante(s.PeriodoFin)
+	if s.PeriodoFin.IsZero() {
+		e.cadena(string(s.PeriodoCausaFin))
+	} else {
+		e.instante(s.PeriodoFin)
+	}
 }
 
 func (e *escritorHuellaDetalleRRHH) analisis(a *AnalisisOperativoRRHH) {
@@ -72,7 +76,11 @@ func (e *escritorHuellaDetalleRRHH) analisis(a *AnalisisOperativoRRHH) {
 	e.cadena(a.CategoriaRef)
 	e.cadena(string(a.CausaClave))
 	e.instante(a.PeriodoInicio)
-	e.instante(a.PeriodoFin)
+	if a.PeriodoFin.IsZero() {
+		e.cadena(string(a.PeriodoCausaFin))
+	} else {
+		e.instante(a.PeriodoFin)
+	}
 	e.u64(uint64(a.PorcentajeJornada))
 	e.cadena(string(a.ResultadoRC))
 	e.presente(a.CostePrevisto != nil)

@@ -195,6 +195,7 @@ func (f filaCandidaturaAlta) restaurar(
 		ActorRef:               f.actorRef,
 		PerfilRef:              f.perfilRef,
 		InstanteEfecto:         f.instanteEfecto.UTC(),
+		Recuperada:             f.resultado == "recuperada",
 	}
 	candidatura, err := ports.NuevaCandidaturaAlta(datos)
 	if err != nil || solicitud.ValidarResultado(candidatura) != nil {
