@@ -84,16 +84,9 @@ func (m Material) Canonico() (Material, error) {
 }
 
 func (m Material) HuellaSHA256() (string, error) {
-	c, err := m.Canonico()
+	b, err := m.RepresentacionCanonica()
 	if err != nil {
 		return "", err
-	}
-	b, err := json.Marshal(struct {
-		Esquema  string   `json:"esquema"`
-		Material Material `json:"material"`
-	}{"bolsa.preparacion_bases.material.v1", c})
-	if err != nil {
-		return "", ErrMaterialInvalido
 	}
 	h := sha256.Sum256(b)
 	return hex.EncodeToString(h[:]), nil
