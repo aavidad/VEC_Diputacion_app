@@ -27,8 +27,34 @@ test("consulta 404, abre el formulario y confirma solo tras recibo válido", asy
   formulario.querySelectorAll('[name="campos_a_revisar"]')[0].checked = true; formulario.querySelector('[name="motivo_revision"]').value = "Centro incorrecto";
   formulario.listeners.submit({ preventDefault() {} }); await esperar(); assert.deepEqual(entradas[0].campos_a_revisar, ["centro_ref"]); assert.equal(entradas[0].clave_idempotencia, "rectificacion-dietas-0001");
   const mensaje = panel.querySelector("[data-dietas-rectificacion-estado]").textContent;
-  assert.match(mensaje, /rrd_/u); assert.match(mensaje, /Pendiente de revisión/u);
+  assert.match(mensaje, /Solicitud registrada/u); assert.match(mensaje, /rrd_/u); assert.match(mensaje, /Pendiente de revisión/u);
   assert.doesNotMatch(mensaje, /2026-09-24T|Estado: pendiente/u); vista.desmontar();
+});
+
+test("GET muestra estado final y recibo de acceso sin atribuir la consulta al alta", async () => {
+  for (const [estado, etiqueta] of [["confirmada", "Corrección confirmada"], ["rechazada", "Solicitud rechazada"]]) {
+    const contenedor = raiz(); const acceso = { ...resultado, recibo_ref: `rrd_${"e".repeat(32)}`,
+      estado, registrada_en: "2026-10-03T10:00:00.000000Z" };
+    const vista = montarVistaRectificacionDietas(contenedor, { asignacion,
+      cliente: { consultar: async () => acceso, solicitar: async () => resultado } });
+    await esperar();
+    const mensaje = contenedor.querySelector("[data-dietas-rectificacion-estado]").textContent;
+    assert.match(mensaje, /Consulta realizada el 3 oct 2026/u);
+    assert.match(mensaje, /Recibo de acceso rrd_e/u);
+    assert.match(mensaje, new RegExp(etiqueta, "u"));
+    assert.doesNotMatch(mensaje, /Solicitud registrada|Solicitud recuperada|2026-10-03T|Estado de la solicitud: (confirmada|rechazada)/u);
+    vista.desmontar();
+  }
+});
+
+test("un estado inesperado se presenta sin el código técnico", async () => {
+  const contenedor = raiz(); const vista = montarVistaRectificacionDietas(contenedor, { asignacion,
+    cliente: { consultar: async () => ({ ...resultado, estado: "transitoria" }), solicitar: async () => resultado } });
+  await esperar();
+  const mensaje = contenedor.querySelector("[data-dietas-rectificacion-estado]").textContent;
+  assert.match(mensaje, /Estado de la solicitud: No disponible/u);
+  assert.doesNotMatch(mensaje, /transitoria/u);
+  vista.desmontar();
 });
 
 test("un 503 incierto bloquea la edición y un segundo envío recupera la misma solicitud", async () => {

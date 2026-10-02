@@ -5,6 +5,7 @@ const CAMPOS = [
   ["centro_ref", "rectificacion_centro"], ["unidad_ref", "rectificacion_unidad"],
   ["administrativo_persona_ref", "rectificacion_administrativo"], ["responsable_persona_ref", "rectificacion_responsable"],
 ];
+const ESTADOS = new Set(["pendiente", "confirmada", "rechazada", "replay_confirmado"]);
 const texto = (mensajes, clave, valores = {}) => (mensajes[clave] || clave).replace(/\{([^}]+)\}/gu, (_m, nombre) => valores[nombre] ?? "");
 const crear = (documento, etiqueta, contenido) => { const nodo = documento.createElement(etiqueta); if (contenido !== undefined) nodo.textContent = contenido; return nodo; };
 const claveNueva = (generar) => {
@@ -49,14 +50,16 @@ export function montarVistaRectificacionDietas(contenedor, { cliente, asignacion
   raiz.append(cabecera, estado, formulario); contenedor.append(raiz);
   let activa = true; let lector; let escritor; let pendiente = null;
   const publicar = (mensaje, nivel = "") => { estado.textContent = mensaje; estado.dataset.estado = nivel; };
-  const pintarResultado = (resultado) => {
+  const pintarResultado = (resultado, consulta = false) => {
     const fecha = new Intl.DateTimeFormat(LOCALIZACION_PORTAL, { dateStyle: "medium", timeStyle: "short", timeZone: ZONA_HORARIA_PORTAL }).format(new Date(resultado.registrada_en));
-    publicar(`${texto(mensajes, resultado.estado === "replay_confirmado" ? "rectificacion_recibo_repetido" : "rectificacion_recibo", { recibo: resultado.recibo_ref, fecha })} ${texto(mensajes, "rectificacion_estado", { estado: texto(mensajes, `rectificacion_estado_${resultado.estado}`) })}`, "exito");
+    const claveEstado = ESTADOS.has(resultado.estado) ? `rectificacion_estado_${resultado.estado}` : "rectificacion_estado_desconocido";
+    const claveRecibo = consulta ? "rectificacion_consulta" : resultado.estado === "replay_confirmado" ? "rectificacion_recibo_repetido" : "rectificacion_recibo";
+    publicar(`${texto(mensajes, claveRecibo, { recibo: resultado.recibo_ref, fecha })} ${texto(mensajes, "rectificacion_estado", { estado: texto(mensajes, claveEstado) })}`, "exito");
   };
   async function consultar() {
     if (pendiente || escritor) return;
     lector?.abort(); lector = new AbortController(); publicar(texto(mensajes, "rectificacion_cargando"), "cargando");
-    try { const resultado = await cliente.consultar({ relacion_ref: actual.relacion_ref, unidad_ref: actual.unidad_ref, fecha_referencia: actual.fecha_referencia }, { signal: lector.signal }); if (activa && !pendiente && !escritor) pintarResultado(resultado); }
+    try { const resultado = await cliente.consultar({ relacion_ref: actual.relacion_ref, unidad_ref: actual.unidad_ref, fecha_referencia: actual.fecha_referencia }, { signal: lector.signal }); if (activa && !pendiente && !escritor) pintarResultado(resultado, true); }
     catch (error) { if (!activa || pendiente || escritor || error?.codigo === "operacion_abortada") return; publicar(error?.codigo === "no_encontrada" ? texto(mensajes, "rectificacion_vacia") : errorTexto(error, mensajes), error?.codigo === "acceso_denegado" ? "denegado" : "error"); }
   }
   function abrirFormulario() { formulario.hidden = false; abrir.hidden = true; motivo.focus?.(); }

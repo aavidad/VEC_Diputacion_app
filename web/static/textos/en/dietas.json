@@ -445,9 +445,13 @@
     "rectificacion_reintentar": "Retry the same request",
     "rectificacion_recibo": "Request registered. Receipt {recibo}, registered on {fecha}.",
     "rectificacion_recibo_repetido": "Request retrieved. Receipt {recibo}, registered on {fecha}.",
-    "rectificacion_estado": "Status: {estado}.",
+    "rectificacion_consulta": "Checked on {fecha}. Access receipt {recibo}.",
+    "rectificacion_estado": "Request status: {estado}.",
     "rectificacion_estado_pendiente": "Pending review",
+    "rectificacion_estado_confirmada": "Correction confirmed",
+    "rectificacion_estado_rechazada": "Request rejected",
     "rectificacion_estado_replay_confirmado": "Pending review",
+    "rectificacion_estado_desconocido": "Unavailable",
     "rectificacion_ayuda": "The request remains pending review. It does not by itself change the data held by Personnel."
   },
   "revision": {
