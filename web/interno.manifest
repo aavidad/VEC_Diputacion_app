@@ -11,7 +11,7 @@ static/comun/imagen-propia.js
 static/comun/imagen-propia.css
 static/textos/idiomas.json
 static/pwa/instalar.js
-static/pwa/cache-publica-v1.json
+static/portal-empleado/cache-publica-v1.json
 static/pwa/navegacion.css
 static/pwa/sw-public-assets.js
 static/pwa/icons/vec-192.png

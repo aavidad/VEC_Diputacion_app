@@ -51,7 +51,8 @@ normalizar_manifiesto() {
 				;;
 			*.json)
 				case "${ruta}" in
-					static/pwa/cache-publica-v1.json | \
+					static/portal-empleado/cache-publica-v1.json | \
+					static/area-personal/cache-publica-v1.json | \
 					"${cartografia_indice}" | static/acceso/locales/es.json | \
 						static/acceso/locales/en.json | \
 						static/area-personal/locales/es.json | \
@@ -178,7 +179,6 @@ printf '%s\n' \
 	static/comun/textos.js \
 	static/favicon.svg \
 	static/pwa/instalar.js \
-	static/pwa/cache-publica-v1.json \
 	static/pwa/navegacion.css \
 	static/pwa/sw-public-assets.js \
 	static/pwa/icons/vec-192.png \

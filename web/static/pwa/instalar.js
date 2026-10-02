@@ -1,7 +1,7 @@
 import { cargarTextos } from "../comun/textos.js";
 import { IDIOMA_ACTUAL } from "../comun/idioma.js";
 
-const VERSION = "20261002-pwa-v3";
+const VERSION = "20261002-pwa-v4";
 const VERSION_MANIFIESTO = "20261002-pwa-v1";
 
 export async function iniciarPWA({ documento = globalThis.document, ventana = globalThis.window, navegador = globalThis.navigator, idioma = IDIOMA_ACTUAL } = {}) {
