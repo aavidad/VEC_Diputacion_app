@@ -1,7 +1,9 @@
 \set ON_ERROR_STOP on
 -- AD3-151. Consulta nominal del circuito RRHH de Contratación temporal.
--- Dependencia causal: AD150E, con su postimagen real comprobada en el clon.
--- Las tres huellas de preimagen siguen pendientes: el PARO inicial impide instalar.
+-- Preimagen de objetos real: núcleo post-AD142 y CHECK de audiencias,
+-- capturados en PostgreSQL18.4 y restaurados completos en un clon propio.
+-- No depende de una numeración posterior: otra ampliación de estos mismos
+-- objetos debe secuenciarse y revalidar las huellas exactas antes de instalar.
 -- La provisión de perfiles fijos mediante huella/CAS precede al uso; esta migración
 -- no publica concesiones, no asigna perfiles ni crea permisos durante una petición.
 -- Los actos normales del expediente conservan sus consumidores y permisos previos.
@@ -15,20 +17,18 @@ SET LOCAL statement_timeout='2min';
 SELECT pg_advisory_xact_lock(hashtextextended('vec_autorizacion_atestada_v3:migracion:000151',0));
 SELECT pg_advisory_xact_lock(hashtextextended('vec_autorizacion_atestada_v3:nucleo',0));
 DO $pre$
-DECLARE rol text;
+DECLARE rol text; v_instalada boolean;
 BEGIN
- -- Retirar este PARO únicamente tras fijar las tres huellas post-AD150E,
- -- ensayar la cadena causal y revisar esta candidata exacta de forma independiente.
- RAISE EXCEPTION 'AD3-151: PARO preimagen post-AD150E pendiente'
-   USING ERRCODE='55000', DETAIL='requiere sha256 de definicion, fuente y CHECK de audiencias post-AD150E';
- IF current_user<>'vec_autorizacion_atestada_v3_propietario'
-    OR to_regclass('vec_autorizacion_atestada_v3.clave_capacidad_version') IS NULL
-    OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_consulta_circuito_ct_v3_atestada(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
- THEN RAISE EXCEPTION 'AD3-151: fachada o preimagen incompatible' USING ERRCODE='55000'; END IF;
+ IF current_user IS DISTINCT FROM 'vec_autorizacion_atestada_v3_propietario' THEN
+  RAISE EXCEPTION 'AD3-151: PARO clave=rol_sql actual=% esperado=vec_autorizacion_atestada_v3_propietario',current_user USING ERRCODE='55000'; END IF;
+ v_instalada:=to_regclass('vec_autorizacion_atestada_v3.clave_capacidad_version') IS NOT NULL;
+ IF NOT v_instalada THEN RAISE EXCEPTION 'AD3-151: PARO clave=tabla_clave_capacidad_instalada actual=false esperado=true' USING ERRCODE='55000'; END IF;
+ v_instalada:=to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_consulta_circuito_ct_v3_atestada(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL;
+ IF v_instalada THEN RAISE EXCEPTION 'AD3-151: PARO clave=fachada_circuito_ya_instalada actual=true esperado=false' USING ERRCODE='55000'; END IF;
  FOREACH rol IN ARRAY ARRAY['vec_contratacion_temporal_propietario','vec_contratacion_temporal_ejecutor','vec_contratacion_temporal_migrador'] LOOP
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname=rol AND NOT rolcanlogin
     AND NOT rolsuper AND NOT rolcreaterole AND NOT rolcreatedb AND NOT rolbypassrls)
-  THEN RAISE EXCEPTION 'AD3-151: rol incompatible' USING ERRCODE='55000'; END IF;
+  THEN RAISE EXCEPTION 'AD3-151: PARO clave=rol_tecnico_cerrado rol=% actual=false esperado=true',rol USING ERRCODE='55000'; END IF;
  END LOOP;
 END $pre$;
 
@@ -37,9 +37,9 @@ DECLARE
  f oid:=to_regprocedure('vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
  original text; nuevo text; actual text; fuente text; meta jsonb; deps jsonb; deps_compartidas jsonb; acl aclitem[];
  propietario oid; config text[]; definidora boolean;
- -- Preimagen post-AD150E pendiente; ningún valor provisional autoriza instalación.
- esperada_def_sha256 text:=NULL;
- esperada_fuente_sha256 text:=NULL;
+ -- Preimagen real post-AD142: definición/fuente íntegras, sin reconstrucción parcial.
+ esperada_def_sha256 text:='202b1580f00e1618e0fb311dcf0911992e56d9eb5f17bc642d58c73768f360f1';
+ esperada_fuente_sha256 text:='4a98b94be7e198a6c1e364949e60f35f39b2e5bf931bc361b1adb52a12a94905';
  marca text:=E'       )\n       OR c ->> ''suite'' <> ''VEC-AD-3-COSE-EDDSA-1''';
  extension text:=$x$           OR (
  p_perfil_mutacion IS NOT DISTINCT FROM 'ct_circuito_consultar'
@@ -58,23 +58,26 @@ DECLARE
  AND d->'obligaciones' IS NOT DISTINCT FROM '["auditar"]'::jsonb)
 $x$;
 BEGIN
- IF f IS NULL THEN RAISE EXCEPTION 'AD3-151: núcleo ausente' USING ERRCODE='55000'; END IF;
+ IF f IS NULL THEN RAISE EXCEPTION 'AD3-151: PARO funcion=consumir_decision_mutacion_v3_interna clave=instalada actual=false esperado=true' USING ERRCODE='55000'; END IF;
  SELECT pg_get_functiondef(f),p.prosrc,to_jsonb(p)-'prosrc',p.proacl,p.proowner,p.proconfig,p.prosecdef
  INTO original,fuente,meta,acl,propietario,config,definidora FROM pg_proc p WHERE p.oid=f;
  IF NOT FOUND OR original IS NULL OR fuente IS NULL OR meta IS NULL
     OR propietario IS NULL OR config IS NULL OR definidora IS NULL
- THEN RAISE EXCEPTION 'AD3-151: metadatos de núcleo ausentes' USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'AD3-151: PARO funcion=consumir_decision_mutacion_v3_interna clave=metadatos_presentes actual=false esperado=true' USING ERRCODE='55000'; END IF;
  SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
  INTO deps FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f;
  SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.dbid,d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype),'[]'::jsonb)
  INTO deps_compartidas FROM pg_shdepend d
  WHERE d.dbid=(SELECT oid FROM pg_database WHERE datname=current_database())
    AND d.classid='pg_proc'::regclass AND d.objid=f;
- IF esperada_def_sha256 IS NULL OR esperada_fuente_sha256 IS NULL
-    OR propietario<>'vec_autorizacion_atestada_v3_propietario'::regrole OR NOT definidora
+ IF encode(sha256(convert_to(original,'UTF8')),'hex') IS DISTINCT FROM esperada_def_sha256 THEN
+  RAISE EXCEPTION 'AD3-151: PARO funcion=consumir_decision_mutacion_v3_interna clave=definicion_sha256 actual=% esperado=%',
+   encode(sha256(convert_to(original,'UTF8')),'hex'),esperada_def_sha256 USING ERRCODE='55000'; END IF;
+ IF encode(sha256(convert_to(fuente,'UTF8')),'hex') IS DISTINCT FROM esperada_fuente_sha256 THEN
+  RAISE EXCEPTION 'AD3-151: PARO funcion=consumir_decision_mutacion_v3_interna clave=fuente_sha256 actual=% esperado=%',
+   encode(sha256(convert_to(fuente,'UTF8')),'hex'),esperada_fuente_sha256 USING ERRCODE='55000'; END IF;
+ IF propietario<>'vec_autorizacion_atestada_v3_propietario'::regrole OR NOT definidora
     OR config IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s']
-    OR encode(sha256(convert_to(original,'UTF8')),'hex') IS DISTINCT FROM esperada_def_sha256
-    OR encode(sha256(convert_to(fuente,'UTF8')),'hex') IS DISTINCT FROM esperada_fuente_sha256
     OR NOT EXISTS (SELECT 1 FROM pg_proc p WHERE p.oid=f
          AND p.proowner='vec_autorizacion_atestada_v3_propietario'::regrole
          AND p.prokind='f' AND p.provolatile='v' AND p.proparallel='u'
@@ -107,7 +110,7 @@ BEGIN
     OR strpos(original,'vec_contratacion_temporal_ejecutor')=0
     OR strpos(original,'documentos.firmado.custodiar')=0
     OR strpos(original,'ct_circuito_consultar')<>0
- THEN RAISE EXCEPTION 'AD3-151: núcleo incompatible' USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'AD3-151: PARO funcion=consumir_decision_mutacion_v3_interna clave=entorno_acl_dependencias_marca_nominales actual=false esperado=true' USING ERRCODE='55000'; END IF;
  nuevo:=replace(original,marca,extension||marca);
  EXECUTE nuevo;
  SELECT pg_get_functiondef(f) INTO STRICT actual;
@@ -122,25 +125,27 @@ BEGIN
     OR (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.dbid,d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype),'[]'::jsonb)
         FROM pg_shdepend d WHERE d.dbid=(SELECT oid FROM pg_database WHERE datname=current_database())
           AND d.classid='pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps_compartidas
- THEN RAISE EXCEPTION 'AD3-151: núcleo alterado fuera de contrato' USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'AD3-151: PARO funcion=consumir_decision_mutacion_v3_interna clave=postimagen_reversible_metadatos_preservados actual=false esperado=true' USING ERRCODE='55000'; END IF;
 END $nucleo$;
 
 LOCK TABLE vec_autorizacion_atestada_v3.clave_capacidad_version IN ACCESS EXCLUSIVE MODE;
 DO $audiencias$
-DECLARE d text; esperada_audiencia_sha256 text:=NULL; a text;
+DECLARE d text; esperada_audiencia_sha256 text:='d5c8048786b283485016af29fba41ff68b93076ba4f37f2badfa6bb7d5532fd9'; a text;
 BEGIN
  SELECT pg_get_constraintdef(c.oid,true) INTO d
  FROM pg_constraint c WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
  AND c.conname='clave_capacidad_version_audiencia_consumo_check' AND c.contype='c' AND c.convalidated;
- IF NOT FOUND OR d IS NULL OR esperada_audiencia_sha256 IS NULL
-    OR encode(sha256(convert_to(d,'UTF8')),'hex') IS DISTINCT FROM esperada_audiencia_sha256
- THEN RAISE EXCEPTION 'AD3-151: CHECK de audiencias incompatible' USING ERRCODE='55000'; END IF;
+ IF NOT FOUND OR d IS NULL THEN
+  RAISE EXCEPTION 'AD3-151: PARO clave=check_audiencias_instalado actual=false esperado=true' USING ERRCODE='55000'; END IF;
+ IF encode(sha256(convert_to(d,'UTF8')),'hex') IS DISTINCT FROM esperada_audiencia_sha256 THEN
+  RAISE EXCEPTION 'AD3-151: PARO clave=check_audiencias_sha256 actual=% esperado=%',
+   encode(sha256(convert_to(d,'UTF8')),'hex'),esperada_audiencia_sha256 USING ERRCODE='55000'; END IF;
  d:=regexp_replace(d,'\s+',' ','g');
  IF strpos(d,'CHECK (audiencia_consumo = ANY (ARRAY[')<>1 OR right(d,3)<>']))'
     OR strpos(d,'vec_catalogos_configurables.lectura_categorias.v1')=0
- THEN RAISE EXCEPTION 'AD3-151: audiencia previa incompatible' USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'AD3-151: PARO clave=check_audiencias_forma_nominal actual=false esperado=true' USING ERRCODE='55000'; END IF;
  FOREACH a IN ARRAY ARRAY['vec_contratacion_temporal.circuito.consultar.v1'] LOOP
-  IF strpos(d,quote_literal(a))<>0 THEN RAISE EXCEPTION 'AD3-151: audiencia repetida' USING ERRCODE='55000'; END IF;
+  IF strpos(d,quote_literal(a))<>0 THEN RAISE EXCEPTION 'AD3-151: PARO clave=audiencia_circuito_ya_admitida actual=true esperado=false' USING ERRCODE='55000'; END IF;
  END LOOP;
  ALTER TABLE vec_autorizacion_atestada_v3.clave_capacidad_version DROP CONSTRAINT clave_capacidad_version_audiencia_consumo_check;
  EXECUTE 'ALTER TABLE vec_autorizacion_atestada_v3.clave_capacidad_version ADD CONSTRAINT clave_capacidad_version_audiencia_consumo_check '
@@ -224,7 +229,7 @@ BEGIN
       LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) x
       WHERE p.oid=f AND (x.grantee NOT IN (p.proowner,permitido)
        OR x.privilege_type<>'EXECUTE' OR x.is_grantable))
-  THEN RAISE EXCEPTION 'AD3-151: ACL incompatible' USING ERRCODE='55000'; END IF;
+  THEN RAISE EXCEPTION 'AD3-151: PARO funcion=registrar_y_consumir_consulta_circuito_ct_v3_atestada clave=acl_cerrada actual=false esperado=true' USING ERRCODE='55000'; END IF;
  END LOOP;
 END $acl$;
 COMMIT;
