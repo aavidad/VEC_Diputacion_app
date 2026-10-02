@@ -45,13 +45,14 @@ END $f$;
 DO $prueba$
 DECLARE
  b text; p text; cand text; t timestamptz; acto timestamptz; version_politica bigint;
- politica text[]; fecha date; doc text:='documento:sintetico:rrhh17'; doc_sha text:=pg_catalog.repeat('a',64);
+ politica text[]; fecha date; fecha_solicitud date; doc text:='documento:sintetico:rrhh17'; doc_sha text:=pg_catalog.repeat('a',64);
  clave text; sol_hash text; sol text; recibo_sol text; contenido text; cap bytea; dec bytea; contexto bytea;
  r record; primera timestamptz; original_estado bigint; original_op bigint; original_res bigint;
  motivo text:='Documento sintético validado'; actor text:='persona:rrhh-b77'; validador text:='persona:validadora-b77';
  clave_b8 text:='b77:regularizar:sintetico'; recibo_b8 text; recurso bytea; huella_comando text;
  decision_b76 bytea; recibo_resolucion text; desde_original timestamptz;
  recurso_ajeno bytea; decision_ajena bytea; huella_ajena text;
+ excluido_desde timestamptz; sanciones_antes bigint;
 BEGIN
  SELECT c.bolsa_ref,e.participacion_ref INTO STRICT b,p
  FROM vec_bolsa_llamamientos.constitucion_entrada e
@@ -97,12 +98,13 @@ BEGIN
  contexto:=pg_catalog.convert_to(pg_catalog.jsonb_build_object('vinculos',
   pg_catalog.jsonb_build_array(pg_catalog.jsonb_build_object('tipo','candidato','estado','activo','referencia',cand)))::text,'UTF8');
  FOR i IN 1..2 LOOP
+  fecha_solicitud:=CASE WHEN i=1 THEN fecha ELSE NULL END;
   clave:='clave:b77:documental:'||i::text;
   sol_hash:=vec_bolsa_llamamientos.b77_huella_partes_v1('solicitud-documental',cand,b,clave);
   sol:='solicitud-documental:'||sol_hash;
   recibo_sol:='recibo:solicitud-documental:'||vec_bolsa_llamamientos.b77_huella_partes_v1('recibo',sol_hash);
   contenido:=vec_bolsa_llamamientos.b77_huella_partes_v1('contenido-solicitud-documental',
-    cand,b,doc,doc_sha,pg_catalog.to_char(fecha,'YYYY-MM-DD'));
+    cand,b,doc,doc_sha,coalesce(pg_catalog.to_char(fecha_solicitud,'YYYY-MM-DD'),''));
   cap:=pg_catalog.convert_to(pg_catalog.jsonb_build_object(
     'operacion','bolsa.participaciones_propias.presentar_solicitud_documental',
     'audiencia_consumo','vec_bolsa_llamamientos.participaciones_propias.presentar_solicitud_documental.v1',
@@ -114,22 +116,25 @@ BEGIN
     'contexto_recurso_huella_sha256',pg_catalog.repeat('e',64),
     'campos_permitidos','[]'::jsonb,'obligaciones','[]'::jsonb)::text,'UTF8');
   SELECT * INTO STRICT r FROM vec_bolsa_llamamientos.solicitar_documental_portal_v1(
-    sol,recibo_sol,contenido,cand,b,doc,doc_sha,fecha,clave,pg_catalog.clock_timestamp(),
+    sol,recibo_sol,contenido,cand,b,doc,doc_sha,fecha_solicitud,clave,pg_catalog.clock_timestamp(),
     cap,dec,'\x00',contexto,1,1,'\x00','\x00','\x00','\x00');
   IF r.reutilizada OR r.solicitud_ref IS DISTINCT FROM sol OR r.recibo_ref IS DISTINCT FROM recibo_sol
      OR r.contenido_sha256 IS DISTINCT FROM contenido OR r.version<>1 OR r.estado<>'pendiente_rrhh' THEN
    RAISE EXCEPTION 'B77 solicitud positiva inválida'; END IF;
+  IF (SELECT s.fecha_fin_causa FROM vec_bolsa_llamamientos.solicitud_documental_rrhh s
+      WHERE s.solicitud_ref=sol) IS DISTINCT FROM fecha_solicitud THEN
+   RAISE EXCEPTION 'B77 inventó fecha de fin de causa'; END IF;
   primera:=r.registrada_en;
   SELECT * INTO STRICT r FROM vec_bolsa_llamamientos.solicitar_documental_portal_v1(
-    sol,recibo_sol,contenido,cand,b,doc,doc_sha,fecha,clave,pg_catalog.clock_timestamp()+interval '1 hour',
+    sol,recibo_sol,contenido,cand,b,doc,doc_sha,fecha_solicitud,clave,pg_catalog.clock_timestamp()+interval '1 hour',
     cap,dec,'\x00',contexto,1,1,'\x00','\x00','\x00','\x00');
   IF NOT r.reutilizada OR r.registrada_en IS DISTINCT FROM primera OR r.recibo_ref IS DISTINCT FROM recibo_sol THEN
    RAISE EXCEPTION 'B77 replay solicitud alterado'; END IF;
   BEGIN
    PERFORM * FROM vec_bolsa_llamamientos.solicitar_documental_portal_v1(
     sol,recibo_sol,vec_bolsa_llamamientos.b77_huella_partes_v1('contenido-solicitud-documental',
-     cand,b,doc||':otro',doc_sha,pg_catalog.to_char(fecha,'YYYY-MM-DD')),
-    cand,b,doc||':otro',doc_sha,fecha,clave,pg_catalog.clock_timestamp(),
+     cand,b,doc||':otro',doc_sha,coalesce(pg_catalog.to_char(fecha_solicitud,'YYYY-MM-DD'),'')),
+    cand,b,doc||':otro',doc_sha,fecha_solicitud,clave,pg_catalog.clock_timestamp(),
     cap,dec,'\x00',contexto,1,1,'\x00','\x00','\x00','\x00');
    RAISE EXCEPTION 'B77 misma clave otro documento aceptado';
   EXCEPTION WHEN sqlstate 'VBP01' THEN NULL; END;
@@ -239,5 +244,50 @@ BEGIN
     OR (SELECT pg_catalog.count(*) FROM vec_bolsa_llamamientos.resolucion_solicitud_documental_rrhh)
       IS DISTINCT FROM original_res+2 THEN
   RAISE EXCEPTION 'B77 duplicó historia o cerró de forma parcial'; END IF;
+ -- Recepción genérica desde exclusión con sanción viva: un escrito no es una
+ -- decisión y B73/B76 seguirán impidiendo una reincorporación favorable.
+ excluido_desde:=acto+interval '1 microsecond';
+ INSERT INTO vec_bolsa_llamamientos.situacion_participacion(
+  participacion_ref,situacion,desde,motivo,actor,registrada_en,clave_idempotencia,recibo_ref,
+  politica_transiciones_version)
+ VALUES(p,'excluido',excluido_desde,'Exclusión sintética RRHH17',actor,excluido_desde,
+  'b77:exclusion:sintetica','recibo:b77:exclusion',version_politica);
+ INSERT INTO vec_bolsa_llamamientos.operacion_situacion_participacion(
+  participacion_ref,desde,operacion,justificante_tipo,justificante_ref,justificante_sha256,
+  actor,validador,validada_en,registrada_en,clave_idempotencia,situacion_esperada_desde)
+ VALUES(p,excluido_desde,'excluir','resolucion','resolucion:sintetica:exclusion',pg_catalog.repeat('d',64),
+  actor,validador,excluido_desde,excluido_desde,'b77:exclusion:sintetica',acto);
+ SELECT pg_catalog.count(*) INTO sanciones_antes FROM vec_bolsa_llamamientos.sancion_participacion WHERE participacion_ref=p;
+ INSERT INTO vec_bolsa_llamamientos.sancion_participacion(
+  sancion_ref,participacion_ref,bolsa_ref,consecuencia,consecuencia_etiqueta,efecto,causa,
+  fecha_notificacion,resolucion_ref,resolucion_sha256,resuelta_por,regla_ref,regla_huella_sha256,
+  suspension_hasta,recurso_vence,recurso_regla_ref,recurso_regla_huella_sha256,
+  situacion_desde,recibo_ref,actor,registrada_en,clave_idempotencia)
+ VALUES('sancion:'||pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to('b77-exclusion-viva','UTF8')),'hex'),
+  p,b,'baja','Baja sintética','excluir','Causa sintética',CURRENT_DATE,
+  'resolucion:b77:exclusion',pg_catalog.repeat('e',64),validador,'regla:b77',pg_catalog.repeat('f',64),
+  NULL,CURRENT_DATE+10,'regla:recurso:b77',pg_catalog.repeat('a',64),excluido_desde,
+  'recibo:b77:sancion',actor,excluido_desde,'b77:sancion:sintetica');
+ clave:='clave:b77:documental:excluido';
+ sol_hash:=vec_bolsa_llamamientos.b77_huella_partes_v1('solicitud-documental',cand,b,clave);
+ sol:='solicitud-documental:'||sol_hash;
+ recibo_sol:='recibo:solicitud-documental:'||vec_bolsa_llamamientos.b77_huella_partes_v1('recibo',sol_hash);
+ contenido:=vec_bolsa_llamamientos.b77_huella_partes_v1('contenido-solicitud-documental',
+  cand,b,doc,doc_sha,'');
+ SELECT * INTO STRICT r FROM vec_bolsa_llamamientos.solicitar_documental_portal_v1(
+  sol,recibo_sol,contenido,cand,b,doc,doc_sha,NULL,clave,pg_catalog.clock_timestamp(),
+  cap,dec,'\x00',contexto,1,1,'\x00','\x00','\x00','\x00');
+ IF r.reutilizada OR r.estado<>'pendiente_rrhh' THEN RAISE EXCEPTION 'B77 excluido no pudo presentar'; END IF;
+ primera:=r.registrada_en;
+ SELECT * INTO STRICT r FROM vec_bolsa_llamamientos.solicitar_documental_portal_v1(
+  sol,recibo_sol,contenido,cand,b,doc,doc_sha,NULL,clave,pg_catalog.clock_timestamp()+interval '1 hour',
+  cap,dec,'\x00',contexto,1,1,'\x00','\x00','\x00','\x00');
+ IF NOT r.reutilizada OR r.registrada_en IS DISTINCT FROM primera THEN
+  RAISE EXCEPTION 'B77 replay excluido alteró recibo'; END IF;
+ IF (SELECT pg_catalog.count(*) FROM vec_bolsa_llamamientos.situacion_participacion WHERE participacion_ref=p)
+      IS DISTINCT FROM original_estado+2
+    OR (SELECT pg_catalog.count(*) FROM vec_bolsa_llamamientos.sancion_participacion WHERE participacion_ref=p)
+      IS DISTINCT FROM sanciones_antes+1 THEN
+  RAISE EXCEPTION 'B77 presentar con sanción cambió situación o sanción'; END IF;
 END $prueba$;
 ROLLBACK;

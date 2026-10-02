@@ -24,6 +24,10 @@ BEGIN
     OR vec_bolsa_llamamientos.b77_huella_partes_v1('contenido-solicitud-documental',candidato,bolsa,
          'documento:sintetico:rrhh17',pg_catalog.repeat('a',64),'2026-10-02') IS DISTINCT FROM contenido THEN
   RAISE EXCEPTION 'B77 huella Go/SQL distinta'; END IF;
+ IF vec_bolsa_llamamientos.b77_huella_partes_v1('contenido-solicitud-documental',candidato,bolsa,
+   'documento:sintetico:rrhh17',pg_catalog.repeat('a',64),'') IS DISTINCT FROM
+   '9bff03e2c2b23f401a5208d2073851a14dcf26094f57539c07cc6e10b9e7fff2' THEN
+  RAISE EXCEPTION 'B77 huella sin fecha Go/SQL distinta'; END IF;
  IF vec_bolsa_llamamientos.b77_huella_partes_v1(
    'regularizacion-documental-v1','solicitud-documental:'||pg_catalog.repeat('a',64),'1',pg_catalog.repeat('b',64),
    bolsa,participacion,'documento:sintetico:rrhh17',pg_catalog.repeat('c',64),'2026-10-02',

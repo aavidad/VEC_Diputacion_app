@@ -34,7 +34,7 @@ CREATE TABLE vec_bolsa_llamamientos.solicitud_documental_rrhh (
  tipo text NOT NULL CHECK (tipo='documental_rrhh'),
  documento_ref text NOT NULL CHECK (documento_ref ~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,255}$'),
  documento_sha256 text NOT NULL CHECK (documento_sha256 ~ '^[0-9a-f]{64}$'),
- fecha_fin_causa date NOT NULL CHECK (pg_catalog.isfinite(fecha_fin_causa)),
+ fecha_fin_causa date CHECK (fecha_fin_causa IS NULL OR pg_catalog.isfinite(fecha_fin_causa)),
  version integer NOT NULL CHECK (version=1),
  estado_origen text NOT NULL CHECK (estado_origen='pendiente_rrhh'),
  clave_idempotencia text NOT NULL CHECK (pg_catalog.octet_length(clave_idempotencia) BETWEEN 8 AND 256 AND clave_idempotencia=pg_catalog.btrim(clave_idempotencia)),
@@ -242,7 +242,8 @@ BEGIN
     OR solicitud.contenido_sha256 IS DISTINCT FROM p_contenido_sha256
     OR solicitud.bolsa_ref IS DISTINCT FROM p_bolsa_ref OR solicitud.participacion_ref IS DISTINCT FROM p_participacion_ref
     OR solicitud.documento_ref IS DISTINCT FROM p_documento_ref OR solicitud.documento_sha256 IS DISTINCT FROM p_documento_sha256
-    OR solicitud.fecha_fin_causa IS DISTINCT FROM p_fecha_fin_causa THEN
+    OR (solicitud.fecha_fin_causa IS NOT NULL
+        AND solicitud.fecha_fin_causa IS DISTINCT FROM p_fecha_fin_causa) THEN
   RAISE EXCEPTION 'solicitud documental ajena o versión distinta' USING ERRCODE='VBS02';
  END IF;
  SELECT * INTO resolucion FROM vec_bolsa_llamamientos.resolucion_solicitud_documental_rrhh r
@@ -293,16 +294,17 @@ RETURNS TABLE(reutilizada boolean,solicitud_ref text,recibo_ref text,contenido_s
  registrada_en timestamptz,version integer,estado text)
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET timezone='UTC' SET lock_timeout='2s' AS $f$
 DECLARE participacion text; consumo record; previa vec_bolsa_llamamientos.solicitud_documental_rrhh%ROWTYPE;
- situacion text; referencia_huella text; decision jsonb;
+ referencia_huella text; decision jsonb;
 BEGIN
  IF current_user<>'vec_bolsa_llamamientos_propietario' OR current_setting('transaction_isolation')<>'serializable'
     OR p_solicitud_ref IS NULL OR p_recibo_ref IS NULL OR p_contenido_sha256 IS NULL
     OR p_documento_ref IS NULL OR p_documento_ref !~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,255}$'
     OR p_documento_sha256 IS NULL OR p_documento_sha256 !~ '^[0-9a-f]{64}$'
     OR p_clave IS NULL OR pg_catalog.octet_length(p_clave) NOT BETWEEN 8 AND 256 OR p_clave<>pg_catalog.btrim(p_clave)
-    OR p_fecha_fin_causa IS NULL OR NOT pg_catalog.isfinite(p_fecha_fin_causa)
+    OR (p_fecha_fin_causa IS NOT NULL AND NOT pg_catalog.isfinite(p_fecha_fin_causa))
     OR p_registrada_en IS NULL OR NOT pg_catalog.isfinite(p_registrada_en)
-    OR p_fecha_fin_causa>(p_registrada_en AT TIME ZONE 'Europe/Madrid')::date THEN
+    OR (p_fecha_fin_causa IS NOT NULL
+        AND p_fecha_fin_causa>(p_registrada_en AT TIME ZONE 'Europe/Madrid')::date) THEN
   RAISE EXCEPTION 'solicitud documental inválida' USING ERRCODE='22023';
  END IF;
  referencia_huella:=vec_bolsa_llamamientos.b77_huella_partes_v1('solicitud-documental',p_candidato_ref,p_bolsa_ref,p_clave);
@@ -310,7 +312,7 @@ BEGIN
     OR p_recibo_ref IS DISTINCT FROM 'recibo:solicitud-documental:'||vec_bolsa_llamamientos.b77_huella_partes_v1('recibo',referencia_huella)
     OR p_contenido_sha256 IS DISTINCT FROM vec_bolsa_llamamientos.b77_huella_partes_v1(
       'contenido-solicitud-documental',p_candidato_ref,p_bolsa_ref,p_documento_ref,p_documento_sha256,
-      pg_catalog.to_char(p_fecha_fin_causa,'YYYY-MM-DD')) THEN
+      coalesce(pg_catalog.to_char(p_fecha_fin_causa,'YYYY-MM-DD'),'')) THEN
   RAISE EXCEPTION 'huella de solicitud documental distinta' USING ERRCODE='22023';
  END IF;
  participacion:=vec_bolsa_llamamientos.exigir_portal_candidato_v1(
@@ -328,7 +330,8 @@ BEGIN
  IF consumo.efecto_ref IS DISTINCT FROM 'mi-bolsa:'||p_candidato_ref OR consumo.consumo_nuevo IS NOT TRUE THEN
   RAISE EXCEPTION 'solicitud documental no autorizada' USING ERRCODE='42501'; END IF;
  IF consumo.consumida_en IS NULL OR NOT pg_catalog.isfinite(consumo.consumida_en)
-    OR p_fecha_fin_causa>(consumo.consumida_en AT TIME ZONE 'Europe/Madrid')::date THEN
+    OR (p_fecha_fin_causa IS NOT NULL
+        AND p_fecha_fin_causa>(consumo.consumida_en AT TIME ZONE 'Europe/Madrid')::date) THEN
   RAISE EXCEPTION 'fecha civil documental futura' USING ERRCODE='22023'; END IF;
  -- El reloj de la base, ligado al consumo V3, es la fecha del hecho nuevo.
  p_registrada_en:=consumo.consumida_en;
@@ -352,10 +355,6 @@ BEGIN
               SELECT 1 FROM vec_bolsa_llamamientos.resolucion_solicitud_documental_rrhh r WHERE r.solicitud_ref=s.solicitud_ref)) THEN
   RAISE EXCEPTION 'ya hay una solicitud documental pendiente' USING ERRCODE='VBP02';
  END IF;
- SELECT s.situacion INTO situacion FROM vec_bolsa_llamamientos.situacion_participacion s
-  WHERE s.participacion_ref=participacion AND s.desde<=p_registrada_en ORDER BY s.desde DESC LIMIT 1 FOR UPDATE;
- IF situacion IS DISTINCT FROM 'en_revision' THEN
-  RAISE EXCEPTION 'situación no admite solicitud documental' USING ERRCODE='VBP03'; END IF;
  INSERT INTO vec_bolsa_llamamientos.solicitud_documental_rrhh(
   solicitud_ref,recibo_ref,contenido_sha256,bolsa_ref,participacion_ref,candidato_ref,tipo,documento_ref,
   documento_sha256,fecha_fin_causa,version,estado_origen,clave_idempotencia,decision_ref,auditoria_ref,registrada_en)
