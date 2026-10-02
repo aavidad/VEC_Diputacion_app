@@ -133,13 +133,107 @@ func TestXLSXFechaConEstiloNoSeInterpretaComoPuntos(t *testing.T) {
 	}
 }
 
+func TestXLSXRechazaMacrosConEntidadesEnTiposYRelaciones(t *testing.T) {
+	referencia := hojaResumenXLSXPrueba(t)
+	casos := []struct {
+		nombre   string
+		opciones opcionesXLSX
+	}{
+		{"tipo_libro", opcionesXLSX{tipoWorkbook: "application/vnd.ms-excel.sheet.macro&#69;nabled.main+xml"}},
+		{"relacion_vba", opcionesXLSX{
+			partesExtra:   `<Override PartName="/xl/payload.bin" ContentType="application/vnd.ms-office.v&#98;aProject"/>`,
+			relacionExtra: `<Relationship Id="rIdVBA" Type="http://schemas.microsoft.com/office/2006/relationships/v&#98;aProject" Target="payload.bin"/>`,
+			extra:         map[string]string{"xl/payload.bin": "carga-sintetica-inerte"},
+		}},
+	}
+	for _, caso := range casos {
+		t.Run(caso.nombre, func(t *testing.T) {
+			libro := construirXLSXPrueba(t, referencia, caso.opciones)
+			if _, err := xlsconvoca.NuevoLector().Decodificar(context.Background(), bytes.NewReader(libro)); !errors.Is(err, xlsconvoca.ErrXLSInvalido) {
+				t.Fatalf("macro codificada aceptada: %v", err)
+			}
+		})
+	}
+}
+
+func TestXLSXFormulaCompartidaConservaFilaParaStaging(t *testing.T) {
+	referencia := hojaResumenXLSXPrueba(t)
+	libro := construirXLSXPrueba(t, referencia, opcionesXLSX{
+		celdas: map[string]string{"F2": `<c r="F2"><f t="shared" si="0"/><v>12.5</v></c>`},
+	})
+	hoja, err := xlsconvoca.NuevoLector().Decodificar(context.Background(), bytes.NewReader(libro))
+	if err != nil {
+		t.Fatalf("leer fórmula compartida: %v", err)
+	}
+	if hoja.Filas[0].Numero != 2 || hoja.Filas[0].Celdas[5].Tipo != dominio.CeldaFormula {
+		t.Fatalf("fórmula perdió tipo o fila: %#v", hoja.Filas[0])
+	}
+	staging, err := dominio.ValidarHoja(hoja)
+	if err != nil || !hayIncidencia(staging.Incidencias, 2, "Experiencia", "formula_prohibida") {
+		t.Fatalf("staging perdió incidencia de fórmula: %#v; error=%v", staging, err)
+	}
+}
+
+func TestXLSXAdmiteDirectoriosCanonicosYFormatoNumerico(t *testing.T) {
+	referencia := hojaResumenXLSXPrueba(t)
+	libro := construirXLSXPrueba(t, referencia, opcionesXLSX{
+		celdas:  map[string]string{"F2": `<c r="F2" s="1"><v>12.5</v></c>`},
+		estilos: true, estiloPersonalizado: true, directorios: true,
+	})
+	hoja, err := xlsconvoca.NuevoLector().Decodificar(context.Background(), bytes.NewReader(libro))
+	if err != nil {
+		t.Fatalf("OOXML con directorios: %v", err)
+	}
+	if hoja.Filas[0].Celdas[5] != (dominio.CeldaStaging{Tipo: dominio.CeldaNumero, Valor: "12.5"}) {
+		t.Fatalf("formato numérico confundido con fecha: %#v", hoja.Filas[0].Celdas[5])
+	}
+	staging, err := dominio.ValidarHoja(hoja)
+	if err != nil || staging.FilasLeidas != 3 || len(staging.Aceptadas) != 2 || staging.Rechazadas != 1 {
+		t.Fatalf("staging con formato numérico: %#v; error=%v", staging, err)
+	}
+}
+
+func TestXLSXExigeRelacionRaizYTiposDeContenido(t *testing.T) {
+	referencia := hojaResumenXLSXPrueba(t)
+	for _, caso := range []struct {
+		nombre   string
+		opciones opcionesXLSX
+	}{
+		{"workbook_no_referenciado", opcionesXLSX{rootTarget: "xl/book2.xml"}},
+		{"sin_content_types", opcionesXLSX{omitirTipos: true}},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			libro := construirXLSXPrueba(t, referencia, caso.opciones)
+			if _, err := xlsconvoca.NuevoLector().Decodificar(context.Background(), bytes.NewReader(libro)); !errors.Is(err, xlsconvoca.ErrXLSInvalido) {
+				t.Fatalf("paquete sin raíz válida aceptado: %v", err)
+			}
+		})
+	}
+}
+
+func hojaResumenXLSXPrueba(t *testing.T) dominio.HojaStaging {
+	t.Helper()
+	hoja, err := xlsconvoca.NuevoLector().Decodificar(context.Background(), bytes.NewReader(leerFixture(t, "resumen.xls")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return hoja
+}
+
 type opcionesXLSX struct {
-	celdas             map[string]string
-	extra              map[string]string
-	anexoHoja          string
-	estilos            bool
-	omitirVacias       bool
-	extraSinCompresion bool
+	celdas              map[string]string
+	extra               map[string]string
+	anexoHoja           string
+	estilos             bool
+	estiloPersonalizado bool
+	omitirVacias        bool
+	extraSinCompresion  bool
+	directorios         bool
+	tipoWorkbook        string
+	partesExtra         string
+	relacionExtra       string
+	rootTarget          string
+	omitirTipos         bool
 }
 
 func construirXLSXPrueba(t *testing.T, hoja dominio.HojaStaging, o opcionesXLSX) []byte {
@@ -156,19 +250,40 @@ func construirXLSXPrueba(t *testing.T, hoja dominio.HojaStaging, o opcionesXLSX)
 			t.Fatal(err)
 		}
 	}
-	partes := `<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/sharedStrings.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"/>`
+	if o.directorios {
+		for _, nombre := range []string{"_rels/", "xl/", "xl/_rels/", "xl/worksheets/"} {
+			escribir(nombre, "")
+		}
+	}
+	tipoWorkbook := o.tipoWorkbook
+	if tipoWorkbook == "" {
+		tipoWorkbook = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"
+	}
+	partes := `<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="` + tipoWorkbook + `"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/sharedStrings.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"/>`
 	if o.estilos {
 		partes += `<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>`
 	}
-	escribir("[Content_Types].xml", partes+`</Types>`)
-	escribir("_rels/.rels", `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`)
+	if !o.omitirTipos {
+		escribir("[Content_Types].xml", partes+o.partesExtra+`</Types>`)
+	}
+	rootTarget := o.rootTarget
+	if rootTarget == "" {
+		rootTarget = "xl/workbook.xml"
+	}
+	escribir("_rels/.rels", `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="`+rootTarget+`"/></Relationships>`)
 	escribir("xl/workbook.xml", `<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="`+escaparXMLPrueba(hoja.NombreHoja)+`" sheetId="1" r:id="rId1"/></sheets></workbook>`)
 	relaciones := `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings" Target="sharedStrings.xml"/>`
 	if o.estilos {
 		relaciones += `<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>`
-		escribir("xl/styles.xml", `<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="1"><font/></fonts><fills count="1"><fill/></fills><borders count="1"><border/></borders><cellStyleXfs count="1"><xf numFmtId="0"/></cellStyleXfs><cellXfs count="2"><xf numFmtId="0"/><xf numFmtId="14" applyNumberFormat="1"/></cellXfs></styleSheet>`)
+		numFmt := "14"
+		numFmts := ""
+		if o.estiloPersonalizado {
+			numFmt = "164"
+			numFmts = `<numFmts count="1"><numFmt numFmtId="164" formatCode="0.00;[Red]-0.00"/></numFmts>`
+		}
+		escribir("xl/styles.xml", `<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">`+numFmts+`<fonts count="1"><font/></fonts><fills count="1"><fill/></fills><borders count="1"><border/></borders><cellStyleXfs count="1"><xf numFmtId="0"/></cellStyleXfs><cellXfs count="2"><xf numFmtId="0"/><xf numFmtId="`+numFmt+`" applyNumberFormat="1"/></cellXfs></styleSheet>`)
 	}
-	escribir("xl/_rels/workbook.xml.rels", relaciones+`</Relationships>`)
+	escribir("xl/_rels/workbook.xml.rels", relaciones+o.relacionExtra+`</Relationships>`)
 	var compartidas strings.Builder
 	fmt.Fprintf(&compartidas, `<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="%d" uniqueCount="%d">`, len(hoja.Cabeceras), len(hoja.Cabeceras))
 	for i, cabecera := range hoja.Cabeceras {
