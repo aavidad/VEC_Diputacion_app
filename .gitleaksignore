@@ -62,3 +62,7 @@ d5cbc96f0fdf0e64c8b7296adef62e86f5220c97:internal/vec/reglas/resolutor_test.go:v
 
 # Referencia pública de caché Bolsa, no credencial
 2a84532885f56ff267e6ed1d8c52f80b4c11302d:web/static/portal-empleado/portal-i18n.test.mjs:generic-api-key:93
+
+# Identificador público de clave sintética RPT, no secreto.
+4436cb09d3c184bcf1f8dd1dd0d7c72ef15e4c18:deploy/postgresql/personal/pruebas_sql/relacion_para_rpt_000027.sql.borrador:vep-clave-castellana-asignada:111
+4436cb09d3c184bcf1f8dd1dd0d7c72ef15e4c18:deploy/postgresql/personal/pruebas_sql/relacion_para_rpt_000027_pg18.sh.borrador:vep-clave-castellana-asignada:99
