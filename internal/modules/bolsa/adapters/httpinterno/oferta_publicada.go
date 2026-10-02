@@ -29,6 +29,7 @@ const (
 )
 
 type EntradaPublicarOferta struct {
+	Notificacion      dominiobolsa.NotificacionOferta
 	BolsaRef          string
 	Datos             dominiobolsa.DatosOferta
 	NumeroPlazas      int
@@ -132,15 +133,16 @@ func (h *HandlerOfertasPublicadas) publicar(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	var cuerpo struct {
-		BolsaRef     string                   `json:"bolsa_ref"`
-		Datos        dominiobolsa.DatosOferta `json:"datos"`
-		NumeroPlazas *int                     `json:"numero_plazas"`
+		Notificacion *dominiobolsa.NotificacionOferta `json:"notificacion"`
+		BolsaRef     string                           `json:"bolsa_ref"`
+		Datos        dominiobolsa.DatosOferta         `json:"datos"`
+		NumeroPlazas *int                             `json:"numero_plazas"`
 	}
-	if !decodificarCuerpoOferta(r, &cuerpo) || cuerpo.NumeroPlazas == nil {
+	if !decodificarCuerpoOferta(r, &cuerpo) || cuerpo.NumeroPlazas == nil || cuerpo.Notificacion == nil {
 		responderOferta(w, http.StatusBadRequest, "solicitud_invalida", nil)
 		return
 	}
-	q, err := h.preparador.PrepararSolicitudPublicarOferta(r.Context(), EntradaPublicarOferta{BolsaRef: cuerpo.BolsaRef, Datos: cuerpo.Datos, NumeroPlazas: *cuerpo.NumeroPlazas, ClaveIdempotencia: clave})
+	q, err := h.preparador.PrepararSolicitudPublicarOferta(r.Context(), EntradaPublicarOferta{Notificacion: *cuerpo.Notificacion, BolsaRef: cuerpo.BolsaRef, Datos: cuerpo.Datos, NumeroPlazas: *cuerpo.NumeroPlazas, ClaveIdempotencia: clave})
 	if err != nil {
 		responderErrorOferta(w, err)
 		return

@@ -22,7 +22,7 @@ test("sin ofertas compuestas no se exige nada y con ellas se validan todas", () 
 test("ofrece el botón solo en ofertas abiertas sin disposición", () => {
   const abierta = renderizarOfertasMiBolsa([oferta()]);
   assert.match(abierta, /data-portal-mi-bolsa="disposicion"/u);
-  assert.match(abierta, /Me ofrezco/u);
+  assert.match(abierta, />Aceptar<\/button>/u);
   assert.match(abierta, /Sin fecha de fin/u);
   const hecha = renderizarOfertasMiBolsa([oferta({ disposicion: { recibo: "recibo:disposicion:x", manifestada_en: "2026-09-25T09:00:00.000000Z" } })]);
   assert.doesNotMatch(hecha, /data-portal-mi-bolsa/u);

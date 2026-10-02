@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	dominiobolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
 	"vec-diputacion-granada/internal/modules/bolsa/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 )
@@ -37,7 +38,7 @@ func (r *RepositorioOfertasPublicadasPostgreSQL) Publicar(ctx context.Context, c
 	m := c.Material
 	var salida []byte
 	var reutilizada bool
-	err := r.pool.QueryRow(ctx, `SELECT oferta,reutilizada FROM vec_bolsa_llamamientos.publicar_oferta_v3($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8,$9,$10,$11,$12,$13,$14::numeric,$15::numeric,$16,$17,$18,$19,$20,$21,$22::integer)`,
+	err := r.pool.QueryRow(ctx, `SELECT oferta,reutilizada FROM vec_bolsa_llamamientos.publicar_oferta_v4($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8,$9,$10,$11,$12,$13,$14::numeric,$15::numeric,$16,$17,$18,$19,$20,$21,$22::integer)`,
 		c.OfertaRef, c.ReciboRef, c.BolsaRef, c.ActorRef, c.ClaveIdempotencia, datos, plazo, c.PublicadaEn, c.VenceAntesDe,
 		m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), m.PersonaVersion(), m.PerfilVersion(),
 		m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI(), c.UnidadRef, c.AmbitoRef, c.NumeroPlazas).Scan(&salida, &reutilizada)
@@ -107,7 +108,8 @@ func decodificarListaOfertas(salida []byte) ([]ports.OfertaPublicada, error) {
 // ofertaCompleta exige la proyección B58: una entrada por plaza, numeradas
 // desde 1 y con estado.
 func ofertaCompleta(o ports.OfertaPublicada) bool {
-	if o.OfertaRef == "" || o.Estado == "" || o.NumeroPlazas < 1 || len(o.Plazas) != o.NumeroPlazas {
+	if o.OfertaRef == "" || o.Estado == "" || o.NumeroPlazas < 1 || len(o.Plazas) != o.NumeroPlazas ||
+		!dominiobolsa.ConfirmacionAdjudicacionValida(o.ConfirmacionAdjudicacion) {
 		return false
 	}
 	for i, p := range o.Plazas {
