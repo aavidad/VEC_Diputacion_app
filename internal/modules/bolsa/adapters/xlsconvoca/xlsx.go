@@ -44,9 +44,11 @@ func decodificarXLSX(ctx context.Context, origen io.ReadSeeker) (dominio.HojaSta
 		if err := ctx.Err(); err != nil {
 			return dominio.HojaStaging{}, err
 		}
+		nombreLimpio := strings.TrimSuffix(entrada.Name, "/")
 		if entrada.Flags&1 != 0 || (entrada.Method != zip.Store && entrada.Method != zip.Deflate) ||
-			entrada.Name == "" || strings.ContainsAny(entrada.Name, "\\\x00") ||
-			strings.HasPrefix(entrada.Name, "/") || path.Clean(entrada.Name) != entrada.Name {
+			nombreLimpio == "" || strings.ContainsAny(entrada.Name, "\\\x00") ||
+			strings.HasPrefix(entrada.Name, "/") || path.Clean(nombreLimpio) != nombreLimpio ||
+			(strings.HasSuffix(entrada.Name, "/") && entrada.UncompressedSize64 != 0) {
 			return dominio.HojaStaging{}, ErrXLSInvalido
 		}
 		if nombreXLSXPeligroso(entrada.Name) {
@@ -112,6 +114,9 @@ func decodificarXLSX(ctx context.Context, origen io.ReadSeeker) (dominio.HojaSta
 	if err != nil {
 		return dominio.HojaStaging{}, err
 	}
+	if err := verificarTipoHojaXLSX(partes["[Content_Types].xml"], ruta); err != nil {
+		return dominio.HojaStaging{}, err
+	}
 	datosHoja, existe := partes[ruta]
 	if !existe || datosHoja == nil {
 		return dominio.HojaStaging{}, ErrXLSInvalido
@@ -147,15 +152,20 @@ func nombreXLSXPeligroso(nombre string) bool {
 }
 
 func validarPartesXLSX(partes map[string][]byte) error {
-	if partes["xl/workbook.xml"] == nil || partes["xl/_rels/workbook.xml.rels"] == nil {
+	if partes["xl/workbook.xml"] == nil || partes["xl/_rels/workbook.xml.rels"] == nil ||
+		partes["_rels/.rels"] == nil || partes["[Content_Types].xml"] == nil {
 		return ErrXLSInvalido
+	}
+	if err := verificarRaizXLSX(partes["_rels/.rels"]); err != nil {
+		return err
+	}
+	if err := verificarTipoLibroXLSX(partes["[Content_Types].xml"]); err != nil {
+		return err
 	}
 	for nombre, datos := range partes {
 		if nombre == "[Content_Types].xml" {
-			minusculas := strings.ToLower(string(datos))
-			if strings.Contains(minusculas, "macroenabled") || strings.Contains(minusculas, "vba") ||
-				strings.Contains(minusculas, "externallink") {
-				return ErrXLSInvalido
+			if err := verificarTiposContenidoXLSX(datos); err != nil {
+				return err
 			}
 		}
 		if strings.HasSuffix(nombre, ".rels") {
@@ -165,6 +175,95 @@ func validarPartesXLSX(partes map[string][]byte) error {
 		}
 	}
 	return nil
+}
+
+func verificarRaizXLSX(datos []byte) error {
+	dec := xml.NewDecoder(bytes.NewReader(datos))
+	cuenta := 0
+	for {
+		token, err := siguienteTokenXLSX(dec)
+		if err == io.EOF {
+			if cuenta == 1 {
+				return nil
+			}
+			return ErrXLSInvalido
+		}
+		if err != nil {
+			return ErrXLSInvalido
+		}
+		inicio, ok := token.(xml.StartElement)
+		if !ok || inicio.Name.Local != "Relationship" ||
+			!strings.HasSuffix(atributo(inicio.Attr, "Type"), "/officeDocument") {
+			continue
+		}
+		cuenta++
+		if cuenta > 1 || atributo(inicio.Attr, "Target") != "xl/workbook.xml" ||
+			atributo(inicio.Attr, "TargetMode") != "" {
+			return ErrXLSInvalido
+		}
+	}
+}
+
+func verificarTipoLibroXLSX(datos []byte) error {
+	return verificarTipoParteXLSX(datos, "/xl/workbook.xml",
+		"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml")
+}
+
+func verificarTipoHojaXLSX(datos []byte, ruta string) error {
+	return verificarTipoParteXLSX(datos, "/"+ruta,
+		"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml")
+}
+
+func verificarTipoParteXLSX(datos []byte, nombre, esperado string) error {
+	dec := xml.NewDecoder(bytes.NewReader(datos))
+	coincidencias := 0
+	for {
+		token, err := siguienteTokenXLSX(dec)
+		if err == io.EOF {
+			if coincidencias == 1 {
+				return nil
+			}
+			return ErrXLSInvalido
+		}
+		if err != nil {
+			return ErrXLSInvalido
+		}
+		inicio, ok := token.(xml.StartElement)
+		if !ok || inicio.Name.Local != "Override" || atributo(inicio.Attr, "PartName") != nombre {
+			continue
+		}
+		coincidencias++
+		if coincidencias > 1 || atributo(inicio.Attr, "ContentType") != esperado {
+			return ErrXLSInvalido
+		}
+	}
+}
+
+func tipoEjecutableXLSX(valor string) bool {
+	valor = strings.ToLower(valor)
+	return strings.Contains(valor, "macro") || strings.Contains(valor, "vba") ||
+		strings.Contains(valor, "externallink") || strings.Contains(valor, "activex")
+}
+
+func verificarTiposContenidoXLSX(datos []byte) error {
+	dec := xml.NewDecoder(bytes.NewReader(datos))
+	for {
+		token, err := siguienteTokenXLSX(dec)
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return ErrXLSInvalido
+		}
+		inicio, ok := token.(xml.StartElement)
+		if !ok {
+			continue
+		}
+		if tipoEjecutableXLSX(atributo(inicio.Attr, "ContentType")) ||
+			tipoEjecutableXLSX(atributo(inicio.Attr, "PartName")) {
+			return ErrXLSInvalido
+		}
+	}
 }
 
 func verificarRelacionesXLSX(datos []byte) error {
@@ -179,7 +278,8 @@ func verificarRelacionesXLSX(datos []byte) error {
 		}
 		if inicio, ok := token.(xml.StartElement); ok && inicio.Name.Local == "Relationship" {
 			if strings.EqualFold(strings.TrimSpace(atributo(inicio.Attr, "TargetMode")), "External") ||
-				strings.Contains(strings.ToLower(atributo(inicio.Attr, "Type")), "externallink") {
+				tipoEjecutableXLSX(atributo(inicio.Attr, "Type")) ||
+				tipoEjecutableXLSX(atributo(inicio.Attr, "Target")) {
 				return ErrXLSInvalido
 			}
 		}
@@ -430,13 +530,14 @@ func esFormatoFechaXLSX(id int, formatos map[int]string) (bool, bool) {
 	}
 	// Sólo aceptamos como numérico un formato que no contiene componentes de
 	// fecha. Un falso positivo provoca rechazo de fila, nunca puntos inventados.
-	enComillas, escapado := false, false
+	enComillas, escapado, enCorchetes := false, false, false
+	var corchete strings.Builder
 	for _, r := range strings.ToLower(formato) {
 		if escapado {
 			escapado = false
 			continue
 		}
-		if r == '\\' {
+		if r == '\\' || r == '_' || r == '*' {
 			escapado = true
 			continue
 		}
@@ -444,9 +545,29 @@ func esFormatoFechaXLSX(id int, formatos map[int]string) (bool, bool) {
 			enComillas = !enComillas
 			continue
 		}
+		if !enComillas && r == '[' {
+			enCorchetes = true
+			corchete.Reset()
+			continue
+		}
+		if enCorchetes {
+			if r == ']' {
+				switch corchete.String() {
+				case "h", "hh", "m", "mm", "s", "ss":
+					return true, true
+				}
+				enCorchetes = false
+			} else {
+				corchete.WriteRune(r)
+			}
+			continue
+		}
 		if !enComillas && strings.ContainsRune("ydhsm", r) {
 			return true, true
 		}
+	}
+	if enCorchetes || enComillas || escapado {
+		return true, true
 	}
 	return false, true
 }
@@ -663,7 +784,7 @@ func convertirCeldaXLSX(c celdaXLSX, compartidas []string, estilos []bool) (domi
 // Las fórmulas son rechazadas allí como incidencia, nunca evaluadas aquí.
 func formulaInternaXLSX(formula string) bool {
 	if formula == "" {
-		return false
+		return true // <f t="shared" si="…"/> también es una fórmula inerte.
 	}
 	for _, r := range formula {
 		if r >= 'A' && r <= 'Z' || r >= 'a' && r <= 'z' || r >= '0' && r <= '9' ||
