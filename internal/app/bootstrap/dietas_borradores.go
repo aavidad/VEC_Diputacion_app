@@ -29,17 +29,18 @@ var ErrComposicionBorradoresDietasNoDisponible = errors.New("bootstrap: borrador
 // de la misma política común. La raíz conserva la propiedad y el cierre de los
 // pools; este montaje no acepta DSN, selectores de actor ni permisos del HTTP.
 type dependenciasBorradoresDietas struct {
-	personal           *pgxpool.Pool
-	personalAsignacion *pgxpool.Pool
-	dietas             *pgxpool.Pool
-	auditoriaPersonal  personalports.RegistradorAuditoriaFronteraAsignacionDietas
-	seguridad          resolutorContextoPersonalDietas
-	reloj              vecports.Reloj
-	emisorPersonal     personalcomp.EmisorMaterialRelacionDietasV3
-	emisorDietas       dietascomp.EmisorMaterialBorradorV3
-	motivoPersonal     vecdomain.ReferenciaEntradaCatalogo
-	motivoDietas       vecdomain.ReferenciaEntradaCatalogo
-	preparador         interface {
+	personal               *pgxpool.Pool
+	personalAsignacion     *pgxpool.Pool
+	dietas                 *pgxpool.Pool
+	auditoriaPersonal      personalports.RegistradorAuditoriaFronteraAsignacionDietas
+	auditoriaRectificacion personalports.RegistradorAuditoriaFronteraRectificacionDietas
+	seguridad              resolutorContextoPersonalDietas
+	reloj                  vecports.Reloj
+	emisorPersonal         personalcomp.EmisorMaterialRelacionDietasV3
+	emisorDietas           dietascomp.EmisorMaterialBorradorV3
+	motivoPersonal         vecdomain.ReferenciaEntradaCatalogo
+	motivoDietas           vecdomain.ReferenciaEntradaCatalogo
+	preparador             interface {
 		Preparar(context.Context, dietasports.SolicitudCrearBorradorPropio) (dietasports.SolicitudCrearBorradorPropio, error)
 	}
 	// fuenteCompetencia acredita la unidad de cada revisor del circuito.
@@ -152,5 +153,13 @@ func componerBorradoresDietas(d dependenciasBorradoresDietas) ([]vechttp.RutaExa
 		{Ruta: personalhttp.RutaRelacionesDietas, Manejador: rutaRelaciones},
 	}, exactasAsignacion...)
 	colecciones := append([]vechttp.RutaColeccion{{Prefijo: dietashttp.RutaBorradores, Manejador: ruta}}, coleccionesAsignacion...)
+	if !dependenciaDietasNula(d.auditoriaRectificacion) {
+		rectificaciones, err := nuevoManejadorRectificacionesDietas(identidad, d.emisorPersonal, d.motivoPersonal, d.personalAsignacion, d.auditoriaRectificacion)
+		if err != nil {
+			return nil, nil, ErrComposicionBorradoresDietasNoDisponible
+		}
+		exactas = append(exactas, vechttp.RutaExacta{Ruta: personalhttp.RutaSolicitudesRectificacionDietas, Manejador: rectificaciones})
+		colecciones = append(colecciones, vechttp.RutaColeccion{Prefijo: personalhttp.RutaSolicitudesRectificacionDietas, Manejador: rectificaciones})
+	}
 	return exactas, colecciones, nil
 }

@@ -68,3 +68,5 @@ f2fd58e53da6d7eaf8c8b76d58d5118f7b2fecda:deploy/postgresql/bolsa_llamamientos/pr
 
 # R1: version publica del modulo de politica en el mapa de precargas; no es una API key.
 18610ca23a99cc0ce5d9d518094acf8d32278f0c:web/static/portal-empleado/portal-i18n.test.mjs:generic-api-key:63
+# Referencia pública de caché Bolsa, no credencial
+2a84532885f56ff267e6ed1d8c52f80b4c11302d:web/static/portal-empleado/portal-i18n.test.mjs:generic-api-key:93

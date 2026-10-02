@@ -30,6 +30,7 @@ const (
 
 type opciones struct {
 	inventarioCT, idempotencia, motivos, salida, dsnArchivo string
+	incorporacionConfig                                     string
 }
 
 // motivosB2 es el formato del fichero de motivos: exactamente las ocho
