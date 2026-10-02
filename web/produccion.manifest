@@ -522,6 +522,8 @@ static/textos/es/formacion.json
 static/textos/en/formacion.json
 static/textos/es/carrera.json
 static/textos/en/carrera.json
+static/textos/es/seleccion.json
+static/textos/en/seleccion.json
 static/portal-empleado/portal-accesos-empleado.js
 static/textos/es/accesos-empleado.json
 static/textos/en/accesos-empleado.json
@@ -545,3 +547,9 @@ static/portal-empleado/modulos/seleccion/ficha-convocatoria/montaje.js
 static/portal-empleado/modulos/seleccion/ficha-convocatoria/vista.js
 static/textos/es/seleccion-ficha-convocatoria.json
 static/textos/en/seleccion-ficha-convocatoria.json
+static/portal-empleado/modulos/cronos/i18n-bandeja-notificaciones.js
+static/textos/es/cronos-bandeja-notificaciones.json
+static/textos/en/cronos-bandeja-notificaciones.json
+static/portal-empleado/modulos/cronos/i18n-notificaciones-historial.js
+static/textos/es/cronos-notificaciones-historial.json
+static/textos/en/cronos-notificaciones-historial.json
