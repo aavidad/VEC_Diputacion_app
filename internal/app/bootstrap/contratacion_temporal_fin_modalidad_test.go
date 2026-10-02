@@ -1,12 +1,43 @@
 package bootstrap
 
 import (
+	"context"
 	"strings"
 	"testing"
 	"time"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
+	"vec-diputacion-granada/internal/vec/reglas"
 )
+
+type relojFinModalidadPrueba struct{}
+
+func (relojFinModalidadPrueba) Ahora() time.Time {
+	return time.Date(2026, 10, 2, 15, 0, 0, 0, time.UTC)
+}
+
+func TestCatalogoReglasCTVersionTresPublicaFinPorCausa(t *testing.T) {
+	ruta := "../../../data/demo/reglas/ct_reglas.ejemplo.demo.v3.json"
+	resolver, err := nuevoResolutorReglasEjemplo(ruta, reglas.CatalogoContratacionTemporal,
+		reglas.ModuloContratacionTemporal, nil, relojFinModalidadPrueba{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	opciones, err := nuevasOpcionesAnalisisCT(context.Background(), resolver)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for clave, causa := range map[domain.ClaveCatalogo]domain.ClaveCatalogo{
+		"sustitucion": "reincorporacion_titular",
+		"vacante":     "cobertura_reglamentaria",
+	} {
+		modalidad, ok := opciones.modalidad(clave)
+		if !ok || modalidad.FechaFin != fechaFinNoAplicaCT || modalidad.CausaFin != causa ||
+			modalidad.CatalogoVersion != 3 || modalidad.ReglaRef == "" || modalidad.CatalogoHuellaSHA256 == "" {
+			t.Fatalf("regla %s: %+v, existe=%v", clave, modalidad, ok)
+		}
+	}
+}
 
 func TestModalidadFinSinFechaFijaReglaYRechazaFechaInventada(t *testing.T) {
 	inicio := time.Date(2026, 10, 2, 0, 0, 0, 0, time.UTC)
