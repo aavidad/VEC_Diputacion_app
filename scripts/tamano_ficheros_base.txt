@@ -123,6 +123,11 @@
 1064 web/static/portal-empleado/modulos/contratacion-temporal/i18n.js
 887 internal/app/bootstrap/contratacion_temporal_cobertura_autorizacion_desarrollo_test.go
 1178 deploy/postgresql/usuarios_vec/migraciones/000010_correos_por_poblacion.up.sql
-1004 scripts/recorridos/clon_runtime.py
-1283 scripts/recorridos/clon_material.py
-891 scripts/recorridos/test_clon_runtime.py
+1327 scripts/recorridos/clon_runtime.py
+1357 scripts/recorridos/clon_material.py
+1350 scripts/recorridos/test_clon_runtime.py
+1437 scripts/recorridos/clon_sql.py
+1358 scripts/recorridos/clon_sql.test.py
+895 scripts/recorridos/clon_runtime_container.py
+901 scripts/recorridos/clon_cas_namespace.py
+829 scripts/recorridos/test_clon_cas_namespace.py

@@ -1,5 +1,25 @@
 # Recorridos pendientes de manual
 
+## Comprobación del 1 de octubre de 2026
+
+La copia local nueva conserva la base inicial y 62 instalaciones SQL, pero se
+detiene antes de abrir la aplicación. Le faltan el recibo de esa fase, las
+identidades de prueba y el cierre de autorización AD132. La copia que sí
+emitió aquel recibo pertenecía a otro contenedor y ya se retiró; su recibo no
+puede usarse para esta. La [guía del clon](../../scripts/recorridos/README_CLON_H6.md)
+explica cómo preparar una copia fresca cuando se aprueben sus entradas.
+
+Una copia desechable posterior sí emitió su propio recibo de las 62
+instalaciones y lo recuperó tras reiniciar PostgreSQL. Después se retiraron
+su contenedor y sus datos temporales, tal como se había aprobado. Ese ensayo
+acredita la preparación de la base; no abrió el portal ni completó trámites.
+
+Por ello **no se han repetido los ocho recorridos en Chrome contra el main
+actual**. Los resultados fechados a continuación corresponden a sus propias
+copias y versiones. Ningún proceso nuevo está confirmado de principio a fin;
+los manuales de esos procesos siguen pendientes de la confirmación de
+Dirección y de un recorrido completo con recibos recuperados.
+
 ## Clon H6: resultados observados — 30/09/2026
 
 El clon compartido usa la fuente `main@ab875bb8036af59e9b5ac624d6840b8581178ed2`

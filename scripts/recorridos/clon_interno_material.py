@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import fcntl
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -62,19 +63,54 @@ SOURCE_PATHS = (
     "config/postgresql_importacion_convoca.go", "internal/app/bootstrap/bolsa_importacion_convoca_pool.go",
     "internal/app/bootstrap/bolsa_importacion_convoca_custodia.go",
 )
-# Reviewed portal/material contracts at main 8fc0b534; SQL lineage alone
-# cannot approve changes to these Go loaders or their classification.
-APPROVED_CONTRACTS = dict(zip(SOURCE_PATHS, (
-    "083e46c4ac92b85d32386820038b3f5264f6af974550cea1850b7bfaf713ea89",
-    "db7f6f31d99173185774cf046f9e0e1abd55362c2d0741e4ca131592eb9a541f",
-    "6f267a8a72b137e672289c9381d7a4ad71b033c4d69ead5c0d2a875e0fe066a6",
-    "6fb7e6f198f30613040210088f0e285bfbff11db8e0161936888b7bcbf8c0e32",
-    "3ee0ac2917e03b1093b528781b2af25238600b7400d4d30f78c836d26355665a",
-    "dcfb4d6c6eb4f438993de0ab6c027b21b429826a601519fafdeec3ef2ed68bf8",
-    "b30ac7f1c8f92d95a251704f0c128315070eafc2a0c743a08c627b72e7e39ece",
-    "5707fbbe5c78c4b7b48267b8bb39f0095e224eddbd3b16c071d216daad1b72be",
-    "8b3c2909bc3278c9937f45935f54774edd141230e8824022657742a159549d04",
-)))
+# Complete reviewed material contracts: frozen H6 and main ebac67de4.
+# Compare whole sets, including both portal and Bolsa pins; never mix variants.
+APPROVED_SOURCE_CONTRACT_SETS = (
+    # ab875bb8036af59e9b5ac624d6840b8581178ed2
+    {
+        'config/portal_proceso.go': '083e46c4ac92b85d32386820038b3f5264f6af974550cea1850b7bfaf713ea89',
+        'internal/app/separacionportales/material.go': 'db7f6f31d99173185774cf046f9e0e1abd55362c2d0741e4ca131592eb9a541f',
+        'internal/app/bootstrap/material_desarrollo.go': '6f267a8a72b137e672289c9381d7a4ad71b033c4d69ead5c0d2a875e0fe066a6',
+        'internal/app/bootstrap/usuarios_preferencias_config_identidad.go': '6fb7e6f198f30613040210088f0e285bfbff11db8e0161936888b7bcbf8c0e32',
+        'internal/app/bootstrap/documentos_montaje.go': '3ee0ac2917e03b1093b528781b2af25238600b7400d4d30f78c836d26355665a',
+        'internal/app/bootstrap/usuarios_imagen_montaje.go': 'dcfb4d6c6eb4f438993de0ab6c027b21b429826a601519fafdeec3ef2ed68bf8',
+        'config/postgresql_importacion_convoca.go': 'b30ac7f1c8f92d95a251704f0c128315070eafc2a0c743a08c627b72e7e39ece',
+        'internal/app/bootstrap/bolsa_importacion_convoca_pool.go': '5707fbbe5c78c4b7b48267b8bb39f0095e224eddbd3b16c071d216daad1b72be',
+        'internal/app/bootstrap/bolsa_importacion_convoca_custodia.go': '8b3c2909bc3278c9937f45935f54774edd141230e8824022657742a159549d04',
+        'internal/app/bootstrap/bolsa_borrador_contexto_postgresql_desarrollo.go': '3d541ce90fac13a788d94577d921ad7c663ecf53fd5eadf3ce6b7d576db09550',
+        'internal/app/bootstrap/bolsa_borrador_identidad_desarrollo.go': '451d9d56f108480cea5a92164f0f1b8cfc04a168267a36b9e79de16f71e9762e',
+        'internal/app/bootstrap/bolsa_borrador_llamamiento_desarrollo.go': 'a9a4cc7e268e2d7cca3825102001003c338cd72ad37d21d03580c4ad056bbc05',
+        'internal/app/bootstrap/bolsa_ofertas_desarrollo.go': '9727a2d8e4b0f00112e42377b5674e0cf0ca339225d543f35f97b0deeef82bec',
+        'internal/app/bootstrap/bolsa_auditoria_frontera_postgresql_desarrollo.go': '3fe40db4d72ac34374b3817078b9dda69b7a8283eb0f4c49cc3f7e228e27182a',
+        'internal/app/bootstrap/bolsa_borrador_politica_desarrollo.go': '190089f6b533b9c7e0c1135fcfc6b5d8143656faca82f4db6b02b7f29ab96a13',
+        'config/postgresql_borradores.go': '6770f91af7bd67b75b8beb14b13e78290b88364217d5efafe70659c3a2dd8725',
+        'internal/app/bootstrap/postgresql_borradores_configuracion.go': 'd33403dde4e0f77e4864198f8e758b3959c3a946bf9e76112cce5c7022f19abc',
+        'internal/app/bootstrap/bolsa_rrhh_constituida_desarrollo.go': '326fdc828547b378cf1ca4434b626fb5f35973bb6d91d406081155cd84542fdd',
+    },
+    # ebac67de4e43fc49add3d82a011b2b0c9f6a6b21
+    {
+        'config/portal_proceso.go': 'fd439d9d544fe3dc931ef0a4ccd7154165fae7ba05faef46cbc30f750ee4c218',
+        'internal/app/separacionportales/material.go': 'db7f6f31d99173185774cf046f9e0e1abd55362c2d0741e4ca131592eb9a541f',
+        'internal/app/bootstrap/material_desarrollo.go': '6f267a8a72b137e672289c9381d7a4ad71b033c4d69ead5c0d2a875e0fe066a6',
+        'internal/app/bootstrap/usuarios_preferencias_config_identidad.go': '6fb7e6f198f30613040210088f0e285bfbff11db8e0161936888b7bcbf8c0e32',
+        'internal/app/bootstrap/documentos_montaje.go': '3ee0ac2917e03b1093b528781b2af25238600b7400d4d30f78c836d26355665a',
+        'internal/app/bootstrap/usuarios_imagen_montaje.go': 'dcfb4d6c6eb4f438993de0ab6c027b21b429826a601519fafdeec3ef2ed68bf8',
+        'config/postgresql_importacion_convoca.go': 'b30ac7f1c8f92d95a251704f0c128315070eafc2a0c743a08c627b72e7e39ece',
+        'internal/app/bootstrap/bolsa_importacion_convoca_pool.go': '5707fbbe5c78c4b7b48267b8bb39f0095e224eddbd3b16c071d216daad1b72be',
+        'internal/app/bootstrap/bolsa_importacion_convoca_custodia.go': '8b3c2909bc3278c9937f45935f54774edd141230e8824022657742a159549d04',
+        'internal/app/bootstrap/bolsa_borrador_contexto_postgresql_desarrollo.go': '3d541ce90fac13a788d94577d921ad7c663ecf53fd5eadf3ce6b7d576db09550',
+        'internal/app/bootstrap/bolsa_borrador_identidad_desarrollo.go': '451d9d56f108480cea5a92164f0f1b8cfc04a168267a36b9e79de16f71e9762e',
+        'internal/app/bootstrap/bolsa_borrador_llamamiento_desarrollo.go': '34a468ec7eae26d70e37450228f96041b1bed165362a51a830fcc88561f9f490',
+        'internal/app/bootstrap/bolsa_ofertas_desarrollo.go': '9727a2d8e4b0f00112e42377b5674e0cf0ca339225d543f35f97b0deeef82bec',
+        'internal/app/bootstrap/bolsa_auditoria_frontera_postgresql_desarrollo.go': '3fe40db4d72ac34374b3817078b9dda69b7a8283eb0f4c49cc3f7e228e27182a',
+        'internal/app/bootstrap/bolsa_borrador_politica_desarrollo.go': '190089f6b533b9c7e0c1135fcfc6b5d8143656faca82f4db6b02b7f29ab96a13',
+        'config/postgresql_borradores.go': '6770f91af7bd67b75b8beb14b13e78290b88364217d5efafe70659c3a2dd8725',
+        'internal/app/bootstrap/postgresql_borradores_configuracion.go': 'd33403dde4e0f77e4864198f8e758b3959c3a946bf9e76112cce5c7022f19abc',
+        'internal/app/bootstrap/bolsa_rrhh_constituida_desarrollo.go': '326fdc828547b378cf1ca4434b626fb5f35973bb6d91d406081155cd84542fdd',
+    },
+)
+# The existing projection seal retains its nine internal loader contracts.
+APPROVED_CONTRACTS = {path: APPROVED_SOURCE_CONTRACT_SETS[-1][path] for path in SOURCE_PATHS}
 
 
 class ProjectionError(RuntimeError):
@@ -134,21 +170,33 @@ def write(path, data):
         os.fsync(stream.fileno())
 
 
+def fsync_directory(path):
+    fd = os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+
+
 def source_contracts(repo, source):
     import subprocess
+    if not isinstance(source, str) or not re.fullmatch(r"[0-9a-f]{40}", source):
+        fail("projection_source_contract_unavailable")
     result = {}
     contents = {}
-    for relative in SOURCE_PATHS:
-        completed = subprocess.run(["git", "-C", str(repo), "show", source + ":" + relative], capture_output=True, timeout=20)
+    for relative in APPROVED_SOURCE_CONTRACT_SETS[0]:
+        completed = subprocess.run(["git", "-C", str(repo), "show", source + ":" + relative], capture_output=True, timeout=20,
+                                   env={"PATH": os.defpath, "LC_ALL": "C", "GIT_CONFIG_NOSYSTEM": "1",
+                                        "GIT_CONFIG_GLOBAL": "/dev/null", "GIT_NO_REPLACE_OBJECTS": "1"})
         if completed.returncode:
             fail("projection_source_contract_unavailable")
         contents[relative] = completed.stdout.decode()
         result[relative] = digest(completed.stdout)
-    if result != APPROVED_CONTRACTS:
+    if result not in APPROVED_SOURCE_CONTRACT_SETS:
         fail("projection_source_contract_review_required")
     if '"VEC_PORTAL_PROCESO"' not in contents[SOURCE_PATHS[0]] or '"interno"' not in contents[SOURCE_PATHS[0]] or "portalProcesoSeparado(cfg)" not in contents[SOURCE_PATHS[2]] or "!superficieExternaUsuariosEnProceso(cfg)" not in contents[SOURCE_PATHS[3]]:
         fail("projection_source_internal_contract_missing")
-    return result
+    return {path: result[path] for path in SOURCE_PATHS}
 
 
 def rewrite_dsn(value, old_material, new_material, pg_port):
@@ -184,12 +232,22 @@ def rewrite_json(value, old_material, new_material, root, selected, pg_port):
     return value
 
 
-def preflight(repo, container, state, material, pg_port, source_context):
+def preparation_gate(repo, state, container, pg_port, source, approval, *, pre_ad132=True):
+    path = Path(__file__).with_name("clon_material_pre_ad132.py")
+    if not path.is_file() or path.is_symlink():
+        fail("projection_pre_ad132_validator_missing")
+    spec = importlib.util.spec_from_file_location("projection_pre_ad132", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.validate(repo, state, container, pg_port, source, approval, pre_ad132=pre_ad132)
+
+
+def preflight(repo, container, state, material, pg_port, source_context, *, pre_ad132=False, approval=None):
     repo, state, material = map(canonical, (repo, state, material))
     if material != state / "material" or state.stat().st_uid != os.getuid() or state.stat().st_mode & 0o077:
         fail("projection_invalid_operator_root")
     records = []
-    for record in ("clon.json", "DB_READY.json"):
+    for record in (("clon.json",) if pre_ad132 else ("clon.json", "DB_READY.json")):
         metadata = json.loads(read(state / record))
         if metadata.get("propietario") != OWNER or metadata.get("estado") != str(state) or metadata.get("contenedor") != container or metadata.get("puerto_pg") != pg_port:
             fail("projection_clone_inventory_mismatch")
@@ -203,6 +261,14 @@ def preflight(repo, container, state, material, pg_port, source_context):
         fail("projection_parent_target_mismatch")
     if any(record.get("commit") != source for record in records):
         fail("projection_source_marker_mismatch")
+    staged = pre_ad132 or principal.get("runtime_interno", {}).get("status") == "pending_ad132"
+    proof = None
+    if staged:
+        proof = preparation_gate(repo, state, container, pg_port, source, approval, pre_ad132=pre_ad132)
+        if principal.get("status") != "prepared" or principal.get("blockers") != []:
+            fail("projection_pre_ad132_material_incomplete")
+        if records[0].get("puerto_web") != principal["target"]["app_port"]:
+            fail("projection_pre_ad132_web_port_mismatch")
     expected_env = {"VEC_EXECUTION_PROFILE": "desarrollo", "VEC_AUTH_MODE": "desarrollo", "VEC_DEVELOPMENT_GUARD": GUARD,
                     "VEC_DEVELOPMENT_MATERIAL_DIR": str(material), "VEC_HTTP_ADDR": "127.0.0.1:" + str(principal["target"]["app_port"])}
     if any(env.get(k) != v for k, v in expected_env.items()) or "runtime-config.json" not in principal["files"]:
@@ -215,6 +281,8 @@ def preflight(repo, container, state, material, pg_port, source_context):
     projected_material = root / "material"
     selected = set(REQUIRED) | {p for p in OPTIONAL if (material / p).exists()}
     for key, relative in PUBLIC_ENV_FILES.items():
+        if staged and key not in env:
+            fail("projection_pre_ad132_public_catalog_missing")
         if key in env:
             if env[key] != str(material / relative):
                 fail("projection_unapproved_public_catalog_path")
@@ -282,17 +350,22 @@ def preflight(repo, container, state, material, pg_port, source_context):
     payload["runtime-config.json"] = json_bytes(projected_env)
     payload["runtime.env"] = payload["material/desarrollo.env"]
     manifest = {"version": 1, "owner": OWNER, "portal": "interno", "mode": "interno", "target": principal["target"],
-                "status": "prepared", "files": {k: digest(v) for k, v in payload.items()},
+                "status": "pending_ad132" if staged else "prepared", "files": {k: digest(v) for k, v in payload.items()},
                 "source_proof": {"operator_manifest_sha256": operator_digest(principal), "operator_manifest_normalization": "drop_runtime_interno_only", "operator_env_sha256": digest(env_bytes),
                                  "contracts": contracts, "positive_files": copied},
                 "source_sql_approval": principal.get("source_sql_approval", {}), "application_started": False,
                 "external_profiles_available": False, "operator_material_mounted": False}
+    if staged:
+        manifest.update(pre_ad132_approval=proof, database_identity_verified=False, database_ready=False)
     payload["material-manifest.json"] = json_bytes(manifest)
     rw = [{"source": "runtime-interno/rw/" + p, "target": str(root / "rw" / p), "kind": p} for p in ("documentos", "imagenes", "data")]
     rw.append({"source": "runtime-interno/rw/comunicaciones", "target": str(projected_material / "comunicaciones"), "kind": "comunicaciones"})
-    return root, payload, {"mode": "interno", "portal": "interno", "material": "runtime-interno/material",
+    descriptor = {"mode": "interno", "portal": "interno", "material": "runtime-interno/material",
                           "config": "runtime-interno/runtime-config.json", "manifest": "runtime-interno/material-manifest.json",
                           "rw": rw, "manifest_sha256": digest(payload["material-manifest.json"]), "source_commit": source}
+    if staged:
+        descriptor["status"] = "pending_ad132"
+    return root, payload, descriptor
 
 
 def check_closed_inventory(root, payload, descriptor):
@@ -379,11 +452,22 @@ def refresh_proof_reference(state, root, payload, descriptor):
         os.close(fd)
 
 
-def provision(repo, container, state, material, pg_port, engine="docker", source_context=None, refresh_operator_proof=False):
+def provision(repo, container, state, material, pg_port, engine="docker", source_context=None, refresh_operator_proof=False,
+              pre_ad132=False, approval=None):
     """Create an immutable projection; never alter original operator material."""
     if engine not in ("docker", "podman"):
         fail("projection_engine_not_supported")
-    root, payload, descriptor = preflight(repo, container, state, material, pg_port, source_context)
+    principal = json.loads(read(Path(state) / "material-manifest.json"))
+    staged = pre_ad132 or principal.get("runtime_interno", {}).get("status") == "pending_ad132"
+    journal_path = Path(state) / "sql-journal.json"
+    if not staged and journal_path.exists():
+        journal = json.loads(read(journal_path))
+        if journal.get("plan_family") == "h6_package_62" and journal.get("phase") in ("awaiting_ad132", "ad132_confirmed"):
+            fail("projection_package62_requires_pre_ad132_seal")
+    if staged and refresh_operator_proof:
+        fail("projection_pre_ad132_refresh_forbidden")
+    root, payload, descriptor = preflight(repo, container, state, material, pg_port, source_context,
+                                        pre_ad132=pre_ad132, approval=approval)
     if root.exists():
         canonical(root)
         check_closed_inventory(root, payload, descriptor)
@@ -394,9 +478,15 @@ def provision(repo, container, state, material, pg_port, engine="docker", source
                 fail("projection_existing_preimage_changed")
         if read(root / "material-manifest.json") != payload["material-manifest.json"]:
             refresh_proof_reference(canonical(state), root, payload, descriptor)
+        if pre_ad132:
+            # Retry only after verifying the entire sealed projection. A previous
+            # rename may have succeeded before its parent fsync failed.
+            fsync_directory(state)
         return descriptor
     if refresh_operator_proof:
         fail("projection_refresh_requires_existing_sealed_projection")
+    if staged and not pre_ad132:
+        fail("projection_post_ad132_missing_preparation")
     # No writes until every source, reference, env, contract and digest passed.
     temporary = Path(tempfile.mkdtemp(prefix=".runtime-interno-", dir=state))
     try:
@@ -408,10 +498,18 @@ def provision(repo, container, state, material, pg_port, engine="docker", source
             private_dirs(temporary / directory)
         (temporary / "material/comunicaciones").mkdir(mode=0o700, exist_ok=True)
         check_closed_inventory(temporary, payload, descriptor)
+        def walk_error(error):
+            raise error
+        for directory, _, _ in os.walk(temporary, topdown=False, onerror=walk_error):
+            fsync_directory(directory)
         temporary.rename(root)
+        fsync_directory(state)
     except BaseException:
         import shutil
-        shutil.rmtree(temporary)
+        # Once renamed, the pending projection must survive. Never remove an
+        # existing runtime root or another invocation's staging directory.
+        if temporary.exists():
+            shutil.rmtree(temporary)
         raise
     return descriptor
 
@@ -423,7 +521,17 @@ if __name__ == "__main__":
     parser.add_argument("--container", required=True)
     parser.add_argument("--pg-port", type=int, required=True)
     parser.add_argument("--refresh-internal-proof", action="store_true")
+    parser.add_argument("--pre-ad132", action="store_true")
+    parser.add_argument("--h6-package", type=Path)
+    parser.add_argument("--h6-lock", type=Path)
+    parser.add_argument("--approved-package-sha256")
+    parser.add_argument("--approved-lock-sha256")
+    parser.add_argument("--h1-state-file", type=Path)
+    parser.add_argument("--estado-h1-sha")
+    parser.add_argument("--identidad-clon")
     args = parser.parse_args()
     result = provision(args.repo, args.container, args.state, args.state / "material", args.pg_port,
-                       refresh_operator_proof=args.refresh_internal_proof)
-    print(json.dumps({"material": result["material"], "portal": result["portal"], "status": "prepared"}))
+                       refresh_operator_proof=args.refresh_internal_proof, pre_ad132=args.pre_ad132,
+                       approval={key: getattr(args, key) for key in ("h6_package", "h6_lock", "approved_package_sha256",
+                           "approved_lock_sha256", "h1_state_file", "estado_h1_sha", "identidad_clon")})
+    print(json.dumps({"material": result["material"], "portal": result["portal"], "status": result.get("status", "prepared")}))

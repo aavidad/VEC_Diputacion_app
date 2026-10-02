@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Own the Docker process boundary for the private internal clone only.
 
-Host networking is required for the owned loopback PostgreSQL/SMTP services.
-It does not isolate the network namespace. The parent seals endpoint policy and
-performs HTTPS health checks; this module never mounts offline client secrets.
+The application joins only the approved PostgreSQL container's network=none
+namespace. The parent seals endpoint policy and performs HTTPS health checks
+through a separately owned relay; this module never mounts offline client secrets.
 """
 
 import hashlib
@@ -23,7 +23,12 @@ import time
 OWNER = 'Codex-M'
 PREFIX = 'vec.clon.runtime.'
 HOME = '/home/runtime'
+RELAY_TARGET = '/opt/vec/relay_tcp'
+PG_PORT = 5432
 RW_KINDS = {'documentos', 'imagenes', 'data', 'comunicaciones'}
+RW_SCAN_ENTRIES = 10000
+RW_SCAN_BYTES = 512 * 1024 * 1024
+RW_SCAN_DEPTH = 32
 _diagnostic_phase = 'local_docker'
 _diagnostic_attempt = None
 
@@ -206,7 +211,142 @@ def projection_sha(projection):
     return object_sha(files)
 
 
-def approved_plan(state, source, binary, manifest, projection):
+def check_writable_tree(root, protected):
+    """Inspect all entries by no-follow FDs; an unreadable subtree rejects all."""
+    count, size = 0, 0
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
+
+    def check(info):
+        if (info.st_dev, info.st_ino) in protected:
+            fail('A writable runtime tree aliases the relay or its ancestry.')
+        if info.st_uid != os.getuid() or not (stat.S_ISDIR(info.st_mode) or
+                (stat.S_ISREG(info.st_mode) and info.st_nlink == 1)):
+            fail('Writable runtime trees require owned directories and regular files with a single link.')
+
+    def walk(descriptor, depth):
+        nonlocal count, size
+        if depth > RW_SCAN_DEPTH:
+            fail('Writable runtime tree exceeds its inspection depth limit.')
+        with os.scandir(descriptor) as entries:
+            for entry in entries:
+                count += 1
+                if count > RW_SCAN_ENTRIES:
+                    fail('Writable runtime tree exceeds its inspection entry limit.')
+                info = entry.stat(follow_symlinks=False)
+                check(info)
+                if stat.S_ISDIR(info.st_mode):
+                    child = os.open(entry.name, flags, dir_fd=descriptor)
+                    try:
+                        opened = os.fstat(child)
+                        check(opened)
+                        if (opened.st_dev, opened.st_ino) != (info.st_dev, info.st_ino):
+                            fail('Writable runtime directory changed during inspection.')
+                        walk(child, depth + 1)
+                    finally:
+                        os.close(child)
+                else:
+                    size += info.st_size
+                    if size > RW_SCAN_BYTES:
+                        fail('Writable runtime tree exceeds its inspection byte limit.')
+
+    descriptor = None
+    try:
+        before = root.stat(follow_symlinks=False)
+        descriptor = os.open(root, flags)
+        opened = os.fstat(descriptor)
+        check(opened)
+        if (opened.st_dev, opened.st_ino) != (before.st_dev, before.st_ino):
+            fail('Writable runtime root changed during inspection.')
+        walk(descriptor, 0)
+    except OSError:
+        fail('Writable runtime tree could not be inspected completely.')
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
+
+
+def relay_mount(state, relay_binary, relay_sha256, *, live=False):
+    path = Path(relay_binary)
+    writable_roots = [state / 'runtime-interno/rw' / kind for kind in RW_KINDS]
+    if (not path.is_absolute() or '..' in path.parts or ',' in str(path)
+            or state not in path.parents or not re.fullmatch(r'[a-f0-9]{64}', relay_sha256)):
+        fail('The relay requires an owned path and an externally approved SHA256.')
+    if any(path == root or root in path.parents for root in writable_roots):
+        fail('The relay cannot be exposed through a writable runtime tree.')
+    if live:
+        checked_path(path, state)
+        metadata = path.stat()
+        if (stat.S_IMODE(metadata.st_mode) != 0o700 or not static_elf(path)
+                or sha(path) != relay_sha256):
+            fail('The approved static relay binary changed.')
+        # A host bind alias may use a different lexical path but expose the same
+        # file or one of its directories. A read-only leaf mount cannot seal that.
+        protected = {(metadata.st_dev, metadata.st_ino)}
+        for parent in path.parents:
+            info = parent.stat()
+            protected.add((info.st_dev, info.st_ino))
+        for root in writable_roots:
+            checked_path(root, state, directory=True)
+            check_writable_tree(root, protected)
+    return {'source': str(path), 'target': RELAY_TARGET, 'rw': False}
+
+
+def approved_pg(state, pg_container_id, pg_proof, source_commit, port):
+    """The caller supplies the result of live validate_h6_ready, never free JSON."""
+    if (not re.fullmatch(r'[a-f0-9]{64}', pg_container_id)
+            or pg_proof.get('kind') != 'h6_db_ready' or pg_proof.get('version') != 2
+            or pg_proof.get('propietario') != OWNER or pg_proof.get('estado') != str(state)
+            or pg_proof.get('pg_container_id') != pg_container_id
+            or pg_proof.get('commit') != source_commit
+            or pg_proof.get('puerto_pg') != PG_PORT or pg_proof.get('puerto_web') != port
+            or type(port) is not int or not 1024 <= port <= 65535 or port == PG_PORT
+            or not re.fullmatch(r'sha256:[a-f0-9]{64}', pg_proof.get('pg_image_id', ''))
+            or not re.fullmatch(r'vec-[a-z0-9-]+', pg_proof.get('contenedor', ''))):
+        fail('The approved H6 PostgreSQL boundary does not match the runtime.')
+    volume = pg_proof.get('pg_volume', {})
+    path = Path(volume.get('source', ''))
+    if (not path.is_absolute() or not str(path).startswith('/dev/shm/') or '..' in path.parts
+            or volume.get('source') != pg_proof.get('pgdata')
+            or type(volume.get('dev')) is not int or type(volume.get('ino')) is not int
+            or volume['dev'] < 0 or volume['ino'] <= 0):
+        fail('The approved H6 PostgreSQL volume is invalid.')
+    return {'container_id': pg_container_id, 'image_id': pg_proof['pg_image_id'],
+            'name': pg_proof['contenedor'], 'volume': dict(volume)}
+
+
+def verify_pg(state, pg):
+    proof = inspect(state, pg['container_id'])
+    config, host = proof.get('Config', {}), proof.get('HostConfig', {})
+    labels = config.get('Labels') or {}
+    mounts = proof.get('Mounts') or []
+    networks = proof.get('NetworkSettings', {}).get('Networks') or {}
+    if (proof.get('Id') != pg['container_id'] or proof.get('Image') != pg['image_id']
+            or proof.get('Name') != '/' + pg['name']
+            or config.get('Image') != pg['image_id']
+            or labels.get('vec.recorridos.owner') != OWNER
+            or labels.get('vec.recorridos.state') != str(state)
+            or proof.get('State', {}).get('Running') is not True
+            or proof.get('State', {}).get('Paused') is True
+            or proof.get('State', {}).get('Restarting') is True
+            or host.get('NetworkMode') != 'none' or host.get('Privileged') is not False
+            or host.get('PublishAllPorts') is True or host.get('PortBindings') not in (None, {})
+            or set(networks) != {'none'}
+            or networks['none'].get('IPAddress') or networks['none'].get('GlobalIPv6Address')
+            or any(bindings for bindings in (proof.get('NetworkSettings', {}).get('Ports') or {}).values())
+            or len(mounts) != 1 or mounts[0].get('Type') != 'bind'
+            or mounts[0].get('Source') != pg['volume']['source']
+            or mounts[0].get('Destination') != '/var/lib/postgresql' or mounts[0].get('RW') is not True):
+        fail('The live PostgreSQL namespace is not the exact approved isolated clone.')
+    path = Path(pg['volume']['source'])
+    if any(item.is_symlink() for item in [path, *path.parents]):
+        fail('The approved PostgreSQL volume path changed.')
+    metadata = path.stat()
+    if (not stat.S_ISDIR(metadata.st_mode)
+            or (metadata.st_dev, metadata.st_ino) != (pg['volume']['dev'], pg['volume']['ino'])):
+        fail('The approved PostgreSQL volume identity changed.')
+
+
+def approved_plan(state, source, binary, manifest, projection, relay_binary, relay_sha256):
     """Validate recorded boundaries without requiring unchanged live material."""
     commit = manifest.get('source_commit', '')
     if not re.fullmatch(r'[a-f0-9]{40}', commit):
@@ -225,7 +365,8 @@ def approved_plan(state, source, binary, manifest, projection):
         fail('Unapproved projected material paths.')
     allowed_ro = {material_path, env_path, root / 'runtime.env', marker_path}
     mounts = [{'source': str(source), 'target': str(source), 'rw': False},
-              {'source': str(binary), 'target': str(binary), 'rw': False}]
+              {'source': str(binary), 'target': str(binary), 'rw': False},
+              relay_mount(state, relay_binary, relay_sha256)]
     given_ro = set()
     for entry in projection.get('ro', []):
         path = Path(entry.get('source', ''))
@@ -256,14 +397,20 @@ def verify_record_boundary(state, record):
             or record.get('source_commit') != record['manifest'].get('source_commit')
             or record.get('name') != container_name(state, record['source_commit'])
             or not re.fullmatch(r'sha256:[a-f0-9]{64}', record.get('image_id', ''))
+            or record.get('network_namespace_isolated') is not True
+            or record.get('pg_port') != PG_PORT
             or not re.fullmatch(r'[a-f0-9]{32}', record.get('instance', ''))):
         fail('Container reservation belongs to another owner or boundary.')
-    mounts = approved_plan(state, Path(record['source']), Path(record['binary']), record['manifest'], record['projection'])
+    pg = approved_pg(state, record['pg_container_id'], record['pg_proof'], record['source_commit'], record['port'])
+    if record.get('pg') != pg:
+        fail('Container reservation has a different PostgreSQL boundary.')
+    mounts = approved_plan(state, Path(record['source']), Path(record['binary']), record['manifest'],
+                           record['projection'], record['relay_binary'], record['relay_sha256'])
     if record.get('mounts') != mounts:
         fail('Container reservation has unapproved boundaries.')
 
 
-def validate_inputs(state, source, binary, manifest, projection):
+def validate_inputs(state, source, binary, manifest, projection, *, relay_binary, relay_sha256):
     state = checked_path(state, directory=True)
     if stat.S_IMODE(state.stat().st_mode) & 0o077:
         fail('Runtime state must be private.')
@@ -280,12 +427,13 @@ def validate_inputs(state, source, binary, manifest, projection):
             or source_sha(source) != manifest.get('source_sha256')):
         fail('Runtime static binary or source proof does not match.')
     root = checked_path(projection.get('root', ''), state, directory=True)
-    plan = approved_plan(state, source, binary, manifest, projection)
+    relay = relay_mount(state, relay_binary, relay_sha256, live=True)
+    plan = approved_plan(state, source, binary, manifest, projection, relay_binary, relay_sha256)
     if root != state / 'runtime-interno' or projection.get('mode') != 'interno' or projection.get('portal') != 'interno':
         fail('Only the internal runtime projection is admitted.')
     mounts = [{'source': str(source), 'target': str(source), 'rw': False},
-              {'source': str(binary), 'target': str(binary), 'rw': False}]
-    allowed_ro = {Path(mount['source']) for mount in plan if not mount['rw']} - {source, binary}
+              {'source': str(binary), 'target': str(binary), 'rw': False}, relay]
+    allowed_ro = {Path(mount['source']) for mount in plan if not mount['rw']} - {source, binary, Path(relay_binary)}
     given_ro = set()
     for entry in projection.get('ro', []):
         path = Path(entry.get('source', ''))
@@ -398,7 +546,10 @@ def expected_labels(state, record):
     return {PREFIX + 'owner': OWNER, PREFIX + 'state': str(state), PREFIX + 'mode': 'interno',
             PREFIX + 'source': record['source_commit'], PREFIX + 'image_id': record['image_id'],
             PREFIX + 'uid': str(os.getuid()), PREFIX + 'mounts': object_sha(record['mounts']),
-            PREFIX + 'instance': record['instance']}
+            PREFIX + 'instance': record['instance'], PREFIX + 'pg_id': record['pg_container_id'],
+            PREFIX + 'pg_image_id': record['pg']['image_id'], PREFIX + 'pg_boundary': object_sha(record['pg']),
+            PREFIX + 'relay_sha256': record['relay_sha256'],
+            PREFIX + 'material_sha256': record['projection_sha256']}
 
 
 def verify_configuration(state, record, proof):
@@ -413,7 +564,11 @@ def verify_configuration(state, record, proof):
             or proof.get('Args') not in (None, []) or object_sha(sorted(config.get('Env', []))) != record['env_sha256']):
         fail('Container source, executable, user or environment changed.')
     if (host.get('ReadonlyRootfs') is not True or host.get('Privileged') is not False
-            or host.get('NetworkMode') != 'host' or host.get('PidMode') not in ('', None)
+            or host.get('NetworkMode') != 'container:' + record['pg_container_id']
+            or host.get('PortBindings') not in (None, {}) or host.get('PublishAllPorts') not in (False, None)
+            or proof.get('NetworkSettings', {}).get('Ports') not in (None, {})
+            or proof.get('NetworkSettings', {}).get('Networks') not in (None, {})
+            or host.get('PidMode') not in ('', None)
             or host.get('UsernsMode') not in ('', None) or host.get('AutoRemove') is not False
             or host.get('IpcMode') not in ('private', '') or host.get('Init') not in (False, None)
             or host.get('CapDrop') != ['ALL'] or host.get('CapAdd') not in (None, [])
@@ -444,10 +599,13 @@ def verify_record(state, record=None):
         record = read_record(state)
     if record is None:
         fail('No owned runtime container is recorded.')
-    expected_mounts = validate_inputs(state, record['source'], record['binary'], record['manifest'], record['projection'])
+    verify_record_boundary(state, record)
+    expected_mounts = validate_inputs(state, record['source'], record['binary'], record['manifest'], record['projection'],
+                                      relay_binary=record['relay_binary'], relay_sha256=record['relay_sha256'])
     if (record.get('uid') != os.getuid() or record.get('mounts') != expected_mounts
             or record.get('projection_sha256') != projection_sha(record['projection'])):
         fail('Container record has a foreign user or mount plan.')
+    verify_pg(state, record['pg'])
     verify_ownership(state, record)
     return record
 
@@ -470,20 +628,29 @@ def container_name(state, commit):
     return 'vec-clon-interno-' + object_sha([str(state), commit])[:24]
 
 
-def start(state, source, binary, environment, manifest, projection, port, pg_port):
+def start(state, source, binary, environment, manifest, projection, port, pg_port, *,
+          pg_container_id, relay_binary, relay_sha256, pg_proof):
+    """Require live H6 authority and an external relay pin supplied by the parent."""
     global _diagnostic_phase, _diagnostic_attempt
     _diagnostic_phase, _diagnostic_attempt = 'preflight_inputs', secrets.token_hex(16)
     try:
-        return _start(state, source, binary, environment, manifest, projection, port, pg_port)
+        return _start(state, source, binary, environment, manifest, projection, port, pg_port,
+                      pg_container_id=pg_container_id, relay_binary=relay_binary,
+                      relay_sha256=relay_sha256, pg_proof=pg_proof)
     except (ContainerError, OSError, ValueError) as error:
         diagnose(state, str(error) if isinstance(error, ContainerError) else type(error).__name__)
         raise
 
 
-def _start(state, source, binary, environment, manifest, projection, port, pg_port):
+def _start(state, source, binary, environment, manifest, projection, port, pg_port, *,
+           pg_container_id, relay_binary, relay_sha256, pg_proof):
     global _diagnostic_phase
     state, source, binary = Path(state), Path(source), Path(binary)
-    mounts = validate_inputs(state, source, binary, manifest, projection)
+    mounts = validate_inputs(state, source, binary, manifest, projection,
+                             relay_binary=relay_binary, relay_sha256=relay_sha256)
+    pg = approved_pg(state, pg_container_id, pg_proof, manifest['source_commit'], port)
+    if pg_port != PG_PORT:
+        fail('The shared PostgreSQL namespace requires its internal port 5432.')
     _diagnostic_phase = 'recover_intent'
     recover_intent(state)
     if read_record(state) is not None:
@@ -498,11 +665,15 @@ def _start(state, source, binary, environment, manifest, projection, port, pg_po
                and isinstance(value, str) and not any(char in value for char in '\0\n\r')
                for key, value in environment.items()):
         fail('The sealed runtime environment is invalid.')
+    if any(key.startswith('VEC_SMTP_') and value for key, value in environment.items()):
+        fail('SMTP requires a separately approved sink inside the isolated PostgreSQL namespace.')
     _diagnostic_phase = 'pidfd_preflight'
     if not hasattr(os, 'pidfd_open') or not hasattr(signal, 'pidfd_send_signal'):
         fail('The host lacks the process identity primitive required for this runtime.')
     capability = os.pidfd_open(os.getpid())
     os.close(capability)
+    _diagnostic_phase = 'verify_pg_namespace'
+    verify_pg(state, pg)
     _diagnostic_phase = 'scratch_image'
     image_id = build_image(state, manifest['source_commit'])
     record = {'source': str(source), 'binary': str(binary), 'source_commit': manifest['source_commit'],
@@ -510,7 +681,10 @@ def _start(state, source, binary, environment, manifest, projection, port, pg_po
               'uid': os.getuid(), 'gid': os.getgid(), 'port': port, 'pg_port': pg_port,
               'projection_sha256': projection_sha(projection),
               'env_sha256': object_sha(sorted(f'{key}={value}' for key, value in environment.items())),
-              'network_namespace_isolated': False, 'version': 1}
+              'network_namespace_isolated': True, 'version': 2,
+              'pg_container_id': pg_container_id, 'pg': pg,
+              'pg_proof': json.loads(json.dumps(pg_proof)),
+              'relay_binary': str(relay_binary), 'relay_sha256': relay_sha256}
     record.update(instance=secrets.token_hex(16), container_mode='interno',
                   owner=OWNER, state=str(state),
                   runtime_config_path=projection.get('runtime_config_path', str(Path(projection['root']) / 'runtime-config.json')),
@@ -528,7 +702,7 @@ def _start(state, source, binary, environment, manifest, projection, port, pg_po
         with os.fdopen(descriptor, 'wb') as stream:
             stream.write(env_bytes)
     command = ['create', '--name', container_name(state, manifest['source_commit']), '--read-only',
-               '--network=host', '--ipc=private', '--user', f'{os.getuid()}:{os.getgid()}',
+               '--network=container:' + pg_container_id, '--ipc=private', '--user', f'{os.getuid()}:{os.getgid()}',
                '--cap-drop=ALL', '--security-opt=no-new-privileges', '--restart=no',
                '--tmpfs', '/tmp:rw,noexec,nosuid,nodev,size=16m,mode=1777',
                '--pids-limit=64', '--memory=1g', '--cpus=2', '--ulimit', 'nofile=1024:1024',
@@ -553,6 +727,8 @@ def _start(state, source, binary, environment, manifest, projection, port, pg_po
         _diagnostic_phase = 'verify_created_container'
         verify_configuration(state, record, inspect(state, container_id))
         _diagnostic_phase = 'docker_start'
+        verify_pg(state, pg)
+        relay_mount(state, relay_binary, relay_sha256, live=True)
         docker(state, 'start', container_id)
         _diagnostic_phase = 'direct_process_identity'
         deadline = time.monotonic() + 5
@@ -692,7 +868,8 @@ def stop(state):
     else:
         # A stopped container can be removed by immutable ID only after replaying
         # its source/mount proof. No saved PID is ever signalled in this branch.
-        expected = approved_plan(state, Path(record['source']), Path(record['binary']), record['manifest'], record['projection'])
+        expected = approved_plan(state, Path(record['source']), Path(record['binary']), record['manifest'], record['projection'],
+                                 record['relay_binary'], record['relay_sha256'])
         if record['mounts'] != expected:
             fail('Stopped container mount plan changed.')
     docker(state, 'rm', record['container_id'])

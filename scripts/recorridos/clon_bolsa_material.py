@@ -23,22 +23,15 @@ from urllib.parse import quote, urlencode
 
 
 SOURCE = "7f1ecea2fd9f8912d255a80e74da84c69e46b978"
-# Main contracts used by this administrative helper. An unrelated main
-# increment may advance the clone's current source; a changed contract needs
-# a fresh review rather than silent acceptance.
-CONTRACT_HASHES = {
-    # Root confirmed both reviews of #197 (f0e74627e); other pins remain fixed.
-    "internal/app/bootstrap/bolsa_borrador_contexto_postgresql_desarrollo.go": "3d541ce90fac13a788d94577d921ad7c663ecf53fd5eadf3ce6b7d576db09550",
-    "internal/app/bootstrap/bolsa_borrador_identidad_desarrollo.go": "451d9d56f108480cea5a92164f0f1b8cfc04a168267a36b9e79de16f71e9762e",
-    "internal/app/bootstrap/bolsa_borrador_llamamiento_desarrollo.go": "a9a4cc7e268e2d7cca3825102001003c338cd72ad37d21d03580c4ad056bbc05",
-    "internal/app/bootstrap/bolsa_ofertas_desarrollo.go": "9727a2d8e4b0f00112e42377b5674e0cf0ca339225d543f35f97b0deeef82bec",
-    "internal/app/bootstrap/bolsa_auditoria_frontera_postgresql_desarrollo.go": "3fe40db4d72ac34374b3817078b9dda69b7a8283eb0f4c49cc3f7e228e27182a",
-    "internal/app/bootstrap/bolsa_borrador_politica_desarrollo.go": "190089f6b533b9c7e0c1135fcfc6b5d8143656faca82f4db6b02b7f29ab96a13",
-    "config/postgresql_borradores.go": "6770f91af7bd67b75b8beb14b13e78290b88364217d5efafe70659c3a2dd8725",
-    "internal/app/bootstrap/postgresql_borradores_configuracion.go": "d33403dde4e0f77e4864198f8e758b3959c3a946bf9e76112cce5c7022f19abc",
-    "internal/app/bootstrap/bolsa_importacion_convoca_pool.go": "5707fbbe5c78c4b7b48267b8bb39f0095e224eddbd3b16c071d216daad1b72be",
-    "internal/app/bootstrap/bolsa_rrhh_constituida_desarrollo.go": "326fdc828547b378cf1ca4434b626fb5f35973bb6d91d406081155cd84542fdd",
-}
+# Both administrative material and the internal projection use one reviewed set.
+def _approved_contract_sets():
+    spec = importlib.util.spec_from_file_location("bolsa_projection_contracts", Path(__file__).with_name("clon_interno_material.py"))
+    projection = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(projection)
+    return projection.APPROVED_SOURCE_CONTRACT_SETS
+
+
+CONTRACT_SETS = _approved_contract_sets()
 CONTAINER = "vec-codexm-recorridos-20260930"
 STATE = Path.home() / ".local/state/vec-recorridos-codexm-20260930"
 CALCULATOR = "vec_bolsa_calculador_politica_desarrollo"
@@ -67,7 +60,8 @@ def _source_contracts(repo: Path, source_ref: str) -> None:
     if not isinstance(source_ref, str) or not re.fullmatch("[a-f0-9]{40}", source_ref):
         raise ProvisionError("source_commit_not_authorized")
     _check_path(repo, directory=True)
-    for name, expected in CONTRACT_HASHES.items():
+    contracts = {}
+    for name in CONTRACT_SETS[0]:
         # The shared root may contain unrelated WIP or an older checkout.
         # Read the requested committed source, preserving every byte.
         source = subprocess.run(["git", "-C", str(repo), "show", source_ref + ":" + name],
@@ -77,8 +71,9 @@ def _source_contracts(repo: Path, source_ref: str) -> None:
                                      "GIT_NO_REPLACE_OBJECTS": "1"})
         if source.returncode:
             raise ProvisionError("source_contract_unavailable")
-        if hashlib.sha256(source.stdout).hexdigest() != expected:
-            raise ProvisionError("source_contract_changed")
+        contracts[name] = hashlib.sha256(source.stdout).hexdigest()
+    if contracts not in CONTRACT_SETS:
+        raise ProvisionError("source_contract_changed")
 
 
 @contextmanager
