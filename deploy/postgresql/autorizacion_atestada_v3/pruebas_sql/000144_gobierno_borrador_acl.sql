@@ -44,4 +44,39 @@ BEGIN
  EXCEPTION WHEN invalid_parameter_value THEN rechazados:=rechazados+1; END;
  IF rechazados<>2 THEN RAISE EXCEPTION 'AD3-144: negativos incompletos'; END IF;
 END $negativos$;
+-- Cada acción requiere su proyección exacta. Recuperar incluye el estado
+-- canónico para validar el recibo; consultar versión no permite leer recibos.
+-- Todos los rechazos se producen antes del consumo central; no hay atestación
+-- sintética que pueda convertir una concesión inválida en un caso positivo.
+DO $campos_cruzados$
+DECLARE c jsonb; d jsonb; accion text; campos jsonb; rechazados integer:=0;
+BEGIN
+ FOREACH accion IN ARRAY ARRAY['bolsa.reglas_baremo.version.consultar','bolsa.reglas_baremo.recibo.consultar'] LOOP
+  c:=jsonb_build_object('audiencia_consumo','vec_bolsa_reglas_baremo.gobierno_borrador.v3',
+   'operacion',accion,'efecto_ref','reglas-baremo:'||repeat('a',64),
+   'huella_efecto_sha256',repeat('b',64));
+  campos:=CASE WHEN accion='bolsa.reglas_baremo.version.consultar'
+   THEN '["recibo"]'::jsonb ELSE '["estado_reglas_baremo"]'::jsonb END;
+  d:=jsonb_build_object('accion',accion,'modulo_id','bolsa',
+   'tipo_recurso','version_reglas_baremo_gobernada','finalidad','consulta_gobierno_reglas_baremo',
+   'recurso_ref',c->>'efecto_ref','contexto_recurso_huella_sha256',c->>'huella_efecto_sha256',
+   'vinculo_autenticacion_actor',jsonb_build_object('superficie','interna_corporativa','cuenta_privilegiada',false),
+   'campos_permitidos',campos,'obligaciones','[]'::jsonb);
+  BEGIN
+   PERFORM * FROM vec_autorizacion_atestada_v3.registrar_y_consumir_gobierno_borrador_reglas_baremo_v3_atestada(
+    convert_to(c::text,'UTF8'),convert_to(d::text,'UTF8'),''::bytea,''::bytea,
+    1::numeric,1::numeric,''::bytea,''::bytea,''::bytea,''::bytea);
+   RAISE EXCEPTION 'AD3-144: campos cruzados autorizados';
+  EXCEPTION WHEN insufficient_privilege THEN rechazados:=rechazados+1; END;
+  d:=jsonb_set(d,'{campos_permitidos}',CASE WHEN accion='bolsa.reglas_baremo.version.consultar'
+    THEN '["estado_reglas_baremo","recibo"]'::jsonb ELSE '["recibo"]'::jsonb END);
+  BEGIN
+   PERFORM * FROM vec_autorizacion_atestada_v3.registrar_y_consumir_gobierno_borrador_reglas_baremo_v3_atestada(
+    convert_to(c::text,'UTF8'),convert_to(d::text,'UTF8'),''::bytea,''::bytea,
+    1::numeric,1::numeric,''::bytea,''::bytea,''::bytea,''::bytea);
+   RAISE EXCEPTION 'AD3-144: proyección incompatible autorizada';
+  EXCEPTION WHEN insufficient_privilege THEN rechazados:=rechazados+1; END;
+ END LOOP;
+ IF rechazados<>4 THEN RAISE EXCEPTION 'AD3-144: cruces de campos incompletos'; END IF;
+END $campos_cruzados$;
 ROLLBACK;

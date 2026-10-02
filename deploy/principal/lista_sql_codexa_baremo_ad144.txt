@@ -1,0 +1,5 @@
+# Sólo después de main con AD143 integrada; no reaplicar las dependencias.
+# Inventariar primero las seis dependencias propias BR1/BR2/BR3. Si faltan,
+# Dirección las instala una vez en el clon antes de esta lista nominal.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000144_consumidor_gobierno_borrador_reglas_baremo.up.sql
+deploy/postgresql/bolsa_reglas_baremo/migraciones/000004_gobierno_borradores_v3.up.sql

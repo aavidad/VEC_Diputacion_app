@@ -67,8 +67,8 @@ BEGIN
  OR coalesce(c->>'operacion','') NOT IN ('bolsa.reglas_baremo.borrador.crear','bolsa.reglas_baremo.version.consultar','bolsa.reglas_baremo.recibo.consultar')
  OR d->>'accion' IS DISTINCT FROM c->>'operacion'
  OR d->>'modulo_id' IS DISTINCT FROM 'bolsa'
- OR d->>'tipo_recurso' IS DISTINCT FROM CASE WHEN escritura THEN 'intencion_gobierno_reglas_baremo' ELSE 'version_reglas_baremo_gobernada' END
- OR d->>'finalidad' IS DISTINCT FROM CASE WHEN escritura THEN 'gobierno_reglas_baremo' ELSE 'consulta_gobierno_reglas_baremo' END
+ OR d->>'tipo_recurso' IS DISTINCT FROM (CASE WHEN escritura THEN 'intencion_gobierno_reglas_baremo' ELSE 'version_reglas_baremo_gobernada' END)
+ OR d->>'finalidad' IS DISTINCT FROM (CASE WHEN escritura THEN 'gobierno_reglas_baremo' ELSE 'consulta_gobierno_reglas_baremo' END)
  OR d->>'recurso_ref' IS DISTINCT FROM c->>'efecto_ref'
  OR d->>'contexto_recurso_huella_sha256' IS DISTINCT FROM c->>'huella_efecto_sha256'
  OR d#>>'{vinculo_autenticacion_actor,superficie}' IS DISTINCT FROM 'interna_corporativa'
@@ -80,7 +80,7 @@ BEGIN
  OR (c->>'operacion'='bolsa.reglas_baremo.version.consultar'
    AND d->'campos_permitidos' IS DISTINCT FROM '["estado_reglas_baremo"]'::jsonb)
  OR (c->>'operacion'='bolsa.reglas_baremo.recibo.consultar'
-   AND d->'campos_permitidos' IS DISTINCT FROM '["recibo"]'::jsonb)
+   AND d->'campos_permitidos' IS DISTINCT FROM '["estado_reglas_baremo","recibo"]'::jsonb)
  THEN RAISE EXCEPTION 'AD3-144: capacidad GobiernoG denegada' USING ERRCODE='42501'; END IF;
  SELECT * INTO STRICT x FROM vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(
   'gobierno_borrador_reglas_baremo',p_capacidad,p_decision,p_motivo,p_contexto,

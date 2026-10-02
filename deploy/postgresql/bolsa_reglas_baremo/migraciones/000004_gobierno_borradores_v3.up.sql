@@ -249,7 +249,7 @@ BEGIN
   ',"expediente_ref":'||to_json(m->>'expediente_ref')::text||'},"atributos":{"material_sha256":"'||material_sha||'"}}';
  recurso_sha:=encode(sha256(convert_to(recurso_canon,'UTF8')),'hex');
  campos:=CASE m->>'operacion' WHEN 'alta_borrador' THEN '["auditoria","estado_reglas_baremo","salida_eventos"]'::jsonb
-   WHEN 'consultar_exacta' THEN '["estado_reglas_baremo"]'::jsonb ELSE '["recibo"]'::jsonb END;
+   WHEN 'consultar_exacta' THEN '["estado_reglas_baremo"]'::jsonb ELSE '["estado_reglas_baremo","recibo"]'::jsonb END;
  IF d->>'principal_id' IS DISTINCT FROM m->>'persona_ref'
  OR d->>'perfil_activo_ref' IS DISTINCT FROM m->>'perfil_ref'
  OR d->>'accion' IS DISTINCT FROM m->>'accion' OR d->>'modulo_id' IS DISTINCT FROM 'bolsa'

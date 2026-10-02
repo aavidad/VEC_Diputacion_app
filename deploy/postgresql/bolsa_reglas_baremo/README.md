@@ -210,8 +210,10 @@ los roles reservados conservan cero `USAGE`, `EXECUTE` y DML.
 `migraciones/000004_gobierno_borradores_v3.up.sql` prepara tres operaciones:
 crear un borrador, consultar una revisión exacta y recuperar el recibo de un
 alta. No concede `USAGE` ni `EXECUTE` a cuentas de aplicación. Es un borrador
-de integración, sin instalación en la principal. La publicación y activación
-formal mantienen sus requisitos de evidencia firmada.
+de integración, sin instalación en la principal. Su disponibilidad se limita
+a `disponible_para_preparacion`; el estado canónico conserva `borrador`.
+La publicación y activación formal mantienen sus requisitos de evidencia
+firmada, según la orden de dirección del 2 de octubre a las 01:25.
 
 La fachada `operar_borrador_v3` recibe los bytes de
 `MaterialGobiernoV3` y los diez argumentos de consumo V3. Devuelve resultado,
@@ -249,11 +251,22 @@ de leer o escribir negocio. Eso no acredita autorización ni una operación V3.
 El contrato propuesto para AD144 es
 `registrar_y_consumir_gobierno_borrador_reglas_baremo_v3_atestada`, con los diez argumentos
 V3 habituales y la audiencia
-`vec_bolsa_reglas_baremo.gobierno_borrador.v3`. Dirección debe fijar el perfil
-operativo y las membresías de conexión, la preimagen central, las acciones,
-finalidades, ámbitos, campos y obligaciones exactos. La recuperación propone
-el campo `recibo`; sigue pendiente de consenso. No se edita el núcleo V3 en
-BR4 ni se sustituye el consumidor por una puerta V2 o genérica.
+`vec_bolsa_reglas_baremo.gobierno_borrador.v3`. El perfil fijo RRHH conserva
+tres concesiones por convocatoria y expediente:
+
+| Acción | Campos exactos |
+|---|---|
+| `bolsa.reglas_baremo.borrador.crear` | `auditoria`, `estado_reglas_baremo`, `salida_eventos` |
+| `bolsa.reglas_baremo.version.consultar` | `estado_reglas_baremo` |
+| `bolsa.reglas_baremo.recibo.consultar` | `estado_reglas_baremo`, `recibo` |
+
+La recuperación necesita el estado canónico para validar el recibo original.
+Las dos lecturas conservan finalidad `consulta_gobierno_reglas_baremo` y el
+tipo de recurso `version_reglas_baremo_gobernada`. La provisión del perfil
+se realiza fuera de las peticiones, por huella y CAS. Falta medir la preimagen
+central posterior a AD143 y fijar las membresías nominales de conexión.
+No se edita el núcleo V3 en BR4 ni se sustituye el consumidor por una puerta
+V2 o genérica.
 
 Antes de abrir la fachada hacen falta el contrato AD144 aprobado, la lista
 causal que mantiene Dirección, ensayo PostgreSQL 18 en el clon y dos
