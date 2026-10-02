@@ -488,3 +488,6 @@ static/textos/en/seleccion-ficha-convocatoria.json
 static/portal-empleado/modulos/cronos/i18n-bandeja-notificaciones.js
 static/textos/es/cronos-bandeja-notificaciones.json
 static/textos/en/cronos-bandeja-notificaciones.json
+static/portal-empleado/modulos/cronos/i18n-notificaciones-historial.js
+static/textos/es/cronos-notificaciones-historial.json
+static/textos/en/cronos-notificaciones-historial.json
