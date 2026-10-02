@@ -1,6 +1,8 @@
 package bootstrap
 
 import (
+	"bytes"
+	"reflect"
 	"slices"
 	"testing"
 	"time"
@@ -46,6 +48,38 @@ func TestDescriptorGobiernoReglasBaremoAudienciaNominal(t *testing.T) {
 	d := DescriptorMaterialGobiernoReglasBaremoV3()
 	if d.Audiencia != "vec_bolsa_reglas_baremo.gobierno_borrador.v3" || d.Dominio == "" || d.Prefijo == "" || d.ProveedorNominal == "" {
 		t.Fatal("descriptor de material V3 incompleto")
+	}
+}
+
+func TestGobiernoBaremoAudienciaPublicableConRaizComunYClavePropia(t *testing.T) {
+	d := DescriptorMaterialGobiernoReglasBaremoV3()
+	if !audienciaConsumoGobiernoPostgreSQLContratacionTemporalDesarrolloEsPropia(d.Audiencia) {
+		t.Fatal("composición no permite publicar la audiencia nominal de baremo")
+	}
+	for _, audiencia := range []string{"", d.Audiencia + ".otra", "vec_bolsa_reglas_baremo.gobierno_borrador.v2", "vec_bolsa_reglas_baremo.*"} {
+		cruzado := d
+		cruzado.Audiencia = audiencia
+		if audienciaConsumoGobiernoPostgreSQLContratacionTemporalDesarrolloEsPropia(cruzado.Audiencia) {
+			t.Fatalf("admitió audiencia fuera del descriptor: %q", audiencia)
+		}
+	}
+	base := materialRenovableCTPrueba(t, time.Now().UTC().Truncate(time.Microsecond))
+	propio, err := derivarMaterialConsumidorV3Desarrollo(base, d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer borrarBytes(propio.claveHMAC)
+	ajeno, err := derivarMaterialConsumidorV3Desarrollo(base, descriptorMaterialMiBolsaDesarrollo())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer borrarBytes(ajeno.claveHMAC)
+	if propio.audienciaConsumo != d.Audiencia || bytes.Equal(propio.claveHMAC, base.claveHMAC) ||
+		bytes.Equal(propio.claveHMAC, ajeno.claveHMAC) || propio.claveHMACID == ajeno.claveHMACID ||
+		!bytes.Equal(propio.spki, base.spki) || !reflect.DeepEqual(propio.raiz, base.raiz) ||
+		!reflect.DeepEqual(propio.configuracion, base.configuracion) ||
+		propio.configuracionRef != base.configuracionRef || propio.configuracionHuella != base.configuracionHuella {
+		t.Fatal("descriptor prestó clave de otro consumidor o sustituyó la raíz común")
 	}
 }
 

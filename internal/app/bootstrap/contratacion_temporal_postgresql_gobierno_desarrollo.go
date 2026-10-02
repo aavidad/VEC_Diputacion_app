@@ -271,6 +271,8 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		puertosbolsa.AudienciaEmitirLlamamiento,
 		puertosbolsa.AudienciaPublicarPoliticaOfertas,
 		puertosbolsa.AudienciaConsultarPoliticaOfertas,
+		// Gobierno de borradores de baremo: descriptor propio de composición.
+		DescriptorMaterialGobiernoReglasBaremoV3().Audiencia,
 		auditoria.AudienciaConsumo,
 		puertosbolsa.AudienciaSolicitarPausaPropia,
 		puertosbolsa.AudienciaSolicitarReactivacionPropia,
