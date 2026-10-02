@@ -1,7 +1,7 @@
 import { cargarTextos } from "../comun/textos.js?v=20261002-pwa-v1";
 import { IDIOMA_ACTUAL } from "../comun/idioma.js?v=20261002-pwa-v1";
 
-const VERSION = "20261002-pwa-v1";
+const VERSION = "20261002-pwa-v2";
 
 export async function iniciarPWA({ documento = globalThis.document, ventana = globalThis.window, navegador = globalThis.navigator, idioma = IDIOMA_ACTUAL } = {}) {
   const navegacion = documento?.querySelector?.("[data-pwa-navegacion]");
@@ -18,7 +18,10 @@ export async function iniciarPWA({ documento = globalThis.document, ventana = gl
   const inicio = `${scope}?lang=${encodeURIComponent(textos.idioma)}`;
 
   const instalada = ventana.matchMedia?.("(display-mode: standalone)");
-  const actualizarVisibilidad = () => { navegacion.hidden = !instalada?.matches; };
+  const actualizarVisibilidad = () => {
+    navegacion.hidden = !instalada?.matches;
+    documento.body?.classList?.toggle("pwa-instalada", Boolean(instalada?.matches));
+  };
   actualizarVisibilidad();
   instalada?.addEventListener?.("change", actualizarVisibilidad);
   navegacion.setAttribute("aria-label", textos.traducir("general.navegacion_instalada"));
