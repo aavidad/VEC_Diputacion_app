@@ -1,0 +1,6 @@
+# BORRADOR, no lista instalable: incorporar antes las dependencias exactas.
+# 1. CA22 e IS11 de K, revisadas y ensayadas; CA20/IS9/AUT23 de F.
+# 2. AUT24 definiciones, incluida consultar_asignacion_admin_perfiles_v1(text).
+# 3. Estas dos nuevas migraciones; 4. AD150 tras AD149 real.
+deploy/principal/borradores/admin_sesion_perfiles/000023_contexto_admin_perfiles_v1.up.sql
+deploy/principal/borradores/admin_sesion_perfiles/000012_cuenta_contexto_admin_perfiles_v1.up.sql
