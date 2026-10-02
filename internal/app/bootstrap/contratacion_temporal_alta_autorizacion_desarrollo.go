@@ -234,6 +234,37 @@ func (s *soporteAltaContratacionTemporalDesarrollo) categoriaDeCatalogo(ref stri
 	return s.origen.categoriaDeCatalogo(ref)
 }
 
+func (s *soporteAltaContratacionTemporalDesarrollo) motivoDeCatalogo(clave domain.ClaveCatalogo) bool {
+	if s == nil {
+		return false
+	}
+	opciones := s.opcionesCatalogo
+	if opciones == nil {
+		opciones = opcionesAnalisisPredeterminadas()
+	}
+	_, existe := opciones.modalidad(clave)
+	return existe
+}
+
+// ResolverPeriodoModalidad añade al periodo la publicación exacta de c12.
+// Solo la composición interna usa este método; el cliente no aporta la regla.
+func (s *soporteAltaContratacionTemporalDesarrollo) ResolverPeriodoModalidad(
+	ctx context.Context, clave domain.ClaveCatalogo, periodo domain.PeriodoPrevisto,
+) (domain.PeriodoPrevisto, error) {
+	if s == nil || ctx == nil || ctx.Err() != nil {
+		return domain.PeriodoPrevisto{}, errOpcionesAnalisisNoValidas
+	}
+	opciones := s.opcionesCatalogo
+	if opciones == nil {
+		opciones = opcionesAnalisisPredeterminadas()
+	}
+	modalidad, existe := opciones.modalidad(clave)
+	if !existe {
+		return domain.PeriodoPrevisto{}, errOpcionesAnalisisNoValidas
+	}
+	return modalidad.periodoConPolitica(periodo)
+}
+
 func (s *soporteAltaContratacionTemporalDesarrollo) ResolverFlujoAlta(
 	ctx context.Context,
 	solicitud ports.SolicitudResolverFlujo,
@@ -247,7 +278,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) ResolverFlujoAlta(
 		solicitud.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo ||
 		!centroValido ||
 		!s.categoriaDeCatalogo(solicitud.CategoriaRef) ||
-		solicitud.MotivoClave != motivoAltaContratacionTemporalDesarrollo {
+		!s.motivoDeCatalogo(solicitud.MotivoClave) {
 		return ports.ConfiguracionAltaFlujo{}, ports.ErrFlujoNoDisponible
 	}
 	return s.flujo, nil
@@ -260,7 +291,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) ResolverMotivoAutorizacionAl
 	if !s.capacidadAltaValida(ctx) || solicitud.Validar() != nil ||
 		solicitud.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo ||
 		solicitud.Flujo != s.flujo.Flujo ||
-		solicitud.MotivoClave != motivoAltaContratacionTemporalDesarrollo {
+		!s.motivoDeCatalogo(solicitud.MotivoClave) {
 		return dominiovec.ReferenciaEntradaCatalogo{}, ports.ErrMotivoAutorizacionNoDisponible
 	}
 	return s.motivo, nil

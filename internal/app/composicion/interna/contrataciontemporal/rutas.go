@@ -23,6 +23,7 @@ type DependenciasRutas struct {
 	AutoridadAlta                   httpinterno.AutoridadContextoCanal
 	EjecutorAlta                    httpinterno.EjecutorAlta
 	Reloj                           ports.Reloj
+	ResolutorPeriodoModalidad       httpinterno.ResolutorPeriodoModalidad
 	AutoridadAnalisis               httpinterno.AutoridadContextoCanalAnalisisRRHH
 	EjecutorAnalisis                httpinterno.EjecutorAnalisisRRHH
 	AutoridadCobertura              httpinterno.AutoridadContextoCanalCobertura
@@ -60,6 +61,7 @@ func NuevasRutas(
 		dependencias.AutoridadAlta,
 		dependencias.EjecutorAlta,
 		dependencias.Reloj,
+		dependencias.ResolutorPeriodoModalidad,
 	)
 	if err != nil {
 		return nil, ErrRutasContratacionTemporalInvalidas
@@ -81,6 +83,7 @@ func NuevasRutas(
 	analisis, err := httpinterno.NuevoManejadorAnalisisRRHH(
 		dependencias.AutoridadAnalisis,
 		dependencias.EjecutorAnalisis,
+		dependencias.ResolutorPeriodoModalidad,
 	)
 	if err != nil {
 		return nil, ErrRutasContratacionTemporalInvalidas

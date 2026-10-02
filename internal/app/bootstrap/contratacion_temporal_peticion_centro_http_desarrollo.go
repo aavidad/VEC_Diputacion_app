@@ -114,6 +114,26 @@ func (m *manejadorPeticionCentroDesarrollo) ServeHTTP(w http.ResponseWriter, r *
 		fallo(403, "operacion_denegada")
 		return
 	}
+	if comando.Operacion == ports.OperacionPresentarPeticionCentro {
+		if m.catalogo == nil {
+			if comando.Solicitud.Periodo.Fin.IsZero() {
+				fallo(503, "servicio_no_disponible")
+				return
+			}
+		} else {
+			modalidad, existe := m.catalogo.opcionesAnalisis().modalidad(comando.Solicitud.MotivoClave)
+			if !existe {
+				fallo(400, "solicitud_invalida")
+				return
+			}
+			periodo, err := modalidad.periodoConPolitica(comando.Solicitud.Periodo)
+			if err != nil {
+				fallo(400, "solicitud_invalida")
+				return
+			}
+			comando.Solicitud.Periodo = periodo
+		}
+	}
 	recibo, err := m.servicio.Ejecutar(r.Context(), comando)
 	if err != nil {
 		switch {

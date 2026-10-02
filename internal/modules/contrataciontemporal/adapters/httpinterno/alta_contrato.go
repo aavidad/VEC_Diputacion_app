@@ -59,8 +59,9 @@ type solicitudAltaJSON struct {
 }
 
 type periodoPrevistoJSON struct {
-	Inicio string `json:"inicio"`
-	Fin    string `json:"fin"`
+	Inicio   string `json:"inicio"`
+	Fin      string `json:"fin,omitempty"`
+	CausaFin string `json:"causa_fin,omitempty"`
 }
 
 type declaracionRCJSON struct {
@@ -401,7 +402,11 @@ func (s solicitudCentroJSON) dominio() (domain.SolicitudCentro, error) {
 		return domain.SolicitudCentro{}, errContenidoAltaNoValido
 	}
 	inicio, errInicio := fechaCivilUTC(s.Periodo.Inicio)
-	fin, errFin := fechaCivilUTC(s.Periodo.Fin)
+	var fin time.Time
+	var errFin error
+	if s.Periodo.Fin != "" {
+		fin, errFin = fechaCivilUTC(s.Periodo.Fin)
+	}
 	rc, errRC := s.RC.dominio()
 	observaciones := ""
 	if s.Observaciones.presente {
@@ -414,7 +419,7 @@ func (s solicitudCentroJSON) dominio() (domain.SolicitudCentro, error) {
 		GrupoSubgrupo:      s.GrupoSubgrupo,
 		MotivoClave:        domain.ClaveCatalogo(s.MotivoClave),
 		Detalle:            s.Detalle,
-		Periodo:            domain.PeriodoPrevisto{Inicio: inicio, Fin: fin},
+		Periodo:            domain.PeriodoPrevisto{Inicio: inicio, Fin: fin, CausaFin: domain.ClaveCatalogo(s.Periodo.CausaFin)},
 		RC:                 rc,
 		DocumentosAdjuntos: append([]string(nil), (*s.DocumentosAdjuntos)...),
 		Observaciones:      observaciones,
