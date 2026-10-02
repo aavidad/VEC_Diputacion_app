@@ -4,8 +4,12 @@ import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
 
 const source = await readFile(new URL('./sw-public-assets.js', import.meta.url), 'utf8');
-const configBase = JSON.parse(await readFile(new URL('./cache-publica-v1.json', import.meta.url), 'utf8'));
-const VERSION = configBase.version;
+const configs = Object.fromEntries(await Promise.all([
+  ['empleado', '../portal-empleado/cache-publica-v1.json'],
+  ['personal', '../area-personal/cache-publica-v1.json'],
+  ['admin', '../administracion-perfiles/cache-publica-v1.json']
+].map(async ([portal, ruta]) => [portal, JSON.parse(await readFile(new URL(ruta, import.meta.url), 'utf8'))])));
+const VERSION = configs.empleado.version;
 const PRECACHE = 4;
 
 function crearEntorno(portal = 'empleado', opciones = {}) {
@@ -13,7 +17,7 @@ function crearEntorno(portal = 'empleado', opciones = {}) {
   const handlers = new Map();
   const almacen = opciones.almacen || new Map();
   const llamadas = [];
-  const config = opciones.config || configBase;
+  const config = opciones.config || configs[portal];
   const indice = opciones.indice || {
     por_defecto: 'es', idiomas: [{ codigo: 'es' }, { codigo: 'en' }]
   };
@@ -26,7 +30,7 @@ function crearEntorno(portal = 'empleado', opciones = {}) {
       headers: new Headers({ 'Content-Type': tipo, ...(tipo === 'application/json' ? { 'Cache-Control': 'no-store' } : {}) }),
       clone() { return this; },
       async json() {
-        if (path === '/pwa/cache-publica-v1.json') return config;
+        if (path.endsWith('/cache-publica-v1.json')) return config;
         if (path === '/textos/idiomas.json') return indice;
         return { general: {
           sin_conexion_titulo: `Sin conexión ${idioma}`,
@@ -49,7 +53,7 @@ function crearEntorno(portal = 'empleado', opciones = {}) {
     async delete(name) { return almacen.delete(name); }
   };
   const self = {
-    location: { origin: 'https://vec.example' },
+    location: { origin: 'https://vec.example', href: `https://vec.example${scopes[portal]}sw.js?v=${VERSION}` },
     registration: { scope: `https://vec.example${scopes[portal]}` },
     clients: { async claim() {} }, async skipWaiting() {},
     addEventListener(tipo, callback) { handlers.set(tipo, callback); }
@@ -80,7 +84,7 @@ test('instala únicamente política e idiomas aprobados y limpia versiones del m
   await app.lanzar('install');
   const nombre = `vec-pwa-empleado-public-${VERSION}`;
   assert.deepEqual([...app.almacen.get(nombre).keys()], [
-    `https://vec.example/pwa/cache-publica-v1.json?v=${VERSION}`,
+    `https://vec.example/portal-empleado/cache-publica-v1.json?v=${VERSION}`,
     `https://vec.example/textos/idiomas.json?v=${VERSION}`,
     `https://vec.example/textos/es/pwa.json?v=${VERSION}`,
     `https://vec.example/textos/en/pwa.json?v=${VERSION}`
@@ -88,6 +92,7 @@ test('instala únicamente política e idiomas aprobados y limpia versiones del m
   const anterior = await app.caches.open('vec-pwa-empleado-public-20261002-pwa-v1');
   await anterior.put('https://vec.example/textos/es/preferencias.json?v=1', { ok: true });
   await app.caches.open('vec-pwa-empleado-public-20261002-pwa-v2');
+  await app.caches.open('vec-pwa-empleado-public-20261002-pwa-v3');
   await app.caches.open('vec-pwa-personal-public-anterior');
   await app.lanzar('activate');
   assert.deepEqual(await app.caches.keys(), [nombre, 'vec-pwa-personal-public-anterior']);
@@ -96,7 +101,7 @@ test('instala únicamente política e idiomas aprobados y limpia versiones del m
 test('ADMIN conserva el scope privado y su CSS aprobado', async () => {
   const app = crearEntorno('admin');
   await app.lanzar('install');
-  const css = app.solicitud(configBase.portales.admin[0], { destination: 'style' });
+  const css = app.solicitud(configs.admin.propios[0], { destination: 'style' });
   await app.lanzar('fetch', css);
   assert.equal(app.almacen.get(`vec-pwa-admin-public-${VERSION}`).has(css.url), true);
   assert.equal(await app.lanzar('fetch', app.solicitud('/admin/modulos/arranque.js?v=1')), undefined);
@@ -105,7 +110,7 @@ test('ADMIN conserva el scope privado y su CSS aprobado', async () => {
 test('almacena una sola vez el asset exacto aprobado; un JS futuro del mismo directorio no entra', async () => {
   const app = crearEntorno();
   await app.lanzar('install');
-  const js = app.solicitud(configBase.portales.empleado[2], { destination: 'script' });
+  const js = app.solicitud(configs.empleado.propios[2], { destination: 'script' });
   await app.lanzar('fetch', js);
   await app.lanzar('fetch', js);
   assert.equal(app.llamadas.filter(url => url === js.url).length, 1);
@@ -122,17 +127,17 @@ test('API, documentos, HTML, escritura, consultas extra y otros portales pasan a
     '/portal-empleado/index.html?v=1', '/portal-empleado/portal.js?perfil=rrhh',
     '/portal-empleado/portal.js?v=1&usuario=1', '/portal-empleado/portal.js',
     '/portal-empleado/portal.test.mjs?v=1', '/portal-empleado/sw.js?v=1',
-    configBase.portales.personal[1], 'https://otro.example/portal-empleado/portal.js?v=1'
+    configs.personal.propios[1], 'https://otro.example/portal-empleado/portal.js?v=1'
   ];
   for (const ruta of rutas) assert.equal(await app.lanzar('fetch', app.solicitud(ruta)), undefined, ruta);
-  assert.equal(await app.lanzar('fetch', app.solicitud(configBase.portales.empleado[2], { method: 'POST' })), undefined);
+  assert.equal(await app.lanzar('fetch', app.solicitud(configs.empleado.propios[2], { method: 'POST' })), undefined);
   assert.equal(app.almacen.get(`vec-pwa-empleado-public-${VERSION}`).size, PRECACHE);
 });
 
 test('rechaza respuesta redirigida, HTML disfrazado, privada, opaca o de otro origen', async () => {
   const app = crearEntorno();
   await app.lanzar('install');
-  const url = configBase.portales.empleado[0];
+  const url = configs.empleado.propios[0];
   for (const cambio of [
     { redirected: true },
     { headers: new Headers({ 'Content-Type': 'text/html' }) },
@@ -168,7 +173,7 @@ test('un fallo al pedir el estático aprobado vuelve a la red original sin cache
     if (typeof input === 'string') throw new TypeError('redirección rechazada');
     return { status: 200, ok: true, url: valor };
   });
-  const recurso = app.solicitud(configBase.portales.empleado[2], { destination: 'script' });
+  const recurso = app.solicitud(configs.empleado.propios[2], { destination: 'script' });
   const response = await app.lanzar('fetch', recurso);
   assert.equal(response.url, recurso.url);
   assert.equal(app.llamadas.filter(url => url === recurso.url).length, 2);
@@ -229,8 +234,20 @@ test('la preferencia lang explícita precede al navegador y se conserva al reint
 });
 
 test('una configuración que intente añadir API se rechaza en la instalación', async () => {
-  const config = structuredClone(configBase);
+  const config = structuredClone(configs.empleado);
   config.comunes.push('/api/vec/private.js?v=1');
   const app = crearEntorno('empleado', { config });
   await assert.rejects(app.lanzar('install'), /política pública PWA no válida/);
+});
+
+test('config pública y helper común no contienen nombres de scopes internos', () => {
+  assert.doesNotMatch(source, /\/(?:portal-empleado|administracion-perfiles)\//);
+  assert.doesNotMatch(JSON.stringify(configs.personal), /\/(?:portal-empleado|administracion-perfiles)\//);
+  assert.deepEqual([configs.personal.version, configs.admin.version], [VERSION, VERSION]);
+});
+
+test('una config propia no puede declarar activos de otro scope', async () => {
+  const config = structuredClone(configs.personal);
+  config.propios.push(configs.empleado.propios[0]);
+  await assert.rejects(crearEntorno('personal', { config }).lanzar('install'), /política pública PWA no válida/);
 });

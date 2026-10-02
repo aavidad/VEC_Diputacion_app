@@ -2,13 +2,7 @@
 (function () {
   'use strict';
 
-  const VERSION = '20261002-pwa-v3';
-  const SCOPES = Object.freeze({
-    empleado: '/portal-empleado/',
-    personal: '/area-personal/',
-    admin: '/administracion-perfiles/'
-  });
-  const CONFIG = `/pwa/cache-publica-v1.json?v=${VERSION}`;
+  const VERSION = '20261002-pwa-v4';
   const IDIOMAS = `/textos/idiomas.json?v=${VERSION}`;
   const TIPOS = Object.freeze({
     css: /^text\/css(?:;|$)/i,
@@ -32,11 +26,11 @@
     return url.href === origen + ruta && versionValida(url) ? url : null;
   }
 
-  function tipoAsset(url) {
+  function tipoAsset(url, scopePath) {
     const path = url.pathname;
     if (!/^\/[a-z0-9/_.-]+\.[a-z0-9]+$/i.test(path) || /\/\.|\/\//.test(path)) return null;
     if (/\.(?:test|spec)\.|(?:^|\/)(?:api|documentos|test|tests|fixtures|datos-presentacion|adaptador-presentacion)(?:\/|\.)/i.test(path)) return null;
-    if (!['/pwa/', '/portal-empleado/', '/area-personal/', '/administracion-perfiles/'].some(prefijo => path.startsWith(prefijo))) return null;
+    if (!path.startsWith('/pwa/') && !path.startsWith(scopePath)) return null;
     if (path.endsWith('/sw.js') || path.endsWith('/sw-public-assets.js')) return null;
     const extension = path.slice(path.lastIndexOf('.') + 1).toLowerCase();
     return extension in TIPOS && extension !== 'json' ? extension : null;
@@ -50,21 +44,24 @@
     return { idiomas, porDefecto: datos.por_defecto };
   }
 
-  function politicaValida(config, indice, portal, origen) {
-    if (!config || config.version !== VERSION || !Array.isArray(config.comunes) ||
-      !config.portales || !Object.keys(SCOPES).every(clave => Array.isArray(config.portales[clave]))) return null;
-    const entradas = [...config.comunes, ...config.portales[portal]];
+  function politicaValida(config, indice, scopePath, origen, configURL) {
+    if (!config || config.version !== VERSION || !Array.isArray(config.comunes) || !Array.isArray(config.propios) ||
+      Object.keys(config).sort().join(',') !== 'comunes,propios,version') return null;
+    const entradas = [...config.comunes, ...config.propios];
     if (entradas.length > 80 || new Set(entradas).size !== entradas.length) return null;
     const assets = new Map();
-    for (const ruta of entradas) {
-      const url = urlCanonica(ruta, origen);
-      const tipo = url && tipoAsset(url);
-      if (!tipo) return null;
-      assets.set(url.href, tipo);
+    for (const [grupo, rutas] of [['comunes', config.comunes], ['propios', config.propios]]) {
+      for (const ruta of rutas) {
+        const url = urlCanonica(ruta, origen);
+        const tipo = url && tipoAsset(url, scopePath);
+        if (!tipo || (grupo === 'comunes' && !url.pathname.startsWith('/pwa/')) ||
+          (grupo === 'propios' && !url.pathname.startsWith(scopePath))) return null;
+        assets.set(url.href, tipo);
+      }
     }
     const idiomas = indiceValido(indice);
     if (!idiomas) return null;
-    const json = new Set([origen + CONFIG, origen + IDIOMAS]);
+    const json = new Set([configURL.href, origen + IDIOMAS]);
     for (const codigo of idiomas.idiomas) json.add(`${origen}/textos/${codigo}/pwa.json?v=${VERSION}`);
     return { assets, json, idiomas };
   }
@@ -86,9 +83,14 @@
   }
 
   function iniciar(portal) {
-    const scopePath = SCOPES[portal];
-    if (!scopePath || new URL(self.registration.scope).pathname !== scopePath) throw new Error('scope PWA inválido');
+    if (typeof portal !== 'string' || !/^[a-z0-9_-]{1,20}$/.test(portal)) throw new Error('identificador PWA inválido');
     const origen = self.location.origin;
+    const scope = new URL(self.registration.scope);
+    const scopePath = scope.pathname;
+    const script = new URL(self.location.href);
+    if (scope.origin !== origen || !/^\/[a-z0-9/_-]+\/$/i.test(scopePath) || scopePath.includes('//') ||
+      script.origin !== origen || script.pathname !== `${scopePath}sw.js`) throw new Error('scope PWA inválido');
+    const configURL = new URL(`${origen}${scopePath}cache-publica-v1.json?v=${VERSION}`);
     const cacheName = `vec-pwa-${portal}-public-${VERSION}`;
     const cachePrefix = `vec-pwa-${portal}-public-`;
     let politica = null;
@@ -101,14 +103,13 @@
     }
 
     async function instalar() {
-      const configURL = new URL(origen + CONFIG);
       const idiomasURL = new URL(origen + IDIOMAS);
       const configResponse = await pedir(configURL, 'json', true);
       const idiomasResponse = await pedir(idiomasURL, 'json', true);
       if (!configResponse || !idiomasResponse) throw new Error('catálogos públicos PWA no disponibles');
       const config = await configResponse.clone().json();
       const indice = await idiomasResponse.clone().json();
-      const aprobada = politicaValida(config, indice, portal, origen);
+      const aprobada = politicaValida(config, indice, scopePath, origen, configURL);
       if (!aprobada) throw new Error('política pública PWA no válida');
       const cache = await caches.open(cacheName);
       await cache.put(configURL.href, configResponse);
@@ -126,10 +127,10 @@
     async function recuperarPolitica() {
       if (politica) return politica;
       const cache = await caches.open(cacheName);
-      const config = await cache.match(origen + CONFIG);
+      const config = await cache.match(configURL.href);
       const idiomas = await cache.match(origen + IDIOMAS);
       if (!config || !idiomas) return null;
-      try { politica = politicaValida(await config.json(), await idiomas.json(), portal, origen); }
+      try { politica = politicaValida(await config.json(), await idiomas.json(), scopePath, origen, configURL); }
       catch (_) { return null; }
       return politica;
     }
@@ -217,7 +218,7 @@
       }
       if (!versionValida(url)) return;
       if (politica && !politica.assets.has(url.href) && !politica.json.has(url.href)) return;
-      if (!politica && !tipoAsset(url) && url.href !== origen + CONFIG && url.href !== origen + IDIOMAS && !/^\/textos\//.test(url.pathname)) return;
+      if (!politica && !tipoAsset(url, scopePath) && url.href !== configURL.href && url.href !== origen + IDIOMAS && !/^\/textos\//.test(url.pathname)) return;
       event.respondWith(recursoEstatico(request, url));
     });
   }
