@@ -39,7 +39,7 @@ type FuenteSeleccionADMIN interface {
 
 func (p PerfilPropio) Valido() bool {
 	return referencia(p.PerfilRef, "prf_") && strings.HasPrefix(p.RolVersionRef, "rol:") &&
-		len(p.RolVersionRef) <= 512 && p.ClaveI18N != "" && len(p.ClaveI18N) <= 256
+		textoCatalogo(p.RolVersionRef, 512) && textoCatalogo(p.ClaveI18N, 256)
 }
 
 func (p PerfilesPropios) Validos() bool {
@@ -60,5 +60,31 @@ func (p PerfilesPropios) Validos() bool {
 
 func (s SeleccionPerfil) Valida() bool {
 	return referencia(s.PerfilActivoRef, "prf_") && s.Revision > 0 && instante(s.SeleccionadaEn) &&
-		s.AuditoriaRef != "" && len(s.AuditoriaRef) <= 512
+		huellaAuditoriaSeleccion(s.AuditoriaRef)
+}
+
+func textoCatalogo(valor string, limite int) bool {
+	if valor == "" || len(valor) > limite {
+		return false
+	}
+	for _, c := range valor {
+		if !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' ||
+			c == '_' || c == '-' || c == ':' || c == '.') {
+			return false
+		}
+	}
+	return true
+}
+
+func huellaAuditoriaSeleccion(valor string) bool {
+	const prefijo = "auditoria_seleccion_admin:"
+	if !strings.HasPrefix(valor, prefijo) || len(valor) != len(prefijo)+64 {
+		return false
+	}
+	for _, c := range valor[len(prefijo):] {
+		if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f') {
+			return false
+		}
+	}
+	return true
 }

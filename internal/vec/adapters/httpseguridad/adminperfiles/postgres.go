@@ -44,13 +44,29 @@ func NuevoPostgreSQL(ctx context.Context, pool *pgxpool.Pool, reloj h.Reloj) (*P
 }
 
 func (p *PostgreSQL) ResolverCuentaADMIN(ctx context.Context, o ObservacionADMIN) (CuentaADMIN, error) {
-	if p == nil || ctx == nil || ctx.Err() != nil || nulo(p.pool) || !o.Valida(p.reloj.Ahora().UTC()) {
+	if p == nil || ctx == nil || ctx.Err() != nil || nulo(p.pool) || nulo(p.reloj) || !o.Valida(p.reloj.Ahora().UTC()) {
 		return CuentaADMIN{}, api.ErrAutenticacionRequerida
 	}
 	var cuenta CuentaADMIN
 	err := p.transaccion(ctx, func(tx pgx.Tx) error {
 		var err error
 		cuenta, err = p.leerCuenta(ctx, tx, o)
+		if errors.Is(err, api.ErrAccesoDenegado) {
+			// Sin elección solo cabe autoseleccionar cuando hay exactamente un
+			// perfil propio. La función central verifica certificado, cuenta,
+			// asignación y revisión cero antes de escribir la auditoría.
+			seleccion, autoErr := p.autoseleccionarUnico(ctx, tx, o)
+			if autoErr != nil {
+				return autoErr
+			}
+			if seleccion.Valida() {
+				cuenta, err = p.leerCuenta(ctx, tx, o)
+				if err == nil && (cuenta.PerfilActivoRef != seleccion.PerfilActivoRef ||
+					cuenta.SeleccionRevision != seleccion.Revision) {
+					return api.ErrConfiguracionIncompleta
+				}
+			}
+		}
 		return err
 	})
 	if err != nil {
@@ -60,7 +76,7 @@ func (p *PostgreSQL) ResolverCuentaADMIN(ctx context.Context, o ObservacionADMIN
 }
 
 func (p *PostgreSQL) VincularSesionADMIN(ctx context.Context, o ObservacionADMIN, esperada CuentaADMIN, refs ReferenciasSesionADMIN) error {
-	if p == nil || ctx == nil || ctx.Err() != nil || nulo(p.pool) || !o.Valida(p.reloj.Ahora().UTC()) ||
+	if p == nil || ctx == nil || ctx.Err() != nil || nulo(p.pool) || nulo(p.reloj) || !o.Valida(p.reloj.Ahora().UTC()) ||
 		!referencia(refs.AutenticacionRef, "aut_") || !referencia(refs.SesionRef, "ses_") {
 		return api.ErrAutenticacionRequerida
 	}
@@ -121,9 +137,13 @@ func argumentos(o ObservacionADMIN) []any {
 }
 
 func (p *PostgreSQL) transaccion(ctx context.Context, fn func(pgx.Tx) error) error {
+	return p.transaccionConAislamiento(ctx, pgx.Serializable, fn)
+}
+
+func (p *PostgreSQL) transaccionConAislamiento(ctx context.Context, aislamiento pgx.TxIsoLevel, fn func(pgx.Tx) error) error {
 	// La política compartida de reintento pertenece al consumidor completo.
 	// Una carrera en esta lectura/binder obliga a obtener evidencia F nueva.
-	tx, err := p.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite})
+	tx, err := p.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: aislamiento, AccessMode: pgx.ReadWrite})
 	if err != nil {
 		return err
 	}
