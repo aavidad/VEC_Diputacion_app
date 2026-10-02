@@ -50,7 +50,8 @@ export function rutaCandidatosBolsa(bolsaRef, { estado = "", texto = "", cursor 
 export function seleccionarParticipacionesPorEstado(candidatos, estados, limite = 100) {
   const estadosIncluidos = new Set(estados || []);
   return (candidatos || [])
-    .filter((candidato) => estadosIncluidos.has(candidato.estado_clave) && Number.isSafeInteger(candidato.orden) && seleccionableEnLlamamiento(candidato))
+    .filter((candidato) => estadosIncluidos.has(candidato.estado_clave) && Number.isSafeInteger(candidato.orden)
+      && !["en_revision", "trabajando", "excluido"].includes(candidato.estado_clave) && seleccionableEnLlamamiento(candidato))
     .sort((izquierda, derecha) => izquierda.orden - derecha.orden
       || String(izquierda.participacion_ref).localeCompare(String(derecha.participacion_ref), "es"))
     .slice(0, limite)
@@ -89,8 +90,10 @@ export async function consultarSeleccionMasivaBolsa(bolsaRef, estados, { consult
         return { ok: false, status: 409, mensaje: traducirPortal("txt_la_lista_cambio_durante_la_consulta_vuelva_a_sel") };
       }
       referencias.add(candidata.participacion_ref);
-      // Quien ya presta servicios con el catálogo en «excluir» no es elegible.
-      if (estadosIncluidos.has(candidata.estado_clave) && Number.isSafeInteger(candidata.orden) && seleccionableEnLlamamiento(candidata)) {
+      // RRHH18 mantiene visibles los estados bloqueados, pero nunca los
+      // añade al llamamiento aunque se manipule el filtro de selección.
+      if (estadosIncluidos.has(candidata.estado_clave) && Number.isSafeInteger(candidata.orden)
+        && !["en_revision", "trabajando", "excluido"].includes(candidata.estado_clave) && seleccionableEnLlamamiento(candidata)) {
         total += 1;
         primeras.push({ participacion_ref: candidata.participacion_ref, estado_clave: candidata.estado_clave, orden: candidata.orden });
         primeras.sort((a, b) => a.orden - b.orden || a.participacion_ref.localeCompare(b.participacion_ref, "es"));
@@ -562,7 +565,8 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
     flujo.ordenSeleccion ||= {};
     for (const candidata of presentes) {
       flujo.ordenSeleccion[candidata.participacion_ref] = candidata.orden;
-      if (marcadas.has(candidata.participacion_ref)) seleccionadas.add(candidata.participacion_ref);
+      if (marcadas.has(candidata.participacion_ref)
+        && !["en_revision", "trabajando", "excluido"].includes(candidata.estado_clave) && seleccionableEnLlamamiento(candidata)) seleccionadas.add(candidata.participacion_ref);
       else seleccionadas.delete(candidata.participacion_ref);
     }
     flujo.participaciones = [...seleccionadas].sort((a, b) => (flujo.ordenSeleccion[a] || 0) - (flujo.ordenSeleccion[b] || 0) || a.localeCompare(b, "es"));
