@@ -44,10 +44,12 @@ $excl$;
                AND p_perfil_mutacion IS DISTINCT FROM 'guardar_preparacion_bases_bolsa'
                AND p_perfil_mutacion IS DISTINCT FROM 'consultar_preparacion_bases_bolsa'
 $excl_nuevo$;
- -- Marca estructural del único selector runtime; no depende del nombre del
- -- consumidor que haya entrado primero. Huella completa e inversión obligatorias.
+ -- Marca del selector de sesión observada en POST145 real. El bloque de
+ -- operaciones tiene otra primera rama; se conserva sin reemplazo global.
+ -- Remedir ante otra preimagen: huella completa, unicidad e inversión obligatorias.
  runtime text:=$runtime$       OR NOT (
            (
+               p_perfil_mutacion IS NOT DISTINCT FROM 'gobierno_borrador_reglas_baremo'
 $runtime$;
  runtime_nuevo text:=$runtime_nuevo$       OR NOT (
            (
@@ -73,6 +75,7 @@ $runtime$;
                AND NOT EXISTS (SELECT 1 FROM pg_auth_members m WHERE m.member='vec_bolsa_convocatorias_lector_preparacion_bases'::regrole)
            )
            OR (
+               p_perfil_mutacion IS NOT DISTINCT FROM 'gobierno_borrador_reglas_baremo'
 $runtime_nuevo$;
  extension text:=$extension$           OR (
  p_perfil_mutacion IN ('guardar_preparacion_bases_bolsa','consultar_preparacion_bases_bolsa')
