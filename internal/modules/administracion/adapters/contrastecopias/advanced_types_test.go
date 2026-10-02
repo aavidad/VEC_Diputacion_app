@@ -228,3 +228,31 @@ func TestCanonAliasNoOcultaColumnaNiTabla(t *testing.T) {
 		t.Fatal("alias oculta identificador del origen")
 	}
 }
+
+func TestCanonIndiceInternoNoOcultaColumnaI(t *testing.T) {
+	ct := tiposCanonPrueba()
+	ct.tipos[1007] = &tipoCanon{OID: 1007, Esquema: "pg_catalog", Nombre: "_int4", Clase: "b", Elemento: 23, Categoria: "A", SalidaSegura: true, ModificadorSeguro: true, ArraySeguro: true}
+	ct.tipos[16386].campos = []campoCanon{{Nombre: "elementos", Tipo: 1007}}
+	for _, oid := range []uint32{1007, 16386} {
+		got, ok, err := ct.canonColumna("public", "datos", "i", oid, "")
+		if err != nil || !ok {
+			t.Fatalf("array o compuesto de origen i no admitido: %v", err)
+		}
+		// Every generated index uses its reserved token both as relation and
+		// column name. No FROM column named i may shadow the source expression
+		// in later lateral dimensions or in the aggregate's element getter.
+		for _, forbidden := range []string{`(i)`, `.i`, ` AS i(`} {
+			if strings.Contains(got, forbidden) {
+				t.Fatalf("índice oculta origen: %s", forbidden)
+			}
+		}
+		for _, wanted := range []string{`AS vec_cs06_a1(vec_cs06_a1)`, `[vec_cs06_a1.vec_cs06_a1]`, `ORDER BY vec_cs06_a1.vec_cs06_a1`, `WHEN 2 THEN`} {
+			if !strings.Contains(got, wanted) {
+				t.Fatalf("índice reservado no conserva dimensión: %s", wanted)
+			}
+		}
+		if !strings.Contains(got, `pg_catalog.generate_subscripts("i",2)`) && !strings.Contains(got, `pg_catalog.generate_subscripts(("i")."elementos",2)`) {
+			t.Fatal("segunda dimensión perdió el origen")
+		}
+	}
+}

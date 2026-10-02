@@ -54,7 +54,7 @@ const esquemaAvanzadoSQL = `
    UNION SELECT classoid,objoid,objsubid FROM pg_seclabel
    UNION SELECT classoid,objoid,0 FROM pg_shseclabel
    UNION SELECT d.classid,d.objid,d.objsubid FROM pg_depend d
-     WHERE d.refclassid='pg_extension'::regclass AND d.deptype='e'
+     WHERE d.refclassid='pg_extension'::regclass AND d.deptype IN ('e','x')
  ),
  cs_address AS (
    SELECT a.classid,a.objid,a.objsubid,
@@ -283,6 +283,11 @@ const esquemaAvanzadoSQL = `
  JOIN cs_address a ON a.classid=d.classid AND a.objid=d.objid AND a.objsubid=d.objsubid
  WHERE d.refclassid='pg_extension'::regclass AND d.deptype='e'
  UNION ALL
+ SELECT jsonb_build_array('extension_object_dependency',a.ident,e.extname,d.deptype)::text
+ FROM pg_depend d JOIN pg_extension e ON e.oid=d.refobjid
+ JOIN cs_address a ON a.classid=d.classid AND a.objid=d.objid AND a.objsubid=d.objsubid
+ WHERE d.refclassid='pg_extension'::regclass AND d.deptype='x'
+ UNION ALL
  SELECT jsonb_build_array('comment',a.ident,d.description)::text
  FROM pg_description d JOIN cs_address a ON a.classid=d.classoid AND a.objid=d.objoid AND a.objsubid=d.objsubid
  UNION ALL
@@ -353,7 +358,7 @@ var comprobacionesAvanzadas = []comprobacion{
  ))`},
 	{"objetos_extension_sin_captura_semantica", `SELECT EXISTS(
  SELECT 1 FROM pg_depend d
- WHERE d.refclassid='pg_extension'::regclass AND d.deptype='e'
+ WHERE d.refclassid='pg_extension'::regclass AND d.deptype IN ('e','x')
  AND d.classid NOT IN (
    'pg_namespace'::regclass,'pg_class'::regclass,'pg_proc'::regclass,'pg_type'::regclass,
    'pg_constraint'::regclass,'pg_trigger'::regclass,'pg_rewrite'::regclass,'pg_policy'::regclass,

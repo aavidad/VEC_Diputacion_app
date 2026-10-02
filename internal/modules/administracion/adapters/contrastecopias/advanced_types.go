@@ -236,8 +236,8 @@ func (c *compilacionCanon) valor(oid uint32, v string, depth int, oidLO bool) (s
 						break
 					}
 				}
-				idx := a + `.i`
-				from = append(from, fmt.Sprintf(`pg_catalog.generate_subscripts(%s,%d) AS %s(i)`, v, dimension, a))
+				idx := a + `.` + a
+				from = append(from, fmt.Sprintf(`pg_catalog.generate_subscripts(%s,%d) AS %s(%s)`, v, dimension, a, a))
 				order = append(order, idx)
 				element += `[` + idx + `]`
 			}
