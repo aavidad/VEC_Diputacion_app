@@ -10,6 +10,9 @@ name=$(basename -- "$root")
 [[ $name =~ ^[a-z0-9-]+$ ]] || fail 'Nombre de clon inválido'
 psql_clone() { docker exec -i "$expected_id" psql -X -q -h /tmp -U postgres -d postgres -At -v ON_ERROR_STOP=1 "$@"; }
 probe_clone() { { printf 'BEGIN READ ONLY;\n'; cat -- "$1"; printf '\nCOMMIT;\n'; } | psql_clone; }
+canonical_mounts() {
+  python3 -c 'import json,sys; m=json.load(sys.stdin); print(json.dumps(sorted(m,key=lambda x:(x["Destination"],x["Type"],x["Source"])),sort_keys=True,separators=(",",":")))'
+}
 verify_clone() {
   [[ -d $root && $(stat -c '%u' -- "$root") == "$(id -u)" ]] || fail 'ROOT no pertenece al ejecutor'
   [[ -f $root/container.id ]] || fail 'Falta el ID del contenedor creado'
@@ -17,7 +20,7 @@ verify_clone() {
   [[ $expected_id =~ ^[a-f0-9]{64}$ ]] || fail 'ID registrado inválido'
   [[ $(docker inspect -f '{{.Id}}' "$name") == "$expected_id" ]] || fail 'Contenedor distinto del creado para este clon'
   [[ $(docker inspect -f '{{.HostConfig.NetworkMode}}' "$expected_id") == none ]] || fail 'El clon tiene red'
-  [[ -f $root/mounts.json && $(docker inspect -f '{{json .Mounts}}' "$expected_id") == "$(cat -- "$root/mounts.json")" ]] || fail 'Los montajes difieren de los registrados al crear el clon'
+  [[ -f $root/mounts.json && $(docker inspect -f '{{json .Mounts}}' "$expected_id" | canonical_mounts) == "$(canonical_mounts < "$root/mounts.json")" ]] || fail 'Los montajes difieren de los registrados al crear el clon'
   [[ $(docker inspect -f '{{range .Mounts}}{{if eq .Type "bind"}}{{.Type}}|{{.Source}}|{{.Destination}}|{{.RW}}{{end}}{{end}}' "$expected_id") == "bind|$root|/ensayo|true" ]] || fail 'Montaje distinto del clon propio'
   [[ $(docker inspect -f '{{.HostConfig.AutoRemove}}' "$expected_id") == true ]] || fail 'Contenedor sin --rm'
   [[ $(psql_clone -c 'SHOW data_directory') == /ensayo/vec-desarrollo-20260906/pgdata ]] || fail 'Directorio de datos distinto del clon propio'
