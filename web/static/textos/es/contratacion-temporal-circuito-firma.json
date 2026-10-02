@@ -68,7 +68,23 @@
     "circuito_firma_cargo_secretaria_razon": "Secretaría General (toma de razón)",
     "circuito_firma_cargo_secretaria_fe": "Secretaría General (fe pública)",
     "circuito_firma_cargo_persona_nombrada": "Persona nombrada",
-    "circuito_firma_cargo_diputada_delegada": "Diputada delegada de Recursos Humanos"
+    "circuito_firma_cargo_diputada_delegada": "Diputada delegada de Recursos Humanos",
+    "circuito_firma_comprobar": "Comprobar opciones de firma",
+    "circuito_firma_comprobando": "Comprobando el documento y sus permisos…",
+    "circuito_firma_opciones": "Elija cómo firmar este documento.",
+    "circuito_firma_sin_vias": "No hay una vía de firma disponible para este documento.",
+    "circuito_firma_pdf_externo": "PDF firmado en Portafirmas",
+    "circuito_firma_referencia_externa": "Referencia de Portafirmas",
+    "circuito_firma_fecha_externa": "Fecha y hora de la firma",
+    "circuito_firma_campos_externos": "Seleccione el PDF firmado e indique la referencia y la fecha de Portafirmas.",
+    "circuito_firma_siguiente_original": "Este PDF conserva la firma anterior. Utilícelo para añadir la siguiente firma.",
+    "circuito_firma_original_descargado": "PDF descargado para firma externa.",
+    "circuito_firma_registro_confirmado": "Firma verificada y registrada. Recibo: {recibo}. Sin eficacia administrativa en este entorno.",
+    "circuito_firma_cancelada": "Operación cancelada.",
+    "circuito_firma_recuperacion": "No se ha podido confirmar el registro. Reintente con el mismo PDF; VEC comprobará si ya está registrado.",
+    "circuito_firma_reintentar_registro": "Reintentar registro",
+    "circuito_firma_original_pendiente": "La firma no está disponible hasta recuperar el documento custodiado y comprobar sus permisos.",
+    "circuito_firma_datos_obligatorios": "Todos los campos son obligatorios."
   },
   "valores_controlados": {
     "documento": {

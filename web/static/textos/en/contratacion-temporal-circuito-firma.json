@@ -68,7 +68,23 @@
     "circuito_firma_cargo_secretaria_razon": "General Secretariat (acknowledgement)",
     "circuito_firma_cargo_secretaria_fe": "General Secretariat (certification)",
     "circuito_firma_cargo_persona_nombrada": "Appointed person",
-    "circuito_firma_cargo_diputada_delegada": "Deputy responsible for Human Resources"
+    "circuito_firma_cargo_diputada_delegada": "Deputy responsible for Human Resources",
+    "circuito_firma_comprobar": "Check signing options",
+    "circuito_firma_comprobando": "Checking the document and your permissions…",
+    "circuito_firma_opciones": "Choose how to sign this document.",
+    "circuito_firma_sin_vias": "No signing route is available for this document.",
+    "circuito_firma_pdf_externo": "PDF signed in Portafirmas",
+    "circuito_firma_referencia_externa": "Portafirmas reference",
+    "circuito_firma_fecha_externa": "Signature date and time",
+    "circuito_firma_campos_externos": "Select the signed PDF and enter its Portafirmas reference and date.",
+    "circuito_firma_siguiente_original": "This PDF preserves the previous signature. Use it to add the next signature.",
+    "circuito_firma_original_descargado": "PDF downloaded for external signing.",
+    "circuito_firma_registro_confirmado": "Signature verified and recorded. Receipt: {recibo}. No administrative effect in this environment.",
+    "circuito_firma_cancelada": "Operation cancelled.",
+    "circuito_firma_recuperacion": "The record could not be confirmed. Retry with the same PDF; VEC will check whether it is already recorded.",
+    "circuito_firma_reintentar_registro": "Retry recording",
+    "circuito_firma_original_pendiente": "Signing is unavailable until the document held in custody is retrieved and your permissions are checked.",
+    "circuito_firma_datos_obligatorios": "All fields are required."
   },
   "valores_controlados": {
     "documento": {
