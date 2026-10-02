@@ -15,7 +15,8 @@ func TestCircuitoRRHHLigaDosHitosAlActoSinVersionArtificial(t *testing.T) {
 				Destino: "autorizacion_rrhh", RequiereDocumento: true, RequiereFirma: true,
 				PerfilClave: "tecnico", FirmasRequeridas: []ClaveCatalogo{"tecnico", "delegacion"}},
 			{Clave: "autorizacion_rrhh", Tipo: HitoAutorizacionRRHH, Origen: "autorizacion_rrhh",
-				Destino: "credito", RequiereDocumento: true, PerfilClave: "direccion_rrhh"},
+				Destino: "credito", RequiereDocumento: true, PerfilClave: "direccion_rrhh",
+				AutorizanteCargoClave: "direccion_rrhh"},
 			{Clave: "oferta_emitida", Tipo: HitoOfertaEmitida, Origen: "credito",
 				Destino: "adjudicacion", PerfilClave: "rrhh"},
 		},
@@ -42,8 +43,7 @@ func TestCircuitoRRHHLigaDosHitosAlActoSinVersionArtificial(t *testing.T) {
 			{CargoClave: "tecnico", FirmaRef: "firma:tecnico:sintetica", FirmanteRef: "actor:tecnico:sintetico", HuellaDocumentoSHA256: strings.Repeat("a", 64)},
 			{CargoClave: "delegacion", FirmaRef: "firma:delegacion:sintetica", FirmanteRef: "actor:delegacion:sintetico", HuellaDocumentoSHA256: strings.Repeat("a", 64)},
 		},
-		ReciboRef: act.ReciboRef, AuditoriaRef: "auditoria:peticion:sintetica",
-		EventoRef: "evento:peticion:sintetica", RegistradoEn: ahora,
+		ReciboRef: act.ReciboRef, RegistradoEn: ahora,
 	}
 	autorizacion := HitoCircuitoRRHH{
 		Clave: "autorizacion_rrhh", ActuacionClave: act.AccionClave, ActorRef: act.ActorRef,
@@ -51,8 +51,7 @@ func TestCircuitoRRHHLigaDosHitosAlActoSinVersionArtificial(t *testing.T) {
 		UnidadRef: act.UnidadRef, DocumentoRef: "documento:autorizacion:sintetica", HuellaDocumentoSHA256: strings.Repeat("b", 64),
 		ActoAutorizacionRef: "acto:autorizacion:sintetico", AutorizanteRef: "actor:direccion:sintetico",
 		CargoAutorizanteClave: "direccion_rrhh",
-		ReciboRef:             act.ReciboRef, AuditoriaRef: "auditoria:autorizacion:sintetica",
-		EventoRef: "evento:autorizacion:sintetica", RegistradoEn: ahora,
+		ReciboRef:             act.ReciboRef, RegistradoEn: ahora,
 	}
 	conHitos, err := base.AdjuntarHitosCircuito(definicion, base.Version, []HitoCircuitoRRHH{peticion, autorizacion})
 	if err != nil || conHitos.Validar() != nil {
@@ -65,7 +64,6 @@ func TestCircuitoRRHHLigaDosHitosAlActoSinVersionArtificial(t *testing.T) {
 		Clave: "oferta_emitida", ActuacionClave: act.AccionClave, ActorRef: act.ActorRef,
 		PerfilClave: "rrhh", PerfilRef: "perfil:rrhh:sintetico",
 		UnidadRef: act.UnidadRef, OfertaRef: "oferta:sintetica", ReciboRef: act.ReciboRef,
-		AuditoriaRef: "auditoria:oferta:sintetica", EventoRef: "evento:oferta:sintetica",
 		RegistradoEn: ahora,
 	}
 	if _, err := conHitos.AdjuntarHitosCircuito(definicion, conHitos.Version, []HitoCircuitoRRHH{oferta}); err == nil {

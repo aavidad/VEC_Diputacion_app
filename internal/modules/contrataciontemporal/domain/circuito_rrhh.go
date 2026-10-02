@@ -45,14 +45,15 @@ func (t TipoHitoCircuitoRRHH) Valido() bool {
 }
 
 type TransicionCircuitoRRHH struct {
-	Clave             ClaveCatalogo        `json:"clave"`
-	Tipo              TipoHitoCircuitoRRHH `json:"tipo"`
-	Origen            ClaveFase            `json:"origen"`
-	Destino           ClaveFase            `json:"destino"`
-	RequiereDocumento bool                 `json:"requiere_documento"`
-	RequiereFirma     bool                 `json:"requiere_firma"`
-	PerfilClave       ClaveCatalogo        `json:"perfil_clave"`
-	FirmasRequeridas  []ClaveCatalogo      `json:"firmas_requeridas,omitempty"`
+	Clave                 ClaveCatalogo        `json:"clave"`
+	Tipo                  TipoHitoCircuitoRRHH `json:"tipo"`
+	Origen                ClaveFase            `json:"origen"`
+	Destino               ClaveFase            `json:"destino"`
+	RequiereDocumento     bool                 `json:"requiere_documento"`
+	RequiereFirma         bool                 `json:"requiere_firma"`
+	PerfilClave           ClaveCatalogo        `json:"perfil_clave"`
+	FirmasRequeridas      []ClaveCatalogo      `json:"firmas_requeridas,omitempty"`
+	AutorizanteCargoClave ClaveCatalogo        `json:"autorizante_cargo_clave,omitempty"`
 }
 
 type DefinicionCircuitoRRHH struct {
@@ -91,6 +92,13 @@ func (d DefinicionCircuitoRRHH) Validar() error {
 			!t.PerfilClave.Valida() ||
 			(t.RequiereFirma && len(t.FirmasRequeridas) == 0) ||
 			(!t.RequiereFirma && len(t.FirmasRequeridas) != 0) {
+			return ErrCircuitoRRHHInvalido
+		}
+		if t.Tipo == HitoAutorizacionRRHH {
+			if !t.AutorizanteCargoClave.Valida() {
+				return ErrCircuitoRRHHInvalido
+			}
+		} else if t.AutorizanteCargoClave != "" {
 			return ErrCircuitoRRHHInvalido
 		}
 		cargos := make(map[ClaveCatalogo]struct{}, len(t.FirmasRequeridas))
@@ -171,8 +179,6 @@ type HitoCircuitoRRHH struct {
 	ActoIncorporacionRef     string               `json:"acto_incorporacion_ref,omitempty"`
 	HuellaContratoSHA256     string               `json:"huella_contrato_sha256,omitempty"`
 	ReciboRef                string               `json:"recibo_ref"`
-	AuditoriaRef             string               `json:"auditoria_ref"`
-	EventoRef                string               `json:"evento_ref"`
 	RegistradoEn             time.Time            `json:"registrado_en"`
 }
 
@@ -199,7 +205,6 @@ func (h HitoCircuitoRRHH) validar() error {
 		!referenciaValida(h.ActorRef) || !h.PerfilClave.Valida() ||
 		!referenciaValida(h.PerfilRef) ||
 		!referenciaValida(h.UnidadRef) || !referenciaValida(h.ReciboRef) ||
-		!referenciaValida(h.AuditoriaRef) || !referenciaValida(h.EventoRef) ||
 		!instanteCanonico(h.RegistradoEn) {
 		return ErrCircuitoRRHHInvalido
 	}
@@ -332,6 +337,7 @@ func (e Expediente) AdjuntarHitosCircuito(
 		transicion, ok := definicion.transicion(h.Clave)
 		if !ok || transicion.Origen != siguiente.Circuito.EstadoActual ||
 			transicion.PerfilClave != h.PerfilClave ||
+			transicion.AutorizanteCargoClave != h.CargoAutorizanteClave ||
 			transicion.RequiereDocumento && h.DocumentoRef == "" ||
 			!firmasCircuitoCoinciden(transicion.FirmasRequeridas, h.Firmas) ||
 			h.ActuacionClave != ultima.AccionClave ||

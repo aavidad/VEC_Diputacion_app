@@ -35,15 +35,16 @@ type SolicitudRectificarAnalisis struct {
 }
 
 type ServicioOperacionAnalisis struct {
-	contextos     ports.ResolutorContextoAutorizacionAltaV3
-	artefactos    ports.PreparadorArtefactoAnalisisO3
-	sellador      ports.SelladorOperacionAnalisis
-	preparaciones ports.PreparadorOperacionAnalisisIdempotente
-	politicas     ports.ResolutorPoliticaOperacionAnalisis
-	correlaciones puertosvec.GeneradorReferenciasAutorizacionV2
-	autorizador   puertosvec.AutorizadorSolicitudLigadaV3
-	reloj         ports.Reloj
-	transaccion   ports.TransaccionOperacionesAnalisis
+	contextos          ports.ResolutorContextoAutorizacionAltaV3
+	artefactos         ports.PreparadorArtefactoAnalisisO3
+	sellador           ports.SelladorOperacionAnalisis
+	preparaciones      ports.PreparadorOperacionAnalisisIdempotente
+	politicas          ports.ResolutorPoliticaOperacionAnalisis
+	correlaciones      puertosvec.GeneradorReferenciasAutorizacionV2
+	autorizador        puertosvec.AutorizadorSolicitudLigadaV3
+	reloj              ports.Reloj
+	transaccion        ports.TransaccionOperacionesAnalisis
+	evidenciasCircuito ports.FuenteEvidenciasCircuitoRRHH
 }
 
 func NuevoServicioOperacionAnalisis(
@@ -319,6 +320,12 @@ func (s *ServicioOperacionAnalisis) ejecutar(
 	}
 
 	anterior := datosPreparacion.ExpedienteAnterior.Clonar()
+	if anterior.Circuito != nil &&
+		(solicitud.operacion != ports.OperacionRegistrarAnalisis ||
+			dependenciaNula(s.evidenciasCircuito)) {
+		return ports.ReciboOperacionAnalisis{},
+			errorDependenciaOperacionAnalisis(ctxOperacion)
+	}
 	actorAnterior, err := actorAnalisisAnterior(
 		anterior,
 		solicitud.operacion,
@@ -465,6 +472,16 @@ func (s *ServicioOperacionAnalisis) ejecutar(
 		}
 		return ports.ReciboOperacionAnalisis{},
 			nuevoErrorOperacionAnalisis(tipo, nil)
+	}
+	if anterior.Circuito != nil {
+		siguiente, err = s.adjuntarHitosAnalisisCircuitoRRHH(
+			ctxOperacion, anterior, siguiente,
+			vinculo.PrincipalID, vinculo.PerfilActivoRef,
+		)
+		if err != nil {
+			return ports.ReciboOperacionAnalisis{},
+				errorDependenciaOperacionAnalisis(ctxOperacion)
+		}
 	}
 	orden, err := ports.NuevaOrdenConfirmarOperacionAnalisis(
 		ports.DatosOrdenConfirmarOperacionAnalisis{
