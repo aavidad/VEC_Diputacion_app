@@ -1,18 +1,38 @@
-# Relación de Personal para RPT: borrador
+# Relación de Personal para RPT
 
-AD154 y Personal27 preparan una lectura nominal de una relación laboral para
-RPT-005/006. Ambos archivos llevan un paro explícito y la extensión `.borrador`.
-No hay migración instalable, DOWN, instalación ni capacidad montada acreditada.
+AD154 y Personal27 preparan la lectura nominal de una relación laboral para
+RPT-005/006. Las migraciones UP/DOWN y el ensayo están en sus directorios
+habituales. La lista `deploy/principal/lista_sql_codexb_rpt_20261003.txt`
+contiene únicamente AD154 → Personal27 y requiere POST149 acreditada.
+No se reaplican AD149 ni Personal26. No hay instalación en principal ni
+montaje de esta capacidad acreditados por esta candidata.
 
-El contrato procede del lector Go `1871cab4e14eabe5394bba072b7a714dd9f25c86`,
-con los ajustes de `9f0ae4d688a830e9e1be36291957c45205e112fb`, y del apartado
-RPT-005/006 de [Personal](../../../../docs/plan_modulos/personal.md). Personal
-aporta el hecho laboral; Organización/RPT decide ocupación, reserva y vacantes.
+El lector Go procede de #437, con contrato final
+`9f0ae4d688a830e9e1be36291957c45205e112fb`. Personal aporta el hecho laboral;
+Organización/RPT decide ocupación, reserva y vacantes. No se presta la
+concesión, la ficha ni la evidencia B2 a la nueva lectura.
 
-La consulta conserva el actor, la cuenta, el perfil y el contexto originales.
-El empleado objetivo puede ser otra persona si existe una concesión exacta.
-La frontera inicial exige la superficie acreditada `interna_corporativa`;
-un contexto externo se deniega sin cambiar su perfil.
+## Preimagen causal
+
+La captura PG18.4 procede del clon principal, después del reanclaje CRN11
+`b2a9bcb9278effa68ec1e89ad63e80624ea90291`. Conserva AD155 y las demás
+extensiones instaladas. Personal17 aporta `relacion_servicio_historia`,
+sus funciones de validación y su historia. Méritos/Baremo no son dependencias
+funcionales del consumidor: su ausencia no exige instalarlos.
+
+| Captura POST149 | SHA256 |
+| --- | --- |
+| Definición del núcleo | `d912064d905e4349ffb2e1e8f1aab1aebef71e1fd842d5603373c4e6236fcd15` |
+| Cuerpo del núcleo | `1bb33d97bf8bbaa7f97dec4e1af1aa41577be38cea17f4b18375346cf7d62dcd` |
+| CHECK de audiencias | `0ba3eabde2f45d27afd278cfc008ddc0c3a24cc6d0e5de790b5c6d65dec906a6` |
+
+AD154 exige esas huellas, marcas únicas y los metadatos/ACL/dependencias
+previos. Su inversa textual conserva el núcleo completo, sin ejecutar DOWN.
+Añade exclusivamente la audiencia `vec_personal.relacion_rpt.v1` al CHECK
+validado. Las dependencias de Personal se inspeccionan por `pg_catalog`;
+Autorización no recibe acceso a la fuente laboral.
+
+## Consulta y permisos
 
 | Elemento | Contrato nominal |
 | --- | --- |
@@ -26,64 +46,53 @@ un contexto externo se deniega sin cambiar su perfil.
 | Campos, en orden | `cobertura`, `corte`, `estado`, `periodo`, `procedencia`, `version` |
 | Obligaciones | Lista vacía |
 
-Personal27 reconstruye los 17 campos del material
-`vec.personal.relacion-rpt.consulta.v1`, operación `relacion_para_rpt`, y la
-huella del contexto del recurso. `version_esperada` es un número en ese
-material y una cadena decimal en los atributos. El actor se revalida con el
-reloj actual, aunque el corte de conocimiento sea histórico.
+La consulta conserva actor, cuenta, perfil y contexto originales. Otro
+empleado puede ser objetivo sólo con concesión positiva para esa relación,
+organismo, versión y corte. La superficie exigida es `interna_corporativa`;
+no se transforma un contexto externo ni se deduce permiso de la titularidad.
+El material canónico conserva sus 17 campos y el actor se revalida con el
+reloj actual, aunque se solicite un corte histórico.
 
-La fuente es `vec_personal.relacion_servicio_historia`, de Personal17.
-Se selecciona primero la última revisión conocida de la relación y después
-se cotejan empleado, organismo y versión; no se rescata una revisión anterior
-para obtener coincidencia. El estado y el periodo proceden de la fila real.
-`hasta` es una cadena vacía para un periodo abierto. Los indicadores de firma
-y eficacia de esta fuente permanecen falsos: la respuesta conserva
-`certeza: no_acreditado` y `cobertura: no_acreditada`. Devuelve únicamente
-`relacion`, `corte`, `cobertura` y la evidencia nominal de seis campos.
+Personal27 selecciona la última revisión conocida de la relación y después
+coteja empleado, organismo y versión. No rescata una revisión anterior para
+obtener coincidencia. Conserva estado y periodo de la fuente, con `hasta`
+vacía para un intervalo abierto. La respuesta mantiene `no_acreditado` y
+`no_acreditada`: no atribuye firma ni eficacia administrativa a B2.
 
-El LOGIN de lectura tendrá una sola membresía directa en
-`vec_personal_ejecutor`, con `INHERIT TRUE`, `SET FALSE` y `ADMIN FALSE`.
-La fachada AD solo concede ejecución a `vec_personal_propietario`.
-Consumo V3, lectura, recibo y auditoría se confirman en la misma transacción
-SERIALIZABLE. El consumo precede al bloqueo de la relación, como en Personal19.
-El control de generaciones de Personal27 detecta una instantánea obsoleta
-frente a nuevas filas en la historia de solo adición.
+Consumo V3, lectura, recibo y auditoría se confirman en una transacción
+SERIALIZABLE. El consumo precede al bloqueo de la relación. El control de
+generaciones conserva la fuente y detecta una instantánea obsoleta con
+`40001`; cualquier fallo revierte los efectos de la lectura.
 
-Los intentos fallidos se registran después del rollback mediante otro LOGIN
-y otro pool. Su único grupo, `vec_personal_registrador_intento_relacion_rpt`,
-ejecuta `registrar_denegacion_relacion_para_rpt_v1(text,text,text,text)` y no
-puede leer la fuente ni la tabla de intentos. Conserva una correlación real,
-un motivo nominal (`entrada_invalida`, `denegado` o `no_disponible`), actor
-nulo si no está acreditado y relación nula si no es válida. El instante lo
-fija SQL. No registra cortes, hechos laborales, errores internos ni una
-concesión inventada. Cada lectura requiere preflight; ausencia o fallo
-mantienen cerrado el cliente.
+El LOGIN lector tiene un solo grupo directo, `vec_personal_ejecutor`, con
+`INHERIT TRUE`, `SET FALSE` y `ADMIN FALSE`. Los intentos usan otro LOGIN/pool
+y su único grupo, `vec_personal_registrador_intento_relacion_rpt`. Ese grupo
+sólo ejecuta el registrador; no lee historia, control, recibos ni intentos.
+El fallo se registra después del rollback, con correlación y motivo cerrados.
+Un actor sin identidad actual acreditada queda nulo. Cada lectura exige
+preflight del registrador y un fallo mantiene cerrado el cliente.
 
-AD154 conserva como contrato la preimagen POST-AD149 congelada de ensayo:
-definición `8efb8ae6ceffc5d3c3736a1b8b83543dd6a083eb0ae03eb8f0f4a1e2d3e9b232`,
-fuente `da14ce5ef628586ebc1280cd62e6b7da1f57fea9c9b6f6f4233fbecd84c558b9` y
-CHECK de audiencias `3ed762b21ac10a8b2c8076c4832b57545f1e3ef93ebd41cf11939466e6b36802`.
-El modelo es AD149 `9a58bcb9eea7556b96603dd247568d2a1b340af0`.
-Esas huellas no acreditan el estado actual de main ni de la principal.
-La conversión queda condicionada a verificar la integración y publicación
-de AD149 y a fijar la huella exacta del núcleo que Dirección recapture.
-La modificación comprueba preimagen, marcas únicas, propietario, metadatos,
-ACL y dependencias; su inversa textual debe recuperar exactamente el núcleo
-original, incluidos CRN11, Méritos y Baremo.
-Las dependencias de Personal se inspeccionan por `pg_catalog`; AD154 no
-concede `USAGE` ni lectura de Personal al propietario de Autorización.
+## Comprobación y límites
 
-Antes de convertir estos borradores en candidatas, Dirección debe recapturar
-el núcleo y las audiencias del main publicado con AD144, AD149 y las
-extensiones integradas de A/E conservadas, fijar el orden causal AD154 →
-Personal27 y obtener dos GO sensibles sobre el contenido final. Quedan el
-ensayo PostgreSQL18 en el clon, la provisión privada de ambos LOGIN/pools,
-la instalación autorizada, el montaje y la admisión del consumidor real.
-El reproductor está incompleto y mantiene PARO. Sus casos preparados no son
-resultados de pruebas. Quedan por validar la conservación de la fuente17 y la
-revocación actual, y el lector Go con ambos pools reales ante ausencia o fallo
-del registro. Dirección también debe fijar la cota de disco del entorno de
-prueba. No se han ejecutado pruebas SQL ni recorrido con estos borradores.
+Dirección ejecuta el ensayo en el clon POST149 autorizado y fija la huella
+del snapshot previo. El reproductor exige cesión del clon, dos revisiones
+del hash exacto, límites del entorno y módulos locales sin descargas. Usa
+COSE EdDSA y HMAC reales con fuentes, identidades y PDP sintéticos explícitos.
+No acredita IdP, fuente institucional ni política de RRHH.
 
-Este contrato no acredita grado, antigüedad calculada, vacante, certificado,
-firma ni incorporación eficaz. Los demás módulos conservan su autoridad.
+El ensayo conserva funciones previas, CHECK, ACL, metadatos, dependencias y
+filas anteriores de Personal17. La comparación inversa normaliza sólo el
+literal de audiencia RPT y exige una aparición. Incluye estados, objetivos
+y versiones, revocación, negativos de material/COSE, intentos segregados,
+registrador caído y concurrencia `40001`. Todavía falta ejecutar estos casos
+y la prueba del adaptador Go con ambos pools reales para cerrar la candidata.
+
+Los DOWN están preparados y no se ejecutan durante el ensayo. Personal27
+rechaza retirada con recibos, intentos o LOGIN registradores provisionados;
+AD154 la rechaza con claves de esa audiencia o dependencias Personal27.
+No borrar historia ni usar DOWN sobre una instalación conservada.
+
+Quedan dos revisiones sensibles finales, ensayo y provisión privada de los
+LOGIN/pools. El montaje requiere emisor V3, contexto y material nominales
+admitidos: un flag no concede acceso. Esta pieza no acredita ocupación,
+vacante, grado, antigüedad calculada, certificado ni incorporación eficaz.

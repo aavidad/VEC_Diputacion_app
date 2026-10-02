@@ -1,19 +1,14 @@
 \set ON_ERROR_STOP on
--- Personal 000027. BORRADOR: definición completa para revisión; no instalar.
+-- Personal 000027: lectura nominal de relación laboral para RPT.
 -- Fuente Go del lector: 1871cab4e14eabe5394bba072b7a714dd9f25c86.
 -- Contrato de intentos y vigencia actual: 9f0ae4d688a830e9e1be36291957c45205e112fb.
 -- Orden causal: AD3-154 nominal -> Personal27 -> provisión privada de dos
 -- LOGIN/pools independientes -> ensayo PostgreSQL18 -> integración autorizada.
 -- La reserva 27 comprende el control de generaciones, recibos, intentos y su
 -- rol técnico propio. No modifica Personal13/17/19/22, B2, Cronos ni CT.
--- PARO: faltan preimagen real post-AD149, ensayo en clon y dos GO sensibles
--- sobre el contenido final. Dirección debe verificar esos requisitos antes
--- de convertir este borrador en una migración. Sin DOWN ni reaplicación.
-DO $paro$
-BEGIN
- RAISE EXCEPTION 'PARO Personal27: borrador sin preimagen, ensayo y dos revisiones finales'
- USING ERRCODE='55000';
-END $paro$;
+-- AD154 parte de la preimagen causal POST149 del clon principal PG18.4.
+-- Integrar e instalar sólo tras revisión y ensayo del hash final.
+-- No reaplicar sobre una instalación existente ni retirar historia conservada.
 
 BEGIN;
 SET LOCAL search_path=pg_catalog;
@@ -33,7 +28,11 @@ BEGIN
  OR to_regclass('vec_personal.control_generacion_relacion_rpt') IS NOT NULL
  OR to_regclass('vec_personal.recibo_relacion_para_rpt') IS NOT NULL
  OR to_regclass('vec_personal.denegacion_relacion_para_rpt') IS NOT NULL
- THEN RAISE EXCEPTION 'Personal27: bootstrap o preimagen incompatible' USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'PARO clave=Personal27.bootstrap, actual=%/%/%, esperado=true/true/true',
+  EXISTS(SELECT 1 FROM pg_roles WHERE rolname=current_user AND rolsuper),
+  to_regnamespace('vec_personal') IS NOT NULL,
+  NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='vec_personal_registrador_intento_relacion_rpt')
+  USING ERRCODE='55000'; END IF;
  CREATE ROLE vec_personal_registrador_intento_relacion_rpt
   NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE INHERIT NOREPLICATION NOBYPASSRLS;
  EXECUTE format('GRANT CONNECT ON DATABASE %I TO vec_personal_registrador_intento_relacion_rpt',current_database());
@@ -51,7 +50,10 @@ BEGIN
  OR to_regprocedure('vec_personal.consultar_relacion_para_rpt_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
  OR to_regprocedure('vec_personal.registrar_denegacion_relacion_para_rpt_v1(text,text,text,text)') IS NOT NULL
  OR to_regprocedure('vec_personal.avanzar_generacion_relacion_rpt_v1()') IS NOT NULL
- THEN RAISE EXCEPTION 'Personal27: dependencias o preimagen incompatible' USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'PARO clave=Personal27.preimagen, actual=%/%/%, esperado=true/true/true',
+  current_user='vec_personal_propietario',consumidor IS NOT NULL,
+  to_regclass('vec_personal.relacion_servicio_historia') IS NOT NULL
+  USING ERRCODE='55000'; END IF;
  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='vec_personal_propietario'
    AND NOT rolcanlogin AND NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole
    AND NOT rolreplication AND NOT rolbypassrls)
@@ -89,7 +91,14 @@ BEGIN
      'firma_oficial','eficacia_administrativa'))<>13
  OR NOT EXISTS (SELECT 1 FROM pg_attribute a WHERE a.attrelid='vec_personal.relacion_servicio_historia'::regclass
    AND a.attname='revision' AND NOT a.attisdropped AND a.attnotnull AND a.atttypid='integer'::regtype)
- THEN RAISE EXCEPTION 'Personal27: roles, fuente o consumidor nominal incompatibles' USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'PARO clave=Personal27.fuente_roles, actual=%/%/%, esperado=true/13/true',
+  has_function_privilege('vec_personal_propietario',consumidor,'EXECUTE'),
+  (SELECT count(*) FROM pg_attribute a WHERE a.attrelid='vec_personal.relacion_servicio_historia'::regclass
+    AND NOT a.attisdropped AND a.attnum>0 AND a.attname IN ('relacion_ref','revision','empleado_ref','organismo_ref',
+      'estado','vigente_desde','vigente_hasta','conocido_desde','acto_ref','fuente_ref','fuente_version',
+      'firma_oficial','eficacia_administrativa')),
+  NOT EXISTS(SELECT 1 FROM pg_auth_members WHERE member='vec_personal_registrador_intento_relacion_rpt'::regrole)
+  USING ERRCODE='55000'; END IF;
 END $pre$;
 
 -- El control contiene sólo referencia y generación, sin datos laborales.

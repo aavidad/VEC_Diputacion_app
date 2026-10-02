@@ -1,21 +1,15 @@
 \set ON_ERROR_STOP on
--- AD154. BORRADOR completo de consumidor nominal de relación para RPT.
+-- AD154: consumidor nominal de relación de Personal para RPT.
 -- Fuente Go: 1871cab4e14eabe5394bba072b7a714dd9f25c86; contrato posterior
 -- 9f0ae4d688a830e9e1be36291957c45205e112fb. No modifica código Go.
--- PARO: fuente POST-AD149 congelada de ensayo, no preimagen vigente de main.
--- Falta recapturar el núcleo publicado que conserve AD144/AD149 y las
--- extensiones integradas de A/E; luego dos GO exactos y ensayo en clon.
--- Dirección convierte una candidata sólo tras ordenar esas dependencias.
--- El número 154 no crea una dependencia. Sin UP instalable ni DOWN.
+-- Preimagen causal POST149 capturada en PG18.4 tras AD155, B77 e importación5.
+-- AD149 reanclado b2a9bcb9278effa68ec1e89ad63e80624ea90291.
+-- Conserva toda extensión presente; no exige Méritos ni Baremo ausentes.
+-- La integración y la instalación requieren revisión y ensayo del hash final.
 -- Actor, cuenta, perfil y contexto originales se revalidan sin relabel.
 -- Sólo superficie acreditada interna_corporativa en esta frontera inicial.
 -- Un actor externo se deniega; no se transforma su perfil para admitirlo.
 -- Personal posee la relación; M posee ocupación, reserva y vacantes.
-DO $paro$
-BEGIN
- RAISE EXCEPTION 'PARO AD154: borrador sin preimagen vigente, ensayo y dos revisiones finales'
- USING ERRCODE='55000';
-END $paro$;
 BEGIN;
 SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
 SET LOCAL search_path=pg_catalog,pg_temp;
@@ -40,9 +34,11 @@ BEGIN
      AND p.pronargs=0 AND p.prokind='f' AND p.prorettype='trigger'::regtype
      AND p.proowner='vec_personal_propietario'::regrole)
  OR to_regprocedure('vec_autorizacion_atestada_v3.consumir_vinculo_propio_crn11_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
- OR to_regprocedure('vec_autorizacion_atestada_v3.consumir_operacion_meritos_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
- OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_gobierno_borrador_reglas_baremo_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
- THEN RAISE EXCEPTION 'AD154: dependencias o preimagen incompatibles' USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'PARO clave=AD154.preimagen, actual=%/%/%, esperado=true/true/true',
+  current_user='vec_autorizacion_atestada_v3_propietario',
+  to_regprocedure('vec_autorizacion_atestada_v3.consumir_relacion_para_rpt_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL,
+  to_regprocedure('vec_autorizacion_atestada_v3.consumir_vinculo_propio_crn11_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
+  USING ERRCODE='55000'; END IF;
  FOREACH rol IN ARRAY ARRAY['vec_personal_propietario','vec_personal_migrador','vec_personal_ejecutor'] LOOP
   IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=rol AND NOT rolcanlogin
    AND NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole AND NOT rolreplication AND NOT rolbypassrls) THEN
@@ -56,10 +52,9 @@ DECLARE
  f oid:=to_regprocedure('vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
  original text; nuevo text; actual text; fuente text; meta jsonb; deps jsonb; deps_compartidas jsonb; acl aclitem[];
  propietario oid; config text[]; definidora boolean;
- -- Preimagen POST-AD149 congelada y cotejada en PG18.4.
- -- Son contratos de este borrador: recapturar antes de convertir a candidata.
- esperada_def_sha256 text:=$esperada_def_sha256$8efb8ae6ceffc5d3c3736a1b8b83543dd6a083eb0ae03eb8f0f4a1e2d3e9b232$esperada_def_sha256$;
- esperada_fuente_sha256 text:=$esperada_fuente_sha256$da14ce5ef628586ebc1280cd62e6b7da1f57fea9c9b6f6f4233fbecd84c558b9$esperada_fuente_sha256$;
+ -- Preimagen causal POST149 medida en el clon principal PG18.4.
+ esperada_def_sha256 text:=$esperada_def_sha256$d912064d905e4349ffb2e1e8f1aab1aebef71e1fd842d5603373c4e6236fcd15$esperada_def_sha256$;
+ esperada_fuente_sha256 text:=$esperada_fuente_sha256$1bb33d97bf8bbaa7f97dec4e1af1aa41577be38cea17f4b18375346cf7d62dcd$esperada_fuente_sha256$;
  marca text:=$marca$       )
        OR c ->> 'suite' <> 'VEC-AD-3-COSE-EDDSA-1'$marca$;
  excl text:=$excl$               p_perfil_mutacion IS DISTINCT FROM 'bolsa_llamamiento'
@@ -156,12 +151,10 @@ BEGIN
     OR strpos(original,'vinculo_propio_historico_crn11')=0
     OR strpos(original,'personal.vinculo_propio.crn11.consultar')=0
     OR strpos(original,'vec_personal.vinculo_propio.crn11.v1')=0
-    OR strpos(original,'meritos.hecho.declarar')=0
-    OR strpos(original,'meritos.hecho.rectificar')=0
-    OR strpos(original,'meritos.hecho.rechazar')=0
-    OR strpos(original,'gobierno_borrador_reglas_baremo')=0
-    OR strpos(original,'vec_bolsa_reglas_baremo.gobierno_borrador.v3')=0
- THEN RAISE EXCEPTION 'AD3-154: núcleo incompatible' USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'PARO clave=AD154.nucleo, actual=%/%/%, esperado=%/%/%',
+  encode(sha256(convert_to(original,'UTF8')),'hex'),encode(sha256(convert_to(fuente,'UTF8')),'hex'),config,
+  esperada_def_sha256,esperada_fuente_sha256,ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s']
+  USING ERRCODE='55000'; END IF;
  nuevo:=replace(original,runtime,runtime_nuevo);
  nuevo:=replace(nuevo,excl,excl_nuevo);
  nuevo:=replace(nuevo,marca,extension||marca);
@@ -189,12 +182,12 @@ BEGIN
  SELECT pg_get_constraintdef(c.oid,true) INTO STRICT d FROM pg_constraint c
  WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
    AND c.conname='clave_capacidad_version_audiencia_consumo_check' AND c.contype='c' AND c.convalidated;
- IF encode(sha256(convert_to(d,'UTF8')),'hex') IS DISTINCT FROM '3ed762b21ac10a8b2c8076c4832b57545f1e3ef93ebd41cf11939466e6b36802'
+ IF encode(sha256(convert_to(d,'UTF8')),'hex') IS DISTINCT FROM '0ba3eabde2f45d27afd278cfc008ddc0c3a24cc6d0e5de790b5c6d65dec906a6'
     OR strpos(d,'CHECK (audiencia_consumo = ANY (ARRAY[')<>1 OR right(d,3)<>']))'
     OR strpos(d,'vec_personal.relacion_rpt.v1')<>0
-    OR strpos(d,'vec_personal.vinculo_propio.crn11.v1')=0
-    OR strpos(d,'vec_bolsa_reglas_baremo.gobierno_borrador.v3')=0 THEN
-  RAISE EXCEPTION 'AD154: preimagen de audiencias incompatible' USING ERRCODE='55000';
+    OR strpos(d,'vec_personal.vinculo_propio.crn11.v1')=0 THEN
+  RAISE EXCEPTION 'PARO clave=AD154.audiencias, actual=%, esperado=0ba3eabde2f45d27afd278cfc008ddc0c3a24cc6d0e5de790b5c6d65dec906a6',
+   encode(sha256(convert_to(d,'UTF8')),'hex') USING ERRCODE='55000';
  END IF;
  nueva:=left(d,length(d)-3)||', ''vec_personal.relacion_rpt.v1''::text]))';
  ALTER TABLE vec_autorizacion_atestada_v3.clave_capacidad_version DROP CONSTRAINT clave_capacidad_version_audiencia_consumo_check;

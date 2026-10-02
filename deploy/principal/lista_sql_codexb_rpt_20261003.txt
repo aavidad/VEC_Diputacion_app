@@ -1,0 +1,3 @@
+# Requiere POST149 causal ya acreditada; no reaplicar AD149/Personal26.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000154_consumidor_relacion_para_rpt.up.sql
+deploy/postgresql/personal/migraciones/000027_relacion_para_rpt.up.sql
