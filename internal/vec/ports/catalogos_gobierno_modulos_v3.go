@@ -17,18 +17,19 @@ type IdentidadGobiernoModulosV3 struct {
 // institucional. El repositorio coteja versión, huella, perfil y registro
 // compuesto con CAT6 dentro de la transacción; esta prelectura no autoriza.
 type ConfiguracionGobiernoModulosAprobada struct {
-	Version          int64
-	HuellaSHA256     string
-	RegistroSHA256   string
-	CatalogoID       string
-	PerfilFijoRef    string
-	FinalidadRef     string
-	Registrados      []string
-	Gobernados       []string
-	MotivoCrear      domain.ReferenciaEntradaCatalogo
-	MotivoActualizar domain.ReferenciaEntradaCatalogo
-	MotivoPublicar   domain.ReferenciaEntradaCatalogo
-	MotivoRetirar    domain.ReferenciaEntradaCatalogo
+	Version            int64
+	HuellaSHA256       string
+	RegistroVersionRef string
+	RegistroSHA256     string
+	CatalogoID         string
+	PerfilFijoRef      string
+	FinalidadRef       string
+	Registrados        []string
+	Gobernados         []string
+	MotivoCrear        domain.ReferenciaEntradaCatalogo
+	MotivoActualizar   domain.ReferenciaEntradaCatalogo
+	MotivoPublicar     domain.ReferenciaEntradaCatalogo
+	MotivoRetirar      domain.ReferenciaEntradaCatalogo
 }
 
 // FuenteGobiernoModulosV3 obtiene identidad y configuración de proveedores
