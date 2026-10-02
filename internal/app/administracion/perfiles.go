@@ -3,8 +3,10 @@ package administracion
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io/fs"
 	"mime"
+	"net"
 	"net/http"
 	"path"
 	"strings"
@@ -18,21 +20,25 @@ import (
 // Las implementaciones deben revalidar autorización y CAS en el efecto/replay.
 // Activos contiene únicamente los archivos públicos del ensamblaje ADMIN.
 type DependenciasPerfiles struct {
-	Sesiones api.ResolvedorSesion
-	Lecturas api.FuenteLecturas
-	Catalogo ports.CatalogoRolesAdministrables
-	Actos    ports.AutoridadActosAdministracionPerfiles
-	Auditor  api.AuditorFrontera
-	Reloj    ports.Reloj
-	Activos  fs.FS
+	// ContextoConexion se obtiene del resolver ADMIN, nunca del cliente.
+	ContextoConexion func(context.Context, net.Conn) context.Context
+	Sesiones         api.ResolvedorSesion
+	Lecturas         api.FuenteLecturas
+	Catalogo         ports.CatalogoRolesAdministrables
+	Actos            ports.AutoridadActosAdministracionPerfiles
+	Auditor          api.AuditorFrontera
+	Reloj            ports.Reloj
+	Activos          fs.FS
 }
 
 type handlerPerfilesADMIN struct {
-	api      http.Handler
-	activos  fs.FS
-	rutas    map[string]string
-	sesiones api.ResolvedorSesion
-	lecturas api.FuenteLecturas
+	contextoConexion func(context.Context, net.Conn) context.Context
+	api              http.Handler
+	activos          fs.FS
+	rutas            map[string]string
+	sesiones         api.ResolvedorSesion
+	lecturas         api.FuenteLecturas
+	auditor          api.AuditorFrontera
 }
 
 func NuevoServidorConPerfiles(cfg Configuracion, deps DependenciasPerfiles) (*http.Server, error) {
@@ -94,7 +100,7 @@ func nuevoHandlerPerfiles(origen string, deps DependenciasPerfiles) (*handlerPer
 			return nil, ErrConfiguracion
 		}
 	}
-	return &handlerPerfilesADMIN{api: handler, activos: deps.Activos, rutas: rutas, sesiones: deps.Sesiones, lecturas: deps.Lecturas}, nil
+	return &handlerPerfilesADMIN{api: handler, activos: deps.Activos, rutas: rutas, sesiones: deps.Sesiones, lecturas: deps.Lecturas, auditor: deps.Auditor, contextoConexion: deps.ContextoConexion}, nil
 }
 
 func (h *handlerPerfilesADMIN) atiende(ruta string) bool {
@@ -120,8 +126,8 @@ func (h *handlerPerfilesADMIN) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	}
 	// La frontera externa ya cotejó CA/CRL/Host/red. Una hoja admitida sigue
 	// sin conceder acceso ADMIN: la sesión y capacidad de lectura son centrales.
-	if !h.puedeLeerActivos(r.Context(), r) {
-		w.WriteHeader(http.StatusForbidden)
+	if estado := h.estadoLecturaActivos(r.Context(), r); estado != http.StatusOK {
+		w.WriteHeader(estado)
 		return
 	}
 	contenido, err := fs.ReadFile(h.activos, fichero)
@@ -138,21 +144,51 @@ func (h *handlerPerfilesADMIN) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Referrer-Policy", "no-referrer")
 	w.Header().Set("Content-Security-Policy", "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self'; font-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'")
+	// #nosec G705 -- Activos públicos del ensamblaje, con ruta fija; no hay contenido ni plantilla del usuario.
 	_, _ = w.Write(contenido)
 }
-func (h *handlerPerfilesADMIN) puedeLeerActivos(ctx context.Context, r *http.Request) bool {
+func (h *handlerPerfilesADMIN) estadoLecturaActivos(ctx context.Context, r *http.Request) int {
+	for _, nombre := range []string{"Authorization", "Proxy-Authorization", "Cookie", "X-Remote-User", "X-Forwarded-Client-Cert", "X-Client-Cert", "X-SSL-Client-Cert"} {
+		if len(r.Header.Values(nombre)) != 0 {
+			return h.denegarActivos(ctx, http.StatusUnauthorized, "autenticacion_requerida")
+		}
+	}
 	sesion, err := h.sesiones.ResolverSesionADMIN(ctx, r)
-	if err != nil || sesion.Actor.Validar() != nil || sesion.InstantaneaAutorizacion.Validar() != nil || sesion.Actor.PersonaRef != sesion.InstantaneaAutorizacion.AsignacionPerfil.PrincipalID || sesion.Actor.PerfilActivoRef != sesion.InstantaneaAutorizacion.AsignacionPerfil.PerfilActivoRef {
-		return false
+	if err != nil {
+		estado, codigo := http.StatusServiceUnavailable, "servicio_no_disponible"
+		if errors.Is(err, api.ErrAutenticacionRequerida) {
+			estado, codigo = http.StatusUnauthorized, "autenticacion_requerida"
+		}
+		if errors.Is(err, api.ErrAccesoDenegado) {
+			estado, codigo = http.StatusForbidden, "acceso_denegado"
+		}
+		return h.denegarActivos(ctx, estado, codigo)
+	}
+	if sesion.Actor.Validar() != nil || sesion.InstantaneaAutorizacion.Validar() != nil ||
+		sesion.Actor.PersonaRef != sesion.InstantaneaAutorizacion.AsignacionPerfil.PrincipalID || sesion.Actor.PerfilActivoRef != sesion.InstantaneaAutorizacion.AsignacionPerfil.PerfilActivoRef {
+		return h.denegarActivos(ctx, http.StatusServiceUnavailable, "servicio_no_disponible")
 	}
 	capacidades, err := h.lecturas.Capacidades(ctx, sesion.Actor)
-	if err != nil || capacidades.Version != "v1" || capacidades.ActorPersonaRef != sesion.Actor.PersonaRef {
-		return false
+	// FuenteLecturas conserva la auditoría de esta lectura, incluida denegación.
+	if err != nil {
+		if errors.Is(err, api.ErrAccesoDenegado) {
+			return http.StatusForbidden
+		}
+		return http.StatusServiceUnavailable
+	}
+	if capacidades.Version != "v1" || capacidades.ActorPersonaRef != sesion.Actor.PersonaRef {
+		return http.StatusServiceUnavailable
 	}
 	for _, accion := range capacidades.Acciones {
 		if accion == "consultar" {
-			return true
+			return http.StatusOK
 		}
 	}
-	return false
+	return http.StatusForbidden
+}
+func (h *handlerPerfilesADMIN) denegarActivos(ctx context.Context, estado int, codigo string) int {
+	if h.auditor == nil || h.auditor.RegistrarDenegacionADMIN(ctx, api.DenegacionADMIN{Codigo: codigo, Accion: "consultar", RecursoRef: "administracion:perfiles:activos"}) != nil {
+		return http.StatusServiceUnavailable
+	}
+	return estado
 }

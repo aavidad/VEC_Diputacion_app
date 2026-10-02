@@ -299,6 +299,7 @@ export function montarAdministracionPerfiles({ documento = globalThis.document, 
       elementos.motivo.append(opcion);
     });
     elementos.motivo.value = "";
+    elementos.motivo.disabled = false;
     elementos.acto.value = "";
     elementos.acto.disabled = false;
     elementos.actoGrupo.hidden = seleccion.tipo === "cierre";
@@ -320,12 +321,14 @@ export function montarAdministracionPerfiles({ documento = globalThis.document, 
     evento.preventDefault();
     if (!decisionPendiente || peticionDecision || !elementos.motivo.value) return;
     const seleccion = decisionPendiente;
-    const motivo = seleccion.motivos[Number(elementos.motivo.value)];
+    const motivo = seleccion.motivo ?? seleccion.motivos[Number(elementos.motivo.value)];
     if (!motivoValido(motivo)) return;
     let referenciaActo;
     try { referenciaActo = seleccion.referenciaActo ?? referenciaActoParaPOST(elementos.acto.value); }
     catch { errorDialogo("error_acto"); elementos.acto.focus(); return; }
     seleccion.referenciaActo = referenciaActo;
+    seleccion.motivo = motivo;
+    elementos.motivo.disabled = true;
     elementos.acto.disabled = true;
     const controlador = new AbortController();
     peticionDecision = controlador;
