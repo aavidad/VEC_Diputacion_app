@@ -67,7 +67,7 @@ func (r *RegistroIntentosLectorRelacionRPT) RegistrarIntentoRelacionRPT(ctx cont
 	}
 	// Actor declarado inválido se conserva como error de entrada, nunca como una
 	// identidad alternativa. La orden siempre nombra a la frontera original.
-	correlacion, err := correlacionLectorRelacionRPT(ctx)
+	correlacion, err := vecports.ReferenciaCorrelacionAutorizacionV2DePeticion(ctx)
 	if err != nil {
 		return domain.ErrLectorRelacionRPTNoDisponible
 	}

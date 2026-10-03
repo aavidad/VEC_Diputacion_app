@@ -8,7 +8,10 @@ La fuente mantiene certeza y cobertura no acreditadas; la lectura no decide
 ocupación, reserva ni vacante RPT.
 
 El montaje recibe identidad registrada, emisor V3, motivo de autorización,
-pool de lectura, reloj, plazo de resolución de identidad y registrador común.
+pool de lectura, reloj, plazo de resolución de identidad, registrador nominal
+y `EmisorResultadosTecnicosConContexto` común.
+`ConfiguracionResultadosTecnicosLectorRPT` exige componente y etapa del catálogo
+cerrado de L; no hay emisor opcional ni sustituto nulo.
 `ConfiguracionIntentosLectorRPT` exige proceso, canal, recurso técnico para entrada
 inválida y tres motivos de catálogo: denegado, entrada inválida y no disponible.
 Son configuración confiable; ningún valor se toma del cuerpo de la petición.
@@ -26,10 +29,11 @@ resuelve otro perfil ni se renueva un permiso. Sin identidad histórica acredita
 el puerto común no admite el intento nominal: el lector queda no disponible.
 
 La frontera de transporte debe crear la correlación común mediante
-`ConCorrelacionIncidenciasPeticion`. El lector usa exclusivamente su getter
-privado: los 32 dígitos hexadecimales técnicos se representan en V3 con el prefijo
-`correlacion_`. No genera otra correlación ni acepta texto del cliente. Su ausencia
-impide iniciar la lectura.
+`ConCorrelacionIncidenciasPeticion`. El lector llama a
+`ReferenciaCorrelacionAutorizacionV2DePeticion` del puerto común: los 32 dígitos
+hexadecimales técnicos se representan en V3 con el prefijo `correlacion_`. No
+genera otra correlación ni acepta texto del cliente. Su ausencia impide iniciar
+la lectura.
 
 La lectura permitida conserva consumo V3, recibo y auditoría en la transacción de
 Personal. Denegaciones y errores se registran al retornar el repositorio, después
@@ -49,7 +53,19 @@ incluye datos. Esta retención permite recuperar un COMMIT ambiguo durante la
 operación; no ofrece una API de recuperación del lector tras reiniciar el proceso.
 
 Este montaje no activa rutas HTTP ni concede permisos. El ensayo PostgreSQL de
-Personal27 y el consumo del puerto común se verifican aparte. El emisor técnico
-vigente expone incidencias: falta el contrato común de resultados técnicos para
-registrar tanto lecturas correctas como fallidas sin convertirlas en incidencias.
-Ese requisito mantiene la entrega en borrador hasta que L publique su contrato.
+Personal27 y el consumo del puerto común se verifican aparte.
+
+El decorador emite un resultado técnico al terminar cada llamada: correcto,
+denegado, entrada inválida, cancelado o no disponible. Abarca también los rechazos
+anteriores al servicio. El emisor JSONL común de L conserva la correlación y sólo
+admite los campos del catálogo; no recibe persona, recurso, errores ni texto libre.
+No marca la supresión HTTP. Un fallo o descarte de su cola o destino se contabiliza
+sin invalidar el recibo de negocio ni repetir la lectura.
+
+La dependencia de código es el puerto publicado por L en
+`3d109adec189a9ad1c8317427b75768d4537c196` (#511). Los ensayos focales del lector
+recorren ese emisor JSONL real y sus métricas, incluidos cancelación, falta de
+correlación y fallos del destino técnico. No acreditan una lectura real con SQL,
+HTTP o recuperación de proceso. La configuración positiva de proceso y canal del
+registrador nominal pertenece a L/DBA y sigue siendo un requisito de montaje;
+no se presume por conectar el emisor técnico.

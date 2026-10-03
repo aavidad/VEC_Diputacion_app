@@ -60,7 +60,7 @@ func (p *ProveedorAutorizacionLectorRelacionRPT) AutorizarRelacionParaRPT(ctx co
 	if err != nil || !bytes.Equal(canonActor, identidad.Resultado.RepresentacionCanonica) {
 		return vacio, personaldomain.ErrLectorRelacionRPTNoDisponible
 	}
-	correlacion, err := correlacionLectorRelacionRPT(ctx)
+	correlacion, err := vecports.ReferenciaCorrelacionAutorizacionV2DePeticion(ctx)
 	if err != nil {
 		return vacio, personaldomain.ErrLectorRelacionRPTNoDisponible
 	}
