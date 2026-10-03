@@ -15,23 +15,23 @@ var ErrMaterialActaInvalido = errors.New("seleccion.acta_preparacion.material_in
 // La huella procede de la entrada, no de un recibo emitido por el CLI de S5.
 // Su formato válido no acredita cotejo del antecedente ni composición vigente.
 type AntecedenteTribunalPropuesto struct {
-	IdentidadMaterial     string `json:"identidad_material"`
-	VersionMaterial       int    `json:"version_material"`
+	IdentidadMaterial    string `json:"identidad_material"`
+	VersionMaterial      int    `json:"version_material"`
 	HuellaAportadaSHA256 string `json:"huella_aportada_sha256"`
 }
 
 // MaterialActaPropuesto prepara textos para una sesión todavía propuesta.
 // S5 conserva las referencias a S2 y al baremo; aquí no se copian ni resuelven.
 type MaterialActaPropuesto struct {
-	Alcance            string                       `json:"alcance"`
-	IdentidadMaterial  string                       `json:"identidad_material"`
-	VersionMaterial    int                          `json:"version_material"`
+	Alcance             string                       `json:"alcance"`
+	IdentidadMaterial   string                       `json:"identidad_material"`
+	VersionMaterial     int                          `json:"version_material"`
 	AntecedenteTribunal AntecedenteTribunalPropuesto `json:"antecedente_tribunal"`
-	FasePropuesta      string                       `json:"fase_propuesta"`
-	SesionRef          string                       `json:"sesion_ref"`
-	FechaPropuesta     string                       `json:"fecha_propuesta,omitempty"`
-	OrdenDiaPropuesto  []PuntoSesionPropuesto        `json:"orden_dia_propuesto"`
-	AcuerdosPropuestos []AcuerdoSesionPropuesto      `json:"acuerdos_propuestos"`
+	FasePropuesta       string                       `json:"fase_propuesta"`
+	SesionRef           string                       `json:"sesion_ref"`
+	FechaPropuesta      string                       `json:"fecha_propuesta,omitempty"`
+	OrdenDiaPropuesto   []PuntoSesionPropuesto       `json:"orden_dia_propuesto"`
+	AcuerdosPropuestos  []AcuerdoSesionPropuesto     `json:"acuerdos_propuestos"`
 }
 
 type PuntoSesionPropuesto struct {

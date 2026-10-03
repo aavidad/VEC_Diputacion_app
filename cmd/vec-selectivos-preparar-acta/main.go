@@ -98,10 +98,10 @@ func ejecutar(ctx context.Context, args []string, entrada io.Reader, salida, err
 	enc := json.NewEncoder(salida)
 	enc.SetIndent("", "  ")
 	if enc.Encode(struct {
-		Titulo string `json:"titulo"`
+		Titulo      string                 `json:"titulo"`
 		Preparacion domain.PreparacionActa `json:"preparacion"`
-		Limite      string                     `json:"limite"`
-		Mensajes    []pendienteVisible         `json:"mensajes"`
+		Limite      string                 `json:"limite"`
+		Mensajes    []pendienteVisible     `json:"mensajes"`
 	}{titulo, preparacion, limite, mensajes}) != nil {
 		return informarError(errores, catalogo, *idioma, "seleccion.acta_preparacion.salida_no_disponible")
 	}

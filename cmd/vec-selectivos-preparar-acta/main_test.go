@@ -35,10 +35,10 @@ func TestCLIActaConservaPropuestasConCatalogosReales(t *testing.T) {
 				t.Fatalf("codigo %d: %s", codigo, errores.String())
 			}
 			var r struct {
-				Titulo string `json:"titulo"`
+				Titulo      string                 `json:"titulo"`
 				Preparacion domain.PreparacionActa `json:"preparacion"`
-				Limite string `json:"limite"`
-				Mensajes []pendienteVisible `json:"mensajes"`
+				Limite      string                 `json:"limite"`
+				Mensajes    []pendienteVisible     `json:"mensajes"`
 			}
 			if json.Unmarshal(salida.Bytes(), &r) != nil || r.Preparacion.Estado != "borrador_propuesto" ||
 				!reflect.DeepEqual(r.Preparacion.MaterialPropuesto, original) || r.Titulo == "" || r.Limite == "" ||

@@ -69,7 +69,7 @@ Este corte no acredita persistencia, permisos, custodia, firma ni publicación.
 Su uso se limita a material sintético. Repetir la entrada produce el mismo borrador;
 no constituye recuperación de un acta institucional.
 
-Pruebas focales:
+Pruebas focales ejecutadas con resultado correcto:
 
 ```sh
 go test -p 8 ./internal/modules/seleccion/domain \
