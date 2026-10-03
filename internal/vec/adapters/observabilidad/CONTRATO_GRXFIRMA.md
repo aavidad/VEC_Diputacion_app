@@ -35,7 +35,7 @@ el dictamen ni provoca un reintento de negocio.
 
 El catálogo de incidencias pasa a revisión 2 al ampliar un componente, como exige
 su contrato vigente. Conserva los 13 códigos y las 13 plantillas de cada idioma.
-Solo cambia `version_catalogo` en los archivos de textos. Emisor y recolector deben
+Solo cambia `version_catalogo` a la cadena canónica `"2"` en los archivos de textos. Emisor y recolector deben
 usar esa misma revisión; un catálogo de otra revisión se rechaza antes de escribir.
 
 La revisión del catálogo no forma parte de los campos JSONL. El recolector nuevo
@@ -44,7 +44,9 @@ sin atribuirles una revisión. Las líneas emitidas con el formato canónico ant
 conservan los mismos bytes; una presentación JSON distinta se reconstruye con la
 lista blanca existente. Si alguien añade a una línea un campo `version_catalogo`,
 se rechaza como campo ajeno. Un archivo de catálogo de revisión 1 se rechaza; no
-se convierte implícitamente a revisión 2.
+se convierte implícitamente a revisión 2. La metadata externa también debe usar
+una cadena canónica (`"1"` o `"2"` según la revisión); un número JSON se rechaza.
+Este formato nuevo todavía no está instalado.
 
 Los esquemas JSONL siguen siendo `vec.incidencia_tecnica.v1` y
 `vec.resultado_tecnico.v1`, con los mismos campos. La incidencia genérica

@@ -299,7 +299,7 @@ func TestCLIGrxFirmaConHistoriaJSONLV1IntactaYCatalogoAnteriorRechazado(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	b = bytes.Replace(b, []byte(`"version_catalogo": 2`), []byte(`"version_catalogo": 1`), 1)
+	b = bytes.Replace(b, []byte(`"version_catalogo": "2"`), []byte(`"version_catalogo": "1"`), 1)
 	cfg.CatalogoIncidencias = filepath.Join(dir, "catalogo_anterior.json")
 	cfg.Directorio = filepath.Join(dir, "no_crear")
 	if os.WriteFile(cfg.CatalogoIncidencias, b, 0600) != nil {

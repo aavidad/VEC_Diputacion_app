@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -40,6 +41,23 @@ func TestCatalogoRechazaJSONAmbiguoVersionIncompletaYTextoVariable(t *testing.T)
 	}
 	for _, mutar := range []func(map[string]any){
 		func(d map[string]any) { d["version_catalogo"] = domain.VersionCatalogoIncidenciasTecnicas + 1 },
+		func(d map[string]any) { d["version_catalogo"] = domain.VersionCatalogoIncidenciasTecnicas },
+		func(d map[string]any) {
+			d["version_catalogo"] = strconv.Itoa(domain.VersionCatalogoIncidenciasTecnicas + 1)
+		},
+		func(d map[string]any) {
+			d["version_catalogo"] = "0" + strconv.Itoa(domain.VersionCatalogoIncidenciasTecnicas)
+		},
+		func(d map[string]any) {
+			d["version_catalogo"] = "+" + strconv.Itoa(domain.VersionCatalogoIncidenciasTecnicas)
+		},
+		func(d map[string]any) {
+			d["version_catalogo"] = strconv.Itoa(domain.VersionCatalogoIncidenciasTecnicas) + ".0"
+		},
+		func(d map[string]any) {
+			d["version_catalogo"] = " " + strconv.Itoa(domain.VersionCatalogoIncidenciasTecnicas)
+		},
+		func(d map[string]any) { d["version_catalogo"] = nil },
 		func(d map[string]any) { d["esquema"] = "2" },
 		func(d map[string]any) { delete(d, "esquema") },
 		func(d map[string]any) { d["campo_ajeno"] = "dato_sintetico_privado" },
