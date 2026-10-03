@@ -16,7 +16,7 @@ BEGIN
   RAISE EXCEPTION 'Personal29: propietario ejecutable como LOGIN'; END IF;
  IF NOT EXISTS(SELECT 1 FROM pg_proc WHERE oid=f AND proowner=propietario
   AND prosecdef AND provolatile='v' AND pronargs=5
-  AND 'search_path=pg_catalog,pg_temp'=ANY(proconfig)
+  AND 'search_path=pg_catalog, pg_temp'=ANY(proconfig)
   AND 'lock_timeout=2s'=ANY(proconfig)) THEN
   RAISE EXCEPTION 'Personal29: dueño o barreras de función incorrectos'; END IF;
  IF EXISTS(SELECT 1 FROM pg_proc p,
