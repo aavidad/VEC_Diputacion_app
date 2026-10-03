@@ -41,3 +41,42 @@ El productor no ha ejecutado PostgreSQL ni Go. Quedan dos revisiones sensibles
 sobre el hash final y el ensayo coordinado por Dirección. Los casos positivos
 requieren una unidad sintética gobernada que exista en la fuente; si falta,
 se informa la omisión y no se inserta una unidad fingida para superar la prueba.
+
+## Pruebas preparadas
+
+`pruebas_sql/unidad_bootstrap_admin_000031_negativas.sql` comprueba ACL del helper
+y del singleton, trigger habilitado BEFORE INSERT STATEMENT, ausencia de unidad,
+comodines, versión cero y singleton ausente, todo en ROLLBACK.
+
+`pruebas_sql/unidad_bootstrap_admin_000031_concurrencia.sql` se ejecuta en dos
+terminales del mismo clon desechable con `lado=lector` o `lado=publicador`.
+El lector recibe `organizacion`, `ambito` JSON y `hasta` desde el fixture
+sintético gobernado. No se imprime el tuple. El publicador usa un INSERT de cero
+filas que ejecuta el trigger real sin añadir unidades ni retirar historia;
+esta prueba acredita la barrera técnica y no una publicación de negocio.
+
+Se realizan estos órdenes, cada uno en una transacción nueva:
+
+1. `caso=pre_guard, fin=commit`: iniciar lector y fijar instantánea; confirmar el
+   publicador; continuar lector. La llamada debe propagar `40001` antes de dar
+   un resultado y el lector hace ROLLBACK.
+2. `caso=lector_primero, fin=rollback`: el lector coteja el tuple auténtico y
+   retiene el guard; iniciar publicador. Debe esperar el bloqueo del guard
+   hasta que el lector confirme. Después el publicador revierte su generación.
+3. `caso=publicador_pendiente`: iniciar lector hasta su primer prompt, iniciar
+   publicador y retener su INSERT, continuar lector para que espere el guard.
+   Si el publicador hace `fin=commit`, el lector debe obtener `40001` y revertir.
+   Repetir con `fin=rollback`: el lector continúa con la fuente anterior y no
+   hay cambio de generación comprometido.
+
+Dirección debe observar la espera real y `pg_blocking_pids` del publicador o del
+lector según el caso, antes de liberar el otro terminal. Los prompts no prueban
+por sí solos que exista un bloqueo. Los límites son 20 segundos para el bloqueo
+y 30 para cada sentencia; no dejar terminales pendientes ni otros escritores
+activos. En el caso de confirmar generación cambia únicamente el contador del
+clon desechable, por lo que no se usa la principal conservada.
+
+La prueba favorable se omite si no hay unidad gobernada. También se preparan los
+casos de fuente divergente y retirada mediante
+`pruebas_sql/unidad_bootstrap_admin_000031_fixture_gobernado.sql`; no se
+recupera una versión vieja para hacerlos pasar.
