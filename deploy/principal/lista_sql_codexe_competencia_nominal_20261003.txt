@@ -1,0 +1,3 @@
+# Dependencias: AUT30 de PR453 y AD160 de fachada central, ensayadas primero.
+# La lista de integración completa pertenece a Dirección.
+deploy/postgresql/autorizacion/migraciones/000031_competencia_nominal_cargos_ct.up.sql
