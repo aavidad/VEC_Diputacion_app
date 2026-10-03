@@ -441,9 +441,9 @@ BEGIN
    JOIN vec_autorizacion.politica_restrictiva p USING(politica_id,politica_ref)
    WHERE p.documento->>'estado'='publicada'
     AND instante < (p.documento->>'vigente_hasta')::timestamptz
-    AND ((p.documento->'acciones' ? c->>'accion') OR (p.documento->'acciones' ? '*'))
-    AND ((p.documento->'modulos' ? comp->>'modulo_id') OR (p.documento->'modulos' ? '*'))
-    AND ((p.documento->'tipos_recurso' ? comp->>'tipo_recurso') OR (p.documento->'tipos_recurso' ? '*'))) THEN
+    AND ((p.documento->'acciones' ? (c->>'accion')) OR (p.documento->'acciones' ? '*'))
+    AND ((p.documento->'modulos' ? (comp->>'modulo_id')) OR (p.documento->'modulos' ? '*'))
+    AND ((p.documento->'tipos_recurso' ? (comp->>'tipo_recurso')) OR (p.documento->'tipos_recurso' ? '*'))) THEN
   RAISE EXCEPTION 'aut32_politica_no_evaluable' USING ERRCODE='42501';
  END IF;
  RETURN c;
@@ -473,7 +473,7 @@ BEGIN
  ref := 'evidencia:competencia-firmante-ct:' ||
   encode(sha256(convert_to(p_consumo_v3->>'efecto_ref','UTF8') || p_contexto_nominal),'hex');
  PERFORM pg_advisory_xact_lock(hashtextextended(
-   'vec_autorizacion:competencia_ct:' || p_consumo_v3->>'efecto_ref',0));
+   'vec_autorizacion:competencia_ct:' || (p_consumo_v3->>'efecto_ref'),0));
  SELECT * INTO previo FROM vec_autorizacion.evidencia_competencia_firmante_ct_v1
   WHERE efecto_ref=p_consumo_v3->>'efecto_ref' FOR SHARE;
  IF FOUND THEN
