@@ -75,12 +75,24 @@ func (f *FuenteF1) VincularContextoOrganizacionHistorica(ctx context.Context, am
 }
 
 func (f *FuenteF1) ContextoVinculadoOrganizacionHistorica(ctx context.Context) (ct.ContextoAutorizacionAltaV3, string, string, error) {
+	r, organismo, unidad, err := f.ContextoOriginalOrganizacionHistoricaParaAuditoria(ctx)
+	if err != nil || !r.Vinculo.VigenteEn(f.reloj.Ahora(), r.Resultado) {
+		return ct.ContextoAutorizacionAltaV3{}, "", "", ErrGobiernoInternoNoDisponible
+	}
+	return r, organismo, unidad, nil
+}
+
+// ContextoOriginalOrganizacionHistoricaParaAuditoria copia únicamente el sello
+// F1 ya emitido por esta fuente. Conserva identidad histórica tras caducidad,
+// sin revalidar ni renovar sesión. No concede lectura: el método actual, el
+// proveedor V3 y el consumidor SQL siguen exigiendo vigencia.
+func (f *FuenteF1) ContextoOriginalOrganizacionHistoricaParaAuditoria(ctx context.Context) (ct.ContextoAutorizacionAltaV3, string, string, error) {
 	var vacio ct.ContextoAutorizacionAltaV3
 	if f == nil || f.reloj == nil || ctx == nil || ctx.Err() != nil {
 		return vacio, "", "", ErrGobiernoInternoNoDisponible
 	}
 	s, ok := ctx.Value(claveContextoOrganizacionHistorica{}).(contextoOrganizacionHistoricaSellado)
-	if !ok || s.fuente != f || s.ambito.Validar() != nil || s.valor.Resultado.Validar() != nil || s.valor.Vinculo.ValidarPara(s.valor.Resultado) != nil || !s.valor.Vinculo.VigenteEn(f.reloj.Ahora(), s.valor.Resultado) {
+	if !ok || s.fuente != f || s.ambito.Validar() != nil || s.valor.Resultado.Validar() != nil || s.valor.Vinculo.ValidarPara(s.valor.Resultado) != nil {
 		return vacio, "", "", ErrGobiernoInternoNoDisponible
 	}
 	actor := s.valor.Resultado.Contexto
