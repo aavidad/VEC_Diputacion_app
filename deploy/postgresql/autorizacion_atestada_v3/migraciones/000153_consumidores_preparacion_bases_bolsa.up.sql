@@ -33,10 +33,10 @@ DECLARE
  f oid:=to_regprocedure('vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
  original text; nuevo text; actual text; fuente text; meta jsonb; deps jsonb; deps_compartidas jsonb; acl aclitem[];
  propietario oid; config text[]; definidora boolean;
- -- Huellas medidas en el núcleo POST145 real antes del ensayo.
+ -- Huellas medidas en POST149+155, AD161 y AD145 reales antes del ensayo.
  -- Otra preimagen exige remedirlas y revisar el delta; no se estiman postimágenes.
- esperada_def_sha256 text:=$esperada_def_sha256$b6a75b8b255663e6bf2e5dad0c99a73716fcdd2168b417be63bc437a72a3bb1f$esperada_def_sha256$;
- esperada_fuente_sha256 text:=$esperada_fuente_sha256$cf6b9339dd04789889ecbe0a0e3a9c963c7fe085ff57f64e57f0d6efb7875a69$esperada_fuente_sha256$;
+ esperada_def_sha256 text:=$esperada_def_sha256$841534ff6eac2f1d7d655a622bf8fb037a13c9971d8ead4d885f08bd0425e5fc$esperada_def_sha256$;
+ esperada_fuente_sha256 text:=$esperada_fuente_sha256$e2fcf716975a34f6420772a8c5d932387dcdaf809babd6ed0d674c09e6c4dcc9$esperada_fuente_sha256$;
  marca text:=$marca$       )
        OR c ->> 'suite' <> 'VEC-AD-3-COSE-EDDSA-1'$marca$;
  excl text:=$excl$               p_perfil_mutacion IS DISTINCT FROM 'bolsa_llamamiento'
@@ -50,7 +50,7 @@ $excl_nuevo$;
  -- Remedir ante otra preimagen: huella completa, unicidad e inversión obligatorias.
  runtime text:=$runtime$       OR NOT (
            (
-               p_perfil_mutacion IS NOT DISTINCT FROM 'vinculo_propio_historico_crn11'
+               p_perfil_mutacion IS NOT DISTINCT FROM 'gobierno_borrador_reglas_baremo'
 $runtime$;
  runtime_nuevo text:=$runtime_nuevo$       OR NOT (
            (
@@ -76,7 +76,7 @@ $runtime$;
                AND NOT EXISTS (SELECT 1 FROM pg_auth_members m WHERE m.member='vec_bolsa_convocatorias_lector_preparacion_bases'::regrole)
            )
            OR (
-               p_perfil_mutacion IS NOT DISTINCT FROM 'vinculo_propio_historico_crn11'
+               p_perfil_mutacion IS NOT DISTINCT FROM 'gobierno_borrador_reglas_baremo'
 $runtime_nuevo$;
  extension text:=$extension$           OR (
  p_perfil_mutacion IN ('guardar_preparacion_bases_bolsa','consultar_preparacion_bases_bolsa')
@@ -151,7 +151,7 @@ BEGIN
     OR length(original)-length(replace(original,runtime,''))<>length(runtime)
     OR strpos(original,'guardar_preparacion_bases_bolsa')<>0
     OR strpos(original,'consultar_preparacion_bases_bolsa')<>0
- THEN RAISE EXCEPTION 'AD3-153: núcleo incompatible' USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'PARO clave=AD153.nucleo_preimagen, observado_def=%/fuente=%/runtime_veces=%, esperado_def=%/fuente=%/runtime_veces=1', encode(sha256(convert_to(original,'UTF8')),'hex'), encode(sha256(convert_to(fuente,'UTF8')),'hex'), (length(original)-length(replace(original,runtime,'')))/length(runtime), esperada_def_sha256, esperada_fuente_sha256 USING ERRCODE='55000'; END IF;
  nuevo:=replace(original,runtime,runtime_nuevo);
  nuevo:=replace(nuevo,excl,excl_nuevo);
  nuevo:=replace(nuevo,marca,extension||marca);
@@ -179,10 +179,10 @@ BEGIN
  SELECT pg_get_constraintdef(c.oid,true) INTO STRICT d FROM pg_constraint c
  WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
  AND c.conname='clave_capacidad_version_audiencia_consumo_check' AND c.contype='c' AND c.convalidated;
- IF encode(sha256(convert_to(d,'UTF8')),'hex') IS DISTINCT FROM '4285c78987386d5214c77e20c137af3ece51e4e3eee1c85a9dcd526f592891d1'
+ IF encode(sha256(convert_to(d,'UTF8')),'hex') IS DISTINCT FROM 'a3b322448b75bb6620a39fcf2d0c37aa28313610d07f776fd0efaba6a22ea2ac'
  OR strpos(d,'CHECK (audiencia_consumo = ANY (ARRAY[')<>1 OR right(d,3)<>']))'
  OR strpos(d,'vec_bolsa_convocatorias.preparacion_bases.')<>0
- THEN RAISE EXCEPTION 'AD3-153: preimagen de audiencias incompatible' USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'PARO clave=AD153.audiencias_preimagen, observado=%, esperado=a3b322448b75bb6620a39fcf2d0c37aa28313610d07f776fd0efaba6a22ea2ac', encode(sha256(convert_to(d,'UTF8')),'hex') USING ERRCODE='55000'; END IF;
  ALTER TABLE vec_autorizacion_atestada_v3.clave_capacidad_version DROP CONSTRAINT clave_capacidad_version_audiencia_consumo_check;
  EXECUTE 'ALTER TABLE vec_autorizacion_atestada_v3.clave_capacidad_version ADD CONSTRAINT clave_capacidad_version_audiencia_consumo_check '||left(d,length(d)-3)||', ''vec_bolsa_convocatorias.preparacion_bases.guardar.v1''::text, ''vec_bolsa_convocatorias.preparacion_bases.consultar.v1''::text]))';
 END $audiencias$;
