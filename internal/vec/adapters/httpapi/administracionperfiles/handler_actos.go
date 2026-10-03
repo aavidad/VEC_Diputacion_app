@@ -63,7 +63,7 @@ func (h *Handler) post(w http.ResponseWriter, r *http.Request, s SesionConfiable
 				falloError(w, err)
 				return
 			}
-			if recibo.Validar() != nil || recibo.OperacionRef != dto.OperacionRef {
+			if recibo.ValidarPara(solicitud) != nil {
 				fallo(w, http.StatusServiceUnavailable, "servicio_no_disponible")
 				return
 			}
@@ -142,14 +142,15 @@ func (h *Handler) post(w http.ResponseWriter, r *http.Request, s SesionConfiable
 			recibo = &r
 		}
 		cierreDTO := struct {
-			OperacionRef       string  `json:"operacion_ref"`
-			PropuestaRef       string  `json:"propuesta_ref"`
-			Decision           string  `json:"decision"`
-			HuellaCierreSHA256 string  `json:"huella_cierre_sha256"`
-			ConfirmadoEn       any     `json:"confirmado_en"`
-			Recibo             *Recibo `json:"recibo,omitempty"`
+			OperacionRef          string  `json:"operacion_ref"`
+			PropuestaRef          string  `json:"propuesta_ref"`
+			PropuestaHuellaSHA256 string  `json:"propuesta_huella_sha256"`
+			Decision              string  `json:"decision"`
+			HuellaCierreSHA256    string  `json:"huella_cierre_sha256"`
+			ConfirmadoEn          any     `json:"confirmado_en"`
+			Recibo                *Recibo `json:"recibo,omitempty"`
 		}{
-			cierre.OperacionRef, cierre.PropuestaRef, string(cierre.Decision), cierre.HuellaCierreSHA256, cierre.ConfirmadoEn, recibo}
+			cierre.OperacionRef, cierre.PropuestaRef, cierre.PropuestaHuellaSHA256, string(cierre.Decision), cierre.HuellaCierreSHA256, cierre.ConfirmadoEn, recibo}
 		jsonRespuesta(w, http.StatusOK, struct {
 			Cierre any `json:"cierre"`
 		}{cierreDTO})
