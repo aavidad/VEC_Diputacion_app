@@ -28,6 +28,22 @@ type revalidadorBindingPrueba struct {
 	vinculo  VinculoCertificadoFirmante
 }
 
+type revalidadorRelacionPrueba struct {
+	llamadas int
+	err      error
+	fallarEn int
+	relacion RelacionRecursoCT
+}
+
+func (r *revalidadorRelacionPrueba) RevalidarRelacionRecursoCT(_ context.Context, v RelacionRecursoCT) error {
+	r.llamadas++
+	r.relacion = v
+	if r.llamadas == r.fallarEn {
+		return ctports.ErrCompetenciaFirmanteNoAcreditada
+	}
+	return r.err
+}
+
 func (r *revalidadorBindingPrueba) RevalidarVinculoCertificadoFirmante(_ context.Context, v VinculoCertificadoFirmante) error {
 	r.llamadas++
 	r.vinculo = v
@@ -42,7 +58,8 @@ func TestRevalidadorMantieneFuentesCompletasYNoAceptaProyeccion(t *testing.T) {
 	}
 	central := &revalidadorCentralPrueba{}
 	binding := &revalidadorBindingPrueba{}
-	r, err := NuevoRevalidador(central, binding, f.reloj)
+	relacion := &revalidadorRelacionPrueba{}
+	r, err := NuevoRevalidador(central, binding, relacion, f.reloj)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,7 +69,7 @@ func TestRevalidadorMantieneFuentesCompletasYNoAceptaProyeccion(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if central.llamadas != 2 || binding.llamadas != 2 || binding.vinculo != i.vinculo || central.evidencia.Cargo.Version != 2 || central.evidencia.EnlaceOcupante.Version != 4 {
+	if central.llamadas != 2 || binding.llamadas != 2 || relacion.llamadas != 4 || relacion.relacion != a.relacion || binding.vinculo != i.vinculo || central.evidencia.Cargo.Version != 2 || central.evidencia.EnlaceOcupante.Version != 4 {
 		t.Fatal("perdió fuentes centrales")
 	}
 	if err = r.RevalidarCompetenciaCentral(context.Background(), Acreditacion{proyeccion: a.Proyeccion()}); err != ctports.ErrCompetenciaFirmanteNoAcreditada {
@@ -68,7 +85,8 @@ func TestRevalidadorRevocacionYCaducidadImpidenEfecto(t *testing.T) {
 	}
 	central := &revalidadorCentralPrueba{}
 	binding := &revalidadorBindingPrueba{err: ctports.ErrCompetenciaFirmanteNoAcreditada}
-	r, _ := NuevoRevalidador(central, binding, f.reloj)
+	relacion := &revalidadorRelacionPrueba{}
+	r, _ := NuevoRevalidador(central, binding, relacion, f.reloj)
 	if err = r.RevalidarCompetenciaCentral(context.Background(), a); err != ctports.ErrCompetenciaFirmanteNoAcreditada || central.llamadas != 0 {
 		t.Fatal("revocación aceptada")
 	}
@@ -120,5 +138,29 @@ func TestDescriptorExigeRolNominalExactoPublicadoSinListaLocal(t *testing.T) {
 		if rolDescriptorValido(rol) {
 			t.Fatal("RolID fuera de gramática permitido")
 		}
+	}
+}
+
+func TestRevalidadorExigeRelacionCTYLaRevalidaTambienTrasCentral(t *testing.T) {
+	f, _, _, _, q := datosPrueba(t)
+	a, err := f.AcreditarCompetenciaCentral(context.Background(), q)
+	if err != nil {
+		t.Fatal(err)
+	}
+	central := &revalidadorCentralPrueba{}
+	binding := &revalidadorBindingPrueba{}
+	if _, err := NuevoRevalidador(central, binding, nil, f.reloj); err != ctports.ErrCompetenciaFirmanteNoDisponible {
+		t.Fatal("relación CT opcional")
+	}
+	relacion := &revalidadorRelacionPrueba{err: ctports.ErrCompetenciaFirmanteNoAcreditada}
+	r, _ := NuevoRevalidador(central, binding, relacion, f.reloj)
+	if err := r.RevalidarCompetenciaCentral(context.Background(), a); err != ctports.ErrCompetenciaFirmanteNoAcreditada || central.llamadas != 0 || binding.llamadas != 0 {
+		t.Fatal("relación inválida alcanzó las fuentes centrales")
+	}
+	relacion.err = nil
+	relacion.llamadas = 0
+	relacion.fallarEn = 2
+	if err := r.RevalidarCompetenciaCentral(context.Background(), a); err != ctports.ErrCompetenciaFirmanteNoAcreditada || relacion.llamadas != 2 || central.llamadas != 1 {
+		t.Fatal("relación no revalidada después del lector central", err)
 	}
 }
