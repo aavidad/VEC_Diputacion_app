@@ -13,6 +13,7 @@ import { crearTraductorFichaPropia, formatearDiasFichaPropia } from "./i18n-fich
 import { crearClienteExportacionServicios } from "./cliente-http-exportacion-servicios.js?v=20261003-personal-exportacion-v1";
 
 export const RUTA_FICHA_PROPIA = "/api/interna/personal/mi-ficha";
+export const ACCEPT_FICHA_PROPIA_EXPORTACION = 'application/json; profile="urn:vec:personal:ficha-propia:exportacion:v1"';
 
 const MAXIMO_RESPUESTA_BYTES = 256 * 1024;
 const MAXIMO_FILAS = 200;
@@ -61,7 +62,9 @@ function recortar(valor) {
 function validarSobre(sobre) {
   const datos = sobre?.data;
   const ficha = datos?.ficha;
-  if (!claves(sobre, ["data"]) || !claves(datos, ["ficha", "recibo_ref", "consultada_en"]) ||
+  if (!claves(sobre, ["data"]) ||
+      !(claves(datos, ["ficha", "recibo_ref", "consultada_en"]) || claves(datos, ["ficha", "recibo_ref", "consultada_en", "exportacion_servicios_disponible"])) ||
+      (Object.hasOwn(datos, "exportacion_servicios_disponible") && typeof datos.exportacion_servicios_disponible !== "boolean") ||
       typeof datos.recibo_ref !== "string" || !/^fichapropia:[0-9a-f-]{36}$/u.test(datos.recibo_ref) ||
       typeof datos.consultada_en !== "string" || !INSTANTE.test(datos.consultada_en) || !Number.isFinite(Date.parse(datos.consultada_en)) ||
       !claves(ficha, ["corte", "relaciones", "servicios"]) || !claves(ficha.corte, ["vigente_en", "conocido_en"]) || !fecha(ficha.corte.vigente_en) ||
@@ -78,7 +81,7 @@ function validarSobre(sobre) {
     if (!claves(s, ["inicio", "fin", "clase", "dias", "estado"]) || !fecha(s.inicio) || !fecha(s.fin) ||
         !texto(s.clase) || !Number.isSafeInteger(s.dias) || s.dias < 0 || !ESTADOS_SERVICIO.has(s.estado)) throw error("sobre_no_valido", 200);
   }
-  return Object.freeze({ ficha, consultadaEn: datos.consultada_en, reciboRef: datos.recibo_ref });
+  return Object.freeze({ ficha, consultadaEn: datos.consultada_en, reciboRef: datos.recibo_ref, exportacionServiciosDisponible: datos.exportacion_servicios_disponible === true });
 }
 
 async function consultar(fetchImpl, plazoMs, externo, fechaReferencia = "") {
@@ -92,7 +95,7 @@ async function consultar(fetchImpl, plazoMs, externo, fechaReferencia = "") {
     try {
       respuesta = await fetchImpl(fechaReferencia ? `${RUTA_FICHA_PROPIA}?fecha_referencia=${fechaReferencia}` : RUTA_FICHA_PROPIA, {
         method: "GET", credentials: "same-origin", mode: "same-origin", cache: "no-store",
-        redirect: "error", referrerPolicy: "no-referrer", headers: { Accept: "application/json" },
+        redirect: "error", referrerPolicy: "no-referrer", headers: { Accept: ACCEPT_FICHA_PROPIA_EXPORTACION },
         signal: controlador.signal,
       });
     } catch {
@@ -206,7 +209,7 @@ export function crearFuentesFichaPropia({ fetchImpl = globalThis.fetch, traducir
       if (consulta.excedeLimite) return { estado: "excede_limite" };
       if (consulta.sinFuente) return { estado: consulta.estado === 404 ? "no_configurado" : "denegado" };
       const items = presentar(consulta.ficha, traducir);
-      return { estado: items.length ? "disponible" : "vacio", fuente: traducir("fuente_registro"), actualizado_en: consulta.consultadaEn, items, ...(admiteFecha ? { fecha_referencia: consulta.ficha.corte.vigente_en, recibo_ref: consulta.reciboRef, corte: Object.freeze({ ...consulta.ficha.corte }) } : {}) };
+      return { estado: items.length ? "disponible" : "vacio", fuente: traducir("fuente_registro"), actualizado_en: consulta.consultadaEn, items, ...(admiteFecha ? { fecha_referencia: consulta.ficha.corte.vigente_en, exportacion_servicios_disponible: consulta.exportacionServiciosDisponible, recibo_ref: consulta.reciboRef, corte: Object.freeze({ ...consulta.ficha.corte }) } : {}) };
     },
     ...(admiteFecha ? { exportarPropios(entrada) { return crearClienteExportacionServicios({ fetchImpl, plazoMs }).exportar(entrada); } } : {}),
     actualizar() { revision += 1; resultados.clear(); },
