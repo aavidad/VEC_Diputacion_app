@@ -170,6 +170,9 @@ func (c CierreGobiernoPerfil) ValidarPara(s SolicitudCierreGobiernoPerfil) error
 		return ErrPlanGobiernoPerfilInvalido
 	}
 	p := c.Material.Plan
+	if p.Base != nil && c.ConfirmadoEn.Before(p.Base.ControlVigencia.ActualizadoEn) {
+		return ErrPlanGobiernoPerfilInvalido
+	}
 	if p.Operacion == OperacionDeshabilitarVersionPerfil {
 		hr, er := r.VersionRol.HuellaSHA256()
 		if er != nil {
@@ -180,7 +183,8 @@ func (c CierreGobiernoPerfil) ValidarPara(s SolicitudCierreGobiernoPerfil) error
 			return eb
 		}
 		if hr != hb || r.ControlPosterior.Revision != p.Base.ControlVigencia.Revision+1 ||
-			r.ControlPosterior.Estado != EstadoControlVigenciaVersionRolRetirada || r.ControlPosterior.ActoRef != r.ActoRef {
+			r.ControlPosterior.Estado != EstadoControlVigenciaVersionRolRetirada || r.ControlPosterior.ActoRef != r.ActoRef ||
+			r.ControlPosterior.MotivoCodigo != s.Motivo.EntradaClave {
 			return ErrPlanGobiernoPerfilInvalido
 		}
 	} else {

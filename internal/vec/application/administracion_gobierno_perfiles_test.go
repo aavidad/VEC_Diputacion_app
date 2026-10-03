@@ -207,9 +207,56 @@ func TestGobiernoPerfilRetiradaNominalConservaVersionRolYAvanzaSoloControl(t *te
 	if err != nil || cierre.Recibo.ControlPosterior.Revision != 2 || base.ControlVigencia.Estado != domain.EstadoControlVigenciaVersionRolHabilitada {
 		t.Fatalf("retirada altera base o no avanza control: %v", err)
 	}
+	r.ControlPosterior.MotivoCodigo = "otro_codigo"
+	if c, err := servicio.CerrarGobiernoPerfil(context.Background(), s); err == nil || c.Recibo != nil {
+		t.Fatal("control de retirada conserva motivo ajeno")
+	}
+	r.ControlPosterior.MotivoCodigo = s.Motivo.EntradaClave
 	// El documento del rol anterior no puede reescribirse durante la retirada.
 	r.VersionRol.Nombre = "otra_definicion"
 	if c, err := servicio.CerrarGobiernoPerfil(context.Background(), s); err == nil || c.Recibo != nil {
 		t.Fatal("retirada reescribe VersionRol")
+	}
+}
+
+func TestGobiernoPerfilRechazaConfirmacionAnteriorALaPreimagen(t *testing.T) {
+	for _, operacion := range []domain.OperacionGobiernoPerfil{domain.OperacionVersionarPerfilGobernado, domain.OperacionDeshabilitarVersionPerfil} {
+		t.Run(string(operacion), func(t *testing.T) {
+			servicio, s, a := cierreGobiernoPerfilAplicacionPrueba(t)
+			r := a.cierre.Recibo
+			base := domain.PerfilPublicadoAdministracionV1{Rol: r.VersionRol, ControlVigencia: r.ControlPosterior, TipoPerfil: domain.TipoPerfilAdministracionAdministrableV1}
+			a.cierre.Material.Plan.Operacion, a.cierre.Material.Plan.Base = operacion, &base
+			if operacion == domain.OperacionVersionarPerfilGobernado {
+				a.cierre.Material.Plan.DefinicionNueva.Version = 2
+				r.VersionRol.Version = 2
+				r.ControlPosterior.VersionRolRef = r.VersionRol.Referencia()
+				a.cierre.Material.Plan.VersionRolObjetivoRef = r.VersionRol.Referencia()
+				s.VersionRolObjetivoRef = r.VersionRol.Referencia()
+			} else {
+				a.cierre.Material.Plan.DefinicionNueva, a.cierre.Material.Plan.Selecciones = nil, nil
+				r.ControlPosterior.Revision, r.ControlPosterior.Estado = 2, domain.EstadoControlVigenciaVersionRolRetirada
+				r.ControlPosterior.ActoRef, r.ControlPosterior.MotivoCodigo = r.ActoRef, s.Motivo.EntradaClave
+			}
+			h, err := a.cierre.Material.HuellaSHA256()
+			if err != nil {
+				t.Fatal(err)
+			}
+			s.PropuestaHuellaSHA256, a.cierre.PropuestaHuellaSHA256 = h, h
+			if c, err := servicio.CerrarGobiernoPerfil(context.Background(), s); err != nil || c.Recibo == nil {
+				t.Fatalf("cierre correcto rechazado: %v", err)
+			}
+			s.CorrelacionRef = "correlacion_" + strings.Repeat("f", 32)
+			if c, err := servicio.CerrarGobiernoPerfil(context.Background(), s); err != nil || c.Recibo.CorrelacionRef == s.CorrelacionRef {
+				t.Fatal("replay no conserva la correlación original")
+			}
+			a.cierre.ConfirmadoEn = a.ahora.Add(-time.Microsecond)
+			r.ControlPosterior.ActualizadoEn = a.cierre.ConfirmadoEn
+			if operacion == domain.OperacionVersionarPerfilGobernado {
+				r.VersionRol.PublicadaEn = a.cierre.ConfirmadoEn
+			}
+			if c, err := servicio.CerrarGobiernoPerfil(context.Background(), s); err == nil || c.Recibo != nil {
+				t.Fatal("recibo retrocede respecto a su preimagen")
+			}
+		})
 	}
 }
