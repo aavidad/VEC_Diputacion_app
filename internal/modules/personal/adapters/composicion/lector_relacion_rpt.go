@@ -51,7 +51,7 @@ func (p *ProveedorAutorizacionLectorRelacionRPT) AutorizarRelacionParaRPT(ctx co
 	if p == nil || dependenciaNula(p.identidad) || dependenciaNula(p.emisor) || ctx == nil || ctx.Err() != nil || len(material.Canonico()) == 0 {
 		return vacio, personaldomain.ErrLectorRelacionRPTNoDisponible
 	}
-	identidad, err := p.identidad.ResolverIdentidadLectorRelacionRPT(ctx)
+	identidad, err := identidadOriginalLectorRelacionRPT(ctx)
 	if err != nil || identidad.Resultado.Validar() != nil || identidad.Vinculo.ValidarPara(identidad.Resultado) != nil {
 		return vacio, personaldomain.ErrLectorRelacionRPTNoDisponible
 	}

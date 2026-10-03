@@ -27,7 +27,7 @@ type RepositorioLectorRelacionRPT interface {
 }
 
 // IntentoLectorRelacionRPT no confía en Actor para escribir actor_ref: el
-// registrador de composición lo coteja con la identidad registrada actual.
+// registrador de composición conserva la identidad original de la petición.
 // El motivo es cerrado; no contiene mensajes SQL ni datos laborales.
 type IntentoLectorRelacionRPT struct {
 	Actor       vecdomain.ContextoActor
@@ -37,14 +37,4 @@ type IntentoLectorRelacionRPT struct {
 type RegistroIntentosLectorRelacionRPT interface {
 	VerificarRegistroRelacionRPT(context.Context) error
 	RegistrarIntentoRelacionRPT(context.Context, IntentoLectorRelacionRPT) error
-}
-
-// EventoIntentoLectorRelacionRPT contiene sólo metadatos minimizados del
-// registrador confiable. El instante lo pone la fachada nominal de Personal.
-type EventoIntentoLectorRelacionRPT struct {
-	CorrelacionRef, Motivo, ActorRef, RelacionRef string
-}
-type DestinoIntentosLectorRelacionRPT interface {
-	VerificarDestinoRelacionRPT(context.Context) error
-	RegistrarEventoRelacionRPT(context.Context, EventoIntentoLectorRelacionRPT) error
 }

@@ -132,49 +132,24 @@ func identidadIntentoRPTVigenciaPrueba(t *testing.T, instante time.Time, caduca 
 	return IdentidadRegistradaLectorRelacionRPT{Vinculo: vinculo, Resultado: registrado}
 }
 
-func TestIntentoRPTActorVigenteSeAtribuyeTrasResolver(t *testing.T) {
-	t0 := time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC)
-	identidad := identidadIntentoRPTVigenciaPrueba(t, t0, "")
-	ahora := t0
-	resolutor := &resolutorIntentoRPTVigenciaPrueba{identidad: identidad, despues: func() { ahora = t0.Add(time.Microsecond) }}
-	destino := &destinoIntentosRPTPrueba{}
-	registro, err := NuevoRegistroIntentosLectorRelacionRPT(resolutor, destino, func() time.Time { return ahora })
-	if err != nil {
-		t.Fatal(err)
-	}
-	intento := ports.IntentoLectorRelacionRPT{Actor: identidad.Resultado.Contexto, RelacionRef: "rel_" + strings.Repeat("r", 24), Motivo: "denegado"}
-	if err := registro.RegistrarIntentoRelacionRPT(contextoCorrelacionLectorRPTPrueba(t), intento); err != nil {
-		t.Fatal(err)
-	}
-	if destino.writes != 1 || resolutor.llamadas != 1 || destino.evento.ActorRef != identidad.Resultado.Contexto.PersonaRef || destino.evento.RelacionRef != intento.RelacionRef || destino.evento.Motivo != intento.Motivo || !strings.HasPrefix(destino.evento.CorrelacionRef, "correlacion_") {
-		t.Fatalf("intento no atribuido a la identidad vigente: %+v", destino.evento)
-	}
-}
-
-func TestIntentoRPTCaducidadDuranteResolucionConservaIntentoSinActor(t *testing.T) {
+func TestIntentoRPTCaducadoConservaIdentidadHistoricaNominal(t *testing.T) {
 	for _, caduca := range []string{"sesion", "contexto", "enlace_empleado"} {
 		t.Run(caduca, func(t *testing.T) {
 			t0 := time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC)
-			identidad := identidadIntentoRPTVigenciaPrueba(t, t0, caduca)
-			t1 := t0.Add(time.Second)
-			// Sigue válida en forma y para la resolución anterior: el defecto
-			// solo aparece al comprobar la vigencia después de resolver.
-			if identidad.Resultado.Validar() != nil || identidad.Vinculo.ValidarPara(identidad.Resultado) != nil || identidad.Vinculo.VigenteEn(t1, identidad.Resultado) {
-				t.Fatal("fixture no distingue validez histórica de vigencia actual")
+			id := identidadIntentoRPTVigenciaPrueba(t, t0, caduca)
+			if id.Vinculo.VigenteEn(t0.Add(time.Second), id.Resultado) {
+				t.Fatal("fixture sigue vigente")
 			}
-			ahora := t0
-			resolutor := &resolutorIntentoRPTVigenciaPrueba{identidad: identidad, despues: func() { ahora = t1 }}
-			destino := &destinoIntentosRPTPrueba{}
-			registro, err := NuevoRegistroIntentosLectorRelacionRPT(resolutor, destino, func() time.Time { return ahora })
-			if err != nil {
+			d := &destinoIntentosRPTPrueba{}
+			r, _ := NuevoRegistroIntentosLectorRelacionRPT(d, configuracionIntentosRPTPrueba())
+			ctx, cancel := context.WithCancel(contextoIntentoRPTPrueba(t, id))
+			cancel()
+			if err := r.RegistrarIntentoRelacionRPT(ctx, ports.IntentoLectorRelacionRPT{Actor: id.Resultado.Contexto, Motivo: "denegado"}); err != nil {
 				t.Fatal(err)
 			}
-			intento := ports.IntentoLectorRelacionRPT{Actor: identidad.Resultado.Contexto, RelacionRef: "rel_" + strings.Repeat("r", 24), Motivo: "denegado"}
-			if err := registro.RegistrarIntentoRelacionRPT(contextoCorrelacionLectorRPTPrueba(t), intento); err != nil {
-				t.Fatal(err)
-			}
-			if destino.writes != 1 || resolutor.llamadas != 1 || destino.evento.ActorRef != "" || destino.evento.RelacionRef != intento.RelacionRef || destino.evento.Motivo != intento.Motivo || !strings.HasPrefix(destino.evento.CorrelacionRef, "correlacion_") {
-				t.Fatalf("identidad caducada atribuida o intento perdido: %+v", destino.evento)
+			o, _ := d.ordenes[0].Datos()
+			if o.ResultadoContexto.HuellaSHA256 != id.Resultado.HuellaSHA256 || o.ResultadoContexto.Contexto.PerfilActivoRef != id.Resultado.Contexto.PerfilActivoRef {
+				t.Fatal("caducidad borró identidad histórica")
 			}
 		})
 	}

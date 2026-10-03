@@ -12,18 +12,21 @@ import (
 )
 
 type DependenciasLectorRelacionRPT struct {
-	Identidad         ResolutorIdentidadLectorRelacionRPT
-	Emisor            EmisorMaterialLectorRelacionRPTV3
-	Motivo            vecdomain.ReferenciaEntradaCatalogo
-	Lectura, Intentos *pgxpool.Pool
-	Ahora             func() time.Time
+	Identidad             ResolutorIdentidadLectorRelacionRPT
+	Emisor                EmisorMaterialLectorRelacionRPTV3
+	Motivo                vecdomain.ReferenciaEntradaCatalogo
+	Lectura               *pgxpool.Pool
+	Intentos              RegistradorIntentosLectorRPT
+	ConfiguracionIntentos ConfiguracionIntentosLectorRPT
+	Ahora                 func() time.Time
+	LimiteIdentidad       time.Duration
 }
 
 // ComponerLectorRelacionSeleccionadaRPT prepara el consumidor de la selección
-// 356 con autoridades reales y pools segregados. No monta HTTP ni provisión.
+// 356 con autoridades reales y el registrador común. No monta HTTP ni provisión.
 // La ausencia de SQL, concesión o registrador mantiene cada lectura cerrada.
 func ComponerLectorRelacionSeleccionadaRPT(d DependenciasLectorRelacionRPT) (LectorRelacionSeleccionadaRPT, error) {
-	if d.Lectura == nil || d.Intentos == nil || d.Lectura == d.Intentos || d.Ahora == nil {
+	if d.Lectura == nil || dependenciaNula(d.Intentos) || d.Ahora == nil || d.LimiteIdentidad <= 0 || d.LimiteIdentidad > 30*time.Second {
 		return nil, personaldomain.ErrLectorRelacionRPTNoDisponible
 	}
 	a, err := NuevoProveedorAutorizacionLectorRelacionRPT(d.Identidad, d.Emisor, d.Motivo)
@@ -34,11 +37,7 @@ func ComponerLectorRelacionSeleccionadaRPT(d DependenciasLectorRelacionRPT) (Lec
 	if err != nil {
 		return nil, personaldomain.ErrLectorRelacionRPTNoDisponible
 	}
-	destino, err := personalpostgres.NuevoRegistroIntentosLectorRPTPostgreSQL(d.Intentos)
-	if err != nil {
-		return nil, personaldomain.ErrLectorRelacionRPTNoDisponible
-	}
-	i, err := NuevoRegistroIntentosLectorRelacionRPT(d.Identidad, destino, d.Ahora)
+	i, err := NuevoRegistroIntentosLectorRelacionRPT(d.Intentos, d.ConfiguracionIntentos)
 	if err != nil {
 		return nil, personaldomain.ErrLectorRelacionRPTNoDisponible
 	}
@@ -50,5 +49,5 @@ func ComponerLectorRelacionSeleccionadaRPT(d DependenciasLectorRelacionRPT) (Lec
 	if err != nil {
 		return nil, err
 	}
-	return lectorRelacionSeleccionadaCorrelacion{siguiente: lector}, nil
+	return NuevoLectorRelacionSeleccionadaRPTConIdentidad(lector, d.Identidad, d.LimiteIdentidad)
 }
