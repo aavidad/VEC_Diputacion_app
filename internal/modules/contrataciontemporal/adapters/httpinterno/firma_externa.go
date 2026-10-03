@@ -106,9 +106,9 @@ func (h *manejadorRegistroFirmaExterna) ServeHTTP(w http.ResponseWriter, r *http
 		responderErrorRegistroFirmaExterna(w, r, http.StatusServiceUnavailable, "servicio_no_disponible", r.Context().Err())
 		return
 	}
-	contenido, ok := leerCuerpoRegistroFirma(w, r)
-	if !ok {
-		responderErrorRegistroFirmaExterna(w, r, http.StatusBadRequest, "peticion_no_valida")
+	contenido, err := leerCuerpoRegistroFirma(w, r)
+	if err != nil {
+		responderErrorRegistroFirmaExterna(w, r, http.StatusBadRequest, "peticion_no_valida", err)
 		return
 	}
 	defer clear(contenido)
@@ -121,9 +121,9 @@ func (h *manejadorRegistroFirmaExterna) ServeHTTP(w http.ResponseWriter, r *http
 		responderErrorRegistroFirmaExterna(w, r, http.StatusUnprocessableEntity, "contenido_no_valido")
 		return
 	}
-	firmado, ok := decodificarPDFRegistroFirma(entrada.FirmadoBase64)
-	if !ok {
-		responderErrorRegistroFirmaExterna(w, r, http.StatusUnprocessableEntity, "contenido_no_valido")
+	firmado, err := decodificarPDFRegistroFirma(entrada.FirmadoBase64)
+	if err != nil {
+		responderErrorRegistroFirmaExterna(w, r, http.StatusUnprocessableEntity, "contenido_no_valido", err)
 		return
 	}
 	defer clear(firmado)
@@ -271,17 +271,25 @@ func responderErrorServicioRegistroFirma(w http.ResponseWriter, r *http.Request,
 	}
 }
 
-func leerCuerpoRegistroFirma(w http.ResponseWriter, r *http.Request) ([]byte, bool) {
+func leerCuerpoRegistroFirma(w http.ResponseWriter, r *http.Request) ([]byte, error) {
 	if r.Body == nil || r.Body == http.NoBody || r.ContentLength == 0 || r.ContentLength > maximoCuerpoRegistroFirmaExterna ||
 		len(r.Trailer) != 0 || !transferenciaAltaPermitida(r.TransferEncoding) ||
 		!cabecerasPropuestaFormalizacionPermitidas(r) || !tipoContenidoJSON(r.Header) || !acceptCompatibleJSON(r.Header) {
-		return nil, false
+		return nil, errEntradaConsultaRRHHInvalida
 	}
 	contenido, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maximoCuerpoRegistroFirmaExterna+1))
-	if err != nil || len(contenido) == 0 || len(contenido) > maximoCuerpoRegistroFirmaExterna || !utf8.Valid(contenido) ||
-		(r.ContentLength >= 0 && r.ContentLength != int64(len(contenido))) || validarJSONPropuestaFormalizacionSinDuplicados(contenido) != nil {
+	if err != nil {
 		clear(contenido)
-		return nil, false
+		return nil, err
 	}
-	return contenido, true
+	if len(contenido) == 0 || len(contenido) > maximoCuerpoRegistroFirmaExterna || !utf8.Valid(contenido) ||
+		(r.ContentLength >= 0 && r.ContentLength != int64(len(contenido))) {
+		clear(contenido)
+		return nil, errEntradaConsultaRRHHInvalida
+	}
+	if err := validarJSONPropuestaFormalizacionSinDuplicados(contenido); err != nil {
+		clear(contenido)
+		return nil, err
+	}
+	return contenido, nil
 }

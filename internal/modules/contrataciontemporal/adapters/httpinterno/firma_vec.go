@@ -75,9 +75,9 @@ func (h *manejadorRegistroFirmaVec) ServeHTTP(w http.ResponseWriter, r *http.Req
 		responderErrorRegistroFirmaVec(w, r, http.StatusServiceUnavailable, "servicio_no_disponible", r.Context().Err())
 		return
 	}
-	contenido, ok := leerCuerpoRegistroFirma(w, r)
-	if !ok {
-		responderErrorRegistroFirmaVec(w, r, http.StatusBadRequest, "peticion_no_valida")
+	contenido, err := leerCuerpoRegistroFirma(w, r)
+	if err != nil {
+		responderErrorRegistroFirmaVec(w, r, http.StatusBadRequest, "peticion_no_valida", err)
 		return
 	}
 	defer clear(contenido)
@@ -90,9 +90,9 @@ func (h *manejadorRegistroFirmaVec) ServeHTTP(w http.ResponseWriter, r *http.Req
 		responderErrorRegistroFirmaVec(w, r, http.StatusUnprocessableEntity, "contenido_no_valido")
 		return
 	}
-	firmado, ok := decodificarPDFRegistroFirma(entrada.FirmadoBase64)
-	if !ok {
-		responderErrorRegistroFirmaVec(w, r, http.StatusUnprocessableEntity, "contenido_no_valido")
+	firmado, err := decodificarPDFRegistroFirma(entrada.FirmadoBase64)
+	if err != nil {
+		responderErrorRegistroFirmaVec(w, r, http.StatusUnprocessableEntity, "contenido_no_valido", err)
 		return
 	}
 	defer clear(firmado)
@@ -142,14 +142,18 @@ func (e entradaRegistroFirmaVec) valida() bool {
 		len(e.FirmadoBase64) <= base64.StdEncoding.EncodedLen(ports.MaximoDocumentoFirmaBytes)
 }
 
-func decodificarPDFRegistroFirma(contenido string) ([]byte, bool) {
+func decodificarPDFRegistroFirma(contenido string) ([]byte, error) {
 	firmado, err := base64.StdEncoding.Strict().DecodeString(contenido)
-	if err != nil || len(firmado) == 0 || len(firmado) > ports.MaximoDocumentoFirmaBytes ||
+	if err != nil {
+		clear(firmado)
+		return nil, err
+	}
+	if len(firmado) == 0 || len(firmado) > ports.MaximoDocumentoFirmaBytes ||
 		base64.StdEncoding.EncodeToString(firmado) != contenido || !bytes.HasPrefix(firmado, []byte("%PDF-")) || !bytes.Contains(firmado, []byte("%%EOF")) {
 		clear(firmado)
-		return nil, false
+		return nil, errContenidoConsultaRRHHNoValido
 	}
-	return firmado, true
+	return firmado, nil
 }
 
 func resultadoRegistroFirmaVecConfiable(r application.ResultadoFirmaVec, s application.SolicitudFirmaVec, huella string) bool {

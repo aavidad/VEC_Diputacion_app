@@ -292,3 +292,62 @@ func TestRegistroFirmaVecReplayRevalidaCanal(t *testing.T) {
 		t.Fatal("replay reutilizó la autoridad anterior")
 	}
 }
+
+type cuerpoRegistroFirmaErrorPropagable struct {
+	err error
+}
+
+func (c cuerpoRegistroFirmaErrorPropagable) Read([]byte) (int, error) { return 0, c.err }
+func (cuerpoRegistroFirmaErrorPropagable) Close() error               { return nil }
+
+func TestRegistroFirmaPropagaErroresDeLecturaYBase64(t *testing.T) {
+	privado := errors.New("lectura_certificado_privado")
+	r := peticionRegistroFirmaVec(cuerpoRegistroFirmaVecPrueba())
+	r.Body = cuerpoRegistroFirmaErrorPropagable{err: privado}
+	contenido, err := leerCuerpoRegistroFirma(httptest.NewRecorder(), r)
+	if contenido != nil || !errors.Is(err, privado) {
+		t.Fatalf("se perdió la causa de lectura: %v", err)
+	}
+	firmado, err := decodificarPDFRegistroFirma("?")
+	var corrupto base64.CorruptInputError
+	if firmado != nil || !errors.As(err, &corrupto) {
+		t.Fatalf("se perdió la causa de Base64: %v", err)
+	}
+	vec := &servicioRegistroFirmaVecPrueba{}
+	externa := &servicioRegistroFirmaExternaPrueba{}
+	hVec, err := NuevoManejadorRegistroFirmaVec(autoridadRegistroFirmaVecPrueba{organizacion: "organizacion:desarrollo:dipgra"}, vec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hExterna, err := NuevoManejadorRegistroFirmaExternaV2(autoridadRegistroFirmaExternaPrueba{organizacion: "organizacion:desarrollo:dipgra"}, externa)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, caso := range []struct {
+		h        http.Handler
+		peticion func(string) *http.Request
+		cuerpo   string
+	}{
+		{hVec, peticionRegistroFirmaVec, cuerpoRegistroFirmaVecPrueba()},
+		{hExterna, peticionRegistroFirmaExterna, cuerpoRegistroFirmaExternaPrueba},
+	} {
+		r = caso.peticion(caso.cuerpo)
+		r.Body = cuerpoRegistroFirmaErrorPropagable{err: privado}
+		w := httptest.NewRecorder()
+		caso.h.ServeHTTP(w, r)
+		if w.Code != http.StatusBadRequest || strings.Contains(w.Body.String(), privado.Error()) ||
+			!strings.Contains(w.Body.String(), `"codigo":"peticion_no_valida"`) {
+			t.Fatalf("lectura sin normalizar: %d %s", w.Code, w.Body)
+		}
+		r = caso.peticion(strings.Replace(caso.cuerpo, "JVBERi0xLjcKJSVFT0Y=", "?", 1))
+		w = httptest.NewRecorder()
+		caso.h.ServeHTTP(w, r)
+		if w.Code != http.StatusUnprocessableEntity || strings.Contains(w.Body.String(), "illegal base64") ||
+			!strings.Contains(w.Body.String(), `"codigo":"contenido_no_valido"`) {
+			t.Fatalf("Base64 sin normalizar: %d %s", w.Code, w.Body)
+		}
+	}
+	if vec.llamadas != 0 || externa.llamadas != 0 {
+		t.Fatal("una lectura o Base64 fallidos alcanzaron aplicación")
+	}
+}
