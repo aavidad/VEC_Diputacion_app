@@ -54,7 +54,7 @@
 998 internal/vec/adapters/almacen/ficheros/almacen.go
 1396 internal/vec/adapters/almacen/s3/almacen.go
 1158 internal/vec/adapters/almacen/s3/almacen_test.go
-1128 internal/vec/adapters/httpseguridad/identidad.go
+1136 internal/vec/adapters/httpseguridad/identidad.go
 1175 internal/vec/adapters/postgres/autorizacion_integracion_test.go
 1077 internal/vec/adapters/postgres/confianzadocumental/atestacion_autorizacion_pdp_v4_test.go
 897 internal/vec/adapters/postgres/confianzadocumental/capacidad_ejecucion_documental_v4.go
