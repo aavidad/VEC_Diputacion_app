@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -25,7 +26,7 @@ func (s *servicioIntentosPreparacionPrueba) terminar() (bolsaports.ResultadoPrep
 	if s.despues != nil {
 		s.despues()
 	}
-	return bolsaports.ResultadoPreparacionBasesV3{}, s.err
+	return bolsaports.ResultadoPreparacionBasesV3{Estado: "resultado_parcial"}, s.err
 }
 func (s *servicioIntentosPreparacionPrueba) Guardar(context.Context, bolsaports.SolicitudGuardarPreparacionBasesV3) (bolsaports.ResultadoPreparacionBasesV3, error) {
 	return s.terminar()
@@ -41,7 +42,10 @@ type registradorIntentosPreparacionPrueba struct {
 	acuseInvalido bool
 }
 
-func (r *registradorIntentosPreparacionPrueba) AppendIntentoAuditoria(_ context.Context, o vecports.OrdenIntentoAuditoria) (vecports.AcuseIntentoAuditoria, error) {
+func (r *registradorIntentosPreparacionPrueba) AppendIntentoAuditoria(ctx context.Context, o vecports.OrdenIntentoAuditoria) (vecports.AcuseIntentoAuditoria, error) {
+	if ctx.Err() != nil {
+		return vecports.AcuseIntentoAuditoria{}, ctx.Err()
+	}
 	if !r.servicio.cerrado {
 		return vecports.AcuseIntentoAuditoria{}, errors.New("negocio todavía abierto")
 	}
@@ -67,6 +71,8 @@ func TestPreparacionBasesIntentosNominalesDespuesDelRetorno(t *testing.T) {
 			for _, auditor := range []string{"confirmado", "fallo", "acuse_invalido"} {
 				t.Run(string(rune('A'+i))+fallo.Error()+auditor, func(t *testing.T) {
 					b, ctx := brokerPreparacionBasesPrueba(t, i)
+					ctx, cancelar := context.WithCancel(ctx)
+					defer cancelar()
 					z, _, err := b.contexto(ctx)
 					if err != nil {
 						t.Fatal(err)
@@ -78,7 +84,12 @@ func TestPreparacionBasesIntentosNominalesDespuesDelRetorno(t *testing.T) {
 					servicio := &servicioIntentosPreparacionPrueba{err: fallo}
 					// La sesión deja de ser resoluble al retornar. La auditoría debe usar
 					// lo capturado al entrar, también después de revocación o cancelación.
-					servicio.despues = func() { b.sesiones[i] = nil }
+					servicio.despues = func() {
+						b.sesiones[i] = nil
+						if fallo == context.Canceled {
+							cancelar()
+						}
+					}
 					r := &registradorIntentosPreparacionPrueba{servicio: servicio}
 					if auditor == "fallo" {
 						r.err = errors.New("auditor sintético no disponible")
@@ -89,12 +100,16 @@ func TestPreparacionBasesIntentosNominalesDespuesDelRetorno(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
+					var salida bolsaports.ResultadoPreparacionBasesV3
 					if i == 0 {
-						_, err = p.Guardar(ctx, bolsaports.SolicitudGuardarPreparacionBasesV3{Actor: h.Actor, Correlacion: h.Correlacion, Ambito: h.Ambito,
+						salida, err = p.Guardar(ctx, bolsaports.SolicitudGuardarPreparacionBasesV3{Actor: h.Actor, Correlacion: h.Correlacion, Ambito: h.Ambito,
 							Esperada: prep.Esperada{PreparacionRef: "preparacion:sintetica"}, Material: prep.Material{}, ClaveOperacion: "operacion:sintetica"})
 					} else {
-						_, err = p.Consultar(ctx, bolsaports.SolicitudConsultarPreparacionBasesV3{Actor: h.Actor, Correlacion: h.Correlacion, Ambito: h.Ambito,
+						salida, err = p.Consultar(ctx, bolsaports.SolicitudConsultarPreparacionBasesV3{Actor: h.Actor, Correlacion: h.Correlacion, Ambito: h.Ambito,
 							Selector: bolsaports.SelectorConsultaPreparacionBases{Modo: "actual", Exacta: prep.Esperada{PreparacionRef: "preparacion:sintetica"}}})
+					}
+					if !reflect.DeepEqual(salida, bolsaports.ResultadoPreparacionBasesV3{}) {
+						t.Fatal("se devolvió resultado parcial tras error")
 					}
 					if auditor == "confirmado" {
 						if !errors.Is(err, fallo) {
@@ -111,7 +126,7 @@ func TestPreparacionBasesIntentosNominalesDespuesDelRetorno(t *testing.T) {
 					d := r.ordenes[0]
 					corr, _ := h.Correlacion.ValorCanonico()
 					resultado := core.ResultadoIntentoAuditoriaError
-					if fallo == bolsaports.ErrPreparacionBasesDenegada {
+					if fallo == bolsaports.ErrPreparacionBasesDenegada && ctx.Err() == nil {
 						resultado = core.ResultadoIntentoAuditoriaDenegado
 					}
 					if d.ResultadoContexto.HuellaSHA256 != z.Resultado.HuellaSHA256 || d.Datos.Resultado != resultado || d.Datos.CorrelacionRef != corr ||

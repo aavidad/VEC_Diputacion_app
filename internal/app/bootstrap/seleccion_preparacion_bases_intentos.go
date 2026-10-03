@@ -41,7 +41,10 @@ func (p *preparadorBasesAuditadoV3) Guardar(ctx context.Context, q bolsaports.So
 		return bolsaports.ResultadoPreparacionBasesV3{}, err
 	}
 	resultado, err := p.servicio.Guardar(ctx, q)
-	return resultado, p.registrar(ctx, z, q.Correlacion, preparacion.Recurso.Referencia, bolsaports.AccionGuardarPreparacionBases, err)
+	if err != nil {
+		return bolsaports.ResultadoPreparacionBasesV3{}, p.registrar(ctx, z, q.Correlacion, preparacion.Recurso.Referencia, bolsaports.AccionGuardarPreparacionBases, err)
+	}
+	return resultado, nil
 }
 
 func (p *preparadorBasesAuditadoV3) Consultar(ctx context.Context, q bolsaports.SolicitudConsultarPreparacionBasesV3) (bolsaports.ResultadoPreparacionBasesV3, error) {
@@ -54,7 +57,10 @@ func (p *preparadorBasesAuditadoV3) Consultar(ctx context.Context, q bolsaports.
 		return bolsaports.ResultadoPreparacionBasesV3{}, err
 	}
 	resultado, err := p.servicio.Consultar(ctx, q)
-	return resultado, p.registrar(ctx, z, q.Correlacion, preparacion.Recurso.Referencia, bolsaports.AccionConsultarPreparacionBases, err)
+	if err != nil {
+		return bolsaports.ResultadoPreparacionBasesV3{}, p.registrar(ctx, z, q.Correlacion, preparacion.Recurso.Referencia, bolsaports.AccionConsultarPreparacionBases, err)
+	}
+	return resultado, nil
 }
 
 func (p *preparadorBasesAuditadoV3) capturar(ctx context.Context, actor core.ContextoActor, accion string) (contextoSeguridadComunDesarrollo, error) {
@@ -108,7 +114,9 @@ func (p *preparadorBasesAuditadoV3) registrar(ctx context.Context, z contextoSeg
 	if e != nil {
 		return bolsaports.ErrPreparacionBasesNoDisponible
 	}
-	acuse, e := p.registrador.AppendIntentoAuditoria(ctx, orden)
+	// La cuenta dedicada de L impone el plazo de configuración en su propio
+	// adaptador. La desconexión HTTP no cancela el registro del hecho observado.
+	acuse, e := p.registrador.AppendIntentoAuditoria(context.WithoutCancel(ctx), orden)
 	if e != nil || acuse.ValidarPara(orden) != nil {
 		return bolsaports.ErrPreparacionBasesNoDisponible
 	}
