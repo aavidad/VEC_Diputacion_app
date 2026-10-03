@@ -21,6 +21,7 @@ type ConfiguracionRecolector struct {
 	RetencionSegundos int64                                     `json:"retencion_segundos"`
 	VentanaSegundos   int64                                     `json:"ventana_alertas_segundos"`
 	Umbrales          map[domain.CodigoIncidenciaTecnica]uint64 `json:"umbrales_alerta"`
+	UmbralesResultado map[domain.CodigoResultadoTecnico]uint64  `json:"umbrales_resultado,omitempty"`
 }
 
 // MetricasRecolector no contiene etiquetas ni entradas aportadas por personas.
@@ -110,6 +111,9 @@ func recolectarIncidencias(entrada io.Reader, alertas io.Writer, cfg Configuraci
 			} else {
 				codigo := domain.CodigoResultadoTecnico(resultado.Resultado)
 				metricas.PorResultado[codigo] = sumarSaturado(metricas.PorResultado[codigo], 1)
+				if contador.registrarResultado(resultado, reloj(), alertas, &metricas) != nil {
+					return metricas, os.ErrInvalid
+				}
 			}
 		}
 		if fin == io.EOF {
@@ -211,6 +215,11 @@ func configuracionRecolectorValida(c ConfiguracionRecolector) bool {
 	}
 	for codigo, umbral := range c.Umbrales {
 		if _, ok := domain.DefinicionIncidenciaTecnicaDe(codigo); !ok || umbral == 0 {
+			return false
+		}
+	}
+	for resultado, umbral := range c.UmbralesResultado {
+		if (resultado != domain.ResultadoTecnicoDenegado && resultado != domain.ResultadoTecnicoNoDisponible) || umbral == 0 {
 			return false
 		}
 	}

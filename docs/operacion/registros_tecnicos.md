@@ -35,9 +35,58 @@ intento de negocio.
 
 El recolector comprueba el esquema, el resultado y nivel catalogados, la pareja
 correlación/referencia y la lista exacta de campos. Guarda la proyección
-validada y suma `por_resultado` en las métricas. Las alertas por umbral siguen
-aplicándose a códigos de incidencia. La auditoría funcional nominal conserva
-su propia cadena, permisos y retención; no entra en estos archivos rotatorios.
+validada y suma `por_resultado` en las métricas. Las alertas por umbral se
+configuran para códigos de incidencia y, opcionalmente, para denegaciones e
+indisponibilidad. La auditoría funcional nominal conserva su propia cadena,
+permisos y retención; no entra en estos archivos rotatorios.
+
+## Avisos por resultados
+
+El campo opcional `umbrales_resultado` admite únicamente `denegado` y
+`no_disponible`, con umbrales enteros positivos. Si se omite o se deja vacío,
+se conserva el comportamiento anterior. Sigue siendo obligatorio configurar
+al menos un umbral de incidencia en `umbrales_alerta`.
+
+Este fragmento es un ejemplo sintético para añadir a la configuración completa;
+Sistemas debe fijar sus umbrales y ventana. No constituye una política aprobada:
+
+```json
+{
+  "ventana_alertas_segundos": 60,
+  "umbrales_resultado": {"denegado": 10, "no_disponible": 1}
+}
+```
+
+Cada resultado validado y guardado suma una ocurrencia. Incidencias y resultados
+comparten la ventana del recolector, medida desde su recepción, y cada resultado
+produce como máximo un aviso por ventana. Un aviso de denegación indica que se
+ha alcanzado el volumen configurado; no identifica a una persona ni declara un
+ataque. Un aviso `no_disponible` informa de resultados técnicos observados sin
+atribuirlos al validador, PostgreSQL u otro servicio.
+
+Los avisos salen por stderr con el esquema `vec.alerta_resultado_tecnico.v1` y
+solo seis campos: `esquema`, `instante`, `resultado`, `nivel`, `recuento` y
+`ventana_segundos`. El nivel procede del catálogo del resultado: `warn` para
+denegado y `error` para no disponible. No incluyen identidad, recurso,
+componente, etapa ni correlación. Las alertas de incidencia mantienen su
+esquema anterior. El contador `alertas` suma ambos tipos de aviso.
+
+Si falla la escritura del aviso, la CLI termina con código 2 y no lo cuenta
+como entregado. El registro técnico que originó el aviso ya está escrito. Los
+contadores y ventanas se reinician con el proceso; la herramienta no deduplica
+líneas repetidas ni conserva los umbrales alcanzados entre reinicios.
+
+La prueba focal del emisor, la CLI, el archivo y los avisos se ejecuta con:
+
+```sh
+GOCACHE="$HOME/.cache/go-build" GOPROXY=off go test -p 8 \
+  ./cmd/vec-registros-tecnicos -run '^TestCLIEmisorArchivoYAlertasResultados$' -count=1
+```
+
+Usa umbrales sintéticos de dos denegaciones y una indisponibilidad en 60
+segundos. Guarda seis resultados, rechaza una entrada con campos ajenos y
+emite dos avisos sin repetirlos. También comprueba que una entrada rechazada
+no suma para alcanzar el umbral.
 
 ## Prueba con una incidencia sintética
 
@@ -112,9 +161,11 @@ una caída anterior puede perder las últimas escrituras. La herramienta no prom
 recepción exactamente una vez ni sustituye la custodia judicial.
 
 Los contadores son acumulados desde el arranque: recibidas, escritas, rechazadas,
-avisos, archivos retirados y recuento por código. El recuento suma las ocurrencias
-declaradas en cada incidencia. Un umbral produce como máximo un aviso por código
-y ventana; la siguiente ventana se inicia al recibir una nueva incidencia tras
+avisos, archivos retirados y recuentos por código y resultado. El recuento de
+incidencia suma las ocurrencias declaradas en cada incidencia. Un umbral
+produce como máximo un aviso por código
+y ventana; con umbrales de resultado activos, ambos tipos comparten el reinicio
+de ventana al recibir un registro validado. La siguiente ventana se inicia tras
 vencer la anterior. Un fallo de entrada, archivo o salida termina con código 2.
 Los errores no imprimen la ruta ni el mensaje de la biblioteca.
 
@@ -123,8 +174,9 @@ Los errores no imprimen la ruta ni el mensaje de la biblioteca.
 La entrada debe proceder de los emisores técnicos de confianza, con transporte
 y permisos locales a cargo de Sistemas. No es un receptor HTTP ni se instala o
 conecta automáticamente a los servicios. La vista administrativa para Sistemas,
-la recogida de todas las raíces y las incidencias específicas de denegación o
-del validador requieren cortes posteriores.
+la recogida de todas las raíces y una señal técnica específica del validador
+requieren cortes posteriores. Los avisos por resultados dependen de que los
+consumidores emitan esos resultados mediante el contrato común.
 
 Cuando el emisor recibe el contexto de una petición, escribe su correlación
 técnica de 32 caracteres hexadecimales en la incidencia o el resultado. Este
