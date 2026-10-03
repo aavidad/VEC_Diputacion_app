@@ -120,7 +120,7 @@ GRANT EXECUTE ON FUNCTION vec_contexto_actor_v1.fuentes_certificado_firmante_ct_
 
 CREATE FUNCTION vec_contexto_actor_v1.publicar_certificado_firmante_ct_v2(b bytea,decision text,auditoria text)
 RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET lock_timeout='2s' AS $f$
-DECLARE d jsonb;s jsonb;a record;h record;fecha timestamptz(6);doc bytea;sha text;recibo text;result jsonb;
+DECLARE d jsonb;s jsonb;a record;h record;fecha timestamptz(6);doc bytea;sha text;recibo text;result jsonb;canon text;
 BEGIN
  IF current_setting('transaction_isolation')<>'serializable' OR current_setting('transaction_read_only')<>'off'
   OR b IS NULL OR pg_catalog.octet_length(b) NOT BETWEEN 2 AND 16384
@@ -142,10 +142,24 @@ BEGIN
   OR d->>'estado' NOT IN ('vigente','retirado')
   OR d->>'version' !~ '^[1-9][0-9]{0,19}$' OR (d->>'version')::numeric>18446744073709551615
   OR d->>'preimagen_version' !~ '^(0|[1-9][0-9]{0,19})$' OR (d->>'preimagen_version')::numeric>18446744073709551615
+  OR EXISTS(SELECT 1 FROM pg_catalog.jsonb_each(d) e
+   WHERE e.key NOT IN ('version','preimagen_version') AND pg_catalog.jsonb_typeof(e.value) IS DISTINCT FROM 'string')
+  OR pg_catalog.jsonb_typeof(d->'version') IS DISTINCT FROM 'number'
+  OR pg_catalog.jsonb_typeof(d->'preimagen_version') IS DISTINCT FROM 'number'
+  OR d->>'vigente_desde' !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.][0-9]{6}Z$'
+  OR d->>'vigente_hasta' !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.][0-9]{6}Z$'
   OR NOT pg_catalog.isfinite((d->>'vigente_desde')::timestamptz)
   OR NOT pg_catalog.isfinite((d->>'vigente_hasta')::timestamptz)
   OR (d->>'vigente_hasta')::timestamptz<=(d->>'vigente_desde')::timestamptz
  THEN RAISE EXCEPTION 'CA25: descriptor inválido' USING ERRCODE='22023'; END IF;
+ canon:=pg_catalog.format('{"esquema":%s,"clave":%s,"vinculo_ref":%s,"version":%s,"certificado_der_sha256":%s,"cuenta_ref":%s,"persona_ref":%s,"vinculo_cuenta_persona_ref":%s,"estado":%s,"vigente_desde":%s,"vigente_hasta":%s,"evidencia_ref":%s,"evidencia_sha256":%s,"preimagen_ref":%s,"preimagen_version":%s,"preimagen_sha256":%s}',
+  pg_catalog.to_json(d->>'esquema'),pg_catalog.to_json(d->>'clave'),pg_catalog.to_json(d->>'vinculo_ref'),d->>'version',
+  pg_catalog.to_json(d->>'certificado_der_sha256'),pg_catalog.to_json(d->>'cuenta_ref'),pg_catalog.to_json(d->>'persona_ref'),
+  pg_catalog.to_json(d->>'vinculo_cuenta_persona_ref'),pg_catalog.to_json(d->>'estado'),pg_catalog.to_json(d->>'vigente_desde'),
+  pg_catalog.to_json(d->>'vigente_hasta'),pg_catalog.to_json(d->>'evidencia_ref'),pg_catalog.to_json(d->>'evidencia_sha256'),
+  pg_catalog.to_json(d->>'preimagen_ref'),d->>'preimagen_version',pg_catalog.to_json(d->>'preimagen_sha256'));
+ IF pg_catalog.convert_to(canon,'UTF8') IS DISTINCT FROM b
+ THEN RAISE EXCEPTION 'CA25: descriptor no canónico' USING ERRCODE='22023'; END IF;
  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('vec_contexto_actor_v1:certificado_firmante_v2:'||(d->>'certificado_der_sha256'),0));
  s:=vec_contexto_actor_v1.fuentes_certificado_firmante_ct_v2(d->>'cuenta_ref',d->>'persona_ref',d->>'vinculo_cuenta_persona_ref');
  IF s IS NULL THEN RAISE EXCEPTION 'CA25: fuente no vigente' USING ERRCODE='42501'; END IF;

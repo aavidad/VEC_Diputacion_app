@@ -42,7 +42,12 @@ BEGIN
   'vigente_hasta',to_char((clock_timestamp()+interval '1 day') AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
   'evidencia_ref','evi_ca25_sintetica_fffffffffffffff','evidencia_sha256',repeat('f',64),
   'preimagen_ref','','preimagen_version',0,'preimagen_sha256','none');
- b:=convert_to(d::text,'UTF8');
+ b:=convert_to(format('{"esquema":%s,"clave":%s,"vinculo_ref":%s,"version":%s,"certificado_der_sha256":%s,"cuenta_ref":%s,"persona_ref":%s,"vinculo_cuenta_persona_ref":%s,"estado":%s,"vigente_desde":%s,"vigente_hasta":%s,"evidencia_ref":%s,"evidencia_sha256":%s,"preimagen_ref":%s,"preimagen_version":%s,"preimagen_sha256":%s}',
+  to_json(d->>'esquema'),to_json(d->>'clave'),to_json(d->>'vinculo_ref'),d->>'version',
+  to_json(d->>'certificado_der_sha256'),to_json(d->>'cuenta_ref'),to_json(d->>'persona_ref'),
+  to_json(d->>'vinculo_cuenta_persona_ref'),to_json(d->>'estado'),to_json(d->>'vigente_desde'),
+  to_json(d->>'vigente_hasta'),to_json(d->>'evidencia_ref'),to_json(d->>'evidencia_sha256'),
+  to_json(d->>'preimagen_ref'),d->>'preimagen_version',to_json(d->>'preimagen_sha256')),'UTF8');
  r:=vec_contexto_actor_v1.publicar_certificado_firmante_ct_v2(b,'decision-ca25-sintetica','auditoria-ca25-sintetica');
  IF r->>'recibo_ref' IS DISTINCT FROM 'recibo_certificado_nominal:'||clave
   OR (SELECT count(*) FROM vec_contexto_actor_v1.certificado_firmante_nominal_versiones WHERE certificado_der_sha256=der)<>1
