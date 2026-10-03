@@ -223,8 +223,8 @@ func (h *Handler) get(w http.ResponseWriter, r *http.Request, s SesionConfiable)
 	case p == PrefijoV1+"/roles" && r.URL.RawQuery == "":
 		result, err = h.lecturas.ListarRoles(ctx, actor, s.Evidencia)
 	case p == PrefijoV1+"/personas":
-		consulta, valida := consultaPersonas(r.URL.RawQuery)
-		if !valida {
+		consulta, errConsulta := consultaPersonas(r.URL.RawQuery)
+		if errConsulta != nil {
 			h.denegarActor(w, r, s, http.StatusBadRequest, "solicitud_invalida", "buscar_personas", "")
 			return
 		}
