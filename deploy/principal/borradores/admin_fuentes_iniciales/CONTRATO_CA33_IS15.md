@@ -1,8 +1,10 @@
 # Borrador de contrato CA33 / IS15 — fuentes iniciales ADMIN
 
-Corte conservado por orden de Dirección de parar por créditos. Esta rama contiene
-el contrato, no las migraciones CA33 e IS15. No se ha ejecutado PostgreSQL, Go ni
-ensayo de esta pieza. Los números CA33 e IS15 están reservados por Dirección.
+La rama implementa CA33 e IS15 sobre los números reservados por Dirección.
+Incluye vectores SQL para el clon sintético; la instalación, el ensayo conjunto
+y las dos revisiones corresponden a Dirección. Ninguna migración se instala en
+la principal por esta entrega. La aplicación y la auditoría común se cierran
+junto con AUT39 y AD174, antes de presentar la pieza como usable.
 
 ## Alcance acordado
 
@@ -126,27 +128,79 @@ El productor genera la referencia real, exige coordenadas válidas y HMAC de
 El material lo calcula el proveedor real con keybundle/KMS privado existente;
 SQL no recibe una clave ni calcula un HMAC. La implementación existente de
 aprovisionamiento usa metadatos privados de token PKCS#11 y su PIN, fuera de
-Git. Ningún valor aleatorio sustituye esa fuente. El formato cerrado del material
-HMAC privado y su cotejo con `fuente_hmac` quedan pendientes de implementación;
-no se ha creado ni leído material privado para esta pieza.
+Git. Ningún valor aleatorio sustituye esa fuente. El material privado tiene este formato cerrado:
+
+```text
+version = 1
+fuente_ref, fuente_version = 1
+esquema_hmac, dominio_hmac_ref, clave_hmac_id, clave_hmac_version
+personas[2] {
+  persona_ref,
+  cuenta_ordinaria_id_hmac_hex,
+  cuenta_privilegiada_id_hmac_hex,
+  sujeto_id_hmac_hex
+}
+```
+
+`fuente_ref` y `fuente_version` coinciden con el plan. La huella de `fuente_hmac`
+es SHA256 de los bytes UTF8 exactos del documento canónico privado; el material
+no incluye su propia huella. Los tres HMAC por Persona son 32 bytes en hex
+minúsculo. Las seis coordenadas son distintas. Sólo el proveedor privado calcula
+esos HMAC con su clave; SQL recibe el resultado. Ninguna clave llega a SQL.
+La configuración privada de AUT39 coteja el material, la aprobación y el operador.
+El material no se añade a recibos ni a la auditoría común.
 
 IS9 posee `politica_certificado_admin_v1`; su límite de edad de revocación sólo
-exige un intervalo positivo. No establece un máximo de 600 segundos. Un límite
-técnico de representación del contrato nuevo debe quedar acordado y documentado
-antes de implementarlo, sin convertirlo en una regla legal.
+exige un intervalo positivo. No establece un máximo de 600 segundos. El contrato nuevo admite entre 1 y 2147483647 segundos como límite
+técnico de representación; no es una regla legal ni un máximo de antigüedad
+fijado por Sistemas. El valor concreto proviene del plan aprobado.
 
 CA20 `crear_perfil_vinculo_admin_v1` exige hoy un vínculo contextual previo que
-incluye perfil. CA33 debe introducir el cotejo propietario de titularidad sin
-perfil y adaptar esa guarda mediante la migración nueva o el puerto sucesor
-acordado; nunca se siembra un perfil ficticio para satisfacerla. Las migraciones
+incluye perfil. CA33 introduce la titularidad sin perfil y adapta esa guarda conservando
+el resto de precondiciones y la ABI de CA20. Antes exige la huella exacta del
+cuerpo instalado. Nunca se siembra un perfil ficticio para satisfacerla. Las migraciones
 instaladas se conservan.
 
-## Pendiente para continuar
+## Validación y orden causal
 
-Implementar CA33 e IS15 y sus tablas/funciones privadas sobre esta ABI, cerrar el
-formato de material HMAC con el proveedor existente y completar el contrato de
-replay/CAS. Preparar lista causal y pruebas de rechazo de producción, material
-divergente, fallo de segunda Persona con rollback integral y recuperación del
-mismo recibo tras reinicio. Hacen falta dos revisiones del hash exacto antes del
-ensayo coordinado. No se publica una capacidad ni se acredita un bootstrap por
-este contrato conservado.
+Orden: IS15, CA33 y después AUT39 con AD174. IS15 publica un validador privado
+del plan para CA/AUT y el cotejo de recibo para CA; no permite leer tablas ajenas.
+Las fachadas requieren una transacción SERIALIZABLE de escritura y retienen las
+barreras de continuidad/fuentes. CA conserva el protocolo instalado de punteros
+y su generación. Las tablas nuevas tienen RLS forzada, propietario exacto e
+historia inmutable; ninguna concesión nueva permite runtime, PUBLIC o Sistemas.
+
+El plan usa `pfi_` con sufijo opaco de 22 a 124 caracteres; la longitud total
+máxima es 128. Las operaciones de provisión de cuentas usan `opr_`, según IS2.
+Las Personas, procedencias y política usan `per_`, `prc_` y `pga_` con sufijo
+opaco de 22 a 128 caracteres. Organización conserva `org_[a-z0-9]{16,80}`.
+El host usa etiquetas DNS minúsculas válidas, con punto y longitud total 4..253.
+Las vigencias cubren la caducidad del plan; Persona no supera Organización.
+
+Las preimágenes son JSONB sin huella propia. El CAS usa SHA256 de
+`convert_to(preimagen::text,'UTF8')`. AUT39 comprueba por separado el SHA del
+canon Go del plan y la aprobación externa. Las fachadas propietarias reciben
+ese compromiso; el JSON no concede permisos. El replay conserva el recibo
+original y coteja otra vez el recibo real IS, sin crear efectos nuevos.
+
+Vectores preparados:
+
+- IS15: positivo, cuatro cuentas/titularidades reales, replay, CAS divergente,
+  producción, material cambiado, permiso enviado por el solicitante y recibo
+  sin coordenadas privadas.
+- CA33: fallo de la segunda Persona y rollback integral de ambos módulos,
+  recibo IS inventado, positivo, replay, huella, ausencia de perfiles nuevos y
+  comprobación inmediata de claves foráneas.
+
+Dirección carga mediante parámetros enlazados los GUC de sesión privados
+`vec.ensayo.plan_fuentes` y `vec.ensayo.material_fuentes`; los vectores no los
+imprimen. Cada script termina con ROLLBACK. El SHA local del plan en esos vectores
+sólo identifica la fixture de fachada; AUT39 ensaya el canon público real.
+El recorrido durable, replay tras reinicio, auditoría AD174 y bootstrap AUT38
+se validan en la transacción y el clon coordinados por Dirección. No hay ensayo
+ni recuperación acreditados por la mera presencia de estos archivos.
+
+CA mantiene el enum instalado `autoridad_maestra_acreditada` porque lo exigen
+sus consumidores. La operación y la titularidad conservan el alcance explícito
+`sintetico_declarado` y la aprobación externa. Ese enum técnico no transforma
+la fuente de desarrollo en una fuente institucional ni acredita producción.

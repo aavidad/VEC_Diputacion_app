@@ -6,13 +6,24 @@ SET LOCAL lock_timeout='5s';
 SET LOCAL statement_timeout='60s';
 DO $pre$
 BEGIN
- IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=current_user AND rolsuper)
- OR current_setting('server_version_num')::int NOT BETWEEN 180000 AND 189999
- OR to_regprocedure('vec_identidad_sesiones_v1.cotejar_recibo_fuentes_iniciales_admin_v1(text,text,text)') IS NULL
- OR to_regclass('vec_contexto_actor_v1.control_generacion_punteros_actuales_v2') IS NULL
- OR to_regclass('vec_contexto_actor_v1.fuentes_iniciales_admin_v1') IS NOT NULL
- THEN RAISE EXCEPTION 'CA33: preimagen incompatible' USING ERRCODE='55000'; END IF;
+ IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=current_user AND rolsuper) THEN
+  RAISE EXCEPTION 'CA33: clave=migrador.superusuario actual=false esperado=true' USING ERRCODE='42501'; END IF;
+ IF current_setting('server_version_num')::int NOT BETWEEN 180000 AND 189999 THEN
+  RAISE EXCEPTION 'CA33: clave=server_version_num actual=% esperado=180000..189999',current_setting('server_version_num') USING ERRCODE='55000'; END IF;
+ IF to_regprocedure('vec_identidad_sesiones_v1.cotejar_recibo_fuentes_iniciales_admin_v1(text,text,text)') IS NULL THEN RAISE EXCEPTION 'CA33: clave=dependencia.vec_identidad_sesiones_v1.cotejar_recibo_fuentes_iniciales_admin_v1(text,text,text) actual=ausente esperado=presente' USING ERRCODE='55000'; END IF;
+ IF to_regclass('vec_contexto_actor_v1.control_generacion_punteros_actuales_v2') IS NULL THEN RAISE EXCEPTION 'CA33: clave=dependencia.vec_contexto_actor_v1.control_generacion_punteros_actuales_v2 actual=ausente esperado=presente' USING ERRCODE='55000'; END IF;
+ IF to_regclass('vec_contexto_actor_v1.fuentes_iniciales_admin_v1') IS NOT NULL THEN RAISE EXCEPTION 'CA33: clave=vec_contexto_actor_v1.fuentes_iniciales_admin_v1 actual=presente esperado=ausente' USING ERRCODE='55000'; END IF;
 END $pre$;
+DO $ca20_preimagen$
+DECLARE actual text;
+BEGIN
+ SELECT encode(public.digest(convert_to(prosrc,'UTF8'),'sha256'),'hex') INTO actual
+ FROM pg_proc WHERE oid=to_regprocedure('vec_contexto_actor_v1.crear_perfil_vinculo_admin_v1(text,text,numeric,numeric,text,text,text,numeric,text,timestamptz)')
+ AND proowner=to_regrole('vec_contexto_actor_v1_propietario') AND prosecdef;
+ IF actual IS DISTINCT FROM '649163c68f2072983155bc479e20a98820946f7362449979824278de88d9ef5f' THEN
+  RAISE EXCEPTION 'CA33: clave=CA20.prosrc_sha256 actual=% esperado=649163c68f2072983155bc479e20a98820946f7362449979824278de88d9ef5f',coalesce(actual,'ausente') USING ERRCODE='55000';
+ END IF;
+END $ca20_preimagen$;
 SET LOCAL ROLE vec_contexto_actor_v1_propietario;
 
 CREATE TABLE vec_contexto_actor_v1.fuentes_iniciales_admin_v1(

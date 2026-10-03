@@ -6,12 +6,13 @@ SET LOCAL lock_timeout='5s';
 SET LOCAL statement_timeout='60s';
 DO $pre$
 BEGIN
- IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=current_user AND rolsuper)
- OR current_setting('server_version_num')::int NOT BETWEEN 180000 AND 189999
- OR to_regprocedure('vec_identidad_sesiones_v1.provisionar_cuenta_v1(text,text,text,text,bigint,bytea,bytea,boolean,bytea)') IS NULL
- OR to_regclass('vec_identidad_sesiones_v1.politica_certificado_admin_v1') IS NULL
- OR to_regclass('vec_identidad_sesiones_v1.fuentes_iniciales_admin_v1') IS NOT NULL
- THEN RAISE EXCEPTION 'IS15: preimagen incompatible' USING ERRCODE='55000'; END IF;
+ IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=current_user AND rolsuper) THEN
+  RAISE EXCEPTION 'IS15: clave=migrador.superusuario actual=false esperado=true' USING ERRCODE='42501'; END IF;
+ IF current_setting('server_version_num')::int NOT BETWEEN 180000 AND 189999 THEN
+  RAISE EXCEPTION 'IS15: clave=server_version_num actual=% esperado=180000..189999',current_setting('server_version_num') USING ERRCODE='55000'; END IF;
+ IF to_regprocedure('vec_identidad_sesiones_v1.provisionar_cuenta_v1(text,text,text,text,bigint,bytea,bytea,boolean,bytea)') IS NULL THEN RAISE EXCEPTION 'IS15: clave=dependencia.vec_identidad_sesiones_v1.provisionar_cuenta_v1(text,text,text,text,bigint,bytea,bytea,boolean,bytea) actual=ausente esperado=presente' USING ERRCODE='55000'; END IF;
+ IF to_regclass('vec_identidad_sesiones_v1.politica_certificado_admin_v1') IS NULL THEN RAISE EXCEPTION 'IS15: clave=dependencia.vec_identidad_sesiones_v1.politica_certificado_admin_v1 actual=ausente esperado=presente' USING ERRCODE='55000'; END IF;
+ IF to_regclass('vec_identidad_sesiones_v1.fuentes_iniciales_admin_v1') IS NOT NULL THEN RAISE EXCEPTION 'IS15: clave=vec_identidad_sesiones_v1.fuentes_iniciales_admin_v1 actual=presente esperado=ausente' USING ERRCODE='55000'; END IF;
 END $pre$;
 SET LOCAL ROLE vec_identidad_sesiones_v1_propietario;
 
@@ -42,6 +43,7 @@ BEGIN
  THEN RAISE EXCEPTION 'IS15: ventana del plan inválida' USING ERRCODE='22023'; END IF;
  IF vec_identidad_sesiones_v1.claves_fuentes_admin_v1(p->'organizacion',ARRAY['organizacion_ref','version_esperada','vigente_hasta']) IS NOT TRUE
  OR p#>>'{organizacion,version_esperada}' IS DISTINCT FROM '0'
+ OR EXISTS(SELECT 1 FROM jsonb_each(p->'organizacion') WHERE jsonb_typeof(value)<>(CASE WHEN key='version_esperada' THEN 'number' ELSE 'string' END))
  OR p#>>'{organizacion,organizacion_ref}' !~ '^org_[a-z0-9]{16,80}$'
  OR p#>>'{organizacion,vigente_hasta}' !~ '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$'
  OR (p#>>'{organizacion,vigente_hasta}')::timestamptz<(p->>'caduca_en')::timestamptz
@@ -52,12 +54,14 @@ BEGIN
   OR vec_identidad_sesiones_v1.referencia_valida(f->>'referencia','prc_') IS NOT TRUE
   OR f->>'version' IS DISTINCT FROM '1' OR f->>'huella_sha256' !~ '^[0-9a-f]{64}$'
   OR f->>'huella_sha256'=repeat('0',64)
+  OR EXISTS(SELECT 1 FROM jsonb_each(f) WHERE jsonb_typeof(value)<>(CASE WHEN key='version' THEN 'number' ELSE 'string' END))
   THEN RAISE EXCEPTION 'IS15: fuente inválida' USING ERRCODE='22023'; END IF;
  END LOOP;
  FOR pe IN SELECT value FROM jsonb_array_elements(p->'personas') LOOP
   IF vec_identidad_sesiones_v1.claves_fuentes_admin_v1(pe,ARRAY['persona_ref','version_esperada','vigente_hasta','operacion_cuenta_ordinaria_ref','operacion_cuenta_privilegiada_ref','fuente_titularidad']) IS NOT TRUE
   OR vec_identidad_sesiones_v1.referencia_valida(pe->>'persona_ref','per_') IS NOT TRUE
   OR pe->>'version_esperada' IS DISTINCT FROM '0'
+  OR EXISTS(SELECT 1 FROM jsonb_each(pe) WHERE jsonb_typeof(value)<>(CASE WHEN key='version_esperada' THEN 'number' WHEN key='fuente_titularidad' THEN 'object' ELSE 'string' END))
   OR pe->>'vigente_hasta' !~ '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$'
   OR (pe->>'vigente_hasta')::timestamptz<(p->>'caduca_en')::timestamptz
   OR (pe->>'vigente_hasta')::timestamptz>(p#>>'{organizacion,vigente_hasta}')::timestamptz
@@ -81,7 +85,7 @@ BEGIN
  OR (pol->>'vigente_hasta')::timestamptz<(p->>'caduca_en')::timestamptz
  THEN RAISE EXCEPTION 'IS15: política inválida' USING ERRCODE='22023'; END IF;
  -- Null y tipos ajenos no pueden pasar como cadenas JSON.
- IF EXISTS(SELECT 1 FROM jsonb_each(p) WHERE key IN ('version') AND jsonb_typeof(value)<>'number')
+ IF EXISTS(SELECT 1 FROM jsonb_each(p) WHERE jsonb_typeof(value)<>(CASE WHEN key='version' THEN 'number' WHEN key='personas' THEN 'array' WHEN key IN ('organizacion','procedencia','fuente_hmac','politica_admin') THEN 'object' ELSE 'string' END))
  OR EXISTS(SELECT 1 FROM jsonb_each(pol) WHERE key NOT IN ('maxima_edad_revocacion_segundos') AND jsonb_typeof(value)<>'string')
  OR EXISTS(SELECT 1 FROM jsonb_each(pol) WHERE key='maxima_edad_revocacion_segundos' AND jsonb_typeof(value)<>'number')
  THEN RAISE EXCEPTION 'IS15: tipos inválidos' USING ERRCODE='22023'; END IF;
@@ -129,7 +133,8 @@ BEGIN
  m:=material::jsonb;
  IF jsonb_path_exists(m,'$.** ? (@ == null)') THEN RAISE EXCEPTION 'IS15: null privado no admitido' USING ERRCODE='22023'; END IF;
  IF vec_identidad_sesiones_v1.claves_fuentes_admin_v1(m,ARRAY['version','fuente_ref','fuente_version','esquema_hmac','dominio_hmac_ref','clave_hmac_id','clave_hmac_version','personas']) IS NOT TRUE
- OR m->>'version' IS DISTINCT FROM '1' OR m->>'fuente_ref' IS DISTINCT FROM p#>>'{fuente_hmac,referencia}'
+ OR m->>'version' IS DISTINCT FROM '1'
+ OR EXISTS(SELECT 1 FROM jsonb_each(m) WHERE jsonb_typeof(value)<>(CASE WHEN key IN ('version','fuente_version','clave_hmac_version') THEN 'number' WHEN key='personas' THEN 'array' ELSE 'string' END)) OR m->>'fuente_ref' IS DISTINCT FROM p#>>'{fuente_hmac,referencia}'
  OR m->>'fuente_version' IS DISTINCT FROM p#>>'{fuente_hmac,version}'
  OR m->>'clave_hmac_version' !~ '^[1-9][0-9]{0,18}$'
  OR vec_identidad_sesiones_v1.coordenadas_hmac_validas(m->>'esquema_hmac',m->>'dominio_hmac_ref',m->>'clave_hmac_id',(m->>'clave_hmac_version')::bigint) IS NOT TRUE
@@ -139,6 +144,7 @@ BEGIN
   SELECT value INTO mp FROM jsonb_array_elements(m->'personas') WHERE value->>'persona_ref'=pe->>'persona_ref';
   IF mp IS NULL OR (SELECT count(*) FROM jsonb_array_elements(m->'personas') WHERE value->>'persona_ref'=pe->>'persona_ref')<>1
   OR vec_identidad_sesiones_v1.claves_fuentes_admin_v1(mp,ARRAY['persona_ref','cuenta_ordinaria_id_hmac_hex','cuenta_privilegiada_id_hmac_hex','sujeto_id_hmac_hex']) IS NOT TRUE
+  OR EXISTS(SELECT 1 FROM jsonb_each(mp) WHERE jsonb_typeof(value)<>'string')
   THEN RAISE EXCEPTION 'IS15: titularidad material inválida' USING ERRCODE='22023'; END IF;
   FOREACH clave IN ARRAY ARRAY['cuenta_ordinaria_id_hmac_hex','cuenta_privilegiada_id_hmac_hex','sujeto_id_hmac_hex'] LOOP
    IF mp->>clave IS NULL OR mp->>clave !~ '^[0-9a-f]{64}$'
@@ -153,6 +159,7 @@ BEGIN
  IF (SELECT count(DISTINCT value->>'sujeto_id_hmac_hex') FROM jsonb_array_elements(m->'personas'))<>2
  OR (SELECT count(DISTINCT h) FROM (SELECT value->>'cuenta_ordinaria_id_hmac_hex' h FROM jsonb_array_elements(m->'personas') UNION ALL SELECT value->>'cuenta_privilegiada_id_hmac_hex' FROM jsonb_array_elements(m->'personas')) x)<>4
  THEN RAISE EXCEPTION 'IS15: sujetos o cuentas confundidos' USING ERRCODE='22023'; END IF;
+ IF (SELECT count(DISTINCT h) FROM (SELECT value->>'cuenta_ordinaria_id_hmac_hex' h FROM jsonb_array_elements(m->'personas') UNION ALL SELECT value->>'cuenta_privilegiada_id_hmac_hex' FROM jsonb_array_elements(m->'personas') UNION ALL SELECT value->>'sujeto_id_hmac_hex' FROM jsonb_array_elements(m->'personas')) x)<>6 THEN RAISE EXCEPTION 'IS15: dominios privados confundidos' USING ERRCODE='22023'; END IF;
  RETURN m;
 EXCEPTION WHEN data_exception THEN RAISE EXCEPTION 'IS15: material privado inválido' USING ERRCODE='22023';
 END $f$;
