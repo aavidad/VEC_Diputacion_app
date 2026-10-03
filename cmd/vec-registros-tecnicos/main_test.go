@@ -241,3 +241,80 @@ func TestCLICatalogoConfiguradoTreceCodigosYFalloAntesDeEscribir(t *testing.T) {
 		t.Fatal("almacén creado con catálogo inválido")
 	}
 }
+
+func TestCLIGrxFirmaConHistoriaJSONLV1IntactaYCatalogoAnteriorRechazado(t *testing.T) {
+	dir := t.TempDir()
+	// Línea histórica del formato original, previa a la ampliación del
+	// catálogo. Nunca llevó un campo con la revisión del catálogo.
+	historica := []byte(`{"esquema":"vec.incidencia_tecnica.v1","instante":"2026-10-03T00:00:00.000Z","codigo":"ARRANQUE_FALLIDO","severidad":"critica","componente":"servidor","etapa":"escucha","entorno":"pruebas","version_binario":"936aac665","correlacion":"0123456789abcdef0123456789abcdef","recuento":1,"mensaje":"El servidor no ha podido arrancar."}` + "\n")
+	var nueva bytes.Buffer
+	emisor, err := observabilidad.NuevoEmisorJSONLines(observabilidad.OpcionesEmisor{Destino: &nueva, Entorno: "pruebas"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, err := ports.ConCorrelacionIncidenciasPeticion(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	emisor.EmitirResultadoConContexto(ctx, domain.SolicitudResultadoTecnico{
+		Resultado: domain.ResultadoTecnicoNoDisponible, Componente: domain.ComponenteIncidenciaGrxFirma, Etapa: domain.EtapaIncidenciaPeticion,
+	})
+	if err := emisor.Cerrar(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if nueva.Len() == 0 {
+		t.Fatal("resultado GrxFirma no emitido")
+	}
+	mixta := append(bytes.Clone(historica), nueva.Bytes()...)
+	cfg := observabilidad.ConfiguracionRecolector{Directorio: filepath.Join(dir, "registros"), MaxLineaBytes: 1024, MaxArchivoBytes: 8192, MaxArchivos: 4, RetencionSegundos: 3600, VentanaSegundos: 60, Umbrales: map[domain.CodigoIncidenciaTecnica]uint64{domain.IncidenciaArranqueFallido: 5}}
+	rutaConfig := filepath.Join(dir, "config.json")
+	b, _ := json.Marshal(cfg)
+	if os.WriteFile(rutaConfig, b, 0600) != nil {
+		t.Fatal("configuración no creada")
+	}
+	args := []string{"--config", rutaConfig, "--textos", "../../web/static/textos/es/registros-tecnicos.json"}
+	var salida, diagnostico bytes.Buffer
+	if codigo := ejecutar(args, bytes.NewReader(mixta), &salida, &diagnostico); codigo != 0 {
+		t.Fatal("historia mixta rechazada", codigo)
+	}
+	conservada, err := os.ReadFile(filepath.Join(cfg.Directorio, "incidencias-activo.jsonl"))
+	if err != nil || !bytes.Equal(mixta, conservada) {
+		t.Fatal("historia antigua o resultado nuevo reescritos")
+	}
+	// El esquema v1 no admite atribuirle una revisión por un campo nuevo.
+	conRevision := bytes.Replace(nueva.Bytes(), []byte(`"esquema":`), []byte(`"version_catalogo":1,"esquema":`), 1)
+	salida.Reset()
+	diagnostico.Reset()
+	if codigo := ejecutar(args, bytes.NewReader(conRevision), &salida, &diagnostico); codigo != 0 {
+		t.Fatal("recogida no completada")
+	}
+	var resumen struct {
+		Metricas observabilidad.MetricasRecolector `json:"metricas"`
+	}
+	if json.Unmarshal(salida.Bytes(), &resumen) != nil || resumen.Metricas.Rechazadas != 1 || resumen.Metricas.Escritas != 0 {
+		t.Fatal("atribución de revisión no conforme aceptada")
+	}
+	// Un archivo externo de revisión 1 no se convierte a revisión 2.
+	b, err = os.ReadFile("../../web/static/textos/es/incidencias_tecnicas.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	b = bytes.Replace(b, []byte(`"version_catalogo": 2`), []byte(`"version_catalogo": 1`), 1)
+	cfg.CatalogoIncidencias = filepath.Join(dir, "catalogo_anterior.json")
+	cfg.Directorio = filepath.Join(dir, "no_crear")
+	if os.WriteFile(cfg.CatalogoIncidencias, b, 0600) != nil {
+		t.Fatal("catálogo anterior no creado")
+	}
+	b, _ = json.Marshal(cfg)
+	if os.WriteFile(rutaConfig, b, 0600) != nil {
+		t.Fatal("configuración anterior no creada")
+	}
+	salida.Reset()
+	diagnostico.Reset()
+	if codigo := ejecutar(args, bytes.NewReader(nueva.Bytes()), &salida, &diagnostico); codigo != 2 {
+		t.Fatal("catálogo anterior admitido")
+	}
+	if _, err := os.Stat(cfg.Directorio); !os.IsNotExist(err) {
+		t.Fatal("almacén creado con catálogo anterior")
+	}
+}

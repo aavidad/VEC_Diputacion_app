@@ -62,8 +62,27 @@ func TestCatalogoIncidenciasTecnicasCerradoYCompleto(t *testing.T) {
 	if otra.Componentes[0] != ComponenteIncidenciaServidor {
 		t.Fatal("la definicion devuelta comparte memoria")
 	}
-	if VersionCatalogoIncidenciasTecnicas != 1 || EsquemaIncidenciaTecnica != "vec.incidencia_tecnica.v1" {
+	if VersionCatalogoIncidenciasTecnicas != 2 || EsquemaIncidenciaTecnica != "vec.incidencia_tecnica.v1" {
 		t.Fatal("version de catalogo o esquema inesperados")
+	}
+}
+
+func TestComponenteGrxFirmaCerradoConCodigosExistentes(t *testing.T) {
+	clasificacion, saneada := ClasificarIncidenciaTecnica(SolicitudIncidenciaTecnica{
+		Codigo: IncidenciaHTTPInternoFallido, Componente: ComponenteIncidenciaGrxFirma, Etapa: EtapaIncidenciaPeticion,
+	})
+	if saneada || clasificacion.Codigo != IncidenciaHTTPInternoFallido || clasificacion.Componente != ComponenteIncidenciaGrxFirma {
+		t.Fatal("componente GrxFirma no incorporado al catálogo existente")
+	}
+	for _, resultado := range []CodigoResultadoTecnico{ResultadoTecnicoCorrecto, ResultadoTecnicoNoDisponible} {
+		if _, err := ClasificarResultadoTecnico(SolicitudResultadoTecnico{Resultado: resultado, Componente: ComponenteIncidenciaGrxFirma, Etapa: EtapaIncidenciaPeticion}); err != nil {
+			t.Fatal("resultado observado del componente no admitido", err)
+		}
+	}
+	for _, alias := range []ComponenteIncidenciaTecnica{"GrxFirma", "validador_firma", "remoto", "grxfirma_ajeno"} {
+		if _, err := ClasificarResultadoTecnico(SolicitudResultadoTecnico{Resultado: ResultadoTecnicoNoDisponible, Componente: alias, Etapa: EtapaIncidenciaPeticion}); err == nil {
+			t.Fatal("alias libre admitido", alias)
+		}
 	}
 }
 

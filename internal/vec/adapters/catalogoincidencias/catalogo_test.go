@@ -39,7 +39,7 @@ func TestCatalogoRechazaJSONAmbiguoVersionIncompletaYTextoVariable(t *testing.T)
 		t.Fatal(err)
 	}
 	for _, mutar := range []func(map[string]any){
-		func(d map[string]any) { d["version_catalogo"] = 2 },
+		func(d map[string]any) { d["version_catalogo"] = domain.VersionCatalogoIncidenciasTecnicas + 1 },
 		func(d map[string]any) { d["esquema"] = "2" },
 		func(d map[string]any) { delete(d, "esquema") },
 		func(d map[string]any) { d["campo_ajeno"] = "dato_sintetico_privado" },
