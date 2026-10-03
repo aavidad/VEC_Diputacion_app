@@ -251,6 +251,9 @@ transportes_mtls_revisados=(
 	# fija, sin parámetros, same-origin, no-store, redirect error y no-referrer;
 	# persona y empleado los deriva el servidor del mTLS.
 	static/portal-empleado/modulos/personal/cliente-http-ficha-propia.js
+	# Exportación nominal de servicios propios: POST fijo con el recibo y corte
+	# consultados, same-origin, no-store, redirect error y no-referrer.
+	static/portal-empleado/modulos/personal/cliente-http-exportacion-servicios.js
 	# Cambios del expediente de Contratación temporal (25/09, petición RRHH p.4):
 	# POST a la ruta fija del detalle con otro Accept, same-origin, no-store,
 	# redirect error y no-referrer; misma autorización que el detalle.

@@ -120,6 +120,7 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	materialCronos                                   materialCronosDesdeCTDesarrollo
 	materialDocumentos                               *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialPersonalFichaPropia                      *proveedorMaterialAltaContratacionTemporalDesarrollo
+	materialPersonalExportacionServicios             *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialUsuariosPreferenciasConsultaInterna      *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialUsuariosPreferenciasActualizacionInterna *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialUsuariosPreferenciasConsultaExterna      *proveedorMaterialAltaContratacionTemporalDesarrollo
@@ -588,6 +589,17 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	etapa = "material_personal_ficha_propia"
 	if personalEmpleadoSolicitado(cfg.PersonalEmpleadoEnabled) {
 		dependencias.materialPersonalFichaPropia, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, personaldomain.AudienciaFichaPropia)
+		if err != nil {
+			return vacias, err
+		}
+	}
+	seleccionExportacion, err := exportacionServiciosPersonalSolicitada(cfg)
+	if err != nil {
+		return vacias, err
+	}
+	if seleccionExportacion {
+		etapa = "material_personal_exportacion_servicios"
+		dependencias.materialPersonalExportacionServicios, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, personaldomain.AudienciaExportacionServiciosPropios)
 		if err != nil {
 			return vacias, err
 		}
