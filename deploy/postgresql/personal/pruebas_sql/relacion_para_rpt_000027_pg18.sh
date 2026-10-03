@@ -7,6 +7,8 @@ umask 077
 continuar=false
 desde_registro=false
 desde_post154=false
+desde_replay=false
+if [[ ${1:-} == --continuar-desde-replay ]]; then continuar=true; desde_replay=true; shift; fi
 if [[ ${1:-} == --desde-post154 ]]; then desde_post154=true; shift; fi
 if [[ ${1:-} == --continuar-fixture ]]; then continuar=true; shift; fi
 if [[ ${1:-} == --continuar-registro ]]; then continuar=true; desde_registro=true; shift; fi
@@ -51,7 +53,13 @@ else
  [[ -f $scratch/rpt27.test && -f $scratch/preimagen.json && -f $scratch/migraciones_journal.txt ]] || fallo 'fase anterior incompleta'
  [[ $(sha256sum "$scratch/preimagen.json" | cut -d' ' -f1) == "$pre_sha" ]] || fallo 'captura de reanudación distinta'
  sha256sum "$ad154" "$personal27" | cmp -s "$scratch/migraciones_journal.txt" - || fallo 'producto cambiado desde instalación'
- if ! "$desde_registro"; then
+ if "$desde_replay"; then
+  binario_sha=${VEC_RPT27_BINARIO_SHA256:?huella del único binario conservado requerida}
+  [[ $binario_sha =~ ^[0-9a-f]{64}$ && $(sha256sum "$scratch/rpt27.test" | cut -d' ' -f1) == "$binario_sha" ]] || fallo 'binario distinto del ensayado'
+  [[ $(valor "SELECT count(*)=3 AND bool_and(caso IN ('positivo_vigente','positivo_suspendida','positivo_finalizada')) FROM public.rpt27_ensayo_vector") == t ]] || fallo 'fase previa distinta de tres positivos'
+  [[ $(valor "SELECT count(*)=3 FROM vec_personal.recibo_relacion_para_rpt") == t ]] || fallo 'recibos previos distintos'
+  [[ $(valor "SELECT count(*)=0 FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3 WHERE tipo_registro='intento_nominal' AND proceso='rpt27-ensayo'") == t ]] || fallo 'replay ya confirmado; no repetir'
+ elif ! "$desde_registro"; then
  [[ $(valor "SELECT count(*)=0 FROM public.rpt27_ensayo_vector") == t ]] || fallo 'ya hay casos preparados: no repetir el ensayo'
  else
   [[ $(valor "SELECT count(*)=1 FROM public.rpt27_ensayo_vector WHERE caso='go_registro_caido'") == t ]] || fallo 'caso caído no preparado'
@@ -871,7 +879,9 @@ PYPOSITIVO
 }
 # Casos con actores/contextos CA registrados y permiso RPT propio.
 if ! "$desde_registro"; then
-for estado in vigente suspendida finalizada; do preparar "positivo_$estado" "positivo_$estado" "$estado"; positivo "positivo_$estado" "$estado"; done
+if ! "$desde_replay"; then
+ for estado in vigente suspendida finalizada; do preparar "positivo_$estado" "positivo_$estado" "$estado"; positivo "positivo_$estado" "$estado"; done
+fi
 rechazar positivo_vigente
 for variante in actor perfil ambito relacion organismo campos cose; do preparar "$variante"; rechazar "$variante" "$variante"; done
 # Revocación actual de la sesión después de emitir: no se transforma la
