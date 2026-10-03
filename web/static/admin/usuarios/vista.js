@@ -1,6 +1,6 @@
-import { validarCapacidades, validarRoles, validarUnidades, validarPersonas, validarFicha, seleccionarActos, prepararDecision, puedeConfirmar, validarResultado, incompatible } from "./contratos.js?v=20261003-admin-usuarios-v4";
-import { crearRender } from "./render.js?v=20261003-admin-usuarios-v4";
-import { montarPropuestas } from "./propuestas.js?v=20261003-admin-usuarios-v4";
+import { validarCapacidades, validarRoles, validarUnidades, validarPersonas, validarFicha, seleccionarActos, prepararDecision, puedeConfirmar, validarResultado, incompatible } from "./contratos.js?v=20261003-admin-usuarios-v5";
+import { crearRender } from "./render.js?v=20261003-admin-usuarios-v5";
+import { montarPropuestas } from "./propuestas.js?v=20261003-admin-usuarios-v5";
 let montaje = 0;
 const filtrosVacios = () => ({ busqueda: "", perfil_ref: "", unidad_ref: "", estado: "", cursor: "" });
 export function montarUsuarios(root, { textos, cliente = {}, cripto = globalThis.crypto } = {}) {
@@ -14,7 +14,7 @@ export function montarUsuarios(root, { textos, cliente = {}, cripto = globalThis
   let actor = "";
   const pendientes = montarPropuestas(el("panel-propuestas"), { textos, cripto,
     contexto: () => ({ roles, capacidades, actor, cliente }),
-    bloquear: (valor) => { incierto = valor; controles(!valor && !bloqueado); }, denegar: error });
+    bloquear: (valor) => { if (valor) for (const c of peticiones.values()) c.abort(); incierto = valor; controles(!valor && !bloqueado); }, denegar: error, fallarLectura });
   const lenguajePrevio = root.getAttribute("lang");
   root.setAttribute("lang", textos.idioma);
   function iniciar(tipo) {
@@ -23,31 +23,43 @@ export function montarUsuarios(root, { textos, cliente = {}, cripto = globalThis
   }
   const actual = (tipo, control) => vivo && !control.signal.aborted && peticiones.get(tipo) === control;
   function controles(permitidos) {
-    for (const campo of ["consulta", "perfil", "vigencia", "buscar-boton"]) el(campo).disabled = !permitidos;
+    for (const campo of ["consulta", "perfil", "vigencia", "buscar-boton", "limpiar"]) el(campo).disabled = !permitidos;
     el("unidad").disabled = !permitidos || unidades.length === 0;
     el("recargar").disabled = enviando || incierto;
-    el("tab-usuarios").disabled = enviando || incierto;
-    el("tab-perfiles").disabled = enviando || incierto;
-    el("tab-propuestas").disabled = enviando || incierto;
+    el("tab-usuarios").disabled = bloqueado || enviando || incierto;
+    el("tab-perfiles").disabled = bloqueado || enviando || incierto;
+    el("tab-propuestas").disabled = bloqueado || enviando || incierto;
   }
   function etapa(nombre) {
     for (const parte of ["listado", "detalle", "revision"]) el(parte).hidden = parte !== nombre;
     root.querySelector(".usuarios-trabajo")?.scrollTo?.({ top: 0 });
     if (nombre !== "listado") el(nombre).focus({ preventScroll: true });
   }
+  function mostrarPanel(nombre) {
+    for (const parte of ["usuarios", "perfiles", "propuestas"]) {
+      el(`panel-${parte}`).hidden = nombre !== parte;
+      el(`tab-${parte}`).setAttribute("aria-selected", String(nombre === parte)); el(`tab-${parte}`).tabIndex = nombre === parte ? 0 : -1;
+    }
+  }
   function limpiarDatos() {
     detalle = null; decision = null; personas = []; roles = []; unidades = []; capacidades = []; siguiente = "";
     for (const parte of ["resultados", "detalle", "revision", "panel-perfiles", "filtros-activos"]) el(parte).replaceChildren();
-    filtros([], []); etapa("listado"); controles(false);
+    filtros([], []);
+    for (const campo of ["consulta", "perfil", "unidad", "vigencia"]) el(campo).value = "";
+    mostrarPanel("usuarios"); etapa("listado"); controles(false);
     actor = ""; pendientes.vaciar();
+  }
+  function fallarLectura(e) {
+    bloqueado = true; consulta = filtrosVacios();
+    for (const controlador of peticiones.values()) controlador.abort();
+    limpiarDatos();
+    el("estado").textContent = t([401, 403].includes(e?.estado) ? "errores.denegado" : "errores.lectura_retirada");
+    el("recargar").focus();
   }
   function error(error, destino = el("estado")) {
     const denegado = error?.estado === 401 || error?.estado === 403;
     if (denegado) {
-      bloqueado = true;
-      for (const controlador of peticiones.values()) controlador.abort();
-      limpiarDatos();
-      el("estado").textContent = t("errores.denegado");
+      fallarLectura(error);
       return;
     }
     destino.textContent = t(error?.estado === 409 ? "errores.conflicto" : error?.codigo === "filtros_no_disponibles" ? "errores.filtros"
@@ -62,6 +74,8 @@ export function montarUsuarios(root, { textos, cliente = {}, cripto = globalThis
   function pintarFicha() { ficha(detalle, roles, disponibles("otorgar")); etapa("detalle"); }
   async function buscar(anadir = false) {
     if (!vivo || bloqueado || enviando || !capacidades.includes("consultar") || typeof cliente.buscar !== "function") return;
+    peticiones.get("persona")?.abort();
+    detalle = null; decision = null; el("detalle").replaceChildren(); el("revision").replaceChildren(); etapa("listado");
     const control = iniciar("buscar");
     if (!anadir) { personas = []; siguiente = ""; el("resultados").replaceChildren(); }
     controles(false); el("estado").textContent = t("busqueda.cargando");
@@ -75,7 +89,7 @@ export function montarUsuarios(root, { textos, cliente = {}, cripto = globalThis
       personas = nuevas; siguiente = pagina.siguiente_cursor || "";
       tabla({ personas, siguiente_cursor: siguiente }, roles);
       el("estado").textContent = t(personas.length ? "busqueda.lista" : "busqueda.vacia");
-    } catch (e) { if (actual("buscar", control)) { personas = []; siguiente = ""; el("resultados").replaceChildren(); error(e); } }
+    } catch (e) { if (actual("buscar", control)) fallarLectura(e); }
     finally { if (actual("buscar", control)) controles(!bloqueado); }
   }
   async function cargarPersona(ref) {
@@ -87,7 +101,7 @@ export function montarUsuarios(root, { textos, cliente = {}, cripto = globalThis
       const respuesta = await cliente.persona(ref, control.signal);
       if (!actual("persona", control)) return;
       detalle = validarFicha(respuesta, ref); pintarFicha(); el("estado").textContent = t("detalle.lista");
-    } catch (e) { if (actual("persona", control)) { etapa("listado"); error(e); } }
+    } catch (e) { if (actual("persona", control)) fallarLectura(e); }
   }
   async function cargar() {
     if (!vivo || enviando || incierto) return;
@@ -107,7 +121,7 @@ export function montarUsuarios(root, { textos, cliente = {}, cripto = globalThis
       filtros(roles, unidades);
       for (const [campo, clave] of [["consulta", "busqueda"], ["perfil", "perfil_ref"], ["unidad", "unidad_ref"], ["vigencia", "estado"]]) el(campo).value = consulta[clave];
       catalogo(roles); controles(true); await buscar();
-    } catch (e) { if (actual("inicio", control)) { limpiarDatos(); error(e); } }
+    } catch (e) { if (actual("inicio", control)) fallarLectura(e); }
   }
   function leerFiltros() {
     return { busqueda: el("consulta").value.trim(), perfil_ref: el("perfil").value, unidad_ref: el("unidad").value, estado: el("vigencia").value, cursor: "" };
@@ -124,6 +138,8 @@ export function montarUsuarios(root, { textos, cliente = {}, cripto = globalThis
   async function confirmar() {
     const metodo = decision && puedeConfirmar(decision, capacidades, cliente);
     if (!vivo || enviando || bloqueado || conflicto || !metodo) return;
+    for (const c of peticiones.values()) c.abort();
+    pendientes.cancelarLectura();
     enviando = true; incierto = true; controles(false); el("confirmar").disabled = true; el("corregir").disabled = true;
     el("resultado").textContent = t("revision.enviando");
     const copia = decision, control = iniciar("confirmar");
@@ -147,18 +163,16 @@ export function montarUsuarios(root, { textos, cliente = {}, cripto = globalThis
     }
   }
   function pestaña(nombre) {
-    if (enviando || incierto) return;
-    for (const parte of ["usuarios", "perfiles", "propuestas"]) {
-      el(`panel-${parte}`).hidden = nombre !== parte;
-      el(`tab-${parte}`).setAttribute("aria-selected", String(nombre === parte)); el(`tab-${parte}`).tabIndex = nombre === parte ? 0 : -1;
-    }
+    if (bloqueado || enviando || incierto) return;
+    if (nombre !== "propuestas") pendientes.cancelarLectura();
+    mostrarPanel(nombre);
     el("estado").textContent = nombre === "usuarios" ? t(detalle ? "detalle.lista" : personas.length ? "busqueda.lista" : "busqueda.vacia") : "";
     if (nombre === "propuestas") void pendientes.cargar();
   }
   function click(evento) {
     const boton = evento.target.closest("[data-accion]"); if (!boton || !root.contains(boton) || boton.disabled) return;
     const accion = boton.dataset.accion;
-    if (enviando || incierto && accion !== "confirmar") return;
+    if (bloqueado && accion !== "recargar" || enviando || incierto && accion !== "confirmar") return;
     if (["usuarios", "perfiles", "propuestas"].includes(accion)) pestaña(accion);
     else if (accion === "recargar") void cargar();
     else if (accion === "persona") void cargarPersona(boton.dataset.ref);
@@ -191,7 +205,7 @@ export function montarUsuarios(root, { textos, cliente = {}, cripto = globalThis
     el("opciones").innerHTML = opciones(disponibles(el("operacion").value)); el("revisar").disabled = disponibles(el("operacion").value).length === 0; el("error-seleccion").hidden = true;
   } }
   function teclado(evento) {
-    if (evento.target.getAttribute("role") !== "tab" || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(evento.key) || enviando || incierto) return;
+    if (evento.target.getAttribute("role") !== "tab" || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(evento.key) || bloqueado || enviando || incierto) return;
     const nombres = ["usuarios", "perfiles", "propuestas"], indice = nombres.findIndex((n) => evento.target === el(`tab-${n}`));
     evento.preventDefault(); const nombre = evento.key === "Home" ? nombres[0] : evento.key === "End" ? nombres.at(-1) : nombres[(indice + (evento.key === "ArrowRight" ? 1 : 2)) % nombres.length];
     pestaña(nombre); el(`tab-${nombre}`).focus();

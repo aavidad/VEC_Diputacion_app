@@ -76,6 +76,7 @@ type autoridadConsultasContratacionTemporalDesarrollo struct {
 	materialCronos                                   materialCronosDesdeCTDesarrollo
 	materialDocumentos                               *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialPersonalFichaPropia                      *proveedorMaterialAltaContratacionTemporalDesarrollo
+	materialPersonalExportacionServicios             *proveedorMaterialAltaContratacionTemporalDesarrollo
 	gobiernoUsuariosPreferencias                     *pgxpool.Pool
 	materialUsuariosPreferenciasConsultaInterna      *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialUsuariosPreferenciasActualizacionInterna *proveedorMaterialAltaContratacionTemporalDesarrollo
@@ -309,6 +310,10 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	configuracionPreparacionBases, preparacionBasesActiva, err := leerConfiguracionPreparacionBasesV3(cfg)
+	if err != nil || preparacionBasesActiva && (!cfg.BolsaBorradoresEnabled || !cfg.ContratacionTemporalPostgreSQL.ConsultasRRHHConfiguradas()) {
+		return nil, nil, nil, errMontajePreparacionBasesV3
+	}
 	var fuenteAutorizacionPlantillas, motivosEvaluadorPlantillas *pgxpool.Pool
 	cerrarAutoridadesPlantillas := func() {
 		if motivosEvaluadorPlantillas != nil {
@@ -324,7 +329,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			cerrarAutoridadesPlantillas()
 		}
 	}()
-	if plantillasActivas || documentalActiva {
+	if plantillasActivas || documentalActiva || preparacionBasesActiva {
 		if !cfg.ContratacionTemporalPostgreSQL.ConsultasRRHHConfiguradas() {
 			return nil, nil, nil, plantillasapp.ErrNoDisponible
 		}
@@ -381,6 +386,10 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			alta.cerrar()
 		}
 	}()
+	montajePreparacionBases, existePreparacionBases, err := NuevoMontajePreparacionBasesV3(cfg, alta.soporte, reloj)
+	if err != nil || existePreparacionBases != preparacionBasesActiva || preparacionBasesActiva && montajePreparacionBases.configuracion != configuracionPreparacionBases {
+		return nil, nil, nil, errMontajePreparacionBasesV3
+	}
 	montajeBaremo, err := prepararMontajeGobiernoReglasBaremoHTTPV3(cfg, alta.soporte, reloj)
 	if err != nil {
 		return nil, nil, nil, err
@@ -710,6 +719,13 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		}
 		declaracionesFrontera = append(declaracionesFrontera, fronterasAuditoria...)
 	}
+	if preparacionBasesActiva {
+		fronteras, err := montajePreparacionBases.Fronteras()
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		declaracionesFrontera = append(declaracionesFrontera, fronteras...)
+	}
 	fronterasBaremo, err := fronterasGobiernoReglasBaremoHTTPV3(montajeBaremo.perfilRef)
 	if err != nil {
 		return nil, nil, nil, err
@@ -960,6 +976,14 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	var manejadorSituacion http.Handler
 	cerrarBorrador := func() {}
 	personalizacionB7 := &fuentePersonalizacionB7{}
+	var autorizacionesPreparacionBases []descriptorAutorizacionComunDesarrollo
+	if preparacionBasesActiva {
+		autorizacionesPreparacionBases, err = montajePreparacionBases.autorizacionesPostgreSQL(
+			fuenteAutorizacionPlantillas, alta.postgresql.registroAutorizacion, motivosEvaluadorPlantillas)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+	}
 	if debeComponerBorradorLlamamientoDesarrollo(cfg) {
 		if consultasRRHH.identidad == nil {
 			return nil, nil, nil, errBorradorNoDisponibleEn()
@@ -967,6 +991,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		var errBorrador error
 		rutasBorrador, coleccionesBorrador, manejadorSituacion, seguridadBorrador, envolverBorrador, cerrarBorrador, errBorrador = nuevasDependenciasBorradorLlamamientoDesarrollo(
 			context.Background(), cfg, dependencias, &alta, soporteBolsaCatalogo, catalogoFronteras, consultasRRHH.identidad, personalizacionB7,
+			autorizacionesPreparacionBases,
 			alta.postgresql.proveedorMaterialConsultaReincorporacionTitular,
 		)
 		if errBorrador != nil {
@@ -980,6 +1005,21 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		}
 	}()
 	rutas = append(rutas, rutasBorrador...)
+	cerrarPreparacionBases := func() {}
+	if preparacionBasesActiva {
+		var rutasPreparacionBases []vechttp.RutaExacta
+		rutasPreparacionBases, cerrarPreparacionBases, err = montajePreparacionBases.rutasDesdeRaiz(context.Background(), &alta, consultasRRHH.identidad, catalogoFronteras,
+			fuenteAutorizacionPlantillas, motivosEvaluadorPlantillas)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		rutas = append(rutas, rutasPreparacionBases...)
+	}
+	defer func() {
+		if cerrarAlta {
+			cerrarPreparacionBases()
+		}
+	}()
 	sondaBaremo, cancelarBaremo := context.WithTimeout(context.Background(), 60*time.Second)
 	rutasBaremo, cerrarBaremo, errBaremo := montajeBaremo.rutas(sondaBaremo, cfg, &alta,
 		consultasRRHH.identidad, seguridadBorrador, derivador, reloj)
@@ -1109,6 +1149,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		materialCronos:                                   alta.postgresql.materialCronos,
 		materialDocumentos:                               alta.postgresql.materialDocumentos,
 		materialPersonalFichaPropia:                      alta.postgresql.materialPersonalFichaPropia,
+		materialPersonalExportacionServicios:             alta.postgresql.materialPersonalExportacionServicios,
 		gobiernoUsuariosPreferencias:                     alta.postgresql.gobierno,
 		materialUsuariosPreferenciasConsultaInterna:      alta.postgresql.materialUsuariosPreferenciasConsultaInterna,
 		materialUsuariosPreferenciasActualizacionInterna: alta.postgresql.materialUsuariosPreferenciasActualizacionInterna,
@@ -1124,6 +1165,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		return nil, nil, nil, falloPostgreSQLCTDesarrollo(nil)
 	}
 	dependencias.cerrar = func() {
+		cerrarPreparacionBases()
 		cerrarBaremo()
 		cerrarAutoridadesPlantillas()
 		cerrarFronteraAuditoria()

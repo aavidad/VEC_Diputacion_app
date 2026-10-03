@@ -42,6 +42,14 @@ class Raiz extends Nodo {
 const diferida = () => { let resolver; const promesa = new Promise((r) => { resolver = r; }); return { promesa, resolver }; };
 const cliente = (f = fuente()) => ({ capacidades: async () => f.capacidades, roles: async () => f.catalogo,
   buscar: async () => f.pagina, persona: async () => f.ficha });
+const esperarVista = () => new Promise((resolve) => setImmediate(resolve));
+function pulsar(root, accion, ref) {
+  root.contains = () => true;
+  root.listeners.click[0]({ target: { closest: () => ({ dataset: { accion, ref }, disabled: false }) } });
+}
+function buscar(root) {
+  root.listeners.submit[0]({ preventDefault() {}, target: root.campo("buscar") });
+}
 
 test("lecturas conservan referencia, ámbito e historia de la fuente; datos malformados se rechazan", () => {
   const f = fuente();
@@ -156,6 +164,45 @@ test("vista elimina información al denegar e ignora respuestas tardías tras de
   assert.equal(señal.aborted, true); assert.equal(otra.innerHTML, "");
 });
 
+test("una lectura fresca fallida retira datos y filtros; solo una recarga validada recupera la consulta", async () => {
+  for (const fallo of [{ estado: 503 }, { estado: 403 }, { codigo: "respuesta_incompatible" }]) {
+    const root = new Raiz(), c = cliente(), v = montarUsuarios(root, { textos, cliente: c }); await v.listo;
+    assert.match(root.campo("panel-perfiles").innerHTML, /<table/u);
+    root.campo("consulta").value = original.ficha.nombre;
+    c.buscar = async () => { throw fallo; }; buscar(root); await esperarVista();
+    for (const parte of ["resultados", "detalle", "revision", "panel-perfiles", "panel-propuestas", "filtros-activos"]) assert.equal(root.campo(parte).innerHTML, "");
+    assert.equal(root.campo("consulta").value, "");
+    assert.equal(root.campo("buscar-boton").disabled, true);
+    assert.equal(root.campo("tab-perfiles").disabled, true);
+    assert.equal(root.campo("recargar").disabled, false);
+    assert.equal(root.campo("recargar").enfocado, true);
+    const aviso = textos.traducir(fallo.estado === 403 ? "errores.denegado" : "errores.lectura_retirada");
+    pulsar(root, "perfiles"); assert.equal(root.campo("estado").textContent, aviso);
+    c.buscar = cliente().buscar; await v.cargar();
+    assert.match(root.campo("resultados").innerHTML, /Carmen Molina/u);
+    assert.equal(root.campo("buscar-boton").disabled, false); v.desmontar();
+  }
+});
+
+test("fallo de ficha retira el listado anterior y el catálogo", async () => {
+  const root = new Raiz(), c = cliente(), v = montarUsuarios(root, { textos, cliente: c }); await v.listo;
+  c.persona = async () => { throw { estado: 503 }; };
+  pulsar(root, "persona", original.ficha.persona_ref); await esperarVista();
+  assert.equal(root.campo("resultados").innerHTML, ""); assert.equal(root.campo("panel-perfiles").innerHTML, "");
+  assert.equal(root.campo("estado").textContent, textos.traducir("errores.lectura_retirada")); v.desmontar();
+});
+
+test("una nueva búsqueda cancela la ficha pendiente y descarta su respuesta tardía", async () => {
+  const root = new Raiz(), pendiente = diferida(); let señal;
+  const c = { ...cliente(), persona: (_ref, signal) => { señal = signal; return pendiente.promesa; } };
+  const v = montarUsuarios(root, { textos, cliente: c }); await v.listo;
+  pulsar(root, "persona", original.ficha.persona_ref);
+  buscar(root); await esperarVista(); assert.equal(señal.aborted, true);
+  pendiente.resolver(original.ficha); await esperarVista();
+  assert.equal(root.campo("detalle").innerHTML, ""); assert.equal(root.campo("detalle").hidden, true);
+  assert.equal(root.campo("listado").hidden, false); v.desmontar();
+});
+
 test("catálogos resuelven ES/EN sin faltantes y el grafo interno usa una URL por módulo", async () => {
   const claves = (o, p = "") => Object.entries(o).flatMap(([k, v]) => typeof v === "string" ? [p + k] : claves(v, `${p}${k}.`));
   for (const idioma of IDIOMAS_DISPONIBLES) {
@@ -164,6 +211,6 @@ test("catálogos resuelven ES/EN sin faltantes y el grafo interno usa una URL po
   }
   for (const archivo of ["entry.js", "vista.js", "propuestas.js", "propuestas-contratos.js"]) {
     const s = await readFile(new URL(archivo, import.meta.url), "utf8");
-    for (const [, modulo] of s.matchAll(/from "(\.\/[^"]+)"/gu)) assert.equal(new URL(modulo, import.meta.url).search, "?v=20261003-admin-usuarios-v4");
+    for (const [, modulo] of s.matchAll(/from "(\.\/[^"]+)"/gu)) assert.equal(new URL(modulo, import.meta.url).search, "?v=20261003-admin-usuarios-v5");
   }
 });

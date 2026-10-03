@@ -79,6 +79,15 @@ func textoCatalogo(valor string, limite int) bool {
 }
 
 func huellaAuditoriaSeleccion(valor string) bool {
+	const comun = "aud_v3_p_"
+	if strings.HasPrefix(valor, comun) && len(valor) == len(comun)+32 {
+		for _, c := range valor[len(comun):] {
+			if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f') {
+				return false
+			}
+		}
+		return true
+	}
 	const prefijo = "auditoria_seleccion_admin:"
 	if !strings.HasPrefix(valor, prefijo) || len(valor) != len(prefijo)+64 {
 		return false

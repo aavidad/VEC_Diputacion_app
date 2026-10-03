@@ -161,6 +161,9 @@ transportes_mtls_revisados=(
 	# Consulta exacta de Selección: POST interno fijo, same-origin, no-store,
 	# redirect error y no-referrer; contexto y permiso se derivan en servidor.
 	static/portal-empleado/modulos/seleccion/ficha-convocatoria/cliente-http.js
+	# Consulta de bases preparadas S2: POST interno fijo, mTLS del mismo origen,
+	# no-store, redirect error y no-referrer; sin actor ni permisos del formulario.
+	static/portal-empleado/modulos/seleccion/preparacion-bases/cliente-http.js
 	static/portal-empleado/portal-catalogo-modulos.js
 	# Usuarios 5.08a: GET/PUT a ruta interna fija, mTLS del mismo origen,
 	# no-store, redirect error, sin referente ni cookies accesibles en JS.
@@ -248,6 +251,9 @@ transportes_mtls_revisados=(
 	# fija, sin parámetros, same-origin, no-store, redirect error y no-referrer;
 	# persona y empleado los deriva el servidor del mTLS.
 	static/portal-empleado/modulos/personal/cliente-http-ficha-propia.js
+	# Exportación nominal de servicios propios: POST fijo con el recibo y corte
+	# consultados, same-origin, no-store, redirect error y no-referrer.
+	static/portal-empleado/modulos/personal/cliente-http-exportacion-servicios.js
 	# Cambios del expediente de Contratación temporal (25/09, petición RRHH p.4):
 	# POST a la ruta fija del detalle con otro Accept, same-origin, no-store,
 	# redirect error y no-referrer; misma autorización que el detalle.

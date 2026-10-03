@@ -120,6 +120,7 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	materialCronos                                   materialCronosDesdeCTDesarrollo
 	materialDocumentos                               *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialPersonalFichaPropia                      *proveedorMaterialAltaContratacionTemporalDesarrollo
+	materialPersonalExportacionServicios             *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialUsuariosPreferenciasConsultaInterna      *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialUsuariosPreferenciasActualizacionInterna *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialUsuariosPreferenciasConsultaExterna      *proveedorMaterialAltaContratacionTemporalDesarrollo
@@ -127,6 +128,7 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	materialUsuariosCorreos                          proveedoresMaterialCorreosUsuarios
 	materialUsuariosImagen                           proveedoresMaterialImagenUsuarios
 	materialAspirantes                               proveedoresMaterialAspirantes
+	materialPreparacionBases                         [2]*proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialPersonalB2                               [8]CapacidadPublicadaPersonalB2V3
 	materialOrganizacionHistorica                    CapacidadPublicadaOrganizacionHistoricaV3
 	errMaterialOrganizacionHistorica                 error
@@ -453,6 +455,17 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		return vacias, err
 	}
 	descriptoresMaterial = append(descriptoresMaterial, descriptoresAspirantes...)
+	_, preparacionBasesActiva, err := leerConfiguracionPreparacionBasesV3(cfg)
+	if err != nil {
+		return vacias, err
+	}
+	if preparacionBasesActiva {
+		if !cfg.BolsaBorradoresEnabled || !cfg.ContratacionTemporalPostgreSQL.ConsultasRRHHConfiguradas() {
+			return vacias, errMontajePreparacionBasesV3
+		}
+		descriptores := DescriptoresMaterialPreparacionBasesV3()
+		descriptoresMaterial = append(descriptoresMaterial, descriptores[:]...)
+	}
 	auditoriaActiva, err := selectorCapacidadRRHHDesarrollo(cfg, envRRHHAuditoriaEnabled)
 	if err != nil {
 		return vacias, err
@@ -468,6 +481,15 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		return vacias, errGobiernoPostgreSQLContratacionTemporalDesarrolloIncoherente
 	}
 	dependencias.catalogoMaterial = catalogoMaterial
+	if preparacionBasesActiva {
+		etapa = "material_preparacion_bases"
+		for i, descriptor := range DescriptoresMaterialPreparacionBasesV3() {
+			dependencias.materialPreparacionBases[i], err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, descriptor.Audiencia)
+			if err != nil {
+				return vacias, err
+			}
+		}
+	}
 	if usuariosPreferenciasActivas {
 		etapa = "material_usuarios_preferencias"
 		lote, fallo := publicarMaterialPreferenciasUsuariosEnLote(ctx, gobierno, material, reloj, catalogoMaterial)
@@ -567,6 +589,17 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	etapa = "material_personal_ficha_propia"
 	if personalEmpleadoSolicitado(cfg.PersonalEmpleadoEnabled) {
 		dependencias.materialPersonalFichaPropia, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, personaldomain.AudienciaFichaPropia)
+		if err != nil {
+			return vacias, err
+		}
+	}
+	seleccionExportacion, err := exportacionServiciosPersonalSolicitada(cfg)
+	if err != nil {
+		return vacias, err
+	}
+	if seleccionExportacion {
+		etapa = "material_personal_exportacion_servicios"
+		dependencias.materialPersonalExportacionServicios, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, personaldomain.AudienciaExportacionServiciosPropios)
 		if err != nil {
 			return vacias, err
 		}

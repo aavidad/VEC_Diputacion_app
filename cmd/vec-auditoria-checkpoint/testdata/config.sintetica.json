@@ -1,0 +1,12 @@
+{
+ "politica": {
+  "version": 1, "politica_ref": "politica:checkpoint:sintetica", "politica_version": 1,
+  "clave_ref": "clave:checkpoint:sintetica", "clave_version": 1,
+  "proveedor_kms": "kms:sintetico", "proveedor_kms_version": 1,
+  "proveedor_tsa": "tsa:sintetica", "proveedor_tsa_version": 1,
+  "operacion_tsa": "checkpoint.sintetico", "modo": "DESARROLLO"
+ },
+ "max_bytes": 1048576,
+ "max_registros": 10000,
+ "version_binario": "sintetica"
+}

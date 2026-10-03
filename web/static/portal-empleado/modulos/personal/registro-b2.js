@@ -10,6 +10,8 @@ import { renderizarPreparacionAntecedentesCarrera, validarPreparacionAntecedente
 
 import { crearVistaVacantesB2 } from "./vacantes-b2-vista.js?v=20261002-b-base-401-acumulada-v3";
 
+import { montarComparacionFichaB2 } from "./comparacion-ficha-b2.js?v=20261003-personal-comparacion-b2-v3";
+
 const BLOQUES = Object.freeze([
   ["relaciones", "registro_b2_relaciones", "registro_b2_tabla_relaciones", [
     ["estado", "registro_b2_estado"], ["periodo", "registro_b2_periodo"], ["regimen_catalogo", "registro_b2_regimen"], ["modalidad_catalogo", "registro_b2_modalidad"], ["unidad", "registro_b2_unidad"],
@@ -178,16 +180,17 @@ export function montarRegistroB2({ raiz, cliente, clienteCatalogos, empleadoRef 
   const pestañas = nodo(d, "div"); pestañas.className = "personal-registro-b2-pestanas"; pestañas.setAttribute("role", "tablist"); pestañas.setAttribute("aria-label", t("registro_b2_pestanas"));
   const contenido = nodo(d, "div"); contenido.className = "personal-registro-b2-contenido"; contenido.setAttribute("role", "tabpanel"); contenido.setAttribute("tabindex", "0"); contenido.id = "personal-registro-b2-panel";
   s.append(cabecera, pestañas, contenido); raiz.append(s);
-  let activo = true; let vista = "ficha"; let vuelo; let empleado = empleadoRef; let turno = 0; let ultimaFicha; let montajeActos; let montajeCatalogos;
+  let activo = true; let vista = "ficha"; let vuelo; let empleado = empleadoRef; let turno = 0; let ultimaFicha; let montajeActos; let montajeCatalogos; let comparacion;
   let vigenteEn = hoyMadrid(reloj); let conocidoEnLocal = localFechaHora(reloj());
   let seleccionRelacion = ""; let preparacionServicios; let preparacionRPT; let preparacionCarrera;
   const paginas = { vacantes: { cursor: "", anteriores: [] }, empleados: { cursor: "", anteriores: [] } };
   const botones = new Map();
-  const limpiarVuelo = () => { turno += 1; vuelo?.abort(); vuelo = undefined; };
+  const limpiarVuelo = () => { turno += 1; vuelo?.abort(); vuelo = undefined; comparacion?.desmontar(); comparacion = undefined; };
   const desmontar = () => { if (!activo) return; activo = false; limpiarVuelo(); ultimaFicha = undefined; preparacionServicios = undefined; preparacionRPT = undefined; preparacionCarrera = undefined; montajeActos?.desmontar(); montajeCatalogos?.desmontar(); s.remove?.(); };
   registrarDesmontar?.(desmontar);
 
   function pintarFicha(ficha) {
+    comparacion?.desmontar(); comparacion = undefined;
     const ultimas = new Map();
     for (const relacion of ficha.relaciones) if (!ultimas.has(relacion.relacion_ref) || ultimas.get(relacion.relacion_ref).traza.version < relacion.traza.version) ultimas.set(relacion.relacion_ref, relacion);
     const relacionesUnicas = [...ultimas.values()];
@@ -195,6 +198,9 @@ export function montarRegistroB2({ raiz, cliente, clienteCatalogos, empleadoRef 
     const cuerpoResumen = nodo(d, "div"); cuerpoResumen.className = "cuerpo-panel personal-registro-b2-resumen";
     cuerpoResumen.append(nodo(d, "h3", t("registro_b2_ficha")), nodo(d, "p", t("registro_b2_version", { version: new Intl.NumberFormat(LOCALIZACION_ACTUAL).format(ficha.version) })));
     resumen.append(cuerpoResumen); contenido.append(resumen);
+    comparacion = montarComparacionFichaB2({ raiz: contenido, cliente, empleadoRef: empleado, corteBase: ficha.corte, anunciar,
+      alIniciar: () => { ultimaFicha = undefined; preparacionServicios = undefined; preparacionRPT = undefined; preparacionCarrera = undefined; contenido.replaceChildren(comparacion.elemento); },
+    });
     if (relacionesUnicas.length > 1) {
       const form = nodo(d, "div"); form.className = "personal-registro-b2-toolbar";
       const label = nodo(d, "label", t("registro_b2_elegir_relacion")); const select = nodo(d, "select"); select.dataset.registroB2Relacion = "";

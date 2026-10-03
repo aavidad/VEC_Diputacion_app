@@ -44,16 +44,34 @@ def cargar_recursos(raiz, modulo):
         if (raiz / error).is_file():
             rutas.append(error)
     visor_bases = modulo == "seleccion-bases-preparacion"
-    prefijo = "portal-empleado/modulos/seleccion/preparacion-bases" if visor_bases else f"portal-empleado/modulos/{modulo}"
+    visor_admision = modulo == "selectivos-admision-visor"
+    visor_acta = modulo == "selectivos-acta-visor"
+    visor_archivo = visor_bases or visor_admision or visor_acta
+    prefijo = "portal-empleado/modulos/seleccion/preparacion-bases" if visor_bases else (
+        "portal-empleado/modulos/seleccion/preparacion-admision" if visor_admision else (
+            "portal-empleado/modulos/seleccion/preparacion-acta" if visor_acta else f"portal-empleado/modulos/{modulo}"
+        )
+    )
     # Archivos de la vista, nunca pruebas ni datos aportados por una persona.
-    propios = ("preparacion-bases.css",) if visor_bases else (f"{modulo}.css", "escenario.json")
+    propios = ("preparacion-bases.css", "cliente-http.js", "contrato-http.js") if visor_bases else (
+        ("preparacion-admision.css", "controlador.js") if visor_admision else (
+            ("preparacion-acta.css",) if visor_acta else (f"{modulo}.css", "escenario.json")
+        )
+    )
+    if visor_admision or visor_acta:
+        rutas.extend((
+            "portal-empleado/modulos/seleccion/preparacion-bases/modelo.js",
+            "portal-empleado/modulos/seleccion/preparacion-bases/contrato-http.js",
+        ))
+    if visor_acta:
+        rutas.append("portal-empleado/modulos/seleccion/dom.js")
     for nombre in ("index.html", "entrada.js", "cliente.js", "vista.js", "modelo.js", *propios):
         ruta = f"{prefijo}/{nombre}"
         if (raiz / ruta).exists():
             rutas.append(ruta)
-    if f"{prefijo}/index.html" not in rutas or not visor_bases and f"{prefijo}/escenario.json" not in rutas:
+    if f"{prefijo}/index.html" not in rutas or not visor_archivo and f"{prefijo}/escenario.json" not in rutas:
         raise ValueError("preparacion_ausente")
-    if not visor_bases:
+    if not visor_archivo:
         escenario = json.loads(leer(f"{prefijo}/escenario.json"))
         if escenario.get("alcance") != "preparacion_sintetica":
             raise ValueError("alcance_invalido")
@@ -114,7 +132,7 @@ def handler_para(recursos):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--modulo", choices=("formacion", "carrera", "seleccion-bases-preparacion"), required=True)
+    parser.add_argument("--modulo", choices=("formacion", "carrera", "seleccion-bases-preparacion", "selectivos-admision-visor", "selectivos-acta-visor"), required=True)
     parser.add_argument("--web-dir", type=Path, default=Path(__file__).resolve().parents[1] / "web/static")
     args = parser.parse_args()
     recursos, entrada = cargar_recursos(args.web_dir, args.modulo)
