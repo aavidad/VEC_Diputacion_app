@@ -24,6 +24,7 @@ def snapshot(label):
  END $snapshot$;
  SELECT json_object_agg(nombre,valor ORDER BY nombre) FROM ensayo_historia;
  """))
+ role_fingerprints=json.loads(sql("SELECT json_object_agg(rolname,encode(sha256(convert_to(to_jsonb(r)::text,'UTF8')),'hex') ORDER BY rolname) FROM pg_roles r;"))
  roles=sql("SELECT encode(sha256(convert_to(coalesce(jsonb_agg(to_jsonb(r) ORDER BY rolname)::text,'[]'),'UTF8')),'hex') FROM pg_roles r;")
  acl=sql("SELECT encode(sha256(convert_to(coalesce(jsonb_agg(jsonb_build_array(n.nspname,c.relname,c.relowner,c.relacl,c.relrowsecurity,c.relforcerowsecurity) ORDER BY n.nspname,c.relname)::text,'[]'),'UTF8')),'hex') FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname LIKE 'vec_%';")
  procs=sql("SELECT n.nspname||'.'||p.proname||'|'||oidvectortypes(p.proargtypes)||'|'||encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex')||'|'||coalesce(p.proacl::text,'NULL') FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname LIKE 'vec_%' AND p.prokind='f' ORDER BY 1;")
@@ -37,7 +38,7 @@ def snapshot(label):
  'memberships',(SELECT jsonb_agg(to_jsonb(m) ORDER BY m.roleid,m.member,m.grantor) FROM pg_auth_members m),
  'database',(SELECT jsonb_build_array(datname,datdba,datacl) FROM pg_database WHERE datname=current_database())
  )::text,'UTF8')),'hex');""")
- d={'history':rows,'roles_sha256':roles,'tables_acl_sha256':acl,'schema_catalog_sha256':catalog,'functions':procs.splitlines()}
+ d={'history':rows,'role_fingerprints':role_fingerprints,'roles_sha256':roles,'tables_acl_sha256':acl,'schema_catalog_sha256':catalog,'functions':procs.splitlines()}
  (out/(label+'.json')).write_text(json.dumps(d,indent=2)+'\n');return d
 manifest=json.loads(pathlib.Path(a.manifest).read_text());log=[]
 before=snapshot('before')
@@ -58,8 +59,10 @@ for item,state in zip(manifest,log):
  post=snapshot('post-'+item['id'])
  state['history_changes']=[t for t,h in pre['history'].items() if post['history'].get(t)!=h]
  state['roles_preserved']=pre['roles_sha256']==post['roles_sha256']
+ state['previous_roles_preserved']=all(post['role_fingerprints'].get(k)==v for k,v in pre['role_fingerprints'].items())
+ state['new_roles']=sorted(set(post['role_fingerprints'])-set(pre['role_fingerprints']))
  (out/'results.json').write_text(json.dumps(log,indent=2)+'\n')
- print('OK' if not r.returncode else 'FALLO',item['id'],'historia_cambios='+str(len(state['history_changes'])),'roles_conservados='+str(state['roles_preserved']),flush=True)
+ print('OK' if not r.returncode else 'FALLO',item['id'],'historia_cambios='+str(len(state['history_changes'])),'roles_previos_conservados='+str(state['previous_roles_preserved']),'roles_nuevos='+str(len(state['new_roles'])),flush=True)
  if r.returncode:
   print(r.stderr.decode(),flush=True);print('ROLLBACK_HISTORY',not state['history_changes'],flush=True)
   sys.exit(1)
