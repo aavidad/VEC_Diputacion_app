@@ -41,7 +41,7 @@ type diagnosticoBootstrapV3 struct {
 func ejecutarBootstrapV3(b []byte, o opcionesBootstrapV3, salida, errores io.Writer) int {
 	textos, idioma, err := cargarTextosBootstrapV3(o.textos)
 	if err != nil {
-		return 2
+		return codigoErrorCatalogoBootstrap(err)
 	}
 	fallo := func(codigo, clave string) int {
 		if emitirDiagnosticoBootstrapV3(errores, textos, idioma, diagnosticoBootstrapV3{Codigo: codigo}, clave) != nil {
@@ -153,7 +153,7 @@ func fallarEntradaCLI(w io.Writer, rutaTextos, codigo string) int {
 	}
 	textos, idioma, err := cargarTextosBootstrapV3(rutaTextos)
 	if err != nil {
-		return 2
+		return codigoErrorCatalogoBootstrap(err)
 	}
 	codigoMensaje := "admin_comprobar_entrada_invalida"
 	if codigo == "fuente_invalida" || codigo == "plan_invalido" || codigo == "plan_divergente" {
@@ -163,4 +163,13 @@ func fallarEntradaCLI(w io.Writer, rutaTextos, codigo string) int {
 		return 2
 	}
 	return 1
+}
+
+// Sin catálogo, el fallo se propaga como código de proceso. No se inventa un
+// mensaje ni se vuelca una ruta o el contenido del archivo recibido.
+func codigoErrorCatalogoBootstrap(fallo error) int {
+	if fallo == nil {
+		return 0
+	}
+	return 2
 }
