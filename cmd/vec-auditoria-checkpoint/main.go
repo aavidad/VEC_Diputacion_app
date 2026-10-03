@@ -13,7 +13,7 @@ import (
 	"syscall"
 	"time"
 
-	"vec-diputacion-granada/config"
+	config "vec-diputacion-granada/config/auditoriacheckpoint"
 	"vec-diputacion-granada/internal/app/bootstrap"
 	"vec-diputacion-granada/internal/vec/adapters/observabilidad"
 	"vec-diputacion-granada/internal/vec/application"

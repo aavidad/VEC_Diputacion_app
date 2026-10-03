@@ -1,4 +1,4 @@
-package config
+package auditoriacheckpoint
 
 import "vec-diputacion-granada/internal/vec/domain"
 

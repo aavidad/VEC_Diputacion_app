@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"vec-diputacion-granada/config"
+	config "vec-diputacion-granada/config/auditoriacheckpoint"
 	"vec-diputacion-granada/internal/vec/domain"
 )
 
