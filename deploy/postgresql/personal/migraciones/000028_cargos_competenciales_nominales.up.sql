@@ -373,8 +373,13 @@ BEGIN
    OR operacion NOT IN ('cargo','enlace') OR clave !~ '^[0-9a-f]{32}$'
    OR organizacion !~ '^[a-z][a-z0-9_:-]{2,127}$'
    OR unidad !~ '^[a-z][a-z0-9_:-]{2,127}$'
-   OR esperada<0 OR version_nueva<>esperada+1
-   OR m->>'huella_esperada' !~ '^[0-9a-f]{64}$' AND esperada>0
+   OR jsonb_typeof(m->'version_esperada') IS DISTINCT FROM 'number'
+   OR (m->>'version_esperada') !~ '^(0|[1-9][0-9]*)$'
+   OR jsonb_typeof(dato->'version') IS DISTINCT FROM 'number'
+   OR (dato->>'version') !~ '^[1-9][0-9]*$'
+   OR esperada IS NULL OR esperada<0 OR version_nueva IS DISTINCT FROM esperada+1
+   OR (esperada>0 AND (m->>'huella_esperada' IS NULL
+       OR m->>'huella_esperada' !~ '^[0-9a-f]{64}$'))
    OR (esperada=0 AND m->>'huella_esperada' IS NOT NULL)
    OR dato->>'estado' NOT IN ('vigente','retirado')
    OR (operacion='cargo' AND (objeto !~ '^car_[A-Za-z0-9_-]{22,128}$' OR dato->>'cargo_ref' IS DISTINCT FROM objeto))
@@ -435,7 +440,7 @@ BEGIN
    RAISE EXCEPTION 'cargo_publicacion_campos_invalidos' USING ERRCODE='22023'; END IF;
   SELECT * INTO actual FROM vec_personal.cargo_competencial_actual
    WHERE cargo_ref=objeto FOR UPDATE;
-  IF (esperada=0 AND FOUND) OR (esperada>0 AND (NOT FOUND
+  IF esperada IS NULL OR (esperada=0 AND FOUND) OR (esperada>0 AND (NOT FOUND
     OR actual.version IS DISTINCT FROM esperada
     OR actual.huella_sha256 IS DISTINCT FROM m->>'huella_esperada')) THEN
    RAISE EXCEPTION 'cargo_publicacion_cas_divergente' USING ERRCODE='40001'; END IF;
@@ -494,7 +499,7 @@ BEGIN
    RAISE EXCEPTION 'cargo_publicacion_campos_invalidos' USING ERRCODE='22023'; END IF;
   SELECT * INTO actual FROM vec_personal.enlace_cargo_competencial_actual
    WHERE enlace_ref=objeto FOR UPDATE;
-  IF (esperada=0 AND FOUND) OR (esperada>0 AND (NOT FOUND
+  IF esperada IS NULL OR (esperada=0 AND FOUND) OR (esperada>0 AND (NOT FOUND
     OR actual.version IS DISTINCT FROM esperada
     OR actual.huella_sha256 IS DISTINCT FROM m->>'huella_esperada')) THEN
    RAISE EXCEPTION 'cargo_publicacion_cas_divergente' USING ERRCODE='40001'; END IF;
