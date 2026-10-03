@@ -1,0 +1,5 @@
+# BORRADOR, NO ENSAYAR todavía: AD175 exige preimagen causal POST173/174.
+# AD154 -> AD172 -> AD173 -> AD174 (autoridades L/D, no propias de esta rama).
+# Cerrar huellas/guardas de AD175 con L y revisar el hash antes del ensayo causal.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000175_consumidor_exportacion_servicios_propios.up.sql
+deploy/postgresql/personal/migraciones/000032_exportacion_servicios_propios.up.sql
