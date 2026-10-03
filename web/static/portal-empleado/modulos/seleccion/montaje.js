@@ -24,7 +24,16 @@ export function montarSeleccion({ raiz, textos, cliente = crearClienteSeleccion(
     if (!control) return;
     control.focus({ preventScroll: true });
     const marco = control.closest?.('.panel');
-    if (!marco || marco.scrollHeight <= marco.clientHeight) return;
+    if (!marco || marco.scrollHeight <= marco.clientHeight) {
+      const pagina = d.scrollingElement; const altura = d.defaultView?.innerHeight;
+      if (!pagina || !altura) return;
+      const posicion = control.getBoundingClientRect();
+      const arriba = Math.max(0, d.querySelector?.('.cabecera-portal')?.getBoundingClientRect().bottom ?? 0) + 4;
+      const abajo = altura - 4;
+      if (posicion.top < arriba) pagina.scrollTop += posicion.top - arriba;
+      else if (posicion.bottom > abajo) pagina.scrollTop += posicion.bottom - abajo;
+      return;
+    }
     const limite = marco.getBoundingClientRect();
     const posicion = control.getBoundingClientRect();
     const cabecera = marco.children[0]?.clientHeight ?? 0;
@@ -36,6 +45,8 @@ export function montarSeleccion({ raiz, textos, cliente = crearClienteSeleccion(
   function pintar() {
     if (!activo) return;
     const foco = d.activeElement?.id;
+    const pagina = d.scrollingElement;
+    const posicionPagina = pagina ? { arriba: pagina.scrollTop, izquierda: pagina.scrollLeft } : null;
     const seleccion = d.activeElement?.type === 'text' ? [d.activeElement.selectionStart, d.activeElement.selectionEnd] : null;
     const desplazamientos = paneles.map(id => {
       const marco = d.getElementById(id);
@@ -104,6 +115,9 @@ export function montarSeleccion({ raiz, textos, cliente = crearClienteSeleccion(
     for (const { id, arriba, izquierda } of desplazamientos) {
       const marco = d.getElementById(id);
       if (marco) { marco.scrollTop = arriba; marco.scrollLeft = izquierda; }
+    }
+    if (pagina && posicionPagina) {
+      pagina.scrollTop = posicionPagina.arriba; pagina.scrollLeft = posicionPagina.izquierda;
     }
     if (foco) {
       const control = d.getElementById(foco); enfocarVisible(control);

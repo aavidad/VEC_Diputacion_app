@@ -238,3 +238,22 @@ test('editar notas invalida resultado, conserva texto inválido/foco y restablec
     assert.deepEqual(llamadas[2].notas_prueba, []); m.desmontar();
   }
 });
+
+
+test('editar una nota en móvil conserva el scroll y el foco debajo de la cabecera', async () => {
+  const d = dom(); d.scrollingElement = { scrollTop: 900, scrollLeft: 0 }; d.defaultView = { innerHeight: 800 };
+  d.querySelector = () => ({ getBoundingClientRect: () => ({ bottom: 105 }) });
+  const e = ejemploConNotas();
+  const m = montarSeleccion({ raiz: d.raiz, textos: traductores[0], cliente: { listar: async () => ({ ejemplos: [e] }), simular: async datos => resultado(datos) } });
+  await terminarCarga();
+  const rect = () => ({ top: 1350 - d.scrollingElement.scrollTop, bottom: 1390 - d.scrollingElement.scrollTop });
+  const crear = d.createElement;
+  d.createElement = tag => { const el = crear(tag); if (tag === 'section') el.scrollHeight = el.clientHeight; if (tag === 'input') el.getBoundingClientRect = rect; return el; };
+  const campo = d.getElementById('seleccion-nota-0'); campo.focus(); campo.value = '6,1';
+  await campo.emitir('input');
+  assert.equal(d.activeElement.id, campo.id); assert.equal(d.scrollingElement.scrollTop, 900);
+  d.scrollingElement.scrollTop = 1300; const arriba = d.getElementById(campo.id); arriba.value = '6,2';
+  await arriba.emitir('input');
+  assert.equal(d.scrollingElement.scrollTop, 1241); assert.ok(rect().top >= 109 && rect().bottom <= 796);
+  m.desmontar();
+});
