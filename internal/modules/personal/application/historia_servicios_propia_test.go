@@ -49,7 +49,7 @@ func (r *repositorioHistoriaPrueba) ConsultarHistoriaServiciosPropia(_ context.C
 	}
 	x := o.Autorizacion.ResumenCapacidad()
 	h := domain.HistoriaServiciosPropia{EmpleadoRef: o.Material.EmpleadoRef(), Corte: o.Material.Corte(), Cobertura: "parcial", Revisiones: []domain.RevisionServicioPropio{}}
-	e := ports.EvidenciaRegistroEmpleadoB2{ReciboRef: "historia:servicios:0f0e0d0c-0b0a-4908-8706-050403020100", DecisionRef: x.DecisionRef(), EfectoRef: x.EfectoRef(), ConsumoHuellaSHA256: strings.Repeat("d", 64), AuditoriaRef: "auditoria:historia", ConsultadaEn: x.EmitidaEn().Add(time.Microsecond)}
+	e := ports.EvidenciaRegistroEmpleadoB2{ReciboRef: "auditoria:historia", DecisionRef: x.DecisionRef(), EfectoRef: x.EfectoRef(), ConsumoHuellaSHA256: strings.Repeat("d", 64), AuditoriaRef: "auditoria:historia", ConsultadaEn: x.EmitidaEn().Add(time.Microsecond)}
 	if r.alterar == "recibo" {
 		e.ReciboRef = "fichapropia:0f0e0d0c-0b0a-4908-8706-050403020100"
 	}

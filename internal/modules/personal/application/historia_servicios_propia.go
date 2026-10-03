@@ -76,7 +76,7 @@ func AutorizacionHistoriaServiciosPropiaValida(m domain.MaterialHistoriaServicio
 	return err == nil && e == nil && a.ValidarEstructura() == nil && bytes.Equal(canon, a.ContextoActorCanonico()) && a.PersonaVersion() == actor.Instantanea.PersonaVersion && a.PerfilVersion() == actor.Instantanea.PerfilVersion && x.Operacion() == domain.AccionHistoriaServiciosPropia && x.AudienciaConsumo() == domain.AudienciaHistoriaServiciosPropia && x.EfectoRef() == m.EmpleadoRef() && x.EfectoHuellaSHA256() == h
 }
 func ResultadoHistoriaServiciosPropiaValido(m domain.MaterialHistoriaServiciosPropia, a vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, r ports.ResultadoHistoriaServiciosPropia) bool {
-	return AutorizacionHistoriaServiciosPropiaValida(m, a) && r.Historia.ValidarPara(m) == nil && domain.ReferenciaReciboHistoriaServiciosPropiaValida(r.Evidencia.ReciboRef) && evidenciaFichaPropiaValida(a, r.Evidencia)
+	return AutorizacionHistoriaServiciosPropiaValida(m, a) && r.Historia.ValidarPara(m) == nil && r.Evidencia.ReciboRef == r.Evidencia.AuditoriaRef && domain.ReferenciaReciboHistoriaServiciosPropiaValida(r.Evidencia.ReciboRef) && evidenciaFichaPropiaValida(a, r.Evidencia)
 }
 func errorHistoriaServiciosPropia(ctx context.Context, e error) error {
 	if err := ctx.Err(); err != nil {
