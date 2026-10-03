@@ -141,7 +141,7 @@ DECLARE d text;nuevo text;esperado text:='531bfedaeaba478d66551c518922339682c8e1
  audiencia text:='vec_personal.cargo_competencial.publicar.v1';
  anterior text:='vec_contexto_actor.certificado_nominal.publicar.v1';preimagen text;actual_sha text;
 BEGIN
- SELECT pg_catalog.regexp_replace(pg_catalog.pg_get_constraintdef(c.oid,true),'\s+',' ','g') INTO STRICT d
+ SELECT pg_catalog.regexp_replace(pg_catalog.pg_get_constraintdef(c.oid,false),'\s+',' ','g') INTO STRICT d
  FROM pg_catalog.pg_constraint c WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
   AND c.conname='clave_capacidad_version_audiencia_consumo_check' AND c.contype='c' AND c.convalidated;
  IF pg_catalog.length(d)-pg_catalog.length(pg_catalog.replace(d,', '||pg_catalog.quote_literal(anterior)||'::text',''))<>pg_catalog.length(', '||pg_catalog.quote_literal(anterior)||'::text')
