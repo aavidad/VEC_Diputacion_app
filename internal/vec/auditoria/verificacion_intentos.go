@@ -1,9 +1,12 @@
 package auditoria
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
+	"errors"
 	"regexp"
 	"strconv"
 	"strings"
@@ -54,11 +57,75 @@ type RegistroIntentoV2 struct {
 }
 
 type RegistroMixtoV2 struct {
-	TipoRegistro string               `json:"tipo_registro"`
-	Consumo      *RegistroCadenaV3    `json:"consumo,omitempty"`
-	Intento      *RegistroIntentoV2   `json:"intento,omitempty"`
-	Preperfil    *RegistroPreperfilV3 `json:"preperfil,omitempty"`
-	Bootstrap    *RegistroBootstrapV3 `json:"bootstrap,omitempty"`
+	TipoRegistro  string                   `json:"tipo_registro"`
+	Consumo       *RegistroCadenaV3        `json:"-"`
+	ConsumoOrigen *RegistroConsumoOrigenV2 `json:"-"`
+	ConsumoFecha  *RegistroConsumoFechaV3  `json:"-"`
+	Intento       *RegistroIntentoV2       `json:"intento,omitempty"`
+	Preperfil     *RegistroPreperfilV3     `json:"preperfil,omitempty"`
+	Bootstrap     *RegistroBootstrapV3     `json:"bootstrap,omitempty"`
+}
+
+var errRegistroMixtoJSON = errors.New("vec auditoria: registro mixto invalido")
+
+// Las tres versiones conservan el mismo objeto JSON consumo. La proyección
+// histórica mantiene su tipo Go; el discriminador elige una sola versión.
+func (r RegistroMixtoV2) MarshalJSON() ([]byte, error) {
+	type alias RegistroMixtoV2
+	var consumo any
+	for _, presente := range []bool{r.Consumo != nil, r.ConsumoOrigen != nil, r.ConsumoFecha != nil} {
+		if presente && consumo != nil {
+			return nil, errRegistroMixtoJSON
+		}
+		if presente {
+			switch {
+			case r.Consumo != nil:
+				consumo = r.Consumo
+			case r.ConsumoOrigen != nil:
+				consumo = r.ConsumoOrigen
+			case r.ConsumoFecha != nil:
+				consumo = r.ConsumoFecha
+			}
+		}
+	}
+	return json.Marshal(struct {
+		alias
+		Consumo any `json:"consumo,omitempty"`
+	}{alias(r), consumo})
+}
+
+func (r *RegistroMixtoV2) UnmarshalJSON(b []byte) error {
+	type alias RegistroMixtoV2
+	var registro RegistroMixtoV2
+	objeto := struct {
+		*alias
+		Consumo json.RawMessage `json:"consumo"`
+	}{alias: (*alias)(&registro)}
+	decoder := json.NewDecoder(bytes.NewReader(b))
+	decoder.DisallowUnknownFields()
+	if decoder.Decode(&objeto) != nil {
+		return errRegistroMixtoJSON
+	}
+	if len(objeto.Consumo) > 0 {
+		var destino any
+		switch registro.TipoRegistro {
+		case "consumo_confirmado":
+			destino = &registro.Consumo
+		case TipoConsumoOrigenV2:
+			destino = &registro.ConsumoOrigen
+		case TipoConsumoFechaV3:
+			destino = &registro.ConsumoFecha
+		default:
+			return errRegistroMixtoJSON
+		}
+		decoder = json.NewDecoder(bytes.NewReader(objeto.Consumo))
+		decoder.DisallowUnknownFields()
+		if decoder.Decode(destino) != nil {
+			return errRegistroMixtoJSON
+		}
+	}
+	*r = registro
+	return nil
 }
 
 type DocumentoVerificacionMixta struct {
@@ -101,12 +168,13 @@ func verificarCadenaMixta(d DocumentoVerificacionMixta, checkpoint CoberturaCade
 	anterior := checkpoint.AnteriorSHA256
 	auditorias, decisiones, consumos, intentos := map[string]bool{}, map[string]bool{}, map[string]bool{}, map[string]bool{}
 	eventos := map[string]bool{}
+	var historicosSinFecha, fechaLigada bool
 	for i, r := range d.Registros {
 		secuencia := checkpoint.PrimeraSecuencia + uint64(i)
 		var referencia, previo, huella string
 		switch r.TipoRegistro {
 		case "consumo_confirmado":
-			if r.Consumo == nil || r.Intento != nil || r.Preperfil != nil || r.Bootstrap != nil {
+			if r.Consumo == nil || r.ConsumoOrigen != nil || r.ConsumoFecha != nil || r.Intento != nil || r.Preperfil != nil || r.Bootstrap != nil {
 				return fallar("tipo_invalido", "tipo_registro", "consumo_exclusivo", "invalido", secuencia)
 			}
 			c := *r.Consumo
@@ -132,8 +200,43 @@ func verificarCadenaMixta(d DocumentoVerificacionMixta, checkpoint CoberturaCade
 			if c.HuellaSHA256 != huella {
 				return fallar("huella_distinta", "huella_sha256", huella, c.HuellaSHA256, secuencia)
 			}
+			historicosSinFecha = true
+		case TipoConsumoOrigenV2, TipoConsumoFechaV3:
+			if r.Consumo != nil || r.Intento != nil || r.Preperfil != nil || r.Bootstrap != nil {
+				return fallar("tipo_invalido", "tipo_registro", "consumo_exclusivo", "invalido", secuencia)
+			}
+			var c RegistroCadenaV3
+			var fallo *FalloVerificacion
+			switch r.TipoRegistro {
+			case TipoConsumoOrigenV2:
+				if r.ConsumoOrigen == nil || r.ConsumoFecha != nil {
+					return fallar("tipo_invalido", "tipo_registro", "consumo_exclusivo", "invalido", secuencia)
+				}
+				c = r.ConsumoOrigen.RegistroCadenaV3
+				fallo = CotejarConsumoOrigenV2(*r.ConsumoOrigen)
+				historicosSinFecha = true
+			case TipoConsumoFechaV3:
+				if r.ConsumoFecha == nil || r.ConsumoOrigen != nil {
+					return fallar("tipo_invalido", "tipo_registro", "consumo_exclusivo", "invalido", secuencia)
+				}
+				c = r.ConsumoFecha.RegistroCadenaV3
+				fallo = CotejarConsumoFechaV3(*r.ConsumoFecha)
+				fechaLigada = true
+			}
+			if c.Secuencia != secuencia {
+				return fallar("secuencia_distinta", "secuencia", strconv.FormatUint(secuencia, 10), strconv.FormatUint(c.Secuencia, 10), secuencia)
+			}
+			if fallo != nil {
+				informe.Fallo = fallo
+				return informe
+			}
+			if decisiones[c.DecisionRef] || consumos[c.ConsumoHuellaSHA256] {
+				return fallar("consumo_duplicado", "decision_o_consumo", "unico", "duplicado", secuencia)
+			}
+			decisiones[c.DecisionRef], consumos[c.ConsumoHuellaSHA256] = true, true
+			referencia, previo, huella = c.AuditoriaRef, c.AnteriorSHA256, c.HuellaSHA256
 		case "intento_nominal":
-			if r.Intento == nil || r.Consumo != nil || r.Preperfil != nil || r.Bootstrap != nil {
+			if r.Intento == nil || r.Consumo != nil || r.ConsumoOrigen != nil || r.ConsumoFecha != nil || r.Preperfil != nil || r.Bootstrap != nil {
 				return fallar("tipo_invalido", "tipo_registro", "intento_exclusivo", "invalido", secuencia)
 			}
 			a := *r.Intento
@@ -156,7 +259,7 @@ func verificarCadenaMixta(d DocumentoVerificacionMixta, checkpoint CoberturaCade
 			}
 			referencia, previo, huella = a.AuditoriaRef, a.AnteriorSHA256, a.HuellaSHA256
 		case "preperfil_autenticado", "bootstrap_operador":
-			if esquema != EsquemaVerificacionPreperfil {
+			if esquema != EsquemaVerificacionPreperfil || r.ConsumoOrigen != nil || r.ConsumoFecha != nil {
 				return fallar("tipo_invalido", "tipo_registro", "tipo_admitido", "invalido", secuencia)
 			}
 			evento, codigo, clave := cotejarRegistroAdminV3(r, secuencia)
@@ -186,6 +289,8 @@ func verificarCadenaMixta(d DocumentoVerificacionMixta, checkpoint CoberturaCade
 	informe.Estado = "verificada"
 	informe.MaterialIntentoRecalculado = len(intentos) > 0
 	informe.ActorPerfilContextoCotejados = len(intentos) > 0
+	informe.ConsumosHistoricosSinFechaLigada = historicosSinFecha
+	informe.FechaConsumoLigadaCotejada = fechaLigada
 	return informe
 }
 

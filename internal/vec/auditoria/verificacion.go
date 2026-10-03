@@ -56,17 +56,19 @@ type FalloVerificacion struct {
 }
 
 type InformeVerificacion struct {
-	Esquema                       string             `json:"esquema"`
-	Estado                        string             `json:"estado"`
-	Cobertura                     CoberturaCadena    `json:"cobertura"`
-	CheckpointCotejado            bool               `json:"checkpoint_cotejado"`
-	AutenticidadCheckpoint        string             `json:"autenticidad_checkpoint"`
-	ContenidoConsumoRecalculado   bool               `json:"contenido_consumo_recalculado"`
-	CamposFueraHuellaVerificados  bool               `json:"campos_fuera_huella_verificados"`
-	MaterialIntentoRecalculado    bool               `json:"material_intento_recalculado,omitempty"`
-	ActorPerfilContextoCotejados  bool               `json:"actor_perfil_contexto_cotejados,omitempty"`
-	AutenticidadFuentesHistoricas string             `json:"autenticidad_fuentes_historicas,omitempty"`
-	Fallo                         *FalloVerificacion `json:"fallo,omitempty"`
+	Esquema                          string             `json:"esquema"`
+	Estado                           string             `json:"estado"`
+	Cobertura                        CoberturaCadena    `json:"cobertura"`
+	CheckpointCotejado               bool               `json:"checkpoint_cotejado"`
+	AutenticidadCheckpoint           string             `json:"autenticidad_checkpoint"`
+	ContenidoConsumoRecalculado      bool               `json:"contenido_consumo_recalculado"`
+	CamposFueraHuellaVerificados     bool               `json:"campos_fuera_huella_verificados"`
+	MaterialIntentoRecalculado       bool               `json:"material_intento_recalculado,omitempty"`
+	ActorPerfilContextoCotejados     bool               `json:"actor_perfil_contexto_cotejados,omitempty"`
+	AutenticidadFuentesHistoricas    string             `json:"autenticidad_fuentes_historicas,omitempty"`
+	ConsumosHistoricosSinFechaLigada bool               `json:"consumos_historicos_sin_fecha_ligada"`
+	FechaConsumoLigadaCotejada       bool               `json:"fecha_consumo_ligada_cotejada"`
+	Fallo                            *FalloVerificacion `json:"fallo,omitempty"`
 }
 
 // VerificarCadenaV3 reconstructs exactly the hash in AD3-002. The checkpoint
@@ -131,6 +133,7 @@ func VerificarCadenaV3(d DocumentoVerificacion, checkpoint CoberturaCadena, maxR
 		return fallar("cabeza_distinta", "cabeza_sha256", checkpoint.CabezaSHA256, anterior, checkpoint.UltimaSecuencia)
 	}
 	informe.Estado = "verificada"
+	informe.ConsumosHistoricosSinFechaLigada = len(d.Registros) > 0
 	return informe
 }
 
