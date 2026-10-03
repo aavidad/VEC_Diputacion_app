@@ -62,7 +62,7 @@ su replay después de reiniciar PostgreSQL mantuvieron recibo, fecha y una sola
 fila; la cadena final tuvo 6.243 registros. Se recomputaron los tres materiales
 y eslabones nuevos sin divergencias. El clon y sus datos se retiraron.
 
-La prueba `TestIntentoAuditoriaPostgreSQLReal` usa las variables
+La prueba `TestIntegracionIntentoAuditoriaPostgreSQL` usa las variables
 `VEC_INTENTOS_AUDITORIA_FIXTURE` y `VEC_INTENTOS_AUDITORIA_DSN` para el material
 histórico sintético privado y el LOGIN dedicado. `VEC_INTENTOS_AUDITORIA_REF`
 permite repetir la misma orden tras reinicio. Sin esas variables se omite: las
