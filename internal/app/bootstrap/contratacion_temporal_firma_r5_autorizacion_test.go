@@ -4,7 +4,10 @@ import (
 	"bytes"
 	"context"
 	"crypto/ed25519"
+	"crypto/sha256"
 	"crypto/x509"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strings"
@@ -247,6 +250,12 @@ func TestAutorizadoresFirmaR5EscriturasConDobles(t *testing.T) {
 	a := &autorizadoresFirmaR5Desarrollo{soporte: s, pdp: pdp, reloj: s.reloj,
 		externa: operacionAutorizacionFirmaR5Desarrollo{rutas: []string{ruta}, perfil: p, motivo: motivoFirmaDocumentoCTDesarrollo(), exportador: eExterna},
 		vec:     operacionAutorizacionFirmaR5Desarrollo{rutas: []string{ruta}, perfil: p, motivo: motivoFirmaDocumentoCTDesarrollo(), exportador: eVec}}
+	if org, err := a.ResolverOrganizacionFirmaExterna(ctx); err != nil || org != organizacionAltaContratacionTemporalDesarrollo {
+		t.Fatalf("canal externo: %v", err)
+	}
+	if org, err := a.ResolverOrganizacionFirmaVec(ctx); err != nil || org != organizacionAltaContratacionTemporalDesarrollo {
+		t.Fatalf("canal VEC: %v", err)
+	}
 	if _, err := a.AutorizarRegistroFirmaExterna(ctx, mExterna); err != nil {
 		t.Fatalf("registro externo con firmante distinto del registrador: %v", err)
 	}
@@ -256,6 +265,44 @@ func TestAutorizadoresFirmaR5EscriturasConDobles(t *testing.T) {
 	if asignaciones.preparadas != 0 || asignaciones.publicadas != 0 {
 		t.Fatal("escritura provisionó permisos por petición")
 	}
+	// V2 exige audiencias propias, perfil del operador y credencial central;
+	// no reutiliza una capacidad V1 aunque la acción administrativa sea igual.
+	for _, caso := range []struct {
+		material   ports.MaterialFirmaExterna
+		exportador *exportadorFirmaR5Prueba
+		audiencia  string
+	}{
+		{mExterna, eExterna, ports.AudienciaFirmaExternaV2},
+		{ports.MaterialFirmaExterna(mVec), eVec, ports.AudienciaFirmaVecV2},
+	} {
+		m := materialFirmaVerificadaV2BootstrapPrueba(caso.material, p.perfilRef())
+		r, err := ctapp.RecursoFirmaVerificadaV2(m)
+		if err != nil {
+			t.Fatalf("material V2: %v", err)
+		}
+		caso.exportador.recurso, caso.exportador.audiencia = r, caso.audiencia
+		if _, err := a.AutorizarFirmaVerificadaV2(ctx, m); err != nil {
+			t.Fatalf("emisión V2: %v", err)
+		}
+		antes := pdp.llamadas
+		m.PerfilActivoOperadorRef = "prf_ajeno"
+		if _, err := a.AutorizarFirmaVerificadaV2(ctx, m); !errors.Is(err, ports.ErrFirmaDocumentoDenegada) || pdp.llamadas != antes {
+			t.Fatalf("perfil V2 ajeno: %v", err)
+		}
+		m.PerfilActivoOperadorRef = p.perfilRef()
+		if caso.material.Via == ports.ViaFirmaCertificadoVEC {
+			m.CertificadoHuella = strings.Repeat("b", 64)
+			m.FirmanteRef = "ref:" + m.CertificadoHuella
+			if _, err := a.AutorizarFirmaVerificadaV2(ctx, m); !errors.Is(err, ports.ErrFirmaDocumentoDenegada) || pdp.llamadas != antes {
+				t.Fatalf("certificado V2 ajeno: %v", err)
+			}
+		}
+	}
+	// Continúan las guardas V1 del ejercicio previo, con sus contadores.
+	eExterna.recurso, eExterna.audiencia = rExterna, ports.AudienciaFirmaExternaV3
+	eVec.recurso, eVec.audiencia = rVec, ports.AudienciaFirmaVecV3
+	pdp.llamadas, eExterna.llamadas, eVec.llamadas = 2, 1, 1
+
 	mVec.CertificadoHuella = strings.Repeat("a", 64)
 	mVec.FirmanteRef = "ref:" + mVec.CertificadoHuella
 	if _, err := a.AutorizarFirmaVec(ctx, mVec); !errors.Is(err, ports.ErrFirmaDocumentoDenegada) || pdp.llamadas != 2 {
@@ -311,4 +358,18 @@ func TestFronteraFirmaR5ExigeAccionYPerfil(t *testing.T) {
 		fronteraFirmaR5Compuesta(pdp, fronteras, ruta, ports.AccionRegistrarFirmaVec, "prf_ajeno") {
 		t.Fatal("frontera mezcló acción o perfil")
 	}
+}
+
+func materialFirmaVerificadaV2BootstrapPrueba(base ports.MaterialFirmaExterna, perfil string) ports.MaterialFirmaVerificadaV2 {
+	base.PoliticaVerificacion = ctapp.PoliticaVerificacionFirmaMultipleV2
+	base.CargoFirmante = "rol:ct:firmante"
+	evidencia := json.RawMessage(`[{}]`)
+	h := sha256.Sum256(evidencia)
+	return ports.MaterialFirmaVerificadaV2{MaterialFirmaExterna: base, PerfilActivoOperadorRef: perfil,
+		CuentaFirmanteRef: "cuenta:firmante", VinculoCredencialFirmanteRef: "vinculo:credencial", VinculoCredencialFirmanteRevision: 1,
+		VinculoCredencialFirmanteHuella: strings.Repeat("c", 64), RolIDFirmante: base.CargoFirmante, CatalogoVersion: 1,
+		EntradaDocumentoRef: base.OriginalRef, EntradaDocumentoVersion: base.OriginalVersion, EntradaDocumentoHuella: base.OriginalHuella,
+		EntradaDocumentoLongitud: 64, OrdenFirmaPDF: 1, ByteRange: [4]uint64{0, 100, 140, 60}, RevisionLongitud: 200,
+		RevisionHuellaSHA256: base.FirmadoHuella, ContenidoFirmadoHuellaSHA256: strings.Repeat("b", 64),
+		EvidenciaFirmasCanonica: evidencia, EvidenciaFirmasHuellaSHA256: hex.EncodeToString(h[:])}
 }

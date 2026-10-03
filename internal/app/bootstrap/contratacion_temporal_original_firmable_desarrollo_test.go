@@ -123,11 +123,11 @@ func TestPDFAnteriorCTLeeRevisionExactaYDeniegaMutaciones(t *testing.T) {
 	contenido := []byte("%PDF-1.7\nrevision anterior custodiada")
 	h := sha256.Sum256(contenido)
 	q := ctports.SolicitudPDFFirmaAnterior{OrganizacionRef: docports.OrganizacionRefV3, ExpedienteRef: "expediente:ct:anterior",
-		Documento: "informe_definitivo", FirmaRef: "firma:ct:anterior", ReciboRef: "recibo:ct:anterior", DocumentoRef: "documento:ct:anterior", DocumentoVersion: 1, DocumentoHuella: hex.EncodeToString(h[:])}
+		Documento: "informe_definitivo", FirmaRef: "firma:ct:anterior", ReciboRef: "recibo:ct:anterior", DocumentoRef: "ref:" + strings.Repeat("c", 64), DocumentoVersion: 1, DocumentoHuella: hex.EncodeToString(h[:])}
 	exp, _ := ctapp.ReferenciaExpedienteDocumentalFormalizacion(q.ExpedienteRef)
 	d := docdomain.Documento{ID: q.DocumentoRef, NumeroVEC: "VEC-2026-000000001", ModuloID: moduloProductorCustodiaCT,
-		ExpedienteRef: exp, TipoRef: "tipo:informe:firmado", Version: q.DocumentoVersion, MIME: "application/pdf", HuellaSHA256: q.DocumentoHuella,
-		Tamano: int64(len(contenido)), ObjetoRef: "objeto:anterior", ObjetoVersion: "v1", PoliticaRef: "politica:anterior", VersionPolitica: 1,
+		ExpedienteRef: exp, TipoRef: "ref:" + strings.Repeat("d", 64), Version: q.DocumentoVersion, MIME: "application/pdf", HuellaSHA256: q.DocumentoHuella,
+		Tamano: int64(len(contenido)), ObjetoRef: "objeto:anterior", ObjetoVersion: "v1", PoliticaRef: "ref:" + strings.Repeat("e", 64), VersionPolitica: 1,
 		HuellaPoliticaSHA256: strings.Repeat("b", 64), ConservacionHasta: time.Now().UTC().Add(time.Hour), CreadoEn: time.Now().UTC(),
 		Proteccion: "conservacion", EstadoPolitica: docdomain.EstadoPoliticaProvisional, EstadoFirma: docdomain.EstadoFirmaPendienteProveedor, Custodia: docdomain.CustodiaVEC}
 	if err := d.Validar(); err != nil {

@@ -90,11 +90,10 @@ func nuevoEscenarioOriginalAutorizacionCT(t *testing.T) escenarioOriginalAutoriz
 	ahora := s.reloj.Ahora()
 	const ruta = httpinterno.RutaFirmaDocumento
 	operaciones := map[string]operacionAutorizacionOriginalDocumentosCT{
-		vecports.AccionNegocioLeerOriginalDocumentoGenerado: {finalidad: "descargar_documento_original", tipo: "documento_original", campos: []string{"documento.contenido", "documento.metadatos"}},
-		docports.AccionDescargar:                            {finalidad: "descargar_documento_original", tipo: "documento_original", campos: []string{"contenido", "documento"}},
-		docports.AccionReservarOriginalFirmable:             {finalidad: docports.FinalidadOriginalFirmable, tipo: "documento_original_firmable"},
-		docports.AccionConfirmarOriginalFirmable:            {finalidad: docports.FinalidadOriginalFirmable, tipo: "documento_original_firmable"},
-		vecports.AccionNegocioEscribirOriginalFirmable:      {finalidad: docports.FinalidadOriginalFirmable, tipo: "documento_original_firmable", campos: []string{"evidencia_almacen", "original_firmable.contenido"}},
+		docports.AccionDescargar:                       {finalidad: "descargar_documento_original", tipo: "documento_original", campos: []string{"contenido", "documento"}},
+		docports.AccionReservarOriginalFirmable:        {finalidad: docports.FinalidadOriginalFirmable, tipo: "documento_original_firmable"},
+		docports.AccionConfirmarOriginalFirmable:       {finalidad: docports.FinalidadOriginalFirmable, tipo: "documento_original_firmable"},
+		vecports.AccionNegocioEscribirOriginalFirmable: {finalidad: docports.FinalidadOriginalFirmable, tipo: "documento_original_firmable", campos: []string{"evidencia_almacen", "original_firmable.contenido"}},
 	}
 	concesiones := make([]core.ConcesionRol, 0, len(operaciones))
 	for accion, o := range operaciones {

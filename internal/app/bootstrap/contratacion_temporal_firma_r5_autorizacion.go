@@ -86,7 +86,12 @@ func nuevosAutorizadoresFirmaR5Desarrollo(c configuracionAutorizadoresFirmaR5Des
 		}
 	}
 	return &autorizadoresFirmaR5Desarrollo{soporte: c.soporte, pdp: c.pdp, reloj: c.reloj,
-		externa: c.externa, vec: c.vec, consulta: c.consulta, consultaV2: c.consultaV2}, nil
+		externa: copiarOperacionFirmaR5(c.externa), vec: copiarOperacionFirmaR5(c.vec), consultaV2: copiarOperacionFirmaR5(c.consultaV2)}, nil
+}
+
+func copiarOperacionFirmaR5(o operacionAutorizacionFirmaR5Desarrollo) operacionAutorizacionFirmaR5Desarrollo {
+	o.rutas = slices.Clone(o.rutas)
+	return o
 }
 
 func fronteraFirmaR5Compuesta(pdp *autorizadorComunDesarrollo, fronteras catalogoFronterasComunDesarrollo, ruta, accion, perfil string) bool {
@@ -404,4 +409,33 @@ func solicitudFirmaR5Exacta(d core.DatosSolicitudAutorizacionLigadaV3, accion st
 		d.Recurso.Referencia == recurso.Referencia && d.Recurso.ModuloID == recurso.ModuloID &&
 		d.Recurso.Tipo == recurso.Tipo && maps.Equal(d.Recurso.Ambitos, recurso.Ambitos) &&
 		maps.Equal(d.Recurso.Atributos, recurso.Atributos)
+}
+
+// La frontera HTTP obtiene sólo la organización del perfil de la petición
+// sellada. La concesión del efecto sigue siendo una operación posterior V3.
+func (a *autorizadoresFirmaR5Desarrollo) ResolverOrganizacionFirmaVec(ctx context.Context) (string, error) {
+	if a == nil {
+		return "", ports.ErrFirmaDocumentoDenegada
+	}
+	return a.resolverOrganizacion(ctx, a.vec)
+}
+
+func (a *autorizadoresFirmaR5Desarrollo) ResolverOrganizacionFirmaExterna(ctx context.Context) (string, error) {
+	if a == nil {
+		return "", ports.ErrFirmaDocumentoDenegada
+	}
+	return a.resolverOrganizacion(ctx, a.externa)
+}
+
+func (a *autorizadoresFirmaR5Desarrollo) resolverOrganizacion(ctx context.Context, o operacionAutorizacionFirmaR5Desarrollo) (string, error) {
+	perfil, err := a.ObtenerPerfilActivoOperadorFirmaV2(ctx)
+	if err != nil || o.perfil == nil || perfil != o.perfil.perfilRef() {
+		return "", ports.ErrFirmaDocumentoDenegada
+	}
+	capacidad, valida := a.soporte.capacidadValida(ctx)
+	if !valida || !slices.Contains(o.rutas, capacidad.ruta) ||
+		a.soporte.perfilFijoParaRutaYMetodo(capacidad.ruta, capacidad.metodo) != o.perfil {
+		return "", ports.ErrFirmaDocumentoDenegada
+	}
+	return organizacionAltaContratacionTemporalDesarrollo, nil
 }

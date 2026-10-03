@@ -68,7 +68,7 @@ func nuevasAutorizacionesOriginalDocumentosCTDesarrollo(configuraciones ...confi
 	c := configuraciones[0]
 	if c.soporte == nil || c.soporte.sello == nil || c.pdp == nil || c.pdp.servicio == nil ||
 		!c.pdp.selector.catalogo.aceptaCatalogoFronteras(c.fronteras) || c.politicas == nil ||
-		!c.seudonimizador.valido() || dependenciaEsNulaContratacionTemporalDesarrollo(c.reloj) || len(c.operaciones) != 5 {
+		!c.seudonimizador.valido() || dependenciaEsNulaContratacionTemporalDesarrollo(c.reloj) || len(c.operaciones) != 4 {
 		return nil, errAutoridadOriginalDocumentosCTNoDisponible
 	}
 	descriptor, ok := c.catalogo.descriptorPara(docports.AudienciaV3)
@@ -81,7 +81,7 @@ func nuevasAutorizacionesOriginalDocumentosCTDesarrollo(configuraciones ...confi
 	}
 	operaciones := make(map[string]operacionAutorizacionOriginalDocumentosCT, len(c.operaciones))
 	for _, accion := range []string{docports.AccionDescargar, docports.AccionReservarOriginalFirmable, docports.AccionConfirmarOriginalFirmable,
-		vecports.AccionNegocioEscribirOriginalFirmable, vecports.AccionNegocioLeerOriginalDocumentoGenerado} {
+		vecports.AccionNegocioEscribirOriginalFirmable} {
 		o, ok := c.operaciones[accion]
 		p := o.perfil
 		if !ok || p == nil || p.plantilla.Validar() != nil || p.contexto.Resultado.Validar() != nil ||
@@ -109,7 +109,7 @@ func nuevasAutorizacionesOriginalDocumentosCTDesarrollo(configuraciones ...confi
 }
 
 func accionSoloAlmacenOriginalCT(accion string) bool {
-	return accion == vecports.AccionNegocioEscribirOriginalFirmable || accion == vecports.AccionNegocioLeerOriginalDocumentoGenerado
+	return accion == vecports.AccionNegocioEscribirOriginalFirmable
 }
 
 func perfilOriginalDocumentosCTConcede(p *perfilFijoCTDesarrollo, accion string, o operacionAutorizacionOriginalDocumentosCT) bool {
