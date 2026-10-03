@@ -17,6 +17,7 @@ se conservan en el idioma aportado; no se traducen ni se redactan automáticamen
 El borrador sale por stdout; los errores, por stderr. Ambos usan JSON.
 Una preparación válida devuelve código 0 y estado `borrador_propuesto`.
 Una entrada inválida devuelve código 1 sin borrador por stdout.
+Si no puede escribir el diagnóstico por stderr, devuelve código 2.
 La herramienta no escribe archivos ni llama a servicios externos.
 
 ## Referencias y propuestas

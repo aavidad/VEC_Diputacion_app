@@ -66,6 +66,9 @@ func TestCLIActaConservaPropuestasConCatalogosReales(t *testing.T) {
 			if json.Unmarshal(errores.Bytes(), &fallo) != nil || fallo["mensaje"] != catalogo.T(idioma, "error_salida") {
 				t.Fatal("mensaje de salida incorrecto")
 			}
+			if codigo := ejecutar(context.Background(), args, bytes.NewReader(raw), salidaFallida{}, salidaFallida{}); codigo != MotivoDiagnosticoNoDisponible {
+				t.Fatal("fallo de diagnóstico sin código propio")
+			}
 		})
 	}
 }
