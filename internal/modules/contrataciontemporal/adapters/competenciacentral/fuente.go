@@ -164,11 +164,17 @@ func (f *Fuente) AcreditarCompetenciaCentral(ctx context.Context, q ctports.Soli
 	if e.ValidarParaEn(s, f.reloj.Ahora()) != nil || e.VersionRol.RolID != rol {
 		return cero, ctports.ErrCompetenciaFirmanteNoAcreditada
 	}
+	versionAsignacion := e.Asignacion.Version
+	// ValidarParaEn ya exige una versión positiva; la guarda local conserva
+	// ese límite también en la conversión al contrato uint64 de CT.
+	if versionAsignacion < 1 {
+		return cero, ctports.ErrCompetenciaFirmanteNoAcreditada
+	}
 	p := ctports.EvidenciaCompetenciaFirmante{
 		Solicitud: q, FirmantePrincipalRef: e.PersonaRef, PerfilFirmanteRef: q.PerfilFirmanteRef, PerfilActivoFirmanteRef: e.PerfilActivoFirmanteRef,
 		CargoFirmante: rol, RolIDFirmante: rol, UnidadFirmanteRef: e.UnidadRef, PuestoFirmanteRef: e.PuestoRef, AmbitoFirmanteRef: e.AmbitoRef,
 		CuentaFirmanteRef: v.CuentaRef, VinculoCredencialFirmanteRef: v.VinculoCredencialRef, VinculoCredencialFirmanteRevision: v.Revision, VinculoCredencialFirmanteHuella: v.Huella,
-		AsignacionFirmanteRef: e.Asignacion.Referencia(), AsignacionFirmanteVersion: uint64(e.Asignacion.Version), AsignacionFirmanteHuella: e.AsignacionHuellaSHA256,
+		AsignacionFirmanteRef: e.Asignacion.Referencia(), AsignacionFirmanteVersion: uint64(versionAsignacion), AsignacionFirmanteHuella: e.AsignacionHuellaSHA256,
 		VersionRolFirmanteRef: e.VersionRol.Referencia(), VersionRolFirmanteHuella: e.VersionRolHuellaSHA256,
 		ControlVigenciaFirmanteRef: e.ControlVigencia.VersionRolRef, ControlVigenciaFirmanteRevision: e.ControlVigencia.Revision, ControlVigenciaFirmanteHuella: e.ControlVigenciaHuellaSHA256,
 		AsignacionVigenteDesde: e.Asignacion.VigenteDesde.Format(time.RFC3339Nano), AsignacionVigenteHasta: e.Asignacion.VigenteHasta.Format(time.RFC3339Nano),
