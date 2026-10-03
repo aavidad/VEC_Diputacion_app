@@ -45,6 +45,44 @@ hmac_nombre=hmac.bin
 [[ $(docker inspect --format '{{.HostConfig.NetworkMode}} {{.HostConfig.Memory}} {{.HostConfig.NanoCpus}} {{.HostConfig.PidsLimit}}' "$container") == 'none 2147483648 2000000000 128' ]] || fallo 'clon fuera de límites aislados'
 psql_run() { local user=$1; shift; docker exec -i "$container" /usr/bin/env -i PATH=/usr/local/bin:/usr/bin:/bin psql -h /tmp -X -qAt -v ON_ERROR_STOP=1 -v VERBOSITY=verbose -U "$user" -d postgres "$@"; }
 valor() { psql_run postgres -c "$1"; }
+# AD172 conserva consumo_confirmado histórico (sin versión/origen) y añade
+# consumo_confirmado_v2/2. to_jsonb permite leer también el esquema anterior
+# sin version_consumo. AD173 queda cerrado hasta publicar y revisar su ABI.
+# El contador no verifica huellas: rechaza familias o versiones incompatibles y
+# cuenta ambos tipos permitidos sin reescribir ni excluir los históricos.
+contadores() {
+ local estado
+ estado=$(valor "$(cat <<'SQLCONTADORES'
+WITH auditoria AS (
+ SELECT a.tipo_registro,a.proceso,a.canal,
+        to_jsonb(a)->'version_consumo' AS version_consumo
+ FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3 a
+)
+SELECT CASE WHEN count(*) FILTER (WHERE NOT coalesce(
+ CASE tipo_registro
+  WHEN 'consumo_confirmado' THEN
+   coalesce(version_consumo,'null'::jsonb)='null'::jsonb
+   AND proceso IS NULL AND canal IS NULL
+  WHEN 'consumo_confirmado_v2' THEN
+   version_consumo='2'::jsonb AND proceso IS NOT NULL
+   AND proceso ~ '^[a-z][a-z0-9._-]{1,79}$'
+   AND canal IN ('interna_corporativa','administracion_privilegiada','externa_personal')
+  WHEN 'intento_nominal' THEN coalesce(version_consumo,'null'::jsonb)='null'::jsonb
+  WHEN 'preperfil_autenticado' THEN coalesce(version_consumo,'null'::jsonb)='null'::jsonb
+  WHEN 'bootstrap_operador' THEN coalesce(version_consumo,'null'::jsonb)='null'::jsonb
+  ELSE false
+ END,false))=0 THEN
+ (SELECT count(*) FROM vec_personal.recibo_relacion_para_rpt)||'|'||
+ (SELECT count(*) FROM vec_autorizacion_atestada_v3.consumo_decision_v3)||'|'||
+ count(*) FILTER (WHERE tipo_registro IN ('consumo_confirmado','consumo_confirmado_v2'))||'|'||
+ count(*) FILTER (WHERE tipo_registro='intento_nominal')
+ ELSE 'auditoria_incompatible' END
+FROM auditoria;
+SQLCONTADORES
+ )") || fallo 'consulta de contadores falló'
+ [[ $estado =~ ^[0-9]+\|[0-9]+\|[0-9]+\|[0-9]+$ ]] || fallo 'familia o versión de auditoría incompatible'
+ printf '%s\n' "$estado"
+}
 archivo() { psql_run postgres -v rpt27_ensayo_autorizado=on < "$1" > "$scratch/sql.log" 2>&1 || fallo 'SQL falló: diagnóstico privado'; }
 [[ $(valor "SELECT current_setting('server_version_num')") == 180004 ]] || fallo 'PG18.4 requerido'
 [[ $(valor "SELECT to_regprocedure('vec_autorizacion_atestada_v3.registrar_intento_nominal_v1(bytea,bytea,jsonb)') IS NOT NULL AND to_regprocedure('vec_contexto_actor_v1.cotejar_contexto_historico_auditoria_v1(text,text,text,bytea)') IS NOT NULL AND to_regprocedure('vec_identidad_sesiones_v1.cotejar_autenticacion_historica_auditoria_v1(bytea)') IS NOT NULL") == t ]] || fallo 'auditoría común AD169/CA26/IS13 requerida; no instalar desde este runner'
@@ -64,7 +102,7 @@ else
  [[ $(sha256sum "$scratch/preimagen.json" | cut -d' ' -f1) == "$pre_sha" ]] || fallo 'captura de reanudación distinta'
  sha256sum "$ad154" "$personal27" | cmp -s "$scratch/migraciones_journal.txt" - || fallo 'producto cambiado desde instalación'
  if "$desde_go"; then
-  estado_go=$(valor "SELECT (SELECT count(*) FROM vec_personal.recibo_relacion_para_rpt)||'|'||(SELECT count(*) FROM vec_autorizacion_atestada_v3.consumo_decision_v3)||'|'||(SELECT count(*) FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3 WHERE tipo_registro='consumo_confirmado')||'|'||(SELECT count(*) FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3 WHERE tipo_registro='intento_nominal')")
+  estado_go=$(contadores)
   if [[ $estado_go == '6|6246|6246|14' ]]; then
    solo_concurrente=true;gobierno_version=70;gobierno_anterior=69;gobierno_minutos=240;hmac_nombre=hmac70.bin
    [[ -f $scratch/rpt27.test && $(sha256sum "$scratch/rpt27.test" | cut -d' ' -f1) == "${VEC_RPT27_BINARIO_SHA256:?SHA del binario conservado requerido}" ]] || fallo 'binario conservado distinto'
@@ -84,7 +122,7 @@ else
   [[ $binario_sha =~ ^[0-9a-f]{64}$ && $(sha256sum "$scratch/rpt27.test" | cut -d' ' -f1) == "$binario_sha" ]] || fallo 'binario distinto del ensayado'
   else
    [[ ! -e $scratch/rpt27.test && ! -e $scratch/overlay.json ]] || fallo 'checkpoint con artefactos de otra compilación'
-   [[ $(valor "SELECT (SELECT count(*) FROM vec_personal.recibo_relacion_para_rpt)||'|'||(SELECT count(*) FROM vec_autorizacion_atestada_v3.consumo_decision_v3)||'|'||(SELECT count(*) FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3 WHERE tipo_registro='consumo_confirmado')||'|'||(SELECT count(*) FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3 WHERE tipo_registro='intento_nominal')") == '3|6243|6243|0' ]] || fallo 'checkpoint con efectos distintos'
+   [[ $(contadores) == '3|6243|6243|0' ]] || fallo 'checkpoint con efectos distintos'
   fi
   [[ $(valor "SELECT count(*)=3 AND bool_and(caso IN ('positivo_vigente','positivo_suspendida','positivo_finalizada')) FROM public.rpt27_ensayo_vector") == t ]] || fallo 'fase previa distinta de tres positivos'
   [[ $(valor "SELECT count(*)=3 FROM vec_personal.recibo_relacion_para_rpt") == t ]] || fallo 'recibos previos distintos'
@@ -928,7 +966,6 @@ PYSALIDA
  importar rpt27_ensayo_firmado "$caso"
 }
 
-contadores() { valor "SELECT (SELECT count(*) FROM vec_personal.recibo_relacion_para_rpt)||'|'||(SELECT count(*) FROM vec_autorizacion_atestada_v3.consumo_decision_v3)||'|'||(SELECT count(*) FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3 WHERE tipo_registro='consumo_confirmado')||'|'||(SELECT count(*) FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3 WHERE tipo_registro='intento_nominal')"; }
 preflight_registro() {
  # Catálogo solamente: no SELECT laboral en el pool exclusivo de escritura.
  [[ $(psql_run vec_rpt27_ensayo_registrador -c "SELECT vec_autorizacion_atestada_v3.preflight_registrador_intentos_v1('rpt27-ensayo','interna_corporativa')" 2> "$scratch/preflight.log") == t ]]
