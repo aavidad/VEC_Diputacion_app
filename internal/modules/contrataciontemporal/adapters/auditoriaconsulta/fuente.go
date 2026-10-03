@@ -43,7 +43,7 @@ const consulta = `SELECT id,fuente,modulo_id,accion,actor_ref,resultado,
 
 var patronSHA = regexp.MustCompile(`^[0-9a-f]{64}$`)
 
-func (f *Fuente) ConsultarAuditoria(ctx context.Context, q auditoria.ConsultaAutorizada) (auditoria.PaginaFuente, error) {
+func (f *Fuente) ConsultarAuditoria(ctx context.Context, q auditoria.ConsultaAutorizada) (pagina auditoria.PaginaFuente, fallo error) {
 	var vacia auditoria.PaginaFuente
 	if ctx == nil || f == nil || f.pool == nil {
 		return vacia, auditoria.ErrNoDisponible
@@ -68,7 +68,9 @@ func (f *Fuente) ConsultarAuditoria(ctx context.Context, q auditoria.ConsultaAut
 		// transacción no depende de que el cliente siga conectado.
 		cancelCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
-		_ = tx.Rollback(cancelCtx)
+		if err := tx.Rollback(cancelCtx); err != nil && !errors.Is(err, pgx.ErrTxClosed) {
+			pagina, fallo = vacia, auditoria.ErrNoDisponible
+		}
 	}()
 	rows, err := tx.Query(ctx, consulta,
 		q.Filtro.Fuente, q.Filtro.ExpedienteRef, q.Filtro.ActorRef,
@@ -77,6 +79,9 @@ func (f *Fuente) ConsultarAuditoria(ctx context.Context, q auditoria.ConsultaAut
 		m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(),
 		int64(m.PersonaVersion()), int64(m.PerfilVersion()), m.PayloadVECAD3(), m.SobreCOSESign1(),
 		m.EvidenciaVerificacion(), m.RaizPublicaSPKI())
+	if rows != nil {
+		defer rows.Close()
+	}
 	if err != nil {
 		return vacia, normalizar(ctx, err)
 	}

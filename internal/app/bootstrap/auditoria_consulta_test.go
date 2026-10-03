@@ -56,6 +56,7 @@ func TestRutasAuditoriaConsultaRRHHExigenDependenciasYRegistranAmbasRutas(t *tes
 		PoolCT: &pgxpool.Pool{}, PoolBolsa: &pgxpool.Pool{},
 		EmisorCT: ct, EmisorBolsa: bolsa,
 		Identidad: &identidadAuditoriaConsultaPrueba{}, Opciones: &opcionesAuditoriaConsultaPrueba{},
+		Intentos: &registradorIntentosConsultaPrueba{}, ConfiguracionIntentos: configuracionIntentosConsultaPrueba(t, vecdomain.ReferenciaEntradaCatalogo{}),
 	}
 	rutas, err := nuevasRutasAuditoriaConsultaRRHH(deps)
 	if err != nil || len(rutas) != 2 || rutas[0].Ruta != auditoria.RutaOpciones ||
@@ -73,6 +74,10 @@ func TestRutasAuditoriaConsultaRRHHExigenDependenciasYRegistranAmbasRutas(t *tes
 		{"emisor Bolsa", func(d *dependenciasAuditoriaConsultaRRHH) { d.EmisorBolsa = (*emisorAuditoriaConsultaPrueba)(nil) }},
 		{"identidad", func(d *dependenciasAuditoriaConsultaRRHH) { d.Identidad = (*identidadAuditoriaConsultaPrueba)(nil) }},
 		{"opciones", func(d *dependenciasAuditoriaConsultaRRHH) { d.Opciones = (*opcionesAuditoriaConsultaPrueba)(nil) }},
+		{"intentos", func(d *dependenciasAuditoriaConsultaRRHH) { d.Intentos = (*registradorIntentosConsultaPrueba)(nil) }},
+		{"configuración intentos", func(d *dependenciasAuditoriaConsultaRRHH) {
+			d.ConfiguracionIntentos = auditoria.ConfiguracionIntentosConsulta{}
+		}},
 	}
 	for _, caso := range casos {
 		t.Run(caso.nombre, func(t *testing.T) {
@@ -164,6 +169,7 @@ func TestRutasAuditoriaConsultaRRHHContratoHTTPFallaCerrado(t *testing.T) {
 			Correlacion: datos.Correlacion,
 		}},
 		Opciones: &opcionesAuditoriaConsultaPrueba{opciones: opciones},
+		Intentos: &registradorIntentosConsultaPrueba{}, ConfiguracionIntentos: configuracionIntentosConsultaPrueba(t, opciones.Motivo),
 	})
 	if err != nil {
 		t.Fatal(err)
