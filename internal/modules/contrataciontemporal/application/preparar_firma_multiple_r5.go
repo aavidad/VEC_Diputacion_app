@@ -109,6 +109,15 @@ func registrarFirmaMultipleR5(ctx context.Context, base *ServicioFirmaDocumento,
 		}
 		return cero, DictamenRechazado{Estado: docports.EstadoVerificacionIndeterminada, Motivo: docports.MotivoRespuestaNoInterpretable}
 	}
+	// El estado global gobierna la decisión. Un detalle individual favorable
+	// no permite continuar si el verificador no acredita la cadena completa.
+	if dictamen.Estado != docports.EstadoVerificacionValida || dictamen.Motivo != docports.MotivoFirmaVerificada {
+		estado, motivo := dictamen.Estado, dictamen.Motivo
+		if motivo.EstadoAsociado() == "" || motivo.EstadoAsociado() != estado {
+			estado, motivo = docports.EstadoVerificacionIndeterminada, docports.MotivoRespuestaNoInterpretable
+		}
+		return cero, DictamenRechazado{Estado: estado, Motivo: motivo}
+	}
 	// Esta selección solo identifica el candidato para la lectura autorizada.
 	// La validación íntegra ocurre después de recuperar la historia y custodia.
 	if len(dictamen.Firmas) != s.PasoOrden {
