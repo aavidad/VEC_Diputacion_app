@@ -17,7 +17,6 @@ import (
 	reglasapp "vec-diputacion-granada/internal/modules/bolsa/application/gobiernoreglasbaremo"
 	bolsapuertos "vec-diputacion-granada/internal/modules/bolsa/ports"
 	ctports "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
-	seguridad "vec-diputacion-granada/internal/vec/adapters/seguridad"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
@@ -175,6 +174,7 @@ func (p *ProveedorGobiernoReglasBaremoV3) ProveerMaterialGobiernoReglasV3(ctx co
 	}
 	datos, err := vinculo.Datos()
 	actuales, errActual := operativo.Vinculo.Datos()
+	vincularRecursoIntentoGobiernoBaremoHTTPV3(ctx, pedido.Recurso.Referencia)
 	if err != nil || errActual != nil || datos != actuales || vinculo.ValidarPara(operativo.Resultado) != nil {
 		return vacio, p.denegarAntesPDP(ctx, reglasapp.ErrGobiernoV3NoAutenticado, operativo)
 	}
@@ -192,7 +192,7 @@ func (p *ProveedorGobiernoReglasBaremoV3) ProveerMaterialGobiernoReglasV3(ctx co
 	if _, ok := instantaneaConsumible(publicada, p.perfil.plantilla, p.reloj.Ahora()); !ok {
 		return vacio, p.denegarAntesPDP(ctx, reglasapp.ErrGobiernoV3Prohibido, operativo)
 	}
-	correlacion, err := vecdomain.GenerarReferenciaCorrelacionAutorizacionV2(ctx, seguridad.GeneradorReferenciasCriptograficas{})
+	correlacion, err := correlacionIntentoGobiernoBaremoHTTPV3(ctx)
 	if err != nil {
 		return vacio, reglasapp.ErrGobiernoV3NoDisponible
 	}
@@ -243,9 +243,9 @@ func (p *ProveedorGobiernoReglasBaremoV3) denegarAntesPDP(ctx context.Context, e
 	}
 	if p != nil && p.auditarAntesPDP != nil {
 		if p.auditarAntesPDP(ctx, err, operativo) != nil {
-			return errorAuditadoGobiernoBaremoHTTPV3{reglasapp.ErrGobiernoV3NoDisponible}
+			return errorAuditadoGobiernoBaremoHTTPV3{reglasapp.ErrGobiernoV3NoDisponible, false}
 		}
-		return errorAuditadoGobiernoBaremoHTTPV3{err}
+		return errorAuditadoGobiernoBaremoHTTPV3{err, true}
 	}
 	// El proveedor directo conserva su contrato. El montaje HTTP exige el auditor.
 	return err

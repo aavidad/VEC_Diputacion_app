@@ -40,6 +40,10 @@ func contextoSesionGobiernoBaremoHTTPPrueba(t *testing.T, ruta string) (*proveed
 	ctx := context.WithValue(context.Background(), claveCapacidadConsultasContratacionTemporalDesarrollo{}, capacidad)
 	ctx = context.WithValue(ctx, claveFronteraSeguridadComunDesarrollo{}, fronteraSeguridadComunDesarrollo{metodo: http.MethodPost, ruta: ruta, superficie: superficieInternaSeguridadComunDesarrollo, catalogo: catalogo, descriptor: f})
 	sesion := &proveedorSesionConsultaRRHHDesarrollo{soporte: p.soporte, fronteras: catalogo, base: p.soporte.contexto.Resultado}
+	ctx, err = contextoIntentoGobiernoBaremoHTTPV3(ctx, "expediente:prueba")
+	if err != nil {
+		t.Fatal(err)
+	}
 	return sesion, ctx
 }
 

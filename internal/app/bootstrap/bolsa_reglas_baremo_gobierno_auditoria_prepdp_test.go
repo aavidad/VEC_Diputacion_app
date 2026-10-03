@@ -83,8 +83,12 @@ func TestGobiernoBaremoHTTPAuditaAmbitoAjenoAntesPDP(t *testing.T) {
 			t.Fatalf("rechazo sin auditoría previa, o invocó PDP: %v", err)
 		}
 		o, errOrden := registrador.ordenes[0].Datos()
-		if errOrden != nil || o.ResultadoContexto.Contexto.PersonaRef != perfil.soporte.contexto.Resultado.Contexto.PersonaRef || o.Datos.Accion != "bolsa.reglas_baremo.borrador.crear" || o.Datos.Resultado != vd.ResultadoIntentoAuditoriaDenegado {
+		if errOrden != nil || o.ResultadoContexto.Contexto.PersonaRef != perfil.soporte.contexto.Resultado.Contexto.PersonaRef || o.Datos.Accion != "bolsa.reglas_baremo.borrador.crear" || o.Datos.Resultado != vd.ResultadoIntentoAuditoriaDenegado || o.Datos.RecursoRef != pedido.Recurso.Referencia {
 			t.Fatal("intento distinto de la identidad nominal común")
+		}
+		correlacion, errCanon := ctx.Value(claveIntentoGobiernoBaremoHTTPV3{}).(*intentoGobiernoBaremoHTTPV3).correlacion.ValorCanonico()
+		if errCanon != nil || o.Datos.CorrelacionRef != correlacion {
+			t.Fatal("se perdió correlación del intento")
 		}
 	}
 }
@@ -164,7 +168,7 @@ func TestGobiernoBaremoHTTPAuditaErrorTrasRetornoSinDuplicarDenegacion(t *testin
 		}{
 			{errors.New("repositorio no disponible"), nil, 1, nil},
 			{app.ErrGobiernoV3Prohibido, nil, 1, app.ErrGobiernoV3Prohibido},
-			{errorAuditadoGobiernoBaremoHTTPV3{app.ErrGobiernoV3Prohibido}, nil, 0, app.ErrGobiernoV3Prohibido},
+			{errorAuditadoGobiernoBaremoHTTPV3{app.ErrGobiernoV3Prohibido, true}, nil, 0, app.ErrGobiernoV3Prohibido},
 			{errors.New("repositorio no disponible"), errors.New("registrador no disponible"), 1, app.ErrGobiernoV3NoDisponible},
 			{nil, nil, 0, nil},
 		} {

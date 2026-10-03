@@ -142,6 +142,9 @@ func (m *montajeGobiernoReglasBaremoHTTPV3) rutas(ctx context.Context, cfg confi
 	if err != nil {
 		return nil, nil, app.ErrGobiernoV3NoDisponible
 	}
+	if motivos.ValidarReferenciaMotivoAutorizacionV2(ctx, m.configuracion.MotivoIntentoDenegado, reloj.Ahora()) != nil || motivos.ValidarReferenciaMotivoAutorizacionV2(ctx, m.configuracion.MotivoIntentoError, reloj.Ahora()) != nil {
+		return nil, nil, app.ErrGobiernoV3NoDisponible
+	}
 	politica, err := nuevaPoliticaAutorizacionSolicitudLigadaV3Desarrollo(fuente, registro, registro, motivos)
 	if err != nil {
 		return nil, nil, app.ErrGobiernoV3NoDisponible
@@ -194,6 +197,9 @@ func (m *montajeGobiernoReglasBaremoHTTPV3) rutas(ctx context.Context, cfg confi
 		func(ctx context.Context, fallo error) error {
 			var auditado errorAuditadoGobiernoBaremoHTTPV3
 			if errors.As(fallo, &auditado) {
+				if !auditado.confirmada {
+					return app.ErrGobiernoV3NoDisponible
+				}
 				return nil
 			}
 			operativo, err := auditor.contextoHistorico(ctx)
@@ -206,7 +212,7 @@ func (m *montajeGobiernoReglasBaremoHTTPV3) rutas(ctx context.Context, cfg confi
 		return nil, nil, err
 	}
 	completo = true
-	return rutasHandlerGobiernoReglasBaremoHTTPV3(h), cerrar, nil
+	return rutasHandlerGobiernoReglasBaremoHTTPV3(handlerIntentoGobiernoBaremoHTTPV3(h, m.configuracion.ExpedienteRef)), cerrar, nil
 }
 
 func auditorRechazoSesionGobiernoReglasBaremoHTTPV3(sesion *proveedorSesionConsultaRRHHDesarrollo, registrador vecports.RegistradorAuditoriaFronteraRutaExacta) bolsahttp.AuditarRechazoSesionGobiernoReglasV3 {
