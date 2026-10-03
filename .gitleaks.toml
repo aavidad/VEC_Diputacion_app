@@ -67,6 +67,11 @@ regexes = [
   '''^SINTETICO_NO_SECRETO_[A-Z0-9_.:+/-]+$''',
 ]
 
+# Referencia pública de clave sintética; material sólo en scratch privado.
+[[rules.allowlists]]
+regexTarget = "secret"
+regexes = [ '''^clave:rpt27:ensayo$''' ]
+
 [[rules]]
 id = "vep-par-credenciales-directo"
 description = "Usuario y contrasena escritos como un par de autenticacion"
