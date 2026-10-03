@@ -48,8 +48,11 @@ func PrepararAdmision(ctx context.Context, m ports.MaterialAdmisionPreparacion) 
 		}
 		versionPaquete = m.Hechos.VersionPaquete
 		for _, h := range m.Hechos.Hechos {
-			if _, repetido := hechos[h.Referencia]; repetido || exigidos[h.Referencia] != h.Version || !hechoAdmisionValido(h) {
+			if _, repetido := hechos[h.Referencia]; repetido || exigidos[h.Referencia] != h.Version {
 				return cero, domain.ErrAdmisionPreparacion
+			}
+			if err := validarHechoAdmision(h); err != nil {
+				return cero, err
 			}
 			hechos[h.Referencia] = domain.SoporteAdmision{
 				ReferenciaHechoAdmision: domain.ReferenciaHechoAdmision{Referencia: h.Referencia, Version: h.Version},
@@ -91,39 +94,39 @@ func PrepararAdmision(ctx context.Context, m ports.MaterialAdmisionPreparacion) 
 
 // Comprueba estructura del DTO RUM sin inventar Persona, actor de revisión ni
 // acreditación para reconstruir un Hecho completo. Ningún campo es autoridad.
-func hechoAdmisionValido(h meritosports.HechoPreparado) bool {
+func validarHechoAdmision(h meritosports.HechoPreparado) error {
 	if !meritos.ReferenciaValida(h.Referencia) || h.Version < 1 || !meritos.ReferenciaValida(h.ConceptoRef) ||
 		!meritos.ReferenciaValida(h.Procedencia.FuenteRef) || !meritos.ReferenciaValida(h.Procedencia.Version) ||
 		!meritos.ReferenciaValida(h.Procedencia.HechoOrigenRef) || len(h.Procedencia.CapturadaEn) > 40 ||
 		len(h.Evidencias) > 32 || len(h.Pendientes) == 0 || len(h.Pendientes) > 32 {
-		return false
+		return domain.ErrAdmisionPreparacion
 	}
 	instante, err := time.Parse(time.RFC3339Nano, h.Procedencia.CapturadaEn)
 	if err != nil || instante.Year() < 1 {
-		return false
+		return domain.ErrAdmisionPreparacion
 	}
 	switch h.Tipo {
 	case "titulacion", "curso_asistencia", "curso_superacion", "experiencia", "idioma", "otro":
 	default:
-		return false
+		return domain.ErrAdmisionPreparacion
 	}
 	if h.Horas != nil && (*h.Horas < 0 || (h.Tipo != "curso_asistencia" && h.Tipo != "curso_superacion")) {
-		return false
+		return domain.ErrAdmisionPreparacion
 	}
 	for i, ev := range h.Evidencias {
 		if ev.Validar() != nil || !meritos.ReferenciaValida(ev.ID) {
-			return false
+			return domain.ErrAdmisionPreparacion
 		}
 		for _, anterior := range h.Evidencias[:i] {
 			if ev == anterior {
-				return false
+				return domain.ErrAdmisionPreparacion
 			}
 		}
 	}
 	for _, p := range h.Pendientes {
 		if !meritos.ReferenciaValida(p) {
-			return false
+			return domain.ErrAdmisionPreparacion
 		}
 	}
-	return true // Vigencia y estado se validan en el dominio antes del resultado.
+	return nil // Vigencia y estado se validan en el dominio antes del resultado.
 }
