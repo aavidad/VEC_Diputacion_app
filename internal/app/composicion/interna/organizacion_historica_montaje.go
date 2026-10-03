@@ -40,6 +40,7 @@ func montarOrganizacionHistoricaGobernada(ctx context.Context, directorio, login
 	}
 	registro, err := internactproveedores.NuevoRegistroIntentosOrganizacionHistorica(intentos[0])
 	if err != nil || registro.PreflightIntentosOrganizacionHistorica(ctx) != nil {
+		log.Print("composicion interna: organizacion_historica_no_disponible")
 		return vacio, false
 	}
 	m, err := internactproveedores.CargarMaterialOrganizacionHistorica(directorio)
@@ -74,6 +75,7 @@ func montarOrganizacionHistoricaGobernada(ctx context.Context, directorio, login
 	}
 	consulta, err := internactproveedores.NuevaConsultaOrganizacionHistoricaConIntentos(servicio, fuente, registro)
 	if err != nil {
+		log.Print("composicion interna: organizacion_historica_no_disponible")
 		return vacio, false
 	}
 	handler, err := httpapi.NewHandlerOrganizacionHistoricaPersonal(internactproveedores.AutoridadContextoOrganizacionHistorica{Fuente: fuente}, consulta, internactproveedores.AuditorDenegacionOrganizacionHistorica{Registrador: auditoria})
