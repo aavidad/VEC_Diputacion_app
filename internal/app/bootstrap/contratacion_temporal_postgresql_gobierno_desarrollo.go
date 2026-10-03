@@ -207,9 +207,12 @@ func gobiernoActualPostgreSQLContratacionTemporalDesarrolloEsPropio(
 // publicación siguiente, el gobierno como «ajeno» y tumbara el arranque. Cada
 // audiencia es nominal y la admite su migración AD3; no hay comodines.
 func audienciasConsumoGobiernoCTDesarrollo() []string {
+	s2 := DescriptoresMaterialPreparacionBasesV3()
 	meritos := descriptoresMaterialMeritosInternosDesarrollo()
 	return []string{
 		audienciaConsumoAltaContratacionTemporal,
+		s2[0].Audiencia,
+		s2[1].Audiencia,
 		puertosbolsa.AudienciaIntegracionLlamamientoDesarrollo,
 		ports.AudienciaConsumoConsultaCuadroRRHHV3,
 		ports.AudienciaConsumoConsultaDetalleRRHHV3,

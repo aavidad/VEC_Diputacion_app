@@ -157,7 +157,7 @@ func TestRecolectorBloqueaSegundoProcesoYUmbralesPorVentana(t *testing.T) {
 		t.Fatal("fixture invalida")
 	}
 	inicio := time.Now()
-	c := contadorAlertas{cfg, inicio, make(map[domain.CodigoIncidenciaTecnica]uint64), make(map[domain.CodigoIncidenciaTecnica]bool)}
+	c := contadorAlertas{cfg: cfg, inicio: inicio, cantidades: make(map[domain.CodigoIncidenciaTecnica]uint64), avisados: make(map[domain.CodigoIncidenciaTecnica]bool)}
 	var salida bytes.Buffer
 	var m MetricasRecolector
 	for i := 0; i < 3; i++ {

@@ -87,7 +87,11 @@ func (d *dependenciasMultiplePrueba) AutorizarConsultaFirmasR5V2(_ context.Conte
 	return ports.TransportarMaterialConsultaFirmasR5V2(a), e
 }
 func (d *dependenciasMultiplePrueba) AutorizarFirmaVerificadaV2(_ context.Context, m ports.MaterialFirmaVerificadaV2) (ports.CapacidadFirmaVerificadaV2, error) {
-	r, e := RecursoFirmaVerificadaV2(m)
+	descriptor, e := CanonicoDescriptorFirmaVerificadaV2(m, descriptorMultiplePrueba(m))
+	if e != nil {
+		return ports.CapacidadFirmaVerificadaV2{}, e
+	}
+	r, e := RecursoFirmaVerificadaV2(m, descriptor)
 	if e != nil {
 		return ports.CapacidadFirmaVerificadaV2{}, e
 	}
@@ -96,7 +100,8 @@ func (d *dependenciasMultiplePrueba) AutorizarFirmaVerificadaV2(_ context.Contex
 		accion, audiencia = ports.AccionRegistrarFirmaExterna, ports.AudienciaFirmaExternaV2
 	}
 	a, e := capacidadMultiplePrueba("firma", r, accion, audiencia)
-	return ports.TransportarMaterialFirmaVerificadaV2(a), e
+	h := sha256.Sum256(descriptor)
+	return ports.TransportarMaterialFirmaVerificadaV2ConDescriptor(a, descriptor, hex.EncodeToString(h[:])), e
 }
 func (d *dependenciasMultiplePrueba) ConsultarFirmasAutorizadasV2(_ context.Context, m ports.MaterialConsultaFirmasR5V2, c ports.CapacidadConsultaFirmasR5V2) (ports.LecturaFirmasR5V2, error) {
 	if e := ValidarCapacidadConsultaFirmasR5V2(c, m); e != nil {

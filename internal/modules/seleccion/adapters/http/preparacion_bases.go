@@ -24,6 +24,8 @@ type ContextoPreparacionBases struct {
 	Actor       vec.ContextoActor
 	Correlacion vec.ReferenciaCorrelacionAutorizacionV2
 	Ambito      bolsa.AmbitoOrganizativoConvocatoria
+	// Callback de la composición con identidad capturada antes de leer JSON.
+	RegistrarErrorEntrada func(context.Context, error) error
 }
 
 // Sigue la frontera de ConfigFicha: el montaje comprueba canal/origen y
@@ -63,9 +65,14 @@ func (h preparacionBasesHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 		escribirError(w, http.StatusMethodNotAllowed, "metodo_no_admitido")
 		return
 	}
+	z, err := h.config.ResolverContexto(r)
+	if err != nil {
+		responderErrorPreparacion(w, ports.ResultadoPreparacionBasesV3{}, err)
+		return
+	}
 	tipo, parametros, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
 	if err != nil || tipo != "application/json" || len(parametros) > 1 || (len(parametros) == 1 && parametros["charset"] != "utf-8") {
-		escribirError(w, http.StatusUnsupportedMediaType, "tipo_no_admitido")
+		h.entradaRechazada(w, r, z, http.StatusUnsupportedMediaType, "tipo_no_admitido")
 		return
 	}
 	var entradaGuardar guardarPreparacionJSON
@@ -75,12 +82,7 @@ func (h preparacionBasesHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 		entrada = &entradaGuardar
 	}
 	if leerPreparacionJSON(http.MaxBytesReader(w, r.Body, 512*1024), entrada) != nil {
-		escribirError(w, http.StatusBadRequest, "solicitud_invalida")
-		return
-	}
-	z, err := h.config.ResolverContexto(r)
-	if err != nil {
-		responderErrorPreparacion(w, ports.ResultadoPreparacionBasesV3{}, err)
+		h.entradaRechazada(w, r, z, http.StatusBadRequest, "solicitud_invalida")
 		return
 	}
 	ctx, cancelar := context.WithTimeout(r.Context(), 20*time.Second)
@@ -105,6 +107,19 @@ func (h preparacionBasesHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 		estado = http.StatusCreated
 	}
 	escribirPreparacionJSON(w, estado, respuesta)
+}
+
+func (h preparacionBasesHandler) entradaRechazada(w http.ResponseWriter, r *http.Request, z ContextoPreparacionBases, estado int, codigo string) {
+	if z.RegistrarErrorEntrada == nil {
+		escribirError(w, http.StatusServiceUnavailable, "servicio_no_disponible")
+		return
+	}
+	err := z.RegistrarErrorEntrada(r.Context(), ports.ErrPreparacionBasesInvalida)
+	if !errors.Is(err, ports.ErrPreparacionBasesInvalida) || errors.Is(err, ports.ErrPreparacionBasesNoDisponible) {
+		escribirError(w, http.StatusServiceUnavailable, "servicio_no_disponible")
+		return
+	}
+	escribirError(w, estado, codigo)
 }
 
 func responderErrorPreparacion(w http.ResponseWriter, r ports.ResultadoPreparacionBasesV3, err error) {

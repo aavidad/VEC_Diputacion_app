@@ -14,19 +14,21 @@ import (
 // FuenteCapacidades entrega únicamente la consulta de capacidades. No abre las
 // seis lecturas heredadas ni permite construir una autoridad de actos.
 type FuenteCapacidades struct {
-	pool     conexion
-	emisor   Emisor
-	fuente   ports.FuenteAutorizacion
-	catalogo ports.CatalogoRolesAdministrables
-	reloj    ports.Reloj
+	pool                  conexion
+	emisor                Emisor
+	fuente                ports.FuenteAutorizacion
+	catalogo              ports.CatalogoRolesAdministrables
+	reloj                 ports.Reloj
+	intentos              ports.RegistradorIntentosAuditoria
+	configuracionIntentos ConfiguracionIntentosCapacidades
 }
 
 var _ api.FuenteLecturas = (*FuenteCapacidades)(nil)
 
-// NuevaFuenteCapacidades permanece cerrada hasta conectar el registrador común
-// durable de denegaciones y errores. El acuse permitido de AD168 no sustituye
-// esa dependencia. La apertura posterior debe acreditar además el LOGIN lector
-// acotado a consultar_capacidades_admin_v1, sin permisos de actos.
+// NuevaFuenteCapacidades permanece cerrada hasta acreditar el preflight del
+// registrador común, la composición privada y el LOGIN lector acotado a
+// consultar_capacidades_admin_v1, sin permisos de actos. El consumo del puerto
+// de intentos no acredita esas dependencias ni su instalación.
 func NuevaFuenteCapacidades(ctx context.Context, pool *pgxpool.Pool, emisor Emisor,
 	fuente ports.FuenteAutorizacion, catalogo ports.CatalogoRolesAdministrables, reloj ports.Reloj,
 ) (*FuenteCapacidades, error) {
@@ -48,7 +50,7 @@ type capacidadesJSON struct {
 	RegistradaEn        time.Time `json:"registrada_en"`
 }
 
-func (f *FuenteCapacidades) Capacidades(ctx context.Context, actor domain.ContextoActor, evidencia domain.EvidenciaSesionAdministracionPerfiles) (api.Capacidades, error) {
+func (f *FuenteCapacidades) consultarCapacidades(ctx context.Context, actor domain.ContextoActor, evidencia domain.EvidenciaSesionAdministracionPerfiles) (api.Capacidades, error) {
 	if ctx == nil || f == nil || ausente(f.pool) || ausente(f.emisor) || ausente(f.fuente) || ausente(f.catalogo) || ausente(f.reloj) {
 		return api.Capacidades{}, ports.ErrAutoridadAdministracionPerfilesNoDisponible
 	}
@@ -100,6 +102,7 @@ func (f *FuenteCapacidades) Capacidades(ctx context.Context, actor domain.Contex
 	efecto := Efecto{Accion: "administracion.perfiles.consultar", Audiencia: "vec_autorizacion.administracion_perfiles.lectura.capacidades.v1",
 		Referencia: actor.PerfilActivoRef, Material: material, CorrelacionAccesoRef: correlacion}
 	var salida capacidadesJSON
+	respuestaValidada := false
 	err = ejecutarConsumoADMIN(ctx, f.pool, f.emisor, f.reloj, actor, evidencia, instantanea, efecto, capacidadesLecturaSQL, func(b []byte) error {
 		if decodificar(b, &salida) != nil || salida.Version != "1" || salida.ActorPersonaRef != actor.PersonaRef ||
 			salida.PerfilActivoRef != actor.PerfilActivoRef || salida.AsignacionPerfilRef != instantanea.AsignacionPerfil.Referencia() ||
@@ -108,9 +111,16 @@ func (f *FuenteCapacidades) Capacidades(ctx context.Context, actor domain.Contex
 			salida.Acciones == nil || len(salida.Acciones) != 0 {
 			return ports.ErrAutoridadAdministracionPerfilesNoDisponible
 		}
+		respuestaValidada = true
 		return nil
 	})
 	if err != nil {
+		// Después de validar la respuesta solo quedan cancelación y COMMIT.
+		// Un fallo de COMMIT nunca acredita una denegación positiva, aunque
+		// el traductor común reconozca su código como rechazo de acceso.
+		if respuestaValidada && ctx.Err() == nil {
+			return api.Capacidades{}, ports.ErrAutoridadAdministracionPerfilesNoDisponible
+		}
 		return api.Capacidades{}, traducirErrorLectura(ctx, err)
 	}
 	return salida.Capacidades, nil

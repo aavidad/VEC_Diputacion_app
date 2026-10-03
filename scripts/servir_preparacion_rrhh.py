@@ -46,7 +46,7 @@ def cargar_recursos(raiz, modulo):
     visor_bases = modulo == "seleccion-bases-preparacion"
     prefijo = "portal-empleado/modulos/seleccion/preparacion-bases" if visor_bases else f"portal-empleado/modulos/{modulo}"
     # Archivos de la vista, nunca pruebas ni datos aportados por una persona.
-    propios = ("preparacion-bases.css",) if visor_bases else (f"{modulo}.css", "escenario.json")
+    propios = ("preparacion-bases.css", "cliente-http.js", "contrato-http.js") if visor_bases else (f"{modulo}.css", "escenario.json")
     for nombre in ("index.html", "entrada.js", "cliente.js", "vista.js", "modelo.js", *propios):
         ruta = f"{prefijo}/{nombre}"
         if (raiz / ruta).exists():

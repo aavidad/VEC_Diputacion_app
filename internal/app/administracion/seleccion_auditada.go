@@ -10,18 +10,9 @@ import (
 // Este seam aún necesita una implementación de identidad y auditoría común.
 // La fuente conserva lectura/selección, revalidación y recibo en la misma
 // transacción. No se admite auditar después de confirmar otro repositorio.
-type FuenteSeleccionAuditadaADMIN interface {
-	ListarPropiosAuditadosADMIN(context.Context, adminperfiles.ObservacionADMIN) (LecturaPropiosAuditadaADMIN, error)
-	SeleccionarPerfilAuditadoADMIN(context.Context, adminperfiles.ObservacionADMIN, string, uint64) (SeleccionAuditadaADMIN, error)
-}
-type LecturaPropiosAuditadaADMIN struct {
-	Propios           adminperfiles.PerfilesPropios
-	AuditoriaComunRef string
-}
-type SeleccionAuditadaADMIN struct {
-	Seleccion         adminperfiles.SeleccionPerfil
-	AuditoriaComunRef string
-}
+type FuenteSeleccionAuditadaADMIN = adminperfiles.FuenteSeleccionAuditadaADMIN
+type LecturaPropiosAuditadaADMIN = adminperfiles.LecturaPropiosAuditadaADMIN
+type SeleccionAuditadaADMIN = adminperfiles.SeleccionAuditadaADMIN
 
 func referenciaAuditoriaComun(ref string) bool {
 	return ref != "" && len(ref) <= 256 && !strings.ContainsAny(ref, "* \t\r\n")
