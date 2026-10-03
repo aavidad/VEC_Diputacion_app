@@ -76,6 +76,7 @@ type autoridadConsultasContratacionTemporalDesarrollo struct {
 	materialCronos                                   materialCronosDesdeCTDesarrollo
 	materialDocumentos                               *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialPersonalFichaPropia                      *proveedorMaterialAltaContratacionTemporalDesarrollo
+	materialPersonalExportacionServicios             *proveedorMaterialAltaContratacionTemporalDesarrollo
 	gobiernoUsuariosPreferencias                     *pgxpool.Pool
 	materialUsuariosPreferenciasConsultaInterna      *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialUsuariosPreferenciasActualizacionInterna *proveedorMaterialAltaContratacionTemporalDesarrollo
@@ -1148,6 +1149,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		materialCronos:                                   alta.postgresql.materialCronos,
 		materialDocumentos:                               alta.postgresql.materialDocumentos,
 		materialPersonalFichaPropia:                      alta.postgresql.materialPersonalFichaPropia,
+		materialPersonalExportacionServicios:             alta.postgresql.materialPersonalExportacionServicios,
 		gobiernoUsuariosPreferencias:                     alta.postgresql.gobierno,
 		materialUsuariosPreferenciasConsultaInterna:      alta.postgresql.materialUsuariosPreferenciasConsultaInterna,
 		materialUsuariosPreferenciasActualizacionInterna: alta.postgresql.materialUsuariosPreferenciasActualizacionInterna,
