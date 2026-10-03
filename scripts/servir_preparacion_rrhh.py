@@ -51,8 +51,13 @@ def cargar_recursos(raiz, modulo):
     )
     # Archivos de la vista, nunca pruebas ni datos aportados por una persona.
     propios = ("preparacion-bases.css", "cliente-http.js", "contrato-http.js") if visor_bases else (
-        ("preparacion-admision.css",) if visor_admision else (f"{modulo}.css", "escenario.json")
+        ("preparacion-admision.css", "controlador.js") if visor_admision else (f"{modulo}.css", "escenario.json")
     )
+    if visor_admision:
+        rutas.extend((
+            "portal-empleado/modulos/seleccion/preparacion-bases/modelo.js",
+            "portal-empleado/modulos/seleccion/preparacion-bases/contrato-http.js",
+        ))
     for nombre in ("index.html", "entrada.js", "cliente.js", "vista.js", "modelo.js", *propios):
         ruta = f"{prefijo}/{nombre}"
         if (raiz / ruta).exists():
