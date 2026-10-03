@@ -18,6 +18,8 @@ BEGIN
  END LOOP;
  IF to_regprocedure('vec_autorizacion_atestada_v3.comprobar_consumo_firma_ct_v1(jsonb)') IS NOT NULL THEN
   RAISE EXCEPTION 'ad167_preimagen_incompatible' USING ERRCODE='55000'; END IF;
+ IF to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_firma_verificada_ct_v2_atestada(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL THEN
+  RAISE EXCEPTION 'ad167_preimagen_incompatible' USING ERRCODE='55000'; END IF;
 END $pre$;
 
 CREATE FUNCTION vec_autorizacion_atestada_v3.comprobar_consumo_firma_ct_v1(p_consumo jsonb)
@@ -81,16 +83,21 @@ BEGIN
   OR capacidad->>'efecto_ref' IS DISTINCT FROM r.efecto_ref
   OR capacidad->>'huella_efecto_sha256' IS DISTINCT FROM r.huella_efecto_sha256
   OR (capacidad->>'audiencia_consumo' IN
-   ('vec_contratacion_temporal.firma_vec.v1','vec_contratacion_temporal.firma_externa.v1')) IS NOT TRUE
+   ('vec_contratacion_temporal.firma_vec.v2','vec_contratacion_temporal.firma_externa.v2')) IS NOT TRUE
   OR (decision->>'accion' IN
    ('contratacion_temporal.documento.firma_vec.registrar',
     'contratacion_temporal.documento.firma_externa.registrar')) IS NOT TRUE
-  OR (capacidad->>'audiencia_consumo'='vec_contratacion_temporal.firma_vec.v1'
-      AND decision->>'accion' IS DISTINCT FROM 'contratacion_temporal.documento.firma_vec.registrar')
-  OR (capacidad->>'audiencia_consumo'='vec_contratacion_temporal.firma_externa.v1'
-      AND decision->>'accion' IS DISTINCT FROM 'contratacion_temporal.documento.firma_externa.registrar')
+  OR (capacidad->>'audiencia_consumo'='vec_contratacion_temporal.firma_vec.v2'
+      AND (decision->>'accion' IS DISTINCT FROM 'contratacion_temporal.documento.firma_vec.registrar'
+       OR decision->>'tipo_recurso' IS DISTINCT FROM 'firma_vec_documento_contratacion_temporal'))
+  OR (capacidad->>'audiencia_consumo'='vec_contratacion_temporal.firma_externa.v2'
+      AND (decision->>'accion' IS DISTINCT FROM 'contratacion_temporal.documento.firma_externa.registrar'
+       OR decision->>'tipo_recurso' IS DISTINCT FROM 'firma_externa_documento_contratacion_temporal'))
   OR decision->>'modulo_id' IS DISTINCT FROM 'contratacion_temporal'
   OR decision->>'finalidad' IS DISTINCT FROM 'gestionar_contratacion_temporal'
+  OR decision#>>'{vinculo_autenticacion_actor,superficie}' IS DISTINCT FROM 'interna_corporativa'
+  OR decision->'campos_permitidos' IS DISTINCT FROM '[]'::jsonb
+  OR decision->'obligaciones' IS DISTINCT FROM '[]'::jsonb
   OR decision->>'principal_id' IS NULL
   OR decision->>'perfil_activo_ref' IS NULL
   OR decision->>'valida_hasta' IS NULL

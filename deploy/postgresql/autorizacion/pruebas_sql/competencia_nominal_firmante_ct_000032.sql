@@ -12,6 +12,9 @@ BEGIN
   RAISE EXCEPTION 'AUT32 ausente' USING ERRCODE='55000'; END IF;
  IF NOT EXISTS(SELECT 1 FROM pg_class c WHERE c.oid='vec_autorizacion.evidencia_competencia_firmante_ct_v1'::regclass
   AND c.relrowsecurity AND c.relforcerowsecurity)
+  OR NOT EXISTS(SELECT 1 FROM pg_attribute a WHERE a.attrelid=
+   'vec_autorizacion.evidencia_competencia_firmante_ct_v1'::regclass
+   AND a.attname='organizacion_destino' AND a.attnotnull)
   OR EXISTS(SELECT 1 FROM pg_class c CROSS JOIN LATERAL
    aclexplode(coalesce(c.relacl,acldefault('r',c.relowner))) a
    WHERE c.oid='vec_autorizacion.evidencia_competencia_firmante_ct_v1'::regclass

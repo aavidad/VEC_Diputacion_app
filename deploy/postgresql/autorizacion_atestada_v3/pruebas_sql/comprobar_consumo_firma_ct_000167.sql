@@ -7,7 +7,11 @@ DECLARE f regprocedure:='vec_autorizacion_atestada_v3.comprobar_consumo_firma_ct
 BEGIN
  IF NOT EXISTS(SELECT 1 FROM pg_proc p WHERE p.oid=f
   AND p.proowner='vec_autorizacion_atestada_v3_propietario'::regrole
-  AND p.prosecdef AND p.provolatile='v' AND p.proparallel='u')
+  AND p.prosecdef AND p.provolatile='v' AND p.proparallel='u'
+  AND strpos(p.prosrc,'vec_contratacion_temporal.firma_vec.v2')>0
+  AND strpos(p.prosrc,'vec_contratacion_temporal.firma_externa.v2')>0
+  AND strpos(p.prosrc,'vec_contratacion_temporal.firma_vec.v1')=0
+  AND strpos(p.prosrc,'vec_contratacion_temporal.firma_externa.v1')=0)
   OR EXISTS(SELECT 1 FROM pg_proc p CROSS JOIN LATERAL
    aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a WHERE p.oid=f
    AND a.grantee NOT IN ('vec_autorizacion_atestada_v3_propietario'::regrole,

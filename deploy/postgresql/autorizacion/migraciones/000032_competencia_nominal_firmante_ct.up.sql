@@ -38,6 +38,13 @@ BEGIN
     'vec_autorizacion_atestada_v3.comprobar_consumo_firma_ct_v1(jsonb)', 'EXECUTE') THEN
   RAISE EXCEPTION 'aut32_preimagen_incompatible' USING ERRCODE = '55000';
  END IF;
+ IF NOT EXISTS(SELECT 1 FROM pg_proc p WHERE p.oid=
+    'vec_contexto_actor_v1.leer_revalidar_certificado_firmante_ct_v2(text)'::regprocedure
+    AND strpos(p.prosrc,'organizacion_destino')>0)
+  OR NOT EXISTS(SELECT 1 FROM pg_proc p WHERE p.oid=
+    'vec_contexto_actor_v1.recuperar_historia_certificado_firmante_ct_v2(text,numeric,text)'::regprocedure
+    AND strpos(p.prosrc,'organizacion_destino')>0) THEN
+  RAISE EXCEPTION 'aut32_preimagen_incompatible' USING ERRCODE='55000'; END IF;
 END $preimagen$;
 
 -- Una fila original por efecto. El recibo CT apunta a evidencia_ref y huella;
@@ -54,6 +61,8 @@ CREATE TABLE vec_autorizacion.evidencia_competencia_firmante_ct_v1 (
  documento_ref text NOT NULL,
  persona_ref text NOT NULL,
  certificado_der_sha256 text NOT NULL CHECK (certificado_der_sha256 ~ '^[0-9a-f]{64}$'),
+ organizacion_destino jsonb NOT NULL,
+ organizacion_destino_huella_sha256 text NOT NULL CHECK (organizacion_destino_huella_sha256 ~ '^[0-9a-f]{64}$'),
  consumo_decision_ref text NOT NULL,
  consumo_huella_sha256 text NOT NULL CHECK (consumo_huella_sha256 ~ '^[0-9a-f]{64}$'),
  auditoria_consumo_ref text NOT NULL,
@@ -62,6 +71,15 @@ CREATE TABLE vec_autorizacion.evidencia_competencia_firmante_ct_v1 (
  registrador_perfil_ref text NOT NULL,
  creada_en timestamptz(6) NOT NULL DEFAULT clock_timestamp(),
  CHECK (huella_sha256 = encode(sha256(canonico),'hex')),
+ CHECK (jsonb_typeof(organizacion_destino)='object'),
+ CHECK (organizacion_destino ?& ARRAY['organizacion_ref','organizacion_version',
+  'organizacion_huella_sha256','organizacion_procedencia_ref',
+  'organizacion_procedencia_version','organizacion_procedencia_sha256',
+  'vinculo_corporativo_ref','vinculo_corporativo_version',
+  'vinculo_corporativo_huella_sha256']),
+ CHECK (organizacion_destino->>'organizacion_ref' = organizacion_ref),
+ CHECK (organizacion_destino_huella_sha256 =
+   encode(sha256(convert_to(organizacion_destino::text,'UTF8')),'hex')),
  CHECK (evidencia_ref = 'evidencia:competencia-firmante-ct:' ||
    encode(sha256(convert_to(efecto_ref,'UTF8') || canonico),'hex')),
  CHECK (vec_autorizacion.texto_positivo_valido(efecto_ref,512)),
@@ -115,7 +133,7 @@ LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
 SET search_path = pg_catalog SET row_security = 'on' SET lock_timeout = '2s'
 AS $f$
 DECLARE c jsonb; ident jsonb; comp jsonb; per jsonb; rec jsonb; ct jsonb;
- ca jsonb; fuente_personal jsonb; v3 jsonb; a record; rol record;
+ ca jsonb; org_ca jsonb; fuente_personal jsonb; v3 jsonb; a record; rol record;
  concedida boolean; amb_org boolean; amb_unidad boolean;
  instante timestamptz(6); fecha_historica timestamptz(6); efecto text;
 BEGIN
@@ -216,6 +234,7 @@ BEGIN
   RAISE EXCEPTION 'aut32_consumo_v3_no_admitido' USING ERRCODE = '42501';
  END IF;
  ca := vec_contexto_actor_v1.leer_revalidar_certificado_firmante_ct_v2(ident->>'certificado_der_sha256');
+ org_ca := ca->'organizacion_destino';
  IF ca->>'esquema' IS DISTINCT FROM 'vec.contexto-actor.certificado-firmante-ct.v2'
   OR ca->>'estado' IS DISTINCT FROM 'vigente'
   OR ca->>'certificado_der_sha256' IS DISTINCT FROM ident->>'certificado_der_sha256'
@@ -240,6 +259,22 @@ BEGIN
   OR ca#>>'{vinculo_cuenta_persona,cuenta_ref}' IS DISTINCT FROM ident#>>'{cuenta,referencia}'
   OR ca#>>'{vinculo_cuenta_persona,persona_ref}' IS DISTINCT FROM ident->>'persona_ref' THEN
   RAISE EXCEPTION 'aut32_identidad_no_admitida' USING ERRCODE = '42501';
+ END IF;
+ -- La organización acreditada por CA4 se conserva fuera del canon V1: el
+ -- documento CA25 original liga estos metadatos a la huella de su vínculo.
+ IF jsonb_typeof(org_ca) IS DISTINCT FROM 'object'
+  OR (SELECT count(*) FROM jsonb_object_keys(org_ca)) <> 9
+  OR org_ca->>'organizacion_ref' IS DISTINCT FROM rec->>'organizacion_ref'
+  OR org_ca->>'organizacion_ref' IS DISTINCT FROM p_relacion_ct->>'organizacion_ref'
+  OR vec_autorizacion.texto_positivo_valido(org_ca->>'organizacion_procedencia_ref',512) IS NOT TRUE
+  OR vec_autorizacion.texto_positivo_valido(org_ca->>'vinculo_corporativo_ref',512) IS NOT TRUE
+  OR ((org_ca->>'organizacion_version')::numeric BETWEEN 1 AND 9007199254740991) IS NOT TRUE
+  OR ((org_ca->>'organizacion_procedencia_version')::numeric BETWEEN 1 AND 9007199254740991) IS NOT TRUE
+  OR ((org_ca->>'vinculo_corporativo_version')::numeric BETWEEN 1 AND 9007199254740991) IS NOT TRUE
+  OR (org_ca->>'organizacion_huella_sha256' ~ '^[0-9a-f]{64}$') IS NOT TRUE
+  OR (org_ca->>'organizacion_procedencia_sha256' ~ '^[0-9a-f]{64}$') IS NOT TRUE
+  OR (org_ca->>'vinculo_corporativo_huella_sha256' ~ '^[0-9a-f]{64}$') IS NOT TRUE THEN
+  RAISE EXCEPTION 'aut32_organizacion_no_admitida' USING ERRCODE = '42501';
  END IF;
  fuente_personal := vec_personal.leer_revalidar_cargo_ocupante_ct_v1(p_contexto_nominal);
  IF fuente_personal->>'esquema' IS DISTINCT FROM 'vec.personal.cargo-ocupante.ct.v1'
@@ -377,10 +412,15 @@ LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
 SET search_path = pg_catalog SET row_security = 'on' SET lock_timeout = '2s'
 AS $f$
 DECLARE c jsonb; h text; ref text; previo vec_autorizacion.evidencia_competencia_firmante_ct_v1%ROWTYPE;
- v3 jsonb;
+ v3 jsonb; org_ca jsonb;
 BEGIN
  c := vec_autorizacion.validar_competencia_nominal_firmante_ct_v1(
    p_contexto_nominal,p_relacion_ct,p_consumo_v3);
+ org_ca := (vec_contexto_actor_v1.leer_revalidar_certificado_firmante_ct_v2(
+   c#>>'{identidad,certificado_der_sha256}'))->'organizacion_destino';
+ IF jsonb_typeof(org_ca) IS DISTINCT FROM 'object'
+  OR org_ca->>'organizacion_ref' IS DISTINCT FROM c#>>'{recurso,organizacion_ref}' THEN
+  RAISE EXCEPTION 'aut32_organizacion_no_admitida' USING ERRCODE='42501'; END IF;
  h := encode(sha256(p_contexto_nominal),'hex');
  v3 := vec_autorizacion_atestada_v3.comprobar_consumo_firma_ct_v1(p_consumo_v3);
  ref := 'evidencia:competencia-firmante-ct:' ||
@@ -402,22 +442,28 @@ BEGIN
    RAISE EXCEPTION 'aut32_efecto_divergente' USING ERRCODE = '42501';
   END IF;
   RETURN jsonb_build_object('evidencia_ref',previo.evidencia_ref,'esquema',previo.esquema,
-   'version',1,'huella_sha256',previo.huella_sha256,'recuperada',true);
+   'version',1,'huella_sha256',previo.huella_sha256,
+   'organizacion_destino_huella_sha256',previo.organizacion_destino_huella_sha256,
+   'recuperada',true);
  END IF;
  INSERT INTO vec_autorizacion.evidencia_competencia_firmante_ct_v1 (
   evidencia_ref,efecto_ref,esquema,canonico,huella_sha256,organizacion_ref,unidad_ref,
   expediente_ref,documento_ref,persona_ref,certificado_der_sha256,
+  organizacion_destino,organizacion_destino_huella_sha256,
   consumo_decision_ref,consumo_huella_sha256,auditoria_consumo_ref,
   auditoria_consumo_huella_sha256,registrador_principal_ref,registrador_perfil_ref)
  VALUES (ref,p_consumo_v3->>'efecto_ref','vec.competencia-firmante.historica.v1',
   p_contexto_nominal,h,c#>>'{recurso,organizacion_ref}',c#>>'{recurso,unidad_ref}',
   c#>>'{recurso,expediente_ref}',c#>>'{recurso,documento_ref}',c#>>'{identidad,persona_ref}',
-  c#>>'{identidad,certificado_der_sha256}',p_consumo_v3->>'decision_ref',
+  c#>>'{identidad,certificado_der_sha256}',org_ca,
+  encode(sha256(convert_to(org_ca::text,'UTF8')),'hex'),p_consumo_v3->>'decision_ref',
   p_consumo_v3->>'consumo_huella_sha256',p_consumo_v3->>'auditoria_ref',
   v3->>'auditoria_huella_sha256',v3->>'registrador_principal_ref',
   v3->>'registrador_perfil_ref');
  RETURN jsonb_build_object('evidencia_ref',ref,'esquema','vec.competencia-firmante.historica.v1',
-  'version',1,'huella_sha256',h,'recuperada',false);
+  'version',1,'huella_sha256',h,
+  'organizacion_destino_huella_sha256',encode(sha256(convert_to(org_ca::text,'UTF8')),'hex'),
+  'recuperada',false);
 END $f$;
 REVOKE ALL ON FUNCTION vec_autorizacion.acreditar_competencia_nominal_firmante_ct_v1(bytea,jsonb,jsonb) FROM PUBLIC;
 
@@ -461,7 +507,10 @@ BEGIN
   OR fuente_ca->>'persona_huella_sha256' IS DISTINCT FROM historico#>>'{identidad,persona,huella_sha256}'
   OR fuente_ca->>'vinculo_cuenta_persona_ref' IS DISTINCT FROM historico#>>'{identidad,vinculo_cuenta_persona,referencia}'
   OR fuente_ca->>'vinculo_cuenta_persona_version' IS DISTINCT FROM historico#>>'{identidad,vinculo_cuenta_persona,version}'
-  OR fuente_ca->>'vinculo_cuenta_persona_huella_sha256' IS DISTINCT FROM historico#>>'{identidad,vinculo_cuenta_persona,huella_sha256}' THEN
+  OR fuente_ca->>'vinculo_cuenta_persona_huella_sha256' IS DISTINCT FROM historico#>>'{identidad,vinculo_cuenta_persona,huella_sha256}'
+  OR fuente_ca->'organizacion_destino' IS DISTINCT FROM original.organizacion_destino
+  OR original.organizacion_destino_huella_sha256 IS DISTINCT FROM
+   encode(sha256(convert_to(original.organizacion_destino::text,'UTF8')),'hex') THEN
   RAISE EXCEPTION 'aut32_evidencia_no_disponible' USING ERRCODE = '42501';
  END IF;
  RETURN original.canonico;
