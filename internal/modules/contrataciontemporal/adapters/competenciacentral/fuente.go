@@ -88,7 +88,7 @@ func NuevaFuente(identidad FuenteVinculoCertificado, asignaciones vecports.Lecto
 		vistos[p.PasoRef] = true
 		cp := DescriptorPaso{Documento: p.Documento, PasoRef: p.PasoRef, Orden: p.Orden, Perfiles: map[string]string{}, AccionCompetencial: p.AccionCompetencial, FinalidadCompetencial: p.FinalidadCompetencial}
 		for perfil, rol := range p.Perfiles {
-			if !ctdomain.ReferenciaOpacaValida(perfil) || !rolCargoValido(rol) {
+			if !ctdomain.ReferenciaOpacaValida(perfil) || !rolDescriptorValido(rol) {
 				return nil, ctports.ErrCompetenciaFirmanteNoDisponible
 			}
 			cp.Perfiles[perfil] = rol
@@ -193,14 +193,12 @@ func errorFuente(ctx context.Context, err error) error {
 	return ctports.ErrCompetenciaFirmanteNoDisponible
 }
 
-func rolCargoValido(rol string) bool {
-	switch rol {
-	case "ct_cargo_tecnico_solicitante", "ct_cargo_delegacion_solicitante", "ct_cargo_direccion_rrhh",
-		"ct_cargo_jefatura_servicio_rrhh", "ct_cargo_diputacion_delegada_rrhh":
-		return true
-	default:
-		return false
-	}
+// La lista positiva pertenece al descriptor publicado, no a este adaptador.
+// Se conserva la gramática opaca existente y el máximo de RolID de
+// vec/domain.VersionRol.Validar; la evidencia completa se valida allí y su
+// RolID debe coincidir exactamente con el seleccionado en el descriptor.
+func rolDescriptorValido(rol string) bool {
+	return len(rol) <= 128 && ctdomain.ReferenciaOpacaValida(rol)
 }
 
 func interfazNula(v any) bool {
