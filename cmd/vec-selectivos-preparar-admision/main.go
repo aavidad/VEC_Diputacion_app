@@ -56,6 +56,7 @@ func ejecutar(ctx context.Context, args []string, entrada io.Reader, salida, err
 	opciones.SetOutput(io.Discard)
 	dir := opciones.String("catalogos-dir", "web/static/textos", "")
 	idioma := opciones.String("idioma", i18n.DefaultLocale, "")
+	formato := opciones.String("salida", "preparacion", "")
 	errOpciones := opciones.Parse(args)
 	catalogo, err := cargarCatalogo(*dir, *idioma)
 	if errOpciones == flag.ErrHelp && err == nil && salida != nil {
@@ -68,8 +69,12 @@ func ejecutar(ctx context.Context, args []string, entrada io.Reader, salida, err
 		}
 		return 0
 	}
-	if err != nil || errOpciones != nil || opciones.NArg() != 0 || salida == nil || errores == nil {
+	if err != nil || errOpciones != nil || opciones.NArg() != 0 || salida == nil || errores == nil ||
+		(*formato != "preparacion" && *formato != "aportacion" && *formato != "antecedente") {
 		return informarError(errores, catalogo, *idioma, domain.ErrAdmisionPreparacion.Error())
+	}
+	if *formato != "preparacion" {
+		return ejecutarAportacion(ctx, *formato, entrada, salida, errores, catalogo, *idioma)
 	}
 	var material ports.MaterialAdmisionPreparacion
 	if leerJSON(entrada, &material) != nil {
