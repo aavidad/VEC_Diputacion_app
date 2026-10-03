@@ -134,7 +134,7 @@ func (m *revalidadorConsultasContratacionTemporalDesarrollo) ServeHTTP(
 			capacidad.certificadoVerificadoEn = observado
 			capacidad.certificadoValidoHasta = certificado.NotAfter.UTC()
 			capacidad.consultaRRHH = &contextoConsultaRRHHPeticionDesarrollo{}
-			if protegidaCT || protegidaComun && fronteraComun.ClavePolitica == clavePoliticaPreparacionBasesHTTPV3 {
+			if protegidaCT || protegidaComun {
 				capacidad.contextoOperacion = &contextoOperacionCTDesarrollo{}
 			}
 			if rutaConsultaRRHHContratacionTemporalDesarrollo(capacidad.ruta) {

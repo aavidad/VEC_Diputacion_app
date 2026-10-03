@@ -36,24 +36,25 @@ type capabilityKey struct {
 	Until              time.Time `json:"until"`
 }
 type cryptoConfig struct {
-	Seed               []byte    `json:"seed"`
-	HMAC               []byte    `json:"hmac"`
-	RootID             string    `json:"root_id"`
-	RootVersion        uint64    `json:"root_version"`
-	Deployment         string    `json:"deployment"`
-	Revision           string    `json:"revision"`
-	Sequence           uint64    `json:"sequence"`
-	Published          time.Time `json:"published"`
-	Expires            time.Time `json:"expires"`
-	RootFrom           time.Time `json:"root_from"`
-	RootUntil          time.Time `json:"root_until"`
-	KeyID              string    `json:"key_id"`
-	KeyVersion         uint64    `json:"key_version"`
-	Issuer             string    `json:"issuer"`
-	GovernmentRevision uint64    `json:"government_revision"`
-	GovernmentSHA      string    `json:"government_sha"`
-	KeyFrom            time.Time `json:"key_from"`
-	KeyUntil           time.Time `json:"key_until"`
+	Passwords          map[string]string `json:"passwords,omitempty"`
+	Seed               []byte            `json:"seed"`
+	HMAC               []byte            `json:"hmac"`
+	RootID             string            `json:"root_id"`
+	RootVersion        uint64            `json:"root_version"`
+	Deployment         string            `json:"deployment"`
+	Revision           string            `json:"revision"`
+	Sequence           uint64            `json:"sequence"`
+	Published          time.Time         `json:"published"`
+	Expires            time.Time         `json:"expires"`
+	RootFrom           time.Time         `json:"root_from"`
+	RootUntil          time.Time         `json:"root_until"`
+	KeyID              string            `json:"key_id"`
+	KeyVersion         uint64            `json:"key_version"`
+	Issuer             string            `json:"issuer"`
+	GovernmentRevision uint64            `json:"government_revision"`
+	GovernmentSHA      string            `json:"government_sha"`
+	KeyFrom            time.Time         `json:"key_from"`
+	KeyUntil           time.Time         `json:"key_until"`
 }
 type actorConfig struct {
 	Account           string `json:"account"`

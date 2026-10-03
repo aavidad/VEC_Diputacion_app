@@ -97,5 +97,6 @@ func (p *proveedorSesionConsultaRRHHDesarrollo) rutaSesionConIndisponibilidad(ru
 	if rutaSesionConIndisponibilidadCTDesarrollo(ruta) || p != nil && p.canalIntervencion != nil && ruta == httpinterno.RutaResultadosFiscalizacion {
 		return true
 	}
-	return len(contextos) == 1 && p.sesionPreparacionBasesHTTPV3(contextos[0], ruta)
+	return len(contextos) == 1 && (p.sesionPreparacionBasesHTTPV3(contextos[0], ruta) ||
+		p.sesionGobiernoReglasBaremoHTTPV3(contextos[0], ruta))
 }

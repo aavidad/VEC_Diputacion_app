@@ -208,6 +208,7 @@ func gobiernoActualPostgreSQLContratacionTemporalDesarrolloEsPropio(
 // audiencia es nominal y la admite su migración AD3; no hay comodines.
 func audienciasConsumoGobiernoCTDesarrollo() []string {
 	s2 := DescriptoresMaterialPreparacionBasesV3()
+	meritos := descriptoresMaterialMeritosInternosDesarrollo()
 	return []string{
 		audienciaConsumoAltaContratacionTemporal,
 		s2[0].Audiencia,
@@ -277,6 +278,8 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		puertosbolsa.AudienciaConsultarPoliticaOfertas,
 		// Gobierno de borradores de baremo: descriptor propio de composición.
 		DescriptorMaterialGobiernoReglasBaremoV3().Audiencia,
+		// Registro y consulta propia de Méritos: sólo preparación interna nominal.
+		meritos[0].Audiencia, meritos[1].Audiencia,
 		auditoria.AudienciaConsumo,
 		puertosbolsa.AudienciaSolicitarPausaPropia,
 		puertosbolsa.AudienciaSolicitarReactivacionPropia,
