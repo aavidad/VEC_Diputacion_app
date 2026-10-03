@@ -2,7 +2,8 @@
 -- Ejecutar solo después de instalar AD159 y CT170 en un clon PG18 desechable.
 -- Comprueba la frontera nueva, los 29 campos concedidos y AD125/CT152.
 -- Incluye rechazo uniforme de dos referencias sin capacidad. Sin datos.
-BEGIN;
+BEGIN ISOLATION LEVEL SERIALIZABLE READ WRITE;
+SET LOCAL timezone='UTC';
 SET LOCAL search_path=pg_catalog,pg_temp;
 SET LOCAL statement_timeout='30s';
 DO $prueba$
