@@ -62,7 +62,12 @@ func fixtureRegistroFirmaV2(t *testing.T) (ports.MaterialFirmaVerificadaV2, Desc
 
 func capacidadRegistroFirmaV2Prueba(t *testing.T, m ports.MaterialFirmaVerificadaV2) ports.CapacidadFirmaVerificadaV2 {
 	t.Helper()
-	r, err := ctapp.RecursoFirmaVerificadaV2(m)
+	_, d := fixtureRegistroFirmaV2(t)
+	datos, err := ctapp.CanonicoDescriptorFirmaVerificadaV2(m, d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, err := ctapp.RecursoFirmaVerificadaV2(m, datos)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,5 +93,6 @@ func capacidadRegistroFirmaV2Prueba(t *testing.T, m ports.MaterialFirmaVerificad
 	if err != nil {
 		t.Fatal(err)
 	}
-	return ports.TransportarMaterialFirmaVerificadaV2(x)
+	hDescriptor := sha256.Sum256(datos)
+	return ports.TransportarMaterialFirmaVerificadaV2ConDescriptor(x, datos, hex.EncodeToString(hDescriptor[:]))
 }

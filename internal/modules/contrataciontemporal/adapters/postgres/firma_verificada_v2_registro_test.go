@@ -2,6 +2,8 @@ package postgres
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"testing"
@@ -46,7 +48,7 @@ func TestRegistroFirmaV2UnaFachadaConservaReciboReplay(t *testing.T) {
 				}
 			}
 			p := &poolFirmaV2Prueba{tx: tx}
-			r := &RegistroFirmasVerificadasPostgreSQL{pool: p, descriptores: descriptorFirmaV2Prueba{descriptor: d}}
+			r := &RegistroFirmasVerificadasPostgreSQL{pool: p}
 			v, err := r.RegistrarFirmaVerificadaV2(context.Background(), m, capacidadRegistroFirmaV2Prueba(t, m))
 			if err != nil || v.ReciboRef != w.ReciboRef || v.FirmaRef != w.FirmaRef || !v.RegistradaEn.Equal(fecha) || v.YaRegistrada != replay || tx.commits != 1 || tx.rollbacks != 0 || p.inicios != 1 || tx.consultas != 1 {
 				t.Fatalf("recibo cambiado o TX no única: %v", err)
@@ -58,7 +60,7 @@ func TestRegistroFirmaV2UnaFachadaConservaReciboReplay(t *testing.T) {
 func TestRegistroFirmaV2RevierteSinExponerRecibo(t *testing.T) {
 	for _, caso := range []string{"recibo_incoherente", "revocado_replay", "commit_incierto"} {
 		t.Run(caso, func(t *testing.T) {
-			m, d := fixtureRegistroFirmaV2(t)
+			m, _ := fixtureRegistroFirmaV2(t)
 			canon, err := m.Canonico()
 			if err != nil {
 				t.Fatal(err)
@@ -86,7 +88,7 @@ func TestRegistroFirmaV2RevierteSinExponerRecibo(t *testing.T) {
 				tx.falloCommit = &pgconn.PgError{Code: "42501"}
 			}
 			p := &poolFirmaV2Prueba{tx: tx}
-			r := &RegistroFirmasVerificadasPostgreSQL{pool: p, descriptores: descriptorFirmaV2Prueba{descriptor: d}}
+			r := &RegistroFirmasVerificadasPostgreSQL{pool: p}
 			v, err := r.RegistrarFirmaVerificadaV2(context.Background(), m, capacidadRegistroFirmaV2Prueba(t, m))
 			esperado := ports.ErrResultadoFirmaDocumentoInvalido
 			if caso == "revocado_replay" {
@@ -103,7 +105,7 @@ func TestRegistroFirmaV2RevierteSinExponerRecibo(t *testing.T) {
 }
 
 func TestRegistroFirmaV2DescriptorGobernadoAntesDeBegin(t *testing.T) {
-	for _, caso := range []string{"fecha_cliente", "original_ajeno", "capacidad_ajena", "sin_fuente", "puesto_no_representado", "ambito_no_representado", "acto_no_representado"} {
+	for _, caso := range []string{"fecha_cliente", "original_ajeno", "cargo_posterior", "capacidad_ajena", "legacy_sin_descriptor", "puesto_no_representado", "ambito_no_representado", "acto_no_representado"} {
 		t.Run(caso, func(t *testing.T) {
 			m, d := fixtureRegistroFirmaV2(t)
 			c := capacidadRegistroFirmaV2Prueba(t, m)
@@ -112,6 +114,17 @@ func TestRegistroFirmaV2DescriptorGobernadoAntesDeBegin(t *testing.T) {
 			}
 			if caso == "original_ajeno" {
 				d.Recurso.Original.Referencia = "original:ajeno"
+			}
+			if caso == "cargo_posterior" {
+				d.Seleccion.CargoRef = "cargo:posterior"
+			}
+			if caso == "fecha_cliente" || caso == "original_ajeno" || caso == "cargo_posterior" {
+				datos, err := json.Marshal(d)
+				if err != nil {
+					t.Fatal(err)
+				}
+				h := sha256.Sum256(datos)
+				c = ports.TransportarMaterialFirmaVerificadaV2ConDescriptor(c.ExportarMaterialParaConsumidor(), datos, hex.EncodeToString(h[:]))
 			}
 			if caso == "capacidad_ajena" {
 				m.ClaveIdempotencia = "clave-prueba-firma-000002"
@@ -129,9 +142,9 @@ func TestRegistroFirmaV2DescriptorGobernadoAntesDeBegin(t *testing.T) {
 			}
 			tx := &txFirmaV2Prueba{t: t}
 			p := &poolFirmaV2Prueba{tx: tx}
-			r := &RegistroFirmasVerificadasPostgreSQL{pool: p, descriptores: descriptorFirmaV2Prueba{descriptor: d}}
-			if caso == "sin_fuente" {
-				r.descriptores = nil
+			r := &RegistroFirmasVerificadasPostgreSQL{pool: p}
+			if caso == "legacy_sin_descriptor" {
+				c = ports.TransportarMaterialFirmaVerificadaV2(c.ExportarMaterialParaConsumidor())
 			}
 			if v, err := r.RegistrarFirmaVerificadaV2(context.Background(), m, c); err == nil || v.ReciboRef != "" || p.inicios != 0 {
 				t.Fatal("material sin fuente abrió SQL")

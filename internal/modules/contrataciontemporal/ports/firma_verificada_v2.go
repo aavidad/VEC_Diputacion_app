@@ -158,17 +158,6 @@ func (m MaterialFirmaVerificadaV2) RecursoRef() string {
 	return PrefijoRecursoFirmaExterna + m.ClaveIdempotencia
 }
 
-type CapacidadFirmaVerificadaV2 struct {
-	material vp.ExportacionMaterialConsumoAutorizacionAtestadaV3
-}
-
-func TransportarMaterialFirmaVerificadaV2(m vp.ExportacionMaterialConsumoAutorizacionAtestadaV3) CapacidadFirmaVerificadaV2 {
-	return CapacidadFirmaVerificadaV2{m}
-}
-func (c CapacidadFirmaVerificadaV2) ExportarMaterialParaConsumidor() vp.ExportacionMaterialConsumoAutorizacionAtestadaV3 {
-	return c.material
-}
-
 type AutorizadorFirmaVerificadaV2 interface {
 	AutorizarFirmaVerificadaV2(context.Context, MaterialFirmaVerificadaV2) (CapacidadFirmaVerificadaV2, error)
 }

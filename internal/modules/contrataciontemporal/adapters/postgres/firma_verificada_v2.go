@@ -12,7 +12,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	ctapp "vec-diputacion-granada/internal/modules/contrataciontemporal/application"
+	ctapp "vec-diputacion-granada/internal/modules/contrataciontemporal/application/firmaautorizacionv2"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
@@ -20,15 +20,14 @@ import (
 // RegistroFirmasVerificadasPostgreSQL consume las fachadas V2 con el LOGIN CT.
 // El plan selecciona el descriptor; AUT35 fabrica el canon dentro de CT172.
 type RegistroFirmasVerificadasPostgreSQL struct {
-	pool         iniciadorRegistroIncorporacionV2
-	descriptores FuenteDescriptorFirmaV2
+	pool iniciadorRegistroIncorporacionV2
 }
 
-func NuevoRegistroFirmasVerificadasPostgreSQL(pool *pgxpool.Pool, descriptores FuenteDescriptorFirmaV2) (*RegistroFirmasVerificadasPostgreSQL, error) {
-	if nuloRegistroTX(pool) || nuloRegistroTX(descriptores) {
+func NuevoRegistroFirmasVerificadasPostgreSQL(pool *pgxpool.Pool) (*RegistroFirmasVerificadasPostgreSQL, error) {
+	if nuloRegistroTX(pool) {
 		return nil, ports.ErrRegistroFirmaDocumentoNoDisponible
 	}
-	return &RegistroFirmasVerificadasPostgreSQL{pool: pool, descriptores: descriptores}, nil
+	return &RegistroFirmasVerificadasPostgreSQL{pool: pool}, nil
 }
 
 const consultarFirmasSQL172 = `SELECT vec_contratacion_temporal.consultar_firmas_r5_atestadas_v2($1,$2,$3,$4,$5,$6::numeric,$7::numeric,$8,$9,$10,$11)::text`

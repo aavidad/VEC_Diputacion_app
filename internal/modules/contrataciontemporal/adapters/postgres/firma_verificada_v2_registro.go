@@ -8,7 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	ctapp "vec-diputacion-granada/internal/modules/contrataciontemporal/application"
+	ctapp "vec-diputacion-granada/internal/modules/contrataciontemporal/application/firmaautorizacionv2"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
@@ -19,7 +19,7 @@ const registrarFirmaSQL172 = `SELECT vec_contratacion_temporal.registrar_firma_v
 
 func (r *RegistroFirmasVerificadasPostgreSQL) RegistrarFirmaVerificadaV2(ctx context.Context, m ports.MaterialFirmaVerificadaV2, c ports.CapacidadFirmaVerificadaV2) (ports.ReciboFirmaDocumento, error) {
 	var cero ports.ReciboFirmaDocumento
-	if ctx == nil || r == nil || nuloRegistroTX(r.pool) || nuloRegistroTX(r.descriptores) {
+	if ctx == nil || r == nil || nuloRegistroTX(r.pool) {
 		return cero, ports.ErrRegistroFirmaDocumentoNoDisponible
 	}
 	if err := ctx.Err(); err != nil {
@@ -37,17 +37,7 @@ func (r *RegistroFirmasVerificadasPostgreSQL) RegistrarFirmaVerificadaV2(ctx con
 	if ctapp.ValidarCapacidadFirmaVerificadaV2(c, m) != nil {
 		return cero, ports.ErrFirmaDocumentoDenegada
 	}
-	descriptor, err := r.descriptores.DescriptorFirmaV2(ctx, m)
-	if err != nil {
-		if ctx.Err() != nil {
-			return cero, ctx.Err()
-		}
-		return cero, ports.ErrCompetenciaFirmanteNoDisponible
-	}
-	datos, err := descriptor.canonicoPara(m)
-	if err != nil {
-		return cero, err
-	}
+	datos, _ := c.ExportarDescriptorParaConsumidor()
 	defer clear(datos)
 	parametros, err := exportacionParametrosRegistroV2(c.ExportarMaterialParaConsumidor(), true)
 	if err != nil {
