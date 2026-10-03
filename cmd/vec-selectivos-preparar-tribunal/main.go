@@ -19,6 +19,8 @@ import (
 
 var patronIdiomaCatalogo = regexp.MustCompile(`^[a-z]{2,3}(-[a-z0-9]{2,8})*$`)
 
+const MotivoDiagnosticoNoDisponible = 2
+
 func cargarCatalogo(dir, idioma string) (*i18n.Catalog, error) {
 	if !patronIdiomaCatalogo.MatchString(idioma) {
 		return nil, errEntradaJSON
@@ -117,7 +119,7 @@ func informarError(w io.Writer, c *i18n.Catalog, idioma, clave string) int {
 			Clave   string `json:"error_clave"`
 			Mensaje string `json:"mensaje,omitempty"`
 		}{clave, mensaje}); err != nil {
-			return 1
+			return MotivoDiagnosticoNoDisponible
 		}
 	}
 	return 1

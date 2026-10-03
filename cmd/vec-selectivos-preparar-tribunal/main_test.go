@@ -59,6 +59,9 @@ func TestCLIPreparaMaterialConCatalogosReales(t *testing.T) {
 			if json.Unmarshal(errores.Bytes(), &fallo) != nil || fallo["mensaje"] != catalogo.T(idioma, "error_salida") {
 				t.Fatal("mensaje de escritura incorrecto")
 			}
+			if codigo := ejecutar(context.Background(), args, bytes.NewReader(material), salidaFallida{}, salidaFallida{}); codigo != MotivoDiagnosticoNoDisponible {
+				t.Fatal("fallo de diagnóstico sin código propio")
+			}
 		})
 	}
 }
