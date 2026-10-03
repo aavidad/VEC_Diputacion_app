@@ -3,6 +3,7 @@ package plannominal
 import (
 	"bytes"
 	"context"
+	"math"
 
 	firma "vec-diputacion-granada/internal/modules/contrataciontemporal/application/firmaautorizacionv2"
 	ct "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
@@ -71,6 +72,9 @@ func (f *FuenteDescriptorFirmaV2) DescriptorPlanFijadoFirmaV2(ctx context.Contex
 	plan, err := f.plan.Plan(ctx)
 	if err != nil {
 		return cero, errorDescriptor(ctx, ports.ErrCompetenciaFirmanteNoDisponible)
+	}
+	if plan.Version.Version > math.MaxInt {
+		return cero, ports.ErrCompetenciaFirmanteNoAcreditada
 	}
 	circuito := ct.VersionPlanFirmaV2{Referencia: m.CatalogoRef, Version: m.CatalogoVersion, HuellaSHA256: m.CatalogoHuella}
 	paso, err := plan.Seleccionar(circuito, m.Documento, m.PasoRef, m.PerfilFirmanteRef, m.OrganizacionRef, m.UnidadFirmanteRef)
