@@ -103,7 +103,7 @@ func TestRegistroFirmaV2RevierteSinExponerRecibo(t *testing.T) {
 }
 
 func TestRegistroFirmaV2DescriptorGobernadoAntesDeBegin(t *testing.T) {
-	for _, caso := range []string{"fecha_cliente", "original_ajeno", "capacidad_ajena", "sin_fuente"} {
+	for _, caso := range []string{"fecha_cliente", "original_ajeno", "capacidad_ajena", "sin_fuente", "puesto_no_representado", "ambito_no_representado", "acto_no_representado"} {
 		t.Run(caso, func(t *testing.T) {
 			m, d := fixtureRegistroFirmaV2(t)
 			c := capacidadRegistroFirmaV2Prueba(t, m)
@@ -115,6 +115,17 @@ func TestRegistroFirmaV2DescriptorGobernadoAntesDeBegin(t *testing.T) {
 			}
 			if caso == "capacidad_ajena" {
 				m.ClaveIdempotencia = "clave-prueba-firma-000002"
+			}
+			switch caso {
+			case "puesto_no_representado":
+				m.PuestoFirmanteRef = "puesto:prueba"
+				c = capacidadRegistroFirmaV2Prueba(t, m)
+			case "ambito_no_representado":
+				m.AmbitoFirmanteRef = "ambito:prueba"
+				c = capacidadRegistroFirmaV2Prueba(t, m)
+			case "acto_no_representado":
+				m.ActoCompetenciaRef = "acto:prueba"
+				c = capacidadRegistroFirmaV2Prueba(t, m)
 			}
 			tx := &txFirmaV2Prueba{t: t}
 			p := &poolFirmaV2Prueba{tx: tx}

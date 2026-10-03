@@ -29,6 +29,11 @@ func (r *RegistroFirmasVerificadasPostgreSQL) RegistrarFirmaVerificadaV2(ctx con
 	if err != nil || !domain.InstanteUTCCanonico(m.ComprobadaEn) {
 		return cero, ports.ErrSolicitudFirmaDocumentoInvalida
 	}
+	// AUT35 conserva cargo, enlace y delegación nominales. Estos tres campos
+	// de la proyección anterior no están representados en su canon central.
+	if m.PuestoFirmanteRef != "" || m.AmbitoFirmanteRef != "" || m.ActoCompetenciaRef != "" {
+		return cero, ports.ErrSolicitudFirmaDocumentoInvalida
+	}
 	if ctapp.ValidarCapacidadFirmaVerificadaV2(c, m) != nil {
 		return cero, ports.ErrFirmaDocumentoDenegada
 	}
