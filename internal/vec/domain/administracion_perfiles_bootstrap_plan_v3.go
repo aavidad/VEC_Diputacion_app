@@ -69,4 +69,5 @@ type RolGobernadoBootstrapAdministracionV3 struct {
 	DuracionPropuestaSegundos uint64                              `json:"duracion_propuesta_segundos"`
 	FuenteCategoria           EvidenciaBootstrapAdministracion    `json:"fuente_categoria"`
 	DimensionesAmbito         []string                            `json:"dimensiones_ambito"`
+	RolID                     string                              `json:"rol_id"`
 }
