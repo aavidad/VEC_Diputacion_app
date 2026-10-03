@@ -33,6 +33,10 @@ pendientes y propone preparar su aportación o revisión. Estas propuestas se
 identifican dentro de `preparacion_ref` y `revision`, junto al requisito y sus
 soportes exactos. Ninguna crea un requerimiento de subsanación.
 
+`testdata/resultado.json` conserva la salida real de ese comando para los
+consumidores del contrato. Su SHA256 es
+`b812a75e1a2a9c7249878b6c3abfa565636628218946d2f41acb56183ed7a882`.
+
 `bases` conserva referencia, versión y huella **aportadas**. `requisitos`
 contiene referencias, versiones, títulos e hitos **propuestos**. Este corte
 no coteja ese material con la versión autorizada de las bases; siempre devuelve

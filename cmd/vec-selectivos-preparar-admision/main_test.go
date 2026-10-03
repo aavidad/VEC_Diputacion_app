@@ -31,6 +31,10 @@ func TestCLIProduceContratoSinMensajesYTraductorReal(t *testing.T) {
 		if codigo := ejecutar(context.Background(), argumentos(idioma), bytes.NewReader(fixture(t)), &salida, &errores); codigo != 0 || errores.Len() != 0 {
 			t.Fatalf("%d %s", codigo, errores.String())
 		}
+		esperado, err := os.ReadFile("testdata/resultado.json")
+		if err != nil || !bytes.Equal(esperado, salida.Bytes()) {
+			t.Fatalf("consumer fixture differs: %v", err)
+		}
 		var resultado domain.PreparacionAdmision
 		if json.Unmarshal(salida.Bytes(), &resultado) != nil || resultado.AdmisionOficial || resultado.Persistido || resultado.Requisitos[0].Estado != "pendiente" {
 			t.Fatal(salida.String())

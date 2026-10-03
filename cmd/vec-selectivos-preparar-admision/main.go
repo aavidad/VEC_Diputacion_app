@@ -92,10 +92,12 @@ func informarError(w io.Writer, c *i18n.Catalog, idioma, clave string) int {
 		return 1
 	}
 	mensaje, _ := c.Message(idioma, clave)
-	_ = json.NewEncoder(w).Encode(struct {
+	if err := json.NewEncoder(w).Encode(struct {
 		Clave   string `json:"error_clave"`
 		Mensaje string `json:"mensaje,omitempty"`
-	}{clave, mensaje})
+	}{clave, mensaje}); err != nil {
+		return 1
+	}
 	return 1
 }
 
