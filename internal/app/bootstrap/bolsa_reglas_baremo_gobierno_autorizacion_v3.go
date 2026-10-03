@@ -203,8 +203,8 @@ func (p *ProveedorGobiernoReglasBaremoV3) ProveerMaterialGobiernoReglasV3(ctx co
 	if err != nil {
 		return vacio, p.denegarAntesPDP(ctx, reglasapp.ErrGobiernoV3Prohibido, operativo)
 	}
-	// A partir de este punto el PDP registra su decisión. Un rechazo central
-	// no pasa por el callback de denegaciones previas y no se duplica.
+	// A partir de este punto el PDP registra su decisión. El decorador HTTP
+	// registra además el resultado observado en la cadena nominal común.
 	return p.emitirMaterialTrasPDP(ctx, solicitud, operativo, pedido)
 }
 
@@ -215,7 +215,7 @@ func (p *ProveedorGobiernoReglasBaremoV3) emitirMaterialTrasPDP(ctx context.Cont
 	vacio := vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}
 	decision, confirmacion, err := p.pdp.ExigirSolicitudLigadaV3(ctx, solicitud, operativo.Resultado)
 	if errors.Is(err, vecports.ErrDenegacionExplicitaAutorizacionLigadaV3) {
-		return vacio, errorAuditadoGobiernoBaremoHTTPV3{reglasapp.ErrGobiernoV3Prohibido}
+		return vacio, reglasapp.ErrGobiernoV3Prohibido
 	}
 	if err != nil || decision.ValidarPara(solicitud) != nil {
 		return vacio, reglasapp.ErrGobiernoV3NoDisponible

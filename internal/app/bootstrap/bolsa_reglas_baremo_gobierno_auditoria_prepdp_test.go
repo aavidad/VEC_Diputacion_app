@@ -191,3 +191,22 @@ func TestGobiernoBaremoHTTPAuditaErrorTrasRetornoSinDuplicarDenegacion(t *testin
 		}
 	}
 }
+
+func TestGobiernoBaremoHTTPConservaIdentidadDelIntentoCancelado(t *testing.T) {
+	sesion, ctx := contextoSesionGobiernoBaremoHTTPPrueba(t, bolsahttp.RutaAltaGobiernoReglasBaremoV3)
+	c := ctx.Value(claveCapacidadConsultasContratacionTemporalDesarrollo{}).(capacidadConsultaContratacionTemporalDesarrollo)
+	c.contextoOperacion.soporte = sesion.soporte
+	c.contextoOperacion.contexto.Vinculo, c.contextoOperacion.contexto.Resultado = sesion.soporte.contexto.Vinculo, sesion.soporte.contexto.Resultado
+	r := &registradorIntentosBaremoPrueba{}
+	a := auditorIntentosBaremoPrueba(sesion, r)
+	cancelado, cancelar := context.WithCancel(ctx)
+	cancelar()
+	historico, err := a.contextoHistorico(cancelado)
+	if err != nil || a.registrar(cancelado, historico, context.Canceled) != nil || len(r.ordenes) != 1 {
+		t.Fatal("cancelación perdió la identidad acreditada")
+	}
+	d, err := r.ordenes[0].Datos()
+	if err != nil || d.Datos.Resultado != vd.ResultadoIntentoAuditoriaError || d.ResultadoContexto.RegistroContextoRef != sesion.soporte.contexto.Resultado.RegistroContextoRef {
+		t.Fatal("el fallo fabricó otro contexto")
+	}
+}
