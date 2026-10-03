@@ -34,7 +34,7 @@ BEGIN ISOLATION LEVEL SERIALIZABLE READ WRITE;
 SET LOCAL search_path=pg_catalog;
 SET LOCAL timezone='UTC';
 DO $estructura$
-DECLARE f regprocedure; a record; propietario oid:='vec_contratacion_temporal_propietario'::regrole;
+DECLARE f regprocedure; propietario oid:='vec_contratacion_temporal_propietario'::regrole;
  ejecutor oid:='vec_contratacion_temporal_ejecutor'::regrole;
 BEGIN
  IF to_regclass('vec_contratacion_temporal.firma_documento_revision_pdf_v2') IS NULL
