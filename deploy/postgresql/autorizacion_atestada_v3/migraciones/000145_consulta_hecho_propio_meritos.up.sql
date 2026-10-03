@@ -1,5 +1,6 @@
 \set ON_ERROR_STOP on
--- AD145: consulta propia interna sobre POST155 más AD161, medido en el clon causal.
+-- AD145: consulta propia interna sobre AD149/Personal26 y AD161 causal.
+-- POST161 medido con los contratos 141/142/144 conservando el núcleo POST155.
 -- Conserva los contratos nominales originales y las extensiones de AD149/155.
 BEGIN;
 SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
@@ -20,8 +21,8 @@ DECLARE
  original text; nuevo text; actual text; fuente text; meta jsonb; deps jsonb; deps_compartidas jsonb; acl aclitem[];
  propietario oid; config text[]; definidora boolean;
  -- Postimagen AD161 real dentro del ensayo PostgreSQL18.4, posterior a POST155.
- esperada_def_sha256 text:=$esperada_def_sha256$84077183bb6c5997594e6f2d00511a7d2b918e166260c6eaae9426083fa24656$esperada_def_sha256$;
- esperada_fuente_sha256 text:=$esperada_fuente_sha256$069b5dc5423de98c234107e7c749775ec8b9174d364212012483cb47ff04ff6d$esperada_fuente_sha256$;
+ esperada_def_sha256 text:=$esperada_def_sha256$d88a065b8c3bffce6f50551f500b589e1b8525b28f0a6e336b86e6b123eff6b9$esperada_def_sha256$;
+ esperada_fuente_sha256 text:=$esperada_fuente_sha256$f276ae0181dc0623f5d1472f66bdd5ef797f3f163aa4b992cb339805ec85ead9$esperada_fuente_sha256$;
  marca text:=$marca$       )
        OR c ->> 'suite' <> 'VEC-AD-3-COSE-EDDSA-1'$marca$;
  excl text:=$excl$               p_perfil_mutacion IS DISTINCT FROM 'bolsa_llamamiento'
@@ -136,8 +137,8 @@ END $nucleo$;
 LOCK TABLE vec_autorizacion_atestada_v3.clave_capacidad_version IN ACCESS EXCLUSIVE MODE;
 DO $aud$ DECLARE d text; BEGIN
  SELECT pg_get_constraintdef(c.oid,true) INTO STRICT d FROM pg_constraint c WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass AND c.conname='clave_capacidad_version_audiencia_consumo_check' AND c.contype='c' AND c.convalidated;
- IF encode(sha256(convert_to(d,'UTF8')),'hex') IS DISTINCT FROM 'fa5590dbcea1b687a2184fb200ceefb70dfb735bcb68a71da3e5eaa6d34f4eb4' OR strpos(d,'CHECK (audiencia_consumo = ANY (ARRAY[')<>1 OR right(d,3)<>']))'
- THEN RAISE EXCEPTION 'PARO clave=AD145.audiencias, observado=%, esperado=fa5590dbcea1b687a2184fb200ceefb70dfb735bcb68a71da3e5eaa6d34f4eb4',
+ IF encode(sha256(convert_to(d,'UTF8')),'hex') IS DISTINCT FROM '5e499383cd8b84fefa88ff2d8ddb6c37a1adc693b3ec30764b9a363e7581ecd9' OR strpos(d,'CHECK (audiencia_consumo = ANY (ARRAY[')<>1 OR right(d,3)<>']))'
+ THEN RAISE EXCEPTION 'PARO clave=AD145.audiencias, observado=%, esperado=5e499383cd8b84fefa88ff2d8ddb6c37a1adc693b3ec30764b9a363e7581ecd9',
   encode(sha256(convert_to(d,'UTF8')),'hex') USING ERRCODE='55000'; END IF;
  ALTER TABLE vec_autorizacion_atestada_v3.clave_capacidad_version DROP CONSTRAINT clave_capacidad_version_audiencia_consumo_check;
  EXECUTE 'ALTER TABLE vec_autorizacion_atestada_v3.clave_capacidad_version ADD CONSTRAINT clave_capacidad_version_audiencia_consumo_check '||left(d,length(d)-3)||', ''vec_meritos.hecho.consultar_propio.v1''::text]))';
