@@ -1,5 +1,5 @@
 {
-  "ayuda": "Prepare a requirement review checklist from synthetic JSON. Use --idioma and --catalogos-dir to select the catalogue. Read the material from standard input. The output keeps unresolved reasons; it does not decide admission or register a correction.",
+  "ayuda": "Prepare a requirement review from synthetic JSON. Use --salida preparacion, antecedente or aportacion. Select --idioma and --catalogos-dir. Read the material from standard input. Preparing a contribution does not submit or resolve a correction.",
   "seleccion_admision_entrada_invalida": "The review could not be prepared. Check the format, references and versions of the supplied material.",
   "seleccion_admision_salida_no_disponible": "The result could not be written. Check the destination and prepare it again.",
   "seleccion_admision_causa_fuentes_no_verificadas": "The source and correspondence of the material remain unverified.",
@@ -17,5 +17,12 @@
   "seleccion_admision_pendiente_lectura_autorizada": "Obtain minimum facts through an authorised query to their owners.",
   "seleccion_admision_pendiente_identidad_registro_documentos": "Check identity, registered submission and documents through the competent procedure.",
   "seleccion_admision_pendiente_subsanacion_bases": "Determine which items may be corrected and under what conditions before issuing a request.",
-  "seleccion_admision_pendiente_aprobacion_listas": "Give reasons for decisions and obtain competent approval before publishing lists."
+  "seleccion_admision_pendiente_aprobacion_listas": "Give reasons for decisions and obtain competent approval before publishing lists.",
+  "seleccion_aportacion_admision_entrada_invalida": "The contribution could not be prepared. Check the antecedent, requirement and versions of the proposed support.",
+  "seleccion_aportacion_admision_pendiente_correspondencia": "Check the proposal against the requirement and the review of the applicable terms.",
+  "seleccion_aportacion_admision_pendiente_documentos": "Check the proposed documents and their correspondence with the fact. A reference does not verify the content.",
+  "seleccion_aportacion_admision_pendiente_bases_subsanacion": "Determine whether the contribution may correct the requirement and under what conditions under the applicable terms.",
+  "seleccion_aportacion_admision_pendiente_presentacion": "Submit the contribution through an accepted procedure, where applicable.",
+  "seleccion_aportacion_admision_pendiente_revision_competente": "Review the contribution and give reasons for the decision through the competent authority.",
+  "seleccion_aportacion_admision_pendiente_sin_soportes": "Proposed support is missing. Prepare references to the fact and documents for review."
 }
