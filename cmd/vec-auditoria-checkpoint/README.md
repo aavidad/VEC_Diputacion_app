@@ -18,6 +18,8 @@ Prepare fuera de Git una copia de la configuración
 [testdata/config.sintetica.json](testdata/config.sintetica.json) con las referencias
 y versiones acordadas para política, clave y proveedores, y los límites de la
 operación. El ejemplo solo contiene datos sintéticos. No admite producción.
+Todas las entradas JSON exigen claves ASCII en minúsculas, sin duplicadas y
+con los campos definidos para cada documento.
 
 La clave maestra KMS y el secreto TSA existentes deben ser archivos externos de
 32 bytes, distintos, propiedad del usuario que ejecuta, sin permisos de grupo o
@@ -98,7 +100,8 @@ Comprobaciones locales de este corte: pruebas focales normales y con `-race` en
 CLI y proveedor; `go vet` en CLI, bootstrap, config, dominio, puertos y aplicación;
 Semgrep `p/golang` sobre los ocho archivos Go nuevos (42 reglas, sin hallazgos);
 gosec de la CLI sin hallazgos; tamaño de archivos y `git diff --check` correctos.
-El análisis gosec de bootstrap tuvo errores de resolución en archivos anteriores
-y hallazgos ajenos a este corte; no acredita una revisión completa del paquete.
+El análisis gosec de bootstrap con las versiones 2.25 y 2.29 tuvo los mismos
+errores de resolución y hallazgos en archivos sin cambios. No acredita una
+revisión completa del paquete; su causa concreta de carga sigue pendiente.
 No se ejecutaron servicios, SQL, navegador ni la suite global. Las dos revisiones
 sensibles sobre el commit final corresponden a la integración.

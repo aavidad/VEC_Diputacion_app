@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -184,7 +185,8 @@ func escribirResultado(w io.Writer, r any) int {
 	return 0
 }
 func decodificar(b []byte, v any) error {
-	// JSON no admite claves duplicadas: no permitir ambigüedad entre parsers.
+	// Claves ASCII en minúsculas y sin duplicadas: encoding/json también
+	// acepta alias por mayúsculas; aquí se exige la representación canónica.
 	if err := sinDuplicadas(json.NewDecoder(bytes.NewReader(b))); err != nil {
 		return err
 	}
@@ -214,7 +216,7 @@ func sinDuplicadas(d *json.Decoder) error {
 		for d.More() {
 			k, e := d.Token()
 			s, ok := k.(string)
-			if e != nil || !ok || vistas[s] {
+			if e != nil || !ok || vistas[s] || strings.ContainsFunc(s, func(r rune) bool { return r > 127 || r >= 'A' && r <= 'Z' }) {
 				return errEntrada
 			}
 			vistas[s] = true

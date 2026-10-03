@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"vec-diputacion-granada/config"
 	"vec-diputacion-granada/internal/vec/domain"
 )
 
@@ -106,5 +107,29 @@ func TestCLIParseoYLecturaLimitados(t *testing.T) {
 	_ = os.Mkdir(filepath.Join(d, ".git"), 0700)
 	if _, e := leerRegular(p, 32, true); e == nil {
 		t.Fatal("secreto en repositorio")
+	}
+}
+
+func TestCLIRechazaAliasDeClavesJSON(t *testing.T) {
+	casos := []struct {
+		nombre, entrada string
+		destino         any
+	}{
+		{"cobertura_duplicada", `{"cadena_id":"cadena:uno","CADENA_ID":"cadena:dos"}`, &domain.CoberturaCheckpoint{}},
+		{"cobertura_solo_alias", `{"CADENA_ID":"cadena:uno"}`, &domain.CoberturaCheckpoint{}},
+		{"cobertura_escape", `{"cadena_id":"cadena:uno","\u0043ADENA_ID":"cadena:dos"}`, &domain.CoberturaCheckpoint{}},
+		{"config_raiz", `{"max_bytes":1024,"MAX_BYTES":2048}`, &config.AuditoriaCheckpointOffline{}},
+		{"config_objeto", `{"politica":{"modo":"DESARROLLO"},"POLITICA":{"modo":"DESARROLLO"}}`, &config.AuditoriaCheckpointOffline{}},
+		{"config_anidada", `{"politica":{"clave_ref":"clave:uno","CLAVE_REF":"clave:dos"}}`, &config.AuditoriaCheckpointOffline{}},
+		{"recibo_raiz", `{"checkpoint":{"esquema":"uno"},"CHECKPOINT":{"esquema":"dos"}}`, &domain.ReciboCheckpointDesarrollo{}},
+		{"recibo_anidado", `{"checkpoint":{"politica":{"modo":"DESARROLLO","MODO":"DESARROLLO"}}}`, &domain.ReciboCheckpointDesarrollo{}},
+		{"unicode_casefold", `{"checkpoint":{"e\u017fquema":"uno"}}`, &domain.ReciboCheckpointDesarrollo{}},
+	}
+	for _, caso := range casos {
+		t.Run(caso.nombre, func(t *testing.T) {
+			if decodificar([]byte(caso.entrada), caso.destino) == nil {
+				t.Fatal("alias JSON admitido")
+			}
+		})
 	}
 }
