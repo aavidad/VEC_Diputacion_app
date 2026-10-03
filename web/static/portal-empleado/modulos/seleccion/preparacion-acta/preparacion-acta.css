@@ -1,0 +1,12 @@
+/* El visor consume las superficies, distribución y tablas del portal. */
+.modulo-preparacion-acta .cabecera-panel { background: var(--portal-superficie-alterna); }
+.modulo-preparacion-acta :is(p, dd, td, th, li) { overflow-wrap: anywhere; }
+.modulo-preparacion-acta #acta-archivo { min-width: 0; max-width: 100%; }
+.modulo-preparacion-acta .cuerpo-panel > p { margin: 0; }
+.modulo-preparacion-acta .acta-apertura { gap: 12px; }
+.modulo-preparacion-acta .tabla-datos :is(td, th) { white-space: normal; vertical-align: top; }
+.modulo-preparacion-acta .tabla-contenedor { max-height: min(440px, 60vh); }
+.modulo-preparacion-acta .acta-original { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 360px; overflow: auto; font-size: .8125rem; }
+.modulo-preparacion-acta input[aria-invalid="true"] { border-color: var(--portal-peligro); }
+.modulo-preparacion-acta summary { min-height: 32px; padding-block: 6px; cursor: pointer; }
+.modulo-preparacion-acta .salto-contenido:focus { position: fixed; top: 8px; max-width: calc(100% - 16px); }
