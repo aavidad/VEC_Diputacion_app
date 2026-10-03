@@ -776,8 +776,9 @@ func (p *perfilFijoCTDesarrollo) actoAsignacionEsperado() string {
 }
 
 // El descriptor procede de la configuración privada versionada de composición.
-// Liga expresamente el perfil lógico del catálogo al perfil activo registrado y
-// a una versión de rol publicada. Ninguno de sus valores se deduce del cargo.
+// Liga expresamente el perfil operativo al contexto registrado y a una
+// versión de rol publicada. No acredita el cargo: esa competencia se comprueba
+// por separado contra AUT31 y el catálogo, para el mismo firmante y certificado.
 type descriptorPerfilFirmaR5CTDesarrollo struct {
 	perfilRef, perfilActivoRef, rolID, versionRolRef, huellaVersionRol string
 	catalogoRef, huellaCatalogo                                        string
@@ -817,7 +818,10 @@ func nuevoPerfilFijoFirmaR5CTDesarrollo(c configuracionPerfilFijoFirmaR5CTDesarr
 		c.plantilla.AsignacionPerfil.PrincipalID != actor.Principal.ID ||
 		d.catalogoRef != c.circuito.CatalogoID+":"+strconv.Itoa(c.circuito.Version) ||
 		d.huellaCatalogo != c.circuito.HuellaCatalogo || !ctdomain.HuellaSHA256FirmaValida(d.huellaCatalogo) ||
-		c.circuito.CatalogoID == "" || c.circuito.Version < 1 || len(c.circuito.Documentos) == 0 {
+		c.circuito.CatalogoID == "" || c.circuito.Version < 1 || len(c.circuito.Documentos) == 0 ||
+		len(c.plantilla.AsignacionPerfil.Ambitos) != 1 ||
+		c.plantilla.AsignacionPerfil.Ambitos[0].Clave != "organizacion_ref" ||
+		!slices.Equal(c.plantilla.AsignacionPerfil.Ambitos[0].Valores, []string{organizacionAltaContratacionTemporalDesarrollo}) {
 		return nil, errPerfilFijoCTNoConsumible
 	}
 	p := &perfilFijoCTDesarrollo{clave: c.clave, metodo: http.MethodPost,
@@ -832,26 +836,9 @@ func nuevoPerfilFijoFirmaR5CTDesarrollo(c configuracionPerfilFijoFirmaR5CTDesarr
 		if _, repetida := p.rutas[ruta]; repetida {
 			return nil, errPerfilFijoCTNoConsumible
 		}
-		if ruta == httpinterno.RutaRegistroFirmaVec && !perfilEnCircuitoFirmaR5CTDesarrollo(c.circuito, d.perfilRef) {
-			return nil, errPerfilFijoCTNoConsumible
-		}
 		p.rutas[ruta] = struct{}{}
 	}
 	return p, nil
-}
-
-func perfilEnCircuitoFirmaR5CTDesarrollo(c reglas.CircuitoFirma, perfilRef string) bool {
-	if perfilRef == "" {
-		return false
-	}
-	for _, documento := range c.Documentos {
-		for _, paso := range documento.Pasos {
-			if paso.PerfilRef == perfilRef || slices.Contains(paso.PerfilesAlternativos, perfilRef) {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 // Las concesiones se entregan al publicador central como plantilla propuesta.

@@ -254,6 +254,8 @@ func descriptoresMaterialFirmaR5CTDesarrollo() []descriptorMaterialConsumidorV3D
 		{Audiencia: ctports.AudienciaFirmaVecV3, Dominio: "vec.ct.firma-vec.capacidad-v3", Prefijo: "clave:capacidad:ct-firma-vec:", ProveedorNominal: proveedorMaterialContratacionTemporal},
 		{Audiencia: ctports.AudienciaFirmaExternaV3, Dominio: "vec.ct.firma-externa.capacidad-v3", Prefijo: "clave:capacidad:ct-firma-externa:", ProveedorNominal: proveedorMaterialContratacionTemporal},
 		{Audiencia: ctports.AudienciaConsultaFirmasR5V2, Dominio: "vec.ct.firmas-r5.consulta.v2.capacidad-v3", Prefijo: "clave:capacidad:ct-firmas-r5-consulta-v2:", ProveedorNominal: proveedorMaterialContratacionTemporal},
+		{Audiencia: ctports.AudienciaFirmaVecV2, Dominio: "vec.ct.firma-vec.v2.capacidad-v3", Prefijo: "clave:capacidad:ct-firma-vec-v2:", ProveedorNominal: proveedorMaterialContratacionTemporal},
+		{Audiencia: ctports.AudienciaFirmaExternaV2, Dominio: "vec.ct.firma-externa.v2.capacidad-v3", Prefijo: "clave:capacidad:ct-firma-externa-v2:", ProveedorNominal: proveedorMaterialContratacionTemporal},
 	}
 }
 

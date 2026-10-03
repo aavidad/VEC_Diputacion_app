@@ -34,7 +34,7 @@ func configuracionPerfilFirmaR5Prueba(t *testing.T) configuracionPerfilFijoFirma
 	}
 	return configuracionPerfilFijoFirmaR5CTDesarrollo{soporte: s, clave: "firma-r5-propia-prueba",
 		actoAsignacion: "cargo_ct:0123456789abcdef0123456789abcdef", rutas: []string{httpinterno.RutaRegistroFirmaVec},
-		descriptor: descriptorPerfilFirmaR5CTDesarrollo{perfilRef: "perfil:ct:alternativo", perfilActivoRef: p.perfilRef(),
+		descriptor: descriptorPerfilFirmaR5CTDesarrollo{perfilRef: "perfil:ct:operador_firma_vec", perfilActivoRef: p.perfilRef(),
 			rolID: p.plantilla.VersionRol.RolID, versionRolRef: p.plantilla.VersionRol.Referencia(), huellaVersionRol: huella,
 			catalogoRef: "catalogo-firma-prueba:2", huellaCatalogo: strings.Repeat("a", 64)},
 		circuito: reglas.CircuitoFirma{CatalogoID: "catalogo-firma-prueba", Version: 2, HuellaCatalogo: strings.Repeat("a", 64),
@@ -42,7 +42,7 @@ func configuracionPerfilFirmaR5Prueba(t *testing.T) configuracionPerfilFijoFirma
 		contexto: p.contexto, esperado: p.contexto.Resultado, sesion: proveedorSesionOperativaCTPrueba{contexto: p.contexto}, plantilla: p.plantilla}
 }
 
-func TestPerfilFijoFirmaR5LigaRolPerfilAlternativoYContextoExistente(t *testing.T) {
+func TestPerfilFijoFirmaR5LigaRolOperativoYContextoExistente(t *testing.T) {
 	c := configuracionPerfilFirmaR5Prueba(t)
 	p, err := nuevoPerfilFijoFirmaR5CTDesarrollo(c)
 	if err != nil || !p.soloConsumoCentral || p.actoAsignacionEsperado() != c.actoAsignacion || !p.atiendeMetodo(c.rutas[0], http.MethodPost) {
@@ -53,8 +53,13 @@ func TestPerfilFijoFirmaR5LigaRolPerfilAlternativoYContextoExistente(t *testing.
 		t.Fatal("plantilla comparte estado mutable")
 	}
 	for nombre, modificar := range map[string]func(*configuracionPerfilFijoFirmaR5CTDesarrollo){
-		"perfil ajeno al catálogo": func(c *configuracionPerfilFijoFirmaR5CTDesarrollo) { c.descriptor.perfilRef = "perfil:ct:ajeno" },
-		"rol distinto":             func(c *configuracionPerfilFijoFirmaR5CTDesarrollo) { c.descriptor.rolID = "otro-rol" },
+		"huella catálogo distinta": func(c *configuracionPerfilFijoFirmaR5CTDesarrollo) {
+			c.descriptor.huellaCatalogo = strings.Repeat("b", 64)
+		},
+		"cargo en perfil operativo": func(c *configuracionPerfilFijoFirmaR5CTDesarrollo) {
+			c.plantilla.AsignacionPerfil.Ambitos = append(c.plantilla.AsignacionPerfil.Ambitos, core.AmbitoPerfil{Clave: "unidad_ref", Valores: []string{"unidad:rrhh:prueba"}})
+		},
+		"rol distinto": func(c *configuracionPerfilFijoFirmaR5CTDesarrollo) { c.descriptor.rolID = "otro-rol" },
 		"huella distinta": func(c *configuracionPerfilFijoFirmaR5CTDesarrollo) {
 			c.descriptor.huellaVersionRol = strings.Repeat("b", 64)
 		},
