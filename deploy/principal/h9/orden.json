@@ -2,7 +2,7 @@
   "esquema_version": 1,
   "source_commit": "4a354ae4bc1704e7c48c081f5e7dd0185e7233fd",
   "base_commit": "ed9c7de8680d6282ba3f32e7e01118001ef7c262",
-  "estado": "propuesta_estatica_pendiente_ensayo_y_configuracion",
+  "estado": "ensayo_detenido_CT170_AUT30_ausente_main",
   "ejecutable": false,
   "preimagen": {
     "copia_fria": "h7-pg.tgz",
@@ -170,7 +170,13 @@
     "Falta ensayo causal completo de la selección sobre la copia fría con H7/H8/AD155/B77/importación5.",
     "Falta evidencia de configuración para excluir consumidores CRN11/RPT/Selectivos.",
     "Los esquemas Convocatorias/Méritos/Baremo no están en la copia fría. S2 precisa roles BC, authBC1 y BC1; BC2..7 no son dependencia de S2. Inventariar otros prefijos según consumidor.",
-    "AD149/AD151 compiten sobre POST155; AD154/AD161 compiten sobre POST149. No unir cadenas sin migración nueva revisada."
+    "AD149/AD151 compiten sobre POST155; AD154/AD161 compiten sobre POST149. No unir cadenas sin migración nueva revisada.",
+    {
+      "clave": "CT170_AUT30",
+      "observado": "ausente_en_main",
+      "esperado": "fachada_legacy_con_permiso_exacto",
+      "pr_existente": 453
+    }
   ],
   "migraciones": [
     {
@@ -223,10 +229,7 @@
           "objeto": "vec_contexto_actor_v1.listar_perfiles_cuenta_v1"
         }
       ],
-      "arranque": {
-        "estado": "pendiente_evidencia_runtime",
-        "condicion": "Comprobar montaje y guardas de arranque; la selección SQL por sí sola no lo acredita."
-      },
+      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -289,10 +292,7 @@
           "objeto": "vec_autorizacion.impedir_revivir_asignacion_v1"
         }
       ],
-      "arranque": {
-        "estado": "pendiente_evidencia_runtime",
-        "condicion": "Comprobar montaje y guardas de arranque; la selección SQL por sí sola no lo acredita."
-      },
+      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -399,10 +399,7 @@
           "objeto": "vec_autorizacion.validar_recibo_perfil_sensible_v1"
         }
       ],
-      "arranque": {
-        "estado": "pendiente_evidencia_runtime",
-        "condicion": "Comprobar montaje y guardas de arranque; la selección SQL por sí sola no lo acredita."
-      },
+      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -461,10 +458,7 @@
           "objeto": "vec_contexto_actor_v1.revocar_perfil_vinculo_admin_v1"
         }
       ],
-      "arranque": {
-        "estado": "pendiente_evidencia_runtime",
-        "condicion": "Comprobar montaje y guardas de arranque; la selección SQL por sí sola no lo acredita."
-      },
+      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -545,10 +539,7 @@
           "objeto": "vec_identidad_sesiones_v1.bloquear_inactivacion_admin_hasta_aut24_v1"
         }
       ],
-      "arranque": {
-        "estado": "pendiente_evidencia_runtime",
-        "condicion": "Comprobar montaje y guardas de arranque; la selección SQL por sí sola no lo acredita."
-      },
+      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -781,10 +772,7 @@
           "objeto": "vec_autorizacion.provisionar_dos_administradores_iniciales_v2"
         }
       ],
-      "arranque": {
-        "estado": "pendiente_evidencia_runtime",
-        "condicion": "Comprobar montaje y guardas de arranque; la selección SQL por sí sola no lo acredita."
-      },
+      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -833,10 +821,7 @@
           "objeto": "vec_contexto_actor_v1.cotejar_contexto_historico_auditoria_v1"
         }
       ],
-      "arranque": {
-        "estado": "pendiente_evidencia_runtime",
-        "condicion": "Comprobar montaje y guardas de arranque; la selección SQL por sí sola no lo acredita."
-      },
+      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -885,10 +870,7 @@
           "objeto": "vec_identidad_sesiones_v1.cotejar_autenticacion_historica_auditoria_v1"
         }
       ],
-      "arranque": {
-        "estado": "pendiente_evidencia_runtime",
-        "condicion": "Comprobar montaje y guardas de arranque; la selección SQL por sí sola no lo acredita."
-      },
+      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -934,10 +916,7 @@
           "objeto": "vec_autorizacion_atestada_v3.preflight_registrador_intentos_v1"
         }
       ],
-      "arranque": {
-        "estado": "pendiente_evidencia_runtime",
-        "condicion": "Comprobar montaje y guardas de arranque; la selección SQL por sí sola no lo acredita."
-      },
+      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -991,10 +970,7 @@
         }
       ],
       "consumidor_sql": [],
-      "arranque": {
-        "estado": "pendiente_evidencia_runtime",
-        "condicion": "Comprobar montaje y guardas de arranque; la selección SQL por sí sola no lo acredita."
-      },
+      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -1054,10 +1030,7 @@
           "objeto": "vec_autorizacion_atestada_v3.registrar_evento_admin_preperfil_v1"
         }
       ],
-      "arranque": {
-        "estado": "pendiente_evidencia_runtime",
-        "condicion": "Comprobar montaje y guardas de arranque; la selección SQL por sí sola no lo acredita."
-      },
+      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -1145,10 +1118,7 @@
           "objeto": "vec_autorizacion."
         }
       ],
-      "arranque": {
-        "estado": "pendiente_evidencia_runtime",
-        "condicion": "Comprobar montaje y guardas de arranque; la selección SQL por sí sola no lo acredita."
-      },
+      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -1238,10 +1208,7 @@
           "objeto": "vec_autorizacion."
         }
       ],
-      "arranque": {
-        "estado": "pendiente_evidencia_runtime",
-        "condicion": "Comprobar montaje y guardas de arranque; la selección SQL por sí sola no lo acredita."
-      },
+      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -1315,10 +1282,7 @@
           "objeto": "vec_autorizacion.destino_no_administrador_certificado_nominal_v1"
         }
       ],
-      "arranque": {
-        "estado": "pendiente_evidencia_runtime",
-        "condicion": "Comprobar montaje y guardas de arranque; la selección SQL por sí sola no lo acredita."
-      },
+      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -1384,10 +1348,7 @@
           "objeto": "vec_contexto_actor_v1.recuperar_historia_certificado_firmante_ct_v2"
         }
       ],
-      "arranque": {
-        "estado": "pendiente_evidencia_runtime",
-        "condicion": "Comprobar montaje y guardas de arranque; la selección SQL por sí sola no lo acredita."
-      },
+      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -1490,10 +1451,7 @@
           "objeto": "vec_autorizacion_atestada_v3.registrar_y_consumir_consulta_circuito_ct_v3_atestada"
         }
       ],
-      "arranque": {
-        "estado": "pendiente_evidencia_runtime",
-        "condicion": "Comprobar montaje y guardas de arranque; la selección SQL por sí sola no lo acredita."
-      },
+      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -1574,10 +1532,7 @@
           "objeto": "vec_contratacion_temporal.consultar_circuito_rrhh_v1"
         }
       ],
-      "arranque": {
-        "estado": "pendiente_evidencia_runtime",
-        "condicion": "Comprobar montaje y guardas de arranque; la selección SQL por sí sola no lo acredita."
-      },
+      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -1910,10 +1865,7 @@
           "objeto": "vec_contratacion_temporal.proteger_version_circuito_ct164"
         }
       ],
-      "arranque": {
-        "estado": "pendiente_evidencia_runtime",
-        "condicion": "Comprobar montaje y guardas de arranque; la selección SQL por sí sola no lo acredita."
-      },
+      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -2004,10 +1956,7 @@
           "objeto": "vec_autorizacion_atestada_v3.registrar_y_consumir_firma_externa_ct_v3_atestada"
         }
       ],
-      "arranque": {
-        "estado": "pendiente_evidencia_runtime",
-        "condicion": "Comprobar montaje y guardas de arranque; la selección SQL por sí sola no lo acredita."
-      },
+      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -2060,10 +2009,7 @@
           "objeto": "vec_autorizacion_atestada_v3.registrar_y_consumir_firma_vec_ct_v3_atestada"
         }
       ],
-      "arranque": {
-        "estado": "pendiente_evidencia_runtime",
-        "condicion": "Comprobar montaje y guardas de arranque; la selección SQL por sí sola no lo acredita."
-      },
+      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -2168,10 +2114,7 @@
         }
       ],
       "consumidor_sql": [],
-      "arranque": {
-        "estado": "pendiente_evidencia_runtime",
-        "condicion": "Comprobar montaje y guardas de arranque; la selección SQL por sí sola no lo acredita."
-      },
+      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -2260,10 +2203,7 @@
           "objeto": "vec_documentos.rechazar_externa_original_firmable_v1"
         }
       ],
-      "arranque": {
-        "estado": "pendiente_evidencia_runtime",
-        "condicion": "Comprobar montaje y guardas de arranque; la selección SQL por sí sola no lo acredita."
-      },
+      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -2349,10 +2289,7 @@
           "objeto": "vec_autorizacion_atestada_v3.consumir_consulta_firmas_r5_ct_v2_atestada"
         }
       ],
-      "arranque": {
-        "estado": "pendiente_evidencia_runtime",
-        "condicion": "Comprobar montaje y guardas de arranque; la selección SQL por sí sola no lo acredita."
-      },
+      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -2402,10 +2339,7 @@
           "objeto": "vec_autorizacion_atestada_v3.registrar_y_consumir_firma_descriptor_ct_v2_atestada"
         }
       ],
-      "arranque": {
-        "estado": "pendiente_evidencia_runtime",
-        "condicion": "Comprobar montaje y guardas de arranque; la selección SQL por sí sola no lo acredita."
-      },
+      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -2530,10 +2464,7 @@
           "objeto": "vec_autorizacion_atestada_v3.consumir_consulta_firmas_r5_ct_v3_atestada"
         }
       ],
-      "arranque": {
-        "estado": "pendiente_evidencia_runtime",
-        "condicion": "Comprobar montaje y guardas de arranque; la selección SQL por sí sola no lo acredita."
-      },
+      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -2624,10 +2555,7 @@
           "objeto": "vec_autorizacion.operar_certificado_nominal_v3"
         }
       ],
-      "arranque": {
-        "estado": "pendiente_evidencia_runtime",
-        "condicion": "Comprobar montaje y guardas de arranque; la selección SQL por sí sola no lo acredita."
-      },
+      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -2706,10 +2634,7 @@
           "objeto": "vec_autorizacion_atestada_v3.consumir_publicacion_cargo_competencial_v3_atestada"
         }
       ],
-      "arranque": {
-        "estado": "pendiente_evidencia_runtime",
-        "condicion": "Comprobar montaje y guardas de arranque; la selección SQL por sí sola no lo acredita."
-      },
+      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -2762,10 +2687,7 @@
           "objeto": "vec_personal.publicar_cargo_competencial_v1"
         }
       ],
-      "arranque": {
-        "estado": "pendiente_evidencia_runtime",
-        "condicion": "Comprobar montaje y guardas de arranque; la selección SQL por sí sola no lo acredita."
-      },
+      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -2804,10 +2726,7 @@
           "objeto": "vec_personal.resolver_fuente_cargo_ocupante_ct_v1"
         }
       ],
-      "arranque": {
-        "estado": "pendiente_evidencia_runtime",
-        "condicion": "Comprobar montaje y guardas de arranque; la selección SQL por sí sola no lo acredita."
-      },
+      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -2856,10 +2775,7 @@
           "objeto": "vec_autorizacion_atestada_v3.comprobar_consumo_firma_ct_v1"
         }
       ],
-      "arranque": {
-        "estado": "pendiente_evidencia_runtime",
-        "condicion": "Comprobar montaje y guardas de arranque; la selección SQL por sí sola no lo acredita."
-      },
+      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -2933,10 +2849,7 @@
           "objeto": "vec_autorizacion.recuperar_evidencia_competencia_firmante_ct_v1"
         }
       ],
-      "arranque": {
-        "estado": "pendiente_evidencia_runtime",
-        "condicion": "Comprobar montaje y guardas de arranque; la selección SQL por sí sola no lo acredita."
-      },
+      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -2994,10 +2907,7 @@
           "objeto": "vec_autorizacion.construir_contexto_nominal_firmante_ct_v1"
         }
       ],
-      "arranque": {
-        "estado": "pendiente_evidencia_runtime",
-        "condicion": "Comprobar montaje y guardas de arranque; la selección SQL por sí sola no lo acredita."
-      },
+      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -3041,10 +2951,7 @@
         }
       ],
       "consumidor_sql": [],
-      "arranque": {
-        "estado": "pendiente_evidencia_runtime",
-        "condicion": "Comprobar montaje y guardas de arranque; la selección SQL por sí sola no lo acredita."
-      },
+      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -3127,10 +3034,7 @@
           "objeto": "vec_autorizacion.consultar_capacidades_admin_v1"
         }
       ],
-      "arranque": {
-        "estado": "pendiente_evidencia_runtime",
-        "condicion": "Comprobar montaje y guardas de arranque; la selección SQL por sí sola no lo acredita."
-      },
+      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -3221,10 +3125,7 @@
           "objeto": "vec_contratacion_temporal.consultar_firmas_r5_atestadas_v1"
         }
       ],
-      "arranque": {
-        "estado": "pendiente_evidencia_runtime",
-        "condicion": "Comprobar montaje y guardas de arranque; la selección SQL por sí sola no lo acredita."
-      },
+      "arranque": "no_exigida_por_arranque_acreditado; nueva_capacidad_no_ensayada",
       "motivo_exclusion": null
     },
     {
@@ -3275,10 +3176,7 @@
           "objeto": "vec_contratacion_temporal.leer_revalidar_relacion_unidad_expediente_ct_v1"
         }
       ],
-      "arranque": {
-        "estado": "pendiente_evidencia_runtime",
-        "condicion": "Comprobar montaje y guardas de arranque; la selección SQL por sí sola no lo acredita."
-      },
+      "arranque": "no_exigida_por_arranque_acreditado; nueva_capacidad_no_ensayada",
       "motivo_exclusion": null
     },
     {
@@ -3352,10 +3250,7 @@
           "objeto": "vec_contratacion_temporal.consultar_firmas_r5_atestadas_v2"
         }
       ],
-      "arranque": {
-        "estado": "pendiente_evidencia_runtime",
-        "condicion": "Comprobar montaje y guardas de arranque; la selección SQL por sí sola no lo acredita."
-      },
+      "arranque": "no_exigida_por_arranque_acreditado; nueva_capacidad_no_ensayada",
       "motivo_exclusion": null
     },
     {
@@ -3411,10 +3306,7 @@
           "objeto": "vec_personal.cotejar_unidad_bootstrap_admin_v1"
         }
       ],
-      "arranque": {
-        "estado": "pendiente_evidencia_runtime",
-        "condicion": "Comprobar montaje y guardas de arranque; la selección SQL por sí sola no lo acredita."
-      },
+      "arranque": "no_exigida_por_arranque_acreditado; nueva_capacidad_no_ensayada",
       "motivo_exclusion": null
     },
     {
@@ -3507,10 +3399,7 @@
           "objeto": "vec_autorizacion_atestada_v3.consumir_vinculo_propio_crn11_v3_atestada"
         }
       ],
-      "arranque": {
-        "estado": "pendiente_evidencia_runtime",
-        "condicion": "Comprobar montaje y guardas de arranque; la selección SQL por sí sola no lo acredita."
-      },
+      "arranque": "fuera_seleccion; consumidores_nuevos_sin_montaje_principal_acreditado",
       "motivo_exclusion": "Cadena opcional incompatible con la cadena Firma; sólo excluir tras comprobar consumidor apagado o ausente en la configuración del montaje."
     },
     {
@@ -3547,10 +3436,7 @@
           "objeto": "vec_personal.consultar_vinculo_propio_historico_crn11_v1"
         }
       ],
-      "arranque": {
-        "estado": "pendiente_evidencia_runtime",
-        "condicion": "Comprobar montaje y guardas de arranque; la selección SQL por sí sola no lo acredita."
-      },
+      "arranque": "fuera_seleccion; consumidores_nuevos_sin_montaje_principal_acreditado",
       "motivo_exclusion": "Cadena opcional incompatible con la cadena Firma; sólo excluir tras comprobar consumidor apagado o ausente en la configuración del montaje."
     },
     {
@@ -3645,10 +3531,7 @@
           "objeto": "vec_autorizacion_atestada_v3.consumir_relacion_para_rpt_v3_atestada"
         }
       ],
-      "arranque": {
-        "estado": "pendiente_evidencia_runtime",
-        "condicion": "Comprobar montaje y guardas de arranque; la selección SQL por sí sola no lo acredita."
-      },
+      "arranque": "fuera_seleccion; consumidores_nuevos_sin_montaje_principal_acreditado",
       "motivo_exclusion": "Cadena opcional incompatible con la cadena Firma; sólo excluir tras comprobar consumidor apagado o ausente en la configuración del montaje."
     },
     {
@@ -3705,10 +3588,7 @@
           "objeto": "vec_personal.consultar_relacion_para_rpt_v1"
         }
       ],
-      "arranque": {
-        "estado": "pendiente_evidencia_runtime",
-        "condicion": "Comprobar montaje y guardas de arranque; la selección SQL por sí sola no lo acredita."
-      },
+      "arranque": "fuera_seleccion; consumidores_nuevos_sin_montaje_principal_acreditado",
       "motivo_exclusion": "Cadena opcional incompatible con la cadena Firma; sólo excluir tras comprobar consumidor apagado o ausente en la configuración del montaje."
     },
     {
@@ -3753,10 +3633,7 @@
         }
       ],
       "consumidor_sql": [],
-      "arranque": {
-        "estado": "pendiente_evidencia_runtime",
-        "condicion": "Comprobar montaje y guardas de arranque; la selección SQL por sí sola no lo acredita."
-      },
+      "arranque": "fuera_seleccion; consumidores_nuevos_sin_montaje_principal_acreditado",
       "motivo_exclusion": "Cadena opcional incompatible con la cadena Firma; sólo excluir tras comprobar consumidor apagado o ausente en la configuración del montaje."
     },
     {
@@ -3895,10 +3772,7 @@
           "objeto": "vec_autorizacion_atestada_v3.registrar_y_consumir_gobierno_borrador_reglas_baremo_v3_atestada"
         }
       ],
-      "arranque": {
-        "estado": "pendiente_evidencia_runtime",
-        "condicion": "Comprobar montaje y guardas de arranque; la selección SQL por sí sola no lo acredita."
-      },
+      "arranque": "fuera_seleccion; consumidores_nuevos_sin_montaje_principal_acreditado",
       "motivo_exclusion": "Cadena opcional incompatible con la cadena Firma; sólo excluir tras comprobar consumidor apagado o ausente en la configuración del montaje."
     },
     {
@@ -3935,10 +3809,7 @@
           "objeto": "vec_bolsa_convocatorias.obtener_version_exacta_v3"
         }
       ],
-      "arranque": {
-        "estado": "pendiente_evidencia_runtime",
-        "condicion": "Comprobar montaje y guardas de arranque; la selección SQL por sí sola no lo acredita."
-      },
+      "arranque": "fuera_seleccion; consumidores_nuevos_sin_montaje_principal_acreditado",
       "motivo_exclusion": "Cadena opcional incompatible con la cadena Firma; sólo excluir tras comprobar consumidor apagado o ausente en la configuración del montaje."
     },
     {
@@ -4018,10 +3889,7 @@
           "objeto": "vec_meritos.operar_hecho_v1"
         }
       ],
-      "arranque": {
-        "estado": "pendiente_evidencia_runtime",
-        "condicion": "Comprobar montaje y guardas de arranque; la selección SQL por sí sola no lo acredita."
-      },
+      "arranque": "fuera_seleccion; consumidores_nuevos_sin_montaje_principal_acreditado",
       "motivo_exclusion": "Cadena opcional incompatible con la cadena Firma; sólo excluir tras comprobar consumidor apagado o ausente en la configuración del montaje."
     },
     {
@@ -4084,10 +3952,7 @@
           "objeto": "vec_bolsa_reglas_baremo.operar_borrador_v3"
         }
       ],
-      "arranque": {
-        "estado": "pendiente_evidencia_runtime",
-        "condicion": "Comprobar montaje y guardas de arranque; la selección SQL por sí sola no lo acredita."
-      },
+      "arranque": "fuera_seleccion; consumidores_nuevos_sin_montaje_principal_acreditado",
       "motivo_exclusion": "Cadena opcional incompatible con la cadena Firma; sólo excluir tras comprobar consumidor apagado o ausente en la configuración del montaje."
     },
     {
@@ -4180,10 +4045,7 @@
           "objeto": "vec_autorizacion_atestada_v3.consumir_consulta_hecho_propio_v3_atestada"
         }
       ],
-      "arranque": {
-        "estado": "pendiente_evidencia_runtime",
-        "condicion": "Comprobar montaje y guardas de arranque; la selección SQL por sí sola no lo acredita."
-      },
+      "arranque": "fuera_seleccion; consumidores_nuevos_sin_montaje_principal_acreditado",
       "motivo_exclusion": "Cadena opcional incompatible con la cadena Firma; sólo excluir tras comprobar consumidor apagado o ausente en la configuración del montaje."
     },
     {
@@ -4219,10 +4081,7 @@
           "objeto": "vec_meritos.consultar_hecho_propio_v1"
         }
       ],
-      "arranque": {
-        "estado": "pendiente_evidencia_runtime",
-        "condicion": "Comprobar montaje y guardas de arranque; la selección SQL por sí sola no lo acredita."
-      },
+      "arranque": "fuera_seleccion; consumidores_nuevos_sin_montaje_principal_acreditado",
       "motivo_exclusion": "Cadena opcional incompatible con la cadena Firma; sólo excluir tras comprobar consumidor apagado o ausente en la configuración del montaje."
     },
     {
@@ -4330,10 +4189,7 @@
           "objeto": "vec_autorizacion_atestada_v3.consumir_consultar_preparacion_bases_bolsa_v3_atestada"
         }
       ],
-      "arranque": {
-        "estado": "pendiente_evidencia_runtime",
-        "condicion": "Comprobar montaje y guardas de arranque; la selección SQL por sí sola no lo acredita."
-      },
+      "arranque": "fuera_seleccion; consumidores_nuevos_sin_montaje_principal_acreditado",
       "motivo_exclusion": "Cadena opcional incompatible con la cadena Firma; sólo excluir tras comprobar consumidor apagado o ausente en la configuración del montaje."
     },
     {
@@ -4425,10 +4281,7 @@
           "objeto": "vec_bolsa_convocatorias.obtener_preparacion_bases_v3"
         }
       ],
-      "arranque": {
-        "estado": "pendiente_evidencia_runtime",
-        "condicion": "Comprobar montaje y guardas de arranque; la selección SQL por sí sola no lo acredita."
-      },
+      "arranque": "fuera_seleccion; consumidores_nuevos_sin_montaje_principal_acreditado",
       "motivo_exclusion": "Cadena opcional incompatible con la cadena Firma; sólo excluir tras comprobar consumidor apagado o ausente en la configuración del montaje."
     },
     {
@@ -4478,10 +4331,7 @@
         }
       ],
       "consumidor_sql": [],
-      "arranque": {
-        "estado": "pendiente_evidencia_runtime",
-        "condicion": "Comprobar montaje y guardas de arranque; la selección SQL por sí sola no lo acredita."
-      },
+      "arranque": "fuera_seleccion; consumidores_nuevos_sin_montaje_principal_acreditado",
       "motivo_exclusion": "Cadena opcional incompatible con la cadena Firma; sólo excluir tras comprobar consumidor apagado o ausente en la configuración del montaje."
     },
     {
@@ -4571,10 +4421,7 @@
           "objeto": "vec_autorizacion_atestada_v3.consumir_consulta_version_convocatoria_v3_atestada"
         }
       ],
-      "arranque": {
-        "estado": "pendiente_evidencia_runtime",
-        "condicion": "Comprobar montaje y guardas de arranque; la selección SQL por sí sola no lo acredita."
-      },
+      "arranque": "fuera_seleccion; consumidores_nuevos_sin_montaje_principal_acreditado",
       "motivo_exclusion": "Contratos cubiertos por AD161 sin reaplicar la migración histórica; guarda anterior a AD155."
     },
     {
@@ -4664,10 +4511,7 @@
           "objeto": "vec_autorizacion_atestada_v3.consumir_operacion_meritos_v3_atestada"
         }
       ],
-      "arranque": {
-        "estado": "pendiente_evidencia_runtime",
-        "condicion": "Comprobar montaje y guardas de arranque; la selección SQL por sí sola no lo acredita."
-      },
+      "arranque": "fuera_seleccion; consumidores_nuevos_sin_montaje_principal_acreditado",
       "motivo_exclusion": "Contratos cubiertos por AD161 sin reaplicar la migración histórica; guarda anterior a AD155."
     },
     {
@@ -4758,10 +4602,7 @@
           "objeto": "vec_autorizacion_atestada_v3.registrar_y_consumir_gobierno_borrador_reglas_baremo_v3_atestada"
         }
       ],
-      "arranque": {
-        "estado": "pendiente_evidencia_runtime",
-        "condicion": "Comprobar montaje y guardas de arranque; la selección SQL por sí sola no lo acredita."
-      },
+      "arranque": "fuera_seleccion; consumidores_nuevos_sin_montaje_principal_acreditado",
       "motivo_exclusion": "Contratos cubiertos por AD161 sin reaplicar la migración histórica; guarda anterior a AD155."
     }
   ],
@@ -5326,5 +5167,22 @@
     "deploy/principal/lista_sql_trabajo_usuarios_508b_20260929.txt",
     "deploy/principal/lista_sql_trabajo_usuarios_508c_20260929.txt",
     "deploy/principal/lista_sql_trabajo_usuarios_superficie_20260929.txt"
-  ]
+  ],
+  "resultado_ensayo": {
+    "base_reconstruida_sql": 15,
+    "nuevas_migraciones_confirmadas": 34,
+    "soportes_confirmados": 1,
+    "fallo_producto": {
+      "migracion": "CT170",
+      "clave": "vec_autorizacion.revalidar_competencia_firmante_ct_v1(text)",
+      "observado": "ausente",
+      "esperado": "presente_con_EXECUTE_para_propietario_CT",
+      "pr_existente": 453,
+      "efecto": "rollback_completo_CT170"
+    },
+    "arranque": "base_y_main_acreditados_con_SQL_parcial",
+    "reinicio": "aplicacion_y_PostgreSQL_7_consultas_HTTP200_datos_identicos",
+    "quality": "verificar_calidad.sh_fallo_8_paquetes_ajenos_a_H9",
+    "instalacion_principal": false
+  }
 }

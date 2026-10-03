@@ -2,7 +2,7 @@
 
 El inventario fija el árbol `4a354ae4bc1704e7c48c081f5e7dd0185e7233fd` y compara las altas SQL con `ed9c7de86`. Contiene **47 UP nuevas y ocho pendientes anteriores**. Las PR posteriores y abiertas quedan fuera; en particular, AD172 y AD173 no pertenecen a este árbol. CT172 sí pertenece: el número coincide entre módulos, pero son migraciones diferentes.
 
-Este documento prepara la selección de Firma y sus dependencias comunes. El orden es una propuesta estática: no acredita instalación, arranque ni recorrido. Dirección ejecuta el ensayo sobre el clon y confirma la configuración antes de autorizar el uso del kit. No se ha ejecutado SQL, arrancado contenedores ni compilado en este encargo.
+El ensayo está detenido en CT170: falta `vec_autorizacion.revalidar_competencia_firmante_ct_v1(text)`, conservada en la PR borrador #453 y ausente de main. El kit incluye `NO_INSTALAR`; el guion lo rechaza antes de intervenir servicios. Codex-P ha reconstruido el clon, ensayado el tramo previo y comprobado el arranque. Claude revisa, integra las dependencias y decide la instalación.
 
 ## Preimagen
 
@@ -124,3 +124,19 @@ La comprobación estática cuenta 55 rutas únicas, coteja sus bytes con el árb
 La revisión focal de seguridad conserva las guardas originales: no cambia SQL, roles, concesiones ni datos; no autoriza saltar un PARO, reconstruir un núcleo con otra huella ni tratar la ausencia de un consumidor como permiso. El material público sólo contiene fuentes, identificadores técnicos y huellas; ninguna credencial, DSN ni configuración privada.
 
 Falta incorporar la evidencia de configuración y completar el ensayo causal. Sólo después Dirección puede convertir `ejecutable` en verdadero, indicando el resultado exacto. Una exclusión sin evidencia o un fallo de guarda mantiene el kit pendiente. Instalar las fuentes nominales no publica perfiles ni cargos, no firma documentos y no acredita un recorrido en navegador.
+
+## Resultado del ensayo de Codex-P
+
+PostgreSQL 18.4 se ejecutó con UID/GID del operador, límite de 2 GB, `--network none`, `--rm` y datos en disco bajo el estado privado de P. Las 15 SQL que reconstruyen la principal terminaron correctamente. El núcleo inicial coincidió con definición `5dbdac03a2a4e52ca4cb45c57b3bf18e621091da9e818091e30a3f90e68e7330` y fuente `cdc8cb87f27360741a2d0d52e8b9d58d0a1423be8abd8ff9063f389b2c8ea75e`.
+
+Se confirmaron 34 migraciones nuevas y el soporte de roles. AD169 falló primero porque el inventario omitía `roles_intentos_up.sql`: se comprobó el rollback, se añadió el soporte existente y se confirmó AD169 una vez. No se modificó SQL de producto. CT170 falló después por AUT30 ausente; su transacción revirtió completa. CT170, CT174, CT172 y Personal31 no quedaron instaladas en el clon.
+
+El binario de la base reprodujo SHA256 `6ee586a88d984e8293a32d6e3a654a52e2f23ec3fd0d802d4ea5c92740c8fdda`. El binario de main fijado tiene SHA256 `5d84b1b0637181328f0228862c8bfc25457f5b613ebf810b2becf74e68765d5b`. Ambos emitieron `vec server listening` con la configuración actual copiada por lectura, TCP/TLS y almacenes sintéticos existentes. La adaptación inicial a socket se descartó porque Usuarios exige una topología TCP. No se cambió esa guarda.
+
+En main, siete lecturas HTTP dieron 200 antes y después de reiniciar aplicación y PostgreSQL: portal, pantalla de Calendarios, centros, calendario, bolsas, cuadro CT y detalle CT. Los datos coinciden, salvo las fechas de generación de cada consulta. Se conservaron 71 expedientes y un detalle de versión 9 con nueve hitos. La comparación HTTP acredita ese recorrido existente con SQL parcial; no acredita las operaciones nuevas de Firma ni un recorrido en Chrome.
+
+La puerta `scripts/verificar_calidad.sh`, con `-p 8`, caché en disco y TMPDIR corto, falló en ocho paquetes intactos: `cmd/vec-admin`, `cmd/vec-auditoria-checkpoint`, `cmd/vec-comparar-organizacion`, `cmd/vec-preparar-admin-bootstrap`, `cmd/vec-preparar-material-interno`, `cmd/vec-provisionar-candidato-externo`, `internal/app/bootstrap` e `internal/app/composicion/internactproveedores`. No se repitió la puerta completa. ShellCheck, sintaxis Bash, mocks de recuperación y Semgrep local dieron verde. No hay cambios Go en esta pieza; gosec no tiene paquetes cambiados que analizar.
+
+Las exclusiones CRN11/RPT/Selectivos siguen fuera. La principal mantiene B2 e incorporación acreditada apagados y carece del montaje de esas consultas nuevas; el arranque observado no las exige. No se omiten de forma silenciosa: sus conflictos de preimagen siguen anotados. La necesidad individual de cada SQL del tramo confirmado no se ha aislado; arrancar tras el conjunto no demuestra que todas sean obligatorias.
+
+Antes de instalar faltan AUT30 en main, el ensayo causal completo, la puerta verde y el recorrido de las capacidades nuevas. También falta que Dirección acredite la exclusión de los diez procesos `psql` ajenos observados en el espacio de red de la principal. P no los paró. El guion exige mantenimiento privado revisado y coteja los montajes efectivos de binario, web, catálogos y PGDATA.
