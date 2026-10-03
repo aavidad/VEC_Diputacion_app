@@ -45,7 +45,7 @@ func fixtureFirmaMultiple(n int) (docports.SolicitudVerificacionFirma, docports.
 			anteriores = append(anteriores, AntecedenteFirmaMultiple{PDFFirmado: bytes.Clone(pdf), Firma: ports.FirmaRegistrada{
 				Documento: "informe_definitivo", PasoOrden: orden, Resultado: domain.ResultadoFirmaFirmado,
 				Via: ports.ViaFirmaExternaPortafirmas, FirmaRef: "firma:" + sufijo, ReciboRef: "recibo:" + sufijo,
-				OriginalRef: "original:multifirma", OriginalVersion: 1, OriginalHuella: huella(original),
+				OriginalRef: "ref:" + huella(original), OriginalVersion: 1, OriginalHuella: huella(original),
 				FirmadoHuella: f.RevisionHuellaSHA256, FirmanteRef: f.FirmanteRef, CertificadoHuella: f.CertificadoHuellaSHA256,
 				FirmantePrincipalAcreditado: true, DocumentoCustodiaRef: "custodia:" + sufijo, DocumentoCustodiaVersion: 1,
 			}})
@@ -53,7 +53,7 @@ func fixtureFirmaMultiple(n int) (docports.SolicitudVerificacionFirma, docports.
 	}
 	zero := uint64(0)
 	return docports.SolicitudVerificacionFirma{
-			DocumentoID: "original:multifirma", Version: 1, FormatoEsperado: "PAdES", HuellaOriginalSHA256: huella(original),
+			DocumentoID: "ref:" + huella(original), Version: 1, FormatoEsperado: "PAdES", HuellaOriginalSHA256: huella(original),
 			ContenidoOriginal: original, ContenidoFirmado: pdf,
 		}, docports.VerificacionFirmasDocumento{
 			Estado: docports.EstadoVerificacionValida, Motivo: docports.MotivoFirmaVerificada, Formato: "PAdES", VinculoOriginal: true,
