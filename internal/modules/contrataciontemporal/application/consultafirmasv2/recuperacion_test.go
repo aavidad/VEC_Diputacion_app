@@ -4,79 +4,83 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	vecdomain "vec-diputacion-granada/internal/vec/domain"
 	vp "vec-diputacion-granada/internal/vec/ports"
 )
 
 func lecturaRecuperacionPrueba(t *testing.T) ports.LecturaRecuperacionFirmasV2 {
 	t.Helper()
 	base := lecturaPrueba()
-	f, r := base.Firmas[0], base.RevisionesPDF[0]
-	ref := func(d string, v uint64, h string) map[string]any {
-		return map[string]any{"referencia": d, "version": v, "huella_sha256": h}
+	f, revision := base.Firmas[0], base.RevisionesPDF[0]
+	f.CertificadoHuella = revision.CertificadoHuella
+	base.Firmas[0] = f
+	ref := func(referencia, huella string) vecdomain.ReferenciaHistoricaCompetenciaV1 {
+		return vecdomain.ReferenciaHistoricaCompetenciaV1{Referencia: referencia, Version: 1, HuellaSHA256: huella}
 	}
-	identidad := camposCanonPrueba("certificado_der_sha256", "persona_ref", "persona", "cuenta",
-		"vinculo_cuenta_persona", "cuenta_persona_cuenta_ref", "cuenta_persona_persona_ref",
-		"vinculo_certificado", "vinculo_cuenta_ref", "vinculo_persona_ref", "vinculo_der_sha256")
-	identidad["persona_ref"] = "per_firmante_prueba"
-	competencia := camposCanonPrueba("asignacion", "rol", "rol_id", "control_rol", "persona_ref",
-		"perfil_esperado_ref", "perfil_activo_ref", "modulo_id", "tipo_recurso", "recurso_ref",
-		"ambito_organizacion_ref", "ambito_unidad_ref", "asignacion_rol_ref", "control_rol_ref",
-		"vigente_desde", "vigente_hasta")
-	competencia["persona_ref"] = identidad["persona_ref"]
-	competencia["modulo_id"] = ports.ModuloContratacion
-	competencia["tipo_recurso"] = "documento"
-	competencia["recurso_ref"] = f.OriginalRef
-	competencia["ambito_organizacion_ref"] = "organizacion:central"
-	competencia["ambito_unidad_ref"] = "unidad:prueba"
-	relacion := camposCanonPrueba("expediente_ref", "unidad_ref", "origen_ref", "origen_version",
-		"prueba_snapshot_sha256", "evento_ref", "evento_huella_sha256", "confirmada_en")
-	relacion["expediente_ref"] = "expediente:prueba"
-	relacion["unidad_ref"] = "unidad:prueba"
-	canon := map[string]any{
-		"esquema": "vec.competencia-firmante.historica.v1", "identidad": identidad,
-		"competencia": competencia,
-		"personal": camposCanonPrueba("cargo", "enlace_ocupante", "ocupante_persona_ref", "cargo_ref_enlace",
-			"cargo_vigente_desde", "cargo_vigente_hasta", "enlace_vigente_desde", "enlace_vigente_hasta", "delegacion"),
-		"relacion_ct": relacion,
-		"accion":      ports.AccionRegistrarFirmaVec, "finalidad": ports.FinalidadFirmaDocumento,
-		"motivo":          camposCanonPrueba("catalogo_id", "catalogo_version", "catalogo_huella_sha256", "entrada_clave"),
-		"fecha_historica": f.RegistradaEn.Format("2006-01-02T15:04:05Z"),
-		"paso_ref":        f.PasoRef, "paso_orden": f.PasoOrden,
-		"circuito": ref(f.CatalogoRef, 1, f.CatalogoHuella),
-		"recurso": map[string]any{
-			"organizacion_ref": "organizacion:central", "unidad_ref": "unidad:prueba",
-			"expediente_ref": "expediente:prueba", "documento_ref": f.OriginalRef,
-			"recurso_autorizable_ref": f.OriginalRef, "modulo_id": ports.ModuloContratacion,
-			"tipo_recurso": "documento", "recurso_contexto_sha256": strings.Repeat("1", 64),
-			"original":           ref(f.OriginalRef, f.OriginalVersion, f.OriginalHuella),
-			"pdf_raiz_sha256":    f.OriginalHuella,
-			"firmado":            ref(f.DocumentoCustodiaRef, f.DocumentoCustodiaVersion, f.FirmadoHuella),
-			"pdf_firmado_sha256": f.FirmadoHuella, "numero_firmas": 1, "entrada_revision": nil,
+	persona := "per_1234567890abcdef1234567890abcdef"
+	desde := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	hasta := time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC)
+	huella := strings.Repeat("a", 64)
+	canon := vecdomain.CanonCompetenciaFirmanteHistoricaV1{
+		Esquema: vecdomain.EsquemaCanonCompetenciaFirmanteHistoricaV1,
+		Identidad: vecdomain.IdentidadFirmanteHistoricaV1{
+			CertificadoDERSHA256: f.CertificadoHuella, PersonaRef: persona,
+			Persona: ref(persona, huella), Cuenta: ref("cuenta:1", huella),
+			VinculoCuentaPersona: ref("vinculo-cuenta-persona:1", huella), VinculoCertificado: ref("vinculo:1", huella),
+			CuentaPersonaCuentaRef: "cuenta:1", CuentaPersonaPersonaRef: persona,
+			VinculoCuentaRef: "cuenta:1", VinculoPersonaRef: persona, VinculoDERSHA256: f.CertificadoHuella,
 		},
+		Competencia: vecdomain.AsignacionFirmanteHistoricaV1{
+			Asignacion: ref("asignacion:1", huella), Rol: ref("rol:ct_direccion_rrhh:v1", huella),
+			ControlRol: ref("control:1", huella), RolID: "ct_direccion_rrhh", PersonaRef: persona,
+			PerfilEsperadoRef: "perfil:ct:firma", PerfilActivoRef: "prf_1234567890abcdef1234567890abcdef",
+			ModuloID: ports.ModuloContratacion, TipoRecurso: "documento", RecursoRef: f.OriginalRef,
+			AmbitoOrganizacionRef: "organizacion:central", AmbitoUnidadRef: "unidad:prueba",
+			AsignacionRolRef: "rol:ct_direccion_rrhh:v1", ControlRolRef: "rol:ct_direccion_rrhh:v1",
+			VigenteDesde: desde, VigenteHasta: hasta,
+		},
+		Personal: vecdomain.FuentePersonalFirmanteHistoricaV1{
+			Cargo: ref("cargo:1", huella), EnlaceOcupante: ref("ocupante:1", huella),
+			OcupantePersonaRef: persona, CargoRefEnlace: "cargo:1",
+			CargoVigenteDesde: desde, CargoVigenteHasta: hasta,
+			EnlaceVigenteDesde: desde, EnlaceVigenteHasta: hasta,
+		},
+		Recurso: vecdomain.RecursoFirmaHistoricaV1{
+			OrganizacionRef: "organizacion:central", UnidadRef: "unidad:prueba", ExpedienteRef: "expediente:prueba",
+			DocumentoRef: f.OriginalRef, RecursoAutorizableRef: f.OriginalRef, ModuloID: ports.ModuloContratacion,
+			TipoRecurso: "documento", RecursoContextoSHA256: strings.Repeat("1", 64),
+			Original: ref(f.OriginalRef, f.OriginalHuella), PDFRaizSHA256: f.OriginalHuella,
+			Firmado: ref(f.DocumentoCustodiaRef, f.FirmadoHuella), PDFFirmadoSHA256: f.FirmadoHuella,
+			NumeroFirmas: 1,
+		},
+		RelacionCT: vecdomain.RelacionCTFirmanteHistoricaV1{
+			ExpedienteRef: "expediente:prueba", UnidadRef: "unidad:prueba", OrigenRef: "ct050:1", OrigenVersion: 4,
+			PruebaSnapshotSHA256: strings.Repeat("d", 64), EventoRef: "evento:1",
+			EventoHuellaSHA256: strings.Repeat("e", 64), ConfirmadaEn: desde,
+		},
+		Accion: ports.AccionRegistrarFirmaVec, Finalidad: ports.FinalidadFirmaDocumento,
+		Motivo: vecdomain.ReferenciaEntradaCatalogo{CatalogoID: "motivo_firma", CatalogoVersion: 1,
+			CatalogoHuellaSHA256: strings.Repeat("f", 64), EntradaClave: "competencia"},
+		Circuito: ref(f.CatalogoRef, f.CatalogoHuella), PasoRef: f.PasoRef, PasoOrden: 1,
+		FechaHistorica: f.RegistradaEn,
 	}
-	b, err := json.Marshal(canon)
+	canon.Recurso.Original.Version = f.OriginalVersion
+	canon.Recurso.Firmado.Version = f.DocumentoCustodiaVersion
+	b, err := canon.Canonico()
 	if err != nil || len(b) < 512 {
 		t.Fatalf("fixture nominal: %v, %d bytes", err, len(b))
 	}
 	h := sha256.Sum256(b)
 	return ports.LecturaRecuperacionFirmasV2{LecturaFirmasR5V2: base,
-		Recuperaciones: []ports.RecuperacionFirmaV2{{FirmaRef: r.FirmaRef, MaterialRootSHA256: strings.Repeat("2", 64),
+		Recuperaciones: []ports.RecuperacionFirmaV2{{FirmaRef: revision.FirmaRef, MaterialRootSHA256: strings.Repeat("2", 64),
 			CanonNominal: string(b), CanonNominalSHA256: hex.EncodeToString(h[:]),
 			CanonNominalRef: "evidencia:competencia-firmante-ct:" + strings.Repeat("3", 64)}}}
-}
-
-func camposCanonPrueba(nombres ...string) map[string]any {
-	m := make(map[string]any, len(nombres))
-	for _, nombre := range nombres {
-		m[nombre] = "ejemplo"
-	}
-	return m
 }
 
 func TestRecuperacionCruzaCanonHistoricoConFirmaYRevision(t *testing.T) {
@@ -97,13 +101,34 @@ func TestRecuperacionCruzaCanonHistoricoConFirmaYRevision(t *testing.T) {
 		},
 		"firma ajena": func(x *ports.LecturaRecuperacionFirmasV2) { x.Recuperaciones[0].FirmaRef = "firma:ajena" },
 		"documento": func(x *ports.LecturaRecuperacionFirmasV2) {
-			mutarCanonPrueba(t, x, "recurso", "documento_ref", "ref:ajeno")
+			mutarCanonPrueba(t, x, func(c *vecdomain.CanonCompetenciaFirmanteHistoricaV1) {
+				c.Recurso.DocumentoRef, c.Recurso.RecursoAutorizableRef, c.Competencia.RecursoRef = "ref:ajeno", "ref:ajeno", "ref:ajeno"
+			})
 		},
 		"pdf": func(x *ports.LecturaRecuperacionFirmasV2) {
-			mutarCanonPrueba(t, x, "recurso", "pdf_raiz_sha256", strings.Repeat("0", 64))
+			mutarCanonPrueba(t, x, func(c *vecdomain.CanonCompetenciaFirmanteHistoricaV1) {
+				c.Recurso.Original.HuellaSHA256, c.Recurso.PDFRaizSHA256 = strings.Repeat("0", 64), strings.Repeat("0", 64)
+			})
 		},
-		"paso":    func(x *ports.LecturaRecuperacionFirmasV2) { mutarCanonPrueba(t, x, "", "paso_orden", 2) },
-		"esquema": func(x *ports.LecturaRecuperacionFirmasV2) { mutarCanonPrueba(t, x, "", "esquema", "otro") },
+		"paso": func(x *ports.LecturaRecuperacionFirmasV2) {
+			mutarCanonPrueba(t, x, func(c *vecdomain.CanonCompetenciaFirmanteHistoricaV1) { c.PasoOrden = 2 })
+		},
+		"fecha": func(x *ports.LecturaRecuperacionFirmasV2) {
+			mutarCanonPrueba(t, x, func(c *vecdomain.CanonCompetenciaFirmanteHistoricaV1) {
+				c.FechaHistorica = c.FechaHistorica.Add(time.Second)
+			})
+		},
+		"certificado": func(x *ports.LecturaRecuperacionFirmasV2) {
+			mutarCanonPrueba(t, x, func(c *vecdomain.CanonCompetenciaFirmanteHistoricaV1) {
+				c.Identidad.CertificadoDERSHA256, c.Identidad.VinculoDERSHA256 = strings.Repeat("4", 64), strings.Repeat("4", 64)
+			})
+		},
+		"esquema": func(x *ports.LecturaRecuperacionFirmasV2) {
+			v := &x.Recuperaciones[0]
+			v.CanonNominal = strings.Replace(v.CanonNominal, vecdomain.EsquemaCanonCompetenciaFirmanteHistoricaV1, "otro", 1)
+			h := sha256.Sum256([]byte(v.CanonNominal))
+			v.CanonNominalSHA256 = hex.EncodeToString(h[:])
+		},
 		"clave duplicada": func(x *ports.LecturaRecuperacionFirmasV2) {
 			v := &x.Recuperaciones[0]
 			v.CanonNominal = strings.Replace(v.CanonNominal, `"paso_ref":`, `"paso_ref":"paso:ajeno","paso_ref":`, 1)
@@ -122,19 +147,15 @@ func TestRecuperacionCruzaCanonHistoricoConFirmaYRevision(t *testing.T) {
 	}
 }
 
-func mutarCanonPrueba(t *testing.T, l *ports.LecturaRecuperacionFirmasV2, objeto, clave string, valor any) {
+func mutarCanonPrueba(t *testing.T, l *ports.LecturaRecuperacionFirmasV2, cambiar func(*vecdomain.CanonCompetenciaFirmanteHistoricaV1)) {
 	t.Helper()
 	v := &l.Recuperaciones[0]
-	var m map[string]any
-	if err := json.Unmarshal([]byte(v.CanonNominal), &m); err != nil {
+	c, err := vecdomain.RecuperarCanonCompetenciaFirmanteHistoricaV1([]byte(v.CanonNominal), v.CanonNominalSHA256)
+	if err != nil {
 		t.Fatal(err)
 	}
-	if objeto == "" {
-		m[clave] = valor
-	} else {
-		m[objeto].(map[string]any)[clave] = valor
-	}
-	b, err := json.Marshal(m)
+	cambiar(&c)
+	b, err := c.Canonico()
 	if err != nil {
 		t.Fatal(err)
 	}
