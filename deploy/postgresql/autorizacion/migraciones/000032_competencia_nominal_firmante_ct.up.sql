@@ -76,6 +76,18 @@ CREATE TABLE vec_autorizacion.evidencia_competencia_firmante_ct_v1 (
  CHECK (vec_autorizacion.texto_positivo_valido(registrador_perfil_ref,512))
 );
 REVOKE ALL ON TABLE vec_autorizacion.evidencia_competencia_firmante_ct_v1 FROM PUBLIC;
+REVOKE ALL ON TYPE vec_autorizacion.evidencia_competencia_firmante_ct_v1 FROM PUBLIC;
+DO $tabla_acl$
+DECLARE a record;
+BEGIN
+ FOR a IN SELECT DISTINCT x.grantee FROM pg_class c CROSS JOIN LATERAL
+  aclexplode(coalesce(c.relacl,acldefault('r',c.relowner))) x
+  WHERE c.oid='vec_autorizacion.evidencia_competencia_firmante_ct_v1'::regclass
+   AND x.grantee<>'vec_autorizacion_propietario'::regrole LOOP
+  EXECUTE format('REVOKE ALL ON TABLE vec_autorizacion.evidencia_competencia_firmante_ct_v1 FROM %s',
+   CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE quote_ident(pg_get_userbyid(a.grantee)) END);
+ END LOOP;
+END $tabla_acl$;
 ALTER TABLE vec_autorizacion.evidencia_competencia_firmante_ct_v1 ENABLE ROW LEVEL SECURITY;
 ALTER TABLE vec_autorizacion.evidencia_competencia_firmante_ct_v1 FORCE ROW LEVEL SECURITY;
 CREATE POLICY evidencia_ct_propietario ON vec_autorizacion.evidencia_competencia_firmante_ct_v1
@@ -146,12 +158,17 @@ BEGIN
   OR rec->>'recurso_autorizable_ref' IS DISTINCT FROM rec->>'documento_ref'
   OR rec#>>'{original,huella_sha256}' IS DISTINCT FROM rec->>'pdf_raiz_sha256'
   OR rec#>>'{firmado,huella_sha256}' IS DISTINCT FROM rec->>'pdf_firmado_sha256'
-  OR (rec->>'numero_firmas')::numeric NOT BETWEEN 1 AND 9007199254740991
+  OR ((rec->>'numero_firmas')::numeric BETWEEN 1 AND 9007199254740991) IS NOT TRUE
+  OR ((rec->>'numero_firmas')::numeric=1 AND rec->'entrada_revision' IS DISTINCT FROM 'null'::jsonb)
+  OR ((rec->>'numero_firmas')::numeric>1 AND jsonb_typeof(rec->'entrada_revision') IS DISTINCT FROM 'object')
   OR c#>>'{motivo,catalogo_id}' IS NULL
+  OR ((c#>>'{motivo,catalogo_version}')::numeric BETWEEN 1 AND 9007199254740991) IS NOT TRUE
   OR (c#>>'{motivo,catalogo_huella_sha256}' ~ '^[0-9a-f]{64}$') IS NOT TRUE
   OR c#>>'{motivo,entrada_clave}' IS NULL
+  OR ((c#>>'{circuito,version}')::numeric BETWEEN 1 AND 9007199254740991) IS NOT TRUE
   OR (c#>>'{circuito,huella_sha256}' ~ '^[0-9a-f]{64}$') IS NOT TRUE
-  OR c->>'paso_ref' IS NULL OR (c->>'paso_orden')::numeric NOT BETWEEN 1 AND 9007199254740991 THEN
+  OR c->>'paso_ref' IS NULL
+  OR ((c->>'paso_orden')::numeric BETWEEN 1 AND 9007199254740991) IS NOT TRUE THEN
   RAISE EXCEPTION 'aut32_contexto_no_admitido' USING ERRCODE = '42501';
  END IF;
  -- CT174 procede del propietario CT y conserva el puntero bajo FOR SHARE.

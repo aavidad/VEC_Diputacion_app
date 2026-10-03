@@ -11,7 +11,11 @@ BEGIN
   OR to_regclass('vec_autorizacion.evidencia_competencia_firmante_ct_v1') IS NULL THEN
   RAISE EXCEPTION 'AUT32 ausente' USING ERRCODE='55000'; END IF;
  IF NOT EXISTS(SELECT 1 FROM pg_class c WHERE c.oid='vec_autorizacion.evidencia_competencia_firmante_ct_v1'::regclass
-  AND c.relrowsecurity AND c.relforcerowsecurity) THEN
+  AND c.relrowsecurity AND c.relforcerowsecurity)
+  OR EXISTS(SELECT 1 FROM pg_class c CROSS JOIN LATERAL
+   aclexplode(coalesce(c.relacl,acldefault('r',c.relowner))) a
+   WHERE c.oid='vec_autorizacion.evidencia_competencia_firmante_ct_v1'::regclass
+    AND a.grantee<>'vec_autorizacion_propietario'::regrole) THEN
   RAISE EXCEPTION 'AUT32 RLS inactivo' USING ERRCODE='55000'; END IF;
  FOR f IN SELECT unnest(ARRAY[
   'vec_autorizacion.acreditar_competencia_nominal_firmante_ct_v1(bytea,jsonb,jsonb)'::regprocedure,
