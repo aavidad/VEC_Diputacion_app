@@ -90,11 +90,10 @@ END $acl$;
 -- Bloquea punteros de las tres fuentes hasta COMMIT y comprueba sus filas
 -- versionadas antes de producir la huella. No atribuye cargo ni perfil.
 CREATE FUNCTION vec_contexto_actor_v1.fuentes_certificado_firmante_ct_v2(c text,p text,v text)
-RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog AS $f$
+RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET TimeZone='UTC' AS $f$
 DECLARE ca record;pe record;vi record;ahora timestamptz;generacion numeric;
 BEGIN
  IF current_setting('transaction_isolation')<>'serializable' OR current_setting('transaction_read_only')<>'off'
-  OR current_setting('TimeZone')<>'UTC'
   OR vec_contexto_actor_v1.referencia_valida(c,'cta_') IS NOT TRUE
   OR vec_contexto_actor_v1.referencia_valida(p,'per_') IS NOT TRUE
   OR vec_contexto_actor_v1.referencia_valida(v,'vca_') IS NOT TRUE THEN RETURN NULL; END IF;
@@ -127,7 +126,7 @@ GRANT EXECUTE ON FUNCTION vec_contexto_actor_v1.fuentes_certificado_firmante_ct_
 
 CREATE FUNCTION vec_contexto_actor_v1.acreditar_organizacion_destino_certificado_v1(
  c text,p text,v text,v_version numeric,org_esperada text)
-RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET lock_timeout='2s' AS $f$
+RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET TimeZone='UTC' SET lock_timeout='2s' AS $f$
 DECLARE s jsonb;pr record;cr record;o record;ahora timestamptz;
 BEGIN
  IF pg_catalog.current_setting('transaction_isolation')<>'serializable'
