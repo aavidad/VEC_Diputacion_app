@@ -1,5 +1,5 @@
 /** Registro externo V2: conserva revisión incremental; la procedencia se declara por RRHH. */
-import { validarReciboFirmaV2 } from "./firma-vec-api.js";
+import { huellaPDFFirmado, validarReciboFirmaV2 } from "./firma-vec-api.js";
 
 export const RUTA_REGISTRO_FIRMA_EXTERNA = "/api/vec/contratacion-temporal/firmas-documento/registro-externo";
 const MAXIMO_PDF = 1 << 20;
@@ -92,12 +92,17 @@ export function crearClienteFirmaExterna({ fetchImpl = globalThis.fetch } = {}) 
         || !fechaCanonica(fechaPortafirmas) || typeof clave !== "string" || !CLAVE.test(clave)) throw new ErrorFirmaExterna("contenido_no_valido");
       if (signal?.aborted) throw new ErrorFirmaExterna("operacion_abortada");
       if (typeof fetchImpl !== "function") throw new ErrorFirmaExterna("servicio_no_disponible");
+      const bytesEnviados = firmado.slice();
+      let huellaEnviada;
+      try { huellaEnviada = await huellaPDFFirmado(bytesEnviados); }
+      catch { throw new ErrorFirmaExterna("servicio_no_disponible"); }
+      if (signal?.aborted) throw new ErrorFirmaExterna("operacion_abortada");
       let respuesta;
       try {
         respuesta = await fetchImpl(RUTA_REGISTRO_FIRMA_EXTERNA, {
           method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" },
           body: JSON.stringify({ expediente_ref: expedienteRef, version_expediente: version, documento, paso_orden: pasoOrden,
-            original_ref: originalRef, original_version: originalVersion, firmado_base64: aBase64(firmado),
+            original_ref: originalRef, original_version: originalVersion, firmado_base64: aBase64(bytesEnviados),
             referencia_portafirmas_declarada: referenciaPortafirmas, fecha_portafirmas_declarada: fechaPortafirmas,
             clave_idempotencia: clave }),
           signal, mode: "same-origin", credentials: "same-origin", cache: "no-store", redirect: "error", referrerPolicy: "no-referrer",
@@ -117,7 +122,8 @@ export function crearClienteFirmaExterna({ fetchImpl = globalThis.fetch } = {}) 
       }
       if (!campos(envoltorio, ["data"]) || ![200, 201].includes(respuesta.status)) throw new ErrorFirmaExterna("resultado_no_confiable");
       const recibo = validarReciboFirmaV2(envoltorio.data, solicitud, true);
-      if (!recibo || recibo.ya_registrada !== (respuesta.status === 200)) throw new ErrorFirmaExterna("resultado_no_confiable");
+      if (!recibo || recibo.ya_registrada !== (respuesta.status === 200)
+        || recibo.documento_custodiado.huella_sha256 !== huellaEnviada) throw new ErrorFirmaExterna("resultado_no_confiable");
       return recibo;
     },
   });

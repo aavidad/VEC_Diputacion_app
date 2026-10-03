@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { createHash } from "node:crypto";
 import { crearAccionesFirma, renderizarAccionesPaso } from "./circuito-firma-acciones.js";
 import { crearTraductorCircuitoFirma } from "./i18n-circuito-firma.js?v=20261001-ct-a-i18n-v1";
 
@@ -13,7 +14,9 @@ function escenario(vias = ["certificado_vec", "portafirmas_registro_rrhh"], paso
   const bloque = { innerHTML: "", dataset: { ctFirmaDocumento: "resolucion", ctFirmaPaso: String(pasoOrden) },
     setAttribute() {}, querySelectorAll: () => [],
     querySelector: (s) => s === "[data-ct-firma-resultado]" ? aviso : campos.get(s) ?? null };
-  const preflight = { version_expediente: 7, documento: "resolucion", catalogo_ref: "catalogo:prueba", catalogo_huella: "a".repeat(64),
+  const preflight = { esquema: "vec.contratacion-temporal.preflight-firma.v2",
+    entrada_documento_ref: pasoOrden > 1 ? "revision:firmada-p1" : "original:raiz",
+    entrada_documento_version: pasoOrden > 1 ? 1 : 2, entrada_documento_sha256: createHash("sha256").update(pdf).digest("hex"), version_expediente: 7, documento: "resolucion", catalogo_ref: "catalogo:prueba", catalogo_huella: "a".repeat(64),
     paso_pendiente: pasoOrden, original_ref: "original:raiz", original_version: 2, vias_disponibles: vias };
   const contador = { originales: 0, firmas: 0, registros: 0, confirmaciones: 0 };
   const recibo = { firma_eficaz: false, recibo_ref: "recibo:prueba", expediente_ref: "expediente:prueba",

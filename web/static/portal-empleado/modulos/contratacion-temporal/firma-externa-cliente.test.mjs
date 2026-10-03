@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { createHash } from "node:crypto";
 
 import { crearClienteFirmaExterna, ErrorFirmaExterna, RUTA_REGISTRO_FIRMA_EXTERNA } from "./firma-externa-cliente.js";
 import { crearAccionesFirma, renderizarAccionesPaso } from "./circuito-firma-acciones.js";
@@ -20,12 +21,12 @@ function recibo(yaRegistrada = false) {
     version_expediente: solicitud.version, documento: solicitud.documento, paso_orden: solicitud.pasoOrden,
     paso_ref: "paso:resolucion:1", secuencia: 1, registrada_en: "2026-10-02T08:16:00Z",
     documento_custodiado: { expediente_ref: `ref:${"a".repeat(64)}`, documento_ref: `ref:${"b".repeat(64)}`,
-      version: 1, huella_sha256: "c".repeat(64) },
+      version: 1, huella_sha256: createHash("sha256").update(pdf).digest("hex") },
     verificacion_tecnica: { estado: "valida", motivo: "verificada", politica: "politica:vec:firma:verificacion-autonoma:v1",
-      revocacion: "vigente", sello_tiempo: "no_presente", original_sha256: "d".repeat(64), firmado_sha256: "c".repeat(64) },
+      revocacion: "vigente", sello_tiempo: "no_presente", original_sha256: "d".repeat(64), firmado_sha256: createHash("sha256").update(pdf).digest("hex") },
     procedencia_portafirmas: { estado: "declarada_por_rrhh", referencia_declarada: solicitud.referenciaPortafirmas,
       fecha_declarada: solicitud.fechaPortafirmas }, firma_eficaz: false, material_root_sha256: "e".repeat(64),
-    revision_pdf: { orden_firma: 1, entrada_sha256: "d".repeat(64), revision_sha256: "c".repeat(64), evidencia_sha256: "f".repeat(64) },
+    revision_pdf: { orden_firma: 1, entrada_sha256: "d".repeat(64), revision_sha256: createHash("sha256").update(pdf).digest("hex"), evidencia_sha256: "f".repeat(64) },
   };
 }
 

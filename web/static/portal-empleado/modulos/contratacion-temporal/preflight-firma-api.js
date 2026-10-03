@@ -5,8 +5,8 @@ const DOCUMENTO = /^[a-z][a-z0-9_]{1,63}$/u;
 const HUELLA = /^[0-9a-f]{64}$/u;
 const VIAS = ["certificado_vec", "portafirmas_registro_rrhh"];
 const MAXIMO_RESPUESTA = 16 * 1024;
-const CAMPOS = ["version_expediente", "documento", "catalogo_ref", "catalogo_huella", "paso_pendiente",
-  "original_ref", "original_version", "vias_disponibles"];
+const CAMPOS = ["esquema", "version_expediente", "documento", "catalogo_ref", "catalogo_huella", "paso_pendiente",
+  "original_ref", "original_version", "vias_disponibles", "entrada_documento_ref", "entrada_documento_version", "entrada_documento_sha256"];
 
 export class ErrorPreflightFirma extends Error {
   constructor(codigo) { super(codigo); this.name = "ErrorPreflightFirma"; this.codigo = codigo; }
@@ -18,7 +18,8 @@ function exacto(v, claves) {
     && Object.keys(v).length === claves.length && claves.every((c) => Object.hasOwn(v, c));
 }
 export function validarPreflightFirma(datos, solicitud) {
-  if (!exacto(datos, CAMPOS) || !solicitud || datos.version_expediente !== solicitud.version
+  if (!exacto(datos, CAMPOS) || datos.esquema !== "vec.contratacion-temporal.preflight-firma.v2"
+    || !solicitud || datos.version_expediente !== solicitud.version
     || !entero(datos.version_expediente) || datos.documento !== solicitud.documento
     || !DOCUMENTO.test(datos.documento) || !referencia(datos.catalogo_ref)
     || typeof datos.catalogo_huella !== "string" || !HUELLA.test(datos.catalogo_huella)
@@ -28,7 +29,12 @@ export function validarPreflightFirma(datos, solicitud) {
     || !Array.isArray(datos.vias_disponibles) || datos.vias_disponibles.length > 2
     || new Set(datos.vias_disponibles).size !== datos.vias_disponibles.length
     || datos.vias_disponibles.some((v) => !VIAS.includes(v))
-    || (datos.paso_pendiente === 0 && datos.vias_disponibles.length !== 0)) return null;
+    || (datos.paso_pendiente === 0 && (datos.vias_disponibles.length !== 0
+      || datos.entrada_documento_ref !== "" || datos.entrada_documento_version !== 0 || datos.entrada_documento_sha256 !== ""))
+    || (datos.paso_pendiente > 0 && (!referencia(datos.entrada_documento_ref)
+      || !entero(datos.entrada_documento_version) || !HUELLA.test(datos.entrada_documento_sha256)))
+    || (datos.paso_pendiente === 1 && (datos.entrada_documento_ref !== datos.original_ref
+      || datos.entrada_documento_version !== datos.original_version))) return null;
   return Object.freeze({ ...datos, vias_disponibles: Object.freeze([...datos.vias_disponibles]) });
 }
 async function leerJSON(respuesta) {

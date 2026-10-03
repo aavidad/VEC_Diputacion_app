@@ -247,6 +247,10 @@ export function crearGestorCircuitoFirma({
   const t = crearTraductorCircuitoFirma(mensajes, locale);
   const controlador = new AbortController();
   let consulta = null;
+  let circuitoActual = null;
+  const consultaFirmaCompuesta = typeof dependenciasAcciones.clientePreflight?.consultar === "function"
+    && typeof dependenciasAcciones.obtenerVinculoOriginal === "function"
+    && typeof dependenciasAcciones.obtenerOriginal === "function";
   const textosFase = cargarTextosFaseFirma(cargarTextos);
   const fase = async (resultado) => {
     const textos = await textosFase;
@@ -289,17 +293,20 @@ export function crearGestorCircuitoFirma({
     // El catálogo describe los pasos, pero no acredita su estado. Si CT118 no
     // responde o no coincide, no se muestran estados derivados del ejemplo.
     const fusionado = respuesta?.estado === "disponible" ? fusionarEstadoFirmas(circuito, respuesta.datos) : null;
-    const real = fusionado && !solicitud ? Object.freeze({ ...fusionado, acciones: false }) : fusionado;
+    const real = fusionado ? Object.freeze({ ...fusionado,
+      acciones: Boolean(solicitud), preflight_compuesto: consultaFirmaCompuesta && Boolean(solicitud),
+    }) : null;
     return { estado: real ? "disponible" : respuesta?.estado === "denegado" ? "denegado" : "no_disponible", circuito: real, catalogo: circuito };
   }
 
   const acciones = crearAccionesFirma({
-    obtenerEstado, t, clienteFirma, ...dependenciasAcciones,
+    ...dependenciasAcciones, obtenerEstado, obtenerCircuito: () => circuitoActual, t,
     async alCambiar(aviso) {
       const nuevo = await conEstadoReal(await consulta);
       const datosFase = await fase(nuevo);
       const actual = raiz.querySelector?.("[data-ct-circuito-firma]");
       if (!actual || !esMontada()) return;
+      circuitoActual = nuevo.circuito;
       const detallesAbiertos = Boolean(actual.querySelector?.("[data-ct-firma-detalles]")?.open);
       const limiteAbierto = Boolean(actual.querySelector?.(".ct-circuito-limite")?.open);
       actual.outerHTML = renderizarCircuitoFirma(nuevo.circuito, t, nuevo.estado, datosFase);
@@ -371,11 +378,13 @@ export function crearGestorCircuitoFirma({
     const ancla = raiz.querySelector?.("[data-ct-exp-ancla-firma]")
       ?? raiz.querySelector?.(".ct-exp-siguiente-paso") ?? raiz.querySelector?.(".ct-exp-progreso");
     if (typeof ancla?.insertAdjacentHTML !== "function") return;
+    circuitoActual = resultado.circuito;
     ancla.insertAdjacentHTML("afterend", renderizarCircuitoFirma(resultado.circuito, t, resultado.estado, datosFase));
     raiz.querySelector?.("[data-ct-circuito-firma]")?.addEventListener?.("click", manejar);
   }
 
   function montarSiProcede(estado) {
+    acciones.actualizar();
     if (estado?.vista !== "expediente" || !estado.expediente ||
       (typeof cliente?.obtenerCircuito !== "function" && typeof cliente?.obtenerCircuitoConEstado !== "function")) return;
     consulta ??= Promise.resolve(obtenerCatalogo()).catch(() => ({ estado: "no_disponible" }));
@@ -389,6 +398,6 @@ export function crearGestorCircuitoFirma({
 
   return Object.freeze({
     montarSiProcede,
-    retirar() { controlador.abort(); },
+    retirar() { circuitoActual = null; acciones.retirar(); controlador.abort(); },
   });
 }

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { createHash } from "node:crypto";
 import { crearClienteFirmaVec, RUTA_REGISTRO_FIRMA_VEC } from "./firma-vec-api.js";
 
 const pdf = new TextEncoder().encode("%PDF-1.7\nprimera firma conservada\nsegunda firma\n%%EOF");
@@ -9,10 +10,10 @@ function recibo(replay = false) {
   return { esquema: "vec.contratacion-temporal.registro-firma-vec.v2", recibo_ref: "recibo:prueba", firma_ref: "firma:prueba",
     ya_registrada: replay, expediente_ref: "expediente:prueba", version_expediente: 7, documento: "resolucion", paso_orden: 2,
     paso_ref: "paso:prueba", secuencia: 2, registrada_en: "2026-10-03T10:00:00Z", firma_eficaz: false,
-    documento_custodiado: { expediente_ref: `ref:${"e".repeat(64)}`, documento_ref: `ref:${"d".repeat(64)}`, version: 2, huella_sha256: "b".repeat(64) },
+    documento_custodiado: { expediente_ref: `ref:${"e".repeat(64)}`, documento_ref: `ref:${"d".repeat(64)}`, version: 2, huella_sha256: createHash("sha256").update(pdf).digest("hex") },
     verificacion_tecnica: { estado: "valida", motivo: "verificada", politica: "politica:prueba", revocacion: "vigente", sello_tiempo: "no_presente",
-      original_sha256: "a".repeat(64), firmado_sha256: "b".repeat(64) }, material_root_sha256: "c".repeat(64),
-    revision_pdf: { orden_firma: 2, entrada_sha256: "d".repeat(64), revision_sha256: "b".repeat(64), evidencia_sha256: "f".repeat(64) } };
+      original_sha256: "a".repeat(64), firmado_sha256: createHash("sha256").update(pdf).digest("hex") }, material_root_sha256: "c".repeat(64),
+    revision_pdf: { orden_firma: 2, entrada_sha256: "d".repeat(64), revision_sha256: createHash("sha256").update(pdf).digest("hex"), evidencia_sha256: "f".repeat(64) } };
 }
 const respuesta = (data, status = 201) => new Response(JSON.stringify({ data }), { status, headers: { "Content-Type": "application/json" } });
 test("VEC V2 envía sólo ocho campos y el PDF intacto, sin original ni actor", async () => {
@@ -39,6 +40,14 @@ test("replay exige 200 y conserva recibo; 201 no acepta ya_registrada", async ()
   const result = await crearClienteFirmaVec({ fetchImpl: async () => respuesta(recibo(true), 200) }).registrar(solicitud);
   assert.equal(result.recibo_ref, "recibo:prueba");
   await assert.rejects(crearClienteFirmaVec({ fetchImpl: async () => respuesta(recibo(true), 201) }).registrar(solicitud), (e) => e.codigo === "resultado_no_confiable");
+});
+test("un recibo coherente de otro PDF no confirma los bytes enviados", async () => {
+  const d = recibo(); const otra = "e".repeat(64);
+  d.documento_custodiado.huella_sha256 = otra;
+  d.verificacion_tecnica.firmado_sha256 = otra;
+  d.revision_pdf.revision_sha256 = otra;
+  await assert.rejects(crearClienteFirmaVec({ fetchImpl: async () => respuesta(d) }).registrar(solicitud),
+    (e) => e.codigo === "resultado_no_confiable");
 });
 test("fallos de red, denegación y cancelación no devuelven recibo", async () => {
   for (const [status, codigo] of [[403, "acceso_denegado"], [503, "servicio_no_disponible"]]) {

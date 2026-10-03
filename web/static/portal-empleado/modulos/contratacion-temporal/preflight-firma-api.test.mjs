@@ -4,7 +4,8 @@ import { crearClientePreflightFirma, validarPreflightFirma, RUTA_PREFLIGHT_FIRMA
 
 const solicitud = { expedienteRef: "expediente:prueba", version: 7, documento: "resolucion",
   originalRef: "original:prueba", originalVersion: 1 };
-const datos = () => ({ version_expediente: 7, documento: "resolucion", catalogo_ref: "catalogo:prueba",
+const datos = () => ({ esquema: "vec.contratacion-temporal.preflight-firma.v2", entrada_documento_ref: "original:prueba",
+  entrada_documento_version: 1, entrada_documento_sha256: "b".repeat(64), version_expediente: 7, documento: "resolucion", catalogo_ref: "catalogo:prueba",
   catalogo_huella: "a".repeat(64), paso_pendiente: 1, original_ref: "original:prueba", original_version: 1,
   vias_disponibles: ["certificado_vec", "portafirmas_registro_rrhh"] });
 const respuesta = (data, status = 200) => new Response(JSON.stringify({ data }), { status,

@@ -49,6 +49,12 @@ function aBase64(bytes) {
   return btoa(binario);
 }
 
+/** Coteja la confirmación con los mismos bytes que se enviaron. */
+export async function huellaPDFFirmado(bytes) {
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", bytes);
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 async function leerJSON(respuesta) {
   const longitud = respuesta.headers.get("Content-Length");
   if (longitud !== null && (!/^(0|[1-9][0-9]*)$/u.test(longitud) || Number(longitud) > MAXIMO_RESPUESTA)) {
@@ -123,12 +129,17 @@ export function crearClienteFirmaVec({ fetchImpl = globalThis.fetch } = {}) {
         || !pdfValido(firmado) || typeof clave !== "string" || !CLAVE.test(clave)) throw new ErrorFirmaVec("contenido_no_valido");
       if (signal?.aborted) throw new ErrorFirmaVec("operacion_abortada");
       if (typeof fetchImpl !== "function") throw new ErrorFirmaVec("servicio_no_disponible");
+      const bytesEnviados = firmado.slice();
+      let huellaEnviada;
+      try { huellaEnviada = await huellaPDFFirmado(bytesEnviados); }
+      catch { throw new ErrorFirmaVec("servicio_no_disponible"); }
+      if (signal?.aborted) throw new ErrorFirmaVec("operacion_abortada");
       let respuesta;
       try {
         respuesta = await fetchImpl(RUTA_REGISTRO_FIRMA_VEC, {
           method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" },
           body: JSON.stringify({ expediente_ref: expedienteRef, version_expediente: version, documento, paso_orden: pasoOrden,
-            original_ref: originalRef, original_version: originalVersion, firmado_base64: aBase64(firmado),
+            original_ref: originalRef, original_version: originalVersion, firmado_base64: aBase64(bytesEnviados),
             clave_idempotencia: clave }),
           signal, mode: "same-origin", credentials: "same-origin", cache: "no-store", redirect: "error", referrerPolicy: "no-referrer",
         });
@@ -147,7 +158,8 @@ export function crearClienteFirmaVec({ fetchImpl = globalThis.fetch } = {}) {
       }
       if (!campos(envoltorio, ["data"]) || ![200, 201].includes(respuesta.status)) throw new ErrorFirmaVec("resultado_no_confiable");
       const recibo = validarReciboFirmaV2(envoltorio.data, solicitud);
-      if (!recibo || recibo.ya_registrada !== (respuesta.status === 200)) throw new ErrorFirmaVec("resultado_no_confiable");
+      if (!recibo || recibo.ya_registrada !== (respuesta.status === 200)
+        || recibo.documento_custodiado.huella_sha256 !== huellaEnviada) throw new ErrorFirmaVec("resultado_no_confiable");
       return recibo;
     },
   });

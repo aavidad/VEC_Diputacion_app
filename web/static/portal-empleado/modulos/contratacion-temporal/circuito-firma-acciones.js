@@ -5,6 +5,7 @@
 
 import { escaparHTML } from "./componentes-expedientes.js?v=20261002-ct-fin-modalidad-v1";
 import { validarPreflightFirma } from "./preflight-firma-api.js";
+import { huellaPDFFirmado } from "./firma-vec-api.js";
 import { PERFILES_BORRADOR_RRHH } from "./cliente-http-informe-definitivo.js?v=20261002-ct-fin-moad-v1";
 
 /** Une el circuito del catálogo con el estado real registrado. */
@@ -153,7 +154,9 @@ export function crearAccionesFirma({
       const p = validarPreflightFirma(respuesta, solicitud);
       if (!p || p.catalogo_ref !== actual.catalogoRef || p.catalogo_huella !== actual.catalogoHuella
         || (p.paso_pendiente !== 0 && p.paso_pendiente !== actual.pasoOrden)) throw { codigo: "conflicto" };
-      s.solicitud = solicitud; s.vinculo = vinculo; s.preflight = p; dibujar(s);
+      s.solicitud = { ...solicitud, revisionEntradaRef: p.entrada_documento_ref,
+        revisionEntradaVersion: p.entrada_documento_version, revisionEntradaHuella: p.entrada_documento_sha256 };
+      s.vinculo = vinculo; s.preflight = p; dibujar(s);
       if (igual(recuperacion?.contexto, actual) && recuperacion.solicitud.originalRef === solicitud.originalRef
         && recuperacion.solicitud.originalVersion === solicitud.originalVersion) s.reintento = recuperacion.reintento;
     } catch (error) { decir(s, claveError(error), {}, true); }
@@ -163,6 +166,8 @@ export function crearAccionesFirma({
     const original = await obtenerOriginal(s.solicitud, { signal: s.controlador.signal });
     if (!vigente(s)) return null;
     if (!pdfValido(original)) throw { codigo: "cadena_rota" };
+    if (await huellaPDFFirmado(original) !== s.solicitud.revisionEntradaHuella) throw { codigo: "cadena_rota" };
+    if (!vigente(s)) return null;
     return original;
   }
   async function descargar(s) {
