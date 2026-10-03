@@ -122,7 +122,7 @@ func fixtureConsultaFirmaV2() (ports.MaterialConsultaFirmasR5V2, respuestaFirmas
 	revision := firmaRevisionPDFSQL172{firmaExternaSQL170: base, FirmanteRef: "ref:" + certificado,
 		CertificadoHuella: certificado, EntradaDocumentoRef: refOriginal, EntradaDocumentoVersion: version,
 		EntradaDocumentoLongitud: 100, EntradaDocumentoHuella: original, OrdenFirmaPDF: 1,
-		ByteRange: [4]uint64{0, 120, 180, 20}, RevisionHuellaSHA256: firmado,
+		ByteRange: []uint64{0, 120, 180, 20}, RevisionHuellaSHA256: firmado,
 		ContenidoFirmadoHuellaSHA256: original, RevisionLongitud: 200,
 		EvidenciaFirmasCanonica: evidencia, EvidenciaFirmasHuellaSHA256: hex.EncodeToString(h[:])}
 	return m, respuestaFirmasR5SQL172{respuestaFirmasR5SQL170: respuestaFirmasR5SQL170{Encontrado: &encontrado,

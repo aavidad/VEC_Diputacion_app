@@ -30,7 +30,7 @@ func TestConsultaFirmaV2ConservaEvidenciaTrasCommit(t *testing.T) {
 	v := l.RevisionesPDF[0]
 	if !bytes.Equal(v.EvidenciaFirmasCanonica, []byte(w.RevisionesPDF[0].EvidenciaFirmasCanonica)) ||
 		v.FirmaRef != w.Firmas[0].FirmaRef || v.ReciboRef != w.Firmas[0].ReciboRef ||
-		v.FirmanteRef != w.RevisionesPDF[0].FirmanteRef || v.ByteRange != w.RevisionesPDF[0].ByteRange ||
+		v.FirmanteRef != w.RevisionesPDF[0].FirmanteRef || v.ByteRange != [4]uint64(w.RevisionesPDF[0].ByteRange) ||
 		l.HistoriaRevision != *w.HistoriaRevision || l.HistoriaHuella != w.HistoriaHuella {
 		t.Fatal("la lectura modificó la revisión o su historia")
 	}
@@ -44,6 +44,9 @@ func TestConsultaFirmaV2RevierteRespuestaIncoherente(t *testing.T) {
 		{"recibo ajeno", func(w *respuestaFirmasR5SQL172) { w.RevisionesPDF[0].ReciboRef = "recibo:ajeno" }},
 		{"evidencia alterada", func(w *respuestaFirmasR5SQL172) { w.RevisionesPDF[0].EvidenciaFirmasCanonica = `[{"orden":2}]` }},
 		{"rango sin cubrir", func(w *respuestaFirmasR5SQL172) { w.RevisionesPDF[0].ByteRange[3]-- }},
+		{"rango quinto elemento", func(w *respuestaFirmasR5SQL172) {
+			w.RevisionesPDF[0].ByteRange = append(w.RevisionesPDF[0].ByteRange, 0)
+		}},
 		{"entrada ajena", func(w *respuestaFirmasR5SQL172) { w.RevisionesPDF[0].EntradaDocumentoRef = "documento:ajeno" }},
 		{"firma repetida", func(w *respuestaFirmasR5SQL172) { w.RevisionesPDF = append(w.RevisionesPDF, w.RevisionesPDF[0]) }},
 		{"version futura", func(w *respuestaFirmasR5SQL172) { w.Firmas[0].ExpedienteVersion++ }},

@@ -6,6 +6,8 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
+	"log/slog"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -32,21 +34,21 @@ const consultarFirmasSQL172 = `SELECT vec_contratacion_temporal.consultar_firmas
 
 type firmaRevisionPDFSQL172 struct {
 	firmaExternaSQL170
-	FirmanteRef                  string    `json:"FirmanteRef"`
-	CertificadoHuella            string    `json:"CertificadoHuella"`
-	FirmaAnteriorRef             *string   `json:"FirmaAnteriorRef"`
-	ReciboAnteriorRef            *string   `json:"ReciboAnteriorRef"`
-	EntradaDocumentoRef          string    `json:"EntradaDocumentoRef"`
-	EntradaDocumentoVersion      uint64    `json:"EntradaDocumentoVersion"`
-	EntradaDocumentoLongitud     uint64    `json:"EntradaDocumentoLongitud"`
-	EntradaDocumentoHuella       string    `json:"EntradaDocumentoHuella"`
-	OrdenFirmaPDF                int       `json:"OrdenFirmaPDF"`
-	ByteRange                    [4]uint64 `json:"ByteRange"`
-	RevisionHuellaSHA256         string    `json:"RevisionHuellaSHA256"`
-	ContenidoFirmadoHuellaSHA256 string    `json:"ContenidoFirmadoHuellaSHA256"`
-	RevisionLongitud             uint64    `json:"RevisionLongitud"`
-	EvidenciaFirmasCanonica      string    `json:"EvidenciaFirmasCanonica"`
-	EvidenciaFirmasHuellaSHA256  string    `json:"EvidenciaFirmasHuellaSHA256"`
+	FirmanteRef                  string   `json:"FirmanteRef"`
+	CertificadoHuella            string   `json:"CertificadoHuella"`
+	FirmaAnteriorRef             *string  `json:"FirmaAnteriorRef"`
+	ReciboAnteriorRef            *string  `json:"ReciboAnteriorRef"`
+	EntradaDocumentoRef          string   `json:"EntradaDocumentoRef"`
+	EntradaDocumentoVersion      uint64   `json:"EntradaDocumentoVersion"`
+	EntradaDocumentoLongitud     uint64   `json:"EntradaDocumentoLongitud"`
+	EntradaDocumentoHuella       string   `json:"EntradaDocumentoHuella"`
+	OrdenFirmaPDF                int      `json:"OrdenFirmaPDF"`
+	ByteRange                    []uint64 `json:"ByteRange"`
+	RevisionHuellaSHA256         string   `json:"RevisionHuellaSHA256"`
+	ContenidoFirmadoHuellaSHA256 string   `json:"ContenidoFirmadoHuellaSHA256"`
+	RevisionLongitud             uint64   `json:"RevisionLongitud"`
+	EvidenciaFirmasCanonica      string   `json:"EvidenciaFirmasCanonica"`
+	EvidenciaFirmasHuellaSHA256  string   `json:"EvidenciaFirmasHuellaSHA256"`
 }
 
 type respuestaFirmasR5SQL172 struct {
@@ -88,7 +90,9 @@ func (r *RegistroFirmasVerificadasPostgreSQL) ConsultarFirmasAutorizadasV2(ctx c
 		if !confirmado {
 			c, cancelar := context.WithTimeout(context.Background(), 2*time.Second)
 			defer cancelar()
-			_ = tx.Rollback(c)
+			if err := tx.Rollback(c); err != nil && !errors.Is(err, pgx.ErrTxClosed) {
+				slog.Warn("contratacion temporal: rollback de lectura de firmas V2 no confirmado")
+			}
 		}
 	}()
 	if _, err = tx.Exec(ctx, ajustesRegistroIncorporacionTXV2); err != nil {
@@ -119,6 +123,13 @@ func (r *RegistroFirmasVerificadasPostgreSQL) ConsultarFirmasAutorizadasV2(ctx c
 	}
 	revisiones := make([]ports.FirmaRegistradaRevisionPDFV2, 0, len(w.RevisionesPDF))
 	vistas := make(map[string]bool, len(w.RevisionesPDF))
+	porRevision := make(map[string]firmaRevisionPDFSQL172, len(w.RevisionesPDF))
+	for _, v := range w.RevisionesPDF {
+		if _, existe := porRevision[v.FirmaRef]; existe {
+			return cero, ports.ErrResultadoFirmaDocumentoInvalido
+		}
+		porRevision[v.FirmaRef] = v
+	}
 	for _, v := range w.RevisionesPDF {
 		base, existe := porRef[v.FirmaRef]
 		h := sha256.Sum256([]byte(v.EvidenciaFirmasCanonica))
@@ -136,14 +147,14 @@ func (r *RegistroFirmasVerificadasPostgreSQL) ConsultarFirmasAutorizadasV2(ctx c
 			!domain.HuellaSHA256FirmaValida(v.EntradaDocumentoHuella) ||
 			v.EntradaDocumentoLongitud < 1 || v.EntradaDocumentoLongitud >= v.RevisionLongitud ||
 			v.RevisionLongitud > ports.MaximoDocumentoFirmaBytes ||
+			len(v.ByteRange) != 4 ||
 			v.ByteRange[0] != 0 || v.ByteRange[1] < v.EntradaDocumentoLongitud ||
 			v.ByteRange[2] <= v.ByteRange[1] || v.ByteRange[2] > v.RevisionLongitud ||
 			v.ByteRange[3] == 0 || v.ByteRange[3] != v.RevisionLongitud-v.ByteRange[2] ||
 			(v.OrdenFirmaPDF == 1 && (textoFirma118(v.FirmaAnteriorRef) != "" || textoFirma118(v.ReciboAnteriorRef) != "" ||
 				v.EntradaDocumentoRef != base.OriginalRef || v.EntradaDocumentoVersion != base.OriginalVersion ||
 				v.EntradaDocumentoHuella != base.OriginalHuella)) ||
-			(v.OrdenFirmaPDF == 2 && (!domain.ReferenciaOpacaValida(textoFirma118(v.FirmaAnteriorRef)) ||
-				!domain.ReferenciaOpacaValida(textoFirma118(v.ReciboAnteriorRef)))) ||
+			(v.OrdenFirmaPDF == 2 && !antecedenteRevisionFirmaSQL172(v, base, porRef, porRevision)) ||
 			!domain.HuellaSHA256FirmaValida(v.ContenidoFirmadoHuellaSHA256) ||
 			len(v.EvidenciaFirmasCanonica) < 2 || len(v.EvidenciaFirmasCanonica) > 32768 ||
 			json.Compact(&compacto, []byte(v.EvidenciaFirmasCanonica)) != nil ||
@@ -158,7 +169,7 @@ func (r *RegistroFirmasVerificadasPostgreSQL) ConsultarFirmasAutorizadasV2(ctx c
 			FirmaAnteriorRef: textoFirma118(v.FirmaAnteriorRef), ReciboAnteriorRef: textoFirma118(v.ReciboAnteriorRef),
 			EntradaDocumentoRef: v.EntradaDocumentoRef, EntradaDocumentoVersion: v.EntradaDocumentoVersion,
 			EntradaDocumentoLongitud: v.EntradaDocumentoLongitud, EntradaDocumentoHuella: v.EntradaDocumentoHuella,
-			OrdenFirmaPDF: v.OrdenFirmaPDF, ByteRange: v.ByteRange, RevisionHuellaSHA256: v.RevisionHuellaSHA256,
+			OrdenFirmaPDF: v.OrdenFirmaPDF, ByteRange: [4]uint64(v.ByteRange), RevisionHuellaSHA256: v.RevisionHuellaSHA256,
 			ContenidoFirmadoHuellaSHA256: v.ContenidoFirmadoHuellaSHA256, RevisionLongitud: v.RevisionLongitud,
 			EvidenciaFirmasCanonica:     json.RawMessage(v.EvidenciaFirmasCanonica),
 			EvidenciaFirmasHuellaSHA256: v.EvidenciaFirmasHuellaSHA256})
@@ -180,6 +191,21 @@ func (r *RegistroFirmasVerificadasPostgreSQL) ConsultarFirmasAutorizadasV2(ctx c
 		Firmas: firmas, HistoriaRevision: *w.HistoriaRevision, HistoriaHuella: w.HistoriaHuella,
 		CoincideFirmanteEnOtroPaso:   *w.CoincideFirmanteEnOtroPaso,
 		HistoriaSeparacionAcreditada: *w.HistoriaSeparacionAcreditada}, RevisionesPDF: revisiones}, nil
+}
+
+func antecedenteRevisionFirmaSQL172(v firmaRevisionPDFSQL172, base ports.FirmaRegistrada,
+	firmas map[string]ports.FirmaRegistrada, revisiones map[string]firmaRevisionPDFSQL172,
+) bool {
+	ref := textoFirma118(v.FirmaAnteriorRef)
+	previa, existe := firmas[ref]
+	revision, revisada := revisiones[ref]
+	return existe && revisada && domain.ReferenciaOpacaValida(ref) &&
+		previa.ReciboRef == textoFirma118(v.ReciboAnteriorRef) && revision.OrdenFirmaPDF == 1 &&
+		previa.PasoOrden == 1 && previa.Secuencia+1 == base.Secuencia &&
+		previa.Documento == base.Documento && previa.CatalogoRef == base.CatalogoRef && previa.CatalogoHuella == base.CatalogoHuella &&
+		previa.OriginalRef == base.OriginalRef && previa.OriginalVersion == base.OriginalVersion && previa.OriginalHuella == base.OriginalHuella &&
+		v.EntradaDocumentoRef == previa.DocumentoCustodiaRef && v.EntradaDocumentoVersion == previa.DocumentoCustodiaVersion &&
+		v.EntradaDocumentoHuella == previa.FirmadoHuella && v.EntradaDocumentoLongitud == revision.RevisionLongitud
 }
 
 func limpiarParametrosFirma172(parametros []any) {
