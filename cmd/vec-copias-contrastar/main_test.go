@@ -138,3 +138,16 @@ func TestFalloDiagnosticoImpideExito(t *testing.T) {
 		t.Fatalf("CLI con diagnóstico fallido: código %d, intentos %d", codigo, w.intentos)
 	}
 }
+
+func TestCLIMultibaseSinExclusionNoConecta(t *testing.T) {
+	c := configuracion{DSN: "host=127.0.0.1 port=1 dbname=postgres password=secreto_sintetico", VersionPostgreSQL: "18.4", TiempoMaximoSegundos: 1, MaxFilas: 100000, MaxBytes: 8 << 20, MaxObjetos: 1000, BasesInventariadas: []string{"postgres", "template0", "template1"}}
+	cfg := escribir(t, "config.json", c)
+	code, out, diag := ejecutar(t, []string{"--modo", "capturar", "--configuracion", cfg, "--catalogo", catalogoCLI(t)})
+	if code != 2 || out != "" || !strings.Contains(diag, "copias_contraste_error_captura") || strings.Contains(diag, "secreto_sintetico") {
+		t.Fatalf("multibase sin exclusión: código %d, salida %q, diagnóstico %q", code, out, diag)
+	}
+	w := &diagnosticoFallido{}
+	if code := run(context.Background(), []string{"--modo", "capturar", "--configuracion", cfg, "--catalogo", catalogoCLI(t)}, io.Discard, w); code != 2 || w.intentos != 1 {
+		t.Fatal("error multibase pierde fallo de diagnóstico")
+	}
+}
