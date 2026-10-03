@@ -618,3 +618,7 @@ static/textos/en/bolsa-historial-ofrecimientos.json
 static/portal-empleado/modulos/contratacion-temporal/preflight-firma-api.js
 static/portal-empleado/modulos/contratacion-temporal/original-firmable-api.js
 static/portal-empleado/modulos/contratacion-temporal/firma-vec-api.js
+static/portal-empleado/modulos/personal/comparacion-ficha-b2.js
+static/portal-empleado/modulos/personal/comparacion-ficha-b2.css
+static/textos/es/personal-comparacion-b2.json
+static/textos/en/personal-comparacion-b2.json

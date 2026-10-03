@@ -151,7 +151,9 @@ export function montarComparacionFichaB2({ raiz, cliente, empleadoRef, corteBase
     const otro = { vigente_en: efectos.value, conocido_en: instanteDesdeMadrid(conocimiento.value) };
     efectos.setAttribute("aria-invalid", String(!fecha(otro.vigente_en))); conocimiento.setAttribute("aria-invalid", String(!otro.conocido_en));
     if (!corteValido(otro) || mismoCorte(base, otro)) { mensaje("fecha_invalida", true); disponible(); return; }
+    const conservarFoco = [comparar, efectos, conocimiento].includes(d.activeElement);
     alIniciar(); const actual = new AbortController(); vuelo = actual; const turno = secuencia; comparar.disabled = true; cancelar.hidden = false; mensaje("cargando");
+    if (conservarFoco) cancelar.focus?.();
     try {
       const consultar = (c) => cliente.consultarFicha({ empleadoRef, vigenteEn: c.vigente_en, conocidoEn: c.conocido_en, signal: actual.signal });
       const primera = await consultar(base);
@@ -164,7 +166,13 @@ export function montarComparacionFichaB2({ raiz, cliente, empleadoRef, corteBase
     } catch (e) {
       if (!vivo || actual.signal.aborted || turno !== secuencia) return;
       alError(); mensaje([401, 403].includes(e?.estado) ? "denegado" : "error", true);
-    } finally { if (vivo && vuelo === actual) { vuelo = undefined; disponible(); } }
+    } finally {
+      if (vivo && vuelo === actual) {
+        const devolverFoco = d.activeElement === cancelar;
+        vuelo = undefined; disponible();
+        if (devolverFoco) comparar.focus?.();
+      }
+    }
   });
   return Object.freeze({ elemento, desmontar() { vivo = false; limpiar(); elemento.remove?.(); } });
 }
