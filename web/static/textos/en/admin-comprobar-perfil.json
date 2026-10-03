@@ -9,6 +9,9 @@
     "admin_perfil_fijo": "This system profile can only be viewed. Changes are not allowed.",
     "admin_catalogo_acciones_no_vigente": "The catalogue is not valid on the specified date.",
     "admin_origen_perfil_no_coincide": "The source version or hash does not match. Check the catalogue version and the previous profile version.",
-    "admin_permiso_perfil_no_coincide": "A permission does not match its valid entry. Check the action, resource, purpose, fields, assurance and obligations."
+    "admin_permiso_perfil_no_coincide": "A permission does not match its valid entry. Check the action, resource, purpose, fields, assurance and obligations.",
+    "admin_gobierno_plan_preparado": "The plan is ready. No version has been published and no permissions have changed.",
+    "admin_gobierno_plan_limite": "File-based plan. Publication or withdrawal requires an administrative identity, a central source, another approver and a durable record.",
+    "admin_plan_gobierno_perfil_invalido": "The plan cannot be prepared. Check the operation, the previous version, its validity control and the reason."
   }
 }
