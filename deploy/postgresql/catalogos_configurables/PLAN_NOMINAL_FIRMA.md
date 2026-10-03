@@ -60,11 +60,13 @@ del documento original, sin volver a construirlo. El propietario AD puede
 confirmar gobierno; ningún rol LOGIN recibe EXECUTE de estas fachadas.
 
 La prueba `pruebas_sql/plan_nominal_firma_000007.sql` comprueba objetos, RLS,
-propietarios, ACL y funciones. Incluye los bytes de dos vectores generados por
+propietarios, ACL y funciones. Incluye los bytes de tres vectores generados por
 `CatalogoConfigurable.ClonarCanonico` y `json.Marshal` en Go: borrador SHA-256
 `ce029352e249d4260bcc2b5717de0fd9aebbff3f1595af5d7170930805f78e04`
 y publicado SHA-256
-`2a88331f403f3de34386a5b2e4930e22f7533282ae1f6e9f9faa85b3ac9f9dd6`.
+`2a88331f403f3de34386a5b2e4930e22f7533282ae1f6e9f9faa85b3ac9f9dd6`,
+y retirado SHA-256
+`817a7bb30120412671e8a1208ace781a1548f9c591a15a2c21dcf4f4254bc457`.
 Sus copias exactas están en `pruebas_sql/testdata/`. No inserta concesiones
 sintéticas. Faltan el
 ensayo de PostgreSQL real, las pruebas transaccionales de concurrencia y

@@ -534,14 +534,14 @@ BEGIN
    IF actor IN (actual.creado_por,actual.ultimo_editor)
       OR c->>'aprobacion_ref' IS NULL
       OR c - 'estado' - 'publicado_por' - 'publicado_en' - 'aprobacion_ref' - 'motivo_publicacion'
-         IS DISTINCT FROM origen - 'estado' THEN
+         IS DISTINCT FROM origen - 'estado' - 'publicado_en' THEN
     RAISE EXCEPTION 'CC7: publicación sin separación o borrador idéntico' USING ERRCODE='42501'; END IF;
   ELSIF op='retirar' THEN
    IF actor=actual.publicado_por OR c->>'aprobacion_ref' IS DISTINCT FROM origen->>'aprobacion_ref'
       OR c->>'retirada_aprobacion_ref' IS NULL
       OR c->>'retirada_aprobacion_ref' IS NOT DISTINCT FROM origen->>'aprobacion_ref'
       OR c - 'estado' - 'retirado_por' - 'retirado_en' - 'retirada_aprobacion_ref' - 'motivo_retirada'
-         IS DISTINCT FROM origen - 'estado' THEN
+         IS DISTINCT FROM origen - 'estado' - 'retirado_en' THEN
     RAISE EXCEPTION 'CC7: retirada sin separación o publicación alterada' USING ERRCODE='42501'; END IF;
   END IF;
   UPDATE vec_catalogos_configurables.plan_firma_control SET
