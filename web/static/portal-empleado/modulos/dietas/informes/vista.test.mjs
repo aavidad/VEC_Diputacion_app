@@ -91,6 +91,54 @@ test("período invertido muestra error y el filtro vacío se puede limpiar", asy
   vista.desmontar();
 });
 
+test("el resumen distingue los filtros aplicados de las ediciones aún sin aplicar en ambos idiomas", async () => {
+  for (const idioma of ["es", "en"]) {
+    const textos = await cargarTextos("dietas-informes", { idioma });
+    assert.deepEqual(textos.faltantes, []);
+    const traducir = (clave, variables) => textos.traducir(`general.${clave}`, variables);
+    const contenedor = raiz();
+    const vista = montarInformesDietas(contenedor, { cargarDatos: async () => datos,
+      cargarConfiguracion, traducir, localizacion: textos.localizacion });
+    await esperar();
+    const form = contenedor.querySelector("[data-dietas-informes-filtros]");
+    const aplicados = contenedor.querySelector("[data-dietas-informes-aplicados]");
+    const [persona, unidad] = form.querySelectorAll("select");
+    const [desde, hasta] = form.querySelectorAll("input");
+    const aviso = aplicados.children.at(-1);
+    assert.equal(aplicados.attrs["aria-label"], traducir("filtros_aplicados"));
+    assert.equal(aplicados.children[1].textContent, traducir("sin_filtros"));
+    assert.equal(aviso.hidden, true);
+
+    persona.value = "persona-demo-01"; unidad.value = "unidad-demo-01";
+    desde.value = "2026-09-10"; hasta.value = "2026-09-30";
+    desde.focus(); form.listeners.input();
+    assert.equal(aviso.hidden, false);
+    assert.equal(contenedor.ownerDocument.activeElement, desde);
+    assert.equal(contenedor.querySelectorAll("tbody")[0].children.length, 6);
+    form.listeners.submit({ preventDefault() {} });
+    const fecha = new Intl.DateTimeFormat(textos.localizacion, { dateStyle: "medium", timeZone: "UTC" });
+    assert.equal(aviso.hidden, true);
+    assert.match(texto(aplicados), /Ana Molina/u);
+    assert.match(texto(aplicados), /Servicios Generales/u);
+    assert.ok(texto(aplicados).includes(fecha.format(new Date("2026-09-10T00:00:00Z"))));
+    assert.ok(texto(aplicados).includes(fecha.format(new Date("2026-09-30T00:00:00Z"))));
+    assert.deepEqual(contenedor.querySelectorAll("tbody")[0].children.map((fila) => fila.children[0].textContent), ["DI-004"]);
+
+    persona.value = "persona-demo-02"; form.listeners.change();
+    assert.equal(aviso.hidden, false);
+    assert.match(texto(aplicados), /Ana Molina/u);
+    assert.doesNotMatch(texto(aplicados), /persona-demo-02/u);
+    await vista.recargar();
+    assert.equal(persona.value, "persona-demo-01");
+    assert.equal(aviso.hidden, true);
+    assert.match(texto(aplicados), /Ana Molina/u);
+    form.querySelectorAll("button")[1].listeners.click();
+    assert.equal(aplicados.children[1].textContent, traducir("sin_filtros"));
+    assert.equal(aviso.hidden, true);
+    vista.desmontar();
+  }
+});
+
 test("cada fecha inválida se marca por separado, con error traducido y filtros confirmados conservados", async () => {
   for (const idioma of ["es", "en"]) {
     const textos = await cargarTextos("dietas-informes", { idioma });
@@ -183,6 +231,9 @@ test("recargar conserva una persona y unidad aplicadas aunque desaparezcan de la
   assert.deepEqual([persona.value, unidad.value], ["persona-demo-04", "unidad-demo-03"]);
   assert.equal(persona.children.find((opcion) => opcion.value === persona.value).textContent, "Eva Torres");
   assert.equal(unidad.children.find((opcion) => opcion.value === unidad.value).textContent, "Medio Ambiente");
+  const aplicados = contenedor.querySelector("[data-dietas-informes-aplicados]");
+  assert.match(texto(aplicados), /Eva Torres/u);
+  assert.match(texto(aplicados), /Medio Ambiente/u);
   assert.equal(contenedor.querySelectorAll("tbody").length, 0);
   assert.match(texto(contenedor), /No hay informes/u);
   form.querySelectorAll("button")[1].listeners.click();
