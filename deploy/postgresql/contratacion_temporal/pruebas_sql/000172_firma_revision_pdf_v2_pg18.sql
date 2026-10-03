@@ -87,6 +87,7 @@ CREATE TEMP TABLE ct172_preimagen AS
  UNION ALL SELECT 'outbox',count(*) FROM vec_contratacion_temporal.firma_documento_outbox_v1;
 SET SESSION AUTHORIZATION vec_ct172_prueba;
 DO $negativas$
+DECLARE campo text; material jsonb;
 BEGIN
  BEGIN
   PERFORM vec_contratacion_temporal.registrar_firma_verificada_v2(
@@ -94,6 +95,21 @@ BEGIN
   RAISE EXCEPTION 'CT172 aceptó material vacío' USING ERRCODE='55000';
  EXCEPTION WHEN SQLSTATE '22023' OR SQLSTATE '42501' THEN NULL;
  END;
+ -- Casos mínimos para aislar la guarda previa al consumo, sin construir
+ -- una firma favorable. Se exige su diagnóstico fijo: otra validación no
+ -- puede hacer pasar esta regresión cuando falta la guarda de metadatos.
+ FOREACH campo IN ARRAY ARRAY['PuestoFirmanteRef','AmbitoFirmanteRef','ActoCompetenciaRef'] LOOP
+  material:=jsonb_build_object('Via','certificado_vec','PuestoFirmanteRef',NULL,
+   'AmbitoFirmanteRef',NULL,'ActoCompetenciaRef',NULL)||jsonb_build_object(campo,'ref:ct172:no-acreditada');
+  BEGIN
+   PERFORM vec_contratacion_temporal.registrar_firma_verificada_v2(
+    material::text,'2026-10-03T00:00:00Z','\x',convert_to('{}','UTF8'),'\x','\x',1,1,'\x','\x','\x','\x','\x');
+   RAISE EXCEPTION 'CT172 aceptó metadato sin fuente: %',campo USING ERRCODE='55000';
+  EXCEPTION WHEN SQLSTATE '22023' THEN
+   IF SQLERRM IS DISTINCT FROM 'metadatos nominales no acreditados' THEN
+    RAISE EXCEPTION 'CT172 guarda de metadato no comprobada: %',campo USING ERRCODE='55000'; END IF;
+  END;
+ END LOOP;
  BEGIN
   PERFORM vec_contratacion_temporal.consultar_firmas_r5_atestadas_v2('{}','\x','\x','\x','\x',1,1,'\x','\x','\x','\x');
   RAISE EXCEPTION 'CT172 aceptó consulta vacía' USING ERRCODE='55000';

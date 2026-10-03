@@ -155,6 +155,12 @@ BEGIN
     OR (SELECT count(*) FROM json_each(p_solicitud::json)) <> (SELECT count(*) FROM jsonb_each(s))
     OR s->>'Via' NOT IN ('certificado_vec','portafirmas_registro_rrhh')
  THEN RAISE EXCEPTION 'material de firma verificada inválido' USING ERRCODE='22023'; END IF;
+ -- El canon nominal actual no contiene fuentes contrastables de estos tres
+ -- metadatos. Mantener NULL hasta que su propietario publique esa capacidad.
+ IF s->'PuestoFirmanteRef' IS DISTINCT FROM 'null'::jsonb
+  OR s->'AmbitoFirmanteRef' IS DISTINCT FROM 'null'::jsonb
+  OR s->'ActoCompetenciaRef' IS DISTINCT FROM 'null'::jsonb THEN
+  RAISE EXCEPTION 'metadatos nominales no acreditados' USING ERRCODE='22023'; END IF;
  IF (s->>'Via'='portafirmas_registro_rrhh' AND
      vec_contratacion_temporal.fiscalizacion_claves_exactas_v1(s,ARRAY[
       'Via','OrganizacionRef','ExpedienteRef','VersionExpediente','Documento','CatalogoRef','CatalogoHuella',
@@ -205,10 +211,8 @@ BEGIN
        RAISE EXCEPTION 'material de firma externa inválido' USING ERRCODE='22023'; END IF;
    END LOOP;
  END IF;
- FOREACH k IN ARRAY ARRAY['PuestoFirmanteRef','AmbitoFirmanteRef','ActoCompetenciaRef','DelegacionRef'] LOOP
-   IF jsonb_typeof(s->k) IS NULL OR jsonb_typeof(s->k) NOT IN ('string','null') THEN
-      RAISE EXCEPTION 'material de firma externa inválido' USING ERRCODE='22023'; END IF;
- END LOOP;
+ IF jsonb_typeof(s->'DelegacionRef') IS NULL OR jsonb_typeof(s->'DelegacionRef') NOT IN ('string','null') THEN
+  RAISE EXCEPTION 'material de firma externa inválido' USING ERRCODE='22023'; END IF;
  FOREACH k IN ARRAY ARRAY['VersionExpediente','PasoOrden','Secuencia','OriginalVersion',
   'AsignacionFirmanteVersion','ControlVigenciaFirmanteRevision','DocumentoCustodiaVersion'] LOOP
    IF jsonb_typeof(s->k) IS DISTINCT FROM 'number' OR (s->>k) !~ '^[1-9][0-9]{0,15}$'

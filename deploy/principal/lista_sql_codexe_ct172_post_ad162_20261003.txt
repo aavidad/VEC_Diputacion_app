@@ -1,4 +1,5 @@
-# Borrador CT172: verificar la preimagen inventariada antes de ensayar.
+# Borrador CT172 NO-GO: falta ligar el descriptor a la autorización V3.
+# Verificar la preimagen inventariada antes de ensayar.
 # Requiere CT170/CT174, AD162 y AUT32/AUT35 con fuentes CA25/Personal28/29.
 # ABI AUT35 acordado el 03/10: fabricante interno jsonb/jsonb/jsonb → bytea.
 # Falta publicar y revisar su candidata y ensayar esta migración exacta.
