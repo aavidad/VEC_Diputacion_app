@@ -48,6 +48,16 @@ Las dependencias que impiden activar la consulta son concretas:
 - `registrar_denegacion_frontera_admin_v1`: el adaptador E está preparado,
   pero aquí no se acredita instalación ni auditoría común. Sin respuesta
   válida conserva el error, sin simular un acuse.
+- `postgres.NuevaFuenteCapacidades`: prepara exclusivamente
+  `consultar_capacidades_admin_v1`, con la correlación de la frontera y el
+  acuse común permitido de AD168. Devuelve `acciones: []`; las otras seis
+  consultas y los actos siguen cerrados. Su constructor conserva
+  `NoDisponible` hasta que L entregue el registrador común durable de
+  denegaciones y errores y se acredite el LOGIN del rol técnico
+  `vec_admin_perfiles_lector`. Se inyectará por
+  `DependenciasComposicionPerfiles.Lecturas`; no usa el pool de actos ni
+  abre el constructor general de lecturas. Las pruebas de contrato con
+  dobles no acreditan instalación ni auditoría real.
 - Configuración privada, fuentes causales y bootstrap por el canal admitido:
   la CLI actual prepara o coteja; `-aplicar` permanece indisponible.
 
