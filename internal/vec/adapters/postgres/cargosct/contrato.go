@@ -159,45 +159,48 @@ func decodificar(b []byte, v any) error {
 		return ErrRechazada
 	}
 	// Reject repeated JSON keys, including within nested material.
-	if !clavesUnicas(json.NewDecoder(bytes.NewReader(b))) {
+	if err := clavesUnicas(json.NewDecoder(bytes.NewReader(b))); err != nil {
 		return ErrRechazada
 	}
 	return nil
 }
-func clavesUnicas(d *json.Decoder) bool {
+func clavesUnicas(d *json.Decoder) error {
 	t, err := d.Token()
 	if err != nil {
-		return false
+		return err
 	}
 	x, ok := t.(json.Delim)
 	if !ok {
-		return true
+		return nil
 	}
 	switch x {
 	case '{':
 		seen := map[string]bool{}
 		for d.More() {
-			k, e := d.Token()
+			k, err := d.Token()
+			if err != nil {
+				return err
+			}
 			s, ok := k.(string)
-			if e != nil || !ok || seen[s] {
-				return false
+			if !ok || seen[s] {
+				return ErrRechazada
 			}
 			seen[s] = true
-			if !clavesUnicas(d) {
-				return false
+			if err := clavesUnicas(d); err != nil {
+				return err
 			}
 		}
 	case '[':
 		for d.More() {
-			if !clavesUnicas(d) {
-				return false
+			if err := clavesUnicas(d); err != nil {
+				return err
 			}
 		}
 	default:
-		return false
+		return ErrRechazada
 	}
 	_, err = d.Token()
-	return err == nil
+	return err
 }
 
 // LeerPlan only reads the offline plan; it does not require operator material
