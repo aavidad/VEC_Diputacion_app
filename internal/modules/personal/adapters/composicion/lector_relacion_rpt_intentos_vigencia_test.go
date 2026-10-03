@@ -143,7 +143,7 @@ func TestIntentoRPTActorVigenteSeAtribuyeTrasResolver(t *testing.T) {
 		t.Fatal(err)
 	}
 	intento := ports.IntentoLectorRelacionRPT{Actor: identidad.Resultado.Contexto, RelacionRef: "rel_" + strings.Repeat("r", 24), Motivo: "denegado"}
-	if err := registro.RegistrarIntentoRelacionRPT(context.Background(), intento); err != nil {
+	if err := registro.RegistrarIntentoRelacionRPT(contextoCorrelacionLectorRPTPrueba(t), intento); err != nil {
 		t.Fatal(err)
 	}
 	if destino.writes != 1 || resolutor.llamadas != 1 || destino.evento.ActorRef != identidad.Resultado.Contexto.PersonaRef || destino.evento.RelacionRef != intento.RelacionRef || destino.evento.Motivo != intento.Motivo || !strings.HasPrefix(destino.evento.CorrelacionRef, "correlacion_") {
@@ -170,7 +170,7 @@ func TestIntentoRPTCaducidadDuranteResolucionConservaIntentoSinActor(t *testing.
 				t.Fatal(err)
 			}
 			intento := ports.IntentoLectorRelacionRPT{Actor: identidad.Resultado.Contexto, RelacionRef: "rel_" + strings.Repeat("r", 24), Motivo: "denegado"}
-			if err := registro.RegistrarIntentoRelacionRPT(context.Background(), intento); err != nil {
+			if err := registro.RegistrarIntentoRelacionRPT(contextoCorrelacionLectorRPTPrueba(t), intento); err != nil {
 				t.Fatal(err)
 			}
 			if destino.writes != 1 || resolutor.llamadas != 1 || destino.evento.ActorRef != "" || destino.evento.RelacionRef != intento.RelacionRef || destino.evento.Motivo != intento.Motivo || !strings.HasPrefix(destino.evento.CorrelacionRef, "correlacion_") {
