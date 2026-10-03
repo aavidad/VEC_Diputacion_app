@@ -295,3 +295,49 @@ func TestFichaPropiaHTTPPreflightCanceladoConIdentidadConservaIntento(t *testing
 		t.Fatal("el intento perdió la correlación original")
 	}
 }
+
+func TestFichaPropiaHTTPNegociaDisponibilidadSinCambiarContratoAnterior(t *testing.T) {
+	for _, caso := range []struct {
+		nombre     string
+		acepta     []string
+		disponible bool
+		negociada  bool
+	}{
+		{"anterior", nil, true, false},
+		{"json_anterior", []string{"application/json"}, true, false},
+		{"nuevo_sin_montaje", []string{PerfilAceptacionFichaPropiaExportacion}, false, true},
+		{"nuevo_con_montaje", []string{PerfilAceptacionFichaPropiaExportacion}, true, true},
+		{"duplicada", []string{PerfilAceptacionFichaPropiaExportacion, PerfilAceptacionFichaPropiaExportacion}, true, false},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			m := manejadorFichaPropiaPrueba(t, &consultaFichaPropiaHTTP{}, &registroFichaPropiaHTTP{})
+			m.exportacionDisponible = caso.disponible
+			r := httptest.NewRequest(http.MethodGet, RutaFichaPropia, nil)
+			for _, acepta := range caso.acepta {
+				r.Header.Add("Accept", acepta)
+			}
+			w := httptest.NewRecorder()
+			w.Header().Set("Vary", "Origin")
+			m.ServeHTTP(w, r)
+			var sobre struct {
+				Data map[string]json.RawMessage `json:"data"`
+			}
+			if w.Code != http.StatusOK || json.Unmarshal(w.Body.Bytes(), &sobre) != nil {
+				t.Fatal("consulta no disponible", w.Code)
+			}
+			valor, existe := sobre.Data["exportacion_servicios_disponible"]
+			if existe != caso.negociada || len(sobre.Data) != 3+map[bool]int{true: 1, false: 0}[caso.negociada] {
+				t.Fatal("representación incompatible")
+			}
+			if existe {
+				var disponible bool
+				if json.Unmarshal(valor, &disponible) != nil || disponible != caso.disponible {
+					t.Fatal("disponibilidad distinta al montaje")
+				}
+			}
+			if w.Header().Get("Cache-Control") != "no-store" || len(w.Header().Values("Vary")) != 2 {
+				t.Fatal("perdió las condiciones de caché anteriores")
+			}
+		})
+	}
+}

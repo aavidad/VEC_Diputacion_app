@@ -99,7 +99,9 @@ var _ ports.RepositorioExportacionServiciosPropios = (*RepositorioExportacionSer
 
 // El montaje verifica la fachada exportadora propia antes de publicar la ruta.
 func PreflightEjecutorExportacionServiciosPropios(ctx context.Context, pool *pgxpool.Pool) error {
-	const q = `SELECT has_function_privilege('vec_personal.exportar_servicios_propios_empleado_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')`
+	const q = `SELECT has_function_privilege('vec_personal.exportar_servicios_propios_empleado_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
+ AND (SELECT count(*)=2 FROM pg_catalog.pg_attribute WHERE attrelid='vec_personal.recibo_ficha_propia_empleado'::regclass AND NOT attisdropped AND NOT attnotnull AND ((attname='vigente_en' AND atttypid='date'::regtype) OR (attname='conocido_en' AND atttypid='timestamptz'::regtype AND atttypmod=6)))
+ AND COALESCE((SELECT pg_catalog.strpos(prosrc,'consultada_en,vigente_en,conocido_en)')>0 FROM pg_catalog.pg_proc WHERE oid='vec_personal.consultar_ficha_propia_empleado_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure),false)`
 	if pool == nil || preflightFichaPropia(ctx, pool, q) != nil {
 		return domain.ErrExportacionServiciosPropiosNoDisponible
 	}
