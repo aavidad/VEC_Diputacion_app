@@ -1,6 +1,6 @@
 \set ON_ERROR_STOP on
 -- CT172 añade revisiones PDF a cada acto V2; conserva CT118/170 y su cabeza global.
--- Requiere CT170, AD162, CT174 y AUT32/AUT35 con sus fuentes nominales. Solo UP.
+-- Requiere CT170, AD162/AD170, CT174 y AUT32/AUT35 con sus fuentes nominales. Solo UP.
 BEGIN;
 SET LOCAL ROLE vec_contratacion_temporal_propietario;
 SET LOCAL search_path=pg_catalog;
@@ -23,7 +23,7 @@ BEGIN
  -- Resolver primero el OID mantiene el rechazo nominal 55000 si falta una
  -- dependencia; has_function_privilege(text) daría undefined_function.
  FOREACH nombre IN ARRAY ARRAY[
-  'vec_autorizacion_atestada_v3.registrar_y_consumir_firma_verificada_ct_v2_atestada(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
+  'vec_autorizacion_atestada_v3.registrar_y_consumir_firma_descriptor_ct_v2_atestada(text,bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
   'vec_autorizacion_atestada_v3.consumir_consulta_firmas_r5_ct_v2_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
   'vec_contratacion_temporal.leer_revalidar_relacion_unidad_expediente_ct_v1(text,text,text,numeric)',
   'vec_autorizacion.construir_contexto_nominal_firmante_ct_v1(jsonb,jsonb,jsonb)',
@@ -76,6 +76,9 @@ CREATE TABLE vec_contratacion_temporal.firma_documento_revision_pdf_v2(
  competencia_consumo_decision_ref text NOT NULL,
  competencia_consumo_huella_sha256 text NOT NULL CHECK(competencia_consumo_huella_sha256 ~ '^[0-9a-f]{64}$'),
  competencia_auditoria_consumo_ref text NOT NULL,
+ descriptor_firma_original bytea NOT NULL CHECK(octet_length(descriptor_firma_original) BETWEEN 512 AND 32768),
+ descriptor_firma_huella_sha256 text NOT NULL CHECK(descriptor_firma_huella_sha256 ~ '^[0-9a-f]{64}$'
+  AND descriptor_firma_huella_sha256=encode(sha256(descriptor_firma_original),'hex')),
  CHECK((orden_pdf=1 AND firma_anterior_ref IS NULL AND recibo_anterior_ref IS NULL)
    OR (orden_pdf=2 AND firma_anterior_ref IS NOT NULL AND recibo_anterior_ref IS NOT NULL AND firma_anterior_ref<>firma_ref))
 );
@@ -134,7 +137,7 @@ LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path=pg_catalog SET row_security=on SET timezone='UTC' SET lock_timeout='2s'
 AS $f$
 DECLARE s jsonb; d jsonb; descriptor jsonb; descriptor_texto text; contexto_nominal bytea; canon jsonb; relacion jsonb; competencia jsonb; consumo record; previa record; enlace record; cabeza record; anterior record; revision_anterior record; evidencia_firma jsonb; br jsonb;
- h text; contexto_h text; recurso text; v numeric; org text; siguiente integer;
+ h text; descriptor_h text; contexto_h text; recurso text; v numeric; org text; siguiente integer;
  ahora timestamptz(6); firma text; recibo text; auditoria text; evento text;
  k text; fecha text; accion text; tipo_recurso text; operacion_auditoria text; tipo_evento text;
  vacia text:=encode(sha256(convert_to('vec:ct:firma-historia:v1:[]','UTF8')),'hex');
@@ -336,7 +339,10 @@ BEGIN
     OR s->>'ReciboAnteriorRef' IS NULL OR s->>'ReciboAnteriorRef' !~ '^recibo-firma-ct:[0-9a-f-]{36}$' THEN
    RAISE EXCEPTION 'antecedente PDF inválido' USING ERRCODE='22023'; END IF;
  END IF;
+ IF p_descriptor_nominal IS NULL OR octet_length(p_descriptor_nominal) NOT BETWEEN 512 AND 32768 THEN
+  RAISE EXCEPTION 'descriptor nominal de firma no disponible' USING ERRCODE='42501'; END IF;
  h := encode(sha256(convert_to(p_solicitud,'UTF8')),'hex');
+ descriptor_h:=encode(sha256(p_descriptor_nominal),'hex');
  IF s->>'Via'='certificado_vec' THEN
    recurso := 'operacion-firma-vec-ct:'||(s->>'ClaveIdempotencia');
    accion := 'contratacion_temporal.documento.firma_vec.registrar';
@@ -351,7 +357,7 @@ BEGIN
    tipo_evento := 'contratacion_temporal.documento.firma_externa_registrada';
  END IF;
  contexto_h := encode(sha256(convert_to('{"ambitos":{"organizacion_ref":"'||(s->>'OrganizacionRef')||
-   '"},"atributos":{"material_sha256":"'||h||'"}}','UTF8')),'hex');
+   '"},"atributos":{"descriptor_firma_sha256":"'||descriptor_h||'","material_sha256":"'||h||'"}}','UTF8')),'hex');
  BEGIN d := convert_from(p_decision,'UTF8')::jsonb;
  EXCEPTION WHEN others THEN RAISE EXCEPTION 'decisión de firma verificada inválida' USING ERRCODE='42501'; END;
  IF d->>'accion' IS DISTINCT FROM accion
@@ -368,8 +374,8 @@ BEGIN
     OR (s->>'Via'='portafirmas_registro_rrhh' AND d->>'version_rol_ref' IS DISTINCT FROM 'rol:firma_externa_registro_ct_desarrollo:v1')
     OR d->>'perfil_activo_ref' IS DISTINCT FROM s->>'PerfilActivoOperadorRef'
  THEN RAISE EXCEPTION 'autorización de firma verificada divergente' USING ERRCODE='42501'; END IF;
- SELECT * INTO STRICT consumo FROM vec_autorizacion_atestada_v3.registrar_y_consumir_firma_verificada_ct_v2_atestada(
-  p_solicitud,p_capacidad,p_decision,p_motivo,p_contexto,p_persona_version,p_perfil_version,
+ SELECT * INTO STRICT consumo FROM vec_autorizacion_atestada_v3.registrar_y_consumir_firma_descriptor_ct_v2_atestada(
+  p_solicitud,p_descriptor_nominal,p_capacidad,p_decision,p_motivo,p_contexto,p_persona_version,p_perfil_version,
   p_payload,p_sobre,p_evidencia,p_raiz);
  IF consumo.efecto_ref IS DISTINCT FROM recurso OR consumo.huella_efecto_sha256 IS DISTINCT FROM contexto_h
     OR consumo.consumo_nuevo IS NOT TRUE THEN
@@ -379,8 +385,6 @@ BEGIN
  relacion := vec_contratacion_temporal.leer_revalidar_relacion_unidad_expediente_ct_v1(
   s->>'OrganizacionRef',s->>'ExpedienteRef',s->>'UnidadFirmanteRef',
   (s->>'VersionExpediente')::numeric);
- IF p_descriptor_nominal IS NULL OR octet_length(p_descriptor_nominal) NOT BETWEEN 512 AND 32768 THEN
-  RAISE EXCEPTION 'descriptor nominal de firma no disponible' USING ERRCODE='42501'; END IF;
  BEGIN
   descriptor_texto:=convert_from(p_descriptor_nominal,'UTF8');
   descriptor:=descriptor_texto::jsonb;
@@ -520,7 +524,9 @@ BEGIN
       RAISE EXCEPTION 'enlace de custodia de firma inconsistente' USING ERRCODE='55000'; END IF;
    SELECT * INTO revision_anterior FROM vec_contratacion_temporal.firma_documento_revision_pdf_v2
     WHERE firma_ref=previa.firma_ref;
-   IF NOT FOUND OR revision_anterior.competencia_evidencia_ref IS DISTINCT FROM competencia->>'evidencia_ref'
+   IF NOT FOUND OR revision_anterior.descriptor_firma_original IS DISTINCT FROM p_descriptor_nominal
+    OR revision_anterior.descriptor_firma_huella_sha256 IS DISTINCT FROM descriptor_h
+    OR revision_anterior.competencia_evidencia_ref IS DISTINCT FROM competencia->>'evidencia_ref'
     OR revision_anterior.competencia_evidencia_huella_sha256 IS DISTINCT FROM competencia->>'huella_sha256'
     OR revision_anterior.competencia_consumo_decision_ref IS DISTINCT FROM previa.decision_ref
     OR revision_anterior.competencia_consumo_huella_sha256 IS DISTINCT FROM previa.consumo_huella_sha256
@@ -640,7 +646,8 @@ BEGIN
   date_trunc('microseconds',p_comprobada_en),s->>'RolIDFirmante',s->>'CuentaFirmanteRef',s->>'VinculoCredencialFirmanteRef',
   (s->>'VinculoCredencialFirmanteRevision')::numeric,s->>'VinculoCredencialFirmanteHuella',
   competencia->>'evidencia_ref',competencia->>'huella_sha256',competencia->>'esquema',
-  consumo.decision_ref,consumo.consumo_huella_sha256,consumo.auditoria_ref);
+  consumo.decision_ref,consumo.consumo_huella_sha256,consumo.auditoria_ref,
+  p_descriptor_nominal,descriptor_h);
  INSERT INTO vec_contratacion_temporal.firma_documento_custodia_v1 VALUES
    (firma,recibo,ahora,s->>'DocumentoCustodiaRef',(s->>'DocumentoCustodiaVersion')::numeric,s->>'FirmadoHuella');
  INSERT INTO vec_contratacion_temporal.firma_documento_auditoria_v1 VALUES

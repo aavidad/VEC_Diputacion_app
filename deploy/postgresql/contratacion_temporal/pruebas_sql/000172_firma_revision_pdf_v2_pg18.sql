@@ -19,6 +19,8 @@ END $runtime$;
 -- El fixture no contiene BEGIN/COMMIT/ROLLBACK, SET ROLE ni funciones dobles.
 -- Debe comprobar alta/CAS, raíz/entrada exacta, dos firmas, denegaciones sin
 -- efecto y recuperación nominal vigente con recibo/fecha/historia idénticos.
+-- El descriptor exterior original y su SHA se conservan sin reescritura;
+-- repetir una clave con otros bytes debe fallar, aunque el JSON sea equivalente.
 -- Replay con decisión V3 nueva exige otra transacción; reinicio exige otro
 -- recorrido sobre un clon desechable, nunca se atribuyen a este ROLLBACK.
 \i :ct172_fixture_sql
@@ -46,6 +48,8 @@ BEGIN
   OR EXISTS(SELECT 1 FROM pg_type t CROSS JOIN LATERAL aclexplode(coalesce(t.typacl,acldefault('T',t.typowner))) a
    WHERE t.oid=(SELECT reltype FROM pg_class WHERE oid='vec_contratacion_temporal.firma_documento_revision_pdf_v2'::regclass)
     AND a.grantee<>propietario)
+  OR (SELECT count(*) FROM pg_attribute a WHERE a.attrelid='vec_contratacion_temporal.firma_documento_revision_pdf_v2'::regclass
+   AND a.attname IN('descriptor_firma_original','descriptor_firma_huella_sha256') AND a.attnotnull AND NOT a.attisdropped)<>2
   OR has_table_privilege(ejecutor,'vec_contratacion_temporal.firma_documento_revision_pdf_v2','SELECT,INSERT,UPDATE,DELETE,TRUNCATE') THEN
   RAISE EXCEPTION 'CT172 ACL/RLS abierta' USING ERRCODE='55000'; END IF;
  FOREACH f IN ARRAY ARRAY[
