@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	api "vec-diputacion-granada/internal/vec/adapters/httpapi/administracionperfiles"
 	h "vec-diputacion-granada/internal/vec/adapters/httpseguridad"
 	"vec-diputacion-granada/internal/vec/adapters/seguridad"
@@ -138,7 +139,10 @@ func (p *Proveedor) Resolver(ctx context.Context, r *http.Request, o Observacion
 		return vacia, api.ErrAccesoDenegado
 	}
 	actual, err := p.deps.Cuentas.ResolverCuentaADMIN(ctx, o)
-	if err != nil || actual != cuenta || !actual.Valida(final) {
+	if err != nil {
+		return vacia, errorAutoridad(err)
+	}
+	if actual != cuenta || !actual.Valida(final) {
 		return vacia, api.ErrAccesoDenegado
 	}
 	if _, _, err = identidad.ProyectarCuentaAutenticada(ctx, sesion); err != nil {
@@ -158,6 +162,24 @@ func (p *Proveedor) Resolver(ctx context.Context, r *http.Request, o Observacion
 }
 
 func errorAutoridad(err error) error {
+	if errors.Is(err, api.ErrAutenticacionRequerida) {
+		return api.ErrAutenticacionRequerida
+	}
+	if errors.Is(err, api.ErrConflictoEstado) {
+		return api.ErrConflictoEstado
+	}
+	if errors.Is(err, api.ErrConfiguracionIncompleta) {
+		return api.ErrConfiguracionIncompleta
+	}
+	var pg *pgconn.PgError
+	if errors.As(err, &pg) {
+		switch pg.Code {
+		case "40001":
+			return api.ErrConflictoEstado
+		case "42501":
+			return api.ErrAccesoDenegado
+		}
+	}
 	if errors.Is(err, api.ErrAccesoDenegado) || errors.Is(err, domain.ErrAutorizacionDenegada) {
 		return api.ErrAccesoDenegado
 	}

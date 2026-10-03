@@ -15,7 +15,7 @@ import (
 
 const consultarCuenta = `SELECT sujeto_id,cuenta_id,cuenta_ordinaria_id,persona_ref,cuenta_ref,
  cuenta_ordinaria_ref,perfil_activo_ref,rol_id,vinculo_ref,vinculo_version::text,
- politica_garantia_ref,politica_garantia_huella_sha256,garantia_observada,vigente_hasta
+ politica_garantia_ref,politica_garantia_huella_sha256,garantia_observada,vigente_hasta,seleccion_revision::text
  FROM vec_identidad_sesiones_v1.resolver_cuenta_admin_perfiles_v1($1,$2,$3,$4,$5,$6,$7)`
 const vincularSesion = `SELECT vec_identidad_sesiones_v1.vincular_sesion_admin_perfiles_v1($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`
 
@@ -44,13 +44,29 @@ func NuevoPostgreSQL(ctx context.Context, pool *pgxpool.Pool, reloj h.Reloj) (*P
 }
 
 func (p *PostgreSQL) ResolverCuentaADMIN(ctx context.Context, o ObservacionADMIN) (CuentaADMIN, error) {
-	if p == nil || ctx == nil || ctx.Err() != nil || nulo(p.pool) || !o.Valida(p.reloj.Ahora().UTC()) {
+	if p == nil || ctx == nil || ctx.Err() != nil || nulo(p.pool) || nulo(p.reloj) || !o.Valida(p.reloj.Ahora().UTC()) {
 		return CuentaADMIN{}, api.ErrAutenticacionRequerida
 	}
 	var cuenta CuentaADMIN
 	err := p.transaccion(ctx, func(tx pgx.Tx) error {
 		var err error
 		cuenta, err = p.leerCuenta(ctx, tx, o)
+		if errors.Is(err, api.ErrAccesoDenegado) {
+			// Sin elección solo cabe autoseleccionar cuando hay exactamente un
+			// perfil propio. La función central verifica certificado, cuenta,
+			// asignación y revisión cero antes de escribir la auditoría.
+			seleccion, autoErr := p.autoseleccionarUnico(ctx, tx, o)
+			if autoErr != nil {
+				return autoErr
+			}
+			if seleccion.Valida() {
+				cuenta, err = p.leerCuenta(ctx, tx, o)
+				if err == nil && (cuenta.PerfilActivoRef != seleccion.PerfilActivoRef ||
+					cuenta.SeleccionRevision != seleccion.Revision) {
+					return api.ErrConfiguracionIncompleta
+				}
+			}
+		}
 		return err
 	})
 	if err != nil {
@@ -60,7 +76,7 @@ func (p *PostgreSQL) ResolverCuentaADMIN(ctx context.Context, o ObservacionADMIN
 }
 
 func (p *PostgreSQL) VincularSesionADMIN(ctx context.Context, o ObservacionADMIN, esperada CuentaADMIN, refs ReferenciasSesionADMIN) error {
-	if p == nil || ctx == nil || ctx.Err() != nil || nulo(p.pool) || !o.Valida(p.reloj.Ahora().UTC()) ||
+	if p == nil || ctx == nil || ctx.Err() != nil || nulo(p.pool) || nulo(p.reloj) || !o.Valida(p.reloj.Ahora().UTC()) ||
 		!referencia(refs.AutenticacionRef, "aut_") || !referencia(refs.SesionRef, "ses_") {
 		return api.ErrAutenticacionRequerida
 	}
@@ -86,11 +102,11 @@ func (p *PostgreSQL) VincularSesionADMIN(ctx context.Context, o ObservacionADMIN
 
 func (p *PostgreSQL) leerCuenta(ctx context.Context, tx pgx.Tx, o ObservacionADMIN) (CuentaADMIN, error) {
 	var c CuentaADMIN
-	var version, garantia string
+	var version, seleccionRevision, garantia string
 	err := tx.QueryRow(ctx, consultarCuenta, argumentosCuenta(o)...).Scan(
 		&c.SujetoID, &c.CuentaID, &c.CuentaOrdinariaID, &c.PersonaRef, &c.CuentaRef,
 		&c.CuentaOrdinariaRef, &c.PerfilActivoRef, &c.RolID, &c.VinculoRef, &version,
-		&c.PoliticaGarantiaRef, &c.PoliticaGarantiaHuellaSHA256, &garantia, &c.VigenteHasta)
+		&c.PoliticaGarantiaRef, &c.PoliticaGarantiaHuellaSHA256, &garantia, &c.VigenteHasta, &seleccionRevision)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return CuentaADMIN{}, api.ErrAccesoDenegado
 	}
@@ -98,6 +114,9 @@ func (p *PostgreSQL) leerCuenta(ctx context.Context, tx pgx.Tx, o ObservacionADM
 		return CuentaADMIN{}, err
 	}
 	c.VinculoVersion, err = strconv.ParseUint(version, 10, 64)
+	if err == nil {
+		c.SeleccionRevision, err = strconv.ParseUint(seleccionRevision, 10, 64)
+	}
 	c.GarantiaObservada = domain.AuthAssurance(garantia)
 	c.VigenteHasta = c.VigenteHasta.UTC().Truncate(time.Microsecond)
 	if err != nil || !c.Valida(p.reloj.Ahora().UTC().Truncate(time.Microsecond)) {
@@ -118,9 +137,13 @@ func argumentos(o ObservacionADMIN) []any {
 }
 
 func (p *PostgreSQL) transaccion(ctx context.Context, fn func(pgx.Tx) error) error {
+	return p.transaccionConAislamiento(ctx, pgx.Serializable, fn)
+}
+
+func (p *PostgreSQL) transaccionConAislamiento(ctx context.Context, aislamiento pgx.TxIsoLevel, fn func(pgx.Tx) error) error {
 	// La política compartida de reintento pertenece al consumidor completo.
 	// Una carrera en esta lectura/binder obliga a obtener evidencia F nueva.
-	tx, err := p.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite})
+	tx, err := p.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: aislamiento, AccessMode: pgx.ReadWrite})
 	if err != nil {
 		return err
 	}
