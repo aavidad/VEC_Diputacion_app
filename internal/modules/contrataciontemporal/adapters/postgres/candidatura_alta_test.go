@@ -219,6 +219,23 @@ func TestResolutorCandidaturaPostgreSQLCierraContratoYCommit(t *testing.T) {
 	}
 }
 
+func TestRecuperacionCandidaturaNoConfirmaPropuestaNueva(t *testing.T) {
+	solicitud, propuesta := solicitudCandidaturaPostgreSQLPrueba(t)
+	nueva := &transaccionAltaCandidataPrueba{fila: filaCandidaturaPostgreSQLPrueba("estabilizada", propuesta)}
+	recuperada := &transaccionAltaCandidataPrueba{fila: filaCandidaturaPostgreSQLPrueba("recuperada", propuesta)}
+	iniciador := &iniciadorAltaCandidataPrueba{transacciones: []pgx.Tx{nueva, recuperada}}
+	resolutor, err := nuevoResolutorCandidaturaAltaPostgreSQL(iniciador)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := resolutor.RecuperarCandidaturaAlta(context.Background(), solicitud); !errors.Is(err, ports.ErrClaveIdempotenciaUsada) || nueva.commits != 0 || nueva.rollbacks != 1 {
+		t.Fatalf("propuesta nueva persistida: error=%v commits=%d rollbacks=%d", err, nueva.commits, nueva.rollbacks)
+	}
+	if _, err := resolutor.RecuperarCandidaturaAlta(context.Background(), solicitud); err != nil || recuperada.commits != 1 {
+		t.Fatalf("no se recuperó candidatura anterior: error=%v commits=%d", err, recuperada.commits)
+	}
+}
+
 func TestResolutorCandidaturaPostgreSQLReintentaSoloTransitorios(t *testing.T) {
 	solicitud, propuesta := solicitudCandidaturaPostgreSQLPrueba(t)
 	fallo := &transaccionAltaCandidataPrueba{fila: filaAltaCandidataPrueba{

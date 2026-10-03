@@ -158,6 +158,29 @@ function montar({ operacion = "registrar", cliente, raiz = crearRaiz(), extras =
   return { ...raiz, desmontar };
 }
 
+test("análisis muestra la causa de la modalidad y envía el periodo sin fin", async () => {
+  const catalogos = crearCatalogos();
+  catalogos.modalidades[0] = { ...catalogos.modalidades[0],
+    fecha_fin: "no_aplica", causa_fin: "reincorporacion_titular" };
+  const enviados = [];
+  const vista = montar({ cliente: { registrarAnalisis(solicitud) {
+    enviados.push(solicitud); return Promise.resolve(crearRecibo());
+  } }, extras: { catalogos, analisisInicial: {
+    modalidad_clave: "sustitucion", categoria_ref: "categoria:rrhh:001",
+    grupo_subgrupo: "A1", causa_clave: "sustitucion",
+    periodo: { inicio: "2026-09-01T00:00:00Z", causa_fin: "reincorporacion_titular" },
+    porcentaje_jornada: 10000,
+    entrada_rc: { referencia: "entrada-rc:opaca:001", huella_sha256: HUELLA },
+  } } });
+  assert.match(vista.raiz.innerHTML, /Hasta la reincorporación de la persona titular/);
+  assert.doesNotMatch(vista.raiz.innerHTML, /<input id="ct-analisis-fin"/);
+  await vista.enviar(crearValores({ fin: "" }));
+  assert.equal(enviados.length, 1);
+  assert.deepEqual(enviados[0].analisis.periodo, {
+    inicio: "2026-09-01T00:00:00Z", causa_fin: "reincorporacion_titular",
+  });
+});
+
 test("la configuración y el contexto son cerrados y no aceptan autoridad del formulario", () => {
   const raiz = crearRaiz();
   const cliente = { registrarAnalisis() {} };

@@ -2,6 +2,8 @@ package postgresimportacionconvoca
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"sync"
@@ -75,6 +77,32 @@ func TestIntegracionPostgreSQLIdempotenciaConcurrenciaYRecuperacion(t *testing.T
 	).Scan(&lotes, &filas)
 	if err != nil || lotes != 1 || filas != 600 {
 		t.Fatalf("cardinalidad durable: lotes=%d filas=%d error=%v", lotes, filas, err)
+	}
+}
+
+func TestIntegracionPostgreSQLActaXLSXConservaReplay(t *testing.T) {
+	entorno := abrirEntornoPostgreSQLIntegracion(t)
+	ctx, cancelar := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancelar()
+	repositorio := repositorioIntegracion(t, entorno, "politica:retencion:convoca:xlsx", 365*24*time.Hour)
+	recuperador := recuperadorIntegracion(t, entorno)
+	suma := sha256.Sum256([]byte("convoca-xlsx-integracion-sintetica-20261002"))
+	lote := loteIntegracion(hex.EncodeToString(suma[:]), time.Date(2026, 10, 2, 10, 0, 0, 0, time.UTC), 1)
+	lote.Acta.NombreFichero = "exportacion-sintetica.XLSX"
+	if err := lote.Validar(); err != nil {
+		t.Fatalf("lote XLSX en Go: %v", err)
+	}
+	acta, reutilizada, err := repositorio.GuardarSiAusente(ctx, lote)
+	if err != nil || reutilizada || !acta.CoincideExactamente(lote.Acta) {
+		t.Fatalf("alta XLSX: acta=%#v reutilizada=%v error=%v", acta, reutilizada, err)
+	}
+	replay, reutilizada, err := repositorio.GuardarSiAusente(ctx, lote)
+	if err != nil || !reutilizada || !replay.CoincideExactamente(acta) {
+		t.Fatalf("replay XLSX: acta=%#v reutilizada=%v error=%v", replay, reutilizada, err)
+	}
+	recuperado, _, existe, err := recuperador.RecuperarLote(ctx, lote.Acta.HuellaFicheroSHA256, lote.Acta.CategoriaRef)
+	if err != nil || !existe || !recuperado.Acta.CoincideExactamente(acta) || len(recuperado.Aceptadas) != 1 {
+		t.Fatalf("recuperación XLSX: existe=%v lote=%#v error=%v", existe, recuperado, err)
 	}
 }
 
@@ -477,7 +505,8 @@ func assertContratoAltaSQLGo(
 			      'filas_aceptadas','filas_rechazadas','incidencias',
 			      'procedencia'
 			  ]::text[]) = '{}'::jsonb,
-			  lower(right($1::jsonb->>'nombre_fichero', 4)) = '.xls',
+			  (lower(right($1::jsonb->>'nombre_fichero', 4)) = '.xls'
+			   OR lower(right($1::jsonb->>'nombre_fichero', 5)) = '.xlsx'),
 			  vec_bolsa_importacion_convoca.huella_valida(
 			      $1::jsonb->>'huella_fichero_sha256'
 			  ) AND $1::jsonb->>'acta_ref' =

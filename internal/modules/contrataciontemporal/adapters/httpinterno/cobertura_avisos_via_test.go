@@ -31,3 +31,17 @@ func TestProyeccionAvisosViaCobertura(t *testing.T) {
 		}
 	}
 }
+
+func TestProyeccionAvisoSAESinHorizonteOmiteFechaYComparacion(t *testing.T) {
+	salida := proyectarAvisosViaCobertura(&application.ResultadoAvisosViaCobertura{
+		Estado: application.EstadoAvisosEvaluados, EvaluadaEn: time.Date(2026, 10, 2, 8, 0, 0, 0, time.UTC),
+		Avisos: []application.AvisoViaCobertura{{Clave: application.AvisoPropuestaOfertaSAE, DuracionMaximaMeses: 9, FinMaximo: "2027-07-01"}},
+	})
+	material, err := json.Marshal(salida)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(material), `"fin_previsto"`) || strings.Contains(string(material), `"excede_duracion"`) || strings.Contains(string(material), "0001-") {
+		t.Fatalf("se atribuyó fecha o duración sin horizonte: %s", material)
+	}
+}

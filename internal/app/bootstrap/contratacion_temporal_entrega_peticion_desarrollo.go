@@ -9,11 +9,13 @@ import (
 	"log/slog"
 	"maps"
 	"net/http"
+	"reflect"
 	"strings"
 	"time"
 
 	postgresct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	seguridadvec "vec-diputacion-granada/internal/vec/adapters/seguridad"
@@ -339,7 +341,7 @@ func solicitudAutorizacionEntregaPeticionValida(ctx context.Context, d vecdomain
 	return err == nil && r.Referencia == d.Recurso.Referencia && r.ModuloID == d.Recurso.ModuloID && r.Tipo == d.Recurso.Tipo && maps.Equal(r.Ambitos, d.Recurso.Ambitos) && maps.Equal(r.Atributos, d.Recurso.Atributos)
 }
 
-func (p *proveedorEntregaPeticionDesarrollo) RegistrarExpedientePeticion(ctx context.Context, e ports.EntregaPeticionCentro) (ports.AltaDePeticionCentro, error) {
+func (p *proveedorEntregaPeticionDesarrollo) RegistrarExpedientePeticion(ctx context.Context, e ports.EntregaPeticionCentro, numeroMOAD string) (ports.AltaDePeticionCentro, error) {
 	var vacia ports.AltaDePeticionCentro
 	a, perfil, err := p.ActorEntregaPeticionCentro(ctx)
 	if err != nil {
@@ -354,6 +356,7 @@ func (p *proveedorEntregaPeticionDesarrollo) RegistrarExpedientePeticion(ctx con
 		return vacia, err
 	}
 	comando.ClaveIdempotencia = e.ClaveAlta
+	comando.NumeroExpedienteMOAD = numeroMOAD
 	comando.Solicitud, err = e.Peticion.Solicitud.Clonar()
 	if err != nil {
 		return vacia, err
@@ -367,6 +370,58 @@ func (p *proveedorEntregaPeticionDesarrollo) RegistrarExpedientePeticion(ctx con
 		return vacia, err
 	}
 	return ports.AltaDePeticionCentro{Recibo: recibo, AmbitoHMAC: e.AmbitoAltaHMAC}, nil
+}
+
+// VerificarOriginalAltaEntrega usa el perfil reservado sólo para recomponer
+// la huella histórica. La autorización vigente ya se consume en CT150 dentro
+// de la transacción de preparación; nunca se concede por este perfil antiguo.
+func (p *proveedorEntregaPeticionDesarrollo) VerificarOriginalAltaEntrega(
+	ctx context.Context, e ports.EntregaPeticionCentro, original ports.OriginalAltaEntrega,
+) error {
+	if p == nil || p.alta == nil || p.alta.soporte == nil || p.alta.huellas == nil ||
+		ctx == nil || e.ValidarReserva() != nil || original.Validar() != nil {
+		return ports.ErrReciboPeticionCentroNoConfiable
+	}
+	actorActual, _, err := p.ActorEntregaPeticionCentro(ctx)
+	if err != nil {
+		return err
+	}
+	if actorActual != e.ActorRef || original.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo ||
+		original.ActorRef != e.ActorRef || original.PerfilRef != e.PerfilRef ||
+		original.AmbitoHMAC != e.AmbitoAltaHMAC ||
+		e.EstadoEntrega == "confirmada" && !reflect.DeepEqual(e.ReciboAlta, &original.ReciboAlta) {
+		return ports.ErrReciboPeticionCentroNoConfiable
+	}
+	ambitos, err := p.sellosDeClaveAlta(ctx, e.ClaveAlta, e.ActorRef, e.PerfilRef)
+	if err != nil {
+		return ports.ErrPersistenciaNoDisponible
+	}
+	solicitud, err := e.Peticion.Solicitud.Clonar()
+	if err != nil {
+		return ports.ErrReciboPeticionCentroNoConfiable
+	}
+	if original.PoliticaFin == nil {
+		if solicitud.Periodo.PoliticaFin != (domain.PoliticaFin{}) {
+			return ports.ErrClaveIdempotenciaUsada
+		}
+	} else {
+		if solicitud.Periodo.PoliticaFin != (domain.PoliticaFin{}) &&
+			solicitud.Periodo.PoliticaFin != *original.PoliticaFin {
+			return ports.ErrClaveIdempotenciaUsada
+		}
+		solicitud.Periodo.PoliticaFin = *original.PoliticaFin
+	}
+	huellas, err := p.alta.huellas.DerivarHuellaAlta(ctx, ports.MaterialHuellaAlta{
+		OrganizacionRef: original.OrganizacionRef, ActorRef: e.ActorRef,
+		PerfilRef: e.PerfilRef, Flujo: original.Flujo, Solicitud: solicitud,
+	})
+	if err != nil {
+		return ports.ErrPersistenciaNoDisponible
+	}
+	if !ports.ColeccionesHMACAltaContienenPar(ambitos, huellas, original.AmbitoHMAC, original.HuellaPeticionHMAC) {
+		return ports.ErrClaveIdempotenciaUsada
+	}
+	return nil
 }
 
 func altaDePeticionConfiable(ctx context.Context) (ports.EntregaPeticionCentro, bool) {
