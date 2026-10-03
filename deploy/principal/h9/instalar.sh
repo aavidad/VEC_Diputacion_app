@@ -170,6 +170,16 @@ comprobar_preimagen() {
   actual=$(huella_arbol "$LOCALES_ROOT") || return 1
   [[ "$actual" == "$PREIMAGEN_LOCALES_SHA" ]] || { paro preimagen_locales "$actual" "$PREIMAGEN_LOCALES_SHA"; return 1; }
 }
+esperar_app() {
+  local desde=$1 i
+  for i in {1..60}; do
+    podman logs --since "$desde" "$APP" >"$COPIA/arranque.log" 2>&1 || return 1
+    [[ $(podman inspect -f '{{.State.Running}}' "$APP") == true ]] || return 1
+    if rg -q 'vec server listening' "$COPIA/arranque.log"; then return 0; fi
+    sleep 1
+  done
+  return 1
+}
 COPIA_LISTA=no; CAMBIOS=no; TRAFICO_ABIERTO=no; ETAPA=preimagen
 recuperar() {
   trap - ERR EXIT INT TERM
@@ -192,7 +202,13 @@ recuperar() {
     podman unshare sync -f "$PGDATA" || exit 1
     podman start "$PG" >/dev/null && esperar_pg || exit 1
     comprobar_preimagen || exit 1
-    printf 'RECUPERADA; aplicación parada y mantenimiento cerrado. Copia privada: %s\n' "$COPIA" >&2
+    DESDE=$(date -u +%Y-%m-%dT%H:%M:%S.%NZ)
+    podman start "$APP" >/dev/null || exit 1
+    if ! esperar_app "$DESDE"; then podman stop --time 30 "$APP" >/dev/null; exit 1; fi
+    "$MANTENIMIENTO_COMPROBAR" >>"$COPIA/mantenimiento.log" 2>&1 || exit 1
+    TRAFICO_ABIERTO=si
+    "$MANTENIMIENTO_ABRIR" >>"$COPIA/mantenimiento.log" 2>&1 || exit 1
+    printf 'RECUPERADA; aplicación anterior arrancada y tráfico abierto. Copia privada: %s\n' "$COPIA" >&2
   else
     printf 'Sin restauración; aplicación parada y mantenimiento cerrado. Copia privada: %s\n' "$COPIA" >&2
   fi
@@ -250,14 +266,7 @@ cp -a -- "$COPIA/locales-nuevos" "$LOCALES_ROOT"
 ETAPA=arranque
 DESDE=$(date -u +%Y-%m-%dT%H:%M:%S.%NZ)
 podman start "$APP" >/dev/null
-listo=no
-for i in {1..60}; do
-  podman logs --since "$DESDE" "$APP" >"$COPIA/arranque.log" 2>&1
-  [[ $(podman inspect -f '{{.State.Running}}' "$APP") == true ]] || break
-  if rg -q 'vec server listening' "$COPIA/arranque.log"; then listo=si; break; fi
-  sleep 1
-done
-[[ "$listo" == si ]] || paro arranque sin_listening listening
+esperar_app "$DESDE" || paro arranque sin_listening listening
 "$MANTENIMIENTO_COMPROBAR" >>"$COPIA/mantenimiento.log" 2>&1
 # Tras abrir tráfico ya no se permite el retorno automático a la copia fría.
 ETAPA=abrir_trafico

@@ -6,9 +6,10 @@ T=$(mktemp -d "${TMPDIR:-/tmp}/h9-mock-XXXXXXXX")
 trap 'rm -rf -- "$T"' EXIT
 trap 'printf "FALLO %s\n" "${mode:-preparacion}"; if [[ -f ${F:-}/result ]]; then cat "$F/result"; fi' ERR
 mkdir -p "$T/mock-bin"
-MODOS=(sql_fail startup_fail success altered_manifest wrong_preimage app_active maintenance_fail recovery_db_fail recovery_art_fail recovery_db_error config_file mounts_match mounts_fail served_mapping_fail served_shadow_fail recovery_web_fail blocked_kit)
+MODOS=(sql_fail startup_fail success altered_manifest wrong_preimage app_active maintenance_fail recovery_db_fail recovery_art_fail recovery_db_error config_file mounts_match mounts_fail served_mapping_fail served_shadow_fail recovery_web_fail blocked_kit rollback_startup_fail)
 if [[ ${1:-} == --web-config ]]; then MODOS=(success startup_fail sql_fail config_file mounts_match mounts_fail served_mapping_fail served_shadow_fail recovery_web_fail); fi
 if [[ ${1:-} == --blocked-kit ]]; then MODOS=(blocked_kit); fi
+if [[ ${1:-} == --rollback ]]; then MODOS=(sql_fail startup_fail rollback_startup_fail); fi
 cat > "$T/mock-bin/id" <<'MOCK'
 #!/usr/bin/env bash
 if [[ "$1" == -un ]]; then echo openclaw; else /usr/bin/id "$@"; fi
@@ -35,7 +36,7 @@ stop) echo false > "$FIXTURE/$4.running" ;;
 start)
   [[ "$2" != app || $(cat "$FIXTURE/gate") == closed ]]
   echo true > "$FIXTURE/$2.running"
-  if [[ "$2" == app && ( "$MODE" == startup_fail || "$MODE" == recovery_* ) ]]; then echo false > "$FIXTURE/app.running"; fi
+  if [[ "$2" == app && ( "$MODE" == startup_fail || "$MODE" == recovery_* || "$MODE" == rollback_startup_fail ) && ( $(cat "$FIXTURE/art/vec-server") == new || "$MODE" == rollback_startup_fail ) ]]; then echo false > "$FIXTURE/app.running"; fi
   if [[ "$2" == pg ]]; then
     starts=$(cat "$FIXTURE/pg.starts"); starts=$((starts+1)); echo "$starts" > "$FIXTURE/pg.starts"
     if [[ "$starts" == 2 && "$MODE" == recovery_db_fail ]]; then echo changed >> "$FIXTURE/pgdata/rows"; fi
@@ -43,7 +44,7 @@ start)
     if [[ "$starts" == 2 && "$MODE" == recovery_web_fail ]]; then echo changed >> "$FIXTURE/served/web/static/app.js"; fi
   fi
   ;;
-logs) [[ "$MODE" == startup_fail || "$MODE" == recovery_* ]] || echo 'vec server listening' ;;
+logs) [[ $(cat "$FIXTURE/app.running") != true ]] || echo 'vec server listening' ;;
 exec)
   if [[ "$*" == *pg_isready* ]]; then exit 0; fi
   input=$(cat)
@@ -159,7 +160,7 @@ PYM
   elif [[ "$mode" == wrong_preimage ]]; then
     [[ "$rc" != 0 && $(cat "$F/app.running") == false && $(cat "$F/gate") == closed ]]
     [[ $(wc -l < "$F/pgdata/rows") == 2 ]]
-  elif [[ "$mode" == recovery_* ]]; then
+  elif [[ "$mode" == recovery_* || "$mode" == rollback_startup_fail ]]; then
     [[ "$rc" != 0 && $(cat "$F/gate") == closed && $(cat "$F/app.running") == false ]]
     if rg -q '^RECUPERADA;' "$F/result" "$F/backups"; then exit 1; fi
     [[ $(cat "$F/conf/config") == private ]]
@@ -167,7 +168,7 @@ PYM
     if [[ "$mode" == recovery_art_fail ]]; then rg -q 'clave=preimagen_artefacto' "$F/result" "$F/backups"; fi
     if [[ "$mode" == recovery_web_fail ]]; then rg -q 'clave=preimagen_web' "$F/result" "$F/backups"; fi
   else
-    [[ "$rc" != 0 && $(cat "$F/gate") == closed && $(cat "$F/app.running") == false ]]
+    [[ "$rc" != 0 && $(cat "$F/gate") == open && $(cat "$F/app.running") == true ]]
     if [[ "$mode" == app_active || "$mode" == maintenance_fail ]]; then [[ ! -e "$F/sql-two.executed" ]]; fi
     rg -q '^RECUPERADA;' "$F/result" "$F/backups"
     [[ $(cat "$F/pgdata/rows") == seed && $(cat "$F/art/vec-server") == old && $(cat "$F/art/web/static/app.js") == old-web && $(cat "$F/art/locales/test.json") == old-i18n ]]
