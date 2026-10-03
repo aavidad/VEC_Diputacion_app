@@ -273,7 +273,6 @@ func (c *Cliente) llamar(ctx context.Context, peticion peticionAutofirma) (*dict
 	if err != nil {
 		return cero, ports.MotivoRespuestaNoInterpretable
 	}
-	c.observarDisponibilidad(ctx, true)
 	return dictamen, ""
 }
 

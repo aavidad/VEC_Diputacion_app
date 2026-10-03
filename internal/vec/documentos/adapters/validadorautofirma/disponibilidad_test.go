@@ -20,6 +20,9 @@ func TestDisponibilidadSoloPorRespuestaAcreditada(t *testing.T) {
 		{"json_no_interpretable", servidorprueba.SinDictamen, nil},
 		{"contrato_distinto", servidorprueba.ContratoDesconocido, nil},
 		{"tipo_incorrecto", servidorprueba.TipoIncorrecto, nil},
+		{"eco_firmado_distinto", servidorprueba.HuellaEcoDistinta, nil},
+		{"eco_original_distinto", servidorprueba.HuellaOriginalDistinta, nil},
+		{"dictamen_incoherente", servidorprueba.ValidaIncoherente, nil},
 		{"peticion_rechazada", servidorprueba.FormatoNoDetectado, nil},
 		{"redireccion", servidorprueba.Redireccion, nil},
 	} {
