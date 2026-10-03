@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"reflect"
 	"regexp"
 	"strings"
@@ -48,6 +49,7 @@ type Servicio struct {
 	bolsa       FuenteAuditoria
 	claveCursor [32]byte
 	ahora       func() time.Time
+	intentos    *intentosConsulta
 }
 
 func dependenciaNula(x any) bool {
@@ -73,9 +75,33 @@ func NuevoServicio(emisor EmisorMaterialV3, ct, bolsa FuenteAuditoria) (*Servici
 	return s, nil
 }
 
-func (s *Servicio) Consultar(ctx context.Context, p Peticion) (Pagina, error) {
-	if s == nil || ctx == nil || ctx.Err() != nil || p.Filtro.Validar() != nil ||
+func (s *Servicio) Consultar(ctx context.Context, p Peticion) (salida Pagina, fallo error) {
+	if s == nil || ctx == nil ||
 		dependenciaNula(s.emisor) || dependenciaNula(s.ct) || dependenciaNula(s.bolsa) {
+		return Pagina{}, ErrDenegada
+	}
+	// El registro usa únicamente contexto acreditado y recursos de composición.
+	// Las fuentes terminan su transacción antes de que se ejecute este defer.
+	if s.intentos != nil {
+		orden, err := s.intentos.preparar(p)
+		if err != nil {
+			return Pagina{}, err
+		}
+		defer func() {
+			if fallo != nil {
+				if s.intentos.registrar(ctx, orden, fallo) != nil {
+					salida, fallo = Pagina{}, ErrNoDisponible
+				}
+			}
+		}()
+	}
+	if ctx.Err() != nil {
+		if s.intentos != nil {
+			return Pagina{}, ErrNoDisponible
+		}
+		return Pagina{}, ErrDenegada
+	}
+	if p.Filtro.Validar() != nil {
 		return Pagina{}, ErrDenegada
 	}
 	f := p.Filtro
@@ -115,10 +141,16 @@ func (s *Servicio) Consultar(ctx context.Context, p Peticion) (Pagina, error) {
 	}
 	decision, confirmacion, exportador, e := s.emisor.EmitirMaterialAutorizacionAtestadaV3(ctx, solicitud, p.Contexto.Resultado)
 	if e != nil || dependenciaNula(exportador) || ctx.Err() != nil {
+		if s.intentos != nil && (ctx.Err() != nil || !(errors.Is(e, ErrDenegada) || errors.Is(e, vecdomain.ErrAutorizacionDenegada))) {
+			return Pagina{}, ErrNoDisponible
+		}
 		return Pagina{}, ErrDenegada
 	}
 	material, e := exportador.ExportarMaterialParaConsumidor()
 	if e != nil {
+		if s.intentos != nil {
+			return Pagina{}, ErrNoDisponible
+		}
 		return Pagina{}, ErrDenegada
 	}
 	q := ConsultaAutorizada{Filtro: f, Material: material, Solicitud: solicitud, Decision: decision, Confirmacion: confirmacion, ResultadoContexto: p.Contexto.Resultado}
@@ -127,6 +159,12 @@ func (s *Servicio) Consultar(ctx context.Context, p Peticion) (Pagina, error) {
 	}
 	pagina, e := lector.ConsultarAuditoria(ctx, q)
 	if e != nil {
+		if s.intentos != nil && errors.Is(e, ErrDenegada) {
+			return Pagina{}, ErrDenegada
+		}
+		return Pagina{}, ErrNoDisponible
+	}
+	if ctx.Err() != nil {
 		return Pagina{}, ErrNoDisponible
 	}
 	if len(pagina.Registros) > int(f.Limite)+1 {
