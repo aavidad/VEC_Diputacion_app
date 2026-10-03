@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"io"
+	"strconv"
 
 	"vec-diputacion-granada/internal/modules/personal/domain"
 	"vec-diputacion-granada/internal/modules/personal/ports"
@@ -30,7 +31,7 @@ func NuevoProveedorFormatosExportacionServiciosPropios(catalogos map[string][]by
 		var datos struct {
 			Formato struct {
 				Referencia    string `json:"referencia"`
-				Version       uint64 `json:"version"`
+				Version       string `json:"version"`
 				NombreArchivo string `json:"nombre_archivo"`
 			} `json:"formato"`
 			CSV struct {
@@ -48,8 +49,12 @@ func NuevoProveedorFormatosExportacionServiciosPropios(catalogos map[string][]by
 		if dec.Decode(&datos) != nil || dec.Decode(new(any)) != io.EOF {
 			return nil, domain.ErrExportacionServiciosPropiosNoDisponible
 		}
+		version, err := strconv.ParseUint(datos.Formato.Version, 10, 64)
+		if err != nil || strconv.FormatUint(version, 10) != datos.Formato.Version {
+			return nil, domain.ErrExportacionServiciosPropiosNoDisponible
+		}
 		h := sha256.Sum256(b)
-		f, err := domain.NuevoFormatoExportacionServiciosPropios(domain.DatosFormatoExportacionServiciosPropios{Referencia: datos.Formato.Referencia, Version: datos.Formato.Version, NombreArchivo: datos.Formato.NombreArchivo, Idioma: idioma, CatalogoSHA256: hex.EncodeToString(h[:]), Cabeceras: []string{datos.CSV.Inicio, datos.CSV.Fin, datos.CSV.Clase, datos.CSV.Dias, datos.CSV.Estado}, Estados: datos.Estados})
+		f, err := domain.NuevoFormatoExportacionServiciosPropios(domain.DatosFormatoExportacionServiciosPropios{Referencia: datos.Formato.Referencia, Version: version, NombreArchivo: datos.Formato.NombreArchivo, Idioma: idioma, CatalogoSHA256: hex.EncodeToString(h[:]), Cabeceras: []string{datos.CSV.Inicio, datos.CSV.Fin, datos.CSV.Clase, datos.CSV.Dias, datos.CSV.Estado}, Estados: datos.Estados})
 		if err != nil {
 			return nil, domain.ErrExportacionServiciosPropiosNoDisponible
 		}

@@ -12,7 +12,7 @@ import (
 )
 
 func TestExportacionServiciosFormatosUsanCatalogoExactoYSinIdiomaPredeterminado(t *testing.T) {
-	b := []byte(`{"formato":{"referencia":"personal:servicios_propios:csv","version":1,"nombre_archivo":"servicios.csv"},"csv":{"fecha_inicio":"c1","fecha_fin":"c2","clase":"c3","dias":"c4","estado":"c5"},"general":{},"estados":{"declarado":"e1","comprobado":"e2","reconocido":"e3"}}`)
+	b := []byte(`{"formato":{"referencia":"personal:servicios_propios:csv","version":"1","nombre_archivo":"servicios.csv"},"csv":{"fecha_inicio":"c1","fecha_fin":"c2","clase":"c3","dias":"c4","estado":"c5"},"general":{},"estados":{"declarado":"e1","comprobado":"e2","reconocido":"e3"}}`)
 	p, e := NuevoProveedorFormatosExportacionServiciosPropios(map[string][]byte{"xx": b})
 	if e != nil {
 		t.Fatal(e)
