@@ -44,7 +44,7 @@ func ejecutar(args []string, salida, errores io.Writer, reloj func() time.Time) 
 	parseErr := f.Parse(args)
 	textos, idioma, err := cargarTextos(rutaTextos)
 	if err != nil {
-		return 2
+		return informarFalloCatalogo(errores, err)
 	}
 	emitir := func(w io.Writer, d diagnostico) int {
 		d.Mensaje = textos.T(idioma, d.Codigo)
