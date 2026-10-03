@@ -6,6 +6,8 @@ set -euo pipefail
 umask 077
 continuar=false
 desde_registro=false
+desde_post154=false
+if [[ ${1:-} == --desde-post154 ]]; then desde_post154=true; shift; fi
 if [[ ${1:-} == --continuar-fixture ]]; then continuar=true; shift; fi
 if [[ ${1:-} == --continuar-registro ]]; then continuar=true; desde_registro=true; shift; fi
 [[ $# == 0 ]] || { printf '%s\n' 'RPT27: argumentos de ensayo inválidos' >&2; exit 2; }
@@ -38,7 +40,13 @@ if ! "$continuar"; then
 [[ ! -e $scratch/overlay.json && ! -e $scratch/capacidad_v3_vector_sql_test.go ]] || fallo 'scratch ya usado: conservarlo'
 fi
 if ! "$continuar"; then
-[[ $(valor "SELECT to_regprocedure('vec_personal.consultar_relacion_para_rpt_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL AND to_regprocedure('vec_autorizacion_atestada_v3.consumir_relacion_para_rpt_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL") == t ]] || fallo 'RPT27/154 ya presentes: no reaplicar'
+if "$desde_post154"; then
+ [[ -f $scratch/migraciones_journal.txt ]] || fallo 'POST154 sin journal conservado'
+ sha256sum "$ad154" "$personal27" | cmp -s "$scratch/migraciones_journal.txt" - || fallo 'producto distinto del instalado'
+ [[ $(valor "SELECT to_regprocedure('vec_personal.consultar_relacion_para_rpt_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL AND to_regprocedure('vec_autorizacion_atestada_v3.consumir_relacion_para_rpt_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL AND to_regclass('public.rpt27_ensayo_vector') IS NULL") == t ]] || fallo 'POST154 incompleta o fixture ya presente'
+else
+ [[ $(valor "SELECT to_regprocedure('vec_personal.consultar_relacion_para_rpt_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL AND to_regprocedure('vec_autorizacion_atestada_v3.consumir_relacion_para_rpt_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL") == t ]] || fallo 'RPT27/154 ya presentes: no reaplicar'
+fi
 else
  [[ -f $scratch/rpt27.test && -f $scratch/preimagen.json && -f $scratch/migraciones_journal.txt ]] || fallo 'fase anterior incompleta'
  [[ $(sha256sum "$scratch/preimagen.json" | cut -d' ' -f1) == "$pre_sha" ]] || fallo 'captura de reanudación distinta'
@@ -92,8 +100,12 @@ v=json.dumps(claves,separators=(',',':'));assert '$rpt27claves17$' not in v
 filas="SELECT coalesce(jsonb_agg(to_jsonb(h) ORDER BY h.relacion_ref,h.revision),'[]'::jsonb) FROM vec_personal.relacion_servicio_historia h WHERE(h.relacion_ref,h.revision) IN(SELECT x->>'relacion_ref',(x->>'revision')::int FROM jsonb_array_elements($rpt27claves17$"+v+"$rpt27claves17$::jsonb) x)"
 p.write_text(pathlib.Path(str(p)+'.plantilla').read_text().replace('__FILAS17__',filas))
 PYCLAVES17
-sha256sum "$ad154" "$personal27" > "$scratch/migraciones_journal.txt"
-archivo "$ad154"; archivo "$personal27"
+if "$desde_post154"; then
+ sha256sum "$ad154" "$personal27" | cmp -s "$scratch/migraciones_journal.txt" - || fallo 'journal POST154 divergente'
+else
+ sha256sum "$ad154" "$personal27" > "$scratch/migraciones_journal.txt"
+ archivo "$ad154"; archivo "$personal27"
+fi
 captura "$scratch/post154.json"
 cmp -s "$scratch/preimagen.json" "$scratch/post154.json" || fallo 'delta154 alteró autoridades previas'
 # La comparación inversa conserva cada audiencia previa; el literal nuevo
@@ -139,7 +151,7 @@ source = root / 'internal/vec/adapters/seguridad/confianzaatestacion/capacidad_v
 original = source.read_text()
 original = original.replace('"crypto/rand"', '"crypto/rand"\n\t"crypto/sha256"\n\t"fmt"\n\t"io"')
 original = original.replace('"vec-diputacion-granada/internal/vec/domain"', '"vec-diputacion-granada/internal/vec/application"\n\t"vec-diputacion-granada/internal/vec/domain"')
-original = original.replace('"vec-diputacion-granada/internal/vec/ports"', '"vec-diputacion-granada/internal/vec/ports"\n\t"github.com/jackc/pgx/v5/pgxpool"\n\tpersonalpg "vec-diputacion-granada/internal/modules/personal/adapters/postgres"\n\tpersonalapp "vec-diputacion-granada/internal/modules/personal/application"\n\tpersonaldomain "vec-diputacion-granada/internal/modules/personal/domain"\n\tpersonalports "vec-diputacion-granada/internal/modules/personal/ports"')
+original = original.replace('"vec-diputacion-granada/internal/vec/ports"', '"vec-diputacion-granada/internal/vec/ports"\n\t"github.com/jackc/pgx/v5/pgxpool"\n\tvecpg "vec-diputacion-granada/internal/vec/adapters/postgres"\n\tpersonalcomposicion "vec-diputacion-granada/internal/modules/personal/adapters/composicion"\n\tpersonalrpt "vec-diputacion-granada/internal/modules/personal/adapters/rpt"\n\tpersonalpg "vec-diputacion-granada/internal/modules/personal/adapters/postgres"\n\tpersonalapp "vec-diputacion-granada/internal/modules/personal/application"\n\tpersonaldomain "vec-diputacion-granada/internal/modules/personal/domain"\n\tpersonalports "vec-diputacion-granada/internal/modules/personal/ports"')
 extra = r'''
 // RPT27 is an ephemeral synthetic PDP fixture. Neither this test nor its
 // import bridge establishes production identity, PDP governance or database I/O.
@@ -583,15 +595,10 @@ func (f rpt27Firmante) FirmarAtestacionAutorizacionV3(ctx context.Context, solic
 type rpt27AutorizadorPG struct { material ports.ExportacionMaterialConsumoAutorizacionAtestadaV3 }
 func (a rpt27AutorizadorPG) AutorizarRelacionParaRPT(context.Context, personaldomain.MaterialLectorRelacionRPT) (ports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) { return a.material, nil }
 
-type rpt27IntentosPG struct { destino personalports.DestinoIntentosLectorRelacionRPT }
-func (i rpt27IntentosPG) VerificarRegistroRelacionRPT(ctx context.Context) error { return i.destino.VerificarDestinoRelacionRPT(ctx) }
-func (i rpt27IntentosPG) RegistrarIntentoRelacionRPT(ctx context.Context, e personalports.IntentoLectorRelacionRPT) error {
-	b := make([]byte,16)
-	if _, err := rand.Read(b); err != nil { return err }
-	// This fixture has no trusted identity resolver. It must leave actor_ref
-	// empty, never treat a declared/cached actor as currently accredited.
-	return i.destino.RegistrarEventoRelacionRPT(ctx, personalports.EventoIntentoLectorRelacionRPT{CorrelacionRef: fmt.Sprintf("correlacion_%x",b), Motivo:e.Motivo, RelacionRef:e.RelacionRef})
-}
+// La frontera fixture devuelve el contexto y vínculo originales ya registrados.
+// No resuelve otra identidad al confirmar el intento después del rollback.
+type rpt27IdentidadOriginal struct { valor personalcomposicion.IdentidadRegistradaLectorRelacionRPT }
+func (i rpt27IdentidadOriginal) ResolverIdentidadLectorRelacionRPT(context.Context) (personalcomposicion.IdentidadRegistradaLectorRelacionRPT,error) { return i.valor,nil }
 
 func TestLectorRPT27ConPoolsPostgreSQL(t *testing.T) {
 	modo := os.Getenv("VEC_RPT27_GO_MODO")
@@ -640,11 +647,46 @@ func TestLectorRPT27ConPoolsPostgreSQL(t *testing.T) {
 	if err!=nil { t.Fatal("RPT27 reader unavailable") }
 	destino := registro
 	if modo=="cruzados" { destino=lectura }
-	i,err := personalpg.NuevoRegistroIntentosLectorRPTPostgreSQL(destino)
-	if err!=nil { t.Fatal("RPT27 registry unavailable") }
-	servicio,err := personalapp.NuevoServicioLectorRelacionRPT(rpt27AutorizadorPG{a},r,rpt27IntentosPG{i},time.Now)
+	comun,err := vecpg.NuevoRegistradorIntentosAuditoriaPostgreSQL(destino,"rpt27-ensayo","interna_corporativa",5*time.Second)
+	if err!=nil { t.Fatal("RPT27 common registry unavailable") }
+	entradaBytes,err := os.ReadFile(os.Getenv("VEC_RPT27_VECTOR_ENTRADA"))
+	var entrada rpt27Entrada
+	if err!=nil || json.Unmarshal(entradaBytes,&entrada)!=nil { t.Fatal("RPT27 original identity fixture unavailable") }
+	var plantilla decisionPlantillaO205
+	var motivo motivoCanonicoO205
+	if json.Unmarshal(exigirBase64O205(t,entrada.DecisionPlantillaB64),&plantilla)!=nil || json.Unmarshal(exigirBase64O205(t,entrada.MotivoB64),&motivo)!=nil { t.Fatal("RPT27 original binding fixture invalid") }
+	resultado := domain.ResultadoContextoActorRegistradoV2{
+		RegistroContextoRef:plantilla.VinculoAutenticacionActor.RegistroContextoRef,
+		Contexto:actor,RepresentacionCanonica:a.ContextoActorCanonico(),
+		HuellaSHA256:plantilla.VinculoAutenticacionActor.ContextoActorHuellaSHA256,
+		ManifiestoProcedenciaCanonico:exigirBase64O205(t,entrada.ManifiestoB64),
+		ManifiestoProcedenciaHuellaSHA256:entrada.ManifiestoHuellaSHA256,
+		AutoridadEfectiva:domain.AutoridadProcedenciaContextoActorV1(entrada.AutoridadEfectiva),
+		ResueltoEnAutoritativo:rpt27Instante(t,entrada.ResueltoEn),
+	}
+	vinculo,err := domain.CrearVinculoAutenticacionActorV2(ctx,
+		revalidadorConfianzaAtestacionV3Prueba{resultado:plantilla.VinculoAutenticacionActor.Autenticacion()},
+		domain.SolicitudRevalidacionAutenticacionActorV1{AutenticacionRef:plantilla.VinculoAutenticacionActor.AutenticacionRef,SesionRef:plantilla.VinculoAutenticacionActor.SesionRef},
+		resolutorConfianzaAtestacionV3Prueba{resultado:resultado},
+		domain.SolicitudContextoActor{Cuenta:domain.CuentaAutenticadaContextoActor{CuentaRef:actor.Instantanea.CuentaRef,Metodo:actor.Principal.AuthMethod,Garantia:actor.Principal.AuthAssurance},PerfilActivoRef:actor.PerfilActivoRef},
+		&relojConfianzaAtestacionV3Prueba{ahora:rpt27Instante(t,entrada.Ahora)})
+	if err!=nil { t.Fatal("RPT27 original binding invalid") }
+	i,err := personalcomposicion.NuevoRegistroIntentosLectorRelacionRPT(comun,personalcomposicion.ConfiguracionIntentosLectorRPT{
+		Proceso:"rpt27-ensayo",Canal:"interna_corporativa",RecursoEntradaInvalida:"personal.relacion-rpt.entrada",
+		MotivoDenegado:motivo.Referencia,MotivoEntradaInvalida:motivo.Referencia,MotivoNoDisponible:motivo.Referencia})
+	if err!=nil { t.Fatal("RPT27 nominal registry unavailable") }
+	servicio,err := personalapp.NuevoServicioLectorRelacionRPT(rpt27AutorizadorPG{a},r,i,time.Now)
 	if err!=nil { t.Fatal("RPT27 service unavailable") }
-	v,err := servicio.ConsultarRelacionParaRPT(ctx,personalports.ConsultaRelacionParaRPTV1{Actor:actor,EmpleadoRef:material.EmpleadoRef,RelacionRef:material.RelacionRef,OrganismoRef:material.OrganismoRef,VersionEsperada:material.Version,Corte:personaldomain.CorteEmpleadoB2{VigenteEn:personaldomain.FechaCivil(material.VigenteEn),ConocidoEn:rpt27Instante(t,material.ConocidoEn)}})
+	base,err := personalrpt.NuevoLectorRelacionSeleccionadaRPT(servicio,i)
+	if err!=nil { t.Fatal("RPT27 selector unavailable") }
+	frontera,err := personalcomposicion.NuevoLectorRelacionSeleccionadaRPTConIdentidad(base,rpt27IdentidadOriginal{personalcomposicion.IdentidadRegistradaLectorRelacionRPT{Vinculo:vinculo,Resultado:resultado}},5*time.Second)
+	if err!=nil { t.Fatal("RPT27 trusted capture unavailable") }
+	ctx,err=ports.ConCorrelacionIncidenciasPeticion(ctx)
+	if err!=nil { t.Fatal("RPT27 trusted correlation unavailable") }
+	corte:=personaldomain.CorteEmpleadoB2{VigenteEn:personaldomain.FechaCivil(material.VigenteEn),ConocidoEn:rpt27Instante(t,material.ConocidoEn)}
+	preparacion:=personaldomain.PreparacionRelacionParaRPT{Esquema:"vec.personal.preparacion-relacion-rpt.v1",Uso:"preparacion",Cobertura:"no_acreditada",EstadoRPT:"pendiente_fuente_rpt",EmpleadoRef:material.EmpleadoRef,Corte:corte,
+		Relaciones:[]personaldomain.RelacionPreparacionParaRPT{{RelacionRef:material.RelacionRef,Traza:personaldomain.TrazaEmpleadoB2{Desde:"2026-01-01",RegistradaEn:corte.ConocidoEn,Version:material.Version,ActoRef:"acto:rpt27:sintetico",FuenteRef:"fuente:rpt27:sintetica",FuenteVersion:1}}}}
+	v,err := frontera.ConsultarSeleccionada(ctx,actor,preparacion,material.OrganismoRef,material.RelacionRef)
 	if modo=="positivo" {
 		if err!=nil || v.Relacion.RelacionRef!=material.RelacionRef || v.Relacion.Version!=material.Version || v.Cobertura!=personalports.CoberturaPersonalNoAcreditadaV1 || v.Relacion.Procedencia.Certeza!=personalports.CertezaPersonalNoAcreditadaV1 || v.Evidencia.ReciboRef=="" { t.Fatal("RPT27 native positive did not produce validated receipt") }
 		return
