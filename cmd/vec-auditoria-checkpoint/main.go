@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -9,7 +8,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
 	"syscall"
 	"time"
 
@@ -146,29 +144,12 @@ func run(args []string, out, log io.Writer) int {
 			return fallo()
 		}
 		cobertura := auditoria.CoberturaCadena{CadenaID: r.Checkpoint.Cobertura.CadenaID, PrimeraSecuencia: r.Checkpoint.Cobertura.PrimeraSecuencia, UltimaSecuencia: r.Checkpoint.Cobertura.UltimaSecuencia, AnteriorSHA256: r.Checkpoint.Cobertura.AnteriorSHA256, CabezaSHA256: r.Checkpoint.Cobertura.CabezaSHA256, Registros: r.Checkpoint.Cobertura.Registros}
-		var esquema struct {
-			Esquema string `json:"esquema"`
-		}
-		if json.Unmarshal(cb, &esquema) != nil {
+		informe, err := verificarCadenaCheckpoint(cb, cobertura, cfg.MaxRegistros)
+		if err != nil {
 			return fallo()
 		}
-		var informe auditoria.InformeVerificacion
-		switch esquema.Esquema {
-		case auditoria.EsquemaVerificacion:
-			var d auditoria.DocumentoVerificacion
-			if decodificar(cb, &d) != nil {
-				return fallo()
-			}
-			informe = auditoria.VerificarCadenaV3(d, cobertura, cfg.MaxRegistros)
-		case auditoria.EsquemaVerificacionMixta:
-			var d auditoria.DocumentoVerificacionMixta
-			if decodificar(cb, &d) != nil {
-				return fallo()
-			}
-			informe = auditoria.VerificarCadenaMixtaV2(d, cobertura, cfg.MaxRegistros)
-		default:
-			return fallo()
-		}
+		resultado.ConsumosHistoricosSinFechaLigada = informe.ConsumosHistoricosSinFechaLigada
+		resultado.FechaConsumoLigadaCotejada = informe.FechaConsumoLigadaCotejada
 		resultado.IntegridadCadena = informe.Estado
 		if informe.Estado != "verificada" {
 			_ = escribirResultado(out, resultado)
@@ -183,61 +164,6 @@ func escribirResultado(w io.Writer, r any) int {
 		return 1
 	}
 	return 0
-}
-func decodificar(b []byte, v any) error {
-	// Claves ASCII en minúsculas y sin duplicadas: encoding/json también
-	// acepta alias por mayúsculas; aquí se exige la representación canónica.
-	if err := sinDuplicadas(json.NewDecoder(bytes.NewReader(b))); err != nil {
-		return err
-	}
-	d := json.NewDecoder(bytes.NewReader(b))
-	d.DisallowUnknownFields()
-	if d.Decode(v) != nil {
-		return errEntrada
-	}
-	var extra any
-	if d.Decode(&extra) != io.EOF {
-		return errEntrada
-	}
-	return nil
-}
-func sinDuplicadas(d *json.Decoder) error {
-	t, err := d.Token()
-	if err != nil {
-		return errEntrada
-	}
-	delim, ok := t.(json.Delim)
-	if !ok {
-		return nil
-	}
-	switch delim {
-	case '{':
-		vistas := map[string]bool{}
-		for d.More() {
-			k, e := d.Token()
-			s, ok := k.(string)
-			if e != nil || !ok || vistas[s] || strings.ContainsFunc(s, func(r rune) bool { return r > 127 || r >= 'A' && r <= 'Z' }) {
-				return errEntrada
-			}
-			vistas[s] = true
-			if sinDuplicadas(d) != nil {
-				return errEntrada
-			}
-		}
-	case '[':
-		for d.More() {
-			if sinDuplicadas(d) != nil {
-				return errEntrada
-			}
-		}
-	default:
-		return errEntrada
-	}
-	_, err = d.Token()
-	if err != nil {
-		return errEntrada
-	}
-	return nil
 }
 func leerRegular(ruta string, limite int64, secreto bool) ([]byte, error) {
 	if limite < 1 {
