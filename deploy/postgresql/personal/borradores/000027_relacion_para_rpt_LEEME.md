@@ -125,9 +125,9 @@ su contexto original en CA26: la proyección de empleado de Personal16/CA7
 usa `pep_`, mientras CA26 sólo reconstruye vínculos `vin_` de su tabla local.
 Cambiar la referencia del fixture alteraría el contexto acreditado. La
 corrección corresponde a la autoridad común y debe conservar la procedencia
-y los bytes originales. Este reensayo está pendiente de esa dependencia.
+y los bytes originales. Esta fase quedó pendiente de esa dependencia; el cierre conjunto posterior figura abajo.
 
-El resultado es parcial. Quedaron tres recibos RPT, 6.243 consumos y 6.243
+El cierre de esa fase fue parcial. Quedaron tres recibos RPT, 6.243 consumos y 6.243
 registros de auditoría confirmada, sin intentos RPT registrados. Tras reiniciar
 PostgreSQL, esos contadores y las huellas de recibos, consumos, auditoría,
 fuente Personal17, generaciones y vectores permanecieron iguales. Los tres
@@ -145,7 +145,7 @@ El contenedor, PGDATA expandido, socket, scratch, overlays, claves efímeras y
 binario se retiraron después del cierre. El binario retirado medía 19.090.691
 bytes y tenía SHA256
 `b740f7d2275c29a966527ffba494c4b279bb17fcaf13903b698b8464633f0732`.
-Quedan el acta privada del ensayo y el checkpoint frío
+Se conservaron entonces el acta privada del ensayo y el checkpoint frío
 `checkpoint-rpt27-post154-parcial.tgz`, de 118.255.519 bytes, permiso `0600`
 y SHA256
 `a7ac3321d9faa80938b0019742a13a65ef77e35497f807b376540cd325a0d667`.
@@ -157,7 +157,7 @@ El checkpoint se restauró en el clon coordinado por Dirección. CA27,
 sola vez. Su ensayo focal cotejó las tres proyecciones de empleado originales,
 los vínculos anteriores `vin_`, los negativos de canon y procedencia y una
 revocación posterior revertida. Los tres vectores y recibos RPT permanecen
-conservados. El reensayo completo de RPT sigue pendiente.
+conservados. Ese corte conservó el trabajo para las continuaciones posteriores.
 
 El runner prepara `--continuar-postcheckpoint`: comprueba journal SQL,
 captura y los contadores `3 / 6243 / 6243 / 0`; regenera el overlay y compila
@@ -185,15 +185,56 @@ La recompilación del overlay se justifica por el literal corregido; no
 repite SQL, bootstrap ni comprobaciones anteriores. Esta preparación exige
 revisión del fragmento de gobierno y ejecución coordinada en el clon.
 
-La fuente Go del lector es
-`5c5e305a397306612299a11741a26a0bdce1abbe`, incorporada sin editarla. El
-overlay usa el constructor público de cinco argumentos con el emisor JSONL
-común, cola acotada y destino limitado. Prepara la comprobación de resultado
-y correlación, incluido un fallo del destino después del COMMIT que no cambia
-el recibo de negocio ni duplica el efecto. La preparación aún no acredita
-esas comprobaciones ni el resto de negativas, corte histórico, MVCC o
-recorrido del servicio Go con los pools comunes. La compilación y ejecución
-requieren el hash final y la coordinación de Dirección.
+## Cierre conjunto y recuperación
+
+ENSAYO-OK en el clon privado, por fases conservadas. La fuente del lector Go
+es `5c5e305a397306612299a11741a26a0bdce1abbe`. El runner
+`332f8eee392a33ebc73c65b6d9565eb8bde78ef5` corrigió el literal del fixture y
+pasó positivo, replay, pools cruzados, registrador caído, revocación y fallo
+del sink técnico. El último concurrente anterior quedó denegado por la
+comparación textual de fechas equivalentes; su intento histórico se conserva.
+
+Personal30 `86ee0557827da7d4d61c5e00e85af0083209afbd` se instaló una sola vez
+tras dos GO y pasó sus ocho casos focales. Su cuerpo final conserva SHA256
+`dd0b06eb3ecb2a8317054739ad01f6c363c725f477d7f98d345f01d83487a78f`.
+La continuación final `77e07cbd98541c9633b2dccbd16885331d51545f` ejecutó sólo
+el concurrente nuevo, con el mismo binario corregido y una barrera SQL sobre
+el bloqueo real de la relación. PostgreSQL confirmó `40001` a las
+`2026-10-03T16:10:26.792Z`; el intento de error se confirmó en otra transacción
+a las `16:10:26.811Z`, con correlación
+`2a1f7be92b8296e9a69e0247a65be726`. No hubo DTO, consumo o recibo adicional.
+El JSONL y las métricas del emisor común verificaron esa misma correlación.
+El fallo del sink ya comprobado conservó el COMMIT de negocio.
+
+El gobierno de ensayo añadió las versiones sintéticas 69 y 70 de la clave
+por el mecanismo append-only existente. La 70 tuvo una duración configurada
+de 240 minutos; las anteriores permanecieron intactas. No se renovaron
+materiales, capacidades ni sesiones anteriores. COSE Ed25519/HMAC, SQL,
+servicio y pools fueron reales; fuente, identidad, IdP/PDP y garantías del
+fixture fueron sintéticos y declarados.
+
+Tras reiniciar PostgreSQL quedaron los mismos seis recibos, 6.246 consumos,
+6.246 auditorías confirmadas y quince intentos. El snapshot antes/después
+conservó SHA256
+`a1fb605cb0cf6bad42ace3bedc3c152af2b7c8a748cbd545bf71d46a8f227235`;
+los recibos, `66579c5cf367ddbd8033bd59024572bde97b09d556b835bfad00dc9c449ced0d`.
+Los objetos, ACL, fuentes, vectores y bytes históricos quedaron conservados.
+El binario reutilizado tenía SHA256
+`15377c020be8eef54be86ecb461d60836257f2b5275de8f647542b03b539c3e5`.
+Se retiraron después el clon, datos expandidos, socket, claves, binario,
+overlay, controladores y temporales propios. También se retiró el checkpoint
+parcial sustituido; quedan las actas y huellas del ensayo.
+
+Orden causal: POST149 → AD154 → Personal27 → Personal30. El runtime de
+intentos requiere la auditoría común y CA27
+`7f34c77014113bbb54069312e84dd1a62d7c8b6f`, que coteja la proyección histórica
+`pep_` sin cambiar su canon. Las listas seleccionan sólo SQL pendientes;
+ninguna migración instalada se reaplica.
+
+El montaje operativo permanece cerrado hasta que L complete la procedencia
+de proceso y canal de los consumos permitidos. Es una dependencia del
+registro común, no un fallo del corte RPT. Este ensayo no acredita HTTP,
+mTLS, navegador, IdP institucional, instalación principal ni producción.
 
 La fixture conserva `catalogo_snapshot` sin inventar un catálogo admitido.
 Ambos LOGIN de prueba conservan CONNECT propio; retirar el grupo del
@@ -207,9 +248,7 @@ comunes. AD154 rechaza retirada con claves de esa audiencia o dependencias Perso
 No borrar historia ni usar DOWN sobre una instalación conservada.
 
 La versión anterior de SQL recibió dos revisiones estáticas independientes sobre
-`e2a626e91fc748c5dd00be992e42f4a10053a225`. El cambio de destino de intentos requiere
-un ensayo y dos revisiones nuevas del hash final. La orden posterior de registros técnicos exige completar
-la observabilidad común del lector Go y revisar el corte final antes de
-publicarlo. La provisión productiva y el montaje requieren emisor V3, contexto
+`e2a626e91fc748c5dd00be992e42f4a10053a225`. El destino común recibió las revisiones y el ensayo por fases descritos arriba.
+La ratificación documental y CI corresponden al hash final publicado. La provisión productiva y el montaje requieren emisor V3, contexto
 y material nominales admitidos: un flag no concede acceso. Esta pieza no acredita ocupación,
 vacante, grado, antigüedad calculada, certificado ni incorporación eficaz.
