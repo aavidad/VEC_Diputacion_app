@@ -206,7 +206,7 @@ func (p *PreparadorAltaPostgreSQL) PrepararAlta(
 	if err != nil {
 		return ports.PreparacionAlta{}, err
 	}
-	referencias, err := p.generador.GenerarReferenciasAlta(ctx)
+	referencias, err := p.generador.GenerarReferenciasAlta(ctx, solicitud.NumeroExpedienteMOAD)
 	if err != nil {
 		return ports.PreparacionAlta{}, errorDependencia(ctx)
 	}

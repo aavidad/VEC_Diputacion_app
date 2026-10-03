@@ -98,6 +98,7 @@ func rutaAuditoriaFronteraRutaExactaValidaParaSuperficie(superficie, ruta string
 		return ruta == "/api/vec/bolsa/mi-bolsa" ||
 			ruta == "/api/vec/bolsa/mi-bolsa/historial" ||
 			ruta == "/api/vec/bolsa/mi-bolsa/solicitudes" ||
+			ruta == "/api/vec/bolsa/mi-bolsa/solicitudes-documentales" ||
 			ruta == "/api/vec/bolsa/mi-bolsa/respuestas" ||
 			ruta == "/api/vec/bolsa/mi-bolsa/disposiciones" ||
 			ruta == "/api/vec/bolsa/mi-bolsa/contacto"

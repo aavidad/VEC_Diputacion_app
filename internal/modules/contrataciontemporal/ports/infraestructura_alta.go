@@ -62,7 +62,7 @@ type SelladorAmbitoIdempotencia interface {
 // GeneradorReferenciasAlta acuña candidatos opacos. PostgreSQL decide cuáles
 // prevalecen ante dos preparaciones concurrentes del mismo ámbito.
 type GeneradorReferenciasAlta interface {
-	GenerarReferenciasAlta(context.Context) (ReferenciasAlta, error)
+	GenerarReferenciasAlta(context.Context, string) (ReferenciasAlta, error)
 	NuevaReferenciaReservaAlta(context.Context) (string, error)
 }
 

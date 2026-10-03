@@ -40,6 +40,12 @@ func (s *ServicioEntregaPeticionCentro) Entregar(ctx context.Context, c ports.Co
 		return vacia, ports.ErrReciboPeticionCentroNoConfiable
 	}
 	if e.EstadoEntrega == "confirmada" {
+		if c.NumeroExpedienteMOAD != "" && c.NumeroExpedienteMOAD != e.ReciboAlta.NumeroVisible {
+			return vacia, ports.ErrEntregaPeticionEnConflicto
+		}
+		if c.NumeroExpedienteMOAD == "" && e.AltaAnterior == nil {
+			return vacia, ports.ErrClaveIdempotenciaUsada
+		}
 		return e, nil
 	}
 	if err := ctx.Err(); err != nil {
@@ -51,9 +57,17 @@ func (s *ServicioEntregaPeticionCentro) Entregar(ctx context.Context, c ports.Co
 	if err != nil {
 		return vacia, err
 	}
-	alta, err := s.registro.RegistrarExpedientePeticion(ctx, copia)
-	if err != nil {
-		return vacia, err
+	var alta ports.AltaDePeticionCentro
+	if c.NumeroExpedienteMOAD == "" {
+		if e.AltaAnterior == nil {
+			return vacia, ports.ErrNumeroMOADAusente
+		}
+		alta = *e.AltaAnterior
+	} else {
+		alta, err = s.registro.RegistrarExpedientePeticion(ctx, copia, c.NumeroExpedienteMOAD)
+		if err != nil {
+			return vacia, err
+		}
 	}
 	if alta.Recibo.ValidarEstructura() != nil || alta.Recibo.Version != 1 || !ports.SelloHMACSHA256Valido(alta.AmbitoHMAC) {
 		return vacia, ports.ErrReciboPeticionCentroNoConfiable

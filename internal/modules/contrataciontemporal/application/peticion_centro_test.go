@@ -66,6 +66,46 @@ type relojPeticionCentroPrueba struct{ ahora time.Time }
 
 func (r relojPeticionCentroPrueba) Ahora() time.Time { return r.ahora }
 
+type preparadorPeriodoCentroPrueba struct {
+	llamadas int
+	fallar   bool
+}
+
+func (p *preparadorPeriodoCentroPrueba) PrepararPeriodoModalidad(_ context.Context, _ domain.ClaveCatalogo, periodo domain.PeriodoPrevisto) (domain.PeriodoPrevisto, error) {
+	p.llamadas++
+	if p.fallar {
+		return domain.PeriodoPrevisto{}, domain.ErrDatoInvalido
+	}
+	periodo.PoliticaFin = domain.PoliticaFin{
+		ReglaRef: "catalogo:3:c12.modalidad.sustitucion", CatalogoVersion: 3,
+		CatalogoHuellaSHA256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		FechaFin:             "no_aplica", CausaFin: "reincorporacion_titular",
+	}
+	return periodo, periodo.Validar()
+}
+
+func TestPeticionCentroFinPorCausaReusaSnapshotTrasCambiarRegla(t *testing.T) {
+	_, autoridad, repo, solicitud, ahora := servicioPeticionCentroPrueba(t)
+	solicitud.Periodo.Fin = time.Time{}
+	solicitud.Periodo.CausaFin = "reincorporacion_titular"
+	preparador := &preparadorPeriodoCentroPrueba{}
+	servicio, err := NuevoServicioPeticionCentro(autoridad, repo, relojPeticionCentroPrueba{ahora}, preparador)
+	if err != nil {
+		t.Fatal(err)
+	}
+	comando := ports.ComandoPeticionCentro{Operacion: ports.OperacionPresentarPeticionCentro,
+		ClaveIdempotencia: "12345678-1234-4234-8234-123456789abc", Solicitud: solicitud}
+	primero, err := servicio.Ejecutar(context.Background(), comando)
+	if err != nil || repo.ultimo.Peticion.Solicitud.Periodo.PoliticaFin.CatalogoVersion != 3 || preparador.llamadas != 1 {
+		t.Fatalf("snapshot inicial: recibo=%#v err=%v llamadas=%d", primero, err, preparador.llamadas)
+	}
+	preparador.fallar = true // Simula catálogo cambiado o retirado después del COMMIT.
+	replay, err := servicio.Ejecutar(context.Background(), comando)
+	if err != nil || replay.ReciboRef != primero.ReciboRef || preparador.llamadas != 1 || repo.confirmadas != 2 {
+		t.Fatalf("replay revalidó regla vigente: recibo=%#v err=%v llamadas=%d", replay, err, preparador.llamadas)
+	}
+}
+
 func TestServicioPeticionCentroPresentaRatificaYReplayConfirma(t *testing.T) {
 	servicio, autoridad, repo, solicitud, ahora := servicioPeticionCentroPrueba(t)
 	clave := "12345678-1234-4234-8234-123456789abc"

@@ -76,6 +76,30 @@ func TestServicioImportaConSHA256ActaEIdempotenciaPorContenido(t *testing.T) {
 	}
 }
 
+func TestServicioAceptaNombreXLSXEnActa(t *testing.T) {
+	repositorio := memoria.NuevoRepositorioImportacionesConvoca()
+	servicio, err := aplicacion.NuevoServicio(&decodificadorContador{hoja: hojaResumenValida()}, repositorio,
+		func() time.Time { return time.Date(2026, 7, 18, 12, 0, 0, 0, time.UTC) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	contenido := []byte("xlsx-sintetico-opaco")
+	solicitud := aplicacion.SolicitudImportacion{
+		CategoriaRef: "categoria:rpt:administrativo", BolsaRef: "bolsa:administrativo:2026-09-18",
+		NombreFichero: "convoca-sintetico.XLSX", FicheroCustodiadoRef: "almacen:objeto:convoca:xlsx-001",
+		ActorRef: "actor:rrhh:xlsx-001", Contenido: contenido,
+	}
+	primero, err := servicio.Importar(context.Background(), solicitud)
+	if err != nil {
+		t.Fatalf("importar XLSX: %v", err)
+	}
+	segundo, err := servicio.Importar(context.Background(), solicitud)
+	if err != nil || primero.Reutilizada || !segundo.Reutilizada || repositorio.NumeroLotes() != 1 ||
+		primero.Acta.NombreFichero != solicitud.NombreFichero || !segundo.Acta.CoincideExactamente(primero.Acta) {
+		t.Fatalf("acta o replay XLSX incorrectos: primero=%#v segundo=%#v lotes=%d error=%v", primero, segundo, repositorio.NumeroLotes(), err)
+	}
+}
+
 func TestServicioIdempotenciaConcurrenteTieneUnSoloGanador(t *testing.T) {
 	repositorio := memoria.NuevoRepositorioImportacionesConvoca()
 	servicio, err := aplicacion.NuevoServicio(
@@ -131,7 +155,8 @@ func TestServicioRechazaSolicitudAntesDeDecodificar(t *testing.T) {
 	casos := []aplicacion.SolicitudImportacion{
 		{},
 		{NombreFichero: "../real.xls", ActorRef: "actor:rrhh:001", Contenido: []byte("x")},
-		{NombreFichero: "real.xlsx", ActorRef: "actor:rrhh:001", Contenido: []byte("x")},
+		{NombreFichero: "real.xlsm", ActorRef: "actor:rrhh:001", Contenido: []byte("x")},
+		{NombreFichero: ".xlsx", ActorRef: "actor:rrhh:001", Contenido: []byte("x")},
 		{NombreFichero: "real.xls", ActorRef: "Nombre Apellidos", Contenido: []byte("x")},
 		{NombreFichero: "real.xls", ActorRef: "actor:rrhh:001", Contenido: make([]byte, aplicacion.MaximoBytesExportacion+1)},
 	}

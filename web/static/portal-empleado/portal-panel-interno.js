@@ -8,14 +8,14 @@
  * sin acceder al DOM global.
  */
 import { finVigenciaBolsaPortal, LOCALIZACION_PORTAL, textoPortal, traducirBolsaInterna, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
-import { renderizarBloqueAvisos } from "./portal-bolsas-avisos.js?v=20261001-ct-a-i18n-v1";
+import { renderizarBloqueAvisos } from "./portal-bolsas-avisos.js?v=20261002-rrhh17-v1";
 import { renderizarChipsMarcas, renderizarMarcasFicha, seleccionableEnLlamamiento, traducirMarcasBolsa } from "./portal-bolsas-marcas.js?v=20261001-ct-a-i18n-v1";
-import { renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20261002-a-recuperar-379-v1";
+import { renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20261002-r-rrhh18-v2";
 import { destinosSituacion, fechaDisponiblePropuesta, renderizarCamposReposicion } from "./portal-bolsas-reglas-situacion.js?v=20260930-portales-i18n-integracion-v1";
 import { renderizarIntentosContacto } from "./portal-bolsas-intentos.js?v=20261001-ct-a-i18n-v1";
 import { renderizarContratosParticipacion } from "./portal-bolsas-contratos.js?v=20261002-a-recuperar-379-v1";
 import { renderizarReincorporacionesTitular } from "./portal-bolsas-reincorporaciones.js?v=20261001-ct-a-i18n-v1";
-import { renderizarSanciones } from "./portal-bolsas-sanciones.js?v=20261002-a-recuperar-379-v1";
+import { renderizarSanciones } from "./portal-bolsas-sanciones.js?v=20261002-r-rrhh18-v2";
 import { renderizarAvisosContactoEmision, renderizarOrigenContacto } from "./portal-bolsas-contacto-origen.js?v=20261001-ct-a-i18n-v1";
 import { renderizarRegistroContacto } from "./portal-bolsas-contacto-registro.js?v=20261001-ct-a-i18n-v1";
 import { traducirAvisoPanelInterno } from "./portal-panel-interno-i18n.js?v=20260930-portales-i18n-integracion-v1";
@@ -29,7 +29,7 @@ const REPOSICIONES_CONOCIDAS = new Set(["misma_posicion", "fin_lista", "no_dispo
 import { RUTA_PANTALLA_REGLAS } from "./reglas/enlace.js?v=20261001-ct-a-i18n-v1";
 import { renderizarMarcadoresCorreo, renderizarVistaPreviaCorreo } from "./portal-bolsas-correo.js?v=20260930-portales-i18n-integracion-v1";
 const ESQUEMA_PANEL_INTERNO = "vec.bolsa.panel.interno.v1";
-const ESTADOS_BOLSA = Object.freeze(["disponible", "no_disponible", "trabajando", "pendiente_incorporacion", "renuncia", "excluido", "disponible_desde"]);
+const ESTADOS_BOLSA = Object.freeze(["disponible", "no_disponible", "trabajando", "pendiente_incorporacion", "renuncia", "excluido", "disponible_desde", "en_revision"]);
 export function crearPresentadorPanelInterno(dependencias) {
   const {
     claseEstado,
@@ -97,6 +97,7 @@ export function crearPresentadorPanelInterno(dependencias) {
     return REPOSICIONES_CONOCIDAS.has(clave) ? traducirBolsaInterna(`bolsa_reposicion_${clave}`) : etiquetaClave(clave);
   }
   function etiquetaEstadoBolsa(estado) {
+    if (estado === "en_revision") return traducirPortal("txt_b8_en_revision");
     const clave = `bolsa_estado_${estado}`;
     const traducida = traducirBolsaInterna(clave);
     return traducida === clave ? etiquetaClave(estado) : traducida;
@@ -107,7 +108,7 @@ export function crearPresentadorPanelInterno(dependencias) {
     return `<button type="button" class="estado-chip ${escaparHTML(clase)}" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(bolsa.bolsa_ref)}" data-estado="${escaparHTML(estado)}" aria-label="${textoPortal("txt_aria_ver_candidatos_estado", { total, estado: etiqueta.toLocaleLowerCase(LOCALIZACION_PORTAL), categoria: bolsa.categoria })}">${escaparHTML(total)}</button>`;
   }
   function claseEstadoEstadistica(estado) {
-    return ({ disponible: "exito", no_disponible: "peligro", excluido: "peligro", pendiente_incorporacion: "info", disponible_desde: "info" })[estado] || "neutro";
+    return ({ disponible: "exito", no_disponible: "peligro", excluido: "peligro", pendiente_incorporacion: "info", disponible_desde: "info", en_revision: "advertencia" })[estado] || "neutro";
   }
   function etiquetaEstadoEstadistica(estado) { return etiquetaEstadoBolsa(estado); }
   function renderizarEstadisticasBolsa() {
@@ -125,7 +126,7 @@ export function crearPresentadorPanelInterno(dependencias) {
       atributos: 'data-vista="resumen"',
       aria: traducirEnlacesBolsa("kpi_bolsas_aria", { total: numero(valor) }),
       enlace: traducirEnlacesBolsa("kpi_ver_cuadro"),
-    } : null)).join("")}</div><section class="panel panel-separado"><div class="cabecera-panel"><h3>${textoPortal("txt_personas_y_llamamientos")}</h3><time datetime="${escaparHTML(datos.generado_en)}">${textoPortal("txt_actualizado_en", { instante: instanteVisible(datos.generado_en) })}</time></div><div class="cuerpo-panel estadisticas-resumen"><div><h4>${textoPortal("txt_situacion_de_personas")}</h4><div class="lista-chips">${resumenEstados}</div></div><div><h4>${textoPortal("txt_canal_de_llamamiento")}</h4><div class="lista-chips">${resumenCanales}</div></div><div><h4>${textoPortal("txt_resultado_de_llamamiento")}</h4><div class="lista-chips">${resumenResultados}</div></div></div></section><section class="panel panel-separado"><div class="cabecera-panel"><h3>${textoPortal("txt_desglose_por_bolsa")}</h3></div><div class="tabla-contenedor"><table class="tabla-datos"><caption>${textoPortal("txt_personas_por_bolsa_y_situacion")}</caption><thead><tr><th scope="col">${textoPortal("txt_bolsa")}</th><th scope="col">${textoPortal("txt_vigencia")}</th><th scope="col">${textoPortal("txt_total")}</th>${ESTADOS_BOLSA.map((estado) => `<th scope="col">${escaparHTML(etiquetaEstadoEstadistica(estado))}</th>`).join("")}</tr></thead><tbody>${filas || '<tr><td colspan="10" class="vacio-controlado">' + textoPortal("txt_la_fuente_no_ha_devuelto_bolsas_para_este_ambito") + '</td></tr>'}</tbody></table></div></section>`;
+    } : null)).join("")}</div><section class="panel panel-separado"><div class="cabecera-panel"><h3>${textoPortal("txt_personas_y_llamamientos")}</h3><time datetime="${escaparHTML(datos.generado_en)}">${textoPortal("txt_actualizado_en", { instante: instanteVisible(datos.generado_en) })}</time></div><div class="cuerpo-panel estadisticas-resumen"><div><h4>${textoPortal("txt_situacion_de_personas")}</h4><div class="lista-chips">${resumenEstados}</div></div><div><h4>${textoPortal("txt_canal_de_llamamiento")}</h4><div class="lista-chips">${resumenCanales}</div></div><div><h4>${textoPortal("txt_resultado_de_llamamiento")}</h4><div class="lista-chips">${resumenResultados}</div></div></div></section><section class="panel panel-separado"><div class="cabecera-panel"><h3>${textoPortal("txt_desglose_por_bolsa")}</h3></div><div class="tabla-contenedor"><table class="tabla-datos"><caption>${textoPortal("txt_personas_por_bolsa_y_situacion")}</caption><thead><tr><th scope="col">${textoPortal("txt_bolsa")}</th><th scope="col">${textoPortal("txt_vigencia")}</th><th scope="col">${textoPortal("txt_total")}</th>${ESTADOS_BOLSA.map((estado) => `<th scope="col">${escaparHTML(etiquetaEstadoEstadistica(estado))}</th>`).join("")}</tr></thead><tbody>${filas || '<tr><td colspan="11" class="vacio-controlado">' + textoPortal("txt_la_fuente_no_ha_devuelto_bolsas_para_este_ambito") + '</td></tr>'}</tbody></table></div></section>`;
   }
   function instanteVisible(instante) {
     if (!instante || String(instante).startsWith("0001-01-01")) return traducirPortal("txt_sin_fecha_limite");
@@ -307,6 +308,7 @@ export function crearPresentadorPanelInterno(dependencias) {
         <td>${controlEstadoBolsa(b, "excluido", "peligro")}</td>
         <td>${controlEstadoBolsa(b, "renuncia")}</td>
         <td>${controlEstadoBolsa(b, "pendiente_incorporacion", "info")}</td>
+        <td>${controlEstadoBolsa(b, "en_revision", "advertencia")}</td>
       </tr>
     `).join("");
     return `
@@ -336,6 +338,7 @@ export function crearPresentadorPanelInterno(dependencias) {
                 <th scope="col">${textoPortal("txt_excluidos")}</th>
                 <th scope="col">${textoPortal("txt_renuncia")}</th>
                 <th scope="col">${textoPortal("txt_pend_incorporacion")}</th>
+                <th scope="col">${textoPortal("txt_b8_en_revision")}</th>
               </tr>
             </thead>
             <tbody>
@@ -383,7 +386,8 @@ export function crearPresentadorPanelInterno(dependencias) {
     const reglaPlazo = flujo.reglaPlazo || null;
     const plazoEditable = (/\bpendiente\b/i.test(plazoAnterior) ? "" : plazoAnterior) || (flujo.configuracion ? "" : reglaPlazo?.texto || "");
     const t = (clave, variables) => escaparHTML(traducirPortal(clave, variables));
-    const etiquetaEstadoB7 = (estado) => t(estado === "disponible" ? "panel_b7_estado_disponible" : "panel_b7_estado_disponible_desde");
+    const etiquetaEstadoB7 = (estado) => estado === "disponible" || estado === "disponible_desde"
+      ? t(estado === "disponible" ? "panel_b7_estado_disponible" : "panel_b7_estado_disponible_desde") : escaparHTML(etiquetaEstadoBolsa(estado));
     const nombres = ["panel_b7_paso_bolsa", "panel_b7_paso_candidatos", "panel_b7_paso_configurar", "panel_b7_paso_revisar"];
     const rail = `<nav class="pasos" aria-label="${t("panel_b7_pasos_aria")}">${nombres.map((nombre,i)=>`<span class="paso ${i+1<paso?"completado":""}"${i+1===paso?' aria-current="step" tabindex="-1"':""}><span class="paso-numero">${i+1<paso?"✓":i+1}</span><span>${t(nombre)}</span></span>`).join("")}</nav>`;
     const resumen = `<aside class="resumen-lateral"><section class="panel"><div class="cabecera-panel"><h3>${t("panel_b7_resumen")}</h3></div><div class="cuerpo-panel"><dl class="resumen-expediente"><div class="fila-resumen"><dt>${t("panel_b7_categoria")}</dt><dd>${escaparHTML(bolsa.categoria)}</dd></div><div class="fila-resumen"><dt>${t("panel_b7_tipo_lista")}</dt><dd>${escaparHTML(etiquetaClave(bolsa.tipo_lista))}</dd></div><div class="fila-resumen"><dt>${t("panel_b7_vigencia")}</dt><dd>${escaparHTML(fechaVisible(bolsa.vigente_desde))}</dd></div><div class="fila-resumen"><dt>${t("panel_b7_personas")}</dt><dd>${numero(bolsa.total)}</dd></div><div class="fila-resumen"><dt>${t("panel_b7_seleccionadas")}</dt><dd>${numero(flujo.participaciones?.length||0)}</dd></div></dl></div></section></aside>`;
@@ -396,7 +400,7 @@ export function crearPresentadorPanelInterno(dependencias) {
       const inicio = pagina * 6;
       const seleccionadas = flujo.participaciones?.length || 0;
       // Quien ya presta servicios con el catálogo en «excluir» se ve, pero no se puede marcar.
-      const filas = visibles.slice(inicio, inicio + 6).map((candidato) => { const seleccionable = seleccionableEnLlamamiento(candidato); return `<tr><td><input type="checkbox" name="participacion" value="${escaparHTML(candidato.participacion_ref)}" ${seleccionable && flujo.participaciones?.includes(candidato.participacion_ref) ? "checked" : ""}${seleccionable ? "" : " disabled"} aria-label="${seleccionable ? t("panel_b7_seleccionar_orden_aria", { orden: numero(candidato.orden) }) : escaparHTML(traducirMarcasBolsa("no_seleccionable_aria"))}"></td><td>${numero(candidato.orden)}</td><td>${escaparHTML(candidato.nombre_visible)}</td><td><span class="estado-chip ${claseEstado(candidato.estado_clave)}">${etiquetaEstadoB7(candidato.estado_clave)}</span>${renderizarChipsMarcas(candidato, escaparHTML)}</td></tr>`; }).join("");
+      const filas = visibles.slice(inicio, inicio + 6).map((candidato) => { const seleccionable = !["en_revision", "trabajando", "excluido"].includes(candidato.estado_clave) && seleccionableEnLlamamiento(candidato); return `<tr><td><input type="checkbox" name="participacion" value="${escaparHTML(candidato.participacion_ref)}" ${seleccionable && flujo.participaciones?.includes(candidato.participacion_ref) ? "checked" : ""}${seleccionable ? "" : " disabled"} aria-label="${seleccionable ? t("panel_b7_seleccionar_orden_aria", { orden: numero(candidato.orden) }) : candidato.estado_clave === "en_revision" ? t("txt_b8_en_revision") : ["trabajando", "excluido"].includes(candidato.estado_clave) ? escaparHTML(etiquetaEstadoBolsa(candidato.estado_clave)) : escaparHTML(traducirMarcasBolsa("no_seleccionable_aria"))}"></td><td>${numero(candidato.orden)}</td><td>${escaparHTML(candidato.nombre_visible)}</td><td><span class="estado-chip ${claseEstado(candidato.estado_clave)}">${etiquetaEstadoB7(candidato.estado_clave)}</span>${renderizarChipsMarcas(candidato, escaparHTML)}</td></tr>`; }).join("");
       contenido = `<form class="panel" data-bolsa-form="b7-paso2" aria-busy="${flujo.consultando ? "true" : "false"}"><div class="cabecera-panel"><h3>2. ${t("panel_b7_paso_candidatos")}</h3><span class="estado-chip info">${t("panel_b7_turno_pagina", { cantidad: numero(visibles.length) })}</span></div><div class="cuerpo-panel"><fieldset><legend>${t("panel_b7_estados_incluir")}</legend>${["disponible", "disponible_desde"].map((estado) => `<label><input type="checkbox" name="estado" value="${estado}" ${estados.has(estado) ? "checked" : ""}> ${etiquetaEstadoB7(estado)}</label>`).join(" ")}</fieldset><label><input type="checkbox" checked disabled> ${t("panel_b7_orden_obligatorio")}</label><button type="button" class="boton-secundario" data-bolsa-accion="b7-seleccionar-todas" ${flujo.consultando ? "disabled" : ""}>${t("panel_b7_seleccionar_todas")}</button><p role="status" tabindex="-1" data-b7-seleccion-status><strong>${t("panel_b7_seleccionadas_estado", { cantidad: numero(seleccionadas) })}</strong>${flujo.consultando ? t("panel_b7_consultando_paginas") : flujo.totalElegibles !== null && flujo.totalElegibles !== undefined ? t("panel_b7_elegibles_estado", { cantidad: numero(flujo.totalElegibles) }) : t("panel_b7_punto")}</p>${flujo.error ? `<p role="alert" tabindex="-1" data-b7-seleccion-error class="mensaje-error">${escaparHTML(flujo.error)}</p>` : ""}</div><div class="tabla-contenedor"><table class="tabla-datos"><caption>${t("panel_b7_tabla_orden")}</caption><thead><tr><th>${t("panel_b7_col_seleccion")}</th><th>${t("panel_b7_col_orden")}</th><th>${t("panel_b7_col_candidato")}</th><th>${t("panel_b7_col_estado")}</th></tr></thead><tbody>${filas || `<tr><td colspan="4">${t("panel_b7_sin_turno")}</td></tr>`}</tbody></table></div><div class="cuerpo-panel"><span>${t("panel_b7_pagina_estado", { inicio: numero(visibles.length ? inicio + 1 : 0), fin: numero(Math.min(inicio + 6, visibles.length)), total: numero(visibles.length) })}</span> <button type="button" class="boton-secundario" data-bolsa-accion="b7-pagina" data-pagina="${pagina - 1}" ${pagina === 0 ? "disabled" : ""}>${t("panel_b7_anterior")}</button> <button type="button" class="boton-secundario" data-bolsa-accion="b7-pagina" data-pagina="${pagina + 1}" ${inicio + 6 >= visibles.length ? "disabled" : ""}>${t("panel_b7_siguiente")}</button> <button type="button" class="boton-secundario" data-bolsa-accion="b7-fuente-anterior" ${!flujo.cursoresPagina || flujo.cursoresPagina.length < 2 || flujo.consultando ? "disabled" : ""}>${t("panel_b7_fuente_anterior")}</button> <button type="button" class="boton-secundario" data-bolsa-accion="b7-fuente-siguiente" ${!fuente.hay_mas || flujo.consultando ? "disabled" : ""}>${t("panel_b7_fuente_siguiente")}</button> <button type="button" class="boton-secundario" data-bolsa-accion="b7-limpiar-seleccion" ${!seleccionadas || flujo.consultando ? "disabled" : ""}>${t("panel_b7_borrar_seleccion")}</button> <button class="boton-primario" type="submit" ${flujo.consultando ? "disabled" : ""}>${t("panel_b7_configurar")}</button></div></form>`;
     }
     if(paso===3){
@@ -483,12 +487,13 @@ export function crearPresentadorPanelInterno(dependencias) {
       ["renuncia", traducirPortal("txt_renuncia")],
       ["excluido", traducirPortal("txt_excluido")],
       ["disponible_desde", traducirPortal("txt_disponible_desde_fecha")],
+      ["en_revision", traducirPortal("txt_b8_en_revision")],
     ].map(([valor, etiqueta]) => `
       <option value="${escaparHTML(valor)}"${valor === filtrosActuales.estado ? " selected" : ""}>${escaparHTML(etiqueta)}</option>
     `).join("");
     const contadoresEstado = Object.entries(bolsa?.por_estado || {}).map(([estado, total]) => {
-      const tono = estado === "disponible" ? "kpi--exito" : ["renuncia", "no_disponible"].includes(estado) ? "kpi--advertencia" : estado === "excluido" ? "kpi--peligro" : "";
-      const rotulo = ({ no_disponible: traducirPortal("txt_no_disp"), pendiente_incorporacion: traducirPortal("txt_pend_incorp"), disponible_desde: traducirPortal("txt_desde_fecha") })[estado] || etiquetaClave(estado);
+      const tono = estado === "disponible" ? "kpi--exito" : ["renuncia", "no_disponible", "en_revision"].includes(estado) ? "kpi--advertencia" : estado === "excluido" ? "kpi--peligro" : "";
+      const rotulo = ({ no_disponible: traducirPortal("txt_no_disp"), pendiente_incorporacion: traducirPortal("txt_pend_incorp"), disponible_desde: traducirPortal("txt_desde_fecha") })[estado] || etiquetaEstadoBolsa(estado);
       return `<button type="button" class="tarjeta-kpi kpi-filtro ${tono}" data-bolsa-accion="filtrar-estado" data-estado="${escaparHTML(estado)}" aria-label="${textoPortal("txt_aria_filtrar_situacion", { total: numero(total), situacion: etiquetaEstadoBolsa(estado) })}" aria-pressed="${filtrosActuales.estado === estado}"><span class="icono-kpi" aria-hidden="true">${estado === "disponible" ? "✓" : estado === "excluido" ? "×" : "•"}</span><span><span class="etiqueta-kpi">${escaparHTML(rotulo)}</span><strong class="valor-kpi">${numero(total)}</strong></span></button>`;
     }).join("");
     const formularioFiltros = `
@@ -528,7 +533,7 @@ export function crearPresentadorPanelInterno(dependencias) {
                   : c.razon_orden === "pausa" ? traducirPortal("txt_pausa") : etiquetaClave(c.razon_orden))}</small>` : ""}</td>
             <td><button type="button" class="enlace-tabla" data-bolsa-accion="abrir-ficha" data-bolsa-control-principal="true" data-participacion-ref="${escaparHTML(c.participacion_ref)}" aria-expanded="${fichaAbierta}" aria-controls="${escaparHTML(fichaId)}" aria-label="${textoPortal("txt_aria_abrir_ficha_de", { persona: c.nombre_visible })}"><strong>${escaparHTML(c.nombre_visible)}</strong></button></td>
             <td><code>${escaparHTML(c.documento_enmascarado)}</code></td>
-            <td><span class="estado-chip ${claseEstado(c.estado_clave)}">${escaparHTML(etiquetaClave(c.estado_clave))}</span>${renderizarChipsMarcas(c, escaparHTML)}</td>
+            <td><span class="estado-chip ${claseEstado(c.estado_clave)}">${escaparHTML(etiquetaEstadoBolsa(c.estado_clave))}</span>${renderizarChipsMarcas(c, escaparHTML)}</td>
             <td><small>${escaparHTML(instanteVisible(c.estado_desde))}</small></td>
             <td><small>${c.disponible_desde ? escaparHTML(instanteVisible(c.disponible_desde)) : "—"}</small></td>
             <td>${detalleLlamamiento}</td>
@@ -707,6 +712,7 @@ export function crearPresentadorPanelInterno(dependencias) {
                 <div class="fila-resumen"><dt>${textoPortal("txt_bolsa")}</dt><dd>${escaparHTML(bolsa.categoria)}<br><small>${escaparHTML(etiquetaClave(bolsa.tipo_lista))}</small></dd></div>
                 <div class="fila-resumen"><dt>${textoPortal("txt_vigencia")}</dt><dd>${escaparHTML(vigencia)}</dd></div>
                 <div class="fila-resumen"><dt>${textoPortal("txt_orden_del_acta")}</dt><dd>#${numero(candidato.orden_acta)}</dd></div>
+                <div class="fila-resumen"><dt>${textoPortal("txt_situacion")}</dt><dd><span class="estado-chip ${candidato.estado_clave === "en_revision" ? "advertencia" : claseEstado(candidato.estado_clave)}">${escaparHTML(etiquetaEstadoBolsa(candidato.estado_clave))}</span></dd></div>
                 <div class="fila-resumen"><dt>${textoPortal("txt_ultimo_cambio_de_situacion")}</dt><dd>${escaparHTML(instanteVisible(candidato.estado_desde))}</dd></div>
                 ${renderizarMarcasFicha(candidato, escaparHTML)}
                 ${disponibilidad}

@@ -183,7 +183,18 @@ func perfilPasoFirmaDocumentoCTDesarrolloCoincide(m ports.MaterialFirmaDocumento
 			return false
 		}
 		paso := documento.Pasos[m.PasoOrden-1]
-		return paso.Orden == m.PasoOrden && paso.Referencia == m.PasoRef && paso.PerfilRef == perfilRef
+		if paso.Orden != m.PasoOrden || paso.Referencia != m.PasoRef {
+			return false
+		}
+		if paso.PerfilRef == perfilRef {
+			return true
+		}
+		for _, alternativo := range paso.PerfilesAlternativos {
+			if alternativo == perfilRef {
+				return true
+			}
+		}
+		return false
 	}
 	return false
 }
@@ -483,12 +494,14 @@ func (f fuenteCircuitoFirmaReglasDesarrollo) CircuitoFirma(ctx context.Context) 
 		return ctdomain.CircuitoFirma{}, ctapplication.ErrCircuitoFirmaNoDisponible
 	}
 	salida := ctdomain.CircuitoFirma{CatalogoRef: c.CatalogoID + ":" + strconv.Itoa(c.Version),
-		HuellaCatalogo: strings.ToLower(c.HuellaCatalogo), Ejemplo: c.PaqueteEjemplo}
+		HuellaCatalogo: strings.ToLower(c.HuellaCatalogo), Ejemplo: c.PaqueteEjemplo,
+		PermiteMismaPersonaEnPasos: c.PermiteMismaPersonaEnPasos}
 	for _, d := range c.Documentos {
 		doc := ctdomain.CircuitoFirmaDocumento{Documento: d.Documento, Etiqueta: d.Etiqueta}
 		for _, p := range d.Pasos {
 			doc.Pasos = append(doc.Pasos, ctdomain.PasoCircuitoFirma{Orden: p.Orden, Cargo: p.Cargo, PerfilRef: p.PerfilRef,
-				Accion: string(p.Accion), Devolucion: ctdomain.DevolucionPasoFirma(p.Devolucion), Habilita: string(p.Habilita), Referencia: p.Referencia})
+				PerfilesAlternativos: append([]string(nil), p.PerfilesAlternativos...),
+				Accion:               string(p.Accion), Devolucion: ctdomain.DevolucionPasoFirma(p.Devolucion), Habilita: string(p.Habilita), Referencia: p.Referencia})
 		}
 		salida.Documentos = append(salida.Documentos, doc)
 	}

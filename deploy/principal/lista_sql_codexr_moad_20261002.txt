@@ -1,0 +1,3 @@
+# Precondiciones: CT151 y el paquete Fin CT165/166/167 ya verificados en destino.
+# Instalar solo CT169 nueva; no ejecutar los fixtures ni reaplicar SQL instalado.
+deploy/postgresql/contratacion_temporal/migraciones/000169_entrega_original_alta_confinada.up.sql

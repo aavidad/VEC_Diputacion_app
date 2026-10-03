@@ -268,11 +268,11 @@ test("la ficha propia muestra la participación sin convertirla en una decisión
   assert.match(htmlSin, /Sin participaciones activas/u);
 });
 
-test("la disponibilidad B8 no se simula mientras sigue pendiente de integración", () => {
+test("la disponibilidad no admite acciones de pausa o reactivación", () => {
   const datos = datosPrueba();
 
   const htmlDisponible = renderizarLlamamientos(datos);
-  assert.match(htmlDisponible, /Pausar o reactivar su disponibilidad todavía no se puede solicitar aquí\./u);
+  assert.match(htmlDisponible, /Para solicitar una revisión, diríjase al Servicio de RRHH\./u);
   assert.doesNotMatch(htmlDisponible, /data-operacion="cambiar_disponibilidad"|Ensayar pausa|Ensayar reactivación/u);
 });
 
