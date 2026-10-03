@@ -39,6 +39,8 @@ BEGIN
   AND c.relowner=propietario AND c.relrowsecurity AND c.relforcerowsecurity)
   OR NOT EXISTS(SELECT 1 FROM pg_policy p WHERE p.polrelid='vec_contratacion_temporal.firma_documento_revision_pdf_v2'::regclass
    AND p.polname='propietario' AND p.polroles=ARRAY[propietario])
+  OR EXISTS(SELECT 1 FROM pg_policy p WHERE p.polrelid='vec_contratacion_temporal.firma_documento_revision_pdf_v2'::regclass
+   AND p.polroles<>ARRAY[propietario])
   OR EXISTS(SELECT 1 FROM pg_class c CROSS JOIN LATERAL aclexplode(coalesce(c.relacl,acldefault('r',c.relowner))) a
    WHERE c.oid='vec_contratacion_temporal.firma_documento_revision_pdf_v2'::regclass AND a.grantee<>propietario)
   OR EXISTS(SELECT 1 FROM pg_type t CROSS JOIN LATERAL aclexplode(coalesce(t.typacl,acldefault('T',t.typowner))) a

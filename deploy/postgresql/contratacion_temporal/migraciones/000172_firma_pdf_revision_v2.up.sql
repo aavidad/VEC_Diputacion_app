@@ -1,6 +1,6 @@
 \set ON_ERROR_STOP on
 -- CT172 añade revisiones PDF a cada acto V2; conserva CT118/170 y su cabeza global.
--- Requiere CT170, AD162, CT174 y AUT32 con sus fuentes nominales. Solo UP.
+-- Requiere CT170, AD162, CT174 y AUT32/AUT35 con sus fuentes nominales. Solo UP.
 BEGIN;
 SET LOCAL ROLE vec_contratacion_temporal_propietario;
 SET LOCAL search_path=pg_catalog;
@@ -26,6 +26,7 @@ BEGIN
   'vec_autorizacion_atestada_v3.registrar_y_consumir_firma_verificada_ct_v2_atestada(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
   'vec_autorizacion_atestada_v3.consumir_consulta_firmas_r5_ct_v2_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
   'vec_contratacion_temporal.leer_revalidar_relacion_unidad_expediente_ct_v1(text,text,text,numeric)',
+  'vec_autorizacion.construir_contexto_nominal_firmante_ct_v1(jsonb,jsonb,jsonb)',
   'vec_autorizacion.acreditar_competencia_nominal_firmante_ct_v1(bytea,jsonb,jsonb)',
   'vec_autorizacion.recuperar_evidencia_competencia_firmante_ct_v1(text,text,bytea,jsonb,jsonb)'] LOOP
   f:=to_regprocedure(nombre);
@@ -127,12 +128,12 @@ CREATE FUNCTION vec_contratacion_temporal.registrar_firma_verificada_v2(
  p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,
  p_persona_version numeric,p_perfil_version numeric,
  p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea,
- p_contexto_nominal bytea
+ p_descriptor_nominal bytea
 ) RETURNS jsonb
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path=pg_catalog SET row_security=on SET timezone='UTC' SET lock_timeout='2s'
 AS $f$
-DECLARE s jsonb; d jsonb; canon jsonb; relacion jsonb; competencia jsonb; consumo record; previa record; enlace record; cabeza record; anterior record; revision_anterior record; evidencia_firma jsonb; br jsonb;
+DECLARE s jsonb; d jsonb; descriptor jsonb; descriptor_texto text; contexto_nominal bytea; canon jsonb; relacion jsonb; competencia jsonb; consumo record; previa record; enlace record; cabeza record; anterior record; revision_anterior record; evidencia_firma jsonb; br jsonb;
  h text; contexto_h text; recurso text; v numeric; org text; siguiente integer;
  ahora timestamptz(6); firma text; recibo text; auditoria text; evento text;
  k text; fecha text; accion text; tipo_recurso text; operacion_auditoria text; tipo_evento text;
@@ -369,61 +370,126 @@ BEGIN
  IF consumo.efecto_ref IS DISTINCT FROM recurso OR consumo.huella_efecto_sha256 IS DISTINCT FROM contexto_h
     OR consumo.consumo_nuevo IS NOT TRUE THEN
     RAISE EXCEPTION 'consumo de firma verificada divergente' USING ERRCODE='42501'; END IF;
- -- AUT30 comprueba la asignación, el control de vigencia y la competencia
- -- nominal actual bajo bloqueo. Una instantánea leída antes de custodiar el
- -- PDF no autoriza un COMMIT. La misma guarda se ejecuta en un replay.
- -- La relación pertenece a CT y bloquea el puntero de la unidad gestora
- -- con FOR SHARE. El canon no otorga permisos: AUT32 revalida sus fuentes.
+ -- El consumo/auditoría del registrador precede a toda revalidación.
+ -- CT174 protege el puntero con FOR SHARE hasta COMMIT, también al recuperar.
  relacion := vec_contratacion_temporal.leer_revalidar_relacion_unidad_expediente_ct_v1(
   s->>'OrganizacionRef',s->>'ExpedienteRef',s->>'UnidadFirmanteRef',
   (s->>'VersionExpediente')::numeric);
- IF p_contexto_nominal IS NULL OR octet_length(p_contexto_nominal) NOT BETWEEN 512 AND 32768 THEN
+ IF p_descriptor_nominal IS NULL OR octet_length(p_descriptor_nominal) NOT BETWEEN 512 AND 32768 THEN
+  RAISE EXCEPTION 'descriptor nominal de firma no disponible' USING ERRCODE='42501'; END IF;
+ BEGIN
+  descriptor_texto:=convert_from(p_descriptor_nominal,'UTF8');
+  descriptor:=descriptor_texto::jsonb;
+ EXCEPTION WHEN others THEN
+  RAISE EXCEPTION 'descriptor nominal de firma no disponible' USING ERRCODE='42501'; END;
+ -- Selección del plan gobernado en servidor; estos datos no conceden permiso.
+ -- AUT35 obtiene identidad, fuentes Personal y asignación desde propietarios.
+ IF vec_contratacion_temporal.fiscalizacion_claves_exactas_v1(descriptor,ARRAY[
+   'esquema','certificado_der_sha256','seleccion','recurso','accion','finalidad',
+   'motivo','circuito','paso_ref','paso_orden','fecha_historica']) IS NOT TRUE
+  OR (SELECT count(*) FROM json_each(descriptor_texto::json))<>(SELECT count(*) FROM jsonb_each(descriptor))
+  OR descriptor->>'esquema' IS DISTINCT FROM 'vec.competencia-firmante.constructor-ct.v1'
+  OR vec_contratacion_temporal.fiscalizacion_claves_exactas_v1(descriptor->'seleccion',ARRAY[
+   'perfil_esperado_ref','perfil_activo_ref','rol_id','cargo_ref','enlace_ejercicio_ref']) IS NOT TRUE
+  OR vec_contratacion_temporal.fiscalizacion_claves_exactas_v1(descriptor->'recurso',ARRAY[
+   'organizacion_ref','unidad_ref','expediente_ref','documento_ref','recurso_autorizable_ref',
+   'modulo_id','tipo_recurso','recurso_contexto_sha256','original','pdf_raiz_sha256',
+   'firmado','pdf_firmado_sha256','numero_firmas','entrada_revision']) IS NOT TRUE
+  OR vec_contratacion_temporal.fiscalizacion_claves_exactas_v1(descriptor#>'{recurso,original}',ARRAY[
+   'referencia','version','huella_sha256']) IS NOT TRUE
+  OR vec_contratacion_temporal.fiscalizacion_claves_exactas_v1(descriptor#>'{recurso,firmado}',ARRAY[
+   'referencia','version','huella_sha256']) IS NOT TRUE
+  OR vec_contratacion_temporal.fiscalizacion_claves_exactas_v1(descriptor->'circuito',ARRAY[
+   'referencia','version','huella_sha256']) IS NOT TRUE
+  OR vec_contratacion_temporal.fiscalizacion_claves_exactas_v1(descriptor->'motivo',ARRAY[
+   'catalogo_id','catalogo_version','catalogo_huella_sha256','entrada_clave']) IS NOT TRUE
+  OR descriptor->>'certificado_der_sha256' IS DISTINCT FROM s->>'CertificadoHuella'
+  OR descriptor#>>'{seleccion,perfil_esperado_ref}' IS DISTINCT FROM s->>'PerfilFirmanteRef'
+  OR descriptor#>>'{seleccion,perfil_activo_ref}' IS DISTINCT FROM s->>'PerfilActivoFirmanteRef'
+  OR descriptor#>>'{seleccion,rol_id}' IS DISTINCT FROM s->>'RolIDFirmante'
+  OR descriptor#>>'{recurso,organizacion_ref}' IS DISTINCT FROM s->>'OrganizacionRef'
+  OR descriptor#>>'{recurso,unidad_ref}' IS DISTINCT FROM s->>'UnidadFirmanteRef'
+  OR descriptor#>>'{recurso,expediente_ref}' IS DISTINCT FROM s->>'ExpedienteRef'
+  OR descriptor#>>'{recurso,documento_ref}' IS DISTINCT FROM s->>'OriginalRef'
+  OR descriptor#>>'{recurso,recurso_autorizable_ref}' IS DISTINCT FROM s->>'OriginalRef'
+  OR descriptor#>>'{recurso,modulo_id}' IS DISTINCT FROM 'contratacion_temporal'
+  OR descriptor#>>'{recurso,original,referencia}' IS DISTINCT FROM s->>'OriginalRef'
+  OR descriptor#>'{recurso,original,version}' IS DISTINCT FROM s->'OriginalVersion'
+  OR descriptor#>>'{recurso,original,huella_sha256}' IS DISTINCT FROM s->>'OriginalHuella'
+  OR descriptor#>>'{recurso,pdf_raiz_sha256}' IS DISTINCT FROM s->>'OriginalHuella'
+  OR descriptor#>>'{recurso,firmado,referencia}' IS DISTINCT FROM s->>'DocumentoCustodiaRef'
+  OR descriptor#>'{recurso,firmado,version}' IS DISTINCT FROM s->'DocumentoCustodiaVersion'
+  OR descriptor#>>'{recurso,firmado,huella_sha256}' IS DISTINCT FROM s->>'FirmadoHuella'
+  OR descriptor#>>'{recurso,pdf_firmado_sha256}' IS DISTINCT FROM s->>'FirmadoHuella'
+  OR descriptor#>'{recurso,numero_firmas}' IS DISTINCT FROM s->'OrdenFirmaPDF'
+  OR descriptor#>>'{circuito,referencia}' IS DISTINCT FROM s->>'CatalogoRef'
+  OR descriptor#>'{circuito,version}' IS DISTINCT FROM s->'CatalogoVersion'
+  OR descriptor#>>'{circuito,huella_sha256}' IS DISTINCT FROM s->>'CatalogoHuella'
+  OR descriptor->>'paso_ref' IS DISTINCT FROM s->>'PasoRef'
+  OR descriptor->'paso_orden' IS DISTINCT FROM s->'PasoOrden'
+  OR descriptor->'fecha_historica' IS DISTINCT FROM 'null'::jsonb
+  OR ((s->>'OrdenFirmaPDF')::integer=1 AND descriptor#>'{recurso,entrada_revision}' IS DISTINCT FROM 'null'::jsonb)
+  OR ((s->>'OrdenFirmaPDF')::integer=2 AND (
+     vec_contratacion_temporal.fiscalizacion_claves_exactas_v1(descriptor#>'{recurso,entrada_revision}',ARRAY[
+      'referencia','version','huella_sha256']) IS NOT TRUE
+     OR descriptor#>>'{recurso,entrada_revision,referencia}' IS DISTINCT FROM s->>'EntradaDocumentoRef'
+     OR descriptor#>'{recurso,entrada_revision,version}' IS DISTINCT FROM s->'EntradaDocumentoVersion'
+     OR descriptor#>>'{recurso,entrada_revision,huella_sha256}' IS DISTINCT FROM s->>'EntradaDocumentoHuella')) THEN
+  RAISE EXCEPTION 'descriptor nominal de firma divergente' USING ERRCODE='42501'; END IF;
+ FOREACH k IN ARRAY ARRAY['seleccion','recurso','motivo','circuito'] LOOP
+  IF (SELECT count(*) FROM json_each((descriptor_texto::json)->k))
+    <> (SELECT count(*) FROM jsonb_each(descriptor->k)) THEN
+   RAISE EXCEPTION 'descriptor nominal de firma divergente' USING ERRCODE='42501'; END IF;
+ END LOOP;
+ FOREACH k IN ARRAY ARRAY['original','firmado','entrada_revision'] LOOP
+  IF jsonb_typeof(descriptor#>ARRAY['recurso',k])='object'
+   AND (SELECT count(*) FROM json_each((descriptor_texto::json)#>ARRAY['recurso',k]))
+    <> (SELECT count(*) FROM jsonb_each(descriptor#>ARRAY['recurso',k])) THEN
+   RAISE EXCEPTION 'descriptor nominal de firma divergente' USING ERRCODE='42501'; END IF;
+ END LOOP;
+ -- La fecha histórica pertenece al efecto CT, no al PDF ni al verificador.
+ -- Se lee sólo para construir el contexto; no se devuelve antes de autorizar.
+ SELECT registrada_en INTO ahora FROM vec_contratacion_temporal.firma_documento_v1
+  WHERE organizacion_ref=s->>'OrganizacionRef' AND expediente_ref=s->>'ExpedienteRef'
+   AND clave_idempotencia=s->>'ClaveIdempotencia';
+ IF NOT FOUND THEN ahora:=date_trunc('microseconds',clock_timestamp()); END IF;
+ descriptor:=descriptor||jsonb_build_object('fecha_historica',vec_contratacion_temporal.instante_utc_v1(ahora));
+ contexto_nominal:=vec_autorizacion.construir_contexto_nominal_firmante_ct_v1(
+  descriptor,relacion,to_jsonb(consumo));
+ IF contexto_nominal IS NULL OR octet_length(contexto_nominal) NOT BETWEEN 512 AND 32768 THEN
   RAISE EXCEPTION 'contexto nominal de firma no disponible' USING ERRCODE='42501'; END IF;
- BEGIN canon:=convert_from(p_contexto_nominal,'UTF8')::jsonb;
- EXCEPTION WHEN others THEN RAISE EXCEPTION 'contexto nominal de firma no disponible' USING ERRCODE='42501'; END;
+ canon:=convert_from(contexto_nominal,'UTF8')::jsonb;
  IF canon->>'esquema' IS DISTINCT FROM 'vec.competencia-firmante.historica.v1'
-  OR canon->>'accion' IS DISTINCT FROM accion
-  OR canon->>'finalidad' IS DISTINCT FROM d->>'finalidad'
-  OR canon->>'paso_ref' IS DISTINCT FROM s->>'PasoRef'
-  OR canon->>'paso_orden' IS DISTINCT FROM s->>'PasoOrden'
-  OR canon#>>'{recurso,organizacion_ref}' IS DISTINCT FROM s->>'OrganizacionRef'
-  OR canon#>>'{recurso,unidad_ref}' IS DISTINCT FROM s->>'UnidadFirmanteRef'
-  OR canon#>>'{recurso,expediente_ref}' IS DISTINCT FROM s->>'ExpedienteRef'
-  OR canon#>>'{recurso,modulo_id}' IS DISTINCT FROM d->>'modulo_id'
-  OR canon#>>'{recurso,tipo_recurso}' IS DISTINCT FROM tipo_recurso
-  OR canon#>>'{recurso,original,referencia}' IS DISTINCT FROM s->>'OriginalRef'
-  OR canon#>>'{recurso,original,version}' IS DISTINCT FROM s->>'OriginalVersion'
-  OR canon#>>'{recurso,pdf_raiz_sha256}' IS DISTINCT FROM s->>'OriginalHuella'
-  OR canon#>>'{recurso,firmado,referencia}' IS DISTINCT FROM s->>'DocumentoCustodiaRef'
-  OR canon#>>'{recurso,firmado,version}' IS DISTINCT FROM s->>'DocumentoCustodiaVersion'
-  OR canon#>>'{recurso,pdf_firmado_sha256}' IS DISTINCT FROM s->>'FirmadoHuella'
-  OR canon#>>'{recurso,numero_firmas}' IS DISTINCT FROM s->>'OrdenFirmaPDF'
+  OR canon->'recurso' IS DISTINCT FROM descriptor->'recurso'
+  OR canon->>'accion' IS DISTINCT FROM descriptor->>'accion'
+  OR canon->>'finalidad' IS DISTINCT FROM descriptor->>'finalidad'
+  OR canon->'motivo' IS DISTINCT FROM descriptor->'motivo'
+  OR canon->'circuito' IS DISTINCT FROM descriptor->'circuito'
+  OR canon->>'paso_ref' IS DISTINCT FROM descriptor->>'paso_ref'
+  OR canon->'paso_orden' IS DISTINCT FROM descriptor->'paso_orden'
+  OR canon->>'fecha_historica' IS DISTINCT FROM descriptor->>'fecha_historica'
   OR canon#>>'{identidad,persona_ref}' IS DISTINCT FROM s->>'FirmantePrincipalRef'
   OR canon#>>'{identidad,certificado_der_sha256}' IS DISTINCT FROM s->>'CertificadoHuella'
+  OR canon#>>'{identidad,cuenta,referencia}' IS DISTINCT FROM s->>'CuentaFirmanteRef'
+  OR canon#>>'{identidad,vinculo_certificado,referencia}' IS DISTINCT FROM s->>'VinculoCredencialFirmanteRef'
+  OR canon#>'{identidad,vinculo_certificado,version}' IS DISTINCT FROM s->'VinculoCredencialFirmanteRevision'
+  OR canon#>>'{identidad,vinculo_certificado,huella_sha256}' IS DISTINCT FROM s->>'VinculoCredencialFirmanteHuella'
   OR canon#>>'{competencia,rol_id}' IS DISTINCT FROM s->>'RolIDFirmante'
+  OR canon#>>'{competencia,perfil_esperado_ref}' IS DISTINCT FROM s->>'PerfilFirmanteRef'
   OR canon#>>'{competencia,perfil_activo_ref}' IS DISTINCT FROM s->>'PerfilActivoFirmanteRef'
   OR canon#>>'{competencia,asignacion,referencia}' IS DISTINCT FROM s->>'AsignacionFirmanteRef'
-  OR canon#>>'{competencia,asignacion,version}' IS DISTINCT FROM s->>'AsignacionFirmanteVersion'
+  OR canon#>'{competencia,asignacion,version}' IS DISTINCT FROM s->'AsignacionFirmanteVersion'
   OR canon#>>'{competencia,asignacion,huella_sha256}' IS DISTINCT FROM s->>'AsignacionFirmanteHuella'
   OR canon#>>'{competencia,rol,referencia}' IS DISTINCT FROM s->>'VersionRolFirmanteRef'
   OR canon#>>'{competencia,rol,huella_sha256}' IS DISTINCT FROM s->>'VersionRolFirmanteHuella'
   OR canon#>>'{competencia,control_rol,referencia}' IS DISTINCT FROM s->>'ControlVigenciaFirmanteRef'
-  OR canon#>>'{competencia,control_rol,version}' IS DISTINCT FROM s->>'ControlVigenciaFirmanteRevision'
+  OR canon#>'{competencia,control_rol,version}' IS DISTINCT FROM s->'ControlVigenciaFirmanteRevision'
   OR canon#>>'{competencia,control_rol,huella_sha256}' IS DISTINCT FROM s->>'ControlVigenciaFirmanteHuella'
-  OR canon#>>'{identidad,cuenta,referencia}' IS DISTINCT FROM s->>'CuentaFirmanteRef'
-  OR canon#>>'{identidad,vinculo_certificado,referencia}' IS DISTINCT FROM s->>'VinculoCredencialFirmanteRef'
-  OR canon#>>'{identidad,vinculo_certificado,version}' IS DISTINCT FROM s->>'VinculoCredencialFirmanteRevision'
-  OR canon#>>'{identidad,vinculo_certificado,huella_sha256}' IS DISTINCT FROM s->>'VinculoCredencialFirmanteHuella'
-  OR canon#>>'{relacion_ct,expediente_ref}' IS DISTINCT FROM s->>'ExpedienteRef'
-  OR canon#>>'{relacion_ct,unidad_ref}' IS DISTINCT FROM s->>'UnidadFirmanteRef'
-  OR (s->>'OrdenFirmaPDF')::integer=1 AND canon#>'{recurso,entrada_revision}' IS DISTINCT FROM 'null'::jsonb
-  OR (s->>'OrdenFirmaPDF')::integer=2 AND (
-     canon#>>'{recurso,entrada_revision,referencia}' IS DISTINCT FROM s->>'EntradaDocumentoRef'
-     OR canon#>>'{recurso,entrada_revision,version}' IS DISTINCT FROM s->>'EntradaDocumentoVersion'
-     OR canon#>>'{recurso,entrada_revision,huella_sha256}' IS DISTINCT FROM s->>'EntradaDocumentoHuella')
- THEN RAISE EXCEPTION 'contexto nominal de firma divergente' USING ERRCODE='42501'; END IF;
+  OR canon#>>'{competencia,vigente_desde}' IS DISTINCT FROM s->>'AsignacionVigenteDesde'
+  OR canon#>>'{competencia,vigente_hasta}' IS DISTINCT FROM s->>'AsignacionVigenteHasta' THEN
+  RAISE EXCEPTION 'contexto nominal de firma divergente' USING ERRCODE='42501'; END IF;
  competencia := vec_autorizacion.acreditar_competencia_nominal_firmante_ct_v1(
-  p_contexto_nominal,relacion,to_jsonb(consumo));
+  contexto_nominal,relacion,to_jsonb(consumo));
  IF competencia->>'esquema' IS DISTINCT FROM 'vec.competencia-firmante.historica.v1'
   OR competencia->>'evidencia_ref' !~ '^evidencia:competencia-firmante-ct:[0-9a-f]{64}$'
   OR competencia->>'huella_sha256' !~ '^[0-9a-f]{64}$' THEN
@@ -524,7 +590,6 @@ BEGIN
       AND f.original_huella_sha256=s->>'OriginalHuella') THEN
    RAISE EXCEPTION 'original ya tiene firma en otra cadena' USING ERRCODE='P1184'; END IF;
  END IF;
- ahora := date_trunc('microseconds',clock_timestamp());
  firma := 'firma-ct:'||gen_random_uuid()::text;
  recibo := 'recibo-firma-ct:'||gen_random_uuid()::text;
  auditoria := 'auditoria-firma-ct:'||gen_random_uuid()::text;
