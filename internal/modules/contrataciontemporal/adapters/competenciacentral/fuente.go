@@ -8,6 +8,7 @@ import (
 	"maps"
 	"reflect"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -30,7 +31,22 @@ type FuenteSolicitudCentral interface {
 	// mediante la autoridad común. Un LOGIN técnico no basta. Se ejecuta antes
 	// de leer identidad. El proveedor no reutiliza concesiones de otra petición.
 	AutorizarLecturaCertificado(context.Context, ctports.SolicitudCompetenciaFirmante) error
-	ResolverSolicitudCentral(context.Context, ctports.SolicitudCompetenciaFirmante, VinculoCertificadoFirmante) (vecdomain.SolicitudAsignacionCompetencialV1, error)
+	ResolverSolicitudCentral(context.Context, ctports.SolicitudCompetenciaFirmante, VinculoCertificadoFirmante) (ResolucionSolicitudCentral, error)
+}
+
+// RelacionRecursoCT sólo transporta referencias, versiones y una prueba ya
+// persistida por CT. La fuente acredita el documento y su pertenencia al
+// expediente; el propietario CT revalida esa relación en la transacción final.
+type RelacionRecursoCT struct {
+	OrganizacionRef, UnidadRef, ExpedienteRef string
+	DocumentoClave, DocumentoRef              string
+	VersionExpediente, VersionOrigenVinculo   uint64
+	PruebaSnapshotOrigenHuellaSHA256          string
+}
+
+type ResolucionSolicitudCentral struct {
+	Solicitud vecdomain.SolicitudAsignacionCompetencialV1
+	Relacion  RelacionRecursoCT
 }
 
 type Reloj interface{ Ahora() time.Time }
@@ -42,6 +58,8 @@ type Acreditacion struct {
 	solicitud  vecdomain.SolicitudAsignacionCompetencialV1
 	evidencia  vecdomain.EvidenciaAsignacionCompetencialV1
 	vinculo    VinculoCertificadoFirmante
+	relacion   RelacionRecursoCT
+	recurso    DescriptorRecurso
 	proyeccion ctports.EvidenciaCompetenciaFirmante
 }
 
@@ -62,6 +80,48 @@ type DescriptorCircuito struct {
 	AccionLectura, FinalidadLectura, TipoRecurso string
 	CatalogoVersion                              uint64
 	Pasos                                        []DescriptorPaso
+	Recurso                                      DescriptorRecurso
+}
+
+// El catálogo publicado declara el esquema y las claves que enlazan la
+// concesión orgánica con el recurso documental concreto. No hay valores por
+// defecto ni selección de claves según el perfil del firmante.
+type DescriptorRecurso struct {
+	Esquema, AmbitoOrganizacion, AmbitoUnidad              string
+	AtributoEsquema, AtributoExpediente, AtributoDocumento string
+	AtributoVersionVinculo, AtributoPruebaVinculo          string
+}
+
+func (d DescriptorRecurso) valido() bool {
+	claves := []string{d.AmbitoOrganizacion, d.AmbitoUnidad, d.AtributoEsquema, d.AtributoExpediente, d.AtributoDocumento, d.AtributoVersionVinculo, d.AtributoPruebaVinculo}
+	if !ctdomain.ReferenciaOpacaValida(d.Esquema) || len(d.Esquema) > 128 {
+		return false
+	}
+	vistas := make(map[string]bool, len(claves))
+	for _, clave := range claves {
+		if !ctdomain.ReferenciaOpacaValida(clave) || len(clave) > 128 || vistas[clave] {
+			return false
+		}
+		vistas[clave] = true
+	}
+	return true
+}
+
+func (d DescriptorRecurso) coincide(s vecdomain.SolicitudAsignacionCompetencialV1, r RelacionRecursoCT, q ctports.SolicitudCompetenciaFirmante) bool {
+	if !d.valido() || !ctdomain.ReferenciaOpacaValida(r.UnidadRef) || !ctdomain.ReferenciaOpacaValida(r.DocumentoRef) ||
+		r.OrganizacionRef != q.OrganizacionRef || r.ExpedienteRef != q.ExpedienteRef || r.DocumentoClave != q.Documento ||
+		r.VersionExpediente == 0 || r.VersionOrigenVinculo == 0 || r.VersionOrigenVinculo > r.VersionExpediente ||
+		!ctdomain.HuellaSHA256FirmaValida(r.PruebaSnapshotOrigenHuellaSHA256) ||
+		s.Recurso.Referencia != r.DocumentoRef || len(s.Recurso.Ambitos) != 2 || len(s.Recurso.Atributos) != 5 {
+		return false
+	}
+	return s.Recurso.Ambitos[d.AmbitoOrganizacion] == r.OrganizacionRef &&
+		s.Recurso.Ambitos[d.AmbitoUnidad] == r.UnidadRef &&
+		s.Recurso.Atributos[d.AtributoEsquema] == d.Esquema &&
+		s.Recurso.Atributos[d.AtributoExpediente] == r.ExpedienteRef &&
+		s.Recurso.Atributos[d.AtributoDocumento] == r.DocumentoRef &&
+		s.Recurso.Atributos[d.AtributoVersionVinculo] == strconv.FormatUint(r.VersionOrigenVinculo, 10) &&
+		s.Recurso.Atributos[d.AtributoPruebaVinculo] == r.PruebaSnapshotOrigenHuellaSHA256
 }
 
 type Fuente struct {
@@ -75,10 +135,10 @@ type Fuente struct {
 func NuevaFuente(identidad FuenteVinculoCertificado, asignaciones vecports.LectorAsignacionesCompetencialesV1, solicitudes FuenteSolicitudCentral, reloj Reloj, descriptor DescriptorCircuito) (*Fuente, error) {
 	if interfazNula(identidad) || interfazNula(asignaciones) || interfazNula(solicitudes) || interfazNula(reloj) || !ctdomain.ReferenciaOpacaValida(descriptor.CatalogoRef) ||
 		!ctdomain.HuellaSHA256FirmaValida(descriptor.CatalogoHuella) || descriptor.CatalogoVersion == 0 || len(descriptor.Pasos) == 0 ||
-		!ctdomain.ReferenciaOpacaValida(descriptor.AccionLectura) || !ctdomain.ReferenciaOpacaValida(descriptor.FinalidadLectura) || !ctdomain.ReferenciaOpacaValida(descriptor.TipoRecurso) {
+		!ctdomain.ReferenciaOpacaValida(descriptor.AccionLectura) || !ctdomain.ReferenciaOpacaValida(descriptor.FinalidadLectura) || !ctdomain.ReferenciaOpacaValida(descriptor.TipoRecurso) || !descriptor.Recurso.valido() {
 		return nil, ctports.ErrCompetenciaFirmanteNoDisponible
 	}
-	copia := DescriptorCircuito{CatalogoRef: descriptor.CatalogoRef, CatalogoHuella: descriptor.CatalogoHuella, CatalogoVersion: descriptor.CatalogoVersion, AccionLectura: descriptor.AccionLectura, FinalidadLectura: descriptor.FinalidadLectura, TipoRecurso: descriptor.TipoRecurso}
+	copia := DescriptorCircuito{CatalogoRef: descriptor.CatalogoRef, CatalogoHuella: descriptor.CatalogoHuella, CatalogoVersion: descriptor.CatalogoVersion, AccionLectura: descriptor.AccionLectura, FinalidadLectura: descriptor.FinalidadLectura, TipoRecurso: descriptor.TipoRecurso, Recurso: descriptor.Recurso}
 	vistos := map[string]bool{}
 	for _, p := range descriptor.Pasos {
 		if !ctdomain.ClaveDocumentoFirmaValida(p.Documento) || p.PasoRef == "" || p.Orden < 1 || p.Orden > ctdomain.MaximoPasosCircuitoFirma ||
@@ -139,13 +199,14 @@ func (f *Fuente) AcreditarCompetenciaCentral(ctx context.Context, q ctports.Soli
 		!ctdomain.ReferenciaOpacaValida(v.VinculoCredencialRef) || !strings.HasPrefix(v.VinculoCredencialRef, "vcc_") || v.Revision == 0 || !ctdomain.HuellaSHA256FirmaValida(v.Huella) {
 		return cero, ctports.ErrCompetenciaFirmanteNoAcreditada
 	}
-	s, err := f.solicitudes.ResolverSolicitudCentral(ctx, q, v)
+	resuelta, err := f.solicitudes.ResolverSolicitudCentral(ctx, q, v)
 	if err != nil {
 		return cero, errorFuente(ctx, err)
 	}
+	s, relacion := resuelta.Solicitud, resuelta.Relacion
 	if s.PersonaRef != v.PrincipalRef || s.CertificadoHuellaSHA256 != q.CertificadoHuella || s.PerfilFirmanteRef != q.PerfilFirmanteRef ||
-		s.AccionLectura != f.descriptor.AccionLectura || s.FinalidadLectura != f.descriptor.FinalidadLectura || s.AccionCompetencial != accion || s.FinalidadCompetencial != finalidad || s.Recurso.Tipo != f.descriptor.TipoRecurso || s.Recurso.ModuloID != "contratacion_temporal" || s.Recurso.Ambitos["organizacion_ref"] != q.OrganizacionRef ||
-		s.Recurso.Ambitos["expediente_ref"] != q.ExpedienteRef || s.ValidarEn(f.reloj.Ahora()) != nil {
+		s.AccionLectura != f.descriptor.AccionLectura || s.FinalidadLectura != f.descriptor.FinalidadLectura || s.AccionCompetencial != accion || s.FinalidadCompetencial != finalidad || s.Recurso.Tipo != f.descriptor.TipoRecurso || s.Recurso.ModuloID != "contratacion_temporal" ||
+		!f.descriptor.Recurso.coincide(s, relacion, q) || s.ValidarEn(f.reloj.Ahora()) != nil {
 		return cero, ctports.ErrCompetenciaFirmanteNoAcreditada
 	}
 	s, err = clonarSolicitud(s)
@@ -186,7 +247,7 @@ func (f *Fuente) AcreditarCompetenciaCentral(ctx context.Context, q ctports.Soli
 	if err := ctx.Err(); err != nil {
 		return cero, err
 	}
-	return Acreditacion{solicitud: s, evidencia: e, vinculo: v, proyeccion: p}, nil
+	return Acreditacion{solicitud: s, evidencia: e, vinculo: v, relacion: relacion, recurso: f.descriptor.Recurso, proyeccion: p}, nil
 }
 
 func errorFuente(ctx context.Context, err error) error {
