@@ -227,6 +227,11 @@ BEGIN
   OR previo.operador_login IS DISTINCT FROM session_user::name OR previo.configuracion_sha256 IS DISTINCT FROM cfg_sha
   OR previo.aprobacion_ref IS DISTINCT FROM cfg.aprobacion_ref
   THEN RAISE EXCEPTION 'Personal33: PARO clave=replay actual=divergente esperado=misma_operacion_y_aprobacion_originales' USING ERRCODE='40001'; END IF;
+  -- Revalidar tras esperar la barrera: el replay conserva el recibo histórico,
+  -- pero sólo se entrega con configuración y plan todavía vigentes.
+  PERFORM vec_personal.exigir_operador_unidad_inicial_admin_v1();
+  IF clock_timestamp()>=(p->>'caduca_en')::timestamptz
+  THEN RAISE EXCEPTION 'Personal33: PARO clave=vigencia_final actual=caducada esperado=plan_vigente' USING ERRCODE='42501'; END IF;
   RETURN jsonb_build_object('recibo',previo.recibo,'replay',true);
  END IF;
  pre:=vec_personal.preimagen_unidad_inicial_admin_v1(p);pre_sha:=encode(pg_catalog.sha256(pg_catalog.convert_to(pre::text,'UTF8')),'hex');
