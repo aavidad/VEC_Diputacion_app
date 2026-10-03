@@ -75,9 +75,9 @@ DECLARE
  f oid:=to_regprocedure('vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
  original text; nuevo text; actual text; fuente text; meta jsonb; deps jsonb; deps_compartidas jsonb; acl aclitem[];
  propietario oid; config text[]; definidora boolean;
- -- WIP: medir la preimagen POST149+155 real PG18.4 antes de instalar.
- esperada_def_sha256 text:=$esperada_def_sha256$PENDIENTE_MEDICION_POST149_DEF_REAL$esperada_def_sha256$;
- esperada_fuente_sha256 text:=$esperada_fuente_sha256$PENDIENTE_MEDICION_POST149_FUENTE_REAL$esperada_fuente_sha256$;
+ -- Preimagen POST149+155 real PG18.4, medida por #470 y cotejada en el ensayo.
+ esperada_def_sha256 text:=$esperada_def_sha256$d912064d905e4349ffb2e1e8f1aab1aebef71e1fd842d5603373c4e6236fcd15$esperada_def_sha256$;
+ esperada_fuente_sha256 text:=$esperada_fuente_sha256$1bb33d97bf8bbaa7f97dec4e1af1aa41577be38cea17f4b18375346cf7d62dcd$esperada_fuente_sha256$;
  marca text:=$marca$       )
        OR c ->> 'suite' <> 'VEC-AD-3-COSE-EDDSA-1'$marca$;
  excl text:=$excl$               p_perfil_mutacion IS DISTINCT FROM 'bolsa_llamamiento'
@@ -288,9 +288,9 @@ BEGIN
  SELECT pg_get_constraintdef(c.oid,true) INTO STRICT d FROM pg_constraint c
  WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
  AND c.conname='clave_capacidad_version_audiencia_consumo_check' AND c.contype='c' AND c.convalidated;
- IF encode(sha256(convert_to(d,'UTF8')),'hex') IS DISTINCT FROM 'PENDIENTE_MEDICION_POST149_AUDIENCIA_REAL'
+ IF encode(sha256(convert_to(d,'UTF8')),'hex') IS DISTINCT FROM '0ba3eabde2f45d27afd278cfc008ddc0c3a24cc6d0e5de790b5c6d65dec906a6'
  OR strpos(d,'CHECK (audiencia_consumo = ANY (ARRAY[')<>1 OR right(d,3)<>']))'
- THEN RAISE EXCEPTION 'PARO clave=AD161.audiencias_preimagen, observado=%, esperado=PENDIENTE_MEDICION_POST149_AUDIENCIA_REAL', encode(sha256(convert_to(d,'UTF8')),'hex') USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'PARO clave=AD161.audiencias_preimagen, observado=%, esperado=0ba3eabde2f45d27afd278cfc008ddc0c3a24cc6d0e5de790b5c6d65dec906a6', encode(sha256(convert_to(d,'UTF8')),'hex') USING ERRCODE='55000'; END IF;
  nueva:=d;
  FOREACH a IN ARRAY ARRAY[
   'vec_bolsa_convocatorias.version.consultar.v1',

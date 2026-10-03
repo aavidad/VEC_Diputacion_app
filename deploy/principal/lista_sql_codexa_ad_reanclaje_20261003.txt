@@ -1,4 +1,5 @@
-# WIP: pendiente medición y ensayo causal POST149+155; no instalar.
+# Borrador: huellas POST149 reales de #470; pendiente ensayo causal y dos GO.
+# El ensayo POST155 anterior no acredita esta preimagen. No instalar todavía.
 # Instalar antes AD149/Personal26 de #470. AD161 añade sólo141/142/144.
 # Conserva CRN11 y AD155, sin reaplicar AD históricas ni ejecutar DOWN.
 # Bootstraps sólo si los tres grupos siguen confirmados ausentes.
