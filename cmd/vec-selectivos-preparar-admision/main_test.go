@@ -90,7 +90,7 @@ func TestCatalogosCubrenCausasYAccionesDelPreparador(t *testing.T) {
 			claves = append(claves, requisito.AccionPropuesta)
 		}
 		for _, clave := range claves {
-			if _, ok := c.Message(idioma, clave); !ok {
+			if _, ok := mensajeCatalogo(c, idioma, clave); !ok {
 				t.Fatalf("missing %s %s", idioma, clave)
 			}
 		}
