@@ -12,7 +12,7 @@ const version = (valor) => Number.isSafeInteger(valor) && valor > 0;
 function lista(valor, maximo = 200) { exigir(Array.isArray(valor) && valor.length <= maximo); return valor; }
 function unicos(valores, campo) { exigir(new Set(valores.map((v) => v[campo])).size === valores.length); return valores; }
 export function validarCapacidades(datos) {
-  exigir(datos?.version === "v1" && ref(datos.actor_persona_ref));
+  exigir(datos?.version === "1" && ref(datos.actor_persona_ref));
   const acciones = lista(datos.acciones, 6); exigir(acciones.every((a) => ACCIONES.has(a)) && new Set(acciones).size === acciones.length);
   return Object.freeze({ ...datos, acciones: Object.freeze([...acciones]) });
 }
