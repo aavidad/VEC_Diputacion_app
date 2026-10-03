@@ -171,24 +171,24 @@ BEGIN
  accion:=CASE d->>'estado' WHEN 'vigente' THEN 'administracion.certificados.nominal.publicar'
    WHEN 'retirado' THEN 'administracion.certificados.nominal.retirar' ELSE NULL END;
  sha:=pg_catalog.encode(pg_catalog.sha256(p_descriptor),'hex');
+ IF accion IS NULL OR c->>'operacion' IS DISTINCT FROM accion
+  OR c->>'efecto_ref' IS DISTINCT FROM 'certificado-nominal:'||(d->>'certificado_der_sha256')
+  OR c->>'huella_efecto_sha256' IS DISTINCT FROM sha
+  OR a->>'contexto_recurso_huella_sha256' IS DISTINCT FROM sha
+  OR a->>'principal_id' IS NOT DISTINCT FROM d->>'persona_ref'
+ THEN RAISE EXCEPTION 'AD165: recurso denegado' USING ERRCODE='42501'; END IF;
+ SELECT * INTO STRICT x FROM vec_autorizacion_atestada_v3.consumir_publicacion_certificado_nominal_v3_atestada(
+  p_capacidad,p_decision,p_motivo,p_contexto,p_persona_version,p_perfil_version,p_payload,p_sobre,p_evidencia,p_raiz);
  s:=vec_contexto_actor_v1.fuentes_certificado_firmante_ct_v2(
   d->>'cuenta_ref',d->>'persona_ref',d->>'vinculo_cuenta_persona_ref');
  IF s IS NULL THEN RAISE EXCEPTION 'AD165: identidad destino no acreditada' USING ERRCODE='42501'; END IF;
  org:=vec_contexto_actor_v1.acreditar_organizacion_destino_certificado_v1(
   d->>'cuenta_ref',d->>'persona_ref',d->>'vinculo_cuenta_persona_ref',
   (s#>>'{vinculo_cuenta_persona,version}')::numeric,d->>'organizacion_ref');
- IF accion IS NULL OR c->>'operacion' IS DISTINCT FROM accion
-  OR c->>'efecto_ref' IS DISTINCT FROM 'certificado-nominal:'||(d->>'certificado_der_sha256')
-  OR c->>'huella_efecto_sha256' IS DISTINCT FROM sha
-  OR a->>'contexto_recurso_huella_sha256' IS DISTINCT FROM sha
-  OR a->>'principal_id' IS NOT DISTINCT FROM d->>'persona_ref'
-  OR org IS NULL
-  OR vec_autorizacion.acreditar_ambito_certificado_nominal_v1(
+ IF org IS NULL OR vec_autorizacion.acreditar_ambito_certificado_nominal_v1(
    a->>'version_rol_ref',a->>'asignacion_ref',org->>'organizacion_ref') IS NOT TRUE
   OR vec_autorizacion.destino_no_administrador_certificado_nominal_v1(d->>'cuenta_ref',d->>'persona_ref') IS NOT TRUE
- THEN RAISE EXCEPTION 'AD165: destino o recurso denegado' USING ERRCODE='42501'; END IF;
- SELECT * INTO STRICT x FROM vec_autorizacion_atestada_v3.consumir_publicacion_certificado_nominal_v3_atestada(
-  p_capacidad,p_decision,p_motivo,p_contexto,p_persona_version,p_perfil_version,p_payload,p_sobre,p_evidencia,p_raiz);
+ THEN RAISE EXCEPTION 'AD165: destino denegado' USING ERRCODE='42501'; END IF;
  resultado:=vec_contexto_actor_v1.publicar_certificado_firmante_ct_v2(p_descriptor,x.decision_ref,x.auditoria_ref);
  IF resultado IS NULL OR vec_autorizacion.revalidar_decision_contexto_actor_v3_viva(p_decision,p_motivo,p_persona_version,p_perfil_version) IS NULL
   OR vec_autorizacion.acreditar_perfil_aplicacion_nominal_v1(
