@@ -1,7 +1,16 @@
-# Borrador: preimagen del núcleo V3 real congelada antes del ensayo.
-# Prerrequisitos existentes: roles/esquema Bolsa Convocatorias y autoridad V3.
-# No exigir Copias/otros consumidores por número; conservar todos en el núcleo.
-# Instalar sólo piezas ausentes; nunca reaplicar ni ejecutar DOWN con historia.
-# Despliegue en orden explícito de fusión, según dirección 02/10 13:50.
+# Preimagen medida: POST155 más AD161 y AD145, instaladas una sola vez.
+# Roles BC ya preparados. Los 10 prefijos BC siguientes estaban ausentes en el clon.
+# Sólo aplicar objetos confirmados ausentes; nunca DOWN ni reaplicar historia.
+# Las dependencias proceden de los objetos usados, no de sus números.
+deploy/postgresql/bolsa_convocatorias/migraciones_autorizacion/000001_revalidacion_convocatorias.up.sql
+deploy/postgresql/bolsa_convocatorias/migraciones_autorizacion/000002_revalidacion_borradores_v2.up.sql
+deploy/postgresql/bolsa_convocatorias/migraciones_autorizacion/000003_revalidacion_lectura_borradores_solicitud_ligada_v2.up.sql
+deploy/postgresql/bolsa_convocatorias/migraciones/000001_almacen_convocatorias.up.sql
+deploy/postgresql/bolsa_convocatorias/migraciones/000002_consulta_exacta_cerrada.up.sql
+deploy/postgresql/bolsa_convocatorias/migraciones/000003_borradores_durables_cerrados.up.sql
+deploy/postgresql/bolsa_convocatorias/migraciones/000004_confirmacion_kms_procedencia.up.sql
+deploy/postgresql/bolsa_convocatorias/migraciones/000005_lectura_borrador_cifrado_completo.up.sql
+deploy/postgresql/bolsa_convocatorias/migraciones/000006_preparacion_kms_instante_real.up.sql
+deploy/postgresql/bolsa_convocatorias/migraciones/000007_consulta_version_v3.up.sql
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000153_consumidores_preparacion_bases_bolsa.up.sql
 deploy/postgresql/bolsa_convocatorias/migraciones/000008_preparacion_bases_v3.up.sql
