@@ -108,10 +108,6 @@ func (a *auditorGobiernoBaremoHTTPV3) registrar(ctx context.Context, operativo c
 	recurso := intentoPeticion.recursoRef
 	intentoPeticion.mu.Unlock()
 	correlacion := intentoPeticion.correlacion
-	var err error
-	if err != nil {
-		return app.ErrGobiernoV3NoDisponible
-	}
 	correlacionRef, err := correlacion.ValorCanonico()
 	if err != nil {
 		return app.ErrGobiernoV3NoDisponible
@@ -128,7 +124,7 @@ func (a *auditorGobiernoBaremoHTTPV3) registrar(ctx context.Context, operativo c
 	if err != nil {
 		return app.ErrGobiernoV3NoDisponible
 	}
-	acuse, err := a.registrador.AppendIntentoAuditoria(ctx, orden)
+	acuse, err := a.registrador.AppendIntentoAuditoria(context.WithoutCancel(ctx), orden)
 	if err != nil || acuse.ValidarPara(orden) != nil {
 		return app.ErrGobiernoV3NoDisponible
 	}

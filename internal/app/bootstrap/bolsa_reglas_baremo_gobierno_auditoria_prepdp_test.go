@@ -137,7 +137,10 @@ type registradorIntentosBaremoPrueba struct {
 	err     error
 }
 
-func (r *registradorIntentosBaremoPrueba) AppendIntentoAuditoria(_ context.Context, o vp.OrdenIntentoAuditoria) (vp.AcuseIntentoAuditoria, error) {
+func (r *registradorIntentosBaremoPrueba) AppendIntentoAuditoria(ctx context.Context, o vp.OrdenIntentoAuditoria) (vp.AcuseIntentoAuditoria, error) {
+	if err := ctx.Err(); err != nil {
+		return vp.AcuseIntentoAuditoria{}, err
+	}
 	r.ordenes = append(r.ordenes, o)
 	if r.err != nil {
 		return vp.AcuseIntentoAuditoria{}, r.err
