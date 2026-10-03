@@ -1,7 +1,7 @@
-import { cargarTextos } from "../comun/textos.js";
+import { cargarTextos, urlCatalogo } from "../comun/textos.js";
 import { IDIOMA_ACTUAL } from "../comun/idioma.js";
 
-const VERSION = "20261002-pwa-v4";
+const VERSION = "20261003-pwa-ci-v5";
 const VERSION_MANIFIESTO = "20261002-pwa-v1";
 
 export async function iniciarPWA({ documento = globalThis.document, ventana = globalThis.window, navegador = globalThis.navigator, idioma = IDIOMA_ACTUAL } = {}) {
@@ -15,7 +15,9 @@ export async function iniciarPWA({ documento = globalThis.document, ventana = gl
       !/^pwa-[a-z0-9-]+$/u.test(portal) || !ventana.location.pathname.startsWith(scope)) return;
 
   const textos = await cargarTextos("pwa", { idioma });
-  manifiesto.href = `/textos/${textos.idioma}/${portal}.json?v=${VERSION_MANIFIESTO}`;
+  const urlManifiesto = urlCatalogo(textos.idioma, portal, new URL("/textos/", ventana.location.origin));
+  urlManifiesto.searchParams.set("v", VERSION_MANIFIESTO);
+  manifiesto.href = urlManifiesto.pathname + urlManifiesto.search;
   const inicio = `${scope}?lang=${encodeURIComponent(textos.idioma)}`;
 
   const instalada = ventana.matchMedia?.("(display-mode: standalone)");

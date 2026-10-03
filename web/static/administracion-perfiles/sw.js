@@ -1,2 +1,2 @@
-importScripts('/pwa/sw-public-assets.js?v=20261002-pwa-v4');
+importScripts('/pwa/sw-public-assets.js?v=20261003-pwa-ci-v5');
 self.iniciarVECPublicWorker('admin');

@@ -2,7 +2,7 @@
 (function () {
   'use strict';
 
-  const VERSION = '20261002-pwa-v4';
+  const VERSION = '20261003-pwa-ci-v5';
   const IDIOMAS = `/textos/idiomas.json?v=${VERSION}`;
   const TIPOS = Object.freeze({
     css: /^text\/css(?:;|$)/i,
@@ -72,7 +72,8 @@
     const control = response.headers.get('Cache-Control') || '';
     if (/\bprivate\b/i.test(control) || (!permiteNoStore && /\bno-store\b/i.test(control))) return false;
     if (response.headers.has('Set-Cookie') || response.headers.has('Content-Disposition')) return false;
-    if (/(?:\*|cookie|authorization)/i.test(response.headers.get('Vary') || '')) return false;
+    const variacion = (response.headers.get('Vary') || '').trim();
+    if (variacion && !/^accept-encoding$/i.test(variacion)) return false;
     return true;
   }
 

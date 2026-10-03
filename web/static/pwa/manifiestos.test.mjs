@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { validarManifiestoPWA } from "./manifiestos-validacion.test-helper.mjs";
 
 const raiz = new URL("../", import.meta.url);
 const portales = [
@@ -15,6 +16,29 @@ async function leerJSON(ruta) {
 
 const indiceIdiomas = await leerJSON("textos/idiomas.json");
 const idiomas = indiceIdiomas.idiomas.map(({ codigo }) => codigo);
+
+test("el esquema PWA cerrado rechaza iconos y campos ajenos", async () => {
+  const idioma = indiceIdiomas.por_defecto;
+  const modulo = "pwa-portal-empleado";
+  const base = await leerJSON(`textos/${idioma}/${modulo}.json`);
+  validarManifiestoPWA(base, modulo, idioma);
+  for (const cambiar of [
+    datos => { datos.extra = "no admitido"; },
+    datos => { datos.icons.push(datos.icons[0]); },
+    datos => { datos.icons = {}; },
+    datos => { datos.icons[0].src = "https://otro.example/icono.png"; },
+    datos => { datos.icons[0].src = "/pwa/icons/vec-512.png?v=20261002-pwa-v1"; },
+    datos => { datos.icons[0].sizes = "512x512"; },
+    datos => { datos.icons[0].type = "image/svg+xml"; },
+    datos => { datos.icons[0].purpose = "maskable"; },
+    datos => { datos.icons[0].extra = "no admitido"; },
+    datos => { datos.scope = "/otro/"; },
+  ]) {
+    const alterado = structuredClone(base);
+    cambiar(alterado);
+    assert.throws(() => validarManifiestoPWA(alterado, modulo, idioma));
+  }
+});
 
 test("los manifiestos de cada portal tienen identidad, ámbito e idioma propios", async () => {
   for (const idioma of idiomas) {

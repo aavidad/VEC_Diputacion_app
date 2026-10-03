@@ -93,6 +93,7 @@ test('instala únicamente política e idiomas aprobados y limpia versiones del m
   await anterior.put('https://vec.example/textos/es/preferencias.json?v=1', { ok: true });
   await app.caches.open('vec-pwa-empleado-public-20261002-pwa-v2');
   await app.caches.open('vec-pwa-empleado-public-20261002-pwa-v3');
+  await app.caches.open('vec-pwa-empleado-public-20261002-pwa-v4');
   await app.caches.open('vec-pwa-personal-public-anterior');
   await app.lanzar('activate');
   assert.deepEqual(await app.caches.keys(), [nombre, 'vec-pwa-personal-public-anterior']);
@@ -149,6 +150,24 @@ test('rechaza respuesta redirigida, HTML disfrazado, privada, opaca o de otro or
     await app.lanzar('fetch', app.solicitud(url, { destination: 'style' }));
   }
   assert.equal(app.almacen.get(`vec-pwa-empleado-public-${VERSION}`).size, PRECACHE);
+});
+
+test('Vary sólo admite vacío o Accept-Encoding único para la caché pública', async () => {
+  for (const [vary, admitida] of [
+    ['', true], ['Accept-Encoding', true], ['accept-encoding', true],
+    ['*', false], ['Cookie', false], ['Authorization', false], ['X-Persona', false],
+    ['Accept-Encoding, Cookie', false], ['Accept-Encoding, Accept-Encoding', false],
+  ]) {
+    const app = crearEntorno();
+    await app.lanzar('install');
+    app.ponerRespuesta(url => ({
+      status: 200, ok: true, type: 'basic', redirected: false, url,
+      headers: new Headers({ 'Content-Type': 'text/css', Vary: vary }), clone() { return this; }
+    }));
+    const request = app.solicitud(configs.empleado.propios[0], { destination: 'style' });
+    await app.lanzar('fetch', request);
+    assert.equal(app.almacen.get(`vec-pwa-empleado-public-${VERSION}`).has(request.url), admitida, vary);
+  }
 });
 
 test('un catálogo offline marcado private se rechaza; otros JSON no figuran en la política', async () => {
