@@ -361,7 +361,10 @@ func consultaComponerReal(ctx context.Context, c consultaIntegracionConfig) (htt
 			vd.SolicitudRevalidacionAutenticacionActorV1{AutenticacionRef: a.Authentication, SesionRef: a.Session}, actorAuthority,
 			vd.SolicitudContextoActor{Cuenta: vd.CuentaAutenticadaContextoActor{CuentaRef: a.Account, Metodo: vd.AuthMethodCertificate, Garantia: vd.AuthAssuranceHigh}, PerfilActivoRef: a.Profile}, consultaRelojReal{})
 		if err != nil {
-			return merapp.SolicitudConsultaPropia{}, vd.ErrAutorizacionDenegada
+			if merapp.DenegacionConsultaReal(err) {
+				return merapp.SolicitudConsultaPropia{}, vd.ErrAutorizacionDenegada
+			}
+			return merapp.SolicitudConsultaPropia{}, merports.ErrConsultaNoDisponible
 		}
 		correlation, err := vd.GenerarReferenciaCorrelacionAutorizacionV2(requestContext, seguridad.GeneradorReferenciasCriptograficas{})
 		if err != nil {
