@@ -167,6 +167,24 @@ sintética instalada en el clon a un archivo scratch `0600`, sin imprimirla.
 Si falta, diverge o ha caducado, detiene la continuación; no crea otra versión
 ni renueva su vigencia.
 
+La continuación posterior pasó el replay SQL, diez negativas, el corte
+histórico y MVCC `40001`, con once intentos durables y contadores
+`4 / 6244 / 6244 / 11`. El primer caso Go no llegó a consultar: el constructor
+rechazó la referencia técnica del fixture, que carecía de `:` o `_`. Se
+corrige a `personal:relacion-rpt:entrada`; el producto conserva su validación.
+
+El modo `--continuar-go` prepara sólo lo pendiente desde esos contadores.
+Conserva el primer vector Go caducado sin efectos y usa nuevos casos con
+sufijo `_v69`, preparados inmediatamente antes de ejecutarlos. Dirección
+autorizó una versión sintética 69 de la misma clave, mediante los INSERT
+append-only del propietario y del puntero que ya usaba el fixture. La 68 no
+se modifica. Los 32 bytes nuevos permanecen en scratch `0600`; la duración
+se configura en el ensayo, con ejemplo de 60 minutos, sin cambiar el reloj.
+El selector exige una única versión vigente y exporta su versión real.
+La recompilación del overlay se justifica por el literal corregido; no
+repite SQL, bootstrap ni comprobaciones anteriores. Esta preparación exige
+revisión del fragmento de gobierno y ejecución coordinada en el clon.
+
 La fuente Go del lector es
 `5c5e305a397306612299a11741a26a0bdce1abbe`, incorporada sin editarla. El
 overlay usa el constructor público de cinco argumentos con el emisor JSONL

@@ -9,6 +9,8 @@ desde_registro=false
 desde_post154=false
 desde_replay=false
 desde_checkpoint=false
+desde_go=false
+if [[ ${1:-} == --continuar-go ]]; then continuar=true; desde_go=true; shift; fi
 if [[ ${1:-} == --continuar-postcheckpoint ]]; then continuar=true; desde_replay=true; desde_checkpoint=true; shift; fi
 if [[ ${1:-} == --continuar-desde-replay ]]; then continuar=true; desde_replay=true; shift; fi
 if [[ ${1:-} == --desde-post154 ]]; then desde_post154=true; shift; fi
@@ -27,6 +29,8 @@ ad154=${VEC_RPT27_UP_AD154:?UP154 activado y revisado requerido}
 personal27=${VEC_RPT27_UP_PERSONAL27:?UP27 activado y revisado requerido}
 pre_sha=${VEC_RPT27_PREIMAGEN_SHA256:?SHA de captura real requerida}
 helper="$scratch/generate_overlay.py"
+hmac_nombre=hmac.bin
+"$desde_go" && hmac_nombre=hmac69.bin
 [[ $container == codexb-rpt-comun-20261003-pg ]] || fallo 'clon nominal propio requerido'
 [[ $scratch == /home/alberto/.local/state/vec-codexb-ca27-ensayo-20261003/scratch && -d $scratch && ! -L $scratch && -O $scratch && $(stat -c %a "$scratch") == 700 ]] || fallo 'scratch propio0700 requerido'
 [[ $cache == /home/alberto/.cache/go-build && -d $cache && ! -L $cache && -O $cache ]] || fallo 'cache compartida en disco requerida'
@@ -55,7 +59,11 @@ else
  [[ -f $scratch/preimagen.json && -f $scratch/migraciones_journal.txt && -f $scratch/preservacion.sql ]] || fallo 'fase anterior incompleta'
  [[ $(sha256sum "$scratch/preimagen.json" | cut -d' ' -f1) == "$pre_sha" ]] || fallo 'captura de reanudación distinta'
  sha256sum "$ad154" "$personal27" | cmp -s "$scratch/migraciones_journal.txt" - || fallo 'producto cambiado desde instalación'
- if "$desde_replay"; then
+ if "$desde_go"; then
+  [[ $(valor "SELECT (SELECT count(*) FROM vec_personal.recibo_relacion_para_rpt)||'|'||(SELECT count(*) FROM vec_autorizacion_atestada_v3.consumo_decision_v3)||'|'||(SELECT count(*) FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3 WHERE tipo_registro='consumo_confirmado')||'|'||(SELECT count(*) FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3 WHERE tipo_registro='intento_nominal')") == '4|6244|6244|11' ]] || fallo 'fase SQL conservada distinta'
+  [[ $(valor "SELECT count(*)=1 FROM public.rpt27_ensayo_vector WHERE caso='go_positivo' AND material IS NOT NULL AND bundle IS NOT NULL") == t ]] || fallo 'primer fixture Go anterior ausente'
+  [[ $(valor "SELECT count(*)=0 FROM public.rpt27_ensayo_vector WHERE caso LIKE 'go_%_v69'") == t ]] || fallo 'continuación Go ya iniciada; conservar sus efectos'
+ elif "$desde_replay"; then
   if ! "$desde_checkpoint"; then
   binario_sha=${VEC_RPT27_BINARIO_SHA256:?huella del único binario conservado requerida}
   [[ $binario_sha =~ ^[0-9a-f]{64}$ && $(sha256sum "$scratch/rpt27.test" | cut -d' ' -f1) == "$binario_sha" ]] || fallo 'binario distinto del ensayado'
@@ -160,7 +168,47 @@ if "$desde_checkpoint"; then
  captura "$scratch/reanudacion.json"
  cmp -s "$scratch/preimagen.json" "$scratch/reanudacion.json" || fallo 'checkpoint alteró autoridades previas'
 fi
-if ! "$continuar" || "$desde_checkpoint"; then
+if "$desde_go"; then
+ # Gobierno SINTÉTICO autorizado por Dirección: nueva versión append-only.
+ # La 68, sus materiales y contextos permanecen intactos. No cambia permisos.
+ vigencia_minutos=${VEC_RPT27_CLAVE_ENSAYO_MINUTOS:-60}
+ [[ $vigencia_minutos =~ ^[1-9][0-9]?$ ]] || fallo 'duración de fixture inválida'
+ clave68_sha=$(valor "SELECT encode(sha256(convert_to(to_jsonb(k)::text,'UTF8')),'hex') FROM vec_autorizacion_atestada_v3.clave_capacidad_version k WHERE clave_id='clave:rpt27:ensayo' AND version=68")
+ [[ $clave68_sha =~ ^[0-9a-f]{64}$ && $(valor "SELECT count(*)=0 FROM vec_autorizacion_atestada_v3.clave_capacidad_version WHERE clave_id='clave:rpt27:ensayo' AND version=69") == t ]] || fallo 'gobierno fixture69 ya presente o fuente68 ausente'
+ python3 - "$scratch/$hmac_nombre" "$scratch/gobierno69.sql" "$vigencia_minutos" <<'PYGOBIERNO69'
+import os,pathlib,secrets,sys
+p=pathlib.Path(sys.argv[1]);h=secrets.token_bytes(32)
+f=os.open(p,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
+assert os.write(f,h)==32;os.close(f)
+q="""BEGIN; SET LOCAL search_path=pg_catalog; SET LOCAL timezone='UTC';
+SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
+INSERT INTO vec_autorizacion_atestada_v3.clave_capacidad_version
+(clave_id,version,revision_gobierno,huella_gobierno_sha256,secreto_hmac,huella_secreto_sha256,emisor_id,audiencia_consumo,valida_desde,valida_hasta,acto_ref)
+SELECT clave_id,69,(SELECT max(revision_gobierno)+1 FROM vec_autorizacion_atestada_v3.clave_capacidad_version),repeat('f',64),decode('__H__','hex'),encode(sha256(decode('__H__','hex')),'hex'),emisor_id,audiencia_consumo,clock_timestamp()-interval '1 minute',clock_timestamp()+make_interval(mins=>__MIN__),'acto:rpt27:clave:version69'
+FROM vec_autorizacion_atestada_v3.clave_capacidad_version WHERE clave_id='clave:rpt27:ensayo' AND version=68 AND clock_timestamp()>=valida_hasta;
+INSERT INTO vec_autorizacion_atestada_v3.puntero_clave_emision(orden,clave_id,version,establecida_en,acto_ref)
+SELECT (SELECT max(orden)+1 FROM vec_autorizacion_atestada_v3.puntero_clave_emision),clave_id,version,clock_timestamp(),'acto:rpt27:puntero-clave:version69'
+FROM vec_autorizacion_atestada_v3.clave_capacidad_version WHERE clave_id='clave:rpt27:ensayo' AND version=69;
+COMMIT;
+"""
+pathlib.Path(sys.argv[2]).write_text(q.replace('__H__',h.hex()).replace('__MIN__',sys.argv[3]))
+PYGOBIERNO69
+ archivo "$scratch/gobierno69.sql"
+ [[ $(valor "SELECT encode(sha256(convert_to(to_jsonb(k)::text,'UTF8')),'hex') FROM vec_autorizacion_atestada_v3.clave_capacidad_version k WHERE clave_id='clave:rpt27:ensayo' AND version=68") == "$clave68_sha" ]] || fallo 'gobierno modificó historia68'
+ [[ $(valor "SELECT count(*)=1 AND bool_and(version=69 AND octet_length(secreto_hmac)=32 AND encode(sha256(secreto_hmac),'hex')=huella_secreto_sha256) FROM vec_autorizacion_atestada_v3.clave_capacidad_version WHERE clave_id='clave:rpt27:ensayo' AND clock_timestamp()>=valida_desde AND clock_timestamp()<valida_hasta") == t ]] || fallo 'clave69 vigente divergente'
+ # Sólo la función auxiliar del fixture: selector por vigencia, nunca UPDATE
+ # de clave, sesión, datos anteriores o funciones instaladas de producto.
+ python3 - "$base_dir/relacion_para_rpt_000027.sql" "$scratch/selector69.sql" <<'PYSELECTOR69'
+import pathlib,re,sys
+s=pathlib.Path(sys.argv[1]).read_text()
+m=re.search(r'CREATE FUNCTION public\.rpt27_ensayo_entrada\(.*?\$f\$;',s,re.S);assert m
+pathlib.Path(sys.argv[2]).write_text('BEGIN;\n'+m[0].replace('CREATE FUNCTION','CREATE OR REPLACE FUNCTION',1)+'\nCOMMIT;\n')
+PYSELECTOR69
+ archivo "$scratch/selector69.sql"
+ captura "$scratch/reanudacion.json"
+ cmp -s "$scratch/preimagen.json" "$scratch/reanudacion.json" || fallo 'continuación alteró autoridades previas'
+fi
+if ! "$continuar" || "$desde_checkpoint" || "$desde_go"; then
 # Generación de overlay con fuente original de sólo lectura.
 cat > "$helper" <<'RPT27_GENERADOR_PY'
 #!/usr/bin/env python3
@@ -715,7 +763,7 @@ func TestLectorRPT27ConPoolsPostgreSQL(t *testing.T) {
 	if err!=nil { t.Fatal("RPT27 original binding invalid") }
 	registroObservado:=&rpt27RegistradorObservado{comun:comun}
 	i,err := personalcomposicion.NuevoRegistroIntentosLectorRelacionRPT(registroObservado,personalcomposicion.ConfiguracionIntentosLectorRPT{
-		Proceso:"rpt27-ensayo",Canal:"interna_corporativa",RecursoEntradaInvalida:"personal.relacion-rpt.entrada",
+		Proceso:"rpt27-ensayo",Canal:"interna_corporativa",RecursoEntradaInvalida:"personal:relacion-rpt:entrada",
 		MotivoDenegado:motivo.Referencia,MotivoEntradaInvalida:motivo.Referencia,MotivoNoDisponible:motivo.Referencia})
 	if err!=nil { t.Fatal("RPT27 nominal registry unavailable") }
 	servicio,err := personalapp.NuevoServicioLectorRelacionRPT(rpt27AutorizadorPG{a},r,i,time.Now)
@@ -789,7 +837,7 @@ sandbox() {
  /usr/bin/env -i PATH="$toolchain/bin:/usr/bin:/bin" HOME=/scratch GOROOT="$toolchain" GOTOOLCHAIN=local GOPATH=/scratch/gopath GOMODCACHE=/modcache GOCACHE=/buildcache GOPROXY=off GOSUMDB=off CGO_ENABLED=0 GOMAXPROCS=2 \
  VEC_RPT27_VECTOR_ENTRADA=/scratch/entrada.json VEC_RPT27_VECTOR_SALIDA=/scratch/salida.json VEC_RPT27_GO_MODO="${go_modo:-}" "$@"
 }
-if ! "$continuar" || "$desde_checkpoint"; then
+if ! "$continuar" || "$desde_checkpoint" || "$desde_go"; then
 sandbox "$toolchain/bin/go" test -c -p 8 -overlay /scratch/overlay.json -o /scratch/rpt27.test ./internal/vec/adapters/seguridad/confianzaatestacion > "$scratch/compilar.log" 2>&1 || fallo 'compilación focal aislada falló'
 elif ! "$desde_checkpoint"; then
  # Únicamente las dos funciones auxiliares propias, nunca las migraciones.
@@ -808,7 +856,7 @@ PYFIXTURE
 fi
 
 normalizar() { # entrada exportadaSQL; fase; confirmación opcional
- python3 - "$scratch" "$1" "${2:-}" <<'PY'
+ python3 - "$scratch" "$1" "${2:-}" "$hmac_nombre" <<'PY'
 import base64,datetime,json,pathlib,sys
 s=pathlib.Path(sys.argv[1]);p=s/'entrada.json';j=json.loads(p.read_text())
 def tiempo(x):
@@ -817,7 +865,7 @@ for k in ('ahora','resuelto_en','clave_valida_desde','clave_valida_hasta'):j[k]=
 t=json.loads(base64.b64decode(j['decision_plantilla_b64']));v=t['vinculo_autenticacion_actor']
 for k in ('autenticacion_verificada_en','sesion_emitida_en','sesion_valida_hasta','sesion_revalidada_en'):v[k]=tiempo(v[k])
 j['decision_plantilla_b64']=base64.b64encode(json.dumps(t,separators=(',',':')).encode()).decode()
-j['fase']=sys.argv[2];j['clave_hmac_archivo']='/scratch/hmac.bin'
+j['fase']=sys.argv[2];j['clave_hmac_archivo']='/scratch/'+sys.argv[4]
 if sys.argv[3]:
     c=json.loads((s/'confirmacion.json').read_text());c['registrada_en']=tiempo(c['registrada_en']);j['confirmacion']=c
 p.write_text(json.dumps(j,separators=(',',':')))
@@ -938,7 +986,7 @@ assert b==[a[0]+1,a[1]+1,a[2]+1,a[3]]
 PYPOSITIVO
 }
 # Casos con actores/contextos CA registrados y permiso RPT propio.
-if ! "$desde_registro"; then
+if ! "$desde_registro" && ! "$desde_go"; then
 if ! "$desde_replay"; then
  for estado in vigente suspendida finalizada; do preparar "positivo_$estado" "positivo_$estado" "$estado"; positivo "positivo_$estado" "$estado"; done
 fi
@@ -1015,31 +1063,36 @@ d=list(map(int,sys.argv[3].split('|')))
 assert b==[x+y for x,y in zip(a,d)], 'efectos Go divergentes o intento dentro del rollback'
 PYCONTADORESGO
 }
+go_sufijo=""
+"$desde_go" && go_sufijo=_v69
+go_positivo="go_positivo$go_sufijo"
+go_revocada="go_revocada$go_sufijo"
+go_concurrente="go_concurrente$go_sufijo"
 if ! "$desde_registro"; then
-preparar go_positivo
+preparar "$go_positivo"
 antes=$(contadores)
 lector_go positivo
 comprobar_contadores_go "$antes" '1|1|1|0'
 # El fallo del sink ocurre después del COMMIT: no cambia el recibo ni crea
 # otra operación. El emisor común cuenta la pérdida sin modificar el negocio.
-preparar go_sink_caido
+preparar "go_sink_caido$go_sufijo"
 antes=$(contadores)
 lector_go sink_caido
 comprobar_contadores_go "$antes" '1|1|1|0'
 # Replay recupera sólo la negativa y su intento; no repite el efecto permitido.
 # Reutiliza el vector de go_positivo para verificar la operación ya confirmada.
-valor "SELECT entrada FROM public.rpt27_ensayo_vector WHERE caso='go_positivo'" > "$scratch/entrada.json"
+valor "SELECT entrada FROM public.rpt27_ensayo_vector WHERE caso='$go_positivo'" > "$scratch/entrada.json"
 normalizar emitir
-valor "SELECT bundle FROM public.rpt27_ensayo_vector WHERE caso='go_positivo'" > "$scratch/salida.json"
+valor "SELECT bundle FROM public.rpt27_ensayo_vector WHERE caso='$go_positivo'" > "$scratch/salida.json"
 antes=$(contadores)
 lector_go replay
 comprobar_contadores_go "$antes" '0|0|0|1'
 # Punteros distintos no bastan: el registrador del LOGIN lector debe fallar.
-preparar go_cruzados
+preparar "go_cruzados$go_sufijo"
 antes=$(contadores)
 lector_go cruzados
 comprobar_contadores_go "$antes" '0|0|0|0'
-preparar go_registro_caido
+preparar "go_registro_caido$go_sufijo"
 antes=$(contadores)
 valor 'REVOKE vec_autorizacion_atestada_v3_registrador_intentos FROM vec_rpt27_ensayo_registrador' > /dev/null
 fi
@@ -1050,8 +1103,8 @@ lector_go registro_caido
 comprobar_contadores_go "$antes" '0|0|0|0'
 valor 'GRANT vec_autorizacion_atestada_v3_registrador_intentos TO vec_rpt27_ensayo_registrador WITH ADMIN FALSE,INHERIT TRUE,SET FALSE' > /dev/null
 # La identidad cacheada de Go no rescata una sesión revocada en SQL actual.
-preparar go_revocada
-s=$(printf '%s' go_revocada | sha256sum | cut -c1-32)
+preparar "$go_revocada"
+s=$(printf '%s' "$go_revocada" | sha256sum | cut -c1-32)
 valor "BEGIN; SET LOCAL ROLE vec_autorizacion_propietario;
  INSERT INTO vec_autorizacion.control_sesion_v1(control_sesion_ref,revision,sesion_ref,estado,huella_sha256,sesion_revalidada_en,sesion_valida_hasta)
  SELECT control_sesion_ref,2,sesion_ref,'revocada',repeat('f',64),clock_timestamp(),sesion_valida_hasta
@@ -1063,8 +1116,8 @@ lector_go revocada
 comprobar_contadores_go "$antes" '0|0|0|1'
 # 40001 en el adaptador Go: sin DTO, consumo ni recibo; intento confirmado
 # por el pool separado cuando ya terminó el rollback de la transacción lectora.
-preparar go_concurrente
-rel=$(valor "SELECT relacion_ref FROM public.rpt27_ensayo_vector WHERE caso='go_concurrente'")
+preparar "$go_concurrente"
+rel=$(valor "SELECT relacion_ref FROM public.rpt27_ensayo_vector WHERE caso='$go_concurrente'")
 antes=$(contadores)
 psql_run postgres -c "SET application_name='rpt27_publicador_go_lento'; BEGIN;
  SELECT public.rpt27_ensayo_revision('$rel','suspendida','2026-01-01',NULL); SELECT pg_sleep(2); COMMIT;" > "$scratch/publicador_go.out" 2> "$scratch/publicador_go.log" &

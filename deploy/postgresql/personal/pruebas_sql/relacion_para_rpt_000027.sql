@@ -123,7 +123,7 @@ BEGIN
  ',"actor_ref":"per_rpt27_'||s||'","contexto_actor_ref":'||to_jsonb(d->>'contexto_actor_ref')::text||',"contexto_version":'||(d->>'contexto_version')||
  ',"cuenta_ref":"cta_rpt27_'||s||'","cuenta_version":'||(d->>'cuenta_version')||',"perfil_ref":"prf_rpt27_'||s||'","perfil_version":'||(d->>'perfil_version')||
  ',"persona_ref":"per_rpt27_'||s||'","persona_version":'||(d->>'persona_version')||'}';
- SELECT * INTO STRICT k FROM vec_autorizacion_atestada_v3.clave_capacidad_version WHERE clave_id='clave:rpt27:ensayo';
+ SELECT * INTO STRICT k FROM vec_autorizacion_atestada_v3.clave_capacidad_version WHERE clave_id='clave:rpt27:ensayo' AND clock_timestamp()>=valida_desde AND clock_timestamp()<valida_hasta;
  SELECT * INTO STRICT cat FROM vec_autorizacion.control_catalogo_politicas WHERE control_id;
  SELECT coalesce(jsonb_agg(p.documento ORDER BY p.politica_ref COLLATE "C"),'[]'::jsonb) INTO politicas
  FROM vec_autorizacion.politica_restrictiva_actual a JOIN vec_autorizacion.politica_restrictiva p ON p.politica_id=a.politica_id AND p.politica_ref=a.politica_ref;

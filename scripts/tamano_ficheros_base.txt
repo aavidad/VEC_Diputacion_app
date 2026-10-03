@@ -129,4 +129,4 @@
 891 scripts/recorridos/test_clon_runtime.py
 864 internal/modules/bolsa/adapters/xlsconvoca/xlsx.go
 812 deploy/postgresql/autorizacion/migraciones/000024_actos_admin_centrales_v1.up.sql
-1085 deploy/postgresql/personal/pruebas_sql/relacion_para_rpt_000027_pg18.sh
+1138 deploy/postgresql/personal/pruebas_sql/relacion_para_rpt_000027_pg18.sh
