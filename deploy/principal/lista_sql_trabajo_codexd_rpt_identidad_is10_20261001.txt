@@ -1,0 +1,7 @@
+# Dependencia Identidad RRHH RPT. Sólo IS10 es nueva en esta rama.
+# Precondiciones: PostgreSQL 18 UTF8, roles Identidad y AUT existentes,
+# IS1..5 e IS6 con preimagen exacta ya instalada. No reaplicar esas migraciones.
+# IS10 NO depende de IS9 ADMIN, CA21 ni AUT25. El número no fija el orden global.
+# Instalar IS10 después de IS6 y antes de provisionar/activar High sintético RPT.
+# Dirección ensaya la candidata exacta y su lista causal sobre el clon principal.
+deploy/postgresql/identidad_sesiones_v1/migraciones/000010_politica_high_rrhh_rpt_sintetica.up.sql
