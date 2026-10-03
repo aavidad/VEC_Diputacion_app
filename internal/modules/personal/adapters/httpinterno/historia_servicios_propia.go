@@ -125,8 +125,8 @@ func (m *ManejadorHistoriaServiciosPropia) ServeHTTP(w http.ResponseWriter, r *h
 		}
 		revisiones = append(revisiones, map[string]any{"servicio_ref": revision.ServicioRef, "relacion_ref": revision.RelacionRef, "periodo_desde": revision.PeriodoDesde, "periodo_hasta": revision.PeriodoHasta, "dias_reconocidos": revision.DiasReconocidos, "estado": revision.Estado, "clase": revision.Clase, "traza": traza})
 	}
-	corte := resultado.Historia.Corte
-	historia := map[string]any{"corte": map[string]any{"efectos_desde": corte.Desde, "efectos_hasta": corte.Hasta, "conocido_en": corte.ConocidoEn.UTC().Format("2006-01-02T15:04:05.000000Z")}, "cobertura": resultado.Historia.Cobertura, "revisiones": revisiones}
+	corteRespuesta := resultado.Historia.Corte
+	historia := map[string]any{"corte": map[string]any{"efectos_desde": corteRespuesta.Desde, "efectos_hasta": corteRespuesta.Hasta, "conocido_en": corteRespuesta.ConocidoEn.UTC().Format("2006-01-02T15:04:05.000000Z")}, "cobertura": resultado.Historia.Cobertura, "revisiones": revisiones}
 
 	responderFichaPropia(w, 200, "", map[string]any{"data": map[string]any{"historia": historia, "consultada_en": resultado.Evidencia.ConsultadaEn.UTC().Format("2006-01-02T15:04:05.000000Z"), "recibo_ref": resultado.Evidencia.ReciboRef}})
 }
