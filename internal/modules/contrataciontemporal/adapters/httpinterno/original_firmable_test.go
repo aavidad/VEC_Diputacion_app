@@ -47,6 +47,7 @@ const cuerpoOriginalHTTPPrueba = `{"expediente_ref":"expediente:ct:001","documen
 func peticionOriginalHTTPPrueba(cuerpo string) *http.Request {
 	r := httptest.NewRequest(http.MethodPost, RutaOriginalFirmableCT, strings.NewReader(cuerpo))
 	r.Header.Set("Content-Type", "application/json")
+	r.Header.Set("Accept", "application/json")
 	return r
 }
 
