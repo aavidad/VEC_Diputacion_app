@@ -172,6 +172,9 @@ BEGIN
   RAISE EXCEPTION 'cargo_nominal_contexto_invalido' USING ERRCODE='22023';
  END;
  PERFORM pg_advisory_xact_lock(hashtextextended('vec_personal:cargos_competenciales:v1',0));
+ -- P10 carece de punteros actuales: bloquear sus historias impide publicar
+ -- revisiones estructurales nuevas entre la lectura y el COMMIT de CT.
+ LOCK TABLE vec_personal.org_nodo_historia,vec_personal.puesto_rpt_historia IN SHARE MODE;
  ahora:=clock_timestamp();
  SELECT h.* INTO STRICT c FROM vec_personal.cargo_competencial_actual a
  JOIN vec_personal.cargo_competencial_historia h USING(cargo_ref,version)
@@ -254,6 +257,9 @@ BEGIN
  END IF;
  enlace_b2:=NULL;
  IF t.ocupacion_ref IS NOT NULL THEN
+  -- B2 tampoco expone un puntero actual de relación/ocupación.
+  LOCK TABLE vec_personal.relacion_servicio_historia,
+   vec_personal.ocupacion_empleado_historia IN SHARE MODE;
   SELECT o.*,r.persona_ref,r.estado AS relacion_estado,
     r.vigente_desde AS relacion_desde,r.vigente_hasta AS relacion_hasta
   INTO STRICT o FROM vec_personal.ocupacion_empleado_historia o
@@ -368,6 +374,7 @@ BEGIN
   OR v.consumo_nuevo IS NOT TRUE THEN
   RAISE EXCEPTION 'cargo_publicacion_consumo_divergente' USING ERRCODE='42501'; END IF;
  PERFORM pg_advisory_xact_lock(hashtextextended('vec_personal:cargos_competenciales:v1',0));
+ LOCK TABLE vec_personal.org_nodo_historia,vec_personal.puesto_rpt_historia IN SHARE MODE;
  SELECT * INTO recibo FROM vec_personal.recibo_publicacion_cargo_competencial
  WHERE clave_idempotencia=clave FOR SHARE;
  IF FOUND THEN
@@ -478,6 +485,8 @@ BEGIN
     RAISE EXCEPTION 'cargo_publicacion_delegacion_invalida' USING ERRCODE='42501'; END IF;
   END IF;
   IF dato->>'ocupacion_ref' IS NOT NULL THEN
+   LOCK TABLE vec_personal.relacion_servicio_historia,
+    vec_personal.ocupacion_empleado_historia IN SHARE MODE;
    IF NOT EXISTS(SELECT 1 FROM vec_personal.ocupacion_empleado_historia o
       JOIN vec_personal.relacion_servicio_historia r
        ON r.relacion_ref=o.relacion_ref AND r.revision=o.relacion_revision
