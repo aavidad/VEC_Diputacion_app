@@ -54,9 +54,11 @@ type RegistroIntentoV2 struct {
 }
 
 type RegistroMixtoV2 struct {
-	TipoRegistro string             `json:"tipo_registro"`
-	Consumo      *RegistroCadenaV3  `json:"consumo,omitempty"`
-	Intento      *RegistroIntentoV2 `json:"intento,omitempty"`
+	TipoRegistro string               `json:"tipo_registro"`
+	Consumo      *RegistroCadenaV3    `json:"consumo,omitempty"`
+	Intento      *RegistroIntentoV2   `json:"intento,omitempty"`
+	Preperfil    *RegistroPreperfilV3 `json:"preperfil,omitempty"`
+	Bootstrap    *RegistroBootstrapV3 `json:"bootstrap,omitempty"`
 }
 
 type DocumentoVerificacionMixta struct {
@@ -68,16 +70,20 @@ type DocumentoVerificacionMixta struct {
 // VerificarCadenaMixtaV2 coteja el encadenado AD3-002/AD169 y las columnas
 // que AD169 compromete. El checkpoint separado necesita un origen confiable.
 func VerificarCadenaMixtaV2(d DocumentoVerificacionMixta, checkpoint CoberturaCadena, maxRegistros uint64) InformeVerificacion {
+	return verificarCadenaMixta(d, checkpoint, maxRegistros, EsquemaVerificacionMixta)
+}
+
+func verificarCadenaMixta(d DocumentoVerificacionMixta, checkpoint CoberturaCadena, maxRegistros uint64, esquema string) InformeVerificacion {
 	informe := InformeVerificacion{
-		Esquema: EsquemaVerificacionMixta, Estado: "rechazada",
+		Esquema: esquema, Estado: "rechazada",
 		AutenticidadCheckpoint: "no_comprobada", AutenticidadFuentesHistoricas: "no_comprobada",
 	}
 	fallar := func(codigo, clave, esperado, obtenido string, secuencia uint64) InformeVerificacion {
 		informe.Fallo = &FalloVerificacion{Codigo: codigo, Clave: clave, Esperado: esperado, Obtenido: obtenido, Secuencia: secuencia}
 		return informe
 	}
-	if d.Esquema != EsquemaVerificacionMixta {
-		return fallar("esquema_invalido", "esquema", EsquemaVerificacionMixta, "no_admitido", 0)
+	if d.Esquema != esquema {
+		return fallar("esquema_invalido", "esquema", esquema, "no_admitido", 0)
 	}
 	if maxRegistros == 0 || !coberturaValida(checkpoint) || !coberturaValida(d.Manifiesto) {
 		return fallar("cobertura_invalida", "manifiesto_checkpoint_limite", "rango_valido_y_limite_positivo", "invalido", 0)
@@ -94,12 +100,13 @@ func VerificarCadenaMixtaV2(d DocumentoVerificacionMixta, checkpoint CoberturaCa
 	}
 	anterior := checkpoint.AnteriorSHA256
 	auditorias, decisiones, consumos, intentos := map[string]bool{}, map[string]bool{}, map[string]bool{}, map[string]bool{}
+	eventos := map[string]bool{}
 	for i, r := range d.Registros {
 		secuencia := checkpoint.PrimeraSecuencia + uint64(i)
 		var referencia, previo, huella string
 		switch r.TipoRegistro {
 		case "consumo_confirmado":
-			if r.Consumo == nil || r.Intento != nil {
+			if r.Consumo == nil || r.Intento != nil || r.Preperfil != nil || r.Bootstrap != nil {
 				return fallar("tipo_invalido", "tipo_registro", "consumo_exclusivo", "invalido", secuencia)
 			}
 			c := *r.Consumo
@@ -126,7 +133,7 @@ func VerificarCadenaMixtaV2(d DocumentoVerificacionMixta, checkpoint CoberturaCa
 				return fallar("huella_distinta", "huella_sha256", huella, c.HuellaSHA256, secuencia)
 			}
 		case "intento_nominal":
-			if r.Intento == nil || r.Consumo != nil {
+			if r.Intento == nil || r.Consumo != nil || r.Preperfil != nil || r.Bootstrap != nil {
 				return fallar("tipo_invalido", "tipo_registro", "intento_exclusivo", "invalido", secuencia)
 			}
 			a := *r.Intento
@@ -148,6 +155,19 @@ func VerificarCadenaMixtaV2(d DocumentoVerificacionMixta, checkpoint CoberturaCa
 				return fallar(codigo, clave, esperado, obtenido, secuencia)
 			}
 			referencia, previo, huella = a.AuditoriaRef, a.AnteriorSHA256, a.HuellaSHA256
+		case "preperfil_autenticado", "bootstrap_operador":
+			if esquema != EsquemaVerificacionPreperfil {
+				return fallar("tipo_invalido", "tipo_registro", "tipo_admitido", "invalido", secuencia)
+			}
+			evento, codigo, clave := cotejarRegistroAdminV3(r, secuencia)
+			if codigo != "" {
+				return fallar(codigo, clave, "registro_ad171_valido", "no_admitido", secuencia)
+			}
+			if eventos[evento.EventoRef] {
+				return fallar("evento_duplicado", "evento_ref", "unico", "duplicado", secuencia)
+			}
+			eventos[evento.EventoRef] = true
+			referencia, previo, huella = evento.AuditoriaRef, evento.AnteriorSHA256, evento.HuellaSHA256
 		default:
 			return fallar("tipo_invalido", "tipo_registro", "tipo_admitido", "invalido", secuencia)
 		}
