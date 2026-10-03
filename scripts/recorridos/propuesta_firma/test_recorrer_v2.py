@@ -86,7 +86,7 @@ class ContratosV2Test(unittest.TestCase):
     def test_continuacion_bloquea_post_incierto_o_mismo_certificado(self):
         _, recibo = material()
         actual = {"expediente_ref": "expediente:sintetico", "documento": "informe_definitivo",
-                  "binario_sha256": "a" * 64, "propuesta": {}, "pdf": {}}
+                  "binario_sha256": "a" * 64, "propuesta": {"version_actual":7}, "pdf": {}}
         previo = {**actual, "estado": "PRIMERA_FIRMA_CONFIRMADA", "registro_incierto": False,
                   "firmas_v2": [recibo], "canal_certificado_sha256": "b" * 64}
         self.assertEqual(r.validar_continuacion(previo, actual, "c" * 64), [recibo])
@@ -109,6 +109,24 @@ class ContratosV2Test(unittest.TestCase):
         with self.assertRaises(r.Corte):
             r.preflight_v2({**datos, "esquema": "vec.contratacion-temporal.preflight-firma.v1"}, solicitud)
 
+    def test_recibos_externos_rechazan_clave_extra_antes_de_copiarlos(self):
+        _, recibo = material()
+        actual = {"expediente_ref":"expediente:sintetico","documento":"informe_definitivo",
+                  "binario_sha256":"a"*64,"propuesta":{"version_actual":7},"pdf":{}}
+        previo = {**actual,"estado":"PRIMERA_FIRMA_CONFIRMADA","registro_incierto":False,
+                  "firmas_v2":[recibo],"canal_certificado_sha256":"b"*64}
+        for campo in (None,"documento_custodiado","verificacion_tecnica","revision_pdf"):
+            copia=copy.deepcopy(previo)
+            destino=copia["firmas_v2"][0] if campo is None else copia["firmas_v2"][0][campo]
+            destino["clave_extra"]="material-sintetico-no-propagable"
+            with self.subTest(campo=campo),self.assertRaises(r.Corte):
+                r.validar_continuacion(copia,actual,"c"*64)
+            with self.subTest(lectura=campo),self.assertRaises(r.Corte):
+                r.recibos_guardados_v2(copia,1)
+            publico=r.informe_publico({**copia,"clave_extra":"top-no-propagable"})
+            self.assertNotIn("no-propagable",json.dumps(publico))
+            self.assertNotIn("clave_extra",json.dumps(publico))
+
     def test_reinicio_externo_no_se_presenta_como_observado(self):
         acta = {"expediente_ref": "expediente:sintetico", "aplicacion_reiniciada": True,
                 "postgresql_reiniciado": True, "instante_utc": "2026-10-03T13:00:00Z"}
@@ -120,9 +138,12 @@ class ContratosV2Test(unittest.TestCase):
     def test_recuperacion_queda_parcial_por_falta_de_evidencia_http_v2(self):
         _, recibo = material()
         segundo = copy.deepcopy(recibo)
-        segundo.update(paso_orden=2, recibo_ref="recibo:dos", firma_ref="firma:dos")
+        segundo.update(paso_orden=2, recibo_ref="recibo:dos", firma_ref="firma:dos", secuencia=2)
+        segundo["revision_pdf"].update(orden_firma=2,entrada_sha256="b"*64,revision_sha256="0"*64)
+        segundo["verificacion_tecnica"]["firmado_sha256"]="0"*64
+        segundo["documento_custodiado"].update(version=2,huella_sha256="0"*64)
         informe = {"expediente_ref":"expediente:sintetico", "documento":"informe_definitivo",
-                   "binario_sha256":"a"*64,"propuesta":{},"pdf":{}}
+                   "binario_sha256":"a"*64,"propuesta":{"version_actual":7},"pdf":{}}
         previo = {**informe, "estado":"COMPLETO", "registro_incierto":False,
                   "firmas_v2":[recibo,segundo], "pdf_firmado":{"sha256":"b"*64}}
         a = mock.Mock(comparar=Path("segunda.json"),reinicio=Path("reinicio.json"),documento="informe_definitivo")

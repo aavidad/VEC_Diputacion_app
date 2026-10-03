@@ -48,6 +48,35 @@ RUTA_SEGUIMIENTO = "/api/vec/contratacion-temporal/seguimiento-cese"
 SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 REFERENCIA = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}\Z")
 INSTANTE_UTC = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?Z\Z")
+CAMPOS_RECIBO_V2 = {"esquema", "recibo_ref", "firma_ref", "ya_registrada", "expediente_ref", "version_expediente",
+    "documento", "paso_orden", "paso_ref", "secuencia", "registrada_en", "documento_custodiado",
+    "verificacion_tecnica", "firma_eficaz", "material_root_sha256", "revision_pdf"}
+CAMPOS_RECIBO_ANIDADOS = {
+    "documento_custodiado": {"expediente_ref", "documento_ref", "version", "huella_sha256"},
+    "verificacion_tecnica": {"estado", "motivo", "politica", "revocacion", "sello_tiempo", "original_sha256", "firmado_sha256"},
+    "revision_pdf": {"orden_firma", "entrada_sha256", "revision_sha256", "evidencia_sha256"},
+}
+
+
+def proyectar_recibo_v2(data):
+    """Solo datos técnicos del contrato; nunca propagar campos de entrada extra."""
+    salida = {k:data[k] for k in CAMPOS_RECIBO_V2 if k in data}
+    for k,permitidos in CAMPOS_RECIBO_ANIDADOS.items():
+        if isinstance(salida.get(k),dict):
+            salida[k] = {campo:salida[k][campo] for campo in permitidos if campo in salida[k]}
+    return salida
+
+
+def informe_publico(informe):
+    campos = {"estado", "corte", "motivo", "entorno", "binario_sha256", "expediente_ref", "documento", "pdf", "firma",
+        "http", "registro_incierto", "firmas_v2", "propuesta", "movil_390", "escritorio_1440", "reinicio",
+        "canal_certificado_sha256", "preflight_v2", "pdf_primera_revision", "pdf_firmado", "pendiente", "e2e",
+        "campos_no_revalidados_por_consulta", "verificacion_criptografica_repetida", "firma_eficaz",
+        "sin_errores_js", "sin_errores_intercepcion", "sin_cookies_http", "sin_almacenamiento_web"}
+    salida = {k:informe[k] for k in campos if k in informe}
+    if isinstance(salida.get("firmas_v2"),list):
+        salida["firmas_v2"] = [proyectar_recibo_v2(rec) for rec in salida["firmas_v2"] if isinstance(rec,dict)]
+    return salida
 
 
 class Corte(RuntimeError):
@@ -532,9 +561,7 @@ def preflight_v2(datos, solicitud):
 
 
 def recibo_v2(data, solicitud, enviado_sha256, estado_http):
-    claves = {"esquema", "recibo_ref", "firma_ref", "ya_registrada", "expediente_ref", "version_expediente",
-              "documento", "paso_orden", "paso_ref", "secuencia", "registrada_en", "documento_custodiado",
-              "verificacion_tecnica", "firma_eficaz", "material_root_sha256", "revision_pdf"}
+    claves = CAMPOS_RECIBO_V2
     if not isinstance(data,dict):
         raise Corte("verificacion","el recibo V2 no es un objeto")
     c = data.get("documento_custodiado", {})
@@ -562,7 +589,35 @@ def recibo_v2(data, solicitud, enviado_sha256, estado_http):
             or r.get("orden_firma") != solicitud["paso_orden"] or r.get("entrada_sha256") != solicitud["entrada_sha256"] \
             or r.get("revision_sha256") != enviado_sha256 or not SHA256.fullmatch(str(r.get("evidencia_sha256", ""))):
         raise Corte("verificacion", "el recibo no acredita firma V2, revisión y custodia de los bytes enviados")
-    return data
+    return proyectar_recibo_v2(data)
+
+
+def recibos_guardados_v2(previo, cantidad):
+    firmas = previo.get("firmas_v2")
+    propuesta = previo.get("propuesta")
+    version = propuesta.get("version_actual") if isinstance(propuesta,dict) else None
+    if not isinstance(firmas,list) or len(firmas) != cantidad or type(version) is not int or version < 1:
+        raise Corte("contrato_http","el informe anterior no contiene los recibos V2 esperados")
+    validados = []
+    for orden,rec in enumerate(firmas,1):
+        if not isinstance(rec,dict):
+            raise Corte("contrato_http","el recibo guardado no es un objeto V2")
+        v = rec.get("verificacion_tecnica")
+        c = rec.get("documento_custodiado")
+        if not isinstance(v,dict) or not isinstance(c,dict):
+            raise Corte("contrato_http","el recibo guardado no contiene verificación y custodia")
+        original = validados[0]["verificacion_tecnica"]["original_sha256"] if validados else v.get("original_sha256")
+        entrada = validados[-1]["documento_custodiado"]["huella_sha256"] if validados else original
+        solicitud = {"expediente_ref":previo.get("expediente_ref"),"version_expediente":version,
+                     "documento":previo.get("documento"),"paso_orden":orden,
+                     "original_sha256":original,"entrada_sha256":entrada}
+        validado = recibo_v2(rec,solicitud,c.get("huella_sha256"),200 if rec.get("ya_registrada") is True else 201)
+        if validados and (validado["secuencia"] != validados[-1]["secuencia"]+1
+                or validado["recibo_ref"] == validados[-1]["recibo_ref"]
+                or validado["firma_ref"] == validados[-1]["firma_ref"]):
+            raise Corte("cadena","los recibos guardados no forman la secuencia V2")
+        validados.append(validado)
+    return validados
 
 
 def validar_continuacion(previo, informe, canal):
@@ -574,7 +629,7 @@ def validar_continuacion(previo, informe, canal):
             or previo["canal_certificado_sha256"] == canal \
             or any(previo.get(k) != informe.get(k) for k in ("expediente_ref", "documento", "binario_sha256", "propuesta", "pdf")):
         raise Corte("continuacion", "se requiere el primer recibo confirmado y otro certificado de canal, sin operación incierta")
-    return firmas
+    return recibos_guardados_v2(previo,1)
 
 
 def comparar_estado_v2(estado, firmas, documento):
@@ -648,6 +703,7 @@ def recorrer_firmas_v2(page, a, informe, catalogo, timeout_error):
                 or not isinstance(firmas, list) or len(firmas) != 2 \
                 or any(previo.get(k) != informe.get(k) for k in ("expediente_ref","documento","binario_sha256","propuesta","pdf")):
             raise Corte("recuperacion", "se requieren los dos recibos V2 confirmados del mismo clon")
+        firmas = recibos_guardados_v2(previo,2)
         informe["reinicio"] = comprobar_reinicio(leer_informe_privado(a.reinicio), informe)
         comparar_estado_v2(consultar_estado_v2(page,a),firmas,a.documento)
         pdf = descargar_revision_v2(page,a,firmas[-1])
@@ -700,8 +756,17 @@ def recorrer_firmas_v2(page, a, informe, catalogo, timeout_error):
             return
         try:
             cuerpo = json.loads(request.post_data)
-            bytes_pdf = base64.b64decode(cuerpo.pop("firmado_base64"), validate=True)
-            intento.update(cuerpo)
+            campos = {"expediente_ref","version_expediente","documento","paso_orden","original_ref",
+                      "original_version","firmado_base64","clave_idempotencia"}
+            if not isinstance(cuerpo,dict) or set(cuerpo) != campos \
+                    or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{15,63}",str(cuerpo.get("clave_idempotencia",""))) \
+                    or any(cuerpo.get(k) != v for k,v in {
+                        "expediente_ref":a.expediente_ref,"version_expediente":solicitud["version"],
+                        "documento":a.documento,"paso_orden":a.paso,"original_ref":preflight["original_ref"],
+                        "original_version":preflight["original_version"]}.items()):
+                raise ValueError
+            bytes_pdf = base64.b64decode(cuerpo["firmado_base64"], validate=True)
+            intento.update({k:cuerpo[k] for k in campos if k != "firmado_base64"})
             intento["firmado_sha256"] = hashlib.sha256(bytes_pdf).hexdigest()
             informe["registro_incierto"] = True
             informe["intento_v2"] = intento.copy()
@@ -934,7 +999,7 @@ def main(argv=None):
         if salida_fd is not None:
             os.close(salida_fd)
     # Las claves idempotentes se conservan solo en el informe privado para reconciliar.
-    publico = {k:v for k,v in informe.items() if k != "intento_v2"}
+    publico = informe_publico(informe)
     print(json.dumps(publico,ensure_ascii=False,sort_keys=True))
     return 0 if informe["estado"] in ("COMPLETO","PRIMERA_FIRMA_CONFIRMADA") else 2
 
