@@ -59,3 +59,10 @@ f18d0c0d3e59e9e622819764889ad356cb438f93:web/static/portal-empleado/reglas/texto
 # B2: identificador de regla y UUID de idempotencia sinteticos en pruebas; no son credenciales.
 d5cbc96f0fdf0e64c8b7296adef62e86f5220c97:internal/vec/reglas/resolutor_test.go:vep-clave-castellana-asignada:88
 19b2452f7455e58e4722df9a4b3d9bcffb88e2c7:web/static/portal-empleado/modulos/contratacion-temporal/incorporacion-personal-b2.test.mjs:vep-clave-castellana-asignada:8
+
+# CS11: token pg_dump --restrict-key para comparar sólo SHA256 del esquema;
+# el búfer se vacía y no se ejecuta ese SQL. Dos falsos positivos históricos
+# revisados; no se excluyen rutas, reglas, valores ni commits futuros.
+# https://www.postgresql.org/docs/18/app-pgdump.html
+7808b9db61e8e8d90f5c77ac8b223af54a054ebe:internal/modules/administracion/adapters/ejecucioncopias/runtime_local_source.go:generic-api-key:105
+7808b9db61e8e8d90f5c77ac8b223af54a054ebe:internal/modules/administracion/adapters/ejecucioncopias/runtime_local_source_inventario.go:generic-api-key:91
