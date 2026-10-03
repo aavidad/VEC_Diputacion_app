@@ -72,9 +72,10 @@ o la antigüedad de su tramo al recibir una nueva incidencia, rota a
 archivos con esos nombres exactos cuando exceden la cantidad o la antigüedad
 configuradas. Aplica la retención al abrir y al rotar; un proceso sin nueva
 entrada puede conservar un archivo vencido hasta el siguiente arranque o rotación.
-Otros nombres quedan intactos. Un nombre con el prefijo reservado
-`incidencias-` y la extensión `.jsonl` que no tenga una secuencia decimal válida
-detiene la recogida para que Sistemas revise el directorio.
+Otros nombres quedan intactos, incluidas las secuencias sin relleno hasta veinte
+cifras. Un nombre con el prefijo reservado `incidencias-`, veinte caracteres
+para la secuencia y la extensión `.jsonl` que no represente una secuencia decimal
+válida detiene la recogida para que Sistemas revise el directorio.
 
 Al reiniciar conserva el activo y continúa la secuencia de los archivos rotados.
 Un activo sin salto de línea final se rechaza para evitar añadir registros sobre
