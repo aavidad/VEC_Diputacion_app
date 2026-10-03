@@ -15,6 +15,7 @@ import (
 	"vec-diputacion-granada/internal/vec/adapters/httpseguridad/adminperfiles"
 	"vec-diputacion-granada/internal/vec/domain"
 	"vec-diputacion-granada/internal/vec/ports"
+	"vec-diputacion-granada/internal/vec/pruebas"
 )
 
 type relojActivosPrueba struct{ ahora time.Time }
@@ -106,12 +107,7 @@ func TestGateActivosExigeLecturaAuditadaSinPerfilActivo(t *testing.T) {
 	}
 }
 func TestListaActivosIncluyeGrafoUsuariosSelectorYExcluyePruebas(t *testing.T) {
-	activos := fstest.MapFS{}
-	rutas := []string{"admin/usuarios/index.html", "admin/usuarios/entry.js", "admin/usuarios/vista.js", "admin/usuarios/render.js", "admin/usuarios/contratos.js", "admin/usuarios/cliente.js", "admin/usuarios/lecturas-http.js", "admin/usuarios/propuestas.js", "admin/usuarios/propuestas-contratos.js", "admin/usuarios/usuarios.css", "administracion-perfiles/selector-perfil.js", "administracion-perfiles/selector-perfil.css", "favicon.svg", "comun/idioma.js", "comun/textos.js", "comun/tema-vec.css", "portal-empleado/portal.css", "portal-empleado/portal-componentes.css", "portal-empleado/portal-flujos.css", "portal-empleado/portal-patrones.css", "textos/es/admin-usuarios.json", "textos/es/admin-selector.json"}
-	for _, r := range rutas {
-		activos[r] = &fstest.MapFile{Data: []byte("material publico sintetico")}
-	}
-	activos["textos/idiomas.json"] = &fstest.MapFile{Data: []byte(`{"idiomas":[{"codigo":"es"}]}`)}
+	activos := activosMapaPrueba()
 	h, err := montarActivosPerfiles(http.NotFoundHandler(), DependenciasPerfiles{Activos: activos, ContextoConexion: func(ctx context.Context, _ net.Conn) context.Context { return ctx }}, "https://admin.invalid")
 	if err != nil {
 		t.Fatal(err)
@@ -137,5 +133,97 @@ func TestFuentesAusentesNoFabricanLecturaNiSeleccion(t *testing.T) {
 	propios, err := (seleccionAuditadaADMIN{}).ListarPropiosADMIN(ctx, adminperfiles.ObservacionADMIN{})
 	if !errors.Is(err, ports.ErrAutoridadAdministracionPerfilesNoDisponible) || len(propios.Perfiles) != 0 {
 		t.Fatal("lista propia fabricada")
+	}
+}
+
+func activosMapaPrueba() fstest.MapFS {
+	activos := fstest.MapFS{}
+	rutas := []string{"admin/usuarios/index.html", "admin/usuarios/entry.js", "admin/usuarios/vista.js", "admin/usuarios/render.js", "admin/usuarios/contratos.js", "admin/usuarios/cliente.js", "admin/usuarios/lecturas-http.js", "admin/usuarios/propuestas.js", "admin/usuarios/propuestas-contratos.js", "admin/usuarios/usuarios.css", "administracion-perfiles/selector-perfil.js", "administracion-perfiles/selector-perfil.css", "favicon.svg", "comun/idioma.js", "comun/textos.js", "comun/tema-vec.css", "portal-empleado/portal.css", "portal-empleado/portal-componentes.css", "portal-empleado/portal-flujos.css", "portal-empleado/portal-patrones.css", "textos/es/admin-usuarios.json", "textos/es/admin-selector.json"}
+	for _, r := range rutas {
+		activos[r] = &fstest.MapFile{Data: []byte("material publico sintetico")}
+	}
+	activos["textos/idiomas.json"] = &fstest.MapFile{Data: []byte(`{"idiomas":[{"codigo":"es"}]}`)}
+	return activos
+}
+
+func sesionActivosPrueba(t *testing.T) api.SesionConfiable {
+	t.Helper()
+	ahora := time.Now().UTC().Truncate(time.Microsecond)
+	persona := "per_" + strings.Repeat("a", 22)
+	perfil := "prf_" + strings.Repeat("b", 22)
+	resultado, vinculo, err := pruebas.NuevoContextoRegistradoYVinculoV2(
+		ahora, persona, perfil, domain.AuthMethodCertificate, domain.AuthAssuranceHigh)
+	if err != nil {
+		t.Fatal(err)
+	}
+	actor := resultado.Contexto
+	rol := domain.VersionRol{
+		RolID: "administracion_perfiles", Version: 1, Nombre: "Administrador de aplicación",
+		Estado:       domain.EstadoVersionRolPublicada,
+		Concesiones:  []domain.ConcesionRol{{Accion: "bolsa.expediente.leer", ModuloID: "bolsa", TipoRecurso: "expediente", Finalidades: []string{"gestion_bolsa"}, GarantiaMinima: domain.AuthAssuranceSubstantial}},
+		PublicadaPor: "responsable-seguridad", PublicadaEn: ahora.Add(-24 * time.Hour),
+	}
+	huella, err := domain.HuellaCatalogoPoliticasAutorizacion(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot := domain.InstantaneaAutorizacion{
+		AsignacionPerfil: domain.AsignacionPerfil{
+			AsignacionID: "asig-admin", Version: 1, PerfilActivoRef: perfil, PrincipalID: persona,
+			VersionRolRef: rol.Referencia(), Estado: domain.EstadoAsignacionPerfilActiva,
+			Ambitos:      []domain.AmbitoPerfil{{Clave: "unidad", Valores: []string{"seleccion"}}},
+			VigenteDesde: ahora.Add(-time.Hour), VigenteHasta: ahora.Add(time.Hour),
+			EmitidaPor: "responsable-seguridad", EmitidaEn: ahora.Add(-2 * time.Hour),
+		},
+		VersionRol: rol,
+		ControlVigenciaVersionRol: domain.ControlVigenciaVersionRol{
+			VersionRolRef: rol.Referencia(), Revision: 1,
+			Estado:         domain.EstadoControlVigenciaVersionRolHabilitada,
+			ActualizadoPor: rol.PublicadaPor, ActualizadoEn: rol.PublicadaEn,
+		},
+		RevisionCatalogoPoliticas: 1, CatalogoPoliticasHuellaSHA256: huella,
+	}
+	if err := snapshot.Validar(); err != nil {
+		t.Fatal(err)
+	}
+	return api.SesionConfiable{Actor: actor,
+		Evidencia:               domain.EvidenciaSesionAdministracionPerfiles{ResultadoContexto: resultado, Vinculo: vinculo},
+		InstantaneaAutorizacion: snapshot,
+		CorrelacionRef:          "correlacion_" + strings.Repeat("e", 32)}
+}
+
+type sesionActivosStub struct{ resultado api.SesionConfiable }
+
+func (s sesionActivosStub) ResolverSesionADMIN(context.Context, *http.Request) (api.SesionConfiable, error) {
+	return s.resultado, nil
+}
+
+type capacidadesActivosStub struct {
+	lecturasNoDisponibles
+	datos api.Capacidades
+}
+
+func (c capacidadesActivosStub) Capacidades(context.Context, domain.ContextoActor, domain.EvidenciaSesionAdministracionPerfiles) (api.Capacidades, error) {
+	return c.datos, nil
+}
+func TestMontajeSinObservadorSoloAdmiteVersionProtocolaria1(t *testing.T) {
+	sesion := sesionActivosPrueba(t)
+	for _, version := range []string{"1", "v1", "", "2"} {
+		t.Run(version, func(t *testing.T) {
+			deps := DependenciasPerfiles{Activos: activosMapaPrueba(), ContextoConexion: func(ctx context.Context, _ net.Conn) context.Context { return ctx }, Sesiones: sesionActivosStub{sesion}, Lecturas: capacidadesActivosStub{datos: api.Capacidades{Version: version, ActorPersonaRef: sesion.Actor.PersonaRef, Acciones: []string{"consultar"}}}}
+			h, err := montarActivosPerfiles(http.NotFoundHandler(), deps, "https://admin.invalid")
+			if err != nil || h.observador != nil {
+				t.Fatal("constructor de lectura alterado", err)
+			}
+			w := httptest.NewRecorder()
+			h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "https://admin.invalid/admin/usuarios/", nil))
+			esperado := http.StatusServiceUnavailable
+			if version == "1" {
+				esperado = http.StatusOK
+			}
+			if w.Code != esperado {
+				t.Fatalf("version %s estado %d esperado %d", version, w.Code, esperado)
+			}
+		})
 	}
 }

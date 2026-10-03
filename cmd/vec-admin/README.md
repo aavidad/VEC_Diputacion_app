@@ -9,7 +9,8 @@ frontera; no añade un login.
 El proceso exige configuración privada y siete LOGIN segregados. Si falta una
 función, un perfil vigente, material criptográfico o una fuente, el arranque o
 la operación se cierran. No crea cuentas ni publica permisos al recibir una
-petición. El bootstrap se aplica aparte con la CLI privada existente.
+petición. La CLI privada prepara o coteja el bootstrap; su aplicación sigue cerrada
+hasta disponer del proveedor y el circuito admitidos.
 
 El arranque requiere estas variables privadas:
 

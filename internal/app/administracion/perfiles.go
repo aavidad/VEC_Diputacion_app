@@ -250,7 +250,7 @@ func (h *handlerPerfilesADMIN) estadoLecturaActivos(ctx context.Context, r *http
 		}
 		return http.StatusServiceUnavailable
 	}
-	if capacidades.Version != "v1" || capacidades.ActorPersonaRef != sesion.Actor.PersonaRef {
+	if capacidades.Version != "1" || capacidades.ActorPersonaRef != sesion.Actor.PersonaRef {
 		return http.StatusServiceUnavailable
 	}
 	for _, accion := range capacidades.Acciones {

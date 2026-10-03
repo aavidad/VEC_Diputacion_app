@@ -50,6 +50,8 @@ test("lecturas conservan referencia, ámbito e historia de la fuente; datos malf
   assert.equal(validarPersonas(f.pagina).personas.length, 1);
   assert.throws(() => validarUnidades({ unidades: [{ unidad_ref: "", nombre: "dato" }] }));
   assert.equal(validarCapacidades(f.capacidades).acciones.length, 3);
+  assert.throws(() => validarCapacidades({...f.capacidades, version:"v1"}));
+  assert.throws(() => validarCapacidades({...f.capacidades, version:1}));
   assert.throws(() => validarCapacidades({ ...f.capacidades, acciones: ["superusuario"] }));
   assert.throws(() => validarRoles({ roles: [{ ...f.catalogo.roles[0], fijo: undefined }] }));
   assert.throws(() => validarPersonas({ personas: [f.pagina.personas[0], f.pagina.personas[0]] }));

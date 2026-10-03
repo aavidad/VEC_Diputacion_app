@@ -21,7 +21,7 @@ try {
       const actual = montarUsuarios(root, { textos, cliente: crearClienteLecturasUsuarios() }); montaje = actual;
       signal.addEventListener("abort", () => actual.desmontar(), { once: true });
       await actual.listo;
-      if (!signal.aborted && montaje === actual) panelSelector.open = false;
+      if (!signal.aborted && montaje === actual) { panelSelector.open = false; root.focus(); }
     } });
   for (const boton of document.getElementById("usuarios-selector").querySelectorAll("button")) boton.classList.add(boton.type === "submit" ? "boton-primario" : "boton-secundario");
 } catch {
