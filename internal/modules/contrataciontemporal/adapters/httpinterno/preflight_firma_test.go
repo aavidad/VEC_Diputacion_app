@@ -156,3 +156,85 @@ func TestPreflightFirmaR5HTTPNoAceptaDisponibilidadMalformada(t *testing.T) {
 		}
 	}
 }
+
+type consultorPreflightV2Prueba struct {
+	paso    int
+	err     error
+	alterar func(*ports.ResultadoPreflightFirmaR5V2)
+}
+
+func (c *consultorPreflightV2Prueba) ConsultarV2(_ context.Context, q ports.SolicitudPreflightFirmaR5) (ports.ResultadoPreflightFirmaR5V2, error) {
+	r := ports.ResultadoPreflightFirmaR5V2{ResultadoPreflightFirmaR5: ports.ResultadoPreflightFirmaR5{
+		VersionExpediente: q.Canal.VersionObservada, Documento: q.Documento, CatalogoRef: "catalogo:ct:001", CatalogoHuella: strings.Repeat("a", 64),
+		PasoPendiente: c.paso, OriginalRef: q.OriginalRef, OriginalVersion: q.OriginalVersion, ViasDisponibles: []string{}},
+		EntradaDocumentoRef: q.OriginalRef, EntradaDocumentoVersion: q.OriginalVersion, EntradaDocumentoHuella: strings.Repeat("b", 64)}
+	if c.paso == 2 {
+		r.EntradaDocumentoRef = "documento:firmado:previo"
+		r.EntradaDocumentoVersion = 4
+	}
+	if c.paso == 0 {
+		r.EntradaDocumentoRef = ""
+		r.EntradaDocumentoVersion = 0
+		r.EntradaDocumentoHuella = ""
+	}
+	if c.alterar != nil {
+		c.alterar(&r)
+	}
+	return r, c.err
+}
+
+func TestPreflightFirmaR5HTTPV2PDFEntradaConservaRaiz(t *testing.T) {
+	for _, paso := range []int{0, 1, 2} {
+		h, err := NuevoManejadorPreflightFirmaR5V2(&autoridadCircuitoRRHHPrueba{}, &consultorPreflightV2Prueba{paso: paso})
+		if err != nil {
+			t.Fatal(err)
+		}
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, peticionPreflightPrueba(cuerpoPreflightPrueba, RutaPreflightFirmaR5))
+		var salida struct {
+			Data map[string]any `json:"data"`
+		}
+		if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &salida) != nil {
+			t.Fatalf("V2 %d: %d %s", paso, w.Code, w.Body)
+		}
+		d := salida.Data
+		if len(d) != 12 || d["esquema"] != EsquemaPreflightFirmaR5V2 || d["original_ref"] != "original:ct:001" || d["original_version"] != float64(1) {
+			t.Fatalf("raíz alterada: %s", w.Body)
+		}
+		switch paso {
+		case 0:
+			if d["entrada_documento_ref"] != "" || d["entrada_documento_version"] != float64(0) || d["entrada_documento_sha256"] != "" {
+				t.Fatal("terminal inventó entrada")
+			}
+		case 1:
+			if d["entrada_documento_ref"] != d["original_ref"] || d["entrada_documento_version"] != d["original_version"] {
+				t.Fatal("primera entrada distinta")
+			}
+		case 2:
+			if d["entrada_documento_ref"] != "documento:firmado:previo" || d["entrada_documento_version"] != float64(4) {
+				t.Fatal("se reutilizó raíz sin primera firma")
+			}
+		}
+	}
+}
+
+func TestPreflightFirmaR5HTTPV2DeniegaDescriptorIncompleto(t *testing.T) {
+	for _, alterar := range []func(*ports.ResultadoPreflightFirmaR5V2){
+		func(r *ports.ResultadoPreflightFirmaR5V2) { r.EntradaDocumentoRef = "" },
+		func(r *ports.ResultadoPreflightFirmaR5V2) { r.EntradaDocumentoVersion = 0 },
+		func(r *ports.ResultadoPreflightFirmaR5V2) { r.EntradaDocumentoHuella = "sha-invalida" },
+	} {
+		h, _ := NuevoManejadorPreflightFirmaR5V2(&autoridadCircuitoRRHHPrueba{}, &consultorPreflightV2Prueba{paso: 2, alterar: alterar})
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, peticionPreflightPrueba(cuerpoPreflightPrueba, RutaPreflightFirmaR5))
+		if w.Code != 502 || strings.Contains(w.Body.String(), "entrada_documento_ref") {
+			t.Fatalf("descriptor inyectado: %d %s", w.Code, w.Body)
+		}
+	}
+	h, _ := NuevoManejadorPreflightFirmaR5V2(&autoridadCircuitoRRHHPrueba{}, &consultorPreflightV2Prueba{paso: 2, err: errors.New("PRIVATE CA CERTIFICATE")})
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, peticionPreflightPrueba(cuerpoPreflightPrueba, RutaPreflightFirmaR5))
+	if w.Code != 503 || strings.Contains(w.Body.String(), "PRIVATE") {
+		t.Fatalf("no cerrado: %d %s", w.Code, w.Body)
+	}
+}

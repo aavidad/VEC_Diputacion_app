@@ -13,13 +13,27 @@ import (
 
 const RutaPreflightFirmaR5 = "/api/vec/contratacion-temporal/firma/preflight"
 
+const EsquemaPreflightFirmaR5V2 = "vec.contratacion-temporal.preflight-firma.v2"
+
 type ConsultorPreflightFirmaR5 interface {
 	Consultar(context.Context, ports.SolicitudPreflightFirmaR5) (ports.ResultadoPreflightFirmaR5, error)
 }
 
+type ConsultorPreflightFirmaR5V2 interface {
+	ConsultarV2(context.Context, ports.SolicitudPreflightFirmaR5) (ports.ResultadoPreflightFirmaR5V2, error)
+}
+
 type manejadorPreflightFirmaR5 struct {
-	autoridad AutoridadContextoCanalCircuitoRRHH
-	consultor ConsultorPreflightFirmaR5
+	autoridad   AutoridadContextoCanalCircuitoRRHH
+	consultor   ConsultorPreflightFirmaR5
+	consultorV2 ConsultorPreflightFirmaR5V2
+}
+
+func NuevoManejadorPreflightFirmaR5V2(autoridad AutoridadContextoCanalCircuitoRRHH, consultor ConsultorPreflightFirmaR5V2) (http.Handler, error) {
+	if dependenciaNula(autoridad) || dependenciaNula(consultor) {
+		return nil, ports.ErrPreflightFirmaR5NoDisponible
+	}
+	return &manejadorPreflightFirmaR5{autoridad: autoridad, consultorV2: consultor}, nil
 }
 
 func NuevoManejadorPreflightFirmaR5(autoridad AutoridadContextoCanalCircuitoRRHH, consultor ConsultorPreflightFirmaR5) (http.Handler, error) {
@@ -48,8 +62,16 @@ type resultadoPreflightFirmaR5JSON struct {
 	ViasDisponibles   []string `json:"vias_disponibles"`
 }
 
+type resultadoPreflightFirmaR5V2JSON struct {
+	resultadoPreflightFirmaR5JSON
+	Esquema                 string `json:"esquema"`
+	EntradaDocumentoRef     string `json:"entrada_documento_ref"`
+	EntradaDocumentoVersion uint64 `json:"entrada_documento_version"`
+	EntradaDocumentoSHA256  string `json:"entrada_documento_sha256"`
+}
+
 func (h *manejadorPreflightFirmaR5) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if h == nil || dependenciaNula(h.autoridad) || dependenciaNula(h.consultor) {
+	if h == nil || dependenciaNula(h.autoridad) || (dependenciaNula(h.consultor) && dependenciaNula(h.consultorV2)) {
 		responderErrorPreflightFirma(w, r, nil, errorServicioConsultaRRHHNoDisponible)
 		return
 	}
@@ -94,7 +116,15 @@ func (h *manejadorPreflightFirmaR5) ServeHTTP(w http.ResponseWriter, r *http.Req
 			ExpedienteRef: entrada.ExpedienteRef, VersionObservada: *entrada.VersionObservada,
 		}, Documento: entrada.Documento, OriginalRef: entrada.OriginalRef, OriginalVersion: *entrada.OriginalVersion,
 	}
-	resultado, err := h.consultor.Consultar(r.Context(), q)
+	var resultado ports.ResultadoPreflightFirmaR5
+	var resultadoV2 *ports.ResultadoPreflightFirmaR5V2
+	if !dependenciaNula(h.consultorV2) {
+		v2, fallo := h.consultorV2.ConsultarV2(r.Context(), q)
+		err = fallo
+		resultado, resultadoV2 = v2.ResultadoPreflightFirmaR5, &v2
+	} else {
+		resultado, err = h.consultor.Consultar(r.Context(), q)
+	}
 	if r.Context().Err() != nil {
 		err = r.Context().Err()
 	}
@@ -102,18 +132,27 @@ func (h *manejadorPreflightFirmaR5) ServeHTTP(w http.ResponseWriter, r *http.Req
 		responderErrorPreflightFirma(w, r, err, errorPreflightFirmaR5(err))
 		return
 	}
+	if resultadoV2 != nil && application.ValidarResultadoPreflightFirmaR5V2(*resultadoV2, q) != nil {
+		responderErrorPreflightFirma(w, r, nil, errorResultadoConsultaRRHHNoConfiable)
+		return
+	}
 	if application.ValidarResultadoPreflightFirmaR5(resultado, q) != nil {
 		responderErrorPreflightFirma(w, r, nil, errorResultadoConsultaRRHHNoConfiable)
 		return
 	}
-	responderJSONFirmaNominal(w, r, http.StatusOK, struct {
-		Data resultadoPreflightFirmaR5JSON `json:"data"`
-	}{Data: resultadoPreflightFirmaR5JSON{
+	vista := resultadoPreflightFirmaR5JSON{
 		VersionExpediente: resultado.VersionExpediente, Documento: resultado.Documento,
 		CatalogoRef: resultado.CatalogoRef, CatalogoHuella: resultado.CatalogoHuella,
 		PasoPendiente: resultado.PasoPendiente, OriginalRef: resultado.OriginalRef,
 		OriginalVersion: resultado.OriginalVersion, ViasDisponibles: resultado.ViasDisponibles,
-	}}, MaximoRespuestaConsultaRRHHBytes)
+	}
+	var data any = vista
+	if resultadoV2 != nil {
+		data = resultadoPreflightFirmaR5V2JSON{resultadoPreflightFirmaR5JSON: vista,
+			Esquema: EsquemaPreflightFirmaR5V2, EntradaDocumentoRef: resultadoV2.EntradaDocumentoRef,
+			EntradaDocumentoVersion: resultadoV2.EntradaDocumentoVersion, EntradaDocumentoSHA256: resultadoV2.EntradaDocumentoHuella}
+	}
+	responderJSONFirmaNominal(w, r, http.StatusOK, map[string]any{"data": data}, MaximoRespuestaConsultaRRHHBytes)
 }
 
 func errorPreflightFirmaR5(err error) errorPublicoConsultaRRHH {
