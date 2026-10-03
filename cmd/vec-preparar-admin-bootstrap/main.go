@@ -12,10 +12,8 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"reflect"
 	"strings"
-	"syscall"
 	"time"
 
 	"vec-diputacion-granada/internal/vec/domain"
@@ -39,7 +37,8 @@ func main() { os.Exit(ejecutar(os.Args[1:], os.Stdout, os.Stderr)) }
 func ejecutar(args []string, salida, errores io.Writer) int {
 	f := flag.NewFlagSet("vec-preparar-admin-bootstrap", flag.ContinueOnError)
 	f.SetOutput(io.Discard)
-	var fuente, destino, conexion, aprobacion, recibo string
+	var fuente, destino, conexion, aprobacion, recibo, textos string
+	var versionPlan uint64
 	var cotejar, aplicar bool
 	f.StringVar(&fuente, "fuente", "", "")
 	f.StringVar(&destino, "plan", "", "")
@@ -48,71 +47,84 @@ func ejecutar(args []string, salida, errores io.Writer) int {
 	f.StringVar(&conexion, "conexion", "", "")
 	f.StringVar(&aprobacion, "aprobacion", "", "")
 	f.StringVar(&recibo, "recibo", "", "")
+	f.StringVar(&textos, "textos", "", "")
+	f.Uint64Var(&versionPlan, "version-plan", 0, "")
 	if f.Parse(args) != nil || f.NArg() != 0 || fuente == "" || destino == "" || fuente == destino {
-		return fallar(errores, "uso_invalido")
-	}
-	if aplicar && (!cotejar || conexion == "" || aprobacion == "" || recibo == "" || recibo == fuente || recibo == destino || recibo == conexion || recibo == aprobacion) ||
-		!aplicar && (conexion != "" || aprobacion != "" || recibo != "") {
-		return fallar(errores, "uso_invalido")
+		return fallarEntradaCLI(errores, textos, "uso_invalido")
 	}
 	b, err := leerPrivado(fuente)
 	if err != nil {
-		return fallar(errores, "fuente_insegura")
+		return fallarEntradaCLI(errores, textos, "fuente_insegura")
 	}
 	defer clear(b)
+	var formato struct {
+		Version uint64 `json:"version"`
+	}
+	if json.Unmarshal(b, &formato) != nil || versionPlan != 0 && versionPlan != formato.Version {
+		return fallarEntradaCLI(errores, textos, "fuente_invalida")
+	}
+	if formato.Version == 3 {
+		return ejecutarBootstrapV3(b, opcionesBootstrapV3{fuente: fuente, destino: destino, textos: textos,
+			cotejar: cotejar, aplicar: aplicar, conexion: conexion, aprobacion: aprobacion, recibo: recibo}, salida, errores)
+	}
+	if textos != "" || versionPlan != 0 && versionPlan != 2 ||
+		aplicar && (!cotejar || conexion == "" || aprobacion == "" || recibo == "" || recibo == fuente || recibo == destino || recibo == conexion || recibo == aprobacion) ||
+		!aplicar && (conexion != "" || aprobacion != "" || recibo != "") {
+		return fallarEntradaCLI(errores, textos, "uso_invalido")
+	}
 	var m material
 	if decodificarEstricto(b, &m) != nil || validar(m) != nil {
-		return fallar(errores, "fuente_invalida")
+		return fallarEntradaCLI(errores, textos, "fuente_invalida")
 	}
 	contenido, err := json.Marshal(m)
 	if err != nil {
-		return fallar(errores, "plan_invalido")
+		return fallarEntradaCLI(errores, textos, "plan_invalido")
 	}
 	h := sha256.Sum256(contenido)
 	huella := hex.EncodeToString(h[:])
 	p, err := m.Preimagen()
 	if err != nil || p.Validar() != nil || p.HuellaPlanSHA256 != huella {
-		return fallar(errores, "plan_invalido")
+		return fallarEntradaCLI(errores, textos, "plan_invalido")
 	}
 	doc, err := json.Marshal(documento{Plan: m, HuellaPlanSHA256: huella})
 	if err != nil || len(doc)+1 > limiteDocumento {
-		return fallar(errores, "plan_invalido")
+		return fallarEntradaCLI(errores, textos, "plan_invalido")
 	}
 	doc = append(doc, '\n')
 	defer clear(doc)
 	if cotejar {
 		previo, e := leerPrivado(destino)
 		if e != nil {
-			return fallar(errores, "plan_ausente_o_inseguro")
+			return fallarEntradaCLI(errores, textos, "plan_ausente_o_inseguro")
 		}
 		defer clear(previo)
 		if !bytes.Equal(previo, doc) {
-			return fallar(errores, "plan_divergente")
+			return fallarEntradaCLI(errores, textos, "plan_divergente")
 		}
 	} else if err = crearOComparar(destino, doc); err != nil {
-		return fallar(errores, "plan_divergente_o_destino_inseguro")
+		return fallarEntradaCLI(errores, textos, "plan_divergente_o_destino_inseguro")
 	}
 	if aplicar {
 		r, err := aplicarPlan(m, conexion, aprobacion)
 		if err != nil {
-			return fallar(errores, "provision_no_confirmada")
+			return fallarEntradaCLI(errores, textos, "provision_no_confirmada")
 		}
 		b, err := json.Marshal(r)
 		if err != nil {
-			return fallar(errores, "recibo_invalido")
+			return fallarEntradaCLI(errores, textos, "recibo_invalido")
 		}
 		b = append(b, '\n')
 		defer clear(b)
 		if crearOComparar(recibo, b) != nil {
-			return fallar(errores, "recibo_no_guardado")
+			return fallarEntradaCLI(errores, textos, "recibo_no_guardado")
 		}
 		if _, err = fmt.Fprintln(salida, r.ReciboRef); err != nil {
-			return fallar(errores, "plan_salida_fallida")
+			return fallarEntradaCLI(errores, textos, "plan_salida_fallida")
 		}
 		return 0
 	}
 	if _, err = fmt.Fprintln(salida, huella); err != nil {
-		return fallar(errores, "plan_salida_fallida")
+		return fallarEntradaCLI(errores, textos, "plan_salida_fallida")
 	}
 	return 0
 }
@@ -230,107 +242,4 @@ func clavesUnicas(b []byte) error {
 		}
 	}
 	return recorrer()
-}
-
-func abrirRaizPrivada(ruta string) (*os.Root, error) {
-	if !filepath.IsAbs(ruta) || filepath.Clean(ruta) != ruta {
-		return nil, errors.New("ruta")
-	}
-	padre := filepath.Dir(ruta)
-	resuelta, err := filepath.EvalSymlinks(padre)
-	if err != nil || resuelta != padre {
-		return nil, errors.New("enlace")
-	}
-	dir, err := os.Lstat(padre)
-	if err != nil || !dir.IsDir() || dir.Mode().Perm() != 0700 || !propio(dir) {
-		return nil, errors.New("directorio")
-	}
-	for actual := padre; actual != "/"; actual = filepath.Dir(actual) {
-		if _, err := os.Lstat(filepath.Join(actual, ".git")); err == nil {
-			return nil, errors.New("repositorio")
-		}
-	}
-	raiz, err := os.OpenRoot(padre)
-	if err != nil {
-		return nil, err
-	}
-	abierto, err := raiz.Stat(".")
-	if err != nil || !os.SameFile(dir, abierto) || abierto.Mode().Perm() != 0700 || !propio(abierto) {
-		_ = raiz.Close()
-		return nil, errors.New("directorio cambiado")
-	}
-	return raiz, nil
-}
-
-func propio(i os.FileInfo) bool {
-	s, ok := i.Sys().(*syscall.Stat_t)
-	return ok && int64(s.Uid) == int64(os.Getuid())
-}
-
-func leerPrivado(ruta string) ([]byte, error) {
-	raiz, err := abrirRaizPrivada(ruta)
-	if err != nil {
-		return nil, err
-	}
-	defer raiz.Close()
-	return leerEnRaiz(raiz, filepath.Base(ruta))
-}
-
-func leerEnRaiz(raiz *os.Root, nombre string) ([]byte, error) {
-	i, err := raiz.Lstat(nombre)
-	if err != nil || !i.Mode().IsRegular() || i.Mode().Perm() != 0600 || !propio(i) || i.Size() == 0 || i.Size() > limiteDocumento {
-		return nil, errors.New("fichero")
-	}
-	f, err := raiz.OpenFile(nombre, os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_CLOEXEC, 0)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-	actual, err := f.Stat()
-	if err != nil || !os.SameFile(i, actual) {
-		return nil, errors.New("cambio")
-	}
-	b, err := io.ReadAll(io.LimitReader(f, limiteDocumento+1))
-	if err != nil || int64(len(b)) != i.Size() {
-		clear(b)
-		return nil, errors.New("lectura")
-	}
-	return b, nil
-}
-
-func crearOComparar(ruta string, b []byte) error {
-	raiz, err := abrirRaizPrivada(ruta)
-	if err != nil {
-		return err
-	}
-	defer raiz.Close()
-	f, err := raiz.OpenFile(filepath.Base(ruta), os.O_WRONLY|os.O_CREATE|os.O_EXCL|syscall.O_NOFOLLOW|syscall.O_CLOEXEC, 0600)
-	if errors.Is(err, syscall.EEXIST) {
-		previo, e := leerEnRaiz(raiz, filepath.Base(ruta))
-		if e != nil {
-			return e
-		}
-		defer clear(previo)
-		if !bytes.Equal(previo, b) {
-			return errors.New("divergencia")
-		}
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	if err := f.Chmod(0600); err != nil {
-		_ = raiz.Remove(filepath.Base(ruta))
-		return err
-	}
-	if _, err := f.Write(b); err != nil {
-		_ = raiz.Remove(filepath.Base(ruta))
-		return err
-	}
-	if err := f.Sync(); err != nil {
-		_ = raiz.Remove(filepath.Base(ruta))
-		return err
-	}
-	return nil
 }
