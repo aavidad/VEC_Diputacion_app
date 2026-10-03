@@ -28,8 +28,16 @@ var (
 	patronServicioHistoriaPropia           = regexp.MustCompile(`^srv_[A-Za-z0-9_-]{22,128}$`)
 )
 
+var patronReciboHistoriaServiciosPropia = regexp.MustCompile(`^aud_v3_[0-9a-f]{32}$`)
+
 func ReferenciaReciboHistoriaServiciosPropiaValida(ref string) bool {
-	return patronReferenciaB2.MatchString(ref)
+	return patronReciboHistoriaServiciosPropia.MatchString(ref)
+}
+
+// AD8 deriva la PK durable AD1 de la huella del consumo confirmado. No se
+// fabrica otro recibo ni se recupera una respuesta desde su huella.
+func ReciboHistoriaServiciosPropiaLigado(recibo, auditoria, consumo string) bool {
+	return ReferenciaReciboHistoriaServiciosPropiaValida(recibo) && recibo == auditoria && huellaRegistroDominioB2Valida(consumo) && auditoria == "aud_v3_"+consumo[:32]
 }
 
 // El periodo de efectos es [Desde,Hasta). ConocidoEn fija qué revisiones se
@@ -152,7 +160,7 @@ func (h HistoriaServiciosPropia) ValidarPara(m MaterialHistoriaServiciosPropia) 
 		version int64
 	}]struct{})
 	for i, s := range h.Revisiones {
-		if !patronServicioHistoriaPropia.MatchString(s.ServicioRef) || !ReferenciaRelacionValida(s.RelacionRef) || s.PeriodoDesde.Validar() != nil || s.PeriodoHasta.Validar() != nil || s.PeriodoHasta.AntesDe(s.PeriodoDesde) || s.DiasReconocidos < 0 || !textoFichaPropiaValido(s.Clase) || (s.Estado != "declarado" && s.Estado != "comprobado" && s.Estado != "reconocido") || s.Traza.ValidarEn(CorteEmpleadoB2{VigenteEn: h.Corte.Desde, ConocidoEn: h.Corte.ConocidoEn}) != nil || !s.Traza.Desde.AntesDe(h.Corte.Hasta) || (s.Traza.Hasta != "" && !h.Corte.Desde.AntesDe(s.Traza.Hasta)) {
+		if !patronServicioHistoriaPropia.MatchString(s.ServicioRef) || !ReferenciaRelacionValida(s.RelacionRef) || s.PeriodoDesde.Validar() != nil || s.PeriodoHasta.Validar() != nil || !s.PeriodoDesde.AntesDe(s.PeriodoHasta) || s.DiasReconocidos < 0 || !textoFichaPropiaValido(s.Clase) || (s.Estado != "declarado" && s.Estado != "comprobado" && s.Estado != "reconocido") || s.Traza.ValidarEn(CorteEmpleadoB2{VigenteEn: h.Corte.Desde, ConocidoEn: h.Corte.ConocidoEn}) != nil || !s.Traza.Desde.AntesDe(h.Corte.Hasta) || (s.Traza.Hasta != "" && !h.Corte.Desde.AntesDe(s.Traza.Hasta)) {
 			return ErrHistoriaServiciosPropiaInvalida
 		}
 		id := struct {

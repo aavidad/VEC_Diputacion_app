@@ -118,3 +118,22 @@ func TestHistoriaServiciosPropiaReferenciasFielesAPersonal17(t *testing.T) {
 		t.Fatal("referencia de fixture sin contrato admitida")
 	}
 }
+
+func TestHistoriaServiciosPropiaReciboEsLaAuditoriaAD8DelConsumo(t *testing.T) {
+	h := strings.Repeat("d", 64)
+	ref := "aud_v3_" + h[:32]
+	if !ReciboHistoriaServiciosPropiaLigado(ref, ref, h) {
+		t.Fatal("PK AD8 rechazada")
+	}
+	for _, caso := range [][3]string{{ref, "aud_v3_" + strings.Repeat("e", 32), h}, {ref, ref, "corta"}, {ref, ref, strings.Repeat("e", 64)}, {"historia:servicios:uuid", "historia:servicios:uuid", h}} {
+		if ReciboHistoriaServiciosPropiaLigado(caso[0], caso[1], caso[2]) {
+			t.Fatal("recibo sin consumo durable admitido")
+		}
+	}
+	m := materialHistoriaPrueba(t)
+	historia := historiaPrueba(m)
+	historia.Revisiones[0].PeriodoHasta = historia.Revisiones[0].PeriodoDesde
+	if historia.ValidarPara(m) == nil {
+		t.Fatal("periodo incompatible SQL17 admitido")
+	}
+}
