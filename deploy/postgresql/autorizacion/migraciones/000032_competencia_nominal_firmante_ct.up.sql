@@ -429,7 +429,9 @@ BEGIN
     OR (p.documento->>'estado' IN ('publicada','retirada')) IS NOT TRUE
     OR (p.documento->>'efecto' IN ('restringir','denegar')) IS NOT TRUE
     OR vec_autorizacion.instante_utc_microsegundo_valido(p.documento->>'vigente_desde') IS NOT TRUE
-    OR vec_autorizacion.instante_utc_microsegundo_valido(p.documento->>'vigente_hasta') IS NOT TRUE)
+    OR vec_autorizacion.instante_utc_microsegundo_valido(p.documento->>'vigente_hasta') IS NOT TRUE
+    OR (p.documento->>'vigente_hasta')::timestamptz <=
+       (p.documento->>'vigente_desde')::timestamptz)
   OR EXISTS(SELECT 1 FROM vec_autorizacion.politica_restrictiva_actual x
    JOIN vec_autorizacion.politica_restrictiva p USING(politica_id,politica_ref)
    WHERE p.documento->>'estado'='publicada'
