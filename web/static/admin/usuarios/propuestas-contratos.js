@@ -9,7 +9,7 @@ const nombre = (v) => typeof v === "string" && v.trim().length > 0 && v.length <
 const motivoValido = (m) => ref(m?.catalogo_id) && Number.isSafeInteger(m.catalogo_version)
   && m.catalogo_version > 0 && SHA.test(m.catalogo_huella_sha256) && ref(m.entrada_clave) && nombre(m.etiqueta);
 export function revisionPropuestaCompleta(p) {
-  return Boolean(nombre(p?.proponente_nombre) && Array.isArray(p.ambitos) && p.ambitos.length > 0 && p.ambitos.length <= 32
+  return Boolean(nombre(p?.proponente_nombre) && nombre(p.proponente_perfil_nombre) && Array.isArray(p.ambitos) && p.ambitos.length > 0 && p.ambitos.length <= 32
     && p.ambitos.every((a) => ref(a?.dimension) && ref(a.referencia) && nombre(a.nombre))
     && fecha(p.vigente_desde) && fecha(p.vigente_hasta) && !p.vigente_desde.startsWith("0001-")
     && Date.parse(p.vigente_hasta) > Date.parse(p.vigente_desde) && motivoValido(p.motivo));
@@ -42,8 +42,8 @@ export function prepararCierre(p, actor, capacidades, cliente, decision, indiceM
     && Number.isSafeInteger(indiceMotivo) && p.motivos_cierre[indiceMotivo] && cripto?.getRandomValues);
   const motivo = p.motivos_cierre[indiceMotivo];
   const id = Array.from(cripto.getRandomValues(new Uint8Array(16)), (n) => n.toString(16).padStart(2, "0")).join("");
-  return { propuesta: structuredClone(p), actor, motivo: motivo.etiqueta,
-    cuerpo: { operacion_ref: `cierre_admin:${id}`, propuesta_huella_sha256: p.huella_sha256, decision,
+  return { propuesta: structuredClone(p), actor, decision, motivo: motivo.etiqueta,
+    cuerpo: { operacion_ref: `cierre_admin:${id}`, propuesta_huella_sha256: p.huella_sha256, decision: decision === "aprobar" ? "aprobada" : "rechazada",
       motivo: Object.fromEntries(["catalogo_id", "catalogo_version", "catalogo_huella_sha256", "entrada_clave"].map((k) => [k, motivo[k]])) } };
 }
 export function validarCierre(datos, revision) {
@@ -51,7 +51,7 @@ export function validarCierre(datos, revision) {
   exigir(c?.operacion_ref === body.operacion_ref && c.propuesta_ref === p.propuesta_ref
     && c.propuesta_huella_sha256 === p.huella_sha256 && c.decision === body.decision
     && SHA.test(c.huella_cierre_sha256) && fecha(c.confirmado_en));
-  if (body.decision === "rechazar") exigir(c.recibo === undefined || c.recibo === null);
+  if (body.decision === "rechazada") exigir(c.recibo === undefined || c.recibo === null);
   else {
     const r = c.recibo;
     exigir(r?.operacion_ref === body.operacion_ref && r.propuesta_ref === p.propuesta_ref

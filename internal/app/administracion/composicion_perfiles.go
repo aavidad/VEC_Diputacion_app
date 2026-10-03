@@ -2,33 +2,31 @@ package administracion
 
 import (
 	"context"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"io/fs"
 	"net/http"
-
-	"github.com/jackc/pgx/v5/pgxpool"
-	pg "vec-diputacion-granada/internal/vec/adapters/administracionperfiles/postgres"
 	api "vec-diputacion-granada/internal/vec/adapters/httpapi/administracionperfiles"
 	"vec-diputacion-granada/internal/vec/adapters/httpseguridad/adminperfiles"
 	identidad "vec-diputacion-granada/internal/vec/adapters/httpseguridad/postgres"
-	"vec-diputacion-granada/internal/vec/domain"
 	"vec-diputacion-granada/internal/vec/ports"
 )
 
-// DependenciasComposicionPerfiles entrega infraestructura concreta ya abierta
-// por el proceso ADMIN. Ninguna petición puede reemplazar esas dependencias.
+// El único compositor recibe la fuente de lectura ya autorizada. No abre
+// autoridad de actos ni requiere su pool. Fuentes ausentes conservan 503.
 type DependenciasComposicionPerfiles struct {
-	Confianza                                                          ConfianzaPerfilesV3
-	PoolCuentas, PoolRegistroSesion, PoolRevalidacionSesion, PoolActos *pgxpool.Pool
-	Seudonimizador                                                     identidad.SeudonimizadorAlta
-	EspacioIdentidad, DominioHMACRef                                   string
-	MotivosLectura                                                     map[string]domain.ReferenciaEntradaCatalogo
-	Auditor                                                            api.AuditorFrontera
-	Reloj                                                              ports.Reloj
-	Activos                                                            fs.FS
+	Confianza                                               ConfianzaPerfilesV3
+	PoolCuentas, PoolRegistroSesion, PoolRevalidacionSesion *pgxpool.Pool
+	Seudonimizador                                          identidad.SeudonimizadorAlta
+	EspacioIdentidad, DominioHMACRef                        string
+	Lecturas                                                api.FuenteLecturas
+	FuenteSeleccion                                         FuenteSeleccionAuditadaADMIN
+	Auditor                                                 api.AuditorFrontera
+	Reloj                                                   ports.Reloj
+	Activos                                                 fs.FS
 }
 
 func ComponerServidorPerfiles(ctx context.Context, cfg Configuracion, deps DependenciasComposicionPerfiles) (*http.Server, error) {
-	if ctx == nil || ctx.Err() != nil || deps.Reloj == nil || deps.PoolCuentas == nil || deps.PoolRegistroSesion == nil || deps.PoolRevalidacionSesion == nil || deps.PoolActos == nil || deps.Auditor == nil || deps.Activos == nil || deps.Confianza.Fuente == nil {
+	if ctx == nil || ctx.Err() != nil || deps.Reloj == nil || deps.PoolCuentas == nil || deps.PoolRegistroSesion == nil || deps.PoolRevalidacionSesion == nil || deps.Auditor == nil || deps.Activos == nil || deps.Confianza.Fuente == nil {
 		return nil, ErrConfiguracion
 	}
 	registro, err := identidad.NuevoRegistroSesionesPostgreSQL(ctx, deps.PoolRegistroSesion, deps.PoolRevalidacionSesion, deps.Seudonimizador, deps.EspacioIdentidad, deps.DominioHMACRef)
@@ -55,21 +53,6 @@ func ComponerServidorPerfiles(ctx context.Context, cfg Configuracion, deps Depen
 	if err != nil {
 		return nil, ErrConfiguracion
 	}
-	recursos, err := pg.NuevaFuenteRecursos(deps.PoolActos)
-	if err != nil {
-		return nil, ErrConfiguracion
-	}
-	emisor, err := NuevoEmisorPerfiles(deps.Confianza.Emisores, recursos.ResolverRecursoAdministracionPerfiles, deps.MotivosLectura, deps.Reloj)
-	if err != nil {
-		return nil, ErrConfiguracion
-	}
-	actos, err := pg.Nueva(ctx, deps.PoolActos, emisor, deps.Reloj)
-	if err != nil {
-		return nil, ErrConfiguracion
-	}
-	lecturas, err := pg.NuevaFuenteLecturas(actos, deps.Confianza.Fuente)
-	if err != nil {
-		return nil, ErrConfiguracion
-	}
-	return NuevoServidorConPerfiles(cfg, DependenciasPerfiles{ContextoConexion: contextoConexion, Sesiones: sesiones, Lecturas: lecturas, Catalogo: actos, Actos: actos, Auditor: deps.Auditor, Reloj: deps.Reloj, Activos: deps.Activos})
+	return NuevoServidorConLecturas(cfg, DependenciasPerfiles{ContextoConexion: contextoConexion, Sesiones: sesiones, Lecturas: deps.Lecturas, Auditor: deps.Auditor, Reloj: deps.Reloj, Activos: deps.Activos,
+		ObservadorSelector: sesiones, FuenteSeleccion: deps.FuenteSeleccion, AudienciaSelector: cfg.Audiencia})
 }

@@ -1,29 +1,33 @@
 # Montaje privado de Usuarios y perfiles
 
-`NuevoServidorConLecturas` monta `/admin/usuarios/` y la API común
-`/api/admin/perfiles/v1/`. Recibe el resolvedor de sesiones, las lecturas
-autorizadas y el auditor de la composición. Rechaza dependencias ausentes y
-no admite una autoridad de actos en este modo. Los intentos de escritura
-quedan cerrados y auditados por el adaptador HTTP.
+El único compositor `ComponerServidorPerfiles` reutiliza la frontera, cuentas,
+sesión, contexto y confianza V3 de ADMIN. Construye el modo de lectura sin
+abrir una autoridad de actos ni exigir su pool. Sirve `/admin/usuarios/` y el
+alias `/administracion-perfiles/` con la misma hoja; no añade otra pantalla al
+portal público.
 
-`NuevoServidorConPerfiles` reutiliza el mismo servidor y el servicio
-`ServicioAdministracionPerfiles`. Exige catálogo publicado y autoridad
-durable de actos. La ausencia del proveedor de escritura impide ese montaje.
+La lista fija de activos incluye Usuarios, propuestas, selector, catálogos,
+favicon y estilos comunes. Excluye pruebas y datos de ejemplo. Para servirla,
+la observación coteja mTLS, CA, CRL, host, audiencia, red y vigencia. La fuente
+previa al perfil debe devolver una lista propia válida y no vacía junto al
+recibo de auditoría común confirmado en la misma transacción. No se resuelve
+un perfil activo ni se selecciona uno al solicitar un archivo.
 
-Ambos conservan la frontera ADMIN: TLS directo con certificado de cliente,
-CA admitida, hoja verificada, CRL vigente, host y red configurados y fecha de
-retirada. Se rechazan sesiones TLS reanudadas. Los activos se sirven desde
-una lista fija, después de comprobar la sesión y la capacidad central de
-lectura. El montaje no incorpora datos, certificados ni claves de personas.
+`FuenteSeleccionAuditadaADMIN` es el punto de conexión pendiente para esa
+fuente y la selección con CAS y auditoría común. El lector antiguo de IS12
+no se conecta como si acreditase ese recibo. Una referencia aislada tampoco
+acredita instalación: la implementación y su ensayo corresponden a identidad
+y auditoría. Sin esa fuente, activos y selector responden 503.
 
-`NuevoContextoConexionPerfiles` liga la antigüedad de autenticación a la
-conexión TLS original. El resolvedor debe consultar esa conexión, las
-asignaciones centrales y su vigencia; ningún campo recibido desde el cliente
-concede autoridad. Los proveedores deben respetar la separación entre el
-administrador de Aplicación y Sistemas y el único perfil activo.
+El selector HTTP reutilizado conserva sus rutas `/api/admin/seleccion-perfil/v1/`.
+La elección no concede acceso ni suma perfiles. La vista vacía y cancela el
+contexto anterior antes de consultar el nuevo. Las consultas de negocio siguen
+exigiendo sus permisos centrales en `/api/admin/perfiles/v1/`. Si falta la
+fuente durable, `lecturasNoDisponibles` devuelve error de servicio, nunca datos,
+capacidades ni recibos. Los POST de perfiles permanecen cerrados y auditados.
 
-Este corte prepara la composición inyectada. Falta conectar el proveedor
-durable de lecturas y de actos y acreditar su instalación y el recorrido
-desde el navegador. No arranca un proceso ADMIN ni concede permisos por sí
-solo. La frontera temporal admite desarrollo y el entorno de pruebas; el
-montaje de producción requiere su política corporativa.
+El proceso admite únicamente la política temporal configurada de desarrollo
+y pruebas. Conserva TLS directo, canal original y prohibición de sesiones
+reanudadas. No arranca una aplicación ni aplica SQL o bootstrap por preparar
+este ensamblaje. Faltan las fuentes auditadas, su instalación, configuración
+privada y el recorrido con navegador y base reales.

@@ -50,11 +50,11 @@
     "tabla": "Profiles in the authorised catalogue",
     "nombre": "Profile name",
     "circuito": "Review required",
-    "asignacion": "Assignment",
     "ordinario": "Administrative confirmation",
     "doble": "Another person’s approval",
-    "fijo": "Fixed · read-only",
-    "gestionado": "Manageable subject to authorisation"
+    "fijo": "Fixed definition",
+    "gestionado": "Configurable definition",
+    "definicion": "Definition"
   },
   "detalle": {
     "perfiles": "Person’s profiles",
@@ -72,7 +72,7 @@
     "motivo": "Reason (required for each selected profile)",
     "elegir_motivo": "Choose a reason",
     "revisar": "Review changes",
-    "sin_actos": "No changes of this type are available. Fixed profiles are read-only.",
+    "sin_actos": "There are no changes of this type available for this person.",
     "historia": "View assignment history",
     "sin_historia": "There are no actions in the authorised history.",
     "historia_pendiente": "This view does not include the names or reason for this action.",

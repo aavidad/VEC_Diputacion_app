@@ -225,3 +225,11 @@ func confianzaPrivadaPrueba(t *testing.T, dir string) json.RawMessage {
 	}
 	return b
 }
+
+func TestModoLecturaNoExigeDSNDeActos(t *testing.T) {
+	cfg := configuracionPrivadaPrueba(t)
+	cfg.Pools.ActosADMIN = ""
+	if err := validarConfiguracionPerfilesPrivada(cfg); err != nil {
+		t.Fatal("modo lectura exige pool de escritura", err)
+	}
+}

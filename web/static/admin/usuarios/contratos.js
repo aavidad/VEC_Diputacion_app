@@ -81,7 +81,7 @@ export function seleccionarActos(ficha, roles, capacidades, operacion, indices) 
   return indices.map((indice) => {
     const acto = ficha?.actos_disponibles?.[indice];
     const rol = roles.find((r) => r.version_ref === acto?.rol_version_ref);
-    exigir(acto?.operacion === operacion && rol && !rol.fijo && acto.motivos.length > 0);
+    exigir(acto?.operacion === operacion && rol && acto.motivos.length > 0);
     if (operacion === "otorgar") exigir(fecha(acto.objetivo.vigente_desde));
     exigir(capacidades.includes(rol.clase === "ordinario" ? "aplicar_ordinario" : "proponer"));
     if (operacion === "revocar") exigir(ficha.perfiles.some((p) => p.perfil_ref === acto.objetivo.perfil_ref && p.estado === "activo"));

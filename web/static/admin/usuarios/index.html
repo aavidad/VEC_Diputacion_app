@@ -10,8 +10,9 @@
     <link rel="stylesheet" href="/portal-empleado/portal-componentes.css?v=20261001-f-cronos-movimientos-v1">
     <link rel="stylesheet" href="/portal-empleado/portal-flujos.css?v=20261001-inc-b2-a11y-v1">
     <link rel="stylesheet" href="/portal-empleado/portal-patrones.css?v=20260929-diseno-v1">
-    <link rel="stylesheet" href="./usuarios.css?v=20261003-admin-usuarios-v4">
-    <script type="module" src="./entry.js?v=20261003-admin-usuarios-v4"></script>
+    <link rel="stylesheet" href="/admin/usuarios/usuarios.css?v=20261003-admin-usuarios-v4">
+    <link rel="stylesheet" href="/administracion-perfiles/selector-perfil.css?v=20261003-admin-selector-v1">
+    <script type="module" src="/admin/usuarios/entry.js?v=20261003-admin-montaje-v1"></script>
   </head>
   <body class="portal-empleado-app">
     <a class="salto-contenido" href="#usuarios-contenido" data-texto="general.saltar"></a>
@@ -20,7 +21,7 @@
         <nav class="migas" data-etiqueta="general.ruta"><span data-texto="general.administracion"></span></nav>
         <h1 data-texto="general.administracion"></h1></div>
       </header>
-      <div class="contenido-portal"><div id="usuarios-contenido" tabindex="-1"></div></div>
+      <div class="contenido-portal"><details id="usuarios-selector-panel" class="panel" open><summary id="usuarios-selector-resumen" class="boton-secundario"></summary><div id="usuarios-selector"></div></details><div id="usuarios-contenido" tabindex="-1" hidden></div></div>
     </main>
   </body>
 </html>

@@ -80,7 +80,10 @@ func cargarConfiguracionPerfilesPrivada(ruta string) (configuracionPerfilesPriva
 }
 
 func validarConfiguracionPerfilesPrivada(c configuracionPerfilesPrivada) error {
-	rutas := []string{c.Pools.FuenteAutorizacion, c.Pools.RegistroAutorizacion, c.Pools.Motivos, c.Pools.RegistroSesiones, c.Pools.RevalidacionSesiones, c.Pools.CuentasADMIN, c.Pools.ActosADMIN, c.Pools.AuditoriaFrontera}
+	rutas := []string{c.Pools.FuenteAutorizacion, c.Pools.RegistroAutorizacion, c.Pools.Motivos, c.Pools.RegistroSesiones, c.Pools.RevalidacionSesiones, c.Pools.CuentasADMIN, c.Pools.AuditoriaFrontera}
+	if c.Pools.ActosADMIN != "" {
+		rutas = append(rutas, c.Pools.ActosADMIN)
+	}
 	vistas := map[string]bool{}
 	for _, p := range rutas {
 		if !rutaPrivadaPerfilesValida(p) || vistas[p] {

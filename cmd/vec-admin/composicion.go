@@ -28,7 +28,7 @@ func componerProcesoADMIN(cfg administracion.Configuracion, priv configuracionPe
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(priv.TimeoutArranqueSegundos)*time.Second)
 	defer cancel()
-	rutas := []string{priv.Pools.FuenteAutorizacion, priv.Pools.RegistroAutorizacion, priv.Pools.Motivos, priv.Pools.RegistroSesiones, priv.Pools.RevalidacionSesiones, priv.Pools.CuentasADMIN, priv.Pools.ActosADMIN, priv.Pools.AuditoriaFrontera}
+	rutas := []string{priv.Pools.FuenteAutorizacion, priv.Pools.RegistroAutorizacion, priv.Pools.Motivos, priv.Pools.RegistroSesiones, priv.Pools.RevalidacionSesiones, priv.Pools.CuentasADMIN, priv.Pools.AuditoriaFrontera}
 	pools := make([]*pgxpool.Pool, 0, len(rutas))
 	cierres := []func(){}
 	cerrar := func() {
@@ -70,7 +70,7 @@ func componerProcesoADMIN(cfg administracion.Configuracion, priv configuracionPe
 	for _, capacidad := range []struct {
 		indice int
 		grupo  string
-	}{{0, "vec_autorizacion_fuente"}, {1, "vec_autorizacion_registro"}, {2, "vec_autorizacion_motivos_evaluador"}, {7, "vec_admin_perfiles_auditoria_ejecutor"}} {
+	}{{0, "vec_autorizacion_fuente"}, {1, "vec_autorizacion_registro"}, {2, "vec_autorizacion_motivos_evaluador"}, {6, "vec_admin_perfiles_auditoria_ejecutor"}} {
 		if acreditarPoolCentral(ctx, pools[capacidad.indice], capacidad.grupo) != nil {
 			return fallo()
 		}
@@ -114,14 +114,14 @@ func componerProcesoADMIN(cfg administracion.Configuracion, priv configuracionPe
 		return fallo()
 	}
 	cierres = append(cierres, cerrarSeudonimos)
-	auditor, err := pg.NuevoAuditorFrontera(pools[7])
+	auditor, err := pg.NuevoAuditorFrontera(pools[6])
 	if err != nil {
 		return fallo()
 	}
 	servidor, err := administracion.ComponerServidorPerfiles(ctx, cfg, administracion.DependenciasComposicionPerfiles{
-		Confianza: cadena, PoolCuentas: pools[5], PoolRegistroSesion: pools[3], PoolRevalidacionSesion: pools[4], PoolActos: pools[6],
+		Confianza: cadena, PoolCuentas: pools[5], PoolRegistroSesion: pools[3], PoolRevalidacionSesion: pools[4],
 		Seudonimizador: seudonimos, EspacioIdentidad: priv.Identidad.EspacioIdentidad, DominioHMACRef: priv.Identidad.DominioRef,
-		MotivosLectura: priv.MotivosLectura, Auditor: auditor, Reloj: reloj, Activos: os.DirFS(priv.ActivosDirectorio)})
+		Auditor: auditor, Reloj: reloj, Activos: os.DirFS(priv.ActivosDirectorio)})
 	if err != nil {
 		return fallo()
 	}
