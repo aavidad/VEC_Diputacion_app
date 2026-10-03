@@ -1,0 +1,1 @@
+deploy/postgresql/catalogos_configurables/migraciones/000007_gobierno_plan_nominal_firma.up.sql

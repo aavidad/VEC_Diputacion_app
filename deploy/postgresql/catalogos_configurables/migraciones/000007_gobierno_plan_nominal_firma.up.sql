@@ -13,6 +13,9 @@ DO $pre$
 BEGIN
  IF current_user<>'vec_catalogos_configurables_propietario'
     OR pg_catalog.to_regclass('vec_catalogos_configurables.publicacion') IS NULL
+    OR NOT EXISTS (SELECT 1 FROM pg_catalog.pg_class p
+      WHERE p.oid='vec_catalogos_configurables.publicacion'::pg_catalog.regclass
+        AND p.relowner=current_user::pg_catalog.regrole AND p.relrowsecurity AND p.relforcerowsecurity)
     OR pg_catalog.to_regprocedure('vec_catalogos_configurables.rechazar_cambio_inmutable()') IS NULL
     OR pg_catalog.to_regclass('vec_catalogos_configurables.plan_firma_control') IS NOT NULL
     OR pg_catalog.to_regrole('vec_autorizacion_atestada_v3_propietario') IS NULL
@@ -160,6 +163,8 @@ BEGIN
     OR (c->>'id' ~ '^[a-z][a-z0-9_.:-]{2,127}$') IS NOT TRUE
     OR c->>'modulo_id' IS DISTINCT FROM 'contratacion_temporal'
     OR (c->>'estado' IN ('borrador','publicado','retirado')) IS NOT TRUE
+    OR pg_catalog.jsonb_typeof(c->'version') IS DISTINCT FROM 'number'
+    OR pg_catalog.jsonb_typeof(c->'revision') IS DISTINCT FROM 'number'
     OR (c->>'version' ~ '^[1-9][0-9]{0,9}$') IS NOT TRUE
     OR (c->>'revision' ~ '^[1-9][0-9]{0,9}$') IS NOT TRUE
     OR pg_catalog.jsonb_typeof(c->'entradas') IS DISTINCT FROM 'array'
@@ -170,6 +175,7 @@ BEGIN
     OR pg_catalog.octet_length(coalesce(c->>'nombre','')) NOT BETWEEN 1 AND 2048
     OR pg_catalog.octet_length(coalesce(c->>'motivo_creacion','')) NOT BETWEEN 1 AND 4096
     OR pg_catalog.octet_length(coalesce(c->>'creado_por','')) NOT BETWEEN 3 AND 512
+    OR pg_catalog.jsonb_typeof(c->'creado_en') IS DISTINCT FROM 'string'
     OR c->>'creado_en' IS NULL
     OR pg_catalog.octet_length(coalesce(c->>'fuente_ref','')) NOT BETWEEN 3 AND 512
     OR c->>'fuente_ref'='paquete:ejemplo:vec:v1' THEN
@@ -181,13 +187,27 @@ BEGIN
       (c->>'id')||':'||((c->>'version')::bigint-1)::text)
     OR ((c->>'revision')::bigint=1 AND (c ? 'ultima_modificacion_por' OR c ? 'ultima_modificacion_en' OR c ? 'motivo_modificacion'))
     OR ((c->>'revision')::bigint>1 AND NOT (c ?& ARRAY['ultima_modificacion_por','ultima_modificacion_en','motivo_modificacion']))
-    OR (c->>'estado'='borrador' AND (c ? 'publicado_por' OR c ? 'retirado_por'))
+    OR (c->>'estado'='borrador' AND (c ?| ARRAY['publicado_por','publicado_en','aprobacion_ref',
+      'motivo_publicacion','retirado_por','retirado_en','retirada_aprobacion_ref','motivo_retirada']))
     OR (c->>'estado' IN ('publicado','retirado') AND
       NOT (c ?& ARRAY['publicado_por','publicado_en','aprobacion_ref','motivo_publicacion']))
+    OR (c->>'estado'='publicado' AND (c ?| ARRAY['retirado_por','retirado_en',
+      'retirada_aprobacion_ref','motivo_retirada']))
     OR (c->>'estado'='retirado' AND
       NOT (c ?& ARRAY['retirado_por','retirado_en','retirada_aprobacion_ref','motivo_retirada'])) THEN
   RAISE EXCEPTION 'CC7: historia de catálogo incompatible' USING ERRCODE='22023'; END IF;
- FOR k IN SELECT key FROM pg_catalog.jsonb_object_keys(c) AS key LOOP
+ IF (c->>'creado_en' ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,9})?Z$') IS NOT TRUE
+    OR (c ? 'ultima_modificacion_en' AND
+      ((c->>'ultima_modificacion_en' ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,9})?Z$') IS NOT TRUE
+       OR (c->>'ultima_modificacion_en')::timestamptz<(c->>'creado_en')::timestamptz))
+    OR (c ? 'publicado_en' AND
+      ((c->>'publicado_en' ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,9})?Z$') IS NOT TRUE
+       OR (c->>'publicado_en')::timestamptz<(c->>'creado_en')::timestamptz))
+    OR (c ? 'retirado_en' AND
+      ((c->>'retirado_en' ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,9})?Z$') IS NOT TRUE
+       OR (c->>'retirado_en')::timestamptz<(c->>'publicado_en')::timestamptz)) THEN
+  RAISE EXCEPTION 'CC7: instantes de gobierno incompatibles' USING ERRCODE='22023'; END IF;
+ FOR k IN SELECT x FROM pg_catalog.jsonb_object_keys(c) AS x LOOP
   IF k <> ALL(ARRAY['id','version','revision','version_anterior_ref','modulo_id','nombre','descripcion',
      'fuente_ref','motivo_creacion','entradas','estado','creado_por','creado_en',
      'ultima_modificacion_por','ultima_modificacion_en','motivo_modificacion',
@@ -204,11 +224,22 @@ BEGIN
      OR NOT (e ?& ARRAY['clave','etiqueta','orden','vigente_desde','atributos'])
      OR (e->>'clave' ~ '^[a-z][a-z0-9_.:-]{2,127}$') IS NOT TRUE
      OR pg_catalog.octet_length(coalesce(e->>'etiqueta','')) NOT BETWEEN 1 AND 2048
+     OR pg_catalog.jsonb_typeof(e->'orden') IS DISTINCT FROM 'number'
      OR (e->>'orden' ~ '^(0|[1-9][0-9]{0,8})$') IS NOT TRUE
+     OR pg_catalog.jsonb_typeof(e->'vigente_desde') IS DISTINCT FROM 'string'
      OR e->>'vigente_desde' IS NULL
      OR a->>'esquema' IS DISTINCT FROM 'ct.plan-competencia-firma.v2'
      OR (a->>'circuito_sha256' ~ '^[0-9a-f]{64}$') IS NOT TRUE THEN
    RAISE EXCEPTION 'CC7: entrada de plan incompatible' USING ERRCODE='22023'; END IF;
+  FOR k IN SELECT x FROM pg_catalog.jsonb_object_keys(e) AS x LOOP
+   IF k <> ALL(ARRAY['clave','etiqueta','descripcion','orden','vigente_desde','vigente_hasta','atributos']) THEN
+    RAISE EXCEPTION 'CC7: atributo de entrada ajeno' USING ERRCODE='22023'; END IF;
+  END LOOP;
+  IF (e->>'vigente_desde' ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,9})?Z$') IS NOT TRUE
+     OR (e ? 'vigente_hasta' AND
+       ((e->>'vigente_hasta' ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,9})?Z$') IS NOT TRUE
+        OR (e->>'vigente_hasta')::timestamptz<=(e->>'vigente_desde')::timestamptz)) THEN
+   RAISE EXCEPTION 'CC7: vigencia de entrada inválida' USING ERRCODE='22023'; END IF;
   FOREACH k IN ARRAY ARRAY['circuito_ref','documento','paso_ref','perfil_esperado_ref','rol_id',
     'cargo_ref','organizacion_ref','unidad_ref','accion_competencial','finalidad',
     'tipo_recurso','esquema_contexto','mapeo_fuente_ref'] LOOP
@@ -358,9 +389,9 @@ BEGIN
  c:=vec_catalogos_configurables.validar_plan_nominal_firma_v1(canon,h);
  rev:=(c->>'revision')::bigint;
  IF c->>'id' IS DISTINCT FROM cat OR c->>'version' IS DISTINCT FROM ver::text
-    OR c->>'estado' IS DISTINCT FROM CASE op WHEN 'crear' THEN 'borrador' WHEN 'actualizar' THEN 'borrador'
-      WHEN 'publicar' THEN 'publicado' ELSE 'retirado' END
-    OR c->>'version_anterior_ref' IS DISTINCT FROM CASE WHEN ver=1 THEN NULL ELSE cat||':'||(ver-1)::text END THEN
+    OR c->>'estado' IS DISTINCT FROM (CASE op WHEN 'crear' THEN 'borrador' WHEN 'actualizar' THEN 'borrador'
+      WHEN 'publicar' THEN 'publicado' ELSE 'retirado' END)
+    OR c->>'version_anterior_ref' IS DISTINCT FROM (CASE WHEN ver=1 THEN NULL ELSE cat||':'||(ver-1)::text END) THEN
   RAISE EXCEPTION 'CC7: catálogo no corresponde al efecto' USING ERRCODE='22023'; END IF;
  h_material:=pg_catalog.encode(pg_catalog.sha256(p_material_exacto),'hex');
  h_contexto:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(
