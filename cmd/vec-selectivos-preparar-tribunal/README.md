@@ -69,3 +69,7 @@ Pruebas focales ejecutadas con resultado correcto:
 go test -p 8 ./internal/modules/seleccion/domain \
   ./internal/modules/seleccion/application ./cmd/vec-selectivos-preparar-tribunal
 ```
+
+La comprobación de gopls señala el contexto nulo del test
+`TestPrepararTribunalRespetaContexto`. Esa entrada es intencional: comprueba
+que la aplicación la rechaza antes de preparar material.
