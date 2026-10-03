@@ -47,7 +47,7 @@ type ProveedorGobiernoReglasBaremoV3 struct {
 	reloj    relojContratacionTemporalDesarrollo
 	// Sólo la composición HTTP conecta el auditor común. La invocación
 	// directa conserva su contrato; ningún cliente puede suministrar el callback.
-	auditarAntesPDP func(context.Context, error, *vecdomain.ResultadoContextoActorRegistradoV2) error
+	auditarAntesPDP func(context.Context, error, *contextoSeguridadComunDesarrollo) error
 }
 
 // NuevoProveedorGobiernoReglasBaremoV3 no recibe un publicador. El perfil ya
@@ -176,10 +176,10 @@ func (p *ProveedorGobiernoReglasBaremoV3) ProveerMaterialGobiernoReglasV3(ctx co
 	datos, err := vinculo.Datos()
 	actuales, errActual := operativo.Vinculo.Datos()
 	if err != nil || errActual != nil || datos != actuales || vinculo.ValidarPara(operativo.Resultado) != nil {
-		return vacio, p.denegarAntesPDP(ctx, reglasapp.ErrGobiernoV3NoAutenticado, operativo.Resultado)
+		return vacio, p.denegarAntesPDP(ctx, reglasapp.ErrGobiernoV3NoAutenticado, operativo)
 	}
 	if err := p.validarPedido(pedido, operativo.Resultado.Contexto, p.reloj.Ahora()); err != nil {
-		return vacio, p.denegarAntesPDP(ctx, err, operativo.Resultado)
+		return vacio, p.denegarAntesPDP(ctx, err, operativo)
 	}
 	publicada, existe, err := leerInstantaneaPublicadaPostgreSQLDesarrollo(ctx, p.pool, p.perfil.PerfilRef())
 	if err != nil {
@@ -187,10 +187,10 @@ func (p *ProveedorGobiernoReglasBaremoV3) ProveerMaterialGobiernoReglasV3(ctx co
 	}
 	if !existe || publicada.actoAsignacion != actoAsignacionGobiernoReglasBaremoV3 ||
 		publicada.actoControl != actoControlGobiernoReglasBaremoV3 {
-		return vacio, p.denegarAntesPDP(ctx, reglasapp.ErrGobiernoV3Prohibido, operativo.Resultado)
+		return vacio, p.denegarAntesPDP(ctx, reglasapp.ErrGobiernoV3Prohibido, operativo)
 	}
 	if _, ok := instantaneaConsumible(publicada, p.perfil.plantilla, p.reloj.Ahora()); !ok {
-		return vacio, p.denegarAntesPDP(ctx, reglasapp.ErrGobiernoV3Prohibido, operativo.Resultado)
+		return vacio, p.denegarAntesPDP(ctx, reglasapp.ErrGobiernoV3Prohibido, operativo)
 	}
 	correlacion, err := vecdomain.GenerarReferenciaCorrelacionAutorizacionV2(ctx, seguridad.GeneradorReferenciasCriptograficas{})
 	if err != nil {
@@ -201,7 +201,7 @@ func (p *ProveedorGobiernoReglasBaremoV3) ProveerMaterialGobiernoReglasV3(ctx co
 		Accion: pedido.Accion, Recurso: pedido.Recurso, Finalidad: pedido.Finalidad, Correlacion: correlacion,
 	})
 	if err != nil {
-		return vacio, p.denegarAntesPDP(ctx, reglasapp.ErrGobiernoV3Prohibido, operativo.Resultado)
+		return vacio, p.denegarAntesPDP(ctx, reglasapp.ErrGobiernoV3Prohibido, operativo)
 	}
 	// A partir de este punto el PDP registra su decisión. Un rechazo central
 	// no pasa por el callback de denegaciones previas y no se duplica.
@@ -215,7 +215,7 @@ func (p *ProveedorGobiernoReglasBaremoV3) emitirMaterialTrasPDP(ctx context.Cont
 	vacio := vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}
 	decision, confirmacion, err := p.pdp.ExigirSolicitudLigadaV3(ctx, solicitud, operativo.Resultado)
 	if errors.Is(err, vecports.ErrDenegacionExplicitaAutorizacionLigadaV3) {
-		return vacio, reglasapp.ErrGobiernoV3Prohibido
+		return vacio, errorAuditadoGobiernoBaremoHTTPV3{reglasapp.ErrGobiernoV3Prohibido}
 	}
 	if err != nil || decision.ValidarPara(solicitud) != nil {
 		return vacio, reglasapp.ErrGobiernoV3NoDisponible
@@ -233,17 +233,21 @@ func (p *ProveedorGobiernoReglasBaremoV3) emitirMaterialTrasPDP(ctx context.Cont
 	return exportado, nil
 }
 
-func (p *ProveedorGobiernoReglasBaremoV3) denegarAntesPDP(ctx context.Context, err error, resultados ...vecdomain.ResultadoContextoActorRegistradoV2) error {
+func (p *ProveedorGobiernoReglasBaremoV3) denegarAntesPDP(ctx context.Context, err error, contextos ...contextoSeguridadComunDesarrollo) error {
 	if !errors.Is(err, reglasapp.ErrGobiernoV3NoAutenticado) && !errors.Is(err, reglasapp.ErrGobiernoV3Prohibido) {
 		return err
 	}
-	var resultado *vecdomain.ResultadoContextoActorRegistradoV2
-	if len(resultados) == 1 {
-		resultado = &resultados[0]
+	var operativo *contextoSeguridadComunDesarrollo
+	if len(contextos) == 1 {
+		operativo = &contextos[0]
 	}
-	if p != nil && p.auditarAntesPDP != nil && p.auditarAntesPDP(ctx, err, resultado) != nil {
-		return reglasapp.ErrGobiernoV3NoDisponible
+	if p != nil && p.auditarAntesPDP != nil {
+		if p.auditarAntesPDP(ctx, err, operativo) != nil {
+			return errorAuditadoGobiernoBaremoHTTPV3{reglasapp.ErrGobiernoV3NoDisponible}
+		}
+		return errorAuditadoGobiernoBaremoHTTPV3{err}
 	}
+	// El proveedor directo conserva su contrato. El montaje HTTP exige el auditor.
 	return err
 }
 

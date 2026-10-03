@@ -11,6 +11,7 @@ import (
 
 	"vec-diputacion-granada/config"
 	app "vec-diputacion-granada/internal/modules/bolsa/application/gobiernoreglasbaremo"
+	vd "vec-diputacion-granada/internal/vec/domain"
 )
 
 const archivoGobiernoReglasBaremoHTTPV3 = "bolsa/gobierno-reglas-baremo-v3.json"
@@ -18,14 +19,16 @@ const archivoGobiernoReglasBaremoHTTPV3 = "bolsa/gobierno-reglas-baremo-v3.json"
 // Sólo configuración privada de composición. Los DSN permanecen en archivos
 // privados separados; este documento no contiene permisos enviados por HTTP.
 type configuracionGobiernoReglasBaremoHTTPV3 struct {
-	Esquema               string            `json:"esquema"`
-	ConvocatoriaRef       string            `json:"convocatoria_ref"`
-	ExpedienteRef         string            `json:"expediente_ref"`
-	CatalogoMotivosID     string            `json:"catalogo_motivos_id"`
-	DSNFiles              map[string]string `json:"dsn_files"`
-	ProvisionarPerfil     bool              `json:"provisionar_perfil"`
-	AprobacionRef         string            `json:"aprobacion_ref"`
-	PreimagenPerfilSHA256 string            `json:"preimagen_perfil_sha256"`
+	MotivoIntentoDenegado vd.ReferenciaEntradaCatalogo `json:"motivo_intento_denegado"`
+	MotivoIntentoError    vd.ReferenciaEntradaCatalogo `json:"motivo_intento_error"`
+	Esquema               string                       `json:"esquema"`
+	ConvocatoriaRef       string                       `json:"convocatoria_ref"`
+	ExpedienteRef         string                       `json:"expediente_ref"`
+	CatalogoMotivosID     string                       `json:"catalogo_motivos_id"`
+	DSNFiles              map[string]string            `json:"dsn_files"`
+	ProvisionarPerfil     bool                         `json:"provisionar_perfil"`
+	AprobacionRef         string                       `json:"aprobacion_ref"`
+	PreimagenPerfilSHA256 string                       `json:"preimagen_perfil_sha256"`
 }
 
 func leerConfiguracionGobiernoReglasBaremoHTTPV3(cfg config.Config) (*configuracionGobiernoReglasBaremoHTTPV3, error) {
@@ -63,7 +66,7 @@ func leerConfiguracionGobiernoReglasBaremoHTTPV3(cfg config.Config) (*configurac
 }
 
 func (c *configuracionGobiernoReglasBaremoHTTPV3) validar() error {
-	if c == nil || c.Esquema != "vec.bolsa.gobierno-reglas-baremo.configuracion.v3" ||
+	if c == nil || c.MotivoIntentoDenegado.Validar() != nil || c.MotivoIntentoError.Validar() != nil || c.Esquema != "vec.bolsa.gobierno-reglas-baremo.configuracion.v3" ||
 		c.ConvocatoriaRef == "" || c.ExpedienteRef == "" || c.CatalogoMotivosID == "" ||
 		strings.TrimSpace(c.CatalogoMotivosID) != c.CatalogoMotivosID || strings.ContainsAny(c.CatalogoMotivosID, "*\r\n\t") ||
 		len(c.CatalogoMotivosID) > 128 || len(c.DSNFiles) != 3 ||

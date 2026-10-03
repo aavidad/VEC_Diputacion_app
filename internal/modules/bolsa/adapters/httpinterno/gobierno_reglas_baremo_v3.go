@@ -26,6 +26,9 @@ type AutoridadGobiernoReglasBaremoV3 interface {
 // identidad, superficie, cuerpo ni material V3 del cliente.
 type AuditarRechazoSesionGobiernoReglasV3 func(context.Context, string, error) error
 
+// Registra errores de entrada una vez acreditada la sesión nominal.
+type AuditarErrorGobiernoReglasV3 func(context.Context, error) error
+
 type OperadorGobiernoReglasBaremoV3 interface {
 	GuardarAltaBorrador(context.Context, app.CredencialesGobiernoV3, app.PeticionAltaBorradorV3) (ports.ResultadoAltaBorradorReglasV3, error)
 	ConsultarExacta(context.Context, app.CredencialesGobiernoV3, app.PeticionConsultaExactaV3) (ports.ResultadoConsultaGobiernoReglasV3, error)
@@ -35,16 +38,24 @@ type OperadorGobiernoReglasBaremoV3 interface {
 // El handler traduce datos de negocio. La autoridad obtiene actor y perfil
 // del contexto sellado de la frontera; ninguno se deserializa del formulario.
 type HandlerGobiernoReglasBaremoV3 struct {
-	autoridad AutoridadGobiernoReglasBaremoV3
-	operador  OperadorGobiernoReglasBaremoV3
-	auditar   AuditarRechazoSesionGobiernoReglasV3
+	autoridad    AutoridadGobiernoReglasBaremoV3
+	operador     OperadorGobiernoReglasBaremoV3
+	auditar      AuditarRechazoSesionGobiernoReglasV3
+	auditarError AuditarErrorGobiernoReglasV3
 }
 
-func NuevoHandlerGobiernoReglasBaremoV3(a AutoridadGobiernoReglasBaremoV3, o OperadorGobiernoReglasBaremoV3, auditar AuditarRechazoSesionGobiernoReglasV3) (*HandlerGobiernoReglasBaremoV3, error) {
+func NuevoHandlerGobiernoReglasBaremoV3(a AutoridadGobiernoReglasBaremoV3, o OperadorGobiernoReglasBaremoV3, auditar AuditarRechazoSesionGobiernoReglasV3, errores ...AuditarErrorGobiernoReglasV3) (*HandlerGobiernoReglasBaremoV3, error) {
 	if dependenciaNula(a) || dependenciaNula(o) || auditar == nil {
 		return nil, app.ErrGobiernoV3NoDisponible
 	}
-	return &HandlerGobiernoReglasBaremoV3{a, o, auditar}, nil
+	if len(errores) > 1 || (len(errores) == 1 && errores[0] == nil) {
+		return nil, app.ErrGobiernoV3NoDisponible
+	}
+	h := &HandlerGobiernoReglasBaremoV3{autoridad: a, operador: o, auditar: auditar}
+	if len(errores) == 1 {
+		h.auditarError = errores[0]
+	}
+	return h, nil
 }
 
 func (h *HandlerGobiernoReglasBaremoV3) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -77,14 +88,18 @@ func (h *HandlerGobiernoReglasBaremoV3) ServeHTTP(w http.ResponseWriter, r *http
 	}
 	tipo, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
 	if err != nil || tipo != "application/json" || r.Header.Get("Content-Encoding") != "" {
-		responderGobiernoReglasV3(w, http.StatusUnsupportedMediaType, "tipo_no_admitido")
+		if h.auditarError != nil && h.auditarError(r.Context(), app.ErrGobiernoV3PeticionInvalida) != nil {
+			errorGobiernoHTTPV3(w, app.ErrGobiernoV3NoDisponible)
+		} else {
+			responderGobiernoReglasV3(w, http.StatusUnsupportedMediaType, "tipo_no_admitido")
+		}
 		return
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, maximoEntradaGobiernoReglasV3)
 	defer r.Body.Close()
 	entrada, err := leerEntradaGobiernoReglasV3(r.Body, r.URL.Path)
 	if err != nil {
-		errorGobiernoHTTPV3(w, err)
+		h.errorHTTP(w, r, err)
 		return
 	}
 	var salida any
@@ -93,17 +108,17 @@ func (h *HandlerGobiernoReglasBaremoV3) ServeHTTP(w http.ResponseWriter, r *http
 	case RutaAltaGobiernoReglasBaremoV3:
 		p, err := entrada.alta()
 		if err != nil {
-			errorGobiernoHTTPV3(w, err)
+			h.errorHTTP(w, r, err)
 			return
 		}
 		resultado, err := h.operador.GuardarAltaBorrador(r.Context(), credenciales, p)
 		if err != nil {
-			errorGobiernoHTTPV3(w, err)
+			h.errorHTTP(w, r, err)
 			return
 		}
 		salida, err = salidaAltaGobiernoReglasV3(resultado)
 		if err != nil {
-			errorGobiernoHTTPV3(w, err)
+			h.errorHTTP(w, r, err)
 			return
 		}
 		if !resultado.Replay {
@@ -112,43 +127,50 @@ func (h *HandlerGobiernoReglasBaremoV3) ServeHTTP(w http.ResponseWriter, r *http
 	case RutaConsultaGobiernoReglasBaremoV3:
 		p, err := entrada.consulta()
 		if err != nil {
-			errorGobiernoHTTPV3(w, err)
+			h.errorHTTP(w, r, err)
 			return
 		}
 		resultado, err := h.operador.ConsultarExacta(r.Context(), credenciales, p)
 		if err != nil {
-			errorGobiernoHTTPV3(w, err)
+			h.errorHTTP(w, r, err)
 			return
 		}
 		salida, err = salidaConsultaGobiernoReglasV3(resultado, p.Selector)
 		if err != nil {
-			errorGobiernoHTTPV3(w, err)
+			h.errorHTTP(w, r, err)
 			return
 		}
 	case RutaRecuperarGobiernoReglasBaremoV3:
 		p, err := entrada.recuperacion()
 		if err != nil {
-			errorGobiernoHTTPV3(w, err)
+			h.errorHTTP(w, r, err)
 			return
 		}
 		resultado, err := h.operador.RecuperarRecibo(r.Context(), credenciales, p)
 		if err != nil {
-			errorGobiernoHTTPV3(w, err)
+			h.errorHTTP(w, r, err)
 			return
 		}
 		salida, err = salidaRecuperacionGobiernoReglasV3(resultado)
 		if err != nil {
-			errorGobiernoHTTPV3(w, err)
+			h.errorHTTP(w, r, err)
 			return
 		}
 	}
 	canon, err := json.Marshal(salida)
 	if err != nil {
-		errorGobiernoHTTPV3(w, ports.ErrConfirmacionReglasBaremoInvalida)
+		h.errorHTTP(w, r, ports.ErrConfirmacionReglasBaremoInvalida)
 		return
 	}
 	w.WriteHeader(estado)
 	_, _ = w.Write(canon)
+}
+
+func (h *HandlerGobiernoReglasBaremoV3) errorHTTP(w http.ResponseWriter, r *http.Request, err error) {
+	if h.auditarError != nil && h.auditarError(r.Context(), err) != nil {
+		err = app.ErrGobiernoV3NoDisponible
+	}
+	errorGobiernoHTTPV3(w, err)
 }
 
 func errorGobiernoHTTPV3(w http.ResponseWriter, err error) {

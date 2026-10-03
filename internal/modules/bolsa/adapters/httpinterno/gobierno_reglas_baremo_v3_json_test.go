@@ -2,12 +2,15 @@ package httpinterno
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
+	app "vec-diputacion-granada/internal/modules/bolsa/application/gobiernoreglasbaremo"
 	reglas "vec-diputacion-granada/internal/modules/bolsa/domain/reglasbaremo"
 )
 
@@ -71,5 +74,30 @@ func TestGobiernoReglasHTTPV3Conserva413AlLeerTodoElCuerpo(t *testing.T) {
 	h.ServeHTTP(w, r)
 	if w.Code != 413 || operador.llamadas != 0 {
 		t.Fatalf("límite de cuerpo perdido: %d", w.Code)
+	}
+}
+
+func TestGobiernoReglasHTTPV3AuditaErrorEntradaYExigeAcuse(t *testing.T) {
+	for _, fallo := range []error{nil, errors.New("auditor no disponible")} {
+		h, _, o, _ := escenarioGobiernoHTTPPrueba(t)
+		llamadas := 0
+		h.auditarError = func(_ context.Context, err error) error {
+			llamadas++
+			if !errors.Is(err, app.ErrGobiernoV3PeticionInvalida) {
+				t.Fatal("categoría de entrada perdida")
+			}
+			return fallo
+		}
+		r := httptest.NewRequest(http.MethodPost, RutaAltaGobiernoReglasBaremoV3, strings.NewReader(`{"motivo":{},"motivo":{}}`))
+		r.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		esperado := 400
+		if fallo != nil {
+			esperado = 503
+		}
+		if llamadas != 1 || w.Code != esperado || o.llamadas != 0 {
+			t.Fatalf("error de entrada sin auditoría: %d llamadas=%d", w.Code, llamadas)
+		}
 	}
 }

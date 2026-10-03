@@ -163,7 +163,6 @@ func TestGobiernoReglasBaremoHTTPIntegracionPostgreSQL(t *testing.T) {
 		t.Fatal("403 sin auditoría durable única")
 	}
 	auditor.Close()
-	postEnsayoBaremoHTTP(t, ctx, cliente, servidor.URL+cfg.Rutas.Alta, altaAjena, 503)
 	postEnsayoBaremoHTTP(t, ctx, ajeno, servidor.URL+cfg.Rutas.Alta, alta, 503)
 	if contarAuditoriaHTTPBaremo(t, ctx, evidencia, c.AuditoriaPreContextoSQL) != precontexto+1 ||
 		contarAuditoriaHTTPBaremo(t, ctx, evidencia, c.AuditoriaSQL, personaRef) != audits+1 {

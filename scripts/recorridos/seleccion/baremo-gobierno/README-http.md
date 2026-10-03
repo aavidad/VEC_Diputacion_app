@@ -13,12 +13,21 @@ responsable del único clon desechable; no usar otra base.
 
 La configuración privada contiene `harness`, con el JSON completo del ensayo
 directo, y dos consultas revisadas de solo lectura. `auditoria_sql` cuenta los
-rechazos CT173 de la ruta de alta, superficie de contexto validado previo al PDP,
-motivo `acceso_denegado` y actor exacto `$1`. Ese actor procede de la composición
-real del binder. `auditoria_pre_contexto_sql` cuenta los rechazos CT168 de la
+intentos nominales comunes de la acción de alta, resultado `denegado`,
+y actor exacto `$1`. Ese actor procede de la composición real del binder. `auditoria_pre_contexto_sql` cuenta los rechazos CT168 de la
 misma ruta, motivo y superficie previa al contexto, con actor vacío. El responsable
 SQL debe limitar ambas consultas al perímetro sintético del ensayo.
 `harness.rutas` debe contener las tres rutas nominales de PR443.
+La composición requiere `auditoria-intentos.json` privado con el esquema
+`vec.auditoria.intentos.servidor.v1`, `dsn_file`, `proceso`,
+`canal: interna_corporativa` y `limite_segundos`. El LOGIN del archivo DSN sólo
+pertenece al registrador común y tiene configuración DBA de proceso/canal.
+La configuración de Baremo incluye las referencias gobernadas
+`motivo_intento_denegado` y `motivo_intento_error`; son causas del resultado
+observado y no motivos elegidos por el formulario. Sin el preflight de la
+auditoría común no se montan las rutas operativas. CT173 no forma parte de esta
+candidata: se conserva su reserva y el borrador histórico sin instalarlo.
+
 La continuidad HTTP usa un fichero distinto de la continuidad del ensayo
 directo, siempre fuera de Git y con permisos `0600`.
 

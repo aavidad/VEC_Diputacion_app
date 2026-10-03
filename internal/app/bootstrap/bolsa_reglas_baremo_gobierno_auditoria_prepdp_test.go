@@ -3,11 +3,13 @@ package bootstrap
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
 	bolsahttp "vec-diputacion-granada/internal/modules/bolsa/adapters/httpinterno"
 	app "vec-diputacion-granada/internal/modules/bolsa/application/gobiernoreglasbaremo"
+	"vec-diputacion-granada/internal/vec/adapters/seguridad"
 	vd "vec-diputacion-granada/internal/vec/domain"
 	vp "vec-diputacion-granada/internal/vec/ports"
 )
@@ -30,9 +32,13 @@ func TestGobiernoBaremoHTTPDenegacionPDPExigeConfirmacionSinDuplicarAuditor(t *t
 	perfil := perfilGobiernoReglasBaremoPrueba(t)
 	operativo := contextoSeguridadComunDesarrollo{Vinculo: perfil.soporte.contexto.Vinculo, Resultado: perfil.soporte.contexto.Resultado}
 	pedido := pedidoGobiernoReglasV3Prueba(t, perfil, "alta_borrador", time.Now().UTC().Truncate(time.Microsecond))
+	correlacion, err := vd.GenerarReferenciaCorrelacionAutorizacionV2(context.Background(), seguridad.GeneradorReferenciasCriptograficas{})
+	if err != nil {
+		t.Fatal(err)
+	}
 	solicitud, err := vd.NuevaSolicitudAutorizacionLigadaV3(vd.DatosSolicitudAutorizacionLigadaV3{
 		VinculoAutenticacionActor: operativo.Vinculo, ReferenciaMotivo: pedido.Motivo,
-		Accion: pedido.Accion, Recurso: pedido.Recurso, Finalidad: pedido.Finalidad, Correlacion: "corr_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		Accion: pedido.Accion, Recurso: pedido.Recurso, Finalidad: pedido.Finalidad, Correlacion: correlacion,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -44,7 +50,7 @@ func TestGobiernoBaremoHTTPDenegacionPDPExigeConfirmacionSinDuplicarAuditor(t *t
 	} {
 		pdp := &pdpNoInvocadoGobiernoBaremoPrueba{err: caso.err}
 		auditorias := 0
-		broker := &ProveedorGobiernoReglasBaremoV3{pdp: pdp, auditarAntesPDP: func(context.Context, error, *vd.ResultadoContextoActorRegistradoV2) error { auditorias++; return nil }}
+		broker := &ProveedorGobiernoReglasBaremoV3{pdp: pdp, auditarAntesPDP: func(context.Context, error, *contextoSeguridadComunDesarrollo) error { auditorias++; return nil }}
 		_, err := broker.emitirMaterialTrasPDP(context.Background(), solicitud, operativo, pedido)
 		if !errors.Is(err, caso.esperado) || auditorias != 0 || pdp.llamadas != 1 {
 			t.Fatalf("clasificación incorrecta o auditor duplicado: %v", err)
@@ -62,10 +68,10 @@ func TestGobiernoBaremoHTTPAuditaAmbitoAjenoAntesPDP(t *testing.T) {
 		holder.soporte = perfil.soporte
 		holder.contexto.Vinculo, holder.contexto.Resultado = perfil.soporte.contexto.Vinculo, perfil.soporte.contexto.Resultado
 		pdp := &pdpNoInvocadoGobiernoBaremoPrueba{}
-		registrador := &auditorConsultaReciboPrueba{err: falloAuditor}
+		registrador := &registradorIntentosBaremoPrueba{err: falloAuditor}
 		broker := &ProveedorGobiernoReglasBaremoV3{perfil: perfil, sesion: sesion, pdp: pdp, reloj: relojContratacionTemporalDesarrollo{},
 			rutas:           RutasGobiernoReglasBaremoV3{bolsahttp.RutaAltaGobiernoReglasBaremoV3, bolsahttp.RutaConsultaGobiernoReglasBaremoV3, bolsahttp.RutaRecuperarGobiernoReglasBaremoV3},
-			auditarAntesPDP: auditorDenegacionAntesPDPGobiernoReglasBaremoHTTPV3(sesion, registrador)}
+			auditarAntesPDP: auditorDenegacionAntesPDPGobiernoReglasBaremoHTTPV3(sesion, &auditorConsultaReciboPrueba{}, auditorIntentosBaremoPrueba(sesion, registrador))}
 		pedido := pedidoGobiernoReglasV3Prueba(t, perfil, "alta_borrador", time.Now().UTC().Truncate(time.Microsecond))
 		pedido.Recurso.Ambitos["expediente_ref"] = "expediente:ajeno"
 		_, err := broker.ProveerMaterialGobiernoReglasV3(ctx, perfil.soporte.contexto.Vinculo, pedido)
@@ -76,11 +82,9 @@ func TestGobiernoBaremoHTTPAuditaAmbitoAjenoAntesPDP(t *testing.T) {
 		if !errors.Is(err, esperado) || pdp.llamadas != 0 || len(registrador.ordenes) != 1 {
 			t.Fatalf("rechazo sin auditoría previa, o invocó PDP: %v", err)
 		}
-		o := registrador.ordenes[0]
-		if o.Validar() != nil || o.ActorRef != perfil.soporte.contexto.Resultado.Contexto.PersonaRef ||
-			o.Superficie != "api.bolsa.reglas_baremo.contexto_validado_pre_pdp.ruta_exacta" ||
-			o.Ruta != bolsahttp.RutaAltaGobiernoReglasBaremoV3 || o.Motivo != vp.MotivoAuditoriaFronteraRutaExactaAccesoDenegado {
-			t.Fatal("observación distinta del contrato postcontexto CT173")
+		o, errOrden := registrador.ordenes[0].Datos()
+		if errOrden != nil || o.ResultadoContexto.Contexto.PersonaRef != perfil.soporte.contexto.Resultado.Contexto.PersonaRef || o.Datos.Accion != "bolsa.reglas_baremo.borrador.crear" || o.Datos.Resultado != vd.ResultadoIntentoAuditoriaDenegado {
+			t.Fatal("intento distinto de la identidad nominal común")
 		}
 	}
 }
@@ -95,8 +99,8 @@ func TestGobiernoBaremoHTTPAuditorPostContextoRechazaActorOFronteraAjenos(t *tes
 	if err != nil {
 		t.Fatal(err)
 	}
-	registrador := &auditorConsultaReciboPrueba{}
-	callback := auditorDenegacionAntesPDPGobiernoReglasBaremoHTTPV3(sesion, registrador)
+	registrador := &registradorIntentosBaremoPrueba{}
+	callback := auditorDenegacionAntesPDPGobiernoReglasBaremoHTTPV3(sesion, &auditorConsultaReciboPrueba{}, auditorIntentosBaremoPrueba(sesion, registrador))
 	frontera, _ := fronteraSeguridadComunDesdeContexto(ctx)
 	ajeno, err := nuevoCatalogoFronterasComunDesarrollo([]descriptorFronteraComunDesarrollo{frontera.descriptor})
 	if err != nil {
@@ -109,17 +113,81 @@ func TestGobiernoBaremoHTTPAuditorPostContextoRechazaActorOFronteraAjenos(t *tes
 		f := frontera
 		mutar(&f)
 		pedido := context.WithValue(ctx, claveFronteraSeguridadComunDesarrollo{}, f)
-		if err := callback(pedido, app.ErrGobiernoV3Prohibido, &resultado); !errors.Is(err, app.ErrGobiernoV3NoDisponible) {
+		if err := callback(pedido, app.ErrGobiernoV3Prohibido, &contextoSeguridadComunDesarrollo{Resultado: resultado, Vinculo: holder.contexto.Vinculo}); !errors.Is(err, app.ErrGobiernoV3NoDisponible) {
 			t.Fatal("registró frontera ajena")
 		}
 	}
 	for _, actor := range []vd.ResultadoContextoActorRegistradoV2{{}, resultado} {
 		actor.Contexto.PersonaRef = "per_aaaaaaaaaaaaaaaaaaaaaaaa"
-		if err := callback(ctx, app.ErrGobiernoV3Prohibido, &actor); !errors.Is(err, app.ErrGobiernoV3NoDisponible) {
+		if err := callback(ctx, app.ErrGobiernoV3Prohibido, &contextoSeguridadComunDesarrollo{Resultado: actor, Vinculo: holder.contexto.Vinculo}); !errors.Is(err, app.ErrGobiernoV3NoDisponible) {
 			t.Fatal("registró actor declarado")
 		}
 	}
 	if len(registrador.ordenes) != 0 {
 		t.Fatal("observación postcontexto fabricada")
+	}
+}
+
+type registradorIntentosBaremoPrueba struct {
+	ordenes []vp.OrdenIntentoAuditoria
+	err     error
+}
+
+func (r *registradorIntentosBaremoPrueba) AppendIntentoAuditoria(_ context.Context, o vp.OrdenIntentoAuditoria) (vp.AcuseIntentoAuditoria, error) {
+	r.ordenes = append(r.ordenes, o)
+	if r.err != nil {
+		return vp.AcuseIntentoAuditoria{}, r.err
+	}
+	d, err := o.Datos()
+	if err != nil {
+		return vp.AcuseIntentoAuditoria{}, err
+	}
+	return vp.AcuseIntentoAuditoria{AuditoriaRef: "aud_prueba", Secuencia: 1, HuellaSHA256: strings.Repeat("a", 64), CorrelacionRef: d.Datos.CorrelacionRef, RegistradaEn: time.Now().UTC()}, nil
+}
+func auditorIntentosBaremoPrueba(s *proveedorSesionConsultaRRHHDesarrollo, r vp.RegistradorIntentosAuditoria) *auditorGobiernoBaremoHTTPV3 {
+	return &auditorGobiernoBaremoHTTPV3{sesion: s, registrador: r, proceso: "vec-server", recursoRef: "expediente:prueba", motivoDenegado: motivoCatalogoPlantillasCTDesarrollo(), motivoError: motivoCatalogoPlantillasCTDesarrollo()}
+}
+
+func TestGobiernoBaremoHTTPAuditaErrorTrasRetornoSinDuplicarDenegacion(t *testing.T) {
+	for _, par := range paresGobiernoReglasBaremoHTTPV3() {
+		sesion, ctx := contextoSesionGobiernoBaremoHTTPPrueba(t, par.ruta)
+		capacidad := ctx.Value(claveCapacidadConsultasContratacionTemporalDesarrollo{}).(capacidadConsultaContratacionTemporalDesarrollo)
+		holder := capacidad.contextoOperacion
+		holder.soporte = sesion.soporte
+		holder.contexto.Vinculo, holder.contexto.Resultado = sesion.soporte.contexto.Vinculo, sesion.soporte.contexto.Resultado
+		p := &ProveedorGobiernoReglasBaremoV3{perfil: &PerfilGobiernoReglasBaremoV3{soporte: sesion.soporte}, sesion: sesion, pdp: &pdpNoInvocadoGobiernoBaremoPrueba{}, reloj: relojContratacionTemporalDesarrollo{}, rutas: RutasGobiernoReglasBaremoV3{bolsahttp.RutaAltaGobiernoReglasBaremoV3, bolsahttp.RutaConsultaGobiernoReglasBaremoV3, bolsahttp.RutaRecuperarGobiernoReglasBaremoV3}}
+		p.perfil.plantilla.AsignacionPerfil.PerfilActivoRef = sesion.base.Contexto.PerfilActivoRef
+		for _, caso := range []struct {
+			fallo, errorAuditor error
+			cantidad            int
+			esperado            error
+		}{
+			{errors.New("repositorio no disponible"), nil, 1, nil},
+			{app.ErrGobiernoV3Prohibido, nil, 1, app.ErrGobiernoV3Prohibido},
+			{errorAuditadoGobiernoBaremoHTTPV3{app.ErrGobiernoV3Prohibido}, nil, 0, app.ErrGobiernoV3Prohibido},
+			{errors.New("repositorio no disponible"), errors.New("registrador no disponible"), 1, app.ErrGobiernoV3NoDisponible},
+			{nil, nil, 0, nil},
+		} {
+			r := &registradorIntentosBaremoPrueba{err: caso.errorAuditor}
+			o := &operadorAuditadoGobiernoBaremoHTTPV3{proveedor: p, operador: &operadorNoInvocadoBaremoHTTPPrueba{err: caso.fallo}, auditor: auditorIntentosBaremoPrueba(sesion, r)}
+			var err error
+			switch par.ruta {
+			case bolsahttp.RutaAltaGobiernoReglasBaremoV3:
+				_, err = o.GuardarAltaBorrador(ctx, app.CredencialesGobiernoV3{}, app.PeticionAltaBorradorV3{})
+			case bolsahttp.RutaConsultaGobiernoReglasBaremoV3:
+				_, err = o.ConsultarExacta(ctx, app.CredencialesGobiernoV3{}, app.PeticionConsultaExactaV3{})
+			default:
+				_, err = o.RecuperarRecibo(ctx, app.CredencialesGobiernoV3{}, app.PeticionRecuperarReciboV3{})
+			}
+			if len(r.ordenes) != caso.cantidad || (caso.esperado != nil && !errors.Is(err, caso.esperado)) || (caso.fallo == nil && err != nil) {
+				t.Fatalf("error sin registro exacto tras retorno: %v registros=%d", err, len(r.ordenes))
+			}
+			if len(r.ordenes) > 0 {
+				d, e := r.ordenes[0].Datos()
+				if e != nil || d.Datos.Accion != par.accion || d.ResultadoContexto.Contexto.PerfilActivoRef != sesion.base.Contexto.PerfilActivoRef {
+					t.Fatal("registro pierde acción o perfil nominal")
+				}
+			}
+		}
 	}
 }

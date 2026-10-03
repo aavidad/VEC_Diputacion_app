@@ -20,7 +20,7 @@ import (
 
 func configGobiernoBaremoHTTPPrueba(t *testing.T) (config.Config, configuracionGobiernoReglasBaremoHTTPV3) {
 	t.Helper()
-	raiz := t.TempDir()
+	raiz := directorioTemporalFueraDeGitPrueba(t)
 	if err := os.Chmod(raiz, 0700); err != nil {
 		t.Fatal(err)
 	}
@@ -30,7 +30,7 @@ func configGobiernoBaremoHTTPPrueba(t *testing.T) (config.Config, configuracionG
 	cfg := config.Config{ExecutionProfile: config.ExecutionProfileDevelopment, AuthMode: config.AuthModeDevelopment,
 		DevelopmentGuard: config.DevelopmentGuardAcknowledgement, DevelopmentMaterialDir: raiz}
 	c := configuracionGobiernoReglasBaremoHTTPV3{Esquema: "vec.bolsa.gobierno-reglas-baremo.configuracion.v3",
-		ConvocatoriaRef: "convocatoria:prueba", ExpedienteRef: "expediente:prueba", CatalogoMotivosID: "motivos_prueba",
+		MotivoIntentoDenegado: motivoCatalogoPlantillasCTDesarrollo(), MotivoIntentoError: motivoCatalogoPlantillasCTDesarrollo(), ConvocatoriaRef: "convocatoria:prueba", ExpedienteRef: "expediente:prueba", CatalogoMotivosID: "motivos_prueba",
 		DSNFiles: map[string]string{"runtime": "runtime.conf", "fuente_autorizacion": "fuente.conf", "motivos_autorizacion": "motivos.conf"}}
 	return cfg, c
 }

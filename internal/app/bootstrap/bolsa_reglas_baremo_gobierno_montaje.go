@@ -6,7 +6,6 @@ import (
 	"errors"
 	"net/http"
 	"os"
-	"reflect"
 	"strings"
 	"time"
 
@@ -19,7 +18,6 @@ import (
 	pgvec "vec-diputacion-granada/internal/vec/adapters/postgres"
 	seg "vec-diputacion-granada/internal/vec/adapters/seguridad"
 	appvec "vec-diputacion-granada/internal/vec/application"
-	vecdomain "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
@@ -169,51 +167,46 @@ func (m *montajeGobiernoReglasBaremoHTTPV3) rutas(ctx context.Context, cfg confi
 	if err != nil {
 		return nil, nil, app.ErrGobiernoV3NoDisponible
 	}
-	proveedor.auditarAntesPDP = auditorDenegacionAntesPDPGobiernoReglasBaremoHTTPV3(sesion, alta.postgresql.registradorAuditoriaFrontera)
+	logins := []string{}
+	for _, pool := range pools {
+		logins = append(logins, pool.Config().ConnConfig.User)
+	}
+	registradorIntentos, procesoIntentos, cerrarIntentos, err := AbrirRegistradorIntentosAuditoriaDesarrollo(ctx, cfg, pools["runtime"], logins)
+	if err != nil {
+		return nil, nil, app.ErrGobiernoV3NoDisponible
+	}
+	cerrarPools := cerrar
+	cerrar = func() { cerrarIntentos(); cerrarPools() }
+	auditor := &auditorGobiernoBaremoHTTPV3{sesion: sesion, registrador: registradorIntentos, proceso: procesoIntentos, motivoDenegado: m.configuracion.MotivoIntentoDenegado, motivoError: m.configuracion.MotivoIntentoError, recursoRef: m.configuracion.ExpedienteRef}
+	proveedor.auditarAntesPDP = auditorDenegacionAntesPDPGobiernoReglasBaremoHTTPV3(sesion, alta.postgresql.registradorAuditoriaFrontera, auditor)
 	servicio, err := app.NuevoServicioGobiernoV3(repo, repo, proveedor, reloj.Ahora)
 	if err != nil {
 		return nil, nil, err
 	}
-	h, err := bolsahttp.NuevoHandlerGobiernoReglasBaremoV3(proveedor, servicio,
-		auditorRechazoSesionGobiernoReglasBaremoHTTPV3(sesion, alta.postgresql.registradorAuditoriaFrontera))
+	h, err := bolsahttp.NuevoHandlerGobiernoReglasBaremoV3(proveedor, &operadorAuditadoGobiernoBaremoHTTPV3{proveedor: proveedor, operador: servicio, auditor: auditor},
+		func(ctx context.Context, ruta string, fallo error) error {
+			operativo, err := auditor.contextoHistorico(ctx)
+			if err == nil {
+				return auditor.registrar(ctx, operativo, fallo)
+			}
+			return auditorRechazoSesionGobiernoReglasBaremoHTTPV3(sesion, alta.postgresql.registradorAuditoriaFrontera)(ctx, ruta, fallo)
+		},
+		func(ctx context.Context, fallo error) error {
+			var auditado errorAuditadoGobiernoBaremoHTTPV3
+			if errors.As(fallo, &auditado) {
+				return nil
+			}
+			operativo, err := auditor.contextoHistorico(ctx)
+			if err != nil {
+				return app.ErrGobiernoV3NoDisponible
+			}
+			return auditor.registrar(ctx, operativo, fallo)
+		})
 	if err != nil {
 		return nil, nil, err
 	}
 	completo = true
 	return rutasHandlerGobiernoReglasBaremoHTTPV3(h), cerrar, nil
-}
-
-func auditorDenegacionAntesPDPGobiernoReglasBaremoHTTPV3(sesion *proveedorSesionConsultaRRHHDesarrollo, registrador vecports.RegistradorAuditoriaFronteraRutaExacta) func(context.Context, error, *vecdomain.ResultadoContextoActorRegistradoV2) error {
-	auditar := auditorRechazoSesionGobiernoReglasBaremoHTTPV3(sesion, registrador)
-	return func(ctx context.Context, err error, resultado *vecdomain.ResultadoContextoActorRegistradoV2) error {
-		if !errors.Is(err, app.ErrGobiernoV3Prohibido) && !errors.Is(err, app.ErrGobiernoV3NoAutenticado) {
-			return app.ErrGobiernoV3NoDisponible
-		}
-		frontera, ok := fronteraSeguridadComunDesdeContexto(ctx)
-		if !ok || !sesion.sesionGobiernoReglasBaremoHTTPV3(ctx, frontera.ruta) {
-			return app.ErrGobiernoV3NoDisponible
-		}
-		if resultado == nil {
-			return auditar(ctx, frontera.ruta, err)
-		}
-		capacidad := ctx.Value(claveCapacidadConsultasContratacionTemporalDesarrollo{}).(capacidadConsultaContratacionTemporalDesarrollo)
-		holder := capacidad.contextoOperacion
-		if holder == nil || resultado.Validar() != nil {
-			return app.ErrGobiernoV3NoDisponible
-		}
-		holder.mu.Lock()
-		esperado, errClon := holder.contexto.Resultado.Clonar()
-		confiable := errClon == nil && holder.soporte == sesion.soporte && holder.err == nil &&
-			reflect.DeepEqual(esperado, *resultado) &&
-			holder.contexto.Vinculo.ValidarPara(*resultado) == nil &&
-			holder.contexto.Vinculo.VigenteEn(sesion.reloj.Ahora(), *resultado)
-		holder.mu.Unlock()
-		if !confiable || resultado.Contexto.PerfilActivoRef != sesion.base.Contexto.PerfilActivoRef ||
-			resultado.Contexto.PersonaRef != sesion.base.Contexto.PersonaRef {
-			return app.ErrGobiernoV3NoDisponible
-		}
-		return vechttp.RegistrarDenegacionGobiernoReglasBaremoAntesPDP(ctx, registrador, http.MethodPost, frontera.ruta, *resultado)
-	}
 }
 
 func auditorRechazoSesionGobiernoReglasBaremoHTTPV3(sesion *proveedorSesionConsultaRRHHDesarrollo, registrador vecports.RegistradorAuditoriaFronteraRutaExacta) bolsahttp.AuditarRechazoSesionGobiernoReglasV3 {
