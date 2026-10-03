@@ -158,7 +158,7 @@ export function crearAccionesFirma({
         || (p.paso_pendiente === 1 && p.entrada_documento_sha256 !== vinculo?.originalHuella)) throw { codigo: "conflicto" };
       s.solicitud = { ...solicitud, pasoOrden: p.paso_pendiente, revisionEntradaRef: p.entrada_documento_ref,
         revisionEntradaVersion: p.entrada_documento_version, revisionEntradaHuella: p.entrada_documento_sha256 };
-      s.vinculo = vinculo; s.preflight = p; dibujar(s);
+      s.vinculo = vinculo; s.preflight = p;
       if (igual(recuperacion?.contexto, actual) && recuperacion.solicitud.originalRef === solicitud.originalRef
         && recuperacion.solicitud.originalVersion === solicitud.originalVersion
         && recuperacion.solicitud.pasoOrden === s.solicitud.pasoOrden
@@ -166,6 +166,20 @@ export function crearAccionesFirma({
         && recuperacion.solicitud.revisionEntradaVersion === s.solicitud.revisionEntradaVersion
         && recuperacion.solicitud.revisionEntradaHuella === s.solicitud.revisionEntradaHuella) {
         s.reintento = recuperacion.reintento; s.registroIntentado = true;
+      }
+      dibujar(s);
+      if (s.reintento?.via === "portafirmas_registro_rrhh") {
+        const r = s.reintento;
+        const referencia = s.bloque.querySelector?.("[data-ct-firma-referencia]");
+        const fecha = s.bloque.querySelector?.("[data-ct-firma-fecha]");
+        if (referencia) referencia.value = r.referencia;
+        if (fecha) fecha.value = r.fecha;
+        const campoPDF = s.bloque.querySelector?.("[data-ct-firma-pdf]");
+        if (campoPDF && typeof entornoDescarga.DataTransfer === "function" && typeof entornoDescarga.File === "function"
+          && r.fichero instanceof entornoDescarga.File) {
+          const transferencia = new entornoDescarga.DataTransfer(); transferencia.items.add(r.fichero);
+          campoPDF.files = transferencia.files;
+        }
       }
     } catch (error) { decir(s, claveError(error), {}, true); }
     finally { if (sesion === s) { ocupada(s, false); pendiente = false; } }
