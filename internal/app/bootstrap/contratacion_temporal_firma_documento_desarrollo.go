@@ -547,10 +547,10 @@ func (f fuenteCircuitoFirmaReglasDesarrollo) CircuitoFirma(ctx context.Context) 
 		return ctdomain.CircuitoFirma{}, ctapplication.ErrCircuitoFirmaNoDisponible
 	}
 	c, err := f.resolutor.CircuitoFirma(ctx)
-	if err != nil {
+	if err != nil || c.Version <= 0 {
 		return ctdomain.CircuitoFirma{}, ctapplication.ErrCircuitoFirmaNoDisponible
 	}
-	salida := ctdomain.CircuitoFirma{CatalogoRef: c.CatalogoID + ":" + strconv.Itoa(c.Version),
+	salida := ctdomain.CircuitoFirma{CatalogoVersion: uint64(c.Version), CatalogoRef: c.CatalogoID + ":" + strconv.Itoa(c.Version),
 		HuellaCatalogo: strings.ToLower(c.HuellaCatalogo), Ejemplo: c.PaqueteEjemplo,
 		PermiteMismaPersonaEnPasos: c.PermiteMismaPersonaEnPasos}
 	for _, d := range c.Documentos {
