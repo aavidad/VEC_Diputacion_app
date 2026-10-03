@@ -71,6 +71,7 @@ type configuracionPersonalEmpleadoDesarrollo struct {
 	LimiteAuditoriaSegundos  int                                           `json:"limite_auditoria_segundos"`
 	ZonaHoraria              string                                        `json:"zona_horaria"`
 	MotivoFichaPropia        core.ReferenciaEntradaCatalogo                `json:"motivo_ficha_propia"`
+	ExportacionServicios     *configuracionExportacionServiciosPersonal    `json:"exportacion_servicios,omitempty"`
 }
 
 // autoridadPersonalEmpleadoDesarrollo es la frontera de /api/interna/personal/.
@@ -368,6 +369,17 @@ func nuevasRutasPersonalEmpleadoDesarrollo(cfg config.Config, resolvedor vechttp
 		return nil, err
 	}
 	a.rutas = map[string]http.Handler{personalhttp.RutaFichaPropia: manejador}
+	if c.ExportacionServicios != nil {
+		if c.ExportacionServicios.Motivo.CatalogoID != c.MotivoFichaPropia.CatalogoID {
+			return nil, errPersonalEmpleadoEn()
+		}
+		exportador, err := componerExportacionServiciosPersonal(ctx, pools[6], seguridadPersonalEmpleadoDesarrollo{autoridad: a}, emisor, *c.ExportacionServicios, registradorComun, proceso, time.Duration(c.LimiteAuditoriaSegundos)*time.Second)
+		if err != nil {
+			return nil, errPersonalEmpleadoEn()
+		}
+		a.rutas[personalhttp.RutaExportacionServiciosPropios] = exportador
+	}
+
 	completa = true
 	return a, nil
 }
@@ -394,21 +406,7 @@ func componerManejadorFichaPropia(ejecutor *pgxpool.Pool, identidad seguridadPer
 	if err != nil {
 		return nil, errPersonalEmpleadoEn()
 	}
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-		var err error
-		if _, ok := vecports.CorrelacionIncidenciasPeticion(ctx); !ok {
-			ctx, err = vecports.ConCorrelacionIncidenciasPeticion(ctx)
-		}
-		if err == nil {
-			ctx, err = personalcomp.PrepararContextoIntentoFichaPropia(ctx, identidad, limite)
-		}
-		if err != nil {
-			responderDenegacionCronosEmpleado(w, http.StatusServiceUnavailable, "no_disponible")
-			return
-		}
-		manejador.ServeHTTP(w, r.WithContext(ctx))
-	}), nil
+	return capturarPeticionPersonal(identidad, manejador, limite), nil
 }
 
 // componerRaizConPersonalEmpleado monta el prefijo interno de Personal
