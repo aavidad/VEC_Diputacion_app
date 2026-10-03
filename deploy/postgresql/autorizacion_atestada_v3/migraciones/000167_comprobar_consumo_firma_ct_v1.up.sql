@@ -80,15 +80,20 @@ BEGIN
   OR decision->>'contexto_recurso_huella_sha256' IS DISTINCT FROM r.huella_efecto_sha256
   OR capacidad->>'efecto_ref' IS DISTINCT FROM r.efecto_ref
   OR capacidad->>'huella_efecto_sha256' IS DISTINCT FROM r.huella_efecto_sha256
-  OR (capacidad->>'audiencia_consumo' NOT IN
-   ('vec_contratacion_temporal.firma_vec.v1','vec_contratacion_temporal.firma_externa.v1'))
-  OR (decision->>'accion' NOT IN
+  OR (capacidad->>'audiencia_consumo' IN
+   ('vec_contratacion_temporal.firma_vec.v1','vec_contratacion_temporal.firma_externa.v1')) IS NOT TRUE
+  OR (decision->>'accion' IN
    ('contratacion_temporal.documento.firma_vec.registrar',
-    'contratacion_temporal.documento.firma_externa.registrar'))
+    'contratacion_temporal.documento.firma_externa.registrar')) IS NOT TRUE
+  OR (capacidad->>'audiencia_consumo'='vec_contratacion_temporal.firma_vec.v1'
+      AND decision->>'accion' IS DISTINCT FROM 'contratacion_temporal.documento.firma_vec.registrar')
+  OR (capacidad->>'audiencia_consumo'='vec_contratacion_temporal.firma_externa.v1'
+      AND decision->>'accion' IS DISTINCT FROM 'contratacion_temporal.documento.firma_externa.registrar')
   OR decision->>'modulo_id' IS DISTINCT FROM 'contratacion_temporal'
   OR decision->>'finalidad' IS DISTINCT FROM 'gestionar_contratacion_temporal'
   OR decision->>'principal_id' IS NULL
   OR decision->>'perfil_activo_ref' IS NULL
+  OR decision->>'valida_hasta' IS NULL
   OR (decision->>'valida_hasta')::timestamptz <= ahora THEN
   RAISE EXCEPTION 'ad167_consumo_no_disponible' USING ERRCODE='42501'; END IF;
  RETURN jsonb_build_object('decision_ref',r.decision_ref,'efecto_ref',r.efecto_ref,
