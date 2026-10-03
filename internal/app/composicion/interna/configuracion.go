@@ -13,6 +13,7 @@ import (
 	"unicode"
 
 	"vec-diputacion-granada/config"
+	"vec-diputacion-granada/internal/app/composicion/internactproveedores"
 	"vec-diputacion-granada/internal/vec/adapters/httpseguridad"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 )
@@ -47,14 +48,17 @@ const (
 // identidad de la superficie interna. DSN y claves permanecen en el material
 // privado que lee el cargador de proveedores.
 type Configuracion struct {
-	DireccionEscucha     string
-	RedesPermitidas      []string
-	TiempoCabeceras      time.Duration
-	TiempoLectura        time.Duration
-	TiempoEscritura      time.Duration
-	TiempoInactividad    time.Duration
-	MaximoBytesCabeceras int
-	MaximoBytesPeticion  int64
+	// Inyección nominal del registrador común y su configuración publicada.
+	// Sin ella Organización permanece cerrada; no abre otra conexión ni concede permisos.
+	IntentosOrganizacionHistorica internactproveedores.DependenciasIntentosOrganizacionHistorica
+	DireccionEscucha              string
+	RedesPermitidas               []string
+	TiempoCabeceras               time.Duration
+	TiempoLectura                 time.Duration
+	TiempoEscritura               time.Duration
+	TiempoInactividad             time.Duration
+	MaximoBytesCabeceras          int
+	MaximoBytesPeticion           int64
 
 	CertificadoServidorTLS    string
 	ClaveServidorTLS          string
