@@ -31,3 +31,26 @@ y pruebas. Conserva TLS directo, canal original y prohibición de sesiones
 reanudadas. No arranca una aplicación ni aplica SQL o bootstrap por preparar
 este ensamblaje. Faltan las fuentes auditadas, su instalación, configuración
 privada y el recorrido con navegador y base reales.
+
+Las dependencias que impiden activar la consulta son concretas:
+
+- `FuenteSeleccionAuditadaADMIN.ListarPropiosAuditadosADMIN` y
+  `SeleccionarPerfilAuditadoADMIN`: no hay proveedor admitido que una la
+  operación previa al perfil con auditoría común y su recibo.
+- `postgres.NuevaFuenteLecturas`: conserva `NoDisponible` hasta disponer del
+  contrato técnico L, acuse común y fachadas compatibles. Las lecturas
+  heredadas `consultar_capacidades_admin_v1`, `buscar_personas_admin_v1`,
+  `consultar_persona_admin_v1`, `listar_roles_admin_v1`,
+  `listar_propuestas_admin_v1`, `consultar_propuesta_admin_v1` y
+  `consultar_recibo_admin_v1` no acreditan el protocolo sucesor por existir.
+  Faltan búsqueda inicial autorizada, filtros antes de paginar y proyección
+  nominal admitida; no se eliminan filtros para usar una fachada antigua.
+- `registrar_denegacion_frontera_admin_v1`: el adaptador E está preparado,
+  pero aquí no se acredita instalación ni auditoría común. Sin respuesta
+  válida conserva el error, sin simular un acuse.
+- Configuración privada, fuentes causales y bootstrap por el canal admitido:
+  la CLI actual prepara o coteja; `-aplicar` permanece indisponible.
+
+Las fachadas de actos y lotes no se conectan en este modo. Ninguna prueba de
+ensamblaje con dobles acredita cuentas, perfiles activos, instalación o un
+recorrido con PostgreSQL.
