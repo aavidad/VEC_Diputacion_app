@@ -12,7 +12,7 @@ import (
 )
 
 func TestExportacionServiciosFormatosUsanCatalogoExactoYSinIdiomaPredeterminado(t *testing.T) {
-	b := []byte(`{"formato":{"referencia":"personal:servicios_propios:csv","version":1,"nombre_archivo":"servicios.csv"},"csv":{"fecha_inicio":"c1","fecha_fin":"c2","clase":"c3","dias":"c4","estado":"c5"},"general":{}}`)
+	b := []byte(`{"formato":{"referencia":"personal:servicios_propios:csv","version":1,"nombre_archivo":"servicios.csv"},"csv":{"fecha_inicio":"c1","fecha_fin":"c2","clase":"c3","dias":"c4","estado":"c5"},"general":{},"estados":{"declarado":"e1","comprobado":"e2","reconocido":"e3"}}`)
 	p, e := NuevoProveedorFormatosExportacionServiciosPropios(map[string][]byte{"xx": b})
 	if e != nil {
 		t.Fatal(e)
@@ -51,7 +51,7 @@ func TestExportacionServiciosIntentoRegistraAccionOriginalNuevaYRecuperaMismaOrd
 func TestExportacionServiciosProveedorNoReutilizaCorrelacionDeConsulta(t *testing.T) {
 	id := identidadIntentoFichaPropiaVigenciaPrueba(t, time.Date(2026, 10, 3, 12, 0, 0, 0, time.UTC), "")
 	ctx, resolver := contextoFichaCapturadaPrueba(t, id)
-	f, e := domain.NuevoFormatoExportacionServiciosPropios(domain.DatosFormatoExportacionServiciosPropios{Referencia: "personal:servicios_propios:csv", Version: 1, Idioma: "xx", CatalogoSHA256: configuracionIntentosFichaPrueba().MotivoDenegado.CatalogoHuellaSHA256, NombreArchivo: "servicios.csv", Cabeceras: []string{"c1", "c2", "c3", "c4", "c5"}})
+	f, e := domain.NuevoFormatoExportacionServiciosPropios(domain.DatosFormatoExportacionServiciosPropios{Referencia: "personal:servicios_propios:csv", Version: 1, Idioma: "xx", CatalogoSHA256: configuracionIntentosFichaPrueba().MotivoDenegado.CatalogoHuellaSHA256, NombreArchivo: "servicios.csv", Cabeceras: []string{"c1", "c2", "c3", "c4", "c5"}, Estados: map[string]string{"declarado": "e1", "comprobado": "e2", "reconocido": "e3"}})
 	if e != nil {
 		t.Fatal(e)
 	}

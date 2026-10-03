@@ -289,3 +289,43 @@ test("disponibilidad con tipo erróneo o claves extra rechaza el DTO", async () 
     assert.deepEqual(await fuentes.servicios.consultarPropios(), { estado: "error" });
   }
 });
+
+test("sesión caducada al exportar retira toda la ficha cacheada sin GET hasta actualizar", async () => {
+  const peticiones = [];
+  const fuentes = await crearFuentesFichaPropia({ fetchImpl: async (ruta, opciones) => {
+    peticiones.push(opciones.method);
+    if (opciones.method === "GET") return respuesta(FICHA);
+    const cuerpo = JSON.stringify({ error: "autenticacion_requerida" });
+    return new Response(cuerpo, { status: 401, headers: { "Content-Type": "application/json; charset=utf-8", "Content-Length": String(Buffer.byteLength(cuerpo)) } });
+  } }).preparar();
+  const servicios = await fuentes.servicios.consultarPropios();
+  await assert.rejects(fuentes.servicios.exportarPropios({ reciboRef: servicios.recibo_ref, corte: servicios.corte }), { estado: 401 });
+  for (const fuente of [fuentes.servicios, fuentes.relaciones]) {
+    assert.deepEqual(await fuente.consultarPropios(), { estado: "denegado", aviso_exportacion: "sesion_caducada" });
+  }
+  assert.deepEqual(peticiones, ["GET", "POST"]);
+  fuentes.servicios.actualizar();
+  assert.equal((await fuentes.servicios.consultarPropios()).estado, "disponible");
+  assert.deepEqual(peticiones, ["GET", "POST", "GET"]);
+});
+
+test("denegar exportación conserva consulta y bloqueo al reabrir, sin reutilizar permiso de consulta", async () => {
+  for (const estado of [403, 404]) {
+    const peticiones = [];
+    const fuentes = await crearFuentesFichaPropia({ fetchImpl: async (ruta, opciones) => {
+      peticiones.push(opciones.method);
+      if (opciones.method === "GET") return respuesta(FICHA);
+      const cuerpo = JSON.stringify({ error: estado === 403 ? "acceso_denegado" : "no_encontrada" });
+      return new Response(cuerpo, { status: estado, headers: { "Content-Type": "application/json; charset=utf-8", "Content-Length": String(Buffer.byteLength(cuerpo)) } });
+    } }).preparar();
+    const consulta = await fuentes.servicios.consultarPropios();
+    const entrada = { reciboRef: consulta.recibo_ref, corte: consulta.corte };
+    await assert.rejects(fuentes.servicios.exportarPropios(entrada), { codigo: "denegado" });
+    const conservada = await fuentes.servicios.consultarPropios();
+    assert.deepEqual(conservada.items, consulta.items);
+    assert.deepEqual(conservada.corte, consulta.corte);
+    assert.equal(conservada.exportacion_servicios_disponible, false);
+    await assert.rejects(fuentes.servicios.exportarPropios(entrada), { codigo: "denegado" });
+    assert.deepEqual(peticiones, ["GET", "POST"]);
+  }
+});

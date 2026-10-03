@@ -12,7 +12,8 @@ import (
 	"vec-diputacion-granada/internal/modules/personal/domain"
 )
 
-// Los valores históricos se conservan. Sólo se neutralizan las celdas que una
+// La procedencia histórica se conserva y el estado se presenta según catálogo.
+// Se neutralizan las celdas que una
 // hoja de cálculo podría interpretar como fórmula, incluidas las cabeceras.
 func celdaCSVServiciosPropios(s string) string {
 	t := strings.TrimLeftFunc(s, func(r rune) bool { return unicode.IsSpace(r) || r == '\ufeff' || r == '\u200b' })
@@ -27,7 +28,8 @@ func serializarServiciosPropiosCSV(f domain.FormatoExportacionServiciosPropios, 
 	}
 	var b bytes.Buffer
 	w := csv.NewWriter(&b)
-	cab := f.Datos().Cabeceras
+	datos := f.Datos()
+	cab := datos.Cabeceras
 	for i := range cab {
 		cab[i] = celdaCSVServiciosPropios(cab[i])
 	}
@@ -35,7 +37,11 @@ func serializarServiciosPropiosCSV(f domain.FormatoExportacionServiciosPropios, 
 		return nil, "", domain.ErrExportacionServiciosPropiosNoDisponible
 	}
 	for _, s := range filas {
-		fila := []string{s.Inicio.Texto(), s.Fin.Texto(), s.Clase, strconv.FormatInt(s.Dias, 10), s.Estado}
+		estado, ok := datos.Estados[s.Estado]
+		if !ok {
+			return nil, "", domain.ErrExportacionServiciosPropiosNoDisponible
+		}
+		fila := []string{s.Inicio.Texto(), s.Fin.Texto(), s.Clase, strconv.FormatInt(s.Dias, 10), estado}
 		for i := range fila {
 			fila[i] = celdaCSVServiciosPropios(fila[i])
 		}

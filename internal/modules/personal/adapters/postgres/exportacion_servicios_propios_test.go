@@ -20,7 +20,7 @@ import (
 func ordenExportacionPrueba(t *testing.T) ports.OrdenExportacionServiciosPropios {
 	t.Helper()
 	base := ordenFichaPropiaPrueba(t)
-	f, e := domain.NuevoFormatoExportacionServiciosPropios(domain.DatosFormatoExportacionServiciosPropios{Referencia: "personal:servicios_propios:csv", Version: 1, Idioma: "xx", CatalogoSHA256: strings.Repeat("a", 64), NombreArchivo: "servicios.csv", Cabeceras: []string{"c1", "c2", "c3", "c4", "c5"}})
+	f, e := domain.NuevoFormatoExportacionServiciosPropios(domain.DatosFormatoExportacionServiciosPropios{Referencia: "personal:servicios_propios:csv", Version: 1, Idioma: "xx", CatalogoSHA256: strings.Repeat("a", 64), NombreArchivo: "servicios.csv", Cabeceras: []string{"c1", "c2", "c3", "c4", "c5"}, Estados: map[string]string{"declarado": "e1", "comprobado": "e2", "reconocido": "e3"}})
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -64,7 +64,7 @@ func TestExportacionServiciosCSVConfirmaSoloTrasSerializarFuenteExacta(t *testin
 		t.Fatal("no confirmó CSV exacto", e)
 	}
 	filas, e := csv.NewReader(bytes.NewReader(r.ContenidoCSV)).ReadAll()
-	if e != nil || len(filas) != 2 || filas[1][2] != "' =suma(1)" || filas[0][0] != "c1" {
+	if e != nil || len(filas) != 2 || filas[1][2] != "' =suma(1)" || filas[0][0] != "c1" || filas[1][4] != "e3" {
 		t.Fatal("CSV no neutro", e)
 	}
 }

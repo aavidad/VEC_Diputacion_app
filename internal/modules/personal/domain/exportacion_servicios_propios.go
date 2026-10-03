@@ -40,13 +40,14 @@ type DatosFormatoExportacionServiciosPropios struct {
 	CatalogoSHA256 string
 	NombreArchivo  string
 	Cabeceras      []string
+	Estados        map[string]string
 }
 type FormatoExportacionServiciosPropios struct {
 	datos DatosFormatoExportacionServiciosPropios
 }
 
 func NuevoFormatoExportacionServiciosPropios(d DatosFormatoExportacionServiciosPropios) (FormatoExportacionServiciosPropios, error) {
-	if !referenciaFormatoExportacionServicios.MatchString(d.Referencia) || d.Version == 0 || d.Version > 9007199254740991 || !idiomaExportacionServicios.MatchString(d.Idioma) || !huellaExportacionServicios.MatchString(d.CatalogoSHA256) || !archivoExportacionServicios.MatchString(d.NombreArchivo) || len(d.Cabeceras) != 5 {
+	if !referenciaFormatoExportacionServicios.MatchString(d.Referencia) || d.Version == 0 || d.Version > 9007199254740991 || !idiomaExportacionServicios.MatchString(d.Idioma) || !huellaExportacionServicios.MatchString(d.CatalogoSHA256) || !archivoExportacionServicios.MatchString(d.NombreArchivo) || len(d.Cabeceras) != 5 || len(d.Estados) != 3 {
 		return FormatoExportacionServiciosPropios{}, ErrExportacionServiciosPropiosInvalida
 	}
 	for _, v := range d.Cabeceras {
@@ -54,7 +55,13 @@ func NuevoFormatoExportacionServiciosPropios(d DatosFormatoExportacionServiciosP
 			return FormatoExportacionServiciosPropios{}, ErrExportacionServiciosPropiosInvalida
 		}
 	}
+	for _, estado := range []string{"declarado", "comprobado", "reconocido"} {
+		if !textoFormatoExportacionValido(d.Estados[estado]) {
+			return FormatoExportacionServiciosPropios{}, ErrExportacionServiciosPropiosInvalida
+		}
+	}
 	d.Cabeceras = append([]string(nil), d.Cabeceras...)
+	d.Estados = copiarMapaRelacion(d.Estados)
 	return FormatoExportacionServiciosPropios{d}, nil
 }
 func textoFormatoExportacionValido(v string) bool {
@@ -63,6 +70,7 @@ func textoFormatoExportacionValido(v string) bool {
 func (f FormatoExportacionServiciosPropios) Datos() DatosFormatoExportacionServiciosPropios {
 	d := f.datos
 	d.Cabeceras = append([]string(nil), d.Cabeceras...)
+	d.Estados = copiarMapaRelacion(d.Estados)
 	return d
 }
 func (f FormatoExportacionServiciosPropios) Validar() error {

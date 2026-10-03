@@ -20,6 +20,12 @@
     "sin_consulta": "Actualice la consulta antes de descargar el resumen.",
     "alcance": "Incluye los servicios de esta consulta. No calcula antigüedad ni acredita derechos.",
     "no_disponible": "La exportación no está disponible ahora. Vuelva a intentarlo.",
-    "respuesta_no_valida": "No se ha podido comprobar el archivo recibido. Vuelva a intentarlo."
+    "respuesta_no_valida": "No se ha podido comprobar el archivo recibido. Vuelva a intentarlo.",
+    "sesion_caducada": "Su sesión ha finalizado. Identifíquese de nuevo y actualice la consulta."
+  },
+  "estados": {
+    "declarado": "Declarado",
+    "comprobado": "Comprobado",
+    "reconocido": "Reconocido"
   }
 }

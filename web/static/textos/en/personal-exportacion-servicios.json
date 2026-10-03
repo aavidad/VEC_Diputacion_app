@@ -20,6 +20,12 @@
     "sin_consulta": "Refresh the query before downloading the summary.",
     "alcance": "Includes the services in this query. It does not calculate seniority or establish entitlements.",
     "no_disponible": "Export is currently unavailable. Please try again.",
-    "respuesta_no_valida": "The received file could not be verified. Please try again."
+    "respuesta_no_valida": "The received file could not be verified. Please try again.",
+    "sesion_caducada": "Your session has ended. Sign in again and refresh the query."
+  },
+  "estados": {
+    "declarado": "Declared",
+    "comprobado": "Verified",
+    "reconocido": "Recognised"
   }
 }

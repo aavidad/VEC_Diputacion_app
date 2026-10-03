@@ -86,7 +86,7 @@ func (i *intentosExportPrueba) RegistrarIntentoExportacionServiciosPropios(ctx c
 func solicitudYFormatoExportPrueba(t *testing.T) (domain.SolicitudExportacionServiciosPropios, formatosExportPrueba) {
 	t.Helper()
 	s := solicitudFichaPropiaPrueba(t, "pep_")
-	f, e := domain.NuevoFormatoExportacionServiciosPropios(domain.DatosFormatoExportacionServiciosPropios{Referencia: "personal:servicios_propios:csv", Version: 1, Idioma: "xx", CatalogoSHA256: strings.Repeat("a", 64), NombreArchivo: "servicios.csv", Cabeceras: []string{"c1", "c2", "c3", "c4", "c5"}})
+	f, e := domain.NuevoFormatoExportacionServiciosPropios(domain.DatosFormatoExportacionServiciosPropios{Referencia: "personal:servicios_propios:csv", Version: 1, Idioma: "xx", CatalogoSHA256: strings.Repeat("a", 64), NombreArchivo: "servicios.csv", Cabeceras: []string{"c1", "c2", "c3", "c4", "c5"}, Estados: map[string]string{"declarado": "e1", "comprobado": "e2", "reconocido": "e3"}})
 	if e != nil {
 		t.Fatal(e)
 	}

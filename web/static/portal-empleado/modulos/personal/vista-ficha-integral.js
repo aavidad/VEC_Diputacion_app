@@ -3,9 +3,9 @@ import { crearTraductorPersonal } from "./i18n.js?v=20260925-personal-e10-v1";
 
 import { crearSelectorCorteServicios, esFechaCorteServicios, presentarFechaCorteServicios, traducirCorteServicios } from "./ficha-propia-corte.js?v=20261002-personal-servicios-csv-v1";
 
-import { descargarResumenServicios } from "./servicios-descarga.js?v=20261002-personal-servicios-csv-v2";
-import { traducirExportacionServicios } from "./i18n-exportacion-servicios.js?v=20261003-personal-exportacion-v1";
-import { referenciaExportacionServiciosValida } from "./cliente-http-exportacion-servicios.js?v=20261003-personal-exportacion-v1";
+import { descargarResumenServicios } from "./servicios-descarga.js?v=20261004-personal-exportacion-v1";
+import { traducirExportacionServicios } from "./i18n-exportacion-servicios.js?v=20261004-personal-exportacion-v1";
+import { referenciaExportacionServiciosValida } from "./cliente-http-exportacion-servicios.js?v=20261004-personal-exportacion-v1";
 
 const PESTANAS = Object.freeze([
   ["ficha", "ficha_tab_ficha"], ["relaciones", "ficha_tab_relaciones"],
@@ -144,7 +144,7 @@ function pintarBloque(d, principal, t, bloque, resultado, actualizar, corte, des
     piezas.push(resultado.estado === "vacio" ? mensaje(d, t("ficha_vacio")) : tabla(d, t, bloque, resultado.items));
   } else {
     const clave = { cargando: "ficha_cargando", no_configurado: "ficha_no_configurado", denegado: "ficha_denegado", excede_limite: "ficha_excede_limite", error: "ficha_error" }[resultado.estado];
-    piezas.push(mensaje(d, t(clave), resultado.estado === "error" ? "alert" : "status"));
+    piezas.push(mensaje(d, resultado.aviso_exportacion === "sesion_caducada" ? traducirExportacionServicios("sesion_caducada") : t(clave), resultado.estado === "error" ? "alert" : "status"));
   }
   if (bloque === "servicios" && typeof descargar === "function" && ["disponible", "vacio"].includes(resultado.estado)) {
     const resumen = nodo(d, "div"); resumen.className = "acciones-fila";
@@ -263,6 +263,12 @@ export function montarVistaFichaIntegralPersonal({ raiz, anunciar = () => {}, re
           anunciar(estado.textContent, "status");
         } catch (causa) {
           if (!vigente()) return;
+          if (causa?.estado === 401) {
+            serviciosDescargables = undefined;
+            pintar("servicios", true);
+            anunciar(traducirExportacionServicios("sesion_caducada"), "error");
+            return;
+          }
           const codigo = ["denegado", "sin_consulta", "no_disponible", "respuesta_no_valida"].includes(causa?.codigo) ? causa.codigo : "error";
           requiereActualizar = codigo === "denegado" || codigo === "sin_consulta";
           estado.textContent = traducirExportacionServicios(codigo); estado.setAttribute("role", "alert");

@@ -41,6 +41,7 @@ func NuevoProveedorFormatosExportacionServiciosPropios(catalogos map[string][]by
 				Estado string `json:"estado"`
 			} `json:"csv"`
 			General map[string]string `json:"general"`
+			Estados map[string]string `json:"estados"`
 		}
 		dec := json.NewDecoder(bytes.NewReader(b))
 		dec.DisallowUnknownFields()
@@ -48,7 +49,7 @@ func NuevoProveedorFormatosExportacionServiciosPropios(catalogos map[string][]by
 			return nil, domain.ErrExportacionServiciosPropiosNoDisponible
 		}
 		h := sha256.Sum256(b)
-		f, err := domain.NuevoFormatoExportacionServiciosPropios(domain.DatosFormatoExportacionServiciosPropios{Referencia: datos.Formato.Referencia, Version: datos.Formato.Version, NombreArchivo: datos.Formato.NombreArchivo, Idioma: idioma, CatalogoSHA256: hex.EncodeToString(h[:]), Cabeceras: []string{datos.CSV.Inicio, datos.CSV.Fin, datos.CSV.Clase, datos.CSV.Dias, datos.CSV.Estado}})
+		f, err := domain.NuevoFormatoExportacionServiciosPropios(domain.DatosFormatoExportacionServiciosPropios{Referencia: datos.Formato.Referencia, Version: datos.Formato.Version, NombreArchivo: datos.Formato.NombreArchivo, Idioma: idioma, CatalogoSHA256: hex.EncodeToString(h[:]), Cabeceras: []string{datos.CSV.Inicio, datos.CSV.Fin, datos.CSV.Clase, datos.CSV.Dias, datos.CSV.Estado}, Estados: datos.Estados})
 		if err != nil {
 			return nil, domain.ErrExportacionServiciosPropiosNoDisponible
 		}

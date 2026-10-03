@@ -10,7 +10,7 @@
  */
 import { crearTraductorFichaPropia, formatearDiasFichaPropia } from "./i18n-ficha-propia.js?v=20260929-i18n-personal-v1";
 
-import { crearClienteExportacionServicios } from "./cliente-http-exportacion-servicios.js?v=20261003-personal-exportacion-v1";
+import { crearClienteExportacionServicios } from "./cliente-http-exportacion-servicios.js?v=20261004-personal-exportacion-v1";
 
 export const RUTA_FICHA_PROPIA = "/api/interna/personal/mi-ficha";
 export const ACCEPT_FICHA_PROPIA_EXPORTACION = 'application/json; profile="urn:vec:personal:ficha-propia:exportacion:v1"';
@@ -175,9 +175,12 @@ export function crearFuentesFichaPropia({ fetchImpl = globalThis.fetch, traducir
   const resultados = new Map();
   let revision = 0;
   let fechaActual = "";
+  let sesionCaducada = false;
+  const recibosSinExportacion = new Set();
   const obtener = async (signal, fechaReferencia = "") => {
     if (fechaReferencia !== "" && !fecha(fechaReferencia)) throw error("fecha_no_valida");
     if (signal?.aborted) throw error("operacion_abortada");
+    if (sesionCaducada) return Object.freeze({ sinFuente: true, estado: 401 });
     if (resultados.has(fechaReferencia)) return resultados.get(fechaReferencia);
     const vigente = revision;
     try {
@@ -207,12 +210,24 @@ export function crearFuentesFichaPropia({ fetchImpl = globalThis.fetch, traducir
       const consulta = await obtener(signal, fechaReferencia);
       if (consulta.error) return { estado: "error" };
       if (consulta.excedeLimite) return { estado: "excede_limite" };
-      if (consulta.sinFuente) return { estado: consulta.estado === 404 ? "no_configurado" : "denegado" };
+      if (consulta.sinFuente) return { estado: consulta.estado === 404 ? "no_configurado" : "denegado", ...(sesionCaducada ? { aviso_exportacion: "sesion_caducada" } : {}) };
       const items = presentar(consulta.ficha, traducir);
-      return { estado: items.length ? "disponible" : "vacio", fuente: traducir("fuente_registro"), actualizado_en: consulta.consultadaEn, items, ...(admiteFecha ? { fecha_referencia: consulta.ficha.corte.vigente_en, exportacion_servicios_disponible: consulta.exportacionServiciosDisponible, recibo_ref: consulta.reciboRef, corte: Object.freeze({ ...consulta.ficha.corte }) } : {}) };
+      return { estado: items.length ? "disponible" : "vacio", fuente: traducir("fuente_registro"), actualizado_en: consulta.consultadaEn, items, ...(admiteFecha ? { fecha_referencia: consulta.ficha.corte.vigente_en, exportacion_servicios_disponible: consulta.exportacionServiciosDisponible && !recibosSinExportacion.has(consulta.reciboRef), recibo_ref: consulta.reciboRef, corte: Object.freeze({ ...consulta.ficha.corte }) } : {}) };
     },
-    ...(admiteFecha ? { exportarPropios(entrada) { return crearClienteExportacionServicios({ fetchImpl, plazoMs }).exportar(entrada); } } : {}),
-    actualizar() { revision += 1; resultados.clear(); },
+    ...(admiteFecha ? { async exportarPropios(entrada) {
+      if (sesionCaducada || recibosSinExportacion.has(entrada?.reciboRef)) throw error("denegado", sesionCaducada ? 401 : 403);
+      const vigente = revision;
+      try { return await crearClienteExportacionServicios({ fetchImpl, plazoMs }).exportar(entrada); }
+      catch (causa) {
+        if (vigente === revision && causa?.estado === 401) {
+          revision += 1; resultados.clear(); recibosSinExportacion.clear(); sesionCaducada = true;
+        } else if (vigente === revision && [403, 404].includes(causa?.estado)) {
+          recibosSinExportacion.add(entrada.reciboRef);
+        }
+        throw causa;
+      }
+    } } : {}),
+    actualizar() { revision += 1; resultados.clear(); recibosSinExportacion.clear(); sesionCaducada = false; },
   });
   const fuentes = Object.freeze({ relaciones: bloque(presentarRelaciones), servicios: bloque(presentarServicios, true) });
   return Object.freeze({

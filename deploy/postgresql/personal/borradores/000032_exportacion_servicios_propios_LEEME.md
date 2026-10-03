@@ -3,8 +3,10 @@
 Personal32 y AD175 están preparadas en esta rama. No se han ensayado ni instalado.
 AD175 se detiene con `55000` antes de modificar el núcleo: faltan las huellas de
 la definición, el cuerpo y el catálogo de audiencias posteriores a AD173/174.
-El orden propuesto figura en `deploy/principal/lista_sql_codexb_exportacion_servicios_20261003.txt`.
-Dirección debe confirmar la fuente causal con L, ajustar sus guardas y obtener
+La lista de dependencias preparadas figura en `deploy/principal/lista_sql_codexb_exportacion_servicios_20261003.txt`.
+La secuencia AD172/173/174 aún no es ejecutable: AD174 candidata conserva
+una guarda sobre el CHECK AD171. Dirección debe reconciliarla con L/K,
+confirmar la fuente causal, ajustar sus guardas y obtener
 dos revisiones independientes sobre el mismo hash antes de ejecutar el ensayo.
 
 Personal32 añade `vigente_en date` y `conocido_en timestamptz(6)` al recibo existente.
