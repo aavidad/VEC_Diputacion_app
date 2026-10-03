@@ -1,0 +1,6 @@
+# Sólo AD173 NUEVA; ejecutar únicamente tras acreditar POST154 + AD172.
+# El núcleo y CHECK deben coincidir con las preimágenes exactas de AD173.
+# AD172 presupone AD154/AD149 y AD169/AD171 ya instaladas: no reaplicarlas.
+# No sirve un POST168/POST174 con otro núcleo o CHECK aunque exista igual nombre.
+# Dirección ensaya en su único clon desechable; sin DOWN ni principal/cidonia.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000173_consumo_fecha_nominal.up.sql

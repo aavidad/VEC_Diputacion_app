@@ -185,6 +185,78 @@
       },
       "codigo": "instante_distinto",
       "clave": "registrada_consumida_en"
+    },
+    {
+      "caso": "UTC6_minimo",
+      "registro": {
+        "auditoria_ref": "aud_v3_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "secuencia": 7,
+        "decision_ref": "decision:ad173:pruéba",
+        "efecto_ref": "efecto:ad173:prueba",
+        "huella_efecto_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "anterior_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "consumo_huella_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "tipo_registro": "consumo_confirmado_v3",
+        "version_consumo": 3,
+        "proceso": "rrhh_prueba",
+        "canal": "interna_corporativa",
+        "registrada_en": "0001-01-01T00:00:00.000000Z",
+        "consumida_en": "0001-01-01T00:00:00.000000Z",
+        "actor_ref": "per_aaaaaaaaaaaaaaaaaaaaaa",
+        "perfil_activo_ref": "prf_bbbbbbbbbbbbbbbbbbbbbb",
+        "finalidad_ref": "gestion_personal",
+        "huella_sha256": "455cb7c114a4af1860f3e0b469cce034efd935fa7ca8247c70075f223025c39c"
+      },
+      "codigo": "",
+      "clave": ""
+    },
+    {
+      "caso": "UTC6_maximo",
+      "registro": {
+        "auditoria_ref": "aud_v3_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "secuencia": 7,
+        "decision_ref": "decision:ad173:pruéba",
+        "efecto_ref": "efecto:ad173:prueba",
+        "huella_efecto_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "anterior_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "consumo_huella_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "tipo_registro": "consumo_confirmado_v3",
+        "version_consumo": 3,
+        "proceso": "rrhh_prueba",
+        "canal": "interna_corporativa",
+        "registrada_en": "9999-12-31T23:59:59.999999Z",
+        "consumida_en": "9999-12-31T23:59:59.999999Z",
+        "actor_ref": "per_aaaaaaaaaaaaaaaaaaaaaa",
+        "perfil_activo_ref": "prf_bbbbbbbbbbbbbbbbbbbbbb",
+        "finalidad_ref": "gestion_personal",
+        "huella_sha256": "ffc9341dd2e8e760551431b8c9975d3294a4808546853c8698febe7eca832c05"
+      },
+      "codigo": "",
+      "clave": ""
+    },
+    {
+      "caso": "nominal_UTF8",
+      "registro": {
+        "auditoria_ref": "aud_v3_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "secuencia": 7,
+        "decision_ref": "decision:ad173:pruéba",
+        "efecto_ref": "efecto:ad173:prueba",
+        "huella_efecto_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "anterior_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "consumo_huella_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "tipo_registro": "consumo_confirmado_v3",
+        "version_consumo": 3,
+        "proceso": "rrhh_prueba",
+        "canal": "interna_corporativa",
+        "registrada_en": "2026-10-03T12:34:56.123456Z",
+        "consumida_en": "2026-10-03T12:34:56.123456Z",
+        "actor_ref": "persona:ad173:Inés",
+        "perfil_activo_ref": "perfil:ad173:técnica",
+        "finalidad_ref": "gestión_personal",
+        "huella_sha256": "9e6f4d2a5837a9c934c9cd153a0bd7714411212e0123f4c8773a2a3f96ebc3e5"
+      },
+      "codigo": "",
+      "clave": ""
     }
   ]
 }
