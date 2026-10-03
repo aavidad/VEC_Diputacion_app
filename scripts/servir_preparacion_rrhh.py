@@ -45,19 +45,26 @@ def cargar_recursos(raiz, modulo):
             rutas.append(error)
     visor_bases = modulo == "seleccion-bases-preparacion"
     visor_admision = modulo == "selectivos-admision-visor"
-    visor_archivo = visor_bases or visor_admision
+    visor_acta = modulo == "selectivos-acta-visor"
+    visor_archivo = visor_bases or visor_admision or visor_acta
     prefijo = "portal-empleado/modulos/seleccion/preparacion-bases" if visor_bases else (
-        "portal-empleado/modulos/seleccion/preparacion-admision" if visor_admision else f"portal-empleado/modulos/{modulo}"
+        "portal-empleado/modulos/seleccion/preparacion-admision" if visor_admision else (
+            "portal-empleado/modulos/seleccion/preparacion-acta" if visor_acta else f"portal-empleado/modulos/{modulo}"
+        )
     )
     # Archivos de la vista, nunca pruebas ni datos aportados por una persona.
     propios = ("preparacion-bases.css", "cliente-http.js", "contrato-http.js") if visor_bases else (
-        ("preparacion-admision.css", "controlador.js") if visor_admision else (f"{modulo}.css", "escenario.json")
+        ("preparacion-admision.css", "controlador.js") if visor_admision else (
+            ("preparacion-acta.css",) if visor_acta else (f"{modulo}.css", "escenario.json")
+        )
     )
-    if visor_admision:
+    if visor_admision or visor_acta:
         rutas.extend((
             "portal-empleado/modulos/seleccion/preparacion-bases/modelo.js",
             "portal-empleado/modulos/seleccion/preparacion-bases/contrato-http.js",
         ))
+    if visor_acta:
+        rutas.append("portal-empleado/modulos/seleccion/dom.js")
     for nombre in ("index.html", "entrada.js", "cliente.js", "vista.js", "modelo.js", *propios):
         ruta = f"{prefijo}/{nombre}"
         if (raiz / ruta).exists():
@@ -125,7 +132,7 @@ def handler_para(recursos):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--modulo", choices=("formacion", "carrera", "seleccion-bases-preparacion", "selectivos-admision-visor"), required=True)
+    parser.add_argument("--modulo", choices=("formacion", "carrera", "seleccion-bases-preparacion", "selectivos-admision-visor", "selectivos-acta-visor"), required=True)
     parser.add_argument("--web-dir", type=Path, default=Path(__file__).resolve().parents[1] / "web/static")
     args = parser.parse_args()
     recursos, entrada = cargar_recursos(args.web_dir, args.modulo)
