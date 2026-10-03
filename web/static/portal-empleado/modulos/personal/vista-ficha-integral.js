@@ -92,9 +92,11 @@ function validarResultado(resultado, bloque) {
     if (!Object.values(visible).some((valor) => valor.trim())) throw new TypeError("fila de ficha sin datos visibles");
     return visible;
   });
+  if (resultado.exportacion_servicios_disponible !== undefined && typeof resultado.exportacion_servicios_disponible !== "boolean") throw new TypeError("disponibilidad_exportacion_no_valida");
   if (resultado.fecha_referencia !== undefined && (bloque !== "servicios" || !esFechaCorteServicios(resultado.fecha_referencia))) throw new TypeError("fecha de referencia no válida");
   return { estado: resultado.estado, fuente: resultado.fuente, actualizado_en: resultado.actualizado_en, items,
     ...(resultado.fecha_referencia ? { fecha_referencia: resultado.fecha_referencia } : {}),
+    ...(bloque === "servicios" ? { exportacion_servicios_disponible: resultado.exportacion_servicios_disponible === true } : {}),
     ...(bloque === "servicios" && referenciaExportacionServiciosValida(resultado.recibo_ref, resultado.corte) && resultado.corte.vigente_en === resultado.fecha_referencia ? { recibo_ref: resultado.recibo_ref, corte: Object.freeze({ ...resultado.corte }) } : {}) };
 }
 function formatearFecha(iso) {
@@ -243,7 +245,7 @@ export function montarVistaFichaIntegralPersonal({ raiz, anunciar = () => {}, re
       const previo = corte ? principal.querySelector?.("[data-personal-ficha-fecha]") : undefined;
       const borrador = previo?.value; const teniaFoco = previo && d.activeElement === previo;
       const exportar = Object.hasOwn(fuentes[clave], "exportarPropios") ? fuentes[clave].exportarPropios : undefined;
-      const descargar = clave === "servicios" && typeof exportar === "function" && resultado.recibo_ref ? async () => {
+      const descargar = clave === "servicios" && resultado.exportacion_servicios_disponible === true && typeof exportar === "function" && resultado.recibo_ref ? async () => {
         if (!activa || actual !== "servicios" || turno !== secuencia || serviciosDescargables !== resultado || vueloExportacion || principal.querySelector("[data-personal-servicios-descargar]")?.disabled) return;
         const boton = principal.querySelector("[data-personal-servicios-descargar]");
         const estado = principal.querySelector("[data-personal-servicios-exportacion-estado]");

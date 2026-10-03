@@ -405,7 +405,7 @@ function documentoDescarga(raiz) {
   d.defaultView = { Blob, URL: { createObjectURL(blob) { blobs.push(blob); return "blob:local"; }, revokeObjectURL(url) { urls.push(url); } } };
   return { blobs, urls };
 }
-const datosServicios = () => ({ estado: "disponible", fuente: "Personal", actualizado_en: "2026-10-02T08:00:00Z", fecha_referencia: corteServicios.vigente_en, recibo_ref: reciboServicios, corte: { ...corteServicios }, items: [{ procedencia: "Diputación" }] });
+const datosServicios = () => ({ estado: "disponible", exportacion_servicios_disponible: true, fuente: "Personal", actualizado_en: "2026-10-02T08:00:00Z", fecha_referencia: corteServicios.vigente_en, recibo_ref: reciboServicios, corte: { ...corteServicios }, items: [{ procedencia: "Diputación" }] });
 
 test("CSV servidor: mismo recibo/corte, estado y foco; reintentar no renueva la consulta", async () => {
   const raiz = raizFalsa(), { blobs, urls } = documentoDescarga(raiz);
@@ -461,4 +461,17 @@ test("sin recibo/corte o cliente nominal no se ofrece CSV local; 403 pide actual
   ficha.querySelector("[data-personal-servicios-descargar]").click(); await completar();
   assert.match(texto(ficha), /No se puede exportar esta consulta. Actualice/u);
   assert.equal(consultas, 1); assert.ok(ficha.querySelector('[data-personal-ficha-actualizar="servicios"]'));
+});
+
+
+test("disponibilidad false o ausente nunca ofrece acción ni inicia POST con servidor antiguo", async () => {
+  for (const valor of [undefined, false, true]) {
+    const raiz = raizFalsa(); let posts = 0; const datos = datosServicios();
+    if (valor === undefined) delete datos.exportacion_servicios_disponible;
+    else datos.exportacion_servicios_disponible = valor;
+    montarVistaFichaIntegralPersonal({ raiz, fuentes: { servicios: { consultarPropios: () => datos, exportarPropios: async () => { posts += 1; return archivoServicios(); } } } });
+    const ficha = raiz.querySelector("[data-personal-ficha-integral]"); tab(ficha, "servicios").click(); await completar();
+    assert.equal(Boolean(ficha.querySelector("[data-personal-servicios-descargar]")), valor === true);
+    assert.equal(posts, 0); assert.match(texto(ficha), /Diputación/u);
+  }
 });
