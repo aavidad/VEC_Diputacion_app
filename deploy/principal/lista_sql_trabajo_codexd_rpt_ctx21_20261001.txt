@@ -1,0 +1,4 @@
+# CA21: ensayar e instalar después de la postimagen exacta de A (AD136/127–131).
+# Dirección prepara el clon postA; no reaplicar historia de H6, B ni A.
+# AUT25 y sus consumidores posteriores van después de esta migración.
+deploy/postgresql/contexto_actor_v1/migraciones/000021_vinculo_rpt_rrhh.up.sql
