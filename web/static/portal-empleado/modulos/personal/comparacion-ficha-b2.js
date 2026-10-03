@@ -115,7 +115,11 @@ function pintarResultado(d, destino, modelo, t, locale) {
             const snap = r.catalogo_snapshot?.[k];
             if (snap) dato.append(nodo(d, "p", t("valor_etiqueta", { etiqueta: t(k), valor: snap.denominacion })));
           }
-          const origen = nodo(d, "details"); origen.append(nodo(d, "summary", t("origen")), detalleDatos(d, t, [["fuente", t("sin_denominacion")], ["registrada", instanteVisible(r.traza.registrada_en, locale)], ["version_fuente", new Intl.NumberFormat(locale).format(r.traza.fuente_version)]]));
+          const origen = nodo(d, "details"); origen.append(nodo(d, "summary", t("origen")), detalleDatos(d, t, [["fuente", t("sin_denominacion")], ["efectos_version", fechaVisible(r.traza.desde, locale)], ["fin_efectos_version", r.traza.hasta ? fechaVisible(r.traza.hasta, locale) : t("abierto")], ["registrada", instanteVisible(r.traza.registrada_en, locale)], ["version_fuente", new Intl.NumberFormat(locale).format(r.traza.fuente_version)]]));
+          for (const k of ["regimen", "modalidad", "situacion", "clase_servicio"]) {
+            const snap = r.catalogo_snapshot?.[k];
+            if (snap) origen.append(nodo(d, "p", t("version_catalogo", { catalogo: t(k), version: new Intl.NumberFormat(locale).format(snap.version) })));
+          }
           const tecnicas = nodo(d, "details"); tecnicas.append(nodo(d, "summary", t("referencias")), detalleDatos(d, t, [["fuente_ref", r.traza.fuente_ref], ["acto_ref", r.traza.acto_ref]])); origen.append(tecnicas); dato.append(origen); celda.append(dato);
         }
         fila.append(celda);

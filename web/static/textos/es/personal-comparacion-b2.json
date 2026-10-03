@@ -61,6 +61,9 @@
     "clase_servicio": "Clase de servicio",
     "efecto": "Referencia del recurso",
     "corte_exacto": "Instante exacto del corte (UTC)",
-    "dias_reconocidos": "Días reconocidos"
+    "dias_reconocidos": "Días reconocidos",
+    "efectos_version": "Efectos de esta versión",
+    "fin_efectos_version": "Fin de efectos de esta versión",
+    "version_catalogo": "{catalogo}: versión {version}"
   }
 }

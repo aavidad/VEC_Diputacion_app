@@ -61,6 +61,9 @@
     "clase_servicio": "Service class",
     "efecto": "Resource reference",
     "corte_exacto": "Exact cut-off instant (UTC)",
-    "dias_reconocidos": "Recognised days"
+    "dias_reconocidos": "Recognised days",
+    "efectos_version": "This version takes effect on",
+    "fin_efectos_version": "This version ends on",
+    "version_catalogo": "{catalogo}: version {version}"
   }
 }

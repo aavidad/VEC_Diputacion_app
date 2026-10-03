@@ -10,7 +10,7 @@ import { renderizarPreparacionAntecedentesCarrera, validarPreparacionAntecedente
 
 import { crearVistaVacantesB2 } from "./vacantes-b2-vista.js?v=20261002-b-base-401-acumulada-v3";
 
-import { montarComparacionFichaB2 } from "./comparacion-ficha-b2.js?v=20261003-personal-comparacion-b2-v2";
+import { montarComparacionFichaB2 } from "./comparacion-ficha-b2.js?v=20261003-personal-comparacion-b2-v3";
 
 const BLOQUES = Object.freeze([
   ["relaciones", "registro_b2_relaciones", "registro_b2_tabla_relaciones", [

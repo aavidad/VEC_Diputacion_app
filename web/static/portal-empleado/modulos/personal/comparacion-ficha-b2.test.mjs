@@ -158,3 +158,33 @@ test("un cambio de días reconocidos muestra ambos valores sin calcular antigüe
   assert.match(visible(raiz), /Días reconocidos: 1.*Días reconocidos: 2/u);
   assert.match(visible(raiz), /Datos distintos/u);
 });
+
+test("el origen permite consultar los efectos modificados sin alterar el periodo servido", async () => {
+  let llamada = 0;
+  const { raiz, c } = montar({ async consultarFicha(o) {
+    const r = respuesta({ vigente_en: o.vigenteEn, conocido_en: o.conocidoEn });
+    llamada++;
+    r.ficha.servicios = [{ servicio_ref: "srv:uno", relacion_ref: relacionRef, estado: "reconocido", dias_reconocidos: 366,
+      periodo_desde: "2020-01-01", periodo_hasta: "2021-01-01",
+      traza: { ...traza, version: llamada, desde: llamada === 1 ? "2024-01-01" : "2025-02-03", hasta: "2025-12-31" } }];
+    return r;
+  } });
+  await enviar(c);
+  const origenes = nodos(raiz).filter((n) => n.tagName === "details" && n.children[0]?.textContent === "Ver origen");
+  assert.ok(origenes.some((n) => /Efectos de esta versión.*2025/u.test(texto(n))));
+  assert.ok(origenes.some((n) => /Fin de efectos de esta versión.*2025/u.test(texto(n))));
+  assert.match(visible(raiz), /2020.*2021/u);
+});
+
+test("el origen muestra las versiones de catálogo que generan una diferencia", async () => {
+  let llamada = 0;
+  const { raiz, c } = montar({ async consultarFicha(o) {
+    const r = respuesta({ vigente_en: o.vigenteEn, conocido_en: o.conocidoEn });
+    r.ficha.relaciones[0].catalogo_snapshot.modalidad.version = ++llamada;
+    return r;
+  } });
+  await enviar(c);
+  const origenes = nodos(raiz).filter((n) => n.tagName === "details" && n.children[0]?.textContent === "Ver origen");
+  assert.ok(origenes.some((n) => /Modalidad: versión 1/u.test(texto(n))));
+  assert.ok(origenes.some((n) => /Modalidad: versión 2/u.test(texto(n))));
+});
