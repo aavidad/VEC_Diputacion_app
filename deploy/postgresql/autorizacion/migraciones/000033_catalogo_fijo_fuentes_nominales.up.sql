@@ -15,10 +15,12 @@ BEGIN
   OR pg_catalog.current_setting('server_version_num')::integer NOT BETWEEN 180000 AND 189999
   OR pg_catalog.to_regrole('vec_autorizacion_propietario') IS NULL
   OR pg_catalog.to_regrole('vec_autorizacion_atestada_v3_propietario') IS NULL
+  OR pg_catalog.to_regprocedure('vec_identidad_sesiones_v1.acreditar_operador_cargos_ct_v1(jsonb)') IS NULL
+  OR NOT pg_catalog.has_function_privilege('vec_autorizacion_propietario','vec_identidad_sesiones_v1.acreditar_operador_cargos_ct_v1(jsonb)','EXECUTE')
   OR pg_catalog.to_regclass('vec_autorizacion.perfil_fijo_categoria_nominal_v1') IS NOT NULL
   OR pg_catalog.to_regclass('vec_autorizacion.catalogo_accion_nominal_v1') IS NOT NULL
   OR EXISTS(SELECT 1 FROM vec_autorizacion.version_rol WHERE rol_id='administracion_perfiles' AND version>=4)
-  OR pg_catalog.to_regprocedure('vec_autorizacion.acreditar_perfil_aplicacion_nominal_v1(text,text,text,text,text,text,text,text,jsonb)') IS NOT NULL
+  OR pg_catalog.to_regprocedure('vec_autorizacion.acreditar_perfil_aplicacion_nominal_v1(text,text,text,text,text,text,text,text,jsonb,jsonb)') IS NOT NULL
  THEN RAISE EXCEPTION 'AUT33: preimagen estructural incompatible' USING ERRCODE='55000'; END IF;
  SELECT * INTO v FROM vec_autorizacion.version_rol WHERE version_rol_ref='rol:administracion_perfiles:v3';
  SELECT x.* INTO c FROM vec_autorizacion.control_vigencia_version_rol_actual a
@@ -128,7 +130,7 @@ END $publicar$;
 -- genérica con categoría Aplicación.
 CREATE FUNCTION vec_autorizacion.acreditar_perfil_aplicacion_nominal_v1(
  version_ref text,asignacion_ref text,principal_ref text,perfil_ref text,
- accion text,modulo text,tipo text,finalidad text,campos jsonb)
+ accion text,modulo text,tipo text,finalidad text,campos jsonb,autenticacion jsonb)
 RETURNS boolean LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog AS $f$
 DECLARE r record;ct record;asig record;meta record;ahora timestamptz;
 BEGIN
@@ -136,7 +138,10 @@ BEGIN
   OR pg_catalog.current_setting('transaction_read_only')<>'off'
   OR version_ref IS DISTINCT FROM 'rol:administracion_perfiles:v4'
   OR accion IS NULL OR modulo IS NULL OR tipo IS NULL OR finalidad IS NULL
-  OR campos IS NULL OR pg_catalog.jsonb_typeof(campos)<>'array' THEN RETURN false; END IF;
+  OR campos IS NULL OR pg_catalog.jsonb_typeof(campos)<>'array'
+  OR pg_catalog.jsonb_typeof(autenticacion)<>'object'
+  OR vec_identidad_sesiones_v1.acreditar_operador_cargos_ct_v1(autenticacion) IS NOT TRUE
+  THEN RETURN false; END IF;
  SELECT v.* INTO r FROM vec_autorizacion.version_rol v WHERE v.version_rol_ref=version_ref FOR SHARE;
  IF NOT FOUND THEN RETURN false; END IF;
  SELECT c.* INTO ct FROM vec_autorizacion.control_vigencia_version_rol_actual a
@@ -177,9 +182,9 @@ BEGIN
     AND c->'finalidades'=pg_catalog.jsonb_build_array(finalidad) AND c->>'garantia_minima'='alto'
     AND COALESCE(c->'campos_permitidos','[]'::jsonb)=campos AND COALESCE(c->'obligaciones','[]'::jsonb)='[]'::jsonb);
 END $f$;
-REVOKE ALL ON FUNCTION vec_autorizacion.acreditar_perfil_aplicacion_nominal_v1(text,text,text,text,text,text,text,text,jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION vec_autorizacion.acreditar_perfil_aplicacion_nominal_v1(text,text,text,text,text,text,text,text,jsonb,jsonb) FROM PUBLIC;
 GRANT USAGE ON SCHEMA vec_autorizacion TO vec_autorizacion_atestada_v3_propietario;
-GRANT EXECUTE ON FUNCTION vec_autorizacion.acreditar_perfil_aplicacion_nominal_v1(text,text,text,text,text,text,text,text,jsonb)
+GRANT EXECUTE ON FUNCTION vec_autorizacion.acreditar_perfil_aplicacion_nominal_v1(text,text,text,text,text,text,text,text,jsonb,jsonb)
  TO vec_autorizacion_atestada_v3_propietario;
 
 -- IS clasifica la cuenta bajo sus propios permisos y bloquea su estado.

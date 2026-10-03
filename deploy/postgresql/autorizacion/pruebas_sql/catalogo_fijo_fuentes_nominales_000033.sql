@@ -24,7 +24,7 @@ BEGIN
   OR (SELECT count(*) FROM vec_autorizacion.catalogo_accion_nominal_v1 WHERE version_rol_ref=v.version_rol_ref)<>3
  THEN RAISE EXCEPTION 'AUT33: concesiones nuevas o previas divergentes'; END IF;
  IF vec_autorizacion.acreditar_perfil_aplicacion_nominal_v1(v.version_rol_ref,'ausente','ausente','ausente',
-   'administracion.certificados.nominal.publicar','administracion','vinculo_certificado_nominal','gestionar_certificados_firmantes','[]'::jsonb)
+   'administracion.certificados.nominal.publicar','administracion','vinculo_certificado_nominal','gestionar_certificados_firmantes','[]'::jsonb,'{}'::jsonb)
  THEN RAISE EXCEPTION 'AUT33: perfil no asignado obtuvo permiso'; END IF;
  IF vec_autorizacion.destino_no_administrador_certificado_nominal_v1('cta_ausente_sintetica_aaaaaaaa','per_ausente_sintetica_bbbbbbbb')
  THEN RAISE EXCEPTION 'AUT33: cuenta IS ausente tratada como ordinaria'; END IF;
@@ -33,9 +33,9 @@ RESET ROLE;
 DO $acl$
 BEGIN
  IF has_function_privilege('vec_autorizacion_fuente',
-   'vec_autorizacion.acreditar_perfil_aplicacion_nominal_v1(text,text,text,text,text,text,text,text,jsonb)','EXECUTE')
+   'vec_autorizacion.acreditar_perfil_aplicacion_nominal_v1(text,text,text,text,text,text,text,text,jsonb,jsonb)','EXECUTE')
   OR NOT has_function_privilege('vec_autorizacion_atestada_v3_propietario',
-   'vec_autorizacion.acreditar_perfil_aplicacion_nominal_v1(text,text,text,text,text,text,text,text,jsonb)','EXECUTE')
+   'vec_autorizacion.acreditar_perfil_aplicacion_nominal_v1(text,text,text,text,text,text,text,text,jsonb,jsonb)','EXECUTE')
  THEN RAISE EXCEPTION 'AUT33: ACL nominal divergente'; END IF;
 END $acl$;
 ROLLBACK;
