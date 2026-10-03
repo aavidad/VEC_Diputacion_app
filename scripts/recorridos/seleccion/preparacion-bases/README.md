@@ -43,3 +43,18 @@ auditoría antes y después del CAS, replay y reinicio. El driver conserva
 
 El recorrido prepara bases: no las aprueba, firma ni publica. No aporta una
 evaluación alternativa; consume los pendientes del evaluador común existente.
+
+El servidor debe disponer además del registrador común de intentos de auditoría.
+Su configuración privada `auditoria-intentos.json` contiene `esquema`
+(`vec.auditoria.intentos.servidor.v1`), `dsn_file`, `proceso`, `canal`
+(`interna_corporativa`) y `limite_segundos` (entre 1 y 30). La cuenta tiene su
+provisión DBA y su preflight propios; no se reutiliza una cuenta de negocio.
+El archivo privado de S2 declara también `motivo_intento_denegado` y
+`motivo_intento_error`, referencias exactas de su catálogo gobernado.
+
+El montaje entrega un único puerto de preparación decorado a sus consumidores.
+Captura la identidad registrada antes de la operación y registra los fallos
+nominales después de que el servicio retorne. Si falta el acuse de auditoría,
+responde `503`. Los accesos permitidos, ausencias y conflictos ya confirmados
+conservan la auditoría de la transacción de Bolsa. El rechazo anterior a resolver
+la sesión sigue en la auditoría común de frontera, sin inventar un actor.

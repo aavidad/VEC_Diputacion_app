@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"vec-diputacion-granada/config"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	pgvec "vec-diputacion-granada/internal/vec/adapters/postgres"
 )
@@ -57,8 +58,18 @@ func (m *MontajePreparacionBasesV3) rutasDesdeRaiz(ctx context.Context, alta *de
 			reservados = append(reservados, pool.Config().ConnConfig.User)
 		}
 	}
-	return m.Componer(ctx, DependenciasMontajePreparacionBasesV3{SesionBase: identidad, Fronteras: fronteras,
+	registrador, proceso, cerrarIntentos, err := AbrirRegistradorIntentosAuditoriaDesarrollo(ctx,
+		config.Config{DevelopmentMaterialDir: m.directorio}, alta.postgresql.gobierno, reservados)
+	if err != nil {
+		return nil, nil, err
+	}
+	rutas, cerrar, err := m.Componer(ctx, DependenciasMontajePreparacionBasesV3{SesionBase: identidad, Fronteras: fronteras,
 		PDP: comun, Gobierno: alta.postgresql.gobierno,
 		MaterialGuardar: alta.postgresql.materialPreparacionBases[0], MaterialConsultar: alta.postgresql.materialPreparacionBases[1],
-		RegistrarRechazoFrontera: auditar, LoginsReservados: reservados})
+		RegistrarRechazoFrontera: auditar, RegistradorIntentos: registrador, ProcesoIntentos: proceso, LoginsReservados: reservados})
+	if err != nil {
+		cerrarIntentos()
+		return nil, nil, err
+	}
+	return rutas, func() { cerrar(); cerrarIntentos() }, nil
 }

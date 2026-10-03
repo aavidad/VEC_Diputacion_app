@@ -15,7 +15,7 @@ func configuracionPreparacionBasesPrueba() configuracionPreparacionBasesV3 {
 	m := motivoCatalogoPlantillasCTDesarrollo()
 	return configuracionPreparacionBasesV3{Esquema: "vec.seleccion.preparacion-bases.servidor.v1",
 		Ambito:        ambitoConfiguracionPreparacionBasesV3{OrganizacionRef: "org_" + strings.Repeat("a", 16), UnidadGestionRef: "uni_" + strings.Repeat("b", 16)},
-		MotivoGuardar: m, MotivoConsultar: m, EscrituraFile: "escritura.dsn", LecturaFile: "lectura.dsn"}
+		MotivoGuardar: m, MotivoConsultar: m, MotivoIntentoDenegado: m, MotivoIntentoError: m, EscrituraFile: "escritura.dsn", LecturaFile: "lectura.dsn"}
 }
 
 func TestPreparacionBasesConfiguracionOpcionalYPrivada(t *testing.T) {

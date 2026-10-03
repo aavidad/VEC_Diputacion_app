@@ -22,14 +22,16 @@ const nombreConfiguracionPreparacionBasesV3 = "seleccion-preparacion-bases.json"
 // Las referencias privadas delimitan la composición. No sustituyen la
 // concesión central vigente ni contienen reglas de aprobación de las bases.
 type configuracionPreparacionBasesV3 struct {
-	Esquema         string                                `json:"esquema"`
-	Ambito          ambitoConfiguracionPreparacionBasesV3 `json:"ambito"`
-	MotivoGuardar   core.ReferenciaEntradaCatalogo        `json:"motivo_guardar"`
-	MotivoConsultar core.ReferenciaEntradaCatalogo        `json:"motivo_consultar"`
-	EscrituraFile   string                                `json:"escritura_dsn_file"`
-	LecturaFile     string                                `json:"lectura_dsn_file"`
-	Guardar         provisionPreparacionBasesV3           `json:"provision_guardar"`
-	Consultar       provisionPreparacionBasesV3           `json:"provision_consultar"`
+	Esquema               string                                `json:"esquema"`
+	Ambito                ambitoConfiguracionPreparacionBasesV3 `json:"ambito"`
+	MotivoGuardar         core.ReferenciaEntradaCatalogo        `json:"motivo_guardar"`
+	MotivoConsultar       core.ReferenciaEntradaCatalogo        `json:"motivo_consultar"`
+	MotivoIntentoDenegado core.ReferenciaEntradaCatalogo        `json:"motivo_intento_denegado"`
+	MotivoIntentoError    core.ReferenciaEntradaCatalogo        `json:"motivo_intento_error"`
+	EscrituraFile         string                                `json:"escritura_dsn_file"`
+	LecturaFile           string                                `json:"lectura_dsn_file"`
+	Guardar               provisionPreparacionBasesV3           `json:"provision_guardar"`
+	Consultar             provisionPreparacionBasesV3           `json:"provision_consultar"`
 }
 
 type ambitoConfiguracionPreparacionBasesV3 struct {
@@ -61,6 +63,10 @@ func (c configuracionPreparacionBasesV3) valida() bool {
 	return c.Esquema == "vec.seleccion.preparacion-bases.servidor.v1" && err == nil &&
 		core.ReferenciaMotivoAutorizacionV2Valida(c.MotivoGuardar) &&
 		core.ReferenciaMotivoAutorizacionV2Valida(c.MotivoConsultar) &&
+		core.ReferenciaMotivoAutorizacionV2Valida(c.MotivoIntentoDenegado) &&
+		core.ReferenciaMotivoAutorizacionV2Valida(c.MotivoIntentoError) &&
+		c.MotivoIntentoDenegado.CatalogoID == c.MotivoGuardar.CatalogoID &&
+		c.MotivoIntentoError.CatalogoID == c.MotivoGuardar.CatalogoID &&
 		c.MotivoGuardar.CatalogoID == c.MotivoConsultar.CatalogoID &&
 		filepath.IsLocal(c.EscrituraFile) && filepath.IsLocal(c.LecturaFile) &&
 		c.EscrituraFile != c.LecturaFile && c.Guardar.valida() && c.Consultar.valida()

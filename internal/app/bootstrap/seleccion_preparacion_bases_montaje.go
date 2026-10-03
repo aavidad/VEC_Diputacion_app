@@ -68,6 +68,8 @@ type DependenciasMontajePreparacionBasesV3 struct {
 	Gobierno                           *pgxpool.Pool
 	MaterialGuardar, MaterialConsultar *proveedorMaterialAltaContratacionTemporalDesarrollo
 	RegistrarRechazoFrontera           func(*http.Request) error
+	RegistradorIntentos                vecports.RegistradorIntentosAuditoria
+	ProcesoIntentos                    string
 	LoginsReservados                   []string
 }
 
@@ -75,7 +77,8 @@ type DependenciasMontajePreparacionBasesV3 struct {
 // consume identidad/contexto del núcleo y no registra rutas en otro listener.
 func (m *MontajePreparacionBasesV3) Componer(ctx context.Context, d DependenciasMontajePreparacionBasesV3) ([]vechttp.RutaExacta, func(), error) {
 	if ctx == nil || ctx.Err() != nil || m == nil || d.SesionBase == nil || d.SesionBase.soporte == nil || d.Gobierno == nil ||
-		d.Fronteras.identidad == nil || dependenciaEsNulaContratacionTemporalDesarrollo(d.PDP) || d.RegistrarRechazoFrontera == nil {
+		d.Fronteras.identidad == nil || dependenciaEsNulaContratacionTemporalDesarrollo(d.PDP) || d.RegistrarRechazoFrontera == nil ||
+		dependenciaEsNulaContratacionTemporalDesarrollo(d.RegistradorIntentos) || !procesoAuditoriaIntentosConfigurado(d.ProcesoIntentos) {
 		return nil, nil, errMontajePreparacionBasesV3
 	}
 	for _, material := range []*proveedorMaterialAltaContratacionTemporalDesarrollo{d.MaterialGuardar, d.MaterialConsultar} {
@@ -150,11 +153,16 @@ func (m *MontajePreparacionBasesV3) Componer(ctx context.Context, d Dependencias
 	if err != nil {
 		return nil, nil, err
 	}
+	preparador, err := nuevoPreparadorBasesAuditadoV3(servicio, broker, d.RegistradorIntentos, d.ProcesoIntentos,
+		m.configuracion.MotivoIntentoDenegado, m.configuracion.MotivoIntentoError)
+	if err != nil {
+		return nil, nil, err
+	}
 	frontera, err := nuevaFronteraPreparacionBasesHTTPV3(broker, d.RegistrarRechazoFrontera)
 	if err != nil {
 		return nil, nil, err
 	}
-	h, err := selhttp.NuevaPreparacionBasesHandler(selhttp.ConfigPreparacionBases{Preparador: servicio,
+	h, err := selhttp.NuevaPreparacionBasesHandler(selhttp.ConfigPreparacionBases{Preparador: preparador,
 		ResolverContexto: broker.ResolverContextoHTTP, ValidarFrontera: frontera})
 	if err != nil {
 		return nil, nil, err
