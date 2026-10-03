@@ -453,7 +453,7 @@
   }
 }
 
-@media (max-width: 320px) {
+@media (max-width: 480px) {
   .ct-circuito-paso {
     grid-template-columns: minmax(0, 1fr);
   }
