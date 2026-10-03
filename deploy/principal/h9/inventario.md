@@ -1,8 +1,9 @@
 # Inventario H9 sobre main fijado
 
-El inventario fija el árbol `4a354ae4bc1704e7c48c081f5e7dd0185e7233fd` y compara las altas SQL con `ed9c7de86`. Contiene **47 UP nuevas y ocho pendientes anteriores**. Las PR posteriores y abiertas quedan fuera; en particular, AD172 y AD173 no pertenecen a este árbol. CT172 sí pertenece: el número coincide entre módulos, pero son migraciones diferentes.
+El inventario fija el árbol `39ec9858d2983e24786db9d909e86cdce19db720` y compara las altas SQL con `ed9c7de86`. Contiene **48 UP nuevas y ocho pendientes anteriores**. Las PR posteriores y abiertas quedan fuera; en particular, AD172 y AD173 no pertenecen a este árbol. CT172 sí pertenece: el número coincide entre módulos, pero son migraciones diferentes.
 
-El ensayo está detenido en CT170: falta `vec_autorizacion.revalidar_competencia_firmante_ct_v1(text)`, conservada en la PR borrador #453 y ausente de main. El kit incluye `NO_INSTALAR`; el guion lo rechaza antes de intervenir servicios. Codex-P ha reconstruido el clon, ensayado el tramo previo y comprobado el arranque. Claude revisa, integra las dependencias y decide la instalación.
+La selección completa ya está ensayada: 39 migraciones y un soporte de roles. AUT30 entró en main durante el trabajo (#453) y se añadió antes de CT170. El kit conserva `NO_INSTALAR` mientras terminan calidad y navegador; el guion lo rechaza antes de intervenir servicios. Claude revisa e instala.
+
 
 ## Preimagen
 
@@ -12,7 +13,7 @@ La principal ya conserva esa historia: no reaplicar estas SQL ni ejecutar DOWN. 
 
 ## Orden de la selección H9
 
-Cada paso presupone que las guardas completas del archivo coinciden; el número de migración no sustituye ese cotejo. La lista reproducible está en `seleccion_h9` de [orden.json](orden.json), con rutas y huellas en `migraciones`. `orden_aplicacion` incorpora además el soporte de roles y es la lista completa de 39 archivos para el ensayo.
+Cada paso presupone que las guardas completas del archivo coinciden; el número de migración no sustituye ese cotejo. La lista reproducible está en `seleccion_h9` de [orden.json](orden.json), con rutas y huellas en `migraciones`. `orden_aplicacion` incorpora además el soporte de roles y es la lista completa de 40 archivos para el ensayo.
 
 1. Base ADMIN: CA19 → AUT22 → AUT23 → CA20 → IS9 → AUT24.
 2. Auditoría común: roles_intentos_up.sql → CA26 → IS13 → AD169 → CA27 → AD171.
@@ -20,7 +21,7 @@ Cada paso presupone que las guardas completas del archivo coinciden; el número 
 4. Circuito y originales: AD151 → CT163 → CT164 → AD156 → AD157 → AD158 → Documentos13.
 5. Firma V2: AD162 → AD170 → AD159 → AD165 → AD166.
 6. Cargo y competencia: Personal28 → Personal29 → AD167 → AUT32 → AUT35.
-7. Capacidades y consumidores CT: AUT34 → AD168 → CT170 → CT174 → CT172 → Personal31.
+7. Capacidades y consumidores CT: AUT34 → AD168 → AUT30 → CT170 → CT174 → CT172 → Personal31.
 
 **AD162 va antes de AD159.** AD159 exige las fachadas y la huella POST-AD162, aunque su número sea menor. CT172 exige AD162/AD170, CT174 y AUT32/AUT35. AUT32 exige CA25, Personal28 y AD167; AUT35 añade la fuente de Personal29. La futura AD172 debe quedar detrás de AD154 cuando se incorpore a main, con su revisión y ensayo propios.
 
@@ -39,7 +40,7 @@ AD149 y AD151 parten de POST155. AD149 espera definición `5dbdac03a2a4e52ca4cb4
 
 Los archivos históricos AD141/142/144 fijan huellas anteriores a AD155. AD161 sustituye la instalación de esos contratos; la mera presencia de los archivos en main no permite ejecutarlos. Las restantes SQL opcionales permanecen inventariadas, con su huella y guardas, para preparar su incorporación cuando se monte el consumidor.
 
-## Soporte fuera de las 47 altas
+## Soporte fuera de las 48 altas
 
 Se han consultado todas las listas causales `deploy/principal/lista_sql_*.txt` del árbol fijado. El soporte se inventaría por separado: no altera el recuento de UP nuevas.
 
@@ -125,7 +126,7 @@ La revisión focal de seguridad conserva las guardas originales: no cambia SQL, 
 
 Falta incorporar la evidencia de configuración y completar el ensayo causal. Sólo después Dirección puede convertir `ejecutable` en verdadero, indicando el resultado exacto. Una exclusión sin evidencia o un fallo de guarda mantiene el kit pendiente. Instalar las fuentes nominales no publica perfiles ni cargos, no firma documentos y no acredita un recorrido en navegador.
 
-## Resultado del ensayo de Codex-P
+## Primer ensayo, conservado como antecedente
 
 PostgreSQL 18.4 se ejecutó con UID/GID del operador, límite de 2 GB, `--network none`, `--rm` y datos en disco bajo el estado privado de P. Las 15 SQL que reconstruyen la principal terminaron correctamente. El núcleo inicial coincidió con definición `5dbdac03a2a4e52ca4cb45c57b3bf18e621091da9e818091e30a3f90e68e7330` y fuente `cdc8cb87f27360741a2d0d52e8b9d58d0a1423be8abd8ff9063f389b2c8ea75e`.
 
@@ -140,3 +141,13 @@ La puerta `scripts/verificar_calidad.sh`, con `-p 8`, caché en disco y TMPDIR c
 Las exclusiones CRN11/RPT/Selectivos siguen fuera. La principal mantiene B2 e incorporación acreditada apagados y carece del montaje de esas consultas nuevas; el arranque observado no las exige. No se omiten de forma silenciosa: sus conflictos de preimagen siguen anotados. La necesidad individual de cada SQL del tramo confirmado no se ha aislado; arrancar tras el conjunto no demuestra que todas sean obligatorias.
 
 Antes de instalar faltan AUT30 en main, el ensayo causal completo, la puerta verde y el recorrido de las capacidades nuevas. También falta que Dirección acredite la exclusión de los diez procesos `psql` ajenos observados en el espacio de red de la principal. P no los paró. El guion exige mantenimiento privado revisado y coteja los montajes efectivos de binario, web, catálogos y PGDATA.
+
+## Reanudación tras AUT30 integrada
+
+La PR #453 entró en main por `63eb05717229f904e1d3a5d9dedcff8158abe9c1`. El árbol se actualizó a `39ec9858d2983e24786db9d909e86cdce19db720`, con una UP adicional desde el inventario inicial: AUT30. La copia fría se reconstruyó en un clon nuevo porque el anterior ya estaba retirado. Las 15 SQL de base y las 40 de la selección completa terminaron correctamente, una confirmación por archivo. No se modificó SQL de producto. El nuevo binario SHA256 `16b8d71f19dc34db4d4bac35e69179526cdcea128ebef7da06f5e8b6f4248922` emitió `vec server listening` con TCP/TLS, configuración y almacenes copiados por lectura.
+
+Los primeros fallos globales procedían de un directorio ajeno `/tmp/.git`: las pruebas rechazaban sus claves sintéticas por estar bajo un ancestro Git. Se dejó intacto. Con un temporal privado en disco los dos paquetes focales fallidos dieron verde; la puerta completa está en curso en ese entorno corregido. No se debilitó ninguna guarda.
+
+| Migración añadida | PR | Preimagen | SHA256 | Consumidor |
+| --- | --- | --- | --- | --- |
+| AUT30 | #453, integrada | Fachada ausente, roles/tablas centrales presentes, migrador superusuario | 704933566ff5170feb01bfc5f9a3a650be21189306d20348293733c4ae676c32 | CT170; su operación legada permanece cerrada. |

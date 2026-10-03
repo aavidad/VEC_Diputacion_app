@@ -1,8 +1,8 @@
 {
   "esquema_version": 1,
-  "source_commit": "4a354ae4bc1704e7c48c081f5e7dd0185e7233fd",
+  "source_commit": "39ec9858d2983e24786db9d909e86cdce19db720",
   "base_commit": "ed9c7de8680d6282ba3f32e7e01118001ef7c262",
-  "estado": "ensayo_detenido_CT170_AUT30_ausente_main",
+  "estado": "SQL_ensayo_OK_pendiente_calidad_y_Chrome",
   "ejecutable": false,
   "preimagen": {
     "copia_fria": "h7-pg.tgz",
@@ -121,6 +121,7 @@
     "AUT35",
     "AUT34",
     "AD168",
+    "AUT30",
     "CT170",
     "CT174",
     "CT172",
@@ -170,13 +171,7 @@
     "Falta ensayo causal completo de la selección sobre la copia fría con H7/H8/AD155/B77/importación5.",
     "Falta evidencia de configuración para excluir consumidores CRN11/RPT/Selectivos.",
     "Los esquemas Convocatorias/Méritos/Baremo no están en la copia fría. S2 precisa roles BC, authBC1 y BC1; BC2..7 no son dependencia de S2. Inventariar otros prefijos según consumidor.",
-    "AD149/AD151 compiten sobre POST155; AD154/AD161 compiten sobre POST149. No unir cadenas sin migración nueva revisada.",
-    {
-      "clave": "CT170_AUT30",
-      "observado": "ausente_en_main",
-      "esperado": "fachada_legacy_con_permiso_exacto",
-      "pr_existente": 453
-    }
+    "AD149/AD151 compiten sobre POST155; AD154/AD161 compiten sobre POST149. No unir cadenas sin migración nueva revisada."
   ],
   "migraciones": [
     {
@@ -229,7 +224,7 @@
           "objeto": "vec_contexto_actor_v1.listar_perfiles_cuenta_v1"
         }
       ],
-      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -292,7 +287,7 @@
           "objeto": "vec_autorizacion.impedir_revivir_asignacion_v1"
         }
       ],
-      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -399,7 +394,7 @@
           "objeto": "vec_autorizacion.validar_recibo_perfil_sensible_v1"
         }
       ],
-      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -458,7 +453,7 @@
           "objeto": "vec_contexto_actor_v1.revocar_perfil_vinculo_admin_v1"
         }
       ],
-      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -539,7 +534,7 @@
           "objeto": "vec_identidad_sesiones_v1.bloquear_inactivacion_admin_hasta_aut24_v1"
         }
       ],
-      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -772,7 +767,7 @@
           "objeto": "vec_autorizacion.provisionar_dos_administradores_iniciales_v2"
         }
       ],
-      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -821,7 +816,7 @@
           "objeto": "vec_contexto_actor_v1.cotejar_contexto_historico_auditoria_v1"
         }
       ],
-      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -870,7 +865,7 @@
           "objeto": "vec_identidad_sesiones_v1.cotejar_autenticacion_historica_auditoria_v1"
         }
       ],
-      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -916,7 +911,7 @@
           "objeto": "vec_autorizacion_atestada_v3.preflight_registrador_intentos_v1"
         }
       ],
-      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -970,7 +965,7 @@
         }
       ],
       "consumidor_sql": [],
-      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -1030,7 +1025,7 @@
           "objeto": "vec_autorizacion_atestada_v3.registrar_evento_admin_preperfil_v1"
         }
       ],
-      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -1118,7 +1113,7 @@
           "objeto": "vec_autorizacion."
         }
       ],
-      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -1208,7 +1203,7 @@
           "objeto": "vec_autorizacion."
         }
       ],
-      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -1282,7 +1277,7 @@
           "objeto": "vec_autorizacion.destino_no_administrador_certificado_nominal_v1"
         }
       ],
-      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -1348,7 +1343,7 @@
           "objeto": "vec_contexto_actor_v1.recuperar_historia_certificado_firmante_ct_v2"
         }
       ],
-      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -1451,7 +1446,7 @@
           "objeto": "vec_autorizacion_atestada_v3.registrar_y_consumir_consulta_circuito_ct_v3_atestada"
         }
       ],
-      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -1532,7 +1527,7 @@
           "objeto": "vec_contratacion_temporal.consultar_circuito_rrhh_v1"
         }
       ],
-      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -1865,7 +1860,7 @@
           "objeto": "vec_contratacion_temporal.proteger_version_circuito_ct164"
         }
       ],
-      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -1956,7 +1951,7 @@
           "objeto": "vec_autorizacion_atestada_v3.registrar_y_consumir_firma_externa_ct_v3_atestada"
         }
       ],
-      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -2009,7 +2004,7 @@
           "objeto": "vec_autorizacion_atestada_v3.registrar_y_consumir_firma_vec_ct_v3_atestada"
         }
       ],
-      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -2114,7 +2109,7 @@
         }
       ],
       "consumidor_sql": [],
-      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -2203,7 +2198,7 @@
           "objeto": "vec_documentos.rechazar_externa_original_firmable_v1"
         }
       ],
-      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -2289,7 +2284,7 @@
           "objeto": "vec_autorizacion_atestada_v3.consumir_consulta_firmas_r5_ct_v2_atestada"
         }
       ],
-      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -2339,7 +2334,7 @@
           "objeto": "vec_autorizacion_atestada_v3.registrar_y_consumir_firma_descriptor_ct_v2_atestada"
         }
       ],
-      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -2464,7 +2459,7 @@
           "objeto": "vec_autorizacion_atestada_v3.consumir_consulta_firmas_r5_ct_v3_atestada"
         }
       ],
-      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -2555,7 +2550,7 @@
           "objeto": "vec_autorizacion.operar_certificado_nominal_v3"
         }
       ],
-      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -2634,7 +2629,7 @@
           "objeto": "vec_autorizacion_atestada_v3.consumir_publicacion_cargo_competencial_v3_atestada"
         }
       ],
-      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -2687,7 +2682,7 @@
           "objeto": "vec_personal.publicar_cargo_competencial_v1"
         }
       ],
-      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -2726,7 +2721,7 @@
           "objeto": "vec_personal.resolver_fuente_cargo_ocupante_ct_v1"
         }
       ],
-      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -2775,7 +2770,7 @@
           "objeto": "vec_autorizacion_atestada_v3.comprobar_consumo_firma_ct_v1"
         }
       ],
-      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -2849,7 +2844,7 @@
           "objeto": "vec_autorizacion.recuperar_evidencia_competencia_firmante_ct_v1"
         }
       ],
-      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -2907,7 +2902,7 @@
           "objeto": "vec_autorizacion.construir_contexto_nominal_firmante_ct_v1"
         }
       ],
-      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -2951,7 +2946,7 @@
         }
       ],
       "consumidor_sql": [],
-      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -3034,7 +3029,7 @@
           "objeto": "vec_autorizacion.consultar_capacidades_admin_v1"
         }
       ],
-      "arranque": "arranque_acreditado_con_conjunto_parcial; dependencia_individual_no_aislada",
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -3125,7 +3120,7 @@
           "objeto": "vec_contratacion_temporal.consultar_firmas_r5_atestadas_v1"
         }
       ],
-      "arranque": "no_exigida_por_arranque_acreditado; nueva_capacidad_no_ensayada",
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -3176,7 +3171,7 @@
           "objeto": "vec_contratacion_temporal.leer_revalidar_relacion_unidad_expediente_ct_v1"
         }
       ],
-      "arranque": "no_exigida_por_arranque_acreditado; nueva_capacidad_no_ensayada",
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -3250,7 +3245,7 @@
           "objeto": "vec_contratacion_temporal.consultar_firmas_r5_atestadas_v2"
         }
       ],
-      "arranque": "no_exigida_por_arranque_acreditado; nueva_capacidad_no_ensayada",
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -3306,7 +3301,7 @@
           "objeto": "vec_personal.cotejar_unidad_bootstrap_admin_v1"
         }
       ],
-      "arranque": "no_exigida_por_arranque_acreditado; nueva_capacidad_no_ensayada",
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
       "motivo_exclusion": null
     },
     {
@@ -4604,6 +4599,25 @@
       ],
       "arranque": "fuera_seleccion; consumidores_nuevos_sin_montaje_principal_acreditado",
       "motivo_exclusion": "Contratos cubiertos por AD161 sin reaplicar la migración histórica; guarda anterior a AD155."
+    },
+    {
+      "id": "AUT30",
+      "modulo": "autorizacion",
+      "numero": 30,
+      "ruta": "deploy/postgresql/autorizacion/migraciones/000030_competencia_firmante_ct.up.sql",
+      "sha256": "704933566ff5170feb01bfc5f9a3a650be21189306d20348293733c4ae676c32",
+      "pr": 453,
+      "dependencias": [
+        "Catalogos_y_asignaciones_centrales",
+        "CT_propietario_y_ejecutor"
+      ],
+      "preimagen_guardas": {
+        "actual": "fachada_ausente",
+        "esperado": "roles_tablas_centrales_vigentes_y_migrador_superusuario"
+      },
+      "consumidor": "CT170 contrato legado permanece cerrado; CT172 usa AUT32/AUT35 nominales",
+      "arranque": "arranque_acreditado_con_seleccion_completa; necesidad_individual_no_aislada",
+      "estado": "seleccionada_h9_confirmada"
     }
   ],
   "soporte": [
@@ -5049,27 +5063,34 @@
     },
     {
       "orden": 36,
+      "id": "AUT30",
+      "ruta": "deploy/postgresql/autorizacion/migraciones/000030_competencia_firmante_ct.up.sql",
+      "sha256": "704933566ff5170feb01bfc5f9a3a650be21189306d20348293733c4ae676c32",
+      "tipo": "migracion"
+    },
+    {
+      "orden": 37,
       "id": "CT170",
       "ruta": "deploy/postgresql/contratacion_temporal/migraciones/000170_firma_verificada_procedencia.up.sql",
       "sha256": "688998cca70e0f72665ea1e76d023c109702c5aa18848fc48a634e2d52c6cb48",
       "tipo": "migracion"
     },
     {
-      "orden": 37,
+      "orden": 38,
       "id": "CT174",
       "ruta": "deploy/postgresql/contratacion_temporal/migraciones/000174_relacion_unidad_expediente_privada.up.sql",
       "sha256": "b27e191c6103298f81ee61921013d5f66accb8ba6fa61af3a703b6ed15200952",
       "tipo": "migracion"
     },
     {
-      "orden": 38,
+      "orden": 39,
       "id": "CT172",
       "ruta": "deploy/postgresql/contratacion_temporal/migraciones/000172_firma_pdf_revision_v2.up.sql",
       "sha256": "0d16408c03b66d31c08b2f03e54dda1066a266aa35539d283e7629f09d66f709",
       "tipo": "migracion"
     },
     {
-      "orden": 39,
+      "orden": 40,
       "id": "Personal31",
       "ruta": "deploy/postgresql/personal/migraciones/000031_unidad_bootstrap_admin.up.sql",
       "sha256": "4f193433096b2002e14e7fb03e332ecea3bf159e4717d82f7a2dd830f6f363e4",
@@ -5170,19 +5191,13 @@
   ],
   "resultado_ensayo": {
     "base_reconstruida_sql": 15,
-    "nuevas_migraciones_confirmadas": 34,
+    "nuevas_migraciones_confirmadas": 39,
     "soportes_confirmados": 1,
-    "fallo_producto": {
-      "migracion": "CT170",
-      "clave": "vec_autorizacion.revalidar_competencia_firmante_ct_v1(text)",
-      "observado": "ausente",
-      "esperado": "presente_con_EXECUTE_para_propietario_CT",
-      "pr_existente": 453,
-      "efecto": "rollback_completo_CT170"
-    },
-    "arranque": "base_y_main_acreditados_con_SQL_parcial",
-    "reinicio": "aplicacion_y_PostgreSQL_7_consultas_HTTP200_datos_identicos",
-    "quality": "verificar_calidad.sh_fallo_8_paquetes_ajenos_a_H9",
-    "instalacion_principal": false
+    "fallo_producto": null,
+    "AUT30_integrada": "63eb05717229f904e1d3a5d9dedcff8158abe9c1",
+    "arranque": "main39ec_acreditado_con_SQL_completo_de_seleccion",
+    "quality": "en_curso_TMPDIR_privado_fuera_tmp_git",
+    "instalacion_principal": false,
+    "precedente": "ensayo4a_detenido_CT170_resuelto_tras_merge453"
   }
 }
