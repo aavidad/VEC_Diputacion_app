@@ -30,14 +30,17 @@ BEGIN
    RAISE EXCEPTION 'CC7: tipo de fila concedido fuera de propietario: %',t USING ERRCODE='55000'; END IF;
  END LOOP;
  FOREACH f IN ARRAY ARRAY[
+  'vec_catalogos_configurables.json_plan_sin_duplicados_v1(json,integer)'::regprocedure,
   'vec_catalogos_configurables.validar_plan_nominal_firma_v1(bytea,text)'::regprocedure,
   'vec_catalogos_configurables.leer_plan_nominal_firma_v1(text,bigint,text,text,jsonb)'::regprocedure,
   'vec_catalogos_configurables.confirmar_gobierno_plan_nominal_firma_v1(bytea,jsonb)'::regprocedure] LOOP
   SELECT x.proowner,x.prosecdef,x.provolatile,x.proconfig INTO STRICT p
    FROM pg_catalog.pg_proc x WHERE x.oid=f;
   IF p.proowner<>propietario OR NOT p.prosecdef OR
-     (f='vec_catalogos_configurables.validar_plan_nominal_firma_v1(bytea,text)'::regprocedure AND p.provolatile<>'i') OR
-     (f<>'vec_catalogos_configurables.validar_plan_nominal_firma_v1(bytea,text)'::regprocedure AND p.provolatile<>'v')
+     (f IN ('vec_catalogos_configurables.json_plan_sin_duplicados_v1(json,integer)'::regprocedure,
+       'vec_catalogos_configurables.validar_plan_nominal_firma_v1(bytea,text)'::regprocedure) AND p.provolatile<>'i') OR
+     (f NOT IN ('vec_catalogos_configurables.json_plan_sin_duplicados_v1(json,integer)'::regprocedure,
+       'vec_catalogos_configurables.validar_plan_nominal_firma_v1(bytea,text)'::regprocedure) AND p.provolatile<>'v')
      OR NOT (p.proconfig @> ARRAY['search_path=pg_catalog','row_security=on']) THEN
    RAISE EXCEPTION 'CC7: función sin frontera fija: %',f USING ERRCODE='55000'; END IF;
   FOR permiso IN SELECT a.grantee FROM pg_catalog.pg_proc pp
@@ -45,7 +48,8 @@ BEGIN
      pg_catalog.acldefault('f',pp.proowner))) a
    WHERE pp.oid=f LOOP
    IF permiso.grantee=0 OR
-      (f='vec_catalogos_configurables.validar_plan_nominal_firma_v1(bytea,text)'::regprocedure AND permiso.grantee<>propietario) OR
+      (f IN ('vec_catalogos_configurables.json_plan_sin_duplicados_v1(json,integer)'::regprocedure,
+        'vec_catalogos_configurables.validar_plan_nominal_firma_v1(bytea,text)'::regprocedure) AND permiso.grantee<>propietario) OR
       (f='vec_catalogos_configurables.leer_plan_nominal_firma_v1(text,bigint,text,text,jsonb)'::regprocedure AND permiso.grantee NOT IN (propietario,ct)) OR
       (f='vec_catalogos_configurables.confirmar_gobierno_plan_nominal_firma_v1(bytea,jsonb)'::regprocedure AND permiso.grantee NOT IN (propietario,ad)) THEN
     RAISE EXCEPTION 'CC7: ACL de función demasiado amplia: %',f USING ERRCODE='55000'; END IF;
@@ -63,4 +67,30 @@ BEGIN
       AND g.tgname='plan_firma_publicacion_inmutable' AND g.tgenabled IN ('O','A')) THEN
   RAISE EXCEPTION 'CC7: publicación mutable' USING ERRCODE='55000'; END IF;
 END $prueba$;
+-- Vectores de bytes exactos generados con CatalogoConfigurable.ClonarCanonico
+-- y json.Marshal de Go; las copias legibles están en testdata/.
+DO $vector$
+DECLARE borrador bytea:=pg_catalog.decode('eyJpZCI6ImN0LnBsYW4uZmlybWEuc2ludGV0aWNvIiwidmVyc2lvbiI6MSwicmV2aXNpb24iOjEsIm1vZHVsb19pZCI6ImNvbnRyYXRhY2lvbl90ZW1wb3JhbCIsIm5vbWJyZSI6IlBsYW4gZGUgZmlybWEgc2ludMOpdGljbyIsImZ1ZW50ZV9yZWYiOiJmdWVudGU6cnJoaDpzaW50ZXRpY2EiLCJtb3Rpdm9fY3JlYWNpb24iOiJFamVyY2ljaW8gc2ludMOpdGljbyIsImVudHJhZGFzIjpbeyJjbGF2ZSI6InBhc29fMSIsImV0aXF1ZXRhIjoiUGFzbyAxIiwib3JkZW4iOjEsInZpZ2VudGVfZGVzZGUiOiIyMDI2LTAxLTAxVDAwOjAwOjAwWiIsInZpZ2VudGVfaGFzdGEiOiIwMDAxLTAxLTAxVDAwOjAwOjAwWiIsImF0cmlidXRvcyI6eyJhY2Npb25fY29tcGV0ZW5jaWFsIjoiY29udHJhdGFjaW9uX3RlbXBvcmFsLmRvY3VtZW50by5maXJtYV92ZWMucmVnaXN0cmFyIiwiY2FyZ29fcmVmIjoiY2FyZ286ZGlyZWNjaW9uIiwiY2lyY3VpdG9fcmVmIjoiY2F0YWxvZ286Y2lyY3VpdG86c2ludGV0aWNvIiwiY2lyY3VpdG9fc2hhMjU2IjoiYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYSIsImNpcmN1aXRvX3ZlcnNpb24iOiIxIiwiZG9jdW1lbnRvIjoiaW5mb3JtZV9kZWZpbml0aXZvIiwiZXNxdWVtYSI6ImN0LnBsYW4tY29tcGV0ZW5jaWEtZmlybWEudjIiLCJlc3F1ZW1hX2NvbnRleHRvIjoidmVjLmNvbnRleHRvLmZpcm1hLmN0LnYxIiwiZmluYWxpZGFkIjoiZ2VzdGlvbmFyX2NvbnRyYXRhY2lvbl90ZW1wb3JhbCIsIm1hcGVvX2Z1ZW50ZV9yZWYiOiJmdWVudGU6cGxhbjpjdCIsIm1hcGVvX3ZlcnNpb24iOiIxIiwib3JnYW5pemFjaW9uX3JlZiI6Im9yZ2FuaXphY2lvbjpjZW50cmFsIiwicGFzb19vcmRlbiI6IjEiLCJwYXNvX3JlZiI6InBhc286ZGlyZWNjaW9uIiwicGVyZmlsX2VzcGVyYWRvX3JlZiI6InBlcmZpbDpmaXJtYTpkaXJlY2Npb24iLCJyb2xfaWQiOiJjdF9kaXJlY2Npb25fcnJoaCIsInRpcG9fcmVjdXJzbyI6ImRvY3VtZW50b19jb250cmF0YWNpb25fdGVtcG9yYWwiLCJ1bmlkYWRfcmVmIjoidW5pZGFkOnJyaGgifX1dLCJlc3RhZG8iOiJib3JyYWRvciIsImNyZWFkb19wb3IiOiJhY3RvcjpjcmVhZG9yOjAwMSIsImNyZWFkb19lbiI6IjIwMjYtMTAtMDNUMTA6MDA6MDBaIiwidWx0aW1hX21vZGlmaWNhY2lvbl9lbiI6IjAwMDEtMDEtMDFUMDA6MDA6MDBaIiwicHVibGljYWRvX2VuIjoiMDAwMS0wMS0wMVQwMDowMDowMFoiLCJyZXRpcmFkb19lbiI6IjAwMDEtMDEtMDFUMDA6MDA6MDBaIn0=','base64');
+ publicado bytea:=pg_catalog.decode('eyJpZCI6ImN0LnBsYW4uZmlybWEuc2ludGV0aWNvIiwidmVyc2lvbiI6MSwicmV2aXNpb24iOjEsIm1vZHVsb19pZCI6ImNvbnRyYXRhY2lvbl90ZW1wb3JhbCIsIm5vbWJyZSI6IlBsYW4gZGUgZmlybWEgc2ludMOpdGljbyIsImZ1ZW50ZV9yZWYiOiJmdWVudGU6cnJoaDpzaW50ZXRpY2EiLCJtb3Rpdm9fY3JlYWNpb24iOiJFamVyY2ljaW8gc2ludMOpdGljbyIsImVudHJhZGFzIjpbeyJjbGF2ZSI6InBhc29fMSIsImV0aXF1ZXRhIjoiUGFzbyAxIiwib3JkZW4iOjEsInZpZ2VudGVfZGVzZGUiOiIyMDI2LTAxLTAxVDAwOjAwOjAwWiIsInZpZ2VudGVfaGFzdGEiOiIwMDAxLTAxLTAxVDAwOjAwOjAwWiIsImF0cmlidXRvcyI6eyJhY2Npb25fY29tcGV0ZW5jaWFsIjoiY29udHJhdGFjaW9uX3RlbXBvcmFsLmRvY3VtZW50by5maXJtYV92ZWMucmVnaXN0cmFyIiwiY2FyZ29fcmVmIjoiY2FyZ286ZGlyZWNjaW9uIiwiY2lyY3VpdG9fcmVmIjoiY2F0YWxvZ286Y2lyY3VpdG86c2ludGV0aWNvIiwiY2lyY3VpdG9fc2hhMjU2IjoiYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYSIsImNpcmN1aXRvX3ZlcnNpb24iOiIxIiwiZG9jdW1lbnRvIjoiaW5mb3JtZV9kZWZpbml0aXZvIiwiZXNxdWVtYSI6ImN0LnBsYW4tY29tcGV0ZW5jaWEtZmlybWEudjIiLCJlc3F1ZW1hX2NvbnRleHRvIjoidmVjLmNvbnRleHRvLmZpcm1hLmN0LnYxIiwiZmluYWxpZGFkIjoiZ2VzdGlvbmFyX2NvbnRyYXRhY2lvbl90ZW1wb3JhbCIsIm1hcGVvX2Z1ZW50ZV9yZWYiOiJmdWVudGU6cGxhbjpjdCIsIm1hcGVvX3ZlcnNpb24iOiIxIiwib3JnYW5pemFjaW9uX3JlZiI6Im9yZ2FuaXphY2lvbjpjZW50cmFsIiwicGFzb19vcmRlbiI6IjEiLCJwYXNvX3JlZiI6InBhc286ZGlyZWNjaW9uIiwicGVyZmlsX2VzcGVyYWRvX3JlZiI6InBlcmZpbDpmaXJtYTpkaXJlY2Npb24iLCJyb2xfaWQiOiJjdF9kaXJlY2Npb25fcnJoaCIsInRpcG9fcmVjdXJzbyI6ImRvY3VtZW50b19jb250cmF0YWNpb25fdGVtcG9yYWwiLCJ1bmlkYWRfcmVmIjoidW5pZGFkOnJyaGgifX1dLCJlc3RhZG8iOiJwdWJsaWNhZG8iLCJjcmVhZG9fcG9yIjoiYWN0b3I6Y3JlYWRvcjowMDEiLCJjcmVhZG9fZW4iOiIyMDI2LTEwLTAzVDEwOjAwOjAwWiIsInVsdGltYV9tb2RpZmljYWNpb25fZW4iOiIwMDAxLTAxLTAxVDAwOjAwOjAwWiIsInB1YmxpY2Fkb19wb3IiOiJhY3RvcjpwdWJsaWNhZG9yOjAwMSIsInB1YmxpY2Fkb19lbiI6IjIwMjYtMTAtMDNUMTE6MDA6MDBaIiwiYXByb2JhY2lvbl9yZWYiOiJhcHJvYmFjaW9uOnNpbnRldGljYTowMDEiLCJtb3Rpdm9fcHVibGljYWNpb24iOiJSZXZpc2nDs24gc2ludMOpdGljYSIsInJldGlyYWRvX2VuIjoiMDAwMS0wMS0wMVQwMDowMDowMFoifQ==','base64');
+ c jsonb; rechazo boolean:=false; alterado bytea;
+BEGIN
+ c:=vec_catalogos_configurables.validar_plan_nominal_firma_v1(borrador,'ce029352e249d4260bcc2b5717de0fd9aebbff3f1595af5d7170930805f78e04');
+ IF c->>'estado' IS DISTINCT FROM 'borrador' OR c->>'publicado_en' IS DISTINCT FROM '0001-01-01T00:00:00Z'
+    OR c->'entradas'->0->>'vigente_hasta' IS DISTINCT FROM '0001-01-01T00:00:00Z' THEN
+  RAISE EXCEPTION 'CC7: vector Go de borrador incompatible' USING ERRCODE='55000'; END IF;
+ c:=vec_catalogos_configurables.validar_plan_nominal_firma_v1(publicado,'2a88331f403f3de34386a5b2e4930e22f7533282ae1f6e9f9faa85b3ac9f9dd6');
+ IF c->>'estado' IS DISTINCT FROM 'publicado' OR c->>'retirado_en' IS DISTINCT FROM '0001-01-01T00:00:00Z'
+    OR c->'entradas'->0->>'vigente_hasta' IS DISTINCT FROM '0001-01-01T00:00:00Z' THEN
+  RAISE EXCEPTION 'CC7: vector Go publicado incompatible' USING ERRCODE='55000'; END IF;
+ IF vec_catalogos_configurables.json_plan_sin_duplicados_v1('{"x":1,"x":2}'::json,0) THEN
+  RAISE EXCEPTION 'CC7: JSON duplicado admitido' USING ERRCODE='55000'; END IF;
+ alterado:=pg_catalog.convert_to(pg_catalog.replace(pg_catalog.convert_from(publicado,'UTF8'),
+  '"paso_orden":"1"','"paso_orden":1'),'UTF8');
+ BEGIN
+  PERFORM vec_catalogos_configurables.validar_plan_nominal_firma_v1(alterado,
+   pg_catalog.encode(pg_catalog.sha256(alterado),'hex'));
+ EXCEPTION WHEN SQLSTATE '22023' THEN rechazo:=true; END;
+ IF NOT rechazo THEN
+  RAISE EXCEPTION 'CC7: atributo numérico en mapa string aceptado' USING ERRCODE='55000'; END IF;
+END $vector$;
 ROLLBACK;

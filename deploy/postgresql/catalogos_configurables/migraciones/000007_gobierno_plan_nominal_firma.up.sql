@@ -141,12 +141,38 @@ BEGIN
  END LOOP;
 END $acl$;
 
+-- JSONB colapsa claves repetidas. Se comprueba la representación JSON original
+-- en cada objeto antes de usar JSONB para las reglas de negocio.
+CREATE FUNCTION vec_catalogos_configurables.json_plan_sin_duplicados_v1(p_json json,p_profundidad integer)
+RETURNS boolean LANGUAGE plpgsql IMMUTABLE SECURITY DEFINER
+SET search_path=pg_catalog SET row_security='on' AS $f$
+DECLARE elemento json; tipo text;
+BEGIN
+ IF p_json IS NULL OR p_profundidad IS NULL OR p_profundidad NOT BETWEEN 0 AND 32 THEN RETURN false; END IF;
+ tipo:=pg_catalog.json_typeof(p_json);
+ IF tipo='object' THEN
+  IF (SELECT count(*) FROM pg_catalog.json_object_keys(p_json))<>
+     (SELECT count(*) FROM pg_catalog.jsonb_object_keys(p_json::jsonb)) THEN RETURN false; END IF;
+  FOR elemento IN SELECT value FROM pg_catalog.json_each(p_json) LOOP
+   IF NOT vec_catalogos_configurables.json_plan_sin_duplicados_v1(elemento,p_profundidad+1) THEN RETURN false; END IF;
+  END LOOP;
+ ELSIF tipo='array' THEN
+  FOR elemento IN SELECT value FROM pg_catalog.json_array_elements(p_json) LOOP
+   IF NOT vec_catalogos_configurables.json_plan_sin_duplicados_v1(elemento,p_profundidad+1) THEN RETURN false; END IF;
+  END LOOP;
+ ELSIF tipo NOT IN ('string','number','boolean','null') THEN RETURN false;
+ END IF;
+ RETURN true;
+END $f$;
+REVOKE ALL ON FUNCTION vec_catalogos_configurables.json_plan_sin_duplicados_v1(json,integer) FROM PUBLIC;
+
 -- Valida el subconjunto finito que DesdeCatalogo interpreta. El SHA identifica
 -- los bytes de CatalogoConfigurable; jsonb sirve sólo para cotejar estructura.
 CREATE FUNCTION vec_catalogos_configurables.validar_plan_nominal_firma_v1(p_canon bytea,p_sha text)
 RETURNS jsonb LANGUAGE plpgsql IMMUTABLE SECURITY DEFINER
 SET search_path=pg_catalog SET row_security='on' AS $f$
-DECLARE c jsonb; e jsonb; a jsonb; otra jsonb;
+DECLARE c jsonb; e jsonb; a jsonb;
+ go_cero constant text:='0001-01-01T00:00:00Z';
  claves text[]:=ARRAY['esquema','circuito_ref','circuito_version','circuito_sha256',
   'documento','paso_ref','paso_orden','perfil_esperado_ref','rol_id','cargo_ref',
   'organizacion_ref','unidad_ref','accion_competencial','finalidad','tipo_recurso',
@@ -157,7 +183,10 @@ BEGIN
     OR p_sha IS NULL OR p_sha !~ '^[0-9a-f]{64}$'
     OR pg_catalog.encode(pg_catalog.sha256(p_canon),'hex') IS DISTINCT FROM p_sha THEN
   RAISE EXCEPTION 'CC7: canon o huella inválidos' USING ERRCODE='22023'; END IF;
- BEGIN c:=pg_catalog.convert_from(p_canon,'UTF8')::jsonb;
+ BEGIN
+  IF NOT vec_catalogos_configurables.json_plan_sin_duplicados_v1(pg_catalog.convert_from(p_canon,'UTF8')::json,0) THEN
+   RAISE EXCEPTION 'CC7: canon ambiguo' USING ERRCODE='22023'; END IF;
+  c:=pg_catalog.convert_from(p_canon,'UTF8')::jsonb;
  EXCEPTION WHEN others THEN RAISE EXCEPTION 'CC7: canon no es JSON UTF8' USING ERRCODE='22023'; END;
  IF pg_catalog.jsonb_typeof(c) IS DISTINCT FROM 'object'
     OR (c->>'id' ~ '^[a-z][a-z0-9_.:-]{2,127}$') IS NOT TRUE
@@ -171,7 +200,8 @@ BEGIN
     OR pg_catalog.jsonb_array_length(c->'entradas')>64
     OR (c->>'estado'<>'borrador' AND pg_catalog.jsonb_array_length(c->'entradas')=0)
     OR NOT (c ?& ARRAY['id','version','revision','modulo_id','nombre','fuente_ref',
-      'motivo_creacion','entradas','estado','creado_por','creado_en'])
+      'motivo_creacion','entradas','estado','creado_por','creado_en',
+      'ultima_modificacion_en','publicado_en','retirado_en'])
     OR pg_catalog.octet_length(coalesce(c->>'nombre','')) NOT BETWEEN 1 AND 2048
     OR pg_catalog.octet_length(coalesce(c->>'motivo_creacion','')) NOT BETWEEN 1 AND 4096
     OR pg_catalog.octet_length(coalesce(c->>'creado_por','')) NOT BETWEEN 3 AND 512
@@ -185,27 +215,35 @@ BEGIN
  IF ((c->>'version')::bigint=1 AND c ? 'version_anterior_ref')
     OR ((c->>'version')::bigint>1 AND c->>'version_anterior_ref' IS DISTINCT FROM
       (c->>'id')||':'||((c->>'version')::bigint-1)::text)
-    OR ((c->>'revision')::bigint=1 AND (c ? 'ultima_modificacion_por' OR c ? 'ultima_modificacion_en' OR c ? 'motivo_modificacion'))
-    OR ((c->>'revision')::bigint>1 AND NOT (c ?& ARRAY['ultima_modificacion_por','ultima_modificacion_en','motivo_modificacion']))
-    OR (c->>'estado'='borrador' AND (c ?| ARRAY['publicado_por','publicado_en','aprobacion_ref',
-      'motivo_publicacion','retirado_por','retirado_en','retirada_aprobacion_ref','motivo_retirada']))
+    OR ((c->>'revision')::bigint=1 AND
+      (c ? 'ultima_modificacion_por' OR c ? 'motivo_modificacion' OR c->>'ultima_modificacion_en' IS DISTINCT FROM go_cero))
+    OR ((c->>'revision')::bigint>1 AND
+      (NOT (c ?& ARRAY['ultima_modificacion_por','motivo_modificacion'])
+       OR c->>'ultima_modificacion_en' IS NOT DISTINCT FROM go_cero))
+    OR (c->>'estado'='borrador' AND
+      ((c ?| ARRAY['publicado_por','aprobacion_ref','motivo_publicacion',
+        'retirado_por','retirada_aprobacion_ref','motivo_retirada'])
+       OR c->>'publicado_en' IS DISTINCT FROM go_cero OR c->>'retirado_en' IS DISTINCT FROM go_cero))
     OR (c->>'estado' IN ('publicado','retirado') AND
-      NOT (c ?& ARRAY['publicado_por','publicado_en','aprobacion_ref','motivo_publicacion']))
-    OR (c->>'estado'='publicado' AND (c ?| ARRAY['retirado_por','retirado_en',
-      'retirada_aprobacion_ref','motivo_retirada']))
+      (NOT (c ?& ARRAY['publicado_por','aprobacion_ref','motivo_publicacion'])
+       OR c->>'publicado_en' IS NOT DISTINCT FROM go_cero))
+    OR (c->>'estado'='publicado' AND
+      ((c ?| ARRAY['retirado_por','retirada_aprobacion_ref','motivo_retirada'])
+       OR c->>'retirado_en' IS DISTINCT FROM go_cero))
     OR (c->>'estado'='retirado' AND
-      NOT (c ?& ARRAY['retirado_por','retirado_en','retirada_aprobacion_ref','motivo_retirada'])) THEN
+      (NOT (c ?& ARRAY['retirado_por','retirada_aprobacion_ref','motivo_retirada'])
+       OR c->>'retirado_en' IS NOT DISTINCT FROM go_cero)) THEN
   RAISE EXCEPTION 'CC7: historia de catálogo incompatible' USING ERRCODE='22023'; END IF;
  IF (c->>'creado_en' ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,9})?Z$') IS NOT TRUE
-    OR (c ? 'ultima_modificacion_en' AND
-      ((c->>'ultima_modificacion_en' ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,9})?Z$') IS NOT TRUE
-       OR (c->>'ultima_modificacion_en')::timestamptz<(c->>'creado_en')::timestamptz))
-    OR (c ? 'publicado_en' AND
-      ((c->>'publicado_en' ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,9})?Z$') IS NOT TRUE
-       OR (c->>'publicado_en')::timestamptz<(c->>'creado_en')::timestamptz))
-    OR (c ? 'retirado_en' AND
-      ((c->>'retirado_en' ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,9})?Z$') IS NOT TRUE
-       OR (c->>'retirado_en')::timestamptz<(c->>'publicado_en')::timestamptz)) THEN
+    OR (c->>'ultima_modificacion_en' ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,9})?Z$') IS NOT TRUE
+    OR (c->>'publicado_en' ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,9})?Z$') IS NOT TRUE
+    OR (c->>'retirado_en' ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,9})?Z$') IS NOT TRUE
+    OR (c->>'ultima_modificacion_en'<>go_cero AND
+      (c->>'ultima_modificacion_en')::timestamptz<(c->>'creado_en')::timestamptz)
+    OR (c->>'publicado_en'<>go_cero AND
+      (c->>'publicado_en')::timestamptz<(c->>'creado_en')::timestamptz)
+    OR (c->>'retirado_en'<>go_cero AND
+      (c->>'retirado_en')::timestamptz<(c->>'publicado_en')::timestamptz) THEN
   RAISE EXCEPTION 'CC7: instantes de gobierno incompatibles' USING ERRCODE='22023'; END IF;
  FOR k IN SELECT x FROM pg_catalog.jsonb_object_keys(c) AS x LOOP
   IF k <> ALL(ARRAY['id','version','revision','version_anterior_ref','modulo_id','nombre','descripcion',
@@ -228,7 +266,10 @@ BEGIN
      OR (e->>'orden' ~ '^(0|[1-9][0-9]{0,8})$') IS NOT TRUE
      OR pg_catalog.jsonb_typeof(e->'vigente_desde') IS DISTINCT FROM 'string'
      OR e->>'vigente_desde' IS NULL
+     OR pg_catalog.jsonb_typeof(e->'vigente_hasta') IS DISTINCT FROM 'string'
+     OR pg_catalog.jsonb_typeof(a->'esquema') IS DISTINCT FROM 'string'
      OR a->>'esquema' IS DISTINCT FROM 'ct.plan-competencia-firma.v2'
+     OR pg_catalog.jsonb_typeof(a->'circuito_sha256') IS DISTINCT FROM 'string'
      OR (a->>'circuito_sha256' ~ '^[0-9a-f]{64}$') IS NOT TRUE THEN
    RAISE EXCEPTION 'CC7: entrada de plan incompatible' USING ERRCODE='22023'; END IF;
   FOR k IN SELECT x FROM pg_catalog.jsonb_object_keys(e) AS x LOOP
@@ -236,9 +277,9 @@ BEGIN
     RAISE EXCEPTION 'CC7: atributo de entrada ajeno' USING ERRCODE='22023'; END IF;
   END LOOP;
   IF (e->>'vigente_desde' ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,9})?Z$') IS NOT TRUE
-     OR (e ? 'vigente_hasta' AND
-       ((e->>'vigente_hasta' ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,9})?Z$') IS NOT TRUE
-        OR (e->>'vigente_hasta')::timestamptz<=(e->>'vigente_desde')::timestamptz)) THEN
+     OR (e->>'vigente_hasta' ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,9})?Z$') IS NOT TRUE
+     OR (e->>'vigente_hasta'<>go_cero AND
+       (e->>'vigente_hasta')::timestamptz<=(e->>'vigente_desde')::timestamptz) THEN
    RAISE EXCEPTION 'CC7: vigencia de entrada inválida' USING ERRCODE='22023'; END IF;
   FOREACH k IN ARRAY ARRAY['circuito_ref','documento','paso_ref','perfil_esperado_ref','rol_id',
     'cargo_ref','organizacion_ref','unidad_ref','accion_competencial','finalidad',
@@ -251,6 +292,7 @@ BEGIN
      OR pg_catalog.jsonb_typeof(a->'circuito_version') IS DISTINCT FROM 'string'
      OR (a->>'mapeo_version' ~ '^[1-9][0-9]{0,15}$') IS NOT TRUE
      OR pg_catalog.jsonb_typeof(a->'mapeo_version') IS DISTINCT FROM 'string'
+     OR pg_catalog.jsonb_typeof(a->'paso_orden') IS DISTINCT FROM 'string'
      OR (a->>'paso_orden' ~ '^([1-9]|1[0-6])$') IS NOT TRUE THEN
    RAISE EXCEPTION 'CC7: versión o paso inválido' USING ERRCODE='22023'; END IF;
   IF (a->>'circuito_version')::numeric>9007199254740991
@@ -279,7 +321,7 @@ LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
 SET search_path=pg_catalog SET row_security='on' SET lock_timeout='2s' SET statement_timeout='10s' SET TimeZone='UTC' AS $f$
 DECLARE control vec_catalogos_configurables.plan_firma_control%ROWTYPE;
  publicacion vec_catalogos_configurables.plan_firma_publicacion%ROWTYPE;
- prueba jsonb; documento jsonb; encontrado jsonb; total integer;
+ prueba jsonb; documento jsonb; encontrado jsonb; total integer; ahora timestamptz(6);
 BEGIN
  IF pg_catalog.current_setting('transaction_isolation')<>'serializable'
     OR pg_catalog.current_setting('transaction_read_only')<>'off'
@@ -306,19 +348,30 @@ BEGIN
   WHERE p.catalogo_id=p_catalogo_id AND p.version=p_version;
  IF publicacion.publicacion_sha256 IS DISTINCT FROM control.publicacion_sha256
     OR publicacion.revision IS DISTINCT FROM control.publicacion_revision
-    OR pg_catalog.encode(pg_catalog.sha256(publicacion.canonico_exacto),'hex') IS DISTINCT FROM p_publicacion_sha256 THEN
+    OR pg_catalog.encode(pg_catalog.sha256(publicacion.canonico_exacto),'hex') IS DISTINCT FROM p_publicacion_sha256
+    OR publicacion.publicada_en>pg_catalog.clock_timestamp() THEN
   RAISE EXCEPTION 'CC7: publicación original incoherente' USING ERRCODE='55000'; END IF;
  documento:=vec_catalogos_configurables.validar_plan_nominal_firma_v1(publicacion.canonico_exacto,p_publicacion_sha256);
  IF documento->>'id' IS DISTINCT FROM p_catalogo_id
     OR documento->>'version' IS DISTINCT FROM p_version::text
-    OR documento->>'estado' IS DISTINCT FROM 'publicado' THEN
+    OR documento->>'estado' IS DISTINCT FROM 'publicado'
+    OR (documento->>'publicado_en')::timestamptz IS DISTINCT FROM publicacion.publicada_en
+    OR documento->>'publicado_por' IS DISTINCT FROM publicacion.publicado_por
+    OR documento->>'aprobacion_ref' IS DISTINCT FROM publicacion.aprobacion_ref THEN
   RAISE EXCEPTION 'CC7: publicación ajena' USING ERRCODE='55000'; END IF;
  SELECT count(*) INTO total FROM pg_catalog.jsonb_array_elements(documento->'entradas') x
   WHERE x.value->>'clave'=p_entrada_clave;
  SELECT x.value INTO encontrado FROM pg_catalog.jsonb_array_elements(documento->'entradas') x
   WHERE x.value->>'clave'=p_entrada_clave LIMIT 1;
- IF total<>1 OR encontrado->'atributos'->>'esquema' IS DISTINCT FROM 'ct.plan-competencia-firma.v2' THEN
+ ahora:=pg_catalog.date_trunc('microseconds',pg_catalog.clock_timestamp());
+ IF total<>1 OR encontrado->'atributos'->>'esquema' IS DISTINCT FROM 'ct.plan-competencia-firma.v2'
+    OR (encontrado->>'vigente_desde')::timestamptz>ahora
+    OR (encontrado->>'vigente_hasta'<>'0001-01-01T00:00:00Z' AND
+      (encontrado->>'vigente_hasta')::timestamptz<=ahora) THEN
   RAISE EXCEPTION 'CC7: entrada nominal ausente' USING ERRCODE='42501'; END IF;
+ IF encontrado->>'vigente_hasta'<>'0001-01-01T00:00:00Z' AND
+    (encontrado->>'vigente_hasta')::timestamptz<=pg_catalog.clock_timestamp() THEN
+  RAISE EXCEPTION 'CC7: entrada vencida durante pin' USING ERRCODE='42501'; END IF;
  RETURN QUERY SELECT publicacion.canonico_exacto,publicacion.publicacion_sha256,encontrado,control.revision;
 END $f$;
 REVOKE ALL ON FUNCTION vec_catalogos_configurables.leer_plan_nominal_firma_v1(text,bigint,text,text,jsonb) FROM PUBLIC;
@@ -352,10 +405,15 @@ BEGIN
     OR pg_catalog.jsonb_typeof(p_consumo->'consumo') IS DISTINCT FROM 'object' THEN
   RAISE EXCEPTION 'CC7: material o consumo inválido' USING ERRCODE='42501'; END IF;
  BEGIN
+  IF NOT vec_catalogos_configurables.json_plan_sin_duplicados_v1(pg_catalog.convert_from(p_material_exacto,'UTF8')::json,0) THEN
+   RAISE EXCEPTION 'CC7: material ambiguo' USING ERRCODE='22023'; END IF;
   m:=pg_catalog.convert_from(p_material_exacto,'UTF8')::jsonb;
   canon:=pg_catalog.decode(m->>'catalogo_canonico_base64','base64');
   traza_bytes:=pg_catalog.decode(m->>'traza_canonica_base64','base64');
   evento_bytes:=pg_catalog.decode(m->>'evento_canonico_base64','base64');
+  IF NOT vec_catalogos_configurables.json_plan_sin_duplicados_v1(pg_catalog.convert_from(traza_bytes,'UTF8')::json,0)
+     OR NOT vec_catalogos_configurables.json_plan_sin_duplicados_v1(pg_catalog.convert_from(evento_bytes,'UTF8')::json,0) THEN
+   RAISE EXCEPTION 'CC7: evidencia ambigua' USING ERRCODE='22023'; END IF;
   traza:=pg_catalog.convert_from(traza_bytes,'UTF8')::jsonb;
   evento:=pg_catalog.convert_from(evento_bytes,'UTF8')::jsonb;
  EXCEPTION WHEN others THEN
@@ -521,4 +579,66 @@ END $f$;
 REVOKE ALL ON FUNCTION vec_catalogos_configurables.confirmar_gobierno_plan_nominal_firma_v1(bytea,jsonb) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION vec_catalogos_configurables.confirmar_gobierno_plan_nominal_firma_v1(bytea,jsonb)
  TO vec_autorizacion_atestada_v3_propietario;
+-- Los privilegios por defecto heredados de la base pueden contener más roles
+-- que PUBLIC. Se sanea y comprueba sólo el conjunto nuevo de CC7.
+DO $acl_final$
+DECLARE f regprocedure; t text; x record;
+ owner_id oid:='vec_catalogos_configurables_propietario'::regrole;
+ ad_id oid:='vec_autorizacion_atestada_v3_propietario'::regrole;
+ ct_id oid:='vec_contratacion_temporal_propietario'::regrole;
+ permitido boolean;
+BEGIN
+ FOREACH t IN ARRAY ARRAY['plan_firma_control','plan_firma_historia','plan_firma_publicacion',
+  'plan_firma_efecto','plan_firma_outbox'] LOOP
+  FOR x IN SELECT DISTINCT a.grantee FROM pg_catalog.pg_class c
+    CROSS JOIN LATERAL pg_catalog.aclexplode(coalesce(c.relacl,pg_catalog.acldefault('r',c.relowner))) a
+    WHERE c.oid=pg_catalog.to_regclass('vec_catalogos_configurables.'||t) AND a.grantee<>owner_id LOOP
+   EXECUTE pg_catalog.format('REVOKE ALL ON TABLE vec_catalogos_configurables.%I FROM %s',t,
+    CASE WHEN x.grantee=0 THEN 'PUBLIC' ELSE pg_catalog.quote_ident(pg_catalog.pg_get_userbyid(x.grantee)) END);
+  END LOOP;
+  FOR x IN SELECT DISTINCT a.grantee FROM pg_catalog.pg_type y
+    CROSS JOIN LATERAL pg_catalog.aclexplode(coalesce(y.typacl,pg_catalog.acldefault('T',y.typowner))) a
+    WHERE y.typrelid=pg_catalog.to_regclass('vec_catalogos_configurables.'||t) AND a.grantee<>owner_id LOOP
+   EXECUTE pg_catalog.format('REVOKE ALL ON TYPE vec_catalogos_configurables.%I FROM %s',t,
+    CASE WHEN x.grantee=0 THEN 'PUBLIC' ELSE pg_catalog.quote_ident(pg_catalog.pg_get_userbyid(x.grantee)) END);
+  END LOOP;
+  IF EXISTS(SELECT 1 FROM pg_catalog.pg_class c
+    CROSS JOIN LATERAL pg_catalog.aclexplode(coalesce(c.relacl,pg_catalog.acldefault('r',c.relowner))) a
+    WHERE c.oid=pg_catalog.to_regclass('vec_catalogos_configurables.'||t) AND a.grantee<>owner_id)
+    OR EXISTS(SELECT 1 FROM pg_catalog.pg_type y
+    CROSS JOIN LATERAL pg_catalog.aclexplode(coalesce(y.typacl,pg_catalog.acldefault('T',y.typowner))) a
+    WHERE y.typrelid=pg_catalog.to_regclass('vec_catalogos_configurables.'||t) AND a.grantee<>owner_id) THEN
+   RAISE EXCEPTION 'CC7: ACL de tabla o tipo incompatible' USING ERRCODE='55000'; END IF;
+ END LOOP;
+ FOREACH f IN ARRAY ARRAY[
+  'vec_catalogos_configurables.json_plan_sin_duplicados_v1(json,integer)'::regprocedure,
+  'vec_catalogos_configurables.validar_plan_nominal_firma_v1(bytea,text)'::regprocedure,
+  'vec_catalogos_configurables.leer_plan_nominal_firma_v1(text,bigint,text,text,jsonb)'::regprocedure,
+  'vec_catalogos_configurables.confirmar_gobierno_plan_nominal_firma_v1(bytea,jsonb)'::regprocedure] LOOP
+  FOR x IN SELECT DISTINCT a.grantee FROM pg_catalog.pg_proc p
+    CROSS JOIN LATERAL pg_catalog.aclexplode(coalesce(p.proacl,pg_catalog.acldefault('f',p.proowner))) a
+    WHERE p.oid=f LOOP
+   permitido:=x.grantee=owner_id OR
+    (f='vec_catalogos_configurables.leer_plan_nominal_firma_v1(text,bigint,text,text,jsonb)'::regprocedure AND x.grantee=ct_id) OR
+    (f='vec_catalogos_configurables.confirmar_gobierno_plan_nominal_firma_v1(bytea,jsonb)'::regprocedure AND x.grantee=ad_id);
+   IF NOT permitido THEN
+    EXECUTE pg_catalog.format('REVOKE ALL ON FUNCTION %s FROM %s',f::text,
+     CASE WHEN x.grantee=0 THEN 'PUBLIC' ELSE pg_catalog.quote_ident(pg_catalog.pg_get_userbyid(x.grantee)) END);
+   END IF;
+  END LOOP;
+  IF EXISTS(SELECT 1 FROM pg_catalog.pg_proc p
+    CROSS JOIN LATERAL pg_catalog.aclexplode(coalesce(p.proacl,pg_catalog.acldefault('f',p.proowner))) a
+    WHERE p.oid=f AND a.grantee<>owner_id
+     AND NOT (f='vec_catalogos_configurables.leer_plan_nominal_firma_v1(text,bigint,text,text,jsonb)'::regprocedure AND a.grantee=ct_id)
+     AND NOT (f='vec_catalogos_configurables.confirmar_gobierno_plan_nominal_firma_v1(bytea,jsonb)'::regprocedure AND a.grantee=ad_id)) THEN
+   RAISE EXCEPTION 'CC7: ACL de función incompatible' USING ERRCODE='55000'; END IF;
+ END LOOP;
+ IF NOT pg_catalog.has_function_privilege(ct_id,
+   'vec_catalogos_configurables.leer_plan_nominal_firma_v1(text,bigint,text,text,jsonb)','EXECUTE')
+    OR pg_catalog.has_function_privilege(ct_id,
+   'vec_catalogos_configurables.confirmar_gobierno_plan_nominal_firma_v1(bytea,jsonb)','EXECUTE')
+    OR NOT pg_catalog.has_function_privilege(ad_id,
+   'vec_catalogos_configurables.confirmar_gobierno_plan_nominal_firma_v1(bytea,jsonb)','EXECUTE') THEN
+  RAISE EXCEPTION 'CC7: ACL final de propietarios incompatible' USING ERRCODE='55000'; END IF;
+END $acl_final$;
 COMMIT;

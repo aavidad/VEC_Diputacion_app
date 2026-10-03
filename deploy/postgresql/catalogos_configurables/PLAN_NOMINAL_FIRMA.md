@@ -44,6 +44,13 @@ operación y material devuelve el recibo conservado. Otro material con esa
 clave se rechaza. Historia, recibo, referencia de auditoría común y outbox se
 escriben dentro de la misma transacción.
 
+El canon Go incluye las fechas cero como `0001-01-01T00:00:00Z`, incluso en
+campos `time.Time` con `omitempty`. CC7 conserva esos bytes. La entrada sin
+fecha final tiene esa misma marca; al fijar el plan se comprueba que la
+publicación ya ocurrió y que la entrada sigue vigente. Se rechazan atributos
+numéricos donde el modelo exige `map[string]string` y claves JSON duplicadas
+antes de convertir a JSONB.
+
 `leer_plan_nominal_firma_v1(text,bigint,text,text,jsonb)` pertenece solo al
 propietario CT. Revalida un consumo de firma de la misma transacción mediante
 el wrapper AD177, bloquea el control con `FOR SHARE` hasta COMMIT y devuelve
@@ -53,7 +60,13 @@ del documento original, sin volver a construirlo. El propietario AD puede
 confirmar gobierno; ningún rol LOGIN recibe EXECUTE de estas fachadas.
 
 La prueba `pruebas_sql/plan_nominal_firma_000007.sql` comprueba objetos, RLS,
-propietarios, ACL y funciones. No inserta concesiones sintéticas. Faltan el
+propietarios, ACL y funciones. Incluye los bytes de dos vectores generados por
+`CatalogoConfigurable.ClonarCanonico` y `json.Marshal` en Go: borrador SHA-256
+`ce029352e249d4260bcc2b5717de0fd9aebbff3f1595af5d7170930805f78e04`
+y publicado SHA-256
+`2a88331f403f3de34386a5b2e4930e22f7533282ae1f6e9f9faa85b3ac9f9dd6`.
+Sus copias exactas están en `pruebas_sql/testdata/`. No inserta concesiones
+sintéticas. Faltan el
 ensayo de PostgreSQL real, las pruebas transaccionales de concurrencia y
 recuperación, el adaptador Go y el montaje. La lista SQL de esta rama se
 encuentra en `deploy/principal/lista_sql_codexe_plan_nominal_20261004.txt`.
