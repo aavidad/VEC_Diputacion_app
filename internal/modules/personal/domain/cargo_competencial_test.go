@@ -16,6 +16,16 @@ func TestEnlaceCargoCompetencialSeparaClasesYVigencia(t *testing.T) {
 	if err := e.Validar(); err != nil {
 		t.Fatal(err)
 	}
+	e.RequiereEnlaceLaboral = true
+	if err := e.Validar(); err == nil {
+		t.Fatal("acto con enlace laboral requerido aceptado sin ocupacion")
+	}
+	e.EmpleadoRef = "emp_1234567890123456789012"
+	e.OcupacionRef = "ocu_1234567890123456789012"
+	e.OcupacionRevision = 1
+	if err := e.Validar(); err != nil {
+		t.Fatal(err)
+	}
 	e.Clase = "perfil"
 	if err := e.Validar(); err == nil {
 		t.Fatal("perfil de acceso aceptado como cargo")
