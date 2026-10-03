@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -101,6 +102,24 @@ func TestFiltrosInvalidosFallaCerradoSiAuditoriaNoDisponible(t *testing.T) {
 	h.ServeHTTP(w, peticionADMIN(http.MethodGet, PrefijoV1+"/personas?estado=*", ""))
 	if w.Code != http.StatusServiceUnavailable || f.llamadas != 0 || strings.Contains(w.Body.String(), "fallo privado") {
 		t.Fatal("fallo abierto o datos de error expuestos")
+	}
+}
+
+func TestParseQueryPropagaErrorYNoPublicaConsultaParcial(t *testing.T) {
+	const consulta = "q=fragmento_privado_de_prueba&cursor=%zz"
+	filtros, err := consultaPersonas(consulta)
+	var escape url.EscapeError
+	if !errors.As(err, &escape) || filtros != (ConsultaPersonas{}) {
+		t.Fatal("error del parser reducido o consulta parcial devuelta")
+	}
+	fuente, auditor := &fuenteUsuariosPrueba{}, &auditorPrueba{}
+	h, _ := handlerUsuariosPrueba(t, fuente, auditor)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, peticionADMIN(http.MethodGet, PrefijoV1+"/personas?"+consulta, ""))
+	if w.Code != http.StatusBadRequest || fuente.llamadas != 0 || auditor.llamadas != 1 ||
+		auditor.ultima.Codigo != "solicitud_invalida" || auditor.ultima.Accion != "buscar_personas" ||
+		auditor.ultima.RecursoRef != "" || strings.Contains(w.Body.String(), "fragmento_privado") || strings.Contains(w.Body.String(), "%zz") {
+		t.Fatal("fallo del parser sin denegación auditada o con datos de consulta")
 	}
 }
 
