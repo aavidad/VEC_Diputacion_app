@@ -8,6 +8,8 @@ continuar=false
 desde_registro=false
 desde_post154=false
 desde_replay=false
+desde_checkpoint=false
+if [[ ${1:-} == --continuar-postcheckpoint ]]; then continuar=true; desde_replay=true; desde_checkpoint=true; shift; fi
 if [[ ${1:-} == --continuar-desde-replay ]]; then continuar=true; desde_replay=true; shift; fi
 if [[ ${1:-} == --desde-post154 ]]; then desde_post154=true; shift; fi
 if [[ ${1:-} == --continuar-fixture ]]; then continuar=true; shift; fi
@@ -26,9 +28,9 @@ personal27=${VEC_RPT27_UP_PERSONAL27:?UP27 activado y revisado requerido}
 pre_sha=${VEC_RPT27_PREIMAGEN_SHA256:?SHA de captura real requerida}
 helper="$scratch/generate_overlay.py"
 [[ $container == codexb-rpt-comun-20261003-pg ]] || fallo 'clon nominal propio requerido'
-[[ $scratch == /home/alberto/.local/state/vec-codexb-rpt-comun-ensayo-20261003/scratch && -d $scratch && ! -L $scratch && -O $scratch && $(stat -c %a "$scratch") == 700 ]] || fallo 'scratch propio0700 requerido'
+[[ $scratch == /home/alberto/.local/state/vec-codexb-ca27-ensayo-20261003/scratch && -d $scratch && ! -L $scratch && -O $scratch && $(stat -c %a "$scratch") == 700 ]] || fallo 'scratch propio0700 requerido'
 [[ $cache == /home/alberto/.cache/go-build && -d $cache && ! -L $cache && -O $cache ]] || fallo 'cache compartida en disco requerida'
-[[ $socket == /home/alberto/.local/state/vec-codexb-rpt-comun-ensayo-20261003/data/vec-desarrollo-20260906/pgdata/codexb-rpt-comun-20261003-socket && -S $socket/.s.PGSQL.5432 ]] || fallo 'socket ajeno o ausente'
+[[ $socket == /home/alberto/.local/state/vec-codexb-ca27-ensayo-20261003/data/pgdata/socket && -S $socket/.s.PGSQL.5432 ]] || fallo 'socket ajeno o ausente'
 [[ -d $modcache && ! -L $modcache && $pre_sha =~ ^[0-9a-f]{64}$ ]] || fallo 'faltan módulos o huella real'
 [[ $ad154 == "$repo_dir"/deploy/postgresql/autorizacion_atestada_v3/migraciones/000154_*.up.sql && -f $ad154 && ! -L $ad154 ]] || fallo 'no aplicar borrador ni otra AD'
 [[ $personal27 == "$repo_dir"/deploy/postgresql/personal/migraciones/000027_*.up.sql && -f $personal27 && ! -L $personal27 ]] || fallo 'no aplicar borrador ni otra Personal'
@@ -50,18 +52,25 @@ else
  [[ $(valor "SELECT to_regprocedure('vec_personal.consultar_relacion_para_rpt_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL AND to_regprocedure('vec_autorizacion_atestada_v3.consumir_relacion_para_rpt_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL") == t ]] || fallo 'RPT27/154 ya presentes: no reaplicar'
 fi
 else
- [[ -f $scratch/rpt27.test && -f $scratch/preimagen.json && -f $scratch/migraciones_journal.txt ]] || fallo 'fase anterior incompleta'
+ [[ -f $scratch/preimagen.json && -f $scratch/migraciones_journal.txt && -f $scratch/preservacion.sql ]] || fallo 'fase anterior incompleta'
  [[ $(sha256sum "$scratch/preimagen.json" | cut -d' ' -f1) == "$pre_sha" ]] || fallo 'captura de reanudación distinta'
  sha256sum "$ad154" "$personal27" | cmp -s "$scratch/migraciones_journal.txt" - || fallo 'producto cambiado desde instalación'
  if "$desde_replay"; then
+  if ! "$desde_checkpoint"; then
   binario_sha=${VEC_RPT27_BINARIO_SHA256:?huella del único binario conservado requerida}
   [[ $binario_sha =~ ^[0-9a-f]{64}$ && $(sha256sum "$scratch/rpt27.test" | cut -d' ' -f1) == "$binario_sha" ]] || fallo 'binario distinto del ensayado'
+  else
+   [[ ! -e $scratch/rpt27.test && ! -e $scratch/overlay.json ]] || fallo 'checkpoint con artefactos de otra compilación'
+   [[ $(valor "SELECT (SELECT count(*) FROM vec_personal.recibo_relacion_para_rpt)||'|'||(SELECT count(*) FROM vec_autorizacion_atestada_v3.consumo_decision_v3)||'|'||(SELECT count(*) FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3 WHERE tipo_registro='consumo_confirmado')||'|'||(SELECT count(*) FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3 WHERE tipo_registro='intento_nominal')") == '3|6243|6243|0' ]] || fallo 'checkpoint con efectos distintos'
+  fi
   [[ $(valor "SELECT count(*)=3 AND bool_and(caso IN ('positivo_vigente','positivo_suspendida','positivo_finalizada')) FROM public.rpt27_ensayo_vector") == t ]] || fallo 'fase previa distinta de tres positivos'
   [[ $(valor "SELECT count(*)=3 FROM vec_personal.recibo_relacion_para_rpt") == t ]] || fallo 'recibos previos distintos'
   [[ $(valor "SELECT count(*)=0 FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3 WHERE tipo_registro='intento_nominal' AND proceso='rpt27-ensayo'") == t ]] || fallo 'replay ya confirmado; no repetir'
  elif ! "$desde_registro"; then
+ [[ -f $scratch/rpt27.test ]] || fallo 'binario previo ausente'
  [[ $(valor "SELECT count(*)=0 FROM public.rpt27_ensayo_vector") == t ]] || fallo 'ya hay casos preparados: no repetir el ensayo'
  else
+  [[ -f $scratch/rpt27.test ]] || fallo 'binario previo ausente'
   [[ $(valor "SELECT count(*)=1 FROM public.rpt27_ensayo_vector WHERE caso='go_registro_caido'") == t ]] || fallo 'caso caído no preparado'
   [[ $(valor "SELECT count(*)=0 FROM public.rpt27_ensayo_vector WHERE caso IN ('go_revocada','go_concurrente')") == t ]] || fallo 'fases finales ya preparadas: no repetir'
  fi
@@ -142,6 +151,16 @@ PYGOBIERNO
 archivo "$scratch/gobierno.sql"
 secuencia=$(valor 'SELECT ultima_secuencia+1 FROM vec_autorizacion.motivo_v2_checkpoint_origen WHERE control_id')
 valor "BEGIN; SET LOCAL ROLE vec_autorizacion_motivos_proyector; SELECT vec_autorizacion.publicar_motivos_autorizacion_v2('evento_1111111111111111111111111111a027',$secuencia,repeat('e',64),'motivos_rpt27_ensayo',1,repeat('e',64),clock_timestamp()-interval '1 minute',jsonb_build_array(jsonb_build_object('clave','motivo_11111111111111111111111111111111','vigente_desde',to_char(clock_timestamp()-interval '2 minutes','YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"'),'vigente_hasta',NULL))); COMMIT;" > "$scratch/motivo.log" 2>&1 || fallo 'publicación de motivo nominal falló'
+fi
+if "$desde_checkpoint"; then
+ # Recuperar exclusivamente la misma clave SINTÉTICA instalada. No se crea otra
+ # versión ni se renueva su vigencia. El material permanece en scratch0600.
+ [[ $(valor "SELECT count(*)=1 AND bool_and(octet_length(secreto_hmac)=32 AND encode(sha256(secreto_hmac),'hex')=huella_secreto_sha256 AND clock_timestamp()>=valida_desde AND clock_timestamp()<valida_hasta AND emisor_id='broker-rpt27-sintetico' AND audiencia_consumo='vec_personal.relacion_rpt.v1') FROM vec_autorizacion_atestada_v3.clave_capacidad_version WHERE clave_id='clave:rpt27:ensayo'") == t ]] || fallo 'clave sintética original ausente, divergente o caducada'
+ psql_run postgres -c "SELECT encode(secreto_hmac,'hex') FROM vec_autorizacion_atestada_v3.clave_capacidad_version WHERE clave_id='clave:rpt27:ensayo'" | python3 -c 'import os,pathlib,re,sys; v=sys.stdin.read().strip(); assert re.fullmatch("[0-9a-f]{64}",v), "clave sintética inválida"; p=pathlib.Path(sys.argv[1]); f=os.open(p,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600); os.write(f,bytes.fromhex(v)); os.close(f)' "$scratch/hmac.bin"
+ captura "$scratch/reanudacion.json"
+ cmp -s "$scratch/preimagen.json" "$scratch/reanudacion.json" || fallo 'checkpoint alteró autoridades previas'
+fi
+if ! "$continuar" || "$desde_checkpoint"; then
 # Generación de overlay con fuente original de sólo lectura.
 cat > "$helper" <<'RPT27_GENERADOR_PY'
 #!/usr/bin/env python3
@@ -159,7 +178,7 @@ source = root / 'internal/vec/adapters/seguridad/confianzaatestacion/capacidad_v
 original = source.read_text()
 original = original.replace('"crypto/rand"', '"crypto/rand"\n\t"crypto/sha256"\n\t"fmt"\n\t"io"')
 original = original.replace('"vec-diputacion-granada/internal/vec/domain"', '"vec-diputacion-granada/internal/vec/application"\n\t"vec-diputacion-granada/internal/vec/domain"')
-original = original.replace('"vec-diputacion-granada/internal/vec/ports"', '"vec-diputacion-granada/internal/vec/ports"\n\t"github.com/jackc/pgx/v5/pgxpool"\n\tvecpg "vec-diputacion-granada/internal/vec/adapters/postgres"\n\tpersonalcomposicion "vec-diputacion-granada/internal/modules/personal/adapters/composicion"\n\tpersonalrpt "vec-diputacion-granada/internal/modules/personal/adapters/rpt"\n\tpersonalpg "vec-diputacion-granada/internal/modules/personal/adapters/postgres"\n\tpersonalapp "vec-diputacion-granada/internal/modules/personal/application"\n\tpersonaldomain "vec-diputacion-granada/internal/modules/personal/domain"\n\tpersonalports "vec-diputacion-granada/internal/modules/personal/ports"')
+original = original.replace('"vec-diputacion-granada/internal/vec/ports"', '"vec-diputacion-granada/internal/vec/ports"\n\t"github.com/jackc/pgx/v5/pgxpool"\n\tobservabilidad "vec-diputacion-granada/internal/vec/adapters/observabilidad"\n\tvecpg "vec-diputacion-granada/internal/vec/adapters/postgres"\n\tpersonalcomposicion "vec-diputacion-granada/internal/modules/personal/adapters/composicion"\n\tpersonalrpt "vec-diputacion-granada/internal/modules/personal/adapters/rpt"\n\tpersonalpg "vec-diputacion-granada/internal/modules/personal/adapters/postgres"\n\tpersonalapp "vec-diputacion-granada/internal/modules/personal/application"\n\tpersonaldomain "vec-diputacion-granada/internal/modules/personal/domain"\n\tpersonalports "vec-diputacion-granada/internal/modules/personal/ports"')
 extra = r'''
 // RPT27 is an ephemeral synthetic PDP fixture. Neither this test nor its
 // import bridge establishes production identity, PDP governance or database I/O.
@@ -608,10 +627,25 @@ func (a rpt27AutorizadorPG) AutorizarRelacionParaRPT(context.Context, personaldo
 type rpt27IdentidadOriginal struct { valor personalcomposicion.IdentidadRegistradaLectorRelacionRPT }
 func (i rpt27IdentidadOriginal) ResolverIdentidadLectorRelacionRPT(context.Context) (personalcomposicion.IdentidadRegistradaLectorRelacionRPT,error) { return i.valor,nil }
 
+// Envuelve el puerto común real para cotejar su acuse, sin sustituirlo.
+type rpt27RegistradorObservado struct { comun *vecpg.RegistradorIntentosAuditoriaPostgreSQL; orden ports.OrdenIntentoAuditoria; confirmados int }
+func (r *rpt27RegistradorObservado) PreflightIntentoAuditoria(ctx context.Context) error { return r.comun.PreflightIntentoAuditoria(ctx) }
+func (r *rpt27RegistradorObservado) AppendIntentoAuditoria(ctx context.Context,o ports.OrdenIntentoAuditoria) (ports.AcuseIntentoAuditoria,error) {
+ acuse,err:=r.comun.AppendIntentoAuditoria(ctx,o)
+ if err==nil && acuse.ValidarPara(o)==nil { r.orden=o;r.confirmados++ }
+ return acuse,err
+}
+
+type rpt27DestinoTecnicoAcotado struct { datos bytes.Buffer; fallar bool }
+func (d *rpt27DestinoTecnicoAcotado) Write(p []byte) (int,error) {
+ if d.fallar || d.datos.Len()+len(p)>4096 { return 0,errors.New("RPT27 technical sink unavailable") }
+ return d.datos.Write(p)
+}
+
 func TestLectorRPT27ConPoolsPostgreSQL(t *testing.T) {
 	modo := os.Getenv("VEC_RPT27_GO_MODO")
 	if modo == "" { t.Skip("private PostgreSQL runner only") }
-	if modo != "positivo" && modo != "replay" && modo != "cruzados" && modo != "registro_caido" && modo != "revocada" && modo != "concurrente" { t.Fatal("RPT27 unknown test mode") }
+	if modo != "positivo" && modo != "sink_caido" && modo != "replay" && modo != "cruzados" && modo != "registro_caido" && modo != "revocada" && modo != "concurrente" { t.Fatal("RPT27 unknown test mode") }
 	ctx,cancel := context.WithTimeout(context.Background(),20*time.Second); defer cancel()
 	pool := func(usuario string) *pgxpool.Pool {
 		c,err := pgxpool.ParseConfig("host=/pgsocket dbname=postgres sslmode=disable")
@@ -679,7 +713,8 @@ func TestLectorRPT27ConPoolsPostgreSQL(t *testing.T) {
 		domain.SolicitudContextoActor{Cuenta:domain.CuentaAutenticadaContextoActor{CuentaRef:actor.Instantanea.CuentaRef,Metodo:actor.Principal.AuthMethod,Garantia:actor.Principal.AuthAssurance},PerfilActivoRef:actor.PerfilActivoRef},
 		&relojConfianzaAtestacionV3Prueba{ahora:rpt27Instante(t,entrada.Ahora)})
 	if err!=nil { t.Fatal("RPT27 original binding invalid") }
-	i,err := personalcomposicion.NuevoRegistroIntentosLectorRelacionRPT(comun,personalcomposicion.ConfiguracionIntentosLectorRPT{
+	registroObservado:=&rpt27RegistradorObservado{comun:comun}
+	i,err := personalcomposicion.NuevoRegistroIntentosLectorRelacionRPT(registroObservado,personalcomposicion.ConfiguracionIntentosLectorRPT{
 		Proceso:"rpt27-ensayo",Canal:"interna_corporativa",RecursoEntradaInvalida:"personal.relacion-rpt.entrada",
 		MotivoDenegado:motivo.Referencia,MotivoEntradaInvalida:motivo.Referencia,MotivoNoDisponible:motivo.Referencia})
 	if err!=nil { t.Fatal("RPT27 nominal registry unavailable") }
@@ -687,7 +722,11 @@ func TestLectorRPT27ConPoolsPostgreSQL(t *testing.T) {
 	if err!=nil { t.Fatal("RPT27 service unavailable") }
 	base,err := personalrpt.NuevoLectorRelacionSeleccionadaRPT(servicio,i)
 	if err!=nil { t.Fatal("RPT27 selector unavailable") }
-	frontera,err := personalcomposicion.NuevoLectorRelacionSeleccionadaRPTConIdentidad(base,rpt27IdentidadOriginal{personalcomposicion.IdentidadRegistradaLectorRelacionRPT{Vinculo:vinculo,Resultado:resultado}},5*time.Second)
+	destinoTecnico:=&rpt27DestinoTecnicoAcotado{fallar:modo=="sink_caido"}
+	emisorTecnico,err:=observabilidad.NuevoEmisorJSONLines(observabilidad.OpcionesEmisor{Destino:destinoTecnico,Capacidad:8,Entorno:"pruebas",VersionBinario:"5c5e305a3"})
+	if err!=nil { t.Fatal("RPT27 technical emitter unavailable") }
+	t.Cleanup(func(){ c,cancelar:=context.WithTimeout(context.Background(),time.Second);defer cancelar();_ = emisorTecnico.Cerrar(c) })
+	frontera,err := personalcomposicion.NuevoLectorRelacionSeleccionadaRPTConIdentidad(base,rpt27IdentidadOriginal{personalcomposicion.IdentidadRegistradaLectorRelacionRPT{Vinculo:vinculo,Resultado:resultado}},5*time.Second,emisorTecnico,personalcomposicion.ConfiguracionResultadosTecnicosLectorRPT{Componente:domain.ComponenteIncidenciaComposicion,Etapa:domain.EtapaIncidenciaConsulta})
 	if err!=nil { t.Fatal("RPT27 trusted capture unavailable") }
 	ctx,err=ports.ConCorrelacionIncidenciasPeticion(ctx)
 	if err!=nil { t.Fatal("RPT27 trusted correlation unavailable") }
@@ -695,7 +734,28 @@ func TestLectorRPT27ConPoolsPostgreSQL(t *testing.T) {
 	preparacion:=personaldomain.PreparacionRelacionParaRPT{Esquema:"vec.personal.preparacion-relacion-rpt.v1",Uso:"preparacion",Cobertura:"no_acreditada",EstadoRPT:"pendiente_fuente_rpt",EmpleadoRef:material.EmpleadoRef,Corte:corte,
 		Relaciones:[]personaldomain.RelacionPreparacionParaRPT{{RelacionRef:material.RelacionRef,Traza:personaldomain.TrazaEmpleadoB2{Desde:"2026-01-01",RegistradaEn:corte.ConocidoEn,Version:material.Version,ActoRef:"acto:rpt27:sintetico",FuenteRef:"fuente:rpt27:sintetica",FuenteVersion:1}}}}
 	v,err := frontera.ConsultarSeleccionada(ctx,actor,preparacion,material.OrganismoRef,material.RelacionRef)
-	if modo=="positivo" {
+	cierreCtx,cierreCancel:=context.WithTimeout(context.Background(),time.Second)
+	defer cierreCancel()
+	if emisorTecnico.Cerrar(cierreCtx)!=nil { t.Fatal("RPT27 technical queue did not drain") }
+	metricas:=emisorTecnico.MetricasResultadosTecnicos()
+	if metricas.Aceptados!=1 || metricas.Descartados!=0 || metricas.Invalidos!=0 || metricas.SinCorrelacion!=0 { t.Fatal("RPT27 technical result lost or duplicated") }
+	if modo=="sink_caido" {
+		if metricas.FallosEscritura!=1 || metricas.Escritos!=0 || destinoTecnico.datos.Len()!=0 { t.Fatal("RPT27 sink failure was not counted") }
+	} else {
+		var linea map[string]any
+		if metricas.Escritos!=1 || metricas.FallosEscritura!=0 || json.Unmarshal(bytes.TrimSpace(destinoTecnico.datos.Bytes()),&linea)!=nil || len(linea)!=10 { t.Fatal("RPT27 technical JSONL missing or invalid") }
+		correlacion,ok:=ports.CorrelacionIncidenciasPeticion(ctx)
+		esperadoTecnico:="denegado"
+		if modo=="positivo" { esperadoTecnico="correcto" }
+		if modo=="cruzados" || modo=="registro_caido" || modo=="concurrente" { esperadoTecnico="no_disponible" }
+		if !ok || linea["esquema"]!=domain.EsquemaResultadoTecnico || linea["correlacion"]!=correlacion || linea["correlacion_ref"]!="correlacion_"+correlacion || linea["resultado"]!=esperadoTecnico { t.Fatal("RPT27 technical result or correlation diverged") }
+	}
+	if modo=="replay" || modo=="revocada" || modo=="concurrente" {
+		datos,errOrden:=registroObservado.orden.Datos()
+		correlacion,_:=ports.CorrelacionIncidenciasPeticion(ctx)
+		if registroObservado.confirmados!=1 || errOrden!=nil || datos.Datos.CorrelacionRef!="correlacion_"+correlacion || datos.ResultadoContexto.HuellaSHA256!=resultado.HuellaSHA256 { t.Fatal("RPT27 nominal receipt and technical correlation diverged") }
+	} else if registroObservado.confirmados!=0 { t.Fatal("RPT27 unexpected nominal attempt") }
+	if modo=="positivo" || modo=="sink_caido" {
 		if err!=nil || v.Relacion.RelacionRef!=material.RelacionRef || v.Relacion.Version!=material.Version || v.Cobertura!=personalports.CoberturaPersonalNoAcreditadaV1 || v.Relacion.Procedencia.Certeza!=personalports.CertezaPersonalNoAcreditadaV1 || v.Evidencia.ReciboRef=="" { t.Fatal("RPT27 native positive did not produce validated receipt") }
 		return
 	}
@@ -729,9 +789,9 @@ sandbox() {
  /usr/bin/env -i PATH="$toolchain/bin:/usr/bin:/bin" HOME=/scratch GOROOT="$toolchain" GOTOOLCHAIN=local GOPATH=/scratch/gopath GOMODCACHE=/modcache GOCACHE=/buildcache GOPROXY=off GOSUMDB=off CGO_ENABLED=0 GOMAXPROCS=2 \
  VEC_RPT27_VECTOR_ENTRADA=/scratch/entrada.json VEC_RPT27_VECTOR_SALIDA=/scratch/salida.json VEC_RPT27_GO_MODO="${go_modo:-}" "$@"
 }
-if ! "$continuar"; then
+if ! "$continuar" || "$desde_checkpoint"; then
 sandbox "$toolchain/bin/go" test -c -p 8 -overlay /scratch/overlay.json -o /scratch/rpt27.test ./internal/vec/adapters/seguridad/confianzaatestacion > "$scratch/compilar.log" 2>&1 || fallo 'compilación focal aislada falló'
-else
+elif ! "$desde_checkpoint"; then
  # Únicamente las dos funciones auxiliares propias, nunca las migraciones.
  python3 - "$base_dir/relacion_para_rpt_000027.sql" "$scratch/fixture_corregida.sql" <<'PYFIXTURE'
 import pathlib,re,sys
@@ -960,6 +1020,17 @@ preparar go_positivo
 antes=$(contadores)
 lector_go positivo
 comprobar_contadores_go "$antes" '1|1|1|0'
+# El fallo del sink ocurre después del COMMIT: no cambia el recibo ni crea
+# otra operación. El emisor común cuenta la pérdida sin modificar el negocio.
+preparar go_sink_caido
+antes=$(contadores)
+lector_go sink_caido
+comprobar_contadores_go "$antes" '1|1|1|0'
+# Replay recupera sólo la negativa y su intento; no repite el efecto permitido.
+# Reutiliza el vector de go_positivo para verificar la operación ya confirmada.
+valor "SELECT entrada FROM public.rpt27_ensayo_vector WHERE caso='go_positivo'" > "$scratch/entrada.json"
+normalizar emitir
+valor "SELECT bundle FROM public.rpt27_ensayo_vector WHERE caso='go_positivo'" > "$scratch/salida.json"
 antes=$(contadores)
 lector_go replay
 comprobar_contadores_go "$antes" '0|0|0|1'

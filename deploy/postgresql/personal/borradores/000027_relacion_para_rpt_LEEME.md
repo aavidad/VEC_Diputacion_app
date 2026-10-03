@@ -152,15 +152,30 @@ y SHA256
 El checkpoint contiene PGDATA sintético, journal, capturas y las fuentes
 mínimas de continuación; no incluye binario, caché, overlay ni claves scratch.
 
-Después de corregir y revisar la autoridad común, Dirección debe restaurar
-el checkpoint POST154 y preparar una compilación focal nueva de las fuentes
-guardadas. El modo `--continuar-desde-replay` de
-`8667ee7264bef036f5102223613ca3be4777edde` presupone un binario presente:
-requiere adaptar esa preparación al checkpoint frío antes de ejecutarlo.
-La reanudación debe cotejar datos, SQL y fuentes conservados, y avanzar desde
-la primera denegación, sin UP, DOWN ni repetición de los tres positivos.
-Este cierre no acredita el resto de negativas, el corte histórico, MVCC
-ni el recorrido del servicio Go con los pools comunes.
+El checkpoint se restauró en el clon coordinado por Dirección. CA27,
+`2a28236983e5833c10f0fc62efcca4e38557152f`, recibió dos GO y se instaló una
+sola vez. Su ensayo focal cotejó las tres proyecciones de empleado originales,
+los vínculos anteriores `vin_`, los negativos de canon y procedencia y una
+revocación posterior revertida. Los tres vectores y recibos RPT permanecen
+conservados. El reensayo completo de RPT sigue pendiente.
+
+El runner prepara `--continuar-postcheckpoint`: comprueba journal SQL,
+captura y los contadores `3 / 6243 / 6243 / 0`; regenera el overlay y compila
+una sola vez desde las fuentes acordadas, sin reinstalar SQL, roles, motivos
+ni las tres lecturas positivas. Recupera únicamente la misma clave HMAC
+sintética instalada en el clon a un archivo scratch `0600`, sin imprimirla.
+Si falta, diverge o ha caducado, detiene la continuación; no crea otra versión
+ni renueva su vigencia.
+
+La fuente Go del lector es
+`5c5e305a397306612299a11741a26a0bdce1abbe`, incorporada sin editarla. El
+overlay usa el constructor público de cinco argumentos con el emisor JSONL
+común, cola acotada y destino limitado. Prepara la comprobación de resultado
+y correlación, incluido un fallo del destino después del COMMIT que no cambia
+el recibo de negocio ni duplica el efecto. La preparación aún no acredita
+esas comprobaciones ni el resto de negativas, corte histórico, MVCC o
+recorrido del servicio Go con los pools comunes. La compilación y ejecución
+requieren el hash final y la coordinación de Dirección.
 
 La fixture conserva `catalogo_snapshot` sin inventar un catálogo admitido.
 Ambos LOGIN de prueba conservan CONNECT propio; retirar el grupo del
