@@ -354,8 +354,7 @@ export async function montarModuloContratacionTemporal({
     obtenerEstado: () => presentador.obtenerEstado(),
     ...(clienteCircuitoFirma === undefined ? {} : { cliente: clienteCircuitoFirma }),
     dependenciasAcciones: dependenciasFirma,
-    mensajes,
-    esMontada,
+    mensajes, esMontada,
     locale,
   });
   const gestorBorrador = crearGestorDescargaBorradorRRHH({
