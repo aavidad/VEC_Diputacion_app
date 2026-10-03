@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"os"
 	"strings"
 	"testing"
 
@@ -54,6 +55,10 @@ func TestCLIAntecedenteYAportacionDerivanMaterialConCatalogos(t *testing.T) {
 		if json.Unmarshal(salida.Bytes(), &out) != nil || out.Resuelto || out.Presentado || out.RequisitoAnterior.Estado != "pendiente" || out.Propuesta.Antecedente != a {
 			t.Fatal(salida.String())
 		}
+		esperado, err := os.ReadFile("testdata/aportacion-resultado.json")
+		if err != nil || !bytes.Equal(esperado, salida.Bytes()) {
+			t.Fatalf("consumer fixture differs: %v", err)
+		}
 		c, err := cargarCatalogo("../../web/static/textos", idioma)
 		if err != nil {
 			t.Fatal(err)
@@ -63,6 +68,23 @@ func TestCLIAntecedenteYAportacionDerivanMaterialConCatalogos(t *testing.T) {
 				t.Fatalf("missing %s %s", idioma, key)
 			}
 		}
+	}
+}
+
+func TestCLIIdentificaIgualMaterialConEspaciosYOrdenDeClavesDistintos(t *testing.T) {
+	var valor map[string]json.RawMessage
+	if err := json.Unmarshal(fixture(t), &valor); err != nil {
+		t.Fatal(err)
+	}
+	reordenado, err := json.Marshal(valor)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var original, ordenado, errores bytes.Buffer
+	args := append(argumentos("es"), "--salida", "antecedente")
+	if ejecutar(context.Background(), args, bytes.NewReader(fixture(t)), &original, &errores) != 0 ||
+		ejecutar(context.Background(), args, bytes.NewReader(reordenado), &ordenado, &errores) != 0 || !bytes.Equal(original.Bytes(), ordenado.Bytes()) {
+		t.Fatalf("%s %s %s", original.String(), ordenado.String(), errores.String())
 	}
 }
 

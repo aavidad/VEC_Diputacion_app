@@ -75,6 +75,11 @@ No calcula fechas o condiciones legales, consume permisos o cambia RUM. Sus
 indicadores de persistencia, presentación, requerimiento y resolución son
 `false`.
 
+El ejemplo recorrido conserva el antecedente en
+`testdata/aportacion-antecedente.json` y el resultado en
+`testdata/aportacion-resultado.json`. La salida de este último tiene SHA256
+`e672e1a224c1853b8627a772aa787504196389eee8306047c200ca7798af578b`.
+
 La autoridad competente debe cotejar la propuesta con las bases, decidir qué
 puede subsanarse y bajo qué condiciones y revisar la aportación presentada por
 el circuito admitido. La falta de soportes o su mera presencia no cambia una
