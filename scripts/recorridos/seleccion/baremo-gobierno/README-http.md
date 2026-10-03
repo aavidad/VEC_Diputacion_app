@@ -12,10 +12,13 @@ arranca PostgreSQL ni publica endpoints. Las fases deben coordinarse con el
 responsable del único clon desechable; no usar otra base.
 
 La configuración privada contiene `harness`, con el JSON completo del ensayo
-directo, y `auditoria_sql`, una consulta revisada de solo lectura que devuelve
-el número de rechazos CT168 para la ruta de alta, motivo `acceso_denegado` y
-actor vacío. El responsable SQL debe limitar esa consulta al perímetro sintético
-del ensayo. `harness.rutas` debe contener las tres rutas nominales de PR443.
+directo, y dos consultas revisadas de solo lectura. `auditoria_sql` cuenta los
+rechazos CT173 de la ruta de alta, superficie de contexto validado previo al PDP,
+motivo `acceso_denegado` y actor exacto `$1`. Ese actor procede de la composición
+real del binder. `auditoria_pre_contexto_sql` cuenta los rechazos CT168 de la
+misma ruta, motivo y superficie previa al contexto, con actor vacío. El responsable
+SQL debe limitar ambas consultas al perímetro sintético del ensayo.
+`harness.rutas` debe contener las tres rutas nominales de PR443.
 La continuidad HTTP usa un fichero distinto de la continuidad del ensayo
 directo, siempre fuera de Git y con permisos `0600`.
 

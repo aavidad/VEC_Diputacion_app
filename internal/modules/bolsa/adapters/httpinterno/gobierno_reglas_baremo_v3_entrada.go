@@ -1,11 +1,13 @@
 package httpinterno
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"io"
+	"unicode/utf8"
 
 	app "vec-diputacion-granada/internal/modules/bolsa/application/gobiernoreglasbaremo"
 	reglas "vec-diputacion-granada/internal/modules/bolsa/domain/reglasbaremo"
@@ -76,10 +78,16 @@ type entradaGobiernoHTTPV3 struct {
 }
 
 func leerEntradaGobiernoReglasV3(r io.Reader, ruta string) (entradaGobiernoHTTPV3, error) {
-	d := json.NewDecoder(r)
+	contenido, err := io.ReadAll(r)
+	if err != nil {
+		return entradaGobiernoHTTPV3{}, errors.Join(app.ErrGobiernoV3PeticionInvalida, err)
+	}
+	if !utf8.Valid(contenido) || validarJSONSinDuplicados(contenido) != nil {
+		return entradaGobiernoHTTPV3{}, app.ErrGobiernoV3PeticionInvalida
+	}
+	d := json.NewDecoder(bytes.NewReader(contenido))
 	d.DisallowUnknownFields()
 	var entrada entradaGobiernoHTTPV3
-	var err error
 	switch ruta {
 	case RutaAltaGobiernoReglasBaremoV3:
 		var e struct {

@@ -27,8 +27,9 @@ import (
 // Los helpers del ensayo directo se cargan mediante overlay desde su commit
 // conservado. El runner no instala SQL ni reconstruye una autoridad de sesión.
 type configuracionEnsayoBaremoHTTP struct {
-	Harness      configuracionEnsayoBaremo `json:"harness"`
-	AuditoriaSQL string                    `json:"auditoria_sql"`
+	Harness                 configuracionEnsayoBaremo `json:"harness"`
+	AuditoriaSQL            string                    `json:"auditoria_sql"`
+	AuditoriaPreContextoSQL string                    `json:"auditoria_pre_contexto_sql"`
 }
 
 type continuidadEnsayoBaremoHTTP struct {
@@ -49,7 +50,7 @@ func TestGobiernoReglasBaremoHTTPIntegracionPostgreSQL(t *testing.T) {
 	cfg := c.Harness
 	fase := os.Getenv("VEC_BAREMO_PG_FASE")
 	nominales := RutasGobiernoReglasBaremoV3{Alta: bolsahttp.RutaAltaGobiernoReglasBaremoV3, Consulta: bolsahttp.RutaConsultaGobiernoReglasBaremoV3, Recuperar: bolsahttp.RutaRecuperarGobiernoReglasBaremoV3}
-	if cfg.Version != 1 || cfg.Rutas != nominales || c.AuditoriaSQL == "" || !rutaPrivadaEnsayoBaremo(cfg.Continuidad) || !claveOperacionGobiernoV3(cfg.ClaveOperacion) {
+	if cfg.Version != 1 || cfg.Rutas != nominales || c.AuditoriaSQL == "" || c.AuditoriaPreContextoSQL == "" || !rutaPrivadaEnsayoBaremo(cfg.Continuidad) || !claveOperacionGobiernoV3(cfg.ClaveOperacion) {
 		t.Fatal("configuración HTTP incompleta")
 	}
 	if fase != "preparar" && fase != "alta" && fase != "recuperar" && fase != "reinicio" {
@@ -67,7 +68,7 @@ func TestGobiernoReglasBaremoHTTPIntegracionPostgreSQL(t *testing.T) {
 		componerEnsayoBaremoReal(t, ctx, cfg, conjunto, true)
 		return
 	}
-	servidor, cliente, ajeno, auditor := servidorEnsayoBaremoHTTP(t, ctx, cfg)
+	servidor, cliente, ajeno, auditor, personaRef := servidorEnsayoBaremoHTTP(t, ctx, cfg)
 	evidencia := poolEnsayoBaremo(t, ctx, cfg.EvidenciaDSN)
 	alta := map[string]any{"reglas": json.RawMessage(canon), "motivo": cfg.Motivo, "clave_operacion": cfg.ClaveOperacion}
 	antes, arranque := resumenPGEnsayoBaremo(t, ctx, evidencia, cfg)
@@ -142,22 +143,30 @@ func TestGobiernoReglasBaremoHTTPIntegracionPostgreSQL(t *testing.T) {
 		t.Fatal("recuperación alteró recibo HTTP")
 	}
 	canonAjeno := ficheroPrivadoEnsayoBaremo(t, cfg.ConjuntoAjeno)
+	audits := contarAuditoriaHTTPBaremo(t, ctx, evidencia, c.AuditoriaSQL, personaRef)
+	precontexto := contarAuditoriaHTTPBaremo(t, ctx, evidencia, c.AuditoriaPreContextoSQL)
 	conjuntoAjeno, err := reglas.RestaurarConjuntoReglasBaremo(canonAjeno)
 	if err != nil || (conjuntoAjeno.Identidad().ConvocatoriaRef() == conjunto.Identidad().ConvocatoriaRef() && conjuntoAjeno.Identidad().ExpedienteRef() == conjunto.Identidad().ExpedienteRef()) {
 		t.Fatal("negativo HTTP sin ámbito distinto")
 	}
-	postEnsayoBaremoHTTP(t, ctx, cliente, servidor.URL+cfg.Rutas.Alta,
-		map[string]any{"reglas": json.RawMessage(canonAjeno), "motivo": cfg.Motivo, "clave_operacion": cfg.ClaveOperacion}, 403)
+	altaAjena := map[string]any{"reglas": json.RawMessage(canonAjeno), "motivo": cfg.Motivo, "clave_operacion": cfg.ClaveOperacion}
+	postEnsayoBaremoHTTP(t, ctx, cliente, servidor.URL+cfg.Rutas.Alta, altaAjena, 403)
+	if contarAuditoriaHTTPBaremo(t, ctx, evidencia, c.AuditoriaSQL, personaRef) != audits+1 ||
+		contarAuditoriaHTTPBaremo(t, ctx, evidencia, c.AuditoriaPreContextoSQL) != precontexto {
+		t.Fatal("ámbito ajeno sin auditoría durable antes del PDP")
+	}
 	// Certificado real válido con rol ajeno: denegación de raíz con auditor
 	// segregado real. Su cierre local prueba 503 sin tocar PostgreSQL compartido.
-	audits := contarAuditoriaHTTPBaremo(t, ctx, evidencia, c.AuditoriaSQL)
 	postEnsayoBaremoHTTP(t, ctx, ajeno, servidor.URL+cfg.Rutas.Alta, alta, 403)
-	if contarAuditoriaHTTPBaremo(t, ctx, evidencia, c.AuditoriaSQL) != audits+1 {
+	if contarAuditoriaHTTPBaremo(t, ctx, evidencia, c.AuditoriaPreContextoSQL) != precontexto+1 ||
+		contarAuditoriaHTTPBaremo(t, ctx, evidencia, c.AuditoriaSQL, personaRef) != audits+1 {
 		t.Fatal("403 sin auditoría durable única")
 	}
 	auditor.Close()
+	postEnsayoBaremoHTTP(t, ctx, cliente, servidor.URL+cfg.Rutas.Alta, altaAjena, 503)
 	postEnsayoBaremoHTTP(t, ctx, ajeno, servidor.URL+cfg.Rutas.Alta, alta, 503)
-	if contarAuditoriaHTTPBaremo(t, ctx, evidencia, c.AuditoriaSQL) != audits+1 {
+	if contarAuditoriaHTTPBaremo(t, ctx, evidencia, c.AuditoriaPreContextoSQL) != precontexto+1 ||
+		contarAuditoriaHTTPBaremo(t, ctx, evidencia, c.AuditoriaSQL, personaRef) != audits+1 {
 		t.Fatal("auditor cerrado produjo otra fila")
 	}
 	final, _ := resumenPGEnsayoBaremo(t, ctx, evidencia, cfg)
@@ -184,7 +193,7 @@ func guardarContinuidadHTTPBaremo(t *testing.T, ruta string, c continuidadEnsayo
 	}
 }
 
-func contarAuditoriaHTTPBaremo(t *testing.T, ctx context.Context, p *pgxpool.Pool, consulta string) int64 {
+func contarAuditoriaHTTPBaremo(t *testing.T, ctx context.Context, p *pgxpool.Pool, consulta string, argumentos ...any) int64 {
 	t.Helper()
 	tx, err := p.BeginTx(ctx, pgx.TxOptions{AccessMode: pgx.ReadOnly, IsoLevel: pgx.RepeatableRead})
 	if err != nil {
@@ -195,7 +204,7 @@ func contarAuditoriaHTTPBaremo(t *testing.T, ctx context.Context, p *pgxpool.Poo
 	if _, err := tx.Exec(ctx, "SET LOCAL statement_timeout='5s'; SET LOCAL search_path='pg_catalog'"); err != nil {
 		t.Fatal("lectura acotada no disponible")
 	}
-	if tx.QueryRow(ctx, consulta).Scan(&n) != nil {
+	if tx.QueryRow(ctx, consulta, argumentos...).Scan(&n) != nil {
 		t.Fatal("auditoría de rechazo no consultable")
 	}
 	return n
@@ -225,7 +234,7 @@ func postEnsayoBaremoHTTP(t *testing.T, ctx context.Context, cliente *http.Clien
 	return b
 }
 
-func servidorEnsayoBaremoHTTP(t *testing.T, ctx context.Context, cfg configuracionEnsayoBaremo) (*httptest.Server, *http.Client, *http.Client, *pgxpool.Pool) {
+func servidorEnsayoBaremoHTTP(t *testing.T, ctx context.Context, cfg configuracionEnsayoBaremo) (*httptest.Server, *http.Client, *http.Client, *pgxpool.Pool, string) {
 	t.Helper()
 	c := config.Load()
 	composicion, err := NuevaComposicionSeguridadDesarrollo(c, io.Discard)
@@ -297,7 +306,7 @@ func servidorEnsayoBaremoHTTP(t *testing.T, ctx context.Context, cfg configuraci
 	p := c.DevelopmentPaths()
 	cliente := clienteEnsayoBaremoHTTP(t, s, p.CACertificate, p.ClientCertificate, p.ClientPrivateKey)
 	ajeno := clienteEnsayoBaremoHTTP(t, s, p.CACertificate, p.IntervencionCertificate, p.IntervencionPrivateKey)
-	return s, cliente, ajeno, auditor
+	return s, cliente, ajeno, auditor, m.perfil.soporte.contexto.Resultado.Contexto.PersonaRef
 }
 
 func clienteEnsayoBaremoHTTP(t *testing.T, s *httptest.Server, ca, certificado, clave string) *http.Client {
