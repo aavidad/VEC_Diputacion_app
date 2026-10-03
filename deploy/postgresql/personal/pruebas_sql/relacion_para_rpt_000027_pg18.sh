@@ -215,7 +215,7 @@ pathlib.Path(sys.argv[2]).write_text(q.replace('__H__',h.hex()).replace('__MIN__
 PYGOBIERNO69
  archivo "$scratch/gobierno69.sql"
  [[ $(valor "SELECT encode(sha256(convert_to(to_jsonb(k)::text,'UTF8')),'hex') FROM vec_autorizacion_atestada_v3.clave_capacidad_version k WHERE clave_id='clave:rpt27:ensayo' AND version=$gobierno_anterior") == "$clave_anterior_sha" ]] || fallo 'gobierno modificó historia anterior'
- [[ $(valor "SELECT count(*)=1 AND bool_and(version=$gobierno_version AND octet_length(secreto_hmac)=32 AND encode(sha256(secreto_hmac),'hex')=huella_secreto_sha256) FROM vec_autorizacion_atestada_v3.clave_capacidad_version WHERE clave_id='clave:rpt27:ensayo' AND clock_timestamp()>=valida_desde AND clock_timestamp()<valida_hasta") == t ]] || fallo 'clave69 vigente divergente'
+ [[ $(valor "SELECT count(*)=1 AND bool_and(version=$gobierno_version AND octet_length(secreto_hmac)=32 AND encode(sha256(secreto_hmac),'hex')=huella_secreto_sha256) FROM vec_autorizacion_atestada_v3.clave_capacidad_version WHERE clave_id='clave:rpt27:ensayo' AND clock_timestamp()>=valida_desde AND clock_timestamp()<valida_hasta") == t ]] || fallo 'clave vigente divergente'
  # Sólo la función auxiliar del fixture: selector por vigencia, nunca UPDATE
  # de clave, sesión, datos anteriores o funciones instaladas de producto.
  python3 - "$base_dir/relacion_para_rpt_000027.sql" "$scratch/selector69.sql" <<'PYSELECTOR69'
@@ -226,7 +226,7 @@ pathlib.Path(sys.argv[2]).write_text('BEGIN;\n'+m[0].replace('CREATE FUNCTION','
 PYSELECTOR69
  if ! "$solo_concurrente"; then archivo "$scratch/selector69.sql"; fi
  fi
- [[ $(valor "SELECT count(*)=1 AND bool_and(version=$gobierno_version AND octet_length(secreto_hmac)=32 AND encode(sha256(secreto_hmac),'hex')=huella_secreto_sha256) FROM vec_autorizacion_atestada_v3.clave_capacidad_version WHERE clave_id='clave:rpt27:ensayo' AND clock_timestamp()>=valida_desde AND clock_timestamp()<valida_hasta") == t ]] || fallo 'clave69 vigente divergente'
+ [[ $(valor "SELECT count(*)=1 AND bool_and(version=$gobierno_version AND octet_length(secreto_hmac)=32 AND encode(sha256(secreto_hmac),'hex')=huella_secreto_sha256) FROM vec_autorizacion_atestada_v3.clave_capacidad_version WHERE clave_id='clave:rpt27:ensayo' AND clock_timestamp()>=valida_desde AND clock_timestamp()<valida_hasta") == t ]] || fallo 'clave vigente divergente'
  captura "$scratch/reanudacion.json"
  cmp -s "$scratch/preimagen.json" "$scratch/reanudacion.json" || fallo 'continuación alteró autoridades previas'
 fi
@@ -1177,7 +1177,7 @@ done
 printf "SELECT pg_advisory_unlock(hashtextextended('%s',0));\n" "$puerta" >&"$puerta_in"
 IFS= read -r puerta_liberada <&"$puerta_out" || fallo 'puerta SQL no liberada'
 [[ $puerta_liberada == t ]] || fallo 'puerta SQL no pertenecía al controlador'
-printf '\\q\n' >&"$puerta_in"
+printf '%s\n' '\q' >&"$puerta_in"
 wait "$publicador_pid" || fallo 'escritor Go falló'
 [[ $lista == true ]] || fallo 'lector no alcanzó el bloqueo real de la relación'
 wait "$lector_pid" || fallo 'caso Go concurrente falló'
