@@ -1,4 +1,5 @@
-import { crearLectorBasesHTTP } from './cliente-http.js?v=20261003-s2-consulta-v1';
+import { crearLectorBasesHTTP } from './cliente-http.js?v=20261003-s2-consulta-v2';
+import { validarReferencia, validarRevision, validarHuella } from './contrato-http.js?v=20261003-s2-consulta-v2';
 import { leerArchivo } from './modelo.js?v=20261003-s2-consulta-v1';
 import { pintarSalida } from './vista.js?v=20261003-s2-consulta-v1';
 import { cargarTextos } from '../../../../comun/textos.js';
@@ -11,6 +12,33 @@ const cancelar = document.querySelector('#bases-cancelar');
 const lector = crearLectorBasesHTTP(); let peticion = null;
 const cerrar = document.querySelector('#bases-cerrar'); const urls = new Set();
 let turno = 0; let carga = null; let textos; let estadoActual = { clave: 'vacio', error: false, variables: {} };
+let erroresFormulario = [];
+function mostrarErroresFormulario() {
+  for (const id of ['bases-referencia', 'bases-revision', 'bases-huella']) {
+    const entrada = document.getElementById(id), aviso = document.getElementById(`${id}-error`);
+    const error = erroresFormulario.find(item => item.id === id);
+    entrada.setAttribute('aria-invalid', String(Boolean(error)));
+    aviso.hidden = !error;
+    aviso.textContent = error ? textos.traducir(error.clave) : '';
+  }
+}
+function borrarErroresFormulario() { erroresFormulario = []; mostrarErroresFormulario(); }
+function validarFormulario() {
+  const referencia = document.getElementById('bases-referencia');
+  const revision = document.getElementById('bases-revision');
+  const huella = document.getElementById('bases-huella');
+  erroresFormulario = [];
+  if (!validarReferencia(referencia.value)) erroresFormulario.push({ id: referencia.id, clave: 'consulta_validacion.referencia' });
+  if (document.getElementById('bases-modo').value === 'exacta') {
+    if (!validarRevision(Number(revision.value)) || revision.value.trim() === '') erroresFormulario.push({ id: revision.id, clave: 'consulta_validacion.revision' });
+    if (!validarHuella(huella.value)) erroresFormulario.push({ id: huella.id, clave: 'consulta_validacion.huella' });
+  }
+  mostrarErroresFormulario();
+  if (!erroresFormulario.length) return true;
+  mensaje('consulta_errores.selector_invalido', true);
+  document.getElementById(erroresFormulario[0].id).focus();
+  return false;
+}
 function mensaje(clave, error = false, variables = {}) {
   estadoActual = { clave, error, variables };
   estado.textContent = textos.traducir(clave, variables); estado.setAttribute('role', error ? 'alert' : 'status');
@@ -21,7 +49,7 @@ function limpiar() {
   urls.forEach(url => URL.revokeObjectURL(url)); urls.clear();
 }
 archivo.addEventListener('change', async () => {
-  limpiar(); const actual = turno; const file = archivo.files?.[0];
+  limpiar(); borrarErroresFormulario(); const actual = turno; const file = archivo.files?.[0];
   if (!file) { mensaje('vacio'); return; }
   cerrar.disabled = false; mensaje('cargando');
   try {
@@ -47,7 +75,7 @@ function selectorConsulta() {
     huella_material_sha256: modo === 'actual' ? '' : document.querySelector('#bases-huella').value };
 }
 formulario.addEventListener('submit', async e => {
-  e.preventDefault(); limpiar(); archivo.value = ''; const actual = turno;
+  e.preventDefault(); limpiar(); archivo.value = ''; if (!validarFormulario()) return; const actual = turno;
   peticion = new AbortController(); cancelar.disabled = false; mensaje('consultando');
   try {
     const resultado = await lector.consultar(selectorConsulta(), { signal: peticion.signal });
@@ -58,13 +86,13 @@ formulario.addEventListener('submit', async e => {
   } catch (error) { if (actual === turno) { limpiar(); mensaje(`consulta_errores.${error.codigo || 'servicio_no_disponible'}`, true); } }
   finally { if (actual === turno) { peticion = null; cancelar.disabled = true; } }
 });
-formulario.addEventListener('input', () => { limpiar(); archivo.value = ''; mensaje('consulta_lista'); });
+formulario.addEventListener('input', () => { limpiar(); borrarErroresFormulario(); archivo.value = ''; mensaje('consulta_lista'); });
 formulario.addEventListener('change', () => {
-  limpiar(); archivo.value = ''; mensaje('consulta_lista');
+  limpiar(); borrarErroresFormulario(); archivo.value = ''; mensaje('consulta_lista');
   const exacta = document.querySelector('#bases-modo').value === 'exacta'; document.querySelector('#bases-exacta').hidden = !exacta;
   for (const id of ['bases-revision', 'bases-huella']) document.getElementById(id).required = exacta;
 });
-cancelar.addEventListener('click', () => { limpiar(); mensaje('consulta_cancelada'); consultar.focus(); });
+cancelar.addEventListener('click', () => { limpiar(); borrarErroresFormulario(); mensaje('consulta_cancelada'); consultar.focus(); });
 
 const ayuda = document.querySelector('#bases-ayuda');
 ayuda.addEventListener('click', () => {
@@ -77,6 +105,7 @@ async function idioma(codigo) {
   document.documentElement.lang = textos.idioma; document.title = textos.traducir('titulo');
   document.querySelectorAll('[data-texto]').forEach(n => { if (n !== estado) n.textContent = textos.traducir(n.dataset.texto); });
   mensaje(estadoActual.clave, estadoActual.error, estadoActual.variables);
+  mostrarErroresFormulario();
   document.querySelectorAll('[data-aria]').forEach(n => { n.setAttribute('aria-label', textos.traducir(n.dataset.aria)); });
   if (carga) pintarSalida({ raiz, dto: carga.dto, textos, institucional: carga.institucional });
 }

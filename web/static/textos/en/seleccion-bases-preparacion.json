@@ -112,6 +112,11 @@
   "consulta_exacta": "A specific revision",
   "consulta_revision": "Revision number · Required",
   "consulta_huella": "Material fingerprint · Required",
+  "consulta_validacion": {
+    "referencia": "Enter a valid reference without spaces, up to 180 characters.",
+    "revision": "Enter a revision number from 1 to 1,000,000.",
+    "huella": "Enter the original 64-character lowercase fingerprint."
+  },
   "consultar": "Look up preparation",
   "cancelar": "Cancel lookup",
   "consultando": "Looking up the preparation…",

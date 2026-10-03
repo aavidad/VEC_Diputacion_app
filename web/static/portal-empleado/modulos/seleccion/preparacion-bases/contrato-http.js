@@ -4,9 +4,10 @@ export class ErrorConsultaBases extends Error {
   constructor(codigo) { super(codigo); this.codigo = codigo; }
 }
 const fallo = () => { throw new ErrorConsultaBases('respuesta_incompatible'); };
-const id = v => typeof v === 'string' && /^[a-zA-Z0-9:_./-]{1,180}$/u.test(v);
-const huella = v => typeof v === 'string' && /^[a-f0-9]{64}$/u.test(v);
-const revision = v => Number.isSafeInteger(v) && v >= 1 && v <= 1000000;
+export const validarReferencia = v => typeof v === 'string' && /^[a-zA-Z0-9:_./-]{1,180}$/u.test(v);
+export const validarHuella = v => typeof v === 'string' && /^[a-f0-9]{64}$/u.test(v);
+export const validarRevision = v => Number.isSafeInteger(v) && v >= 1 && v <= 1000000;
+const id = validarReferencia, huella = validarHuella, revision = validarRevision;
 const instante = v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/u.test(v) && Number.isFinite(Date.parse(v)) && !v.startsWith('0001-');
 
 export function validarSelector(entrada) {

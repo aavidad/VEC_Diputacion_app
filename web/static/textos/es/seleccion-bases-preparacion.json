@@ -112,6 +112,11 @@
   "consulta_exacta": "Una revisión concreta",
   "consulta_revision": "Número de revisión · Obligatorio",
   "consulta_huella": "Huella del material · Obligatoria",
+  "consulta_validacion": {
+    "referencia": "Indique una referencia válida, sin espacios y de hasta 180 caracteres.",
+    "revision": "Indique un número de revisión entre 1 y 1.000.000.",
+    "huella": "Indique la huella original de 64 caracteres en minúsculas."
+  },
   "consultar": "Consultar preparación",
   "cancelar": "Cancelar consulta",
   "consultando": "Consultando la preparación…",

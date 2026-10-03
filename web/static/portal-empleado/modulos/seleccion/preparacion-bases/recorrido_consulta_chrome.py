@@ -42,6 +42,11 @@ def main():
                 assert pagina.goto(origen + entrada + '?lang=es').status == 200
                 pagina.wait_for_function("() => !document.querySelector('#bases-consultar').disabled")
                 ref = pagina.locator('#bases-referencia'); consultar = pagina.locator('#bases-consultar')
+                consultar.click()
+                assert pagina.evaluate("document.activeElement.id === 'bases-referencia'")
+                assert ref.get_attribute('aria-invalid') == 'true'
+                assert pagina.locator('#bases-referencia-error').is_visible()
+                assert not observadas
                 ref.fill('preparacion:sintetica'); consultar.click()
                 pagina.wait_for_function("() => !document.querySelector('#bases-cerrar').disabled")
                 assert observadas[-1] == {'modo':'actual','preparacion_ref':'preparacion:sintetica','revision':0,'huella_material_sha256':''}
@@ -56,6 +61,13 @@ def main():
                 pagina.locator('#bases-idioma').select_option('en'); pagina.wait_for_function("() => document.documentElement.lang === 'en'")
                 assert pagina.get_by_role('heading',name='Outstanding checks').count()==1; assert pagina.locator('#bases-descargar').is_disabled(); pagina.screenshot(path=str(scratch/'consulta-en-390.png'))
                 pagina.locator('#bases-modo').select_option('exacta'); assert pagina.locator('#bases-resultados').inner_text()==''; assert pagina.locator('#bases-descargar').is_disabled()
+                peticiones_antes = len(observadas); consultar.click()
+                assert len(observadas) == peticiones_antes
+                assert pagina.evaluate("document.activeElement.id === 'bases-revision'")
+                assert pagina.locator('#bases-revision').get_attribute('aria-invalid') == 'true'
+                assert pagina.locator('#bases-huella').get_attribute('aria-invalid') == 'true'
+                assert 'Enter a revision number' in pagina.locator('#bases-revision-error').inner_text()
+                assert 'Enter the original' in pagina.locator('#bases-huella-error').inner_text()
                 pagina.locator('#bases-revision').fill('1'); pagina.locator('#bases-huella').fill(h); consultar.click(); pagina.wait_for_function("() => !document.querySelector('#bases-cerrar').disabled")
                 assert observadas[-1]['modo']=='exacta' and observadas[-1]['revision']==1 and observadas[-1]['huella_material_sha256']==h
                 for valor in ['403','404','409','503','malformada']:
