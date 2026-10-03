@@ -107,7 +107,7 @@ func TestRecuperacionCruzaCanonHistoricoConFirmaYRevision(t *testing.T) {
 		},
 		"pdf": func(x *ports.LecturaRecuperacionFirmasV2) {
 			mutarCanonPrueba(t, x, func(c *vecdomain.CanonCompetenciaFirmanteHistoricaV1) {
-				c.Recurso.Original.HuellaSHA256, c.Recurso.PDFRaizSHA256 = strings.Repeat("0", 64), strings.Repeat("0", 64)
+				c.Recurso.Original.HuellaSHA256, c.Recurso.PDFRaizSHA256 = strings.Repeat("4", 64), strings.Repeat("4", 64)
 			})
 		},
 		"paso": func(x *ports.LecturaRecuperacionFirmasV2) {
