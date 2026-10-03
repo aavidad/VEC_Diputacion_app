@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { leerSalida, leerArchivo, MAXIMO_BYTES } from './modelo.js';
-import { pintarSalida } from './vista.js';
+import { pintarSalida, textosRevision } from './vista.js';
 import { cargarTextos } from '../../../../comun/textos.js';
 
 const bytes = new Uint8Array(await readFile(new URL('./testdata/preparacion.json', import.meta.url)));
@@ -46,12 +46,12 @@ test('rechaza duplicados, prototipos, UTF-8 inválido y tamaño antes de mostrar
   for (const size of [0, MAXIMO_BYTES + 1]) await assert.rejects(leerArchivo({ size, arrayBuffer() { throw Error('no_leer'); } }), /tamano/);
 });
 test('catálogos ES/EN tienen paridad y traducen estados y actuaciones pendientes', async () => {
-  const a = JSON.parse(await readFile(new URL('../../../../textos/es/selectivos-notas-visor.json', import.meta.url)));
-  const b = JSON.parse(await readFile(new URL('../../../../textos/en/selectivos-notas-visor.json', import.meta.url)));
+  const a = JSON.parse(await readFile(new URL('../../../../textos/es/seleccion.json', import.meta.url)));
+  const b = JSON.parse(await readFile(new URL('../../../../textos/en/seleccion.json', import.meta.url)));
   const claves = v => Object.entries(v).flatMap(([k,x]) => typeof x === 'object' ? claves(x).map(c => `${k}.${c}`) : [k]).sort();
   assert.deepEqual(claves(a), claves(b));
   for (const idioma of ['es','en']) {
-    const textos = await cargarTextos('selectivos-notas-visor', { idioma });
+    const textos = textosRevision(await cargarTextos('seleccion', { idioma }));
     for (const p of leerSalida(bytes).pendientes) assert.ok(textos.traducir(`actuacion.${p}`));
     assert.deepEqual(textos.faltantes, []);
   }
@@ -70,7 +70,7 @@ test('vista escapada explica antes/después, mantiene pendientes y no muestra un
     const d = { createElement: tag => new Nodo(d,tag) }, raiz = d.createElement('div');
     const dto = base(); dto.antecedente.solicitudes[0].nombre = '<img src=x onerror=alert(1)>';
     dto.propuesta.solicitudes[0].nombre = dto.antecedente.solicitudes[0].nombre;
-    const textos = await cargarTextos('selectivos-notas-visor', { idioma });
+    const textos = textosRevision(await cargarTextos('seleccion', { idioma }));
     pintarSalida({ raiz, dto: leerSalida(codificar(dto)), textos });
     assert.ok(raiz.textContent.includes('<img src=x onerror=alert(1)>'));
     assert.ok(!elementos(raiz).some(n => n.tagName === 'img'));

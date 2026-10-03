@@ -1,5 +1,5 @@
 import { leerArchivo } from './modelo.js?v=20261004-s6-revision-notas-v1';
-import { pintarSalida } from './vista.js?v=20261004-s6-revision-notas-v1';
+import { pintarSalida, textosRevision } from './vista.js?v=20261004-s6-revision-notas-v1';
 import { cargarTextos, urlCatalogo, crearTextos } from '../../../../comun/textos.js';
 import { INDICE_IDIOMAS, leerRecursoJSON } from '../../../../comun/idioma.js';
 
@@ -43,7 +43,7 @@ ayuda.addEventListener('click', () => {
   ayuda.setAttribute('aria-expanded', String(!contenido.hidden)); if (!contenido.hidden) contenido.scrollIntoView({ block: 'nearest' });
 }, { signal: eventos.signal });
 function pintarIdioma(siguiente) {
-  textos = siguiente; document.documentElement.lang = textos.idioma; document.title = textos.traducir('titulo');
+  textos = textosRevision(siguiente); document.documentElement.lang = textos.idioma; document.title = textos.traducir('titulo');
   document.querySelectorAll('[data-texto]').forEach(n => { n.textContent = textos.traducir(n.dataset.texto); });
   document.querySelectorAll('[data-aria]').forEach(n => { n.setAttribute('aria-label', textos.traducir(n.dataset.aria)); });
   mensaje(estadoActual.clave, estadoActual.error);
@@ -51,7 +51,7 @@ function pintarIdioma(siguiente) {
 }
 selector.addEventListener('change', async () => {
   selector.disabled = true;
-  try { const siguiente = await cargarTextos('selectivos-notas-visor', { idioma: selector.value }); if (activa) pintarIdioma(siguiente); }
+  try { const siguiente = await cargarTextos('seleccion', { idioma: selector.value }); if (activa) pintarIdioma(siguiente); }
   catch { if (activa) { retirar(); mensaje('error_catalogo', true); } }
   finally { if (activa) { selector.value = textos.idioma; selector.disabled = false; } }
 }, { signal: eventos.signal });
@@ -74,7 +74,7 @@ window.addEventListener('pageshow', e => {
   location.reload();
 });
 try {
-  const inicial = await cargarTextos('selectivos-notas-visor');
+  const inicial = await cargarTextos('seleccion');
   if (activa) {
     pintarIdioma(inicial);
     for (const i of INDICE_IDIOMAS.idiomas) { const opt = document.createElement('option'); opt.value = i.codigo; opt.lang = i.codigo; opt.textContent = i.nombre; selector.append(opt); }
@@ -83,9 +83,9 @@ try {
 } catch {
   for (const i of INDICE_IDIOMAS.idiomas) {
     try {
-      const respaldo = await leerRecursoJSON(urlCatalogo(i.codigo, 'selectivos-notas-visor'));
+      const respaldo = await leerRecursoJSON(urlCatalogo(i.codigo, 'seleccion'));
       if (!activa) break;
-      pintarIdioma(crearTextos({ modulo: 'selectivos-notas-visor', idioma: i.codigo, localizacion: i.localizacion, respaldo }));
+      pintarIdioma(crearTextos({ modulo: 'seleccion', idioma: i.codigo, localizacion: i.localizacion, respaldo }));
       mensaje('error_catalogo', true); break;
     } catch { /* Sin catálogo legible, el visor permanece deshabilitado. */ }
   }

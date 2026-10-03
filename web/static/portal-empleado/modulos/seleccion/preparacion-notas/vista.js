@@ -1,5 +1,9 @@
 import { nodo, panel, tabla } from '../dom.js?v=20261004-codexa-s6-notas-v1';
 
+export function textosRevision(textos) {
+  return Object.freeze({ ...textos, traducir: (clave, valores) => textos.traducir(`revision_notas.${clave}`, valores) });
+}
+
 export function pintarSalida({ raiz, dto, textos }) {
   const d = raiz.ownerDocument, t = textos.traducir;
   const puntos = valor => valor === null ? t('pendiente') : textos.numero(valor / 1000000, { maximumFractionDigits: 6 });

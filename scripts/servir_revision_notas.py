@@ -46,7 +46,7 @@ def cargar_recursos(raiz):
         codigo = idioma["codigo"]
         if not isinstance(codigo, str) or not codigo.replace("-", "").isalpha():
             raise ValueError("indice_idiomas_invalido")
-        rutas.append(f"textos/{codigo}/selectivos-notas-visor.json")
+        rutas.append(f"textos/{codigo}/seleccion.json")
     recursos = {}
     for ruta in rutas:
         tipo = mimetypes.guess_type(ruta)[0] or "application/octet-stream"

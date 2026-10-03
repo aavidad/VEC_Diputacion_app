@@ -25,7 +25,7 @@ def preparar(raiz, idiomas=("es", "en")):
         "por_defecto": idiomas[0], "idiomas": [{"codigo": i} for i in idiomas],
     }).encode())
     for idioma in idiomas:
-        escribir(raiz, f"textos/{idioma}/selectivos-notas-visor.json", b'{"titulo":"visor"}')
+        escribir(raiz, f"textos/{idioma}/seleccion.json", b'{"titulo":"visor"}')
 
 
 class RevisionNotasLocalTest(unittest.TestCase):
@@ -36,16 +36,16 @@ class RevisionNotasLocalTest(unittest.TestCase):
             for ruta in (
                 "privado.json", f"{PREFIJO}/solicitud.json", f"{PREFIJO}/resultado.json",
                 f"{PREFIJO}/testdata/preparacion.json", f"{PREFIJO}/modelo.test.mjs",
-                "textos/de/selectivos-notas-visor.json", f"{PREFIJO}/escenario.json",
+                "textos/de/seleccion.json", f"{PREFIJO}/escenario.json",
             ):
                 escribir(raiz, ruta)
             recursos, entrada = cargar_recursos(raiz)
             esperados = {f"/{r}" for r in (*COMUNES, *PROPIOS)}
-            esperados.update(f"/textos/{i}/selectivos-notas-visor.json" for i in ("es", "en", "fr"))
+            esperados.update(f"/textos/{i}/seleccion.json" for i in ("es", "en", "fr"))
             esperados.add(entrada)
             self.assertEqual(set(recursos), esperados)
             self.assertEqual(recursos[entrada], recursos[f"/{PREFIJO}/index.html"])
-            (raiz / "textos/fr/selectivos-notas-visor.json").unlink()
+            (raiz / "textos/fr/seleccion.json").unlink()
             with self.assertRaises(FileNotFoundError):
                 cargar_recursos(raiz)
 
