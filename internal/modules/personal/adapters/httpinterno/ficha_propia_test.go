@@ -242,12 +242,12 @@ func TestFichaPropiaHTTPContextoAusenteNoAtribuyeIntento(t *testing.T) {
 	}
 }
 
-func TestFichaPropiaHTTPPreflightFallidoNoConsultaNiAtribuye(t *testing.T) {
+func TestFichaPropiaHTTPPreflightFallidoRegistraErrorSinConsultar(t *testing.T) {
 	consulta := &consultaFichaPropiaHTTP{}
 	registro := &registroFichaPropiaHTTP{errVerificar: errors.New("destino caído")}
 	w := httptest.NewRecorder()
 	manejadorFichaPropiaPrueba(t, consulta, registro).ServeHTTP(w, httptest.NewRequest(http.MethodPost, RutaFichaPropia, nil))
-	if w.Code != http.StatusServiceUnavailable || w.Body.String() != `{"error":"no_disponible"}` || len(registro.intentos) != 0 || consulta.llamadas != 0 || registro.verificaciones != 1 {
+	if w.Code != http.StatusServiceUnavailable || w.Body.String() != `{"error":"no_disponible"}` || len(registro.intentos) != 1 || registro.intentos[0].Motivo != "no_disponible" || consulta.llamadas != 0 || registro.verificaciones != 1 {
 		t.Fatalf("preflight: %d %s intentos=%+v consultas=%d", w.Code, w.Body.String(), registro.intentos, consulta.llamadas)
 	}
 }
@@ -278,5 +278,20 @@ func TestFichaPropiaHTTPCancelacionDeConsultaNoDuplicaRegistro(t *testing.T) {
 	manejadorFichaPropiaPrueba(t, consulta, registro).ServeHTTP(w, httptest.NewRequest(http.MethodGet, RutaFichaPropia, nil).WithContext(ctx))
 	if consulta.llamadas != 1 || len(registro.intentos) != 0 || w.Body.Len() != 0 {
 		t.Fatalf("cancelación: consultas=%d intentos=%+v cuerpo=%s", consulta.llamadas, registro.intentos, w.Body.String())
+	}
+}
+
+func TestFichaPropiaHTTPPreflightCanceladoConIdentidadConservaIntento(t *testing.T) {
+	consulta := &consultaFichaPropiaHTTP{}
+	registro := &registroFichaPropiaHTTP{errVerificar: context.Canceled}
+	ctx, cancelar := context.WithCancel(context.WithValue(context.Background(), contextoFichaPropiaHTTPPrueba{}, "correlacion_servidor"))
+	cancelar()
+	w := httptest.NewRecorder()
+	manejadorFichaPropiaPrueba(t, consulta, registro).ServeHTTP(w, httptest.NewRequest(http.MethodGet, RutaFichaPropia, nil).WithContext(ctx))
+	if w.Code != http.StatusServiceUnavailable || consulta.llamadas != 0 || len(registro.intentos) != 1 || registro.intentos[0].Motivo != "no_disponible" {
+		t.Fatalf("cancelación previa: estado=%d consultas=%d intentos=%d", w.Code, consulta.llamadas, len(registro.intentos))
+	}
+	if registro.contextos[0].Value(contextoFichaPropiaHTTPPrueba{}) != "correlacion_servidor" {
+		t.Fatal("el intento perdió la correlación original")
 	}
 }

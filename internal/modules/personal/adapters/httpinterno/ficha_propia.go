@@ -70,13 +70,13 @@ func (m *ManejadorFichaPropia) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	}
 	// La frontera ya debe haber capturado identidad y correlación comunes.
 	// Sin ese contexto no atribuimos al cliente ningún intento.
-	if err := m.registro.VerificarRegistroFichaPropia(r.Context()); err != nil {
-		responderFichaPropia(w, http.StatusServiceUnavailable, "no_disponible", nil)
-		return
-	}
 	actor, err := m.actor.ResolverActorFichaPropia(r.Context())
 	if err != nil || actor.Validar() != nil {
 		responderFichaPropia(w, http.StatusServiceUnavailable, "no_disponible", nil)
+		return
+	}
+	if err := m.registro.VerificarRegistroFichaPropia(r.Context()); err != nil {
+		m.denegar(w, r, http.StatusServiceUnavailable, "dependencia_no_disponible")
 		return
 	}
 	if r.URL.Path != RutaFichaPropia || r.URL.RawPath != "" {
