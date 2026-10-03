@@ -1,5 +1,7 @@
 # Instalación H9
 
+Estado del paquete del 03/10: preparado para revisión, **no instalable**. CT170 exige AUT30, ausente de main y conservada en la PR borrador #453. La puerta global también falló en paquetes ajenos a H9. `NO_INSTALAR` bloquea el guion antes de intervenir servicios. El inventario recoge el ensayo parcial y las siete consultas HTTP conservadas tras reinicio.
+
 Este guion se ejecuta localmente como `openclaw`. El kit contiene `sql.list`, las SQL pendientes en orden causal, `consultas_preimagen.sql`, `bin/vec-server`, `web/` completa (incluido `web/static/`) y `locales/`. `SHA256SUMS` cubre todos los archivos del kit salvo el propio manifiesto. Solo admite archivos regulares y directorios. Las SQL deben tener un único `BEGIN;` y un `COMMIT;` final, en líneas independientes.
 
 Los paquetes preparados que contengan `NO_INSTALAR` siguen pendientes de aprobación. El marcador forma parte del manifiesto y el guion los rechaza antes de parar servicios. No se elimina para forzar la instalación: dirección regenera y verifica el kit después de acreditar SQL y arranque.
