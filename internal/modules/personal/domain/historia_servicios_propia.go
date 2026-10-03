@@ -26,6 +26,7 @@ var (
 	ErrHistoriaServiciosPropiaNoDisponible = errors.New("personal.historia_servicios_propia.no_disponible")
 	ErrHistoriaServiciosPropiaExcedeLimite = errors.New("personal.historia_servicios_propia.excede_limite")
 	patronReciboHistoriaServiciosPropia    = regexp.MustCompile(`^historia:servicios:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
+	patronServicioHistoriaPropia           = regexp.MustCompile(`^srv_[A-Za-z0-9_-]{22,128}$`)
 )
 
 func ReferenciaReciboHistoriaServiciosPropiaValida(ref string) bool {
@@ -152,7 +153,7 @@ func (h HistoriaServiciosPropia) ValidarPara(m MaterialHistoriaServiciosPropia) 
 		version int64
 	}]struct{})
 	for i, s := range h.Revisiones {
-		if !patronReferenciaB2.MatchString(s.ServicioRef) || !ReferenciaRelacionValida(s.RelacionRef) || s.PeriodoDesde.Validar() != nil || s.PeriodoHasta.Validar() != nil || s.PeriodoHasta.AntesDe(s.PeriodoDesde) || s.DiasReconocidos < 0 || !textoFichaPropiaValido(s.Clase) || (s.Estado != "declarado" && s.Estado != "comprobado" && s.Estado != "reconocido") || s.Traza.ValidarEn(CorteEmpleadoB2{VigenteEn: h.Corte.Desde, ConocidoEn: h.Corte.ConocidoEn}) != nil || !s.Traza.Desde.AntesDe(h.Corte.Hasta) || (s.Traza.Hasta != "" && !h.Corte.Desde.AntesDe(s.Traza.Hasta)) {
+		if !patronServicioHistoriaPropia.MatchString(s.ServicioRef) || !ReferenciaRelacionValida(s.RelacionRef) || s.PeriodoDesde.Validar() != nil || s.PeriodoHasta.Validar() != nil || s.PeriodoHasta.AntesDe(s.PeriodoDesde) || s.DiasReconocidos < 0 || !textoFichaPropiaValido(s.Clase) || (s.Estado != "declarado" && s.Estado != "comprobado" && s.Estado != "reconocido") || s.Traza.ValidarEn(CorteEmpleadoB2{VigenteEn: h.Corte.Desde, ConocidoEn: h.Corte.ConocidoEn}) != nil || !s.Traza.Desde.AntesDe(h.Corte.Hasta) || (s.Traza.Hasta != "" && !h.Corte.Desde.AntesDe(s.Traza.Hasta)) {
 			return ErrHistoriaServiciosPropiaInvalida
 		}
 		id := struct {
