@@ -12,6 +12,7 @@ DO $pre$
 BEGIN
  IF pg_catalog.current_setting('server_version_num')::integer NOT BETWEEN 180000 AND 189999
  OR pg_catalog.to_regprocedure('vec_autorizacion_atestada_v3.registrar_evento_admin_preperfil_v1(jsonb)') IS NULL
+ OR pg_catalog.to_regprocedure('vec_autorizacion_atestada_v3.consumir_relacion_para_rpt_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
  OR pg_catalog.to_regprocedure('vec_autorizacion_atestada_v3.resolver_origen_consumo_v1(text,text,text)') IS NOT NULL
  OR pg_catalog.to_regclass('vec_autorizacion_atestada_v3.configuracion_origen_consumos_v1') IS NOT NULL
  OR NOT EXISTS(SELECT 1 FROM pg_catalog.pg_constraint c
@@ -165,15 +166,14 @@ BEGIN
  def_sha:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(original,'UTF8')),'hex');
  src_sha:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(fuente,'UTF8')),'hex');
  SELECT v.post_def,v.post_src INTO post_def,post_src FROM (VALUES
-  ('f5dc8874686245033807c64a62fb80eab8d5e4968efc3edc1911c59e6036cf22','d1c1b74052b67c29b81a6a7e8afd1677b1d30d9233958b4e73c40fbd6367e52b','234ee5c186afc840e12b8a0a462c8dd000044ee48f8cef8af301b0093cd65e5d','9039b97eb760f31e717fd3ceff5734f691ea8d4624b00c9cfe9e4fc2cbc260d5'),
-  ('00fdab71ff0477cbe3fb1dcabcde7377da857d20578b9be478339d031ac034ce','1c4a33b316fe58454c76c207db1722504d69a2de21e5c4fb32c73a4cffc20fe4','32939b59240dab122779c10789c8fca3d5bcd4024b6341b477e61d82020d8c10','24c003368a265ab7622e87b0c1949f0f13ba0b585a6624ff0729ecce88de066e')
+  ('0659ad9bf01278e8373225c3415fe82c7c69b6058f7a537c8ff47aa589955156','5b9d8a87caec44e4b7abd1273f52c2d397c398cfe204a0cf4d9697bb8aee983d','92b4245448ffb76aa0792788616e5a779ddd867612e4bd28ab106d95d5356446','54327be7e866b84d0cd1feff3a54ef6fc58ceec92daaa2277b150da984371fe9')
  ) v(pre_def,pre_src,post_def,post_src) WHERE v.pre_def=def_sha AND v.pre_src=src_sha;
  IF NOT FOUND OR propietario<>'vec_autorizacion_atestada_v3_propietario'::regrole OR NOT definidora
  OR config IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s']
  OR (SELECT count(*) FROM pg_catalog.aclexplode(coalesce(acl,pg_catalog.acldefault('f',propietario))))<>1
  OR NOT EXISTS(SELECT 1 FROM pg_catalog.aclexplode(coalesce(acl,pg_catalog.acldefault('f',propietario))) a
    WHERE a.grantee=propietario AND a.grantor=propietario AND a.privilege_type='EXECUTE' AND NOT a.is_grantable)
- THEN RAISE EXCEPTION 'AD172: PARO clave=nucleo_sha256 actual=%/% esperado=matriz_causal_A_K',def_sha,src_sha USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'AD172: PARO clave=nucleo_sha256 actual=%/% esperado=POST154_exacto',def_sha,src_sha USING ERRCODE='55000'; END IF;
  SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
  INTO deps FROM pg_catalog.pg_depend d WHERE d.classid='pg_catalog.pg_proc'::regclass AND d.objid=f;
  SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.dbid,d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype),'[]'::jsonb)

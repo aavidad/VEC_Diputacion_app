@@ -49,9 +49,10 @@ al corte #522 de K; este commit no los modifica.
 
 La lista causal del corte añade exclusivamente AD172 a un checkpoint frío
 compatible. Requiere AD171 y sus dependencias. El manifiesto
-`pruebas_sql/ad172_postimagenes.json` fija dos variantes físicas exactas:
-A postAD153 y K postAD168. Una combinación A/K o cualquier definición distinta
-requiere comprobar y revisar otra postimagen; no se acepta por sus anclas.
+`pruebas_sql/ad172_postimagenes.json` fija exclusivamente POST154, medida
+en PostgreSQL 18.4 tras AD149 y AD154 de #438. Las variantes anteriores
+POST153 y POST168 ya no se admiten. Una definición distinta requiere
+comprobar y revisar otra postimagen; no se acepta por sus anclas.
 
 La migración compara definición, fuente, ACL y configuración del núcleo,
 comprueba la postimagen prevista y revierte en memoria los tres bloques del
@@ -71,9 +72,9 @@ antes de sus escrituras. El replay conserva el asiento original: ejecuta las
 guardas y el cotejo completo de material existentes y retorna antes de consultar
 la configuración nueva. No renueva la procedencia histórica ni añade un asiento.
 
-## Condición de cierre
+## Ensayo anterior, anterior al orden AD154 → AD172
 
-El ensayo estructural del 03/10 pasó en PostgreSQL 18.4, en un único contenedor
+El ensayo estructural inicial del 03/10 pasó en PostgreSQL 18.4, en un único contenedor
 sin red, con límite de 2 GB y datos en disco. Partió de la copia fría A post153
 SHA256 `0795367fc1430bd7185ae3e01edbc2a7740ce997ea48738d3fa6f6937328aab3`.
 Su acta acredita H7 → h7kit/h8kit → AD155/B77/Convoca5 →
@@ -94,14 +95,40 @@ SQLSTATE `55000` sin cambios. La postimagen del núcleo coincide con A post153
 en `pruebas_sql/ad172_postimagenes.json`, incluido el cotejo del ABI, ACL y
 dependencias que exige la migración.
 
+## Candidata reanclada sobre POST154 — 3 de octubre
+
+La rama incorpora `origin/main` con #438 integrada, conservando los dos commits
+anteriores de SQL y verificador. El nuevo ensayo parte de H7 original SHA256
+`a1f56a65d53c6aaa20ab9f9b753f08ce80d390178ae03d6926072722ae192ce4`:
+h7kit/h8kit → AD155/B77/Convoca5 → AD149 → Personal26 → AD154.
+Se añaden roles de intentos, CA26, IS13, AD169 y AD171; cada SQL ausente se
+instaló una vez. AD171 procede de #530, SHA256
+`7a5b2ac33e53a04c85e854dc558755ec95fc8ba360d34b9559c699c02027a7b8`;
+es una dependencia externa que debe acreditarse antes de AD172.
+
+AD154 conserva SHA256
+`87845cf6c3da71912eca2b1bbe798c818e536e626599028a87913890088e5fb9`.
+Las dos huellas reales del núcleo POST154 y las dos de la postimagen AD172
+coinciden con `pruebas_sql/ad172_postimagenes.json`. La selección exige
+POST154 y la fachada RPT existente; no modifica AD154 ni sus permisos.
+El CHECK ampliado de audiencias conserva SHA256
+`292f258051b0cc2423e102d9dee40efd4310c8c9c08371bc0e38d9105c30263b`.
+
+La prueba estructural pasó. Se conservaron las 6.240 filas anteriores y la
+cabeza, así como definición, metadatos y ACL de la fachada RPT y el CHECK de
+sus audiencias. El reinicio mantuvo el mismo resultado. La reejecución fue
+rechazada con SQLSTATE `55000` sin efectos. Las dependencias instaladas con
+éxito no se reaplicaron ni se ejecutó DOWN. El contenedor aislado usó 2 GB,
+dos CPU, PostgreSQL 18.4 y datos en disco; sus datos se retiraron al cerrar.
+
 Faltan el consumo firmado positivo, replay v1/v2 y rollback de negocio,
-dos revisiones independientes del commit final y la integración del verificador.
-La selección de fuente vigente del cold no encontró ningún par que cumpliera
-simultáneamente CA26 e IS13; la fecha vigente por sí sola no acredita identidad.
-No se renovaron fuentes ni se inventó una sesión para sortear ese rechazo.
-Las pruebas estructurales y del resolver no acreditan esas operaciones ni
-la cobertura de ramas delegadas.
+y dos revisiones independientes del nuevo hash final. La selección del cold
+no encontró ningún par vigente que cumpliera simultáneamente CA26 e IS13;
+la fecha vigente por sí sola no acredita identidad. No se renovaron fuentes
+ni se inventó una sesión para sortear ese rechazo. Las pruebas estructurales
+no acreditan esas operaciones ni la cobertura de ramas delegadas.
 
 Antes del despliegue, preparar las ternas exactas de configuración junto con
-el DBA: un consumo nuevo sin su fila quedará denegado. Este corte no publica
-una función de provisión ni habilita escritura desde la aplicación.
+el DBA: un consumo nuevo sin su fila quedará denegado. La lectura RPT requiere
+su lista propia Personal27/30 y adaptación del runner de B a las familias
+v1/v2; este corte no modifica ese runner ni publica provisión desde la app.
