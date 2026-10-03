@@ -1,5 +1,6 @@
 \set ON_ERROR_STOP on
--- AD161: añade los contratos pendientes AD141/142/144/149 al POST155 real.
+-- AD161: añade sólo los contratos pendientes AD141/142/144 al POST149+155 real.
+-- AD149 de #470 se instala antes; CRN11 y AD155 se conservan íntegros.
 -- Los archivos históricos no se modifican ni se registran como reaplicados.
 -- Requiere los roles originales de Convocatorias, Méritos y Baremo.
 BEGIN;
@@ -10,7 +11,7 @@ SET LOCAL lock_timeout='5s'; SET LOCAL statement_timeout='30s';
 SELECT pg_advisory_xact_lock(hashtextextended('vec_autorizacion_atestada_v3:migracion:000161',0));
 SELECT pg_advisory_xact_lock(hashtextextended('vec_autorizacion_atestada_v3:nucleo',0));
 DO $pre$
-DECLARE rol text; nombre text; f155 oid;
+DECLARE rol text; nombre text; f155 oid; f149 oid;
 BEGIN
  IF current_user<>'vec_autorizacion_atestada_v3_propietario'
  OR to_regprocedure('vec_autorizacion_atestada_v3.consumir_solicitud_documental_bolsa_v3_atestada(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
@@ -18,8 +19,7 @@ BEGIN
  FOREACH nombre IN ARRAY ARRAY[
   'consumir_consulta_version_convocatoria_v3_atestada',
   'consumir_operacion_meritos_v3_atestada',
-  'registrar_y_consumir_gobierno_borrador_reglas_baremo_v3_atestada',
-  'consumir_vinculo_propio_crn11_v3_atestada'
+  'registrar_y_consumir_gobierno_borrador_reglas_baremo_v3_atestada'
  ] LOOP
   IF to_regprocedure('vec_autorizacion_atestada_v3.'||nombre||'(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
   THEN RAISE EXCEPTION 'PARO clave=AD161.consumidor_%, observado=presente, esperado=ausente', nombre USING ERRCODE='55000'; END IF;
@@ -50,6 +50,12 @@ BEGIN
    AND p.pronargs=2 AND p.proargtypes[0]='text'::regtype AND p.proargtypes[1]='timestamptz'::regtype
    AND p.proowner='vec_contexto_actor_v1_propietario'::regrole)
  THEN RAISE EXCEPTION 'PARO clave=AD161.dependencias_herencia, observado=incompatible, esperado=tres_objetos_Personal_CA_y_grupos_sin_herencia' USING ERRCODE='55000'; END IF;
+ f149:=to_regprocedure('vec_autorizacion_atestada_v3.consumir_vinculo_propio_crn11_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
+ IF f149 IS NULL THEN RAISE EXCEPTION 'PARO clave=AD161.POST149, observado=ausente, esperado=CRN11_instalado_por_AD149' USING ERRCODE='55000'; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_proc p WHERE p.oid=f149 AND p.proowner='vec_autorizacion_atestada_v3_propietario'::regrole AND p.prosecdef AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s'])
+ OR (SELECT count(*) FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a WHERE p.oid=f149)<>2
+ OR EXISTS (SELECT 1 FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a WHERE p.oid=f149 AND (a.grantee NOT IN (p.proowner,'vec_personal_propietario'::regrole) OR a.grantor<>p.proowner OR a.privilege_type<>'EXECUTE' OR a.is_grantable))
+ THEN RAISE EXCEPTION 'PARO clave=AD161.POST149_ACL, observado=incompatible, esperado=propietario_autorizacion_y_Personal_solo_EXECUTE' USING ERRCODE='55000'; END IF;
  f155:='vec_autorizacion_atestada_v3.consumir_solicitud_documental_bolsa_v3_atestada(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure;
  IF (SELECT encode(sha256(convert_to(pg_get_functiondef(f155),'UTF8')),'hex'))
    IS DISTINCT FROM '6cbc471ddab55e56b97d4c7c4b75149ffc09992fc735ccca461d1372000d1197'
@@ -69,15 +75,14 @@ DECLARE
  f oid:=to_regprocedure('vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
  original text; nuevo text; actual text; fuente text; meta jsonb; deps jsonb; deps_compartidas jsonb; acl aclitem[];
  propietario oid; config text[]; definidora boolean;
- -- Preimagen POST155 real PG18.4, medida en el clon causal del 03/10/2026.
- esperada_def_sha256 text:=$esperada_def_sha256$5dbdac03a2a4e52ca4cb45c57b3bf18e621091da9e818091e30a3f90e68e7330$esperada_def_sha256$;
- esperada_fuente_sha256 text:=$esperada_fuente_sha256$cdc8cb87f27360741a2d0d52e8b9d58d0a1423be8abd8ff9063f389b2c8ea75e$esperada_fuente_sha256$;
+ -- WIP: medir la preimagen POST149+155 real PG18.4 antes de instalar.
+ esperada_def_sha256 text:=$esperada_def_sha256$PENDIENTE_MEDICION_POST149_DEF_REAL$esperada_def_sha256$;
+ esperada_fuente_sha256 text:=$esperada_fuente_sha256$PENDIENTE_MEDICION_POST149_FUENTE_REAL$esperada_fuente_sha256$;
  marca text:=$marca$       )
        OR c ->> 'suite' <> 'VEC-AD-3-COSE-EDDSA-1'$marca$;
  excl text:=$excl$               p_perfil_mutacion IS DISTINCT FROM 'bolsa_llamamiento'
 $excl$;
  excl_nuevo text:=$excl_nuevo$               p_perfil_mutacion IS DISTINCT FROM 'bolsa_llamamiento'
-               AND p_perfil_mutacion IS DISTINCT FROM 'vinculo_propio_historico_crn11'
                AND p_perfil_mutacion IS DISTINCT FROM 'gobierno_borrador_reglas_baremo'
                AND p_perfil_mutacion IS DISTINCT FROM 'meritos_hecho_propio_interno'
                AND p_perfil_mutacion IS DISTINCT FROM 'meritos_hecho_propio_externo'
@@ -86,21 +91,10 @@ $excl$;
 $excl_nuevo$;
  runtime text:=$runtime$       OR NOT (
            (
-               p_perfil_mutacion IS DISTINCT FROM 'bolsa_llamamiento'
+               p_perfil_mutacion IS NOT DISTINCT FROM 'vinculo_propio_historico_crn11'
 $runtime$;
  runtime_nuevo text:=$runtime_nuevo$       OR NOT (
            (
-               p_perfil_mutacion IS NOT DISTINCT FROM 'vinculo_propio_historico_crn11'
-               AND EXISTS (SELECT 1 FROM pg_roles r WHERE r.rolname=session_user AND r.rolcanlogin
-                  AND NOT r.rolsuper AND NOT r.rolcreaterole AND NOT r.rolcreatedb
-                  AND NOT r.rolreplication AND NOT r.rolbypassrls)
-               AND EXISTS (SELECT 1 FROM pg_auth_members m WHERE m.member=session_user::regrole
-                  AND m.roleid='vec_personal_ejecutor'::regrole
-                  AND m.inherit_option AND NOT m.set_option AND NOT m.admin_option)
-               AND (SELECT count(*) FROM pg_auth_members m WHERE m.member=session_user::regrole)=1
-               AND NOT EXISTS (SELECT 1 FROM pg_auth_members m WHERE m.member='vec_personal_ejecutor'::regrole)
-           )
-           OR (
                p_perfil_mutacion IS NOT DISTINCT FROM 'gobierno_borrador_reglas_baremo'
                AND EXISTS (SELECT 1 FROM pg_roles r WHERE r.rolname=session_user AND r.rolcanlogin
                   AND NOT r.rolsuper AND NOT r.rolcreaterole AND NOT r.rolcreatedb
@@ -136,7 +130,7 @@ $runtime$;
                AND NOT EXISTS (SELECT 1 FROM pg_auth_members m WHERE m.member='vec_bolsa_convocatorias_ejecutor_consulta'::regrole)
            )
            OR (
-               p_perfil_mutacion IS DISTINCT FROM 'bolsa_llamamiento'
+               p_perfil_mutacion IS NOT DISTINCT FROM 'vinculo_propio_historico_crn11'
 $runtime_nuevo$;
  extension text:=$extension$           OR (
  p_perfil_mutacion IS NOT DISTINCT FROM 'consulta_version_convocatoria_bolsa'
@@ -209,20 +203,6 @@ $runtime_nuevo$;
  AND d#>>'{vinculo_autenticacion_actor,superficie}' IS NOT DISTINCT FROM 'interna_corporativa'
  AND d#>>'{vinculo_autenticacion_actor,cuenta_privilegiada}' IS NOT DISTINCT FROM 'false'
  AND d->'obligaciones' IS NOT DISTINCT FROM '[]'::jsonb)
-           OR (
- p_perfil_mutacion IS NOT DISTINCT FROM 'vinculo_propio_historico_crn11'
- AND c->>'operacion' IS NOT DISTINCT FROM 'personal.vinculo_propio.crn11.consultar'
- AND c->>'audiencia_consumo' IS NOT DISTINCT FROM 'vec_personal.vinculo_propio.crn11.v1'
- AND d->>'accion' IS NOT DISTINCT FROM c->>'operacion'
- AND d->>'modulo_id' IS NOT DISTINCT FROM 'personal'
- AND d->>'tipo_recurso' IS NOT DISTINCT FROM 'vinculo_historico_propio_crn11'
- AND d->>'finalidad' IS NOT DISTINCT FROM 'acreditar_vinculo_historico_propio_crn11'
- AND d->>'recurso_ref' IS NOT DISTINCT FROM c->>'efecto_ref'
- AND d->>'recurso_ref' ~ '^emp_[A-Za-z0-9_-]{22,128}$'
- AND d->>'contexto_recurso_huella_sha256' IS NOT DISTINCT FROM c->>'huella_efecto_sha256'
- AND d#>>'{vinculo_autenticacion_actor,superficie}' IS NOT DISTINCT FROM 'interna_corporativa'
- AND d->'campos_permitidos' IS NOT DISTINCT FROM '["empleado_ref","fuente_ref","persona_ref","version","vinculo_ref"]'::jsonb
- AND d->'obligaciones' IS NOT DISTINCT FROM '[]'::jsonb)
 $extension$;
 BEGIN
  IF f IS NULL THEN RAISE EXCEPTION 'PARO clave=AD161.nucleo_presencia, observado=ausente, esperado=presente' USING ERRCODE='55000'; END IF;
@@ -237,8 +217,8 @@ BEGIN
  INTO deps_compartidas FROM pg_shdepend d
  WHERE d.dbid=(SELECT oid FROM pg_database WHERE datname=current_database())
    AND d.classid='pg_proc'::regclass AND d.objid=f;
- -- Cuatro contratos nominales: exclusiones del bloque general y selectores
- -- de sesión originales de Convocatorias, Méritos, Baremo y Personal.
+ -- Tres contratos nominales: exclusiones del bloque general y selectores
+ -- de sesión de Convocatorias, Méritos y Baremo; Personal ya procede de AD149.
  IF propietario<>'vec_autorizacion_atestada_v3_propietario'::regrole OR NOT definidora
     OR config IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s']
     OR encode(sha256(convert_to(original,'UTF8')),'hex') IS DISTINCT FROM esperada_def_sha256
@@ -279,7 +259,7 @@ BEGIN
     OR strpos(original,'meritos_hecho_propio_')<>0
     OR strpos(original,'meritos_hecho_rechazar')<>0
     OR strpos(original,'gobierno_borrador_reglas_baremo')<>0
-    OR strpos(original,'vinculo_propio_historico_crn11')<>0
+    OR strpos(original,'vinculo_propio_historico_crn11')=0
  THEN RAISE EXCEPTION 'PARO clave=AD161.nucleo_preimagen, observado_def=%/fuente=%/metadata=%, esperado_def=%/fuente=%/metadata=propietario_y_ACL_nominal_config_pg_catalog_pg_temp_lock_timeout_2s_dependencias_y_anclas_unicas', encode(sha256(convert_to(original,'UTF8')),'hex'), encode(sha256(convert_to(fuente,'UTF8')),'hex'), encode(sha256(convert_to(meta::text,'UTF8')),'hex'), esperada_def_sha256, esperada_fuente_sha256 USING ERRCODE='55000'; END IF;
  nuevo:=replace(original,runtime,runtime_nuevo);
  nuevo:=replace(nuevo,excl,excl_nuevo);
@@ -308,14 +288,14 @@ BEGIN
  SELECT pg_get_constraintdef(c.oid,true) INTO STRICT d FROM pg_constraint c
  WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
  AND c.conname='clave_capacidad_version_audiencia_consumo_check' AND c.contype='c' AND c.convalidated;
- IF encode(sha256(convert_to(d,'UTF8')),'hex') IS DISTINCT FROM 'c220a791d3bf62f5a87ca192373900178c7c3344f10384b1080cfef9c2f81626'
+ IF encode(sha256(convert_to(d,'UTF8')),'hex') IS DISTINCT FROM 'PENDIENTE_MEDICION_POST149_AUDIENCIA_REAL'
  OR strpos(d,'CHECK (audiencia_consumo = ANY (ARRAY[')<>1 OR right(d,3)<>']))'
- THEN RAISE EXCEPTION 'PARO clave=AD161.audiencias_preimagen, observado=%, esperado=c220a791d3bf62f5a87ca192373900178c7c3344f10384b1080cfef9c2f81626', encode(sha256(convert_to(d,'UTF8')),'hex') USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'PARO clave=AD161.audiencias_preimagen, observado=%, esperado=PENDIENTE_MEDICION_POST149_AUDIENCIA_REAL', encode(sha256(convert_to(d,'UTF8')),'hex') USING ERRCODE='55000'; END IF;
  nueva:=d;
  FOREACH a IN ARRAY ARRAY[
   'vec_bolsa_convocatorias.version.consultar.v1',
   'vec_meritos.hecho.declarar.v1','vec_meritos.hecho.rectificar.v1','vec_meritos.hecho.rechazar.v1',
-  'vec_bolsa_reglas_baremo.gobierno_borrador.v3','vec_personal.vinculo_propio.crn11.v1'
+  'vec_bolsa_reglas_baremo.gobierno_borrador.v3'
  ] LOOP
   IF strpos(d,quote_literal(a))<>0 THEN
    RAISE EXCEPTION 'PARO clave=AD161.audiencia_%, observado=presente, esperado=ausente', a USING ERRCODE='55000'; END IF;
@@ -529,84 +509,5 @@ BEGIN
  THEN RAISE EXCEPTION 'AD3-144: ACL de consumidor incompatible' USING ERRCODE='55000'; END IF;
 END $acl$;
 
-CREATE FUNCTION vec_autorizacion_atestada_v3.consumir_vinculo_propio_crn11_v3_atestada(
- p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,
- p_persona_version numeric,p_perfil_version numeric,
- p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea)
-RETURNS TABLE(decision_ref text,efecto_ref text,huella_efecto_sha256 text,
- consumo_huella_sha256 text,auditoria_ref text,consumida_en timestamptz,consumo_nuevo boolean)
-LANGUAGE plpgsql VOLATILE SECURITY DEFINER
-SET search_path=pg_catalog,pg_temp SET lock_timeout='2s' AS $f$
-DECLARE c jsonb; d jsonb; x record;
-BEGIN
- IF current_user<>'vec_autorizacion_atestada_v3_propietario'
-    OR current_setting('transaction_isolation')<>'serializable'
-    OR current_setting('transaction_read_only')<>'off' THEN
-  RAISE EXCEPTION 'consumo CRN11 denegado' USING ERRCODE='42501';
- END IF;
- BEGIN
-  c:=convert_from(p_capacidad,'UTF8')::jsonb;
-  d:=convert_from(p_decision,'UTF8')::jsonb;
- EXCEPTION WHEN others THEN
-  RAISE EXCEPTION 'material CRN11 inválido' USING ERRCODE='22023';
- END;
- IF jsonb_typeof(c) IS DISTINCT FROM 'object' OR jsonb_typeof(d) IS DISTINCT FROM 'object'
-    OR d->>'concedida' IS DISTINCT FROM 'true'
-    OR d->>'modulo_id' IS DISTINCT FROM 'personal'
-    OR d->>'accion' IS DISTINCT FROM 'personal.vinculo_propio.crn11.consultar'
-    OR c->>'operacion' IS DISTINCT FROM d->>'accion'
-    OR c->>'audiencia_consumo' IS DISTINCT FROM 'vec_personal.vinculo_propio.crn11.v1'
-    OR d->>'tipo_recurso' IS DISTINCT FROM 'vinculo_historico_propio_crn11'
-    OR d->>'finalidad' IS DISTINCT FROM 'acreditar_vinculo_historico_propio_crn11'
-    OR d->'campos_permitidos' IS DISTINCT FROM '["empleado_ref","fuente_ref","persona_ref","version","vinculo_ref"]'::jsonb
-    OR d#>>'{vinculo_autenticacion_actor,superficie}' IS DISTINCT FROM 'interna_corporativa'
-    OR d->'obligaciones' IS DISTINCT FROM '[]'::jsonb
-    OR d->>'recurso_ref' IS NULL OR d->>'recurso_ref' !~ '^emp_[A-Za-z0-9_-]{22,128}$'
-    OR d->>'recurso_ref' IS DISTINCT FROM c->>'efecto_ref'
-    OR d->>'contexto_recurso_huella_sha256' IS NULL
-    OR d->>'contexto_recurso_huella_sha256' !~ '^[0-9a-f]{64}$'
-    OR d->>'contexto_recurso_huella_sha256' IS DISTINCT FROM c->>'huella_efecto_sha256' THEN
-  RAISE EXCEPTION 'consumo CRN11 denegado' USING ERRCODE='42501';
- END IF;
- SELECT * INTO STRICT x
- FROM vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(
-  'vinculo_propio_historico_crn11',p_capacidad,p_decision,p_motivo,p_contexto,
-  p_persona_version,p_perfil_version,p_payload,p_sobre,p_evidencia,p_raiz);
- IF x.consumo_nuevo IS NOT TRUE OR x.decision_ref IS DISTINCT FROM d->>'decision_ref'
-    OR x.efecto_ref IS DISTINCT FROM c->>'efecto_ref'
-    OR x.huella_efecto_sha256 IS DISTINCT FROM c->>'huella_efecto_sha256' THEN
-  RAISE EXCEPTION 'consumo CRN11 divergente' USING ERRCODE='42501';
- END IF;
- RETURN QUERY SELECT x.decision_ref,x.efecto_ref,x.huella_efecto_sha256,
-  x.consumo_huella_sha256,x.auditoria_ref,x.consumida_en,true;
-END $f$;
-REVOKE ALL ON FUNCTION vec_autorizacion_atestada_v3.consumir_vinculo_propio_crn11_v3_atestada(
- bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION vec_autorizacion_atestada_v3.consumir_vinculo_propio_crn11_v3_atestada(
- bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) TO vec_personal_propietario;
-
-GRANT USAGE ON SCHEMA vec_autorizacion_atestada_v3 TO vec_personal_propietario;
-DO $acl$
-DECLARE f regprocedure:='vec_autorizacion_atestada_v3.consumir_vinculo_propio_crn11_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure;
- permitido oid:='vec_personal_propietario'::regrole::oid; x record;
-BEGIN
- -- También las ACL por defecto: ningún rol conserva acceso por haber sido
- -- destinatario predeterminado del propietario.
- FOR x IN SELECT DISTINCT a.grantee FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
-  WHERE p.oid=f AND a.grantee<>p.proowner LOOP
-  EXECUTE format('REVOKE ALL ON FUNCTION %s FROM %s',f::text,CASE WHEN x.grantee=0 THEN 'PUBLIC' ELSE quote_ident(pg_get_userbyid(x.grantee)) END);
- END LOOP;
- EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO vec_personal_propietario',f::text);
- IF (SELECT proowner FROM pg_proc WHERE oid=f) IS DISTINCT FROM 'vec_autorizacion_atestada_v3_propietario'::regrole
-    OR (SELECT prosecdef FROM pg_proc WHERE oid=f) IS NOT TRUE
-    OR (SELECT proconfig FROM pg_proc WHERE oid=f) IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s']
-    OR NOT has_schema_privilege('vec_personal_propietario','vec_autorizacion_atestada_v3','USAGE')
- THEN RAISE EXCEPTION 'AD149: propietario o entorno de fachada incompatible' USING ERRCODE='55000'; END IF;
- FOR x IN SELECT a.grantee,a.privilege_type,a.is_grantable,p.proowner
-  FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a WHERE p.oid=f LOOP
-  IF (x.grantee<>x.proowner AND x.grantee IS DISTINCT FROM permitido) OR x.privilege_type<>'EXECUTE'
-    OR (x.grantee=permitido AND x.is_grantable)
-  THEN RAISE EXCEPTION 'AD149: ACL de fachada abierta' USING ERRCODE='55000'; END IF;
- END LOOP;
-END $acl$;
+-- La fachada CRN11 de AD149 no se redefine ni cambia sus ACL.
 COMMIT;

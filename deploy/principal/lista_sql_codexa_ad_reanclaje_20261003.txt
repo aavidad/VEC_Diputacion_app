@@ -1,8 +1,7 @@
-# AD161 converge contratos internos existentes; no habilita Méritos exterior ni verificación.
-# Ensayo SQL aislado: DDL, cuatro contratos/ACL y ocho rechazos en ROLLBACK.
-# No acredita operaciones positivas, instalación principal ni recorrido HTTP.
-# POST155 real; instalar sólo los tres bootstraps confirmados ausentes.
-# No ejecutar AD141/142/144/149/155 ni DOWN sobre historia.
+# WIP: pendiente medición y ensayo causal POST149+155; no instalar.
+# Instalar antes AD149/Personal26 de #470. AD161 añade sólo141/142/144.
+# Conserva CRN11 y AD155, sin reaplicar AD históricas ni ejecutar DOWN.
+# Bootstraps sólo si los tres grupos siguen confirmados ausentes.
 deploy/postgresql/bolsa_convocatorias/roles_up.sql
 deploy/postgresql/meritos/roles_up.sql
 deploy/postgresql/bolsa_reglas_baremo/roles_up.sql
