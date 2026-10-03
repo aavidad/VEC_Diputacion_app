@@ -16,7 +16,7 @@ const MaximoBytes = 64 * 1024
 type Solicitud struct {
 	EjemploRef    string               `json:"ejemplo_ref"`
 	Configuracion domain.Configuracion `json:"configuracion"`
-	NotasPropuestas []NotaPropuesta    `json:"notas_propuestas"`
+	NotasPrueba   []NotaPrueba         `json:"notas_prueba,omitempty"`
 }
 
 func Decodificar(datos []byte) (Solicitud, error) {
@@ -34,35 +34,35 @@ func Decodificar(datos []byte) (Solicitud, error) {
 	d = json.NewDecoder(bytes.NewReader(datos))
 	d.DisallowUnknownFields()
 	var forma struct {
-		EjemploRef string `json:"ejemplo_ref"`
+		EjemploRef    string               `json:"ejemplo_ref"`
 		Configuracion domain.Configuracion `json:"configuracion"`
-		NotasPropuestas json.RawMessage `json:"notas_propuestas"`
+		NotasPrueba   json.RawMessage      `json:"notas_prueba"`
 	}
 	if err := d.Decode(&forma); err != nil || len(forma.EjemploRef) == 0 || len(forma.EjemploRef) > 64 {
 		return Solicitud{}, ErrSolicitud
 	}
 	s := Solicitud{EjemploRef: forma.EjemploRef, Configuracion: forma.Configuracion}
-	if len(forma.NotasPropuestas) == 0 {
+	if len(forma.NotasPrueba) == 0 {
 		return s, nil
 	}
-	if bytes.Equal(forma.NotasPropuestas, []byte("null")) {
+	if bytes.Equal(forma.NotasPrueba, []byte("null")) {
 		return Solicitud{}, ErrSolicitud
 	}
-	nd := json.NewDecoder(bytes.NewReader(forma.NotasPropuestas))
+	nd := json.NewDecoder(bytes.NewReader(forma.NotasPrueba))
 	nd.DisallowUnknownFields()
-	var propuestas []notaPropuestaJSON
+	var propuestas []notaPruebaJSON
 	if err := nd.Decode(&propuestas); err != nil || propuestas == nil {
 		return Solicitud{}, ErrSolicitud
 	}
 	for _, propuesta := range propuestas {
-		if len(propuesta.PuntosMicropuntos) == 0 {
+		if propuesta.SolicitudRef == "" || propuesta.FaseRef == "" || len(propuesta.PuntosMicropuntos) == 0 {
 			return Solicitud{}, ErrSolicitud
 		}
 		var puntos *int64
 		if err := json.Unmarshal(propuesta.PuntosMicropuntos, &puntos); err != nil {
 			return Solicitud{}, ErrSolicitud
 		}
-		s.NotasPropuestas = append(s.NotasPropuestas, NotaPropuesta{SolicitudRef: propuesta.SolicitudRef, FaseRef: propuesta.FaseRef, PuntosMicropuntos: puntos})
+		s.NotasPrueba = append(s.NotasPrueba, NotaPrueba{SolicitudRef: propuesta.SolicitudRef, FaseRef: propuesta.FaseRef, PuntosMicropuntos: puntos})
 	}
 	return s, nil
 }
