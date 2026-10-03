@@ -3,12 +3,15 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"flag"
 	"io"
 	"os"
 
 	"vec-diputacion-granada/internal/vec/auditoria"
 )
+
+var errJSONInvalido = errors.New("vec auditoria: JSON invalido")
 
 func main() { os.Exit(ejecutar(os.Args[1:], os.Stdin, os.Stdout)) }
 
@@ -31,11 +34,11 @@ func ejecutar(args []string, entrada io.Reader, salida io.Writer) int {
 	}
 	defer f.Close()
 	var checkpoint auditoria.CoberturaCadena
-	if !leerJSONEstricto(f, *maxBytes, &checkpoint) {
+	if leerJSONEstricto(f, *maxBytes, &checkpoint) != nil {
 		return responderFallo(salida, "checkpoint_invalido", "checkpoint", 2)
 	}
 	var documento auditoria.DocumentoVerificacion
-	if !leerJSONEstricto(entrada, *maxBytes, &documento) {
+	if leerJSONEstricto(entrada, *maxBytes, &documento) != nil {
 		return responderFallo(salida, "documento_invalido", "entrada", 2)
 	}
 	informe := auditoria.VerificarCadenaV3(documento, checkpoint, *maxRegistros)
@@ -61,54 +64,60 @@ func responder(salida io.Writer, informe auditoria.InformeVerificacion, codigo i
 	return codigo
 }
 
-func leerJSONEstricto(r io.Reader, limite int64, destino any) bool {
+func leerJSONEstricto(r io.Reader, limite int64, destino any) error {
 	b, err := io.ReadAll(io.LimitReader(r, limite+1))
-	if err != nil || int64(len(b)) > limite || len(b) == 0 {
-		return false
+	if err != nil {
+		return err
+	}
+	if int64(len(b)) > limite || len(b) == 0 {
+		return errJSONInvalido
 	}
 	// encoding/json accepts repeated object keys by default. Reject them
 	// before decoding so a supplied manifest has one unambiguous meaning.
 	tokens := json.NewDecoder(bytes.NewReader(b))
 	tokens.UseNumber()
-	if !valorJSONUnico(tokens, 0) {
-		return false
+	if err := valorJSONUnico(tokens, 0); err != nil {
+		return err
 	}
 	if _, err = tokens.Token(); err != io.EOF {
-		return false
+		return errJSONInvalido
 	}
 	decoder := json.NewDecoder(bytes.NewReader(b))
 	decoder.DisallowUnknownFields()
 	if decoder.Decode(destino) != nil {
-		return false
+		return errJSONInvalido
 	}
 	if decoder.Decode(new(any)) != io.EOF {
-		return false
+		return errJSONInvalido
 	}
 	// All fields are mandatory, including zero values in an empty genesis.
 	var objeto map[string]json.RawMessage
 	if json.Unmarshal(b, &objeto) != nil {
-		return false
+		return errJSONInvalido
 	}
 	switch destino.(type) {
 	case *auditoria.CoberturaCadena:
-		return clavesCoberturaExactas(objeto)
+		if !clavesCoberturaExactas(objeto) {
+			return errJSONInvalido
+		}
+		return nil
 	case *auditoria.DocumentoVerificacion:
 		var manifiesto map[string]json.RawMessage
 		var registros []map[string]json.RawMessage
 		if !clavesExactas(objeto, "esquema", "manifiesto", "registros") ||
 			json.Unmarshal(objeto["manifiesto"], &manifiesto) != nil || !clavesCoberturaExactas(manifiesto) ||
 			json.Unmarshal(objeto["registros"], &registros) != nil {
-			return false
+			return errJSONInvalido
 		}
 		for _, registro := range registros {
 			if !clavesExactas(registro, "auditoria_ref", "secuencia", "decision_ref", "efecto_ref",
 				"huella_efecto_sha256", "anterior_sha256", "huella_sha256", "consumo_huella_sha256") {
-				return false
+				return errJSONInvalido
 			}
 		}
-		return true
+		return nil
 	default:
-		return false
+		return errJSONInvalido
 	}
 }
 
@@ -129,39 +138,51 @@ func clavesExactas(objeto map[string]json.RawMessage, claves ...string) bool {
 	return true
 }
 
-func valorJSONUnico(d *json.Decoder, profundidad int) bool {
+func valorJSONUnico(d *json.Decoder, profundidad int) error {
 	if profundidad > 16 {
-		return false
+		return errJSONInvalido
 	}
 	t, err := d.Token()
-	if err != nil || t == nil {
-		return false
+	if err != nil {
+		return err
+	}
+	if t == nil {
+		return errJSONInvalido
 	}
 	delim, compuesto := t.(json.Delim)
 	if !compuesto {
-		return true
+		return nil
 	}
 	if delim != '{' && delim != '[' {
-		return false
+		return errJSONInvalido
 	}
 	claves := map[string]struct{}{}
 	for d.More() {
 		if delim == '{' {
 			clave, err := d.Token()
 			texto, ok := clave.(string)
-			if err != nil || !ok {
-				return false
+			if err != nil {
+				return err
+			}
+			if !ok {
+				return errJSONInvalido
 			}
 			if _, existe := claves[texto]; existe {
-				return false
+				return errJSONInvalido
 			}
 			claves[texto] = struct{}{}
 		}
-		if !valorJSONUnico(d, profundidad+1) {
-			return false
+		if err := valorJSONUnico(d, profundidad+1); err != nil {
+			return err
 		}
 	}
 	cierre, err := d.Token()
-	return err == nil && ((delim == '{' && cierre == json.Delim('}')) ||
-		(delim == '[' && cierre == json.Delim(']')))
+	if err != nil {
+		return err
+	}
+	if !((delim == '{' && cierre == json.Delim('}')) ||
+		(delim == '[' && cierre == json.Delim(']'))) {
+		return errJSONInvalido
+	}
+	return nil
 }
