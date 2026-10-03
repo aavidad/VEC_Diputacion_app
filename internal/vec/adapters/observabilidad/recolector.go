@@ -25,12 +25,13 @@ type ConfiguracionRecolector struct {
 
 // MetricasRecolector no contiene etiquetas ni entradas aportadas por personas.
 type MetricasRecolector struct {
-	Recibidas  uint64                                    `json:"recibidas"`
-	Escritas   uint64                                    `json:"escritas"`
-	Rechazadas uint64                                    `json:"rechazadas"`
-	Alertas    uint64                                    `json:"alertas"`
-	Retirados  uint64                                    `json:"archivos_retirados"`
-	PorCodigo  map[domain.CodigoIncidenciaTecnica]uint64 `json:"por_codigo"`
+	Recibidas    uint64                                    `json:"recibidas"`
+	Escritas     uint64                                    `json:"escritas"`
+	Rechazadas   uint64                                    `json:"rechazadas"`
+	Alertas      uint64                                    `json:"alertas"`
+	Retirados    uint64                                    `json:"archivos_retirados"`
+	PorCodigo    map[domain.CodigoIncidenciaTecnica]uint64 `json:"por_codigo"`
+	PorResultado map[domain.CodigoResultadoTecnico]uint64  `json:"por_resultado"`
 }
 
 // RecolectarIncidencias consume hasta EOF. Las entradas no conformes y largas
@@ -43,6 +44,7 @@ func RecolectarIncidencias(entrada io.Reader, alertas io.Writer, cfg Configuraci
 
 func recolectarIncidencias(entrada io.Reader, alertas io.Writer, cfg ConfiguracionRecolector, reloj func() time.Time) (metricas MetricasRecolector, err error) {
 	metricas.PorCodigo = make(map[domain.CodigoIncidenciaTecnica]uint64)
+	metricas.PorResultado = make(map[domain.CodigoResultadoTecnico]uint64)
 	if entrada == nil || alertas == nil || reloj == nil || !configuracionRecolectorValida(cfg) {
 		return metricas, os.ErrInvalid
 	}
@@ -67,26 +69,63 @@ func recolectarIncidencias(entrada io.Reader, alertas io.Writer, cfg Configuraci
 			return metricas, nil
 		}
 		metricas.Recibidas++
-		incidencia, errorLinea := validarLineaRecolector(linea)
+		var incidencia lineaIncidencia
+		var resultado lineaResultado
+		var datos []byte
+		var errorLinea error
+		var esquema string
+		if !larga {
+			esquema, errorLinea = esquemaLineaRecolector(linea)
+			if errorLinea == nil {
+				switch esquema {
+				case domain.EsquemaIncidenciaTecnica:
+					incidencia, errorLinea = validarLineaRecolector(linea)
+					if errorLinea == nil {
+						datos, errorLinea = json.Marshal(incidencia)
+					}
+				case domain.EsquemaResultadoTecnico:
+					resultado, errorLinea = validarLineaResultadoRecolector(linea)
+					if errorLinea == nil {
+						datos, errorLinea = json.Marshal(resultado)
+					}
+				default:
+					errorLinea = os.ErrInvalid
+				}
+			}
+		}
 		clear(linea)
 		if larga || errorLinea != nil {
 			metricas.Rechazadas++
 		} else {
-			datos, e := json.Marshal(incidencia)
-			if e != nil || almacen.escribir(append(datos, '\n')) != nil {
+			if almacen.escribir(append(datos, '\n')) != nil {
 				return metricas, os.ErrInvalid
 			}
 			metricas.Escritas++
-			codigo := domain.CodigoIncidenciaTecnica(incidencia.Codigo)
-			metricas.PorCodigo[codigo] = sumarSaturado(metricas.PorCodigo[codigo], uint64(incidencia.Recuento))
-			if contador.registrar(incidencia, reloj(), alertas, &metricas) != nil {
-				return metricas, os.ErrInvalid
+			if esquema == domain.EsquemaIncidenciaTecnica {
+				codigo := domain.CodigoIncidenciaTecnica(incidencia.Codigo)
+				metricas.PorCodigo[codigo] = sumarSaturado(metricas.PorCodigo[codigo], uint64(incidencia.Recuento))
+				if contador.registrar(incidencia, reloj(), alertas, &metricas) != nil {
+					return metricas, os.ErrInvalid
+				}
+			} else {
+				codigo := domain.CodigoResultadoTecnico(resultado.Resultado)
+				metricas.PorResultado[codigo] = sumarSaturado(metricas.PorResultado[codigo], 1)
 			}
 		}
 		if fin == io.EOF {
 			return metricas, nil
 		}
 	}
+}
+
+func esquemaLineaRecolector(datos []byte) (string, error) {
+	var cabecera struct {
+		Esquema string `json:"esquema"`
+	}
+	if json.Unmarshal(datos, &cabecera) != nil || cabecera.Esquema == "" {
+		return "", os.ErrInvalid
+	}
+	return cabecera.Esquema, nil
 }
 
 // Se vacía una línea larga por fragmentos acotados y se continúa con la siguiente.
@@ -157,7 +196,7 @@ func clavesUnicasRecolector(datos []byte) error {
 
 func claveIncidenciaRecolectorValida(clave string) bool {
 	switch clave {
-	case "esquema", "instante", "codigo", "severidad", "componente", "etapa", "entorno", "version_binario", "correlacion", "recuento", "mensaje":
+	case "esquema", "instante", "codigo", "severidad", "componente", "etapa", "entorno", "version_binario", "correlacion", "recuento", "mensaje", "resultado", "nivel", "correlacion_ref":
 		return true
 	default:
 		return false

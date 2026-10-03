@@ -67,6 +67,76 @@ func TestCLIRecogeIncidenciaRealDelEmisorYNoDatosLibres(t *testing.T) {
 	}
 }
 
+func TestCLIRecogeResultadoTecnicoYConservaReferenciaV3(t *testing.T) {
+	directorio := t.TempDir()
+	cfg := observabilidad.ConfiguracionRecolector{
+		Directorio: filepath.Join(directorio, "registros"), MaxLineaBytes: 1024,
+		MaxArchivoBytes: 4096, MaxArchivos: 4, RetencionSegundos: 86400,
+		VentanaSegundos: 60,
+		Umbrales: map[domain.CodigoIncidenciaTecnica]uint64{
+			domain.IncidenciaArranqueFallido: 1,
+		},
+	}
+	carga, err := json.Marshal(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rutaConfig := filepath.Join(directorio, "config.json")
+	if err := os.WriteFile(rutaConfig, carga, 0600); err != nil {
+		t.Fatal(err)
+	}
+	var entrada bytes.Buffer
+	emisor, err := observabilidad.NuevoEmisorJSONLines(observabilidad.OpcionesEmisor{
+		Destino: &entrada, Entorno: "pruebas", VersionBinario: "936aac665",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, err := ports.ConCorrelacionIncidenciasPeticion(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	correlacion, ok := ports.CorrelacionIncidenciasPeticion(ctx)
+	if !ok {
+		t.Fatal("correlacion ausente")
+	}
+	emisor.EmitirResultadoConContexto(ctx, domain.SolicitudResultadoTecnico{
+		Resultado:  domain.ResultadoTecnicoCorrecto,
+		Componente: domain.ComponenteIncidenciaPostgreSQL,
+		Etapa:      domain.EtapaIncidenciaConsulta,
+	})
+	if err := emisor.Cerrar(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	var salida, diagnostico bytes.Buffer
+	if codigo := ejecutar([]string{
+		"--config", rutaConfig, "--textos", "../../web/static/textos/es/registros-tecnicos.json",
+	}, &entrada, &salida, &diagnostico); codigo != 0 {
+		t.Fatalf("CLI no recogio resultado: codigo=%d", codigo)
+	}
+	var resumen struct {
+		Metricas observabilidad.MetricasRecolector `json:"metricas"`
+	}
+	if err := json.Unmarshal(salida.Bytes(), &resumen); err != nil ||
+		resumen.Metricas.Escritas != 1 || resumen.Metricas.PorResultado[domain.ResultadoTecnicoCorrecto] != 1 ||
+		len(resumen.Metricas.PorCodigo) != 0 {
+		t.Fatal("resumen no distingue resultado de incidencia")
+	}
+	guardada, err := os.ReadFile(filepath.Join(cfg.Directorio, "incidencias-activo.jsonl"))
+	if err != nil {
+		t.Fatal("resultado no conservado")
+	}
+	var registro struct {
+		Esquema        string `json:"esquema"`
+		CorrelacionRef string `json:"correlacion_ref"`
+	}
+	if json.Unmarshal(bytes.TrimSpace(guardada), &registro) != nil ||
+		registro.Esquema != domain.EsquemaResultadoTecnico ||
+		registro.CorrelacionRef != "correlacion_"+correlacion {
+		t.Fatal("resultado tecnico perdio referencia de la peticion")
+	}
+}
+
 func TestCLIUsaCatalogoYNoCopiaErrores(t *testing.T) {
 	for _, idioma := range []string{"es", "en"} {
 		var salida, diagnostico bytes.Buffer

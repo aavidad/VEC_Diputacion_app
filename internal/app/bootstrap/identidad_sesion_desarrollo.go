@@ -205,12 +205,12 @@ func (p *proveedorSesionConsultaRRHHDesarrollo) errorSesionConsultaComunicacione
 	}
 	if ctx != nil && ctx.Err() != nil {
 		capacidad, existe := ctx.Value(claveCapacidadConsultasContratacionTemporalDesarrollo{}).(capacidadConsultaContratacionTemporalDesarrollo)
-		if existe && capacidad.sello == p.soporte.sello && p.rutaSesionConIndisponibilidad(capacidad.ruta) {
+		if existe && capacidad.sello == p.soporte.sello && p.rutaSesionConIndisponibilidad(capacidad.ruta, ctx) {
 			return ctx.Err()
 		}
 	}
 	capacidad, valida := p.capacidadCanalSesion(ctx)
-	if !valida || !p.rutaSesionConIndisponibilidad(capacidad.ruta) {
+	if !valida || !p.rutaSesionConIndisponibilidad(capacidad.ruta, ctx) {
 		return ErrSeguridadComunDesarrolloDenegada
 	}
 	var falloRevalidador *diagnostico.FalloConsultaRRHH
