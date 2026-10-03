@@ -308,6 +308,8 @@ BEGIN
     OR o.relacion_desde>fecha::date OR o.relacion_desde>ahora::date
     OR (o.relacion_hasta IS NOT NULL AND
       (o.relacion_hasta<=fecha::date OR o.relacion_hasta<=ahora::date))
+    OR (c.puesto_ref IS NOT NULL AND
+      (o.puesto_ref IS DISTINCT FROM c.puesto_ref OR o.puesto_revision IS DISTINCT FROM c.puesto_revision))
     OR o.organismo_ref IS DISTINCT FROM organizacion
     OR o.unidad_ref IS DISTINCT FROM unidad OR o.vigente_desde>fecha::date
     OR o.vigente_desde>ahora::date
@@ -546,6 +548,8 @@ BEGIN
        AND o.revision=(dato->>'ocupacion_revision')::integer
        AND o.empleado_ref=dato->>'empleado_ref' AND r.persona_ref=dato->>'persona_ref'
        AND o.organismo_ref=cargo.organizacion_ref AND o.unidad_ref=cargo.unidad_ref
+       AND (dato->>'clase'<>'titular' OR cargo.puesto_ref IS NULL OR
+        (o.puesto_ref=cargo.puesto_ref AND o.puesto_revision=cargo.puesto_revision))
        AND o.estado='vigente' AND r.estado='vigente'
        AND o.revision=(SELECT max(x.revision) FROM vec_personal.ocupacion_empleado_historia x
          WHERE x.ocupacion_ref=o.ocupacion_ref)
