@@ -15,7 +15,8 @@ export function crearRender({ root, id, textos }) {
         ${boton("recargar", "general.recargar", `id="${id("recargar")}"`)}<details class="usuarios-ayuda"><summary class="boton-secundario" aria-label="${tx("general.ayuda_nombre")}">${tx("general.ayuda")}</summary><p>${tx("general.ayuda_contenido")}</p></details></header>
       <div class="usuarios-pestanas" role="tablist" aria-label="${tx("general.pestanas")}">
         <button type="button" role="tab" aria-selected="true" aria-controls="${id("panel-usuarios")}" id="${id("tab-usuarios")}" data-accion="usuarios">${tx("general.usuarios")}</button>
-        <button type="button" role="tab" aria-selected="false" tabindex="-1" aria-controls="${id("panel-perfiles")}" id="${id("tab-perfiles")}" data-accion="perfiles">${tx("general.perfiles")}</button></div>
+        <button type="button" role="tab" aria-selected="false" tabindex="-1" aria-controls="${id("panel-perfiles")}" id="${id("tab-perfiles")}" data-accion="perfiles">${tx("general.perfiles")}</button>
+        <button type="button" role="tab" aria-selected="false" tabindex="-1" aria-controls="${id("panel-propuestas")}" id="${id("tab-propuestas")}" data-accion="propuestas">${tx("propuestas.titulo")}</button></div>
       <p id="${id("estado")}" role="status" aria-live="polite" class="usuarios-estado"></p>
       <div class="usuarios-trabajo"><section role="tabpanel" id="${id("panel-usuarios")}" aria-labelledby="${id("tab-usuarios")}">
         <section class="panel" id="${id("listado")}" aria-labelledby="${id("lista-titulo")}"><div class="cabecera-panel"><h3 id="${id("lista-titulo")}">${tx("busqueda.titulo")}</h3></div>
@@ -29,7 +30,8 @@ export function crearRender({ root, id, textos }) {
           </form><div id="${id("filtros-activos")}" class="usuarios-filtros-activos"></div><div id="${id("resultados")}"></div></section>
         <section class="panel" id="${id("detalle")}" tabindex="-1" hidden></section>
         <section class="panel" id="${id("revision")}" tabindex="-1" hidden></section>
-      </section><section class="panel" role="tabpanel" id="${id("panel-perfiles")}" aria-labelledby="${id("tab-perfiles")}" hidden></section></div>
+      </section><section class="panel" role="tabpanel" id="${id("panel-perfiles")}" aria-labelledby="${id("tab-perfiles")}" hidden></section>
+      <section class="panel" role="tabpanel" id="${id("panel-propuestas")}" aria-labelledby="${id("tab-propuestas")}" hidden></section></div>
     </section>`;
     el("perfil").innerHTML = `<option value="">${tx("busqueda.todos")}</option>`;
     el("unidad").innerHTML = `<option value="">${tx("busqueda.todas")}</option>`;
@@ -97,11 +99,16 @@ export function crearRender({ root, id, textos }) {
     }).join("")}</ol>` : `<p>${tx("detalle.sin_historia")}</p>`;
   }
   let rolesHistoria = [];
-  function revision(decision, datos, motivos, disponible) {
+  function revision(decision, datos, motivos, disponible, unidades = []) {
     el("revision").innerHTML = `<div class="cabecera-panel"><h3>${tx("revision.titulo")}</h3><span class="estado-chip">${tx("revision.paso")}</span></div><div class="cuerpo-panel"><dl class="resumen-expediente">${campo("revision.persona", datos.nombre)}${campo("busqueda.unidad", datos.unidad_nombre)}</dl>
-      <ul class="usuarios-perfiles">${decision.seleccion.map(({ acto, rol, indice }) => `<li><h4>${escapar(rol.etiqueta)}</h4><dl class="resumen-expediente">${campo("detalle.operacion", t(`operaciones.${acto.operacion}`))}
-        ${campo("detalle.ambito", ambito(acto.ambitos ? acto : datos.perfiles.find((p) => p.perfil_ref === acto.objetivo.perfil_ref) || acto))}${campo("detalle.desde", fecha(acto.objetivo.vigente_desde))}${campo("detalle.hasta", fecha(acto.objetivo.vigente_hasta))}${campo("detalle.motivo_corto", acto.motivos[motivos[indice]].etiqueta)}</dl></li>`).join("")}</ul>
-      <p>${tx(decision.sensible ? "revision.doble" : "revision.efecto")}</p><p id="${id("dependencia")}" class="texto-secundario">${tx(disponible ? "revision.verificar" : decision.seleccion.length > 1 ? "revision.sin_lote" : "revision.sin_conexion")}</p>
+      <ul class="usuarios-perfiles">${decision.seleccion.map(({ acto, rol, indice }) => {
+        const vigencia = acto.operacion === "revocar" ? datos.perfiles.find((p) => p.perfil_ref === acto.objetivo.perfil_ref) : acto.objetivo;
+        const alcance = acto.ambitos ? ambito(acto) : acto.operacion === "revocar" ? ambito(vigencia)
+          : unidades.find((u) => u.unidad_ref === acto.objetivo.unidad_ref)?.nombre || t("detalle.ambito_pendiente");
+        return `<li><h4>${escapar(rol.etiqueta)}</h4><dl class="resumen-expediente">${campo("detalle.operacion", t(`operaciones.${acto.operacion}`))}
+        ${campo("detalle.ambito", alcance)}${campo("detalle.desde", fecha(vigencia?.vigente_desde))}${campo("detalle.hasta", fecha(vigencia?.vigente_hasta))}${campo("detalle.motivo_corto", acto.motivos[motivos[indice]].etiqueta)}</dl></li>`;
+      }).join("")}</ul>
+      <p>${tx(decision.sensible ? "revision.doble" : "revision.efecto")}</p><p id="${id("dependencia")}" class="texto-secundario">${tx(disponible ? "revision.verificar" : decision.seleccion.length > 1 && !decision.motivoComun ? "revision.motivo_lote" : decision.seleccion.length > 1 ? "revision.sin_lote" : "revision.sin_conexion")}</p>
       <div id="${id("resultado")}" tabindex="-1" role="status" aria-live="polite"></div><div class="acciones-paso">${boton("corregir", "revision.corregir", `id="${id("corregir")}"`)}${boton("confirmar", decision.sensible ? "revision.proponer" : "revision.confirmar", `id="${id("confirmar")}" aria-describedby="${id("dependencia")}" ${disponible ? "" : "disabled"}`, "boton-primario")}</div></div>`;
   }
   function resultado(resultado) {

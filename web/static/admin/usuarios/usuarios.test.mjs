@@ -17,7 +17,8 @@ function decision(indices = [0], f = fuente()) {
 function recibo(d) {
   const s = d.seleccion[0].acto;
   return { recibo: { operacion_ref: d.cuerpo.operacion_ref, recibo_ref: `recibo_admin:${"b".repeat(32)}`,
-    objetivo_persona_ref: s.objetivo.persona_ref, perfil_ref: s.objetivo.perfil_ref, estado_posterior: "activo", version_posterior: 2,
+    objetivo_persona_ref: s.objetivo.persona_ref, perfil_ref: s.objetivo.perfil_ref, rol_version_ref:s.rol_version_ref, vinculo_ref:s.objetivo.vinculo_ref, motivo:d.cuerpo.motivo, estado_posterior: s.operacion==="revocar"?"revocado":"activo", version_posterior: s.operacion==="revocar"?s.objetivo.vinculo_version+1:1,
+    unidad_ref:s.objetivo.unidad_ref,centro_ref:s.objetivo.centro_ref,vigente_desde:s.objetivo.vigente_desde,vigente_hasta:s.objetivo.vigente_hasta,
     confirmado_en: s.objetivo.vigente_desde, auditoria_ref: "auditoria:sintetica:01", huella_antes_sha256: "a".repeat(64), huella_despues_sha256: "b".repeat(64) } };
 }
 class Nodo {
@@ -73,12 +74,14 @@ test("selección exige acto autorizado exacto, motivo, fecha inicial y perfil ge
 
 test("selección múltiple nunca usa el puerto singular ni divide las escrituras", () => {
   const d = decision([0, 1]);
-  assert.equal(d.cuerpo.solicitudes.length, 2);
+  assert.equal(d.cuerpo.cambios.length, 2);
   assert.equal(puedeConfirmar(d, original.capacidades.acciones, { aplicar() {} }), null);
-  assert.equal(puedeConfirmar(d, [...original.capacidades.acciones, "aplicar_lote"], { aplicarLote() {} }), "aplicarLote");
+  assert.equal(puedeConfirmar(d, [...original.capacidades.acciones, "aplicar_lote_ordinario"], { aplicarLote() {} }), "aplicarLote");
   assert.equal(puedeConfirmar(decision([2]), original.capacidades.acciones, { proponer() {} }), "proponer");
-  assert.equal(puedeConfirmar(decision([0, 2]), [...original.capacidades.acciones, "aplicar_lote"], { aplicarLote() {} }), null);
+  assert.equal(puedeConfirmar(decision([0, 2]), [...original.capacidades.acciones, "aplicar_lote_ordinario"], { aplicarLote() {} }), null);
   const f = fuente(), preimagen = structuredClone(f.ficha); decision([0, 1], f); assert.deepEqual(f.ficha, preimagen);
+  f.ficha.actos_disponibles[1].motivos[0].entrada_clave="motivo:diferente";
+  assert.equal(puedeConfirmar(decision([0,1],f),[...original.capacidades.acciones,"aplicar_lote_ordinario"],{aplicarLote(){}}),null);
 });
 
 test("solo confirma recibo ligado a la operación, persona, perfiles, estado y huellas", () => {
@@ -88,9 +91,10 @@ test("solo confirma recibo ligado a la operación, persona, perfiles, estado y h
     assert.throws(() => validarResultado({ recibo: { ...recibo(d).recibo, ...cambio } }, d));
   }
   const lote = decision([0, 1]); assert.throws(() => validarResultado(recibo(lote), lote));
-  const r = recibo(lote); r.recibo.perfiles = lote.seleccion.map(({ acto }) => ({ perfil_ref: acto.objetivo.perfil_ref, estado_posterior: "activo", version_posterior: 2 }));
+  const r = {recibo:{operacion_ref:lote.cuerpo.operacion_ref,acto_ref:`acto_admin:${"b".repeat(32)}`,recibo_ref:`recibo_admin:${"c".repeat(32)}`,auditoria_ref:"auditoria:000001",huella_solicitud_sha256:"c".repeat(64),confirmado_en:lote.seleccion[0].acto.objetivo.vigente_desde,
+    cambios:lote.seleccion.map(s=>({...recibo({cuerpo:lote.cuerpo,seleccion:[s]}).recibo,acto_ref:`acto_admin:${"b".repeat(32)}`,recibo_ref:`recibo_admin:${"c".repeat(32)}`,auditoria_ref:"auditoria:000001",correlacion_ref:"correlacion:000001"}))}};
   assert.equal(validarResultado(r, lote).tipo, "recibo");
-  r.recibo.perfiles[1].perfil_ref = r.recibo.perfiles[0].perfil_ref; assert.throws(() => validarResultado(r, lote));
+  r.recibo.cambios[1].perfil_ref = r.recibo.cambios[0].perfil_ref; assert.throws(() => validarResultado(r, lote));
 });
 
 test("propuesta sensible informa pendiente de aprobación y no acepta un recibo ordinario", () => {
@@ -156,8 +160,8 @@ test("catálogos resuelven ES/EN sin faltantes y el grafo interno usa una URL po
     const c = await cargarTextos("admin-usuarios", { idioma: idioma.codigo }); assert.deepEqual(c.faltantes, []);
     for (const clave of claves(textos.mensajes)) assert.ok(c.traducir(clave));
   }
-  for (const archivo of ["entry.js", "vista.js"]) {
+  for (const archivo of ["entry.js", "vista.js", "propuestas.js", "propuestas-contratos.js"]) {
     const s = await readFile(new URL(archivo, import.meta.url), "utf8");
-    for (const [, modulo] of s.matchAll(/from "(\.\/[^"]+)"/gu)) assert.equal(new URL(modulo, import.meta.url).search, "?v=20261003-admin-usuarios-v2");
+    for (const [, modulo] of s.matchAll(/from "(\.\/[^"]+)"/gu)) assert.equal(new URL(modulo, import.meta.url).search, "?v=20261003-admin-usuarios-v3");
   }
 });

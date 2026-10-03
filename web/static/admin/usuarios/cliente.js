@@ -2,7 +2,7 @@
 export function crearClienteUsuarios({ administracion, buscarUsuarios } = {}) {
   if (!administracion) return Object.freeze({});
   const cliente = {};
-  for (const metodo of ["capacidades", "roles", "persona", "aplicar", "proponer", "aplicarLote", "proponerLote"]) {
+  for (const metodo of ["capacidades", "roles", "persona", "propuestas", "cerrarPropuesta", "aplicar", "proponer", "aplicarLote", "proponerLote"]) {
     if (typeof administracion[metodo] === "function") cliente[metodo] = (...args) => administracion[metodo](...args);
   }
   if (typeof buscarUsuarios === "function") cliente.buscar = buscarUsuarios;

@@ -110,7 +110,8 @@
     "verificar": "Compruebe persona, perfiles, ámbito, vigencia y motivos antes de continuar.",
     "sin_lote": "El servicio todavía no permite confirmar varios perfiles juntos. Revise un solo perfil para continuar.",
     "sin_conexion": "La confirmación de cambios aún no está conectada. Puede consultar y revisar las asignaciones.",
-    "enviando": "Esperando la confirmación del servidor…"
+    "enviando": "Esperando la confirmación del servidor…",
+    "motivo_lote": "Para confirmar varios perfiles juntos, elija el mismo motivo para todos. No se ha aplicado ningún cambio."
   },
   "resultado": {
     "propuesta": "Propuesta registrada",
@@ -131,5 +132,26 @@
     "seleccion": "Marque al menos un perfil y elija un motivo para cada perfil seleccionado.",
     "busqueda": "Escriba al menos dos caracteres para buscar por nombre.",
     "resultado_pendiente": "El resultado sigue pendiente. Reintente esta misma confirmación antes de preparar otro cambio."
+  },
+  "propuestas": {
+    "titulo": "Cambios pendientes",
+    "proponente": "Propuesto por",
+    "revision": "Revisión",
+    "revisar": "Revisar propuesta",
+    "volver": "Volver a cambios pendientes",
+    "vacia": "No hay propuestas pendientes de revisión.",
+    "sin_consulta": "La consulta de cambios pendientes aún no está disponible.",
+    "sin_cierre": "No puede confirmar esta propuesta. Faltan datos para revisarla, otra persona autorizada o la conexión del cambio.",
+    "cargando": "Cargando cambios pendientes…",
+    "decision": "Decisión",
+    "aprobar": "Aprobar el cambio",
+    "rechazar": "Rechazar el cambio",
+    "confirmar_titulo": "Revisar la decisión",
+    "confirmar": "Confirmar decisión",
+    "efecto_aprobar": "Al confirmar, el servidor comprobará de nuevo la propuesta y aplicará el cambio autorizado.",
+    "efecto_rechazar": "Al confirmar, se conservará el rechazo. El acceso de la persona no cambiará.",
+    "aprobada": "Propuesta aprobada y cambio confirmado",
+    "rechazada": "Propuesta rechazada; acceso sin cambios",
+    "motivo": "Motivo de la propuesta"
   }
 }

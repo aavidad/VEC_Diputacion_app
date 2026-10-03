@@ -1,6 +1,6 @@
 const SHA = /^[a-f0-9]{64}$/u;
 const REF = /^[A-Za-z0-9][A-Za-z0-9_:.-]{2,255}$/u;
-const ACCIONES = new Set(["consultar", "aplicar_ordinario", "proponer", "cerrar_propuesta", "aplicar_lote", "proponer_lote"]);
+const ACCIONES = new Set(["consultar", "aplicar_ordinario", "proponer", "cerrar_propuesta", "aplicar_lote_ordinario"]);
 const CLASES = new Set(["ordinario", "administrador", "intervencion"]);
 const ESTADOS = new Set(["activo", "caducado", "revocado", "pendiente"]);
 export function incompatible() { return Object.assign(new Error("respuesta_incompatible"), { codigo: "respuesta_incompatible" }); }
@@ -52,10 +52,15 @@ export function validarFicha(datos, personaRef) {
   for (const acto of lista(datos.actos_disponibles, 128)) {
     exigir(["otorgar", "revocar"].includes(acto?.operacion) && ref(acto.rol_version_ref)
       && acto.objetivo?.persona_ref === personaRef && ref(acto.objetivo.perfil_ref) && SHA.test(acto.objetivo.huella_sha256));
-    for (const campo of ["cuenta", "persona", "perfil", "vinculo", "procedencia"]) {
+    for (const campo of ["cuenta", "persona", "procedencia"]) {
       exigir(ref(acto.objetivo[`${campo}_ref`]) && version(acto.objetivo[`${campo}_version`]));
     }
-    exigir(version(acto.objetivo.revision_continuidad) && SHA.test(acto.objetivo.procedencia_huella_sha256) && fecha(acto.objetivo.vigente_hasta));
+    for (const campo of ["perfil", "vinculo"]) exigir(ref(acto.objetivo[`${campo}_ref`])
+      && (acto.operacion === "otorgar" ? acto.objetivo[`${campo}_version`] === 0 : version(acto.objetivo[`${campo}_version`])));
+    exigir(Number.isSafeInteger(acto.objetivo.revision_continuidad) && acto.objetivo.revision_continuidad >= 0 && SHA.test(acto.objetivo.procedencia_huella_sha256));
+    if (acto.operacion === "otorgar") exigir(fecha(acto.objetivo.vigente_desde) && fecha(acto.objetivo.vigente_hasta)
+      && Date.parse(acto.objetivo.vigente_hasta) > Date.parse(acto.objetivo.vigente_desde));
+    else exigir(acto.objetivo.vigente_desde === "0001-01-01T00:00:00Z" && acto.objetivo.vigente_hasta === "0001-01-01T00:00:00Z");
     for (const motivo of lista(acto.motivos, 64)) validarMotivo(motivo);
     if (acto.operacion === "revocar") exigir(perfiles.some((p) => p.perfil_ref === acto.objetivo.perfil_ref && p.rol_version_ref === acto.rol_version_ref));
   }
@@ -80,6 +85,7 @@ export function seleccionarActos(ficha, roles, capacidades, operacion, indices) 
     if (operacion === "otorgar") exigir(fecha(acto.objetivo.vigente_desde));
     exigir(capacidades.includes(rol.clase === "ordinario" ? "aplicar_ordinario" : "proponer"));
     if (operacion === "revocar") exigir(ficha.perfiles.some((p) => p.perfil_ref === acto.objetivo.perfil_ref && p.estado === "activo"));
+    if (rol.clase !== "ordinario") exigir(version(acto.objetivo.revision_continuidad));
     return { indice, acto, rol };
   });
 }
@@ -94,12 +100,14 @@ export function prepararDecision(ficha, roles, capacidades, operacion, indices, 
       motivo: Object.fromEntries(["catalogo_id", "catalogo_version", "catalogo_huella_sha256", "entrada_clave"].map((c) => [c, motivo[c]])) };
   });
   exigir(new Set(solicitudes.map((s) => s.objetivo.perfil_ref)).size === solicitudes.length);
-  return Object.freeze({ sensible, seleccion, cuerpo: Object.freeze({ operacion_ref: `${sensible ? "propuesta_admin:" : "acto_admin:"}${id}`,
-    ...(solicitudes.length === 1 ? solicitudes[0] : { solicitudes }) }) });
+  const motivoComun = solicitudes.every((s) => Object.entries(solicitudes[0].motivo).every(([k, v]) => s.motivo[k] === v));
+  return Object.freeze({ sensible, seleccion, motivoComun, cuerpo: Object.freeze({ operacion_ref: `${sensible ? "propuesta_admin:" : "acto_admin:"}${id}`,
+    ...(solicitudes.length === 1 ? solicitudes[0] : { cambios: solicitudes.map(({ motivo, ...cambio }) => cambio), motivo: solicitudes[0].motivo }) }) });
 }
 export function puedeConfirmar(decision, capacidades, cliente) {
   const lote = decision.seleccion.length > 1;
-  const accion = lote ? (decision.sensible ? "proponer_lote" : "aplicar_lote") : (decision.sensible ? "proponer" : "aplicar_ordinario");
+  if (lote && (decision.sensible || !decision.motivoComun)) return null;
+  const accion = lote ? "aplicar_lote_ordinario" : (decision.sensible ? "proponer" : "aplicar_ordinario");
   const metodo = lote ? (decision.sensible ? "proponerLote" : "aplicarLote") : (decision.sensible ? "proponer" : "aplicar");
   return capacidades.includes(accion) && typeof cliente?.[metodo] === "function" ? metodo : null;
 }
@@ -112,10 +120,33 @@ export function validarResultado(datos, decision) {
     return { tipo: "propuesta", referencia: p.propuesta_ref, fecha: p.caduca_en };
   }
   const r = datos?.recibo;
+  if (seleccion.length > 1) {
+    exigir(r?.operacion_ref === cuerpo.operacion_ref && /^recibo_admin:[a-f0-9]{32}$/u.test(r.recibo_ref)
+      && /^acto_admin:[a-f0-9]{32}$/u.test(r.acto_ref) && ref(r.auditoria_ref) && SHA.test(r.huella_solicitud_sha256) && fecha(r.confirmado_en));
+    const cambios = lista(r.cambios, 32);
+    exigir(cambios.length === seleccion.length && new Set(cambios.map((p) => p.perfil_ref)).size === cambios.length);
+    for (const [i, s] of seleccion.entries()) {
+      const cambio = cambios[i];
+      exigir(cambio && cambio.perfil_ref === s.acto.objetivo.perfil_ref && Date.parse(cambio.confirmado_en) === Date.parse(r.confirmado_en)
+        && cambio.acto_ref === r.acto_ref && cambio.recibo_ref === r.recibo_ref && cambio.auditoria_ref === r.auditoria_ref
+        && cambio.correlacion_ref === cambios[0].correlacion_ref);
+      validarResultado({ recibo: cambio }, { cuerpo: { ...s.acto, operacion_ref: cuerpo.operacion_ref, motivo: cuerpo.motivo }, seleccion: [s], sensible: false, actor: decision.actor });
+    }
+    return { tipo: "recibo", referencia: r.recibo_ref, fecha: r.confirmado_en };
+  }
   exigir(r?.operacion_ref === cuerpo.operacion_ref && /^recibo_admin:[a-f0-9]{32}$/u.test(r.recibo_ref)
     && r.objetivo_persona_ref === seleccion[0].acto.objetivo.persona_ref && fecha(r.confirmado_en)
     && ref(r.auditoria_ref) && SHA.test(r.huella_antes_sha256) && SHA.test(r.huella_despues_sha256));
-  const perfiles = seleccion.length === 1 ? [r] : lista(r.perfiles, 32);
+  exigir(r.rol_version_ref === seleccion[0].acto.rol_version_ref && r.vinculo_ref === seleccion[0].acto.objetivo.vinculo_ref
+    && r.huella_antes_sha256 === seleccion[0].acto.objetivo.huella_sha256
+    && (!decision.actor || r.actor_persona_ref === decision.actor)
+    && Object.entries(cuerpo.motivo).every(([k, v]) => r.motivo?.[k] === v));
+  const objetivo = seleccion[0].acto.objetivo;
+  exigir(r.unidad_ref === objetivo.unidad_ref && r.centro_ref === objetivo.centro_ref);
+  if (seleccion[0].acto.operacion === "otorgar") exigir(r.version_posterior === 1
+    && Date.parse(r.vigente_desde) === Date.parse(objetivo.vigente_desde) && Date.parse(r.vigente_hasta) === Date.parse(objetivo.vigente_hasta));
+  else exigir(r.version_posterior === objetivo.vinculo_version + 1);
+  const perfiles = [r];
   exigir(perfiles.length === seleccion.length && new Set(perfiles.map((p) => p.perfil_ref)).size === perfiles.length);
   for (const s of seleccion) exigir(perfiles.some((p) => p.perfil_ref === s.acto.objetivo.perfil_ref && version(p.version_posterior)
     && p.estado_posterior === (s.acto.operacion === "revocar" ? "revocado" : "activo")));

@@ -1,5 +1,6 @@
-import { validarCapacidades, validarRoles, validarUnidades, validarPersonas, validarFicha, seleccionarActos, prepararDecision, puedeConfirmar, validarResultado, incompatible } from "./contratos.js?v=20261003-admin-usuarios-v2";
-import { crearRender } from "./render.js?v=20261003-admin-usuarios-v2";
+import { validarCapacidades, validarRoles, validarUnidades, validarPersonas, validarFicha, seleccionarActos, prepararDecision, puedeConfirmar, validarResultado, incompatible } from "./contratos.js?v=20261003-admin-usuarios-v3";
+import { crearRender } from "./render.js?v=20261003-admin-usuarios-v3";
+import { montarPropuestas } from "./propuestas.js?v=20261003-admin-usuarios-v3";
 let montaje = 0;
 const filtrosVacios = () => ({ busqueda: "", perfil_ref: "", unidad_ref: "", estado: "", cursor: "" });
 export function montarUsuarios(root, { textos, cliente = {}, cripto = globalThis.crypto } = {}) {
@@ -10,6 +11,10 @@ export function montarUsuarios(root, { textos, cliente = {}, cripto = globalThis
   let roles = [], unidades = [], capacidades = [], personas = [], detalle = null, decision = null, consulta = filtrosVacios(), siguiente = "";
   const peticiones = new Map();
   pantalla();
+  let actor = "";
+  const pendientes = montarPropuestas(el("panel-propuestas"), { textos, cripto,
+    contexto: () => ({ roles, capacidades, actor, cliente }),
+    bloquear: (valor) => { incierto = valor; controles(!valor && !bloqueado); }, denegar: error });
   const lenguajePrevio = root.getAttribute("lang");
   root.setAttribute("lang", textos.idioma);
   function iniciar(tipo) {
@@ -23,6 +28,7 @@ export function montarUsuarios(root, { textos, cliente = {}, cripto = globalThis
     el("recargar").disabled = enviando || incierto;
     el("tab-usuarios").disabled = enviando || incierto;
     el("tab-perfiles").disabled = enviando || incierto;
+    el("tab-propuestas").disabled = enviando || incierto;
   }
   function etapa(nombre) {
     for (const parte of ["listado", "detalle", "revision"]) el(parte).hidden = parte !== nombre;
@@ -33,6 +39,7 @@ export function montarUsuarios(root, { textos, cliente = {}, cripto = globalThis
     detalle = null; decision = null; personas = []; roles = []; unidades = []; capacidades = []; siguiente = "";
     for (const parte of ["resultados", "detalle", "revision", "panel-perfiles", "filtros-activos"]) el(parte).replaceChildren();
     filtros([], []); etapa("listado"); controles(false);
+    actor = ""; pendientes.vaciar();
   }
   function error(error, destino = el("estado")) {
     const denegado = error?.estado === 401 || error?.estado === 403;
@@ -93,7 +100,7 @@ export function montarUsuarios(root, { textos, cliente = {}, cripto = globalThis
     try {
       const [cap, cat] = await Promise.all([cliente.capacidades(control.signal), cliente.roles(control.signal)]);
       if (!actual("inicio", control)) return;
-      capacidades = [...validarCapacidades(cap).acciones];
+      const capacidad = validarCapacidades(cap); capacidades = [...capacidad.acciones]; actor = capacidad.actor_persona_ref;
       if (!capacidades.includes("consultar")) throw Object.assign(new Error("denegado"), { estado: 403 });
       roles = validarRoles(cat);
       unidades = validarUnidades(cat);
@@ -110,8 +117,8 @@ export function montarUsuarios(root, { textos, cliente = {}, cripto = globalThis
     const indices = [...el("opciones").querySelectorAll("[data-seleccion]:checked")].map((n) => Number(n.dataset.seleccion));
     const motivos = Object.fromEntries([...el("opciones").querySelectorAll("[data-motivo]")].filter((n) => n.value !== "").map((n) => [n.dataset.motivo, Number(n.value)]));
     try {
-      decision = prepararDecision(detalle, roles, capacidades, el("operacion").value, indices, motivos, cripto);
-      revision(decision, detalle, motivos, Boolean(puedeConfirmar(decision, capacidades, cliente))); conflicto = false; etapa("revision");
+      decision = Object.freeze({ ...prepararDecision(detalle, roles, capacidades, el("operacion").value, indices, motivos, cripto), actor });
+      revision(decision, detalle, motivos, Boolean(puedeConfirmar(decision, capacidades, cliente)), unidades); conflicto = false; etapa("revision");
     } catch { el("error-seleccion").hidden = false; el("error-seleccion").textContent = t("errores.seleccion"); el("error-seleccion").focus(); }
   }
   async function confirmar() {
@@ -141,16 +148,18 @@ export function montarUsuarios(root, { textos, cliente = {}, cripto = globalThis
   }
   function pestaña(nombre) {
     if (enviando || incierto) return;
-    for (const parte of ["usuarios", "perfiles"]) {
+    for (const parte of ["usuarios", "perfiles", "propuestas"]) {
       el(`panel-${parte}`).hidden = nombre !== parte;
       el(`tab-${parte}`).setAttribute("aria-selected", String(nombre === parte)); el(`tab-${parte}`).tabIndex = nombre === parte ? 0 : -1;
     }
+    el("estado").textContent = nombre === "usuarios" ? t(detalle ? "detalle.lista" : personas.length ? "busqueda.lista" : "busqueda.vacia") : "";
+    if (nombre === "propuestas") void pendientes.cargar();
   }
   function click(evento) {
     const boton = evento.target.closest("[data-accion]"); if (!boton || !root.contains(boton) || boton.disabled) return;
     const accion = boton.dataset.accion;
     if (enviando || incierto && accion !== "confirmar") return;
-    if (["usuarios", "perfiles"].includes(accion)) pestaña(accion);
+    if (["usuarios", "perfiles", "propuestas"].includes(accion)) pestaña(accion);
     else if (accion === "recargar") void cargar();
     else if (accion === "persona") void cargarPersona(boton.dataset.ref);
     else if (accion === "mas" && siguiente) void buscar(true);
@@ -183,7 +192,8 @@ export function montarUsuarios(root, { textos, cliente = {}, cripto = globalThis
   } }
   function teclado(evento) {
     if (evento.target.getAttribute("role") !== "tab" || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(evento.key) || enviando || incierto) return;
-    evento.preventDefault(); const nombre = evento.key === "Home" ? "usuarios" : evento.key === "End" ? "perfiles" : evento.target === el("tab-usuarios") ? "perfiles" : "usuarios";
+    const nombres = ["usuarios", "perfiles", "propuestas"], indice = nombres.findIndex((n) => evento.target === el(`tab-${n}`));
+    evento.preventDefault(); const nombre = evento.key === "Home" ? nombres[0] : evento.key === "End" ? nombres.at(-1) : nombres[(indice + (evento.key === "ArrowRight" ? 1 : 2)) % nombres.length];
     pestaña(nombre); el(`tab-${nombre}`).focus();
   }
   const listeners = [["click", click], ["submit", submit], ["change", change], ["keydown", teclado]];
@@ -193,6 +203,7 @@ export function montarUsuarios(root, { textos, cliente = {}, cripto = globalThis
   ventana?.addEventListener("beforeunload", avisarSalida);
   const listo = cargar();
   return Object.freeze({ listo, cargar, desmontar() { if (!vivo) return; vivo = false;
+    pendientes.desmontar();
     for (const c of peticiones.values()) c.abort(); listeners.forEach(([tipo, fn]) => root.removeEventListener(tipo, fn)); root.replaceChildren();
     ventana?.removeEventListener("beforeunload", avisarSalida);
     if (lenguajePrevio === null) root.removeAttribute("lang"); else root.setAttribute("lang", lenguajePrevio);

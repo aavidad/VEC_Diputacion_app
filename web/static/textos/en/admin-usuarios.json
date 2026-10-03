@@ -110,7 +110,8 @@
     "verificar": "Check the person, profiles, scope, validity and reasons before continuing.",
     "sin_lote": "The service cannot confirm several profiles together yet. Review a single profile to continue.",
     "sin_conexion": "Change confirmation is not connected yet. You can view and review assignments.",
-    "enviando": "Waiting for the server’s confirmation…"
+    "enviando": "Waiting for the server’s confirmation…",
+    "motivo_lote": "To confirm several profiles together, choose the same reason for all of them. No changes have been applied."
   },
   "resultado": {
     "propuesta": "Proposal recorded",
@@ -131,5 +132,26 @@
     "seleccion": "Select at least one profile and choose a reason for each selected profile.",
     "busqueda": "Enter at least two characters to search by name.",
     "resultado_pendiente": "The result is still pending. Retry this same confirmation before preparing another change."
+  },
+  "propuestas": {
+    "titulo": "Pending changes",
+    "proponente": "Proposed by",
+    "revision": "Review",
+    "revisar": "Review proposal",
+    "volver": "Back to pending changes",
+    "vacia": "There are no proposals awaiting review.",
+    "sin_consulta": "Pending changes cannot be loaded yet.",
+    "sin_cierre": "You cannot confirm this proposal. Review details, another authorised person or the change connection are missing.",
+    "cargando": "Loading pending changes…",
+    "decision": "Decision",
+    "aprobar": "Approve the change",
+    "rechazar": "Reject the change",
+    "confirmar_titulo": "Review the decision",
+    "confirmar": "Confirm decision",
+    "efecto_aprobar": "On confirmation, the server will check the proposal again and apply the authorised change.",
+    "efecto_rechazar": "On confirmation, the rejection will be kept. The person’s access will not change.",
+    "aprobada": "Proposal approved and change confirmed",
+    "rechazada": "Proposal rejected; access unchanged",
+    "motivo": "Reason for the proposal"
   }
 }
