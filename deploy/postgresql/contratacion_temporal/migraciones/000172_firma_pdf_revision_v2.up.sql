@@ -9,15 +9,29 @@ SET LOCAL lock_timeout='5s';
 SET LOCAL statement_timeout='30s';
 SELECT pg_advisory_xact_lock(hashtextextended('vec_contratacion_temporal:migracion:000172',0));
 DO $pre$
+DECLARE nombre text; f oid;
 BEGIN
  IF current_user<>'vec_contratacion_temporal_propietario'
-   OR to_regclass('vec_contratacion_temporal.firma_historia_cabeza_v1') IS NULL
-   OR to_regclass('vec_contratacion_temporal.firma_documento_revision_pdf_v2') IS NOT NULL
-   OR NOT has_function_privilege(current_user,'vec_autorizacion_atestada_v3.registrar_y_consumir_firma_verificada_ct_v2_atestada(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
-   OR NOT has_function_privilege(current_user,'vec_contratacion_temporal.leer_revalidar_relacion_unidad_expediente_ct_v1(text,text,text,numeric)','EXECUTE')
-   OR NOT has_function_privilege(current_user,'vec_autorizacion.acreditar_competencia_nominal_firmante_ct_v1(bytea,jsonb,jsonb)','EXECUTE')
-   OR NOT has_function_privilege(current_user,'vec_autorizacion.recuperar_evidencia_competencia_firmante_ct_v1(text,text,bytea,jsonb,jsonb)','EXECUTE') THEN
+   OR getdatabaseencoding()<>'UTF8'
+   OR to_regclass('vec_contratacion_temporal.firma_documento_revision_pdf_v2') IS NOT NULL THEN
   RAISE EXCEPTION 'CT172 preimagen incompatible' USING ERRCODE='55000'; END IF;
+ FOREACH nombre IN ARRAY ARRAY['firma_documento_v1','firma_documento_custodia_v1',
+  'firma_documento_auditoria_v1','firma_documento_outbox_v1','firma_historia_cabeza_v1'] LOOP
+  IF to_regclass('vec_contratacion_temporal.'||nombre) IS NULL THEN
+   RAISE EXCEPTION 'CT172 preimagen incompatible' USING ERRCODE='55000'; END IF;
+ END LOOP;
+ -- Resolver primero el OID mantiene el rechazo nominal 55000 si falta una
+ -- dependencia; has_function_privilege(text) daría undefined_function.
+ FOREACH nombre IN ARRAY ARRAY[
+  'vec_autorizacion_atestada_v3.registrar_y_consumir_firma_verificada_ct_v2_atestada(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
+  'vec_autorizacion_atestada_v3.consumir_consulta_firmas_r5_ct_v2_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
+  'vec_contratacion_temporal.leer_revalidar_relacion_unidad_expediente_ct_v1(text,text,text,numeric)',
+  'vec_autorizacion.acreditar_competencia_nominal_firmante_ct_v1(bytea,jsonb,jsonb)',
+  'vec_autorizacion.recuperar_evidencia_competencia_firmante_ct_v1(text,text,bytea,jsonb,jsonb)'] LOOP
+  f:=to_regprocedure(nombre);
+  IF f IS NULL OR NOT has_function_privilege(current_user,f,'EXECUTE') THEN
+   RAISE EXCEPTION 'CT172 dependencia no disponible: %',nombre USING ERRCODE='55000'; END IF;
+ END LOOP;
 END $pre$;
 DO $politica_pre$
 BEGIN
