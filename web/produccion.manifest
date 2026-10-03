@@ -631,3 +631,11 @@ static/portal-empleado/modulos/personal/comparacion-ficha-b2.js
 static/portal-empleado/modulos/personal/comparacion-ficha-b2.css
 static/textos/es/personal-comparacion-b2.json
 static/textos/en/personal-comparacion-b2.json
+static/portal-empleado/modulos/seleccion/preparacion-admision/index.html
+static/portal-empleado/modulos/seleccion/preparacion-admision/entrada.js
+static/portal-empleado/modulos/seleccion/preparacion-admision/modelo.js
+static/portal-empleado/modulos/seleccion/preparacion-admision/vista.js
+static/portal-empleado/modulos/seleccion/preparacion-admision/controlador.js
+static/portal-empleado/modulos/seleccion/preparacion-admision/preparacion-admision.css
+static/textos/es/selectivos-admision-visor.json
+static/textos/en/selectivos-admision-visor.json
