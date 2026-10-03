@@ -124,7 +124,9 @@ func (h *handlerOrganizacionHistorica) ServeHTTP(w http.ResponseWriter, r *http.
 	resultado, err := h.consulta.Consultar(r.Context(), personaldomain.SolicitudConsultaOrganizacionHistorica{Selector: filtros, Actor: actor})
 	if err != nil {
 		if errors.Is(err, personaldomain.ErrConsultaOrganizacionHistoricaDenegada) {
-			h.denegar(w, r.Context(), http.StatusForbidden, "acceso_denegado", actor.Principal.ID)
+			// El caso de uso nominal sólo devuelve denegación después del acuse
+			// común. No añadir una segunda entrada CT162 al mismo intento.
+			responderOrganizacionHistorica(w, http.StatusForbidden, "acceso_denegado", nil)
 			return
 		}
 		if errors.Is(err, personaldomain.ErrConsultaOrganizacionHistoricaInvalida) {
