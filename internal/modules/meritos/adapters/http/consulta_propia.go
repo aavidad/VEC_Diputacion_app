@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"io"
 	"mime"
 	"net/http"
@@ -14,7 +13,6 @@ import (
 	"vec-diputacion-granada/internal/modules/meritos/application"
 	"vec-diputacion-granada/internal/modules/meritos/domain"
 	"vec-diputacion-granada/internal/modules/meritos/ports"
-	vec "vec-diputacion-granada/internal/vec/domain"
 )
 
 const RutaConsultaPropia = "/api/meritos/hecho-propio/consulta"
@@ -27,6 +25,7 @@ type ProveedorSolicitudConsultaPropia interface {
 
 type LectorConsultaPropia interface {
 	ConsultarActual(context.Context, application.SolicitudConsultaPropia) (ports.ResultadoConsultaPropia, error)
+	RegistrarFalloConsulta(context.Context, application.SolicitudConsultaPropia, error) error
 }
 
 type ConsultaPropia struct {
@@ -63,17 +62,8 @@ func (h *ConsultaPropia) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		respuestaErrorConsulta(w, http.StatusMethodNotAllowed, "meritos.error.metodo_no_admitido")
 		return
 	}
-	if r.URL.RawQuery != "" || r.URL.ForceQuery {
-		respuestaErrorConsulta(w, http.StatusBadRequest, "meritos.error.solicitud_invalida")
-		return
-	}
 	if h == nil || dependenciaConsultaNula(h.proveedor) || dependenciaConsultaNula(h.lector) || r.Context().Err() != nil {
 		respuestaErrorConsulta(w, http.StatusServiceUnavailable, "meritos.error.consulta_no_disponible")
-		return
-	}
-	hecho, err := leerSelectorConsulta(r)
-	if err != nil {
-		respuestaErrorConsulta(w, http.StatusBadRequest, "meritos.error.solicitud_invalida")
 		return
 	}
 	solicitud, err := h.proveedor.SolicitudConsultaPropia(r.Context())
@@ -81,8 +71,25 @@ func (h *ConsultaPropia) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		responderFalloConsulta(w, err)
 		return
 	}
-	if r.Context().Err() != nil {
-		respuestaErrorConsulta(w, http.StatusServiceUnavailable, "meritos.error.consulta_no_disponible")
+	falloEntrada := func(causa error) {
+		err := h.lector.RegistrarFalloConsulta(r.Context(), solicitud, causa)
+		if err != application.ErrSolicitud {
+			responderFalloConsulta(w, err)
+			return
+		}
+		respuestaErrorConsulta(w, http.StatusBadRequest, "meritos.error.solicitud_invalida")
+	}
+	if err := r.Context().Err(); err != nil {
+		falloEntrada(err)
+		return
+	}
+	if r.URL.RawQuery != "" || r.URL.ForceQuery {
+		falloEntrada(application.ErrSolicitud)
+		return
+	}
+	hecho, err := leerSelectorConsulta(r)
+	if err != nil {
+		falloEntrada(err)
 		return
 	}
 	solicitud.HechoRef = hecho
@@ -159,7 +166,7 @@ func resultadoConsultaPublicable(hecho string, r ports.ResultadoConsultaPropia) 
 }
 
 func responderFalloConsulta(w http.ResponseWriter, err error) {
-	if errors.Is(err, vec.ErrAutorizacionDenegada) {
+	if application.DenegacionConsultaReal(err) {
 		respuestaErrorConsulta(w, http.StatusForbidden, "meritos.error.autorizacion_denegada")
 		return
 	}

@@ -20,13 +20,19 @@ type ServicioConsultaPropia struct {
 // ConfiguracionAuditoriaConsulta usa el registrador común con su proceso de
 // despliegue y plazo de escritura. El canal procede del vínculo acreditado.
 type ConfiguracionAuditoriaConsulta struct {
-	Registrador vecports.RegistradorIntentosAuditoria
-	Proceso     string
-	Plazo       time.Duration
+	Registrador        vecports.RegistradorIntentosAuditoria
+	Proceso            string
+	Plazo              time.Duration
+	ValidadorMotivos   vecports.ValidadorReferenciaMotivoAutorizacionV2
+	MotivoDenegacion   vec.ReferenciaEntradaCatalogo
+	MotivoError        vec.ReferenciaEntradaCatalogo
+	RecursoConsultaRef string
 }
 
 func NuevoServicioConsultaPropia(a ports.Autorizador, r ports.RepositorioConsultaPropia, audit ConfiguracionAuditoriaConsulta, reloj vecports.Reloj) (*ServicioConsultaPropia, error) {
-	if nulo(a) || nulo(r) || nulo(audit.Registrador) || audit.Proceso == "" || audit.Plazo <= 0 || audit.Plazo > 30*time.Second || nulo(reloj) {
+	if nulo(a) || nulo(r) || nulo(audit.Registrador) || audit.Proceso == "" || audit.Plazo <= 0 || audit.Plazo > 30*time.Second || nulo(audit.ValidadorMotivos) ||
+		!vec.ReferenciaMotivoAutorizacionV2Valida(audit.MotivoDenegacion) || !vec.ReferenciaMotivoAutorizacionV2Valida(audit.MotivoError) ||
+		audit.MotivoDenegacion == audit.MotivoError || audit.RecursoConsultaRef == "" || nulo(reloj) {
 		return nil, ports.ErrConsultaNoDisponible
 	}
 	return &ServicioConsultaPropia{a, r, audit, reloj}, nil
@@ -36,19 +42,19 @@ func (s *ServicioConsultaPropia) ConsultarActual(ctx context.Context, solicitud 
 	if s == nil || ctx == nil || nulo(s.autorizador) || nulo(s.repositorio) || nulo(s.auditoria.Registrador) || nulo(s.reloj) {
 		return ports.ResultadoConsultaPropia{}, ports.ErrConsultaNoDisponible
 	}
-	if err = ctx.Err(); err != nil {
-		return ports.ResultadoConsultaPropia{}, err
-	}
 	// La frontera común audita contextos inválidos. No registrar aquí identidad
 	// o correlación libres que no han superado su validación nominal.
 	if solicitud.validarContexto() != nil {
 		return ports.ResultadoConsultaPropia{}, errors.Join(vec.ErrAutorizacionDenegada, ErrSolicitud)
 	}
+	if err = ctx.Err(); err != nil {
+		return ports.ResultadoConsultaPropia{}, s.RegistrarFalloConsulta(ctx, solicitud, err)
+	}
 	// La auditoría de una consulta obtenida o ausente pertenece a su transacción.
 	// Un error, cancelación o COMMIT incierto nunca afirma un acceso confirmado.
 	o, err := ordenConsultaPropia(solicitud)
 	if err != nil {
-		return ports.ResultadoConsultaPropia{}, err
+		return ports.ResultadoConsultaPropia{}, s.RegistrarFalloConsulta(ctx, solicitud, err)
 	}
 	// El repositorio termina su rollback antes de devolver un error. Ese
 	// resultado necesita constancia por la autoridad común independiente; la
@@ -57,29 +63,9 @@ func (s *ServicioConsultaPropia) ConsultarActual(ctx context.Context, solicitud 
 		if err == nil {
 			return
 		}
-		correlacion, _ := solicitud.Correlacion.ValorCanonico()
-		vinculo, vinculoErr := solicitud.Vinculo.Datos()
-		ref, refErr := vecports.NuevaReferenciaIntentoAuditoria()
-		datos := vec.DatosIntentoAuditoria{Accion: AccionConsultaPropia, ModuloID: "meritos",
-			RecursoRef: o.HechoRef, FinalidadRef: FinalidadConsultaPropia,
-			Resultado: vec.ResultadoIntentoAuditoriaError, Motivo: solicitud.Motivo,
-			Proceso: s.auditoria.Proceso, Canal: string(vinculo.Superficie), CorrelacionRef: correlacion}
-		if errors.Is(err, vec.ErrAutorizacionDenegada) {
-			datos.Resultado = vec.ResultadoIntentoAuditoriaDenegado
-		}
-		orden, ordenErr := vecports.NuevaOrdenIntentoAuditoria(ref, solicitud.Contexto, solicitud.Vinculo, datos)
-		if vinculoErr != nil || refErr != nil || ordenErr != nil {
-			out, err = ports.ResultadoConsultaPropia{}, ports.ErrConsultaNoDisponible
-			return
-		}
-		// Un cierre de la petición no borra el intento. El plazo del registro
-		// es independiente y corto; no conserva credenciales o material V3.
-		auditCtx, cancelar := context.WithTimeout(context.WithoutCancel(ctx), s.auditoria.Plazo)
-		defer cancelar()
-		acuse, auditErr := s.auditoria.Registrador.AppendIntentoAuditoria(auditCtx, orden)
-		if auditErr != nil || acuse.ValidarPara(orden) != nil {
-			out, err = ports.ResultadoConsultaPropia{}, ports.ErrConsultaNoDisponible
-		}
+		err = s.registrarIntentoConsulta(ctx, solicitud, o.HechoRef, err)
+		out = ports.ResultadoConsultaPropia{}
+
 	}()
 	o.Autorizacion, err = s.autorizarConsulta(ctx, solicitud, o)
 	if err != nil {
@@ -113,7 +99,7 @@ func (s *ServicioConsultaPropia) autorizarConsulta(ctx context.Context, solicitu
 	}
 	d, c, exportador, err := s.autorizador.EmitirMaterialAutorizacionAtestadaV3(ctx, auth, solicitud.Contexto)
 	if err != nil || nulo(exportador) {
-		if errors.Is(err, vec.ErrAutorizacionDenegada) {
+		if DenegacionConsultaReal(err) {
 			return ports.AutorizacionOperacion{}, vec.ErrAutorizacionDenegada
 		}
 		return ports.AutorizacionOperacion{}, ports.ErrConsultaNoDisponible

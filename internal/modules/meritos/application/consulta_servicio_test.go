@@ -308,7 +308,7 @@ func TestConsultaPropiaRechazoTrasEmisionNoDevuelveFichaNiRecibo(t *testing.T) {
 		entrada.ResultadoContexto.Contexto.PersonaRef != persona || entrada.ResultadoContexto.Contexto.PerfilActivoRef != perfil ||
 		entrada.Datos.Accion != AccionConsultaPropia || entrada.Datos.ModuloID != "meritos" ||
 		entrada.Datos.FinalidadRef != FinalidadConsultaPropia || entrada.Datos.RecursoRef != solicitud.HechoRef ||
-		entrada.Datos.CorrelacionRef != correlacion || entrada.Datos.Motivo != solicitud.Motivo ||
+		entrada.Datos.CorrelacionRef != correlacion || entrada.Datos.Motivo != s.auditoria.MotivoDenegacion ||
 		entrada.ResultadoContexto.HuellaSHA256 != solicitud.Contexto.HuellaSHA256 ||
 		vinculoErr != nil || entrada.Vinculo.ValidarPara(solicitud.Contexto) != nil ||
 		entrada.Datos.Proceso != "vec-rum04-ensayo" || entrada.Datos.Canal != string(vinculo.Superficie) {
@@ -330,10 +330,24 @@ type auditoriaConsultaPrueba struct {
 	err        error
 	observar   func(context.Context, vecports.DatosOrdenIntentoAuditoria)
 	mutarAcuse func(*vecports.AcuseIntentoAuditoria)
+	errMotivo  error
 }
 
 func configuracionAuditConsultaPrueba(a vecports.RegistradorIntentosAuditoria) ConfiguracionAuditoriaConsulta {
-	return ConfiguracionAuditoriaConsulta{Registrador: a, Proceso: "vec-rum04-ensayo", Plazo: 2 * time.Second}
+	denegacion := vec.ReferenciaEntradaCatalogo{CatalogoID: "motivos_auditoria", CatalogoVersion: 1,
+		CatalogoHuellaSHA256: strings.Repeat("a", 64), EntradaClave: "motivo_" + strings.Repeat("1", 32)}
+	fallo := denegacion
+	fallo.EntradaClave = "motivo_" + strings.Repeat("2", 32)
+	return ConfiguracionAuditoriaConsulta{Registrador: a, Proceso: "vec-rum04-ensayo", Plazo: 2 * time.Second,
+		ValidadorMotivos: a.(vecports.ValidadorReferenciaMotivoAutorizacionV2), MotivoDenegacion: denegacion,
+		MotivoError: fallo, RecursoConsultaRef: "meritos:consulta_propia"}
+}
+
+func (a *auditoriaConsultaPrueba) ValidarReferenciaMotivoAutorizacionV2(_ context.Context, motivo vec.ReferenciaEntradaCatalogo, _ time.Time) error {
+	if a.errMotivo != nil {
+		return a.errMotivo
+	}
+	return motivo.Validar()
 }
 
 func (a *auditoriaConsultaPrueba) AppendIntentoAuditoria(ctx context.Context, o vecports.OrdenIntentoAuditoria) (vecports.AcuseIntentoAuditoria, error) {
@@ -472,5 +486,26 @@ func TestConsultaPropiaAuditaEmisionFallidaSinConcesion(t *testing.T) {
 				t.Fatal("emisión fallida sin constancia nominal", err)
 			}
 		})
+	}
+}
+
+func TestConsultaPropiaMotivoFallidoNoAfirmaAuditoria(t *testing.T) {
+	s, solicitud, _, r, audit := escenarioConsulta(t)
+	r.err = vec.ErrAutorizacionDenegada
+	audit.errMotivo = errors.New("catalogo no disponible")
+	out, err := s.ConsultarActual(context.Background(), solicitud)
+	if !errors.Is(err, ports.ErrConsultaNoDisponible) || out.HechoActual != nil || out.ReciboConsulta != nil || audit.llamadas != 0 {
+		t.Fatal("registro con motivo no resuelto positivamente", err)
+	}
+}
+
+func TestConsultaPropiaFalloCompuestoEsErrorTecnico(t *testing.T) {
+	for _, fallo := range []error{ports.ErrConsultaNoDisponible, context.Canceled, context.DeadlineExceeded} {
+		s, solicitud, _, r, audit := escenarioConsulta(t)
+		r.err = errors.Join(vec.ErrAutorizacionDenegada, fallo)
+		_, err := s.ConsultarActual(context.Background(), solicitud)
+		if DenegacionConsultaReal(err) || audit.llamadas != 1 || audit.ultima.Datos.Resultado != vec.ResultadoIntentoAuditoriaError || audit.ultima.Datos.Motivo != s.auditoria.MotivoError {
+			t.Fatal("fallo técnico compuesto declarado denegación", err)
+		}
 	}
 }

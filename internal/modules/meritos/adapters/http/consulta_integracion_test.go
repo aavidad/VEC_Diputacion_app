@@ -52,8 +52,11 @@ type consultaIntegracionConfig struct {
 }
 
 type consultaAuditoriaConfig struct {
-	Proceso string `json:"proceso"`
-	PlazoMS int    `json:"plazo_ms"`
+	Proceso            string                       `json:"proceso"`
+	PlazoMS            int                          `json:"plazo_ms"`
+	MotivoDenegacion   vd.ReferenciaEntradaCatalogo `json:"motivo_denegacion"`
+	MotivoError        vd.ReferenciaEntradaCatalogo `json:"motivo_error"`
+	RecursoConsultaRef string                       `json:"recurso_consulta_ref"`
 }
 
 type consultaCasoReal struct {
@@ -435,7 +438,8 @@ func consultaComponerReal(ctx context.Context, c consultaIntegracionConfig) (htt
 		return fallo("consulta_integracion.auditoria")
 	}
 	service, err := merapp.NuevoServicioConsultaPropia(common, repository,
-		merapp.ConfiguracionAuditoriaConsulta{Registrador: auditoria, Proceso: c.Auditoria.Proceso, Plazo: plazoAuditoria}, consultaRelojReal{})
+		merapp.ConfiguracionAuditoriaConsulta{Registrador: auditoria, Proceso: c.Auditoria.Proceso, Plazo: plazoAuditoria,
+			ValidadorMotivos: reasons, MotivoDenegacion: c.Auditoria.MotivoDenegacion, MotivoError: c.Auditoria.MotivoError, RecursoConsultaRef: c.Auditoria.RecursoConsultaRef}, consultaRelojReal{})
 	if err != nil {
 		return fallo("consulta_integracion.servicio")
 	}

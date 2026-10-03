@@ -36,11 +36,14 @@ func (p *proveedorConsultaPrueba) SolicitudConsultaPropia(ctx context.Context) (
 }
 
 type lectorConsultaPrueba struct {
-	resultado ports.ResultadoConsultaPropia
-	err       error
-	llamadas  int
-	solicitud application.SolicitudConsultaPropia
-	despues   func()
+	resultado         ports.ResultadoConsultaPropia
+	err               error
+	llamadas          int
+	solicitud         application.SolicitudConsultaPropia
+	despues           func()
+	intentos          int
+	errAuditoria      error
+	snapshotAuditoria application.SolicitudConsultaPropia
 }
 
 func (l *lectorConsultaPrueba) ConsultarActual(_ context.Context, s application.SolicitudConsultaPropia) (ports.ResultadoConsultaPropia, error) {
@@ -50,6 +53,15 @@ func (l *lectorConsultaPrueba) ConsultarActual(_ context.Context, s application.
 		l.despues()
 	}
 	return l.resultado, l.err
+}
+
+func (l *lectorConsultaPrueba) RegistrarFalloConsulta(_ context.Context, snapshot application.SolicitudConsultaPropia, causa error) error {
+	l.intentos++
+	l.snapshotAuditoria = snapshot
+	if l.errAuditoria != nil {
+		return l.errAuditoria
+	}
+	return causa
 }
 
 // Los dobles verifican exclusivamente traducción HTTP. No conceden acceso,
@@ -124,7 +136,7 @@ func TestConsultaHTTPSelectorMinimoYContextoConfiable(t *testing.T) {
 	}
 }
 
-func TestConsultaHTTPRechazaCuerpoAjenoSinResolverIdentidad(t *testing.T) {
+func TestConsultaHTTPRechazaCuerpoAjenoConIntentoNominal(t *testing.T) {
 	for _, body := range []string{
 		`{"hecho_ref":"hecho:http:prueba","persona_ref":"persona:ajena"}`,
 		`{"actor_ref":"persona:ajena","hecho_ref":"hecho:http:prueba"}`,
@@ -138,8 +150,9 @@ func TestConsultaHTTPRechazaCuerpoAjenoSinResolverIdentidad(t *testing.T) {
 			p, l := consultaEscenarioHTTP(t)
 			w := httptest.NewRecorder()
 			NuevaConsultaPropia(p, l).ServeHTTP(w, consultaPeticionHTTP(body))
-			if w.Code != http.StatusBadRequest || p.llamadas != 0 || l.llamadas != 0 || strings.Contains(w.Body.String(), "hecho:http:prueba") {
-				t.Fatal("entrada no mínima alcanzó la identidad o el lector", w.Code)
+			if w.Code != http.StatusBadRequest || p.llamadas != 1 || l.llamadas != 0 || l.intentos != 1 ||
+				!reflect.DeepEqual(l.snapshotAuditoria, p.solicitud) || strings.Contains(w.Body.String(), "hecho:http:prueba") {
+				t.Fatal("entrada no mínima sin intento nominal o alcanza el lector", w.Code)
 			}
 		})
 	}
@@ -176,7 +189,12 @@ func TestConsultaHTTPMetodoRutaYTipo(t *testing.T) {
 			}
 			w := httptest.NewRecorder()
 			NuevaConsultaPropia(p, l).ServeHTTP(w, r)
-			if w.Code != estado || p.llamadas != 0 || l.llamadas != 0 {
+			router := estado == http.StatusMethodNotAllowed || estado == http.StatusNotFound
+			expected := 1
+			if router {
+				expected = 0
+			}
+			if w.Code != estado || p.llamadas != expected || l.llamadas != 0 || l.intentos != expected {
 				t.Fatal("ruta o formato inesperados alcanzan servicio", w.Code)
 			}
 			if caso == "get" && w.Header().Get("Allow") != http.MethodPost {
@@ -242,5 +260,27 @@ func TestConsultaHTTPDependenciasYErroresCierranSinDatos(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestConsultaHTTPAuditoriaFalloEntradaNoDisponible(t *testing.T) {
+	p, l := consultaEscenarioHTTP(t)
+	l.errAuditoria = ports.ErrConsultaNoDisponible
+	w := httptest.NewRecorder()
+	NuevaConsultaPropia(p, l).ServeHTTP(w, consultaPeticionHTTP(`{"persona_ref":"no_aceptada"}`))
+	if w.Code != http.StatusServiceUnavailable || l.intentos != 1 || l.llamadas != 0 || strings.Contains(w.Body.String(), "no_aceptada") {
+		t.Fatal("fallo de auditoría devuelto como rechazo confirmado", w.Code)
+	}
+}
+
+func TestConsultaHTTPErrorTecnicoCompuestoDa503(t *testing.T) {
+	for _, fallo := range []error{ports.ErrConsultaNoDisponible, context.Canceled, context.DeadlineExceeded} {
+		p, l := consultaEscenarioHTTP(t)
+		l.err = errors.Join(vec.ErrAutorizacionDenegada, fallo)
+		w := httptest.NewRecorder()
+		NuevaConsultaPropia(p, l).ServeHTTP(w, consultaPeticionHTTP(`{"hecho_ref":"hecho:http:prueba"}`))
+		if w.Code != http.StatusServiceUnavailable {
+			t.Fatal("error técnico anunciado como403", w.Code)
+		}
 	}
 }
