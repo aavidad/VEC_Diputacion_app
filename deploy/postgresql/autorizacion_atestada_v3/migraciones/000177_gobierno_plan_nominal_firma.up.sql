@@ -128,4 +128,33 @@ REVOKE ALL ON FUNCTION vec_autorizacion_atestada_v3.comprobar_consumo_gobierno_p
 GRANT USAGE ON SCHEMA vec_autorizacion_atestada_v3 TO vec_catalogos_configurables_propietario;
 GRANT EXECUTE ON FUNCTION vec_autorizacion_atestada_v3.comprobar_consumo_gobierno_plan_firma_v1(jsonb),
  vec_autorizacion_atestada_v3.comprobar_consumo_firma_plan_ct_v1(jsonb) TO vec_catalogos_configurables_propietario;
+DO $acl$
+DECLARE nombre text; f regprocedure; permiso record;
+ propietario oid:='vec_autorizacion_atestada_v3_propietario'::regrole;
+ catalogos oid:='vec_catalogos_configurables_propietario'::regrole;
+BEGIN
+ FOREACH nombre IN ARRAY ARRAY[
+  'vec_autorizacion_atestada_v3.comprobar_consumo_gobierno_plan_firma_v1(jsonb)',
+  'vec_autorizacion_atestada_v3.comprobar_consumo_firma_plan_ct_v1(jsonb)'] LOOP
+  f:=nombre::regprocedure;
+  IF (SELECT proowner FROM pg_proc WHERE oid=f) IS DISTINCT FROM propietario THEN
+   RAISE EXCEPTION 'AD177 clave=propietario_funcion observado=incompatible esperado=propietario_AD' USING ERRCODE='55000';
+  END IF;
+  -- Retira también concesiones heredadas de privilegios predeterminados.
+  FOR permiso IN SELECT DISTINCT x.grantee FROM pg_proc p CROSS JOIN LATERAL
+   aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) x
+   WHERE p.oid=f AND x.grantee NOT IN(propietario,catalogos) LOOP
+   EXECUTE format('REVOKE ALL ON FUNCTION %s FROM %s',f::text,
+    CASE WHEN permiso.grantee=0 THEN 'PUBLIC' ELSE quote_ident(pg_get_userbyid(permiso.grantee)) END);
+  END LOOP;
+  IF (SELECT count(*) FROM pg_proc p CROSS JOIN LATERAL
+    aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) x WHERE p.oid=f)<>2
+   OR EXISTS(SELECT 1 FROM pg_proc p CROSS JOIN LATERAL
+    aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) x WHERE p.oid=f
+    AND (x.grantee NOT IN(propietario,catalogos) OR x.grantor<>propietario
+      OR x.privilege_type<>'EXECUTE' OR x.is_grantable)) THEN
+   RAISE EXCEPTION 'AD177 clave=acl_funcion observado=incompatible esperado=AD_y_CC_EXECUTE_sin_grant_option' USING ERRCODE='55000';
+  END IF;
+ END LOOP;
+END $acl$;
 COMMIT;
