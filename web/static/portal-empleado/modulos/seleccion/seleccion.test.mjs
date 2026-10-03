@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { crearTextos } from '../../../comun/textos.js';
 import { INDICE_IDIOMAS, localizacionDe } from '../../../comun/idioma.js';
 import { crearClienteSeleccion } from './cliente.js';
-import { aMicropuntos, validarConfiguracion, validarEjemplos, validarResultado } from './configuracion.js';
+import { aMicropuntos, validarConfiguracion, validarEjemplos, validarResultado, validarNotasPropuestas, validarNotasEjemplo } from './configuracion.js';
 import { crearEstadoEnsayo } from './estado.js';
 import { montarSeleccion } from './montaje.js';
 
