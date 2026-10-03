@@ -1,6 +1,6 @@
 import { cargarTextos } from "../../comun/textos.js";
-import { montarUsuarios } from "./vista.js?v=20261003-admin-usuarios-v1";
-import { crearClienteLecturasUsuarios } from "./lecturas-http.js?v=20261003-admin-usuarios-v1";
+import { montarUsuarios } from "./vista.js?v=20261003-admin-usuarios-v2";
+import { crearClienteLecturasUsuarios } from "./lecturas-http.js?v=20261003-admin-usuarios-v2";
 const root = document.getElementById("usuarios-contenido");
 let montaje;
 try {

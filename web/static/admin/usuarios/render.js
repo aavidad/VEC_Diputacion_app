@@ -11,7 +11,7 @@ export function crearRender({ root, id, textos }) {
   const tecnico = (ref) => `<details><summary>${tx("general.tecnico")}</summary><code>${escapar(ref)}</code></details>`;
   function pantalla() {
     root.innerHTML = `<section class="usuarios" aria-labelledby="${id("titulo")}">
-      <header class="cabeza-pagina"><div><h2 id="${id("titulo")}">${tx("general.titulo")}</h2><p>${tx("general.descripcion")}</p></div>
+      <header class="cabeza-pagina"><div><h2 id="${id("titulo")}">${tx("general.titulo")}</h2></div>
         ${boton("recargar", "general.recargar", `id="${id("recargar")}"`)}<details class="usuarios-ayuda"><summary class="boton-secundario" aria-label="${tx("general.ayuda_nombre")}">${tx("general.ayuda")}</summary><p>${tx("general.ayuda_contenido")}</p></details></header>
       <div class="usuarios-pestanas" role="tablist" aria-label="${tx("general.pestanas")}">
         <button type="button" role="tab" aria-selected="true" aria-controls="${id("panel-usuarios")}" id="${id("tab-usuarios")}" data-accion="usuarios">${tx("general.usuarios")}</button>
@@ -70,7 +70,8 @@ export function crearRender({ root, id, textos }) {
       <form id="${id("seleccion")}"><fieldset class="usuarios-seleccion"><legend>${tx("detalle.cambiar")}</legend>
         <label class="campo" for="${id("operacion")}"><span>${tx("detalle.operacion")}</span><select id="${id("operacion")}"><option value="otorgar">${tx("operaciones.otorgar")}</option><option value="revocar">${tx("operaciones.revocar")}</option></select></label>
         <div id="${id("opciones")}">${opciones(disponibles)}</div><div id="${id("error-seleccion")}" role="alert" tabindex="-1" hidden></div>
-        <p id="${id("limite-cambio")}" class="texto-secundario">${tx("detalle.solo_actos")}</p><div class="acciones-paso"><button type="submit" class="boton-primario" id="${id("revisar")}" ${disponibles.length ? "" : "disabled"}>${tx("detalle.revisar")}</button></div></fieldset></form>
+        <div class="acciones-paso"><button type="submit" class="boton-primario" id="${id("revisar")}" ${disponibles.length ? "" : "disabled"}>${tx("detalle.revisar")}</button></div></fieldset></form>
+      <div class="usuarios-acceso"><button type="button" class="boton-peligro" disabled aria-describedby="${id("limite-acceso")}">${tx("detalle.retirar_acceso")}</button><p id="${id("limite-acceso")}" class="texto-secundario">${tx("detalle.sin_revocacion_acceso")}</p></div>
       <details class="usuarios-historia"><summary>${tx("detalle.historia")}</summary>${historia(datos.historia)}</details></div>`;
   }
   function opciones(disponibles) {

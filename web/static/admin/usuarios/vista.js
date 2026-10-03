@@ -1,12 +1,12 @@
-import { validarCapacidades, validarRoles, validarUnidades, validarPersonas, validarFicha, seleccionarActos, prepararDecision, puedeConfirmar, validarResultado, incompatible } from "./contratos.js?v=20261003-admin-usuarios-v1";
-import { crearRender } from "./render.js?v=20261003-admin-usuarios-v1";
+import { validarCapacidades, validarRoles, validarUnidades, validarPersonas, validarFicha, seleccionarActos, prepararDecision, puedeConfirmar, validarResultado, incompatible } from "./contratos.js?v=20261003-admin-usuarios-v2";
+import { crearRender } from "./render.js?v=20261003-admin-usuarios-v2";
 let montaje = 0;
 const filtrosVacios = () => ({ busqueda: "", perfil_ref: "", unidad_ref: "", estado: "", cursor: "" });
 export function montarUsuarios(root, { textos, cliente = {}, cripto = globalThis.crypto } = {}) {
   if (!root || typeof textos?.traducir !== "function" || typeof textos.fecha !== "function" || typeof textos.numero !== "function") throw new TypeError("montaje_invalido");
   const prefijo = `admin-usuarios-${++montaje}`;
   const { pantalla, filtros, activos, tabla, catalogo, ficha, opciones, revision, resultado, el, t } = crearRender({ root, id: (c) => `${prefijo}-${c}`, textos });
-  let vivo = true, enviando = false, bloqueado = false, conflicto = false;
+  let vivo = true, enviando = false, bloqueado = false, conflicto = false, incierto = false;
   let roles = [], unidades = [], capacidades = [], personas = [], detalle = null, decision = null, consulta = filtrosVacios(), siguiente = "";
   const peticiones = new Map();
   pantalla();
@@ -20,9 +20,9 @@ export function montarUsuarios(root, { textos, cliente = {}, cripto = globalThis
   function controles(permitidos) {
     for (const campo of ["consulta", "perfil", "vigencia", "buscar-boton"]) el(campo).disabled = !permitidos;
     el("unidad").disabled = !permitidos || unidades.length === 0;
-    el("recargar").disabled = enviando;
-    el("tab-usuarios").disabled = enviando;
-    el("tab-perfiles").disabled = enviando;
+    el("recargar").disabled = enviando || incierto;
+    el("tab-usuarios").disabled = enviando || incierto;
+    el("tab-perfiles").disabled = enviando || incierto;
   }
   function etapa(nombre) {
     for (const parte of ["listado", "detalle", "revision"]) el(parte).hidden = parte !== nombre;
@@ -83,7 +83,7 @@ export function montarUsuarios(root, { textos, cliente = {}, cripto = globalThis
     } catch (e) { if (actual("persona", control)) { etapa("listado"); error(e); } }
   }
   async function cargar() {
-    if (!vivo || enviando) return;
+    if (!vivo || enviando || incierto) return;
     for (const c of peticiones.values()) c.abort();
     bloqueado = false; conflicto = false; limpiarDatos();
     if (!["capacidades", "roles", "buscar", "persona"].every((m) => typeof cliente[m] === "function")) {
@@ -117,25 +117,30 @@ export function montarUsuarios(root, { textos, cliente = {}, cripto = globalThis
   async function confirmar() {
     const metodo = decision && puedeConfirmar(decision, capacidades, cliente);
     if (!vivo || enviando || bloqueado || conflicto || !metodo) return;
-    enviando = true; controles(false); el("confirmar").disabled = true; el("corregir").disabled = true;
+    enviando = true; incierto = true; controles(false); el("confirmar").disabled = true; el("corregir").disabled = true;
     el("resultado").textContent = t("revision.enviando");
     const copia = decision, control = iniciar("confirmar");
     try {
       const respuesta = await cliente[metodo](copia.cuerpo, control.signal);
       if (!actual("confirmar", control) || decision !== copia) return;
-      resultado(validarResultado(respuesta, copia)); decision = null;
+      resultado(validarResultado(respuesta, copia)); decision = null; incierto = false;
       el("resultado").focus();
       el("estado").textContent = t(copia.sensible ? "resultado.propuesta" : "resultado.confirmado");
     } catch (e) {
-      if (actual("confirmar", control)) { conflicto = e?.estado === 409; error(e, el("resultado")); }
+      if (actual("confirmar", control)) {
+        conflicto = e?.estado === 409;
+        if ([400, 401, 403, 409, 413, 422].includes(e?.estado)) incierto = false;
+        error(e, el("resultado"));
+        if (incierto) el("resultado").textContent = t("errores.resultado_pendiente");
+      }
     } finally {
       enviando = false;
-      if (actual("confirmar", control)) { controles(!bloqueado); el("confirmar").disabled = !decision || conflicto; el("corregir").disabled = false;
+      if (actual("confirmar", control)) { controles(!bloqueado && !incierto); el("confirmar").disabled = !decision || conflicto; el("corregir").disabled = incierto;
         if (!decision) el("corregir").textContent = t("resultado.ver_ficha"); }
     }
   }
   function pestaña(nombre) {
-    if (enviando) return;
+    if (enviando || incierto) return;
     for (const parte of ["usuarios", "perfiles"]) {
       el(`panel-${parte}`).hidden = nombre !== parte;
       el(`tab-${parte}`).setAttribute("aria-selected", String(nombre === parte)); el(`tab-${parte}`).tabIndex = nombre === parte ? 0 : -1;
@@ -144,6 +149,7 @@ export function montarUsuarios(root, { textos, cliente = {}, cripto = globalThis
   function click(evento) {
     const boton = evento.target.closest("[data-accion]"); if (!boton || !root.contains(boton) || boton.disabled) return;
     const accion = boton.dataset.accion;
+    if (enviando || incierto && accion !== "confirmar") return;
     if (["usuarios", "perfiles"].includes(accion)) pestaña(accion);
     else if (accion === "recargar") void cargar();
     else if (accion === "persona") void cargarPersona(boton.dataset.ref);
@@ -152,7 +158,11 @@ export function montarUsuarios(root, { textos, cliente = {}, cripto = globalThis
     else if (accion === "corregir") {
       if (!decision || conflicto) { const ref = detalle?.persona_ref; decision = null; if (ref) void cargarPersona(ref); else etapa("listado"); }
       else { decision = null; pintarFicha(); }
-    } else if (accion === "volver") { peticiones.get("persona")?.abort(); detalle = null; decision = null; etapa("listado"); }
+    } else if (accion === "volver") {
+      const ref = detalle?.persona_ref;
+      peticiones.get("persona")?.abort(); detalle = null; decision = null; etapa("listado");
+      [...el("resultados").querySelectorAll('[data-accion="persona"]')].find((n) => n.dataset.ref === ref)?.focus();
+    }
     else if (accion === "limpiar" || accion === "quitar-filtro") {
       const campos = { busqueda: "consulta", perfil_ref: "perfil", unidad_ref: "unidad", estado: "vigencia" };
       for (const [campo, control] of Object.entries(campos)) if (accion === "limpiar" || campo === boton.dataset.campo) el(control).value = "";
@@ -161,6 +171,7 @@ export function montarUsuarios(root, { textos, cliente = {}, cripto = globalThis
   }
   function submit(evento) {
     evento.preventDefault();
+    if (enviando || incierto || bloqueado) return;
     if (evento.target === el("buscar")) {
       const nueva = leerFiltros();
       if (nueva.busqueda && nueva.busqueda.length < 2) { el("estado").textContent = t("errores.busqueda"); el("consulta").focus(); return; }
@@ -171,15 +182,19 @@ export function montarUsuarios(root, { textos, cliente = {}, cripto = globalThis
     el("opciones").innerHTML = opciones(disponibles(el("operacion").value)); el("revisar").disabled = disponibles(el("operacion").value).length === 0; el("error-seleccion").hidden = true;
   } }
   function teclado(evento) {
-    if (evento.target.getAttribute("role") !== "tab" || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(evento.key) || enviando) return;
+    if (evento.target.getAttribute("role") !== "tab" || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(evento.key) || enviando || incierto) return;
     evento.preventDefault(); const nombre = evento.key === "Home" ? "usuarios" : evento.key === "End" ? "perfiles" : evento.target === el("tab-usuarios") ? "perfiles" : "usuarios";
     pestaña(nombre); el(`tab-${nombre}`).focus();
   }
   const listeners = [["click", click], ["submit", submit], ["change", change], ["keydown", teclado]];
   listeners.forEach(([tipo, fn]) => root.addEventListener(tipo, fn));
+  const ventana = root.ownerDocument?.defaultView;
+  const avisarSalida = (evento) => { if (enviando || incierto) { evento.preventDefault(); evento.returnValue = ""; } };
+  ventana?.addEventListener("beforeunload", avisarSalida);
   const listo = cargar();
   return Object.freeze({ listo, cargar, desmontar() { if (!vivo) return; vivo = false;
     for (const c of peticiones.values()) c.abort(); listeners.forEach(([tipo, fn]) => root.removeEventListener(tipo, fn)); root.replaceChildren();
+    ventana?.removeEventListener("beforeunload", avisarSalida);
     if (lenguajePrevio === null) root.removeAttribute("lang"); else root.setAttribute("lang", lenguajePrevio);
   } });
 }

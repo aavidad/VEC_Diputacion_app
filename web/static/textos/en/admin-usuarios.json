@@ -1,7 +1,6 @@
 {
   "general": {
     "titulo": "Users and profiles",
-    "descripcion": "View assignments and review access changes.",
     "usuarios": "Users",
     "perfiles": "Profiles",
     "pestanas": "User management and profile catalogue",
@@ -72,7 +71,6 @@
     "operacion": "Change to make",
     "motivo": "Reason (required for each selected profile)",
     "elegir_motivo": "Choose a reason",
-    "solo_actos": "Only changes the server allows you to prepare for this person are shown.",
     "revisar": "Review changes",
     "sin_actos": "No changes of this type are available. Fixed profiles are read-only.",
     "historia": "View assignment history",
@@ -80,7 +78,9 @@
     "historia_pendiente": "This view does not include the names or reason for this action.",
     "cargando": "Loading the person’s details…",
     "lista": "Review the profiles, their scope and validity.",
-    "motivo_corto": "Reason"
+    "motivo_corto": "Reason",
+    "retirar_acceso": "Remove all access",
+    "sin_revocacion_acceso": "Complete access removal is not available yet. Accounts and sessions have not been revoked."
   },
   "operaciones": {
     "otorgar": "Assign profiles",
@@ -129,6 +129,7 @@
     "incompatible": "The service response is incomplete. We cannot confirm the result. Reload the view or contact IT.",
     "servicio": "The operation could not be completed. Retry with the same review; if it still fails, contact IT.",
     "seleccion": "Select at least one profile and choose a reason for each selected profile.",
-    "busqueda": "Enter at least two characters to search by name."
+    "busqueda": "Enter at least two characters to search by name.",
+    "resultado_pendiente": "The result is still pending. Retry this same confirmation before preparing another change."
   }
 }

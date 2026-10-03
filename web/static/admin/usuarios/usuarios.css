@@ -10,7 +10,6 @@
 }
 .usuarios .cabeza-pagina { margin: 0; align-items: center; }
 .usuarios .cabeza-pagina h2 { font-size: 1.4rem; }
-.usuarios .cabecera-panel { background: var(--portal-superficie-alterna); }
 .usuarios-estado { min-height: 24px; margin: 0; }
 .usuarios-trabajo { min-height: 0; overflow: auto; scrollbar-color: var(--portal-muted) var(--portal-superficie-alterna); }
 .usuarios-pestanas { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -25,7 +24,8 @@
 .usuarios .tabla-datos tbody tr:nth-child(even) { background: var(--portal-superficie-alterna); }
 .usuarios .enlace-fila { min-height: 32px; padding: 4px 0; border: 0; background: transparent; color: var(--portal-azul-700); font-weight: 600; text-align: start; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .usuarios-perfiles { display: grid; gap: 16px; margin: 12px 0 24px; padding: 0; list-style: none; }
-.usuarios-perfiles > li { padding: 16px; border: 1px solid var(--portal-borde); border-left: 4px solid var(--portal-azul-700); border-radius: var(--portal-radio-lg); background: var(--portal-superficie-alterna); }
+.usuarios-perfiles > li { padding: 16px; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio-lg); background: var(--portal-superficie-alterna); }
+.usuarios-acceso { margin-top: 24px; }
 .usuarios-fila-perfil { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
 .usuarios-seleccion { display: grid; gap: 16px; margin: 0; padding: 16px; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio-lg); }
 .usuarios-seleccion legend { font-weight: 600; padding: 0 8px; }
@@ -44,6 +44,7 @@
 .usuarios-ayuda { max-width: 68ch; }
 .usuarios-ayuda p { padding: 12px; background: var(--portal-superficie-alterna); }
 @media (max-width: 850px) { .usuarios-filtros { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-height: 650px) { .usuarios { max-height: none; } .usuarios-trabajo { overflow: visible; } }
 @media (max-width: 600px) {
   .usuarios { max-height: none; }
   .usuarios-filtros { grid-template-columns: minmax(0, 1fr); }

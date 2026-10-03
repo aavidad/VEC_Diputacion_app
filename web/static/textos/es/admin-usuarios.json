@@ -1,7 +1,6 @@
 {
   "general": {
     "titulo": "Usuarios y perfiles",
-    "descripcion": "Consulte las asignaciones y revise los cambios de acceso.",
     "usuarios": "Usuarios",
     "perfiles": "Perfiles",
     "pestanas": "Gestión de usuarios y catálogo de perfiles",
@@ -72,7 +71,6 @@
     "operacion": "Cambio que quiere realizar",
     "motivo": "Motivo (obligatorio para cada perfil seleccionado)",
     "elegir_motivo": "Elija un motivo",
-    "solo_actos": "Solo se muestran los cambios que el servidor permite preparar para esta persona.",
     "revisar": "Revisar cambios",
     "sin_actos": "No hay cambios disponibles de este tipo. Los perfiles fijos son de solo lectura.",
     "historia": "Ver historial de asignaciones",
@@ -80,7 +78,9 @@
     "historia_pendiente": "La consulta no incluye los nombres ni el motivo de esta actuación.",
     "cargando": "Cargando la ficha…",
     "lista": "Revise los perfiles, su ámbito y su vigencia.",
-    "motivo_corto": "Motivo"
+    "motivo_corto": "Motivo",
+    "retirar_acceso": "Retirar todo el acceso",
+    "sin_revocacion_acceso": "La retirada completa del acceso aún no está disponible. No se han revocado cuentas ni sesiones."
   },
   "operaciones": {
     "otorgar": "Asignar perfiles",
@@ -129,6 +129,7 @@
     "incompatible": "La respuesta del servicio está incompleta. No podemos confirmar el resultado. Recargue la consulta o avise a Informática.",
     "servicio": "No se ha podido completar la operación. Reintente con la misma revisión; si sigue fallando, avise a Informática.",
     "seleccion": "Marque al menos un perfil y elija un motivo para cada perfil seleccionado.",
-    "busqueda": "Escriba al menos dos caracteres para buscar por nombre."
+    "busqueda": "Escriba al menos dos caracteres para buscar por nombre.",
+    "resultado_pendiente": "El resultado sigue pendiente. Reintente esta misma confirmación antes de preparar otro cambio."
   }
 }

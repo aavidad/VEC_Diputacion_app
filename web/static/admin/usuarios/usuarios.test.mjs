@@ -158,6 +158,6 @@ test("catálogos resuelven ES/EN sin faltantes y el grafo interno usa una URL po
   }
   for (const archivo of ["entry.js", "vista.js"]) {
     const s = await readFile(new URL(archivo, import.meta.url), "utf8");
-    for (const [, modulo] of s.matchAll(/from "(\.\/[^"]+)"/gu)) assert.equal(new URL(modulo, import.meta.url).search, "?v=20261003-admin-usuarios-v1");
+    for (const [, modulo] of s.matchAll(/from "(\.\/[^"]+)"/gu)) assert.equal(new URL(modulo, import.meta.url).search, "?v=20261003-admin-usuarios-v2");
   }
 });
