@@ -74,16 +74,31 @@ v1/v2/v3 que encuentre; no añade otro ni renueva su fecha o procedencia.
 
 ## Preimagen e instalación
 
-La candidata requiere PostgreSQL 18 y la secuencia causal POST154 → AD172.
-AD172 presupone AD149/AD154 y AD169/AD171 acreditadas. AD173 acepta estas huellas
-exactas del núcleo:
+La candidata requiere PostgreSQL 18 y una de las secuencias causales POST154 →
+AD172 o POST168 → AD172. AD172 presupone AD169/AD171 y la genealogía de la variante
+acreditadas. AD173 acepta estas parejas exactas del núcleo POST154:
 
 | Representación | Antes, POST154 + AD172 | Después, AD173 |
 | --- | --- | --- |
 | `pg_get_functiondef` UTF-8 | `92b4245448ffb76aa0792788616e5a779ddd867612e4bd28ab106d95d5356446` | `777f6a6e94c57cfdd8516d082441c1662e303c4b11aa1f187a542a9a11eeb2d6` |
 | `prosrc` UTF-8 | `54327be7e866b84d0cd1feff3a54ef6fc58ceec92daaa2277b150da984371fe9` | `528f35de95885283cc9987fc6f2ca8f09db59e61672b10f3c69134b1d91c23f6` |
 
-También exige el CHECK validado `auditoria_tipo_disjunto_v3` de AD172. Amplía
+La variante POST168 procede del núcleo real POST-H9, que conserva las extensiones
+posteriores a AD168 y carece de RPT. No se añade RPT ni se aplica AD154 a esta base:
+
+| Representación | Antes, POST168 + AD172 | Después, AD173 |
+| --- | --- | --- |
+| `pg_get_functiondef` UTF-8 | `32939b59240dab122779c10789c8fca3d5bcd4024b6341b477e61d82020d8c10` | `6c22fdbb165a00c4f37cb2f7dbb7add4e939e5b0134c0c599b9519bfe3b86db9` |
+| `prosrc` UTF-8 | `24c003368a265ab7622e87b0c1949f0f13ba0b585a6624ff0729ecce88de066e` | `bbb932ef29375e88645fb524e6aae5fd3059d51cb0dfd9d4952ffd509470534c` |
+
+Sólo POST154 exige la fachada RPT existente. El par definición/fuente completo
+selecciona la variante; las anclas sirven únicamente para aplicar el delta
+después del cotejo. Se rechaza cualquier otra pareja.
+
+También exige el CHECK validado `auditoria_tipo_disjunto_v3` de AD172: SHA256 de
+`pg_get_constraintdef(oid,false)` UTF-8
+`55603c422c7c752909d558d8dd238e371719c1e9d0626272e955cde21240c282`,
+capturado en el clon real. El nombre o estado validado por sí solos no bastan. Amplía
 su condición conservada con la familia v3 y lo denomina
 `auditoria_tipo_disjunto_v4`. Mantiene las familias v1/v2, intentos y eventos
 existentes. La familia nueva exige las coordenadas nominales y deja nulas las
@@ -96,7 +111,7 @@ los metadatos y dependencias restantes no cambian. La guarda rechaza reejecució
 No incluye DOWN.
 
 La lista `deploy/principal/lista_sql_codexl_fecha_consumo_20261003.txt` contiene
-sólo AD173. Una base POST168, POST174 u otra definición distinta requiere resolver
+sólo AD173. Una base POST174 u otra definición distinta requiere resolver
 su genealogía antes del ensayo; no basta el nombre de la función o constraint.
 Las dependencias presentes no se reaplican. La lista prepara el ensayo de
 dirección y no autoriza una instalación en principal/cidonia.
@@ -143,7 +158,9 @@ tras reinicio sin duplicados. La prueba preparada no ejecuta esos recorridos.
 
 Se comprobó fuera de PostgreSQL el SHA256 de los diez vectores y la reconstrucción
 exacta POST149 → AD154 → AD172 → AD173, usando la captura real conservada de
-POST149. Las postimágenes coinciden con la tabla anterior. Esta comprobación
+POST149. Se verificó también el delta POST168 + AD172 → AD173 a partir de la
+captura real del clon de dirección, y el SHA256 de su CHECK POST172. Las
+postimágenes coinciden con las tablas anteriores. Esta comprobación
 no acredita ejecución PL/pgSQL, instalación ni persistencia.
 
 El ensayo PostgreSQL del hash final corresponde a dirección en su único clon

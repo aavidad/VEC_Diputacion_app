@@ -12,28 +12,29 @@ DO $pre$
 BEGIN
  IF pg_catalog.current_setting('server_version_num')::integer NOT BETWEEN 180000 AND 189999
  OR pg_catalog.to_regprocedure('vec_autorizacion_atestada_v3.resolver_origen_consumo_v1(text,text,text)') IS NULL
- OR pg_catalog.to_regprocedure('vec_autorizacion_atestada_v3.consumir_relacion_para_rpt_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
  OR NOT EXISTS(SELECT 1 FROM pg_catalog.pg_constraint c
   WHERE c.conrelid='vec_autorizacion_atestada_v3.auditoria_consumo_v3'::regclass
     AND c.conname='auditoria_tipo_disjunto_v3' AND c.contype='c' AND c.convalidated)
  OR EXISTS(SELECT 1 FROM pg_catalog.pg_constraint c
   WHERE c.conrelid='vec_autorizacion_atestada_v3.auditoria_consumo_v3'::regclass
     AND c.conname='auditoria_tipo_disjunto_v4')
- THEN RAISE EXCEPTION 'AD173: PARO clave=preimagen actual=incompatible esperado=POST154_AD172_sin_AD173' USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'AD173: PARO clave=preimagen actual=incompatible esperado=AD172_sin_AD173' USING ERRCODE='55000'; END IF;
 END $pre$;
 
 -- Reutiliza actor/perfil/finalidad AD169. consumida_en permanece en su tabla
 -- original, ligada por la FK exacta existente; la proyección debe unirla.
 LOCK TABLE vec_autorizacion_atestada_v3.auditoria_consumo_v3 IN ACCESS EXCLUSIVE MODE;
 DO $familias$
-DECLARE anterior text;nueva text;
+DECLARE anterior text;nueva text;actual_sha text;
 BEGIN
  SELECT pg_catalog.pg_get_constraintdef(c.oid,false) INTO STRICT anterior
  FROM pg_catalog.pg_constraint c
  WHERE c.conrelid='vec_autorizacion_atestada_v3.auditoria_consumo_v3'::regclass
   AND c.conname='auditoria_tipo_disjunto_v3' AND c.contype='c' AND c.convalidated;
- IF pg_catalog.left(anterior,7)<>'CHECK (' OR pg_catalog.right(anterior,1)<>')'
- THEN RAISE EXCEPTION 'AD173: PARO clave=CHECK actual=incompatible esperado=CHECK_validado' USING ERRCODE='55000'; END IF;
+ actual_sha:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(anterior,'UTF8')),'hex');
+ IF actual_sha IS DISTINCT FROM '55603c422c7c752909d558d8dd238e371719c1e9d0626272e955cde21240c282'
+ OR pg_catalog.left(anterior,7)<>'CHECK (' OR pg_catalog.right(anterior,1)<>')'
+ THEN RAISE EXCEPTION 'AD173: PARO clave=CHECK_SHA256 actual=% esperado=55603c422c7c752909d558d8dd238e371719c1e9d0626272e955cde21240c282',actual_sha USING ERRCODE='55000'; END IF;
  nueva:='CHECK (('||pg_catalog.substr(anterior,8,pg_catalog.length(anterior)-8)||') OR ('||
  $v3$tipo_registro='consumo_confirmado_v3' AND version_consumo IS NOT NULL AND version_consumo=3
  AND decision_ref IS NOT NULL AND efecto_ref IS NOT NULL AND huella_efecto_sha256 IS NOT NULL
@@ -63,10 +64,7 @@ DECLARE
  f oid:=pg_catalog.to_regprocedure('vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
  original text;fuente text;nueva text;actual text;revertida text;
  def_sha text;src_sha text;meta jsonb;deps jsonb;compartidas jsonb;
- pre_def text:='92b4245448ffb76aa0792788616e5a779ddd867612e4bd28ab106d95d5356446';
- pre_src text:='54327be7e866b84d0cd1feff3a54ef6fc58ceec92daaa2277b150da984371fe9';
- post_def text:='777f6a6e94c57cfdd8516d082441c1662e303c4b11aa1f187a542a9a11eeb2d6';
- post_src text:='528f35de95885283cc9987fc6f2ca8f09db59e61672b10f3c69134b1d91c23f6';
+ variante text;post_def text;post_src text;
  antiguo1 text:=$antiguo1$    v_canal_origen text;$antiguo1$;
  nuevo1 text:=$nuevo1$    v_canal_origen text;
     v_actor_nominal text;
@@ -136,14 +134,29 @@ BEGIN
  INTO STRICT original,fuente,meta FROM pg_catalog.pg_proc p WHERE p.oid=f;
  def_sha:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(original,'UTF8')),'hex');
  src_sha:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(fuente,'UTF8')),'hex');
- IF def_sha IS DISTINCT FROM pre_def OR src_sha IS DISTINCT FROM pre_src
- OR (meta->>'proowner')::oid<>'vec_autorizacion_atestada_v3_propietario'::regrole
+ -- Parejas completas medidas, no aceptación por anclas ni nombre del objeto.
+ IF def_sha='92b4245448ffb76aa0792788616e5a779ddd867612e4bd28ab106d95d5356446'
+ AND src_sha='54327be7e866b84d0cd1feff3a54ef6fc58ceec92daaa2277b150da984371fe9' THEN
+  variante:='POST154_AD172';
+  post_def:='777f6a6e94c57cfdd8516d082441c1662e303c4b11aa1f187a542a9a11eeb2d6';
+  post_src:='528f35de95885283cc9987fc6f2ca8f09db59e61672b10f3c69134b1d91c23f6';
+  IF pg_catalog.to_regprocedure('vec_autorizacion_atestada_v3.consumir_relacion_para_rpt_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
+  THEN RAISE EXCEPTION 'AD173: PARO clave=POST154_fachada_rpt actual=ausente esperado=presente' USING ERRCODE='55000'; END IF;
+ ELSIF def_sha='32939b59240dab122779c10789c8fca3d5bcd4024b6341b477e61d82020d8c10'
+ AND src_sha='24c003368a265ab7622e87b0c1949f0f13ba0b585a6624ff0729ecce88de066e' THEN
+  variante:='POST168_AD172';
+  post_def:='6c22fdbb165a00c4f37cb2f7dbb7add4e939e5b0134c0c599b9519bfe3b86db9';
+  post_src:='bbb932ef29375e88645fb524e6aae5fd3059d51cb0dfd9d4952ffd509470534c';
+ ELSE
+  RAISE EXCEPTION 'AD173: PARO clave=nucleo_sha256 actual=%/% esperado=POST154_AD172_o_POST168_AD172',def_sha,src_sha USING ERRCODE='55000';
+ END IF;
+ IF (meta->>'proowner')::oid<>'vec_autorizacion_atestada_v3_propietario'::regrole
  OR (meta->>'prosecdef')::boolean IS NOT TRUE
  OR (SELECT proconfig FROM pg_proc WHERE oid=f) IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s']
  OR (SELECT count(*) FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a WHERE p.oid=f)<>1
  OR NOT EXISTS(SELECT 1 FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
    WHERE p.oid=f AND a.grantee=p.proowner AND a.grantor=p.proowner AND a.privilege_type='EXECUTE' AND NOT a.is_grantable)
- THEN RAISE EXCEPTION 'AD173: PARO clave=nucleo_sha256 actual=%/% esperado=%/%',def_sha,src_sha,pre_def,pre_src USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'AD173: PARO clave=nucleo_metadatos actual=incompatible esperado=propietario_config_ACL_exactos' USING ERRCODE='55000'; END IF;
  SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
  INTO deps FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f;
  SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.dbid,d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype),'[]'::jsonb)
