@@ -45,7 +45,7 @@ func dependenciasServicioFirmaV2(
 	consulta ports.AutorizadorConsultaFirmasR5V2, pdfAnterior ports.FuentePDFFirmaAnterior,
 	competencia ports.FuenteCompetenciaFirmante,
 ) (*dependenciasFirmaMultipleR5, error) {
-	if base == nil || nula(base.original) || nula(base.custodio) || len(base.tiposCustodia) == 0 || nula(competencia) {
+	if base == nil || nula(base.circuito) || nula(base.original) || nula(base.custodio) || len(base.tiposCustodia) == 0 || nula(competencia) {
 		return nil, ErrCircuitoFirmaNoDisponible
 	}
 	return nuevasDependenciasFirmaMultipleR5(verificador, registro, autorizador, consulta, pdfAnterior)

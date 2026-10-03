@@ -193,12 +193,6 @@ func (s *ServicioPreflightFirmaR5) consultarNominal(ctx context.Context, q ports
 	if s.firmas.multiple != nil && estado.PasoPendiente > 1 {
 		// La disponibilidad del segundo paso exige custodia V2 recuperable.
 		// Una firma legada o un PDF distinto no preparan una revisión nueva.
-		for _, firma := range lectura.Firmas {
-			if firma.Documento == q.Documento && firma.PasoOrden < estado.PasoPendiente &&
-				(firma.FirmanteRef == "" || firma.CertificadoHuella == "") {
-				return r, nil
-			}
-		}
 		sol := solicitudFirmaMultipleR5{SolicitudFirmaExterna: SolicitudFirmaExterna{
 			OrganizacionRef: q.Canal.OrganizacionRef, ExpedienteRef: q.Canal.ExpedienteRef,
 			Documento: q.Documento, PasoOrden: estado.PasoPendiente,
@@ -208,6 +202,9 @@ func (s *ServicioPreflightFirmaR5) consultarNominal(ctx context.Context, q ports
 			return cero, err
 		}
 		for _, a := range anteriores {
+			if a.Firma.FirmanteRef == "" || a.Firma.CertificadoHuella == "" {
+				return r, nil
+			}
 			if a.Firma.OriginalRef != q.OriginalRef || a.Firma.OriginalVersion != q.OriginalVersion ||
 				a.Firma.OriginalHuella != original.HuellaSHA256 || !bytes.HasPrefix(a.PDFFirmado, original.Contenido) {
 				return cero, ports.ErrCadenaFirmaDocumentoRota
