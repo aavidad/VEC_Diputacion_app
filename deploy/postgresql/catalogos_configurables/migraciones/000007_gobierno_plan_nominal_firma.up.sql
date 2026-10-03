@@ -41,7 +41,7 @@ ALTER DEFAULT PRIVILEGES FOR ROLE vec_catalogos_configurables_propietario REVOKE
 -- La cabeza mutable conserva revisión/estado actuales. El SHA de publicación
 -- apunta a bytes inmutables y no cambia al retirarse la versión.
 CREATE TABLE vec_catalogos_configurables.plan_firma_control (
- catalogo_id text NOT NULL CHECK(catalogo_id ~ '^[a-z][a-z0-9_.:-]{2,127}$'),
+ catalogo_id text NOT NULL CHECK(catalogo_id ~ '^[a-z][a-z0-9._-]{2,127}$'),
  version bigint NOT NULL CHECK(version BETWEEN 1 AND 2147483647),
  modulo_id text NOT NULL DEFAULT 'contratacion_temporal' CHECK(modulo_id='contratacion_temporal'),
  revision bigint NOT NULL CHECK(revision BETWEEN 1 AND 2147483647),
@@ -61,7 +61,7 @@ CREATE TABLE vec_catalogos_configurables.plan_firma_control (
     OR (estado='retirado' AND publicacion_sha256 IS NOT NULL AND publicacion_revision IS NOT NULL AND publicado_por IS NOT NULL AND retirado_por IS NOT NULL))
 );
 CREATE TABLE vec_catalogos_configurables.plan_firma_historia (
- catalogo_id text NOT NULL CHECK(catalogo_id ~ '^[a-z][a-z0-9_.:-]{2,127}$'),
+ catalogo_id text NOT NULL CHECK(catalogo_id ~ '^[a-z][a-z0-9._-]{2,127}$'),
  version bigint NOT NULL CHECK(version BETWEEN 1 AND 2147483647),
  revision bigint NOT NULL CHECK(revision BETWEEN 1 AND 2147483647),
  operacion text NOT NULL CHECK(operacion IN ('crear','actualizar','publicar','retirar')),
@@ -78,7 +78,7 @@ CREATE TABLE vec_catalogos_configurables.plan_firma_historia (
  CHECK(pg_catalog.encode(pg_catalog.sha256(canonico_exacto),'hex')=huella_sha256)
 );
 CREATE TABLE vec_catalogos_configurables.plan_firma_publicacion (
- catalogo_id text NOT NULL CHECK(catalogo_id ~ '^[a-z][a-z0-9_.:-]{2,127}$'),
+ catalogo_id text NOT NULL CHECK(catalogo_id ~ '^[a-z][a-z0-9._-]{2,127}$'),
  version bigint NOT NULL CHECK(version BETWEEN 1 AND 2147483647),
  revision bigint NOT NULL CHECK(revision BETWEEN 1 AND 2147483647),
  estado text NOT NULL DEFAULT 'publicado' CHECK(estado='publicado'),
@@ -94,7 +94,7 @@ CREATE TABLE vec_catalogos_configurables.plan_firma_publicacion (
 );
 CREATE TABLE vec_catalogos_configurables.plan_firma_efecto (
  actor_ref text NOT NULL CHECK(pg_catalog.octet_length(actor_ref) BETWEEN 3 AND 512),
- catalogo_id text NOT NULL CHECK(catalogo_id ~ '^[a-z][a-z0-9_.:-]{2,127}$'),
+ catalogo_id text NOT NULL CHECK(catalogo_id ~ '^[a-z][a-z0-9._-]{2,127}$'),
  clave_operacion text NOT NULL CHECK(pg_catalog.octet_length(clave_operacion) BETWEEN 16 AND 128),
  operacion text NOT NULL CHECK(operacion IN ('crear','actualizar','publicar','retirar')),
  version bigint NOT NULL CHECK(version BETWEEN 1 AND 2147483647),
@@ -189,7 +189,7 @@ BEGIN
   c:=pg_catalog.convert_from(p_canon,'UTF8')::jsonb;
  EXCEPTION WHEN others THEN RAISE EXCEPTION 'CC7: canon no es JSON UTF8' USING ERRCODE='22023'; END;
  IF pg_catalog.jsonb_typeof(c) IS DISTINCT FROM 'object'
-    OR (c->>'id' ~ '^[a-z][a-z0-9_.:-]{2,127}$') IS NOT TRUE
+    OR (c->>'id' ~ '^[a-z][a-z0-9._-]{2,127}$') IS NOT TRUE
     OR c->>'modulo_id' IS DISTINCT FROM 'contratacion_temporal'
     OR (c->>'estado' IN ('borrador','publicado','retirado')) IS NOT TRUE
     OR pg_catalog.jsonb_typeof(c->'version') IS DISTINCT FROM 'number'
@@ -260,7 +260,7 @@ BEGIN
      OR (SELECT count(*) FROM pg_catalog.jsonb_object_keys(a))<>18
      OR NOT (a ?& claves)
      OR NOT (e ?& ARRAY['clave','etiqueta','orden','vigente_desde','atributos'])
-     OR (e->>'clave' ~ '^[a-z][a-z0-9_.:-]{2,127}$') IS NOT TRUE
+     OR (e->>'clave' ~ '^[a-z][a-z0-9._-]{2,127}$') IS NOT TRUE
      OR pg_catalog.octet_length(coalesce(e->>'etiqueta','')) NOT BETWEEN 1 AND 2048
      OR pg_catalog.jsonb_typeof(e->'orden') IS DISTINCT FROM 'number'
      OR (e->>'orden' ~ '^(0|[1-9][0-9]{0,8})$') IS NOT TRUE
@@ -326,10 +326,10 @@ BEGIN
  IF pg_catalog.current_setting('transaction_isolation')<>'serializable'
     OR pg_catalog.current_setting('transaction_read_only')<>'off'
     OR pg_catalog.pg_is_in_recovery()
-    OR (p_catalogo_id ~ '^[a-z][a-z0-9_.:-]{2,127}$') IS NOT TRUE
+    OR (p_catalogo_id ~ '^[a-z][a-z0-9._-]{2,127}$') IS NOT TRUE
     OR p_version IS NULL OR p_version NOT BETWEEN 1 AND 2147483647
     OR (p_publicacion_sha256 ~ '^[0-9a-f]{64}$') IS NOT TRUE
-    OR (p_entrada_clave ~ '^[a-z][a-z0-9_.:-]{2,127}$') IS NOT TRUE THEN
+    OR (p_entrada_clave ~ '^[a-z][a-z0-9._-]{2,127}$') IS NOT TRUE THEN
   RAISE EXCEPTION 'CC7: pin de plan inválido' USING ERRCODE='42501'; END IF;
  SELECT vec_autorizacion_atestada_v3.comprobar_consumo_firma_plan_ct_v1(p_consumo_firma) INTO STRICT prueba;
  IF pg_catalog.jsonb_typeof(prueba) IS DISTINCT FROM 'object'
@@ -340,6 +340,9 @@ BEGIN
   RAISE EXCEPTION 'CC7: consumo de firma no ligado' USING ERRCODE='42501'; END IF;
  SELECT * INTO STRICT control FROM vec_catalogos_configurables.plan_firma_control c
   WHERE c.catalogo_id=p_catalogo_id AND c.version=p_version FOR SHARE;
+ IF prueba->>'decision_valida_hasta' IS NULL
+    OR (prueba->>'decision_valida_hasta')::timestamptz<=pg_catalog.clock_timestamp() THEN
+  RAISE EXCEPTION 'CC7: consumo de firma caducado tras bloqueo' USING ERRCODE='42501'; END IF;
  IF control.estado IS DISTINCT FROM 'publicado'
     OR control.publicacion_sha256 IS DISTINCT FROM p_publicacion_sha256
     OR control.modulo_id IS DISTINCT FROM 'contratacion_temporal' THEN
@@ -372,6 +375,8 @@ BEGIN
  IF encontrado->>'vigente_hasta'<>'0001-01-01T00:00:00Z' AND
     (encontrado->>'vigente_hasta')::timestamptz<=pg_catalog.clock_timestamp() THEN
   RAISE EXCEPTION 'CC7: entrada vencida durante pin' USING ERRCODE='42501'; END IF;
+ IF (prueba->>'decision_valida_hasta')::timestamptz<=pg_catalog.clock_timestamp() THEN
+  RAISE EXCEPTION 'CC7: consumo de firma caducado durante pin' USING ERRCODE='42501'; END IF;
  RETURN QUERY SELECT publicacion.canonico_exacto,publicacion.publicacion_sha256,encontrado,control.revision;
 END $f$;
 REVOKE ALL ON FUNCTION vec_catalogos_configurables.leer_plan_nominal_firma_v1(text,bigint,text,text,jsonb) FROM PUBLIC;
@@ -440,7 +445,7 @@ BEGIN
  ver:=(m->>'version')::bigint; rev_esperada:=(m->>'revision_esperada')::bigint;
  h:=m->>'catalogo_sha256'; h_esperada:=m->>'huella_esperada';
  IF ver>2147483647 OR rev_esperada>2147483647
-    OR (cat ~ '^[a-z][a-z0-9_.:-]{2,127}$') IS NOT TRUE
+    OR (cat ~ '^[a-z][a-z0-9._-]{2,127}$') IS NOT TRUE
     OR (op='crear' AND m->'huella_esperada' IS DISTINCT FROM 'null'::jsonb)
     OR (op<>'crear' AND (h_esperada ~ '^[0-9a-f]{64}$') IS NOT TRUE) THEN
   RAISE EXCEPTION 'CC7: referencia o CAS inválido' USING ERRCODE='22023'; END IF;
@@ -471,8 +476,9 @@ BEGIN
     OR v3->>'operacion' IS DISTINCT FROM p_consumo->>'accion'
     OR v3->>'finalidad' IS DISTINCT FROM 'gestionar_contratacion_temporal'
     OR v3->>'finalidad' IS DISTINCT FROM p_consumo->>'finalidad'
-    OR pg_catalog.octet_length(coalesce(p_consumo->>'proceso','')) NOT BETWEEN 3 AND 128
-    OR pg_catalog.octet_length(coalesce(p_consumo->>'canal','')) NOT BETWEEN 3 AND 128
+    OR v3->>'proceso' IS NULL OR v3->>'canal' IS NULL
+    OR v3->>'proceso' IS DISTINCT FROM p_consumo->>'proceso'
+    OR v3->>'canal' IS DISTINCT FROM p_consumo->>'canal'
     OR (v3->>'decision_valida_hasta')::timestamptz<=pg_catalog.clock_timestamp() THEN
   RAISE EXCEPTION 'CC7: decisión o consumo no ligado' USING ERRCODE='42501'; END IF;
  accion_evento:=CASE op WHEN 'crear' THEN 'vec.catalogos.borrador.creado'

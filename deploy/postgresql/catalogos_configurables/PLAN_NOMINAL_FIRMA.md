@@ -25,10 +25,18 @@ autorizado; `modulo_id` debe ser `contratacion_temporal`. Cada entrada usa el
 esquema `ct.plan-competencia-firma.v2` y los dieciocho atributos que consume
 `plannominal.DesdeCatalogo`.
 
+El ID del catálogo y la clave de entrada cumplen a la vez la gramática de
+CatalogoConfigurable y la del plan CT: `^[a-z][a-z0-9._-]{2,127}$`. Las
+referencias de circuito, cargo y demás atributos conservan su propia gramática;
+pueden contener dos puntos. La prueba estructural rechaza `a`, `b` y `ct:plan`
+como ID y clave de entrada.
+
 El envelope contiene `consumo` con los siete campos de AD170, más
 `actor_ref`, `perfil_ref`, `accion`, `finalidad`, `proceso` y `canal`. CC7 no
 acepta esos datos como prueba por sí solos: el comprobador privado de AD177
 relee el consumo, la decisión y la auditoría comunes de la misma transacción.
+Proceso y canal del envelope deben coincidir con los datos de esa auditoría
+que devuelve el comprobador.
 El recurso de gobierno liga `estado`, `revision` y SHA-256 del material exacto.
 El decorador que añade esta huella al recurso operativo está pendiente del
 responsable AD; el ServicioCatalogos actual no la añade. Hasta disponer de él,
@@ -56,7 +64,9 @@ propietario CT. Revalida un consumo de firma de la misma transacción mediante
 el wrapper AD177, bloquea el control con `FOR SHARE` hasta COMMIT y devuelve
 `documento_exacto`, `publicacion_sha256`, `entrada` y `revision_control`.
 Rechaza una versión retirada o una huella distinta. La entrada es una lectura
-del documento original, sin volver a construirlo. El propietario AD puede
+del documento original, sin volver a construirlo. Tras adquirir el bloqueo y
+antes de devolverla vuelve a comprobar la vigencia de la decisión V3, además
+de la fecha de publicación y la vigencia de la entrada. El propietario AD puede
 confirmar gobierno; ningún rol LOGIN recibe EXECUTE de estas fachadas.
 
 La prueba `pruebas_sql/plan_nominal_firma_000007.sql` comprueba objetos, RLS,
