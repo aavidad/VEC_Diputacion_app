@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"strconv"
 	"time"
 )
 
@@ -30,13 +31,17 @@ func (r ReferenciaHistoricaCompetenciaV1) valida() bool {
 }
 
 type IdentidadFirmanteHistoricaV1 struct {
-	CertificadoDERSHA256 string                           `json:"certificado_der_sha256"`
-	PersonaRef           string                           `json:"persona_ref"`
-	Cuenta               ReferenciaHistoricaCompetenciaV1 `json:"cuenta"`
-	VinculoCertificado   ReferenciaHistoricaCompetenciaV1 `json:"vinculo_certificado"`
-	VinculoCuentaRef     string                           `json:"vinculo_cuenta_ref"`
-	VinculoPersonaRef    string                           `json:"vinculo_persona_ref"`
-	VinculoDERSHA256     string                           `json:"vinculo_der_sha256"`
+	CertificadoDERSHA256    string                           `json:"certificado_der_sha256"`
+	PersonaRef              string                           `json:"persona_ref"`
+	Persona                 ReferenciaHistoricaCompetenciaV1 `json:"persona"`
+	Cuenta                  ReferenciaHistoricaCompetenciaV1 `json:"cuenta"`
+	VinculoCuentaPersona    ReferenciaHistoricaCompetenciaV1 `json:"vinculo_cuenta_persona"`
+	CuentaPersonaCuentaRef  string                           `json:"cuenta_persona_cuenta_ref"`
+	CuentaPersonaPersonaRef string                           `json:"cuenta_persona_persona_ref"`
+	VinculoCertificado      ReferenciaHistoricaCompetenciaV1 `json:"vinculo_certificado"`
+	VinculoCuentaRef        string                           `json:"vinculo_cuenta_ref"`
+	VinculoPersonaRef       string                           `json:"vinculo_persona_ref"`
+	VinculoDERSHA256        string                           `json:"vinculo_der_sha256"`
 }
 
 // La asignacion, el rol y el control son referencias a sus versiones
@@ -44,10 +49,14 @@ type IdentidadFirmanteHistoricaV1 struct {
 type AsignacionFirmanteHistoricaV1 struct {
 	Asignacion            ReferenciaHistoricaCompetenciaV1 `json:"asignacion"`
 	Rol                   ReferenciaHistoricaCompetenciaV1 `json:"rol"`
+	RolID                 string                           `json:"rol_id"`
 	ControlRol            ReferenciaHistoricaCompetenciaV1 `json:"control_rol"`
 	PersonaRef            string                           `json:"persona_ref"`
 	PerfilEsperadoRef     string                           `json:"perfil_esperado_ref"`
 	PerfilActivoRef       string                           `json:"perfil_activo_ref"`
+	ModuloID              string                           `json:"modulo_id"`
+	TipoRecurso           string                           `json:"tipo_recurso"`
+	RecursoRef            string                           `json:"recurso_ref"`
 	AmbitoOrganizacionRef string                           `json:"ambito_organizacion_ref"`
 	AmbitoUnidadRef       string                           `json:"ambito_unidad_ref"`
 	AsignacionRolRef      string                           `json:"asignacion_rol_ref"`
@@ -99,6 +108,8 @@ type RecursoFirmaHistoricaV1 struct {
 	ExpedienteRef         string                            `json:"expediente_ref"`
 	DocumentoRef          string                            `json:"documento_ref"`
 	RecursoAutorizableRef string                            `json:"recurso_autorizable_ref"`
+	ModuloID              string                            `json:"modulo_id"`
+	TipoRecurso           string                            `json:"tipo_recurso"`
 	RecursoContextoSHA256 string                            `json:"recurso_contexto_sha256"`
 	Original              ReferenciaHistoricaCompetenciaV1  `json:"original"`
 	PDFRaizSHA256         string                            `json:"pdf_raiz_sha256"`
@@ -138,11 +149,17 @@ func (c CanonCompetenciaFirmanteHistoricaV1) Validar() error {
 	en, i, a, p, r, ct := c.FechaHistorica, c.Identidad, c.Competencia, c.Personal, c.Recurso, c.RelacionCT
 	if c.Esquema != EsquemaCanonCompetenciaFirmanteHistoricaV1 || !instanteAutorizacionCanonico(en) ||
 		!huellaAsignacionCompetencialV1Valida(i.CertificadoDERSHA256) ||
-		!referenciaOpacaContextoActorValida(i.PersonaRef, "per_") || !i.Cuenta.valida() || !i.VinculoCertificado.valida() ||
+		!referenciaOpacaContextoActorValida(i.PersonaRef, "per_") ||
+		!i.Persona.valida() || i.Persona.Referencia != i.PersonaRef ||
+		!i.Cuenta.valida() || !i.VinculoCuentaPersona.valida() || !i.VinculoCertificado.valida() ||
+		i.CuentaPersonaCuentaRef != i.Cuenta.Referencia || i.CuentaPersonaPersonaRef != i.PersonaRef ||
 		i.VinculoCuentaRef != i.Cuenta.Referencia || i.VinculoPersonaRef != i.PersonaRef ||
 		i.VinculoDERSHA256 != i.CertificadoDERSHA256 ||
 		!a.Asignacion.valida() || !a.Rol.valida() || !a.ControlRol.valida() ||
+		!textoAutorizacionSinComodinSeguro(a.RolID, 128, false) ||
+		a.Rol.Referencia != "rol:"+a.RolID+":v"+strconv.FormatUint(a.Rol.Version, 10) ||
 		a.PersonaRef != i.PersonaRef || a.AsignacionRolRef != a.Rol.Referencia || a.ControlRolRef != a.Rol.Referencia ||
+		a.ModuloID != r.ModuloID || a.TipoRecurso != r.TipoRecurso || a.RecursoRef != r.RecursoAutorizableRef ||
 		a.AmbitoOrganizacionRef != r.OrganizacionRef || a.AmbitoUnidadRef != r.UnidadRef ||
 		!textoAutorizacionSinComodinSeguro(a.PerfilEsperadoRef, 512, false) ||
 		!referenciaOpacaContextoActorValida(a.PerfilActivoRef, "prf_") ||
@@ -156,6 +173,9 @@ func (c CanonCompetenciaFirmanteHistoricaV1) Validar() error {
 		!textoAutorizacionSinComodinSeguro(r.ExpedienteRef, 512, false) ||
 		!textoAutorizacionSinComodinSeguro(r.DocumentoRef, 512, false) ||
 		!textoAutorizacionSinComodinSeguro(r.RecursoAutorizableRef, 512, false) ||
+		r.RecursoAutorizableRef != r.DocumentoRef ||
+		!textoAutorizacionSinComodinSeguro(r.ModuloID, 128, false) ||
+		!textoAutorizacionSinComodinSeguro(r.TipoRecurso, 128, false) ||
 		!huellaAsignacionCompetencialV1Valida(r.RecursoContextoSHA256) ||
 		!r.Original.valida() || r.Original.HuellaSHA256 != r.PDFRaizSHA256 ||
 		!r.Firmado.valida() || r.Firmado.HuellaSHA256 != r.PDFFirmadoSHA256 || r.NumeroFirmas == 0 ||

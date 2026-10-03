@@ -13,17 +13,41 @@ import (
 
 var ErrRecuperacionCompetenciaFirmanteHistoricaV1 = errors.New("vec: competencia firmante historica no recuperable")
 
+// SelectorHistoricoCompetenciaFirmanteV1 procede del efecto propietario y su
+// descriptor publicado. No se construye desde parametros libres del canal.
+// Identifica el recurso exacto historico; el consultante usa RecursoActual.
+type SelectorHistoricoCompetenciaFirmanteV1 struct {
+	OrganizacionRef, UnidadRef, ExpedienteRef, DocumentoRef string
+	ModuloID, TipoRecurso, RecursoRef                       string
+	RecursoContextoSHA256                                   string
+}
+
+func (s SelectorHistoricoCompetenciaFirmanteV1) Validar() error {
+	if referenciaCompetenciaHistoricaPuerto(s.OrganizacionRef, 512) &&
+		referenciaCompetenciaHistoricaPuerto(s.UnidadRef, 512) &&
+		referenciaCompetenciaHistoricaPuerto(s.ExpedienteRef, 512) &&
+		referenciaCompetenciaHistoricaPuerto(s.DocumentoRef, 512) &&
+		referenciaCompetenciaHistoricaPuerto(s.ModuloID, 128) &&
+		referenciaCompetenciaHistoricaPuerto(s.TipoRecurso, 128) &&
+		s.RecursoRef == s.DocumentoRef &&
+		huellaCompetenciaHistoricaPuerto(s.RecursoContextoSHA256) {
+		return nil
+	}
+	return ErrRecuperacionCompetenciaFirmanteHistoricaV1
+}
+
 // La referencia selecciona una entrada previamente registrada por el
 // propietario del efecto. Actor, resultado y vinculo proceden de identidad
-// central; Recurso lo resuelve el servidor. Accion y finalidad son de esta
-// lectura y nunca se sustituyen por las del firmante historico.
+// central; RecursoActual lo resuelve el servidor para el PDP del consultante.
+// Accion y finalidad son de esta lectura, no las del firmante historico.
 type SolicitudRecuperacionCompetenciaFirmanteHistoricaV1 struct {
 	RegistroRef       string
 	CanonHuellaSHA256 string
 	Actor             domain.ContextoActor
 	ResultadoContexto domain.ResultadoContextoActorRegistradoV2
 	Vinculo           domain.VinculoAutenticacionActorV2
-	Recurso           domain.RecursoAutorizable
+	RecursoActual     domain.RecursoAutorizable
+	SelectorHistorico SelectorHistoricoCompetenciaFirmanteV1
 	Accion            string
 	Finalidad         string
 	Motivo            domain.ReferenciaEntradaCatalogo
@@ -34,8 +58,9 @@ func (s SolicitudRecuperacionCompetenciaFirmanteHistoricaV1) ValidarEn(en time.T
 	if !en.IsZero() && en.Location() == time.UTC && en.Nanosecond()%1_000 == 0 &&
 		s.Actor.Validar() == nil && s.ResultadoContexto.Validar() == nil &&
 		s.Vinculo.VigenteEn(en, s.ResultadoContexto) &&
-		s.Recurso.Validar() == nil && len(s.Recurso.Ambitos) > 0 &&
-		s.Motivo.Validar() == nil &&
+		s.RecursoActual.Validar() == nil && len(s.RecursoActual.Ambitos) > 0 &&
+		s.SelectorHistorico.Validar() == nil &&
+		domain.ReferenciaMotivoAutorizacionV2Valida(s.Motivo) &&
 		referenciaCompetenciaHistoricaPuerto(s.RegistroRef, 512) &&
 		huellaCompetenciaHistoricaPuerto(s.CanonHuellaSHA256) &&
 		referenciaCompetenciaHistoricaPuerto(s.Accion, 256) &&
@@ -60,16 +85,16 @@ func (s SolicitudRecuperacionCompetenciaFirmanteHistoricaV1) ValidarResultado(
 		return ErrRecuperacionCompetenciaFirmanteHistoricaV1
 	}
 	huella, err := c.HuellaSHA256()
+	selector := s.SelectorHistorico
 	if err != nil || huella != s.CanonHuellaSHA256 ||
-		c.Recurso.RecursoAutorizableRef != s.Recurso.Referencia ||
-		c.Recurso.OrganizacionRef != s.Recurso.Ambitos["organizacion_ref"] ||
-		c.Recurso.UnidadRef != s.Recurso.Ambitos["unidad_ref"] ||
-		c.Recurso.ExpedienteRef != s.Recurso.Ambitos["expediente_ref"] ||
-		c.Recurso.DocumentoRef != s.Recurso.Referencia {
-		return ErrRecuperacionCompetenciaFirmanteHistoricaV1
-	}
-	actual, err := s.Recurso.HuellaContextoAutorizacionSHA256()
-	if err != nil || actual != c.Recurso.RecursoContextoSHA256 {
+		c.Recurso.RecursoAutorizableRef != selector.RecursoRef ||
+		c.Recurso.OrganizacionRef != selector.OrganizacionRef ||
+		c.Recurso.UnidadRef != selector.UnidadRef ||
+		c.Recurso.ExpedienteRef != selector.ExpedienteRef ||
+		c.Recurso.DocumentoRef != selector.DocumentoRef ||
+		c.Recurso.ModuloID != selector.ModuloID ||
+		c.Recurso.TipoRecurso != selector.TipoRecurso ||
+		c.Recurso.RecursoContextoSHA256 != selector.RecursoContextoSHA256 {
 		return ErrRecuperacionCompetenciaFirmanteHistoricaV1
 	}
 	return nil
@@ -95,8 +120,11 @@ func huellaCompetenciaHistoricaPuerto(valor string) bool {
 	return err == nil && len(b) == sha256.Size
 }
 
-// La implementacion lee historia propietaria y consume PDP V3 vigente para
-// el actor consultante antes de devolver bytes o metadatos. No emite HTTP.
+// La implementacion obtiene el selector del efecto durable identificado por
+// RegistroRef y lo compara con SelectorHistorico; no confia en el valor de la
+// solicitud aislada. Consume PDP V3 vigente para RecursoActual, Accion y
+// Finalidad del consultante y audita antes de devolver bytes o metadatos.
+// Nunca sustituye ese recurso por el de competencia historica. No emite HTTP.
 type LectorCompetenciaFirmanteHistoricaV1 interface {
 	RecuperarCompetenciaFirmanteHistoricaV1(context.Context, SolicitudRecuperacionCompetenciaFirmanteHistoricaV1) (domain.CanonCompetenciaFirmanteHistoricaV1, error)
 }

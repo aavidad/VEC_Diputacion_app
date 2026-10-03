@@ -1,4 +1,4 @@
-package domain
+package domain_test
 
 import (
 	"bytes"
@@ -8,6 +8,10 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	. "vec-diputacion-granada/internal/vec/domain"
+	"vec-diputacion-granada/internal/vec/ports"
+	"vec-diputacion-granada/internal/vec/pruebas"
 )
 
 func canonCompetenciaFirmantePrueba() CanonCompetenciaFirmanteHistoricaV1 {
@@ -21,15 +25,18 @@ func canonCompetenciaFirmantePrueba() CanonCompetenciaFirmanteHistoricaV1 {
 		Esquema: EsquemaCanonCompetenciaFirmanteHistoricaV1,
 		Identidad: IdentidadFirmanteHistoricaV1{
 			CertificadoDERSHA256: strings.Repeat("b", 64), PersonaRef: "per_1234567890abcdef1234567890abcdef",
-			Cuenta: ref("cuenta:1"), VinculoCertificado: ref("vinculo:1"),
+			Persona: ref("per_1234567890abcdef1234567890abcdef"), Cuenta: ref("cuenta:1"),
+			VinculoCuentaPersona: ref("vinculo-cuenta-persona:1"), VinculoCertificado: ref("vinculo:1"),
+			CuentaPersonaCuentaRef: "cuenta:1", CuentaPersonaPersonaRef: "per_1234567890abcdef1234567890abcdef",
 			VinculoCuentaRef: "cuenta:1", VinculoPersonaRef: "per_1234567890abcdef1234567890abcdef",
 			VinculoDERSHA256: strings.Repeat("b", 64),
 		},
 		Competencia: AsignacionFirmanteHistoricaV1{
-			Asignacion: ref("asignacion:1"), Rol: ref("rol:1"), ControlRol: ref("control:1"),
+			Asignacion: ref("asignacion:1"), Rol: ref("rol:ct_direccion_rrhh:v1"), ControlRol: ref("control:1"),
+			RolID: "ct_direccion_rrhh", ModuloID: "contratacion_temporal", TipoRecurso: "documento", RecursoRef: "doc:1",
 			PersonaRef: "per_1234567890abcdef1234567890abcdef", PerfilEsperadoRef: "perfil:ct:firma",
 			PerfilActivoRef: "prf_1234567890abcdef1234567890abcdef", AmbitoOrganizacionRef: "org:1",
-			AmbitoUnidadRef: "unidad:1", AsignacionRolRef: "rol:1", ControlRolRef: "rol:1",
+			AmbitoUnidadRef: "unidad:1", AsignacionRolRef: "rol:ct_direccion_rrhh:v1", ControlRolRef: "rol:ct_direccion_rrhh:v1",
 			VigenteDesde: desde, VigenteHasta: hasta,
 		},
 		Personal: FuentePersonalFirmanteHistoricaV1{
@@ -39,8 +46,9 @@ func canonCompetenciaFirmantePrueba() CanonCompetenciaFirmanteHistoricaV1 {
 		},
 		Recurso: RecursoFirmaHistoricaV1{
 			OrganizacionRef: "org:1", UnidadRef: "unidad:1", ExpedienteRef: "exp:1", DocumentoRef: "doc:1",
-			RecursoAutorizableRef: "firma:1", RecursoContextoSHA256: strings.Repeat("c", 64),
-			Original: ref("original:1"), PDFRaizSHA256: strings.Repeat("a", 64),
+			RecursoAutorizableRef: "doc:1", ModuloID: "contratacion_temporal", TipoRecurso: "documento",
+			RecursoContextoSHA256: strings.Repeat("c", 64),
+			Original:              ref("original:1"), PDFRaizSHA256: strings.Repeat("a", 64),
 			Firmado: ref("firmado:1"), PDFFirmadoSHA256: strings.Repeat("a", 64), NumeroFirmas: 1,
 		},
 		RelacionCT: RelacionCTFirmanteHistoricaV1{
@@ -97,8 +105,18 @@ func TestCanonCompetenciaFirmanteHistoricaCrucesYMaterialVinculante(t *testing.T
 			c.Identidad.CertificadoDERSHA256 = strings.Repeat("1", 64)
 			c.Identidad.VinculoDERSHA256 = strings.Repeat("1", 64)
 		},
-		"cuenta":   func(c *CanonCompetenciaFirmanteHistoricaV1) { c.Identidad.Cuenta.Version++ },
-		"rol":      func(c *CanonCompetenciaFirmanteHistoricaV1) { c.Competencia.Rol.HuellaSHA256 = strings.Repeat("2", 64) },
+		"cuenta":  func(c *CanonCompetenciaFirmanteHistoricaV1) { c.Identidad.Cuenta.Version++ },
+		"persona": func(c *CanonCompetenciaFirmanteHistoricaV1) { c.Identidad.Persona.Version++ },
+		"vinculo cuenta-persona": func(c *CanonCompetenciaFirmanteHistoricaV1) {
+			c.Identidad.VinculoCuentaPersona.HuellaSHA256 = strings.Repeat("1", 64)
+		},
+		"rol": func(c *CanonCompetenciaFirmanteHistoricaV1) { c.Competencia.Rol.HuellaSHA256 = strings.Repeat("2", 64) },
+		"rol id": func(c *CanonCompetenciaFirmanteHistoricaV1) {
+			c.Competencia.RolID = "ct_otro"
+			c.Competencia.Rol.Referencia = "rol:ct_otro:v1"
+			c.Competencia.AsignacionRolRef = c.Competencia.Rol.Referencia
+			c.Competencia.ControlRolRef = c.Competencia.Rol.Referencia
+		},
 		"cargo":    func(c *CanonCompetenciaFirmanteHistoricaV1) { c.Personal.Cargo.Version++ },
 		"original": func(c *CanonCompetenciaFirmanteHistoricaV1) { c.Recurso.Original.Version++ },
 		"pdf firmado": func(c *CanonCompetenciaFirmanteHistoricaV1) {
@@ -125,9 +143,13 @@ func TestCanonCompetenciaFirmanteHistoricaCrucesYMaterialVinculante(t *testing.T
 		"persona": func(c *CanonCompetenciaFirmanteHistoricaV1) {
 			c.Competencia.PersonaRef = "per_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 		},
-		"vinculo cuenta":          func(c *CanonCompetenciaFirmanteHistoricaV1) { c.Identidad.VinculoCuentaRef = "cuenta:2" },
-		"vinculo certificado":     func(c *CanonCompetenciaFirmanteHistoricaV1) { c.Identidad.VinculoDERSHA256 = strings.Repeat("1", 64) },
-		"rol asignacion":          func(c *CanonCompetenciaFirmanteHistoricaV1) { c.Competencia.AsignacionRolRef = "rol:2" },
+		"vinculo cuenta":      func(c *CanonCompetenciaFirmanteHistoricaV1) { c.Identidad.VinculoCuentaRef = "cuenta:2" },
+		"cuenta persona":      func(c *CanonCompetenciaFirmanteHistoricaV1) { c.Identidad.CuentaPersonaCuentaRef = "cuenta:2" },
+		"vinculo certificado": func(c *CanonCompetenciaFirmanteHistoricaV1) { c.Identidad.VinculoDERSHA256 = strings.Repeat("1", 64) },
+		"rol asignacion":      func(c *CanonCompetenciaFirmanteHistoricaV1) { c.Competencia.AsignacionRolRef = "rol:2" },
+		"recurso documento": func(c *CanonCompetenciaFirmanteHistoricaV1) {
+			c.Recurso.RecursoAutorizableRef = "doc:2"
+		},
 		"unidad":                  func(c *CanonCompetenciaFirmanteHistoricaV1) { c.RelacionCT.UnidadRef = "unidad:2" },
 		"pdf raiz":                func(c *CanonCompetenciaFirmanteHistoricaV1) { c.Recurso.PDFRaizSHA256 = strings.Repeat("3", 64) },
 		"vigencia":                func(c *CanonCompetenciaFirmanteHistoricaV1) { c.Competencia.VigenteHasta = c.FechaHistorica },
@@ -164,5 +186,89 @@ func TestCanonCompetenciaFirmanteHistoricaDelegacion(t *testing.T) {
 	c.Personal.Delegacion.VigenteHasta = c.FechaHistorica
 	if _, err := c.Canonico(); err == nil {
 		t.Fatal("delegacion caducada aceptada")
+	}
+}
+
+func TestRecuperacionCompetenciaHistoricaSeparaRecursoActualYSelector(t *testing.T) {
+	c := canonCompetenciaFirmantePrueba()
+	// La asignacion del firmante cubre organizacion/unidad. El consultante
+	// pide leer con un recurso actual de tres dimensiones.
+	recursoHistorico := RecursoAutorizable{Referencia: c.Recurso.DocumentoRef,
+		ModuloID: c.Recurso.ModuloID, Tipo: c.Recurso.TipoRecurso,
+		Ambitos: map[string]string{"organizacion_ref": c.Recurso.OrganizacionRef, "unidad_ref": c.Recurso.UnidadRef}}
+	huellaHistorica, err := recursoHistorico.HuellaContextoAutorizacionSHA256()
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.Recurso.RecursoContextoSHA256 = huellaHistorica
+	recursoActual := RecursoAutorizable{Referencia: "consulta:competencia:1", ModuloID: "contratacion_temporal",
+		Tipo: "consulta_competencia", Ambitos: map[string]string{
+			"organizacion_ref": c.Recurso.OrganizacionRef, "unidad_ref": c.Recurso.UnidadRef,
+			"expediente_ref": c.Recurso.ExpedienteRef,
+		}}
+	huellaActual, err := recursoActual.HuellaContextoAutorizacionSHA256()
+	if err != nil || huellaActual == huellaHistorica {
+		t.Fatal("la prueba no separa las huellas", err)
+	}
+	en := c.FechaHistorica
+	resultado, vinculo, err := pruebas.NuevoContextoRegistradoYVinculoV2(en,
+		"per_0123456789abcdefghijkl", "prf_0123456789abcdefghijkl", AuthMethodCertificate, AuthAssuranceHigh)
+	if err != nil {
+		t.Fatal(err)
+	}
+	huellaCanon, err := c.HuellaSHA256()
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := ports.SolicitudRecuperacionCompetenciaFirmanteHistoricaV1{
+		RegistroRef: "firma:registro:1", CanonHuellaSHA256: huellaCanon,
+		Actor: resultado.Contexto, ResultadoContexto: resultado, Vinculo: vinculo,
+		RecursoActual: recursoActual,
+		SelectorHistorico: ports.SelectorHistoricoCompetenciaFirmanteV1{
+			OrganizacionRef: c.Recurso.OrganizacionRef, UnidadRef: c.Recurso.UnidadRef,
+			ExpedienteRef: c.Recurso.ExpedienteRef, DocumentoRef: c.Recurso.DocumentoRef,
+			ModuloID: c.Recurso.ModuloID, TipoRecurso: c.Recurso.TipoRecurso,
+			RecursoRef: c.Recurso.RecursoAutorizableRef, RecursoContextoSHA256: huellaHistorica,
+		},
+		Accion: "contratacion_temporal.competencia.consultar", Finalidad: "trazabilidad",
+		Motivo: ReferenciaEntradaCatalogo{CatalogoID: "motivo_lectura", CatalogoVersion: 1,
+			CatalogoHuellaSHA256: strings.Repeat("f", 64), EntradaClave: "motivo_" + strings.Repeat("b", 32)},
+		CorrelacionRef: "correlacion_" + strings.Repeat("a", 32),
+	}
+	if err := s.ValidarResultado(c, en); err != nil {
+		t.Fatal(err)
+	}
+	cruces := map[string]func(*ports.SolicitudRecuperacionCompetenciaFirmanteHistoricaV1){
+		"organizacion": func(s *ports.SolicitudRecuperacionCompetenciaFirmanteHistoricaV1) {
+			s.SelectorHistorico.OrganizacionRef = "org:otro"
+		},
+		"unidad": func(s *ports.SolicitudRecuperacionCompetenciaFirmanteHistoricaV1) {
+			s.SelectorHistorico.UnidadRef = "unidad:otra"
+		},
+		"expediente": func(s *ports.SolicitudRecuperacionCompetenciaFirmanteHistoricaV1) {
+			s.SelectorHistorico.ExpedienteRef = "exp:otro"
+		},
+		"documento": func(s *ports.SolicitudRecuperacionCompetenciaFirmanteHistoricaV1) {
+			s.SelectorHistorico.DocumentoRef = "doc:otro"
+			s.SelectorHistorico.RecursoRef = "doc:otro"
+		},
+		"huella": func(s *ports.SolicitudRecuperacionCompetenciaFirmanteHistoricaV1) {
+			s.SelectorHistorico.RecursoContextoSHA256 = huellaActual
+		},
+		"modulo": func(s *ports.SolicitudRecuperacionCompetenciaFirmanteHistoricaV1) {
+			s.SelectorHistorico.ModuloID = "otro"
+		},
+		"tipo": func(s *ports.SolicitudRecuperacionCompetenciaFirmanteHistoricaV1) {
+			s.SelectorHistorico.TipoRecurso = "otro"
+		},
+	}
+	for nombre, cambiar := range cruces {
+		t.Run(nombre, func(t *testing.T) {
+			alterada := s
+			cambiar(&alterada)
+			if alterada.ValidarResultado(c, en) == nil {
+				t.Fatal("cruce historico aceptado")
+			}
+		})
 	}
 }
