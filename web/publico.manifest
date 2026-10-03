@@ -38,6 +38,16 @@ static/textos/en/convoca-preparacion.json
 static/textos/es/bolsas-publicas.json
 static/textos/es/convoca-preparacion.json
 static/textos/idiomas.json
+static/pwa/instalar.js
+static/pwa/navegacion.css
+static/pwa/sw-public-assets.js
+static/pwa/icons/vec-192.png
+static/pwa/icons/vec-512.png
+static/pwa/icons/vec-maskable-192.png
+static/pwa/icons/vec-maskable-512.png
+static/pwa/icons/vec.ico
+static/textos/es/pwa.json
+static/textos/en/pwa.json
 static/verificar/i18n.js
 static/verificar/index.html
 static/verificar/verificar.css

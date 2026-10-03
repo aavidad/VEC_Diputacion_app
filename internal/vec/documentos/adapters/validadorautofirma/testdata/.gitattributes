@@ -1,0 +1,2 @@
+# Los PDF sinteticos se conservan byte a byte, incluidos sus registros xref.
+dictamen-v2/*/*.pdf binary
