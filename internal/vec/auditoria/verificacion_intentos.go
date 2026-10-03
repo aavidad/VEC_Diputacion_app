@@ -54,6 +54,7 @@ type RegistroIntentoV2 struct {
 }
 
 type RegistroMixtoV2 struct {
+	IntentoBootstrapCentral *RegistroIntentoBootstrapCentralV1      `json:"intento_bootstrap_central,omitempty"`
 	UnidadInicial           *RegistroUnidadInicialPersonalV1        `json:"unidad_inicial,omitempty"`
 	IntentoUnidadInicial    *RegistroIntentoUnidadInicialPersonalV1 `json:"intento_unidad_inicial,omitempty"`
 	TipoRegistro            string                                  `json:"tipo_registro"`
@@ -108,6 +109,9 @@ func verificarCadenaMixta(d DocumentoVerificacionMixta, checkpoint CoberturaCade
 	for i, r := range d.Registros {
 		secuencia := checkpoint.PrimeraSecuencia + uint64(i)
 		var referencia, previo, huella string
+		if r.IntentoBootstrapCentral != nil && r.TipoRegistro != "intento_bootstrap_central_admin" {
+			return fallar("tipo_invalido", "tipo_registro", "familia_exclusiva", "invalido", secuencia)
+		}
 		switch r.TipoRegistro {
 		case "consumo_confirmado":
 			if r.Consumo == nil || r.Intento != nil || r.Preperfil != nil || r.Bootstrap != nil || (r.FuentesIniciales != nil || r.IntentoFuentesIniciales != nil || r.UnidadInicial != nil || r.IntentoUnidadInicial != nil) {
@@ -160,7 +164,7 @@ func verificarCadenaMixta(d DocumentoVerificacionMixta, checkpoint CoberturaCade
 			}
 			referencia, previo, huella = a.AuditoriaRef, a.AnteriorSHA256, a.HuellaSHA256
 		case "preperfil_autenticado", "bootstrap_operador":
-			if (esquema != EsquemaVerificacionPreperfil && esquema != EsquemaVerificacionFuentesIniciales && esquema != EsquemaVerificacionUnidadInicial) || (r.FuentesIniciales != nil || r.IntentoFuentesIniciales != nil || r.UnidadInicial != nil || r.IntentoUnidadInicial != nil) {
+			if (esquema != EsquemaVerificacionPreperfil && esquema != EsquemaVerificacionFuentesIniciales && esquema != EsquemaVerificacionUnidadInicial && esquema != EsquemaVerificacionBootstrapCentral) || (r.FuentesIniciales != nil || r.IntentoFuentesIniciales != nil || r.UnidadInicial != nil || r.IntentoUnidadInicial != nil) {
 				return fallar("tipo_invalido", "tipo_registro", "tipo_admitido", "invalido", secuencia)
 			}
 			evento, codigo, clave := cotejarRegistroAdminV3(r, secuencia)
@@ -173,7 +177,7 @@ func verificarCadenaMixta(d DocumentoVerificacionMixta, checkpoint CoberturaCade
 			eventos[evento.EventoRef] = true
 			referencia, previo, huella = evento.AuditoriaRef, evento.AnteriorSHA256, evento.HuellaSHA256
 		case "provision_fuentes_iniciales_admin", "intento_fuentes_iniciales_admin":
-			if (esquema != EsquemaVerificacionFuentesIniciales && esquema != EsquemaVerificacionUnidadInicial) || r.UnidadInicial != nil || r.IntentoUnidadInicial != nil {
+			if (esquema != EsquemaVerificacionFuentesIniciales && esquema != EsquemaVerificacionUnidadInicial && esquema != EsquemaVerificacionBootstrapCentral) || r.UnidadInicial != nil || r.IntentoUnidadInicial != nil {
 				return fallar("tipo_invalido", "tipo_registro", "tipo_admitido", "invalido", secuencia)
 			}
 			evento, codigo, clave := cotejarRegistroFuentesInicialesV1(r, secuencia)
@@ -189,7 +193,7 @@ func verificarCadenaMixta(d DocumentoVerificacionMixta, checkpoint CoberturaCade
 			eventos[evento.EventoRef] = true
 			referencia, previo, huella = evento.AuditoriaRef, evento.AnteriorSHA256, evento.HuellaSHA256
 		case "unidad_inicial_personal", "intento_unidad_inicial_personal":
-			if esquema != EsquemaVerificacionUnidadInicial {
+			if esquema != EsquemaVerificacionUnidadInicial && esquema != EsquemaVerificacionBootstrapCentral {
 				return fallar("tipo_invalido", "tipo_registro", "tipo_admitido", "invalido", secuencia)
 			}
 			evento, codigo, clave := cotejarRegistroUnidadInicialV1(r, secuencia)
@@ -198,6 +202,19 @@ func verificarCadenaMixta(d DocumentoVerificacionMixta, checkpoint CoberturaCade
 			}
 			if codigo != "" {
 				return fallar(codigo, clave, "registro_ad176_valido", "no_admitido", secuencia)
+			}
+			if eventos[evento.EventoRef] {
+				return fallar("evento_duplicado", "evento_ref", "unico", "duplicado", secuencia)
+			}
+			eventos[evento.EventoRef] = true
+			referencia, previo, huella = evento.AuditoriaRef, evento.AnteriorSHA256, evento.HuellaSHA256
+		case "intento_bootstrap_central_admin":
+			if esquema != EsquemaVerificacionBootstrapCentral {
+				return fallar("tipo_invalido", "tipo_registro", "tipo_admitido", "invalido", secuencia)
+			}
+			evento, codigo, clave := cotejarIntentoBootstrapCentralV1(r, secuencia)
+			if codigo != "" {
+				return fallar(codigo, clave, "registro_ad179_valido", "no_admitido", secuencia)
 			}
 			if eventos[evento.EventoRef] {
 				return fallar("evento_duplicado", "evento_ref", "unico", "duplicado", secuencia)
