@@ -35,6 +35,16 @@ type ResultadoPreflightFirmaR5 struct {
 	ViasDisponibles   []string
 }
 
+// V2 identifica el PDF de entrada del paso pendiente. El original raíz
+// permanece separado. No transporta bytes, firmantes, cargos ni certificados.
+// Sin paso pendiente los tres campos de entrada están vacíos (versión cero).
+type ResultadoPreflightFirmaR5V2 struct {
+	ResultadoPreflightFirmaR5
+	EntradaDocumentoRef     string
+	EntradaDocumentoVersion uint64
+	EntradaDocumentoHuella  string
+}
+
 // Esta petición interna liga cada comprobación a la identidad actual resuelta
 // por VEC, a la cabeza histórica y al paso del catálogo. Nunca se serializa.
 type SolicitudDisponibilidadFirmaR5 struct {

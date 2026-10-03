@@ -61,7 +61,21 @@ func ValidarResultadoPreflightFirmaR5(r ports.ResultadoPreflightFirmaR5, q ports
 }
 
 func (s *ServicioPreflightFirmaR5) Consultar(ctx context.Context, q ports.SolicitudPreflightFirmaR5) (ports.ResultadoPreflightFirmaR5, error) {
-	var cero ports.ResultadoPreflightFirmaR5
+	r, err := s.consultar(ctx, q, false)
+	return r.ResultadoPreflightFirmaR5, err
+}
+
+// ConsultarV2 exige la lectura acumulada y devuelve el PDF exacto de entrada.
+// Un estado antiguo de la interfaz nunca selecciona aquí el paso de firma.
+func (s *ServicioPreflightFirmaR5) ConsultarV2(ctx context.Context, q ports.SolicitudPreflightFirmaR5) (ports.ResultadoPreflightFirmaR5V2, error) {
+	if s == nil || s.firmas == nil || s.firmas.multiple == nil {
+		return ports.ResultadoPreflightFirmaR5V2{}, ports.ErrPreflightFirmaR5NoDisponible
+	}
+	return s.consultar(ctx, q, true)
+}
+
+func (s *ServicioPreflightFirmaR5) consultar(ctx context.Context, q ports.SolicitudPreflightFirmaR5, conEntrada bool) (ports.ResultadoPreflightFirmaR5V2, error) {
+	var cero ports.ResultadoPreflightFirmaR5V2
 	if s == nil || ctx == nil || s.firmas == nil || s.firmas.base == nil || dependenciaNula(s.contextos) {
 		return cero, ports.ErrPreflightFirmaR5NoDisponible
 	}
@@ -103,7 +117,7 @@ func (s *ServicioPreflightFirmaR5) Consultar(ctx context.Context, q ports.Solici
 	}
 	nominal := *s
 	nominal.firmas = &firmas
-	r, err := nominal.consultarNominal(ctx, q, actor, contexto.Resultado.HuellaSHA256)
+	r, err := nominal.consultarNominalConEntrada(ctx, q, actor, contexto.Resultado.HuellaSHA256, conEntrada)
 	if ctx.Err() != nil {
 		return cero, ctx.Err()
 	}
@@ -117,7 +131,15 @@ func (s *ServicioPreflightFirmaR5) Consultar(ctx context.Context, q ports.Solici
 }
 
 func (s *ServicioPreflightFirmaR5) consultarNominal(ctx context.Context, q ports.SolicitudPreflightFirmaR5, actor, contextoHuella string) (ports.ResultadoPreflightFirmaR5, error) {
-	var cero ports.ResultadoPreflightFirmaR5
+	r, err := s.consultarNominalConEntrada(ctx, q, actor, contextoHuella, false)
+	return r.ResultadoPreflightFirmaR5, err
+}
+
+func (s *ServicioPreflightFirmaR5) consultarNominalConEntrada(ctx context.Context, q ports.SolicitudPreflightFirmaR5, actor, contextoHuella string, conEntrada bool) (ports.ResultadoPreflightFirmaR5V2, error) {
+	var cero ports.ResultadoPreflightFirmaR5V2
+	if conEntrada && s.firmas.multiple == nil {
+		return cero, ports.ErrPreflightFirmaR5NoDisponible
+	}
 	// La clave es efímera, aleatoria y de servidor: esta consulta no recupera
 	// una firma anterior elegida por el navegador ni crea una operación.
 	var nonce [32]byte
@@ -160,16 +182,16 @@ func (s *ServicioPreflightFirmaR5) consultarNominal(ctx context.Context, q ports
 		}
 		doc, lectura, estado = actualDoc, actualLectura, actualEstado
 	}
-	r := ports.ResultadoPreflightFirmaR5{
+	r := ports.ResultadoPreflightFirmaR5V2{ResultadoPreflightFirmaR5: ports.ResultadoPreflightFirmaR5{
 		VersionExpediente: q.Canal.VersionObservada, Documento: q.Documento,
 		CatalogoRef: catalogo.CatalogoRef, CatalogoHuella: catalogo.HuellaCatalogo,
 		PasoPendiente: estado.PasoPendiente, OriginalRef: q.OriginalRef, OriginalVersion: q.OriginalVersion,
 		ViasDisponibles: []string{},
-	}
+	}}
 	if err := ctx.Err(); err != nil {
 		return cero, err
 	}
-	if estado.Completo || s.disponibilidad == nil {
+	if estado.Completo || (!conEntrada && s.disponibilidad == nil) {
 		return r, nil
 	}
 	original, err := obtenerOriginalFirmaAutorizado(ctx, s.firmas.base.original, ports.SolicitudOriginalFirma{
@@ -188,7 +210,13 @@ func (s *ServicioPreflightFirmaR5) consultarNominal(ctx context.Context, q ports
 	}
 	if !antecedentesR5Acreditados(estado, lectura.Firmas, q.Documento, estado.PasoPendiente,
 		q.OriginalRef, q.OriginalVersion, original.HuellaSHA256) {
+		if conEntrada {
+			return cero, ports.ErrAntecedenteFirmaR5NoAcreditado
+		}
 		return r, nil
+	}
+	if conEntrada && estado.PasoPendiente == 1 {
+		r.EntradaDocumentoRef, r.EntradaDocumentoVersion, r.EntradaDocumentoHuella = original.Solicitud.OriginalRef, original.Solicitud.OriginalVersion, original.HuellaSHA256
 	}
 	if s.firmas.multiple != nil && estado.PasoPendiente > 1 {
 		// La disponibilidad del segundo paso exige custodia V2 recuperable.
@@ -203,6 +231,9 @@ func (s *ServicioPreflightFirmaR5) consultarNominal(ctx context.Context, q ports
 		}
 		for _, a := range anteriores {
 			if a.Firma.FirmanteRef == "" || a.Firma.CertificadoHuella == "" {
+				if conEntrada {
+					return cero, ports.ErrAntecedenteFirmaR5NoAcreditado
+				}
 				return r, nil
 			}
 			if a.Firma.OriginalRef != q.OriginalRef || a.Firma.OriginalVersion != q.OriginalVersion ||
@@ -210,6 +241,22 @@ func (s *ServicioPreflightFirmaR5) consultarNominal(ctx context.Context, q ports
 				return cero, ports.ErrCadenaFirmaDocumentoRota
 			}
 		}
+		if conEntrada {
+			if len(anteriores) != estado.PasoPendiente-1 {
+				return cero, ports.ErrAntecedenteFirmaR5NoAcreditado
+			}
+			entrada := anteriores[len(anteriores)-1].Firma
+			r.EntradaDocumentoRef, r.EntradaDocumentoVersion, r.EntradaDocumentoHuella = entrada.DocumentoCustodiaRef, entrada.DocumentoCustodiaVersion, entrada.FirmadoHuella
+		}
+	}
+	if conEntrada && ValidarResultadoPreflightFirmaR5V2(r, q) != nil {
+		return cero, ports.ErrPreflightFirmaR5NoConfiable
+	}
+	if s.disponibilidad == nil {
+		if err := s.validarCabezaPreflightConEntrada(ctx, q, actor, hex.EncodeToString(nonce[:]), estado.PasoPendiente, catalogo, lectura); err != nil {
+			return cero, err
+		}
+		return r, nil
 	}
 	permite, err := ResolverPoliticaMismaPersonaEnPasos(ctx, s.firmas.politica, catalogo.CatalogoRef, catalogo.HuellaCatalogo)
 	if err != nil {
@@ -254,7 +301,7 @@ func (s *ServicioPreflightFirmaR5) consultarNominal(ctx context.Context, q ports
 		}
 		r.ViasDisponibles = append(r.ViasDisponibles, via.Via)
 	}
-	if err := ValidarResultadoPreflightFirmaR5(r, q); err != nil {
+	if err := ValidarResultadoPreflightFirmaR5(r.ResultadoPreflightFirmaR5, q); err != nil {
 		return cero, err
 	}
 	return r, nil
