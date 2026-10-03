@@ -381,6 +381,10 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			alta.cerrar()
 		}
 	}()
+	montajeBaremo, err := prepararMontajeGobiernoReglasBaremoHTTPV3(cfg, alta.soporte, reloj)
+	if err != nil {
+		return nil, nil, nil, err
+	}
 	var consultaCircuitoRRHH http.Handler
 	if cfg.CTCircuitoRRHHSourcePath != "" {
 		if err := preflightCircuitoRRHHDesarrollo(alta.postgresql.ejecucion); err != nil {
@@ -706,6 +710,11 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		}
 		declaracionesFrontera = append(declaracionesFrontera, fronterasAuditoria...)
 	}
+	fronterasBaremo, err := fronterasGobiernoReglasBaremoHTTPV3(montajeBaremo.perfilRef)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	declaracionesFrontera = append(declaracionesFrontera, fronterasBaremo...)
 	catalogoFronteras, err := nuevoCatalogoFronterasComunDesarrollo(declaracionesFrontera)
 	if err != nil {
 		return nil, nil, nil, errBorradorNoDisponibleEn()
@@ -971,6 +980,20 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		}
 	}()
 	rutas = append(rutas, rutasBorrador...)
+	sondaBaremo, cancelarBaremo := context.WithTimeout(context.Background(), 60*time.Second)
+	rutasBaremo, cerrarBaremo, errBaremo := montajeBaremo.rutas(sondaBaremo, cfg, &alta,
+		consultasRRHH.identidad, seguridadBorrador, derivador, reloj)
+	cancelarBaremo()
+	if errBaremo != nil {
+		log.Print("bolsa: gobierno de baremo no disponible; etapa=composicion; causa=dependencia_no_disponible")
+		rutasBaremo, cerrarBaremo = montajeBaremo.indisponibles(), func() {}
+	}
+	defer func() {
+		if cerrarAlta {
+			cerrarBaremo()
+		}
+	}()
+	rutas = append(rutas, rutasBaremo...)
 	if plantillasActivas {
 		if consultasRRHH.identidad == nil || alta.postgresql.proveedorMaterialPlantillasCatalogo == nil {
 			return nil, nil, nil, plantillasapp.ErrNoDisponible
@@ -1101,6 +1124,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		return nil, nil, nil, falloPostgreSQLCTDesarrollo(nil)
 	}
 	dependencias.cerrar = func() {
+		cerrarBaremo()
 		cerrarAutoridadesPlantillas()
 		cerrarFronteraAuditoria()
 		cerrarAuditoria()
