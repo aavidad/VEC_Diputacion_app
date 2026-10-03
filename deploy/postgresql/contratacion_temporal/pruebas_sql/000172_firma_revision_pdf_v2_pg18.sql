@@ -33,6 +33,8 @@ ROLLBACK;
 BEGIN ISOLATION LEVEL SERIALIZABLE READ WRITE;
 SET LOCAL search_path=pg_catalog;
 SET LOCAL timezone='UTC';
+SET LOCAL statement_timeout='10s';
+SET LOCAL idle_in_transaction_session_timeout='20s';
 DO $estructura$
 DECLARE f regprocedure; propietario oid:='vec_contratacion_temporal_propietario'::regrole;
  ejecutor oid:='vec_contratacion_temporal_ejecutor'::regrole;
@@ -86,7 +88,9 @@ END $estructura$;
 -- La entrada se rechaza por la fachada real antes de consumir V3. Esta
 -- comprobación no acredita una decisión favorable ni la competencia nominal.
 CREATE ROLE vec_ct172_prueba LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-GRANT vec_contratacion_temporal_ejecutor TO vec_ct172_prueba;
+-- Identidad efímera mixta: el núcleo debe denegar la mezcla de autoridades.
+-- CREATE/GRANT viven en esta transacción y desaparecen al ROLLBACK.
+GRANT vec_contratacion_temporal_ejecutor,vec_personal_ejecutor TO vec_ct172_prueba;
 CREATE TEMP TABLE ct172_preimagen AS
  SELECT 'firma'::text AS tipo,count(*) AS filas FROM vec_contratacion_temporal.firma_documento_v1
  UNION ALL SELECT 'revision',count(*) FROM vec_contratacion_temporal.firma_documento_revision_pdf_v2
@@ -105,7 +109,8 @@ BEGIN
  EXCEPTION WHEN SQLSTATE '22023' OR SQLSTATE '42501' THEN NULL;
  END;
  -- Entrada completa sólo de formato: no es un PDF ni una autoridad acreditada.
- -- La capacidad/sobre incompletos son rechazados por V3 REAL, sin dobles.
+ -- El núcleo REAL deniega la identidad técnica mixta antes de criptografía.
+ -- Los sobres no acreditados nunca se usan como una autorización favorable.
  evidencia:=jsonb_build_array(jsonb_build_object('Orden',1,'ByteRange',jsonb_build_array(0,1050,1150,50),
   'RevisionHuellaSHA256',repeat('d',64),'ContenidoFirmadoHuellaSHA256',repeat('4',64),'RevisionLongitud',1200,
   'CubreDocumentoCompletoHastaAqui',true,'FirmanteRef','ref:'||repeat('e',64),'CertificadoHuellaSHA256',repeat('e',64),
@@ -208,7 +213,7 @@ BEGIN
  BEGIN
   PERFORM vec_contratacion_temporal.registrar_firma_verificada_v2(base::text,'2026-10-03T00:00:00Z',capacidad,decision,
    convert_to('{}','UTF8'),convert_to('{}','UTF8'),1,1,convert_to('{}','UTF8'),convert_to('{}','UTF8'),convert_to('{}','UTF8'),convert_to('{}','UTF8'),bytes_descriptor);
-  RAISE EXCEPTION 'CT172 aceptó sobres no acreditados' USING ERRCODE='55000';
+  RAISE EXCEPTION 'CT172 aceptó mezcla de autoridades técnicas' USING ERRCODE='55000';
  EXCEPTION WHEN SQLSTATE '42501' THEN
   GET STACKED DIAGNOSTICS traza=PG_EXCEPTION_CONTEXT;
   IF strpos(traza,'consumir_decision_mutacion_v3_interna')=0 THEN
@@ -243,5 +248,5 @@ BEGIN
   RAISE EXCEPTION 'CT172 rechazo produjo efecto' USING ERRCODE='55000'; END IF;
 END $sin_efectos$;
 ROLLBACK;
-\echo 'CT172: estructura y rechazo; favorable/CAS/replay/reinicio y descriptor distinto con V3 nueva NO EJECUTADOS.'
+\echo 'CT172: estructura/frontera técnica/guardas; favorable V3/cripto/CAS/replay/reinicio y descriptor distinto con V3 nueva NO EJECUTADOS.'
 \endif
