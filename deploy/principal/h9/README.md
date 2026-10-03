@@ -26,4 +26,4 @@ El guion cierra mantenimiento y para la aplicación antes de comprobar la preima
 
 Si falla SQL o arranque, para ambos servicios, conserva una postimagen, repone la copia fría y verifica sus huellas. PostgreSQL vuelve a arrancar; la aplicación queda parada y el mantenimiento cerrado. Dirección revisa el fallo antes de arrancar el artefacto anterior y abrir tráfico. Si la recuperación falla, mantiene ambos servicios bajo mantenimiento y conserva la copia. No ejecuta `DOWN` ni continúa con otras SQL.
 
-`bash prueba_guion.sh` comprueba con dobles locales: fallo de SQL tras una migración confirmada, fallo de arranque, instalación correcta, manifiesto alterado y preimagen distinta. Estas pruebas no acreditan instalación, PostgreSQL real ni navegador.
+`bash prueba_guion.sh` comprueba con dobles locales: fallo de SQL tras una migración confirmada, fallo de arranque, instalación correcta, manifiesto alterado y preimagen distinta. También comprueba aplicación activa o mantenimiento perdido entre migraciones, y rechaza una recuperación cuando fallan la consulta, la huella de base o la de artefacto. Estas pruebas no acreditan instalación, PostgreSQL real ni navegador.

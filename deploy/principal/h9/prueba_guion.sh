@@ -4,6 +4,7 @@ set -euo pipefail
 SCRIPT=$(realpath -- "$(dirname -- "$0")/instalar.sh")
 T=$(mktemp -d "${TMPDIR:-/tmp}/h9-mock-XXXXXXXX")
 trap 'rm -rf -- "$T"' EXIT
+trap 'printf "FALLO %s\n" "${mode:-preparacion}"; if [[ -f ${F:-}/result ]]; then cat "$F/result"; fi' ERR
 mkdir -p "$T/mock-bin"
 cat > "$T/mock-bin/id" <<'MOCK'
 #!/usr/bin/env bash
@@ -20,15 +21,28 @@ stop) echo false > "$FIXTURE/$4.running" ;;
 start)
   [[ "$2" != app || $(cat "$FIXTURE/gate") == closed ]]
   echo true > "$FIXTURE/$2.running"
-  if [[ "$2" == app && "$MODE" == startup_fail ]]; then echo false > "$FIXTURE/app.running"; fi
+  if [[ "$2" == app && ( "$MODE" == startup_fail || "$MODE" == recovery_* ) ]]; then echo false > "$FIXTURE/app.running"; fi
+  if [[ "$2" == pg ]]; then
+    starts=$(cat "$FIXTURE/pg.starts"); starts=$((starts+1)); echo "$starts" > "$FIXTURE/pg.starts"
+    if [[ "$starts" == 2 && "$MODE" == recovery_db_fail ]]; then echo changed >> "$FIXTURE/pgdata/rows"; fi
+    if [[ "$starts" == 2 && "$MODE" == recovery_art_fail ]]; then echo changed >> "$FIXTURE/art/vec-server"; fi
+  fi
   ;;
-logs) [[ "$MODE" == startup_fail ]] || echo 'vec server listening' ;;
+logs) [[ "$MODE" == startup_fail || "$MODE" == recovery_* ]] || echo 'vec server listening' ;;
 exec)
   if [[ "$*" == *pg_isready* ]]; then exit 0; fi
   input=$(cat)
-  if [[ "$input" == *PREIMAGEN_MOCK* ]]; then cat "$FIXTURE/pgdata/rows"; exit 0; fi
+  if [[ "$input" == *PREIMAGEN_MOCK* ]]; then
+    [[ "$MODE" != recovery_db_error || $(cat "$FIXTURE/pg.starts") != 2 ]] || exit 1
+    cat "$FIXTURE/pgdata/rows"; exit 0
+  fi
+  [[ "$input" != *TEST_TWO* ]] || echo executed > "$FIXTURE/sql-two.executed"
   if [[ "$input" == *TEST_TWO* && "$MODE" == sql_fail ]]; then echo 'error sintético SQL' >&2; exit 1; fi
-  if [[ "$input" == *COMMIT* ]]; then echo migration >> "$FIXTURE/pgdata/rows"; fi
+  if [[ "$input" == *COMMIT* ]]; then
+    echo migration >> "$FIXTURE/pgdata/rows"
+    [[ "$MODE" != app_active ]] || echo true > "$FIXTURE/app.running"
+    [[ "$MODE" != maintenance_fail ]] || echo broken > "$FIXTURE/gate"
+  fi
   ;;
 *) echo 'comando mock inesperado' >&2; exit 2 ;;
 esac
@@ -38,7 +52,7 @@ cat > "$T/mock-bin/sleep" <<'MOCK'
 exit 0
 MOCK
 chmod +x "$T/mock-bin/"*
-for mode in sql_fail startup_fail success altered_manifest wrong_preimage; do
+for mode in sql_fail startup_fail success altered_manifest wrong_preimage app_active maintenance_fail recovery_db_fail recovery_art_fail recovery_db_error; do
   F="$T/$mode"; K="$F/kit"; mkdir -p "$K/bin" "$K/web/static" "$K/locales" "$F/pgdata/pg_tblspc" "$F/pgdata/pg_wal" "$F/pgconf" "$F/art/web/static" "$F/art/locales" "$F/conf" "$F/backups"
   echo seed > "$F/pgdata/rows"; echo pgconfig > "$F/pgconf/postgresql.conf"; echo hba > "$F/hba"
   echo old > "$F/art/vec-server"; echo old-web > "$F/art/web/static/app.js"; echo old-i18n > "$F/art/locales/test.json"; echo private > "$F/conf/config"
@@ -62,7 +76,7 @@ esac
 HOOK
     chmod +x "$F/$action"
   done
-  echo true > "$F/app.running"; echo true > "$F/pg.running"; echo open > "$F/gate"
+  echo true > "$F/app.running"; echo true > "$F/pg.running"; echo open > "$F/gate"; echo 0 > "$F/pg.starts"
   db=$(sha256sum "$F/pgdata/rows"); db=${db%% *}
   tree_hash() {
     python3 - "$1" <<'PY'
@@ -104,8 +118,16 @@ CFG
   elif [[ "$mode" == wrong_preimage ]]; then
     [[ "$rc" != 0 && $(cat "$F/app.running") == false && $(cat "$F/gate") == closed ]]
     [[ $(wc -l < "$F/pgdata/rows") == 2 ]]
+  elif [[ "$mode" == recovery_* ]]; then
+    [[ "$rc" != 0 && $(cat "$F/gate") == closed && $(cat "$F/app.running") == false ]]
+    if rg -q '^RECUPERADA;' "$F/result" "$F/backups"; then exit 1; fi
+    [[ $(cat "$F/conf/config") == private ]]
+    if [[ "$mode" == recovery_db_fail ]]; then rg -q 'clave=preimagen_db' "$F/result" "$F/backups"; fi
+    if [[ "$mode" == recovery_art_fail ]]; then rg -q 'clave=preimagen_artefacto' "$F/result" "$F/backups"; fi
   else
     [[ "$rc" != 0 && $(cat "$F/gate") == closed && $(cat "$F/app.running") == false ]]
+    if [[ "$mode" == app_active || "$mode" == maintenance_fail ]]; then [[ ! -e "$F/sql-two.executed" ]]; fi
+    rg -q '^RECUPERADA;' "$F/result" "$F/backups"
     [[ $(cat "$F/pgdata/rows") == seed && $(cat "$F/art/vec-server") == old && $(cat "$F/art/web/static/app.js") == old-web && $(cat "$F/art/locales/test.json") == old-i18n ]]
     [[ $(cat "$F/conf/config") == private && $(cat "$F/hba") == hba ]]
     [[ -n $(find "$F/backups" -path '*/postimagen/origen-0/rows' -print -quit) ]]

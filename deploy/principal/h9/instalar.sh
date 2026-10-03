@@ -86,7 +86,14 @@ done
 [[ -z $(podman unshare find "$PGDATA/pg_tblspc" -mindepth 1 -maxdepth 1 -print -quit) ]] || paro tablespaces externos ninguno
 [[ ! -e "$ART/locales" || -d "$KIT/locales" ]] || paro locales ausentes kit_coherente
 parado() { [[ $(podman inspect -f '{{.State.Running}}' "$1") == false ]]; }
-cerrar() { "$MANTENIMIENTO_CERRAR" >"$COPIA/mantenimiento.log" 2>&1; "$MANTENIMIENTO_COMPROBAR" >>"$COPIA/mantenimiento.log" 2>&1; }
+cerrar() {
+  "$MANTENIMIENTO_CERRAR" >"$COPIA/mantenimiento.log" 2>&1 || return 1
+  "$MANTENIMIENTO_COMPROBAR" >>"$COPIA/mantenimiento.log" 2>&1 || return 1
+}
+asegurar_ventana() {
+  parado "$APP" || { paro app activa parada; return 1; }
+  "$MANTENIMIENTO_COMPROBAR" >>"$COPIA/mantenimiento.log" 2>&1 || { paro mantenimiento abierto cerrado; return 1; }
+}
 psql_local() { podman exec -i --env 'PGOPTIONS=-c lock_timeout=5s -c statement_timeout=1800s' "$PG" psql -X -q -At -v ON_ERROR_STOP=1 -U postgres -d postgres -f -; }
 esperar_pg() {
   local i
@@ -110,11 +117,14 @@ PY
 }
 comprobar_preimagen() {
   local actual
-  podman exec -i --env 'PGOPTIONS=-c default_transaction_read_only=on -c statement_timeout=1800s' "$PG" psql -X -q -At -v ON_ERROR_STOP=1 -U postgres -d postgres -f - < "$KIT/consultas_preimagen.sql" > "$COPIA/preimagen-db.txt" 2>"$COPIA/preimagen-db.log"
-  actual=$(sha256sum "$COPIA/preimagen-db.txt"); actual=${actual%% *}
-  [[ "$actual" == "$PREIMAGEN_DB_SHA" ]] || paro preimagen_db "$actual" "$PREIMAGEN_DB_SHA"
-  actual=$(huella_arbol "$ART"); [[ "$actual" == "$PREIMAGEN_ART_SHA" ]] || paro preimagen_artefacto "$actual" "$PREIMAGEN_ART_SHA"
-  actual=$(huella_arbol "$CONF"); [[ "$actual" == "$PREIMAGEN_CONF_SHA" ]] || paro preimagen_config "$actual" "$PREIMAGEN_CONF_SHA"
+  podman exec -i --env 'PGOPTIONS=-c default_transaction_read_only=on -c statement_timeout=1800s' "$PG" psql -X -q -At -v ON_ERROR_STOP=1 -U postgres -d postgres -f - < "$KIT/consultas_preimagen.sql" > "$COPIA/preimagen-db.txt" 2>"$COPIA/preimagen-db.log" || return 1
+  actual=$(sha256sum "$COPIA/preimagen-db.txt") || return 1
+  actual=${actual%% *}
+  [[ "$actual" == "$PREIMAGEN_DB_SHA" ]] || { paro preimagen_db "$actual" "$PREIMAGEN_DB_SHA"; return 1; }
+  actual=$(huella_arbol "$ART") || return 1
+  [[ "$actual" == "$PREIMAGEN_ART_SHA" ]] || { paro preimagen_artefacto "$actual" "$PREIMAGEN_ART_SHA"; return 1; }
+  actual=$(huella_arbol "$CONF") || return 1
+  [[ "$actual" == "$PREIMAGEN_CONF_SHA" ]] || { paro preimagen_config "$actual" "$PREIMAGEN_CONF_SHA"; return 1; }
 }
 COPIA_LISTA=no; CAMBIOS=no; TRAFICO_ABIERTO=no; ETAPA=preimagen
 recuperar() {
@@ -165,7 +175,7 @@ comprobar_preimagen
 CAMBIOS=si
 while IFS= read -r sql; do
   [[ -n "$sql" ]] || continue
-  parado "$APP" && "$MANTENIMIENTO_COMPROBAR" >>"$COPIA/mantenimiento.log" 2>&1
+  asegurar_ventana
   ETAPA="ensayo:$sql"
   # Reemplazar únicamente COMMIT final. Una TX ensayo, otra TX instalación.
   python3 - "$KIT/$sql" > "$COPIA/ensayo.sql" <<'PY'
@@ -175,6 +185,7 @@ print(re.sub(r'^COMMIT;\s*$', 'ROLLBACK;',text,flags=re.M),end='')
 PY
   psql_local < "$COPIA/ensayo.sql" > "$COPIA/sql-ensayo.log" 2>&1
   ETAPA="commit:$sql"
+  asegurar_ventana
   psql_local < "$KIT/$sql" > "$COPIA/sql-commit.log" 2>&1
   printf '%s\n' "$sql" >> "$COPIA/aplicadas.list"
 done < "$KIT/sql.list"
