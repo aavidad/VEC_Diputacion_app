@@ -80,6 +80,7 @@ type registroConsultaV2Prueba struct {
 	cerrado              bool
 	proyeccionInvalida   bool
 	lectura              *ct.LecturaFirmasR5V2
+	cancelar             context.CancelFunc
 }
 
 func (r *registroConsultaV2Prueba) RegistrarFirmaVerificadaV2(context.Context, ct.MaterialFirmaVerificadaV2, ct.CapacidadFirmaVerificadaV2) (ct.ReciboFirmaDocumento, error) {
@@ -89,6 +90,9 @@ func (r *registroConsultaV2Prueba) RegistrarFirmaVerificadaV2(context.Context, c
 func (r *registroConsultaV2Prueba) ConsultarFirmasAutorizadasV2(context.Context, ct.MaterialConsultaFirmasR5V2, ct.CapacidadConsultaFirmasR5V2) (ct.LecturaFirmasR5V2, error) {
 	r.llamadas++
 	r.cerrado = true
+	if r.cancelar != nil {
+		r.cancelar()
+	}
 	if r.lectura != nil {
 		return *r.lectura, r.err
 	}
@@ -317,5 +321,25 @@ func TestConsultaV2HTTPOverflowAuditaAntesDeResponder(t *testing.T) {
 	}
 	if strings.Contains(w.Body.String(), "firma:xxxxx") {
 		t.Fatal("desbordamiento expone metadatos")
+	}
+}
+
+func TestConsultaV2HTTPCancelacionNoOcultaAuditoriaFallida(t *testing.T) {
+	h, _, _, r, i, fab := manejadorConsultaV2Prueba(t)
+	r.err = ct.ErrFirmaDocumentoDenegada
+	i.fallo = true
+	fab.requiereCerrado = true
+	peticion := peticionConsultaV2(t, cuerpoConsultaV2())
+	ctx, cancelar := context.WithCancel(peticion.Context())
+	defer cancelar()
+	r.cancelar = cancelar
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, peticion.WithContext(ctx))
+	if w.Code != http.StatusServiceUnavailable || !r.cerrado || i.llamadas != 1 || fab.llamadas != 1 || r.escrituras != 0 {
+		t.Fatalf("cancelación oculta auditoría fallida: HTTP%d append%d fabrica%d", w.Code, i.llamadas, fab.llamadas)
+	}
+	var respuesta map[string]any
+	if json.Unmarshal(w.Body.Bytes(), &respuesta) != nil || respuesta["data"] != nil {
+		t.Fatal("fallo expone datos")
 	}
 }

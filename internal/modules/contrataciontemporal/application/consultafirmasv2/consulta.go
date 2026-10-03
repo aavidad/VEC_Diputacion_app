@@ -143,11 +143,12 @@ func (s *Servicio) Consultar(ctx context.Context, q Solicitud) (Resultado, error
 		return cero, err
 	}
 	lectura, err := s.lector.ConsultarFirmasAutorizadasV2(ctx, m, capacidad)
-	if ctx.Err() != nil {
-		return cero, &falloLector{ctx.Err()}
-	}
+	// La cancelación no oculta un fallo de auditoría comunicado por el lector.
 	if err != nil {
 		return cero, &falloLector{err}
+	}
+	if ctx.Err() != nil {
+		return cero, &falloLector{ctx.Err()}
 	}
 	return proyectar(m, lectura)
 }
