@@ -46,7 +46,7 @@ function validarRespuesta(respuesta, empleadoRef, corte) {
           !z || !positivo(z.version) || !positivo(z.fuente_version) || !ref(z.fuente_ref) || !ref(z.acto_ref) ||
           !fecha(z.desde) || (z.hasta && (!fecha(z.hasta) || z.hasta <= z.desde)) || !instante(z.registrada_en) ||
           Date.parse(z.registrada_en) > Date.parse(f.corte.conocido_en) || vistos.has(id) || !estados.includes(row.estado) ||
-          (familia === "servicios" && (!fecha(row.periodo_desde) || !fecha(row.periodo_hasta) || row.periodo_hasta < row.periodo_desde))) fallo();
+          (familia === "servicios" && (!Number.isSafeInteger(row.dias_reconocidos) || row.dias_reconocidos < 0 || !fecha(row.periodo_desde) || !fecha(row.periodo_hasta) || row.periodo_hasta < row.periodo_desde))) fallo();
       if (familia === "relaciones" && (row.organismo_ref !== f.organismo_ref || !/^rel_[A-Za-z0-9_-]{22,128}$/u.test(row.relacion_ref))) fallo();
       for (const k of ["unidad_denominacion", "puesto_denominacion"]) if (row[k] !== undefined && !seguro(row[k])) fallo();
       if (row.catalogo_snapshot !== undefined && (!row.catalogo_snapshot || typeof row.catalogo_snapshot !== "object" || Array.isArray(row.catalogo_snapshot))) fallo();
@@ -109,6 +109,7 @@ function pintarResultado(d, destino, modelo, t, locale) {
         for (const r of diff[lado]) {
           const dato = nodo(d, "div"); dato.className = "personal-comparacion-version";
           dato.append(nodo(d, "strong", t("version_dato", { n: new Intl.NumberFormat(locale).format(r.traza.version) })), nodo(d, "p", t(`estado_${r.estado}`)), nodo(d, "p", t("periodo", { desde: fechaVisible(familia === "servicios" ? r.periodo_desde : r.traza.desde, locale), hasta: (familia === "servicios" ? r.periodo_hasta : r.traza.hasta) ? fechaVisible(familia === "servicios" ? r.periodo_hasta : r.traza.hasta, locale) : t("abierto") })));
+          if (familia === "servicios") dato.append(nodo(d, "p", t("valor_etiqueta", { etiqueta: t("dias_reconocidos"), valor: new Intl.NumberFormat(locale).format(r.dias_reconocidos) })));
           if (r.unidad_denominacion) dato.append(nodo(d, "p", t("valor_etiqueta", { etiqueta: t("unidad"), valor: r.unidad_denominacion })));
           for (const k of ["regimen", "modalidad", "situacion", "clase_servicio"]) {
             const snap = r.catalogo_snapshot?.[k];

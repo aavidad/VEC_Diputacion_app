@@ -18,9 +18,9 @@
     "auditoria": "Audit",
     "consumo": "Consumption fingerprint",
     "consultada": "Query time · Madrid",
-    "limite": "Only data returned by Personal are compared. A missing row does not prove absence or explain an administrative change.",
+    "limite": "Only relationships, services and situations returned by Personal are compared. A missing row does not prove absence or explain an administrative change.",
     "recuento": "Records with differences: {n}",
-    "sin_diferencias": "No differences in the data returned for these two cut-offs.",
+    "sin_diferencias": "No differences in the relationships, services and situations returned for these two cut-offs.",
     "relaciones": "Service relationships",
     "servicios": "Services",
     "situaciones": "Situations",
@@ -60,6 +60,7 @@
     "situacion": "Situation",
     "clase_servicio": "Service class",
     "efecto": "Resource reference",
-    "corte_exacto": "Exact cut-off instant (UTC)"
+    "corte_exacto": "Exact cut-off instant (UTC)",
+    "dias_reconocidos": "Recognised days"
   }
 }

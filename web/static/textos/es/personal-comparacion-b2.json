@@ -18,9 +18,9 @@
     "auditoria": "Auditoría",
     "consumo": "Huella del consumo",
     "consultada": "Fecha de consulta · Madrid",
-    "limite": "Se comparan los datos devueltos por Personal. Una fila no devuelta no acredita su ausencia ni explica un cambio administrativo.",
+    "limite": "Se comparan las relaciones, servicios y situaciones devueltas por Personal. Una fila no devuelta no acredita su ausencia ni explica un cambio administrativo.",
     "recuento": "Datos con diferencias: {n}",
-    "sin_diferencias": "No hay diferencias en los datos devueltos para estos dos cortes.",
+    "sin_diferencias": "No hay diferencias en las relaciones, servicios y situaciones devueltas para estos dos cortes.",
     "relaciones": "Relaciones de servicio",
     "servicios": "Servicios",
     "situaciones": "Situaciones",
@@ -60,6 +60,7 @@
     "situacion": "Situación",
     "clase_servicio": "Clase de servicio",
     "efecto": "Referencia del recurso",
-    "corte_exacto": "Instante exacto del corte (UTC)"
+    "corte_exacto": "Instante exacto del corte (UTC)",
+    "dias_reconocidos": "Días reconocidos"
   }
 }

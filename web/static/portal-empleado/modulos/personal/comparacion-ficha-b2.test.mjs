@@ -46,7 +46,7 @@ function montar(cliente, extra = {}) {
 test("compara versiones, periodos y origen sin sumar días ni perder historia", () => {
   const a = respuesta(); const b = respuesta(segundo);
   b.ficha.relaciones.push({ ...b.ficha.relaciones[0], traza: { ...traza, version: 2, fuente_version: 3 } });
-  a.ficha.servicios = [{ servicio_ref: "srv:uno", relacion_ref: relacionRef, estado: "declarado", periodo_desde: "2020-01-01", periodo_hasta: "2021-01-01", traza }];
+  a.ficha.servicios = [{ servicio_ref: "srv:uno", relacion_ref: relacionRef, estado: "declarado", dias_reconocidos: 1, periodo_desde: "2020-01-01", periodo_hasta: "2021-01-01", traza }];
   const result = compararFichasB2(a, b, opciones);
   assert.equal(result.diferencias.relaciones[0].estado, "distinto");
   assert.deepEqual(result.diferencias.relaciones[0].segundo.map((x) => x.traza.version), [1, 2]);
@@ -143,4 +143,17 @@ test("el montaje RRHH borra la ficha anterior al comparar y cancela al cambiar e
   modo = "bien"; montaje.cambiarEmpleado("emp_dddddddddddddddddddddd"); resolver(); await p; await pausa();
   assert.doesNotMatch(texto(raiz), /Ver evidencia/); assert.equal(llamadas, 5);
   montaje.desmontar(); assert.equal(raiz.children.length, 0);
+});
+
+
+test("un cambio de días reconocidos muestra ambos valores sin calcular antigüedad", async () => {
+  let llamada = 0;
+  const { raiz, c } = montar({ async consultarFicha(o) {
+    const r = respuesta({ vigente_en: o.vigenteEn, conocido_en: o.conocidoEn });
+    r.ficha.servicios = [{ servicio_ref: "srv:uno", relacion_ref: relacionRef, estado: "reconocido", dias_reconocidos: ++llamada, periodo_desde: "2020-01-01", periodo_hasta: "2021-01-01", traza }];
+    return r;
+  } });
+  await enviar(c);
+  assert.match(visible(raiz), /Días reconocidos: 1.*Días reconocidos: 2/u);
+  assert.match(visible(raiz), /Datos distintos/u);
 });
