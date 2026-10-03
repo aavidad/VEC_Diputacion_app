@@ -133,7 +133,7 @@ DECLARE m jsonb; original json; c jsonb; d jsonb; catalogo jsonb;
  accion text; estado text; revision text; recurso text; material_sha text; contexto_sha text;
  consumo record; resultado record; comprobado jsonb;
 BEGIN
- IF p_material_exacto IS NULL OR octet_length(p_material_exacto) NOT BETWEEN 2 AND 33554432 THEN
+ IF p_material_exacto IS NULL OR octet_length(p_material_exacto) NOT BETWEEN 2 AND 4194304 THEN
   RAISE EXCEPTION 'AD177 material de gobierno inválido' USING ERRCODE='22023'; END IF;
  BEGIN
   original:=convert_from(p_material_exacto,'UTF8')::json; m:=original::jsonb;
