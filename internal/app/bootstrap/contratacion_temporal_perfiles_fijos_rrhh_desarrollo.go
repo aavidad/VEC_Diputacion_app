@@ -14,6 +14,7 @@ import (
 	"vec-diputacion-granada/config"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
+	ctapp "vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	ctdomain "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	docports "vec-diputacion-granada/internal/vec/documentos/ports"
@@ -848,6 +849,7 @@ func concesionesPerfilFirmaR5CTDesarrollo(ruta string) ([]dominiovec.ConcesionRo
 	switch ruta {
 	case httpinterno.RutaPreflightFirmaR5:
 		return []dominiovec.ConcesionRol{
+			concesionLecturaHistoriaR5V1CTDesarrollo(),
 			{Accion: ports.AccionConsultarFirmasR5V2, ModuloID: ports.ModuloContratacion, TipoRecurso: ports.TipoRecursoConsultaFirmasR5,
 				Finalidades: []string{ports.FinalidadFirmaDocumento}, GarantiaMinima: dominiovec.AuthAssuranceHigh, CamposPermitidos: ports.CamposConsultaFirmasR5V2()},
 			{Accion: docports.AccionDescargar, ModuloID: "documentos", TipoRecurso: "documento_original",
@@ -861,6 +863,7 @@ func concesionesPerfilFirmaR5CTDesarrollo(ruta string) ([]dominiovec.ConcesionRo
 		return nil, errPerfilFijoCTNoConsumible
 	}
 	return []dominiovec.ConcesionRol{
+		concesionLecturaHistoriaR5V1CTDesarrollo(),
 		{Accion: accion, ModuloID: ports.ModuloContratacion, TipoRecurso: tipo,
 			Finalidades: []string{ports.FinalidadFirmaDocumento}, GarantiaMinima: dominiovec.AuthAssuranceHigh},
 		{Accion: ports.AccionConsultarFirmasR5V2, ModuloID: ports.ModuloContratacion, TipoRecurso: ports.TipoRecursoConsultaFirmasR5,
@@ -900,4 +903,12 @@ func perfilFirmaR5ConcesionesExactas(plantilla dominiovec.InstantaneaAutorizacio
 		}
 	}
 	return true
+}
+
+// AD159 lee la historia común con una decisión propia. La consulta V2 no
+// concede esta lectura: cada perfil necesita ambas concesiones publicadas.
+func concesionLecturaHistoriaR5V1CTDesarrollo() dominiovec.ConcesionRol {
+	return dominiovec.ConcesionRol{Accion: ports.AccionConsultarFirmasR5, ModuloID: ports.ModuloContratacion,
+		TipoRecurso: ports.TipoRecursoConsultaFirmasR5, Finalidades: []string{ports.FinalidadFirmaDocumento},
+		GarantiaMinima: dominiovec.AuthAssuranceHigh, CamposPermitidos: ctapp.CamposConsultaFirmasR5()}
 }

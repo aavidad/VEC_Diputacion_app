@@ -3,10 +3,12 @@ package bootstrap
 import (
 	"context"
 	"net/http"
+	"slices"
 	"strings"
 	"testing"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
+	ctapp "vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	core "vec-diputacion-granada/internal/vec/domain"
 	"vec-diputacion-granada/internal/vec/reglas"
@@ -49,7 +51,7 @@ func TestPerfilFijoFirmaR5LigaRolOperativoYContextoExistente(t *testing.T) {
 		t.Fatalf("perfil nominal no consumible: %v", err)
 	}
 	c.plantilla.VersionRol.Concesiones[0].Accion = "accion-ajena"
-	if p.plantilla.VersionRol.Concesiones[0].Accion != ports.AccionRegistrarFirmaVec {
+	if p.plantilla.VersionRol.Concesiones[0].Accion != ports.AccionConsultarFirmasR5 {
 		t.Fatal("plantilla comparte estado mutable")
 	}
 	for nombre, modificar := range map[string]func(*configuracionPerfilFijoFirmaR5CTDesarrollo){
@@ -151,8 +153,8 @@ func TestDescriptoresR5NoCruzanRegistroNiPreflight(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, frontera := range fronteras {
-		if _, ok := catalogo.politicaPara(ports.AccionConsultarFirmasR5, frontera.Clave, frontera.ClavePolitica, frontera.ClaveCapacidad); ok {
-			t.Fatal("una frontera V2 concedió la consulta V1")
+		if _, ok := catalogo.politicaPara(ports.AccionConsultarFirmasR5, frontera.Clave, frontera.ClavePolitica, frontera.ClaveCapacidad); !ok {
+			t.Fatal("lectura de historia V1 sin política propia")
 		}
 		if _, ok := catalogo.politicaPara(ports.AccionConsultarFirmasR5V2, frontera.Clave, frontera.ClavePolitica, frontera.ClaveCapacidad); !ok {
 			t.Fatal("consulta R5 anidada sin política")
@@ -165,7 +167,32 @@ func TestDescriptoresR5NoCruzanRegistroNiPreflight(t *testing.T) {
 		}
 	}
 	concesiones, err := concesionesPerfilFirmaR5CTDesarrollo(httpinterno.RutaPreflightFirmaR5)
-	if err != nil || len(concesiones) != 2 {
+	if err != nil || len(concesiones) != 3 {
 		t.Fatal("preflight no conserva lectura separada")
+	}
+}
+
+func TestPerfilR5LecturaHistoriaV1ExactaSinEscrituraCT118(t *testing.T) {
+	for _, ruta := range []string{httpinterno.RutaRegistroFirmaVec, httpinterno.RutaRegistroFirmaExterna, httpinterno.RutaPreflightFirmaR5} {
+		concesiones, err := concesionesPerfilFirmaR5CTDesarrollo(ruta)
+		if err != nil {
+			t.Fatal(err)
+		}
+		lecturaV1, lecturaV2 := false, false
+		for _, concesion := range concesiones {
+			if concesion.Accion == ports.AccionFirmarDocumento {
+				t.Fatal("perfil operativo recibió escritura CT118")
+			}
+			if concesion.Accion == ports.AccionConsultarFirmasR5 {
+				lecturaV1 = slices.Equal(concesion.CamposPermitidos, ctapp.CamposConsultaFirmasR5()) && len(concesion.CamposPermitidos) == 29 &&
+					slices.Equal(concesion.Finalidades, []string{ports.FinalidadFirmaDocumento}) && len(concesion.Obligaciones) == 0
+			}
+			if concesion.Accion == ports.AccionConsultarFirmasR5V2 {
+				lecturaV2 = slices.Equal(concesion.CamposPermitidos, ports.CamposConsultaFirmasR5V2())
+			}
+		}
+		if !lecturaV1 || !lecturaV2 {
+			t.Fatal("lecturas V1/V2 sin concesiones exactas separadas")
+		}
 	}
 }

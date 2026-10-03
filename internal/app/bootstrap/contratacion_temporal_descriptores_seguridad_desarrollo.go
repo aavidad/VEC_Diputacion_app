@@ -239,7 +239,7 @@ func descriptoresFronterasFirmaR5CTDesarrollo(perfilVec, perfilExterna string) [
 func descriptoresAutorizacionFirmaR5CTDesarrollo(politica politicaAutorizacionSolicitudLigadaV3Desarrollo) []descriptorAutorizacionComunDesarrollo {
 	var resultado []descriptorAutorizacionComunDesarrollo
 	for _, f := range descriptoresFronterasFirmaR5CTDesarrollo("prf_catalogo_vec", "prf_catalogo_externa") {
-		for _, accion := range []string{f.ClaveCapacidad, ctports.AccionConsultarFirmasR5V2, docports.AccionDescargar,
+		for _, accion := range []string{f.ClaveCapacidad, ctports.AccionConsultarFirmasR5, ctports.AccionConsultarFirmasR5V2, docports.AccionDescargar,
 			docports.AccionReservarOriginalFirmable, docports.AccionConfirmarOriginalFirmable,
 			vecports.AccionNegocioEscribirOriginalFirmable, docports.AccionCustodiarFirmado} {
 			resultado = append(resultado, descriptorAutorizacionComunDesarrollo{Accion: accion,
@@ -253,6 +253,7 @@ func descriptoresMaterialFirmaR5CTDesarrollo() []descriptorMaterialConsumidorV3D
 	return []descriptorMaterialConsumidorV3Desarrollo{
 		{Audiencia: ctports.AudienciaFirmaVecV3, Dominio: "vec.ct.firma-vec.capacidad-v3", Prefijo: "clave:capacidad:ct-firma-vec:", ProveedorNominal: proveedorMaterialContratacionTemporal},
 		{Audiencia: ctports.AudienciaFirmaExternaV3, Dominio: "vec.ct.firma-externa.capacidad-v3", Prefijo: "clave:capacidad:ct-firma-externa:", ProveedorNominal: proveedorMaterialContratacionTemporal},
+		{Audiencia: ctports.AudienciaConsultaFirmasR5V3, Dominio: "vec.ct.firmas-r5.consulta.capacidad-v3", Prefijo: "clave:capacidad:ct-firmas-r5-consulta:", ProveedorNominal: proveedorMaterialContratacionTemporal},
 		{Audiencia: ctports.AudienciaConsultaFirmasR5V2, Dominio: "vec.ct.firmas-r5.consulta.v2.capacidad-v3", Prefijo: "clave:capacidad:ct-firmas-r5-consulta-v2:", ProveedorNominal: proveedorMaterialContratacionTemporal},
 		{Audiencia: ctports.AudienciaFirmaVecV2, Dominio: "vec.ct.firma-vec.v2.capacidad-v3", Prefijo: "clave:capacidad:ct-firma-vec-v2:", ProveedorNominal: proveedorMaterialContratacionTemporal},
 		{Audiencia: ctports.AudienciaFirmaExternaV2, Dominio: "vec.ct.firma-externa.v2.capacidad-v3", Prefijo: "clave:capacidad:ct-firma-externa-v2:", ProveedorNominal: proveedorMaterialContratacionTemporal},
@@ -268,7 +269,7 @@ func descriptorFronteraPreflightFirmaR5CTDesarrollo(perfiles []string) descripto
 func descriptoresAutorizacionPreflightFirmaR5CTDesarrollo(politica politicaAutorizacionSolicitudLigadaV3Desarrollo) []descriptorAutorizacionComunDesarrollo {
 	f := descriptorFronteraPreflightFirmaR5CTDesarrollo(nil)
 	var resultado []descriptorAutorizacionComunDesarrollo
-	for _, accion := range []string{ctports.AccionConsultarFirmasR5V2, docports.AccionDescargar} {
+	for _, accion := range []string{ctports.AccionConsultarFirmasR5, ctports.AccionConsultarFirmasR5V2, docports.AccionDescargar} {
 		resultado = append(resultado, descriptorAutorizacionComunDesarrollo{Accion: accion,
 			ClavePolitica: f.ClavePolitica, ClaveCapacidad: f.ClaveCapacidad, Fronteras: []string{f.Clave}, Politica: politica})
 	}
