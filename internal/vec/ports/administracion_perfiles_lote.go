@@ -22,6 +22,9 @@ import (
 // destinataria, cambios, ámbitos, vigencia, motivo, acto opcional, correlación,
 // fecha y recibo. Los nombres provienen de lectura central minimizada, no de
 // logs técnicos. Propuestas/cierres conservan ambas personas del doble control.
+// La huella semántica no incluye correlación ni instantánea del acceso actual.
+// El recibo conserva la correlación original del efecto; la auditoría común
+// registra además cada acceso/replay con su correlación y autorización actuales.
 type AutoridadLotesAdministracionPerfiles interface {
 	AplicarLoteOrdinario(context.Context, domain.SolicitudLoteAdministracionPerfiles) (domain.ReciboLoteAdministracionPerfiles, error)
 }
