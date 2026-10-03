@@ -1,0 +1,8 @@
+# Sólo AD172 NUEVA. El runner debe partir de un checkpoint frío causal compatible:
+# H7 + h7kit/h8kit + AD155/B77/Import5 y cotejos CA26/IS13/AD169/AD171.
+# Matriz exacta adicional: variante A postAD149→AD161→AD145→AD153,
+# o K postAD156→AD158→AD159→AD162→AD165→AD166→AD168.
+# No concatenar esas variantes: requieren una convergencia nueva si se combinan.
+# AD170 no altera el núcleo. CA27 correctiva tampoco lo altera.
+# No reaplicar las dependencias ya presentes ni ejecutar DOWN.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000172_origen_consumos_confirmados.up.sql
