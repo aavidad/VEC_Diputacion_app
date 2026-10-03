@@ -17,6 +17,16 @@ BEGIN
  OR pg_catalog.to_regprocedure('vec_autorizacion.registrar_bootstrap_central_admin_v3(text,text)') IS NULL
  OR pg_catalog.to_regprocedure('vec_personal.cotejar_unidad_bootstrap_admin_v1(text,jsonb,timestamptz)') IS NULL
  THEN RAISE EXCEPTION 'AUT38: PARO clave=dependencias actual=ausente esperado=AUT37_CA33_IS15_Personal31' USING ERRCODE='55000'; END IF;
+ IF NOT EXISTS(SELECT 1 FROM pg_catalog.pg_proc p
+  WHERE p.oid=pg_catalog.to_regprocedure('vec_contexto_actor_v1.preimagen_persona_bootstrap_central_admin_v3(jsonb)')
+   AND p.prorettype='jsonb'::regtype AND p.prolang=(SELECT oid FROM pg_catalog.pg_language WHERE lanname='plpgsql')
+   AND pg_catalog.cardinality(p.proconfig)=2 AND 'search_path=pg_catalog'=ANY(p.proconfig)
+   AND EXISTS(SELECT 1 FROM pg_catalog.unnest(p.proconfig) e WHERE pg_catalog.lower(pg_catalog.split_part(e,'=',1))='timezone' AND pg_catalog.split_part(e,'=',2)='UTC')
+   AND pg_catalog.has_function_privilege('vec_autorizacion_propietario',p.oid,'EXECUTE')
+   AND NOT EXISTS(SELECT 1 FROM pg_catalog.aclexplode(COALESCE(p.proacl,pg_catalog.acldefault('f',p.proowner))) a
+    WHERE a.grantee NOT IN('vec_contexto_actor_v1_propietario'::regrole,'vec_autorizacion_propietario'::regrole)
+     OR a.privilege_type<>'EXECUTE' OR a.is_grantable))
+ THEN RAISE EXCEPTION 'AUT38: PARO clave=AUT37.CA_preimagen.firma_config_ACL actual=divergente esperado=fachada_privada_original' USING ERRCODE='55000'; END IF;
  SELECT pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(prosrc,'UTF8')),'hex') INTO actual FROM pg_catalog.pg_proc
  WHERE oid=pg_catalog.to_regprocedure('vec_contexto_actor_v1.preimagen_persona_bootstrap_central_admin_v3(jsonb)')
  AND proowner='vec_contexto_actor_v1_propietario'::regrole AND prosecdef AND provolatile='v';
@@ -36,9 +46,10 @@ RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_cata
 DECLARE c jsonb;sub jsonb;sistema jsonb;sistemas jsonb:='[]'::jsonb;ambitos jsonb;organizaciones jsonb;legado boolean;
  titularidad jsonb;fuente jsonb;persona_fuente jsonb;is_real jsonb;salida jsonb;
 BEGIN
- c:=vec_contexto_actor_v1.preimagen_admin_interna_v1(p->>'cuenta_ref',p->>'persona_ref',p->>'perfil_ref',p->>'vinculo_ref');
+ PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('vec:admin:continuidad:v1',0));
  -- Conservar el protocolo instalado de generación antes de observar las fuentes.
  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('vec_contexto_actor_v1:mutacion_punteros_actuales:v2',0));
+ c:=vec_contexto_actor_v1.preimagen_admin_interna_v1(p->>'cuenta_ref',p->>'persona_ref',p->>'perfil_ref',p->>'vinculo_ref');
  SELECT EXISTS(SELECT 1 FROM vec_contexto_actor_v1.vinculo_contexto_actual a
   JOIN vec_contexto_actor_v1.vinculo_contexto_versiones v USING(vinculo_ref,version)
   WHERE v.cuenta_ref=p->>'cuenta_ref' AND v.persona_ref=p->>'persona_ref' AND v.estado='activo'
