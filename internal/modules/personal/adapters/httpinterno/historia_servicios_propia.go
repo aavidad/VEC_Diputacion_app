@@ -106,7 +106,7 @@ func (m *ManejadorHistoriaServiciosPropia) ServeHTTP(w http.ResponseWriter, r *h
 		responderFichaPropia(w, estado, codigo, nil)
 		return
 	}
-	if resultado.Historia.ValidarPara(material) != nil || resultado.Evidencia.ReciboRef != resultado.Evidencia.AuditoriaRef || !domain.ReferenciaReciboHistoriaServiciosPropiaValida(resultado.Evidencia.ReciboRef) || resultado.Evidencia.ConsultadaEn.IsZero() || resultado.Evidencia.ConsultadaEn.Nanosecond()%1000 != 0 {
+	if resultado.Historia.ValidarPara(material) != nil || !domain.ReciboHistoriaServiciosPropiaLigado(resultado.Evidencia.ReciboRef, resultado.Evidencia.AuditoriaRef, resultado.Evidencia.ConsumoHuellaSHA256) || resultado.Evidencia.ConsultadaEn.IsZero() || resultado.Evidencia.ConsultadaEn.Nanosecond()%1000 != 0 {
 		m.rechazar(w, r, 503, "no_disponible", "no_disponible")
 		return
 	}

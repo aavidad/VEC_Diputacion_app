@@ -34,7 +34,7 @@ func (c *consultaHistoriaHTTPPrueba) Consultar(_ context.Context, s domain.Solic
 	if c.ajena {
 		h.EmpleadoRef = "emp_" + strings.Repeat("Z", 24)
 	}
-	return ports.ResultadoHistoriaServiciosPropia{Historia: h, Evidencia: ports.EvidenciaRegistroEmpleadoB2{ReciboRef: "auditoria:historia", DecisionRef: "dec_privada", EfectoRef: m.EmpleadoRef(), ConsumoHuellaSHA256: strings.Repeat("a", 64), AuditoriaRef: "auditoria:historia", ConsultadaEn: s.Corte.ConocidoEn.Add(time.Microsecond)}}, nil
+	return ports.ResultadoHistoriaServiciosPropia{Historia: h, Evidencia: ports.EvidenciaRegistroEmpleadoB2{ReciboRef: "aud_v3_" + strings.Repeat("a", 32), DecisionRef: "dec_privada", EfectoRef: m.EmpleadoRef(), ConsumoHuellaSHA256: strings.Repeat("a", 64), AuditoriaRef: "aud_v3_" + strings.Repeat("a", 32), ConsultadaEn: s.Corte.ConocidoEn.Add(time.Microsecond)}}, nil
 }
 
 type registroHistoriaHTTPPrueba struct {
