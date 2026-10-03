@@ -37,10 +37,11 @@ Personal10 y sus protecciones deben estar instalados. La lista causal incluye
 Personal30 ni la historia conservada. La generación inicial no acredita una
 unidad: la instalación no siembra fuentes, nodos ni datos personales.
 
-El productor no ha ejecutado PostgreSQL ni Go. Quedan dos revisiones sensibles
-sobre el hash final y el ensayo coordinado por Dirección. Los casos positivos
-requieren una unidad sintética gobernada que exista en la fuente; si falta,
-se informa la omisión y no se inserta una unidad fingida para superar la prueba.
+La migración `6eae4f8ed` recibió dos revisiones sensibles GO y se instaló una
+sola vez en el clon autorizado. El ensayo creó un fixture gobernado sintético
+de una unidad con manifiesto y SHA, mediante el propietario de Personal y las
+restricciones reales. Ese fixture no es fuente institucional ni acredita
+autorización V3, asignaciones o bootstrap. No se ejecutaron Go ni navegador.
 
 ## Pruebas preparadas
 
@@ -69,9 +70,9 @@ Se realizan estos órdenes, cada uno en una transacción nueva:
    Repetir con `fin=rollback`: el lector continúa con la fuente anterior y no
    hay cambio de generación comprometido.
 
-Dirección debe observar la espera real y `pg_blocking_pids` del publicador o del
-lector según el caso, antes de liberar el otro terminal. Los prompts no prueban
-por sí solos que exista un bloqueo. Los límites son 20 segundos para el bloqueo
+El script comprueba la espera real mediante `pg_blocking_pids` desde las mismas
+dos conexiones antes de liberar el guard. Los prompts coordinan las conexiones;
+la comprobación SQL acredita el bloqueo. Los límites son 20 segundos para el bloqueo
 y 30 para cada sentencia; no dejar terminales pendientes ni otros escritores
 activos. En el caso de confirmar generación cambia únicamente el contador del
 clon desechable, por lo que no se usa la principal conservada.
@@ -80,3 +81,24 @@ La prueba favorable se omite si no hay unidad gobernada. También se preparan lo
 casos de fuente divergente y retirada mediante
 `pruebas_sql/unidad_bootstrap_admin_000031_fixture_gobernado.sql`; no se
 recupera una versión vieja para hacerlos pasar.
+
+## Resultado del ensayo
+
+Personal31 se instaló una vez desde el respaldo postselector. Las pruebas de ACL,
+trigger, ausencia de singleton y material inválido pasaron. El fixture sintético
+verificó el cotejo favorable, el organismo ajeno, SHA y versión divergentes y la
+retirada sin recuperar historia antigua. Las pruebas del fixture terminaron en
+ROLLBACK; el clon conserva una sola unidad sintética inicial.
+
+Los tres órdenes concurrentes pasaron con dos conexiones. El publicador previo
+a la lectura del guard provocó `40001`; el lector primero bloqueó al publicador
+hasta COMMIT; el publicador pendiente hizo esperar al lector y, al confirmar,
+produjo `40001`, o al revertir permitió continuar con la fuente anterior. No se
+modificaron autorizaciones, asignaciones ni el estado pendiente del bootstrap.
+
+PostgreSQL se reinició y la instantánea final permaneció idéntica. Roles,
+miembros, ACL, funciones y tablas anteriores conservaron su contenido, salvo
+la fila de unidad sintética declarada. El directorio de datos quedó en disco,
+con montaje bind en `/datos`; se conserva un respaldo frío privado y un acta
+pequeña en la bitácora del ensayo. El único servicio queda temporalmente a
+disposición de Dirección para AUT36/37, sin reaplicar migraciones anteriores.
