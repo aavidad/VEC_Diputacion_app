@@ -35,7 +35,7 @@ func (c *contadorAlertas) registrar(l lineaIncidencia, ahora time.Time, destino 
 		c.cantidades[codigo] = sumarSaturado(c.cantidades[codigo], uint64(l.Recuento))
 		if c.cantidades[codigo] >= umbral && !c.avisados[codigo] {
 			// La alerta solo incluye códigos y valores cerrados ya validados.
-			if err := json.NewEncoder(destino).Encode(struct {
+			if err := escribirAlertaRecolector(destino, struct {
 				Esquema         string                         `json:"esquema"`
 				Instante        string                         `json:"instante"`
 				Codigo          domain.CodigoIncidenciaTecnica `json:"codigo"`
@@ -79,7 +79,7 @@ func (c *contadorAlertas) registrarResultado(l lineaResultado, ahora time.Time, 
 	}
 	// El nivel pertenece al catálogo del resultado ya validado. El aviso no
 	// copia componente, etapa, correlación ni referencia de la línea original.
-	if err := json.NewEncoder(destino).Encode(struct {
+	if err := escribirAlertaRecolector(destino, struct {
 		Esquema         string                        `json:"esquema"`
 		Instante        string                        `json:"instante"`
 		Resultado       domain.CodigoResultadoTecnico `json:"resultado"`
@@ -91,5 +91,23 @@ func (c *contadorAlertas) registrarResultado(l lineaResultado, ahora time.Time, 
 	}
 	c.avisadosResultado[posicion] = true
 	m.Alertas++
+	return nil
+}
+
+// escribirAlertaRecolector confirma solo una línea entregada completa. Un
+// destino que devuelve una escritura corta sin error también supone fallo.
+func escribirAlertaRecolector(destino io.Writer, aviso any) error {
+	datos, err := json.Marshal(aviso)
+	if err != nil {
+		return err
+	}
+	datos = append(datos, '\n')
+	n, err := destino.Write(datos)
+	if err != nil {
+		return err
+	}
+	if n != len(datos) {
+		return io.ErrShortWrite
+	}
 	return nil
 }

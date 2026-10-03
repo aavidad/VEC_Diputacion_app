@@ -71,8 +71,9 @@ denegado y `error` para no disponible. No incluyen identidad, recurso,
 componente, etapa ni correlación. Las alertas de incidencia mantienen su
 esquema anterior. El contador `alertas` suma ambos tipos de aviso.
 
-Si falla la escritura del aviso, la CLI termina con código 2 y no lo cuenta
-como entregado. El registro técnico que originó el aviso ya está escrito. Los
+Si falla la escritura del aviso, incluida una escritura parcial sin error del
+destino, la CLI termina con código 2 y no lo cuenta como entregado. El registro
+técnico que originó el aviso ya está escrito. Los
 contadores y ventanas se reinician con el proceso; la herramienta no deduplica
 líneas repetidas ni conserva los umbrales alcanzados entre reinicios.
 

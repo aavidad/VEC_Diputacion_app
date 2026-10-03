@@ -132,3 +132,35 @@ func TestFalloSalidaAlertaResultadoNoCuentaEntrega(t *testing.T) {
 type escritorAlertaResultadoFallido struct{}
 
 func (escritorAlertaResultadoFallido) Write([]byte) (int, error) { return 0, io.ErrClosedPipe }
+
+func TestAlertasRechazanEscrituraParcialSinError(t *testing.T) {
+	for _, tipo := range []string{"resultado", "incidencia"} {
+		t.Run(tipo, func(t *testing.T) {
+			cfg := configRecolectorPrueba(t)
+			cfg.Umbrales[domain.IncidenciaArranqueFallido] = 1
+			cfg.UmbralesResultado = map[domain.CodigoResultadoTecnico]uint64{domain.ResultadoTecnicoNoDisponible: 1}
+			inicio := time.Now()
+			c := contadorAlertas{cfg: cfg, inicio: inicio,
+				cantidades: make(map[domain.CodigoIncidenciaTecnica]uint64), avisados: make(map[domain.CodigoIncidenciaTecnica]bool)}
+			var metricas MetricasRecolector
+			var err error
+			if tipo == "resultado" {
+				err = c.registrarResultado(lineaResultado{Resultado: "no_disponible", Nivel: "error"}, inicio, escritorAlertaParcial{}, &metricas)
+			} else {
+				incidencia, errValidar := validarLineaRecolector(lineaRecolectorPrueba(t))
+				if errValidar != nil {
+					t.Fatal(errValidar)
+				}
+				err = c.registrar(incidencia, inicio, escritorAlertaParcial{}, &metricas)
+			}
+			if !errors.Is(err, io.ErrShortWrite) || metricas.Alertas != 0 ||
+				c.avisadosResultado[1] || c.avisados[domain.IncidenciaArranqueFallido] {
+				t.Fatal("aviso parcial contado como entregado", err, metricas)
+			}
+		})
+	}
+}
+
+type escritorAlertaParcial struct{}
+
+func (escritorAlertaParcial) Write(datos []byte) (int, error) { return len(datos) - 1, nil }
