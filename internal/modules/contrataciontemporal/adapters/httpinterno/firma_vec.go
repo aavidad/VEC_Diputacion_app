@@ -165,6 +165,9 @@ func resultadoRegistroFirmaVecConfiable(r application.ResultadoFirmaVec, s appli
 }
 
 func resultadoRegistroFirmaV2Confiable(m *ports.MaterialFirmaVerificadaV2, rec ports.ReciboFirmaDocumento, c ports.DocumentoCustodiado, motivo docports.MotivoVerificacionFirma, longitud int) bool {
+	if longitud < 1 || longitud > ports.MaximoDocumentoFirmaBytes {
+		return false
+	}
 	huella, err := m.HuellaSHA256()
 	return err == nil && rec.SolicitudHuella == huella && m.RevisionLongitud == uint64(longitud) &&
 		resultadoRegistroFirmaComunConfiable(m.MaterialFirmaExterna, rec, c, motivo)
