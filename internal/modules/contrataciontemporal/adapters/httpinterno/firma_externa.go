@@ -50,6 +50,7 @@ type entradaRegistroFirmaExterna struct {
 type manejadorRegistroFirmaExterna struct {
 	autoridad AutoridadCanalRegistroFirmaExterna
 	servicio  ServicioRegistroFirmaExternaHTTP
+	exigirV2  bool
 }
 
 func NuevoManejadorRegistroFirmaExterna(a AutoridadCanalRegistroFirmaExterna, s ServicioRegistroFirmaExternaHTTP) (http.Handler, error) {
@@ -59,12 +60,23 @@ func NuevoManejadorRegistroFirmaExterna(a AutoridadCanalRegistroFirmaExterna, s 
 	return &manejadorRegistroFirmaExterna{autoridad: a, servicio: s}, nil
 }
 
+// El montaje multifirma exige evidencia V2 también en recuperaciones. El
+// constructor anterior conserva el transporte V1 para consumidores anteriores.
+func NuevoManejadorRegistroFirmaExternaV2(a AutoridadCanalRegistroFirmaExterna, s ServicioRegistroFirmaExternaHTTP) (http.Handler, error) {
+	h, err := NuevoManejadorRegistroFirmaExterna(a, s)
+	if err != nil {
+		return nil, err
+	}
+	h.(*manejadorRegistroFirmaExterna).exigirV2 = true
+	return h, nil
+}
+
 func responderErrorRegistroFirmaExterna(w http.ResponseWriter, r *http.Request, estado int, codigo string, causas ...error) {
-	responderJSONCobertura(w, r, estado, map[string]any{"error": map[string]string{
+	responderJSONFirmaNominal(w, r, estado, map[string]any{"error": map[string]string{
 		"codigo":          codigo,
 		"clave_i18n":      "api.contratacion_temporal.registro_firma_externa.error." + codigo,
-		"correlacion_ref": nuevaCorrelacionCobertura(),
-	}}, causas...)
+		"correlacion_ref": correlacionPeticionFirma(r),
+	}}, MaximoRespuestaConsultaRRHHBytes, causas...)
 }
 
 func rutaRegistroFirmaExternaExacta(r *http.Request) bool {
@@ -146,7 +158,7 @@ func (h *manejadorRegistroFirmaExterna) ServeHTTP(w http.ResponseWriter, r *http
 	if resultado.MaterialMultiple != nil {
 		m = resultado.MaterialMultiple.MaterialFirmaExterna
 	}
-	if !resultadoRegistroFirmaExternaConfiable(resultado, solicitud) || m.FirmadoHuella != hex.EncodeToString(huellaFirmado[:]) {
+	if (h.exigirV2 && resultado.MaterialMultiple == nil) || !resultadoRegistroFirmaExternaConfiable(resultado, solicitud) || m.FirmadoHuella != hex.EncodeToString(huellaFirmado[:]) {
 		responderErrorRegistroFirmaExterna(w, r, http.StatusBadGateway, "resultado_no_confiable")
 		return
 	}
@@ -163,7 +175,7 @@ func (h *manejadorRegistroFirmaExterna) ServeHTTP(w http.ResponseWriter, r *http
 	if rec.YaRegistrada {
 		estado = http.StatusOK
 	}
-	responderJSONCobertura(w, r, estado, map[string]any{"data": data})
+	responderJSONFirmaNominal(w, r, estado, map[string]any{"data": data}, MaximoRespuestaConsultaRRHHBytes)
 }
 
 func (e entradaRegistroFirmaExterna) valida() bool {

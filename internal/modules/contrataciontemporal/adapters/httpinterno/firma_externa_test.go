@@ -226,7 +226,7 @@ func TestRegistroFirmaExternaV2PreservaOriginalYRevisionAnterior(t *testing.T) {
 			t.Fatal(err)
 		}
 		s := &servicioRegistroFirmaExternaPrueba{respuesta: r}
-		h, _ := NuevoManejadorRegistroFirmaExterna(autoridadRegistroFirmaExternaPrueba{organizacion: "organizacion:desarrollo:dipgra"}, s)
+		h, _ := NuevoManejadorRegistroFirmaExternaV2(autoridadRegistroFirmaExternaPrueba{organizacion: "organizacion:desarrollo:dipgra"}, s)
 		for _, estado := range []int{http.StatusCreated, http.StatusOK} {
 			w := httptest.NewRecorder()
 			h.ServeHTTP(w, peticionRegistroFirmaExterna(cuerpo))
@@ -257,11 +257,25 @@ func TestRegistroFirmaExternaV2RechazaMaterialAmbiguoYReciboAjeno(t *testing.T) 
 		}
 		r.Recibo.SolicitudHuella = strings.Repeat("a", 64)
 		s := &servicioRegistroFirmaExternaPrueba{respuesta: r}
-		h, _ := NuevoManejadorRegistroFirmaExterna(autoridadRegistroFirmaExternaPrueba{organizacion: "organizacion:desarrollo:dipgra"}, s)
+		h, _ := NuevoManejadorRegistroFirmaExternaV2(autoridadRegistroFirmaExternaPrueba{organizacion: "organizacion:desarrollo:dipgra"}, s)
 		w := httptest.NewRecorder()
 		h.ServeHTTP(w, peticionRegistroFirmaExterna(cuerpoRegistroFirmaExternaPrueba))
 		if w.Code != http.StatusBadGateway {
 			t.Fatalf("material ambiguo %v: %d %s", ambiguo, w.Code, w.Body)
 		}
+	}
+}
+
+func TestRegistroFirmaExternaV2NoDegradaContratoEnReplay(t *testing.T) {
+	s := &servicioRegistroFirmaExternaPrueba{respuesta: resultadoRegistroFirmaExternaPrueba()}
+	s.respuesta.Recibo.YaRegistrada = true
+	h, err := NuevoManejadorRegistroFirmaExternaV2(autoridadRegistroFirmaExternaPrueba{organizacion: "organizacion:desarrollo:dipgra"}, s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, peticionRegistroFirmaExterna(cuerpoRegistroFirmaExternaPrueba))
+	if w.Code != http.StatusBadGateway || strings.Contains(w.Body.String(), EsquemaRegistroFirmaExterna) {
+		t.Fatalf("degradación V1: %d %s", w.Code, w.Body)
 	}
 }
