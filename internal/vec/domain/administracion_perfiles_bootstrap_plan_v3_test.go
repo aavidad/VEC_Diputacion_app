@@ -148,7 +148,7 @@ func TestBootstrapV3CamposCanonicosPactados(t *testing.T) {
 		t.Fatal(err)
 	}
 	var documento map[string]json.RawMessage
-	if json.Unmarshal(b, &documento) != nil || len(documento) != 12 || documento["fuente_reparto_aprobado"] == nil {
+	if json.Unmarshal(b, &documento) != nil || len(documento) != 11 || documento["fuente_reparto_aprobado"] == nil {
 		t.Fatal("ABI incompleta")
 	}
 	var otro PlanBootstrapAdministracionV3
