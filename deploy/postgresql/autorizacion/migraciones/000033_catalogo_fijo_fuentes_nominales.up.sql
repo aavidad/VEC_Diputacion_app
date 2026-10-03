@@ -131,7 +131,7 @@ END $publicar$;
 -- Bloquea asignación, control y versión; no confunde clase administrador
 -- genérica con categoría Aplicación.
 CREATE FUNCTION vec_autorizacion.acreditar_perfil_aplicacion_nominal_v1(
- version_ref text,asignacion_ref text,principal_ref text,perfil_ref text,
+ version_ref text,p_asignacion_ref text,principal_ref text,perfil_ref text,
  accion text,modulo text,tipo text,finalidad text,campos jsonb,autenticacion jsonb)
 RETURNS boolean LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog AS $f$
 DECLARE r record;ct record;asig record;meta record;ahora timestamptz;
@@ -152,7 +152,7 @@ BEGIN
  IF NOT FOUND THEN RETURN false; END IF;
  SELECT x.* INTO asig FROM vec_autorizacion.asignacion_perfil_actual a
  JOIN vec_autorizacion.asignacion_perfil x USING(perfil_activo_ref,asignacion_ref)
- WHERE a.perfil_activo_ref=perfil_ref AND a.asignacion_ref=asignacion_ref FOR SHARE OF a,x;
+ WHERE a.perfil_activo_ref=perfil_ref AND a.asignacion_ref=p_asignacion_ref FOR SHARE OF a,x;
  IF NOT FOUND THEN RETURN false; END IF;
  SELECT x.* INTO meta FROM vec_autorizacion.perfil_fijo_categoria_nominal_v1 x WHERE x.version_rol_ref=version_ref FOR SHARE;
  IF NOT FOUND THEN RETURN false; END IF;
@@ -192,7 +192,7 @@ GRANT EXECUTE ON FUNCTION vec_autorizacion.acreditar_perfil_aplicacion_nominal_v
 
 -- El ámbito del actor se coteja contra la organización acreditada por CA4,
 -- no contra un valor de la petición. Personal conserva su unidad propia.
-CREATE FUNCTION vec_autorizacion.acreditar_ambito_certificado_nominal_v1(version_ref text,asignacion_ref text,org text)
+CREATE FUNCTION vec_autorizacion.acreditar_ambito_certificado_nominal_v1(version_ref text,p_asignacion_ref text,org text)
 RETURNS boolean LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog AS $f$
 DECLARE a record;
 BEGIN
@@ -202,7 +202,7 @@ BEGIN
   OR org IS NULL OR org !~ '^org_[a-z0-9]{16,80}$' THEN RETURN false; END IF;
  SELECT x.* INTO a FROM vec_autorizacion.asignacion_perfil_actual p
  JOIN vec_autorizacion.asignacion_perfil x USING(perfil_activo_ref,asignacion_ref)
- WHERE p.asignacion_ref=asignacion_ref FOR SHARE OF p,x;
+ WHERE p.asignacion_ref=p_asignacion_ref FOR SHARE OF p,x;
  IF NOT FOUND OR a.version_rol_ref<>version_ref OR a.documento->>'estado'<>'activa' THEN RETURN false; END IF;
  RETURN a.documento->'ambitos' @> pg_catalog.jsonb_build_array(
   pg_catalog.jsonb_build_object('clave','organizacion_ref','valores',pg_catalog.jsonb_build_array(org)));
