@@ -150,7 +150,7 @@ BEGIN
   OR jsonb_typeof(m->'operacion') IS DISTINCT FROM 'string'
   OR (m->>'operacion' IN('crear','actualizar','publicar','retirar')) IS NOT TRUE
   OR jsonb_typeof(m->'catalogo_id') IS DISTINCT FROM 'string'
-  OR (m->>'catalogo_id' ~ '^[a-z][a-z0-9._-]{0,127}$') IS NOT TRUE
+  OR (m->>'catalogo_id' ~ '^[a-z][a-z0-9._-]{2,127}$') IS NOT TRUE
   OR jsonb_typeof(m->'version') IS DISTINCT FROM 'number'
   OR (m->>'version' ~ '^[1-9][0-9]{0,9}$') IS NOT TRUE
   OR (m->>'catalogo_sha256' ~ '^[0-9a-f]{64}$') IS NOT TRUE
