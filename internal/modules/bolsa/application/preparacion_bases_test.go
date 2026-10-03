@@ -162,6 +162,33 @@ func TestPreparacionBasesFallaCerradaSinDependencias(t *testing.T) {
 	}
 }
 
+func TestPreparacionBasesConservaCausaDelResultadoInvalido(t *testing.T) {
+	p := &repositorioPreparacionPrueba{}
+	s, _ := NuevoServicioPreparacionBases(p, relojPanelInternoPrueba{ahora: instantePanelInternoPrueba})
+	o := ordenGuardarPreparacionPrueba(t)
+	r, err := s.Guardar(context.Background(), o)
+	if err != nil {
+		t.Fatal(err)
+	}
+	evidenciaVacia := core.EvidenciaUsoDecisionAutorizacion{}
+	err = validarResultadoPreparacion(r, r.Version.Estado, evidenciaVacia, r.AccedidaEn)
+	if !errors.Is(err, core.ErrEvidenciaUsoDecisionAutorizacionInvalida) || !errors.Is(err, ports.ErrResultadoPreparacionBasesInvalido) {
+		t.Fatalf("causa de evidencia perdida: %v", err)
+	}
+	p.manipular = func(r *ports.ResultadoPreparacionBases) { r.Version.Material.Contenido.Titulo = "Material manipulado" }
+	resultado, err := s.Guardar(context.Background(), o)
+	if !errors.Is(err, prep.ErrVersionInvalida) || !errors.Is(err, ports.ErrResultadoPreparacionBasesInvalido) || !reflect.DeepEqual(resultado, ports.ResultadoPreparacionBases{}) {
+		t.Fatalf("guardado devuelve material o pierde causa de version: %v", err)
+	}
+	q := ports.ConsultarPreparacionBases{Ambito: r.Version.Ambito, Exacta: r.Version.Estado}
+	recurso, _ := q.RecursoAutorizable()
+	q.Autorizacion = evidenciaPreparacionPrueba(t, recurso, ports.AccionConsultarPreparacionBases)
+	resultado, err = s.Consultar(context.Background(), q)
+	if !errors.Is(err, prep.ErrVersionInvalida) || !errors.Is(err, ports.ErrResultadoPreparacionBasesInvalido) || !reflect.DeepEqual(resultado, ports.ResultadoPreparacionBases{}) {
+		t.Fatalf("consulta devuelve material o pierde causa de version: %v", err)
+	}
+}
+
 func TestPreparacionBasesNoRecuperaVersionAjenaNiSalidaSinAuditoria(t *testing.T) {
 	for _, manipular := range []func(*ports.ResultadoPreparacionBases){
 		func(r *ports.ResultadoPreparacionBases) { r.Version.Estado.Revision++ },
