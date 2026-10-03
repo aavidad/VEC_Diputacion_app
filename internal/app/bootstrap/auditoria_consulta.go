@@ -96,15 +96,18 @@ func (m manejadorAuditoriaDenegacionesLocales) ServeHTTP(w http.ResponseWriter, 
 		http.NotFound(w, r)
 		return
 	}
-	correlacion := "corr_no_disponible"
-	if generada, err := vecdomain.GenerarReferenciaCorrelacionAutorizacionV2(r.Context(), seguridadvec.GeneradorReferenciasCriptograficas{}); err == nil {
-		if canonica, err := generada.ValorCanonico(); err == nil {
-			if strings.HasPrefix(canonica, "correlacion_") && len(canonica) == len("correlacion_")+32 {
-				correlacion = "corr_" + strings.TrimPrefix(canonica, "correlacion_")
-				r = r.WithContext(context.WithValue(r.Context(), claveCorrelacionAuditoriaLocal{}, generada))
-			}
-		}
+	refCorrelacion, err := vecports.ReferenciaCorrelacionAutorizacionV2DePeticion(r.Context())
+	if err != nil {
+		http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
+		return
 	}
+	canonica, err := refCorrelacion.ValorCanonico()
+	if err != nil {
+		http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
+		return
+	}
+	correlacion := "corr_" + strings.TrimPrefix(canonica, "correlacion_")
+	r = r.WithContext(context.WithValue(r.Context(), claveCorrelacionAuditoriaLocal{}, refCorrelacion))
 	actor := &actorAuditoriaLocal{}
 	if m.soporte != nil {
 		if capacidad, valida := m.soporte.capacidadValida(r.Context()); valida && capacidad.ruta == ruta {

@@ -1226,7 +1226,8 @@ func nuevasRutasAuditoriaConsultaDesarrollo(
 		poolCT.Close()
 		return fallo(nil)
 	}
-	registradorIntentos, configuracionIntentos, cerrarIntentos, err := nuevoRegistradorIntentosConsulta(sonda, cfg)
+	registradorIntentos, configuracionIntentos, cerrarIntentos, err := nuevoRegistradorIntentosConsulta(sonda, cfg, poolCT,
+		poolFuente, poolMotivos, alta.postgresql.gobierno, alta.postgresql.registroAutorizacion, alta.postgresql.bolsa)
 	if err != nil {
 		poolMotivos.Close()
 		poolFuente.Close()

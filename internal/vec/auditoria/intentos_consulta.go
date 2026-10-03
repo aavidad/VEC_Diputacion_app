@@ -29,7 +29,7 @@ type intentosConsulta struct {
 func NuevoServicioConIntentos(emisor EmisorMaterialV3, ct, bolsa FuenteAuditoria,
 	registrador vecports.RegistradorIntentosAuditoria, cfg ConfiguracionIntentosConsulta,
 ) (*Servicio, error) {
-	if dependenciaNula(registrador) || cfg.Plazo <= 0 || cfg.Plazo > 10*time.Second ||
+	if dependenciaNula(registrador) || cfg.Plazo <= 0 || cfg.Plazo > 30*time.Second ||
 		(cfg.Canal != "interna_corporativa" && cfg.Canal != "administracion_privilegiada") {
 		return nil, ErrNoDisponible
 	}

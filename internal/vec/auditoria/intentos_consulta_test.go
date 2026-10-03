@@ -423,7 +423,7 @@ func TestConstructorIntentosConsultaFallaCerrado(t *testing.T) {
 			case "recurso":
 				cfg.RecursoCTRef = "persona@example.invalid"
 			case "plazo":
-				cfg.Plazo = 11 * time.Second
+				cfg.Plazo = 31 * time.Second
 			case "motivo":
 				cfg.Motivo = domain.ReferenciaEntradaCatalogo{}
 			}

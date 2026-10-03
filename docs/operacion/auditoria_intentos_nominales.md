@@ -94,14 +94,23 @@ filas y transacción antes de devolver el control. El registro utiliza los
 recursos configurados por el servidor, el motivo del catálogo y la finalidad
 exacta; una entrada ajena se rechaza sin copiar texto libre al asiento.
 
-El proceso que activa `VEC_RRHH_AUDITORIA_ENABLED` necesita además:
+El proceso que activa `VEC_RRHH_AUDITORIA_ENABLED` reutiliza el archivo privado
+`auditoria-intentos.json` del proveedor común, dentro de su directorio de material
+de desarrollo, con este formato de ejemplo:
 
-| Variable | Valor requerido |
-| --- | --- |
-| `VEC_AUDITORIA_INTENTOS_DATABASE_URL` | Conexión privada del LOGIN dedicado, separado de los LOGIN de negocio, autorización, motivos y frontera. |
-| `VEC_AUDITORIA_INTENTOS_PROCESO` | Identificador del proceso que DBA registró en AD169. |
-| `VEC_AUDITORIA_INTENTOS_CANAL` | `interna_corporativa`, correspondiente a esta superficie RRHH. |
-| `VEC_AUDITORIA_INTENTOS_PLAZO` | Duración positiva, como `2s`, con máximo técnico de diez segundos. |
+```json
+{
+  "esquema": "vec.auditoria.intentos.servidor.v1",
+  "dsn_file": "auditoria-intentos.dsn",
+  "proceso": "vec-rrhh",
+  "canal": "interna_corporativa",
+  "limite_segundos": 2
+}
+```
+
+El fichero de conexión es privado, se mantiene fuera de Git y contiene el DSN
+del LOGIN dedicado. El proceso y canal deben coincidir con la configuración DBA.
+El plazo conserva el máximo técnico de treinta segundos del proveedor común.
 
 DBA debe haber configurado ese LOGIN, proceso y canal en la autoridad de
 AD169. La aplicación no concede membresías ni escribe esa configuración.
