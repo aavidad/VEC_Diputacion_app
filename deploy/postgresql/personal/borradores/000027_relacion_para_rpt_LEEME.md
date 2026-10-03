@@ -90,7 +90,14 @@ en el clon POST149: positivos y negativas SQL, preservación y servicio/adaptado
 Go originales con dos LOGIN/pools nominales pasaron. El recorrido Go comprobó
 positivo, replay denegado, pools cruzados, registrador sin permiso, sesión
 revocada y concurrencia con intento confirmado tras rollback. Se usó una sola
-compilación del binario de ensayo.
+compilación del binario de ensayo. Se conservaron cinco recibos y catorce
+intentos, incluidos tres intentos Go sin actor atribuido. Tras reiniciar
+PostgreSQL, las huellas de recibos, intentos, consumos y auditoría fueron
+idénticas; el recibo CRN11 previo permaneció intacto. El clon, el socket y
+los temporales propios fueron retirados tras conservar acta y huellas. La comprobación de
+persistencia fue una lectura de la historia conservada, sin recorrido HTTP.
+Acta del ensayo SHA256
+`2725042c21a747d9815ab310bc041a5ff284e8667e27b88abd9d49cbefaa4861`.
 
 La fixture conserva `catalogo_snapshot` sin inventar un catálogo admitido.
 Ambos LOGIN de prueba conservan CONNECT propio; retirar el grupo del
