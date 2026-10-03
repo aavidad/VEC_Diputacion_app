@@ -4,7 +4,7 @@ Este corte prepara la consulta nominal de un hecho propio y su ficha actual. Est
 
 ## Auditoría común: continuación del 3 de octubre
 
-Este apartado sustituye las instrucciones de auditoría e instalación de los cortes históricos de abajo. La lectura confirmada conserva el consumo V3 y su auditoría común en la misma transacción. Los errores y denegaciones se registran después del retorno del repositorio mediante `ports.RegistradorIntentosAuditoria` de #502, sin crear otra tabla de auditoría en Méritos.
+Este apartado sustituye las instrucciones de auditoría e instalación de los cortes históricos de abajo. La lectura confirmada conserva el consumo V3 y su auditoría común en la misma transacción. El recibo devuelve la referencia real de esa entrada común, sin generar una referencia de auditoría local. Los errores y denegaciones se registran después del retorno del repositorio mediante `ports.RegistradorIntentosAuditoria` de #502, sin crear otra tabla de auditoría en Méritos.
 
 La orden lleva identidad y perfil del contexto acreditado, acción, recurso opaco, finalidad, motivo de catálogo, correlación, proceso configurado y canal del vínculo autenticado. También se registra una emisión fallida antes de que exista concesión positiva. El registro usa un plazo independiente de la cancelación de la petición. Si falla o devuelve un acuse no ligado, el servicio responde 503 sin ficha ni recibo; una denegación registrada responde 403.
 

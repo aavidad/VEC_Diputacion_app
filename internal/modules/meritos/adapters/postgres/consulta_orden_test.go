@@ -80,7 +80,7 @@ func consultaOrdenPrueba(t *testing.T) (ports.OrdenConsultaPropia, ports.Resulta
 		Vigencia:    domain.Vigencia{Desde: "2026-06-01"}, Estado: domain.Declarado, Evidencias: []vec.ReferenciaDocumento{}}
 	consumo := hex.EncodeToString(bytes.Repeat([]byte{3}, 32))
 	recibo := &ports.ReciboConsultaPropia{Referencia: "recibo:consulta:prueba", HechoRef: hecho, VersionConsultada: 3,
-		DecisionRef: datos.DecisionRef, ConsumoHuellaSHA256: consumo, AuditoriaRef: "auditoria:consulta:prueba", CorrelacionRef: correlacion,
+		DecisionRef: datos.DecisionRef, ConsumoHuellaSHA256: consumo, AuditoriaRef: "aud_v3_consulta_prueba", CorrelacionRef: correlacion,
 		ConsultadaEn: instante.Add(2 * time.Second)}
 	resultado := ports.ResultadoConsultaPropia{Codigo: "obtenida", HechoActual: ficha, ReciboConsulta: recibo}
 	return orden, resultado

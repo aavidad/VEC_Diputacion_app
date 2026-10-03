@@ -127,7 +127,7 @@ func (r *repositorioConsultaPrueba) ConsultarActual(_ context.Context, o ports.O
 	out := ports.ResultadoConsultaPropia{Codigo: "obtenida", HechoActual: r.ficha,
 		ReciboConsulta: &ports.ReciboConsultaPropia{Referencia: "recibo:consulta:prueba", HechoRef: o.HechoRef,
 			DecisionRef: o.Autorizacion.Material.ResumenCapacidad().DecisionRef(), ConsumoHuellaSHA256: strings.Repeat("a", 64),
-			AuditoriaRef: "auditoria:consulta:prueba", CorrelacionRef: correlacion, ConsultadaEn: instante.Add(2 * time.Second)}}
+			AuditoriaRef: "aud_v3_consulta_prueba", CorrelacionRef: correlacion, ConsultadaEn: instante.Add(2 * time.Second)}}
 	if r.ficha == nil {
 		out.Codigo = "no_encontrada"
 	} else {
@@ -143,7 +143,8 @@ func (r *repositorioConsultaPrueba) ConsultarActual(_ context.Context, o ports.O
 func TestConsultaPropiaVersionActualYSelectorAtestado(t *testing.T) {
 	s, solicitud, _, r, audit := escenarioConsulta(t)
 	out, err := s.ConsultarActual(context.Background(), solicitud)
-	if err != nil || out.Codigo != "obtenida" || out.HechoActual.Version != 7 || out.ReciboConsulta.VersionConsultada != 7 {
+	if err != nil || out.Codigo != "obtenida" || out.HechoActual.Version != 7 || out.ReciboConsulta.VersionConsultada != 7 ||
+		out.ReciboConsulta.AuditoriaRef != "aud_v3_consulta_prueba" {
 		t.Fatalf("consulta actual: %#v, %v", out, err)
 	}
 	esperado := `{"esquema":"vec.meritos.hecho.consulta_propia.v1","hecho_ref":"hecho:prueba","persona_ref":"per_0123456789abcdefghijkl"}`
@@ -284,6 +285,13 @@ func TestConsultaPropiaDenegacionNominalSinDatos(t *testing.T) {
 func TestConsultaPropiaRechazoTrasEmisionNoDevuelveFichaNiRecibo(t *testing.T) {
 	s, solicitud, autoridad, repositorio, audit := escenarioConsulta(t)
 	repositorio.err = vec.ErrAutorizacionDenegada
+	retorno := false
+	repositorio.despues = func() { retorno = true }
+	audit.observar = func(_ context.Context, _ vecports.DatosOrdenIntentoAuditoria) {
+		if !retorno {
+			t.Fatal("la auditoría empezó antes de cerrar el repositorio")
+		}
+	}
 	out, err := s.ConsultarActual(context.Background(), solicitud)
 	if !errors.Is(err, vec.ErrAutorizacionDenegada) || out.Codigo != "" ||
 		out.HechoActual != nil || out.ReciboConsulta != nil ||

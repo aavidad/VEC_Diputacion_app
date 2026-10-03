@@ -75,7 +75,7 @@ BEGIN
   rev:=h->'revision';
   IF rev IS NOT NULL AND rev<>'null'::jsonb THEN ficha:=ficha||jsonb_build_object('revision',jsonb_build_object('referencia',rev->'referencia','motivo_ref',rev->'motivo_ref','fecha',rev->'fecha')); END IF;
  ELSE v:=0; END IF;
- ahora:=clock_timestamp(); recibo:='consulta_merito:'||gen_random_uuid()::text; audit:='auditoria_consulta:'||gen_random_uuid()::text;
+ ahora:=clock_timestamp(); recibo:='consulta_merito:'||gen_random_uuid()::text; audit:=material.auditoria_ref;
  INSERT INTO vec_meritos.consulta_propia_v1 VALUES(recibo,actor,s->>'hecho_ref',v,codigo,material.decision_ref,material.consumo_huella_sha256,audit,material.auditoria_ref,d->>'correlacion_ref',ahora);
  r:=jsonb_build_object('referencia',recibo,'hecho_ref',s->>'hecho_ref','version_consultada',v,'decision_ref',material.decision_ref,'consumo_huella_sha256',material.consumo_huella_sha256,'auditoria_ref',audit,'correlacion_ref',d->>'correlacion_ref','consultada_en',to_char(ahora AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'));
  RETURN jsonb_build_object('codigo',codigo,'hecho_actual',ficha,'recibo_consulta',r);
