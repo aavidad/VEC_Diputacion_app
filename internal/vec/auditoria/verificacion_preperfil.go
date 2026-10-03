@@ -12,6 +12,10 @@ import (
 
 const EsquemaVerificacionPreperfil = "vec.auditoria.verificacion.v3"
 
+// MotivoInstanteAD171Invalido conserva el diagnóstico cerrado que recibe la
+// CLI cuando el parseo o la representación canónica de la fecha no se admiten.
+const MotivoInstanteAD171Invalido = "instante_invalido"
+
 // RegistroEventoAdminV3 proyecta únicamente el material y las coordenadas
 // AD171. La huella de fuente no autentica la evidencia privada de origen.
 type RegistroEventoAdminV3 struct {
@@ -126,7 +130,7 @@ func cotejarRegistroAdminV3(r RegistroMixtoV2, secuencia uint64) (RegistroEvento
 	}
 	instante, err := time.Parse(time.RFC3339Nano, evento.RegistradaEn)
 	if err != nil || instante.Year() < 1 || instante.Year() > 9999 || instante.UTC().Format("2006-01-02T15:04:05.000000Z") != evento.RegistradaEn {
-		return evento, "instante_invalido", "registrada_en"
+		return evento, MotivoInstanteAD171Invalido, "registrada_en"
 	}
 	orden = append(orden, evento.Accion, evento.RecursoRef, evento.Resultado, evento.MotivoRef, evento.Proceso,
 		evento.Canal, evento.FinalidadRef, evento.CorrelacionRef, evento.FuenteRef, evento.FuenteSHA256)
