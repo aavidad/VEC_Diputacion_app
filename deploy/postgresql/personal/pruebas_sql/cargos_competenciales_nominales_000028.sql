@@ -19,9 +19,9 @@ BEGIN
   RAISE EXCEPTION 'Personal28: ACL del lector divergente'; END IF;
  f:=to_regprocedure('vec_personal.publicar_cargo_competencial_v1(bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
  IF f IS NULL OR NOT has_function_privilege('vec_personal_ejecutor',f,'EXECUTE')
-  OR EXISTS(SELECT 1 FROM pg_proc p,
-    LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
-    WHERE p.oid=f AND a.grantee=0) THEN
+  OR EXISTS(SELECT 1 FROM pg_proc proc_catalogo,
+    LATERAL aclexplode(coalesce(proc_catalogo.proacl,acldefault('f',proc_catalogo.proowner))) a
+    WHERE proc_catalogo.oid=f AND a.grantee=0) THEN
   RAISE EXCEPTION 'Personal28: fachada de publicación divergente'; END IF;
  FOREACH n IN ARRAY ARRAY['cargo_competencial_historia','cargo_competencial_actual',
   'enlace_cargo_competencial_historia','enlace_cargo_competencial_actual','recibo_publicacion_cargo_competencial'] LOOP
