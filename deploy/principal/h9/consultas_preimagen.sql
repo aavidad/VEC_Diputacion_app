@@ -19,12 +19,14 @@ FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname LIKE
 SELECT 'columnas|'||encode(sha256(convert_to(coalesce(jsonb_agg(jsonb_build_object('schema',n.nspname,'tabla',c.relname,'nombre',a.attname,'numero',a.attnum,'tipo',format_type(a.atttypid,a.atttypmod),'notnull',a.attnotnull,'default',pg_get_expr(d.adbin,d.adrelid),'acl',a.attacl) ORDER BY n.nspname,c.relname,a.attnum)::text,'[]'),'UTF8')),'hex')
 FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid JOIN pg_namespace n ON n.oid=c.relnamespace LEFT JOIN pg_attrdef d ON d.adrelid=c.oid AND d.adnum=a.attnum
 WHERE n.nspname LIKE 'vec_%' AND a.attnum>0 AND NOT a.attisdropped;
-SELECT 'restricciones|'||encode(sha256(convert_to(coalesce(jsonb_agg(jsonb_build_object('schema',n.nspname,'nombre',c.conname,'tabla',c.conrelid::regclass::text,'def',pg_get_constraintdef(c.oid)) ORDER BY n.nspname,c.conname,c.conrelid)::text,'[]'),'UTF8')),'hex')
+SELECT 'restricciones|'||encode(sha256(convert_to(coalesce(jsonb_agg(jsonb_build_object('schema',n.nspname,'catalogo',to_jsonb(c),'def',pg_get_constraintdef(c.oid)) ORDER BY n.nspname,c.conname,c.conrelid)::text,'[]'),'UTF8')),'hex')
 FROM pg_constraint c JOIN pg_namespace n ON n.oid=c.connamespace WHERE n.nspname LIKE 'vec_%';
 SELECT 'politicas|'||encode(sha256(convert_to(coalesce(jsonb_agg(to_jsonb(p) ORDER BY schemaname,tablename,policyname)::text,'[]'),'UTF8')),'hex')
 FROM pg_policies p WHERE schemaname LIKE 'vec_%';
-SELECT 'triggers|'||encode(sha256(convert_to(coalesce(jsonb_agg(jsonb_build_object('tabla',c.oid::regclass::text,'nombre',t.tgname,'enabled',t.tgenabled,'def',pg_get_triggerdef(t.oid)) ORDER BY c.oid::regclass::text,t.tgname)::text,'[]'),'UTF8')),'hex')
-FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname LIKE 'vec_%' AND NOT t.tgisinternal;
+SELECT 'triggers|'||encode(sha256(convert_to(coalesce(jsonb_agg(jsonb_build_object('tabla',c.oid::regclass::text,'nombre',t.tgname,'enabled',t.tgenabled,'interno',t.tgisinternal,'def',pg_get_triggerdef(t.oid)) ORDER BY c.oid::regclass::text,t.tgname)::text,'[]'),'UTF8')),'hex')
+FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname LIKE 'vec_%';
+SELECT 'reglas|'||encode(sha256(convert_to(coalesce(jsonb_agg(jsonb_build_object('tabla',c.oid::regclass::text,'nombre',r.rulename,'enabled',r.ev_enabled,'def',pg_get_ruledef(r.oid)) ORDER BY c.oid::regclass::text,r.rulename)::text,'[]'),'UTF8')),'hex')
+FROM pg_rewrite r JOIN pg_class c ON c.oid=r.ev_class JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname LIKE 'vec_%';
 SELECT 'tipos|'||encode(sha256(convert_to(coalesce(jsonb_agg(jsonb_build_object('schema',n.nspname,'tipo',t.typname,'owner',t.typowner,'acl',t.typacl,'kind',t.typtype,'categoria',t.typcategory,'base',t.typbasetype,'notnull',t.typnotnull,'default',t.typdefault,'relacion',t.typrelid,'elemento',t.typelem) ORDER BY n.nspname,t.typname)::text,'[]'),'UTF8')),'hex')
 FROM pg_type t JOIN pg_namespace n ON n.oid=t.typnamespace WHERE n.nspname LIKE 'vec_%';
 SELECT 'enums|'||encode(sha256(convert_to(coalesce(jsonb_agg(jsonb_build_object('tipo',e.enumtypid::regtype::text,'orden',e.enumsortorder,'valor',e.enumlabel) ORDER BY e.enumtypid::regtype::text,e.enumsortorder)::text,'[]'),'UTF8')),'hex')
