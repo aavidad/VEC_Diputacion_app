@@ -9,6 +9,9 @@
     "admin_perfil_fijo": "Este perfil del sistema solo se puede consultar. No admite cambios.",
     "admin_catalogo_acciones_no_vigente": "El catálogo no está vigente en la fecha indicada.",
     "admin_origen_perfil_no_coincide": "La versión o la huella de origen no coincide. Compruebe la versión del catálogo y la del perfil anterior.",
-    "admin_permiso_perfil_no_coincide": "Un permiso no coincide con su entrada vigente. Revise acción, recurso, finalidad, campos, garantía y obligaciones."
+    "admin_permiso_perfil_no_coincide": "Un permiso no coincide con su entrada vigente. Revise acción, recurso, finalidad, campos, garantía y obligaciones.",
+    "admin_gobierno_plan_preparado": "El plan está preparado. No se ha publicado ninguna versión ni se han cambiado permisos.",
+    "admin_gobierno_plan_limite": "Plan de archivos. La publicación o retirada exige identidad administrativa, fuente central, otra persona aprobadora y registro duradero.",
+    "admin_plan_gobierno_perfil_invalido": "No se puede preparar el plan. Revise la operación, la versión anterior, su control de vigencia y el motivo."
   }
 }

@@ -49,14 +49,49 @@ dimensiones de ámbito en las asignaciones. Publicar una nueva versión requiere
 la autorización central, los controles administrativos y el registro duradero
 de solo adición existentes; esta CLI no implementa ese efecto.
 
+Para preparar un plan de creación, nueva versión o retirada de una versión,
+añada `--preparar-plan` como quinto argumento:
+
+```sh
+go run ./cmd/vec-admin-comprobar-perfil \
+  web/static/textos/es/admin-comprobar-perfil.json \
+  /ruta/privada/catalogo.json /ruta/privada/intencion.json \
+  2026-10-03T12:00:00Z --preparar-plan
+```
+
+`intencion.json` usa `SolicitudPlanGobiernoPerfil`:
+
+- `operacion`: `crear`, `versionar` o `deshabilitar`.
+- `publicacion`: la propuesta anterior, solo para crear o versionar.
+- `deshabilitacion`: selección exacta de catálogo, versión del rol y control
+  de vigencia, solo para deshabilitar. Incluye sus referencias, huellas y la
+  revisión esperada del control.
+- `motivo`: referencia estructurada al catálogo de motivos.
+- `referencia_acto`: referencia administrativa opcional.
+
+La salida contiene `plan` y `plan_huella_sha256`. La definición nueva del plan
+incluye nombre y concesiones, pero excluye autor, fecha y estado de publicación
+declarados en el archivo. La autoridad central debe producir esos metadatos
+reales. Una retirada selecciona una versión exacta y exige su control vigente;
+no declara retiradas otras versiones del mismo rol. Los perfiles fijos siguen
+siendo de solo lectura. Preparar el plan conserva los roles y controles previos
+y no cambia ni migra asignaciones.
+
+El plan usa la preparación común de aplicación. `publicado` sigue siendo
+`false`. Sus huellas permiten cotejar el material; no acreditan identidad,
+permiso, procedencia ni un acto ejecutado. Publicar o retirar requiere la fuente
+central completa, dos personas administradoras distintas y una transacción que
+una autorización, CAS, historia, auditoría y recibo. El puerto nominal está
+preparado; este corte no incluye su proveedor ni una publicación real.
+
 Pruebas focales del comprobador y del contrato:
 
 ```sh
-go test -p 8 ./internal/vec/domain ./internal/vec/ports ./cmd/vec-admin-comprobar-perfil \
-  -run 'CatalogoAccionesAdministracion|ComprobacionPerfilAdministracion|CLI|LecturaJSON' -count=1
-go test -race -p 8 ./internal/vec/domain ./internal/vec/ports ./cmd/vec-admin-comprobar-perfil \
-  -run 'CatalogoAccionesAdministracion|ComprobacionPerfilAdministracion|CLI|LecturaJSON' -count=1
-go vet -p 8 ./internal/vec/domain ./internal/vec/ports ./cmd/vec-admin-comprobar-perfil
+go test -p 8 ./internal/vec/domain ./internal/vec/application ./internal/vec/ports ./cmd/vec-admin-comprobar-perfil \
+  -run 'CatalogoAccionesAdministracion|ComprobacionPerfilAdministracion|GobiernoPerfil|CLI|LecturaJSON' -count=1
+go test -race -p 8 ./internal/vec/domain ./internal/vec/application ./internal/vec/ports ./cmd/vec-admin-comprobar-perfil \
+  -run 'CatalogoAccionesAdministracion|ComprobacionPerfilAdministracion|GobiernoPerfil|CLI|LecturaJSON' -count=1
+go vet -p 8 ./internal/vec/domain ./internal/vec/application ./internal/vec/ports ./cmd/vec-admin-comprobar-perfil
 ```
 
 Estas pruebas no ejecutan SQL, servidores ni proveedores externos. En `ports`
