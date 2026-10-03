@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -46,9 +47,25 @@ func TestCLIPreparaMaterialConCatalogosReales(t *testing.T) {
 			if codigo := ejecutar(context.Background(), args, bytes.NewReader(material), &repetida, &errores); codigo != 0 || !bytes.Equal(repetida.Bytes(), salida.Bytes()) {
 				t.Fatal("la misma propuesta produce material distinto")
 			}
+			errores.Reset()
+			if codigo := ejecutar(context.Background(), args, bytes.NewReader(material), salidaFallida{}, &errores); codigo != 1 {
+				t.Fatal("fallo de escritura no comunicado")
+			}
+			catalogo, err := cargarCatalogo("../../web/static/textos", idioma)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var fallo map[string]string
+			if json.Unmarshal(errores.Bytes(), &fallo) != nil || fallo["mensaje"] != catalogo.T(idioma, "error_salida") {
+				t.Fatal("mensaje de escritura incorrecto")
+			}
 		})
 	}
 }
+
+type salidaFallida struct{}
+
+func (salidaFallida) Write([]byte) (int, error) { return 0, io.ErrClosedPipe }
 
 func TestCLIRechazaJSONAmbiguoSinSalida(t *testing.T) {
 	casos := []string{

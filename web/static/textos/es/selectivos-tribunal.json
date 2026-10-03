@@ -1,6 +1,7 @@
 {
   "limite": "Propuesta sintética ligada a una revisión local de preparación de bases. Quedan pendientes la comprobación de fuentes, la designación competente y la habilitación. No permite actuar como tribunal ni firmar actas.",
   "error_entrada": "No se ha podido preparar el tribunal. Revise las referencias, las fases y las propuestas del archivo de entrada.",
+  "error_salida": "No se ha podido escribir la propuesta de tribunal. Compruebe el destino de salida y vuelva a ejecutar la preparación.",
   "referencia_no_verificada": "Queda pendiente comprobar la fuente, existencia y vigencia de la referencia.",
   "referencia_ausente": "Aporte la referencia exacta con versión y huella.",
   "propuesta_no_verificada": "Queda pendiente comprobar la propuesta frente a las bases y el órgano competente.",

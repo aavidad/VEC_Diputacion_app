@@ -42,7 +42,7 @@ func cargarCatalogo(dir, idioma string) (*i18n.Catalog, error) {
 	if err != nil || len(raw) > 64*1024 || leerJSON(bytes.NewReader(raw), &mensajes) != nil {
 		return nil, errEntradaJSON
 	}
-	for _, clave := range []string{"limite", "error_entrada", "referencia_no_verificada", "referencia_ausente",
+	for _, clave := range []string{"limite", "error_entrada", "error_salida", "referencia_no_verificada", "referencia_ausente",
 		"propuesta_no_verificada", "material_ausente", "circuito_pendiente", "resolucion_pendiente",
 		"campo_bases_s2", "campo_flujo_proceso", "campo_reglas_baremacion", "campo_fases_propuestas", "campo_miembros",
 		"campo_acto_designacion", "campo_habilitacion_por_fase", "campo_actas_y_firma", "campo_incidencias",
@@ -108,7 +108,11 @@ func ejecutar(ctx context.Context, args []string, entrada io.Reader, salida, err
 
 func informarError(w io.Writer, c *i18n.Catalog, idioma, clave string) int {
 	if w != nil {
-		mensaje, _ := c.Message(idioma, "error_entrada")
+		claveMensaje := "error_entrada"
+		if clave == "seleccion.tribunal.salida_no_disponible" {
+			claveMensaje = "error_salida"
+		}
+		mensaje, _ := c.Message(idioma, claveMensaje)
 		if err := json.NewEncoder(w).Encode(struct {
 			Clave   string `json:"error_clave"`
 			Mensaje string `json:"mensaje,omitempty"`
