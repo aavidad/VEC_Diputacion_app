@@ -32,7 +32,7 @@ type ConfiguracionAuditoriaConsulta struct {
 func NuevoServicioConsultaPropia(a ports.Autorizador, r ports.RepositorioConsultaPropia, audit ConfiguracionAuditoriaConsulta, reloj vecports.Reloj) (*ServicioConsultaPropia, error) {
 	if nulo(a) || nulo(r) || nulo(audit.Registrador) || audit.Proceso == "" || audit.Plazo <= 0 || audit.Plazo > 30*time.Second || nulo(audit.ValidadorMotivos) ||
 		!vec.ReferenciaMotivoAutorizacionV2Valida(audit.MotivoDenegacion) || !vec.ReferenciaMotivoAutorizacionV2Valida(audit.MotivoError) ||
-		audit.MotivoDenegacion == audit.MotivoError || audit.RecursoConsultaRef == "" || nulo(reloj) {
+		audit.MotivoDenegacion == audit.MotivoError || audit.MotivoDenegacion.CatalogoID != audit.MotivoError.CatalogoID || audit.RecursoConsultaRef == "" || nulo(reloj) {
 		return nil, ports.ErrConsultaNoDisponible
 	}
 	return &ServicioConsultaPropia{a, r, audit, reloj}, nil

@@ -437,9 +437,13 @@ func consultaComponerReal(ctx context.Context, c consultaIntegracionConfig) (htt
 	if err != nil || auditoria.PreflightIntentoAuditoria(ctx) != nil {
 		return fallo("consulta_integracion.auditoria")
 	}
+	auditReasons, err := authpg.NuevoValidadorReferenciaMotivoPostgreSQLV2(mp, c.Auditoria.MotivoDenegacion.CatalogoID)
+	if err != nil {
+		return fallo("consulta_integracion.motivos_auditoria")
+	}
 	service, err := merapp.NuevoServicioConsultaPropia(common, repository,
 		merapp.ConfiguracionAuditoriaConsulta{Registrador: auditoria, Proceso: c.Auditoria.Proceso, Plazo: plazoAuditoria,
-			ValidadorMotivos: reasons, MotivoDenegacion: c.Auditoria.MotivoDenegacion, MotivoError: c.Auditoria.MotivoError, RecursoConsultaRef: c.Auditoria.RecursoConsultaRef}, consultaRelojReal{})
+			ValidadorMotivos: auditReasons, MotivoDenegacion: c.Auditoria.MotivoDenegacion, MotivoError: c.Auditoria.MotivoError, RecursoConsultaRef: c.Auditoria.RecursoConsultaRef}, consultaRelojReal{})
 	if err != nil {
 		return fallo("consulta_integracion.servicio")
 	}
