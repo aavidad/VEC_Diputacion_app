@@ -40,173 +40,192 @@ type esquemaV2 struct {
 	expresion    *regexp.Regexp
 }
 
-var esquemaPublicadoV2 = cargarEsquemaV2()
+var esquemaPublicadoV2, errEsquemaPublicadoV2 = cargarEsquemaV2()
 
-func cargarEsquemaV2() *esquemaV2 {
+func cargarEsquemaV2() (*esquemaV2, error) {
 	h := sha256.Sum256(esquemaV2JSON)
 	if hex.EncodeToString(h[:]) != EsquemaDictamenV2SHA256 {
-		return nil
+		return nil, errEstructuraRespuesta
 	}
 	var s esquemaV2
-	if json.Unmarshal(esquemaV2JSON, &s) != nil {
-		return nil
+	if err := json.Unmarshal(esquemaV2JSON, &s); err != nil {
+		return nil, err
 	}
-	var preparar func(*esquemaV2) bool
-	preparar = func(n *esquemaV2) bool {
+	var preparar func(*esquemaV2) error
+	preparar = func(n *esquemaV2) error {
 		if n == nil {
-			return true
+			return nil
 		}
 		if n.Patron != "" {
 			var err error
 			n.expresion, err = regexp.Compile(n.Patron)
 			if err != nil {
-				return false
+				return err
 			}
 		}
 		for _, p := range n.Propiedades {
-			if !preparar(p) {
-				return false
+			if err := preparar(p); err != nil {
+				return err
 			}
 		}
 		for _, p := range n.Definiciones {
-			if !preparar(p) {
-				return false
+			if err := preparar(p); err != nil {
+				return err
 			}
 		}
 		return preparar(n.Elementos)
 	}
-	if !preparar(&s) {
-		return nil
+	if err := preparar(&s); err != nil {
+		return nil, err
 	}
-	return &s
+	return &s, nil
 }
 
-func valorJSON(raw []byte) (any, bool) {
+func valorJSON(raw []byte) (any, error) {
 	d := json.NewDecoder(bytes.NewReader(raw))
 	d.UseNumber()
 	var v any
-	if d.Decode(&v) != nil {
-		return nil, false
+	if err := d.Decode(&v); err != nil {
+		return nil, err
 	}
-	return v, true
+	return v, nil
 }
 
-func coincideJSON(v any, raw json.RawMessage) bool {
-	esperado, ok := valorJSON(raw)
-	if !ok {
-		return false
+func coincideJSON(v any, raw json.RawMessage) (bool, error) {
+	esperado, err := valorJSON(raw)
+	if err != nil {
+		return false, err
 	}
 	// Las constantes y enumeraciones del esquema son escalares.
 	switch x := esperado.(type) {
 	case nil:
-		return v == nil
+		return v == nil, nil
 	case string:
 		actual, ok := v.(string)
-		return ok && x == actual
+		return ok && x == actual, nil
 	case json.Number:
 		actual, ok := v.(json.Number)
-		a, ea := actual.Int64()
-		b, eb := x.Int64()
-		return ok && ea == nil && eb == nil && a == b
+		if !ok {
+			return false, nil
+		}
+		a, err := actual.Int64()
+		if err != nil {
+			return false, err
+		}
+		b, err := x.Int64()
+		if err != nil {
+			return false, err
+		}
+		return a == b, nil
 	default:
-		return false
+		return false, nil
 	}
 }
 
-func cumpleEsquemaV2(v any, n *esquemaV2, profundidad int) bool {
+func cumpleEsquemaV2(v any, n *esquemaV2, profundidad int) error {
 	if n == nil || esquemaPublicadoV2 == nil || profundidad > maximaProfundidad {
-		return false
+		return errEstructuraRespuesta
 	}
 	if n.Referencia != "" {
 		const prefijo = "#/$defs/"
 		if !strings.HasPrefix(n.Referencia, prefijo) {
-			return false
+			return errEstructuraRespuesta
 		}
 		return cumpleEsquemaV2(v, esquemaPublicadoV2.Definiciones[strings.TrimPrefix(n.Referencia, prefijo)], profundidad+1)
 	}
-	if len(n.Constante) != 0 && !coincideJSON(v, n.Constante) {
-		return false
+	if len(n.Constante) != 0 {
+		coincide, err := coincideJSON(v, n.Constante)
+		if err != nil {
+			return err
+		}
+		if !coincide {
+			return errEstructuraRespuesta
+		}
 	}
 	if len(n.Enum) != 0 {
 		coincide := false
 		for _, e := range n.Enum {
-			if coincideJSON(v, e) {
+			igual, err := coincideJSON(v, e)
+			if err != nil {
+				return err
+			}
+			if igual {
 				coincide = true
 				break
 			}
 		}
 		if !coincide {
-			return false
+			return errEstructuraRespuesta
 		}
 	}
 	switch n.Tipo {
 	case "object":
 		objeto, ok := v.(map[string]any)
 		if !ok {
-			return false
+			return errEstructuraRespuesta
 		}
 		for _, requerida := range n.Requeridas {
 			if _, ok := objeto[requerida]; !ok {
-				return false
+				return errEstructuraRespuesta
 			}
 		}
 		for clave, valor := range objeto {
 			propiedad, existe := n.Propiedades[clave]
 			if !existe {
 				if n.Adicionales != nil && !*n.Adicionales {
-					return false
+					return errEstructuraRespuesta
 				}
 				continue
 			}
-			if !cumpleEsquemaV2(valor, propiedad, profundidad+1) {
-				return false
+			if err := cumpleEsquemaV2(valor, propiedad, profundidad+1); err != nil {
+				return err
 			}
 		}
 	case "array":
 		lista, ok := v.([]any)
 		if !ok {
-			return false
+			return errEstructuraRespuesta
 		}
 		if n.MinElementos != nil && len(lista) < *n.MinElementos || n.MaxElementos != nil && len(lista) > *n.MaxElementos {
-			return false
+			return errEstructuraRespuesta
 		}
 		for _, e := range lista {
-			if !cumpleEsquemaV2(e, n.Elementos, profundidad+1) {
-				return false
+			if err := cumpleEsquemaV2(e, n.Elementos, profundidad+1); err != nil {
+				return err
 			}
 		}
 	case "string":
 		s, ok := v.(string)
 		if !ok {
-			return false
+			return errEstructuraRespuesta
 		}
 		if n.MaxLongitud != nil && utf8.RuneCountInString(s) > *n.MaxLongitud || n.expresion != nil && !n.expresion.MatchString(s) {
-			return false
+			return errEstructuraRespuesta
 		}
 		if n.Formato == "date-time" {
 			if _, err := time.Parse(time.RFC3339Nano, s); err != nil {
-				return false
+				return err
 			}
 		}
 	case "integer":
 		numero, ok := v.(json.Number)
 		if !ok {
-			return false
+			return errEstructuraRespuesta
 		}
 		i, err := numero.Int64()
 		if err != nil {
-			return false
+			return err
 		}
 		if n.Minimo != nil && i < *n.Minimo || n.Maximo != nil && i > *n.Maximo {
-			return false
+			return errEstructuraRespuesta
 		}
 	case "boolean":
 		if _, ok := v.(bool); !ok {
-			return false
+			return errEstructuraRespuesta
 		}
 	case "": // const y enum (incluido null) ya comprobados.
 	default:
-		return false
+		return errEstructuraRespuesta
 	}
-	return true
+	return nil
 }

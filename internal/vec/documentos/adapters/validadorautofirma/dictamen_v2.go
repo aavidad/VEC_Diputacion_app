@@ -72,34 +72,43 @@ type dictamenV2 struct {
 
 // decodificarRespuestaV2 ignora la envoltura heredada y valida el dictamen
 // contra el esquema publicado. Tambien exige claves exactas y no duplicadas.
-func decodificarRespuestaV2(contenido []byte) (*dictamenV2, bool) {
-	if len(contenido) > maximaRespuesta || !utf8.Valid(contenido) || !sinClavesDuplicadas(contenido) {
-		return nil, false
+func decodificarRespuestaV2(contenido []byte) (*dictamenV2, error) {
+	if len(contenido) > maximaRespuesta || !utf8.Valid(contenido) {
+		return nil, errEstructuraRespuesta
 	}
-	valor, ok := valorJSON(contenido)
-	if !ok {
-		return nil, false
+	if err := validarJSONUnico(contenido); err != nil {
+		return nil, err
+	}
+	valor, err := valorJSON(contenido)
+	if err != nil {
+		return nil, err
 	}
 	objeto, ok := valor.(map[string]any)
 	if !ok {
-		return nil, false
+		return nil, errEstructuraRespuesta
 	}
 	dictamen, existe := objeto["dictamen"]
 	if !existe || dictamen == nil {
-		return nil, false
+		return nil, errEstructuraRespuesta
 	}
-	if esquemaPublicadoV2 == nil || !cumpleEsquemaV2(dictamen, esquemaPublicadoV2.Definiciones["dictamen"], 0) {
-		return nil, false
+	if errEsquemaPublicadoV2 != nil {
+		return nil, errEsquemaPublicadoV2
+	}
+	if esquemaPublicadoV2 == nil {
+		return nil, errEstructuraRespuesta
+	}
+	if err := cumpleEsquemaV2(dictamen, esquemaPublicadoV2.Definiciones["dictamen"], 0); err != nil {
+		return nil, err
 	}
 	var envoltura map[string]json.RawMessage
-	if json.Unmarshal(contenido, &envoltura) != nil {
-		return nil, false
+	if err := json.Unmarshal(contenido, &envoltura); err != nil {
+		return nil, err
 	}
 	var d dictamenV2
-	if json.Unmarshal(envoltura["dictamen"], &d) != nil {
-		return nil, false
+	if err := json.Unmarshal(envoltura["dictamen"], &d); err != nil {
+		return nil, err
 	}
-	return &d, true
+	return &d, nil
 }
 
 // VerificardictamenV2 permite consultar todas las revisiones sin reducirlas a

@@ -22,6 +22,22 @@ func sinClavesDuplicadas(contenido []byte) bool {
 	return err == io.EOF
 }
 
+// validarJSONUnico conserva las causas de parseo hasta la frontera del cliente.
+func validarJSONUnico(contenido []byte) error {
+	lector := json.NewDecoder(bytes.NewReader(contenido))
+	if err := recorrerValor(lector, 0); err != nil {
+		return err
+	}
+	_, err := lector.Token()
+	if err == io.EOF {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("%w: %w", errEstructuraRespuesta, err)
+	}
+	return errEstructuraRespuesta
+}
+
 // errEstructuraRespuesta es la causa cerrada de una respuesta cuyo recorrido
 // por tokens no es admisible; cuando procede de encoding/json la conserva.
 var errEstructuraRespuesta = errors.New("validadorautofirma: estructura de respuesta no admisible")

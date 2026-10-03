@@ -4,12 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"vec-diputacion-granada/internal/vec/documentos/ports"
 )
@@ -189,7 +192,7 @@ func TestV2RechazaDuplicadosTamanosYProfundidad(t *testing.T) {
 		`{"ignored":` + strings.Repeat("[", maximaProfundidad+1) + strings.Repeat("]", maximaProfundidad+1) + `}`,
 		`{"ignored":"` + strings.Repeat("x", maximaRespuesta) + `"}`,
 	} {
-		if _, ok := decodificarRespuestaV2([]byte(cuerpo)); ok {
+		if _, err := decodificarRespuestaV2([]byte(cuerpo)); err == nil {
 			t.Fatal("JSON ambiguo o excesivo aceptado")
 		}
 	}
@@ -218,5 +221,33 @@ func TestV2NoTransportaDatosDescriptivosDelCertificado(t *testing.T) {
 		if strings.Contains(string(b), fragmento) {
 			t.Fatalf("dato descriptivo propagado: %s", fragmento)
 		}
+	}
+}
+
+func TestV2ConservaErrorDeParseoHastaLaFrontera(t *testing.T) {
+	var fecha *time.ParseError
+	if err := cumpleEsquemaV2("fecha-no-admisible", &esquemaV2{Tipo: "string", Formato: "date-time"}, 0); !errors.As(err, &fecha) {
+		t.Fatalf("causa de fecha no conservada: %T", err)
+	}
+	var numero *strconv.NumError
+	if err := cumpleEsquemaV2(json.Number("1.5"), &esquemaV2{Tipo: "integer"}, 0); !errors.As(err, &numero) {
+		t.Fatalf("causa de entero no conservada: %T", err)
+	}
+	raw, s := corpusV2(t, "01_una_firma")
+	var d map[string]any
+	if err := json.Unmarshal(raw, &d); err != nil {
+		t.Fatal(err)
+	}
+	d["comprobadoEn"] = "fecha-no-admisible"
+	raw, err := json.Marshal(d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = decodificarRespuestaV2(envolturaV2(raw)); !errors.As(err, &fecha) {
+		t.Fatalf("causa perdida en el decodificador: %T", err)
+	}
+	r, err := clienteCorpusV2(t, envolturaV2(raw)).VerificarFirmas(context.Background(), s)
+	if err != nil || r.Estado != ports.EstadoVerificacionIndeterminada || r.Motivo != ports.MotivoRespuestaNoInterpretable || len(r.Firmas) != 0 {
+		t.Fatalf("causa sin traduccion nominal: estado=%s motivo=%s error=%v", r.Estado, r.Motivo, err)
 	}
 }

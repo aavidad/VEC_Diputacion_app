@@ -260,8 +260,8 @@ func (c *Cliente) llamar(ctx context.Context, peticion peticionAutofirma) (*dict
 	if err != nil {
 		return cero, ports.MotivoValidadorNoDisponible
 	}
-	dictamen, ok := decodificarRespuestaV2(contenido)
-	if !ok {
+	dictamen, err := decodificarRespuestaV2(contenido)
+	if err != nil {
 		return cero, ports.MotivoRespuestaNoInterpretable
 	}
 	return dictamen, ""
