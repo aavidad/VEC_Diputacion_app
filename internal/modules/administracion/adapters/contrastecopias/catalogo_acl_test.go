@@ -66,6 +66,33 @@ func TestContrasteACLPG18(t *testing.T) {
 			}
 		})
 	}
+	t.Run("propietario_lenguaje_acl_vacia", func(t *testing.T) {
+		sqlEnsayo(t, x, `REVOKE ALL ON LANGUAGE plpgsql FROM PUBLIC; REVOKE ALL ON LANGUAGE plpgsql FROM postgres;`)
+		tx := &transporteEjecutor{exec: x, base: "postgres", maxBytes: 4096, timeout: 1000}
+		var empty bool
+		if err := tx.QueryRow(context.Background(), `SELECT cardinality(lanacl)=0 FROM pg_language WHERE lanname='plpgsql'`).Scan(&empty); err != nil || !empty {
+			t.Fatal("la regresión necesita una ACL de lenguaje realmente vacía")
+		}
+		before := capture()
+		sqlEnsayo(t, x, `ALTER LANGUAGE plpgsql OWNER TO cs06_acl_sintetico`)
+		result := domain.Comparar(before, capture())
+		if result.Estado != domain.Diferente {
+			t.Fatalf("propietario con ACL vacía omitido: %s", result.Estado)
+		}
+		found := false
+		for _, reason := range result.Razones {
+			if reason.Clase == "acl" && reason.Codigo == "contenido_diferente" {
+				found = true
+			}
+		}
+		if !found {
+			t.Fatal("huella ACL no detecta el cambio de propietario del lenguaje")
+		}
+		sqlEnsayo(t, x, `ALTER LANGUAGE plpgsql OWNER TO postgres`)
+		if domain.Comparar(before, capture()).Estado != domain.Igual {
+			t.Fatal("reversión del propietario no recupera la evidencia ACL")
+		}
+	})
 }
 
 type exclusionACLEnsayo struct{ dockerEnsayo }

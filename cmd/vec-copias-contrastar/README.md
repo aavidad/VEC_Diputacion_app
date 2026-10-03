@@ -133,6 +133,8 @@ con otorgante, destinatario, privilegio y opción de concesión. Las regresiones
 `TestContrasteACLPG18/permiso_parametro` y `permiso_lenguaje` comprueban que
 otorgar SET sobre un parámetro o retirar USAGE de un lenguaje produce
 `diferente`, y que restablecer esos permisos recupera `igual`.
+El propietario de cada lenguaje se sella también cuando su ACL está vacía.
+La regresión `propietario_lenguaje_acl_vacia` comprueba ese cambio y su reversión.
 
 Para repetir las pruebas que no abren PostgreSQL:
 
@@ -153,7 +155,7 @@ bajo la carpeta de estado y `--rm`; nunca se reutiliza una base conservada.
 Esta retoma conserva la evidencia del ensayo histórico; las regresiones ACL
 siguientes se ejecutan por separado en un recurso desechable nuevo.
 
-Las dos regresiones ACL usan `VEC_CS06_CONTENEDOR_ACL_ENSAYO`. El responsable
+Las regresiones ACL usan `VEC_CS06_CONTENEDOR_ACL_ENSAYO`. El responsable
 prepara un contenedor PostgreSQL 18.4 propio, sin red, etiquetado
 `vec.cs06.owner=contraste-acl`, con `--memory 2g`, datos sintéticos en disco
 y `--rm`. Se ejecutan con `go test -p 8 -run '^TestContrasteACLPG18$' -v`

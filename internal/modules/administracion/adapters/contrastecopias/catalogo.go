@@ -45,6 +45,7 @@ const aclSQL = `
  UNION ALL SELECT jsonb_build_array('type',n.nspname,t.typname,pg_get_userbyid(t.typowner),pg_get_userbyid(a.grantor),CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END,a.privilege_type,a.is_grantable)::text FROM pg_type t JOIN pg_namespace n ON n.oid=t.typnamespace CROSS JOIN LATERAL aclexplode(coalesce(t.typacl,acldefault('T',t.typowner))) a WHERE ` + aclNamespace + `
  UNION ALL SELECT jsonb_build_array('tablespace',s.spcname,pg_get_userbyid(s.spcowner),pg_get_userbyid(a.grantor),CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END,a.privilege_type,a.is_grantable)::text FROM pg_tablespace s CROSS JOIN LATERAL aclexplode(coalesce(s.spcacl,acldefault('t',s.spcowner))) a
  UNION ALL SELECT jsonb_build_array('parameter',p.parname,pg_get_userbyid(a.grantor),CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END,a.privilege_type,a.is_grantable)::text FROM pg_parameter_acl p CROSS JOIN LATERAL aclexplode(p.paracl) a
+ UNION ALL SELECT jsonb_build_array('language_owner',l.lanname,pg_get_userbyid(l.lanowner))::text FROM pg_language l
  UNION ALL SELECT jsonb_build_array('language',l.lanname,pg_get_userbyid(l.lanowner),pg_get_userbyid(a.grantor),CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END,a.privilege_type,a.is_grantable)::text FROM pg_language l CROSS JOIN LATERAL aclexplode(coalesce(l.lanacl,acldefault('l',l.lanowner))) a
 `
 
