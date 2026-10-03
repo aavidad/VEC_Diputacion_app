@@ -1,7 +1,6 @@
 \set ON_ERROR_STOP on
 -- Ejecutar solo en el clon desechable con AD171 instalada. Todo hace ROLLBACK.
 BEGIN ISOLATION LEVEL SERIALIZABLE;
-SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
 SET LOCAL TIME ZONE 'UTC';
 SET LOCAL search_path=pg_catalog;
 SET LOCAL lock_timeout='2s';
@@ -9,6 +8,8 @@ SET LOCAL statement_timeout='15s';
 CREATE TEMP TABLE ad171_preimagen ON COMMIT DROP AS
  SELECT auditoria_ref,huella_sha256,anterior_sha256,registrada_en
  FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3;
+GRANT SELECT ON TABLE pg_temp.ad171_preimagen TO vec_autorizacion_atestada_v3_propietario;
+SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
 DO $prueba$
 DECLARE e jsonb;x record;y record;v_secuencia numeric;f oid;
 BEGIN
