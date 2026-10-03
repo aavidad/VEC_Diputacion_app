@@ -17,6 +17,7 @@ Cambie `-idioma es` por `-idioma en` para obtener los avisos en inglés.
 El resultado sale por stdout y los errores por stderr, en JSON. Un resultado
 válido devuelve código 0 y estado `pendiente`. Si la entrada es inválida,
 devuelve código 1 sin material por stdout. No escribe archivos ni llama a servicios.
+Si no puede escribir el diagnóstico por stderr, devuelve código 2.
 
 ## Datos de entrada
 
