@@ -51,7 +51,7 @@ func (r *registradorCapacidadesPrueba) AppendIntentoAuditoria(ctx context.Contex
 }
 
 func TestCapacidadesIntentosNominalesTrasCerrarOperacion(t *testing.T) {
-	for _, caso := range []string{"sistemas", "asignacion_ausente", "rol_ausente", "actor_caducado", "fuente_error", "catalogo_error", "instantanea_invalida", "emisor_error", "emisor_denegado", "inicio_error", "sql_denegado", "sql_error", "acuse_lectura_invalido", "commit_incierto", "cancelada", "cancelada_tras_consulta"} {
+	for _, caso := range []string{"sistemas", "asignacion_ausente", "rol_ausente", "actor_caducado", "fuente_error", "catalogo_error", "instantanea_invalida", "emisor_error", "emisor_denegado", "inicio_error", "sql_denegado", "sql_error", "acuse_lectura_invalido", "commit_incierto", "commit_denegado", "cancelada", "cancelada_tras_consulta"} {
 		t.Run(caso, func(t *testing.T) {
 			f, ctx, s, pool, emisor, salida := capacidadesPrueba(t)
 			b, _ := json.Marshal(salida)
@@ -94,6 +94,8 @@ func TestCapacidadesIntentosNominalesTrasCerrarOperacion(t *testing.T) {
 				pool.tx.fila = filaFalsa{dato: []byte(`{}`)}
 			case "commit_incierto":
 				pool.tx.falloCommit = errors.New("dato privado")
+			case "commit_denegado":
+				pool.tx.falloCommit = &pgconn.PgError{Code: "42501", Message: "dato privado"}
 			case "cancelada", "cancelada_tras_consulta":
 				var cancelar context.CancelFunc
 				ctx, cancelar = context.WithCancel(ctx)

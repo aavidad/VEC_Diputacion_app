@@ -102,6 +102,7 @@ func (f *FuenteCapacidades) consultarCapacidades(ctx context.Context, actor doma
 	efecto := Efecto{Accion: "administracion.perfiles.consultar", Audiencia: "vec_autorizacion.administracion_perfiles.lectura.capacidades.v1",
 		Referencia: actor.PerfilActivoRef, Material: material, CorrelacionAccesoRef: correlacion}
 	var salida capacidadesJSON
+	respuestaValidada := false
 	err = ejecutarConsumoADMIN(ctx, f.pool, f.emisor, f.reloj, actor, evidencia, instantanea, efecto, capacidadesLecturaSQL, func(b []byte) error {
 		if decodificar(b, &salida) != nil || salida.Version != "1" || salida.ActorPersonaRef != actor.PersonaRef ||
 			salida.PerfilActivoRef != actor.PerfilActivoRef || salida.AsignacionPerfilRef != instantanea.AsignacionPerfil.Referencia() ||
@@ -110,9 +111,16 @@ func (f *FuenteCapacidades) consultarCapacidades(ctx context.Context, actor doma
 			salida.Acciones == nil || len(salida.Acciones) != 0 {
 			return ports.ErrAutoridadAdministracionPerfilesNoDisponible
 		}
+		respuestaValidada = true
 		return nil
 	})
 	if err != nil {
+		// Después de validar la respuesta solo quedan cancelación y COMMIT.
+		// Un fallo de COMMIT nunca acredita una denegación positiva, aunque
+		// el traductor común reconozca su código como rechazo de acceso.
+		if respuestaValidada && ctx.Err() == nil {
+			return api.Capacidades{}, ports.ErrAutoridadAdministracionPerfilesNoDisponible
+		}
 		return api.Capacidades{}, traducirErrorLectura(ctx, err)
 	}
 	return salida.Capacidades, nil
