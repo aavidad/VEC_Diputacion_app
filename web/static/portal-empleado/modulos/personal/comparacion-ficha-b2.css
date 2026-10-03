@@ -21,6 +21,7 @@
 .personal-comparacion-corte h4 { margin: 0 0 var(--portal-espacio-2); }
 .personal-comparacion dl { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: var(--portal-espacio-1) var(--portal-espacio-2); margin: var(--portal-espacio-2) 0; font-size: .85rem; }
 .personal-comparacion dt { color: var(--portal-muted); }
+.personal-comparacion details { white-space: normal; }
 .personal-comparacion dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
 .personal-comparacion summary { min-height: 32px; cursor: pointer; color: var(--portal-azul-700); overflow-wrap: anywhere; }
 .personal-comparacion .personal-comparacion-tabla { max-height: 420px; }
