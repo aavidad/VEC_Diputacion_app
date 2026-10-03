@@ -9,7 +9,7 @@ const nombre = (v) => typeof v === "string" && v.trim().length > 0 && v.length <
 const motivoValido = (m) => ref(m?.catalogo_id) && Number.isSafeInteger(m.catalogo_version)
   && m.catalogo_version > 0 && SHA.test(m.catalogo_huella_sha256) && ref(m.entrada_clave) && nombre(m.etiqueta);
 export function revisionPropuestaCompleta(p) {
-  return Boolean(nombre(p?.proponente_nombre) && Array.isArray(p.ambitos) && p.ambitos.length > 0 && p.ambitos.length <= 32
+  return Boolean(nombre(p?.proponente_nombre) && nombre(p.proponente_perfil_nombre) && Array.isArray(p.ambitos) && p.ambitos.length > 0 && p.ambitos.length <= 32
     && p.ambitos.every((a) => ref(a?.dimension) && ref(a.referencia) && nombre(a.nombre))
     && fecha(p.vigente_desde) && fecha(p.vigente_hasta) && !p.vigente_desde.startsWith("0001-")
     && Date.parse(p.vigente_hasta) > Date.parse(p.vigente_desde) && motivoValido(p.motivo));

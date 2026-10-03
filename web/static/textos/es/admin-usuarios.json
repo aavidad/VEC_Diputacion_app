@@ -50,11 +50,11 @@
     "tabla": "Perfiles del catálogo autorizado",
     "nombre": "Nombre del perfil",
     "circuito": "Revisión del cambio",
-    "asignacion": "Asignación",
     "ordinario": "Confirmación administrativa",
     "doble": "Aprobación de otra persona",
-    "fijo": "Fijo · solo lectura",
-    "gestionado": "Gestionable según autorización"
+    "fijo": "Definición fija",
+    "gestionado": "Definición configurable",
+    "definicion": "Definición"
   },
   "detalle": {
     "perfiles": "Perfiles de la persona",
@@ -72,7 +72,7 @@
     "motivo": "Motivo (obligatorio para cada perfil seleccionado)",
     "elegir_motivo": "Elija un motivo",
     "revisar": "Revisar cambios",
-    "sin_actos": "No hay cambios disponibles de este tipo. Los perfiles fijos son de solo lectura.",
+    "sin_actos": "No hay cambios disponibles de este tipo para esta persona.",
     "historia": "Ver historial de asignaciones",
     "sin_historia": "No hay actuaciones en el historial autorizado.",
     "historia_pendiente": "La consulta no incluye los nombres ni el motivo de esta actuación.",

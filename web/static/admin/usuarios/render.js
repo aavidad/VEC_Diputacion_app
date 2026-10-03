@@ -61,7 +61,7 @@ export function crearRender({ root, id, textos }) {
   }
   function catalogo(roles) {
     el("panel-perfiles").innerHTML = `<div class="cabecera-panel"><div><h3>${tx("catalogo.titulo")}</h3><p>${tx("catalogo.descripcion")}</p></div><span class="estado-chip neutro">${tx("catalogo.lectura")}</span></div>
-      <div class="tabla-contenedor" tabindex="0" aria-label="${tx("catalogo.tabla")}"><table class="tabla-datos"><caption>${tx("catalogo.tabla")}</caption><thead><tr><th scope="col">${tx("catalogo.nombre")}</th><th scope="col">${tx("catalogo.circuito")}</th><th scope="col">${tx("catalogo.asignacion")}</th></tr></thead><tbody>
+      <div class="tabla-contenedor" tabindex="0" aria-label="${tx("catalogo.tabla")}"><table class="tabla-datos"><caption>${tx("catalogo.tabla")}</caption><thead><tr><th scope="col">${tx("catalogo.nombre")}</th><th scope="col">${tx("catalogo.circuito")}</th><th scope="col">${tx("catalogo.definicion")}</th></tr></thead><tbody>
       ${roles.map((r) => `<tr><th scope="row">${escapar(r.etiqueta)}</th><td>${tx(r.clase === "ordinario" ? "catalogo.ordinario" : "catalogo.doble")}</td><td>${tx(r.fijo ? "catalogo.fijo" : "catalogo.gestionado")}</td></tr>`).join("")}</tbody></table></div>`;
   }
   function ficha(datos, roles, disponibles) {

@@ -6,7 +6,7 @@ import { validarPropuestas, puedeCerrarPropuesta, prepararCierre, validarCierre 
 import { crearClienteLecturasUsuarios, crearClienteActosUsuarios } from "./lecturas-http.js";
 const f = JSON.parse(await readFile(new URL("./fixture.test.json", import.meta.url), "utf8"));
 const p = { propuesta_ref: `propuesta_admin:${"c".repeat(32)}`, proponente_persona_ref: "per_primera_persona_00000001",
-  proponente_nombre: "Elena Martín", objetivo_persona_ref: f.ficha.persona_ref, objetivo_nombre: f.ficha.nombre,
+  proponente_nombre: "Elena Martín", proponente_perfil_nombre:"Administrador de perfiles", objetivo_persona_ref: f.ficha.persona_ref, objetivo_nombre: f.ficha.nombre,
   rol_version_ref: f.catalogo.roles[2].version_ref, operacion: "otorgar", huella_sha256: "c".repeat(64),
   caduca_en: "2026-10-10T08:00:00Z", puede_cerrar: true, ambitos: [{dimension:"unidad",referencia:"unidad:rrhh",nombre:"Recursos Humanos"}], vigente_desde:"2026-10-01T08:00:00Z", vigente_hasta:"2027-01-01T08:00:00Z", motivo:f.ficha.actos_disponibles[2].motivos[0], motivos_cierre: f.ficha.actos_disponibles[2].motivos };
 const actor = "per_segunda_persona_00000001", cap = ["cerrar_propuesta"], cliente = { cerrarPropuesta() {} };
@@ -36,6 +36,7 @@ test("segunda persona exige capacidad, motivo y servidor disponible; dos perfile
   for (const sujeto of [p.proponente_persona_ref, p.objetivo_persona_ref]) assert.equal(puedeCerrarPropuesta(p, sujeto, cap, cliente), false);
   assert.equal(puedeCerrarPropuesta(p, actor, [], cliente), false);
   assert.equal(puedeCerrarPropuesta({...p, ambitos:undefined}, actor, cap, cliente), false);
+  assert.equal(puedeCerrarPropuesta({...p, proponente_perfil_nombre:undefined}, actor, cap, cliente), false);
   assert.equal(puedeCerrarPropuesta({...p, motivo:undefined}, actor, cap, cliente), false);
   assert.equal(puedeCerrarPropuesta(p, actor, cap, {}), false);
   assert.throws(() => prepararCierre(p, actor, cap, cliente, "aprobar", -1, cripto));

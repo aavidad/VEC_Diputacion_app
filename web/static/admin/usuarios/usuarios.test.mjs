@@ -58,10 +58,10 @@ test("lecturas conservan referencia, ámbito e historia de la fuente; datos malf
   assert.throws(() => validarFicha(f.ficha, f.ficha.persona_ref));
 });
 
-test("selección exige acto autorizado exacto, motivo, fecha inicial y perfil gestionable", () => {
+test("selección exige acto autorizado exacto, motivo, fecha inicial y asignación disponible", () => {
   const f = fuente(), roles = validarRoles(f.catalogo), acciones = f.capacidades.acciones;
   assert.throws(() => seleccionarActos(f.ficha, roles, [], "otorgar", [0]));
-  assert.throws(() => seleccionarActos(f.ficha, roles, acciones, "otorgar", [3]));
+  assert.equal(seleccionarActos(f.ficha, roles, acciones, "otorgar", [3]).length, 1);
   assert.throws(() => seleccionarActos(f.ficha, roles, acciones, "revocar", [0]));
   assert.throws(() => prepararDecision(f.ficha, roles, acciones, "otorgar", [0], {}, cripto));
   assert.throws(() => decision([0, 0]));
