@@ -10,7 +10,8 @@ export function montarPropuestas(host, { textos, contexto, bloquear, denegar, cr
     ${dato("detalle.desde", p.vigente_desde && !p.vigente_desde.startsWith("0001-") ? textos.fecha(p.vigente_desde, { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Madrid" }) : t("detalle.sin_fecha"))}
     ${dato("detalle.hasta", p.vigente_hasta && !p.vigente_hasta.startsWith("0001-") ? textos.fecha(p.vigente_hasta, { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Madrid" }) : t("detalle.sin_fecha"))}
     ${dato("propuestas.motivo", p.motivo?.etiqueta || t("historia.motivo_pendiente"))}`;
-  let control, viva = true, propuestas = [], revision = null, seleccion = null, enviando = false, incierto = false;
+  let control, viva = true, propuestas = [], revision = null, seleccion = null, origenRef = null, enviando = false, incierto = false;
+  host.setAttribute("tabindex", "-1");
   const nodo = (k) => host.querySelector(`[data-propuesta="${k}"]`);
   const vigente = (c) => viva && control === c && !c.signal.aborted;
   const nuevo = () => { control?.abort(); control = new AbortController(); return control; };
@@ -24,10 +25,14 @@ export function montarPropuestas(host, { textos, contexto, bloquear, denegar, cr
     const { actor, capacidades, cliente, roles } = contexto(), rol = roles.find((r) => r.version_ref === p.rol_version_ref);
     return rol && !rol.fijo && rol.clase !== "ordinario" && puedeCerrarPropuesta(p, actor, capacidades, cliente);
   }
-  function tabla() {
+  function tabla(restaurar = false) {
     host.innerHTML = `<div class="cabecera-panel"><h3>${tx("propuestas.titulo")}</h3></div><div class="cuerpo-panel"><p data-propuesta="estado" role="status" tabindex="-1"></p>
       ${propuestas.length ? `<div class="tabla-contenedor" tabindex="0" aria-label="${tx("propuestas.titulo")}"><table class="tabla-datos"><caption>${tx("propuestas.titulo")}</caption><thead><tr><th scope="col">${tx("busqueda.nombre")}</th><th scope="col">${tx("busqueda.perfil")}</th><th scope="col">${tx("propuestas.proponente")}</th><th scope="col">${tx("resultado.caduca")}</th><th scope="col">${tx("propuestas.revision")}</th></tr></thead><tbody>
         ${propuestas.map((p, i) => `<tr><th scope="row">${escapar(p.objetivo_nombre)}</th><td>${escapar(rolNombre(p))}</td><td>${escapar(p.proponente_nombre || t("detalle.identidad_pendiente"))}</td><td>${fecha(p.caduca_en)}</td><td><button type="button" class="boton-secundario" data-propuesta-accion="abrir" data-indice="${i}">${tx("propuestas.revisar")}</button></td></tr>`).join("")}</tbody></table></div>` : `<p>${tx("propuestas.vacia")}</p>`}</div>`;
+    if (restaurar) {
+      const i = propuestas.findIndex((p) => p.propuesta_ref === origenRef);
+      (host.querySelector(`[data-propuesta-accion="abrir"][data-indice="${i}"]`) || host).focus();
+    }
   }
   function ficha(p) {
     host.innerHTML = `<div class="cabecera-panel"><h3>${tx("propuestas.revisar")}</h3><button type="button" class="boton-secundario" data-propuesta-accion="volver">${tx("propuestas.volver")}</button></div><div class="cuerpo-panel">
@@ -36,6 +41,7 @@ export function montarPropuestas(host, { textos, contexto, bloquear, denegar, cr
       ${permitido(p) ? `<form data-propuesta="formulario"><label class="campo">${tx("propuestas.decision")}<select data-propuesta="decision" required><option value="aprobar">${tx("propuestas.aprobar")}</option><option value="rechazar">${tx("propuestas.rechazar")}</option></select></label>
         <label class="campo">${tx("detalle.motivo")}<select data-propuesta="motivo" required><option value="">${tx("detalle.elegir_motivo")}</option>${p.motivos_cierre.map((m, i) => `<option value="${i}">${escapar(m.etiqueta)}</option>`).join("")}</select></label>
         <div class="acciones-paso"><button class="boton-primario" type="submit">${tx("detalle.revisar")}</button></div></form>` : `<p>${tx("propuestas.sin_cierre")}</p>`}<p data-propuesta="estado" role="alert" tabindex="-1"></p></div>`;
+    host.focus();
   }
   function revisar() {
     const { actor, capacidades, cliente } = contexto();
@@ -66,13 +72,13 @@ export function montarPropuestas(host, { textos, contexto, bloquear, denegar, cr
       if (vigente(c)) { nodo("confirmar").disabled = !revision; nodo("corregir").disabled = incierto; }
     }
   }
-  async function cargar() {
+  async function cargar(restaurar = false) {
     if (!viva || enviando || incierto) return;
     const { cliente } = contexto();
     revision = null; seleccion = null; propuestas = []; tabla();
     if (typeof cliente.propuestas !== "function") { nodo("estado").textContent = t("propuestas.sin_consulta"); return; }
     const c = nuevo(); nodo("estado").textContent = t("propuestas.cargando");
-    try { const datos = await cliente.propuestas(c.signal); if (vigente(c)) { propuestas = validarPropuestas(datos); tabla(); } }
+    try { const datos = await cliente.propuestas(c.signal); if (vigente(c)) { propuestas = validarPropuestas(datos); tabla(restaurar); } }
     catch (e) { if (vigente(c)) fallo(e); }
   }
   function click(e) {
@@ -80,10 +86,10 @@ export function montarPropuestas(host, { textos, contexto, bloquear, denegar, cr
     if (!n || !host.contains(n) || n.disabled || enviando) return;
     const accion = n.dataset.propuestaAccion;
     if (incierto && accion !== "confirmar") return;
-    if (accion === "abrir") { seleccion = propuestas[Number(n.dataset.indice)]; if (seleccion) ficha(seleccion); }
+    if (accion === "abrir") { seleccion = propuestas[Number(n.dataset.indice)]; if (seleccion) { origenRef = seleccion.propuesta_ref; ficha(seleccion); } }
     else if (accion === "confirmar") void confirmar();
-    else if (accion === "volver") { revision = null; seleccion = null; tabla(); }
-    else if (accion === "corregir") { if (!revision) void cargar(); else { revision = null; ficha(seleccion); } }
+    else if (accion === "volver") { revision = null; seleccion = null; tabla(true); }
+    else if (accion === "corregir") { if (!revision) void cargar(true); else { revision = null; ficha(seleccion); } }
   }
   function submit(e) { if (e.target !== nodo("formulario")) return; e.preventDefault(); if (enviando || incierto) return;
     try { if (nodo("motivo").value === "") throw new Error(); revisar(); } catch { nodo("estado").textContent = t("errores.seleccion"); nodo("estado").focus(); } }
