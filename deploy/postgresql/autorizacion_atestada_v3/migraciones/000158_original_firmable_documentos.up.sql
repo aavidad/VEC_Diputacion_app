@@ -4,7 +4,7 @@
 -- diferentes. El replay conserva la revalidación viva de AD62/113.
 -- No publica roles ni concesiones: sin las dos acciones gobernadas en una
 -- versión publicada y asignada, el núcleo V3 deniega la operación.
--- Preimagen causal: AD149 -> AD151 -> AD156 -> AD157 (fachada cerrada),
+-- Preimagen causal: H7 -> H8 -> AD155 -> AD151 -> AD156 -> AD157 (fachada cerrada),
 -- con AD113/136 para el consumidor documental. HITO1 + H3/H4 no basta.
 BEGIN;
 SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
@@ -20,8 +20,8 @@ DECLARE rol text;
 BEGIN
  IF current_user IS DISTINCT FROM 'vec_autorizacion_atestada_v3_propietario' THEN
   RAISE EXCEPTION 'AD3-158: PARO clave=rol_sql actual=% esperado=vec_autorizacion_atestada_v3_propietario',current_user USING ERRCODE='55000'; END IF;
- IF to_regprocedure('vec_autorizacion_atestada_v3.consumir_vinculo_propio_crn11_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL THEN
-  RAISE EXCEPTION 'AD3-158: PARO clave=consumidor_ad149_instalado actual=false esperado=true' USING ERRCODE='55000'; END IF;
+ IF to_regprocedure('vec_autorizacion_atestada_v3.consumir_solicitud_documental_bolsa_v3_atestada(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL THEN
+  RAISE EXCEPTION 'AD3-158: PARO clave=consumidor_ad155_instalado actual=false esperado=true' USING ERRCODE='55000'; END IF;
  IF to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_consulta_circuito_ct_v3_atestada(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL THEN
   RAISE EXCEPTION 'AD3-158: PARO clave=consumidor_ad151_instalado actual=false esperado=true' USING ERRCODE='55000'; END IF;
  IF to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_firma_externa_ct_v3_atestada(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL THEN
@@ -52,7 +52,7 @@ END $pre$;
 DO $audiencias$
 DECLARE d text; anterior text; sufijo156 text:=$s$, 'vec_contratacion_temporal.firma_externa.v1'::text]))$s$;
  sufijo151 text:=$s$, 'vec_contratacion_temporal.circuito.consultar.v1'::text]))$s$;
- esperado text:='3ed762b21ac10a8b2c8076c4832b57545f1e3ef93ebd41cf11939466e6b36802';
+ esperado text:='c220a791d3bf62f5a87ca192373900178c7c3344f10384b1080cfef9c2f81626';
 BEGIN
  SELECT pg_get_constraintdef(c.oid,true) INTO d FROM pg_constraint c
  WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
@@ -76,8 +76,8 @@ DECLARE
  f oid:=to_regprocedure('vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
  original text; fuente text; nuevo text; actual text; meta jsonb; deps jsonb; deps_compartidas jsonb; acl aclitem[];
  propietario oid; config text[]; definidora boolean;
- esperada_def_sha256 text:='8efb8ae6ceffc5d3c3736a1b8b83543dd6a083eb0ae03eb8f0f4a1e2d3e9b232';
- esperada_fuente_sha256 text:='da14ce5ef628586ebc1280cd62e6b7da1f57fea9c9b6f6f4233fbecd84c558b9';
+ esperada_def_sha256 text:='5dbdac03a2a4e52ca4cb45c57b3bf18e621091da9e818091e30a3f90e68e7330';
+ esperada_fuente_sha256 text:='cdc8cb87f27360741a2d0d52e8b9d58d0a1423be8abd8ff9063f389b2c8ea75e';
  marca text:=E'       )\n       OR c ->> ''suite'' <> ''VEC-AD-3-COSE-EDDSA-1''';
  pre151 text:=$p151$           OR (
  p_perfil_mutacion IS NOT DISTINCT FROM 'ct_circuito_consultar'
