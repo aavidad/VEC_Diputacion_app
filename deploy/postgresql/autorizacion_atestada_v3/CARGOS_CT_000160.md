@@ -8,11 +8,16 @@ identidades, sesiones ni concesiones administrativas.
 La fuente cedida de AD160 es `14044dbd007a36798076e7227c7f2387da423696`.
 AD164 es su sucesora aditiva: comprueba la independencia entre proponente y
 aprobador, conserva los planes y recibos anteriores y retira `EXECUTE` de las
-cuatro fachadas privadas. No modifica AD160, CA24 ni AUT31.
+cuatro fachadas privadas. Sus cuerpos, la función interna y la proyección del
+adjunto rechazan con `42501` antes de leer, escribir o auditar datos. No modifica
+AD160, CA24 ni AUT31.
 
 El efecto SQL queda cerrado hasta integrar la auditoría común nominal y la
 categoría Administrador Aplicación del catálogo central. La comprobación de
-independencia por sí sola no concede acceso. Dirección debe revisar y ensayar
+independencia por sí sola no concede acceso. Se conservan las autoridades
+históricas que heredan al propietario: sus llamadas y su `SET ROLE` tampoco
+abren los cuerpos publicados. Quien posee capacidad DDL del esquema puede
+cambiar una función; el cierre no elimina esa autoridad. Dirección debe revisar y ensayar
 la candidata exacta antes de instalarla; no acredita instalación principal.
 
 ## Autoridad necesaria
@@ -68,7 +73,8 @@ SQL; no se acepta como prueba por sí sola.
 El circuito previsto prepara el plan y conserva una aprobación central ligada
 a sus bytes. AD164 exige que el proponente y el aprobador sean personas
 distintas y que ninguna sea la destinataria. Aplicar, recuperar y acreditar el
-adjunto vuelven a comprobar el origen almacenado. Un origen con una sola
+adjunto conservan las guardas para comprobar el origen almacenado cuando se
+autorice una apertura futura. Un origen con una sola
 persona se deniega sin reescribirlo. No se exige una tercera persona al aplicar.
 
 La apertura futura debe unir consumo, auditoría común, CAS, asignación y recibo
@@ -136,7 +142,9 @@ La lista causal de esta candidata es
 mínimos son AUT7, CA2 e IS3, junto con la autoridad central inicial. No cambiar
 el orden por el número de una migración que no aporte objetos utilizados.
 
-La prueba SQL de AD164 comprueba cierre efectivo de ACL, independencia y CAS
+La prueba SQL de AD164 comprueba cierre de concesiones directas, rechazo de
+los seis cuerpos desde el propietario heredado, ausencia de auditoría local,
+independencia y CAS
 con registros sintéticos del propietario que se revierten por completo. Esos
 registros no acreditan sesiones ni decisiones PDP. La prueba SQL de AD160
 corresponde al checkpoint previo a AD164 y no debe repetirse después del cierre.

@@ -11,9 +11,9 @@ DECLARE nombre text; funcion regprocedure;
 BEGIN
  FOREACH nombre IN ARRAY ARRAY['preparar','aprobar','aplicar','recuperar'] LOOP
   funcion:=to_regprocedure('vec_autorizacion.'||nombre||'_plan_cargo_ct_v1(bytea,bytea,bytea,numeric,numeric)');
-  IF funcion IS NULL OR EXISTS(SELECT 1 FROM pg_roles r WHERE NOT r.rolsuper
-    AND r.oid<>'vec_autorizacion_propietario'::regrole
-    AND has_function_privilege(r.oid,funcion,'EXECUTE')) THEN
+  IF funcion IS NULL OR has_function_privilege('vec_autorizacion_cargos_ct_ejecutor',funcion,'EXECUTE')
+  OR EXISTS(SELECT 1 FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
+    WHERE p.oid=funcion AND a.grantee<>p.proowner) THEN
    RAISE EXCEPTION 'AD164: fachada abierta %',nombre; END IF;
  END LOOP;
  IF has_function_privilege('vec_autorizacion_cargos_ct_ejecutor',
@@ -24,6 +24,43 @@ BEGIN
    'comprobar_independencia_cargo_ct_v1(k,p.plan_canonico,h,NULL,true)')=0 THEN
   RAISE EXCEPTION 'AD164: comprobación o adjunto sin frontera'; END IF;
 END $acl$;
+
+-- Resolver el delegado histórico por contenido de la membresía, sin quitar
+-- sus permisos ni inventar una excepción por nombre. Su SET ROLE real no abre
+-- las fachadas ni el adjunto y tampoco añade una auditoría local de rechazo.
+DO $cuerpos_cerrados$
+DECLARE delegado text; consulta text; bloqueado boolean; mensaje text;
+BEGIN
+ SELECT r.rolname INTO STRICT delegado FROM pg_auth_members m JOIN pg_roles r ON r.oid=m.member
+ WHERE m.roleid='vec_autorizacion_propietario'::regrole AND m.inherit_option AND m.set_option
+ AND NOT m.admin_option AND r.rolcanlogin AND NOT r.rolsuper ORDER BY r.rolname LIMIT 1;
+ EXECUTE format('SET SESSION AUTHORIZATION %I',delegado);
+ SET LOCAL ROLE vec_autorizacion_propietario;
+ FOREACH consulta IN ARRAY ARRAY[
+  'SELECT vec_autorizacion.preparar_plan_cargo_ct_v1(NULL,NULL,NULL,NULL,NULL)',
+  'SELECT vec_autorizacion.aprobar_plan_cargo_ct_v1(NULL,NULL,NULL,NULL,NULL)',
+  'SELECT vec_autorizacion.aplicar_plan_cargo_ct_v1(NULL,NULL,NULL,NULL,NULL)',
+  'SELECT vec_autorizacion.recuperar_plan_cargo_ct_v1(NULL,NULL,NULL,NULL,NULL)',
+  'SELECT vec_autorizacion.operar_cargo_ct_interna_v1(NULL,NULL,NULL,NULL,NULL,NULL)',
+  'SELECT vec_autorizacion.acreditar_adjunto_plan_cargo_ct_v1(NULL,NULL,NULL,NULL)'] LOOP
+  bloqueado:=false;
+  BEGIN
+   EXECUTE consulta;
+  EXCEPTION WHEN insufficient_privilege THEN
+   GET STACKED DIAGNOSTICS mensaje=MESSAGE_TEXT;
+   bloqueado:=mensaje='cargo_ct_rechazado';
+  END;
+  IF NOT bloqueado THEN RAISE EXCEPTION 'AD164: cuerpo no cerrado %',consulta; END IF;
+ END LOOP;
+ RESET ROLE;
+ RESET SESSION AUTHORIZATION;
+ IF EXISTS(SELECT 1 FROM vec_autorizacion.cargo_ct_plan)
+ OR EXISTS(SELECT 1 FROM vec_autorizacion.cargo_ct_aprobacion)
+ OR EXISTS(SELECT 1 FROM vec_autorizacion.cargo_ct_consumo)
+ OR EXISTS(SELECT 1 FROM vec_autorizacion.cargo_ct_auditoria)
+ OR EXISTS(SELECT 1 FROM vec_autorizacion.cargo_ct_recibo) THEN
+  RAISE EXCEPTION 'AD164: cierre escribió historia o auditoría local'; END IF;
+END $cuerpos_cerrados$;
 
 SET LOCAL ROLE vec_autorizacion_propietario;
 DO $independencia$

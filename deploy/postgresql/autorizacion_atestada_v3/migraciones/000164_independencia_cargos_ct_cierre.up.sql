@@ -22,9 +22,6 @@ BEGIN
    AND NOT(rolcanlogin OR rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls))
  THEN RAISE EXCEPTION 'AD164: preimagen incompatible' USING ERRCODE='55000'; END IF;
  propietario:='vec_autorizacion_propietario'::regrole;
- IF EXISTS(SELECT 1 FROM pg_roles r WHERE NOT r.rolsuper AND r.oid<>propietario
-   AND pg_has_role(r.oid,propietario,'USAGE')) THEN
-  RAISE EXCEPTION 'AD164: propietario heredado por otra identidad' USING ERRCODE='55000'; END IF;
  FOREACH tabla IN ARRAY ARRAY['cargo_ct_plan','cargo_ct_aprobacion','cargo_ct_consumo','cargo_ct_auditoria','cargo_ct_recibo'] LOOP
   IF NOT EXISTS(SELECT 1 FROM pg_class c WHERE c.oid=to_regclass('vec_autorizacion.'||tabla)
     AND c.relowner=propietario AND c.relrowsecurity AND c.relforcerowsecurity)
@@ -101,6 +98,20 @@ DECLARE firma text; definicion text; marca text; reemplazo text; item record;
 BEGIN
  FOR item IN SELECT * FROM (VALUES
   ('operar_cargo_ct_interna_v1(text,bytea,bytea,bytea,numeric,numeric)',
+   $marca$BEGIN
+ -- Frontera técnica no configurable por el plan.$marca$,
+   $reemplazo$BEGIN
+ -- Cierre incondicional: ni heredar el propietario ni SET ROLE abre el efecto.
+ RAISE EXCEPTION 'cargo_ct_rechazado' USING ERRCODE='42501';
+ -- Frontera técnica no configurable por el plan.$reemplazo$),
+  ('acreditar_adjunto_plan_cargo_ct_v1(text,text,text,text)',
+   $marca$BEGIN
+ SELECT * INTO STRICT p FROM vec_autorizacion.cargo_ct_plan$marca$,
+   $reemplazo$BEGIN
+ -- El adjunto tampoco habilita CA24 mientras falta el contrato común.
+ RAISE EXCEPTION 'cargo_ct_rechazado' USING ERRCODE='42501';
+ SELECT * INTO STRICT p FROM vec_autorizacion.cargo_ct_plan$reemplazo$),
+  ('operar_cargo_ct_interna_v1(text,bytea,bytea,bytea,numeric,numeric)',
    '   -- Replay: autoriza ANTES de conocer el recibo y mantiene sus bytes/fecha.',
    E'   PERFORM vec_autorizacion.comprobar_independencia_cargo_ct_v1(clave,b,h,NULL,true);\n   -- Replay: autoriza ANTES de conocer el recibo y mantiene sus bytes/fecha.'),
   ('operar_cargo_ct_interna_v1(text,bytea,bytea,bytea,numeric,numeric)',
@@ -136,20 +147,25 @@ DO $cierre$
 DECLARE nombre text; funcion regprocedure;
 BEGIN
  FOREACH nombre IN ARRAY ARRAY['preparar','aprobar','aplicar','recuperar'] LOOP
+  EXECUTE format('CREATE OR REPLACE FUNCTION vec_autorizacion.%I(b bytea,d bytea,m bytea,pv numeric,fv numeric) RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog AS $cerrada$ BEGIN RAISE EXCEPTION ''cargo_ct_rechazado'' USING ERRCODE=''42501''; END $cerrada$',nombre||'_plan_cargo_ct_v1');
   funcion:=to_regprocedure('vec_autorizacion.'||nombre||'_plan_cargo_ct_v1(bytea,bytea,bytea,numeric,numeric)');
   EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC,vec_autorizacion_cargos_ct_ejecutor',funcion);
-  IF EXISTS(SELECT 1 FROM pg_roles r WHERE NOT r.rolsuper
-    AND r.oid<>'vec_autorizacion_propietario'::regrole
-    AND has_function_privilege(r.oid,funcion,'EXECUTE')) THEN
-   RAISE EXCEPTION 'AD164: fachada conserva EXECUTE efectivo %',nombre USING ERRCODE='55000'; END IF;
+  IF EXISTS(SELECT 1 FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
+    WHERE p.oid=funcion AND a.grantee<>p.proowner)
+  OR has_function_privilege('vec_autorizacion_cargos_ct_ejecutor',funcion,'EXECUTE') THEN
+   RAISE EXCEPTION 'AD164: fachada conserva concesión directa ajena %',nombre USING ERRCODE='55000'; END IF;
  END LOOP;
 END $cierre$;
 DO $comprobacion_privada$
 BEGIN
- IF EXISTS(SELECT 1 FROM pg_roles r WHERE NOT r.rolsuper
-   AND r.oid<>'vec_autorizacion_propietario'::regrole
-   AND has_function_privilege(r.oid,
-    'vec_autorizacion.comprobar_independencia_cargo_ct_v1(text,bytea,text,text,boolean)','EXECUTE')) THEN
-  RAISE EXCEPTION 'AD164: comprobación privada con EXECUTE efectivo ajeno' USING ERRCODE='55000'; END IF;
+ IF EXISTS(SELECT 1 FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
+   WHERE p.oid='vec_autorizacion.comprobar_independencia_cargo_ct_v1(text,bytea,text,text,boolean)'::regprocedure
+   AND a.grantee<>p.proowner)
+ OR has_function_privilege('vec_autorizacion_cargos_ct_ejecutor',
+   'vec_autorizacion.comprobar_independencia_cargo_ct_v1(text,bytea,text,text,boolean)','EXECUTE') THEN
+  RAISE EXCEPTION 'AD164: comprobación privada con concesión directa ajena' USING ERRCODE='55000'; END IF;
 END $comprobacion_privada$;
+-- Se conservan las autoridades históricas y sus ACL. Un dueño con capacidad
+-- DDL puede cambiar una función; este corte cierra los cuerpos publicados,
+-- no promete aislar al administrador del esquema de su propia autoridad.
 COMMIT;
