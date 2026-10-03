@@ -36,6 +36,68 @@ def estado(recibo):
                    "registrada_en": recibo["registrada_en"], "documento_custodiado": recibo["documento_custodiado"]}]}]}
 
 
+def consulta_tecnica(firmas):
+    informe={"firmas_v2":firmas,"intento_v2":{"expediente_ref":"expediente:sintetico","version_expediente":7,
+        "documento":"informe_definitivo","paso_orden":firmas[-1]["paso_orden"],"original_ref":"ref:"+"a"*64,
+        "original_version":7,"clave_idempotencia":"clave-conservada-sintetica", "firmado_sha256":firmas[-1]["documento_custodiado"]["huella_sha256"]},
+        "preflight_v2":{"original_ref":"ref:"+"a"*64,"original_version":7,"catalogo_ref":"catalogo:v2","catalogo_huella":"c"*64}}
+    datos={"esquema":"vec.contratacion-temporal.consulta-firmas-r5.v2","expediente_ref":"expediente:sintetico",
+        "version_expediente":7,"documento":"informe_definitivo","historia_revision":len(firmas),"historia_sha256":"d"*64,
+        "firmas":[],"recuperacion":"parcial","campos_no_disponibles":["material_root_sha256","canon_nominal"],"firma_eficaz":False}
+    for i,rec in enumerate(firmas):
+        original={"documento_ref":"ref:"+"a"*64,"version":7,"huella_sha256":rec["verificacion_tecnica"]["original_sha256"]}
+        entrada=original if i==0 else {k:firmas[i-1]["documento_custodiado"][k] for k in ("documento_ref","version","huella_sha256")}
+        longitud=300 if i==0 else 500;entrada_longitud=100 if i==0 else 300
+        datos["firmas"].append({k:rec[k] for k in ("firma_ref","recibo_ref","registrada_en","secuencia","paso_orden","paso_ref","version_expediente")} | {
+            "via":"certificado_vec","resultado":"firmado","catalogo_ref":"catalogo:v2","catalogo_huella":"c"*64,
+            "original":original,"documento_custodiado":rec["documento_custodiado"],"revision_pdf":{
+                "orden_firma":rec["paso_orden"],"firma_anterior_ref":firmas[i-1]["firma_ref"] if i else "",
+                "recibo_anterior_ref":firmas[i-1]["recibo_ref"] if i else "","entrada_documento":entrada,"entrada_longitud":entrada_longitud,
+                "byte_range":[0,entrada_longitud,longitud-100,100],"revision_sha256":rec["revision_pdf"]["revision_sha256"],
+                "contenido_firmado_sha256":"e"*64,"revision_longitud":longitud,"evidencia_firmas_sha256":rec["revision_pdf"]["evidencia_sha256"]}})
+    return informe,datos
+
+
+class ConsultaTecnicaV2Test(unittest.TestCase):
+    def test_solicitud_reutiliza_clave_privada_sin_otros_campos(self):
+        _,rec=material();informe,datos=consulta_tecnica([rec])
+        solicitud=r.solicitud_consulta_tecnica_v2(informe,[rec])
+        self.assertEqual(solicitud["clave_idempotencia"],informe["intento_v2"]["clave_idempotencia"])
+        self.assertEqual(set(solicitud),{"expediente_ref","version_expediente","documento","paso_orden","clave_idempotencia","catalogo_huella","via"})
+        informe["consulta_tecnica_v2"]=r.validar_consulta_tecnica_v2(datos,informe,[rec])
+        self.assertNotIn("clave-conservada-sintetica",json.dumps(r.informe_publico(informe)))
+        del informe["intento_v2"]
+        with self.assertRaises(r.Corte):r.solicitud_consulta_tecnica_v2(informe,[rec])
+
+    def test_respuesta_cruzada_alterada_y_extra_se_rechazan(self):
+        _,rec=material();informe,datos=consulta_tecnica([rec])
+        self.assertEqual(r.validar_consulta_tecnica_v2(datos,informe,[rec]),datos)
+        mutaciones=[lambda d:d.update(expediente_ref="expediente:ajeno"),lambda d:d.update(documento="resolucion"),
+            lambda d:d.update(campo_extra="no-propagable"),lambda d:d["firmas"][0].update(recibo_ref="recibo:ajeno"),
+            lambda d:d["firmas"][0]["revision_pdf"].update(evidencia_firmas_sha256="0"*64),
+            lambda d:d["firmas"][0]["revision_pdf"].update(byte_range=[0,100,200,99]),
+            lambda d:d["firmas"][0]["revision_pdf"].update(canon_nominal="no-propagable"),
+            lambda d:d.update(recuperacion="completa"),lambda d:d.update(campos_no_disponibles=[])]
+        for mutacion in mutaciones:
+            copia=copy.deepcopy(datos);mutacion(copia)
+            with self.assertRaises(r.Corte):r.validar_consulta_tecnica_v2(copia,informe,[rec])
+        copia=copy.deepcopy(datos);copia["firmas"]=[]
+        with self.assertRaises(r.Corte) as corte:r.validar_consulta_tecnica_v2(copia,informe,[rec])
+        self.assertEqual(corte.exception.paso,"consulta_v2_pendiente")
+
+    def test_consulta_ausente_no_usa_fallback(self):
+        _,rec=material();informe,datos=consulta_tecnica([rec])
+        pagina=mock.Mock();pagina.evaluate.return_value={"status":404,"data":None}
+        with self.assertRaises(r.Corte) as corte:r.consultar_metadatos_v2(pagina,informe,[rec])
+        self.assertEqual(corte.exception.paso,"consulta_v2_pendiente")
+        self.assertEqual(pagina.evaluate.call_count,1)
+        args=pagina.evaluate.call_args.args[1]
+        self.assertEqual(args[0],r.RUTA_CONSULTA_TECNICA_V2)
+        self.assertEqual(args[1]["clave_idempotencia"],informe["intento_v2"]["clave_idempotencia"])
+        pagina.evaluate.return_value={"status":200,"data":{"data":datos}}
+        self.assertEqual(r.consultar_metadatos_v2(pagina,informe,[rec]),datos)
+
+
 class ContratosV2Test(unittest.TestCase):
     def test_recibo_exactamente_ligado_a_revision_original_y_bytes(self):
         solicitud, recibo = material()
@@ -146,18 +208,23 @@ class ContratosV2Test(unittest.TestCase):
                    "binario_sha256":"a"*64,"propuesta":{"version_actual":7},"pdf":{}}
         previo = {**informe, "estado":"COMPLETO", "registro_incierto":False,
                   "firmas_v2":[recibo,segundo], "pdf_firmado":{"sha256":"b"*64}}
+        privado,tecnico=consulta_tecnica([recibo,segundo])
+        previo.update(privado,consulta_tecnica_v2=tecnico)
         a = mock.Mock(comparar=Path("segunda.json"),reinicio=Path("reinicio.json"),documento="informe_definitivo")
         acta = {"expediente_ref":informe["expediente_ref"],"aplicacion_reiniciada":True,
                 "postgresql_reiniciado":True,"instante_utc":"2026-10-03T13:00:00Z"}
         with mock.patch.object(r,"leer_informe_privado",side_effect=[previo,acta]), \
              mock.patch.object(r,"consultar_estado_v2",return_value={}), \
              mock.patch.object(r,"comparar_estado_v2"), \
-             mock.patch.object(r,"descargar_revision_v2",return_value=previo["pdf_firmado"]):
+             mock.patch.object(r,"descargar_revision_v2",return_value=previo["pdf_firmado"]), \
+             mock.patch.object(r,"consultar_metadatos_v2",return_value=tecnico):
             r.recorrer_firmas_v2(None,a,informe,{},TimeoutError)
         self.assertEqual(informe["estado"],"RECUPERACION_PARCIAL")
         self.assertFalse(informe["e2e"])
         self.assertFalse(informe["verificacion_criptografica_repetida"])
-        self.assertEqual(informe["pendiente"],"consulta_http_v2_con_evidencia_y_canon_central")
+        self.assertEqual(informe["pendiente"],"material_root_sha256_y_canon_nominal_no_expuestos")
+        self.assertEqual(informe["campos_no_revalidados_por_consulta"],["material_root_sha256","canon_nominal"])
+        self.assertEqual(informe["consulta_tecnica_v2"],tecnico)
 
     def test_fallo_externo_conserva_operacion_incierta(self):
         with tempfile.TemporaryDirectory() as tmp:

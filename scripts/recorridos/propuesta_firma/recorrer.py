@@ -43,6 +43,7 @@ RUTA_REGISTRO_V2 = RUTA_FIRMAS + "/registro-vec"
 RUTA_ORIGINAL = RUTA_FIRMAS + "/original"
 RUTA_PREFLIGHT = "/api/vec/contratacion-temporal/firma/preflight"
 RUTA_CONSULTA_FIRMAS = RUTA_FIRMAS + "/consultas"
+RUTA_CONSULTA_TECNICA_V2 = RUTA_FIRMAS + "/consultas-v2"
 RUTA_CIRCUITO = "/api/vec/contratacion-temporal/circuito-firma"
 RUTA_SEGUIMIENTO = "/api/vec/contratacion-temporal/seguimiento-cese"
 SHA256 = re.compile(r"[0-9a-f]{64}\Z")
@@ -72,7 +73,7 @@ def informe_publico(informe):
         "http", "registro_incierto", "firmas_v2", "propuesta", "movil_390", "escritorio_1440", "reinicio",
         "canal_certificado_sha256", "preflight_v2", "pdf_primera_revision", "pdf_firmado", "pendiente", "e2e",
         "campos_no_revalidados_por_consulta", "verificacion_criptografica_repetida", "firma_eficaz",
-        "sin_errores_js", "sin_errores_intercepcion", "sin_cookies_http", "sin_almacenamiento_web"}
+        "sin_errores_js", "sin_errores_intercepcion", "sin_cookies_http", "sin_almacenamiento_web", "consulta_tecnica_v2"}
     salida = {k:informe[k] for k in campos if k in informe}
     if isinstance(salida.get("firmas_v2"),list):
         salida["firmas_v2"] = [proyectar_recibo_v2(rec) for rec in salida["firmas_v2"] if isinstance(rec,dict)]
@@ -670,6 +671,126 @@ def consultar_estado_v2(page, a):
     return datos_respuesta_json(respuesta["data"])
 
 
+def solicitud_consulta_tecnica_v2(informe, firmas):
+    intento = informe.get("intento_v2")
+    campos = {"expediente_ref","version_expediente","documento","paso_orden","original_ref",
+              "original_version","clave_idempotencia","firmado_sha256"}
+    preflight = informe.get("preflight_v2")
+    if not firmas or not isinstance(intento,dict) or set(intento) != campos or not isinstance(preflight,dict):
+        raise Corte("consulta_v2_pendiente","falta el intento real conservado o su catálogo de firma")
+    ultimo = firmas[-1]
+    if any(intento.get(k) != ultimo[k] for k in ("expediente_ref","version_expediente","documento","paso_orden")) \
+            or intento["firmado_sha256"] != ultimo["documento_custodiado"]["huella_sha256"] \
+            or intento["original_ref"] != preflight.get("original_ref") \
+            or intento["original_version"] != preflight.get("original_version") \
+            or not REFERENCIA.fullmatch(str(intento["original_ref"])) \
+            or type(intento["original_version"]) is not int or intento["original_version"] < 1 \
+            or not isinstance(intento["clave_idempotencia"],str) \
+            or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{15,63}",intento["clave_idempotencia"]) \
+            or not SHA256.fullmatch(str(preflight.get("catalogo_huella",""))):
+        raise Corte("consulta_v2_pendiente","el intento guardado no corresponde a los recibos de firma")
+    return {k:intento[k] for k in ("expediente_ref","version_expediente","documento","paso_orden","clave_idempotencia")} | {
+        "catalogo_huella":preflight["catalogo_huella"],"via":"certificado_vec"}
+
+
+def validar_consulta_tecnica_v2(datos, informe, firmas):
+    """Contrato técnico cerrado; no reconstruye identidad, canon ni eficacia."""
+    campos = {"esquema","expediente_ref","version_expediente","documento","historia_revision","historia_sha256",
+              "firmas","recuperacion","campos_no_disponibles","firma_eficaz"}
+    campos_firma = {"firma_ref","recibo_ref","registrada_en","secuencia","paso_orden","paso_ref","version_expediente",
+                    "via","resultado","catalogo_ref","catalogo_huella","original","documento_custodiado","revision_pdf"}
+    campos_revision = {"orden_firma","firma_anterior_ref","recibo_anterior_ref","entrada_documento","entrada_longitud",
+                       "byte_range","revision_sha256","contenido_firmado_sha256","revision_longitud","evidencia_firmas_sha256"}
+    exacto = lambda d,c: isinstance(d,dict) and set(d)==c
+    entero = lambda n: type(n) is int and 0<n<=9007199254740991
+    ref = lambda r: isinstance(r,str) and bool(REFERENCIA.fullmatch(r))
+    sha = lambda h: isinstance(h,str) and bool(SHA256.fullmatch(h))
+    solicitud = solicitud_consulta_tecnica_v2(informe,firmas)
+    if not exacto(datos,campos) or datos["esquema"] != "vec.contratacion-temporal.consulta-firmas-r5.v2" \
+            or any(datos.get(k)!=solicitud[k] for k in ("expediente_ref","version_expediente","documento")) \
+            or datos["firma_eficaz"] is not False or datos["recuperacion"] != "parcial" \
+            or datos["campos_no_disponibles"] != ["material_root_sha256","canon_nominal"] \
+            or type(datos["historia_revision"]) is not int or not 0<=datos["historia_revision"]<=9007199254740991 \
+            or not sha(datos["historia_sha256"]) or not isinstance(datos["firmas"],list) or len(datos["firmas"])>128:
+        raise Corte("contrato_http","la consulta técnica no cumple el contrato V2 o sus límites")
+    por_firma = {}; por_recibo = set()
+    for f in datos["firmas"]:
+        if not exacto(f,campos_firma) or any(not ref(f[k]) for k in ("firma_ref","recibo_ref","paso_ref","catalogo_ref")) \
+                or f["firma_ref"] in por_firma or f["recibo_ref"] in por_recibo \
+                or not INSTANTE_UTC.fullmatch(str(f["registrada_en"])) or not entero(f["secuencia"]) \
+                or not entero(f["paso_orden"]) or f["paso_orden"]>16 or not entero(f["version_expediente"]) \
+                or f["version_expediente"]>solicitud["version_expediente"] or not sha(f["catalogo_huella"]) \
+                or f["via"] not in ("","certificado_vec","portafirmas_registro_rrhh") or f["resultado"] not in ("firmado","devuelto"):
+            raise Corte("contrato_http","metadatos de firma V2 no válidos o duplicados")
+        original=f["original"];custodia=f["documento_custodiado"];revision=f["revision_pdf"]
+        if not exacto(original,{"documento_ref","version","huella_sha256"}) \
+                or (original["documento_ref"]!="" and not ref(original["documento_ref"])) \
+                or type(original["version"]) is not int or not 0<=original["version"]<=9007199254740991 \
+                or (original["huella_sha256"]!="" and not sha(original["huella_sha256"])) \
+                or (custodia is not None and (not exacto(custodia,CAMPOS_RECIBO_ANIDADOS["documento_custodiado"])
+                    or not ref(custodia["expediente_ref"]) or not ref(custodia["documento_ref"])
+                    or not entero(custodia["version"]) or not sha(custodia["huella_sha256"]))):
+            raise Corte("contrato_http","el original o la custodia no cumplen la proyección técnica")
+        if revision is not None:
+            entrada=revision.get("entrada_documento") if isinstance(revision,dict) else None
+            br=revision.get("byte_range") if isinstance(revision,dict) else None
+            if not exacto(revision,campos_revision) or not exacto(entrada,{"documento_ref","version","huella_sha256"}) \
+                    or not ref(entrada["documento_ref"]) or not entero(entrada["version"]) or not sha(entrada["huella_sha256"]) \
+                    or revision["orden_firma"] not in (1,2) or type(revision["orden_firma"]) is not int \
+                    or not entero(revision["entrada_longitud"]) or not entero(revision["revision_longitud"]) \
+                    or not revision["entrada_longitud"]<revision["revision_longitud"]<=1024*1024 \
+                    or not isinstance(br,list) or len(br)!=4 or any(type(n) is not int or n<0 for n in br) \
+                    or br[0]!=0 or br[1]<revision["entrada_longitud"] or br[2]<=br[1] \
+                    or br[2]>revision["revision_longitud"] or br[3]<=0 or br[2]+br[3]!=revision["revision_longitud"] \
+                    or any(not sha(revision[k]) for k in ("revision_sha256","contenido_firmado_sha256","evidencia_firmas_sha256")) \
+                    or any(revision[k]!="" and not ref(revision[k]) for k in ("firma_anterior_ref","recibo_anterior_ref")):
+                raise Corte("contrato_http","la revisión PDF no cumple el contrato técnico V2")
+        por_firma[f["firma_ref"]]=f;por_recibo.add(f["recibo_ref"])
+    for indice,recibo in enumerate(firmas):
+        f=por_firma.get(recibo["firma_ref"]);rev=f.get("revision_pdf") if f else None
+        if not f or not rev:
+            raise Corte("consulta_v2_pendiente","la consulta no devuelve la revisión persistida de cada recibo")
+        if any(f[k]!=recibo[k] for k in ("firma_ref","recibo_ref","registrada_en","secuencia","paso_orden","paso_ref","version_expediente")) \
+                or f["documento_custodiado"]!=recibo["documento_custodiado"] or f["via"]!="certificado_vec" or f["resultado"]!="firmado" \
+                or f["catalogo_huella"]!=solicitud["catalogo_huella"] or f["catalogo_ref"]!=informe["preflight_v2"]["catalogo_ref"] \
+                or f["original"]!={"documento_ref":informe["intento_v2"]["original_ref"],"version":informe["intento_v2"]["original_version"],
+                                    "huella_sha256":recibo["verificacion_tecnica"]["original_sha256"]} \
+                or rev["orden_firma"]!=recibo["paso_orden"] or rev["entrada_documento"]["huella_sha256"]!=recibo["revision_pdf"]["entrada_sha256"] \
+                or rev["revision_sha256"]!=recibo["revision_pdf"]["revision_sha256"] \
+                or rev["evidencia_firmas_sha256"]!=recibo["revision_pdf"]["evidencia_sha256"]:
+            raise Corte("recuperacion","la consulta técnica cambió referencias, recibo, fecha, custodia o revisión")
+        previo=firmas[indice-1] if indice else None
+        esperado=f["original"] if previo is None else {k:previo["documento_custodiado"][k] for k in ("documento_ref","version","huella_sha256")}
+        if rev["entrada_documento"]!=esperado or rev["firma_anterior_ref"]!=(previo["firma_ref"] if previo else "") \
+                or rev["recibo_anterior_ref"]!=(previo["recibo_ref"] if previo else ""):
+            raise Corte("recuperacion","la revisión PDF no continúa el antecedente confirmado")
+    return json.loads(json.dumps(datos))
+
+
+def consultar_metadatos_v2(page,informe,firmas):
+    solicitud=solicitud_consulta_tecnica_v2(informe,firmas)
+    respuesta=page.evaluate(r"""async ([ruta, solicitud]) => {
+      const r=await fetch(ruta,{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json'},
+        body:JSON.stringify(solicitud),mode:'same-origin',credentials:'same-origin',cache:'no-store',redirect:'error',referrerPolicy:'no-referrer'});
+      if(r.status!==200)return {status:r.status,data:null};
+      if(!/^application\/json(?:;\s*charset=utf-8)?$/i.test(r.headers.get('Content-Type')||''))return {status:200,data:null};
+      const lector=r.body?.getReader();if(!lector)return {status:200,data:null};
+      const partes=[];let total=0;
+      try {for(;;){const {done,value}=await lector.read();if(done)break;total+=value.byteLength;
+        if(total>262144)return {status:200,data:null};partes.push(value);}}
+      finally {void lector.cancel().catch(()=>{});}
+      const bytes=new Uint8Array(total);let offset=0;for(const parte of partes){bytes.set(parte,offset);offset+=parte.byteLength;}
+      try {return {status:200,data:JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes))};}
+      catch{return {status:200,data:null};}
+    }""",[RUTA_CONSULTA_TECNICA_V2,solicitud])
+    if respuesta["status"]!=200:
+        raise Corte("consulta_v2_pendiente",f"consulta técnica V2 no disponible o denegada: HTTP {respuesta['status']}")
+    envoltorio=respuesta.get("data")
+    if not isinstance(envoltorio,dict) or set(envoltorio)!={"data"}:
+        raise Corte("contrato_http","la consulta técnica V2 no devuelve datos acotados")
+    return validar_consulta_tecnica_v2(envoltorio["data"],informe,firmas)
+
+
 def descargar_revision_v2(page, a, recibo):
     c = recibo["documento_custodiado"]
     selector = f'[data-ct-fase-firma-documento="{a.documento}"] [data-ct-descargar-firmado]'
@@ -704,25 +825,35 @@ def recorrer_firmas_v2(page, a, informe, catalogo, timeout_error):
                 or any(previo.get(k) != informe.get(k) for k in ("expediente_ref","documento","binario_sha256","propuesta","pdf")):
             raise Corte("recuperacion", "se requieren los dos recibos V2 confirmados del mismo clon")
         firmas = recibos_guardados_v2(previo,2)
+        baseline = previo.get("consulta_tecnica_v2")
+        validar_consulta_tecnica_v2(baseline,previo,firmas)
         informe["reinicio"] = comprobar_reinicio(leer_informe_privado(a.reinicio), informe)
         comparar_estado_v2(consultar_estado_v2(page,a),firmas,a.documento)
         pdf = descargar_revision_v2(page,a,firmas[-1])
         if pdf != previo.get("pdf_firmado"):
             raise Corte("recuperacion", "el PDF custodiado cambió después del reinicio")
-        informe.update(firmas_v2=firmas,pdf_firmado=pdf,estado="RECUPERACION_PARCIAL",
-                       pendiente="consulta_http_v2_con_evidencia_y_canon_central", e2e=False,
-                       campos_no_revalidados_por_consulta=["material_root_sha256","revision_pdf.evidencia_sha256","firma_ref"],
+        tecnico = consultar_metadatos_v2(page,previo,firmas)
+        if tecnico != baseline:
+            raise Corte("recuperacion","los metadatos V2 o la historia cambiaron después del reinicio")
+        informe.update(firmas_v2=firmas,pdf_firmado=pdf,consulta_tecnica_v2=tecnico,estado="RECUPERACION_PARCIAL",
+                       pendiente="material_root_sha256_y_canon_nominal_no_expuestos", e2e=False,
+                       campos_no_revalidados_por_consulta=["material_root_sha256","canon_nominal"],
                        verificacion_criptografica_repetida=False)
         return
     if not a.firmar:
         raise Corte("autoridad_pendiente", "pendiente firma nominal V2; no se abrió AutoFirma")
     canal = huella_certificado_canal(a.certificado)
     informe["canal_certificado_sha256"] = canal
-    anteriores = validar_continuacion(leer_informe_privado(a.continuar),informe,canal) if a.continuar else []
+    previo = leer_informe_privado(a.continuar) if a.continuar else None
+    anteriores = validar_continuacion(previo,informe,canal) if previo else []
     informe["firmas_v2"] = anteriores[:]
     if anteriores:
         comparar_estado_v2(consultar_estado_v2(page,a),anteriores,a.documento)
         informe["pdf_primera_revision"] = descargar_revision_v2(page,a,anteriores[0])
+        baseline = previo.get("consulta_tecnica_v2")
+        validar_consulta_tecnica_v2(baseline,previo,anteriores)
+        if consultar_metadatos_v2(page,previo,anteriores) != baseline:
+            raise Corte("recuperacion","los metadatos de la primera firma cambiaron antes del segundo paso")
     detalles = page.locator("[data-ct-firma-detalles]")
     detalles.wait_for(timeout=20_000)
     detalles.evaluate("e => e.open = true")
@@ -815,10 +946,15 @@ def recorrer_firmas_v2(page, a, informe, catalogo, timeout_error):
     comparar_estado_v2(consultar_estado_v2(page,a),informe["firmas_v2"],a.documento)
     # La interfaz vuelve a consultar y repinta la descarga tras el registro real.
     informe["pdf_firmado"]=descargar_revision_v2(page,a,recibo)
+    informe["consulta_tecnica_v2"]=consultar_metadatos_v2(page,informe,informe["firmas_v2"])
+    if informe["consulta_tecnica_v2"]["firmas"]:
+        actual = next(f for f in informe["consulta_tecnica_v2"]["firmas"] if f["firma_ref"]==recibo["firma_ref"])
+        if actual["revision_pdf"]["revision_longitud"]!=informe["pdf_firmado"]["bytes"]:
+            raise Corte("recuperacion","la longitud de la revisión V2 no coincide con el PDF descargado")
     informe["estado"]="PRIMERA_FIRMA_CONFIRMADA" if a.paso==1 else "COMPLETO"
     informe["firma_eficaz"]=False
     informe["e2e"]=False
-    informe["pendiente"]="recuperacion_tras_reinicio_con_consulta_http_v2_y_evidencia_central"
+    informe["pendiente"]="recuperacion_tras_reinicio_y_canon_nominal_no_expuesto"
 
 
 def recorrer(a, chrome, entorno):
@@ -844,7 +980,7 @@ def recorrer(a, chrome, entorno):
         page.on("pageerror", lambda e: errores_js.append(type(e).__name__))
         page.on("response", lambda r: cookies_http.append(urlsplit(r.url).path) if "set-cookie" in r.headers else None)
         rutas_observadas = {"/portal-empleado/", RUTA_DETALLE, RUTA_FIRMAS, RUTA_REGISTRO_V2, RUTA_ORIGINAL, RUTA_PREFLIGHT,
-                            RUTA_CONSULTA_FIRMAS, RUTA_CIRCUITO, RUTA_SEGUIMIENTO,
+                            RUTA_CONSULTA_FIRMAS, RUTA_CONSULTA_TECNICA_V2, RUTA_CIRCUITO, RUTA_SEGUIMIENTO,
                             "/api/vec/contratacion-temporal/cuadro/consultas",
                             "/api/vec/contratacion-temporal/catalogos-alta"}
         page.on("response", lambda r: informe["http"].append({"metodo": r.request.method,
