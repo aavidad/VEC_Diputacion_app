@@ -9,14 +9,14 @@ AD180 está cerrada por tres huellas pendientes. Se detiene antes de modificar
 el núcleo. Personal34 exige la fachada y su permiso exclusivo para Personal.
 Ninguna está ensayada o instalada por esta entrega.
 
-La fuente causal acordada por L el04/10 a01:40 es H9→172→173→174variante→176variante.
+La fuente causal acordada por L el 04/10 a las 01:40 es H9→172→173→174variante→176variante.
 Faltan las postimágenes medidas de las variantes K. El núcleo POST173 debe
 conservarse; no basta reconocer el nombre del CHECK. El encaje posterior de
 AD175 y AD180 debe acordarse y medirse antes de cerrar sus guardas. No ejecutar
 esta lista como instalador ni reaplicar migraciones conservadas.
 
 La fachada devuelve todas las revisiones conocidas que solapan el intervalo
-de efectos solicitado. Más de200 revisiones provoca54000, sin datos truncados.
+de efectos solicitado. Más de 200 revisiones provoca 54000, sin datos truncados.
 El periodo prestado, la vigencia del registro y el conocimiento son distintos.
 La cobertura queda no_acreditada mientras no exista una fuente que la acredite.
 Acto y fuente son referencias; no permiten descargar ni acreditar documentos.
