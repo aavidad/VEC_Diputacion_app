@@ -1,10 +1,14 @@
-import { leerArchivo } from './modelo.js?v=20261002-selectivos-bases-v1';
-import { pintarSalida } from './vista.js?v=20261002-selectivos-bases-v1';
+import { crearLectorBasesHTTP } from './cliente-http.js?v=20261003-s2-consulta-v1';
+import { leerArchivo } from './modelo.js?v=20261003-s2-consulta-v1';
+import { pintarSalida } from './vista.js?v=20261003-s2-consulta-v1';
 import { cargarTextos } from '../../../../comun/textos.js';
 import { INDICE_IDIOMAS, leerRecursoJSON } from '../../../../comun/idioma.js';
 
 const archivo = document.querySelector('#bases-archivo'); const estado = document.querySelector('#bases-estado');
 const raiz = document.querySelector('#bases-resultados'); const descargar = document.querySelector('#bases-descargar');
+const formulario = document.querySelector('#bases-consulta'); const consultar = document.querySelector('#bases-consultar');
+const cancelar = document.querySelector('#bases-cancelar');
+const lector = crearLectorBasesHTTP(); let peticion = null;
 const cerrar = document.querySelector('#bases-cerrar'); const urls = new Set();
 let turno = 0; let carga = null; let textos; let estadoActual = { clave: 'vacio', error: false, variables: {} };
 function mensaje(clave, error = false, variables = {}) {
@@ -13,7 +17,8 @@ function mensaje(clave, error = false, variables = {}) {
   archivo.setAttribute('aria-invalid', String(error && ['error_formato', 'error_tamano'].includes(clave)));
 }
 function limpiar() {
-  ++turno; carga = null; descargar.disabled = true; cerrar.disabled = true; raiz.replaceChildren();
+  ++turno; peticion?.abort(); peticion = null; carga = null; descargar.disabled = true; descargar.hidden = false; cancelar.disabled = true; cerrar.disabled = true; raiz.replaceChildren();
+  urls.forEach(url => URL.revokeObjectURL(url)); urls.clear();
 }
 archivo.addEventListener('change', async () => {
   limpiar(); const actual = turno; const file = archivo.files?.[0];
@@ -21,18 +26,46 @@ archivo.addEventListener('change', async () => {
   cerrar.disabled = false; mensaje('cargando');
   try {
     const resultado = await leerArchivo(file); if (actual !== turno) return;
-    pintarSalida({ raiz, dto: resultado.dto, textos }); carga = resultado; descargar.disabled = false;
+    pintarSalida({ raiz, dto: resultado.dto, textos }); carga = { ...resultado, institucional: false, nombre: file.name }; descargar.disabled = false;
     mensaje('cargado', false, { archivo: file.name });
   } catch (error) { if (actual === turno) mensaje(error.message === 'tamano' ? 'error_tamano' : 'error_formato', true); }
 });
 cerrar.addEventListener('click', () => { limpiar(); archivo.value = ''; mensaje('vacio'); archivo.focus(); });
-descargar.addEventListener('click', () => {
-  if (!carga) return;
+function descargarOriginal() {
+  if (!carga || carga.institucional) return;
   const url = URL.createObjectURL(new Blob([carga.bytes], { type: 'application/json' })); urls.add(url);
   const enlace = document.createElement('a'); enlace.href = url; enlace.download = textos.traducir('nombre_descarga');
   document.body.append(enlace); enlace.click(); enlace.remove(); mensaje('descarga_lista');
   setTimeout(() => { URL.revokeObjectURL(url); urls.delete(url); }, 1000);
+}
+descargar.addEventListener('click', descargarOriginal);
+
+function selectorConsulta() {
+  const modo = document.querySelector('#bases-modo').value;
+  return { modo, preparacion_ref: document.querySelector('#bases-referencia').value,
+    revision: modo === 'actual' ? 0 : Number(document.querySelector('#bases-revision').value),
+    huella_material_sha256: modo === 'actual' ? '' : document.querySelector('#bases-huella').value };
+}
+formulario.addEventListener('submit', async e => {
+  e.preventDefault(); limpiar(); archivo.value = ''; const actual = turno;
+  peticion = new AbortController(); cancelar.disabled = false; mensaje('consultando');
+  try {
+    const resultado = await lector.consultar(selectorConsulta(), { signal: peticion.signal });
+    if (actual !== turno) return;
+    carga = { ...resultado, institucional: true }; pintarSalida({ raiz, dto: carga.dto, textos, institucional: true });
+    descargar.hidden = true; cerrar.disabled = false;
+    mensaje('consulta_obtenida');
+  } catch (error) { if (actual === turno) { limpiar(); mensaje(`consulta_errores.${error.codigo || 'servicio_no_disponible'}`, true); } }
+  finally { if (actual === turno) { peticion = null; cancelar.disabled = true; } }
 });
+formulario.addEventListener('input', () => { limpiar(); archivo.value = ''; mensaje('consulta_lista'); });
+formulario.addEventListener('change', () => {
+  limpiar(); archivo.value = ''; mensaje('consulta_lista');
+  const exacta = document.querySelector('#bases-modo').value === 'exacta'; document.querySelector('#bases-exacta').hidden = !exacta;
+  for (const id of ['bases-revision', 'bases-huella']) document.getElementById(id).required = exacta;
+});
+cancelar.addEventListener('click', () => { limpiar(); mensaje('consulta_cancelada'); consultar.focus(); });
+
 const ayuda = document.querySelector('#bases-ayuda');
 ayuda.addEventListener('click', () => {
   const contenido = document.querySelector('#bases-ayuda-contenido'); contenido.hidden = !contenido.hidden;
@@ -45,7 +78,7 @@ async function idioma(codigo) {
   document.querySelectorAll('[data-texto]').forEach(n => { if (n !== estado) n.textContent = textos.traducir(n.dataset.texto); });
   mensaje(estadoActual.clave, estadoActual.error, estadoActual.variables);
   document.querySelectorAll('[data-aria]').forEach(n => { n.setAttribute('aria-label', textos.traducir(n.dataset.aria)); });
-  if (carga) { pintarSalida({ raiz, dto: carga.dto, textos }); mensaje('cargado', false, { archivo: archivo.files[0].name }); }
+  if (carga) pintarSalida({ raiz, dto: carga.dto, textos, institucional: carga.institucional });
 }
 const foco = new AbortController(); let frame;
 document.addEventListener('focusin', e => {
@@ -59,15 +92,15 @@ document.addEventListener('focusin', e => {
 }, { signal: foco.signal });
 window.addEventListener('pagehide', () => { limpiar(); foco.abort(); cancelAnimationFrame(frame); urls.forEach(url => URL.revokeObjectURL(url)); });
 try {
-  archivo.disabled = true; ayuda.disabled = true;
+  archivo.disabled = true; ayuda.disabled = true; consultar.disabled = true;
   const inicial = await cargarTextos('seleccion-bases-preparacion'); await idioma(inicial.idioma);
   const selector = document.querySelector('#bases-idioma');
   for (const i of INDICE_IDIOMAS.idiomas) { const opt = document.createElement('option'); opt.value = i.codigo; opt.textContent = i.nombre; opt.selected = i.codigo === textos.idioma; selector.append(opt); }
   selector.addEventListener('change', async () => { selector.disabled = true; try { await idioma(selector.value); } catch { mensaje('error_catalogo', true); } finally { selector.value = textos.idioma; selector.disabled = false; } });
-  archivo.disabled = false; ayuda.disabled = false;
+  archivo.disabled = false; ayuda.disabled = false; consultar.disabled = false;
 } catch {
   // Un catálogo ausente no habilita un visor sin límites comprensibles.
-  archivo.disabled = true; ayuda.disabled = true; estado.setAttribute('role', 'alert');
+  archivo.disabled = true; ayuda.disabled = true; consultar.disabled = true; estado.setAttribute('role', 'alert');
   const respaldo = await cargarTextos('seleccion-bases-preparacion-error', textos ? { idioma: textos.idioma } : {})
     .then(t => ({ idioma: t.idioma, titulo: t.traducir('titulo'), mensaje: t.traducir('mensaje') }))
     .catch(() => leerRecursoJSON(new URL('./error-catalogo.json', import.meta.url))).catch(() => null);

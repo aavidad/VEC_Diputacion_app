@@ -8,25 +8,25 @@ const objeto = v => v !== null && typeof v === 'object' && !Array.isArray(v);
 const cadena = v => typeof v === 'string' && v.length <= 131072;
 const entero = v => Number.isSafeInteger(v);
 const lista = validar => v => v === null || Array.isArray(v) && v.length <= 1024 && v.every(validar);
-function forma(v, campos, opcionales = []) {
+export function forma(v, campos, opcionales = []) {
   return objeto(v) && Object.keys(v).every(k => Object.hasOwn(campos, k) || opcionales.includes(k))
     && Object.entries(campos).every(([k, validar]) => Object.hasOwn(v, k) && validar(v[k]));
 }
-const ref = v => forma(v, { id: cadena, version: entero, huella_contenido_sha256: cadena });
+export const ref = v => forma(v, { id: cadena, version: entero, huella_contenido_sha256: cadena });
 const catalogo = v => forma(v, { catalogo_id: cadena, catalogo_version: entero, catalogo_huella_sha256: cadena });
 const plazo = v => forma(v, { referencia: cadena, tipo: cadena, titulo: cadena, descripcion: cadena, abre_en: cadena, cierra_en: cadena });
 const requisito = v => forma(v, { referencia: cadena, orden: entero, titulo: cadena, descripcion: cadena, obligatorio: v => typeof v === 'boolean' });
 const documento = v => forma(v, { referencia: cadena, tipo: cadena, orden: entero, titulo: cadena, descripcion: cadena, formato: cadena, url: cadena });
 const ayuda = v => forma(v, { referencia: cadena, categoria: cadena, orden: entero, pregunta: cadena, respuesta: cadena });
-const contenido = v => forma(v, {
+export const contenido = v => forma(v, {
   identificador_publico: cadena, tipo: cadena, catalogo_categorias: catalogo, categorias: lista(cadena),
   titulo: cadena, resumen: cadena, descripcion: cadena, plazos: lista(plazo), requisitos: lista(requisito), documentos: lista(documento), ayuda: lista(ayuda),
 });
-const pendiente = v => forma(v, { campo: v => CAMPOS.includes(v), codigo: v => CODIGOS.includes(v) });
+export const pendiente = v => forma(v, { campo: v => CAMPOS.includes(v), codigo: v => CODIGOS.includes(v) });
 const mensaje = v => forma(v, { campo: cadena, codigo: cadena, mensaje: cadena });
 
 // JSON.parse pierde claves duplicadas. Este recorrido léxico las rechaza antes de interpretar.
-function comprobarClaves(texto) {
+export function comprobarClaves(texto) {
   let i = 0;
   const espacio = () => { while (/\s/u.test(texto[i] ?? '') && i < texto.length) ++i; };
   function tokenCadena() {
