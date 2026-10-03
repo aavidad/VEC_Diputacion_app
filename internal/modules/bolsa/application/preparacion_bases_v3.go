@@ -52,10 +52,10 @@ func (s *ServicioPreparacionBasesV3) Guardar(ctx context.Context, q ports.Solici
 		return cero, err
 	}
 	if r.Estado == "version_en_conflicto" {
-		return r, ports.ErrPreparacionBasesConflicto
+		return r, errorAccesoConfirmadoPreparacionBasesV3{ports.ErrPreparacionBasesConflicto}
 	}
 	if r.Estado == "clave_reutilizada" {
-		return r, ports.ErrPreparacionBasesClaveReutilizada
+		return r, errorAccesoConfirmadoPreparacionBasesV3{ports.ErrPreparacionBasesClaveReutilizada}
 	}
 	return clonarResultadoPreparacionBasesV3(r)
 }
@@ -90,7 +90,7 @@ func (s *ServicioPreparacionBasesV3) Consultar(ctx context.Context, q ports.Soli
 		return cero, err
 	}
 	if r.Estado == "no_encontrada" {
-		return r, ports.ErrPreparacionBasesNoEncontrada
+		return r, errorAccesoConfirmadoPreparacionBasesV3{ports.ErrPreparacionBasesNoEncontrada}
 	}
 	return clonarResultadoPreparacionBasesV3(r)
 }
