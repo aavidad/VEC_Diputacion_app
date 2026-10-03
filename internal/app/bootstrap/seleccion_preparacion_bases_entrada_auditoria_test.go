@@ -8,7 +8,6 @@ import (
 	"strings"
 	"testing"
 
-	bolsaports "vec-diputacion-granada/internal/modules/bolsa/ports"
 	selhttp "vec-diputacion-granada/internal/modules/seleccion/adapters/http"
 	core "vec-diputacion-granada/internal/vec/domain"
 )
