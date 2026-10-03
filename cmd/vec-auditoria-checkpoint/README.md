@@ -134,3 +134,12 @@ una extracción de la base. Las pruebas emiten un recibo con el proveedor de
 desarrollo, fijan su SPKI y comprueban cadena, aviso histórico, alteraciones de
 los quince campos y entradas JSON ambiguas. El lector sigue siendo offline:
 no añade SQL, captura automática, tareas periódicas ni acceso al servidor.
+
+Comprobaciones del incremento mixto: `go test -race -p 8
+./cmd/vec-auditoria-checkpoint`, `go vet -p 8 ./cmd/vec-auditoria-checkpoint
+./internal/vec/application`, Semgrep `p/golang` sobre los cinco archivos Go
+afectados (42 reglas, sin hallazgos) y gosec sobre los tres archivos de producción
+de la CLI (415 líneas, sin hallazgos ni errores de carga). Los temporales de prueba
+se situaron fuera de Git: la carpeta ajena `/tmp/.git` hacía fallar la guarda
+existente para secretos, incluido el test anterior. No se modificó esa guarda ni
+la carpeta ajena. La suite global y los servicios no se ejecutaron.
