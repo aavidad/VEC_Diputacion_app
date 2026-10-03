@@ -41,6 +41,11 @@ test("una sola consulta same-origin alimenta relaciones y servicios con textos l
   assert.equal(relaciones.actualizado_en, "2026-09-25T09:00:00.000000Z");
   assert.deepEqual(relaciones.items[0], { desde: "2026-01-01", hasta: "Actualidad", regimen: "Funcionario interino · Vacante", puesto: "Técnico/a de gestión", unidad: "Servicio de Personal", estado: "Servicio activo" });
   assert.deepEqual(relaciones.items[1], { desde: "2020-03-01", hasta: "2020-12-31", regimen: "Laboral temporal", puesto: "", unidad: "", estado: "Finalizada" });
+  assert.equal(servicios.recibo_ref, FICHA.data.recibo_ref);
+  assert.deepEqual(servicios.corte, FICHA.data.ficha.corte);
+  assert.ok(Object.isFrozen(servicios.corte));
+  assert.equal(typeof fuentes.servicios.exportarPropios, "function");
+  assert.equal(fuentes.relaciones.exportarPropios, undefined);
   assert.deepEqual(servicios.items, [{ desde: "2019-01-01", hasta: "2019-12-31", procedencia: "Servicios previos", reconocimiento: "1365 días", estado: "Reconocido" }]);
   assert.ok(!JSON.stringify([relaciones, servicios]).match(/(?:emp|per|rel|srv)_/u), "sin referencias internas");
 });
@@ -138,7 +143,7 @@ test("más filas de las que se muestran: los apartados se ofrecen con estado pro
 test("una ficha sin registros deja los apartados vacíos, no en cero inventado", async () => {
   const vacia = { data: { ...FICHA.data, ficha: { ...FICHA.data.ficha, relaciones: [], servicios: [] } } };
   const fuentes = await crearFuentesFichaPropia({ fetchImpl: async () => respuesta(vacia) }).preparar();
-  assert.deepEqual(await fuentes.servicios.consultarPropios({}), { estado: "vacio", fuente: "Registro de Personal", actualizado_en: "2026-09-25T09:00:00.000000Z", items: [], fecha_referencia: "2026-09-25" });
+  assert.deepEqual(await fuentes.servicios.consultarPropios({}), { estado: "vacio", fuente: "Registro de Personal", actualizado_en: "2026-09-25T09:00:00.000000Z", items: [], fecha_referencia: "2026-09-25", recibo_ref: FICHA.data.recibo_ref, corte: FICHA.data.ficha.corte });
 });
 
 test("actualizar borra la ficha anterior y no permite que una respuesta tardía repueble la caché", async () => {
@@ -240,4 +245,22 @@ test("el catálogo dedicado ofrece las mismas claves y variables en ambos idioma
     assert.ok(castellano.general[clave] && ingles.general[clave]);
     assert.deepEqual(castellano.general[clave].match(/\{[a-z_]+\}/gu), ingles.general[clave].match(/\{[a-z_]+\}/gu));
   }
+});
+
+
+test("exportar Servicios conserva la consulta original y no vuelve a hacer GET", async () => {
+  const { createHash } = await import("node:crypto");
+  const csv = new TextEncoder().encode("Inicio,Fin\n");
+  const peticiones = [];
+  const fuentes = await crearFuentesFichaPropia({ fetchImpl: async (ruta, opciones) => {
+    peticiones.push({ ruta, opciones });
+    if (opciones.method === "GET") return respuesta(FICHA);
+    return new Response(csv, { headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Length": String(csv.length), "Content-Disposition": "attachment; filename=servicios.csv", "X-Content-SHA256": createHash("sha256").update(csv).digest("hex"), "X-Recibo-Ref": FICHA.data.recibo_ref } });
+  } }).preparar();
+  const resultado = await fuentes.servicios.consultarPropios();
+  const archivo = await fuentes.servicios.exportarPropios({ reciboRef: resultado.recibo_ref, corte: resultado.corte });
+  assert.deepEqual(archivo.bytes, csv);
+  assert.deepEqual(peticiones.map(({ opciones }) => opciones.method), ["GET", "POST"]);
+  assert.deepEqual(JSON.parse(peticiones[1].opciones.body).corte, FICHA.data.ficha.corte);
+  assert.equal(JSON.parse(peticiones[1].opciones.body).recibo_ref, FICHA.data.recibo_ref);
 });
