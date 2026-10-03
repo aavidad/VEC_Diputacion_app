@@ -45,6 +45,8 @@ type SolicitudOriginalFirma struct {
 }
 
 type OriginalFirmaAutorizado struct {
+	// UnidadRef procede de la relación gobernada con el expediente; V1 no la requiere.
+	UnidadRef    string
 	Solicitud    SolicitudOriginalFirma
 	Contenido    []byte
 	HuellaSHA256 string
