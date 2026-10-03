@@ -82,20 +82,6 @@ func comprobarPlantillasReales(ctx context.Context, e puertos.Entorno, t *testin
 	if err = p.RetirarClonPlantilla(ctx, p.NombreClon()); err != nil {
 		return err
 	}
-	// CREATE realmente confirmado; la respuesta al controlador se pierde después.
-	p.despuesTecnico = func(sql string, e error) error {
-		if e == nil && strings.HasPrefix(sql, "CREATE DATABASE") {
-			return context.DeadlineExceeded
-		}
-		return e
-	}
-	if p.CrearClonPlantilla(ctx, "template0", p.NombreClon()) == nil {
-		return errors.New("respuesta_perdida_sin_error")
-	}
-	if m, err := p.leerClon(ctx); err != nil || m != nil {
-		return errors.New("respuesta_perdida_sin_limpieza")
-	}
-	p.despuesTecnico = nil
 	// Un nombre ajeno que aparece antes de CREATE se conserva, incluso si su
 	// propietario coincide con la cuenta técnica de este mismo cluster sintético.
 	if err = p.tecnico(ctx, `CREATE DATABASE "`+p.NombreClon()+`" WITH TEMPLATE template0`); err != nil {
@@ -164,6 +150,106 @@ func comprobarPlantillasReales(ctx context.Context, e puertos.Entorno, t *testin
 	fuente.d.ArtefactoFisicoSHA256 = strings.Repeat("b", 64)
 	if _, err = NuevoRuntimePlantillas(ctx, e, fuente); err == nil {
 		return errors.New("huella_fabricada_aceptada")
+	}
+
+	fuente.d.ArtefactoFisicoSHA256 = e.Componentes[0].SHA256
+	// Carrera CREATE: la base ajena aparece después de comprobar ausencia y
+	// antes del comando. Un error no permite adoptar, marcar ni retirar su OID.
+	q, err := NuevoRuntimePlantillas(ctx, e, fuente)
+	if err != nil {
+		return err
+	}
+	var ajena *metadatosClon
+	q.antesTecnico = func(sql string) error {
+		if strings.HasPrefix(sql, "CREATE DATABASE") {
+			q.antesTecnico = nil
+			if err := q.tecnico(ctx, `CREATE DATABASE "`+q.NombreClon()+`" WITH TEMPLATE template0`); err != nil {
+				return err
+			}
+			ajena, err = q.leerClon(ctx)
+			return err
+		}
+		return nil
+	}
+	if q.CrearClonPlantilla(ctx, "template0", q.NombreClon()) == nil || q.propiedad != nil {
+		return errors.New("create_ajeno_adoptado")
+	}
+	if q.RetirarClonPlantilla(ctx, q.NombreClon()) == nil {
+		return errors.New("create_ajeno_retirado")
+	}
+	actual, err := q.leerClon(ctx)
+	if err != nil || actual == nil || ajena == nil || *actual != *ajena || actual.Marca != "" {
+		return errors.New("create_ajeno_modificado")
+	}
+	// Carrera DROP: renombrar la propia y ocupar su nombre después de la primera
+	// observación. La comparación posterior al hook debe conservar la sustituta.
+	if err = p.CrearClonPlantilla(ctx, "template0", p.NombreClon()); err != nil {
+		return err
+	}
+	propia := *p.propiedad
+	p.antesTecnico = func(sql string) error {
+		if strings.HasPrefix(sql, "DROP DATABASE") {
+			p.antesTecnico = nil
+			if err := p.tecnico(ctx, `ALTER DATABASE "`+p.NombreClon()+`" RENAME TO "`+renombrado+`"`); err != nil {
+				return err
+			}
+			return p.tecnico(ctx, `CREATE DATABASE "`+p.NombreClon()+`" WITH TEMPLATE template0`)
+		}
+		return nil
+	}
+	if p.RetirarClonPlantilla(ctx, p.NombreClon()) == nil || p.propiedad == nil {
+		return errors.New("sustituta_retirada")
+	}
+	actual, err = p.leerClon(ctx)
+	if err != nil || actual == nil || actual.OID == propia.OID || actual.Marca != "" {
+		return errors.New("sustituta_modificada")
+	}
+	if p.confirmarOIDRetirado(ctx, propia.OID) == nil {
+		return errors.New("propia_renombrada_eliminada")
+	}
+	// Respuesta perdida: aunque la fixture sabe que CREATE se confirmó, la API
+	// recibió error. Conserva la base sin COMMENT/DROP y deja el teardown al
+	// propietario del contenedor completo, sin inferir titularidad del nombre.
+	perdido, err := NuevoRuntimePlantillas(ctx, e, fuente)
+	if err != nil {
+		return err
+	}
+	perdido.despuesTecnico = func(sql string, err error) error {
+		if err == nil && strings.HasPrefix(sql, "CREATE DATABASE") {
+			return context.DeadlineExceeded
+		}
+		return err
+	}
+	if perdido.CrearClonPlantilla(ctx, "template0", perdido.NombreClon()) == nil || perdido.propiedad != nil || !perdido.pendiente {
+		return errors.New("respuesta_perdida_adoptada")
+	}
+	actual, err = perdido.leerClon(ctx)
+	if err != nil || actual == nil || actual.Marca != "" {
+		return errors.New("respuesta_perdida_modificada")
+	}
+	if perdido.RetirarClonPlantilla(ctx, perdido.NombreClon()) == nil {
+		return errors.New("respuesta_perdida_retirada")
+	}
+	// El comienzo real de cualquier archivado cierra la fase técnica. Ningún
+	// DROP individual se presume seguro frente al binario; el final del ensayo
+	// limpia el contenedor y todas estas fixtures sin tocar el origen.
+	final, err := NuevoRuntimePlantillas(ctx, e, fuente)
+	if err != nil {
+		return err
+	}
+	if err = final.CrearClonPlantilla(ctx, "template0", final.NombreClon()); err != nil {
+		return err
+	}
+	ultima := *final.propiedad
+	if _, err = final.runtime.EjecutarArchivado(ctx, "fisica:testigo", []string{"--version"}, nil, 4096); err != nil {
+		return err
+	}
+	if final.RetirarClonPlantilla(ctx, final.NombreClon()) == nil {
+		return errors.New("drop_durante_fase_archivada")
+	}
+	actual, err = final.leerClon(ctx)
+	if err != nil || actual == nil || *actual != ultima {
+		return errors.New("clon_en_fase_archivada_modificado")
 	}
 	return nil
 }

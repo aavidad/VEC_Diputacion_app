@@ -18,14 +18,18 @@ import (
 	puertos "vec-diputacion-granada/internal/modules/administracion/ports/ensayofisicopg"
 )
 
-type anclajeFisicoRuntime struct{ nombre, raiz, imagen, artefacto, sello string }
+type anclajeFisicoRuntime struct {
+	nombre, raiz, imagen, artefacto, sello string
+	fase                                   sync.Mutex
+	archivadosIniciados                    bool
+}
 
 func (r *RuntimeObservacion) anclarFisico(ctx context.Context, artefacto string) error {
 	sello, err := r.ComprobarExclusion(ctx)
 	if err != nil {
 		return falloPlantilla("anclaje_fisico")
 	}
-	r.fisico = &anclajeFisicoRuntime{r.Nombre, r.Raiz, r.ImagenSHA256, artefacto, sello}
+	r.fisico = &anclajeFisicoRuntime{nombre: r.Nombre, raiz: r.Raiz, imagen: r.ImagenSHA256, artefacto: artefacto, sello: sello}
 	return nil
 }
 
@@ -168,6 +172,9 @@ func (p *RuntimePlantillas) propietarioActual(ctx context.Context) (string, erro
 // tecnico ejecuta una sentencia cerrada sobre la copia aislada. PGOPTIONS sólo
 // cambia esta sesión; la configuración global permanece en lectura.
 func (p *RuntimePlantillas) tecnico(ctx context.Context, sql string) error {
+	return p.tecnicoValidado(ctx, sql, nil)
+}
+func (p *RuntimePlantillas) tecnicoValidado(ctx context.Context, sql string, validar func(context.Context) error) error {
 	if _, err := p.ObservarProcedenciaFisica(ctx); err != nil {
 		return err
 	}
@@ -178,6 +185,11 @@ func (p *RuntimePlantillas) tecnico(ctx context.Context, sql string) error {
 	}
 	if _, err := p.ObservarProcedenciaFisica(ctx); err != nil {
 		return err
+	}
+	if validar != nil {
+		if err := validar(ctx); err != nil {
+			return err
+		}
 	}
 	_, err := docker(ctx, nil, 4096, "exec", p.runtime.Nombre, "env", "-i", "PATH=/usr/bin:/bin", "LANG=C", "LC_ALL=C", "PGHOST=/var/run/postgresql", "PGOPTIONS=-c default_transaction_read_only=off", "psql", "-X", "-At", "-v", "ON_ERROR_STOP=1", "-U", p.runtime.UsuarioBootstrap, "-d", "postgres", "-c", sql)
 	if p.despuesTecnico != nil {
@@ -219,6 +231,11 @@ func (p *RuntimePlantillas) CrearClonPlantilla(ctx context.Context, origen, clon
 	if p == nil || origen != "template0" || clon != p.nombre {
 		return falloPlantilla("clon_no_admitido")
 	}
+	desbloquear, err := p.runtime.escritorPlantillas()
+	if err != nil {
+		return err
+	}
+	defer desbloquear()
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if p.propiedad != nil || p.pendiente {
@@ -240,8 +257,14 @@ func (p *RuntimePlantillas) CrearClonPlantilla(ctx context.Context, origen, clon
 	}
 	p.pendiente = true
 	crearErr := p.tecnico(ctx, fmt.Sprintf(`CREATE DATABASE "%s" WITH TEMPLATE template0`, p.nombre))
-	// Conciliar con plazo independiente también cuando se pierde la respuesta
-	// después del commit; nunca recuperar usando otra clave o crear otro nombre.
+	// Un error no demuestra que CREATE fuese nuestro. La aparición posterior de
+	// un nombre nunca autoriza COMMENT ni DROP. El ensayo completo retira su
+	// contenedor propio, también cuando el commit tiene respuesta perdida.
+	if crearErr != nil {
+		return crearErr
+	}
+	// Confirmar sólo una creación cuyo comando terminó correctamente.
+	// La exclusión técnica impide iniciar procesos archivados en esta fase.
 	revisar, cancelar := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancelar()
 	actual, err := p.leerClon(revisar)
@@ -250,9 +273,6 @@ func (p *RuntimePlantillas) CrearClonPlantilla(ctx context.Context, origen, clon
 	}
 	if actual == nil {
 		p.pendiente = false
-		if crearErr != nil {
-			return crearErr
-		}
 		return falloPlantilla("clon_ausente")
 	}
 	if actual.Propietario != owner || (actual.Marca != "" && actual.Marca != p.marca) {
@@ -260,7 +280,17 @@ func (p *RuntimePlantillas) CrearClonPlantilla(ctx context.Context, origen, clon
 	}
 	// El nombre aleatorio reservado, la ausencia previa y la exclusión del runtime
 	// ligan la creación a esta intención. La marca y el OID gobiernan su retirada.
-	if err = p.tecnico(revisar, fmt.Sprintf(`COMMENT ON DATABASE "%s" IS '%s'`, p.nombre, p.marca)); err != nil {
+	creado := *actual
+	if err = p.tecnicoValidado(revisar, fmt.Sprintf(`COMMENT ON DATABASE "%s" IS '%s'`, p.nombre, p.marca), func(ctx context.Context) error {
+		actual, err := p.leerClon(ctx)
+		if err != nil {
+			return err
+		}
+		if actual == nil || *actual != creado {
+			return falloPlantilla("clon_sustituido")
+		}
+		return nil
+	}); err != nil {
 		return err
 	}
 	actual, err = p.leerClon(revisar)
@@ -275,18 +305,17 @@ func (p *RuntimePlantillas) CrearClonPlantilla(ctx context.Context, origen, clon
 		}
 		return err
 	}
-	if crearErr != nil {
-		if err = p.retirar(revisar, clon); err != nil {
-			return err
-		}
-		return crearErr
-	}
 	return nil
 }
 func (p *RuntimePlantillas) RetirarClonPlantilla(ctx context.Context, clon string) error {
 	if p == nil || clon != p.nombre {
 		return falloPlantilla("clon_no_admitido")
 	}
+	desbloquear, err := p.runtime.escritorPlantillas()
+	if err != nil {
+		return err
+	}
+	defer desbloquear()
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	return p.retirar(ctx, clon)
@@ -312,7 +341,18 @@ func (p *RuntimePlantillas) retirar(ctx context.Context, clon string) error {
 	if *actual != *p.propiedad || actual.Marca != p.marca {
 		return falloPlantilla("clon_sustituido")
 	}
-	dropErr := p.tecnico(ctx, fmt.Sprintf(`DROP DATABASE "%s"`, p.nombre))
+	dropErr := p.tecnicoValidado(ctx, fmt.Sprintf(`DROP DATABASE "%s"`, p.nombre), func(ctx context.Context) error {
+		// El hook puede haber cambiado la preimagen. Comparar después de él, bajo
+		// la fase exclusiva y antes del único efecto sobre ese nombre.
+		actual, err := p.leerClon(ctx)
+		if err != nil {
+			return err
+		}
+		if actual == nil || *actual != *p.propiedad || actual.Marca != p.marca {
+			return falloPlantilla("clon_sustituido")
+		}
+		return nil
+	})
 	revisar, cancelar := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancelar()
 	despues, err := p.leerClon(revisar)

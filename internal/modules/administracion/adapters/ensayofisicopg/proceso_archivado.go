@@ -39,6 +39,8 @@ func prepararAuxiliar(raiz string) error {
 	return nil
 }
 func (r RuntimeObservacion) IniciarArchivado(ctx context.Context, id string, args []string, env map[string]string) (puertos.ProcesoArchivado, error) {
+	desbloquear := r.faseArchivada()
+	defer desbloquear()
 	if ctx == nil || len(args) > 64 || len(env) > 128 {
 		return nil, errRuntime
 	}
