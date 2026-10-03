@@ -4,7 +4,7 @@ const MAXIMO_BYTES = 1024 * 1024;
 const REFERENCIA = /^[a-z][a-z0-9_:-]{2,159}$/u;
 const SERVICIO = /^srv_[A-Za-z0-9_-]{22,128}$/u;
 const RELACION = /^rel_[A-Za-z0-9_-]{22,128}$/u;
-const RECIBO = /^historia:servicios:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u;
+const RECIBO = /^aud_v3_[0-9a-f]{32}$/u;
 const ESTADOS = new Set(["declarado", "comprobado", "reconocido"]);
 const COBERTURAS = new Set(["completa", "parcial", "no_acreditada"]);
 

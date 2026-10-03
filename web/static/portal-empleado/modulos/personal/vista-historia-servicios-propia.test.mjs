@@ -22,7 +22,7 @@ const buscar = (raiz, clave) => nodos(raiz).find((n) => Object.hasOwn(n.dataset,
 const filtros = { efectosDesde: "2024-01-01", efectosHasta: "2025-01-01" };
 function datos() {
   const revision = (version) => ({ servicio_ref: "srv_AAAAAAAAAAAAAAAAAAAAAA", relacion_ref: "rel_CCCCCCCCCCCCCCCCCCCCCC", periodo_desde: "2019-01-01", periodo_hasta: "2019-12-31", dias_reconocidos: 365, estado: "reconocido", clase: "<dato fuente>", traza: { desde: "2024-01-01", registrada_en: "2024-03-01T09:00:00.000000Z", version, acto_ref: "acto:uno", fuente_ref: "fuente:uno", fuente_version: 1 } });
-  return { historia: { corte: { efectos_desde: filtros.efectosDesde, efectos_hasta: filtros.efectosHasta, conocido_en: "2026-10-04T08:00:00.000000Z" }, cobertura: "parcial", revisiones: [revision(2), revision(1)] }, consultada_en: "2026-10-04T08:00:01.000000Z", recibo_ref: "historia:servicios:0f0e0d0c-0b0a-4908-8706-050403020100" };
+  return { historia: { corte: { efectos_desde: filtros.efectosDesde, efectos_hasta: filtros.efectosHasta, conocido_en: "2026-10-04T08:00:00.000000Z" }, cobertura: "parcial", revisiones: [revision(2), revision(1)] }, consultada_en: "2026-10-04T08:00:01.000000Z", recibo_ref: "aud_v3_abcdef0123456789abcdef0123456789" };
 }
 const completar = () => new Promise((r) => setImmediate(r));
 const enviar = (raiz) => nodos(raiz).find((n) => n.tagName === "form").listeners.get("submit")({ preventDefault() {} });
@@ -53,7 +53,7 @@ test("error, denegación, sesión finalizada y exceso retiran filas y recibo ant
     let consultas = 0; const { raiz } = montar({ async consultar() { if (++consultas === 1) return datos(); throw { codigo }; } });
     await enviar(raiz); assert.equal(nodos(raiz).some((n) => n.tagName === "table"), true);
     await enviar(raiz); assert.equal(nodos(raiz).some((n) => n.tagName === "table"), false);
-    assert.doesNotMatch(texto(raiz), /historia:servicios:/u); assert.equal(consultas, 2);
+    assert.doesNotMatch(texto(raiz), /aud_v3_/u); assert.equal(consultas, 2);
     assert.ok(nodos(raiz).some((n) => n.attributes.get("role") === "alert"));
     if (codigo === "sesion_caducada") assert.match(texto(raiz), /Identifíquese de nuevo/u);
   }
