@@ -19,7 +19,7 @@ func materialHistoriaPrueba(t *testing.T) MaterialHistoriaServiciosPropia {
 }
 func historiaPrueba(m MaterialHistoriaServiciosPropia) HistoriaServiciosPropia {
 	traza := TrazaEmpleadoB2{Desde: "2020-01-01", RegistradaEn: time.Date(2026, 9, 24, 10, 0, 0, 0, time.UTC), Version: 2, ActoRef: "acto:servicios:2", FuenteRef: "fuente:personal", FuenteVersion: 7}
-	fila := RevisionServicioPropio{ServicioRef: "servicio:1", RelacionRef: "rel_" + strings.Repeat("c", 24), PeriodoDesde: "2019-01-01", PeriodoHasta: "2019-12-31", DiasReconocidos: 365, Estado: "reconocido", Clase: "", Traza: traza}
+	fila := RevisionServicioPropio{ServicioRef: "srv_" + strings.Repeat("A", 24), RelacionRef: "rel_" + strings.Repeat("C", 24), PeriodoDesde: "2019-01-01", PeriodoHasta: "2019-12-31", DiasReconocidos: 365, Estado: "reconocido", Clase: "", Traza: traza}
 	anterior := fila
 	anterior.Traza.Version = 1
 	anterior.Traza.FuenteVersion = 6
@@ -96,5 +96,25 @@ func TestHistoriaServiciosPropiaConservaRevisionesYSeparacionTemporal(t *testing
 	h.Cobertura = "no_acreditada"
 	if h.ValidarPara(m) != nil {
 		t.Fatal("vacío convertido en cobertura completa")
+	}
+}
+
+func TestHistoriaServiciosPropiaReferenciasFielesAPersonal17(t *testing.T) {
+	m := materialHistoriaPrueba(t)
+	for _, longitud := range []int{21, 22, 128, 129} {
+		h := historiaPrueba(m)
+		h.Revisiones = h.Revisiones[:1]
+		h.Revisiones[0].ServicioRef = "srv_" + strings.Repeat("A", longitud)
+		h.Revisiones[0].RelacionRef = "rel_" + strings.Repeat("Z", longitud)
+		err := h.ValidarPara(m)
+		valida := longitud == 22 || longitud == 128
+		if (err == nil) != valida {
+			t.Fatalf("límites SQL divergentes longitud=%d error=%v", longitud, err)
+		}
+	}
+	h := historiaPrueba(m)
+	h.Revisiones[0].ServicioRef = "servicio:1"
+	if h.ValidarPara(m) == nil {
+		t.Fatal("referencia de fixture sin contrato admitida")
 	}
 }
