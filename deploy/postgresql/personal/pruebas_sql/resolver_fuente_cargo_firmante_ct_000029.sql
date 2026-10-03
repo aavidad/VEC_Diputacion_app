@@ -12,6 +12,8 @@ BEGIN
  SELECT oid INTO aut FROM pg_roles WHERE rolname='vec_autorizacion_propietario';
  IF f IS NULL OR propietario IS NULL OR aut IS NULL THEN
   RAISE EXCEPTION 'Personal29: función o roles ausentes'; END IF;
+ IF EXISTS(SELECT 1 FROM pg_roles WHERE oid IN (propietario,aut) AND rolcanlogin) THEN
+  RAISE EXCEPTION 'Personal29: propietario ejecutable como LOGIN'; END IF;
  IF NOT EXISTS(SELECT 1 FROM pg_proc WHERE oid=f AND proowner=propietario
   AND prosecdef AND provolatile='v' AND pronargs=5
   AND 'search_path=pg_catalog,pg_temp'=ANY(proconfig)

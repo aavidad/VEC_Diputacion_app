@@ -17,6 +17,9 @@ BEGIN
   OR to_regclass('vec_personal.enlace_cargo_competencial_actual') IS NULL
   OR to_regclass('vec_personal.enlace_cargo_competencial_historia') IS NULL
   OR to_regprocedure('vec_personal.leer_revalidar_cargo_ocupante_ct_v1(bytea)') IS NULL
+  OR EXISTS(SELECT 1 FROM pg_roles WHERE rolname IN
+    ('vec_personal_propietario','vec_autorizacion_propietario') AND rolcanlogin)
+  OR NOT has_schema_privilege('vec_autorizacion_propietario','vec_personal','USAGE')
   OR NOT has_function_privilege('vec_autorizacion_propietario',
     'vec_personal.leer_revalidar_cargo_ocupante_ct_v1(bytea)','EXECUTE')
   OR to_regprocedure('vec_personal.resolver_fuente_cargo_ocupante_ct_v1(text,text,text,text,text)') IS NOT NULL
