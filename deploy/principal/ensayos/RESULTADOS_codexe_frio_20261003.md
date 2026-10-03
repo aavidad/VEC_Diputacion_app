@@ -101,3 +101,11 @@ CT170: AD3-159 requerido
 ```
 
 Ambos intentos conservaron snapshots completos e idénticos de historia, roles, funciones, ACL y catálogo de esquema. Resultado parcial: 23 migraciones nuevas instaladas en la copia y siete pruebas SQL focales verdes. AD159 y CT170 siguen sin instalar. Las piezas nuevas de cargos, competencia nominal y multifirma se ensayarán al recibir sus artefactos y orden aprobados.
+
+## AD162 y fachada privada de cargos
+
+Por orden de dirección se ensayó AD162 antes de AD160. AD162, commit `77cebd3d1306def7bbfd54dfd3ac9440eb285854`, SHA256 `f9387e72612ec129ee09281802875a8ee7f9a4cd7b8150e4912208dffc377bd9`, pasó sobre la postimagen AD158. Sus 475 tablas previas y roles conservan sus huellas. Se capturó inmediatamente su núcleo completo: definición SHA256 `8ee729ac5b3740fadc260dbd2a686cc03d411abde71e13b2b213330696cbabbf`; fuente `ed4fdb20579f858900aa6382a2c65e65312a12fb97f9d5b03a598be7422c337a`.
+
+AD160, commit `14044dbd007a36798076e7227c7f2387da423696`, SHA256 `b6bc945a36af85ef136b35300655488fe533977c738e021330ef3321b24a7572`, pasó después. Conserva el núcleo AD162 y la historia anterior. Añade cinco tablas centrales vacías y únicamente el rol técnico `vec_autorizacion_cargos_ct_ejecutor`, sin LOGIN ni privilegios de administración o BYPASSRLS, y sin membresías heredadas. Las huellas individuales de todos los roles anteriores coinciden. La prueba estructural `cargos_ct_000160.sql` pasó en ROLLBACK.
+
+La copia tiene ahora 480 tablas y 25 migraciones nuevas válidas. No se creó ningún plan, aprobación, asignación ni perfil. El ensayo estructural no acredita provisión real del cargo ni autorización administrativa para ejecutarla.
