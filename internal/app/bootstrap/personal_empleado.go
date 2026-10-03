@@ -98,13 +98,14 @@ type seguridadPersonalEmpleadoDesarrollo struct {
 	autoridad *autoridadPersonalEmpleadoDesarrollo
 }
 
+// identidad conserva el sello de esta petición para atribución histórica.
+// No autoriza lecturas: el proveedor y el consumo V3 mantienen vigencia actual.
 func (s seguridadPersonalEmpleadoDesarrollo) identidad(ctx context.Context) (contextoSeguridadComunDesarrollo, error) {
 	if ctx == nil || s.autoridad == nil || s.autoridad.reloj == nil {
 		return contextoSeguridadComunDesarrollo{}, ErrComposicionPersonalEmpleadoNoDisponible
 	}
 	c, ok := ctx.Value(claveContextoPersonalEmpleado{}).(contextoPersonalEmpleado)
-	if !ok || c.autoridad != s.autoridad || c.seguridad.Resultado.Validar() != nil || c.seguridad.Vinculo.ValidarPara(c.seguridad.Resultado) != nil ||
-		!c.seguridad.Vinculo.VigenteEn(s.autoridad.reloj.Ahora(), c.seguridad.Resultado) {
+	if !ok || c.autoridad != s.autoridad || c.seguridad.Resultado.Validar() != nil || c.seguridad.Vinculo.ValidarPara(c.seguridad.Resultado) != nil {
 		return contextoSeguridadComunDesarrollo{}, ErrComposicionPersonalEmpleadoNoDisponible
 	}
 	clon, err := c.seguridad.Resultado.Clonar()
