@@ -1,6 +1,7 @@
 package postgres
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -11,6 +12,27 @@ import (
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
+
+func TestConsultaFirmaV2RechazaRangoConNull(t *testing.T) {
+	m, w := fixtureConsultaFirmaV2()
+	canon, err := m.Canonico()
+	if err != nil {
+		t.Fatal(err)
+	}
+	contenido, err := json.Marshal(w)
+	if err != nil {
+		t.Fatal(err)
+	}
+	invalido := bytes.ReplaceAll(contenido, []byte(`"ByteRange":[0,`), []byte(`"ByteRange":[null,`))
+	if bytes.Equal(invalido, contenido) {
+		t.Fatal("fixture no contiene ByteRange esperado")
+	}
+	tx := &txFirmaV2Prueba{t: t, canonico: string(canon), contenido: invalido}
+	r := &RegistroFirmasVerificadasPostgreSQL{pool: &poolFirmaV2Prueba{tx: tx}}
+	if l, err := r.ConsultarFirmasAutorizadasV2(context.Background(), m, capacidadConsultaFirmaV2Prueba(t, m)); !errors.Is(err, ports.ErrResultadoFirmaDocumentoInvalido) || len(l.Firmas) != 0 || tx.commits != 0 || tx.rollbacks != 1 {
+		t.Fatal("null admitido como cero explícito")
+	}
+}
 
 func TestConsultaFirmaV2LigaSegundoPasoAlPDFAnterior(t *testing.T) {
 	casos := []struct {

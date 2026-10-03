@@ -26,6 +26,9 @@ type txFirmaV2Prueba struct {
 	falloConsulta, falloCommit    error
 	commits, rollbacks, consultas int
 	configurada                   bool
+	sql                           string
+	argumentos                    int
+	inspeccionar                  func([]any)
 }
 
 func (tx *txFirmaV2Prueba) Exec(_ context.Context, q string, args ...any) (pgconn.CommandTag, error) {
@@ -36,10 +39,17 @@ func (tx *txFirmaV2Prueba) Exec(_ context.Context, q string, args ...any) (pgcon
 	return pgconn.CommandTag{}, nil
 }
 func (tx *txFirmaV2Prueba) QueryRow(_ context.Context, q string, args ...any) pgx.Row {
-	if !tx.configurada || q != consultarFirmasSQL172 || len(args) != 11 || args[0] != tx.canonico {
+	esperada, n := tx.sql, tx.argumentos
+	if esperada == "" {
+		esperada, n = consultarFirmasSQL172, 11
+	}
+	if !tx.configurada || q != esperada || len(args) != n || args[0] != tx.canonico {
 		tx.t.Fatal("consulta fuera de la fachada nominal V2")
 	}
 	tx.consultas++
+	if tx.inspeccionar != nil {
+		tx.inspeccionar(args)
+	}
 	return filaFirmaV2Prueba{tx.contenido, tx.falloConsulta}
 }
 func (tx *txFirmaV2Prueba) Commit(context.Context) error   { tx.commits++; return tx.falloCommit }

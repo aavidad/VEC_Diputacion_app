@@ -18,37 +18,38 @@ import (
 )
 
 // RegistroFirmasVerificadasPostgreSQL consume las fachadas V2 con el LOGIN CT.
-// La fuente nominal que aporta el canon de AUT32 se conecta en la escritura.
+// El plan selecciona el descriptor; AUT35 fabrica el canon dentro de CT172.
 type RegistroFirmasVerificadasPostgreSQL struct {
-	pool iniciadorRegistroIncorporacionV2
+	pool         iniciadorRegistroIncorporacionV2
+	descriptores FuenteDescriptorFirmaV2
 }
 
-func NuevoRegistroFirmasVerificadasPostgreSQL(pool *pgxpool.Pool) (*RegistroFirmasVerificadasPostgreSQL, error) {
-	if nuloRegistroTX(pool) {
+func NuevoRegistroFirmasVerificadasPostgreSQL(pool *pgxpool.Pool, descriptores FuenteDescriptorFirmaV2) (*RegistroFirmasVerificadasPostgreSQL, error) {
+	if nuloRegistroTX(pool) || nuloRegistroTX(descriptores) {
 		return nil, ports.ErrRegistroFirmaDocumentoNoDisponible
 	}
-	return &RegistroFirmasVerificadasPostgreSQL{pool: pool}, nil
+	return &RegistroFirmasVerificadasPostgreSQL{pool: pool, descriptores: descriptores}, nil
 }
 
 const consultarFirmasSQL172 = `SELECT vec_contratacion_temporal.consultar_firmas_r5_atestadas_v2($1,$2,$3,$4,$5,$6::numeric,$7::numeric,$8,$9,$10,$11)::text`
 
 type firmaRevisionPDFSQL172 struct {
 	firmaExternaSQL170
-	FirmanteRef                  string   `json:"FirmanteRef"`
-	CertificadoHuella            string   `json:"CertificadoHuella"`
-	FirmaAnteriorRef             *string  `json:"FirmaAnteriorRef"`
-	ReciboAnteriorRef            *string  `json:"ReciboAnteriorRef"`
-	EntradaDocumentoRef          string   `json:"EntradaDocumentoRef"`
-	EntradaDocumentoVersion      uint64   `json:"EntradaDocumentoVersion"`
-	EntradaDocumentoLongitud     uint64   `json:"EntradaDocumentoLongitud"`
-	EntradaDocumentoHuella       string   `json:"EntradaDocumentoHuella"`
-	OrdenFirmaPDF                int      `json:"OrdenFirmaPDF"`
-	ByteRange                    []uint64 `json:"ByteRange"`
-	RevisionHuellaSHA256         string   `json:"RevisionHuellaSHA256"`
-	ContenidoFirmadoHuellaSHA256 string   `json:"ContenidoFirmadoHuellaSHA256"`
-	RevisionLongitud             uint64   `json:"RevisionLongitud"`
-	EvidenciaFirmasCanonica      string   `json:"EvidenciaFirmasCanonica"`
-	EvidenciaFirmasHuellaSHA256  string   `json:"EvidenciaFirmasHuellaSHA256"`
+	FirmanteRef                  string               `json:"FirmanteRef"`
+	CertificadoHuella            string               `json:"CertificadoHuella"`
+	FirmaAnteriorRef             *string              `json:"FirmaAnteriorRef"`
+	ReciboAnteriorRef            *string              `json:"ReciboAnteriorRef"`
+	EntradaDocumentoRef          string               `json:"EntradaDocumentoRef"`
+	EntradaDocumentoVersion      uint64               `json:"EntradaDocumentoVersion"`
+	EntradaDocumentoLongitud     uint64               `json:"EntradaDocumentoLongitud"`
+	EntradaDocumentoHuella       string               `json:"EntradaDocumentoHuella"`
+	OrdenFirmaPDF                int                  `json:"OrdenFirmaPDF"`
+	ByteRange                    byteRangeFirmaSQL172 `json:"ByteRange"`
+	RevisionHuellaSHA256         string               `json:"RevisionHuellaSHA256"`
+	ContenidoFirmadoHuellaSHA256 string               `json:"ContenidoFirmadoHuellaSHA256"`
+	RevisionLongitud             uint64               `json:"RevisionLongitud"`
+	EvidenciaFirmasCanonica      string               `json:"EvidenciaFirmasCanonica"`
+	EvidenciaFirmasHuellaSHA256  string               `json:"EvidenciaFirmasHuellaSHA256"`
 }
 
 type respuestaFirmasR5SQL172 struct {
