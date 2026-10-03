@@ -1,0 +1,10 @@
+# Preimagen medida: POST149+155, AD161 y AD145 instaladas una sola vez.
+# AD149/Personal26 de #470 precede a AD161; no recrear CRN11.
+# Roles BC ya preparados; authBC1 y BC1 confirmadas ausentes en esta preimagen.
+# BC8 usa el esquema y el trigger inmutable de BC1; BC1 exige su fachada authBC1.
+# BC2..7 no son dependencias de S2. No ejecutar AD históricas ni DOWN.
+# Sólo aplicar objetos confirmados ausentes; no reaplicar piezas con historia.
+deploy/postgresql/bolsa_convocatorias/migraciones_autorizacion/000001_revalidacion_convocatorias.up.sql
+deploy/postgresql/bolsa_convocatorias/migraciones/000001_almacen_convocatorias.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000153_consumidores_preparacion_bases_bolsa.up.sql
+deploy/postgresql/bolsa_convocatorias/migraciones/000008_preparacion_bases_v3.up.sql
