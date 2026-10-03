@@ -43,6 +43,17 @@ BEGIN
        'vec_catalogos_configurables.validar_plan_nominal_firma_v1(bytea,text)'::regprocedure) AND p.provolatile<>'v')
      OR NOT (p.proconfig @> ARRAY['search_path=pg_catalog','row_security=on']) THEN
    RAISE EXCEPTION 'CC7: función sin frontera fija: %',f USING ERRCODE='55000'; END IF;
+  IF f='vec_catalogos_configurables.confirmar_gobierno_plan_nominal_firma_v1(bytea,jsonb)'::regprocedure
+     AND EXISTS(SELECT 1 FROM pg_catalog.pg_proc x WHERE x.oid=f AND
+       (x.proargnames[8] IS DISTINCT FROM 'actor_ref' OR
+        x.proargnames[9] IS DISTINCT FROM 'confirmado_en' OR
+        x.proargnames[10] IS DISTINCT FROM 'auditoria_ref' OR
+        x.proargnames[11] IS DISTINCT FROM 'outbox_recibo_ref' OR
+        x.proallargtypes[8] IS DISTINCT FROM 'text'::regtype OR
+        x.proallargtypes[9] IS DISTINCT FROM 'timestamptz'::regtype OR
+        x.proallargtypes[10] IS DISTINCT FROM 'text'::regtype OR
+        x.proallargtypes[11] IS DISTINCT FROM 'text'::regtype)) THEN
+   RAISE EXCEPTION 'CC7: retorno original de gobierno incompatible' USING ERRCODE='55000'; END IF;
   FOR permiso IN SELECT a.grantee FROM pg_catalog.pg_proc pp
    CROSS JOIN LATERAL pg_catalog.aclexplode(coalesce(pp.proacl,
      pg_catalog.acldefault('f',pp.proowner))) a

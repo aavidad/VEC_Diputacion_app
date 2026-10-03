@@ -52,6 +52,15 @@ operación y material devuelve el recibo conservado. Otro material con esa
 clave se rechaza. Historia, recibo, referencia de auditoría común y outbox se
 escriben dentro de la misma transacción.
 
+La respuesta de gobierno devuelve estado, revisión, huella y SHA de publicación,
+además del actor, fecha confirmada, referencia de auditoría y recibo de outbox
+originales. Esos cuatro datos proceden de `plan_firma_efecto` y
+`plan_firma_outbox` también en un replay posterior a la retirada. La clave del
+outbox es el recibo del efecto; no se genera otro identificador. Cada reintento
+usa los mismos bytes y la misma clave, con una autorización V3 nueva. El
+kit privado previsto deberá conservar ese fichero de material exacto para
+permitir el reintento; todavía no está implementado en esta rama.
+
 El canon Go incluye las fechas cero como `0001-01-01T00:00:00Z`, incluso en
 campos `time.Time` con `omitempty`. CC7 conserva esos bytes. La entrada sin
 fecha final tiene esa misma marca; al fijar el plan se comprueba que la

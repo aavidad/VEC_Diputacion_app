@@ -388,7 +388,8 @@ GRANT EXECUTE ON FUNCTION vec_catalogos_configurables.leer_plan_nominal_firma_v1
 -- relee las filas originales y entrega sólo datos de la decisión verificada.
 CREATE FUNCTION vec_catalogos_configurables.confirmar_gobierno_plan_nominal_firma_v1(
  p_material_exacto bytea,p_consumo jsonb)
-RETURNS TABLE(recibo_ref text,estado text,revision bigint,huella_comun text,publicacion_sha256 text)
+RETURNS TABLE(recibo_ref text,estado text,revision bigint,huella_comun text,publicacion_sha256 text,
+ actor_ref text,confirmado_en timestamptz,auditoria_ref text,outbox_recibo_ref text)
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
 SET search_path=pg_catalog SET row_security='on' SET lock_timeout='2s' SET statement_timeout='30s' SET TimeZone='UTC' AS $f$
 DECLARE m jsonb; c jsonb; traza jsonb; evento jsonb; v3 jsonb;
@@ -396,6 +397,7 @@ DECLARE m jsonb; c jsonb; traza jsonb; evento jsonb; v3 jsonb;
  op text; cat text; actor text; clave text; accion_evento text;
  ver bigint; rev bigint; rev_esperada bigint; h text; h_esperada text;
  h_material text; h_contexto text; h_publicacion text; recibo text; existe boolean;
+ actor_original text; fecha_original timestamptz(6); auditoria_original text; outbox_original text;
  actual vec_catalogos_configurables.plan_firma_control%ROWTYPE;
  previo vec_catalogos_configurables.plan_firma_efecto%ROWTYPE;
  origen jsonb; momento timestamptz(6);
@@ -507,12 +509,16 @@ BEGIN
   WHERE x.actor_ref=actor AND x.catalogo_id=cat AND x.clave_operacion=clave;
  IF FOUND THEN
   IF previo.material_sha256 IS DISTINCT FROM h_material OR previo.operacion IS DISTINCT FROM op
-     OR previo.version IS DISTINCT FROM ver OR previo.huella_resultado IS DISTINCT FROM h
-     OR NOT EXISTS(SELECT 1 FROM vec_catalogos_configurables.plan_firma_outbox x
-       WHERE x.recibo_ref=previo.recibo_ref AND x.evento_sha256=m->>'evento_sha256') THEN
+     OR previo.version IS DISTINCT FROM ver OR previo.huella_resultado IS DISTINCT FROM h THEN
    RAISE EXCEPTION 'CC7: clave reutilizada con otro material' USING ERRCODE='23505'; END IF;
+  SELECT x.recibo_ref INTO outbox_original FROM vec_catalogos_configurables.plan_firma_outbox x
+   WHERE x.recibo_ref=previo.recibo_ref AND x.evento_sha256=m->>'evento_sha256';
+  IF NOT FOUND THEN
+   RAISE EXCEPTION 'CC7: recibo histórico sin outbox original' USING ERRCODE='55000'; END IF;
+  IF (v3->>'decision_valida_hasta')::timestamptz<=pg_catalog.clock_timestamp() THEN
+   RAISE EXCEPTION 'CC7: decisión de replay caducada' USING ERRCODE='42501'; END IF;
   RETURN QUERY SELECT previo.recibo_ref,previo.estado,previo.revision,previo.huella_resultado,
-   previo.publicacion_sha256_resultado;
+   previo.publicacion_sha256_resultado,previo.actor_ref,previo.confirmado_en,previo.auditoria_ref,outbox_original;
   RETURN;
  END IF;
  SELECT * INTO actual FROM vec_catalogos_configurables.plan_firma_control x
@@ -578,9 +584,18 @@ BEGIN
   v3->>'auditoria_ref',v3->>'consumo_huella_sha256',m->>'traza_sha256',m->>'evento_sha256');
  INSERT INTO vec_catalogos_configurables.plan_firma_outbox(recibo_ref,evento_exacto,evento_sha256)
  VALUES(recibo,evento_bytes,m->>'evento_sha256');
+ SELECT x.actor_ref,x.confirmado_en,x.auditoria_ref,o.recibo_ref
+  INTO actor_original,fecha_original,auditoria_original,outbox_original
+  FROM vec_catalogos_configurables.plan_firma_efecto x
+  JOIN vec_catalogos_configurables.plan_firma_outbox o ON o.recibo_ref=x.recibo_ref
+  WHERE x.recibo_ref=recibo AND x.actor_ref=actor AND x.material_sha256=h_material
+    AND o.evento_sha256=m->>'evento_sha256';
+ IF NOT FOUND OR actor_original IS NULL OR fecha_original IS NULL OR auditoria_original IS NULL OR outbox_original IS NULL THEN
+  RAISE EXCEPTION 'CC7: efecto confirmado sin outbox original' USING ERRCODE='55000'; END IF;
  IF (v3->>'decision_valida_hasta')::timestamptz<=pg_catalog.clock_timestamp() THEN
   RAISE EXCEPTION 'CC7: decisión caducada antes del efecto' USING ERRCODE='42501'; END IF;
- RETURN QUERY SELECT recibo,c->>'estado',rev,h,h_publicacion;
+ RETURN QUERY SELECT recibo,c->>'estado',rev,h,h_publicacion,
+  actor_original,fecha_original,auditoria_original,outbox_original;
 END $f$;
 REVOKE ALL ON FUNCTION vec_catalogos_configurables.confirmar_gobierno_plan_nominal_firma_v1(bytea,jsonb) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION vec_catalogos_configurables.confirmar_gobierno_plan_nominal_firma_v1(bytea,jsonb)
