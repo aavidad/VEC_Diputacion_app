@@ -73,3 +73,29 @@ func TestExportacionServiciosProveedorNoReutilizaCorrelacionDeConsulta(t *testin
 		t.Fatal("permiso de consulta reaprovechado", e)
 	}
 }
+
+type exportadorCapturaPrueba struct {
+	llamadas  int
+	identidad IdentidadRegistradaFichaPropia
+}
+
+func (e *exportadorCapturaPrueba) Exportar(ctx context.Context, _ domain.SolicitudExportacionServiciosPropios) (ports.ResultadoExportacionServiciosPropios, error) {
+	e.llamadas++
+	e.identidad, _ = IdentidadOriginalFichaPropia(ctx)
+	return ports.ResultadoExportacionServiciosPropios{}, nil
+}
+func TestExportacionServiciosWrapperReutilizaCapturaHTTPYNoInventaContexto(t *testing.T) {
+	id := identidadIntentoFichaPropiaVigenciaPrueba(t, time.Date(2026, 10, 3, 12, 0, 0, 0, time.UTC), "")
+	ctx, resolver := contextoFichaCapturadaPrueba(t, id)
+	exportador := &exportadorCapturaPrueba{}
+	wrapper, e := NuevoExportadorServiciosPropiosConIdentidad(exportador, resolver, time.Second)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if _, e = wrapper.Exportar(ctx, domain.SolicitudExportacionServiciosPropios{}); e != nil || resolver.llamadas != 1 || exportador.llamadas != 1 || exportador.identidad.Resultado.HuellaSHA256 != id.Resultado.HuellaSHA256 {
+		t.Fatal("captura sustituida", e)
+	}
+	if _, e = wrapper.Exportar(context.Background(), domain.SolicitudExportacionServiciosPropios{}); !errors.Is(e, domain.ErrExportacionServiciosPropiosNoDisponible) || exportador.llamadas != 1 {
+		t.Fatal("generó contexto ficticio", e)
+	}
+}
