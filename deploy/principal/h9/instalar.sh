@@ -39,6 +39,7 @@ import hashlib,pathlib,re,sys
 k=pathlib.Path(sys.argv[1]); covered=set()
 def stop(key,actual,expected):
     raise SystemExit(f'PARO clave={key} actual={actual} esperado={expected}')
+if (k/'NO_INSTALAR').exists(): stop('ensayo_kit','no_acreditado','ensayo_SQL_y_arranque_confirmados')
 for p in k.rglob('*'):
     if p.is_symlink() or not (p.is_file() or p.is_dir()): stop('kit_tipo','enlace_o_especial','regular')
 for line in (k/'SHA256SUMS').read_text().splitlines():

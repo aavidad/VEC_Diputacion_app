@@ -6,8 +6,9 @@ T=$(mktemp -d "${TMPDIR:-/tmp}/h9-mock-XXXXXXXX")
 trap 'rm -rf -- "$T"' EXIT
 trap 'printf "FALLO %s\n" "${mode:-preparacion}"; if [[ -f ${F:-}/result ]]; then cat "$F/result"; fi' ERR
 mkdir -p "$T/mock-bin"
-MODOS=(sql_fail startup_fail success altered_manifest wrong_preimage app_active maintenance_fail recovery_db_fail recovery_art_fail recovery_db_error config_file mounts_match mounts_fail served_mapping_fail served_shadow_fail recovery_web_fail)
+MODOS=(sql_fail startup_fail success altered_manifest wrong_preimage app_active maintenance_fail recovery_db_fail recovery_art_fail recovery_db_error config_file mounts_match mounts_fail served_mapping_fail served_shadow_fail recovery_web_fail blocked_kit)
 if [[ ${1:-} == --web-config ]]; then MODOS=(success startup_fail sql_fail config_file mounts_match mounts_fail served_mapping_fail served_shadow_fail recovery_web_fail); fi
+if [[ ${1:-} == --blocked-kit ]]; then MODOS=(blocked_kit); fi
 cat > "$T/mock-bin/id" <<'MOCK'
 #!/usr/bin/env bash
 if [[ "$1" == -un ]]; then echo openclaw; else /usr/bin/id "$@"; fi
@@ -78,6 +79,7 @@ for mode in "${MODOS[@]}"; do
   printf 'BEGIN;\nSELECT 1; -- TEST_ONE\nCOMMIT;\n' > "$K/one.up.sql"
   printf 'BEGIN;\nSELECT 1; -- TEST_TWO\nCOMMIT;\n' > "$K/two.up.sql"
   echo 'SELECT 1; -- PREIMAGEN_MOCK' > "$K/consultas_preimagen.sql"
+  if [[ "$mode" == blocked_kit ]]; then echo pendiente > "$K/NO_INSTALAR"; fi
   (cd "$K"; find . -type f -printf '%P\n' | LC_ALL=C sort | xargs sha256sum) > "$F/manifest"
   mv "$F/manifest" "$K/SHA256SUMS"
   sha=$(sha256sum "$K/SHA256SUMS"); sha=${sha%% *}
@@ -146,8 +148,13 @@ PYM
     [[ $(cat "$F/art/vec-server") == new && $(cat "$F/served/web/static/app.js") == new-web && $(cat "$F/served/locales/test.json") == new-i18n && $(cat "$F/served/web/cartografia.json") == new-map ]]
     [[ $(wc -l < "$F/pgdata/rows") == 3 ]]
     [[ $(cat "$F/art/web/static/app.js") == old-web ]]
-  elif [[ "$mode" == altered_manifest || "$mode" == config_file || "$mode" == mounts_fail || "$mode" == served_mapping_fail || "$mode" == served_shadow_fail ]]; then
+  elif [[ "$mode" == altered_manifest || "$mode" == config_file || "$mode" == mounts_fail || "$mode" == served_mapping_fail || "$mode" == served_shadow_fail || "$mode" == blocked_kit ]]; then
     [[ "$rc" != 0 && $(cat "$F/app.running") == true && $(cat "$F/gate") == open ]]
+    if [[ "$mode" == blocked_kit ]]; then
+      [[ $(cat "$F/pg.running") == true && $(cat "$F/pgdata/rows") == seed && $(cat "$F/art/vec-server") == old && $(cat "$F/served/web/static/app.js") == served-old-web ]]
+      [[ -z $(find "$F/backups" -mindepth 1 -print -quit) ]]
+      rg -q '^PARO clave=ensayo_kit actual=no_acreditado esperado=ensayo_SQL_y_arranque_confirmados$' "$F/result"
+    fi
     if [[ "$mode" == served_mapping_fail || "$mode" == served_shadow_fail ]]; then rg -q 'clave=runtime_web' "$F/result"; fi
   elif [[ "$mode" == wrong_preimage ]]; then
     [[ "$rc" != 0 && $(cat "$F/app.running") == false && $(cat "$F/gate") == closed ]]

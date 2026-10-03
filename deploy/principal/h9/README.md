@@ -2,6 +2,8 @@
 
 Este guion se ejecuta localmente como `openclaw`. El kit contiene `sql.list`, las SQL pendientes en orden causal, `consultas_preimagen.sql`, `bin/vec-server`, `web/` completa (incluido `web/static/`) y `locales/`. `SHA256SUMS` cubre todos los archivos del kit salvo el propio manifiesto. Solo admite archivos regulares y directorios. Las SQL deben tener un único `BEGIN;` y un `COMMIT;` final, en líneas independientes.
 
+Los paquetes preparados que contengan `NO_INSTALAR` siguen pendientes de aprobación. El marcador forma parte del manifiesto y el guion los rechaza antes de parar servicios. No se elimina para forzar la instalación: dirección regenera y verifica el kit después de acreditar SQL y arranque.
+
 1. Dirección fija el commit, revisa el kit y ensaya su SQL en el clon. Comprueba que la lista excluye las migraciones instaladas. Conserva por separado el SHA256 del manifiesto y la configuración privada.
 2. Prepara fuera del kit un archivo de configuración propio, con permiso `0600`. Incluye las variables de la tabla. Sus tres ejecutables de mantenimiento deben estar revisados y bloquear el tráfico, los escritores externos y las tareas funcionales durante la ventana. Una pausa de proxy compartido no basta para cerrar todos los escritores.
 3. Ejecuta `bash instalar.sh /ruta/al/kit /ruta/externa/config.sh SHA256_DEL_MANIFIESTO`. Guarda la salida en un archivo privado. El guion no usa SSH ni modifica el proxy compartido.
@@ -33,3 +35,5 @@ El guion cierra mantenimiento y para la aplicación antes de comprobar la preima
 Si falla SQL o arranque, para ambos servicios, conserva una postimagen, repone la copia fría y verifica sus huellas. PostgreSQL vuelve a arrancar; la aplicación queda parada y el mantenimiento cerrado. Dirección revisa el fallo antes de arrancar el artefacto anterior y abrir tráfico. Si la recuperación falla, mantiene ambos servicios bajo mantenimiento y conserva la copia. No ejecuta `DOWN` ni continúa con otras SQL.
 
 `bash prueba_guion.sh` comprueba con dobles locales: fallo de SQL tras una migración confirmada, fallo de arranque, instalación correcta, manifiesto alterado y preimagen distinta. También comprueba aplicación activa o mantenimiento perdido entre migraciones, y rechaza una recuperación cuando fallan la consulta, la huella de base o la de artefacto. Verifica también la sustitución de archivos web fuera de `static` y el rechazo de una configuración que sea archivo. `bash prueba_guion.sh --web-config` ejecuta estos casos y verifica la web realmente servida en una ruta distinta del artefacto, su recuperación tras fallo de arranque o SQL, el rechazo de un origen ajeno al montaje y una huella de web recuperada distinta. Estas pruebas no acreditan instalación, PostgreSQL real ni navegador.
+
+`bash prueba_guion.sh --blocked-kit` comprueba únicamente el rechazo del marcador y que servicios, datos y artefactos permanecen intactos.
