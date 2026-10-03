@@ -60,12 +60,18 @@ func TestRechazaSHAJSONDuplicadoYMaterialCruzado(t *testing.T) {
 		b   []byte
 		sha string
 	}{
-		"sha":             {b, strings.Repeat("0", 64)},
-		"bytes":           {append(bytes.Clone(b), ' '), h},
-		"duplicado":       {bytes.Replace(b, []byte(`"operacion":`), []byte(`"operacion":"crear","operacion":`), 1), ""},
-		"catalogo ajeno":  {bytes.Replace(b, []byte(`"catalogo_id":"ct.plan.firma.sintetico"`), []byte(`"catalogo_id":"ct.plan.firma.ajeno"`), 1), ""},
-		"subSHA":          {subSHA, ""},
-		"canon duplicado": {canonDuplicado, ""},
+		"sha":                  {b, strings.Repeat("0", 64)},
+		"bytes":                {append(bytes.Clone(b), ' '), h},
+		"duplicado":            {bytes.Replace(b, []byte(`"operacion":`), []byte(`"operacion":"crear","operacion":`), 1), ""},
+		"catalogo ajeno":       {bytes.Replace(b, []byte(`"catalogo_id":"ct.plan.firma.sintetico"`), []byte(`"catalogo_id":"ct.plan.firma.ajeno"`), 1), ""},
+		"subSHA":               {subSHA, ""},
+		"canon duplicado":      {canonDuplicado, ""},
+		"raiz con mayúscula":   {bytes.Replace(b, []byte(`"operacion":`), []byte(`"Operacion":`), 1), ""},
+		"revisión nula":        {bytes.Replace(b, []byte(`"revision_esperada":1`), []byte(`"revision_esperada":null`), 1), ""},
+		"traza con mayúscula":  {mutarBloquePrueba(t, b, true, `"actor_id":`, `"Actor_ID":`), ""},
+		"traza nula":           {mutarBloquePrueba(t, b, true, `"actor_profile":"perfil:sintetico:001"`, `"actor_profile":null`), ""},
+		"evento con mayúscula": {mutarBloquePrueba(t, b, false, `"actor_id":`, `"Actor_ID":`), ""},
+		"evento nulo":          {mutarBloquePrueba(t, b, false, `"actor_id":"actor:publicador:001"`, `"actor_id":null`), ""},
 	}
 	for nombre, caso := range casos {
 		t.Run(nombre, func(t *testing.T) {
@@ -82,6 +88,49 @@ func TestRechazaSHAJSONDuplicadoYMaterialCruzado(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestRechazaFicheroMayorQueCuatroMiB(t *testing.T) {
+	ruta := filepath.Join(t.TempDir(), "material-grande.json")
+	if err := os.WriteFile(ruta, bytes.Repeat([]byte{'x'}, maxMaterial+1), 0600); err != nil {
+		t.Fatal(err)
+	}
+	var salida bytes.Buffer
+	if codigo := ejecutar([]string{ruta, strings.Repeat("a", 64)}, &salida); codigo != 1 || salida.Len() != 0 {
+		t.Fatalf("límite ignorado: %d", codigo)
+	}
+}
+
+func mutarBloquePrueba(t *testing.T, b []byte, traza bool, anterior, nuevo string) []byte {
+	t.Helper()
+	var m material
+	if err := json.Unmarshal(b, &m); err != nil {
+		t.Fatal(err)
+	}
+	s := m.EventoBase64
+	if traza {
+		s = m.TrazaBase64
+	}
+	contenido, err := base64.StdEncoding.DecodeString(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cambiado := bytes.Replace(contenido, []byte(anterior), []byte(nuevo), 1)
+	if bytes.Equal(cambiado, contenido) {
+		t.Fatal("mutación de prueba ausente")
+	}
+	if traza {
+		m.TrazaBase64 = base64.StdEncoding.EncodeToString(cambiado)
+		m.TrazaSHA = huella(cambiado)
+	} else {
+		m.EventoBase64 = base64.StdEncoding.EncodeToString(cambiado)
+		m.EventoSHA = huella(cambiado)
+	}
+	salida, err := json.Marshal(m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return salida
 }
 
 func materialPrueba(t *testing.T) ([]byte, string) {

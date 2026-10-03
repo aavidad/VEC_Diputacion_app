@@ -14,6 +14,12 @@ acredita una comprobación local del fichero. La herramienta no publica el
 catálogo, no obtiene permisos, no consume una decisión V3 y no registra
 auditoría ni outbox.
 
+El fichero tiene un límite de 4 MiB. Sus trece claves y tipos deben coincidir
+exactamente con el contrato; se rechazan variantes de mayúsculas, valores
+`null` indebidos y claves repetidas. Las trazas y eventos deben conservar los
+bytes canónicos del modelo común. La comprobación nunca sustituye los bytes
+del fichero por una representación nueva.
+
 Guarde el fichero original con acceso privado para repetir la operación con
 los mismos bytes y la misma clave. Cada intento de gobierno necesitará una
 autorización nueva por el circuito correspondiente. Esta herramienta no

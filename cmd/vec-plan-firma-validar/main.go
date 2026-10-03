@@ -20,7 +20,7 @@ import (
 	vd "vec-diputacion-granada/internal/vec/domain"
 )
 
-const maxMaterial = 32 << 20
+const maxMaterial = 4 << 20
 
 var (
 	errMaterial    = errors.New("material no valido")
@@ -98,7 +98,7 @@ func validar(b []byte, esperado string) (resumen, error) {
 		return cero, errMaterial
 	}
 	var raw map[string]json.RawMessage
-	if json.Unmarshal(b, &raw) != nil || len(raw) != 13 {
+	if json.Unmarshal(b, &raw) != nil || !clavesMaterialExactas(raw) {
 		return cero, errMaterial
 	}
 	var m material
@@ -149,6 +149,14 @@ func validar(b []byte, esperado string) (resumen, error) {
 	if decodificarEstricto(traza, &a) != nil || decodificarEstricto(evento, &e) != nil {
 		return cero, errMaterial
 	}
+	trazaCanon, err := json.Marshal(a)
+	if err != nil || !bytes.Equal(traza, trazaCanon) {
+		return cero, errMaterial
+	}
+	eventoCanon, err := json.Marshal(e)
+	if err != nil || !bytes.Equal(evento, eventoCanon) {
+		return cero, errMaterial
+	}
 	ref := c.Referencia()
 	antes := ""
 	if m.HuellaEsperada != nil {
@@ -175,6 +183,32 @@ func validar(b []byte, esperado string) (resumen, error) {
 		return cero, errMaterial
 	}
 	return resumen{esperado, m.Operacion, c.ID, c.Version, c.Revision, "material_validado_sin_autorizacion"}, nil
+}
+
+func clavesMaterialExactas(raw map[string]json.RawMessage) bool {
+	if len(raw) != 13 {
+		return false
+	}
+	for _, nombre := range []string{"esquema", "operacion", "catalogo_id", "version", "revision_esperada", "huella_esperada",
+		"clave_operacion", "catalogo_canonico_base64", "catalogo_sha256", "traza_canonica_base64",
+		"traza_sha256", "evento_canonico_base64", "evento_sha256"} {
+		v, ok := raw[nombre]
+		if !ok {
+			return false
+		}
+		v = bytes.TrimSpace(v)
+		if nombre == "huella_esperada" && bytes.Equal(v, []byte("null")) {
+			continue
+		}
+		if nombre == "version" || nombre == "revision_esperada" {
+			if len(v) == 0 || (v[0] < '0' || v[0] > '9') {
+				return false
+			}
+		} else if len(v) == 0 || v[0] != '"' {
+			return false
+		}
+	}
+	return true
 }
 
 func estadoOperacion(c vd.CatalogoConfigurable, op string, esperada int) (string, string, time.Time, string) {
