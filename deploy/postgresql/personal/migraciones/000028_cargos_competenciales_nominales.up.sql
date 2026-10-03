@@ -330,6 +330,9 @@ BEGIN
   esperada:=(m->>'version_esperada')::bigint;
   version_nueva:=(dato->>'version')::bigint;
   IF jsonb_typeof(m) IS DISTINCT FROM 'object' OR jsonb_typeof(dato) IS DISTINCT FROM 'object'
+   OR NOT (m ?& ARRAY['esquema','operacion','clave_idempotencia','objeto_ref',
+    'organizacion_ref','unidad_ref','version_esperada','huella_esperada','datos'])
+   OR (SELECT count(*) FROM jsonb_object_keys(m))<>9
    OR m->>'esquema' IS DISTINCT FROM 'vec.personal.cargo-competencial.publicacion.v1'
    OR operacion NOT IN ('cargo','enlace') OR clave !~ '^[0-9a-f]{32}$'
    OR organizacion !~ '^[a-z][a-z0-9_:-]{2,127}$'
@@ -388,6 +391,12 @@ BEGIN
  fecha:=v.consumida_en;
  recibo_ref:='percar_'||replace(gen_random_uuid()::text,'-','');
  IF operacion='cargo' THEN
+  IF NOT (dato ?& ARRAY['cargo_ref','version','organizacion_ref','unidad_ref',
+   'puesto_ref','puesto_revision','organo_ref','organo_revision','denominacion_catalogo_ref',
+   'estado','vigente_desde','vigente_hasta','acto_ref','acto_version','acto_huella_sha256',
+   'fuente_ref','fuente_version','fuente_huella_sha256'])
+   OR (SELECT count(*) FROM jsonb_object_keys(dato))<>18 THEN
+   RAISE EXCEPTION 'cargo_publicacion_campos_invalidos' USING ERRCODE='22023'; END IF;
   SELECT * INTO actual FROM vec_personal.cargo_competencial_actual
    WHERE cargo_ref=objeto FOR UPDATE;
   IF (esperada=0 AND FOUND) OR (esperada>0 AND (NOT FOUND
@@ -438,6 +447,13 @@ BEGIN
    VALUES(objeto,version_nueva,dato_sha)
    ON CONFLICT(cargo_ref) DO UPDATE SET version=EXCLUDED.version,huella_sha256=EXCLUDED.huella_sha256;
  ELSE
+  IF NOT (dato ?& ARRAY['enlace_ref','version','cargo_ref','cargo_version','persona_ref',
+   'clase','titular_enlace_ref','titular_enlace_version','titular_enlace_sha256',
+   'delegante_persona_ref','accion_ref','recurso_ref','finalidad_ref','estado',
+   'vigente_desde','vigente_hasta','acto_ref','acto_version','acto_huella_sha256',
+   'fuente_ref','fuente_version','fuente_huella_sha256','empleado_ref','ocupacion_ref','ocupacion_revision'])
+   OR (SELECT count(*) FROM jsonb_object_keys(dato))<>25 THEN
+   RAISE EXCEPTION 'cargo_publicacion_campos_invalidos' USING ERRCODE='22023'; END IF;
   SELECT * INTO actual FROM vec_personal.enlace_cargo_competencial_actual
    WHERE enlace_ref=objeto FOR UPDATE;
   IF (esperada=0 AND FOUND) OR (esperada>0 AND (NOT FOUND
