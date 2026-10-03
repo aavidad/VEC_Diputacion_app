@@ -66,6 +66,10 @@ func TestCheckpointDesarrolloAutenticidadSeparada(t *testing.T) {
 			if v.VerificarCheckpoint(ctx, c) == nil {
 				t.Fatal("alteración admitida")
 			}
+			rechazo := application.VerificarCheckpointDesarrollo(ctx, c, v, 10)
+			if rechazo.Firma != "rechazada" || rechazo.FirmaLegal || rechazo.TiempoIndependiente {
+				t.Fatalf("informe de rechazo: %+v", rechazo)
+			}
 		})
 	}
 	// Una clave de otro propósito del mismo KMS no autentica el checkpoint.

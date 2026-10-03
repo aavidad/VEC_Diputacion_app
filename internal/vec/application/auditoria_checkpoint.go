@@ -42,16 +42,22 @@ type ResultadoCheckpointDesarrollo struct {
 	FirmaLegal          bool   `json:"firma_legal"`
 }
 
+// resultadoCheckpointRechazado traduce el fallo al informe cerrado del canal,
+// sin exponer detalles del proveedor ni el material recibido.
+func resultadoCheckpointRechazado() ResultadoCheckpointDesarrollo {
+	return ResultadoCheckpointDesarrollo{Esquema: domain.EsquemaCheckpointDesarrollo, Modo: "DESARROLLO", Firma: "rechazada", IntegridadCadena: "no_evaluada", OrigenExtraccion: "no_acreditado", TSA: "no_verificada_offline"}
+}
+
 func VerificarCheckpointDesarrollo(ctx context.Context, r domain.ReciboCheckpointDesarrollo, v ports.VerificadorCheckpointDesarrollo, maxRegistros uint64) ResultadoCheckpointDesarrollo {
-	o := ResultadoCheckpointDesarrollo{Esquema: domain.EsquemaCheckpointDesarrollo, Modo: "DESARROLLO", Firma: "rechazada", IntegridadCadena: "no_evaluada", OrigenExtraccion: "no_acreditado", TSA: "no_verificada_offline"}
+	o := resultadoCheckpointRechazado()
 	if ctx == nil || ctx.Err() != nil || v == nil || maxRegistros == 0 || r.Checkpoint.Cobertura.Registros > maxRegistros {
 		return o
 	}
 	if _, err := r.CanonicoParaFirma(); err != nil {
-		return o
+		return resultadoCheckpointRechazado()
 	}
-	if v.VerificarCheckpoint(ctx, r) != nil {
-		return o
+	if err := v.VerificarCheckpoint(ctx, r); err != nil {
+		return resultadoCheckpointRechazado()
 	}
 	o.Firma = "verificada_con_pin_externo"
 	return o
