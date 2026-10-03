@@ -26,7 +26,7 @@ func historiaPrueba(m MaterialHistoriaServiciosPropia) HistoriaServiciosPropia {
 	anterior.Traza.ActoRef = "acto:servicios:1"
 	anterior.Traza.RegistradaEn = traza.RegistradaEn.Add(-time.Hour)
 	anterior.Estado = "declarado"
-	return HistoriaServiciosPropia{EmpleadoRef: m.EmpleadoRef(), Corte: m.Corte(), Cobertura: "parcial", Servicios: []RevisionServicioPropio{fila, anterior}}
+	return HistoriaServiciosPropia{EmpleadoRef: m.EmpleadoRef(), Corte: m.Corte(), Cobertura: "parcial", Revisiones: []RevisionServicioPropio{fila, anterior}}
 }
 func TestHistoriaServiciosPropiaMaterialPropioLigaActorCorteYNoComparteMapas(t *testing.T) {
 	m := materialHistoriaPrueba(t)
@@ -69,13 +69,13 @@ func TestHistoriaServiciosPropiaConservaRevisionesYSeparacionTemporal(t *testing
 		"empleado_ajeno": func(h *HistoriaServiciosPropia) { h.EmpleadoRef = "emp_" + strings.Repeat("x", 24) },
 		"corte_ajeno":    func(h *HistoriaServiciosPropia) { h.Corte.Hasta = "2028-01-01" },
 		"revision_futura": func(h *HistoriaServiciosPropia) {
-			h.Servicios[0].Traza.RegistradaEn = h.Corte.ConocidoEn.Add(time.Microsecond)
+			h.Revisiones[0].Traza.RegistradaEn = h.Corte.ConocidoEn.Add(time.Microsecond)
 		},
-		"efectos_fuera":       func(h *HistoriaServiciosPropia) { h.Servicios[0].Traza.Desde = h.Corte.Hasta },
-		"fuente_ausente":      func(h *HistoriaServiciosPropia) { h.Servicios[0].Traza.FuenteRef = "" },
-		"revision_repetida":   func(h *HistoriaServiciosPropia) { h.Servicios[1] = h.Servicios[0] },
-		"orden_invertido":     func(h *HistoriaServiciosPropia) { h.Servicios[0], h.Servicios[1] = h.Servicios[1], h.Servicios[0] },
-		"nulo":                func(h *HistoriaServiciosPropia) { h.Servicios = nil },
+		"efectos_fuera":       func(h *HistoriaServiciosPropia) { h.Revisiones[0].Traza.Desde = h.Corte.Hasta },
+		"fuente_ausente":      func(h *HistoriaServiciosPropia) { h.Revisiones[0].Traza.FuenteRef = "" },
+		"revision_repetida":   func(h *HistoriaServiciosPropia) { h.Revisiones[1] = h.Revisiones[0] },
+		"orden_invertido":     func(h *HistoriaServiciosPropia) { h.Revisiones[0], h.Revisiones[1] = h.Revisiones[1], h.Revisiones[0] },
+		"nulo":                func(h *HistoriaServiciosPropia) { h.Revisiones = nil },
 		"cobertura_inventada": func(h *HistoriaServiciosPropia) { h.Cobertura = "confirmada" },
 	} {
 		t.Run(nombre, func(t *testing.T) {
@@ -87,12 +87,12 @@ func TestHistoriaServiciosPropiaConservaRevisionesYSeparacionTemporal(t *testing
 		})
 	}
 	h = historiaPrueba(m)
-	h.Servicios = make([]RevisionServicioPropio, LimiteHistoriaServiciosPropia+1)
+	h.Revisiones = make([]RevisionServicioPropio, LimiteHistoriaServiciosPropia+1)
 	if !errors.Is(h.ValidarPara(m), ErrHistoriaServiciosPropiaExcedeLimite) {
 		t.Fatal("exceso no explícito")
 	}
 	h = historiaPrueba(m)
-	h.Servicios = []RevisionServicioPropio{}
+	h.Revisiones = []RevisionServicioPropio{}
 	h.Cobertura = "no_acreditada"
 	if h.ValidarPara(m) != nil {
 		t.Fatal("vacío convertido en cobertura completa")
