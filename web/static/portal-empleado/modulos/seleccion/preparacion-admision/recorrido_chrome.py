@@ -30,6 +30,7 @@ def main():
         try:
             with sync_playwright() as pw:
                 navegador = pw.chromium.launch(executable_path=os.environ.get("VEC_S4_CHROME", "/usr/bin/google-chrome"), headless=True,
+                    ignore_default_args=["--disable-back-forward-cache"],
                     args=["--no-sandbox", "--disable-dev-shm-usage", "--disable-background-networking"])
                 contexto = navegador.new_context(accept_downloads=True, viewport={"width": 1440, "height": 900})
                 pagina = contexto.new_page()
@@ -137,6 +138,18 @@ def main():
                 pagina.wait_for_function("() => !document.querySelector('#admision-archivo').disabled")
                 assert pagina.locator("#admision-resultados").inner_text() == ""
                 assert pagina.locator("#admision-descargar").is_disabled()
+                # Volver desde otra página debe permitir importar y descargar otra vez.
+                abrir(original)
+                assert pagina.goto(origen + entrada + "index.html?lang=es").status == 200
+                pagina.wait_for_function("() => !document.querySelector('#admision-archivo').disabled")
+                pagina.go_back(wait_until="domcontentloaded")
+                pagina.wait_for_function("() => !document.querySelector('#admision-archivo').disabled")
+                assert pagina.locator("#admision-resultados").inner_text() == ""
+                abrir(original)
+                with pagina.expect_download() as retorno:
+                    pagina.locator("#admision-descargar").click()
+                retorno.value.save_as(salida / "original-retorno.json")
+                assert (salida / "original-retorno.json").read_bytes() == original
                 # Falta del catálogo principal: mensaje de datos, sin habilitar importación.
                 recursos.pop("/textos/es/selectivos-admision-visor.json")
                 assert pagina.goto(origen + entrada + "?lang=en").status == 200

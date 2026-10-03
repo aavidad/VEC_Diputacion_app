@@ -1,6 +1,6 @@
-import { leerArchivo } from './modelo.js?v=20261003-s4-visor-v2';
-import { crearCargaLocal } from './controlador.js?v=20261003-s4-visor-v2';
-import { pintarSalida } from './vista.js?v=20261003-s4-visor-v2';
+import { leerArchivo } from './modelo.js?v=20261003-s4-visor-v3';
+import { crearCargaLocal } from './controlador.js?v=20261003-s4-visor-v3';
+import { pintarSalida } from './vista.js?v=20261003-s4-visor-v3';
 import { cargarTextos, urlCatalogo, crearTextos } from '../../../../comun/textos.js';
 import { INDICE_IDIOMAS, leerRecursoJSON } from '../../../../comun/idioma.js';
 
@@ -65,6 +65,14 @@ document.addEventListener('focusin', e => {
   });
 }, { signal: eventos.signal });
 window.addEventListener('pagehide', () => { controlador.desmontar(); eventos.abort(); cancelAnimationFrame(frame); });
+window.addEventListener('pageshow', e => {
+  if (!e.persisted) return;
+  if (textos) {
+    const destino = new URL(location.href); destino.searchParams.set('lang', textos.idioma);
+    history.replaceState(history.state, '', destino);
+  }
+  location.reload();
+});
 try {
   pintarIdioma(await cargarTextos('selectivos-admision-visor'));
   for (const i of INDICE_IDIOMAS.idiomas) { const opt = document.createElement('option'); opt.value = i.codigo; opt.lang = i.codigo; opt.textContent = i.nombre; selector.append(opt); }
