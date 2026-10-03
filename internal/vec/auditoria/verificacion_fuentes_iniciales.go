@@ -26,8 +26,9 @@ type RegistroFuentesInicialesV1 struct {
 
 type InformeVerificacionFuentesIniciales struct {
 	InformeVerificacion
-	MaterialEventoRecalculado  bool `json:"material_evento_recalculado"`
-	MaterialFuentesRecalculado bool `json:"material_fuentes_recalculado"`
+	MaterialEventoRecalculado          bool `json:"material_evento_recalculado"`
+	MaterialFuentesRecalculado         bool `json:"material_fuentes_recalculado"`
+	MaterialIntentosFuentesRecalculado bool `json:"material_intentos_fuentes_recalculado"`
 }
 
 // VerificarCadenaFuentesInicialesV1 admite consumo histórico v1, AD169, AD171
@@ -38,6 +39,7 @@ func VerificarCadenaFuentesInicialesV1(d DocumentoVerificacionMixta, checkpoint 
 		for _, registro := range d.Registros {
 			r.MaterialEventoRecalculado = r.MaterialEventoRecalculado || registro.Preperfil != nil || registro.Bootstrap != nil
 			r.MaterialFuentesRecalculado = r.MaterialFuentesRecalculado || registro.FuentesIniciales != nil
+			r.MaterialIntentosFuentesRecalculado = r.MaterialIntentosFuentesRecalculado || registro.IntentoFuentesIniciales != nil
 		}
 	}
 	return r
@@ -45,7 +47,7 @@ func VerificarCadenaFuentesInicialesV1(d DocumentoVerificacionMixta, checkpoint 
 
 func cotejarRegistroFuentesInicialesV1(r RegistroMixtoV2, secuencia uint64) (RegistroEventoAdminV3, string, string) {
 	var e RegistroEventoAdminV3
-	if r.FuentesIniciales == nil || r.Consumo != nil || r.Intento != nil || r.Preperfil != nil || r.Bootstrap != nil {
+	if r.FuentesIniciales == nil || r.Consumo != nil || r.Intento != nil || r.Preperfil != nil || r.Bootstrap != nil || r.IntentoFuentesIniciales != nil {
 		return e, "tipo_invalido", "tipo_registro"
 	}
 	f := *r.FuentesIniciales

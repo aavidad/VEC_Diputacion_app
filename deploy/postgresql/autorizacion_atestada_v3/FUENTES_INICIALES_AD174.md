@@ -1,8 +1,9 @@
 # Auditoría de la provisión inicial de fuentes ADMIN
 
 Estado: candidata preparada sobre AD171 instalada en el frío post36/37.
-Dirección ha ensayado AD174 y sus pruebas SQL en el clon PostgreSQL 18.4:
-ambas terminaron con código 0. Quedan pendientes las dos revisiones
+El ensayo anterior de la familia confirmada terminó con código 0 en el clon
+PostgreSQL 18.4. La ampliación de intentos descrita aquí exige un ensayo nuevo;
+ese resultado anterior no la acredita. Quedan pendientes dos revisiones
 independientes del commit final y el ensayo causal junto a CA33, IS15 y AUT39.
 No se ha instalado en la principal ni se declara LISTA.
 
@@ -94,9 +95,9 @@ divergencia se rechaza. AUT39 une fuentes, recibo y auditoría en una sola
 transacción SERIALIZABLE de escritura. El consumidor entrega el recibo
 únicamente después de COMMIT.
 
-No se registra un `denegado` o `error` inventado en esa transacción de éxito.
-La cobertura de fallos posteriores a rollback necesitaría un contrato propio
-de identidad técnica; este append no lo fabrica.
+La familia confirmada no registra un `denegado` o `error` ficticio. La familia
+de invocación siguiente conserva el resultado real del motor observado por
+AUT39, también cuando su subtransacción de efecto se revierte.
 
 El verificador offline debe reconocer la familia y su eslabón versionados,
 rechazar campos cruzados y mantener los cálculos anteriores. Comprobar la
@@ -156,3 +157,77 @@ AUT39 debe suministrar el agregado real y unirlo al efecto antes del COMMIT.
 
 Dirección ejecutó el SQL solo en el clon autorizado. El productor no ha
 instalado SQL ni tocado servidores.
+
+## Invocaciones gestionadas por el motor
+
+La familia separada `intento_fuentes_iniciales_admin` registra cada invocación
+que AUT39 llega a gestionar: éxito, replay, denegación o error. Su actor es
+`session_user`; no contiene fuente confirmada, aprobación, preimagen de efecto,
+persona, perfil ni decisión V3. Los campos de confirmación quedan nulos y la
+nueva columna `fuentes_solicitud_sha256` solo pertenece a esta familia.
+
+El ABI privado es `registrar_intento_fuentes_iniciales_admin_v1(jsonb)`.
+Retorna las mismas cinco coordenadas del ABI confirmado. Recibe exactamente
+estas 12 cadenas en este orden:
+
+```text
+tipo_registro
+evento_ref
+operador_login
+solicitud_sha256
+accion
+recurso_ref
+resultado
+motivo_ref
+proceso
+canal
+finalidad_ref
+correlacion_ref
+```
+
+`solicitud_sha256` compromete los bytes reales de la entrada, sin almacenarlos.
+`recurso_ref` es `solicitud_fuentes:<32 hex>`: una referencia opaca de la
+invocación, no una aprobación o plan ficticio. El proceso exacto `postgresql`
+identifica al motor observador; no pretende acreditar la CLI de origen.
+Acción, canal y finalidad conservan los valores cerrados del ABI confirmado.
+
+Los motivos forman un catálogo técnico cerrado de datos SQL, cotejado con
+`motivos_intento_fuentes.json` del verificador:
+
+| Resultado | Motivo |
+| --- | --- |
+| permitido | fuentes_registradas |
+| permitido | fuentes_replay |
+| denegado | fuentes_denegadas |
+| error | fuentes_error |
+
+El material usa `vec.auditoria.intento-fuentes-iniciales.v1` seguido de los
+12 campos; el eslabón usa `vec.auditoria.eslabon.intento-fuentes-iniciales.v1`
+con las coordenadas anteriores y referencia `aud_v3_fi_<32 hex>`. Comparten
+la cabeza y el cerrojo de eventos de la auditoría común. Un evento repetido
+con idéntico material recupera sus coordenadas; cualquier diferencia se rechaza.
+Cada invocación real nueva necesita un evento propio, incluido un replay del
+plan de provisión, que conserva un hecho distinto del replay del append.
+
+AUT39 mantiene el efecto dentro de una subtransacción y registra después el
+resultado real de la invocación. En el éxito, efecto, confirmación e intento se
+confirman juntos; en un rechazo gestionado, el efecto se revierte y se confirma
+únicamente el intento. Si falla el append, se aborta toda la transacción. Solo
+se devuelve el sobre de resultado después del COMMIT. Cancelaciones,
+desconexiones anteriores y fallos de conexión no quedan acreditados por este
+contrato. No se guardan SQLERRM, entradas completas, secretos ni material HMAC.
+
+La proyección CLI es `intento_fuentes_iniciales`, con las 11 cadenas del
+material sin `tipo_registro`, seis coordenadas del eslabón y `modulo_id`.
+Rechaza campos de fuente, aprobación, persona o perfil añadidos y las mezclas
+con otras familias. El informe distingue `material_intentos_fuentes_recalculado`
+del material confirmado; ninguno autentica el LOGIN o la solicitud de origen.
+
+Los cuatro vectores independientes están en
+`pruebas_sql/ad174_intentos_vectores_cadena.json` y en
+`cmd/vec-auditoria-verificar/testdata/intentos_fuentes_ad174.json`. La prueba
+`pruebas_sql/ad174_intento_fuentes.sql` coteja material y eslabón con PostgreSQL,
+los cuatro resultados y replay, ACL, campos cruzados, LOGIN ajeno, motivo libre,
+resultado incompatible, proceso falso, inmutabilidad e historia. Todo hace
+ROLLBACK en el clon y no ejecuta DOWN. Estas pruebas SQL nuevas están pendientes
+del ensayo de Dirección; las pruebas focales Go de la ampliación han pasado.

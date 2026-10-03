@@ -54,12 +54,13 @@ type RegistroIntentoV2 struct {
 }
 
 type RegistroMixtoV2 struct {
-	TipoRegistro     string                      `json:"tipo_registro"`
-	Consumo          *RegistroCadenaV3           `json:"consumo,omitempty"`
-	Intento          *RegistroIntentoV2          `json:"intento,omitempty"`
-	Preperfil        *RegistroPreperfilV3        `json:"preperfil,omitempty"`
-	Bootstrap        *RegistroBootstrapV3        `json:"bootstrap,omitempty"`
-	FuentesIniciales *RegistroFuentesInicialesV1 `json:"fuentes_iniciales,omitempty"`
+	TipoRegistro            string                             `json:"tipo_registro"`
+	Consumo                 *RegistroCadenaV3                  `json:"consumo,omitempty"`
+	Intento                 *RegistroIntentoV2                 `json:"intento,omitempty"`
+	Preperfil               *RegistroPreperfilV3               `json:"preperfil,omitempty"`
+	Bootstrap               *RegistroBootstrapV3               `json:"bootstrap,omitempty"`
+	FuentesIniciales        *RegistroFuentesInicialesV1        `json:"fuentes_iniciales,omitempty"`
+	IntentoFuentesIniciales *RegistroIntentoFuentesInicialesV1 `json:"intento_fuentes_iniciales,omitempty"`
 }
 
 type DocumentoVerificacionMixta struct {
@@ -107,7 +108,7 @@ func verificarCadenaMixta(d DocumentoVerificacionMixta, checkpoint CoberturaCade
 		var referencia, previo, huella string
 		switch r.TipoRegistro {
 		case "consumo_confirmado":
-			if r.Consumo == nil || r.Intento != nil || r.Preperfil != nil || r.Bootstrap != nil || r.FuentesIniciales != nil {
+			if r.Consumo == nil || r.Intento != nil || r.Preperfil != nil || r.Bootstrap != nil || (r.FuentesIniciales != nil || r.IntentoFuentesIniciales != nil) {
 				return fallar("tipo_invalido", "tipo_registro", "consumo_exclusivo", "invalido", secuencia)
 			}
 			c := *r.Consumo
@@ -134,7 +135,7 @@ func verificarCadenaMixta(d DocumentoVerificacionMixta, checkpoint CoberturaCade
 				return fallar("huella_distinta", "huella_sha256", huella, c.HuellaSHA256, secuencia)
 			}
 		case "intento_nominal":
-			if r.Intento == nil || r.Consumo != nil || r.Preperfil != nil || r.Bootstrap != nil || r.FuentesIniciales != nil {
+			if r.Intento == nil || r.Consumo != nil || r.Preperfil != nil || r.Bootstrap != nil || (r.FuentesIniciales != nil || r.IntentoFuentesIniciales != nil) {
 				return fallar("tipo_invalido", "tipo_registro", "intento_exclusivo", "invalido", secuencia)
 			}
 			a := *r.Intento
@@ -157,7 +158,7 @@ func verificarCadenaMixta(d DocumentoVerificacionMixta, checkpoint CoberturaCade
 			}
 			referencia, previo, huella = a.AuditoriaRef, a.AnteriorSHA256, a.HuellaSHA256
 		case "preperfil_autenticado", "bootstrap_operador":
-			if (esquema != EsquemaVerificacionPreperfil && esquema != EsquemaVerificacionFuentesIniciales) || r.FuentesIniciales != nil {
+			if (esquema != EsquemaVerificacionPreperfil && esquema != EsquemaVerificacionFuentesIniciales) || (r.FuentesIniciales != nil || r.IntentoFuentesIniciales != nil) {
 				return fallar("tipo_invalido", "tipo_registro", "tipo_admitido", "invalido", secuencia)
 			}
 			evento, codigo, clave := cotejarRegistroAdminV3(r, secuencia)
@@ -169,11 +170,14 @@ func verificarCadenaMixta(d DocumentoVerificacionMixta, checkpoint CoberturaCade
 			}
 			eventos[evento.EventoRef] = true
 			referencia, previo, huella = evento.AuditoriaRef, evento.AnteriorSHA256, evento.HuellaSHA256
-		case "provision_fuentes_iniciales_admin":
+		case "provision_fuentes_iniciales_admin", "intento_fuentes_iniciales_admin":
 			if esquema != EsquemaVerificacionFuentesIniciales {
 				return fallar("tipo_invalido", "tipo_registro", "tipo_admitido", "invalido", secuencia)
 			}
 			evento, codigo, clave := cotejarRegistroFuentesInicialesV1(r, secuencia)
+			if r.TipoRegistro == "intento_fuentes_iniciales_admin" {
+				evento, codigo, clave = cotejarIntentoFuentesInicialesV1(r, secuencia)
+			}
 			if codigo != "" {
 				return fallar(codigo, clave, "registro_ad174_valido", "no_admitido", secuencia)
 			}
