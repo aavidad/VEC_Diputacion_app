@@ -29,6 +29,12 @@ BEGIN
    AND (c.relowner<>'vec_autorizacion_propietario'::regrole
     OR NOT c.relrowsecurity OR NOT c.relforcerowsecurity)) THEN
   RAISE EXCEPTION 'aut32_preimagen_incompatible' USING ERRCODE='55000'; END IF;
+ IF NOT EXISTS(SELECT 1 FROM pg_trigger t WHERE t.tgrelid=
+   'vec_autorizacion.politica_restrictiva_actual'::regclass
+   AND t.tgname='politica_actual_exige_catalogo'
+   AND t.tgenabled IN ('O','A') AND t.tgdeferrable
+   AND t.tgfoid='vec_autorizacion.exigir_catalogo_actualizado_en_transaccion()'::regprocedure) THEN
+  RAISE EXCEPTION 'aut32_preimagen_incompatible' USING ERRCODE='55000'; END IF;
  IF to_regprocedure('vec_contexto_actor_v1.leer_revalidar_certificado_firmante_ct_v2(text)') IS NULL
   OR to_regprocedure('vec_contexto_actor_v1.recuperar_historia_certificado_firmante_ct_v2(text,numeric,text)') IS NULL
   OR to_regprocedure('vec_personal.leer_revalidar_cargo_ocupante_ct_v1(bytea)') IS NULL
@@ -140,7 +146,7 @@ CREATE FUNCTION vec_autorizacion.validar_competencia_nominal_firmante_ct_v1(
  p_contexto_nominal bytea, p_relacion_ct jsonb, p_consumo_v3 jsonb
 ) RETURNS jsonb
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
-SET search_path = pg_catalog SET row_security = 'on' SET lock_timeout = '2s'
+SET search_path = pg_catalog SET row_security = 'on' SET lock_timeout = '2s' SET TimeZone = 'UTC'
 AS $f$
 DECLARE c jsonb; ident jsonb; comp jsonb; per jsonb; rec jsonb; ct jsonb;
  ca jsonb; org_ca jsonb; fuente_personal jsonb; v3 jsonb; a record; rol record;
@@ -341,9 +347,8 @@ BEGIN
  JOIN vec_autorizacion.control_vigencia_version_rol_actual x ON x.version_rol_ref=r.version_rol_ref
  JOIN vec_autorizacion.control_vigencia_version_rol v ON v.version_rol_ref=x.version_rol_ref AND v.revision=x.revision
  WHERE r.version_rol_ref=a.version_rol_ref FOR SHARE OF r,x,v;
- -- Tomar ambas barreras antes de fijar el instante de la última validación.
- LOCK TABLE vec_autorizacion.control_catalogo_politicas,
-  vec_autorizacion.politica_restrictiva_actual IN SHARE MODE;
+ -- Toda mutación del puntero de políticas exige actualizar esta fila en la
+ -- misma transacción. FOR SHARE impide su COMMIT mientras se decide el efecto.
  SELECT revision,huella_sha256 INTO STRICT catalogo
   FROM vec_autorizacion.control_catalogo_politicas WHERE control_id FOR SHARE;
  instante := clock_timestamp();
@@ -417,9 +422,9 @@ BEGIN
        (q->'valores' ? (rec->>'documento_ref')) IS NOT TRUE)) THEN
   RAISE EXCEPTION 'aut32_concesion_no_admitida' USING ERRCODE = '42501';
  END IF;
- -- No existe un evaluador ABAC offline autorizado para el firmante. Se
- -- protege el conjunto vigente completo contra altas y cambios hasta COMMIT;
- -- cualquier política aplicable deja esta vía cerrada.
+ -- No existe un evaluador ABAC offline autorizado para el firmante. El
+ -- catálogo protege el conjunto actual hasta COMMIT. Una política aplicable
+ -- publicada, incluso de inicio futuro, deja esta vía cerrada.
  IF catalogo.huella_sha256 !~ '^[0-9a-f]{64}$'
   OR EXISTS(SELECT 1 FROM vec_autorizacion.politica_restrictiva_actual x
    JOIN vec_autorizacion.politica_restrictiva p USING(politica_id,politica_ref)
@@ -435,7 +440,6 @@ BEGIN
   OR EXISTS(SELECT 1 FROM vec_autorizacion.politica_restrictiva_actual x
    JOIN vec_autorizacion.politica_restrictiva p USING(politica_id,politica_ref)
    WHERE p.documento->>'estado'='publicada'
-    AND instante >= (p.documento->>'vigente_desde')::timestamptz
     AND instante < (p.documento->>'vigente_hasta')::timestamptz
     AND ((p.documento->'acciones' ? c->>'accion') OR (p.documento->'acciones' ? '*'))
     AND ((p.documento->'modulos' ? comp->>'modulo_id') OR (p.documento->'modulos' ? '*'))
@@ -450,7 +454,7 @@ CREATE FUNCTION vec_autorizacion.acreditar_competencia_nominal_firmante_ct_v1(
  p_contexto_nominal bytea,p_relacion_ct jsonb,p_consumo_v3 jsonb
 ) RETURNS jsonb
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
-SET search_path = pg_catalog SET row_security = 'on' SET lock_timeout = '2s'
+SET search_path = pg_catalog SET row_security = 'on' SET lock_timeout = '2s' SET TimeZone = 'UTC'
 AS $f$
 DECLARE c jsonb; h text; ref text; previo vec_autorizacion.evidencia_competencia_firmante_ct_v1%ROWTYPE;
  v3 jsonb; org_ca jsonb; catalogo record;
@@ -526,7 +530,7 @@ CREATE FUNCTION vec_autorizacion.recuperar_evidencia_competencia_firmante_ct_v1(
  p_relacion_ct jsonb,p_consumo_v3 jsonb
 ) RETURNS bytea
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
-SET search_path = pg_catalog SET row_security = 'on' SET lock_timeout = '2s'
+SET search_path = pg_catalog SET row_security = 'on' SET lock_timeout = '2s' SET TimeZone = 'UTC'
 AS $f$
 DECLARE c jsonb; historico jsonb; fuente_ca jsonb;
  original vec_autorizacion.evidencia_competencia_firmante_ct_v1%ROWTYPE;

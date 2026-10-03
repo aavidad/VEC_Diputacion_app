@@ -24,7 +24,7 @@ END $pre$;
 
 CREATE FUNCTION vec_autorizacion_atestada_v3.comprobar_consumo_firma_ct_v1(p_consumo jsonb)
 RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
-SET search_path=pg_catalog SET row_security='on' SET lock_timeout='2s'
+SET search_path=pg_catalog SET row_security='on' SET lock_timeout='2s' SET TimeZone='UTC'
 AS $f$
 DECLARE r record; capacidad jsonb; decision jsonb; ahora timestamptz(6);
 BEGIN
