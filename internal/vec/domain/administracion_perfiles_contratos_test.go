@@ -55,3 +55,106 @@ func TestBootstrapAdministracionPerfilesExigeDosPersonasAcreditadas(t *testing.T
 		t.Fatal("bootstrap sobre continuidad ya iniciada aceptado")
 	}
 }
+
+func cierreAdministracionPerfilesLigadoPrueba(t *testing.T) (SolicitudCierrePropuestaAdministracionPerfiles, CierrePropuestaAdministracionPerfiles) {
+	t.Helper()
+	acto := solicitudActoAdministracionPerfilesPrueba(t)
+	solicitud := SolicitudCierrePropuestaAdministracionPerfiles{
+		OperacionRef: "cierre_admin:" + strings.Repeat("a", 32), PropuestaRef: "propuesta_admin:" + strings.Repeat("b", 32),
+		PropuestaHuellaSHA256: strings.Repeat("c", 64), ProponentePersonaRef: referenciaContextoActorPrueba("per_", "p"),
+		ObjetivoPersonaRef: acto.Objetivo.PersonaRef, Aprobador: acto.Actor, InstantaneaAutorizacion: acto.InstantaneaAutorizacion,
+		Decision: DecisionAprobarPropuestaPerfil, Motivo: acto.Motivo, CorrelacionRef: acto.CorrelacionRef,
+	}
+	instante := instanteContextoActorPrueba()
+	cierre := CierrePropuestaAdministracionPerfiles{
+		OperacionRef: solicitud.OperacionRef, PropuestaRef: solicitud.PropuestaRef, PropuestaHuellaSHA256: solicitud.PropuestaHuellaSHA256, Decision: solicitud.Decision,
+		HuellaCierreSHA256: strings.Repeat("d", 64), ConfirmadoEn: instante,
+		Recibo: &ReciboAdministracionPerfiles{
+			ActorPersonaRef: solicitud.Aprobador.PersonaRef, PerfilActivoRef: solicitud.Aprobador.PerfilActivoRef,
+			AsignacionPerfilRef: solicitud.InstantaneaAutorizacion.AsignacionPerfil.Referencia(),
+			CorrelacionRef:      solicitud.CorrelacionRef, Motivo: solicitud.Motivo,
+			OperacionRef: solicitud.OperacionRef, ActoRef: "acto_admin:" + strings.Repeat("e", 32),
+			ReciboRef: "recibo_admin:" + strings.Repeat("f", 32), PropuestaRef: solicitud.PropuestaRef,
+			AuditoriaRef: "auditoria:admin:ligadura", ObjetivoPersonaRef: solicitud.ObjetivoPersonaRef,
+			PerfilRef: acto.Objetivo.PerfilRef, VinculoRef: acto.Objetivo.VinculoRef,
+			EstadoPosterior: EstadoVinculoContextoActorActivo, VersionPosterior: 1,
+			HuellaAntesSHA256: strings.Repeat("0", 64), HuellaDespuesSHA256: strings.Repeat("1", 64), ConfirmadoEn: instante,
+		},
+	}
+	if err := cierre.ValidarPara(solicitud); err != nil {
+		t.Fatalf("cierre ligado: %v", err)
+	}
+	return solicitud, cierre
+}
+
+func TestAdministracionPerfilesCierreLigaReciboAlAprobadorYAlMaterial(t *testing.T) {
+	campos := map[string]func(*CierrePropuestaAdministracionPerfiles, string){
+		"actor":        func(c *CierrePropuestaAdministracionPerfiles, v string) { c.Recibo.ActorPersonaRef = v },
+		"perfil":       func(c *CierrePropuestaAdministracionPerfiles, v string) { c.Recibo.PerfilActivoRef = v },
+		"asignacion":   func(c *CierrePropuestaAdministracionPerfiles, v string) { c.Recibo.AsignacionPerfilRef = v },
+		"correlacion":  func(c *CierrePropuestaAdministracionPerfiles, v string) { c.Recibo.CorrelacionRef = v },
+		"motivo":       func(c *CierrePropuestaAdministracionPerfiles, v string) { c.Recibo.Motivo.EntradaClave = v },
+		"propuesta":    func(c *CierrePropuestaAdministracionPerfiles, v string) { c.Recibo.PropuestaRef = v },
+		"operacion":    func(c *CierrePropuestaAdministracionPerfiles, v string) { c.Recibo.OperacionRef = v },
+		"destinataria": func(c *CierrePropuestaAdministracionPerfiles, v string) { c.Recibo.ObjetivoPersonaRef = v },
+	}
+	otros := map[string]string{
+		"actor": referenciaContextoActorPrueba("per_", "z"), "perfil": referenciaContextoActorPrueba("prf_", "z"),
+		"asignacion": "asignacion:otra:v99", "correlacion": "correlacion_" + strings.Repeat("9", 32), "motivo": "otra_entrada",
+		"propuesta": "propuesta_admin:" + strings.Repeat("9", 32), "operacion": "cierre_admin:" + strings.Repeat("9", 32),
+		"destinataria": referenciaContextoActorPrueba("per_", "z"),
+	}
+	for campo, mutar := range campos {
+		for _, valor := range []string{"", otros[campo]} {
+			nombre := campo + "_ajeno"
+			if valor == "" {
+				nombre = campo + "_ausente"
+			}
+			t.Run(nombre, func(t *testing.T) {
+				solicitud, cierre := cierreAdministracionPerfilesLigadoPrueba(t)
+				mutar(&cierre, valor)
+				if cierre.ValidarPara(solicitud) == nil {
+					t.Fatal("recibo no ligado al cierre aceptado")
+				}
+			})
+		}
+	}
+	for _, campo := range []string{"fecha", "huella_cierre", "huella_propuesta_ausente", "huella_propuesta_ajena", "huella_antes", "huella_despues", "recibo_ausente"} {
+		t.Run(campo, func(t *testing.T) {
+			solicitud, cierre := cierreAdministracionPerfilesLigadoPrueba(t)
+			switch campo {
+			case "fecha":
+				cierre.Recibo.ConfirmadoEn = cierre.ConfirmadoEn.Add(time.Microsecond)
+			case "huella_cierre":
+				cierre.HuellaCierreSHA256 = ""
+			case "huella_propuesta_ausente":
+				cierre.PropuestaHuellaSHA256 = ""
+			case "huella_propuesta_ajena":
+				cierre.PropuestaHuellaSHA256 = strings.Repeat("9", 64)
+			case "huella_antes":
+				cierre.Recibo.HuellaAntesSHA256 = ""
+			case "huella_despues":
+				cierre.Recibo.HuellaDespuesSHA256 = ""
+			case "recibo_ausente":
+				cierre.Recibo = nil
+			}
+			if cierre.ValidarPara(solicitud) == nil {
+				t.Fatal("recibo sin evidencia ligada aceptado")
+			}
+		})
+	}
+}
+
+func TestAdministracionPerfilesRechazoConservaPropuestaInmutableSinRecibo(t *testing.T) {
+	solicitud, cierre := cierreAdministracionPerfilesLigadoPrueba(t)
+	solicitud.Decision = DecisionRechazarPropuestaPerfil
+	cierre.Decision = solicitud.Decision
+	cierre.Recibo = nil
+	if cierre.ValidarPara(solicitud) != nil {
+		t.Fatal("rechazo durable de propuesta exacta rechazado")
+	}
+	cierre.PropuestaHuellaSHA256 = strings.Repeat("9", 64)
+	if cierre.ValidarPara(solicitud) == nil {
+		t.Fatal("rechazo de otra huella de propuesta aceptado")
+	}
+}

@@ -56,16 +56,18 @@ func (p PropuestaAdministracionPerfiles) ValidarPara(s SolicitudActoAdministraci
 // un rechazo durable. Un rechazo conserva historia pero no tiene recibo de
 // cambio de perfil.
 type CierrePropuestaAdministracionPerfiles struct {
-	OperacionRef       string
-	PropuestaRef       string
-	Decision           DecisionPropuestaAdministracionPerfiles
-	HuellaCierreSHA256 string
-	ConfirmadoEn       time.Time
-	Recibo             *ReciboAdministracionPerfiles
+	OperacionRef          string
+	PropuestaHuellaSHA256 string
+	PropuestaRef          string
+	Decision              DecisionPropuestaAdministracionPerfiles
+	HuellaCierreSHA256    string
+	ConfirmadoEn          time.Time
+	Recibo                *ReciboAdministracionPerfiles
 }
 
 func (c CierrePropuestaAdministracionPerfiles) ValidarPara(s SolicitudCierrePropuestaAdministracionPerfiles) error {
 	if s.Validar() != nil || c.OperacionRef != s.OperacionRef || c.PropuestaRef != s.PropuestaRef ||
+		c.PropuestaHuellaSHA256 != s.PropuestaHuellaSHA256 ||
 		c.Decision != s.Decision || !HuellaAdministracionPerfilesValida(c.HuellaCierreSHA256) ||
 		c.ConfirmadoEn.IsZero() {
 		return ErrControlAdministracionPerfilesInvalido
@@ -78,6 +80,10 @@ func (c CierrePropuestaAdministracionPerfiles) ValidarPara(s SolicitudCierreProp
 	}
 	if c.Recibo == nil || c.Recibo.Validar() != nil || c.Recibo.OperacionRef != s.OperacionRef ||
 		c.Recibo.PropuestaRef != s.PropuestaRef ||
+		c.Recibo.ActorPersonaRef != s.Aprobador.PersonaRef ||
+		c.Recibo.PerfilActivoRef != s.Aprobador.PerfilActivoRef ||
+		c.Recibo.AsignacionPerfilRef != s.InstantaneaAutorizacion.AsignacionPerfil.Referencia() ||
+		c.Recibo.CorrelacionRef != s.CorrelacionRef || c.Recibo.Motivo != s.Motivo ||
 		c.Recibo.ObjetivoPersonaRef != s.ObjetivoPersonaRef ||
 		!c.Recibo.ConfirmadoEn.Equal(c.ConfirmadoEn) {
 		return ErrControlAdministracionPerfilesInvalido

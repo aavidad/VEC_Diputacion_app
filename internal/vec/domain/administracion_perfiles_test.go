@@ -149,12 +149,17 @@ func TestAdministracionPerfilesDobleControlPorPersona(t *testing.T) {
 	cierre.ObjetivoPersonaRef = s.Objetivo.PersonaRef
 	confirmado := instanteContextoActorPrueba()
 	resultado := CierrePropuestaAdministracionPerfiles{
-		OperacionRef:       cierre.OperacionRef,
-		PropuestaRef:       cierre.PropuestaRef,
-		Decision:           DecisionAprobarPropuestaPerfil,
-		HuellaCierreSHA256: strings.Repeat("d", 64),
-		ConfirmadoEn:       confirmado,
+		PropuestaHuellaSHA256: cierre.PropuestaHuellaSHA256,
+		OperacionRef:          cierre.OperacionRef,
+		PropuestaRef:          cierre.PropuestaRef,
+		Decision:              DecisionAprobarPropuestaPerfil,
+		HuellaCierreSHA256:    strings.Repeat("d", 64),
+		ConfirmadoEn:          confirmado,
 		Recibo: &ReciboAdministracionPerfiles{
+			ActorPersonaRef:     cierre.Aprobador.PersonaRef,
+			PerfilActivoRef:     cierre.Aprobador.PerfilActivoRef,
+			AsignacionPerfilRef: cierre.InstantaneaAutorizacion.AsignacionPerfil.Referencia(),
+			CorrelacionRef:      cierre.CorrelacionRef, Motivo: cierre.Motivo,
 			OperacionRef:        cierre.OperacionRef,
 			ActoRef:             "acto_admin:" + strings.Repeat("f", 32),
 			ReciboRef:           "recibo_admin:" + strings.Repeat("e", 32),

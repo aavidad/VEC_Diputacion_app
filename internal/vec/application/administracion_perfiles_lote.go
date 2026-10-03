@@ -6,10 +6,11 @@ import (
 	"vec-diputacion-granada/internal/vec/ports"
 )
 
-// validarAdministrador usa la categoría del rol central exacto, nunca su
+// validarAdministrador exige el rol nominal existente y su categoría central, nunca su
 // nombre visible ni Principal.Roles. El puerto durable revalida bajo bloqueo.
 func (s *ServicioAdministracionPerfiles) validarAdministrador(ctx context.Context, instantanea domain.InstantaneaAutorizacion) error {
 	if s == nil || s.catalogo == nil || s.reloj == nil || instantanea.Validar() != nil ||
+		instantanea.VersionRol.RolID != "administracion_perfiles" ||
 		!instantanea.AsignacionPerfil.VigenteEn(s.reloj.Ahora()) ||
 		instantanea.ControlVigenciaVersionRol.Estado != domain.EstadoControlVigenciaVersionRolHabilitada {
 		return domain.ErrControlAdministracionPerfilesInvalido
