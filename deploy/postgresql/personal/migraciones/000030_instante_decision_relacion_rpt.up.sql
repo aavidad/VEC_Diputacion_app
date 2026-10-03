@@ -15,7 +15,7 @@ DECLARE
  esperada constant text:='9e4733bcb994a3234d8261c107aeb4b49a9d04f9544302ac34f39c77c604a560';
  posterior constant text:='dd0b06eb3ecb2a8317054739ad01f6c363c725f477d7f98d345f01d83487a78f';
  original text; nuevo text; fuente_sha text; metadata jsonb; deps jsonb; compartidas jsonb;
- a text; b text; i integer;
+ a text; b text; i integer; ocurrencias integer;
  antes1 constant text:=$antes1$ ahora timestamptz(6); cap_desde timestamptz; cap_hasta timestamptz; dec_hasta timestamptz;$antes1$;
  despues1 constant text:=$despues1$ ahora timestamptz(6); cap_desde timestamptz; cap_hasta timestamptz; dec_hasta timestamptz; cap_dec_hasta timestamptz;$despues1$;
  antes2 constant text:=$antes2$  dec_hasta:=(d->>'valida_hasta')::timestamptz;$antes2$;
@@ -44,7 +44,15 @@ BEGIN
  OR (SELECT count(*) FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) x WHERE p.oid=f)<>2
  OR EXISTS(SELECT 1 FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) x WHERE p.oid=f
   AND (x.grantee NOT IN(p.proowner,'vec_personal_ejecutor'::regrole) OR x.grantor<>p.proowner OR x.privilege_type<>'EXECUTE' OR x.is_grantable)) THEN
-  RAISE EXCEPTION 'PARO clave=Personal30.preimagen, actual=%, esperado=%',fuente_sha,esperada USING ERRCODE='55000';
+  RAISE EXCEPTION 'PARO clave=Personal30.preimagen, actual=%, esperado=%',
+   jsonb_build_object('cuerpo_sha256',fuente_sha,
+    'propietario',metadata->>'proowner' IS NOT DISTINCT FROM ('vec_personal_propietario'::regrole::oid)::text,
+    'firma',metadata->>'pronargs' IS NOT DISTINCT FROM '11' AND metadata->>'prorettype' IS NOT DISTINCT FROM ('jsonb'::regtype::oid)::text,
+    'atributos',metadata->>'prosecdef' IS NOT DISTINCT FROM 'true' AND metadata->>'provolatile' IS NOT DISTINCT FROM 'v' AND metadata->>'proparallel' IS NOT DISTINCT FROM 'u',
+    'configuracion',EXISTS(SELECT 1 FROM pg_proc p WHERE p.oid=f AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s','statement_timeout=5s']),
+    'acl',(SELECT count(*) FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) x WHERE p.oid=f)=2 AND NOT EXISTS(SELECT 1 FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) x WHERE p.oid=f AND (x.grantee NOT IN(p.proowner,'vec_personal_ejecutor'::regrole) OR x.grantor<>p.proowner OR x.privilege_type<>'EXECUTE' OR x.is_grantable))),
+   jsonb_build_object('cuerpo_sha256',esperada,'propietario',true,'firma',true,'atributos',true,'configuracion',true,'acl',true)
+   USING ERRCODE='55000';
  END IF;
  SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
  INTO deps FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f;
@@ -53,8 +61,9 @@ BEGIN
  nuevo:=original;
  FOR i IN 1..4 LOOP
   a:=(ARRAY[antes1,antes2,antes3,antes4])[i];b:=(ARRAY[despues1,despues2,despues3,despues4])[i];
-  IF length(nuevo)-length(replace(nuevo,a,''))<>length(a) THEN
-   RAISE EXCEPTION 'PARO clave=Personal30.marca, actual=%, esperado=1',i USING ERRCODE='55000';
+  ocurrencias:=(length(nuevo)-length(replace(nuevo,a,'')))/length(a);
+  IF ocurrencias<>1 THEN
+   RAISE EXCEPTION 'PARO clave=Personal30.marca_%, actual=%, esperado=1',i,ocurrencias USING ERRCODE='55000';
   END IF;
   nuevo:=replace(nuevo,a,b);
  END LOOP;
@@ -64,7 +73,13 @@ BEGIN
  OR (SELECT to_jsonb(p)-'prosrc' FROM pg_proc p WHERE p.oid=f) IS DISTINCT FROM metadata
  OR (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb) FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps
  OR (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.dbid,d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype),'[]'::jsonb) FROM pg_shdepend d WHERE d.dbid=(SELECT oid FROM pg_database WHERE datname=current_database()) AND d.classid='pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM compartidas THEN
-  RAISE EXCEPTION 'PARO clave=Personal30.postimagen, actual=%, esperado=%',fuente_sha,posterior USING ERRCODE='55000';
+  RAISE EXCEPTION 'PARO clave=Personal30.postimagen, actual=%, esperado=%',
+   jsonb_build_object('cuerpo_sha256',fuente_sha,'oid',to_regprocedure(firma) IS NOT DISTINCT FROM f,
+    'metadata',(SELECT to_jsonb(p)-'prosrc' FROM pg_proc p WHERE p.oid=f) IS NOT DISTINCT FROM metadata,
+    'dependencias',(SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb) FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f) IS NOT DISTINCT FROM deps,
+    'dependencias_compartidas',(SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.dbid,d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb) FROM pg_shdepend d WHERE d.dbid=(SELECT oid FROM pg_database WHERE datname=current_database()) AND d.classid='pg_proc'::regclass AND d.objid=f) IS NOT DISTINCT FROM compartidas),
+   jsonb_build_object('cuerpo_sha256',posterior,'oid',true,'metadata',true,'dependencias',true,'dependencias_compartidas',true)
+   USING ERRCODE='55000';
  END IF;
 END $corregir$;
 COMMIT;
