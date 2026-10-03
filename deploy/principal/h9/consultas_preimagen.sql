@@ -25,6 +25,21 @@ SELECT 'politicas|'||encode(sha256(convert_to(coalesce(jsonb_agg(to_jsonb(p) ORD
 FROM pg_policies p WHERE schemaname LIKE 'vec_%';
 SELECT 'triggers|'||encode(sha256(convert_to(coalesce(jsonb_agg(jsonb_build_object('tabla',c.oid::regclass::text,'nombre',t.tgname,'enabled',t.tgenabled,'def',pg_get_triggerdef(t.oid)) ORDER BY c.oid::regclass::text,t.tgname)::text,'[]'),'UTF8')),'hex')
 FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname LIKE 'vec_%' AND NOT t.tgisinternal;
+SELECT 'tipos|'||encode(sha256(convert_to(coalesce(jsonb_agg(jsonb_build_object('schema',n.nspname,'tipo',t.typname,'owner',t.typowner,'acl',t.typacl,'kind',t.typtype,'categoria',t.typcategory,'base',t.typbasetype,'notnull',t.typnotnull,'default',t.typdefault,'relacion',t.typrelid,'elemento',t.typelem) ORDER BY n.nspname,t.typname)::text,'[]'),'UTF8')),'hex')
+FROM pg_type t JOIN pg_namespace n ON n.oid=t.typnamespace WHERE n.nspname LIKE 'vec_%';
+SELECT 'enums|'||encode(sha256(convert_to(coalesce(jsonb_agg(jsonb_build_object('tipo',e.enumtypid::regtype::text,'orden',e.enumsortorder,'valor',e.enumlabel) ORDER BY e.enumtypid::regtype::text,e.enumsortorder)::text,'[]'),'UTF8')),'hex')
+FROM pg_enum e JOIN pg_type t ON t.oid=e.enumtypid JOIN pg_namespace n ON n.oid=t.typnamespace WHERE n.nspname LIKE 'vec_%';
+SELECT 'acl_predeterminadas|'||encode(sha256(convert_to(coalesce(jsonb_agg(to_jsonb(d) ORDER BY defaclrole,defaclnamespace,defaclobjtype)::text,'[]'),'UTF8')),'hex')
+FROM pg_default_acl d;
+SELECT 'vistas|'||encode(sha256(convert_to(coalesce(jsonb_agg(jsonb_build_object('schema',n.nspname,'nombre',c.relname,'def',pg_get_viewdef(c.oid,false)) ORDER BY n.nspname,c.relname)::text,'[]'),'UTF8')),'hex')
+FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname LIKE 'vec_%' AND c.relkind IN ('v','m');
+SELECT 'indices|'||encode(sha256(convert_to(coalesce(jsonb_agg(jsonb_build_object('schema',n.nspname,'nombre',c.relname,'def',pg_get_indexdef(c.oid),'valido',i.indisvalid,'ready',i.indisready) ORDER BY n.nspname,c.relname)::text,'[]'),'UTF8')),'hex')
+FROM pg_index i JOIN pg_class c ON c.oid=i.indexrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname LIKE 'vec_%';
+SELECT 'secuencias|'||encode(sha256(convert_to(coalesce(jsonb_agg(to_jsonb(s) ORDER BY schemaname,sequencename)::text,'[]'),'UTF8')),'hex')
+FROM pg_sequences s WHERE schemaname LIKE 'vec_%';
+SELECT format('SELECT %L||last_value||''|''||is_called FROM %I.%I;', 'secuencia_estado|'||n.nspname||'.'||c.relname||'|',n.nspname,c.relname)
+FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname LIKE 'vec_%' AND c.relkind='S' ORDER BY n.nspname,c.relname
+\gexec
 SELECT format('SELECT %L||count(*)||''|''||encode(sha256(convert_to(coalesce(string_agg(j,E''\n'' ORDER BY j),''''),''UTF8'')),''hex'') FROM (SELECT to_jsonb(t)::text j FROM %I.%I t) s;', 'datos|'||n.nspname||'.'||c.relname||'|',n.nspname,c.relname)
 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname LIKE 'vec_%' AND c.relkind IN ('r','p') ORDER BY n.nspname,c.relname
 \gexec
