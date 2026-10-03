@@ -113,9 +113,10 @@ BEGIN
  RETURN pg_catalog.jsonb_build_object(
   'cuenta',pg_catalog.jsonb_build_object('referencia',c,'version',ca.version,'huella_sha256',pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(pg_catalog.to_jsonb(ca)::text,'UTF8')),'hex')),
   'persona',pg_catalog.jsonb_build_object('referencia',p,'version',pe.version,'huella_sha256',pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(pg_catalog.to_jsonb(pe)::text,'UTF8')),'hex')),
-  'vinculo_cuenta_persona',pg_catalog.jsonb_build_object('referencia',v,'version',vi.version,'huella_sha256',pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(pg_catalog.to_jsonb(vi)::text,'UTF8')),'hex'),'cuenta_ref',vi.cuenta_ref,'persona_ref',vi.persona_ref));
+  'vinculo_cuenta_persona',pg_catalog.jsonb_build_object('referencia',v,'version',vi.version,'huella_sha256',pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(pg_catalog.to_jsonb(vi)::text,'UTF8')),'hex'),'cuenta_ref',vi.cuenta_ref,'persona_ref',vi.persona_ref,'perfil_ref',vi.perfil_ref));
 END $f$;
 REVOKE ALL ON FUNCTION vec_contexto_actor_v1.fuentes_certificado_firmante_ct_v2(text,text,text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION vec_contexto_actor_v1.fuentes_certificado_firmante_ct_v2(text,text,text) TO vec_autorizacion_propietario;
 
 CREATE FUNCTION vec_contexto_actor_v1.publicar_certificado_firmante_ct_v2(b bytea,decision text,auditoria text)
 RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET lock_timeout='2s' AS $f$
@@ -233,7 +234,7 @@ BEGIN
  THEN RETURN NULL; END IF;
  RETURN pg_catalog.jsonb_build_object('esquema','vec.contexto-actor.certificado-firmante-ct.v2',
   'certificado_der_sha256',der,'persona_ref',v.persona_ref,'cuenta',s->'cuenta','persona',s->'persona',
-  'vinculo_cuenta_persona',s->'vinculo_cuenta_persona','estado','vigente',
+  'vinculo_cuenta_persona',s->'vinculo_cuenta_persona'-'perfil_ref','estado','vigente',
   'vinculo_certificado',pg_catalog.jsonb_build_object('referencia',v.vinculo_ref,'version',v.version,'huella_sha256',v.huella_sha256,
    'cuenta_ref',v.cuenta_ref,'persona_ref',v.persona_ref,'certificado_der_sha256',v.certificado_der_sha256,
    'estado',v.estado,'vigente_desde',v.vigente_desde,'vigente_hasta',v.vigente_hasta,
