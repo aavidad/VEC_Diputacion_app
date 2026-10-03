@@ -639,3 +639,11 @@ static/portal-empleado/modulos/seleccion/preparacion-admision/controlador.js
 static/portal-empleado/modulos/seleccion/preparacion-admision/preparacion-admision.css
 static/textos/es/selectivos-admision-visor.json
 static/textos/en/selectivos-admision-visor.json
+static/portal-empleado/modulos/seleccion/preparacion-acta/index.html
+static/portal-empleado/modulos/seleccion/preparacion-acta/entrada.js
+static/portal-empleado/modulos/seleccion/preparacion-acta/modelo.js
+static/portal-empleado/modulos/seleccion/preparacion-acta/vista.js
+static/portal-empleado/modulos/seleccion/preparacion-acta/preparacion-acta.css
+static/portal-empleado/modulos/seleccion/dom.js
+static/textos/es/selectivos-acta-visor.json
+static/textos/en/selectivos-acta-visor.json

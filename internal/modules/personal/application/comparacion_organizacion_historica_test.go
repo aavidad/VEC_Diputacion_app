@@ -55,7 +55,7 @@ func (r *repositorioComparacionPrueba) ConsultarOrganizacionHistorica(_ context.
 func TestComparacionHistoricaAutorizaCadaPaginaYConservaEvidencias(t *testing.T) {
 	a := &autorizadorComparacionPrueba{t: t}
 	r := &repositorioComparacionPrueba{}
-	c, _ := NuevoServicioConsultaOrganizacionHistorica(a, r)
+	c, _ := NuevoServicioConsultaOrganizacionHistorica(a, r, &intentosHistoricosPrueba{})
 	s, _ := NuevoServicioComparacionOrganizacionHistorica(c)
 	solicitud := solicitudHistoricaPrueba(t)
 	got, err := s.Comparar(context.Background(), solicitud, solicitud)
@@ -79,7 +79,7 @@ func TestComparacionHistoricaFallaSinResultadoParcial(t *testing.T) {
 			r := &repositorioComparacionPrueba{}
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			c, _ := NuevoServicioConsultaOrganizacionHistorica(a, r)
+			c, _ := NuevoServicioConsultaOrganizacionHistorica(a, r, &intentosHistoricosPrueba{})
 			s, _ := NuevoServicioComparacionOrganizacionHistorica(c)
 			antes := solicitudHistoricaPrueba(t)
 			despues := antes
