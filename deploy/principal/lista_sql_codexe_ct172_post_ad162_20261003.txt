@@ -1,0 +1,4 @@
+# Delta CT172: AD162, AD159, CT170 y AUT31 ya instaladas y revisadas.
+# AUT31 requiere CA24/AD160; la provisión RBAC pertenece a la autoridad central de K.
+# No sustituir estos consumidores por dobles ni reaplicar los prefijos.
+deploy/postgresql/contratacion_temporal/migraciones/000172_firma_pdf_revision_v2.up.sql
