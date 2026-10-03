@@ -1,0 +1,5 @@
+# Orden por objetos: núcleo AUT7+CA2+IS3 ya instalado en el clon causal.
+# No requiere ni instala AUT24/AD150; su plantilla Aplicación publicada y sus
+# decisiones administrativas genuinas son precondiciones del RECORRIDO.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000160_fachada_privada_cargos_ct.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000164_independencia_cargos_ct_cierre.up.sql

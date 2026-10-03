@@ -1,0 +1,11 @@
+{
+  "general": {
+    "sin_conexion_titulo": "No connection",
+    "sin_conexion_mensaje": "Reconnect to view your requests and documents.",
+    "reintentar": "Try again",
+    "volver": "Back",
+    "inicio": "Home",
+    "recargar": "Reload",
+    "navegacion_instalada": "App navigation"
+  }
+}

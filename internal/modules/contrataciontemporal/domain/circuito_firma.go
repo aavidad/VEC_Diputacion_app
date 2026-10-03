@@ -165,9 +165,11 @@ func (c CircuitoFirmaDocumento) Validar() error {
 
 // CircuitoFirma es el catálogo vigente con su procedencia.
 type CircuitoFirma struct {
-	CatalogoRef    string
-	HuellaCatalogo string
-	Ejemplo        bool
+	// CatalogoVersion procede de la versión publicada, sin interpretar su referencia.
+	CatalogoVersion uint64
+	CatalogoRef     string
+	HuellaCatalogo  string
+	Ejemplo         bool
 	// PermiteMismaPersonaEnPasos conserva la política del catálogo para el
 	// servicio de firma. Cada paso sigue necesitando autorización propia.
 	PermiteMismaPersonaEnPasos bool
