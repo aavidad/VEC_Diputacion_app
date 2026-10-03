@@ -202,7 +202,7 @@ BEGIN
   'principal_id',base->'FirmantePrincipalRef','perfil_activo_ref',base->'PerfilActivoOperadorRef',
   'campos_permitidos','[]'::jsonb,'obligaciones','[]'::jsonb,
   'vinculo_autenticacion_actor',jsonb_build_object('superficie','interna_corporativa'))::text,'UTF8');
- capacidad:=convert_to(jsonb_build_object('operacion','contratacion_temporal.documento.firma_vec.registrar',
+ capacidad:=convert_to(jsonb_build_object('suite','no_acreditada','operacion','contratacion_temporal.documento.firma_vec.registrar',
   'audiencia_consumo','vec_contratacion_temporal.firma_vec.v2','efecto_ref','operacion-firma-vec-ct:'||(base->>'ClaveIdempotencia'),
   'huella_efecto_sha256',contexto_h,'huella_decision_sha256',encode(sha256(decision),'hex'))::text,'UTF8');
  BEGIN
