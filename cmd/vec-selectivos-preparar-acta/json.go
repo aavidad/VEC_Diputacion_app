@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 )
@@ -18,7 +19,7 @@ func leerJSON(r io.Reader, destino any) error {
 		return errEntradaJSON
 	}
 	material, err := io.ReadAll(io.LimitReader(r, maximoEntradaJSON+1))
-	if err != nil || len(material) > maximoEntradaJSON || !utf8.Valid(material) {
+	if err != nil || len(material) > maximoEntradaJSON || !utf8.Valid(material) || !escapesUnicodeValidos(material) {
 		return errEntradaJSON
 	}
 	tokens := json.NewDecoder(bytes.NewReader(material))
@@ -34,6 +35,50 @@ func leerJSON(r io.Reader, destino any) error {
 		return errEntradaJSON
 	}
 	return nil
+}
+
+// encoding/json sustituye los pares UTF-16 inválidos por U+FFFD. Esta guarda
+// evita alterar textos aportados y distingue escapes de barras literales.
+func escapesUnicodeValidos(material []byte) bool {
+	for i := 0; i < len(material); i++ {
+		if material[i] != '"' {
+			continue
+		}
+		for i++; i < len(material) && material[i] != '"'; i++ {
+			if material[i] != '\\' {
+				continue
+			}
+			i++
+			if i >= len(material) {
+				return false
+			}
+			if material[i] != 'u' {
+				continue
+			}
+			if i+4 >= len(material) {
+				return false
+			}
+			valor, err := strconv.ParseUint(string(material[i+1:i+5]), 16, 16)
+			if err != nil {
+				return false
+			}
+			i += 4
+			if valor >= 0xdc00 && valor <= 0xdfff {
+				return false
+			}
+			if valor >= 0xd800 && valor <= 0xdbff {
+				if i+6 >= len(material) || material[i+1] != '\\' || material[i+2] != 'u' {
+					return false
+				}
+				bajo, err := strconv.ParseUint(string(material[i+3:i+7]), 16, 16)
+				if err != nil || bajo < 0xdc00 || bajo > 0xdfff {
+					return false
+				}
+				i += 6
+			}
+		}
+	}
+	return true
 }
 
 // La entrada usa claves exactas de catálogo, sin duplicados ni alias de mayúsculas.

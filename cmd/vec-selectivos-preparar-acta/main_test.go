@@ -99,3 +99,47 @@ func TestCatalogoActaNoSaleDeRaiz(t *testing.T) {
 		t.Fatal("catalogo externo aceptado")
 	}
 }
+
+func TestCLIActaNoReemplazaSustitutosUnicodeAislados(t *testing.T) {
+	raw, err := os.ReadFile("testdata/material.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var original domain.MaterialActaPropuesto
+	if err := json.Unmarshal(raw, &original); err != nil {
+		t.Fatal(err)
+	}
+	textoOriginal, err := json.Marshal(original.OrdenDiaPropuesto[0].TextoPropuesto)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, caso := range []struct {
+		nombre, textoJSON, esperado string
+		rechazar                    bool
+	}{
+		{"alto_aislado", `\ud800`, "", true},
+		{"bajo_aislado", `\udc00`, "", true},
+		{"par_valido", `\ud83d\ude00`, "😀", false},
+		{"reemplazo_literal", "�", "�", false},
+		{"barra_literal", `\\ud800`, `\ud800`, false},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			entrada := strings.Replace(string(raw), string(textoOriginal), `"`+caso.textoJSON+`"`, 1)
+			var salida, errores bytes.Buffer
+			codigo := ejecutar(context.Background(), []string{"-catalogos-dir", "../../web/static/textos"}, strings.NewReader(entrada), &salida, &errores)
+			if caso.rechazar {
+				if codigo != 1 || salida.Len() != 0 {
+					t.Fatal("sustituto aislado aceptado")
+				}
+				return
+			}
+			var resultado struct {
+				Preparacion domain.PreparacionActa `json:"preparacion"`
+			}
+			if codigo != 0 || json.Unmarshal(salida.Bytes(), &resultado) != nil ||
+				resultado.Preparacion.MaterialPropuesto.OrdenDiaPropuesto[0].TextoPropuesto != caso.esperado {
+				t.Fatalf("texto válido alterado: %d %s", codigo, errores.String())
+			}
+		})
+	}
+}
