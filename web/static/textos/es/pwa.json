@@ -1,0 +1,11 @@
+{
+  "general": {
+    "sin_conexion_titulo": "No hay conexión",
+    "sin_conexion_mensaje": "Vuelve a conectarte para consultar tus trámites y documentos.",
+    "reintentar": "Reintentar",
+    "volver": "Volver",
+    "inicio": "Inicio",
+    "recargar": "Recargar",
+    "navegacion_instalada": "Navegación de la aplicación"
+  }
+}

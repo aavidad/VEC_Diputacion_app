@@ -65,6 +65,15 @@ func (f *servicioDocumentosOriginalCTPrueba) DescargarOriginalConDocumento(_ con
 
 type autorizacionesOriginalCTPrueba struct{ permitir bool }
 
+type tiposOriginalCTPrueba struct{ referencia string }
+
+func (t tiposOriginalCTPrueba) ResolverTipoOriginalCT(_ context.Context, documento string) (string, error) {
+	if documento != "informe_definitivo" {
+		return "", ports.ErrOriginalFirmableCTNoDisponible
+	}
+	return t.referencia, nil
+}
+
 func (a *autorizacionesOriginalCTPrueba) AutorizarLecturaOriginalCT(_ context.Context, s ports.SolicitudOriginalFirmableCT, ref string) (docports.ConsultaDocumento, error) {
 	if !a.permitir {
 		return docports.ConsultaDocumento{}, docports.ErrAccesoDenegado
@@ -110,7 +119,7 @@ func TestCustodiaDocumentosOriginalCTAltaUnicaConflictoYPermiso(t *testing.T) {
 	huella := hex.EncodeToString(suma[:])
 	f := &servicioDocumentosOriginalCTPrueba{}
 	auth := &autorizacionesOriginalCTPrueba{permitir: true}
-	a, err := NuevaCustodiaDocumentosOriginalCT(f, auth, FuncionMapeoExpedienteOriginalCT(ctapp.ReferenciaExpedienteDocumentalFormalizacion))
+	a, err := NuevaCustodiaDocumentosOriginalCT(f, auth, FuncionMapeoExpedienteOriginalCT(ctapp.ReferenciaExpedienteDocumentalFormalizacion), tiposOriginalCTPrueba{pdf.TipoRef})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -124,7 +133,7 @@ func TestCustodiaDocumentosOriginalCTAltaUnicaConflictoYPermiso(t *testing.T) {
 	}
 	otroTipo := pdf
 	otroTipo.TipoRef = "ref:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
-	if _, err := a.GuardarUnaVez(context.Background(), s, otroTipo, s.OriginalRef, huella); !errors.Is(err, ports.ErrOriginalFirmableCTConflicto) || f.altas != 1 {
+	if _, err := a.GuardarUnaVez(context.Background(), s, otroTipo, s.OriginalRef, huella); !errors.Is(err, ports.ErrOriginalFirmableCTNoDisponible) || f.altas != 1 {
 		t.Fatalf("tipo cambiado no rechazado: err=%v altas=%d", err, f.altas)
 	}
 	alterado := ports.PDFOriginalCT{TipoRef: pdf.TipoRef, Contenido: []byte("%PDF-1.7\notros bytes\n%%EOF")}
@@ -132,6 +141,16 @@ func TestCustodiaDocumentosOriginalCTAltaUnicaConflictoYPermiso(t *testing.T) {
 	if _, err := a.GuardarUnaVez(context.Background(), s, alterado, s.OriginalRef, hex.EncodeToString(suma[:])); !errors.Is(err, ports.ErrOriginalFirmableCTConflicto) || f.altas != 1 {
 		t.Fatalf("bytes cambiados: err=%v altas=%d", err, f.altas)
 	}
+	// El registro puede conservar los mismos bytes y huella bajo otro tipo.
+	// Ni la lectura directa ni el replay deben devolver ese documento.
+	f.documento.TipoRef = otroTipo.TipoRef
+	if _, err := a.LeerOriginal(context.Background(), s, s.OriginalRef); !errors.Is(err, ports.ErrOriginalFirmableCTNoDisponible) {
+		t.Fatalf("lectura de tipo ajeno aceptada: %v", err)
+	}
+	if _, err := a.GuardarUnaVez(context.Background(), s, pdf, s.OriginalRef, huella); !errors.Is(err, ports.ErrOriginalFirmableCTNoDisponible) || f.altas != 1 {
+		t.Fatalf("replay de tipo ajeno aceptado: %v, altas=%d", err, f.altas)
+	}
+	f.documento.TipoRef = pdf.TipoRef
 	auth.permitir = false
 	antes := f.lecturas
 	if _, err := a.LeerOriginal(context.Background(), s, s.OriginalRef); !errors.Is(err, docports.ErrAccesoDenegado) || f.lecturas != antes {

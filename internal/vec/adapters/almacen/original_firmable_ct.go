@@ -46,18 +46,19 @@ type CustodiaDocumentosOriginalCT struct {
 	servicio       ServicioDocumentosOriginalCT
 	autorizaciones AutorizacionesDocumentosOriginalCT
 	mapear         MapeadorExpedienteOriginalCT
+	tipos          ports.ResolutorTipoOriginalCT
 }
 
-func NuevaCustodiaDocumentosOriginalCT(servicio ServicioDocumentosOriginalCT, autorizaciones AutorizacionesDocumentosOriginalCT, mapear MapeadorExpedienteOriginalCT) (*CustodiaDocumentosOriginalCT, error) {
-	if servicio == nil || autorizaciones == nil || mapear == nil {
+func NuevaCustodiaDocumentosOriginalCT(servicio ServicioDocumentosOriginalCT, autorizaciones AutorizacionesDocumentosOriginalCT, mapear MapeadorExpedienteOriginalCT, tipos ports.ResolutorTipoOriginalCT) (*CustodiaDocumentosOriginalCT, error) {
+	if servicio == nil || autorizaciones == nil || mapear == nil || tipos == nil {
 		return nil, ports.ErrOriginalFirmableCTNoDisponible
 	}
-	return &CustodiaDocumentosOriginalCT{servicio: servicio, autorizaciones: autorizaciones, mapear: mapear}, nil
+	return &CustodiaDocumentosOriginalCT{servicio: servicio, autorizaciones: autorizaciones, mapear: mapear, tipos: tipos}, nil
 }
 
 func (a *CustodiaDocumentosOriginalCT) LeerOriginal(ctx context.Context, s ports.SolicitudOriginalFirmableCT, ref string) (ports.OriginalFirmableCT, error) {
 	identidad := identidadOriginalCT(s)
-	if a == nil || a.servicio == nil || a.autorizaciones == nil || ctx == nil || ctx.Err() != nil ||
+	if a == nil || a.servicio == nil || a.autorizaciones == nil || a.mapear == nil || a.tipos == nil || ctx == nil || ctx.Err() != nil ||
 		!identidad.Valida() || (s.OriginalRef != "" && s.OriginalRef != identidad.Referencia()) || ref != identidad.Referencia() {
 		return ports.OriginalFirmableCT{}, ports.ErrOriginalFirmableCTInvalido
 	}
@@ -73,6 +74,10 @@ func (a *CustodiaDocumentosOriginalCT) LeerOriginal(ctx context.Context, s ports
 		consulta.Autorizacion.RecursoRef != ref || consulta.Autorizacion.AmbitoRef != expedienteDocumental {
 		return ports.OriginalFirmableCT{}, ports.ErrOriginalFirmableCTNoDisponible
 	}
+	tipoEsperado, err := a.tipos.ResolverTipoOriginalCT(ctx, s.Documento)
+	if err != nil || !almacencanonico.ReferenciaDocumentoValida(tipoEsperado) {
+		return ports.OriginalFirmableCT{}, ports.ErrOriginalFirmableCTNoDisponible
+	}
 	original, documento, err := a.servicio.DescargarOriginalConDocumento(ctx, consulta)
 	if err != nil {
 		if errors.Is(err, docports.ErrNoEncontrado) {
@@ -85,6 +90,7 @@ func (a *CustodiaDocumentosOriginalCT) LeerOriginal(ctx context.Context, s ports
 	}
 	if documento.Validar() != nil || documento.ID != ref || documento.Version != s.OriginalVersion ||
 		documento.ModuloID != moduloOriginalFirmableCT || documento.ExpedienteRef != expedienteDocumental ||
+		documento.TipoRef != tipoEsperado ||
 		!documento.Descargable() || documento.MIME != original.MIME ||
 		documento.HuellaSHA256 != original.HuellaSHA256 || documento.Tamano != int64(len(original.Contenido)) {
 		return ports.OriginalFirmableCT{}, ports.ErrOriginalFirmableCTNoDisponible
@@ -98,7 +104,7 @@ func (a *CustodiaDocumentosOriginalCT) LeerOriginal(ctx context.Context, s ports
 
 func (a *CustodiaDocumentosOriginalCT) GuardarUnaVez(ctx context.Context, s ports.SolicitudOriginalFirmableCT, pdf ports.PDFOriginalCT, ref, huella string) (ports.OriginalFirmableCT, error) {
 	identidad := identidadOriginalCT(s)
-	if a == nil || a.servicio == nil || a.autorizaciones == nil || ctx == nil || ctx.Err() != nil ||
+	if a == nil || a.servicio == nil || a.autorizaciones == nil || a.mapear == nil || a.tipos == nil || ctx == nil || ctx.Err() != nil ||
 		!identidad.Valida() || (s.OriginalRef != "" && s.OriginalRef != identidad.Referencia()) || ref != identidad.Referencia() ||
 		!docdomain.ReferenciaOpacaValida(pdf.TipoRef) || !huellaContenidoOriginalCT(pdf.Contenido, huella) {
 		return ports.OriginalFirmableCT{}, ports.ErrOriginalFirmableCTInvalido
@@ -106,6 +112,10 @@ func (a *CustodiaDocumentosOriginalCT) GuardarUnaVez(ctx context.Context, s port
 	expedienteDocumental, err := a.mapear.ReferenciaDocumentalCT(s.ExpedienteRef)
 	if err != nil || !docdomain.ReferenciaOpacaValida(expedienteDocumental) {
 		return ports.OriginalFirmableCT{}, ports.ErrOriginalFirmableCTInvalido
+	}
+	tipoEsperado, err := a.tipos.ResolverTipoOriginalCT(ctx, s.Documento)
+	if err != nil || !almacencanonico.ReferenciaDocumentoValida(tipoEsperado) || pdf.TipoRef != tipoEsperado {
+		return ports.OriginalFirmableCT{}, ports.ErrOriginalFirmableCTNoDisponible
 	}
 	// Leer primero consume la autorización de Documentos y evita una nueva
 	// escritura en un replay. Solo la ausencia nominal permite intentar el alta.

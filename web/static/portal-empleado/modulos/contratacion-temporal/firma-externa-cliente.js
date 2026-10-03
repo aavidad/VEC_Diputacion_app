@@ -1,16 +1,12 @@
-/** Contrato HTTP preparado para un registro manual externo, aún sin montaje.
- * La referencia y la fecha de Portafirmas son declaraciones de RRHH. El
- * original_ref solo selecciona un original: el servidor deberá comprobar su
- * custodia, versión y autorización nominal antes de cualquier efecto. */
+/** Registro externo V2: conserva revisión incremental; la procedencia se declara por RRHH. */
+import { huellaPDFFirmado, validarReciboFirmaV2 } from "./firma-vec-api.js?v=20261003-ct-firma-v2-v1";
 
 export const RUTA_REGISTRO_FIRMA_EXTERNA = "/api/vec/contratacion-temporal/firmas-documento/registro-externo";
-const ESQUEMA = "vec.contratacion-temporal.registro-firma-externa.v1";
 const MAXIMO_PDF = 1 << 20;
 const MAXIMO_RESPUESTA = 64 * 1024;
 const REFERENCIA = /^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/u;
 const DOCUMENTO = /^[a-z][a-z0-9_]{1,63}$/u;
 const CLAVE = /^[A-Za-z0-9][A-Za-z0-9._-]{15,63}$/u;
-const HUELLA = /^[0-9a-f]{64}$/u;
 const UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?Z$/u;
 const CODIGOS = new Set(["autenticacion_requerida", "acceso_denegado", "contenido_no_valido", "peticion_no_valida",
   "paso_no_pendiente", "cadena_rota", "conflicto", "firma_no_verificada", "verificacion_no_disponible",
@@ -18,8 +14,6 @@ const CODIGOS = new Set(["autenticacion_requerida", "acceso_denegado", "contenid
 
 function referenciaValida(valor) { return typeof valor === "string" && REFERENCIA.test(valor); }
 function documentoValido(valor) { return typeof valor === "string" && DOCUMENTO.test(valor); }
-function huellaValida(valor) { return typeof valor === "string" && HUELLA.test(valor); }
-function referenciaCustodiaValida(valor) { return typeof valor === "string" && /^ref:[0-9a-f]{64}$/u.test(valor); }
 
 export class ErrorFirmaExterna extends Error {
   constructor(codigo) { super(codigo); this.name = "ErrorFirmaExterna"; this.codigo = codigo; }
@@ -39,11 +33,6 @@ function entero(valor) { return Number.isSafeInteger(valor) && valor > 0; }
 function fechaCanonica(valor) {
   return typeof valor === "string" && UTC.test(valor) && !Number.isNaN(Date.parse(valor))
     && new Date(valor).toISOString().replace(/\.000Z$/u, "Z") === valor;
-}
-
-function fechaRecibo(valor) {
-  return typeof valor === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?Z$/u.test(valor)
-    && !Number.isNaN(Date.parse(valor));
 }
 
 function referenciaDeclarada(valor) {
@@ -92,34 +81,6 @@ async function leerJSON(respuesta) {
   catch { throw new ErrorFirmaExterna("resultado_no_confiable"); }
 }
 
-function validarRecibo(datos, solicitud) {
-  const claves = ["esquema", "recibo_ref", "firma_ref", "ya_registrada", "expediente_ref", "version_expediente",
-    "documento", "paso_orden", "paso_ref", "secuencia", "registrada_en", "documento_custodiado",
-    "verificacion_tecnica", "procedencia_portafirmas", "firma_eficaz"];
-  const custodia = datos?.documento_custodiado;
-  const verificacion = datos?.verificacion_tecnica;
-  const procedencia = datos?.procedencia_portafirmas;
-  if (!campos(datos, claves) || datos.esquema !== ESQUEMA || datos.firma_eficaz !== false
-    || datos.expediente_ref !== solicitud.expedienteRef || datos.version_expediente !== solicitud.version
-    || datos.documento !== solicitud.documento || datos.paso_orden !== solicitud.pasoOrden
-    || !referenciaValida(datos.recibo_ref) || !referenciaValida(datos.firma_ref) || !referenciaValida(datos.paso_ref)
-    || !entero(datos.secuencia) || typeof datos.ya_registrada !== "boolean" || !fechaRecibo(datos.registrada_en)
-    || !campos(custodia, ["expediente_ref", "documento_ref", "version", "huella_sha256"])
-    || !referenciaCustodiaValida(custodia.expediente_ref) || !referenciaCustodiaValida(custodia.documento_ref)
-    || !entero(custodia.version) || !huellaValida(custodia.huella_sha256)
-    || !campos(verificacion, ["estado", "motivo", "politica", "revocacion", "sello_tiempo", "original_sha256", "firmado_sha256"])
-    || verificacion.estado !== "valida" || verificacion.motivo !== "verificada"
-    || typeof verificacion.politica !== "string" || verificacion.politica.length < 1 || verificacion.politica.length > 256
-    || verificacion.revocacion !== "vigente" || !["no_presente", "valido", "no_comprobado"].includes(verificacion.sello_tiempo)
-    || !huellaValida(verificacion.original_sha256) || !huellaValida(verificacion.firmado_sha256)
-    || verificacion.firmado_sha256 !== custodia.huella_sha256
-    || !campos(procedencia, ["estado", "referencia_declarada", "fecha_declarada"])
-    || procedencia.estado !== "declarada_por_rrhh"
-    || procedencia.referencia_declarada !== solicitud.referenciaPortafirmas
-    || procedencia.fecha_declarada !== solicitud.fechaPortafirmas) return null;
-  return Object.freeze({ ...datos });
-}
-
 export function crearClienteFirmaExterna({ fetchImpl = globalThis.fetch } = {}) {
   return Object.freeze({
     async registrar(solicitud, { signal } = {}) {
@@ -129,18 +90,25 @@ export function crearClienteFirmaExterna({ fetchImpl = globalThis.fetch } = {}) 
         || !entero(pasoOrden) || pasoOrden > 16 || !referenciaValida(originalRef) || !entero(originalVersion)
         || !pdfValido(firmado) || !referenciaDeclarada(referenciaPortafirmas)
         || !fechaCanonica(fechaPortafirmas) || typeof clave !== "string" || !CLAVE.test(clave)) throw new ErrorFirmaExterna("contenido_no_valido");
+      if (signal?.aborted) throw new ErrorFirmaExterna("operacion_abortada");
       if (typeof fetchImpl !== "function") throw new ErrorFirmaExterna("servicio_no_disponible");
+      const bytesEnviados = firmado.slice();
+      let huellaEnviada;
+      try { huellaEnviada = await huellaPDFFirmado(bytesEnviados); }
+      catch { throw new ErrorFirmaExterna("servicio_no_disponible"); }
+      if (signal?.aborted) throw new ErrorFirmaExterna("operacion_abortada");
       let respuesta;
       try {
         respuesta = await fetchImpl(RUTA_REGISTRO_FIRMA_EXTERNA, {
           method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" },
           body: JSON.stringify({ expediente_ref: expedienteRef, version_expediente: version, documento, paso_orden: pasoOrden,
-            original_ref: originalRef, original_version: originalVersion, firmado_base64: aBase64(firmado),
+            original_ref: originalRef, original_version: originalVersion, firmado_base64: aBase64(bytesEnviados),
             referencia_portafirmas_declarada: referenciaPortafirmas, fecha_portafirmas_declarada: fechaPortafirmas,
             clave_idempotencia: clave }),
           signal, mode: "same-origin", credentials: "same-origin", cache: "no-store", redirect: "error", referrerPolicy: "no-referrer",
         });
       } catch { throw new ErrorFirmaExterna(signal?.aborted ? "operacion_abortada" : "servicio_no_disponible"); }
+      if (signal?.aborted) { void respuesta.body?.cancel?.().catch(() => {}); throw new ErrorFirmaExterna("operacion_abortada"); }
       if (respuesta.redirected) throw new ErrorFirmaExterna("resultado_no_confiable");
       if (respuesta.status === 401 || respuesta.status === 403) {
         void respuesta.body?.cancel?.().catch(() => {});
@@ -153,8 +121,9 @@ export function crearClienteFirmaExterna({ fetchImpl = globalThis.fetch } = {}) 
           && CODIGOS.has(error.codigo) ? error.codigo : "servicio_no_disponible");
       }
       if (!campos(envoltorio, ["data"]) || ![200, 201].includes(respuesta.status)) throw new ErrorFirmaExterna("resultado_no_confiable");
-      const recibo = validarRecibo(envoltorio.data, solicitud);
-      if (!recibo || recibo.ya_registrada !== (respuesta.status === 200)) throw new ErrorFirmaExterna("resultado_no_confiable");
+      const recibo = validarReciboFirmaV2(envoltorio.data, solicitud, true);
+      if (!recibo || recibo.ya_registrada !== (respuesta.status === 200)
+        || recibo.documento_custodiado.huella_sha256 !== huellaEnviada) throw new ErrorFirmaExterna("resultado_no_confiable");
       return recibo;
     },
   });
