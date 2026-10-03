@@ -13,6 +13,9 @@ import (
 )
 
 func prepararAuxiliar(raiz string) error {
+	if prepararNSS(raiz) != nil {
+		return errRuntime
+	}
 	ejecutable, err := os.Executable()
 	if err != nil {
 		return errRuntime
