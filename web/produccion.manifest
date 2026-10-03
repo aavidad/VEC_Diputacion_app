@@ -627,3 +627,7 @@ static/portal-empleado/modulos/seleccion/preparacion-bases/vista.js
 static/portal-empleado/modulos/seleccion/preparacion-bases/preparacion-bases.css
 static/portal-empleado/modulos/seleccion/preparacion-bases/cliente-http.js
 static/portal-empleado/modulos/seleccion/preparacion-bases/contrato-http.js
+static/portal-empleado/modulos/personal/comparacion-ficha-b2.js
+static/portal-empleado/modulos/personal/comparacion-ficha-b2.css
+static/textos/es/personal-comparacion-b2.json
+static/textos/en/personal-comparacion-b2.json
