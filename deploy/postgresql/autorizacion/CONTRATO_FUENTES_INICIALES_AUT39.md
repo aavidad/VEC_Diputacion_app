@@ -154,4 +154,3 @@ La separación de éxito y error también está descrita en los eventos de
 [SQL Server Audit](https://learn.microsoft.com/en-us/sql/relational-databases/security/auditing/sql-server-audit-action-groups-and-actions?view=sql-server-ver17).
 El consenso con Astra exige que el recibo de una operación revertida no salga
 como confirmación y que el fallo de auditoría aborte el efecto.
-
