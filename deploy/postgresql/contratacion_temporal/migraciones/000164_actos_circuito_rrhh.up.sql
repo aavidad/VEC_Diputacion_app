@@ -1,6 +1,10 @@
 \set ON_ERROR_STOP on
 -- CT164. Circuito R5 dentro de las confirmaciones y versiones existentes.
--- Preimagen de funciones: clon frío sintético hito1 PG18.4 (29/09/2026).
+-- Preimagen: copia fría H7 -> H8 -> AD155/Bolsa77/XLSX5. Las cinco funciones
+-- no afectadas conservan sus huellas originales. El análisis conserva CT165.
+-- Informe y fiscalización conservan la forma física histórica del contexto:
+-- expediente como recurso exacto, sin duplicarlo en el mapa de ámbitos.
+-- Las ampliaciones CT164 no cambian esas validaciones ni material canónico.
 -- Dependencia causal CT163: guardas estructurales y lectura nominal AD151.
 -- El flujo inicial procede del resolutor Go y del material/HMAC atestado del alta.
 -- Esta migración no publica perfiles ni configura fuentes desde una petición.
@@ -219,11 +223,11 @@ BEGIN
  IF (SELECT proowner FROM pg_proc WHERE oid=f) IS DISTINCT FROM 'vec_contratacion_temporal_propietario'::regrole THEN
   RAISE EXCEPTION 'CT164: PARO funcion=expediente_analisis_valido_v2 clave=propietario_sql actual=% esperado=vec_contratacion_temporal_propietario',
    (SELECT pg_get_userbyid(proowner) FROM pg_proc WHERE oid=f) USING ERRCODE='55000'; END IF;
- IF encode(sha256(convert_to(original,'UTF8')),'hex') IS DISTINCT FROM 'b3b06bff38b7289676c4bfbd7ee6b7c20c53e7cb08a2660d7ccdb7b194a69705' THEN
-  RAISE EXCEPTION 'CT164: PARO funcion=expediente_analisis_valido_v2 clave=definicion_sha256 actual=% esperado=b3b06bff38b7289676c4bfbd7ee6b7c20c53e7cb08a2660d7ccdb7b194a69705',
+ IF encode(sha256(convert_to(original,'UTF8')),'hex') IS DISTINCT FROM '011040aafc2b0b711534a31a65a99a1178a4d0df9f4edba9ceb5bf4243d16a51' THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=expediente_analisis_valido_v2 clave=definicion_sha256 actual=% esperado=011040aafc2b0b711534a31a65a99a1178a4d0df9f4edba9ceb5bf4243d16a51',
    encode(sha256(convert_to(original,'UTF8')),'hex') USING ERRCODE='55000'; END IF;
- IF encode(sha256(convert_to(fuente,'UTF8')),'hex') IS DISTINCT FROM '9eb4e8b00da3745d27f6d28898575ed15422ed8e67426ca3c61dbe36ee4f39a4' THEN
-  RAISE EXCEPTION 'CT164: PARO funcion=expediente_analisis_valido_v2 clave=fuente_sha256 actual=% esperado=9eb4e8b00da3745d27f6d28898575ed15422ed8e67426ca3c61dbe36ee4f39a4',
+ IF encode(sha256(convert_to(fuente,'UTF8')),'hex') IS DISTINCT FROM '8d3ec7bcf7da515d06fe6f87eb903cdf302f11cc1df2cf090b8fff9374a95ca5' THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=expediente_analisis_valido_v2 clave=fuente_sha256 actual=% esperado=8d3ec7bcf7da515d06fe6f87eb903cdf302f11cc1df2cf090b8fff9374a95ca5',
    encode(sha256(convert_to(fuente,'UTF8')),'hex') USING ERRCODE='55000'; END IF;
  IF length(original)-length(replace(original,marca,''))<>length(marca) THEN
   RAISE EXCEPTION 'CT164: PARO funcion=expediente_analisis_valido_v2 clave=marca_apariciones actual=% esperado=1',
@@ -475,11 +479,11 @@ BEGIN
  IF (SELECT proowner FROM pg_proc WHERE oid=f) IS DISTINCT FROM 'vec_contratacion_temporal_propietario'::regrole THEN
   RAISE EXCEPTION 'CT164: PARO funcion=confirmar_informe_juridico_v1 clave=propietario_sql actual=% esperado=vec_contratacion_temporal_propietario',
    (SELECT pg_get_userbyid(proowner) FROM pg_proc WHERE oid=f) USING ERRCODE='55000'; END IF;
- IF encode(sha256(convert_to(original,'UTF8')),'hex') IS DISTINCT FROM 'c71c053abf0f2f98fb01b7534d55f5e5c56e4ede92e81822911c36b7fe1da39e' THEN
-  RAISE EXCEPTION 'CT164: PARO funcion=confirmar_informe_juridico_v1 clave=definicion_sha256 actual=% esperado=c71c053abf0f2f98fb01b7534d55f5e5c56e4ede92e81822911c36b7fe1da39e',
+ IF encode(sha256(convert_to(original,'UTF8')),'hex') IS DISTINCT FROM '93a45bbeccb822da3ed28ef5577c629ca36f6bc029761fe87700a4eac1643383' THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=confirmar_informe_juridico_v1 clave=definicion_sha256 actual=% esperado=93a45bbeccb822da3ed28ef5577c629ca36f6bc029761fe87700a4eac1643383',
    encode(sha256(convert_to(original,'UTF8')),'hex') USING ERRCODE='55000'; END IF;
- IF encode(sha256(convert_to(fuente,'UTF8')),'hex') IS DISTINCT FROM 'bde7c18fd552f86124c9b4dc2dd7fb7864a3a6339cf545c876cb0498cf929d1e' THEN
-  RAISE EXCEPTION 'CT164: PARO funcion=confirmar_informe_juridico_v1 clave=fuente_sha256 actual=% esperado=bde7c18fd552f86124c9b4dc2dd7fb7864a3a6339cf545c876cb0498cf929d1e',
+ IF encode(sha256(convert_to(fuente,'UTF8')),'hex') IS DISTINCT FROM '28bbfc9c2850b776eb8796049ecb09cd90236a48c49b5f33ca302f655bd11286' THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=confirmar_informe_juridico_v1 clave=fuente_sha256 actual=% esperado=28bbfc9c2850b776eb8796049ecb09cd90236a48c49b5f33ca302f655bd11286',
    encode(sha256(convert_to(fuente,'UTF8')),'hex') USING ERRCODE='55000'; END IF;
  IF length(original)-length(replace(original,marca,''))<>length(marca) THEN
   RAISE EXCEPTION 'CT164: PARO funcion=confirmar_informe_juridico_v1 clave=marca_apariciones actual=% esperado=1',
@@ -528,11 +532,11 @@ BEGIN
  IF (SELECT proowner FROM pg_proc WHERE oid=f) IS DISTINCT FROM 'vec_contratacion_temporal_propietario'::regrole THEN
   RAISE EXCEPTION 'CT164: PARO funcion=confirmar_fiscalizacion_v1 clave=propietario_sql actual=% esperado=vec_contratacion_temporal_propietario',
    (SELECT pg_get_userbyid(proowner) FROM pg_proc WHERE oid=f) USING ERRCODE='55000'; END IF;
- IF encode(sha256(convert_to(original,'UTF8')),'hex') IS DISTINCT FROM '27e369c38267d18d3ed258eca1a986c5835717d9c9630740d2291033fddeb147' THEN
-  RAISE EXCEPTION 'CT164: PARO funcion=confirmar_fiscalizacion_v1 clave=definicion_sha256 actual=% esperado=27e369c38267d18d3ed258eca1a986c5835717d9c9630740d2291033fddeb147',
+ IF encode(sha256(convert_to(original,'UTF8')),'hex') IS DISTINCT FROM '70174dd28738cbae3b6a307e56b496f83e7b15158f7475303b720d5176efcb3c' THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=confirmar_fiscalizacion_v1 clave=definicion_sha256 actual=% esperado=70174dd28738cbae3b6a307e56b496f83e7b15158f7475303b720d5176efcb3c',
    encode(sha256(convert_to(original,'UTF8')),'hex') USING ERRCODE='55000'; END IF;
- IF encode(sha256(convert_to(fuente,'UTF8')),'hex') IS DISTINCT FROM 'bb21608248394f30ef120618c26c5a753d93d0ba12fd98f69a6953ea9154aecf' THEN
-  RAISE EXCEPTION 'CT164: PARO funcion=confirmar_fiscalizacion_v1 clave=fuente_sha256 actual=% esperado=bb21608248394f30ef120618c26c5a753d93d0ba12fd98f69a6953ea9154aecf',
+ IF encode(sha256(convert_to(fuente,'UTF8')),'hex') IS DISTINCT FROM '6a30b018c4ee3e1fa6f55084e2ebfc6d661ea40ad899a94a7481ec65413fc250' THEN
+  RAISE EXCEPTION 'CT164: PARO funcion=confirmar_fiscalizacion_v1 clave=fuente_sha256 actual=% esperado=6a30b018c4ee3e1fa6f55084e2ebfc6d661ea40ad899a94a7481ec65413fc250',
    encode(sha256(convert_to(fuente,'UTF8')),'hex') USING ERRCODE='55000'; END IF;
  IF length(original)-length(replace(original,marca,''))<>length(marca) THEN
   RAISE EXCEPTION 'CT164: PARO funcion=confirmar_fiscalizacion_v1 clave=marca_apariciones actual=% esperado=1',
