@@ -36,6 +36,17 @@ func TestAD174VectoresYAlcance(t *testing.T) {
 	}
 }
 
+func TestAD174FechaNoParseablePropagaMotivoCerrado(t *testing.T) {
+	d := documentoFuentesPrueba(t)
+	d.Registros[0].FuentesIniciales.RegistradaEn = "dato_privado_sintetico:no_fecha"
+	r := VerificarCadenaFuentesInicialesV1(d, d.Manifiesto, 2)
+	b, _ := json.Marshal(r)
+	if r.Estado != "rechazada" || r.Fallo == nil || r.Fallo.Codigo != MotivoInstanteAD171Invalido ||
+		r.Fallo.Clave != "registrada_en" || strings.Contains(string(b), "dato_privado") {
+		t.Fatalf("motivo de parseo no propagado o fecha expuesta: %s", b)
+	}
+}
+
 func TestAD174RechazaCambiosCrucesYDuplicados(t *testing.T) {
 	casos := map[string]func(*DocumentoVerificacionMixta){
 		"plan": func(d *DocumentoVerificacionMixta) { d.Registros[0].FuentesIniciales.PlanRef = "plan:distinto" },
