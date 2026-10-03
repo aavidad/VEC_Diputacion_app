@@ -95,7 +95,8 @@ CREATE TEMP TABLE ct172_preimagen AS
  UNION ALL SELECT 'outbox',count(*) FROM vec_contratacion_temporal.firma_documento_outbox_v1;
 SET SESSION AUTHORIZATION vec_ct172_prueba;
 DO $negativas$
-DECLARE campo text; material jsonb;
+DECLARE campo text; material jsonb; base jsonb; evidencia jsonb; descriptor jsonb;
+ bytes_descriptor bytea; decision bytea; capacidad bytea; contexto_h text; traza text;
 BEGIN
  BEGIN
   PERFORM vec_contratacion_temporal.registrar_firma_verificada_v2(
@@ -103,19 +104,125 @@ BEGIN
   RAISE EXCEPTION 'CT172 aceptó material vacío' USING ERRCODE='55000';
  EXCEPTION WHEN SQLSTATE '22023' OR SQLSTATE '42501' THEN NULL;
  END;
- -- Casos mínimos para aislar la guarda previa al consumo, sin construir
- -- una firma favorable. Se exige su diagnóstico fijo: otra validación no
- -- puede hacer pasar esta regresión cuando falta la guarda de metadatos.
+ -- Entrada completa sólo de formato: no es un PDF ni una autoridad acreditada.
+ -- La capacidad/sobre incompletos son rechazados por V3 REAL, sin dobles.
+ evidencia:=jsonb_build_array(jsonb_build_object('Orden',1,'ByteRange',jsonb_build_array(0,1050,1150,50),
+  'RevisionHuellaSHA256',repeat('d',64),'ContenidoFirmadoHuellaSHA256',repeat('4',64),'RevisionLongitud',1200,
+  'CubreDocumentoCompletoHastaAqui',true,'FirmanteRef','ref:'||repeat('e',64),'CertificadoHuellaSHA256',repeat('e',64),
+  'IntegridadEstado','valida','CadenaEstado','valida','CertificadoEstado','vigente','RevocacionEstado','vigente',
+  'SelloTiempoEstado','no_presente','TipoFirma','aprobacion','NivelDocMDP',NULL,
+  'CambiosDesdeAnterior',jsonb_build_object('Estado','permitidos','Detalle',jsonb_build_array('firma_anadida'))));
+ base:=jsonb_build_object(
+   'Via','certificado_vec',
+   'OrganizacionRef','organizacion:ct172:negativas',
+   'ExpedienteRef','expediente:ct172:negativas',
+   'VersionExpediente',1,
+   'Documento','informe_definitivo',
+   'CatalogoRef','vec.circuito:1',
+   'CatalogoHuella',repeat('a',64),
+   'PasoRef','vec.circuito:1:informe.p1',
+   'PasoOrden',1,
+   'Secuencia',1,
+   'HistoriaRevision',0,
+   'HistoriaHuella',repeat('b',64),
+   'OriginalRef','documento:ct172:original',
+   'OriginalVersion',1,
+   'OriginalHuella',repeat('c',64),
+   'FirmadoHuella',repeat('d',64),
+   'CertificadoHuella',repeat('e',64),
+   'FirmanteRef','ref:'||repeat('e',64),
+   'FirmantePrincipalRef','per_ct172_firmante',
+   'PerfilFirmanteRef','perfil:ct:jefatura',
+   'CargoFirmante','ct_cargo_jefatura',
+   'UnidadFirmanteRef','unidad:ct172:negativas',
+   'PerfilActivoFirmanteRef','prf_ct172_firmante',
+   'PuestoFirmanteRef',NULL,
+   'AmbitoFirmanteRef',NULL)||
+  jsonb_build_object(
+   'AsignacionFirmanteRef','asignacion:ct172:negativas',
+   'AsignacionFirmanteVersion',1,
+   'AsignacionFirmanteHuella',repeat('f',64),
+   'VersionRolFirmanteRef','rol:ct_cargo_jefatura:v1',
+   'VersionRolFirmanteHuella',repeat('1',64),
+   'ControlVigenciaFirmanteRef','rol:ct_cargo_jefatura:v1',
+   'ControlVigenciaFirmanteRevision',1,
+   'ControlVigenciaFirmanteHuella',repeat('2',64),
+   'AsignacionVigenteDesde','2026-01-01T00:00:00Z',
+   'AsignacionVigenteHasta','2027-01-01T00:00:00Z',
+   'ActoCompetenciaRef',NULL,
+   'DelegacionRef',NULL,
+   'PoliticaVerificacion','politica:vec:firma:verificacion-autonoma:v2',
+   'RevocacionEstado','vigente',
+   'SelloTiempoEstado','no_presente',
+   'ClaveIdempotencia','clave-ct172-negativa-0001',
+   'DocumentoCustodiaRef','documento:ct172:firmado',
+   'DocumentoCustodiaVersion',1,
+   'CatalogoVersion',1,
+   'RolIDFirmante','ct_cargo_jefatura',
+   'PerfilActivoOperadorRef','prf_ct172_firmante',
+   'CuentaFirmanteRef','cuenta:ct172:negativas',
+   'VinculoCredencialFirmanteRef','vinculo:ct172:negativas',
+   'VinculoCredencialFirmanteRevision',1,
+   'VinculoCredencialFirmanteHuella',repeat('3',64))||
+  jsonb_build_object(
+   'FirmaAnteriorRef',NULL,
+   'ReciboAnteriorRef',NULL,
+   'EntradaDocumentoRef','documento:ct172:original',
+   'EntradaDocumentoVersion',1,
+   'EntradaDocumentoLongitud',1000,
+   'EntradaDocumentoHuella',repeat('c',64),
+   'OrdenFirmaPDF',1,
+   'ByteRange',jsonb_build_array(0,1050,1150,50),
+   'RevisionHuellaSHA256',repeat('d',64),
+   'ContenidoFirmadoHuellaSHA256',repeat('4',64),
+   'RevisionLongitud',1200,
+   'EvidenciaFirmasCanonica',evidencia,
+   'EvidenciaFirmasHuellaSHA256',encode(sha256(convert_to(evidencia::text,'UTF8')),'hex'));
+ descriptor:=jsonb_build_object('esquema','vec.competencia-firmante.constructor-ct.v1',
+  'certificado_der_sha256',base->'CertificadoHuella',
+  'seleccion',jsonb_build_object('perfil_esperado_ref',base->'PerfilFirmanteRef','perfil_activo_ref',base->'PerfilActivoFirmanteRef',
+   'rol_id',base->'RolIDFirmante','cargo_ref','cargo:ct172:negativas','enlace_ejercicio_ref','enlace:ct172:negativas'),
+  'recurso',jsonb_build_object('organizacion_ref',base->'OrganizacionRef','unidad_ref',base->'UnidadFirmanteRef',
+   'expediente_ref',base->'ExpedienteRef','documento_ref',base->'OriginalRef','recurso_autorizable_ref',base->'OriginalRef',
+   'modulo_id','contratacion_temporal','tipo_recurso','documento','recurso_contexto_sha256',repeat('5',64),
+   'original',jsonb_build_object('referencia',base->'OriginalRef','version',base->'OriginalVersion','huella_sha256',base->'OriginalHuella'),
+   'pdf_raiz_sha256',base->'OriginalHuella',
+   'firmado',jsonb_build_object('referencia',base->'DocumentoCustodiaRef','version',base->'DocumentoCustodiaVersion','huella_sha256',base->'FirmadoHuella'),
+   'pdf_firmado_sha256',base->'FirmadoHuella','numero_firmas',1,'entrada_revision',NULL),
+  'accion','contratacion_temporal.documento.firmar','finalidad','formalizar',
+  'motivo',jsonb_build_object('catalogo_id','vec.motivos','catalogo_version',1,'catalogo_huella_sha256',repeat('6',64),'entrada_clave','firma'),
+  'circuito',jsonb_build_object('referencia',base->'CatalogoRef','version',base->'CatalogoVersion','huella_sha256',base->'CatalogoHuella'),
+  'paso_ref',base->'PasoRef','paso_orden',1,'fecha_historica',NULL);
+ bytes_descriptor:=convert_to(descriptor::text,'UTF8');
+ contexto_h:=encode(sha256(convert_to('{"ambitos":{"organizacion_ref":"organizacion:ct172:negativas"},"atributos":{"descriptor_firma_sha256":"'||
+  encode(sha256(bytes_descriptor),'hex')||'","material_sha256":"'||encode(sha256(convert_to(base::text,'UTF8')),'hex')||'"}}','UTF8')),'hex');
+ decision:=convert_to(jsonb_build_object('accion','contratacion_temporal.documento.firma_vec.registrar',
+  'modulo_id','contratacion_temporal','tipo_recurso','firma_vec_documento_contratacion_temporal','finalidad','gestionar_contratacion_temporal',
+  'recurso_ref','operacion-firma-vec-ct:'||(base->>'ClaveIdempotencia'),'contexto_recurso_huella_sha256',contexto_h,
+  'principal_id',base->'FirmantePrincipalRef','perfil_activo_ref',base->'PerfilActivoOperadorRef',
+  'campos_permitidos','[]'::jsonb,'obligaciones','[]'::jsonb,
+  'vinculo_autenticacion_actor',jsonb_build_object('superficie','interna_corporativa'))::text,'UTF8');
+ capacidad:=convert_to(jsonb_build_object('operacion','contratacion_temporal.documento.firma_vec.registrar',
+  'audiencia_consumo','vec_contratacion_temporal.firma_vec.v2','efecto_ref','operacion-firma-vec-ct:'||(base->>'ClaveIdempotencia'),
+  'huella_efecto_sha256',contexto_h,'huella_decision_sha256',encode(sha256(decision),'hex'))::text,'UTF8');
+ BEGIN
+  PERFORM vec_contratacion_temporal.registrar_firma_verificada_v2(base::text,'2026-10-03T00:00:00Z',capacidad,decision,
+   convert_to('{}','UTF8'),convert_to('{}','UTF8'),1,1,convert_to('{}','UTF8'),convert_to('{}','UTF8'),convert_to('{}','UTF8'),convert_to('{}','UTF8'),bytes_descriptor);
+  RAISE EXCEPTION 'CT172 aceptó sobres no acreditados' USING ERRCODE='55000';
+ EXCEPTION WHEN SQLSTATE '42501' THEN
+  GET STACKED DIAGNOSTICS traza=PG_EXCEPTION_CONTEXT;
+  IF strpos(traza,'consumir_decision_mutacion_v3_interna')=0 THEN
+   RAISE EXCEPTION 'CT172 control no alcanzó consumidor V3 común' USING ERRCODE='55000'; END IF;
+ END;
+ -- Sólo cambia el campo bajo prueba. Si falta la guarda, debe llegar al
+ -- mismo rechazo V3 42501; por eso un 22023 acredita su rechazo temprano.
  FOREACH campo IN ARRAY ARRAY['PuestoFirmanteRef','AmbitoFirmanteRef','ActoCompetenciaRef'] LOOP
-  material:=jsonb_build_object('Via','certificado_vec','PuestoFirmanteRef',NULL,
-   'AmbitoFirmanteRef',NULL,'ActoCompetenciaRef',NULL)||jsonb_build_object(campo,'ref:ct172:no-acreditada');
+  material:=base||jsonb_build_object(campo,'ref:ct172:no-acreditada');
   BEGIN
-   PERFORM vec_contratacion_temporal.registrar_firma_verificada_v2(
-    material::text,'2026-10-03T00:00:00Z','\x',convert_to('{}','UTF8'),'\x','\x',1,1,'\x','\x','\x','\x','\x');
+   PERFORM vec_contratacion_temporal.registrar_firma_verificada_v2(material::text,'2026-10-03T00:00:00Z',capacidad,decision,
+    convert_to('{}','UTF8'),convert_to('{}','UTF8'),1,1,convert_to('{}','UTF8'),convert_to('{}','UTF8'),convert_to('{}','UTF8'),convert_to('{}','UTF8'),bytes_descriptor);
    RAISE EXCEPTION 'CT172 aceptó metadato sin fuente: %',campo USING ERRCODE='55000';
-  EXCEPTION WHEN SQLSTATE '22023' THEN
-   IF SQLERRM IS DISTINCT FROM 'metadatos nominales no acreditados' THEN
-    RAISE EXCEPTION 'CT172 guarda de metadato no comprobada: %',campo USING ERRCODE='55000'; END IF;
+  EXCEPTION WHEN SQLSTATE '22023' THEN NULL;
   END;
  END LOOP;
  BEGIN
