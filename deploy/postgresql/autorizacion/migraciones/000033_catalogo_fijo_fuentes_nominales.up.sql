@@ -94,8 +94,8 @@ BEGIN
   pg_catalog.jsonb_build_object('accion','administracion.certificados.nominal.publicar','modulo_id','administracion','tipo_recurso','vinculo_certificado_nominal','finalidades',pg_catalog.jsonb_build_array('gestionar_certificados_firmantes'),'garantia_minima','alto','campos_permitidos','[]'::jsonb,'obligaciones','[]'::jsonb),
   pg_catalog.jsonb_build_object('accion','administracion.certificados.nominal.retirar','modulo_id','administracion','tipo_recurso','vinculo_certificado_nominal','finalidades',pg_catalog.jsonb_build_array('gestionar_certificados_firmantes'),'garantia_minima','alto','campos_permitidos','[]'::jsonb,'obligaciones','[]'::jsonb),
   pg_catalog.jsonb_build_object('accion','personal.cargo_competencial.publicar','modulo_id','personal','tipo_recurso','cargo_competencial','finalidades',pg_catalog.jsonb_build_array('administrar_cargos_competenciales'),'garantia_minima','alto','campos_permitidos','["cargo","enlace","huella_sha256","recibo","version"]'::jsonb,'obligaciones','[]'::jsonb));
- IF EXISTS(SELECT 1 FROM pg_catalog.jsonb_array_elements(anterior.documento->'concesiones') c
-  JOIN pg_catalog.jsonb_array_elements(acciones) n ON c->>'accion'=n->>'accion')
+ IF EXISTS(SELECT 1 FROM pg_catalog.jsonb_array_elements(anterior.documento->'concesiones') AS c(valor)
+  JOIN pg_catalog.jsonb_array_elements(acciones) AS n(valor) ON c.valor->>'accion'=n.valor->>'accion')
  THEN RAISE EXCEPTION 'AUT33: acción ya publicada' USING ERRCODE='55000'; END IF;
  d:=pg_catalog.jsonb_set(anterior.documento,'{version}','4'::jsonb);
  d:=pg_catalog.jsonb_set(d,'{concesiones}',(anterior.documento->'concesiones')||acciones);
@@ -117,7 +117,7 @@ BEGIN
  INSERT INTO vec_autorizacion.perfil_fijo_categoria_nominal_v1
  VALUES('rol:administracion_perfiles:v4',sha,'aplicacion','fijo_sistema',
   'rol:administracion_perfiles:v4',4,sha,ahora);
- FOR accion IN SELECT x FROM pg_catalog.jsonb_array_elements(acciones) x LOOP
+ FOR accion IN SELECT e.valor FROM pg_catalog.jsonb_array_elements(acciones) AS e(valor) LOOP
   INSERT INTO vec_autorizacion.catalogo_accion_nominal_v1
   VALUES('accion:'||(accion->>'accion'),1,'rol:administracion_perfiles:v4',4,sha,
    'rol:administracion_perfiles:v4',accion,'["organizacion_ref","unidad_ref"]'::jsonb,

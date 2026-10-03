@@ -22,6 +22,12 @@ BEGIN
  WHERE c->>'accion' IN ('administracion.certificados.nominal.publicar','administracion.certificados.nominal.retirar','personal.cargo_competencial.publicar');
  IF n<>3 OR pg_catalog.jsonb_array_length(v.documento->'concesiones')<>pg_catalog.jsonb_array_length(vieja.documento->'concesiones')+3
   OR (SELECT count(*) FROM vec_autorizacion.catalogo_accion_nominal_v1 WHERE version_rol_ref=v.version_rol_ref)<>3
+  OR EXISTS(SELECT 1 FROM vec_autorizacion.catalogo_accion_nominal_v1 e
+   WHERE e.version_rol_ref=v.version_rol_ref AND
+    (e.fuente_ref<>v.version_rol_ref OR e.fuente_version<>4 OR e.fuente_huella_sha256<>v.huella_sha256
+     OR e.dimensiones_ambito<>'["organizacion_ref","unidad_ref"]'::jsonb
+     OR e.clase_control<>'administrador_aplicacion'
+     OR NOT EXISTS(SELECT 1 FROM pg_catalog.jsonb_array_elements(v.documento->'concesiones') c WHERE c=e.concesion)))
  THEN RAISE EXCEPTION 'AUT33: concesiones nuevas o previas divergentes'; END IF;
  IF vec_autorizacion.acreditar_perfil_aplicacion_nominal_v1(v.version_rol_ref,'ausente','ausente','ausente',
    'administracion.certificados.nominal.publicar','administracion','vinculo_certificado_nominal','gestionar_certificados_firmantes','[]'::jsonb,'{}'::jsonb)
