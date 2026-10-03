@@ -16,11 +16,19 @@ BEGIN
   RAISE EXCEPTION 'aut32_preimagen_incompatible' USING ERRCODE = '55000';
  END IF;
  FOREACH n IN ARRAY ARRAY['version_rol','asignacion_perfil','asignacion_perfil_actual',
-   'control_vigencia_version_rol','control_vigencia_version_rol_actual'] LOOP
+   'control_vigencia_version_rol','control_vigencia_version_rol_actual',
+   'politica_restrictiva','politica_restrictiva_actual','control_catalogo_politicas'] LOOP
   IF to_regclass('vec_autorizacion.' || n) IS NULL THEN
    RAISE EXCEPTION 'aut32_preimagen_incompatible' USING ERRCODE = '55000';
   END IF;
  END LOOP;
+ IF EXISTS(SELECT 1 FROM pg_class c WHERE c.oid IN (
+   'vec_autorizacion.politica_restrictiva'::regclass,
+   'vec_autorizacion.politica_restrictiva_actual'::regclass,
+   'vec_autorizacion.control_catalogo_politicas'::regclass)
+   AND (c.relowner<>'vec_autorizacion_propietario'::regrole
+    OR NOT c.relrowsecurity OR NOT c.relforcerowsecurity)) THEN
+  RAISE EXCEPTION 'aut32_preimagen_incompatible' USING ERRCODE='55000'; END IF;
  IF to_regprocedure('vec_contexto_actor_v1.leer_revalidar_certificado_firmante_ct_v2(text)') IS NULL
   OR to_regprocedure('vec_contexto_actor_v1.recuperar_historia_certificado_firmante_ct_v2(text,numeric,text)') IS NULL
   OR to_regprocedure('vec_personal.leer_revalidar_cargo_ocupante_ct_v1(bytea)') IS NULL
@@ -63,6 +71,8 @@ CREATE TABLE vec_autorizacion.evidencia_competencia_firmante_ct_v1 (
  certificado_der_sha256 text NOT NULL CHECK (certificado_der_sha256 ~ '^[0-9a-f]{64}$'),
  organizacion_destino jsonb NOT NULL,
  organizacion_destino_huella_sha256 text NOT NULL CHECK (organizacion_destino_huella_sha256 ~ '^[0-9a-f]{64}$'),
+ catalogo_politicas_revision numeric(20,0) NOT NULL CHECK (catalogo_politicas_revision>0),
+ catalogo_politicas_huella_sha256 text NOT NULL CHECK (catalogo_politicas_huella_sha256 ~ '^[0-9a-f]{64}$'),
  consumo_decision_ref text NOT NULL,
  consumo_huella_sha256 text NOT NULL CHECK (consumo_huella_sha256 ~ '^[0-9a-f]{64}$'),
  auditoria_consumo_ref text NOT NULL,
@@ -134,6 +144,7 @@ SET search_path = pg_catalog SET row_security = 'on' SET lock_timeout = '2s'
 AS $f$
 DECLARE c jsonb; ident jsonb; comp jsonb; per jsonb; rec jsonb; ct jsonb;
  ca jsonb; org_ca jsonb; fuente_personal jsonb; v3 jsonb; a record; rol record;
+ catalogo record;
  concedida boolean; amb_org boolean; amb_unidad boolean;
  instante timestamptz(6); fecha_historica timestamptz(6); efecto text;
 BEGIN
@@ -330,6 +341,11 @@ BEGIN
  JOIN vec_autorizacion.control_vigencia_version_rol_actual x ON x.version_rol_ref=r.version_rol_ref
  JOIN vec_autorizacion.control_vigencia_version_rol v ON v.version_rol_ref=x.version_rol_ref AND v.revision=x.revision
  WHERE r.version_rol_ref=a.version_rol_ref FOR SHARE OF r,x,v;
+ -- Tomar ambas barreras antes de fijar el instante de la última validación.
+ LOCK TABLE vec_autorizacion.control_catalogo_politicas,
+  vec_autorizacion.politica_restrictiva_actual IN SHARE MODE;
+ SELECT revision,huella_sha256 INTO STRICT catalogo
+  FROM vec_autorizacion.control_catalogo_politicas WHERE control_id FOR SHARE;
  instante := clock_timestamp();
  IF a.principal_id IS DISTINCT FROM ident->>'persona_ref'
   OR a.principal_id IS DISTINCT FROM comp->>'persona_ref'
@@ -401,6 +417,28 @@ BEGIN
        (q->'valores' ? (rec->>'documento_ref')) IS NOT TRUE)) THEN
   RAISE EXCEPTION 'aut32_concesion_no_admitida' USING ERRCODE = '42501';
  END IF;
+ -- No existe un evaluador ABAC offline autorizado para el firmante. Se
+ -- protege el conjunto vigente completo contra altas y cambios hasta COMMIT;
+ -- cualquier política aplicable deja esta vía cerrada.
+ IF catalogo.huella_sha256 !~ '^[0-9a-f]{64}$'
+  OR EXISTS(SELECT 1 FROM vec_autorizacion.politica_restrictiva_actual x
+   JOIN vec_autorizacion.politica_restrictiva p USING(politica_id,politica_ref)
+   WHERE jsonb_typeof(p.documento->'acciones') IS DISTINCT FROM 'array'
+    OR jsonb_typeof(p.documento->'modulos') IS DISTINCT FROM 'array'
+    OR jsonb_typeof(p.documento->'tipos_recurso') IS DISTINCT FROM 'array'
+    OR (p.documento->>'estado' IN ('publicada','retirada')) IS NOT TRUE
+    OR vec_autorizacion.instante_utc_microsegundo_valido(p.documento->>'vigente_desde') IS NOT TRUE
+    OR vec_autorizacion.instante_utc_microsegundo_valido(p.documento->>'vigente_hasta') IS NOT TRUE)
+  OR EXISTS(SELECT 1 FROM vec_autorizacion.politica_restrictiva_actual x
+   JOIN vec_autorizacion.politica_restrictiva p USING(politica_id,politica_ref)
+   WHERE p.documento->>'estado'='publicada'
+    AND instante >= (p.documento->>'vigente_desde')::timestamptz
+    AND instante < (p.documento->>'vigente_hasta')::timestamptz
+    AND ((p.documento->'acciones' ? c->>'accion') OR (p.documento->'acciones' ? '*'))
+    AND ((p.documento->'modulos' ? comp->>'modulo_id') OR (p.documento->'modulos' ? '*'))
+    AND ((p.documento->'tipos_recurso' ? comp->>'tipo_recurso') OR (p.documento->'tipos_recurso' ? '*'))) THEN
+  RAISE EXCEPTION 'aut32_politica_no_evaluable' USING ERRCODE='42501';
+ END IF;
  RETURN c;
 END $f$;
 REVOKE ALL ON FUNCTION vec_autorizacion.validar_competencia_nominal_firmante_ct_v1(bytea,jsonb,jsonb) FROM PUBLIC;
@@ -412,7 +450,7 @@ LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
 SET search_path = pg_catalog SET row_security = 'on' SET lock_timeout = '2s'
 AS $f$
 DECLARE c jsonb; h text; ref text; previo vec_autorizacion.evidencia_competencia_firmante_ct_v1%ROWTYPE;
- v3 jsonb; org_ca jsonb;
+ v3 jsonb; org_ca jsonb; catalogo record;
 BEGIN
  c := vec_autorizacion.validar_competencia_nominal_firmante_ct_v1(
    p_contexto_nominal,p_relacion_ct,p_consumo_v3);
@@ -421,6 +459,8 @@ BEGIN
  IF jsonb_typeof(org_ca) IS DISTINCT FROM 'object'
   OR org_ca->>'organizacion_ref' IS DISTINCT FROM c#>>'{recurso,organizacion_ref}' THEN
   RAISE EXCEPTION 'aut32_organizacion_no_admitida' USING ERRCODE='42501'; END IF;
+ SELECT revision,huella_sha256 INTO STRICT catalogo
+  FROM vec_autorizacion.control_catalogo_politicas WHERE control_id FOR SHARE;
  h := encode(sha256(p_contexto_nominal),'hex');
  v3 := vec_autorizacion_atestada_v3.comprobar_consumo_firma_ct_v1(p_consumo_v3);
  ref := 'evidencia:competencia-firmante-ct:' ||
@@ -444,25 +484,31 @@ BEGIN
   RETURN jsonb_build_object('evidencia_ref',previo.evidencia_ref,'esquema',previo.esquema,
    'version',1,'huella_sha256',previo.huella_sha256,
    'organizacion_destino_huella_sha256',previo.organizacion_destino_huella_sha256,
+   'catalogo_politicas_revision',previo.catalogo_politicas_revision,
+   'catalogo_politicas_huella_sha256',previo.catalogo_politicas_huella_sha256,
    'recuperada',true);
  END IF;
  INSERT INTO vec_autorizacion.evidencia_competencia_firmante_ct_v1 (
   evidencia_ref,efecto_ref,esquema,canonico,huella_sha256,organizacion_ref,unidad_ref,
   expediente_ref,documento_ref,persona_ref,certificado_der_sha256,
   organizacion_destino,organizacion_destino_huella_sha256,
+  catalogo_politicas_revision,catalogo_politicas_huella_sha256,
   consumo_decision_ref,consumo_huella_sha256,auditoria_consumo_ref,
   auditoria_consumo_huella_sha256,registrador_principal_ref,registrador_perfil_ref)
  VALUES (ref,p_consumo_v3->>'efecto_ref','vec.competencia-firmante.historica.v1',
   p_contexto_nominal,h,c#>>'{recurso,organizacion_ref}',c#>>'{recurso,unidad_ref}',
   c#>>'{recurso,expediente_ref}',c#>>'{recurso,documento_ref}',c#>>'{identidad,persona_ref}',
   c#>>'{identidad,certificado_der_sha256}',org_ca,
-  encode(sha256(convert_to(org_ca::text,'UTF8')),'hex'),p_consumo_v3->>'decision_ref',
+  encode(sha256(convert_to(org_ca::text,'UTF8')),'hex'),
+  catalogo.revision,catalogo.huella_sha256,p_consumo_v3->>'decision_ref',
   p_consumo_v3->>'consumo_huella_sha256',p_consumo_v3->>'auditoria_ref',
   v3->>'auditoria_huella_sha256',v3->>'registrador_principal_ref',
   v3->>'registrador_perfil_ref');
  RETURN jsonb_build_object('evidencia_ref',ref,'esquema','vec.competencia-firmante.historica.v1',
   'version',1,'huella_sha256',h,
   'organizacion_destino_huella_sha256',encode(sha256(convert_to(org_ca::text,'UTF8')),'hex'),
+  'catalogo_politicas_revision',catalogo.revision,
+  'catalogo_politicas_huella_sha256',catalogo.huella_sha256,
   'recuperada',false);
 END $f$;
 REVOKE ALL ON FUNCTION vec_autorizacion.acreditar_competencia_nominal_firmante_ct_v1(bytea,jsonb,jsonb) FROM PUBLIC;
