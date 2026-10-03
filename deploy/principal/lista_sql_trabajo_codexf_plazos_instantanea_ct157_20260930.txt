@@ -1,0 +1,4 @@
+# Después de H1 + H3 + H4 + paquete H6 corregido completo.
+# El catálogo base canónico se publica con publicar_catalogo_ct157.sh
+# antes de reanudar escritores de Contratación temporal.
+deploy/postgresql/contratacion_temporal/migraciones/000157_instantanea_plazo_fase.up.sql

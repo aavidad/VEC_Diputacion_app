@@ -7,7 +7,17 @@ import (
 	"time"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	"vec-diputacion-granada/internal/vec/reglas"
 )
+
+func instantaneaCuadroPrueba(fase string, desde time.Time, huella string) *reglas.InstantaneaPersistidaRegla {
+	return &reglas.InstantaneaPersistidaRegla{
+		CatalogoBaseID: reglas.CatalogoContratacionTemporal, CatalogoBaseHuella: huella,
+		CatalogoBaseCanonico: []byte("base"), CanonicoAjustes: []byte("{}"),
+		CatalogoAjustesID: reglas.CatalogoAjustesDe(reglas.CatalogoContratacionTemporal),
+		Fase:              fase, FaseDesde: desde, PreparadaEn: desde,
+	}
+}
 
 type calculadoraPlazoFasePrueba struct {
 	solicitudes []ports.SolicitudPlazoFaseRRHH
@@ -37,6 +47,9 @@ func TestConsultaCuadroRRHHCalculaPlazoDesdeEntradaEnFase(t *testing.T) {
 	entorno := nuevoEntornoConsultaRRHH(t)
 	desde := entorno.sesion.pagina.Expedientes[0].CreadoEn
 	entorno.sesion.pagina.FasesDesde = []time.Time{desde}
+	entorno.sesion.pagina.InstantaneasPlazo = []*reglas.InstantaneaPersistidaRegla{
+		instantaneaCuadroPrueba(string(entorno.sesion.pagina.Expedientes[0].FaseClave), desde, "huella-a"),
+	}
 	servicio, err := NuevoServicioConsultaCuadroRRHH(entorno.autoridad, entorno.emisor, entorno.sesion, entorno.reloj)
 	if err != nil {
 		t.Fatal(err)
@@ -52,8 +65,19 @@ func TestConsultaCuadroRRHHCalculaPlazoDesdeEntradaEnFase(t *testing.T) {
 	}
 	if len(calculadora.solicitudes) != 1 || !calculadora.solicitudes[0].Desde.Equal(desde) ||
 		calculadora.solicitudes[0].Fase != entorno.sesion.pagina.Expedientes[0].FaseClave ||
-		!calculadora.solicitudes[0].Ahora.Equal(entorno.ahora) {
+		!calculadora.solicitudes[0].Ahora.Equal(entorno.ahora) ||
+		calculadora.solicitudes[0].Instantanea == nil ||
+		calculadora.solicitudes[0].Instantanea.CatalogoBaseHuella != "huella-a" {
 		t.Fatalf("solicitud de plazo inesperada: %+v", calculadora.solicitudes)
+	}
+	original := entorno.sesion.pagina.InstantaneasPlazo[0]
+	original.CatalogoBaseCanonico[0] = 'X'
+	original.CanonicoAjustes[0] = 'X'
+	if pagina.InstantaneasPlazo[0] == original ||
+		string(pagina.InstantaneasPlazo[0].CatalogoBaseCanonico) != "base" ||
+		string(pagina.InstantaneasPlazo[0].CanonicoAjustes) != "{}" ||
+		string(calculadora.solicitudes[0].Instantanea.CatalogoBaseCanonico) != "base" {
+		t.Fatal("la consulta expuso alias mutables de la instantánea")
 	}
 }
 
@@ -62,10 +86,11 @@ func TestConsultaCuadroRRHHSinPlazoConservaElCuadro(t *testing.T) {
 	casos := map[string]struct {
 		calculadora *calculadoraPlazoFasePrueba
 		fasesDesde  bool
+		instantanea bool
 	}{
 		"sin_calculadora":   {fasesDesde: true},
 		"sin_fecha_de_fase": {calculadora: &calculadoraPlazoFasePrueba{plazo: plazoFaseValidoPrueba(), aplicable: true}},
-		"fase_sin_regla":    {calculadora: &calculadoraPlazoFasePrueba{}, fasesDesde: true},
+		"fase_sin_regla":    {calculadora: &calculadoraPlazoFasePrueba{}, fasesDesde: true, instantanea: true},
 	}
 	for nombre, caso := range casos {
 		t.Run(nombre, func(t *testing.T) {
@@ -73,6 +98,12 @@ func TestConsultaCuadroRRHHSinPlazoConservaElCuadro(t *testing.T) {
 			entorno := nuevoEntornoConsultaRRHH(t)
 			if caso.fasesDesde {
 				entorno.sesion.pagina.FasesDesde = []time.Time{entorno.sesion.pagina.Expedientes[0].CreadoEn}
+			}
+			if caso.instantanea {
+				desde := entorno.sesion.pagina.FasesDesde[0]
+				entorno.sesion.pagina.InstantaneasPlazo = []*reglas.InstantaneaPersistidaRegla{
+					instantaneaCuadroPrueba(string(entorno.sesion.pagina.Expedientes[0].FaseClave), desde, "huella-a"),
+				}
 			}
 			servicio, err := NuevoServicioConsultaCuadroRRHH(entorno.autoridad, entorno.emisor, entorno.sesion, entorno.reloj)
 			if err != nil {
@@ -154,5 +185,28 @@ func TestConsultaCuadroRRHHPideElPlazoUrgenteDeLosExpedientesUrgentes(t *testing
 			len(pagina.Urgentes) != len(urgentes) {
 			t.Fatalf("urgentes %v: solicitudes %+v, página %v", urgentes, calculadora.solicitudes, pagina.Urgentes)
 		}
+	}
+}
+
+func TestConsultaCuadroRRHHCacheDistingueInstantaneasAunqueDeclarenLaMismaHuella(t *testing.T) {
+	t.Parallel()
+	entorno := nuevoEntornoConsultaRRHH(t)
+	resumen := entorno.sesion.pagina.Expedientes[0]
+	desde := resumen.CreadoEn
+	primera := instantaneaCuadroPrueba(string(resumen.FaseClave), desde, "misma-huella")
+	segunda := clonarInstantaneaPlazo(primera)
+	segunda.CatalogoBaseCanonico[0] = 'X'
+	calculadora := &calculadoraPlazoFasePrueba{plazo: plazoFaseValidoPrueba(), aplicable: true}
+	servicio := &ServicioConsultaCuadroRRHH{reloj: entorno.reloj, plazos: calculadora}
+	pagina := ports.PaginaCuadroRRHH{
+		Expedientes:       []ports.ResumenExpedienteRRHH{resumen, resumen, resumen},
+		FasesDesde:        []time.Time{desde, desde, desde},
+		InstantaneasPlazo: []*reglas.InstantaneaPersistidaRegla{primera, segunda, segunda},
+	}
+	plazos := servicio.calcularPlazosFase(t.Context(), pagina)
+	if len(plazos) != 3 || len(calculadora.solicitudes) != 2 ||
+		string(calculadora.solicitudes[0].Instantanea.CatalogoBaseCanonico) != "base" ||
+		string(calculadora.solicitudes[1].Instantanea.CatalogoBaseCanonico) != "Xase" {
+		t.Fatalf("la caché mezcló instantáneas: %d plazos, %d llamadas", len(plazos), len(calculadora.solicitudes))
 	}
 }

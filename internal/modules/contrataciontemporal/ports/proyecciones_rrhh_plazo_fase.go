@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
+	"vec-diputacion-granada/internal/vec/reglas"
 )
 
 // EstadoPlazoFaseRRHH resume el vencimiento de la fase actual respecto al
@@ -53,6 +54,9 @@ type SolicitudPlazoFaseRRHH struct {
 	Ahora time.Time
 	// Urgente pide la cantidad urgente de la regla, si la tiene (CT-000125).
 	Urgente bool
+	// Instantanea es nil sólo para un expediente legado. El cálculo histórico
+	// no debe resolver entonces la cabeza actual del catálogo.
+	Instantanea *reglas.InstantaneaPersistidaRegla
 }
 
 // CalculadoraPlazoFaseRRHH resuelve el plazo de una fase con el catálogo de
@@ -67,10 +71,11 @@ type CalculadoraPlazoFaseRRHH interface {
 // última actualización.
 func (p PaginaCuadroRRHH) fasesDesdeValidas() bool {
 	if len(p.FasesDesde) == 0 {
-		return len(p.Plazos) == 0
+		return len(p.Plazos) == 0 && len(p.InstantaneasPlazo) == 0
 	}
 	if len(p.FasesDesde) != len(p.Expedientes) ||
-		(len(p.Plazos) != 0 && len(p.Plazos) != len(p.Expedientes)) {
+		(len(p.Plazos) != 0 && len(p.Plazos) != len(p.Expedientes)) ||
+		(len(p.InstantaneasPlazo) != 0 && len(p.InstantaneasPlazo) != len(p.Expedientes)) {
 		return false
 	}
 	for indice, desde := range p.FasesDesde {
@@ -81,6 +86,14 @@ func (p PaginaCuadroRRHH) fasesDesdeValidas() bool {
 		}
 		if len(p.Plazos) != 0 && p.Plazos[indice] != nil && !p.Plazos[indice].Valido() {
 			return false
+		}
+		if len(p.InstantaneasPlazo) != 0 && p.InstantaneasPlazo[indice] != nil {
+			instantanea := p.InstantaneasPlazo[indice]
+			if instantanea.Fase != string(resumen.FaseClave) ||
+				!instantanea.FaseDesde.Equal(desde) ||
+				instantanea.PreparadaEn.After(p.GeneradaEn) {
+				return false
+			}
 		}
 	}
 	return true
