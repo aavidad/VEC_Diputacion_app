@@ -67,6 +67,9 @@ func materialRegistroFirmaV2Prueba(via string, pdf []byte) ports.MaterialFirmaVe
 	huellaEvidencia := sha256.Sum256(evidencia)
 	return ports.MaterialFirmaVerificadaV2{
 		MaterialFirmaExterna: base, CatalogoVersion: 1,
+		PerfilActivoOperadorRef: "perfil:operador:001", CuentaFirmanteRef: "cuenta:firmante:001",
+		VinculoCredencialFirmanteRef: "vinculo:credencial:001", VinculoCredencialFirmanteRevision: 1,
+		VinculoCredencialFirmanteHuella: strings.Repeat("a", 64), RolIDFirmante: base.CargoFirmante,
 		EntradaDocumentoRef: base.OriginalRef, EntradaDocumentoVersion: base.OriginalVersion, EntradaDocumentoLongitud: 1,
 		EntradaDocumentoHuella: base.OriginalHuella, OrdenFirmaPDF: 1, ByteRange: [4]uint64{0, 1, 2, uint64(len(pdf)) - 2},
 		RevisionHuellaSHA256: base.FirmadoHuella, ContenidoFirmadoHuellaSHA256: strings.Repeat("c", 64), RevisionLongitud: uint64(len(pdf)),

@@ -55,10 +55,10 @@ func NuevoManejadorRegistroFirmaVec(a AutoridadCanalRegistroFirmaVec, s Servicio
 }
 
 func responderErrorRegistroFirmaVec(w http.ResponseWriter, r *http.Request, estado int, codigo string, causas ...error) {
-	responderJSONCobertura(w, r, estado, map[string]any{"error": map[string]string{
+	responderJSONFirmaNominal(w, r, estado, map[string]any{"error": map[string]string{
 		"codigo": codigo, "clave_i18n": "api.contratacion_temporal.registro_firma_vec.error." + codigo,
-		"correlacion_ref": nuevaCorrelacionCobertura(),
-	}}, causas...)
+		"correlacion_ref": correlacionPeticionFirma(r),
+	}}, MaximoRespuestaConsultaRRHHBytes, causas...)
 }
 
 func (h *manejadorRegistroFirmaVec) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -131,7 +131,7 @@ func (h *manejadorRegistroFirmaVec) ServeHTTP(w http.ResponseWriter, r *http.Req
 	if resultado.Recibo.YaRegistrada {
 		estado = http.StatusOK
 	}
-	responderJSONCobertura(w, r, estado, map[string]any{"data": data})
+	responderJSONFirmaNominal(w, r, estado, map[string]any{"data": data}, MaximoRespuestaConsultaRRHHBytes)
 }
 
 func (e entradaRegistroFirmaVec) valida() bool {
