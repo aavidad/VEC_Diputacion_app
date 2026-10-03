@@ -10,6 +10,8 @@
  */
 import { crearTraductorFichaPropia, formatearDiasFichaPropia } from "./i18n-ficha-propia.js?v=20260929-i18n-personal-v1";
 
+import { crearClienteExportacionServicios } from "./cliente-http-exportacion-servicios.js?v=20261003-personal-exportacion-v1";
+
 export const RUTA_FICHA_PROPIA = "/api/interna/personal/mi-ficha";
 
 const MAXIMO_RESPUESTA_BYTES = 256 * 1024;
@@ -76,7 +78,7 @@ function validarSobre(sobre) {
     if (!claves(s, ["inicio", "fin", "clase", "dias", "estado"]) || !fecha(s.inicio) || !fecha(s.fin) ||
         !texto(s.clase) || !Number.isSafeInteger(s.dias) || s.dias < 0 || !ESTADOS_SERVICIO.has(s.estado)) throw error("sobre_no_valido", 200);
   }
-  return Object.freeze({ ficha, consultadaEn: datos.consultada_en });
+  return Object.freeze({ ficha, consultadaEn: datos.consultada_en, reciboRef: datos.recibo_ref });
 }
 
 async function consultar(fetchImpl, plazoMs, externo, fechaReferencia = "") {
@@ -204,8 +206,9 @@ export function crearFuentesFichaPropia({ fetchImpl = globalThis.fetch, traducir
       if (consulta.excedeLimite) return { estado: "excede_limite" };
       if (consulta.sinFuente) return { estado: consulta.estado === 404 ? "no_configurado" : "denegado" };
       const items = presentar(consulta.ficha, traducir);
-      return { estado: items.length ? "disponible" : "vacio", fuente: traducir("fuente_registro"), actualizado_en: consulta.consultadaEn, items, ...(admiteFecha ? { fecha_referencia: consulta.ficha.corte.vigente_en } : {}) };
+      return { estado: items.length ? "disponible" : "vacio", fuente: traducir("fuente_registro"), actualizado_en: consulta.consultadaEn, items, ...(admiteFecha ? { fecha_referencia: consulta.ficha.corte.vigente_en, recibo_ref: consulta.reciboRef, corte: Object.freeze({ ...consulta.ficha.corte }) } : {}) };
     },
+    ...(admiteFecha ? { exportarPropios(entrada) { return crearClienteExportacionServicios({ fetchImpl, plazoMs }).exportar(entrada); } } : {}),
     actualizar() { revision += 1; resultados.clear(); },
   });
   const fuentes = Object.freeze({ relaciones: bloque(presentarRelaciones), servicios: bloque(presentarServicios, true) });
