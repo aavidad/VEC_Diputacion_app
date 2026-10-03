@@ -1,5 +1,11 @@
 # Auditoría de la provisión inicial de fuentes ADMIN
 
+Estado: borrador conservado por orden de parada de Dirección. El SQL no se
+ha ensayado ni revisado. Quedan pendientes el guard de huella exacta del CHECK,
+los vectores, las negativas, la extensión del verificador y el ensayo causal.
+No instalar ni presentar esta rama como LISTA. Los archivos compartidos del
+verificador siguen intactos.
+
 AD174 registra el acto técnico `provisionar_fuentes_iniciales_admin_v1` en la
 cadena común `auditoria_consumo_v3`. Su familia es
 `provision_fuentes_iniciales_admin`. Conserva los registros, bytes y huellas
