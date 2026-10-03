@@ -25,6 +25,8 @@ desconocidos, claves duplicadas o con mayúsculas, JSON adicional, UTF-8 inváli
 versiones de hechos distintas de las esperadas y afirmaciones de presentación.
 La entrada tiene un límite de un MiB y 32 niveles; el catálogo, de 64 KiB.
 
+El código de salida es `2` cuando no se puede escribir el diagnóstico de error.
+
 ## Material y resultado
 
 El ejemplo `testdata/material.json` propone dos requisitos: uno estructurado
