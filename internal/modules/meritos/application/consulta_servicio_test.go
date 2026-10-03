@@ -500,7 +500,7 @@ func TestConsultaPropiaMotivoFallidoNoAfirmaAuditoria(t *testing.T) {
 }
 
 func TestConsultaPropiaFalloCompuestoEsErrorTecnico(t *testing.T) {
-	for _, fallo := range []error{ports.ErrConsultaNoDisponible, context.Canceled, context.DeadlineExceeded} {
+	for _, fallo := range []error{ports.ErrConsultaNoDisponible, context.Canceled, context.DeadlineExceeded, vecports.ErrRegistroDenegacionAutorizacionLigadaV3NoDisponible, vecports.ErrRegistroConcesionAutorizacionLigadaV3NoDisponible} {
 		s, solicitud, _, r, audit := escenarioConsulta(t)
 		r.err = errors.Join(vec.ErrAutorizacionDenegada, fallo)
 		_, err := s.ConsultarActual(context.Background(), solicitud)

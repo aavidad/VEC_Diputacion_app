@@ -13,6 +13,7 @@ import (
 	"vec-diputacion-granada/internal/modules/meritos/application"
 	"vec-diputacion-granada/internal/modules/meritos/domain"
 	"vec-diputacion-granada/internal/modules/meritos/ports"
+	vec "vec-diputacion-granada/internal/vec/domain"
 )
 
 const RutaConsultaPropia = "/api/meritos/hecho-propio/consulta"
@@ -98,21 +99,21 @@ func (h *ConsultaPropia) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		responderFalloConsulta(w, err)
 		return
 	}
-	if r.Context().Err() != nil {
-		respuestaErrorConsulta(w, http.StatusServiceUnavailable, "meritos.error.consulta_no_disponible")
+	if err := r.Context().Err(); err != nil {
+		responderFalloConsulta(w, h.lector.RegistrarFalloConsulta(r.Context(), solicitud, err))
 		return
 	}
 	if resultado.Codigo == "denegada" {
-		respuestaErrorConsulta(w, http.StatusForbidden, "meritos.error.autorizacion_denegada")
+		responderFalloConsulta(w, h.lector.RegistrarFalloConsulta(r.Context(), solicitud, vec.ErrAutorizacionDenegada))
 		return
 	}
 	if !resultadoConsultaPublicable(hecho, resultado) {
-		respuestaErrorConsulta(w, http.StatusServiceUnavailable, "meritos.error.consulta_no_disponible")
+		responderFalloConsulta(w, h.lector.RegistrarFalloConsulta(r.Context(), solicitud, ports.ErrConsultaNoDisponible))
 		return
 	}
 	raw, err := json.Marshal(resultado)
 	if err != nil || len(raw) > 65536 || r.Context().Err() != nil {
-		respuestaErrorConsulta(w, http.StatusServiceUnavailable, "meritos.error.consulta_no_disponible")
+		responderFalloConsulta(w, h.lector.RegistrarFalloConsulta(r.Context(), solicitud, ports.ErrConsultaNoDisponible))
 		return
 	}
 	w.WriteHeader(http.StatusOK)

@@ -15,6 +15,8 @@ func DenegacionConsultaReal(err error) bool {
 	return errors.Is(err, vec.ErrAutorizacionDenegada) &&
 		!errors.Is(err, ports.ErrConsultaNoDisponible) &&
 		!errors.Is(err, vecports.ErrIntentoAuditoriaNoDisponible) &&
+		!errors.Is(err, vecports.ErrRegistroDenegacionAutorizacionLigadaV3NoDisponible) &&
+		!errors.Is(err, vecports.ErrRegistroConcesionAutorizacionLigadaV3NoDisponible) &&
 		!errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded)
 }
 
@@ -25,7 +27,11 @@ func (s *ServicioConsultaPropia) RegistrarFalloConsulta(ctx context.Context, sol
 	if s == nil {
 		return ports.ErrConsultaNoDisponible
 	}
-	return s.registrarIntentoConsulta(ctx, solicitud, s.auditoria.RecursoConsultaRef, causa)
+	recurso := s.auditoria.RecursoConsultaRef
+	if !errors.Is(causa, ErrSolicitud) && solicitud.HechoRef != "" {
+		recurso = solicitud.HechoRef
+	}
+	return s.registrarIntentoConsulta(ctx, solicitud, recurso, causa)
 }
 
 func (s *ServicioConsultaPropia) registrarIntentoConsulta(ctx context.Context, solicitud SolicitudConsultaPropia, recurso string, causa error) error {

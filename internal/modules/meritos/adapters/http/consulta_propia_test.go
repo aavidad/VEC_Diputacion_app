@@ -15,6 +15,7 @@ import (
 	"vec-diputacion-granada/internal/modules/meritos/domain"
 	"vec-diputacion-granada/internal/modules/meritos/ports"
 	vec "vec-diputacion-granada/internal/vec/domain"
+	vecports "vec-diputacion-granada/internal/vec/ports"
 	"vec-diputacion-granada/internal/vec/pruebas"
 )
 
@@ -274,7 +275,7 @@ func TestConsultaHTTPAuditoriaFalloEntradaNoDisponible(t *testing.T) {
 }
 
 func TestConsultaHTTPErrorTecnicoCompuestoDa503(t *testing.T) {
-	for _, fallo := range []error{ports.ErrConsultaNoDisponible, context.Canceled, context.DeadlineExceeded} {
+	for _, fallo := range []error{ports.ErrConsultaNoDisponible, context.Canceled, context.DeadlineExceeded, vecports.ErrRegistroDenegacionAutorizacionLigadaV3NoDisponible, vecports.ErrRegistroConcesionAutorizacionLigadaV3NoDisponible} {
 		p, l := consultaEscenarioHTTP(t)
 		l.err = errors.Join(vec.ErrAutorizacionDenegada, fallo)
 		w := httptest.NewRecorder()
@@ -282,5 +283,32 @@ func TestConsultaHTTPErrorTecnicoCompuestoDa503(t *testing.T) {
 		if w.Code != http.StatusServiceUnavailable {
 			t.Fatal("error técnico anunciado como403", w.Code)
 		}
+	}
+}
+
+func TestConsultaHTTPErrorPosLecturaDejaIntentoNominal(t *testing.T) {
+	for _, caso := range []string{"cancelada", "resultado", "limite"} {
+		t.Run(caso, func(t *testing.T) {
+			p, l := consultaEscenarioHTTP(t)
+			r := consultaPeticionHTTP(`{"hecho_ref":"hecho:http:prueba"}`)
+			ctx, cancel := context.WithCancel(r.Context())
+			defer cancel()
+			r = r.WithContext(ctx)
+			switch caso {
+			case "cancelada":
+				l.despues = cancel
+			case "resultado":
+				l.resultado.ReciboConsulta = nil
+			case "limite":
+				l.resultado.HechoActual.Denominacion = strings.Repeat("a", 65536)
+			}
+			w := httptest.NewRecorder()
+			NuevaConsultaPropia(p, l).ServeHTTP(w, r)
+			if w.Code != http.StatusServiceUnavailable || l.intentos != 1 || l.llamadas != 1 ||
+				l.snapshotAuditoria.HechoRef != "hecho:http:prueba" ||
+				l.snapshotAuditoria.Vinculo.ValidarPara(p.solicitud.Contexto) != nil {
+				t.Fatal("error después de consultar sin intento nominal", w.Code)
+			}
+		})
 	}
 }
