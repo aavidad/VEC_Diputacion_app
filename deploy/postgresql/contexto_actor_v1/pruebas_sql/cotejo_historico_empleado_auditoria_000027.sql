@@ -18,6 +18,15 @@ SET LOCAL statement_timeout='15s';
 CREATE TEMP TABLE ca27_test_originales AS
  SELECT * FROM vec_contexto_actor_v1.registros_contexto
  WHERE registro_contexto_ref LIKE 'rca_rpt27_%';
+CREATE TEMP TABLE ca27_test_legacy AS
+ SELECT * FROM vec_contexto_actor_v1.registros_contexto
+ WHERE autoridad_efectiva='autoridad_maestra_acreditada'
+   AND convert_from(representacion_canonica,'UTF8')::jsonb->>'esquema'='vec.contexto-actor.vinculado.v2'
+   AND jsonb_array_length(convert_from(representacion_canonica,'UTF8')::jsonb->'vinculos')>0
+   AND NOT EXISTS(SELECT 1 FROM jsonb_array_elements(
+       convert_from(representacion_canonica,'UTF8')::jsonb->'vinculos') j
+       WHERE j->>'vinculo_ref' NOT LIKE 'vin_%')
+ ORDER BY resuelto_en DESC LIMIT 1;
 CREATE TEMP TABLE ca27_test_empleado AS
  SELECT r.registro_contexto_ref,r.huella_sha256,r.manifiesto_procedencia_huella_sha256,
         r.representacion_canonica,r.resuelto_en,p.persona_ref,pe.*
@@ -30,16 +39,23 @@ DO $cantidad$
 BEGIN
  IF (SELECT count(*) FROM ca27_test_originales)<>3
     OR (SELECT count(*) FROM ca27_test_empleado WHERE resultado='empleado')<>1
+    OR (SELECT count(*) FROM ca27_test_legacy)<>1
     OR (SELECT count(*) FROM vec_personal.recibo_relacion_para_rpt)<>3
     OR EXISTS(SELECT 1 FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3 WHERE tipo_registro='intento_nominal') THEN
   RAISE EXCEPTION 'CA27 necesita checkpoint sintético PARCIAL de tres positivos y cero intentos' USING ERRCODE='55000';
  END IF;
 END $cantidad$;
-GRANT SELECT ON ca27_test_originales,ca27_test_empleado TO vec_autorizacion_atestada_v3_propietario,vec_personal_propietario;
+GRANT SELECT ON ca27_test_originales,ca27_test_empleado,ca27_test_legacy TO vec_autorizacion_atestada_v3_propietario,vec_personal_propietario;
 SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
 DO $originales$
-DECLARE r record; bytes bytea; rechazado boolean;
+DECLARE r record; legado record; bytes bytea; rechazado boolean;
 BEGIN
+ SELECT * INTO STRICT legado FROM pg_temp.ca27_test_legacy;
+ IF vec_contexto_actor_v1.cotejar_contexto_historico_auditoria_v1(
+     legado.registro_contexto_ref,legado.huella_sha256,
+     legado.manifiesto_procedencia_huella_sha256,legado.representacion_canonica) IS NOT TRUE THEN
+  RAISE EXCEPTION 'CA27 perdió el cotejo legacy vin_';
+ END IF;
  FOR r IN SELECT * FROM pg_temp.ca27_test_originales LOOP
   IF vec_contexto_actor_v1.cotejar_contexto_historico_auditoria_v1(
      r.registro_contexto_ref,r.huella_sha256,r.manifiesto_procedencia_huella_sha256,r.representacion_canonica) IS NOT TRUE THEN
@@ -93,4 +109,4 @@ BEGIN
  END IF;
 END $preservacion$;
 ROLLBACK;
-\echo 'CA27 SQL focal: originales PEP, canon/procedencia alterados, revisión posterior y conservación OK; todo ROLLBACK'
+\echo 'CA27 SQL focal: originales PEP y legacy vin_, canon/procedencia alterados, revisión posterior y conservación OK; todo ROLLBACK'
