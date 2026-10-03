@@ -1,5 +1,5 @@
 \set ON_ERROR_STOP on
--- Fixture nominal reutilizado sobre la preimagen AD144; no modifica Baremo.
+-- Fixture nominal sobre la preimagen de la copia fría principal.
 -- Infraestructura de ensayo exclusiva del clon privado. Autoridades y datos
 -- sintéticos propios: no acreditan IdP, fuente institucional ni política RRHH.
 -- El material positivo atraviesa COSE EdDSA y HMAC Go, registro durable V3 y

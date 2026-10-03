@@ -1,11 +1,8 @@
 \set ON_ERROR_STOP on
 -- AD149. Consumo nominal del vínculo propio histórico CRN11.
--- Orden de Dirección 02/10/2026 13:50: el número no crea dependencia.
--- Esta fuente sustituye la espera de AD148 del borrador eaa21db: no usa objetos
--- AD143/145..148. Depende de Personal16/CA7 y núcleo V3 POST-AD144 íntegro.
--- Prefijo de ensayo: H6 físico72 -> roles BolsaConvocatorias -> AD141 ->
--- roles Méritos -> AD142 -> prefijo Baremo BR1/BR2 -> AD144 -> BR4.
--- Reanclaje Claude 02/10 16:20: preservar Baremo íntegro; no reaplicar prefijos.
+-- Reanclaje 03/10/2026 a copia fría principal + H7/H8 + AD155/B77/Convoca5.
+-- Dependencias funcionales: Personal16, CA7 y núcleo V3 con preimagen exacta.
+-- CRN11 no usa AD141/142/144 ni Baremo; conserva todos los consumidores previos.
 -- Añade un perfil, su selección runtime y una sola audiencia. Nunca presta
 -- AD54/74, publica permisos por petición ni amplía el proceso exterior.
 BEGIN;
@@ -31,9 +28,7 @@ BEGIN
     OR NOT EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
        WHERE n.nspname='vec_contexto_actor_v1' AND p.proname='proyeccion_empleado_personal_v2'
          AND p.pronargs=2 AND p.proargtypes[0]='text'::regtype AND p.proargtypes[1]='timestamptz'::regtype
-         AND p.proowner='vec_contexto_actor_v1_propietario'::regrole)
-    OR to_regprocedure('vec_autorizacion_atestada_v3.consumir_operacion_meritos_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
-    OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_gobierno_borrador_reglas_baremo_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL THEN
+         AND p.proowner='vec_contexto_actor_v1_propietario'::regrole) THEN
   RAISE EXCEPTION 'AD149: dependencias o preimagen incompatibles' USING ERRCODE='55000';
  END IF;
  FOREACH rol IN ARRAY ARRAY['vec_personal_propietario','vec_personal_migrador','vec_personal_ejecutor'] LOOP
@@ -51,9 +46,9 @@ DECLARE
  f oid:=to_regprocedure('vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
  original text; nuevo text; actual text; fuente text; meta jsonb; deps jsonb; deps_compartidas jsonb; acl aclitem[];
  propietario oid; config text[]; definidora boolean;
- -- Preimagen POST-AD144 completa capturada en PG18.4, sin hashes futuros.
- esperada_def_sha256 text:=$esperada_def_sha256$0ffdcfcc7fa46d2555d07cad67de1686de7a9b21f6dedc17e5ea38216b1bbbd6$esperada_def_sha256$;
- esperada_fuente_sha256 text:=$esperada_fuente_sha256$86ad9182e8a9e35474fae55b608c71512c01ddfbafa336f643aa1bccee96e96b$esperada_fuente_sha256$;
+ -- Preimagen completa capturada en PG18.4 con search_path=pg_catalog,pg_temp.
+ esperada_def_sha256 text:=$esperada_def_sha256$5dbdac03a2a4e52ca4cb45c57b3bf18e621091da9e818091e30a3f90e68e7330$esperada_def_sha256$;
+ esperada_fuente_sha256 text:=$esperada_fuente_sha256$cdc8cb87f27360741a2d0d52e8b9d58d0a1423be8abd8ff9063f389b2c8ea75e$esperada_fuente_sha256$;
  marca text:=$marca$       )
        OR c ->> 'suite' <> 'VEC-AD-3-COSE-EDDSA-1'$marca$;
  excl text:=$excl$               p_perfil_mutacion IS DISTINCT FROM 'bolsa_llamamiento'
@@ -63,7 +58,7 @@ $excl$;
 $excl_nuevo$;
  runtime text:=$runtime$       OR NOT (
            (
-               p_perfil_mutacion IS NOT DISTINCT FROM 'gobierno_borrador_reglas_baremo'
+               p_perfil_mutacion IS DISTINCT FROM 'bolsa_llamamiento'
 $runtime$;
  runtime_nuevo text:=$runtime_nuevo$       OR NOT (
            (
@@ -78,7 +73,7 @@ $runtime$;
                AND NOT EXISTS (SELECT 1 FROM pg_auth_members m WHERE m.member='vec_personal_ejecutor'::regrole)
            )
            OR (
-               p_perfil_mutacion IS NOT DISTINCT FROM 'gobierno_borrador_reglas_baremo'
+               p_perfil_mutacion IS DISTINCT FROM 'bolsa_llamamiento'
 $runtime_nuevo$;
  extension text:=$extension$           OR (
  p_perfil_mutacion IS NOT DISTINCT FROM 'vinculo_propio_historico_crn11'
@@ -147,12 +142,13 @@ BEGIN
     OR length(original)-length(replace(original,runtime,''))<>length(runtime)
     OR strpos(original,'vinculo_propio_historico_crn11')<>0
     OR strpos(original,'personal.vinculo_propio.crn11.consultar')<>0
-    OR strpos(original,'meritos.hecho.declarar')=0
-    OR strpos(original,'meritos.hecho.rectificar')=0
-    OR strpos(original,'meritos.hecho.rechazar')=0
-    OR strpos(original,'gobierno_borrador_reglas_baremo')=0
-    OR strpos(original,'vec_bolsa_reglas_baremo.gobierno_borrador.v3')=0
- THEN RAISE EXCEPTION 'AD3-149: núcleo incompatible' USING ERRCODE='55000'; END IF;
+ THEN
+  RAISE EXCEPTION 'PARO clave=AD149.nucleo_preimagen, actual=def:%/src:%/runtime:%/config:%, esperado=def:%/src:%/runtime:1/config:search_path=pg_catalog, pg_temp;lock_timeout=2s',
+   encode(sha256(convert_to(original,'UTF8')),'hex'),
+   encode(sha256(convert_to(fuente,'UTF8')),'hex'),
+   (length(original)-length(replace(original,runtime,'')))/length(runtime),
+   config,esperada_def_sha256,esperada_fuente_sha256 USING ERRCODE='55000';
+ END IF;
  nuevo:=replace(original,runtime,runtime_nuevo);
  nuevo:=replace(nuevo,excl,excl_nuevo);
  nuevo:=replace(nuevo,marca,extension||marca);
@@ -180,10 +176,13 @@ BEGIN
  SELECT pg_get_constraintdef(c.oid,true) INTO STRICT d FROM pg_constraint c
  WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
    AND c.conname='clave_capacidad_version_audiencia_consumo_check' AND c.contype='c' AND c.convalidated;
- IF encode(sha256(convert_to(d,'UTF8')),'hex') IS DISTINCT FROM '5fb403d54926bc89ea7c5cf53fe0538ec8936f22000cbb0bce72c9a731d6cabc'
+ IF encode(sha256(convert_to(d,'UTF8')),'hex') IS DISTINCT FROM 'c220a791d3bf62f5a87ca192373900178c7c3344f10384b1080cfef9c2f81626'
     OR strpos(d,'CHECK (audiencia_consumo = ANY (ARRAY[')<>1 OR right(d,3)<>']))'
     OR strpos(d,'vec_personal.vinculo_propio.crn11.v1')<>0 THEN
-  RAISE EXCEPTION 'AD149: preimagen de audiencias incompatible' USING ERRCODE='55000';
+  RAISE EXCEPTION 'PARO clave=AD149.audiencias_preimagen, actual=sha256:%/forma:%/crn11_ausente:%, esperado=sha256:c220a791d3bf62f5a87ca192373900178c7c3344f10384b1080cfef9c2f81626/forma:true/crn11_ausente:true',
+   encode(sha256(convert_to(d,'UTF8')),'hex'),
+   strpos(d,'CHECK (audiencia_consumo = ANY (ARRAY[')=1 AND right(d,3)=']))',
+   strpos(d,'vec_personal.vinculo_propio.crn11.v1')=0 USING ERRCODE='55000';
  END IF;
  nueva:=left(d,length(d)-3)||', ''vec_personal.vinculo_propio.crn11.v1''::text]))';
  ALTER TABLE vec_autorizacion_atestada_v3.clave_capacidad_version DROP CONSTRAINT clave_capacidad_version_audiencia_consumo_check;

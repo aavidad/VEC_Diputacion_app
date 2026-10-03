@@ -1,6 +1,6 @@
 \set ON_ERROR_STOP on
 -- Personal26: consulta mínima propia de la pareja histórica Personal16.
--- Orden causal 02/10/2026 13:50 sustituye espera AD148 de eaa21db.
+-- Orden causal 03/10/2026: Personal16/CA7 -> AD149 -> Personal26.
 -- Personal16/CA7 y AD149 nominal son dependencias reales; no usa AD143..148.
 -- No consulta vigencia laboral ni inventa un corte. Contexto y autorización
 -- actuales se revalidan en la TX SERIALIZABLE de lectura/consumo/recibo.
