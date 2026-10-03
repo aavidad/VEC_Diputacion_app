@@ -32,12 +32,26 @@ func NuevaSeleccionAuditadaPostgreSQL(ctx context.Context, pool *pgxpool.Pool, r
 	if ctx == nil || ctx.Err() != nil || pool == nil || nulo(reloj) {
 		return nil, api.ErrConfiguracionIncompleta
 	}
-	var acreditada bool
-	var proceso string
-	if err := pool.QueryRow(ctx, `SELECT acreditada,proceso FROM vec_identidad_sesiones_v1.acreditar_runtime_preperfil_admin_v1()`).Scan(&acreditada, &proceso); err != nil || !acreditada || !textoCatalogo(proceso, 80) {
-		return nil, api.ErrConfiguracionIncompleta
+	base := &PostgreSQL{pool: pool, reloj: reloj}
+	if err := acreditarSeleccionAuditada(ctx, base); err != nil {
+		return nil, err
 	}
-	return &seleccionAuditadaPostgreSQL{base: &PostgreSQL{pool: pool, reloj: reloj}}, nil
+	return &seleccionAuditadaPostgreSQL{base: base}, nil
+}
+
+func acreditarSeleccionAuditada(ctx context.Context, base *PostgreSQL) error {
+	err := base.transaccion(ctx, func(tx pgx.Tx) error {
+		var acreditada bool
+		var proceso string
+		if err := tx.QueryRow(ctx, `SELECT acreditada,proceso FROM vec_identidad_sesiones_v1.acreditar_runtime_preperfil_admin_v1()`).Scan(&acreditada, &proceso); err != nil || !acreditada || !textoCatalogo(proceso, 80) {
+			return api.ErrConfiguracionIncompleta
+		}
+		return nil
+	})
+	if err != nil {
+		return api.ErrConfiguracionIncompleta
+	}
+	return nil
 }
 
 type resultadoSelectorAuditado struct {
@@ -83,7 +97,8 @@ func (s *seleccionAuditadaPostgreSQL) SeleccionarPerfilAuditadoADMIN(ctx context
 	}
 	var seleccion SeleccionPerfil
 	_, ref, err := s.consultar(ctx, o, seleccionarPerfilAuditadoSQL, []any{perfil, strconv.FormatUint(revision, 10)}, func(x resultadoSelectorAuditado) error {
-		if x.PerfilRef != perfil || x.SeleccionRevision != revision+1 || !instante(x.SeleccionadaEn) || x.Perfiles != nil || x.PerfilActivoRef != "" || x.Revision != 0 || x.SeleccionadaEn.After(s.base.reloj.Ahora()) {
+		x.SeleccionadaEn = x.SeleccionadaEn.UTC()
+		if x.PerfilRef != perfil || x.SeleccionRevision == 0 || x.SeleccionRevision < revision || x.SeleccionRevision > revision+1 || !instante(x.SeleccionadaEn) || x.Perfiles != nil || x.PerfilActivoRef != "" || x.Revision != 0 || x.SeleccionadaEn.After(s.base.reloj.Ahora()) {
 			return api.ErrConfiguracionIncompleta
 		}
 		seleccion = SeleccionPerfil{PerfilActivoRef: perfil, Revision: x.SeleccionRevision, SeleccionadaEn: x.SeleccionadaEn}

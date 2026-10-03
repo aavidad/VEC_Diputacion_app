@@ -38,6 +38,11 @@ func (f filaSelectorAuditadaPrueba) Scan(destinos ...any) error {
 	if f.tx.errConsulta != nil {
 		return f.tx.errConsulta
 	}
+	if len(destinos) == 2 && len(f.tx.args) == 0 {
+		*destinos[0].(*bool) = true
+		*destinos[1].(*string) = "vec-admin.preperfil"
+		return nil
+	}
 	if len(destinos) != 2 || len(f.tx.args) < 11 {
 		return errors.New("fila sintética incompatible")
 	}
@@ -125,5 +130,45 @@ func TestSelectorConflictoTecnicoNoEsCASObsoleto(t *testing.T) {
 	_, err := s.ListarPropiosAuditadosADMIN(ctx, o)
 	if !errors.Is(err, ports.ErrAutoridadAdministracionPerfilesNoDisponible) || errors.Is(err, api.ErrConflictoEstado) || tx.commits != 0 || tx.rollbacks != 1 {
 		t.Fatal("se convirtió un conflicto técnico en CAS denegado")
+	}
+}
+
+func TestPreflightSelectorAuditadoUsaTransaccionYCommit(t *testing.T) {
+	for _, fallo := range []error{nil, errors.New("COMMIT incierto")} {
+		tx := &txSelectorAuditadoPrueba{errCommit: fallo}
+		s, ctx, _, pool := escenarioSelectorAuditadoPrueba(t, tx)
+		err := acreditarSeleccionAuditada(ctx, s.base)
+		if (err == nil) != (fallo == nil) || tx.commits != 1 || pool.opciones.IsoLevel != pgx.Serializable || pool.opciones.AccessMode != pgx.ReadWrite {
+			t.Fatal("se publicó el proveedor sin preflight transaccional confirmado")
+		}
+	}
+}
+
+func TestSeleccionAuditadaAdmiteUTCPostgreSQLYReeleccion(t *testing.T) {
+	for _, caso := range []struct {
+		nombre, fecha string
+		revision      uint64
+		valida        bool
+	}{
+		{"elección nueva UTC SQL", "2026-10-03T14:00:00+00:00", 0, true},
+		{"reelección conserva fecha", "2026-10-03T13:59:00+00:00", 1, true},
+		{"precisión inválida", "2026-10-03T14:00:00.000000001+00:00", 0, false},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			tx := &txSelectorAuditadoPrueba{bruto: `{"perfil_ref":"prf_aaaaaaaaaaaaaaaaaaaaaa","seleccion_revision":1,"seleccionada_en":"` + caso.fecha + `"}`}
+			s, ctx, o, _ := escenarioSelectorAuditadoPrueba(t, tx)
+			r, err := s.SeleccionarPerfilAuditadoADMIN(ctx, o, "prf_aaaaaaaaaaaaaaaaaaaaaa", caso.revision)
+			if (err == nil) != caso.valida {
+				t.Fatalf("compatibilidad de selección incorrecta: %v", err)
+			}
+			if caso.valida {
+				fecha, _ := time.Parse(time.RFC3339Nano, caso.fecha)
+				if !r.Seleccion.Valida() || !r.Seleccion.SeleccionadaEn.Equal(fecha) || r.Seleccion.Revision != 1 || tx.commits != 1 {
+					t.Fatal("se perdió fecha, revisión o acuse de la selección")
+				}
+			} else if tx.commits != 0 || r.AuditoriaComunRef != "" {
+				t.Fatal("se confirmó precisión no admitida")
+			}
+		})
 	}
 }
