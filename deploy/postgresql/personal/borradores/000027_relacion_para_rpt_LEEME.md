@@ -127,16 +127,40 @@ Cambiar la referencia del fixture alteraría el contexto acreditado. La
 corrección corresponde a la autoridad común y debe conservar la procedencia
 y los bytes originales. Este reensayo está pendiente de esa dependencia.
 
-Quedaron tres recibos y ningún intento RPT confirmado. El binario conservado
-mide 19.090.691 bytes y tiene SHA256
-`b740f7d2275c29a966527ffba494c4b279bb17fcaf13903b698b8464633f0732`.
-Los tres recibos conservan SHA256
+El resultado es parcial. Quedaron tres recibos RPT, 6.243 consumos y 6.243
+registros de auditoría confirmada, sin intentos RPT registrados. Tras reiniciar
+PostgreSQL, esos contadores y las huellas de recibos, consumos, auditoría,
+fuente Personal17, generaciones y vectores permanecieron iguales. Los tres
+recibos tienen SHA256
 `028cbd0333a149ce7bb9a1fc22d9188bb3ee2e4c561147bbb7bc0d637e308f6c`.
-El runner `8667ee7264bef036f5102223613ca3be4777edde` prepara
-`--continuar-desde-replay`: comprueba el journal SQL, la captura, el binario,
-los tres casos y la ausencia de intentos. Reanuda desde la primera denegación,
-sin UP, DOWN, otra compilación ni repetición de los positivos. Su ejecución
-requiere la corrección común revisada y la coordinación de Dirección.
+IS13 cotejó el vínculo original con resultado positivo en una transacción
+revertida; el fallo quedó aislado en CA26.
+
+Se conservaron 1.250 funciones, 9.694 restricciones y las 6.240 auditorías
+anteriores. Las 18.599 filas originales de las 33 tablas de Contexto de actor
+e Identidad conservaron sus huellas. El ensayo añadió sus fixtures y avanzó
+el control de generación de punteros de Contexto de actor.
+
+El contenedor, PGDATA expandido, socket, scratch, overlays, claves efímeras y
+binario se retiraron después del cierre. El binario retirado medía 19.090.691
+bytes y tenía SHA256
+`b740f7d2275c29a966527ffba494c4b279bb17fcaf13903b698b8464633f0732`.
+Quedan el acta privada del ensayo y el checkpoint frío
+`checkpoint-rpt27-post154-parcial.tgz`, de 118.255.519 bytes, permiso `0600`
+y SHA256
+`a7ac3321d9faa80938b0019742a13a65ef77e35497f807b376540cd325a0d667`.
+El checkpoint contiene PGDATA sintético, journal, capturas y las fuentes
+mínimas de continuación; no incluye binario, caché, overlay ni claves scratch.
+
+Después de corregir y revisar la autoridad común, Dirección debe restaurar
+el checkpoint POST154 y preparar una compilación focal nueva de las fuentes
+guardadas. El modo `--continuar-desde-replay` de
+`8667ee7264bef036f5102223613ca3be4777edde` presupone un binario presente:
+requiere adaptar esa preparación al checkpoint frío antes de ejecutarlo.
+La reanudación debe cotejar datos, SQL y fuentes conservados, y avanzar desde
+la primera denegación, sin UP, DOWN ni repetición de los tres positivos.
+Este cierre no acredita el resto de negativas, el corte histórico, MVCC
+ni el recorrido del servicio Go con los pools comunes.
 
 La fixture conserva `catalogo_snapshot` sin inventar un catálogo admitido.
 Ambos LOGIN de prueba conservan CONNECT propio; retirar el grupo del
