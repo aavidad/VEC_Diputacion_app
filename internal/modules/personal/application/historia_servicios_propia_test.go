@@ -48,8 +48,11 @@ func (r *repositorioHistoriaPrueba) ConsultarHistoriaServiciosPropia(_ context.C
 		return ports.ResultadoHistoriaServiciosPropia{}, r.err
 	}
 	x := o.Autorizacion.ResumenCapacidad()
-	h := domain.HistoriaServiciosPropia{EmpleadoRef: o.Material.EmpleadoRef(), Corte: o.Material.Corte(), Cobertura: "parcial", Servicios: []domain.RevisionServicioPropio{}}
-	e := ports.EvidenciaRegistroEmpleadoB2{ReciboRef: "histservicios:prueba", DecisionRef: x.DecisionRef(), EfectoRef: x.EfectoRef(), ConsumoHuellaSHA256: strings.Repeat("d", 64), AuditoriaRef: "auditoria:historia", ConsultadaEn: x.EmitidaEn().Add(time.Microsecond)}
+	h := domain.HistoriaServiciosPropia{EmpleadoRef: o.Material.EmpleadoRef(), Corte: o.Material.Corte(), Cobertura: "parcial", Revisiones: []domain.RevisionServicioPropio{}}
+	e := ports.EvidenciaRegistroEmpleadoB2{ReciboRef: "historia:servicios:0f0e0d0c-0b0a-4908-8706-050403020100", DecisionRef: x.DecisionRef(), EfectoRef: x.EfectoRef(), ConsumoHuellaSHA256: strings.Repeat("d", 64), AuditoriaRef: "auditoria:historia", ConsultadaEn: x.EmitidaEn().Add(time.Microsecond)}
+	if r.alterar == "recibo" {
+		e.ReciboRef = "fichapropia:0f0e0d0c-0b0a-4908-8706-050403020100"
+	}
 	if r.alterar == "decision" {
 		e.DecisionRef = "dec_ajena"
 	}
@@ -81,7 +84,7 @@ func solicitudHistoriaPrueba(t *testing.T) domain.SolicitudHistoriaServiciosProp
 	return domain.SolicitudHistoriaServiciosPropia{Actor: b.Actor, Corte: domain.CorteHistoriaServiciosPropia{Desde: "2020-01-01", Hasta: "2027-01-01", ConocidoEn: b.Corte.ConocidoEn}}
 }
 func TestHistoriaServiciosPropiaRequierePermisoPropioYEvidenciaLigada(t *testing.T) {
-	for _, caso := range []string{"permitida", "prestada", "decision", "corte"} {
+	for _, caso := range []string{"permitida", "prestada", "decision", "corte", "recibo"} {
 		t.Run(caso, func(t *testing.T) {
 			a := &autorizadorHistoriaPrueba{t: t, prestada: caso == "prestada"}
 			r := &repositorioHistoriaPrueba{alterar: caso}
@@ -94,7 +97,7 @@ func TestHistoriaServiciosPropiaRequierePermisoPropioYEvidenciaLigada(t *testing
 				}
 				return
 			}
-			if !errors.Is(e, domain.ErrHistoriaServiciosPropiaNoDisponible) || out.Historia.Servicios != nil || len(i.intents) != 1 || i.antesCerrar {
+			if !errors.Is(e, domain.ErrHistoriaServiciosPropiaNoDisponible) || out.Historia.Revisiones != nil || len(i.intents) != 1 || i.antesCerrar {
 				t.Fatal("fallo no cerrado", e)
 			}
 			if caso == "prestada" && r.llamadas != 0 {
@@ -117,7 +120,7 @@ func TestHistoriaServiciosPropiaFalloTrasCerrarYAcuseObligatorio(t *testing.T) {
 		if falloAcuse {
 			esperado = domain.ErrHistoriaServiciosPropiaNoDisponible
 		}
-		if !errors.Is(e, esperado) || out.Historia.Servicios != nil || i.antesCerrar || len(i.intents) != 1 || i.intents[0].Motivo != "denegado" {
+		if !errors.Is(e, esperado) || out.Historia.Revisiones != nil || i.antesCerrar || len(i.intents) != 1 || i.intents[0].Motivo != "denegado" {
 			t.Fatal(e)
 		}
 	}

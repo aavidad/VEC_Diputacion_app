@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"regexp"
 	"time"
 
 	core "vec-diputacion-granada/internal/vec/domain"
@@ -24,7 +25,12 @@ var (
 	ErrHistoriaServiciosPropiaDenegada     = errors.New("personal.historia_servicios_propia.denegada")
 	ErrHistoriaServiciosPropiaNoDisponible = errors.New("personal.historia_servicios_propia.no_disponible")
 	ErrHistoriaServiciosPropiaExcedeLimite = errors.New("personal.historia_servicios_propia.excede_limite")
+	patronReciboHistoriaServiciosPropia    = regexp.MustCompile(`^historia:servicios:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 )
+
+func ReferenciaReciboHistoriaServiciosPropiaValida(ref string) bool {
+	return patronReciboHistoriaServiciosPropia.MatchString(ref)
+}
 
 // El periodo de efectos es [Desde,Hasta). ConocidoEn fija qué revisiones se
 // conocían; no es la fecha de prestación ni el instante de esta consulta.
@@ -130,22 +136,22 @@ type HistoriaServiciosPropia struct {
 	EmpleadoRef string                       `json:"empleado_ref"`
 	Corte       CorteHistoriaServiciosPropia `json:"corte"`
 	// La cobertura procede de la fuente. Una lista vacía no la determina.
-	Cobertura string                   `json:"cobertura"`
-	Servicios []RevisionServicioPropio `json:"servicios"`
+	Cobertura  string                   `json:"cobertura"`
+	Revisiones []RevisionServicioPropio `json:"revisiones"`
 }
 
 func (h HistoriaServiciosPropia) ValidarPara(m MaterialHistoriaServiciosPropia) error {
-	if len(h.Servicios) > LimiteHistoriaServiciosPropia {
+	if len(h.Revisiones) > LimiteHistoriaServiciosPropia {
 		return ErrHistoriaServiciosPropiaExcedeLimite
 	}
-	if h.Corte.Validar() != nil || h.EmpleadoRef != m.EmpleadoRef() || h.EmpleadoRef == "" || h.Corte.Desde != m.corte.Desde || h.Corte.Hasta != m.corte.Hasta || !h.Corte.ConocidoEn.Equal(m.corte.ConocidoEn) || h.Servicios == nil || (h.Cobertura != "completa" && h.Cobertura != "parcial" && h.Cobertura != "no_acreditada") {
+	if h.Corte.Validar() != nil || h.EmpleadoRef != m.EmpleadoRef() || h.EmpleadoRef == "" || h.Corte.Desde != m.corte.Desde || h.Corte.Hasta != m.corte.Hasta || !h.Corte.ConocidoEn.Equal(m.corte.ConocidoEn) || h.Revisiones == nil || (h.Cobertura != "completa" && h.Cobertura != "parcial" && h.Cobertura != "no_acreditada") {
 		return ErrHistoriaServiciosPropiaInvalida
 	}
 	ids := make(map[struct {
 		ref     string
 		version int64
 	}]struct{})
-	for i, s := range h.Servicios {
+	for i, s := range h.Revisiones {
 		if !patronReferenciaB2.MatchString(s.ServicioRef) || !ReferenciaRelacionValida(s.RelacionRef) || s.PeriodoDesde.Validar() != nil || s.PeriodoHasta.Validar() != nil || s.PeriodoHasta.AntesDe(s.PeriodoDesde) || s.DiasReconocidos < 0 || !textoFichaPropiaValido(s.Clase) || (s.Estado != "declarado" && s.Estado != "comprobado" && s.Estado != "reconocido") || s.Traza.ValidarEn(CorteEmpleadoB2{VigenteEn: h.Corte.Desde, ConocidoEn: h.Corte.ConocidoEn}) != nil || !s.Traza.Desde.AntesDe(h.Corte.Hasta) || (s.Traza.Hasta != "" && !h.Corte.Desde.AntesDe(s.Traza.Hasta)) {
 			return ErrHistoriaServiciosPropiaInvalida
 		}
@@ -159,7 +165,7 @@ func (h HistoriaServiciosPropia) ValidarPara(m MaterialHistoriaServiciosPropia) 
 		ids[id] = struct{}{}
 		// Orden total: efectos descendentes, conocimiento descendente,
 		// referencia ascendente y revisión descendente. No se suprimen versiones.
-		if i > 0 && !revisionServicioPropioAntes(h.Servicios[i-1], s) {
+		if i > 0 && !revisionServicioPropioAntes(h.Revisiones[i-1], s) {
 			return ErrHistoriaServiciosPropiaInvalida
 		}
 	}
