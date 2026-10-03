@@ -116,13 +116,7 @@ func TestProyeccionViejaOCruzadaHaceRollbackAntesDelCommit(t *testing.T) {
 			s, rol, pool, recibo := contratoV2Prueba(t)
 			// Proyección SQL simulada: los datos siempre salen de la respuesta, no
 			// se completan desde la solicitud. No acredita PostgreSQL ni V3 reales.
-			x := map[string]any{"operacion_ref": recibo.OperacionRef, "acto_ref": recibo.ActoRef, "recibo_ref": recibo.ReciboRef,
-				"auditoria_ref": recibo.AuditoriaRef, "actor_persona_ref": recibo.ActorPersonaRef, "perfil_activo_ref": recibo.PerfilActivoRef,
-				"asignacion_perfil_ref": recibo.AsignacionPerfilRef, "correlacion_ref": recibo.CorrelacionRef, "rol_version_ref": recibo.RolVersionRef,
-				"objetivo_persona_ref": recibo.ObjetivoPersonaRef, "perfil_ref": recibo.PerfilRef, "vinculo_ref": recibo.VinculoRef,
-				"estado_posterior": recibo.EstadoPosterior, "version_posterior": recibo.VersionPosterior, "huella_antes_sha256": recibo.HuellaAntesSHA256,
-				"huella_despues_sha256": recibo.HuellaDespuesSHA256, "confirmado_en": recibo.ConfirmadoEn, "unidad_ref": recibo.UnidadRef,
-				"centro_ref": recibo.CentroRef, "vigente_desde": recibo.VigenteDesde, "vigente_hasta": recibo.VigenteHasta, "motivo": recibo.Motivo, "referencia_acto": recibo.ReferenciaActo}
+			x := proyeccionReciboPrueba(recibo)
 			if campo != "completo" && campo != "actor_ajeno" && campo != "commit_incierto" {
 				delete(x, campo)
 			}
@@ -149,6 +143,77 @@ func TestProyeccionViejaOCruzadaHaceRollbackAntesDelCommit(t *testing.T) {
 				t.Fatal("falta limpieza transaccional")
 			}
 		})
+	}
+}
+
+func proyeccionReciboPrueba(r domain.ReciboAdministracionPerfiles) map[string]any {
+	return map[string]any{"operacion_ref": r.OperacionRef, "acto_ref": r.ActoRef, "recibo_ref": r.ReciboRef, "propuesta_ref": r.PropuestaRef,
+		"auditoria_ref": r.AuditoriaRef, "actor_persona_ref": r.ActorPersonaRef, "perfil_activo_ref": r.PerfilActivoRef,
+		"asignacion_perfil_ref": r.AsignacionPerfilRef, "correlacion_ref": r.CorrelacionRef, "rol_version_ref": r.RolVersionRef,
+		"objetivo_persona_ref": r.ObjetivoPersonaRef, "perfil_ref": r.PerfilRef, "vinculo_ref": r.VinculoRef,
+		"estado_posterior": r.EstadoPosterior, "version_posterior": r.VersionPosterior, "huella_antes_sha256": r.HuellaAntesSHA256,
+		"huella_despues_sha256": r.HuellaDespuesSHA256, "confirmado_en": r.ConfirmadoEn, "unidad_ref": r.UnidadRef,
+		"centro_ref": r.CentroRef, "vigente_desde": r.VigenteDesde, "vigente_hasta": r.VigenteHasta, "motivo": r.Motivo, "referencia_acto": r.ReferenciaActo}
+}
+
+func TestRevocacionConservaVentanaHistoricaCompletaAntesDeCommit(t *testing.T) {
+	for _, ruta := range []string{"ordinario", "cierre"} {
+		for _, periodo := range []string{"historia", "ausente", "fin_antes", "submicro", "zona"} {
+			t.Run(ruta+"_"+periodo, func(t *testing.T) {
+				s, rol, pool, recibo := contratoV2Prueba(t)
+				s.Operacion = domain.OperacionRevocarPerfil
+				s.Objetivo.PerfilVersion, s.Objetivo.VinculoVersion = 1, 2
+				s.Objetivo.VigenteDesde, s.Objetivo.VigenteHasta = time.Time{}, time.Time{}
+				recibo.EstadoPosterior, recibo.VersionPosterior = domain.EstadoVinculoContextoActorRevocado, 3
+				if err := s.Validar(); err != nil {
+					t.Fatal(err)
+				}
+				cierre := domain.SolicitudCierrePropuestaAdministracionPerfiles{
+					OperacionRef: "cierre_admin:" + strings.Repeat("a", 32), PropuestaRef: "propuesta_admin:" + strings.Repeat("b", 32),
+					PropuestaHuellaSHA256: strings.Repeat("c", 64), ProponentePersonaRef: "per_" + strings.Repeat("x", 22),
+					ObjetivoPersonaRef: s.Objetivo.PersonaRef, Aprobador: s.Actor, Evidencia: s.Evidencia, InstantaneaAutorizacion: s.InstantaneaAutorizacion,
+					Decision: domain.DecisionAprobarPropuestaPerfil, Motivo: s.Motivo, CorrelacionRef: s.CorrelacionRef}
+				if ruta == "cierre" {
+					recibo.OperacionRef, recibo.PropuestaRef = cierre.OperacionRef, cierre.PropuestaRef
+				}
+				x := proyeccionReciboPrueba(recibo)
+				switch periodo {
+				case "ausente":
+					delete(x, "vigente_desde")
+					delete(x, "vigente_hasta")
+				case "fin_antes":
+					x["vigente_hasta"] = recibo.VigenteDesde.Add(-time.Second)
+				case "submicro":
+					x["vigente_desde"] = recibo.VigenteDesde.Add(time.Nanosecond)
+				case "zona":
+					x["vigente_desde"] = recibo.VigenteDesde.In(time.FixedZone("zona", 3600))
+				}
+				var salida any = x
+				e, _ := materialActo(s, rol, false)
+				if ruta == "cierre" {
+					salida = map[string]any{"operacion_ref": cierre.OperacionRef, "propuesta_ref": cierre.PropuestaRef, "propuesta_huella_sha256": cierre.PropuestaHuellaSHA256,
+						"decision": cierre.Decision, "huella_cierre_sha256": strings.Repeat("d", 64), "confirmado_en": recibo.ConfirmadoEn, "recibo": x}
+					e, _ = materialCierre(cierre)
+				}
+				b, _ := json.Marshal(salida)
+				tx := &txFalsa{fila: filaFalsa{dato: b}}
+				pool.tx = tx
+				a := &Autoridad{pool: pool, emisor: &emisorFalso{material: materialSintetico(t, e, recibo.ConfirmadoEn)}, reloj: relojFijo(recibo.ConfirmadoEn)}
+				var err error
+				if ruta == "cierre" {
+					_, err = a.CerrarPropuestaSensible(context.Background(), cierre)
+				} else {
+					_, err = a.AplicarActoOrdinario(context.Background(), s)
+				}
+				if periodo == "historia" {
+					if err != nil || tx.commits != 1 {
+						t.Fatalf("ventana histórica completa perdida: %v", err)
+					}
+				} else if !errors.Is(err, ports.ErrAutoridadAdministracionPerfilesNoDisponible) || tx.commits != 0 {
+					t.Fatalf("ventana incompleta/ajena confirmada: %v", err)
+				}
+			})
+		}
 	}
 }
 

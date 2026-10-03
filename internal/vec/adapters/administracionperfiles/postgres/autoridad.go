@@ -2,13 +2,9 @@ package postgres
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
-	"strconv"
 	"time"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
 	"vec-diputacion-granada/internal/vec/domain"
@@ -64,7 +60,7 @@ func (a *Autoridad) AplicarActoOrdinario(ctx context.Context, s domain.Solicitud
 	}
 	err = a.ejecutar(ctx, s.Actor, s.Evidencia, s.InstantaneaAutorizacion, e, aplicarSQL, func(b []byte) error {
 		var x reciboJSON
-		if decodificar(b, &x) != nil {
+		if decodificar(b, &x) != nil || !x.vigenciaHistoricaCompleta() {
 			return ports.ErrAutoridadAdministracionPerfilesNoDisponible
 		}
 		recibo = x.dominio()
@@ -131,6 +127,9 @@ func (a *Autoridad) CerrarPropuestaSensible(ctx context.Context, s domain.Solici
 		resultado = ports.CierrePropuestaAdministracionPerfiles{OperacionRef: x.OperacionRef, PropuestaRef: x.PropuestaRef,
 			PropuestaHuellaSHA256: x.PropuestaHuellaSHA256, Decision: x.Decision, HuellaCierreSHA256: x.HuellaCierreSHA256, ConfirmadoEn: x.ConfirmadoEn}
 		if x.Recibo != nil {
+			if !x.Recibo.vigenciaHistoricaCompleta() {
+				return ports.ErrAutoridadAdministracionPerfilesNoDisponible
+			}
 			r := x.Recibo.dominio()
 			resultado.Recibo = &r
 		}
@@ -196,57 +195,10 @@ func (a *Autoridad) AplicarLoteOrdinario(ctx context.Context, _ domain.Solicitud
 }
 
 func (a *Autoridad) ejecutar(ctx context.Context, actor domain.ContextoActor, evidencia domain.EvidenciaSesionAdministracionPerfiles, instantanea domain.InstantaneaAutorizacion, e Efecto, consulta string, validar func([]byte) error) error {
-	if evidencia.ValidarEn(actor, a.reloj.Ahora()) != nil || !domain.ReferenciaCorrelacionAutorizacionV2Valida(e.CorrelacionAccesoRef) {
-		return ports.ErrAutoridadAdministracionPerfilesNoDisponible
-	}
-	// El emisor recibe copia: no puede alterar el material ya ligado al efecto.
-	entrega := e
-	entrega.Material = append([]byte(nil), e.Material...)
-	m, err := a.emisor.EmitirAdministracionPerfiles(ctx, actor, evidencia, instantanea, entrega)
-	clear(entrega.Material)
-	if err != nil {
-		return traducir(ctx, err)
-	}
-	huella := sha256.Sum256(e.Material)
-	r := m.ResumenCapacidad()
-	ahora := a.reloj.Ahora()
-	if m.ValidarEstructura() != nil || r.AudienciaConsumo() != e.Audiencia || r.Operacion() != e.Accion ||
-		r.EfectoRef() != e.Referencia || r.EfectoHuellaSHA256() != hex.EncodeToString(huella[:]) || ahora.Before(r.EmitidaEn()) || !ahora.Before(r.ExpiraEn()) ||
-		m.PersonaVersion() != actor.Instantanea.PersonaVersion || m.PerfilVersion() != actor.Instantanea.PerfilVersion {
-		return ports.ErrAutoridadAdministracionPerfilesNoDisponible
-	}
-	args := []any{string(e.Material), m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(),
-		strconv.FormatUint(m.PersonaVersion(), 10), strconv.FormatUint(m.PerfilVersion(), 10), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI()}
-	defer func() {
-		for _, arg := range args {
-			if b, ok := arg.([]byte); ok {
-				clear(b)
-			}
-		}
-	}()
-	tx, err := a.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite})
-	if err != nil {
-		return traducir(ctx, err)
-	}
-	if ausente(tx) {
-		return ports.ErrAutoridadAdministracionPerfilesNoDisponible
-	}
-	defer func() {
-		rollbackCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-		defer cancel()
-		_ = tx.Rollback(rollbackCtx)
-	}()
-	var bruto []byte
-	if err := tx.QueryRow(ctx, consulta, args...).Scan(&bruto); err != nil {
-		return traducir(ctx, err)
-	}
-	if err := validar(bruto); err != nil {
+	if err := a.disponible(ctx); err != nil {
 		return err
 	}
-	if err := ctx.Err(); err != nil {
-		return err
-	}
-	return traducir(ctx, tx.Commit(ctx))
+	return ejecutarConsumoADMIN(ctx, a.pool, a.emisor, a.reloj, actor, evidencia, instantanea, e, consulta, validar)
 }
 
 func traducir(ctx context.Context, err error) error {

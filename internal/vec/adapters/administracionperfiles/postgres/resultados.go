@@ -32,6 +32,14 @@ type reciboJSON struct {
 	ReferenciaActo      string                            `json:"referencia_acto"`
 }
 
+// La vigencia de una revocación procede de la asignación histórica conservada;
+// la preimagen de revocación no la contiene y nunca puede rellenarla.
+func (x reciboJSON) vigenciaHistoricaCompleta() bool {
+	return instantePersistible(x.VigenteDesde) && instantePersistible(x.VigenteHasta) &&
+		x.VigenteDesde.Location() == time.UTC && x.VigenteHasta.Location() == time.UTC &&
+		x.VigenteHasta.After(x.VigenteDesde)
+}
+
 func (x reciboJSON) dominio() domain.ReciboAdministracionPerfiles {
 	return domain.ReciboAdministracionPerfiles{CentroRef: x.CentroRef, ActorPersonaRef: x.ActorPersonaRef,
 		PerfilActivoRef: x.PerfilActivoRef, AsignacionPerfilRef: x.AsignacionPerfilRef, CorrelacionRef: x.CorrelacionRef,
