@@ -1,19 +1,23 @@
-import { crearClienteSeleccion } from './cliente.js?v=20261001-codexa-selectivos-s0-n2-v5';
-import { validarEjemplos, validarConfiguracion, validarResultado, aMicropuntos } from './configuracion.js?v=20261001-codexa-selectivos-s0-n2-v5';
-import { crearEstadoEnsayo } from './estado.js?v=20261001-codexa-selectivos-s0-n2-v5';
-import { nodo, panel, boton } from './dom.js?v=20261001-codexa-selectivos-s0-n2-v5';
-import { pintarFormulario } from './formulario.js?v=20261001-codexa-selectivos-s0-n2-v5';
-import { mostrarResultado } from './resultado.js?v=20261001-codexa-selectivos-s0-n2-v5';
+import { crearClienteSeleccion } from './cliente.js?v=20261004-codexa-s6-notas-v1';
+import { validarEjemplos, validarConfiguracion, validarResultado, validarNotasPropuestas, aMicropuntos } from './configuracion.js?v=20261004-codexa-s6-notas-v1';
+import { crearEstadoEnsayo } from './estado.js?v=20261004-codexa-s6-notas-v1';
+import { nodo, panel, boton } from './dom.js?v=20261004-codexa-s6-notas-v1';
+import { pintarFormulario } from './formulario.js?v=20261004-codexa-s6-notas-v1';
+import { mostrarResultado } from './resultado.js?v=20261004-codexa-s6-notas-v1';
 
 export function montarSeleccion({ raiz, textos, cliente = crearClienteSeleccion() } = {}) {
   if (!raiz?.ownerDocument || !textos || !cliente?.listar || !cliente?.simular) throw new TypeError('seleccion.montaje');
   const d = raiz.ownerDocument; const t = textos.traducir;
   let activo = true, carga = null, turno = 0, ejemplos = [], ejemplo = null, configuracion = null;
-  let errores = [], valores = {}, situacion = 'cargando', resultado = null;
+  let notas = [], errores = [], valores = {}, situacion = 'cargando', resultado = null;
   const estado = crearEstadoEnsayo({ cliente, validarResultado, publicar: cambio => {
     situacion = cambio.estado; resultado = cambio.resultado; if (activo) pintar();
   } });
-  const entrada = () => ({ ...ejemplo, ejemplo_ref: ejemplo.referencia, configuracion: structuredClone(configuracion) });
+  const notasCambiadas = () => notas.filter((nota, i) => nota.puntos_micropuntos !== ejemplo.notas_prueba[i].puntos_micropuntos)
+    .map(({ solicitud_ref, fase_ref, puntos_micropuntos }) => ({ solicitud_ref, fase_ref, puntos_micropuntos }));
+  const validar = () => [...validarConfiguracion(configuracion), ...validarNotasPropuestas(ejemplo, configuracion, notas)];
+  const entrada = () => ({ ...ejemplo, ejemplo_ref: ejemplo.referencia, configuracion: structuredClone(configuracion), notas_prueba: notasCambiadas() });
+  function restablecerDatos() { configuracion = structuredClone(ejemplo.configuracion); notas = structuredClone(ejemplo.notas_prueba ?? []); valores = {}; }
   function invalidar() { estado.invalidar(); errores = []; }
   const paneles = ['seleccion-panel-ejemplo', 'seleccion-panel-configuracion', 'seleccion-panel-resultado'];
   function enfocarVisible(control) {
@@ -60,7 +64,7 @@ export function montarSeleccion({ raiz, textos, cliente = crearClienteSeleccion(
     selector.addEventListener('change', () => {
       const siguiente = ejemplos.find(item => item.referencia === selector.value);
       if (!siguiente) return;
-      invalidar(); ejemplo = siguiente; configuracion = structuredClone(siguiente.configuracion); valores = {}; pintar();
+      invalidar(); ejemplo = siguiente; restablecerDatos(); pintar();
       d.getElementById('seleccion-ejemplo')?.focus();
     });
     etiqueta.append(selector); selectorPanel.cuerpo.append(etiqueta);
@@ -77,14 +81,15 @@ export function montarSeleccion({ raiz, textos, cliente = crearClienteSeleccion(
       peso: (indice, valor, id) => cambiar(id, valor, () => { configuracion.fases[indice].peso = Number(valor); }),
       desempate: (ref, activo) => { invalidar(); configuracion.desempates = activo
         ? configuracion.fases.map(f => f.referencia).filter(r => r === ref || configuracion.desempates.includes(r)) : configuracion.desempates.filter(v => v !== ref); pintar(); },
-      restablecer: () => { invalidar(); configuracion = structuredClone(ejemplo.configuracion); valores = {}; pintar(); d.getElementById('seleccion-ejemplo')?.focus(); },
+      nota: (indice, valor, id) => cambiar(id, valor, () => { notas[indice].puntos_micropuntos = valor.trim() === '' ? null : aMicropuntos(valor); }),
+      restablecer: () => { invalidar(); restablecerDatos(); pintar(); d.getElementById('seleccion-ejemplo')?.focus(); },
       simular: async () => {
-        errores = validarConfiguracion(configuracion);
+        errores = validar();
         if (errores.length) { pintar(); d.getElementById('seleccion-errores')?.focus(); return; }
         await estado.simular(entrada());
       },
     };
-    pintarFormulario(formulario, configuracion, textos, acciones, errores, valores, situacion === 'cargando');
+    pintarFormulario(formulario, configuracion, textos, acciones, errores, valores, situacion === 'cargando', notas);
     formulario.firstChild.id = 'seleccion-panel-configuracion';
     raiz.append(formulario);
     const resultadoPanel = panel(d, t('resultado_titulo'));
@@ -106,7 +111,7 @@ export function montarSeleccion({ raiz, textos, cliente = crearClienteSeleccion(
     }
   }
   function cambiar(id, valor, aplicar) {
-    aplicar(); valores[id] = valor; invalidar(); errores = validarConfiguracion(configuracion);
+    aplicar(); valores[id] = valor; invalidar(); errores = validar();
     pintar(); enfocarVisible(d.getElementById(id));
   }
   async function cargar() {
@@ -115,7 +120,7 @@ export function montarSeleccion({ raiz, textos, cliente = crearClienteSeleccion(
       const recibidos = validarEjemplos(await cliente.listar({ signal: carga.signal }));
       if (!activo || actual !== turno) return;
       ejemplos = recibidos; ejemplo = ejemplos[0] ?? null;
-      configuracion = ejemplo ? structuredClone(ejemplo.configuracion) : null;
+      if (ejemplo) restablecerDatos(); else { configuracion = null; notas = []; }
       situacion = ejemplo ? 'inicial' : 'vacio'; pintar();
     } catch (error) {
       if (!activo || actual !== turno || carga.signal.aborted) return;
@@ -124,5 +129,5 @@ export function montarSeleccion({ raiz, textos, cliente = crearClienteSeleccion(
   }
   function desmontar() { activo = false; turno += 1; carga?.abort(); estado.cerrar(); raiz.replaceChildren(); }
   void cargar();
-  return { desmontar, recargar: cargar, obtenerEstado: () => ({ situacion, resultado, configuracion: structuredClone(configuracion) }) };
+  return { desmontar, recargar: cargar, obtenerEstado: () => ({ situacion, resultado, configuracion: structuredClone(configuracion), notas_prueba: structuredClone(notas) }) };
 }

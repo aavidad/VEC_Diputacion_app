@@ -1,4 +1,4 @@
-import { nodo, tabla } from './dom.js?v=20261001-codexa-selectivos-s0-n2-v5';
+import { nodo, tabla } from './dom.js?v=20261004-codexa-s6-notas-v1';
 
 /** Renderiza exclusivamente la explicación recibida; no calcula admisión ni orden. */
 export function mostrarResultado(raiz, resultado, configuracion, textos) {
