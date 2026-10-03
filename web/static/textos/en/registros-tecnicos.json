@@ -1,0 +1,6 @@
+{
+  "esquema": "1",
+  "ayuda": "Use --config with the private configuration and --textos with this catalogue. The tool reads technical JSONL incidents from standard input until end of input. Alerts go to standard error and the summary goes to standard output.",
+  "terminado": "Collection finished. Check the counters for rejected entries.",
+  "error": "Collection did not finish. Check the configuration, private directory permissions and output availability. Do not change the audit directory."
+}

@@ -29,9 +29,11 @@ type configuracion struct {
 	MaxObjetos                int                      `json:"max_objetos"`
 	ObjetosGrandesSemanticos  bool                     `json:"objetos_grandes_semanticos"`
 	ReferenciasObjetosGrandes []referenciaObjetoGrande `json:"referencias_objetos_grandes"`
+	BasesInventariadas        []string                 `json:"bases_inventariadas"`
 }
 
 type referenciaObjetoGrande struct {
+	Base    string `json:"base"`
 	Esquema string `json:"esquema"`
 	Tabla   string `json:"tabla"`
 	Columna string `json:"columna"`
@@ -208,9 +210,9 @@ func run(ctx context.Context, args []string, out, diag io.Writer) int {
 		}
 		refs := make([]a.ReferenciaObjetoGrande, 0, len(c.ReferenciasObjetosGrandes))
 		for _, r := range c.ReferenciasObjetosGrandes {
-			refs = append(refs, a.ReferenciaObjetoGrande{Esquema: r.Esquema, Tabla: r.Tabla, Columna: r.Columna})
+			refs = append(refs, a.ReferenciaObjetoGrande{Base: r.Base, Esquema: r.Esquema, Tabla: r.Tabla, Columna: r.Columna})
 		}
-		lector, err := a.Nuevo(a.Configuracion{DSN: c.DSN, VersionPostgreSQL: c.VersionPostgreSQL, TiempoMaximo: time.Duration(c.TiempoMaximoSegundos) * time.Second, MaxFilas: c.MaxFilas, MaxBytes: c.MaxBytes, MaxObjetos: c.MaxObjetos, ObjetosGrandesSemanticos: c.ObjetosGrandesSemanticos, ReferenciasObjetosGrandes: refs})
+		lector, err := a.Nuevo(a.Configuracion{DSN: c.DSN, VersionPostgreSQL: c.VersionPostgreSQL, TiempoMaximo: time.Duration(c.TiempoMaximoSegundos) * time.Second, MaxFilas: c.MaxFilas, MaxBytes: c.MaxBytes, MaxObjetos: c.MaxObjetos, ObjetosGrandesSemanticos: c.ObjetosGrandesSemanticos, ReferenciasObjetosGrandes: refs, BasesInventariadas: c.BasesInventariadas})
 		if err != nil {
 			return emitir("copias_contraste_error_configuracion", 2)
 		}

@@ -19,6 +19,7 @@ func PrepararArchivados(ctx context.Context, raiz string, componentes []Componen
 		return nil, nil, errRuntime
 	}
 	montajes := []string{"-v", filepath.Join(raiz, "verificador") + ":/verificador:ro", "-v", filepath.Join(raiz, "control") + ":/control:rw"}
+	montajes = append(montajes, montajesNSS(raiz)...)
 	salida := []puertos.Componente{}
 	vistos := map[string]bool{}
 	cuenta := &cuentaTar{}

@@ -1,0 +1,2 @@
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000149_consumidor_vinculo_propio_crn11.up.sql
+deploy/postgresql/personal/migraciones/000026_vinculo_propio_historico_crn11.up.sql

@@ -61,9 +61,12 @@ type OpcionesEmisor struct {
 }
 
 type elementoCola struct {
-	clasificacion domain.ClasificacionIncidenciaTecnica
-	instante      time.Time
-	correlacion   string
+	clasificacion          domain.ClasificacionIncidenciaTecnica
+	clasificacionResultado domain.ClasificacionResultadoTecnico
+	esResultado            bool
+	instante               time.Time
+	correlacion            string
+	referencia             domain.ReferenciaCorrelacionAutorizacionV2
 }
 
 // EmisorJSONLines es seguro para uso concurrente. Un puntero nil es un
@@ -84,12 +87,18 @@ type EmisorJSONLines struct {
 	cerrado atomic.Bool
 	enVuelo atomic.Int64
 
-	aceptadas         atomic.Uint64
-	descartadas       atomic.Uint64
-	saneadas          atomic.Uint64
-	escritas          atomic.Uint64
-	fallosEscritura   atomic.Uint64
-	fallosCorrelacion atomic.Uint64
+	aceptadas                 atomic.Uint64
+	descartadas               atomic.Uint64
+	saneadas                  atomic.Uint64
+	escritas                  atomic.Uint64
+	fallosEscritura           atomic.Uint64
+	fallosCorrelacion         atomic.Uint64
+	resultadosAceptados       atomic.Uint64
+	resultadosDescartados     atomic.Uint64
+	resultadosInvalidos       atomic.Uint64
+	resultadosSinCorrelacion  atomic.Uint64
+	resultadosEscritos        atomic.Uint64
+	resultadosFallosEscritura atomic.Uint64
 
 	// Solo los usa el trabajador.
 	descartesInformados uint64
@@ -228,14 +237,14 @@ func (e *EmisorJSONLines) trabajar() {
 	for {
 		select {
 		case elemento := <-e.cola:
-			e.escribir(elemento.clasificacion, elemento.instante, elemento.correlacion)
+			e.escribirElemento(elemento)
 		case <-temporizador.C:
 			e.informarDescartes()
 		case <-e.parar:
 			for {
 				select {
 				case elemento := <-e.cola:
-					e.escribir(elemento.clasificacion, elemento.instante, elemento.correlacion)
+					e.escribirElemento(elemento)
 				default:
 					e.informarDescartes()
 					return
@@ -243,6 +252,14 @@ func (e *EmisorJSONLines) trabajar() {
 			}
 		}
 	}
+}
+
+func (e *EmisorJSONLines) escribirElemento(elemento elementoCola) {
+	if elemento.esResultado {
+		e.escribirResultado(elemento.clasificacionResultado, elemento.instante, elemento.correlacion, elemento.referencia)
+		return
+	}
+	e.escribir(elemento.clasificacion, elemento.instante, elemento.correlacion)
 }
 
 // informarDescartes declara las pérdidas nuevas como una única incidencia
@@ -305,12 +322,19 @@ func (e *EmisorJSONLines) escribir(c domain.ClasificacionIncidenciaTecnica, inst
 		e.fallosEscritura.Add(1)
 		return
 	}
-	e.buffer = append(append(e.buffer[:0], datos...), '\n')
-	if _, err := e.destino.Write(e.buffer); err != nil {
+	if e.escribirLinea(datos) {
+		e.escritas.Add(1)
+	} else {
 		e.fallosEscritura.Add(1)
-		return
 	}
-	e.escritas.Add(1)
+}
+
+// escribirLinea es el único punto de escritura del trabajador para ambas
+// familias técnicas. Una escritura corta nunca se cuenta como confirmada.
+func (e *EmisorJSONLines) escribirLinea(datos []byte) bool {
+	e.buffer = append(append(e.buffer[:0], datos...), '\n')
+	n, err := e.destino.Write(e.buffer)
+	return err == nil && n == len(e.buffer)
 }
 
 // nuevaCorrelacion genera 128 bits aleatorios sin relación con ningún dato

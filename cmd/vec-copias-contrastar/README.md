@@ -83,6 +83,28 @@ y después de la captura. El sello de la evidencia debe permanecer idéntico.
 Ese canal permite leer restauraciones primarias aisladas antes de limpiarlas.
 Los límites y la base proceden de la configuración externa del ejecutor.
 
+Para inventariar varias bases, el ejecutor configura `BasesInventariadas` con
+los nombres de todas las bases del cluster, incluidas las plantillas y la base
+de mantenimiento. El lector comprueba el conjunto antes y después de capturarlo.
+Una base ausente, adicional o con propiedades cambiantes impide declarar la
+evidencia completa. Las claves de tablas, secuencias y objetos grandes incluyen
+la base para separar objetos homónimos. El orden de configuración no cambia la
+huella. Los presupuestos de filas, bytes y objetos son comunes al conjunto.
+
+Las referencias de objetos grandes incluyen `Base` en este modo. El lector
+solo aplica a cada base sus referencias declaradas. Una base no conectable
+queda incompleta con el motivo `base_no_conectable_sin_evidencia`; el lector
+conserva sus propiedades y ACL y no activa conexiones ni la da por vacía.
+`CapturarEjecutorConFuente` admite evidencia de infraestructura vinculada a la
+misma base, versión, propiedades y ventana de exclusión. La implementación del
+proveedor físico de plantillas pertenece a otra pieza.
+
+La CLI reconoce `bases_inventariadas` y el campo `base` de las referencias.
+Su canal DSN carece del observador externo necesario para multibase, por lo
+que rechaza la captura antes de conectar con el diagnóstico de captura del
+catálogo. El ejecutor de restauración utiliza el puerto anterior; la CLI puede
+comparar sus inventarios offline.
+
 ## Formato y alcance
 
 `Snapshot` versión 1 contiene versión exacta de PostgreSQL, `completo`, motivos
@@ -168,3 +190,16 @@ Cambiar bytes, propietario, ACL, presencia o referencia produjo diferencias.
 Las referencias huérfanas o sin declaración impidieron afirmar igualdad.
 La caché compartida de Go agotó su cuota antes de compilar; el ensayo verde
 usó una caché privada fuera de Git. El contenedor propio se eliminó.
+
+La regresión multibase opcional usa `VEC_CS06_CONTENEDOR_MULTIBASE_ENSAYO`
+y el mismo aislamiento y etiqueta de propietario que el ensayo ACL. Prepara
+bases y nombres de personas sintéticos, restaura solo la base auxiliar y
+comprueba separación de objetos homónimos, huellas ACL y límites comunes.
+Mantiene `template0` como no comprobable sin proveedor: este ensayo no acredita
+la verificación completa del cluster ni el arranque de la aplicación.
+
+El ensayo multibase del 3 de octubre de 2026 pasó sobre PostgreSQL 18.4:
+contenido por base, restauración auxiliar, permiso de parámetro, propietario de
+lenguaje con ACL vacía, orden y límite global de objetos. Las pruebas focales
+sin PostgreSQL cubren también límites comunes de filas y bytes y el rechazo
+del canal DSN multibase. Se retiraron el contenedor propio y sus datos en disco.
