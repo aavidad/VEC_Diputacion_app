@@ -128,7 +128,7 @@ DECLARE m jsonb; pe jsonb; mp jsonb; clave text;
 BEGIN
  PERFORM vec_identidad_sesiones_v1.validar_plan_fuentes_iniciales_admin_v1(p);
  IF material IS NULL OR octet_length(material) NOT BETWEEN 1 AND 32768
- OR encode(public.digest(convert_to(material,'UTF8'),'sha256'),'hex') IS DISTINCT FROM p#>>'{fuente_hmac,huella_sha256}'
+ OR encode(pg_catalog.sha256(convert_to(material,'UTF8')),'hex') IS DISTINCT FROM p#>>'{fuente_hmac,huella_sha256}'
  THEN RAISE EXCEPTION 'IS15: material privado divergente' USING ERRCODE='22023'; END IF;
  m:=material::jsonb;
  IF jsonb_path_exists(m,'$.** ? (@ == null)') THEN RAISE EXCEPTION 'IS15: null privado no admitido' USING ERRCODE='22023'; END IF;
@@ -203,7 +203,7 @@ BEGIN
   THEN RAISE EXCEPTION 'IS15: replay divergente' USING ERRCODE='40001'; END IF;
   RETURN existente.recibo;
  END IF;
- IF pre_sha IS DISTINCT FROM encode(public.digest(convert_to(pre::text,'UTF8'),'sha256'),'hex')
+ IF pre_sha IS DISTINCT FROM encode(pg_catalog.sha256(convert_to(pre::text,'UTF8')),'hex')
  THEN RAISE EXCEPTION 'IS15: CAS preimagen divergente' USING ERRCODE='40001'; END IF;
  m:=material::jsonb; ahora:=clock_timestamp(); pol:=p->'politica_admin';
  FOR pe IN SELECT value FROM jsonb_array_elements(p->'personas') ORDER BY value->>'persona_ref' LOOP
@@ -216,8 +216,8 @@ BEGIN
  END LOOP;
  INSERT INTO vec_identidad_sesiones_v1.politica_certificado_admin_v1(politica_ref,entorno,host_admin,ca_sha256,huella_aprobacion_sha256,maxima_edad_revocacion,vigente_hasta)
  VALUES(pol->>'politica_ref','desarrollo',pol->>'host_admin',pol->>'ca_sha256',pol->>'huella_aprobacion_sha256',(pol->>'maxima_edad_revocacion_segundos')::integer*interval '1 second',(pol->>'vigente_hasta')::timestamptz);
- recibo:=jsonb_build_object('esquema','vec.is.fuentes-iniciales-admin.v1','version',1,'recibo_ref','recibo_is_fuentes:'||replace(gen_random_uuid()::text,'-',''),'operacion_ref',operacion,'plan_sha256',plan_sha,'aprobacion_ref',aprobacion,'alcance_fuente','sintetico_declarado','registrada_en',to_char(ahora AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),'datos',jsonb_build_object('personas',cuentas,'politica_ref',pol->>'politica_ref'));
- recibo:=recibo||jsonb_build_object('huella_sha256',encode(public.digest(convert_to(recibo::text,'UTF8'),'sha256'),'hex'));
+ recibo:=jsonb_build_object('esquema','vec.is.fuentes-iniciales-admin.v1','version',1,'recibo_ref','recibo_is_fuentes:'||replace(pg_catalog.gen_random_uuid()::text,'-',''),'operacion_ref',operacion,'plan_sha256',plan_sha,'aprobacion_ref',aprobacion,'alcance_fuente','sintetico_declarado','registrada_en',to_char(ahora AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),'datos',jsonb_build_object('personas',cuentas,'politica_ref',pol->>'politica_ref'));
+ recibo:=recibo||jsonb_build_object('huella_sha256',encode(pg_catalog.sha256(convert_to(recibo::text,'UTF8')),'hex'));
  INSERT INTO vec_identidad_sesiones_v1.fuentes_iniciales_admin_v1(operacion_ref,plan_sha256,aprobacion_ref,plan,material_sha256,recibo) VALUES(operacion,plan_sha,aprobacion,p,p#>>'{fuente_hmac,huella_sha256}',recibo);
  RETURN recibo;
 END $f$;

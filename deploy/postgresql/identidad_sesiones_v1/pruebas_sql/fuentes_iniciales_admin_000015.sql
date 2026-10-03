@@ -15,10 +15,10 @@ DECLARE p jsonb:=current_setting('vec.ensayo.plan_fuentes')::jsonb;
  antes bigint; pe jsonb; cuentas bigint; rechazo boolean;
 BEGIN
  IF p IS NULL OR m IS NULL THEN RAISE EXCEPTION 'IS15 pruebas: falta fixture privada'; END IF;
- plan_sha:=encode(public.digest(convert_to(p::text,'UTF8'),'sha256'),'hex');
+ plan_sha:=encode(pg_catalog.sha256(convert_to(p::text,'UTF8')),'hex');
  SELECT count(*) INTO antes FROM vec_identidad_sesiones_v1.cuenta;
  pre:=vec_identidad_sesiones_v1.preimagen_fuentes_iniciales_admin_v1(p,m);
- sha:=encode(public.digest(convert_to(pre::text,'UTF8'),'sha256'),'hex');
+ sha:=encode(pg_catalog.sha256(convert_to(pre::text,'UTF8')),'hex');
  rechazo:=false;
  BEGIN
   PERFORM vec_identidad_sesiones_v1.aplicar_fuentes_iniciales_admin_v1(p,m,repeat('0',64),p->>'operacion_ref',plan_sha,'aprobacion_ensayo');
@@ -53,7 +53,7 @@ BEGIN
    OR (c.cuenta_privilegiada AND c.cuenta_ref=pe->>'cuenta_privilegiada_ref' AND c.cuenta_ordinaria_ref=pe->>'cuenta_ordinaria_ref'));
   IF cuentas<>2 THEN RAISE EXCEPTION 'IS15: cuenta real/titularidad divergente'; END IF;
  END LOOP;
- IF r->>'huella_sha256' IS DISTINCT FROM encode(public.digest(convert_to((r-'huella_sha256')::text,'UTF8'),'sha256'),'hex')
+ IF r->>'huella_sha256' IS DISTINCT FROM encode(pg_catalog.sha256(convert_to((r-'huella_sha256')::text,'UTF8')),'hex')
  OR r::text ~ '(hmac_hex|clave_hmac|sujeto_id_hmac)' THEN RAISE EXCEPTION 'IS15: recibo inválido o excesivo'; END IF;
  rechazo:=false;
  BEGIN

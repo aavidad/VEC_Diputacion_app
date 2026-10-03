@@ -17,7 +17,7 @@ END $pre$;
 DO $ca20_preimagen$
 DECLARE actual text;
 BEGIN
- SELECT encode(public.digest(convert_to(prosrc,'UTF8'),'sha256'),'hex') INTO actual
+ SELECT encode(pg_catalog.sha256(convert_to(prosrc,'UTF8')),'hex') INTO actual
  FROM pg_proc WHERE oid=to_regprocedure('vec_contexto_actor_v1.crear_perfil_vinculo_admin_v1(text,text,numeric,numeric,text,text,text,numeric,text,timestamptz)')
  AND proowner=to_regrole('vec_contexto_actor_v1_propietario') AND prosecdef;
  IF actual IS DISTINCT FROM '649163c68f2072983155bc479e20a98820946f7362449979824278de88d9ef5f' THEN
@@ -107,7 +107,7 @@ BEGIN
   THEN RAISE EXCEPTION 'CA33: replay divergente' USING ERRCODE='40001'; END IF;
   RETURN existente.recibo;
  END IF;
- IF pre_sha IS DISTINCT FROM encode(public.digest(convert_to(pre::text,'UTF8'),'sha256'),'hex')
+ IF pre_sha IS DISTINCT FROM encode(pg_catalog.sha256(convert_to(pre::text,'UTF8')),'hex')
  THEN RAISE EXCEPTION 'CA33: CAS preimagen divergente' USING ERRCODE='40001'; END IF;
  IF jsonb_array_length(real_is#>'{datos,personas}')<>2
  THEN RAISE EXCEPTION 'CA33: cardinalidad IS divergente' USING ERRCODE='55000'; END IF;
@@ -142,8 +142,8 @@ BEGIN
   END LOOP;
   datos:=datos||jsonb_build_array(cuenta||jsonb_build_object('persona_version',1,'proyeccion_cuenta_version',1));
  END LOOP;
- recibo:=jsonb_build_object('esquema','vec.ca.fuentes-iniciales-admin.v1','version',1,'recibo_ref','recibo_ca_fuentes:'||replace(gen_random_uuid()::text,'-',''),'operacion_ref',operacion,'plan_sha256',plan_sha,'aprobacion_ref',aprobacion,'alcance_fuente','sintetico_declarado','registrada_en',to_char(ahora AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),'datos',jsonb_build_object('organizacion_ref',p#>>'{organizacion,organizacion_ref}','organizacion_version',1,'personas',datos));
- recibo:=recibo||jsonb_build_object('huella_sha256',encode(public.digest(convert_to(recibo::text,'UTF8'),'sha256'),'hex'));
+ recibo:=jsonb_build_object('esquema','vec.ca.fuentes-iniciales-admin.v1','version',1,'recibo_ref','recibo_ca_fuentes:'||replace(pg_catalog.gen_random_uuid()::text,'-',''),'operacion_ref',operacion,'plan_sha256',plan_sha,'aprobacion_ref',aprobacion,'alcance_fuente','sintetico_declarado','registrada_en',to_char(ahora AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),'datos',jsonb_build_object('organizacion_ref',p#>>'{organizacion,organizacion_ref}','organizacion_version',1,'personas',datos));
+ recibo:=recibo||jsonb_build_object('huella_sha256',encode(pg_catalog.sha256(convert_to(recibo::text,'UTF8')),'hex'));
  INSERT INTO vec_contexto_actor_v1.fuentes_iniciales_admin_v1(operacion_ref,plan_sha256,aprobacion_ref,plan,recibo_is,recibo) VALUES(operacion,plan_sha,aprobacion,p,real_is,recibo);
  RETURN recibo;
 END $f$;

@@ -18,14 +18,14 @@ DECLARE p jsonb:=current_setting('vec.ensayo.plan_fuentes')::jsonb;
  pre_ca jsonb; pre_is jsonb; sha_ca text; sha_is text; plan_sha text;
  is_r jsonb; ca_r jsonb; replay jsonb; antes_cuentas bigint; antes_perfiles bigint; antes_personas bigint; rechazo boolean;
 BEGIN
- plan_sha:=encode(public.digest(convert_to(p::text,'UTF8'),'sha256'),'hex');
+ plan_sha:=encode(pg_catalog.sha256(convert_to(p::text,'UTF8')),'hex');
  SELECT count(*) INTO antes_cuentas FROM vec_identidad_sesiones_v1.cuenta;
  SELECT count(*) INTO antes_perfiles FROM vec_contexto_actor_v1.perfil_versiones;
  SELECT count(*) INTO antes_personas FROM vec_contexto_actor_v1.persona_versiones;
  pre_ca:=vec_contexto_actor_v1.preimagen_fuentes_iniciales_admin_v1(p);
  pre_is:=vec_identidad_sesiones_v1.preimagen_fuentes_iniciales_admin_v1(p,m);
- sha_ca:=encode(public.digest(convert_to(pre_ca::text,'UTF8'),'sha256'),'hex');
- sha_is:=encode(public.digest(convert_to(pre_is::text,'UTF8'),'sha256'),'hex');
+ sha_ca:=encode(pg_catalog.sha256(convert_to(pre_ca::text,'UTF8')),'hex');
+ sha_is:=encode(pg_catalog.sha256(convert_to(pre_is::text,'UTF8')),'hex');
  -- Error real del productor CA en segunda Persona: ambos módulos revierten.
  rechazo:=false;
  BEGIN
@@ -49,7 +49,7 @@ BEGIN
  OR (SELECT count(*) FROM vec_contexto_actor_v1.persona_versiones)<>antes_personas+2
  OR (SELECT count(*) FROM vec_contexto_actor_v1.titularidad_cuenta_persona_v1 WHERE operacion_ref=p->>'operacion_ref')<>4
  THEN RAISE EXCEPTION 'CA33: replay, perfiles o titularidad divergentes'; END IF;
- IF ca_r->>'huella_sha256' IS DISTINCT FROM encode(public.digest(convert_to((ca_r-'huella_sha256')::text,'UTF8'),'sha256'),'hex')
+ IF ca_r->>'huella_sha256' IS DISTINCT FROM encode(pg_catalog.sha256(convert_to((ca_r-'huella_sha256')::text,'UTF8')),'hex')
  THEN RAISE EXCEPTION 'CA33: huella recibo divergente'; END IF;
  SET CONSTRAINTS ALL IMMEDIATE;
 END $vectores$;
