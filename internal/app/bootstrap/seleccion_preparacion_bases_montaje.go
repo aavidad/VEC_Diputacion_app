@@ -15,6 +15,7 @@ import (
 	selauth "vec-diputacion-granada/internal/modules/seleccion/adapters/autorizacion"
 	selhttp "vec-diputacion-granada/internal/modules/seleccion/adapters/http"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
+	core "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
@@ -157,6 +158,9 @@ func (m *MontajePreparacionBasesV3) Componer(ctx context.Context, d Dependencias
 		m.configuracion.MotivoIntentoDenegado, m.configuracion.MotivoIntentoError)
 	if err != nil {
 		return nil, nil, err
+	}
+	broker.registrarEntrada = func(ctx context.Context, z contextoSeguridadComunDesarrollo, i int, c core.ReferenciaCorrelacionAutorizacionV2, err error) error {
+		return preparador.registrar(ctx, z, c, "", broker.perfiles[i].accion, err)
 	}
 	frontera, err := nuevaFronteraPreparacionBasesHTTPV3(broker, d.RegistrarRechazoFrontera)
 	if err != nil {

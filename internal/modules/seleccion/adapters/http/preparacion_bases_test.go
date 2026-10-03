@@ -43,7 +43,9 @@ const cuerpoGuardarPrueba = `{"esperada":{"preparacion_ref":"prep:sintetica","re
 func handlerPreparacionPrueba(t *testing.T, p *preparadorHTTPPrueba, frontera func(*http.Request) error) http.Handler {
 	t.Helper()
 	a, _ := bolsa.NuevoAmbitoOrganizativoConvocatoria("org_diputaciongranada", "uni_seleccionexterna")
-	h, err := NuevaPreparacionBasesHandler(ConfigPreparacionBases{Preparador: p, ValidarFrontera: frontera, ResolverContexto: func(*http.Request) (ContextoPreparacionBases, error) { return ContextoPreparacionBases{Ambito: a}, nil }})
+	h, err := NuevaPreparacionBasesHandler(ConfigPreparacionBases{Preparador: p, ValidarFrontera: frontera, ResolverContexto: func(*http.Request) (ContextoPreparacionBases, error) {
+		return ContextoPreparacionBases{Ambito: a, RegistrarErrorEntrada: func(_ context.Context, err error) error { return err }}, nil
+	}})
 	if err != nil {
 		t.Fatal(err)
 	}

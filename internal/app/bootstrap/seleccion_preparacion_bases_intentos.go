@@ -32,13 +32,13 @@ func nuevoPreparadorBasesAuditadoV3(s bolsaports.PreparadorBasesDurableV3, b *pr
 }
 
 func (p *preparadorBasesAuditadoV3) Guardar(ctx context.Context, q bolsaports.SolicitudGuardarPreparacionBasesV3) (bolsaports.ResultadoPreparacionBasesV3, error) {
-	preparacion, err := bolsaapp.PrepararGuardadoPreparacionBasesV3(q)
-	if err != nil {
-		return bolsaports.ResultadoPreparacionBasesV3{}, err
-	}
 	z, err := p.capturar(ctx, q.Actor, bolsaports.AccionGuardarPreparacionBases)
 	if err != nil {
 		return bolsaports.ResultadoPreparacionBasesV3{}, err
+	}
+	preparacion, err := bolsaapp.PrepararGuardadoPreparacionBasesV3(q)
+	if err != nil {
+		return bolsaports.ResultadoPreparacionBasesV3{}, p.registrar(ctx, z, q.Correlacion, "", bolsaports.AccionGuardarPreparacionBases, err)
 	}
 	resultado, err := p.servicio.Guardar(ctx, q)
 	if err != nil {
@@ -48,13 +48,13 @@ func (p *preparadorBasesAuditadoV3) Guardar(ctx context.Context, q bolsaports.So
 }
 
 func (p *preparadorBasesAuditadoV3) Consultar(ctx context.Context, q bolsaports.SolicitudConsultarPreparacionBasesV3) (bolsaports.ResultadoPreparacionBasesV3, error) {
-	preparacion, err := bolsaapp.PrepararConsultaPreparacionBasesV3(q)
-	if err != nil {
-		return bolsaports.ResultadoPreparacionBasesV3{}, err
-	}
 	z, err := p.capturar(ctx, q.Actor, bolsaports.AccionConsultarPreparacionBases)
 	if err != nil {
 		return bolsaports.ResultadoPreparacionBasesV3{}, err
+	}
+	preparacion, err := bolsaapp.PrepararConsultaPreparacionBasesV3(q)
+	if err != nil {
+		return bolsaports.ResultadoPreparacionBasesV3{}, p.registrar(ctx, z, q.Correlacion, "", bolsaports.AccionConsultarPreparacionBases, err)
 	}
 	resultado, err := p.servicio.Consultar(ctx, q)
 	if err != nil {
@@ -88,8 +88,7 @@ func (p *preparadorBasesAuditadoV3) registrar(ctx context.Context, z contextoSeg
 	}
 	tecnico := errorTecnicoPDPPreparacionBasesV3(ctx, err)
 	denegacion := errors.Is(err, bolsaports.ErrPreparacionBasesDenegada)
-	if !tecnico && !denegacion && (errors.Is(err, bolsaports.ErrPreparacionBasesNoEncontrada) || errors.Is(err, bolsaports.ErrPreparacionBasesConflicto) ||
-		errors.Is(err, bolsaports.ErrPreparacionBasesClaveReutilizada) || errors.Is(err, bolsaports.ErrPreparacionBasesInvalida)) {
+	if !tecnico && !denegacion && bolsaapp.AccesoConfirmadoPreparacionBasesV3(err) {
 		return err
 	}
 	resultado, motivo := core.ResultadoIntentoAuditoriaError, p.errorTecnico
@@ -107,6 +106,9 @@ func (p *preparadorBasesAuditadoV3) registrar(ctx context.Context, z contextoSeg
 	ref, e := vecports.NuevaReferenciaIntentoAuditoria()
 	if e != nil {
 		return bolsaports.ErrPreparacionBasesNoDisponible
+	}
+	if recurso == "" {
+		recurso = ref
 	}
 	orden, e := vecports.NuevaOrdenIntentoAuditoria(ref, z.Resultado, z.Vinculo, core.DatosIntentoAuditoria{Accion: accion, ModuloID: "bolsa",
 		RecursoRef: recurso, FinalidadRef: bolsaports.FinalidadPreparacionBases, Resultado: resultado, Motivo: motivo,

@@ -28,6 +28,7 @@ type proveedorPreparacionBasesV3 struct {
 	pdp              vecports.AutorizadorSolicitudLigadaV3
 	reloj            relojContratacionTemporalDesarrollo
 	registrarRechazo func(*http.Request) error
+	registrarEntrada func(context.Context, contextoSeguridadComunDesarrollo, int, core.ReferenciaCorrelacionAutorizacionV2, error) error
 }
 
 func nuevoProveedorPreparacionBasesV3(ps [2]*perfilPreparacionBasesV3, ss [2]*proveedorSesionConsultaRRHHDesarrollo,
@@ -47,7 +48,7 @@ func nuevoProveedorPreparacionBasesV3(ps [2]*perfilPreparacionBasesV3, ss [2]*pr
 	if !ss[0].fronteras.mismaInstancia(ss[1].fronteras) {
 		return nil, bolsaports.ErrPreparacionBasesNoDisponible
 	}
-	return &proveedorPreparacionBasesV3{ps, ss, ms, pdp, reloj, registrarRechazo}, nil
+	return &proveedorPreparacionBasesV3{perfiles: ps, sesiones: ss, materiales: ms, pdp: pdp, reloj: reloj, registrarRechazo: registrarRechazo}, nil
 }
 
 func (p *proveedorPreparacionBasesV3) indice(ctx context.Context) (int, error) {
@@ -141,7 +142,14 @@ func (p *proveedorPreparacionBasesV3) ResolverContextoHTTP(r *http.Request) (sel
 	if err != nil {
 		return selhttp.ContextoPreparacionBases{}, bolsaports.ErrPreparacionBasesNoDisponible
 	}
-	return selhttp.ContextoPreparacionBases{Actor: z.Resultado.Contexto, Correlacion: c, Ambito: p.perfiles[i].ambito}, nil
+	auditar := p.registrarEntrada
+	return selhttp.ContextoPreparacionBases{Actor: z.Resultado.Contexto, Correlacion: c, Ambito: p.perfiles[i].ambito,
+		RegistrarErrorEntrada: func(ctx context.Context, err error) error {
+			if auditar == nil {
+				return bolsaports.ErrPreparacionBasesNoDisponible
+			}
+			return auditar(ctx, z, i, c, err)
+		}}, nil
 }
 
 func (p *proveedorPreparacionBasesV3) EmitirMaterialAutorizacionAtestadaV3(ctx context.Context, s core.SolicitudAutorizacionLigadaV3,

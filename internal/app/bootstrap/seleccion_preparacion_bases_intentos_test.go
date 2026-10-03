@@ -16,13 +16,15 @@ import (
 )
 
 type servicioIntentosPreparacionPrueba struct {
-	cerrado bool
-	err     error
-	despues func()
+	cerrado  bool
+	err      error
+	despues  func()
+	llamadas int
 }
 
 func (s *servicioIntentosPreparacionPrueba) terminar() (bolsaports.ResultadoPreparacionBasesV3, error) {
 	s.cerrado = true
+	s.llamadas++
 	if s.despues != nil {
 		s.despues()
 	}
@@ -139,7 +141,7 @@ func TestPreparacionBasesIntentosNominalesDespuesDelRetorno(t *testing.T) {
 	}
 }
 
-func TestPreparacionBasesResultadoAutorizadoNoDuplicaIntento(t *testing.T) {
+func TestPreparacionBasesSentinelSinAcuseNoSimulaAuditoriaAnterior(t *testing.T) {
 	for _, errNegocio := range []error{nil, bolsaports.ErrPreparacionBasesConflicto, bolsaports.ErrPreparacionBasesClaveReutilizada, bolsaports.ErrPreparacionBasesNoEncontrada} {
 		b, ctx := brokerPreparacionBasesPrueba(t, 1)
 		h, err := b.ResolverContextoHTTP(httptest.NewRequest("POST", b.perfiles[1].ruta, nil).WithContext(ctx))
@@ -155,8 +157,12 @@ func TestPreparacionBasesResultadoAutorizadoNoDuplicaIntento(t *testing.T) {
 		}
 		_, err = p.Consultar(ctx, bolsaports.SolicitudConsultarPreparacionBasesV3{Actor: h.Actor, Correlacion: h.Correlacion, Ambito: h.Ambito,
 			Selector: bolsaports.SelectorConsultaPreparacionBases{Modo: "actual", Exacta: prep.Esperada{PreparacionRef: "preparacion:sintetica"}}})
-		if err != errNegocio || len(r.ordenes) != 0 {
-			t.Fatal("resultado autorizado generó otro intento o cambió error")
+		esperado := 1
+		if errNegocio == nil {
+			esperado = 0
+		}
+		if err != errNegocio || len(r.ordenes) != esperado {
+			t.Fatal("error sin COMMIT confirmado eludió auditoría o cambió resultado")
 		}
 	}
 }
