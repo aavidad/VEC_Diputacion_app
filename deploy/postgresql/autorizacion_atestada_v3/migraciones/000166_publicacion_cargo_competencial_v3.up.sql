@@ -21,38 +21,16 @@ BEGIN
 END $pre$;
 SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
 
--- Se invierten las tres inserciones AD165 sólo en memoria y se cotejan ambos
--- hashes pre-AD165. La reconstrucción hacia delante debe ser exacta.
+-- Preimagen exacta post-AD165 acreditada en PostgreSQL 18 del clon local.
+-- Sólo se insertan el perfil operativo y la audiencia propios de Personal.
 DO $nucleo$
 DECLARE f oid:=pg_catalog.to_regprocedure('vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
  original text;fuente text;nuevo text;actual text;meta jsonb;acl aclitem[];deps jsonb;deps_compartidas jsonb;
  propietario oid;config text[];definidora boolean;
- esperado_def text:='7ccd6cb3e0c25a015a3a085af0be57dfd73cd3b48843317e727fb7677bedf0c8';
- esperado_fuente text:='f3d2c780bc7703d0df2c0e52016f7946c5e06e31fd6a3368a8cf89dc540939c5';
+ esperado_def text:='684229f6e5d3c3a3f4e7b849cc03b55ee275d58cb0b40a5cdeeff39edd9c7beb';
+ esperado_fuente text:='7b04ba29e1ed6943647b445985e951f70130ce323c1acc2d2ea4eafe00f80549';
  marca text:=E'       )\n       OR c ->> ''suite'' <> ''VEC-AD-3-COSE-EDDSA-1''';
- extension text:=$x$           OR (
- p_perfil_mutacion IS NOT DISTINCT FROM 'publicacion_certificado_nominal'
- AND c->>'audiencia_consumo' IS NOT DISTINCT FROM 'vec_contexto_actor.certificado_nominal.publicar.v1'
- AND c->>'operacion' IN ('administracion.certificados.nominal.publicar','administracion.certificados.nominal.retirar')
- AND d->>'accion' IS NOT DISTINCT FROM c->>'operacion'
- AND d->>'modulo_id' IS NOT DISTINCT FROM 'administracion'
- AND d->>'tipo_recurso' IS NOT DISTINCT FROM 'vinculo_certificado_nominal'
- AND d->>'finalidad' IS NOT DISTINCT FROM 'gestionar_certificados_firmantes'
- AND d->>'recurso_ref' IS NOT DISTINCT FROM c->>'efecto_ref'
- AND d->>'contexto_recurso_huella_sha256' IS NOT DISTINCT FROM c->>'huella_efecto_sha256'
- AND d->'campos_permitidos' IS NOT DISTINCT FROM '[]'::jsonb
- AND d->'obligaciones' IS NOT DISTINCT FROM '[]'::jsonb
- AND d#>>'{vinculo_autenticacion_actor,superficie}' IS NOT DISTINCT FROM 'administracion_privilegiada'
- AND d#>>'{vinculo_autenticacion_actor,cuenta_privilegiada}' IS NOT DISTINCT FROM 'true'
- AND vec_autorizacion.acreditar_perfil_aplicacion_nominal_v1(
-   d->>'version_rol_ref',d->>'asignacion_ref',d->>'principal_id',d->>'perfil_activo_ref',
-   c->>'operacion','administracion','vinculo_certificado_nominal','gestionar_certificados_firmantes',
-   '[]'::jsonb,d->'vinculo_autenticacion_actor') IS TRUE)
-$x$;
- excl text:=$x$p_perfil_mutacion IS DISTINCT FROM 'bolsa_llamamiento'$x$;
  excl_nuevo text:=$x$p_perfil_mutacion IS DISTINCT FROM 'bolsa_llamamiento' AND p_perfil_mutacion IS DISTINCT FROM 'publicacion_certificado_nominal'$x$;
- runtime text:=E'       OR NOT (\n           (\n               p_perfil_mutacion IS DISTINCT FROM ''bolsa_llamamiento''';
- runtime_nuevo text:=E'       OR NOT (\n           (p_perfil_mutacion IS NOT DISTINCT FROM ''publicacion_certificado_nominal''\n            AND EXISTS(SELECT 1 FROM pg_catalog.pg_roles r WHERE r.rolname=session_user AND r.rolcanlogin AND r.rolinherit\n             AND NOT(r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls))\n            AND EXISTS(SELECT 1 FROM pg_catalog.pg_auth_members m WHERE m.member=session_user::regrole\n             AND m.roleid=''vec_autorizacion_certificado_nominal_ejecutor''::regrole\n             AND m.inherit_option AND NOT m.set_option AND NOT m.admin_option)\n            AND (SELECT count(*) FROM pg_catalog.pg_auth_members m WHERE m.member=session_user::regrole)=1)\n           OR (\n               p_perfil_mutacion IS DISTINCT FROM ''bolsa_llamamiento''';
  extension166 text:=$x$           OR (
  p_perfil_mutacion IS NOT DISTINCT FROM 'publicacion_cargo_competencial'
  AND c->>'audiencia_consumo' IS NOT DISTINCT FROM 'vec_personal.cargo_competencial.publicar.v1'
@@ -75,8 +53,7 @@ $x$;
  excl166 text:=excl_nuevo||' AND p_perfil_mutacion IS DISTINCT FROM ''publicacion_cargo_competencial''';
  runtime_marca166 text:=E'       OR NOT (\n           (p_perfil_mutacion IS NOT DISTINCT FROM ''publicacion_certificado_nominal''';
  runtime166 text:=E'       OR NOT (\n           (p_perfil_mutacion IS NOT DISTINCT FROM ''publicacion_cargo_competencial''\n            AND EXISTS(SELECT 1 FROM pg_catalog.pg_roles r WHERE r.rolname=session_user AND r.rolcanlogin AND r.rolinherit\n             AND NOT(r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls))\n            AND EXISTS(SELECT 1 FROM pg_catalog.pg_auth_members m WHERE m.member=session_user::regrole\n             AND m.roleid=''vec_personal_ejecutor''::regrole\n             AND m.inherit_option AND NOT m.set_option AND NOT m.admin_option)\n            AND NOT EXISTS(SELECT 1 FROM pg_catalog.pg_auth_members m WHERE m.member=''vec_personal_ejecutor''::regrole)\n            AND (SELECT count(*) FROM pg_catalog.pg_auth_members m WHERE m.member=session_user::regrole)=1)\n           OR (p_perfil_mutacion IS NOT DISTINCT FROM ''publicacion_certificado_nominal''';
- runtime_post165 text:=pg_catalog.replace(runtime_nuevo,excl,excl_nuevo);
- predef text;prefuente text;actual_sha text;
+ actual_sha text;
 
 BEGIN
  SELECT pg_catalog.pg_get_functiondef(f),p.prosrc,pg_catalog.to_jsonb(p)-'prosrc',p.proacl,p.proowner,p.proconfig,p.prosecdef
@@ -86,32 +63,20 @@ BEGIN
  SELECT COALESCE(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(d) ORDER BY d.dbid,d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype),'[]'::jsonb)
  INTO deps_compartidas FROM pg_catalog.pg_shdepend d WHERE d.dbid=(SELECT oid FROM pg_catalog.pg_database WHERE datname=pg_catalog.current_database())
  AND d.classid='pg_catalog.pg_proc'::regclass AND d.objid=f;
- FOREACH actual IN ARRAY ARRAY[extension||marca,excl_nuevo,runtime_post165] LOOP
-  IF pg_catalog.length(original)-pg_catalog.length(pg_catalog.replace(original,actual,''))<>pg_catalog.length(actual)
-   OR pg_catalog.length(fuente)-pg_catalog.length(pg_catalog.replace(fuente,actual,''))<>pg_catalog.length(actual)
-  THEN RAISE EXCEPTION 'AD166: PARO clave=marcas_AD165 actual=no_unica esperado=una' USING ERRCODE='55000'; END IF;
- END LOOP;
- predef:=pg_catalog.replace(pg_catalog.replace(pg_catalog.replace(original,extension||marca,marca),excl_nuevo,excl),runtime_nuevo,runtime);
- prefuente:=pg_catalog.replace(pg_catalog.replace(pg_catalog.replace(fuente,extension||marca,marca),excl_nuevo,excl),runtime_nuevo,runtime);
- actual_sha:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(predef,'UTF8')),'hex');
+ actual_sha:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(original,'UTF8')),'hex');
  IF actual_sha IS DISTINCT FROM esperado_def THEN
-  RAISE EXCEPTION 'AD166: PARO clave=def_preAD165 actual=% esperado=%',actual_sha,esperado_def USING ERRCODE='55000'; END IF;
- actual_sha:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(prefuente,'UTF8')),'hex');
+  RAISE EXCEPTION 'AD166: PARO clave=def_postAD165 actual=% esperado=%',actual_sha,esperado_def USING ERRCODE='55000'; END IF;
+ actual_sha:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(fuente,'UTF8')),'hex');
  IF actual_sha IS DISTINCT FROM esperado_fuente THEN
-  RAISE EXCEPTION 'AD166: PARO clave=src_preAD165 actual=% esperado=%',actual_sha,esperado_fuente USING ERRCODE='55000'; END IF;
- IF pg_catalog.replace(pg_catalog.replace(pg_catalog.replace(predef,runtime,runtime_nuevo),excl,excl_nuevo),marca,extension||marca) IS DISTINCT FROM original
-  OR pg_catalog.replace(pg_catalog.replace(pg_catalog.replace(prefuente,runtime,runtime_nuevo),excl,excl_nuevo),marca,extension||marca) IS DISTINCT FROM fuente
- THEN RAISE EXCEPTION 'AD166: PARO clave=reconstruccion_AD165 actual=divergente esperado=exacta' USING ERRCODE='55000'; END IF;
- IF pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(predef,'UTF8')),'hex') IS DISTINCT FROM esperado_def
-  OR pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(prefuente,'UTF8')),'hex') IS DISTINCT FROM esperado_fuente
-  OR propietario<>'vec_autorizacion_atestada_v3_propietario'::regrole OR NOT definidora
+  RAISE EXCEPTION 'AD166: PARO clave=src_postAD165 actual=% esperado=%',actual_sha,esperado_fuente USING ERRCODE='55000'; END IF;
+ IF propietario<>'vec_autorizacion_atestada_v3_propietario'::regrole OR NOT definidora
   OR config IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s']
   OR NOT EXISTS(SELECT 1 FROM pg_catalog.aclexplode(COALESCE(acl,pg_catalog.acldefault('f',propietario))) a
     WHERE a.grantee=propietario AND a.grantor=propietario AND a.privilege_type='EXECUTE' AND NOT a.is_grantable)
   OR EXISTS(SELECT 1 FROM pg_catalog.aclexplode(COALESCE(acl,pg_catalog.acldefault('f',propietario))) a
     WHERE a.grantee<>propietario OR a.grantor<>propietario OR a.privilege_type<>'EXECUTE' OR a.is_grantable)
   OR pg_catalog.length(original)-pg_catalog.length(pg_catalog.replace(original,marca,''))<>pg_catalog.length(marca)
-  OR pg_catalog.length(original)-pg_catalog.length(pg_catalog.replace(original,excl,''))<>pg_catalog.length(excl)
+  OR pg_catalog.length(original)-pg_catalog.length(pg_catalog.replace(original,excl_nuevo,''))<>pg_catalog.length(excl_nuevo)
   OR pg_catalog.length(original)-pg_catalog.length(pg_catalog.replace(original,runtime_marca166,''))<>pg_catalog.length(runtime_marca166)
   OR pg_catalog.strpos(original,'''publicacion_cargo_competencial''')<>0
  THEN RAISE EXCEPTION 'AD166: PARO clave=preimagen_nucleo actual=incompatible esperado=AD165_exacto_y_ACL_privada' USING ERRCODE='55000'; END IF;
@@ -137,19 +102,16 @@ END $nucleo$;
 
 LOCK TABLE vec_autorizacion_atestada_v3.clave_capacidad_version IN ACCESS EXCLUSIVE MODE;
 DO $audiencias$
-DECLARE d text;nuevo text;esperado text:='531bfedaeaba478d66551c518922339682c8e1ab3a4167737f59d167f34dc831';
+DECLARE d text;nuevo text;esperado text:='89fb71c30c516e0da102b81154716e36d17a4bcad7fe261076f70f6ed758ff37';
  audiencia text:='vec_personal.cargo_competencial.publicar.v1';
- anterior text:='vec_contexto_actor.certificado_nominal.publicar.v1';preimagen text;actual_sha text;
+ actual_sha text;
 BEGIN
  SELECT pg_catalog.regexp_replace(pg_catalog.pg_get_constraintdef(c.oid,false),'\s+',' ','g') INTO STRICT d
  FROM pg_catalog.pg_constraint c WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
   AND c.conname='clave_capacidad_version_audiencia_consumo_check' AND c.contype='c' AND c.convalidated;
- IF pg_catalog.length(d)-pg_catalog.length(pg_catalog.replace(d,', '||pg_catalog.quote_literal(anterior)||'::text',''))<>pg_catalog.length(', '||pg_catalog.quote_literal(anterior)||'::text')
- THEN RAISE EXCEPTION 'AD166: PARO clave=audiencia_AD165 actual=no_unica esperado=una' USING ERRCODE='55000'; END IF;
- preimagen:=pg_catalog.replace(d,', '||pg_catalog.quote_literal(anterior)||'::text','');
- actual_sha:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(preimagen,'UTF8')),'hex');
+ actual_sha:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(d,'UTF8')),'hex');
  IF actual_sha IS DISTINCT FROM esperado THEN
-  RAISE EXCEPTION 'AD166: PARO clave=CHECK_preAD165 actual=% esperado=%',actual_sha,esperado USING ERRCODE='55000'; END IF;
+  RAISE EXCEPTION 'AD166: PARO clave=CHECK_postAD165 actual=% esperado=%',actual_sha,esperado USING ERRCODE='55000'; END IF;
  IF pg_catalog.strpos(d,'CHECK ((audiencia_consumo = ANY (ARRAY[')<>1 OR pg_catalog.right(d,4)<>'])))'
   OR pg_catalog.strpos(d,pg_catalog.quote_literal(audiencia))<>0
  THEN RAISE EXCEPTION 'AD166: PARO clave=CHECK_audiencia actual=incompatible esperado=AD165_sin_cargo' USING ERRCODE='55000'; END IF;
