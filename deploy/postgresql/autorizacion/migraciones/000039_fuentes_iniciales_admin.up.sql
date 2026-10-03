@@ -226,6 +226,10 @@ BEGIN
   is_recibo:=vec_identidad_sesiones_v1.cotejar_recibo_fuentes_iniciales_admin_v1(p->>'operacion_ref',sha,cfg.aprobacion_ref);
   IF is_recibo IS DISTINCT FROM previo.recibo->'is'
   THEN RAISE EXCEPTION 'AUT39: PARO clave=recibo_IS actual=divergente esperado=original_propietario' USING ERRCODE='55000'; END IF;
+  -- Una espera puede agotar la ventana aunque el recibo histórico exista.
+  PERFORM vec_autorizacion.exigir_operador_fuentes_iniciales_admin_v1();
+  IF pg_catalog.clock_timestamp()>=(p->>'caduca_en')::timestamptz
+  THEN RAISE EXCEPTION 'AUT39: PARO clave=vigencia_final actual=caducada esperado=plan_vigente' USING ERRCODE='42501'; END IF;
   RETURN pg_catalog.jsonb_build_object('recibo',previo.recibo,'replay',true);
  END IF;
  pre:=vec_autorizacion.preimagen_orquestada_fuentes_admin_v1(p,cfg.material_hmac_canonico);
