@@ -38,8 +38,14 @@ func (a *Autoridad) ResolverRolAdministrable(ctx context.Context, ref string) (p
 	if decodificar(b, &x) != nil || x.UnidadRequerida == nil {
 		return cero, ports.ErrAutoridadAdministracionPerfilesNoDisponible
 	}
+	if x.Clase == domain.ClaseControlPerfilAdministrador && x.CategoriaAdmin == nil {
+		return cero, ports.ErrAutoridadAdministracionPerfilesNoDisponible
+	}
 	rol := ports.RolAdministrable{VersionRef: x.VersionRef, Clase: x.Clase, HuellaSHA256: x.HuellaSHA256,
 		VigenteDesde: x.VigenteDesde, VigenteHasta: x.VigenteHasta, UnidadRequerida: *x.UnidadRequerida}
+	if x.CategoriaAdmin != nil {
+		rol.CategoriaAdmin = *x.CategoriaAdmin
+	}
 	if rol.VersionRef != ref || rol.ValidarEn(a.reloj.Ahora()) != nil {
 		return cero, domain.ErrActoAdministracionPerfilesInvalido
 	}
@@ -56,19 +62,14 @@ func (a *Autoridad) AplicarActoOrdinario(ctx context.Context, s domain.Solicitud
 	if err != nil {
 		return recibo, err
 	}
-	err = a.ejecutar(ctx, s.Actor, s.InstantaneaAutorizacion, e, aplicarSQL, func(b []byte) error {
+	err = a.ejecutar(ctx, s.Actor, s.Evidencia, s.InstantaneaAutorizacion, e, aplicarSQL, func(b []byte) error {
 		var x reciboJSON
 		if decodificar(b, &x) != nil {
 			return ports.ErrAutoridadAdministracionPerfilesNoDisponible
 		}
 		recibo = x.dominio()
-		if recibo.Validar() != nil || recibo.OperacionRef != s.OperacionRef || recibo.ObjetivoPersonaRef != s.Objetivo.PersonaRef ||
-			recibo.PerfilRef != s.Objetivo.PerfilRef || recibo.VinculoRef != s.Objetivo.VinculoRef || recibo.UnidadRef != s.Objetivo.UnidadRef || recibo.ReferenciaActo != s.ReferenciaActo || recibo.PropuestaRef != "" {
-			return domain.ErrActoAdministracionPerfilesInvalido
-		}
-		if s.Operacion == domain.OperacionOtorgarPerfil && (recibo.EstadoPosterior != domain.EstadoVinculoContextoActorActivo || recibo.VersionPosterior != 1) ||
-			s.Operacion == domain.OperacionRevocarPerfil && (recibo.EstadoPosterior != domain.EstadoVinculoContextoActorRevocado || recibo.VersionPosterior <= s.Objetivo.VinculoVersion) {
-			return domain.ErrActoAdministracionPerfilesInvalido
+		if recibo.ValidarPara(s) != nil {
+			return ports.ErrAutoridadAdministracionPerfilesNoDisponible
 		}
 		return nil
 	})
@@ -88,7 +89,7 @@ func (a *Autoridad) ProponerActoSensible(ctx context.Context, s domain.Solicitud
 	if err != nil {
 		return resultado, err
 	}
-	err = a.ejecutar(ctx, s.Actor, s.InstantaneaAutorizacion, e, proponerSQL, func(b []byte) error {
+	err = a.ejecutar(ctx, s.Actor, s.Evidencia, s.InstantaneaAutorizacion, e, proponerSQL, func(b []byte) error {
 		var x propuestaJSON
 		if decodificar(b, &x) != nil {
 			return ports.ErrAutoridadAdministracionPerfilesNoDisponible
@@ -112,28 +113,31 @@ func (a *Autoridad) CerrarPropuestaSensible(ctx context.Context, s domain.Solici
 	if err := a.disponible(ctx); err != nil {
 		return resultado, err
 	}
-	if s.Validar() != nil {
+	if s.Validar() != nil || s.Evidencia.ValidarEn(s.Aprobador, a.reloj.Ahora()) != nil {
 		return resultado, domain.ErrControlAdministracionPerfilesInvalido
+	}
+	if err := a.validarAdministrador(ctx, s.InstantaneaAutorizacion); err != nil {
+		return resultado, err
 	}
 	e, err := materialCierre(s)
 	if err != nil {
 		return resultado, err
 	}
-	err = a.ejecutar(ctx, s.Aprobador, s.InstantaneaAutorizacion, e, cerrarSQL, func(b []byte) error {
+	err = a.ejecutar(ctx, s.Aprobador, s.Evidencia, s.InstantaneaAutorizacion, e, cerrarSQL, func(b []byte) error {
 		var x cierreResultadoJSON
 		if decodificar(b, &x) != nil {
 			return ports.ErrAutoridadAdministracionPerfilesNoDisponible
 		}
 		resultado = ports.CierrePropuestaAdministracionPerfiles{OperacionRef: x.OperacionRef, PropuestaRef: x.PropuestaRef,
-			Decision: x.Decision, HuellaCierreSHA256: x.HuellaCierreSHA256, ConfirmadoEn: x.ConfirmadoEn}
+			PropuestaHuellaSHA256: x.PropuestaHuellaSHA256, Decision: x.Decision, HuellaCierreSHA256: x.HuellaCierreSHA256, ConfirmadoEn: x.ConfirmadoEn}
 		if x.Recibo != nil {
 			r := x.Recibo.dominio()
 			resultado.Recibo = &r
 		}
-		if !instantePersistible(resultado.ConfirmadoEn) {
-			return domain.ErrControlAdministracionPerfilesInvalido
+		if !instantePersistible(resultado.ConfirmadoEn) || resultado.ValidarPara(s) != nil {
+			return ports.ErrAutoridadAdministracionPerfilesNoDisponible
 		}
-		return resultado.ValidarPara(s)
+		return nil
 	})
 	if err != nil {
 		return ports.CierrePropuestaAdministracionPerfiles{}, err
@@ -146,24 +150,59 @@ func (a *Autoridad) validarActo(ctx context.Context, s domain.SolicitudActoAdmin
 	if err := a.disponible(ctx); err != nil {
 		return cero, err
 	}
-	if s.Validar() != nil || s.Clase.RequiereDobleControl() != sensible {
+	if s.Validar() != nil || s.Clase.RequiereDobleControl() != sensible ||
+		s.Evidencia.ValidarEn(s.Actor, a.reloj.Ahora()) != nil {
 		return cero, domain.ErrActoAdministracionPerfilesInvalido
+	}
+	if err := a.validarAdministrador(ctx, s.InstantaneaAutorizacion); err != nil {
+		return cero, err
 	}
 	rol, err := a.ResolverRolAdministrable(ctx, s.RolVersionRef)
 	if err != nil {
 		return cero, err
 	}
-	if rol.Clase != s.Clase || rol.UnidadRequerida && s.Objetivo.UnidadRef == "" {
+	if rol.Clase != s.Clase || rol.UnidadRequerida && s.Objetivo.UnidadRef == "" ||
+		(s.Operacion == domain.OperacionOtorgarPerfil &&
+			(s.Objetivo.VigenteDesde.Before(rol.VigenteDesde) || s.Objetivo.VigenteHasta.After(rol.VigenteHasta))) {
 		return cero, domain.ErrActoAdministracionPerfilesInvalido
 	}
 	return rol, nil
 }
 
-func (a *Autoridad) ejecutar(ctx context.Context, actor domain.ContextoActor, instantanea domain.InstantaneaAutorizacion, e Efecto, consulta string, validar func([]byte) error) error {
+func (a *Autoridad) validarAdministrador(ctx context.Context, instantanea domain.InstantaneaAutorizacion) error {
+	if instantanea.Validar() != nil || instantanea.VersionRol.RolID != "administracion_perfiles" ||
+		!instantanea.AsignacionPerfil.VigenteEn(a.reloj.Ahora()) ||
+		instantanea.ControlVigenciaVersionRol.Estado != domain.EstadoControlVigenciaVersionRolHabilitada {
+		return domain.ErrControlAdministracionPerfilesInvalido
+	}
+	rol, err := a.ResolverRolAdministrable(ctx, instantanea.VersionRol.Referencia())
+	if err != nil {
+		return err
+	}
+	huella, err := instantanea.VersionRol.HuellaSHA256()
+	if err != nil || rol.HuellaSHA256 != huella || rol.Clase != domain.ClaseControlPerfilAdministrador || rol.CategoriaAdmin != "aplicacion" {
+		return domain.ErrControlAdministracionPerfilesInvalido
+	}
+	return nil
+}
+
+// AplicarLoteOrdinario conserva cerrado el efecto hasta disponer de una fachada
+// central de lote aprobada. Nunca transforma la orden en actos singulares.
+func (a *Autoridad) AplicarLoteOrdinario(ctx context.Context, _ domain.SolicitudLoteAdministracionPerfiles) (domain.ReciboLoteAdministracionPerfiles, error) {
+	if ctx != nil && ctx.Err() != nil {
+		return domain.ReciboLoteAdministracionPerfiles{}, ctx.Err()
+	}
+	return domain.ReciboLoteAdministracionPerfiles{}, ports.ErrAutoridadAdministracionPerfilesNoDisponible
+}
+
+func (a *Autoridad) ejecutar(ctx context.Context, actor domain.ContextoActor, evidencia domain.EvidenciaSesionAdministracionPerfiles, instantanea domain.InstantaneaAutorizacion, e Efecto, consulta string, validar func([]byte) error) error {
+	if evidencia.ValidarEn(actor, a.reloj.Ahora()) != nil || !domain.ReferenciaCorrelacionAutorizacionV2Valida(e.CorrelacionAccesoRef) {
+		return ports.ErrAutoridadAdministracionPerfilesNoDisponible
+	}
 	// El emisor recibe copia: no puede alterar el material ya ligado al efecto.
 	entrega := e
 	entrega.Material = append([]byte(nil), e.Material...)
-	m, err := a.emisor.EmitirAdministracionPerfiles(ctx, actor, instantanea, entrega)
+	m, err := a.emisor.EmitirAdministracionPerfiles(ctx, actor, evidencia, instantanea, entrega)
 	clear(entrega.Material)
 	if err != nil {
 		return traducir(ctx, err)

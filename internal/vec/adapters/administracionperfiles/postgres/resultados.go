@@ -6,6 +6,15 @@ import (
 )
 
 type reciboJSON struct {
+	CentroRef           string                            `json:"centro_ref"`
+	ActorPersonaRef     string                            `json:"actor_persona_ref"`
+	PerfilActivoRef     string                            `json:"perfil_activo_ref"`
+	AsignacionPerfilRef string                            `json:"asignacion_perfil_ref"`
+	CorrelacionRef      string                            `json:"correlacion_ref"`
+	RolVersionRef       string                            `json:"rol_version_ref"`
+	VigenteDesde        time.Time                         `json:"vigente_desde"`
+	VigenteHasta        time.Time                         `json:"vigente_hasta"`
+	Motivo              domain.ReferenciaEntradaCatalogo  `json:"motivo"`
 	OperacionRef        string                            `json:"operacion_ref"`
 	ActoRef             string                            `json:"acto_ref"`
 	ReciboRef           string                            `json:"recibo_ref"`
@@ -24,7 +33,10 @@ type reciboJSON struct {
 }
 
 func (x reciboJSON) dominio() domain.ReciboAdministracionPerfiles {
-	return domain.ReciboAdministracionPerfiles{OperacionRef: x.OperacionRef, ActoRef: x.ActoRef, ReciboRef: x.ReciboRef,
+	return domain.ReciboAdministracionPerfiles{CentroRef: x.CentroRef, ActorPersonaRef: x.ActorPersonaRef,
+		PerfilActivoRef: x.PerfilActivoRef, AsignacionPerfilRef: x.AsignacionPerfilRef, CorrelacionRef: x.CorrelacionRef,
+		RolVersionRef: x.RolVersionRef, VigenteDesde: x.VigenteDesde, VigenteHasta: x.VigenteHasta, Motivo: x.Motivo,
+		OperacionRef: x.OperacionRef, ActoRef: x.ActoRef, ReciboRef: x.ReciboRef,
 		PropuestaRef: x.PropuestaRef, AuditoriaRef: x.AuditoriaRef, ObjetivoPersonaRef: x.ObjetivoPersonaRef,
 		PerfilRef: x.PerfilRef, VinculoRef: x.VinculoRef, EstadoPosterior: x.EstadoPosterior, VersionPosterior: x.VersionPosterior,
 		HuellaAntesSHA256: x.HuellaAntesSHA256, HuellaDespuesSHA256: x.HuellaDespuesSHA256, ConfirmadoEn: x.ConfirmadoEn,
@@ -41,10 +53,11 @@ type propuestaJSON struct {
 }
 
 type cierreResultadoJSON struct {
-	OperacionRef       string                                         `json:"operacion_ref"`
-	PropuestaRef       string                                         `json:"propuesta_ref"`
-	Decision           domain.DecisionPropuestaAdministracionPerfiles `json:"decision"`
-	HuellaCierreSHA256 string                                         `json:"huella_cierre_sha256"`
-	ConfirmadoEn       time.Time                                      `json:"confirmado_en"`
-	Recibo             *reciboJSON                                    `json:"recibo"`
+	PropuestaHuellaSHA256 string                                         `json:"propuesta_huella_sha256"`
+	OperacionRef          string                                         `json:"operacion_ref"`
+	PropuestaRef          string                                         `json:"propuesta_ref"`
+	Decision              domain.DecisionPropuestaAdministracionPerfiles `json:"decision"`
+	HuellaCierreSHA256    string                                         `json:"huella_cierre_sha256"`
+	ConfirmadoEn          time.Time                                      `json:"confirmado_en"`
+	Recibo                *reciboJSON                                    `json:"recibo"`
 }

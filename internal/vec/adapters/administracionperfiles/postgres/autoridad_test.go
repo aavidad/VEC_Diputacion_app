@@ -16,6 +16,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"vec-diputacion-granada/internal/vec/domain"
 	"vec-diputacion-granada/internal/vec/ports"
+	"vec-diputacion-granada/internal/vec/pruebas"
 )
 
 type relojFijo time.Time
@@ -72,7 +73,7 @@ type emisorFalso struct {
 	err      error
 }
 
-func (e *emisorFalso) EmitirAdministracionPerfiles(context.Context, domain.ContextoActor, domain.InstantaneaAutorizacion, Efecto) (ports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
+func (e *emisorFalso) EmitirAdministracionPerfiles(context.Context, domain.ContextoActor, domain.EvidenciaSesionAdministracionPerfiles, domain.InstantaneaAutorizacion, Efecto) (ports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
 	return e.material, e.err
 }
 
@@ -89,7 +90,7 @@ func materialSintetico(t *testing.T, e Efecto, ahora time.Time) ports.Exportacio
 	if err != nil {
 		t.Fatal(err)
 	}
-	m, err := ports.NuevaExportacionMaterialConsumoAutorizacionAtestadaV3(make([]byte, 512), r, []byte("decision"), []byte("motivo"), []byte("contexto"), 1, 2, []byte("payload"), []byte("sobre"), []byte("evidencia"), raiz)
+	m, err := ports.NuevaExportacionMaterialConsumoAutorizacionAtestadaV3(make([]byte, 512), r, []byte("decision"), []byte("motivo"), []byte("contexto"), 3, 4, []byte("payload"), []byte("sobre"), []byte("evidencia"), raiz)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -98,10 +99,8 @@ func materialSintetico(t *testing.T, e Efecto, ahora time.Time) ports.Exportacio
 
 func TestTransaccionValidaSalidaAntesDeCommit(t *testing.T) {
 	ahora := time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC)
-	e := Efecto{Accion: "administracion.perfiles.revocar", Audiencia: "vec_autorizacion.administracion_perfiles.ordinario.v1", Referencia: "acto_admin:" + strings.Repeat("a", 32), Material: []byte(`{"esquema":"ejemplo"}`)}
-	actor := domain.ContextoActor{}
-	actor.Instantanea.PersonaVersion = 1
-	actor.Instantanea.PerfilVersion = 2
+	e := Efecto{Accion: "administracion.perfiles.revocar", Audiencia: "vec_autorizacion.administracion_perfiles.ordinario.v1", Referencia: "acto_admin:" + strings.Repeat("a", 32), Material: []byte(`{"esquema":"ejemplo"}`), CorrelacionAccesoRef: "correlacion_" + strings.Repeat("a", 32)}
+	actor, evidencia := actorYEvidenciaPrueba(t, ahora)
 	for _, caso := range []struct {
 		nombre      string
 		fila        pgx.Row
@@ -118,7 +117,7 @@ func TestTransaccionValidaSalidaAntesDeCommit(t *testing.T) {
 			tx := &txFalsa{fila: caso.fila, falloCommit: caso.commitError}
 			pool := &poolFalso{tx: tx}
 			a := &Autoridad{pool: pool, emisor: &emisorFalso{material: materialSintetico(t, e, ahora)}, reloj: relojFijo(ahora)}
-			err := a.ejecutar(context.Background(), actor, domain.InstantaneaAutorizacion{}, e, aplicarSQL, func([]byte) error { return caso.validacion })
+			err := a.ejecutar(context.Background(), actor, evidencia, domain.InstantaneaAutorizacion{}, e, aplicarSQL, func([]byte) error { return caso.validacion })
 			if (err == nil) != (caso.nombre == "confirmado") {
 				t.Fatalf("resultado=%v", err)
 			}
@@ -134,10 +133,8 @@ func TestTransaccionValidaSalidaAntesDeCommit(t *testing.T) {
 
 func TestMaterialAjenoNoAbreTransaccion(t *testing.T) {
 	ahora := time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC)
-	e := Efecto{Accion: "administracion.perfiles.revocar", Audiencia: "vec_autorizacion.administracion_perfiles.ordinario.v1", Referencia: "acto_admin:" + strings.Repeat("a", 32), Material: []byte(`{}`)}
-	actor := domain.ContextoActor{}
-	actor.Instantanea.PersonaVersion = 1
-	actor.Instantanea.PerfilVersion = 2
+	e := Efecto{Accion: "administracion.perfiles.revocar", Audiencia: "vec_autorizacion.administracion_perfiles.ordinario.v1", Referencia: "acto_admin:" + strings.Repeat("a", 32), Material: []byte(`{}`), CorrelacionAccesoRef: "correlacion_" + strings.Repeat("a", 32)}
+	actor, evidencia := actorYEvidenciaPrueba(t, ahora)
 	for _, campo := range []string{"audiencia", "referencia", "accion", "material"} {
 		t.Run(campo, func(t *testing.T) {
 			ajeno := e
@@ -153,11 +150,21 @@ func TestMaterialAjenoNoAbreTransaccion(t *testing.T) {
 			}
 			pool := &poolFalso{}
 			a := &Autoridad{pool: pool, emisor: &emisorFalso{material: materialSintetico(t, ajeno, ahora)}, reloj: relojFijo(ahora)}
-			if a.ejecutar(context.Background(), actor, domain.InstantaneaAutorizacion{}, e, aplicarSQL, func([]byte) error { return nil }) == nil || pool.comienzos != 0 {
+			if a.ejecutar(context.Background(), actor, evidencia, domain.InstantaneaAutorizacion{}, e, aplicarSQL, func([]byte) error { return nil }) == nil || pool.comienzos != 0 {
 				t.Fatal("material ajeno alcanzo SQL")
 			}
 		})
 	}
+}
+
+func actorYEvidenciaPrueba(t *testing.T, ahora time.Time) (domain.ContextoActor, domain.EvidenciaSesionAdministracionPerfiles) {
+	t.Helper()
+	resultado, vinculo, err := pruebas.NuevoContextoRegistradoYVinculoV2(ahora,
+		"per_"+strings.Repeat("a", 22), "prf_"+strings.Repeat("b", 22), domain.AuthMethodCertificate, domain.AuthAssuranceHigh)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return resultado.Contexto, domain.EvidenciaSesionAdministracionPerfiles{ResultadoContexto: resultado, Vinculo: vinculo}
 }
 
 func TestPoolPrivilegiadoYProveedorNuloSeRechazan(t *testing.T) {

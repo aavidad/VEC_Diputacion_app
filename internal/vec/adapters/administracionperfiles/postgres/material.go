@@ -11,6 +11,7 @@ import (
 )
 
 type objetivoJSON struct {
+	CentroRef               string    `json:"centro_ref,omitempty"`
 	CuentaRef               string    `json:"cuenta_ref"`
 	CuentaVersion           uint64    `json:"cuenta_version"`
 	PersonaRef              string    `json:"persona_ref"`
@@ -25,6 +26,7 @@ type objetivoJSON struct {
 	ProcedenciaVersion      uint64    `json:"procedencia_version"`
 	ProcedenciaHuellaSHA256 string    `json:"procedencia_huella_sha256"`
 	VigenteHasta            time.Time `json:"vigente_hasta"`
+	VigenteDesde            time.Time `json:"vigente_desde"`
 }
 
 type actoJSON struct {
@@ -35,11 +37,11 @@ type actoJSON struct {
 	RolHuellaSHA256 string                                 `json:"rol_huella_sha256"`
 	ActorPersonaRef string                                 `json:"actor_persona_ref"`
 	ActorPerfilRef  string                                 `json:"actor_perfil_ref"`
+	AsignacionRef   string                                 `json:"asignacion_ref"`
 	Objetivo        objetivoJSON                           `json:"objetivo"`
 	UnidadRef       string                                 `json:"unidad_ref,omitempty"`
 	ReferenciaActo  string                                 `json:"referencia_acto,omitempty"`
 	Motivo          domain.ReferenciaEntradaCatalogo       `json:"motivo"`
-	CorrelacionRef  string                                 `json:"correlacion_ref"`
 }
 
 type cierreJSON struct {
@@ -50,20 +52,23 @@ type cierreJSON struct {
 	Decision              domain.DecisionPropuestaAdministracionPerfiles `json:"decision"`
 	ActorPersonaRef       string                                         `json:"actor_persona_ref"`
 	ActorPerfilRef        string                                         `json:"actor_perfil_ref"`
+	AsignacionRef         string                                         `json:"asignacion_ref"`
 	Motivo                domain.ReferenciaEntradaCatalogo               `json:"motivo"`
-	CorrelacionRef        string                                         `json:"correlacion_ref"`
 }
 
 func materialActo(s domain.SolicitudActoAdministracionPerfiles, rol ports.RolAdministrable, propuesta bool) (Efecto, error) {
 	p := s.Objetivo
 	x := actoJSON{
-		Esquema: "administracion_perfiles_acto_v1", OperacionRef: s.OperacionRef,
+		Esquema: "administracion_perfiles_acto_v2", OperacionRef: s.OperacionRef,
 		Operacion: s.Operacion, RolVersionRef: rol.VersionRef, RolHuellaSHA256: rol.HuellaSHA256,
 		ActorPersonaRef: s.Actor.PersonaRef, ActorPerfilRef: s.Actor.PerfilActivoRef,
-		Objetivo: objetivoJSON{p.CuentaRef, p.CuentaVersion, p.PersonaRef, p.PersonaVersion,
-			p.PerfilRef, p.PerfilVersion, p.VinculoRef, p.VinculoVersion, p.HuellaSHA256,
-			p.RevisionContinuidad, p.ProcedenciaRef, p.ProcedenciaVersion, p.ProcedenciaHuellaSHA256, p.VigenteHasta},
-		UnidadRef: p.UnidadRef, ReferenciaActo: s.ReferenciaActo, Motivo: s.Motivo, CorrelacionRef: s.CorrelacionRef,
+		AsignacionRef: s.InstantaneaAutorizacion.AsignacionPerfil.Referencia(),
+		Objetivo: objetivoJSON{CentroRef: p.CentroRef, CuentaRef: p.CuentaRef, CuentaVersion: p.CuentaVersion,
+			PersonaRef: p.PersonaRef, PersonaVersion: p.PersonaVersion, PerfilRef: p.PerfilRef, PerfilVersion: p.PerfilVersion,
+			VinculoRef: p.VinculoRef, VinculoVersion: p.VinculoVersion, HuellaSHA256: p.HuellaSHA256,
+			RevisionContinuidad: p.RevisionContinuidad, ProcedenciaRef: p.ProcedenciaRef, ProcedenciaVersion: p.ProcedenciaVersion,
+			ProcedenciaHuellaSHA256: p.ProcedenciaHuellaSHA256, VigenteHasta: p.VigenteHasta, VigenteDesde: p.VigenteDesde},
+		UnidadRef: p.UnidadRef, ReferenciaActo: s.ReferenciaActo, Motivo: s.Motivo,
 	}
 	b, err := json.Marshal(x)
 	if err != nil {
@@ -73,14 +78,14 @@ func materialActo(s domain.SolicitudActoAdministracionPerfiles, rol ports.RolAdm
 	if propuesta {
 		accion, audiencia = "administracion.perfiles.proponer", "vec_autorizacion.administracion_perfiles.propuesta.v1"
 	}
-	return Efecto{Accion: accion, Audiencia: audiencia, Referencia: s.OperacionRef, Material: b}, nil
+	return Efecto{Accion: accion, Audiencia: audiencia, Referencia: s.OperacionRef, Material: b, CorrelacionAccesoRef: s.CorrelacionRef}, nil
 }
 
 func materialCierre(s domain.SolicitudCierrePropuestaAdministracionPerfiles) (Efecto, error) {
-	x := cierreJSON{Esquema: "administracion_perfiles_cierre_v1", OperacionRef: s.OperacionRef,
+	x := cierreJSON{Esquema: "administracion_perfiles_cierre_v2", OperacionRef: s.OperacionRef,
 		PropuestaRef: s.PropuestaRef, PropuestaHuellaSHA256: s.PropuestaHuellaSHA256, Decision: s.Decision,
 		ActorPersonaRef: s.Aprobador.PersonaRef, ActorPerfilRef: s.Aprobador.PerfilActivoRef,
-		Motivo: s.Motivo, CorrelacionRef: s.CorrelacionRef}
+		AsignacionRef: s.InstantaneaAutorizacion.AsignacionPerfil.Referencia(), Motivo: s.Motivo}
 	b, err := json.Marshal(x)
 	if err != nil {
 		return Efecto{}, ports.ErrAutoridadAdministracionPerfilesNoDisponible
@@ -89,7 +94,7 @@ func materialCierre(s domain.SolicitudCierrePropuestaAdministracionPerfiles) (Ef
 	if s.Decision == domain.DecisionRechazarPropuestaPerfil {
 		accion = "administracion.perfiles.rechazar"
 	}
-	return Efecto{Accion: accion, Audiencia: "vec_autorizacion.administracion_perfiles.cierre.v1", Referencia: s.OperacionRef, Material: b}, nil
+	return Efecto{Accion: accion, Audiencia: "vec_autorizacion.administracion_perfiles.cierre.v1", Referencia: s.OperacionRef, Material: b, CorrelacionAccesoRef: s.CorrelacionRef}, nil
 }
 
 func decodificar(b []byte, destino any) error {

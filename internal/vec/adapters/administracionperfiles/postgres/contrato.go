@@ -19,12 +19,19 @@ import (
 type Efecto struct {
 	Accion, Audiencia, Referencia string
 	Material                      []byte
+	// CorrelacionAccesoRef corresponde al acceso actual, también en replay.
+	// No forma parte del material semántico ni reescribe el recibo histórico.
+	CorrelacionAccesoRef string
 }
 
 // Emisor proporciona material V3 nominal desde el contexto acreditado. La
 // composición reutiliza el emisor central; HTTP nunca puede suministrarlo.
+// Consume el par V2 emitido por las autoridades de sesión/contexto y selecciona
+// sus campos nominales para PDP V3; nunca serializa un contexto V2 como V3.
+// Cada invocación, incluido replay, revalida y audita el acceso actual; el
+// consumo definitivo ocurre en la fachada SQL junto al efecto y su recibo.
 type Emisor interface {
-	EmitirAdministracionPerfiles(context.Context, domain.ContextoActor, domain.InstantaneaAutorizacion, Efecto) (ports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error)
+	EmitirAdministracionPerfiles(context.Context, domain.ContextoActor, domain.EvidenciaSesionAdministracionPerfiles, domain.InstantaneaAutorizacion, Efecto) (ports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error)
 }
 
 type conexion interface {
@@ -40,6 +47,7 @@ type Autoridad struct {
 
 var _ ports.CatalogoRolesAdministrables = (*Autoridad)(nil)
 var _ ports.AutoridadActosAdministracionPerfiles = (*Autoridad)(nil)
+var _ ports.AutoridadLotesAdministracionPerfiles = (*Autoridad)(nil)
 
 // Nueva recibe únicamente un pool con LOGIN runtime acotado a AUT24 y el
 // emisor central. Las funciones ausentes o no autorizadas fallan cerradas.
@@ -87,6 +95,10 @@ const acreditarSQL = `SELECT current_user = session_user AND r.rolcanlogin AND r
  AND pg_catalog.to_regprocedure('vec_autorizacion.aplicar_acto_ordinario_admin_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
  AND pg_catalog.to_regprocedure('vec_autorizacion.proponer_acto_admin_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
  AND pg_catalog.to_regprocedure('vec_autorizacion.cerrar_propuesta_admin_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
+ AND pg_catalog.has_function_privilege(current_user,pg_catalog.to_regprocedure('vec_autorizacion.resolver_rol_administrable_v1(text)'),'EXECUTE')
+ AND pg_catalog.has_function_privilege(current_user,pg_catalog.to_regprocedure('vec_autorizacion.aplicar_acto_ordinario_admin_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'),'EXECUTE')
+ AND pg_catalog.has_function_privilege(current_user,pg_catalog.to_regprocedure('vec_autorizacion.proponer_acto_admin_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'),'EXECUTE')
+ AND pg_catalog.has_function_privilege(current_user,pg_catalog.to_regprocedure('vec_autorizacion.cerrar_propuesta_admin_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'),'EXECUTE')
  AND EXISTS (SELECT 1 FROM pg_catalog.pg_auth_members m JOIN pg_catalog.pg_roles g ON g.oid=m.roleid
    WHERE m.member=r.oid AND g.rolname='vec_admin_perfiles_ejecutor'
    AND m.inherit_option AND NOT m.set_option AND NOT m.admin_option
@@ -126,6 +138,7 @@ const cerrarSQL = `SELECT vec_autorizacion.cerrar_propuesta_admin_v1` + argument
 const catalogoSQL = `SELECT vec_autorizacion.resolver_rol_administrable_v1($1::text)`
 
 type rolJSON struct {
+	CategoriaAdmin  *string                                   `json:"categoria_admin"`
 	VersionRef      string                                    `json:"version_ref"`
 	Clase           domain.ClaseControlAdministracionPerfiles `json:"clase"`
 	HuellaSHA256    string                                    `json:"huella_sha256"`
