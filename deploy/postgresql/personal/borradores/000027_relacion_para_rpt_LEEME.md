@@ -65,12 +65,18 @@ generaciones conserva la fuente y detecta una instantánea obsoleta con
 `40001`; cualquier fallo revierte los efectos de la lectura.
 
 El LOGIN lector tiene un solo grupo directo, `vec_personal_ejecutor`, con
-`INHERIT TRUE`, `SET FALSE` y `ADMIN FALSE`. Los intentos usan otro LOGIN/pool
-y su único grupo, `vec_personal_registrador_intento_relacion_rpt`. Ese grupo
-sólo ejecuta el registrador; no lee historia, control, recibos ni intentos.
-El fallo se registra después del rollback, con correlación y motivo cerrados.
-Un actor sin identidad actual acreditada queda nulo. Cada lectura exige
-preflight del registrador y un fallo mantiene cerrado el cliente.
+`INHERIT TRUE`, `SET FALSE` y `ADMIN FALSE`. El otro LOGIN/pool usa el grupo
+común `vec_autorizacion_atestada_v3_registrador_intentos`, con proceso y canal
+configurados por el servidor. No recibe acceso a la historia ni a los recibos.
+Personal27 no crea una tabla, función o rol propios de intentos.
+
+El lector usa `RegistradorIntentosAuditoria` de #502 y su preflight real. El
+fallo se registra después del rollback, con el contexto y vínculo originales
+acreditados, actor, perfil y correlación. CA26 e IS13 cotejan la historia
+original: una revocación posterior impide la lectura, pero no borra la
+identidad del intento anterior. Sin evidencia original no se inventa actor.
+AD169, CA26 e IS13 son requisitos del runtime completo; AD154 no los llama
+ni los incorpora a sus huellas del núcleo.
 
 ## Comprobación y límites
 
@@ -80,7 +86,11 @@ exacto y mantiene límites del entorno y módulos locales sin descargas. Usa
 COSE EdDSA y HMAC reales con fuentes, identidades y PDP sintéticos explícitos.
 No acredita IdP, fuente institucional ni política de RRHH.
 
-El ensayo conserva funciones previas, CHECK, ACL, metadatos, dependencias y
+El ensayo anterior, recogido a continuación, corresponde al destino propio
+de intentos ya retirado de esta candidata. Conserva su acta como historia;
+no acredita el registrador común en el nuevo hash.
+
+Ese ensayo conservó funciones previas, CHECK, ACL, metadatos, dependencias y
 filas anteriores de Personal17. La comparación inversa normaliza sólo el
 literal de audiencia RPT y exige una aparición. Incluye estados, objetivos
 y versiones, revocación, negativos de material/COSE, intentos segregados,
@@ -106,13 +116,13 @@ Las continuaciones del runner validan el journal y la preimagen conservados
 y avanzan sólo las fases pendientes, sin reinstalar SQL ni repetir capacidades.
 
 Los DOWN están preparados y no se ejecutan durante el ensayo. Personal27
-rechaza retirada con recibos, intentos o LOGIN registradores provisionados;
-AD154 la rechaza con claves de esa audiencia o dependencias Personal27.
+rechaza retirada con recibos y conserva siempre la auditoría y los roles
+comunes. AD154 rechaza retirada con claves de esa audiencia o dependencias Personal27.
 No borrar historia ni usar DOWN sobre una instalación conservada.
 
-El SQL recibió dos revisiones estáticas independientes sobre
-`e2a626e91fc748c5dd00be992e42f4a10053a225` y sus cuerpos permanecen idénticos
-al ensayo final. La orden posterior de registros técnicos exige completar
+La versión anterior de SQL recibió dos revisiones estáticas independientes sobre
+`e2a626e91fc748c5dd00be992e42f4a10053a225`. El cambio de destino de intentos requiere
+un ensayo y dos revisiones nuevas del hash final. La orden posterior de registros técnicos exige completar
 la observabilidad común del lector Go y revisar el corte final antes de
 publicarlo. La provisión productiva y el montaje requieren emisor V3, contexto
 y material nominales admitidos: un flag no concede acceso. Esta pieza no acredita ocupación,

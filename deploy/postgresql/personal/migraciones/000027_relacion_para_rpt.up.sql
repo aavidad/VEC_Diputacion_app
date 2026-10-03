@@ -2,10 +2,10 @@
 -- Personal 000027: lectura nominal de relación laboral para RPT.
 -- Fuente Go del lector: 1871cab4e14eabe5394bba072b7a714dd9f25c86.
 -- Contrato de intentos y vigencia actual: 9f0ae4d688a830e9e1be36291957c45205e112fb.
--- Orden causal: AD3-154 nominal -> Personal27 -> provisión privada de dos
--- LOGIN/pools independientes -> ensayo PostgreSQL18 -> integración autorizada.
--- La reserva 27 comprende el control de generaciones, recibos, intentos y su
--- rol técnico propio. No modifica Personal13/17/19/22, B2, Cronos ni CT.
+-- Orden causal SQL: POST149 -> AD154 -> Personal27. El runtime de intentos
+-- requiere AD169/CA26/IS13 y su LOGIN/pool común, provisionado fuera de Git.
+-- La reserva 27 comprende el control de generaciones y los recibos.
+-- No crea destino ni rol de auditoría. Conserva Personal13/17/19/22 y B2.
 -- AD154 parte de la preimagen causal POST149 del clon principal PG18.4.
 -- Integrar e instalar sólo tras revisión y ensayo del hash final.
 -- No reaplicar sobre una instalación existente ni retirar historia conservada.
@@ -17,27 +17,6 @@ SET LOCAL lock_timeout='5s';
 SET LOCAL statement_timeout='30s';
 SELECT pg_advisory_xact_lock(hashtextextended('vec_personal:migracion:000027:relacion-rpt',0));
 
--- Bootstrap DBA del grupo nuevo. El LOGIN y su credencial se provisionan fuera
--- de Git. Su única membresía directa tendrá INHERIT TRUE, SET FALSE, ADMIN FALSE.
--- Este grupo ejecuta una sola función; no hereda ningún otro rol.
-DO $bootstrap$
-BEGIN
- IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname=current_user AND rolsuper)
- OR to_regnamespace('vec_personal') IS NULL
- OR EXISTS (SELECT 1 FROM pg_roles WHERE rolname='vec_personal_registrador_intento_relacion_rpt')
- OR to_regclass('vec_personal.control_generacion_relacion_rpt') IS NOT NULL
- OR to_regclass('vec_personal.recibo_relacion_para_rpt') IS NOT NULL
- OR to_regclass('vec_personal.denegacion_relacion_para_rpt') IS NOT NULL
- THEN RAISE EXCEPTION 'PARO clave=Personal27.bootstrap, actual=%/%/%, esperado=true/true/true',
-  EXISTS(SELECT 1 FROM pg_roles WHERE rolname=current_user AND rolsuper),
-  to_regnamespace('vec_personal') IS NOT NULL,
-  NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='vec_personal_registrador_intento_relacion_rpt')
-  USING ERRCODE='55000'; END IF;
- CREATE ROLE vec_personal_registrador_intento_relacion_rpt
-  NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE INHERIT NOREPLICATION NOBYPASSRLS;
- EXECUTE format('GRANT CONNECT ON DATABASE %I TO vec_personal_registrador_intento_relacion_rpt',current_database());
-END $bootstrap$;
-
 SET LOCAL ROLE vec_personal_propietario;
 DO $pre$
 DECLARE consumidor oid:=to_regprocedure('vec_autorizacion_atestada_v3.consumir_relacion_para_rpt_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
@@ -48,7 +27,8 @@ BEGIN
  OR to_regprocedure('vec_personal.rechazar_mutacion_registro_empleado_v1()') IS NULL
  OR to_regprocedure('vec_personal.validar_revision_registro_empleado_v1()') IS NULL
  OR to_regprocedure('vec_personal.consultar_relacion_para_rpt_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
- OR to_regprocedure('vec_personal.registrar_denegacion_relacion_para_rpt_v1(text,text,text,text)') IS NOT NULL
+ OR to_regclass('vec_personal.control_generacion_relacion_rpt') IS NOT NULL
+ OR to_regclass('vec_personal.recibo_relacion_para_rpt') IS NOT NULL
  OR to_regprocedure('vec_personal.avanzar_generacion_relacion_rpt_v1()') IS NOT NULL
  THEN RAISE EXCEPTION 'PARO clave=Personal27.preimagen, actual=%/%/%, esperado=true/true/true',
   current_user='vec_personal_propietario',consumidor IS NOT NULL,
@@ -61,7 +41,6 @@ BEGIN
    AND NOT rolcanlogin AND NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole
    AND NOT rolreplication AND NOT rolbypassrls)
  OR EXISTS (SELECT 1 FROM pg_auth_members WHERE member='vec_personal_ejecutor'::regrole)
- OR EXISTS (SELECT 1 FROM pg_auth_members WHERE member='vec_personal_registrador_intento_relacion_rpt'::regrole)
  OR NOT has_schema_privilege('vec_personal_propietario','vec_autorizacion_atestada_v3','USAGE')
  OR NOT has_function_privilege('vec_personal_propietario',consumidor,'EXECUTE')
  OR (SELECT proowner FROM pg_proc WHERE oid=consumidor) IS DISTINCT FROM 'vec_autorizacion_atestada_v3_propietario'::regrole
@@ -97,7 +76,7 @@ BEGIN
     AND NOT a.attisdropped AND a.attnum>0 AND a.attname IN ('relacion_ref','revision','empleado_ref','organismo_ref',
       'estado','vigente_desde','vigente_hasta','conocido_desde','acto_ref','fuente_ref','fuente_version',
       'firma_oficial','eficacia_administrativa')),
-  NOT EXISTS(SELECT 1 FROM pg_auth_members WHERE member='vec_personal_registrador_intento_relacion_rpt'::regrole)
+  NOT EXISTS(SELECT 1 FROM pg_auth_members WHERE member='vec_personal_ejecutor'::regrole)
   USING ERRCODE='55000'; END IF;
 END $pre$;
 
@@ -117,8 +96,8 @@ CREATE TRIGGER no_borrar BEFORE DELETE ON vec_personal.control_generacion_relaci
  FOR EACH ROW EXECUTE FUNCTION vec_personal.rechazar_mutacion_registro_empleado_v1();
 CREATE TRIGGER no_truncar BEFORE TRUNCATE ON vec_personal.control_generacion_relacion_rpt
  FOR EACH STATEMENT EXECUTE FUNCTION vec_personal.rechazar_mutacion_registro_empleado_v1();
-REVOKE ALL ON TABLE vec_personal.control_generacion_relacion_rpt FROM PUBLIC,vec_personal_ejecutor,vec_personal_registrador_intento_relacion_rpt;
-REVOKE ALL ON TYPE vec_personal.control_generacion_relacion_rpt FROM PUBLIC,vec_personal_ejecutor,vec_personal_registrador_intento_relacion_rpt;
+REVOKE ALL ON TABLE vec_personal.control_generacion_relacion_rpt FROM PUBLIC,vec_personal_ejecutor;
+REVOKE ALL ON TYPE vec_personal.control_generacion_relacion_rpt FROM PUBLIC,vec_personal_ejecutor;
 
 -- Excluye INSERT antes del backfill y hasta publicar el AFTER INSERT. Se
 -- conservan todas las filas y los triggers originales de Personal17.
@@ -148,7 +127,7 @@ BEGIN
  END IF;
  RETURN NEW;
 END $f$;
-REVOKE ALL ON FUNCTION vec_personal.avanzar_generacion_relacion_rpt_v1() FROM PUBLIC,vec_personal_ejecutor,vec_personal_registrador_intento_relacion_rpt;
+REVOKE ALL ON FUNCTION vec_personal.avanzar_generacion_relacion_rpt_v1() FROM PUBLIC,vec_personal_ejecutor;
 CREATE TRIGGER relacion_rpt_generacion_insertada AFTER INSERT ON vec_personal.relacion_servicio_historia
  FOR EACH ROW EXECUTE FUNCTION vec_personal.avanzar_generacion_relacion_rpt_v1();
 
@@ -161,74 +140,18 @@ CREATE TABLE vec_personal.recibo_relacion_para_rpt (
  consumo_huella_sha256 text NOT NULL UNIQUE CHECK(consumo_huella_sha256 ~ '^[0-9a-f]{64}$'),
  consultada_en timestamptz(6) NOT NULL CHECK(isfinite(consultada_en))
 );
-CREATE TABLE vec_personal.denegacion_relacion_para_rpt (
- evento_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
- correlacion_ref text NOT NULL CHECK(correlacion_ref ~ '^correlacion_[0-9a-f]{32}$'),
- motivo text NOT NULL CHECK(motivo IN ('entrada_invalida','denegado','no_disponible')),
- actor_ref text CHECK(actor_ref IS NULL OR actor_ref ~ '^per_[A-Za-z0-9_-]{22,128}$'),
- relacion_ref text CHECK(relacion_ref IS NULL OR relacion_ref ~ '^rel_[A-Za-z0-9_-]{22,128}$'),
- registrada_en timestamptz(6) NOT NULL CHECK(isfinite(registrada_en))
-);
--- Recibo e intentos son de solo adición. El grupo registrador no puede leer
--- ninguno; únicamente el propietario posee los objetos y aplica sus políticas.
+-- El recibo es de solo adición y sólo el propietario accede a su tabla.
+-- Los intentos tras rollback pertenecen a la auditoría común AD169.
 CREATE TRIGGER historia_inmutable BEFORE UPDATE OR DELETE ON vec_personal.recibo_relacion_para_rpt
  FOR EACH ROW EXECUTE FUNCTION vec_personal.rechazar_mutacion_registro_empleado_v1();
 CREATE TRIGGER no_truncar BEFORE TRUNCATE ON vec_personal.recibo_relacion_para_rpt
  FOR EACH STATEMENT EXECUTE FUNCTION vec_personal.rechazar_mutacion_registro_empleado_v1();
-CREATE TRIGGER historia_inmutable BEFORE UPDATE OR DELETE ON vec_personal.denegacion_relacion_para_rpt
- FOR EACH ROW EXECUTE FUNCTION vec_personal.rechazar_mutacion_registro_empleado_v1();
-CREATE TRIGGER no_truncar BEFORE TRUNCATE ON vec_personal.denegacion_relacion_para_rpt
- FOR EACH STATEMENT EXECUTE FUNCTION vec_personal.rechazar_mutacion_registro_empleado_v1();
 ALTER TABLE vec_personal.recibo_relacion_para_rpt ENABLE ROW LEVEL SECURITY;
 ALTER TABLE vec_personal.recibo_relacion_para_rpt FORCE ROW LEVEL SECURITY;
-ALTER TABLE vec_personal.denegacion_relacion_para_rpt ENABLE ROW LEVEL SECURITY;
-ALTER TABLE vec_personal.denegacion_relacion_para_rpt FORCE ROW LEVEL SECURITY;
 CREATE POLICY propietario_interno ON vec_personal.recibo_relacion_para_rpt
  FOR ALL TO vec_personal_propietario USING(true) WITH CHECK(true);
-CREATE POLICY propietario_interno ON vec_personal.denegacion_relacion_para_rpt
- FOR ALL TO vec_personal_propietario USING(true) WITH CHECK(true);
-REVOKE ALL ON TABLE vec_personal.recibo_relacion_para_rpt,vec_personal.denegacion_relacion_para_rpt
- FROM PUBLIC,vec_personal_ejecutor,vec_personal_registrador_intento_relacion_rpt;
-REVOKE ALL ON TYPE vec_personal.recibo_relacion_para_rpt,vec_personal.denegacion_relacion_para_rpt
- FROM PUBLIC,vec_personal_ejecutor,vec_personal_registrador_intento_relacion_rpt;
-REVOKE ALL ON SEQUENCE vec_personal.denegacion_relacion_para_rpt_evento_id_seq
- FROM PUBLIC,vec_personal_ejecutor,vec_personal_registrador_intento_relacion_rpt;
-
--- El pool separado invoca esta función después de revertir lectura/consumo.
--- La composición confiable aporta la correlación común y el actor cotejado
--- con identidad registrada actual; sin acreditación usa NULL. La relación se
--- omite si su referencia no se validó. SQL no inventa decisión ni permiso.
-CREATE FUNCTION vec_personal.registrar_denegacion_relacion_para_rpt_v1(
- p_correlacion_ref text,p_motivo text,p_actor_ref text,p_relacion_ref text)
-RETURNS boolean LANGUAGE plpgsql VOLATILE SECURITY DEFINER
- SET search_path=pg_catalog, pg_temp SET row_security=on SET timezone='UTC'
- SET lock_timeout='1s' SET statement_timeout='2s' AS $f$
-BEGIN
- IF current_user<>'vec_personal_propietario' OR session_user=current_user
- OR NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname=session_user AND rolcanlogin
-   AND NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole AND NOT rolreplication AND NOT rolbypassrls)
- OR NOT EXISTS (SELECT 1 FROM pg_auth_members WHERE member=session_user::regrole
-   AND roleid='vec_personal_registrador_intento_relacion_rpt'::regrole
-   AND inherit_option AND NOT set_option AND NOT admin_option)
- OR (SELECT count(*) FROM pg_auth_members WHERE member=session_user::regrole)<>1
- OR EXISTS (SELECT 1 FROM pg_auth_members WHERE member='vec_personal_registrador_intento_relacion_rpt'::regrole)
- OR has_schema_privilege(session_user,'vec_personal','CREATE')
- OR has_database_privilege(session_user,current_database(),'TEMPORARY') THEN
-  RAISE EXCEPTION 'Personal27: registrador nominal denegado' USING ERRCODE='42501'; END IF;
- IF p_correlacion_ref IS NULL OR p_correlacion_ref !~ '^correlacion_[0-9a-f]{32}$'
- OR p_motivo IS NULL OR p_motivo NOT IN ('entrada_invalida','denegado','no_disponible')
- OR (p_actor_ref IS NOT NULL AND p_actor_ref !~ '^per_[A-Za-z0-9_-]{22,128}$')
- OR (p_relacion_ref IS NOT NULL AND p_relacion_ref !~ '^rel_[A-Za-z0-9_-]{22,128}$') THEN
-  RAISE EXCEPTION 'Personal27: intento inválido' USING ERRCODE='22023'; END IF;
- INSERT INTO vec_personal.denegacion_relacion_para_rpt(correlacion_ref,motivo,actor_ref,relacion_ref,registrada_en)
- VALUES(p_correlacion_ref,p_motivo,p_actor_ref,p_relacion_ref,date_trunc('microseconds',clock_timestamp()));
- RETURN true;
-END $f$;
-REVOKE ALL ON FUNCTION vec_personal.registrar_denegacion_relacion_para_rpt_v1(text,text,text,text)
- FROM PUBLIC,vec_personal_ejecutor,vec_personal_migrador;
-GRANT USAGE ON SCHEMA vec_personal TO vec_personal_registrador_intento_relacion_rpt;
-GRANT EXECUTE ON FUNCTION vec_personal.registrar_denegacion_relacion_para_rpt_v1(text,text,text,text)
- TO vec_personal_registrador_intento_relacion_rpt;
+REVOKE ALL ON TABLE vec_personal.recibo_relacion_para_rpt FROM PUBLIC,vec_personal_ejecutor;
+REVOKE ALL ON TYPE vec_personal.recibo_relacion_para_rpt FROM PUBLIC,vec_personal_ejecutor;
 
 CREATE FUNCTION vec_personal.consultar_relacion_para_rpt_v1(
  p_material text,p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,
@@ -432,7 +355,7 @@ BEGIN
     'auditoria_ref',consumo.auditoria_ref,'consultada_en',to_char(ahora AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"')));
 END $f$;
 REVOKE ALL ON FUNCTION vec_personal.consultar_relacion_para_rpt_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)
- FROM PUBLIC,vec_personal_registrador_intento_relacion_rpt;
+ FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION vec_personal.consultar_relacion_para_rpt_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)
  TO vec_personal_ejecutor;
 
@@ -441,7 +364,7 @@ DECLARE o record; f record; permitido oid;
 BEGIN
  FOR o IN SELECT c.oid,c.relname,c.relowner,c.relacl,c.relrowsecurity,c.relforcerowsecurity,c.reltype
   FROM pg_class c WHERE c.oid IN ('vec_personal.control_generacion_relacion_rpt'::regclass,
-    'vec_personal.recibo_relacion_para_rpt'::regclass,'vec_personal.denegacion_relacion_para_rpt'::regclass) LOOP
+    'vec_personal.recibo_relacion_para_rpt'::regclass) LOOP
   IF o.relowner<>'vec_personal_propietario'::regrole OR NOT o.relrowsecurity OR NOT o.relforcerowsecurity
   OR EXISTS (SELECT 1 FROM aclexplode(coalesce(o.relacl,acldefault('r',o.relowner))) a
      WHERE a.grantee<>o.relowner OR a.grantor<>o.relowner OR a.is_grantable)
@@ -454,10 +377,9 @@ BEGIN
  END LOOP;
  FOR f IN SELECT p.* FROM pg_proc p WHERE p.oid IN (
   'vec_personal.consultar_relacion_para_rpt_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure,
-  'vec_personal.registrar_denegacion_relacion_para_rpt_v1(text,text,text,text)'::regprocedure,
   'vec_personal.avanzar_generacion_relacion_rpt_v1()'::regprocedure) LOOP
   permitido:=CASE f.proname WHEN 'consultar_relacion_para_rpt_v1' THEN 'vec_personal_ejecutor'::regrole::oid
-    WHEN 'registrar_denegacion_relacion_para_rpt_v1' THEN 'vec_personal_registrador_intento_relacion_rpt'::regrole::oid ELSE f.proowner END;
+    ELSE f.proowner END;
   IF f.proowner<>'vec_personal_propietario'::regrole OR f.provolatile<>'v' OR f.proparallel<>'u'
   OR f.prosecdef IS DISTINCT FROM (f.proname<>'avanzar_generacion_relacion_rpt_v1')
   OR (SELECT count(*) FROM unnest(f.proconfig) configuracion WHERE configuracion LIKE 'search_path=%')<>1
@@ -473,13 +395,12 @@ BEGIN
  OR NOT EXISTS (SELECT 1 FROM pg_trigger t WHERE t.tgrelid='vec_personal.relacion_servicio_historia'::regclass
     AND t.tgname='relacion_rpt_generacion_insertada' AND NOT t.tgisinternal AND t.tgenabled='O' AND t.tgtype=5
     AND t.tgfoid='vec_personal.avanzar_generacion_relacion_rpt_v1()'::regprocedure)
- OR EXISTS (SELECT 1 FROM pg_auth_members WHERE member='vec_personal_registrador_intento_relacion_rpt'::regrole)
  OR NOT EXISTS (SELECT 1 FROM pg_trigger t WHERE t.tgrelid='vec_personal.control_generacion_relacion_rpt'::regclass
     AND t.tgname='no_borrar' AND NOT t.tgisinternal AND t.tgenabled='O' AND t.tgtype=11
     AND t.tgfoid='vec_personal.rechazar_mutacion_registro_empleado_v1()'::regprocedure)
  OR NOT EXISTS (SELECT 1 FROM pg_trigger t WHERE t.tgrelid='vec_personal.control_generacion_relacion_rpt'::regclass
     AND t.tgname='no_truncar' AND NOT t.tgisinternal AND t.tgenabled='O' AND t.tgtype=34
     AND t.tgfoid='vec_personal.rechazar_mutacion_registro_empleado_v1()'::regprocedure)
- THEN RAISE EXCEPTION 'Personal27: control o rol divergente' USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'Personal27: control divergente' USING ERRCODE='55000'; END IF;
 END $post$;
 COMMIT;

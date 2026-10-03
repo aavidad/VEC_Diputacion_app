@@ -18,7 +18,8 @@ REVOKE ALL ON TABLE public.rpt27_ensayo_vector FROM PUBLIC;
 CREATE FUNCTION public.rpt27_ensayo_actor(p text) RETURNS void LANGUAGE plpgsql
 SET search_path=pg_catalog AS $f$
 DECLARE s text:=substr(encode(sha256(convert_to(p,'UTF8')),'hex'),1,32);
- t timestamptz(6):=clock_timestamp()-interval '2 minutes'; h timestamptz(6):=clock_timestamp()+interval '2 hours';
+ t timestamptz(6):=date_trunc('microseconds',clock_timestamp()-interval '5 seconds');
+ h timestamptz(6):=t+interval '5 minutes'; control_sha text; autenticacion_sha text;
 BEGIN
  INSERT INTO vec_contexto_actor_v1.procedencias VALUES ('prc_rpt27_'||s,1,repeat('a',64),'autoridad_maestra_acreditada');
  INSERT INTO vec_contexto_actor_v1.proyeccion_cuenta_versiones VALUES
@@ -34,14 +35,33 @@ BEGIN
  ('vca_rpt27_'||s,1,'cta_rpt27_'||s,'prf_rpt27_'||s,'per_rpt27_'||s,'prc_rpt27_'||s,1,repeat('a',64),'autoridad_maestra_acreditada','activo',t,h);
  INSERT INTO vec_contexto_actor_v1.vinculo_contexto_actual VALUES ('vca_rpt27_'||s,1);
  PERFORM vec_personal.publicar_proyeccion_empleado_persona_v1('pep_rpt27_'||s,1,'per_rpt27_'||s,'emp_rpt27_'||s,'activa',t,h,NULL,'prc_rpt27_'||s,1,repeat('a',64));
+ autenticacion_sha:=encode(sha256(convert_to('rpt27:autenticacion:'||s,'UTF8')),'hex');
+ control_sha:=vec_identidad_sesiones_v1.huella_control_sesion_v1('cse_rpt27_'||s,1,'ses_rpt27_'||s,'activa',t,h,'opr_rpt27_'||s);
  INSERT INTO vec_autorizacion.sesion_autenticacion_v1(
  sesion_ref,autenticacion_ref,autenticacion_huella_sha256,asercion_ref,cuenta_ref,cuenta_ordinaria_ref,cuenta_privilegiada,
  superficie,metodo_observado,garantia_observada,politica_garantia_ref,politica_garantia_huella_sha256,autenticacion_verificada_en,sesion_emitida_en)
- VALUES ('ses_rpt27_'||s,'aut_rpt27_'||s,repeat('b',64),'ase_rpt27_'||s,'cta_rpt27_'||s,'cta_rpt27_'||s,false,
+ VALUES ('ses_rpt27_'||s,'aut_rpt27_'||s,autenticacion_sha,'ase_rpt27_'||s,'cta_rpt27_'||s,'cta_rpt27_'||s,false,
  'interna_corporativa','certificado','alto','pga_rpt27_'||s,repeat('c',64),t,t);
  INSERT INTO vec_autorizacion.control_sesion_v1(control_sesion_ref,revision,sesion_ref,estado,huella_sha256,sesion_revalidada_en,sesion_valida_hasta)
- VALUES ('cse_rpt27_'||s,1,'ses_rpt27_'||s,'activa',repeat('d',64),t,h);
+ VALUES ('cse_rpt27_'||s,1,'ses_rpt27_'||s,'activa',control_sha,t,h);
  INSERT INTO vec_autorizacion.control_sesion_actual_v1 VALUES ('ses_rpt27_'||s,'cse_rpt27_'||s,1,t,'acto:rpt27:sesion:'||s);
+ -- Historia sintética nominal: IS13 coteja el consumo ORIGINAL, no una
+ -- sesión autodeclarada ni su puntero actual. No acredita IdP real.
+ INSERT INTO vec_identidad_sesiones_v1.cuenta
+ VALUES('cta_rpt27_'||s,false,NULL,t,'opr_rpt27_cuenta_'||s);
+ INSERT INTO vec_identidad_sesiones_v1.estado_cuenta
+ VALUES('cta_rpt27_'||s,1,'activa',t,'opr_rpt27_estado_'||s);
+ INSERT INTO vec_identidad_sesiones_v1.consumo_asercion
+ (operacion_ref,esquema_hmac,dominio_hmac_ref,clave_hmac_id,clave_hmac_version,
+ asercion_id_hmac,sesion_id_hmac,sujeto_id_hmac,cuenta_id_hmac,cuenta_ordinaria_id_hmac,
+ autenticacion_ref,autenticacion_huella_sha256,asercion_ref,sesion_ref,
+ control_sesion_ref,control_sesion_revision,cuenta_ref,cuenta_revision,
+ cuenta_ordinaria_ref,cuenta_ordinaria_revision,consumida_en)
+ VALUES('opr_rpt27_'||s,'vec.identidad.hmac-sha256.v1','idh_rpt27_'||s,'fixture:rpt27:identidad',1,
+ sha256(convert_to('asercion:'||s,'UTF8')),sha256(convert_to('sesion:'||s,'UTF8')),
+ sha256(convert_to('sujeto:'||s,'UTF8')),sha256(convert_to('cuenta:'||s,'UTF8')),NULL,
+ 'aut_rpt27_'||s,autenticacion_sha,'ase_rpt27_'||s,'ses_rpt27_'||s,
+ 'cse_rpt27_'||s,1,'cta_rpt27_'||s,1,'cta_rpt27_'||s,1,t);
  INSERT INTO public.rpt27_ensayo_vector(caso) VALUES(p);
 END $f$;
 REVOKE ALL ON FUNCTION public.rpt27_ensayo_actor(text) FROM PUBLIC;
@@ -111,7 +131,7 @@ BEGIN
  greatest(raiz_version_minima,coalesce((SELECT max(version) FROM vec_autorizacion_atestada_v3.raiz_confianza_version),0))+1 INTO seq,raiz
  FROM vec_autorizacion_atestada_v3.checkpoint_gobierno WHERE control_id;
  v:=jsonb_build_object('esquema','vec.autenticacion-actor.vinculo.v2.contexto-registrado','bloque_version',2,
- 'autenticacion_ref','aut_rpt27_'||s,'autenticacion_huella_sha256',repeat('b',64),'asercion_ref','ase_rpt27_'||s,
+ 'autenticacion_ref','aut_rpt27_'||s,'autenticacion_huella_sha256',encode(sha256(convert_to('rpt27:autenticacion:'||s,'UTF8')),'hex'),'asercion_ref','ase_rpt27_'||s,
  'sesion_ref','ses_rpt27_'||s,'control_sesion_ref','cse_rpt27_'||s,'control_sesion_revision',1,'control_sesion_huella_sha256',repeat('d',64),
  'cuenta_ref','cta_rpt27_'||s,'cuenta_ordinaria_ref','cta_rpt27_'||s,'principal_id','per_rpt27_'||s,'perfil_activo_ref','prf_rpt27_'||s,
  'cuenta_privilegiada',false,'superficie','interna_corporativa','metodo_observado','certificado','garantia_observada','alto',
@@ -121,7 +141,8 @@ BEGIN
  'contexto_actor_huella_sha256',r.huella_sha256,'manifiesto_procedencia_huella_sha256',r.manifiesto_procedencia_huella_sha256,
  'autoridad_efectiva',r.autoridad_efectiva);
  SELECT v||jsonb_build_object('autenticacion_verificada_en',a.autenticacion_verificada_en,'sesion_emitida_en',a.sesion_emitida_en,
- 'sesion_valida_hasta',c.sesion_valida_hasta,'sesion_revalidada_en',c.sesion_revalidada_en) INTO v
+ 'sesion_valida_hasta',c.sesion_valida_hasta,'sesion_revalidada_en',c.sesion_revalidada_en,
+ 'control_sesion_huella_sha256',c.huella_sha256) INTO v
  FROM vec_autorizacion.sesion_autenticacion_v1 a JOIN vec_autorizacion.control_sesion_v1 c ON c.sesion_ref=a.sesion_ref WHERE a.sesion_ref='ses_rpt27_'||s;
  ar:=jsonb_build_object('caso',p,'ahora',clock_timestamp(),'decision_plantilla_b64',encode(convert_to(jsonb_build_object(
  'decision_ref','decision:rpt27:'||s,'accion','personal.relacion_rpt.consultar','recurso_ref',objetivo.relacion_ref,

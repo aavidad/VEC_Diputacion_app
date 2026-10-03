@@ -1,3 +1,5 @@
-# Requiere POST149 causal ya acreditada; no reaplicar AD149/Personal26.
+# Lectura SQL: requiere POST149 causal acreditada; no reaplicar AD149/Personal26.
+# Runtime/ensayo completo: CA26/IS13/AD169 comunes ya acreditadas y pool nominal.
+# Estas SQL no instalan ni cambian la auditoría común; no reaplicar sus UP.
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000154_consumidor_relacion_para_rpt.up.sql
 deploy/postgresql/personal/migraciones/000027_relacion_para_rpt.up.sql

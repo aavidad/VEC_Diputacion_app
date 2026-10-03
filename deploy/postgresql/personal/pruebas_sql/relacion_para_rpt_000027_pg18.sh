@@ -15,16 +15,16 @@ fallo() { printf 'RPT27 FALLO: %s\n' "$1" >&2; exit 1; }
 container=${VEC_RPT27_CLONE_CONTAINER:?clon privado autorizado requerido}
 scratch=${VEC_RPT27_SCRATCH:?scratch propio externo requerido}
 modcache=${VEC_RPT27_MODCACHE:?módulos locales sin descargas requeridos}
-cache=${VEC_RPT27_CACHE:-/dev/shm/go-build}
+cache=${VEC_RPT27_CACHE:?cache en disco autorizada requerida}
 socket=${VEC_RPT27_SOCKET:?socket Unix del clon requerido}
 ad154=${VEC_RPT27_UP_AD154:?UP154 activado y revisado requerido}
 personal27=${VEC_RPT27_UP_PERSONAL27:?UP27 activado y revisado requerido}
 pre_sha=${VEC_RPT27_PREIMAGEN_SHA256:?SHA de captura real requerida}
 helper="$scratch/generate_overlay.py"
-[[ $container == codexb-crn11-20261003-pg ]] || fallo 'clon nominal propio requerido'
-[[ $scratch == /dev/shm/codexb-crn11-20261003-rpt-* && -d $scratch && ! -L $scratch && -O $scratch && $(stat -c %a "$scratch") == 700 ]] || fallo 'scratch propio0700 requerido'
-[[ $cache == /dev/shm/go-build && -d $cache && ! -L $cache && -O $cache ]] || fallo 'cache compartida SHM requerida'
-[[ $socket == /dev/shm/codexb-crn11-20261003-data/vec-desarrollo-20260906/pgdata/codexb-crn11-20261003-socket && -S $socket/.s.PGSQL.5432 ]] || fallo 'socket ajeno o ausente'
+[[ $container == codexb-rpt-comun-20261003-pg ]] || fallo 'clon nominal propio requerido'
+[[ $scratch == /home/alberto/.local/state/vec-codexb-rpt-comun-ensayo-20261003/scratch && -d $scratch && ! -L $scratch && -O $scratch && $(stat -c %a "$scratch") == 700 ]] || fallo 'scratch propio0700 requerido'
+[[ $cache == /home/alberto/.cache/go-build && -d $cache && ! -L $cache && -O $cache ]] || fallo 'cache compartida en disco requerida'
+[[ $socket == /home/alberto/.local/state/vec-codexb-rpt-comun-ensayo-20261003/data/vec-desarrollo-20260906/pgdata/codexb-rpt-comun-20261003-socket && -S $socket/.s.PGSQL.5432 ]] || fallo 'socket ajeno o ausente'
 [[ -d $modcache && ! -L $modcache && $pre_sha =~ ^[0-9a-f]{64}$ ]] || fallo 'faltan módulos o huella real'
 [[ $ad154 == "$repo_dir"/deploy/postgresql/autorizacion_atestada_v3/migraciones/000154_*.up.sql && -f $ad154 && ! -L $ad154 ]] || fallo 'no aplicar borrador ni otra AD'
 [[ $personal27 == "$repo_dir"/deploy/postgresql/personal/migraciones/000027_*.up.sql && -f $personal27 && ! -L $personal27 ]] || fallo 'no aplicar borrador ni otra Personal'
@@ -33,6 +33,7 @@ psql_run() { local user=$1; shift; docker exec -i "$container" /usr/bin/env -i P
 valor() { psql_run postgres -c "$1"; }
 archivo() { psql_run postgres -v rpt27_ensayo_autorizado=on < "$1" > "$scratch/sql.log" 2>&1 || fallo 'SQL falló: diagnóstico privado'; }
 [[ $(valor "SELECT current_setting('server_version_num')") == 180004 ]] || fallo 'PG18.4 requerido'
+[[ $(valor "SELECT to_regprocedure('vec_autorizacion_atestada_v3.registrar_intento_nominal_v1(bytea,bytea,jsonb)') IS NOT NULL AND to_regprocedure('vec_contexto_actor_v1.cotejar_contexto_historico_auditoria_v1(text,text,text,bytea)') IS NOT NULL AND to_regprocedure('vec_identidad_sesiones_v1.cotejar_autenticacion_historica_auditoria_v1(bytea)') IS NOT NULL") == t ]] || fallo 'auditoría común AD169/CA26/IS13 requerida; no instalar desde este runner'
 if ! "$continuar"; then
 [[ ! -e $scratch/overlay.json && ! -e $scratch/capacidad_v3_vector_sql_test.go ]] || fallo 'scratch ya usado: conservarlo'
 fi
@@ -103,8 +104,10 @@ valor "CREATE ROLE vec_rpt27_ensayo_runtime LOGIN NOSUPERUSER NOCREATEDB NOCREAT
  GRANT vec_personal_ejecutor TO vec_rpt27_ensayo_runtime WITH ADMIN FALSE,INHERIT TRUE,SET FALSE;
  GRANT CONNECT ON DATABASE postgres TO vec_rpt27_ensayo_runtime;
  CREATE ROLE vec_rpt27_ensayo_registrador LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE INHERIT NOREPLICATION NOBYPASSRLS;
- GRANT vec_personal_registrador_intento_relacion_rpt TO vec_rpt27_ensayo_registrador WITH ADMIN FALSE,INHERIT TRUE,SET FALSE;
+ GRANT vec_autorizacion_atestada_v3_registrador_intentos TO vec_rpt27_ensayo_registrador WITH ADMIN FALSE,INHERIT TRUE,SET FALSE;
  GRANT CONNECT ON DATABASE postgres TO vec_rpt27_ensayo_registrador;
+ INSERT INTO vec_autorizacion_atestada_v3.configuracion_runtime_intentos(login_nombre,proceso,canal)
+ VALUES('vec_rpt27_ensayo_registrador','rpt27-ensayo','interna_corporativa');
  CREATE ROLE vec_rpt27_ensayo_ca LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE INHERIT NOREPLICATION NOBYPASSRLS;
  GRANT vec_contexto_actor_v1_runtime TO vec_rpt27_ensayo_ca WITH ADMIN FALSE,INHERIT TRUE,SET FALSE;
  GRANT USAGE ON SCHEMA public TO vec_rpt27_ensayo_runtime;
@@ -745,34 +748,38 @@ PYSALIDA
  importar rpt27_ensayo_firmado "$caso"
 }
 
-contadores() { valor "SELECT (SELECT count(*) FROM vec_personal.recibo_relacion_para_rpt)||'|'||(SELECT count(*) FROM vec_autorizacion_atestada_v3.consumo_decision_v3)||'|'||(SELECT count(*) FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3)||'|'||(SELECT count(*) FROM vec_personal.denegacion_relacion_para_rpt)"; }
+contadores() { valor "SELECT (SELECT count(*) FROM vec_personal.recibo_relacion_para_rpt)||'|'||(SELECT count(*) FROM vec_autorizacion_atestada_v3.consumo_decision_v3)||'|'||(SELECT count(*) FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3 WHERE tipo_registro='consumo_confirmado')||'|'||(SELECT count(*) FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3 WHERE tipo_registro='intento_nominal')"; }
 preflight_registro() {
  # Catálogo solamente: no SELECT laboral en el pool exclusivo de escritura.
- [[ $(psql_run vec_rpt27_ensayo_registrador -c "SELECT has_function_privilege('vec_personal.registrar_denegacion_relacion_para_rpt_v1(text,text,text,text)','EXECUTE')" 2> "$scratch/preflight.log") == t ]]
+ [[ $(psql_run vec_rpt27_ensayo_registrador -c "SELECT vec_autorizacion_atestada_v3.preflight_registrador_intentos_v1('rpt27-ensayo','interna_corporativa')" 2> "$scratch/preflight.log") == t ]]
 }
 consultar() {
  preflight_registro || { printf '%s\n' 'no_disponible: registrador obligatorio ausente' >&2; return 75; }
  psql_run vec_rpt27_ensayo_runtime -c "BEGIN ISOLATION LEVEL SERIALIZABLE; SET LOCAL timezone='UTC'; SET LOCAL statement_timeout='15s'; SET LOCAL idle_in_transaction_session_timeout='20s'; SELECT public.rpt27_ensayo_consultar('$1','${2:-valida}'); COMMIT;"
 }
-registrar_intento() { # caso, motivo; actor sólo tras acreditación actual CA7
- local caso=$1 motivo=$2 s actor correlacion rel
- s=$(printf '%s' "$caso" | sha256sum | cut -c1-32)
- correlacion="correlacion_$s"
- rel=$(valor "SELECT relacion_ref FROM public.rpt27_ensayo_vector WHERE caso='$caso'")
- actor=$(valor "BEGIN ISOLATION LEVEL SERIALIZABLE; SELECT CASE WHEN EXISTS(SELECT 1 FROM vec_autorizacion.control_sesion_actual_v1 actual JOIN vec_autorizacion.control_sesion_v1 control
- ON control.sesion_ref=actual.sesion_ref AND control.control_sesion_ref=actual.control_sesion_ref AND control.revision=actual.revision
- WHERE actual.sesion_ref='ses_rpt27_$s' AND control.estado='activa' AND clock_timestamp()<control.sesion_valida_hasta)
- AND vec_contexto_actor_v1.acreditar_uso_registro_contexto_actor_v2(r.registro_contexto_ref,
- 'vec.contexto-actor.vinculado.v2',r.huella_sha256,r.manifiesto_procedencia_huella_sha256,r.autoridad_efectiva,r.cuenta_ref,
- (d->>'cuenta_version')::numeric,d->>'persona_ref',(d->>'persona_version')::numeric,r.perfil_ref,(d->>'perfil_version')::numeric,
- d->>'contexto_actor_ref',(d->>'contexto_version')::numeric,r.metodo,r.garantia,clock_timestamp(),clock_timestamp()+interval '1 second') IS NOT NULL
- THEN quote_literal(d->>'persona_ref') ELSE 'NULL' END FROM vec_contexto_actor_v1.registros_contexto r,
- LATERAL(SELECT convert_from(r.representacion_canonica,'UTF8')::jsonb) x(d) WHERE r.operacion_ref='oca_rpt27_$s'; COMMIT;")
- [[ -n $actor ]] || actor=NULL
- [[ $rel =~ ^rel_[A-Za-z0-9_-]{22,128}$ ]] && rel="'$rel'" || rel=NULL
- # Autocommit en OTRO LOGIN/conexión después del rollback anterior. El reloj
- # y la adición durable pertenecen a la fachada27, no a esta envoltura.
- [[ $(psql_run vec_rpt27_ensayo_registrador -c "SELECT vec_personal.registrar_denegacion_relacion_para_rpt_v1('$correlacion','$motivo',$actor,$rel)" 2> "$scratch/intento.log") == t ]] || return 75
+registrar_intento() { # caso, motivo; evidencia ORIGINAL histórica acreditada
+ local caso=$1 motivo=$2
+ valor "SELECT jsonb_build_object('contexto_b64',bundle->>'contexto_b64',
+ 'vinculo',convert_from(decode(bundle->>'decision_b64','base64'),'UTF8')::jsonb->'vinculo_autenticacion_actor',
+ 'relacion_ref',relacion_ref) FROM public.rpt27_ensayo_vector WHERE caso='$caso'" > "$scratch/intento_entrada.json"
+ python3 - "$scratch" "$caso" "$motivo" <<'PYINTENTO'
+import base64,hashlib,json,pathlib,sys
+s=pathlib.Path(sys.argv[1]);e=json.loads((s/'intento_entrada.json').read_text());v=e['vinculo']
+h=hashlib.sha256(sys.argv[2].encode()).hexdigest()[:32]
+orden={'intento_ref':'intento_'+h,'registro_contexto_ref':v['registro_contexto_ref'],
+'contexto_sha256':v['contexto_actor_huella_sha256'],'procedencia_sha256':v['manifiesto_procedencia_huella_sha256'],
+'autenticacion_ref':v['autenticacion_ref'],'sesion_ref':v['sesion_ref'],
+'autenticacion_sha256':v['autenticacion_huella_sha256'],'accion':'personal.relacion_rpt.consultar',
+'modulo_id':'personal','recurso_ref':e['relacion_ref'],'finalidad_ref':'conciliar_relacion_laboral_para_rpt',
+'resultado':'denegado' if sys.argv[3]=='denegado' else 'error','motivo_ref':'motivo_11111111111111111111111111111111',
+'proceso':'rpt27-ensayo','canal':'interna_corporativa','correlacion_ref':'correlacion_'+h}
+vb=base64.b64encode(json.dumps(v,separators=(',',':')).encode()).decode()
+b=json.dumps(orden,separators=(',',':'));assert '$rpt27intento$' not in b
+(s/'intento.sql').write_text("BEGIN ISOLATION LEVEL SERIALIZABLE; SET LOCAL timezone='UTC'; SELECT auditoria_ref FROM vec_autorizacion_atestada_v3.registrar_intento_nominal_v1(decode('"+e['contexto_b64'].replace('\n','')+"','base64'),decode('"+vb+"','base64'),$rpt27intento$"+b+"$rpt27intento$::jsonb); COMMIT;\n")
+PYINTENTO
+ # OTRO LOGIN/conexión: el acuse sale después del COMMIT posterior al rollback.
+ psql_run vec_rpt27_ensayo_registrador < "$scratch/intento.sql" > "$scratch/intento_acuse.txt" 2> "$scratch/intento.log" || return 75
+ [[ $(cat "$scratch/intento_acuse.txt") == aud_v3_i_* ]] || return 75
 }
 rechazar() {
  local caso=$1 variante=${2:-valida} antes despues motivo=denegado
@@ -836,7 +843,7 @@ valor "BEGIN; SET LOCAL ROLE vec_autorizacion_propietario;
  UPDATE vec_autorizacion.control_sesion_actual_v1 SET revision=2,actualizada_en=clock_timestamp(),acto_ref='acto:rpt27:revocacion-sintetica'
  WHERE sesion_ref='ses_rpt27_$s'; COMMIT;" > /dev/null
 rechazar sesion_revocada
-[[ $(valor "SELECT actor_ref IS NULL FROM vec_personal.denegacion_relacion_para_rpt WHERE correlacion_ref='correlacion_$s' ORDER BY evento_id DESC LIMIT 1") == t ]] || fallo 'intento atribuyó actor sin sesión acreditada'
+[[ $(valor "SELECT actor_ref='per_rpt27_$s' FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3 WHERE intento_ref='intento_$s'") == t ]] || fallo 'intento perdió identidad ORIGINAL histórica acreditada'
 # Última revisión conocida primero: ni estado ni fechas rescatan la revisión1.
 preparar original_historia familia_historia
 corte_historico=$(valor "SELECT date_trunc('microseconds',clock_timestamp())")
@@ -853,16 +860,16 @@ positivo corte_historico vigente
 [[ $(valor "SELECT NOT has_table_privilege('vec_rpt27_ensayo_registrador','vec_personal.relacion_servicio_historia','SELECT')
  AND NOT has_table_privilege('vec_rpt27_ensayo_registrador','vec_personal.control_generacion_relacion_rpt','SELECT')
  AND NOT has_table_privilege('vec_rpt27_ensayo_registrador','vec_personal.recibo_relacion_para_rpt','SELECT')
- AND NOT has_table_privilege('vec_rpt27_ensayo_registrador','vec_personal.denegacion_relacion_para_rpt','SELECT')
+ AND NOT has_table_privilege('vec_rpt27_ensayo_registrador','vec_autorizacion_atestada_v3.auditoria_consumo_v3','SELECT')
  AND NOT has_function_privilege('vec_rpt27_ensayo_registrador','vec_personal.consultar_relacion_para_rpt_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')") == t ]] || fallo 'registrador tiene lectura'
 # Falla el permiso del LOGIN/pool propio, no se modifica una ACL de producto.
 preparar registro_caido
 antes=$(contadores)
-valor 'REVOKE vec_personal_registrador_intento_relacion_rpt FROM vec_rpt27_ensayo_registrador' > /dev/null
+valor 'REVOKE vec_autorizacion_atestada_v3_registrador_intentos FROM vec_rpt27_ensayo_registrador' > /dev/null
 if consultar registro_caido > "$scratch/registro_caido.out" 2> "$scratch/registro_caido.log"; then fallo 'lectura sin registrador'; fi
 [[ $(cat "$scratch/registro_caido.log") == *no_disponible* && ! -s $scratch/registro_caido.out && $(contadores) == "$antes" ]] || fallo 'preflight sin registro produjo efecto'
 if registrar_intento registro_caido denegado; then fallo 'registrador sin permiso confirmó'; fi
-valor 'GRANT vec_personal_registrador_intento_relacion_rpt TO vec_rpt27_ensayo_registrador WITH ADMIN FALSE,INHERIT TRUE,SET FALSE' > /dev/null
+valor 'GRANT vec_autorizacion_atestada_v3_registrador_intentos TO vec_rpt27_ensayo_registrador WITH ADMIN FALSE,INHERIT TRUE,SET FALSE' > /dev/null
 # Snapshot SERIALIZABLE anterior al COMMIT del escritor: barrera27 tras V3
 # fuerza40001 y todo el consumo se revierte; el intento se confirma aparte.
 preparar concurrente
@@ -911,14 +918,14 @@ lector_go cruzados
 comprobar_contadores_go "$antes" '0|0|0|0'
 preparar go_registro_caido
 antes=$(contadores)
-valor 'REVOKE vec_personal_registrador_intento_relacion_rpt FROM vec_rpt27_ensayo_registrador' > /dev/null
+valor 'REVOKE vec_autorizacion_atestada_v3_registrador_intentos FROM vec_rpt27_ensayo_registrador' > /dev/null
 fi
 # La continuación no vuelve a emitir la capacidad ni repite positivos: el
 # preflight debe fallar antes de usar el material del caso ya preparado.
 antes=$(contadores)
 lector_go registro_caido
 comprobar_contadores_go "$antes" '0|0|0|0'
-valor 'GRANT vec_personal_registrador_intento_relacion_rpt TO vec_rpt27_ensayo_registrador WITH ADMIN FALSE,INHERIT TRUE,SET FALSE' > /dev/null
+valor 'GRANT vec_autorizacion_atestada_v3_registrador_intentos TO vec_rpt27_ensayo_registrador WITH ADMIN FALSE,INHERIT TRUE,SET FALSE' > /dev/null
 # La identidad cacheada de Go no rescata una sesión revocada en SQL actual.
 preparar go_revocada
 s=$(printf '%s' go_revocada | sha256sum | cut -c1-32)
@@ -948,7 +955,7 @@ done
 lector_go concurrente
 wait "$publicador_pid" || fallo 'escritor Go falló'
 comprobar_contadores_go "$antes" '0|0|0|1'
-[[ $(valor "SELECT count(*)=3 AND NOT bool_or(actor_ref IS NOT NULL) FROM vec_personal.denegacion_relacion_para_rpt WHERE correlacion_ref NOT IN (SELECT 'correlacion_'||substr(encode(sha256(convert_to(caso,'UTF8')),'hex'),1,32) FROM public.rpt27_ensayo_vector)") == t ]] || fallo 'intentos Go atribuyeron identidad no revalidada o no confirmaron'
+[[ $(valor "SELECT count(*)=3 AND bool_and(actor_ref IS NOT NULL AND perfil_activo_ref IS NOT NULL) FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3 WHERE tipo_registro='intento_nominal' AND proceso='rpt27-ensayo' AND intento_ref NOT IN (SELECT 'intento_'||substr(encode(sha256(convert_to(caso,'UTF8')),'hex'),1,32) FROM public.rpt27_ensayo_vector)") == t ]] || fallo 'intentos Go perdieron identidad original o no confirmaron'
 
 captura "$scratch/final.json"
 cmp -s "$scratch/preimagen.json" "$scratch/final.json" || fallo 'ensayo alteró extensiones previas de A'

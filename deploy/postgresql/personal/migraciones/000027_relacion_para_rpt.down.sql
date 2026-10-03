@@ -1,34 +1,25 @@
 \set ON_ERROR_STOP on
 -- DOWN Personal27 preparado; no ejecutarlo sobre historia conservada.
--- Requiere ausencia de recibos e intentos y retirada previa de los LOGIN.
+-- Requiere ausencia de recibos. Nunca retira auditoría ni roles comunes.
 -- Conserva la fuente Personal17, sus versiones y sus triggers originales.
 BEGIN;
 SET LOCAL search_path=pg_catalog,pg_temp;
 SET LOCAL timezone='UTC'; SET LOCAL lock_timeout='5s'; SET LOCAL statement_timeout='30s';
 SELECT pg_advisory_xact_lock(hashtextextended('vec_personal:migracion:000027:relacion-rpt',0));
-DO $operador$
-BEGIN
- IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=current_user AND rolsuper) THEN
-  RAISE EXCEPTION 'Personal27: retirada del rol requiere operador nominal' USING ERRCODE='42501';
- END IF;
-END $operador$;
 SET LOCAL ROLE vec_personal_propietario;
 LOCK TABLE vec_personal.relacion_servicio_historia IN SHARE ROW EXCLUSIVE MODE;
-LOCK TABLE vec_personal.control_generacion_relacion_rpt,vec_personal.recibo_relacion_para_rpt,
- vec_personal.denegacion_relacion_para_rpt IN ACCESS EXCLUSIVE MODE;
+LOCK TABLE vec_personal.control_generacion_relacion_rpt,vec_personal.recibo_relacion_para_rpt
+ IN ACCESS EXCLUSIVE MODE;
 DO $historia$
 DECLARE x record; f oid;
 BEGIN
  IF current_user<>'vec_personal_propietario'
  OR EXISTS(SELECT 1 FROM vec_personal.recibo_relacion_para_rpt)
- OR EXISTS(SELECT 1 FROM vec_personal.denegacion_relacion_para_rpt)
- OR EXISTS(SELECT 1 FROM pg_auth_members WHERE roleid='vec_personal_registrador_intento_relacion_rpt'::regrole
-   OR member='vec_personal_registrador_intento_relacion_rpt'::regrole) THEN
-  RAISE EXCEPTION 'Personal27: historia o provisión impide DOWN' USING ERRCODE='55000';
+ THEN
+  RAISE EXCEPTION 'Personal27: historia impide DOWN' USING ERRCODE='55000';
  END IF;
  FOR x IN SELECT * FROM (VALUES
   ('vec_personal.consultar_relacion_para_rpt_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)', '9e4733bcb994a3234d8261c107aeb4b49a9d04f9544302ac34f39c77c604a560', 'vec_personal_ejecutor'),
-  ('vec_personal.registrar_denegacion_relacion_para_rpt_v1(text,text,text,text)', '6bbcea351fe31cfe495031480a79a1cf4fb1d9aea3557206dfdfb0c942ea744a', 'vec_personal_registrador_intento_relacion_rpt'),
   ('vec_personal.avanzar_generacion_relacion_rpt_v1()', '9846a7e05c26bced4408ab6d9af9b815ff8e5754d833afa670c3fe10fcb68246', 'vec_personal_propietario')
  ) AS contratos(firma,fuente_sha256,permitido) LOOP
   f:=to_regprocedure(x.firma);
@@ -52,20 +43,9 @@ BEGIN
 END $historia$;
 REVOKE ALL ON FUNCTION vec_personal.consultar_relacion_para_rpt_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)
  FROM PUBLIC,vec_personal_ejecutor;
-REVOKE ALL ON FUNCTION vec_personal.registrar_denegacion_relacion_para_rpt_v1(text,text,text,text)
- FROM PUBLIC,vec_personal_registrador_intento_relacion_rpt;
 DROP FUNCTION vec_personal.consultar_relacion_para_rpt_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea);
-DROP FUNCTION vec_personal.registrar_denegacion_relacion_para_rpt_v1(text,text,text,text);
 DROP TRIGGER relacion_rpt_generacion_insertada ON vec_personal.relacion_servicio_historia;
 DROP FUNCTION vec_personal.avanzar_generacion_relacion_rpt_v1();
 DROP TABLE vec_personal.recibo_relacion_para_rpt;
-DROP TABLE vec_personal.denegacion_relacion_para_rpt;
 DROP TABLE vec_personal.control_generacion_relacion_rpt;
-REVOKE USAGE ON SCHEMA vec_personal FROM vec_personal_registrador_intento_relacion_rpt;
-RESET ROLE;
-DO $rol$
-BEGIN
- EXECUTE format('REVOKE CONNECT ON DATABASE %I FROM vec_personal_registrador_intento_relacion_rpt',current_database());
-END $rol$;
-DROP ROLE vec_personal_registrador_intento_relacion_rpt;
 COMMIT;
