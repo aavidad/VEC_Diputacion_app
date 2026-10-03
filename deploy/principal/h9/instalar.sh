@@ -205,7 +205,12 @@ recuperar() {
     DESDE=$(date -u +%Y-%m-%dT%H:%M:%S.%NZ)
     podman start "$APP" >/dev/null || exit 1
     if ! esperar_app "$DESDE"; then podman stop --time 30 "$APP" >/dev/null; exit 1; fi
-    "$MANTENIMIENTO_COMPROBAR" >>"$COPIA/mantenimiento.log" 2>&1 || exit 1
+    if ! "$MANTENIMIENTO_COMPROBAR" >>"$COPIA/mantenimiento.log" 2>&1; then
+      podman stop --time 30 "$APP" >/dev/null || exit 1
+      parado "$APP" || exit 1
+      cerrar || exit 1
+      exit 1
+    fi
     TRAFICO_ABIERTO=si
     "$MANTENIMIENTO_ABRIR" >>"$COPIA/mantenimiento.log" 2>&1 || exit 1
     printf 'RECUPERADA; aplicación anterior arrancada y tráfico abierto. Copia privada: %s\n' "$COPIA" >&2

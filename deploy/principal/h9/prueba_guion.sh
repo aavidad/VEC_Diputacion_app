@@ -6,10 +6,10 @@ T=$(mktemp -d "${TMPDIR:-/tmp}/h9-mock-XXXXXXXX")
 trap 'rm -rf -- "$T"' EXIT
 trap 'printf "FALLO %s\n" "${mode:-preparacion}"; if [[ -f ${F:-}/result ]]; then cat "$F/result"; fi' ERR
 mkdir -p "$T/mock-bin"
-MODOS=(sql_fail startup_fail success altered_manifest wrong_preimage app_active maintenance_fail recovery_db_fail recovery_art_fail recovery_db_error config_file mounts_match mounts_fail served_mapping_fail served_shadow_fail recovery_web_fail blocked_kit rollback_startup_fail)
+MODOS=(sql_fail startup_fail success altered_manifest wrong_preimage app_active maintenance_fail recovery_db_fail recovery_art_fail recovery_db_error config_file mounts_match mounts_fail served_mapping_fail served_shadow_fail recovery_web_fail blocked_kit rollback_startup_fail rollback_maintenance_fail)
 if [[ ${1:-} == --web-config ]]; then MODOS=(success startup_fail sql_fail config_file mounts_match mounts_fail served_mapping_fail served_shadow_fail recovery_web_fail); fi
 if [[ ${1:-} == --blocked-kit ]]; then MODOS=(blocked_kit); fi
-if [[ ${1:-} == --rollback ]]; then MODOS=(sql_fail startup_fail rollback_startup_fail); fi
+if [[ ${1:-} == --rollback ]]; then MODOS=(sql_fail startup_fail rollback_startup_fail rollback_maintenance_fail); fi
 cat > "$T/mock-bin/id" <<'MOCK'
 #!/usr/bin/env bash
 if [[ "$1" == -un ]]; then echo openclaw; else /usr/bin/id "$@"; fi
@@ -36,7 +36,7 @@ stop) echo false > "$FIXTURE/$4.running" ;;
 start)
   [[ "$2" != app || $(cat "$FIXTURE/gate") == closed ]]
   echo true > "$FIXTURE/$2.running"
-  if [[ "$2" == app && ( "$MODE" == startup_fail || "$MODE" == recovery_* || "$MODE" == rollback_startup_fail ) && ( $(cat "$FIXTURE/art/vec-server") == new || "$MODE" == rollback_startup_fail ) ]]; then echo false > "$FIXTURE/app.running"; fi
+  if [[ "$2" == app && ( "$MODE" == startup_fail || "$MODE" == recovery_* || "$MODE" == rollback_startup_fail || "$MODE" == rollback_maintenance_fail ) && ( $(cat "$FIXTURE/art/vec-server") == new || "$MODE" == rollback_startup_fail ) ]]; then echo false > "$FIXTURE/app.running"; fi
   if [[ "$2" == pg ]]; then
     starts=$(cat "$FIXTURE/pg.starts"); starts=$((starts+1)); echo "$starts" > "$FIXTURE/pg.starts"
     if [[ "$starts" == 2 && "$MODE" == recovery_db_fail ]]; then echo changed >> "$FIXTURE/pgdata/rows"; fi
@@ -90,7 +90,10 @@ for mode in "${MODOS[@]}"; do
 set -euo pipefail
 case $action in
 close) echo closed > '$F/gate' ;;
-check) [[ \$(cat '$F/gate') == closed ]] ;;
+check)
+  if [[ \$MODE == rollback_maintenance_fail && \$(cat '$F/pg.starts') == 2 && \$(cat '$F/app.running') == true ]]; then exit 1; fi
+  [[ \$(cat '$F/gate') == closed ]] ;;
+
 open) echo open > '$F/gate' ;;
 esac
 HOOK
@@ -160,7 +163,7 @@ PYM
   elif [[ "$mode" == wrong_preimage ]]; then
     [[ "$rc" != 0 && $(cat "$F/app.running") == false && $(cat "$F/gate") == closed ]]
     [[ $(wc -l < "$F/pgdata/rows") == 2 ]]
-  elif [[ "$mode" == recovery_* || "$mode" == rollback_startup_fail ]]; then
+  elif [[ "$mode" == recovery_* || "$mode" == rollback_startup_fail || "$mode" == rollback_maintenance_fail ]]; then
     [[ "$rc" != 0 && $(cat "$F/gate") == closed && $(cat "$F/app.running") == false ]]
     if rg -q '^RECUPERADA;' "$F/result" "$F/backups"; then exit 1; fi
     [[ $(cat "$F/conf/config") == private ]]
