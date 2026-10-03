@@ -54,8 +54,9 @@ BEGIN
   campos:=ARRAY['catalogo_id','catalogo_version','catalogo_huella_sha256','entrada_clave'];tipos:=ARRAY['s','n','s','s'];
  WHEN 's' THEN
   IF pg_catalog.jsonb_typeof(v) IS DISTINCT FROM 'string'
-  OR pg_catalog.octet_length(v#>>'{}') NOT BETWEEN 1 AND 512
-  OR (v#>>'{}') COLLATE "C" !~ '^[!-~]+$' OR pg_catalog.strpos(v#>>'{}','*')<>0
+  OR pg_catalog.octet_length(v#>>'{}') NOT BETWEEN 1 AND 256
+  OR (v#>>'{}') ~ '[[:cntrl:]]' OR pg_catalog.strpos(v#>>'{}',' ')<>0
+  OR pg_catalog.strpos(v#>>'{}','*')<>0
   THEN RAISE EXCEPTION 'AUT37: PARO clave=canon_string actual=invalido esperado=referencia_acotada' USING ERRCODE='22023'; END IF;
   RETURN vec_autorizacion.json_cadena_canonica_go_admin_v1(v#>>'{}');
  WHEN 'n' THEN
@@ -145,6 +146,9 @@ CREATE TABLE vec_autorizacion.bootstrap_central_admin_v3(
  aprobacion_ref text NOT NULL,
  aprobacion_sha256 text NOT NULL,
  auditoria_ref text NOT NULL UNIQUE CHECK(auditoria_ref ~ '^aud_v3_p_[0-9a-f]{32}$'),
+ auditoria_secuencia numeric(20,0) NOT NULL,
+ auditoria_huella_sha256 text NOT NULL CHECK(auditoria_huella_sha256 ~ '^[0-9a-f]{64}$'),
+ auditoria_registrada_en timestamptz(6) NOT NULL,
  resultado jsonb NOT NULL CHECK(pg_catalog.jsonb_typeof(resultado)='object'),
  confirmado_en timestamptz(6) NOT NULL CHECK(pg_catalog.isfinite(confirmado_en))
 );
@@ -229,7 +233,7 @@ BEGIN
  FOR a IN SELECT e.value FROM pg_catalog.jsonb_array_elements(p_ambitos) WITH ORDINALITY e(value,n) ORDER BY n LOOP
   IF pg_catalog.jsonb_typeof(a) IS DISTINCT FROM 'object'
   OR pg_catalog.jsonb_typeof(a->'valores') IS DISTINCT FROM 'array' OR pg_catalog.jsonb_array_length(a->'valores')<>1
-  OR a->>'dimension'<=anterior OR a->>'dimension' NOT IN('organizacion_ref','unidad_ref')
+  OR (a->>'dimension') COLLATE "C"<=anterior COLLATE "C" OR a->>'dimension' NOT IN('organizacion_ref','unidad_ref')
   THEN RAISE EXCEPTION 'AUT37: PARO clave=dimension actual=divergente esperado=org_unidad_ordenadas' USING ERRCODE='22023'; END IF;
   anterior:=a->>'dimension';
   IF anterior='unidad_ref'
@@ -326,6 +330,27 @@ GRANT EXECUTE ON FUNCTION vec_identidad_sesiones_v1.preimagen_certificado_bootst
 SET LOCAL ROLE vec_autorizacion_propietario;
 
 
+SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
+-- Cotejo histórico de la misma corriente AD171. La recuperación no crea otro
+-- eslabón cuando ya existe un recibo; una restauración incompleta se deniega.
+CREATE FUNCTION vec_autorizacion_atestada_v3.cotejar_acuse_bootstrap_central_admin_v3(
+ p_ref text,p_secuencia numeric,p_huella text,p_instante timestamptz,
+ p_plan_sha256 text,p_operador name,p_aprobacion text,p_preimagen_sha256 text)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog SET row_security=on AS $f$
+ SELECT EXISTS(SELECT 1 FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3 a
+  WHERE a.auditoria_ref=p_ref AND a.secuencia=p_secuencia AND a.huella_sha256=p_huella
+   AND a.registrada_en=p_instante AND a.tipo_registro='bootstrap_operador'
+   AND a.actor_ref IS NULL AND a.perfil_activo_ref IS NULL AND a.decision_ref IS NULL
+   AND a.operador_login=p_operador AND a.plan_sha256=p_plan_sha256 AND a.aprobacion_ref=p_aprobacion
+   AND a.fuente_ref='bootstrap_preimagen:'||pg_catalog.substr(p_plan_sha256,1,32)
+   AND a.fuente_sha256=p_preimagen_sha256 AND a.resultado='permitido'
+   AND a.accion='ejecutar_plan_bootstrap_admin' AND a.canal='operacion_tecnica_privada'
+   AND a.finalidad_ref='bootstrap_admin')
+$f$;
+REVOKE ALL ON FUNCTION vec_autorizacion_atestada_v3.cotejar_acuse_bootstrap_central_admin_v3(text,numeric,text,timestamptz,text,name,text,text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION vec_autorizacion_atestada_v3.cotejar_acuse_bootstrap_central_admin_v3(text,numeric,text,timestamptz,text,name,text,text) TO vec_autorizacion_propietario;
+SET LOCAL ROLE vec_autorizacion_propietario;
+
 CREATE FUNCTION vec_autorizacion.cotejar_roles_bootstrap_central_admin_v3(p jsonb)
 RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET timezone='UTC' AS $f$
 DECLARE g jsonb;r record;ct record;meta record;clase record;esperado jsonb;sys jsonb;configuracion jsonb;
@@ -336,7 +361,7 @@ BEGIN
  SELECT s.value INTO STRICT sys FROM pg_catalog.jsonb_array_elements(p->'personas') pe,
   LATERAL pg_catalog.jsonb_array_elements(pe.value->'sistemas') s;
  FOR g IN SELECT e.value FROM pg_catalog.jsonb_array_elements(p#>'{gobierno,roles}') WITH ORDINALITY e(value,n) ORDER BY n LOOP
-  IF g->>'version_ref'<=anterior OR g->>'clase' IS DISTINCT FROM 'administrador'
+  IF (g->>'version_ref') COLLATE "C"<=anterior COLLATE "C" OR g->>'clase' IS DISTINCT FROM 'administrador'
   OR g->>'categoria_admin' NOT IN('aplicacion','sistemas')
   THEN RAISE EXCEPTION 'AUT37: PARO clave=roles_orden actual=divergente esperado=versiones_categorias_exactas' USING ERRCODE='22023'; END IF;
   anterior:=g->>'version_ref';
@@ -368,7 +393,10 @@ BEGIN
   SELECT pg_catalog.jsonb_agg(d ORDER BY d COLLATE "C") INTO dimensiones FROM (
    SELECT DISTINCT e.value AS d FROM vec_autorizacion.catalogo_accion_nominal_v1 a,
     LATERAL pg_catalog.jsonb_array_elements_text(a.dimensiones_ambito) e
-   WHERE a.version_rol_ref=r.version_rol_ref AND a.fuente_huella_sha256=r.huella_sha256
+   WHERE a.version_rol_ref=r.version_rol_ref AND a.fuente_ref=meta.fuente_ref
+    AND a.fuente_version=meta.fuente_version AND a.fuente_huella_sha256=meta.fuente_huella_sha256
+    AND a.clase_control=CASE meta.categoria_administrativa WHEN 'aplicacion' THEN 'administrador_aplicacion' ELSE 'administrador_sistemas' END
+    AND EXISTS(SELECT 1 FROM pg_catalog.jsonb_array_elements(r.documento->'concesiones') c WHERE c.value=a.concesion)
     AND pg_catalog.clock_timestamp()>=a.vigente_desde
     AND (a.vigente_hasta IS NULL OR pg_catalog.clock_timestamp()<a.vigente_hasta)
   ) publicadas;
@@ -500,6 +528,7 @@ BEGIN
   IF previo.huella_plan_sha256 IS DISTINCT FROM sha OR previo.plan_canonico IS DISTINCT FROM pg_catalog.convert_to(p_plan_canonico,'UTF8')
   OR previo.operador_login IS DISTINCT FROM session_user::name OR previo.aprobacion_ref IS DISTINCT FROM cfg.aprobacion_ref
   OR previo.aprobacion_sha256 IS DISTINCT FROM cfg.aprobacion_sha256
+  OR vec_autorizacion_atestada_v3.cotejar_acuse_bootstrap_central_admin_v3(previo.auditoria_ref,previo.auditoria_secuencia,previo.auditoria_huella_sha256,previo.auditoria_registrada_en,sha,previo.operador_login,previo.aprobacion_ref,previo.preimagen_sha256) IS NOT TRUE
   OR NOT EXISTS(SELECT 1 FROM vec_autorizacion.control_continuidad_admin
     WHERE control_id AND bootstrap_estado='consumido' AND bootstrap_acto_ref=previo.acto_ref)
   THEN RAISE EXCEPTION 'AUT37: PARO clave=replay actual=incompatible esperado=operador_aprobacion_plan_originales' USING ERRCODE='23505'; END IF;
@@ -509,7 +538,7 @@ BEGIN
  deadline:=LEAST(cfg.vigente_hasta,(p->>'caduca_en')::timestamptz);
  IF (p->>'preparado_en')::timestamptz>pg_catalog.clock_timestamp()
  OR (p->>'caduca_en')::timestamptz<=(p->>'preparado_en')::timestamptz OR pg_catalog.clock_timestamp()>=deadline
- OR p#>>'{personas,0,persona_ref}'>=p#>>'{personas,1,persona_ref}'
+ OR (p#>>'{personas,0,persona_ref}') COLLATE "C">=(p#>>'{personas,1,persona_ref}') COLLATE "C"
  OR p#>>'{personas,0,cuenta_ref}'=p#>>'{personas,1,cuenta_ref}'
  OR p#>>'{personas,0,certificado_admin,huella_sha256}'=p#>>'{personas,1,certificado_admin,huella_sha256}'
  THEN RAISE EXCEPTION 'AUT37: PARO clave=reparto actual=divergente esperado=dos_personas_independientes_y_vigencia' USING ERRCODE='22023'; END IF;
@@ -599,8 +628,8 @@ BEGIN
  resultado:=pg_catalog.jsonb_build_object('acto_ref',acto,'recibo_ref',recibo,'huella_plan_sha256',sha,
   'primera_persona_ref',p#>>'{personas,0,persona_ref}','segunda_persona_ref',p#>>'{personas,1,persona_ref}',
   'auditoria_ref',aud.auditoria_ref,'perfiles',resultados,'confirmado_en',ahora);
- INSERT INTO vec_autorizacion.bootstrap_central_admin_v3(singleton,acto_ref,recibo_ref,plan_canonico,huella_plan_sha256,preimagen_canonica,preimagen_sha256,operador_login,aprobacion_ref,aprobacion_sha256,auditoria_ref,resultado,confirmado_en)
- VALUES(true,acto,recibo,pg_catalog.convert_to(p_plan_canonico,'UTF8'),sha,preimagen_bytes,preimagen_sha,session_user::name,cfg.aprobacion_ref,cfg.aprobacion_sha256,aud.auditoria_ref,resultado,ahora);
+ INSERT INTO vec_autorizacion.bootstrap_central_admin_v3(singleton,acto_ref,recibo_ref,plan_canonico,huella_plan_sha256,preimagen_canonica,preimagen_sha256,operador_login,aprobacion_ref,aprobacion_sha256,auditoria_ref,auditoria_secuencia,auditoria_huella_sha256,auditoria_registrada_en,resultado,confirmado_en)
+ VALUES(true,acto,recibo,pg_catalog.convert_to(p_plan_canonico,'UTF8'),sha,preimagen_bytes,preimagen_sha,session_user::name,cfg.aprobacion_ref,cfg.aprobacion_sha256,aud.auditoria_ref,aud.secuencia,aud.huella_sha256,aud.registrada_en,resultado,ahora);
  INSERT INTO vec_autorizacion.outbox_bootstrap_central_admin_v3 VALUES(acto,'bootstrap_central_confirmado',aud.auditoria_ref,ahora);
  RETURN resultado;
 EXCEPTION WHEN no_data_found OR too_many_rows THEN
@@ -610,4 +639,33 @@ REVOKE ALL ON FUNCTION vec_autorizacion.registrar_bootstrap_central_admin_v3(tex
 GRANT USAGE ON SCHEMA vec_autorizacion TO vec_admin_bootstrap_central_v3_ejecutor;
 GRANT EXECUTE ON FUNCTION vec_autorizacion.preflight_bootstrap_central_admin_v3(),vec_autorizacion.registrar_bootstrap_central_admin_v3(text,text)
  TO vec_admin_bootstrap_central_v3_ejecutor;
+DO $acl$
+DECLARE f record;t regclass;aut oid:='vec_autorizacion_propietario'::regrole;
+ runtime oid:='vec_admin_bootstrap_central_v3_ejecutor'::regrole;permitidos oid[];
+BEGIN
+ FOR f IN SELECT p.oid,p.proname,p.proowner,p.proacl FROM pg_catalog.pg_proc p
+ JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
+ WHERE (n.nspname='vec_autorizacion' AND p.proname IN(
+  'canon_bootstrap_central_admin_v3','exigir_operador_bootstrap_central_admin_v3',
+  'preflight_bootstrap_central_admin_v3','cotejar_roles_bootstrap_central_admin_v3',
+  'preimagen_bootstrap_central_admin_v3','crear_asignacion_bootstrap_central_admin_v3',
+  'registrar_bootstrap_central_admin_v3'))
+ OR (n.nspname='vec_contexto_actor_v1' AND p.proname IN('cotejar_ambitos_bootstrap_central_admin_v3','preimagen_persona_bootstrap_central_admin_v3'))
+ OR (n.nspname='vec_identidad_sesiones_v1' AND p.proname='preimagen_certificado_bootstrap_central_admin_v3')
+ OR (n.nspname='vec_autorizacion_atestada_v3' AND p.proname='cotejar_acuse_bootstrap_central_admin_v3') LOOP
+  permitidos:=ARRAY[f.proowner];
+  IF f.proowner<>aut THEN permitidos:=pg_catalog.array_append(permitidos,aut); END IF;
+  IF f.proname IN('preflight_bootstrap_central_admin_v3','registrar_bootstrap_central_admin_v3') THEN permitidos:=pg_catalog.array_append(permitidos,runtime); END IF;
+  IF EXISTS(SELECT 1 FROM pg_catalog.aclexplode(COALESCE(f.proacl,pg_catalog.acldefault('f',f.proowner))) a
+    WHERE NOT a.grantee=ANY(permitidos) OR a.privilege_type<>'EXECUTE' OR a.is_grantable)
+  THEN RAISE EXCEPTION 'AUT37: PARO clave=ACL_funcion actual=ampliada esperado=consumidores_propietarios_exactos' USING ERRCODE='55000'; END IF;
+ END LOOP;
+ FOREACH t IN ARRAY ARRAY['vec_autorizacion.config_bootstrap_central_admin_v3'::regclass,
+  'vec_autorizacion.bootstrap_central_admin_v3'::regclass,'vec_autorizacion.outbox_bootstrap_central_admin_v3'::regclass] LOOP
+  IF EXISTS(SELECT 1 FROM pg_catalog.pg_class c,
+   LATERAL pg_catalog.aclexplode(COALESCE(c.relacl,pg_catalog.acldefault('r',c.relowner))) a
+   WHERE c.oid=t AND (a.grantee<>aut OR a.is_grantable))
+  THEN RAISE EXCEPTION 'AUT37: PARO clave=ACL_tabla actual=ampliada esperado=owner_exclusivo' USING ERRCODE='55000'; END IF;
+ END LOOP;
+END $acl$;
 COMMIT;

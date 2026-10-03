@@ -1,0 +1,2 @@
+deploy/postgresql/autorizacion/migraciones/000036_descriptor_fijo_sistemas_admin_v1.up.sql
+deploy/postgresql/autorizacion/migraciones/000037_bootstrap_central_admin_v3.up.sql
