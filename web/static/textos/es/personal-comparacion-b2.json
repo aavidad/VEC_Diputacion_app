@@ -2,7 +2,7 @@
   "general": {
     "titulo": "Comparar otra fecha",
     "ayuda_abrir": "Ayuda para comparar fechas",
-    "ayuda": "Elija otro corte y pulse Comparar. Se consultan de nuevo ambas fichas. La hora corresponde a Madrid. No se aceptan horas ambiguas del cambio horario.",
+    "ayuda": "Elija otro corte y pulse Comparar. Se consultan de nuevo relaciones, servicios y situaciones. Hora de Madrid; no se aceptan horas ambiguas.",
     "efectos_otro": "Fecha de efectos del segundo corte (obligatoria)",
     "conocimiento_otro": "Conocido hasta el segundo corte · Madrid (obligatorio)",
     "comparar": "Comparar",

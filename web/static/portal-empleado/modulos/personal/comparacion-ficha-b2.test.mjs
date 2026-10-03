@@ -13,7 +13,7 @@ function respuesta(corte = primero) {
   return { ficha: { empleado_ref: empleadoRef, persona_ref: personaRef, organismo_ref: "org:diputacion", corte: { ...corte }, version: 2, eficacia_administrativa: false, firma_oficial: false,
     relaciones: [{ relacion_ref: relacionRef, organismo_ref: "org:diputacion", unidad_denominacion: "Servicios Generales", estado: "vigente", traza: { ...traza }, catalogo_snapshot: { modalidad: { denominacion: "Temporal", version: 1 } } }],
     ocupaciones: [], servicios: [], situaciones: [] },
-    evidencia: { recibo_ref: "recibo:uno", decision_ref: "decision:uno", efecto_ref: "efecto:uno", auditoria_ref: "audit:uno", consumo_huella_sha256: "a".repeat(64), consultada_en: "2026-10-03T10:01:00Z" } };
+    evidencia: { recibo_ref: "recibo:uno", decision_ref: "decision:uno", efecto_ref: empleadoRef, auditoria_ref: "audit:uno", consumo_huella_sha256: "a".repeat(64), consultada_en: "2026-10-03T10:01:00Z" } };
 }
 const opciones = { empleadoRef, cortePrimero: primero, corteSegundo: segundo };
 function raizFalsa() {
@@ -70,6 +70,7 @@ test("rechaza empleado, persona, organismo, corte o evidencia cruzados y duplica
     (x) => { x.ficha.organismo_ref = "org:otro"; },
     (x) => { x.ficha.corte.conocido_en = "2026-10-03T10:00:00.000001Z"; },
     (x) => { delete x.evidencia; },
+    (x) => { x.evidencia.efecto_ref = "emp_dddddddddddddddddddddd"; },
     (x) => { x.ficha.relaciones.push(x.ficha.relaciones[0]); },
     (x) => { x.ficha.relaciones[0].estado = "inventado"; },
     (x) => { x.ficha.firma_oficial = true; },

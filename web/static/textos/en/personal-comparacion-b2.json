@@ -2,7 +2,7 @@
   "general": {
     "titulo": "Compare another date",
     "ayuda_abrir": "Help with date comparisons",
-    "ayuda": "Choose another cut-off and select Compare. Both records are queried again. Time is in Madrid. Ambiguous daylight-saving times are not accepted.",
+    "ayuda": "Choose another cut-off and select Compare. Relationships, services and situations are queried again. Time is in Madrid; ambiguous times are not accepted.",
     "efectos_otro": "Second cut-off effective date (required)",
     "conocimiento_otro": "Second cut-off known by · Madrid (required)",
     "comparar": "Compare",

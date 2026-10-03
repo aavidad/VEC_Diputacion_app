@@ -33,7 +33,7 @@ function validarRespuesta(respuesta, empleadoRef, corte) {
   if (!f || !/^emp_[A-Za-z0-9_-]{22,128}$/u.test(empleadoRef) || f.empleado_ref !== empleadoRef ||
       !/^per_[A-Za-z0-9_-]{22,128}$/u.test(f.persona_ref) || !ref(f.organismo_ref) || !positivo(f.version) ||
       f.eficacia_administrativa !== false || f.firma_oficial !== false || !corteValido(f.corte) || !mismoCorte(f.corte, corte) ||
-      !e || !["recibo_ref", "decision_ref", "efecto_ref", "auditoria_ref"].every((k) => ref(e[k])) ||
+      !e || e.efecto_ref !== empleadoRef || !["recibo_ref", "decision_ref", "efecto_ref", "auditoria_ref"].every((k) => ref(e[k])) ||
       !/^[0-9a-f]{64}$/u.test(e.consumo_huella_sha256) || !instante(e.consultada_en) ||
       (f.cobertura !== undefined && !["completa", "parcial", "no_acreditada"].includes(f.cobertura))) fallo();
   for (const [familia, clave] of Object.entries(familias)) {
