@@ -262,6 +262,9 @@ func (h *Manejador) servirConsulta(w http.ResponseWriter, r *http.Request) {
 		Motivo: opciones.Motivo, Correlacion: identidad.Correlacion,
 	}})
 	if err != nil {
+		if acuse, confirmado := AcuseIntentoConsulta(err); confirmado {
+			w.Header().Set("X-Audit-Ref", acuse.AuditoriaRef)
+		}
 		if errors.Is(err, ErrDenegada) {
 			responderError(w, http.StatusForbidden)
 		} else {

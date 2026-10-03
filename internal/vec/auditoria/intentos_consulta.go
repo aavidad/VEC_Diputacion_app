@@ -97,7 +97,25 @@ func (i *intentosConsulta) preparar(p Peticion) (intentoConsulta, error) {
 	}}, nil
 }
 
-func (i *intentosConsulta) registrar(ctx context.Context, intento intentoConsulta, fallo error) error {
+type falloConsultaAuditado struct {
+	causa error
+	acuse vecports.AcuseIntentoAuditoria
+}
+
+func (f *falloConsultaAuditado) Error() string { return f.causa.Error() }
+func (f *falloConsultaAuditado) Unwrap() error { return f.causa }
+
+// AcuseIntentoConsulta entrega solo el recibo validado tras COMMIT. Una
+// respuesta fallida sin acuse no implica que el registro haya sido confirmado.
+func AcuseIntentoConsulta(fallo error) (vecports.AcuseIntentoAuditoria, bool) {
+	var auditado *falloConsultaAuditado
+	if !errors.As(fallo, &auditado) || auditado == nil {
+		return vecports.AcuseIntentoAuditoria{}, false
+	}
+	return auditado.acuse, true
+}
+
+func (i *intentosConsulta) registrar(ctx context.Context, intento intentoConsulta, fallo error) (vecports.AcuseIntentoAuditoria, error) {
 	intento.datos.Resultado = vecdomain.ResultadoIntentoAuditoriaError
 	if errors.Is(fallo, ErrDenegada) {
 		intento.datos.Resultado = vecdomain.ResultadoIntentoAuditoriaDenegado
@@ -106,18 +124,21 @@ func (i *intentosConsulta) registrar(ctx context.Context, intento intentoConsult
 	orden, err := vecports.NuevaOrdenIntentoAuditoria(intento.referencia,
 		intento.contexto.Resultado, intento.contexto.Vinculo, intento.datos)
 	if err != nil {
-		return ErrNoDisponible
+		return vecports.AcuseIntentoAuditoria{}, ErrNoDisponible
 	}
 	registroCtx, cancelar := context.WithTimeout(context.WithoutCancel(ctx), i.config.Plazo)
 	defer cancelar()
 	for n := 0; n < 2; n++ {
 		acuse, err := i.registrador.AppendIntentoAuditoria(registroCtx, orden)
 		if err == nil {
-			return acuse.ValidarPara(orden)
+			if acuse.ValidarPara(orden) != nil {
+				return vecports.AcuseIntentoAuditoria{}, ErrNoDisponible
+			}
+			return acuse, nil
 		}
 		if !errors.Is(err, vecports.ErrIntentoAuditoriaNoDisponible) || registroCtx.Err() != nil {
-			return ErrNoDisponible
+			return vecports.AcuseIntentoAuditoria{}, ErrNoDisponible
 		}
 	}
-	return ErrNoDisponible
+	return vecports.AcuseIntentoAuditoria{}, ErrNoDisponible
 }

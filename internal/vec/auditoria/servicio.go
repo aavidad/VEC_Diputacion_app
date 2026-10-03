@@ -89,8 +89,11 @@ func (s *Servicio) Consultar(ctx context.Context, p Peticion) (salida Pagina, fa
 		}
 		defer func() {
 			if fallo != nil {
-				if s.intentos.registrar(ctx, orden, fallo) != nil {
+				acuse, err := s.intentos.registrar(ctx, orden, fallo)
+				if err != nil {
 					salida, fallo = Pagina{}, ErrNoDisponible
+				} else {
+					fallo = &falloConsultaAuditado{causa: fallo, acuse: acuse}
 				}
 			}
 		}()

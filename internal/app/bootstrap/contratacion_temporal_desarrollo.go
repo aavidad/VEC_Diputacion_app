@@ -1202,7 +1202,14 @@ func nuevasRutasAuditoriaConsultaDesarrollo(
 		poolCT.Close()
 		return fallo(nil)
 	}
-	cerrar := func() { poolMotivos.Close(); poolFuente.Close(); poolCT.Close() }
+	registradorIntentos, configuracionIntentos, cerrarIntentos, err := nuevoRegistradorIntentosConsulta(sonda, cfg)
+	if err != nil {
+		poolMotivos.Close()
+		poolFuente.Close()
+		poolCT.Close()
+		return fallo(nil)
+	}
+	cerrar := func() { cerrarIntentos(); poolMotivos.Close(); poolFuente.Close(); poolCT.Close() }
 	if preflightAuditoriaConsultaDesarrollo(sonda, poolFuente, poolMotivos, alta.postgresql.bolsa) != nil {
 		return fallo(cerrar)
 	}
@@ -1266,6 +1273,8 @@ func nuevasRutasAuditoriaConsultaDesarrollo(
 	if err != nil {
 		return fallo(cerrar)
 	}
+	configuracionIntentos.RecursoCTRef, configuracionIntentos.RecursoBolsaRef = ctRef, bolsaRef
+	configuracionIntentos.FinalidadRef, configuracionIntentos.Motivo = opciones.FinalidadRef, opciones.Motivo
 	rutas, err := nuevasRutasAuditoriaConsultaConIdentidadesRRHH(dependenciasIdentidadAuditoriaConsultaRRHH{
 		PoolCT: poolCT, PoolBolsa: alta.postgresql.bolsa,
 		EmisorCT: emisorCT, EmisorBolsa: emisorBolsa,
@@ -1273,6 +1282,7 @@ func nuevasRutasAuditoriaConsultaDesarrollo(
 		IdentidadCT:       identidadSesionAuditoriaConsultaDesarrollo{identidadCT, auditoria.FuenteConsultaCT, auditoria.RutaConsulta, http.MethodPost},
 		IdentidadBolsa:    identidadSesionAuditoriaConsultaDesarrollo{identidadBolsa, auditoria.FuenteConsultaBolsa, auditoria.RutaConsulta, http.MethodPost},
 		Opciones:          proveedorOpciones,
+		Intentos:          registradorIntentos, ConfiguracionIntentos: configuracionIntentos,
 	})
 	if err != nil {
 		return fallo(cerrar)

@@ -144,12 +144,14 @@ type dependenciasAuditoriaConsultaRRHH struct {
 	EmisorCT, EmisorBolsa auditoria.EmisorMaterialV3
 	Identidad             auditoria.IdentidadConsulta
 	Opciones              auditoria.ProveedorOpciones
+	Intentos              vecports.RegistradorIntentosAuditoria
+	ConfiguracionIntentos auditoria.ConfiguracionIntentosConsulta
 }
 
 func nuevasRutasAuditoriaConsultaRRHH(d dependenciasAuditoriaConsultaRRHH) ([]vechttp.RutaExacta, error) {
 	if d.PoolCT == nil || d.PoolBolsa == nil || dependenciaAuditoriaConsultaNula(d.EmisorCT) ||
 		dependenciaAuditoriaConsultaNula(d.EmisorBolsa) || dependenciaAuditoriaConsultaNula(d.Identidad) ||
-		dependenciaAuditoriaConsultaNula(d.Opciones) {
+		dependenciaAuditoriaConsultaNula(d.Opciones) || dependenciaAuditoriaConsultaNula(d.Intentos) {
 		return nil, auditoria.ErrNoDisponible
 	}
 	ct, err := ctauditoria.NuevaFuente(d.PoolCT)
@@ -160,7 +162,7 @@ func nuevasRutasAuditoriaConsultaRRHH(d dependenciasAuditoriaConsultaRRHH) ([]ve
 	if err != nil {
 		return nil, err
 	}
-	servicio, err := auditoria.NuevoServicio(emisorAuditoriaConsultaRRHH{ct: d.EmisorCT, bolsa: d.EmisorBolsa}, ct, bolsa)
+	servicio, err := auditoria.NuevoServicioConIntentos(emisorAuditoriaConsultaRRHH{ct: d.EmisorCT, bolsa: d.EmisorBolsa}, ct, bolsa, d.Intentos, d.ConfiguracionIntentos)
 	if err != nil {
 		return nil, err
 	}

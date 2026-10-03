@@ -197,6 +197,7 @@ func TestRaizExactaAuditoriaSirveOpcionesYDeniegaFuenteAjena(t *testing.T) {
 		EmisorCT: &emisorAuditoriaConsultaPrueba{}, EmisorBolsa: &emisorAuditoriaConsultaPrueba{},
 		IdentidadOpciones: identidadCT, IdentidadCT: identidadCT, IdentidadBolsa: identidadBolsa,
 		Opciones: &opcionesAuditoriaConsultaPrueba{opciones: opciones},
+		Intentos: &registradorIntentosConsultaPrueba{}, ConfiguracionIntentos: configuracionIntentosConsultaPrueba(t, opciones.Motivo),
 	})
 	if err != nil {
 		t.Fatal(err)

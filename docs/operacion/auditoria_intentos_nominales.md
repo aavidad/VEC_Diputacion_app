@@ -80,3 +80,42 @@ Este puerto permite a los consumidores ampliar su cobertura; no significa que
 todos los módulos ya lo llamen. El sello TSA y la exportación judicial pertenecen
 a los cortes siguientes de auditoría. El verificador anterior de consumos debe
 ampliarse para este nuevo tipo de registro antes de verificar un rango mixto.
+
+## Consumidor de la consulta RRHH
+
+Las consultas existentes de historia CT y participación Bolsa conectan ahora
+el registrador común mediante `auditoria.NuevoServicioConIntentos`. La raíz
+exige el pool dedicado y su preflight antes de publicar las rutas. El acceso
+permitido conserva su consumo V3 original en la transacción de lectura.
+
+El servicio registra el resultado fallido del emisor, del cursor o de la
+fuente cuando dispone de contexto y vínculo acreditados. Las fuentes cierran
+filas y transacción antes de devolver el control. El registro utiliza los
+recursos configurados por el servidor, el motivo del catálogo y la finalidad
+exacta; una entrada ajena se rechaza sin copiar texto libre al asiento.
+
+El proceso que activa `VEC_RRHH_AUDITORIA_ENABLED` necesita además:
+
+| Variable | Valor requerido |
+| --- | --- |
+| `VEC_AUDITORIA_INTENTOS_DATABASE_URL` | Conexión privada del LOGIN dedicado, separado de los LOGIN de negocio, autorización, motivos y frontera. |
+| `VEC_AUDITORIA_INTENTOS_PROCESO` | Identificador del proceso que DBA registró en AD169. |
+| `VEC_AUDITORIA_INTENTOS_CANAL` | `interna_corporativa`, correspondiente a esta superficie RRHH. |
+| `VEC_AUDITORIA_INTENTOS_PLAZO` | Duración positiva, como `2s`, con máximo técnico de diez segundos. |
+
+DBA debe haber configurado ese LOGIN, proceso y canal en la autoridad de
+AD169. La aplicación no concede membresías ni escribe esa configuración.
+Cada conexión comprueba el preflight; el pool tiene un máximo de dos conexiones
+y exige TLS mediante la comprobación PostgreSQL ya utilizada por la raíz.
+
+Cuando se confirma el asiento del intento, el error conserva el acuse validado.
+La respuesta HTTP incluye su referencia opaca en `X-Audit-Ref`; el cuerpo
+mantiene el error habitual. Si falta el acuse o no es válido, la consulta
+devuelve indisponibilidad sin datos ni referencia de auditoría confirmada.
+Los reintentos internos del registro conservan la misma orden y referencia.
+
+Esta pieza cubre los fallos del servicio de consulta RRHH con identidad y
+configuración acreditadas. Las entradas anteriores a esa frontera y los demás
+consumidores se cierran por separado. Los metadatos de proceso y canal de
+los consumos permitidos requieren su ampliación común; no se completan
+retrospectivamente por inferencia.
