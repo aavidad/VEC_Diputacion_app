@@ -20,6 +20,7 @@ import (
 
 	"vec-diputacion-granada/config"
 	dp "vec-diputacion-granada/internal/modules/dietas/ports"
+	personalcomp "vec-diputacion-granada/internal/modules/personal/adapters/composicion"
 	personalhttp "vec-diputacion-granada/internal/modules/personal/adapters/httpinterno"
 	personaldomain "vec-diputacion-granada/internal/modules/personal/domain"
 	personalports "vec-diputacion-granada/internal/modules/personal/ports"
@@ -304,5 +305,56 @@ func TestPersonalEmpleadoFronteraAceptaCadenaClienteConCA(t *testing.T) {
 	cuerpo, _ := io.ReadAll(res.Body)
 	if res.ProtoMajor != 2 || res.StatusCode != http.StatusOK || datos != 1 || len(auditoria.denegaciones) != 0 || res.Header.Get("Set-Cookie") != "" {
 		t.Fatalf("cadena cliente con CA por %s: %d %s, datos=%d, auditoría=%+v", res.Proto, res.StatusCode, cuerpo, datos, auditoria.denegaciones)
+	}
+}
+
+type registradorIntentoPersonalCaducidadPrueba struct{ ordenes []vp.OrdenIntentoAuditoria }
+
+func (r *registradorIntentoPersonalCaducidadPrueba) PreflightIntentoAuditoria(context.Context) error {
+	return nil
+}
+func (r *registradorIntentoPersonalCaducidadPrueba) AppendIntentoAuditoria(_ context.Context, o vp.OrdenIntentoAuditoria) (vp.AcuseIntentoAuditoria, error) {
+	r.ordenes = append(r.ordenes, o)
+	d, err := o.Datos()
+	if err != nil {
+		return vp.AcuseIntentoAuditoria{}, err
+	}
+	return vp.AcuseIntentoAuditoria{AuditoriaRef: "auditoria_prueba", Secuencia: 1, HuellaSHA256: strings.Repeat("a", 64), CorrelacionRef: d.Datos.CorrelacionRef, RegistradaEn: time.Now().UTC().Truncate(time.Microsecond)}, nil
+}
+
+func TestPersonalEmpleadoCapturaSelloTrasCaducidadSinAutorizarLectura(t *testing.T) {
+	fixture := nuevoEscenarioMaterialRutasDietasPrueba(t, dp.AccionConsultarCatalogoRutasDietas, time.Now().UTC().Truncate(time.Microsecond))
+	datosSolicitud, err := fixture.solicitud.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	vinculo := datosSolicitud.VinculoAutenticacionActor
+	reloj := &relojSesionConsultaPrueba{ahora: fixture.ahora}
+	autoridad := &autoridadPersonalEmpleadoDesarrollo{reloj: reloj}
+	ctx := context.WithValue(context.Background(), claveContextoPersonalEmpleado{}, contextoPersonalEmpleado{autoridad: autoridad, seguridad: contextoSeguridadComunDesarrollo{Vinculo: vinculo, Resultado: fixture.resultado}})
+	ctx, err = vp.ConCorrelacionIncidenciasPeticion(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reloj.ahora = fixture.ahora.Add(24 * time.Hour)
+	if vinculo.VigenteEn(reloj.ahora, fixture.resultado) {
+		t.Fatal("el vínculo de lectura sigue vigente")
+	}
+	ctx, err = personalcomp.PrepararContextoIntentoFichaPropia(ctx, seguridadPersonalEmpleadoDesarrollo{autoridad: autoridad}, time.Second)
+	if err != nil {
+		t.Fatal("se perdió el sello original", err)
+	}
+	destino := &registradorIntentoPersonalCaducidadPrueba{}
+	motivo := core.ReferenciaEntradaCatalogo{CatalogoID: "motivos_personal", CatalogoVersion: 1, CatalogoHuellaSHA256: strings.Repeat("d", 64), EntradaClave: "motivo_" + strings.Repeat("5", 32)}
+	registro, err := personalcomp.NuevoRegistroIntentosFichaPropia(destino, personalcomp.ConfiguracionIntentosFichaPropia{Proceso: "vec_personal_prueba", Canal: string(core.SuperficieAutenticacionInternaCorporativaV1), RecursoEntradaInvalida: "personal:ficha_propia:entrada_invalida", MotivoDenegado: motivo, MotivoEntradaInvalida: motivo, MotivoNoDisponible: motivo})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := registro.RegistrarIntentoFichaPropia(ctx, personalports.IntentoFichaPropia{Motivo: "no_disponible"}); err != nil || len(destino.ordenes) != 1 {
+		t.Fatal("intento nominal no confirmado", err)
+	}
+	datos, err := destino.ordenes[0].Datos()
+	if err != nil || datos.ResultadoContexto.HuellaSHA256 != fixture.resultado.HuellaSHA256 || datos.ResultadoContexto.Contexto.PerfilActivoRef != fixture.resultado.Contexto.PerfilActivoRef {
+		t.Fatal("atribución distinta al sello original", err)
 	}
 }
