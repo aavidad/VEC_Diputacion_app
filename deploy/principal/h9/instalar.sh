@@ -14,6 +14,8 @@ source "$CONFIG"
 for var in APP PG PGDATA PGCONF PGHBA ART CONF BACKUP_ROOT PREIMAGEN_DB_SHA PREIMAGEN_ART_SHA PREIMAGEN_CONF_SHA MANTENIMIENTO_CERRAR MANTENIMIENTO_COMPROBAR MANTENIMIENTO_ABRIR; do
   [[ -n ${!var:-} ]] || paro "$var" ausente requerido
 done
+[[ -d "$ART" && ! -L "$ART" ]] || paro artefacto_tipo archivo_o_ausente directorio
+[[ -d "$CONF" && ! -L "$CONF" ]] || paro config_tipo archivo_o_ausente directorio
 for var in CONTAINER_HOST CONTAINER_CONNECTION PODMAN_CONNECTION PODMAN_REMOTE PODMAN_HOST DOCKER_HOST; do
   [[ -z ${!var:-} ]] || paro "$var" remoto local
 done
@@ -73,6 +75,20 @@ KIT="$COPIA/kit"
 actual=$(sha256sum "$KIT/SHA256SUMS"); actual=${actual%% *}
 [[ "$actual" == "$MANIFIESTO_SHA" ]] || paro manifiesto_copia "$actual" "$MANIFIESTO_SHA"
 validar_kit
+if [[ -n ${RUNTIME_MOUNTS_SHA:-} ]]; then
+  podman inspect -f '{{json .Mounts}}' "$PG" "$APP" > "$COPIA/montajes.jsonl"
+  actual=$(python3 - "$COPIA/montajes.jsonl" <<'PYMOUNTS'
+import hashlib,json,pathlib,sys
+containers=[json.loads(line) for line in pathlib.Path(sys.argv[1]).read_text().splitlines()]
+for mounts in containers:
+    mounts.sort(key=lambda m:(m.get('Destination',''),m.get('Source',''),m.get('Type','')))
+    for mount in mounts:
+        if isinstance(mount.get('Options'),list): mount['Options'].sort()
+print(hashlib.sha256(json.dumps(containers,sort_keys=True,separators=(',',':')).encode()).hexdigest())
+PYMOUNTS
+)
+  [[ "$actual" == "$RUNTIME_MOUNTS_SHA" ]] || paro runtime_montajes "$actual" "$RUNTIME_MOUNTS_SHA"
+fi
 ORIGENES=("$PGDATA" "$PGCONF" "$PGHBA" "$ART" "$CONF")
 if declare -p EXTRA_COPIA >/dev/null 2>&1; then ORIGENES+=("${EXTRA_COPIA[@]}"); fi
 for path in "${ORIGENES[@]}"; do
@@ -194,8 +210,8 @@ parado "$APP" || paro app activa parada
 # La copia fría conserva el artefacto anterior completo. App permanece parada.
 cp -a -- "$ART" "$COPIA/artefacto-nuevo"
 install -m 755 -- "$KIT/bin/vec-server" "$COPIA/artefacto-nuevo/vec-server"
-rm -rf -- "$COPIA/artefacto-nuevo/web/static"
-cp -a -- "$KIT/web/static" "$COPIA/artefacto-nuevo/web/static"
+rm -rf -- "$COPIA/artefacto-nuevo/web"
+cp -a -- "$KIT/web" "$COPIA/artefacto-nuevo/web"
 if [[ -d "$KIT/locales" ]]; then
   rm -rf -- "$COPIA/artefacto-nuevo/locales"
   cp -a -- "$KIT/locales" "$COPIA/artefacto-nuevo/locales"

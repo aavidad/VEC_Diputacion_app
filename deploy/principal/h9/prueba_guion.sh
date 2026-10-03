@@ -6,6 +6,8 @@ T=$(mktemp -d "${TMPDIR:-/tmp}/h9-mock-XXXXXXXX")
 trap 'rm -rf -- "$T"' EXIT
 trap 'printf "FALLO %s\n" "${mode:-preparacion}"; if [[ -f ${F:-}/result ]]; then cat "$F/result"; fi' ERR
 mkdir -p "$T/mock-bin"
+MODOS=(sql_fail startup_fail success altered_manifest wrong_preimage app_active maintenance_fail recovery_db_fail recovery_art_fail recovery_db_error config_file mounts_match mounts_fail)
+if [[ ${1:-} == --web-config ]]; then MODOS=(success config_file mounts_match mounts_fail); fi
 cat > "$T/mock-bin/id" <<'MOCK'
 #!/usr/bin/env bash
 if [[ "$1" == -un ]]; then echo openclaw; else /usr/bin/id "$@"; fi
@@ -16,7 +18,11 @@ set -euo pipefail
 [[ "$1" == --remote=false ]] && shift
 case "$1" in
 unshare) shift; exec "$@" ;;
-inspect) cat "$FIXTURE/$4.running" ;;
+inspect)
+  if [[ "$3" == '{{json .Mounts}}' ]]; then
+    printf '[{"Source":"/fixture/pgdata","Destination":"/db","Type":"bind"}]\n[{"Source":"/fixture/art","Destination":"/app","Type":"bind"}]\n'
+  else cat "$FIXTURE/$4.running"; fi
+  ;;
 stop) echo false > "$FIXTURE/$4.running" ;;
 start)
   [[ "$2" != app || $(cat "$FIXTURE/gate") == closed ]]
@@ -52,11 +58,13 @@ cat > "$T/mock-bin/sleep" <<'MOCK'
 exit 0
 MOCK
 chmod +x "$T/mock-bin/"*
-for mode in sql_fail startup_fail success altered_manifest wrong_preimage app_active maintenance_fail recovery_db_fail recovery_art_fail recovery_db_error; do
+for mode in "${MODOS[@]}"; do
   F="$T/$mode"; K="$F/kit"; mkdir -p "$K/bin" "$K/web/static" "$K/locales" "$F/pgdata/pg_tblspc" "$F/pgdata/pg_wal" "$F/pgconf" "$F/art/web/static" "$F/art/locales" "$F/conf" "$F/backups"
   echo seed > "$F/pgdata/rows"; echo pgconfig > "$F/pgconf/postgresql.conf"; echo hba > "$F/hba"
   echo old > "$F/art/vec-server"; echo old-web > "$F/art/web/static/app.js"; echo old-i18n > "$F/art/locales/test.json"; echo private > "$F/conf/config"
+  if [[ "$mode" == config_file ]]; then mv "$F/conf" "$F/conf-directory"; echo private > "$F/conf"; fi
   echo new > "$K/bin/vec-server"; echo new-web > "$K/web/static/app.js"; echo new-i18n > "$K/locales/test.json"
+  echo old-map > "$F/art/web/cartografia.json"; echo new-map > "$K/web/cartografia.json"
   printf 'one.up.sql\ntwo.up.sql\n' > "$K/sql.list"
   printf 'BEGIN;\nSELECT 1; -- TEST_ONE\nCOMMIT;\n' > "$K/one.up.sql"
   printf 'BEGIN;\nSELECT 1; -- TEST_TWO\nCOMMIT;\n' > "$K/two.up.sql"
@@ -104,16 +112,26 @@ MANTENIMIENTO_CERRAR='$F/close'
 MANTENIMIENTO_COMPROBAR='$F/check'
 MANTENIMIENTO_ABRIR='$F/open'
 CFG
+  if [[ "$mode" == mounts_match || "$mode" == mounts_fail ]]; then
+    mounts_sha=$(python3 - <<'PYM'
+import hashlib,json
+mounts=[[dict(Source='/fixture/pgdata',Destination='/db',Type='bind')],[dict(Source='/fixture/art',Destination='/app',Type='bind')]]
+print(hashlib.sha256(json.dumps(mounts,sort_keys=True,separators=(',',':')).encode()).hexdigest())
+PYM
+)
+    [[ "$mode" != mounts_fail ]] || mounts_sha=$(printf '%064d' 0)
+    printf "RUNTIME_MOUNTS_SHA='%s'\n" "$mounts_sha" >> "$F/config.sh"
+  fi
   chmod 600 "$F/config.sh"
   [[ "$mode" != altered_manifest ]] || echo altered >> "$K/web/static/app.js"
   [[ "$mode" != wrong_preimage ]] || echo unexpected >> "$F/pgdata/rows"
   rc=0
   FIXTURE="$F" MODE="$mode" PATH="$T/mock-bin:$PATH" bash "$SCRIPT" "$K" "$F/config.sh" "$sha" > "$F/result" 2>&1 || rc=$?
-  if [[ "$mode" == success ]]; then
+  if [[ "$mode" == success || "$mode" == mounts_match ]]; then
     [[ "$rc" == 0 && $(cat "$F/gate") == open && $(cat "$F/app.running") == true ]]
-    [[ $(cat "$F/art/vec-server") == new && $(cat "$F/art/web/static/app.js") == new-web && $(cat "$F/art/locales/test.json") == new-i18n ]]
+    [[ $(cat "$F/art/vec-server") == new && $(cat "$F/art/web/static/app.js") == new-web && $(cat "$F/art/locales/test.json") == new-i18n && $(cat "$F/art/web/cartografia.json") == new-map ]]
     [[ $(wc -l < "$F/pgdata/rows") == 3 ]]
-  elif [[ "$mode" == altered_manifest ]]; then
+  elif [[ "$mode" == altered_manifest || "$mode" == config_file || "$mode" == mounts_fail ]]; then
     [[ "$rc" != 0 && $(cat "$F/app.running") == true && $(cat "$F/gate") == open ]]
   elif [[ "$mode" == wrong_preimage ]]; then
     [[ "$rc" != 0 && $(cat "$F/app.running") == false && $(cat "$F/gate") == closed ]]
