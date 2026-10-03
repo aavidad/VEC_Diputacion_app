@@ -63,6 +63,9 @@ func (a *autoridadPerfilesLotePrueba) AplicarLoteOrdinario(_ context.Context, s 
 func lotePerfilesAplicacionPrueba(t *testing.T) (*ServicioAdministracionPerfiles, domain.SolicitudLoteAdministracionPerfiles, *autoridadPerfilesLotePrueba, catalogoPerfilesLotePrueba) {
 	t.Helper()
 	e := nuevoEntornoAutorizacionSolicitudV3Prueba(t)
+	e.instantanea.VersionRol.RolID = "administracion_perfiles"
+	e.instantanea.AsignacionPerfil.VersionRolRef = e.instantanea.VersionRol.Referencia()
+	e.instantanea.ControlVigenciaVersionRol.VersionRolRef = e.instantanea.VersionRol.Referencia()
 	datos, err := e.solicitud.Datos()
 	if err != nil {
 		t.Fatal(err)
@@ -189,5 +192,29 @@ func TestAdministracionPerfilesLoteNoAceptaReciboAjeno(t *testing.T) {
 				t.Fatalf("recibo %s aceptado", caso)
 			}
 		})
+	}
+}
+
+func TestAdministracionPerfilesNoAdmiteOtroRolAunqueCatalogoLoClasifiqueAplicacion(t *testing.T) {
+	servicio, solicitud, autoridad, catalogo := lotePerfilesAplicacionPrueba(t)
+	original := solicitud.InstantaneaAutorizacion.VersionRol.Referencia()
+	rol := catalogo[original]
+	solicitud.InstantaneaAutorizacion.VersionRol.RolID = "administrador_aplicacion_prueba"
+	versionRef := solicitud.InstantaneaAutorizacion.VersionRol.Referencia()
+	solicitud.InstantaneaAutorizacion.AsignacionPerfil.VersionRolRef = versionRef
+	solicitud.InstantaneaAutorizacion.ControlVigenciaVersionRol.VersionRolRef = versionRef
+	rol.VersionRef = versionRef
+	var err error
+	rol.HuellaSHA256, err = solicitud.InstantaneaAutorizacion.VersionRol.HuellaSHA256()
+	if err != nil {
+		t.Fatal(err)
+	}
+	catalogo[versionRef] = rol
+	sellarLotePerfilesPrueba(t, &solicitud)
+	if solicitud.Validar() != nil || rol.ValidarEn(servicio.reloj.Ahora()) != nil {
+		t.Fatal("fixture nominal alternativo inválido")
+	}
+	if _, err := servicio.AplicarLoteOrdinario(context.Background(), solicitud); err == nil || autoridad.lotes != 0 || autoridad.ordinarios != 0 {
+		t.Fatal("otro rol de categoría Aplicación recibió autoridad nominal de perfiles")
 	}
 }
