@@ -1,12 +1,18 @@
 package bootstrap
 
 import (
+	"bytes"
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	gocose "github.com/veraison/go-cose"
+	"io"
+	"log/slog"
+	"sync"
+	"time"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	confianzaatestacion "vec-diputacion-granada/internal/vec/adapters/seguridad/confianzaatestacion"
 	aplicacionvec "vec-diputacion-granada/internal/vec/application"
@@ -14,26 +20,79 @@ import (
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
 
+// ConfiguracionFirmanteAtestacionV3Privado procede del aprovisionamiento externo.
+// No se construye con datos de una petición. El archivo contiene la semilla
+// existente; este constructor no crea ni guarda claves nuevas.
+type ConfiguracionFirmanteAtestacionV3Privado struct {
+	ClaveID, Audiencia, PrefijoEvidencia, ArchivoSemilla string
+	PublicaEsperada                                      ed25519.PublicKey
+}
+
+func NuevoFirmanteAtestacionV3DesdeArchivo(cfg ConfiguracionFirmanteAtestacionV3Privado, reloj puertosvec.Reloj) (puertosvec.FirmanteAtestacionesAutorizacionV3, func(), error) {
+	cabecera := dominiovec.CabeceraAtestacionAutorizacionV3{FormatoVersion: dominiovec.VersionFormatoAtestacionAutorizacionV3, Suite: confianzaatestacion.SuiteAtestacionAutorizacionV3COSEEdDSA, ClaveID: cfg.ClaveID, Audiencia: cfg.Audiencia}
+	if cabecera.Validar() != nil || dependenciaBootstrapNula(reloj) || !identificadorSesionDesarrolloValido(cfg.PrefijoEvidencia) || len(cfg.PublicaEsperada) != ed25519.PublicKeySize {
+		return nil, nil, puertosvec.ErrFirmaAtestacionNoDisponible
+	}
+	semilla, err := leerFicheroMaterialSeguro(cfg.ArchivoSemilla, ed25519.SeedSize)
+	defer borrarBytes(semilla)
+	if err != nil || len(semilla) != ed25519.SeedSize {
+		return nil, nil, puertosvec.ErrFirmaAtestacionNoDisponible
+	}
+	privada := ed25519.NewKeyFromSeed(semilla)
+	if !bytes.Equal(privada.Public().(ed25519.PublicKey), cfg.PublicaEsperada) {
+		borrarBytes(privada)
+		return nil, nil, puertosvec.ErrFirmaAtestacionNoDisponible
+	}
+	f := &firmanteAtestacionAltaContratacionTemporalDesarrollo{claveID: cfg.ClaveID, privada: privada, reloj: reloj, audiencia: cfg.Audiencia, prefijoEvidencia: cfg.PrefijoEvidencia}
+	cerrar := func() { f.mu.Lock(); defer f.mu.Unlock(); borrarBytes(f.privada); f.privada = nil }
+	return f, cerrar, nil
+}
+
 type firmanteAtestacionAltaContratacionTemporalDesarrollo struct {
-	claveID string
-	privada ed25519.PrivateKey
-	reloj   relojContratacionTemporalDesarrollo
+	mu                          sync.RWMutex
+	audiencia, prefijoEvidencia string
+	claveID                     string
+	privada                     ed25519.PrivateKey
+	reloj                       interface{ Ahora() time.Time }
+}
+
+func (*firmanteAtestacionAltaContratacionTemporalDesarrollo) String() string {
+	return "[FIRMANTE-ATESTACION-V3-PRIVADO]"
+}
+func (f *firmanteAtestacionAltaContratacionTemporalDesarrollo) Format(s fmt.State, _ rune) {
+	_, _ = io.WriteString(s, f.String())
+}
+func (f *firmanteAtestacionAltaContratacionTemporalDesarrollo) LogValue() slog.Value {
+	return slog.StringValue(f.String())
 }
 
 func (f *firmanteAtestacionAltaContratacionTemporalDesarrollo) FirmarAtestacionAutorizacionV3(
 	ctx context.Context,
 	solicitud puertosvec.SolicitudFirmaAtestacionAutorizacionV3,
 ) (puertosvec.ResultadoFirmaAtestacionAutorizacionV3, error) {
-	if ctx == nil || f == nil || len(f.privada) != ed25519.PrivateKeySize {
+	if ctx == nil || f == nil {
+		return puertosvec.ResultadoFirmaAtestacionAutorizacionV3{}, puertosvec.ErrFirmaAtestacionNoDisponible
+	}
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+	if len(f.privada) != ed25519.PrivateKeySize {
 		return puertosvec.ResultadoFirmaAtestacionAutorizacionV3{},
 			puertosvec.ErrFirmaAtestacionNoDisponible
 	}
 	if err := ctx.Err(); err != nil {
 		return puertosvec.ResultadoFirmaAtestacionAutorizacionV3{}, err
 	}
+	audiencia := f.audiencia
+	if audiencia == "" {
+		audiencia = audienciaAtestacionContratacionTemporalDesarrollo
+	}
+	prefijoEvidencia := f.prefijoEvidencia
+	if prefijoEvidencia == "" {
+		prefijoEvidencia = "evidencia:firma:ct:desarrollo:"
+	}
 	cabecera, err := solicitud.Cabecera()
 	if err != nil || cabecera.ClaveID != f.claveID ||
-		cabecera.Audiencia != audienciaAtestacionContratacionTemporalDesarrollo {
+		cabecera.Audiencia != audiencia {
 		return puertosvec.ResultadoFirmaAtestacionAutorizacionV3{},
 			puertosvec.ErrFirmaAtestacionNoDisponible
 	}
@@ -68,7 +127,7 @@ func (f *firmanteAtestacionAltaContratacionTemporalDesarrollo) FirmarAtestacionA
 	defer borrarBytes(firma)
 	huella := sha256.Sum256(mensaje)
 	return puertosvec.NuevoResultadoFirmaAtestacionAutorizacionV3(
-		solicitud, firma, "evidencia:firma:ct:desarrollo:"+hex.EncodeToString(huella[:8]),
+		solicitud, firma, prefijoEvidencia+hex.EncodeToString(huella[:8]),
 		f.reloj.Ahora(),
 	)
 }

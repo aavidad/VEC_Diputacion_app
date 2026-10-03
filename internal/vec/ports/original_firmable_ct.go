@@ -30,6 +30,12 @@ type FuentePDFOriginalCT interface {
 	ObtenerPDFOriginalCT(context.Context, SolicitudOriginalFirmableCT) (PDFOriginalCT, error)
 }
 
+// ResolutorTipoOriginalCT usa la versión publicada del catálogo documental.
+// La clave Documento de la solicitud identifica el tipo; no transporta su ref.
+type ResolutorTipoOriginalCT interface {
+	ResolverTipoOriginalCT(context.Context, string) (string, error)
+}
+
 type OriginalFirmableCT struct {
 	Referencia, TipoRef, HuellaSHA256 string
 	Version                           uint64

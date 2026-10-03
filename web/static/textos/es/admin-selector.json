@@ -1,0 +1,32 @@
+{
+  "general": {
+    "titulo": "Perfil de trabajo",
+    "resumen": "Elija el perfil con el que va a trabajar. Solo se aplicarán sus permisos.",
+    "leyenda": "Perfiles asignados a su cuenta",
+    "perfil_sin_nombre": "Nombre del perfil no disponible. Referencia: {referencia}",
+    "activo": "En uso",
+    "ver_referencia": "Ver referencia del perfil",
+    "usar_perfil": "Usar este perfil",
+    "actualizar": "Actualizar perfiles",
+    "cargando": "Comprobando sus perfiles…",
+    "sin_perfiles": "Su cuenta no tiene perfiles disponibles. Consulte con Informática.",
+    "perfil_en_uso": "Ya tiene un perfil en uso. Puede elegir otro de la lista.",
+    "elegir_perfil": "Elija un perfil para continuar.",
+    "cambiando": "Cambiando el perfil…",
+    "cambio_confirmado": "Perfil cambiado y comprobado. Ya puede continuar.",
+    "conflicto": "El perfil cambió en otra ventana. Revise la lista actual antes de continuar.",
+    "estado_comprobado": "Se ha comprobado el perfil actual. No se pudo confirmar el resultado del cambio anterior.",
+    "estado_cambiado": "El perfil ha vuelto a cambiar. Revise la lista actual antes de continuar.",
+    "estado_no_comprobado": "No se pudo comprobar el perfil actual. Pulse «Actualizar perfiles» antes de continuar.",
+    "error_carga": "No se pudieron cargar sus perfiles. Pulse «Actualizar perfiles» o consulte con Informática.",
+    "denegado": "Su acceso no está autorizado. Consulte con Informática.",
+    "no_instalado": "La selección de perfil todavía no está disponible en este entorno."
+  },
+  "perfiles": {
+    "administracion": {
+      "perfiles": {
+        "rol": "Administración de la aplicación"
+      }
+    }
+  }
+}

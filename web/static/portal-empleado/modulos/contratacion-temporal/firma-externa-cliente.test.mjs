@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { createHash } from "node:crypto";
 
 import { crearClienteFirmaExterna, ErrorFirmaExterna, RUTA_REGISTRO_FIRMA_EXTERNA } from "./firma-externa-cliente.js";
 import { crearAccionesFirma, renderizarAccionesPaso } from "./circuito-firma-acciones.js";
@@ -15,16 +16,17 @@ const solicitud = Object.freeze({
 
 function recibo(yaRegistrada = false) {
   return {
-    esquema: "vec.contratacion-temporal.registro-firma-externa.v1", recibo_ref: "recibo:firma:001",
+    esquema: "vec.contratacion-temporal.registro-firma-externa.v2", recibo_ref: "recibo:firma:001",
     firma_ref: "firma:ct:001", ya_registrada: yaRegistrada, expediente_ref: solicitud.expedienteRef,
     version_expediente: solicitud.version, documento: solicitud.documento, paso_orden: solicitud.pasoOrden,
     paso_ref: "paso:resolucion:1", secuencia: 1, registrada_en: "2026-10-02T08:16:00Z",
     documento_custodiado: { expediente_ref: `ref:${"a".repeat(64)}`, documento_ref: `ref:${"b".repeat(64)}`,
-      version: 1, huella_sha256: "c".repeat(64) },
+      version: 1, huella_sha256: createHash("sha256").update(pdf).digest("hex") },
     verificacion_tecnica: { estado: "valida", motivo: "verificada", politica: "politica:vec:firma:verificacion-autonoma:v1",
-      revocacion: "vigente", sello_tiempo: "no_presente", original_sha256: "d".repeat(64), firmado_sha256: "c".repeat(64) },
+      revocacion: "vigente", sello_tiempo: "no_presente", original_sha256: "d".repeat(64), firmado_sha256: createHash("sha256").update(pdf).digest("hex") },
     procedencia_portafirmas: { estado: "declarada_por_rrhh", referencia_declarada: solicitud.referenciaPortafirmas,
-      fecha_declarada: solicitud.fechaPortafirmas }, firma_eficaz: false,
+      fecha_declarada: solicitud.fechaPortafirmas }, firma_eficaz: false, material_root_sha256: "e".repeat(64),
+    revision_pdf: { orden_firma: 1, entrada_sha256: "d".repeat(64), revision_sha256: createHash("sha256").update(pdf).digest("hex"), evidencia_sha256: "f".repeat(64) },
   };
 }
 
@@ -120,4 +122,14 @@ test("sin preflight R5, ningún DTO sintético abre la vista ni emite el POST ex
   await acciones.manejarClic({ target: { closest: () => ({ dataset: { ctFirmaAccion: "firmar" } }) } });
   await acciones.manejarClic({ target: { closest: () => ({ dataset: { ctFirmaAccion: "confirmar-externo" } }) } });
   assert.equal(llamados, 0);
+});
+
+
+test("V2 exige revisión incremental y rechaza recibos legacy o revisión de otro paso", async () => {
+  for (const cambiar of [(d) => { d.esquema = "vec.contratacion-temporal.registro-firma-externa.v1"; },
+    (d) => { delete d.revision_pdf; }, (d) => { d.revision_pdf.orden_firma = 2; },
+    (d) => { d.revision_pdf.entrada_sha256 = "a".repeat(64); }, (d) => { d.revision_pdf.revision_sha256 = "a".repeat(64); }]) {
+    const d = recibo(); cambiar(d);
+    await assert.rejects(crearClienteFirmaExterna({ fetchImpl: async () => respuesta({ data: d }) }).registrar(solicitud), (e) => e.codigo === "resultado_no_confiable");
+  }
 });

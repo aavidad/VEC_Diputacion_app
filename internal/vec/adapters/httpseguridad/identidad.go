@@ -327,6 +327,10 @@ func NuevoServicioIdentidad(
 		!reloj.Ahora().Before(configuracion.RetiradaPoliticaInternaEn) {
 		return nil, fmt.Errorf("%w: politica temporal retirada", ErrConfiguracionSuperficie)
 	}
+	if configuracion.PoliticaAdministracion == PoliticaAdministracionCertificadoTemporal &&
+		!reloj.Ahora().Before(configuracion.RetiradaPoliticaAdministracionEn) {
+		return nil, fmt.Errorf("%w: politica temporal retirada", ErrConfiguracionSuperficie)
+	}
 	configuracion = copiarYNormalizarConfiguracion(configuracion)
 	contenidoConfiguracion, err := json.Marshal(configuracion)
 	if err != nil {
@@ -773,6 +777,10 @@ func validarEstadoSesion(estado estadoIdentidadSesion, c ConfiguracionSuperficie
 }
 
 func validarTiempos(estado estadoIdentidadSesion, c ConfiguracionSuperficie, ahora time.Time) error {
+	if c.PoliticaAdministracion == PoliticaAdministracionCertificadoTemporal &&
+		(!ahora.Before(c.RetiradaPoliticaAdministracionEn) || !estado.expiraEn.Before(c.RetiradaPoliticaAdministracionEn)) {
+		return ErrAsercionNoValida
+	}
 	if c.PoliticaInterna == PoliticaInternaDesarrolloCertificadoPersonal &&
 		(!ahora.Before(c.RetiradaPoliticaInternaEn) || !estado.expiraEn.Before(c.RetiradaPoliticaInternaEn)) {
 		return ErrAsercionNoValida
