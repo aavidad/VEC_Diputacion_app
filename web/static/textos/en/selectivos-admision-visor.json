@@ -12,7 +12,7 @@
   "abrir": "Open prepared material",
   "solo_local": "Local review",
   "archivo": "Preparation tool output file · Required",
-  "archivo_pista": "Select the admission JSON output, not the tool input or the draft application. Maximum 1 MiB.",
+  "archivo_pista": "Select the admission JSON output, not the tool input or the draft application. Maximum 4 MiB.",
   "limite": "Use synthetic data only. The file is not verified and does not constitute an admission decision.",
   "vacio": "Open a preparation tool file to review outstanding checks.",
   "cargando": "Reading the file…",
@@ -21,7 +21,7 @@
   "cerrar": "Close file",
   "descarga_lista": "Download prepared with the original bytes. The file remains unverified and does not establish admission.",
   "nombre_descarga": "admission-preparation-original.json",
-  "error_tamano": "Cannot open the file: it is empty or exceeds 1 MiB. Select a smaller preparation tool output.",
+  "error_tamano": "Cannot open the file: it is empty or exceeds 4 MiB. Select a smaller preparation tool output.",
   "error_formato": "Cannot open the file: it does not match the admission preparation tool output. Generate the output again and select it.",
   "error_catalogo": "The screen text could not be loaded. Reload the screen before opening a file.",
   "contexto_material": "Review context",
@@ -31,7 +31,7 @@
   "sin_solicitud": "No linked application",
   "solicitud_sin_presentar": "Linked local summary · Not submitted",
   "identidad_registro": "Identity and registration",
-  "identidad_registro_pendiente": "Pending their shared authorities",
+  "identidad_registro_pendiente": "Pending verification and submission",
   "pendiente": "Pending review",
   "requisitos": "Proposed requirements: reasons and next step",
   "recuento": { "one": "{cuenta} pending requirement", "other": "{cuenta} pending requirements" },
@@ -89,8 +89,8 @@
   "pendientes": {
     "bases_universo": "Check the proposed list against every requirement in the exact selection rules.",
     "correspondencia_solicitud": "Check the correspondence between application, requirement, fact and version.",
-    "lectura_autorizada": "Query facts through the relevant authorised Merit and Personnel ports.",
-    "identidad_registro_documentos": "Complete identity, representation, submission, registration and documents through their shared authorities.",
+    "lectura_autorizada": "Query facts in Merit and Personnel using the appropriate permissions.",
+    "identidad_registro_documentos": "Complete identification, representation, submission, registration and document review through their relevant processes.",
     "subsanacion_bases": "Define the correction process according to the selection rules, with an evidenced request and deadline.",
     "aprobacion_listas": "Obtain the competent decision and its evidence before approving or publishing lists."
   }

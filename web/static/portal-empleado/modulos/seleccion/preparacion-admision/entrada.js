@@ -1,6 +1,6 @@
-import { leerArchivo } from './modelo.js?v=20261003-s4-visor-v1';
-import { crearCargaLocal } from './controlador.js?v=20261003-s4-visor-v1';
-import { pintarSalida } from './vista.js?v=20261003-s4-visor-v1';
+import { leerArchivo } from './modelo.js?v=20261003-s4-visor-v2';
+import { crearCargaLocal } from './controlador.js?v=20261003-s4-visor-v2';
+import { pintarSalida } from './vista.js?v=20261003-s4-visor-v2';
 import { cargarTextos, urlCatalogo, crearTextos } from '../../../../comun/textos.js';
 import { INDICE_IDIOMAS, leerRecursoJSON } from '../../../../comun/idioma.js';
 
@@ -24,6 +24,8 @@ const controlador = crearCargaLocal({ leer: leerArchivo, retirar,
   mostrar(resultado) { pintarSalida({ raiz, dto: resultado.dto, textos }); carga = resultado; descargar.disabled = false; cerrar.disabled = false; },
   anunciar: mensaje,
 });
+// Permite elegir de nuevo el mismo archivo después de corregirlo o de un error.
+archivo.addEventListener('click', () => { archivo.value = ''; }, { signal: eventos.signal });
 archivo.addEventListener('change', () => {
   const lectura = controlador.abrir(archivo.files?.[0]); cerrar.disabled = !archivo.files?.length;
   void lectura.finally(() => { cerrar.disabled = !archivo.value && !carga; });

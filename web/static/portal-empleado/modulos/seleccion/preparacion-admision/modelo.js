@@ -1,7 +1,7 @@
 import { comprobarClaves, forma } from '../preparacion-bases/modelo.js?v=20261003-s2-consulta-v1';
 import { validarHuella, validarRevision } from '../preparacion-bases/contrato-http.js?v=20261003-s2-consulta-v2';
 
-export const MAXIMO_BYTES = 1024 * 1024;
+export const MAXIMO_BYTES = 4 * 1024 * 1024;
 export const CAUSAS = Object.freeze(['fuentes_no_verificadas', 'texto_libre', 'regla_ausente', 'evaluador_pendiente',
   'rechazo_aplicabilidad_pendiente', 'vigencia_aplicabilidad_pendiente', 'dato_no_aportado', 'acreditacion_pendiente']);
 export const PENDIENTES = Object.freeze(['bases_universo', 'correspondencia_solicitud', 'lectura_autorizada',
