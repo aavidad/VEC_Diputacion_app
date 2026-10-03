@@ -24,10 +24,10 @@ BEGIN
   RAISE EXCEPTION 'AD3-157: PARO clave=rol_sql actual=distinto esperado=propietario_ad3' USING ERRCODE='55000'; END IF;
  IF to_regclass('vec_autorizacion_atestada_v3.clave_capacidad_version') IS NULL
     OR to_regprocedure('vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
-    OR to_regprocedure('vec_autorizacion_atestada_v3.consumir_vinculo_propio_crn11_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
+    OR to_regprocedure('vec_autorizacion_atestada_v3.consumir_solicitud_documental_bolsa_v3_atestada(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
     OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_consulta_circuito_ct_v3_atestada(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
     OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_firma_externa_ct_v3_atestada(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL THEN
-  RAISE EXCEPTION 'AD3-157: PARO clave=preimagen_ad149_ad151_ad156 actual=incompleta esperado=instalada' USING ERRCODE='55000'; END IF;
+  RAISE EXCEPTION 'AD3-157: PARO clave=preimagen_ad155_ad151_ad156 actual=incompleta esperado=instalada' USING ERRCODE='55000'; END IF;
  IF to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_firma_vec_ct_v3_atestada(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL THEN
   RAISE EXCEPTION 'AD3-157: PARO clave=fachada_ya_instalada actual=true esperado=false' USING ERRCODE='55000'; END IF;
  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='vec_contratacion_temporal_propietario'
