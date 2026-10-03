@@ -427,6 +427,7 @@ BEGIN
     OR jsonb_typeof(p.documento->'modulos') IS DISTINCT FROM 'array'
     OR jsonb_typeof(p.documento->'tipos_recurso') IS DISTINCT FROM 'array'
     OR (p.documento->>'estado' IN ('publicada','retirada')) IS NOT TRUE
+    OR (p.documento->>'efecto' IN ('restringir','denegar')) IS NOT TRUE
     OR vec_autorizacion.instante_utc_microsegundo_valido(p.documento->>'vigente_desde') IS NOT TRUE
     OR vec_autorizacion.instante_utc_microsegundo_valido(p.documento->>'vigente_hasta') IS NOT TRUE)
   OR EXISTS(SELECT 1 FROM vec_autorizacion.politica_restrictiva_actual x
