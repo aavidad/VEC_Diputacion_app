@@ -80,12 +80,22 @@ y luego los 40 archivos de `h9kit/sql.list`, en ese orden. Esos pasos son
 solo para reconstruir un clon: **no reaplicar en la principal ni ejecutar DOWN**.
 El manifiesto de H9 se identifica por SHA256 `49271452…` en el canal.
 
+En este corte se abrió un clon de la copia fría post-H9 publicada por K,
+SHA256 `2c094d9d1d1de49f2fa2f4c4fce9b4020c7d0324a91772946134b54d29e562da`.
+Una consulta de metadatos con `search_path=pg_catalog,pg_temp` midió la
+definición del núcleo como
+`00fdab71ff0477cbe3fb1dcabcde7377da857d20578b9be478339d031ac034ce`
+y su cuerpo como
+`1c4a33b316fe58454c76c207db1722504d69a2de21e5c4fb32c73a4cffc20fe4`.
+AD149 y la función de Personal26 están ausentes. La incompatibilidad del
+anclaje se confirma por resultado; no se intentó instalar ninguna migración.
+
 El PostgreSQL de ensayo será uno por equipo, versión 18, memoria máxima
 2 GB, datos en disco y `--rm`. Se conserva la copia fría antes de cada
 cadena nueva; las comprobaciones se centran en esquema, roles, ACL, datos,
 auditoría y resultado. Se retiran contenedor y datos al acabar.
 
-Este inventario coteja fuentes y dependencias; no acredita un ensayo nuevo,
+Este inventario coteja fuentes, dependencias y metadatos del clon; no acredita un ensayo de migración nuevo,
 una instalación pendiente ni un recorrido nominal. Las fuentes funcionales
 son las fichas [Cronos C1–C12](ficha_cronos_2026-09-23.md) y
 [Dietas D1–D9](ficha_dietas_2026-09-23.md), el
