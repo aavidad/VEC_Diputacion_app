@@ -125,6 +125,7 @@
   "errores": {
     "sin_conexion": "The user query is not connected yet. No assignments have been loaded and no changes enabled.",
     "denegado": "You are not authorised to view this information. It has been removed from the screen.",
+    "lectura_retirada": "The data could not be refreshed. Previous information has been removed. Select Reload to query again.",
     "conflicto": "The assignment has changed. Return to the person’s details and review the updated information before continuing.",
     "filtros": "The search service does not support these filters yet. Clear them or try again later.",
     "incompatible": "The service response is incomplete. We cannot confirm the result. Reload the view or contact IT.",

@@ -14,9 +14,9 @@ export function crearRender({ root, id, textos }) {
       <header class="cabeza-pagina"><div><h2 id="${id("titulo")}">${tx("general.titulo")}</h2></div>
         ${boton("recargar", "general.recargar", `id="${id("recargar")}"`)}<details class="usuarios-ayuda"><summary class="boton-secundario" aria-label="${tx("general.ayuda_nombre")}">${tx("general.ayuda")}</summary><p>${tx("general.ayuda_contenido")}</p></details></header>
       <div class="usuarios-pestanas" role="tablist" aria-label="${tx("general.pestanas")}">
-        <button type="button" role="tab" aria-selected="true" aria-controls="${id("panel-usuarios")}" id="${id("tab-usuarios")}" data-accion="usuarios">${tx("general.usuarios")}</button>
-        <button type="button" role="tab" aria-selected="false" tabindex="-1" aria-controls="${id("panel-perfiles")}" id="${id("tab-perfiles")}" data-accion="perfiles">${tx("general.perfiles")}</button>
-        <button type="button" role="tab" aria-selected="false" tabindex="-1" aria-controls="${id("panel-propuestas")}" id="${id("tab-propuestas")}" data-accion="propuestas">${tx("propuestas.titulo")}</button></div>
+        <button class="boton-secundario" type="button" role="tab" aria-selected="true" aria-controls="${id("panel-usuarios")}" id="${id("tab-usuarios")}" data-accion="usuarios">${tx("general.usuarios")}</button>
+        <button class="boton-secundario" type="button" role="tab" aria-selected="false" tabindex="-1" aria-controls="${id("panel-perfiles")}" id="${id("tab-perfiles")}" data-accion="perfiles">${tx("general.perfiles")}</button>
+        <button class="boton-secundario" type="button" role="tab" aria-selected="false" tabindex="-1" aria-controls="${id("panel-propuestas")}" id="${id("tab-propuestas")}" data-accion="propuestas">${tx("propuestas.titulo")}</button></div>
       <p id="${id("estado")}" role="status" aria-live="polite" class="usuarios-estado"></p>
       <div class="usuarios-trabajo"><section role="tabpanel" id="${id("panel-usuarios")}" aria-labelledby="${id("tab-usuarios")}">
         <section class="panel" id="${id("listado")}" aria-labelledby="${id("lista-titulo")}"><div class="cabecera-panel"><h3 id="${id("lista-titulo")}">${tx("busqueda.titulo")}</h3></div>
@@ -26,7 +26,7 @@ export function crearRender({ root, id, textos }) {
             <label class="campo" for="${id("unidad")}"><span>${tx("busqueda.unidad")}</span><select id="${id("unidad")}"></select></label>
             <label class="campo" for="${id("vigencia")}"><span>${tx("busqueda.vigencia")}</span><select id="${id("vigencia")}"><option value="">${tx("busqueda.todos_estados")}</option>
               <option value="vigente">${tx("estados.activo")}</option><option value="caducado">${tx("estados.caducado")}</option></select></label>
-            <div class="acciones-paso"><button type="submit" class="boton-primario" id="${id("buscar-boton")}">${tx("busqueda.buscar")}</button>${boton("limpiar", "busqueda.limpiar")}</div>
+            <div class="acciones-paso"><button type="submit" class="boton-primario" id="${id("buscar-boton")}">${tx("busqueda.buscar")}</button>${boton("limpiar", "busqueda.limpiar", `id="${id("limpiar")}"`)}</div>
           </form><div id="${id("filtros-activos")}" class="usuarios-filtros-activos"></div><div id="${id("resultados")}"></div></section>
         <section class="panel" id="${id("detalle")}" tabindex="-1" hidden></section>
         <section class="panel" id="${id("revision")}" tabindex="-1" hidden></section>

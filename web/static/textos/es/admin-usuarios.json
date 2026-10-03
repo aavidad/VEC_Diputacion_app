@@ -125,6 +125,7 @@
   "errores": {
     "sin_conexion": "La consulta de usuarios aún no está conectada. No se han cargado asignaciones ni habilitado cambios.",
     "denegado": "No tiene autorización para esta consulta. Se ha retirado la información de la pantalla.",
+    "lectura_retirada": "No se han podido actualizar los datos. La información anterior se ha retirado. Pulse Recargar para consultar de nuevo.",
     "conflicto": "La asignación ha cambiado. Vuelva a la ficha y revise los datos actualizados antes de continuar.",
     "filtros": "El servicio de búsqueda todavía no admite estos filtros. Quítelos o consulte más tarde.",
     "incompatible": "La respuesta del servicio está incompleta. No podemos confirmar el resultado. Recargue la consulta o avise a Informática.",
