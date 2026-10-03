@@ -3,7 +3,6 @@ package bootstrap
 import (
 	"bytes"
 	"context"
-	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -58,31 +57,31 @@ func personalEmpleadoSolicitado(selector string) bool { return selector == "true
 // fecha de efectos. No crea identidades, perfiles ni concesiones.
 type configuracionPersonalEmpleadoDesarrollo struct {
 	redaccionMaterialRutasDietas
-	Version                  int                            `json:"version"`
-	Autoridad                string                         `json:"autoridad"`
-	Cuentas                  []cuentaRutasDietasDesarrollo  `json:"cuentas"`
-	DSNRegistroIdentidad     string                         `json:"dsn_registro_identidad"`
-	DSNRevalidacionIdentidad string                         `json:"dsn_revalidacion_identidad"`
-	DSNContexto              string                         `json:"dsn_contexto"`
-	DSNFuenteAutorizacion    string                         `json:"dsn_fuente_autorizacion"`
-	DSNRegistroAutorizacion  string                         `json:"dsn_registro_autorizacion"`
-	DSNMotivos               string                         `json:"dsn_motivos"`
-	DSNPersonal              string                         `json:"dsn_personal"`
-	DSNPersonalFrontera      string                         `json:"dsn_personal_frontera"`
-	ZonaHoraria              string                         `json:"zona_horaria"`
-	MotivoFichaPropia        core.ReferenciaEntradaCatalogo `json:"motivo_ficha_propia"`
+	Version                  int                                           `json:"version"`
+	Autoridad                string                                        `json:"autoridad"`
+	Cuentas                  []cuentaRutasDietasDesarrollo                 `json:"cuentas"`
+	DSNRegistroIdentidad     string                                        `json:"dsn_registro_identidad"`
+	DSNRevalidacionIdentidad string                                        `json:"dsn_revalidacion_identidad"`
+	DSNContexto              string                                        `json:"dsn_contexto"`
+	DSNFuenteAutorizacion    string                                        `json:"dsn_fuente_autorizacion"`
+	DSNRegistroAutorizacion  string                                        `json:"dsn_registro_autorizacion"`
+	DSNMotivos               string                                        `json:"dsn_motivos"`
+	DSNPersonal              string                                        `json:"dsn_personal"`
+	IntentosAuditoria        personalcomp.ConfiguracionIntentosFichaPropia `json:"intentos_auditoria"`
+	LimiteAuditoriaSegundos  int                                           `json:"limite_auditoria_segundos"`
+	ZonaHoraria              string                                        `json:"zona_horaria"`
+	MotivoFichaPropia        core.ReferenciaEntradaCatalogo                `json:"motivo_ficha_propia"`
 }
 
 // autoridadPersonalEmpleadoDesarrollo es la frontera de /api/interna/personal/.
 // Sólo publica la ruta exacta de la ficha propia; toda otra ruta bajo el
 // prefijo se deniega.
 type autoridadPersonalEmpleadoDesarrollo struct {
-	base     *autoridadRutasDietasDesarrollo
-	reloj    vecports.Reloj
-	cuentas  map[string]cuentaRutasDietasDesarrollo
-	rutas    map[string]http.Handler
-	registro personalports.RegistroDenegacionFichaPropia
-	cerrar   func()
+	base    *autoridadRutasDietasDesarrollo
+	reloj   vecports.Reloj
+	cuentas map[string]cuentaRutasDietasDesarrollo
+	rutas   map[string]http.Handler
+	cerrar  func()
 }
 
 type claveContextoPersonalEmpleado struct{}
@@ -124,7 +123,7 @@ func (s seguridadPersonalEmpleadoDesarrollo) ResolverIdentidadFichaPropia(ctx co
 }
 
 func (s seguridadPersonalEmpleadoDesarrollo) ResolverActorFichaPropia(ctx context.Context) (core.ContextoActor, error) {
-	c, err := s.identidad(ctx)
+	c, err := personalcomp.IdentidadOriginalFichaPropia(ctx)
 	if err != nil {
 		return core.ContextoActor{}, err
 	}
@@ -193,19 +192,11 @@ func (a *autoridadPersonalEmpleadoDesarrollo) ServeHTTP(w http.ResponseWriter, r
 	manejador.ServeHTTP(w, r.WithContext(ctx))
 }
 
-// denegar registra la denegación con el LOGIN registrador de frontera antes
-// de responder; si no se confirma, responde dependencia no disponible.
-func (a *autoridadPersonalEmpleadoDesarrollo) denegar(w http.ResponseWriter, r *http.Request, estado int, motivo, codigo string) {
-	var aleatorio [16]byte
-	correlacion := "corr_no_disponible"
-	if _, err := rand.Read(aleatorio[:]); err == nil {
-		correlacion = "corr_" + hex.EncodeToString(aleatorio[:])
-	}
-	ctx, cancelar := context.WithTimeout(context.WithoutCancel(r.Context()), 2*time.Second)
-	defer cancelar()
-	if a.registro == nil || a.registro.RegistrarDenegacionFichaPropia(ctx, personalports.DenegacionFichaPropia{CorrelacionRef: correlacion, Motivo: motivo, EstadoHTTP: estado}) != nil {
-		responderDenegacionCronosEmpleado(w, http.StatusServiceUnavailable, "no_disponible")
-		return
+// Antes de un contexto registrado no se puede atribuir un intento nominal.
+// Esta frontera permanece cerrada; no fabrica identidad ni escribe en Personal.
+func (a *autoridadPersonalEmpleadoDesarrollo) denegar(w http.ResponseWriter, _ *http.Request, estado int, _, codigo string) {
+	if estado != http.StatusNotFound && estado != http.StatusUnauthorized {
+		estado, codigo = http.StatusServiceUnavailable, "no_disponible"
 	}
 	responderDenegacionCronosEmpleado(w, estado, codigo)
 }
@@ -244,8 +235,8 @@ func nuevasRutasPersonalEmpleadoDesarrollo(cfg config.Config, resolvedor vechttp
 	dec := json.NewDecoder(bytes.NewReader(contenido))
 	dec.DisallowUnknownFields()
 	var extra any
-	if dec.Decode(&c) != nil || !errors.Is(dec.Decode(&extra), io.EOF) || c.Version != 1 || c.Autoridad != AutoridadNoAutoritativa ||
-		len(c.Cuentas) == 0 || len(c.Cuentas) > 64 || !core.ReferenciaMotivoAutorizacionV2Valida(c.MotivoFichaPropia) {
+	if dec.Decode(&c) != nil || !errors.Is(dec.Decode(&extra), io.EOF) || c.Version != 2 || c.Autoridad != AutoridadNoAutoritativa ||
+		len(c.Cuentas) == 0 || len(c.Cuentas) > 64 || c.LimiteAuditoriaSegundos < 1 || c.LimiteAuditoriaSegundos > 30 || !core.ReferenciaMotivoAutorizacionV2Valida(c.MotivoFichaPropia) {
 		return nil, errPersonalEmpleadoEn()
 	}
 	zona, err := time.LoadLocation(c.ZonaHoraria)
@@ -272,12 +263,16 @@ func nuevasRutasPersonalEmpleadoDesarrollo(cfg config.Config, resolvedor vechttp
 		{c.DSNRegistroIdentidad, "vec_identidad_sesiones_v1_registrador"}, {c.DSNRevalidacionIdentidad, "vec_identidad_sesiones_v1_revalidador"},
 		{c.DSNContexto, "vec_contexto_actor_v1_runtime"}, {c.DSNFuenteAutorizacion, "vec_autorizacion_fuente"},
 		{c.DSNRegistroAutorizacion, "vec_autorizacion_registro"}, {c.DSNMotivos, "vec_autorizacion_motivos_evaluador"},
-		{c.DSNPersonal, "vec_personal_ejecutor"}, {c.DSNPersonalFrontera, "vec_personal_registrador_frontera"},
+		{c.DSNPersonal, "vec_personal_ejecutor"},
 	}
 	var pools []*pgxpool.Pool
+	var cerrarIntentos func()
 	var unaVez sync.Once
 	cerrar := func() {
 		unaVez.Do(func() {
+			if cerrarIntentos != nil {
+				cerrarIntentos()
+			}
 			for _, p := range pools {
 				p.Close()
 			}
@@ -301,8 +296,20 @@ func nuevasRutasPersonalEmpleadoDesarrollo(cfg config.Config, resolvedor vechttp
 		}
 		usuarios[usuario] = true
 	}
-	registroDenegaciones, err := personalpg.NuevoRegistroDenegacionFichaPropiaPostgreSQL(pools[7])
-	if err != nil || personalpg.PreflightEjecutorFichaPropia(ctx, pools[6]) != nil || registroDenegaciones.PreflightFichaPropia(ctx) != nil {
+	reservados := make([]string, 0, len(usuarios))
+	for usuario := range usuarios {
+		reservados = append(reservados, usuario)
+	}
+	registradorComun, proceso, cerrarComun, err := AbrirRegistradorIntentosAuditoriaDesarrollo(ctx, cfg, pools[6], reservados)
+	if err != nil {
+		return nil, errPersonalEmpleadoEn()
+	}
+	cerrarIntentos = cerrarComun
+	if c.IntentosAuditoria.Proceso != proceso || c.IntentosAuditoria.Canal != string(core.SuperficieAutenticacionInternaCorporativaV1) || personalpg.PreflightEjecutorFichaPropia(ctx, pools[6]) != nil {
+		return nil, errPersonalEmpleadoEn()
+	}
+	registroIntentos, err := personalcomp.NuevoRegistroIntentosFichaPropia(registradorComun, c.IntentosAuditoria)
+	if err != nil {
 		return nil, errPersonalEmpleadoEn()
 	}
 	registro, err := identidadpg.NuevoRegistroSesionesPostgreSQL(ctx, pools[0], pools[1], &seudonimizadorSesionDesarrollo{derivador: derivador}, espacioIdentidadSesionDesarrollo, dominioIdentidadSesionDesarrollo)
@@ -351,8 +358,8 @@ func nuevasRutasPersonalEmpleadoDesarrollo(cfg config.Config, resolvedor vechttp
 		return nil, errPersonalEmpleadoEn()
 	}
 	base := &autoridadRutasDietasDesarrollo{resolvedor: identidad, cuentas: cuentas, registro: registro, revalidador: revalidador, contextos: contextos, reloj: reloj, instancia: nonce}
-	a := &autoridadPersonalEmpleadoDesarrollo{base: base, reloj: reloj, cuentas: cuentas, registro: registroDenegaciones, cerrar: cerrar}
-	manejador, err := componerManejadorFichaPropia(pools[6], seguridadPersonalEmpleadoDesarrollo{autoridad: a}, emisor, c.MotivoFichaPropia, registroDenegaciones, zona)
+	a := &autoridadPersonalEmpleadoDesarrollo{base: base, reloj: reloj, cuentas: cuentas, cerrar: cerrar}
+	manejador, err := componerManejadorFichaPropia(pools[6], seguridadPersonalEmpleadoDesarrollo{autoridad: a}, emisor, c.MotivoFichaPropia, registroIntentos, zona, time.Duration(c.LimiteAuditoriaSegundos)*time.Second)
 	if err != nil {
 		return nil, err
 	}
@@ -363,8 +370,8 @@ func nuevasRutasPersonalEmpleadoDesarrollo(cfg config.Config, resolvedor vechttp
 
 // componerManejadorFichaPropia une repositorio, proveedor V3, caso de uso y
 // manejador. Devuelve la ruta completa o ninguna.
-func componerManejadorFichaPropia(ejecutor *pgxpool.Pool, identidad seguridadPersonalEmpleadoDesarrollo, emisor emisorMaterialDietasDesarrollo, motivo core.ReferenciaEntradaCatalogo, registro personalports.RegistroDenegacionFichaPropia, zona *time.Location) (http.Handler, error) {
-	if ejecutor == nil || identidad.autoridad == nil || dependenciaDietasNula(emisor) || dependenciaDietasNula(registro) || zona == nil {
+func componerManejadorFichaPropia(ejecutor *pgxpool.Pool, identidad seguridadPersonalEmpleadoDesarrollo, emisor emisorMaterialDietasDesarrollo, motivo core.ReferenciaEntradaCatalogo, registro personalports.RegistroIntentosFichaPropia, zona *time.Location, limite time.Duration) (http.Handler, error) {
+	if ejecutor == nil || identidad.autoridad == nil || dependenciaDietasNula(emisor) || dependenciaDietasNula(registro) || zona == nil || limite <= 0 || limite > 30*time.Second {
 		return nil, errPersonalEmpleadoEn()
 	}
 	repositorio, err := personalpg.NuevoRepositorioRegistroEmpleadoB2PostgreSQL(ejecutor)
@@ -375,7 +382,7 @@ func componerManejadorFichaPropia(ejecutor *pgxpool.Pool, identidad seguridadPer
 	if err != nil {
 		return nil, errPersonalEmpleadoEn()
 	}
-	servicio, err := personalapp.NuevoServicioFichaPropia(proveedor, repositorio)
+	servicio, err := personalapp.NuevoServicioFichaPropia(proveedor, repositorio, registro)
 	if err != nil {
 		return nil, errPersonalEmpleadoEn()
 	}
@@ -383,7 +390,21 @@ func componerManejadorFichaPropia(ejecutor *pgxpool.Pool, identidad seguridadPer
 	if err != nil {
 		return nil, errPersonalEmpleadoEn()
 	}
-	return manejador, nil
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		var err error
+		if _, ok := vecports.CorrelacionIncidenciasPeticion(ctx); !ok {
+			ctx, err = vecports.ConCorrelacionIncidenciasPeticion(ctx)
+		}
+		if err == nil {
+			ctx, err = personalcomp.PrepararContextoIntentoFichaPropia(ctx, identidad, limite)
+		}
+		if err != nil {
+			responderDenegacionCronosEmpleado(w, http.StatusServiceUnavailable, "no_disponible")
+			return
+		}
+		manejador.ServeHTTP(w, r.WithContext(ctx))
+	}), nil
 }
 
 // componerRaizConPersonalEmpleado monta el prefijo interno de Personal
