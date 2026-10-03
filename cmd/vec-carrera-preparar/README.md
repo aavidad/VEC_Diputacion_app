@@ -45,3 +45,36 @@ python3 scripts/servir_preparacion_rrhh.py --modulo carrera
 
 El comando muestra una dirección local. El visor permite filtrar, revisar pendientes
 y descargar el borrador; no se publica en los portales ni modifica expedientes.
+
+Para reunir la instantánea de antecedentes y el catálogo de política en una revisión:
+
+```sh
+go run ./cmd/vec-carrera-preparar --expediente-sintetico \
+  data/catalogos/carrera/politica_grado_ejemplo.json \
+  cmd/vec-carrera-preparar/testdata/antecedentes_expediente.json \
+  < cmd/vec-carrera-preparar/testdata/entrada_expediente.json
+```
+
+Los tres archivos son configurables y sintéticos. La instantánea contiene referencias,
+fecha de corte, cobertura, ocupaciones, grado y servicios con sus evidencias y versiones.
+Su `caso_ref` y `version` deben corresponder al escenario. Cada archivo admite hasta
+1 MiB; los antecedentes admiten hasta 64 instantáneas, sin referencias repetidas.
+
+La salida reúne `preparacion`, `politica_grado_sintetica` y `revision_expediente`.
+En la revisión, `Declaracion` conserva los datos iniciales y `Antecedentes` conserva
+la instantánea y sus `Faltantes`. `Contradicciones` indica qué campos difieren cuando
+ambas fuentes aportan un valor: régimen, grupo, nivel del puesto o grado personal.
+Una ausencia conserva su faltante y nunca se presenta como contradicción comprobada.
+Las comprobaciones de la preparación explican fechas, procedencia y solapes mediante
+las claves del catálogo existente.
+
+El ejemplo declara nivel 22 y aporta nivel 24 en la ocupación; mantiene el grado 20
+separado. Contiene dos periodos solapados y un servicio declarado: conserva los dos
+periodos sin sumarlos y deja el servicio declarado fuera de los periodos reconocidos.
+Los datos etiquetados como reconocidos pertenecen al ensayo; no acreditan actos reales.
+
+La política conserva la referencia de aprobación aportada en su revisión, pero la
+preparación no la usa como aprobación competente. Todos los expedientes siguen
+pendientes. El contrato nominal, el lector autorizado de Personal y la autorización
+de Carrera también permanecen pendientes. El visor actual consume la preparación
+simple; este informe conjunto se consulta y conserva desde la CLI.
