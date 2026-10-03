@@ -25,6 +25,7 @@ type SolicitudFirmaVec struct {
 
 type ResultadoFirmaVec struct {
 	Recibo             ports.ReciboFirmaDocumento
+	MaterialMultiple   *ports.MaterialFirmaVerificadaV2
 	Material           ports.MaterialFirmaVec
 	MotivoVerificacion docports.MotivoVerificacionFirma
 	Custodiado         ports.DocumentoCustodiado
@@ -40,6 +41,7 @@ type ServicioFirmaVec struct {
 	autorizador ports.AutorizadorFirmaVec
 	competencia ports.FuenteCompetenciaFirmante
 	politica    ports.FuentePoliticaMismaPersonaEnPasos
+	multiple    *dependenciasFirmaMultipleR5
 }
 
 func (s *ServicioFirmaVec) ComponerPoliticaMismaPersonaEnPasos(f ports.FuentePoliticaMismaPersonaEnPasos) error {
@@ -72,6 +74,10 @@ func (s *ServicioFirmaVec) Firmar(ctx context.Context, sol SolicitudFirmaVec) (R
 		len(sol.PDFFirmado) == 0 || len(sol.PDFFirmado) > ports.MaximoDocumentoFirmaBytes ||
 		!ports.ClaveIdempotenciaFirmaValida(sol.ClaveIdempotencia) {
 		return cero, ports.ErrSolicitudFirmaDocumentoInvalida
+	}
+	if s.multiple != nil {
+		r, err := registrarFirmaMultipleR5(ctx, s.base, s.competencia, s.politica, s.multiple, solicitudMultipleDesdeVec(sol))
+		return ResultadoFirmaVec{Recibo: r.recibo, MaterialMultiple: r.material, MotivoVerificacion: r.motivo, Custodiado: r.custodiado}, err
 	}
 	sol.PDFFirmado = bytes.Clone(sol.PDFFirmado)
 	if err := ctx.Err(); err != nil {
@@ -258,5 +264,22 @@ func ValidarCapacidadFirmaVec(c ports.CapacidadFirmaVec, m ports.MaterialFirmaVe
 		resumen.AudienciaConsumo() != ports.AudienciaFirmaVecV3 {
 		return ports.ErrFirmaDocumentoDenegada
 	}
+	return nil
+}
+
+// ComponerFirmaMultiple fija las autoridades V2 antes de atender solicitudes.
+func (s *ServicioFirmaVec) ComponerFirmaMultiple(
+	v docports.VerificadorFirmasDocumento, r ports.RegistroFirmasVerificadasV2,
+	a ports.AutorizadorFirmaVerificadaV2, c ports.AutorizadorConsultaFirmasR5V2,
+	f ports.FuentePDFFirmaAnterior,
+) error {
+	if s == nil || s.multiple != nil {
+		return ErrCircuitoFirmaNoDisponible
+	}
+	d, err := nuevasDependenciasFirmaMultipleR5(v, r, a, c, f)
+	if err != nil {
+		return err
+	}
+	s.multiple = d
 	return nil
 }
