@@ -57,7 +57,7 @@ test('catálogos ES/EN tienen paridad y traducen estados y actuaciones pendiente
   }
 });
 class Nodo {
-  constructor(d, tag) { this.ownerDocument = d; this.tagName = tag; this.children = []; this._texto = ''; }
+  constructor(d, tag) { this.ownerDocument = d; this.tagName = tag; this.children = []; this.dataset = {}; this._texto = ''; }
   append(...xs) { this.children.push(...xs); }
   replaceChildren(...xs) { this.children = xs; }
   set textContent(v) { this._texto = String(v); this.children = []; }
@@ -76,6 +76,7 @@ test('vista escapada explica antes/después, mantiene pendientes y no muestra un
     assert.ok(!elementos(raiz).some(n => n.tagName === 'img'));
     assert.ok(raiz.textContent.includes(textos.traducir('pendiente')));
     assert.ok(raiz.textContent.includes(textos.traducir('referencias_limite')));
+    assert.ok(elementos(raiz).filter(n => n.tagName === 'td').every(n => n.dataset.etiqueta));
     assert.ok(elementos(raiz).filter(n => n.tagName === 'th').every(n => ['row','col'].includes(n.scope)));
     assert.deepEqual(textos.faltantes, []);
   }

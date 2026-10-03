@@ -8,22 +8,27 @@ export function pintarSalida({ raiz, dto, textos }) {
   if (!dto.cambios.length) cambios.cuerpo.append(nodo(d, 'p', t('sin_cambios')));
   else {
     const tab = tabla(d, ['solicitud', 'fase', 'anterior', 'propuesta'].map(clave => t(clave)), t('cambios'));
+    tab.contenedor.children[0].className += ' tabla-apilable';
     for (const cambio of dto.cambios) {
       const solicitud = dto.antecedente.solicitudes.find(s => s.referencia === cambio.solicitud_ref);
       const indice = dto.configuracion.fases.findIndex(f => f.referencia === cambio.fase_ref);
       const fila = nodo(d, 'tr'), th = nodo(d, 'th', solicitud.nombre); th.scope = 'row';
-      fila.append(th, nodo(d, 'td', t('nota', { numero: textos.numero(indice + 1) })),
-        nodo(d, 'td', puntos(cambio.anterior_micropuntos)), nodo(d, 'td', puntos(cambio.propuesta_micropuntos)));
+      fila.append(th, ...[t('nota', { numero: textos.numero(indice + 1) }), puntos(cambio.anterior_micropuntos), puntos(cambio.propuesta_micropuntos)].map((valor, i) => {
+        const celda = nodo(d, 'td', valor); celda.dataset.etiqueta = t(['fase', 'anterior', 'propuesta'][i]); return celda;
+      }));
       tab.cuerpo.append(fila);
     }
     cambios.cuerpo.append(tab.contenedor);
   }
   const efecto = panel(d, t('comparacion'));
   const tab = tabla(d, ['solicitud', 'estado_anterior', 'estado_propuesta', 'total_anterior', 'total_propuesta', 'orden_anterior', 'orden_propuesta'].map(clave => t(clave)), t('comparacion'));
+  tab.contenedor.children[0].className += ' tabla-apilable';
   for (const anterior of dto.antecedente.solicitudes) {
     const propuesta = dto.propuesta.solicitudes.find(s => s.referencia === anterior.referencia);
     const fila = nodo(d, 'tr'), th = nodo(d, 'th', anterior.nombre); th.scope = 'row';
-    fila.append(th, ...[t(`estado.${anterior.estado}`), t(`estado.${propuesta.estado}`), puntos(anterior.total_micropuntos), puntos(propuesta.total_micropuntos), orden(anterior.orden), orden(propuesta.orden)].map(v => nodo(d, 'td', v)));
+    fila.append(th, ...[t(`estado.${anterior.estado}`), t(`estado.${propuesta.estado}`), puntos(anterior.total_micropuntos), puntos(propuesta.total_micropuntos), orden(anterior.orden), orden(propuesta.orden)].map((v, i) => {
+      const celda = nodo(d, 'td', v); celda.dataset.etiqueta = t(['estado_anterior', 'estado_propuesta', 'total_anterior', 'total_propuesta', 'orden_anterior', 'orden_propuesta'][i]); return celda;
+    }));
     tab.cuerpo.append(fila);
   }
   efecto.cuerpo.append(tab.contenedor);
