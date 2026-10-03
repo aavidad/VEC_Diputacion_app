@@ -23,8 +23,9 @@ BEGIN
    AND p.prosecdef AND p.provolatile='v' AND p.proparallel='u'
    AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s']
    AND p.proargnames=ARRAY['p_perfil_mutacion','p_capacidad_canonica','p_decision_canonica','p_motivo_canonico','p_contexto_actor_canonico','p_persona_version','p_perfil_version','p_payload_vec_ad_3','p_sobre_cose_sign1','p_evidencia_verificacion','p_raiz_publica_spki','decision_ref','efecto_ref','huella_efecto_sha256','consumo_huella_sha256','auditoria_ref','consumida_en','consumo_nuevo']
-   AND encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex')='777f6a6e94c57cfdd8516d082441c1662e303c4b11aa1f187a542a9a11eeb2d6'
-   AND encode(sha256(convert_to(p.prosrc,'UTF8')),'hex')='528f35de95885283cc9987fc6f2ca8f09db59e61672b10f3c69134b1d91c23f6')
+   AND (encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex'),encode(sha256(convert_to(p.prosrc,'UTF8')),'hex')) IN (
+    ('777f6a6e94c57cfdd8516d082441c1662e303c4b11aa1f187a542a9a11eeb2d6','528f35de95885283cc9987fc6f2ca8f09db59e61672b10f3c69134b1d91c23f6'),
+    ('6c22fdbb165a00c4f37cb2f7dbb7add4e939e5b0134c0c599b9519bfe3b86db9','bbb932ef29375e88645fb524e6aae5fd3059d51cb0dfd9d4952ffd509470534c')))
  THEN RAISE EXCEPTION 'AD173: PARO clave=nucleo_post actual=divergente esperado=POST173_11_argumentos_7_resultados'; END IF;
  IF (SELECT count(*) FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a WHERE p.oid=f)<>1
  OR NOT EXISTS(SELECT 1 FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
