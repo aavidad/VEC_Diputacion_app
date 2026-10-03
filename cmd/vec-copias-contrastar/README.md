@@ -128,6 +128,12 @@ Las regresiones de revisión conservan ACL predeterminadas vacías como reglas
 explícitas y rechazan FK con triggers internos desactivados. Los nombres de
 campo JSON deben coincidir exactamente con el formato publicado.
 
+La huella ACL incluye los permisos de parámetros de PostgreSQL y lenguajes,
+con otorgante, destinatario, privilegio y opción de concesión. Las regresiones
+`TestContrasteACLPG18/permiso_parametro` y `permiso_lenguaje` comprueban que
+otorgar SET sobre un parámetro o retirar USAGE de un lenguaje produce
+`diferente`, y que restablecer esos permisos recupera `igual`.
+
 Para repetir las pruebas que no abren PostgreSQL:
 
 ```bash
@@ -144,7 +150,14 @@ Los tests PostgreSQL optativos conservan el contrato del ensayo histórico
 `VEC_CS06_CONTENEDOR_ENSAYO` se omiten. Una nueva ejecución necesita adaptar
 ese contrato a un contenedor sintético propio con `--memory 2g`, datos en disco
 bajo la carpeta de estado y `--rm`; nunca se reutiliza una base conservada.
-Las pruebas focales de esta retoma no repiten el ensayo PostgreSQL.
+Esta retoma conserva la evidencia del ensayo histórico; las regresiones ACL
+siguientes se ejecutan por separado en un recurso desechable nuevo.
+
+Las dos regresiones ACL usan `VEC_CS06_CONTENEDOR_ACL_ENSAYO`. El responsable
+prepara un contenedor PostgreSQL 18.4 propio, sin red, etiquetado
+`vec.cs06.owner=contraste-acl`, con `--memory 2g`, datos sintéticos en disco
+y `--rm`. Se ejecutan con `go test -p 8 -run '^TestContrasteACLPG18$' -v`
+sobre el paquete adaptador; el contenedor y sus datos se retiran al terminar.
 
 El ensayo adicional de objetos grandes usó `pg_dump` y `psql` de PostgreSQL
 18.4 sobre el contenedor propio. El contenido y las referencias siguieron
