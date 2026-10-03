@@ -8,7 +8,7 @@
   "idioma": "Idioma",
   "ayuda_signo": "?",
   "ayuda": "Ayuda de esta pantalla",
-  "ayuda_texto": "Abra la salida JSON del preparador de sesión. Revise el orden del día y las propuestas de acuerdo. Los acuerdos se agrupan por el número de su punto del orden del día. Las referencias originales están plegadas. Puede descargar el original o cerrar el archivo. El archivo permanece sólo en memoria; al recargar debe abrirlo de nuevo. El borrador no acredita una sesión celebrada ni acuerdos adoptados.",
+  "ayuda_texto": "Abra la salida JSON del preparador de sesión. Revise el orden del día y las propuestas de acuerdo. Cada acuerdo indica el número de su punto del orden del día. Las referencias originales están plegadas. Puede descargar el original o cerrar el archivo. El archivo permanece sólo en memoria; al recargar debe abrirlo de nuevo. El borrador no acredita una sesión celebrada ni acuerdos adoptados.",
   "abrir": "Abrir borrador preparado",
   "solo_local": "Revisión local",
   "archivo": "Archivo de salida del preparador · Obligatorio",
