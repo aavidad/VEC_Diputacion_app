@@ -62,7 +62,7 @@ export function montarVistaHistoriaServiciosPropia({ raiz, cliente, registrarDes
   const consultar = nodo(d, "button", t("general.consultar"), "boton-primario"); consultar.type = "submit"; consultar.disabled = !disponible; consultar.dataset.personalHistoriaConsultar = "";
   const cancelar = nodo(d, "button", t("general.cancelar"), "boton-secundario"); cancelar.type = "button"; cancelar.disabled = true; cancelar.dataset.personalHistoriaCancelar = "";
   formulario.append(consultar, cancelar);
-  const resultado = nodo(d, "div"); resultado.dataset.personalHistoriaResultado = ""; resultado.setAttribute("aria-live", "polite"); resultado.setAttribute("tabindex", "-1");
+  const resultado = nodo(d, "div", undefined, "personal-ficha-tabla-conjunto"); resultado.dataset.personalHistoriaResultado = ""; resultado.setAttribute("aria-live", "polite"); resultado.setAttribute("tabindex", "-1");
   resultado.append(mensaje(d, disponible ? "sin_consulta" : "no_configurado"));
   cuerpo.append(formulario, errorFechas, resultado); panel.append(cabecera, cuerpo); raiz.append(panel);
   let activa = true, turno = 0, vuelo;
