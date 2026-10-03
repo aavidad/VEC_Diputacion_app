@@ -1,7 +1,7 @@
-import { escapar } from "./render.js?v=20261003-admin-usuarios-v4";
-import { validarPropuestas, puedeCerrarPropuesta, prepararCierre, validarCierre } from "./propuestas-contratos.js?v=20261003-admin-usuarios-v4";
+import { escapar } from "./render.js?v=20261003-admin-usuarios-v5";
+import { validarPropuestas, puedeCerrarPropuesta, prepararCierre, validarCierre } from "./propuestas-contratos.js?v=20261003-admin-usuarios-v5";
 /** Segunda persona: la pista de la lectura nunca sustituye el cierre autorizado. */
-export function montarPropuestas(host, { textos, contexto, bloquear, denegar, cripto }) {
+export function montarPropuestas(host, { textos, contexto, bloquear, denegar, fallarLectura, cripto }) {
   const t = textos.traducir, tx = (k, vars) => escapar(t(k, vars));
   const fecha = (v) => escapar(textos.fecha(v, { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Madrid" }));
   const dato = (k, v) => `<div class="fila-resumen"><dt>${tx(k)}</dt><dd>${escapar(v)}</dd></div>`;
@@ -80,7 +80,7 @@ export function montarPropuestas(host, { textos, contexto, bloquear, denegar, cr
     if (typeof cliente.propuestas !== "function") { nodo("estado").textContent = t("propuestas.sin_consulta"); return; }
     const c = nuevo(); nodo("estado").textContent = t("propuestas.cargando");
     try { const datos = await cliente.propuestas(c.signal); if (vigente(c)) { propuestas = validarPropuestas(datos); tabla(restaurar); } }
-    catch (e) { if (vigente(c)) fallo(e); }
+    catch (e) { if (vigente(c)) fallarLectura(e); }
   }
   function click(e) {
     const n = e.target.closest("[data-propuesta-accion]");
@@ -95,6 +95,7 @@ export function montarPropuestas(host, { textos, contexto, bloquear, denegar, cr
   function submit(e) { if (e.target !== nodo("formulario")) return; e.preventDefault(); if (enviando || incierto) return;
     try { if (nodo("motivo").value === "") throw new Error(); revisar(); } catch { nodo("estado").textContent = t("errores.seleccion"); nodo("estado").focus(); } }
   host.addEventListener("click", click); host.addEventListener("submit", submit);
-  return { cargar, vaciar() { control?.abort(); revision = null; seleccion = null; propuestas = []; host.replaceChildren(); },
+  return { cargar, cancelarLectura() { if (!enviando && !incierto) control?.abort(); },
+    vaciar() { control?.abort(); revision = null; seleccion = null; propuestas = []; host.replaceChildren(); },
     desmontar() { viva = false; control?.abort(); host.removeEventListener("click", click); host.removeEventListener("submit", submit); host.replaceChildren(); } };
 }

@@ -50,6 +50,12 @@ type PreparacionBases struct {
 // CanonizadorBases reutiliza las comprobaciones estructurales del dueño Bolsa.
 // No resuelve las referencias ni consume autorización, firma, custodia o gobierno.
 type CanonizadorBases interface {
+	EvaluarMaterialBases(context.Context, MaterialBasesPropuesto) (EvaluacionMaterialBases, error)
 	ComprobarReferencia(bolsa.ReferenciaConfiguracionConvocatoria) error
 	CanonizarContenido(context.Context, bolsa.ContenidoPublicableConvocatoria) (bolsa.ContenidoPublicableConvocatoria, error)
+}
+
+type EvaluacionMaterialBases struct {
+	ContenidoCanonicoBolsa *bolsa.ContenidoPublicableConvocatoria
+	Pendientes             []PendientePreparacionBases
 }

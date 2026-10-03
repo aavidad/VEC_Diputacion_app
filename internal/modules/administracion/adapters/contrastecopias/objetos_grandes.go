@@ -23,6 +23,13 @@ func validarReferencias(config Configuracion) error {
 	}
 	seen := map[ReferenciaObjetoGrande]bool{}
 	for _, r := range config.ReferenciasObjetosGrandes {
+		if len(config.BasesInventariadas) == 0 {
+			if r.Base != "" {
+				return bad
+			}
+		} else if !contieneBase(config.BasesInventariadas, r.Base) {
+			return bad
+		}
 		for _, name := range []string{r.Esquema, r.Tabla, r.Columna} {
 			if name == "" || len(name) > 63 || !utf8.ValidString(name) || strings.ContainsRune(name, 0) {
 				return bad

@@ -89,3 +89,9 @@ dcfb876c98a9d674b24efee1884f3d06dd82916c:deploy/postgresql/personal/pruebas_sql/
 3677379327ac17a2b97a58531933c8365db74264:internal/modules/bolsa/adapters/httpinterno/operacion_situacion_participacion_test.go:generic-api-key:47
 f548260d7c6bc962fd5f1fcd6a5d4b1e3d144106:deploy/postgresql/bolsa_llamamientos/pruebas_sql/b76_revision_regularizacion.sql:vep-clave-castellana-asignada:76
 f548260d7c6bc962fd5f1fcd6a5d4b1e3d144106:deploy/postgresql/bolsa_llamamientos/pruebas_sql/b76_revision_regularizacion.sql:vep-clave-castellana-asignada:182
+
+# A3: SHA256 publico del consumo sintetico en vector de cadena; no es un token SumoLogic.
+011070c0f65a39ca1f42a9174832b109ac37e226:cmd/vec-auditoria-verificar/testdata/cadena_mixta_v2.json:sumologic-access-token:1
+
+# AD171: SHA256 público del consumo sintético idéntico al vector V2; no es un token SumoLogic.
+9cc9e7a84a8f19940364aa9cf829421d611b59be:cmd/vec-auditoria-verificar/testdata/preperfil_mixta_v3.json:sumologic-access-token:1

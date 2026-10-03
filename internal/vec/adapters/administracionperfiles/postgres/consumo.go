@@ -27,13 +27,19 @@ func ejecutarConsumoADMIN(ctx context.Context, pool conexion, emisor Emisor, rel
 	if evidencia.ValidarEn(actor, reloj.Ahora()) != nil || !domain.ReferenciaCorrelacionAutorizacionV2Valida(e.CorrelacionAccesoRef) {
 		return ports.ErrAutoridadAdministracionPerfilesNoDisponible
 	}
+	traducirError := traducir
+	if consulta == capacidadesLecturaSQL {
+		// Conserva la denegación nominal de esta consulta antes de que el
+		// traductor de actos la reduzca a indisponibilidad. Nunca expone SQL.
+		traducirError = traducirErrorLectura
+	}
 	// El emisor recibe copia: no puede alterar el material ya ligado al efecto.
 	entrega := e
 	entrega.Material = append([]byte(nil), e.Material...)
 	m, err := emisor.EmitirAdministracionPerfiles(ctx, actor, evidencia, instantanea, entrega)
 	clear(entrega.Material)
 	if err != nil {
-		return traducir(ctx, err)
+		return traducirError(ctx, err)
 	}
 	huella := sha256.Sum256(e.Material)
 	r := m.ResumenCapacidad()
@@ -54,7 +60,7 @@ func ejecutarConsumoADMIN(ctx context.Context, pool conexion, emisor Emisor, rel
 	}()
 	tx, err := pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite})
 	if err != nil {
-		return traducir(ctx, err)
+		return traducirError(ctx, err)
 	}
 	if ausente(tx) {
 		return ports.ErrAutoridadAdministracionPerfilesNoDisponible
@@ -66,7 +72,7 @@ func ejecutarConsumoADMIN(ctx context.Context, pool conexion, emisor Emisor, rel
 	}()
 	var bruto []byte
 	if err := tx.QueryRow(ctx, consulta, args...).Scan(&bruto); err != nil {
-		return traducir(ctx, err)
+		return traducirError(ctx, err)
 	}
 	if err := validar(bruto); err != nil {
 		return err
@@ -74,5 +80,5 @@ func ejecutarConsumoADMIN(ctx context.Context, pool conexion, emisor Emisor, rel
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	return traducir(ctx, tx.Commit(ctx))
+	return traducirError(ctx, tx.Commit(ctx))
 }

@@ -1,6 +1,6 @@
 import { cargarTextos } from "../../comun/textos.js";
-import { montarUsuarios } from "./vista.js?v=20261003-admin-usuarios-v4";
-import { crearClienteLecturasUsuarios } from "./lecturas-http.js?v=20261003-admin-usuarios-v4";
+import { montarUsuarios } from "./vista.js?v=20261003-admin-usuarios-v5";
+import { crearClienteLecturasUsuarios } from "./lecturas-http.js?v=20261003-admin-usuarios-v5";
 import { cargarTextosSelectorPerfil, crearClienteSelectorPerfil, montarSelectorPerfil } from "/administracion-perfiles/selector-perfil.js?v=20261003-admin-selector-v2";
 const root = document.getElementById("usuarios-contenido");
 const panelSelector = document.getElementById("usuarios-selector-panel");

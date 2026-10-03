@@ -38,7 +38,7 @@ func leerArchivoRecolector(ruta string, destino any) error {
 	defer clear(b)
 	permitidas := []string{"esquema", "ayuda", "terminado", "error"}
 	if _, configuracion := destino.(*observabilidad.ConfiguracionRecolector); configuracion {
-		permitidas = []string{"directorio", "max_linea_bytes", "max_archivo_bytes", "max_archivos", "retencion_segundos", "ventana_alertas_segundos", "umbrales_alerta"}
+		permitidas = []string{"directorio", "max_linea_bytes", "max_archivo_bytes", "max_archivos", "retencion_segundos", "ventana_alertas_segundos", "umbrales_alerta", "umbrales_resultado"}
 	}
 	if clavesUnicasCLI(b, permitidas) != nil {
 		return os.ErrInvalid
@@ -73,10 +73,14 @@ func clavesUnicasCLI(datos []byte, permitidas []string) error {
 		if d.Decode(&valor) != nil {
 			return os.ErrInvalid
 		}
-		if clave == "umbrales_alerta" {
+		if clave == "umbrales_alerta" || clave == "umbrales_resultado" {
 			codigos := []string{}
-			for _, c := range domain.CodigosIncidenciaTecnica() {
-				codigos = append(codigos, string(c))
+			if clave == "umbrales_alerta" {
+				for _, c := range domain.CodigosIncidenciaTecnica() {
+					codigos = append(codigos, string(c))
+				}
+			} else {
+				codigos = []string{string(domain.ResultadoTecnicoDenegado), string(domain.ResultadoTecnicoNoDisponible)}
 			}
 			if clavesUnicasCLI(valor, codigos) != nil {
 				return os.ErrInvalid

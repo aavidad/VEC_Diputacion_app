@@ -16,7 +16,7 @@ import (
 func TestConfiguracionReferenciasObjetoGrande(t *testing.T) {
 	c := limitesPrueba()
 	c.ObjetosGrandesSemanticos = true
-	c.ReferenciasObjetosGrandes = []ReferenciaObjetoGrande{{"public", "archivos", "referencia"}}
+	c.ReferenciasObjetosGrandes = []ReferenciaObjetoGrande{{"public", "archivos", "referencia", ""}}
 	l, e := Nuevo(c)
 	if e != nil {
 		t.Fatal(e)
@@ -25,14 +25,14 @@ func TestConfiguracionReferenciasObjetoGrande(t *testing.T) {
 	if !l.limites.ObjetosGrandesSemanticos || l.limites.ReferenciasObjetosGrandes[0].Columna != "referencia" {
 		t.Fatal("configuración mutable desde fuera")
 	}
-	for _, bad := range [][]ReferenciaObjetoGrande{{{"", "archivos", "ref"}}, {{"public", "archivos", "ref"}, {"public", "archivos", "ref"}}, {{"public", strings.Repeat("ñ", 32), "ref"}}} {
+	for _, bad := range [][]ReferenciaObjetoGrande{{{"", "archivos", "ref", ""}}, {{"public", "archivos", "ref", ""}, {"public", "archivos", "ref", ""}}, {{"public", strings.Repeat("ñ", 32), "ref", ""}}} {
 		c.ReferenciasObjetosGrandes = bad
 		if _, e := Nuevo(c); e == nil {
 			t.Fatal("referencia no válida aceptada")
 		}
 	}
 	c = limitesPrueba()
-	c.ReferenciasObjetosGrandes = []ReferenciaObjetoGrande{{"public", "archivos", "ref"}}
+	c.ReferenciasObjetosGrandes = []ReferenciaObjetoGrande{{"public", "archivos", "ref", ""}}
 	if _, e := Nuevo(c); e == nil {
 		t.Fatal("referencia habilitada sin modo semántico")
 	}
@@ -83,7 +83,7 @@ SELECT lo_create(810002);
 INSERT INTO public.archivos VALUES(1,810001),(2,0),(3,NULL);`)
 	config := limitesPrueba()
 	config.ObjetosGrandesSemanticos = true
-	config.ReferenciasObjetosGrandes = []ReferenciaObjetoGrande{{"public", "archivos", "referencia"}}
+	config.ReferenciasObjetosGrandes = []ReferenciaObjetoGrande{{"public", "archivos", "referencia", ""}}
 	l, e := Nuevo(config)
 	if e != nil {
 		t.Fatal(e)
@@ -164,7 +164,7 @@ INSERT INTO public.archivos VALUES(1,810001),(2,0),(3,NULL);`)
 		t.Fatal("oid no declarado admitido")
 	}
 	absent := config
-	absent.ReferenciasObjetosGrandes = []ReferenciaObjetoGrande{{"public", "inexistente", "referencia"}}
+	absent.ReferenciasObjetosGrandes = []ReferenciaObjetoGrande{{"public", "inexistente", "referencia", ""}}
 	reader, _ = Nuevo(absent)
 	s, e = reader.CapturarEjecutor(context.Background(), x, "postgres", x)
 	if e != nil || s.Completo {

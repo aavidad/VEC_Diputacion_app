@@ -30,7 +30,7 @@ func execute(ctx context.Context, c cryptoConfig, a actorConfig, o operation) (m
 		}
 	}()
 	open := func(login string) (*pgxpool.Pool, error) {
-		p, err := pool(ctx, login)
+		p, err := pool(ctx, login, c.Passwords[login])
 		if err == nil {
 			pools = append(pools, p)
 		}
@@ -141,6 +141,31 @@ func execute(ctx context.Context, c cryptoConfig, a actorConfig, o operation) (m
 	if err != nil {
 		return output, err
 	}
+	registry, err := merpg.NuevoRegistro(ep)
+	if err != nil {
+		return output, err
+	}
+	if command.Accion == "meritos.hecho.declarar" {
+		observado := &registroDeclaracionObservado{registro: registry}
+		service, err := merapp.NuevoServicio(common, observado, auditoriaIntentosPendiente{}, clock{})
+		if err != nil {
+			return output, err
+		}
+		receipt, err := service.Declarar(ctx, merapp.Solicitud{Vinculo: link, Contexto: result,
+			Correlacion: correlation, Motivo: command.Motivo, ClaveIdempotencia: command.ClaveIdempotencia,
+			VersionEsperada: command.VersionEsperada, FechaCorte: command.FechaCorte, Hecho: command.Hecho})
+		if err != nil {
+			if observado.confirmado && observado.resultado.Recibo == nil &&
+				(errors.Is(err, merports.ErrConflictoVersion) || errors.Is(err, merports.ErrClaveReutilizada) || errors.Is(err, vd.ErrAutorizacionDenegada)) {
+				return observado.resultado, nil
+			}
+			return output, err
+		}
+		if !observado.confirmado || observado.resultado.Recibo == nil || observado.resultado.Recibo.Referencia != receipt.Referencia {
+			return output, merports.ErrRegistroNoDisponible
+		}
+		return observado.resultado, nil
+	}
 	decision, confirmation, exporter, err := common.EmitirMaterialAutorizacionAtestadaV3(ctx, request, result)
 	if err != nil {
 		return output, fmt.Errorf("real_v3_emission: %w", err)
@@ -152,10 +177,30 @@ func execute(ctx context.Context, c cryptoConfig, a actorConfig, o operation) (m
 	if command.Accion == "meritos.hecho.verificar" {
 		return output, errors.New("verification_disabled")
 	}
-	registry, err := merpg.NuevoRegistro(ep)
-	if err != nil {
-		return output, err
-	}
 	order := merports.OrdenOperacion{Accion: command.Accion, ActorRef: command.ActorRef, ClaveIdempotencia: command.ClaveIdempotencia, HuellaComando: hashText, VersionEsperada: command.VersionEsperada, Hecho: command.Hecho, Motivo: command.Motivo, FechaCorte: command.FechaCorte, Autorizacion: merports.AutorizacionOperacion{Contexto: result, Solicitud: request, Decision: decision, Confirmacion: confirmation, Material: material}}
 	return registry.EjecutarOperacion(ctx, order)
+}
+
+// Conserva el DTO del repositorio real después de COMMIT para la salida
+// histórica del ensayo. No construye recibos ni ejecuta otra operación.
+type registroDeclaracionObservado struct {
+	registro   merports.Registro
+	resultado  merports.ResultadoOperacion
+	confirmado bool
+}
+
+func (r *registroDeclaracionObservado) EjecutarOperacion(ctx context.Context, orden merports.OrdenOperacion) (merports.ResultadoOperacion, error) {
+	resultado, err := r.registro.EjecutarOperacion(ctx, orden)
+	if err == nil {
+		r.resultado, r.confirmado = resultado, true
+	}
+	return resultado, err
+}
+
+// El éxito de M1 incluye su auditoría en la transacción SQL. El ensayo no
+// simula una auditoría común de fallos: si ésta se necesita, falla sin recibo.
+type auditoriaIntentosPendiente struct{}
+
+func (auditoriaIntentosPendiente) AppendAudit(context.Context, vd.AuditEntry) (vd.AuditEntry, error) {
+	return vd.AuditEntry{}, merports.ErrRegistroNoDisponible
 }
