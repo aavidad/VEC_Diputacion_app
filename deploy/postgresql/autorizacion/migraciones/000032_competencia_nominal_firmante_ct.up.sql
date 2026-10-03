@@ -480,8 +480,13 @@ BEGIN
    OR previo.documento_ref IS DISTINCT FROM c#>>'{recurso,documento_ref}'
    OR previo.persona_ref IS DISTINCT FROM c#>>'{identidad,persona_ref}'
    OR previo.certificado_der_sha256 IS DISTINCT FROM c#>>'{identidad,certificado_der_sha256}'
-   OR (convert_from(previo.canonico,'UTF8')::jsonb)#>'{recurso,original}' IS DISTINCT FROM c#>'{recurso,original}'
-   OR (convert_from(previo.canonico,'UTF8')::jsonb)#>'{recurso,firmado}' IS DISTINCT FROM c#>'{recurso,firmado}' THEN
+   OR (convert_from(previo.canonico,'UTF8')::jsonb)->'recurso' IS DISTINCT FROM c->'recurso'
+   OR (convert_from(previo.canonico,'UTF8')::jsonb)->>'accion' IS DISTINCT FROM c->>'accion'
+   OR (convert_from(previo.canonico,'UTF8')::jsonb)->>'finalidad' IS DISTINCT FROM c->>'finalidad'
+   OR (convert_from(previo.canonico,'UTF8')::jsonb)->'motivo' IS DISTINCT FROM c->'motivo'
+   OR (convert_from(previo.canonico,'UTF8')::jsonb)->'circuito' IS DISTINCT FROM c->'circuito'
+   OR (convert_from(previo.canonico,'UTF8')::jsonb)->>'paso_ref' IS DISTINCT FROM c->>'paso_ref'
+   OR (convert_from(previo.canonico,'UTF8')::jsonb)->>'paso_orden' IS DISTINCT FROM c->>'paso_orden' THEN
    RAISE EXCEPTION 'aut32_efecto_divergente' USING ERRCODE = '42501';
   END IF;
   RETURN jsonb_build_object('evidencia_ref',previo.evidencia_ref,'esquema',previo.esquema,
@@ -537,8 +542,13 @@ BEGIN
   OR original.documento_ref IS DISTINCT FROM c#>>'{recurso,documento_ref}'
   OR original.persona_ref IS DISTINCT FROM c#>>'{identidad,persona_ref}'
   OR original.certificado_der_sha256 IS DISTINCT FROM c#>>'{identidad,certificado_der_sha256}'
-  OR (convert_from(original.canonico,'UTF8')::jsonb)#>'{recurso,original}' IS DISTINCT FROM c#>'{recurso,original}'
-  OR (convert_from(original.canonico,'UTF8')::jsonb)#>'{recurso,firmado}' IS DISTINCT FROM c#>'{recurso,firmado}'
+  OR (convert_from(original.canonico,'UTF8')::jsonb)->'recurso' IS DISTINCT FROM c->'recurso'
+  OR (convert_from(original.canonico,'UTF8')::jsonb)->>'accion' IS DISTINCT FROM c->>'accion'
+  OR (convert_from(original.canonico,'UTF8')::jsonb)->>'finalidad' IS DISTINCT FROM c->>'finalidad'
+  OR (convert_from(original.canonico,'UTF8')::jsonb)->'motivo' IS DISTINCT FROM c->'motivo'
+  OR (convert_from(original.canonico,'UTF8')::jsonb)->'circuito' IS DISTINCT FROM c->'circuito'
+  OR (convert_from(original.canonico,'UTF8')::jsonb)->>'paso_ref' IS DISTINCT FROM c->>'paso_ref'
+  OR (convert_from(original.canonico,'UTF8')::jsonb)->>'paso_orden' IS DISTINCT FROM c->>'paso_orden'
   OR original.huella_sha256 IS DISTINCT FROM encode(sha256(original.canonico),'hex') THEN
   RAISE EXCEPTION 'aut32_evidencia_no_disponible' USING ERRCODE = '42501';
  END IF;
