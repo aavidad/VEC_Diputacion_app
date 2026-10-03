@@ -1,0 +1,18 @@
+{
+  "id": "/administracion-perfiles/",
+  "name": "VEC · Administration",
+  "short_name": "VEC Admin",
+  "description": "Manage the VEC application of the Provincial Council of Granada.",
+  "lang": "en",
+  "start_url": "/administracion-perfiles/?lang=en",
+  "scope": "/administracion-perfiles/",
+  "display": "standalone",
+  "background_color": "#f2f5f9",
+  "theme_color": "#062d56",
+  "icons": [
+    { "src": "/pwa/icons/vec-192.png?v=20261002-pwa-v1", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/pwa/icons/vec-512.png?v=20261002-pwa-v1", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/pwa/icons/vec-maskable-192.png?v=20261002-pwa-v1", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/pwa/icons/vec-maskable-512.png?v=20261002-pwa-v1", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

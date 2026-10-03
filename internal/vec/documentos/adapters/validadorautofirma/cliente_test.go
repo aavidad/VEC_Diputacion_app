@@ -53,7 +53,8 @@ func cliente(t *testing.T, c validadorautofirma.Configuracion) *validadorautofir
 }
 
 func solicitud(firmado []byte) ports.SolicitudVerificacionFirma {
-	original := []byte("original sintetico custodiado")
+	original := []byte("%PDF-1.7\n")
+	firmado = append(append([]byte(nil), original...), firmado...)
 	huella := sha256.Sum256(original)
 	return ports.SolicitudVerificacionFirma{
 		DocumentoID: "ref:" + strings.Repeat("1", 64), Version: 3,
@@ -107,7 +108,7 @@ func verificar(t *testing.T, v *validadorautofirma.Cliente, s ports.SolicitudVer
 	return r
 }
 
-func TestValidaSinSelloAcreditaFirmaConPoliticaV1(t *testing.T) {
+func TestValidaSinSelloAcreditaFirmaConPoliticaV2(t *testing.T) {
 	s := arrancar(t, false)
 	v := cliente(t, configuracion(s))
 	sol := solicitud([]byte{0x30, 0x82, 0x01, 0x00, 0x02})
@@ -134,7 +135,8 @@ func TestValidaSinSelloAcreditaFirmaConPoliticaV1(t *testing.T) {
 		campos = append(campos, k)
 	}
 	sort.Strings(campos)
-	if strings.Join(campos, ",") != "content_base64,name,original_content_base64" ||
+	if strings.Join(campos, ",") != "content_base64,contrato_solicitado,name,original_content_base64" ||
+		string(p.Campos["contrato_solicitado"]) != `"autofirmav2.dictamen-verificacion.v2"` ||
 		string(p.Campos["name"]) != `"documento"` || p.Autorizacion != "Bearer "+tokenPrueba ||
 		string(p.Original) != string(sol.ContenidoOriginal) || string(p.Firmado) != string(sol.ContenidoFirmado) {
 		t.Fatalf("peticion no minimizada o incorrecta: %v %+v", campos, p)
@@ -169,19 +171,20 @@ func TestTraduccionDeEscenarios(t *testing.T) {
 	}{
 		{servidorprueba.ValidaSinSello, ports.MotivoFirmaVerificada, "vigente", "no_presente"},
 		{servidorprueba.ValidaConSello, ports.MotivoFirmaVerificada, "vigente", "valido"},
-		{servidorprueba.SelloNoComprobado, ports.MotivoFirmaVerificada, "vigente", "no_comprobado"},
-		{servidorprueba.SelloNoValido, ports.MotivoSelloTiempoNoAcreditado, "vigente", "no_valido"},
-		{servidorprueba.Revocado, ports.MotivoCertificadoNoValido, "revocado", "no_presente"},
-		{servidorprueba.RevocacionNoComprobada, ports.MotivoRevocacionNoAcreditada, "no_comprobada", "no_presente"},
-		{servidorprueba.VinculoNoAcreditado, ports.MotivoVinculoOriginalNoAcreditado, "vigente", "no_presente"},
-		{servidorprueba.VinculoNoAportado, ports.MotivoVinculoOriginalNoAcreditado, "vigente", "no_presente"},
-		{servidorprueba.IntegridadRota, ports.MotivoIntegridadNoValida, "vigente", "no_presente"},
-		{servidorprueba.IntegridadParcial, ports.MotivoIntegridadParcial, "vigente", "no_presente"},
-		{servidorprueba.SinAnclas, ports.MotivoConfianzaNoAcreditada, "vigente", "no_presente"},
-		{servidorprueba.VariosFirmantes, ports.MotivoFirmanteNoIdentificado, "vigente", "no_presente"},
-		// Un `valida` del validador con revocacion no comprobada: VEC es mas
-		// estricta y conserva su propio motivo.
-		{servidorprueba.ValidaIncoherente, ports.MotivoRevocacionNoAcreditada, "no_comprobada", "no_presente"},
+		// El puerto de un solo firmante conserva el motivo negativo sin adoptar
+		// aspectos del proveedor; el puerto múltiple ofrece el detalle completo.
+		{servidorprueba.SelloNoComprobado, ports.MotivoSelloTiempoNoAcreditado, "no_informado", "no_informado"},
+		{servidorprueba.SelloNoValido, ports.MotivoSelloTiempoNoAcreditado, "no_informado", "no_informado"},
+		{servidorprueba.Revocado, ports.MotivoCertificadoNoValido, "no_informado", "no_informado"},
+		{servidorprueba.RevocacionNoComprobada, ports.MotivoRevocacionNoAcreditada, "no_informado", "no_informado"},
+		{servidorprueba.VinculoNoAcreditado, ports.MotivoVinculoOriginalNoAcreditado, "no_informado", "no_informado"},
+		{servidorprueba.VinculoNoAportado, ports.MotivoVinculoOriginalNoAcreditado, "no_informado", "no_informado"},
+		{servidorprueba.IntegridadRota, ports.MotivoIntegridadNoValida, "no_informado", "no_informado"},
+		{servidorprueba.IntegridadParcial, ports.MotivoIntegridadParcial, "no_informado", "no_informado"},
+		{servidorprueba.SinAnclas, ports.MotivoConfianzaNoAcreditada, "no_informado", "no_informado"},
+		{servidorprueba.VariosFirmantes, ports.MotivoFirmanteNoIdentificado, "no_informado", "no_informado"},
+		// Un `valida` con revocacion no comprobada contradice sus aspectos.
+		{servidorprueba.ValidaIncoherente, ports.MotivoRespuestaNoInterpretable, "no_informado", "no_informado"},
 		// Respuestas no interpretables: no se adopta ningun aspecto.
 		{servidorprueba.ContratoDesconocido, ports.MotivoRespuestaNoInterpretable, "no_informado", "no_informado"},
 		{servidorprueba.SinDictamen, ports.MotivoRespuestaNoInterpretable, "no_informado", "no_informado"},

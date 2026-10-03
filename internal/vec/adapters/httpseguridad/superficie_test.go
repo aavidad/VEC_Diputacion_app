@@ -289,6 +289,56 @@ func configuracionAdministracionValida() ConfiguracionSuperficie {
 	}
 }
 
+func TestAdministracionTemporalSoloCertificadoDirecto(t *testing.T) {
+	cfg := configuracionAdministracionValida()
+	cfg.HuellasProxyTLSPermitidas = nil
+	cfg.IdentidadesSANProxyPermitidas = nil
+	cfg.CertificadoClienteDirecto = true
+	cfg.PoliticaAdministracion = PoliticaAdministracionCertificadoTemporal
+	cfg.RetiradaPoliticaAdministracionEn = time.Now().UTC().Add(time.Hour).Truncate(time.Second)
+	cfg.MetodosAdmitidos = []MetodoAutenticacion{MetodoCertificado}
+	cfg.FactoresRequeridos = []MetodoAutenticacion{MetodoCertificado}
+	cfg.MinimoFactoresVerificados = 1
+	cfg.MinimoGruposCriptograficosDistintos = 1
+	cfg.RedesPermitidas = []string{"0.0.0.0/0", "::/0"}
+	if err := cfg.Validar(); err != nil {
+		t.Fatalf("excepcion ADMIN explicita: %v", err)
+	}
+	pruebas := []struct {
+		name    string
+		alterar func(*ConfiguracionSuperficie)
+	}{
+		{"sin fecha", func(c *ConfiguracionSuperficie) { c.RetiradaPoliticaAdministracionEn = time.Time{} }},
+		{"caducada", func(c *ConfiguracionSuperficie) {
+			c.RetiradaPoliticaAdministracionEn = time.Now().UTC().Add(-time.Second).Truncate(time.Second)
+		}},
+		{"sin HIGH", func(c *ConfiguracionSuperficie) { c.GarantiaMinima = dominiovec.AuthAssuranceSubstantial }},
+		{"proxy", func(c *ConfiguracionSuperficie) { c.IdentidadesSANProxyPermitidas = []string{"dns:proxy.example.test"} }},
+		{"sin mTLS directo", func(c *ConfiguracionSuperficie) { c.CertificadoClienteDirecto = false }},
+		{"politica interna", func(c *ConfiguracionSuperficie) {
+			c.Superficie = SuperficieInternaCorporativa
+			c.ZonaRed = ZonaRedInterna
+		}},
+	}
+	for _, prueba := range pruebas {
+		t.Run(prueba.name, func(t *testing.T) {
+			copia := cfg
+			prueba.alterar(&copia)
+			if !errors.Is(copia.Validar(), ErrConfiguracionSuperficie) {
+				t.Fatal("configuracion debio rechazarse")
+			}
+		})
+	}
+	produccion := configuracionAdministracionValida()
+	produccion.CertificadoClienteDirecto = true
+	produccion.HuellasProxyTLSPermitidas = nil
+	produccion.IdentidadesSANProxyPermitidas = nil
+	produccion.RedesPermitidas = []string{"0.0.0.0/0"}
+	if !errors.Is(produccion.Validar(), ErrConfiguracionSuperficie) {
+		t.Fatal("produccion no admite red universal")
+	}
+}
+
 func cambiar(base ConfiguracionSuperficie, cambio func(*ConfiguracionSuperficie)) ConfiguracionSuperficie {
 	cambio(&base)
 	return base

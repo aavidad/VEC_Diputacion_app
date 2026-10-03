@@ -418,6 +418,7 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	catalogoFronteras catalogoFronterasComunDesarrollo,
 	identidadCT *proveedorSesionConsultaRRHHDesarrollo,
 	personalizacion *fuentePersonalizacionB7,
+	autorizacionesAdicionales []descriptorAutorizacionComunDesarrollo,
 	proveedorReincorporacion ...*proveedorMaterialAltaContratacionTemporalDesarrollo,
 ) ([]vechttp.RutaExacta, []vechttp.RutaColeccion, http.Handler, catalogoFronterasComunDesarrollo, func(http.Handler) http.Handler, func(), error) {
 	vacio := catalogoFronterasComunDesarrollo{}
@@ -552,6 +553,7 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	descriptoresAutorizacion := append(descriptoresAutorizacionContratacionTemporalDesarrollo(politicaCT, reincorporacionActiva,
 		firmaDocumentoPerfilFijoCompuesto(alta.soporte),
 		alta.soporte.perfilFijoParaRuta(cthttp.RutaConsultaCircuitoRRHH) != nil), descriptoresBolsa...)
+	descriptoresAutorizacion = append(descriptoresAutorizacion, autorizacionesAdicionales...)
 	catalogoAutorizacion, err := nuevoCatalogoAutorizacionComunDesarrollo(catalogoFronteras, descriptoresAutorizacion)
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()

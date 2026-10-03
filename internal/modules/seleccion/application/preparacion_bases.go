@@ -24,57 +24,18 @@ func PrepararMaterialBases(ctx context.Context, material ports.MaterialBasesProp
 		return vacio, ports.ErrMaterialBasesInvalido
 	}
 	material.Contenido = copiarContenidoPropuesto(material.Contenido)
-	resultado := ports.PreparacionBases{Estado: "pendiente", MaterialPropuesto: material}
-	pendiente := func(campo, codigo string) {
-		resultado.Pendientes = append(resultado.Pendientes, ports.PendientePreparacionBases{Campo: campo, Codigo: codigo})
-	}
-	r := material.Referencias
-	for _, campo := range []struct {
-		clave string
-		ref   bolsa.ReferenciaConfiguracionConvocatoria
-	}{
-		{"fuente_bases", r.FuenteBases}, {"catalogos", r.Catalogos}, {"calendario", r.Calendario},
-		{"reglas_baremacion", r.ReglasBaremacion}, {"flujo_proceso", r.FlujoProceso},
-		{"flujo_solicitud", r.FlujoSolicitud}, {"plantilla", r.Plantilla}, {"plaza", r.Plaza}, {"oep", r.OEP}, {"rpt", r.RPT},
-	} {
-		switch {
-		case campo.ref == (bolsa.ReferenciaConfiguracionConvocatoria{}):
-			pendiente(campo.clave, "referencia_ausente")
-		case canonizador.ComprobarReferencia(campo.ref) != nil:
-			pendiente(campo.clave, "referencia_invalida")
-		default:
-			pendiente(campo.clave, "referencia_no_verificada")
-		}
-	}
-	c := material.Contenido
-	for _, campo := range []struct {
-		clave   string
-		ausente bool
-	}{
-		{"identificador_publico", c.IdentificadorPublico == ""}, {"tipo", c.Tipo == ""},
-		{"titulo", c.Titulo == ""}, {"resumen", c.Resumen == ""},
-		{"catalogo_categorias", c.CatalogoCategorias == (bolsa.ReferenciaCatalogoCategorias{})},
-		{"categorias", len(c.Categorias) == 0}, {"plazos", len(c.Plazos) == 0}, {"documentos_propuestos", len(c.Documentos) == 0},
-	} {
-		if campo.ausente {
-			pendiente(campo.clave, "material_ausente")
-		}
-	}
-	canonico, err := canonizador.CanonizarContenido(ctx, copiarContenidoPropuesto(c))
+	evaluacion, err := canonizador.EvaluarMaterialBases(ctx, material)
 	if cancelacion := ctx.Err(); cancelacion != nil {
 		return vacio, cancelacion
 	}
-	if errors.Is(err, bolsa.ErrVersionConvocatoriaGobernadaInvalida) {
-		pendiente("contenido", "contenido_no_validado")
-	} else if err != nil {
+	if errors.Is(err, ports.ErrMaterialBasesInvalido) {
+		return vacio, ports.ErrMaterialBasesInvalido
+	}
+	if err != nil {
 		return vacio, ports.ErrPreparadorBasesNoDisponible
-	} else {
-		resultado.ContenidoCanonicoBolsa = &canonico
 	}
-	// Este corte no tiene autoridades que puedan acreditar estas dependencias.
-	for _, campo := range []string{"documentos_admitidos", "firma_y_custodia", "acto_aprobacion", "publicacion_oficial"} {
-		pendiente(campo, "circuito_pendiente")
-	}
+	resultado := ports.PreparacionBases{Estado: "pendiente", MaterialPropuesto: material,
+		ContenidoCanonicoBolsa: evaluacion.ContenidoCanonicoBolsa, Pendientes: evaluacion.Pendientes}
 	return resultado, nil
 }
 

@@ -585,7 +585,7 @@ func securityHeaders(next http.Handler) http.Handler {
 		// connect-src admite además el WebSocket local de AutoFirma (protocolo
 		// afirma://, puerto 63117 de loopback) para la firma de prueba de los
 		// borradores en el equipo de la persona; ningún otro destino externo.
-		headers.Set("Content-Security-Policy", "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' wss://127.0.0.1:63117")
+		headers.Set("Content-Security-Policy", "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' wss://127.0.0.1:63117; worker-src 'self'; manifest-src 'self'")
 		headers.Set("Cross-Origin-Opener-Policy", "same-origin")
 		headers.Set("Cross-Origin-Resource-Policy", "same-origin")
 		headers.Set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=()")
@@ -656,6 +656,14 @@ func setNoStoreForStatic(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Path
 	if path == "/" || strings.HasSuffix(path, ".html") || strings.HasSuffix(path, ".json") {
 		w.Header().Set("Cache-Control", "no-store")
+		return
+	}
+	if strings.HasPrefix(path, "/pwa/icons/") && (strings.HasSuffix(path, ".png") || strings.HasSuffix(path, ".ico")) {
+		if r.URL.Query().Get("v") != "" {
+			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+		} else {
+			w.Header().Set("Cache-Control", "no-cache")
+		}
 		return
 	}
 	if strings.HasSuffix(path, ".js") || strings.HasSuffix(path, ".css") {
