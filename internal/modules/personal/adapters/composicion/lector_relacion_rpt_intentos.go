@@ -7,8 +7,6 @@ import (
 
 	"vec-diputacion-granada/internal/modules/personal/domain"
 	"vec-diputacion-granada/internal/modules/personal/ports"
-	seguridadvec "vec-diputacion-granada/internal/vec/adapters/seguridad"
-	vecdomain "vec-diputacion-granada/internal/vec/domain"
 )
 
 // RegistroIntentosLectorRelacionRPT conserva únicamente un actor cotejado con
@@ -39,7 +37,7 @@ func (r *RegistroIntentosLectorRelacionRPT) RegistrarIntentoRelacionRPT(ctx cont
 	if r == nil || ctx == nil || ctx.Err() != nil || dependenciaNula(r.identidad) || dependenciaNula(r.destino) || r.ahora == nil {
 		return domain.ErrLectorRelacionRPTNoDisponible
 	}
-	correlacion, err := vecdomain.GenerarReferenciaCorrelacionAutorizacionV2(ctx, seguridadvec.GeneradorReferenciasCriptograficas{})
+	correlacion, err := correlacionLectorRelacionRPT(ctx)
 	if err != nil {
 		return domain.ErrLectorRelacionRPTNoDisponible
 	}

@@ -22,7 +22,7 @@ type DependenciasLectorRelacionRPT struct {
 // ComponerLectorRelacionSeleccionadaRPT prepara el consumidor de la selección
 // 356 con autoridades reales y pools segregados. No monta HTTP ni provisión.
 // La ausencia de SQL, concesión o registrador mantiene cada lectura cerrada.
-func ComponerLectorRelacionSeleccionadaRPT(d DependenciasLectorRelacionRPT) (*personalrpt.LectorRelacionSeleccionadaRPT, error) {
+func ComponerLectorRelacionSeleccionadaRPT(d DependenciasLectorRelacionRPT) (LectorRelacionSeleccionadaRPT, error) {
 	if d.Lectura == nil || d.Intentos == nil || d.Lectura == d.Intentos || d.Ahora == nil {
 		return nil, personaldomain.ErrLectorRelacionRPTNoDisponible
 	}
@@ -46,5 +46,9 @@ func ComponerLectorRelacionSeleccionadaRPT(d DependenciasLectorRelacionRPT) (*pe
 	if err != nil {
 		return nil, personaldomain.ErrLectorRelacionRPTNoDisponible
 	}
-	return personalrpt.NuevoLectorRelacionSeleccionadaRPT(s, i)
+	lector, err := personalrpt.NuevoLectorRelacionSeleccionadaRPT(s, i)
+	if err != nil {
+		return nil, err
+	}
+	return lectorRelacionSeleccionadaCorrelacion{siguiente: lector}, nil
 }

@@ -32,7 +32,7 @@ func TestLectorRPTIntentoNoInventaActorSinIdentidadActual(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := r.RegistrarIntentoRelacionRPT(context.Background(), ports.IntentoLectorRelacionRPT{Motivo: "denegado", RelacionRef: "rel_" + strings.Repeat("a", 24)}); err != nil {
+	if err := r.RegistrarIntentoRelacionRPT(contextoCorrelacionLectorRPTPrueba(t), ports.IntentoLectorRelacionRPT{Motivo: "denegado", RelacionRef: "rel_" + strings.Repeat("a", 24)}); err != nil {
 		t.Fatal(err)
 	}
 	if d.writes != 1 || d.evento.ActorRef != "" || d.evento.RelacionRef != "rel_"+strings.Repeat("a", 24) || !strings.HasPrefix(d.evento.CorrelacionRef, "correlacion_") {
@@ -48,7 +48,7 @@ func TestLectorRPTIntentosCierranDestinoAusenteOFallido(t *testing.T) {
 	if err := r.VerificarRegistroRelacionRPT(context.Background()); !errors.Is(err, domain.ErrLectorRelacionRPTNoDisponible) || strings.Contains(err.Error(), "privado") {
 		t.Fatal("preflight no cerrado", err)
 	}
-	if err := r.RegistrarIntentoRelacionRPT(context.Background(), ports.IntentoLectorRelacionRPT{Motivo: "no_disponible"}); !errors.Is(err, domain.ErrLectorRelacionRPTNoDisponible) || strings.Contains(err.Error(), "privado") {
+	if err := r.RegistrarIntentoRelacionRPT(contextoCorrelacionLectorRPTPrueba(t), ports.IntentoLectorRelacionRPT{Motivo: "no_disponible"}); !errors.Is(err, domain.ErrLectorRelacionRPTNoDisponible) || strings.Contains(err.Error(), "privado") {
 		t.Fatal("destino no cerrado", err)
 	}
 }
