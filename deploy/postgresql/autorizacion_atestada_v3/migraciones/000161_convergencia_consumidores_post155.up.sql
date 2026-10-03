@@ -108,7 +108,8 @@ $runtime$;
            OR (
                p_perfil_mutacion IN ('meritos_hecho_propio_interno','meritos_hecho_rechazar')
                AND EXISTS (SELECT 1 FROM pg_roles r WHERE r.rolname=session_user AND r.rolcanlogin
-                  AND NOT r.rolsuper AND NOT r.rolcreaterole AND NOT r.rolcreatedb AND NOT r.rolbypassrls)
+                  AND NOT r.rolsuper AND NOT r.rolcreaterole AND NOT r.rolcreatedb
+                  AND NOT r.rolreplication AND NOT r.rolbypassrls)
                AND EXISTS (SELECT 1 FROM pg_auth_members m WHERE m.member=session_user::regrole
                   AND m.roleid='vec_meritos_ejecutor'::regrole
                   AND m.inherit_option AND NOT m.set_option AND NOT m.admin_option)
@@ -122,7 +123,8 @@ $runtime$;
            OR (
                p_perfil_mutacion IS NOT DISTINCT FROM 'consulta_version_convocatoria_bolsa'
                AND EXISTS (SELECT 1 FROM pg_roles r WHERE r.rolname=session_user AND r.rolcanlogin
-                  AND NOT r.rolsuper AND NOT r.rolcreaterole AND NOT r.rolcreatedb AND NOT r.rolbypassrls)
+                  AND NOT r.rolsuper AND NOT r.rolcreaterole AND NOT r.rolcreatedb
+                  AND NOT r.rolreplication AND NOT r.rolbypassrls)
                AND EXISTS (SELECT 1 FROM pg_auth_members m WHERE m.member=session_user::regrole
                   AND m.roleid='vec_bolsa_convocatorias_ejecutor_consulta'::regrole
                   AND m.inherit_option AND NOT m.set_option AND NOT m.admin_option)
