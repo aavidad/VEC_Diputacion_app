@@ -1,6 +1,6 @@
-import { validarCapacidades, validarRoles, validarUnidades, validarPersonas, validarFicha, seleccionarActos, prepararDecision, puedeConfirmar, validarResultado, incompatible } from "./contratos.js?v=20261003-admin-usuarios-v3";
-import { crearRender } from "./render.js?v=20261003-admin-usuarios-v3";
-import { montarPropuestas } from "./propuestas.js?v=20261003-admin-usuarios-v3";
+import { validarCapacidades, validarRoles, validarUnidades, validarPersonas, validarFicha, seleccionarActos, prepararDecision, puedeConfirmar, validarResultado, incompatible } from "./contratos.js?v=20261003-admin-usuarios-v4";
+import { crearRender } from "./render.js?v=20261003-admin-usuarios-v4";
+import { montarPropuestas } from "./propuestas.js?v=20261003-admin-usuarios-v4";
 let montaje = 0;
 const filtrosVacios = () => ({ busqueda: "", perfil_ref: "", unidad_ref: "", estado: "", cursor: "" });
 export function montarUsuarios(root, { textos, cliente = {}, cripto = globalThis.crypto } = {}) {

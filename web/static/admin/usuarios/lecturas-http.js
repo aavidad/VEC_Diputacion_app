@@ -26,7 +26,7 @@ async function leer(respuesta) {
 /** Lecturas del contrato ADMIN central; no contiene operaciones de escritura. */
 function crearTransporte({ fetchImpl = globalThis.fetch, origen = globalThis.location?.origin } = {}) {
   if (typeof fetchImpl !== "function" || typeof origen !== "string" || new URL(origen).origin !== origen || !/^https?:/u.test(origen)) throw new TypeError("transporte_invalido");
-  async function pedir(ruta, signal, cuerpo) {
+  async function pedir(ruta, signal, cuerpo, maximoCuerpo = 16384) {
     const url = new URL(BASE + ruta, origen);
     if (url.origin !== origen) throw new TypeError("destino_invalido");
     const control = new AbortController();
@@ -37,7 +37,7 @@ function crearTransporte({ fetchImpl = globalThis.fetch, origen = globalThis.loc
       const escritura = cuerpo !== undefined;
       if (escritura && !origen.startsWith("https://")) throw new TypeError("canal_invalido");
       const body = escritura ? JSON.stringify(cuerpo) : undefined;
-      if (body && new TextEncoder().encode(body).byteLength > 16384) throw new TypeError("solicitud_excesiva");
+      if (body && new TextEncoder().encode(body).byteLength > maximoCuerpo) throw new TypeError("solicitud_excesiva");
       const respuesta = await fetchImpl(url.href, { method: escritura ? "POST" : "GET", credentials: "same-origin", redirect: "error",
         referrerPolicy: "no-referrer", cache: "no-store", signal: control.signal, body,
         headers: { Accept: "application/json", ...(escritura ? { "Content-Type": "application/json" } : {}) } });
@@ -84,7 +84,7 @@ export function crearClienteActosUsuarios(opciones = {}) {
     aplicarLote: (cuerpo, signal) => {
       if (!cuerpo || !Array.isArray(cuerpo.cambios) || cuerpo.cambios.length < 1 || cuerpo.cambios.length > 32
         || Object.keys(cuerpo).some((k) => !["operacion_ref", "cambios", "motivo", "referencia_acto"].includes(k))) throw new TypeError("solicitud_invalida");
-      return pedir("/lotes-ordinarios", signal, cuerpo);
+      return pedir("/lotes-ordinarios", signal, cuerpo, 65536);
     },
     cerrarPropuesta: (ref, cuerpo, signal) => {
       if (!/^propuesta_admin:[a-f0-9]{32}$/u.test(ref) || !cuerpo || typeof cuerpo !== "object"

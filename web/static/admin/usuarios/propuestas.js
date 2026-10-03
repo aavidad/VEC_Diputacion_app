@@ -1,5 +1,5 @@
-import { escapar } from "./render.js?v=20261003-admin-usuarios-v3";
-import { validarPropuestas, puedeCerrarPropuesta, prepararCierre, validarCierre } from "./propuestas-contratos.js?v=20261003-admin-usuarios-v3";
+import { escapar } from "./render.js?v=20261003-admin-usuarios-v4";
+import { validarPropuestas, puedeCerrarPropuesta, prepararCierre, validarCierre } from "./propuestas-contratos.js?v=20261003-admin-usuarios-v4";
 /** Segunda persona: la pista de la lectura nunca sustituye el cierre autorizado. */
 export function montarPropuestas(host, { textos, contexto, bloquear, denegar, cripto }) {
   const t = textos.traducir, tx = (k, vars) => escapar(t(k, vars));

@@ -84,4 +84,9 @@ test("lote ordinario usa una petición con motivo común y rechaza cuerpos divid
   assert.deepEqual(JSON.parse(llamadas[0].o.body),cuerpo);
   assert.throws(()=>c.aplicarLote({...cuerpo,actor:{persona_ref:actor}}));
   assert.throws(()=>c.aplicarLote({...cuerpo,cambios:[]}));
+  const grande={...cuerpo,cambios:Array.from({length:32},()=>structuredClone(cuerpo.cambios[0]))};
+  assert.ok(new TextEncoder().encode(JSON.stringify(grande)).byteLength>16384);
+  await c.aplicarLote(grande); assert.equal(llamadas.length,2);
+  await assert.rejects(c.aplicarLote({...grande,referencia_acto:"x".repeat(65536)}));
+  assert.equal(llamadas.length,2);
 });
