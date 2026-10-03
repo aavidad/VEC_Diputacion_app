@@ -49,10 +49,10 @@ func TestDescriptorFijaPlanYConservaContratoNominal(t *testing.T) {
 
 func TestDescriptorFijadoRechazaSustitucionDelPlan(t *testing.T) {
 	for nombre, cambiar := range map[string]func(*vd.ReferenciaEntradaCatalogo){
-		"referencia": func(p *vd.ReferenciaEntradaCatalogo) { p.CatalogoID = "plan:otro" },
+		"referencia": func(p *vd.ReferenciaEntradaCatalogo) { p.CatalogoID = "plan.otro" },
 		"version":    func(p *vd.ReferenciaEntradaCatalogo) { p.CatalogoVersion++ },
 		"huella":     func(p *vd.ReferenciaEntradaCatalogo) { p.CatalogoHuellaSHA256 = strings.Repeat("e", 64) },
-		"entrada":    func(p *vd.ReferenciaEntradaCatalogo) { p.EntradaClave = "entrada:otra" },
+		"entrada":    func(p *vd.ReferenciaEntradaCatalogo) { p.EntradaClave = "entrada_otra" },
 	} {
 		t.Run(nombre, func(t *testing.T) {
 			f, m, _, _, _ := descriptorPrueba(t, 1)
