@@ -30,10 +30,11 @@ type Configuracion struct {
 	MaxObjetos                int
 	ObjetosGrandesSemanticos  bool
 	ReferenciasObjetosGrandes []ReferenciaObjetoGrande
+	BasesInventariadas        []string
 }
 
 // ReferenciaObjetoGrande declara una columna cuyo oid es identidad lógica LO.
-type ReferenciaObjetoGrande struct{ Esquema, Tabla, Columna string }
+type ReferenciaObjetoGrande struct{ Esquema, Tabla, Columna, Base string }
 
 type Lector struct {
 	config  *pgx.ConnConfig
@@ -48,10 +49,15 @@ func Nuevo(c Configuracion) (*Lector, error) {
 	if !version.MatchString(c.VersionPostgreSQL) || c.TiempoMaximo <= 0 || c.TiempoMaximo > 10*time.Minute || c.MaxFilas < 1 || c.MaxFilas > 10000000 || c.MaxBytes < 1 || c.MaxBytes > 1<<30 || c.MaxObjetos < 8 || c.MaxObjetos > 100000 {
 		return nil, errors.New("configuracion_contraste_postgresql_no_admitida")
 	}
+	if e := validarBases(c); e != nil {
+		return nil, e
+	}
 	if e := validarReferencias(c); e != nil {
 		return nil, e
 	}
 	c.ReferenciasObjetosGrandes = append([]ReferenciaObjetoGrande(nil), c.ReferenciasObjetosGrandes...)
+	c.BasesInventariadas = append([]string(nil), c.BasesInventariadas...)
+	sort.Strings(c.BasesInventariadas)
 	var config *pgx.ConnConfig
 	if c.DSN == "" {
 		return &Lector{limites: c}, nil
@@ -73,17 +79,22 @@ type consultaSQL interface {
 }
 
 type captura struct {
-	tx           consultaSQL
-	l            *Lector
-	bytes, filas int64
-	s            domain.Snapshot
-	guard        ports.ExclusionObservada
-	sello        string
+	tx            consultaSQL
+	l             *Lector
+	bytes, filas  int64
+	s             domain.Snapshot
+	guard         ports.ExclusionObservada
+	sello         string
+	presupuesto   *presupuestoCaptura
+	baseMetadatos string
 }
 
 func (l *Lector) Capturar(ctx context.Context) (domain.Snapshot, error) {
 	ctx, cancel := context.WithTimeout(ctx, l.limites.TiempoMaximo)
 	defer cancel()
+	if len(l.limites.BasesInventariadas) != 0 {
+		return domain.Snapshot{}, errors.New("captura_multibase_requiere_ejecutor")
+	}
 	if l.config == nil {
 		return domain.Snapshot{}, errCaptura
 	}
@@ -124,8 +135,18 @@ func (l *Lector) Capturar(ctx context.Context) (domain.Snapshot, error) {
 }
 
 func (l *Lector) capturarSQL(ctx context.Context, tx consultaSQL, guard ports.ExclusionObservada) (domain.Snapshot, error) {
+	return l.capturarSQLAcotada(ctx, tx, guard, false, nil, "")
+}
+
+// El coordinador valida el ámbito completo antes de suprimir la guarda local.
+// Todas las bases consumen el mismo presupuesto de filas, bytes y objetos.
+func (l *Lector) capturarSQLAcotada(ctx context.Context, tx consultaSQL, guard ports.ExclusionObservada, ambitoCompleto bool, presupuesto *presupuestoCaptura, baseMetadatos string) (domain.Snapshot, error) {
+	if presupuesto == nil {
+		presupuesto = &presupuestoCaptura{objetos: 8}
+	}
 	var e error
-	c := &captura{tx: tx, l: l, guard: guard, s: domain.Snapshot{Version: 1, PostgreSQL: l.limites.VersionPostgreSQL, Completo: true, Motivos: []string{}, Objetos: []domain.Objeto{}}}
+	c := &captura{tx: tx, l: l, guard: guard, presupuesto: presupuesto, baseMetadatos: baseMetadatos, bytes: presupuesto.bytes, filas: presupuesto.filas, s: domain.Snapshot{Version: 1, PostgreSQL: l.limites.VersionPostgreSQL, Completo: true, Motivos: []string{}, Objetos: []domain.Objeto{}}}
+	defer func() { presupuesto.bytes = c.bytes; presupuesto.filas = c.filas }()
 	paused, e := c.exclusion(ctx)
 	if e != nil {
 		return domain.Snapshot{}, errCaptura
@@ -144,6 +165,9 @@ func (l *Lector) capturarSQL(ctx context.Context, tx consultaSQL, guard ports.Ex
 		return c.s, nil
 	}
 	for _, check := range comprobaciones {
+		if ambitoCompleto && check.motivo == "otras_bases_no_inventariadas" {
+			continue
+		}
 		var existe bool
 		if e = tx.QueryRow(ctx, consultaComprobacion(check, l.limites.ObjetosGrandesSemanticos)).Scan(&existe); e != nil {
 			return domain.Snapshot{}, errCaptura
@@ -153,7 +177,7 @@ func (l *Lector) capturarSQL(ctx context.Context, tx consultaSQL, guard ports.Ex
 		}
 	}
 	for _, q := range agregados {
-		rows, e := c.leer(ctx, q.sql)
+		rows, e := c.leer(ctx, c.consultaAgregado(q))
 		if e != nil {
 			return domain.Snapshot{}, e
 		}
@@ -185,7 +209,7 @@ func (l *Lector) capturarSQL(ctx context.Context, tx consultaSQL, guard ports.Ex
 	// Los catálogos compartidos (roles/globals) y el esquema se vuelven a leer:
 	// la estabilidad de contenido no se infiere del sello de aislamiento solo.
 	for _, q := range agregados {
-		rs, e := c.leer(ctx, q.sql)
+		rs, e := c.leer(ctx, c.consultaAgregado(q))
 		if e != nil {
 			return domain.Snapshot{}, e
 		}
@@ -238,6 +262,12 @@ func (c *captura) motivo(m string) {
 func (c *captura) agregar(o domain.Objeto) error {
 	if len(c.s.Objetos) >= c.l.limites.MaxObjetos || len(o.Clave) > 1024 {
 		return errLimite
+	}
+	if o.Clave != "inventario" && c.presupuesto != nil {
+		if c.presupuesto.objetos >= c.l.limites.MaxObjetos {
+			return errLimite
+		}
+		c.presupuesto.objetos++
 	}
 	c.s.Objetos = append(c.s.Objetos, o)
 	return nil
