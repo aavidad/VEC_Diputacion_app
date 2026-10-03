@@ -101,7 +101,7 @@ func (r *RegistroIntentosOrganizacionHistorica) RegistrarIntentoConsultaOrganiza
 	default:
 		return personal.ErrOrganizacionHistoricaNoDisponible
 	}
-	datos := core.DatosIntentoAuditoria{Accion: personal.AccionConsultaOrganizacionHistorica, ModuloID: "personal", RecursoRef: i.organismo, FinalidadRef: "consultar_organizacion_historica", Resultado: resultado, Motivo: motivo, Proceso: r.config.Proceso, Canal: r.config.Canal, CorrelacionRef: i.correlacion}
+	datos := core.DatosIntentoAuditoria{Accion: personal.AccionConsultaOrganizacionHistorica, ModuloID: "personal", RecursoRef: "personal:organizacion_historica:" + i.organismo, FinalidadRef: "consultar_organizacion_historica", Resultado: resultado, Motivo: motivo, Proceso: r.config.Proceso, Canal: r.config.Canal, CorrelacionRef: i.correlacion}
 	i.mu.Lock()
 	defer i.mu.Unlock()
 	if i.orden == nil {
@@ -133,13 +133,17 @@ type consultaOrganizacionHistorica interface {
 	Consultar(context.Context, personal.SolicitudConsultaOrganizacionHistorica) (personalports.ResultadoConsultaOrganizacionHistorica, error)
 }
 
+type fuenteOriginalOrganizacionHistorica interface {
+	ContextoOriginalOrganizacionHistoricaParaAuditoria(context.Context) (ct.ContextoAutorizacionAltaV3, string, string, error)
+}
+
 type ConsultaOrganizacionHistoricaConIntentos struct {
 	consulta consultaOrganizacionHistorica
-	fuente   fuenteOrganizacionHistorica
+	fuente   fuenteOriginalOrganizacionHistorica
 	registro *RegistroIntentosOrganizacionHistorica
 }
 
-func NuevaConsultaOrganizacionHistoricaConIntentos(c consultaOrganizacionHistorica, f fuenteOrganizacionHistorica, r *RegistroIntentosOrganizacionHistorica) (*ConsultaOrganizacionHistoricaConIntentos, error) {
+func NuevaConsultaOrganizacionHistoricaConIntentos(c consultaOrganizacionHistorica, f fuenteOriginalOrganizacionHistorica, r *RegistroIntentosOrganizacionHistorica) (*ConsultaOrganizacionHistoricaConIntentos, error) {
 	if interfazNula(c) || interfazNula(f) || r == nil || interfazNula(r.destino) {
 		return nil, personal.ErrOrganizacionHistoricaNoDisponible
 	}
@@ -161,7 +165,7 @@ func (c *ConsultaOrganizacionHistoricaConIntentos) Consultar(ctx context.Context
 	}
 	capturaCtx, cancelar := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
 	defer cancelar()
-	identidad, org, unidad, err := c.fuente.ContextoVinculadoOrganizacionHistorica(capturaCtx)
+	identidad, org, unidad, err := c.fuente.ContextoOriginalOrganizacionHistoricaParaAuditoria(capturaCtx)
 	if err != nil || identidad.Resultado.Validar() != nil || identidad.Vinculo.ValidarPara(identidad.Resultado) != nil {
 		return vacio, personal.ErrOrganizacionHistoricaNoDisponible
 	}

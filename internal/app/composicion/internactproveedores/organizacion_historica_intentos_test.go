@@ -3,13 +3,17 @@ package internactproveedores
 import (
 	"context"
 	"errors"
+	"net/http/httptest"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
 
+	ct "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	personalapp "vec-diputacion-granada/internal/modules/personal/application"
 	personal "vec-diputacion-granada/internal/modules/personal/domain"
 	personalports "vec-diputacion-granada/internal/modules/personal/ports"
+	"vec-diputacion-granada/internal/vec/adapters/httpapi"
 	core "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
@@ -19,6 +23,106 @@ type destinoIntentosOHPrueba struct {
 	fallo, preflight error
 	acuseInvalido    bool
 	antes            func()
+}
+
+func TestIntentosOHOrganismosValidosParaAmbosContratos(t *testing.T) {
+	for _, org := range []string{"dipgra", "httpinterno"} {
+		t.Run(org, func(t *testing.T) {
+			i := contextoOHPrueba(t, time.Date(2026, 9, 25, 10, 0, 0, 0, time.UTC))
+			f := &fuenteOHPrueba{valor: i, organismo: org}
+			d := &destinoIntentosOHPrueba{}
+			r, _ := NuevoRegistroIntentosOrganizacionHistorica(DependenciasIntentosOrganizacionHistorica{d, configIntentosOHPrueba()})
+			m := consultaOHPrueba(t, f, org, "")
+			if m.Recurso().Referencia != org {
+				t.Fatal("recurso V3 modificado")
+			}
+			c, _ := NuevaConsultaOrganizacionHistoricaConIntentos(consultorIntentosOHPrueba(func(ctx context.Context, _ personal.SolicitudConsultaOrganizacionHistorica) (personalports.ResultadoConsultaOrganizacionHistorica, error) {
+				return personalports.ResultadoConsultaOrganizacionHistorica{}, r.RegistrarIntentoConsultaOrganizacionHistorica(ctx, personalports.IntentoConsultaOrganizacionHistorica{Motivo: "denegado"})
+			}), f, r)
+			ctx, _ := vecports.ConCorrelacionIncidenciasPeticion(context.Background())
+			if _, err := c.Consultar(ctx, m.Solicitud()); err != nil || len(d.ordenes) != 1 {
+				t.Fatal("organismo válido no auditable")
+			}
+			got, _ := d.ordenes[0].Datos()
+			if got.Datos.RecursoRef != "personal:organizacion_historica:"+org {
+				t.Fatal("recurso común divergente")
+			}
+		})
+	}
+}
+
+type fuenteOHCaducidadPrueba struct {
+	*fuenteOHPrueba
+	reloj *relojB2
+}
+
+func (f fuenteOHCaducidadPrueba) ContextoVinculadoOrganizacionHistorica(ctx context.Context) (ct.ContextoAutorizacionAltaV3, string, string, error) {
+	if !f.valor.Vinculo.VigenteEn(f.reloj.Ahora(), f.valor.Resultado) {
+		return ct.ContextoAutorizacionAltaV3{}, "", "", ErrOrganizacionHistoricaV3NoDisponible
+	}
+	return f.fuenteOHPrueba.ContextoVinculadoOrganizacionHistorica(ctx)
+}
+
+type autoridadOHCruceCaducidadPrueba struct{ fuente fuenteOHCaducidadPrueba }
+
+func (a autoridadOHCruceCaducidadPrueba) ResolverContextoOrganizacionHistorica(ctx context.Context) (core.ContextoActor, string, string, error) {
+	r, org, unidad, err := a.fuente.ContextoVinculadoOrganizacionHistorica(ctx)
+	if err != nil {
+		return core.ContextoActor{}, "", "", err
+	}
+	datos, _ := r.Vinculo.Datos()
+	a.fuente.reloj.ahora = datos.SesionValidaHasta
+	return r.Resultado.Contexto, org, unidad, nil
+}
+
+type repositorioOHSinLecturaPrueba struct{ n int }
+
+func (r *repositorioOHSinLecturaPrueba) ConsultarOrganizacionHistorica(context.Context, personalports.OrdenConsultaOrganizacionHistorica) (personalports.ResultadoConsultaOrganizacionHistorica, error) {
+	r.n++
+	return personalports.ResultadoConsultaOrganizacionHistorica{}, errors.New("lectura prohibida")
+}
+
+type auditorFronteraOHCaducidadPrueba struct{ n int }
+
+func (a *auditorFronteraOHCaducidadPrueba) RegistrarDenegacionOrganizacionHistorica(context.Context, httpapi.DenegacionOrganizacionHistorica) error {
+	a.n++
+	return nil
+}
+func TestIntentosOHVinculoVenceEntreHTTPYCaptura(t *testing.T) {
+	p, f, pdp, e, _ := escenarioOHPrueba(t)
+	fuente := fuenteOHCaducidadPrueba{f, e.reloj}
+	p.fuente = fuente
+	original, err := f.valor.Resultado.Clonar()
+	if err != nil {
+		t.Fatal(err)
+	}
+	d := &destinoIntentosOHPrueba{}
+	r, _ := NuevoRegistroIntentosOrganizacionHistorica(DependenciasIntentosOrganizacionHistorica{d, configIntentosOHPrueba()})
+	repo := &repositorioOHSinLecturaPrueba{}
+	s, err := personalapp.NuevoServicioConsultaOrganizacionHistorica(p, repo, r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, err := NuevaConsultaOrganizacionHistoricaConIntentos(s, fuente, r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	auditor := &auditorFronteraOHCaducidadPrueba{}
+	h, err := httpapi.NewHandlerOrganizacionHistoricaPersonal(autoridadOHCruceCaducidadPrueba{fuente}, c, auditor)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, _ := vecports.ConCorrelacionIncidenciasPeticion(context.Background())
+	request := httptest.NewRequest("GET", httpapi.RutaOrganizacionHistoricaPersonal+"?vigente_en=2026-09-25&conocido_en=2026-09-25T00:00:00.000000Z", nil).WithContext(ctx)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, request)
+	if w.Code != 503 || len(d.ordenes) != 1 || repo.n != 0 || len(pdp.solicitudes) != 0 || auditor.n != 0 {
+		t.Fatalf("caducidad: HTTP=%d intentos=%d lecturas=%d PDP=%d frontera=%d", w.Code, len(d.ordenes), repo.n, len(pdp.solicitudes), auditor.n)
+	}
+	got, _ := d.ordenes[0].Datos()
+	if got.Datos.Resultado != core.ResultadoIntentoAuditoriaError || !reflect.DeepEqual(got.ResultadoContexto, original) {
+		t.Fatal("error no conserva identidad original")
+	}
 }
 
 func (d *destinoIntentosOHPrueba) PreflightIntentoAuditoria(context.Context) error {
@@ -92,7 +196,7 @@ func TestIntentosOHCapturaOriginalYRecuperaMismaOrden(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if datos.Datos.CorrelacionRef != correlacion || datos.Datos.RecursoRef != s.Selector.OrganismoRef || !reflect.DeepEqual(datos.ResultadoContexto.Contexto, s.Actor) || datos.Datos.Resultado != core.ResultadoIntentoAuditoriaDenegado {
+	if datos.Datos.CorrelacionRef != correlacion || datos.Datos.RecursoRef != "personal:organizacion_historica:"+s.Selector.OrganismoRef || !reflect.DeepEqual(datos.ResultadoContexto.Contexto, s.Actor) || datos.Datos.Resultado != core.ResultadoIntentoAuditoriaDenegado {
 		t.Fatal("identidad, recurso o correlación alterados")
 	}
 	if err := r.RegistrarIntentoConsultaOrganizacionHistorica(capturado, personalports.IntentoConsultaOrganizacionHistorica{Motivo: "denegado"}); err != nil || len(d.ordenes) != 1 {

@@ -21,9 +21,12 @@ de la raíz interna conserva su circuito.
 
 `NuevaConsultaOrganizacionHistoricaConIntentos` conserva el resultado F1 y su
 vínculo originales antes de validar o leer. También exige la correlación emitida
-por el servidor. El proveedor V3 usa esa captura y esa misma correlación; no
+por el servidor. La captura copia el sello original para auditoría aunque el
+vínculo haya caducado entre HTTP y aplicación; no renueva la sesión ni permite
+leer con ella. El proveedor V3 usa esa captura y esa misma correlación; no
 resuelve otro perfil al registrar el fallo. El organismo del intento procede
-de la fuente vinculada, no de un filtro HTTP.
+de la fuente vinculada, no de un filtro HTTP. Su referencia en auditoría usa
+`personal:organizacion_historica:<organismo>`; el recurso V3 conserva su valor.
 
 El servicio sólo confirma la denegación tras recibir un acuse válido. Ante un
 fallo ambiguo del registrador, repite la misma orden y referencia; si vuelve a
@@ -33,9 +36,11 @@ existente y no atribuye una identidad supuesta al puerto posperfil.
 
 ## Alcance comprobado y dependencias pendientes
 
-Las pruebas focales de aplicación, PostgreSQL, proveedor, composición interna
-y HTTP pasan en modo normal y con detección de carreras; `go vet` de esos cinco
-paquetes también pasa. Las referencias del constructor se comprobaron con
+La validación previa acreditó las pruebas focales de aplicación, PostgreSQL,
+proveedor, composición interna y HTTP en modo normal y con detección de carreras;
+`go vet` de esos cinco paquetes también pasó. Las regresiones añadidas tras
+revisión para recursos simples y caducidad entre HTTP y captura están pendientes
+de ejecución. Las referencias del constructor se comprobaron con
 gopls. Semgrep con reglas Go locales no encontró resultados. Gosec emitió treinta
 avisos en líneas anteriores, ninguno en las líneas añadidas; esto no acredita
 una auditoría completa del repositorio.
