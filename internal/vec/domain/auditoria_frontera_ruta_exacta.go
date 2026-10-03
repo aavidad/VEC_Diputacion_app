@@ -17,6 +17,7 @@ const SuperficieAuditoriaFronteraRutaExactaBolsaCandidato = "api.bolsa.candidato
 const SuperficieAuditoriaFronteraRutaExactaAspirantes = "api.aspirantes.ficha.ruta_exacta"
 const SuperficieAuditoriaFronteraRutaExactaSeleccionPreparacionBases = "api.seleccion.preparacion_bases.ruta_exacta"
 const SuperficieAuditoriaFronteraRutaExactaBolsaReglasBaremo = "api.bolsa.reglas_baremo.ruta_exacta"
+const SuperficieAuditoriaFronteraRutaExactaBolsaReglasBaremoAntesPDP = "api.bolsa.reglas_baremo.contexto_validado_pre_pdp.ruta_exacta"
 
 var ErrOrdenAuditoriaFronteraRutaExactaInvalida = errors.New(
 	"vec ports: orden de auditoria de frontera de ruta exacta invalida",
@@ -56,7 +57,10 @@ func (o OrdenAuditoriaFronteraRutaExacta) Validar() error {
 		(o.Superficie == SuperficieAuditoriaFronteraRutaExactaAspirantes && o.ActorRef != "") ||
 		(o.Superficie == SuperficieAuditoriaFronteraRutaExactaSeleccionPreparacionBases &&
 			(o.ActorRef != "" || o.Motivo != MotivoAuditoriaFronteraRutaExactaAccesoDenegado)) ||
-		(o.Superficie == SuperficieAuditoriaFronteraRutaExactaBolsaReglasBaremo && o.ActorRef != "") {
+		(o.Superficie == SuperficieAuditoriaFronteraRutaExactaBolsaReglasBaremo && o.ActorRef != "") ||
+		(o.Superficie == SuperficieAuditoriaFronteraRutaExactaBolsaReglasBaremoAntesPDP &&
+			(o.Motivo != MotivoAuditoriaFronteraRutaExactaAccesoDenegado ||
+				!referenciaOpacaContextoActorValida(o.ActorRef, "per_"))) {
 		return ErrOrdenAuditoriaFronteraRutaExactaInvalida
 	}
 	return nil
@@ -112,7 +116,7 @@ func rutaAuditoriaFronteraRutaExactaValidaParaSuperficie(superficie, ruta string
 	case SuperficieAuditoriaFronteraRutaExactaSeleccionPreparacionBases:
 		return ruta == "/api/vec/seleccion/preparacion-bases/guardar" ||
 			ruta == "/api/vec/seleccion/preparacion-bases/consultar"
-	case SuperficieAuditoriaFronteraRutaExactaBolsaReglasBaremo:
+	case SuperficieAuditoriaFronteraRutaExactaBolsaReglasBaremo, SuperficieAuditoriaFronteraRutaExactaBolsaReglasBaremoAntesPDP:
 		return ruta == "/api/vec/bolsa/reglas-baremo/borradores/alta" ||
 			ruta == "/api/vec/bolsa/reglas-baremo/versiones/consultar" ||
 			ruta == "/api/vec/bolsa/reglas-baremo/recibos/recuperar"
