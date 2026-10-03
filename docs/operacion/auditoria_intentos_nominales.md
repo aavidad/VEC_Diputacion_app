@@ -122,6 +122,9 @@ La respuesta HTTP incluye su referencia opaca en `X-Audit-Ref`; el cuerpo
 mantiene el error habitual. Si falta el acuse o no es válido, la consulta
 devuelve indisponibilidad sin datos ni referencia de auditoría confirmada.
 Los reintentos internos del registro conservan la misma orden y referencia.
+El plazo se aplica a cada llamada al registrador. Como el servicio admite hasta
+dos llamadas, el registro puede durar hasta dos veces ese plazo, además del
+cierre previo de la fuente; no representa un presupuesto total para la petición.
 
 Esta pieza cubre los fallos del servicio de consulta RRHH con identidad y
 configuración acreditadas. Las entradas anteriores a esa frontera y los demás
