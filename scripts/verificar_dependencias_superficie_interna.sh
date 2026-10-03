@@ -79,6 +79,7 @@ while IFS= read -r paquete; do
 			"${modulo}/internal/modules/contrataciontemporal/application" | \
 			"${modulo}/internal/modules/contrataciontemporal/application/consultafirmas" | \
 			"${modulo}/internal/modules/contrataciontemporal/application/diagnostico" | \
+			"${modulo}/internal/modules/contrataciontemporal/application/firmaautorizacionv2" | \
 			"${modulo}/internal/modules/contrataciontemporal/cobertura" | \
 			"${modulo}/internal/modules/contrataciontemporal/domain" | \
 			"${modulo}/internal/modules/contrataciontemporal/ports" | \
