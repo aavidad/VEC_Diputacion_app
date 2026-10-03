@@ -1,0 +1,90 @@
+{
+  "esquema": "vec.seleccion.aportacion-admision-preparacion.v1",
+  "propuesta": {
+    "alcance": "preparacion_sintetica",
+    "aportacion_ref": "aportacion:propuesta",
+    "revision": 1,
+    "antecedente": {
+      "esquema_material": "seleccion.admision.material-local.v1",
+      "preparacion_ref": "preparacion:revision-sintetica",
+      "revision": 1,
+      "huella_material_sha256": "c3c916fa70d6d898cb2ac2ecca9bbf6d8dfc2dcc1838e3900c716c10922da6fc"
+    },
+    "requisito_ref": "requisito:titulacion",
+    "requisito_version": "1",
+    "soportes_propuestos": [
+      {
+        "hecho": {
+          "referencia": "hecho:titulacion",
+          "version": 1
+        },
+        "documentos": [
+          {
+            "id": "documento:propuesto",
+            "version": 1
+          }
+        ]
+      }
+    ]
+  },
+  "estado": "pendiente_revision_competente",
+  "bases": {
+    "referencia": "bases:sinteticas",
+    "version": "1",
+    "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "solicitud_contexto": {
+    "huella_archivo_original_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "identificador_publico": "convocatoria-sintetica",
+    "version": "1",
+    "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "estado": "sin_presentar"
+  },
+  "requisito_anterior": {
+    "requisito": {
+      "titulo_propuesto": "Titulación exigida en las bases propuestas",
+      "referencia": "requisito:titulacion",
+      "version": "1",
+      "representacion": "estructurada",
+      "regla_ref": "regla:titulacion",
+      "regla_version": "1",
+      "hito_ref": "hito:fin-presentacion-propuesto",
+      "hito_fecha": "2026-10-01",
+      "hechos_esperados": [
+        {
+          "referencia": "hecho:titulacion",
+          "version": 1
+        }
+      ]
+    },
+    "estado": "pendiente",
+    "causas": [
+      "seleccion.admision.causa.fuentes_no_verificadas",
+      "seleccion.admision.causa.evaluador_pendiente",
+      "seleccion.admision.causa.acreditacion_pendiente"
+    ],
+    "soportes": [
+      {
+        "referencia": "hecho:titulacion",
+        "version": 1,
+        "fuente_ref": "fuente:sintetica",
+        "fuente_version": "1",
+        "estado_aportado": "declarado",
+        "evidencias_aportadas": 0,
+        "desde": "2026-09-20"
+      }
+    ],
+    "accion_propuesta": "seleccion.admision.accion.preparar_aportacion"
+  },
+  "pendientes": [
+    "seleccion.aportacion_admision.pendiente.correspondencia",
+    "seleccion.aportacion_admision.pendiente.documentos",
+    "seleccion.aportacion_admision.pendiente.bases_subsanacion",
+    "seleccion.aportacion_admision.pendiente.presentacion",
+    "seleccion.aportacion_admision.pendiente.revision_competente"
+  ],
+  "persistido": false,
+  "presentado": false,
+  "requerimiento_emitido": false,
+  "resuelto": false
+}

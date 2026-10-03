@@ -1,0 +1,88 @@
+{
+  "esquema": "vec.seleccion.admision-preparacion.v1",
+  "preparacion_ref": "preparacion:revision-sintetica",
+  "revision": 1,
+  "alcance": "preparacion_sintetica",
+  "estado": "pendiente_revision_competente",
+  "universo_requisitos": "propuesto_no_cotejado",
+  "bases": {
+    "referencia": "bases:sinteticas",
+    "version": "1",
+    "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "solicitud_contexto": {
+    "huella_archivo_original_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "identificador_publico": "convocatoria-sintetica",
+    "version": "1",
+    "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "estado": "sin_presentar"
+  },
+  "version_paquete_hechos": "paquete:1",
+  "requisitos": [
+    {
+      "requisito": {
+        "titulo_propuesto": "Titulación exigida en las bases propuestas",
+        "referencia": "requisito:titulacion",
+        "version": "1",
+        "representacion": "estructurada",
+        "regla_ref": "regla:titulacion",
+        "regla_version": "1",
+        "hito_ref": "hito:fin-presentacion-propuesto",
+        "hito_fecha": "2026-10-01",
+        "hechos_esperados": [
+          {
+            "referencia": "hecho:titulacion",
+            "version": 1
+          }
+        ]
+      },
+      "estado": "pendiente",
+      "causas": [
+        "seleccion.admision.causa.fuentes_no_verificadas",
+        "seleccion.admision.causa.evaluador_pendiente",
+        "seleccion.admision.causa.acreditacion_pendiente"
+      ],
+      "soportes": [
+        {
+          "referencia": "hecho:titulacion",
+          "version": 1,
+          "fuente_ref": "fuente:sintetica",
+          "fuente_version": "1",
+          "estado_aportado": "declarado",
+          "evidencias_aportadas": 0,
+          "desde": "2026-09-20"
+        }
+      ],
+      "accion_propuesta": "seleccion.admision.accion.preparar_aportacion"
+    },
+    {
+      "requisito": {
+        "titulo_propuesto": "Otros requisitos pendientes de estructurar",
+        "referencia": "requisito:texto",
+        "version": "1",
+        "representacion": "texto_libre",
+        "hito_ref": "hito:fin-presentacion-propuesto",
+        "hito_fecha": "2026-10-01",
+        "hechos_esperados": []
+      },
+      "estado": "pendiente",
+      "causas": [
+        "seleccion.admision.causa.fuentes_no_verificadas",
+        "seleccion.admision.causa.texto_libre",
+        "seleccion.admision.causa.dato_no_aportado"
+      ],
+      "soportes": [],
+      "accion_propuesta": "seleccion.admision.accion.preparar_aportacion"
+    }
+  ],
+  "pendientes": [
+    "seleccion.admision.pendiente.bases_universo",
+    "seleccion.admision.pendiente.correspondencia_solicitud",
+    "seleccion.admision.pendiente.lectura_autorizada",
+    "seleccion.admision.pendiente.identidad_registro_documentos",
+    "seleccion.admision.pendiente.subsanacion_bases",
+    "seleccion.admision.pendiente.aprobacion_listas"
+  ],
+  "persistido": false,
+  "admision_oficial": false
+}

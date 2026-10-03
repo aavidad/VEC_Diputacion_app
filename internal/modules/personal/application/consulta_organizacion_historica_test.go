@@ -89,7 +89,7 @@ func TestConsultaHistoricaFallaCerradoAntesDeLeer(t *testing.T) {
 	}
 	repo := &repositorioHistoricoPrueba{}
 	a := &autorizadorHistoricoPrueba{a: autorizacionHistoricaPrueba(t, m, "accion:otra")}
-	servicio, err := NuevoServicioConsultaOrganizacionHistorica(a, repo)
+	servicio, err := NuevoServicioConsultaOrganizacionHistorica(a, repo, &intentosHistoricosPrueba{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -113,7 +113,7 @@ func TestConsultaHistoricaDistingueSinDatosYRechazaFilasNoCubiertas(t *testing.T
 	aut := autorizacionHistoricaPrueba(t, m, domain.AccionConsultaOrganizacionHistorica)
 	resultado := paginaHistoricaVaciaValida(s.Selector, aut)
 	repo := &repositorioHistoricoPrueba{r: resultado}
-	servicio, _ := NuevoServicioConsultaOrganizacionHistorica(&autorizadorHistoricoPrueba{a: aut}, repo)
+	servicio, _ := NuevoServicioConsultaOrganizacionHistorica(&autorizadorHistoricoPrueba{a: aut}, repo, &intentosHistoricosPrueba{})
 	got, err := servicio.Consultar(context.Background(), s)
 	if err != nil || got.Pagina.Cobertura.Plazas != "sin_datos" || repo.n != 1 {
 		t.Fatalf("resultado=%+v err=%v", got, err)
@@ -148,7 +148,7 @@ func TestConsultaHistoricaConservaSoloDenegacionNominal(t *testing.T) {
 		t.Run(caso.nombre, func(t *testing.T) {
 			repo := &repositorioHistoricoPrueba{}
 			autorizador := &autorizadorHistoricoPrueba{a: a, err: caso.fallo}
-			servicio, _ := NuevoServicioConsultaOrganizacionHistorica(autorizador, repo)
+			servicio, _ := NuevoServicioConsultaOrganizacionHistorica(autorizador, repo, &intentosHistoricosPrueba{})
 			_, err := servicio.Consultar(context.Background(), s)
 			if !errors.Is(err, caso.esperado) || repo.n != 0 {
 				t.Fatalf("err=%v repo=%d", err, repo.n)
@@ -160,5 +160,77 @@ func TestConsultaHistoricaConservaSoloDenegacionNominal(t *testing.T) {
 				t.Fatalf("err=%v repo=%d", err, repo.n)
 			}
 		})
+	}
+}
+
+// Dobles focales: verifican orden y propagación; no acreditan persistencia.
+type intentosHistoricosPrueba struct {
+	motivos   []string
+	antes     func()
+	err       error
+	preflight error
+}
+
+func (i *intentosHistoricosPrueba) VerificarRegistroConsultaOrganizacionHistorica(context.Context) error {
+	return i.preflight
+}
+func (i *intentosHistoricosPrueba) RegistrarIntentoConsultaOrganizacionHistorica(ctx context.Context, in ports.IntentoConsultaOrganizacionHistorica) error {
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+	if i.antes != nil {
+		i.antes()
+	}
+	i.motivos = append(i.motivos, in.Motivo)
+	return i.err
+}
+func TestConsultaHistoricaExigeIntentosYNoDuplicaExito(t *testing.T) {
+	s := solicitudHistoricaPrueba(t)
+	m, _ := domain.NuevoMaterialConsultaOrganizacionHistorica(s)
+	a := autorizacionHistoricaPrueba(t, m, domain.AccionConsultaOrganizacionHistorica)
+	repo := &repositorioHistoricoPrueba{r: paginaHistoricaVaciaValida(s.Selector, a)}
+	aut := &autorizadorHistoricoPrueba{a: a}
+	if _, err := NuevoServicioConsultaOrganizacionHistorica(aut, repo, nil); err == nil {
+		t.Fatal("sin registro")
+	}
+	i := &intentosHistoricosPrueba{}
+	svc, _ := NuevoServicioConsultaOrganizacionHistorica(aut, repo, i)
+	if _, err := svc.Consultar(context.Background(), s); err != nil || len(i.motivos) != 0 {
+		t.Fatal("éxito añade intento o falla")
+	}
+	repo.err = domain.ErrConsultaOrganizacionHistoricaDenegada
+	i.antes = func() {
+		if repo.n != 2 {
+			t.Fatal("registro antes de repositorio")
+		}
+	}
+	if _, err := svc.Consultar(context.Background(), s); !errors.Is(err, domain.ErrConsultaOrganizacionHistoricaDenegada) || len(i.motivos) != 1 || i.motivos[0] != "denegado" {
+		t.Fatal("denegación sin intento")
+	}
+	i.antes = nil
+	i.err = errors.New("destino privado")
+	if _, err := svc.Consultar(context.Background(), s); !errors.Is(err, domain.ErrOrganizacionHistoricaNoDisponible) {
+		t.Fatal("fallo auditor permite confirmar denegación")
+	}
+}
+func TestConsultaHistoricaRegistraCancelacionYEntradaInvalida(t *testing.T) {
+	s := solicitudHistoricaPrueba(t)
+	i := &intentosHistoricosPrueba{}
+	aut := &autorizadorHistoricoPrueba{}
+	repo := &repositorioHistoricoPrueba{}
+	svc, _ := NuevoServicioConsultaOrganizacionHistorica(aut, repo, i)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := svc.Consultar(ctx, s); !errors.Is(err, context.Canceled) || len(i.motivos) != 1 || i.motivos[0] != "no_disponible" {
+		t.Fatal("cancelación sin registro independiente")
+	}
+	s.Selector.Limite = 101
+	if _, err := svc.Consultar(context.Background(), s); !errors.Is(err, domain.ErrConsultaOrganizacionHistoricaInvalida) || len(i.motivos) != 2 || i.motivos[1] != "entrada_invalida" || aut.n != 0 || repo.n != 0 {
+		t.Fatal("entrada inválida alcanzó negocio")
+	}
+	i.preflight = errors.New("sin ACL")
+	s.Selector.Limite = 10
+	if _, err := svc.Consultar(context.Background(), s); !errors.Is(err, domain.ErrOrganizacionHistoricaNoDisponible) || aut.n != 0 || repo.n != 0 {
+		t.Fatal("preflight abierto")
 	}
 }

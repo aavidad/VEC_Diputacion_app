@@ -1,0 +1,18 @@
+{
+  "alcance": "preparacion_sintetica",
+  "identidad_material": "acta:ejemplo-sintetico",
+  "version_material": 1,
+  "antecedente_tribunal": {
+    "identidad_material": "tribunal:ejemplo-sintetico",
+    "version_material": 1,
+    "huella_aportada_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "fase_propuesta": "fase:ejemplo-sintetico",
+  "sesion_ref": "sesion:ejemplo-sintetico",
+  "orden_dia_propuesto": [
+    {"punto_ref": "punto:ejemplo-a", "texto_propuesto": "Revisar el material sintético de preparación del tribunal."}
+  ],
+  "acuerdos_propuestos": [
+    {"propuesta_ref": "acuerdo:ejemplo-a", "punto_ref": "punto:ejemplo-a", "texto_propuesto": "Propuesta para completar las referencias pendientes antes de preparar actuaciones."}
+  ]
+}
