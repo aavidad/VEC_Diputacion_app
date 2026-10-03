@@ -2,11 +2,13 @@ package bootstrap
 
 import (
 	"context"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"vec-diputacion-granada/config"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	pgvec "vec-diputacion-granada/internal/vec/adapters/postgres"
+	core "vec-diputacion-granada/internal/vec/domain"
 )
 
 // Los pools ya acreditados por la raíz suministran fuente, registro y motivos.
@@ -27,6 +29,13 @@ func (m *MontajePreparacionBasesV3) autorizacionesPostgreSQL(fuente, registro, m
 	v, err := pgvec.NuevoValidadorReferenciaMotivoPostgreSQLV2(motivos, m.configuracion.MotivoGuardar.CatalogoID)
 	if err != nil {
 		return nil, errMontajePreparacionBasesV3
+	}
+	ctx, cancelar := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancelar()
+	for _, motivo := range []core.ReferenciaEntradaCatalogo{m.configuracion.MotivoIntentoDenegado, m.configuracion.MotivoIntentoError} {
+		if v.ValidarReferenciaMotivoAutorizacionV2(ctx, motivo, m.reloj.Ahora()) != nil {
+			return nil, errMontajePreparacionBasesV3
+		}
 	}
 	p, err := nuevaPoliticaAutorizacionSolicitudLigadaV3Desarrollo(f, r, r, v)
 	if err != nil {
