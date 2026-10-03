@@ -7,6 +7,7 @@ import (
 
 	ctapplication "vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	docports "vec-diputacion-granada/internal/vec/documentos/ports"
 )
 
 type dependenciasR5PresentesPrueba struct{}
@@ -42,7 +43,7 @@ func (dependenciasR5PresentesPrueba) PoliticaMismaPersonaEnPasos(context.Context
 func dependenciasCompletasR5Prueba() dependenciasFirmaR5Desarrollo {
 	p := dependenciasR5PresentesPrueba{}
 	return dependenciasFirmaR5Desarrollo{original: p, registro: p, consulta: p,
-		autorizarExterna: p, autorizarVec: p, competencia: p, politicaFirmantes: p}
+		autorizar: p, verificador: p, pdfAnterior: p, competencia: p, politicaFirmantes: p}
 }
 
 func TestComposicionFirmasR5DeniegaDependenciasIncompletas(t *testing.T) {
@@ -71,5 +72,90 @@ func TestComposicionFirmasR5NoConsumeOriginalSiFaltaBase(t *testing.T) {
 		if err := base.ComponerOriginalAutorizado(dependenciasR5PresentesPrueba{}); err != nil {
 			t.Fatalf("el original quedó consumido tras fallo: %v", err)
 		}
+	}
+}
+
+func (dependenciasR5PresentesPrueba) RegistrarFirmaVerificadaV2(context.Context, ports.MaterialFirmaVerificadaV2, ports.CapacidadFirmaVerificadaV2) (ports.ReciboFirmaDocumento, error) {
+	return ports.ReciboFirmaDocumento{}, nil
+}
+func (dependenciasR5PresentesPrueba) ConsultarFirmasAutorizadasV2(context.Context, ports.MaterialConsultaFirmasR5V2, ports.CapacidadConsultaFirmasR5V2) (ports.LecturaFirmasR5V2, error) {
+	return ports.LecturaFirmasR5V2{}, nil
+}
+func (dependenciasR5PresentesPrueba) AutorizarConsultaFirmasR5V2(context.Context, ports.MaterialConsultaFirmasR5V2) (ports.CapacidadConsultaFirmasR5V2, error) {
+	return ports.CapacidadConsultaFirmasR5V2{}, nil
+}
+func (dependenciasR5PresentesPrueba) AutorizarFirmaVerificadaV2(context.Context, ports.MaterialFirmaVerificadaV2) (ports.CapacidadFirmaVerificadaV2, error) {
+	return ports.CapacidadFirmaVerificadaV2{}, nil
+}
+func (dependenciasR5PresentesPrueba) ObtenerPerfilActivoOperadorFirmaV2(context.Context) (string, error) {
+	return "prf_operador_prueba", nil
+}
+func (dependenciasR5PresentesPrueba) ObtenerPDFFirmaAnterior(context.Context, ports.SolicitudPDFFirmaAnterior) (ports.PDFFirmaAnterior, error) {
+	return ports.PDFFirmaAnterior{}, nil
+}
+func (dependenciasR5PresentesPrueba) VerificarFirmas(context.Context, docports.SolicitudVerificacionFirma) (docports.VerificacionFirmasDocumento, error) {
+	return docports.VerificacionFirmasDocumento{}, nil
+}
+
+type baseR5ComposicionPrueba struct {
+	ports.FuenteCircuitoFirma
+	ports.RegistroFirmasDocumento
+	ports.AutorizadorFirmaDocumento
+}
+
+func (dependenciasR5PresentesPrueba) CustodiarFirmado(context.Context, ports.OrdenCustodiaFirmado) (ports.DocumentoCustodiado, error) {
+	return ports.DocumentoCustodiado{}, nil
+}
+
+func baseR5MontajePrueba(t *testing.T) *ctapplication.ServicioFirmaDocumento {
+	t.Helper()
+	p := baseR5ComposicionPrueba{}
+	base, err := ctapplication.NuevoServicioFirmaDocumento(p, p, p, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := base.ComponerCustodia(dependenciasR5PresentesPrueba{}, map[string]string{"informe_definitivo": "informe_firmado"}); err != nil {
+		t.Fatal(err)
+	}
+	return base
+}
+
+func TestComposicionFirmasR5PublicaAmbasViasV2SinOcuparBase(t *testing.T) {
+	base := baseR5MontajePrueba(t)
+	f := &firmaDocumentoCTDesarrollo{servicio: base, custodiaR5Compuesta: true}
+	if err := f.componerFirmasR5(dependenciasCompletasR5Prueba()); err != nil || f.firmaExterna == nil || f.firmaVec == nil {
+		t.Fatalf("montaje V2: %v", err)
+	}
+	if err := base.ComponerOriginalAutorizado(dependenciasR5PresentesPrueba{}); err != nil {
+		t.Fatalf("el montaje mutó el servicio legado: %v", err)
+	}
+	if err := f.componerFirmasR5(dependenciasCompletasR5Prueba()); !errors.Is(err, errFirmaDocumentoCTDesarrolloNoDisponible) {
+		t.Fatalf("segundo montaje: %v", err)
+	}
+}
+
+func TestComposicionFirmasR5CadaDependenciaV2EsObligatoria(t *testing.T) {
+	for nombre, omitir := range map[string]func(*dependenciasFirmaR5Desarrollo){
+		"original":     func(d *dependenciasFirmaR5Desarrollo) { d.original = nil },
+		"registro":     func(d *dependenciasFirmaR5Desarrollo) { d.registro = nil },
+		"consulta":     func(d *dependenciasFirmaR5Desarrollo) { d.consulta = nil },
+		"autorizador":  func(d *dependenciasFirmaR5Desarrollo) { d.autorizar = nil },
+		"verificador":  func(d *dependenciasFirmaR5Desarrollo) { d.verificador = nil },
+		"pdf_anterior": func(d *dependenciasFirmaR5Desarrollo) { d.pdfAnterior = nil },
+		"competencia":  func(d *dependenciasFirmaR5Desarrollo) { d.competencia = nil },
+		"politica":     func(d *dependenciasFirmaR5Desarrollo) { d.politicaFirmantes = nil },
+	} {
+		t.Run(nombre, func(t *testing.T) {
+			base := baseR5MontajePrueba(t)
+			f := &firmaDocumentoCTDesarrollo{servicio: base, custodiaR5Compuesta: true}
+			d := dependenciasCompletasR5Prueba()
+			omitir(&d)
+			if err := f.componerFirmasR5(d); !errors.Is(err, errFirmaDocumentoCTDesarrolloNoDisponible) || f.firmaExterna != nil || f.firmaVec != nil {
+				t.Fatalf("dependencia %s: %v", nombre, err)
+			}
+			if err := f.componerFirmasR5(dependenciasCompletasR5Prueba()); err != nil {
+				t.Fatalf("fallo ocupó original/base: %v", err)
+			}
+		})
 	}
 }

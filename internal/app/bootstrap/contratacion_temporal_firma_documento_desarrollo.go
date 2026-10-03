@@ -19,6 +19,7 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	seguridadvec "vec-diputacion-granada/internal/vec/adapters/seguridad"
+	docports "vec-diputacion-granada/internal/vec/documentos/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
 	"vec-diputacion-granada/internal/vec/reglas"
@@ -160,49 +161,45 @@ type firmaDocumentoCTDesarrollo struct {
 // registroFirmasR5Desarrollo es una sola autoridad de historia: CT170
 // registra ambas vías y ofrece la lectura nominal AD159. No se mezclan dos
 // registros independientes que pudieran discrepar sobre la cabeza CT.
-type registroFirmasR5Desarrollo interface {
-	ports.RegistroFirmasExternas
-	ports.RegistroFirmasVec
-}
-
 type dependenciasFirmaR5Desarrollo struct {
 	original          ports.FuenteOriginalFirmaAutorizado
-	registro          registroFirmasR5Desarrollo
-	consulta          ports.AutorizadorConsultaFirmasR5
-	autorizarExterna  ports.AutorizadorRegistroFirmaExterna
-	autorizarVec      ports.AutorizadorFirmaVec
+	registro          ports.RegistroFirmasVerificadasV2
+	consulta          ports.AutorizadorConsultaFirmasR5V2
+	autorizar         ports.AutorizadorFirmaVerificadaV2
+	verificador       docports.VerificadorFirmasDocumento
+	pdfAnterior       ports.FuentePDFFirmaAnterior
 	competencia       ports.FuenteCompetenciaFirmante
 	politicaFirmantes ports.FuentePoliticaMismaPersonaEnPasos
 }
 
-// componerFirmasR5 prepara las dos vías como una unidad. El llamador debe
-// aportar el lector autorizado de Documentos, CT170, AD159, AD156, AD157 y
-// AUT30 ya compuestos. Hasta entonces no se invoca ni se monta una ruta R5.
+// Se prepara en una copia antes de publicar ambas vías. Un fallo no ocupa la
+// fuente del original ni modifica el servicio anterior. Cada vía exige la
+// misma historia V2, verificador acumulado, custodia y revisión de entrada.
 func (f *firmaDocumentoCTDesarrollo) componerFirmasR5(d dependenciasFirmaR5Desarrollo) error {
-	if f == nil || f.servicio == nil || !f.custodiaR5Compuesta || !f.servicio.VerificacionDisponible() ||
+	if f == nil || f.servicio == nil || !f.custodiaR5Compuesta ||
 		f.firmaExterna != nil || f.firmaVec != nil ||
 		dependenciaEsNulaContratacionTemporalDesarrollo(d.original) ||
 		dependenciaEsNulaContratacionTemporalDesarrollo(d.registro) ||
 		dependenciaEsNulaContratacionTemporalDesarrollo(d.consulta) ||
-		dependenciaEsNulaContratacionTemporalDesarrollo(d.autorizarExterna) ||
-		dependenciaEsNulaContratacionTemporalDesarrollo(d.autorizarVec) ||
+		dependenciaEsNulaContratacionTemporalDesarrollo(d.autorizar) ||
+		dependenciaEsNulaContratacionTemporalDesarrollo(d.verificador) ||
+		dependenciaEsNulaContratacionTemporalDesarrollo(d.pdfAnterior) ||
 		dependenciaEsNulaContratacionTemporalDesarrollo(d.competencia) ||
 		dependenciaEsNulaContratacionTemporalDesarrollo(d.politicaFirmantes) {
 		return errFirmaDocumentoCTDesarrolloNoDisponible
 	}
-	if err := f.servicio.ComponerOriginalAutorizado(d.original); err != nil {
+	base := *f.servicio
+	if err := base.ComponerOriginalAutorizado(d.original); err != nil {
 		return errFirmaDocumentoCTDesarrolloNoDisponible
 	}
-	externa, err := ctapplication.NuevoServicioFirmaExterna(f.servicio, d.registro, d.consulta, d.autorizarExterna, d.competencia)
+	externa, err := ctapplication.NuevoServicioFirmaExternaV2(&base, d.verificador, d.registro,
+		d.autorizar, d.consulta, d.pdfAnterior, d.competencia, d.politicaFirmantes)
 	if err != nil {
 		return errFirmaDocumentoCTDesarrolloNoDisponible
 	}
-	vec, err := ctapplication.NuevoServicioFirmaVec(f.servicio, d.registro, d.consulta, d.autorizarVec, d.competencia)
+	vec, err := ctapplication.NuevoServicioFirmaVecV2(&base, d.verificador, d.registro,
+		d.autorizar, d.consulta, d.pdfAnterior, d.competencia, d.politicaFirmantes)
 	if err != nil {
-		return errFirmaDocumentoCTDesarrolloNoDisponible
-	}
-	if externa.ComponerPoliticaMismaPersonaEnPasos(d.politicaFirmantes) != nil ||
-		vec.ComponerPoliticaMismaPersonaEnPasos(d.politicaFirmantes) != nil {
 		return errFirmaDocumentoCTDesarrolloNoDisponible
 	}
 	f.firmaExterna, f.firmaVec = externa, vec

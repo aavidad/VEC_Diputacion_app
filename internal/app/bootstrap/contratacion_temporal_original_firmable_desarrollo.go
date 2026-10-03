@@ -1,8 +1,12 @@
 package bootstrap
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
+	"maps"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	ctadapters "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters"
@@ -12,6 +16,7 @@ import (
 	"vec-diputacion-granada/internal/vec/adapters/conservacion"
 	vecapp "vec-diputacion-granada/internal/vec/application"
 	docapp "vec-diputacion-granada/internal/vec/documentos/application"
+	docdomain "vec-diputacion-granada/internal/vec/documentos/domain"
 	docports "vec-diputacion-granada/internal/vec/documentos/ports"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
@@ -128,7 +133,13 @@ func nuevoServicioOriginalFirmableCTDesarrollo(
 	if err != nil {
 		return nil, errors.Join(ErrOriginalFirmableCTMontajeNoDisponible, err)
 	}
-	custodia, err := almacenvec.NuevaCustodiaDocumentosOriginalCT(p.servicio, autorizaciones,
+	lectura, ok := autorizaciones.(docports.FabricaContextoLectura)
+	if !ok || dependenciaEsNulaContratacionTemporalDesarrollo(lectura) {
+		return nil, ErrOriginalFirmableCTMontajeNoDisponible
+	}
+	servicioDocumentos := *p.servicio
+	servicioDocumentos.ContextosLectura = lectura
+	custodia, err := almacenvec.NuevaCustodiaDocumentosOriginalCT(&servicioDocumentos, autorizaciones,
 		almacenvec.FuncionMapeoExpedienteOriginalCT(ctapp.ReferenciaExpedienteDocumentalFormalizacion), tipos)
 	if err != nil {
 		return nil, errors.Join(ErrOriginalFirmableCTMontajeNoDisponible, err)
@@ -141,3 +152,89 @@ func nuevoServicioOriginalFirmableCTDesarrollo(
 }
 
 var _ vecports.CustodiaOriginalFirmableCT = (*almacenvec.CustodiaDocumentosOriginalCT)(nil)
+
+// La revisión firmada se obtiene por la misma autoridad nominal de descarga
+// de Documentos. Sus metadatos y bytes se recuperan con un único consumo V3.
+type lecturaDocumentoFirmaAnteriorCT interface {
+	DescargarOriginalConDocumento(context.Context, docports.ConsultaDocumento) (docports.Original, docdomain.Documento, error)
+}
+
+type autorizadorLecturaPDFFirmaAnteriorCT interface {
+	AutorizarLecturaPDFFirmaAnteriorCT(context.Context, ctports.SolicitudPDFFirmaAnterior) (docports.ConsultaDocumento, error)
+}
+
+type fuentePDFFirmaAnteriorCT struct {
+	servicio    lecturaDocumentoFirmaAnteriorCT
+	autorizador autorizadorLecturaPDFFirmaAnteriorCT
+	tipos       map[string]string
+}
+
+func nuevaFuentePDFFirmaAnteriorCT(d *autoridadDocumentosDesarrollo, a *autorizacionesOriginalDocumentosCT) (*fuentePDFFirmaAnteriorCT, error) {
+	if d == nil || d.originalCT == nil || d.originalCT.servicio == nil || d.custodia == nil ||
+		a == nil || d.originalCT.catalogo == nil || d.originalCT.catalogo != d.custodia.politicas {
+		return nil, ErrOriginalFirmableCTMontajeNoDisponible
+	}
+	tipos := make(map[string]string, len(d.custodia.documentos))
+	for documento, clave := range d.custodia.documentos {
+		ref, err := d.custodia.politicas.TipoDocumentalRef(clave)
+		if err != nil || !d.custodia.politicas.CustodiaFirmadoReservada(ref) {
+			return nil, ErrOriginalFirmableCTMontajeNoDisponible
+		}
+		tipos[documento] = ref
+	}
+	if len(tipos) == 0 {
+		return nil, ErrOriginalFirmableCTMontajeNoDisponible
+	}
+	servicio := *d.originalCT.servicio
+	servicio.ContextosLectura = a
+	return &fuentePDFFirmaAnteriorCT{servicio: &servicio, autorizador: a, tipos: maps.Clone(tipos)}, nil
+}
+
+func (f *fuentePDFFirmaAnteriorCT) ObtenerPDFFirmaAnterior(ctx context.Context, q ctports.SolicitudPDFFirmaAnterior) (ctports.PDFFirmaAnterior, error) {
+	var cero ctports.PDFFirmaAnterior
+	if f == nil || dependenciaEsNulaContratacionTemporalDesarrollo(f.servicio) ||
+		dependenciaEsNulaContratacionTemporalDesarrollo(f.autorizador) || ctx == nil {
+		return cero, ctports.ErrFuenteOriginalFirmaNoDisponible
+	}
+	if err := ctx.Err(); err != nil {
+		return cero, err
+	}
+	tipo, ok := f.tipos[q.Documento]
+	if q.Validar() != nil || !ok || tipo == "" {
+		return cero, ctports.ErrOriginalFirmaNoAutorizado
+	}
+	expediente, err := ctapp.ReferenciaExpedienteDocumentalFormalizacion(q.ExpedienteRef)
+	if err != nil {
+		return cero, ctports.ErrOriginalFirmaNoAutorizado
+	}
+	consulta, err := f.autorizador.AutorizarLecturaPDFFirmaAnteriorCT(ctx, q)
+	if err != nil {
+		return cero, err
+	}
+	if consulta.DocumentoID != q.DocumentoRef || consulta.Version != q.DocumentoVersion ||
+		consulta.Autorizacion.RecursoRef != q.DocumentoRef || consulta.Autorizacion.AmbitoRef != expediente {
+		return cero, ctports.ErrOriginalFirmaNoAutorizado
+	}
+	pdf, d, err := f.servicio.DescargarOriginalConDocumento(ctx, consulta)
+	if err != nil {
+		return cero, err
+	}
+	if err := ctx.Err(); err != nil {
+		return cero, err
+	}
+	if d.Validar() != nil || d.ID != q.DocumentoRef || d.Version != q.DocumentoVersion ||
+		d.ModuloID != moduloProductorCustodiaCT || d.ExpedienteRef != expediente || d.TipoRef != tipo ||
+		!d.Descargable() || d.MIME != "application/pdf" || pdf.MIME != d.MIME ||
+		d.HuellaSHA256 != q.DocumentoHuella || pdf.HuellaSHA256 != d.HuellaSHA256 ||
+		d.Tamano != int64(len(pdf.Contenido)) || len(pdf.Contenido) < 8 || len(pdf.Contenido) > ctports.MaximoDocumentoFirmaBytes ||
+		!bytes.HasPrefix(pdf.Contenido, []byte("%PDF-")) {
+		return cero, ctports.ErrOriginalFirmaNoAutorizado
+	}
+	h := sha256.Sum256(pdf.Contenido)
+	if hex.EncodeToString(h[:]) != q.DocumentoHuella {
+		return cero, ctports.ErrOriginalFirmaNoAutorizado
+	}
+	return ctports.PDFFirmaAnterior{Solicitud: q, Contenido: bytes.Clone(pdf.Contenido)}, nil
+}
+
+var _ ctports.FuentePDFFirmaAnterior = (*fuentePDFFirmaAnteriorCT)(nil)

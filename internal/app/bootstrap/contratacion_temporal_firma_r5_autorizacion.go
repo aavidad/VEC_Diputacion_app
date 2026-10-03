@@ -33,12 +33,12 @@ type operacionAutorizacionFirmaR5Desarrollo struct {
 }
 
 type configuracionAutorizadoresFirmaR5Desarrollo struct {
-	soporte                *soporteAltaContratacionTemporalDesarrollo
-	pdp                    *autorizadorComunDesarrollo
-	fronteras              catalogoFronterasComunDesarrollo
-	reloj                  relojContratacionTemporalDesarrollo
-	catalogo               catalogoMaterialAutorizacionComunDesarrollo
-	externa, vec, consulta operacionAutorizacionFirmaR5Desarrollo
+	soporte                            *soporteAltaContratacionTemporalDesarrollo
+	pdp                                *autorizadorComunDesarrollo
+	fronteras                          catalogoFronterasComunDesarrollo
+	reloj                              relojContratacionTemporalDesarrollo
+	catalogo                           catalogoMaterialAutorizacionComunDesarrollo
+	externa, vec, consulta, consultaV2 operacionAutorizacionFirmaR5Desarrollo
 }
 
 // El constructor comprueba las dependencias de composición. Si la ruta R5 no
@@ -56,9 +56,9 @@ func nuevosAutorizadoresFirmaR5Desarrollo(c configuracionAutorizadoresFirmaR5Des
 		accion, tipo, audiencia string
 		campos                  []string
 	}{
-		{c.externa, ports.AccionRegistrarFirmaExterna, ports.TipoRecursoFirmaExterna, ports.AudienciaFirmaExternaV3, nil},
-		{c.vec, ports.AccionRegistrarFirmaVec, ports.TipoRecursoFirmaVec, ports.AudienciaFirmaVecV3, nil},
-		{c.consulta, ports.AccionConsultarFirmasR5, ports.TipoRecursoConsultaFirmasR5, ports.AudienciaConsultaFirmasR5V3, ctapp.CamposConsultaFirmasR5()},
+		{c.externa, ports.AccionRegistrarFirmaExterna, ports.TipoRecursoFirmaExterna, ports.AudienciaFirmaExternaV2, nil},
+		{c.vec, ports.AccionRegistrarFirmaVec, ports.TipoRecursoFirmaVec, ports.AudienciaFirmaVecV2, nil},
+		{c.consultaV2, ports.AccionConsultarFirmasR5V2, ports.TipoRecursoConsultaFirmasR5, ports.AudienciaConsultaFirmasR5V2, ports.CamposConsultaFirmasR5V2()},
 	} {
 		d, existe := c.catalogo.descriptorPara(o.audiencia)
 		p := o.operacion.perfil
@@ -86,7 +86,7 @@ func nuevosAutorizadoresFirmaR5Desarrollo(c configuracionAutorizadoresFirmaR5Des
 		}
 	}
 	return &autorizadoresFirmaR5Desarrollo{soporte: c.soporte, pdp: c.pdp, reloj: c.reloj,
-		externa: c.externa, vec: c.vec, consulta: c.consulta}, nil
+		externa: c.externa, vec: c.vec, consulta: c.consulta, consultaV2: c.consultaV2}, nil
 }
 
 func fronteraFirmaR5Compuesta(pdp *autorizadorComunDesarrollo, fronteras catalogoFronterasComunDesarrollo, ruta, accion, perfil string) bool {
@@ -153,16 +153,19 @@ func perfilFirmaR5Concede(p *perfilFijoCTDesarrollo, accion, tipo string, campos
 }
 
 type autorizadoresFirmaR5Desarrollo struct {
-	soporte                *soporteAltaContratacionTemporalDesarrollo
-	pdp                    vp.AutorizadorSolicitudLigadaV3
-	reloj                  relojContratacionTemporalDesarrollo
-	externa, vec, consulta operacionAutorizacionFirmaR5Desarrollo
+	soporte                            *soporteAltaContratacionTemporalDesarrollo
+	pdp                                vp.AutorizadorSolicitudLigadaV3
+	reloj                              relojContratacionTemporalDesarrollo
+	externa, vec, consulta, consultaV2 operacionAutorizacionFirmaR5Desarrollo
 }
 
 var (
-	_ ports.AutorizadorRegistroFirmaExterna = (*autorizadoresFirmaR5Desarrollo)(nil)
-	_ ports.AutorizadorFirmaVec             = (*autorizadoresFirmaR5Desarrollo)(nil)
-	_ ports.AutorizadorConsultaFirmasR5     = (*autorizadoresFirmaR5Desarrollo)(nil)
+	_ ports.AutorizadorRegistroFirmaExterna   = (*autorizadoresFirmaR5Desarrollo)(nil)
+	_ ports.AutorizadorFirmaVec               = (*autorizadoresFirmaR5Desarrollo)(nil)
+	_ ports.AutorizadorConsultaFirmasR5       = (*autorizadoresFirmaR5Desarrollo)(nil)
+	_ ports.AutorizadorFirmaVerificadaV2      = (*autorizadoresFirmaR5Desarrollo)(nil)
+	_ ports.AutorizadorConsultaFirmasR5V2     = (*autorizadoresFirmaR5Desarrollo)(nil)
+	_ ports.FuentePerfilActivoOperadorFirmaV2 = (*autorizadoresFirmaR5Desarrollo)(nil)
 )
 
 func (a *autorizadoresFirmaR5Desarrollo) AutorizarRegistroFirmaExterna(ctx context.Context, m ports.MaterialFirmaExterna) (ports.CapacidadFirmaExterna, error) {
@@ -218,6 +221,87 @@ func (a *autorizadoresFirmaR5Desarrollo) AutorizarConsultaFirmasR5(ctx context.C
 		return ports.CapacidadConsultaFirmasR5{}, ports.ErrFirmaDocumentoDenegada
 	}
 	return c, nil
+}
+
+// La vía externa acredita al firmante del PDF; la vía VEC exige además que
+// coincida con la persona y el certificado de la petición sellada.
+func (a *autorizadoresFirmaR5Desarrollo) AutorizarFirmaVerificadaV2(ctx context.Context, m ports.MaterialFirmaVerificadaV2) (ports.CapacidadFirmaVerificadaV2, error) {
+	var cero ports.CapacidadFirmaVerificadaV2
+	if a == nil || m.Validar() != nil {
+		return cero, ports.ErrFirmaDocumentoDenegada
+	}
+	r, err := ctapp.RecursoFirmaVerificadaV2(m)
+	if err != nil {
+		return cero, ports.ErrFirmaDocumentoDenegada
+	}
+	op, accion, audiencia := a.externa, ports.AccionRegistrarFirmaExterna, ports.AudienciaFirmaExternaV2
+	principal, certificado := "", ""
+	if m.Via == ports.ViaFirmaCertificadoVEC {
+		op, accion, audiencia = a.vec, ports.AccionRegistrarFirmaVec, ports.AudienciaFirmaVecV2
+		principal, certificado = m.FirmantePrincipalRef, m.CertificadoHuella
+	}
+	if op.perfil == nil || m.PerfilActivoOperadorRef != op.perfil.perfilRef() {
+		return cero, ports.ErrFirmaDocumentoDenegada
+	}
+	material, err := a.autorizar(ctx, op, accion, audiencia, r, principal, certificado)
+	if err != nil {
+		return cero, err
+	}
+	c := ports.TransportarMaterialFirmaVerificadaV2(material)
+	if err := ctapp.ValidarCapacidadFirmaVerificadaV2(c, m); err != nil {
+		return cero, err
+	}
+	return c, nil
+}
+
+func (a *autorizadoresFirmaR5Desarrollo) AutorizarConsultaFirmasR5V2(ctx context.Context, m ports.MaterialConsultaFirmasR5V2) (ports.CapacidadConsultaFirmasR5V2, error) {
+	var cero ports.CapacidadConsultaFirmasR5V2
+	if a == nil {
+		return cero, ports.ErrFirmaDocumentoDenegada
+	}
+	r, err := ctapp.RecursoConsultaFirmasR5V2(m)
+	if err != nil {
+		return cero, ports.ErrFirmaDocumentoDenegada
+	}
+	material, err := a.autorizar(ctx, a.consultaV2, ports.AccionConsultarFirmasR5V2, ports.AudienciaConsultaFirmasR5V2, r, "", "")
+	if err != nil {
+		return cero, err
+	}
+	c := ports.TransportarMaterialConsultaFirmasR5V2(material)
+	if err := ctapp.ValidarCapacidadConsultaFirmasR5V2(c, m); err != nil {
+		return cero, err
+	}
+	return c, nil
+}
+
+func (a *autorizadoresFirmaR5Desarrollo) ObtenerPerfilActivoOperadorFirmaV2(ctx context.Context) (string, error) {
+	if a == nil || a.soporte == nil || dependenciaEsNulaContratacionTemporalDesarrollo(a.reloj) || ctx == nil || ctx.Err() != nil {
+		return "", ports.ErrFirmaDocumentoDenegada
+	}
+	capacidad, valida := a.soporte.capacidadValida(ctx)
+	if !valida || capacidad.metodo != http.MethodPost {
+		return "", ports.ErrFirmaDocumentoDenegada
+	}
+	ahora := a.reloj.Ahora()
+	if capacidad.certificadoVerificadoEn.IsZero() || capacidad.certificadoValidoHasta.IsZero() ||
+		capacidad.certificadoVerificadoEn.After(ahora) || !ahora.Before(capacidad.certificadoValidoHasta) {
+		return "", ports.ErrFirmaDocumentoDenegada
+	}
+	p := a.soporte.perfilFijoParaRutaYMetodo(capacidad.ruta, capacidad.metodo)
+	if p == nil {
+		return "", ports.ErrFirmaDocumentoDenegada
+	}
+	if _, estado := a.soporte.consumirPerfilFijoCTDesarrolloConEstado(ctx, p); estado != perfilFijoConsumoVigente {
+		return "", ports.ErrFirmaDocumentoDenegada
+	}
+	operativo, err := a.soporte.contextoOperativoDesarrollo(ctx)
+	if err != nil || operativo.Resultado.Contexto.PerfilActivoRef != p.perfilRef() ||
+		operativo.Resultado.Contexto.Principal.ID != p.contexto.Resultado.Contexto.Principal.ID ||
+		operativo.Resultado.Contexto.PersonaRef != p.contexto.Resultado.Contexto.PersonaRef ||
+		!operativo.Vinculo.VigenteEn(ahora, operativo.Resultado) {
+		return "", ports.ErrFirmaDocumentoDenegada
+	}
+	return p.perfilRef(), nil
 }
 
 func (a *autorizadoresFirmaR5Desarrollo) autorizar(ctx context.Context, o operacionAutorizacionFirmaR5Desarrollo,
