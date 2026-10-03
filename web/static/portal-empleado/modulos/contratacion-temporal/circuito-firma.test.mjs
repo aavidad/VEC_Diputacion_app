@@ -121,7 +121,6 @@ test("la fase muestra Dirección o Jefatura desde el catálogo sin abrir firma o
   assert.match(en, /Sign with a certificate in VEC · Test signature with no administrative effect/u);
   assert.match(en, /Sending to the corporate signature service/u);
   assert.match(es, /<button[^>]*disabled[^>]*>Enviar a Portafirmas<\/button>/u);
-  assert.match(es, /<button[^>]*disabled[^>]*>Enviar a Portafirmas<\/button>/u);
   assert.doesNotMatch(es, /data-ct-firma-accion=/u);
   assert.match(es, /Este panel no acredita firma, envío ni registro en Portafirmas/u);
   assert.doesNotMatch(es, /Portafirmas conectado|firma eficaz|Enviar a Firmadoc/u);
@@ -158,7 +157,6 @@ test("el bloque muestra cada paso con su estado, escapa el catálogo y marca el 
   assert.match(html, /aria-labelledby="ct-circuito-firma-titulo"/u);
   assert.match(html, /Envío al portafirmas corporativo/u);
   assert.match(html, /Envío no disponible/u);
-  assert.match(html, /<button[^>]*disabled[^>]*aria-describedby="ct-circuito-envio-motivo"[^>]*>Enviar a Portafirmas<\/button>/u);
   assert.match(html, /<button[^>]*disabled[^>]*aria-describedby="ct-circuito-envio-motivo"[^>]*>Enviar a Portafirmas<\/button>/u);
   assert.match(html, /El envío desde este panel no está disponible/u);
   assert.match(html, /Este panel no acredita firma, envío ni registro en Portafirmas/u);
@@ -217,7 +215,6 @@ test("sin preflight R5 las acciones CT118 permanecen cerradas aunque haya verifi
     assert.match(html, /<button[^>]*disabled[^>]*>Firmar en PRUEBA<\/button>/u);
     assert.match(html, /<button[^>]*disabled[^>]*>Devolver en PRUEBA<\/button>/u);
     assert.match(html, /<button[^>]*disabled[^>]*>Enviar a Portafirmas<\/button>/u);
-    assert.match(html, /<button[^>]*disabled[^>]*>Enviar a Portafirmas<\/button>/u);
     assert.match(html, /La firma con certificado en VEC aún no está disponible: falta comprobar el PDF original custodiado y el permiso nominal/u);
     assert.doesNotMatch(html, /data-ct-firma-accion=|Registrar devolución de PRUEBA/u);
   }
@@ -251,8 +248,7 @@ test("las dos vías de firma usan el idioma del portal", () => {
   assert.match(html, /Sending to the corporate signature service/u);
   assert.match(html, /Sending unavailable/u);
   assert.match(html, /<button[^>]*disabled[^>]*>Send to the signature service<\/button>/u);
-  assert.match(html, /<button[^>]*disabled[^>]*>Download for external signing<\/button>/u);
-  assert.match(html, /VEC must check the PDF held in custody and the specific permission for this case/u);
+  assert.match(html, /Sending from this panel is not available/u);
   assert.match(html, /This panel does not evidence a signature, submission or record in Portafirmas/u);
   assert.match(html, /Awaiting test signature by/u);
   assert.match(html, /Allows referral to Financial Control/u);

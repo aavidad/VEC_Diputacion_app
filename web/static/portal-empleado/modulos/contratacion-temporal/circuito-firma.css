@@ -433,3 +433,33 @@
     grid-column: 1 / -1;
   }
 }
+
+@media (max-width: 480px) {
+  .ct-circuito-documentos {
+    padding-inline: 0;
+  }
+
+  .ct-circuito-documento {
+    padding: 8px;
+  }
+
+  .ct-circuito-prueba,
+  .ct-circuito-portafirmas {
+    margin-inline: 8px;
+  }
+
+  .ct-circuito-portafirmas {
+    padding: 8px;
+  }
+}
+
+@media (max-width: 320px) {
+  .ct-circuito-paso {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ct-circuito-paso > .ct-circuito-orden,
+  .ct-circuito-paso > .ct-circuito-estado {
+    grid-column: 1;
+  }
+}
