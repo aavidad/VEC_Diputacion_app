@@ -46,7 +46,7 @@ export function montarPropuestas(host, { textos, contexto, bloquear, denegar, cr
   function revisar() {
     const { actor, capacidades, cliente } = contexto();
     revision = prepararCierre(seleccion, actor, capacidades, cliente, nodo("decision").value, Number(nodo("motivo").value), cripto);
-    host.innerHTML = `<div class="cabecera-panel"><h3>${tx("propuestas.confirmar_titulo")}</h3></div><div class="cuerpo-panel"><p>${escapar(revision.propuesta.objetivo_nombre)} · ${escapar(rolNombre(revision.propuesta))}</p><dl class="resumen-expediente">${detallePropuesta(revision.propuesta)}</dl><p>${tx(`propuestas.${revision.cuerpo.decision}`)}</p><p>${escapar(revision.motivo)}</p><p>${tx(revision.cuerpo.decision === "aprobar" ? "propuestas.efecto_aprobar" : "propuestas.efecto_rechazar")}</p>
+    host.innerHTML = `<div class="cabecera-panel"><h3>${tx("propuestas.confirmar_titulo")}</h3></div><div class="cuerpo-panel"><p>${escapar(revision.propuesta.objetivo_nombre)} · ${escapar(rolNombre(revision.propuesta))}</p><dl class="resumen-expediente">${detallePropuesta(revision.propuesta)}</dl><p>${tx(`propuestas.${revision.decision}`)}</p><p>${escapar(revision.motivo)}</p><p>${tx(revision.decision === "aprobar" ? "propuestas.efecto_aprobar" : "propuestas.efecto_rechazar")}</p>
       <p data-propuesta="resultado" role="status" tabindex="-1" aria-live="polite"></p><div class="acciones-paso"><button class="boton-secundario" type="button" data-propuesta="corregir" data-propuesta-accion="corregir">${tx("revision.corregir")}</button><button class="boton-primario" type="button" data-propuesta="confirmar" data-propuesta-accion="confirmar">${tx("propuestas.confirmar")}</button></div></div>`;
     nodo("confirmar").focus();
   }
@@ -59,7 +59,7 @@ export function montarPropuestas(host, { textos, contexto, bloquear, denegar, cr
       const datos = await cliente.cerrarPropuesta(copia.propuesta.propuesta_ref, copia.cuerpo, c.signal);
       if (!vigente(c)) return;
       const r = validarCierre(datos, copia); incierto = false; bloquear(false); revision = null;
-      nodo("resultado").innerHTML = `<strong>${tx(r.decision === "aprobar" ? "propuestas.aprobada" : "propuestas.rechazada")}</strong><p>${fecha(r.fecha)}</p><details><summary>${tx("general.tecnico")}</summary><code>${escapar(r.referencia)}</code></details>`;
+      nodo("resultado").innerHTML = `<strong>${tx(r.decision === "aprobada" ? "propuestas.aprobada" : "propuestas.rechazada")}</strong><p>${fecha(r.fecha)}</p><details><summary>${tx("general.tecnico")}</summary><code>${escapar(r.referencia)}</code></details>`;
       nodo("resultado").focus(); nodo("corregir").textContent = t("propuestas.volver");
     } catch (e) {
       if (!vigente(c)) return;

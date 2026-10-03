@@ -15,7 +15,7 @@ const preparar = (decision = "rechazar") => prepararCierre(p, actor, cap, client
 function respuesta(d) {
   const c = { operacion_ref: d.cuerpo.operacion_ref, propuesta_ref: p.propuesta_ref, propuesta_huella_sha256: p.huella_sha256,
     decision: d.cuerpo.decision, huella_cierre_sha256: "d".repeat(64), confirmado_en: "2026-10-03T08:00:00Z" };
-  if (c.decision === "aprobar") c.recibo = { ...c, rol_version_ref: p.rol_version_ref, actor_persona_ref: actor,
+  if (c.decision === "aprobada") c.recibo = { ...c, rol_version_ref: p.rol_version_ref, actor_persona_ref: actor,
     objetivo_persona_ref: p.objetivo_persona_ref, recibo_ref: `recibo_admin:${"d".repeat(32)}`,
     perfil_ref: "prf_perfil_sintetico_000002", auditoria_ref: "auditoria:000001", version_posterior: 1,
     estado_posterior: "activo", huella_antes_sha256: "a".repeat(64), huella_despues_sha256: "b".repeat(64), motivo: d.cuerpo.motivo };
@@ -46,7 +46,10 @@ test("segunda persona exige capacidad, motivo y servidor disponible; dos perfile
 });
 test("rechazo no se presenta como acceso cambiado y aprobación exige recibo ligado a persona y aprobador", () => {
   for (const decision of ["aprobar", "rechazar"]) {
-    const d = preparar(decision), r = respuesta(d); assert.equal(validarCierre(r, d).decision, decision);
+    const d = preparar(decision), r = respuesta(d), protocolaria = decision === "aprobar" ? "aprobada" : "rechazada";
+    assert.equal(d.cuerpo.decision, protocolaria); assert.equal(d.decision, decision);
+    assert.equal(validarCierre(r, d).decision, protocolaria);
+    assert.throws(() => validarCierre({ cierre: { ...r.cierre, decision } }, d));
     for (const cambio of [{ operacion_ref: "cierre_admin:ajeno" }, { propuesta_ref: "propuesta_admin:ajena" },
       { propuesta_huella_sha256: "a".repeat(64) }, { decision: "otra" }, { huella_cierre_sha256: "" }]) {
       assert.throws(() => validarCierre({ cierre: { ...r.cierre, ...cambio } }, d));

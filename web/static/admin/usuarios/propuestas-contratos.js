@@ -42,8 +42,8 @@ export function prepararCierre(p, actor, capacidades, cliente, decision, indiceM
     && Number.isSafeInteger(indiceMotivo) && p.motivos_cierre[indiceMotivo] && cripto?.getRandomValues);
   const motivo = p.motivos_cierre[indiceMotivo];
   const id = Array.from(cripto.getRandomValues(new Uint8Array(16)), (n) => n.toString(16).padStart(2, "0")).join("");
-  return { propuesta: structuredClone(p), actor, motivo: motivo.etiqueta,
-    cuerpo: { operacion_ref: `cierre_admin:${id}`, propuesta_huella_sha256: p.huella_sha256, decision,
+  return { propuesta: structuredClone(p), actor, decision, motivo: motivo.etiqueta,
+    cuerpo: { operacion_ref: `cierre_admin:${id}`, propuesta_huella_sha256: p.huella_sha256, decision: decision === "aprobar" ? "aprobada" : "rechazada",
       motivo: Object.fromEntries(["catalogo_id", "catalogo_version", "catalogo_huella_sha256", "entrada_clave"].map((k) => [k, motivo[k]])) } };
 }
 export function validarCierre(datos, revision) {
@@ -51,7 +51,7 @@ export function validarCierre(datos, revision) {
   exigir(c?.operacion_ref === body.operacion_ref && c.propuesta_ref === p.propuesta_ref
     && c.propuesta_huella_sha256 === p.huella_sha256 && c.decision === body.decision
     && SHA.test(c.huella_cierre_sha256) && fecha(c.confirmado_en));
-  if (body.decision === "rechazar") exigir(c.recibo === undefined || c.recibo === null);
+  if (body.decision === "rechazada") exigir(c.recibo === undefined || c.recibo === null);
   else {
     const r = c.recibo;
     exigir(r?.operacion_ref === body.operacion_ref && r.propuesta_ref === p.propuesta_ref
