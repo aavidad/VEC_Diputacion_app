@@ -1,6 +1,6 @@
 {
   "esquema": "1",
-  "version_catalogo": 1,
+  "version_catalogo": "1",
   "plantillas": {
     "ARRANQUE_FALLIDO": "The server could not start.",
     "CATALOGO_MODULOS_INVALIDO": "The module catalogue is invalid.",

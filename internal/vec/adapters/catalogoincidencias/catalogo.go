@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"io"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -80,9 +81,9 @@ func Cargar(r io.Reader) (*Catalogo, error) {
 		return nil, os.ErrInvalid
 	}
 	var esquema string
-	var version int
+	var version string
 	if json.Unmarshal(objeto["esquema"], &esquema) != nil || esquema != "1" ||
-		json.Unmarshal(objeto["version_catalogo"], &version) != nil || version != domain.VersionCatalogoIncidenciasTecnicas {
+		json.Unmarshal(objeto["version_catalogo"], &version) != nil || version != strconv.Itoa(domain.VersionCatalogoIncidenciasTecnicas) {
 		return nil, os.ErrInvalid
 	}
 	codigos := domain.CodigosIncidenciaTecnica()
