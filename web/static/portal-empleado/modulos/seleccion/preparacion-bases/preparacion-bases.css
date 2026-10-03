@@ -2,7 +2,6 @@
 .modulo-preparacion-bases .cabecera-panel { background: var(--portal-superficie-alterna); }
 .modulo-preparacion-bases :is(p, dd, td, th, li) { overflow-wrap: anywhere; }
 .modulo-preparacion-bases .bases-rejilla { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 20px; align-items: start; }
-.modulo-preparacion-bases .bases-pendiente { border-left: 4px solid var(--portal-aviso); }
 .modulo-preparacion-bases .bases-datos { margin: 0; display: grid; gap: 12px; }
 .modulo-preparacion-bases .bases-datos dt { color: var(--portal-muted); font-size: .8125rem; }
 .modulo-preparacion-bases .bases-datos dd { margin: 4px 0 0; white-space: pre-wrap; }
