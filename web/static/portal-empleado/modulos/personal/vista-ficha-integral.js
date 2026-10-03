@@ -75,7 +75,7 @@ function portada(d, t, navegarModulo, destinosDisponibles, estados, visibles, oc
 }
 function validarResultado(resultado, bloque) {
   if (!resultado || typeof resultado !== "object" || !ESTADOS.has(resultado.estado)) throw new TypeError("respuesta de ficha no válida");
-  if (resultado.estado !== "disponible" && resultado.estado !== "vacio") return { estado: resultado.estado };
+  if (resultado.estado !== "disponible" && resultado.estado !== "vacio") return { estado: resultado.estado, ...(resultado.estado === "denegado" && resultado.aviso_exportacion === "sesion_caducada" ? { aviso_exportacion: "sesion_caducada" } : {}) };
   if (typeof resultado.fuente !== "string" || !resultado.fuente.trim() || resultado.fuente.length > 160 ||
       typeof resultado.actualizado_en !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/u.test(resultado.actualizado_en) ||
       !Number.isFinite(Date.parse(resultado.actualizado_en)) ||
@@ -155,7 +155,7 @@ function pintarBloque(d, principal, t, bloque, resultado, actualizar, corte, des
     const estado = mensaje(d, ""); estado.dataset.personalServiciosExportacionEstado = ""; estado.setAttribute("aria-live", "polite"); resumen.append(estado);
     piezas.push(mensaje(d, traducirExportacionServicios("alcance")), resumen);
   }
-  if (typeof actualizar === "function" && ["disponible", "vacio", "excede_limite", "error"].includes(resultado.estado)) {
+  if (typeof actualizar === "function" && (["disponible", "vacio", "excede_limite", "error"].includes(resultado.estado) || resultado.aviso_exportacion === "sesion_caducada")) {
     const accion = nodo(d, "button", t(resultado.estado === "error" ? "ficha_reintentar" : "ficha_actualizar"));
     accion.type = "button"; accion.className = "boton-secundario"; accion.dataset.personalFichaActualizar = bloque;
     accion.addEventListener("click", actualizar); piezas.push(accion);

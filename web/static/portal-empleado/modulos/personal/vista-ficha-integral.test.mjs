@@ -475,3 +475,29 @@ test("disponibilidad false o ausente nunca ofrece acción ni inicia POST con ser
     assert.equal(posts, 0); assert.match(texto(ficha), /Diputación/u);
   }
 });
+
+
+test("sesión caducada en descarga retira tabla y conserva aviso y actualización al cambiar pestaña", async () => {
+  const { crearFuentesFichaPropia } = await import("./cliente-http-ficha-propia.js");
+  const raiz = raizFalsa(); const metodos = [];
+  const sobre = { data: { exportacion_servicios_disponible: true, ficha: { corte: { vigente_en: "2026-09-25", conocido_en: "2026-09-25T08:59:59.000000Z" }, relaciones: [], servicios: [{ inicio: "2019-01-01", fin: "2019-12-31", clase: "Servicios previos", dias: 365, estado: "reconocido" }] }, recibo_ref: "fichapropia:0f0e0d0c-0b0a-4908-8706-050403020100", consultada_en: "2026-09-25T09:00:00.000000Z" } };
+  const fuentes = await crearFuentesFichaPropia({ fetchImpl: async (ruta, opciones) => {
+    metodos.push(opciones.method);
+    const cuerpo = JSON.stringify(opciones.method === "GET" ? sobre : { error: "autenticacion_requerida" });
+    return new Response(cuerpo, { status: opciones.method === "GET" ? 200 : 401, headers: { "Content-Type": "application/json; charset=utf-8", "Content-Length": String(Buffer.byteLength(cuerpo)) } });
+  } }).preparar();
+  montarVistaFichaIntegralPersonal({ raiz, fuentes });
+  const ficha = raiz.querySelector("[data-personal-ficha-integral]");
+  tab(ficha, "servicios").click(); await completar();
+  assert.ok(nodos(ficha).some((n) => n.tagName === "table"));
+  ficha.querySelector("[data-personal-servicios-descargar]").click(); await completar(); await completar();
+  for (const pestana of ["servicios", "relaciones", "servicios"]) {
+    tab(ficha, pestana).click(); await completar();
+    assert.equal(nodos(ficha).some((n) => n.tagName === "table"), false);
+    assert.equal(ficha.querySelector("[data-personal-servicios-descargar]"), null);
+    assert.equal(ficha.querySelector("[data-personal-ficha-fecha]"), null);
+    assert.match(texto(ficha), /Su sesión ha finalizado. Identifíquese de nuevo/u);
+    assert.ok(ficha.querySelector(`[data-personal-ficha-actualizar="${pestana}"]`));
+  }
+  assert.deepEqual(metodos, ["GET", "POST"]);
+});
