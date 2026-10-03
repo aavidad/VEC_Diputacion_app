@@ -501,3 +501,13 @@ test("sesión caducada en descarga retira tabla y conserva aviso y actualizació
   }
   assert.deepEqual(metodos, ["GET", "POST"]);
 });
+
+test("historia conectada se abre desde Servicios sin consultar sola y se desmonta al salir", async () => {
+ const raiz=raizFalsa();let llamadas=0;
+ const datos={...datosServicios(),historia_servicios_disponible:true};
+ montarVistaFichaIntegralPersonal({raiz,fuentes:{servicios:{consultarPropios:()=>datos,clienteHistoria:{consultar:async()=>{llamadas+=1;}}}}});
+ const ficha=raiz.querySelector("[data-personal-ficha-integral]");tab(ficha,"servicios").click();await completar();
+ const abrir=ficha.querySelector("[data-personal-historia-abrir]");assert.ok(abrir);abrir.click();
+ assert.ok(ficha.querySelector("[data-personal-historia-servicios]"));assert.equal(llamadas,0);
+ tab(ficha,"ficha").click();assert.equal(ficha.querySelector("[data-personal-historia-servicios]"),null);assert.equal(llamadas,0);
+});

@@ -1,5 +1,5 @@
 import { IDIOMA_ACTUAL, IDIOMAS_DISPONIBLES } from "../../../comun/idioma.js";
-import { nombreArchivoExportacionServicios } from "./i18n-exportacion-servicios.js?v=20261004-personal-exportacion-v1";
+import { nombreArchivoExportacionServicios } from "./i18n-exportacion-servicios.js?v=20261004-personal-historia-v1";
 
 export const RUTA_EXPORTACION_SERVICIOS = "/api/interna/personal/mi-ficha/servicios/exportaciones";
 export const MAXIMO_EXPORTACION_SERVICIOS = 1024 * 1024;

@@ -549,7 +549,8 @@
     "ficha_excede_limite": "Este apartado tiene más registros de los que se pueden mostrar aquí. Solicite el detalle a Recursos Humanos.",
     "ficha_error": "No se pudo consultar este apartado. Los demás apartados siguen disponibles.",
     "ficha_reintentar": "Reintentar consulta",
-    "ficha_actualizar": "Actualizar datos"
+    "ficha_actualizar": "Actualizar datos",
+    "ficha_ver_historia_servicios": "Ver historia de servicios"
   },
   "rpt_puestos": {
     "sobrelinea": "Portal del Empleado → Personal",
