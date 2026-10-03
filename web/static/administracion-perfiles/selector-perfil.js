@@ -116,7 +116,6 @@ export function montarSelectorPerfil({ contenedor, cliente, textos, limpiarEstad
   const documento = contenedor.ownerDocument;
   documento.documentElement.lang = textos.idioma;
   const t = (clave, variables) => textos.traducir(`general.${clave}`, variables);
-  const nombresPerfiles = textos.seccion("perfiles");
   const raiz = nodo(documento, "section", "panel selector-perfil");
   const cabecera = nodo(documento, "header", "cabecera-panel selector-perfil__cabecera");
   const titulo = nodo(documento, "h2", "", t("titulo"));
@@ -160,8 +159,10 @@ export function montarSelectorPerfil({ contenedor, cliente, textos, limpiarEstad
     actualizarEstado(clave, tipo);
   }
   function etiqueta(perfil) {
-    if (perfil.clave_i18n && Object.hasOwn(nombresPerfiles, perfil.clave_i18n)
-      && textoSeguro(nombresPerfiles[perfil.clave_i18n])) return nombresPerfiles[perfil.clave_i18n];
+    if (perfil.clave_i18n) {
+      try { const traduccion = textos.traducir(`perfiles.${perfil.clave_i18n}`); if (textoSeguro(traduccion)) return traduccion; }
+      catch { /* Una clave sin traducción conserva el nombre no disponible. */ }
+    }
     if (perfil.clave_i18n && typeof traducirPerfil === "function") {
       try { const traduccion = traducirPerfil(perfil.clave_i18n, textos); if (textoSeguro(traduccion)) return traduccion; }
       catch { /* La falta de catálogo no altera autoridad. */ }

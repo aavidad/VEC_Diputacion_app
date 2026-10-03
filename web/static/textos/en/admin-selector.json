@@ -23,6 +23,10 @@
     "no_instalado": "Profile selection is not yet available in this environment."
   },
   "perfiles": {
-    "administracion.perfiles.rol": "Application administration"
+    "administracion": {
+      "perfiles": {
+        "rol": "Application administration"
+      }
+    }
   }
 }

@@ -23,6 +23,10 @@
     "no_instalado": "La selección de perfil todavía no está disponible en este entorno."
   },
   "perfiles": {
-    "administracion.perfiles.rol": "Administración de la aplicación"
+    "administracion": {
+      "perfiles": {
+        "rol": "Administración de la aplicación"
+      }
+    }
   }
 }
