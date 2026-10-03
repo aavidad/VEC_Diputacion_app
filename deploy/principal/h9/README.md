@@ -1,6 +1,8 @@
 # Instalación H9
 
-Estado del paquete del 03/10: preparado para revisión, **no instalable**. CT170 exige AUT30, ausente de main y conservada en la PR borrador #453. La puerta global también falló en paquetes ajenos a H9. `NO_INSTALAR` bloquea el guion antes de intervenir servicios. El inventario recoge el ensayo parcial y las siete consultas HTTP conservadas tras reinicio.
+Estado del paquete: ensayo SQL, arranque, reinicio y calidad completos sobre `main@39ec9858d`. Contiene 39 migraciones pendientes y un soporte de roles; las exclusiones están en `inventario.md`. Claude revisa y ejecuta la instalación. No se ha escrito en cidonia.
+
+Binario SHA256: `16b8d71f19dc34db4d4bac35e69179526cdcea128ebef7da06f5e8b6f4248922`. Copia fría ensayada: `a1f56a65d53c6aaa20ab9f9b753f08ce80d390178ae03d6926072722ae192ce4`. `SHA256SUMS` contiene las huellas de cada SQL, web y catálogo; el SHA del manifiesto queda registrado en el canal de coordinación.
 
 Este guion se ejecuta localmente como `openclaw`. El kit contiene `sql.list`, las SQL pendientes en orden causal, `consultas_preimagen.sql`, `bin/vec-server`, `web/` completa (incluido `web/static/`) y `locales/`. `SHA256SUMS` cubre todos los archivos del kit salvo el propio manifiesto. Solo admite archivos regulares y directorios. Las SQL deben tener un único `BEGIN;` y un `COMMIT;` final, en líneas independientes.
 

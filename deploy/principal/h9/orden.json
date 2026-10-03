@@ -2,8 +2,8 @@
   "esquema_version": 1,
   "source_commit": "39ec9858d2983e24786db9d909e86cdce19db720",
   "base_commit": "ed9c7de8680d6282ba3f32e7e01118001ef7c262",
-  "estado": "SQL_ensayo_OK_pendiente_calidad_y_Chrome",
-  "ejecutable": false,
+  "estado": "ENSAYO_OK_SQL_ARRANQUE_REINICIO_CALIDAD",
+  "ejecutable": true,
   "preimagen": {
     "copia_fria": "h7-pg.tgz",
     "sha256": "a1f56a65d53c6aaa20ab9f9b753f08ce80d390178ae03d6926072722ae192ce4",
@@ -5196,8 +5196,11 @@
     "fallo_producto": null,
     "AUT30_integrada": "63eb05717229f904e1d3a5d9dedcff8158abe9c1",
     "arranque": "main39ec_acreditado_con_SQL_completo_de_seleccion",
-    "quality": "en_curso_TMPDIR_privado_fuera_tmp_git",
+    "quality": "scripts/verificar_calidad.sh_VERDE_TMPDIR_var_tmp_h9p",
     "instalacion_principal": false,
-    "precedente": "ensayo4a_detenido_CT170_resuelto_tras_merge453"
+    "precedente": "ensayo4a_detenido_CT170_resuelto_tras_merge453",
+    "reinicio": "7_HTTP200_datos_identicos_71_expedientes_v9_9_hitos",
+    "chrome": "Chrome_sistema149_CT_Bolsa_Calendarios_1440_390; limites_worker_TLS_tool_y_lecturas_aux_bloqueadas_documentados",
+    "binario_sha256": "16b8d71f19dc34db4d4bac35e69179526cdcea128ebef7da06f5e8b6f4248922"
   }
 }

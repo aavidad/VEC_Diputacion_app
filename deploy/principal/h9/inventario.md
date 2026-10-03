@@ -2,7 +2,7 @@
 
 El inventario fija el árbol `39ec9858d2983e24786db9d909e86cdce19db720` y compara las altas SQL con `ed9c7de86`. Contiene **48 UP nuevas y ocho pendientes anteriores**. Las PR posteriores y abiertas quedan fuera; en particular, AD172 y AD173 no pertenecen a este árbol. CT172 sí pertenece: el número coincide entre módulos, pero son migraciones diferentes.
 
-La selección completa ya está ensayada: 39 migraciones y un soporte de roles. AUT30 entró en main durante el trabajo (#453) y se añadió antes de CT170. El kit conserva `NO_INSTALAR` mientras terminan calidad y navegador; el guion lo rechaza antes de intervenir servicios. Claude revisa e instala.
+La selección completa ya está ensayada: 39 migraciones y un soporte de roles. AUT30 entró en main durante el trabajo (#453) y se añadió antes de CT170. Arranque, reinicio y puerta completa acreditados. El paquete se entrega para revisión de Claude; no se ha instalado en cidonia. El guion exige preimagen y mantenimiento privados antes de intervenir servicios.
 
 
 ## Preimagen
@@ -151,3 +151,13 @@ Los primeros fallos globales procedían de un directorio ajeno `/tmp/.git`: las 
 | Migración añadida | PR | Preimagen | SHA256 | Consumidor |
 | --- | --- | --- | --- | --- |
 | AUT30 | #453, integrada | Fachada ausente, roles/tablas centrales presentes, migrador superusuario | 704933566ff5170feb01bfc5f9a3a650be21189306d20348293733c4ae676c32 | CT170; su operación legada permanece cerrada. |
+
+## Cierre del ensayo
+
+`39ec9858d` queda fijado para H9. Son 48 UP nuevas y ocho pendientes anteriores; se seleccionan 39 migraciones más un soporte. Las otras 17 permanecen fuera por las condiciones de montaje y preimágenes descritas. Nunca se reaplican las 15 SQL de la principal: se usaron solo para reconstruir el clon.
+
+La puerta completa `scripts/verificar_calidad.sh` terminó con código 0, Go con `-p 8`, caché en disco y `TMPDIR=/var/tmp/h9p`. Go, `-race`, vet, Node, PDF, i18n, manifiestos y dependencias dieron verde. `/tmp/.git` rechazaba las claves de prueba y AppArmor de qpdf impedía escribir en el temporal oculto bajo HOME: se corrigió el lugar del temporal, sin modificar guardas ni archivos ajenos y sin excepciones de seguridad.
+
+Tras reiniciar aplicación y PostgreSQL, las siete lecturas HTTP retornaron 200 con datos idénticos, 71 expedientes y el mismo detalle v9/nueve hitos. Chrome del sistema 149 mostró CT, Bolsa y Calendarios a 1440/390 sin errores JS, cookies, almacenamiento web ni desbordamiento global. La consulta adicional de CT127 confirmó nueve hitos, cancelación y firmas 200; borradores 404 en ese expediente. Quedan anotados avisos TLS del worker de Playwright y consultas adicionales bloqueadas por la restricción del recorrido: no se presentan como un recorrido sin incidencias ni como validación de Firma completa.
+
+El guion final tiene dos GO independientes sobre `25f5cd8cc38cbb90f690b5eea0e2907c21ea4a3a`; el snapshot SQL conserva sus dos revisiones. Recupera automáticamente la copia fría, los árboles realmente servidos y el servicio anterior. Si el servicio anterior o su mantenimiento fallan, contiene la aplicación. No abre tráfico con un arranque fallido ni restaura después de haber aceptado escrituras.
