@@ -125,6 +125,7 @@ BEGIN
 END $f$;
 REVOKE ALL ON FUNCTION vec_autorizacion_atestada_v3.comprobar_consumo_gobierno_plan_firma_v1(jsonb),
  vec_autorizacion_atestada_v3.comprobar_consumo_firma_plan_ct_v1(jsonb) FROM PUBLIC;
+GRANT USAGE ON SCHEMA vec_autorizacion_atestada_v3 TO vec_catalogos_configurables_propietario;
 GRANT EXECUTE ON FUNCTION vec_autorizacion_atestada_v3.comprobar_consumo_gobierno_plan_firma_v1(jsonb),
  vec_autorizacion_atestada_v3.comprobar_consumo_firma_plan_ct_v1(jsonb) TO vec_catalogos_configurables_propietario;
 COMMIT;
