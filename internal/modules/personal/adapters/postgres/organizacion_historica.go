@@ -47,7 +47,7 @@ func nuevoRepositorioOrganizacionHistoricaPostgreSQL(pool iniciadorOrganizacionH
 // La función nominal consume AD3, registra auditoría y lee la foto en la misma
 // transacción. Este adaptador nunca consulta las tablas ni establece identidad
 // mediante cabeceras, GUC o datos del navegador.
-func (r *RepositorioOrganizacionHistoricaPostgreSQL) ConsultarOrganizacionHistorica(ctx context.Context, o ports.OrdenConsultaOrganizacionHistorica) (ports.ResultadoConsultaOrganizacionHistorica, error) {
+func (r *RepositorioOrganizacionHistoricaPostgreSQL) ConsultarOrganizacionHistorica(ctx context.Context, o ports.OrdenConsultaOrganizacionHistorica) (salida ports.ResultadoConsultaOrganizacionHistorica, errorSalida error) {
 	var vacio ports.ResultadoConsultaOrganizacionHistorica
 	if r == nil || ctx == nil || nuloOrganizacionHistorica(r.pool) {
 		return vacio, domain.ErrOrganizacionHistoricaNoDisponible
@@ -81,7 +81,13 @@ func (r *RepositorioOrganizacionHistoricaPostgreSQL) ConsultarOrganizacionHistor
 	confirmada := false
 	defer func() {
 		if !confirmada {
-			_ = tx.Rollback(context.Background())
+			ctxCierre, cancelar := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
+			defer cancelar()
+			if err := tx.Rollback(ctxCierre); err != nil && !errors.Is(err, pgx.ErrTxClosed) {
+				// pgxpool libera también ante error de Rollback. El servicio
+				// registra el fallo común sólo después de este retorno.
+				salida, errorSalida = vacio, domain.ErrOrganizacionHistoricaNoDisponible
+			}
 		}
 	}()
 	if _, err = tx.Exec(ctx, ajustesOrganizacionHistorica); err != nil {

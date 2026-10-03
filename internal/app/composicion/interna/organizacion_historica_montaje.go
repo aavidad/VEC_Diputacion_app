@@ -26,13 +26,21 @@ type componentesOrganizacionHistorica struct {
 
 // Usa el pool nominal existente de Personal. Una carencia deja únicamente
 // Organización fuera; no depende de que el montaje B2 esté activo.
-func montarOrganizacionHistoricaGobernada(ctx context.Context, directorio, login string, pool *pgxpool.Pool, base *internactproveedores.Proveedores, fuente *internagobierno.FuenteF1, auditoria ports.RegistradorAuditoriaFronteraRutaExacta, reloj relojGobiernoInterno) (componentesOrganizacionHistorica, bool) {
+func montarOrganizacionHistoricaGobernada(ctx context.Context, directorio, login string, pool *pgxpool.Pool, base *internactproveedores.Proveedores, fuente *internagobierno.FuenteF1, auditoria ports.RegistradorAuditoriaFronteraRutaExacta, reloj relojGobiernoInterno, intentos ...internactproveedores.DependenciasIntentosOrganizacionHistorica) (componentesOrganizacionHistorica, bool) {
 	var vacio componentesOrganizacionHistorica
 	vacio.seleccionada = materialOrganizacionHistoricaSeleccionado(directorio)
 	if !vacio.seleccionada {
 		return vacio, false
 	}
 	if ctx == nil || ctx.Err() != nil || directorio == "" || pool == nil || base == nil || fuente == nil || interfazNulaIdentidadOffline(auditoria) {
+		return vacio, false
+	}
+	if len(intentos) != 1 {
+		return vacio, false
+	}
+	registro, err := internactproveedores.NuevoRegistroIntentosOrganizacionHistorica(intentos[0])
+	if err != nil || registro.PreflightIntentosOrganizacionHistorica(ctx) != nil {
+		log.Print("composicion interna: organizacion_historica_no_disponible")
 		return vacio, false
 	}
 	m, err := internactproveedores.CargarMaterialOrganizacionHistorica(directorio)
@@ -60,12 +68,17 @@ func montarOrganizacionHistoricaGobernada(ctx context.Context, directorio, login
 		log.Print("composicion interna: organizacion_historica_no_disponible")
 		return vacio, false
 	}
-	servicio, err := personalapp.NuevoServicioConsultaOrganizacionHistorica(proveedor, repositorio)
+	servicio, err := personalapp.NuevoServicioConsultaOrganizacionHistorica(proveedor, repositorio, registro)
 	if err != nil {
 		log.Print("composicion interna: organizacion_historica_no_disponible")
 		return vacio, false
 	}
-	handler, err := httpapi.NewHandlerOrganizacionHistoricaPersonal(internactproveedores.AutoridadContextoOrganizacionHistorica{Fuente: fuente}, servicio, internactproveedores.AuditorDenegacionOrganizacionHistorica{Registrador: auditoria})
+	consulta, err := internactproveedores.NuevaConsultaOrganizacionHistoricaConIntentos(servicio, fuente, registro)
+	if err != nil {
+		log.Print("composicion interna: organizacion_historica_no_disponible")
+		return vacio, false
+	}
+	handler, err := httpapi.NewHandlerOrganizacionHistoricaPersonal(internactproveedores.AutoridadContextoOrganizacionHistorica{Fuente: fuente}, consulta, internactproveedores.AuditorDenegacionOrganizacionHistorica{Registrador: auditoria})
 	if err != nil {
 		log.Print("composicion interna: organizacion_historica_no_disponible")
 		return vacio, false

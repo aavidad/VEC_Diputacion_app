@@ -1,5 +1,5 @@
 {
-  "ayuda": "Prepare una lista de revisión de requisitos desde un archivo JSON sintético. Use --idioma y --catalogos-dir para elegir el catálogo. Lea el material por la entrada estándar. La salida conserva las causas pendientes; no decide admisión ni registra una subsanación.",
+  "ayuda": "Prepare una revisión de requisitos desde JSON sintético. Use --salida preparacion, antecedente o aportacion. Elija --idioma y --catalogos-dir. Lea el material por la entrada estándar. Preparar una aportación no presenta ni resuelve una subsanación.",
   "seleccion_admision_entrada_invalida": "No se pudo preparar la revisión. Compruebe el formato, las referencias y las versiones del material aportado.",
   "seleccion_admision_salida_no_disponible": "No se pudo escribir el resultado. Compruebe el destino y repita la preparación.",
   "seleccion_admision_causa_fuentes_no_verificadas": "La procedencia y la correspondencia del material siguen sin verificar.",
@@ -17,5 +17,12 @@
   "seleccion_admision_pendiente_lectura_autorizada": "Obtener los hechos mínimos mediante consulta autorizada a sus responsables.",
   "seleccion_admision_pendiente_identidad_registro_documentos": "Comprobar identidad, presentación registrada y documentos por el circuito competente.",
   "seleccion_admision_pendiente_subsanacion_bases": "Determinar qué puede subsanarse y sus condiciones según las bases, antes de emitir un requerimiento.",
-  "seleccion_admision_pendiente_aprobacion_listas": "Motivar las decisiones y obtener la aprobación competente antes de publicar listas."
+  "seleccion_admision_pendiente_aprobacion_listas": "Motivar las decisiones y obtener la aprobación competente antes de publicar listas.",
+  "seleccion_aportacion_admision_entrada_invalida": "No se pudo preparar la aportación. Compruebe el antecedente, el requisito y las versiones de los soportes propuestos.",
+  "seleccion_aportacion_admision_pendiente_correspondencia": "Cotejar la propuesta con el requisito y la revisión de las bases.",
+  "seleccion_aportacion_admision_pendiente_documentos": "Comprobar los documentos propuestos y su correspondencia con el hecho. Una referencia no acredita el contenido.",
+  "seleccion_aportacion_admision_pendiente_bases_subsanacion": "Determinar si la aportación puede subsanar el requisito y bajo qué condiciones según las bases.",
+  "seleccion_aportacion_admision_pendiente_presentacion": "Presentar la aportación por el circuito admitido, cuando corresponda.",
+  "seleccion_aportacion_admision_pendiente_revision_competente": "Revisar la aportación y motivar la decisión mediante la autoridad competente.",
+  "seleccion_aportacion_admision_pendiente_sin_soportes": "Faltan soportes propuestos. Prepare las referencias del hecho y de los documentos para revisión."
 }
