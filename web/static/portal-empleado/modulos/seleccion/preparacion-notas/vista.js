@@ -7,7 +7,7 @@ export function pintarSalida({ raiz, dto, textos }) {
   const cambios = panel(d, t('cambios'));
   if (!dto.cambios.length) cambios.cuerpo.append(nodo(d, 'p', t('sin_cambios')));
   else {
-    const tab = tabla(d, ['solicitud', 'fase', 'anterior', 'propuesta'].map(t), t('cambios'));
+    const tab = tabla(d, ['solicitud', 'fase', 'anterior', 'propuesta'].map(clave => t(clave)), t('cambios'));
     for (const cambio of dto.cambios) {
       const solicitud = dto.antecedente.solicitudes.find(s => s.referencia === cambio.solicitud_ref);
       const indice = dto.configuracion.fases.findIndex(f => f.referencia === cambio.fase_ref);
@@ -19,7 +19,7 @@ export function pintarSalida({ raiz, dto, textos }) {
     cambios.cuerpo.append(tab.contenedor);
   }
   const efecto = panel(d, t('comparacion'));
-  const tab = tabla(d, ['solicitud', 'estado_anterior', 'estado_propuesta', 'total_anterior', 'total_propuesta', 'orden_anterior', 'orden_propuesta'].map(t), t('comparacion'));
+  const tab = tabla(d, ['solicitud', 'estado_anterior', 'estado_propuesta', 'total_anterior', 'total_propuesta', 'orden_anterior', 'orden_propuesta'].map(clave => t(clave)), t('comparacion'));
   for (const anterior of dto.antecedente.solicitudes) {
     const propuesta = dto.propuesta.solicitudes.find(s => s.referencia === anterior.referencia);
     const fila = nodo(d, 'tr'), th = nodo(d, 'th', anterior.nombre); th.scope = 'row';
