@@ -67,7 +67,7 @@ CREATE TABLE vec_autorizacion.catalogo_accion_nominal_v1 (
  fuente_huella_sha256 text NOT NULL CHECK(fuente_huella_sha256 ~ '^[0-9a-f]{64}$'),
  version_rol_ref text NOT NULL REFERENCES vec_autorizacion.version_rol(version_rol_ref),
  concesion jsonb NOT NULL CHECK(pg_catalog.jsonb_typeof(concesion)='object'),
- dimensiones_ambito jsonb NOT NULL CHECK(dimensiones_ambito='["organizacion_ref","unidad_ref"]'::jsonb),
+ dimensiones_ambito jsonb NOT NULL CHECK(dimensiones_ambito IN ('["organizacion_ref"]'::jsonb,'["organizacion_ref","unidad_ref"]'::jsonb)),
  clase_control text NOT NULL CHECK(clase_control='administrador_aplicacion'),
  vigente_desde timestamptz(6) NOT NULL,vigente_hasta timestamptz(6),
  PRIMARY KEY(accion_ref,version),UNIQUE(version_rol_ref,accion_ref),
@@ -120,7 +120,9 @@ BEGIN
  FOR accion IN SELECT e.valor FROM pg_catalog.jsonb_array_elements(acciones) AS e(valor) LOOP
   INSERT INTO vec_autorizacion.catalogo_accion_nominal_v1
   VALUES('accion:'||(accion->>'accion'),1,'rol:administracion_perfiles:v4',4,sha,
-   'rol:administracion_perfiles:v4',accion,'["organizacion_ref","unidad_ref"]'::jsonb,
+   'rol:administracion_perfiles:v4',accion,
+   CASE WHEN accion->>'modulo_id'='administracion' THEN '["organizacion_ref"]'::jsonb
+    ELSE '["organizacion_ref","unidad_ref"]'::jsonb END,
    'administrador_aplicacion',ahora,NULL);
  END LOOP;
 END $publicar$;
@@ -169,7 +171,8 @@ BEGIN
      AND catalogo.version=1 AND catalogo.fuente_ref=version_ref AND catalogo.fuente_version=4
      AND catalogo.fuente_huella_sha256=r.huella_sha256
      AND catalogo.clase_control='administrador_aplicacion'
-     AND catalogo.dimensiones_ambito='["organizacion_ref","unidad_ref"]'::jsonb
+     AND catalogo.dimensiones_ambito=CASE WHEN modulo='administracion' THEN '["organizacion_ref"]'::jsonb
+       ELSE '["organizacion_ref","unidad_ref"]'::jsonb END
      AND ahora>=catalogo.vigente_desde AND (catalogo.vigente_hasta IS NULL OR ahora<catalogo.vigente_hasta)
      AND catalogo.concesion->>'accion'=accion AND catalogo.concesion->>'modulo_id'=modulo
      AND catalogo.concesion->>'tipo_recurso'=tipo
@@ -185,6 +188,27 @@ END $f$;
 REVOKE ALL ON FUNCTION vec_autorizacion.acreditar_perfil_aplicacion_nominal_v1(text,text,text,text,text,text,text,text,jsonb,jsonb) FROM PUBLIC;
 GRANT USAGE ON SCHEMA vec_autorizacion TO vec_autorizacion_atestada_v3_propietario;
 GRANT EXECUTE ON FUNCTION vec_autorizacion.acreditar_perfil_aplicacion_nominal_v1(text,text,text,text,text,text,text,text,jsonb,jsonb)
+ TO vec_autorizacion_atestada_v3_propietario;
+
+-- El ámbito del actor se coteja contra la organización acreditada por CA4,
+-- no contra un valor de la petición. Personal conserva su unidad propia.
+CREATE FUNCTION vec_autorizacion.acreditar_ambito_certificado_nominal_v1(version_ref text,asignacion_ref text,org text)
+RETURNS boolean LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog AS $f$
+DECLARE a record;
+BEGIN
+ IF pg_catalog.current_setting('transaction_isolation')<>'serializable'
+  OR pg_catalog.current_setting('transaction_read_only')<>'off'
+  OR version_ref IS DISTINCT FROM 'rol:administracion_perfiles:v4'
+  OR org IS NULL OR org !~ '^org_[a-z0-9]{16,80}$' THEN RETURN false; END IF;
+ SELECT x.* INTO a FROM vec_autorizacion.asignacion_perfil_actual p
+ JOIN vec_autorizacion.asignacion_perfil x USING(perfil_activo_ref,asignacion_ref)
+ WHERE p.asignacion_ref=asignacion_ref FOR SHARE OF p,x;
+ IF NOT FOUND OR a.version_rol_ref<>version_ref OR a.documento->>'estado'<>'activa' THEN RETURN false; END IF;
+ RETURN a.documento->'ambitos' @> pg_catalog.jsonb_build_array(
+  pg_catalog.jsonb_build_object('clave','organizacion_ref','valores',pg_catalog.jsonb_build_array(org)));
+END $f$;
+REVOKE ALL ON FUNCTION vec_autorizacion.acreditar_ambito_certificado_nominal_v1(text,text,text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION vec_autorizacion.acreditar_ambito_certificado_nominal_v1(text,text,text)
  TO vec_autorizacion_atestada_v3_propietario;
 
 -- IS clasifica la cuenta bajo sus propios permisos y bloquea su estado.

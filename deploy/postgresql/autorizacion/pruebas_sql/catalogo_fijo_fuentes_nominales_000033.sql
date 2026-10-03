@@ -25,7 +25,8 @@ BEGIN
   OR EXISTS(SELECT 1 FROM vec_autorizacion.catalogo_accion_nominal_v1 e
    WHERE e.version_rol_ref=v.version_rol_ref AND
     (e.fuente_ref<>v.version_rol_ref OR e.fuente_version<>4 OR e.fuente_huella_sha256<>v.huella_sha256
-     OR e.dimensiones_ambito<>'["organizacion_ref","unidad_ref"]'::jsonb
+     OR e.dimensiones_ambito<>CASE WHEN e.concesion->>'modulo_id'='administracion'
+       THEN '["organizacion_ref"]'::jsonb ELSE '["organizacion_ref","unidad_ref"]'::jsonb END
      OR e.clase_control<>'administrador_aplicacion'
      OR NOT EXISTS(SELECT 1 FROM pg_catalog.jsonb_array_elements(v.documento->'concesiones') c WHERE c=e.concesion)))
  THEN RAISE EXCEPTION 'AUT33: concesiones nuevas o previas divergentes'; END IF;
@@ -34,6 +35,8 @@ BEGIN
  THEN RAISE EXCEPTION 'AUT33: perfil no asignado obtuvo permiso'; END IF;
  IF vec_autorizacion.destino_no_administrador_certificado_nominal_v1('cta_ausente_sintetica_aaaaaaaa','per_ausente_sintetica_bbbbbbbb')
  THEN RAISE EXCEPTION 'AUT33: cuenta IS ausente tratada como ordinaria'; END IF;
+ IF vec_autorizacion.acreditar_ambito_certificado_nominal_v1(v.version_rol_ref,'asignacion:ausente:v1','org_ca25sinteticaaaaaaaaaaaaa')
+ THEN RAISE EXCEPTION 'AUT33: ámbito de asignación ausente aceptado'; END IF;
 END $comprobar$;
 RESET ROLE;
 DO $acl$

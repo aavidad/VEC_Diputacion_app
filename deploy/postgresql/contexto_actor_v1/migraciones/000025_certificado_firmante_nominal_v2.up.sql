@@ -21,9 +21,15 @@ BEGIN
  FOREACH nombre IN ARRAY ARRAY['proyeccion_cuenta_actual','proyeccion_cuenta_versiones','persona_actual','persona_versiones','vinculo_contexto_actual','vinculo_contexto_versiones','control_generacion_punteros_actuales_v2'] LOOP
   IF NOT EXISTS(SELECT 1 FROM pg_catalog.pg_class c WHERE c.oid=pg_catalog.to_regclass('vec_contexto_actor_v1.'||nombre)
    AND c.relowner='vec_contexto_actor_v1_propietario'::regrole AND c.relkind='r' AND NOT c.relrowsecurity AND NOT c.relforcerowsecurity
-   AND NOT EXISTS(SELECT 1 FROM pg_catalog.aclexplode(pg_catalog.coalesce(c.relacl,pg_catalog.acldefault('r',c.relowner))) a
+   AND NOT EXISTS(SELECT 1 FROM pg_catalog.aclexplode(COALESCE(c.relacl,pg_catalog.acldefault('r',c.relowner))) a
     WHERE a.grantee<>c.relowner))
   THEN RAISE EXCEPTION 'CA25: fuente ausente %',nombre USING ERRCODE='55000'; END IF;
+ END LOOP;
+ FOREACH nombre IN ARRAY ARRAY['organizacion_actual','organizacion_versiones','vinculo_corporativo_actual','vinculo_corporativo_versiones'] LOOP
+  IF NOT EXISTS(SELECT 1 FROM pg_catalog.pg_class c WHERE c.oid=pg_catalog.to_regclass('vec_contexto_actor_v1.'||nombre)
+   AND c.relowner='vec_contexto_actor_v1_propietario'::regrole AND c.relkind='r'
+   AND c.relrowsecurity AND c.relforcerowsecurity)
+  THEN RAISE EXCEPTION 'CA25: organización corporativa ausente %',nombre USING ERRCODE='55000'; END IF;
  END LOOP;
  IF pg_catalog.to_regprocedure('vec_contexto_actor_v1.rechazar_mutacion_historia()') IS NULL
   OR pg_catalog.to_regprocedure('vec_contexto_actor_v1.rechazar_truncado()') IS NULL
@@ -118,9 +124,61 @@ END $f$;
 REVOKE ALL ON FUNCTION vec_contexto_actor_v1.fuentes_certificado_firmante_ct_v2(text,text,text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION vec_contexto_actor_v1.fuentes_certificado_firmante_ct_v2(text,text,text) TO vec_autorizacion_propietario;
 
+CREATE FUNCTION vec_contexto_actor_v1.acreditar_organizacion_destino_certificado_v1(
+ c text,p text,v text,v_version numeric,org_esperada text)
+RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET lock_timeout='2s' AS $f$
+DECLARE s jsonb;pr record;cr record;o record;ahora timestamptz;
+BEGIN
+ IF pg_catalog.current_setting('transaction_isolation')<>'serializable'
+  OR pg_catalog.current_setting('transaction_read_only')<>'off'
+  OR vec_contexto_actor_v1.organizacion_ref_valida(org_esperada) IS NOT TRUE
+  OR v_version IS NULL OR v_version<1 OR pg_catalog.scale(v_version)<>0 THEN RETURN NULL; END IF;
+ s:=vec_contexto_actor_v1.fuentes_certificado_firmante_ct_v2(c,p,v);
+ IF s IS NULL OR (s#>>'{vinculo_cuenta_persona,version}')::numeric<>v_version THEN RETURN NULL; END IF;
+ SELECT x.* INTO pr FROM vec_contexto_actor_v1.perfil_actual a
+ JOIN vec_contexto_actor_v1.perfil_versiones x USING(perfil_ref,version)
+ WHERE a.perfil_ref=s#>>'{vinculo_cuenta_persona,perfil_ref}' FOR SHARE OF a,x;
+ IF NOT FOUND THEN RETURN NULL; END IF;
+ SELECT x.* INTO cr FROM vec_contexto_actor_v1.vinculo_corporativo_actual a
+ JOIN vec_contexto_actor_v1.vinculo_corporativo_versiones x
+  ON x.vinculo_corporativo_ref=a.vinculo_corporativo_ref AND x.version=a.version
+ WHERE a.cuenta_ref=c AND a.superficie='interna_corporativa' AND a.uso='consulta_rrhh' FOR SHARE OF a,x;
+ IF NOT FOUND THEN RETURN NULL; END IF;
+ SELECT x.* INTO o FROM vec_contexto_actor_v1.organizacion_actual a
+ JOIN vec_contexto_actor_v1.organizacion_versiones x USING(organizacion_ref,version)
+ WHERE a.organizacion_ref=org_esperada FOR SHARE OF a,x;
+ IF NOT FOUND THEN RETURN NULL; END IF;
+ ahora:=pg_catalog.clock_timestamp();
+ IF pr.persona_ref<>p OR pr.estado<>'activo' OR pr.procedencia_autoridad<>'autoridad_maestra_acreditada'
+  OR cr.cuenta_ref<>c OR cr.persona_ref<>p OR cr.perfil_ref<>pr.perfil_ref
+  OR cr.vinculo_contexto_ref<>v OR cr.vinculo_contexto_version<>v_version
+  OR cr.cuenta_version<>(s#>>'{cuenta,version}')::numeric
+  OR cr.persona_version<>(s#>>'{persona,version}')::numeric OR cr.perfil_version<>pr.version
+  OR cr.organizacion_ref<>org_esperada OR cr.organizacion_version<>o.version
+  OR cr.organizacion_procedencia_ref<>o.procedencia_ref
+  OR cr.organizacion_procedencia_version<>o.procedencia_version
+  OR cr.organizacion_procedencia_huella_sha256<>o.procedencia_huella_sha256
+  OR cr.organizacion_procedencia_autoridad<>o.procedencia_autoridad
+  OR cr.estado<>'activo' OR o.estado<>'activo'
+  OR cr.procedencia_autoridad<>'autoridad_maestra_acreditada'
+  OR o.procedencia_autoridad<>'autoridad_maestra_acreditada'
+  OR ahora<GREATEST(pr.vigente_desde,cr.vigente_desde,o.vigente_desde)
+  OR ahora>=LEAST(pr.vigente_hasta,cr.vigente_hasta,o.vigente_hasta)
+ THEN RETURN NULL; END IF;
+ RETURN pg_catalog.jsonb_build_object('organizacion_ref',o.organizacion_ref,'organizacion_version',o.version,
+  'organizacion_huella_sha256',pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(pg_catalog.to_jsonb(o)::text,'UTF8')),'hex'),
+  'organizacion_procedencia_ref',o.procedencia_ref,'organizacion_procedencia_version',o.procedencia_version,
+  'organizacion_procedencia_sha256',o.procedencia_huella_sha256,
+  'vinculo_corporativo_ref',cr.vinculo_corporativo_ref,'vinculo_corporativo_version',cr.version,
+  'vinculo_corporativo_huella_sha256',pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(pg_catalog.to_jsonb(cr)::text,'UTF8')),'hex'));
+END $f$;
+REVOKE ALL ON FUNCTION vec_contexto_actor_v1.acreditar_organizacion_destino_certificado_v1(text,text,text,numeric,text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION vec_contexto_actor_v1.acreditar_organizacion_destino_certificado_v1(text,text,text,numeric,text)
+ TO vec_autorizacion_propietario;
+
 CREATE FUNCTION vec_contexto_actor_v1.publicar_certificado_firmante_ct_v2(b bytea,decision text,auditoria text)
 RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET lock_timeout='2s' AS $f$
-DECLARE d jsonb;s jsonb;a record;h record;fecha timestamptz(6);doc bytea;sha text;recibo text;result jsonb;canon text;
+DECLARE d jsonb;s jsonb;org jsonb;a record;h record;fecha timestamptz(6);doc bytea;sha text;recibo text;result jsonb;canon text;
 BEGIN
  IF current_setting('transaction_isolation')<>'serializable' OR current_setting('transaction_read_only')<>'off'
   OR b IS NULL OR pg_catalog.octet_length(b) NOT BETWEEN 2 AND 16384
@@ -128,8 +186,8 @@ BEGIN
   OR auditoria IS NULL OR pg_catalog.octet_length(auditoria) NOT BETWEEN 1 AND 512
  THEN RAISE EXCEPTION 'CA25: publicación denegada' USING ERRCODE='42501'; END IF;
  d:=pg_catalog.convert_from(b,'UTF8')::jsonb;
- IF pg_catalog.jsonb_typeof(d)<>'object' OR (SELECT count(*) FROM pg_catalog.jsonb_object_keys(d))<>16
-  OR NOT d ?& ARRAY['esquema','clave','vinculo_ref','version','certificado_der_sha256','cuenta_ref','persona_ref','vinculo_cuenta_persona_ref','estado','vigente_desde','vigente_hasta','evidencia_ref','evidencia_sha256','preimagen_ref','preimagen_version','preimagen_sha256']
+ IF pg_catalog.jsonb_typeof(d)<>'object' OR (SELECT count(*) FROM pg_catalog.jsonb_object_keys(d))<>17
+  OR NOT d ?& ARRAY['esquema','clave','vinculo_ref','version','certificado_der_sha256','cuenta_ref','persona_ref','vinculo_cuenta_persona_ref','organizacion_ref','estado','vigente_desde','vigente_hasta','evidencia_ref','evidencia_sha256','preimagen_ref','preimagen_version','preimagen_sha256']
   OR d->>'esquema'<>'vec.contexto-actor.certificado-firmante.publicacion.v2'
   OR d->>'clave' !~ '^[0-9a-f]{32}$' OR d->>'certificado_der_sha256' !~ '^[0-9a-f]{64}$'
   OR d->>'certificado_der_sha256'=pg_catalog.repeat('0',64)
@@ -137,6 +195,7 @@ BEGIN
   OR vec_contexto_actor_v1.referencia_valida(d->>'cuenta_ref','cta_') IS NOT TRUE
   OR vec_contexto_actor_v1.referencia_valida(d->>'persona_ref','per_') IS NOT TRUE
   OR vec_contexto_actor_v1.referencia_valida(d->>'vinculo_cuenta_persona_ref','vca_') IS NOT TRUE
+  OR vec_contexto_actor_v1.organizacion_ref_valida(d->>'organizacion_ref') IS NOT TRUE
   OR vec_contexto_actor_v1.referencia_valida(d->>'evidencia_ref','evi_') IS NOT TRUE
   OR d->>'evidencia_sha256' !~ '^[0-9a-f]{64}$' OR d->>'evidencia_sha256'=pg_catalog.repeat('0',64)
   OR d->>'estado' NOT IN ('vigente','retirado')
@@ -152,10 +211,10 @@ BEGIN
   OR NOT pg_catalog.isfinite((d->>'vigente_hasta')::timestamptz)
   OR (d->>'vigente_hasta')::timestamptz<=(d->>'vigente_desde')::timestamptz
  THEN RAISE EXCEPTION 'CA25: descriptor inválido' USING ERRCODE='22023'; END IF;
- canon:=pg_catalog.format('{"esquema":%s,"clave":%s,"vinculo_ref":%s,"version":%s,"certificado_der_sha256":%s,"cuenta_ref":%s,"persona_ref":%s,"vinculo_cuenta_persona_ref":%s,"estado":%s,"vigente_desde":%s,"vigente_hasta":%s,"evidencia_ref":%s,"evidencia_sha256":%s,"preimagen_ref":%s,"preimagen_version":%s,"preimagen_sha256":%s}',
+ canon:=pg_catalog.format('{"esquema":%s,"clave":%s,"vinculo_ref":%s,"version":%s,"certificado_der_sha256":%s,"cuenta_ref":%s,"persona_ref":%s,"vinculo_cuenta_persona_ref":%s,"organizacion_ref":%s,"estado":%s,"vigente_desde":%s,"vigente_hasta":%s,"evidencia_ref":%s,"evidencia_sha256":%s,"preimagen_ref":%s,"preimagen_version":%s,"preimagen_sha256":%s}',
   pg_catalog.to_json(d->>'esquema'),pg_catalog.to_json(d->>'clave'),pg_catalog.to_json(d->>'vinculo_ref'),d->>'version',
   pg_catalog.to_json(d->>'certificado_der_sha256'),pg_catalog.to_json(d->>'cuenta_ref'),pg_catalog.to_json(d->>'persona_ref'),
-  pg_catalog.to_json(d->>'vinculo_cuenta_persona_ref'),pg_catalog.to_json(d->>'estado'),pg_catalog.to_json(d->>'vigente_desde'),
+  pg_catalog.to_json(d->>'vinculo_cuenta_persona_ref'),pg_catalog.to_json(d->>'organizacion_ref'),pg_catalog.to_json(d->>'estado'),pg_catalog.to_json(d->>'vigente_desde'),
   pg_catalog.to_json(d->>'vigente_hasta'),pg_catalog.to_json(d->>'evidencia_ref'),pg_catalog.to_json(d->>'evidencia_sha256'),
   pg_catalog.to_json(d->>'preimagen_ref'),d->>'preimagen_version',pg_catalog.to_json(d->>'preimagen_sha256'));
  IF pg_catalog.convert_to(canon,'UTF8') IS DISTINCT FROM b
@@ -163,6 +222,10 @@ BEGIN
  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('vec_contexto_actor_v1:certificado_firmante_v2:'||(d->>'certificado_der_sha256'),0));
  s:=vec_contexto_actor_v1.fuentes_certificado_firmante_ct_v2(d->>'cuenta_ref',d->>'persona_ref',d->>'vinculo_cuenta_persona_ref');
  IF s IS NULL THEN RAISE EXCEPTION 'CA25: fuente no vigente' USING ERRCODE='42501'; END IF;
+ org:=vec_contexto_actor_v1.acreditar_organizacion_destino_certificado_v1(
+  d->>'cuenta_ref',d->>'persona_ref',d->>'vinculo_cuenta_persona_ref',
+  (s#>>'{vinculo_cuenta_persona,version}')::numeric,d->>'organizacion_ref');
+ IF org IS NULL THEN RAISE EXCEPTION 'CA25: organización no acreditada' USING ERRCODE='42501'; END IF;
  SELECT x.* INTO a FROM vec_contexto_actor_v1.certificado_firmante_nominal_actual x
  WHERE x.certificado_der_sha256=d->>'certificado_der_sha256' FOR UPDATE;
  SELECT x.* INTO h FROM vec_contexto_actor_v1.certificado_firmante_nominal_versiones x WHERE x.clave=d->>'clave';
@@ -170,6 +233,7 @@ BEGIN
   -- Cada replay llega con nueva autorización/auditoría V3; el recibo y la
   -- decisión originales permanecen inmutables en esta fila histórica.
   IF h.descriptor_canonico IS DISTINCT FROM b
+   OR (pg_catalog.convert_from(h.documento_canonico,'UTF8')::jsonb)->'organizacion_destino' IS DISTINCT FROM org
    OR a.vinculo_ref IS DISTINCT FROM h.vinculo_ref OR a.version IS DISTINCT FROM h.version OR a.huella_sha256 IS DISTINCT FROM h.huella_sha256
    OR (s#>>'{cuenta,version}')::numeric IS DISTINCT FROM h.cuenta_version
    OR s#>>'{cuenta,huella_sha256}' IS DISTINCT FROM h.cuenta_huella_sha256
@@ -203,7 +267,7 @@ BEGIN
   'clave',d->>'clave','vinculo_ref',d->>'vinculo_ref','version',(d->>'version')::numeric,
   'certificado_der_sha256',d->>'certificado_der_sha256','estado',d->>'estado',
   'decision_ref',decision,'auditoria_ref',auditoria,'recibo_ref',recibo,
-  'descriptor_sha256',pg_catalog.encode(pg_catalog.sha256(b),'hex'),
+  'descriptor_sha256',pg_catalog.encode(pg_catalog.sha256(b),'hex'),'organizacion_destino',org,
   'registrada_en',pg_catalog.to_char(fecha AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'));
  doc:=pg_catalog.convert_to(result::text,'UTF8');sha:=pg_catalog.encode(pg_catalog.sha256(doc),'hex');
  INSERT INTO vec_contexto_actor_v1.certificado_firmante_nominal_versiones
@@ -225,7 +289,7 @@ GRANT EXECUTE ON FUNCTION vec_contexto_actor_v1.publicar_certificado_firmante_ct
 
 CREATE FUNCTION vec_contexto_actor_v1.leer_revalidar_certificado_firmante_ct_v2(der text)
 RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET lock_timeout='2s' AS $f$
-DECLARE v record;s jsonb;ahora timestamptz;
+DECLARE v record;s jsonb;org jsonb;recibo jsonb;ahora timestamptz;
 BEGIN
  IF current_setting('transaction_isolation')<>'serializable' OR current_setting('transaction_read_only')<>'off'
   OR der IS NULL OR der !~ '^[0-9a-f]{64}$' OR der=pg_catalog.repeat('0',64)
@@ -239,8 +303,13 @@ BEGIN
   OR (pg_catalog.convert_from(v.documento_canonico,'UTF8')::jsonb)->>'descriptor_sha256' IS DISTINCT FROM pg_catalog.encode(pg_catalog.sha256(v.descriptor_canonico),'hex')
  THEN RETURN NULL; END IF;
  s:=vec_contexto_actor_v1.fuentes_certificado_firmante_ct_v2(v.cuenta_ref,v.persona_ref,v.vinculo_cuenta_persona_ref);
+ recibo:=pg_catalog.convert_from(v.documento_canonico,'UTF8')::jsonb;
+ org:=vec_contexto_actor_v1.acreditar_organizacion_destino_certificado_v1(
+  v.cuenta_ref,v.persona_ref,v.vinculo_cuenta_persona_ref,v.vinculo_cuenta_persona_version,
+  (pg_catalog.convert_from(v.descriptor_canonico,'UTF8')::jsonb)->>'organizacion_ref');
  ahora:=pg_catalog.clock_timestamp();
- IF s IS NULL OR ahora<v.vigente_desde OR ahora>=v.vigente_hasta
+ IF s IS NULL OR org IS NULL OR recibo->'organizacion_destino' IS DISTINCT FROM org
+  OR ahora<v.vigente_desde OR ahora>=v.vigente_hasta
   OR (s#>>'{cuenta,version}')::numeric<>v.cuenta_version OR s#>>'{cuenta,huella_sha256}'<>v.cuenta_huella_sha256
   OR (s#>>'{persona,version}')::numeric<>v.persona_version OR s#>>'{persona,huella_sha256}'<>v.persona_huella_sha256
   OR (s#>>'{vinculo_cuenta_persona,version}')::numeric<>v.vinculo_cuenta_persona_version
@@ -248,7 +317,7 @@ BEGIN
  THEN RETURN NULL; END IF;
  RETURN pg_catalog.jsonb_build_object('esquema','vec.contexto-actor.certificado-firmante-ct.v2',
   'certificado_der_sha256',der,'persona_ref',v.persona_ref,'cuenta',s->'cuenta','persona',s->'persona',
-  'vinculo_cuenta_persona',s->'vinculo_cuenta_persona'-'perfil_ref','estado','vigente',
+  'vinculo_cuenta_persona',(s->'vinculo_cuenta_persona')-'perfil_ref','organizacion_destino',org,'estado','vigente',
   'vinculo_certificado',pg_catalog.jsonb_build_object('referencia',v.vinculo_ref,'version',v.version,'huella_sha256',v.huella_sha256,
    'cuenta_ref',v.cuenta_ref,'persona_ref',v.persona_ref,'certificado_der_sha256',v.certificado_der_sha256,
    'estado',v.estado,'vigente_desde',v.vigente_desde,'vigente_hasta',v.vigente_hasta,

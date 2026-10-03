@@ -14,7 +14,9 @@ BEGIN
   OR pg_catalog.to_regrole('vec_autorizacion_atestada_v3_propietario') IS NULL
   OR pg_catalog.to_regrole('vec_autorizacion_propietario') IS NULL
   OR pg_catalog.to_regprocedure('vec_contexto_actor_v1.publicar_certificado_firmante_ct_v2(bytea,text,text)') IS NULL
+  OR pg_catalog.to_regprocedure('vec_contexto_actor_v1.acreditar_organizacion_destino_certificado_v1(text,text,text,numeric,text)') IS NULL
   OR pg_catalog.to_regprocedure('vec_autorizacion.acreditar_perfil_aplicacion_nominal_v1(text,text,text,text,text,text,text,text,jsonb,jsonb)') IS NULL
+  OR pg_catalog.to_regprocedure('vec_autorizacion.acreditar_ambito_certificado_nominal_v1(text,text,text)') IS NULL
   OR pg_catalog.to_regprocedure('vec_autorizacion.destino_no_administrador_certificado_nominal_v1(text,text)') IS NULL
   OR pg_catalog.to_regprocedure('vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
   OR pg_catalog.to_regprocedure('vec_autorizacion_atestada_v3.consumir_publicacion_certificado_nominal_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
@@ -70,9 +72,9 @@ BEGIN
   OR pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(fuente,'UTF8')),'hex') IS DISTINCT FROM esperado_fuente
   OR propietario<>'vec_autorizacion_atestada_v3_propietario'::regrole OR NOT definidora
   OR config IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s']
-  OR NOT EXISTS(SELECT 1 FROM pg_catalog.aclexplode(pg_catalog.coalesce(acl,pg_catalog.acldefault('f',propietario))) a
+  OR NOT EXISTS(SELECT 1 FROM pg_catalog.aclexplode(COALESCE(acl,pg_catalog.acldefault('f',propietario))) a
     WHERE a.grantee=propietario AND a.grantor=propietario AND a.privilege_type='EXECUTE' AND NOT a.is_grantable)
-  OR EXISTS(SELECT 1 FROM pg_catalog.aclexplode(pg_catalog.coalesce(acl,pg_catalog.acldefault('f',propietario))) a
+  OR EXISTS(SELECT 1 FROM pg_catalog.aclexplode(COALESCE(acl,pg_catalog.acldefault('f',propietario))) a
     WHERE a.grantee<>propietario OR a.grantor<>propietario OR a.privilege_type<>'EXECUTE' OR a.is_grantable)
   OR pg_catalog.length(original)-pg_catalog.length(pg_catalog.replace(original,marca,''))<>pg_catalog.length(marca)
   OR pg_catalog.length(original)-pg_catalog.length(pg_catalog.replace(original,excl,''))<>pg_catalog.length(excl)
@@ -158,7 +160,7 @@ CREATE FUNCTION vec_autorizacion.operar_certificado_nominal_v3(
  p_descriptor bytea,p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,
  p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea)
 RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET lock_timeout='2s' AS $f$
-DECLARE d jsonb;c jsonb;a jsonb;x record;resultado jsonb;accion text;sha text;
+DECLARE d jsonb;c jsonb;a jsonb;s jsonb;org jsonb;x record;resultado jsonb;accion text;sha text;
 BEGIN
  IF pg_catalog.current_setting('transaction_isolation')<>'serializable' OR pg_catalog.current_setting('transaction_read_only')<>'off'
   OR p_descriptor IS NULL OR pg_catalog.octet_length(p_descriptor) NOT BETWEEN 2 AND 16384
@@ -169,11 +171,20 @@ BEGIN
  accion:=CASE d->>'estado' WHEN 'vigente' THEN 'administracion.certificados.nominal.publicar'
    WHEN 'retirado' THEN 'administracion.certificados.nominal.retirar' ELSE NULL END;
  sha:=pg_catalog.encode(pg_catalog.sha256(p_descriptor),'hex');
+ s:=vec_contexto_actor_v1.fuentes_certificado_firmante_ct_v2(
+  d->>'cuenta_ref',d->>'persona_ref',d->>'vinculo_cuenta_persona_ref');
+ IF s IS NULL THEN RAISE EXCEPTION 'AD165: identidad destino no acreditada' USING ERRCODE='42501'; END IF;
+ org:=vec_contexto_actor_v1.acreditar_organizacion_destino_certificado_v1(
+  d->>'cuenta_ref',d->>'persona_ref',d->>'vinculo_cuenta_persona_ref',
+  (s#>>'{vinculo_cuenta_persona,version}')::numeric,d->>'organizacion_ref');
  IF accion IS NULL OR c->>'operacion' IS DISTINCT FROM accion
   OR c->>'efecto_ref' IS DISTINCT FROM 'certificado-nominal:'||(d->>'certificado_der_sha256')
   OR c->>'huella_efecto_sha256' IS DISTINCT FROM sha
   OR a->>'contexto_recurso_huella_sha256' IS DISTINCT FROM sha
   OR a->>'principal_id' IS NOT DISTINCT FROM d->>'persona_ref'
+  OR org IS NULL
+  OR vec_autorizacion.acreditar_ambito_certificado_nominal_v1(
+   a->>'version_rol_ref',a->>'asignacion_ref',org->>'organizacion_ref') IS NOT TRUE
   OR vec_autorizacion.destino_no_administrador_certificado_nominal_v1(d->>'cuenta_ref',d->>'persona_ref') IS NOT TRUE
  THEN RAISE EXCEPTION 'AD165: destino o recurso denegado' USING ERRCODE='42501'; END IF;
  SELECT * INTO STRICT x FROM vec_autorizacion_atestada_v3.consumir_publicacion_certificado_nominal_v3_atestada(
@@ -184,6 +195,11 @@ BEGIN
    a->>'version_rol_ref',a->>'asignacion_ref',a->>'principal_id',a->>'perfil_activo_ref',
    accion,'administracion','vinculo_certificado_nominal','gestionar_certificados_firmantes','[]'::jsonb,a->'vinculo_autenticacion_actor') IS NOT TRUE
   OR vec_autorizacion.destino_no_administrador_certificado_nominal_v1(d->>'cuenta_ref',d->>'persona_ref') IS NOT TRUE
+  OR vec_autorizacion.acreditar_ambito_certificado_nominal_v1(
+   a->>'version_rol_ref',a->>'asignacion_ref',org->>'organizacion_ref') IS NOT TRUE
+  OR vec_contexto_actor_v1.acreditar_organizacion_destino_certificado_v1(
+   d->>'cuenta_ref',d->>'persona_ref',d->>'vinculo_cuenta_persona_ref',
+   (s#>>'{vinculo_cuenta_persona,version}')::numeric,d->>'organizacion_ref') IS DISTINCT FROM org
  THEN RAISE EXCEPTION 'AD165: revalidación final denegada' USING ERRCODE='42501'; END IF;
  RETURN resultado;
 END $f$;
