@@ -82,7 +82,7 @@ export function crearAccionesFirma({
     const real = circuito?.documentos?.find((d) => d.documento === documento);
     if (retirada || estado?.vista !== "expediente" || estado?.carga !== "listo" || exp?.demostracion !== false
       || !REFERENCIA.test(exp?.expediente_ref ?? "") || !Number.isSafeInteger(exp.version) || exp.version < 1
-      || circuito.acciones === false || circuito.preflight_compuesto !== true
+      || !circuito || circuito.acciones === false || circuito.preflight_compuesto !== true
       || !real || !Number.isSafeInteger(pasoOrden) || pasoOrden < 1 || pasoOrden > 16
       || !Object.hasOwn(PERFILES_BORRADOR_RRHH, documento)) return null;
     return { expedienteRef: exp.expediente_ref, version: exp.version, documento, pasoOrden,
