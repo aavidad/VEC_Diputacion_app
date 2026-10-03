@@ -13,7 +13,7 @@ import (
 )
 
 type textosRecolector struct {
-	Esquema   int    `json:"esquema"`
+	Esquema   string `json:"esquema"`
 	Ayuda     string `json:"ayuda"`
 	Terminado string `json:"terminado"`
 	Error     string `json:"error"`
@@ -100,7 +100,7 @@ func ejecutar(args []string, entrada io.Reader, salida, diagnostico io.Writer) i
 		return 2
 	}
 	var textos textosRecolector
-	if leerArchivoRecolector(*catalogo, &textos) != nil || textos.Esquema != 1 || textos.Ayuda == "" || textos.Terminado == "" || textos.Error == "" {
+	if leerArchivoRecolector(*catalogo, &textos) != nil || textos.Esquema != "1" || textos.Ayuda == "" || textos.Terminado == "" || textos.Error == "" {
 		return 2
 	}
 	if *ayuda {
