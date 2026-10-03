@@ -223,19 +223,7 @@ BEGIN
  IF d->>'valida_hasta' IS NULL OR ahora>=(d->>'valida_hasta')::timestamptz THEN
   RAISE EXCEPTION 'exportación de servicios propios caducada' USING ERRCODE='42501'; END IF;
  -- La evidencia referencia el recibo fuente y el consumo nuevo de generación.
- -- CSV se serializa/valida en el adaptador antes de DO $acl$
-DECLARE f oid:=to_regprocedure('vec_personal.exportar_servicios_propios_empleado_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
-BEGIN
- IF NOT EXISTS (SELECT 1 FROM pg_proc p WHERE p.oid=f AND p.proowner='vec_personal_propietario'::regrole
-      AND p.prosecdef AND p.provolatile='v' AND p.proparallel='u'
-      AND p.proconfig=ARRAY['search_path=pg_catalog','row_security=on','TimeZone=UTC','lock_timeout=2s'])
-    OR (SELECT count(*) FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a WHERE p.oid=f)<>2
-    OR EXISTS (SELECT 1 FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
-       WHERE p.oid=f AND (a.grantee NOT IN (p.proowner,'vec_personal_ejecutor'::regrole)
-         OR a.grantor<>p.proowner OR a.privilege_type<>'EXECUTE' OR a.is_grantable)) THEN
-  RAISE EXCEPTION 'Personal32: ACL exportación incompatible' USING ERRCODE='55000'; END IF;
-END $acl$;
-COMMIT; no acredita entrega.
+ -- CSV se serializa/valida en el adaptador antes de COMMIT; no acredita entrega.
  RETURN jsonb_build_object('corte',jsonb_build_object('vigente_en',fecha::text,'conocido_en',m->>'conocido_en'),
    'servicios',servicios,
    'evidencia',jsonb_build_object('recibo_ref',previo.recibo_ref,'decision_ref',consumo.decision_ref,
