@@ -228,19 +228,24 @@ func nuevoServidorPortalExternoDesarrollo(cfg config.Config, registro io.Writer,
 }
 
 // nuevasCapacidadesPersonalesPortalExterno compone las capacidades del Área
-// personal que el proceso externo tenga encendidas: preferencias, consulta de
-// Mi bolsa y, con el selector, acciones del candidato. Una capacidad activa
-// sin infraestructura completa impide arrancar.
+// personal activadas: preferencias, correos, imagen, Mi bolsa y acciones del
+// candidato. Una capacidad activa sin infraestructura completa impide arrancar.
 func nuevasCapacidadesPersonalesPortalExterno(cfg config.Config, identidad *resolvedorIdentidadDesarrollo, emisor vecports.EmisorIncidenciasTecnicas) (http.Handler, func(), error) {
 	nada := func() {}
-	for _, selector := range []string{envUsuariosCorreosDesarrollo, envUsuariosImagenDesarrollo} {
-		if activo, err := selectorCapacidadRRHHDesarrollo(cfg, selector); err != nil || activo {
-			return nil, nada, ErrUsuariosPortalExternoNoDisponible
-		}
-	}
 	preferencias, err := selectorCapacidadRRHHDesarrollo(cfg, envUsuariosPreferenciasDesarrollo)
 	if err != nil {
 		return nil, nada, err
+	}
+	correos, err := selectorCapacidadRRHHDesarrollo(cfg, envUsuariosCorreosDesarrollo)
+	if err != nil {
+		return nil, nada, err
+	}
+	imagen, err := selectorCapacidadRRHHDesarrollo(cfg, envUsuariosImagenDesarrollo)
+	if err != nil {
+		return nil, nada, err
+	}
+	if (correos || imagen) && !preferencias {
+		return nil, nada, ErrUsuariosPortalExternoNoDisponible
 	}
 	portalCandidato, err := cfg.BolsaPortalCandidatoDesarrolloActivo()
 	if err != nil {
@@ -277,16 +282,35 @@ func nuevasCapacidadesPersonalesPortalExterno(cfg config.Config, identidad *reso
 		return nil, nada, ErrUsuariosPortalExternoNoDisponible
 	}
 	cerrar := func() { preflight.Close(); derivador.borrar() }
+	var fuenteCorreos *fuenteClavesCorreosPortalExterno
+	if correos {
+		fuenteCorreos, err = nuevaFuenteClavesCorreosPortalExterno(ctx, cfg, preflight)
+		if err != nil {
+			cerrar()
+			return nil, nada, ErrUsuariosPortalExternoNoDisponible
+		}
+	}
+	cerrarConClaves := func() {
+		if fuenteCorreos != nil {
+			fuenteCorreos.borrar()
+		}
+		cerrar()
+	}
 	var personal http.Handler
 	cerrarPreferencias := nada
 	if preferencias {
-		autoridad, err := nuevasPreferenciasPortalExterno(ctx, cfg, identidad, derivador, emisor, preflight)
+		var autoridad *autoridadPreferenciasUsuariosDesarrollo
+		if fuenteCorreos != nil {
+			autoridad, err = nuevasPreferenciasPortalExterno(ctx, cfg, identidad, derivador, emisor, preflight, fuenteCorreos)
+		} else {
+			autoridad, err = nuevasPreferenciasPortalExterno(ctx, cfg, identidad, derivador, emisor, preflight)
+		}
 		if err != nil {
-			cerrar()
+			cerrarConClaves()
 			return nil, nada, err
 		}
 		cerrarPreferencias = autoridad.cerrar
-		cerrarTodo := func() { cerrarPreferencias(); cerrar() }
+		cerrarTodo := func() { cerrarPreferencias(); cerrarConClaves() }
 		manejador, err := nuevaAPIPersonalPortalExterno(identidad, emisor, autoridad)
 		if err != nil {
 			cerrarTodo()
@@ -297,10 +321,10 @@ func nuevasCapacidadesPersonalesPortalExterno(cfg config.Config, identidad *reso
 	bolsa, cerrarBolsa, err := nuevaMiBolsaPortalExterno(ctx, cfg, identidad, derivador, preflight, emisor)
 	if err != nil {
 		cerrarPreferencias()
-		cerrar()
+		cerrarConClaves()
 		return nil, nada, err
 	}
-	cerrarTodo := func() { cerrarBolsa(); cerrarPreferencias(); cerrar() }
+	cerrarTodo := func() { cerrarBolsa(); cerrarPreferencias(); cerrarConClaves() }
 	if bolsa == nil {
 		return personal, cerrarTodo, nil
 	}
