@@ -1,8 +1,30 @@
 # Revisar el material preparado de las bases
 
-Esta pantalla abre la salida del preparador integrado de Selección. Permite
-revisar contenido, requisitos, fechas, documentos propuestos, referencias y
-pendientes. La descarga conserva exactamente los bytes del archivo elegido.
+Esta pantalla consulta una preparación conservada y abre la salida local del
+preparador de Selección. Permite revisar contenido, requisitos, fechas,
+documentos propuestos, referencias y pendientes. Ambas vías mantienen las
+bases pendientes de aprobación, firma y publicación.
+
+Para consultar, indique la referencia de la preparación y pulse «Consultar
+preparación». La última revisión usa esa referencia; una revisión concreta
+requiere también su número y huella originales. La sesión y los permisos los
+resuelve el servidor común. La pantalla no pide identidad, ámbito ni permisos.
+
+La consulta usa `POST /api/vec/seleccion/preparacion-bases/consultar`. Sólo muestra
+una respuesta `200` con estado `obtenida`, selector coincidente y evidencias
+válidas. Los pendientes proceden de la respuesta de Bolsa: no se evalúan aquí
+ni se elimina el pendiente de las reglas de baremación. El detalle separa el
+recibo de la preparación conservada del acceso efectuado por esta consulta.
+
+Cambiar un dato, iniciar otra consulta, cancelar, cerrar o abandonar la pantalla
+retira el material anterior y cancela la petición pendiente. Una respuesta tardía
+no repone ese material. Una denegación, ausencia, conflicto, fallo de servicio o
+respuesta incompatible deja la pantalla sin resultados ni descarga habilitada.
+
+Los bytes originales de la consulta permanecen sólo en memoria para validar y
+mostrar la respuesta. No hay descarga de la respuesta consultada: esa exportación
+requiere su propia operación nominal auditada. «Descargar original» se limita al
+archivo local abierto y conserva sus bytes exactos.
 
 Desde la raíz del repositorio, prepare un archivo de prueba y arranque el visor:
 
@@ -31,14 +53,15 @@ archivo provenga del CLI ni que sus datos sean ciertos.
 
 El archivo permanece sólo en memoria del navegador. Recargar exige abrirlo de
 nuevo. Las rutas de documentos y sus huellas son texto propuesto: no se consultan
-ni se convierten en enlaces. No hay guardado institucional, permisos nuevos,
-firma, aprobación, publicación ni integración con el gobierno de Bolsa.
+ni se convierten en enlaces. Esta pantalla no guarda versiones ni concede permisos nuevos. La consulta usa
+el preparador durable existente de Bolsa; no firma, aprueba ni publica bases.
 Este visor cubre una parte de preparación de S2; S2 sigue abierto.
 
 Pruebas focales:
 
 ```sh
-node --test web/static/portal-empleado/modulos/seleccion/preparacion-bases/modelo.test.mjs
+node --test web/static/portal-empleado/modulos/seleccion/preparacion-bases/modelo.test.mjs \
+  web/static/portal-empleado/modulos/seleccion/preparacion-bases/consulta.test.mjs
 VEC_S2_SCRATCH=/directorio/scratch \
   python web/static/portal-empleado/modulos/seleccion/preparacion-bases/recorrido_chrome.py
 python -m unittest scripts.tests.test_servir_preparacion_rrhh
@@ -51,3 +74,11 @@ son salidas de los ejemplos del CLI; el servidor nunca los sirve. La prueba
 abre ambos, descarga el original, cambia de idioma y comprueba escritorio,
 móvil, teclado, rechazo de JSON malformado, falso estado aprobado y contenido
 que intenta ejecutar HTML o navegar a otra red.
+
+El recorrido `recorrido_consulta_chrome.py` comprueba el consumidor en Chrome del
+sistema con respuestas sintéticas interceptadas: actual/exacta, idioma,
+retirada ante errores y respuesta tardía, y ausencia de descarga de la consulta.
+No demuestra sesión nominal, autorización instalada, PostgreSQL ni reinicio.
+El driver nominal de S2 permanece en `scripts/recorridos/seleccion/preparacion-bases/`;
+su fuente de identidad y las demás dependencias deben estar disponibles antes
+de acreditar ese recorrido.
