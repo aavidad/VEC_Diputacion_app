@@ -48,6 +48,12 @@ type consultaIntegracionConfig struct {
 	SourceRoot  string                         `json:"source_root"`
 	ReadyFile   string                         `json:"ready_file"`
 	HoldSeconds int                            `json:"hold_seconds"`
+	Auditoria   consultaAuditoriaConfig        `json:"auditoria"`
+}
+
+type consultaAuditoriaConfig struct {
+	Proceso string `json:"proceso"`
+	PlazoMS int    `json:"plazo_ms"`
 }
 
 type consultaCasoReal struct {
@@ -99,7 +105,7 @@ type consultaActorConfig struct {
 	RegisterLogin     string `json:"register_login"`
 	ReasonLogin       string `json:"reason_login"`
 	RuntimeLogin      string `json:"runtime_login"`
-	AuditLogin        string `json:"audit_login,omitempty"`
+	AuditLogin        string `json:"audit_login"`
 }
 
 type consultaRelojReal struct{}
@@ -194,10 +200,7 @@ func consultaPasswordValida(password string) bool {
 
 func consultaValidarCredenciales(c consultaIntegracionConfig) error {
 	a, ok := c.Actors["lector"]
-	logins := []string{a.ContextLogin, a.RevalidationLogin, a.SourceLogin, a.RegisterLogin, a.ReasonLogin, a.RuntimeLogin}
-	if a.AuditLogin != "" {
-		logins = append(logins, a.AuditLogin)
-	}
+	logins := []string{a.ContextLogin, a.RevalidationLogin, a.SourceLogin, a.RegisterLogin, a.ReasonLogin, a.RuntimeLogin, a.AuditLogin}
 	if !ok || len(c.Passwords) != len(logins) {
 		return errors.New("consulta_integracion.credenciales_no_disponibles")
 	}
@@ -287,10 +290,10 @@ func consultaAbrirPool(ctx context.Context, socket, login, password string) (*pg
 	return p, nil
 }
 
-// La fábrica mantiene separadas las seis cuentas técnicas. La autorización
-// central registra sus denegaciones; éxito y ausencia se auditan en Méritos.
-func consultaComponerReal(ctx context.Context, c consultaIntegracionConfig, auditoria merports.AuditoriaIntentos) (http.Handler, func(), error) {
-	pools := make([]*pgxpool.Pool, 0, 6)
+// La fábrica separa las cuentas técnicas. El consumo V3 audita éxito y
+// ausencia dentro de la lectura; la autoridad común registra los fallos.
+func consultaComponerReal(ctx context.Context, c consultaIntegracionConfig) (http.Handler, func(), error) {
+	pools := make([]*pgxpool.Pool, 0, 7)
 	var privada ed25519.PrivateKey
 	cerrar := func() {
 		clear(privada)
@@ -418,30 +421,25 @@ func consultaComponerReal(ctx context.Context, c consultaIntegracionConfig, audi
 	if err != nil {
 		return fallo("consulta_integracion.repositorio")
 	}
-	if a.AuditLogin != "" {
-		ap, err := abrir(a.AuditLogin)
-		if err != nil {
-			return fallo("consulta_integracion.pool_auditoria")
-		}
-		auditoria, err = merpg.NuevaAuditoriaConsulta(ap)
-		if err != nil {
-			return fallo("consulta_integracion.auditoria")
-		}
+	ap, err := abrir(a.AuditLogin)
+	if err != nil {
+		return fallo("consulta_integracion.pool_auditoria")
 	}
-	service, err := merapp.NuevoServicioConsultaPropia(common, repository, auditoria, consultaRelojReal{})
+	if c.Auditoria.PlazoMS <= 0 || c.Auditoria.PlazoMS > 30000 {
+		return fallo("consulta_integracion.config_auditoria")
+	}
+	plazoAuditoria := time.Duration(c.Auditoria.PlazoMS) * time.Millisecond
+	auditoria, err := authpg.NuevoRegistradorIntentosAuditoriaPostgreSQL(ap, c.Auditoria.Proceso,
+		string(vd.SuperficieAutenticacionInternaCorporativaV1), plazoAuditoria)
+	if err != nil || auditoria.PreflightIntentoAuditoria(ctx) != nil {
+		return fallo("consulta_integracion.auditoria")
+	}
+	service, err := merapp.NuevoServicioConsultaPropia(common, repository,
+		merapp.ConfiguracionAuditoriaConsulta{Registrador: auditoria, Proceso: c.Auditoria.Proceso, Plazo: plazoAuditoria}, consultaRelojReal{})
 	if err != nil {
 		return fallo("consulta_integracion.servicio")
 	}
 	return NuevaConsultaPropia(provider, service), cerrar, nil
-}
-
-// El ensamblaje de ensayo no tiene todavía la autoridad común persistente de
-// intentos. Este cierre explícito nunca afirma haber registrado una auditoría:
-// un fallo posterior a la emisión termina indisponible, sin datos ni recibo.
-type consultaAuditoriaPendiente struct{}
-
-func (consultaAuditoriaPendiente) AppendAudit(context.Context, vd.AuditEntry) (vd.AuditEntry, error) {
-	return vd.AuditEntry{}, merports.ErrConsultaNoDisponible
 }
 
 type consultaFirmanteReal struct {
@@ -653,7 +651,7 @@ func TestConsultaIntegracionReal(t *testing.T) {
 	}()
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
-	handler, cleanup, err := consultaComponerReal(ctx, c, consultaAuditoriaPendiente{})
+	handler, cleanup, err := consultaComponerReal(ctx, c)
 	if err != nil {
 		t.Fatal(err.Error())
 	}

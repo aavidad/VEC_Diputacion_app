@@ -18,11 +18,12 @@ import (
 	"vec-diputacion-granada/internal/vec/pruebas"
 )
 
-func escenarioConsulta(t *testing.T) (*ServicioConsultaPropia, SolicitudConsultaPropia, *autoridadConsultaPrueba, *repositorioConsultaPrueba, *auditoriaPrueba) {
+func escenarioConsulta(t *testing.T) (*ServicioConsultaPropia, SolicitudConsultaPropia, *autoridadConsultaPrueba, *repositorioConsultaPrueba, *auditoriaConsultaPrueba) {
 	t.Helper()
-	_, original, _, _, audit := escenario(t)
+	_, original, _, _, _ := escenario(t)
+	audit := &auditoriaConsultaPrueba{t: t}
 	a, r := &autoridadConsultaPrueba{t: t}, &repositorioConsultaPrueba{}
-	s, err := NuevoServicioConsultaPropia(a, r, audit, relojPrueba{})
+	s, err := NuevoServicioConsultaPropia(a, r, configuracionAuditConsultaPrueba(audit), relojPrueba{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -44,6 +45,9 @@ type autoridadConsultaPrueba struct {
 
 func (a *autoridadConsultaPrueba) EmitirMaterialAutorizacionAtestadaV3(_ context.Context, solicitud vec.SolicitudAutorizacionLigadaV3, resultado vec.ResultadoContextoActorRegistradoV2) (vec.DecisionAutorizacionLigadaV3, vecports.ConfirmacionRegistroConcesionAutorizacionLigadaV3, vecports.ExportadorMaterialConsumoAutorizacionAtestadaV3, error) {
 	a.llamadas++
+	if a.defecto == "no_disponible" {
+		return vec.DecisionAutorizacionLigadaV3{}, vecports.ConfirmacionRegistroConcesionAutorizacionLigadaV3{}, nil, ports.ErrConsultaNoDisponible
+	}
 	if a.defecto == "denegada" {
 		return vec.DecisionAutorizacionLigadaV3{}, vecports.ConfirmacionRegistroConcesionAutorizacionLigadaV3{}, nil, vec.ErrAutorizacionDenegada
 	}
@@ -180,12 +184,12 @@ func TestConsultaPropiaEvidenciasVaciasSonArray(t *testing.T) {
 }
 
 func TestConsultaPropiaNoConsultaSinConcesionExacta(t *testing.T) {
-	for _, defecto := range []string{"denegada", "campo_ausente", "campo_ajeno", "obligacion_ausente", "obligacion_ajena", "audiencia", "caducada"} {
+	for _, defecto := range []string{"denegada", "no_disponible", "campo_ausente", "campo_ajeno", "obligacion_ausente", "obligacion_ajena", "audiencia", "caducada"} {
 		t.Run(defecto, func(t *testing.T) {
 			s, solicitud, a, r, audit := escenarioConsulta(t)
 			a.defecto = defecto
 			out, err := s.ConsultarActual(context.Background(), solicitud)
-			if err == nil || out.HechoActual != nil || out.ReciboConsulta != nil || r.llamadas != 0 || audit.llamadas != 0 {
+			if err == nil || out.HechoActual != nil || out.ReciboConsulta != nil || r.llamadas != 0 || audit.llamadas != 1 {
 				t.Fatal("autoridad no exacta alcanza el repositorio o devuelve datos", err)
 			}
 		})
@@ -233,7 +237,7 @@ func TestConsultaPropiaRechazaResultadoManipulado(t *testing.T) {
 			s, solicitud, _, r, audit := escenarioConsulta(t)
 			r.mutar = mutar
 			out, err := s.ConsultarActual(context.Background(), solicitud)
-			if !errors.Is(err, ports.ErrConsultaNoDisponible) || out.HechoActual != nil || out.ReciboConsulta != nil || audit.llamadas != 1 || audit.ultima.Result != "no_confirmado" {
+			if !errors.Is(err, ports.ErrConsultaNoDisponible) || out.HechoActual != nil || out.ReciboConsulta != nil || audit.llamadas != 1 || audit.ultima.Datos.Resultado != vec.ResultadoIntentoAuditoriaError {
 				t.Fatal("resultado manipulado aceptado", err)
 			}
 		})
@@ -272,7 +276,7 @@ func TestConsultaPropiaDenegacionNominalSinDatos(t *testing.T) {
 	s, solicitud, _, r, audit := escenarioConsulta(t)
 	r.mutar = func(r *ports.ResultadoConsultaPropia) { *r = ports.ResultadoConsultaPropia{Codigo: "denegada"} }
 	out, err := s.ConsultarActual(context.Background(), solicitud)
-	if !errors.Is(err, vec.ErrAutorizacionDenegada) || out.Codigo != "" || out.HechoActual != nil || out.ReciboConsulta != nil || audit.llamadas != 1 || audit.ultima.Result != "denegada" {
+	if !errors.Is(err, vec.ErrAutorizacionDenegada) || out.Codigo != "" || out.HechoActual != nil || out.ReciboConsulta != nil || audit.llamadas != 1 || audit.ultima.Datos.Resultado != vec.ResultadoIntentoAuditoriaDenegado {
 		t.Fatal("denegación no cerrada", err)
 	}
 }
@@ -291,13 +295,15 @@ func TestConsultaPropiaRechazoTrasEmisionNoDevuelveFichaNiRecibo(t *testing.T) {
 	}
 	correlacion, _ := solicitud.Correlacion.ValorCanonico()
 	entrada := audit.ultima
-	if audit.llamadas != 1 || entrada.Result != "denegada" || entrada.ActorID != persona ||
-		entrada.ActorProfile != perfil || entrada.Action != AccionConsultaPropia ||
-		entrada.ModuleID != "meritos" || entrada.Purpose != FinalidadConsultaPropia ||
-		entrada.SubjectRef != solicitud.HechoRef || entrada.CorrelationRef != correlacion ||
-		entrada.AuthorizationRef != decisionRef || entrada.RuleRef != solicitud.Motivo.EntradaClave ||
-		entrada.ObjectVersion != 0 || len(entrada.Metadata) != 0 || entrada.Reason != "" ||
-		entrada.DocumentRef != "" || entrada.RepresentedSubjectID != "" {
+	vinculo, vinculoErr := entrada.Vinculo.Datos()
+	if audit.llamadas != 1 || entrada.Datos.Resultado != vec.ResultadoIntentoAuditoriaDenegado ||
+		entrada.ResultadoContexto.Contexto.PersonaRef != persona || entrada.ResultadoContexto.Contexto.PerfilActivoRef != perfil ||
+		entrada.Datos.Accion != AccionConsultaPropia || entrada.Datos.ModuloID != "meritos" ||
+		entrada.Datos.FinalidadRef != FinalidadConsultaPropia || entrada.Datos.RecursoRef != solicitud.HechoRef ||
+		entrada.Datos.CorrelacionRef != correlacion || entrada.Datos.Motivo != solicitud.Motivo ||
+		entrada.ResultadoContexto.HuellaSHA256 != solicitud.Contexto.HuellaSHA256 ||
+		vinculoErr != nil || entrada.Vinculo.ValidarPara(solicitud.Contexto) != nil ||
+		entrada.Datos.Proceso != "vec-rum04-ensayo" || entrada.Datos.Canal != string(vinculo.Superficie) {
 		t.Fatal("falta constancia minimizada del rechazo nominal")
 	}
 	audit.err = errors.New("diagnóstico privado de auditoría")
@@ -307,13 +313,40 @@ func TestConsultaPropiaRechazoTrasEmisionNoDevuelveFichaNiRecibo(t *testing.T) {
 	}
 }
 
-type auditoriaConsultaContextoPrueba struct {
-	registrar func(context.Context, vec.AuditEntry)
+// El doble recibe la orden nominal real y devuelve un acuse ligado a ella;
+// no convierte la petición ni una concesión en una AuditEntry libre.
+type auditoriaConsultaPrueba struct {
+	t          *testing.T
+	llamadas   int
+	ultima     vecports.DatosOrdenIntentoAuditoria
+	err        error
+	observar   func(context.Context, vecports.DatosOrdenIntentoAuditoria)
+	mutarAcuse func(*vecports.AcuseIntentoAuditoria)
 }
 
-func (a auditoriaConsultaContextoPrueba) AppendAudit(ctx context.Context, entrada vec.AuditEntry) (vec.AuditEntry, error) {
-	a.registrar(ctx, entrada)
-	return entrada, nil
+func configuracionAuditConsultaPrueba(a vecports.RegistradorIntentosAuditoria) ConfiguracionAuditoriaConsulta {
+	return ConfiguracionAuditoriaConsulta{Registrador: a, Proceso: "vec-rum04-ensayo", Plazo: 2 * time.Second}
+}
+
+func (a *auditoriaConsultaPrueba) AppendIntentoAuditoria(ctx context.Context, o vecports.OrdenIntentoAuditoria) (vecports.AcuseIntentoAuditoria, error) {
+	a.llamadas++
+	d, err := o.Datos()
+	if err != nil {
+		a.t.Fatal("orden de auditoría no nominal")
+	}
+	a.ultima = d
+	if a.observar != nil {
+		a.observar(ctx, d)
+	}
+	if a.err != nil {
+		return vecports.AcuseIntentoAuditoria{}, a.err
+	}
+	acuse := vecports.AcuseIntentoAuditoria{AuditoriaRef: "audit_rum04_prueba", Secuencia: 1,
+		HuellaSHA256: strings.Repeat("a", 64), CorrelacionRef: d.Datos.CorrelacionRef, RegistradaEn: instante}
+	if a.mutarAcuse != nil {
+		a.mutarAcuse(&acuse)
+	}
+	return acuse, nil
 }
 
 func TestConsultaPropiaCancelacionPosteriorNoBorraElIntento(t *testing.T) {
@@ -322,15 +355,15 @@ func TestConsultaPropiaCancelacionPosteriorNoBorraElIntento(t *testing.T) {
 	defer cancelar()
 	repositorio.err, repositorio.despues = context.Canceled, cancelar
 	llamadas := 0
-	s.auditoria = auditoriaConsultaContextoPrueba{registrar: func(auditCtx context.Context, entrada vec.AuditEntry) {
+	s.auditoria = configuracionAuditConsultaPrueba(&auditoriaConsultaPrueba{t: t, observar: func(auditCtx context.Context, entrada vecports.DatosOrdenIntentoAuditoria) {
 		llamadas++
 		limite, limitado := auditCtx.Deadline()
 		if ctx.Err() == nil || auditCtx.Err() != nil || !limitado ||
 			time.Until(limite) <= 0 || time.Until(limite) > 2*time.Second ||
-			entrada.Result != "no_confirmado" || repositorio.llamadas != 1 {
+			entrada.Datos.Resultado != vec.ResultadoIntentoAuditoriaError || repositorio.llamadas != 1 {
 			t.Fatal("intento cancelado sin contexto independiente acotado")
 		}
-	}}
+	}})
 	out, err := s.ConsultarActual(ctx, solicitud)
 	if !errors.Is(err, context.Canceled) || out.HechoActual != nil || out.ReciboConsulta != nil || llamadas != 1 {
 		t.Fatal("cancelación posterior borra el intento o expone datos", err)
@@ -370,7 +403,7 @@ func TestConsultaPropiaErroresYCancelacionNoDevuelvenDatos(t *testing.T) {
 	s, solicitud, _, r, audit := escenarioConsulta(t)
 	r.err = ports.ErrConsultaNoDisponible
 	out, err := s.ConsultarActual(context.Background(), solicitud)
-	if err == nil || out.HechoActual != nil || out.ReciboConsulta != nil || audit.llamadas != 1 || audit.ultima.Result != "no_confirmado" {
+	if err == nil || out.HechoActual != nil || out.ReciboConsulta != nil || audit.llamadas != 1 || audit.ultima.Datos.Resultado != vec.ResultadoIntentoAuditoriaError {
 		t.Fatal("fallo de repositorio devuelve datos", err)
 	}
 	ctx, cancelar := context.WithCancel(context.Background())
@@ -379,10 +412,57 @@ func TestConsultaPropiaErroresYCancelacionNoDevuelvenDatos(t *testing.T) {
 	if _, err = s.ConsultarActual(ctx, solicitud); !errors.Is(err, context.Canceled) || r.llamadas != llamadas {
 		t.Fatal("cancelación no respetada", err)
 	}
-	if _, err = NuevoServicioConsultaPropia(nil, r, audit, relojPrueba{}); !errors.Is(err, ports.ErrConsultaNoDisponible) {
+	if _, err = NuevoServicioConsultaPropia(nil, r, configuracionAuditConsultaPrueba(audit), relojPrueba{}); !errors.Is(err, ports.ErrConsultaNoDisponible) {
 		t.Fatal("dependencia ausente aceptada", err)
 	}
-	if _, err = NuevoServicioConsultaPropia(s.autorizador, r, nil, relojPrueba{}); !errors.Is(err, ports.ErrConsultaNoDisponible) {
+	if _, err = NuevoServicioConsultaPropia(s.autorizador, r, ConfiguracionAuditoriaConsulta{}, relojPrueba{}); !errors.Is(err, ports.ErrConsultaNoDisponible) {
 		t.Fatal("auditoría ausente aceptada", err)
+	}
+}
+
+func TestConsultaPropiaAcuseNoLigadoCierraSinDatos(t *testing.T) {
+	for _, campo := range []string{"referencia", "secuencia", "huella", "correlacion", "fecha"} {
+		t.Run(campo, func(t *testing.T) {
+			s, solicitud, _, r, audit := escenarioConsulta(t)
+			r.err = vec.ErrAutorizacionDenegada
+			audit.mutarAcuse = func(a *vecports.AcuseIntentoAuditoria) {
+				switch campo {
+				case "referencia":
+					a.AuditoriaRef = ""
+				case "secuencia":
+					a.Secuencia = 0
+				case "huella":
+					a.HuellaSHA256 = "invalida"
+				case "correlacion":
+					a.CorrelacionRef = "correlacion_ajena"
+				case "fecha":
+					a.RegistradaEn = time.Time{}
+				}
+			}
+			out, err := s.ConsultarActual(context.Background(), solicitud)
+			if !errors.Is(err, ports.ErrConsultaNoDisponible) || out.HechoActual != nil || out.ReciboConsulta != nil || audit.llamadas != 1 {
+				t.Fatal("acuse no ligado acepta denegación o expone datos", err)
+			}
+		})
+	}
+}
+
+func TestConsultaPropiaAuditaEmisionFallidaSinConcesion(t *testing.T) {
+	for _, defecto := range []string{"denegada", "no_disponible"} {
+		t.Run(defecto, func(t *testing.T) {
+			s, solicitud, a, r, audit := escenarioConsulta(t)
+			a.defecto = defecto
+			out, err := s.ConsultarActual(context.Background(), solicitud)
+			esperado := vec.ResultadoIntentoAuditoriaError
+			if defecto == "denegada" {
+				esperado = vec.ResultadoIntentoAuditoriaDenegado
+			}
+			if err == nil || out.HechoActual != nil || out.ReciboConsulta != nil || r.llamadas != 0 ||
+				audit.llamadas != 1 || audit.ultima.Datos.Resultado != esperado ||
+				audit.ultima.ResultadoContexto.RegistroContextoRef != solicitud.Contexto.RegistroContextoRef ||
+				audit.ultima.Vinculo.ValidarPara(solicitud.Contexto) != nil {
+				t.Fatal("emisión fallida sin constancia nominal", err)
+			}
+		})
 	}
 }

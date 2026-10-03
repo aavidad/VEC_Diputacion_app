@@ -2,6 +2,20 @@
 
 Este corte prepara la consulta nominal de un hecho propio y su ficha actual. Está pendiente de revisión y de completar el orden causal de migraciones; no tiene GO de entrega ni acredita una instalación institucional.
 
+## Auditoría común: continuación del 3 de octubre
+
+Este apartado sustituye las instrucciones de auditoría e instalación de los cortes históricos de abajo. La lectura confirmada conserva el consumo V3 y su auditoría común en la misma transacción. Los errores y denegaciones se registran después del retorno del repositorio mediante `ports.RegistradorIntentosAuditoria` de #502, sin crear otra tabla de auditoría en Méritos.
+
+La orden lleva identidad y perfil del contexto acreditado, acción, recurso opaco, finalidad, motivo de catálogo, correlación, proceso configurado y canal del vínculo autenticado. También se registra una emisión fallida antes de que exista concesión positiva. El registro usa un plazo independiente de la cancelación de la petición. Si falla o devuelve un acuse no ligado, el servicio responde 503 sin ficha ni recibo; una denegación registrada responde 403.
+
+Se retiran el adaptador local de intentos, AUT29 y la función `registrar_intento_consulta_propia_v1` de la candidata Méritos000002. El rol propio nuevo sólo permite consultar; los intentos usan el rol y la configuración de la autoridad común. Las reservas históricas se conservan y no se reutilizan. No se ejecuta DOWN ni se modifica el clon anterior que ya tiene AUT29 instalado.
+
+El ensayo requiere la auditoría común instalada (AD169 y sus contratos históricos de ContextoActor y sesiones), un `audit_login` segregado y la configuración privada `auditoria.proceso` y `auditoria.plazo_ms`. La fábrica conecta el adaptador común PostgreSQL y comprueba su preflight antes de montar el handler. No acepta un sustituto en memoria ni un registrador local.
+
+Orden de los objetos nuevos en una copia causal compatible: rol lector → AD145 → Méritos000002. Los prerrequisitos concretos están en `deploy/principal/lista_sql_codexa_rum04.txt`; dirección valida la postimagen exacta antes de instalar. La declaración RUM01 conserva su contrato anterior y no forma parte de este cambio.
+
+La migración al puerto común y sus pruebas están preparadas. El ensayo causal, Chrome, reinicio y dos revisiones del contenido final siguen pendientes. #435 permanece en borrador.
+
 El cliente envía únicamente `hecho_ref`. El servidor revalida la sesión, reconstruye el contexto y obtiene la persona del vínculo autenticado. La acción fija es `meritos.hecho.consultar_propio`, la finalidad `consulta_hecho_propio` y la audiencia `vec_meritos.hecho.consultar_propio.v1`. El perfil admite solamente `hecho_actual` y `recibo_consulta`, con obligación de auditar. No exige la condición de empleado para leer el hecho de la persona autenticada.
 
 La función PostgreSQL consume la autorización nominal y recupera la versión actual en una misma transacción serializable. Devuelve una ficha minimizada y un recibo de consulta nuevo después del commit. La ficha excluye las referencias de persona, declarante y actor revisor. Una referencia ajena y una ausente producen la misma respuesta de ausencia tras una autorización positiva. La lectura conserva la historia de negocio; solamente añade la constancia de consulta y la auditoría de autorización.
@@ -46,7 +60,7 @@ La consulta propia y la referencia ausente devolvieron HTTP 200/200, con `PASS` 
 
 La orden de cierre detuvo los casos ajeno, rechazo SQL con PDP positivo y auditor segregado, 503 sin auditoría, replay, Chrome y reinicio. Estaban preparados y siguen sin acreditar. La PR #435 permanece en borrador. AD149 entró después en main: AD145 de esta fuente protege POST144 y necesita reanclaje a POST149 real y nuevo ensayo causal antes de entregarse sobre esa base. El núcleo instalado del clon se conserva; no se ejecuta DOWN ni se sustituye para adaptar la evidencia.
 
-## TODO antes de cerrar el corte
+## Pendientes conservados del corte del 2 de octubre
 
 - Conservar las reservas propias AD000145, AUT000029 y Méritos000002. La orden del 2 de octubre a las 13:50 permite avanzar por dependencias de objetos: AD144 se aplicó en el clon sobre POST142, sin AD143. Copias no es prerrequisito de RUM04. Para esta pieza, el orden de instalación es roles de consulta/registro de intentos → AUT29 → AD145 sobre POST144 → Méritos000002.
 - Conservar la evidencia de AD145 sobre POST144 ya instalada en este clon. Para la entrega siguiente, obtener POST149 real, reanclar el delta con conservación exacta, repetir las dos revisiones afectadas y ensayarlo en una copia causal mínima. No relajar guardas ni reaplicar UP/DOWN de migraciones con historia.
