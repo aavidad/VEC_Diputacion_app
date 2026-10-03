@@ -8,7 +8,7 @@
   "idioma": "Language",
   "ayuda_boton": "Help",
   "ayuda_titulo": "How to use the trial",
-  "ayuda_texto": "Choose a process, adjust the rules and select Compare applications. You can change the values and repeat the calculation. These examples can be removed and are not open recruitment calls.",
+  "ayuda_texto": "Choose a process, adjust the rules and example scores and select Compare applications. A blank score remains pending. These are example data, not open recruitment calls.",
   "cargando": "Loading examples…",
   "sin_ejemplos": "No examples are available at the moment.",
   "denegado": "You do not have access to this trial. Contact the person responsible for your unit.",
@@ -50,7 +50,7 @@
   "maximo_fase": "Maximum score: {puntos}",
   "desempate": "Tie-breaking stages",
   "desempate_ayuda": "Selected stages are applied in the order shown.",
-  "restablecer": "Reset rules",
+  "restablecer": "Reset rules and scores",
   "simular": "Compare applications",
   "validacion_titulo": "Check these fields before comparing:",
   "validacion": {
@@ -60,7 +60,8 @@
     "minimo": "The minimum score must be between zero and the stage maximum, with up to six decimal places.",
     "peso": "Enter a weight between 1 and 100 for each stage.",
     "suma_pesos": "The weights must add up to 100%.",
-    "desempates": "Select each tie-breaking stage once."
+    "desempates": "Select each tie-breaking stage once.",
+    "nota": "Enter a score between zero and the examination maximum, with up to six decimal places, or leave it blank."
   },
   "resultado_titulo": "Application comparison",
   "sin_resultado": "Adjust the rules and select Compare applications to see the result.",
@@ -118,7 +119,8 @@
   },
   "origen": {
     "prueba_embebida": "Examination score from the example.",
-    "motor_bolsa": "Merits calculated using the recruitment pool scoring rules."
+    "motor_bolsa": "Merits calculated using the recruitment pool scoring rules.",
+    "prueba_editada": "Examination score changed for this trial."
   },
   "causa": {
     "requisito_no_cumplido": "An entry requirement is not met.",
@@ -133,5 +135,8 @@
     "desempate_pendiente": "The tie requires an additional decision."
   },
   "menu": "Menu",
-  "cerrar_menu": "Close menu"
+  "cerrar_menu": "Close menu",
+  "notas_titulo": "Example examination scores",
+  "notas_pendientes": "Leave a score blank if it is pending.",
+  "nota_etiqueta": "{nombre} · {fase} (optional)"
 }
