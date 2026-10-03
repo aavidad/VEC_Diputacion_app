@@ -35,6 +35,25 @@ func TestAD176VectoresFamiliasYAlcance(t *testing.T) {
 	}
 }
 
+func TestAD176FechaNoParseablePropagaMotivoCerrado(t *testing.T) {
+	for _, familia := range []string{"confirmacion", "intento"} {
+		t.Run(familia, func(t *testing.T) {
+			d := documentoUnidadInicialPrueba(t)
+			if familia == "confirmacion" {
+				d.Registros[0].UnidadInicial.RegistradaEn = "dato_privado_sintetico:no_fecha"
+			} else {
+				d.Registros[2].IntentoUnidadInicial.RegistradaEn = "dato_privado_sintetico:no_fecha"
+			}
+			r := VerificarCadenaUnidadInicialV1(d, d.Manifiesto, 6)
+			b, _ := json.Marshal(r)
+			if r.Estado != "rechazada" || r.Fallo == nil || r.Fallo.Codigo != MotivoInstanteAD171Invalido ||
+				r.Fallo.Clave != "registrada_en" || strings.Contains(string(b), "dato_privado") {
+				t.Fatalf("motivo de parseo no propagado o fecha expuesta: %s", b)
+			}
+		})
+	}
+}
+
 func TestAD176ConservaHistoriaYRecibos(t *testing.T) {
 	documentos := []DocumentoVerificacionMixta{documentoFuentesPrueba(t), documentoIntentoFuentesPrueba(t), vectorMixtoV2()}
 	for _, r := range vectoresAD171Prueba(t) {

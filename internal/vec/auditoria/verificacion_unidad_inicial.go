@@ -73,7 +73,10 @@ func cotejarRegistroUnidadInicialV1(r RegistroMixtoV2, secuencia uint64) (Regist
 		return e, "registro_invalido", "coordenadas"
 	}
 	instante, err := time.Parse(time.RFC3339Nano, e.RegistradaEn)
-	if err != nil || instante.Year() < 1 || instante.Year() > 9999 || instante.UTC().Format("2006-01-02T15:04:05.000000Z") != e.RegistradaEn {
+	if err != nil {
+		return e, motivoErrorInstanteAuditoria(err), "registrada_en"
+	}
+	if instante.Year() < 1 || instante.Year() > 9999 || instante.UTC().Format("2006-01-02T15:04:05.000000Z") != e.RegistradaEn {
 		return e, "instante_invalido", "registrada_en"
 	}
 	material := sha256.Sum256(huellaEncuadradaIntento("vec.auditoria.unidad-inicial-personal.v1", r.TipoRegistro, e.EventoRef, f.OperadorLogin,
