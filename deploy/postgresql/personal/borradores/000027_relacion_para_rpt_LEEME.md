@@ -109,6 +109,35 @@ persistencia fue una lectura de la historia conservada, sin recorrido HTTP.
 Acta del ensayo SHA256
 `2725042c21a747d9815ab310bc041a5ff284e8667e27b88abd9d49cbefaa4861`.
 
+## Reensayo con auditoría común — 3 de octubre
+
+La fuente unida `61363d082db7a635b7658a28f6002c006c87bfaf` conserva
+el lector `a7b550b4ab3f9f4bcb822206b091a715676af265`. El SQL recibió dos GO
+sobre `e603a0b9123cf385f975e99fd3465fb4e2b46b55` y se instaló una sola vez
+en el clon propio POST149 con CA26, IS13 y AD169. La captura normalizada
+previa y posterior conserva SHA256
+`af2597093754c00801e64bc0dd8fcb8cbeb5b5c87f03589048fe906cde48441e`.
+Se conservaron las ACL y los objetos anteriores.
+
+El único binario compilado pasó las tres lecturas SQL de relaciones vigentes,
+suspendidas y finalizadas. La primera denegación falló con `22023` al cotejar
+su contexto original en CA26: la proyección de empleado de Personal16/CA7
+usa `pep_`, mientras CA26 sólo reconstruye vínculos `vin_` de su tabla local.
+Cambiar la referencia del fixture alteraría el contexto acreditado. La
+corrección corresponde a la autoridad común y debe conservar la procedencia
+y los bytes originales. Este reensayo está pendiente de esa dependencia.
+
+Quedaron tres recibos y ningún intento RPT confirmado. El binario conservado
+mide 19.090.691 bytes y tiene SHA256
+`b740f7d2275c29a966527ffba494c4b279bb17fcaf13903b698b8464633f0732`.
+Los tres recibos conservan SHA256
+`028cbd0333a149ce7bb9a1fc22d9188bb3ee2e4c561147bbb7bc0d637e308f6c`.
+El runner `8667ee7264bef036f5102223613ca3be4777edde` prepara
+`--continuar-desde-replay`: comprueba el journal SQL, la captura, el binario,
+los tres casos y la ausencia de intentos. Reanuda desde la primera denegación,
+sin UP, DOWN, otra compilación ni repetición de los positivos. Su ejecución
+requiere la corrección común revisada y la coordinación de Dirección.
+
 La fixture conserva `catalogo_snapshot` sin inventar un catálogo admitido.
 Ambos LOGIN de prueba conservan CONNECT propio; retirar el grupo del
 registrador quita la ejecución nominal sin confundirla con pérdida de conexión.
