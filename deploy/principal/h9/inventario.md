@@ -120,11 +120,11 @@ Se han consultado todas las listas causales `deploy/principal/lista_sql_*.txt` d
 
 ## Verificación y límites
 
-La comprobación estática cuenta 55 rutas únicas, coteja sus bytes con el árbol fijado y valida la sintaxis JSON. Las 38 migraciones seleccionadas más el soporte de roles forman el orden propuesto de 39 archivos; las 14 condicionadas y las tres históricas quedan fuera de esa lista. Los bloques DO suman 172, incluidos controles antes y después de reconstruir funciones.
+La comprobación estática coteja 56 rutas de migraciones contra el árbol fijado y siete soportes. El orden contiene 39 migraciones seleccionadas y un soporte de roles, 40 archivos únicos. Las 14 condicionadas y tres históricas quedan fuera de la lista. Rutas, SHA, consumidores y guardas constan en `orden.json`; la selección fue aplicada completa en el clon.
 
-La revisión focal de seguridad conserva las guardas originales: no cambia SQL, roles, concesiones ni datos; no autoriza saltar un PARO, reconstruir un núcleo con otra huella ni tratar la ausencia de un consumidor como permiso. El material público sólo contiene fuentes, identificadores técnicos y huellas; ninguna credencial, DSN ni configuración privada.
+La configuración actual conserva apagados o ausentes los consumidores nuevos de CRN11/RPT/Selectivos. Eso permite excluir sus cadenas incompatibles sin reconstruirlas ni saltar guardas. Arrancar tras la selección no demuestra que cada migración sea por sí sola obligatoria al arrancar; el JSON expresa ese límite. Se incluyen por los consumidores de main y sus dependencias, evitando que una operación alcance una función ausente.
 
-Falta incorporar la evidencia de configuración y completar el ensayo causal. Sólo después Dirección puede convertir `ejecutable` en verdadero, indicando el resultado exacto. Una exclusión sin evidencia o un fallo de guarda mantiene el kit pendiente. Instalar las fuentes nominales no publica perfiles ni cargos, no firma documentos y no acredita un recorrido en navegador.
+`ejecutable=true` acredita el ensayo del paquete, no una instalación. Claude debe verificar preimagen y cierre de escritores antes de aplicarlo. Instalar fuentes nominales no publica perfiles ni cargos ni firma documentos. No se habilitan aquí consumidores excluidos ni se prueba el circuito de Firma completo.
 
 ## Primer ensayo, conservado como antecedente
 
