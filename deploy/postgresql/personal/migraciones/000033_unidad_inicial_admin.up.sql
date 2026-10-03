@@ -18,6 +18,10 @@ BEGIN
  OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_unidad_inicial_personal_v1(jsonb)') IS NULL
  OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_intento_unidad_inicial_personal_v1(jsonb)') IS NULL
  THEN RAISE EXCEPTION 'Personal33: PARO clave=dependencias actual=ausente esperado=Personal10_31_AD176' USING ERRCODE='55000'; END IF;
+ IF NOT EXISTS(SELECT 1 FROM pg_trigger WHERE tgrelid='vec_personal.org_nodo_historia'::regclass
+  AND tgname='barrera_unidad_bootstrap_admin_v1' AND tgenabled='O' AND NOT tgisinternal
+  AND tgfoid=to_regprocedure('vec_personal.avanzar_barrera_unidad_bootstrap_admin_v1()'))
+ THEN RAISE EXCEPTION 'Personal33: PARO clave=trigger_Personal31 actual=ausente_o_inactivo esperado=INSERT_normal_avanza_generacion' USING ERRCODE='55000'; END IF;
  IF to_regclass('vec_personal.unidad_inicial_admin_v1') IS NOT NULL OR to_regrole('vec_personal_unidad_inicial_ejecutor') IS NOT NULL
  THEN RAISE EXCEPTION 'Personal33: PARO clave=instalacion actual=presente esperado=ausente' USING ERRCODE='55000'; END IF;
  CREATE ROLE vec_personal_unidad_inicial_ejecutor NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
@@ -88,8 +92,8 @@ CREATE TABLE vec_personal.config_unidad_inicial_admin_v1(
 CREATE TABLE vec_personal.unidad_inicial_admin_v1(
  singleton boolean PRIMARY KEY DEFAULT true CHECK(singleton),
  operacion_ref text NOT NULL UNIQUE CHECK(operacion_ref ~ '^pui_[A-Za-z0-9_-]{22,124}$'),
- plan_sha256 text NOT NULL UNIQUE,plan_canonico bytea NOT NULL CHECK(plan_sha256=encode(sha256(plan_canonico),'hex')),
- fuente_sha256 text NOT NULL,fuente_canonica bytea NOT NULL CHECK(fuente_sha256=encode(sha256(fuente_canonica),'hex')),
+ plan_sha256 text NOT NULL UNIQUE,plan_canonico bytea NOT NULL CHECK(plan_sha256=encode(pg_catalog.sha256(plan_canonico),'hex')),
+ fuente_sha256 text NOT NULL,fuente_canonica bytea NOT NULL CHECK(fuente_sha256=encode(pg_catalog.sha256(fuente_canonica),'hex')),
  preimagen_sha256 text NOT NULL,configuracion_sha256 text NOT NULL,
  alcance_fuente text NOT NULL CHECK(alcance_fuente='sintetico_declarado'),
  operador_login name NOT NULL,aprobacion_ref text NOT NULL,
@@ -135,6 +139,12 @@ BEGIN
   (dbid=db AND classid='pg_catalog.pg_namespace'::regclass AND objid=ns AND deptype='a')
   OR (dbid=db AND classid='pg_catalog.pg_proc'::regclass AND objid=funcion AND deptype='a')
   OR (dbid=0 AND classid='pg_catalog.pg_database'::regclass AND objid=db AND deptype='a')))
+ OR NOT EXISTS(SELECT 1 FROM pg_namespace n,LATERAL aclexplode(COALESCE(n.nspacl,acldefault('n',n.nspowner))) a WHERE n.oid=ns AND a.grantee=g.oid AND a.privilege_type='USAGE' AND NOT a.is_grantable)
+ OR EXISTS(SELECT 1 FROM pg_namespace n,LATERAL aclexplode(COALESCE(n.nspacl,acldefault('n',n.nspowner))) a WHERE n.oid=ns AND a.grantee=g.oid AND (a.privilege_type<>'USAGE' OR a.is_grantable))
+ OR NOT EXISTS(SELECT 1 FROM pg_database d,LATERAL aclexplode(COALESCE(d.datacl,acldefault('d',d.datdba))) a WHERE d.oid=db AND a.grantee=g.oid AND a.privilege_type='CONNECT' AND NOT a.is_grantable)
+ OR EXISTS(SELECT 1 FROM pg_database d,LATERAL aclexplode(COALESCE(d.datacl,acldefault('d',d.datdba))) a WHERE d.oid=db AND a.grantee=g.oid AND (a.privilege_type<>'CONNECT' OR a.is_grantable))
+ OR NOT EXISTS(SELECT 1 FROM pg_proc f,LATERAL aclexplode(COALESCE(f.proacl,acldefault('f',f.proowner))) a WHERE f.oid=funcion AND a.grantee=g.oid AND a.privilege_type='EXECUTE' AND NOT a.is_grantable)
+ OR EXISTS(SELECT 1 FROM pg_proc f,LATERAL aclexplode(COALESCE(f.proacl,acldefault('f',f.proowner))) a WHERE f.oid=funcion AND a.grantee=g.oid AND (a.privilege_type<>'EXECUTE' OR a.is_grantable))
  OR has_schema_privilege(l.oid,ns,'CREATE') OR has_database_privilege(l.oid,db,'CREATE,TEMP')
  THEN RAISE EXCEPTION 'Personal33: PARO clave=operador actual=no_acreditado esperado=LOGIN_exclusivo_minimo' USING ERRCODE='42501'; END IF;
  SELECT * INTO cfg FROM vec_personal.config_unidad_inicial_admin_v1 WHERE login_nombre=session_user FOR SHARE;
@@ -152,17 +162,18 @@ BEGIN
  IF p->>'version' IS DISTINCT FROM '1' OR p->>'entorno' IS DISTINCT FROM 'desarrollo' OR p->>'alcance_fuente' IS DISTINCT FROM 'sintetico_declarado'
  OR p->>'operacion_ref' !~ '^pui_[A-Za-z0-9_-]{22,124}$'
  OR p->>'acto_tecnico_ref' !~ '^acto_tecnico:[a-z0-9_:-]{1,147}$'
- OR p#>>'{fuente,referencia}' !~ '^[a-z][a-z0-9_:-]{2,159}$' OR p#>>'{fuente,version}' IS DISTINCT FROM '1'
+ OR p#>>'{fuente,referencia}' !~ '^[a-z][a-z0-9_:-]{2,127}$' OR p#>>'{fuente,version}' IS DISTINCT FROM '1'
  OR p#>>'{fuente,huella_sha256}' !~ '^[0-9a-f]{64}$' OR p#>>'{fuente,huella_sha256}'=repeat('0',64)
  OR (p->>'preparado_en')::timestamptz>clock_timestamp() OR (p->>'caduca_en')::timestamptz<=clock_timestamp()
  OR (p->>'caduca_en')::timestamptz<=(p->>'preparado_en')::timestamptz
  OR u->>'nodo_ref' !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
  OR u->>'organizacion_ref' !~ '^[a-z][a-z0-9_:-]{2,127}$' OR u->>'unidad_ref' !~ '^[a-z][a-z0-9_:-]{2,127}$'
  OR u->>'clase' NOT IN('delegacion','centro','puesto_responsabilidad')
+ OR u->>'denominacion' IS DISTINCT FROM btrim(u->>'denominacion',chr(9)||chr(10)||chr(11)||chr(12)||chr(13)||chr(32)||chr(133)||chr(160)||chr(5760)||chr(8192)||chr(8193)||chr(8194)||chr(8195)||chr(8196)||chr(8197)||chr(8198)||chr(8199)||chr(8200)||chr(8201)||chr(8202)||chr(8232)||chr(8233)||chr(8239)||chr(8287)||chr(12288))
  OR u->>'catalogo_ref' IS DISTINCT FROM 'estructura-organizativa-dipgra'
  OR u->>'catalogo_version' IS DISTINCT FROM '1' OR u->>'catalogo_revision' IS DISTINCT FROM '1'
  OR u->>'catalogo_entrada_clave' !~ '^[a-z][a-z0-9_:-]{2,159}$' OR u->>'revision_esperada' IS DISTINCT FROM '0'
- OR (u->>'vigente_desde')::date>(clock_timestamp() AT TIME ZONE 'UTC')::date
+ OR (u->>'vigente_desde')::date>((p->>'preparado_en')::timestamptz AT TIME ZONE 'UTC')::date
  OR (u->>'vigente_hasta')::date<=(u->>'vigente_desde')::date
  OR ((u->>'vigente_hasta')::date::timestamp AT TIME ZONE 'UTC')<(p->>'caduca_en')::timestamptz
  THEN RAISE EXCEPTION 'Personal33: PARO clave=plan actual=divergente esperado=unidad_sintetica_inicial_aprobada' USING ERRCODE='22023'; END IF;
@@ -197,7 +208,7 @@ BEGIN
  OR sha_aprobado IS DISTINCT FROM cfg.plan_sha256
  THEN RAISE EXCEPTION 'Personal33: PARO clave=aprobacion actual=divergente esperado=plan_y_fuente_externos_aprobados' USING ERRCODE='42501'; END IF;
  p:=plan_canonico::jsonb;f:=fuente_canonica::jsonb;u:=p->'unidad';
- plan_sha:=encode(sha256(convert_to(plan_canonico,'UTF8')),'hex');fuente_sha:=encode(sha256(convert_to(fuente_canonica,'UTF8')),'hex');
+ plan_sha:=encode(pg_catalog.sha256(pg_catalog.convert_to(plan_canonico,'UTF8')),'hex');fuente_sha:=encode(pg_catalog.sha256(pg_catalog.convert_to(fuente_canonica,'UTF8')),'hex');
  PERFORM vec_personal.validar_unidad_inicial_admin_v1(p);
  IF plan_canonico IS DISTINCT FROM vec_personal.canon_unidad_inicial_admin_v1(p,'plan')
  OR fuente_canonica IS DISTINCT FROM vec_personal.canon_unidad_inicial_admin_v1(f,'fuente')
@@ -206,32 +217,32 @@ BEGIN
  OR f->>'entorno' IS DISTINCT FROM cfg.entorno OR f->>'alcance_fuente' IS DISTINCT FROM cfg.alcance_fuente
  OR f->'unidad' IS DISTINCT FROM u OR f->>'acto_tecnico_ref' IS DISTINCT FROM p->>'acto_tecnico_ref'
  THEN RAISE EXCEPTION 'Personal33: PARO clave=fuente actual=divergente esperado=canon_y_datos_reales_del_plan_aprobado' USING ERRCODE='22023'; END IF;
- cfg_sha:=encode(sha256(convert_to(to_jsonb(cfg)::text,'UTF8')),'hex');
+ cfg_sha:=encode(pg_catalog.sha256(pg_catalog.convert_to(to_jsonb(cfg)::text,'UTF8')),'hex');
  PERFORM generacion FROM vec_personal.control_unidad_bootstrap_admin_v1 WHERE singleton FOR UPDATE;
  IF NOT FOUND THEN RAISE EXCEPTION 'Personal33: PARO clave=barrera actual=ausente esperado=Personal31' USING ERRCODE='55000'; END IF;
  SELECT * INTO previo FROM vec_personal.unidad_inicial_admin_v1 WHERE singleton;
  IF FOUND THEN
   IF previo.operacion_ref IS DISTINCT FROM p->>'operacion_ref' OR previo.plan_sha256 IS DISTINCT FROM plan_sha
-  OR previo.plan_canonico IS DISTINCT FROM convert_to(plan_canonico,'UTF8') OR previo.fuente_canonica IS DISTINCT FROM convert_to(fuente_canonica,'UTF8')
+  OR previo.plan_canonico IS DISTINCT FROM pg_catalog.convert_to(plan_canonico,'UTF8') OR previo.fuente_canonica IS DISTINCT FROM pg_catalog.convert_to(fuente_canonica,'UTF8')
   OR previo.operador_login IS DISTINCT FROM session_user::name OR previo.configuracion_sha256 IS DISTINCT FROM cfg_sha
   OR previo.aprobacion_ref IS DISTINCT FROM cfg.aprobacion_ref
   THEN RAISE EXCEPTION 'Personal33: PARO clave=replay actual=divergente esperado=misma_operacion_y_aprobacion_originales' USING ERRCODE='40001'; END IF;
   RETURN jsonb_build_object('recibo',previo.recibo,'replay',true);
  END IF;
- pre:=vec_personal.preimagen_unidad_inicial_admin_v1(p);pre_sha:=encode(sha256(convert_to(pre::text,'UTF8')),'hex');
+ pre:=vec_personal.preimagen_unidad_inicial_admin_v1(p);pre_sha:=encode(pg_catalog.sha256(pg_catalog.convert_to(pre::text,'UTF8')),'hex');
  IF pre_sha IS DISTINCT FROM cfg.preimagen_sha256
  THEN RAISE EXCEPTION 'Personal33: PARO clave=preimagen actual=% esperado=%',pre_sha,cfg.preimagen_sha256 USING ERRCODE='40001'; END IF;
  ahora:=clock_timestamp();
  INSERT INTO vec_personal.org_nodo_historia(nodo_ref,revision,organismo_ref,unidad_ref,clase,catalogo_ref,catalogo_version,catalogo_revision,catalogo_entrada_clave,denominacion,centro_padre_ref,retirado,vigente_desde,vigente_hasta,conocido_desde,fuente_ref,acto_ref,huella_fuente_sha256)
  VALUES((u->>'nodo_ref')::uuid,1,u->>'organizacion_ref',u->>'unidad_ref',u->>'clase',u->>'catalogo_ref',1,1,u->>'catalogo_entrada_clave',u->>'denominacion',NULL,false,(u->>'vigente_desde')::date,(u->>'vigente_hasta')::date,ahora,p#>>'{fuente,referencia}',p->>'acto_tecnico_ref',fuente_sha)
  RETURNING * INTO r;
- recibo_ref_nuevo:='recibo_unidad:'||replace(gen_random_uuid()::text,'-','');
+ recibo_ref_nuevo:='recibo_unidad:'||replace(pg_catalog.gen_random_uuid()::text,'-','');
  recibo_base:=jsonb_build_object('esquema','vec.personal.unidad-inicial.v1','version',1,'recibo_ref',recibo_ref_nuevo,'operacion_ref',p->>'operacion_ref',
   'plan_sha256',plan_sha,'fuente_ref',p#>>'{fuente,referencia}','fuente_version',1,'fuente_sha256',fuente_sha,
   'preimagen_sha256',pre_sha,'configuracion_sha256',cfg_sha,'aprobacion_ref',cfg.aprobacion_ref,'alcance_fuente',cfg.alcance_fuente,
   'registrada_en',to_char(ahora AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),'unidad',to_jsonb(r));
- recibo_sha:=encode(sha256(convert_to(recibo_base::text,'UTF8')),'hex');
- evento:='evento_'||replace(gen_random_uuid()::text,'-','');correlacion:='correlacion_'||replace(gen_random_uuid()::text,'-','');
+ recibo_sha:=encode(pg_catalog.sha256(pg_catalog.convert_to(recibo_base::text,'UTF8')),'hex');
+ evento:='evento_'||replace(pg_catalog.gen_random_uuid()::text,'-','');correlacion:='correlacion_'||replace(pg_catalog.gen_random_uuid()::text,'-','');
  SELECT * INTO aud FROM vec_autorizacion_atestada_v3.registrar_unidad_inicial_personal_v1(jsonb_build_object(
   'tipo_registro','unidad_inicial_personal','evento_ref',evento,'operador_login',session_user::text,
   'plan_ref',p->>'operacion_ref','plan_sha256',plan_sha,'preimagen_sha256',pre_sha,'configuracion_sha256',cfg_sha,
@@ -242,9 +253,9 @@ BEGIN
  PERFORM vec_personal.exigir_operador_unidad_inicial_admin_v1();
  IF clock_timestamp()>=(p->>'caduca_en')::timestamptz
  THEN RAISE EXCEPTION 'Personal33: PARO clave=vigencia_final actual=caducada esperado=plan_vigente' USING ERRCODE='42501'; END IF;
- recibo:=recibo_base||jsonb_build_object('recibo_sha256',recibo_sha,'auditoria_ref',aud.auditoria_ref,'auditoria_secuencia',aud.secuencia,'auditoria_huella_sha256',aud.huella_sha256,'auditoria_registrada_en',aud.registrada_en);
+ recibo:=recibo_base||jsonb_build_object('recibo_sha256',recibo_sha,'auditoria_ref',aud.auditoria_ref,'auditoria_secuencia',aud.secuencia,'auditoria_huella_sha256',aud.huella_sha256,'auditoria_registrada_en',to_char(aud.registrada_en AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'));
  INSERT INTO vec_personal.unidad_inicial_admin_v1(singleton,operacion_ref,plan_sha256,plan_canonico,fuente_sha256,fuente_canonica,preimagen_sha256,configuracion_sha256,alcance_fuente,operador_login,aprobacion_ref,nodo_ref,revision,recibo_ref,recibo_sha256,recibo,auditoria_ref,registrada_en)
- VALUES(true,p->>'operacion_ref',plan_sha,convert_to(plan_canonico,'UTF8'),fuente_sha,convert_to(fuente_canonica,'UTF8'),pre_sha,cfg_sha,cfg.alcance_fuente,session_user::name,cfg.aprobacion_ref,r.nodo_ref,1,recibo_ref_nuevo,recibo_sha,recibo,aud.auditoria_ref,ahora);
+ VALUES(true,p->>'operacion_ref',plan_sha,pg_catalog.convert_to(plan_canonico,'UTF8'),fuente_sha,pg_catalog.convert_to(fuente_canonica,'UTF8'),pre_sha,cfg_sha,cfg.alcance_fuente,session_user::name,cfg.aprobacion_ref,r.nodo_ref,1,recibo_ref_nuevo,recibo_sha,recibo,aud.auditoria_ref,ahora);
  RETURN jsonb_build_object('recibo',recibo,'replay',false);
 END $f$;
 REVOKE ALL ON FUNCTION vec_personal.aplicar_efecto_unidad_inicial_admin_v1(text,text,text) FROM PUBLIC,vec_personal_ejecutor;
@@ -252,9 +263,9 @@ REVOKE ALL ON FUNCTION vec_personal.aplicar_efecto_unidad_inicial_admin_v1(text,
 CREATE FUNCTION vec_personal.inicializar_unidad_sintetica_admin_v1(plan_canonico text,sha_aprobado text,fuente_canonica text)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog SET row_security=on AS $f$
 DECLARE respuesta jsonb;estado text:='permitido';codigo text;motivo text;aud record;solicitud_sha text;
- solicitud text:='solicitud_unidad:'||replace(gen_random_uuid()::text,'-','');evento text:='evento_'||replace(gen_random_uuid()::text,'-','');correlacion text:='correlacion_'||replace(gen_random_uuid()::text,'-','');
+ solicitud text:='solicitud_unidad:'||replace(pg_catalog.gen_random_uuid()::text,'-','');evento text:='evento_'||replace(pg_catalog.gen_random_uuid()::text,'-','');correlacion text:='correlacion_'||replace(pg_catalog.gen_random_uuid()::text,'-','');
 BEGIN
- solicitud_sha:=encode(sha256(convert_to(jsonb_build_object('plan',plan_canonico,'sha_aprobado',sha_aprobado,'fuente',fuente_canonica)::text,'UTF8')),'hex');
+ solicitud_sha:=encode(pg_catalog.sha256(pg_catalog.convert_to(jsonb_build_object('plan',plan_canonico,'sha_aprobado',sha_aprobado,'fuente',fuente_canonica)::text,'UTF8')),'hex');
  BEGIN
   respuesta:=vec_personal.aplicar_efecto_unidad_inicial_admin_v1(plan_canonico,sha_aprobado,fuente_canonica);
   motivo:=CASE WHEN (respuesta->>'replay')::boolean THEN 'unidad_replay' ELSE 'unidad_registrada' END;
@@ -269,9 +280,21 @@ BEGIN
   'accion','inicializar_unidad_sintetica_admin_v1','recurso_ref',solicitud,'resultado',estado,'motivo_ref',motivo,'proceso','postgresql',
   'canal','operacion_tecnica_privada','finalidad_ref','inicializar_unidad_sintetica_admin','correlacion_ref',correlacion));
  RETURN jsonb_build_object('estado',estado,'codigo',codigo,'recibo',respuesta->'recibo','replay',COALESCE((respuesta->>'replay')::boolean,false),
-  'auditoria_intento',jsonb_build_object('auditoria_ref',aud.auditoria_ref,'secuencia',aud.secuencia,'huella_sha256',aud.huella_sha256,'correlacion_ref',aud.correlacion_ref,'registrada_en',aud.registrada_en));
+  'auditoria_intento',jsonb_build_object('auditoria_ref',aud.auditoria_ref,'secuencia',aud.secuencia,'huella_sha256',aud.huella_sha256,'correlacion_ref',aud.correlacion_ref,'registrada_en',to_char(aud.registrada_en AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"')));
 END $f$;
 REVOKE ALL ON FUNCTION vec_personal.inicializar_unidad_sintetica_admin_v1(text,text,text) FROM PUBLIC,vec_personal_ejecutor;
 GRANT USAGE ON SCHEMA vec_personal TO vec_personal_unidad_inicial_ejecutor;
 GRANT EXECUTE ON FUNCTION vec_personal.inicializar_unidad_sintetica_admin_v1(text,text,text) TO vec_personal_unidad_inicial_ejecutor;
+DO $acl_final$
+DECLARE f record;permitidos oid[];owner oid:='vec_personal_propietario'::regrole;ejecutor oid:='vec_personal_unidad_inicial_ejecutor'::regrole;
+BEGIN
+ FOR f IN SELECT p.oid,p.proname FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+ WHERE n.nspname='vec_personal' AND p.proname IN('canon_unidad_inicial_admin_v1','exigir_operador_unidad_inicial_admin_v1','validar_unidad_inicial_admin_v1','preimagen_unidad_inicial_admin_v1','aplicar_efecto_unidad_inicial_admin_v1','inicializar_unidad_sintetica_admin_v1') LOOP
+  permitidos:=ARRAY[owner];
+  IF f.proname='inicializar_unidad_sintetica_admin_v1' THEN permitidos:=array_append(permitidos,ejecutor); END IF;
+  IF EXISTS(SELECT 1 FROM pg_proc p,LATERAL aclexplode(COALESCE(p.proacl,acldefault('f',p.proowner))) a
+   WHERE p.oid=f.oid AND (a.grantee<>ALL(permitidos) OR a.privilege_type<>'EXECUTE' OR a.is_grantable))
+  THEN RAISE EXCEPTION 'Personal33: PARO clave=ACL_funcion actual=ampliada esperado=owner_y_fachada_unica' USING ERRCODE='55000'; END IF;
+ END LOOP;
+END $acl_final$;
 COMMIT;
