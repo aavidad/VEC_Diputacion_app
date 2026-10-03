@@ -252,6 +252,10 @@ func registrarFirmaMultipleR5(ctx context.Context, base *ServicioFirmaDocumento,
 	if recibo.SolicitudHuella != h || recibo.Resultado != domain.ResultadoFirmaFirmado || !domain.ReferenciaOpacaValida(recibo.FirmaRef) || !domain.ReferenciaOpacaValida(recibo.ReciboRef) || !domain.ReferenciaOpacaValida(recibo.ActorRef) || !domain.ReferenciaOpacaValida(recibo.PerfilRef) || recibo.RegistradaEn.IsZero() || recibo.DocumentoCustodiaRef != m.DocumentoCustodiaRef || recibo.DocumentoCustodiaVersion != m.DocumentoCustodiaVersion || recibo.Secuencia != m.Secuencia || recibo.ExpedienteVersion != m.VersionExpediente || (s.via == ports.ViaFirmaCertificadoVEC && recibo.ActorRef != m.FirmantePrincipalRef) || (s.via == ports.ViaFirmaExternaPortafirmas && recibo.ActorRef == m.FirmantePrincipalRef) {
 		return cero, ports.ErrResultadoFirmaDocumentoInvalido
 	}
+	if repetida && (!recibo.YaRegistrada || recibo.FirmaRef != previa.FirmaRef ||
+		recibo.ReciboRef != previa.ReciboRef || !recibo.RegistradaEn.Equal(previa.RegistradaEn)) {
+		return cero, ports.ErrResultadoFirmaDocumentoInvalido
+	}
 	return resultadoFirmaMultipleR5{recibo, &m, dictamen.Motivo, custodiado}, nil
 }
 
