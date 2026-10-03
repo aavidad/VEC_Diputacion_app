@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"vec-diputacion-granada/internal/modules/meritos/domain"
 	"vec-diputacion-granada/internal/modules/meritos/ports"
 	vec "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
@@ -28,7 +29,7 @@ func (s *ServicioConsultaPropia) RegistrarFalloConsulta(ctx context.Context, sol
 		return ports.ErrConsultaNoDisponible
 	}
 	recurso := s.auditoria.RecursoConsultaRef
-	if !errors.Is(causa, ErrSolicitud) && solicitud.HechoRef != "" {
+	if !errors.Is(causa, ErrSolicitud) && domain.ReferenciaValida(solicitud.HechoRef) {
 		recurso = solicitud.HechoRef
 	}
 	return s.registrarIntentoConsulta(ctx, solicitud, recurso, causa)
