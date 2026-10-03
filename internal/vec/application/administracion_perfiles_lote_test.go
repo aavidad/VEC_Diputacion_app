@@ -24,6 +24,7 @@ type autoridadPerfilesLotePrueba struct {
 	ordinarios int
 	err        error
 	mutar      func(*domain.ReciboLoteAdministracionPerfiles)
+	replay     *domain.ReciboLoteAdministracionPerfiles
 }
 
 func (a *autoridadPerfilesLotePrueba) AplicarActoOrdinario(context.Context, domain.SolicitudActoAdministracionPerfiles) (domain.ReciboAdministracionPerfiles, error) {
@@ -40,6 +41,9 @@ func (a *autoridadPerfilesLotePrueba) AplicarLoteOrdinario(_ context.Context, s 
 	a.lotes++
 	if a.err != nil {
 		return domain.ReciboLoteAdministracionPerfiles{}, a.err
+	}
+	if a.replay != nil {
+		return *a.replay, nil
 	}
 	r := domain.ReciboLoteAdministracionPerfiles{OperacionRef: s.OperacionRef, ActoRef: s.OperacionRef,
 		ReciboRef: "recibo_admin:" + strings.Repeat("b", 32), AuditoriaRef: "auditoria:lote:1", HuellaSolicitudSHA256: s.HuellaSolicitudSHA256,
@@ -162,7 +166,7 @@ func TestAdministracionPerfilesLoteFalloDurableNoDaRecibo(t *testing.T) {
 	}
 }
 func TestAdministracionPerfilesLoteNoAceptaReciboAjeno(t *testing.T) {
-	for _, caso := range []string{"actor", "asignacion", "correlacion", "preimagen", "perfil", "version", "fecha", "motivo", "parcial"} {
+	for _, caso := range []string{"actor", "asignacion", "correlacion", "correlacion_dispar", "preimagen", "perfil", "version", "fecha", "motivo", "parcial"} {
 		t.Run(caso, func(t *testing.T) {
 			servicio, s, a, _ := lotePerfilesAplicacionPrueba(t)
 			a.mutar = func(r *domain.ReciboLoteAdministracionPerfiles) {
@@ -172,7 +176,9 @@ func TestAdministracionPerfilesLoteNoAceptaReciboAjeno(t *testing.T) {
 				case "asignacion":
 					r.Cambios[0].AsignacionPerfilRef = "asignacion:otra:v1"
 				case "correlacion":
-					r.Cambios[0].CorrelacionRef = "correlacion_" + strings.Repeat("f", 32)
+					r.Cambios[0].CorrelacionRef = ""
+				case "correlacion_dispar":
+					r.Cambios[1].CorrelacionRef = "correlacion_" + strings.Repeat("9", 32)
 				case "preimagen":
 					r.Cambios[0].HuellaAntesSHA256 = strings.Repeat("0", 64)
 				case "perfil":
@@ -190,6 +196,91 @@ func TestAdministracionPerfilesLoteNoAceptaReciboAjeno(t *testing.T) {
 			r, err := servicio.AplicarLoteOrdinario(context.Background(), s)
 			if err == nil || r.ReciboRef != "" || a.lotes != 1 || a.ordinarios != 0 {
 				t.Fatalf("recibo %s aceptado", caso)
+			}
+		})
+	}
+}
+
+func TestAdministracionPerfilesLoteReplayRevalidaAccesoYConservaRecibo(t *testing.T) {
+	servicio, original, autoridad, _ := lotePerfilesAplicacionPrueba(t)
+	recibo, err := servicio.AplicarLoteOrdinario(context.Background(), original)
+	if err != nil {
+		t.Fatal(err)
+	}
+	autoridad.replay = &recibo
+	reintento := original
+	reintento.CorrelacionRef = "correlacion_" + strings.Repeat("9", 32)
+	reintento.InstantaneaAutorizacion.RevisionCatalogoPoliticas++
+	datos, err := original.Evidencia.Vinculo.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	autenticacion := datos.Autenticacion()
+	autenticacion.ControlSesionRevision++
+	autenticacion.ControlSesionHuellaSHA256 = strings.Repeat("9", 64)
+	autenticacion.SesionRevalidadaEn = autenticacion.SesionRevalidadaEn.Add(time.Minute)
+	vinculo, resultado, err := domain.CrearVinculoAutenticacionActorV2ConResultado(context.Background(),
+		&revalidadorVinculoAplicacionAdversarial{resultado: autenticacion},
+		domain.SolicitudRevalidacionAutenticacionActorV1{AutenticacionRef: datos.AutenticacionRef, SesionRef: datos.SesionRef},
+		resolutorContextoAutorizacionV3Prueba{resultado: original.Evidencia.ResultadoContexto}, solicitudServicioContextoActorPrueba(), servicio.reloj)
+	if err != nil || vinculo.CoincideExactamenteCon(original.Evidencia.Vinculo) {
+		t.Fatalf("evidencia renovada: %v", err)
+	}
+	reintento.Evidencia = domain.EvidenciaSesionAdministracionPerfiles{ResultadoContexto: resultado, Vinculo: vinculo}
+	sellarLotePerfilesPrueba(t, &reintento)
+	if reintento.HuellaSolicitudSHA256 != original.HuellaSolicitudSHA256 {
+		t.Fatal("un nuevo acceso cambió la huella del efecto")
+	}
+	recuperado, err := servicio.AplicarLoteOrdinario(context.Background(), reintento)
+	if err != nil || recuperado.ReciboRef != recibo.ReciboRef ||
+		!recuperado.ConfirmadoEn.Equal(recibo.ConfirmadoEn) || recuperado.Cambios[0] != recibo.Cambios[0] ||
+		autoridad.lotes != 2 || autoridad.ordinarios != 0 {
+		t.Fatalf("replay alteró el recibo original: %v", err)
+	}
+	for _, caso := range []string{"evidencia", "asignacion_caducada", "rol_retirado"} {
+		t.Run(caso, func(t *testing.T) {
+			invalida := reintento
+			switch caso {
+			case "evidencia":
+				invalida.Evidencia = domain.EvidenciaSesionAdministracionPerfiles{}
+			case "asignacion_caducada":
+				invalida.InstantaneaAutorizacion.AsignacionPerfil.VigenteHasta = servicio.reloj.Ahora()
+			case "rol_retirado":
+				invalida.InstantaneaAutorizacion.ControlVigenciaVersionRol.Estado = domain.EstadoControlVigenciaVersionRolRetirada
+			}
+			if _, err := servicio.AplicarLoteOrdinario(context.Background(), invalida); err == nil || autoridad.lotes != 2 {
+				t.Fatal("replay aceptó acceso sin autoridad vigente")
+			}
+		})
+	}
+}
+
+func TestAdministracionPerfilesLoteHuellaConservaTodoElMaterialDelEfecto(t *testing.T) {
+	for _, caso := range []string{"destinataria", "CAS", "motivo", "ambito", "orden", "asignacion"} {
+		t.Run(caso, func(t *testing.T) {
+			_, solicitud, _, _ := lotePerfilesAplicacionPrueba(t)
+			original := solicitud.HuellaSolicitudSHA256
+			switch caso {
+			case "destinataria":
+				for i := range solicitud.Cambios {
+					solicitud.Cambios[i].Objetivo.PersonaRef = "per_" + strings.Repeat("z", 24)
+				}
+			case "CAS":
+				for i := range solicitud.Cambios {
+					solicitud.Cambios[i].Objetivo.PersonaVersion++
+				}
+			case "motivo":
+				solicitud.Motivo.EntradaClave = "motivo_" + strings.Repeat("9", 32)
+			case "ambito":
+				solicitud.Cambios[0].Objetivo.UnidadRef = "unidad:otra"
+			case "orden":
+				solicitud.Cambios[0], solicitud.Cambios[1] = solicitud.Cambios[1], solicitud.Cambios[0]
+			case "asignacion":
+				solicitud.InstantaneaAutorizacion.AsignacionPerfil.Version++
+			}
+			_, nueva, err := solicitud.CanonicoYHuella()
+			if err != nil || nueva == original {
+				t.Fatalf("material distinto reutilizó la huella: %v", err)
 			}
 		})
 	}

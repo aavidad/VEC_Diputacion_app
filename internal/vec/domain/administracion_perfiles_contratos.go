@@ -83,7 +83,7 @@ func (c CierrePropuestaAdministracionPerfiles) ValidarPara(s SolicitudCierreProp
 		c.Recibo.ActorPersonaRef != s.Aprobador.PersonaRef ||
 		c.Recibo.PerfilActivoRef != s.Aprobador.PerfilActivoRef ||
 		c.Recibo.AsignacionPerfilRef != s.InstantaneaAutorizacion.AsignacionPerfil.Referencia() ||
-		c.Recibo.CorrelacionRef != s.CorrelacionRef || c.Recibo.Motivo != s.Motivo ||
+		!ReferenciaCorrelacionAutorizacionV2Valida(c.Recibo.CorrelacionRef) || c.Recibo.Motivo != s.Motivo ||
 		c.Recibo.ObjetivoPersonaRef != s.ObjetivoPersonaRef ||
 		!c.Recibo.ConfirmadoEn.Equal(c.ConfirmadoEn) {
 		return ErrControlAdministracionPerfilesInvalido

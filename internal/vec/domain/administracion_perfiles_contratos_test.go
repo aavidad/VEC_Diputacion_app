@@ -100,7 +100,7 @@ func TestAdministracionPerfilesCierreLigaReciboAlAprobadorYAlMaterial(t *testing
 	}
 	otros := map[string]string{
 		"actor": referenciaContextoActorPrueba("per_", "z"), "perfil": referenciaContextoActorPrueba("prf_", "z"),
-		"asignacion": "asignacion:otra:v99", "correlacion": "correlacion_" + strings.Repeat("9", 32), "motivo": "otra_entrada",
+		"asignacion": "asignacion:otra:v99", "correlacion": "correlacion_invalida", "motivo": "otra_entrada",
 		"propuesta": "propuesta_admin:" + strings.Repeat("9", 32), "operacion": "cierre_admin:" + strings.Repeat("9", 32),
 		"destinataria": referenciaContextoActorPrueba("per_", "z"),
 	}
@@ -142,6 +142,20 @@ func TestAdministracionPerfilesCierreLigaReciboAlAprobadorYAlMaterial(t *testing
 				t.Fatal("recibo sin evidencia ligada aceptado")
 			}
 		})
+	}
+}
+
+func TestAdministracionPerfilesCierreReplayConservaCorrelacionOriginal(t *testing.T) {
+	solicitud, cierre := cierreAdministracionPerfilesLigadoPrueba(t)
+	original := cierre.Recibo.CorrelacionRef
+	solicitud.CorrelacionRef = "correlacion_" + strings.Repeat("9", 32)
+	solicitud.InstantaneaAutorizacion.RevisionCatalogoPoliticas++
+	if cierre.ValidarPara(solicitud) != nil || cierre.Recibo.CorrelacionRef != original {
+		t.Fatal("nuevo acceso no recupera cierre original")
+	}
+	solicitud.CorrelacionRef = ""
+	if cierre.ValidarPara(solicitud) == nil {
+		t.Fatal("replay sin correlación actual aceptado")
 	}
 }
 

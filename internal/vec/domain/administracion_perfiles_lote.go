@@ -64,8 +64,9 @@ func (s SolicitudLoteAdministracionPerfiles) validarEstructura() error {
 	return nil
 }
 
-// CanonicoYHuella liga la preimagen completa, el actor y la asignación central
-// a la orden. La evidencia de sesión se revalida separadamente, también en replay.
+// CanonicoYHuella liga la preimagen completa, el actor, el perfil y la referencia
+// de asignación a la orden. Correlación, evidencia e instantánea actuales se
+// revalidan separadamente en cada acceso, también al recuperar el recibo original.
 func (s SolicitudLoteAdministracionPerfiles) CanonicoYHuella() ([]byte, string, error) {
 	if err := s.validarEstructura(); err != nil {
 		return nil, "", err
@@ -75,13 +76,12 @@ func (s SolicitudLoteAdministracionPerfiles) CanonicoYHuella() ([]byte, string, 
 		OperacionRef    string
 		ActorPersonaRef string
 		PerfilActivoRef string
-		Instantanea     InstantaneaAutorizacion
+		AsignacionRef   string
 		Cambios         []CambioPerfilAdministracion
 		Motivo          ReferenciaEntradaCatalogo
 		ReferenciaActo  string
-		CorrelacionRef  string
-	}{"administracion_perfiles_lote:v1", s.OperacionRef, s.Actor.PersonaRef, s.Actor.PerfilActivoRef,
-		s.InstantaneaAutorizacion, s.Cambios, s.Motivo, s.ReferenciaActo, s.CorrelacionRef}
+	}{"administracion_perfiles_lote:v2", s.OperacionRef, s.Actor.PersonaRef, s.Actor.PerfilActivoRef,
+		s.InstantaneaAutorizacion.AsignacionPerfil.Referencia(), s.Cambios, s.Motivo, s.ReferenciaActo}
 	b, err := json.Marshal(canonico)
 	if err != nil {
 		return nil, "", ErrActoAdministracionPerfilesInvalido
@@ -127,6 +127,7 @@ func (r ReciboLoteAdministracionPerfiles) ValidarPara(s SolicitudLoteAdministrac
 			Objetivo: c.Objetivo, Motivo: s.Motivo, CorrelacionRef: s.CorrelacionRef, ReferenciaActo: s.ReferenciaActo}
 		if recibo.ValidarPara(solicitud) != nil || recibo.ActoRef != r.ActoRef ||
 			recibo.ReciboRef != r.ReciboRef || recibo.AuditoriaRef != r.AuditoriaRef ||
+			recibo.CorrelacionRef != r.Cambios[0].CorrelacionRef ||
 			!recibo.ConfirmadoEn.Equal(r.ConfirmadoEn) {
 			return ErrActoAdministracionPerfilesInvalido
 		}
@@ -138,7 +139,7 @@ func (r ReciboAdministracionPerfiles) ValidarPara(s SolicitudActoAdministracionP
 	if s.Validar() != nil || r.Validar() != nil || r.OperacionRef != s.OperacionRef || r.PropuestaRef != "" ||
 		r.ActorPersonaRef != s.Actor.PersonaRef || r.PerfilActivoRef != s.Actor.PerfilActivoRef ||
 		r.AsignacionPerfilRef != s.InstantaneaAutorizacion.AsignacionPerfil.Referencia() ||
-		r.CorrelacionRef != s.CorrelacionRef || r.Motivo != s.Motivo ||
+		!ReferenciaCorrelacionAutorizacionV2Valida(r.CorrelacionRef) || r.Motivo != s.Motivo ||
 		r.ObjetivoPersonaRef != s.Objetivo.PersonaRef || r.PerfilRef != s.Objetivo.PerfilRef ||
 		r.VinculoRef != s.Objetivo.VinculoRef || r.UnidadRef != s.Objetivo.UnidadRef || r.CentroRef != s.Objetivo.CentroRef ||
 		r.RolVersionRef != s.RolVersionRef || r.ReferenciaActo != s.ReferenciaActo ||
