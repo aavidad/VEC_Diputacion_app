@@ -7,7 +7,6 @@ import (
 
 	personaldomain "vec-diputacion-granada/internal/modules/personal/domain"
 	personalports "vec-diputacion-granada/internal/modules/personal/ports"
-	seguridadvec "vec-diputacion-granada/internal/vec/adapters/seguridad"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
@@ -52,7 +51,7 @@ func (p *ProveedorAutorizacionLectorRelacionRPT) AutorizarRelacionParaRPT(ctx co
 	if p == nil || dependenciaNula(p.identidad) || dependenciaNula(p.emisor) || ctx == nil || ctx.Err() != nil || len(material.Canonico()) == 0 {
 		return vacio, personaldomain.ErrLectorRelacionRPTNoDisponible
 	}
-	identidad, err := p.identidad.ResolverIdentidadLectorRelacionRPT(ctx)
+	identidad, err := identidadOriginalLectorRelacionRPT(ctx)
 	if err != nil || identidad.Resultado.Validar() != nil || identidad.Vinculo.ValidarPara(identidad.Resultado) != nil {
 		return vacio, personaldomain.ErrLectorRelacionRPTNoDisponible
 	}
@@ -61,7 +60,7 @@ func (p *ProveedorAutorizacionLectorRelacionRPT) AutorizarRelacionParaRPT(ctx co
 	if err != nil || !bytes.Equal(canonActor, identidad.Resultado.RepresentacionCanonica) {
 		return vacio, personaldomain.ErrLectorRelacionRPTNoDisponible
 	}
-	correlacion, err := vecdomain.GenerarReferenciaCorrelacionAutorizacionV2(ctx, seguridadvec.GeneradorReferenciasCriptograficas{})
+	correlacion, err := correlacionLectorRelacionRPT(ctx)
 	if err != nil {
 		return vacio, personaldomain.ErrLectorRelacionRPTNoDisponible
 	}
