@@ -6,7 +6,7 @@ const filtros = { efectosDesde: "2024-01-01", efectosHasta: "2025-01-01" };
 function revision(version = 1) {
   return { servicio_ref: "srv_AAAAAAAAAAAAAAAAAAAAAA", relacion_ref: "rel_CCCCCCCCCCCCCCCCCCCCCC", periodo_desde: "2019-01-01", periodo_hasta: "2019-12-31", dias_reconocidos: 365, estado: "reconocido", clase: "Servicios propios", traza: { desde: "2024-01-01", registrada_en: "2024-03-01T09:00:00.000000Z", version, acto_ref: "acto:uno", fuente_ref: "fuente:uno", fuente_version: 1 } };
 }
-const sobre = () => ({ data: { historia: { corte: { efectos_desde: filtros.efectosDesde, efectos_hasta: filtros.efectosHasta, conocido_en: "2026-10-04T08:00:00.123456Z" }, cobertura: "parcial", revisiones: [revision(2), revision(1)] }, consultada_en: "2026-10-04T08:00:01.000000Z", recibo_ref: "historia:servicios:0f0e0d0c-0b0a-4908-8706-050403020100" } });
+const sobre = () => ({ data: { historia: { corte: { efectos_desde: filtros.efectosDesde, efectos_hasta: filtros.efectosHasta, conocido_en: "2026-10-04T08:00:00.123456Z" }, cobertura: "parcial", revisiones: [revision(2), revision(1)] }, consultada_en: "2026-10-04T08:00:01.000000Z", recibo_ref: "aud_v3_abcdef0123456789abcdef0123456789" } });
 const respuesta = (datos, status = 200) => new Response(JSON.stringify(datos), { status, headers: { "Content-Type": "application/json; charset=utf-8" } });
 
 test("POST sólo dos fechas: conocimiento, actor y empleado los resuelve el servidor; conserva todas las revisiones", async () => {
