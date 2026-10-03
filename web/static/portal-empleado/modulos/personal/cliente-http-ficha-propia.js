@@ -218,7 +218,7 @@ export function crearFuentesFichaPropia({ fetchImpl = globalThis.fetch, traducir
       return { estado: items.length ? "disponible" : "vacio", fuente: traducir("fuente_registro"), actualizado_en: consulta.consultadaEn, items, ...(admiteFecha ? { fecha_referencia: consulta.ficha.corte.vigente_en, exportacion_servicios_disponible: consulta.exportacionServiciosDisponible && !recibosSinExportacion.has(consulta.reciboRef), historia_servicios_disponible: consulta.historiaServiciosDisponible, recibo_ref: consulta.reciboRef, corte: Object.freeze({ ...consulta.ficha.corte }) } : {}) };
     },
     ...(admiteFecha ? { clienteHistoria: Object.freeze({ async consultar(entrada) {
-      if (sesionCaducada) throw error("denegado", 401);
+      if (sesionCaducada) throw error("sesion_caducada", 401);
       const vigente = revision;
       try { return await crearClienteHistoriaServiciosPropia({ fetchImpl, plazoMs }).consultar(entrada); }
       catch (causa) {

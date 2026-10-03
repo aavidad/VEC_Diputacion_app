@@ -37,9 +37,9 @@ function tabla(d, revisiones) {
 }
 
 /** Vista independiente: sin cliente nominal permanece inactiva; no consulta al montar. */
-export function montarVistaHistoriaServiciosPropia({ raiz, cliente, registrarDesmontar, anunciar = () => {}, efectosDesde = "", efectosHasta = "" } = {}) {
+export function montarVistaHistoriaServiciosPropia({ raiz, cliente, registrarDesmontar, anunciar = () => {}, alCaducarSesion = () => {}, efectosDesde = "", efectosHasta = "" } = {}) {
   const d = raiz?.ownerDocument;
-  if (!d?.createElement || typeof raiz.append !== "function" || typeof anunciar !== "function" ||
+  if (!d?.createElement || typeof raiz.append !== "function" || typeof anunciar !== "function" || typeof alCaducarSesion !== "function" ||
       (registrarDesmontar !== undefined && typeof registrarDesmontar !== "function")) throw new TypeError("vista_historia_servicios_no_disponible");
   const disponible = typeof cliente?.consultar === "function";
   const panel = nodo(d, "section", undefined, "panel personal-ficha-panel"); panel.dataset.personalHistoriaServicios = "";
@@ -101,6 +101,7 @@ export function montarVistaHistoriaServiciosPropia({ raiz, cliente, registrarDes
       resultado.append(detalle(d, "detalle", [["recibo", datos.recibo_ref]]));
     } catch (causa) {
       if (!vigente()) return;
+      if (causa?.estado === 401 || causa?.codigo === "sesion_caducada") { alCaducarSesion(); if (!activa) return; }
       const codigo = ["intervalo_invalido", "sesion_caducada", "denegado", "no_configurado", "excede_limite", "respuesta_no_valida", "no_disponible"].includes(causa?.codigo) ? causa.codigo : "no_disponible";
       resultado.replaceChildren(mensaje(d, codigo, true)); anunciar(t(`general.${codigo}`), "error");
     } finally { if (vigente()) { vuelo = undefined; ocupada(false); enfocar(); } }

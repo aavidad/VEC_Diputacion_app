@@ -117,11 +117,17 @@ func (m *ManejadorHistoriaServiciosPropia) ServeHTTP(w http.ResponseWriter, r *h
 	}
 	// Proyección cerrada: las referencias de empleado y evidencia V3 interna
 	// no se serializan. Acto/fuente siguen siendo referencias, no documentos.
-	historia := struct {
-		Corte      domain.CorteHistoriaServiciosPropia `json:"corte"`
-		Cobertura  string                              `json:"cobertura"`
-		Revisiones []domain.RevisionServicioPropio     `json:"revisiones"`
-	}{resultado.Historia.Corte, resultado.Historia.Cobertura, resultado.Historia.Revisiones}
+	revisiones := make([]map[string]any, 0, len(resultado.Historia.Revisiones))
+	for _, revision := range resultado.Historia.Revisiones {
+		traza := map[string]any{"desde": revision.Traza.Desde, "registrada_en": revision.Traza.RegistradaEn.UTC().Format("2006-01-02T15:04:05.000000Z"), "version": revision.Traza.Version, "acto_ref": revision.Traza.ActoRef, "fuente_ref": revision.Traza.FuenteRef, "fuente_version": revision.Traza.FuenteVersion}
+		if revision.Traza.Hasta != "" {
+			traza["hasta"] = revision.Traza.Hasta
+		}
+		revisiones = append(revisiones, map[string]any{"servicio_ref": revision.ServicioRef, "relacion_ref": revision.RelacionRef, "periodo_desde": revision.PeriodoDesde, "periodo_hasta": revision.PeriodoHasta, "dias_reconocidos": revision.DiasReconocidos, "estado": revision.Estado, "clase": revision.Clase, "traza": traza})
+	}
+	corte := resultado.Historia.Corte
+	historia := map[string]any{"corte": map[string]any{"efectos_desde": corte.Desde, "efectos_hasta": corte.Hasta, "conocido_en": corte.ConocidoEn.UTC().Format("2006-01-02T15:04:05.000000Z")}, "cobertura": resultado.Historia.Cobertura, "revisiones": revisiones}
+
 	responderFichaPropia(w, 200, "", map[string]any{"data": map[string]any{"historia": historia, "consultada_en": resultado.Evidencia.ConsultadaEn.UTC().Format("2006-01-02T15:04:05.000000Z"), "recibo_ref": resultado.Evidencia.ReciboRef}})
 }
 func (m *ManejadorHistoriaServiciosPropia) rechazar(w http.ResponseWriter, r *http.Request, estado int, codigo, motivo string) {

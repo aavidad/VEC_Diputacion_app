@@ -511,3 +511,29 @@ test("historia conectada se abre desde Servicios sin consultar sola y se desmont
  assert.ok(ficha.querySelector("[data-personal-historia-servicios]"));assert.equal(llamadas,0);
  tab(ficha,"ficha").click();assert.equal(ficha.querySelector("[data-personal-historia-servicios]"),null);assert.equal(llamadas,0);
 });
+
+
+test("401 de historia retira también la ficha padre y mantiene sesión invalidada sin GET", async () => {
+ const {crearFuentesFichaPropia}=await import("./cliente-http-ficha-propia.js");
+ const raiz=raizFalsa();const metodos=[];
+ const sobre={data:{exportacion_servicios_disponible:true,historia_servicios_disponible:true,ficha:{corte:{vigente_en:"2026-09-25",conocido_en:"2026-09-25T08:59:59.000000Z"},relaciones:[],servicios:[{inicio:"2019-01-01",fin:"2019-12-31",clase:"Servicios previos",dias:365,estado:"reconocido"}]},recibo_ref:"fichapropia:0f0e0d0c-0b0a-4908-8706-050403020100",consultada_en:"2026-09-25T09:00:00.000000Z"}};
+ const fuentes=await crearFuentesFichaPropia({fetchImpl:async(_,opciones)=>{
+  metodos.push(opciones.method);const body=JSON.stringify(opciones.method==="GET"?sobre:{error:"autenticacion_requerida"});
+  return new Response(body,{status:opciones.method==="GET"?200:401,headers:{"Content-Type":"application/json; charset=utf-8","Content-Length":String(Buffer.byteLength(body))}});
+ }}).preparar();
+ montarVistaFichaIntegralPersonal({raiz,fuentes});const ficha=raiz.querySelector("[data-personal-ficha-integral]");
+ tab(ficha,"servicios").click();await completar();ficha.querySelector("[data-personal-historia-abrir]").click();
+ const historia=ficha.querySelector("[data-personal-historia-servicios]");
+ historia.querySelector('[data-personal-historia-fecha="desde"]').value="2020-01-01";
+ historia.querySelector('[data-personal-historia-fecha="hasta"]').value="2027-01-01";
+ const form=nodos(historia).find(n=>n.tagName==="form");form.listeners.get("submit")({preventDefault(){}});
+ await completar();await completar();
+ assert.equal(nodos(ficha).some(n=>n.tagName==="table"),false);
+ assert.equal(ficha.querySelector("[data-personal-historia-servicios]"),null);
+ assert.equal(ficha.querySelector("[data-personal-servicios-descargar]"),null);
+ assert.match(texto(ficha),/Su sesión ha finalizado/u);
+ assert.ok(ficha.querySelector('[data-personal-ficha-actualizar="servicios"]'));
+ tab(ficha,"ficha").click();tab(ficha,"servicios").click();await completar();
+ assert.equal(nodos(ficha).some(n=>n.tagName==="table"),false);assert.deepEqual(metodos,["GET","POST"]);
+ await assert.rejects(fuentes.servicios.clienteHistoria.consultar({efectosDesde:"2020-01-01",efectosHasta:"2027-01-01"}),{codigo:"sesion_caducada",estado:401});
+});

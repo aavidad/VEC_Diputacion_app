@@ -14,10 +14,11 @@ import (
 )
 
 type consultaHistoriaHTTPPrueba struct {
-	solicitud domain.SolicitudHistoriaServiciosPropia
-	llamadas  int
-	err       error
-	ajena     bool
+	solicitud  domain.SolicitudHistoriaServiciosPropia
+	llamadas   int
+	err        error
+	ajena      bool
+	revisiones []domain.RevisionServicioPropio
 }
 
 func (c *consultaHistoriaHTTPPrueba) Consultar(_ context.Context, s domain.SolicitudHistoriaServiciosPropia) (ports.ResultadoHistoriaServiciosPropia, error) {
@@ -31,6 +32,7 @@ func (c *consultaHistoriaHTTPPrueba) Consultar(_ context.Context, s domain.Solic
 		return ports.ResultadoHistoriaServiciosPropia{}, e
 	}
 	h := domain.HistoriaServiciosPropia{EmpleadoRef: m.EmpleadoRef(), Corte: s.Corte, Cobertura: "no_acreditada", Revisiones: []domain.RevisionServicioPropio{}}
+	h.Revisiones = append(h.Revisiones, c.revisiones...)
 	if c.ajena {
 		h.EmpleadoRef = "emp_" + strings.Repeat("Z", 24)
 	}
@@ -134,6 +136,21 @@ func TestHistoriaServiciosHTTPRechazaDatosAjenosYConservaErroresNominales(t *tes
 		m.ServeHTTP(w, peticionHistoriaHTTPPrueba(`{"efectos_desde":"2020-01-01","efectos_hasta":"2027-01-01"}`))
 		if w.Code != caso.estado || len(registro.intentos) != 0 {
 			t.Fatal("duplicó intento servicio", w.Code)
+		}
+	}
+}
+
+func TestHistoriaServiciosHTTPLigaInstantesUTCConSeisDecimales(t *testing.T) {
+	for _, nanos := range []int{0, 123450000} {
+		revision := domain.RevisionServicioPropio{ServicioRef: "srv_" + strings.Repeat("A", 24), RelacionRef: "rel_" + strings.Repeat("B", 24), PeriodoDesde: "2010-01-01", PeriodoHasta: "2010-12-31", DiasReconocidos: 365, Estado: "reconocido", Clase: "Servicios previos", Traza: domain.TrazaEmpleadoB2{Desde: "2020-01-01", RegistradaEn: time.Date(2025, 9, 25, 10, 0, 0, 0, time.UTC), Version: 1, ActoRef: "acto:servicios", FuenteRef: "fuente:servicios", FuenteVersion: 1}}
+		c := &consultaHistoriaHTTPPrueba{revisiones: []domain.RevisionServicioPropio{revision}}
+		m := manejadorHistoriaHTTPPrueba(t, c, &registroHistoriaHTTPPrueba{})
+		instante := time.Date(2026, 9, 25, 10, 0, 0, nanos, time.UTC)
+		m.ahora = func() time.Time { return instante }
+		w := httptest.NewRecorder()
+		m.ServeHTTP(w, peticionHistoriaHTTPPrueba(`{"efectos_desde":"2020-01-01","efectos_hasta":"2027-01-01"}`))
+		if w.Code != 200 || !strings.Contains(w.Body.String(), `"conocido_en":"`+instante.Format("2006-01-02T15:04:05.000000Z")+`"`) || !strings.Contains(w.Body.String(), `"registrada_en":"2025-09-25T10:00:00.000000Z"`) {
+			t.Fatalf("instante no canónico: %d %s", w.Code, w.Body.String())
 		}
 	}
 }

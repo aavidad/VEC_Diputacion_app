@@ -50,7 +50,7 @@ export function validarRespuestaHistoriaServicios(sobre, { efectosDesde, efectos
     const t = r?.traza;
     if (!claves(r, ["servicio_ref", "relacion_ref", "periodo_desde", "periodo_hasta", "dias_reconocidos", "estado", "clase", "traza"]) ||
         typeof r.servicio_ref !== "string" || !SERVICIO.test(r.servicio_ref) || typeof r.relacion_ref !== "string" || !RELACION.test(r.relacion_ref) ||
-        !fechaHistoriaServiciosValida(r.periodo_desde) || !fechaHistoriaServiciosValida(r.periodo_hasta) || r.periodo_desde > r.periodo_hasta ||
+        !fechaHistoriaServiciosValida(r.periodo_desde) || !fechaHistoriaServiciosValida(r.periodo_hasta) || r.periodo_desde >= r.periodo_hasta ||
         !Number.isSafeInteger(r.dias_reconocidos) || r.dias_reconocidos < 0 || !ESTADOS.has(r.estado) || !texto(r.clase) ||
         !claves(t, ["desde", ...(Object.hasOwn(t || {}, "hasta") ? ["hasta"] : []), "registrada_en", "version", "acto_ref", "fuente_ref", "fuente_version"]) ||
         !fechaHistoriaServiciosValida(t.desde) || (Object.hasOwn(t, "hasta") && (!fechaHistoriaServiciosValida(t.hasta) || t.hasta <= t.desde)) ||

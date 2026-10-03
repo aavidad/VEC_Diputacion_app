@@ -293,7 +293,7 @@ export function montarVistaFichaIntegralPersonal({ raiz, anunciar = () => {}, re
       const abrirHistoria = clave === "servicios" && resultado.historia_servicios_disponible === true && typeof fuentes[clave]?.clienteHistoria?.consultar === "function" ? () => {
         if (!activa || turno!==secuencia || limpiarHistoria) return;
         const hueco=nodo(d,"div");hueco.dataset.personalHistoriaHueco="";principal.append(hueco);
-        montarVistaHistoriaServiciosPropia({raiz:hueco,cliente:fuentes[clave].clienteHistoria,anunciar,registrarDesmontar:(fn)=>{limpiarHistoria=()=>{fn();hueco.remove?.();};}});
+        montarVistaHistoriaServiciosPropia({raiz:hueco,cliente:fuentes[clave].clienteHistoria,anunciar,alCaducarSesion:()=>{serviciosDescargables=undefined;pintar("servicios",true);anunciar(traducirExportacionServicios("sesion_caducada"),"error");},registrarDesmontar:(fn)=>{limpiarHistoria=()=>{fn();hueco.remove?.();};}});
         hueco.querySelector?.('[data-personal-historia-fecha="desde"]')?.focus?.();
         const boton=principal.querySelector?.('[data-personal-historia-abrir]');if(boton)boton.disabled=true;
       } : undefined;
