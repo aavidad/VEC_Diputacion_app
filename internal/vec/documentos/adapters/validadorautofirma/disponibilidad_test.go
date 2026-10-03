@@ -27,6 +27,11 @@ func TestDisponibilidadSoloPorRespuestaAcreditada(t *testing.T) {
 			s := arrancar(t, false)
 			s.Escenario(caso.escenario)
 			c := configuracion(s)
+			peticion := solicitud([]byte{0x30})
+			anterior, err := cliente(t, c).VerificarMotivado(context.Background(), peticion)
+			if err != nil {
+				t.Fatal(err)
+			}
 			var observadas []bool
 			contexto := context.WithValue(context.Background(), claveDisponibilidadPrueba{}, "correlacion_interna")
 			c.Disponibilidad = func(ctx context.Context, disponible bool) {
@@ -35,8 +40,14 @@ func TestDisponibilidadSoloPorRespuestaAcreditada(t *testing.T) {
 				}
 				observadas = append(observadas, disponible)
 			}
-			if _, err := cliente(t, c).VerificarFirmas(contexto, solicitud([]byte{0x30})); err != nil {
+			actual, err := cliente(t, c).VerificarMotivado(contexto, peticion)
+			if err != nil {
 				t.Fatal(err)
+			}
+			if actual.Motivo != anterior.Motivo || actual.Resultado.Estado != anterior.Resultado.Estado ||
+				actual.Resultado.HuellaOriginalSHA256 != anterior.Resultado.HuellaOriginalSHA256 ||
+				actual.Resultado.HuellaFirmadoSHA256 != anterior.Resultado.HuellaFirmadoSHA256 {
+				t.Fatal("el observador cambió la decisión o las huellas del documento")
 			}
 			if len(observadas) != len(caso.observaciones) {
 				t.Fatalf("observaciones=%v, esperadas=%v", observadas, caso.observaciones)
