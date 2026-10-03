@@ -174,7 +174,12 @@ if "$desde_go"; then
  vigencia_minutos=${VEC_RPT27_CLAVE_ENSAYO_MINUTOS:-60}
  [[ $vigencia_minutos =~ ^[1-9][0-9]?$ ]] || fallo 'duración de fixture inválida'
  clave68_sha=$(valor "SELECT encode(sha256(convert_to(to_jsonb(k)::text,'UTF8')),'hex') FROM vec_autorizacion_atestada_v3.clave_capacidad_version k WHERE clave_id='clave:rpt27:ensayo' AND version=68")
- [[ $clave68_sha =~ ^[0-9a-f]{64}$ && $(valor "SELECT count(*)=0 FROM vec_autorizacion_atestada_v3.clave_capacidad_version WHERE clave_id='clave:rpt27:ensayo' AND version=69") == t ]] || fallo 'gobierno fixture69 ya presente o fuente68 ausente'
+ [[ $clave68_sha =~ ^[0-9a-f]{64}$ ]] || fallo 'fuente68 ausente'
+ if [[ $(valor "SELECT count(*)=1 FROM vec_autorizacion_atestada_v3.clave_capacidad_version WHERE clave_id='clave:rpt27:ensayo' AND version=69") == t ]]; then
+  [[ -f $scratch/$hmac_nombre && ! -L $scratch/$hmac_nombre && $(stat -c %s "$scratch/$hmac_nombre") == 32 ]] || fallo 'material69 previo ausente'
+  [[ $(sha256sum "$scratch/$hmac_nombre" | cut -d' ' -f1) == $(valor "SELECT huella_secreto_sha256 FROM vec_autorizacion_atestada_v3.clave_capacidad_version WHERE clave_id='clave:rpt27:ensayo' AND version=69 AND clock_timestamp()>=valida_desde AND clock_timestamp()<valida_hasta") ]] || fallo 'material69 previo divergente o caducado'
+  [[ $(valor "SELECT position('clock_timestamp()>=valida_desde AND clock_timestamp()<valida_hasta' in prosrc)>0 FROM pg_proc WHERE oid='public.rpt27_ensayo_entrada(text)'::regprocedure") == t ]] || fallo 'selector vigente previo ausente'
+ else
  python3 - "$scratch/$hmac_nombre" "$scratch/gobierno69.sql" "$vigencia_minutos" <<'PYGOBIERNO69'
 import os,pathlib,secrets,sys
 p=pathlib.Path(sys.argv[1]);h=secrets.token_bytes(32)
@@ -205,6 +210,8 @@ m=re.search(r'CREATE FUNCTION public\.rpt27_ensayo_entrada\(.*?\$f\$;',s,re.S);a
 pathlib.Path(sys.argv[2]).write_text('BEGIN;\n'+m[0].replace('CREATE FUNCTION','CREATE OR REPLACE FUNCTION',1)+'\nCOMMIT;\n')
 PYSELECTOR69
  archivo "$scratch/selector69.sql"
+ fi
+ [[ $(valor "SELECT count(*)=1 AND bool_and(version=69 AND octet_length(secreto_hmac)=32 AND encode(sha256(secreto_hmac),'hex')=huella_secreto_sha256) FROM vec_autorizacion_atestada_v3.clave_capacidad_version WHERE clave_id='clave:rpt27:ensayo' AND clock_timestamp()>=valida_desde AND clock_timestamp()<valida_hasta") == t ]] || fallo 'clave69 vigente divergente'
  captura "$scratch/reanudacion.json"
  cmp -s "$scratch/preimagen.json" "$scratch/reanudacion.json" || fallo 'continuación alteró autoridades previas'
 fi
