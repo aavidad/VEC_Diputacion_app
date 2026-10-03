@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/csv"
+	"fmt"
 	"io"
 	"sort"
 	"strconv"
@@ -41,8 +42,11 @@ func PrepararCSV(ctx context.Context, catalogo io.Reader, e EjemploSintetico) ([
 		return nil, ErrEjemploNoDisponible
 	}
 	var c CatalogoCSV
-	if err := leerJSON(catalogo, &c); err != nil || !catalogoCSVValido(c) {
-		return nil, ErrEjemploInvalido
+	if err := leerJSON(catalogo, &c); err != nil {
+		return nil, err
+	}
+	if err := validarCatalogoCSV(c); err != nil {
+		return nil, err
 	}
 	zona, err := time.LoadLocation(e.ZonaHoraria)
 	if err != nil || !texto(e.ZonaHoraria, 64) || e.ZonaHoraria == "Local" || !e.Demo || !texto(e.Nombre, 128) || e.Completo == nil || e.Marcajes == nil || len(e.Marcajes) > 10000 {
@@ -98,33 +102,42 @@ func PrepararCSV(ctx context.Context, catalogo io.Reader, e EjemploSintetico) ([
 	return append([]byte(nil), salida.Bytes()...), nil
 }
 
-func catalogoCSVValido(c CatalogoCSV) bool {
+func validarCatalogoCSV(c CatalogoCSV) error {
 	v, err := strconv.ParseInt(c.Version, 10, 64)
-	if err != nil || v < 1 || strconv.FormatInt(v, 10) != c.Version {
-		return false
+	if err != nil {
+		return fmt.Errorf("%w: %w", ErrEjemploInvalido, err)
+	}
+	if v < 1 || strconv.FormatInt(v, 10) != c.Version {
+		return ErrEjemploInvalido
 	}
 	idioma, err := language.Parse(c.Idioma)
-	if err != nil || idioma.String() != c.Idioma || !texto(c.Referencia, 512) || !texto(c.FormatoFecha, 32) || !texto(c.FormatoHora, 64) || len(c.Cabeceras) != 10 {
-		return false
+	if err != nil {
+		return fmt.Errorf("%w: %w", ErrEjemploInvalido, err)
+	}
+	if idioma.String() != c.Idioma || !texto(c.Referencia, 512) || !texto(c.FormatoFecha, 32) || !texto(c.FormatoHora, 64) || len(c.Cabeceras) != 10 {
+		return ErrEjemploInvalido
 	}
 	base, confianza := idioma.Base()
 	if confianza == language.No || c.Referencia != "cronos-informe-movimientos-csv-"+base.String() {
-		return false
+		return ErrEjemploInvalido
 	}
 	if !strings.Contains(c.FormatoHora, "-07:00") && !strings.Contains(c.FormatoHora, "Z07:00") {
-		return false
+		return ErrEjemploInvalido
 	}
 	for _, s := range c.Cabeceras {
 		if !texto(s, 128) {
-			return false
+			return ErrEjemploInvalido
 		}
 	}
 	for _, s := range []string{c.Contexto, c.Marcaje, c.Sintetico, c.FuenteCompleta, c.FuenteIncompleta, c.OrigenSinVerificar} {
 		if !texto(s, 2048) {
-			return false
+			return ErrEjemploInvalido
 		}
 	}
-	return mapa(c.Movimientos, []string{string(domain.PunchEntry), string(domain.PunchExit), string(domain.PunchPauseStart), string(domain.PunchPauseEnd)}) && mapa(c.Origenes, []string{"terminal", "remoto"})
+	if !mapa(c.Movimientos, []string{string(domain.PunchEntry), string(domain.PunchExit), string(domain.PunchPauseStart), string(domain.PunchPauseEnd)}) || !mapa(c.Origenes, []string{"terminal", "remoto"}) {
+		return ErrEjemploInvalido
+	}
+	return nil
 }
 
 func escribirFilaCSV(w *csv.Writer, fila []string) error {
