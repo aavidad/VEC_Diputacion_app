@@ -181,6 +181,10 @@ transportes_mtls_revisados=(
 	static/portal-empleado/modulos/contratacion-temporal/cliente-http-informe-definitivo.js
 	static/portal-empleado/modulos/contratacion-temporal/cliente-http-circuito-rrhh.js
 	static/portal-empleado/modulos/contratacion-temporal/firma-externa-cliente.js
+	# Firma V2: rutas internas fijas, mTLS del mismo origen y respuestas acotadas.
+	static/portal-empleado/modulos/contratacion-temporal/preflight-firma-api.js
+	static/portal-empleado/modulos/contratacion-temporal/original-firmable-api.js
+	static/portal-empleado/modulos/contratacion-temporal/firma-vec-api.js
 	# Clientes internos del portal (23/09): con omit el navegador no presenta el
 	# certificado mTLS ni la autenticación del proxy; mismo patrón que cliente-http.js.
 	static/portal-empleado/portal-bolsas-api.js

@@ -379,6 +379,7 @@ func (f *firmaDocumentoCTDesarrollo) componerCustodia(d *autoridadDocumentosDesa
 	if err := f.servicio.ComponerCustodia(custodia, d.custodia.documentos); err != nil {
 		return errFirmaDocumentoCTDesarrolloNoDisponible
 	}
+	f.custodiaR5Compuesta = true
 	return nil
 }
 

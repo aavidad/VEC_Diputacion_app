@@ -29,6 +29,7 @@ type SolicitudFirmaExterna struct {
 
 type ResultadoFirmaExterna struct {
 	Recibo             ports.ReciboFirmaDocumento
+	MaterialMultiple   *ports.MaterialFirmaVerificadaV2
 	Material           ports.MaterialFirmaExterna
 	MotivoVerificacion docports.MotivoVerificacionFirma
 	Custodiado         ports.DocumentoCustodiado
@@ -45,6 +46,7 @@ type ServicioFirmaExterna struct {
 	autorizador ports.AutorizadorRegistroFirmaExterna
 	competencia ports.FuenteCompetenciaFirmante
 	politica    ports.FuentePoliticaMismaPersonaEnPasos
+	multiple    *dependenciasFirmaMultipleR5
 }
 
 // La fuente solo puede ampliar el default NO si devuelve un valor ligado a la
@@ -192,6 +194,10 @@ func (s *ServicioFirmaExterna) Registrar(ctx context.Context, sol SolicitudFirma
 	}
 	if _, ok := ports.FechaFirmaExternaCanonica(sol.FechaPortafirmasDeclarada); !ok {
 		return cero, ports.ErrSolicitudFirmaDocumentoInvalida
+	}
+	if s.multiple != nil {
+		r, err := registrarFirmaMultipleR5(ctx, s.base, s.competencia, s.politica, s.multiple, solicitudMultipleDesdeExterna(sol))
+		return ResultadoFirmaExterna{Recibo: r.recibo, MaterialMultiple: r.material, MotivoVerificacion: r.motivo, Custodiado: r.custodiado}, err
 	}
 	sol.PDFFirmado = bytes.Clone(sol.PDFFirmado)
 	if err := ctx.Err(); err != nil {
@@ -395,5 +401,22 @@ func ValidarCapacidadFirmaExterna(c ports.CapacidadFirmaExterna, m ports.Materia
 		resumen.AudienciaConsumo() != ports.AudienciaFirmaExternaV3 {
 		return ports.ErrFirmaDocumentoDenegada
 	}
+	return nil
+}
+
+// ComponerFirmaMultiple fija las autoridades V2 antes de atender solicitudes.
+func (s *ServicioFirmaExterna) ComponerFirmaMultiple(
+	v docports.VerificadorFirmasDocumento, r ports.RegistroFirmasVerificadasV2,
+	a ports.AutorizadorFirmaVerificadaV2, c ports.AutorizadorConsultaFirmasR5V2,
+	f ports.FuentePDFFirmaAnterior,
+) error {
+	if s == nil || s.multiple != nil {
+		return ErrCircuitoFirmaNoDisponible
+	}
+	d, err := nuevasDependenciasFirmaMultipleR5(v, r, a, c, f)
+	if err != nil {
+		return err
+	}
+	s.multiple = d
 	return nil
 }

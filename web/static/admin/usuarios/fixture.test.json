@@ -1,0 +1,358 @@
+{
+  "capacidades": {
+    "version": "1",
+    "actor_persona_ref": "per_actor_sintetico_000001",
+    "acciones": [
+      "consultar",
+      "aplicar_ordinario",
+      "proponer"
+    ]
+  },
+  "catalogo": {
+    "roles": [
+      {
+        "version_ref": "rol:rrhh:v1",
+        "clase": "ordinario",
+        "etiqueta": "Gestor de personal",
+        "clave_i18n": "perfil.gestor",
+        "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "fijo": false
+      },
+      {
+        "version_ref": "rol:seleccion:v1",
+        "clase": "ordinario",
+        "etiqueta": "Técnico de selección",
+        "clave_i18n": "perfil.seleccion",
+        "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "fijo": false
+      },
+      {
+        "version_ref": "rol:administrador:v1",
+        "clase": "administrador",
+        "etiqueta": "Administrador de perfiles",
+        "clave_i18n": "perfil.administrador",
+        "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "fijo": false
+      },
+      {
+        "version_ref": "rol:empleado:v1",
+        "clase": "ordinario",
+        "etiqueta": "Empleado",
+        "clave_i18n": "perfil.empleado",
+        "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "fijo": true
+      }
+    ],
+    "unidades": [
+      {
+        "unidad_ref": "unidad:rrhh",
+        "nombre": "Recursos Humanos",
+        "clave_i18n": "unidad.rrhh"
+      }
+    ]
+  },
+  "pagina": {
+    "personas": [
+      {
+        "persona_ref": "per_persona_sintetica_000001",
+        "nombre": "Carmen Molina (ejemplo sintético)",
+        "unidad_ref": "unidad:rrhh",
+        "unidad_nombre": "Recursos Humanos",
+        "perfiles": [
+          {
+            "perfil_ref": "prf_perfil_sintetico_000000",
+            "rol_version_ref": "rol:rrhh:v1",
+            "rol_etiqueta": "Gestor de personal",
+            "estado": "activo",
+            "version": 1,
+            "ambitos": [
+              {
+                "dimension": "unidad",
+                "referencia": "unidad:rrhh",
+                "nombre": "Recursos Humanos",
+                "clave_i18n": "unidad.rrhh"
+              }
+            ],
+            "ambito_etiqueta": "Recursos Humanos",
+            "vigente_desde": "2026-10-01T08:00:00Z",
+            "vigente_hasta": "2027-01-01T08:00:00Z"
+          }
+        ]
+      }
+    ]
+  },
+  "ficha": {
+    "persona_ref": "per_persona_sintetica_000001",
+    "nombre": "Carmen Molina (ejemplo sintético)",
+    "unidad_nombre": "Recursos Humanos",
+    "perfiles": [
+      {
+        "perfil_ref": "prf_perfil_sintetico_000000",
+        "rol_version_ref": "rol:rrhh:v1",
+        "rol_etiqueta": "Gestor de personal",
+        "estado": "activo",
+        "version": 1,
+        "ambitos": [
+          {
+            "dimension": "unidad",
+            "referencia": "unidad:rrhh",
+            "nombre": "Recursos Humanos",
+            "clave_i18n": "unidad.rrhh"
+          }
+        ],
+        "ambito_etiqueta": "Recursos Humanos",
+        "vigente_desde": "2026-10-01T08:00:00Z",
+        "vigente_hasta": "2027-01-01T08:00:00Z"
+      }
+    ],
+    "actos_disponibles": [
+      {
+        "operacion": "otorgar",
+        "rol_version_ref": "rol:rrhh:v1",
+        "objetivo": {
+          "cuenta_ref": "cta_cuenta_sintetica_000001",
+          "cuenta_version": 1,
+          "persona_ref": "per_persona_sintetica_000001",
+          "persona_version": 1,
+          "perfil_ref": "prf_perfil_sintetico_000000",
+          "perfil_version": 0,
+          "vinculo_ref": "vca_vinculo_sintetico_00000",
+          "vinculo_version": 0,
+          "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "revision_continuidad": 1,
+          "procedencia_ref": "procedencia:sintetica:001",
+          "procedencia_version": 1,
+          "procedencia_huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "vigente_desde": "2026-10-01T08:00:00Z",
+          "vigente_hasta": "2027-01-01T08:00:00Z",
+          "unidad_ref": "unidad:rrhh"
+        },
+        "motivos": [
+          {
+            "catalogo_id": "catalogo:motivos-admin",
+            "catalogo_version": 1,
+            "catalogo_huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "entrada_clave": "cambio:funciones",
+            "etiqueta": "Cambio de funciones (ejemplo sintético)"
+          }
+        ],
+        "ambitos": [
+          {
+            "dimension": "unidad",
+            "referencia": "unidad:rrhh",
+            "nombre": "Recursos Humanos",
+            "clave_i18n": "unidad.rrhh"
+          }
+        ]
+      },
+      {
+        "operacion": "otorgar",
+        "rol_version_ref": "rol:seleccion:v1",
+        "objetivo": {
+          "cuenta_ref": "cta_cuenta_sintetica_000001",
+          "cuenta_version": 1,
+          "persona_ref": "per_persona_sintetica_000001",
+          "persona_version": 1,
+          "perfil_ref": "prf_perfil_sintetico_000001",
+          "perfil_version": 0,
+          "vinculo_ref": "vca_vinculo_sintetico_00001",
+          "vinculo_version": 0,
+          "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "revision_continuidad": 1,
+          "procedencia_ref": "procedencia:sintetica:001",
+          "procedencia_version": 1,
+          "procedencia_huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "vigente_desde": "2026-10-01T08:00:00Z",
+          "vigente_hasta": "2027-01-01T08:00:00Z",
+          "unidad_ref": "unidad:rrhh"
+        },
+        "motivos": [
+          {
+            "catalogo_id": "catalogo:motivos-admin",
+            "catalogo_version": 1,
+            "catalogo_huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "entrada_clave": "cambio:funciones",
+            "etiqueta": "Cambio de funciones (ejemplo sintético)"
+          }
+        ],
+        "ambitos": [
+          {
+            "dimension": "unidad",
+            "referencia": "unidad:rrhh",
+            "nombre": "Recursos Humanos",
+            "clave_i18n": "unidad.rrhh"
+          }
+        ]
+      },
+      {
+        "operacion": "otorgar",
+        "rol_version_ref": "rol:administrador:v1",
+        "objetivo": {
+          "cuenta_ref": "cta_cuenta_sintetica_000001",
+          "cuenta_version": 1,
+          "persona_ref": "per_persona_sintetica_000001",
+          "persona_version": 1,
+          "perfil_ref": "prf_perfil_sintetico_000002",
+          "perfil_version": 0,
+          "vinculo_ref": "vca_vinculo_sintetico_00002",
+          "vinculo_version": 0,
+          "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "revision_continuidad": 1,
+          "procedencia_ref": "procedencia:sintetica:001",
+          "procedencia_version": 1,
+          "procedencia_huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "vigente_desde": "2026-10-01T08:00:00Z",
+          "vigente_hasta": "2027-01-01T08:00:00Z",
+          "unidad_ref": "unidad:rrhh"
+        },
+        "motivos": [
+          {
+            "catalogo_id": "catalogo:motivos-admin",
+            "catalogo_version": 1,
+            "catalogo_huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "entrada_clave": "cambio:funciones",
+            "etiqueta": "Cambio de funciones (ejemplo sintético)"
+          }
+        ],
+        "ambitos": [
+          {
+            "dimension": "unidad",
+            "referencia": "unidad:rrhh",
+            "nombre": "Recursos Humanos",
+            "clave_i18n": "unidad.rrhh"
+          }
+        ]
+      },
+      {
+        "operacion": "otorgar",
+        "rol_version_ref": "rol:empleado:v1",
+        "objetivo": {
+          "cuenta_ref": "cta_cuenta_sintetica_000001",
+          "cuenta_version": 1,
+          "persona_ref": "per_persona_sintetica_000001",
+          "persona_version": 1,
+          "perfil_ref": "prf_perfil_sintetico_000003",
+          "perfil_version": 0,
+          "vinculo_ref": "vca_vinculo_sintetico_00003",
+          "vinculo_version": 0,
+          "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "revision_continuidad": 1,
+          "procedencia_ref": "procedencia:sintetica:001",
+          "procedencia_version": 1,
+          "procedencia_huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "vigente_desde": "2026-10-01T08:00:00Z",
+          "vigente_hasta": "2027-01-01T08:00:00Z",
+          "unidad_ref": "unidad:rrhh"
+        },
+        "motivos": [
+          {
+            "catalogo_id": "catalogo:motivos-admin",
+            "catalogo_version": 1,
+            "catalogo_huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "entrada_clave": "cambio:funciones",
+            "etiqueta": "Cambio de funciones (ejemplo sintético)"
+          }
+        ],
+        "ambitos": [
+          {
+            "dimension": "unidad",
+            "referencia": "unidad:rrhh",
+            "nombre": "Recursos Humanos",
+            "clave_i18n": "unidad.rrhh"
+          }
+        ]
+      },
+      {
+        "operacion": "revocar",
+        "rol_version_ref": "rol:rrhh:v1",
+        "objetivo": {
+          "cuenta_ref": "cta_cuenta_sintetica_000001",
+          "cuenta_version": 1,
+          "persona_ref": "per_persona_sintetica_000001",
+          "persona_version": 1,
+          "perfil_ref": "prf_perfil_sintetico_000000",
+          "perfil_version": 1,
+          "vinculo_ref": "vca_vinculo_sintetico_00000",
+          "vinculo_version": 1,
+          "huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "revision_continuidad": 1,
+          "procedencia_ref": "procedencia:sintetica:001",
+          "procedencia_version": 1,
+          "procedencia_huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "vigente_desde": "0001-01-01T00:00:00Z",
+          "vigente_hasta": "0001-01-01T00:00:00Z",
+          "unidad_ref": "unidad:rrhh"
+        },
+        "motivos": [
+          {
+            "catalogo_id": "catalogo:motivos-admin",
+            "catalogo_version": 1,
+            "catalogo_huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "entrada_clave": "cambio:funciones",
+            "etiqueta": "Cambio de funciones (ejemplo sintético)"
+          }
+        ],
+        "ambitos": [
+          {
+            "dimension": "unidad",
+            "referencia": "unidad:rrhh",
+            "nombre": "Recursos Humanos",
+            "clave_i18n": "unidad.rrhh"
+          }
+        ]
+      }
+    ],
+    "historia": [
+      {
+        "acto_ref": "acto:sintetico:001",
+        "operacion": "otorgar",
+        "estado": "activo",
+        "confirmado_en": "2026-10-01T08:00:00Z",
+        "actor": {
+          "persona_ref": "per_actor_sintetico_000001",
+          "nombre": "Elena Martín (ejemplo sintético)",
+          "perfil_activo_ref": "perfil:actor:01",
+          "perfil_activo_nombre": "Administrador de perfiles",
+          "asignacion_ref": "asignacion:actor:01"
+        },
+        "proponente": {
+          "persona_ref": "per_actor_sintetico_000001",
+          "nombre": "Elena Martín (ejemplo sintético)",
+          "perfil_activo_ref": "perfil:actor:01",
+          "perfil_activo_nombre": "Administrador de perfiles",
+          "asignacion_ref": "asignacion:actor:01"
+        },
+        "aprobador": {
+          "persona_ref": "per_aprobador_sintetico_001",
+          "nombre": "Tomás López (ejemplo sintético)",
+          "perfil_activo_ref": "perfil:actor:01",
+          "perfil_activo_nombre": "Administrador de perfiles",
+          "asignacion_ref": "asignacion:actor:01"
+        },
+        "objetivo_persona_ref": "per_persona_sintetica_000001",
+        "objetivo_nombre": "Carmen Molina (ejemplo sintético)",
+        "perfil_ref": "prf_perfil_sintetico_000000",
+        "rol_version_ref": "rol:rrhh:v1",
+        "ambitos": [
+          {
+            "dimension": "unidad",
+            "referencia": "unidad:rrhh",
+            "nombre": "Recursos Humanos",
+            "clave_i18n": "unidad.rrhh"
+          }
+        ],
+        "vigente_desde": "2026-10-01T08:00:00Z",
+        "vigente_hasta": "2027-01-01T08:00:00Z",
+        "motivo": {
+          "catalogo_id": "catalogo:motivos-admin",
+          "catalogo_version": 1,
+          "catalogo_huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "entrada_clave": "cambio:funciones",
+          "etiqueta": "Cambio de funciones (ejemplo sintético)"
+        },
+        "recibo_ref": "recibo_admin:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "referencia_acto": "Asignación de funciones 2026 (ejemplo sintético)"
+      }
+    ]
+  }
+}
