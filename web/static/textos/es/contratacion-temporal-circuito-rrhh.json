@@ -1,0 +1,50 @@
+{
+  "general": {
+    "titulo": "Circuito de contratación",
+    "consultar": "Consultar el circuito",
+    "fase_actual": "Trámite actual:",
+    "ver_fase_estado": "{fase}: {estado}",
+    "resumen_fases": "{hechas} hechas · {ahora} actuales · {faltan} pendientes",
+    "resumen_desconocido": "Avance no disponible. Puede consultar las fases del expediente.",
+    "avance_no_disponible": "Avance no disponible",
+    "sin_hitos": "Todavía no constan actuaciones en este circuito.",
+    "continuar": "Para continuar, consulte las tareas del expediente.",
+    "consultando": "Consultando el circuito…",
+    "denegado": "No dispone de permiso para consultar el circuito de este expediente.",
+    "no_disponible": "No se puede mostrar el circuito de este expediente. Si persiste, avise a Informática.",
+    "estado_desconocido": "Pendiente de comprobar",
+    "actuacion_registrada": "Trámite registrado"
+  },
+  "fases": {
+    "solicitud": "Firma de la petición",
+    "autorizacion_rrhh": "Autorización de Dirección de RRHH",
+    "credito": "Comprobación de crédito",
+    "oferta": "Oferta a la bolsa",
+    "adjudicacion": "Adjudicación",
+    "informe_jefatura": "Informe de Jefatura",
+    "intervencion": "Fiscalización de Intervención",
+    "resolucion": "Resolución",
+    "ginpix": "Grabación manual en GINPIX",
+    "firma_interesado": "Firma del interesado",
+    "incorporacion": "Incorporación",
+    "seguimiento": "Seguimiento",
+    "subsanacion_servicio": "Subsanación en el Servicio",
+    "devolucion_servicio": "Devolución al Servicio"
+  },
+  "actuaciones": {
+    "peticion_firmada": "Petición firmada",
+    "autorizacion_rrhh": "Autorización de Dirección de RRHH registrada",
+    "credito_comprobado": "Crédito comprobado",
+    "oferta_emitida": "Oferta emitida",
+    "adjudicacion": "Adjudicación registrada",
+    "informe_jefatura": "Informe de Jefatura firmado",
+    "intervencion_favorable": "Fiscalización favorable",
+    "intervencion_reparo": "Reparo de Intervención",
+    "resolucion_firmada": "Resolución firmada",
+    "ginpix_registrado": "Grabación manual en GINPIX registrada",
+    "firma_interesado": "Firma del interesado registrada",
+    "devolucion": "Devolución registrada",
+    "reinicio": "Tramitación reiniciada",
+    "incorporacion": "Incorporación confirmada"
+  }
+}

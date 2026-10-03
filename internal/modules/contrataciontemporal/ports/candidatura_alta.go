@@ -99,6 +99,9 @@ type DatosCandidaturaAlta struct {
 	ActorRef               string
 	PerfilRef              string
 	InstanteEfecto         time.Time
+	// Recuperada la fija exclusivamente el adaptador durable al devolver una
+	// reserva previa. No forma parte del canon ni de una petición externa.
+	Recuperada bool
 }
 
 // CandidaturaAlta estabiliza las coordenadas del efecto antes de cualquier
@@ -269,6 +272,12 @@ type ResolutorCandidaturaAlta interface {
 		context.Context,
 		SolicitudResolverCandidaturaAlta,
 	) (CandidaturaAlta, error)
+}
+
+// RecuperadorCandidaturaAlta solo devuelve coordenadas existentes. Si CT47
+// estabiliza una propuesta nueva, el adaptador revierte la transacción.
+type RecuperadorCandidaturaAlta interface {
+	RecuperarCandidaturaAlta(context.Context, SolicitudResolverCandidaturaAlta) (CandidaturaAlta, error)
 }
 
 // Los métodos directos de reconstrucción mantienen seguro un receptor nil

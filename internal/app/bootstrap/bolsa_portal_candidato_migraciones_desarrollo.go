@@ -20,6 +20,7 @@ var (
 	ErrPortalCandidatoFaltaBolsa29     = fmt.Errorf("%w: falta Bolsa 000029 (disposición a ofertas publicadas)", ErrPortalCandidatoMigracionesNoDisponibles)
 	ErrPortalCandidatoFaltaBolsa30     = fmt.Errorf("%w: falta Bolsa 000030 (solicitudes y respuestas del portal)", ErrPortalCandidatoMigracionesNoDisponibles)
 	ErrPortalCandidatoFaltaBolsa40     = fmt.Errorf("%w: falta Bolsa 000040 (confirmación del contacto propio)", ErrPortalCandidatoMigracionesNoDisponibles)
+	ErrPortalCandidatoFaltaBolsa77     = fmt.Errorf("%w: falta Bolsa 000077 (solicitud documental y cierre de nuevas pausas)", ErrPortalCandidatoMigracionesNoDisponibles)
 	errPortalCandidatoComprobacionRota = fmt.Errorf("%w: no se pudo comprobar el catálogo", ErrPortalCandidatoMigracionesNoDisponibles)
 )
 
@@ -42,10 +43,12 @@ const consultaMigracionesPortalCandidato = `SELECT
   'vec_bolsa_llamamientos.leer_portal_candidato_v1(text,timestamptz,text[])']) f),
  (SELECT coalesce(bool_and(pg_catalog.to_regprocedure(f) IS NOT NULL AND pg_catalog.has_function_privilege(pg_catalog.to_regprocedure(f),'EXECUTE')),false) FROM pg_catalog.unnest(ARRAY[
   'vec_bolsa_llamamientos.confirmar_contacto_propio_v1(text,text,bigint,text,text,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
-  'vec_bolsa_llamamientos.leer_contacto_candidato_v1(text,timestamptz)']) f)`
+  'vec_bolsa_llamamientos.leer_contacto_candidato_v1(text,timestamptz)']) f),
+ (SELECT pg_catalog.to_regprocedure('vec_bolsa_llamamientos.solicitar_documental_portal_v1(text,text,text,text,text,text,text,date,text,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
+     AND pg_catalog.has_function_privilege(pg_catalog.to_regprocedure('vec_bolsa_llamamientos.solicitar_documental_portal_v1(text,text,text,text,text,text,text,date,text,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'),'EXECUTE'))`
 
 type estadoMigracionesPortalCandidato struct {
-	ad384, ad386, bolsa29, bolsa30, bolsa40 bool
+	ad384, ad386, bolsa29, bolsa30, bolsa40, bolsa77 bool
 }
 
 // diagnostico devuelve el error de la primera migración ausente en el orden
@@ -62,6 +65,8 @@ func (e estadoMigracionesPortalCandidato) diagnostico() error {
 		return ErrPortalCandidatoFaltaAD386
 	case !e.bolsa40:
 		return ErrPortalCandidatoFaltaBolsa40
+	case !e.bolsa77:
+		return ErrPortalCandidatoFaltaBolsa77
 	}
 	return nil
 }
@@ -73,7 +78,7 @@ func comprobarMigracionesPortalCandidatoDesarrollo(ctx context.Context, bolsa *p
 		return errPortalCandidatoComprobacionRota
 	}
 	var e estadoMigracionesPortalCandidato
-	if err := bolsa.QueryRow(ctx, consultaMigracionesPortalCandidato).Scan(&e.ad384, &e.ad386, &e.bolsa29, &e.bolsa30, &e.bolsa40); err != nil {
+	if err := bolsa.QueryRow(ctx, consultaMigracionesPortalCandidato).Scan(&e.ad384, &e.ad386, &e.bolsa29, &e.bolsa30, &e.bolsa40, &e.bolsa77); err != nil {
 		return errPortalCandidatoComprobacionRota
 	}
 	return e.diagnostico()

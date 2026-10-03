@@ -1,0 +1,1 @@
+deploy/postgresql/bolsa_llamamientos/migraciones/000071_plazo_desde_notificacion.up.sql

@@ -17,6 +17,7 @@ import {
   componerRegistroPersonal,
 } from "./portal-composicion-empleado.js?v=20261002-codexe-d7c-web-v1";
 import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20261001-ct-a-i18n-v1";
+import { cargarTextos } from "../comun/textos.js";
 import {
   CLAVES_CARGA_MODULAR,
   LIMITE_CARGA_MODULAR_MS,
@@ -25,6 +26,9 @@ import {
 } from "./portal-modulos-carga.js?v=20260926-integracion-bolsa-ct-v1";
 
 const CLAVE_CONTRATACION_TEMPORAL = "contratacion_temporal";
+const ROTULOS_CIRCUITO_RRHH = await Promise.all(["es", "en"].map(async (idioma) => [
+  idioma, (await cargarTextos("contratacion-temporal-circuito-rrhh", { idioma })).seccion("fases"),
+])).then(Object.fromEntries).catch(() => null);
 const SIN_CATALOGOS_PUBLICOS = Object.freeze({ recursos: Object.freeze({}), disponibles: Object.freeze([]) });
 const CLAVE_PERSONAL = "personal";
 const CLAVE_DOCUMENTOS = "documentos";
@@ -92,15 +96,20 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
       notificacionesPropias, bandejaNotificaciones, clienteNotificaciones, i18nNotificaciones });
   },
   contratacion_temporal: async () => {
-    const [contrato, cliente, presentador, vista, adaptador, auditoriaVista, auditoriaCliente, incorporacionB2] = await Promise.all([
-      import("./modulos/contratacion-temporal/contrato.js"),
-      import("./modulos/contratacion-temporal/cliente-http.js"),
-      import("./modulos/contratacion-temporal/presentador-expedientes.js?v=20261001-ct-a-i18n-v1"),
-      import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261001-ana002-v4"),
-      import("./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=20261001-ct-a-i18n-v1"),
+    const [contrato, cliente, presentador, adaptador, incorporacionB2] = await Promise.all([
+      import("./modulos/contratacion-temporal/contrato.js?v=20261002-ct-fin-moad-v1"),
+      import("./modulos/contratacion-temporal/cliente-http.js?v=20261002-ct-fin-moad-v1"),
+      import("./modulos/contratacion-temporal/presentador-expedientes.js?v=20261002-ct-fin-moad-v1"),
+      import("./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=20261002-ct-fin-moad-v1"),
+      import("./modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js?v=20260930-inc-b2-web-v1"),
+    ]);
+    // La vista importa el catálogo de fases y el de expedientes. Esperar a los
+    // consumidores previos evita leer ese catálogo antes de inicializarlo.
+    const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261002-ct-r5-grafo-v2");
+    // Auditoría comparte el cargador de textos con CT.
+    const [auditoriaVista, auditoriaCliente] = await Promise.all([
       import("./modulos/auditoria/vista.js?v=20261001-ct-a-i18n-v1"),
       import("./modulos/auditoria/cliente-http.js?v=20260928-usab-auditoria-v2"),
-      import("./modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js?v=20260930-inc-b2-web-v1"),
     ]);
     return Object.freeze({ contrato, cliente, presentador, vista, adaptador, auditoriaVista, auditoriaCliente, incorporacionB2 });
   },
@@ -317,9 +326,18 @@ export function crearCoordinadorModulosPortal({
       temporizadores,
     );
     exigirVigente();
-    const mensajesExpedientes = locale === "en-GB"
-      ? (await import("./modulos/contratacion-temporal/i18n-expedientes.js?v=20261001-ct-a-i18n-v1")).MENSAJES_EXPEDIENTES_CONTRATACION_EN
-      : {};
+    const idiomaCircuito = locale === "en-GB" ? "en" : "es";
+    const fasesCircuito = ROTULOS_CIRCUITO_RRHH?.[idiomaCircuito];
+    if (!fasesCircuito) throw new Error("contratacion_temporal.circuito.catalogo_no_disponible");
+    const rotulosCircuito = (prefijo) => Object.fromEntries(Object.entries(fasesCircuito)
+      .map(([clave, rotulo]) => [`${prefijo}circuito_${clave}`, rotulo]));
+    const mensajesExpedientes = {
+      ...(idiomaCircuito === "en"
+        ? (await import("./modulos/contratacion-temporal/i18n-expedientes.js?v=20261002-ct-fin-modalidad-v1")).MENSAJES_EXPEDIENTES_CONTRATACION_EN
+        : {}),
+      ...rotulosCircuito("contratacion_temporal.fase."),
+      ...rotulosCircuito("etiqueta_fase_"),
+    };
     exigirVigente();
     const cliente = recursos.cliente.crearClienteHTTPContratacionTemporal({
       fetchImpl: fetchDelEntorno(),
@@ -945,7 +963,7 @@ export function crearCoordinadorModulosPortal({
     }
 
     if (vista === VISTA_PLANTILLAS_RRHH) {
-      const { montarRRHHPlantillas } = await import("./modulos/contratacion-temporal/rrhh-plantillas-vista.js?v=20261001-ct-a-i18n-v1");
+      const { montarRRHHPlantillas } = await import("./modulos/contratacion-temporal/rrhh-plantillas-vista.js?v=20261002-ct-fin-moad-v1");
       if (montaje !== secuenciaMontaje) return false;
       const modulo = montarRRHHPlantillas({ raiz, anunciar });
       if (montaje !== secuenciaMontaje) { modulo.desmontar(); return false; }

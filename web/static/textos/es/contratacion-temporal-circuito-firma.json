@@ -19,16 +19,18 @@
     "circuito_firma_sustitucion_suplente_designado": "Admite suplente designado",
     "circuito_firma_sustitucion_no_admitida": "Sin sustitución",
     "circuito_firma_sin_eficacia": "Firma de prueba, sin eficacia administrativa",
-    "circuito_firma_portafirmas_titulo": "Firma oficial en Firmadoc",
-    "circuito_firma_portafirmas_pendiente": "No conectado",
-    "circuito_firma_portafirmas_detalle": "Qué falta para la firma oficial",
-    "circuito_firma_enviar": "Enviar a Firmadoc",
-    "circuito_firma_envio_bloqueado": "No disponible hasta que Informática conecte VEC con Firmadoc. Mientras tanto no se envía nada y ningún documento cuenta como firmado oficialmente.",
-    "circuito_firma_portafirmas_sin_envio": "Sin constancia de envío ni firma oficial en VEC.",
+    "circuito_firma_portafirmas_titulo": "Firma externa con Portafirmas",
+    "circuito_firma_portafirmas_pendiente": "Registro no disponible",
+    "circuito_firma_portafirmas_detalle": "Qué falta para registrar la firma",
+    "circuito_firma_enviar": "Registrar documento firmado",
+    "circuito_firma_descargar_externo": "Descargar para firma externa",
+    "circuito_firma_envio_bloqueado": "La descarga para firma externa y el registro aún no están disponibles. VEC debe comprobar el PDF custodiado y el permiso nominal para este expediente.",
+    "circuito_firma_vec_bloqueada": "La firma con certificado en VEC aún no está disponible: falta comprobar el PDF original custodiado y el permiso nominal para firmar este expediente.",
+    "circuito_firma_portafirmas_sin_envio": "Este panel no acredita firma, envío ni registro en Portafirmas.",
     "circuito_firma_portafirmas_estado_no_disponible": "No se puede consultar el circuito de firma.",
     "circuito_firma_consulta_denegada": "No dispone de permiso para consultar las firmas de este expediente.",
     "circuito_firma_consulta_no_disponible": "El estado de las firmas no está disponible. Vuelva a intentarlo.",
-    "circuito_firma_autofirma_prueba": "GrxFirma o AutoFirma · PRUEBA sin eficacia administrativa",
+    "circuito_firma_autofirma_prueba": "Firma con certificado en VEC",
     "circuito_firma_ver_pasos": "Ver pasos",
     "circuito_firma_motivo": "Motivo: {motivo}",
     "circuito_firma_firmar": "Firmar en PRUEBA",
@@ -60,11 +62,13 @@
     "circuito_firma_documento_comunicacion_centro": "Comunicación al centro",
     "circuito_firma_cargo_tecnico_rrhh": "Técnico/a de RRHH responsable del expediente",
     "circuito_firma_cargo_jefatura_rrhh": "Jefatura del Servicio de RRHH",
+    "circuito_firma_cargo_direccion_o_jefatura_rrhh": "Dirección de RRHH o Jefatura del Servicio de RRHH",
     "circuito_firma_cargo_jefatura_propuesta": "Jefatura del Servicio de RRHH (propuesta)",
     "circuito_firma_cargo_diputacion_delegada": "Diputado/a delegado/a de Recursos Humanos",
     "circuito_firma_cargo_secretaria_razon": "Secretaría General (toma de razón)",
     "circuito_firma_cargo_secretaria_fe": "Secretaría General (fe pública)",
-    "circuito_firma_cargo_persona_nombrada": "Persona nombrada"
+    "circuito_firma_cargo_persona_nombrada": "Persona nombrada",
+    "circuito_firma_cargo_diputada_delegada": "Diputada delegada de Recursos Humanos"
   },
   "valores_controlados": {
     "documento": {
@@ -78,11 +82,13 @@
     "cargo": {
       "tecnico_rrhh": "Técnico/a de RRHH responsable del expediente",
       "jefatura_rrhh": "Jefatura del Servicio de RRHH",
+      "direccion_o_jefatura_rrhh": "Dirección de RRHH o Jefatura del Servicio de RRHH",
       "jefatura_propuesta": "Jefatura del Servicio de RRHH (propuesta)",
       "diputacion_delegada": "Diputado/a delegado/a de Recursos Humanos",
       "secretaria_razon": "Secretaría General (toma de razón)",
       "secretaria_fe": "Secretaría General (fe pública)",
-      "persona_nombrada": "Persona nombrada"
+      "persona_nombrada": "Persona nombrada",
+      "diputada_delegada": "Diputada delegada de Recursos Humanos"
     }
   }
 }
