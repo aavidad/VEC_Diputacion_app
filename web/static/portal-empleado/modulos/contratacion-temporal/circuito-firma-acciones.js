@@ -5,7 +5,7 @@
 
 import { escaparHTML } from "./componentes-expedientes.js?v=20261002-ct-fin-modalidad-v1";
 import { validarPreflightFirma } from "./preflight-firma-api.js?v=20261003-ct-firma-v2-v1";
-import { huellaPDFFirmado } from "./firma-vec-api.js?v=20261003-ct-firma-v2-v1";
+import { huellaPDFFirmado, validarReciboFirmaV2 } from "./firma-vec-api.js?v=20261003-ct-firma-v2-v1";
 import { PERFILES_BORRADOR_RRHH } from "./cliente-http-informe-definitivo.js?v=20261002-ct-fin-moad-v1";
 
 /** Une el circuito del catálogo con el estado real registrado. */
@@ -104,7 +104,7 @@ export function crearAccionesFirma({
       if (control.dataset?.ctFirmaAccion === "cancelar") {
         control.disabled = Boolean(s.recibo) || Boolean(valor && s.registroIntentado); continue;
       }
-      control.disabled = valor || Boolean(s.recibo);
+      control.disabled = valor || Boolean(s.recibo) || Boolean(s.registroIntentado && control.tagName === "INPUT");
     }
   }
   function cancelar() {
@@ -164,7 +164,9 @@ export function crearAccionesFirma({
         && recuperacion.solicitud.pasoOrden === s.solicitud.pasoOrden
         && recuperacion.solicitud.revisionEntradaRef === s.solicitud.revisionEntradaRef
         && recuperacion.solicitud.revisionEntradaVersion === s.solicitud.revisionEntradaVersion
-        && recuperacion.solicitud.revisionEntradaHuella === s.solicitud.revisionEntradaHuella) s.reintento = recuperacion.reintento;
+        && recuperacion.solicitud.revisionEntradaHuella === s.solicitud.revisionEntradaHuella) {
+        s.reintento = recuperacion.reintento; s.registroIntentado = true;
+      }
     } catch (error) { decir(s, claveError(error), {}, true); }
     finally { if (sesion === s) { ocupada(s, false); pendiente = false; } }
   }
@@ -187,12 +189,16 @@ export function crearAccionesFirma({
     finally { enlace.remove(); globalThis.setTimeout(() => entornoDescarga.URL.revokeObjectURL(url), 0); }
     decir(s, "circuito_firma_original_descargado", {}, true);
   }
-  function validarRecibo(recibo, s) {
-    return recibo?.firma_eficaz === false && REFERENCIA.test(recibo.recibo_ref ?? "")
-      && recibo.expediente_ref === s.contexto.expedienteRef && recibo.documento === s.contexto.documento
-      && recibo.paso_orden === s.solicitud.pasoOrden
-      && (recibo.version_expediente ?? recibo.expediente_version) === s.contexto.version
-      && (recibo.firma_verificada === true || recibo.verificacion_tecnica?.estado === "valida");
+  async function fijarReintento(s, via, datos, declarados = {}) {
+    const firmado = datos.firmado.slice();
+    const propia = Object.freeze({ ...datos, ...(datos.original ? { original: datos.original.slice() } : {}), firmado });
+    const huellaFirmado = await huellaPDFFirmado(firmado);
+    if (!vigente(s)) return;
+    s.reintento = Object.freeze({ via, datos: propia, huellaFirmado, ...declarados });
+  }
+  function validarRecibo(recibo, intento) {
+    const validado = validarReciboFirmaV2(recibo, intento.datos, intento.via === "portafirmas_registro_rrhh");
+    return validado && validado.documento_custodiado.huella_sha256 === intento.huellaFirmado ? validado : null;
   }
   function limpiarCamposExternos(s) {
     for (const selector of ["[data-ct-firma-pdf]", "[data-ct-firma-referencia]", "[data-ct-firma-fecha]"]) {
@@ -225,12 +231,24 @@ export function crearAccionesFirma({
       const firmado = await autofirma.firmarPDF(original, { signal: s.controlador.signal });
       if (!vigente(s)) return;
       if (!pdfValido(firmado)) throw { codigo: "firma_no_verificada" };
-      s.reintento = { via, datos: { ...s.solicitud, original, firmado, clave: crearClave() } };
+      await fijarReintento(s, via, { ...s.solicitud, original, firmado, clave: crearClave() });
     }
     if (via === "portafirmas_registro_rrhh") {
       const fichero = s.bloque.querySelector?.("[data-ct-firma-pdf]")?.files?.[0];
       const referenciaPortafirmas = s.bloque.querySelector?.("[data-ct-firma-referencia]")?.value?.trim();
       const fecha = s.bloque.querySelector?.("[data-ct-firma-fecha]")?.value;
+      if (s.reintento) {
+        if (!fichero || fichero.size > 1024 * 1024 || fichero.size < 10
+          || referenciaPortafirmas !== s.reintento.referencia || fecha !== s.reintento.fecha) {
+          decir(s, "circuito_firma_recuperacion", {}, true); return;
+        }
+        const comprobacion = new Uint8Array(await fichero.arrayBuffer());
+        if (!vigente(s)) return;
+        if (comprobacion.length !== s.reintento.datos.firmado.length
+          || !comprobacion.every((b, i) => b === s.reintento.datos.firmado[i])) {
+          decir(s, "circuito_firma_recuperacion", {}, true); return;
+        }
+      }
       limpiarCamposExternos(s);
       if (!fichero || fichero.size > 1024 * 1024 || fichero.size < 10) {
         campoExternoInvalido(s, "[data-ct-firma-pdf]", "circuito_firma_pdf_requerido"); return;
@@ -241,24 +259,26 @@ export function crearAccionesFirma({
       if (!fecha || Number.isNaN(new Date(fecha).getTime())) {
         campoExternoInvalido(s, "[data-ct-firma-fecha]", "circuito_firma_fecha_requerida"); return;
       }
-      if (!s.reintento || s.reintento.fichero !== fichero || s.reintento.referencia !== referenciaPortafirmas || s.reintento.fecha !== fecha) {
+      if (!s.reintento) {
         const firmado = new Uint8Array(await fichero.arrayBuffer());
         if (!vigente(s)) return;
         if (!pdfValido(firmado)) { campoExternoInvalido(s, "[data-ct-firma-pdf]", "circuito_firma_pdf_requerido"); return; }
-        const anterior = s.reintento;
-        const mismo = anterior?.via === via && anterior.referencia === referenciaPortafirmas && anterior.fecha === fecha
-          && anterior.datos.firmado.length === firmado.length && firmado.every((b, i) => b === anterior.datos.firmado[i]);
-        s.reintento = { via, fichero, referencia: referenciaPortafirmas, fecha,
-          datos: mismo ? anterior.datos : { ...s.solicitud, firmado, referenciaPortafirmas, fechaPortafirmas: new Date(fecha).toISOString().replace(/\.000Z$/u, "Z"), clave: crearClave() } };
+        await fijarReintento(s, via, { ...s.solicitud, firmado, referenciaPortafirmas,
+          fechaPortafirmas: new Date(fecha).toISOString().replace(/\.000Z$/u, "Z"), clave: crearClave() },
+        { fichero, referencia: referenciaPortafirmas, fecha });
       }
     }
     if (!vigente(s) || s.reintento?.via !== via) return;
     decir(s, "circuito_firma_registrando"); s.registroIntentado = true;
     const cancelacion = s.bloque.querySelector?.('[data-ct-firma-accion="cancelar"]');
     if (cancelacion) cancelacion.disabled = true;
-    const recibo = await registro(s.reintento.datos, { signal: s.controlador.signal });
+    const intento = s.reintento;
+    const enviada = Object.freeze({ ...intento.datos, firmado: intento.datos.firmado.slice(),
+      ...(intento.datos.original ? { original: intento.datos.original.slice() } : {}) });
+    const respuesta = await registro(enviada, { signal: s.controlador.signal });
     if (!vigente(s)) return;
-    if (!validarRecibo(recibo, s)) throw { codigo: "resultado_no_confiable" };
+    const recibo = validarRecibo(respuesta, intento);
+    if (!recibo) throw { codigo: "resultado_no_confiable" };
     s.recibo = recibo;
     recuperacion = null;
     const aviso = t("circuito_firma_registro_confirmado", { recibo: recibo.recibo_ref });
