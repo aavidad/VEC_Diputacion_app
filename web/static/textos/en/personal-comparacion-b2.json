@@ -58,6 +58,8 @@
     "regimen": "Regime",
     "modalidad": "Arrangement",
     "situacion": "Situation",
-    "clase_servicio": "Service class"
+    "clase_servicio": "Service class",
+    "efecto": "Resource reference",
+    "corte_exacto": "Exact cut-off instant (UTC)"
   }
 }

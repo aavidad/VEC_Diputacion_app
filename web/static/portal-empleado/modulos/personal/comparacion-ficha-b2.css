@@ -35,3 +35,8 @@
   .personal-comparacion-formulario button { flex: 1 1 auto; }
   .personal-comparacion dl { grid-template-columns: minmax(0, 1fr); }
 }
+/* Los captions accesibles del componente común se posicionan dentro de su
+   región de scroll; no pueden ampliar la página desde una tabla inferior. */
+.personal-comparacion-tabla { position: relative; }
+
+.personal-comparacion-resultados > h4 { margin: var(--portal-espacio-2) 0 0; color: var(--portal-azul-950); }

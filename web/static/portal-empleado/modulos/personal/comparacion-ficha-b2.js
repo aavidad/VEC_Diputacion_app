@@ -80,7 +80,7 @@ export function compararFichasB2(primera, segunda, { empleadoRef, cortePrimero, 
 }
 function nodo(d, tag, texto) { const n = d.createElement(tag); if (texto !== undefined) n.textContent = texto; return n; }
 function fechaVisible(iso, locale) { return new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeZone: "Europe/Madrid" }).format(new Date(`${iso}T12:00:00Z`)); }
-function instanteVisible(iso, locale) { return new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Madrid" }).format(new Date(iso)); }
+function instanteVisible(iso, locale) { return new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "medium", timeZone: "Europe/Madrid" }).format(new Date(iso)); }
 function detalleDatos(d, t, datos) { const dl = nodo(d, "dl"); for (const [k, v] of datos) dl.append(nodo(d, "dt", t(k)), nodo(d, "dd", String(v))); return dl; }
 function tituloDato(familia, filas, t) {
   const r = filas.at(-1); const snap = r.catalogo_snapshot;
@@ -91,7 +91,7 @@ function pintarResultado(d, destino, modelo, t, locale) {
   for (const [lado, foto] of [["primero", modelo.primero], ["segundo", modelo.segundo]]) {
     const bloque = nodo(d, "section"); bloque.className = "personal-comparacion-corte";
     bloque.append(nodo(d, "h4", t(lado)), detalleDatos(d, t, [["efectos", fechaVisible(foto.corte.vigente_en, locale)], ["conocimiento", instanteVisible(foto.corte.conocido_en, locale)], ["version_ficha", new Intl.NumberFormat(locale).format(foto.version)]]));
-    const detalles = nodo(d, "details"); detalles.append(nodo(d, "summary", t("evidencia")), detalleDatos(d, t, [["recibo", foto.evidencia.recibo_ref], ["decision", foto.evidencia.decision_ref], ["auditoria", foto.evidencia.auditoria_ref], ["consumo", foto.evidencia.consumo_huella_sha256], ["consultada", instanteVisible(foto.evidencia.consultada_en, locale)]])); bloque.append(detalles); cortes.append(bloque);
+    const detalles = nodo(d, "details"); detalles.append(nodo(d, "summary", t("evidencia")), detalleDatos(d, t, [["recibo", foto.evidencia.recibo_ref], ["decision", foto.evidencia.decision_ref], ["efecto", foto.evidencia.efecto_ref], ["corte_exacto", foto.corte.conocido_en], ["auditoria", foto.evidencia.auditoria_ref], ["consumo", foto.evidencia.consumo_huella_sha256], ["consultada", instanteVisible(foto.evidencia.consultada_en, locale)]])); bloque.append(detalles); cortes.append(bloque);
   }
   destino.append(cortes, nodo(d, "p", t("limite")));
   const total = Object.values(modelo.diferencias).reduce((n, filas) => n + filas.length, 0);
@@ -121,7 +121,7 @@ function pintarResultado(d, destino, modelo, t, locale) {
       }
       const celda = nodo(d, "td"); const etiqueta = nodo(d, "span", t(diff.estado)); etiqueta.className = "personal-comparacion-estado"; celda.append(etiqueta); fila.append(celda); body.append(fila);
     }
-    tabla.append(body); region.append(tabla); destino.append(region);
+    tabla.append(body); region.append(tabla); destino.append(nodo(d, "h4", t(familia)), region);
   }
 }
 

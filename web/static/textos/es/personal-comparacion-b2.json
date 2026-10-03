@@ -58,6 +58,8 @@
     "regimen": "Régimen",
     "modalidad": "Modalidad",
     "situacion": "Situación",
-    "clase_servicio": "Clase de servicio"
+    "clase_servicio": "Clase de servicio",
+    "efecto": "Referencia del recurso",
+    "corte_exacto": "Instante exacto del corte (UTC)"
   }
 }
