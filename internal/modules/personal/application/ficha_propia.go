@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"errors"
+	"time"
 
 	"vec-diputacion-granada/internal/modules/personal/domain"
 	"vec-diputacion-granada/internal/modules/personal/ports"
@@ -15,46 +16,53 @@ import (
 type ServicioFichaPropia struct {
 	autorizador ports.ProveedorAutorizacionFichaPropia
 	repositorio ports.RepositorioFichaPropia
+	intentos    ports.RegistroIntentosFichaPropia
 }
 
-func NuevoServicioFichaPropia(a ports.ProveedorAutorizacionFichaPropia, r ports.RepositorioFichaPropia) (*ServicioFichaPropia, error) {
-	if nulo(a) || nulo(r) {
+func NuevoServicioFichaPropia(a ports.ProveedorAutorizacionFichaPropia, r ports.RepositorioFichaPropia, i ports.RegistroIntentosFichaPropia) (*ServicioFichaPropia, error) {
+	if nulo(a) || nulo(r) || nulo(i) {
 		return nil, domain.ErrFichaPropiaNoDisponible
 	}
-	return &ServicioFichaPropia{a, r}, nil
+	return &ServicioFichaPropia{a, r, i}, nil
 }
 
 func (s *ServicioFichaPropia) Consultar(ctx context.Context, solicitud domain.SolicitudFichaPropia) (ports.ResultadoFichaPropia, error) {
 	var vacio ports.ResultadoFichaPropia
-	if s == nil || ctx == nil || nulo(s.autorizador) || nulo(s.repositorio) {
+	if s == nil || ctx == nil || nulo(s.autorizador) || nulo(s.repositorio) || nulo(s.intentos) {
 		return vacio, domain.ErrFichaPropiaNoDisponible
 	}
+	fallar := func(err error) (ports.ResultadoFichaPropia, error) {
+		return vacio, s.registrarFallo(ctx, err)
+	}
 	if err := ctx.Err(); err != nil {
-		return vacio, err
+		return fallar(err)
+	}
+	if err := s.intentos.VerificarRegistroFichaPropia(ctx); err != nil {
+		return fallar(domain.ErrFichaPropiaNoDisponible)
 	}
 	material, err := domain.NuevoMaterialFichaPropia(solicitud)
 	if err != nil {
 		if errors.Is(err, domain.ErrFichaPropiaSinEmpleado) || errors.Is(err, domain.ErrFichaPropiaAmbigua) {
-			return vacio, err
+			return fallar(err)
 		}
-		return vacio, domain.ErrFichaPropiaInvalida
+		return fallar(domain.ErrFichaPropiaInvalida)
 	}
 	autorizacion, err := s.autorizador.AutorizarFichaPropia(ctx, material)
 	if err != nil {
-		return vacio, errorFichaPropiaOpaco(ctx, err)
+		return fallar(err)
 	}
 	if !autorizacionFichaPropiaValida(material, autorizacion) {
-		return vacio, domain.ErrFichaPropiaNoDisponible
+		return fallar(domain.ErrFichaPropiaNoDisponible)
 	}
 	resultado, err := s.repositorio.ConsultarFichaPropia(ctx, ports.OrdenFichaPropia{Material: material, Autorizacion: autorizacion})
 	if err != nil {
-		return vacio, errorFichaPropiaOpaco(ctx, err)
+		return fallar(err)
 	}
 	if err := ctx.Err(); err != nil {
-		return vacio, err
+		return fallar(err)
 	}
 	if resultado.Ficha.ValidarPara(material) != nil || !evidenciaFichaPropiaValida(autorizacion, resultado.Evidencia) {
-		return vacio, domain.ErrFichaPropiaNoDisponible
+		return fallar(domain.ErrFichaPropiaNoDisponible)
 	}
 	return resultado, nil
 }
@@ -85,6 +93,15 @@ func errorFichaPropiaOpaco(ctx context.Context, err error) error {
 	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 		return err
 	}
+	if errors.Is(err, domain.ErrFichaPropiaInvalida) {
+		return domain.ErrFichaPropiaInvalida
+	}
+	if errors.Is(err, domain.ErrFichaPropiaSinEmpleado) {
+		return domain.ErrFichaPropiaSinEmpleado
+	}
+	if errors.Is(err, domain.ErrFichaPropiaAmbigua) {
+		return domain.ErrFichaPropiaAmbigua
+	}
 	if errors.Is(err, domain.ErrFichaPropiaDenegada) {
 		return domain.ErrFichaPropiaDenegada
 	}
@@ -92,4 +109,23 @@ func errorFichaPropiaOpaco(ctx context.Context, err error) error {
 		return domain.ErrFichaPropiaExcedeLimite
 	}
 	return domain.ErrFichaPropiaNoDisponible
+}
+
+// El repositorio ya terminó su transacción antes de registrar el fallo. La
+// cancelación de la petición no borra el hecho ni la identidad original.
+func (s *ServicioFichaPropia) registrarFallo(ctx context.Context, err error) error {
+	nominal := errorFichaPropiaOpaco(ctx, err)
+	motivo := "no_disponible"
+	switch {
+	case errors.Is(nominal, domain.ErrFichaPropiaInvalida):
+		motivo = "entrada_invalida"
+	case errors.Is(nominal, domain.ErrFichaPropiaDenegada), errors.Is(nominal, domain.ErrFichaPropiaSinEmpleado), errors.Is(nominal, domain.ErrFichaPropiaAmbigua):
+		motivo = "denegado"
+	}
+	auditCtx, cancelar := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
+	defer cancelar()
+	if s.intentos.RegistrarIntentoFichaPropia(auditCtx, ports.IntentoFichaPropia{Motivo: motivo}) != nil {
+		return domain.ErrFichaPropiaNoDisponible
+	}
+	return nominal
 }
