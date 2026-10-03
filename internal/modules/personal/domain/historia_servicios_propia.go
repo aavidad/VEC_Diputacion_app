@@ -25,12 +25,11 @@ var (
 	ErrHistoriaServiciosPropiaDenegada     = errors.New("personal.historia_servicios_propia.denegada")
 	ErrHistoriaServiciosPropiaNoDisponible = errors.New("personal.historia_servicios_propia.no_disponible")
 	ErrHistoriaServiciosPropiaExcedeLimite = errors.New("personal.historia_servicios_propia.excede_limite")
-	patronReciboHistoriaServiciosPropia    = regexp.MustCompile(`^historia:servicios:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 	patronServicioHistoriaPropia           = regexp.MustCompile(`^srv_[A-Za-z0-9_-]{22,128}$`)
 )
 
 func ReferenciaReciboHistoriaServiciosPropiaValida(ref string) bool {
-	return patronReciboHistoriaServiciosPropia.MatchString(ref)
+	return patronReferenciaB2.MatchString(ref)
 }
 
 // El periodo de efectos es [Desde,Hasta). ConocidoEn fija qué revisiones se
