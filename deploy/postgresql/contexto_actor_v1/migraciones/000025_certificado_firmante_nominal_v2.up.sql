@@ -344,6 +344,7 @@ BEGIN
  THEN RETURN NULL; END IF;
  RETURN pg_catalog.jsonb_build_object('esquema','vec.contexto-actor.certificado-firmante-historia.v2',
   'vinculo_ref',x.vinculo_ref,'version',x.version,'huella_sha256',x.huella_sha256,
+  'organizacion_destino',(pg_catalog.convert_from(x.documento_canonico,'UTF8')::jsonb)->'organizacion_destino',
   'descriptor_canonico_base64',pg_catalog.encode(x.descriptor_canonico,'base64'),
   'documento_canonico_base64',pg_catalog.encode(x.documento_canonico,'base64'),
   'cuenta_ref',x.cuenta_ref,'cuenta_version',x.cuenta_version,'cuenta_huella_sha256',x.cuenta_huella_sha256,
