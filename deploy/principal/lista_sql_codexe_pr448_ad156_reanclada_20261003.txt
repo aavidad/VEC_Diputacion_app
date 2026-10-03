@@ -1,0 +1,6 @@
+# Delta único AD156; revisión exacta pendiente, PR borrador.
+# SQL SHA256 07a774db534503a845d34eb710239d0a7b9508c684f4cec7c408c6b66cd2c87f.
+# Prefijo requerido: H7/H8, AD155 corregida y AD151 reanclada ya instaladas.
+# Orden posterior: AD157 → AD158 → AD162 → AD159 → CT170.
+# No reaplicar prefijos ni ejecutar DOWN. Un cambio de preimagen requiere reanclaje y revisión.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000156_firma_externa_ct.up.sql

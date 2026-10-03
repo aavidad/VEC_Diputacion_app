@@ -1,6 +1,7 @@
 /** Vista y enlace DOM de la superficie de expedientes de contratación temporal. */
 
 import { validarReciboAlta } from "./contrato.js?v=20261002-ct-fin-moad-v1";
+import { marcarRailDesconocido, renderizarConsultaCircuitoRRHH } from "./vista-circuito-rrhh.js?v=20261002-ct-r5-grafo-v2";
 import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261002-ct-fin-moad-v1";
 import { montarFormularioResolucionFormalizacion } from "./formulario-resolucion-formalizacion.js?v=20261002-ct-fin-moad-v1";
 import { montarFormularioAnotacionAdministrativa } from "./formulario-anotacion-administrativa.js?v=20261002-ct-fin-moad-v1";
@@ -20,7 +21,7 @@ import {
 } from "./vista-expedientes-render.js?v=20261002-ct-fin-moad-v1";
 import { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js?v=20261002-ct-fin-moad-v1";
 import { crearGestorDescargaBorradorRRHH } from "./vista-expedientes-borrador.js?v=20261002-ct-fin-moad-v1";
-import { crearGestorCircuitoFirma } from "./circuito-firma.js?v=20261002-ct-fin-moad-v1";
+import { crearGestorCircuitoFirma } from "./circuito-firma.js?v=20261003-ct-firma-v2-v1";
 import { crearGestorIncorporacion } from "./vista-expedientes-incorporacion.js?v=20261002-ct-fin-moad-v1";
 import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js?v=20261002-ct-fin-moad-v1";
 import { crearGestorInformeTrasSubsanacion } from "./informe-tras-subsanacion.js?v=20261002-ct-fin-moad-v1";
@@ -29,6 +30,17 @@ import { montarCancelacionSiProcede } from "./vista-expedientes-cancelacion.js?v
 import { montarFormularioReincorporacionRRHH } from "./rrhh-reincorporacion-formulario.js?v=20260928-rrhh-reincorporacion-v1";
 import { montarBorradoresPublicados } from "./vista-borradores-publicados.js?v=20261002-ct-fin-moad-v1";
 import { traducirPortal } from "../../portal-i18n.js?v=20261001-ct-a-i18n-v1";
+
+export function insertarConsultaCircuitoRRHH(raiz, expediente) {
+  if (!expediente?.fases?.some(({ fase_ref: referencia }) =>
+    String(referencia).split(":").at(-1)?.startsWith("circuito_"))) return false;
+  const ancla = raiz?.querySelector?.("[data-ct-exp-ancla-firma]");
+  if (!ancla?.insertAdjacentHTML) return false;
+  ancla.insertAdjacentHTML("beforebegin", renderizarConsultaCircuitoRRHH(expediente));
+  marcarRailDesconocido(ancla.previousElementSibling);
+  ancla.previousElementSibling?.querySelector?.("[data-ct-circuito-consultar]")?.click?.();
+  return true;
+}
 
 export { renderizarModuloContratacionTemporal } from "./vista-expedientes-render.js?v=20261002-ct-fin-moad-v1";
 export { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js?v=20261002-ct-fin-moad-v1";
@@ -121,6 +133,7 @@ export async function montarModuloContratacionTemporal({
   clienteBorradorRRHH,
   clienteBorradoresPublicados,
   clienteCircuitoFirma,
+  dependenciasFirma = {},
   entornoDescarga = globalThis,
   mensajes = {},
   anunciar = () => {},
@@ -340,8 +353,8 @@ export async function montarModuloContratacionTemporal({
     raiz,
     obtenerEstado: () => presentador.obtenerEstado(),
     ...(clienteCircuitoFirma === undefined ? {} : { cliente: clienteCircuitoFirma }),
-    mensajes,
-    esMontada,
+    dependenciasAcciones: dependenciasFirma,
+    mensajes, esMontada,
     locale,
   });
   const gestorBorrador = crearGestorDescargaBorradorRRHH({
@@ -559,6 +572,7 @@ export async function montarModuloContratacionTemporal({
       montarReincorporacionSiProcede(estado);
       gestorCancelacion.montar(estado);
     }
+    insertarConsultaCircuitoRRHH(raiz, estado.expediente);
     montarAuditoriaComunSiProcede(estado);
     montarBorradoresPublicadosSiProcede(estado);
     if (selectorFoco) enfocar(raiz, selectorFoco);

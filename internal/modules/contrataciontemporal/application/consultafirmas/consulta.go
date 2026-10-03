@@ -50,3 +50,31 @@ func ValidarCapacidadConsultaFirmasDocumento(c ports.CapacidadConsultaFirmasDocu
 	}
 	return nil
 }
+
+func RecursoConsultaFirmasR5(m ports.MaterialConsultaFirmasR5) (vecdomain.RecursoAutorizable, error) {
+	h, err := m.HuellaSHA256()
+	if err != nil {
+		return vecdomain.RecursoAutorizable{}, ports.ErrSolicitudFirmaDocumentoInvalida
+	}
+	return vecdomain.RecursoAutorizable{
+		Referencia: m.ExpedienteRef, ModuloID: ports.ModuloContratacion, Tipo: ports.TipoRecursoConsultaFirmasR5,
+		Ambitos:   map[string]string{"organizacion_ref": m.OrganizacionRef},
+		Atributos: map[string]string{"material_sha256": h},
+	}, nil
+}
+
+func ValidarCapacidadConsultaFirmasR5(c ports.CapacidadConsultaFirmasR5, m ports.MaterialConsultaFirmasR5) error {
+	r, err := RecursoConsultaFirmasR5(m)
+	if err != nil {
+		return ports.ErrFirmaDocumentoDenegada
+	}
+	h, err := r.HuellaContextoAutorizacionSHA256()
+	a := c.ExportarMaterialParaConsumidor()
+	resumen := a.ResumenCapacidad()
+	if err != nil || a.ValidarEstructura() != nil ||
+		resumen.Operacion() != ports.AccionConsultarFirmasR5 || resumen.EfectoRef() != m.ExpedienteRef ||
+		resumen.EfectoHuellaSHA256() != h || resumen.AudienciaConsumo() != ports.AudienciaConsultaFirmasR5V3 {
+		return ports.ErrFirmaDocumentoDenegada
+	}
+	return nil
+}

@@ -17,6 +17,7 @@ import {
   componerRegistroPersonal,
 } from "./portal-composicion-empleado.js?v=20261002-codexe-d7c-web-v1";
 import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20261001-ct-a-i18n-v1";
+import { cargarTextos } from "../comun/textos.js";
 import {
   CLAVES_CARGA_MODULAR,
   LIMITE_CARGA_MODULAR_MS,
@@ -25,6 +26,9 @@ import {
 } from "./portal-modulos-carga.js?v=20260926-integracion-bolsa-ct-v1";
 
 const CLAVE_CONTRATACION_TEMPORAL = "contratacion_temporal";
+const ROTULOS_CIRCUITO_RRHH = await Promise.all(["es", "en"].map(async (idioma) => [
+  idioma, (await cargarTextos("contratacion-temporal-circuito-rrhh", { idioma })).seccion("fases"),
+])).then(Object.fromEntries).catch(() => null);
 const SIN_CATALOGOS_PUBLICOS = Object.freeze({ recursos: Object.freeze({}), disponibles: Object.freeze([]) });
 const CLAVE_PERSONAL = "personal";
 const CLAVE_DOCUMENTOS = "documentos";
@@ -101,7 +105,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
     ]);
     // La vista importa el catálogo de fases y el de expedientes. Esperar a los
     // consumidores previos evita leer ese catálogo antes de inicializarlo.
-    const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261002-ct-fin-moad-v1");
+    const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261003-ct-firma-v2-v1");
     // Auditoría comparte el cargador de textos con CT.
     const [auditoriaVista, auditoriaCliente] = await Promise.all([
       import("./modulos/auditoria/vista.js?v=20261001-ct-a-i18n-v1"),
@@ -322,9 +326,18 @@ export function crearCoordinadorModulosPortal({
       temporizadores,
     );
     exigirVigente();
-    const mensajesExpedientes = locale === "en-GB"
-      ? (await import("./modulos/contratacion-temporal/i18n-expedientes.js?v=20261002-ct-fin-modalidad-v1")).MENSAJES_EXPEDIENTES_CONTRATACION_EN
-      : {};
+    const idiomaCircuito = locale === "en-GB" ? "en" : "es";
+    const fasesCircuito = ROTULOS_CIRCUITO_RRHH?.[idiomaCircuito];
+    if (!fasesCircuito) throw new Error("contratacion_temporal.circuito.catalogo_no_disponible");
+    const rotulosCircuito = (prefijo) => Object.fromEntries(Object.entries(fasesCircuito)
+      .map(([clave, rotulo]) => [`${prefijo}circuito_${clave}`, rotulo]));
+    const mensajesExpedientes = {
+      ...(idiomaCircuito === "en"
+        ? (await import("./modulos/contratacion-temporal/i18n-expedientes.js?v=20261002-ct-fin-modalidad-v1")).MENSAJES_EXPEDIENTES_CONTRATACION_EN
+        : {}),
+      ...rotulosCircuito("contratacion_temporal.fase."),
+      ...rotulosCircuito("etiqueta_fase_"),
+    };
     exigirVigente();
     const cliente = recursos.cliente.crearClienteHTTPContratacionTemporal({
       fetchImpl: fetchDelEntorno(),

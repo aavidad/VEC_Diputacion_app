@@ -435,11 +435,20 @@ func (s *ServicioRegistroSolicitud) Registrar(
 	if !sinNumeroMOAD && datosCandidatura.Referencias.NumeroVisible != solicitud.NumeroExpedienteMOAD {
 		return ports.ReciboAlta{}, ports.ErrClaveIdempotenciaUsada
 	}
+	var circuito *domain.CircuitoAdministrativo
+	if configuracion.DefinicionCircuito != nil {
+		inicial, err := domain.NuevoCircuitoAdministrativo(*configuracion.DefinicionCircuito)
+		if err != nil {
+			return ports.ReciboAlta{}, ports.ErrFlujoNoDisponible
+		}
+		circuito = &inicial
+	}
 	expediente, err := domain.NuevoExpediente(domain.AltaExpediente{
 		Referencia:      datosCandidatura.Referencias.ExpedienteRef,
 		OrganizacionRef: solicitud.OrganizacionRef,
 		NumeroVisible:   datosCandidatura.Referencias.NumeroVisible,
 		Flujo:           configuracion.Flujo,
+		Circuito:        circuito,
 		FaseInicial:     configuracion.FaseInicial,
 		Solicitud:       solicitudCentro,
 		Actuacion: domain.DatosActuacion{

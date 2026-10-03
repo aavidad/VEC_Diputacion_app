@@ -19,6 +19,7 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	seguridadvec "vec-diputacion-granada/internal/vec/adapters/seguridad"
+	docports "vec-diputacion-granada/internal/vec/documentos/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
 	"vec-diputacion-granada/internal/vec/reglas"
@@ -147,6 +148,61 @@ type firmaDocumentoCTDesarrollo struct {
 	// servicio queda al componer las rutas: la custodia en Documentos se le
 	// añade después, cuando Documentos ya está compuesto.
 	servicio *ctapplication.ServicioFirmaDocumento
+	// Las vías R5 se preparan juntas sobre el mismo servicio, circuito y
+	// custodia. Ninguna de ellas se entrega a una ruta mientras falte su
+	// autoridad nominal y transaccional.
+	firmaExterna *ctapplication.ServicioFirmaExterna
+	firmaVec     *ctapplication.ServicioFirmaVec
+	// Se fija únicamente después de que Documentos acepte la custodia. Los
+	// constructores R5 la exigen; no consumimos el original antes de tiempo.
+	custodiaR5Compuesta bool
+}
+
+// Ambas vías consumen una sola historia nominal V2, el mismo verificador
+// acumulado y la custodia de las revisiones del PDF original.
+type dependenciasFirmaR5Desarrollo struct {
+	original          ports.FuenteOriginalFirmaAutorizado
+	registro          ports.RegistroFirmasVerificadasV2
+	consulta          ports.AutorizadorConsultaFirmasR5V2
+	autorizar         ports.AutorizadorFirmaVerificadaV2
+	verificador       docports.VerificadorFirmasDocumento
+	pdfAnterior       ports.FuentePDFFirmaAnterior
+	competencia       ports.FuenteCompetenciaFirmante
+	politicaFirmantes ports.FuentePoliticaMismaPersonaEnPasos
+}
+
+// Se prepara en una copia antes de publicar ambas vías. Un fallo no ocupa la
+// fuente del original ni modifica el servicio anterior. Cada vía exige la
+// misma historia V2, verificador acumulado, custodia y revisión de entrada.
+func (f *firmaDocumentoCTDesarrollo) componerFirmasR5(d dependenciasFirmaR5Desarrollo) error {
+	if f == nil || f.servicio == nil || !f.custodiaR5Compuesta ||
+		f.firmaExterna != nil || f.firmaVec != nil ||
+		dependenciaEsNulaContratacionTemporalDesarrollo(d.original) ||
+		dependenciaEsNulaContratacionTemporalDesarrollo(d.registro) ||
+		dependenciaEsNulaContratacionTemporalDesarrollo(d.consulta) ||
+		dependenciaEsNulaContratacionTemporalDesarrollo(d.autorizar) ||
+		dependenciaEsNulaContratacionTemporalDesarrollo(d.verificador) ||
+		dependenciaEsNulaContratacionTemporalDesarrollo(d.pdfAnterior) ||
+		dependenciaEsNulaContratacionTemporalDesarrollo(d.competencia) ||
+		dependenciaEsNulaContratacionTemporalDesarrollo(d.politicaFirmantes) {
+		return errFirmaDocumentoCTDesarrolloNoDisponible
+	}
+	base := *f.servicio
+	if err := base.ComponerOriginalAutorizado(d.original); err != nil {
+		return errFirmaDocumentoCTDesarrolloNoDisponible
+	}
+	externa, err := ctapplication.NuevoServicioFirmaExternaV2(&base, d.verificador, d.registro,
+		d.autorizar, d.consulta, d.pdfAnterior, d.competencia, d.politicaFirmantes)
+	if err != nil {
+		return errFirmaDocumentoCTDesarrolloNoDisponible
+	}
+	vec, err := ctapplication.NuevoServicioFirmaVecV2(&base, d.verificador, d.registro,
+		d.autorizar, d.consulta, d.pdfAnterior, d.competencia, d.politicaFirmantes)
+	if err != nil {
+		return errFirmaDocumentoCTDesarrolloNoDisponible
+	}
+	f.firmaExterna, f.firmaVec = externa, vec
+	return nil
 }
 
 func (f *firmaDocumentoCTDesarrollo) certificadoVigenteFirmaDocumentoCTDesarrollo(
@@ -183,7 +239,18 @@ func perfilPasoFirmaDocumentoCTDesarrolloCoincide(m ports.MaterialFirmaDocumento
 			return false
 		}
 		paso := documento.Pasos[m.PasoOrden-1]
-		return paso.Orden == m.PasoOrden && paso.Referencia == m.PasoRef && paso.PerfilRef == perfilRef
+		if paso.Orden != m.PasoOrden || paso.Referencia != m.PasoRef {
+			return false
+		}
+		if paso.PerfilRef == perfilRef {
+			return true
+		}
+		for _, alternativo := range paso.PerfilesAlternativos {
+			if alternativo == perfilRef {
+				return true
+			}
+		}
+		return false
 	}
 	return false
 }
@@ -479,16 +546,18 @@ func (f fuenteCircuitoFirmaReglasDesarrollo) CircuitoFirma(ctx context.Context) 
 		return ctdomain.CircuitoFirma{}, ctapplication.ErrCircuitoFirmaNoDisponible
 	}
 	c, err := f.resolutor.CircuitoFirma(ctx)
-	if err != nil {
+	if err != nil || c.Version <= 0 {
 		return ctdomain.CircuitoFirma{}, ctapplication.ErrCircuitoFirmaNoDisponible
 	}
-	salida := ctdomain.CircuitoFirma{CatalogoRef: c.CatalogoID + ":" + strconv.Itoa(c.Version),
-		HuellaCatalogo: strings.ToLower(c.HuellaCatalogo), Ejemplo: c.PaqueteEjemplo}
+	salida := ctdomain.CircuitoFirma{CatalogoVersion: uint64(c.Version), CatalogoRef: c.CatalogoID + ":" + strconv.Itoa(c.Version),
+		HuellaCatalogo: strings.ToLower(c.HuellaCatalogo), Ejemplo: c.PaqueteEjemplo,
+		PermiteMismaPersonaEnPasos: c.PermiteMismaPersonaEnPasos}
 	for _, d := range c.Documentos {
 		doc := ctdomain.CircuitoFirmaDocumento{Documento: d.Documento, Etiqueta: d.Etiqueta}
 		for _, p := range d.Pasos {
 			doc.Pasos = append(doc.Pasos, ctdomain.PasoCircuitoFirma{Orden: p.Orden, Cargo: p.Cargo, PerfilRef: p.PerfilRef,
-				Accion: string(p.Accion), Devolucion: ctdomain.DevolucionPasoFirma(p.Devolucion), Habilita: string(p.Habilita), Referencia: p.Referencia})
+				PerfilesAlternativos: append([]string(nil), p.PerfilesAlternativos...),
+				Accion:               string(p.Accion), Devolucion: ctdomain.DevolucionPasoFirma(p.Devolucion), Habilita: string(p.Habilita), Referencia: p.Referencia})
 		}
 		salida.Documentos = append(salida.Documentos, doc)
 	}
@@ -518,6 +587,7 @@ func (f *firmaDocumentoCTDesarrollo) rutas(cfg config.Config, circuito *reglas.R
 		return nil, errFirmaDocumentoCTDesarrolloNoDisponible
 	}
 	f.servicio = servicio
+	f.custodiaR5Compuesta = false
 	h, err := httpinterno.NuevoManejadorFirmaDocumento(f, servicio)
 	if err != nil {
 		return nil, errFirmaDocumentoCTDesarrolloNoDisponible

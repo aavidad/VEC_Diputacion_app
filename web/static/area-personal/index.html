@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="light">
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="manifest" data-pwa-manifest="pwa-area-personal" href="/textos/es/pwa-area-personal.json?v=20261002-pwa-v1">
+    <link rel="stylesheet" href="/pwa/navegacion.css?v=20261002-pwa-v2">
+    <script type="module" src="/pwa/instalar.js?v=20261003-pwa-ci-v5"></script>
     <title data-i18n="areaPersonal.html.titulo">Mi área personal · Bolsas de trabajo</title>
     <link rel="stylesheet" href="/comun/tema-vec.css?v=20261002-rrhh17-v1">
     <link rel="stylesheet" href="/area-personal/area-personal.css?v=20261001-codexf-accesibilidad-v1">
@@ -79,6 +82,11 @@
               <button type="button" data-accion="ver-contexto-sesion" data-i18n="areaPersonal.sesion.titulo">Identidad y contexto de sesión</button>
             </div></div>
           </div>
+          <nav class="pwa-navegacion" data-pwa-navegacion data-pwa-scope="/area-personal/" hidden>
+            <button type="button" data-pwa-accion="volver"></button>
+            <button type="button" data-pwa-accion="inicio"></button>
+            <button type="button" data-pwa-accion="recargar"></button>
+          </nav>
         </header>
 
         <main id="contenido-principal" class="contenido-principal" tabindex="-1">

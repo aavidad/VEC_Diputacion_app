@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="light">
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="manifest" data-pwa-manifest="pwa-portal-empleado" href="/textos/es/pwa-portal-empleado.json?v=20261002-pwa-v1">
+    <link rel="stylesheet" href="/pwa/navegacion.css?v=20261002-pwa-v2">
     <title data-i18n-portal="txt_portal_del_empleado_recursos_humanos">Portal del Empleado · Recursos Humanos</title>
     <link rel="stylesheet" href="/portal-empleado/vendor/leaflet-1.9.4/leaflet.css?v=1.9.4" integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H">
     <link rel="stylesheet" href="/styles.css?v=20260717-portal-rrhh">
@@ -41,7 +43,7 @@
     <link rel="stylesheet" href="/portal-empleado/modulos/contratacion-temporal/contratacion-temporal.css?v=20260929-demo-ficha-v1">
     <link rel="stylesheet" href="/portal-empleado/modulos/contratacion-temporal/expedientes.css?v=20260929-demo-ficha-v2">
     <link rel="stylesheet" href="/portal-empleado/modulos/contratacion-temporal/expedientes-operativo.css?v=20260926-pulido-portal-v1">
-    <link rel="stylesheet" href="/portal-empleado/modulos/contratacion-temporal/circuito-firma.css?v=20260930-custodia-506-e3-v3">
+    <link rel="stylesheet" href="/portal-empleado/modulos/contratacion-temporal/circuito-firma.css?v=20261003-ct-firma-v2-v1">
     <link rel="stylesheet" href="/portal-empleado/modulos/contratacion-temporal/expedientes-incidencia.css?v=20260925-aspecto-v1">
     <link rel="stylesheet" href="/portal-empleado/modulos/contratacion-temporal/expedientes-responsive.css?v=20260925-aspecto-v1">
     <link rel="stylesheet" href="/portal-empleado/modulos/contratacion-temporal/expedientes-diseno.css?v=20260930-ct-lista-plazos-v1">
@@ -59,7 +61,7 @@
          paralelo con la entrada, sin esperar a leer cada nivel de import. Primero
          la cadena que carga el catálogo y los módulos. Deben coincidir exactamente
          con las URL que importa el código (lo comprueba portal-carga-rapida.test.mjs). -->
-    <link rel="modulepreload" href="/portal-empleado/portal-modulos-coordinador.js?v=20261002-ct-fin-moad-v1">
+    <link rel="modulepreload" href="/portal-empleado/portal-modulos-coordinador.js?v=20261003-ct-firma-v2-v1">
     <link rel="modulepreload" href="/comun/correos-propios.js?v=20260929-correos-508b-v1">
     <link rel="modulepreload" href="/comun/iconos-vec.js?v=20260925-aspecto-v1">
     <link rel="modulepreload" href="/portal-empleado/portal-accesos-empleado.js?v=20261001-g364-reconciliar-v2">
@@ -140,7 +142,8 @@
     <link rel="modulepreload" href="/portal-empleado/reglas/enlace.js?v=20261001-ct-a-i18n-v1">
     <!-- Carga clásica y síncrona: globalThis.L existe antes de evaluar cualquier módulo. -->
     <script src="/portal-empleado/vendor/leaflet-1.9.4/leaflet.js?v=1.9.4" integrity="sha384-tM1WyRnQZLXgeuR/dXHqqQcD5jN9+bgKmZW55OJtM9Bv7zCG4VFwmgdJudAtzIni"></script>
-    <script type="module" src="/portal-empleado/portal.js?v=20261002-r3-r4-moad-v2"></script>
+    <script type="module" src="/portal-empleado/portal.js?v=20261003-ct-firma-v2-v1"></script>
+    <script type="module" src="/pwa/instalar.js?v=20261003-pwa-ci-v5"></script>
   </head>
   <body class="portal-empleado-app">
     <a class="salto-contenido" href="#contenido-principal" data-i18n-portal="txt_saltar_al_contenido_principal">Saltar al contenido principal</a>
@@ -277,6 +280,11 @@
               </div>
             </div>
           </div>
+          <nav class="pwa-navegacion" data-pwa-navegacion data-pwa-scope="/portal-empleado/" hidden>
+            <button type="button" data-pwa-accion="volver"></button>
+            <button type="button" data-pwa-accion="inicio"></button>
+            <button type="button" data-pwa-accion="recargar"></button>
+          </nav>
         </header>
 
         <main id="contenido-principal" class="contenido-portal" tabindex="-1">

@@ -65,7 +65,7 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     ["modulos/contratacion-temporal/formulario-llamamiento-pruebas.js", "20261002-ct-fin-modalidad-v1"],
     ["modulos/contratacion-temporal/circuito-firma-acciones.js", "20261002-ct-fin-modalidad-v1"],
     ["portal-modulos-coordinador.js", "20261002-ct-fin-modalidad-v1"],
-    ["portal.js", "20261002-r3-r4-moad-v2"],
+    ["portal.js", "20261002-r4-moad-v6"],
     ["portal-eventos.js", "20261002-ct-fin-modalidad-v1"],
     ["portal-bolsas-ofertas.js", "20261002-r3-r4-ofertas-v1"],
     ["portal-bolsas-traza-valores.js", "20261002-r-rrhh18-v2"],
@@ -89,7 +89,7 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     // 5.06, segundo corte: el circuito de firma trae el estado de Firmadoc.
     // Reglas vigentes: el detalle de cada regla y sus textos en catálogos renuevan el enlace del panel.
     // Nuevo llamamiento: el campo «Resumen de la preparación» usa la etiqueta encima y el campo a lo ancho.
-    ["portal.js", "20261002-r3-r4-moad-v2"],
+    ["portal.js", "20261002-r4-moad-v6"],
     ["portal-vistas-utilidades.js", "20261001-ct-a-i18n-v1"],
     ["portal-preferencias-integracion.js", "20261001-ct-a-i18n-v1"],
     ["portal-preferencias.js", "20261001-ct-a-i18n-v1"],
@@ -141,11 +141,25 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     ["modulos/contratacion-temporal/vista-expedientes-tramitacion.js", "20261002-ct-fin-modalidad-v1"],
     ["modulos/contratacion-temporal/recuentos-peticiones.js", "20261001-f-reconciliacion-325-v1"],
     ["modulos/contratacion-temporal/vista-expedientes-lista.js", "20261001-f-reconciliacion-325-v1"],
-    ["portal.js", "20261002-r3-r4-moad-v2"],
+    ["portal.js", "20261002-r4-moad-v6"],
   ]);
   versionesEspeciales.set("modulos/contratacion-temporal/vista-estadisticas.js", "20261001-ana002-v4");
-  versionesEspeciales.set("portal-modulos-coordinador.js", "20261002-ct-fin-moad-v1");
-  versionesEspeciales.set("portal.js", "20261002-r3-r4-moad-v2");
+  versionesEspeciales.set("portal-modulos-coordinador.js", "20261003-ct-firma-v2-v1");
+  versionesEspeciales.set("portal.js", "20261003-ct-firma-v2-v1");
+  versionesEspeciales.set("modulos/contratacion-temporal/vista-expedientes.js", "20261003-ct-firma-v2-v1");
+  // Sólo estos consumidores CT cambiaron en el grafo de firma V2.
+  for (const hoja of [
+    "circuito-firma.js",
+    "circuito-firma-acciones.js",
+    "firma-externa-cliente.js",
+    "firma-vec-api.js",
+    "preflight-firma-api.js",
+    "original-firmable-api.js",
+    "i18n-circuito-firma.js",
+    "formulario-llamamiento-pruebas.js",
+  ]) {
+    versionesEspeciales.set(`modulos/contratacion-temporal/${hoja}`, "20261003-ct-firma-v2-v1");
+  }
   versionesEspeciales.set("modulos/cronos/vista-bandeja-notificaciones.js", "20261001-cronos-c9-recuperacion-v3");
   versionesEspeciales.set("modulos/cronos/i18n-bandeja-notificaciones.js", "20261001-cronos-c9-recuperacion-v3");
   versionesEspeciales.set("modulos/cronos/i18n-notificaciones-historial.js", "20261001-cronos-c9-historial-v2");
@@ -195,7 +209,7 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     if (!alcanzables.has(archivo) || !ancestros.has(destino)) continue;
     // Fin y MOAD versionan el grafo de Contratación en dos cortes apilados.
     // La unicidad por destino se comprueba abajo para todo el grafo alcanzable.
-    const esperada = ["20261002-ct-fin-modalidad-v1", "20261002-ct-fin-moad-v1"].includes(version)
+    const esperada = ["20261002-ct-fin-modalidad-v1", "20261002-ct-fin-moad-v1", "20261002-rrhh-consulta-moad-v1", "20261002-ct-r5-grafo-v1", "20261002-ct-r5-grafo-v2"].includes(version)
       ? version : (versionesEspeciales.get(destino) ?? vigente);
     assert.equal(version, esperada,
       `${archivo} → ${destino}: URL immutable renovada`);
@@ -288,5 +302,5 @@ test("Cronos renueva los traductores de permisos y resolución y todos sus padre
   const versionPortal = versionDe(portal, "./portal-modulos-coordinador.js");
   assert.notEqual(versionPortal, "20261001-cronos-grafo-bandeja-v5");
   assert.equal(versionDe(html, "/portal-empleado/portal-modulos-coordinador.js"), versionPortal);
-  assert.equal(versionDe(html, "/portal-empleado/portal.js"), "20261002-r3-r4-moad-v2");
+  assert.equal(versionDe(html, "/portal-empleado/portal.js"), "20261003-ct-firma-v2-v1");
 });

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"regexp"
 	"strconv"
+	"strings"
 )
 
 // Un circuito de firma describe, por documento, los pasos ordenados de firma
@@ -76,20 +77,24 @@ const (
 )
 
 const maximoPasosCircuitoFirma = 16
+const atributoMismaPersonaEnDosPasos = "misma_persona_en_dos_pasos"
 
 // perfilRefValido admite referencias opacas del tipo «perfil:ct:jefatura».
 var perfilRefValido = regexp.MustCompile(`^[a-z][a-z0-9._:-]{2,127}$`)
 
 // PasoFirma es un paso resuelto del circuito.
 type PasoFirma struct {
-	Orden       int
-	Cargo       string
-	PerfilRef   string
-	Accion      AccionFirma
-	Condicion   CondicionPasoFirma
-	Habilita    HabilitacionFirma
-	Devolucion  DevolucionFirma
-	Sustitucion SustitucionFirma
+	Orden     int
+	Cargo     string
+	PerfilRef string
+	// PerfilesAlternativos admite uno de estos perfiles para el mismo paso.
+	// PerfilRef sigue siendo la opción principal para catálogos anteriores.
+	PerfilesAlternativos []string
+	Accion               AccionFirma
+	Condicion            CondicionPasoFirma
+	Habilita             HabilitacionFirma
+	Devolucion           DevolucionFirma
+	Sustitucion          SustitucionFirma
 	// Referencia es catalogo:version:entrada del paso.
 	Referencia string
 }
@@ -108,6 +113,8 @@ type CircuitoFirma struct {
 	Version        int
 	HuellaCatalogo string
 	PaqueteEjemplo bool
+	// Una opción del catálogo no sustituye la autorización propia de cada paso.
+	PermiteMismaPersonaEnPasos bool
 }
 
 // CircuitoFirma resuelve el catálogo vigente como circuitos por documento.
@@ -131,8 +138,22 @@ func CircuitoFirmaDesdeReglas(vigentes []Regla) (CircuitoFirma, error) {
 		CatalogoID: vigentes[0].ReferenciaEntrada.CatalogoID, Version: vigentes[0].ReferenciaEntrada.CatalogoVersion,
 		HuellaCatalogo: vigentes[0].HuellaCatalogo, PaqueteEjemplo: vigentes[0].PaqueteEjemplo,
 	}
+	politica, declarada := vigentes[0].Atributos[atributoMismaPersonaEnDosPasos]
+	if declarada {
+		switch politica {
+		case "true":
+			circuito.PermiteMismaPersonaEnPasos = true
+		case "false":
+		default:
+			return CircuitoFirma{}, ErrCircuitoFirmaInvalido
+		}
+	}
 	indices := map[string]int{}
 	for _, regla := range vigentes {
+		valor, presente := regla.Atributos[atributoMismaPersonaEnDosPasos]
+		if presente != declarada || presente && valor != politica {
+			return CircuitoFirma{}, ErrCircuitoFirmaInvalido
+		}
 		paso, documento, etiqueta, err := pasoDesdeRegla(regla)
 		if err != nil {
 			return CircuitoFirma{}, err
@@ -168,6 +189,22 @@ func pasoDesdeRegla(regla Regla) (PasoFirma, string, string, error) {
 		Accion: AccionFirma(a["accion"]), Condicion: CondicionPasoFirma(a["condicion"]),
 		Habilita: HabilitacionFirma(a["habilita"]), Devolucion: DevolucionFirma(a["devolucion"]),
 		Sustitucion: SustitucionFirma(a["sustitucion"]), Referencia: regla.Referencia,
+	}
+	if alternativas, declaradas := a["perfiles_ref_alternativos"]; declaradas {
+		paso.PerfilesAlternativos = strings.Split(alternativas, ",")
+		if alternativas == "" || len(paso.PerfilesAlternativos) > maximoPasosCircuitoFirma {
+			return PasoFirma{}, "", "", ErrCircuitoFirmaInvalido
+		}
+		vistas := map[string]struct{}{paso.PerfilRef: {}}
+		for _, perfil := range paso.PerfilesAlternativos {
+			if !perfilRefValido.MatchString(perfil) {
+				return PasoFirma{}, "", "", ErrCircuitoFirmaInvalido
+			}
+			if _, repetido := vistas[perfil]; repetido {
+				return PasoFirma{}, "", "", ErrCircuitoFirmaInvalido
+			}
+			vistas[perfil] = struct{}{}
+		}
 	}
 	documento, etiqueta := a["documento"], a["documento_etiqueta"]
 	if err != nil || orden < 1 || strconv.Itoa(orden) != a["paso"] || regla.Unidad != UnidadNinguna ||

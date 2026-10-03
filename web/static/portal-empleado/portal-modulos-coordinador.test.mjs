@@ -858,6 +858,8 @@ test("Inicio y Cuadro abren el mismo detalle CT tras la consulta, una vez y en E
   ]) {
     const llamadas = [];
     let presentador;
+    let mensajesAdaptador;
+    const rotuloCircuito = idioma === "en-GB" ? "Request signing" : "Firma de la petición";
     const fuente = {
       capacidades: ["contratacion_temporal.cuadro.consultar", "contratacion_temporal.expediente.consultar"],
       async listar() { llamadas.push("cuadro"); return cuadro; },
@@ -875,8 +877,10 @@ test("Inicio y Cuadro abren el mismo detalle CT tras la consulta, una vez y en E
         }) },
         adaptador: { crearAdaptadorHTTPExpedientesContratacionTemporal: (opciones) => {
           assert.equal(opciones.locale, idioma);
-          if (idioma === "en-GB") assert.equal(opciones.mensajes, MENSAJES_EXPEDIENTES_CONTRATACION_EN);
-          else assert.deepEqual(opciones.mensajes, {});
+          mensajesAdaptador = opciones.mensajes;
+          assert.equal(mensajesAdaptador["contratacion_temporal.fase.circuito_solicitud"], rotuloCircuito);
+          assert.equal(mensajesAdaptador.etiqueta_fase_circuito_solicitud, rotuloCircuito);
+          if (idioma === "en-GB") assert.equal(mensajesAdaptador.nav_cuadro, MENSAJES_EXPEDIENTES_CONTRATACION_EN.nav_cuadro);
           return fuente;
         } },
         presentador: { crearPresentadorExpedientesContratacionTemporal: (opciones) => (
@@ -885,7 +889,7 @@ test("Inicio y Cuadro abren el mismo detalle CT tras la consulta, una vez y en E
         vista: { montarModuloContratacionTemporal: async ({ raiz, presentador: actual,
           mensajes, locale, zonaHoraria }) => {
           assert.equal(locale, idioma);
-          if (idioma === "en-GB") assert.equal(mensajes, MENSAJES_EXPEDIENTES_CONTRATACION_EN);
+          assert.equal(mensajes, mensajesAdaptador);
           const estado = actual.obtenerEstado();
           const recibo = estado.carga === "listo" && estado.vista === "expediente" ? {
             recibo_ref: "recibo:ct:sintetico:001",
