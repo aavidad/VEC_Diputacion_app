@@ -85,7 +85,9 @@ CREATE TABLE vec_personal.enlace_cargo_competencial_historia (
  CHECK(vigente_hasta>vigente_desde),
  CHECK((clase='titular' AND titular_enlace_ref IS NULL AND titular_enlace_version IS NULL
         AND titular_enlace_sha256 IS NULL AND delegante_persona_ref IS NULL)
-       OR (clase<>'titular' AND titular_enlace_ref IS NOT NULL AND titular_enlace_version>0
+       OR (clase<>'titular' AND titular_enlace_ref IS NOT NULL
+           AND titular_enlace_version IS NOT NULL AND titular_enlace_version>0
+           AND titular_enlace_sha256 IS NOT NULL
            AND titular_enlace_sha256 ~ '^[0-9a-f]{64}$' AND delegante_persona_ref IS NOT NULL
            AND persona_ref<>delegante_persona_ref)),
  CHECK((empleado_ref IS NULL AND ocupacion_ref IS NULL AND ocupacion_revision IS NULL)
@@ -252,13 +254,23 @@ BEGIN
  END IF;
  enlace_b2:=NULL;
  IF t.ocupacion_ref IS NOT NULL THEN
-  SELECT o.*,r.persona_ref INTO STRICT o FROM vec_personal.ocupacion_empleado_historia o
+  SELECT o.*,r.persona_ref,r.estado AS relacion_estado,
+    r.vigente_desde AS relacion_desde,r.vigente_hasta AS relacion_hasta
+  INTO STRICT o FROM vec_personal.ocupacion_empleado_historia o
   JOIN vec_personal.relacion_servicio_historia r
     ON r.relacion_ref=o.relacion_ref AND r.revision=o.relacion_revision
   WHERE o.ocupacion_ref=t.ocupacion_ref AND o.revision=t.ocupacion_revision
     AND o.empleado_ref=t.empleado_ref AND r.persona_ref=t.persona_ref
   FOR SHARE OF o,r;
-  IF o.estado<>'vigente' OR o.organismo_ref IS DISTINCT FROM organizacion
+  IF o.estado<>'vigente' OR o.relacion_estado<>'vigente'
+    OR o.revision IS DISTINCT FROM (SELECT max(x.revision) FROM vec_personal.ocupacion_empleado_historia x
+      WHERE x.ocupacion_ref=o.ocupacion_ref)
+    OR o.relacion_revision IS DISTINCT FROM (SELECT max(x.revision) FROM vec_personal.relacion_servicio_historia x
+      WHERE x.relacion_ref=o.relacion_ref)
+    OR o.relacion_desde>fecha::date OR o.relacion_desde>ahora::date
+    OR (o.relacion_hasta IS NOT NULL AND
+      (o.relacion_hasta<=fecha::date OR o.relacion_hasta<=ahora::date))
+    OR o.organismo_ref IS DISTINCT FROM organizacion
     OR o.unidad_ref IS DISTINCT FROM unidad OR o.vigente_desde>fecha::date
     OR o.vigente_desde>ahora::date
     OR (o.vigente_hasta IS NOT NULL AND (o.vigente_hasta<=fecha::date OR o.vigente_hasta<=ahora::date)) THEN
@@ -473,7 +485,13 @@ BEGIN
        AND o.revision=(dato->>'ocupacion_revision')::integer
        AND o.empleado_ref=dato->>'empleado_ref' AND r.persona_ref=dato->>'persona_ref'
        AND o.organismo_ref=cargo.organizacion_ref AND o.unidad_ref=cargo.unidad_ref
-       AND o.estado='vigente') THEN
+       AND o.estado='vigente' AND r.estado='vigente'
+       AND o.revision=(SELECT max(x.revision) FROM vec_personal.ocupacion_empleado_historia x
+         WHERE x.ocupacion_ref=o.ocupacion_ref)
+       AND r.revision=(SELECT max(x.revision) FROM vec_personal.relacion_servicio_historia x
+         WHERE x.relacion_ref=r.relacion_ref)
+       AND o.vigente_desde<=fecha::date AND (o.vigente_hasta IS NULL OR o.vigente_hasta>fecha::date)
+       AND r.vigente_desde<=fecha::date AND (r.vigente_hasta IS NULL OR r.vigente_hasta>fecha::date)) THEN
     RAISE EXCEPTION 'cargo_publicacion_ocupacion_no_acreditada' USING ERRCODE='42501'; END IF;
   ELSIF dato->>'empleado_ref' IS NOT NULL OR dato->>'ocupacion_revision' IS NOT NULL THEN
    RAISE EXCEPTION 'cargo_publicacion_ocupacion_parcial' USING ERRCODE='22023';
