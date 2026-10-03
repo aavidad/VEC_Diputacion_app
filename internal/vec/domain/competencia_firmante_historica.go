@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"strconv"
 	"time"
 )
 
@@ -157,7 +156,8 @@ func (c CanonCompetenciaFirmanteHistoricaV1) Validar() error {
 		i.VinculoDERSHA256 != i.CertificadoDERSHA256 ||
 		!a.Asignacion.valida() || !a.Rol.valida() || !a.ControlRol.valida() ||
 		!textoAutorizacionSinComodinSeguro(a.RolID, 128, false) ||
-		a.Rol.Referencia != "rol:"+a.RolID+":v"+strconv.FormatUint(a.Rol.Version, 10) ||
+		a.Rol.Version > uint64(^uint(0)>>1) ||
+		a.Rol.Referencia != (VersionRol{RolID: a.RolID, Version: int(a.Rol.Version)}).Referencia() ||
 		a.PersonaRef != i.PersonaRef || a.AsignacionRolRef != a.Rol.Referencia || a.ControlRolRef != a.Rol.Referencia ||
 		a.ModuloID != r.ModuloID || a.TipoRecurso != r.TipoRecurso || a.RecursoRef != r.RecursoAutorizableRef ||
 		a.AmbitoOrganizacionRef != r.OrganizacionRef || a.AmbitoUnidadRef != r.UnidadRef ||
@@ -207,6 +207,81 @@ func (c CanonCompetenciaFirmanteHistoricaV1) Validar() error {
 	if (r.NumeroFirmas > 1 && r.EntradaRevision == nil) ||
 		(r.NumeroFirmas == 1 && r.EntradaRevision != nil) ||
 		(r.EntradaRevision != nil && !r.EntradaRevision.valida()) {
+		return ErrCanonCompetenciaFirmanteHistoricaV1Invalido
+	}
+	return nil
+}
+
+// SelectorHistoricoCompetenciaFirmanteV1 identifica el efecto original. El
+// propietario lo resuelve desde RegistroRef; un valor recibido del canal no
+// prueba esta relacion.
+type SelectorHistoricoCompetenciaFirmanteV1 struct {
+	OrganizacionRef, UnidadRef, ExpedienteRef, DocumentoRef string
+	ModuloID, TipoRecurso, RecursoRef                       string
+	RecursoContextoSHA256                                   string
+}
+
+func (s SelectorHistoricoCompetenciaFirmanteV1) Validar() error {
+	if textoAutorizacionSinComodinSeguro(s.OrganizacionRef, 512, false) &&
+		textoAutorizacionSinComodinSeguro(s.UnidadRef, 512, false) &&
+		textoAutorizacionSinComodinSeguro(s.ExpedienteRef, 512, false) &&
+		textoAutorizacionSinComodinSeguro(s.DocumentoRef, 512, false) &&
+		textoAutorizacionSinComodinSeguro(s.ModuloID, 128, false) &&
+		textoAutorizacionSinComodinSeguro(s.TipoRecurso, 128, false) &&
+		s.RecursoRef == s.DocumentoRef &&
+		huellaAsignacionCompetencialV1Valida(s.RecursoContextoSHA256) {
+		return nil
+	}
+	return ErrCanonCompetenciaFirmanteHistoricaV1Invalido
+}
+
+// DescriptorLecturaCompetenciaFirmanteHistoricaV1 pertenece al catalogo
+// publicado de consultas. La fuente debe comprobar su version/huella y que
+// RegistroRef procede del efecto propietario antes de usarlo con el PDP.
+type DescriptorLecturaCompetenciaFirmanteHistoricaV1 struct {
+	Catalogo                                        ReferenciaEntradaCatalogo
+	RegistroRef, RecursoRef, ModuloID, TipoRecurso  string
+	ClaveOrganizacion, ClaveUnidad, ClaveExpediente string
+}
+
+func (d DescriptorLecturaCompetenciaFirmanteHistoricaV1) Validar() error {
+	if d.Catalogo.Validar() == nil &&
+		textoAutorizacionSinComodinSeguro(d.RegistroRef, 512, false) &&
+		textoAutorizacionSinComodinSeguro(d.RecursoRef, 512, false) &&
+		textoAutorizacionSinComodinSeguro(d.ModuloID, 128, false) &&
+		textoAutorizacionSinComodinSeguro(d.TipoRecurso, 128, false) &&
+		textoAutorizacionSinComodinSeguro(d.ClaveOrganizacion, 128, false) &&
+		textoAutorizacionSinComodinSeguro(d.ClaveUnidad, 128, false) &&
+		textoAutorizacionSinComodinSeguro(d.ClaveExpediente, 128, false) &&
+		d.ClaveOrganizacion != d.ClaveUnidad && d.ClaveOrganizacion != d.ClaveExpediente &&
+		d.ClaveUnidad != d.ClaveExpediente {
+		return nil
+	}
+	return ErrCanonCompetenciaFirmanteHistoricaV1Invalido
+}
+
+// ValidarLecturaCompetenciaFirmanteHistoricaV1 liga la lectura autorizada
+// actual al efecto historico sin identificar sus dos huellas de contexto.
+// La autorizacion V3 del consultante se consume aparte sobre recursoActual.
+func ValidarLecturaCompetenciaFirmanteHistoricaV1(
+	c CanonCompetenciaFirmanteHistoricaV1, registroRef string,
+	s SelectorHistoricoCompetenciaFirmanteV1,
+	d DescriptorLecturaCompetenciaFirmanteHistoricaV1,
+	recursoActual RecursoAutorizable,
+) error {
+	r := c.Recurso
+	if c.Validar() != nil || s.Validar() != nil || d.Validar() != nil ||
+		recursoActual.Validar() != nil || d.RegistroRef != registroRef ||
+		recursoActual.Referencia != d.RecursoRef || recursoActual.ModuloID != d.ModuloID ||
+		recursoActual.Tipo != d.TipoRecurso || len(recursoActual.Ambitos) != 3 ||
+		recursoActual.Ambitos[d.ClaveOrganizacion] != r.OrganizacionRef ||
+		recursoActual.Ambitos[d.ClaveUnidad] != r.UnidadRef ||
+		recursoActual.Ambitos[d.ClaveExpediente] != r.ExpedienteRef ||
+		s.OrganizacionRef != r.OrganizacionRef || s.UnidadRef != r.UnidadRef ||
+		s.ExpedienteRef != r.ExpedienteRef || s.DocumentoRef != r.DocumentoRef ||
+		s.ModuloID != r.ModuloID || s.TipoRecurso != r.TipoRecurso ||
+		s.RecursoRef != r.RecursoAutorizableRef ||
+		s.RecursoContextoSHA256 != r.RecursoContextoSHA256 {
 		return ErrCanonCompetenciaFirmanteHistoricaV1Invalido
 	}
 	return nil

@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"maps"
 	"strings"
 	"testing"
 	"time"
@@ -224,11 +225,18 @@ func TestRecuperacionCompetenciaHistoricaSeparaRecursoActualYSelector(t *testing
 		RegistroRef: "firma:registro:1", CanonHuellaSHA256: huellaCanon,
 		Actor: resultado.Contexto, ResultadoContexto: resultado, Vinculo: vinculo,
 		RecursoActual: recursoActual,
-		SelectorHistorico: ports.SelectorHistoricoCompetenciaFirmanteV1{
+		SelectorHistorico: SelectorHistoricoCompetenciaFirmanteV1{
 			OrganizacionRef: c.Recurso.OrganizacionRef, UnidadRef: c.Recurso.UnidadRef,
 			ExpedienteRef: c.Recurso.ExpedienteRef, DocumentoRef: c.Recurso.DocumentoRef,
 			ModuloID: c.Recurso.ModuloID, TipoRecurso: c.Recurso.TipoRecurso,
 			RecursoRef: c.Recurso.RecursoAutorizableRef, RecursoContextoSHA256: huellaHistorica,
+		},
+		DescriptorLectura: DescriptorLecturaCompetenciaFirmanteHistoricaV1{
+			Catalogo: ReferenciaEntradaCatalogo{CatalogoID: "consulta_competencia", CatalogoVersion: 1,
+				CatalogoHuellaSHA256: strings.Repeat("8", 64), EntradaClave: "lectura_historica"},
+			RegistroRef: "firma:registro:1", RecursoRef: recursoActual.Referencia,
+			ModuloID: recursoActual.ModuloID, TipoRecurso: recursoActual.Tipo,
+			ClaveOrganizacion: "organizacion_ref", ClaveUnidad: "unidad_ref", ClaveExpediente: "expediente_ref",
 		},
 		Accion: "contratacion_temporal.competencia.consultar", Finalidad: "trazabilidad",
 		Motivo: ReferenciaEntradaCatalogo{CatalogoID: "motivo_lectura", CatalogoVersion: 1,
@@ -261,10 +269,32 @@ func TestRecuperacionCompetenciaHistoricaSeparaRecursoActualYSelector(t *testing
 		"tipo": func(s *ports.SolicitudRecuperacionCompetenciaFirmanteHistoricaV1) {
 			s.SelectorHistorico.TipoRecurso = "otro"
 		},
+		"actual organizacion": func(s *ports.SolicitudRecuperacionCompetenciaFirmanteHistoricaV1) {
+			s.RecursoActual.Ambitos["organizacion_ref"] = "org:otro"
+		},
+		"actual unidad": func(s *ports.SolicitudRecuperacionCompetenciaFirmanteHistoricaV1) {
+			s.RecursoActual.Ambitos["unidad_ref"] = "unidad:otra"
+		},
+		"actual expediente": func(s *ports.SolicitudRecuperacionCompetenciaFirmanteHistoricaV1) {
+			s.RecursoActual.Ambitos["expediente_ref"] = "exp:otro"
+		},
+		"actual referencia": func(s *ports.SolicitudRecuperacionCompetenciaFirmanteHistoricaV1) {
+			s.RecursoActual.Referencia = "consulta:otra"
+		},
+		"actual modulo": func(s *ports.SolicitudRecuperacionCompetenciaFirmanteHistoricaV1) {
+			s.RecursoActual.ModuloID = "otro"
+		},
+		"actual tipo": func(s *ports.SolicitudRecuperacionCompetenciaFirmanteHistoricaV1) {
+			s.RecursoActual.Tipo = "otro"
+		},
+		"descriptor registro": func(s *ports.SolicitudRecuperacionCompetenciaFirmanteHistoricaV1) {
+			s.DescriptorLectura.RegistroRef = "firma:registro:otra"
+		},
 	}
 	for nombre, cambiar := range cruces {
 		t.Run(nombre, func(t *testing.T) {
 			alterada := s
+			alterada.RecursoActual.Ambitos = maps.Clone(s.RecursoActual.Ambitos)
 			cambiar(&alterada)
 			if alterada.ValidarResultado(c, en) == nil {
 				t.Fatal("cruce historico aceptado")

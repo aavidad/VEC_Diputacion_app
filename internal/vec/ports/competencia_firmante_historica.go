@@ -13,29 +13,6 @@ import (
 
 var ErrRecuperacionCompetenciaFirmanteHistoricaV1 = errors.New("vec: competencia firmante historica no recuperable")
 
-// SelectorHistoricoCompetenciaFirmanteV1 procede del efecto propietario y su
-// descriptor publicado. No se construye desde parametros libres del canal.
-// Identifica el recurso exacto historico; el consultante usa RecursoActual.
-type SelectorHistoricoCompetenciaFirmanteV1 struct {
-	OrganizacionRef, UnidadRef, ExpedienteRef, DocumentoRef string
-	ModuloID, TipoRecurso, RecursoRef                       string
-	RecursoContextoSHA256                                   string
-}
-
-func (s SelectorHistoricoCompetenciaFirmanteV1) Validar() error {
-	if referenciaCompetenciaHistoricaPuerto(s.OrganizacionRef, 512) &&
-		referenciaCompetenciaHistoricaPuerto(s.UnidadRef, 512) &&
-		referenciaCompetenciaHistoricaPuerto(s.ExpedienteRef, 512) &&
-		referenciaCompetenciaHistoricaPuerto(s.DocumentoRef, 512) &&
-		referenciaCompetenciaHistoricaPuerto(s.ModuloID, 128) &&
-		referenciaCompetenciaHistoricaPuerto(s.TipoRecurso, 128) &&
-		s.RecursoRef == s.DocumentoRef &&
-		huellaCompetenciaHistoricaPuerto(s.RecursoContextoSHA256) {
-		return nil
-	}
-	return ErrRecuperacionCompetenciaFirmanteHistoricaV1
-}
-
 // La referencia selecciona una entrada previamente registrada por el
 // propietario del efecto. Actor, resultado y vinculo proceden de identidad
 // central; RecursoActual lo resuelve el servidor para el PDP del consultante.
@@ -47,7 +24,8 @@ type SolicitudRecuperacionCompetenciaFirmanteHistoricaV1 struct {
 	ResultadoContexto domain.ResultadoContextoActorRegistradoV2
 	Vinculo           domain.VinculoAutenticacionActorV2
 	RecursoActual     domain.RecursoAutorizable
-	SelectorHistorico SelectorHistoricoCompetenciaFirmanteV1
+	SelectorHistorico domain.SelectorHistoricoCompetenciaFirmanteV1
+	DescriptorLectura domain.DescriptorLecturaCompetenciaFirmanteHistoricaV1
 	Accion            string
 	Finalidad         string
 	Motivo            domain.ReferenciaEntradaCatalogo
@@ -60,6 +38,7 @@ func (s SolicitudRecuperacionCompetenciaFirmanteHistoricaV1) ValidarEn(en time.T
 		s.Vinculo.VigenteEn(en, s.ResultadoContexto) &&
 		s.RecursoActual.Validar() == nil && len(s.RecursoActual.Ambitos) > 0 &&
 		s.SelectorHistorico.Validar() == nil &&
+		s.DescriptorLectura.Validar() == nil &&
 		domain.ReferenciaMotivoAutorizacionV2Valida(s.Motivo) &&
 		referenciaCompetenciaHistoricaPuerto(s.RegistroRef, 512) &&
 		huellaCompetenciaHistoricaPuerto(s.CanonHuellaSHA256) &&
@@ -85,16 +64,9 @@ func (s SolicitudRecuperacionCompetenciaFirmanteHistoricaV1) ValidarResultado(
 		return ErrRecuperacionCompetenciaFirmanteHistoricaV1
 	}
 	huella, err := c.HuellaSHA256()
-	selector := s.SelectorHistorico
 	if err != nil || huella != s.CanonHuellaSHA256 ||
-		c.Recurso.RecursoAutorizableRef != selector.RecursoRef ||
-		c.Recurso.OrganizacionRef != selector.OrganizacionRef ||
-		c.Recurso.UnidadRef != selector.UnidadRef ||
-		c.Recurso.ExpedienteRef != selector.ExpedienteRef ||
-		c.Recurso.DocumentoRef != selector.DocumentoRef ||
-		c.Recurso.ModuloID != selector.ModuloID ||
-		c.Recurso.TipoRecurso != selector.TipoRecurso ||
-		c.Recurso.RecursoContextoSHA256 != selector.RecursoContextoSHA256 {
+		domain.ValidarLecturaCompetenciaFirmanteHistoricaV1(c, s.RegistroRef,
+			s.SelectorHistorico, s.DescriptorLectura, s.RecursoActual) != nil {
 		return ErrRecuperacionCompetenciaFirmanteHistoricaV1
 	}
 	return nil
@@ -121,8 +93,9 @@ func huellaCompetenciaHistoricaPuerto(valor string) bool {
 }
 
 // La implementacion obtiene el selector del efecto durable identificado por
-// RegistroRef y lo compara con SelectorHistorico; no confia en el valor de la
-// solicitud aislada. Consume PDP V3 vigente para RecursoActual, Accion y
+// RegistroRef y comprueba la version/huella del DescriptorLectura publicado;
+// no confia en los valores de la solicitud aislada. Consume PDP V3 vigente
+// para RecursoActual, Accion y
 // Finalidad del consultante y audita antes de devolver bytes o metadatos.
 // Nunca sustituye ese recurso por el de competencia historica. No emite HTTP.
 type LectorCompetenciaFirmanteHistoricaV1 interface {
