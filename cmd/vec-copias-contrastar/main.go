@@ -153,6 +153,13 @@ func leer(ruta string, destino any, limite int64) error {
 
 var claves = []string{"alcance", "igual", "diferente", "no_comprobable", "captura_completada", "copias_contraste_error_argumentos", "copias_contraste_error_catalogo", "copias_contraste_error_entrada", "copias_contraste_error_configuracion", "copias_contraste_error_captura", "copias_contraste_error_salida", "ayuda"}
 
+func emitirDiagnostico(w io.Writer, mensaje diagnostico, codigo int) int {
+	if json.NewEncoder(w).Encode(mensaje) != nil {
+		return 2
+	}
+	return codigo
+}
+
 func run(ctx context.Context, args []string, out, diag io.Writer) int {
 	flags := flag.NewFlagSet("vec-copias-contrastar", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
@@ -165,30 +172,27 @@ func run(ctx context.Context, args []string, out, diag io.Writer) int {
 	flags.StringVar(&observado, "observado", "", "")
 	flags.BoolVar(&ayuda, "ayuda", false, "")
 	textos := map[string]string{}
-	emitir := func(clave string) { _ = json.NewEncoder(diag).Encode(diagnostico{clave, textos[clave]}) }
+	emitir := func(clave string, codigo int) int {
+		return emitirDiagnostico(diag, diagnostico{clave, textos[clave]}, codigo)
+	}
 	if flags.Parse(args) != nil || flags.NArg() != 0 || catalogo == "" {
-		emitir("copias_contraste_error_argumentos")
-		return 2
+		return emitir("copias_contraste_error_argumentos", 2)
 	}
 	if leer(catalogo, &textos, 1<<20) != nil {
 		textos = nil
-		emitir("copias_contraste_error_catalogo")
-		return 2
+		return emitir("copias_contraste_error_catalogo", 2)
 	}
 	for _, k := range claves {
 		if textos[k] == "" {
-			emitir("copias_contraste_error_catalogo")
-			return 2
+			return emitir("copias_contraste_error_catalogo", 2)
 		}
 	}
 	if ayuda {
 		if modo != "" || config != "" || esperado != "" || observado != "" {
-			emitir("copias_contraste_error_argumentos")
-			return 2
+			return emitir("copias_contraste_error_argumentos", 2)
 		}
 		if _, err := io.WriteString(out, textos["ayuda"]+"\n"); err != nil {
-			emitir("copias_contraste_error_salida")
-			return 2
+			return emitir("copias_contraste_error_salida", 2)
 		}
 		return 0
 	}
@@ -196,13 +200,11 @@ func run(ctx context.Context, args []string, out, diag io.Writer) int {
 	switch modo {
 	case "capturar":
 		if config == "" || esperado != "" || observado != "" {
-			emitir("copias_contraste_error_argumentos")
-			return 2
+			return emitir("copias_contraste_error_argumentos", 2)
 		}
 		var c configuracion
 		if leer(config, &c, 1<<20) != nil || c.DSN == "" || c.TiempoMaximoSegundos < 1 || c.TiempoMaximoSegundos > 600 {
-			emitir("copias_contraste_error_configuracion")
-			return 2
+			return emitir("copias_contraste_error_configuracion", 2)
 		}
 		refs := make([]a.ReferenciaObjetoGrande, 0, len(c.ReferenciasObjetosGrandes))
 		for _, r := range c.ReferenciasObjetosGrandes {
@@ -210,34 +212,27 @@ func run(ctx context.Context, args []string, out, diag io.Writer) int {
 		}
 		lector, err := a.Nuevo(a.Configuracion{DSN: c.DSN, VersionPostgreSQL: c.VersionPostgreSQL, TiempoMaximo: time.Duration(c.TiempoMaximoSegundos) * time.Second, MaxFilas: c.MaxFilas, MaxBytes: c.MaxBytes, MaxObjetos: c.MaxObjetos, ObjetosGrandesSemanticos: c.ObjetosGrandesSemanticos, ReferenciasObjetosGrandes: refs})
 		if err != nil {
-			emitir("copias_contraste_error_configuracion")
-			return 2
+			return emitir("copias_contraste_error_configuracion", 2)
 		}
 		servicio.Lector = lector
 		snapshot, err := servicio.Capturar(ctx)
 		if err != nil {
-			emitir("copias_contraste_error_captura")
-			return 2
+			return emitir("copias_contraste_error_captura", 2)
 		}
 		if json.NewEncoder(out).Encode(snapshot) != nil {
-			emitir("copias_contraste_error_salida")
-			return 2
+			return emitir("copias_contraste_error_salida", 2)
 		}
 		if len(d.Validar(snapshot)) != 0 {
-			emitir("no_comprobable")
-			return 1
+			return emitir("no_comprobable", 1)
 		}
-		emitir("captura_completada")
-		return 0
+		return emitir("captura_completada", 0)
 	case "comparar":
 		if config != "" || esperado == "" || observado == "" {
-			emitir("copias_contraste_error_argumentos")
-			return 2
+			return emitir("copias_contraste_error_argumentos", 2)
 		}
 		var a, b d.Snapshot
 		if leer(esperado, &a, 32<<20) != nil || leer(observado, &b, 32<<20) != nil {
-			emitir("copias_contraste_error_entrada")
-			return 2
+			return emitir("copias_contraste_error_entrada", 2)
 		}
 		r := servicio.Comparar(a, b)
 		respuesta := struct {
@@ -246,16 +241,14 @@ func run(ctx context.Context, args []string, out, diag io.Writer) int {
 			Resultado d.Resultado `json:"resultado"`
 		}{textos["alcance"], textos[r.Estado], r}
 		if json.NewEncoder(out).Encode(respuesta) != nil {
-			emitir("copias_contraste_error_salida")
-			return 2
+			return emitir("copias_contraste_error_salida", 2)
 		}
 		if r.Estado == d.Igual {
 			return 0
 		}
 		return 1
 	default:
-		emitir("copias_contraste_error_argumentos")
-		return 2
+		return emitir("copias_contraste_error_argumentos", 2)
 	}
 }
 

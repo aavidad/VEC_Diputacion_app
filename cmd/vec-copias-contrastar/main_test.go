@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -111,5 +112,29 @@ func TestCatalogosAyudaYCodigos(t *testing.T) {
 	code, out, diag := ejecutar(t, []string{"--ayuda", "--catalogo", catalogoCLI(t)})
 	if code != 0 || !strings.Contains(out, "--modo capturar") || diag != "" {
 		t.Fatalf("%d %s %s", code, out, diag)
+	}
+}
+
+type diagnosticoFallido struct{ intentos int }
+
+func (w *diagnosticoFallido) Write([]byte) (int, error) {
+	w.intentos++
+	return 0, io.ErrClosedPipe
+}
+
+func TestFalloDiagnosticoImpideExito(t *testing.T) {
+	for _, codigo := range []int{0, 1, 2} {
+		w := &diagnosticoFallido{}
+		if obtenido := emitirDiagnostico(w, diagnostico{Clave: "captura_completada"}, codigo); obtenido != 2 || w.intentos != 1 {
+			t.Fatalf("diagnóstico fallido: código %d, intentos %d", obtenido, w.intentos)
+		}
+		var salida bytes.Buffer
+		if obtenido := emitirDiagnostico(&salida, diagnostico{Clave: "captura_completada"}, codigo); obtenido != codigo || salida.Len() == 0 {
+			t.Fatal("diagnóstico válido no conserva su código")
+		}
+	}
+	w := &diagnosticoFallido{}
+	if codigo := run(context.Background(), nil, io.Discard, w); codigo != 2 || w.intentos != 1 {
+		t.Fatalf("CLI con diagnóstico fallido: código %d, intentos %d", codigo, w.intentos)
 	}
 }
