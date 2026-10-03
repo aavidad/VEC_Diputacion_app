@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
@@ -277,7 +278,7 @@ func leerCuerpoRegistroFirma(w http.ResponseWriter, r *http.Request) ([]byte, bo
 		return nil, false
 	}
 	contenido, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maximoCuerpoRegistroFirmaExterna+1))
-	if err != nil || len(contenido) == 0 || len(contenido) > maximoCuerpoRegistroFirmaExterna ||
+	if err != nil || len(contenido) == 0 || len(contenido) > maximoCuerpoRegistroFirmaExterna || !utf8.Valid(contenido) ||
 		(r.ContentLength >= 0 && r.ContentLength != int64(len(contenido))) || validarJSONPropuestaFormalizacionSinDuplicados(contenido) != nil {
 		clear(contenido)
 		return nil, false

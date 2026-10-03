@@ -279,3 +279,29 @@ func TestRegistroFirmaExternaV2NoDegradaContratoEnReplay(t *testing.T) {
 		t.Fatalf("degradación V1: %d %s", w.Code, w.Body)
 	}
 }
+
+type autoridadRegistroFirmaExternaContada struct {
+	llamadas int
+}
+
+func (a *autoridadRegistroFirmaExternaContada) ResolverOrganizacionFirmaExterna(context.Context) (string, error) {
+	a.llamadas++
+	return "organizacion:desarrollo:dipgra", nil
+}
+
+func TestRegistroFirmaExternaRechazaUTF8InvalidoAntesDeAutoridad(t *testing.T) {
+	a := &autoridadRegistroFirmaExternaContada{}
+	s := &servicioRegistroFirmaExternaPrueba{respuesta: resultadoRegistroFirmaExternaPrueba()}
+	h, err := NuevoManejadorRegistroFirmaExternaV2(a, s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cuerpo := strings.Replace(cuerpoRegistroFirmaExternaPrueba, "PF-2026-0001", "PF-2026-\xff", 1)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, peticionRegistroFirmaExterna(cuerpo))
+	if w.Code != http.StatusBadRequest || a.llamadas != 0 || s.llamadas != 0 ||
+		!strings.Contains(w.Body.String(), `"codigo":"peticion_no_valida"`) {
+		t.Fatalf("UTF-8 inválido alcanzó la autoridad o aplicación: estado=%d autoridad=%d servicio=%d respuesta=%s",
+			w.Code, a.llamadas, s.llamadas, w.Body)
+	}
+}
