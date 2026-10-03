@@ -38,7 +38,7 @@ completo con su entrada vigente, incluidos campos, finalidades, garantía y
 obligaciones. Esta versión del comprobador no admite restringir esas listas.
 
 Código de salida: `0` si la propuesta coincide, `1` si se rechaza y `2` si no se
-pueden leer los textos, los argumentos son incompletos o falla la salida.
+pueden leer o inicializar los textos, los argumentos son incompletos o falla la salida.
 `publicado` siempre es `false`. Un rechazo no devuelve un dictamen positivo.
 
 La comprobación acredita coherencia entre los archivos aportados. No acredita

@@ -41,7 +41,7 @@ func ejecutar(args []string, salida io.Writer) int {
 	}
 	traductor, err := i18n.New(textos.Idioma, map[string]map[string]string{textos.Idioma: textos.Mensajes})
 	if err != nil {
-		return 2
+		return codigoErrorInicioCatalogo(err)
 	}
 	claves := []string{"admin_comprobar_correcto", "admin_comprobar_limite", errEntrada.Error(),
 		domain.ErrCatalogoAccionesAdministracionInvalido.Error(), domain.ErrPropuestaPerfilAdministracionInvalida.Error(),
@@ -63,6 +63,15 @@ func ejecutar(args []string, salida io.Writer) int {
 		return emitir(salida, traductor, textos.Idioma, nil, err)
 	}
 	return emitir(salida, traductor, textos.Idioma, &dictamen, nil)
+}
+
+// El error de inicialización se propaga como código de proceso. Sin un catálogo
+// válido no se emite un mensaje traducido ni se vuelca su contenido en la salida.
+func codigoErrorInicioCatalogo(fallo error) int {
+	if fallo == nil {
+		return 0
+	}
+	return 2
 }
 
 func emitir(salida io.Writer, traductor *i18n.Catalog, idioma string, dictamen *domain.DictamenPerfilAdministracionV1, fallo error) int {

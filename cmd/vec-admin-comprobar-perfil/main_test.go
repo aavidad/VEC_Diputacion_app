@@ -147,3 +147,15 @@ func TestLecturaJSONRechazaTamanioYDirectorio(t *testing.T) {
 		}
 	}
 }
+
+func TestCLIRechazaIdiomaDeCatalogoSinInicializar(t *testing.T) {
+	catalogo, propuesta, fecha := archivosPrueba(t)
+	textos := filepath.Join(t.TempDir(), "textos.json")
+	if err := os.WriteFile(textos, []byte(`{"idioma":"","mensajes":{}}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	var salida bytes.Buffer
+	if codigo := ejecutar([]string{textos, catalogo, propuesta, fecha}, &salida); codigo != 2 || salida.Len() != 0 {
+		t.Fatalf("codigo=%d salida=%q", codigo, salida.String())
+	}
+}
