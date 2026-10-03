@@ -1,5 +1,5 @@
 /** Recupera el PDF original que el servidor custodia una sola vez. */
-import { huellaPDFFirmado } from "./firma-vec-api.js";
+import { huellaPDFFirmado } from "./firma-vec-api.js?v=20261003-ct-firma-v2-v1";
 
 export const RUTA_ORIGINAL_FIRMABLE = "/api/vec/contratacion-temporal/firmas-documento/original";
 const MAXIMO_PDF = 1 << 20;
@@ -66,7 +66,7 @@ async function validar(datos, solicitud) {
     || new TextDecoder().decode(contenido.subarray(0, 5)) !== "%PDF-"
     || !new TextDecoder().decode(contenido.subarray(-1024)).includes("%%EOF")
     || await huellaPDFFirmado(contenido) !== datos.original_sha256) throw new ErrorOriginalFirmable("resultado_no_confiable");
-  return Object.freeze({ originalRef: datos.original_ref, originalVersion: datos.original_version,
+  return Object.freeze({ contexto: Object.freeze({ expedienteRef: solicitud.expedienteRef, version: solicitud.version, documento: solicitud.documento }), originalRef: datos.original_ref, originalVersion: datos.original_version,
     originalHuella: datos.original_sha256, tipoRef: datos.tipo_ref,
     documentoCustodiado: Object.freeze({ ...c }), contenido });
 }
@@ -98,4 +98,37 @@ export function crearClienteOriginalFirmable({ fetchImpl = globalThis.fetch } = 
     if (signal?.aborted) throw new ErrorOriginalFirmable("operacion_abortada");
     return original;
   } });
+}
+
+/** Composición explícita: prepara bytes, sin conceder ni registrar firmas. */
+export function crearDependenciasPreparacionFirma({ clienteOriginal, clientePreflight, crearDocumentos } = {}) {
+  if (typeof clienteOriginal?.preparar !== "function" || typeof clientePreflight?.consultar !== "function"
+    || typeof crearDocumentos !== "function") throw new ErrorOriginalFirmable("servicio_no_disponible");
+  return Object.freeze({
+    clientePreflight,
+    obtenerVinculoOriginal(solicitud, opciones) { return clienteOriginal.preparar(solicitud, opciones); },
+    async obtenerOriginal(solicitud, { signal, vinculoOriginal: vinculo } = {}) {
+      if (signal?.aborted) throw new ErrorOriginalFirmable("operacion_abortada");
+      if (!vinculo || ["expedienteRef", "version", "documento"].some((k) => vinculo.contexto?.[k] !== solicitud?.[k])
+        || vinculo.originalRef !== solicitud.originalRef || vinculo.originalVersion !== solicitud.originalVersion
+        || vinculo.originalHuella !== solicitud.originalHuella) throw new ErrorOriginalFirmable("resultado_no_confiable");
+      if (solicitud.pasoOrden === 1) {
+        if (solicitud.revisionEntradaRef !== vinculo.originalRef || solicitud.revisionEntradaVersion !== vinculo.originalVersion
+          || solicitud.revisionEntradaHuella !== vinculo.originalHuella) throw new ErrorOriginalFirmable("resultado_no_confiable");
+        if (await huellaPDFFirmado(vinculo.contenido) !== vinculo.originalHuella) throw new ErrorOriginalFirmable("resultado_no_confiable");
+        return new Uint8Array(vinculo.contenido);
+      }
+      if (solicitud.pasoOrden !== 2 || solicitud.revisionEntradaRef === vinculo.originalRef
+        || !DOCREF.test(vinculo.documentoCustodiado?.expediente_ref ?? "")) throw new ErrorOriginalFirmable("resultado_no_confiable");
+      const fuente = crearDocumentos({ expedienteRef: vinculo.documentoCustodiado.expediente_ref });
+      const archivo = await fuente.descargar(solicitud.revisionEntradaRef, { version: solicitud.revisionEntradaVersion,
+        huella: solicitud.revisionEntradaHuella, mime: "application/pdf", signal });
+      if (signal?.aborted) throw new ErrorOriginalFirmable("operacion_abortada");
+      if (!(archivo?.contenido instanceof Uint8Array) || archivo.tipo !== "application/pdf"
+        || archivo.contenido.length > MAXIMO_PDF || await huellaPDFFirmado(archivo.contenido) !== solicitud.revisionEntradaHuella) {
+        throw new ErrorOriginalFirmable("resultado_no_confiable");
+      }
+      return new Uint8Array(archivo.contenido);
+    },
+  });
 }

@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
-import { crearClienteOriginalFirmable, RUTA_ORIGINAL_FIRMABLE } from "./original-firmable-api.js";
+import { crearClienteOriginalFirmable, crearDependenciasPreparacionFirma, RUTA_ORIGINAL_FIRMABLE } from "./original-firmable-api.js";
+
+import { crearFuenteDocumentosHTTP } from "../documentos/cliente-http.js";
 
 const pdf = new TextEncoder().encode("%PDF-1.7\noriginal custodiado\n%%EOF");
 const huella = createHash("sha256").update(pdf).digest("hex");
@@ -51,4 +53,32 @@ test("denegación, límite de respuesta y cancelación cierran la descarga", asy
   await assert.rejects(crearClienteOriginalFirmable({ fetchImpl: async () => { llamadas++; } }).preparar(solicitud, { signal: c.signal }),
     (e) => e.codigo === "operacion_abortada");
   assert.equal(llamadas, 0);
+});
+
+test("prepara la revisión previa con Documentos, ámbito y huella exactos sin regenerar la raíz", async () => {
+  const anterior = new TextEncoder().encode("%PDF-1.7\noriginal custodiado\nfirma previa\n%%EOF");
+  const anteriorHuella = createHash("sha256").update(anterior).digest("hex");
+  let consulta;
+  const clienteOriginal = crearClienteOriginalFirmable({ fetchImpl: async () => respuesta(datos()) });
+  const deps = crearDependenciasPreparacionFirma({ clienteOriginal, clientePreflight: { consultar() {} },
+    crearDocumentos: (config) => crearFuenteDocumentosHTTP({ ...config, fetchImpl: async (ruta, opciones) => {
+      consulta = { ruta, cuerpo: JSON.parse(opciones.body) };
+      return new Response(anterior, { headers: { "Content-Type": "application/pdf", "X-Content-SHA256": anteriorHuella } });
+    } }) });
+  const vinculoOriginal = await deps.obtenerVinculoOriginal(solicitud);
+  const primero = { ...solicitud, originalRef: doc, originalVersion: 7, originalHuella: huella,
+    pasoOrden: 1, revisionEntradaRef: doc, revisionEntradaVersion: 7, revisionEntradaHuella: huella };
+  const copia = await deps.obtenerOriginal(primero, { vinculoOriginal });
+  assert.deepEqual(copia, pdf); assert.notEqual(copia, vinculoOriginal.contenido); assert.equal(consulta, undefined);
+  const segundo = { ...primero, pasoOrden: 2, revisionEntradaRef: `ref:${"f".repeat(64)}`, revisionEntradaVersion: 1, revisionEntradaHuella: anteriorHuella };
+  assert.deepEqual(await deps.obtenerOriginal(segundo, { vinculoOriginal }), anterior);
+  assert.deepEqual(consulta.cuerpo, { expediente_ref: datos().documento_custodiado.expediente_ref, documento_ref: segundo.revisionEntradaRef, version: 1 });
+  await assert.rejects(deps.obtenerOriginal({ ...segundo, expedienteRef: "expediente:ajeno" }, { vinculoOriginal }), (e) => e.codigo === "resultado_no_confiable");
+  await assert.rejects(deps.obtenerOriginal({ ...segundo, revisionEntradaHuella: "a".repeat(64) }, { vinculoOriginal }));
+});
+test("la preparación exige puertos explícitos y conserva la cancelación", async () => {
+  assert.throws(() => crearDependenciasPreparacionFirma());
+  const deps = crearDependenciasPreparacionFirma({ clienteOriginal: { preparar() {} }, clientePreflight: { consultar() {} }, crearDocumentos() {} });
+  const c = new AbortController(); c.abort();
+  await assert.rejects(deps.obtenerOriginal(solicitud, { signal: c.signal }), (e) => e.codigo === "operacion_abortada");
 });

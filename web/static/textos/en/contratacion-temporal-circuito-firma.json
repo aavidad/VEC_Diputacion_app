@@ -84,7 +84,9 @@
     "circuito_firma_recuperacion": "The record could not be confirmed. Retry with the same PDF; VEC will check whether it is already recorded.",
     "circuito_firma_reintentar_registro": "Retry recording",
     "circuito_firma_original_pendiente": "Signing is unavailable until the document held in custody is retrieved and your permissions are checked.",
-    "circuito_firma_datos_obligatorios": "All fields are required."
+    "circuito_firma_datos_obligatorios": "All fields are required.",
+    "circuito_firma_estado_pendiente_consulta": "Signature status awaits verification.",
+    "circuito_firma_completo": "All signature steps for this document are complete."
   },
   "valores_controlados": {
     "documento": {

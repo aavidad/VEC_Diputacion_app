@@ -30,7 +30,8 @@ test("desviación, vínculo cambiado, vías desconocidas o duplicadas nunca habi
     (d) => { d.actor = "ajeno"; }, (d) => { d.version_expediente = 8; }, (d) => { d.original_ref = "original:otro"; },
     (d) => { d.original_version = 2; }, (d) => { d.documento = "diligencia"; }, (d) => { d.catalogo_huella = "x"; },
     (d) => { d.vias_disponibles = ["certificado_vec", "certificado_vec"]; }, (d) => { d.vias_disponibles = ["firma"]; },
-    (d) => { d.paso_pendiente = 0; }, (d) => { d.paso_pendiente = 17; },
+    (d) => { d.paso_pendiente = 0; }, (d) => { d.paso_pendiente = 17; }, (d) => { d.paso_pendiente = 3; },
+    (d) => { d.paso_pendiente = 2; },
   ];
   for (const modificar of alteraciones) { const d = datos(); modificar(d); assert.equal(validarPreflightFirma(d, solicitud), null); }
   assert.deepEqual(validarPreflightFirma({ ...datos(), vias_disponibles: [] }, solicitud).vias_disponibles, []);

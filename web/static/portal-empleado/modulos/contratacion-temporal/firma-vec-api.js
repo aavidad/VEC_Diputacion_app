@@ -105,10 +105,12 @@ export function validarReciboFirmaV2(datos, solicitud, externo = false) {
     || typeof verificacion.politica !== "string" || verificacion.politica.length < 1 || verificacion.politica.length > 256
     || verificacion.revocacion !== "vigente" || !["no_presente", "valido", "no_comprobado"].includes(verificacion.sello_tiempo)
     || !huellaValida(verificacion.original_sha256) || !huellaValida(verificacion.firmado_sha256)
+    || (solicitud.originalHuella !== undefined && verificacion.original_sha256 !== solicitud.originalHuella)
     || verificacion.firmado_sha256 !== custodia.huella_sha256
     || !huellaValida(datos.material_root_sha256)
     || !campos(revision, ["orden_firma", "entrada_sha256", "revision_sha256", "evidencia_sha256"])
     || revision.orden_firma !== solicitud.pasoOrden
+    || (solicitud.revisionEntradaHuella !== undefined && revision.entrada_sha256 !== solicitud.revisionEntradaHuella)
     || !huellaValida(revision.entrada_sha256) || !huellaValida(revision.revision_sha256)
     || revision.revision_sha256 !== verificacion.firmado_sha256
     || (solicitud.pasoOrden === 1 && revision.entrada_sha256 !== verificacion.original_sha256)

@@ -8,10 +8,10 @@
  */
 
 import { escaparHTML, solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js?v=20261002-ct-fin-modalidad-v1";
-import { crearAccionesFirma, fusionarEstadoFirmas, renderizarAccionesPaso } from "./circuito-firma-acciones.js?v=20261002-ct-r5-grafo-v1";
+import { crearAccionesFirma, fusionarEstadoFirmas, renderizarAccionesPaso } from "./circuito-firma-acciones.js?v=20261003-ct-firma-v2-v1";
 import { crearClienteFirmaDocumento } from "./firma-documento-cliente.js?v=20260930-custodia-506-e3-v3";
 import { cargarTextosFaseFirma, renderizarFaseFirma } from "./fase-firma.js?v=20261002-ct-fin-modalidad-v1";
-import { crearTraductorCircuitoFirma, traducirValorCircuitoFirma } from "./i18n-circuito-firma.js?v=20261001-ct-a-i18n-v1";
+import { crearTraductorCircuitoFirma, traducirValorCircuitoFirma } from "./i18n-circuito-firma.js?v=20261003-ct-firma-v2-v1";
 import { crearFuenteDocumentosHTTP } from "../documentos/cliente-http.js?v=20260926-integracion-bolsa-ct-v1";
 
 export const RUTA_CIRCUITO_FIRMA = "/api/vec/contratacion-temporal/circuito-firma";
@@ -170,7 +170,7 @@ export function crearClienteHTTPCircuitoFirma({ fetchImpl = globalThis.fetch } =
 }
 
 function renderizarPaso(paso, t, circuito, documento) {
-  const tono = TONO_ESTADO[paso.estado];
+  const tono = circuito.estado_no_acreditado ? "neutro" : TONO_ESTADO[paso.estado];
   const cargo = traducirValorCircuitoFirma("cargo", paso.cargo, t);
   const detalles = [
     t(`circuito_firma_accion_${paso.accion}`),
@@ -178,15 +178,15 @@ function renderizarPaso(paso, t, circuito, documento) {
     t(`circuito_firma_devolucion_${paso.devolucion}`),
     t(`circuito_firma_sustitucion_${paso.sustitucion}`),
   ];
-  return `<li class="ct-circuito-paso ct-circuito-paso--${tono}"${paso.estado === "pendiente_firma" ? ' aria-current="step"' : ""}>
+  return `<li class="ct-circuito-paso ct-circuito-paso--${tono}"${!circuito.estado_no_acreditado && paso.estado === "pendiente_firma" ? ' aria-current="step"' : ""}>
     <span class="ct-circuito-orden" aria-hidden="true">${paso.orden}</span>
     <div class="ct-circuito-paso-cuerpo">
       <p class="ct-circuito-cargo">${escaparHTML(cargo)}</p>
       <p class="ct-circuito-detalle">${detalles.map(escaparHTML).join(" · ")}</p>
       ${paso.estado === "devuelto" && paso.motivo_devolucion ? `<p class="ct-circuito-motivo">${escaparHTML(t("circuito_firma_motivo", { motivo: paso.motivo_devolucion }))}</p>` : ""}
-      ${renderizarAccionesPaso(circuito, documento, paso, t)}
+      ${circuito.preflight_compuesto ? "" : renderizarAccionesPaso(circuito, documento, paso, t)}
     </div>
-    <span class="ct-circuito-estado ct-tono-${tono}">${escaparHTML(t(`circuito_firma_estado_${paso.estado}`, { cargo }))}</span>
+    <span class="ct-circuito-estado ct-tono-${tono}">${escaparHTML(t(circuito.estado_no_acreditado ? "circuito_firma_estado_pendiente_consulta" : `circuito_firma_estado_${paso.estado}`, { cargo }))}</span>
   </li>`;
 }
 
@@ -227,6 +227,7 @@ export function renderizarCircuitoFirma(circuito, t, estadoConsulta = circuito ?
     return `<article class="ct-circuito-documento" data-ct-circuito-documento="${escaparHTML(documento.documento)}">
       <h5>${escaparHTML(etiqueta)}</h5>
       <ol aria-label="${escaparHTML(t("circuito_firma_pasos", { documento: etiqueta }))}">${documento.pasos.map((paso) => renderizarPaso(paso, t, circuito, documento)).join("")}</ol>
+      ${circuito.preflight_compuesto ? renderizarAccionesPaso(circuito, documento, documento.pasos[0], t) : ""}
     </article>`;
   }).join("")}</div></details>` : fase && estadoConsulta === "no_disponible" ? "" : `<p class="ct-circuito-indisponible" role="${estadoConsulta === "denegado" ? "alert" : "status"}">${escaparHTML(t(claveFallo))}</p>`}
   </section>`;
@@ -295,6 +296,8 @@ export function crearGestorCircuitoFirma({
     const fusionado = respuesta?.estado === "disponible" ? fusionarEstadoFirmas(circuito, respuesta.datos) : null;
     const real = fusionado ? Object.freeze({ ...fusionado,
       acciones: Boolean(solicitud), preflight_compuesto: consultaFirmaCompuesta && Boolean(solicitud),
+    }) : consultaFirmaCompuesta && solicitud ? Object.freeze({ ...circuito,
+      acciones: true, preflight_compuesto: true, estado_no_acreditado: true,
     }) : null;
     return { estado: real ? "disponible" : respuesta?.estado === "denegado" ? "denegado" : "no_disponible", circuito: real, catalogo: circuito };
   }

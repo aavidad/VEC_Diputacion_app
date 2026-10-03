@@ -23,7 +23,7 @@ function escenario(vias = ["certificado_vec", "portafirmas_registro_rrhh"], paso
     documento: "resolucion", paso_orden: pasoOrden, version_expediente: 7, firma_verificada: true };
   const deps = { obtenerEstado: () => estado, obtenerCircuito: () => circuito, t: crearTraductorCircuitoFirma(),
     clientePreflight: { consultar: async () => preflight },
-    obtenerVinculoOriginal: async () => ({ originalRef: "original:raiz", originalVersion: 2, revisionEntradaRef: "revision:firmada-p1", revisionEntradaVersion: 1, revisionEntradaHuella: "d".repeat(64) }),
+    obtenerVinculoOriginal: async () => ({ originalRef: "original:raiz", originalVersion: 2, originalHuella: createHash("sha256").update(pdf).digest("hex"), revisionEntradaRef: "revision:firmada-p1", revisionEntradaVersion: 1, revisionEntradaHuella: "d".repeat(64) }),
     obtenerOriginal: async () => { contador.originales++; return pdf; },
     autofirma: { firmarPDF: async (original) => { assert.equal(original, pdf); contador.firmas++; return new TextEncoder().encode("%PDF-1.7\noriginal con primera firma\nsegunda firma\n%%EOF"); } },
     registrarVec: async () => { contador.registros++; return recibo; },
@@ -73,7 +73,7 @@ test("fallo de confirmación reintenta los mismos bytes y clave sin otra firma",
   assert.equal(e.contador.firmas, 1); assert.equal(peticiones[0], peticiones[1]); assert.equal(e.contador.confirmaciones, 1);
 });
 test("consulta rota, ejemplo, huella ajena o recibo ajeno cierran efectos y confirmación", async () => {
-  for (const alterar of [(e) => { e.estado.expediente.demostracion = true; }, (e) => { e.circuito.registro = null; },
+  for (const alterar of [(e) => { e.estado.expediente.demostracion = true; },
     (e) => { e.preflight.catalogo_huella = "b".repeat(64); }, (e) => { e.preflight.paso_pendiente = 1; },
     (e) => { e.deps.clientePreflight.consultar = async () => { throw { codigo: "acceso_denegado" }; }; }]) {
     const e = escenario(); alterar(e); const a = crearAccionesFirma(e.deps);
@@ -120,4 +120,22 @@ test("un fallo al refrescar la vista conserva la confirmación del recibo", asyn
   assert.match(e.aviso.textContent, /Firma verificada y registrada/u);
   await a.manejarClic(e.evento("cancelar"));
   assert.match(e.aviso.textContent, /Firma verificada y registrada/u);
+});
+
+test("el paso nominal V2 prevalece sobre un panel CT118 antiguo sin inferir otro estado", async () => {
+  const e = escenario(["certificado_vec"], 1);
+  e.circuito.registro = null;
+  e.preflight.paso_pendiente = 2;
+  e.preflight.entrada_documento_ref = "revision:firmada-p1";
+  e.preflight.entrada_documento_version = 1;
+  e.recibo.paso_orden = 2;
+  let enviada;
+  e.deps.registrarVec = async (sol) => { enviada = sol; return e.recibo; };
+  const a = crearAccionesFirma(e.deps);
+  await a.manejarClic(e.evento("comprobar")); await a.manejarClic(e.evento("certificado_vec"));
+  assert.equal(enviada.pasoOrden, 2);
+  assert.equal(enviada.originalRef, "original:raiz");
+  assert.equal(enviada.revisionEntradaRef, "revision:firmada-p1");
+  assert.equal(e.circuito.documentos[0].paso_pendiente, 1);
+  assert.equal(e.contador.confirmaciones, 1);
 });

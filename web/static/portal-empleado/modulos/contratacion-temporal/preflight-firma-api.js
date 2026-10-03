@@ -23,7 +23,7 @@ export function validarPreflightFirma(datos, solicitud) {
     || !entero(datos.version_expediente) || datos.documento !== solicitud.documento
     || !DOCUMENTO.test(datos.documento) || !referencia(datos.catalogo_ref)
     || typeof datos.catalogo_huella !== "string" || !HUELLA.test(datos.catalogo_huella)
-    || !Number.isSafeInteger(datos.paso_pendiente) || datos.paso_pendiente < 0 || datos.paso_pendiente > 16
+    || !Number.isSafeInteger(datos.paso_pendiente) || datos.paso_pendiente < 0 || datos.paso_pendiente > 2
     || datos.original_ref !== solicitud.originalRef || !referencia(datos.original_ref)
     || datos.original_version !== solicitud.originalVersion || !entero(datos.original_version)
     || !Array.isArray(datos.vias_disponibles) || datos.vias_disponibles.length > 2
@@ -34,7 +34,8 @@ export function validarPreflightFirma(datos, solicitud) {
     || (datos.paso_pendiente > 0 && (!referencia(datos.entrada_documento_ref)
       || !entero(datos.entrada_documento_version) || !HUELLA.test(datos.entrada_documento_sha256)))
     || (datos.paso_pendiente === 1 && (datos.entrada_documento_ref !== datos.original_ref
-      || datos.entrada_documento_version !== datos.original_version))) return null;
+      || datos.entrada_documento_version !== datos.original_version))
+    || (datos.paso_pendiente > 1 && datos.entrada_documento_ref === datos.original_ref)) return null;
   return Object.freeze({ ...datos, vias_disponibles: Object.freeze([...datos.vias_disponibles]) });
 }
 async function leerJSON(respuesta) {

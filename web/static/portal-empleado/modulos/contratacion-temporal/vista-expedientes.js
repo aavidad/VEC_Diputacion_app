@@ -21,7 +21,7 @@ import {
 } from "./vista-expedientes-render.js?v=20261002-ct-fin-moad-v1";
 import { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js?v=20261002-ct-fin-moad-v1";
 import { crearGestorDescargaBorradorRRHH } from "./vista-expedientes-borrador.js?v=20261002-ct-fin-moad-v1";
-import { crearGestorCircuitoFirma } from "./circuito-firma.js?v=20261002-ct-r5-grafo-v1";
+import { crearGestorCircuitoFirma } from "./circuito-firma.js?v=20261003-ct-firma-v2-v1";
 import { crearGestorIncorporacion } from "./vista-expedientes-incorporacion.js?v=20261002-ct-fin-moad-v1";
 import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js?v=20261002-ct-fin-moad-v1";
 import { crearGestorInformeTrasSubsanacion } from "./informe-tras-subsanacion.js?v=20261002-ct-fin-moad-v1";

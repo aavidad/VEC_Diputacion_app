@@ -4,8 +4,8 @@
  */
 
 import { escaparHTML } from "./componentes-expedientes.js?v=20261002-ct-fin-modalidad-v1";
-import { validarPreflightFirma } from "./preflight-firma-api.js";
-import { huellaPDFFirmado } from "./firma-vec-api.js";
+import { validarPreflightFirma } from "./preflight-firma-api.js?v=20261003-ct-firma-v2-v1";
+import { huellaPDFFirmado } from "./firma-vec-api.js?v=20261003-ct-firma-v2-v1";
 import { PERFILES_BORRADOR_RRHH } from "./cliente-http-informe-definitivo.js?v=20261002-ct-fin-moad-v1";
 
 /** Une el circuito del catálogo con el estado real registrado. */
@@ -31,7 +31,8 @@ export function fusionarEstadoFirmas(circuito, estado) {
 
 /** Solo la composición explícita ofrece la consulta nominal; no concede firma. */
 export function renderizarAccionesPaso(circuito, documento, paso, t) {
-  if (!circuito.registro || circuito.acciones === false || documento.paso_pendiente !== paso.orden
+  if ((!circuito.registro && circuito.preflight_compuesto !== true) || circuito.acciones === false
+    || (circuito.preflight_compuesto !== true && documento.paso_pendiente !== paso.orden)
     || !Object.hasOwn(PERFILES_BORRADOR_RRHH, documento.documento)) return "";
   const avisoId = `ct-firma-resultado-${documento.documento}-${paso.orden}`;
   const compuesto = circuito.preflight_compuesto === true;
@@ -81,8 +82,8 @@ export function crearAccionesFirma({
     const real = circuito?.documentos?.find((d) => d.documento === documento);
     if (retirada || estado?.vista !== "expediente" || estado?.carga !== "listo" || exp?.demostracion !== false
       || !REFERENCIA.test(exp?.expediente_ref ?? "") || !Number.isSafeInteger(exp.version) || exp.version < 1
-      || !circuito?.registro || circuito.acciones === false || circuito.preflight_compuesto !== true
-      || !real || real.paso_pendiente !== pasoOrden || pasoOrden < 1
+      || circuito.acciones === false || circuito.preflight_compuesto !== true
+      || !real || pasoOrden < 1
       || !Object.hasOwn(PERFILES_BORRADOR_RRHH, documento)) return null;
     return { expedienteRef: exp.expediente_ref, version: exp.version, documento, pasoOrden,
       catalogoRef: circuito.catalogo_ref, catalogoHuella: circuito.huella_sha256 };
@@ -127,8 +128,8 @@ export function crearAccionesFirma({
     const p = s.preflight; const id = `ct-firma-${s.contexto.documento}-${s.contexto.pasoOrden}`;
     const vec = p.vias_disponibles.includes("certificado_vec") && typeof autofirma?.firmarPDF === "function" && typeof registrarVec === "function";
     const externa = p.vias_disponibles.includes("portafirmas_registro_rrhh") && typeof registrarExterna === "function";
-    s.bloque.innerHTML = `<p id="${id}-resultado" class="ct-circuito-resultado" role="status" aria-live="polite" tabindex="-1" data-ct-firma-resultado>${escaparHTML(t(vec || externa ? "circuito_firma_opciones" : "circuito_firma_sin_vias"))}</p>
-      ${s.contexto.pasoOrden > 1 ? `<p>${escaparHTML(t("circuito_firma_siguiente_original"))}</p>` : ""}
+    s.bloque.innerHTML = `<p id="${id}-resultado" class="ct-circuito-resultado" role="status" aria-live="polite" tabindex="-1" data-ct-firma-resultado>${escaparHTML(t(p.paso_pendiente === 0 ? "circuito_firma_completo" : vec || externa ? "circuito_firma_opciones" : "circuito_firma_sin_vias"))}</p>
+      ${p.paso_pendiente > 1 ? `<p>${escaparHTML(t("circuito_firma_siguiente_original"))}</p>` : ""}
       ${vec ? `<button type="button" class="boton-primario" data-ct-firma-accion="certificado_vec" aria-describedby="${id}-resultado">${escaparHTML(t("circuito_firma_autofirma_prueba"))}</button>` : ""}
       ${externa ? `<button type="button" class="boton-secundario" data-ct-firma-accion="descargar" aria-describedby="${id}-resultado">${escaparHTML(t("circuito_firma_descargar_externo"))}</button>
         <div class="ct-circuito-devolucion"><p>${escaparHTML(t("circuito_firma_datos_obligatorios"))}</p><div class="ct-exp-campo"><label for="${id}-pdf">${escaparHTML(t("circuito_firma_pdf_externo"))}</label><input type="file" id="${id}-pdf" accept="application/pdf,.pdf" data-ct-firma-pdf required></div>
@@ -147,23 +148,28 @@ export function crearAccionesFirma({
       const vinculo = await obtenerVinculoOriginal(actual, { signal: s.controlador.signal });
       if (!vigente(s)) return;
       const solicitud = { ...actual, originalRef: vinculo?.originalRef, originalVersion: vinculo?.originalVersion,
+        originalHuella: vinculo?.originalHuella,
         revisionEntradaRef: vinculo?.revisionEntradaRef, revisionEntradaVersion: vinculo?.revisionEntradaVersion,
         revisionEntradaHuella: vinculo?.revisionEntradaHuella };
       const respuesta = await clientePreflight.consultar(solicitud, { signal: s.controlador.signal });
       if (!vigente(s)) return;
       const p = validarPreflightFirma(respuesta, solicitud);
       if (!p || p.catalogo_ref !== actual.catalogoRef || p.catalogo_huella !== actual.catalogoHuella
-        || (p.paso_pendiente !== 0 && p.paso_pendiente !== actual.pasoOrden)) throw { codigo: "conflicto" };
-      s.solicitud = { ...solicitud, revisionEntradaRef: p.entrada_documento_ref,
+        || (p.paso_pendiente === 1 && p.entrada_documento_sha256 !== vinculo?.originalHuella)) throw { codigo: "conflicto" };
+      s.solicitud = { ...solicitud, pasoOrden: p.paso_pendiente, revisionEntradaRef: p.entrada_documento_ref,
         revisionEntradaVersion: p.entrada_documento_version, revisionEntradaHuella: p.entrada_documento_sha256 };
       s.vinculo = vinculo; s.preflight = p; dibujar(s);
       if (igual(recuperacion?.contexto, actual) && recuperacion.solicitud.originalRef === solicitud.originalRef
-        && recuperacion.solicitud.originalVersion === solicitud.originalVersion) s.reintento = recuperacion.reintento;
+        && recuperacion.solicitud.originalVersion === solicitud.originalVersion
+        && recuperacion.solicitud.pasoOrden === s.solicitud.pasoOrden
+        && recuperacion.solicitud.revisionEntradaRef === s.solicitud.revisionEntradaRef
+        && recuperacion.solicitud.revisionEntradaVersion === s.solicitud.revisionEntradaVersion
+        && recuperacion.solicitud.revisionEntradaHuella === s.solicitud.revisionEntradaHuella) s.reintento = recuperacion.reintento;
     } catch (error) { decir(s, claveError(error), {}, true); }
     finally { if (sesion === s) { ocupada(s, false); pendiente = false; } }
   }
   async function bytesOriginal(s) {
-    const original = await obtenerOriginal(s.solicitud, { signal: s.controlador.signal });
+    const original = await obtenerOriginal(s.solicitud, { signal: s.controlador.signal, vinculoOriginal: s.vinculo });
     if (!vigente(s)) return null;
     if (!pdfValido(original)) throw { codigo: "cadena_rota" };
     if (await huellaPDFFirmado(original) !== s.solicitud.revisionEntradaHuella) throw { codigo: "cadena_rota" };
@@ -184,7 +190,7 @@ export function crearAccionesFirma({
   function validarRecibo(recibo, s) {
     return recibo?.firma_eficaz === false && REFERENCIA.test(recibo.recibo_ref ?? "")
       && recibo.expediente_ref === s.contexto.expedienteRef && recibo.documento === s.contexto.documento
-      && recibo.paso_orden === s.contexto.pasoOrden
+      && recibo.paso_orden === s.solicitud.pasoOrden
       && (recibo.version_expediente ?? recibo.expediente_version) === s.contexto.version
       && (recibo.firma_verificada === true || recibo.verificacion_tecnica?.estado === "valida");
   }
