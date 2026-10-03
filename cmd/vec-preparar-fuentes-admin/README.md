@@ -9,6 +9,8 @@ entorno `desarrollo`, alcance `sintetico_declarado`, organización y personas
 nuevas con versión esperada 0 y evidencias de versión 1 con referencias `prc_`. Las dos personas deben
 estar ordenadas por `persona_ref`. Sus cuatro operaciones de cuenta son distintas;
 las referencias de las cuentas definitivas las genera Identidad al aplicar.
+Las operaciones de cuenta usan `opr_`, conforme a `provisionar_cuenta_v1` de IS2;
+`prc_` corresponde a la evidencia de procedencia, no a la operación.
 
 Preparación y caducidad usan UTC con segundos (`AAAA-MM-DDTHH:MM:SSZ`). La CLI
 comprueba su reloj local: `preparado_en <= ahora < caduca_en`. Las vigencias cubren

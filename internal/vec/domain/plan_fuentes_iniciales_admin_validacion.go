@@ -31,7 +31,7 @@ func (p PlanFuentesInicialesAdminV1) Validar() error {
 			return ErrPlanFuentesInicialesAdminInvalido
 		}
 		for _, ref := range []string{persona.OperacionCuentaOrdinariaRef, persona.OperacionCuentaPrivilegiadaRef} {
-			if !referenciaFuentesAdmin(ref, "prc_") || operaciones[ref] {
+			if !referenciaFuentesAdmin(ref, "opr_") || operaciones[ref] {
 				return ErrPlanFuentesInicialesAdminInvalido
 			}
 			operaciones[ref] = true
@@ -39,7 +39,7 @@ func (p PlanFuentesInicialesAdminV1) Validar() error {
 	}
 	politica := p.PoliticaADMIN
 	if !referenciaFuentesAdmin(politica.PoliticaRef, "pga_") || !hostFuentesAdmin(politica.HostADMIN) ||
-		!HuellaAdministracionPerfilesValida(politica.CAHuellaSHA256) || !HuellaAdministracionPerfilesValida(politica.HuellaAprobacionSHA256) ||
+		!HuellaAdministracionPerfilesValida(politica.CAHuellaSHA256) || politica.CAHuellaSHA256 == strings.Repeat("0", 64) || !HuellaAdministracionPerfilesValida(politica.HuellaAprobacionSHA256) ||
 		politica.MaximaEdadRevocacionSegundos == 0 || politica.MaximaEdadRevocacionSegundos > 2147483647 ||
 		!vigenciaFuentesAdmin(politica.VigenteHasta, p.CaducaEn) {
 		return ErrPlanFuentesInicialesAdminInvalido
@@ -71,7 +71,7 @@ func (p PlanFuentesInicialesAdminV1) CanonicoYHuella() ([]byte, string, error) {
 }
 
 func evidenciaFuentesAdmin(e EvidenciaFuentesInicialesAdmin) bool {
-	return referenciaFuentesAdmin(e.Referencia, "prc_") && e.Version == 1 && HuellaAdministracionPerfilesValida(e.HuellaSHA256)
+	return referenciaFuentesAdmin(e.Referencia, "prc_") && e.Version == 1 && HuellaAdministracionPerfilesValida(e.HuellaSHA256) && e.HuellaSHA256 != strings.Repeat("0", 64)
 }
 func instanteFuentesAdmin(t time.Time) bool {
 	return instanteBootstrap(t) && t.Year() >= 1 && t.Year() <= 9999
@@ -91,7 +91,7 @@ func referenciaFuentesAdmin(ref, prefijo string) bool {
 	return true
 }
 func hostFuentesAdmin(host string) bool {
-	if len(host) > 253 || !strings.Contains(host, ".") {
+	if len(host) < 4 || len(host) > 253 || !strings.Contains(host, ".") {
 		return false
 	}
 	for _, etiqueta := range strings.Split(host, ".") {

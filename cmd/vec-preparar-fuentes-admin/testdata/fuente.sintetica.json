@@ -20,8 +20,8 @@
       "persona_ref": "per_aaaaaaaaaaaaaaaaaaaaaa",
       "version_esperada": 0,
       "vigente_hasta": "2026-10-04T12:00:00Z",
-      "operacion_cuenta_ordinaria_ref": "prc_aaaaaaaaaaaaaaaaaaaaaao",
-      "operacion_cuenta_privilegiada_ref": "prc_aaaaaaaaaaaaaaaaaaaaaap",
+      "operacion_cuenta_ordinaria_ref": "opr_aaaaaaaaaaaaaaaaaaaaaao",
+      "operacion_cuenta_privilegiada_ref": "opr_aaaaaaaaaaaaaaaaaaaaaap",
       "fuente_titularidad": {
         "referencia": "prc_eeeeeeeeeeeeeeeeeeeeee",
         "version": 1,
@@ -32,8 +32,8 @@
       "persona_ref": "per_bbbbbbbbbbbbbbbbbbbbbb",
       "version_esperada": 0,
       "vigente_hasta": "2026-10-04T12:00:00Z",
-      "operacion_cuenta_ordinaria_ref": "prc_bbbbbbbbbbbbbbbbbbbbbbo",
-      "operacion_cuenta_privilegiada_ref": "prc_bbbbbbbbbbbbbbbbbbbbbbp",
+      "operacion_cuenta_ordinaria_ref": "opr_bbbbbbbbbbbbbbbbbbbbbbo",
+      "operacion_cuenta_privilegiada_ref": "opr_bbbbbbbbbbbbbbbbbbbbbbp",
       "fuente_titularidad": {
         "referencia": "prc_eeeeeeeeeeeeeeeeeeeeee",
         "version": 1,
