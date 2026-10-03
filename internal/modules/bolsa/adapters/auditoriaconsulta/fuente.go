@@ -3,11 +3,11 @@ package auditoriaconsulta
 import (
 	"context"
 	"errors"
+	"reflect"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	"vec-diputacion-granada/internal/vec/auditoria"
 )
@@ -18,12 +18,17 @@ $1::text,$2::text,$3::timestamptz,$4::timestamptz,$5::timestamptz,$6::text,$7::t
 $9::text,$10::text,$11::text,$12::text,$13::bytea,$14::bytea,$15::bytea,$16::bytea,
 $17::numeric,$18::numeric,$19::bytea,$20::bytea,$21::bytea,$22::bytea)`
 
-type Fuente struct{ pool *pgxpool.Pool }
+// Iniciador recibe el pool nominal del propietario, como la fuente CT.
+type Iniciador interface {
+	BeginTx(context.Context, pgx.TxOptions) (pgx.Tx, error)
+}
+
+type Fuente struct{ pool Iniciador }
 
 var _ auditoria.FuenteAuditoria = (*Fuente)(nil)
 
-func NuevaFuente(pool *pgxpool.Pool) (*Fuente, error) {
-	if pool == nil {
+func NuevaFuente(pool Iniciador) (*Fuente, error) {
+	if pool == nil || reflect.ValueOf(pool).Kind() == reflect.Ptr && reflect.ValueOf(pool).IsNil() {
 		return nil, auditoria.ErrNoDisponible
 	}
 	return &Fuente{pool: pool}, nil
@@ -31,7 +36,7 @@ func NuevaFuente(pool *pgxpool.Pool) (*Fuente, error) {
 
 // ConsultarAuditoria consume una decisión nominal de lectura dentro de la
 // transacción de Bolsa. SQL sólo puede devolver la participación autorizada.
-func (f *Fuente) ConsultarAuditoria(ctx context.Context, q auditoria.ConsultaAutorizada) (auditoria.PaginaFuente, error) {
+func (f *Fuente) ConsultarAuditoria(ctx context.Context, q auditoria.ConsultaAutorizada) (pagina auditoria.PaginaFuente, fallo error) {
 	vacio := auditoria.PaginaFuente{}
 	if f == nil || f.pool == nil || ctx == nil {
 		return vacio, auditoria.ErrNoDisponible
@@ -50,7 +55,13 @@ func (f *Fuente) ConsultarAuditoria(ctx context.Context, q auditoria.ConsultaAut
 	if err != nil {
 		return vacio, errorConsulta(ctx, err)
 	}
-	defer tx.Rollback(context.Background())
+	defer func() {
+		cierreCtx, cancelar := context.WithTimeout(context.WithoutCancel(ctx), 3*time.Second)
+		defer cancelar()
+		if err := tx.Rollback(cierreCtx); err != nil && !errors.Is(err, pgx.ErrTxClosed) {
+			pagina, fallo = vacio, auditoria.ErrNoDisponible
+		}
+	}()
 	if _, err = tx.Exec(ctx, `SELECT set_config('search_path','pg_catalog',true), set_config('row_security','on',true), set_config('timezone','UTC',true), set_config('lock_timeout','2s',true), set_config('statement_timeout','15s',true), set_config('idle_in_transaction_session_timeout','20s',true)`); err != nil {
 		return vacio, errorConsulta(ctx, err)
 	}
@@ -75,10 +86,12 @@ func (f *Fuente) ConsultarAuditoria(ctx context.Context, q auditoria.ConsultaAut
 		vinculo.PrincipalID, fil.FinalidadRef, fil.MotivoRef, h,
 		m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(),
 		m.PersonaVersion(), m.PerfilVersion(), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI())
+	if rows != nil {
+		defer rows.Close()
+	}
 	if err != nil {
 		return vacio, errorConsulta(ctx, err)
 	}
-	defer rows.Close()
 	salida := auditoria.PaginaFuente{Registros: make([]auditoria.Registro, 0, int(fil.Limite)+1)}
 	for rows.Next() {
 		var fila filaSQL

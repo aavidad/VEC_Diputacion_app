@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"vec-diputacion-granada/internal/vec/auditoria"
+	vecdomain "vec-diputacion-granada/internal/vec/domain"
 )
 
 type identidadAuditoriaNominalPrueba struct{ fuentes []auditoria.FuenteConsulta }
@@ -69,6 +70,7 @@ func TestRutasAuditoriaConIdentidadesExigenCadaAutoridad(t *testing.T) {
 		EmisorCT: &emisorAuditoriaConsultaPrueba{}, EmisorBolsa: &emisorAuditoriaConsultaPrueba{},
 		IdentidadOpciones: &identidadAuditoriaNominalPrueba{}, IdentidadCT: &identidadAuditoriaNominalPrueba{},
 		IdentidadBolsa: &identidadAuditoriaNominalPrueba{}, Opciones: &opcionesAuditoriaConsultaPrueba{},
+		Intentos: &registradorIntentosConsultaPrueba{}, ConfiguracionIntentos: configuracionIntentosConsultaPrueba(t, vecdomain.ReferenciaEntradaCatalogo{}),
 	}
 	if rutas, err := nuevasRutasAuditoriaConsultaConIdentidadesRRHH(d); err != nil || len(rutas) != 2 {
 		t.Fatalf("factory completa: rutas=%v error=%v", rutas, err)
@@ -96,6 +98,9 @@ func TestRutasAuditoriaConIdentidadesExigenCadaAutoridad(t *testing.T) {
 		}},
 		{"opciones", func(x *dependenciasIdentidadAuditoriaConsultaRRHH) {
 			x.Opciones = (*opcionesAuditoriaConsultaPrueba)(nil)
+		}},
+		{"intentos", func(x *dependenciasIdentidadAuditoriaConsultaRRHH) {
+			x.Intentos = (*registradorIntentosConsultaPrueba)(nil)
 		}},
 	}
 	for _, caso := range casos {
