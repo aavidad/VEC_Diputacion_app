@@ -66,3 +66,14 @@ type ResultadoConsultaOrganizacionHistorica struct {
 type RepositorioOrganizacionHistorica interface {
 	ConsultarOrganizacionHistorica(context.Context, OrdenConsultaOrganizacionHistorica) (ResultadoConsultaOrganizacionHistorica, error)
 }
+
+type IntentoConsultaOrganizacionHistorica struct {
+	Motivo string
+}
+
+// El registrador conserva identidad, ámbito y correlación de la frontera
+// original. Se llama después del retorno del repositorio y cierre de su TX.
+type RegistroIntentosConsultaOrganizacionHistorica interface {
+	VerificarRegistroConsultaOrganizacionHistorica(context.Context) error
+	RegistrarIntentoConsultaOrganizacionHistorica(context.Context, IntentoConsultaOrganizacionHistorica) error
+}

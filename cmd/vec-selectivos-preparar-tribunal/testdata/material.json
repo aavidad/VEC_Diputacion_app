@@ -1,0 +1,39 @@
+{
+  "alcance": "preparacion_sintetica",
+  "identidad_material": "tribunal:ejemplo-sintetico",
+  "version_material": 1,
+  "bases_s2": {
+    "preparacion_ref": "preparacion:ejemplo-sintetico",
+    "revision": 2,
+    "huella_material_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "flujo_proceso": {
+    "id": "flujo:ejemplo-sintetico",
+    "version": 1,
+    "huella_contenido_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "fases_propuestas": ["fase:ejemplo-sintetico"],
+  "miembros": [
+    {"miembro_ref": "miembro:ejemplo-a", "persona_ref": "persona:ejemplo-a", "rol_ref": "rol:ejemplo-sintetico", "fases": ["fase:ejemplo-sintetico"]},
+    {"miembro_ref": "miembro:ejemplo-b", "persona_ref": "persona:ejemplo-b", "rol_ref": "rol:ejemplo-sintetico", "fases": ["fase:ejemplo-sintetico"]}
+  ],
+  "incidencias": [
+    {
+      "propuesta_ref": "propuesta:ejemplo-a",
+      "tipo": "abstencion",
+      "miembro_ref": "miembro:ejemplo-a",
+      "fases": ["fase:ejemplo-sintetico"],
+      "evidencia_ref": "evidencia:ejemplo-sintetico",
+      "causa_catalogada": {"id": "causa:ejemplo-sintetico", "version": 1, "huella_contenido_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"}
+    },
+    {
+      "propuesta_ref": "propuesta:ejemplo-b",
+      "tipo": "sustitucion",
+      "miembro_ref": "miembro:ejemplo-a",
+      "sustituto_ref": "miembro:ejemplo-b",
+      "fases": ["fase:ejemplo-sintetico"],
+      "evidencia_ref": "evidencia:ejemplo-sintetico",
+      "causa_catalogada": {"id": "causa:ejemplo-sintetico", "version": 1, "huella_contenido_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"}
+    }
+  ]
+}
