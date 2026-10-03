@@ -7,6 +7,45 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
 
+// ValidarResultadoPreflightFirmaR5V2 protege la proyección de metadatos. La
+// autorización y el vínculo con los bytes se comprueban antes en el servicio.
+func ValidarResultadoPreflightFirmaR5V2(r ports.ResultadoPreflightFirmaR5V2, q ports.SolicitudPreflightFirmaR5) error {
+	if ValidarResultadoPreflightFirmaR5(r.ResultadoPreflightFirmaR5, q) != nil || r.PasoPendiente > 2 {
+		return ports.ErrPreflightFirmaR5NoConfiable
+	}
+	if r.PasoPendiente == 0 {
+		if r.EntradaDocumentoRef != "" || r.EntradaDocumentoVersion != 0 || r.EntradaDocumentoHuella != "" {
+			return ports.ErrPreflightFirmaR5NoConfiable
+		}
+		return nil
+	}
+	if !domain.ReferenciaOpacaValida(r.EntradaDocumentoRef) || r.EntradaDocumentoVersion == 0 ||
+		r.EntradaDocumentoVersion > 9007199254740991 || !domain.HuellaSHA256FirmaValida(r.EntradaDocumentoHuella) {
+		return ports.ErrPreflightFirmaR5NoConfiable
+	}
+	if (r.PasoPendiente == 1 && (r.EntradaDocumentoRef != r.OriginalRef || r.EntradaDocumentoVersion != r.OriginalVersion)) ||
+		(r.PasoPendiente > 1 && r.EntradaDocumentoRef == r.OriginalRef) {
+		return ports.ErrPreflightFirmaR5NoConfiable
+	}
+	return nil
+}
+
+func (s *ServicioPreflightFirmaR5) validarCabezaPreflightConEntrada(
+	ctx context.Context, q ports.SolicitudPreflightFirmaR5, actor, clave string, orden int,
+	catalogo domain.CircuitoFirma, lectura ports.LecturaFirmasR5,
+) error {
+	actual, _, cabeza, err := s.firmas.leerHistoriaPreflightFirmaR5(ctx, q.Canal.OrganizacionRef,
+		q.Canal.ExpedienteRef, q.Documento, q.Canal.VersionObservada, actor, clave, orden)
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+	if err != nil || actual.CatalogoRef != catalogo.CatalogoRef || actual.HuellaCatalogo != catalogo.HuellaCatalogo ||
+		cabeza.HistoriaRevision != lectura.HistoriaRevision || cabeza.HistoriaHuella != lectura.HistoriaHuella {
+		return ports.ErrPreflightFirmaR5NoDisponible
+	}
+	return nil
+}
+
 // La preparación utiliza la autoridad de lectura del registrador RRHH. Las
 // comprobaciones nominales de cada vía siguen perteneciendo a disponibilidad.
 func (s *ServicioFirmaExterna) leerHistoriaPreflightFirmaR5(ctx context.Context, org, exp, documento string, version uint64, candidato, clave string, orden int) (domain.CircuitoFirma, domain.CircuitoFirmaDocumento, ports.LecturaFirmasR5, error) {
