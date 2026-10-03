@@ -16,7 +16,13 @@ El ensayo requiere la auditoría común instalada (AD169 y sus contratos histór
 
 Orden de los objetos nuevos en una copia causal compatible: rol lector → AD145 → Méritos000002. Los prerrequisitos concretos están en `deploy/principal/lista_sql_codexa_rum04.txt`; dirección valida la postimagen exacta antes de instalar. La declaración RUM01 conserva su contrato anterior y no forma parte de este cambio.
 
-La migración al puerto común y sus pruebas están preparadas. El ensayo causal, Chrome, reinicio y dos revisiones del contenido final siguen pendientes. #435 permanece en borrador.
+El producto corregido `ee36b00b8` tiene dos revisiones estáticas favorables. Las pruebas normales, race y vet de Méritos pasaron; las pruebas focales de los callbacks y la clasificación también pasaron. Gosec y Semgrep local no encontraron incidencias. #435 permanece en borrador.
+
+En una copia nueva de H7 se instaló una vez la cadena causal con AD145, la candidata Méritos000002 que devuelve la auditoría común y los contratos de L (CA26/IS13/AD169). Se conservaron las huellas de 477 tablas anteriores; la única diferencia estructural fue la ampliación de `auditoria_consumo_v3`. La proyección de sus columnas anteriores conserva exactamente las filas y su huella. La provisión de claves del ejercicio confirmó el protocolo común existente; no creó permisos por petición.
+
+El recorrido se detuvo al preparar la identidad: `registrar_sesion.filas`, esperado al menos 1, observado 0. La cuenta A del ejercicio anterior no existe en H7: esperado 1, observado 0. La cuenta B está activa y tiene un alias, pero el alias restaurado del clon anterior no coincide con la fuente actual. No se cambió un vínculo ni se inventó esa correspondencia. No hay sesión positiva, alta M1 nueva, HTTP 200, Chrome ni recuperación funcional demostrados en este corte.
+
+La continuación necesita la fuente nominal vigente de Identidad/Sesiones para las mismas persona, cuenta y perfil del ejercicio, y el cotejo histórico de ContextoActor compatible con esa fuente. Se conserva un checkpoint frío y un acta privada sin secretos. Los servicios y temporales propios se retiran al cerrar; las fuentes y los respaldos privados quedan disponibles para dirección.
 
 El cliente envía únicamente `hecho_ref`. El servidor revalida la sesión, reconstruye el contexto y obtiene la persona del vínculo autenticado. La acción fija es `meritos.hecho.consultar_propio`, la finalidad `consulta_hecho_propio` y la audiencia `vec_meritos.hecho.consultar_propio.v1`. El perfil admite solamente `hecho_actual` y `recibo_consulta`, con obligación de auditar. No exige la condición de empleado para leer el hecho de la persona autenticada.
 
