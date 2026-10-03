@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"vec-diputacion-granada/internal/vec/adapters/catalogoincidencias"
 	"vec-diputacion-granada/internal/vec/adapters/observabilidad"
 	"vec-diputacion-granada/internal/vec/domain"
 	"vec-diputacion-granada/internal/vec/ports"
@@ -165,6 +166,9 @@ func TestCLIRechazaConfiguracionAmbigua(t *testing.T) {
 		`{"directorio":"primero","directorio":"segundo"}`,
 		`{"DIRECTORIO":"segundo"}`,
 		`{"umbrales_alerta":{"ARRANQUE_FALLIDO":1,"ARRANQUE_FALLIDO":2}}`,
+		`{"catalogo_incidencias":null}`,
+		`{"catalogo_incidencias":""}`,
+		`{"catalogo_incidencias":"primero","catalogo_incidencias":"segundo"}`,
 	} {
 		f := filepath.Join(t.TempDir(), "config.json")
 		if err := os.WriteFile(f, []byte(configuracion), 0600); err != nil {
@@ -174,5 +178,66 @@ func TestCLIRechazaConfiguracionAmbigua(t *testing.T) {
 		if leerArchivoRecolector(f, &cfg) == nil {
 			t.Fatal("configuracion ambigua aceptada")
 		}
+	}
+}
+
+func TestCLICatalogoConfiguradoTreceCodigosYFalloAntesDeEscribir(t *testing.T) {
+	dir := t.TempDir()
+	catalogo, err := catalogoincidencias.PorIdioma("en")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var entrada bytes.Buffer
+	emisor, err := observabilidad.NuevoEmisorJSONLines(observabilidad.OpcionesEmisor{Destino: &entrada, Catalogo: catalogo, Entorno: "pruebas"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, codigo := range domain.CodigosIncidenciaTecnica() {
+		def, _ := domain.DefinicionIncidenciaTecnicaDe(codigo)
+		emisor.Emitir(domain.SolicitudIncidenciaTecnica{Codigo: codigo, Componente: def.Componentes[0], Etapa: def.Etapas[0]})
+	}
+	if err := emisor.Cerrar(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	valida := bytes.Clone(entrada.Bytes())
+	cfg := observabilidad.ConfiguracionRecolector{Directorio: filepath.Join(dir, "registros"), MaxLineaBytes: 1024, MaxArchivoBytes: 16384, MaxArchivos: 4, RetencionSegundos: 3600, VentanaSegundos: 60, Umbrales: map[domain.CodigoIncidenciaTecnica]uint64{domain.IncidenciaArranqueFallido: 1}, CatalogoIncidencias: "../../web/static/textos/en/incidencias_tecnicas.json"}
+	rutaConfig := filepath.Join(dir, "config.json")
+	b, err := json.Marshal(cfg)
+	if err != nil || os.WriteFile(rutaConfig, b, 0600) != nil {
+		t.Fatal("configuración no creada")
+	}
+	args := []string{"--config", rutaConfig, "--textos", "../../web/static/textos/en/registros-tecnicos.json"}
+	var salida, diagnostico bytes.Buffer
+	if codigo := ejecutar(args, &entrada, &salida, &diagnostico); codigo != 0 {
+		t.Fatal("consumidor real falló", codigo)
+	}
+	var resumen struct {
+		Metricas observabilidad.MetricasRecolector `json:"metricas"`
+	}
+	if json.Unmarshal(salida.Bytes(), &resumen) != nil || resumen.Metricas.Escritas != 13 || resumen.Metricas.Rechazadas != 0 || len(resumen.Metricas.PorCodigo) != 13 {
+		t.Fatal("catálogo completo no recogido")
+	}
+	guardada, err := os.ReadFile(filepath.Join(cfg.Directorio, "incidencias-activo.jsonl"))
+	if err != nil || !bytes.Equal(valida, guardada) {
+		t.Fatal("estructura JSONL o mensajes modificados")
+	}
+	// La selección de un catálogo inválido detiene la CLI antes de crear
+	// archivos. El diagnóstico no copia el catálogo ni su ruta.
+	cfg.Directorio = filepath.Join(dir, "no_crear")
+	cfg.CatalogoIncidencias = filepath.Join(dir, "dato_privado_sintetico.json")
+	if os.WriteFile(cfg.CatalogoIncidencias, []byte(`{"esquema":"dato_privado_sintetico"}`), 0600) != nil {
+		t.Fatal("catálogo inválido no creado")
+	}
+	b, _ = json.Marshal(cfg)
+	if os.WriteFile(rutaConfig, b, 0600) != nil {
+		t.Fatal("configuración inválida no creada")
+	}
+	salida.Reset()
+	diagnostico.Reset()
+	if codigo := ejecutar(args, bytes.NewReader(valida), &salida, &diagnostico); codigo != 2 || strings.Contains(diagnostico.String(), "dato_privado_sintetico") || salida.Len() != 0 {
+		t.Fatal("fallo abierto o datos libres en CLI")
+	}
+	if _, err := os.Stat(cfg.Directorio); !os.IsNotExist(err) {
+		t.Fatal("almacén creado con catálogo inválido")
 	}
 }

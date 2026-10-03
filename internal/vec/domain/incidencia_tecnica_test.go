@@ -39,8 +39,8 @@ func TestCatalogoIncidenciasTecnicasCerradoYCompleto(t *testing.T) {
 		if len(def.Componentes) == 0 || len(def.Etapas) == 0 {
 			t.Fatalf("%q sin componentes o etapas", codigo)
 		}
-		if def.Plantilla == "" || strings.ContainsAny(def.Plantilla, "%{}<>") {
-			t.Fatalf("plantilla de %q no es texto fijo: %q", codigo, def.Plantilla)
+		if def.Plantilla != string(codigo) {
+			t.Fatalf("plantilla de %q no conserva la clave canónica: %q", codigo, def.Plantilla)
 		}
 		// Toda combinación admitida se clasifica sin saneamiento.
 		for _, componente := range def.Componentes {
