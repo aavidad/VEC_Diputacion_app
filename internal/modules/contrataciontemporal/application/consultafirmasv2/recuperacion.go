@@ -2,6 +2,7 @@ package consultafirmasv2
 
 import (
 	"context"
+	"errors"
 	"strings"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application/firmaautorizacionv2"
@@ -103,8 +104,11 @@ func proyectarRecuperacion(m ports.MaterialConsultaFirmasR5V2, l ports.LecturaRe
 	vistos := make(map[string]bool, len(l.Recuperaciones))
 	for _, v := range l.Recuperaciones {
 		f, ok := porRef[v.FirmaRef]
-		if !ok || vistos[v.FirmaRef] || f.RevisionPDF == nil || !recuperacionValida(m, f, registros[v.FirmaRef], v) {
+		if !ok || vistos[v.FirmaRef] || f.RevisionPDF == nil {
 			return cero, ports.ErrResultadoFirmaDocumentoInvalido
+		}
+		if err := validarRecuperacion(m, f, registros[v.FirmaRef], v); err != nil {
+			return cero, err
 		}
 		vistos[v.FirmaRef] = true
 	}
@@ -116,22 +120,25 @@ func proyectarRecuperacion(m ports.MaterialConsultaFirmasR5V2, l ports.LecturaRe
 	return ResultadoRecuperacion{r, append([]ports.RecuperacionFirmaV2(nil), l.Recuperaciones...)}, nil
 }
 
-func recuperacionValida(m ports.MaterialConsultaFirmasR5V2, f Firma, registro ports.FirmaRegistrada, v ports.RecuperacionFirmaV2) bool {
+func validarRecuperacion(m ports.MaterialConsultaFirmasR5V2, f Firma, registro ports.FirmaRegistrada, v ports.RecuperacionFirmaV2) error {
 	if !domain.HuellaSHA256FirmaValida(v.MaterialRootSHA256) ||
 		!strings.HasPrefix(v.CanonNominalRef, "evidencia:competencia-firmante-ct:") ||
 		!domain.HuellaSHA256FirmaValida(strings.TrimPrefix(v.CanonNominalRef, "evidencia:competencia-firmante-ct:")) ||
 		len(v.CanonNominal) < 512 {
-		return false
+		return ports.ErrResultadoFirmaDocumentoInvalido
 	}
 	// La autoridad común comprueba esquema, tipos, enlaces, vigencias, huella y
 	// bytes canónicos exactos. Se devuelve el texto original, nunca el modelo.
 	canon, err := vecdomain.RecuperarCanonCompetenciaFirmanteHistoricaV1([]byte(v.CanonNominal), v.CanonNominalSHA256)
-	if err != nil || f.Custodiado == nil || f.RevisionPDF == nil {
-		return false
+	if err != nil {
+		return errors.Join(ports.ErrResultadoFirmaDocumentoInvalido, err)
+	}
+	if f.Custodiado == nil || f.RevisionPDF == nil {
+		return ports.ErrResultadoFirmaDocumentoInvalido
 	}
 	r := canon.Recurso
 	if !canon.FechaHistorica.Equal(registro.RegistradaEn) {
-		return false
+		return ports.ErrResultadoFirmaDocumentoInvalido
 	}
 	if canon.Identidad.CertificadoDERSHA256 != registro.CertificadoHuella ||
 		canon.PasoRef != registro.PasoRef ||
@@ -148,15 +155,21 @@ func recuperacionValida(m ports.MaterialConsultaFirmasR5V2, f Firma, registro po
 		!ordenCanonValido(r.NumeroFirmas, f.RevisionPDF.OrdenFirma) ||
 		canon.Circuito.Referencia != f.CatalogoRef ||
 		canon.Circuito.HuellaSHA256 != f.CatalogoHuella {
-		return false
+		return ports.ErrResultadoFirmaDocumentoInvalido
 	}
 	if f.RevisionPDF.OrdenFirma == 1 {
-		return r.EntradaRevision == nil
+		if r.EntradaRevision == nil {
+			return nil
+		}
+		return ports.ErrResultadoFirmaDocumentoInvalido
 	}
-	return r.EntradaRevision != nil &&
+	if r.EntradaRevision != nil &&
 		r.EntradaRevision.Referencia == f.RevisionPDF.Entrada.Ref &&
 		r.EntradaRevision.Version == f.RevisionPDF.Entrada.Version &&
-		r.EntradaRevision.HuellaSHA256 == f.RevisionPDF.Entrada.SHA256
+		r.EntradaRevision.HuellaSHA256 == f.RevisionPDF.Entrada.SHA256 {
+		return nil
+	}
+	return ports.ErrResultadoFirmaDocumentoInvalido
 }
 
 func ordenCanonValido(canon uint64, orden int) bool {
