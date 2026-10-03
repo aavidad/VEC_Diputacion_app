@@ -75,8 +75,8 @@ preflight del registrador y un fallo mantiene cerrado el cliente.
 ## Comprobación y límites
 
 Dirección ejecuta el ensayo en el clon POST149 autorizado y fija la huella
-del snapshot previo. El reproductor exige cesión del clon, dos revisiones
-del hash exacto, límites del entorno y módulos locales sin descargas. Usa
+del snapshot previo. La ejecución se coordina con Dirección sobre el hash
+exacto y mantiene límites del entorno y módulos locales sin descargas. Usa
 COSE EdDSA y HMAC reales con fuentes, identidades y PDP sintéticos explícitos.
 No acredita IdP, fuente institucional ni política de RRHH.
 
@@ -84,15 +84,29 @@ El ensayo conserva funciones previas, CHECK, ACL, metadatos, dependencias y
 filas anteriores de Personal17. La comparación inversa normaliza sólo el
 literal de audiencia RPT y exige una aparición. Incluye estados, objetivos
 y versiones, revocación, negativos de material/COSE, intentos segregados,
-registrador caído y concurrencia `40001`. Todavía falta ejecutar estos casos
-y la prueba del adaptador Go con ambos pools reales para cerrar la candidata.
+registrador caído y concurrencia `40001`. El runner
+`b18c370faaa8a34d68bd370aaa324096ca8192ab` terminó `RPT27 ENSAYO-OK`
+en el clon POST149: positivos y negativas SQL, preservación y servicio/adaptadores
+Go originales con dos LOGIN/pools nominales pasaron. El recorrido Go comprobó
+positivo, replay denegado, pools cruzados, registrador sin permiso, sesión
+revocada y concurrencia con intento confirmado tras rollback. Se usó una sola
+compilación del binario de ensayo.
+
+La fixture conserva `catalogo_snapshot` sin inventar un catálogo admitido.
+Ambos LOGIN de prueba conservan CONNECT propio; retirar el grupo del
+registrador quita la ejecución nominal sin confundirla con pérdida de conexión.
+Las continuaciones del runner validan el journal y la preimagen conservados
+y avanzan sólo las fases pendientes, sin reinstalar SQL ni repetir capacidades.
 
 Los DOWN están preparados y no se ejecutan durante el ensayo. Personal27
 rechaza retirada con recibos, intentos o LOGIN registradores provisionados;
 AD154 la rechaza con claves de esa audiencia o dependencias Personal27.
 No borrar historia ni usar DOWN sobre una instalación conservada.
 
-Quedan dos revisiones sensibles finales, ensayo y provisión privada de los
-LOGIN/pools. El montaje requiere emisor V3, contexto y material nominales
-admitidos: un flag no concede acceso. Esta pieza no acredita ocupación,
+El SQL recibió dos revisiones estáticas independientes sobre
+`e2a626e91fc748c5dd00be992e42f4a10053a225` y sus cuerpos permanecen idénticos
+al ensayo final. La orden posterior de registros técnicos exige completar
+la observabilidad común del lector Go y revisar el corte final antes de
+publicarlo. La provisión productiva y el montaje requieren emisor V3, contexto
+y material nominales admitidos: un flag no concede acceso. Esta pieza no acredita ocupación,
 vacante, grado, antigüedad calculada, certificado ni incorporación eficaz.
