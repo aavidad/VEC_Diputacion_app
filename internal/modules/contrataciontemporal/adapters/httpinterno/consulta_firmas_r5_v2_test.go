@@ -4,9 +4,12 @@ import (
 	"bytes"
 	"context"
 	"crypto/ed25519"
+	"crypto/sha256"
 	"crypto/x509"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -15,6 +18,7 @@ import (
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application/consultafirmasv2"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application/firmaautorizacionv2"
+	cd "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	ct "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	vd "vec-diputacion-granada/internal/vec/domain"
 	vp "vec-diputacion-granada/internal/vec/ports"
@@ -53,7 +57,7 @@ func (a *autorizaConsultaV2Prueba) AutorizarConsultaFirmasR5V2(_ context.Context
 	}
 	ahora := time.Date(2026, 10, 3, 10, 0, 0, 0, time.UTC)
 	res, e := vp.NuevoResumenCapacidadAtestacionAutorizacionV3("decision:consulta-v2", strings.Repeat("a", 64), strings.Repeat("b", 64),
-		"contexto:consulta-v2", strings.Repeat("c", 64), ct.AccionConsultarFirmasR5V2, r.Referencia, h, ct.AudienciaConsultaFirmasR5V2, ahora, ahora.Add(time.Minute))
+		"contexto:consulta-v2", strings.Repeat("c", 64), ct.AccionConsultarFirmasR5V2, r.Referencia, h, ct.AudienciaConsultaFirmasR5V2, ahora, ahora.Add(5*time.Second))
 	if e != nil {
 		a.t.Fatal(e)
 	}
@@ -74,6 +78,8 @@ type registroConsultaV2Prueba struct {
 	err                  error
 	llamadas, escrituras int
 	cerrado              bool
+	proyeccionInvalida   bool
+	lectura              *ct.LecturaFirmasR5V2
 }
 
 func (r *registroConsultaV2Prueba) RegistrarFirmaVerificadaV2(context.Context, ct.MaterialFirmaVerificadaV2, ct.CapacidadFirmaVerificadaV2) (ct.ReciboFirmaDocumento, error) {
@@ -83,6 +89,12 @@ func (r *registroConsultaV2Prueba) RegistrarFirmaVerificadaV2(context.Context, c
 func (r *registroConsultaV2Prueba) ConsultarFirmasAutorizadasV2(context.Context, ct.MaterialConsultaFirmasR5V2, ct.CapacidadConsultaFirmasR5V2) (ct.LecturaFirmasR5V2, error) {
 	r.llamadas++
 	r.cerrado = true
+	if r.lectura != nil {
+		return *r.lectura, r.err
+	}
+	if r.proyeccionInvalida {
+		return ct.LecturaFirmasR5V2{}, nil
+	}
 	return ct.LecturaFirmasR5V2{LecturaFirmasR5: ct.LecturaFirmasR5{HistoriaRevision: 0, HistoriaHuella: strings.Repeat("a", 64)}}, r.err
 }
 
@@ -264,5 +276,46 @@ func TestConsultaV2HTTPConstructorRechazaAuditoriaTypedNil(t *testing.T) {
 	h.ServeHTTP(w, httptest.NewRequest(http.MethodPost, RutaConsultaFirmasR5V2, strings.NewReader(`{}`)))
 	if w.Code != 503 {
 		t.Fatal("sin contexto nominal no cierra")
+	}
+}
+
+func TestConsultaV2HTTPProyeccionInvalidaAuditaErrorTrasLectura(t *testing.T) {
+	h, _, _, r, i, fab := manejadorConsultaV2Prueba(t)
+	r.proyeccionInvalida = true
+	fab.requiereCerrado = true
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, peticionConsultaV2(t, cuerpoConsultaV2()))
+	if w.Code != 502 || !r.cerrado || i.llamadas != 1 || fab.llamadas != 1 || r.escrituras != 0 {
+		t.Fatalf("resultado inválido sin auditoría: %d", w.Code)
+	}
+}
+
+func TestConsultaV2HTTPOverflowAuditaAntesDeResponder(t *testing.T) {
+	h, _, _, r, i, fab := manejadorConsultaV2Prueba(t)
+	fab.requiereCerrado = true
+	l := ct.LecturaFirmasR5V2{LecturaFirmasR5: ct.LecturaFirmasR5{HistoriaRevision: 1, HistoriaHuella: strings.Repeat("f", 64)}}
+	evidencia := json.RawMessage(`[{}]`)
+	hash := sha256.Sum256(evidencia)
+	ref := func(prefijo string, n int) string { return prefijo + strings.Repeat("x", 135) + fmt.Sprint(n) }
+	for n := 0; n < consultafirmasv2.MaximoFilas; n++ {
+		f := ct.FirmaRegistrada{Via: ct.ViaFirmaCertificadoVEC, FirmaRef: ref("firma:", n), ReciboRef: ref("recibo:", n), PasoRef: ref("paso:", n),
+			Documento: "informe_definitivo", Secuencia: n + 1, PasoOrden: 1, ExpedienteVersion: 7, CatalogoRef: ref("catalogo:", n), CatalogoHuella: strings.Repeat("a", 64),
+			Resultado: cd.ResultadoFirmaFirmado, RegistradaEn: time.Date(2026, 10, 3, 10, 0, 0, 0, time.UTC), OriginalRef: ref("original:", n), OriginalVersion: 7,
+			OriginalHuella: strings.Repeat("b", 64), FirmadoHuella: strings.Repeat("c", 64), DocumentoCustodiaRef: ref("custodia:", n), DocumentoCustodiaVersion: 1}
+		v := ct.FirmaRegistradaRevisionPDFV2{FirmaRegistrada: f, EntradaDocumentoRef: f.OriginalRef, EntradaDocumentoVersion: 7,
+			EntradaDocumentoHuella: f.OriginalHuella, EntradaDocumentoLongitud: 100, OrdenFirmaPDF: 1, ByteRange: [4]uint64{0, 100, 200, 100},
+			RevisionLongitud: 300, RevisionHuellaSHA256: f.FirmadoHuella, ContenidoFirmadoHuellaSHA256: strings.Repeat("d", 64),
+			EvidenciaFirmasCanonica: evidencia, EvidenciaFirmasHuellaSHA256: hex.EncodeToString(hash[:])}
+		l.Firmas = append(l.Firmas, f)
+		l.RevisionesPDF = append(l.RevisionesPDF, v)
+	}
+	r.lectura = &l
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, peticionConsultaV2(t, cuerpoConsultaV2()))
+	if w.Code != 502 || i.llamadas != 1 || fab.llamadas != 1 || !r.cerrado || r.escrituras != 0 {
+		t.Fatalf("desbordamiento no auditado: HTTP%d bytes%d append%d", w.Code, w.Body.Len(), i.llamadas)
+	}
+	if strings.Contains(w.Body.String(), "firma:xxxxx") {
+		t.Fatal("desbordamiento expone metadatos")
 	}
 }

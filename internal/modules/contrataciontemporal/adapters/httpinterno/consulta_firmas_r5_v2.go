@@ -156,9 +156,17 @@ func (h *manejadorConsultaFirmasR5V2) ServeHTTP(w http.ResponseWriter, r *http.R
 		h.responderFallo(w, r, q.ExpedienteRef, err, errorPreflightFirmaR5(err))
 		return
 	}
-	responderJSONFirmaNominal(w, r, http.StatusOK, struct {
+	envoltorio := struct {
 		Data consultaFirmasR5V2JSON `json:"data"`
-	}{proyectarConsultaFirmasR5V2(resultado)}, MaximoRespuestaConsultaRRHHBytes)
+	}{proyectarConsultaFirmasR5V2(resultado)}
+	// El helper común no audita su propio desbordamiento. Comprobar esta
+	// proyección inmutable antes de invocarlo conserva el acuse del error.
+	contenido, err := json.Marshal(envoltorio)
+	if err != nil || len(contenido) > MaximoRespuestaConsultaRRHHBytes {
+		h.responderFallo(w, r, q.ExpedienteRef, ctports.ErrResultadoFirmaDocumentoInvalido, errorResultadoConsultaRRHHNoConfiable)
+		return
+	}
+	responderJSONFirmaNominal(w, r, http.StatusOK, envoltorio, MaximoRespuestaConsultaRRHHBytes)
 }
 
 type documentoConsultaFirmasV2JSON struct {

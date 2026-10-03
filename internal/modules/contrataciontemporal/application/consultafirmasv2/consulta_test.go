@@ -66,7 +66,7 @@ func (a *autorizadorPrueba) AutorizarConsultaFirmasR5V2(_ context.Context, m por
 	}
 	ahora := time.Date(2026, 10, 3, 10, 0, 0, 0, time.UTC)
 	res, err := vp.NuevoResumenCapacidadAtestacionAutorizacionV3("decision:consulta-v2", strings.Repeat("a", 64), strings.Repeat("b", 64),
-		"contexto:consulta-v2", strings.Repeat("c", 64), ports.AccionConsultarFirmasR5V2, r.Referencia, h, ports.AudienciaConsultaFirmasR5V2, ahora, ahora.Add(time.Minute))
+		"contexto:consulta-v2", strings.Repeat("c", 64), ports.AccionConsultarFirmasR5V2, r.Referencia, h, ports.AudienciaConsultaFirmasR5V2, ahora, ahora.Add(5*time.Second))
 	if err != nil {
 		a.t.Fatal(err)
 	}
@@ -222,5 +222,46 @@ func TestConsultaColeccionVaciaNoInfiereAusencia(t *testing.T) {
 	r, e := s.Consultar(context.Background(), solicitudPrueba())
 	if e != nil || r.Firmas == nil || len(r.Firmas) != 0 || r.HistoriaHuella != l.l.HistoriaHuella {
 		t.Fatalf("lectura vacía reinterpretada: %v", e)
+	}
+}
+
+func TestConsultaDosRevisionesConservaCadenaPersistida(t *testing.T) {
+	s, _, _, l := servicioPrueba(t)
+	previa := l.l.RevisionesPDF[0]
+	f := previa.FirmaRegistrada
+	f.FirmaRef = "firma:segunda"
+	f.ReciboRef = "recibo:segundo"
+	f.PasoRef = "paso:segundo"
+	f.PasoOrden = 2
+	f.Secuencia = 2
+	f.FirmadoHuella = strings.Repeat("7", 64)
+	f.DocumentoCustodiaRef = "ref:" + f.FirmadoHuella
+	f.DocumentoCustodiaVersion = 2
+	segunda := previa
+	segunda.FirmaRegistrada = f
+	segunda.FirmaAnteriorRef = previa.FirmaRef
+	segunda.ReciboAnteriorRef = previa.ReciboRef
+	segunda.OrdenFirmaPDF = 2
+	segunda.EntradaDocumentoRef = previa.DocumentoCustodiaRef
+	segunda.EntradaDocumentoVersion = previa.DocumentoCustodiaVersion
+	segunda.EntradaDocumentoHuella = previa.FirmadoHuella
+	segunda.EntradaDocumentoLongitud = previa.RevisionLongitud
+	segunda.RevisionLongitud = 500
+	segunda.ByteRange = [4]uint64{0, 300, 400, 100}
+	segunda.RevisionHuellaSHA256 = f.FirmadoHuella
+	segunda.EvidenciaFirmasCanonica = json.RawMessage(`[{"privado":"primera"},{"privado":"segunda"}]`)
+	h := sha256.Sum256(segunda.EvidenciaFirmasCanonica)
+	segunda.EvidenciaFirmasHuellaSHA256 = hex.EncodeToString(h[:])
+	l.l.Firmas = append(l.l.Firmas, f)
+	l.l.RevisionesPDF = append(l.l.RevisionesPDF, segunda)
+	q := solicitudPrueba()
+	q.PasoOrden = 2
+	r, e := s.Consultar(context.Background(), q)
+	if e != nil || len(r.Firmas) != 2 || r.Firmas[1].RevisionPDF.FirmaAnteriorRef != previa.FirmaRef || r.Firmas[1].RevisionPDF.Entrada.SHA256 != previa.FirmadoHuella {
+		t.Fatalf("cadena persistida perdida: %v", e)
+	}
+	l.l.RevisionesPDF[1].ReciboAnteriorRef = "recibo:ajeno"
+	if _, e = s.Consultar(context.Background(), q); !errors.Is(e, ports.ErrResultadoFirmaDocumentoInvalido) {
+		t.Fatal("antecedente ajeno admitido")
 	}
 }
