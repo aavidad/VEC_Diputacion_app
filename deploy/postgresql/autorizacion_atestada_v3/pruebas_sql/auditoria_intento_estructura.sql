@@ -18,7 +18,7 @@ BEGIN
     SELECT secuencia INTO STRICT v_control
       FROM vec_autorizacion_atestada_v3.control_cadena_auditoria
      WHERE control_id;
-    SELECT pg_catalog.coalesce(pg_catalog.max(secuencia),0) INTO v_max
+    SELECT coalesce(pg_catalog.max(secuencia),0) INTO v_max
       FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3;
     IF v_control<>v_max THEN
         RAISE EXCEPTION 'cabeza de auditoría: esperado=%, actual=%',v_max,v_control;

@@ -261,6 +261,10 @@ BEGIN
        OR v_vinculo ->> 'autenticacion_huella_sha256' IS DISTINCT FROM p_orden ->> 'autenticacion_sha256'
        OR v_vinculo ->> 'autoridad_efectiva' IS DISTINCT FROM 'autoridad_maestra_acreditada'
        OR v_vinculo ->> 'superficie' IS DISTINCT FROM p_orden ->> 'canal'
+       OR (((v_contexto ->> 'resuelto_en')::timestamptz >=
+            (v_vinculo ->> 'sesion_revalidada_en')::timestamptz)
+           AND ((v_contexto ->> 'resuelto_en')::timestamptz <
+            (v_vinculo ->> 'sesion_valida_hasta')::timestamptz)) IS NOT TRUE
        OR pg_catalog.encode(pg_catalog.sha256(p_contexto_canonico),'hex')
           IS DISTINCT FROM p_orden ->> 'contexto_sha256' THEN
         RAISE EXCEPTION USING ERRCODE='22023', MESSAGE='vínculo nominal incoherente';
