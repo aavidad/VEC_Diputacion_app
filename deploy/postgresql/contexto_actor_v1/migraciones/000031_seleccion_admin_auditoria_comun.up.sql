@@ -124,14 +124,14 @@ BEGIN
    RETURN jsonb_build_object('perfil_ref',sel.perfil_ref,'seleccion_revision',sel.revision,'seleccionada_en',sel.seleccionada_en);
   END IF;
  END IF;
- IF rev IS DISTINCT FROM p_revision_esperada THEN RAISE EXCEPTION 'CA31: CAS obsoleto' USING ERRCODE='40001'; END IF;
+ IF rev IS DISTINCT FROM p_revision_esperada THEN RAISE EXCEPTION 'CA31: CAS obsoleto' USING ERRCODE='VCA31'; END IF;
  SELECT x.* INTO STRICT b FROM vec_autorizacion.consultar_asignacion_admin_perfiles_v1(p_cuenta) x WHERE x.perfil_ref=p_perfil AND x.persona_ref=p_persona AND x.audiencia=p_audiencia;
  ahora:=clock_timestamp();
  IF ahora>=b.vigente_hasta THEN RAISE EXCEPTION 'CA31: perfil caducado' USING ERRCODE='42501'; END IF;
  INSERT INTO vec_contexto_actor_v1.seleccion_admin_auditada_v1 VALUES(p_cuenta,rev+1,p_persona,p_perfil,b.vinculo_ref,p_revision_esperada,ahora,p_auditoria_comun_ref);
  IF rev=0 THEN INSERT INTO vec_contexto_actor_v1.seleccion_admin_actual_auditada_v1 VALUES(p_cuenta,1);
  ELSE UPDATE vec_contexto_actor_v1.seleccion_admin_actual_auditada_v1 a SET revision=rev+1 WHERE a.cuenta_ref=p_cuenta AND a.revision=rev;
-  IF NOT FOUND THEN RAISE EXCEPTION 'CA31: CAS perdido' USING ERRCODE='40001'; END IF;
+  IF NOT FOUND THEN RAISE EXCEPTION 'CA31: CAS perdido' USING ERRCODE='VCA31'; END IF;
  END IF;
  RETURN jsonb_build_object('perfil_ref',p_perfil,'seleccion_revision',rev+1,'seleccionada_en',ahora);
 END $f$;

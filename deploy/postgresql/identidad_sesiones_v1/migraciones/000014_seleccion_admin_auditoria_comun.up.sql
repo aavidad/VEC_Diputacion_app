@@ -182,9 +182,11 @@ BEGIN
    audit:=vec_identidad_sesiones_v1.auditar_observacion_admin_preperfil_v1(p_evento,p_correlacion,r.persona_ref,accion,r.cuenta_ref,'permitido',motivo,proceso,doc||jsonb_build_object('resultado','permitido','motivo_ref',motivo,'listado',salida));
   END IF;
   IF clock_timestamp()>=hasta THEN RAISE EXCEPTION 'IS14: observación caducada antes del retorno' USING ERRCODE='42501'; END IF;
- EXCEPTION WHEN insufficient_privilege OR invalid_parameter_value OR serialization_failure OR no_data_found OR too_many_rows THEN
+ -- Sólo el CAS deliberado CA31 es una denegación funcional. Un 40001
+ -- de PostgreSQL, CA20 o AD171 se propaga para reintentar la TX completa.
+ EXCEPTION WHEN insufficient_privilege OR invalid_parameter_value OR SQLSTATE 'VCA31' OR no_data_found OR too_many_rows THEN
   estado:='denegado';
-  motivo:=CASE SQLSTATE WHEN '40001' THEN 'seleccion_revision_obsoleta' WHEN '22023' THEN 'seleccion_material_invalido' ELSE 'perfil_propio_no_acreditado' END;
+  motivo:=CASE SQLSTATE WHEN 'VCA31' THEN 'seleccion_revision_obsoleta' WHEN '22023' THEN 'seleccion_material_invalido' ELSE 'perfil_propio_no_acreditado' END;
   salida:=jsonb_build_object('estado',estado,'motivo_ref',motivo);
   audit:=NULL;
  END;

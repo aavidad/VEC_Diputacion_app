@@ -36,7 +36,10 @@ denegación. Una denegación posterior a resolver la identidad devuelve
 identidad sin actor acreditado no fabrica un evento preperfil: su auditoría
 corresponde a la frontera de autenticación. Un fallo técnico de AD171 o del COMMIT
 impide devolver éxito. La aplicación debe tratar los códigos SQL de conflicto
-sin atribuir persistencia a una transacción fallida.
+sin atribuir persistencia a una transacción fallida. El código propio `VCA31`
+identifica únicamente el CAS deliberado obsoleto o perdido de CA31. Todo `40001`
+del motor, de CA20 o de la cadena AD171 se propaga; exige reintentar la transacción
+completa y nunca se transforma en una denegación de negocio.
 
 ## Dependencias y acreditación técnica
 
@@ -45,6 +48,14 @@ Orden causal: AD171, CA31 e IS14. La lista está en
 AD171 pertenece a la rama del escritor de auditoría y debe estar en el árbol
 integrado para ensayar esa lista. También se requieren IS9, CA20, AUT24 y AUT33
 ya instaladas; no reaplicarlas. No se importan IS11, CA22, CA23 ni IS12.
+
+Un listado favorable requiere además configuración privada gobernada para la
+versión v4 en `vec_autorizacion.rol_administrable_exacto_v1`, con su huella,
+audiencia, ámbitos fijos y vigencias auténticos, y una asignación actual de esa
+versión. AUT24 crea el catálogo vacío; AUT33 publica categoría positiva de v4,
+pero no aprovisiona esa configuración ni asignaciones. La configuración se
+aporta por el procedimiento privado existente. Estas migraciones no insertan
+permisos para conseguir un resultado favorable ni reclasifican v3.
 
 El rol técnico nuevo es `vec_identidad_sesiones_v1_admin_preperfil`. Sólo tiene
 CONNECT, USAGE en identidad y EXECUTE sobre las dos fachadas y el preflight
@@ -76,6 +87,12 @@ Sistemas, autenticación externa publicada ni un recorrido de navegador.
 ROLLBACK. Comprueba preflight mínimo, ausencia de acceso a evidencia/tablas,
 denegación por host ajeno o identidad ausente y rechazo al ampliar la ACL.
 Debe ejecutarse en el clon con PostgreSQL real tras instalar el árbol causal.
+`pruebas_sql/000014_selector_admin_40001.sql` inyecta fallos de listado y de la
+cadena dentro de ROLLBACK. Usa un LOGIN y observación sintéticos previamente
+acreditados por el procedimiento privado; no crea identidades o asignaciones
+fingidas. Comprueba que `40001` alcanza al consumidor sin intentar auditarlo
+como denegación. La prueba de la cadena requiere el perfil v4 gobernado real
+del fixture para alcanzar ese punto.
 
 Quedan por ejecutar el ensayo de migraciones en el clon, esa prueba SQL y los
 casos positivos con una asignación sintética actual del catálogo AUT33: listado
