@@ -127,7 +127,13 @@ dos llamadas, el registro puede durar hasta dos veces ese plazo, además del
 cierre previo de la fuente; no representa un presupuesto total para la petición.
 
 Esta pieza cubre los fallos del servicio de consulta RRHH con identidad y
-configuración acreditadas. Las entradas anteriores a esa frontera y los demás
-consumidores se cierran por separado. Los metadatos de proceso y canal de
-los consumos permitidos requieren su ampliación común; no se completan
-retrospectivamente por inferencia.
+configuración acreditadas. No cubre la lectura de opciones ni los rechazos
+HTTP anteriores a `Servicio.Consultar`: cuerpo, fuente, fechas o filtro inválidos,
+identidad no resuelta, catálogo no disponible y finalidad o motivo ajenos.
+La bitácora de frontera existente conserva las denegaciones que admite su contrato;
+no acredita un intento nominal común con perfil y contexto registrados. Estos
+huecos y los demás consumidores siguen pendientes.
+
+Los metadatos de proceso y canal de los consumos permitidos requieren su
+ampliación común; no se completan retrospectivamente por inferencia.
+Esta entrega no habilita la consulta ADMIN ni sustituye su autoridad de perfiles.
