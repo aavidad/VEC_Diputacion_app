@@ -1,0 +1,2 @@
+# Requiere AD154/Personal27 ya instaladas. No reaplicar SQL previa ni DOWN.
+deploy/postgresql/personal/migraciones/000030_instante_decision_relacion_rpt.up.sql
