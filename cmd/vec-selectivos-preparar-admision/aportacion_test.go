@@ -64,7 +64,7 @@ func TestCLIAntecedenteYAportacionDerivanMaterialConCatalogos(t *testing.T) {
 			t.Fatal(err)
 		}
 		for _, key := range out.Pendientes {
-			if _, ok := c.Message(idioma, key); !ok {
+			if _, ok := mensajeCatalogo(c, idioma, key); !ok {
 				t.Fatalf("missing %s %s", idioma, key)
 			}
 		}

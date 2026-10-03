@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"syscall"
 	"time"
 
@@ -21,6 +22,10 @@ import (
 var patronIdiomaCatalogo = regexp.MustCompile(`^[a-z]{2,3}(-[a-z0-9]{2,8})*$`)
 
 const MotivoDiagnosticoNoDisponible = 2
+
+func mensajeCatalogo(c *i18n.Catalog, idioma, codigo string) (string, bool) {
+	return c.Message(idioma, strings.ReplaceAll(codigo, ".", "_"))
+}
 
 func cargarCatalogo(dir, idioma string) (*i18n.Catalog, error) {
 	if !patronIdiomaCatalogo.MatchString(idioma) {
@@ -62,7 +67,7 @@ func ejecutar(ctx context.Context, args []string, entrada io.Reader, salida, err
 	errOpciones := opciones.Parse(args)
 	catalogo, err := cargarCatalogo(*dir, *idioma)
 	if errOpciones == flag.ErrHelp && err == nil && salida != nil {
-		ayuda, ok := catalogo.Message(*idioma, "ayuda")
+		ayuda, ok := mensajeCatalogo(catalogo, *idioma, "ayuda")
 		if !ok {
 			return informarError(errores, catalogo, *idioma, domain.ErrAdmisionPreparacion.Error())
 		}
@@ -98,7 +103,7 @@ func informarError(w io.Writer, c *i18n.Catalog, idioma, clave string) int {
 	if w == nil {
 		return MotivoDiagnosticoNoDisponible
 	}
-	mensaje, _ := c.Message(idioma, clave)
+	mensaje, _ := mensajeCatalogo(c, idioma, clave)
 	if err := json.NewEncoder(w).Encode(struct {
 		Clave   string `json:"error_clave"`
 		Mensaje string `json:"mensaje,omitempty"`
